@@ -1075,9 +1075,6 @@ tgsi_exec_machine_bind_shader(
    tgsi_dump(tokens, 0);
 #endif
 
-   util_init_math();
-
-
    mach->Tokens = tokens;
    mach->Sampler = sampler;
    mach->Image = image;

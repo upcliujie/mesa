@@ -212,8 +212,6 @@ softpipe_create_context(struct pipe_screen *screen,
    struct softpipe_context *softpipe = CALLOC_STRUCT(softpipe_context);
    uint i, sh;
 
-   util_init_math();
-
    for (i = 0; i < PIPE_SHADER_TYPES; i++) {
       softpipe->tgsi.sampler[i] = sp_create_tgsi_sampler();
    }

@@ -60,15 +60,7 @@ extern "C" {
 #define POW2_TABLE_SIZE (1 << POW2_TABLE_SIZE_LOG2)
 #define POW2_TABLE_OFFSET (POW2_TABLE_SIZE/2)
 #define POW2_TABLE_SCALE ((float)(POW2_TABLE_SIZE/2))
-extern float pow2_table[POW2_TABLE_SIZE];
-
-
-/**
- * Initialize math module.  This should be called before using any
- * other functions in this module.
- */
-extern void
-util_init_math(void);
+extern const float pow2_table[POW2_TABLE_SIZE];
 
 
 union fi {
@@ -150,7 +142,7 @@ util_fast_exp(float x)
 #define LOG2_TABLE_SIZE_LOG2 16
 #define LOG2_TABLE_SCALE (1 << LOG2_TABLE_SIZE_LOG2)
 #define LOG2_TABLE_SIZE (LOG2_TABLE_SCALE + 1)
-extern float log2_table[LOG2_TABLE_SIZE];
+extern const float log2_table[LOG2_TABLE_SIZE];
 
 
 /**
