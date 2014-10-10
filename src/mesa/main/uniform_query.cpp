@@ -1007,8 +1007,7 @@ copy_uniforms_to_storage(gl_constant_value *storage,
                          struct gl_uniform_storage *uni,
                          struct gl_context *ctx, GLsizei count,
                          const GLvoid *values, const int size_mul,
-                         const unsigned components,
-                         enum glsl_base_type basicType)
+                         const unsigned components)
 {
    bool copy_as_uint64 = uni->is_bindless &&
                          (uni->type->is_sampler() || uni->type->is_image());
@@ -1030,13 +1029,8 @@ copy_uniforms_to_storage(gl_constant_value *storage,
       union gl_constant_value *dst = storage;
       const unsigned elems = components * count;
 
-      for (unsigned i = 0; i < elems; i++) {
-         if (basicType == GLSL_TYPE_FLOAT) {
-            dst[i].i = src[i].f != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
-         } else {
-            dst[i].i = src[i].i != 0    ? ctx->Const.UniformBooleanTrue : 0;
-         }
-      }
+      for (unsigned i = 0; i < elems; i++)
+         dst[i].i = src[i].i != 0    ? ctx->Const.UniformBooleanTrue : 0;
    }
 }
 
@@ -1134,12 +1128,12 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
             uni->driver_storage[s].data + (size_mul * offset * components);
 
          copy_uniforms_to_storage(storage, uni, ctx, count, values, size_mul,
-                                  components, basicType);
+                                  components);
       }
    } else {
       storage = &uni->storage[size_mul * components * offset];
       copy_uniforms_to_storage(storage, uni, ctx, count, values, size_mul,
-                               components, basicType);
+                               components);
 
       _mesa_propagate_uniforms_to_driver_storage(uni, offset, count);
    }
@@ -1374,13 +1368,11 @@ _mesa_uniform_1iv(GLint location, GLsizei count, const GLint *values,
       for (unsigned s = 0; s < uni->num_driver_storage; s++) {
          storage = (gl_constant_value *) uni->driver_storage[s].data + offset;
 
-         copy_uniforms_to_storage(storage, uni, ctx, count, values, 1, 1,
-                                  GLSL_TYPE_INT);
+         copy_uniforms_to_storage(storage, uni, ctx, count, values, 1, 1);
       }
    } else {
       storage = &uni->storage[offset];
-      copy_uniforms_to_storage(storage, uni, ctx, count, values, 1, 1,
-                               GLSL_TYPE_INT);
+      copy_uniforms_to_storage(storage, uni, ctx, count, values, 1, 1);
 
       _mesa_propagate_uniforms_to_driver_storage(uni, offset, count);
    }
