@@ -460,6 +460,10 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
               enum glsl_base_type basicType, unsigned src_components);
 
 void
+_mesa_uniform_1iv(GLint location, GLsizei count, const GLint *values,
+                  struct gl_context *, struct gl_shader_program *);
+
+void
 _mesa_uniform_matrix(GLint location, GLsizei count,
                      GLboolean transpose, const void *values,
                      struct gl_context *, struct gl_shader_program *,

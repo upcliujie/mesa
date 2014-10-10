@@ -1242,6 +1242,241 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
    }
 }
 
+extern "C" void
+_mesa_uniform_1iv(GLint location, GLsizei count, const GLint *values,
+                  struct gl_context *ctx, struct gl_shader_program *shProg)
+{
+   unsigned offset;
+
+   struct gl_uniform_storage *uni;
+   if (_mesa_is_no_error_enabled(ctx)) {
+      /* From Seciton 7.6 (UNIFORM VARIABLES) of the OpenGL 4.5 spec:
+       *
+       *   "If the value of location is -1, the Uniform* commands will
+       *   silently ignore the data passed in, and the current uniform values
+       *   will not be changed.
+       */
+      if (location == -1)
+         return;
+
+      uni = shProg->UniformRemapTable[location];
+
+      /* The array index specified by the uniform location is just the
+       * uniform location minus the base location of of the uniform.
+       */
+      assert(uni->array_elements > 0 || location == (int)uni->remap_location);
+      offset = location - uni->remap_location;
+   } else {
+      uni = validate_uniform_parameters(location, count, &offset, ctx, shProg,
+                                        "glUniform1i");
+      if (uni == NULL)
+         return;
+
+      /* Verify that the types are compatible.  For image and sampler types,
+       * verify that the supplied data is valid.
+       *
+       * Page 100 (page 116 of the PDF) of the OpenGL 3.0 spec says:
+       *
+       *    "Setting a sampler's value to i selects texture image unit number
+       *    i. The values of i range from zero to the implementation-dependent
+       *    maximum supported number of texture image units."
+       *
+       * In addition, table 2.3, "Summary of GL errors," on page 17 (page 33 of
+       * the PDF) says:
+       *
+       *     "Error         Description                    Offending command
+       *                                                   ignored?
+       *     ...
+       *     INVALID_VALUE  Numeric argument out of range  Yes"
+       *
+       * Based on that, when an invalid sampler is specified, we generate a
+       * GL_INVALID_VALUE error and ignore the command.
+       */
+      switch (uni->type->base_type) {
+      case GLSL_TYPE_SAMPLER:
+         for (int i = 0; i < count; i++) {
+            const unsigned texUnit = ((unsigned *) values)[i];
+
+            /* check that the sampler (tex unit index) is legal */
+            if (texUnit >= ctx->Const.MaxCombinedTextureImageUnits) {
+               _mesa_error(ctx, GL_INVALID_VALUE,
+                           "glUniform1i(invalid sampler/tex unit index for "
+                           "uniform %d)", location);
+               return;
+            }
+         }
+
+         /* We need to reset the validate flag on changes to samplers in case
+          * two different sampler types are set to the same texture unit.
+          */
+         ctx->_Shader->Validated = GL_FALSE;
+         break;
+
+      case GLSL_TYPE_IMAGE:
+         if (!_mesa_is_desktop_gl(ctx)) {
+            _mesa_error(ctx, GL_INVALID_OPERATION,
+                        "glUniform(cannot change image handle in OpenGL ES)");
+            return;
+         }
+
+         for (int i = 0; i < count; i++) {
+            const int unit = ((GLint *) values)[i];
+
+            /* check that the image unit is legal */
+            if (unit < 0 || unit >= (int)ctx->Const.MaxImageUnits) {
+               _mesa_error(ctx, GL_INVALID_VALUE,
+                           "glUniform1i(invalid image unit index for uniform %d)",
+                           location);
+               return;
+            }
+         }
+         break;
+
+      case GLSL_TYPE_INT:
+      case GLSL_TYPE_BOOL:
+         if (likely(uni->type->vector_elements == 1))
+            break;
+
+         /* FALLTHROUGH */
+      default:
+         _mesa_error(ctx, GL_INVALID_OPERATION, "glUniform(type mismatch)");
+         return;
+      }
+
+      if (unlikely(ctx->_Shader->Flags & GLSL_UNIFORMS)) {
+         log_uniform(values, GLSL_TYPE_INT, 1, 1, count,
+                     false, shProg, location, uni);
+      }
+   }
+
+   /* Page 82 (page 96 of the PDF) of the OpenGL 2.1 spec says:
+    *
+    *     "When loading N elements starting at an arbitrary position k in a
+    *     uniform declared as an array, elements k through k + N - 1 in the
+    *     array will be replaced with the new values. Values for any array
+    *     element that exceeds the highest array element index used, as
+    *     reported by GetActiveUniform, will be ignored by the GL."
+    *
+    * Clamp 'count' to a valid value.  Note that for non-arrays a count > 1
+    * will have already generated an error.
+    */
+   if (uni->array_elements != 0) {
+      count = MIN2(count, (int) (uni->array_elements - offset));
+   }
+
+   /* We check samplers for changes and flush if needed in the sampler
+    * handling code further down, so just skip them here.
+    */
+   if (!uni->type->is_sampler()) {
+       _mesa_flush_vertices_for_uniforms(ctx, uni);
+   }
+
+   /* Store the data in the "actual type" backing storage for the uniform.
+    */
+   gl_constant_value *storage;
+   if (ctx->Const.PackedDriverUniformStorage &&
+       (uni->is_bindless || !uni->type->contains_opaque())) {
+      for (unsigned s = 0; s < uni->num_driver_storage; s++) {
+         storage = (gl_constant_value *) uni->driver_storage[s].data + offset;
+
+         copy_uniforms_to_storage(storage, uni, ctx, count, values, 1, 1,
+                                  GLSL_TYPE_INT);
+      }
+   } else {
+      storage = &uni->storage[offset];
+      copy_uniforms_to_storage(storage, uni, ctx, count, values, 1, 1,
+                               GLSL_TYPE_INT);
+
+      _mesa_propagate_uniforms_to_driver_storage(uni, offset, count);
+   }
+
+   /* If the uniform is a sampler, do the extra magic necessary to propagate
+    * the changes through.
+    */
+   if (uni->type->is_sampler()) {
+      bool flushed = false;
+
+      shProg->SamplersValidated = GL_TRUE;
+
+      for (int i = 0; i < MESA_SHADER_STAGES; i++) {
+         struct gl_linked_shader *const sh = shProg->_LinkedShaders[i];
+
+         /* If the shader stage doesn't use the sampler uniform, skip this. */
+         if (!uni->opaque[i].active)
+            continue;
+
+         bool changed = false;
+         for (int j = 0; j < count; j++) {
+            unsigned unit = uni->opaque[i].index + offset + j;
+            unsigned value = ((unsigned *)values)[j];
+
+            if (uni->is_bindless) {
+               struct gl_bindless_sampler *sampler =
+                  &sh->Program->sh.BindlessSamplers[unit];
+
+               /* Mark this bindless sampler as bound to a texture unit.
+                */
+               if (sampler->unit != value || !sampler->bound) {
+                  sampler->unit = value;
+                  changed = true;
+               }
+               sampler->bound = true;
+               sh->Program->sh.HasBoundBindlessSampler = true;
+            } else {
+               if (sh->Program->SamplerUnits[unit] != value) {
+                  sh->Program->SamplerUnits[unit] = value;
+                  changed = true;
+               }
+            }
+         }
+
+         if (changed) {
+            if (!flushed) {
+               FLUSH_VERTICES(ctx, _NEW_TEXTURE_OBJECT | _NEW_PROGRAM);
+               flushed = true;
+            }
+
+            struct gl_program *const prog = sh->Program;
+            _mesa_update_shader_textures_used(shProg, prog);
+            if (ctx->Driver.SamplerUniformChange)
+               ctx->Driver.SamplerUniformChange(ctx, prog->Target, prog);
+         }
+      }
+   }
+
+   /* If the uniform is an image, update the mapping from image
+    * uniforms to image units present in the shader data structure.
+    */
+   if (uni->type->is_image()) {
+      for (int i = 0; i < MESA_SHADER_STAGES; i++) {
+         struct gl_linked_shader *sh = shProg->_LinkedShaders[i];
+
+         /* If the shader stage doesn't use the image uniform, skip this. */
+         if (!uni->opaque[i].active)
+            continue;
+
+         for (int j = 0; j < count; j++) {
+            unsigned unit = uni->opaque[i].index + offset + j;
+            unsigned value = ((unsigned *)values)[j];
+
+            if (uni->is_bindless) {
+               struct gl_bindless_image *image =
+                  &sh->Program->sh.BindlessImages[unit];
+
+               /* Mark this bindless image as bound to an image unit.
+                */
+               image->unit = value;
+               image->bound = true;
+               sh->Program->sh.HasBoundBindlessImage = true;
+            } else {
+               sh->Program->sh.ImageUnits[unit] = value;
+            }
+         }
+      }
+
+      ctx->NewDriverState |= ctx->DriverFlags.NewImageUnits;
+   }
+}
 
 static void
 copy_uniform_matrix_to_storage(gl_constant_value *storage,
@@ -1290,7 +1525,6 @@ copy_uniform_matrix_to_storage(gl_constant_value *storage,
       }
    }
 }
-
 
 /**
  * Called by glUniformMatrix*() functions.
