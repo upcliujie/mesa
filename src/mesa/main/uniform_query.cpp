@@ -906,6 +906,9 @@ validate_uniform(GLint location, GLsizei count, const GLvoid *values,
    /* Use _mesa_uniform_1iv instead. */
    assert(basicType != GLSL_TYPE_INT || src_components != 1);
 
+   /* Use _mesa_uniform_fv instead. */
+   assert(basicType != GLSL_TYPE_FLOAT);
+
    struct gl_uniform_storage *const uni =
       validate_uniform_parameters(location, count, offset,
                                   ctx, shProg, "glUniform");
@@ -977,6 +980,29 @@ _mesa_flush_vertices_for_uniforms(struct gl_context *ctx,
 }
 
 static void
+flush_vertices_for_uniforms_f(struct gl_context *ctx,
+                              const struct gl_uniform_storage *uni)
+{
+   /* If the basic type of the uniform is float, it cannot contain an opaque
+    * type.
+    */
+   assert(!uni->type->contains_opaque());
+
+   uint64_t new_driver_state = 0;
+   unsigned mask = uni->active_shader_mask;
+
+   while (mask) {
+      unsigned index = u_bit_scan(&mask);
+
+      assert(index < MESA_SHADER_STAGES);
+      new_driver_state |= ctx->DriverFlags.NewShaderConstants[index];
+   }
+
+   FLUSH_VERTICES(ctx, new_driver_state ? 0 : _NEW_PROGRAM_CONSTANTS);
+   ctx->NewDriverState |= new_driver_state;
+}
+
+static void
 copy_uniforms_to_storage(gl_constant_value *storage,
                          struct gl_uniform_storage *uni,
                          struct gl_context *ctx, GLsizei count,
@@ -1014,6 +1040,28 @@ copy_uniforms_to_storage(gl_constant_value *storage,
    }
 }
 
+static void
+copy_uniforms_to_storage_f(gl_constant_value *storage,
+                           struct gl_uniform_storage *uni,
+                           struct gl_context *ctx, GLsizei count,
+                           const GLvoid *values,
+                           const unsigned components)
+{
+   const unsigned elems = components * count;
+
+   assert(!uni->is_bindless);
+   if (!uni->type->is_boolean()) {
+      memcpy(storage, values, sizeof(storage[0]) * elems);
+   } else {
+      const union gl_constant_value *src =
+         (const union gl_constant_value *) values;
+      union gl_constant_value *dst = storage;
+
+      for (unsigned i = 0; i < elems; i++)
+         dst[i].i = src[i].f != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
+   }
+}
+
 
 /**
  * Called via glUniform*() functions.
@@ -1028,6 +1076,9 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
 
    /* Use _mesa_uniform_1iv instead. */
    assert(basicType != GLSL_TYPE_INT || src_components != 1);
+
+   /* Use _mesa_uniform_fv instead. */
+   assert(basicType != GLSL_TYPE_FLOAT);
 
    struct gl_uniform_storage *uni;
    if (_mesa_is_no_error_enabled(ctx)) {
@@ -1089,6 +1140,98 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
       storage = &uni->storage[size_mul * components * offset];
       copy_uniforms_to_storage(storage, uni, ctx, count, values, size_mul,
                                components, basicType);
+
+      _mesa_propagate_uniforms_to_driver_storage(uni, offset, count);
+   }
+}
+
+/**
+ * Called via glUniform*fv() functions.
+ */
+extern "C" void
+_mesa_uniform_fv(GLint location, GLsizei count, const GLfloat *values,
+                 struct gl_context *ctx, struct gl_shader_program *shProg,
+                 unsigned src_components)
+{
+   unsigned offset;
+   struct gl_uniform_storage *uni;
+   if (_mesa_is_no_error_enabled(ctx)) {
+      /* From Seciton 7.6 (UNIFORM VARIABLES) of the OpenGL 4.5 spec:
+       *
+       *   "If the value of location is -1, the Uniform* commands will
+       *   silently ignore the data passed in, and the current uniform values
+       *   will not be changed.
+       */
+      if (location == -1)
+         return;
+
+      uni = shProg->UniformRemapTable[location];
+
+      /* The array index specified by the uniform location is just the
+       * uniform location minus the base location of of the uniform.
+       */
+      assert(uni->array_elements > 0 || location == (int)uni->remap_location);
+      offset = location - uni->remap_location;
+   } else {
+      uni = validate_uniform_parameters(location, count, &offset, ctx, shProg,
+                                        "glUniformfv");
+      if (uni == NULL)
+         return;
+
+      /* Verify that the types are compatible. */
+      const unsigned components = uni->type->vector_elements;
+
+      const bool match = uni->type->base_type == GLSL_TYPE_FLOAT ||
+                         uni->type->base_type == GLSL_TYPE_BOOL;
+
+      if (uni->type->is_matrix() || components != src_components || !match) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "glUniform%ufv(type mismatch: \"%s\"@%d is %s)",
+                     src_components, uni->name, location,
+                     uni->type->name);
+         return;
+      }
+
+      if (unlikely(ctx->_Shader->Flags & GLSL_UNIFORMS)) {
+         log_uniform(values, GLSL_TYPE_FLOAT, components, 1, count,
+                     false, shProg, location, uni);
+      }
+   }
+
+   const unsigned components = uni->type->vector_elements;
+
+   /* Page 82 (page 96 of the PDF) of the OpenGL 2.1 spec says:
+    *
+    *     "When loading N elements starting at an arbitrary position k in a
+    *     uniform declared as an array, elements k through k + N - 1 in the
+    *     array will be replaced with the new values. Values for any array
+    *     element that exceeds the highest array element index used, as
+    *     reported by GetActiveUniform, will be ignored by the GL."
+    *
+    * Clamp 'count' to a valid value.  Note that for non-arrays a count > 1
+    * will have already generated an error.
+    */
+   if (uni->array_elements != 0) {
+      count = MIN2(count, (int) (uni->array_elements - offset));
+   }
+
+   flush_vertices_for_uniforms_f(ctx, uni);
+
+   /* Store the data in the "actual type" backing storage for the uniform.
+    */
+   gl_constant_value *storage;
+   if (ctx->Const.PackedDriverUniformStorage) {
+      for (unsigned s = 0; s < uni->num_driver_storage; s++) {
+         storage = (gl_constant_value *)
+            uni->driver_storage[s].data + (offset * components);
+
+         copy_uniforms_to_storage_f(storage, uni, ctx, count, values,
+                                    components);
+      }
+   } else {
+      storage = &uni->storage[components * offset];
+      copy_uniforms_to_storage_f(storage, uni, ctx, count, values,
+                                 components);
 
       _mesa_propagate_uniforms_to_driver_storage(uni, offset, count);
    }
