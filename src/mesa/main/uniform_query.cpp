@@ -1634,25 +1634,42 @@ _mesa_uniform_f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3,
 
    const unsigned components = uni->type->vector_elements;
 
-   flush_vertices_for_uniforms_f(ctx, uni);
-
    /* Store the data in the "actual type" backing storage for the uniform.
     */
+   bool same = true;
    gl_constant_value *storage;
    if (ctx->Const.PackedDriverUniformStorage) {
       if (!uni->type->is_boolean()) {
-         for (unsigned s = 0; s < uni->num_driver_storage; s++) {
-            storage = (gl_constant_value *)
-               uni->driver_storage[s].data + (offset * components);
+         assert(uni->num_driver_storage > 0);
 
-            switch (components) {
-            case 4: storage[3].f = v3;
-            case 3: storage[2].f = v2;
-            case 2: storage[1].f = v1;
-            case 1: storage[0].f = v0;
+         storage = (gl_constant_value *)
+            uni->driver_storage[0].data + (offset * components);
+
+         switch (components) {
+         case 4: same = same && storage[3].f == v3;
+         case 3: same = same && storage[2].f == v2;
+         case 2: same = same && storage[1].f == v1;
+         case 1: same = same && storage[0].f == v0;
+         }
+
+         if (!same) {
+            flush_vertices_for_uniforms_f(ctx, uni);
+
+            for (unsigned s = 0; s < uni->num_driver_storage; s++) {
+               storage = (gl_constant_value *)
+                  uni->driver_storage[s].data + (offset * components);
+
+               switch (components) {
+               case 4: storage[3].f = v3;
+               case 3: storage[2].f = v2;
+               case 2: storage[1].f = v1;
+               case 1: storage[0].f = v0;
+               }
             }
          }
       } else {
+         flush_vertices_for_uniforms_f(ctx, uni);
+
          for (unsigned s = 0; s < uni->num_driver_storage; s++) {
             storage = (gl_constant_value *)
                uni->driver_storage[s].data + (offset * components);
@@ -1669,13 +1686,28 @@ _mesa_uniform_f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3,
       storage = &uni->storage[components * offset];
 
       if (!uni->type->is_boolean()) {
-         switch (components) {
-         case 4: storage[3].f = v3;
-         case 3: storage[2].f = v2;
-         case 2: storage[1].f = v1;
-         case 1: storage[0].f = v0;
+            switch (components) {
+            case 4: same = same && storage[3].f == v3;
+            case 3: same = same && storage[2].f == v2;
+            case 2: same = same && storage[1].f == v1;
+            case 1: same = same && storage[0].f == v0;
+            }
+
+         if (!same) {
+            flush_vertices_for_uniforms_f(ctx, uni);
+
+            switch (components) {
+            case 4: storage[3].f = v3;
+            case 3: storage[2].f = v2;
+            case 2: storage[1].f = v1;
+            case 1: storage[0].f = v0;
+            }
          }
       } else {
+         same = false;
+
+         flush_vertices_for_uniforms_f(ctx, uni);
+
          switch (components) {
          case 4: storage[3].i = v3 != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
          case 3: storage[2].i = v2 != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
@@ -1684,7 +1716,22 @@ _mesa_uniform_f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3,
          }
       }
 
-      _mesa_propagate_uniforms_to_driver_storage(uni, offset, 1);
+      if (!same)
+         _mesa_propagate_uniforms_to_driver_storage(uni, offset, 1);
+   }
+
+   if (log_uniform_cache_utilization) {
+      static unsigned calls = 0;
+      static unsigned hits = 0;
+
+      if (same)
+         hits++;
+
+      calls++;
+      if (calls % 1000 == 0) {
+         fprintf(stderr, "Mesa: Uniform*f cache hit rate: %u / %u = %f%%\n",
+                 hits, calls, 100.0 * (float) hits / (float) calls);
+      }
    }
 }
 
