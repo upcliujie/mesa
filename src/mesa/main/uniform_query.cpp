@@ -38,6 +38,7 @@
 #include "compiler/glsl/program.h"
 #include "util/bitscan.h"
 
+static const bool log_uniform_cache_utilization = false;
 
 extern "C" void GLAPIENTRY
 _mesa_GetActiveUniform(GLuint program, GLuint index,
@@ -1052,18 +1053,29 @@ copy_uniforms_to_storage(gl_constant_value *storage,
    }
 }
 
-static void
+static bool
 copy_uniforms_to_storage_f(gl_constant_value *storage,
                            struct gl_uniform_storage *uni,
                            struct gl_context *ctx, GLsizei count,
                            const GLvoid *values,
-                           const unsigned components)
+                           const unsigned components,
+                           bool same)
 {
    const unsigned elems = components * count;
 
+   assume(elems > 0);
+
    assert(!uni->is_bindless);
    if (!uni->type->is_boolean()) {
-      memcpy(storage, values, sizeof(storage[0]) * elems);
+      if (same)
+         same = memcmp(storage, values, sizeof(storage[0]) * elems) == 0;
+
+      if (!same) {
+         flush_vertices_for_uniforms_f(ctx, uni);
+         memcpy(storage, values, sizeof(storage[0]) * elems);
+      }
+
+      return same;
    } else {
       const union gl_constant_value *src =
          (const union gl_constant_value *) values;
@@ -1071,6 +1083,8 @@ copy_uniforms_to_storage_f(gl_constant_value *storage,
 
       for (unsigned i = 0; i < elems; i++)
          dst[i].i = src[i].f != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
+
+      return false;
    }
 }
 
@@ -1232,25 +1246,50 @@ _mesa_uniform_fv(GLint location, GLsizei count, const GLfloat *values,
       count = MIN2(count, (int) (uni->array_elements - offset));
    }
 
-   flush_vertices_for_uniforms_f(ctx, uni);
+   /* Passing count == 0 is not an error, but it does mean that nothing should
+    * be done.  Cases that could cause count to be negative (either passing a
+    * negative value or passing an array index too large) should have already
+    * generated errors.
+    */
+   if (count <= 0)
+      return;
 
    /* Store the data in the "actual type" backing storage for the uniform.
     */
+   bool same = true;
    gl_constant_value *storage;
    if (ctx->Const.PackedDriverUniformStorage) {
+      flush_vertices_for_uniforms_f(ctx, uni);
+
       for (unsigned s = 0; s < uni->num_driver_storage; s++) {
          storage = (gl_constant_value *)
             uni->driver_storage[s].data + (offset * components);
 
-         copy_uniforms_to_storage_f(storage, uni, ctx, count, values,
-                                    components);
+         same = copy_uniforms_to_storage_f(storage, uni, ctx, count, values,
+                                           components, same);
       }
    } else {
       storage = &uni->storage[components * offset];
-      copy_uniforms_to_storage_f(storage, uni, ctx, count, values,
-                                 components);
 
-      _mesa_propagate_uniforms_to_driver_storage(uni, offset, count);
+      same = copy_uniforms_to_storage_f(storage, uni, ctx, count, values,
+                                        components, same);
+
+      if (!same)
+         _mesa_propagate_uniforms_to_driver_storage(uni, offset, count);
+   }
+
+   if (log_uniform_cache_utilization) {
+      static unsigned calls = 0;
+      static unsigned hits = 0;
+
+      if (same)
+         hits++;
+
+      calls++;
+      if (calls % 1000 == 0) {
+         fprintf(stderr, "Mesa: Uniform*fv cache hit rate: %u / %u = %f%%\n",
+                 hits, calls, 100.0 * (float) hits / (float) calls);
+      }
    }
 }
 
