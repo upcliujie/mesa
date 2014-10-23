@@ -1196,7 +1196,12 @@ _mesa_uniform_fv(GLint location, GLsizei count, const GLfloat *values,
       const bool match = uni->type->base_type == GLSL_TYPE_FLOAT ||
                          uni->type->base_type == GLSL_TYPE_BOOL;
 
-      if (uni->type->is_matrix() || components != src_components || !match) {
+      /* No need to do the full is_matrix() check here.  All matrix types have
+       * GLSL_TYPE_FLOAT or GLSL_TYPE_DOUBLE as the base type, and we're
+       * already checking the base type.
+       */
+      if (uni->type->matrix_columns != 1 || components != src_components ||
+          !match) {
          _mesa_error(ctx, GL_INVALID_OPERATION,
                      "glUniform%ufv(type mismatch: \"%s\"@%d is %s)",
                      src_components, uni->name, location,
@@ -1567,7 +1572,12 @@ _mesa_uniform_f(GLint location, const GLfloat *values,
       const bool match = uni->type->base_type == GLSL_TYPE_FLOAT ||
                          uni->type->base_type == GLSL_TYPE_BOOL;
 
-      if (uni->type->is_matrix() || components != src_components || !match) {
+      /* No need to do the full is_matrix() check here.  All matrix types have
+       * GLSL_TYPE_FLOAT or GLSL_TYPE_DOUBLE as the base type, and we're
+       * already checking the base type.
+       */
+      if (uni->type->matrix_columns != 1 || components != src_components ||
+          !match) {
          _mesa_error(ctx, GL_INVALID_OPERATION,
                      "glUniform%uf(type mismatch: \"%s\"@%d is %s)",
                      src_components, uni->name, location,
