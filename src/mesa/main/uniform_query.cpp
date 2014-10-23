@@ -273,6 +273,24 @@ validate_uniform_parameters(GLint location, GLsizei count,
 }
 
 /**
+ * Validate uniform parameters when a single element is to be set
+ *
+ * Similar to \c validate_uniform_parameters, but can only support the count
+ * == 1 case.  The use of \c FLATTEN forces the compiler to inline
+ * validate_uniform_parameters and constant propagate the constant parameters.
+ */
+static FLATTEN struct gl_uniform_storage *
+validate_uniform_parameters_single(GLint location,
+                                   unsigned *array_index,
+                                   struct gl_context *ctx,
+                                   struct gl_shader_program *shProg,
+                                   const char *caller)
+{
+   return validate_uniform_parameters(location, 1, array_index, ctx, shProg,
+                                      caller);
+}
+
+/**
  * Called via glGetUniform[fiui]v() to get the current value of a uniform.
  */
 extern "C" void
@@ -285,8 +303,8 @@ _mesa_get_uniform(struct gl_context *ctx, GLuint program, GLint location,
    unsigned offset;
 
    struct gl_uniform_storage *const uni =
-      validate_uniform_parameters(location, 1, &offset,
-                                  ctx, shProg, "glGetUniform");
+      validate_uniform_parameters_single(location, &offset,
+                                         ctx, shProg, "glGetUniform");
    if (uni == NULL) {
       /* For glGetUniform, page 264 (page 278 of the PDF) of the OpenGL 2.1
        * spec says:
