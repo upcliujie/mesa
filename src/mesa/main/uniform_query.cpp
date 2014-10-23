@@ -1531,6 +1531,78 @@ copy_uniform_matrix_to_storage(gl_constant_value *storage,
    }
 }
 
+extern "C" void
+_mesa_uniform_f(GLint location, const GLfloat *values,
+                struct gl_context *ctx, struct gl_shader_program *shProg,
+                unsigned src_components)
+{
+   unsigned offset;
+   struct gl_uniform_storage *uni;
+   if (_mesa_is_no_error_enabled(ctx)) {
+      /* From Seciton 7.6 (UNIFORM VARIABLES) of the OpenGL 4.5 spec:
+       *
+       *   "If the value of location is -1, the Uniform* commands will
+       *   silently ignore the data passed in, and the current uniform values
+       *   will not be changed.
+       */
+      if (location == -1)
+         return;
+
+      uni = shProg->UniformRemapTable[location];
+
+      /* The array index specified by the uniform location is just the
+       * uniform location minus the base location of of the uniform.
+       */
+      assert(uni->array_elements > 0 || location == (int)uni->remap_location);
+      offset = location - uni->remap_location;
+   } else {
+      uni = validate_uniform_parameters_single(location, &offset, ctx, shProg,
+                                               "glUniformf");
+      if (uni == NULL)
+         return;
+
+      /* Verify that the types are compatible. */
+      const unsigned components = uni->type->vector_elements;
+
+      const bool match = uni->type->base_type == GLSL_TYPE_FLOAT ||
+                         uni->type->base_type == GLSL_TYPE_BOOL;
+
+      if (uni->type->is_matrix() || components != src_components || !match) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "glUniform%uf(type mismatch: \"%s\"@%d is %s)",
+                     src_components, uni->name, location,
+                     uni->type->name);
+         return;
+      }
+
+      if (unlikely(ctx->_Shader->Flags & GLSL_UNIFORMS)) {
+         log_uniform(values, GLSL_TYPE_FLOAT, components, 1, 1,
+                     false, shProg, location, uni);
+      }
+   }
+
+   const unsigned components = uni->type->vector_elements;
+
+   flush_vertices_for_uniforms_f(ctx, uni);
+
+   /* Store the data in the "actual type" backing storage for the uniform.
+    */
+   gl_constant_value *storage;
+   if (ctx->Const.PackedDriverUniformStorage) {
+      for (unsigned s = 0; s < uni->num_driver_storage; s++) {
+         storage = (gl_constant_value *)
+            uni->driver_storage[s].data + (offset * components);
+
+         copy_uniforms_to_storage_f(storage, uni, ctx, 1, values, components);
+      }
+   } else {
+      storage = &uni->storage[components * offset];
+      copy_uniforms_to_storage_f(storage, uni, ctx, 1, values, components);
+
+      _mesa_propagate_uniforms_to_driver_storage(uni, offset, 1);
+   }
+}
+
 /**
  * Called by glUniformMatrix*() functions.
  * Note: cols=2, rows=4  ==>  array[2] of vec4

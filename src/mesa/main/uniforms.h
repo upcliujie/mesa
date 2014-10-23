@@ -465,6 +465,11 @@ _mesa_uniform_fv(GLint location, GLsizei count, const GLfloat *values,
                  unsigned src_components);
 
 void
+_mesa_uniform_f(GLint location, const GLfloat *values,
+                struct gl_context *, struct gl_shader_program *,
+                unsigned src_components);
+
+void
 _mesa_uniform_1iv(GLint location, GLsizei count, const GLint *values,
                   struct gl_context *, struct gl_shader_program *);
 
