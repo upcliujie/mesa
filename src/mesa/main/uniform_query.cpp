@@ -1537,7 +1537,7 @@ copy_uniform_matrix_to_storage(gl_constant_value *storage,
 }
 
 extern "C" void
-_mesa_uniform_f(GLint location, const GLfloat *values,
+_mesa_uniform_f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3,
                 struct gl_context *ctx, struct gl_shader_program *shProg,
                 unsigned src_components)
 {
@@ -1586,6 +1586,8 @@ _mesa_uniform_f(GLint location, const GLfloat *values,
       }
 
       if (unlikely(ctx->_Shader->Flags & GLSL_UNIFORMS)) {
+         const GLfloat values[4] = { v0, v1, v2, v3 };
+
          log_uniform(values, GLSL_TYPE_FLOAT, components, 1, 1,
                      false, shProg, location, uni);
       }
@@ -1599,15 +1601,49 @@ _mesa_uniform_f(GLint location, const GLfloat *values,
     */
    gl_constant_value *storage;
    if (ctx->Const.PackedDriverUniformStorage) {
-      for (unsigned s = 0; s < uni->num_driver_storage; s++) {
-         storage = (gl_constant_value *)
-            uni->driver_storage[s].data + (offset * components);
+      if (!uni->type->is_boolean()) {
+         for (unsigned s = 0; s < uni->num_driver_storage; s++) {
+            storage = (gl_constant_value *)
+               uni->driver_storage[s].data + (offset * components);
 
-         copy_uniforms_to_storage_f(storage, uni, ctx, 1, values, components);
+            switch (components) {
+            case 4: storage[3].f = v3;
+            case 3: storage[2].f = v2;
+            case 2: storage[1].f = v1;
+            case 1: storage[0].f = v0;
+            }
+         }
+      } else {
+         for (unsigned s = 0; s < uni->num_driver_storage; s++) {
+            storage = (gl_constant_value *)
+               uni->driver_storage[s].data + (offset * components);
+
+            switch (components) {
+            case 4: storage[3].i = v3 != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
+            case 3: storage[2].i = v2 != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
+            case 2: storage[1].i = v1 != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
+            case 1: storage[0].i = v0 != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
+            }
+         }
       }
    } else {
       storage = &uni->storage[components * offset];
-      copy_uniforms_to_storage_f(storage, uni, ctx, 1, values, components);
+
+      if (!uni->type->is_boolean()) {
+         switch (components) {
+         case 4: storage[3].f = v3;
+         case 3: storage[2].f = v2;
+         case 2: storage[1].f = v1;
+         case 1: storage[0].f = v0;
+         }
+      } else {
+         switch (components) {
+         case 4: storage[3].i = v3 != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
+         case 3: storage[2].i = v2 != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
+         case 2: storage[1].i = v1 != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
+         case 1: storage[0].i = v0 != 0.0f ? ctx->Const.UniformBooleanTrue : 0;
+         }
+      }
 
       _mesa_propagate_uniforms_to_driver_storage(uni, offset, 1);
    }
