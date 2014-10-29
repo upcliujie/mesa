@@ -190,13 +190,20 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
                                               prog->NumUniformRemapTable);
    }
 
+   /* Round the size of the allocation up to a multipe of 4 gl_constant_values
+    * (16 bytes).  This will allow code in the glUniform*f path to use SSE
+    * optimizations.
+    */
    union gl_constant_value *data =
       rzalloc_array(prog->data,
-                    union gl_constant_value, prog->data->NumUniformDataSlots);
+                    union gl_constant_value, prog->data->NumUniformDataSlots + 4);
    if (!prog->UniformRemapTable || !data) {
       linker_error(prog, "Out of memory during linking.\n");
       return;
    }
+
+   data = (union gl_constant_value *) ALIGN_POT((uintptr_t) data, 16);
+
    prog->data->UniformDataSlots = data;
 
    prog->data->UniformDataDefaults =

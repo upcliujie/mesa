@@ -502,8 +502,15 @@ read_uniforms(struct blob_reader *metadata, struct gl_shader_program *prog)
                             prog->data->NumUniformStorage);
    prog->data->UniformStorage = uniforms;
 
-   data = rzalloc_array(uniforms, union gl_constant_value,
-                        prog->data->NumUniformDataSlots);
+   /* Round the size of the allocation up to a multipe of 4 gl_constant_values
+    * (16 bytes).  This will allow code in the glUniform*f path to use SSE
+    * optimizations.
+    */
+   data = rzalloc_array(prog->data->UniformStorage, union gl_constant_value,
+                        prog->data->NumUniformDataSlots + 4);
+
+   data = (union gl_constant_value *) ALIGN_POT((uintptr_t) data, 16);
+
    prog->data->UniformDataSlots = data;
    prog->data->UniformDataDefaults =
       rzalloc_array(uniforms, union gl_constant_value,

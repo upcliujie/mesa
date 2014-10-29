@@ -607,6 +607,12 @@ private:
 
       if(!is_gl_identifier(name) && !is_shader_storage && !is_buffer_block)
          this->num_values += values;
+
+      /* Count the number of values used.  Round up the count to a multiple of
+       * 4.  This will ensure that enough storage is allocated so that each
+       * vec4-like data item can be aligned at a 16-byte boundary.
+       */
+      this->num_values = ALIGN_POT(this->num_values, 4);
    }
 
    struct string_to_uint_map *hidden_map;
@@ -1165,8 +1171,11 @@ private:
 
       if (!this->uniforms[id].builtin &&
           !this->uniforms[id].is_shader_storage &&
-          this->buffer_block_index == -1)
+          this->buffer_block_index == -1) {
          this->values += type->component_slots();
+         this->values = (union gl_constant_value *)
+            ALIGN_POT((uintptr_t) this->values, 16);
+      }
 
       calculate_array_size_and_stride(prog, &this->uniforms[id],
                                       use_std430_as_default);
@@ -1590,8 +1599,16 @@ link_assign_uniform_storage(struct gl_context *ctx,
       prog->data->UniformStorage = rzalloc_array(prog->data,
                                                  struct gl_uniform_storage,
                                                  prog->data->NumUniformStorage);
+
+      /* Round the size of the allocation up to a multipe of 4
+       * gl_constant_values (16 bytes).  This will allow code in the
+       * glUniform*f path to use SSE optimizations.
+       */
       data = rzalloc_array(prog->data->UniformStorage,
-                           union gl_constant_value, num_data_slots);
+                           union gl_constant_value, num_data_slots + 4);
+
+      data = (union gl_constant_value *) ALIGN_POT((uintptr_t) data, 16);
+
       prog->data->UniformDataDefaults =
          rzalloc_array(prog->data->UniformStorage,
                        union gl_constant_value, num_data_slots);
