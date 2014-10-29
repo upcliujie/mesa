@@ -1575,6 +1575,219 @@ copy_uniform_matrix_to_storage(gl_constant_value *storage,
    }
 }
 
+#ifdef __SSE2__
+/**
+ * If a bit in mask is 0, take the bit from a.  If a bit in mask is 1, take
+ * the bit from b.
+ *
+ * This is somewhat similar to the SSE4.1 intrinsic \c _mm_blendv_ps.
+ */
+static __m128i
+_mm_blendv(const __m128i a, const __m128i b, const __m128i mask)
+{
+   /* According to "mark++"[1], using PXOR is slightly faster because it can
+    * help the compiler eliminate one instruction.  In testing, this was found
+    * to not always be the case.  Depending on the surrounding code, the PXOR
+    * version made _mesa_uniform_f_SSE2 between ~1% faster to ~4% slower on an
+    * Intel(R) Core(TM) i7-3520M (Ivybridge microarchitecture).
+    *
+    * I have opted to use the non-PXOR version, but the code remains for
+    * future testing.  In an ideal world, we'd just use _mm_blendv_ps on the
+    * previously mentioned CPU.
+    *
+    * 1: http://markplusplus.wordpress.com/2007/03/14/fast-sse-select-operation/
+    */
+#if 1
+   return _mm_or_si128(_mm_and_si128(mask, b),
+                       _mm_andnot_si128(mask, a));
+#else
+   return _mm_xor_si128(a, _mm_and_si128(mask, _mm_xor_si128(b, a)));
+#endif
+}
+
+static void
+uniform_f_SSE2(GLint location, __m128 v,
+               struct gl_context *ctx, struct gl_shader_program *shProg,
+               unsigned src_components)
+{
+   unsigned offset;
+   struct gl_uniform_storage *uni;
+   if (_mesa_is_no_error_enabled(ctx)) {
+      /* From Seciton 7.6 (UNIFORM VARIABLES) of the OpenGL 4.5 spec:
+       *
+       *   "If the value of location is -1, the Uniform* commands will
+       *   silently ignore the data passed in, and the current uniform values
+       *   will not be changed.
+       */
+      if (location == -1)
+         return;
+
+      uni = shProg->UniformRemapTable[location];
+
+      /* The array index specified by the uniform location is just the
+       * uniform location minus the base location of of the uniform.
+       */
+      assert(uni->array_elements > 0 || location == (int)uni->remap_location);
+      offset = location - uni->remap_location;
+   } else {
+      uni = validate_uniform_parameters_single(location, &offset, ctx, shProg,
+                                               "glUniformf");
+      if (uni == NULL)
+         return;
+
+      /* Verify that the types are compatible. */
+      const unsigned components = uni->type->vector_elements;
+
+      const bool match = uni->type->base_type == GLSL_TYPE_FLOAT ||
+                         uni->type->base_type == GLSL_TYPE_BOOL;
+
+      /* No need to do the full is_matrix() check here.  All matrix types have
+       * GLSL_TYPE_FLOAT or GLSL_TYPE_DOUBLE as the base type, and we're
+       * already checking the base type.
+       */
+      if (uni->type->matrix_columns != 1 || components != src_components ||
+          !match) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "glUniform%uf(type mismatch: \"%s\"@%d is %s)",
+                     src_components, uni->name, location,
+                     uni->type->name);
+         return;
+      }
+
+      if (unlikely(ctx->_Shader->Flags & GLSL_UNIFORMS)) {
+         log_uniform(&v, GLSL_TYPE_FLOAT, components, 1, 1,
+                     false, shProg, location, uni);
+      }
+   }
+
+   /* If the uniform is a Boolean type, convert the data supplied by the
+    * application to 0 and the value expected by the driver for true.
+    *
+    * Applications generally use glUniform*i for Boolean uniforms, so mark
+    * this branch as "unlikely."
+    */
+   if (unlikely(uni->type->is_boolean())) {
+      const __m128i f = _mm_setzero_si128();
+      const __m128i t = _mm_set1_epi32(ctx->Const.UniformBooleanTrue);
+
+      v = (__m128) _mm_and_si128((__m128i) _mm_cmpneq_ps(v, (__m128) f), t);
+   }
+
+   assume(src_components >= 1 && src_components <= 4);
+
+   union gl_constant_value *storage;
+   __m128i prev;
+
+   if (ctx->Const.PackedDriverUniformStorage) {
+      assert(uni->num_driver_storage > 0);
+
+      storage = (gl_constant_value *)
+         uni->driver_storage[0].data + (offset * src_components);
+
+      prev = _mm_loadu_si128((__m128i *) storage);
+   } else {
+      storage = &uni->storage[src_components * offset];
+
+      prev = (src_components != 4)
+         ? _mm_loadu_si128((__m128i *) storage)
+         : _mm_load_si128((__m128i *) storage);
+   }
+
+   /* x is a combination of the first 'components' values from v and the
+    * remaining 4-components values from the destination.
+    */
+   __m128i x;
+
+   switch (src_components) {
+   case 1:
+      x = (__m128i) _mm_move_ss((__m128) prev, v);
+      break;
+
+   case 2:
+      x = (__m128i) _mm_move_sd((__m128d) prev, (__m128d) v);
+      break;
+
+   case 3: {
+      /* There has to be a better way to do this.  In GLSL terms, we want
+       *
+       *     x = vec4(v.xyz, prev.w);
+       */
+      const __m128i mask =
+         _mm_srli_si128(_mm_cmpeq_epi32((__m128i) v, (__m128i) v),  4);
+      x = _mm_blendv(prev, (__m128i) v, mask);
+      break;
+   }
+
+   case 4:
+      x = (__m128i) v;
+      break;
+   }
+
+   const bool same = (_mm_movemask_epi8(_mm_cmpeq_epi32(x, prev)) == 0xffff);
+   if (!same) {
+      flush_vertices_for_uniforms_f(ctx, uni);
+
+      if (ctx->Const.PackedDriverUniformStorage) {
+         for (unsigned s = 0; s < uni->num_driver_storage; s++) {
+            storage = (gl_constant_value *)
+               uni->driver_storage[s].data + (offset * src_components);
+
+            _mm_storeu_si128((__m128i *) storage, x);
+         }
+      } else {
+         if (src_components != 4)
+            _mm_storeu_si128((__m128i *) storage, x);
+         else
+            _mm_store_si128((__m128i *) storage, x);
+
+         _mesa_propagate_uniforms_to_driver_storage(uni, offset, 1);
+      }
+   }
+
+   if (log_uniform_cache_utilization) {
+      static unsigned calls = 0;
+      static unsigned hits = 0;
+
+      if (same)
+         hits++;
+
+      calls++;
+      if (calls % 1000 == 0) {
+         fprintf(stderr, "Mesa: Uniform*f cache hit rate: %u / %u = %f%%\n",
+                 hits, calls, 100.0 * (float) hits / (float) calls);
+      }
+   }
+}
+
+extern "C" FLATTEN void
+_mesa_uniform_1f_SSE2(GLint location, __m128 v, struct gl_context *ctx,
+                      struct gl_shader_program *shProg)
+{
+   uniform_f_SSE2(location, v, ctx, shProg, 1);
+}
+
+extern "C" FLATTEN void
+_mesa_uniform_2f_SSE2(GLint location, __m128 v, struct gl_context *ctx,
+                      struct gl_shader_program *shProg)
+{
+   uniform_f_SSE2(location, v, ctx, shProg, 2);
+}
+
+extern "C" FLATTEN void
+_mesa_uniform_3f_SSE2(GLint location, __m128 v, struct gl_context *ctx,
+                      struct gl_shader_program *shProg)
+{
+   uniform_f_SSE2(location, v, ctx, shProg, 3);
+}
+
+extern "C" FLATTEN void
+_mesa_uniform_4f_SSE2(GLint location, __m128 v, struct gl_context *ctx,
+                      struct gl_shader_program *shProg)
+{
+   uniform_f_SSE2(location, v, ctx, shProg, 4);
+}
+#endif /* __SSE2__ */
+
 extern "C" void
 _mesa_uniform_f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3,
                 struct gl_context *ctx, struct gl_shader_program *shProg,

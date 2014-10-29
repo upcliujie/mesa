@@ -143,6 +143,7 @@
 #include "main/dispatch.h" /* for _gloffset_COUNT */
 #include "macros.h"
 #include "git_sha1.h"
+#include "uniforms.h"
 
 #ifdef USE_SPARC_ASM
 #include "sparc/sparc.h"
@@ -1140,6 +1141,34 @@ _mesa_initialize_dispatch_tables(struct gl_context *ctx)
 {
    /* Do the code-generated setup of the exec table in api_exec.c. */
    _mesa_initialize_exec_table(ctx);
+
+#ifdef __SSE2__
+   if (cpu_has_xmm2) {
+      struct _glapi_table *const exec = ctx->Exec;
+
+      if (_mesa_is_desktop_gl(ctx) || ctx->API == API_OPENGLES2) {
+         SET_Uniform1f(exec, _mesa_Uniform1f_SSE2);
+         SET_Uniform1fv(exec, _mesa_Uniform1fv_SSE2);
+         SET_Uniform2f(exec, _mesa_Uniform2f_SSE2);
+         SET_Uniform2fv(exec, _mesa_Uniform2fv_SSE2);
+         SET_Uniform3f(exec, _mesa_Uniform3f_SSE2);
+         SET_Uniform3fv(exec, _mesa_Uniform3fv_SSE2);
+         SET_Uniform4f(exec, _mesa_Uniform4f_SSE2);
+         SET_Uniform4fv(exec, _mesa_Uniform4fv_SSE2);
+      }
+
+      if (_mesa_is_desktop_gl(ctx) || _mesa_is_gles3(ctx)) {
+         SET_ProgramUniform1f(exec, _mesa_ProgramUniform1f_SSE2);
+         SET_ProgramUniform1fv(exec, _mesa_ProgramUniform1fv_SSE2);
+         SET_ProgramUniform2f(exec, _mesa_ProgramUniform2f_SSE2);
+         SET_ProgramUniform2fv(exec, _mesa_ProgramUniform2fv_SSE2);
+         SET_ProgramUniform3f(exec, _mesa_ProgramUniform3f_SSE2);
+         SET_ProgramUniform3fv(exec, _mesa_ProgramUniform3fv_SSE2);
+         SET_ProgramUniform4f(exec, _mesa_ProgramUniform4f_SSE2);
+         SET_ProgramUniform4fv(exec, _mesa_ProgramUniform4fv_SSE2);
+      }
+   }
+#endif
 
    if (ctx->Save)
       _mesa_initialize_save_table(ctx);

@@ -208,6 +208,87 @@ _mesa_Uniform4f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2,
    _mesa_uniform_f(location, v0, v1, v2, v3, ctx, ctx->_Shader->ActiveProgram, 4);
 }
 
+#ifdef __SSE2__
+void GLAPIENTRY
+_mesa_Uniform1f_SSE2(GLint location, GLfloat v0)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   const __m128 v = {v0, 0., 0., 0.};
+   _mesa_uniform_1f_SSE2(location, v, ctx, ctx->_Shader->ActiveProgram);
+}
+
+void GLAPIENTRY
+_mesa_Uniform2f_SSE2(GLint location, GLfloat v0, GLfloat v1)
+{
+   GET_CURRENT_CONTEXT(ctx);
+#ifdef __i386__
+   /* On IA32, the float parameters are passed on the stack.  Using
+    * MOVQ can load all the values in one instruction.  Otherwise it
+    * could take as many as 5 instructions (with GCC 4.7.2)!
+    */
+   const __m128 v = (__m128) _mm_loadl_epi64((__m128i *) &v0);
+
+   /* This is actually used (by the _mm_loadl_pi above), but the compiler
+    * cannot see that, and it complains.
+    */
+   (void) v1;
+#else
+   const __m128 v = {v0, v1, 0., 0.};
+#endif
+   _mesa_uniform_2f_SSE2(location, v, ctx, ctx->_Shader->ActiveProgram);
+}
+
+void GLAPIENTRY
+_mesa_Uniform3f_SSE2(GLint location, GLfloat v0, GLfloat v1, GLfloat v2)
+{
+   GET_CURRENT_CONTEXT(ctx);
+#ifdef __i386__
+   /* On IA32, the float parameters are passed on the stack.  Using a single
+    * MOVUPS can load all the values in a single instruction.  Otherwise it
+    * could take as many as 6 instructions (with GCC 4.7.2)!
+    *
+    * This causes the return address to be passed as the 4th component.  This
+    * is safe because _mesa_uniform_f_SSE2 already ignores the 4th component
+    * when components < 4.
+    */
+   const __m128 v = _mm_loadu_ps(&v0);
+
+   /* These are actually used (by the _mm_loadu_ps above), but the compiler
+    * cannot see that, and it complains.
+    */
+   (void) v1;
+   (void) v2;
+#else
+   const __m128 v = {v0, v1, v2, 0.};
+#endif
+   _mesa_uniform_3f_SSE2(location, v, ctx, ctx->_Shader->ActiveProgram);
+}
+
+void GLAPIENTRY
+_mesa_Uniform4f_SSE2(GLint location, GLfloat v0, GLfloat v1, GLfloat v2,
+                     GLfloat v3)
+{
+   GET_CURRENT_CONTEXT(ctx);
+#ifdef  __i386__
+   /* On IA32, the float parameters are passed on the stack.  Using a single
+    * MOVUPS can load all the values in a single instruction.  Otherwise it
+    * could take as many as 9 instructions (with GCC 4.7.2)!
+    */
+   const __m128 v = _mm_loadu_ps(&v0);
+
+   /* These are actually used (by the _mm_loadu_ps above), but the compiler
+    * cannot see that, and it complains.
+    */
+   (void) v1;
+   (void) v2;
+   (void) v3;
+#else
+   const __m128 v = {v0, v1, v2, v3};
+#endif
+   _mesa_uniform_4f_SSE2(location, v, ctx, ctx->_Shader->ActiveProgram);
+}
+#endif /* __SSE2__ */
+
 void GLAPIENTRY
 _mesa_Uniform1i(GLint location, GLint v0)
 {
@@ -275,6 +356,53 @@ _mesa_Uniform4fv(GLint location, GLsizei count, const GLfloat * value)
    GET_CURRENT_CONTEXT(ctx);
    _mesa_uniform_fv(location, count, value, ctx, ctx->_Shader->ActiveProgram, 4);
 }
+
+#ifdef __SSE2__
+void GLAPIENTRY
+_mesa_Uniform1fv_SSE2(GLint location, GLsizei count, const GLfloat * value)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   if (count == 1) {
+      const __m128 v = _mm_load_ss(&value[0]);
+      _mesa_uniform_1f_SSE2(location, v, ctx, ctx->_Shader->ActiveProgram);
+   } else
+      _mesa_uniform_fv(location, count, value, ctx, ctx->_Shader->ActiveProgram, 1);
+}
+
+void GLAPIENTRY
+_mesa_Uniform2fv_SSE2(GLint location, GLsizei count, const GLfloat * value)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   if (count == 1) {
+      const __m128 v = _mm_loadl_pi(_mm_set1_ps(0.0f), (__m64 *) value);
+      _mesa_uniform_2f_SSE2(location, v, ctx, ctx->_Shader->ActiveProgram);
+   } else
+      _mesa_uniform_fv(location, count, value, ctx, ctx->_Shader->ActiveProgram, 2);
+}
+
+void GLAPIENTRY
+_mesa_Uniform3fv_SSE2(GLint location, GLsizei count, const GLfloat * value)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   if (count == 1) {
+      const __m128 h = _mm_load_ss(&value[2]);
+      const __m128 v = _mm_loadl_pi(_mm_movelh_ps(h, h), (__m64 *) value);
+      _mesa_uniform_3f_SSE2(location, v, ctx, ctx->_Shader->ActiveProgram);
+   } else
+      _mesa_uniform_fv(location, count, value, ctx, ctx->_Shader->ActiveProgram, 3);
+}
+
+void GLAPIENTRY
+_mesa_Uniform4fv_SSE2(GLint location, GLsizei count, const GLfloat * value)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   if (count == 1) {
+      const __m128 v = _mm_loadu_ps(value);
+      _mesa_uniform_4f_SSE2(location, v, ctx, ctx->_Shader->ActiveProgram);
+   } else
+      _mesa_uniform_fv(location, count, value, ctx, ctx->_Shader->ActiveProgram, 4);
+}
+#endif /* __SSE2__ */
 
 void GLAPIENTRY
 _mesa_Uniform1iv(GLint location, GLsizei count, const GLint * value)
@@ -360,6 +488,98 @@ _mesa_ProgramUniform4f(GLuint program, GLint location, GLfloat v0, GLfloat v1,
    shProg = _mesa_lookup_shader_program_err(ctx, program, "glProgramUniform4f");
    _mesa_uniform_f(location, v0, v1, v2, v3, ctx, shProg, 4);
 }
+
+#ifdef __SSE2__
+void GLAPIENTRY
+_mesa_ProgramUniform1f_SSE2(GLuint program, GLint location, GLfloat v0)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   struct gl_shader_program *shProg =
+      _mesa_lookup_shader_program_err(ctx, program,
+            "glProgramUniform1f");
+   const __m128 v = {v0, 0., 0., 0.};
+   _mesa_uniform_1f_SSE2(location, v, ctx, shProg);
+}
+
+void GLAPIENTRY
+_mesa_ProgramUniform2f_SSE2(GLuint program, GLint location, GLfloat v0,
+                            GLfloat v1)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   struct gl_shader_program *shProg =
+      _mesa_lookup_shader_program_err(ctx, program, "glProgramUniform2f");
+#ifdef __i386__
+   /* On IA32, the float parameters are passed on the stack.  Using
+    * MOVLPS can load all the values in two instructions.  Otherwise it
+    * could take as many as 5 instructions (with GCC 4.7.2)!
+    */
+   const __m128 v = _mm_loadl_pi(_mm_set1_ps(0.0f), (__m64 *) &v0);
+
+   /* This is actually used (by the _mm_loadl_pi above), but the compiler
+    * cannot see that, and it complains.
+    */
+   (void) v1;
+#else
+   const __m128 v = {v0, v1, 0., 0.};
+#endif
+   _mesa_uniform_2f_SSE2(location, v, ctx, shProg);
+}
+
+void GLAPIENTRY
+_mesa_ProgramUniform3f_SSE2(GLuint program, GLint location, GLfloat v0,
+                            GLfloat v1, GLfloat v2)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   struct gl_shader_program *shProg =
+      _mesa_lookup_shader_program_err(ctx, program, "glProgramUniform3f");
+#ifdef __i386__
+   /* On IA32, the float parameters are passed on the stack.  Using a single
+    * MOVUPS can load all the values in a single instruction.  Otherwise it
+    * could take as many as 6 instructions (with GCC 4.7.2)!
+    *
+    * This causes the return address to be passed as the 4th component.  This
+    * is safe because _mesa_uniform_f_SSE2 already ignores the 4th component
+    * when components < 4.
+    */
+   const __m128 v = _mm_loadu_ps(&v0);
+
+   /* These are actually used (by the _mm_loadu_ps above), but the compiler
+    * cannot see that, and it complains.
+    */
+   (void) v1;
+   (void) v2;
+#else
+   const __m128 v = {v0, v1, v2, 0.};
+#endif
+   _mesa_uniform_3f_SSE2(location, v, ctx, shProg);
+}
+
+void GLAPIENTRY
+_mesa_ProgramUniform4f_SSE2(GLuint program, GLint location, GLfloat v0,
+                            GLfloat v1, GLfloat v2, GLfloat v3)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   struct gl_shader_program *shProg =
+      _mesa_lookup_shader_program_err(ctx, program, "glProgramUniform4f");
+#ifdef  __i386__
+   /* On IA32, the float parameters are passed on the stack.  Using a single
+    * MOVUPS can load all the values in a single instruction.  Otherwise it
+    * could take as many as 9 instructions (with GCC 4.7.2)!
+    */
+   const __m128 v = _mm_loadu_ps(&v0);
+
+   /* These are actually used (by the _mm_loadu_ps above), but the compiler
+    * cannot see that, and it complains.
+    */
+   (void) v1;
+   (void) v2;
+   (void) v3;
+#else
+   const __m128 v = {v0, v1, v2, v3};
+#endif
+   _mesa_uniform_4f_SSE2(location, v, ctx, shProg);
+}
+#endif /* __SSE2__ */
 
 void GLAPIENTRY
 _mesa_ProgramUniform1i(GLuint program, GLint location, GLint v0)
@@ -455,6 +675,73 @@ _mesa_ProgramUniform4fv(GLuint program, GLint location, GLsizei count,
             "glProgramUniform4fv");
    _mesa_uniform_fv(location, count, value, ctx, shProg, 4);
 }
+
+#ifdef __SSE2__
+void GLAPIENTRY
+_mesa_ProgramUniform1fv_SSE2(GLuint program, GLint location, GLsizei count,
+                             const GLfloat *value)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   struct gl_shader_program *shProg =
+      _mesa_lookup_shader_program_err(ctx, program,
+            "glProgramUniform1fv");
+
+   if (count == 1) {
+      const __m128 v = _mm_load_ss(&value[0]);
+      _mesa_uniform_1f_SSE2(location, v, ctx, shProg);
+   } else
+      _mesa_uniform_fv(location, count, value, ctx, shProg, 1);
+}
+
+void GLAPIENTRY
+_mesa_ProgramUniform2fv_SSE2(GLuint program, GLint location, GLsizei count,
+                             const GLfloat *value)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   struct gl_shader_program *shProg =
+      _mesa_lookup_shader_program_err(ctx, program,
+            "glProgramUniform2fv");
+
+   if (count == 1) {
+      const __m128 v = _mm_loadl_pi(_mm_set1_ps(0.0f), (__m64 *) value);
+      _mesa_uniform_2f_SSE2(location, v, ctx, shProg);
+   } else
+      _mesa_uniform_fv(location, count, value, ctx, shProg, 2);
+}
+
+void GLAPIENTRY
+_mesa_ProgramUniform3fv_SSE2(GLuint program, GLint location, GLsizei count,
+                             const GLfloat *value)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   struct gl_shader_program *shProg =
+      _mesa_lookup_shader_program_err(ctx, program,
+            "glProgramUniform3fv");
+
+   if (count == 1) {
+      const __m128 h = _mm_load_ss(&value[2]);
+      const __m128 v = _mm_loadl_pi(_mm_movelh_ps(h, h), (__m64 *) value);
+      _mesa_uniform_3f_SSE2(location, v, ctx, shProg);
+   } else
+      _mesa_uniform_fv(location, count, value, ctx, shProg, 3);
+}
+
+void GLAPIENTRY
+_mesa_ProgramUniform4fv_SSE2(GLuint program, GLint location, GLsizei count,
+                             const GLfloat *value)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   struct gl_shader_program *shProg =
+      _mesa_lookup_shader_program_err(ctx, program,
+            "glProgramUniform4fv");
+
+   if (count == 1) {
+      const __m128 v = _mm_loadu_ps(value);
+      _mesa_uniform_4f_SSE2(location, v, ctx, shProg);
+   } else
+      _mesa_uniform_fv(location, count, value, ctx, shProg, 4);
+}
+#endif /* __SSE2__ */
 
 void GLAPIENTRY
 _mesa_ProgramUniform1iv(GLuint program, GLint location, GLsizei count,

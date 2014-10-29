@@ -31,6 +31,10 @@
 #include "compiler/glsl/ir_uniform.h"
 #include "program/prog_parameter.h"
 
+#ifdef __SSE2__
+#include <emmintrin.h>
+#endif /* __SSE2__ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -283,6 +287,41 @@ _mesa_GetActiveUniformsiv(GLuint program,
 void GLAPIENTRY
 _mesa_GetUniformiv(GLuint, GLint, GLint *);
 
+#ifdef __SSE2__
+void GLAPIENTRY
+_mesa_Uniform1f_SSE2(GLint, GLfloat);
+void GLAPIENTRY
+_mesa_Uniform2f_SSE2(GLint, GLfloat, GLfloat);
+void GLAPIENTRY
+_mesa_Uniform3f_SSE2(GLint, GLfloat, GLfloat, GLfloat);
+void GLAPIENTRY
+_mesa_Uniform4f_SSE2(GLint, GLfloat, GLfloat, GLfloat, GLfloat);
+void GLAPIENTRY
+_mesa_Uniform1fv_SSE2(GLint, GLsizei, const GLfloat *);
+void GLAPIENTRY
+_mesa_Uniform2fv_SSE2(GLint, GLsizei, const GLfloat *);
+void GLAPIENTRY
+_mesa_Uniform3fv_SSE2(GLint, GLsizei, const GLfloat *);
+void GLAPIENTRY
+_mesa_Uniform4fv_SSE2(GLint, GLsizei, const GLfloat *);
+void GLAPIENTRY
+_mesa_ProgramUniform1f_SSE2(GLuint, GLint, GLfloat);
+void GLAPIENTRY
+_mesa_ProgramUniform2f_SSE2(GLuint, GLint, GLfloat, GLfloat);
+void GLAPIENTRY
+_mesa_ProgramUniform3f_SSE2(GLuint, GLint, GLfloat, GLfloat, GLfloat);
+void GLAPIENTRY
+_mesa_ProgramUniform4f_SSE2(GLuint, GLint, GLfloat, GLfloat, GLfloat, GLfloat);
+void GLAPIENTRY
+_mesa_ProgramUniform1fv_SSE2(GLuint, GLint, GLsizei, const GLfloat *);
+void GLAPIENTRY
+_mesa_ProgramUniform2fv_SSE2(GLuint, GLint, GLsizei, const GLfloat *);
+void GLAPIENTRY
+_mesa_ProgramUniform3fv_SSE2(GLuint, GLint, GLsizei, const GLfloat *);
+void GLAPIENTRY
+_mesa_ProgramUniform4fv_SSE2(GLuint, GLint, GLsizei, const GLfloat *);
+#endif /* __SSE2__ */
+
 void GLAPIENTRY
 _mesa_Uniform1d(GLint, GLdouble);
 void GLAPIENTRY
@@ -472,6 +511,32 @@ _mesa_uniform_f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3,
 void
 _mesa_uniform_1iv(GLint location, GLsizei count, const GLint *values,
                   struct gl_context *, struct gl_shader_program *);
+
+#ifdef __SSE2__
+void
+_mesa_uniform_1f_SSE2(GLint location,
+                      __m128 v,
+                      struct gl_context *ctx,
+                      struct gl_shader_program *shader_program);
+
+void
+_mesa_uniform_2f_SSE2(GLint location,
+                      __m128 v,
+                      struct gl_context *ctx,
+                      struct gl_shader_program *shader_program);
+
+void
+_mesa_uniform_3f_SSE2(GLint location,
+                      __m128 v,
+                      struct gl_context *ctx,
+                      struct gl_shader_program *shader_program);
+
+void
+_mesa_uniform_4f_SSE2(GLint location,
+                      __m128 v,
+                      struct gl_context *ctx,
+                      struct gl_shader_program *shader_program);
+#endif
 
 void
 _mesa_uniform_matrix(GLint location, GLsizei count,
