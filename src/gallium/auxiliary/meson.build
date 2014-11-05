@@ -330,6 +330,8 @@ files_libgallium = files(
   'util/u_viewport.h',
   'nir/tgsi_to_nir.c',
   'nir/tgsi_to_nir.h',
+  'nir/nir_to_tgsi.c',
+  'nir/nir_to_tgsi.h',
   'nir/nir_draw_helpers.c',
   'nir/nir_draw_helpers.h',
 )
