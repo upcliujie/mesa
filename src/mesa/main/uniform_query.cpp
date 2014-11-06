@@ -1309,25 +1309,23 @@ _mesa_uniform_matrix(GLint location, GLsizei count,
    if (uni == NULL)
       return;
 
-   if (!uni->type->is_matrix()) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-		  "glUniformMatrix(non-matrix uniform)");
-      return;
-   }
-
    assert(basicType == GLSL_TYPE_FLOAT || basicType == GLSL_TYPE_DOUBLE);
    const unsigned size_mul = basicType == GLSL_TYPE_DOUBLE ? 2 : 1;
-
-   assert(!uni->type->is_sampler());
    const unsigned vectors = uni->type->matrix_columns;
    const unsigned components = uni->type->vector_elements;
 
    /* Verify that the types are compatible.  This is greatly simplified for
-    * matrices because they can only have a float base type.
+    * matrices because they can only have a float or double base type.
     */
    if (vectors != cols || components != rows) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-		  "glUniformMatrix(matrix size mismatch)");
+      if (!uni->type->is_matrix()) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "glUniformMatrix(non-matrix uniform)");
+      } else {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "glUniformMatrix(matrix size mismatch)");
+      }
+
       return;
    }
 
