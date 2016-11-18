@@ -284,6 +284,22 @@ image1d_buffer::type() const {
    return CL_MEM_OBJECT_IMAGE1D_BUFFER;
 }
 
+image1d_array::image1d_array(clover::context &ctx,
+                             std::vector<cl_mem_properties> properties,
+                             cl_mem_flags flags,
+                             const cl_image_format *format,
+                             size_t width,
+                             size_t array_size, size_t slice_pitch,
+                             void *host_ptr) :
+   image(ctx, properties, flags, format, width, 1, 1, array_size,
+         0, slice_pitch, slice_pitch * array_size, host_ptr, nullptr) {
+}
+
+cl_mem_object_type
+image1d_array::type() const {
+   return CL_MEM_OBJECT_IMAGE1D_ARRAY;
+}
+
 image2d::image2d(clover::context &ctx,
                  std::vector<cl_mem_properties> properties,
                  cl_mem_flags flags,
