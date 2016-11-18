@@ -132,6 +132,13 @@ namespace {
             throw error(CL_INVALID_IMAGE_SIZE);
          break;
       }
+      case CL_MEM_OBJECT_IMAGE2D_ARRAY: {
+         const size_t max_size = dev.max_image_size();
+         const size_t max_array = dev.max_image_array_number();
+         if (img.width() > max_size || img.height() > max_size || img.array_size() > max_array)
+            throw error(CL_INVALID_IMAGE_SIZE);
+         break;
+      }
       case CL_MEM_OBJECT_IMAGE3D: {
          const size_t max = dev.max_image_size_3d();
          if (img.width() > max || img.height() > max || img.depth() > max)
