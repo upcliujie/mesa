@@ -195,6 +195,22 @@ clCreateImage(cl_context d_ctx, cl_mem_flags d_flags,
                          desc->image_width, desc->image_height,
                          desc->image_row_pitch, host_ptr);
 
+   case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+      if (!desc->image_width || !desc->image_height)
+         throw error(CL_INVALID_IMAGE_SIZE);
+
+      if (all_of([=](const device &dev) {
+               const size_t max = 1 << dev.max_image_levels_2d();
+               return (desc->image_width > max ||
+                       desc->image_height > max);
+            }, ctx.devices()))
+         throw error(CL_INVALID_IMAGE_SIZE);
+
+      return new image2d_array(ctx, flags, format,
+                               desc->image_width, desc->image_height,
+                               desc->image_array_size, desc->image_row_pitch,
+                               desc->image_slice_pitch, host_ptr);
+
    case CL_MEM_OBJECT_IMAGE3D:
       if (!desc->image_width || !desc->image_height || !desc->image_depth)
          throw error(CL_INVALID_IMAGE_SIZE);
@@ -215,7 +231,6 @@ clCreateImage(cl_context d_ctx, cl_mem_flags d_flags,
    case CL_MEM_OBJECT_IMAGE1D:
    case CL_MEM_OBJECT_IMAGE1D_ARRAY:
    case CL_MEM_OBJECT_IMAGE1D_BUFFER:
-   case CL_MEM_OBJECT_IMAGE2D_ARRAY:
       // XXX - Not implemented.
       throw error(CL_IMAGE_FORMAT_NOT_SUPPORTED);
 
