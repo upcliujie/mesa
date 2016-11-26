@@ -441,6 +441,10 @@ clGetImageInfo(cl_mem d_mem, cl_image_info param,
       buf.as_scalar<size_t>() = img.depth();
       break;
 
+   case CL_IMAGE_ARRAY_SIZE:
+      buf.as_scalar<size_t>() = img.array_size();
+      break;
+
    default:
       throw error(CL_INVALID_VALUE);
    }
