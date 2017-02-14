@@ -230,6 +230,10 @@ _eglParseDisplayAttribList(_EGLPlatformType platform,
 {
    _EGLDevice *dev = NULL;
    int fd = -1;
+   EGLBoolean track_references = EGL_FALSE;
+#ifdef HAVE_ANDROID_PLATFORM
+   track_references = EGL_TRUE;
+#endif
 
    if (platform == _EGL_PLATFORM_DEVICE)
    {
@@ -271,6 +275,13 @@ _eglParseDisplayAttribList(_EGLPlatformType platform,
          fd = (int) value;
          break;
 
+      /* EGL_KHR_display_reference adds the optional boolean attribute
+       * EGL_TRACK_REFERENCES_KHR
+       */
+      case EGL_TRACK_REFERENCES_KHR:
+         track_references = value;
+         break;
+
       default:
          goto bad_attribute;
       }
@@ -293,6 +304,8 @@ _eglParseDisplayAttribList(_EGLPlatformType platform,
          }
       }
    }
+
+   display->TrackReferences = track_references;
 
    return EGL_TRUE;
 

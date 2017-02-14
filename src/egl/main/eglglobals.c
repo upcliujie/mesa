@@ -98,6 +98,7 @@ struct _egl_global _eglGlobal =
    " EGL_KHR_platform_gbm"
 #endif
    " EGL_MESA_platform_surfaceless"
+   " EGL_KHR_display_reference"
    "",
 
    .debugCallback = NULL,
