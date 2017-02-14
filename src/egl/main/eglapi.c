@@ -677,6 +677,8 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
                "%d.%d", disp->Version / 10, disp->Version % 10);
    }
 
+   disp->RefCount++;
+
    /* Update applications version of major and minor if not NULL */
    if ((major != NULL) && (minor != NULL)) {
       *major = disp->Version / 10;
@@ -697,7 +699,12 @@ eglTerminate(EGLDisplay dpy)
    if (!disp)
       RETURN_EGL_ERROR(NULL, EGL_BAD_DISPLAY, EGL_FALSE);
 
-   if (disp->Initialized) {
+   if (disp->TrackReferences)
+      disp->RefCount--;
+   else
+      disp->RefCount = 0;
+
+   if (disp->Initialized && disp->RefCount == 0) {
       disp->Driver->Terminate(disp);
       /* do not reset disp->Driver */
       disp->ClientAPIsString[0] = 0;
@@ -2672,17 +2679,28 @@ eglQueryDisplayAttribEXT(EGLDisplay dpy,
 {
    _EGLDisplay *disp = _eglLockDisplay(dpy);
 
-   _EGL_FUNC_START(NULL, EGL_NONE, NULL, EGL_FALSE);
+   _EGL_FUNC_START(disp, EGL_OBJECT_DISPLAY_KHR, dpy, EGL_FALSE);
    _EGL_CHECK_DISPLAY(disp, EGL_FALSE);
 
    switch (attribute) {
    case EGL_DEVICE_EXT:
       *value = (EGLAttrib) disp->Device;
       break;
+   case EGL_TRACK_REFERENCES_KHR:
+      *value = disp->TrackReferences;
+      break;
    default:
       RETURN_EGL_ERROR(disp, EGL_BAD_ATTRIBUTE, EGL_FALSE);
    }
    RETURN_EGL_SUCCESS(disp, EGL_TRUE);
+}
+
+static EGLBoolean EGLAPIENTRY
+eglQueryDisplayAttribKHR(EGLDisplay dpy,
+                         EGLint attribute,
+                         EGLAttrib *value)
+{
+   return eglQueryDisplayAttribEXT(dpy, attribute, value);
 }
 
 static char * EGLAPIENTRY
