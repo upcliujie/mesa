@@ -492,6 +492,8 @@ static EGLBoolean
 _eglParseX11DisplayAttribList(_EGLDisplay *display,
                               const EGLAttrib *attrib_list)
 {
+   EGLBoolean track_references = EGL_FALSE;
+
    if (attrib_list == NULL) {
       return EGL_TRUE;
    }
@@ -508,11 +510,20 @@ _eglParseX11DisplayAttribList(_EGLDisplay *display,
       case EGL_PLATFORM_X11_SCREEN_EXT:
          break;
 
+      /* EGL_KHR_display_reference adds the optional boolean attribute
+       * EGL_TRACK_REFERENCES_KHR
+       */
+      case EGL_TRACK_REFERENCES_KHR:
+         track_references = value;
+         break;
+
       default:
          _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
          return EGL_FALSE;
       }
    }
+
+   display->TrackReferences = track_references;
 
    return EGL_TRUE;
 }
@@ -538,6 +549,8 @@ static EGLBoolean
 _eglParseXcbDisplayAttribList(_EGLDisplay *display,
                               const EGLAttrib *attrib_list)
 {
+   EGLBoolean track_references = EGL_FALSE;
+
    if (attrib_list == NULL) {
       return EGL_TRUE;
    }
@@ -554,11 +567,20 @@ _eglParseXcbDisplayAttribList(_EGLDisplay *display,
       case EGL_PLATFORM_XCB_SCREEN_EXT:
          break;
 
+      /* EGL_KHR_display_reference adds the optional boolean attribute
+       * EGL_TRACK_REFERENCES_KHR
+       */
+      case EGL_TRACK_REFERENCES_KHR:
+         track_references = value;
+         break;
+
       default:
          _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
          return EGL_FALSE;
       }
    }
+
+   display->TrackReferences = track_references;
 
    return EGL_TRUE;
 }
@@ -584,6 +606,8 @@ static EGLBoolean
 _eglParseDRMDisplayAttribList(_EGLDisplay *display,
                               const EGLAttrib *attrib_list)
 {
+   EGLBoolean track_references = EGL_FALSE;
+
    if (attrib_list == NULL) {
       return EGL_TRUE;
    }
@@ -593,11 +617,21 @@ _eglParseDRMDisplayAttribList(_EGLDisplay *display,
       EGLint value = attrib_list[i + 1];
 
       switch (attrib) {
+
+      /* EGL_KHR_display_reference adds the optional boolean attribute
+       * EGL_TRACK_REFERENCES_KHR
+       */
+      case EGL_TRACK_REFERENCES_KHR:
+         track_references = value;
+         break;
+
       default:
          _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
          return EGL_FALSE;
       }
    }
+
+   display->TrackReferences = track_references;
 
    return EGL_TRUE;
 }
@@ -623,6 +657,8 @@ static EGLBoolean
 _eglParseWaylandDisplayAttribList(_EGLDisplay *display,
                                   const EGLAttrib *attrib_list)
 {
+   EGLBoolean track_references = EGL_FALSE;
+
    if (attrib_list == NULL) {
       return EGL_TRUE;
    }
@@ -632,11 +668,21 @@ _eglParseWaylandDisplayAttribList(_EGLDisplay *display,
       EGLint value = attrib_list[i + 1];
 
       switch (attrib) {
+
+      /* EGL_KHR_display_reference adds the optional boolean attribute
+       * EGL_TRACK_REFERENCES_KHR
+       */
+      case EGL_TRACK_REFERENCES_KHR:
+         track_references = value;
+         break;
+
       default:
          _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
          return EGL_FALSE;
       }
    }
+
+   display->TrackReferences = track_references;
 
    return EGL_TRUE;
 }
@@ -661,6 +707,8 @@ static EGLBoolean
 _eglParseSurfacelessDisplayAttribList(_EGLDisplay *display,
                                       const EGLAttrib *attrib_list)
 {
+   EGLBoolean track_references = EGL_FALSE;
+
    if (attrib_list == NULL) {
       return EGL_TRUE;
    }
@@ -670,11 +718,21 @@ _eglParseSurfacelessDisplayAttribList(_EGLDisplay *display,
       EGLint value = attrib_list[i + 1];
 
       switch (attrib) {
+
+      /* EGL_KHR_display_reference adds the optional boolean attribute
+       * EGL_TRACK_REFERENCES_KHR
+       */
+      case EGL_TRACK_REFERENCES_KHR:
+         track_references = value;
+         break;
+
       default:
          _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
          return EGL_FALSE;
       }
    }
+
+   display->TrackReferences = track_references;
 
    return EGL_TRUE;
 }
@@ -707,6 +765,8 @@ static EGLBoolean
 _eglParseAndroidDisplayAttribList(_EGLDisplay *display,
                                   const EGLAttrib *attrib_list)
 {
+   EGLBoolean track_references = EGL_TRUE;
+
    if (attrib_list == NULL) {
       return EGL_TRUE;
    }
@@ -716,11 +776,21 @@ _eglParseAndroidDisplayAttribList(_EGLDisplay *display,
       EGLint value = attrib_list[i + 1];
 
       switch (attrib) {
+
+      /* EGL_KHR_display_reference adds the optional boolean attribute
+       * EGL_TRACK_REFERENCES_KHR
+       */
+      case EGL_TRACK_REFERENCES_KHR:
+         track_references = value;
+         break;
+
       default:
          _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
          return EGL_FALSE;
       }
    }
+
+   display->TrackReferences = track_references;
 
    return EGL_TRUE;
 }
@@ -747,6 +817,8 @@ _eglParseDeviceDisplayAttribList(_EGLDisplay *display,
                                  _EGLDevice *dev,
                                  int *fd)
 {
+   EGLBoolean track_references = EGL_FALSE;
+
    if (attrib_list == NULL) {
       return EGL_TRUE;
    }
@@ -756,6 +828,13 @@ _eglParseDeviceDisplayAttribList(_EGLDisplay *display,
       EGLint value = attrib_list[i + 1];
 
       switch (attrib) {
+
+      /* EGL_KHR_display_reference adds the optional boolean attribute
+       * EGL_TRACK_REFERENCES_KHR
+       */
+      case EGL_TRACK_REFERENCES_KHR:
+         track_references = value;
+         break;
 
       /* EGL_EXT_platform_device does not recognize any attributes,
        * EGL_EXT_device_drm adds the optional EGL_DRM_MASTER_FD_EXT.
@@ -772,6 +851,8 @@ _eglParseDeviceDisplayAttribList(_EGLDisplay *display,
          return EGL_FALSE;
       }
    }
+
+   display->TrackReferences = track_references;
 
    return EGL_TRUE;
 }
