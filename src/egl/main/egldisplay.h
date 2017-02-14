@@ -195,6 +195,10 @@ struct _egl_display
 
    EGLSetBlobFuncANDROID BlobCacheSet;
    EGLGetBlobFuncANDROID BlobCacheGet;
+
+   /* KHR_display_reference */
+   EGLBoolean TrackReferences;
+   EGLint RefCount;
 };
 
 
