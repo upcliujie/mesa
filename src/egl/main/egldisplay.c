@@ -657,24 +657,49 @@ _eglGetWaylandDisplay(struct wl_display *native_display,
 }
 #endif /* HAVE_WAYLAND_PLATFORM */
 
+static EGLBoolean
+_eglParseSurfacelessDisplayAttribList(_EGLDisplay *display,
+                                      const EGLAttrib *attrib_list)
+{
+   if (attrib_list == NULL) {
+      return EGL_TRUE;
+   }
+
+   for (int i = 0; attrib_list[i] != EGL_NONE; i += 2) {
+      EGLint attrib = attrib_list[i];
+      EGLint value = attrib_list[i + 1];
+
+      switch (attrib) {
+      default:
+         _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
+         return EGL_FALSE;
+      }
+   }
+
+   return EGL_TRUE;
+}
+
 _EGLDisplay*
 _eglGetSurfacelessDisplay(void *native_display,
                           const EGLAttrib *attrib_list)
 {
+   _EGLDisplay *dpy;
+
    /* This platform has no native display. */
    if (native_display != NULL) {
       _eglError(EGL_BAD_PARAMETER, "eglGetPlatformDisplay");
       return NULL;
    }
 
-   /* This platform recognizes no display attributes. */
-   if (attrib_list != NULL && attrib_list[0] != EGL_NONE) {
-      _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
+   dpy = _eglFindDisplay(_EGL_PLATFORM_SURFACELESS,
+                         native_display,
+                         attrib_list);
+
+   if (!_eglParseSurfacelessDisplayAttribList(dpy, attrib_list)) {
       return NULL;
    }
 
-   return _eglFindDisplay(_EGL_PLATFORM_SURFACELESS, native_display,
-                          attrib_list);
+   return dpy;
 }
 
 #ifdef HAVE_ANDROID_PLATFORM
