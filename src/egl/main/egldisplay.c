@@ -741,6 +741,41 @@ _eglGetAndroidDisplay(void *native_display,
 }
 #endif /* HAVE_ANDROID_PLATFORM */
 
+static EGLBoolean
+_eglParseDeviceDisplayAttribList(_EGLDisplay *display,
+                                 const EGLAttrib *attrib_list,
+                                 _EGLDevice *dev,
+                                 int *fd)
+{
+   if (attrib_list == NULL) {
+      return EGL_TRUE;
+   }
+
+   for (int i = 0; attrib_list[i] != EGL_NONE; i += 2) {
+      EGLint attrib = attrib_list[i];
+      EGLint value = attrib_list[i + 1];
+
+      switch (attrib) {
+
+      /* EGL_EXT_platform_device does not recognize any attributes,
+       * EGL_EXT_device_drm adds the optional EGL_DRM_MASTER_FD_EXT.
+       */
+      case EGL_DRM_MASTER_FD_EXT:
+         if (_eglDeviceSupports(dev, _EGL_DEVICE_DRM)) {
+            *fd = (int) value;
+            break;
+         }
+         // fallthrough
+
+      default:
+         _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
+         return EGL_FALSE;
+      }
+   }
+
+   return EGL_TRUE;
+}
+
 _EGLDisplay*
 _eglGetDeviceDisplay(void *native_display,
                      const EGLAttrib *attrib_list)
@@ -755,28 +790,13 @@ _eglGetDeviceDisplay(void *native_display,
       return NULL;
    }
 
-   if (attrib_list) {
-      for (int i = 0; attrib_list[i] != EGL_NONE; i += 2) {
-         EGLAttrib attrib = attrib_list[i];
-         EGLAttrib value = attrib_list[i + 1];
-
-         /* EGL_EXT_platform_device does not recognize any attributes,
-          * EGL_EXT_device_drm adds the optional EGL_DRM_MASTER_FD_EXT.
-          */
-
-         if (!_eglDeviceSupports(dev, _EGL_DEVICE_DRM) ||
-             attrib != EGL_DRM_MASTER_FD_EXT) {
-            _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
-            return NULL;
-         }
-
-         fd = (int) value;
-      }
-   }
-
    display = _eglFindDisplay(_EGL_PLATFORM_DEVICE, native_display, attrib_list);
    if (!display) {
       _eglError(EGL_BAD_ALLOC, "eglGetPlatformDisplay");
+      return NULL;
+   }
+
+   if (!_eglParseDeviceDisplayAttribList(display, attrib_list, dev, &fd)) {
       return NULL;
    }
 
