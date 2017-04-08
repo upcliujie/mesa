@@ -530,23 +530,44 @@ _eglGetX11Display(Display *native_display,
 #endif /* HAVE_X11_PLATFORM */
 
 #ifdef HAVE_XCB_PLATFORM
+static EGLBoolean
+_eglParseXcbDisplayAttribList(_EGLDisplay *display,
+                              const EGLAttrib *attrib_list)
+{
+   for (int i = 0; attrib_list && attrib_list[i] != EGL_NONE; i += 2) {
+      EGLAttrib attrib = attrib_list[i];
+      EGLAttrib value = attrib_list[i + 1];
+
+      switch (attrib) {
+
+      /* EGL_EXT_platform_xcb recognizes exactly one attribute,
+       * EGL_PLATFORM_XCB_SCREEN_EXT, which is optional.
+       */
+      case EGL_PLATFORM_XCB_SCREEN_EXT:
+         break;
+
+      default:
+         _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
+         return EGL_FALSE;
+      }
+   }
+
+   return EGL_TRUE;
+}
+
 _EGLDisplay*
 _eglGetXcbDisplay(xcb_connection_t *native_display,
                   const EGLAttrib *attrib_list)
 {
-   /* EGL_EXT_platform_xcb recognizes exactly one attribute,
-    * EGL_PLATFORM_XCB_SCREEN_EXT, which is optional.
-    */
-   if (attrib_list != NULL) {
-      for (int i = 0; attrib_list[i] != EGL_NONE; i += 2) {
-         if (attrib_list[i] != EGL_PLATFORM_XCB_SCREEN_EXT) {
-            _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
-            return NULL;
-         }
-      }
+   _EGLDisplay *dpy = _eglFindDisplay(_EGL_PLATFORM_XCB,
+                                      native_display,
+                                      attrib_list);
+
+   if (!_eglParseXcbDisplayAttribList(dpy, attrib_list)) {
+      return NULL;
    }
 
-   return _eglFindDisplay(_EGL_PLATFORM_XCB, native_display, attrib_list);
+   return dpy;
 }
 #endif /* HAVE_XCB_PLATFORM */
 
