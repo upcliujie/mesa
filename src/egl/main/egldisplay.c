@@ -703,19 +703,41 @@ _eglGetSurfacelessDisplay(void *native_display,
 }
 
 #ifdef HAVE_ANDROID_PLATFORM
+static EGLBoolean
+_eglParseAndroidDisplayAttribList(_EGLDisplay *display,
+                                  const EGLAttrib *attrib_list)
+{
+   if (attrib_list == NULL) {
+      return EGL_TRUE;
+   }
+
+   for (int i = 0; attrib_list[i] != EGL_NONE; i += 2) {
+      EGLint attrib = attrib_list[i];
+      EGLint value = attrib_list[i + 1];
+
+      switch (attrib) {
+      default:
+         _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
+         return EGL_FALSE;
+      }
+   }
+
+   return EGL_TRUE;
+}
+
 _EGLDisplay*
 _eglGetAndroidDisplay(void *native_display,
                           const EGLAttrib *attrib_list)
 {
+   _EGL_Display *dpy = _eglFindDisplay(_EGL_PLATFORM_ANDROID,
+                                       native_display,
+                                       attrib_list);
 
-   /* This platform recognizes no display attributes. */
-   if (attrib_list != NULL && attrib_list[0] != EGL_NONE) {
-      _eglError(EGL_BAD_ATTRIBUTE, "eglGetPlatformDisplay");
+   if (!_eglParseAndroidDisplayAttribList(dpy, attrib_list)) {
       return NULL;
    }
 
-   return _eglFindDisplay(_EGL_PLATFORM_ANDROID, native_display,
-                          attrib_list);
+   return dpy;
 }
 #endif /* HAVE_ANDROID_PLATFORM */
 
