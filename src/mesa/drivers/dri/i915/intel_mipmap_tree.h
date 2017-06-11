@@ -75,6 +75,8 @@ struct intel_miptree_map {
    void *ptr;
    /** Stride of the mapping. */
    int stride;
+   /** Reference count */
+   int refcnt;
 };
 
 /**
