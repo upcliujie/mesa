@@ -824,6 +824,7 @@ intel_miptree_attach_map(struct intel_mipmap_tree *mt,
    assert(mt->level[level].slice[slice].map == NULL);
    mt->level[level].slice[slice].map = map;
 
+   map->refcnt = 1;
    map->mode = mode;
    map->x = x;
    map->y = y;
@@ -844,6 +845,7 @@ intel_miptree_release_map(struct intel_mipmap_tree *mt,
    struct intel_miptree_map **map;
 
    map = &mt->level[level].slice[slice].map;
+   assert((*map)->refcnt == 0);
    free(*map);
    *map = NULL;
 }
@@ -861,7 +863,22 @@ intel_miptree_map(struct intel_context *intel,
                   void **out_ptr,
                   int *out_stride)
 {
-   struct intel_miptree_map *map;
+   struct intel_miptree_map *map = mt->level[level].slice[slice].map;
+
+   if (map) {
+      assert(map->mode == mode);
+      assert(map->x == x);
+      assert(map->y == y);
+      assert(map->w == w);
+      assert(map->h == h);
+
+      assert(map->refcnt > 0);
+      map->refcnt++;
+
+      *out_ptr = map->ptr;
+      *out_stride = map->stride;
+      return;
+   }
 
    map = intel_miptree_attach_map(mt, level, slice, x, y, w, h, mode);
    if (!map) {
@@ -881,9 +898,6 @@ intel_miptree_map(struct intel_context *intel,
 
    *out_ptr = map->ptr;
    *out_stride = map->stride;
-
-   if (map->ptr == NULL)
-      intel_miptree_release_map(mt, level, slice);
 }
 
 void
@@ -899,6 +913,9 @@ intel_miptree_unmap(struct intel_context *intel,
 
    DBG("%s: mt %p (%s) level %d slice %d\n", __func__,
        mt, _mesa_get_format_name(mt->format), level, slice);
+
+   if (--map->refcnt > 0)
+      return;
 
    if (map->mt) {
       intel_miptree_unmap_blit(intel, mt, map, level, slice);
