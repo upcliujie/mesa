@@ -245,7 +245,7 @@ isl_surf_fill_image_param(const struct isl_device *dev,
        * Yf or Ys tiling.  Fortunately, we never need it on gen9 where Yf and
        * Ys were added.
        */
-      assert(ISL_DEV_GEN(dev) >= 9);
+      assert(ISL_GFX_VER(dev) >= 9);
       assert(isl_has_matching_typed_storage_image_format(dev->info,
                                                          view->format));
       return;
