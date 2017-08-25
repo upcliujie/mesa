@@ -80,6 +80,16 @@ static const uint8_t isl_encode_tiling[] = {
 };
 #endif
 
+#if GFX_VER >= 9
+static const uint8_t isl_tiling_to_gen_trmode[] = {
+   [ISL_TILING_Y0]         = NONE,
+   [ISL_TILING_SKL_Yf]     = TILEYF,
+   [ISL_TILING_SKL_Ys]     = TILEYS,
+   [ISL_TILING_ICL_Yf]     = TILEYF,
+   [ISL_TILING_ICL_Ys]     = TILEYS,
+};
+#endif
+
 #if GFX_VER >= 7
 static const uint32_t isl_encode_multisample_layout[] = {
    [ISL_MSAA_LAYOUT_NONE]           = MSFMT_MSS,
@@ -467,7 +477,6 @@ isl_genX(surf_fill_state_s)(const struct isl_device *dev, void *state,
    /* We don't use miptails yet.  The PRM recommends that you set "Mip Tail
     * Start LOD" to 15 to prevent the hardware from trying to use them.
     */
-   s.TiledResourceMode = NONE;
    s.MipTailStartLOD = 15;
 #endif
 
@@ -493,8 +502,17 @@ isl_genX(surf_fill_state_s)(const struct isl_device *dev, void *state,
                            ISL_ARRAY_PITCH_SPAN_COMPACT;
 #endif
 
-#if GFX_VER >= 8
+#if GFX_VER >= 9
    assert(GFX_VER < 12 || info->surf->tiling != ISL_TILING_W);
+   s.TileMode = isl_encode_tiling[info->surf->tiling];
+   if (isl_tiling_is_std_y(info->surf->tiling)) {
+      /* 1D Yf/Ys is supposed to have a tile mode of linear */
+      if (info->surf->dim == ISL_SURF_DIM_1D)
+         s.TileMode = LINEAR;
+      s.TiledResourceMode = isl_tiling_to_gen_trmode[info->surf->tiling];
+   }
+#elif GFX_VER >= 8
+   assert(!isl_tiling_is_std_y(info->surf->tiling));
    s.TileMode = isl_encode_tiling[info->surf->tiling];
 #else
    s.TiledSurface = info->surf->tiling != ISL_TILING_LINEAR,
