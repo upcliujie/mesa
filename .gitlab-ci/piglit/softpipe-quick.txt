@@ -58,7 +58,6 @@ glx/glx_ext_import_context/imported context has same context id: fail
 glx/glx_ext_import_context/make current, multi process: fail
 glx/glx_ext_import_context/make current, single process: fail
 glx/glx_ext_import_context/query context info: fail
-glx/glx_ext_no_config_context/no fbconfig: skip
 hiz/hiz-depth-read-fbo-d24-s8: skip
 hiz/hiz-depth-read-window-stencil0: crash
 hiz/hiz-depth-read-window-stencil1: crash
@@ -3056,10 +3055,10 @@ wgl/wgl-sanity: skip
 summary:
        name:  results
        ----  --------
-       pass:    26859
+       pass:    26860
        fail:      398
       crash:       38
-       skip:     2590
+       skip:     2589
     timeout:        0
        warn:        4
  incomplete:        0
