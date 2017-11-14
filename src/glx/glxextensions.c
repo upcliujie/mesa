@@ -81,6 +81,7 @@ struct extension_info
 
 /* *INDENT-OFF* */
 static const struct extension_info known_glx_extensions[] = {
+<<<<<<< HEAD
    { GLX(ARB_context_flush_control),      N, N },
    { GLX(ARB_create_context),             N, N },
    { GLX(ARB_create_context_no_error),    N, N },
@@ -96,6 +97,7 @@ static const struct extension_info known_glx_extensions[] = {
    { GLX(EXT_fbconfig_packed_float),      Y, N },
    { GLX(EXT_framebuffer_sRGB),           Y, N },
    { GLX(EXT_import_context),             Y, N },
+   { GLX(EXT_no_config_context),          N, N },
    { GLX(EXT_swap_control),               N, Y },
    { GLX(EXT_swap_control_tear),          N, Y },
    { GLX(EXT_texture_from_pixmap),        N, N },
@@ -117,6 +119,45 @@ static const struct extension_info known_glx_extensions[] = {
    { GLX(SGI_make_current_read),          N, N },
    { GLX(SGI_swap_control),               N, N },
    { GLX(SGI_video_sync),                 N, Y },
+=======
+   { GLX(ARB_context_flush_control),   VER(0,0), Y, N, N, N },
+   { GLX(ARB_create_context),          VER(0,0), Y, N, N, N },
+   { GLX(ARB_create_context_no_error), VER(1,4), Y, N, N, N },
+   { GLX(ARB_create_context_profile),  VER(0,0), Y, N, N, N },
+   { GLX(ARB_create_context_robustness), VER(0,0), Y, N, N, N },
+   { GLX(ARB_fbconfig_float),          VER(0,0), Y, Y, N, N },
+   { GLX(ARB_framebuffer_sRGB),        VER(0,0), Y, Y, N, N },
+   { GLX(ARB_get_proc_address),        VER(1,4), Y, N, Y, N },
+   { GLX(ARB_multisample),             VER(1,4), Y, Y, N, N },
+   { GLX(EXT_buffer_age),              VER(0,0), Y, N, N, Y },
+   { GLX(EXT_create_context_es2_profile), VER(0,0), Y, N, N, N },
+   { GLX(EXT_create_context_es_profile), VER(0,0), Y, N, N, N },
+   { GLX(EXT_fbconfig_packed_float),   VER(0,0), Y, Y, N, N },
+   { GLX(EXT_framebuffer_sRGB),        VER(0,0), Y, Y, N, N },
+   { GLX(EXT_import_context),          VER(0,0), Y, Y, N, N },
+   { GLX(EXT_no_config_context),       VER(0,0), Y, N, N, N },
+   { GLX(EXT_swap_control),            VER(0,0), Y, N, N, Y },
+   { GLX(EXT_swap_control_tear),       VER(0,0), Y, N, N, Y },
+   { GLX(EXT_texture_from_pixmap),     VER(0,0), Y, N, N, N },
+   { GLX(EXT_visual_info),             VER(0,0), Y, Y, N, N },
+   { GLX(EXT_visual_rating),           VER(0,0), Y, Y, N, N },
+   { GLX(ATI_pixel_format_float),      VER(0,0), N, N, N, N },
+   { GLX(INTEL_swap_event),            VER(0,0), Y, N, N, N },
+   { GLX(MESA_copy_sub_buffer),        VER(0,0), Y, N, N, N },
+   { GLX(MESA_multithread_makecurrent),VER(0,0), Y, N, N, Y },
+   { GLX(MESA_query_renderer),         VER(0,0), Y, N, N, Y },
+   { GLX(MESA_swap_control),           VER(0,0), Y, N, N, Y },
+   { GLX(NV_float_buffer),             VER(0,0), N, N, N, N },
+   { GLX(OML_swap_method),             VER(0,0), Y, Y, N, N },
+   { GLX(OML_sync_control),            VER(0,0), Y, N, N, Y },
+   { GLX(SGIS_multisample),            VER(0,0), Y, Y, N, N },
+   { GLX(SGIX_fbconfig),               VER(1,3), Y, Y, N, N },
+   { GLX(SGIX_pbuffer),                VER(1,3), Y, Y, N, N },
+   { GLX(SGIX_visual_select_group),    VER(0,0), Y, Y, N, N },
+   { GLX(SGI_make_current_read),       VER(1,3), Y, N, N, N },
+   { GLX(SGI_swap_control),            VER(0,0), Y, N, N, N },
+   { GLX(SGI_video_sync),              VER(0,0), Y, N, N, Y },
+>>>>>>> f374e2e5903... glx: Implement GLX_EXT_no_config_context
    { NULL }
 };
 
@@ -624,12 +665,24 @@ __glXGetStringFromTable(const struct extension_info *ext,
  * Get the string of client library supported extensions.
  */
 const char *
-__glXGetClientExtensions(void)
+__glXGetClientExtensions(Display *dpy)
 {
    if (__glXGLXClientExtensions == NULL) {
+      unsigned char usable[__GLX_EXT_BYTES];
+
       __glXExtensionsCtr();
+
+      /* work around broken old servers */
+      memcpy(usable, client_glx_support, sizeof(usable));
+      if (VendorRelease(dpy) < 12006000)
+         CLR_BIT(usable, EXT_no_config_context_bit);
+
       __glXGLXClientExtensions = __glXGetStringFromTable(known_glx_extensions,
+<<<<<<< HEAD
                                                          NULL);
+=======
+                                                         usable);
+>>>>>>> f374e2e5903... glx: Implement GLX_EXT_no_config_context
    }
 
    return __glXGLXClientExtensions;
