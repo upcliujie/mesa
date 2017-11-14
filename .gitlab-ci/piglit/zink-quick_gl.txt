@@ -10,7 +10,6 @@ glx/glx-copy-sub-buffer samples=32: skip
 glx/glx-copy-sub-buffer samples=4: skip
 glx/glx-copy-sub-buffer samples=6: skip
 glx/glx-copy-sub-buffer samples=8: skip
-glx/glx-multi-window-single-context: fail
 glx/glx-multithread-buffer: fail
 glx/glx-multithread-makecurrent-1: skip
 glx/glx-multithread-makecurrent-2: skip
@@ -3181,8 +3180,8 @@ wgl/wgl-sanity: skip
 summary:
        name:  results
        ----  --------
-       pass:    18464
-       fail:     1213
+       pass:    18465
+       fail:     1212
       crash:       19
        skip:     1921
     timeout:        0
