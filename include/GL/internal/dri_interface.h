@@ -1013,6 +1013,7 @@ enum dri_loader_cap {
     */
    DRI_LOADER_CAP_RGBA_ORDERING,
    DRI_LOADER_CAP_FP16,
+   DRI_LOADER_CAP_YUV_SURFACE,
 };
 
 struct __DRIdri2LoaderExtensionRec {
