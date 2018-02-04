@@ -501,6 +501,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
 	.ANDROID_native_buffer                 = device->rad_info.has_syncobj_wait_for_submit,
 #endif
 	.GOOGLE_decorate_string                = true,
+	.GOOGLE_display_timing                 = true,
 	.GOOGLE_hlsl_functionality1            = true,
 	.GOOGLE_user_type                      = true,
 	.NV_compute_shader_derivatives         = true,
