@@ -494,6 +494,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .ANDROID_native_buffer = true,
 #endif
       .GOOGLE_decorate_string = true,
+      .GOOGLE_display_timing = true,
       .GOOGLE_hlsl_functionality1 = true,
       .GOOGLE_user_type = true,
       .NV_compute_shader_derivatives = true,
@@ -2410,7 +2411,7 @@ radv_get_memory_budget_properties(VkPhysicalDevice physicalDevice,
    VkPhysicalDeviceMemoryProperties *memory_properties = &device->memory_properties;
 
    /* For all memory heaps, the computation of budget is as follow:
-    *	heap_budget = heap_size - global_heap_usage + app_heap_usage
+    *   heap_budget = heap_size - global_heap_usage + app_heap_usage
     *
     * The Vulkan spec 1.1.97 says that the budget should include any
     * currently allocated device memory.
@@ -6411,11 +6412,11 @@ radv_initialise_color_surface(struct radv_device *device, struct radv_color_buff
       blend_bypass = 1;
    }
 #if 0
-	if ((ntype == V_028C70_NUMBER_UINT || ntype == V_028C70_NUMBER_SINT) &&
-	    (format == V_028C70_COLOR_8 ||
-	     format == V_028C70_COLOR_8_8 ||
-	     format == V_028C70_COLOR_8_8_8_8))
-		->color_is_int8 = true;
+        if ((ntype == V_028C70_NUMBER_UINT || ntype == V_028C70_NUMBER_SINT) &&
+            (format == V_028C70_COLOR_8 ||
+             format == V_028C70_COLOR_8_8 ||
+             format == V_028C70_COLOR_8_8_8_8))
+                ->color_is_int8 = true;
 #endif
    cb->cb_color_info =
       S_028C70_FORMAT(format) | S_028C70_COMP_SWAP(swap) | S_028C70_BLEND_CLAMP(blend_clamp) |
@@ -7575,24 +7576,24 @@ radv_GetCalibratedTimestampsEXT(VkDevice _device, uint32_t timestampCount,
     * period and that the application is sampling GPU and monotonic:
     *
     *                               s                 e
-    *			 w x y z 0 1 2 3 4 5 6 7 8 9 a b c d e f
-    *	Raw              -_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-
+    *                    w x y z 0 1 2 3 4 5 6 7 8 9 a b c d e f
+    *   Raw              -_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-
     *
     *                               g
-    *		  0         1         2         3
-    *	GPU       -----_____-----_____-----_____-----_____
+    *             0         1         2         3
+    *   GPU       -----_____-----_____-----_____-----_____
     *
     *                                                m
-    *					    x y z 0 1 2 3 4 5 6 7 8 9 a b c
-    *	Monotonic                           -_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-
+    *                                       x y z 0 1 2 3 4 5 6 7 8 9 a b c
+    *   Monotonic                           -_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-
     *
-    *	Interval                     <----------------->
-    *	Deviation           <-------------------------->
+    *   Interval                     <----------------->
+    *   Deviation           <-------------------------->
     *
-    *		s  = read(raw)       2
-    *		g  = read(GPU)       1
-    *		m  = read(monotonic) 2
-    *		e  = read(raw)       b
+    *           s  = read(raw)       2
+    *           g  = read(GPU)       1
+    *           m  = read(monotonic) 2
+    *           e  = read(raw)       b
     *
     * We round the sample interval up by one tick to cover sampling error
     * in the interval clock
