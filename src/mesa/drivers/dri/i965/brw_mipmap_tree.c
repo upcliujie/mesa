@@ -248,7 +248,7 @@ get_num_phys_layers(const struct isl_surf *surf, unsigned level)
       return surf->phys_level0_sa.array_len;
 
    if (surf->dim_layout == ISL_DIM_LAYOUT_GEN4_2D)
-      return minify(surf->phys_level0_sa.array_len, level);
+      return minify(surf->phys_level0_sa.depth, level);
 
    return minify(surf->phys_level0_sa.depth, level);
 }
