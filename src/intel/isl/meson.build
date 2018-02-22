@@ -169,4 +169,15 @@ if with_tests
     ),
     suite : ['intel'],
   )
+
+  test(
+    'isl_tile_std_y',
+    executable(
+      'isl_tile_std_y_test',
+      'tests/isl_tile_std_y_test.c',
+      dependencies : dep_m,
+      include_directories : [inc_include, inc_src, inc_gallium, inc_intel],
+      link_with : [libisl, libintel_dev],
+    )
+  )
 endif
