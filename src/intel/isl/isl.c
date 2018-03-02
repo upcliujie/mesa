@@ -331,6 +331,7 @@ isl_tiling_get_info(enum isl_tiling tiling,
       return;
    }
 
+   uint32_t max_miptail_levels = 0;
    switch (tiling) {
    case ISL_TILING_LINEAR:
       assert(bs > 0);
@@ -389,6 +390,7 @@ isl_tiling_get_info(enum isl_tiling tiling,
             .d = 1,
             .a = 1,
          };
+         max_miptail_levels = is_Ys ? 16 : 12;
          break;
 
       case ISL_SURF_DIM_2D:
@@ -412,6 +414,7 @@ isl_tiling_get_info(enum isl_tiling tiling,
             logical_el.h >>= (ffs(samples) - 1) / 2;
             logical_el.a = samples;
          }
+         max_miptail_levels = is_Ys ? 16 - ffs(samples) : 11;
          break;
 
       case ISL_SURF_DIM_3D:
@@ -429,6 +432,7 @@ isl_tiling_get_info(enum isl_tiling tiling,
             .d = 1 << (4 - ((ffs(format_bpb) - 3) / 3) + (1 * is_Ys)),
             .a = 1,
          };
+         max_miptail_levels = is_Ys ? 16 : 12;
          break;
       }
 
@@ -504,6 +508,7 @@ isl_tiling_get_info(enum isl_tiling tiling,
       .format_bpb = format_bpb,
       .logical_extent_el = logical_el,
       .phys_extent_B = phys_B,
+      .max_miptail_levels = max_miptail_levels,
    };
 }
 
