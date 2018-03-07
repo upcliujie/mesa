@@ -376,8 +376,11 @@ isl_tiling_get_info(enum isl_tiling tiling,
       break;
 
    case ISL_TILING_SKL_Yf:
-   case ISL_TILING_SKL_Ys: {
-      bool is_Ys = tiling == ISL_TILING_SKL_Ys;
+   case ISL_TILING_SKL_Ys:
+   case ISL_TILING_ICL_Yf:
+   case ISL_TILING_ICL_Ys: {
+      bool is_Ys = tiling == ISL_TILING_SKL_Ys ||
+                   tiling == ISL_TILING_ICL_Ys;
 
       assert(bs > 0);
       unsigned width = 1 << (6 + (ffs(bs) / 2) + (2 * is_Ys));
@@ -560,7 +563,9 @@ isl_surf_choose_tiling(const struct isl_device *dev,
       CHOOSE(ISL_TILING_LINEAR);
    }
 
+   CHOOSE(ISL_TILING_ICL_Ys);
    CHOOSE(ISL_TILING_SKL_Ys);
+   CHOOSE(ISL_TILING_ICL_Yf);
    CHOOSE(ISL_TILING_SKL_Yf);
    CHOOSE(ISL_TILING_Y0);
    CHOOSE(ISL_TILING_X);
