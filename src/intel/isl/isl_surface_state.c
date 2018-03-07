@@ -70,8 +70,8 @@ static const uint8_t isl_encode_tiling[] = {
    [ISL_TILING_LINEAR]  = LINEAR,
    [ISL_TILING_X]       = XMAJOR,
    [ISL_TILING_Y0]      = YMAJOR,
-   [ISL_TILING_Yf]      = YMAJOR,
-   [ISL_TILING_Ys]      = YMAJOR,
+   [ISL_TILING_SKL_Yf] = YMAJOR,
+   [ISL_TILING_SKL_Ys] = YMAJOR,
 #if GFX_VER <= 11
    [ISL_TILING_W]       = WMAJOR,
 #endif
