@@ -49,6 +49,8 @@ isl_tiling_to_i915_tiling(enum isl_tiling tiling)
    case ISL_TILING_W:
    case ISL_TILING_GEN9_Yf:
    case ISL_TILING_GEN9_Ys:
+   case ISL_TILING_GEN10_Yf:
+   case ISL_TILING_GEN10_Ys:
    case ISL_TILING_GEN12_CCS:
       return I915_TILING_NONE;
    }
