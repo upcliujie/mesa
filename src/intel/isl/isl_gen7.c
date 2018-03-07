@@ -198,15 +198,15 @@ isl_gen6_filter_tiling(const struct isl_device *dev,
 
    /* Clear flags unsupported on this hardware */
    if (ISL_DEV_GEN(dev) < 9) {
-      *flags &= ~ISL_TILING_Yf_BIT;
-      *flags &= ~ISL_TILING_Ys_BIT;
+      *flags &= ~ISL_TILING_GEN9_Yf_BIT;
+      *flags &= ~ISL_TILING_GEN9_Ys_BIT;
    }
 
    /* And... clear the Yf and Ys bits anyway because Anvil doesn't support
     * them yet.
     */
-   *flags &= ~ISL_TILING_Yf_BIT; /* FINISHME[SKL]: Support Yf */
-   *flags &= ~ISL_TILING_Ys_BIT; /* FINISHME[SKL]: Support Ys */
+   *flags &= ~ISL_TILING_GEN9_Yf_BIT; /* FINISHME[SKL]: Support Yf */
+   *flags &= ~ISL_TILING_GEN9_Ys_BIT; /* FINISHME[SKL]: Support Ys */
 
    if (isl_surf_usage_is_depth(info->usage)) {
       /* Depth requires Y. */
@@ -259,7 +259,7 @@ isl_gen6_filter_tiling(const struct isl_device *dev,
           * completeness.
           */
          *flags &= (ISL_TILING_LINEAR_BIT | ISL_TILING_X_BIT |
-                    ISL_TILING_Y0_BIT | ISL_TILING_Yf_BIT);
+                    ISL_TILING_Y0_BIT | ISL_TILING_GEN9_Yf_BIT);
       } else {
          /* Before Skylake, the display engine does not accept Y */
          *flags &= (ISL_TILING_LINEAR_BIT | ISL_TILING_X_BIT);
