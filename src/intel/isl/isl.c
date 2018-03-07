@@ -375,9 +375,9 @@ isl_tiling_get_info(enum isl_tiling tiling,
       phys_B = isl_extent2d(128, 32);
       break;
 
-   case ISL_TILING_Yf:
-   case ISL_TILING_Ys: {
-      bool is_Ys = tiling == ISL_TILING_Ys;
+   case ISL_TILING_SKL_Yf:
+   case ISL_TILING_SKL_Ys: {
+      bool is_Ys = tiling == ISL_TILING_SKL_Ys;
 
       assert(bs > 0);
       unsigned width = 1 << (6 + (ffs(bs) / 2) + (2 * is_Ys));
@@ -560,8 +560,8 @@ isl_surf_choose_tiling(const struct isl_device *dev,
       CHOOSE(ISL_TILING_LINEAR);
    }
 
-   CHOOSE(ISL_TILING_Ys);
-   CHOOSE(ISL_TILING_Yf);
+   CHOOSE(ISL_TILING_SKL_Ys);
+   CHOOSE(ISL_TILING_SKL_Yf);
    CHOOSE(ISL_TILING_Y0);
    CHOOSE(ISL_TILING_X);
    CHOOSE(ISL_TILING_W);
@@ -909,7 +909,7 @@ isl_calc_phys_level0_extent_sa(const struct isl_device *dev,
          assert(dim_layout == ISL_DIM_LAYOUT_GFX4_2D ||
                 dim_layout == ISL_DIM_LAYOUT_GFX6_STENCIL_HIZ);
 
-      if (tiling == ISL_TILING_Ys && info->samples > 1)
+      if (tiling == ISL_TILING_SKL_Ys && info->samples > 1)
          isl_finishme("%s:%s: multisample TileYs layout", __FILE__, __func__);
 
       switch (msaa_layout) {
