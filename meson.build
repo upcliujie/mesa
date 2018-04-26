@@ -1579,7 +1579,10 @@ foreach d : _libdrm_checks
   if d[1]
     set_variable(
       'dep_libdrm_' + d[0],
-      dependency('libdrm_' + d[0], version : '>=' + _drm_ver)
+      dependency(
+        'libdrm_' + d[0], version : '>=' + _drm_ver,
+        fallback : ['libdrm', 'ext_libdrm_' + d[0]]
+      )
     )
   endif
 endforeach
@@ -1588,7 +1591,8 @@ with_gallium_drisw_kms = false
 dep_libdrm = dependency(
   'libdrm', version : '>=' + _drm_ver,
   # GNU/Hurd includes egl_dri2, without drm.
-  required : (with_dri2 and host_machine.system() != 'gnu') or with_dri3
+  required : (with_dri2 and host_machine.system() != 'gnu') or with_dri3,
+  fallback : ['libdrm', 'ext_libdrm'],
 )
 if dep_libdrm.found()
   pre_args += '-DHAVE_LIBDRM'
