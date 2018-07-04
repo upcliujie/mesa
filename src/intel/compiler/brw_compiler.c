@@ -51,7 +51,8 @@
    .use_scoped_barrier = true,                                                \
    .support_8bit_alu = true,                                                  \
    .support_16bit_alu = true,                                                 \
-   .lower_uniforms_to_ubo = true
+   .lower_uniforms_to_ubo = true,                                             \
+   .derivatives_safe_after_discard = true
 
 #define COMMON_SCALAR_OPTIONS                                                 \
    .lower_to_scalar = true,                                                   \
