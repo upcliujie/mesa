@@ -3434,6 +3434,13 @@ typedef struct nir_shader_compiler_options {
    /** Whether 16-bit ALU is supported. */
    bool support_16bit_alu;
 
+   /**
+    * Whether or not derivatives are still a safe operation after a discard
+    * has occurred.  Optimization passes may be able to be a bit more
+    * aggressive if this is true.
+    */
+   bool derivatives_safe_after_discard;
+
    unsigned max_unroll_iterations;
    unsigned max_unroll_iterations_aggressive;
 
@@ -5192,6 +5199,7 @@ bool nir_opt_vectorize(nir_shader *shader, nir_opt_vectorize_cb filter,
                        void *data);
 
 bool nir_opt_conditional_discard(nir_shader *shader);
+bool nir_opt_move_discards_to_top(nir_shader *shader);
 
 typedef bool (*nir_should_vectorize_mem_func)(unsigned align_mul,
                                               unsigned align_offset,
