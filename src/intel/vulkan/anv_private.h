@@ -3041,6 +3041,7 @@ struct anv_cmd_pool {
    struct list_head                             cmd_buffers;
 
    VkCommandPoolCreateFlags                     flags;
+   struct anv_queue_family *                    queue_family;
 };
 
 #define ANV_CMD_BUFFER_BATCH_SIZE 8192
