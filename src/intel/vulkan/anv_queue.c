@@ -350,8 +350,16 @@ anv_queue_submit_deferred_locked(struct anv_queue *queue, uint32_t *advance)
 static VkResult
 anv_device_submit_deferred_locked(struct anv_device *device)
 {
+   VkResult result = VK_SUCCESS;
    uint32_t advance = 0;
-   return anv_queue_submit_deferred_locked(&device->queue, &advance);
+
+   for (uint32_t i = 0; i < device->queue_count; i++) {
+      struct anv_queue *queue = &device->queues[i];
+      VkResult qres = anv_queue_submit_deferred_locked(queue, &advance);
+      if (qres != VK_SUCCESS)
+         result = qres;
+   }
+   return result;
 }
 
 static void
@@ -466,7 +474,8 @@ _anv_queue_submit(struct anv_queue *queue, struct anv_queue_submit **_submit,
    } else {
       pthread_mutex_lock(&queue->device->mutex);
       list_addtail(&submit->link, &queue->queued_submits);
-      VkResult result = anv_device_submit_deferred_locked(queue->device);
+      uint32_t advance;
+      VkResult result = anv_queue_submit_deferred_locked(queue, &advance);
       if (flush_queue) {
          while (result == VK_SUCCESS && !list_is_empty(&queue->queued_submits)) {
             int ret = pthread_cond_wait(&queue->device->queue_submit,
@@ -476,7 +485,7 @@ _anv_queue_submit(struct anv_queue *queue, struct anv_queue_submit **_submit,
                break;
             }
 
-            result = anv_device_submit_deferred_locked(queue->device);
+            result = anv_queue_submit_deferred_locked(queue, &advance);
          }
       }
       pthread_mutex_unlock(&queue->device->mutex);

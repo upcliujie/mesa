@@ -1424,7 +1424,8 @@ struct anv_device {
 
     struct anv_state                            slice_hash;
 
-    struct anv_queue                            queue;
+    uint32_t                                    queue_count;
+    struct anv_queue  *                         queues;
 
     struct anv_scratch_pool                     scratch_pool;
 
