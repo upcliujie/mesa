@@ -557,19 +557,20 @@ new_edit_window(struct aub_mem *mem, uint64_t address, uint32_t len)
 /* 4 level page table walk windows */
 
 static void
-display_pml4_level(struct aub_mem *mem, uint64_t table_addr, uint64_t table_virt_addr, int level)
+display_pml4_level(struct pml4_window *window, uint64_t table_addr, uint64_t table_virt_addr, int level)
 {
    if (level == 0)
       return;
 
    struct gen_batch_decode_bo table_bo =
-      aub_mem_get_phys_addr_data(mem, table_addr);
-   const uint64_t *table = (const uint64_t *) ((const uint8_t *) table_bo.map +
-                                               table_addr - table_bo.addr);
-   if (!table) {
+      aub_mem_get_phys_addr_data(window->mem, table_addr);
+   if (!table_bo.map) {
       ImGui::TextColored(context.cfg.missing_color, "Page not available");
       return;
    }
+
+   const uint64_t *table = (const uint64_t *) ((const uint8_t *) table_bo.map +
+                                               table_addr - table_bo.addr);
 
    uint64_t addr_increment = 1ULL << (12 + 9 * (level - 1));
 
@@ -580,7 +581,16 @@ display_pml4_level(struct aub_mem *mem, uint64_t table_addr, uint64_t table_virt
          if (!available)
             continue;
          ImGui::Text("Entry%03i - phys_addr=0x%lx - virt_addr=0x%lx",
-                     e, table[e], entry_virt_addr);
+                     e, table[e], entry_virt_addr); ImGui::SameLine();
+
+         char label[40];
+         snprintf(label, sizeof(label), "View page##%lx", entry_virt_addr);
+         if (ImGui::Button(label)) {
+            snprintf(label, sizeof(label), "PPGTT page 0x%lx", entry_virt_addr);
+            struct edit_window *edit_window =
+               new_edit_window(label, window->mem, true, entry_virt_addr, 4096);
+            list_addtail(&edit_window->base.parent_link, &window->base.children_windows);
+         }
       }
    } else {
       for (int e = 0; e < 512; e++) {
@@ -591,7 +601,7 @@ display_pml4_level(struct aub_mem *mem, uint64_t table_addr, uint64_t table_virt
                                available ? ImGuiTreeNodeFlags_Framed : 0,
                                "Entry%03i - phys_addr=0x%lx - virt_addr=0x%lx",
                                e, table[e], entry_virt_addr)) {
-            display_pml4_level(mem, table[e] & ~0xffful, entry_virt_addr, level -1);
+            display_pml4_level(window, table[e] & ~0xffful, entry_virt_addr, level -1);
             ImGui::TreePop();
          }
       }
@@ -605,7 +615,7 @@ display_pml4_window(struct window *win)
 
    ImGui::Text("pml4: %lx", window->mem->pml4);
    ImGui::BeginChild(ImGui::GetID("##block"));
-   display_pml4_level(window->mem, window->mem->pml4, 0, 4);
+   display_pml4_level(window, window->mem->pml4, 0, 4);
    ImGui::EndChild();
 }
 
