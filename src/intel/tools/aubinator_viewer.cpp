@@ -265,6 +265,10 @@ struct pml4_window {
    struct window base;
 
    struct aub_mem *mem;
+
+   char address_str[20];
+   bool address_lookup;
+   uint64_t address;
 };
 
 struct shader_window {
@@ -569,6 +573,19 @@ new_edit_window(const char *title, struct aub_mem *mem,
 
 /* 4 level page table walk windows */
 
+static uint64_t address_increment(int level)
+{
+   return 1ULL << (12 + 9 * (level - 1));
+}
+
+static bool address_contained(bool lookup, uint64_t base_address, int level, uint64_t address)
+{
+   if (!lookup)
+      return true;
+
+   return base_address <= address && (base_address + address_increment(level)) > address;
+}
+
 static void
 display_pml4_level(struct pml4_window *window, uint64_t table_addr, uint64_t table_virt_addr, int level)
 {
@@ -585,13 +602,14 @@ display_pml4_level(struct pml4_window *window, uint64_t table_addr, uint64_t tab
    const uint64_t *table = (const uint64_t *) ((const uint8_t *) table_bo.map +
                                                table_addr - table_bo.addr);
 
-   uint64_t addr_increment = 1ULL << (12 + 9 * (level - 1));
+   uint64_t addr_increment = address_increment(level);
 
    if (level == 1) {
       for (int e = 0; e < 512; e++) {
          bool available = (table[e] & 1) != 0;
          uint64_t entry_virt_addr = table_virt_addr + e * addr_increment;
-         if (!available)
+         if (!address_contained(window->address_lookup, entry_virt_addr,
+                                level, window->address) || !available)
             continue;
          ImGui::Text("Entry%03i - phys_addr=0x%lx - virt_addr=0x%lx",
                      e, table[e], entry_virt_addr); ImGui::SameLine();
@@ -609,11 +627,13 @@ display_pml4_level(struct pml4_window *window, uint64_t table_addr, uint64_t tab
       for (int e = 0; e < 512; e++) {
          bool available = (table[e] & 1) != 0;
          uint64_t entry_virt_addr = table_virt_addr + e * addr_increment;
-         if (available &&
+         if (address_contained(window->address_lookup, entry_virt_addr,
+                               level, window->address) && available &&
              ImGui::TreeNodeEx(&table[e],
                                available ? ImGuiTreeNodeFlags_Framed : 0,
-                               "Entry%03i - phys_addr=0x%lx - virt_addr=0x%lx",
-                               e, table[e], entry_virt_addr)) {
+                               "Entry%03i - phys_addr=0x%lx - virt_addr=0x%lx-0x%lx",
+                               e, table[e], entry_virt_addr,
+                               entry_virt_addr + addr_increment - 1)) {
             display_pml4_level(window, table[e] & ~0xffful, entry_virt_addr, level -1);
             ImGui::TreePop();
          }
@@ -626,7 +646,14 @@ display_pml4_window(struct window *win)
 {
    struct pml4_window *window = (struct pml4_window *) win;
 
-   ImGui::Text("pml4: %lx", window->mem->pml4);
+   ImGui::Text("pml4 ggtt address : 0x%lx",
+               window->mem->pml4); ImGui::SameLine();
+   ImGui::InputText("address lookup (hex)",
+                    window->address_str, sizeof(window->address_str),
+                    ImGuiInputTextFlags_CharsHexadecimal);
+   window->address_lookup = strlen(window->address_str) > 0;
+   window->address = strtol(window->address_str, NULL, 16);
+
    ImGui::BeginChild(ImGui::GetID("##block"));
    display_pml4_level(window, window->mem->pml4, 0, 4);
    ImGui::EndChild();
