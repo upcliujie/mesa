@@ -213,6 +213,20 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
       genX(flush_pipeline_select)(cmd_buffer, gfx12_wa_pipeline);
 #endif
 
+#if GFX_VERx10 >= 125
+   anv_batch_emit(
+      &cmd_buffer->batch, GENX(3DSTATE_BINDING_TABLE_POOL_ALLOC), btpa) {
+      btpa.BindingTablePoolBaseAddress =
+         anv_cmd_buffer_surface_base_address(cmd_buffer);
+      /* The pool size is based on the Binding Table Pointer, which only
+       * has 21 bits (20:5), but we specify the size here in multiples of
+       * 4K pages.
+       */
+      btpa.BindingTablePoolBufferSize = BINDING_TABLE_POOL_BLOCK_SIZE / 4096;
+      btpa.MOCS = mocs;
+   }
+#endif
+
    /* After re-setting the surface state base address, we have to do some
     * cache flusing so that the sampler engine will pick up the new
     * SURFACE_STATE objects and binding tables. From the Broadwell PRM,
