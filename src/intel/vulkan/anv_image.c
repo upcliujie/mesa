@@ -799,7 +799,7 @@ add_primary_surface(struct anv_device *device,
       /* TODO: Should return
        * VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT in come cases.
        */
-      return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+      return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
    }
 
    image->planes[plane].aux_usage = ISL_AUX_USAGE_NONE;
