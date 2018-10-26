@@ -260,6 +260,7 @@ struct brw_blorp_base_key
 struct brw_blorp_blit_prog_key
 {
    struct brw_blorp_base_key base;
+   bool compute_program;
 
    /* Number of samples per pixel that have been configured in the surface
     * state for texturing from.

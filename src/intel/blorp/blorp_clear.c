@@ -38,6 +38,7 @@
 struct brw_blorp_const_color_prog_key
 {
    struct brw_blorp_base_key base;
+   bool compute_program;
    bool use_simd16_replicated_data;
    bool clear_rgb_as_red;
 };
@@ -53,6 +54,7 @@ blorp_params_get_clear_kernel(struct blorp_batch *batch,
 
    const struct brw_blorp_const_color_prog_key blorp_key = {
       .base = BRW_BLORP_BASE_KEY_INIT(BLORP_SHADER_TYPE_CLEAR),
+      .compute_program = false,
       .use_simd16_replicated_data = use_replicated_data,
       .clear_rgb_as_red = clear_rgb_as_red,
    };
