@@ -334,7 +334,9 @@ genX(blorp_exec)(struct blorp_batch *batch,
    if (params->stencil.enabled)
       brw_cache_flush_for_depth(brw, params->stencil.addr.buffer);
 
-   brw_select_pipeline(brw, BRW_RENDER_PIPELINE);
+   enum brw_pipeline pipeline =
+      params->cs_prog_data ? BRW_COMPUTE_PIPELINE : BRW_RENDER_PIPELINE;
+   brw_select_pipeline(brw, pipeline);
    brw_emit_l3_state(brw);
 
 retry:
@@ -369,9 +371,11 @@ retry:
                             params->y1 - params->y0, scale);
    }
 
-   blorp_emit(batch, GENX(3DSTATE_DRAWING_RECTANGLE), rect) {
-      rect.ClippedDrawingRectangleXMax = MAX2(params->x1, params->x0) - 1;
-      rect.ClippedDrawingRectangleYMax = MAX2(params->y1, params->y0) - 1;
+   if (!params->cs_prog_data) {
+      blorp_emit(batch, GENX(3DSTATE_DRAWING_RECTANGLE), rect) {
+         rect.ClippedDrawingRectangleXMax = MAX2(params->x1, params->x0) - 1;
+         rect.ClippedDrawingRectangleYMax = MAX2(params->y1, params->y0) - 1;
+      }
    }
 
    blorp_exec(batch, params);
