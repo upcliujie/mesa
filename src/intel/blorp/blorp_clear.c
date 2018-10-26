@@ -29,6 +29,7 @@
 
 #include "blorp_priv.h"
 #include "compiler/brw_eu_defines.h"
+#include "dev/intel_debug.h"
 
 #include "blorp_nir_builder.h"
 
@@ -40,14 +41,15 @@ struct brw_blorp_const_color_prog_key
    struct brw_blorp_base_key base;
    bool use_simd16_replicated_data;
    bool clear_rgb_as_red;
+   uint8_t local_y;
 };
 #pragma pack(pop)
 
 static bool
-blorp_params_get_clear_kernel(struct blorp_batch *batch,
-                              struct blorp_params *params,
-                              bool use_replicated_data,
-                              bool clear_rgb_as_red)
+blorp_params_get_clear_kernel_fs(struct blorp_batch *batch,
+                                 struct blorp_params *params,
+                                 bool use_replicated_data,
+                                 bool clear_rgb_as_red)
 {
    struct blorp_context *blorp = batch->blorp;
 
@@ -55,6 +57,7 @@ blorp_params_get_clear_kernel(struct blorp_batch *batch,
       .base = BRW_BLORP_BASE_KEY_INIT(BLORP_SHADER_TYPE_CLEAR),
       .use_simd16_replicated_data = use_replicated_data,
       .clear_rgb_as_red = clear_rgb_as_red,
+      .local_y = 0,
    };
 
    if (blorp->lookup_shader(batch, &blorp_key, sizeof(blorp_key),
@@ -109,6 +112,118 @@ blorp_params_get_clear_kernel(struct blorp_batch *batch,
 
    ralloc_free(mem_ctx);
    return result;
+}
+
+static nir_ssa_def *
+expand_to_vec4(nir_builder *b, nir_ssa_def *value)
+{
+   if (value->num_components == 4)
+      return value;
+
+   unsigned swiz[4];
+   for (unsigned i = 0; i < 4; i++)
+      swiz[i] = i < value->num_components ? i : 0;
+   return nir_swizzle(b, value, swiz, 4);
+}
+
+static bool
+blorp_params_get_clear_kernel_cs(struct blorp_batch *batch,
+                                 struct blorp_params *params,
+                                 bool clear_rgb_as_red)
+{
+   struct blorp_context *blorp = batch->blorp;
+
+   const struct brw_blorp_const_color_prog_key blorp_key = {
+      .base = BRW_BLORP_BASE_KEY_INIT(BLORP_SHADER_TYPE_CLEAR),
+      .base.shader_pipeline = BLORP_SHADER_PIPELINE_COMPUTE,
+      .use_simd16_replicated_data = false,
+      .clear_rgb_as_red = clear_rgb_as_red,
+      .local_y = blorp_get_cs_local_y(params),
+   };
+
+   if (blorp->lookup_shader(batch, &blorp_key, sizeof(blorp_key),
+                            &params->cs_prog_kernel, &params->cs_prog_data))
+      return true;
+
+   void *mem_ctx = ralloc_context(NULL);
+
+   nir_builder b;
+   blorp_nir_init_shader(&b, mem_ctx, MESA_SHADER_COMPUTE, "BLORP-gpgpu-clear");
+   assert(blorp_key.local_y != 0 && (16 % blorp_key.local_y == 0));
+   b.shader->info.workgroup_size[0] = 16 / blorp_key.local_y;
+   b.shader->info.workgroup_size[1] = blorp_key.local_y;
+   b.shader->info.workgroup_size[2] = 1;
+
+   nir_ssa_def *dst_pos = nir_load_global_invocation_id(&b, 32);
+
+   nir_variable *v_color =
+      BLORP_CREATE_NIR_INPUT(b.shader, clear_color, glsl_vec4_type());
+   nir_ssa_def *color = nir_load_var(&b, v_color);
+
+   nir_variable *v_discard_rect =
+      BLORP_CREATE_NIR_INPUT(b.shader, discard_rect, glsl_vec4_type());
+   nir_ssa_def *discard_rect = nir_load_var(&b, v_discard_rect);
+   nir_ssa_def *in_bounds = blorp_check_in_bounds(&b, discard_rect, dst_pos);
+
+   if (clear_rgb_as_red) {
+      nir_ssa_def *comp = nir_umod(&b, nir_channel(&b, dst_pos, 0),
+                                       nir_imm_int(&b, 3));
+      nir_ssa_def *color_component =
+         nir_bcsel(&b, nir_ieq(&b, comp, nir_imm_int(&b, 0)),
+                       nir_channel(&b, color, 0),
+                       nir_bcsel(&b, nir_ieq(&b, comp, nir_imm_int(&b, 1)),
+                                     nir_channel(&b, color, 1),
+                                     nir_channel(&b, color, 2)));
+
+      nir_ssa_def *u = nir_ssa_undef(&b, 1, 32);
+      color = nir_vec4(&b, color_component, u, u, u);
+   }
+
+   nir_push_if(&b, in_bounds);
+
+   nir_image_store(&b, nir_imm_int(&b, 0),
+                   expand_to_vec4(&b, dst_pos),
+                   nir_imm_int(&b, 0),
+                   expand_to_vec4(&b, color),
+                   nir_imm_int(&b, 0),
+                   .image_dim = GLSL_SAMPLER_DIM_3D,
+                   .image_array = false,
+                   .access = ACCESS_NON_READABLE);
+
+   nir_pop_if(&b, NULL);
+
+   struct brw_cs_prog_key cs_key;
+   brw_blorp_init_cs_prog_key(&cs_key);
+
+   struct brw_cs_prog_data prog_data;
+   const unsigned *program =
+      blorp_compile_cs(blorp, mem_ctx, b.shader, &cs_key, &prog_data);
+
+   bool result =
+      blorp->upload_shader(batch, MESA_SHADER_COMPUTE,
+                           &blorp_key, sizeof(blorp_key),
+                           program, prog_data.base.program_size,
+                           &prog_data.base, sizeof(prog_data),
+                           &params->cs_prog_kernel, &params->cs_prog_data);
+
+   ralloc_free(mem_ctx);
+   return result;
+}
+
+static bool
+blorp_params_get_clear_kernel(struct blorp_batch *batch,
+                              struct blorp_params *params,
+                              bool use_replicated_data,
+                              bool clear_rgb_as_red)
+{
+   if (batch->flags & BLORP_BATCH_USE_COMPUTE) {
+      assert(!use_replicated_data);
+      return blorp_params_get_clear_kernel_cs(batch, params, clear_rgb_as_red);
+   } else {
+      return blorp_params_get_clear_kernel_fs(batch, params,
+                                              use_replicated_data,
+                                              clear_rgb_as_red);
+   }
 }
 
 #pragma pack(push, 1)
@@ -344,6 +459,7 @@ blorp_fast_clear(struct blorp_batch *batch,
    struct blorp_params params;
    blorp_params_init(&params);
    params.num_layers = num_layers;
+   assert((batch->flags & BLORP_BATCH_USE_COMPUTE) == 0);
 
    params.x0 = x0;
    params.y0 = y0;
@@ -378,6 +494,22 @@ blorp_fast_clear(struct blorp_batch *batch,
    batch->blorp->exec(batch, &params);
 }
 
+bool
+blorp_clear_supports_compute(struct blorp_context *blorp, bool color_masked,
+                             bool blend_enabled, enum isl_aux_usage aux_usage)
+{
+   if (blorp->isl_dev->info->ver < 7)
+      return false;
+   if (color_masked || blend_enabled)
+      return false;
+   if (blorp->isl_dev->info->ver >= 12) {
+      return aux_usage == ISL_AUX_USAGE_GFX12_CCS_E ||
+             aux_usage == ISL_AUX_USAGE_NONE;
+   } else {
+      return aux_usage == ISL_AUX_USAGE_NONE;
+   }
+}
+
 void
 blorp_clear(struct blorp_batch *batch,
             const struct blorp_surf *surf,
@@ -390,6 +522,18 @@ blorp_clear(struct blorp_batch *batch,
    struct blorp_params params;
    blorp_params_init(&params);
    params.snapshot_type = INTEL_SNAPSHOT_SLOW_COLOR_CLEAR;
+
+   const bool compute = batch->flags & BLORP_BATCH_USE_COMPUTE;
+   if (compute) {
+      UNUSED bool color_masked =
+         color_write_disable &&
+         (color_write_disable[0] || color_write_disable[1] ||
+          color_write_disable[2] || color_write_disable[3]);
+      bool blocs_supported =
+         blorp_clear_supports_compute(batch->blorp, color_masked, false,
+                                      surf->aux_usage);
+      assert(blocs_supported);
+   }
 
    /* Manually apply the clear destination swizzle.  This way swizzled clears
     * will work for swizzles which we can't normally use for rendering and it
@@ -439,6 +583,9 @@ blorp_clear(struct blorp_batch *batch,
    if (batch->blorp->isl_dev->info->ver < 6)
       use_simd16_replicated_data = false;
 
+   if (compute)
+      use_simd16_replicated_data = false;
+
    /* Constant color writes ignore everyting in blend and color calculator
     * state.  This is not documented.
     */
@@ -455,7 +602,7 @@ blorp_clear(struct blorp_batch *batch,
                                       clear_rgb_as_red))
       return;
 
-   if (!blorp_ensure_sf_program(batch, &params))
+   if (!compute && !blorp_ensure_sf_program(batch, &params))
       return;
 
    while (num_layers > 0) {
@@ -467,6 +614,13 @@ blorp_clear(struct blorp_batch *batch,
       params.y0 = y0;
       params.x1 = x1;
       params.y1 = y1;
+
+      if (compute) {
+         params.wm_inputs.discard_rect.x0 = x0;
+         params.wm_inputs.discard_rect.y0 = y0;
+         params.wm_inputs.discard_rect.x1 = x1;
+         params.wm_inputs.discard_rect.y1 = y1;
+      }
 
       if (params.dst.tile_x_sa || params.dst.tile_y_sa) {
          assert(params.dst.surf.samples == 1);
@@ -570,6 +724,8 @@ blorp_clear_stencil_as_rgba(struct blorp_batch *batch,
                             uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1,
                             uint8_t stencil_mask, uint8_t stencil_value)
 {
+   assert((batch->flags & BLORP_BATCH_USE_COMPUTE) == 0);
+
    /* We only support separate W-tiled stencil for now */
    if (surf->surf->format != ISL_FORMAT_R8_UINT ||
        surf->surf->tiling != ISL_TILING_W)
@@ -674,6 +830,8 @@ blorp_clear_depth_stencil(struct blorp_batch *batch,
                           bool clear_depth, float depth_value,
                           uint8_t stencil_mask, uint8_t stencil_value)
 {
+   assert((batch->flags & BLORP_BATCH_USE_COMPUTE) == 0);
+
    if (!clear_depth && blorp_clear_stencil_as_rgba(batch, stencil, level,
                                                    start_layer, num_layers,
                                                    x0, y0, x1, y1,
@@ -999,6 +1157,7 @@ blorp_clear_attachments(struct blorp_batch *batch,
    struct blorp_params params;
    blorp_params_init(&params);
 
+   assert((batch->flags & BLORP_BATCH_USE_COMPUTE) == 0);
    assert(batch->flags & BLORP_BATCH_NO_EMIT_DEPTH_STENCIL);
 
    params.x0 = x0;
@@ -1057,6 +1216,7 @@ blorp_ccs_resolve(struct blorp_batch *batch,
                   enum isl_format format,
                   enum isl_aux_op resolve_op)
 {
+   assert((batch->flags & BLORP_BATCH_USE_COMPUTE) == 0);
    struct blorp_params params;
 
    blorp_params_init(&params);
@@ -1273,6 +1433,8 @@ blorp_ccs_ambiguate(struct blorp_batch *batch,
                     struct blorp_surf *surf,
                     uint32_t level, uint32_t layer)
 {
+   assert((batch->flags & BLORP_BATCH_USE_COMPUTE) == 0);
+
    if (ISL_GFX_VER(batch->blorp->isl_dev) >= 10) {
       /* On gfx10 and above, we have a hardware resolve op for this */
       return blorp_ccs_resolve(batch, surf, level, layer, 1,
