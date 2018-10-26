@@ -25,6 +25,7 @@
 #include "compiler/nir/nir_format_convert.h"
 
 #include "blorp_priv.h"
+#include "dev/intel_debug.h"
 
 #include "util/format_rgb9e5.h"
 /* header-only include needed for _mesa_unorm_to_float and friends. */
@@ -44,6 +45,9 @@ struct brw_blorp_blit_vars {
    nir_variable *v_src_offset;
    nir_variable *v_dst_offset;
    nir_variable *v_src_inv_size;
+
+   /* gl_GlobalInvocationID */
+   nir_variable *global_inv_id;
 };
 
 static void
@@ -62,6 +66,11 @@ brw_blorp_blit_vars_init(nir_builder *b, struct brw_blorp_blit_vars *v,
    LOAD_INPUT(src_inv_size, glsl_vector_type(GLSL_TYPE_FLOAT, 2))
 
 #undef LOAD_INPUT
+
+   v->global_inv_id = nir_variable_create(b->shader, nir_var_system_value,
+                                          glsl_vector_type(GLSL_TYPE_UINT, 3),
+                                          "gl_GlobalInvocationID");
+   v->global_inv_id->data.location = SYSTEM_VALUE_GLOBAL_INVOCATION_ID;
 }
 
 static nir_ssa_def *
@@ -82,6 +91,33 @@ blorp_blit_get_frag_coords(nir_builder *b,
    if (key->need_dst_offset)
       coord = nir_isub(b, coord, nir_load_var(b, v->v_dst_offset));
 
+   if (key->persample_msaa_dispatch) {
+      return nir_vec3(b, nir_channel(b, coord, 0), nir_channel(b, coord, 1),
+                      nir_load_sample_id(b));
+   } else {
+      return nir_vec2(b, nir_channel(b, coord, 0), nir_channel(b, coord, 1));
+   }
+}
+
+static nir_ssa_def *
+blorp_blit_get_cs_dst_coords(nir_builder *b,
+                             const struct brw_blorp_blit_prog_key *key,
+                             struct brw_blorp_blit_vars *v)
+{
+   nir_ssa_def *coord = nir_load_var(b, v->global_inv_id);
+
+   /* Account for destination surface intratile offset
+    *
+    * Transformation parameters giving translation from destination to source
+    * coordinates don't take into account possible intra-tile destination
+    * offset.  Therefore it has to be first subtracted from the incoming
+    * coordinates.  Vertices are set up based on coordinates containing the
+    * intra-tile offset.
+    */
+   if (key->need_dst_offset)
+      coord = nir_isub(b, coord, nir_load_var(b, v->v_dst_offset));
+
+   assert(!key->persample_msaa_dispatch);
    if (key->persample_msaa_dispatch) {
       return nir_vec3(b, nir_channel(b, coord, 0), nir_channel(b, coord, 1),
                       nir_load_sample_id(b));
@@ -1143,11 +1179,12 @@ convert_color(struct nir_builder *b, nir_ssa_def *color,
  * of samples).
  */
 static nir_shader *
-brw_blorp_build_nir_shader(struct blorp_context *blorp, void *mem_ctx,
+brw_blorp_build_nir_shader(struct blorp_context *blorp,
+                           struct blorp_batch *batch, void *mem_ctx,
                            const struct brw_blorp_blit_prog_key *key)
 {
    const struct intel_device_info *devinfo = blorp->isl_dev->info;
-   nir_ssa_def *src_pos, *dst_pos, *color;
+   nir_ssa_def *src_pos, *dst_pos, *store_pos, *color;
 
    /* Sanity checks */
    if (key->dst_tiled_w && key->rt_samples > 1) {
@@ -1178,12 +1215,23 @@ brw_blorp_build_nir_shader(struct blorp_context *blorp, void *mem_ctx,
           (key->dst_samples <= 1));
 
    nir_builder b;
-   blorp_nir_init_shader(&b, mem_ctx, MESA_SHADER_FRAGMENT, NULL);
+   const bool compute =
+      key->base.shader_pipeline == BLORP_SHADER_PIPELINE_COMPUTE;
+   gl_shader_stage stage =
+      compute ? MESA_SHADER_COMPUTE : MESA_SHADER_FRAGMENT;
+   blorp_nir_init_shader(&b, mem_ctx, stage, NULL);
 
    struct brw_blorp_blit_vars v;
    brw_blorp_blit_vars_init(&b, &v, key);
 
-   dst_pos = blorp_blit_get_frag_coords(&b, key, &v);
+   dst_pos = compute ?
+      blorp_blit_get_cs_dst_coords(&b, key, &v) :
+      blorp_blit_get_frag_coords(&b, key, &v);
+
+   store_pos = dst_pos;
+
+   if (compute && key->need_dst_offset)
+      store_pos = nir_iadd(&b, store_pos, nir_load_var(&b, v.v_dst_offset));
 
    /* Render target and texture hardware don't support W tiling until Gfx8. */
    const bool rt_tiled_w = false;
@@ -1235,11 +1283,20 @@ brw_blorp_build_nir_shader(struct blorp_context *blorp, void *mem_ctx,
     * If we need to kill pixels that are outside the destination rectangle,
     * now is the time to do it.
     */
+   bool if_pushed = false;
    if (key->use_kill) {
       nir_ssa_def *bounds_rect = nir_load_var(&b, v.v_discard_rect);
       nir_ssa_def *in_bounds = blorp_check_in_bounds(&b, bounds_rect,
                                                      dst_pos);
-      nir_discard_if(&b, nir_inot(&b, in_bounds));
+      if (!compute) {
+         nir_discard_if(&b, nir_inot(&b, in_bounds));
+      } else {
+         nir_ssa_def *bounds_rect = nir_load_var(&b, v.v_discard_rect);
+         nir_ssa_def *in_bounds = blorp_check_in_bounds(&b, bounds_rect,
+                                                        dst_pos);
+         nir_push_if(&b, in_bounds);
+         if_pushed = true;
+      }
    }
 
    src_pos = blorp_blit_apply_transform(&b, nir_i2f32(&b, dst_pos), &v);
@@ -1433,7 +1490,22 @@ brw_blorp_build_nir_shader(struct blorp_context *blorp, void *mem_ctx,
       color = nir_vec4(&b, color_component, u, u, u);
    }
 
-   if (key->dst_usage == ISL_SURF_USAGE_RENDER_TARGET_BIT) {
+   if (compute) {
+      assert(store_pos->num_components == 2);
+      nir_ssa_def *dst_z =
+         nir_channel(&b, nir_load_var(&b, v.global_inv_id), 2);
+      store_pos = nir_vec3(&b, nir_channel(&b, store_pos, 0),
+                           nir_channel(&b, store_pos, 1),
+                           dst_z);
+      nir_image_store(&b, nir_imm_int(&b, 0),
+                      nir_pad_vector_imm_int(&b, store_pos, 0, 4),
+                      nir_imm_int(&b, 0),
+                      nir_pad_vector_imm_int(&b, color, 0, 4),
+                      nir_imm_int(&b, 0),
+                      .image_dim = GLSL_SAMPLER_DIM_2D,
+                      .image_array = true,
+                      .access = ACCESS_NON_READABLE);
+   } else if (key->dst_usage == ISL_SURF_USAGE_RENDER_TARGET_BIT) {
       nir_variable *color_out =
          nir_variable_create(b.shader, nir_var_shader_out,
                              glsl_vec4_type(), "gl_FragColor");
@@ -1455,13 +1527,16 @@ brw_blorp_build_nir_shader(struct blorp_context *blorp, void *mem_ctx,
       unreachable("Invalid destination usage");
    }
 
+   if (if_pushed)
+      nir_pop_if(&b, NULL);
+
    return b.shader;
 }
 
 static bool
-brw_blorp_get_blit_kernel(struct blorp_batch *batch,
-                          struct blorp_params *params,
-                          const struct brw_blorp_blit_prog_key *prog_key)
+brw_blorp_get_blit_kernel_fs(struct blorp_batch *batch,
+                             struct blorp_params *params,
+                             const struct brw_blorp_blit_prog_key *prog_key)
 {
    struct blorp_context *blorp = batch->blorp;
 
@@ -1474,7 +1549,8 @@ brw_blorp_get_blit_kernel(struct blorp_batch *batch,
    const unsigned *program;
    struct brw_wm_prog_data prog_data;
 
-   nir_shader *nir = brw_blorp_build_nir_shader(blorp, mem_ctx, prog_key);
+   nir_shader *nir = brw_blorp_build_nir_shader(blorp, batch, mem_ctx,
+                                                prog_key);
    nir->info.name =
       ralloc_strdup(nir, blorp_shader_type_to_name(prog_key->base.shader_type));
 
@@ -1494,6 +1570,47 @@ brw_blorp_get_blit_kernel(struct blorp_batch *batch,
                            program, prog_data.base.program_size,
                            &prog_data.base, sizeof(prog_data),
                            &params->wm_prog_kernel, &params->wm_prog_data);
+
+   ralloc_free(mem_ctx);
+   return result;
+}
+
+static bool
+brw_blorp_get_blit_kernel_cs(struct blorp_batch *batch,
+                             struct blorp_params *params,
+                             const struct brw_blorp_blit_prog_key *prog_key)
+{
+   struct blorp_context *blorp = batch->blorp;
+
+   if (blorp->lookup_shader(batch, prog_key, sizeof(*prog_key),
+                            &params->cs_prog_kernel, &params->cs_prog_data))
+      return true;
+
+   void *mem_ctx = ralloc_context(NULL);
+
+   const unsigned *program;
+   struct brw_cs_prog_data prog_data;
+
+   nir_shader *nir = brw_blorp_build_nir_shader(blorp, batch, mem_ctx,
+                                                prog_key);
+   nir->info.name = ralloc_strdup(nir, "BLORP-gpgpu-blit");
+   blorp_set_cs_dims(nir, prog_key->local_y);
+
+   struct brw_cs_prog_key cs_key;
+   brw_blorp_init_cs_prog_key(&cs_key);
+   cs_key.base.tex.compressed_multisample_layout_mask =
+      prog_key->tex_aux_usage == ISL_AUX_USAGE_MCS;
+   cs_key.base.tex.msaa_16 = prog_key->tex_samples == 16;
+   assert(prog_key->rt_samples == 1);
+
+   program = blorp_compile_cs(blorp, mem_ctx, nir, &cs_key, &prog_data);
+
+   bool result =
+      blorp->upload_shader(batch, MESA_SHADER_COMPUTE,
+                           prog_key, sizeof(*prog_key),
+                           program, prog_data.base.program_size,
+                           &prog_data.base, sizeof(prog_data),
+                           &params->cs_prog_kernel, &params->cs_prog_data);
 
    ralloc_free(mem_ctx);
    return result;
@@ -2108,11 +2225,21 @@ try_blorp_blit(struct blorp_batch *batch,
    /* For some texture types, we need to pass the layer through the sampler. */
    params->wm_inputs.src_z = params->src.z_offset;
 
-   if (!brw_blorp_get_blit_kernel(batch, params, wm_prog_key))
-      return 0;
+   const bool compute =
+      wm_prog_key->base.shader_pipeline == BLORP_SHADER_PIPELINE_COMPUTE;
+   if (compute)
+      wm_prog_key->local_y = blorp_get_cs_local_y(params);
 
-   if (!blorp_ensure_sf_program(batch, params))
-      return 0;
+   if (compute) {
+      if (!brw_blorp_get_blit_kernel_cs(batch, params, wm_prog_key))
+         return 0;
+   } else {
+      if (!brw_blorp_get_blit_kernel_fs(batch, params, wm_prog_key))
+         return 0;
+
+      if (!blorp_ensure_sf_program(batch, params))
+         return 0;
+   }
 
    unsigned result = 0;
    unsigned max_src_surface_size = get_max_surface_size(devinfo, &params->src);
@@ -2337,6 +2464,7 @@ blorp_blit(struct blorp_batch *batch,
    struct blorp_params params;
    blorp_params_init(&params);
    params.snapshot_type = INTEL_SNAPSHOT_BLIT;
+   const bool compute = batch->flags & BLORP_BATCH_USE_COMPUTE;
 
    /* We cannot handle combined depth and stencil. */
    if (src_surf->surf->usage & ISL_SURF_USAGE_STENCIL_BIT)
@@ -2366,6 +2494,8 @@ blorp_blit(struct blorp_batch *batch,
 
    struct brw_blorp_blit_prog_key wm_prog_key = {
       .base = BRW_BLORP_BASE_KEY_INIT(BLORP_SHADER_TYPE_BLIT),
+      .base.shader_pipeline = compute ? BLORP_SHADER_PIPELINE_COMPUTE :
+                                        BLORP_SHADER_PIPELINE_RENDER,
       .filter = filter,
       .sint32_to_uint = src_fmtl->channels.r.bits == 32 &&
                         isl_format_has_sint_channel(params.src.view.format) &&
@@ -2639,6 +2769,20 @@ blorp_surf_convert_to_uncompressed(const struct isl_device *isl_dev,
    info->surf.phys_level0_sa.h += info->tile_y_sa;
 }
 
+static bool
+blorp_copy_supports_compute(struct blorp_context *blorp,
+                            enum isl_aux_usage dst_aux_usage)
+{
+   if (blorp->isl_dev->info->ver < 7)
+      return false;
+   if (blorp->isl_dev->info->ver >= 12) {
+      return dst_aux_usage == ISL_AUX_USAGE_GFX12_CCS_E ||
+             dst_aux_usage == ISL_AUX_USAGE_NONE;
+   } else {
+      return dst_aux_usage == ISL_AUX_USAGE_NONE;
+   }
+}
+
 void
 blorp_copy(struct blorp_batch *batch,
            const struct blorp_surf *src_surf,
@@ -2657,6 +2801,11 @@ blorp_copy(struct blorp_batch *batch,
 
    blorp_params_init(&params);
    params.snapshot_type = INTEL_SNAPSHOT_COPY;
+
+   const bool compute = batch->flags & BLORP_BATCH_USE_COMPUTE;
+   if (compute)
+      assert(blorp_copy_supports_compute(batch->blorp, dst_surf->aux_usage));
+
    brw_blorp_surface_info_init(batch, &params.src, src_surf, src_level,
                                src_layer, ISL_FORMAT_UNSUPPORTED, false);
    brw_blorp_surface_info_init(batch, &params.dst, dst_surf, dst_level,
@@ -2664,6 +2813,8 @@ blorp_copy(struct blorp_batch *batch,
 
    struct brw_blorp_blit_prog_key wm_prog_key = {
       .base = BRW_BLORP_BASE_KEY_INIT(BLORP_SHADER_TYPE_COPY),
+      .base.shader_pipeline = compute ? BLORP_SHADER_PIPELINE_COMPUTE :
+                                        BLORP_SHADER_PIPELINE_RENDER,
       .filter = BLORP_FILTER_NONE,
       .need_src_offset = src_surf->tile_x_sa || src_surf->tile_y_sa,
       .need_dst_offset = dst_surf->tile_x_sa || dst_surf->tile_y_sa,
