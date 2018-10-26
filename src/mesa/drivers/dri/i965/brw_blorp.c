@@ -39,6 +39,7 @@
 #include "brw_buffer_objects.h"
 #include "brw_fbo.h"
 #include "dev/intel_debug.h"
+#include "util/debug.h"
 
 #define FILE_DEBUG_FLAG DEBUG_BLORP
 
@@ -1257,6 +1258,23 @@ do_single_blorp_clear(struct brw_context *brw, struct gl_framebuffer *fb,
       }
    }
 
+   const unsigned blend_enabled =
+      ctx->Color.ColorLogicOpEnabled || ctx->Color.BlendEnabled;
+   const bool color_masked =
+      color_write_disable[0] || color_write_disable[1] ||
+      color_write_disable[2] || color_write_disable[3];
+   const bool compute =
+      unlikely((INTEL_DEBUG & DEBUG_BLOCS) &&
+               blorp_clear_supports_compute(&brw->blorp, color_masked,
+                                            blend_enabled,
+                                            irb->mt->aux_usage));
+
+   if (compute) {
+      can_fast_clear = false;
+      brw_miptree_prepare_access(brw, irb->mt, level, 1, irb->mt_layer,
+                                 num_layers, ISL_AUX_USAGE_NONE, false);
+   }
+
    if (can_fast_clear) {
       const enum isl_aux_state aux_state =
          brw_miptree_get_aux_state(irb->mt, irb->mt_level, irb->mt_layer);
@@ -1316,8 +1334,9 @@ do_single_blorp_clear(struct brw_context *brw, struct gl_framebuffer *fb,
 
       enum isl_aux_usage aux_usage =
          brw_miptree_render_aux_usage(brw, irb->mt, isl_format, false, false);
-      brw_miptree_prepare_render(brw, irb->mt, level, irb->mt_layer,
-                                 num_layers, aux_usage);
+      if (!compute)
+         brw_miptree_prepare_render(brw, irb->mt, level, irb->mt_layer,
+                                    num_layers, aux_usage);
 
       struct blorp_surf surf;
       blorp_surf_for_miptree(brw, &surf, irb->mt, aux_usage, true,
@@ -1331,11 +1350,12 @@ do_single_blorp_clear(struct brw_context *brw, struct gl_framebuffer *fb,
       blorp_clear(&batch, &surf, isl_format, ISL_SWIZZLE_IDENTITY,
                   level, irb->mt_layer, num_layers,
                   x0, y0, x1, y1,
-                  clear_color, color_write_disable, false);
+                  clear_color, color_write_disable, compute);
       blorp_batch_finish(&batch);
 
-      brw_miptree_finish_render(brw, irb->mt, level, irb->mt_layer,
-                                num_layers, aux_usage);
+      if (!compute)
+         brw_miptree_finish_render(brw, irb->mt, level, irb->mt_layer,
+                                   num_layers, aux_usage);
    }
 
    return;
