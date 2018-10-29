@@ -197,6 +197,10 @@ NIR_DEFINE_CAST(nir_search_value_as_expression, nir_search_value,
                 nir_search_expression, value,
                 type, nir_search_value_expression)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 nir_ssa_def *
 nir_replace_instr(struct nir_builder *b, nir_alu_instr *instr,
                   struct hash_table *range_ht,
@@ -211,5 +215,17 @@ nir_algebraic_impl(nir_function_impl *impl,
                    const struct transform **transforms,
                    const uint16_t *transform_counts,
                    const struct per_op_table *pass_op_table);
+
+bool
+nir_match_instr(nir_alu_instr *instr, const nir_search_expression *search,
+                struct hash_table *range_ht,
+                uint8_t swizzle[NIR_MAX_VEC_COMPONENTS],
+                unsigned *num_variables,
+                nir_alu_src variables[NIR_SEARCH_MAX_VARIABLES],
+                uint8_t which_src[NIR_SEARCH_MAX_VARIABLES]);
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif /* _NIR_SEARCH_ */

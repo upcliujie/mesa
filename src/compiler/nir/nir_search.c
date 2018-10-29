@@ -687,6 +687,45 @@ nir_algebraic_update_automaton(nir_instr *new_instr,
    nir_instr_worklist_destroy(automaton_worklist);
 }
 
+bool
+nir_match_instr(nir_alu_instr *instr, const nir_search_expression *search,
+                struct hash_table *range_ht,
+                uint8_t swizzle[NIR_MAX_VEC_COMPONENTS],
+                unsigned *num_variables,
+                nir_alu_src variables[NIR_SEARCH_MAX_VARIABLES],
+                uint8_t which_src[NIR_SEARCH_MAX_VARIABLES])
+{
+   for (unsigned i = 0; i < instr->dest.dest.ssa.num_components; ++i)
+      swizzle[i] = i;
+
+   struct match_state state;
+   memset(&state, 0, sizeof(state));
+   state.range_ht = range_ht;
+
+   unsigned comm_expr_combinations =
+      1 << MIN2(search->comm_exprs, NIR_SEARCH_MAX_COMM_OPS);
+
+   for (unsigned comb = 0; comb < comm_expr_combinations; comb++) {
+      /* The bitfield of directions is just the current iteration.  Hooray for
+       * binary.
+       */
+      state.comm_op_direction = comb;
+      state.variables_seen = 0;
+
+      if (match_expression(search, instr,
+                           instr->dest.dest.ssa.num_components,
+                           swizzle, &state)) {
+         assert(util_is_power_of_two_nonzero(state.variables_seen + 1));
+         *num_variables = ffs(state.variables_seen + 1) - 1;
+         memcpy(variables, state.variables, sizeof(state.variables));
+         memcpy(which_src, state.which_src, sizeof(state.which_src));
+         return true;
+      }
+   }
+
+   return false;
+}
+
 nir_ssa_def *
 nir_replace_instr(nir_builder *build, nir_alu_instr *instr,
                   struct hash_table *range_ht,
