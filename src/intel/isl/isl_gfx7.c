@@ -197,6 +197,10 @@ isl_gfx6_filter_tiling(const struct isl_device *dev,
    assert(ISL_DEV_USE_SEPARATE_STENCIL(dev));
 
    /* Clear flags unsupported on this hardware */
+   assert(ISL_GFX_VERX10(dev) < 125);
+   *flags &= ~ISL_TILING_4_BIT;
+   *flags &= ~ISL_TILING_64_BIT;
+
    if (ISL_GFX_VER(dev) < 9) {
       *flags &= ~ISL_TILING_Yf_BIT;
       *flags &= ~ISL_TILING_Ys_BIT;
