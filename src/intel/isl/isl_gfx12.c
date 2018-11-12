@@ -51,6 +51,13 @@ isl_gfx125_filter_tiling(const struct isl_device *dev,
    if (isl_surf_usage_is_depth_or_stencil(info->usage))
       *flags &= ISL_TILING_4_BIT | ISL_TILING_64_BIT;
 
+   /* From 3DSTATE_HIER_DEPTH_BUFFER_BODY::TiledMode,
+    *
+    *    HZ buffer only supports Tile4 mode
+    */
+   if (info->usage & ISL_SURF_USAGE_HIZ_BIT)
+      *flags &= ISL_TILING_4_BIT;
+
    if (info->usage & ISL_SURF_USAGE_DISPLAY_BIT)
       *flags &= ~ISL_TILING_64_BIT;
 
@@ -91,6 +98,9 @@ isl_gfx125_choose_image_alignment_el(const struct isl_device *dev,
                                      enum isl_msaa_layout msaa_layout,
                                      struct isl_extent3d *image_align_el)
 {
+   /* Handled by isl_choose_image_alignment_el */
+   assert(info->format != ISL_FORMAT_GFX125_HIZ);
+
    const struct isl_format_layout *fmtl = isl_format_get_layout(info->format);
 
    if (tiling == ISL_TILING_64) {
