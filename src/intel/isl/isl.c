@@ -2012,9 +2012,12 @@ isl_surf_get_hiz_surf(const struct isl_device *dev,
     */
    const unsigned samples = ISL_GFX_VER(dev) >= 9 ? 1 : surf->samples;
 
+   const enum isl_format format =
+      ISL_GFX_VERX10(dev) >= 125 ? ISL_FORMAT_GFX125_HIZ : ISL_FORMAT_HIZ;
+
    return isl_surf_init(dev, hiz_surf,
                         .dim = surf->dim,
-                        .format = ISL_FORMAT_HIZ,
+                        .format = format,
                         .width = surf->logical_level0_px.width,
                         .height = surf->logical_level0_px.height,
                         .depth = surf->logical_level0_px.depth,
@@ -2149,7 +2152,7 @@ isl_surf_supports_ccs(const struct isl_device *dev,
             return false;
 
          assert(hiz_surf->usage & ISL_SURF_USAGE_HIZ_BIT);
-         assert(hiz_surf->format == ISL_FORMAT_HIZ);
+         assert(isl_format_is_hiz(hiz_surf->format));
       } else if (surf->samples > 1) {
          const struct isl_surf *mcs_surf = hiz_or_mcs_surf;
 
