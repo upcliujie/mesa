@@ -387,6 +387,17 @@ brw_sampler_desc(const struct intel_device_info *devinfo,
 {
    const unsigned desc = (SET_BITS(binding_table_index, 7, 0) |
                           SET_BITS(sampler, 11, 8));
+
+   /* From the CNL Bspec: Shared Functions - Message Descriptor -
+    * Sampling Engine:
+    *
+    *   SIMD Mode[2]  29    This field is the upper bit of the 3-bit
+    *                       SIMD Mode field.
+    */
+   if (devinfo->verx10 >= 11)
+      return desc | SET_BITS(msg_type, 16, 12) |
+             SET_BITS(simd_mode & 0x3, 18, 17) |
+             SET_BITS(simd_mode >> 2, 29, 29);
    if (devinfo->ver >= 7)
       return (desc | SET_BITS(msg_type, 16, 12) |
               SET_BITS(simd_mode, 18, 17));
