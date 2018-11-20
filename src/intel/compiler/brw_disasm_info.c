@@ -31,7 +31,7 @@ __attribute__((weak)) void nir_print_instr(UNUSED const nir_instr *instr,
                                            UNUSED FILE *fp) {}
 
 void
-dump_assembly(void *assembly, struct disasm_info *disasm)
+dump_assembly(FILE *fp, void *assembly, struct disasm_info *disasm)
 {
    const struct gen_device_info *devinfo = disasm->devinfo;
    const char *last_annotation_string = NULL;
@@ -49,47 +49,47 @@ dump_assembly(void *assembly, struct disasm_info *disasm)
       int end_offset = next->offset;
 
       if (group->block_start) {
-         fprintf(stderr, "   START B%d", group->block_start->num);
+         fprintf(fp, "   START B%d", group->block_start->num);
          foreach_list_typed(struct bblock_link, predecessor_link, link,
                             &group->block_start->parents) {
             struct bblock_t *predecessor_block = predecessor_link->block;
-            fprintf(stderr, " <-B%d", predecessor_block->num);
+            fprintf(fp, " <-B%d", predecessor_block->num);
          }
-         fprintf(stderr, " (%u cycles)\n", group->block_start->cycle_count);
+         fprintf(fp, " (%u cycles)\n", group->block_start->cycle_count);
       }
 
       if (last_annotation_ir != group->ir) {
          last_annotation_ir = group->ir;
          if (last_annotation_ir) {
-            fprintf(stderr, "   ");
-            nir_print_instr(group->ir, stderr);
-            fprintf(stderr, "\n");
+            fprintf(fp, "   ");
+            nir_print_instr(group->ir, fp);
+            fprintf(fp, "\n");
          }
       }
 
       if (last_annotation_string != group->annotation) {
          last_annotation_string = group->annotation;
          if (last_annotation_string)
-            fprintf(stderr, "   %s\n", last_annotation_string);
+            fprintf(fp, "   %s\n", last_annotation_string);
       }
 
-      brw_disassemble(devinfo, assembly, start_offset, end_offset, stderr);
+      brw_disassemble(devinfo, assembly, start_offset, end_offset, fp);
 
       if (group->error) {
-         fputs(group->error, stderr);
+         fputs(group->error, fp);
       }
 
       if (group->block_end) {
-         fprintf(stderr, "   END B%d", group->block_end->num);
+         fprintf(fp, "   END B%d", group->block_end->num);
          foreach_list_typed(struct bblock_link, successor_link, link,
                             &group->block_end->children) {
             struct bblock_t *successor_block = successor_link->block;
-            fprintf(stderr, " ->B%d", successor_block->num);
+            fprintf(fp, " ->B%d", successor_block->num);
          }
-         fprintf(stderr, "\n");
+         fprintf(fp, "\n");
       }
    }
-   fprintf(stderr, "\n");
+   fprintf(fp, "\n");
 }
 
 struct disasm_info *
