@@ -2323,7 +2323,8 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
    ralloc_free(disasm_info);
    assert(validated);
 
-   compiler->shader_debug_log(log_data,
+   static GLuint msg_id = 0;
+   compiler->shader_debug_log(log_data, &msg_id,
                               "%s SIMD%d shader: %d inst, %d loops, %u cycles, "
                               "%d:%d spills:fills, "
                               "scheduled with mode %s, "

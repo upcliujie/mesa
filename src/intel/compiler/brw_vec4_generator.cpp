@@ -2203,7 +2203,8 @@ generate_code(struct brw_codegen *p,
    ralloc_free(disasm_info);
    assert(validated);
 
-   compiler->shader_debug_log(log_data,
+   static GLuint msg_id = 0;
+   compiler->shader_debug_log(log_data, &msg_id,
                               "%s vec4 shader: %d inst, %d loops, %u cycles, "
                               "%d:%d spills:fills, compacted %d to %d bytes.",
                               stage_abbrev, before_size / 16,

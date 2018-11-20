@@ -62,7 +62,7 @@ DRI_CONF_END;
 #define MAX_DEBUG_MESSAGE_LENGTH    4096
 
 static void
-compiler_debug_log(void *data, const char *fmt, ...)
+compiler_debug_log(void *data, unsigned *id, const char *fmt, ...)
 {
    char str[MAX_DEBUG_MESSAGE_LENGTH];
    struct anv_device *device = (struct anv_device *)data;
