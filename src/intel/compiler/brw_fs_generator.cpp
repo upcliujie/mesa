@@ -2290,53 +2290,56 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
    brw_compact_instructions(p, start_offset, disasm_info);
    int after_size = p->next_insn_offset - start_offset;
 
+   char *buf = NULL;
+   size_t buf_size = 0;
+   FILE * log_fp = open_memstream(&buf, &buf_size);
+   char sha1buf[41];
    if (unlikely(debug_flag)) {
       unsigned char sha1[21];
-      char sha1buf[41];
 
       _mesa_sha1_compute(p->store + start_offset / sizeof(brw_inst),
                          after_size, sha1);
       _mesa_sha1_format(sha1buf, sha1);
 
-      fprintf(stderr, "Native code for %s (sha1 %s)\n"
-              "SIMD%d shader: %d instructions. %d loops. %u cycles. "
-              "%d:%d spills:fills. "
-              "scheduled with mode %s. "
-              "Promoted %u constants. "
-              "Compacted %d to %d bytes (%.0f%%)\n",
-              shader_name, sha1buf,
-              dispatch_width, before_size / 16,
-              loop_count, cfg->cycle_count,
-              spill_count, fill_count,
-              shader_stats.scheduler_mode,
-              shader_stats.promoted_constants,
-              before_size, after_size,
-              100.0f * (before_size - after_size) / before_size);
+      fprintf(log_fp, "Native code for %s (sha1 %s)\n",
+              shader_name, sha1buf);
+   }
 
+   fprintf(log_fp,
+           "%s SIMD%d shader: %d inst, %d loops, %u cycles, "
+           "%d:%d spills:fills, "
+           "scheduled with mode %s, "
+           "Promoted %u constants, "
+           "compacted %d to %d bytes (%.0f%%).",
+           _mesa_shader_stage_to_abbrev(stage),
+           dispatch_width, before_size / 16,
+           loop_count, cfg->cycle_count,
+           spill_count, fill_count,
+           shader_stats.scheduler_mode,
+           shader_stats.promoted_constants,
+           before_size, after_size,
+           100.0f * (before_size - after_size) / before_size);
+
+   if (unlikely(debug_flag)) {
+      fprintf(log_fp, "\n");
       /* overriding the shader makes disasm_info invalid */
       if (!brw_try_override_assembly(p, start_offset, sha1buf)) {
-         dump_assembly(stderr, p->store, disasm_info);
+         dump_assembly(log_fp, p->store, disasm_info);
       } else {
-         fprintf(stderr, "Successfully overrode shader with sha1 %s\n\n", sha1buf);
+         fprintf(log_fp, "Successfully overrode shader with sha1 %s\n\n", sha1buf);
       }
    }
    ralloc_free(disasm_info);
    assert(validated);
 
+   fclose(log_fp);
+   if (unlikely(debug_flag)) {
+      fputs(buf, stderr);
+   }
    static GLuint msg_id = 0;
-   compiler->shader_debug_log(log_data, &msg_id,
-                              "%s SIMD%d shader: %d inst, %d loops, %u cycles, "
-                              "%d:%d spills:fills, "
-                              "scheduled with mode %s, "
-                              "Promoted %u constants, "
-                              "compacted %d to %d bytes.",
-                              _mesa_shader_stage_to_abbrev(stage),
-                              dispatch_width, before_size / 16,
-                              loop_count, cfg->cycle_count,
-                              spill_count, fill_count,
-                              shader_stats.scheduler_mode,
-                              shader_stats.promoted_constants,
-                              before_size, after_size);
+   compiler->shader_debug_log(log_data, &msg_id, "%s", buf);
+   free(buf);
+
    if (stats) {
       stats->dispatch_width = dispatch_width;
       stats->instructions = before_size / 16;

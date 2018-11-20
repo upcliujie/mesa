@@ -2175,41 +2175,47 @@ generate_code(struct brw_codegen *p,
    brw_compact_instructions(p, 0, disasm_info);
    int after_size = p->next_insn_offset;
 
+   char *buf;
+   size_t buf_size;
+   char sha1buf[41];
+   FILE * log_fp = open_memstream(&buf, &buf_size);
    if (unlikely(debug_flag)) {
       unsigned char sha1[21];
-      char sha1buf[41];
 
       _mesa_sha1_compute(p->store, p->next_insn_offset, sha1);
       _mesa_sha1_format(sha1buf, sha1);
 
-      fprintf(stderr, "Native code for %s %s shader %s (sha1 %s):\n",
-            nir->info.label ? nir->info.label : "unnamed",
-            _mesa_shader_stage_to_string(nir->info.stage), nir->info.name,
-            sha1buf);
+      fprintf(log_fp, "Native code for %s %s shader %s (sha1 %s):\n",
+              nir->info.label ? nir->info.label : "unnamed",
+              _mesa_shader_stage_to_string(nir->info.stage), nir->info.name,
+              sha1buf);
+   }
 
-      fprintf(stderr, "%s vec4 shader: %d instructions. %d loops. %u cycles. %d:%d "
-                     "spills:fills. Compacted %d to %d bytes (%.0f%%)\n",
-            stage_abbrev, before_size / 16, loop_count, cfg->cycle_count,
-            spill_count, fill_count, before_size, after_size,
-            100.0f * (before_size - after_size) / before_size);
+   fprintf(log_fp, "%s vec4 shader: %d instructions. %d loops. %u cycles. %d:%d "
+           "spills:fills. Compacted %d to %d bytes (%.0f%%)\n",
+           stage_abbrev, before_size / 16, loop_count, cfg->cycle_count,
+           spill_count, fill_count, before_size, after_size,
+           100.0f * (before_size - after_size) / before_size);
 
+   if (unlikely(debug_flag)) {
       /* overriding the shader makes disasm_info invalid */
       if (!brw_try_override_assembly(p, 0, sha1buf)) {
-         dump_assembly(stderr, p->store, disasm_info);
+         dump_assembly(log_fp, p->store, disasm_info);
       } else {
-         fprintf(stderr, "Successfully overrode shader with sha1 %s\n\n", sha1buf);
+         fprintf(log_fp, "Successfully overrode shader with sha1 %s\n\n", sha1buf);
       }
    }
    ralloc_free(disasm_info);
    assert(validated);
 
+   fclose(log_fp);
+   if (unlikely(debug_flag)) {
+      fputs(buf, stderr);
+   }
    static GLuint msg_id = 0;
-   compiler->shader_debug_log(log_data, &msg_id,
-                              "%s vec4 shader: %d inst, %d loops, %u cycles, "
-                              "%d:%d spills:fills, compacted %d to %d bytes.",
-                              stage_abbrev, before_size / 16,
-                              loop_count, cfg->cycle_count, spill_count,
-                              fill_count, before_size, after_size);
+   compiler->shader_debug_log(log_data, &msg_id, "%s", buf);
+   free(buf);
+
    if (stats) {
       stats->dispatch_width = 0;
       stats->instructions = before_size / 16;
