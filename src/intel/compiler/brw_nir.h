@@ -131,6 +131,7 @@ bool brw_nir_lower_mem_access_bit_sizes(nir_shader *shader);
 
 void brw_postprocess_nir(nir_shader *nir,
                          const struct brw_compiler *compiler,
+                         void *log_data,
                          bool is_scalar);
 
 bool brw_nir_apply_attribute_workarounds(nir_shader *nir,

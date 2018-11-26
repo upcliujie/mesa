@@ -354,7 +354,7 @@ brw_compile_tcs(const struct brw_compiler *compiler,
    if (key->quads_workaround)
       brw_nir_apply_tcs_quads_workaround(nir);
 
-   brw_postprocess_nir(nir, compiler, is_scalar);
+   brw_postprocess_nir(nir, compiler, log_data, is_scalar);
 
    bool has_primitive_id =
       nir->info.system_values_read & (1 << SYSTEM_VALUE_PRIMITIVE_ID);

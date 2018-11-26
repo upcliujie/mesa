@@ -2870,7 +2870,7 @@ brw_compile_vs(const struct brw_compiler *compiler, void *log_data,
 
    brw_nir_lower_vs_inputs(shader, key->gl_attrib_wa_flags);
    brw_nir_lower_vue_outputs(shader);
-   brw_postprocess_nir(shader, compiler, is_scalar);
+   brw_postprocess_nir(shader, compiler, log_data, is_scalar);
 
    prog_data->base.clip_distance_mask =
       ((1 << shader->info.clip_distance_array_size) - 1);

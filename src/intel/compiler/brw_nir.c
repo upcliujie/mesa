@@ -806,7 +806,7 @@ brw_nir_link_shaders(const struct brw_compiler *compiler,
  */
 void
 brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
-                    bool is_scalar)
+                    void *log_data, bool is_scalar)
 {
    const struct gen_device_info *devinfo = compiler->devinfo;
    bool debug_enabled =
@@ -888,9 +888,17 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
             nir_index_ssa_defs(function->impl);
       }
 
-      fprintf(stderr, "NIR (SSA form) for %s shader:\n",
+      char *buf;
+      size_t buf_size;
+      FILE * log_fp = open_memstream(&buf, &buf_size);
+      fprintf(log_fp, "NIR (SSA form) for %s shader:\n",
               _mesa_shader_stage_to_string(nir->info.stage));
-      nir_print_shader(nir, stderr);
+      nir_print_shader(nir, log_fp);
+      fclose(log_fp);
+      static GLuint msg_id = 0;
+      compiler->shader_debug_log(log_data, &msg_id, "%s", buf);
+      fputs(buf, stderr);
+      free(buf);
    }
 
    OPT(nir_convert_from_ssa, true);
@@ -916,9 +924,17 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
    nir_sweep(nir);
 
    if (unlikely(debug_enabled)) {
-      fprintf(stderr, "NIR (final form) for %s shader:\n",
+      char *buf;
+      size_t buf_size;
+      FILE * log_fp = open_memstream(&buf, &buf_size);
+      fprintf(log_fp, "NIR (final form) for %s shader:\n",
               _mesa_shader_stage_to_string(nir->info.stage));
-      nir_print_shader(nir, stderr);
+      nir_print_shader(nir, log_fp);
+      fclose(log_fp);
+      static GLuint msg_id = 0;
+      compiler->shader_debug_log(log_data, &msg_id, "%s", buf);
+      fputs(buf, stderr);
+      free(buf);
    }
 }
 

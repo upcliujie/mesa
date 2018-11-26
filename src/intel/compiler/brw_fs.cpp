@@ -8153,7 +8153,7 @@ brw_compile_fs(const struct brw_compiler *compiler, void *log_data,
    if (!key->multisample_fbo)
       NIR_PASS_V(shader, demote_sample_qualifiers);
    NIR_PASS_V(shader, move_interpolation_to_top);
-   brw_postprocess_nir(shader, compiler, true);
+   brw_postprocess_nir(shader, compiler, log_data, true);
 
    /* key->alpha_test_func means simulating alpha testing via discards,
     * so the shader definitely kills pixels.
@@ -8398,6 +8398,7 @@ cs_set_simd_size(struct brw_cs_prog_data *cs_prog_data, unsigned size)
 
 static nir_shader *
 compile_cs_to_nir(const struct brw_compiler *compiler,
+                  void *log_data,
                   void *mem_ctx,
                   const struct brw_cs_prog_key *key,
                   const nir_shader *src_shader,
@@ -8412,7 +8413,7 @@ compile_cs_to_nir(const struct brw_compiler *compiler,
    NIR_PASS_V(shader, nir_opt_constant_folding);
    NIR_PASS_V(shader, nir_opt_dce);
 
-   brw_postprocess_nir(shader, compiler, true);
+   brw_postprocess_nir(shader, compiler, log_data, true);
 
    return shader;
 }
@@ -8467,7 +8468,7 @@ brw_compile_cs(const struct brw_compiler *compiler, void *log_data,
    /* Now the main event: Visit the shader IR and generate our CS IR for it.
     */
    if (!fail_msg && min_dispatch_width <= 8 && max_dispatch_width >= 8) {
-      nir_shader *nir8 = compile_cs_to_nir(compiler, mem_ctx, key,
+      nir_shader *nir8 = compile_cs_to_nir(compiler, log_data, mem_ctx, key,
                                            src_shader, 8);
       v8 = new fs_visitor(compiler, log_data, mem_ctx, &key->base,
                           &prog_data->base,
@@ -8487,7 +8488,7 @@ brw_compile_cs(const struct brw_compiler *compiler, void *log_data,
    if (likely(!(INTEL_DEBUG & DEBUG_NO16)) &&
        !fail_msg && min_dispatch_width <= 16 && max_dispatch_width >= 16) {
       /* Try a SIMD16 compile */
-      nir_shader *nir16 = compile_cs_to_nir(compiler, mem_ctx, key,
+      nir_shader *nir16 = compile_cs_to_nir(compiler, log_data, mem_ctx, key,
                                             src_shader, 16);
       v16 = new fs_visitor(compiler, log_data, mem_ctx, &key->base,
                            &prog_data->base,
@@ -8520,7 +8521,7 @@ brw_compile_cs(const struct brw_compiler *compiler, void *log_data,
    if (!fail_msg && (min_dispatch_width > 16 || (INTEL_DEBUG & DEBUG_DO32)) &&
        max_dispatch_width >= 32) {
       /* Try a SIMD32 compile */
-      nir_shader *nir32 = compile_cs_to_nir(compiler, mem_ctx, key,
+      nir_shader *nir32 = compile_cs_to_nir(compiler, log_data, mem_ctx, key,
                                             src_shader, 32);
       v32 = new fs_visitor(compiler, log_data, mem_ctx, &key->base,
                            &prog_data->base,
