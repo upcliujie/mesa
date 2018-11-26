@@ -199,16 +199,32 @@ read_and_upload(struct brw_context *brw, struct disk_cache *cache,
    brw_alloc_stage_scratch(brw, stage_state, prog_data->total_scratch);
 
    if (unlikely(debug_enabled_for_stage(stage))) {
-      fprintf(stderr, "NIR for %s program %d loaded from disk shader cache:\n",
+      char *buf;
+      size_t buf_size;
+      const struct brw_compiler *compiler = brw->screen->compiler;
+      FILE * log_fp = open_memstream(&buf, &buf_size);
+      fprintf(log_fp, "NIR for %s program %d loaded from disk shader cache:\n",
               _mesa_shader_stage_to_abbrev(stage), brw_program(prog)->id);
       brw_program_deserialize_driver_blob(&brw->ctx, prog, stage);
       nir_shader *nir = prog->nir;
-      nir_print_shader(nir, stderr);
-      fprintf(stderr, "Native code for %s %s shader %s from disk cache:\n",
+      nir_print_shader(nir, log_fp);
+      fclose(log_fp);
+      static GLuint nir_msg_id = 0;
+      compiler->shader_debug_log(brw, &nir_msg_id, "%s", buf);
+      fputs(buf, stderr);
+      free(buf);
+
+      log_fp = open_memstream(&buf, &buf_size);
+      fprintf(log_fp, "Native code for %s %s shader %s from disk cache:\n",
               nir->info.label ? nir->info.label : "unnamed",
               _mesa_shader_stage_to_string(nir->info.stage), nir->info.name);
       brw_disassemble(&brw->screen->devinfo, program, 0,
-                      prog_data->program_size, stderr);
+                      prog_data->program_size, log_fp);
+      fclose(log_fp);
+      static GLuint native_msg_id = 0;
+      compiler->shader_debug_log(brw, &native_msg_id, "%s", buf);
+      fputs(buf, stderr);
+      free(buf);
    }
 
    brw_upload_cache(&brw->cache, cache_id, &prog_key, brw_prog_key_size(stage),
