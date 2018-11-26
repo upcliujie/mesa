@@ -251,10 +251,18 @@ brw_link_shader(struct gl_context *ctx, struct gl_shader_program *shProg)
          (INTEL_DEBUG & intel_debug_flag_for_shader_stage(shader->Stage));
 
       if (debug_enabled && shader->ir) {
-         fprintf(stderr, "GLSL IR for native %s shader %d:\n",
+         char *buf;
+         size_t buf_size;
+         FILE * log_fp = open_memstream(&buf, &buf_size);
+         fprintf(log_fp, "GLSL IR for native %s shader %d:\n",
                  _mesa_shader_stage_to_string(shader->Stage), shProg->Name);
-         _mesa_print_ir(stderr, shader->ir, NULL);
-         fprintf(stderr, "\n\n");
+         _mesa_print_ir(log_fp, shader->ir, NULL);
+         fprintf(log_fp, "\n\n");
+         fclose(log_fp);
+         static GLuint msg_id = 0;
+         compiler->shader_debug_log(brw, &msg_id, "%s", buf);
+         fputs(buf, stderr);
+         free(buf);
       }
 
       prog->nir = brw_create_nir(brw, shProg, prog, (gl_shader_stage) stage,
