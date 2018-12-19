@@ -113,6 +113,8 @@ static int ring_name_to_class(const char *ring_name,
       [I915_ENGINE_CLASS_VIDEO] = "vcs",
       [I915_ENGINE_CLASS_VIDEO_ENHANCE] = "vecs",
    };
+
+   *class = I915_ENGINE_CLASS_RENDER; /* default to render */
    for (size_t i = 0; i < ARRAY_SIZE(class_names); i++) {
       if (strncmp(ring_name, class_names[i], strlen(class_names[i])))
          continue;
