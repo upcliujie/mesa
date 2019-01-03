@@ -423,15 +423,11 @@ handle_3dstate_vertex_buffers(struct gen_batch_decode_ctx *ctx,
 
          fprintf(ctx->fp, "vertex buffer %d, size %d\n", index, vb_size);
 
-         if (vb.map == NULL) {
+         if (vb.map && vb_size) {
+            ctx_print_buffer(ctx, vb, vb_size, pitch, ctx->max_vbo_decoded_lines);
+         } else {
             fprintf(ctx->fp, "  buffer contents unavailable\n");
-            continue;
          }
-
-         if (vb.map == 0 || vb_size == 0)
-            continue;
-
-         ctx_print_buffer(ctx, vb, vb_size, pitch, ctx->max_vbo_decoded_lines);
 
          vb.map = NULL;
          vb_size = 0;

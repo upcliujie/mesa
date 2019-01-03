@@ -392,14 +392,10 @@ handle_3dstate_vertex_buffers(struct aub_viewer_decode_ctx *ctx,
 
          ImGui::Text("vertex buffer %d, size %d, pitch %d", index, vb_size, pitch);
 
-         if (vb.map == NULL) {
+         if (!vb.map || vb_size == 0) {
             ImGui::TextColored(ctx->cfg->missing_color,
                                "buffer contents unavailable addr=0x%012" PRIx64, buffer_addr);
-            continue;
          }
-
-         if (vb.map == 0 || vb_size == 0)
-            continue;
 
          vb.map = NULL;
          vb_size = 0;
