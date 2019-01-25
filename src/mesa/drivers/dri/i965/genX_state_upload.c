@@ -2443,10 +2443,15 @@ set_scissor_bits(const struct gl_context *ctx, int i,
 {
    int bbox[4];
 
-   bbox[0] = MAX2(ctx->ViewportArray[i].X, 0);
-   bbox[1] = MIN2(bbox[0] + ctx->ViewportArray[i].Width, fb_width);
-   bbox[2] = MAX2(ctx->ViewportArray[i].Y, 0);
-   bbox[3] = MIN2(bbox[2] + ctx->ViewportArray[i].Height, fb_height);
+   int xMin = roundf(ctx->ViewportArray[i].X);
+   int xMax = roundf(ctx->ViewportArray[i].X + ctx->ViewportArray[i].Width);
+   int yMin = roundf(ctx->ViewportArray[i].Y);
+   int yMax = roundf(ctx->ViewportArray[i].Y + ctx->ViewportArray[i].Height);
+
+   bbox[0] = MAX2(xMin, 0);
+   bbox[1] = MIN2(xMax, fb_width);
+   bbox[2] = MAX2(yMin, 0);
+   bbox[3] = MIN2(yMax, fb_height);
    _mesa_intersect_scissor_bounding_box(ctx, i, bbox);
 
    if (bbox[0] == bbox[1] || bbox[2] == bbox[3]) {
@@ -2697,24 +2702,37 @@ genX(upload_sf_clip_viewport)(struct brw_context *brw)
        * pipeline stall so we're better off just being a little more clever
        * with our viewport so we can emit it once at context creation time.
        */
-      const float viewport_Xmin = MAX2(ctx->ViewportArray[i].X, 0);
-      const float viewport_Ymin = MAX2(ctx->ViewportArray[i].Y, 0);
-      const float viewport_Xmax =
-         MIN2(ctx->ViewportArray[i].X + ctx->ViewportArray[i].Width, fb_width);
-      const float viewport_Ymax =
-         MIN2(ctx->ViewportArray[i].Y + ctx->ViewportArray[i].Height, fb_height);
+      const struct gl_viewport_attrib *vp = &ctx->ViewportArray[i];
 
+      /* From the SKL PRM, Volume 7, page 550 (Viewport Extents Test):
+       * "The X/Y Min/Max ViewPort fields of the SF_CLIP_VIEWPORT structure
+       *  defines viewport extents as a rectangle in float screen pixel
+       *  coordinates relative to the (unclipped) origin of the Drawing
+       *  Rectangle. Please note that these co-ordinates can be fractional
+       *  values and hardware will do appropriate rounding and convert it
+       *  to integer pixel co-ordinates."
+       *
+       * Hardware rounds XMin and YMin the same way as roundf() which means
+       * if pixel's center is covered by viewport it would be included,
+       * however from tests XMax and YMax are always being floored so we
+       * have to manually round them.
+       */
+      const float viewport_Xmin = MAX2(vp->X, 0);
+      const float viewport_Xmax = MIN2(roundf(vp->X + vp->Width), fb_width);
+
+      float viewport_Ymin, viewport_Ymax;
       if (flip_y) {
-         sfv.XMinViewPort = viewport_Xmin;
-         sfv.XMaxViewPort = viewport_Xmax - 1;
-         sfv.YMinViewPort = fb_height - viewport_Ymax;
-         sfv.YMaxViewPort = fb_height - viewport_Ymin - 1;
+         viewport_Ymin = MAX2(fb_height - (vp->Y + vp->Height), 0);
+         viewport_Ymax = MIN2(roundf(fb_height -  vp->Y), fb_height);
       } else {
-         sfv.XMinViewPort = viewport_Xmin;
-         sfv.XMaxViewPort = viewport_Xmax - 1;
-         sfv.YMinViewPort = viewport_Ymin;
-         sfv.YMaxViewPort = viewport_Ymax - 1;
+         viewport_Ymin = MAX2(vp->Y, 0);
+         viewport_Ymax = MIN2(roundf(vp->Y + vp->Height), fb_height);
       }
+
+      sfv.XMinViewPort = viewport_Xmin;
+      sfv.XMaxViewPort = viewport_Xmax - 1;
+      sfv.YMinViewPort = viewport_Ymin;
+      sfv.YMaxViewPort = viewport_Ymax - 1;
 #endif
 
 #if GEN_GEN >= 7
