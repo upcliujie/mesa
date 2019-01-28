@@ -603,7 +603,11 @@ panfrost_get_compute_param(struct pipe_screen *pscreen, enum pipe_shader_ir ir_t
 static void
 panfrost_destroy_screen(struct pipe_screen *pscreen)
 {
-        panfrost_close_device(pan_device(pscreen));
+        struct panfrost_device *dev = pan_device(pscreen);
+
+        if (dev->ro)
+                dev->ro->destroy(dev->ro);
+        panfrost_close_device(dev);
         ralloc_free(pscreen);
 }
 
@@ -694,17 +698,7 @@ panfrost_create_screen(int fd, struct renderonly *ro)
         panfrost_open_device(screen, fd, dev);
 
         dev->debug = debug_get_flags_option("PAN_MESA_DEBUG", debug_options, 0);
-
-        if (ro) {
-                dev->ro = renderonly_dup(ro);
-                if (!dev->ro) {
-                        if (dev->debug & PAN_DBG_MSGS)
-                                fprintf(stderr, "Failed to dup renderonly object\n");
-
-                        free(screen);
-                        return NULL;
-                }
-        }
+        dev->ro = ro;
 
         /* Check if we're loading against a supported GPU model. */
 
