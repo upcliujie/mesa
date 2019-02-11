@@ -47,6 +47,20 @@ gen8_cmd_buffer_emit_viewport(struct anv_cmd_buffer *cmd_buffer)
 
       /* The gen7 state struct has just the matrix and guardband fields, the
        * gen8 struct adds the min/max viewport fields. */
+
+      /* From the SKL PRM, Volume 7, page 550 (Viewport Extents Test):
+       * "The X/Y Min/Max ViewPort fields of the SF_CLIP_VIEWPORT structure
+       *  defines viewport extents as a rectangle in float screen pixel
+       *  coordinates relative to the (unclipped) origin of the Drawing
+       *  Rectangle. Please note that these co-ordinates can be fractional
+       *  values and hardware will do appropriate rounding and convert it
+       *  to integer pixel co-ordinates."
+       *
+       * Hardware rounds XMin and YMin the same way as roundf() which means
+       * if pixel's center is covered by viewport it would be included,
+       * however from tests XMax and YMax are always being floored so we
+       * have to manually round them.
+       */
       struct GENX(SF_CLIP_VIEWPORT) sf_clip_viewport = {
          .ViewportMatrixElementm00 = vp->width / 2,
          .ViewportMatrixElementm11 = vp->height / 2,
@@ -59,9 +73,9 @@ gen8_cmd_buffer_emit_viewport(struct anv_cmd_buffer *cmd_buffer)
          .YMinClipGuardband = -1.0f,
          .YMaxClipGuardband = 1.0f,
          .XMinViewPort = vp->x,
-         .XMaxViewPort = vp->x + vp->width - 1,
+         .XMaxViewPort = roundf(vp->x + vp->width) - 1,
          .YMinViewPort = MIN2(vp->y, vp->y + vp->height),
-         .YMaxViewPort = MAX2(vp->y, vp->y + vp->height) - 1,
+         .YMaxViewPort = roundf(MAX2(vp->y, vp->y + vp->height)) - 1,
       };
 
       GENX(SF_CLIP_VIEWPORT_pack)(NULL, sf_clip_state.map + i * 64,
