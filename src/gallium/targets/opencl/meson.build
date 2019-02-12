@@ -30,6 +30,11 @@ if with_ld_version_script
 endif
 
 llvm_libdir = dep_llvm.get_configtool_variable('libdir')
+
+if meson.is_cross_build()
+  llvm_libdir = meson.get_cross_property('root') + llvm_libdir
+endif
+
 opencl_libname = with_opencl_icd ? 'MesaOpenCL' : 'OpenCL'
 
 polly_dep = null_dep
