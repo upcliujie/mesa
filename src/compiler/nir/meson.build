@@ -169,6 +169,7 @@ files_libnir = files(
   'nir_lower_uniforms_to_ubo.c',
   'nir_metadata.c',
   'nir_move_vec_src_uses_to_dest.c',
+  'nir_noltis.c',
   'nir_normalize_cubemap_coords.c',
   'nir_opt_combine_stores.c',
   'nir_opt_comparison_pre.c',
@@ -269,6 +270,18 @@ if with_tests
     executable(
       'nir_control_flow_test',
       files('tests/control_flow_tests.cpp'),
+      cpp_args : [cpp_vis_args, cpp_msvc_compat_args],
+      include_directories : [inc_common],
+      dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
+    ),
+    suite : ['compiler', 'nir'],
+  )
+
+  test(
+    'nir_noltis',
+    executable(
+      'nir_noltis_test',
+      files('tests/nir_noltis_tests.cpp'),
       cpp_args : [cpp_vis_args, cpp_msvc_compat_args],
       include_directories : [inc_common],
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
