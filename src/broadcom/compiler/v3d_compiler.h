@@ -785,8 +785,6 @@ bool vir_writes_r4(const struct v3d_device_info *devinfo, struct qinst *inst);
 struct qreg vir_follow_movs(struct v3d_compile *c, struct qreg reg);
 uint8_t vir_channels_written(struct qinst *inst);
 struct qreg ntq_get_src(struct v3d_compile *c, nir_src src, int i);
-void ntq_store_dest(struct v3d_compile *c, nir_dest *dest, int chan,
-                    struct qreg result);
 void vir_emit_thrsw(struct v3d_compile *c);
 
 void vir_dump(struct v3d_compile *c);
@@ -814,10 +812,13 @@ void vir_lower_uniforms(struct v3d_compile *c);
 
 void v3d33_vir_vpm_read_setup(struct v3d_compile *c, int num_components);
 void v3d33_vir_vpm_write_setup(struct v3d_compile *c);
-void v3d33_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr);
-void v3d40_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr);
+void v3d33_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr,
+                                     struct qreg *dest);
+void v3d40_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr,
+                                     struct qreg *dest);
 void v3d40_vir_emit_image_load_store(struct v3d_compile *c,
-                                     nir_intrinsic_instr *instr);
+                                     nir_intrinsic_instr *instr,
+                                     struct qreg *dest);
 
 void v3d_vir_to_qpu(struct v3d_compile *c, struct qpu_reg *temp_registers);
 uint32_t v3d_qpu_schedule_instructions(struct v3d_compile *c);
@@ -1048,13 +1049,21 @@ vir_MOV_cond(struct v3d_compile *c, enum v3d_qpu_cond cond,
         return mov;
 }
 
+static inline void
+vir_SEL_dest(struct v3d_compile *c, struct qreg dest,
+             enum v3d_qpu_cond cond,
+             struct qreg src0, struct qreg src1)
+{
+        vir_MOV_dest(c, dest, src1);
+        vir_MOV_cond(c, cond, dest, src0);
+}
+
 static inline struct qreg
 vir_SEL(struct v3d_compile *c, enum v3d_qpu_cond cond,
         struct qreg src0, struct qreg src1)
 {
         struct qreg t = vir_get_temp(c);
-        vir_MOV_dest(c, t, src1);
-        vir_MOV_cond(c, cond, t, src0);
+        vir_SEL_dest(c, t, cond, src0, src1);
         return t;
 }
 
@@ -1065,26 +1074,42 @@ vir_NOP(struct v3d_compile *c)
                                                c->undef, c->undef, c->undef));
 }
 
+static inline void
+vir_LDTMU_dest(struct v3d_compile *c, struct qreg dest)
+{
+        if (c->devinfo->ver >= 41) {
+                struct qinst *ldtmu = vir_add_inst(V3D_QPU_A_NOP, dest,
+                                                   c->undef, c->undef);
+                ldtmu->qpu.sig.ldtmu = true;
+                vir_emit_nondef(c, ldtmu);
+        } else {
+                vir_NOP(c)->qpu.sig.ldtmu = true;
+                vir_MOV_dest(c, dest, vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_R4));
+        }
+}
+
 static inline struct qreg
 vir_LDTMU(struct v3d_compile *c)
 {
-        if (c->devinfo->ver >= 41) {
-                struct qinst *ldtmu = vir_add_inst(V3D_QPU_A_NOP, c->undef,
-                                                   c->undef, c->undef);
-                ldtmu->qpu.sig.ldtmu = true;
+        struct qreg t = vir_get_temp(c);
+        vir_LDTMU_dest(c, t);
+        return t;
+}
 
-                return vir_emit_def(c, ldtmu);
-        } else {
-                vir_NOP(c)->qpu.sig.ldtmu = true;
-                return vir_MOV(c, vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_R4));
-        }
+static inline void
+vir_UMUL_dest(struct v3d_compile *c, struct qreg dest,
+              struct qreg src0, struct qreg src1)
+{
+        vir_MULTOP(c, src0, src1);
+        vir_UMUL24_dest(c, dest, src0, src1);
 }
 
 static inline struct qreg
 vir_UMUL(struct v3d_compile *c, struct qreg src0, struct qreg src1)
 {
-        vir_MULTOP(c, src0, src1);
-        return vir_UMUL24(c, src0, src1);
+        struct qreg t = vir_get_temp(c);
+        vir_UMUL_dest(c, t, src0, src1);
+        return t;
 }
 
 static inline struct qreg

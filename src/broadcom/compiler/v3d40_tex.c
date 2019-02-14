@@ -60,7 +60,8 @@ static const struct V3D41_TMU_CONFIG_PARAMETER_2 p2_unpacked_default = {
 };
 
 void
-v3d40_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr)
+v3d40_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr,
+                   struct qreg *dest)
 {
         unsigned unit = instr->texture_index;
         int tmu_writes = 0;
@@ -232,7 +233,7 @@ v3d40_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr)
 
         for (int i = 0; i < 4; i++) {
                 if (p0_unpacked.return_words_of_texture_data & (1 << i))
-                        ntq_store_dest(c, &instr->dest, i, vir_LDTMU(c));
+                        vir_LDTMU_dest(c, dest[i]);
         }
 }
 
@@ -277,7 +278,8 @@ v3d40_image_load_store_tmu_op(nir_intrinsic_instr *instr)
 
 void
 v3d40_vir_emit_image_load_store(struct v3d_compile *c,
-                                nir_intrinsic_instr *instr)
+                                nir_intrinsic_instr *instr,
+                                struct qreg *dest)
 {
         nir_variable *var = nir_intrinsic_get_var(instr, 0);
         const struct glsl_type *sampler_type = glsl_without_array(var->type);
@@ -405,7 +407,7 @@ v3d40_vir_emit_image_load_store(struct v3d_compile *c,
 
         for (int i = 0; i < 4; i++) {
                 if (p0_unpacked.return_words_of_texture_data & (1 << i))
-                        ntq_store_dest(c, &instr->dest, i, vir_LDTMU(c));
+                        vir_LDTMU_dest(c, dest[i]);
         }
 
         if (nir_intrinsic_dest_components(instr) == 0)

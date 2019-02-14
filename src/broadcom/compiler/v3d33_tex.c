@@ -31,7 +31,8 @@
 #include "cle/v3d_packet_v33_pack.h"
 
 void
-v3d33_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr)
+v3d33_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr,
+                   struct qreg *dest)
 {
         unsigned unit = instr->texture_index;
 
@@ -182,6 +183,6 @@ v3d33_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr)
 
         for (int i = 0; i < 4; i++) {
                 if (p1_unpacked.return_words_of_texture_data & (1 << i))
-                        ntq_store_dest(c, &instr->dest, i, vir_LDTMU(c));
+                        vir_LDTMU_dest(c, dest[i]);
         }
 }
