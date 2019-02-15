@@ -306,6 +306,11 @@ vir_get_temp(struct v3d_compile *c)
                 memset(&c->defs[old_size], 0,
                        sizeof(c->defs[0]) * (c->defs_array_size - old_size));
 
+                c->nir_defs = reralloc(c, c->nir_defs, nir_instr *,
+                                   c->defs_array_size);
+                memset(&c->nir_defs[old_size], 0,
+                       sizeof(c->nir_defs[0]) * (c->defs_array_size - old_size));
+
                 c->spillable = reralloc(c, c->spillable,
                                         BITSET_WORD,
                                         BITSET_WORDS(c->defs_array_size));

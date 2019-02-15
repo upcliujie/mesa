@@ -29,6 +29,7 @@
 #include "util/hash_table.h"
 #include "compiler/nir/nir.h"
 #include "compiler/nir/nir_builder.h"
+#include "compiler/nir/nir_noltis.h"
 #include "common/v3d_device_info.h"
 #include "v3d_compiler.h"
 
@@ -85,8 +86,10 @@ ntq_get_ssa_def(struct v3d_compile *c, nir_ssa_def *def, int chan)
 
         struct qreg *qregs = ralloc_array(c->def_ht, struct qreg,
                                           def->num_components);
-        for (int i = 0; i < def->num_components; i++)
+        for (int i = 0; i < def->num_components; i++) {
                 qregs[i] = vir_get_temp(c);
+                c->nir_defs[qregs[i].index] = def->parent_instr;
+        }
 
         _mesa_hash_table_insert(c->def_ht, def, qregs);
 
@@ -147,6 +150,104 @@ resize_qreg_array(struct v3d_compile *c,
                 (*regs)[i] = c->undef;
 }
 
+static void
+ntq_finish_tile(struct v3d_compile *c)
+{
+        if (!c->tile)
+                return;
+
+        list_for_each_entry(struct qinst, inst, vir_tile_instrs(c->tile), link) {
+                c->tile->cost++;
+
+                for (int i = 0; i < vir_get_nsrc(inst); i++) {
+                        if (inst->src[i].file != QFILE_TEMP)
+                                continue;
+
+                        nir_noltis_tile_add_edge(c->tile,
+                                                 c->nir_defs[inst->src[i].index]);
+                }
+        }
+
+        c->cursor = vir_after_block(c->cur_block);
+        c->tile = NULL;
+}
+
+uint32_t
+v3d_get_op_for_atomic_add(nir_intrinsic_instr *instr, unsigned src)
+{
+        if (nir_src_is_const(instr->src[src])) {
+                int64_t add_val = nir_src_as_int(instr->src[src]);
+                if (add_val == 1)
+                        return V3D_TMU_OP_WRITE_AND_READ_INC;
+                else if (add_val == -1)
+                        return V3D_TMU_OP_WRITE_OR_READ_DEC;
+        }
+
+        return V3D_TMU_OP_WRITE_ADD_READ_PREFETCH;
+}
+
+struct ntq_find_dest_state {
+        struct v3d_compile *c;
+        struct vir_tile_state *state;
+};
+
+static bool
+ntq_find_ssa_defs_cb(nir_ssa_def *def, void *in_state)
+{
+        struct ntq_find_dest_state *state = in_state;
+
+        assert(!state->state->dest_count);
+
+        state->state->dest_count = def->num_components;
+        for (int i = 0; i < def->num_components; i++)
+                state->state->dest[i] = ntq_get_ssa_def(state->c, def, i);
+
+        return true;
+}
+
+static bool
+ntq_find_dests_cb(nir_dest *dest, void *in_state)
+{
+        struct ntq_find_dest_state *state = in_state;
+
+        if (dest->is_ssa)
+                return true;
+        nir_register *reg = dest->reg.reg;
+
+        assert(!state->state->dest_count);
+
+        state->state->reg = reg;
+
+        state->state->dest_count = reg->num_components;
+        for (int i = 0; i < reg->num_components; i++)
+                state->state->dest[i] = ntq_get_dest(state->c, dest, i);
+
+        return true;
+}
+
+static struct qreg *
+ntq_new_tile(struct v3d_compile *c, nir_instr *instr)
+{
+        ntq_finish_tile(c);
+
+        /* List the instructions will be pushed to when the instr is done. */
+        struct vir_tile_state *state = rzalloc(c->noltis, struct vir_tile_state);
+        list_inithead(&state->instructions);
+
+        /* Make the new tile and have the instructions we emit go into it. */
+        c->tile = nir_noltis_tile_create(c->noltis, instr, state);
+        c->cursor = vir_after_tile(c->tile);
+
+        struct ntq_find_dest_state dest_state = {
+                .c = c,
+                .state = state,
+        };
+        nir_foreach_ssa_def(instr, ntq_find_ssa_defs_cb, &dest_state);
+        nir_foreach_dest(instr, ntq_find_dests_cb, &dest_state);
+
+        return state->dest;
+}
+
 void
 vir_emit_thrsw(struct v3d_compile *c)
 {
@@ -169,60 +270,6 @@ vir_emit_thrsw(struct v3d_compile *c)
          */
         if (c->emitted_tlb_load)
                 c->lock_scoreboard_on_first_thrsw = true;
-}
-
-uint32_t
-v3d_get_op_for_atomic_add(nir_intrinsic_instr *instr, unsigned src)
-{
-        if (nir_src_is_const(instr->src[src])) {
-                int64_t add_val = nir_src_as_int(instr->src[src]);
-                if (add_val == 1)
-                        return V3D_TMU_OP_WRITE_AND_READ_INC;
-                else if (add_val == -1)
-                        return V3D_TMU_OP_WRITE_OR_READ_DEC;
-        }
-
-        return V3D_TMU_OP_WRITE_ADD_READ_PREFETCH;
-}
-
-struct ntq_find_dest_state {
-        struct v3d_compile *c;
-        struct qreg *dest;
-        nir_register *reg;
-        int dest_count;
-};
-
-static bool
-ntq_find_ssa_defs_cb(nir_ssa_def *def, void *in_state)
-{
-        struct ntq_find_dest_state *state = in_state;
-
-        assert(!state->dest_count);
-
-        state->dest_count = def->num_components;
-        for (int i = 0; i < def->num_components; i++)
-                state->dest[i] = ntq_get_ssa_def(state->c, def, i);
-
-        return true;
-}
-
-static bool
-ntq_find_dests_cb(nir_dest *dest, void *in_state)
-{
-        struct ntq_find_dest_state *state = in_state;
-
-        if (dest->is_ssa)
-                return true;
-
-        assert(!state->dest_count);
-
-        state->reg = dest->reg.reg;
-
-        state->dest_count = state->reg->num_components;
-        for (int i = 0; i < state->reg->num_components; i++)
-                state->dest[i] = ntq_get_dest(state->c, dest, i);
-
-        return true;
 }
 
 static uint32_t
@@ -850,8 +897,10 @@ ntq_emit_bool_to_cond(struct v3d_compile *c, nir_src src)
                 goto out;
 
         enum v3d_qpu_cond cond;
-        if (ntq_emit_comparison(c, compare, &cond))
+        if (ntq_emit_comparison(c, compare, &cond)) {
+                nir_noltis_tile_add_interior(c->tile, &compare->instr);
                 return cond;
+        }
 
 out:
         vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), ntq_get_src(c, src, 0)),
@@ -922,6 +971,7 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr, struct qreg *dests)
                 nir_alu_instr *src0_alu = ntq_get_alu_parent(instr->src[0].src);
                 if (src0_alu && src0_alu->op == nir_op_fround_even) {
                         vir_FTOIN_dest(c, dest, ntq_get_alu_src(c, src0_alu, 0));
+                        nir_noltis_tile_add_interior(c->tile, &src0_alu->instr);
                 } else {
                         vir_FTOIZ_dest(c, dest, src[0]);
                 }
@@ -1027,6 +1077,12 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr, struct qreg *dests)
         }
 
         case nir_op_b32csel:
+                vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), src[0]),
+                           V3D_QPU_PF_PUSHZ);
+                vir_SEL_dest(c, dest, V3D_QPU_COND_IFNA, src[1], src[2]);
+
+                dests = ntq_new_tile(c, &instr->instr);
+                dest = dests[dest_chan];
                 vir_SEL_dest(c, dest,
                              ntq_emit_bool_to_cond(c, instr->src[0].src),
                              src[1], src[2]);
@@ -1915,6 +1971,36 @@ ntq_emit_color_write(struct v3d_compile *c,
 }
 
 static void
+ntq_emit_discard_if(struct v3d_compile *c, nir_intrinsic_instr *instr,
+                    bool bool_to_cond)
+{
+        enum v3d_qpu_cond cond;
+
+        if (bool_to_cond) {
+                cond = ntq_emit_bool_to_cond(c, instr->src[0]);
+        } else {
+                vir_set_pf(vir_MOV_dest(c, vir_nop_reg(),
+                                        ntq_get_src(c, instr->src[0], 0)),
+                           V3D_QPU_PF_PUSHZ);
+                cond = V3D_QPU_COND_IFNA;
+        }
+
+        if (vir_in_nonuniform_control_flow(c)) {
+                struct qinst *exec_flag = vir_MOV_dest(c, vir_nop_reg(),
+                                                       c->execute);
+                if (cond == V3D_QPU_COND_IFA) {
+                        vir_set_uf(exec_flag, V3D_QPU_UF_ANDZ);
+                } else {
+                        vir_set_uf(exec_flag, V3D_QPU_UF_NORNZ);
+                        cond = V3D_QPU_COND_IFA;
+                }
+        }
+
+        vir_set_cond(vir_SETMSF_dest(c, vir_nop_reg(),
+                                     vir_uniform_ui(c, 0)), cond);
+}
+
+static void
 ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr,
                    struct qreg *dest)
 {
@@ -2085,22 +2171,9 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr,
                 break;
 
         case nir_intrinsic_discard_if: {
-                enum v3d_qpu_cond cond = ntq_emit_bool_to_cond(c, instr->src[0]);
-
-                if (vir_in_nonuniform_control_flow(c)) {
-                        struct qinst *exec_flag = vir_MOV_dest(c, vir_nop_reg(),
-                                                               c->execute);
-                        if (cond == V3D_QPU_COND_IFA) {
-                                vir_set_uf(exec_flag, V3D_QPU_UF_ANDZ);
-                        } else {
-                                vir_set_uf(exec_flag, V3D_QPU_UF_NORNZ);
-                                cond = V3D_QPU_COND_IFA;
-                        }
-                }
-
-                vir_set_cond(vir_SETMSF_dest(c, vir_nop_reg(),
-                                             vir_uniform_ui(c, 0)), cond);
-
+                ntq_emit_discard_if(c, instr, false);
+                dest = ntq_new_tile(c, &instr->instr);
+                ntq_emit_discard_if(c, instr, true);
                 break;
         }
 
@@ -2374,15 +2447,7 @@ ntq_emit_jump(struct v3d_compile *c, nir_jump_instr *jump)
 static void
 ntq_emit_instr(struct v3d_compile *c, nir_instr *instr)
 {
-        struct list_head *previous_tail = c->cur_block->instructions.prev;
-
-        struct qreg dest[NIR_MAX_VEC_COMPONENTS];
-        struct ntq_find_dest_state dest_state = {
-                .c = c,
-                .dest = dest,
-        };
-        nir_foreach_ssa_def(instr, ntq_find_ssa_defs_cb, &dest_state);
-        nir_foreach_dest(instr, ntq_find_dests_cb, &dest_state);
+        struct qreg *dest = ntq_new_tile(c, instr);
 
         switch (instr->type) {
         case nir_instr_type_deref:
@@ -2420,17 +2485,25 @@ ntq_emit_instr(struct v3d_compile *c, nir_instr *instr)
                 abort();
         }
 
+        /* Finish off the last tile since we haven't started a new one. */
+        ntq_finish_tile(c);
+}
+
+static void
+ntq_resolve_stores_in_tile(struct v3d_compile *c, nir_noltis_tile *tile)
+{
+        struct vir_tile_state *state = tile->data;
+
         /* Find the last instruction in the emitted sequence updating each of
          * our dests.
          */
         struct qinst *last_dest_write[NIR_MAX_VEC_COMPONENTS] = {0};
-        list_for_each_entry_from(struct qinst, inst, previous_tail->next,
-                                 &c->cur_block->instructions, link) {
+        list_for_each_entry(struct qinst, inst, vir_tile_instrs(tile), link) {
                 if (inst->dst.file != QFILE_TEMP)
                         continue;
 
-                for (int i = 0; i < dest_state.dest_count; i++) {
-                        if (inst->dst.index == dest[i].index) {
+                for (int i = 0; i < state->dest_count; i++) {
+                        if (inst->dst.index == state->dest[i].index) {
                                 last_dest_write[i] = inst;
                                 break;
                         }
@@ -2441,14 +2514,11 @@ ntq_emit_instr(struct v3d_compile *c, nir_instr *instr)
          * (since the hardware doesn't do that for us), and update the defs[]
          * array appropriately.
          */
-        bool needs_channel_masking = (dest_state.reg &&
+        bool needs_channel_masking = (state->reg &&
                                       vir_in_nonuniform_control_flow(c));
-        for (int i = 0; i < dest_state.dest_count; i++) {
+        for (int i = 0; i < state->dest_count; i++) {
                 struct qinst *inst = last_dest_write[i];
 
-                /* Texture instructions may not update every component of the
-                 * dest.
-                 */
                 if (!inst)
                         continue;
 
@@ -2460,7 +2530,7 @@ ntq_emit_instr(struct v3d_compile *c, nir_instr *instr)
                                 /* Update the VIR state to note this instr
                                  * as an SSA def.
                                  */
-                                if (!dest_state.reg)
+                                if (!state->reg)
                                         c->defs[inst->dst.index] = inst;
                         } else {
                                 /* Update the instruction generating the reg
@@ -2472,7 +2542,7 @@ ntq_emit_instr(struct v3d_compile *c, nir_instr *instr)
                                            V3D_QPU_PF_PUSHZ);
 
                                 c->defs[inst->dst.index] = NULL;
-                                inst->dst = ntq_get_reg(c, dest_state.reg, i);
+                                inst->dst = ntq_get_reg(c, state->reg, i);
                                 vir_set_cond(inst, V3D_QPU_COND_IFA);
                         }
                 } else {
@@ -2490,20 +2560,45 @@ ntq_emit_instr(struct v3d_compile *c, nir_instr *instr)
                                                         c->execute),
                                            V3D_QPU_PF_PUSHZ);
                                 vir_MOV_cond(c, V3D_QPU_COND_IFA,
-                                             ntq_get_reg(c, dest_state.reg, i),
-                                             dest[i]);
+                                             ntq_get_reg(c, state->reg, i),
+                                             state->dest[i]);
                         }
                 }
         }
-        c->cursor = vir_after_block(c->cur_block);
 }
 
 static void
 ntq_emit_block(struct v3d_compile *c, nir_block *block)
 {
+        c->noltis = nir_noltis_create(c, block);
+
         nir_foreach_instr(instr, block) {
                 ntq_emit_instr(c, instr);
         }
+
+        nir_noltis_select(c->noltis);
+
+        nir_foreach_instr(instr, block) {
+                nir_noltis_tile *tile =
+                        nir_noltis_get_tile(c->noltis, instr);
+
+                /* If no tile was selected for the NIR instr, then it was only
+                 * ever the interior of tiles and doesn't generate
+                 * instructions.
+                 */
+                if (!tile)
+                        continue;
+
+                ntq_resolve_stores_in_tile(c, tile);
+
+                list_splicetail(vir_tile_instrs(tile),
+                                &c->cur_block->instructions);
+        }
+
+        c->cursor = vir_after_block(c->cur_block);
+
+        ralloc_free(c->noltis);
+        c->noltis = NULL;
 }
 
 static void ntq_emit_cf_list(struct v3d_compile *c, struct exec_list *list);

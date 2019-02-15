@@ -36,6 +36,7 @@
 #include "common/v3d_device_info.h"
 #include "common/v3d_limits.h"
 #include "compiler/nir/nir.h"
+#include "compiler/nir/nir_noltis.h"
 #include "util/list.h"
 #include "util/u_math.h"
 
@@ -426,6 +427,19 @@ enum vir_cursor_mode {
         vir_cursor_addtail,
 };
 
+struct vir_tile_state {
+        struct list_head instructions;
+        struct qreg dest[NIR_MAX_VEC_COMPONENTS];
+        int dest_count;
+        nir_register *reg;
+};
+
+static inline struct list_head *
+vir_tile_instrs(nir_noltis_tile *tile)
+{
+        return tile->data;
+}
+
 /**
  * Tracking structure for where new instructions should be inserted.  Create
  * with one of the vir_after_inst()-style helper functions.
@@ -462,6 +476,12 @@ vir_after_block(struct qblock *block)
         return (struct vir_cursor){ vir_cursor_addtail, &block->instructions };
 }
 
+static inline struct vir_cursor
+vir_after_tile(nir_noltis_tile *tile)
+{
+        return (struct vir_cursor){ vir_cursor_addtail, vir_tile_instrs(tile) };
+}
+
 /**
  * Compiler state saved across compiler invocations, for any expensive global
  * setup.
@@ -482,6 +502,9 @@ struct v3d_compile {
         struct exec_list *cf_node_list;
         const struct v3d_compiler *compiler;
 
+        nir_noltis *noltis;
+        nir_noltis_tile *tile;
+
         void (*debug_output)(const char *msg,
                              void *debug_output_data);
         void *debug_output_data;
@@ -494,6 +517,9 @@ struct v3d_compile {
 
         /* For each temp, the instruction generating its value. */
         struct qinst **defs;
+        /* For each temp, the optional NIR SSA instruction generating its value.
+         */
+        nir_instr **nir_defs;
         uint32_t defs_array_size;
 
         /**
