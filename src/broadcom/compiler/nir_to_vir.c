@@ -909,6 +909,27 @@ out:
 }
 
 static void
+ntq_try_emit_sub(struct v3d_compile *c, nir_alu_instr *instr,
+                 int dest_chan, bool neg_src1)
+{
+        struct qreg a = ntq_get_alu_src(c, instr, neg_src1 ? 0 : 1);
+
+        bool is_float = instr->op == nir_op_fadd;
+        nir_alu_instr *neg =
+                ntq_get_alu_parent(instr->src[neg_src1 ? 1 : 0].src);
+        if (!neg || neg->op != (is_float ? nir_op_fneg : nir_op_ineg))
+                return;
+        struct qreg b = ntq_get_alu_src(c, neg, 0);
+
+        struct qreg *dest = ntq_new_tile(c, &instr->instr);
+        nir_noltis_tile_add_interior(c->tile, &neg->instr);
+        if (is_float)
+                vir_FSUB_dest(c, dest[dest_chan], a, b);
+        else
+                vir_SUB_dest(c, dest[dest_chan], a, b);
+}
+
+static void
 ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr, struct qreg *dests)
 {
         /* This should always be lowered to ALU operations for V3D. */
@@ -956,6 +977,8 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr, struct qreg *dests)
                 break;
         case nir_op_fadd:
                 vir_FADD_dest(c, dest, src[0], src[1]);
+                ntq_try_emit_sub(c, instr, dest_chan, false);
+                ntq_try_emit_sub(c, instr, dest_chan, true);
                 break;
         case nir_op_fsub:
                 vir_FSUB_dest(c, dest, src[0], src[1]);
@@ -996,6 +1019,8 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr, struct qreg *dests)
 
         case nir_op_iadd:
                 vir_ADD_dest(c, dest, src[0], src[1]);
+                ntq_try_emit_sub(c, instr, dest_chan, false);
+                ntq_try_emit_sub(c, instr, dest_chan, true);
                 break;
         case nir_op_ushr:
                 vir_SHR_dest(c, dest, src[0], src[1]);
