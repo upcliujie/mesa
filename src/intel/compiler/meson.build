@@ -138,9 +138,18 @@ brw_nir_trig = custom_target(
   capture : true,
 )
 
+gen8_md = custom_target(
+  'gen8_md.h',
+  input : 'gen8_md.py',
+  output : 'gen8_md.h',
+  command : [ prog_python, '@INPUT@' ],
+  depend_files : ['gen_gen_codegen.py'],
+  capture : true,
+)
+
 libintel_compiler = static_library(
   'intel_compiler',
-  [libintel_compiler_files, brw_nir_trig, ir_expression_operation_h],
+  [libintel_compiler_files, brw_nir_trig, gen8_md, ir_expression_operation_h],
   include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel],
   c_args : [c_vis_args, no_override_init_args],
   cpp_args : [cpp_vis_args],
