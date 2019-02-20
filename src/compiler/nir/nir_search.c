@@ -46,6 +46,9 @@ struct match_state {
 
    nir_alu_src variables[NIR_SEARCH_MAX_VARIABLES];
    struct hash_table *range_ht;
+
+   /** For each entry in variables, is it SSA? */
+   bool is_ssa[NIR_SEARCH_MAX_VARIABLES];
 };
 
 static bool
@@ -258,15 +261,6 @@ match_value(const nir_search_value *value, nir_alu_instr *instr, unsigned src,
 {
    uint8_t new_swizzle[NIR_MAX_VEC_COMPONENTS];
 
-   /* Searching only works on SSA values because, if it's not SSA, we can't
-    * know if the value changed between one instance of that value in the
-    * expression and another.  Also, the replace operation will place reads of
-    * that value right before the last instruction in the expression we're
-    * replacing so those reads will happen after the original reads and may
-    * not be valid if they're register reads.
-    */
-   assert(instr->src[src].src.is_ssa);
-
    /* If the source is an explicitly sized source, then we need to reset
     * both the number of components and the swizzle.
     */
@@ -285,6 +279,9 @@ match_value(const nir_search_value *value, nir_alu_instr *instr, unsigned src,
 
    switch (value->type) {
    case nir_search_value_expression:
+      if (!instr->src[src].src.is_ssa)
+         return false;
+
       if (instr->src[src].src.ssa->parent_instr->type != nir_instr_type_alu)
          return false;
 
@@ -297,6 +294,9 @@ match_value(const nir_search_value *value, nir_alu_instr *instr, unsigned src,
       assert(var->variable < NIR_SEARCH_MAX_VARIABLES);
 
       if (state->variables_seen & (1 << var->variable)) {
+         if (!instr->src[src].src.is_ssa || !state->is_ssa[var->variable])
+            return false;
+
          if (state->variables[var->variable].src.ssa != instr->src[src].src.ssa)
             return false;
 
@@ -310,7 +310,8 @@ match_value(const nir_search_value *value, nir_alu_instr *instr, unsigned src,
          return true;
       } else {
          if (var->is_constant &&
-             instr->src[src].src.ssa->parent_instr->type != nir_instr_type_load_const)
+             (!instr->src[src].src.is_ssa ||
+              instr->src[src].src.ssa->parent_instr->type != nir_instr_type_load_const))
             return false;
 
          if (var->cond && !var->cond(state->range_ht, instr,
@@ -325,6 +326,7 @@ match_value(const nir_search_value *value, nir_alu_instr *instr, unsigned src,
          state->variables[var->variable].src = instr->src[src].src;
          state->variables[var->variable].abs = false;
          state->variables[var->variable].negate = false;
+         state->is_ssa[var->variable] = instr->src[src].src.is_ssa;
 
          for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; ++i) {
             if (i < num_components)
@@ -700,8 +702,7 @@ nir_replace_instr(nir_builder *build, nir_alu_instr *instr,
    assert(instr->dest.dest.is_ssa);
 
    struct match_state state;
-   state.inexact_match = false;
-   state.has_exact_alu = false;
+   memset(&state, 0, sizeof(state));
    state.range_ht = range_ht;
    state.pass_op_table = pass_op_table;
 
