@@ -40,6 +40,7 @@ brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
                                  GLfloat *srcX1, GLfloat *srcY1,
                                  GLfloat *dstX0, GLfloat *dstY0,
                                  GLfloat *dstX1, GLfloat *dstY1,
+                                 GLdouble *scale_x, GLdouble *scale_y,
                                  bool *mirror_x, bool *mirror_y);
 
 union isl_color_value

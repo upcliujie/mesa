@@ -127,7 +127,7 @@ clip_coordinates(bool mirror,
                  float *src, float *dst0, float *dst1,
                  float clipped_dst0,
                  float clipped_dst1,
-                 float scale,
+                 double scale,
                  bool is_left_or_bottom)
 {
    /* When clipping we need to add or subtract pixels from the original
@@ -158,6 +158,7 @@ apply_blit_scissor(const struct pipe_scissor_state *scissor,
                    float *src_x1, float *src_y1,
                    float *dst_x0, float *dst_y0,
                    float *dst_x1, float *dst_y1,
+                   double scale_x, double scale_y,
                    bool mirror_x, bool mirror_y)
 {
    float clip_dst_x0, clip_dst_x1, clip_dst_y0, clip_dst_y1;
@@ -202,9 +203,6 @@ apply_blit_scissor(const struct pipe_scissor_state *scissor,
        || *dst_x0 == *dst_x1 || *dst_y0 == *dst_y1)
       return true;
 
-   float scale_x = (float) (*src_x1 - *src_x0) / (*dst_x1 - *dst_x0);
-   float scale_y = (float) (*src_y1 - *src_y0) / (*dst_y1 - *dst_y0);
-
    /* Clip left side */
    clip_coordinates(mirror_x, src_x0, dst_x0, dst_x1,
                     clip_dst_x0, clip_dst_x1, scale_x, true);
@@ -224,8 +222,8 @@ apply_blit_scissor(const struct pipe_scissor_state *scissor,
    /* Check for invalid bounds
     * Can't blit for 0-dimensions
     */
-   return *src_x0 == *src_x1 || *src_y0 == *src_y1
-      || *dst_x0 == *dst_x1 || *dst_y0 == *dst_y1;
+   return *src_x0 == *src_x1 || *src_y0 == *src_y1 ||
+      *dst_x0 == *dst_x1 || *dst_y0 == *dst_y1;
 }
 
 void
@@ -348,10 +346,17 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
    bool mirror_y = apply_mirror(&src_y0, &src_y1);
    enum blorp_filter filter;
 
+   if (src_x0 == src_x1 || src_y0 == src_y1 ||
+       dst_x0 == dst_x1 || dst_y0 == dst_y1)
+      return;
+   double const scale_x = get_scale(src_x0, src_x1, dst_x0, dst_x1);
+   double const scale_y = get_scale(src_y0, src_y1, dst_y0, dst_y1);
+
    if (info->scissor_enable) {
       bool noop = apply_blit_scissor(&info->scissor,
                                      &src_x0, &src_y0, &src_x1, &src_y1,
                                      &dst_x0, &dst_y0, &dst_x1, &dst_y1,
+                                     scale_x, scale_y,
                                      mirror_x, mirror_y);
       if (noop)
          return;
@@ -416,13 +421,14 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
       for (int slice = 0; slice < info->dst.box.depth; slice++) {
          iris_batch_maybe_flush(batch, 1500);
 
-         blorp_blit(&blorp_batch,
+         blorp_blit_high_precision(&blorp_batch,
                     &src_surf, info->src.level, info->src.box.z + slice,
                     src_fmt.fmt, src_fmt.swizzle,
                     &dst_surf, info->dst.level, info->dst.box.z + slice,
                     dst_fmt.fmt, dst_fmt.swizzle,
-                    src_x0, src_y0, src_x1, src_y1,
-                    dst_x0, dst_y0, dst_x1, dst_y1,
+                    round(src_x0), round(src_y0), round(src_x1), round(src_y1),
+                    round(dst_x0), round(dst_y0), round(dst_x1), round(dst_y1),
+                    scale_x, scale_y,
                     filter, mirror_x, mirror_y);
       }
    }
@@ -441,13 +447,14 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
       for (int slice = 0; slice < info->dst.box.depth; slice++) {
          iris_batch_maybe_flush(batch, 1500);
 
-         blorp_blit(&blorp_batch,
+         blorp_blit_high_precision(&blorp_batch,
                     &src_surf, info->src.level, info->src.box.z + slice,
                     ISL_FORMAT_R8_UINT, ISL_SWIZZLE_IDENTITY,
                     &dst_surf, info->dst.level, info->dst.box.z + slice,
                     ISL_FORMAT_R8_UINT, ISL_SWIZZLE_IDENTITY,
-                    src_x0, src_y0, src_x1, src_y1,
-                    dst_x0, dst_y0, dst_x1, dst_y1,
+                    round(src_x0), round(src_y0), round(src_x1), round(src_y1),
+                    round(dst_x0), round(dst_y0), round(dst_x1), round(dst_y1),
+                    scale_x, scale_y,
                     filter, mirror_x, mirror_y);
       }
    }

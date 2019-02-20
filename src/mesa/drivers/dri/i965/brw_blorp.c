@@ -274,7 +274,7 @@ swizzle_to_scs(GLenum swizzle)
  * 4*n.
  */
 void
-brw_blorp_blit_miptrees(struct brw_context *brw,
+brw_blorp_blit_miptrees_high_precision(struct brw_context *brw,
                         struct intel_mipmap_tree *src_mt,
                         unsigned src_level, unsigned src_layer,
                         mesa_format src_format, int src_swizzle,
@@ -285,19 +285,20 @@ brw_blorp_blit_miptrees(struct brw_context *brw,
                         float src_x1, float src_y1,
                         float dst_x0, float dst_y0,
                         float dst_x1, float dst_y1,
+                        double scale_x, double scale_y,
                         GLenum gl_filter, bool mirror_x, bool mirror_y,
                         bool decode_srgb, bool encode_srgb)
 {
    const struct gen_device_info *devinfo = &brw->screen->devinfo;
 
    DBG("%s from %dx %s mt %p %d %d (%f,%f) (%f,%f) "
-       "to %dx %s mt %p %d %d (%f,%f) (%f,%f) (flip %d,%d)\n",
+       "to %dx %s mt %p %d %d (%f,%f) (%f,%f) (scale %lf,%lf) (flip %d,%d)\n",
        __func__,
        src_mt->surf.samples, _mesa_get_format_name(src_mt->format), src_mt,
        src_level, src_layer, src_x0, src_y0, src_x1, src_y1,
        dst_mt->surf.samples, _mesa_get_format_name(dst_mt->format), dst_mt,
        dst_level, dst_layer, dst_x0, dst_y0, dst_x1, dst_y1,
-       mirror_x, mirror_y);
+       scale_x, scale_y, mirror_x, mirror_y);
 
    if (!decode_srgb && _mesa_get_format_color_encoding(src_format) == GL_SRGB)
       src_format = _mesa_get_srgb_format_linear(src_format);
@@ -420,17 +421,51 @@ brw_blorp_blit_miptrees(struct brw_context *brw,
 
    struct blorp_batch batch;
    blorp_batch_init(&brw->blorp, &batch, brw, 0);
-   blorp_blit(&batch, &src_surf, src_level, src_layer,
+   blorp_blit_high_precision(&batch, &src_surf, src_level, src_layer,
               src_isl_format, src_isl_swizzle,
               &dst_surf, dst_level, dst_layer,
               dst_isl_format, ISL_SWIZZLE_IDENTITY,
-              src_x0, src_y0, src_x1, src_y1,
-              dst_x0, dst_y0, dst_x1, dst_y1,
+              round(src_x0), round(src_y0), round(src_x1), round(src_y1),
+              round(dst_x0), round(dst_y0), round(dst_x1), round(dst_y1),
+              scale_x, scale_y,
               blorp_filter, mirror_x, mirror_y);
    blorp_batch_finish(&batch);
 
    intel_miptree_finish_write(brw, dst_mt, dst_level, dst_layer, 1,
                               dst_aux_usage);
+}
+
+void
+brw_blorp_blit_miptrees(struct brw_context *brw,
+                        struct intel_mipmap_tree *src_mt,
+                        unsigned src_level, unsigned src_layer,
+                        mesa_format src_format, int src_swizzle,
+                        struct intel_mipmap_tree *dst_mt,
+                        unsigned dst_level, unsigned dst_layer,
+                        mesa_format dst_format,
+                        float src_x0, float src_y0,
+                        float src_x1, float src_y1,
+                        float dst_x0, float dst_y0,
+                        float dst_x1, float dst_y1,
+                        GLenum filter, bool mirror_x, bool mirror_y,
+                        bool decode_srgb, bool encode_srgb)
+{
+   if (src_x0 == src_x1 || src_y0 == src_y1 ||
+       dst_x0 == dst_x1 || dst_y0 == dst_y1)
+      return;
+   double const scale_x = get_scale(src_x0, src_x1, dst_x0, dst_x1);
+   double const scale_y = get_scale(src_y0, src_y1, dst_y0, dst_y1);
+   brw_blorp_blit_miptrees_high_precision(brw,
+                           src_mt, src_level, src_layer, src_format,
+                           src_swizzle, dst_mt, dst_level, dst_layer,
+                           dst_format,
+                           src_x0, src_y0,
+                           src_x1, src_y1,
+                           dst_x0, dst_y0,
+                           dst_x1, dst_y1,
+                           scale_x, scale_y,
+                           filter, mirror_x, mirror_y,
+                           decode_srgb, encode_srgb);
 }
 
 void
@@ -571,6 +606,7 @@ do_blorp_blit(struct brw_context *brw, GLbitfield buffer_bit,
               struct intel_renderbuffer *dst_irb, mesa_format dst_format,
               GLfloat srcX0, GLfloat srcY0, GLfloat srcX1, GLfloat srcY1,
               GLfloat dstX0, GLfloat dstY0, GLfloat dstX1, GLfloat dstY1,
+              GLdouble scale_x, GLdouble scale_y,
               GLenum filter, bool mirror_x, bool mirror_y)
 {
    const struct gl_context *ctx = &brw->ctx;
@@ -582,13 +618,14 @@ do_blorp_blit(struct brw_context *brw, GLbitfield buffer_bit,
    const bool do_srgb = ctx->Color.sRGBEnabled;
 
    /* Do the blit */
-   brw_blorp_blit_miptrees(brw,
+   brw_blorp_blit_miptrees_high_precision(brw,
                            src_mt, src_irb->mt_level, src_irb->mt_layer,
                            src_format, blorp_get_texture_swizzle(src_irb),
                            dst_mt, dst_irb->mt_level, dst_irb->mt_layer,
                            dst_format,
                            srcX0, srcY0, srcX1, srcY1,
                            dstX0, dstY0, dstX1, dstY1,
+                           scale_x, scale_y,
                            filter, mirror_x, mirror_y,
                            do_srgb, do_srgb);
 
@@ -612,9 +649,12 @@ try_blorp_blit(struct brw_context *brw,
    intel_prepare_render(brw);
 
    bool mirror_x, mirror_y;
+   GLdouble scale_x = 0;
+   GLdouble scale_y = 0;
    if (brw_meta_mirror_clip_and_scissor(ctx, read_fb, draw_fb,
                                         &srcX0, &srcY0, &srcX1, &srcY1,
                                         &dstX0, &dstY0, &dstX1, &dstY1,
+                                        &scale_x, &scale_y,
                                         &mirror_x, &mirror_y))
       return true;
 
@@ -634,6 +674,7 @@ try_blorp_blit(struct brw_context *brw,
                           dst_irb, dst_irb->Base.Base.Format,
                           srcX0, srcY0, srcX1, srcY1,
                           dstX0, dstY0, dstX1, dstY1,
+                          scale_x, scale_y,
                           filter, mirror_x, mirror_y);
       }
       break;
@@ -655,6 +696,7 @@ try_blorp_blit(struct brw_context *brw,
       do_blorp_blit(brw, buffer_bit, src_irb, MESA_FORMAT_NONE,
                     dst_irb, MESA_FORMAT_NONE, srcX0, srcY0,
                     srcX1, srcY1, dstX0, dstY0, dstX1, dstY1,
+                    scale_x, scale_y,
                     filter, mirror_x, mirror_y);
       break;
    case GL_STENCIL_BUFFER_BIT:
@@ -671,6 +713,7 @@ try_blorp_blit(struct brw_context *brw,
       do_blorp_blit(brw, buffer_bit, src_irb, MESA_FORMAT_NONE,
                     dst_irb, MESA_FORMAT_NONE, srcX0, srcY0,
                     srcX1, srcY1, dstX0, dstY0, dstX1, dstY1,
+                    scale_x, scale_y,
                     filter, mirror_x, mirror_y);
       break;
    default:

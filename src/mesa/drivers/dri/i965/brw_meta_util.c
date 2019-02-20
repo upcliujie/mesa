@@ -30,6 +30,8 @@
 #include "main/fbobject.h"
 #include "util/format_srgb.h"
 
+#define FILE_DEBUG_FLAG DEBUG_BLIT
+
 /**
  * Helper function for handling mirror image blits.
  *
@@ -162,10 +164,13 @@ brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
                                  GLfloat *srcX1, GLfloat *srcY1,
                                  GLfloat *dstX0, GLfloat *dstY0,
                                  GLfloat *dstX1, GLfloat *dstY1,
+                                 GLdouble *scale_x, GLdouble *scale_y,
                                  bool *mirror_x, bool *mirror_y)
 {
    *mirror_x = false;
    *mirror_y = false;
+   *scale_x = 0.0;
+   *scale_y = 0.0;
 
    /* Detect if the blit needs to be mirrored */
    fixup_mirroring(mirror_x, srcX0, srcX1);
@@ -224,32 +229,38 @@ brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
        || *dstX0 == *dstX1 || *dstY0 == *dstY1)
       return true;
 
-   float scaleX = (float) (*srcX1 - *srcX0) / (*dstX1 - *dstX0);
-   float scaleY = (float) (*srcY1 - *srcY0) / (*dstY1 - *dstY0);
+   *scale_x = (*srcX1 - *srcX0) / (double)(*dstX1 - *dstX0);
+   *scale_y = (*srcY1 - *srcY0) / (double)(*dstY1 - *dstY0);
+
+   DBG("%s initial src: (%f,%f;%f,%f), dst: (%f,%f;%f,%f)"
+       " -> scaleXY(%f,%f)\n",
+       __func__, *srcX0, *srcY0, *srcX1, *srcY1,
+       *dstX0, *dstY0, *dstX1, *dstY1,
+       *scale_x, *scale_y);
 
    /* Clip left side */
    clip_coordinates(*mirror_x,
                     srcX0, dstX0, dstX1,
                     clip_src_x0, clip_dst_x0, clip_dst_x1,
-                    scaleX, true);
+                    *scale_x, true);
 
    /* Clip right side */
    clip_coordinates(*mirror_x,
                     srcX1, dstX1, dstX0,
                     clip_src_x1, clip_dst_x1, clip_dst_x0,
-                    scaleX, false);
+                    *scale_x, false);
 
    /* Clip bottom side */
    clip_coordinates(*mirror_y,
                     srcY0, dstY0, dstY1,
                     clip_src_y0, clip_dst_y0, clip_dst_y1,
-                    scaleY, true);
+                    *scale_y, true);
 
    /* Clip top side */
    clip_coordinates(*mirror_y,
                     srcY1, dstY1, dstY0,
                     clip_src_y1, clip_dst_y1, clip_dst_y0,
-                    scaleY, false);
+                    *scale_y, false);
 
    /* Account for the fact that in the system framebuffer, the origin is at
     * the lower left.
@@ -266,6 +277,14 @@ brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
       *dstY1 = tmp;
       *mirror_y = !*mirror_y;
    }
+
+   DBG("%s clipSrc: (%f,%f;%f,%f), clipDst: (%f,%f;%f,%f)\n",
+       __func__, clip_src_x0, clip_src_y0, clip_src_x1, clip_src_y1,
+       clip_dst_x0, clip_dst_y0, clip_dst_x1, clip_dst_y1);
+   DBG("%s result src: (%f,%f;%f,%f), dst: (%f,%f;%f,%f),"
+       " mirror_x: %d, mirror_y: %d\n",
+       __func__, *srcX0, *srcY0, *srcX1, *srcY1,
+       *dstX0, *dstY0, *dstX1, *dstY1, *mirror_x, *mirror_y);
 
    /* Check for invalid bounds
     * Can't blit for 0-dimensions
