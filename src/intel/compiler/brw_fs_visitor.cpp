@@ -956,8 +956,10 @@ fs_visitor::init()
 
    this->grf_used = 0;
    this->spilled_any_registers = false;
+   this->range_ht = _mesa_pointer_hash_table_create(NULL);
 }
 
 fs_visitor::~fs_visitor()
 {
+   ralloc_free(this->range_ht);
 }

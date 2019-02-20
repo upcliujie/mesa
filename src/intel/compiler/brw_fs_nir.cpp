@@ -999,6 +999,29 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
    unsigned execution_mode =
       bld.shader->nir->info.float_controls_execution_mode;
 
+   switch (devinfo->gen) {
+   case 4:
+   case 5:
+   case 6:
+   case 7:
+      break;
+
+   case 8:
+   case 9:
+      if (nir_emit_alu_gen8(this, devinfo, range_ht, bld, instr, need_dest))
+         return;
+      break;
+
+   default:
+      break;
+   }
+
+   assert((devinfo->gen != 9 && devinfo->gen != 8) ||
+          instr->op == nir_op_mov ||
+          instr->op == nir_op_vec2 ||
+          instr->op == nir_op_vec3 ||
+          instr->op == nir_op_vec4);
+
    fs_reg op[4];
    fs_reg result = prepare_alu_destination_and_sources(bld, instr, op, need_dest);
 

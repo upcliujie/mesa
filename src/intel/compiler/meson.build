@@ -86,6 +86,7 @@ libintel_compiler_files = files(
   'brw_nir_lower_image_load_store.c',
   'brw_nir_lower_mem_access_bit_sizes.c',
   'brw_nir_opt_peephole_ffma.c',
+  'brw_nir_search_helpers.h',
   'brw_nir_tcs_workarounds.c',
   'brw_nir_clamp_image_1d_2d_array_sizes.c',
   'brw_packed_float.c',
@@ -139,9 +140,9 @@ brw_nir_trig = custom_target(
 )
 
 gen8_md = custom_target(
-  'gen8_md.h',
+  'gen8_md.cpp',
   input : 'gen8_md.py',
-  output : 'gen8_md.h',
+  output : 'gen8_md.cpp',
   command : [ prog_python, '@INPUT@' ],
   depend_files : ['gen_gen_codegen.py'],
   capture : true,
