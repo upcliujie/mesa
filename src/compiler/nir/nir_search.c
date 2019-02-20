@@ -49,6 +49,9 @@ struct match_state {
 
    /** For each entry in variables, is it SSA? */
    bool is_ssa[NIR_SEARCH_MAX_VARIABLES];
+
+   /** For each entry in variables, which index in nir_alu_instr::src was it? */
+   uint8_t which_src[NIR_SEARCH_MAX_VARIABLES];
 };
 
 static bool
@@ -327,6 +330,7 @@ match_value(const nir_search_value *value, nir_alu_instr *instr, unsigned src,
          state->variables[var->variable].abs = false;
          state->variables[var->variable].negate = false;
          state->is_ssa[var->variable] = instr->src[src].src.is_ssa;
+         state->which_src[var->variable] = src;
 
          for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; ++i) {
             if (i < num_components)
