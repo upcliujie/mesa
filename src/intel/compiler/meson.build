@@ -19,6 +19,8 @@
 # SOFTWARE.
 
 libintel_compiler_files = files(
+  'codegen_builder.cpp',
+  'codegen_builder.h',
   'brw_cfg.cpp',
   'brw_cfg.h',
   'brw_clip.h',
