@@ -401,8 +401,6 @@ match_expression(const nir_search_expression *expr, nir_alu_instr *instr,
    if (!nir_op_matches_search_op(instr->op, expr->opcode))
       return false;
 
-   assert(instr->dest.dest.is_ssa);
-
    if (expr->value.bit_size > 0 &&
        instr->dest.dest.ssa.bit_size != expr->value.bit_size)
       return false;
