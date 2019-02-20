@@ -423,6 +423,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .KHR_multiview = true,
       .KHR_pipeline_executable_properties = true,
       .KHR_present_id = true,
+      .KHR_present_wait = true,
       .KHR_push_descriptor = true,
       .KHR_relaxed_block_layout = true,
       .KHR_sampler_mirror_clamp_to_edge = true,
@@ -1697,6 +1698,12 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          VkPhysicalDevicePresentIdFeaturesKHR *features =
             (VkPhysicalDevicePresentIdFeaturesKHR *) ext;
          features->presentId = true;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR: {
+         VkPhysicalDevicePresentWaitFeaturesKHR *features =
+            (VkPhysicalDevicePresentWaitFeaturesKHR *) ext;
+         features->presentWait = true;
          break;
       }
       default:
