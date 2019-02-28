@@ -104,6 +104,23 @@ compute_pixels_clipped(int x0, int y0, int x1, int y1,
    return true;
 }
 
+static inline int
+round_scaled_position(int base, double scaled)
+{
+   int res = round(scaled);
+   if (scaled != 0.0) {
+      // Scaled value on clipping shouldn't give us 0-position
+      // At least 1-pixel has to be except it is really 0-pixel
+      int const rounded = res;
+      int const diff = base + rounded;
+      if (diff == 0)
+         res = scaled >= 0.0f ? rounded - 1 : rounded + 1;
+      DBG("%s b/s/r/d/r: %d/%lf/%d/%d/%d\n",
+          __func__, base, scaled, rounded, diff, res);
+   }
+   return res;
+}
+
 /**
  * Clips a coordinate (left, right, top or bottom) for the src or dst rect
  * (whichever requires the largest clip) and adjusts the coordinate
@@ -139,21 +156,54 @@ clip_coordinates(bool mirror,
 
    if (!mirror) {
       if (clipped_src0 >= clipped_dst0 * scale) {
+         double const scale_res = clipped_src0 / scale * mult;
          *src += clipped_src0 * mult;
-         *dst0 += round(clipped_src0 / scale * mult);
+         *dst0 += round_scaled_position(*dst0, scale_res);
       } else {
+         double const scale_res = clipped_dst0 * scale * mult;
          *dst0 += clipped_dst0 * mult;
-         *src += round(clipped_dst0 * scale * mult);
+         *src += round_scaled_position(*src, scale_res);
       }
    } else {
       if (clipped_src0 >= clipped_dst1 * scale) {
+         double const scale_res = clipped_src0 / scale * mult;
          *src += clipped_src0 * mult;
-         *dst1 -= round(clipped_src0 / scale * mult);
+         *dst1 -= round_scaled_position(-*dst1, scale_res);
       } else {
+         double const scale_res = clipped_dst1 * scale * mult;
          *dst1 -= clipped_dst1 * mult;
-         *src += round(clipped_dst1 * scale * mult);
+         *src += round_scaled_position(*src, scale_res);
       }
    }
+}
+
+/* INT_MIN has a specific:
+ * Result of '0 - INT_MIN' is always negative.
+ * So its impossible compute a clip-region for negative dimention.
+ * Looks like a workaround but fixes boundary case.
+ */
+static inline void
+fixup_limits(GLint *srcX0, GLint *srcY0,
+             GLint *srcX1, GLint *srcY1,
+             GLint *dstX0, GLint *dstY0,
+             GLint *dstX1, GLint *dstY1)
+{
+   if (*srcX0 == INT_MIN)
+      *srcX0 += 1;
+   if (*srcY0 == INT_MIN)
+      *srcY0 += 1;
+   if (*srcX1 == INT_MIN)
+      *srcX1 += 1;
+   if (*srcY1 == INT_MIN)
+      *srcY1 += 1;
+   if (*dstX0 == INT_MIN)
+      *dstX0 += 1;
+   if (*dstY0 == INT_MIN)
+      *dstY0 += 1;
+   if (*dstX1 == INT_MIN)
+      *dstX1 += 1;
+   if (*dstY1 == INT_MIN)
+      *dstY1 += 1;
 }
 
 bool
@@ -171,6 +221,9 @@ brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
    *mirror_y = false;
    *scale_x = 0.0;
    *scale_y = 0.0;
+
+   fixup_limits(srcX0, srcY0, srcX1, srcY1,
+                dstX0, dstY0, dstX1, dstY1);
 
    /* Detect if the blit needs to be mirrored */
    fixup_mirroring(mirror_x, srcX0, srcX1);

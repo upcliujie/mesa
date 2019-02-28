@@ -32,6 +32,9 @@
 #include "iris_context.h"
 #include "iris_resource.h"
 #include "iris_screen.h"
+#include "common/gen_debug.h"
+
+#define FILE_DEBUG_FLAG DEBUG_BLIT
 
 /**
  * Helper function for handling mirror image blits.
@@ -107,6 +110,22 @@ compute_pixels_clipped(int x0, int y0, int x1, int y1,
    return true;
 }
 
+static inline int
+round_scaled_position(int base, double scaled)
+{
+   int res = round(scaled);
+   if (scaled != 0.0) {
+      // Scaled value on clipping shouldn't give us 0-position
+      // At least 1-pixel has to be except it is really 0-pixel
+      int const diff = abs(base) - abs(res);
+      if (diff == 0)
+         res = scaled >= 0.0f ? res - 1 : res + 1;
+      DBG("%s b/s/r/d/r: %d/%lf/%d/%d\n",
+          __func__, base, scaled, diff, res);
+   }
+   return res;
+}
+
 /**
  * Clips a coordinate (left, right, top or bottom) for the src or dst rect
  * (whichever requires the largest clip) and adjusts the coordinate
@@ -125,6 +144,7 @@ compute_pixels_clipped(int x0, int y0, int x1, int y1,
 static void
 clip_coordinates(bool mirror,
                  int *src, int *dst0, int *dst1,
+                 int src_length,
                  int clipped_dst0,
                  int clipped_dst1,
                  double scale,
@@ -139,11 +159,14 @@ clip_coordinates(bool mirror,
    int mult = is_left_or_bottom ? 1 : -1;
 
    if (!mirror) {
+      double const scale_res = clipped_dst0 * scale * mult;
       *dst0 += clipped_dst0 * mult;
-      *src += round(clipped_dst0 * scale * mult);
+      *src += round_scaled_position(src_length, scale_res);
+
    } else {
+      double const scale_res = clipped_dst1 * scale * mult;
       *dst1 -= clipped_dst1 * mult;
-      *src += round(clipped_dst1 * scale * mult);
+      *src += round_scaled_position(src_length, scale_res);
    }
 }
 
@@ -204,19 +227,19 @@ apply_blit_scissor(const struct pipe_scissor_state *scissor,
       return true;
 
    /* Clip left side */
-   clip_coordinates(mirror_x, src_x0, dst_x0, dst_x1,
+   clip_coordinates(mirror_x, src_x0, dst_x0, dst_x1, *src_x1 - *src_x0,
                     clip_dst_x0, clip_dst_x1, scale_x, true);
 
    /* Clip right side */
-   clip_coordinates(mirror_x, src_x1, dst_x1, dst_x0,
+   clip_coordinates(mirror_x, src_x1, dst_x1, dst_x0, *src_x1 - *src_x0,
                     clip_dst_x1, clip_dst_x0, scale_x, false);
 
    /* Clip bottom side */
-   clip_coordinates(mirror_y, src_y0, dst_y0, dst_y1,
+   clip_coordinates(mirror_y, src_y0, dst_y0, dst_y1, *src_y1 - *src_y0,
                     clip_dst_y0, clip_dst_y1, scale_y, true);
 
    /* Clip top side */
-   clip_coordinates(mirror_y, src_y1, dst_y1, dst_y0,
+   clip_coordinates(mirror_y, src_y1, dst_y1, dst_y0, *src_y1 - *src_y0,
                     clip_dst_y1, clip_dst_y0, scale_y, false);
 
    /* Check for invalid bounds
