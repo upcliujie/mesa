@@ -39,10 +39,10 @@
  * If coord0 > coord1, swap them and return "true" (mirrored).
  */
 static bool
-apply_mirror(float *coord0, float *coord1)
+apply_mirror(int *coord0, int *coord1)
 {
    if (*coord0 > *coord1) {
-      float tmp = *coord0;
+      int tmp = *coord0;
       *coord0 = *coord1;
       *coord1 = tmp;
       return true;
@@ -69,10 +69,10 @@ apply_mirror(float *coord0, float *coord1)
  * \return false if we clip everything away, true otherwise
  */
 static inline bool
-compute_pixels_clipped(float x0, float y0, float x1, float y1,
-                       float min_x, float min_y, float max_x, float max_y,
-                       float *clipped_x0, float *clipped_y0,
-                       float *clipped_x1, float *clipped_y1)
+compute_pixels_clipped(int x0, int y0, int x1, int y1,
+                       int min_x, int min_y, int max_x, int max_y,
+                       int *clipped_x0, int *clipped_y0,
+                       int *clipped_x1, int *clipped_y1)
 {
    /* If we are going to clip everything away, stop. */
    if (!(min_x <= max_x &&
@@ -124,9 +124,9 @@ compute_pixels_clipped(float x0, float y0, float x1, float y1,
  */
 static void
 clip_coordinates(bool mirror,
-                 float *src, float *dst0, float *dst1,
-                 float clipped_dst0,
-                 float clipped_dst1,
+                 int *src, int *dst0, int *dst1,
+                 int clipped_dst0,
+                 int clipped_dst1,
                  double scale,
                  bool is_left_or_bottom)
 {
@@ -140,10 +140,10 @@ clip_coordinates(bool mirror,
 
    if (!mirror) {
       *dst0 += clipped_dst0 * mult;
-      *src += clipped_dst0 * scale * mult;
+      *src += round(clipped_dst0 * scale * mult);
    } else {
       *dst1 -= clipped_dst1 * mult;
-      *src += clipped_dst1 * scale * mult;
+      *src += round(clipped_dst1 * scale * mult);
    }
 }
 
@@ -154,14 +154,14 @@ clip_coordinates(bool mirror,
  */
 static bool
 apply_blit_scissor(const struct pipe_scissor_state *scissor,
-                   float *src_x0, float *src_y0,
-                   float *src_x1, float *src_y1,
-                   float *dst_x0, float *dst_y0,
-                   float *dst_x1, float *dst_y1,
+                   int *src_x0, int *src_y0,
+                   int *src_x1, int *src_y1,
+                   int *dst_x0, int *dst_y0,
+                   int *dst_x1, int *dst_y1,
                    double scale_x, double scale_y,
                    bool mirror_x, bool mirror_y)
 {
-   float clip_dst_x0, clip_dst_x1, clip_dst_y0, clip_dst_y1;
+   int clip_dst_x0, clip_dst_x1, clip_dst_y0, clip_dst_y1;
 
    /* Compute number of pixels to scissor away. */
    if (!compute_pixels_clipped(*dst_x0, *dst_y0, *dst_x1, *dst_y1,
@@ -334,14 +334,14 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
                                 info->dst.box.z, info->dst.box.depth,
                                 dst_aux_usage, dst_clear_supported);
 
-   float src_x0 = info->src.box.x;
-   float src_x1 = info->src.box.x + info->src.box.width;
-   float src_y0 = info->src.box.y;
-   float src_y1 = info->src.box.y + info->src.box.height;
-   float dst_x0 = info->dst.box.x;
-   float dst_x1 = info->dst.box.x + info->dst.box.width;
-   float dst_y0 = info->dst.box.y;
-   float dst_y1 = info->dst.box.y + info->dst.box.height;
+   int src_x0 = info->src.box.x;
+   int src_x1 = info->src.box.x + info->src.box.width;
+   int src_y0 = info->src.box.y;
+   int src_y1 = info->src.box.y + info->src.box.height;
+   int dst_x0 = info->dst.box.x;
+   int dst_x1 = info->dst.box.x + info->dst.box.width;
+   int dst_y0 = info->dst.box.y;
+   int dst_y1 = info->dst.box.y + info->dst.box.height;
    bool mirror_x = apply_mirror(&src_x0, &src_x1);
    bool mirror_y = apply_mirror(&src_y0, &src_y1);
    enum blorp_filter filter;
@@ -426,8 +426,8 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
                     src_fmt.fmt, src_fmt.swizzle,
                     &dst_surf, info->dst.level, info->dst.box.z + slice,
                     dst_fmt.fmt, dst_fmt.swizzle,
-                    round(src_x0), round(src_y0), round(src_x1), round(src_y1),
-                    round(dst_x0), round(dst_y0), round(dst_x1), round(dst_y1),
+                    src_x0, src_y0, src_x1, src_y1,
+                    dst_x0, dst_y0, dst_x1, dst_y1,
                     scale_x, scale_y,
                     filter, mirror_x, mirror_y);
       }
@@ -452,8 +452,8 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
                     ISL_FORMAT_R8_UINT, ISL_SWIZZLE_IDENTITY,
                     &dst_surf, info->dst.level, info->dst.box.z + slice,
                     ISL_FORMAT_R8_UINT, ISL_SWIZZLE_IDENTITY,
-                    round(src_x0), round(src_y0), round(src_x1), round(src_y1),
-                    round(dst_x0), round(dst_y0), round(dst_x1), round(dst_y1),
+                    src_x0, src_y0, src_x1, src_y1,
+                    dst_x0, dst_y0, dst_x1, dst_y1,
                     scale_x, scale_y,
                     filter, mirror_x, mirror_y);
       }

@@ -36,10 +36,10 @@ bool
 brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
                                  const struct gl_framebuffer *read_fb,
                                  const struct gl_framebuffer *draw_fb,
-                                 GLfloat *srcX0, GLfloat *srcY0,
-                                 GLfloat *srcX1, GLfloat *srcY1,
-                                 GLfloat *dstX0, GLfloat *dstY0,
-                                 GLfloat *dstX1, GLfloat *dstY1,
+                                 GLint *srcX0, GLint *srcY0,
+                                 GLint *srcX1, GLint *srcY1,
+                                 GLint *dstX0, GLint *dstY0,
+                                 GLint *dstX1, GLint *dstY1,
                                  GLdouble *scale_x, GLdouble *scale_y,
                                  bool *mirror_x, bool *mirror_y);
 

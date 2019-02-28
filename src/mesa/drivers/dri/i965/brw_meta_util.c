@@ -38,11 +38,11 @@
  * If coord0 > coord1, swap them and invert the "mirror" boolean.
  */
 static inline void
-fixup_mirroring(bool *mirror, float *coord0, float *coord1)
+fixup_mirroring(bool *mirror, int *coord0, int *coord1)
 {
    if (*coord0 > *coord1) {
       *mirror = !*mirror;
-      float tmp = *coord0;
+      int tmp = *coord0;
       *coord0 = *coord1;
       *coord1 = tmp;
    }
@@ -67,9 +67,9 @@ fixup_mirroring(bool *mirror, float *coord0, float *coord1)
  * \return false if we clip everything away, true otherwise
  */
 static inline bool
-compute_pixels_clipped(float x0, float y0, float x1, float y1,
-                       float min_x, float min_y, float max_x, float max_y,
-                       float *clipped_x0, float *clipped_y0, float *clipped_x1, float *clipped_y1)
+compute_pixels_clipped(int x0, int y0, int x1, int y1,
+                       int min_x, int min_y, int max_x, int max_y,
+                       int *clipped_x0, int *clipped_y0, int *clipped_x1, int *clipped_y1)
 {
    /* If we are going to clip everything away, stop. */
    if (!(min_x <= max_x &&
@@ -122,11 +122,11 @@ compute_pixels_clipped(float x0, float y0, float x1, float y1,
  */
 static inline void
 clip_coordinates(bool mirror,
-                 float *src, float *dst0, float *dst1,
-                 float clipped_src0,
-                 float clipped_dst0,
-                 float clipped_dst1,
-                 float scale,
+                 int *src, int *dst0, int *dst1,
+                 int clipped_src0,
+                 int clipped_dst0,
+                 int clipped_dst1,
+                 double scale,
                  bool isLeftOrBottom)
 {
    /* When clipping we need to add or subtract pixels from the original
@@ -140,18 +140,18 @@ clip_coordinates(bool mirror,
    if (!mirror) {
       if (clipped_src0 >= clipped_dst0 * scale) {
          *src += clipped_src0 * mult;
-         *dst0 += clipped_src0 / scale * mult;
+         *dst0 += round(clipped_src0 / scale * mult);
       } else {
          *dst0 += clipped_dst0 * mult;
-         *src += clipped_dst0 * scale * mult;
+         *src += round(clipped_dst0 * scale * mult);
       }
    } else {
       if (clipped_src0 >= clipped_dst1 * scale) {
          *src += clipped_src0 * mult;
-         *dst1 -= clipped_src0 / scale * mult;
+         *dst1 -= round(clipped_src0 / scale * mult);
       } else {
          *dst1 -= clipped_dst1 * mult;
-         *src += clipped_dst1 * scale * mult;
+         *src += round(clipped_dst1 * scale * mult);
       }
    }
 }
@@ -160,10 +160,10 @@ bool
 brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
                                  const struct gl_framebuffer *read_fb,
                                  const struct gl_framebuffer *draw_fb,
-                                 GLfloat *srcX0, GLfloat *srcY0,
-                                 GLfloat *srcX1, GLfloat *srcY1,
-                                 GLfloat *dstX0, GLfloat *dstY0,
-                                 GLfloat *dstX1, GLfloat *dstY1,
+                                 GLint *srcX0, GLint *srcY0,
+                                 GLint *srcX1, GLint *srcY1,
+                                 GLint *dstX0, GLint *dstY0,
+                                 GLint *dstX1, GLint *dstY1,
                                  GLdouble *scale_x, GLdouble *scale_y,
                                  bool *mirror_x, bool *mirror_y)
 {
@@ -181,24 +181,32 @@ brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
    /* Compute number of pixels to clip for each side of both rects. Return
     * early if we are going to clip everything away.
     */
-   float clip_src_x0;
-   float clip_src_x1;
-   float clip_src_y0;
-   float clip_src_y1;
-   float clip_dst_x0;
-   float clip_dst_x1;
-   float clip_dst_y0;
-   float clip_dst_y1;
+   int clip_src_x0;
+   int clip_src_x1;
+   int clip_src_y0;
+   int clip_src_y1;
+   int clip_dst_x0;
+   int clip_dst_x1;
+   int clip_dst_y0;
+   int clip_dst_y1;
 
    if (!compute_pixels_clipped(*srcX0, *srcY0, *srcX1, *srcY1,
                                0, 0, read_fb->Width, read_fb->Height,
                                &clip_src_x0, &clip_src_y0, &clip_src_x1, &clip_src_y1))
+   {
+      DBG("%s wrong src: (%d,%d;%d,%d) - clipping skipped\n",
+          __func__, *srcX0, *srcY0, *srcX1, *srcY1);
       return true;
+   }
 
    if (!compute_pixels_clipped(*dstX0, *dstY0, *dstX1, *dstY1,
                                draw_fb->_Xmin, draw_fb->_Ymin, draw_fb->_Xmax, draw_fb->_Ymax,
                                &clip_dst_x0, &clip_dst_y0, &clip_dst_x1, &clip_dst_y1))
+   {
+      DBG("%s wrong dst: (%d,%d;%d,%d) - clipping skipped\n",
+          __func__, *dstX0, *dstY0, *dstX1, *dstY1);
       return true;
+   }
 
    /* When clipping any of the two rects we need to adjust the coordinates in
     * the other rect considering the scaling factor involved. To obtain the best
@@ -232,8 +240,8 @@ brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
    *scale_x = (*srcX1 - *srcX0) / (double)(*dstX1 - *dstX0);
    *scale_y = (*srcY1 - *srcY0) / (double)(*dstY1 - *dstY0);
 
-   DBG("%s initial src: (%f,%f;%f,%f), dst: (%f,%f;%f,%f)"
-       " -> scaleXY(%f,%f)\n",
+   DBG("%s initial src: (%d,%d;%d,%d), dst: (%d,%d;%d,%d)"
+       " -> scaleXY(%lf,%lf)\n",
        __func__, *srcX0, *srcY0, *srcX1, *srcY1,
        *dstX0, *dstY0, *dstX1, *dstY1,
        *scale_x, *scale_y);
@@ -278,10 +286,10 @@ brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
       *mirror_y = !*mirror_y;
    }
 
-   DBG("%s clipSrc: (%f,%f;%f,%f), clipDst: (%f,%f;%f,%f)\n",
+   DBG("%s clipSrc: (%d,%d;%d,%d), clipDst: (%d,%d;%d,%d)\n",
        __func__, clip_src_x0, clip_src_y0, clip_src_x1, clip_src_y1,
        clip_dst_x0, clip_dst_y0, clip_dst_x1, clip_dst_y1);
-   DBG("%s result src: (%f,%f;%f,%f), dst: (%f,%f;%f,%f),"
+   DBG("%s result src: (%d,%d;%d,%d), dst: (%d,%d;%d,%d),"
        " mirror_x: %d, mirror_y: %d\n",
        __func__, *srcX0, *srcY0, *srcX1, *srcY1,
        *dstX0, *dstY0, *dstX1, *dstY1, *mirror_x, *mirror_y);

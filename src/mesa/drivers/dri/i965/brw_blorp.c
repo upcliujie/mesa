@@ -281,18 +281,18 @@ brw_blorp_blit_miptrees_high_precision(struct brw_context *brw,
                         struct intel_mipmap_tree *dst_mt,
                         unsigned dst_level, unsigned dst_layer,
                         mesa_format dst_format,
-                        float src_x0, float src_y0,
-                        float src_x1, float src_y1,
-                        float dst_x0, float dst_y0,
-                        float dst_x1, float dst_y1,
+                        int src_x0, int src_y0,
+                        int src_x1, int src_y1,
+                        int dst_x0, int dst_y0,
+                        int dst_x1, int dst_y1,
                         double scale_x, double scale_y,
                         GLenum gl_filter, bool mirror_x, bool mirror_y,
                         bool decode_srgb, bool encode_srgb)
 {
    const struct gen_device_info *devinfo = &brw->screen->devinfo;
 
-   DBG("%s from %dx %s mt %p %d %d (%f,%f) (%f,%f) "
-       "to %dx %s mt %p %d %d (%f,%f) (%f,%f) (scale %lf,%lf) (flip %d,%d)\n",
+   DBG("%s from %dx %s mt %p %d %d (%d,%d) (%d,%d) "
+       "to %dx %s mt %p %d %d (%d,%d) (%d,%d) (scale %lf,%lf) (flip %d,%d)\n",
        __func__,
        src_mt->surf.samples, _mesa_get_format_name(src_mt->format), src_mt,
        src_level, src_layer, src_x0, src_y0, src_x1, src_y1,
@@ -324,8 +324,8 @@ brw_blorp_blit_miptrees_high_precision(struct brw_context *brw,
    }
 
    enum blorp_filter blorp_filter;
-   if (fabsf(dst_x1 - dst_x0) == fabsf(src_x1 - src_x0) &&
-       fabsf(dst_y1 - dst_y0) == fabsf(src_y1 - src_y0)) {
+   if (abs(dst_x1 - dst_x0) == abs(src_x1 - src_x0) &&
+       abs(dst_y1 - dst_y0) == abs(src_y1 - src_y0)) {
       if (src_mt->surf.samples > 1 && dst_mt->surf.samples <= 1) {
          /* From the OpenGL ES 3.2 specification, section 16.2.1:
           *
@@ -425,8 +425,8 @@ brw_blorp_blit_miptrees_high_precision(struct brw_context *brw,
               src_isl_format, src_isl_swizzle,
               &dst_surf, dst_level, dst_layer,
               dst_isl_format, ISL_SWIZZLE_IDENTITY,
-              round(src_x0), round(src_y0), round(src_x1), round(src_y1),
-              round(dst_x0), round(dst_y0), round(dst_x1), round(dst_y1),
+              src_x0, src_y0, src_x1, src_y1,
+              dst_x0, dst_y0, dst_x1, dst_y1,
               scale_x, scale_y,
               blorp_filter, mirror_x, mirror_y);
    blorp_batch_finish(&batch);
@@ -443,10 +443,10 @@ brw_blorp_blit_miptrees(struct brw_context *brw,
                         struct intel_mipmap_tree *dst_mt,
                         unsigned dst_level, unsigned dst_layer,
                         mesa_format dst_format,
-                        float src_x0, float src_y0,
-                        float src_x1, float src_y1,
-                        float dst_x0, float dst_y0,
-                        float dst_x1, float dst_y1,
+                        int src_x0, int src_y0,
+                        int src_x1, int src_y1,
+                        int dst_x0, int dst_y0,
+                        int dst_x1, int dst_y1,
                         GLenum filter, bool mirror_x, bool mirror_y,
                         bool decode_srgb, bool encode_srgb)
 {
@@ -604,8 +604,8 @@ static void
 do_blorp_blit(struct brw_context *brw, GLbitfield buffer_bit,
               struct intel_renderbuffer *src_irb, mesa_format src_format,
               struct intel_renderbuffer *dst_irb, mesa_format dst_format,
-              GLfloat srcX0, GLfloat srcY0, GLfloat srcX1, GLfloat srcY1,
-              GLfloat dstX0, GLfloat dstY0, GLfloat dstX1, GLfloat dstY1,
+              GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
+              GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
               GLdouble scale_x, GLdouble scale_y,
               GLenum filter, bool mirror_x, bool mirror_y)
 {
@@ -636,8 +636,8 @@ static bool
 try_blorp_blit(struct brw_context *brw,
                const struct gl_framebuffer *read_fb,
                const struct gl_framebuffer *draw_fb,
-               GLfloat srcX0, GLfloat srcY0, GLfloat srcX1, GLfloat srcY1,
-               GLfloat dstX0, GLfloat dstY0, GLfloat dstX1, GLfloat dstY1,
+               GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
+               GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
                GLenum filter, GLbitfield buffer_bit)
 {
    const struct gen_device_info *devinfo = &brw->screen->devinfo;
