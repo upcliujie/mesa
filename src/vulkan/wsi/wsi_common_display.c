@@ -21,6 +21,7 @@
  */
 
 #include "util/macros.h"
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -73,7 +74,8 @@ typedef struct wsi_display_connector {
    struct wsi_display           *wsi;
    uint32_t                     id;
    uint32_t                     crtc_id;
-   char                         *name;
+#define CONNECTOR_NAME_LENGTH 12
+   char                         name[CONNECTOR_NAME_LENGTH + 1];
    bool                         connected;
    bool                         active;
    struct list_head             display_modes;
@@ -274,10 +276,98 @@ wsi_display_alloc_connector(struct wsi_display *wsi,
    connector->id = connector_id;
    connector->wsi = wsi;
    connector->active = false;
-   /* XXX use EDID name */
-   connector->name = "monitor";
+   strcpy(connector->name, "monitor");
    list_inithead(&connector->display_modes);
    return connector;
+}
+
+#define EDID_NAME_LENGTH 12
+static void
+edid_parse_string(const uint8_t *data, char out[EDID_NAME_LENGTH + 1])
+{
+   int i;
+   int replaced = 0;
+   char text[EDID_NAME_LENGTH + 1];
+
+   static_assert(EDID_NAME_LENGTH <= CONNECTOR_NAME_LENGTH,
+                 "wsi_display_connector::name is too short");
+
+   /* this is always 12 bytes, but we can't guarantee it's null
+    * terminated or not junk. */
+   strncpy(text, (const char *) data, EDID_NAME_LENGTH);
+
+   /* guarantee our new string is null-terminated */
+   text[EDID_NAME_LENGTH] = '\0';
+
+   /* remove insane chars */
+   for (i = 0; text[i] != '\0'; i++) {
+      if (text[i] == '\n' ||
+          text[i] == '\r') {
+         text[i] = '\0';
+         break;
+      }
+   }
+
+   /* ensure string is printable */
+   for (i = 0; text[i] != '\0'; i++) {
+      if (!isprint(text[i])) {
+         text[i] = '-';
+         replaced++;
+      }
+   }
+
+   /* if the string is random junk, ignore it */
+   if (replaced < 5)
+      strcpy(out, text);
+}
+
+
+static bool
+wsi_display_set_connector_name(struct wsi_display_connector *connector)
+{
+#define EDID_BLOCK_SIZE 18
+#define EDID_OFFSET_DATA_BLOCKS 0x36
+#define EDID_OFFSET_LAST_BLOCK  0x6c
+#define EDID_DESCRIPTOR_DISPLAY_PRODUCT_NAME 0xfc
+
+   if (!connector->edid_property)
+      return false;
+
+   drmModePropertyBlobPtr edid_blob =
+      drmModeGetPropertyBlob(connector->wsi->fd, connector->edid_property);
+   if (!edid_blob)
+      return false;
+
+   uint8_t *data = edid_blob->data;
+
+   if (edid_blob->length < 128) {
+      drmModeFreePropertyBlob(edid_blob);
+      return false;
+   }
+
+   if (data[0] != 0x00 || data[1] != 0xff) {
+      drmModeFreePropertyBlob(edid_blob);
+      return false;
+   }
+
+   for (size_t i = EDID_OFFSET_DATA_BLOCKS;
+        i < EDID_OFFSET_LAST_BLOCK;
+        i += EDID_BLOCK_SIZE) {
+      /* Ignore pixel clock data */
+      if (data[i] != 0)
+         continue;
+      if (data[i+2] != 0)
+         continue;
+
+      if (data[i+3] == EDID_DESCRIPTOR_DISPLAY_PRODUCT_NAME) {
+         edid_parse_string(&data[i+5], connector->name);
+         drmModeFreePropertyBlob(edid_blob);
+         return strcmp(connector->name, "monitor");
+      }
+   }
+
+   drmModeFreePropertyBlob(edid_blob);
+   return false;
 }
 
 static struct wsi_display_connector *
@@ -329,6 +419,9 @@ wsi_display_get_connector(struct wsi_device *wsi_device,
 
       drmModeFreeProperty(prop);
    }
+
+   /* Read the monitor name from the EDID */
+   wsi_display_set_connector_name(connector);
 
    /* Mark all connector modes as invalid */
    wsi_display_invalidate_connector_modes(wsi_device, connector);
