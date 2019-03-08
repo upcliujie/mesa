@@ -80,6 +80,7 @@ typedef struct wsi_display_connector {
    wsi_display_mode             *current_mode;
    drmModeModeInfo              current_drm_mode;
    uint32_t                     dpms_property;
+   uint32_t                     edid_property;
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
    xcb_randr_output_t           output;
 #endif
@@ -309,18 +310,23 @@ wsi_display_get_connector(struct wsi_device *wsi_device,
 
    connector->connected = drm_connector->connection != DRM_MODE_DISCONNECTED;
 
-   /* Look for a DPMS property if we haven't already found one */
-   for (int p = 0; connector->dpms_property == 0 &&
-           p < drm_connector->count_props; p++)
+   /* Look for properties we haven't already found */
+   for (int p = 0; p < drm_connector->count_props; p++)
    {
       drmModePropertyPtr prop = drmModeGetProperty(wsi->fd,
                                                    drm_connector->props[p]);
       if (!prop)
          continue;
-      if (prop->flags & DRM_MODE_PROP_ENUM) {
-         if (!strcmp(prop->name, "DPMS"))
-            connector->dpms_property = drm_connector->props[p];
+
+      if (connector->edid_property == 0 && !strcmp(prop->name, "EDID")) {
+         connector->edid_property = drm_connector->prop_values[p];
       }
+
+      if (connector->dpms_property == 0 &&
+          prop->flags & DRM_MODE_PROP_ENUM &&
+          !strcmp(prop->name, "DPMS"))
+            connector->dpms_property = drm_connector->props[p];
+
       drmModeFreeProperty(prop);
    }
 
