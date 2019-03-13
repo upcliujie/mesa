@@ -74,7 +74,7 @@ typedef struct wsi_display_connector {
    struct wsi_display           *wsi;
    uint32_t                     id;
    uint32_t                     crtc_id;
-#define CONNECTOR_NAME_LENGTH 12
+#define CONNECTOR_NAME_LENGTH 15
    char                         name[CONNECTOR_NAME_LENGTH + 1];
    bool                         connected;
    bool                         active;
@@ -323,7 +323,7 @@ edid_parse_string(const uint8_t *data, char out[EDID_NAME_LENGTH + 1])
 
 
 static bool
-wsi_display_set_connector_name(struct wsi_display_connector *connector)
+wsi_display_set_connector_name_from_edid(struct wsi_display_connector *connector)
 {
 #define EDID_BLOCK_SIZE 18
 #define EDID_OFFSET_DATA_BLOCKS 0x36
@@ -368,6 +368,60 @@ wsi_display_set_connector_name(struct wsi_display_connector *connector)
 
    drmModeFreePropertyBlob(edid_blob);
    return false;
+}
+
+static bool
+wsi_display_set_connector_name_fallback(struct wsi_display_connector *connector)
+{
+   static const char *drm_con_type[] = {
+#define CONNECTOR(name) [ DRM_MODE_CONNECTOR_##name ] = #name
+      CONNECTOR(VGA),
+      CONNECTOR(DVII),
+      CONNECTOR(DVID),
+      CONNECTOR(DVIA),
+      CONNECTOR(Composite),
+      CONNECTOR(SVIDEO),
+      CONNECTOR(LVDS),
+      CONNECTOR(Component),
+      CONNECTOR(9PinDIN),
+      CONNECTOR(DisplayPort),
+      CONNECTOR(HDMIA),
+      CONNECTOR(HDMIB),
+      CONNECTOR(TV),
+      CONNECTOR(eDP),
+      CONNECTOR(VIRTUAL),
+      CONNECTOR(DSI),
+      CONNECTOR(DPI),
+#undef CONNECTOR
+   };
+
+   drmModeConnectorPtr drm_con =
+      drmModeGetConnectorCurrent(connector->wsi->fd,
+                                 connector->id);
+
+   if (drm_con->connector_type < ARRAY_SIZE(drm_con_type) &&
+       drm_con_type[drm_con->connector_type]) {
+      snprintf(connector->name, sizeof(connector->name),
+               "%s-%d",
+               drm_con_type[drm_con->connector_type],
+               drm_con->connector_type_id);
+      drmModeFreeConnector(drm_con);
+      return true;
+   }
+
+   drmModeFreeConnector(drm_con);
+   return false;
+}
+
+static void
+wsi_display_set_connector_name(struct wsi_display_connector *connector)
+{
+   /* Read monitor name from its EDID */
+   if (wsi_display_set_connector_name_from_edid(connector))
+      return;
+
+   /* Fallback to connector name instead (eg. "eDP-1") */
+   wsi_display_set_connector_name_fallback(connector);
 }
 
 static struct wsi_display_connector *
