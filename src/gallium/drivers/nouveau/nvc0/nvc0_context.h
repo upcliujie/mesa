@@ -221,6 +221,7 @@ struct nvc0_context {
    uint32_t instance_max; /* last instance for current draw call */
 
    struct pipe_sampler_view *textures[6][PIPE_MAX_SAMPLERS];
+   unsigned valid_textures[6];
    unsigned num_textures[6];
    uint32_t textures_dirty[6];
    uint32_t textures_coherent[6];

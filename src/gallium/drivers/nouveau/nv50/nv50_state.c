@@ -677,18 +677,20 @@ nv50_sampler_view_destroy(struct pipe_context *pipe,
 
 static inline void
 nv50_stage_set_sampler_views(struct nv50_context *nv50, int s,
-                             unsigned nr,
+                             unsigned start, unsigned nr,
                              struct pipe_sampler_view **views)
 {
    unsigned i;
 
    assert(nr <= PIPE_MAX_SAMPLERS);
-   for (i = 0; i < nr; ++i) {
+   for (i = start; i < nr + start; ++i) {
+      struct pipe_sampler_view *view = views ? views[i] : NULL;
       struct nv50_tic_entry *old = nv50_tic_entry(nv50->textures[s][i]);
+
       if (old)
          nv50_screen_tic_unlock(nv50->screen, old);
 
-      if (views[i] && views[i]->texture) {
+      if (view && view->texture) {
          struct pipe_resource *res = views[i]->texture;
          if (res->target == PIPE_BUFFER &&
              (res->flags & PIPE_RESOURCE_FLAG_MAP_COHERENT))
@@ -699,20 +701,16 @@ nv50_stage_set_sampler_views(struct nv50_context *nv50, int s,
          nv50->textures_coherent[s] &= ~(1 << i);
       }
 
-      pipe_sampler_view_reference(&nv50->textures[s][i], views[i]);
+      pipe_sampler_view_reference(&nv50->textures[s][i], view);
+
+      if (view)
+         nv50->valid_textures[s] |= (1 << i);
+      else
+         nv50->valid_textures[s] &= ~(1 << i);
    }
 
+   nv50->num_textures[s] = util_last_bit(nv50->valid_textures[s]);
    assert(nv50->num_textures[s] <= PIPE_MAX_SAMPLERS);
-   for (i = nr; i < nv50->num_textures[s]; ++i) {
-      struct nv50_tic_entry *old = nv50_tic_entry(nv50->textures[s][i]);
-      if (!old)
-         continue;
-      nv50_screen_tic_unlock(nv50->screen, old);
-
-      pipe_sampler_view_reference(&nv50->textures[s][i], NULL);
-   }
-
-   nv50->num_textures[s] = nr;
 
    nouveau_bufctx_reset(nv50->bufctx_3d, NV50_BIND_3D_TEXTURES);
 
@@ -727,13 +725,13 @@ nv50_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
    assert(start == 0);
    switch (shader) {
    case PIPE_SHADER_VERTEX:
-      nv50_stage_set_sampler_views(nv50_context(pipe), 0, nr, views);
+      nv50_stage_set_sampler_views(nv50_context(pipe), 0, start, nr, views);
       break;
    case PIPE_SHADER_GEOMETRY:
-      nv50_stage_set_sampler_views(nv50_context(pipe), 1, nr, views);
+      nv50_stage_set_sampler_views(nv50_context(pipe), 1, start, nr, views);
       break;
    case PIPE_SHADER_FRAGMENT:
-      nv50_stage_set_sampler_views(nv50_context(pipe), 2, nr, views);
+      nv50_stage_set_sampler_views(nv50_context(pipe), 2, start, nr, views);
       break;
    default:
       ;

@@ -516,20 +516,21 @@ nvc0_sampler_view_destroy(struct pipe_context *pipe,
 
 static inline void
 nvc0_stage_set_sampler_views(struct nvc0_context *nvc0, int s,
-                             unsigned nr,
+                             unsigned start, unsigned nr,
                              struct pipe_sampler_view **views)
 {
    unsigned i;
 
-   for (i = 0; i < nr; ++i) {
+   for (i = start; i < nr + start; ++i) {
       struct nv50_tic_entry *old = nv50_tic_entry(nvc0->textures[s][i]);
+      struct pipe_sampler_view *view = views ? views[i] : NULL;
 
-      if (views[i] == nvc0->textures[s][i])
+      if (view == nvc0->textures[s][i])
          continue;
       nvc0->textures_dirty[s] |= 1 << i;
 
-      if (views[i] && views[i]->texture) {
-         struct pipe_resource *res = views[i]->texture;
+      if (view && view->texture) {
+         struct pipe_resource *res = view->texture;
          if (res->target == PIPE_BUFFER &&
              (res->flags & PIPE_RESOURCE_FLAG_MAP_COHERENT))
             nvc0->textures_coherent[s] |= 1 << i;
@@ -547,22 +548,15 @@ nvc0_stage_set_sampler_views(struct nvc0_context *nvc0, int s,
          nvc0_screen_tic_unlock(nvc0->screen, old);
       }
 
-      pipe_sampler_view_reference(&nvc0->textures[s][i], views[i]);
+      pipe_sampler_view_reference(&nvc0->textures[s][i], view);
+
+      if (view)
+         nvc0->valid_textures[s] |= (1 << i);
+      else
+         nvc0->valid_textures[s] &= ~(1 << i);
    }
 
-   for (i = nr; i < nvc0->num_textures[s]; ++i) {
-      struct nv50_tic_entry *old = nv50_tic_entry(nvc0->textures[s][i]);
-      if (old) {
-         if (s == 5)
-            nouveau_bufctx_reset(nvc0->bufctx_cp, NVC0_BIND_CP_TEX(i));
-         else
-            nouveau_bufctx_reset(nvc0->bufctx_3d, NVC0_BIND_3D_TEX(s, i));
-         nvc0_screen_tic_unlock(nvc0->screen, old);
-         pipe_sampler_view_reference(&nvc0->textures[s][i], NULL);
-      }
-   }
-
-   nvc0->num_textures[s] = nr;
+   nvc0->num_textures[s] = util_last_bit(nvc0->valid_textures[s]);
 }
 
 static void
@@ -573,7 +567,7 @@ nvc0_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
    const unsigned s = nvc0_shader_stage(shader);
 
    assert(start == 0);
-   nvc0_stage_set_sampler_views(nvc0_context(pipe), s, nr, views);
+   nvc0_stage_set_sampler_views(nvc0_context(pipe), s, start, nr, views);
 
    if (s == 5)
       nvc0_context(pipe)->dirty_cp |= NVC0_NEW_CP_TEXTURES;

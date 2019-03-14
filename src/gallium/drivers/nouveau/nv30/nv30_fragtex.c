@@ -172,25 +172,26 @@ nv30_fragtex_sampler_states_bind(struct pipe_context *pipe,
 
 
 void
-nv30_fragtex_set_sampler_views(struct pipe_context *pipe, unsigned nr,
+nv30_fragtex_set_sampler_views(struct pipe_context *pipe,
+                               unsigned nr, unsigned start,
                                struct pipe_sampler_view **views)
 {
    struct nv30_context *nv30 = nv30_context(pipe);
    unsigned i;
 
-   for (i = 0; i < nr; i++) {
+   for (i = start; i < nr + start; i++) {
+      struct pipe_sampler_view *view = views ? views[i] : NULL;
+
       nouveau_bufctx_reset(nv30->bufctx, BUFCTX_FRAGTEX(i));
-      pipe_sampler_view_reference(&nv30->fragprog.textures[i], views[i]);
+      pipe_sampler_view_reference(&nv30->fragprog.textures[i], view);
       nv30->fragprog.dirty_samplers |= (1 << i);
+      if (view)
+         nv30->fragprog.valid_samplers |= (1 << i);
+      else
+         nv30->fragprog.valid_samplers &= ~(1 << i);
    }
 
-   for (; i < nv30->fragprog.num_textures; i++) {
-      nouveau_bufctx_reset(nv30->bufctx, BUFCTX_FRAGTEX(i));
-      pipe_sampler_view_reference(&nv30->fragprog.textures[i], NULL);
-      nv30->fragprog.dirty_samplers |= (1 << i);
-   }
-
-   nv30->fragprog.num_textures = nr;
+   nv30->fragprog.num_textures = util_last_bit(nv30->fragprog.valid_samplers);
    nv30->dirty |= NV30_NEW_FRAGTEX;
 }
 
@@ -203,10 +204,10 @@ nv30_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
    assert(start == 0);
    switch (shader) {
    case PIPE_SHADER_FRAGMENT:
-      nv30_fragtex_set_sampler_views(pipe, nr, views);
+      nv30_fragtex_set_sampler_views(pipe, start, nr, views);
       break;
    case PIPE_SHADER_VERTEX:
-      nv40_verttex_set_sampler_views(pipe, nr, views);
+      nv40_verttex_set_sampler_views(pipe, start, nr, views);
       break;
    default:
       ;

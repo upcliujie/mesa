@@ -152,6 +152,7 @@ struct nv50_context {
    uint32_t instance_max; /* max instance for current draw call */
 
    struct pipe_sampler_view *textures[3][PIPE_MAX_SAMPLERS];
+   unsigned valid_textures[3];
    unsigned num_textures[3];
    uint32_t textures_coherent[3];
    struct nv50_tsc_entry *samplers[3][PIPE_MAX_SAMPLERS];
