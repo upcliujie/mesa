@@ -153,6 +153,7 @@ struct v3d_sampler_state {
 
 struct v3d_texture_stateobj {
         struct pipe_sampler_view *textures[V3D_MAX_TEXTURE_SAMPLERS];
+        unsigned valid_textures;
         unsigned num_textures;
         struct pipe_sampler_state *samplers[V3D_MAX_TEXTURE_SAMPLERS];
         unsigned num_samplers;

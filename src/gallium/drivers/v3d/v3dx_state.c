@@ -1140,21 +1140,17 @@ v3d_set_sampler_views(struct pipe_context *pctx,
         struct v3d_context *v3d = v3d_context(pctx);
         struct v3d_texture_stateobj *stage_tex = &v3d->tex[shader];
         unsigned i;
-        unsigned new_nr = 0;
 
-        assert(start == 0);
-
-        for (i = 0; i < nr; i++) {
-                if (views[i])
-                        new_nr = i + 1;
-                pipe_sampler_view_reference(&stage_tex->textures[i], views[i]);
+        for (i = start; i < nr + start; i++) {
+                struct pipe_sampler_view *view = views ? views[i] : NULL;
+                if (view)
+                        stage_tex->valid_textures |= (1 << i);
+                else
+                        stage_tex->valid_textures &= ~(1 << i);
+                pipe_sampler_view_reference(&stage_tex->textures[i], view);
         }
 
-        for (; i < stage_tex->num_textures; i++) {
-                pipe_sampler_view_reference(&stage_tex->textures[i], NULL);
-        }
-
-        stage_tex->num_textures = new_nr;
+        stage_tex->num_textures = util_last_bit(stage_tex->valid_textures);
 }
 
 static struct pipe_stream_output_target *
