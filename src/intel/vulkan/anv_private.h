@@ -185,6 +185,7 @@ struct gen_perf_query_result;
 #define ANV_SSBO_ALIGNMENT 4
 #define ANV_SSBO_BOUNDS_CHECK_ALIGNMENT 4
 #define MAX_VIEWS_FOR_PRIMITIVE_REPLICATION 16
+#define MAX_SAMPLE_LOCATIONS 16
 
 /* From the Skylake PRM Vol. 7 "Binding Table Surface State Model":
  *
@@ -2366,6 +2367,7 @@ enum anv_cmd_dirty_bits {
    ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS_TEST_ENABLE    = 1 << 21, /* VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT */
    ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE         = 1 << 22, /* VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT */
    ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP                  = 1 << 23, /* VK_DYNAMIC_STATE_STENCIL_OP_EXT */
+   ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS            = 1 << 24, /* VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT */
 };
 typedef uint32_t anv_cmd_dirty_mask_t;
 
@@ -2389,7 +2391,8 @@ typedef uint32_t anv_cmd_dirty_mask_t;
     ANV_CMD_DIRTY_DYNAMIC_DEPTH_COMPARE_OP |            \
     ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS_TEST_ENABLE |    \
     ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE |         \
-    ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP)
+    ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP |                  \
+    ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)
 
 static inline enum anv_cmd_dirty_bits
 anv_cmd_dirty_bit_for_vk_dynamic_state(VkDynamicState vk_state)
@@ -2437,6 +2440,8 @@ anv_cmd_dirty_bit_for_vk_dynamic_state(VkDynamicState vk_state)
       return ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE;
    case VK_DYNAMIC_STATE_STENCIL_OP_EXT:
       return ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP;
+   case VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT:
+      return ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS;
    default:
       assert(!"Unsupported dynamic state");
       return 0;
@@ -2762,6 +2767,11 @@ struct anv_dynamic_state {
       uint32_t                                  factor;
       uint16_t                                  pattern;
    } line_stipple;
+
+   struct {
+      uint32_t                                  samples;
+      VkSampleLocationEXT                       locations[MAX_SAMPLE_LOCATIONS];
+   } sample_locations;
 
    VkCullModeFlags                              cull_mode;
    VkFrontFace                                  front_face;
