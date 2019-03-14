@@ -257,8 +257,10 @@ struct i915_context {
 
    unsigned num_samplers;
    unsigned num_fragment_sampler_views;
+   unsigned valid_fragment_sampler_views;
    unsigned num_vertex_samplers;
    unsigned num_vertex_sampler_views;
+   unsigned valid_vertex_sampler_views;
 
    struct i915_winsys_batchbuffer *batch;
 

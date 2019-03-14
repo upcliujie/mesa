@@ -731,7 +731,7 @@ static void i915_set_constant_buffer(struct pipe_context *pipe,
 
 
 static void i915_set_fragment_sampler_views(struct pipe_context *pipe,
-                                            unsigned num,
+                                            unsigned start, unsigned num,
                                             struct pipe_sampler_view **views)
 {
    struct i915_context *i915 = i915_context(pipe);
@@ -741,30 +741,35 @@ static void i915_set_fragment_sampler_views(struct pipe_context *pipe,
 
    /* Check for no-op */
    if (num == i915->num_fragment_sampler_views &&
+       views &&
        !memcmp(i915->fragment_sampler_views, views, num * sizeof(struct pipe_sampler_view *)))
       return;
 
-   for (i = 0; i < num; i++) {
+   for (i = start; i < num + start; i++) {
+      struct pipe_sampler_view *view = views ? views[i] : NULL;
+
       /* Note: we're using pipe_sampler_view_release() here to work around
        * a possible crash when the old view belongs to another context that
        * was already destroyed.
        */
       pipe_sampler_view_release(pipe, &i915->fragment_sampler_views[i]);
       pipe_sampler_view_reference(&i915->fragment_sampler_views[i],
-                                  views[i]);
+                                  view);
+
+      if (view)
+         i915->valid_fragment_sampler_views |= (1 << i);
+      else
+         i915->valid_fragment_sampler_views &= ~(1 << i);
    }
 
-   for (i = num; i < i915->num_fragment_sampler_views; i++)
-      pipe_sampler_view_release(pipe, &i915->fragment_sampler_views[i]);
-
-   i915->num_fragment_sampler_views = num;
+   i915->num_fragment_sampler_views = util_last_bit(i915->valid_fragment_sampler_views);
 
    i915->dirty |= I915_NEW_SAMPLER_VIEW;
 }
 
 static void
 i915_set_vertex_sampler_views(struct pipe_context *pipe,
-                              unsigned num,
+                              unsigned start, unsigned num,
                               struct pipe_sampler_view **views)
 {
    struct i915_context *i915 = i915_context(pipe);
@@ -778,13 +783,18 @@ i915_set_vertex_sampler_views(struct pipe_context *pipe,
       return;
    }
 
-   for (i = 0; i < ARRAY_SIZE(i915->vertex_sampler_views); i++) {
-      struct pipe_sampler_view *view = i < num ? views[i] : NULL;
+   for (i = start; i < ARRAY_SIZE(i915->vertex_sampler_views); i++) {
+      struct pipe_sampler_view *view = (i < num && views) ? views[i] : NULL;
 
       pipe_sampler_view_reference(&i915->vertex_sampler_views[i], view);
+
+      if (view)
+         i915->valid_vertex_sampler_views |= (1 << i);
+      else
+         i915->valid_vertex_sampler_views &= ~(1 << i);
    }
 
-   i915->num_vertex_sampler_views = num;
+   i915->num_vertex_sampler_views = util_last_bit(i915->valid_vertex_sampler_views);
 
    draw_set_sampler_views(i915->draw,
                           PIPE_SHADER_VERTEX,
@@ -801,10 +811,10 @@ i915_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
    assert(start == 0);
    switch (shader) {
    case PIPE_SHADER_FRAGMENT:
-      i915_set_fragment_sampler_views(pipe, num, views);
+      i915_set_fragment_sampler_views(pipe, start, num, views);
       break;
    case PIPE_SHADER_VERTEX:
-      i915_set_vertex_sampler_views(pipe, num, views);
+      i915_set_vertex_sampler_views(pipe, start, num, views);
       break;
    default:
       ;
