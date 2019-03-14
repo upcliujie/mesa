@@ -2328,10 +2328,21 @@ panfrost_set_sampler_views(
 {
         struct panfrost_context *ctx = pan_context(pctx);
 
-        assert(start_slot == 0);
+        for (unsigned i = start_slot; i < num_views + start_slot; i++) {
+           struct pipe_sampler_view *view = views ? views[i] : NULL;
 
-        ctx->sampler_view_count[shader] = num_views;
-        memcpy(ctx->sampler_views[shader], views, num_views * sizeof (void *));
+           pipe_sampler_view_reference(
+                 (struct pipe_sampler_view **)&ctx->sampler_views[shader][i],
+                 view);
+
+           if (view)
+              ctx->valid_sampler_views[shader] |= (1 << i);
+           else
+              ctx->valid_sampler_views[shader] &= ~(1 << i);
+        }
+
+        ctx->sampler_view_count[shader] =
+              util_last_bit(ctx->valid_sampler_views[shader]);
 
         ctx->dirty |= PAN_DIRTY_TEXTURES;
 }

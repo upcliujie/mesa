@@ -202,6 +202,7 @@ struct panfrost_context {
 
         struct panfrost_sampler_view *sampler_views[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_SAMPLER_VIEWS];
         unsigned sampler_view_count[PIPE_SHADER_TYPES];
+        unsigned valid_sampler_views[PIPE_SHADER_TYPES];
 
         struct primconvert_context *primconvert;
         struct blitter_context *blitter;
