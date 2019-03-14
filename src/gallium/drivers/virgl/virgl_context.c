@@ -849,8 +849,9 @@ static void virgl_set_sampler_views(struct pipe_context *ctx,
       pipe_sampler_view_reference((struct pipe_sampler_view **)&tinfo->views[i], NULL);
    }
 
-   for (i = 0; i < num_views; i++) {
-      struct virgl_sampler_view *grview = virgl_sampler_view(views[i]);
+   for (i = start_slot; i < num_views + start_slot; i++) {
+      struct pipe_sampler_view *view = views ? views[i] : NULL;
+      struct virgl_sampler_view *grview = virgl_sampler_view(view);
 
       if (views[i] == (struct pipe_sampler_view *)tinfo->views[i])
          continue;
