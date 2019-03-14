@@ -1573,14 +1573,6 @@ static void r300_set_sampler_views(struct pipe_context* pipe,
         view_index++;
     }
 
-    for (i = count; i < tex_units; i++) {
-        if (state->sampler_views[i]) {
-            pipe_sampler_view_reference(
-                    (struct pipe_sampler_view**)&state->sampler_views[i],
-                    NULL);
-        }
-    }
-
     state->sampler_view_count = count;
 
     r300_mark_atom_dirty(r300, &r300->textures_state);

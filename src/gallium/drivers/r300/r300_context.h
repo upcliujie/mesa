@@ -221,7 +221,7 @@ struct r300_texture_sampler_state {
 struct r300_textures_state {
     /* Textures. */
     struct r300_sampler_view *sampler_views[16];
-    int sampler_view_count;
+    unsigned valid_samplers;
     /* Sampler states. */
     struct r300_sampler_state *sampler_states[16];
     int sampler_state_count;
