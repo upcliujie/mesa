@@ -101,6 +101,7 @@ struct vc4_sampler_state {
 
 struct vc4_texture_stateobj {
         struct pipe_sampler_view *textures[PIPE_MAX_SAMPLERS];
+        unsigned valid_textures;
         unsigned num_textures;
         struct pipe_sampler_state *samplers[PIPE_MAX_SAMPLERS];
         unsigned num_samplers;
