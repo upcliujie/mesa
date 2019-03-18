@@ -129,16 +129,78 @@ remove_phis_instr(nir_block *block, nir_instr *instr, nir_builder *b)
    return true;
 }
 
+/*
+ * Convert phis of bool consts to bcsel.
+ *
+ * This converts phis which are just true/false as arguments into
+ * bcsel using the if condition of the blocks.
+ */
+static bool
+phis_to_bools(nir_block *block, nir_instr *instr, nir_builder *b)
+{
+   nir_phi_instr *phi = nir_instr_as_phi(instr);
+
+   if (exec_list_length(&phi->srcs) != 2)
+      return false;
+
+   nir_cf_node *prev_if_block = NULL;
+   bool swap_args = false;
+   unsigned idx = 0;
+
+   nir_foreach_phi_src(src, phi) {
+      assert(src->src.is_ssa);
+      nir_cf_node *prev = src->pred->cf_node.parent;
+      if (!prev)
+         return false;
+      if (prev->type != nir_cf_node_if)
+         return false;
+
+      /* make sure both phi srcs point to same if block */
+      if (!prev_if_block)
+         prev_if_block = prev;
+      else if (prev != prev_if_block)
+         return false;
+
+      if (!nir_src_is_const(src->src))
+         return false;
+
+      if (src->src.ssa->bit_size != 1)
+         return false;
+
+      bool b = nir_src_as_bool(src->src);
+      if (idx == 0 && b == true)
+         swap_args = true;
+      idx++;
+   }
+
+   /* convert the bool phi into a bcsel, algebraic will lower it later */
+   idx = 0;
+   nir_phi_src *srcs[2];
+   nir_foreach_phi_src(src, phi) {
+      srcs[swap_args ? (1 - idx) : idx] = src;
+      idx++;
+   }
+   b->cursor = nir_after_phis(instr->block);
+   nir_ssa_def *dst = nir_bcsel(b, nir_cf_node_as_if(prev_if_block)->condition.ssa, srcs[0]->src.ssa, srcs[1]->src.ssa);
+   nir_ssa_def_rewrite_uses(&phi->dest.ssa, nir_src_for_ssa(dst));
+   nir_instr_remove(instr);
+   return true;
+}
+
 static bool
 remove_phis_block(nir_block *block, nir_builder *b)
 {
    bool progress = false;
 
    nir_foreach_instr_safe(instr, block) {
+      bool removed = false;
       if (instr->type != nir_instr_type_phi)
          break;
 
-      progress |= remove_phis_instr(block, instr, b);
+      removed = remove_phis_instr(block, instr, b);
+      progress |= removed;
+      if (!removed)
+         progress |= phis_to_bools(block, instr, b);
    }
 
    return progress;
