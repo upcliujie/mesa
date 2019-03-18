@@ -64,6 +64,72 @@ matching_mov(nir_alu_instr *mov1, nir_ssa_def *ssa)
  */
 
 static bool
+remove_phis_instr(nir_block *block, nir_instr *instr, nir_builder *b)
+{
+   nir_phi_instr *phi = nir_instr_as_phi(instr);
+   nir_ssa_def *def = NULL;
+   nir_alu_instr *mov = NULL;
+   bool srcs_same = true;
+
+   nir_foreach_phi_src(src, phi) {
+      assert(src->src.is_ssa);
+
+      /* For phi nodes at the beginning of loops, we may encounter some
+       * sources from backedges that point back to the destination of the
+       * same phi, i.e. something like:
+       *
+       * a = phi(a, b, ...)
+       *
+       * We can safely ignore these sources, since if all of the normal
+       * sources point to the same definition, then that definition must
+       * still dominate the phi node, and the phi will still always take
+       * the value of that definition.
+       */
+      if (src->src.ssa == &phi->dest.ssa)
+         return false;
+
+      if (def == NULL) {
+         def  = src->src.ssa;
+         mov = get_parent_mov(def);
+      } else {
+         if (src->src.ssa != def && !matching_mov(mov, src->src.ssa)) {
+            srcs_same = false;
+            break;
+         }
+      }
+   }
+
+   if (!srcs_same)
+      return false;
+
+
+   /* We must have found at least one definition, since there must be at
+    * least one forward edge.
+    */
+   assert(def != NULL);
+
+   if (mov) {
+      /* If the sources were all movs from the same source with the same
+       * swizzle, then we can't just pick a random move because it may not
+       * dominate the phi node. Instead, we need to emit our own move after
+       * the phi which uses the shared source, and rewrite uses of the phi
+       * to use the move instead. This is ok, because while the movs may
+       * not all dominate the phi node, their shared source does.
+       */
+
+      b->cursor = nir_after_phis(block);
+      def = mov->op == nir_op_imov ?
+         nir_imov_alu(b, mov->src[0], def->num_components) :
+         nir_fmov_alu(b, mov->src[0], def->num_components);
+   }
+
+   assert(phi->dest.is_ssa);
+   nir_ssa_def_rewrite_uses(&phi->dest.ssa, nir_src_for_ssa(def));
+   nir_instr_remove(instr);
+   return true;
+}
+
+static bool
 remove_phis_block(nir_block *block, nir_builder *b)
 {
    bool progress = false;
@@ -72,68 +138,7 @@ remove_phis_block(nir_block *block, nir_builder *b)
       if (instr->type != nir_instr_type_phi)
          break;
 
-      nir_phi_instr *phi = nir_instr_as_phi(instr);
-
-      nir_ssa_def *def = NULL;
-      nir_alu_instr *mov = NULL;
-      bool srcs_same = true;
-
-      nir_foreach_phi_src(src, phi) {
-         assert(src->src.is_ssa);
-
-         /* For phi nodes at the beginning of loops, we may encounter some
-          * sources from backedges that point back to the destination of the
-          * same phi, i.e. something like:
-          *
-          * a = phi(a, b, ...)
-          *
-          * We can safely ignore these sources, since if all of the normal
-          * sources point to the same definition, then that definition must
-          * still dominate the phi node, and the phi will still always take
-          * the value of that definition.
-          */
-         if (src->src.ssa == &phi->dest.ssa)
-            continue;
-         
-         if (def == NULL) {
-            def  = src->src.ssa;
-            mov = get_parent_mov(def);
-         } else {
-            if (src->src.ssa != def && !matching_mov(mov, src->src.ssa)) {
-               srcs_same = false;
-               break;
-            }
-         }
-      }
-
-      if (!srcs_same)
-         continue;
-
-      /* We must have found at least one definition, since there must be at
-       * least one forward edge.
-       */
-      assert(def != NULL);
-
-      if (mov) {
-         /* If the sources were all movs from the same source with the same
-          * swizzle, then we can't just pick a random move because it may not
-          * dominate the phi node. Instead, we need to emit our own move after
-          * the phi which uses the shared source, and rewrite uses of the phi
-          * to use the move instead. This is ok, because while the movs may
-          * not all dominate the phi node, their shared source does.
-          */
-
-         b->cursor = nir_after_phis(block);
-         def = mov->op == nir_op_imov ?
-            nir_imov_alu(b, mov->src[0], def->num_components) :
-            nir_fmov_alu(b, mov->src[0], def->num_components);
-      }
-
-      assert(phi->dest.is_ssa);
-      nir_ssa_def_rewrite_uses(&phi->dest.ssa, nir_src_for_ssa(def));
-      nir_instr_remove(instr);
-
-      progress = true;
+      progress |= remove_phis_instr(block, instr, b);
    }
 
    return progress;
