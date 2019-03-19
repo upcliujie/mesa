@@ -131,6 +131,7 @@ dce_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
          instr->pass_flags = live;
       } else if (!live) {
          nir_instr_remove(instr);
+         nir_instr_free(instr);
          progress = true;
       }
    }
@@ -196,6 +197,7 @@ dce_cf_list(struct exec_list *cf_list, BITSET_WORD *defs_live,
                nir_foreach_instr_safe(instr, block) {
                   if (!instr->pass_flags) {
                      nir_instr_remove(instr);
+                     nir_instr_free(instr);
                      progress = true;
                   }
                }
