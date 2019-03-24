@@ -257,15 +257,15 @@ dump_binding_table(struct gen_batch_decode_ctx *ctx, uint32_t offset, int count)
       return;
    }
 
-   struct gen_batch_decode_bo bind_bo =
-      ctx_get_bo(ctx, true, ctx->surface_base + offset);
+   uint64_t table_addr = ctx->surface_base + offset;
+   struct gen_batch_decode_bo bind_bo = ctx_get_bo(ctx, true, table_addr);
 
    if (bind_bo.map == NULL) {
       fprintf(ctx->fp, "  binding table unavailable\n");
       return;
    }
 
-   const uint32_t *pointers = bind_bo.map;
+   const uint32_t *pointers = bind_bo.map + (table_addr - bind_bo.addr);
    for (int i = 0; i < count; i++) {
       if (pointers[i] == 0)
          continue;
@@ -295,7 +295,7 @@ dump_samplers(struct gen_batch_decode_ctx *ctx, uint32_t offset, int count)
 
    uint64_t state_addr = ctx->dynamic_base + offset;
    struct gen_batch_decode_bo bo = ctx_get_bo(ctx, true, state_addr);
-   const void *state_map = bo.map;
+   const void *state_map = bo.map + (state_addr - bo.addr);
 
    if (state_map == NULL) {
       fprintf(ctx->fp, "  samplers unavailable\n");
