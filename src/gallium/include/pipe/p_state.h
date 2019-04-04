@@ -517,10 +517,10 @@ struct pipe_box
     * x and width are used by buffers, so they need the full 32-bit range.
     */
    int x;
-   int16_t y;
+   int y;
    int16_t z;
    int width;
-   int16_t height;
+   int height;
    int16_t depth;
 };
 
