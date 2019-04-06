@@ -1269,6 +1269,8 @@ struct anv_queue {
 
    /* Set to true to stop the submission thread */
    bool                                      quit;
+
+   uint32_t                                  exec_flags;
 };
 
 struct anv_pipeline_cache {
