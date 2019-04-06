@@ -493,6 +493,7 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue)
    queue->flags = 0;
    queue->lost = false;
    queue->quit = false;
+   queue->exec_flags = I915_EXEC_RENDER;
 
    list_inithead(&queue->queued_submits);
 
