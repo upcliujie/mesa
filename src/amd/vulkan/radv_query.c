@@ -57,16 +57,10 @@ static void radv_break_on_count(nir_builder *b, nir_variable *var, nir_ssa_def *
 {
 	nir_ssa_def *counter = nir_load_var(b, var);
 
-	nir_if *if_stmt = nir_if_create(b->shader);
-	if_stmt->condition = nir_src_for_ssa(nir_uge(b, counter, count));
-	nir_cf_node_insert(b->cursor, &if_stmt->cf_node);
+	nir_push_if(b, nir_uge(b, counter, count));
+	nir_jump(b, nir_jump_break);
+	nir_pop_if(b, NULL);
 
-	b->cursor = nir_after_cf_list(&if_stmt->then_list);
-
-	nir_jump_instr *instr = nir_jump_instr_create(b->shader, nir_jump_break);
-	nir_builder_instr_insert(b, &instr->instr);
-
-	b->cursor = nir_after_cf_node(&if_stmt->cf_node);
 	counter = nir_iadd(b, counter, nir_imm_int(b, 1));
 	nir_store_var(b, var, counter, 0x1);
 }
@@ -88,28 +82,19 @@ static void
 radv_store_availability(nir_builder *b, nir_ssa_def *flags, nir_ssa_def *dst_buf,
                         nir_ssa_def *offset, nir_ssa_def *value32)
 {
-	nir_ssa_def *result_is_64bit = nir_test_flag(b, flags, VK_QUERY_RESULT_64_BIT);
-	nir_if *availability_if = nir_if_create(b->shader);
-	availability_if->condition = nir_src_for_ssa(nir_test_flag(b, flags, VK_QUERY_RESULT_WITH_AVAILABILITY_BIT));
-	nir_cf_node_insert(b->cursor, &availability_if->cf_node);
+	nir_push_if(b, nir_test_flag(b, flags, VK_QUERY_RESULT_WITH_AVAILABILITY_BIT));
 
-	b->cursor = nir_after_cf_list(&availability_if->then_list);
-
-	nir_if *store_64bit_if = nir_if_create(b->shader);
-	store_64bit_if->condition = nir_src_for_ssa(result_is_64bit);
-	nir_cf_node_insert(b->cursor, &store_64bit_if->cf_node);
-
-	b->cursor = nir_after_cf_list(&store_64bit_if->then_list);
+	nir_push_if(b, nir_test_flag(b, flags, VK_QUERY_RESULT_64_BIT));
 
 	nir_store_ssbo(b, dst_buf, offset, 8, nir_vec2(b, value32, nir_imm_int(b, 0)), 0x3);
 
-	b->cursor = nir_after_cf_list(&store_64bit_if->else_list);
+	nir_push_else(b, NULL);
 
 	nir_store_ssbo(b, dst_buf, offset, 4, value32, 0x1);
 
-	b->cursor = nir_after_cf_node(&store_64bit_if->cf_node);
+	nir_pop_if(b, NULL);
 
-	b->cursor = nir_after_cf_node(&availability_if->cf_node);
+	nir_pop_if(b, NULL);
 }
 
 static nir_shader *
@@ -192,9 +177,7 @@ build_occlusion_query_shader(struct radv_device *device) {
 	nir_store_var(&b, outer_counter, nir_imm_int(&b, 0), 0x1);
 	nir_store_var(&b, available, nir_imm_true(&b), 0x1);
 
-	nir_loop *outer_loop = nir_loop_create(b.shader);
-	nir_builder_cf_insert(&b, &outer_loop->cf_node);
-	b.cursor = nir_after_cf_list(&outer_loop->body);
+	nir_push_loop(&b);
 
 	nir_ssa_def *current_outer_count = nir_load_var(&b, outer_counter);
 	radv_break_on_count(&b, outer_counter, nir_imm_int(&b, db_count));
@@ -203,11 +186,7 @@ build_occlusion_query_shader(struct radv_device *device) {
 		nir_iand(&b, nir_imm_int(&b, enabled_rb_mask),
 			     nir_ishl(&b, nir_imm_int(&b, 1), current_outer_count));
 
-	nir_if *enabled_if = nir_if_create(b.shader);
-	enabled_if->condition = nir_src_for_ssa(nir_i2b(&b, enabled_cond));
-	nir_cf_node_insert(b.cursor, &enabled_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&enabled_if->then_list);
+	nir_push_if(&b, nir_i2b(&b, enabled_cond));
 
 	nir_ssa_def *load_offset = nir_imul(&b, current_outer_count, nir_imm_int(&b, 16));
 	load_offset = nir_iadd(&b, input_base, load_offset);
@@ -218,47 +197,40 @@ build_occlusion_query_shader(struct radv_device *device) {
 	nir_ssa_def *start_done = nir_ilt(&b, nir_load_var(&b, start), nir_imm_int64(&b, 0));
 	nir_ssa_def *end_done = nir_ilt(&b, nir_load_var(&b, end), nir_imm_int64(&b, 0));
 
-	nir_if *update_if = nir_if_create(b.shader);
-	update_if->condition = nir_src_for_ssa(nir_iand(&b, start_done, end_done));
-	nir_cf_node_insert(b.cursor, &update_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&update_if->then_list);
+	nir_push_if(&b, nir_iand(&b, start_done, end_done));
 
 	nir_store_var(&b, result,
 	              nir_iadd(&b, nir_load_var(&b, result),
 	                           nir_isub(&b, nir_load_var(&b, end),
 	                                        nir_load_var(&b, start))), 0x1);
 
-	b.cursor = nir_after_cf_list(&update_if->else_list);
+	nir_push_else(&b, NULL);
 
 	nir_store_var(&b, available, nir_imm_false(&b), 0x1);
 
-	b.cursor = nir_after_cf_node(&outer_loop->cf_node);
+	nir_pop_if(&b, NULL);
+	nir_pop_if(&b, NULL);
+	nir_pop_loop(&b, NULL);
 
 	/* Store the result if complete or if partial results have been requested. */
 
 	nir_ssa_def *result_is_64bit = nir_test_flag(&b, flags, VK_QUERY_RESULT_64_BIT);
 	nir_ssa_def *result_size = nir_bcsel(&b, result_is_64bit, nir_imm_int(&b, 8), nir_imm_int(&b, 4));
+	nir_push_if(&b,
+		    nir_ior(&b,
+			    nir_test_flag(&b, flags, VK_QUERY_RESULT_PARTIAL_BIT),
+			    nir_load_var(&b, available)));
 
-	nir_if *store_if = nir_if_create(b.shader);
-	store_if->condition = nir_src_for_ssa(nir_ior(&b, nir_test_flag(&b, flags, VK_QUERY_RESULT_PARTIAL_BIT), nir_load_var(&b, available)));
-	nir_cf_node_insert(b.cursor, &store_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&store_if->then_list);
-
-	nir_if *store_64bit_if = nir_if_create(b.shader);
-	store_64bit_if->condition = nir_src_for_ssa(result_is_64bit);
-	nir_cf_node_insert(b.cursor, &store_64bit_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&store_64bit_if->then_list);
+	nir_push_if(&b, result_is_64bit);
 
 	nir_store_ssbo(&b, dst_buf, output_base, 8, nir_load_var(&b, result), 0x1);
 
-	b.cursor = nir_after_cf_list(&store_64bit_if->else_list);
+	nir_push_else(&b, NULL);
 
 	nir_store_ssbo(&b, dst_buf, output_base, 4, nir_u2u32(&b, nir_load_var(&b, result)), 0x1);
 
-	b.cursor = nir_after_cf_node(&store_if->cf_node);
+	nir_pop_if(&b, NULL);
+	nir_pop_if(&b, NULL);
 
 	radv_store_availability(&b, flags, dst_buf,
 	                        nir_iadd(&b, result_size, output_base),
@@ -355,19 +327,11 @@ build_pipeline_statistics_query_shader(struct radv_device *device) {
 	                        nir_iadd(&b, output_base, nir_imul(&b, elem_count, elem_size)),
 				available32);
 
-	nir_if *available_if = nir_if_create(b.shader);
-	available_if->condition = nir_src_for_ssa(nir_i2b(&b, available32));
-	nir_cf_node_insert(b.cursor, &available_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&available_if->then_list);
+	nir_push_if(&b, nir_i2b(&b, available32));
 
 	nir_store_var(&b, output_offset, output_base, 0x1);
 	for (int i = 0; i < 11; ++i) {
-		nir_if *store_if = nir_if_create(b.shader);
-		store_if->condition = nir_src_for_ssa(nir_test_flag(&b, stats_mask, 1u << i));
-		nir_cf_node_insert(b.cursor, &store_if->cf_node);
-
-		b.cursor = nir_after_cf_list(&store_if->then_list);
+		nir_push_if(&b, nir_test_flag(&b, stats_mask, 1u << i));
 
 		nir_ssa_def *start_offset = nir_iadd(&b, input_base,
 		                                     nir_imm_int(&b, pipeline_statistics_indices[i] * 8));
@@ -380,65 +344,54 @@ build_pipeline_statistics_query_shader(struct radv_device *device) {
 		nir_ssa_def *result = nir_isub(&b, end, start);
 
 		/* Store result */
-		nir_if *store_64bit_if = nir_if_create(b.shader);
-		store_64bit_if->condition = nir_src_for_ssa(result_is_64bit);
-		nir_cf_node_insert(b.cursor, &store_64bit_if->cf_node);
-
-		b.cursor = nir_after_cf_list(&store_64bit_if->then_list);
+		nir_push_if(&b, result_is_64bit);
 
 		nir_store_ssbo(&b, dst_buf, nir_load_var(&b, output_offset), 8,
 		               result, 0x1);
 
-		b.cursor = nir_after_cf_list(&store_64bit_if->else_list);
+		nir_push_else(&b, NULL);
 
 		nir_store_ssbo(&b, dst_buf, nir_load_var(&b, output_offset), 4,
 		               nir_u2u32(&b, result), 0x1);
 
-		b.cursor = nir_after_cf_node(&store_64bit_if->cf_node);
+		nir_pop_if(&b, NULL);
 
 		nir_store_var(&b, output_offset,
 		                  nir_iadd(&b, nir_load_var(&b, output_offset),
 		                               elem_size), 0x1);
 
-		b.cursor = nir_after_cf_node(&store_if->cf_node);
+		nir_pop_if(&b, NULL);
 	}
 
-	b.cursor = nir_after_cf_list(&available_if->else_list);
+	nir_push_else(&b, NULL); /* nir_i2b(&b, available32) */
 
-	available_if = nir_if_create(b.shader);
-	available_if->condition = nir_src_for_ssa(nir_test_flag(&b, flags, VK_QUERY_RESULT_PARTIAL_BIT));
-	nir_cf_node_insert(b.cursor, &available_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&available_if->then_list);
+	nir_push_if(&b, nir_test_flag(&b, flags, VK_QUERY_RESULT_PARTIAL_BIT));
 
 	/* Stores zeros in all outputs. */
 
 	nir_variable *counter = nir_local_variable_create(b.impl, glsl_int_type(), "counter");
 	nir_store_var(&b, counter, nir_imm_int(&b, 0), 0x1);
 
-	nir_loop *loop = nir_loop_create(b.shader);
-	nir_builder_cf_insert(&b, &loop->cf_node);
-	b.cursor = nir_after_cf_list(&loop->body);
+	nir_loop *loop = nir_push_loop(&b);
 
 	nir_ssa_def *current_counter = nir_load_var(&b, counter);
 	radv_break_on_count(&b, counter, elem_count);
 
 	nir_ssa_def *output_elem = nir_iadd(&b, output_base,
 	                                        nir_imul(&b, elem_size, current_counter));
-
-	nir_if *store_64bit_if = nir_if_create(b.shader);
-	store_64bit_if->condition = nir_src_for_ssa(result_is_64bit);
-	nir_cf_node_insert(b.cursor, &store_64bit_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&store_64bit_if->then_list);
+	nir_push_if(&b, result_is_64bit);
 
 	nir_store_ssbo(&b, dst_buf, output_elem, 8, nir_imm_int64(&b, 0), ~0);
 
-	b.cursor = nir_after_cf_list(&store_64bit_if->else_list);
+	nir_push_else(&b, NULL);
 
 	nir_store_ssbo(&b, dst_buf, output_elem, 8, nir_imm_int(&b, 0), ~0);
 
-	b.cursor = nir_after_cf_node(&loop->cf_node);
+	nir_pop_if(&b, NULL);
+
+	nir_pop_loop(&b, loop);
+	nir_pop_if(&b, NULL); /* VK_QUERY_RESULT_PARTIAL_BIT */
+	nir_pop_if(&b, NULL); /* nir_i2b(&b, available32) */
 	return b.shader;
 }
 
@@ -537,11 +490,7 @@ build_tfb_query_shader(struct radv_device *device)
 			                 nir_imm_int(&b, 0x80000000)));
 
 	/* Only compute result if available. */
-	nir_if *available_if = nir_if_create(b.shader);
-	available_if->condition = nir_src_for_ssa(result_is_available);
-	nir_cf_node_insert(b.cursor, &available_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&available_if->then_list);
+	nir_push_if(&b, result_is_available);
 
 	/* Pack values. */
 	nir_ssa_def *packed64[4];
@@ -569,7 +518,7 @@ build_tfb_query_shader(struct radv_device *device)
 				   primitive_storage_needed), 0x3);
 	nir_store_var(&b, available, nir_imm_true(&b), 0x1);
 
-	b.cursor = nir_after_cf_node(&available_if->cf_node);
+	nir_pop_if(&b, NULL);
 
 	/* Determine if result is 64 or 32 bit. */
 	nir_ssa_def *result_is_64bit =
@@ -579,30 +528,22 @@ build_tfb_query_shader(struct radv_device *device)
 			  nir_imm_int(&b, 8));
 
 	/* Store the result if complete or partial results have been requested. */
-	nir_if *store_if = nir_if_create(b.shader);
-	store_if->condition =
-		nir_src_for_ssa(nir_ior(&b, nir_test_flag(&b, flags, VK_QUERY_RESULT_PARTIAL_BIT),
-					nir_load_var(&b, available)));
-	nir_cf_node_insert(b.cursor, &store_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&store_if->then_list);
+	nir_push_if(&b,
+		    nir_ior(&b,
+			    nir_test_flag(&b, flags, VK_QUERY_RESULT_PARTIAL_BIT),
+			    nir_load_var(&b, available)));
 
 	/* Store result. */
-	nir_if *store_64bit_if = nir_if_create(b.shader);
-	store_64bit_if->condition = nir_src_for_ssa(result_is_64bit);
-	nir_cf_node_insert(b.cursor, &store_64bit_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&store_64bit_if->then_list);
+	nir_push_if(&b, result_is_64bit);
 
 	nir_store_ssbo(&b, dst_buf, output_base, 8, nir_load_var(&b, result), 0x3);
 
-	b.cursor = nir_after_cf_list(&store_64bit_if->else_list);
+	nir_push_else(&b, NULL);
 
 	nir_store_ssbo(&b, dst_buf, output_base, 4, nir_u2u32(&b, nir_load_var(&b, result)), 0x3);
 
-	b.cursor = nir_after_cf_node(&store_64bit_if->cf_node);
-
-	b.cursor = nir_after_cf_node(&store_if->cf_node);
+	nir_pop_if(&b, NULL);
+	nir_pop_if(&b, NULL);
 
 	radv_store_availability(&b, flags, dst_buf,
 	                        nir_iadd(&b, result_size, output_base),
@@ -697,16 +638,12 @@ build_timestamp_query_shader(struct radv_device *device)
 			            nir_imm_int64(&b, TIMESTAMP_NOT_READY)));
 
 	/* Only store result if available. */
-	nir_if *available_if = nir_if_create(b.shader);
-	available_if->condition = nir_src_for_ssa(result_is_available);
-	nir_cf_node_insert(b.cursor, &available_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&available_if->then_list);
+	nir_push_if(&b, result_is_available);
 
 	nir_store_var(&b, result, timestamp, 0x1);
 	nir_store_var(&b, available, nir_imm_true(&b), 0x1);
 
-	b.cursor = nir_after_cf_node(&available_if->cf_node);
+	nir_pop_if(&b, NULL);
 
 	/* Determine if result is 64 or 32 bit. */
 	nir_ssa_def *result_is_64bit =
@@ -716,30 +653,21 @@ build_timestamp_query_shader(struct radv_device *device)
 			  nir_imm_int(&b, 4));
 
 	/* Store the result if complete or partial results have been requested. */
-	nir_if *store_if = nir_if_create(b.shader);
-	store_if->condition =
-		nir_src_for_ssa(nir_ior(&b, nir_test_flag(&b, flags, VK_QUERY_RESULT_PARTIAL_BIT),
-					nir_load_var(&b, available)));
-	nir_cf_node_insert(b.cursor, &store_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&store_if->then_list);
+	nir_push_if(&b, nir_ior(&b, nir_test_flag(&b, flags, VK_QUERY_RESULT_PARTIAL_BIT),
+				nir_load_var(&b, available)));
 
 	/* Store result. */
-	nir_if *store_64bit_if = nir_if_create(b.shader);
-	store_64bit_if->condition = nir_src_for_ssa(result_is_64bit);
-	nir_cf_node_insert(b.cursor, &store_64bit_if->cf_node);
-
-	b.cursor = nir_after_cf_list(&store_64bit_if->then_list);
+	nir_push_if(&b, result_is_64bit);
 
 	nir_store_ssbo(&b, dst_buf, output_base, 8, nir_load_var(&b, result), 0x1);
 
-	b.cursor = nir_after_cf_list(&store_64bit_if->else_list);
+	nir_push_else(&b, NULL);
 
 	nir_store_ssbo(&b, dst_buf, output_base, 4, nir_u2u32(&b, nir_load_var(&b, result)), 0x1);
 
-	b.cursor = nir_after_cf_node(&store_64bit_if->cf_node);
+	nir_pop_if(&b, NULL);
 
-	b.cursor = nir_after_cf_node(&store_if->cf_node);
+	nir_pop_if(&b, NULL);
 
 	radv_store_availability(&b, flags, dst_buf,
 	                        nir_iadd(&b, result_size, output_base),
