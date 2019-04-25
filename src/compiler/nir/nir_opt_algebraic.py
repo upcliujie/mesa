@@ -3218,6 +3218,9 @@ late_optimizations.extend([
    (('~fadd', ('fneg', ('fmul(is_used_once)', a, b)), ('fneg', b)), ('fmul', ('fadd', ('fneg', a), -1.0), b)),
    (('~fadd', ('fmul(is_used_once)', a, ('fneg', b)),          b ), ('fmul', ('fadd', ('fneg', a),  1.0), b)),
 
+   (('ffma@32',  2.0, a, -1.0), ('flrp', -1.0,  1.0, a), '!options->lower_flrp32'),
+   (('ffma@32', -2.0, a,  1.0), ('flrp',  1.0, -1.0, a), '!options->lower_flrp32'),
+
    # Section 8.8 (Integer Functions) of the GLSL 4.60 spec says:
    #
    #    If bits is zero, the result will be zero.
