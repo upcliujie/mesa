@@ -331,61 +331,38 @@ understand the code before merging their patches.
 <h2 id="nominations">Nominating a commit for a stable branch</h2>
 
 <p>
-There are three ways to nominate a patch for inclusion in the stable branch and
-release.
+There are three ways to nominate a patch for stable:
 </p>
-<ul>
-<li> By adding the Cc: mesa-stable@ tag as described below.
-<li> Sending the commit ID (as seen in master branch) to the mesa-stable@ mailing list.
-<li> Forwarding the patch from the mesa-dev@ mailing list.
-</li>
-</ul>
+  <ul>
+    <li>Including <code>Fixes: $sha ("$commit_title")</code> at the end of the commit message.</li>
+    <li>Including <code>Cc: &lt;mesa-stable@lists.freedesktop.org&gt;</code> at the end of the commit message.</li>
+    <li>Sending an MR on <a href="https://gitlab.freedesktop.org/mesa/mesa">GitLab</a>.</li>
+  </ul>
 <p>
-Note: resending patch identical to one on mesa-dev@ or one that differs only
-by the extra mesa-stable@ tag is <strong>not</strong> recommended.
-</p>
-<p>
-If you are not the author of the original patch, please Cc: them in your
-nomination request.
-</p>
 
 <p>
-The current patch status can be observed in the <a href="releasing.html#stagingbranch">staging branch</a>.
-</p>
-
-<h3 id="thetag">The stable tag</h3>
-
-<p>
-If you want a commit to be applied to a stable branch,
-you should add an appropriate note to the commit message.
+  It is prefered to use the <code>Fixes:</code> tag when possible, this
+  removes any ambiguity about which branches need to receive the patch.
+  Please use <code>Cc: mesa-stable@...</code> only when the patch
+  doesn't fix another patch, or it is only applicable to specific
+  branches.
 </p>
 
 <p>
-Here are some examples of such a note:
+  For nominations after the patch has already landed in the master branch you
+  may either send an MR against the <code>staging/X.Y<code> branch, or
+  <code>Cc</code> the stable branch.
 </p>
-<ul>
-  <li>CC: &lt;mesa-stable@lists.freedesktop.org&gt;</li>
-</ul>
-
-Simply adding the CC to the mesa-stable list address is adequate to nominate
-the commit for all the active stable branches. If the commit is not applicable
-for said branch the stable-release manager will reply stating so.
-
-This "CC" syntax for patch nomination will cause patches to automatically be
-copied to the mesa-stable@ mailing list when you use "git send-email" to send
-patches to the mesa-dev@ mailing list. If you prefer using --suppress-cc that
-won't have any negative effect on the patch nomination.
 
 <p>
-Note: by removing the tag [as the commit is pushed] the patch is
-<strong>explicitly</strong> rejected from inclusion in the stable branch(es).
-<br>
-Thus, drop the line <strong>only</strong> if you want to cancel the nomination.
+  When you send an MR be sure to apply it to the <code>staging/X.Y</code>
+  branch, not the <code>X.Y</code> branch, It is also helpful to assign
+  the merge request to the maintainer of that stable branch. You can find
+  their name in the <a href="release-calendar.html">release calendar</a>.
+  Please use the <code>staging/X.Y</code> branch as we do not allow
+  force pushing the <code>X.Y</code> branches and generally only push to
+  them when making releases.
 </p>
-
-Alternatively, if one uses the "Fixes" tag as described in the "Patch formatting"
-section, it nominates a commit for all active stable branches that include the
-commit that is referred to.
 
 <h2 id="criteria">Criteria for accepting patches to the stable branch</h2>
 
