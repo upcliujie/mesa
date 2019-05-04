@@ -1948,8 +1948,14 @@ isl_surf_get_hiz_surf(const struct isl_device *dev,
    if (!isl_surf_usage_is_depth(surf->usage))
       return false;
 
-   /* HiZ only works with Y-tiled depth buffers */
-   if (!isl_tiling_is_any_y(surf->tiling))
+   /* From the IronLake PRM, Vol 2 Part 1,
+    * 3DSTATE_DEPTH_BUFFER::Tiled Surface,
+    *
+    *    When Hierarchical Depth Buffer is enabled, this bit must be set.
+    *
+    * HiZ only works on tiled depth buffers.
+    */
+   if (surf->tiling == ISL_TILING_LINEAR)
       return false;
 
    /* On SNB+, compressed depth buffers cannot be interleaved with stencil. */
