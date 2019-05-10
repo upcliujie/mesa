@@ -721,6 +721,16 @@ dri2_setup_screen(_EGLDisplay *disp)
 
    if (dri2_dpy->flush_control)
       disp->Extensions.KHR_context_flush_control = EGL_TRUE;
+
+   if (dri2_dpy->config) {
+      unsigned char disable = 0;
+      dri2_dpy->config->configQueryb(dri2_dpy->dri_screen,
+                                     "disable_ext_buffer_age",
+                                     &disable);
+      disp->Extensions.EXT_buffer_age = !disable;
+   }
+   else
+      disp->Extensions.EXT_buffer_age = EGL_TRUE;
 }
 
 void
