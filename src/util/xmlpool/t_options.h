@@ -226,7 +226,7 @@ DRI_CONF_OPT_BEGIN_B(mesa_no_error, def) \
 DRI_CONF_OPT_END
 
 #define DRI_CONF_DISABLE_EXT_BUFFER_AGE(def) \
-DRI_CONF_OPT_BEGIN_B(glx_disable_ext_buffer_age, def) \
+DRI_CONF_OPT_BEGIN_B(disable_ext_buffer_age, def) \
    DRI_CONF_DESC(en, gettext("Disable the GLX_EXT_buffer_age extension")) \
 DRI_CONF_OPT_END
 

@@ -983,7 +983,7 @@ dri3_create_screen(int screen, struct glx_display * priv)
 
    psp->getBufferAge = dri3_get_buffer_age;
    if (psc->config->configQueryb(psc->driScreen,
-                                 "glx_disable_ext_buffer_age",
+                                 "disable_ext_buffer_age",
                                  &disable) || !disable)
       __glXEnableDirectExtension(&psc->base, "GLX_EXT_buffer_age");
 
