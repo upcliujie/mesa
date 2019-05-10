@@ -37,7 +37,7 @@
 #include "pipe/p_screen.h"
 #include "renderonly/renderonly.h"
 
-struct pipe_screen *kmsro_drm_screen_create(int fd)
+struct pipe_screen *kmsro_drm_screen_create(int fd, const struct pipe_screen_config *config)
 {
    struct pipe_screen *screen = NULL;
    struct renderonly ro = {
@@ -102,7 +102,7 @@ struct pipe_screen *kmsro_drm_screen_create(int fd)
    ro.gpu_fd = drmOpenWithType("lima", NULL, DRM_NODE_RENDER);
    if (ro.gpu_fd >= 0) {
       ro.create_for_resource = renderonly_create_kms_dumb_buffer_for_resource,
-      screen = lima_drm_screen_create_renderonly(&ro);
+      screen = lima_drm_screen_create_renderonly(&ro, config);
       if (!screen)
          close(ro.gpu_fd);
 

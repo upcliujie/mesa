@@ -82,7 +82,7 @@ static int compare_fd(void *key1, void *key2)
 }
 
 struct pipe_screen *
-lima_drm_screen_create(int fd)
+lima_drm_screen_create(int fd, const struct pipe_screen_config *config)
 {
    struct pipe_screen *pscreen = NULL;
 
@@ -99,7 +99,7 @@ lima_drm_screen_create(int fd)
    } else {
       int dup_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
 
-      pscreen = lima_screen_create(dup_fd, NULL);
+      pscreen = lima_screen_create(dup_fd, NULL, config);
       if (pscreen) {
          util_hash_table_set(fd_tab, intptr_to_pointer(dup_fd), pscreen);
 
@@ -118,7 +118,7 @@ unlock:
 }
 
 struct pipe_screen *
-lima_drm_screen_create_renderonly(struct renderonly *ro)
+lima_drm_screen_create_renderonly(struct renderonly *ro, const struct pipe_screen_config *config)
 {
-   return lima_screen_create(fcntl(ro->gpu_fd, F_DUPFD_CLOEXEC, 3), ro);
+   return lima_screen_create(fcntl(ro->gpu_fd, F_DUPFD_CLOEXEC, 3), ro, config);
 }

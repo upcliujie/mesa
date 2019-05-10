@@ -27,6 +27,7 @@
 #include "util/ralloc.h"
 #include "util/u_debug.h"
 #include "util/u_screen.h"
+#include "util/xmlconfig.h"
 #include "renderonly/renderonly.h"
 
 #include "drm-uapi/drm_fourcc.h"
@@ -440,7 +441,7 @@ lima_screen_parse_env(void)
 }
 
 struct pipe_screen *
-lima_screen_create(int fd, struct renderonly *ro)
+lima_screen_create(int fd, struct renderonly *ro, const struct pipe_screen_config *config)
 {
    struct lima_screen *screen;
 
@@ -449,6 +450,8 @@ lima_screen_create(int fd, struct renderonly *ro)
       return NULL;
 
    screen->fd = fd;
+
+   screen->enable_buffer_age = !driQueryOptionb(config->options, "disable_ext_buffer_age");
 
    if (!lima_screen_query_info(screen))
       goto err_out0;

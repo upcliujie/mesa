@@ -96,7 +96,7 @@ pipe_kmsro_create_screen(int fd, const struct pipe_screen_config *config)
 {
    struct pipe_screen *screen;
 
-   screen = kmsro_drm_screen_create(fd);
+   screen = kmsro_drm_screen_create(fd, config);
    return screen ? debug_screen_wrap(screen) : NULL;
 }
 
@@ -397,7 +397,7 @@ pipe_lima_create_screen(int fd, const struct pipe_screen_config *config)
 {
    struct pipe_screen *screen;
 
-   screen = lima_drm_screen_create(fd);
+   screen = lima_drm_screen_create(fd, config);
    return screen ? debug_screen_wrap(screen) : NULL;
 }
 

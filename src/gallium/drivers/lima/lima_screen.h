@@ -54,6 +54,7 @@ struct lima_screen {
    int fd;
    int gpu_type;
    int num_pp;
+   bool enable_buffer_age;
 
    /* bo table */
    mtx_t bo_table_lock;
@@ -84,6 +85,6 @@ lima_screen(struct pipe_screen *pscreen)
 }
 
 struct pipe_screen *
-lima_screen_create(int fd, struct renderonly *ro);
+lima_screen_create(int fd, struct renderonly *ro, const struct pipe_screen_config *config);
 
 #endif

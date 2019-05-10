@@ -1677,7 +1677,7 @@ _lima_flush(struct lima_context *ctx, bool end_of_frame)
    if (ctx->framebuffer.base.nr_cbufs) {
       /* Set reload flag for next draw. It'll be unset if buffer is cleared */
       struct lima_surface *surf = lima_surface(ctx->framebuffer.base.cbufs[0]);
-      surf->reload = true;
+      surf->reload = screen->enable_buffer_age || !end_of_frame;
    }
 }
 

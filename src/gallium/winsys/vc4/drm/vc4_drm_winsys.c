@@ -49,7 +49,7 @@ vc4_drm_screen_create(int fd)
       return vc4_screen_create(fcntl(fd, F_DUPFD_CLOEXEC, 3), NULL);
 
 #ifdef GALLIUM_KMSRO
-   return kmsro_drm_screen_create(fd);
+   return kmsro_drm_screen_create(fd, NULL);
 #endif
 
    return NULL;
