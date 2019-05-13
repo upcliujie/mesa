@@ -1040,7 +1040,7 @@ copy_uniforms_to_storage(gl_constant_value *storage,
                          struct gl_uniform_storage *uni,
                          struct gl_context *ctx, GLsizei count,
                          const GLvoid *values, const int size_mul,
-                         const unsigned offset, const unsigned components,
+                         const unsigned components,
                          enum glsl_base_type basicType)
 {
    bool copy_as_uint64 = uni->is_bindless &&
@@ -1144,12 +1144,12 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
             uni->driver_storage[s].data + (size_mul * offset * components);
 
          copy_uniforms_to_storage(storage, uni, ctx, count, values, size_mul,
-                                  offset, components, basicType);
+                                  components, basicType);
       }
    } else {
       storage = &uni->storage[size_mul * components * offset];
       copy_uniforms_to_storage(storage, uni, ctx, count, values, size_mul,
-                               offset, components, basicType);
+                               components, basicType);
 
       _mesa_propagate_uniforms_to_driver_storage(uni, offset, count);
    }
@@ -1246,7 +1246,7 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
 static void
 copy_uniform_matrix_to_storage(gl_constant_value *storage,
                                GLsizei count, const void *values,
-                               const unsigned size_mul, const unsigned offset,
+                               const unsigned size_mul,
                                const unsigned components,
                                const unsigned vectors, bool transpose,
                                unsigned cols, unsigned rows,
@@ -1399,12 +1399,12 @@ _mesa_uniform_matrix(GLint location, GLsizei count,
             uni->driver_storage[s].data + (size_mul * offset * elements);
 
          copy_uniform_matrix_to_storage(storage, count, values, size_mul,
-                                        offset, components, vectors,
+                                        components, vectors,
                                         transpose, cols, rows, basicType);
       }
    } else {
       storage =  &uni->storage[size_mul * elements * offset];
-      copy_uniform_matrix_to_storage(storage, count, values, size_mul, offset,
+      copy_uniform_matrix_to_storage(storage, count, values, size_mul,
                                      components, vectors, transpose, cols,
                                      rows, basicType);
 
