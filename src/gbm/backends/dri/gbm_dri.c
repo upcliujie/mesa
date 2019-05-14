@@ -54,7 +54,7 @@
 #include "util/macros.h"
 
 /* For importing wl_buffer */
-#if HAVE_WAYLAND_PLATFORM
+#ifdef HAVE_WAYLAND_PLATFORM
 #include "wayland-drm.h"
 #endif
 
@@ -998,7 +998,7 @@ gbm_dri_bo_import(struct gbm_device *gbm,
    }
 
    switch (type) {
-#if HAVE_WAYLAND_PLATFORM
+#ifdef HAVE_WAYLAND_PLATFORM
    case GBM_BO_IMPORT_WL_BUFFER:
    {
       struct wl_drm_buffer *wb;
