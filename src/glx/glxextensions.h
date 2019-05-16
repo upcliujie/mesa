@@ -46,6 +46,7 @@ enum
    ARB_get_proc_address_bit,
    ARB_multisample_bit,
    EXT_buffer_age_bit,
+   EXT_context_priority_bit,
    EXT_create_context_es2_profile_bit,
    EXT_create_context_es_profile_bit,
    EXT_fbconfig_packed_float_bit,

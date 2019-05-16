@@ -427,7 +427,8 @@ _X_HIDDEN bool
 dri2_convert_glx_attribs(unsigned num_attribs, const uint32_t *attribs,
                          unsigned *major_ver, unsigned *minor_ver,
                          uint32_t *render_type, uint32_t *flags, unsigned *api,
-                         int *reset, int *release, unsigned *error)
+                         int *reset, int *release, int *priority,
+                         unsigned *error)
 {
    unsigned i;
    bool got_profile = false;
@@ -441,6 +442,7 @@ dri2_convert_glx_attribs(unsigned num_attribs, const uint32_t *attribs,
    *release = __DRI_CTX_RELEASE_BEHAVIOR_FLUSH;
    *flags = 0;
    *api = __DRI_API_OPENGL;
+   *priority = __DRI_CTX_PRIORITY_MEDIUM;
 
    if (num_attribs == 0) {
       return true;
@@ -500,6 +502,21 @@ dri2_convert_glx_attribs(unsigned num_attribs, const uint32_t *attribs,
             return false;
          }
          break;
+      case GLX_CONTEXT_PRIORITY_LEVEL_EXT:
+         switch (attribs[i * 2 + 1]) {
+         case GLX_CONTEXT_PRIORITY_HIGH_EXT:
+            *priority = __DRI_CTX_PRIORITY_HIGH;
+            break;
+         case GLX_CONTEXT_PRIORITY_MEDIUM_EXT:
+            *priority = __DRI_CTX_PRIORITY_MEDIUM;
+            break;
+         case GLX_CONTEXT_PRIORITY_LOW_EXT:
+            *priority = __DRI_CTX_PRIORITY_LOW;
+            break;
+         default:
+            *error = __DRI_CTX_ERROR_UNKNOWN_ATTRIBUTE;
+            return false;
+         }
       default:
 	 /* If an unknown attribute is received, fail.
 	  */

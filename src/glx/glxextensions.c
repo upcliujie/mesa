@@ -142,6 +142,7 @@ static const struct extension_info known_glx_extensions[] = {
    { GLX(ARB_get_proc_address),        VER(1,4), Y, N, Y, N },
    { GLX(ARB_multisample),             VER(1,4), Y, Y, N, N },
    { GLX(EXT_buffer_age),              VER(0,0), Y, N, N, Y },
+   { GLX(EXT_context_priority),        VER(0,0), Y, Y, N, Y },
    { GLX(EXT_create_context_es2_profile), VER(0,0), Y, N, N, N },
    { GLX(EXT_create_context_es_profile), VER(0,0), Y, N, N, N },
    { GLX(EXT_fbconfig_packed_float),   VER(0,0), Y, Y, N, N },

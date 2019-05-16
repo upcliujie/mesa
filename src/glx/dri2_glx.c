@@ -248,7 +248,8 @@ dri2_create_context_attribs(struct glx_screen *base,
    unsigned api;
    int reset;
    int release;
-   uint32_t ctx_attribs[2 * 6];
+   int priority;
+   uint32_t ctx_attribs[2 * 7];
    unsigned num_ctx_attribs = 0;
 
    if (psc->dri2->base.version < 3) {
@@ -260,7 +261,7 @@ dri2_create_context_attribs(struct glx_screen *base,
     */
    if (!dri2_convert_glx_attribs(num_attribs, attribs,
                                  &major_ver, &minor_ver, &renderType, &flags,
-                                 &api, &reset, &release, error))
+                                 &api, &reset, &release, &priority, error))
       goto error_exit;
 
    if (!dri2_check_no_error(flags, shareList, major_ver, error)) {
@@ -289,6 +290,9 @@ dri2_create_context_attribs(struct glx_screen *base,
    ctx_attribs[num_ctx_attribs++] = major_ver;
    ctx_attribs[num_ctx_attribs++] = __DRI_CTX_ATTRIB_MINOR_VERSION;
    ctx_attribs[num_ctx_attribs++] = minor_ver;
+
+   ctx_attribs[num_ctx_attribs++] = __DRI_CTX_ATTRIB_PRIORITY;
+   ctx_attribs[num_ctx_attribs++] = priority;
 
    /* Only send a value when the non-default value is requested.  By doing
     * this we don't have to check the driver's DRI2 version before sending the
