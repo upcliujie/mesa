@@ -473,8 +473,7 @@ struct fd_context {
    bool (*draw_vbo)(struct fd_context *ctx, const struct pipe_draw_info *info,
 			unsigned drawid_offset, 
                     const struct pipe_draw_indirect_info *indirect,
-			const struct pipe_draw_start_count_bias *draw,
-                    unsigned index_offset) dt;
+			const struct pipe_draw_start_count_bias *draw) dt;
    bool (*clear)(struct fd_context *ctx, unsigned buffers,
                  const union pipe_color_union *color, double depth,
                  unsigned stencil) dt;

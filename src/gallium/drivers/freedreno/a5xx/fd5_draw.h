@@ -82,7 +82,7 @@ fd5_draw_emit(struct fd_batch *batch, struct fd_ringbuffer *ring,
               enum pc_di_primtype primtype, enum pc_di_vis_cull_mode vismode,
               const struct pipe_draw_info *info,
               const struct pipe_draw_indirect_info *indirect,
-              const struct pipe_draw_start_count_bias *draw, unsigned index_offset)
+              const struct pipe_draw_start_count_bias *draw)
 {
    struct pipe_resource *idx_buffer = NULL;
    enum a4xx_index_size idx_type;
@@ -103,7 +103,7 @@ fd5_draw_emit(struct fd_batch *batch, struct fd_ringbuffer *ring,
                    DRAW4(primtype, DI_SRC_SEL_DMA,
                          fd4_size2indextype(info->index_size), 0),
                    &batch->draw_patches);
-         OUT_RELOC(ring, fd_resource(idx)->bo, index_offset, 0, 0);
+         OUT_RELOC(ring, fd_resource(idx)->bo, 0, 0, 0);
          OUT_RING(ring, A5XX_CP_DRAW_INDX_INDIRECT_3_MAX_INDICES(max_indices));
          OUT_RELOC(ring, ind->bo, indirect->offset, 0, 0);
       } else {
@@ -125,7 +125,7 @@ fd5_draw_emit(struct fd_batch *batch, struct fd_ringbuffer *ring,
       idx_buffer = info->index.resource;
       idx_type = fd4_size2indextype(info->index_size);
       max_indices = idx_buffer->width0 / info->index_size;
-      idx_offset = index_offset + draw->start * info->index_size;
+      idx_offset = draw->start * info->index_size;
       src_sel = DI_SRC_SEL_DMA;
    } else {
       idx_buffer = NULL;

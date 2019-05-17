@@ -79,7 +79,7 @@ emit_vertexbufs(struct fd_context *ctx) assert_dt
 static void
 draw_impl(struct fd_context *ctx, const struct pipe_draw_info *info,
           const struct pipe_draw_start_count_bias *draw, struct fd_ringbuffer *ring,
-          unsigned index_offset, bool binning) assert_dt
+          bool binning) assert_dt
 {
    OUT_PKT3(ring, CP_SET_CONSTANT, 2);
    OUT_RING(ring, CP_REG(REG_A2XX_VGT_INDX_OFFSET));
@@ -137,7 +137,7 @@ draw_impl(struct fd_context *ctx, const struct pipe_draw_info *info,
       vismode = IGNORE_VISIBILITY;
 
    fd_draw_emit(ctx->batch, ring, ctx->screen->primtypes[info->mode],
-                vismode, info, draw, index_offset);
+                vismode, info, draw);
 
    if (is_a20x(ctx->screen)) {
       /* not sure why this is required, but it fixes some hangs */
@@ -155,8 +155,7 @@ static bool
 fd2_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *pinfo,
 			 unsigned drawid_offset,
              const struct pipe_draw_indirect_info *indirect,
-             const struct pipe_draw_start_count_bias *pdraw,
-             unsigned index_offset) assert_dt
+             const struct pipe_draw_start_count_bias *pdraw) assert_dt
 {
    if (!ctx->prog.fs || !ctx->prog.vs)
       return false;
@@ -201,16 +200,16 @@ fd2_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *pinfo,
 
       for (; count + step > 32766; count -= step) {
          draw.count = MIN2(count, 32766);
-         draw_impl(ctx, pinfo, &draw, ctx->batch->draw, index_offset, false);
-         draw_impl(ctx, pinfo, &draw, ctx->batch->binning, index_offset, true);
+         draw_impl(ctx, pinfo, &draw, ctx->batch->draw, false);
+         draw_impl(ctx, pinfo, &draw, ctx->batch->binning, true);
          draw.start += step;
          ctx->batch->num_vertices += step;
       }
       /* changing this value is a hack, restore it */
       ctx->batch->num_vertices = num_vertices;
    } else {
-      draw_impl(ctx, pinfo, pdraw, ctx->batch->draw, index_offset, false);
-      draw_impl(ctx, pinfo, pdraw, ctx->batch->binning, index_offset, true);
+      draw_impl(ctx, pinfo, pdraw, ctx->batch->draw, false);
+      draw_impl(ctx, pinfo, pdraw, ctx->batch->binning, true);
    }
 
    fd_context_all_clean(ctx);

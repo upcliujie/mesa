@@ -285,6 +285,14 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
                 u_decomposed_prim(info->mode) == PIPE_PRIM_TRIANGLES))
       return;
 
+   /* Upload a user index buffer. */
+   struct pipe_draw_info tmp_info;
+   struct pipe_draw_start_count_bias tmp_draw;
+   if (!util_upload_index_buffer(pctx, &info, &tmp_info, &draws[0], &tmp_draw, 4)) {
+      BUG("Index buffer upload failed.");
+      return;
+   }
+
    int prims = u_decomposed_prims_for_vertices(info->mode, draws[0].count);
    if (unlikely(prims <= 0)) {
       DBG("Invalid draw primitive mode=%i or no primitives to be drawn", info->mode);
@@ -297,22 +305,9 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
       return;
    }
 
-   /* Upload a user index buffer. */
-   unsigned index_offset = 0;
-   struct pipe_resource *indexbuf = NULL;
-
    if (info->index_size) {
-      indexbuf = info->has_user_indices ? NULL : info->index.resource;
-      if (info->has_user_indices &&
-          !util_upload_index_buffer(pctx, info, &draws[0], &indexbuf, &index_offset, 4)) {
-         BUG("Index buffer upload failed.");
-         return;
-      }
-      /* Add start to index offset, when rendering indexed */
-      index_offset += draws[0].start * info->index_size;
-
-      ctx->index_buffer.FE_INDEX_STREAM_BASE_ADDR.bo = etna_resource(indexbuf)->bo;
-      ctx->index_buffer.FE_INDEX_STREAM_BASE_ADDR.offset = index_offset;
+      ctx->index_buffer.FE_INDEX_STREAM_BASE_ADDR.bo = etna_resource(draw->index.resource)->bo;
+      ctx->index_buffer.FE_INDEX_STREAM_BASE_ADDR.offset = draws[0].start * info->index_size;
       ctx->index_buffer.FE_INDEX_STREAM_BASE_ADDR.flags = ETNA_RELOC_READ;
       ctx->index_buffer.FE_INDEX_STREAM_CONTROL = translate_index_size(info->index_size);
 
@@ -390,7 +385,7 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 
    if (ctx->dirty & ETNA_DIRTY_INDEX_BUFFER) {
       /* Mark index buffer as being read */
-      resource_read(ctx, indexbuf);
+      resource_read(ctx, info->index.resource);
    }
 
    /* Mark textures as being read */
@@ -442,8 +437,7 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
       etna_resource(ctx->framebuffer_s.cbufs[0]->texture)->seqno++;
    if (ctx->framebuffer_s.zsbuf)
       etna_resource(ctx->framebuffer_s.zsbuf->texture)->seqno++;
-   if (info->index_size && indexbuf != info->index.resource)
-      pipe_resource_reference(&indexbuf, NULL);
+   pipe_resource_reference(&tmp_info.index.resource, NULL);
 }
 
 static void

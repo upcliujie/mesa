@@ -245,6 +245,12 @@ svga_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
        svga->curr.rast->templ.cull_face == PIPE_FACE_FRONT_AND_BACK)
       goto done;
 
+   /* Upload a user index buffer. */
+   struct pipe_draw_info tmp_info;
+   if (!util_upload_index_buffer(pipe, &info, &tmp_info)) {
+      goto done;
+   }
+
    /*
     * Mark currently bound target surfaces as dirty
     * doesn't really matter if it is done before drawing.
@@ -312,7 +318,7 @@ svga_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
 
       /* Avoid leaking the previous hwtnl bias to swtnl */
       svga_hwtnl_set_index_bias(svga->hwtnl, 0);
-      ret = svga_swtnl_draw_vbo(svga, info, drawid_offset, indirect, &draws[0]);
+      ret = svga_swtnl_draw_vbo(svga, info, &draws[0]);
    }
    else {
       if (!svga_update_state_retry(svga, SVGA_STATE_HW_DRAW)) {
@@ -382,6 +388,7 @@ svga_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
    }
 
 done:
+   pipe_resource_reference(&tmp_info.index.resource, NULL);
    SVGA_STATS_TIME_POP(svga_sws(svga));
 }
 

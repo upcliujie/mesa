@@ -151,20 +151,37 @@ void util_set_shader_buffers_mask(struct pipe_shader_buffer *dst,
  */
 bool
 util_upload_index_buffer(struct pipe_context *pipe,
-                         const struct pipe_draw_info *info,
-                         const struct pipe_draw_start_count_bias *draw,
-                         struct pipe_resource **out_buffer,
-                         unsigned *out_offset, unsigned alignment)
+                         const struct pipe_draw_info **inout_info,
+                         struct pipe_draw_info *tmp_info,
+                         const struct pipe_draw_start_count_bias **inout_count,
+                         struct pipe_draw_start_count_bias *tmp_count,
+                         unsigned alignment)
 {
-   unsigned start_offset = draw->start * info->index_size;
+   const struct pipe_draw_info *info = *inout_info;
+   const struct pipe_draw_start_count_bias *count = *inout_count;
+
+   tmp_info->index.resource = NULL;
+
+   if (!info->index_size || !info->has_user_indices)
+      return true;
+
+   *tmp_info = **inout_info;
+   *tmp_count = **inout_count;
+
+   unsigned start_offset = count->start * info->index_size;
+   uint32_t upload_offset;
 
    u_upload_data(pipe->stream_uploader, start_offset,
-                 draw->count * info->index_size, alignment,
+                 count->count * info->index_size, alignment,
                  (char*)info->index.user + start_offset,
-                 out_offset, out_buffer);
+                 &upload_offset, &tmp_info->index.resource);
    u_upload_unmap(pipe->stream_uploader);
-   *out_offset -= start_offset;
-   return *out_buffer != NULL;
+
+   tmp_count->start = upload_offset / tmp_info->index_size;
+   *inout_info = tmp_info;
+   *inout_count = tmp_count;
+
+   return tmp_info->index.resource != NULL;
 }
 
 /**

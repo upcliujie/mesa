@@ -53,7 +53,7 @@ add_sat(uint32_t a, int32_t b)
 
 static void
 draw_impl(struct fd_context *ctx, struct fd_ringbuffer *ring,
-          struct fd3_emit *emit, unsigned index_offset) assert_dt
+          struct fd3_emit *emit) assert_dt
 {
    const struct pipe_draw_info *info = emit->info;
    enum pc_di_primtype primtype = ctx->screen->primtypes[info->mode];
@@ -91,15 +91,14 @@ draw_impl(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
    fd_draw_emit(ctx->batch, ring, primtype,
                 emit->binning_pass ? IGNORE_VISIBILITY : USE_VISIBILITY, info,
-                emit->draw, index_offset);
+                emit->draw);
 }
 
 static bool
 fd3_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
              unsigned drawid_offset,
              const struct pipe_draw_indirect_info *indirect,
-             const struct pipe_draw_start_count_bias *draw,
-             unsigned index_offset) in_dt
+             const struct pipe_draw_start_count_bias *draw) in_dt
 {
    struct fd3_emit emit = {
       .debug = &ctx->debug,
@@ -149,14 +148,14 @@ fd3_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 
    emit.binning_pass = false;
    emit.dirty = dirty;
-   draw_impl(ctx, ctx->batch->draw, &emit, index_offset);
+   draw_impl(ctx, ctx->batch->draw, &emit);
 
    /* and now binning pass: */
    emit.binning_pass = true;
    emit.dirty = dirty & ~(FD_DIRTY_BLEND);
    emit.vs = NULL; /* we changed key so need to refetch vs */
    emit.fs = NULL;
-   draw_impl(ctx, ctx->batch->binning, &emit, index_offset);
+   draw_impl(ctx, ctx->batch->binning, &emit);
 
    fd_context_all_clean(ctx);
 
