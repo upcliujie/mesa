@@ -980,13 +980,15 @@ v3d_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
         /* Before setting up the draw, flush anything writing to the resources
          * that we read from or reading from resources we write to.
          */
-        for (int s = 0; s < PIPE_SHADER_COMPUTE; s++)
-                v3d_predraw_check_stage_inputs(pctx, s);
-
         if (indirect && indirect->buffer) {
                 v3d_flush_jobs_writing_resource(v3d, indirect->buffer,
                                                 V3D_FLUSH_DEFAULT, false);
         }
+
+        struct pipe_draw_info tmp_info;
+        struct pipe_draw_start_count_bias tmp_draw;
+        if (!util_upload_index_buffer(pctx, &info, &tmp_info, &draws, &tmp_draw))
+                return;
 
         v3d_predraw_check_outputs(pctx);
 
@@ -1119,20 +1121,8 @@ v3d_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 
         uint32_t hw_prim_type = v3d_hw_prim_type(info->mode);
         if (info->index_size) {
-                uint32_t index_size = info->index_size;
-                uint32_t offset = draws[0].start * index_size;
-                struct pipe_resource *prsc;
-                if (info->has_user_indices) {
-                        unsigned start_offset = draws[0].start * info->index_size;
-                        prsc = NULL;
-                        u_upload_data(v3d->uploader, start_offset,
-                                      draws[0].count * info->index_size, 4,
-                                      (char*)info->index.user + start_offset,
-                                      &offset, &prsc);
-                } else {
-                        prsc = info->index.resource;
-                }
-                struct v3d_resource *rsc = v3d_resource(prsc);
+                uint32_t offset = info->start * info->index_size;
+                struct v3d_resource *rsc = v3d_resource(info->index.resource);
 
 #if V3D_VERSION >= 40
                 cl_emit(&job->bcl, INDEX_BUFFER_SETUP, ib) {
@@ -1189,8 +1179,7 @@ v3d_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
                         }
                 }
 
-                if (info->has_user_indices)
-                        pipe_resource_reference(&prsc, NULL);
+                pipe_resource_reference(&tmp_info.index.resource, NULL);
         } else {
                 if (indirect && indirect->buffer) {
                         cl_emit(&job->bcl, INDIRECT_VERTEX_ARRAY_INSTANCED_PRIMS, prim) {
