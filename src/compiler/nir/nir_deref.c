@@ -307,6 +307,19 @@ modes_may_alias(nir_variable_mode a, nir_variable_mode b)
 }
 
 static bool
+deref_cast_is_larger_than_parent(nir_deref_instr *deref)
+{
+   /* casts my upcast so that a may not longer actually contain b. */
+   if (deref->parent.ssa->parent_instr->type != nir_instr_type_deref)
+      return false;
+   nir_deref_instr *parent = nir_instr_as_deref(deref->parent.ssa->parent_instr);
+   unsigned a = glsl_get_cl_size(deref->type);
+   unsigned b = glsl_get_cl_size(parent->type);
+
+   return (a > b);
+}
+
+static bool
 deref_path_contains_coherent_decoration(nir_deref_path *path)
 {
    assert(path->path[0]->deref_type == nir_deref_type_var);
@@ -470,10 +483,20 @@ nir_compare_deref_paths(nir_deref_path *a_path,
    }
 
    /* If a is longer than b, then it can't contain b */
-   if (*a_p != NULL)
+   if (*a_p != NULL) {
+      nir_deref_instr *a_tail = *a_p;
+      if (a_tail->deref_type == nir_deref_type_cast)
+         if (deref_cast_is_larger_than_parent(a_tail))
+            result &= ~nir_derefs_b_contains_a_bit;
       result &= ~nir_derefs_a_contains_b_bit;
-   if (*b_p != NULL)
+   }
+   if (*b_p != NULL) {
+      nir_deref_instr *b_tail = *b_p;
+      if (b_tail->deref_type == nir_deref_type_cast)
+         if (deref_cast_is_larger_than_parent(b_tail))
+            result &= ~nir_derefs_a_contains_b_bit;
       result &= ~nir_derefs_b_contains_a_bit;
+   }
 
    /* If a contains b and b contains a they must be equal. */
    if ((result & nir_derefs_a_contains_b_bit) && (result & nir_derefs_b_contains_a_bit))

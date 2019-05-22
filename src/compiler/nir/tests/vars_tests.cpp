@@ -774,6 +774,32 @@ TEST_F(nir_copy_prop_vars_test, store_load_indirect_array_deref)
    EXPECT_EQ(first->src[1].ssa, second->src[1].ssa);
 }
 
+TEST_F(nir_copy_prop_vars_test, upsizing_cast)
+{
+   nir_variable *temp = create_var(nir_var_function_temp,
+                                   glsl_array_type(glsl_uint_type(), 2, 0), "temp");
+   nir_variable *temp2 = create_var(nir_var_function_temp,
+                                    glsl_vector_type(GLSL_TYPE_UINT, 2), "temp2");
+
+   nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
+
+   nir_deref_instr *arr0_deref = nir_build_deref_array_imm(b, temp_deref, 0);
+   nir_store_deref(b, arr0_deref, nir_imm_int(b, 5), (1 << 0));
+
+   nir_deref_instr *arr1_deref = nir_build_deref_array_imm(b, temp_deref, 1);
+   nir_store_deref(b, arr1_deref, nir_imm_int(b, 5), (1 << 0));
+
+   nir_deref_instr *cast_deref = nir_build_deref_cast(b, &arr0_deref->dest.ssa, nir_var_function_temp,
+                                                      glsl_vector_type(GLSL_TYPE_UINT, 2), 0);
+   nir_store_var(b, temp2, nir_load_deref(b, cast_deref), 0x3);
+   nir_validate_shader(b->shader, NULL);
+
+   bool progress = nir_opt_copy_prop_vars(b->shader);
+   EXPECT_FALSE(progress);
+
+   nir_validate_shader(b->shader, NULL);
+}
+
 TEST_F(nir_dead_write_vars_test, no_dead_writes_in_block)
 {
    nir_variable **v = create_many_int(nir_var_mem_ssbo, "v", 2);
