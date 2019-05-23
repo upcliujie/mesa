@@ -1536,3 +1536,176 @@ TEST_F(nir_split_vars_test, split_wildcard_copy)
    ASSERT_EQ(count_function_temp_vars(), 8);
    ASSERT_EQ(count_intrinsics(nir_intrinsic_copy_deref), 4);
 }
+
+TEST_F(nir_split_vars_test, split_simple_cast)
+{
+   nir_variable **in = create_many_int(nir_var_shader_in, "in", 4);
+   nir_variable *temp = create_var(nir_var_function_temp, glsl_array_type(glsl_float_type(), 4, 0),
+                                   "temp");
+   nir_variable *temp2 = create_var(nir_var_function_temp, glsl_array_type(glsl_int_type(), 4, 0),
+                                    "temp2");
+
+   nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
+   nir_deref_instr *temp2_deref = nir_build_deref_var(b, temp2);
+
+   for (int i = 0; i < 4; i++)
+      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+
+   for (int i = 0; i < 4; i++) {
+      nir_deref_instr *store_deref = nir_build_deref_array_imm(b, temp2_deref, i);
+      nir_deref_instr *cast_deref = nir_build_deref_cast(b, &temp_deref->dest.ssa, nir_var_function_temp, glsl_array_type(glsl_int_type(), 4, 0), 0);
+      nir_deref_instr *load_deref = nir_build_deref_array_imm(b, cast_deref, i);
+
+      nir_store_deref(b, store_deref, nir_load_deref(b, load_deref), 1);
+   }
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_derefs(nir_deref_type_array), 12);
+
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   EXPECT_TRUE(progress);
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_derefs(nir_deref_type_array), 8);
+}
+
+TEST_F(nir_split_vars_test, split_diffsize_cast)
+{
+   nir_variable **in = create_many_int(nir_var_shader_in, "in", 4);
+   nir_variable *temp = create_var(nir_var_function_temp, glsl_array_type(glsl_float_type(), 4, 0),
+                                   "temp");
+   nir_variable *temp2 = create_var(nir_var_function_temp, glsl_array_type(glsl_uint64_t_type(), 2, 0),
+                                    "temp2");
+
+   nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
+   nir_deref_instr *temp2_deref = nir_build_deref_var(b, temp2);
+
+   for (int i = 0; i < 4; i++)
+      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+
+   for (int i = 0; i < 2; i++) {
+      nir_deref_instr *store_deref = nir_build_deref_array_imm(b, temp2_deref, i);
+      nir_deref_instr *cast_deref = nir_build_deref_cast(b, &temp_deref->dest.ssa, nir_var_function_temp,
+                                                         glsl_array_type(glsl_int64_t_type(), 2, 0), 0);
+      nir_deref_instr *load_deref = nir_build_deref_array_imm(b, cast_deref, i);
+
+      nir_store_deref(b, store_deref, nir_load_deref(b, load_deref), 1);
+   }
+
+   nir_validate_shader(b->shader, NULL);
+
+   ASSERT_EQ(count_derefs(nir_deref_type_array), 8);
+
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   EXPECT_TRUE(progress);
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_derefs(nir_deref_type_array), 6);
+}
+
+TEST_F(nir_split_vars_test, split_math_cast)
+{
+   nir_variable **in = create_many_int(nir_var_shader_in, "in", 4);
+   nir_variable *temp = create_var(nir_var_function_temp, glsl_array_type(glsl_float_type(), 4, 0),
+                                   "temp");
+   nir_variable *temp2 = create_var(nir_var_function_temp, glsl_array_type(glsl_int_type(), 4, 0),
+                                    "temp2");
+
+   nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
+   nir_deref_instr *temp2_deref = nir_build_deref_var(b, temp2);
+
+   for (int i = 0; i < 4; i++)
+      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+
+   for (int i = 0; i < 4; i++) {
+      nir_deref_instr *store_deref = nir_build_deref_array_imm(b, temp2_deref, i);
+      nir_ssa_def *iadd = nir_iadd(b, &temp_deref->dest.ssa, nir_imm_int(b, 1));
+      nir_deref_instr *cast_deref = nir_build_deref_cast(b, iadd, nir_var_function_temp, glsl_array_type(glsl_int_type(), 4, 0), 0);
+      nir_deref_instr *load_deref = nir_build_deref_array_imm(b, cast_deref, i);
+
+      nir_store_deref(b, store_deref, nir_load_deref(b, load_deref), 1);
+   }
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_derefs(nir_deref_type_array), 12);
+
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   EXPECT_TRUE(progress);
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_derefs(nir_deref_type_array), 8);
+}
+
+TEST_F(nir_split_vars_test, split_cast_ptr_stride_nosplit)
+{
+   nir_variable **in = create_many_int(nir_var_shader_in, "in", 4);
+   nir_variable *temp = create_var(nir_var_function_temp, glsl_array_type(glsl_float_type(), 4, 0),
+                                   "temp");
+   nir_variable *temp2 = create_var(nir_var_function_temp, glsl_array_type(glsl_int_type(), 4, 0),
+                                    "temp2");
+
+   nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
+   nir_deref_instr *temp2_deref = nir_build_deref_var(b, temp2);
+
+   for (int i = 0; i < 4; i++)
+      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+
+   for (int i = 0; i < 4; i++) {
+      nir_deref_instr *store_deref = nir_build_deref_array_imm(b, temp2_deref, i);
+      nir_deref_instr *cast_deref = nir_build_deref_cast(b, &temp_deref->dest.ssa, nir_var_function_temp, glsl_array_type(glsl_int_type(), 4, 0), 16);
+      nir_deref_instr *load_deref = nir_build_deref_array_imm(b, cast_deref, i);
+
+      nir_store_deref(b, store_deref, nir_load_deref(b, load_deref), 1);
+   }
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_derefs(nir_deref_type_array), 12);
+   ASSERT_EQ(count_derefs(nir_deref_type_cast), 4);
+
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   EXPECT_TRUE(progress);
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_derefs(nir_deref_type_array), 8);
+   ASSERT_EQ(count_derefs(nir_deref_type_cast), 4);
+}
+
+TEST_F(nir_split_vars_test, split_non_numeric_cast)
+{
+   nir_variable **in = create_many_int(nir_var_shader_in, "in", 4);
+   nir_variable *temp = create_var(nir_var_function_temp, glsl_array_type(glsl_float_type(), 4, 0),
+                                   "temp");
+   nir_variable *temp2 = create_var(nir_var_function_temp, glsl_array_type(glsl_int_type(), 4, 0),
+                                    "temp2");
+
+   nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
+   nir_deref_instr *temp2_deref = nir_build_deref_var(b, temp2);
+
+   struct glsl_struct_field field;
+
+   field.type = glsl_array_type(glsl_float_type(), 4, 0);
+   field.name = ralloc_asprintf(b, "field1");
+   field.location = -1;
+   field.offset = 0;
+
+   const struct glsl_type *st_type = glsl_struct_type(&field, 1, "struct", false);
+
+   for (int i = 0; i < 4; i++)
+      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+
+   for (int i = 0; i < 4; i++) {
+      nir_deref_instr *store_deref = nir_build_deref_array_imm(b, temp2_deref, i);
+      nir_deref_instr *cast_deref = nir_build_deref_cast(b, &temp_deref->dest.ssa, nir_var_function_temp, st_type, 0);
+      nir_deref_instr *load_deref = nir_build_deref_array_imm(b, nir_build_deref_struct(b, cast_deref, 0), i);
+
+      nir_store_deref(b, store_deref, nir_load_deref(b, load_deref), 1);
+   }
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_derefs(nir_deref_type_array), 12);
+   ASSERT_EQ(count_derefs(nir_deref_type_cast), 4);
+
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   EXPECT_TRUE(progress);
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_derefs(nir_deref_type_array), 8);
+   ASSERT_EQ(count_derefs(nir_deref_type_cast), 4);
+}
