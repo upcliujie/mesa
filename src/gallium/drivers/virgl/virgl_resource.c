@@ -96,6 +96,20 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
    if (xfer->base.usage & PIPE_TRANSFER_MAP_DIRECTLY)
       return VIRGL_TRANSFER_MAP_ERROR;
 
+   /* If this is the first transfer after an invalidation, treat it as a
+    * synchronized, whole resource discard. After an invalidation we need to
+    * guarantee that the resource storage will be unused, which implies a
+    * synchronization point, hence the need for a synchronized transfer. In
+    * terms of code flow, this ensures that 'wait' will be initially set to
+    * true and thus we won't ignore the whole resource discard flag later in
+    * this function.
+    */
+   if (res->invalidated) {
+      xfer->base.usage |= PIPE_TRANSFER_DISCARD_WHOLE_RESOURCE;
+      xfer->base.usage &= ~PIPE_TRANSFER_UNSYNCHRONIZED;
+      res->invalidated = false;
+   }
+
    /* We break the logic down into four steps
     *
     * step 1: determine the required operations independently
@@ -366,6 +380,12 @@ static void virgl_buffer_subdata(struct pipe_context *pipe,
    }
 }
 
+static void virgl_invalidate_resource(struct pipe_context *ctx,
+	                                  struct pipe_resource *resource)
+{
+   virgl_resource(resource)->invalidated = true;
+}
+
 void virgl_init_context_resource_functions(struct pipe_context *ctx)
 {
     ctx->transfer_map = u_transfer_map_vtbl;
@@ -373,6 +393,7 @@ void virgl_init_context_resource_functions(struct pipe_context *ctx)
     ctx->transfer_unmap = u_transfer_unmap_vtbl;
     ctx->buffer_subdata = virgl_buffer_subdata;
     ctx->texture_subdata = u_default_texture_subdata;
+    ctx->invalidate_resource = virgl_invalidate_resource;
 }
 
 void virgl_resource_layout(struct pipe_resource *pt,

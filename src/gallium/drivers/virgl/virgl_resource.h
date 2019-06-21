@@ -62,6 +62,7 @@ struct virgl_resource {
     * usable.
     */
    unsigned bind_history;
+   bool invalidated;
 };
 
 enum virgl_transfer_map_type {
