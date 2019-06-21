@@ -224,6 +224,21 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
    if (wait)
       vws->resource_wait(vws, res->hw_res);
 
+   /* If we are discarding the whole buffer in a synchronized way, the
+    * resource storage is now unused, either because we have created new
+    * resource storage, or because we have waited for the existing resource
+    * storage to become unused. We can thus mark the storage as uninitialized,
+    * but only if the resource is not host writable (in which case we can't
+    * clear the valid range, since that would result in missed readbacks in
+    * future transfers).
+    */
+   if (res->u.b.target == PIPE_BUFFER &&
+       (xfer->base.usage & PIPE_TRANSFER_DISCARD_WHOLE_RESOURCE) &&
+       !(xfer->base.usage & PIPE_TRANSFER_UNSYNCHRONIZED) &&
+       res->clean_mask == (1 << VR_MAX_TEXTURE_2D_LEVELS) - 1) {
+      util_range_set_empty(&res->valid_buffer_range);
+   }
+
    return map_type;
 }
 
