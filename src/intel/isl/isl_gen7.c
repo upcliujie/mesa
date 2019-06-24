@@ -215,8 +215,10 @@ isl_gen6_filter_tiling(const struct isl_device *dev,
 
    /* Separate stencil requires W tiling, and W tiling requires separate
     * stencil.
+    * For SNB when an interleaved depth-stencil is used an Y tiling must be used
     */
-   if (isl_surf_usage_is_stencil(info->usage)) {
+   if (isl_surf_usage_is_stencil(info->usage) &&
+       !isl_surf_usage_is_depth(info->usage)) {
       *flags &= ISL_TILING_W_BIT;
    } else {
       *flags &= ~ISL_TILING_W_BIT;

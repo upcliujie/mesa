@@ -487,7 +487,7 @@ miptree_create(struct brw_context *brw,
       tiling_flags &= ~ISL_TILING_Y0_BIT;
 
    mesa_format mt_fmt = format;
-   if (!_mesa_is_format_color_format(format) && devinfo->gen >= 6) {
+   if (needs_separate_stencil(brw, NULL, mt_fmt)) {
       /* Fix up the Z miptree format for how we're splitting out separate
        * stencil. Gen7 expects there to be no stencil bits in its depth buffer.
        */

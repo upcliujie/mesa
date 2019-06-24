@@ -1775,8 +1775,11 @@ intelCreateBuffer(__DRIscreen *dri_screen,
     */
    if (mesaVis->depthBits == 24) {
       assert(mesaVis->stencilBits == 8);
-
-      if (screen->devinfo.has_hiz_and_separate_stencil) {
+      /* Under SNB when 'nohiz' flag is defined we should
+       * jump into a 'false' branch to use combined depth/stencil
+       */
+      if (screen->devinfo.has_hiz_and_separate_stencil &&
+          ((INTEL_DEBUG & DEBUG_NO_HIZ) == 0 || screen->devinfo.gen != 6)) {
          rb = intel_create_private_renderbuffer(screen,
                                                 MESA_FORMAT_Z24_UNORM_X8_UINT,
                                                 num_samples);
