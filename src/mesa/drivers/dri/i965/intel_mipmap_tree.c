@@ -142,7 +142,6 @@ unwind:
 
 static bool
 needs_separate_stencil(const struct brw_context *brw,
-                       struct intel_mipmap_tree *mt,
                        mesa_format format)
 {
    const struct gen_device_info *devinfo = &brw->screen->devinfo;
@@ -487,7 +486,7 @@ miptree_create(struct brw_context *brw,
       tiling_flags &= ~ISL_TILING_Y0_BIT;
 
    mesa_format mt_fmt = format;
-   if (needs_separate_stencil(brw, NULL, mt_fmt)) {
+   if (needs_separate_stencil(brw, mt_fmt)) {
       /* Fix up the Z miptree format for how we're splitting out separate
        * stencil. Gen7 expects there to be no stencil bits in its depth buffer.
        */
@@ -517,7 +516,7 @@ miptree_create(struct brw_context *brw,
       }
    }
 
-   if (needs_separate_stencil(brw, mt, format)) {
+   if (needs_separate_stencil(brw, format)) {
       mt->stencil_mt =
          make_surface(brw, target, MESA_FORMAT_S_UINT8, first_level, last_level,
                       width0, height0, depth0, num_samples,
