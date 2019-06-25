@@ -2353,7 +2353,7 @@ iris_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
                       IRIS_MEMZONE_BINDLESS_START, IRIS_BINDLESS_SIZE);
    util_vma_heap_init(&bufmgr->vma_allocator[IRIS_MEMZONE_SURFACE],
                       IRIS_MEMZONE_SURFACE_START,
-                      _4GB_minus_1 - IRIS_MAX_BINDERS * IRIS_BINDER_SIZE -
+                      _4GB_minus_1 - IRIS_MAX_BINDERS * IRIS_MAX_BINDER_SIZE -
                      IRIS_BINDLESS_SIZE);
    /* TODO: Why does limiting to 2GB help some state items on gfx12?
     *  - CC Viewport Pointer
