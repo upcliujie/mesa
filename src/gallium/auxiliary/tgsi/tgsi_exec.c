@@ -422,7 +422,7 @@ static void
 micro_exp2(union tgsi_exec_channel *dst,
            const union tgsi_exec_channel *src)
 {
-#if DEBUG
+#ifdef DEBUG
    /* Inf is okay for this instruction, so clamp it to silence assertions. */
    uint i;
    union tgsi_exec_channel clamped;
