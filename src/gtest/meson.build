@@ -25,6 +25,7 @@ libgtest = static_library(
   files('src/gtest-all.cc', 'src/gtest_main.cc'),
   include_directories : inc_gtest_include,
   override_options: 'warning_level=1',
+  cpp_args : ['-Wno-undef'],
   build_by_default : false,
 )
 
