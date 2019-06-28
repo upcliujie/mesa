@@ -24,7 +24,11 @@
  *      Vadim Girlin
  */
 
-#define SB_RA_SCHED_CHECK DEBUG
+#ifdef DEBUG
+#define SB_RA_SCHED_CHECK 1
+#else
+#define SB_RA_SCHED_CHECK 0
+#endif
 
 #include "util/os_time.h"
 #include "r600_pipe.h"
