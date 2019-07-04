@@ -423,6 +423,7 @@ init_oa_sys_vars(struct gen_perf_config *perf, const struct gen_device_info *dev
    perf->sys_vars.gt_max_freq = max_freq_mhz * 1000000;
    perf->sys_vars.timestamp_frequency = devinfo->timestamp_frequency;
    perf->sys_vars.revision = devinfo->revision;
+   perf->sys_vars.query_mode = true;
    compute_topology_builtins(perf, devinfo);
 
    return true;
@@ -1115,6 +1116,21 @@ gen_perf_query_result_read_gt_frequency(struct gen_perf_query_result *result,
    /* Put the numbers into Hz. */
    result->gt_frequency[0] *= 1000000ULL;
    result->gt_frequency[1] *= 1000000ULL;
+}
+
+void
+gen_perf_query_result_read_perfcnts(struct gen_perf_query_result *result,
+                                    const struct gen_perf_query_info *query,
+                                    const uint64_t *start,
+                                    const uint64_t *end)
+{
+   /* Only bits 0:43 of the 64bit registers contains the value. */
+   const uint64_t mask = (1ull << 44) - 1;
+
+   for (uint32_t i = 0; i < 2; i++) {
+      result->accumulator[query->perfcnt_offset + i] =
+         (end[i] & mask) - (start[i] & mask);
+   }
 }
 
 void
