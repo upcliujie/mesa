@@ -58,6 +58,12 @@ static void *intel_miptree_map_raw(struct brw_context *brw,
 
 static void intel_miptree_unmap_raw(struct intel_mipmap_tree *mt);
 
+static GLenum
+tex_rect_to_tex2d(GLenum val)
+{
+    return (GL_TEXTURE_RECTANGLE == val) ? GL_TEXTURE_2D : val;
+}
+
 /**
  * Return true if the format that will be used to access the miptree is
  * CCS_E-compatible with the miptree's linear/non-sRGB format.
@@ -1089,7 +1095,8 @@ intel_miptree_match_image(struct intel_mipmap_tree *mt,
     * objects can't change targets over their lifetimes, so this should be
     * true.
     */
-   assert(image->TexObject->Target == mt->target);
+   assert(tex_rect_to_tex2d(image->TexObject->Target) ==
+          tex_rect_to_tex2d(mt->target));
 
    mesa_format mt_format = mt->format;
    if (mt->format == MESA_FORMAT_Z24_UNORM_X8_UINT && mt->stencil_mt)
