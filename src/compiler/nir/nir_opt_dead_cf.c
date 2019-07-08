@@ -268,18 +268,36 @@ dead_cf_block(nir_block *block)
 }
 
 static bool
+dead_cf_ends_in_jump(nir_cf_node *node, bool *list_ends_in_jump)
+{
+   nir_block *block = nir_cf_node_as_block(node);
+   if (nir_block_ends_in_jump(block)) {
+      *list_ends_in_jump = true;
+
+      if (!exec_node_is_tail_sentinel(node->node.next)) {
+         remove_after_cf_node(node);
+         return true;
+      }
+   }
+   return false;
+}
+
+static bool
 dead_cf_list(struct exec_list *list, bool *list_ends_in_jump)
 {
    bool progress = false;
    *list_ends_in_jump = false;
 
    nir_cf_node *prev = NULL;
-
-   foreach_list_typed(nir_cf_node, cur, node, list) {
+   /* Single iteration of this loop could remove more then one element
+    * from 'list' so due to it 'foreach_list_typed_safe' can't help here
+    */
+   nir_cf_node *cur =
+        exec_node_data(nir_cf_node, exec_list_get_head(list), node);
+   while (cur != NULL) {
       switch (cur->type) {
       case nir_cf_node_block: {
-         nir_block *block = nir_cf_node_as_block(cur);
-         if (dead_cf_block(block)) {
+         if (dead_cf_block(nir_cf_node_as_block(cur))) {
             /* We just deleted the if or loop after this block, so we may have
              * deleted the block before or after it -- which one is an
              * implementation detail. Therefore, to recover the place we were
@@ -293,19 +311,16 @@ dead_cf_list(struct exec_list *list, bool *list_ends_in_jump)
                                     node);
             }
 
-            block = nir_cf_node_as_block(cur);
-
             progress = true;
-         }
 
-         if (nir_block_ends_in_jump(block)) {
-            *list_ends_in_jump = true;
-
-            if (!exec_node_is_tail_sentinel(cur->node.next)) {
-               remove_after_cf_node(cur);
+            if (dead_cf_ends_in_jump(cur, list_ends_in_jump))
                return true;
-            }
+
+            continue;
          }
+
+         if (dead_cf_ends_in_jump(cur, list_ends_in_jump))
+            return true;
 
          break;
       }
@@ -342,6 +357,7 @@ dead_cf_list(struct exec_list *list, bool *list_ends_in_jump)
       }
 
       prev = cur;
+      cur = nir_cf_node_next(cur);
    }
 
    return progress;
