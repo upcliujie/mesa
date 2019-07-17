@@ -105,10 +105,6 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
    bool readback;
    bool wait;
 
-   /* there is no way to map the host storage currently */
-   if (xfer->base.usage & PIPE_TRANSFER_MAP_DIRECTLY)
-      return VIRGL_TRANSFER_MAP_ERROR;
-
    /* We break the logic down into four steps
     *
     * step 1: determine the required operations independently
@@ -145,6 +141,7 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
    if (wait &&
        (xfer->base.usage & (PIPE_TRANSFER_DISCARD_RANGE |
                             PIPE_TRANSFER_DISCARD_WHOLE_RESOURCE)) &&
+       !(xfer->base.usage & PIPE_TRANSFER_MAP_DIRECTLY) &&
        likely(!(virgl_debug & VIRGL_DEBUG_XFER))) {
       bool can_realloc = false;
       bool can_staging = false;
@@ -222,6 +219,10 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
 
    if (wait)
       vws->resource_wait(vws, res->hw_res);
+
+   /* the guest storage should be mapped directly when requested */
+   if (xfer->base.usage & PIPE_TRANSFER_MAP_DIRECTLY)
+      assert(map_type == VIRGL_TRANSFER_MAP_HW_RES);
 
    return map_type;
 }
@@ -557,6 +558,14 @@ static void virgl_buffer_subdata(struct pipe_context *pipe,
       util_range_add(&vbuf->valid_buffer_range, offset, offset + size);
       return;
    }
+
+   /* u_default_buffer_subdata does not set the discard bits when
+    * PIPE_TRANSFER_MAP_DIRECTLY is set, because the discard bits have a
+    * higher priority for some drivers.  We don't have the issue.
+    */
+   usage |= (offset == 0 && size == resource->width0) ?
+      PIPE_TRANSFER_DISCARD_WHOLE_RESOURCE :
+      PIPE_TRANSFER_DISCARD_RANGE;
 
    u_default_buffer_subdata(pipe, resource, usage, offset, size, data);
 }
