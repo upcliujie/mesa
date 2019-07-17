@@ -240,10 +240,6 @@ iris_blorp_surf_for_resource(struct isl_device *isl_dev,
 
    assert(!iris_resource_unfinished_aux_import(res));
 
-   if (isl_aux_usage_has_hiz(aux_usage) &&
-       !iris_resource_level_has_hiz(res, level))
-      aux_usage = ISL_AUX_USAGE_NONE;
-
    *surf = (struct blorp_surf) {
       .surf = &res->surf,
       .addr = (struct blorp_address) {
@@ -395,7 +391,7 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
    enum isl_aux_usage src_aux_usage =
       iris_resource_texture_aux_usage(ice, src_res, src_fmt.fmt);
 
-   if (iris_resource_level_has_hiz(src_res, info->src.level))
+   if (isl_aux_usage_has_hiz(src_res->aux.usage))
       assert(src_res->surf.format == src_fmt.fmt);
 
    bool src_clear_supported = isl_aux_usage_has_fast_clears(src_aux_usage) &&

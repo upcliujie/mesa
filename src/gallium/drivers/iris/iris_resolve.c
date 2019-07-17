@@ -475,15 +475,6 @@ iris_sample_with_depth_aux(const struct gen_device_info *devinfo,
       return false;
    }
 
-   /* It seems the hardware won't fallback to the depth buffer if some of the
-    * mipmap levels aren't available in the HiZ buffer. So we need all levels
-    * of the texture to be HiZ enabled.
-    */
-   for (unsigned level = 0; level < res->surf.levels; ++level) {
-      if (!iris_resource_level_has_hiz(res, level))
-         return false;
-   }
-
    /* If compressed multisampling is enabled, then we use it for the auxiliary
     * buffer instead.
     *
@@ -517,7 +508,6 @@ iris_hiz_exec(struct iris_context *ice,
               unsigned int num_layers, enum isl_aux_op op,
               bool update_clear_depth)
 {
-   assert(iris_resource_level_has_hiz(res, level));
    assert(op != ISL_AUX_OP_NONE);
    UNUSED const char *name = NULL;
 
@@ -599,24 +589,6 @@ iris_hiz_exec(struct iris_context *ice,
    iris_batch_sync_region_end(batch);
 }
 
-static bool
-level_has_aux(const struct iris_resource *res, uint32_t level)
-{
-   return isl_aux_usage_has_hiz(res->aux.usage) ?
-          iris_resource_level_has_hiz(res, level) :
-          res->aux.usage != ISL_AUX_USAGE_NONE;
-}
-
-/**
- * Does the resource's slice have hiz enabled?
- */
-bool
-iris_resource_level_has_hiz(const struct iris_resource *res, uint32_t level)
-{
-   iris_resource_check_level_layer(res, level, 0);
-   return res->aux.has_hiz & 1 << level;
-}
-
 /** \brief Assert that the level and layer are valid for the resource. */
 void
 iris_resource_check_level_layer(UNUSED const struct iris_resource *res,
@@ -672,9 +644,6 @@ iris_has_invalid_primary(const struct iris_resource *res,
 
    for (uint32_t l = 0; l < num_levels; l++) {
       const uint32_t level = start_level + l;
-      if (!level_has_aux(res, level))
-         continue;
-
       const uint32_t level_layers =
          miptree_layer_range_length(res, level, start_layer, num_layers);
       for (unsigned a = 0; a < level_layers; a++) {
@@ -701,12 +670,13 @@ iris_resource_prepare_access(struct iris_context *ice,
     */
    struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
 
+   if (res->aux.usage == ISL_AUX_USAGE_NONE)
+      return;
+
    const uint32_t clamped_levels =
       miptree_level_range_length(res, start_level, num_levels);
    for (uint32_t l = 0; l < clamped_levels; l++) {
       const uint32_t level = start_level + l;
-      if (!level_has_aux(res, level))
-         continue;
 
       const uint32_t level_layers =
          miptree_layer_range_length(res, level, start_layer, num_layers);
@@ -742,7 +712,7 @@ iris_resource_finish_write(struct iris_context *ice,
                            uint32_t start_layer, uint32_t num_layers,
                            enum isl_aux_usage aux_usage)
 {
-   if (!level_has_aux(res, level))
+   if (res->aux.usage == ISL_AUX_USAGE_NONE)
       return;
 
    const uint32_t level_layers =
@@ -765,7 +735,7 @@ iris_resource_get_aux_state(const struct iris_resource *res,
    iris_resource_check_level_layer(res, level, layer);
 
    if (res->surf.usage & ISL_SURF_USAGE_DEPTH_BIT) {
-      assert(iris_resource_level_has_hiz(res, level));
+      assert(isl_aux_usage_has_hiz(res->aux.usage));
    } else {
       assert(res->surf.samples == 1 ||
              res->surf.msaa_layout == ISL_MSAA_LAYOUT_ARRAY);
@@ -783,7 +753,7 @@ iris_resource_set_aux_state(struct iris_context *ice,
    num_layers = miptree_layer_range_length(res, level, start_layer, num_layers);
 
    if (res->surf.usage & ISL_SURF_USAGE_DEPTH_BIT) {
-      assert(iris_resource_level_has_hiz(res, level));
+      assert(isl_aux_usage_has_hiz(res->aux.usage));
    } else {
       assert(res->surf.samples == 1 ||
              res->surf.msaa_layout == ISL_MSAA_LAYOUT_ARRAY);

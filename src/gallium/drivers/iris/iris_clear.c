@@ -431,9 +431,6 @@ can_fast_clear_depth(struct iris_context *ice,
       return false;
    }
 
-   if (!(res->aux.has_hiz & (1 << level)))
-      return false;
-
    return blorp_can_hiz_clear_depth(devinfo, &res->surf, res->aux.usage,
                                     level, box->z, box->x, box->y,
                                     box->x + box->width,
@@ -489,9 +486,6 @@ fast_clear_depth(struct iris_context *ice,
          return;
 
       for (unsigned res_level = 0; res_level < res->surf.levels; res_level++) {
-         if (!(res->aux.has_hiz & (1 << res_level)))
-            continue;
-
          const unsigned level_layers =
             iris_get_num_logical_layers(res, res_level);
          for (unsigned layer = 0; layer < level_layers; layer++) {

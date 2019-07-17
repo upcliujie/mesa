@@ -152,11 +152,6 @@ struct iris_resource {
        * aux state for each slice.
        */
       enum isl_aux_state **state;
-
-      /**
-       * If (1 << level) is set, HiZ is enabled for that miplevel.
-       */
-      uint16_t has_hiz;
    } aux;
 
    /**
@@ -486,9 +481,6 @@ bool iris_has_invalid_primary(const struct iris_resource *res,
 
 void iris_resource_check_level_layer(const struct iris_resource *res,
                                      uint32_t level, uint32_t layer);
-
-bool iris_resource_level_has_hiz(const struct iris_resource *res,
-                                 uint32_t level);
 
 bool iris_sample_with_depth_aux(const struct gen_device_info *devinfo,
                                 const struct iris_resource *res);
