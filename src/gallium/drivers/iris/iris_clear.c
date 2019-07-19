@@ -349,10 +349,16 @@ clear_color(struct iris_context *ice,
             union isl_color_value color)
 {
    struct iris_resource *res = (void *) p_res;
-
-   struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
+   const bool compute =
+      unlikely((INTEL_DEBUG & DEBUG_BLOCS) &&
+               blorp_clear_supports_compute(&ice->blorp,
+                                            ice->state.color_write_enables != 0,
+                                            ice->state.blend_enables != 0,
+                                            res->aux.usage));
+   struct iris_batch *batch =
+      &ice->batches[compute ? IRIS_BATCH_COMPUTE : IRIS_BATCH_RENDER];
    const struct intel_device_info *devinfo = &batch->screen->devinfo;
-   enum blorp_batch_flags blorp_flags = 0;
+   enum blorp_batch_flags blorp_flags = compute ? BLORP_BATCH_USE_COMPUTE : 0;
 
    if (render_condition_enabled) {
       if (ice->state.predicate == IRIS_PREDICATE_STATE_DONT_RENDER)
@@ -367,9 +373,10 @@ clear_color(struct iris_context *ice,
 
    iris_batch_maybe_flush(batch, 1500);
 
-   bool can_fast_clear = can_fast_clear_color(ice, p_res, level, box,
-                                              render_condition_enabled,
-                                              format, color);
+   bool can_fast_clear =
+      !compute && can_fast_clear_color(ice, p_res, level, box,
+                                       render_condition_enabled,
+                                       format, color);
    if (can_fast_clear) {
       fast_clear_color(ice, res, level, box, format, color);
       return;
@@ -379,8 +386,15 @@ clear_color(struct iris_context *ice,
    enum isl_aux_usage aux_usage =
       iris_resource_render_aux_usage(ice, res, level, format, false);
 
-   iris_resource_prepare_render(ice, res, level, box->z, box->depth,
-                                aux_usage);
+   if (!compute) {
+      iris_resource_prepare_render(ice, res, level, box->z, box->depth,
+                                   aux_usage);
+   } else {
+      iris_resource_prepare_access(ice, res, 0, INTEL_REMAINING_LEVELS, 0,
+                                   INTEL_REMAINING_LAYERS, ISL_AUX_USAGE_NONE,
+                                   false);
+   }
+
    iris_emit_buffer_barrier_for(batch, res->bo, IRIS_DOMAIN_RENDER_WRITE);
 
    struct blorp_surf surf;
@@ -408,8 +422,9 @@ clear_color(struct iris_context *ice,
                                     PIPE_CONTROL_RENDER_TARGET_FLUSH,
                                     "cache history: post color clear");
 
-   iris_resource_finish_render(ice, res, level,
-                               box->z, box->depth, aux_usage);
+   if (!compute)
+      iris_resource_finish_render(ice, res, level,
+                                  box->z, box->depth, aux_usage);
 }
 
 static bool
