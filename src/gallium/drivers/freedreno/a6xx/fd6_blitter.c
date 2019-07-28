@@ -658,10 +658,15 @@ handle_rgba_blit(struct fd_context *ctx, const struct pipe_blit_info *info)
 
 	fd_fence_ref(&ctx->last_fence, NULL);
 
-	batch = fd_bc_alloc_batch(&ctx->screen->batch_cache, ctx, true);
+	if (ctx->nondraw_batch) {
+		batch = ctx->nondraw_batch;
+	} else {
+		ctx->nondraw_batch = batch =
+			fd_bc_alloc_batch(&ctx->screen->batch_cache, ctx, true);
 
-	fd6_emit_restore(batch, batch->draw);
-	fd6_emit_lrz_flush(batch->draw);
+		fd6_emit_restore(batch, batch->draw);
+		fd6_emit_lrz_flush(batch->draw);
+	}
 
 	mtx_lock(&ctx->screen->lock);
 
@@ -691,9 +696,6 @@ handle_rgba_blit(struct fd_context *ctx, const struct pipe_blit_info *info)
 
 	fd_resource(info->dst.resource)->valid = true;
 	batch->needs_flush = true;
-
-	fd_batch_flush(batch, false);
-	fd_batch_reference(&batch, NULL);
 
 	return true;
 }

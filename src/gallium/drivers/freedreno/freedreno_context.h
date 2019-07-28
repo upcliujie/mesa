@@ -223,6 +223,13 @@ struct fd_context {
 	 */
 	struct fd_batch *batch;
 
+	/* Current blit/compute batch, to accumulate multiple blits or
+	 * grids into a single batch.. call fd_context_flush_nondraw()
+	 * before any use of ctx->batch (this is handled in the entry-
+	 * points, ie. fd_draw_vbo(), fd_clear())
+	 */
+	struct fd_batch *nondraw_batch;
+
 	/* NULL if there has been rendering since last flush.  Otherwise
 	 * keeps a reference to the last fence so we can re-use it rather
 	 * than having to flush no-op batch.
@@ -452,6 +459,16 @@ fd_context_batch(struct fd_context *ctx)
 		fd_context_all_dirty(ctx);
 	}
 	return ctx->batch;
+}
+
+static inline void
+fd_context_flush_nondraw(struct fd_context *ctx)
+{
+	if (!ctx->nondraw_batch)
+		return;
+
+	fd_batch_flush(ctx->nondraw_batch, false);
+	fd_batch_reference(&ctx->nondraw_batch, NULL);
 }
 
 static inline void

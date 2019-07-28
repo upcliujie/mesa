@@ -84,6 +84,8 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
 	if (!fd_render_condition_check(pctx))
 		return;
 
+	fd_context_flush_nondraw(ctx);
+
 	/* emulate unsupported primitives: */
 	if (!fd_supported_prim(ctx, info->mode)) {
 		if (ctx->streamout.num_targets > 0)
@@ -311,6 +313,8 @@ fd_clear(struct pipe_context *pctx, unsigned buffers,
 	if (!fd_render_condition_check(pctx))
 		return;
 
+	fd_context_flush_nondraw(ctx);
+
 	fd_fence_ref(&ctx->last_fence, NULL);
 
 	if (ctx->in_blit) {
@@ -413,7 +417,12 @@ fd_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
 	struct fd_batch *batch, *save_batch = NULL;
 	unsigned i;
 
-	batch = fd_bc_alloc_batch(&ctx->screen->batch_cache, ctx, true);
+	if (!ctx->nondraw_batch) {
+		ctx->nondraw_batch =
+			fd_bc_alloc_batch(&ctx->screen->batch_cache, ctx, true);
+	}
+
+	batch = ctx->nondraw_batch;
 	fd_batch_reference(&save_batch, ctx->batch);
 	fd_batch_reference(&ctx->batch, batch);
 	fd_context_all_dirty(ctx);
@@ -457,12 +466,9 @@ fd_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
 	batch->needs_flush = true;
 	ctx->launch_grid(ctx, info);
 
-	fd_batch_flush(batch, false);
-
 	fd_batch_reference(&ctx->batch, save_batch);
 	fd_context_all_dirty(ctx);
 	fd_batch_reference(&save_batch, NULL);
-	fd_batch_reference(&batch, NULL);
 }
 
 void

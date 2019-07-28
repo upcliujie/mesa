@@ -49,6 +49,8 @@ fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
 
 	DBG("%p: flush: flags=%x\n", ctx->batch, flags);
 
+	fd_context_flush_nondraw(ctx);
+
 	/* if no rendering since last flush, ie. app just decided it needed
 	 * a fence, re-use the last one:
 	 */
@@ -169,6 +171,7 @@ fd_context_destroy(struct pipe_context *pctx)
 
 	util_copy_framebuffer_state(&ctx->framebuffer, NULL);
 	fd_batch_reference(&ctx->batch, NULL);  /* unref current batch */
+	fd_batch_reference(&ctx->nondraw_batch, NULL);
 	fd_bc_invalidate_context(ctx);
 
 	fd_prog_fini(pctx);
