@@ -19,16 +19,24 @@
 <h2>Disclaimer</h2>
 
 <p>
-Mesa is a 3-D graphics library with an API which is very similar to
-that of <a href="https://www.opengl.org/">OpenGL</a>.*
-To the extent that Mesa utilizes the OpenGL command syntax or state
-machine, it is being used with authorization from <a
-href="https://www.sgi.com/">Silicon Graphics,
-Inc.</a>(SGI). However, the author does not possess an OpenGL license
-from SGI, and makes no claim that Mesa is in any way a compatible
-replacement for OpenGL or associated with SGI. Those who want a
-licensed implementation of OpenGL should contact a licensed
-vendor.
+Mesa is a collection of conformant and non-conformant implementations of the
+OpenGL*, OpenGL ES*, Vulkan**, EGL**, and OpenCL*** APIs. Some implementations
+designed to utilize hardware produced by registered adopters of a
+specification have been tested for conformance to the relevant API
+specification according to
+<a href="https://www.khronos.org/files/conformance_procedures.pdf">published procedures</a>.
+However, implementations that have not been tested by the Khronos Group,
+including all software implementations, are officially non-conformant. To
+the extent that such non-conformant implementations utilize the command syntax
+or state machines of Khronos APIs, it does so with authorization from
+<a href="https://www.khronos.org/">The Khronos Group, Inc</a>. However, the
+authors make no claim that Mesa is associated with The Khronos Group
+or that any unregistered implementations are in any way compatible replacement
+for registered implementations they may resemble. Those who want a licensed
+implementation of Khronos API specifications in the case that Mesa does not 
+provide one should contact a registered vendor. A list of registered adopters
+for each specification can be found
+<a href="https://www.khronos.org/conformance/adopters/conformant-companies">here</a>.
 </p>
 
 <p>
@@ -38,8 +46,11 @@ library</em>.
 </p>
 
 <p>
-* OpenGL is a trademark of <a href="https://www.sgi.com/"
->Silicon Graphics Incorporated</a>.
+* OpenGL and OpenGL ES are trademarks of <a href="https://www.hpe.com/"
+>Hewlett Packard Enterprise</a>.<br>
+** EGL and Vulkan are trademarks of <a href="https://www.khronos.org/"
+>The Khronos Group, Inc</a>.<br>
+*** OpenCL is a trademark of <a href="https://www.apple.com/">Apple Inc</a>.
 </p>
 
 
@@ -49,8 +60,8 @@ library</em>.
 <p>
 The Mesa distribution consists of several components.  Different copyrights
 and licenses apply to different components.
-For example, the GLX client code uses the SGI Free Software License B, and
-some of the Mesa device drivers are copyrighted by their authors.
+For example, much of the GLX client code uses the SGI Free Software License B,
+and some of the Mesa device drivers are copyrighted by their authors.
 See below for a list of Mesa's main components and the license for each.
 </p>
 <p>
@@ -98,7 +109,7 @@ and their respective licenses.
 
 <pre>
 Component         Location               License
-------------------------------------------------------------------
+--------------------------------------------------------------------------
 Main Mesa code    src/mesa/              MIT
 
 Device drivers    src/mesa/drivers/*     MIT, generally
@@ -108,7 +119,7 @@ Gallium code      src/gallium/           MIT
 Ext headers       include/GL/glext.h     Khronos
                   include/GL/glxext.h
 
-GLX client code   src/glx/               SGI Free Software License B
+GLX client code   src/glx/               MIT and SGI Free Software License B
 
 C11 thread        include/c11/threads*.h Boost (permissive)
 emulation
