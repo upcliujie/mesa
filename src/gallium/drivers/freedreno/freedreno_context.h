@@ -462,16 +462,6 @@ fd_context_batch(struct fd_context *ctx)
 }
 
 static inline void
-fd_context_flush_nondraw(struct fd_context *ctx)
-{
-	if (!ctx->nondraw_batch)
-		return;
-
-	fd_batch_flush(ctx->nondraw_batch, false);
-	fd_batch_reference(&ctx->nondraw_batch, NULL);
-}
-
-static inline void
 fd_batch_set_stage(struct fd_batch *batch, enum fd_render_stage stage)
 {
 	struct fd_context *ctx = batch->ctx;

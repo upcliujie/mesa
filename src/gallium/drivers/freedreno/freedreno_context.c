@@ -49,10 +49,16 @@ fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
 
 	DBG("%p: flush: flags=%x\n", ctx->batch, flags);
 
-	fd_context_flush_nondraw(ctx);
+	if (ctx->nondraw_batch) {
+		fd_batch_flush(ctx->nondraw_batch, false);
+		fd_batch_reference(&ctx->nondraw_batch, NULL);
+	}
 
 	/* if no rendering since last flush, ie. app just decided it needed
 	 * a fence, re-use the last one:
+	 *
+	 * (NOTE, last_fence could even be the fence from the nondraw_batch
+	 * we might have just flushed.. that is intentional.)
 	 */
 	if (ctx->last_fence) {
 		fd_fence_ref(&fence, ctx->last_fence);

@@ -370,8 +370,14 @@ fd_batch_flush(struct fd_batch *batch, bool sync)
 	fd_batch_reference(&tmp, batch);
 
 	if (batch == batch->ctx->batch) {
+		/* In this case the reference is dropped below (in if(newbatch))
+		 * so we can keep batch->framebuffer state around until we have
+		 * a chance to create new batch.
+		 */
 		batch->ctx->batch = NULL;
 		newbatch = true;
+	} else if (batch == batch->ctx->nondraw_batch) {
+		fd_batch_reference(&batch->ctx->nondraw_batch, NULL);
 	}
 
 	batch_flush(tmp);

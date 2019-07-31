@@ -84,8 +84,6 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
 	if (!fd_render_condition_check(pctx))
 		return;
 
-	fd_context_flush_nondraw(ctx);
-
 	/* emulate unsupported primitives: */
 	if (!fd_supported_prim(ctx, info->mode)) {
 		if (ctx->streamout.num_targets > 0)
@@ -312,8 +310,6 @@ fd_clear(struct pipe_context *pctx, unsigned buffers,
 	/* TODO: push down the region versions into the tiles */
 	if (!fd_render_condition_check(pctx))
 		return;
-
-	fd_context_flush_nondraw(ctx);
 
 	fd_fence_ref(&ctx->last_fence, NULL);
 
