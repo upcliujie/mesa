@@ -26,7 +26,7 @@
 
 #include "etnaviv_texture_state.h"
 
-#include "hw/common.xml.h"
+#include "common.xml.h"
 
 #include "etnaviv_clear_blit.h"
 #include "etnaviv_context.h"
@@ -48,6 +48,7 @@ etna_create_sampler_state_state(struct pipe_context *pipe,
    if (!cs)
       return NULL;
 
+   cs->base = *ss;
    cs->TE_SAMPLER_CONFIG0 =
       VIVS_TE_SAMPLER_CONFIG0_UWRAP(translate_texture_wrapmode(ss->wrap_s)) |
       VIVS_TE_SAMPLER_CONFIG0_VWRAP(translate_texture_wrapmode(ss->wrap_t)) |
@@ -66,22 +67,7 @@ etna_create_sampler_state_state(struct pipe_context *pipe,
 
    cs->TE_SAMPLER_LOD_CONFIG =
       COND(ss->lod_bias != 0.0, VIVS_TE_SAMPLER_LOD_CONFIG_BIAS_ENABLE) |
-      VIVS_TE_SAMPLER_LOD_CONFIG_BIAS(etna_float_to_fixp55(ss->lod_bias));
-
-   if (ss->min_mip_filter != PIPE_TEX_MIPFILTER_NONE) {
-      cs->min_lod = etna_float_to_fixp55(ss->min_lod);
-      cs->max_lod = etna_float_to_fixp55(ss->max_lod);
-   } else {
-      /* when not mipmapping, we need to set max/min lod so that always
-       * lowest LOD is selected */
-      cs->min_lod = cs->max_lod = etna_float_to_fixp55(ss->min_lod);
-   }
-
-   /* if max_lod is 0, MIN filter will never be used (GC3000)
-    * when min filter is different from mag filter, we need HW to compute LOD
-    * the workaround is to set max_lod to at least 1
-    */
-   cs->max_lod_min = (ss->min_img_filter != ss->mag_img_filter) ? 1 : 0;
+      VIVS_TE_SAMPLER_LOD_CONFIG_BIAS(ss->lod_bias);
 
    return cs;
 }
@@ -165,8 +151,8 @@ etna_create_sampler_view_state(struct pipe_context *pctx, struct pipe_resource *
    sv->TE_SAMPLER_SIZE = VIVS_TE_SAMPLER_SIZE_WIDTH(res->base.width0) |
                          VIVS_TE_SAMPLER_SIZE_HEIGHT(res->base.height0);
    sv->TE_SAMPLER_LOG_SIZE =
-      VIVS_TE_SAMPLER_LOG_SIZE_WIDTH(etna_log2_fixp55(res->base.width0)) |
-      VIVS_TE_SAMPLER_LOG_SIZE_HEIGHT(etna_log2_fixp55(res->base.height0)) |
+      VIVS_TE_SAMPLER_LOG_SIZE_WIDTH(etna_log2(res->base.width0)) |
+      VIVS_TE_SAMPLER_LOG_SIZE_HEIGHT(etna_log2(res->base.height0)) |
       COND(util_format_is_srgb(so->format) && !astc, VIVS_TE_SAMPLER_LOG_SIZE_SRGB) |
       COND(astc, VIVS_TE_SAMPLER_LOG_SIZE_ASTC);
 
@@ -176,8 +162,8 @@ etna_create_sampler_view_state(struct pipe_context *pctx, struct pipe_resource *
       sv->TE_SAMPLER_LOD_ADDR[lod].offset = res->levels[lod].offset;
       sv->TE_SAMPLER_LOD_ADDR[lod].flags = ETNA_RELOC_READ;
    }
-   sv->min_lod = sv->base.u.tex.first_level << 5;
-   sv->max_lod = MIN2(sv->base.u.tex.last_level, res->base.last_level) << 5;
+
+   sv->last_level = MIN2(sv->base.u.tex.last_level, res->base.last_level);
 
    /* Workaround for npot textures -- it appears that only CLAMP_TO_EDGE is
     * supported when the appropriate capability is not set. */
@@ -290,13 +276,25 @@ etna_emit_texture_state(struct etna_context *ctx)
             ss = etna_sampler_state(ctx->sampler[x]);
             sv = etna_sampler_view(ctx->sampler_view[x]);
 
-            unsigned max_lod = MAX2(MIN2(ss->max_lod, sv->max_lod), ss->max_lod_min);
+            float max_lod = MIN2(ss->base.max_lod, sv->last_level);
+            float min_lod = MAX2(ss->base.min_lod, sv->base.u.tex.first_level);
+
+            /* always choose lowest LOD when not mipmapping */
+            if (ss->base.min_mip_filter == PIPE_TEX_MIPFILTER_NONE)
+               max_lod = min_lod;
+
+            /* if max_lod is 0, MIN filter will never be used on GC3000
+             * when min filter is different from mag filter, we need HW to compute LOD
+             * the workaround is to set max_lod to at least 1
+             */
+            if (ss->base.min_img_filter != ss->base.mag_img_filter)
+               max_lod = MAX2(max_lod, 1.0f / 32.0f);
 
             /* min and max lod is determined both by the sampler and the view */
             /*020C0*/ EMIT_STATE(TE_SAMPLER_LOD_CONFIG(x),
                                  ss->TE_SAMPLER_LOD_CONFIG |
                                  VIVS_TE_SAMPLER_LOD_CONFIG_MAX(max_lod) |
-                                 VIVS_TE_SAMPLER_LOD_CONFIG_MIN(MAX2(ss->min_lod, sv->min_lod)));
+                                 VIVS_TE_SAMPLER_LOD_CONFIG_MIN(min_lod));
          }
       }
       for (int x = 0; x < VIVS_TE_SAMPLER__LEN; ++x) {

@@ -26,9 +26,9 @@
 
 #include "etnaviv_format.h"
 
-#include "hw/common_3d.xml.h"
-#include "hw/state.xml.h"
-#include "hw/state_3d.xml.h"
+#include "common_3d.xml.h"
+#include "state.xml.h"
+#include "state_3d.xml.h"
 
 #include "pipe/p_defines.h"
 
@@ -316,12 +316,12 @@ get_texture_swiz(enum pipe_format fmt, unsigned swizzle_r,
    util_format_compose_swizzles(formats[fmt].tex_swiz, swiz, rswiz);
 
    /* PIPE_SWIZZLE_ maps 1:1 to TEXTURE_SWIZZLE_ */
-   STATIC_ASSERT(PIPE_SWIZZLE_X == TEXTURE_SWIZZLE_RED);
-   STATIC_ASSERT(PIPE_SWIZZLE_Y == TEXTURE_SWIZZLE_GREEN);
-   STATIC_ASSERT(PIPE_SWIZZLE_Z == TEXTURE_SWIZZLE_BLUE);
-   STATIC_ASSERT(PIPE_SWIZZLE_W == TEXTURE_SWIZZLE_ALPHA);
-   STATIC_ASSERT(PIPE_SWIZZLE_0 == TEXTURE_SWIZZLE_ZERO);
-   STATIC_ASSERT(PIPE_SWIZZLE_1 == TEXTURE_SWIZZLE_ONE);
+   STATIC_ASSERT(PIPE_SWIZZLE_X == (int) TEXTURE_SWIZZLE_RED);
+   STATIC_ASSERT(PIPE_SWIZZLE_Y == (int) TEXTURE_SWIZZLE_GREEN);
+   STATIC_ASSERT(PIPE_SWIZZLE_Z == (int) TEXTURE_SWIZZLE_BLUE);
+   STATIC_ASSERT(PIPE_SWIZZLE_W == (int) TEXTURE_SWIZZLE_ALPHA);
+   STATIC_ASSERT(PIPE_SWIZZLE_0 == (int) TEXTURE_SWIZZLE_ZERO);
+   STATIC_ASSERT(PIPE_SWIZZLE_1 == (int) TEXTURE_SWIZZLE_ONE);
 
    return VIVS_TE_SAMPLER_CONFIG1_SWIZZLE_R(rswiz[0]) |
           VIVS_TE_SAMPLER_CONFIG1_SWIZZLE_G(rswiz[1]) |

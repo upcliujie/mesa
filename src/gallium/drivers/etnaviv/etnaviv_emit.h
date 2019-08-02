@@ -29,7 +29,7 @@
 
 #include "etnaviv_screen.h"
 #include "etnaviv_util.h"
-#include "hw/cmdstream.xml.h"
+#include "cmdstream.xml.h"
 
 struct etna_context;
 struct compiled_rs_state;
@@ -41,16 +41,15 @@ struct etna_coalesce {
 };
 
 static inline void
-etna_emit_load_state(struct etna_cmd_stream *stream, const uint16_t offset,
-                     const uint16_t count, const int fixp)
+etna_emit_load_state(struct etna_cmd_stream *stream, uint32_t offset,
+                     uint32_t count, const int fixp)
 {
    uint32_t v;
 
    v = VIV_FE_LOAD_STATE_HEADER_OP_LOAD_STATE |
        COND(fixp, VIV_FE_LOAD_STATE_HEADER_FIXP) |
        VIV_FE_LOAD_STATE_HEADER_OFFSET(offset) |
-       (VIV_FE_LOAD_STATE_HEADER_COUNT(count) &
-        VIV_FE_LOAD_STATE_HEADER_COUNT__MASK);
+       VIV_FE_LOAD_STATE_HEADER_COUNT(count);
 
    etna_cmd_stream_emit(stream, v);
 }
@@ -59,7 +58,7 @@ static inline void
 etna_set_state(struct etna_cmd_stream *stream, uint32_t address, uint32_t value)
 {
    etna_cmd_stream_reserve(stream, 2);
-   etna_emit_load_state(stream, address >> 2, 1, 0);
+   etna_emit_load_state(stream, address, 1, 0);
    etna_cmd_stream_emit(stream, value);
 }
 
@@ -68,7 +67,7 @@ etna_set_state_reloc(struct etna_cmd_stream *stream, uint32_t address,
                      const struct etna_reloc *reloc)
 {
    etna_cmd_stream_reserve(stream, 2);
-   etna_emit_load_state(stream, address >> 2, 1, 0);
+   etna_emit_load_state(stream, address, 1, 0);
    etna_cmd_stream_reloc(stream, reloc);
 }
 
@@ -80,7 +79,7 @@ etna_set_state_multi(struct etna_cmd_stream *stream, uint32_t base,
       return;
 
    etna_cmd_stream_reserve(stream, 1 + num + 1); /* 1 extra for potential alignment */
-   etna_emit_load_state(stream, base >> 2, num, 0);
+   etna_emit_load_state(stream, base, num, 0);
 
    for (uint32_t i = 0; i < num; i++)
       etna_cmd_stream_emit(stream, values[i]);
@@ -177,11 +176,11 @@ check_coalsence(struct etna_cmd_stream *stream, struct etna_coalesce *coalesce,
    if (coalesce->last_reg != 0) {
       if (((coalesce->last_reg + 4) != reg) || (coalesce->last_fixp != fixp)) {
          etna_coalesce_end(stream, coalesce);
-         etna_emit_load_state(stream, reg >> 2, 0, fixp);
+         etna_emit_load_state(stream, reg, 0, fixp);
          coalesce->start = etna_cmd_stream_offset(stream);
       }
    } else {
-      etna_emit_load_state(stream, reg >> 2, 0, fixp);
+      etna_emit_load_state(stream, reg, 0, fixp);
       coalesce->start = etna_cmd_stream_offset(stream);
    }
 

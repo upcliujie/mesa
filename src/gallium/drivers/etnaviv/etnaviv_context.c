@@ -54,7 +54,7 @@
 #include "util/u_prim.h"
 #include "util/u_upload_mgr.h"
 
-#include "hw/common.xml.h"
+#include "common.xml.h"
 
 static void
 etna_context_destroy(struct pipe_context *pctx)

@@ -27,7 +27,7 @@
 
 #include "etnaviv_state.h"
 
-#include "hw/common.xml.h"
+#include "common.xml.h"
 
 #include "etnaviv_blend.h"
 #include "etnaviv_clear_blit.h"

@@ -28,7 +28,7 @@
 #include "etnaviv_etc2.h"
 #include "etnaviv_resource.h"
 #include "etnaviv_screen.h"
-#include "hw/common.xml.h"
+#include "common.xml.h"
 #include "util/u_format.h"
 
 bool

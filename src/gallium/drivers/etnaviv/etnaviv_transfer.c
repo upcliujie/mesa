@@ -41,7 +41,7 @@
 #include "util/u_surface.h"
 #include "util/u_transfer.h"
 
-#include "hw/common_3d.xml.h"
+#include "common_3d.xml.h"
 
 #include "drm-uapi/drm_fourcc.h"
 

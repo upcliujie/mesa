@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "hw/isa.xml.h"
+#include "isa.xml.h"
 
 struct instr {
    /* dword0: */

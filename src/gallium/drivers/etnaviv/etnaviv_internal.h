@@ -28,8 +28,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "hw/state.xml.h"
-#include "hw/state_3d.xml.h"
+#include "util/u_math.h"
+
+#include "state.xml.h"
+#include "state_3d.xml.h"
 
 #include "drm/etnaviv_drmif.h"
 

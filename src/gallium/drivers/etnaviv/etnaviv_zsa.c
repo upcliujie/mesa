@@ -31,7 +31,7 @@
 #include "etnaviv_translate.h"
 #include "util/u_memory.h"
 
-#include "hw/common.xml.h"
+#include "common.xml.h"
 
 void *
 etna_zsa_state_create(struct pipe_context *pctx,

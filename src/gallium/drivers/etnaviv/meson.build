@@ -19,14 +19,6 @@
 # SOFTWARE.
 
 files_etnaviv = files(
-  'hw/cmdstream.xml.h',
-  'hw/common.xml.h',
-  'hw/common_3d.xml.h',
-  'hw/isa.xml.h',
-  'hw/state_3d.xml.h',
-  'hw/state_blt.xml.h',
-  'hw/state.xml.h',
-  'hw/texdesc_3d.xml.h',
   'etnaviv_asm.c',
   'etnaviv_asm.h',
   'etnaviv_blend.c',
@@ -91,7 +83,7 @@ files_etnaviv = files(
 
 libetnaviv = static_library(
   'etnaviv',
-  files_etnaviv,
+  [files_etnaviv, etnaviv_xml_header_files],
   c_args : [c_vis_args],
   include_directories : [
     inc_include, inc_src, inc_gallium, inc_gallium_aux, inc_etnaviv,

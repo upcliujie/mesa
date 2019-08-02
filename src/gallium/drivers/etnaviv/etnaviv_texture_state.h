@@ -34,7 +34,7 @@
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
 
-#include "hw/state_3d.xml.h"
+#include "state_3d.xml.h"
 
 struct etna_sampler_state {
    struct pipe_sampler_state base;
@@ -43,7 +43,6 @@ struct etna_sampler_state {
    uint32_t TE_SAMPLER_CONFIG0;
    uint32_t TE_SAMPLER_CONFIG1;
    uint32_t TE_SAMPLER_LOD_CONFIG;
-   unsigned min_lod, max_lod, max_lod_min;
 };
 
 static inline struct etna_sampler_state *
@@ -64,9 +63,8 @@ struct etna_sampler_view {
    uint32_t TE_SAMPLER_ASTC0;
    uint32_t TE_SAMPLER_LINEAR_STRIDE[VIVS_TE_SAMPLER_LINEAR_STRIDE__LEN];
    struct etna_reloc TE_SAMPLER_LOD_ADDR[VIVS_TE_SAMPLER_LOD_ADDR__LEN];
-   unsigned min_lod, max_lod; /* 5.5 fixp */
-
    struct etna_sampler_ts ts;
+   unsigned last_level;
 };
 
 static inline struct etna_sampler_view *

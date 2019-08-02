@@ -26,7 +26,7 @@
 
 #include "etnaviv_resource.h"
 
-#include "hw/common.xml.h"
+#include "common.xml.h"
 
 #include "etnaviv_context.h"
 #include "etnaviv_debug.h"

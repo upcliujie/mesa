@@ -35,7 +35,7 @@
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 
-#include "hw/common.xml.h"
+#include "common.xml.h"
 
 static struct pipe_surface *
 etna_create_surface(struct pipe_context *pctx, struct pipe_resource *prsc,

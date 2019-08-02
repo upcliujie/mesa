@@ -43,9 +43,9 @@
 #include "util/u_memory.h"
 #include "util/u_surface.h"
 
-#include "hw/common_3d.xml.h"
-#include "hw/state_blt.xml.h"
-#include "hw/common.xml.h"
+#include "common_3d.xml.h"
+#include "state_blt.xml.h"
+#include "common.xml.h"
 
 #include <assert.h>
 
