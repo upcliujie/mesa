@@ -177,6 +177,7 @@ wsi_device_matches_drm_fd(const struct wsi_device *wsi, int drm_fd)
       break;
 
    default:
+      fprintf(stderr, "Unhandled bustype %i\n", fd_device->bustype);
       break;
    }
 
