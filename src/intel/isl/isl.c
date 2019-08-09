@@ -1332,6 +1332,12 @@ isl_calc_tiled_min_row_pitch(const struct isl_device *dev,
                     tile_info->logical_extent_el.width);
 
    assert(alignment_B == tile_info->phys_extent_B.width);
+   /* Display workaround WaLosslessCompressionSurfaceStride/#0531 */
+   if (ISL_DEV_GEN(dev) == 9 &&
+       !(surf_info->usage & ISL_SURF_USAGE_CCS_BIT) &&
+       surf_info->width > 3840)
+      return isl_align(total_w_tl * tile_info->phys_extent_B.width,
+                       4 * tile_info->phys_extent_B.width);
    return total_w_tl * tile_info->phys_extent_B.width;
 }
 
