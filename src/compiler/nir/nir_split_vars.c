@@ -414,6 +414,9 @@ static struct array_var_info *
 get_array_var_info(nir_variable *var,
                    struct hash_table *var_info_map)
 {
+   if (var == NULL)
+      return NULL;
+
    struct hash_entry *entry =
       _mesa_hash_table_search(var_info_map, var);
    return entry ? entry->data : NULL;
