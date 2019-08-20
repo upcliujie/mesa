@@ -36,6 +36,11 @@
  */
 #define LOOP_UNROLL_LIMIT 26
 
+/* This limit protects from doing a forced unroll for costly loop. This limit
+ * was chosen based on loop cost shader-db results and affected dEQP tests.
+ */
+#define LOOP_FORCED_UNROLL_LIMIT 1024
+
 /* Prepare this loop for unrolling by first converting to lcssa and then
  * converting the phis from the top level of the loop body to regs.
  * Partially converting out of SSA allows us to unroll the loop without having
@@ -788,6 +793,10 @@ check_unrolling_restrictions(nir_shader *shader, nir_loop *loop)
       li->max_trip_count ? li->max_trip_count : li->guessed_trip_count;
 
    if (trip_count > max_iter)
+      return false;
+
+   /* Check if forced unroll would be too expensive. */
+   if (li->instr_cost * trip_count > max_iter * LOOP_FORCED_UNROLL_LIMIT)
       return false;
 
    if (li->force_unroll && !li->guessed_trip_count)
