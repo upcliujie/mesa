@@ -944,8 +944,13 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
    switch (devinfo->gen) {
    case 4:
    case 5:
-   case 6:
       break;
+
+   case 6:
+      if (nir_emit_alu_gen6(this, devinfo, range_ht, bld, instr, need_dest))
+         return;
+      break;
+
    case 7:
       if (nir_emit_alu_gen7(this, devinfo, range_ht, bld, instr, need_dest))
          return;
@@ -973,7 +978,7 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
 
    assert((devinfo->gen != 12 && devinfo->gen != 11 &&
            devinfo->gen != 9 && devinfo->gen != 8 &&
-           devinfo->gen != 7) ||
+           devinfo->gen != 7 && devinfo->gen != 6) ||
           instr->op == nir_op_mov ||
           instr->op == nir_op_vec2 ||
           instr->op == nir_op_vec3 ||
