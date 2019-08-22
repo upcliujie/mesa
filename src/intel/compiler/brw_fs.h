@@ -665,6 +665,11 @@ bool nir_emit_alu_gen8(fs_visitor *v, const struct gen_device_info *devinfo,
                        const brw::fs_builder &bld, nir_alu_instr *alu,
                        bool need_dest);
 
+bool nir_emit_alu_gen11(fs_visitor *v, const struct gen_device_info *devinfo,
+                        struct hash_table *range_ht,
+                        const brw::fs_builder &bld, nir_alu_instr *alu,
+                        bool need_dest);
+
 bool nir_emit_alu_gen12(fs_visitor *v, const struct gen_device_info *devinfo,
                         struct hash_table *range_ht,
                         const brw::fs_builder &bld, nir_alu_instr *alu,
