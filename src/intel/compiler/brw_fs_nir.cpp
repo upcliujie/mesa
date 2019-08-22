@@ -580,24 +580,7 @@ fs_visitor::optimize_frontfacing_ternary(nir_alu_instr *instr,
 
    fs_reg tmp = vgrf(glsl_type::int_type);
 
-   if (devinfo->gen >= 12) {
-      /* Bit 15 of g1.1 is 0 if the polygon is front facing. */
-      fs_reg g1 = fs_reg(retype(brw_vec1_grf(1, 1), BRW_REGISTER_TYPE_W));
-
-      /* For (gl_FrontFacing ? 1.0 : -1.0), emit:
-       *
-       *    or(8)  tmp.1<2>W  g0.0<0,1,0>W  0x00003f80W
-       *    and(8) dst<1>D    tmp<8,8,1>D   0xbf800000D
-       *
-       * and negate the result for (gl_FrontFacing ? -1.0 : 1.0).
-       */
-      bld.OR(subscript(tmp, BRW_REGISTER_TYPE_W, 1),
-             g1, brw_imm_uw(0x3f80));
-
-      if (value1 == -1.0f)
-         bld.MOV(tmp, negate(tmp));
-
-   } else if (devinfo->gen >= 6) {
+   if (devinfo->gen >= 6) {
       /* Bit 15 of g0.0 is 0 if the polygon is front facing. */
       fs_reg g0 = fs_reg(retype(brw_vec1_grf(0, 0), BRW_REGISTER_TYPE_W));
 
@@ -691,28 +674,6 @@ emit_find_msb_using_lzd(const fs_builder &bld,
    inst->src[0].negate = true;
 }
 
-static brw_rnd_mode
-brw_rnd_mode_from_nir_op (const nir_op op) {
-   switch (op) {
-   case nir_op_f2f16_rtz:
-      return BRW_RND_MODE_RTZ;
-   case nir_op_f2f16_rtne:
-      return BRW_RND_MODE_RTNE;
-   default:
-      unreachable("Operation doesn't support rounding mode");
-   }
-}
-
-static brw_rnd_mode
-brw_rnd_mode_from_execution_mode(unsigned execution_mode)
-{
-   if (nir_has_any_rounding_mode_rtne(execution_mode))
-      return BRW_RND_MODE_RTNE;
-   if (nir_has_any_rounding_mode_rtz(execution_mode))
-      return BRW_RND_MODE_RTZ;
-   return BRW_RND_MODE_UNSPECIFIED;
-}
-
 fs_reg
 fs_visitor::prepare_alu_destination_and_sources(const fs_builder &bld,
                                                 nir_alu_instr *instr,
@@ -775,25 +736,6 @@ fs_visitor::prepare_alu_destination_and_sources(const fs_builder &bld,
    }
 
    return result;
-}
-
-void
-fs_visitor::resolve_inot_sources(const fs_builder &bld, nir_alu_instr *instr,
-                                 fs_reg *op)
-{
-   for (unsigned i = 0; i < 2; i++) {
-      nir_alu_instr *inot_instr = nir_src_as_alu_instr(instr->src[i].src);
-
-      if (inot_instr != NULL && inot_instr->op == nir_op_inot) {
-         /* The source of the inot is now the source of instr. */
-         prepare_alu_destination_and_sources(bld, inot_instr, &op[i], false);
-
-         assert(!op[i].negate);
-         op[i].negate = true;
-      } else {
-         op[i] = resolve_source_modifiers(op[i]);
-      }
-   }
 }
 
 bool
@@ -1093,43 +1035,11 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
 
    case nir_op_f2f16_rtne:
    case nir_op_f2f16_rtz:
-   case nir_op_f2f16: {
-      brw_rnd_mode rnd = BRW_RND_MODE_UNSPECIFIED;
+   case nir_op_f2f16:
+      unreachable("No half-float support.");
 
-      if (nir_op_f2f16 == instr->op)
-         rnd = brw_rnd_mode_from_execution_mode(execution_mode);
-      else
-         rnd = brw_rnd_mode_from_nir_op(instr->op);
-
-      if (BRW_RND_MODE_UNSPECIFIED != rnd)
-         bld.emit(SHADER_OPCODE_RND_MODE, bld.null_reg_ud(), brw_imm_d(rnd));
-
-      /* In theory, it would be better to use BRW_OPCODE_F32TO16. Depending
-       * on the HW gen, it is a special hw opcode or just a MOV, and
-       * brw_F32TO16 (at brw_eu_emit) would do the work to chose.
-       *
-       * But if we want to use that opcode, we need to provide support on
-       * different optimizations and lowerings. As right now HF support is
-       * only for gen8+, it will be better to use directly the MOV, and use
-       * BRW_OPCODE_F32TO16 when/if we work for HF support on gen7.
-       */
-      assert(type_sz(op[0].type) < 8); /* brw_nir_lower_conversions */
-      inst = bld.MOV(result, op[0]);
-      break;
-   }
-
-   case nir_op_b2i8:
-   case nir_op_b2i16:
-   case nir_op_b2i32:
    case nir_op_b2i64:
-   case nir_op_b2f16:
-   case nir_op_b2f32:
    case nir_op_b2f64:
-      if (try_emit_b2fi_of_inot(bld, result, instr))
-         break;
-      op[0].type = BRW_REGISTER_TYPE_D;
-      op[0].negate = !op[0].negate;
-      /* fallthrough */
    case nir_op_i2f64:
    case nir_op_i2i64:
    case nir_op_u2f64:
@@ -1137,13 +1047,27 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
    case nir_op_f2f64:
    case nir_op_f2i64:
    case nir_op_f2u64:
+      unreachable("No double precision or 64-bit integer support.");
+
+   case nir_op_b2f16:
+   case nir_op_i2f16:
+   case nir_op_u2f16:
+      unreachable("No half-float support.");
+
+   case nir_op_b2i8:
+   case nir_op_b2i16:
+   case nir_op_b2i32:
+   case nir_op_b2f32:
+      if (try_emit_b2fi_of_inot(bld, result, instr))
+         break;
+      op[0].type = BRW_REGISTER_TYPE_D;
+      op[0].negate = !op[0].negate;
+      /* fallthrough */
    case nir_op_i2i32:
    case nir_op_u2u32:
    case nir_op_f2i32:
    case nir_op_f2u32:
-   case nir_op_i2f16:
    case nir_op_i2i16:
-   case nir_op_u2f16:
    case nir_op_u2u16:
    case nir_op_f2i16:
    case nir_op_f2u16:
@@ -1183,13 +1107,6 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       break;
 
    case nir_op_f2f32:
-      if (nir_has_any_rounding_mode_enabled(execution_mode)) {
-         brw_rnd_mode rnd =
-            brw_rnd_mode_from_execution_mode(execution_mode);
-         bld.emit(SHADER_OPCODE_RND_MODE, bld.null_reg_ud(),
-                  brw_imm_d(rnd));
-      }
-
       if (op[0].type == BRW_REGISTER_TYPE_HF)
          assert(type_sz(result.type) < 8); /* brw_nir_lower_conversions */
 
@@ -1248,55 +1165,14 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       break;
 
    case nir_op_fadd:
-      if (nir_has_any_rounding_mode_enabled(execution_mode)) {
-         brw_rnd_mode rnd =
-            brw_rnd_mode_from_execution_mode(execution_mode);
-         bld.emit(SHADER_OPCODE_RND_MODE, bld.null_reg_ud(),
-                  brw_imm_d(rnd));
-      }
-      /* fallthrough */
    case nir_op_iadd:
       inst = bld.ADD(result, op[0], op[1]);
       break;
 
-   case nir_op_iadd_sat:
    case nir_op_uadd_sat:
       inst = bld.ADD(result, op[0], op[1]);
       inst->saturate = true;
       break;
-
-   case nir_op_isub_sat:
-      bld.emit(SHADER_OPCODE_ISUB_SAT, result, op[0], op[1]);
-      break;
-
-   case nir_op_usub_sat:
-      bld.emit(SHADER_OPCODE_USUB_SAT, result, op[0], op[1]);
-      break;
-
-   case nir_op_irhadd:
-   case nir_op_urhadd:
-      assert(nir_dest_bit_size(instr->dest.dest) < 64);
-      inst = bld.AVG(result, op[0], op[1]);
-      break;
-
-   case nir_op_ihadd:
-   case nir_op_uhadd: {
-      assert(nir_dest_bit_size(instr->dest.dest) < 64);
-      fs_reg tmp = bld.vgrf(result.type);
-
-      if (devinfo->gen >= 8) {
-         op[0] = resolve_source_modifiers(op[0]);
-         op[1] = resolve_source_modifiers(op[1]);
-      }
-
-      /* AVG(x, y) - ((x ^ y) & 1) */
-      bld.XOR(tmp, op[0], op[1]);
-      bld.AND(tmp, tmp, retype(brw_imm_ud(1), result.type));
-      bld.AVG(result, op[0], op[1]);
-      inst = bld.ADD(result, result, tmp);
-      inst->src[1].negate = true;
-      break;
-   }
 
    case nir_op_fmul:
       for (unsigned i = 0; i < 2; i++) {
@@ -1306,52 +1182,12 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
          }
       }
 
-      /* We emit the rounding mode after the previous fsign optimization since
-       * it won't result in a MUL, but will try to negate the value by other
-       * means.
-       */
-      if (nir_has_any_rounding_mode_enabled(execution_mode)) {
-         brw_rnd_mode rnd =
-            brw_rnd_mode_from_execution_mode(execution_mode);
-         bld.emit(SHADER_OPCODE_RND_MODE, bld.null_reg_ud(),
-                  brw_imm_d(rnd));
-      }
-
       inst = bld.MUL(result, op[0], op[1]);
       break;
 
    case nir_op_imul_2x32_64:
    case nir_op_umul_2x32_64:
-      bld.MUL(result, op[0], op[1]);
-      break;
-
-   case nir_op_imul_32x16:
-   case nir_op_umul_32x16: {
-      const bool ud = instr->op == nir_op_umul_32x16;
-
-      assert(nir_dest_bit_size(instr->dest.dest) == 32);
-
-      /* Before Gen7, the order of the 32-bit source and the 16-bit source was
-       * swapped.  The extension isn't enabled on those platforms, so don't
-       * pretend to support the differences.
-       */
-      assert(devinfo->gen >= 7);
-
-      if (op[1].file == IMM)
-         op[1] = ud ? brw_imm_uw(op[1].ud) : brw_imm_w(op[1].d);
-      else {
-         const enum brw_reg_type word_type =
-            ud ? BRW_REGISTER_TYPE_UW : BRW_REGISTER_TYPE_W;
-
-         op[1] = subscript(op[1], word_type, 0);
-      }
-
-      const enum brw_reg_type dword_type =
-         ud ? BRW_REGISTER_TYPE_UD : BRW_REGISTER_TYPE_D;
-
-      bld.MUL(result, retype(op[0], dword_type), op[1]);
-      break;
-   }
+      unreachable("not reached: should have been lowered");
 
    case nir_op_imul:
       assert(nir_dest_bit_size(instr->dest.dest) < 64);
@@ -1430,7 +1266,7 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       bld.CMP(dest, op[0], op[1], brw_cmod_for_nir_comparison(instr->op));
 
       if (bit_size > 32) {
-         bld.MOV(result, subscript(dest, BRW_REGISTER_TYPE_UD, 0));
+         unreachable("No double precision or 64-bit integer support.");
       } else if(bit_size < 32) {
          /* When we convert the result to 32-bit we need to be careful and do
           * it as a signed conversion to get sign extension (for 32-bit true)
@@ -1480,81 +1316,15 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
    }
 
    case nir_op_inot:
-      if (devinfo->gen >= 8) {
-         nir_alu_instr *inot_src_instr = nir_src_as_alu_instr(instr->src[0].src);
-
-         if (inot_src_instr != NULL &&
-             (inot_src_instr->op == nir_op_ior ||
-              inot_src_instr->op == nir_op_ixor ||
-              inot_src_instr->op == nir_op_iand)) {
-            /* The sources of the source logical instruction are now the
-             * sources of the instruction that will be generated.
-             */
-            prepare_alu_destination_and_sources(bld, inot_src_instr, op, false);
-            resolve_inot_sources(bld, inot_src_instr, op);
-
-            /* Smash all of the sources and destination to be signed.  This
-             * doesn't matter for the operation of the instruction, but cmod
-             * propagation fails on unsigned sources with negation (due to
-             * fs_inst::can_do_cmod returning false).
-             */
-            result.type =
-               brw_type_for_nir_type(devinfo,
-                                     (nir_alu_type)(nir_type_int |
-                                                    nir_dest_bit_size(instr->dest.dest)));
-            op[0].type =
-               brw_type_for_nir_type(devinfo,
-                                     (nir_alu_type)(nir_type_int |
-                                                    nir_src_bit_size(inot_src_instr->src[0].src)));
-            op[1].type =
-               brw_type_for_nir_type(devinfo,
-                                     (nir_alu_type)(nir_type_int |
-                                                    nir_src_bit_size(inot_src_instr->src[1].src)));
-
-            /* For XOR, only invert one of the sources.  Arbitrarily choose
-             * the first source.
-             */
-            op[0].negate = !op[0].negate;
-            if (inot_src_instr->op != nir_op_ixor)
-               op[1].negate = !op[1].negate;
-
-            switch (inot_src_instr->op) {
-            case nir_op_ior:
-               bld.AND(result, op[0], op[1]);
-               return;
-
-            case nir_op_iand:
-               bld.OR(result, op[0], op[1]);
-               return;
-
-            case nir_op_ixor:
-               bld.XOR(result, op[0], op[1]);
-               return;
-
-            default:
-               unreachable("impossible opcode");
-            }
-         }
-         op[0] = resolve_source_modifiers(op[0]);
-      }
       bld.NOT(result, op[0]);
       break;
    case nir_op_ixor:
-      if (devinfo->gen >= 8) {
-         resolve_inot_sources(bld, instr, op);
-      }
       bld.XOR(result, op[0], op[1]);
       break;
    case nir_op_ior:
-      if (devinfo->gen >= 8) {
-         resolve_inot_sources(bld, instr, op);
-      }
       bld.OR(result, op[0], op[1]);
       break;
    case nir_op_iand:
-      if (devinfo->gen >= 8) {
-         resolve_inot_sources(bld, instr, op);
-      }
       bld.AND(result, op[0], op[1]);
       break;
 
@@ -1590,26 +1360,7 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
    case nir_op_f2b32: {
       uint32_t bit_size = nir_src_bit_size(instr->src[0].src);
       if (bit_size == 64) {
-         /* two-argument instructions can't take 64-bit immediates */
-         fs_reg zero;
-         fs_reg tmp;
-
-         if (instr->op == nir_op_f2b32) {
-            zero = vgrf(glsl_type::double_type);
-            tmp = vgrf(glsl_type::double_type);
-            bld.MOV(zero, setup_imm_df(bld, 0.0));
-         } else {
-            zero = vgrf(glsl_type::int64_t_type);
-            tmp = vgrf(glsl_type::int64_t_type);
-            bld.MOV(zero, brw_imm_q(0));
-         }
-
-         /* A SIMD16 execution needs to be split in two instructions, so use
-          * a vgrf instead of the flag register as dst so instruction splitting
-          * works
-          */
-         bld.CMP(tmp, op[0], zero, BRW_CONDITIONAL_NZ);
-         bld.MOV(result, subscript(tmp, BRW_REGISTER_TYPE_UD, 0));
+         unreachable("No double precision support.");
       } else {
          fs_reg zero;
          if (bit_size == 32) {
@@ -1658,32 +1409,8 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       }
       break;
 
-   case nir_op_fquantize2f16: {
-      fs_reg tmp16 = bld.vgrf(BRW_REGISTER_TYPE_D);
-      fs_reg tmp32 = bld.vgrf(BRW_REGISTER_TYPE_F);
-      fs_reg zero = bld.vgrf(BRW_REGISTER_TYPE_F);
-
-      /* The destination stride must be at least as big as the source stride. */
-      tmp16.type = BRW_REGISTER_TYPE_W;
-      tmp16.stride = 2;
-
-      /* Check for denormal */
-      fs_reg abs_src0 = op[0];
-      abs_src0.abs = true;
-      bld.CMP(bld.null_reg_f(), abs_src0, brw_imm_f(ldexpf(1.0, -14)),
-              BRW_CONDITIONAL_L);
-      /* Get the appropriately signed zero */
-      bld.AND(retype(zero, BRW_REGISTER_TYPE_UD),
-              retype(op[0], BRW_REGISTER_TYPE_UD),
-              brw_imm_ud(0x80000000));
-      /* Do the actual F32 -> F16 -> F32 conversion */
-      bld.emit(BRW_OPCODE_F32TO16, tmp16, op[0]);
-      bld.emit(BRW_OPCODE_F16TO32, tmp32, tmp16);
-      /* Select that or zero based on normal status */
-      inst = bld.SEL(result, zero, tmp32);
-      inst->predicate = BRW_PREDICATE_NORMAL;
-      break;
-   }
+   case nir_op_fquantize2f16:
+      unreachable("No SPIR-V support.");
 
    case nir_op_imin:
    case nir_op_umin:
@@ -1710,34 +1437,20 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       unreachable("not reached: should be handled by lower_packing_builtins");
 
    case nir_op_unpack_half_2x16_split_x_flush_to_zero:
-      assert(FLOAT_CONTROLS_DENORM_FLUSH_TO_ZERO_FP16 & execution_mode);
-      /* Fall-through */
-   case nir_op_unpack_half_2x16_split_x:
-      inst = bld.emit(BRW_OPCODE_F16TO32, result,
-                      subscript(op[0], BRW_REGISTER_TYPE_UW, 0));
-      break;
-
    case nir_op_unpack_half_2x16_split_y_flush_to_zero:
       assert(FLOAT_CONTROLS_DENORM_FLUSH_TO_ZERO_FP16 & execution_mode);
-      /* Fall-through */
+   case nir_op_unpack_half_2x16_split_x:
    case nir_op_unpack_half_2x16_split_y:
-      inst = bld.emit(BRW_OPCODE_F16TO32, result,
-                      subscript(op[0], BRW_REGISTER_TYPE_UW, 1));
-      break;
-
    case nir_op_pack_64_2x32_split:
+      unreachable("not reached: should have been lowered");
+
    case nir_op_pack_32_2x16_split:
       bld.emit(FS_OPCODE_PACK, result, op[0], op[1]);
       break;
 
    case nir_op_unpack_64_2x32_split_x:
-   case nir_op_unpack_64_2x32_split_y: {
-      if (instr->op == nir_op_unpack_64_2x32_split_x)
-         bld.MOV(result, subscript(op[0], BRW_REGISTER_TYPE_UD, 0));
-      else
-         bld.MOV(result, subscript(op[0], BRW_REGISTER_TYPE_UD, 1));
-      break;
-   }
+   case nir_op_unpack_64_2x32_split_y:
+      unreachable("not reached: should have been lowered");
 
    case nir_op_unpack_32_2x16_split_x:
    case nir_op_unpack_32_2x16_split_y: {
@@ -1753,14 +1466,8 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       break;
 
    case nir_op_bitfield_reverse:
-      assert(nir_dest_bit_size(instr->dest.dest) < 64);
-      bld.BFREV(result, op[0]);
-      break;
-
    case nir_op_bit_count:
-      assert(nir_dest_bit_size(instr->dest.dest) < 64);
-      bld.CBIT(result, op[0]);
-      break;
+      unreachable("not reached: should have been lowered");
 
    case nir_op_ufind_msb: {
       assert(nir_dest_bit_size(instr->dest.dest) < 64);
@@ -1768,37 +1475,15 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       break;
    }
 
-   case nir_op_uclz:
-      assert(nir_dest_bit_size(instr->dest.dest) == 32);
-      bld.LZD(retype(result, BRW_REGISTER_TYPE_UD), op[0]);
-      break;
-
-   case nir_op_ifind_msb: {
+   case nir_op_ifind_msb:
       assert(nir_dest_bit_size(instr->dest.dest) < 64);
-
-      if (devinfo->gen < 7) {
-         emit_find_msb_using_lzd(bld, result, op[0], true);
-      } else {
-         bld.FBH(retype(result, BRW_REGISTER_TYPE_UD), op[0]);
-
-         /* FBH counts from the MSB side, while GLSL's findMSB() wants the
-          * count from the LSB side. If FBH didn't return an error
-          * (0xFFFFFFFF), then subtract the result from 31 to convert the MSB
-          * count into an LSB count.
-          */
-         bld.CMP(bld.null_reg_d(), result, brw_imm_d(-1), BRW_CONDITIONAL_NZ);
-
-         inst = bld.ADD(result, result, brw_imm_d(31));
-         inst->predicate = BRW_PREDICATE_NORMAL;
-         inst->src[0].negate = true;
-      }
+      emit_find_msb_using_lzd(bld, result, op[0], true);
       break;
-   }
 
    case nir_op_find_lsb:
       assert(nir_dest_bit_size(instr->dest.dest) < 64);
 
-      if (devinfo->gen < 7) {
+      {
          fs_reg temp = vgrf(glsl_type::int_type);
 
          /* (x & -x) generates a value that consists of only the LSB of x.
@@ -1815,28 +1500,15 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
 
          bld.AND(temp, src, negated_src);
          emit_find_msb_using_lzd(bld, result, temp, false);
-      } else {
-         bld.FBL(result, op[0]);
       }
       break;
 
    case nir_op_ubitfield_extract:
    case nir_op_ibitfield_extract:
-      unreachable("should have been lowered");
    case nir_op_ubfe:
    case nir_op_ibfe:
-      assert(nir_dest_bit_size(instr->dest.dest) < 64);
-      bld.BFE(result, op[2], op[1], op[0]);
-      break;
    case nir_op_bfm:
-      assert(nir_dest_bit_size(instr->dest.dest) < 64);
-      bld.BFI1(result, op[0], op[1]);
-      break;
    case nir_op_bfi:
-      assert(nir_dest_bit_size(instr->dest.dest) < 64);
-      bld.BFI2(result, op[0], op[1], op[2]);
-      break;
-
    case nir_op_bitfield_insert:
       unreachable("not reached: should have been lowered");
 
@@ -1862,24 +1534,10 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       break;
 
    case nir_op_ffma:
-      if (nir_has_any_rounding_mode_enabled(execution_mode)) {
-         brw_rnd_mode rnd =
-            brw_rnd_mode_from_execution_mode(execution_mode);
-         bld.emit(SHADER_OPCODE_RND_MODE, bld.null_reg_ud(),
-                  brw_imm_d(rnd));
-      }
-
       inst = bld.MAD(result, op[2], op[1], op[0]);
       break;
 
    case nir_op_flrp:
-      if (nir_has_any_rounding_mode_enabled(execution_mode)) {
-         brw_rnd_mode rnd =
-            brw_rnd_mode_from_execution_mode(execution_mode);
-         bld.emit(SHADER_OPCODE_RND_MODE, bld.null_reg_ud(),
-                  brw_imm_d(rnd));
-      }
-
       inst = bld.LRP(result, op[0], op[1], op[2]);
       break;
 
