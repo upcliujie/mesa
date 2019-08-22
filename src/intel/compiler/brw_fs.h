@@ -660,6 +660,11 @@ uint32_t brw_fb_write_msg_control(const fs_inst *inst,
 
 void brw_compute_urb_setup_index(struct brw_wm_prog_data *wm_prog_data);
 
+bool nir_emit_alu_gen7(fs_visitor *v, const struct gen_device_info *devinfo,
+                       struct hash_table *range_ht,
+                       const brw::fs_builder &bld, nir_alu_instr *alu,
+                       bool need_dest);
+
 bool nir_emit_alu_gen8(fs_visitor *v, const struct gen_device_info *devinfo,
                        struct hash_table *range_ht,
                        const brw::fs_builder &bld, nir_alu_instr *alu,
