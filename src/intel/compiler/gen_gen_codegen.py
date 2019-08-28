@@ -557,6 +557,15 @@ nir_emit_alu_${pass_name}(fs_visitor *v, const struct gen_device_info *devinfo,
                                          ${pass_name}_immediates,
                                          alu->dest.saturate);
 
+         if (devinfo->gen <= 5 &&
+             !result.is_null() &&
+             (alu->instr.pass_flags & BRW_NIR_BOOLEAN_MASK) == BRW_NIR_BOOLEAN_NEEDS_RESOLVE) {
+            fs_reg masked = v->vgrf(glsl_type::int_type);
+            bld.AND(masked, result, brw_imm_d(1));
+            masked.negate = true;
+            bld.MOV(retype(result, BRW_REGISTER_TYPE_D), masked);
+         }
+
          return true;
       }
    }
