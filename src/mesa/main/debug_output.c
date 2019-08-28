@@ -631,7 +631,9 @@ debug_log_message(struct gl_debug_state *debug,
       _mesa_log("Mesa debug output: %.*s\n", len, buf);
    }
 
-   assert(len < MAX_DEBUG_MESSAGE_LENGTH);
+   /* truncate long messages before storing them */
+   if (len >= MAX_DEBUG_MESSAGE_LENGTH)
+      len = MAX_DEBUG_MESSAGE_LENGTH - 1;
 
    if (log->NumMessages == MAX_DEBUG_LOGGED_MESSAGES)
       return;
