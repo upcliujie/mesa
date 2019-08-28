@@ -214,8 +214,6 @@ public:
    void emit_gen6_gather_wa(uint8_t wa, fs_reg dst);
    fs_reg resolve_source_modifiers(const fs_reg &src);
    void emit_discard_jump();
-   void emit_fsign(const class brw::fs_builder &, const nir_alu_instr *instr,
-                   fs_reg result, fs_reg *op, unsigned fsign_src);
    void emit_shader_float_controls_execution_mode();
    bool opt_peephole_sel();
    bool opt_peephole_predicated_break();
@@ -288,11 +286,6 @@ public:
 
    void emit_percomp(const brw::fs_builder &bld, const fs_inst &inst,
                      unsigned wr_mask);
-
-   bool optimize_extract_to_float(nir_alu_instr *instr,
-                                  const fs_reg &result);
-   bool optimize_frontfacing_ternary(nir_alu_instr *instr,
-                                     const fs_reg &result);
 
    void emit_alpha_test();
    fs_inst *emit_single_fb_write(const brw::fs_builder &bld,
