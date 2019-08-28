@@ -580,28 +580,7 @@ fs_visitor::optimize_frontfacing_ternary(nir_alu_instr *instr,
 
    fs_reg tmp = vgrf(glsl_type::int_type);
 
-   if (devinfo->gen >= 6) {
-      /* Bit 15 of g0.0 is 0 if the polygon is front facing. */
-      fs_reg g0 = fs_reg(retype(brw_vec1_grf(0, 0), BRW_REGISTER_TYPE_W));
-
-      /* For (gl_FrontFacing ? 1.0 : -1.0), emit:
-       *
-       *    or(8)  tmp.1<2>W  g0.0<0,1,0>W  0x00003f80W
-       *    and(8) dst<1>D    tmp<8,8,1>D   0xbf800000D
-       *
-       * and negate g0.0<0,1,0>W for (gl_FrontFacing ? -1.0 : 1.0).
-       *
-       * This negation looks like it's safe in practice, because bits 0:4 will
-       * surely be TRIANGLES
-       */
-
-      if (value1 == -1.0f) {
-         g0.negate = true;
-      }
-
-      bld.OR(subscript(tmp, BRW_REGISTER_TYPE_W, 1),
-             g0, brw_imm_uw(0x3f80));
-   } else {
+   {
       /* Bit 31 of g1.6 is 0 if the polygon is front facing. */
       fs_reg g1_6 = fs_reg(retype(brw_vec1_grf(1, 6), BRW_REGISTER_TYPE_D));
 
@@ -736,44 +715,6 @@ fs_visitor::prepare_alu_destination_and_sources(const fs_builder &bld,
    }
 
    return result;
-}
-
-bool
-fs_visitor::try_emit_b2fi_of_inot(const fs_builder &bld,
-                                  fs_reg result,
-                                  nir_alu_instr *instr)
-{
-   if (devinfo->gen < 6 || devinfo->gen >= 12)
-      return false;
-
-   nir_alu_instr *inot_instr = nir_src_as_alu_instr(instr->src[0].src);
-
-   if (inot_instr == NULL || inot_instr->op != nir_op_inot)
-      return false;
-
-   /* HF is also possible as a destination on BDW+.  For nir_op_b2i, the set
-    * of valid size-changing combinations is a bit more complex.
-    *
-    * The source restriction is just because I was lazy about generating the
-    * constant below.
-    */
-   if (nir_dest_bit_size(instr->dest.dest) != 32 ||
-       nir_src_bit_size(inot_instr->src[0].src) != 32)
-      return false;
-
-   /* b2[fi](inot(a)) maps a=0 => 1, a=-1 => 0.  Since a can only be 0 or -1,
-    * this is float(1 + a).
-    */
-   fs_reg op;
-
-   prepare_alu_destination_and_sources(bld, inot_instr, &op, false);
-
-   /* Ignore the saturate modifier, if there is one.  The result of the
-    * arithmetic can only be 0 or 1, so the clamping will do nothing anyway.
-    */
-   bld.ADD(result, op, brw_imm_d(1));
-
-   return true;
 }
 
 /**
@@ -1063,8 +1004,6 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
    case nir_op_b2i16:
    case nir_op_b2i32:
    case nir_op_b2f32:
-      if (try_emit_b2fi_of_inot(bld, result, instr))
-         break;
       op[0].type = BRW_REGISTER_TYPE_D;
       op[0].negate = !op[0].negate;
       /* fallthrough */
