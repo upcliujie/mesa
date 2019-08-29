@@ -54,6 +54,37 @@ add_with_conversion = [
     # this is float(1 + a).
     (('b2f32', ('inot', a)), Instruction('ADD', r, retype(a, D), imm(1, D))),
     (('b2i32', ('inot', a)), Instruction('ADD', r, retype(a, D), imm(1, D))),
+
+    # Arithmetic with type conversions
+    #
+    # It would be wonderful to use this for float(int(a) + int(b)), but the
+    # integer -> float conversion path in the hardware is implemented in a way
+    # that prevents this.  Section "Execution Data Types" of Volume 7: 3D
+    # Media GPGPU of the Skylake PRMs says:
+    #
+    #    For integer execution types, extra precision is provided within the
+    #    hardware, including the accumulators, so that conversions from
+    #    unsigned to signed do not affect instruction correctness.
+    #
+    # I have experimentally deteremined that the integer -> float conversion
+    # occurs from this higher precision value, and this is the wrong answer.
+    # A sequence of instructions like
+    #
+    #    mov         g3<1>UD         g2<0,1,0>UD     0xfff00000UD
+    #    add         g5<1>F          g2<0,1,0>UD     0x00ff0000UD
+    #
+    # Will result in g5 being 4310630400.0 (i.e., float(0x100ef0000)) instead
+    # of 15663104.0.
+    #
+    # This means that we could use it for cases like float(int(a)) +
+    # float(int(b)), but this prevents cmod propagation from eliminating
+    # partially redundant comparisons of float(a) != -float(b).
+
+    (('fadd', ('b2f32', a), ('b2f32', b)), Instruction('ADD', r, neg(retype(a, D)), neg(retype(b, D)))),
+    (('fadd', ('fadd(is_used_once)', ('b2f32', a), ('b2f32', b)), ('b2f32', c)),
+     [TempReg(t0, D),
+      Instruction('ADD', t0, neg(retype(a, D)), neg(retype(b, D))),
+      Instruction('ADD', r,  neg(retype(c, D)), t0)]),
 ]
 
 conversions = [
