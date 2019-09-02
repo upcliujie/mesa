@@ -666,18 +666,18 @@ binop_reduce("b32any_inequal", 1, tbool32, tint, "{src0} != {src1}",
 
 # non-integer-aware GLSL-style comparisons that return 0.0 or 1.0
 
-binop_reduce("fall_equal",  1, tfloat32, tfloat32, "{src0} == {src1}",
+binop_reduce("fall_equal",  1, tfloat, tfloat, "{src0} == {src1}",
              "{src0} && {src1}", "{src} ? 1.0f : 0.0f")
-binop_reduce("fany_nequal", 1, tfloat32, tfloat32, "{src0} != {src1}",
+binop_reduce("fany_nequal", 1, tfloat, tfloat, "{src0} != {src1}",
              "{src0} || {src1}", "{src} ? 1.0f : 0.0f")
 
 # These comparisons for integer-less hardware return 1.0 and 0.0 for true
 # and false respectively
 
-binop("slt", tfloat32, "", "(src0 < src1) ? 1.0f : 0.0f") # Set on Less Than
+binop("slt", tfloat, "", "(src0 < src1) ? 1.0f : 0.0f") # Set on Less Than
 binop("sge", tfloat, "", "(src0 >= src1) ? 1.0f : 0.0f") # Set on Greater or Equal
-binop("seq", tfloat32, _2src_commutative, "(src0 == src1) ? 1.0f : 0.0f") # Set on Equal
-binop("sne", tfloat32, _2src_commutative, "(src0 != src1) ? 1.0f : 0.0f") # Set on Not Equal
+binop("seq", tfloat, _2src_commutative, "(src0 == src1) ? 1.0f : 0.0f") # Set on Equal
+binop("sne", tfloat, _2src_commutative, "(src0 != src1) ? 1.0f : 0.0f") # Set on Not Equal
 
 # SPIRV shifts are undefined for shift-operands >= bitsize,
 # but SM5 shifts are defined to use the least significant bits, only
@@ -835,7 +835,9 @@ triop("flrp", tfloat, "", "src0 * (1 - src2) + src1 * src2")
 # bools (0.0 vs 1.0) and one for integer bools (0 vs ~0).
 
 
-triop("fcsel", tfloat32, "", "(src0 != 0.0f) ? src1 : src2")
+triop("fcsel", tfloat, "", ("bit_size == 64 ? " +
+                            "((src0 != 0.0) ? src1 : src2) : " +
+                            "((src0 != 0.0f) ? src1 : src2)"))
 
 # 3 way min/max/med
 triop("fmin3", tfloat, "", "fminf(src0, fminf(src1, src2))")
