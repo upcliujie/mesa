@@ -108,6 +108,7 @@ get_fog_mode_signed(unsigned mode)
 		return NV20_3D_FOG_MODE_EXP2_SIGNED;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -123,6 +124,7 @@ get_fog_mode_unsigned(unsigned mode)
 		return NV20_3D_FOG_MODE_EXP2_UNSIGNED;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -142,9 +144,11 @@ get_fog_source(unsigned source, unsigned distance_mode)
 			return NV20_3D_FOG_COORD_DIST_RADIAL;
 		default:
 			assert(0);
+			return 0;
 		}
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

@@ -102,6 +102,7 @@ get_hw_format(int type)
 		return NV10_3D_VTXBUF_FMT_TYPE_U8_UNORM;
 	default:
 		assert(0);
+		return -1;
 	}
 }
 

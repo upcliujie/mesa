@@ -69,6 +69,7 @@ swzsurf_format(mesa_format format)
 
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -108,6 +109,7 @@ surf2d_format(mesa_format format)
 
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -147,6 +149,7 @@ rect_format(mesa_format format)
 
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -186,6 +189,7 @@ sifm_format(mesa_format format)
 
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

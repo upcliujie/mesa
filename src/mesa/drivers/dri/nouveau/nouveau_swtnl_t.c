@@ -45,6 +45,7 @@ swtnl_get_format(int type, int fields) {
 			return EMIT_4F;
 		default:
 			assert(0);
+			return EMIT_MAX;
 		}
 	case GL_UNSIGNED_BYTE:
 		switch (fields) {
@@ -52,9 +53,11 @@ swtnl_get_format(int type, int fields) {
 			return EMIT_4UB_4F_RGBA;
 		default:
 			assert(0);
+			return EMIT_MAX;
 		}
 	default:
 		assert(0);
+		return EMIT_MAX;
 	}
 }
 

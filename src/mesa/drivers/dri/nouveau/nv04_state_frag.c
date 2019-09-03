@@ -107,6 +107,7 @@ get_input_source(struct combiner_state *rc, int source)
 
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -246,6 +247,7 @@ get_texenv_mode(unsigned mode)
 		return 0x4;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

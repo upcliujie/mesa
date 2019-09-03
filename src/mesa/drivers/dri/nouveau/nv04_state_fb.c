@@ -43,6 +43,7 @@ get_rt_format(mesa_format format)
 		return NV04_CONTEXT_SURFACES_3D_FORMAT_COLOR_R5G6B5;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

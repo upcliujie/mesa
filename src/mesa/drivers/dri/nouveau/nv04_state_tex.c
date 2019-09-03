@@ -54,6 +54,7 @@ get_tex_format(struct gl_texture_image *ti)
 		return NV04_TEXTURED_TRIANGLE_FORMAT_COLOR_X8R8G8B8;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

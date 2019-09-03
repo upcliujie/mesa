@@ -129,6 +129,7 @@ get_input_source(struct combiner_state *rc, int source)
 
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

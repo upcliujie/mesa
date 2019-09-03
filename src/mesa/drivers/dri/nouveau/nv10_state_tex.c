@@ -125,6 +125,7 @@ get_tex_format_pot(struct gl_texture_image *ti)
 
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -149,6 +150,7 @@ get_tex_format_rect(struct gl_texture_image *ti)
 
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

@@ -63,6 +63,7 @@ nvgl_blend_func(unsigned func)
 		return 0x8004;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -82,6 +83,7 @@ nvgl_blend_eqn(unsigned eqn)
 		return 0x800b;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -107,6 +109,7 @@ nvgl_comparison_op(unsigned op)
 		return 0x0207;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -122,6 +125,7 @@ nvgl_polygon_mode(unsigned mode)
 		return 0x1b02;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -147,6 +151,7 @@ nvgl_stencil_op(unsigned op)
 		return 0x8508;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -176,6 +181,7 @@ nvgl_primitive(unsigned prim)
 		return 0x000a;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -194,6 +200,7 @@ nvgl_wrap_mode(unsigned wrap)
 		return 0x4;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -234,6 +241,7 @@ nvgl_filter_mode(unsigned filter)
 		return 0x6;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -253,6 +261,7 @@ nvgl_texgen_mode(unsigned mode)
 		return 0x8512;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

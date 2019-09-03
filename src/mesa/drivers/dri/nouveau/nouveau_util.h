@@ -50,6 +50,7 @@ pack_rgba_i(mesa_format f, const uint8_t c[])
 		return PACK_COLOR_565(c[RCOMP], c[GCOMP], c[BCOMP]);
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -65,6 +66,7 @@ pack_zs_i(mesa_format f, uint32_t z, uint8_t s)
 		return (z & 0xffff0000) >> 16;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

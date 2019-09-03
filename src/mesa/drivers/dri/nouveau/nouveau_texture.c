@@ -246,6 +246,7 @@ nouveau_choose_tex_format(struct gl_context *ctx, GLenum target,
 
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

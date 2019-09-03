@@ -54,6 +54,7 @@ get_comparison_op(unsigned op)
 		return 0x8;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -79,6 +80,7 @@ get_stencil_op(unsigned op)
 		return 0x8;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
@@ -110,6 +112,7 @@ get_blend_func(unsigned func)
 		return 0xb;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 

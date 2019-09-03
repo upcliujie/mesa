@@ -126,6 +126,7 @@ get_hw_format(int type)
 		return NV20_3D_VTXBUF_FMT_TYPE_UBYTE;
 	default:
 		assert(0);
+		return -1;
 	}
 }
 

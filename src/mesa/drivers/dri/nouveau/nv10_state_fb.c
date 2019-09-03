@@ -48,6 +48,7 @@ get_rt_format(mesa_format format)
 		return NV10_3D_RT_FORMAT_DEPTH_Z24S8;
 	default:
 		assert(0);
+		return 0;
 	}
 }
 
