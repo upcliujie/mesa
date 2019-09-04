@@ -437,11 +437,12 @@ fill_io_signature(struct dxil_module *mod, int id,
 
 static unsigned
 get_input_signature_group(struct dxil_module *mod, const struct dxil_mdnode **inputs,
-                          unsigned num_inputs, struct exec_list *nir_vars,
+                          unsigned num_inputs,
+                          nir_shader *s, nir_variable_mode modes,
                           sematic_info_proc get_semantics, unsigned *row_iter,
                           bool is_gs_shader)
 {
-   nir_foreach_variable(var, nir_vars) {
+   nir_foreach_variable_with_modes(var, s, modes) {
       struct semantic_info semantic = {0};
       get_semantics(var, &semantic);
       mod->inputs[num_inputs].sysvalue = semantic.sysvalue_name;
@@ -466,24 +467,29 @@ get_input_signature_group(struct dxil_module *mod, const struct dxil_mdnode **in
 static const struct dxil_mdnode *
 get_input_signature(struct dxil_module *mod, nir_shader *s)
 {
-   if (s->info.stage == MESA_SHADER_KERNEL || (exec_list_is_empty(&s->inputs) &&
-                                               exec_list_is_empty(&s->system_values)))
+   if (s->info.stage == MESA_SHADER_KERNEL)
       return NULL;
 
    const struct dxil_mdnode *inputs[VARYING_SLOT_MAX];
    unsigned next_row = 0;
    bool is_gs_shader = s->info.stage == MESA_SHADER_GEOMETRY;
 
-   mod->num_sig_inputs = get_input_signature_group(mod, inputs, 0, &s->inputs,
+   mod->num_sig_inputs = get_input_signature_group(mod, inputs, 0,
+                                                   s, nir_var_shader_in,
                                                    s->info.stage == MESA_SHADER_VERTEX ?
                                                       get_semantic_vs_in_name :
                                                       (s->info.stage == MESA_SHADER_GEOMETRY ?
                                                          get_semantic_gs_in_name : get_semantic_in_name),
                                                    &next_row, is_gs_shader);
 
-   mod->num_sig_inputs = get_input_signature_group(mod, inputs, mod->num_sig_inputs, &s->system_values,
+   mod->num_sig_inputs = get_input_signature_group(mod, inputs, mod->num_sig_inputs,
+                                                   s, nir_var_system_value,
                                                    get_semantic_sv_name,
                                                    &next_row, is_gs_shader);
+
+   if (!mod->num_sig_inputs && !mod->num_sig_inputs)
+      return NULL;
+
    mod->num_psv_inputs = next_row;
 
    const struct dxil_mdnode *retval = mod->num_sig_inputs ?
@@ -512,13 +518,10 @@ static const char *out_sysvalue_name(nir_variable *var)
 static const struct dxil_mdnode *
 get_output_signature(struct dxil_module *mod, nir_shader *s)
 {
-   if (exec_list_is_empty(&s->outputs))
-      return NULL;
-
    const struct dxil_mdnode *outputs[VARYING_SLOT_MAX];
    unsigned num_outputs = 0;
    unsigned next_row = 0;
-   nir_foreach_variable(var, &s->outputs) {
+   nir_foreach_variable_with_modes(var, s, nir_var_shader_out) {
       struct semantic_info semantic = {0};
 
       if (s->info.stage == MESA_SHADER_FRAGMENT) {
@@ -555,6 +558,9 @@ get_output_signature(struct dxil_module *mod, nir_shader *s)
 
       assert(num_outputs < ARRAY_SIZE(outputs));
    }
+
+   if (!num_outputs)
+      return NULL;
 
    const struct dxil_mdnode *retval = dxil_get_metadata_node(mod, outputs, num_outputs);
    mod->num_sig_outputs = num_outputs;
