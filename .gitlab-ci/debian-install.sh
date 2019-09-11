@@ -273,12 +273,10 @@ rm -rf /VK-GL-CTS
 ############### Uninstall the build software
 
 apt-get purge -y \
-      git \
       curl \
       unzip \
       gnupg \
       cmake \
-      git \
       libgles2-mesa-dev \
       libgbm-dev
 
