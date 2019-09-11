@@ -20,6 +20,7 @@ variables:
   DEBIAN_ARM64_VERSION: buster-slim
   DEBIAN_IMAGE: "$CI_REGISTRY_IMAGE/debian/$DEBIAN_VERSION:$DEBIAN_TAG"
   DEBIAN_ARM64_IMAGE: "$CI_REGISTRY_IMAGE/debian/$DEBIAN_ARM64_VERSION:$DEBIAN_ARM64_TAG"
+  GIT_STRATEGY: fetch
 
 include:
   - project: 'wayland/ci-templates'
@@ -28,6 +29,7 @@ include:
 
 stages:
   - containers
+  - style
   - build
   - test
 
@@ -78,6 +80,7 @@ test-container:arm64:
   <<: *ci-run-policy
   image: $DEBIAN_IMAGE
   stage: build
+  needs: [debian]
   cache:
     paths:
       - ccache
@@ -440,3 +443,16 @@ arm64_a630_gles31:
   extends: .cheza-test
   variables:
     DEQP_VER: gles31
+
+style-check:
+  <<: *ci-run-policy
+  image: $DEBIAN_IMAGE
+  needs: [debian]
+  stage: style
+  only: [merge_requests]
+  script:
+    - .gitlab-ci/check-style.sh
+  allow_failure: true
+  artifacts:
+    when: on_failure
+    untracked: true
