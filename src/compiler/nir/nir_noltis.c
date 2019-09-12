@@ -37,6 +37,8 @@
 nir_noltis_node *
 nir_noltis_get_node(nir_noltis *noltis, nir_instr *instr)
 {
+   if (!instr)
+      return NULL;
    struct hash_entry *entry = _mesa_hash_table_search(noltis->ht, instr);
    if (!entry)
       return NULL;
