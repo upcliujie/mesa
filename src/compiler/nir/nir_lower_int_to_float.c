@@ -139,8 +139,12 @@ nir_lower_int_to_float_impl(nir_function_impl *impl)
          case nir_instr_type_load_const: {
             nir_load_const_instr *load = nir_instr_as_load_const(instr);
             if (load->def.bit_size != 1 && BITSET_TEST(int_types, load->def.index)) {
-               for (unsigned i = 0; i < load->def.num_components; i++)
-                  load->value[i].f32 = load->value[i].i32;
+               for (unsigned i = 0; i < load->def.num_components; i++) {
+                  if (load->def.bit_size == 16)
+                     load->value[i].u16 = _mesa_float_to_half(load->value[i].i16);
+                  else
+                     load->value[i].f32 = load->value[i].i32;
+               }
             }
             break;
          }
