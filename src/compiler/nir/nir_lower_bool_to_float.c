@@ -60,9 +60,7 @@ lower_alu_instr(nir_builder *b, nir_alu_instr *alu)
       break;
 
    case nir_op_b2f32: alu->op = nir_op_mov; break;
-   case nir_op_b2i32: alu->op = nir_op_mov; break;
    case nir_op_f2b1:
-   case nir_op_i2b1:
       rep = nir_sne(b, nir_ssa_for_alu_src(b, alu, 0),
                        nir_imm_float(b, 0));
       break;
@@ -71,12 +69,8 @@ lower_alu_instr(nir_builder *b, nir_alu_instr *alu)
    case nir_op_fge: alu->op = nir_op_sge; break;
    case nir_op_feq: alu->op = nir_op_seq; break;
    case nir_op_fne: alu->op = nir_op_sne; break;
-   case nir_op_ilt: alu->op = nir_op_slt; break;
-   case nir_op_ige: alu->op = nir_op_sge; break;
    case nir_op_ieq: alu->op = nir_op_seq; break;
    case nir_op_ine: alu->op = nir_op_sne; break;
-   case nir_op_ult: alu->op = nir_op_slt; break;
-   case nir_op_uge: alu->op = nir_op_sge; break;
 
    case nir_op_ball_fequal2:  alu->op = nir_op_fall_equal2; break;
    case nir_op_ball_fequal3:  alu->op = nir_op_fall_equal3; break;
