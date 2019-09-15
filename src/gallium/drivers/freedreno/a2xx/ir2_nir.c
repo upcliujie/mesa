@@ -1101,7 +1101,7 @@ ir2_nir_compile(struct ir2_context *ctx, bool binning)
 	OPT_V(ctx->nir, nir_opt_move, nir_move_comparisons);
 
 	OPT_V(ctx->nir, nir_lower_int_to_float);
-	OPT_V(ctx->nir, nir_lower_bool_to_float);
+	OPT_V(ctx->nir, nir_lower_bool_to_float, 32);
 	while(OPT(ctx->nir, nir_opt_algebraic));
 	OPT_V(ctx->nir, nir_opt_algebraic_late);
 	OPT_V(ctx->nir, nir_lower_to_source_mods, nir_lower_all_source_mods);

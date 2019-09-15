@@ -625,7 +625,7 @@ etna_compile_shader_nir(struct etna_shader_variant *v)
     */
    OPT_V(s, nir_lower_int_to_float);
    OPT_V(s, nir_opt_algebraic);
-   OPT_V(s, nir_lower_bool_to_float);
+   OPT_V(s, nir_lower_bool_to_float, 32);
 
    /* after int to float because insert i2f for instance_id */
    OPT_V(s, etna_lower_io, v);
