@@ -592,6 +592,20 @@ nir_vector_extract(nir_builder *b, nir_ssa_def *vec, nir_ssa_def *c)
 }
 
 static inline nir_ssa_def *
+nir_f2f(nir_builder *build, nir_ssa_def *x, unsigned dest_bit_size)
+{
+   if (x->bit_size == dest_bit_size)
+      return x;
+
+   switch (dest_bit_size) {
+   case 64: return nir_f2f64(build, x);
+   case 32: return nir_f2f32(build, x);
+   case 16: return nir_f2f16(build, x);
+   default: unreachable("Invalid bit size");
+   }
+}
+
+static inline nir_ssa_def *
 nir_i2i(nir_builder *build, nir_ssa_def *x, unsigned dest_bit_size)
 {
    if (x->bit_size == dest_bit_size)
