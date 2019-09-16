@@ -93,7 +93,7 @@ upload_blorp_shader(struct blorp_batch *batch,
 void
 anv_device_init_blorp(struct anv_device *device)
 {
-   blorp_init(&device->blorp, device, &device->isl_dev);
+   blorp_init(&device->blorp, device, device, &device->isl_dev);
    device->blorp.compiler = device->instance->physicalDevice.compiler;
    device->blorp.lookup_shader = lookup_blorp_shader;
    device->blorp.upload_shader = upload_blorp_shader;

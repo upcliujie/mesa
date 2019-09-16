@@ -40,6 +40,7 @@ struct blorp_params;
 
 struct blorp_context {
    void *driver_ctx;
+   void *log_data;
 
    const struct isl_device *isl_dev;
 
@@ -58,7 +59,7 @@ struct blorp_context {
 };
 
 void blorp_init(struct blorp_context *blorp, void *driver_ctx,
-                struct isl_device *isl_dev);
+                void *log_data, struct isl_device *isl_dev);
 void blorp_finish(struct blorp_context *blorp);
 
 enum blorp_batch_flags {

@@ -31,10 +31,12 @@
 
 void
 blorp_init(struct blorp_context *blorp, void *driver_ctx,
+           void *log_data,
            struct isl_device *isl_dev)
 {
    blorp->driver_ctx = driver_ctx;
    blorp->isl_dev = isl_dev;
+   blorp->log_data = log_data;
 }
 
 void
@@ -205,7 +207,7 @@ blorp_compile_fs(struct blorp_context *blorp, void *mem_ctx,
    }
 
    const unsigned *program =
-      brw_compile_fs(compiler, blorp->driver_ctx, mem_ctx, wm_key,
+      brw_compile_fs(compiler, blorp->log_data, mem_ctx, wm_key,
                      wm_prog_data, nir, -1, -1, -1, false, use_repclear,
                      NULL, NULL, NULL);
 
