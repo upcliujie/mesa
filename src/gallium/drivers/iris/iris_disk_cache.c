@@ -31,6 +31,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "compiler/brw_eu.h"
 #include "compiler/nir/nir.h"
 #include "util/blob.h"
 #include "util/build_id.h"
@@ -211,6 +212,36 @@ iris_disk_cache_retrieve(struct iris_context *ice,
 
    if (num_system_values)
       num_cbufs++;
+
+   if (INTEL_DEBUG & intel_debug_flag_for_shader_stage(stage)) {
+      char *buf;
+      size_t buf_size;
+      const struct brw_compiler *compiler = screen->compiler;
+
+      FILE * log_fp = open_memstream(&buf, &buf_size);
+      fprintf(log_fp, "NIR for %s program %s loaded from disk shader cache:\n",
+              _mesa_shader_stage_to_abbrev(stage),
+              ish->nir->info.name);
+      nir_print_shader(ish->nir, log_fp);
+      fclose(log_fp);
+      static GLuint nir_msg_id = 0;
+      compiler->shader_debug_log(&ice->dbg, &nir_msg_id, "%s", buf);
+      fputs(buf, stderr);
+      free(buf);
+
+      log_fp = open_memstream(&buf, &buf_size);
+      fprintf(log_fp, "Native code for %s %s shader %s from disk cache:\n",
+              ish->nir->info.label ? ish->nir->info.label : "unnamed",
+              _mesa_shader_stage_to_string(ish->nir->info.stage), ish->nir->info.name);
+      struct iris_screen *screen = (struct iris_screen *) ice->ctx.screen;
+      brw_disassemble(&screen->devinfo, assembly, 0,
+                      prog_data->program_size, log_fp);
+      fclose(log_fp);
+      static GLuint native_msg_id = 0;
+      compiler->shader_debug_log(&ice->dbg, &native_msg_id, "%s", buf);
+      fputs(buf, stderr);
+      free(buf);
+   }
 
    /* Upload our newly read shader to the in-memory program cache and
     * return it to the caller.
