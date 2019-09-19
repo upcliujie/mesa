@@ -908,6 +908,10 @@ genX(upload_cut_index)(struct brw_context *brw)
          vf.IndexedDrawCutIndexEnable = true;
          vf.CutIndex = _mesa_primitive_restart_index(ctx, brw->ib.index_size);
       }
+
+#if GEN_GEN >= 11
+      vf.VertexIDOffsetEnable = true;
+#endif
    }
 }
 

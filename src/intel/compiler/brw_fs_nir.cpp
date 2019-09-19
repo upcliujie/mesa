@@ -123,8 +123,6 @@ emit_system_values_block(nir_block *block, fs_visitor *v)
       switch (intrin->intrinsic) {
       case nir_intrinsic_load_vertex_id:
       case nir_intrinsic_load_base_vertex:
-         unreachable("should be lowered by nir_lower_system_values().");
-
       case nir_intrinsic_load_vertex_id_zero_base:
       case nir_intrinsic_load_is_indexed_draw:
       case nir_intrinsic_load_first_vertex:

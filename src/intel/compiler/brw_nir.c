@@ -190,6 +190,7 @@ brw_nir_lower_vs_inputs(nir_shader *nir,
       nir->info.system_values_read &
       (BITFIELD64_BIT(SYSTEM_VALUE_FIRST_VERTEX) |
        BITFIELD64_BIT(SYSTEM_VALUE_BASE_INSTANCE) |
+       BITFIELD64_BIT(SYSTEM_VALUE_VERTEX_ID) |
        BITFIELD64_BIT(SYSTEM_VALUE_VERTEX_ID_ZERO_BASE) |
        BITFIELD64_BIT(SYSTEM_VALUE_INSTANCE_ID));
 
@@ -212,6 +213,7 @@ brw_nir_lower_vs_inputs(nir_shader *nir,
             switch (intrin->intrinsic) {
             case nir_intrinsic_load_first_vertex:
             case nir_intrinsic_load_base_instance:
+            case nir_intrinsic_load_vertex_id:
             case nir_intrinsic_load_vertex_id_zero_base:
             case nir_intrinsic_load_instance_id:
             case nir_intrinsic_load_is_indexed_draw:
@@ -234,6 +236,7 @@ brw_nir_lower_vs_inputs(nir_shader *nir,
                case nir_intrinsic_load_base_instance:
                   nir_intrinsic_set_component(load, 1);
                   break;
+               case nir_intrinsic_load_vertex_id:
                case nir_intrinsic_load_vertex_id_zero_base:
                   nir_intrinsic_set_component(load, 2);
                   break;

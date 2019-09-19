@@ -5509,6 +5509,10 @@ iris_upload_dirty_render_state(struct iris_context *ice,
             vf.IndexedDrawCutIndexEnable = true;
             vf.CutIndex = draw->restart_index;
          }
+
+#if GEN_GEN >= 11
+         vf.VertexIDOffsetEnable = true;
+#endif
       }
    }
 

@@ -2886,6 +2886,7 @@ brw_compile_vs(const struct brw_compiler *compiler, void *log_data,
    if (shader->info.system_values_read &
        (BITFIELD64_BIT(SYSTEM_VALUE_FIRST_VERTEX) |
         BITFIELD64_BIT(SYSTEM_VALUE_BASE_INSTANCE) |
+        BITFIELD64_BIT(SYSTEM_VALUE_VERTEX_ID) |
         BITFIELD64_BIT(SYSTEM_VALUE_VERTEX_ID_ZERO_BASE) |
         BITFIELD64_BIT(SYSTEM_VALUE_INSTANCE_ID))) {
       nr_attribute_slots++;
@@ -2911,7 +2912,8 @@ brw_compile_vs(const struct brw_compiler *compiler, void *log_data,
       prog_data->uses_baseinstance = true;
 
    if (shader->info.system_values_read &
-       BITFIELD64_BIT(SYSTEM_VALUE_VERTEX_ID_ZERO_BASE))
+       (BITFIELD64_BIT(SYSTEM_VALUE_VERTEX_ID_ZERO_BASE) |
+        BITFIELD64_BIT(SYSTEM_VALUE_VERTEX_ID)))
       prog_data->uses_vertexid = true;
 
    if (shader->info.system_values_read &

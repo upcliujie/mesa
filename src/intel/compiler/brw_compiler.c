@@ -180,6 +180,8 @@ brw_compiler_create(void *mem_ctx, const struct gen_device_info *devinfo)
          *nir_options = vector_nir_options;
       }
 
+      nir_options->vertex_id_zero_based = devinfo->gen < 11;
+
       /* Prior to Gen6, there are no three source operations, and Gen11 loses
        * LRP.
        */
