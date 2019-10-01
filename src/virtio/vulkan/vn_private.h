@@ -13,6 +13,7 @@
 
 #include "vn_common.h"
 
+#include "vn_cs.h"
 #include "vn_device.h"
 #include "vn_icd.h"
 
