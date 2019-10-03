@@ -375,7 +375,7 @@ destroy_shader_window(struct window *win)
 }
 
 static struct shader_window *
-new_shader_window(struct aub_mem *mem, uint64_t address, const char *desc)
+new_shader_window(struct aub_mem *mem, uint64_t address, bool ppgtt, const char *desc)
 {
    struct shader_window *window = xtzalloc(*window);
 
@@ -390,7 +390,9 @@ new_shader_window(struct aub_mem *mem, uint64_t address, const char *desc)
    window->base.destroy = destroy_shader_window;
 
    struct gen_batch_decode_bo shader_bo =
-      aub_mem_get_ppgtt_bo(mem, address);
+      ppgtt ?
+      aub_mem_get_ppgtt_bo(mem, address) :
+      aub_mem_get_ggtt_bo(mem, address);
    if (shader_bo.map) {
       FILE *f = open_memstream(&window->shader, &window->shader_size);
       if (f) {
@@ -648,7 +650,7 @@ batch_display_shader(void *user_data, const char *shader_desc, uint64_t address)
 {
    struct batch_window *window = (struct batch_window *) user_data;
    struct shader_window *shader_window =
-      new_shader_window(&window->mem, address, shader_desc);
+      new_shader_window(&window->mem, address, window->uses_ppgtt, shader_desc);
 
    list_add(&shader_window->base.parent_link, &window->base.children_windows);
 }
