@@ -2847,6 +2847,11 @@ tc_fence_server_signal(struct pipe_context *_pipe,
 
    call->fence = NULL;
    screen->fence_reference(screen, &call->fence, fence);
+
+   /* This is called by glSignalSemaphoreEXT. We must flush TC to ensure that
+    * the fence is going to be signaled in a finite time.
+    */
+   tc_batch_flush(tc);
 }
 
 static struct pipe_video_codec *
