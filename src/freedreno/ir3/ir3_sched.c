@@ -522,6 +522,24 @@ find_instr_recursive(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 	return NULL;
 }
 
+static int use_count(struct ir3_instruction *instr)
+{
+	if (instr->opc == OPC_META_SPLIT) {
+		return use_count(ssa(instr->regs[1]));
+	} else if (instr->opc == OPC_META_COLLECT) {
+		struct ir3_instruction *src;
+		int uc = 0;
+
+		foreach_ssa_src(src, instr) {
+			int n = use_count(src);
+			uc = MAX2(uc, n);
+		}
+
+		return uc;
+	}
+	return instr->use_count;
+}
+
 /* find net change to live values if instruction were scheduled: */
 static int
 live_effect(struct ir3_instruction *instr)
@@ -537,34 +555,11 @@ live_effect(struct ir3_instruction *instr)
 		if (instr->block != src->block)
 			continue;
 
-		/* for split, just pass things along to the real src: */
-		if (src->opc == OPC_META_SPLIT)
-			src = ssa(src->regs[1]);
+		int uc = use_count(src);
+		debug_assert(uc > 0);
 
-		/* for collect, if this is the last use of *each* src,
-		 * then it will decrease the live values, since RA treats
-		 * them as a whole:
-		 */
-		if (src->opc == OPC_META_COLLECT) {
-			struct ir3_instruction *src2;
-			bool last_use = true;
-
-			foreach_ssa_src(src2, src) {
-				if (src2->use_count > 1) {
-					last_use = false;
-					break;
-				}
-			}
-
-			if (last_use)
-				old_live += dest_regs(src);
-
-		} else {
-			debug_assert(src->use_count > 0);
-
-			if (src->use_count == 1) {
-				old_live += dest_regs(src);
-			}
+		if (uc == 1) {
+			old_live += dest_regs(src);
 		}
 	}
 
