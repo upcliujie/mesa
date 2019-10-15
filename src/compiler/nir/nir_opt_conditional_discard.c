@@ -120,29 +120,37 @@ nir_opt_conditional_discard_block(nir_builder *b, nir_block *block)
 }
 
 bool
-nir_opt_conditional_discard(nir_shader *shader)
+nir_opt_conditional_discard_impl(nir_function_impl *impl)
 {
    bool progress = false;
 
    nir_builder builder;
+   nir_builder_init(&builder, impl);
+
+   nir_foreach_block_safe(block, impl) {
+      if (nir_opt_conditional_discard_block(&builder, block))
+         progress = true;
+   }
+
+   if (progress) {
+      nir_metadata_preserve(impl, nir_metadata_block_index |
+                                  nir_metadata_dominance);
+   } else {
+      nir_metadata_preserve(impl, nir_metadata_all);
+   }
+
+   return progress;
+}
+
+bool
+nir_opt_conditional_discard(nir_shader *shader)
+{
+   bool progress = false;
 
    nir_foreach_function(function, shader) {
-      if (function->impl) {
-         nir_builder_init(&builder, function->impl);
-
-         bool impl_progress = false;
-         nir_foreach_block_safe(block, function->impl) {
-            if (nir_opt_conditional_discard_block(&builder, block))
-               impl_progress = true;
-         }
-
-         if (impl_progress) {
-            nir_metadata_preserve(function->impl, nir_metadata_none);
-            progress = true;
-         } else {
-            nir_metadata_preserve(function->impl, nir_metadata_all);
-         }
-      }
+      if (function->impl && nir_opt_conditional_discard_impl(function->impl))
+         progress = true;
    }
+
    return progress;
 }

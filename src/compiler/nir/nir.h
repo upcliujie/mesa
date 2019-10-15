@@ -5111,6 +5111,7 @@ typedef bool (*nir_opt_vectorize_cb)(const nir_instr *a, const nir_instr *b,
 bool nir_opt_vectorize(nir_shader *shader, nir_opt_vectorize_cb filter,
                        void *data);
 
+bool nir_opt_conditional_discard_impl(nir_function_impl *impl);
 bool nir_opt_conditional_discard(nir_shader *shader);
 
 typedef bool (*nir_should_vectorize_mem_func)(unsigned align_mul,
