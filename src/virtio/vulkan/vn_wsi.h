@@ -8,15 +8,17 @@
  * Copyright © 2016 Bas Nieuwenhuizen
  */
 
-#ifndef VN_PRIVATE_H
-#define VN_PRIVATE_H
+#ifndef VN_WSI_H
+#define VN_WSI_H
 
 #include "vn_common.h"
 
-#include "vn_cs.h"
-#include "vn_device.h"
-#include "vn_icd.h"
-#include "vn_renderer.h"
-#include "vn_wsi.h"
+#include "wsi_common.h"
 
-#endif /* VN_PRIVATE_H */
+VkResult
+vn_wsi_init(struct vn_physical_device *physical_dev);
+
+void
+vn_wsi_fini(struct vn_physical_device *physical_dev);
+
+#endif /* VN_WSI_H */

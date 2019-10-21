@@ -749,6 +749,10 @@ vn_physical_device_init(struct vn_physical_device *physical_dev)
 
    vn_physical_device_init_memory_properties(physical_dev);
 
+   result = vn_wsi_init(physical_dev);
+   if (result != VK_SUCCESS)
+      goto fail;
+
    return VK_SUCCESS;
 
 fail:
@@ -763,6 +767,7 @@ vn_physical_device_fini(struct vn_physical_device *physical_dev)
    struct vn_instance *instance = physical_dev->instance;
    const VkAllocationCallbacks *alloc = &instance->allocator;
 
+   vn_wsi_fini(physical_dev);
    vk_free(alloc, physical_dev->extension_spec_versions);
    vk_free(alloc, physical_dev->queue_family_properties);
 
@@ -2580,6 +2585,22 @@ vn_QueueSubmit(VkQueue _queue,
       }
    }
 
+   /*
+    * XXX we are exepcted to "signal" mem_signal->memory, similar to signaling
+    * a semaphore.  In other words, set up implicit sync that the presentation
+    * engine will wait on.
+    *
+    * I am not sure how to do that, but am also reluctant to vkQueueWaitIdle.
+    */
+   if (VN_DEBUG(VTEST) && submit.batch_count == 1 && false) {
+      const struct VkSubmitInfo *batch = &submit.submit_batches[0];
+      const struct wsi_memory_signal_submit_info *mem_signal =
+         vk_find_struct_const(batch->pNext,
+                              WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA);
+      if (mem_signal)
+         vn_call_vkQueueWaitIdle(dev->instance, submit.queue);
+   }
+
    vn_queue_submission_cleanup(&submit);
 
    return VK_SUCCESS;
@@ -3270,6 +3291,25 @@ vn_GetDeviceMemoryCommitment(VkDevice device,
 
    vn_call_vkGetDeviceMemoryCommitment(dev->instance, device, memory,
                                        pCommittedMemoryInBytes);
+}
+
+VkResult
+vn_GetMemoryFdKHR(VkDevice device,
+                  const VkMemoryGetFdInfoKHR *pGetFdInfo,
+                  int *pFd)
+{
+   struct vn_device *dev = vn_device_from_handle(device);
+   struct vn_device_memory *mem =
+      vn_device_memory_from_handle(pGetFdInfo->memory);
+
+   /* XXX this is only for WSI */
+   assert(pGetFdInfo->handleType ==
+          VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT);
+   *pFd = vn_renderer_bo_export_dmabuf(mem->bo);
+   if (*pFd < 0)
+      return vn_error(dev->instance, VK_ERROR_TOO_MANY_OBJECTS);
+
+   return VK_SUCCESS;
 }
 
 /* buffer commands */
@@ -4581,6 +4621,8 @@ vn_CreateRenderPass(VkDevice device,
 
    vn_cs_object_init(&pass->base, VK_OBJECT_TYPE_RENDER_PASS, &dev->base);
 
+   /* XXX VK_IMAGE_LAYOUT_PRESENT_SRC_KHR */
+
    VkRenderPass pass_handle = vn_render_pass_to_handle(pass);
    vn_async_vkCreateRenderPass(dev->instance, device, pCreateInfo, NULL,
                                &pass_handle);
@@ -4607,6 +4649,8 @@ vn_CreateRenderPass2(VkDevice device,
       return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vn_cs_object_init(&pass->base, VK_OBJECT_TYPE_RENDER_PASS, &dev->base);
+
+   /* XXX VK_IMAGE_LAYOUT_PRESENT_SRC_KHR */
 
    VkRenderPass pass_handle = vn_render_pass_to_handle(pass);
    vn_async_vkCreateRenderPass2(dev->instance, device, pCreateInfo, NULL,
@@ -6207,6 +6251,8 @@ vn_CmdWaitEvents(VkCommandBuffer commandBuffer,
    if (!vn_cs_reserve_out(&cmd->cs, cmd_size))
       return;
 
+   /* XXX VK_IMAGE_LAYOUT_PRESENT_SRC_KHR */
+
    vn_encode_vkCmdWaitEvents(&cmd->cs, 0, commandBuffer, eventCount, pEvents,
                              srcStageMask, dstStageMask, memoryBarrierCount,
                              pMemoryBarriers, bufferMemoryBarrierCount,
@@ -6236,6 +6282,8 @@ vn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
       pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
    if (!vn_cs_reserve_out(&cmd->cs, cmd_size))
       return;
+
+   /* XXX VK_IMAGE_LAYOUT_PRESENT_SRC_KHR */
 
    vn_encode_vkCmdPipelineBarrier(
       &cmd->cs, 0, commandBuffer, srcStageMask, dstStageMask, dependencyFlags,
