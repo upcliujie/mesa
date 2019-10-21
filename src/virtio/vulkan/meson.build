@@ -59,10 +59,26 @@ libvn_files = files(
   'vn_icd.c',
   'vn_renderer_virtgpu.c',
   'vn_renderer_vtest.c',
+  'vn_wsi.c',
 )
 
 vn_deps = [dep_libdrm]
 vn_flags = []
+
+if with_platform_wayland
+  vn_deps += dep_wayland_client
+  vn_flags += '-DVK_USE_PLATFORM_WAYLAND_KHR'
+  libvn_files += files('vn_wsi_wayland.c')
+endif
+
+if with_platform_x11
+  vn_deps += dep_xcb_dri3
+  vn_flags += [
+    '-DVK_USE_PLATFORM_XCB_KHR',
+    '-DVK_USE_PLATFORM_XLIB_KHR',
+  ]
+  libvn_files += files('vn_wsi_x11.c')
+endif
 
 libvulkan_virtio = shared_library(
   'vulkan_virtio',
