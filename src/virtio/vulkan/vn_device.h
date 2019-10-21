@@ -16,6 +16,7 @@
 #include "vn_cs.h"
 #include "vn_renderer.h"
 #include "vn_ring.h"
+#include "vn_wsi.h"
 
 struct vn_instance {
    struct vn_instance_base base;
@@ -83,6 +84,8 @@ struct vn_physical_device {
    uint32_t queue_family_count;
 
    VkPhysicalDeviceMemoryProperties2 memory_properties;
+
+   struct wsi_device wsi_device;
 };
 VK_DEFINE_HANDLE_CASTS(vn_physical_device,
                        base.base.base,

@@ -37,6 +37,20 @@ static const struct vk_instance_extension_table
       .KHR_external_memory_capabilities = true,
       .KHR_external_semaphore_capabilities = true,
       .KHR_get_physical_device_properties2 = true,
+
+      /* WSI */
+      .KHR_get_surface_capabilities2 = true,
+      .KHR_surface = true,
+      .KHR_surface_protected_capabilities = true,
+#ifdef VK_USE_PLATFORM_WAYLAND_KHR
+      .KHR_wayland_surface = true,
+#endif
+#ifdef VK_USE_PLATFORM_XCB_KHR
+      .KHR_xcb_surface = true,
+#endif
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+      .KHR_xlib_surface = true,
+#endif
    };
 
 static const driOptionDescription vn_dri_options[] = {
@@ -932,7 +946,12 @@ vn_physical_device_get_supported_extensions(
    struct vk_device_extension_table *supported,
    struct vk_device_extension_table *recognized)
 {
-   memset(supported, 0, sizeof(*supported));
+   *supported = (struct vk_device_extension_table){
+      /* WSI */
+      .KHR_incremental_present = true,
+      .KHR_swapchain = true,
+      .KHR_swapchain_mutable_format = true,
+   };
 
    *recognized = (struct vk_device_extension_table){
       /* promoted to VK_VERSION_1_1 */
@@ -982,6 +1001,7 @@ vn_physical_device_get_supported_extensions(
       .EXT_shader_viewport_index_layer = true,
 
       /* EXT */
+      .EXT_image_drm_format_modifier = true,
       .EXT_transform_feedback = true,
    };
 }
@@ -1128,6 +1148,10 @@ vn_physical_device_init(struct vn_physical_device *physical_dev)
 
    vn_physical_device_init_memory_properties(physical_dev);
 
+   result = vn_wsi_init(physical_dev);
+   if (result != VK_SUCCESS)
+      goto fail;
+
    return VK_SUCCESS;
 
 fail:
@@ -1142,6 +1166,7 @@ vn_physical_device_fini(struct vn_physical_device *physical_dev)
    struct vn_instance *instance = physical_dev->instance;
    const VkAllocationCallbacks *alloc = &instance->base.base.alloc;
 
+   vn_wsi_fini(physical_dev);
    vk_free(alloc, physical_dev->extension_spec_versions);
    vk_free(alloc, physical_dev->queue_family_properties);
 
@@ -2334,6 +2359,37 @@ vn_CreateDevice(VkPhysicalDevice physicalDevice,
    dev->instance = instance;
    dev->physical_device = physical_dev;
 
+   VkDeviceCreateInfo local_create_info;
+   if (physical_dev->wsi_device.supports_modifiers) {
+      bool found = false;
+      for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
+         const char *name = pCreateInfo->ppEnabledExtensionNames[i];
+         if (!strcmp(name, "VK_EXT_image_drm_format_modifier")) {
+            found = true;
+            break;
+         }
+      }
+      if (!found) {
+         const uint32_t name_count = pCreateInfo->enabledExtensionCount + 1;
+         const char **names =
+            vk_alloc(alloc, sizeof(*names) * name_count, VN_DEFAULT_ALIGN,
+                     VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+         if (!names) {
+            result = VK_ERROR_OUT_OF_HOST_MEMORY;
+            goto fail;
+         }
+
+         memcpy(names, pCreateInfo->ppEnabledExtensionNames,
+                sizeof(*names) * (name_count - 1));
+         names[name_count - 1] = "VK_EXT_image_drm_format_modifier";
+
+         local_create_info = *pCreateInfo;
+         local_create_info.enabledExtensionCount = name_count;
+         local_create_info.ppEnabledExtensionNames = names;
+         pCreateInfo = &local_create_info;
+      }
+   }
+
    for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++)
       dev->queue_count += pCreateInfo->pQueueCreateInfos[i].queueCount;
    dev->queues =
@@ -2379,9 +2435,15 @@ vn_CreateDevice(VkPhysicalDevice physicalDevice,
 
    *pDevice = dev_handle;
 
+   if (pCreateInfo == &local_create_info)
+      vk_free(alloc, (void *)pCreateInfo->ppEnabledExtensionNames);
+
    return VK_SUCCESS;
 
 fail:
+   if (pCreateInfo == &local_create_info)
+      vk_free(alloc, (void *)pCreateInfo->ppEnabledExtensionNames);
+
    vk_free(alloc, dev->queues);
    vn_device_base_fini(&dev->base);
    vk_free(alloc, dev);
@@ -2879,6 +2941,14 @@ vn_QueueSubmit(VkQueue _queue,
    if (result != VK_SUCCESS)
       return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
+   const struct vn_device_memory *wsi_mem = NULL;
+   if (submit.batch_count == 1) {
+      const struct wsi_memory_signal_submit_info *info = vk_find_struct_const(
+         submit.submit_batches[0].pNext, WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA);
+      if (info)
+         wsi_mem = vn_device_memory_from_handle(info->memory);
+   }
+
    /* TODO this should be one trip to the renderer */
    if (submit.signal_timeline_count) {
       struct vn_renderer *renderer = dev->instance->renderer;
@@ -2914,8 +2984,10 @@ vn_QueueSubmit(VkQueue _queue,
          return vn_error(dev->instance, result);
       }
 
-      if (sync_base < submit.sync_count) {
+      if (sync_base < submit.sync_count || wsi_mem) {
          const struct vn_renderer_submit dst = {
+            .bos = wsi_mem ? &wsi_mem->bo : NULL,
+            .bo_count = wsi_mem ? 1 : 0,
             .batches =
                &(const struct vn_renderer_submit_batch){
                   .sync_queue_index = queue->sync_queue_index,
@@ -2938,9 +3010,11 @@ vn_QueueSubmit(VkQueue _queue,
          return vn_error(dev->instance, result);
       }
 
-      if (submit.sync_count) {
+      if (submit.sync_count || wsi_mem) {
          struct vn_renderer *renderer = dev->instance->renderer;
          const struct vn_renderer_submit dst = {
+            .bos = wsi_mem ? &wsi_mem->bo : NULL,
+            .bo_count = wsi_mem ? 1 : 0,
             .batches =
                &(const struct vn_renderer_submit_batch){
                   .sync_queue_index = queue->sync_queue_index,
@@ -2954,6 +3028,21 @@ vn_QueueSubmit(VkQueue _queue,
          vn_renderer_submit(renderer, &dst);
          vn_instance_roundtrip(dev->instance);
       }
+   }
+
+   /* XXX The implicit fence won't work because the host is not aware of it.
+    * It is guest-only and the guest kernel does not wait.  We need kernel
+    * support, or better yet, an explicit fence that the host is aware of.
+    *
+    * That said, I am not ready to vkQueueWaitIdle yet.  And there is a WSI
+    * server that actually waits.
+    *
+    * vn_AcquireNextImage2KHR is also broken.
+    */
+   if (wsi_mem && false) {
+      if (VN_DEBUG(WSI))
+         vn_log(dev->instance, "forcing vkQueueWaitIdle before presenting");
+      vn_call_vkQueueWaitIdle(dev->instance, submit.queue);
    }
 
    vn_queue_submission_cleanup(&submit);
@@ -3693,6 +3782,25 @@ vn_GetDeviceMemoryCommitment(VkDevice device,
                                        pCommittedMemoryInBytes);
 }
 
+VkResult
+vn_GetMemoryFdKHR(VkDevice device,
+                  const VkMemoryGetFdInfoKHR *pGetFdInfo,
+                  int *pFd)
+{
+   struct vn_device *dev = vn_device_from_handle(device);
+   struct vn_device_memory *mem =
+      vn_device_memory_from_handle(pGetFdInfo->memory);
+
+   /* XXX this is only for WSI */
+   assert(pGetFdInfo->handleType ==
+          VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT);
+   *pFd = vn_renderer_bo_export_dmabuf(mem->bo);
+   if (*pFd < 0)
+      return vn_error(dev->instance, VK_ERROR_TOO_MANY_OBJECTS);
+
+   return VK_SUCCESS;
+}
+
 /* buffer commands */
 
 VkResult
@@ -3904,6 +4012,21 @@ vn_CreateImage(VkDevice device,
    const VkAllocationCallbacks *alloc =
       pAllocator ? pAllocator : &dev->base.base.alloc;
 
+   /* TODO wsi_create_native_image uses modifiers or set wsi_info->scanout to
+    * true.  Instead of forcing VK_IMAGE_TILING_LINEAR, we should ask wsi to
+    * use wsi_create_prime_image instead.
+    */
+   const struct wsi_image_create_info *wsi_info =
+      vk_find_struct_const(pCreateInfo->pNext, WSI_IMAGE_CREATE_INFO_MESA);
+   VkImageCreateInfo local_create_info;
+   if (wsi_info && wsi_info->scanout) {
+      if (VN_DEBUG(WSI))
+         vn_log(dev->instance, "forcing scanout image linear");
+      local_create_info = *pCreateInfo;
+      local_create_info.tiling = VK_IMAGE_TILING_LINEAR;
+      pCreateInfo = &local_create_info;
+   }
+
    struct vn_image *img = vk_zalloc(alloc, sizeof(*img), VN_DEFAULT_ALIGN,
                                     VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!img)
@@ -3922,6 +4045,9 @@ vn_CreateImage(VkDevice device,
 
    uint32_t plane_count = 1;
    if (pCreateInfo->flags & VK_IMAGE_CREATE_DISJOINT_BIT) {
+      /* TODO VkDrmFormatModifierPropertiesEXT::drmFormatModifierPlaneCount */
+      assert(pCreateInfo->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT);
+
       switch (pCreateInfo->format) {
       case VK_FORMAT_G8_B8R8_2PLANE_420_UNORM:
       case VK_FORMAT_G8_B8R8_2PLANE_422_UNORM:
@@ -4125,6 +4251,19 @@ vn_BindImageMemory2(VkDevice device,
                                pBindInfos);
 
    return VK_SUCCESS;
+}
+
+VkResult
+vn_GetImageDrmFormatModifierPropertiesEXT(
+   VkDevice device,
+   VkImage image,
+   VkImageDrmFormatModifierPropertiesEXT *pProperties)
+{
+   struct vn_device *dev = vn_device_from_handle(device);
+
+   /* TODO local cache */
+   return vn_call_vkGetImageDrmFormatModifierPropertiesEXT(
+      dev->instance, device, image, pProperties);
 }
 
 void
@@ -5003,6 +5142,8 @@ vn_CreateRenderPass(VkDevice device,
 
    vn_object_base_init(&pass->base, VK_OBJECT_TYPE_RENDER_PASS, &dev->base);
 
+   /* XXX VK_IMAGE_LAYOUT_PRESENT_SRC_KHR */
+
    VkRenderPass pass_handle = vn_render_pass_to_handle(pass);
    vn_async_vkCreateRenderPass(dev->instance, device, pCreateInfo, NULL,
                                &pass_handle);
@@ -5029,6 +5170,8 @@ vn_CreateRenderPass2(VkDevice device,
       return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vn_object_base_init(&pass->base, VK_OBJECT_TYPE_RENDER_PASS, &dev->base);
+
+   /* XXX VK_IMAGE_LAYOUT_PRESENT_SRC_KHR */
 
    VkRenderPass pass_handle = vn_render_pass_to_handle(pass);
    vn_async_vkCreateRenderPass2(dev->instance, device, pCreateInfo, NULL,
@@ -6638,6 +6781,8 @@ vn_CmdWaitEvents(VkCommandBuffer commandBuffer,
    if (!vn_cs_encoder_reserve(&cmd->cs, cmd_size))
       return;
 
+   /* XXX VK_IMAGE_LAYOUT_PRESENT_SRC_KHR */
+
    vn_encode_vkCmdWaitEvents(&cmd->cs, 0, commandBuffer, eventCount, pEvents,
                              srcStageMask, dstStageMask, memoryBarrierCount,
                              pMemoryBarriers, bufferMemoryBarrierCount,
@@ -6667,6 +6812,8 @@ vn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
       pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
    if (!vn_cs_encoder_reserve(&cmd->cs, cmd_size))
       return;
+
+   /* XXX VK_IMAGE_LAYOUT_PRESENT_SRC_KHR */
 
    vn_encode_vkCmdPipelineBarrier(
       &cmd->cs, 0, commandBuffer, srcStageMask, dstStageMask, dependencyFlags,
