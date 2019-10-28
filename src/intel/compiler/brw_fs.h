@@ -421,11 +421,6 @@ public:
    brw::fs_builder bld;
 
 private:
-   fs_reg prepare_alu_destination_and_sources(const brw::fs_builder &bld,
-                                              nir_alu_instr *instr,
-                                              fs_reg *op,
-                                              bool need_dest);
-
    void lower_mul_dword_inst(fs_inst *inst, bblock_t *block);
    void lower_mul_qword_inst(fs_inst *inst, bblock_t *block);
    void lower_mulh_inst(fs_inst *inst, bblock_t *block);

@@ -519,35 +519,6 @@ fs_visitor::nir_emit_instr(nir_instr *instr)
    }
 }
 
-fs_reg
-fs_visitor::prepare_alu_destination_and_sources(const fs_builder &bld,
-                                                nir_alu_instr *instr,
-                                                fs_reg *op,
-                                                bool need_dest)
-{
-   fs_reg result =
-      need_dest ? get_nir_dest(instr->dest.dest) : bld.null_reg_ud();
-
-   result.type = brw_type_for_nir_type(devinfo,
-      (nir_alu_type)(nir_op_infos[instr->op].output_type |
-                     nir_dest_bit_size(instr->dest.dest)));
-
-   assert(!instr->dest.saturate);
-
-   for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++) {
-      /* We don't lower to source modifiers so they should not exist. */
-      assert(!instr->src[i].abs);
-      assert(!instr->src[i].negate);
-
-      op[i] = get_nir_src(instr->src[i].src);
-      op[i].type = brw_type_for_nir_type(devinfo,
-         (nir_alu_type)(nir_op_infos[instr->op].input_types[i] |
-                        nir_src_bit_size(instr->src[i].src)));
-   }
-
-   return result;
-}
-
 void
 fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
                          bool need_dest)
@@ -597,55 +568,62 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
           instr->op == nir_op_vec4);
 
    fs_reg op[4];
-   fs_reg result = prepare_alu_destination_and_sources(bld, instr, op, need_dest);
+   fs_reg result =
+      need_dest ? get_nir_dest(instr->dest.dest) : bld.null_reg_ud();
 
-   switch (instr->op) {
-   case nir_op_mov:
-   case nir_op_vec2:
-   case nir_op_vec3:
-   case nir_op_vec4: {
-      fs_reg temp = result;
-      bool need_extra_copy = false;
-      for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++) {
-         if (!instr->src[i].src.is_ssa &&
-             instr->dest.dest.reg.reg == instr->src[i].src.reg.reg) {
-            need_extra_copy = true;
-            temp = bld.vgrf(result.type, 4);
-            break;
-         }
+   result.type = brw_type_for_nir_type(devinfo,
+      (nir_alu_type)(nir_op_infos[instr->op].output_type |
+                     nir_dest_bit_size(instr->dest.dest)));
+
+   assert(!instr->dest.saturate);
+
+   for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++) {
+      /* We don't lower to source modifiers so they should not exist. */
+      assert(!instr->src[i].abs);
+      assert(!instr->src[i].negate);
+
+      op[i] = get_nir_src(instr->src[i].src);
+      op[i].type = brw_type_for_nir_type(devinfo,
+         (nir_alu_type)(nir_op_infos[instr->op].input_types[i] |
+                        nir_src_bit_size(instr->src[i].src)));
+   }
+
+   fs_reg temp = result;
+   bool need_extra_copy = false;
+   for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++) {
+      if (!instr->src[i].src.is_ssa &&
+          instr->dest.dest.reg.reg == instr->src[i].src.reg.reg) {
+         need_extra_copy = true;
+         temp = bld.vgrf(result.type, 4);
+         break;
       }
+   }
 
+   for (unsigned i = 0; i < 4; i++) {
+      if (!(instr->dest.write_mask & (1 << i)))
+         continue;
+
+      if (instr->op == nir_op_mov) {
+         inst = bld.MOV(offset(temp, bld, i),
+                        offset(op[0], bld, instr->src[0].swizzle[i]));
+      } else {
+         inst = bld.MOV(offset(temp, bld, i),
+                        offset(op[i], bld, instr->src[i].swizzle[0]));
+      }
+      inst->saturate = instr->dest.saturate;
+   }
+
+   /* In this case the source and destination registers were the same,
+    * so we need to insert an extra set of moves in order to deal with
+    * any swizzling.
+    */
+   if (need_extra_copy) {
       for (unsigned i = 0; i < 4; i++) {
          if (!(instr->dest.write_mask & (1 << i)))
             continue;
 
-         if (instr->op == nir_op_mov) {
-            inst = bld.MOV(offset(temp, bld, i),
-                           offset(op[0], bld, instr->src[0].swizzle[i]));
-         } else {
-            inst = bld.MOV(offset(temp, bld, i),
-                           offset(op[i], bld, instr->src[i].swizzle[0]));
-         }
+         bld.MOV(offset(result, bld, i), offset(temp, bld, i));
       }
-
-      /* In this case the source and destination registers were the same,
-       * so we need to insert an extra set of moves in order to deal with
-       * any swizzling.
-       */
-      if (need_extra_copy) {
-         for (unsigned i = 0; i < 4; i++) {
-            if (!(instr->dest.write_mask & (1 << i)))
-               continue;
-
-            bld.MOV(offset(result, bld, i), offset(temp, bld, i));
-         }
-      }
-      return;
-   }
-
-   default:
-      /* This next line will be removed in the next commit. */
-      unreachable("Really, really impossible.");
    }
 }
 
