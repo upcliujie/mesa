@@ -21,6 +21,7 @@
 # IN THE SOFTWARE.
 
 import gen_gen_codegen
+import genX_md
 from math import ldexp
 from gen_gen_codegen import retype, abs, grf, imm, neg, null, subscript, Instruction, InstructionList, TempReg
 
@@ -49,22 +50,20 @@ DF = 'DF'
 HF = 'HF'
 result_type = 'VF'
 
-gen8_md = [
-    # Conversion instructions
-    # b2[fi](inot(a)) maps a=0 => 1, a=-1 => 0.  Since a can only be 0 or -1,
-    # this is float(1 + a).
+gen8_md = []
+
+gen8_md.extend(genX_md.add_with_conversion)
+gen8_md.extend(genX_md.conversions)
+
+gen8_md.extend([
     (('b2f16', ('inot', a)), Instruction('ADD', r, retype(a, D), imm(1, D))),
-    (('b2f32', ('inot', a)), Instruction('ADD', r, retype(a, D), imm(1, D))),
-    (('b2i32', ('inot', a)), Instruction('ADD', r, retype(a, D), imm(1, D))),
+    (('b2f16', a), Instruction('MOV', r, neg(retype(a, D)))),
 
     (('b2f64', a), Instruction('MOV', r, neg(retype(a, D)))),
     (('b2i64', a), Instruction('MOV', r, neg(retype(a, D)))),
-    (('b2f32', a), Instruction('MOV', r, neg(retype(a, D)))),
-    (('b2i32', a), Instruction('MOV', r, neg(retype(a, D)))),
-    (('b2f16', a), Instruction('MOV', r, neg(retype(a, D)))),
-    (('b2i16', a), Instruction('MOV', r, neg(retype(a, D)))),
-    (('b2i8', a),  Instruction('MOV', r, neg(retype(a, D)))),
+])
 
+gen8_md.extend([
     (('f2f64', a), Instruction('MOV', r, a)),
     (('f2i64', a), Instruction('MOV', r, a)),
     (('f2u64', a), Instruction('MOV', r, a)),
@@ -77,8 +76,6 @@ gen8_md = [
      'nir_has_any_rounding_mode_rtz(execution_mode)'
     ),
     (('f2f32', a), Instruction('MOV', r, a)),
-    (('f2i32', a), Instruction('MOV', r, a)),
-    (('f2u32', a), Instruction('MOV', r, a)),
     (('f2f16', a), [Instruction('SHADER_OPCODE_RND_MODE', null(UD), imm(0, D)),
                     Instruction('MOV', r, a)],
      'nir_has_any_rounding_mode_rtne(execution_mode)'
@@ -94,10 +91,6 @@ gen8_md = [
     (('f2f16_rtz', a), [Instruction('SHADER_OPCODE_RND_MODE', null(UD), imm(3, D)),
                         Instruction('MOV', r, a)]
     ),
-    (('f2i16', a), Instruction('MOV', r, a)),
-    (('f2u16', a), Instruction('MOV', r, a)),
-    (('f2i8',  a), Instruction('MOV', r, a)),
-    (('f2u8',  a), Instruction('MOV', r, a)),
 
     # FINISHME: The original hand-coded version of this did (tmp16 there is t0
     # here):
@@ -125,47 +118,11 @@ gen8_md = [
 
     (('i2f64', a), Instruction('MOV', r, a)),
     (('i2i64', a), Instruction('MOV', r, a)),
-    (('i2i32', a), Instruction('MOV', r, a)),
-
-    (('i2f32', ('extract_i16', a, 0)), Instruction('MOV', r, subscript(a, W, 0))),
-    (('i2f32', ('extract_i16', a, 1)), Instruction('MOV', r, subscript(a, W, 1))),
-    (('i2f32', ('extract_i8', a, 0)), Instruction('MOV', r, subscript(a, B, 0))),
-    (('i2f32', ('extract_i8', a, 1)), Instruction('MOV', r, subscript(a, B, 1))),
-    (('i2f32', ('extract_i8', a, 2)), Instruction('MOV', r, subscript(a, B, 2))),
-    (('i2f32', ('extract_i8', a, 3)), Instruction('MOV', r, subscript(a, B, 3))),
-    (('i2f32', ('extract_u16', a, 0)), Instruction('MOV', r, subscript(a, UW, 0))),
-    (('i2f32', ('extract_u16', a, 1)), Instruction('MOV', r, subscript(a, UW, 1))),
-    (('i2f32', ('extract_u8', a, 0)), Instruction('MOV', r, subscript(a, UB, 0))),
-    (('i2f32', ('extract_u8', a, 1)), Instruction('MOV', r, subscript(a, UB, 1))),
-    (('i2f32', ('extract_u8', a, 2)), Instruction('MOV', r, subscript(a, UB, 2))),
-    (('i2f32', ('extract_u8', a, 3)), Instruction('MOV', r, subscript(a, UB, 3))),
-    (('i2f32', a), Instruction('MOV', r, a)),
-
     (('i2f16', a), Instruction('MOV', r, a)),
-    (('i2i16', a), Instruction('MOV', r, a)),
-    (('i2i8', a),  Instruction('MOV', r, a)),
 
     (('u2f64', a), Instruction('MOV', r, a)),
     (('u2u64', a), Instruction('MOV', r, a)),
-
-    (('u2f32', ('extract_i16', a, 0)), Instruction('MOV', r, subscript(a, W, 0))),
-    (('u2f32', ('extract_i16', a, 1)), Instruction('MOV', r, subscript(a, W, 1))),
-    (('u2f32', ('extract_i8', a, 0)), Instruction('MOV', r, subscript(a, B, 0))),
-    (('u2f32', ('extract_i8', a, 1)), Instruction('MOV', r, subscript(a, B, 1))),
-    (('u2f32', ('extract_i8', a, 2)), Instruction('MOV', r, subscript(a, B, 2))),
-    (('u2f32', ('extract_i8', a, 3)), Instruction('MOV', r, subscript(a, B, 3))),
-    (('u2f32', ('extract_u16', a, 0)), Instruction('MOV', r, subscript(a, UW, 0))),
-    (('u2f32', ('extract_u16', a, 1)), Instruction('MOV', r, subscript(a, UW, 1))),
-    (('u2f32', ('extract_u8', a, 0)), Instruction('MOV', r, subscript(a, UB, 0))),
-    (('u2f32', ('extract_u8', a, 1)), Instruction('MOV', r, subscript(a, UB, 1))),
-    (('u2f32', ('extract_u8', a, 2)), Instruction('MOV', r, subscript(a, UB, 2))),
-    (('u2f32', ('extract_u8', a, 3)), Instruction('MOV', r, subscript(a, UB, 3))),
-    (('u2f32', a), Instruction('MOV', r, a)),
-
-    (('u2u32', a), Instruction('MOV', r, a)),
     (('u2f16', a), Instruction('MOV', r, a)),
-    (('u2u16', a), Instruction('MOV', r, a)),
-    (('u2u8', a),  Instruction('MOV', r, a)),
 
     (('i2b32', 'a@64'), [TempReg(t0, Q),
                          TempReg(zero, Q),
@@ -183,17 +140,12 @@ gen8_md = [
     ),
     (('f2b32', 'a@32'), Instruction('CMP', retype(r, F), retype(a, F), imm(0.0, F)).cmod('NZ')),
     (('f2b32', 'a@16'), Instruction('CMP', retype(r, HF), retype(a, HF), imm(0.0, HF)).cmod('NZ')),
+])
 
-    # Partial derivatives
-    (('fddx', a), Instruction('FS_OPCODE_DDX_FINE', r, a), 'fs_key->high_quality_derivatives'),
-    (('fddx', a), Instruction('FS_OPCODE_DDX_COARSE', r, a), '!fs_key->high_quality_derivatives'),
-    (('fddx_fine', a), Instruction('FS_OPCODE_DDX_FINE', r, a)),
-    (('fddx_coarse', a), Instruction('FS_OPCODE_DDX_COARSE', r, a)),
-    (('fddy', a), Instruction('FS_OPCODE_DDY_FINE', r, a), 'fs_key->high_quality_derivatives'),
-    (('fddy', a), Instruction('FS_OPCODE_DDY_COARSE', r, a), '!fs_key->high_quality_derivatives'),
-    (('fddy_fine', a), Instruction('FS_OPCODE_DDY_FINE', r, a)),
-    (('fddy_coarse', a), Instruction('FS_OPCODE_DDY_COARSE', r, a)),
+gen8_md.extend(genX_md.partial_derivatives)
+gen8_md.extend(genX_md.fmul_fsign_optimizations)
 
+gen8_md.extend([
     # General arithmetic
     (('fadd', a, b), [Instruction('SHADER_OPCODE_RND_MODE', null(UD), imm(0, D)),
                       Instruction('ADD', r, a, b)],
@@ -203,15 +155,7 @@ gen8_md = [
                       Instruction('ADD', r, a, b)],
      'nir_has_any_rounding_mode_rtz(execution_mode)'
     ),
-    (('fadd', a, b), Instruction('ADD', r, a, b)),
-    (('iadd', a, b), Instruction('ADD', r, a, b)),
-    (('iadd_sat', a, b), Instruction('ADD', r, a, b).saturate()),
-    (('uadd_sat', a, b), Instruction('ADD', r, a, b).saturate()),
-    (('isub_sat', a, b), Instruction('SHADER_OPCODE_ISUB_SAT', r, a, b)),
-    (('usub_sat', a, b), Instruction('SHADER_OPCODE_USUB_SAT', r, a, b)),
-    (('irhadd', a, b), Instruction('AVG', r, a, b)),
-    (('urhadd', a, b), Instruction('AVG', r, a, b)),
-]
+])
 
 for bits, T in ((8, 'B'), (16, 'W'), (32, 'D')):
     aa = 'a@' + str(bits)
@@ -244,11 +188,6 @@ gen8_md.extend([
       Instruction('AND', retype(r, UW), retype(a, UW), imm(0x8000, UW)),
       Instruction('XOR', retype(r, UW), retype(r, UW), retype(b, UW)).predicate()]
     ),
-    (('fmul', ('fsign(is_used_once)', 'a@32'), b),
-     [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
-      Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
-      Instruction('XOR', retype(r, UD), retype(r, UD), retype(b, UD)).predicate()]
-    ),
     (('fmul', ('fsign(is_used_once)', 'a@64'), b),
      [TempReg(zero, DF),
       Instruction('MOV', zero, imm(0.0, DF)),
@@ -266,7 +205,6 @@ gen8_md.extend([
                       Instruction('MUL', r, a, b)],
      'nir_has_any_rounding_mode_rtz(execution_mode)'
     ),
-    (('fmul', a, b), Instruction('MUL', r, a, b)),
 
     (('imul_2x32_64', a, b), Instruction('MUL', r, a, b)),
     (('umul_2x32_64', a, b), Instruction('MUL', r, a, b)),
@@ -274,38 +212,9 @@ gen8_md.extend([
     (('imul_32x16', a, b),    [Instruction('MUL', r, a, subscript(b, W, 0))]),
     (('umul_32x16', a, '#b'), [Instruction('MUL', r, a, retype(b, UW))]),
     (('umul_32x16', a, b),    [Instruction('MUL', r, a, subscript(b, UW, 0))]),
-
-    (('imul', a, b), Instruction('MUL', r, a, b)),
-    (('imul_high', a, b), Instruction('SHADER_OPCODE_MULH', r, a, b)),
-    (('umul_high', a, b), Instruction('SHADER_OPCODE_MULH', r, a, b)),
-    (('idiv', a, b), Instruction('SHADER_OPCODE_INT_QUOTIENT', r, a, b)),
-    (('udiv', a, b), Instruction('SHADER_OPCODE_INT_QUOTIENT', r, a, b)),
-    (('irem', a, b), Instruction('SHADER_OPCODE_INT_REMAINDER', r, a, b)),
-    (('umod', a, b), Instruction('SHADER_OPCODE_INT_REMAINDER', r, a, b)),
-
-    (('imod', a, b), [TempReg(t0, D),
-                      # Get a regular C-style remainder.  If a % b == 0, set the predicate.
-                      Instruction('SHADER_OPCODE_INT_REMAINDER', r, a, b),
-
-                      # Math instructions don't support conditional mod
-                      Instruction('MOV', null(D), r).cmod('NZ'),
-
-                      # Now, we need to determine if signs of the sources are different.
-                      # When we XOR the sources, the top bit is 0 if they are the same and 1
-                      # if they are different.  We can then use a conditional modifier to
-                      # turn that into a predicate.  This leads us to an XOR.l instruction.
-                      #
-                      # Technically, according to the PRM, you're not allowed to use .l on a
-                      # XOR instruction.  However, emperical experiments and Curro's reading
-                      # of the simulator source both indicate that it's safe.
-                      Instruction('XOR', t0, a, b).predicate().cmod('L'),
-
-                      # If the result of the initial remainder operation is non-zero and the
-                      # two sources have different signs, add in a copy of op[1] to get the
-                      # final integer modulus value.
-                      Instruction('ADD', r, r, b).predicate()]
-    ),
 ])
+
+gen8_md.extend(genX_md.arithmetic)
 
 # Logic operations
 
@@ -352,52 +261,23 @@ gen8_md.extend([
 ])
 
 # Comparisons
+
+gen8_md.extend(genX_md.f32_comparison)
+
 for op, cmod in (('feq32', 'Z'), ('fge32', 'GE'), ('flt32', 'L'), ('fne32', 'NZ')):
     gen8_md.extend([
         ((op, 'a@64', 'b@64'), [TempReg(t0, DF),
                                 Instruction('CMP', t0, a, b).cmod(cmod),
                                 Instruction('MOV', r, subscript(t0, UD, 0))]
         ),
-        ((op, 'a@32', 'b@32'), Instruction('CMP', retype(r, F), a, b).cmod(cmod)),
         ((op, 'a@16', 'b@16'), [TempReg(t0, HF),
                                 Instruction('CMP', t0, a, b).cmod(cmod),
                                 Instruction('MOV', retype(r, D), retype(t0, W))]
         ),
     ])
 
-for op, cmod in (('ieq32', 'Z'), ('ige32', 'GE'), ('ilt32', 'L'), ('ine32', 'NZ')):
-    gen8_md.extend([
-        ((op, 'a@64', 'b@64'), [TempReg(t0, Q),
-                                Instruction('CMP', t0, retype(a, Q), retype(b, Q)).cmod(cmod),
-                                Instruction('MOV', r, subscript(t0, UD, 0))]
-        ),
-        ((op, 'a@32', 'b@32'), Instruction('CMP', retype(r, D), retype(a, D), retype(b, D)).cmod(cmod)),
-        ((op, 'a@16', 'b@16'), [TempReg(t0, W),
-                                Instruction('CMP', t0, retype(a, W), retype(b, W)).cmod(cmod),
-                                Instruction('MOV', retype(r, D), retype(t0, W))]
-        ),
-        ((op, 'a@8',  'b@8' ), [TempReg(t0, B),
-                                Instruction('CMP', t0, retype(a, B), retype(b, B)).cmod(cmod),
-                                Instruction('MOV', retype(r, D), retype(t0, B))]
-        ),
-    ])
-
-for op, cmod in (('uge32', 'GE'), ('ult32', 'L')):
-    gen8_md.extend([
-        ((op, 'a@64', 'b@64'), [TempReg(t0, UQ),
-                                Instruction('CMP', t0, retype(a, UQ), retype(b, UQ)).cmod(cmod),
-                                Instruction('MOV', r, subscript(t0, UD, 0))]
-        ),
-        ((op, 'a@32', 'b@32'), Instruction('CMP', retype(r, UD), retype(a, UD), retype(b, UD)).cmod(cmod)),
-        ((op, 'a@16', 'b@16'), [TempReg(t0, UW),
-                                Instruction('CMP', t0, retype(a, UW), retype(b, UW)).cmod(cmod),
-                                Instruction('MOV', retype(r, D), retype(t0, W))]
-        ),
-        ((op, 'a@8',  'b@8' ), [TempReg(t0, UB),
-                                Instruction('CMP', t0, retype(a, UB), retype(b, UB)).cmod(cmod),
-                                Instruction('MOV', retype(r, D), retype(t0, B))]
-        ),
-    ])
+gen8_md.extend(genX_md.integral_comparison)
+gen8_md.extend(genX_md.integral64_comparison)
 
 gen8_md.extend([
     # 3-source arithmetic
@@ -429,14 +309,14 @@ gen8_md.extend([
     (('fcos', a), Instruction('SHADER_OPCODE_COS', r, a)),
     (('fsqrt', a), Instruction('SHADER_OPCODE_SQRT', r, a)),
     (('frsq', a), Instruction('SHADER_OPCODE_RSQ', r, a)),
+])
 
+gen8_md.extend(genX_md.fsign)
+
+gen8_md.extend([
     (('fsign', 'a@16'), [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
                          Instruction('AND', retype(r, UW), retype(a, UW), imm(0x8000, UW)),
                          Instruction('OR', retype(r, UW), retype(r, UW), imm(0x3c00, UW)).predicate()]
-    ),
-    (('fsign', 'a@32'), [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
-                         Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
-                         Instruction('OR', retype(r, UD), retype(r, UD), imm(0x3f800000, UD)).predicate()]
     ),
     (('fsign', 'a@64'), [TempReg(zero, DF),
                          Instruction('MOV', zero, imm(0.0, DF)),
@@ -445,17 +325,11 @@ gen8_md.extend([
                          Instruction('AND', subscript(r, UD, 1), subscript(a, UD, 1), imm(0x80000000, UD)),
                          Instruction('OR', subscript(r, UD, 1), subscript(r, UD, 1), imm(0x3ff00000, UD)).predicate()]
     ),
+])
 
-    # Rounding
-    (('ftrunc', a), Instruction('RNDZ', r, a)),
-    (('fceil', a), [TempReg(t0, F),
-                    Instruction('RNDD', t0, neg(a)),
-                    Instruction('MOV', r, neg(t0))]
-    ),
-    (('ffloor', a), Instruction('RNDD', r, a)),
-    (('ffract', a), Instruction('FRC', r, a)),
-    (('fround_even', a), Instruction('RNDE', r, a)),
+gen8_md.extend(genX_md.rounding)
 
+gen8_md.extend([
     # Min / max
     (('fmin', a, b), Instruction('SEL', r, a, b).cmod('L')),
     (('imin', a, b), Instruction('SEL', r, a, b).cmod('L')),
@@ -463,15 +337,15 @@ gen8_md.extend([
     (('fmax', a, b), Instruction('SEL', r, a, b).cmod('GE')),
     (('imax', a, b), Instruction('SEL', r, a, b).cmod('GE')),
     (('umax', a, b), Instruction('SEL', r, a, b).cmod('GE')),
+])
 
+gen8_md.extend(genX_md.pack_unpack)
+
+gen8_md.extend([
     # Packing / unpacking
     (('pack_64_2x32_split', a, b), Instruction('FS_OPCODE_PACK', r, a, b)),
-    (('pack_32_2x16_split', a, b), Instruction('FS_OPCODE_PACK', r, a, b)),
-    (('pack_half_2x16_split', a, b), Instruction('FS_OPCODE_PACK_HALF_2x16_SPLIT', r, a, b)),
     (('unpack_64_2x32_split_x', a), Instruction('MOV', r, subscript(a, UD, 0))),
     (('unpack_64_2x32_split_y', a), Instruction('MOV', r, subscript(a, UD, 1))),
-    (('unpack_32_2x16_split_x', a), Instruction('MOV', r, subscript(a, UW, 0))),
-    (('unpack_32_2x16_split_y', a), Instruction('MOV', r, subscript(a, UW, 1))),
     (('unpack_half_2x16_split_x', a), Instruction('F16TO32', r, subscript(a, UW, 0))),
     (('unpack_half_2x16_split_x_flush_to_zero', a), Instruction('F16TO32', r, subscript(a, UW, 0))),
     (('unpack_half_2x16_split_y', a), Instruction('F16TO32', r, subscript(a, UW, 1))),
@@ -480,16 +354,6 @@ gen8_md.extend([
     # Bitfields
     (('bitfield_reverse', a), Instruction('BFREV', r, a)),
     (('bit_count', a), Instruction('CBIT', r, a)),
-
-    # LZD counts from the MSB side, while GLSL's ufind_MSB wants the count
-    # from the LSB side. Subtract the result from 31 to convert the MSB count
-    # into an LSB count.  If no bits are set, LZD will return 32.  31-32 = -1,
-    # which is exactly what ufind_msb is supposed to return.
-    (('ufind_msb', a), [Instruction('LZD', retype(r, UD), retype(a, UD)),
-                        Instruction('ADD', r, neg(retype(r, D)), imm(31, D))]
-    ),
-
-    (('uclz', a), Instruction('LZD', retype(r, UD), a)),
 
     # FBH counts from the MSB side, while ifind_msb wants the count from the
     # LSB side. If FBH didn't return an error (0xFFFFFFFF), then subtract the
@@ -504,12 +368,9 @@ gen8_md.extend([
     (('ibfe', a, b, c), Instruction('BFE', r, c, b, a)),
     (('bfm', a, b), Instruction('BFI1', r, a, b)),
     (('bfi', a, b, c), Instruction('BFI2', r, a, b, c)),
-
-    # Shifts
-    (('ishl', a, b), Instruction('SHL', r, a, b)),
-    (('ishr', a, b), Instruction('ASR', r, a, b)),
-    (('ushr', a, b), Instruction('SHR', r, a, b)),
 ])
+
+gen8_md.extend(genX_md.misc_bit_manipulation)
 
 # Extract
 #
@@ -560,13 +421,9 @@ gen8_md.extend([
     (('b32csel', a, b, c), [Instruction('CMP', null(D), a, imm(0, D)).cmod('NZ'),
                             Instruction('SEL', r, b, c).predicate()]
     ),
-
-    (('fsat', a), Instruction('MOV', r, a).saturate()),
-    (('fneg', a), Instruction('MOV', r, neg(a))),
-    (('fabs', a), Instruction('MOV', r, abs(a))),
-    (('ineg', a), Instruction('MOV', r, neg(a))),
-    (('iabs', a), Instruction('MOV', r, abs(a))),
 ])
+
+gen8_md.extend(genX_md.abs_neg_sat);
 
 gen8_unsupported = [
     ('uadd_carry', "Should have been lowered by carry_to_arith()."),

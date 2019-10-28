@@ -144,7 +144,7 @@ gen8_md = custom_target(
   input : 'gen8_md.py',
   output : 'gen8_md.cpp',
   command : [ prog_python, '@INPUT@' ],
-  depend_files : ['gen_gen_codegen.py'],
+  depend_files : ['gen_gen_codegen.py', 'genX_md.py'],
   capture : true,
 )
 
