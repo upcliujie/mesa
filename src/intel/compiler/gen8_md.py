@@ -418,6 +418,13 @@ gen8_md.extend([
                                                Instruction('OR', subscript(t0, W, 1), neg(retype(grf(0, 0, 1), W)), imm(0x3f80, W)),
                                                Instruction('AND', retype(r, UD), retype(t0, UD), imm(0xbf800000, UD))]
     ),
+
+    # a < b ? b : a => b > a ? b : a.  Greater-than-or-equal is similar.  The
+    # is_not_const is important because the first instruction source cannot be
+    # a constant, and we don't want the builder to swap the sources.
+    (('b32csel', ('flt32', 'a@32', 'b(is_not_const)'), b, a), Instruction('SEL', retype(r, F), b, a).cmod('G')),
+    (('b32csel', ('fge32', 'a@32', 'b(is_not_const)'), b, a), Instruction('SEL', retype(r, F), b, a).cmod('LE')),
+
     (('b32csel', a, b, c), [Instruction('CMP', null(D), a, imm(0, D)).cmod('NZ'),
                             Instruction('SEL', r, b, c).predicate()]
     ),
