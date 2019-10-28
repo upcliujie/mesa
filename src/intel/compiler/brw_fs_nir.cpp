@@ -545,41 +545,6 @@ fs_visitor::prepare_alu_destination_and_sources(const fs_builder &bld,
                         nir_src_bit_size(instr->src[i].src)));
    }
 
-   /* Move and vecN instrutions may still be vectored.  Return the raw,
-    * vectored source and destination so that fs_visitor::nir_emit_alu can
-    * handle it.  Other callers should not have to handle these kinds of
-    * instructions.
-    */
-   switch (instr->op) {
-   case nir_op_mov:
-   case nir_op_vec2:
-   case nir_op_vec3:
-   case nir_op_vec4:
-      return result;
-   default:
-      break;
-   }
-
-   /* At this point, we have dealt with any instruction that operates on
-    * more than a single channel.  Therefore, we can just adjust the source
-    * and destination registers for that channel and emit the instruction.
-    */
-   unsigned channel = 0;
-   if (nir_op_infos[instr->op].output_size == 0) {
-      /* Since NIR is doing the scalarizing for us, we should only ever see
-       * vectorized operations with a single channel.
-       */
-      assert(util_bitcount(instr->dest.write_mask) == 1);
-      channel = ffs(instr->dest.write_mask) - 1;
-
-      result = offset(result, bld, channel);
-   }
-
-   for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++) {
-      assert(nir_op_infos[instr->op].input_sizes[i] < 2);
-      op[i] = offset(op[i], bld, instr->src[i].swizzle[channel]);
-   }
-
    return result;
 }
 
