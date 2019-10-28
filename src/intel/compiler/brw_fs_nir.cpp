@@ -1012,11 +1012,16 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
          return;
       break;
 
+   case 12:
+      if (nir_emit_alu_gen12(this, devinfo, range_ht, bld, instr, need_dest))
+         return;
+      break;
+
    default:
       break;
    }
 
-   assert((devinfo->gen != 9 && devinfo->gen != 8) ||
+   assert((devinfo->gen != 12 && devinfo->gen != 9 && devinfo->gen != 8) ||
           instr->op == nir_op_mov ||
           instr->op == nir_op_vec2 ||
           instr->op == nir_op_vec3 ||
