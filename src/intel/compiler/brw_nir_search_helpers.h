@@ -77,4 +77,23 @@ neg_src_mod(UNUSED struct hash_table *ht, nir_alu_instr *instr, unsigned src,
    return instr->src[src].negate;
 }
 
+static inline bool
+is_not_const_and_no_int_src_mod(struct hash_table *ht, nir_alu_instr *instr,
+                                unsigned src, unsigned num_components,
+                                const uint8_t *swizzle)
+{
+   if (nir_src_is_const(instr->src[src].src))
+      return false;
+
+   if (any_src_mod(ht, instr, src, num_components, swizzle)) {
+      const nir_alu_type type = (nir_alu_type)
+         nir_alu_type_get_base_type(nir_op_infos[instr->op].input_types[src]);
+
+      assert(type != nir_type_invalid);
+      return type == nir_type_float;
+   }
+
+   return true;
+}
+
 #endif /* BRW_NIR_SEARCH_HELPERS */

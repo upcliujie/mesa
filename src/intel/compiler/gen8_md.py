@@ -425,6 +425,18 @@ gen8_md.extend([
     (('b32csel', ('flt32', 'a@32', 'b(is_not_const)'), b, a), Instruction('SEL', retype(r, F), b, a).cmod('G')),
     (('b32csel', ('fge32', 'a@32', 'b(is_not_const)'), b, a), Instruction('SEL', retype(r, F), b, a).cmod('LE')),
 
+    (('b32csel', ('fne32', 'a@32', 0.0), 'b@32(is_not_const)', 'c@32(is_not_const)'), Instruction('CSEL', retype(r, F), retype(b, F), retype(c, F), retype(a, F)).cmod('NZ')),
+    (('b32csel', ('feq32', 'a@32', 0.0), 'b@32(is_not_const)', 'c@32(is_not_const)'), Instruction('CSEL', retype(r, F), retype(b, F), retype(c, F), retype(a, F)).cmod('Z')),
+    (('b32csel', ('flt32', 'a@32', 0.0), 'b@32(is_not_const)', 'c@32(is_not_const)'), Instruction('CSEL', retype(r, F), retype(b, F), retype(c, F), retype(a, F)).cmod('L')),
+    (('b32csel', ('flt32', 0.0, 'a@32'), 'b@32(is_not_const)', 'c@32(is_not_const)'), Instruction('CSEL', retype(r, F), retype(b, F), retype(c, F), retype(a, F)).cmod('G')),
+    (('b32csel', ('fge32', 'a@32', 0.0), 'b@32(is_not_const)', 'c@32(is_not_const)'), Instruction('CSEL', retype(r, F), retype(b, F), retype(c, F), retype(a, F)).cmod('GE')),
+    (('b32csel', ('fge32', 0.0, 'a@32'), 'b@32(is_not_const)', 'c@32(is_not_const)'), Instruction('CSEL', retype(r, F), retype(b, F), retype(c, F), retype(a, F)).cmod('LE')),
+
+    # These work because we know that the value being compared is ±0.  They
+    # both should also be NaN safe.
+    (('b32csel', ('fne32', 'a@32', 0.0), 'b@32(is_not_const)', 0.0), Instruction('CSEL', retype(r, F), retype(b, F), abs(retype(a, F)), retype(a, F)).cmod('NZ')),
+    (('b32csel', ('feq32', 'a@32', 0.0), 0.0, 'b@32(is_not_const)'), Instruction('CSEL', retype(r, F), abs(retype(a, F)), retype(b, F), retype(a, F)).cmod('Z')),
+
     (('b32csel', a, b, c), [Instruction('CMP', null(D), a, imm(0, D)).cmod('NZ'),
                             Instruction('SEL', r, b, c).predicate()]
     ),
