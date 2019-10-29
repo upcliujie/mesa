@@ -16,5 +16,6 @@
 #include "vn_cs.h"
 #include "vn_device.h"
 #include "vn_icd.h"
+#include "vn_renderer.h"
 
 #endif /* VN_PRIVATE_H */

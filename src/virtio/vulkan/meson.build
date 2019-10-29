@@ -57,6 +57,7 @@ libvn_files = files(
   'vn_cs.c',
   'vn_device.c',
   'vn_icd.c',
+  'vn_renderer_vtest.c',
 )
 
 vn_deps = []
