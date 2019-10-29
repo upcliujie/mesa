@@ -43,6 +43,10 @@ struct vn_instance {
       struct vn_renderer_sync *sync;
       uint64_t sync_value;
    } cs_reply;
+
+   mtx_t physical_device_mutex;
+   struct vn_physical_device *physical_devices;
+   uint32_t physical_device_count;
 };
 VK_DEFINE_HANDLE_CASTS(vn_instance,
                        base.base,
@@ -50,12 +54,32 @@ VK_DEFINE_HANDLE_CASTS(vn_instance,
                        VK_OBJECT_TYPE_INSTANCE)
 
 struct vn_physical_device {
-   struct vk_object_base base;
+   struct vn_cs_object base;
 
    struct vn_instance *instance;
+
+   uint32_t renderer_version;
+   struct vn_device_extension_table renderer_extensions;
+
+   struct vn_device_extension_table supported_extensions;
+   uint32_t *extension_spec_versions;
+
+   VkPhysicalDeviceFeatures2 features;
+   VkPhysicalDeviceVulkan11Features vulkan_1_1_features;
+   VkPhysicalDeviceVulkan12Features vulkan_1_2_features;
+
+   VkPhysicalDeviceProperties2 properties;
+   VkPhysicalDeviceVulkan11Properties vulkan_1_1_properties;
+   VkPhysicalDeviceVulkan12Properties vulkan_1_2_properties;
+
+   VkQueueFamilyProperties2 *queue_family_properties;
+   uint32_t *queue_family_sync_queue_bases;
+   uint32_t queue_family_count;
+
+   VkPhysicalDeviceMemoryProperties2 memory_properties;
 };
 VK_DEFINE_HANDLE_CASTS(vn_physical_device,
-                       base,
+                       base.base,
                        VkPhysicalDevice,
                        VK_OBJECT_TYPE_PHYSICAL_DEVICE)
 
