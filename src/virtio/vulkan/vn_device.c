@@ -24,6 +24,22 @@
 #define VN_MIN_RENDERER_VERSION VK_API_VERSION_1_1
 
 static void
+vn_cs_device_init(struct vn_cs_device *dev,
+                  const VkDeviceCreateInfo *info,
+                  const VkAllocationCallbacks *alloc)
+{
+   vk_device_init(&dev->base, info, alloc, alloc);
+   assert(sizeof(dev->id) >= sizeof(dev));
+   dev->id = (uintptr_t)dev;
+}
+
+static void
+vn_cs_device_fini(struct vn_cs_device *dev)
+{
+   vk_device_finish(&dev->base);
+}
+
+static void
 vn_cs_object_init(struct vn_cs_object *obj,
                   VkObjectType type,
                   struct vn_cs_device *dev)
@@ -53,6 +69,16 @@ get_instance_extension_index(const char *name)
 {
    for (int i = 0; i < VN_INSTANCE_EXTENSION_COUNT; i++) {
       if (!strcmp(name, vn_instance_extensions[i].extensionName))
+         return i;
+   }
+   return -1;
+}
+
+static int
+get_device_extension_index(const char *name)
+{
+   for (int i = 0; i < VN_DEVICE_EXTENSION_COUNT; i++) {
+      if (!strcmp(name, vn_device_extensions[i].extensionName))
          return i;
    }
    return -1;
@@ -870,6 +896,38 @@ vn_instance_enumerate_physical_devices(struct vn_instance *instance)
 out:
    mtx_unlock(&instance->physical_device_mutex);
    return result;
+}
+
+static VkResult
+vn_device_enable_extensions(struct vn_device *dev,
+                            const char *const *names,
+                            uint32_t count)
+{
+   for (uint32_t i = 0; i < count; i++) {
+      const int index = get_device_extension_index(names[i]);
+      if (index < 0 ||
+          !dev->physical_device->supported_extensions.extensions[index])
+         return VK_ERROR_EXTENSION_NOT_PRESENT;
+      dev->enabled_extensions.extensions[index] = true;
+   }
+   return VK_SUCCESS;
+}
+
+static void
+vn_device_init_dispatch(struct vn_device *dev)
+{
+   struct vn_instance *instance = dev->instance;
+   const uint32_t count = ARRAY_SIZE(vn_device_dispatch_table.entrypoints);
+   void *const *from = vn_device_dispatch_table.entrypoints;
+   void **to = dev->dispatch.entrypoints;
+
+   for (uint32_t i = 0; i < count; i++) {
+      to[i] = vn_device_entrypoint_is_enabled(i, instance->api_version,
+                                              &instance->enabled_extensions,
+                                              &dev->enabled_extensions)
+                 ? from[i]
+                 : NULL;
+   }
 }
 
 /* instance commands */
@@ -1832,7 +1890,33 @@ vn_EnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice,
                                       uint32_t *pPropertyCount,
                                       VkExtensionProperties *pProperties)
 {
-   return vn_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
+   struct vn_physical_device *physical_dev =
+      vn_physical_device_from_handle(physicalDevice);
+
+   if (pLayerName)
+      return vn_error(physical_dev->instance, VK_ERROR_LAYER_NOT_PRESENT);
+
+   VK_OUTARRAY_MAKE(out, pProperties, pPropertyCount);
+   for (uint32_t i = 0; i < VN_DEVICE_EXTENSION_COUNT; i++) {
+      if (physical_dev->supported_extensions.extensions[i]) {
+         vk_outarray_append (&out, prop) {
+            *prop = vn_device_extensions[i];
+            if (!prop->specVersion)
+               prop->specVersion = physical_dev->extension_spec_versions[i];
+         }
+      }
+   }
+
+   return vk_outarray_status(&out);
+}
+
+VkResult
+vn_EnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice,
+                                  uint32_t *pPropertyCount,
+                                  VkLayerProperties *pProperties)
+{
+   *pPropertyCount = 0;
+   return VK_SUCCESS;
 }
 
 VkResult
@@ -1841,11 +1925,96 @@ vn_CreateDevice(VkPhysicalDevice physicalDevice,
                 const VkAllocationCallbacks *pAllocator,
                 VkDevice *pDevice)
 {
-   return vn_error(NULL, VK_ERROR_INCOMPATIBLE_DRIVER);
+   struct vn_physical_device *physical_dev =
+      vn_physical_device_from_handle(physicalDevice);
+   struct vn_instance *instance = physical_dev->instance;
+   const VkAllocationCallbacks *alloc =
+      pAllocator ? pAllocator : &instance->allocator;
+   struct vn_device *dev;
+   VkResult result;
+
+   dev = vk_zalloc(alloc, sizeof(*dev), VN_DEFAULT_ALIGN,
+                   VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+   if (!dev)
+      return vn_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   vn_cs_device_init(&dev->base, pCreateInfo, alloc);
+
+   dev->allocator = *alloc;
+   dev->instance = instance;
+   dev->physical_device = physical_dev;
+
+   result =
+      vn_device_enable_extensions(dev, pCreateInfo->ppEnabledExtensionNames,
+                                  pCreateInfo->enabledExtensionCount);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   vn_device_init_dispatch(dev);
+
+   VkDevice dev_handle = vn_device_to_handle(dev);
+   result = vn_call_vkCreateDevice(instance, physicalDevice, pCreateInfo,
+                                   NULL, &dev_handle);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   *pDevice = dev_handle;
+
+   return VK_SUCCESS;
+
+fail:
+   vk_free(alloc, dev);
+   return vn_error(instance, result);
+}
+
+void
+vn_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
+{
+   struct vn_device *dev = vn_device_from_handle(device);
+   const VkAllocationCallbacks *alloc =
+      pAllocator ? pAllocator : &dev->allocator;
+
+   if (!dev)
+      return;
+
+   vn_async_vkDestroyDevice(dev->instance, device, NULL);
+
+   vn_cs_device_fini(&dev->base);
+   vk_free(alloc, dev);
 }
 
 PFN_vkVoidFunction
 vn_GetDeviceProcAddr(VkDevice device, const char *pName)
 {
-   return NULL;
+   struct vn_device *dev = vn_device_from_handle(device);
+
+   assert(device && pName);
+
+   int idx = vn_get_device_entrypoint_index(pName);
+   if (idx < 0)
+      return NULL;
+
+   return dev->dispatch.entrypoints[idx];
+}
+
+void
+vn_GetDeviceGroupPeerMemoryFeatures(
+   VkDevice device,
+   uint32_t heapIndex,
+   uint32_t localDeviceIndex,
+   uint32_t remoteDeviceIndex,
+   VkPeerMemoryFeatureFlags *pPeerMemoryFeatures)
+{
+   struct vn_device *dev = vn_device_from_handle(device);
+
+   /* TODO get and cache the values in vkCreateDevice */
+   vn_call_vkGetDeviceGroupPeerMemoryFeatures(
+      dev->instance, device, heapIndex, localDeviceIndex, remoteDeviceIndex,
+      pPeerMemoryFeatures);
+}
+
+VkResult
+vn_DeviceWaitIdle(VkDevice device)
+{
+   return VK_SUCCESS;
 }

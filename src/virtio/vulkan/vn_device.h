@@ -84,11 +84,20 @@ VK_DEFINE_HANDLE_CASTS(vn_physical_device,
                        VK_OBJECT_TYPE_PHYSICAL_DEVICE)
 
 struct vn_device {
-   struct vk_device base;
+   struct vn_cs_device base;
+
+   VkAllocationCallbacks allocator;
+
+   struct vn_instance *instance;
+   struct vn_physical_device *physical_device;
+   struct vn_device_extension_table enabled_extensions;
 
    struct vn_device_dispatch_table dispatch;
 };
-VK_DEFINE_HANDLE_CASTS(vn_device, base.base, VkDevice, VK_OBJECT_TYPE_DEVICE)
+VK_DEFINE_HANDLE_CASTS(vn_device,
+                       base.base.base,
+                       VkDevice,
+                       VK_OBJECT_TYPE_DEVICE)
 
 struct vn_queue {
    struct vk_object_base base;
