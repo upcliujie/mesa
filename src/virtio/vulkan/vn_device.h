@@ -168,6 +168,18 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(vn_semaphore,
                                VkSemaphore,
                                VK_OBJECT_TYPE_SEMAPHORE)
 
+struct vn_device_memory {
+   struct vn_cs_object base;
+
+   struct vn_renderer_bo *bo;
+   VkDeviceSize size;
+   VkDeviceSize map_end;
+};
+VK_DEFINE_NONDISP_HANDLE_CASTS(vn_device_memory,
+                               base.base,
+                               VkDeviceMemory,
+                               VK_OBJECT_TYPE_DEVICE_MEMORY)
+
 struct vn_command_buffer {
    struct vk_object_base base;
 

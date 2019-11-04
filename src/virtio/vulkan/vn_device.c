@@ -3198,3 +3198,162 @@ vn_WaitSemaphores(VkDevice device,
 
    return vn_result(dev->instance, result);
 }
+
+/* device memory commands */
+
+VkResult
+vn_AllocateMemory(VkDevice device,
+                  const VkMemoryAllocateInfo *pAllocateInfo,
+                  const VkAllocationCallbacks *pAllocator,
+                  VkDeviceMemory *pMemory)
+{
+   struct vn_device *dev = vn_device_from_handle(device);
+   const VkAllocationCallbacks *alloc =
+      pAllocator ? pAllocator : &dev->allocator;
+
+   struct vn_device_memory *mem =
+      vk_zalloc(alloc, sizeof(*mem), VN_DEFAULT_ALIGN,
+                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (!mem)
+      return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   vn_cs_object_init(&mem->base, VK_OBJECT_TYPE_DEVICE_MEMORY, &dev->base);
+
+   VkDeviceMemory mem_handle = vn_device_memory_to_handle(mem);
+   VkResult result = vn_call_vkAllocateMemory(
+      dev->instance, device, pAllocateInfo, NULL, &mem_handle);
+   if (result != VK_SUCCESS) {
+      vk_free(alloc, mem);
+      return vn_error(dev->instance, result);
+   }
+
+   mem->size = pAllocateInfo->allocationSize;
+
+   const VkPhysicalDeviceMemoryProperties *mem_props =
+      &dev->physical_device->memory_properties.memoryProperties;
+   const VkMemoryType *mem_type =
+      &mem_props->memoryTypes[pAllocateInfo->memoryTypeIndex];
+   const VkExportMemoryAllocateInfo *export_info =
+      vk_find_struct_const(pAllocateInfo->pNext, EXPORT_MEMORY_ALLOCATE_INFO);
+
+   result = vn_renderer_bo_create_gpu(
+      dev->instance->renderer, mem->size, mem->base.id,
+      mem_type->propertyFlags, export_info ? export_info->handleTypes : 0,
+      alloc, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT, &mem->bo);
+   if (result != VK_SUCCESS) {
+      vn_async_vkFreeMemory(dev->instance, device, mem_handle, NULL);
+      vk_free(alloc, mem);
+      return vn_error(dev->instance, result);
+   }
+
+   *pMemory = mem_handle;
+
+   return VK_SUCCESS;
+}
+
+void
+vn_FreeMemory(VkDevice device,
+              VkDeviceMemory memory,
+              const VkAllocationCallbacks *pAllocator)
+{
+   struct vn_device *dev = vn_device_from_handle(device);
+   struct vn_device_memory *mem = vn_device_memory_from_handle(memory);
+   const VkAllocationCallbacks *alloc =
+      pAllocator ? pAllocator : &dev->allocator;
+
+   if (!mem)
+      return;
+
+   vn_async_vkFreeMemory(dev->instance, device, memory, NULL);
+
+   vn_renderer_bo_unref(mem->bo, alloc);
+
+   vn_cs_object_fini(&mem->base);
+   vk_free(alloc, mem);
+}
+
+uint64_t
+vn_GetDeviceMemoryOpaqueCaptureAddress(
+   VkDevice device, const VkDeviceMemoryOpaqueCaptureAddressInfo *pInfo)
+{
+   struct vn_device *dev = vn_device_from_handle(device);
+
+   return vn_call_vkGetDeviceMemoryOpaqueCaptureAddress(dev->instance, device,
+                                                        pInfo);
+}
+
+VkResult
+vn_MapMemory(VkDevice device,
+             VkDeviceMemory memory,
+             VkDeviceSize offset,
+             VkDeviceSize size,
+             VkMemoryMapFlags flags,
+             void **ppData)
+{
+   struct vn_device *dev = vn_device_from_handle(device);
+   struct vn_device_memory *mem = vn_device_memory_from_handle(memory);
+
+   void *ptr = vn_renderer_bo_map(mem->bo);
+   if (!ptr)
+      return vn_error(dev->instance, VK_ERROR_MEMORY_MAP_FAILED);
+
+   mem->map_end = size == VK_WHOLE_SIZE ? mem->size : offset + size;
+
+   *ppData = ptr + offset;
+
+   return VK_SUCCESS;
+}
+
+void
+vn_UnmapMemory(VkDevice device, VkDeviceMemory memory)
+{
+}
+
+VkResult
+vn_FlushMappedMemoryRanges(VkDevice device,
+                           uint32_t memoryRangeCount,
+                           const VkMappedMemoryRange *pMemoryRanges)
+{
+   for (uint32_t i = 0; i < memoryRangeCount; i++) {
+      const VkMappedMemoryRange *range = &pMemoryRanges[i];
+      struct vn_device_memory *mem =
+         vn_device_memory_from_handle(range->memory);
+
+      const VkDeviceSize size = range->size == VK_WHOLE_SIZE
+                                   ? mem->map_end - range->offset
+                                   : range->size;
+      vn_renderer_bo_flush(mem->bo, range->offset, size);
+   }
+
+   return VK_SUCCESS;
+}
+
+VkResult
+vn_InvalidateMappedMemoryRanges(VkDevice device,
+                                uint32_t memoryRangeCount,
+                                const VkMappedMemoryRange *pMemoryRanges)
+{
+   for (uint32_t i = 0; i < memoryRangeCount; i++) {
+      const VkMappedMemoryRange *range = &pMemoryRanges[i];
+      struct vn_device_memory *mem =
+         vn_device_memory_from_handle(range->memory);
+
+      const VkDeviceSize size = range->size == VK_WHOLE_SIZE
+                                   ? mem->map_end - range->offset
+                                   : range->size;
+      vn_renderer_bo_invalidate(mem->bo, range->offset, size);
+   }
+
+   return VK_SUCCESS;
+}
+
+void
+vn_GetDeviceMemoryCommitment(VkDevice device,
+                             VkDeviceMemory memory,
+                             VkDeviceSize *pCommittedMemoryInBytes)
+{
+   struct vn_device *dev = vn_device_from_handle(device);
+
+   vn_call_vkGetDeviceMemoryCommitment(dev->instance, device, memory,
+                                       pCommittedMemoryInBytes);
+}
