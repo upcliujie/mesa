@@ -144,7 +144,7 @@ void * ir3_shader_assemble(struct ir3_shader_variant *v, uint32_t gpu_id)
 	 * the compiler (to worst-case value) since we don't know in
 	 * the assembler what the max addr reg value can be:
 	 */
-	v->constlen = MAX2(v->constlen, v->info.max_const + 1);
+	v->constlen = usize_max(v->constlen, vec4s_to_usize(v->info.max_const + 1));
 
 	fixup_regfootprint(v, gpu_id);
 
@@ -456,7 +456,7 @@ ir3_shader_disasm(struct ir3_shader_variant *so, uint32_t *bin, FILE *out)
 			so->info.max_half_reg + 1,
 			so->info.max_reg + 1);
 
-	fprintf(out, "; %u constlen\n", so->constlen);
+	fprintf(out, "; %u constlen\n", usize_to_vec4s(so->constlen));
 
 	fprintf(out, "; %u (ss), %u (sy)\n", so->info.ss, so->info.sy);
 

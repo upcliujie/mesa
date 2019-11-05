@@ -73,7 +73,7 @@ ir3_needs_vs_driver_params(const struct ir3_shader_variant *v)
 	const struct ir3_const_state *const_state = &v->shader->const_state;
 	uint32_t offset = const_state->offsets.driver_param;
 
-	return v->constlen > offset;
+	return usize_gt(v->constlen, vec4s_to_usize(offset));
 }
 
 void ir3_emit_vs_driver_params(const struct ir3_shader_variant *v,

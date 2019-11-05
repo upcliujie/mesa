@@ -59,7 +59,7 @@ dump_shader_info(struct ir3_shader_variant *v, bool binning_pass,
 			v->info.sizedwords,
 			v->info.max_half_reg + 1,
 			v->info.max_reg + 1,
-			v->constlen,
+			usize_to_vec4s(v->constlen),
 			v->info.ss, v->info.sy,
 			v->max_sun, v->loops);
 }
@@ -204,7 +204,7 @@ emit_const(struct fd_screen *screen, struct fd_ringbuffer *ring,
 		uint32_t offset, uint32_t size,
 		const void *user_buffer, struct pipe_resource *buffer)
 {
-	assert(dst_offset + size <= v->constlen * 4);
+	assert(dst_offset + size <= usize_to_dwords(v->constlen));
 
 	screen->emit_const(ring, v->type, dst_offset,
 			offset, size, user_buffer, buffer);
@@ -257,7 +257,7 @@ ir3_emit_user_consts(struct fd_screen *screen, const struct ir3_shader_variant *
 			/* and even if the start of the const buffer is before
 			 * first_immediate, the end may not be:
 			 */
-			size = usize_min(size, usize_sub(vec4s_to_usize(v->constlen), r->offset));
+			size = usize_min(size, usize_sub(v->constlen, r->offset));
 
 			if (usize_eq(size, usize_zero()))
 				continue;
@@ -280,7 +280,8 @@ ir3_emit_ubos(struct fd_screen *screen, const struct ir3_shader_variant *v,
 {
 	const struct ir3_const_state *const_state = &v->shader->const_state;
 	uint32_t offset = const_state->offsets.ubo;
-	if (v->constlen > offset) {
+	uint32_t constlen = usize_to_vec4s(v->constlen);
+	if (constlen > offset) {
 		uint32_t params = const_state->num_ubos;
 		uint32_t offsets[params];
 		struct pipe_resource *prscs[params];
@@ -299,7 +300,7 @@ ir3_emit_ubos(struct fd_screen *screen, const struct ir3_shader_variant *v,
 			}
 		}
 
-		assert(offset * 4 + params < v->constlen * 4);
+		assert(offset * 4 + params < constlen * 4);
 
 		screen->emit_const_bo(ring, v->type, false, offset * 4, params, prscs, offsets);
 	}
@@ -311,7 +312,7 @@ ir3_emit_ssbo_sizes(struct fd_screen *screen, const struct ir3_shader_variant *v
 {
 	const struct ir3_const_state *const_state = &v->shader->const_state;
 	uint32_t offset = const_state->offsets.ssbo_sizes;
-	if (v->constlen > offset) {
+	if (usize_to_vec4s(v->constlen) > offset) {
 		uint32_t sizes[align(const_state->ssbo_size.count, 4)];
 		unsigned mask = const_state->ssbo_size.mask;
 
@@ -332,7 +333,8 @@ ir3_emit_image_dims(struct fd_screen *screen, const struct ir3_shader_variant *v
 {
 	const struct ir3_const_state *const_state = &v->shader->const_state;
 	uint32_t offset = const_state->offsets.image_dims;
-	if (v->constlen > offset) {
+	uint32_t constlen = usize_to_vec4s(v->constlen);
+	if (constlen > offset) {
 		uint32_t dims[align(const_state->image_dims.count, 4)];
 		unsigned mask = const_state->image_dims.mask;
 
@@ -372,7 +374,7 @@ ir3_emit_image_dims(struct fd_screen *screen, const struct ir3_shader_variant *v
 				dims[off + 1] = ffs(dims[off + 0]) - 1;
 			}
 		}
-		uint32_t size = MIN2(ARRAY_SIZE(dims), v->constlen * 4 - offset * 4);
+		uint32_t size = MIN2(ARRAY_SIZE(dims), constlen * 4 - offset * 4);
 
 		emit_const(screen, ring, v, offset * 4, 0, size, dims, NULL);
 	}
@@ -389,7 +391,7 @@ ir3_emit_immediates(struct fd_screen *screen, const struct ir3_shader_variant *v
 	/* truncate size to avoid writing constants that shader
 	 * does not use:
 	 */
-	size = MIN2(size + base, v->constlen) - base;
+	size = MIN2(size + base, usize_to_vec4s(v->constlen)) - base;
 
 	/* convert out of vec4: */
 	base *= 4;
@@ -439,7 +441,7 @@ ir3_emit_link_map(struct fd_screen *screen,
 	/* truncate size to avoid writing constants that shader
 	 * does not use:
 	 */
-	size = MIN2(size + base, v->constlen) - base;
+	size = MIN2(size + base, usize_to_vec4s(v->constlen)) - base;
 
 	/* convert out of vec4: */
 	base *= 4;
@@ -457,7 +459,8 @@ emit_tfbos(struct fd_context *ctx, const struct ir3_shader_variant *v,
 	/* streamout addresses after driver-params: */
 	const struct ir3_const_state *const_state = &v->shader->const_state;
 	uint32_t offset = const_state->offsets.tfbo;
-	if (v->constlen > offset) {
+	uint32_t constlen = usize_to_vec4s(v->constlen);
+	if (constlen > offset) {
 		struct fd_streamout_stateobj *so = &ctx->streamout;
 		struct ir3_stream_output_info *info = &v->shader->stream_output;
 		uint32_t params = 4;
@@ -477,7 +480,7 @@ emit_tfbos(struct fd_context *ctx, const struct ir3_shader_variant *v,
 			}
 		}
 
-		assert(offset * 4 + params < v->constlen * 4);
+		assert(offset * 4 + params < constlen * 4);
 
 		ctx->screen->emit_const_bo(ring, v->type, true, offset * 4, params, prscs, offsets);
 	}
@@ -693,7 +696,8 @@ ir3_emit_cs_consts(const struct ir3_shader_variant *v, struct fd_ringbuffer *rin
 	/* emit compute-shader driver-params: */
 	const struct ir3_const_state *const_state = &v->shader->const_state;
 	uint32_t offset = const_state->offsets.driver_param;
-	if (v->constlen > offset) {
+	uint32_t constlen = usize_to_vec4s(v->constlen);
+	if (constlen > offset) {
 		ring_wfi(ctx->batch, ring);
 
 		if (info->indirect) {
@@ -735,7 +739,7 @@ ir3_emit_cs_consts(const struct ir3_shader_variant *v, struct fd_ringbuffer *rin
 				[IR3_DP_LOCAL_GROUP_SIZE_Z] = info->block[2],
 			};
 			uint32_t size = MIN2(const_state->num_driver_params,
-					v->constlen * 4 - offset * 4);
+					constlen * 4 - offset * 4);
 
 			emit_const(ctx->screen, ring, v, offset * 4, 0, size,
 					compute_params, NULL);

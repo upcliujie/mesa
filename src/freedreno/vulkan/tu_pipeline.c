@@ -357,6 +357,13 @@ tu6_blend_op(VkBlendOp op)
    }
 }
 
+static unsigned
+aligned_constlen(const struct ir3_shader_variant *v)
+{
+	usize constlen = usize_align(v->constlen, quad_vec4);
+	return usize_to_vec4s(constlen);
+}
+
 static void
 tu6_emit_vs_config(struct tu_cs *cs, const struct ir3_shader_variant *vs)
 {
@@ -381,7 +388,7 @@ tu6_emit_vs_config(struct tu_cs *cs, const struct ir3_shader_variant *vs)
    tu_cs_emit(cs, vs->instrlen);
 
    tu_cs_emit_pkt4(cs, REG_A6XX_HLSQ_VS_CNTL, 1);
-   tu_cs_emit(cs, A6XX_HLSQ_VS_CNTL_CONSTLEN(align(vs->constlen, 4)) |
+   tu_cs_emit(cs, A6XX_HLSQ_VS_CNTL_CONSTLEN(aligned_constlen(vs)) |
                   A6XX_HLSQ_VS_CNTL_ENABLED);
 }
 
@@ -400,7 +407,7 @@ tu6_emit_hs_config(struct tu_cs *cs, const struct ir3_shader_variant *hs)
    tu_cs_emit(cs, hs->instrlen);
 
    tu_cs_emit_pkt4(cs, REG_A6XX_HLSQ_HS_CNTL, 1);
-   tu_cs_emit(cs, A6XX_HLSQ_HS_CNTL_CONSTLEN(align(hs->constlen, 4)));
+   tu_cs_emit(cs, A6XX_HLSQ_HS_CNTL_CONSTLEN(aligned_constlen(hs)));
 }
 
 static void
@@ -415,7 +422,7 @@ tu6_emit_ds_config(struct tu_cs *cs, const struct ir3_shader_variant *ds)
    tu_cs_emit(cs, ds->instrlen);
 
    tu_cs_emit_pkt4(cs, REG_A6XX_HLSQ_DS_CNTL, 1);
-   tu_cs_emit(cs, A6XX_HLSQ_DS_CNTL_CONSTLEN(align(ds->constlen, 4)));
+   tu_cs_emit(cs, A6XX_HLSQ_DS_CNTL_CONSTLEN(aligned_constlen(ds)));
 }
 
 static void
@@ -433,7 +440,7 @@ tu6_emit_gs_config(struct tu_cs *cs, const struct ir3_shader_variant *gs)
    tu_cs_emit(cs, gs->instrlen);
 
    tu_cs_emit_pkt4(cs, REG_A6XX_HLSQ_GS_CNTL, 1);
-   tu_cs_emit(cs, A6XX_HLSQ_GS_CNTL_CONSTLEN(align(gs->constlen, 4)));
+   tu_cs_emit(cs, A6XX_HLSQ_GS_CNTL_CONSTLEN(aligned_constlen(gs)));
 }
 
 static void
@@ -468,7 +475,7 @@ tu6_emit_fs_config(struct tu_cs *cs, const struct ir3_shader_variant *fs)
    tu_cs_emit(cs, fs->instrlen);
 
    tu_cs_emit_pkt4(cs, REG_A6XX_HLSQ_FS_CNTL, 1);
-   tu_cs_emit(cs, A6XX_HLSQ_FS_CNTL_CONSTLEN(align(fs->constlen, 4)) |
+   tu_cs_emit(cs, A6XX_HLSQ_FS_CNTL_CONSTLEN(aligned_constlen(fs)) |
                   A6XX_HLSQ_FS_CNTL_ENABLED);
 }
 
@@ -933,7 +940,7 @@ tu6_emit_immediates(struct tu_cs *cs, const struct ir3_shader_variant *v,
    /* truncate size to avoid writing constants that shader
     * does not use:
     */
-   size = MIN2(size + base, v->constlen) - base;
+   size = MIN2(size + base, usize_to_vec4s(v->constlen)) - base;
 
    if (size <= 0)
       return;
@@ -1589,7 +1596,7 @@ tu_pipeline_builder_parse_shader_stages(struct tu_pipeline_builder *builder,
 
       link->ubo_state = shader->ubo_state;
       link->const_state = shader->const_state;
-      link->constlen = builder->shaders[i]->variants[0].constlen;
+      link->constlen = usize_to_vec4s(builder->shaders[i]->variants[0].constlen);
       link->texture_map = builder->shaders[i]->texture_map;
       link->sampler_map = builder->shaders[i]->sampler_map;
       link->ubo_map = builder->shaders[i]->ubo_map;

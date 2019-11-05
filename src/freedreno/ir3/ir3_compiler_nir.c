@@ -696,7 +696,8 @@ emit_intrinsic_load_ubo(struct ir3_context *ctx, nir_intrinsic_instr *intr,
 	 * account for nir_lower_uniforms_to_ubo rebasing the UBOs such that UBO 0
 	 * is the uniforms: */
 	struct ir3_const_state *const_state = &ctx->so->shader->const_state;
-	const unsigned ptrsz = usize_to_dwords(ir3_pointer_size(ctx->compiler));
+	const usize uptrsz = ir3_pointer_size(ctx->compiler);
+	const unsigned ptrsz = usize_to_dwords(uptrsz);
 	unsigned ubo = regid(const_state->offsets.ubo, 0) - ptrsz;
 
 	int off = 0;
@@ -715,8 +716,9 @@ emit_intrinsic_load_ubo(struct ir3_context *ctx, nir_intrinsic_instr *intr,
 		 * at least big enough to cover all the UBO addresses, since the
 		 * assembler won't know what the max address reg is.
 		 */
-		ctx->so->constlen = MAX2(ctx->so->constlen,
-			const_state->offsets.ubo + (ctx->s->info.num_ubos * ptrsz));
+		ctx->so->constlen = usize_max(ctx->so->constlen,
+			usize_add(vec4s_to_usize(const_state->offsets.ubo),
+				usize_mul(uptrsz, ctx->s->info.num_ubos)));
 	}
 
 	/* note: on 32bit gpu's base_hi is ignored and DCE'd */
@@ -1352,8 +1354,8 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 			 * since we don't know in the assembler what the max
 			 * addr reg value can be:
 			 */
-			ctx->so->constlen = MAX2(ctx->so->constlen,
-					usize_to_vec4s(ctx->so->shader->ubo_state.size));
+			ctx->so->constlen = usize_max(ctx->so->constlen,
+					ctx->so->shader->ubo_state.size);
 		}
 		break;
 

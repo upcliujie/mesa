@@ -192,6 +192,13 @@ setup_stream_out(struct fd6_program_state *state, const struct ir3_shader_varian
 			COND(tf->ncomp[3] > 0, A6XX_VPC_SO_BUF_CNTL_BUF3);
 }
 
+static unsigned
+aligned_constlen(const struct ir3_shader_variant *v)
+{
+	usize constlen = usize_align(v->constlen, quad_vec4);
+	return usize_to_vec4s(constlen);
+}
+
 static void
 setup_config_stateobj(struct fd_ringbuffer *ring, struct fd6_program_state *state)
 {
@@ -199,24 +206,24 @@ setup_config_stateobj(struct fd_ringbuffer *ring, struct fd6_program_state *stat
 	OUT_RING(ring, 0xff);        /* XXX */
 
 	if (state->ds)
-		debug_assert(state->ds->constlen >= state->bs->constlen);
+		debug_assert(usize_ge(state->ds->constlen, state->bs->constlen));
 	else
-		debug_assert(state->vs->constlen >= state->bs->constlen);
+		debug_assert(usize_ge(state->vs->constlen, state->bs->constlen));
 
 	OUT_PKT4(ring, REG_A6XX_HLSQ_VS_CNTL, 4);
-	OUT_RING(ring, A6XX_HLSQ_VS_CNTL_CONSTLEN(align(state->vs->constlen, 4)) |
+	OUT_RING(ring, A6XX_HLSQ_VS_CNTL_CONSTLEN(aligned_constlen(state->vs)) |
 			A6XX_HLSQ_VS_CNTL_ENABLED);
 	OUT_RING(ring, COND(state->hs,
 					A6XX_HLSQ_HS_CNTL_ENABLED |
-					A6XX_HLSQ_HS_CNTL_CONSTLEN(align(state->hs->constlen, 4))));
+					A6XX_HLSQ_HS_CNTL_CONSTLEN(aligned_constlen(state->hs))));
 	OUT_RING(ring, COND(state->ds,
 					A6XX_HLSQ_DS_CNTL_ENABLED |
-					A6XX_HLSQ_DS_CNTL_CONSTLEN(align(state->ds->constlen, 4))));
+					A6XX_HLSQ_DS_CNTL_CONSTLEN(aligned_constlen(state->ds))));
 	OUT_RING(ring, COND(state->gs,
 					A6XX_HLSQ_GS_CNTL_ENABLED |
-					A6XX_HLSQ_GS_CNTL_CONSTLEN(align(state->gs->constlen, 4))));
+					A6XX_HLSQ_GS_CNTL_CONSTLEN(aligned_constlen(state->gs))));
 	OUT_PKT4(ring, REG_A6XX_HLSQ_FS_CNTL, 1);
-	OUT_RING(ring, A6XX_HLSQ_FS_CNTL_CONSTLEN(align(state->fs->constlen, 4)) |
+	OUT_RING(ring, A6XX_HLSQ_FS_CNTL_CONSTLEN(aligned_constlen(state->fs)) |
 			A6XX_HLSQ_FS_CNTL_ENABLED);
 
 	OUT_PKT4(ring, REG_A6XX_SP_VS_CONFIG, 1);

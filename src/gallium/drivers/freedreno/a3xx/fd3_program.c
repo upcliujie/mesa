@@ -155,8 +155,11 @@ fd3_program_emit(struct fd_ringbuffer *ring, struct fd3_emit *emit,
 		fsoff = 256 - fpbuffersz;
 	}
 
+	unsigned vconstlen = usize_to_vec4s(vp->constlen);
+	unsigned fconstlen = usize_to_vec4s(fp->constlen);
+
 	/* seems like vs->constlen + fs->constlen > 256, then CONSTMODE=1 */
-	constmode = ((vp->constlen + fp->constlen) > 256) ? 1 : 0;
+	constmode = ((vconstlen + fconstlen) > 256) ? 1 : 0;
 
 	pos_regid = ir3_find_output_regid(vp, VARYING_SLOT_POS);
 	posz_regid = ir3_find_output_regid(fp, FRAG_RESULT_DEPTH);
@@ -204,10 +207,10 @@ fd3_program_emit(struct fd_ringbuffer *ring, struct fd3_emit *emit,
 	OUT_RING(ring, A3XX_HLSQ_CONTROL_2_REG_PRIMALLOCTHRESHOLD(31) |
 			A3XX_HLSQ_CONTROL_2_REG_FACENESSREGID(face_regid));
 	OUT_RING(ring, A3XX_HLSQ_CONTROL_3_REG_REGID(vcoord_regid));
-	OUT_RING(ring, A3XX_HLSQ_VS_CONTROL_REG_CONSTLENGTH(vp->constlen) |
+	OUT_RING(ring, A3XX_HLSQ_VS_CONTROL_REG_CONSTLENGTH(vconstlen) |
 			A3XX_HLSQ_VS_CONTROL_REG_CONSTSTARTOFFSET(0) |
 			A3XX_HLSQ_VS_CONTROL_REG_INSTRLENGTH(vpbuffersz));
-	OUT_RING(ring, A3XX_HLSQ_FS_CONTROL_REG_CONSTLENGTH(fp->constlen) |
+	OUT_RING(ring, A3XX_HLSQ_FS_CONTROL_REG_CONSTLENGTH(fconstlen) |
 			A3XX_HLSQ_FS_CONTROL_REG_CONSTSTARTOFFSET(128) |
 			A3XX_HLSQ_FS_CONTROL_REG_INSTRLENGTH(fpbuffersz));
 
@@ -229,9 +232,9 @@ fd3_program_emit(struct fd_ringbuffer *ring, struct fd3_emit *emit,
 			A3XX_SP_VS_CTRL_REG0_THREADSIZE(TWO_QUADS) |
 			A3XX_SP_VS_CTRL_REG0_SUPERTHREADMODE |
 			A3XX_SP_VS_CTRL_REG0_LENGTH(vpbuffersz));
-	OUT_RING(ring, A3XX_SP_VS_CTRL_REG1_CONSTLENGTH(vp->constlen) |
+	OUT_RING(ring, A3XX_SP_VS_CTRL_REG1_CONSTLENGTH(vconstlen) |
 			A3XX_SP_VS_CTRL_REG1_INITIALOUTSTANDING(vp->total_in) |
-			A3XX_SP_VS_CTRL_REG1_CONSTFOOTPRINT(MAX2(vp->constlen + 1, 0)));
+			A3XX_SP_VS_CTRL_REG1_CONSTFOOTPRINT(MAX2(vconstlen + 1, 0)));
 	OUT_RING(ring, A3XX_SP_VS_PARAM_REG_POSREGID(pos_regid) |
 			A3XX_SP_VS_PARAM_REG_PSIZEREGID(psize_regid) |
 			A3XX_SP_VS_PARAM_REG_TOTALVSOUTVAR(fp->varying_in));
@@ -300,14 +303,14 @@ fd3_program_emit(struct fd_ringbuffer *ring, struct fd3_emit *emit,
 				A3XX_SP_FS_CTRL_REG0_SUPERTHREADMODE |
 				COND(fp->num_samp > 0, A3XX_SP_FS_CTRL_REG0_PIXLODENABLE) |
 				A3XX_SP_FS_CTRL_REG0_LENGTH(fpbuffersz));
-		OUT_RING(ring, A3XX_SP_FS_CTRL_REG1_CONSTLENGTH(fp->constlen) |
+		OUT_RING(ring, A3XX_SP_FS_CTRL_REG1_CONSTLENGTH(fconstlen) |
 				A3XX_SP_FS_CTRL_REG1_INITIALOUTSTANDING(fp->total_in) |
-				A3XX_SP_FS_CTRL_REG1_CONSTFOOTPRINT(MAX2(fp->constlen + 1, 0)) |
+				A3XX_SP_FS_CTRL_REG1_CONSTFOOTPRINT(MAX2(fconstlen + 1, 0)) |
 				A3XX_SP_FS_CTRL_REG1_HALFPRECVAROFFSET(63));
 
 		OUT_PKT0(ring, REG_A3XX_SP_FS_OBJ_OFFSET_REG, 2);
 		OUT_RING(ring, A3XX_SP_FS_OBJ_OFFSET_REG_CONSTOBJECTOFFSET(
-					MAX2(128, vp->constlen)) |
+					MAX2(128, vconstlen)) |
 				A3XX_SP_FS_OBJ_OFFSET_REG_SHADEROBJOFFSET(fsoff));
 		OUT_RELOC(ring, fp->bo, 0, 0, 0);  /* SP_FS_OBJ_START_REG */
 	}

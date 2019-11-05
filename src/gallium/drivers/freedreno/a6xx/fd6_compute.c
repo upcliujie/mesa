@@ -79,7 +79,7 @@ cs_program_emit(struct fd_ringbuffer *ring, struct ir3_shader_variant *v,
 	OUT_PKT4(ring, REG_A6XX_HLSQ_UPDATE_CNTL, 1);
 	OUT_RING(ring, 0xff);
 
-	unsigned constlen = align(v->constlen, 4);
+	unsigned constlen = usize_to_vec4s(usize_align(v->constlen, quad_vec4));
 	OUT_PKT4(ring, REG_A6XX_HLSQ_CS_CNTL, 1);
 	OUT_RING(ring, A6XX_HLSQ_CS_CNTL_CONSTLEN(constlen) |
 			A6XX_HLSQ_CS_CNTL_ENABLED);

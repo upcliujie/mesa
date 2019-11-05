@@ -457,10 +457,10 @@ struct ir3_shader_variant {
 	 */
 	unsigned instrlen;
 
-	/* the constants length is in units of vec4's, and is the sum of
-	 * the uniforms and the built-in compiler constants
+	/* the constants length, which includes uniforms, lowered UBOs,
+	 * driver params, etc
 	 */
-	unsigned constlen;
+	usize constlen;
 
 	/* About Linkage:
 	 *   + Let the frag shader determine the position/compmask for the
