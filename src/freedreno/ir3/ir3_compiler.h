@@ -75,10 +75,10 @@ int ir3_compile_shader_nir(struct ir3_compiler *compiler,
 		struct ir3_shader_variant *so);
 
 /* gpu pointer size in units of 32bit registers/slots */
-static inline
-unsigned ir3_pointer_size(struct ir3_compiler *compiler)
+static inline usize
+ir3_pointer_size(struct ir3_compiler *compiler)
 {
-	return (compiler->gpu_id >= 500) ? 2 : 1;
+	return dwords_to_usize((compiler->gpu_id >= 500) ? 2 : 1);
 }
 
 enum ir3_shader_debug {

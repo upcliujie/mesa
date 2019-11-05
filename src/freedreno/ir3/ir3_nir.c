@@ -416,7 +416,7 @@ ir3_setup_const_state(struct ir3_shader *shader, nir_shader *nir)
 	const_state->num_driver_params = align(const_state->num_driver_params, 4);
 
 	unsigned constoff = align(usize_to_vec4s(shader->ubo_state.size), 8);
-	unsigned ptrsz = ir3_pointer_size(compiler);
+	unsigned ptrsz = usize_to_dwords(ir3_pointer_size(compiler));
 
 	if (const_state->num_ubos > 0) {
 		const_state->offsets.ubo = constoff;
