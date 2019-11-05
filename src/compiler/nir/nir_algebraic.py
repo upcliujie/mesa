@@ -1150,7 +1150,7 @@ ${pass_name}(nir_shader *shader)
 
 
 class AlgebraicPass(object):
-   def __init__(self, pass_name, transforms):
+   def __init__(self, pass_name, transforms, xform_type=SearchAndReplace):
       self.xforms = []
       self.opcode_xforms = defaultdict(lambda : [])
       self.pass_name = pass_name
@@ -1158,9 +1158,9 @@ class AlgebraicPass(object):
       error = False
 
       for xform in transforms:
-         if not isinstance(xform, SearchAndReplace):
+         if not isinstance(xform, xform_type):
             try:
-               xform = SearchAndReplace(xform)
+               xform = xform_type(xform)
             except:
                print("Failed to parse transformation:", file=sys.stderr)
                print("  " + str(xform), file=sys.stderr)
