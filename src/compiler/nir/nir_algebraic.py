@@ -726,11 +726,18 @@ class BitSizeValidator(object):
    def validate(self, search, replace):
       self.is_search = True
       self.merge_variables(search)
-      self.merge_variables(replace)
+      if isinstance(replace, Value):
+         self.merge_variables(replace)
       self.validate_value(search)
 
       self.is_search = False
       self.validate_value(replace)
+
+      # Other users of this infrastructure may not have replacements that are
+      # the same type as the searches.  In those cases it is not possible to
+      # reason about sizes.
+      if not isinstance(replace, Value):
+            return
 
       # Check that search is always more specialized than replace. Note that
       # we're doing this in replace mode, disallowing merging variables.
