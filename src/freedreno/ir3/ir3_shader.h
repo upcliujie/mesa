@@ -33,10 +33,16 @@
 #include "compiler/shader_enums.h"
 #include "compiler/nir/nir.h"
 #include "util/bitscan.h"
+#include "util/u_size.h"
 
 #include "ir3.h"
 
 struct glsl_type;
+
+/* in a number of places, we need to align things (like constant uploads)
+ * to 4*vec4:
+ */
+#define quad_vec4  vec4s_to_usize(4)
 
 /* driver param indices: */
 enum ir3_driver_param {
@@ -576,13 +582,13 @@ ir3_shader_stage(struct ir3_shader_variant *v)
 }
 
 struct ir3_ubo_range {
-	uint32_t offset; /* start offset of this block in const register file */
-	uint32_t start, end; /* range of block that's actually used */
+	usize offset; /* start offset of this block in const register file */
+	usize start, end; /* range of block that's actually used */
 };
 
 struct ir3_ubo_analysis_state {
 	struct ir3_ubo_range range[IR3_MAX_CONSTANT_BUFFERS];
-	uint32_t size;
+	usize size;
 	uint32_t lower_count;
 	uint32_t cmdstream_size; /* for per-gen backend to stash required cmdstream size */
 };

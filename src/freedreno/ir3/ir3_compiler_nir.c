@@ -1353,7 +1353,7 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 			 * addr reg value can be:
 			 */
 			ctx->so->constlen = MAX2(ctx->so->constlen,
-					ctx->so->shader->ubo_state.size / 16);
+					usize_to_vec4s(ctx->so->shader->ubo_state.size));
 		}
 		break;
 

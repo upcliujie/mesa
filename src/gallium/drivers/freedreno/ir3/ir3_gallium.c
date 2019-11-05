@@ -223,14 +223,19 @@ void
 ir3_user_consts_size(struct ir3_ubo_analysis_state *state,
 		unsigned *packets, unsigned *size)
 {
-	*packets = *size = 0;
+	usize s = usize_zero();
+	*packets = 0;
 
 	for (uint32_t i = 0; i < ARRAY_SIZE(state->range); i++) {
-		if (state->range[i].start < state->range[i].end) {
-			*size += state->range[i].end - state->range[i].start;
+		const struct ir3_ubo_range *r = &state->range[i];
+
+		if (usize_lt(r->start, r->end)) {
+			s = usize_add(s, usize_sub(r->end, r->start));
 			(*packets)++;
 		}
 	}
+
+	*size = usize_to_dwords(s);
 }
 
 void
@@ -242,28 +247,29 @@ ir3_emit_user_consts(struct fd_screen *screen, const struct ir3_shader_variant *
 
 	for (uint32_t i = 0; i < ARRAY_SIZE(state->range); i++) {
 		struct pipe_constant_buffer *cb = &constbuf->cb[i];
+		const struct ir3_ubo_range *r = &state->range[i];
 
-		if (state->range[i].start < state->range[i].end &&
-			constbuf->enabled_mask & (1 << i)) {
+		if (usize_lt(r->start, r->end) && (constbuf->enabled_mask & (1 << i))) {
 
-			uint32_t size = state->range[i].end - state->range[i].start;
-			uint32_t offset = cb->buffer_offset + state->range[i].start;
+			usize size = usize_sub(r->end, r->start);
+			usize offset = usize_add(bytes_to_usize(cb->buffer_offset), r->start);
 
 			/* and even if the start of the const buffer is before
 			 * first_immediate, the end may not be:
 			 */
-			size = MIN2(size, (16 * v->constlen) - state->range[i].offset);
+			size = usize_min(size, usize_sub(vec4s_to_usize(v->constlen), r->offset));
 
-			if (size == 0)
+			if (usize_eq(size, usize_zero()))
 				continue;
 
 			/* things should be aligned to vec4: */
-			debug_assert((state->range[i].offset % 16) == 0);
-			debug_assert((size % 16) == 0);
-			debug_assert((offset % 16) == 0);
+			assert_aligned(r->offset, vec4s_to_usize(1));
+			assert_aligned(size, vec4s_to_usize(1));
+			assert_aligned(offset, vec4s_to_usize(1));
 
-			emit_const(screen, ring, v, state->range[i].offset / 4,
-							offset, size / 4, cb->user_buffer, cb->buffer);
+			emit_const(screen, ring, v, usize_to_dwords(r->offset),
+							usize_to_bytes(offset), usize_to_dwords(size),
+							cb->user_buffer, cb->buffer);
 		}
 	}
 }

@@ -32,11 +32,11 @@ get_ubo_load_range(nir_intrinsic_instr *instr)
 {
 	struct ir3_ubo_range r;
 
-	const int offset = nir_src_as_uint(instr->src[1]);
-	const int bytes = nir_intrinsic_dest_components(instr) * 4;
+	usize offset = bytes_to_usize(nir_src_as_uint(instr->src[1]));
+	usize size   = dwords_to_usize(nir_intrinsic_dest_components(instr));
 
-	r.start = ROUND_DOWN_TO(offset, 16 * 4);
-	r.end = ALIGN(offset + bytes, 16 * 4);
+	r.start = usize_round_down(offset, quad_vec4);
+	r.end   = usize_align(usize_add(offset, size), quad_vec4);
 
 	return r;
 }
@@ -53,7 +53,8 @@ gather_ubo_ranges(nir_shader *nir, nir_intrinsic_instr *instr,
 			/* If this is an indirect on UBO 0, we'll still lower it back to
 			 * load_uniform.  Set the range to cover all of UBO 0.
 			 */
-			state->range[0].end = align(nir->num_uniforms * 16, 16 * 4);
+			usize uniforms_size = vec4s_to_usize(nir->num_uniforms);
+			state->range[0].end = usize_align(uniforms_size, quad_vec4);
 		}
 
 		return;
@@ -68,10 +69,8 @@ gather_ubo_ranges(nir_shader *nir, nir_intrinsic_instr *instr,
 	if ((block > 0) && (ir3_shader_debug & IR3_DBG_NOUBOOPT))
 		return;
 
-	if (r.start < state->range[block].start)
-		state->range[block].start = r.start;
-	if (state->range[block].end < r.end)
-		state->range[block].end = r.end;
+	state->range[block].start = usize_min(r.start, state->range[block].start);
+	state->range[block].end   = usize_max(r.end,   state->range[block].end);
 }
 
 /* For indirect offset, it is common to see a pattern of multiple
@@ -159,8 +158,8 @@ lower_ubo_load_to_uniform(nir_intrinsic_instr *instr, nir_builder *b,
 		 * upload. Reject if we're now outside the range.
 		 */
 		const struct ir3_ubo_range r = get_ubo_load_range(instr);
-		if (!(state->range[block].start <= r.start &&
-			  r.end <= state->range[block].end))
+		if (!(usize_le(state->range[block].start, r.start) &&
+			  usize_le(r.end, state->range[block].end)))
 			return;
 	}
 
@@ -186,9 +185,9 @@ lower_ubo_load_to_uniform(nir_intrinsic_instr *instr, nir_builder *b,
 	debug_assert(!(const_offset & 0x3));
 	const_offset >>= 2;
 
-	const int range_offset =
-		(state->range[block].offset - state->range[block].start) / 4;
-	const_offset += range_offset;
+	const usize range_offset =
+		usize_sub(state->range[block].offset, state->range[block].start);
+	const_offset += usize_to_dwords(range_offset);
 
 	nir_intrinsic_instr *uniform =
 		nir_intrinsic_instr_create(b->shader, nir_intrinsic_load_uniform);
@@ -231,21 +230,22 @@ ir3_nir_analyze_ubo_ranges(nir_shader *nir, struct ir3_shader *shader)
 	 * upload sparsely accessed arrays, at which point we probably want to
 	 * give priority to smaller UBOs, on the assumption that big UBOs will be
 	 * accessed dynamically.  Alternatively, we can track statically and
-	 * dynamically accessed ranges separately and upload static rangtes
+	 * dynamically accessed ranges separately and upload static ranges
 	 * first.
 	 */
-	const uint32_t max_upload = 16 * 1024;
-	uint32_t offset = 0;
+	const usize max_upload = vec4s_to_usize(1024);
+	usize offset = usize_zero();
 	for (uint32_t i = 0; i < ARRAY_SIZE(state->range); i++) {
-		uint32_t range_size = state->range[i].end - state->range[i].start;
+		usize range_size = usize_sub(state->range[i].end, state->range[i].start);
 
-		debug_assert(offset <= max_upload);
+		debug_assert(usize_le(offset, max_upload));
+
 		state->range[i].offset = offset;
-		if (offset + range_size > max_upload) {
-			range_size = max_upload - offset;
-			state->range[i].end = state->range[i].start + range_size;
+		if (usize_gt(usize_add(offset, range_size), max_upload)) {
+			range_size = usize_sub(max_upload, offset);
+			state->range[i].end = usize_add(state->range[i].start, range_size);
 		}
-		offset += range_size;
+		offset = usize_add(offset, range_size);
 	}
 	state->size = offset;
 

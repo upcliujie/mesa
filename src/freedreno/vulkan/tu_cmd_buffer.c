@@ -2337,47 +2337,47 @@ tu6_emit_user_consts(struct tu_cs *cs, const struct tu_pipeline *pipeline,
    const struct ir3_ubo_analysis_state *state = &link->ubo_state;
 
    for (uint32_t i = 0; i < ARRAY_SIZE(state->range); i++) {
-      if (state->range[i].start < state->range[i].end) {
-         uint32_t size = state->range[i].end - state->range[i].start;
-         uint32_t offset = state->range[i].start;
+      const struct ir3_ubo_range *r = &state->range[i];
+      if (usize_lt(r->start, r->end)) {
+         usize size = usize_sub(r->end, r->start);
+         usize offset = r->start;
 
          /* and even if the start of the const buffer is before
           * first_immediate, the end may not be:
           */
-         size = MIN2(size, (16 * link->constlen) - state->range[i].offset);
+         size = usize_min(size, usize_sub(vec4s_to_usize(link->constlen), r->offset));
 
-         if (size == 0)
+         if (usize_eq(size, usize_zero()))
             continue;
 
          /* things should be aligned to vec4: */
-         debug_assert((state->range[i].offset % 16) == 0);
-         debug_assert((size % 16) == 0);
-         debug_assert((offset % 16) == 0);
+         assert_aligned(size, vec4s_to_usize(1));
+         assert_aligned(offset, vec4s_to_usize(1));
 
          if (i == 0) {
             /* push constants */
-            tu_cs_emit_pkt7(cs, tu6_stage2opcode(type), 3 + (size / 4));
-            tu_cs_emit(cs, CP_LOAD_STATE6_0_DST_OFF(state->range[i].offset / 16) |
+            tu_cs_emit_pkt7(cs, tu6_stage2opcode(type), 3 + usize_to_dwords(size));
+            tu_cs_emit(cs, CP_LOAD_STATE6_0_DST_OFF(usize_to_vec4s(r->offset)) |
                   CP_LOAD_STATE6_0_STATE_TYPE(ST6_CONSTANTS) |
                   CP_LOAD_STATE6_0_STATE_SRC(SS6_DIRECT) |
                   CP_LOAD_STATE6_0_STATE_BLOCK(tu6_stage2shadersb(type)) |
-                  CP_LOAD_STATE6_0_NUM_UNIT(size / 16));
+                  CP_LOAD_STATE6_0_NUM_UNIT(usize_to_vec4s(size)));
             tu_cs_emit(cs, 0);
             tu_cs_emit(cs, 0);
-            for (unsigned i = 0; i < size / 4; i++)
-               tu_cs_emit(cs, push_constants[i + offset / 4]);
+            for (unsigned i = 0; i < usize_to_dwords(size); i++)
+               tu_cs_emit(cs, push_constants[i + usize_to_dwords(offset)]);
             continue;
          }
 
          uint64_t va = buffer_ptr(descriptors_state, &link->ubo_map, i - 1);
 
          tu_cs_emit_pkt7(cs, tu6_stage2opcode(type), 3);
-         tu_cs_emit(cs, CP_LOAD_STATE6_0_DST_OFF(state->range[i].offset / 16) |
+         tu_cs_emit(cs, CP_LOAD_STATE6_0_DST_OFF(usize_to_vec4s(r->offset)) |
                CP_LOAD_STATE6_0_STATE_TYPE(ST6_CONSTANTS) |
                CP_LOAD_STATE6_0_STATE_SRC(SS6_INDIRECT) |
                CP_LOAD_STATE6_0_STATE_BLOCK(tu6_stage2shadersb(type)) |
-               CP_LOAD_STATE6_0_NUM_UNIT(size / 16));
-         tu_cs_emit_qw(cs, va + offset);
+               CP_LOAD_STATE6_0_NUM_UNIT(usize_to_vec4s(size)));
+         tu_cs_emit_qw(cs, va + usize_to_bytes(offset));
       }
    }
 }
