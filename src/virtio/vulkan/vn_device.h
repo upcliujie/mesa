@@ -364,13 +364,36 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(vn_pipeline,
                                VkPipeline,
                                VK_OBJECT_TYPE_PIPELINE)
 
+struct vn_command_pool {
+   struct vn_cs_object base;
+
+   VkAllocationCallbacks allocator;
+   struct list_head command_buffers;
+};
+VK_DEFINE_NONDISP_HANDLE_CASTS(vn_command_pool,
+                               base.base,
+                               VkCommandPool,
+                               VK_OBJECT_TYPE_COMMAND_POOL)
+
+enum vn_command_buffer_state {
+   VN_COMMAND_BUFFER_STATE_INITIAL,
+   VN_COMMAND_BUFFER_STATE_RECORDING,
+   VN_COMMAND_BUFFER_STATE_EXECUTABLE,
+   VN_COMMAND_BUFFER_STATE_INVALID,
+};
+
 struct vn_command_buffer {
-   struct vk_object_base base;
+   struct vn_cs_object base;
 
    struct vn_device *device;
+
+   struct list_head head;
+
+   enum vn_command_buffer_state state;
+   struct vn_cs cs;
 };
 VK_DEFINE_HANDLE_CASTS(vn_command_buffer,
-                       base,
+                       base.base,
                        VkCommandBuffer,
                        VK_OBJECT_TYPE_COMMAND_BUFFER)
 
