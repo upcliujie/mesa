@@ -402,7 +402,11 @@ ir3_setup_const_state(struct ir3_shader *shader, nir_shader *nir)
 	struct ir3_compiler *compiler = shader->compiler;
 	struct ir3_const_state *const_state = &shader->const_state;
 
-	memset(&const_state->offsets, ~0, sizeof(const_state->offsets));
+	/* pattern of 0x07070707 gives us sufficiently large invalid values
+	 * while also not overflowing when converting between bytes and
+	 * vec4s
+	 */
+	memset(&const_state->offsets, 0x07, sizeof(const_state->offsets));
 
 	ir3_nir_scan_driver_consts(nir, const_state);
 
