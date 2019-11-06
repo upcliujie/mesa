@@ -93,6 +93,9 @@ struct vn_device {
    struct vn_device_extension_table enabled_extensions;
 
    struct vn_device_dispatch_table dispatch;
+
+   struct vn_queue *queues;
+   uint32_t queue_count;
 };
 VK_DEFINE_HANDLE_CASTS(vn_device,
                        base.base.base,
@@ -100,11 +103,70 @@ VK_DEFINE_HANDLE_CASTS(vn_device,
                        VK_OBJECT_TYPE_DEVICE)
 
 struct vn_queue {
-   struct vk_object_base base;
+   struct vn_cs_object base;
 
    struct vn_device *device;
+   uint32_t family;
+   uint32_t index;
+   uint32_t flags;
+
+   uint32_t sync_queue_index;
+
+   struct vn_renderer_sync *idle_sync;
+   uint64_t idle_sync_value;
 };
-VK_DEFINE_HANDLE_CASTS(vn_queue, base, VkQueue, VK_OBJECT_TYPE_QUEUE)
+VK_DEFINE_HANDLE_CASTS(vn_queue, base.base, VkQueue, VK_OBJECT_TYPE_QUEUE)
+
+enum vn_sync_type {
+   /* no payload */
+   VN_SYNC_TYPE_INVALID,
+
+   /* When we signal or reset, we update both the device object and the
+    * renderer sync.  When we wait or query, we use the renderer sync only.
+    *
+    * TODO VkFence does not need the device object
+    */
+   VN_SYNC_TYPE_SYNC,
+
+   /* device object only; no renderer sync */
+   VN_SYNC_TYPE_DEVICE_ONLY,
+
+   /* already signaled by WSI */
+   VN_SYNC_TYPE_WSI_SIGNALED,
+};
+
+struct vn_sync_payload {
+   enum vn_sync_type type;
+   struct vn_renderer_sync *sync;
+};
+
+struct vn_fence {
+   struct vn_cs_object base;
+
+   struct vn_sync_payload *payload;
+
+   struct vn_sync_payload permanent;
+   struct vn_sync_payload temporary;
+};
+VK_DEFINE_NONDISP_HANDLE_CASTS(vn_fence,
+                               base.base,
+                               VkFence,
+                               VK_OBJECT_TYPE_FENCE)
+
+struct vn_semaphore {
+   struct vn_cs_object base;
+
+   VkSemaphoreType type;
+
+   struct vn_sync_payload *payload;
+
+   struct vn_sync_payload permanent;
+   struct vn_sync_payload temporary;
+};
+VK_DEFINE_NONDISP_HANDLE_CASTS(vn_semaphore,
+                               base.base,
+                               VkSemaphore,
+                               VK_OBJECT_TYPE_SEMAPHORE)
 
 struct vn_command_buffer {
    struct vk_object_base base;
@@ -195,5 +257,11 @@ vn_instance_free_cs_reply_bo(struct vn_instance *instance,
 {
    vn_renderer_bo_unref(bo, &instance->allocator);
 }
+
+void
+vn_fence_signal_wsi(struct vn_device *dev, struct vn_fence *fence);
+
+void
+vn_semaphore_signal_wsi(struct vn_device *dev, struct vn_semaphore *sem);
 
 #endif /* VN_DEVICE_H */
