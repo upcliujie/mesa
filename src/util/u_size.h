@@ -42,23 +42,23 @@
 #include "util/u_math.h"
 
 typedef struct {
-   int raw;
+   unsigned raw;
 } usize;
 
 static inline usize
-bytes_to_usize(int bytes)
+bytes_to_usize(unsigned bytes)
 {
    return (usize){bytes};
 }
 
 static inline usize
-dwords_to_usize(int dwords)
+dwords_to_usize(unsigned dwords)
 {
    return bytes_to_usize(4 * dwords);
 }
 
 static inline usize
-vec4s_to_usize(int vec4s)
+vec4s_to_usize(unsigned vec4s)
 {
    return dwords_to_usize(4 * vec4s);
 }
@@ -131,7 +131,7 @@ usize_sub(usize a, usize b)
 }
 
 static inline usize
-usize_mul(usize a, int b)
+usize_mul(usize a, unsigned b)
 {
    return bytes_to_usize(a.raw * b);
 }
@@ -150,32 +150,33 @@ usize_max(usize a, usize b)
 
 #define assert_aligned(val, alignment)  assert(usize_compare(val, usize_align(val, alignment)) == 0)
 
-static inline int
+static inline unsigned
 usize_to_bytes(usize sz)
 {
    return sz.raw;
 }
-static inline int
+
+static inline unsigned
 usize_to_dwords(usize sz)
 {
    assert_aligned(sz, dwords_to_usize(1));
    return usize_to_bytes(sz) / 4;
 }
 
-static inline int
+static inline unsigned
 usize_to_dwords_ru(usize sz)
 {
    return usize_to_bytes(usize_align(sz, dwords_to_usize(1))) / 4;
 }
 
-static inline int
+static inline unsigned
 usize_to_vec4s(usize sz)
 {
    assert_aligned(sz, vec4s_to_usize(1));
    return usize_to_dwords(sz) / 4;
 }
 
-static inline int
+static inline unsigned
 usize_to_vec4s_ru(usize sz)
 {
    return usize_to_dwords(usize_align(sz, vec4s_to_usize(1))) / 4;
