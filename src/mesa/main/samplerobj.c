@@ -710,6 +710,9 @@ set_sampler_border_colorf(struct gl_context *ctx,
                           struct gl_sampler_object *samp,
                           const GLfloat params[4])
 {
+   if (ctx->API == API_OPENGLES2 && !ctx->Extensions.ARB_texture_border_clamp)
+      return INVALID_PARAM;
+
    flush(ctx);
    memcpy(samp->Attrib.state.border_color.f, params, 4 * sizeof(float));
    _mesa_update_is_border_color_nonzero(samp);
