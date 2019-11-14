@@ -660,6 +660,9 @@ set_sampler_border_colorf(struct gl_context *ctx,
                           struct gl_sampler_object *samp,
                           const GLfloat params[4])
 {
+   if (ctx->API == API_OPENGLES2 && !ctx->Extensions.ARB_texture_border_clamp)
+      return INVALID_PARAM;
+
    flush(ctx);
    samp->Attrib.BorderColor.f[RCOMP] = params[0];
    samp->Attrib.BorderColor.f[GCOMP] = params[1];
