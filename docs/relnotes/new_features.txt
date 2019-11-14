@@ -6,3 +6,4 @@ radeonsi, zink ARB_sparse_texture
 d3d12 support for shader store buffers, images, compute, indirect draw, draw params, and ARB_framebuffer_no_attachments
 radeonsi, zink ARB_sparse_texture2
 zink EXT_memory_object, EXT_memory_object_fd, EXT_semaphore, EXT_semaphore_fd
+GL_MESA_sampler_objects
