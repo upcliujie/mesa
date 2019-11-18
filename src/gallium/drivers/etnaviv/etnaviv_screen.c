@@ -744,8 +744,10 @@ etna_get_specs(struct etna_screen *screen)
    screen->specs.fragment_sampler_count = 8;
    screen->specs.vertex_sampler_count = 4;
 
-   if (screen->model == 0x400)
+   if (screen->model == 0x400) {
       screen->specs.vertex_sampler_count = 0;
+      screen->specs.use_flat_shading_pntc_only = true;
+   }
 
    screen->specs.vs_need_z_div =
       screen->model < 0x1000 && screen->model != 0x880;

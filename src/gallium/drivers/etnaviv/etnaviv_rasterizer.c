@@ -47,7 +47,13 @@ etna_rasterizer_state_create(struct pipe_context *pctx,
 
    cs->base = *so;
 
-   cs->PA_CONFIG = (so->flatshade ? VIVS_PA_CONFIG_SHADE_MODEL_FLAT : VIVS_PA_CONFIG_SHADE_MODEL_SMOOTH) |
+   /*
+    * On GC400T/GCnano, the blob never enables PA_CONFIG SHADE_MODEL=FLAT.
+    * In fact, enabling it and setting PA_SHADER_ATTRIBUTES to 0x2f1 causes
+    * significant texture corruption on such hardware.
+    */
+   cs->PA_CONFIG = ((!ctx->screen->specs.use_flat_shading_pntc_only && so->flatshade) ?
+                    VIVS_PA_CONFIG_SHADE_MODEL_FLAT : VIVS_PA_CONFIG_SHADE_MODEL_SMOOTH) |
                    translate_cull_face(so->cull_face, so->front_ccw) |
                    translate_polygon_mode(so->fill_front) |
                    COND(so->point_quad_rasterization, VIVS_PA_CONFIG_POINT_SPRITE_ENABLE) |

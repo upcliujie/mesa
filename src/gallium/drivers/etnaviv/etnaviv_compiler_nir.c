@@ -998,10 +998,23 @@ etna_link_shader_nir(struct etna_shader_link_info *info,
       varying = &info->varyings[fsio->reg - 1];
       varying->num_components = fsio->num_components;
 
-      if (!interpolate_always) /* colors affected by flat shading */
-         varying->pa_attributes = 0x200;
-      else /* texture coord or other bypasses flat shading */
-         varying->pa_attributes = 0x2f1;
+      if (fs->shader->specs->use_flat_shading_pntc_only) {
+         /*
+          * On GC400T/GCnano, the blob only ever sets PA_SHADER_ATTRIBUTES to
+	  * 0x2f1 in case of PNTC, anything else uses PA_SHADER_ATTRIBUTES set
+	  * to 0x200. Setting this otherwise leads to texture corruption. Also
+	  * see related PA_CONFIG SHADE_MODEL=FLAT in etnaviv_rasterizer.c
+	  */
+         if (fsio->slot == VARYING_SLOT_PNTC)
+            varying->pa_attributes = 0x2f1;
+	 else
+            varying->pa_attributes = 0x200;
+      } else {
+         if (!interpolate_always) /* colors affected by flat shading */
+            varying->pa_attributes = 0x200;
+         else /* texture coord or other bypasses flat shading */
+            varying->pa_attributes = 0x2f1;
+      }
 
       varying->use[0] = VARYING_COMPONENT_USE_UNUSED;
       varying->use[1] = VARYING_COMPONENT_USE_UNUSED;
