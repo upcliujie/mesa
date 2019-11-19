@@ -109,7 +109,6 @@ bind_drm(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
 	struct wl_drm *drm = data;
 	struct wl_resource *resource;
-        uint32_t capabilities;
 
 	resource = wl_resource_create(client, &wl_drm_interface,
 				      MIN(version, 2), id);
@@ -122,18 +121,13 @@ bind_drm(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 
 	wl_resource_post_event(resource, WL_DRM_DEVICE, drm->device_name);
 
-        capabilities = 0;
-        if (drm->flags & WAYLAND_DRM_PRIME)
-           capabilities |= WL_DRM_CAPABILITY_PRIME;
-
         if (version >= 2)
-           wl_resource_post_event(resource, WL_DRM_CAPABILITIES, capabilities);
+           wl_resource_post_event(resource, WL_DRM_CAPABILITIES, 0);
 }
 
 struct wl_drm *
 wayland_drm_init(struct wl_display *display, char *device_name,
-                 const struct wayland_drm_callbacks *callbacks, void *user_data,
-                 uint32_t flags)
+                 const struct wayland_drm_callbacks *callbacks, void *user_data)
 {
 	struct wl_drm *drm;
 
@@ -145,7 +139,6 @@ wayland_drm_init(struct wl_display *display, char *device_name,
 	drm->device_name = strdup(device_name);
 	drm->callbacks = *callbacks;
 	drm->user_data = user_data;
-        drm->flags = flags;
 
         drm->buffer_interface.destroy = buffer_destroy;
 

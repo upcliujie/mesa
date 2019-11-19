@@ -18,7 +18,6 @@ struct wl_drm {
 
 	void *user_data;
 	char *device_name;
-	uint32_t flags;
 
 	struct wayland_drm_callbacks callbacks;
 
@@ -36,8 +35,6 @@ struct wl_drm_buffer {
 	void *driver_buffer;
 };
 
-enum { WAYLAND_DRM_PRIME = 0x01 };
-
 static inline struct wl_drm_buffer *
 wayland_drm_buffer_get(struct wl_drm *drm, struct wl_resource *resource)
 {
@@ -53,8 +50,7 @@ wayland_drm_buffer_get(struct wl_drm *drm, struct wl_resource *resource)
 
 struct wl_drm *
 wayland_drm_init(struct wl_display *display, char *device_name,
-		 const struct wayland_drm_callbacks *callbacks, void *user_data,
-                 uint32_t flags);
+		 const struct wayland_drm_callbacks *callbacks, void *user_data);
 
 void
 wayland_drm_uninit(struct wl_drm *drm);
