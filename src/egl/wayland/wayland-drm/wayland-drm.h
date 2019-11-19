@@ -4,8 +4,6 @@
 #include <wayland-server.h>
 
 struct wl_display;
-struct wl_resource;
-struct wl_drm_buffer;
 
 struct wayland_drm_callbacks {
 	int (*authenticate)(void *user_data, uint32_t id);
@@ -20,33 +18,7 @@ struct wl_drm {
 	char *device_name;
 
 	struct wayland_drm_callbacks callbacks;
-
-	struct wl_buffer_interface buffer_interface;
 };
-
-struct wl_drm_buffer {
-	struct wl_resource *resource;
-	struct wl_drm *drm;
-	int32_t width, height;
-	uint32_t format;
-        const void *driver_format;
-        int32_t offset[3];
-        int32_t stride[3];
-	void *driver_buffer;
-};
-
-static inline struct wl_drm_buffer *
-wayland_drm_buffer_get(struct wl_drm *drm, struct wl_resource *resource)
-{
-	if (resource == NULL)
-		return NULL;
-
-	if (wl_resource_instance_of(resource, &wl_buffer_interface,
-	                            &drm->buffer_interface))
-		return wl_resource_get_user_data(resource);
-	else
-		return NULL;
-}
 
 struct wl_drm *
 wayland_drm_init(struct wl_display *display, char *device_name,

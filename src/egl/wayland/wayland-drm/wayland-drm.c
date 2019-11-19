@@ -39,12 +39,6 @@
 #define MIN(x,y) (((x)<(y))?(x):(y))
 
 static void
-buffer_destroy(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-static void
 drm_create_buffer(struct wl_client *client, struct wl_resource *resource,
 		  uint32_t id, uint32_t name, int32_t width, int32_t height,
 		  uint32_t stride, uint32_t format)
@@ -139,8 +133,6 @@ wayland_drm_init(struct wl_display *display, char *device_name,
 	drm->device_name = strdup(device_name);
 	drm->callbacks = *callbacks;
 	drm->user_data = user_data;
-
-        drm->buffer_interface.destroy = buffer_destroy;
 
 	drm->wl_drm_global =
 		wl_global_create(display, &wl_drm_interface, 2,
