@@ -2946,59 +2946,6 @@ dri2_destroy_image_khr(_EGLDriver *drv, _EGLDisplay *disp, _EGLImage *image)
 
 #ifdef HAVE_WAYLAND_PLATFORM
 
-static void
-dri2_wl_reference_buffer(void *user_data, uint32_t name, int fd,
-                         struct wl_drm_buffer *buffer)
-{
-   _EGLDisplay *disp = user_data;
-   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
-   __DRIimage *img;
-   int dri_components = 0;
-
-   if (fd == -1)
-      img = dri2_dpy->image->createImageFromNames(dri2_dpy->dri_screen,
-                                                  buffer->width,
-                                                  buffer->height,
-                                                  buffer->format,
-                                                  (int*)&name, 1,
-                                                  buffer->stride,
-                                                  buffer->offset,
-                                                  NULL);
-   else
-      img = dri2_dpy->image->createImageFromFds(dri2_dpy->dri_screen,
-                                                buffer->width,
-                                                buffer->height,
-                                                buffer->format,
-                                                &fd, 1,
-                                                buffer->stride,
-                                                buffer->offset,
-                                                NULL);
-
-   if (img == NULL)
-      return;
-
-   dri2_dpy->image->queryImage(img, __DRI_IMAGE_ATTRIB_COMPONENTS, &dri_components);
-
-   buffer->driver_format = NULL;
-   for (int i = 0; i < ARRAY_SIZE(wl_drm_components); i++)
-      if (wl_drm_components[i].dri_components == dri_components)
-         buffer->driver_format = &wl_drm_components[i];
-
-   if (buffer->driver_format == NULL)
-      dri2_dpy->image->destroyImage(img);
-   else
-      buffer->driver_buffer = img;
-}
-
-static void
-dri2_wl_release_buffer(void *user_data, struct wl_drm_buffer *buffer)
-{
-   _EGLDisplay *disp = user_data;
-   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
-
-   dri2_dpy->image->destroyImage(buffer->driver_buffer);
-}
-
 static EGLBoolean
 dri2_bind_wayland_display_wl(_EGLDriver *drv, _EGLDisplay *disp,
                              struct wl_display *wl_dpy)
@@ -3006,8 +2953,6 @@ dri2_bind_wayland_display_wl(_EGLDriver *drv, _EGLDisplay *disp,
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
    const struct wayland_drm_callbacks wl_drm_callbacks = {
       .authenticate = (int(*)(void *, uint32_t)) dri2_dpy->vtbl->authenticate,
-      .reference_buffer = dri2_wl_reference_buffer,
-      .release_buffer = dri2_wl_release_buffer,
    };
    int flags = 0;
    uint64_t cap;

@@ -9,11 +9,6 @@ struct wl_drm_buffer;
 
 struct wayland_drm_callbacks {
 	int (*authenticate)(void *user_data, uint32_t id);
-
-	void (*reference_buffer)(void *user_data, uint32_t name, int fd,
-                                 struct wl_drm_buffer *buffer);
-
-	void (*release_buffer)(void *user_data, struct wl_drm_buffer *buffer);
 };
 
 
