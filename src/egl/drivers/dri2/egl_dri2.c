@@ -2079,66 +2079,6 @@ dri2_create_image_khr_renderbuffer(_EGLDisplay *disp, _EGLContext *ctx,
    return dri2_create_image_from_dri(disp, dri_image);
 }
 
-#ifdef HAVE_WAYLAND_PLATFORM
-
-/* This structure describes how a wl_buffer maps to one or more
- * __DRIimages.  A wl_drm_buffer stores the wl_drm format code and the
- * offsets and strides of the planes in the buffer.  This table maps a
- * wl_drm format code to a description of the planes in the buffer
- * that lets us create a __DRIimage for each of the planes. */
-
-static const struct wl_drm_components_descriptor {
-   uint32_t dri_components;
-   EGLint components;
-   int nplanes;
-} wl_drm_components[] = {
-   { __DRI_IMAGE_COMPONENTS_RGB, EGL_TEXTURE_RGB, 1 },
-   { __DRI_IMAGE_COMPONENTS_RGBA, EGL_TEXTURE_RGBA, 1 },
-   { __DRI_IMAGE_COMPONENTS_Y_U_V, EGL_TEXTURE_Y_U_V_WL, 3 },
-   { __DRI_IMAGE_COMPONENTS_Y_UV, EGL_TEXTURE_Y_UV_WL, 2 },
-   { __DRI_IMAGE_COMPONENTS_Y_XUXV, EGL_TEXTURE_Y_XUXV_WL, 2 },
-};
-
-static _EGLImage *
-dri2_create_image_wayland_wl_buffer(_EGLDisplay *disp, _EGLContext *ctx,
-                                    EGLClientBuffer _buffer,
-                                    const EGLint *attr_list)
-{
-   struct wl_drm_buffer *buffer;
-   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
-   const struct wl_drm_components_descriptor *f;
-   __DRIimage *dri_image;
-   _EGLImageAttribs attrs;
-   int32_t plane;
-
-   buffer = wayland_drm_buffer_get(dri2_dpy->wl_server_drm,
-                                   (struct wl_resource *) _buffer);
-   if (!buffer)
-       return NULL;
-
-   if (!_eglParseImageAttribList(&attrs, disp, attr_list))
-      return NULL;
-
-   plane = attrs.PlaneWL;
-   f = buffer->driver_format;
-   if (plane < 0 || plane >= f->nplanes) {
-      _eglError(EGL_BAD_PARAMETER,
-                "dri2_create_image_wayland_wl_buffer (plane out of bounds)");
-      return NULL;
-   }
-
-   dri_image = dri2_dpy->image->fromPlanar(buffer->driver_buffer, plane, NULL);
-   if (dri_image == NULL && plane == 0)
-      dri_image = dri2_dpy->image->dupImage(buffer->driver_buffer, NULL);
-   if (dri_image == NULL) {
-      _eglError(EGL_BAD_PARAMETER, "dri2_create_image_wayland_wl_buffer");
-      return NULL;
-   }
-
-   return dri2_create_image_from_dri(disp, dri_image);
-}
-#endif
-
 static EGLBoolean
 dri2_get_sync_values_chromium(_EGLDisplay *disp, _EGLSurface *surf,
                               EGLuint64KHR *ust, EGLuint64KHR *msc,
@@ -2922,7 +2862,7 @@ dri2_create_image_khr(_EGLDriver *drv, _EGLDisplay *disp,
 #endif
 #ifdef HAVE_WAYLAND_PLATFORM
    case EGL_WAYLAND_BUFFER_WL:
-      return dri2_create_image_wayland_wl_buffer(disp, ctx, buffer, attr_list);
+      return NULL;
 #endif
    default:
       _eglError(EGL_BAD_PARAMETER, "dri2_create_image_khr");
