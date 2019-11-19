@@ -213,45 +213,6 @@ bind_drm(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 
 	wl_resource_post_event(resource, WL_DRM_DEVICE, drm->device_name);
 
-	if (drm->callbacks.is_format_supported(drm->user_data,
-					       WL_DRM_FORMAT_ARGB2101010)) {
-		wl_resource_post_event(resource, WL_DRM_FORMAT,
-				       WL_DRM_FORMAT_ARGB2101010);
-	}
-
-	if (drm->callbacks.is_format_supported(drm->user_data,
-					       WL_DRM_FORMAT_XRGB2101010)) {
-		wl_resource_post_event(resource, WL_DRM_FORMAT,
-				       WL_DRM_FORMAT_XRGB2101010);
-	}
-
-	if (drm->callbacks.is_format_supported(drm->user_data,
-					       WL_DRM_FORMAT_ABGR2101010)) {
-		wl_resource_post_event(resource, WL_DRM_FORMAT,
-				       WL_DRM_FORMAT_ABGR2101010);
-	}
-
-	if (drm->callbacks.is_format_supported(drm->user_data,
-					       WL_DRM_FORMAT_XBGR2101010)) {
-		wl_resource_post_event(resource, WL_DRM_FORMAT,
-				       WL_DRM_FORMAT_XBGR2101010);
-	}
-
-	wl_resource_post_event(resource, WL_DRM_FORMAT,
-			       WL_DRM_FORMAT_ARGB8888);
-	wl_resource_post_event(resource, WL_DRM_FORMAT,
-			       WL_DRM_FORMAT_XRGB8888);
-        wl_resource_post_event(resource, WL_DRM_FORMAT,
-                               WL_DRM_FORMAT_RGB565);
-        wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_YUV410);
-        wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_YUV411);
-        wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_YUV420);
-        wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_YUV422);
-        wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_YUV444);
-        wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_NV12);
-        wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_NV16);
-        wl_resource_post_event(resource, WL_DRM_FORMAT, WL_DRM_FORMAT_YUYV);
-
         capabilities = 0;
         if (drm->flags & WAYLAND_DRM_PRIME)
            capabilities |= WL_DRM_CAPABILITY_PRIME;
