@@ -114,8 +114,6 @@ struct gbm_dri_device {
                             char          *data,
                             void          *loaderPrivate);
 
-   struct wl_drm *wl_drm;
-
    const struct gbm_dri_visual *visual_table;
    int num_visuals;
 };

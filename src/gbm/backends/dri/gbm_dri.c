@@ -51,11 +51,6 @@
 #include "util/debug.h"
 #include "util/macros.h"
 
-/* For importing wl_buffer */
-#if HAVE_WAYLAND_PLATFORM
-#include "wayland-drm.h"
-#endif
-
 static __DRIimage *
 dri_lookup_egl_image(__DRIscreen *screen, void *image, void *data)
 {
@@ -898,25 +893,8 @@ gbm_dri_bo_import(struct gbm_device *gbm,
 #if HAVE_WAYLAND_PLATFORM
    case GBM_BO_IMPORT_WL_BUFFER:
    {
-      struct wl_drm_buffer *wb;
-
-      if (!dri->wl_drm) {
-         errno = EINVAL;
-         return NULL;
-      }
-
-      wb = wayland_drm_buffer_get(dri->wl_drm, (struct wl_resource *) buffer);
-      if (!wb) {
-         errno = EINVAL;
-         return NULL;
-      }
-
-      image = dri->image->dupImage(wb->driver_buffer, NULL);
-
-      /* GBM_FORMAT_* is identical to WL_DRM_FORMAT_*, so no conversion
-       * required. */
-      gbm_format = wb->format;
-      break;
+      errno = EINVAL;
+      return NULL;
    }
 #endif
 
