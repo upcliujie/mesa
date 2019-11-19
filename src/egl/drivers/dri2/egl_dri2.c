@@ -2933,27 +2933,6 @@ dri2_query_wayland_buffer_wl(_EGLDriver *drv, _EGLDisplay *disp,
                              struct wl_resource *buffer_resource,
                              EGLint attribute, EGLint *value)
 {
-   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
-   struct wl_drm_buffer *buffer;
-   const struct wl_drm_components_descriptor *format;
-
-   buffer = wayland_drm_buffer_get(dri2_dpy->wl_server_drm, buffer_resource);
-   if (!buffer)
-      return EGL_FALSE;
-
-   format = buffer->driver_format;
-   switch (attribute) {
-   case EGL_TEXTURE_FORMAT:
-      *value = format->components;
-      return EGL_TRUE;
-   case EGL_WIDTH:
-      *value = buffer->width;
-      return EGL_TRUE;
-   case EGL_HEIGHT:
-      *value = buffer->height;
-      return EGL_TRUE;
-   }
-
    return EGL_FALSE;
 }
 #endif
