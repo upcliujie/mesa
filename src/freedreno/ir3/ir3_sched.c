@@ -558,12 +558,12 @@ static int use_count(struct ir3_instruction *instr)
 }
 
 /* find net change to live values if instruction were scheduled: */
-static int
+static float
 live_effect(struct ir3_instruction *instr)
 {
 	struct ir3_instruction *src;
-	int new_live = dest_regs(instr);
-	int old_live = 0;
+	float new_live = dest_regs(instr);
+	float old_live = 0;
 
 	foreach_ssa_src_n(src, n, instr) {
 		if (__is_false_dep(instr, n))
@@ -572,25 +572,44 @@ live_effect(struct ir3_instruction *instr)
 		if (instr->block != src->block)
 			continue;
 
-		int uc = use_count(src);
+		float uc = use_count(src);
 		debug_assert(uc > 0);
 
-		if (uc == 1) {
-			old_live += dest_regs(src);
-		}
+		old_live += (float)dest_regs(src) / uc;
 	}
 
 	return new_live - old_live;
 }
+
+/* factors in ranking candidate instruction: */
+struct factor {
+	struct ir3_instruction *candidate;
+	float live_effect;
+	int delay;
+	// TODO track (possibly as a lower order effect) the remaining use's,
+	// ie. it is better to schedule an instruction that is one of 2 remaining
+	// uses, than one that is one of 10 remaining uses (at least, all else
+	// being equal.. not sure how to best balance tradeoffs in the case that
+	// not all the remaining factors are equal)
+};
+
+/* is a candidate "neutral", ie. can we schedule it immediately without
+ * increasing # of live values:
+ */
+static bool
+is_neutral(struct factor *factor)
+{
+	return (factor->delay == 0) && (factor->live_effect <= 0);
+}
+
 
 /* find instruction to schedule: */
 static struct ir3_instruction *
 find_eligible_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 		bool soft)
 {
-	struct ir3_instruction *best_instr = NULL;
-	int best_rank = INT_MAX;      /* lower is better */
 	unsigned deepest = 0;
+	unsigned ncandidates = 0;
 
 	/* TODO we'd really rather use the list/array of block outputs.  But we
 	 * don't have such a thing.  Recursing *every* instruction in the list
@@ -609,7 +628,18 @@ find_eligible_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 			return candidate;
 
 		deepest = MAX2(deepest, candidate->depth);
+		ncandidates++;
 	}
+
+	/* factors to consider when deciding between candidates: */
+	struct factor factors[ncandidates];
+
+	unsigned n = 0;
+
+	/* number of candidates that don't need delay, and don't increase
+	 * live values:
+	 */
+	unsigned num_neutral = 0;
 
 	/* traverse the list a second time.. but since we cache the result of
 	 * find_instr_recursive() it isn't as bad as it looks.
@@ -621,14 +651,70 @@ find_eligible_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 		if (!candidate)
 			continue;
 
-		/* determine net change to # of live values: */
-		int le = live_effect(candidate);
+		factors[n].candidate = candidate;
+		factors[n].live_effect = live_effect(candidate);
+
+		/* There is benefit to scheduling all the varying fetches earlier,
+		 * to unlock varying storage for next batch of vertex shader warps,
+		 * so reduce the penalty to compensate:
+		 */
+		if (is_input(candidate))
+			factors[n].live_effect /= 2.0;
+
+		factors[n].delay = delay_calc(ctx->block, candidate, soft, false);
+
+		di(candidate, "le=%f, delay=%d", factors[n].live_effect, factors[n].delay);
+
+		if (is_neutral(&factors[n]))
+			num_neutral++;
+
+		n++;
+	}
+
+	d("live_values=%d", ctx->live_values);
+
+	/* If we have an opportunity to pick something that requires no delay,
+	 * and does not increase register pressure, then simply pick the one
+	 * with highest depth.
+	 *
+	 * In this case, we don't prioritize ones that reduce live values the
+	 * most, since it will still reduce live values next time around and
+	 * it doesn't really matter if we swap the order of the next num_neutral
+	 * instructions.
+	 *
+	 * TODO is this the best thing to do?  Vs. allowing these instructions
+	 * to be avail to fill nop holes?
+	 */
+	if (num_neutral > 0) {
+		int max_depth = -1;
+		struct ir3_instruction *best_instr = NULL;
+
+		for (int i = 0; i < n; i++) {
+			if (!is_neutral(&factors[i]))
+				continue;
+
+			if ((int)factors[i].candidate->depth > max_depth) {
+				best_instr = factors[i].candidate;
+				max_depth = best_instr->depth;
+			}
+		}
+
+		assert(best_instr);
+
+		return best_instr;
+	}
+
+	struct ir3_instruction *best_instr = NULL;
+	float best_rank = FLT_MAX;      /* lower is better */
+
+	for (int i = 0; i < n; i++) {
+		float rank = factors[i].delay;
 
 		/* if there is a net increase in # of live values, then apply some
 		 * threshold to avoid instructions getting scheduled *too* early
 		 * and increasing register pressure.
 		 */
-		if (le >= 1) {
+		if (factors[i].live_effect > 0) {
 			unsigned threshold;
 
 			if (ctx->live_values > 4*4) {
@@ -636,6 +722,13 @@ find_eligible_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 			} else {
 				threshold = 6;
 			}
+
+			/* There is benefit to scheduling all the varying fetches earlier,
+			 * to unlock varying storage for next batch of vertex shader warps,
+			 * so reduce the penalty to compensate:
+			 */
+			if (is_input(factors[i].candidate))
+				threshold *= 2;
 
 			/* Filter out any "shallow" instructions which would otherwise
 			 * tend to get scheduled too early to fill delay slots even
@@ -649,23 +742,26 @@ find_eligible_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 			 * fill delay slots, occupying a register until the end of
 			 * the program.
 			 */
-			if ((deepest - candidate->depth) > threshold)
+			if ((deepest - factors[i].candidate->depth) > threshold)
 				continue;
 		}
 
-		int rank = delay_calc(ctx->block, candidate, soft, false);
-
 		/* if too many live values, prioritize instructions that reduce the
-		 * number of live values:
+		 * number of live values
 		 */
 		if (ctx->live_values > 16*4) {
-			rank = le;
+			rank = factors[i].live_effect;
 		} else if (ctx->live_values > 4*4) {
-			rank += le;
+			/* otherwise balance delay and effect on # of live values: */
+			rank += factors[i].live_effect / 2.0;
+		} else {
+			rank += factors[i].live_effect / 8.0;
 		}
 
+		di(factors[i].candidate, "rank=%f", rank);
+
 		if (rank < best_rank) {
-			best_instr = candidate;
+			best_instr = factors[i].candidate;
 			best_rank = rank;
 		}
 	}
