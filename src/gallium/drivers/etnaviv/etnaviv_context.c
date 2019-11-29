@@ -344,7 +344,20 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
    }
    mtx_unlock(&ctx->lock);
 
+   /* If there is an active hw query or ETNA_DBG_FLUSH_ALL is provided we need to do a flush */
+   bool flush_needed = false;
+
+   list_for_each_entry(struct etna_hw_query, hq, &ctx->active_hw_queries, node) {
+      const struct etna_query *q = &hq->base;
+
+      if (q->active)
+         flush_needed = true;
+   }
+
    if (DBG_ENABLED(ETNA_DBG_FLUSH_ALL))
+      flush_needed = true;
+
+   if (flush_needed)
       pctx->flush(pctx, NULL, 0);
 
    if (ctx->framebuffer_s.cbufs[0])
