@@ -43,7 +43,7 @@
  */
 
 static void
-occlusion_start(struct etna_hw_query *hq, struct etna_context *ctx)
+occlusion_resume(struct etna_hw_query *hq, struct etna_context *ctx)
 {
    struct etna_resource *rsc = etna_resource(hq->prsc);
    struct etna_reloc r = {
@@ -62,23 +62,10 @@ occlusion_start(struct etna_hw_query *hq, struct etna_context *ctx)
 }
 
 static void
-occlusion_stop(struct etna_hw_query *hq, struct etna_context *ctx)
+occlusion_suspend(struct etna_hw_query *hq, struct etna_context *ctx)
 {
    /* 0x1DF5E76 is the value used by blob - but any random value will work */
    etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY_CONTROL, 0x1DF5E76);
-}
-
-static void
-occlusion_suspend(struct etna_hw_query *hq, struct etna_context *ctx)
-{
-   occlusion_stop(hq, ctx);
-}
-
-static void
-occlusion_resume(struct etna_hw_query *hq, struct etna_context *ctx)
-{
-   hq->samples++;
-   occlusion_start(hq, ctx);
 }
 
 static void
@@ -88,7 +75,7 @@ occlusion_result(struct etna_hw_query *hq, void *buf,
    uint64_t sum = 0;
    uint64_t *ptr = (uint64_t *)buf;
 
-   for (unsigned i = 0; i <= hq->samples; i++)
+   for (unsigned i = 0; i < hq->samples; i++)
       sum += *(ptr + i);
 
    if (hq->base.type == PIPE_QUERY_OCCLUSION_COUNTER)
@@ -109,8 +96,6 @@ etna_hw_destroy_query(struct etna_context *ctx, struct etna_query *q)
 }
 
 static const struct etna_hw_sample_provider occlusion_provider = {
-   .start = occlusion_start,
-   .stop = occlusion_stop,
    .suspend = occlusion_suspend,
    .resume = occlusion_resume,
    .result = occlusion_result,
@@ -147,7 +132,8 @@ etna_hw_begin_query(struct etna_context *ctx, struct etna_query *q)
    /* ->begin_query() discards previous results, so realloc bo */
    realloc_query_bo(ctx, hq);
 
-   p->start(hq, ctx);
+   p->resume(hq, ctx);
+   hq->samples++;
 
    /* add to active list */
    assert(list_is_empty(&hq->node));
@@ -162,7 +148,8 @@ etna_hw_end_query(struct etna_context *ctx, struct etna_query *q)
    struct etna_hw_query *hq = etna_hw_query(q);
    const struct etna_hw_sample_provider *p = hq->provider;
 
-   p->stop(hq, ctx);
+   p->suspend(hq, ctx);
+   hq->samples++;
 
    /* remove from active list */
    list_delinit(&hq->node);
@@ -208,6 +195,7 @@ etna_hw_get_query_result(struct etna_context *ctx, struct etna_query *q,
 
    void *ptr = etna_bo_map(rsc->bo);
    p->result(hq, ptr, result);
+   hq->samples = 0;
 
    etna_bo_cpu_fini(rsc->bo);
 
