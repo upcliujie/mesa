@@ -11,6 +11,7 @@
 #include "util/u_pointer.h"
 #include "os/os_thread.h"
 
+#include "renderonly/renderonly.h"
 #include "nouveau_drm_public.h"
 
 #include "nouveau/nouveau_winsys.h"
@@ -138,4 +139,10 @@ err:
 	}
 	mtx_unlock(&nouveau_screen_mutex);
 	return NULL;
+}
+
+PUBLIC struct pipe_screen *
+nouveau_drm_screen_create_renderonly(struct renderonly *ro)
+{
+	return nouveau_drm_screen_create(ro->gpu_fd);
 }

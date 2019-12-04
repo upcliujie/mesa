@@ -56,7 +56,7 @@ libgallium_dri = shared_library(
     dep_selinux, dep_libdrm, dep_llvm, dep_thread, idep_xmlconfig,
     driver_swrast, driver_r300, driver_r600, driver_radeonsi, driver_nouveau,
     driver_kmsro, driver_v3d, driver_vc4, driver_freedreno, driver_etnaviv,
-    driver_tegra, driver_i915, driver_svga, driver_virgl,
+    driver_i915, driver_svga, driver_virgl,
     driver_swr, driver_panfrost, driver_iris, driver_lima, driver_zink
   ],
   # Will be deleted during installation, see install_megadrivers.py
@@ -84,6 +84,7 @@ foreach d : [[with_gallium_kmsro, [
                'st7735r_dri.so',
                'stm_dri.so',
 	       'sun4i-drm_dri.so',
+	       'tegra_dri.so',
              ]],
              [with_gallium_radeonsi, 'radeonsi_dri.so'],
              [with_gallium_nouveau, 'nouveau_dri.so'],
@@ -94,7 +95,6 @@ foreach d : [[with_gallium_kmsro, [
              [with_gallium_vc4, 'vc4_dri.so'],
              [with_gallium_panfrost, 'panfrost_dri.so'],
              [with_gallium_etnaviv, 'etnaviv_dri.so'],
-             [with_gallium_tegra, 'tegra_dri.so'],
              [with_gallium_iris, 'iris_dri.so'],
              [with_gallium_i915, 'i915_dri.so'],
              [with_gallium_r300, 'r300_dri.so'],

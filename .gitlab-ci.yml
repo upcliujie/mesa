@@ -514,7 +514,7 @@ meson-classic:
     - .use-arm_build
   variables:
     VULKAN_DRIVERS: freedreno
-    GALLIUM_DRIVERS: "etnaviv,freedreno,kmsro,lima,nouveau,panfrost,swrast,tegra,v3d,vc4"
+    GALLIUM_DRIVERS: "etnaviv,freedreno,kmsro,lima,nouveau,panfrost,swrast,v3d,vc4"
     BUILDTYPE: "debugoptimized"
   tags:
     - aarch64

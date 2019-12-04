@@ -32,6 +32,7 @@
 #include "freedreno/drm/freedreno_drm_public.h"
 #include "panfrost/drm/panfrost_drm_public.h"
 #include "lima/drm/lima_drm_public.h"
+#include "nouveau/drm/nouveau_drm_public.h"
 #include "xf86drm.h"
 
 #include "pipe/p_screen.h"
@@ -116,6 +117,18 @@ struct pipe_screen *kmsro_drm_screen_create(int fd,
    if (ro.gpu_fd >= 0) {
       ro.create_for_resource = renderonly_create_kms_dumb_buffer_for_resource,
       screen = v3d_drm_screen_create_renderonly(&ro, config);
+      if (!screen)
+         close(ro.gpu_fd);
+
+      return screen;
+   }
+#endif
+
+#if defined(GALLIUM_NOUVEAU)
+   ro.gpu_fd = drmOpenWithType("nouveau", NULL, DRM_NODE_RENDER);
+   if (ro.gpu_fd >= 0) {
+      ro.create_for_resource = renderonly_create_kms_dumb_buffer_for_resource,
+      screen = nouveau_drm_screen_create_renderonly(&ro);
       if (!screen)
          close(ro.gpu_fd);
 

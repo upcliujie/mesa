@@ -129,10 +129,6 @@ static const struct drm_driver_descriptor driver_descriptors[] = {
         .create_screen = pipe_etna_create_screen,
     },
     {
-        .driver_name = "tegra",
-        .create_screen = pipe_tegra_create_screen,
-    },
-    {
         .driver_name = "lima",
         .create_screen = pipe_lima_create_screen,
     },

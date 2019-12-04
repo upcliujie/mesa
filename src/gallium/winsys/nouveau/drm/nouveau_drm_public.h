@@ -5,5 +5,6 @@
 struct pipe_screen;
 
 struct pipe_screen *nouveau_drm_screen_create(int drmFD);
+struct pipe_screen *nouveau_drm_screen_create_renderonly(struct renderonly *);
 
 #endif

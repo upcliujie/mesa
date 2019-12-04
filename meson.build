@@ -195,7 +195,7 @@ if gallium_drivers.contains('auto')
     elif ['arm', 'aarch64'].contains(host_machine.cpu_family())
       gallium_drivers = [
         'kmsro', 'v3d', 'vc4', 'freedreno', 'etnaviv', 'nouveau',
-        'tegra', 'virgl', 'lima', 'panfrost', 'swrast'
+        'virgl', 'lima', 'panfrost', 'swrast'
       ]
     else
       error('Unknown architecture @0@. Please pass -Dgallium-drivers to set driver options. Patches gladly accepted to fix this.'.format(
@@ -219,7 +219,6 @@ with_gallium_vc4 = gallium_drivers.contains('vc4')
 with_gallium_v3d = gallium_drivers.contains('v3d')
 with_gallium_panfrost = gallium_drivers.contains('panfrost')
 with_gallium_etnaviv = gallium_drivers.contains('etnaviv')
-with_gallium_tegra = gallium_drivers.contains('tegra')
 with_gallium_iris = gallium_drivers.contains('iris')
 with_gallium_i915 = gallium_drivers.contains('i915')
 with_gallium_svga = gallium_drivers.contains('svga')
@@ -269,11 +268,8 @@ endif
 if with_dri_i915 and with_gallium_i915
   error('Only one i915 provider can be built')
 endif
-if with_gallium_kmsro and not (with_gallium_v3d or with_gallium_vc4 or with_gallium_etnaviv or with_gallium_freedreno or with_gallium_panfrost or with_gallium_lima)
-  error('kmsro driver requires one or more renderonly drivers (vc4, etnaviv, freedreno, panfrost, lima)')
-endif
-if with_gallium_tegra and not with_gallium_nouveau
-  error('tegra driver requires nouveau driver')
+if with_gallium_kmsro and not (with_gallium_v3d or with_gallium_vc4 or with_gallium_etnaviv or with_gallium_freedreno or with_gallium_panfrost or with_gallium_lima or with_gallium_nouveau)
+  error('kmsro driver requires one or more renderonly drivers (vc4, etnaviv, freedreno, panfrost, lima, nouveau)')
 endif
 
 if host_machine.system() == 'darwin'
