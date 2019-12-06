@@ -384,6 +384,9 @@ def generate(env):
         if check_functions(env, ['strtok_r']):
             cppdefines += ['HAVE_STRTOK_R']
 
+        if check_functions(env, ['pthread_getcpuclockid']):
+            cppdefines += ['HAVE_PTHREAD_GETCPUCLOCKID']
+
         #FIXME: we should really be checking for the major()/minor()
         # functions/macros in these headers, but check_functions()'s
         # SConf.CheckFunc() doesn't seem to support macros.
