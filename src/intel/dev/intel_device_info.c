@@ -1012,6 +1012,23 @@ static const struct intel_device_info intel_device_info_sg1 = {
    GFX12_DG1_SG1_FEATURES,
 };
 
+#define XEHP_FEATURES                                           \
+   GFX12_FEATURES(0, 0, 0),                                     \
+   .verx10 = 125,                                               \
+   .has_llc = false,                                            \
+   .has_local_mem = true,                                       \
+   .has_aux_map = false,                                        \
+   .simulator_id = 29
+
+#define DG2_FEATURES                                            \
+   XEHP_FEATURES,                                               \
+   .is_dg2 = true,                                              \
+   .has_lsc = true
+
+UNUSED static const struct intel_device_info intel_device_info_dg2 = {
+   DG2_FEATURES,
+};
+
 static void
 intel_device_info_set_eu_mask(struct intel_device_info *devinfo,
                             unsigned slice,
