@@ -69,6 +69,7 @@ static const struct {
    { "dg1", 0x4905 },
    { "adl", 0x4680 },
    { "sg1", 0x4907 },
+   { "dg2", 0x56a0 },
 };
 
 /**
@@ -1043,12 +1044,12 @@ static const struct intel_device_info intel_device_info_sg1 = {
    .num_subslices = dual_subslices(1),                          \
    .has_lsc = true
 
-UNUSED static const struct intel_device_info intel_device_info_dg2_g10 = {
+static const struct intel_device_info intel_device_info_dg2_g10 = {
    DG2_FEATURES,
    .platform = INTEL_PLATFORM_DG2_G10,
 };
 
-UNUSED static const struct intel_device_info intel_device_info_dg2_g11 = {
+static const struct intel_device_info intel_device_info_dg2_g11 = {
    DG2_FEATURES,
    .platform = INTEL_PLATFORM_DG2_G11,
 };
