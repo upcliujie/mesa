@@ -67,6 +67,7 @@ static const struct {
    { "dg1", 0x4905 },
    { "adl", 0x4680 },
    { "sg1", 0x4907 },
+   { "dg2", 0x56a0 },
 };
 
 /**
@@ -1025,7 +1026,7 @@ static const struct intel_device_info intel_device_info_sg1 = {
    .is_dg2 = true,                                              \
    .has_lsc = true
 
-UNUSED static const struct intel_device_info intel_device_info_dg2 = {
+static const struct intel_device_info intel_device_info_dg2 = {
    DG2_FEATURES,
 };
 
