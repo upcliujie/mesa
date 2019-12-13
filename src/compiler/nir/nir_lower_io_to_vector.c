@@ -136,7 +136,7 @@ variables_can_merge(const nir_shader *shader,
 }
 
 static const struct glsl_type *
-get_flat_type(const nir_shader *shader, nir_variable *old_vars[MAX_SLOTS][4],
+get_flat_type(const nir_shader *shader, nir_variable *old_vars[MAX_SLOTS][16],
               unsigned *loc, nir_variable **first_var, unsigned *num_vertices)
 {
    unsigned todo = 1;
@@ -198,7 +198,7 @@ create_new_io_vars(nir_shader *shader, struct exec_list *io_list,
    if (exec_list_is_empty(io_list))
       return false;
 
-   nir_variable *old_vars[MAX_SLOTS][4] = {{0}};
+   nir_variable *old_vars[MAX_SLOTS][16] = {{0}};
 
    nir_foreach_variable(var, io_list) {
       unsigned frac = var->data.location_frac;
