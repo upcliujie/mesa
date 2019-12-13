@@ -1816,10 +1816,11 @@ panfrost_variant_matches(
         struct panfrost_shader_state *variant,
         enum pipe_shader_type type)
 {
-        struct pipe_rasterizer_state *rasterizer = &ctx->rasterizer->base;
+        struct pipe_rasterizer_state *rasterizer;
         struct pipe_alpha_state *alpha = &ctx->depth_stencil->alpha;
-
         bool is_fragment = (type == PIPE_SHADER_FRAGMENT);
+
+        rasterizer = ctx->rasterizer ? &ctx->rasterizer->base : NULL;
 
         if (is_fragment && (alpha->enabled || variant->alpha_state.enabled)) {
                 /* Make sure enable state is at least the same */
