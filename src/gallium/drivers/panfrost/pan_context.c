@@ -1307,9 +1307,9 @@ panfrost_flush(
         panfrost_flush_all_batches(ctx, false);
 
         if (fence) {
-                struct panfrost_fence *f = panfrost_fence_create(ctx, &fences);
+                struct pipe_fence_handle *f = panfrost_fence_create(ctx, &fences);
                 pipe->screen->fence_reference(pipe->screen, fence, NULL);
-                *fence = (struct pipe_fence_handle *)f;
+                *fence = f;
 
                 util_dynarray_foreach(&fences, struct panfrost_batch_fence *, fence)
                         panfrost_batch_fence_unreference(*fence);

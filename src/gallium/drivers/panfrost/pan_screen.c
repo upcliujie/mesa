@@ -570,22 +570,31 @@ panfrost_get_timestamp(struct pipe_screen *_screen)
         return os_time_get_nano();
 }
 
+struct pipe_fence_handle {
+   struct pipe_reference reference;
+   struct util_dynarray syncfds;
+};
+
+static void
+panfrost_fence_destroy(struct pipe_screen *pscreen,
+                       struct pipe_fence_handle *fence)
+{
+        util_dynarray_foreach(&fence->syncfds, int, fd)
+                close(*fd);
+        util_dynarray_fini(&fence->syncfds);
+        free(fence);
+}
+
 static void
 panfrost_fence_reference(struct pipe_screen *pscreen,
-                         struct pipe_fence_handle **ptr,
-                         struct pipe_fence_handle *fence)
+                         struct pipe_fence_handle **dst,
+                         struct pipe_fence_handle *src)
 {
-        struct panfrost_fence **p = (struct panfrost_fence **)ptr;
-        struct panfrost_fence *f = (struct panfrost_fence *)fence;
-        struct panfrost_fence *old = *p;
+        if (pipe_reference(*dst ? &(*dst)->reference : NULL,
+                           src ? &src->reference : NULL))
+                panfrost_fence_destroy(pscreen, *dst);
 
-        if (pipe_reference(&(*p)->reference, &f->reference)) {
-                util_dynarray_foreach(&old->syncfds, int, fd)
-                        close(*fd);
-                util_dynarray_fini(&old->syncfds);
-                free(old);
-        }
-        *p = f;
+        *dst = src;
 }
 
 static bool
@@ -595,16 +604,15 @@ panfrost_fence_finish(struct pipe_screen *pscreen,
                       uint64_t timeout)
 {
         struct panfrost_screen *screen = pan_screen(pscreen);
-        struct panfrost_fence *f = (struct panfrost_fence *)fence;
         struct util_dynarray syncobjs;
         int ret;
 
         /* All fences were already signaled */
-        if (!util_dynarray_num_elements(&f->syncfds, int))
+        if (!util_dynarray_num_elements(&fence->syncfds, int))
                 return true;
 
         util_dynarray_init(&syncobjs, NULL);
-        util_dynarray_foreach(&f->syncfds, int, fd) {
+        util_dynarray_foreach(&fence->syncfds, int, fd) {
                 uint32_t syncobj;
 
                 ret = drmSyncobjCreate(screen->fd, 0, &syncobj);
@@ -630,12 +638,12 @@ panfrost_fence_finish(struct pipe_screen *pscreen,
         return ret >= 0;
 }
 
-struct panfrost_fence *
+struct pipe_fence_handle *
 panfrost_fence_create(struct panfrost_context *ctx,
                       struct util_dynarray *fences)
 {
         struct panfrost_screen *screen = pan_screen(ctx->base.screen);
-        struct panfrost_fence *f = calloc(1, sizeof(*f));
+        struct pipe_fence_handle *f = calloc(1, sizeof(*f));
         if (!f)
                 return NULL;
 

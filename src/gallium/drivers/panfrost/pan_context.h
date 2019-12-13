@@ -90,11 +90,6 @@ struct panfrost_query {
         struct panfrost_bo *bo;
 };
 
-struct panfrost_fence {
-        struct pipe_reference reference;
-        struct util_dynarray syncfds;
-};
-
 struct panfrost_streamout {
         struct pipe_stream_output_target *targets[PIPE_MAX_SO_BUFFERS];
         uint32_t offsets[PIPE_MAX_SO_BUFFERS];

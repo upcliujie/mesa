@@ -115,7 +115,7 @@ pan_screen(struct pipe_screen *p)
         return (struct panfrost_screen *)p;
 }
 
-struct panfrost_fence *
+struct pipe_fence_handle *
 panfrost_fence_create(struct panfrost_context *ctx,
                       struct util_dynarray *fences);
 
