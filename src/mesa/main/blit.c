@@ -98,10 +98,15 @@ _mesa_regions_overlap(int srcX0, int srcY0,
  *     does not contain signed integer values."
  */
 static GLboolean
-compatible_color_datatypes(mesa_format srcFormat, mesa_format dstFormat)
+compatible_color_datatypes(struct gl_context *ctx, mesa_format srcFormat,
+                           mesa_format dstFormat)
 {
    GLenum srcType = _mesa_get_format_datatype(srcFormat);
    GLenum dstType = _mesa_get_format_datatype(dstFormat);
+
+   /* For ANGLE_framebuffer_blit, the formats must match exactly */
+   if (ctx->API == API_OPENGLES2 && ctx->Version == 20)
+      return srcFormat == dstFormat;
 
    if (srcType != GL_INT && srcType != GL_UNSIGNED_INT) {
       assert(srcType == GL_UNSIGNED_NORMALIZED ||
@@ -166,8 +171,10 @@ is_valid_blit_filter(const struct gl_context *ctx, GLenum filter)
 {
    switch (filter) {
    case GL_NEAREST:
-   case GL_LINEAR:
       return true;
+   case GL_LINEAR:
+      /* For ANGLE_framebuffer_blit only GL_NEAREST is supported */
+      return !(ctx->API == API_OPENGLES2 && ctx->Version == 20);
    case GL_SCALED_RESOLVE_FASTEST_EXT:
    case GL_SCALED_RESOLVE_NICEST_EXT:
       return ctx->Extensions.EXT_framebuffer_multisample_blit_scaled;
@@ -208,7 +215,7 @@ validate_color_buffer(struct gl_context *ctx, struct gl_framebuffer *readFb,
          return false;
       }
 
-      if (!compatible_color_datatypes(colorReadRb->Format,
+      if (!compatible_color_datatypes(ctx, colorReadRb->Format,
                                       colorDrawRb->Format)) {
          _mesa_error(ctx, GL_INVALID_OPERATION,
                      "%s(color buffer datatypes mismatch)", func);
@@ -467,6 +474,20 @@ blit_framebuffer(struct gl_context *ctx,
                                        dstX0, dstY0, dstX1, dstY1))
                 return;
          }
+      }
+
+      /* for ANGLE_framebuffer_blit */
+      if (ctx->API == API_OPENGLES2 && ctx->Version == 20) {
+         /* source and destination rectangles must be the same size */
+         if (!blit_dimensions_match(ctx, func,
+                                    srcX0, srcY0, srcX1, srcY1,
+                                    dstX0, dstY0, dstX1, dstY1))
+             return;
+
+         /* for depth or stencil buffers, the rectangles must cover the
+          * whole buffer (after scissoring).
+          * XXX and you need to write this check...
+          */
       }
    }
 
