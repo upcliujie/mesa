@@ -340,6 +340,21 @@ validate_depth_buffer(struct gl_context *ctx, struct gl_framebuffer *readFb,
 }
 
 
+static bool
+blit_dimensions_match(struct gl_context *ctx, const char *func,
+                      GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
+                      GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1)
+{
+   if (abs(srcX1 - srcX0) != abs(dstX1 - dstX0) ||
+       abs(srcY1 - srcY0) != abs(dstY1 - dstY0)) {
+      _mesa_error(ctx, GL_INVALID_OPERATION,
+                  "%s(bad src/dst region sizes)", func);
+      return false;
+   }
+   return true;
+}
+
+
 static ALWAYS_INLINE void
 blit_framebuffer(struct gl_context *ctx,
                  struct gl_framebuffer *readFb, struct gl_framebuffer *drawFb,
@@ -447,12 +462,10 @@ blit_framebuffer(struct gl_context *ctx,
          if ((readFb->Visual.samples > 0 || drawFb->Visual.samples > 0) &&
              (filter == GL_NEAREST || filter == GL_LINEAR)) {
             /* src and dest region sizes must be the same */
-            if (abs(srcX1 - srcX0) != abs(dstX1 - dstX0) ||
-                abs(srcY1 - srcY0) != abs(dstY1 - dstY0)) {
-               _mesa_error(ctx, GL_INVALID_OPERATION,
-                           "%s(bad src/dst multisample region sizes)", func);
-               return;
-            }
+            if (!blit_dimensions_match(ctx, func,
+                                       srcX0, srcY0, srcX1, srcY1,
+                                       dstX0, dstY0, dstX1, dstY1))
+                return;
          }
       }
    }
