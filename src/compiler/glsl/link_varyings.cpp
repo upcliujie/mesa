@@ -1074,7 +1074,10 @@ tfeedback_decl::is_same(const tfeedback_decl &x, const tfeedback_decl &y)
  */
 bool
 tfeedback_decl::assign_location(struct gl_context *ctx,
-                                struct gl_shader_program *prog)
+                                struct gl_shader_program *prog,
+                                bool disable_xfb_packing,
+                                bool disable_varying_packing,
+                                bool xfb_enabled)
 {
    assert(this->is_varying());
 
@@ -1122,8 +1125,14 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
                          actual_array_size);
             return false;
          }
+
+         bool array_will_be_lowered =
+            lower_packed_varyings_needs_lowering(this->matched_candidate->toplevel_var, ir_var_shader_out,
+                                                 disable_xfb_packing, disable_varying_packing, xfb_enabled) ||
+            lower_packed_varyings_needs_lowering(this->matched_candidate->toplevel_var, ir_var_shader_in,
+                                                 disable_xfb_packing, disable_varying_packing, xfb_enabled);
          unsigned array_elem_size = this->lowered_builtin_array_variable ?
-            1 : vector_elements * matrix_cols * dmul;
+            1 : (array_will_be_lowered ? vector_elements : 4) * matrix_cols * dmul;
          fine_location += array_elem_size * this->array_subscript;
          this->size = 1;
       } else {
@@ -2906,7 +2915,10 @@ assign_varying_locations(struct gl_context *ctx,
 
    for (unsigned i = 0; i < num_tfeedback_decls; ++i) {
       if (tfeedback_decls[i].is_varying()) {
-         if (!tfeedback_decls[i].assign_location(ctx, prog)) {
+         if (!tfeedback_decls[i].assign_location(ctx, prog,
+                                                 disable_xfb_packing,
+                                                 disable_varying_packing,
+                                                 xfb_enabled)) {
             ralloc_free(hash_table_ctx);
             return false;
          }

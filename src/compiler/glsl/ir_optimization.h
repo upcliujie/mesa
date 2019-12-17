@@ -161,6 +161,11 @@ void lower_packed_varyings(void *mem_ctx,
                            bool disable_varying_packing,
                            bool disable_xfb_packing,
                            bool xfb_enabled);
+bool lower_packed_varyings_needs_lowering(ir_variable* var,
+                                          ir_variable_mode mode,
+                                          bool disable_xfb_packing,
+                                          bool disable_varying_packing,
+                                          bool xfb_enabled);
 bool lower_vector_insert(exec_list *instructions, bool lower_nonconstant_index);
 bool lower_vector_derefs(gl_linked_shader *shader);
 void lower_named_interface_blocks(void *mem_ctx, gl_linked_shader *shader);
