@@ -915,6 +915,16 @@ dri2_get_modifier_num_planes(uint64_t modifier, int fourcc)
    case DRM_FORMAT_MOD_INVALID:
       return util_format_get_num_planes(map->pipe_format);
    default:
+      if (IS_AMD_FMT_MOD(modifier)) {
+         if (map->nplanes > 1)
+            return map->nplanes;
+         else if (AMD_FMT_MOD_GET(DCC_RETILE, modifier))
+            return 3;
+         else if (AMD_FMT_MOD_GET(DCC, modifier))
+            return 2;
+         else
+            return 1;
+      }
       return 0;
    }
 }
