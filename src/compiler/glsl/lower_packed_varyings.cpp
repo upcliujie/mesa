@@ -192,7 +192,6 @@ private:
                                             ir_variable *unpacked_var,
                                             const char *name,
                                             unsigned vertex_index);
-   bool needs_lowering(ir_variable *var);
 
    /**
     * Memory context used to allocate new instructions for the shader.
@@ -277,9 +276,9 @@ lower_packed_varyings_visitor::run(struct gl_linked_shader *shader)
       if (var == NULL)
          continue;
 
-      if (var->data.mode != this->mode ||
-          var->data.location < VARYING_SLOT_VAR0 ||
-          !this->needs_lowering(var))
+      if (!lower_packed_varyings_needs_lowering(var, this->mode,
+                                                this->disable_varying_packing,
+                                                this->xfb_enabled))
          continue;
 
       /* This lowering pass is only capable of packing floats and ints
@@ -780,8 +779,14 @@ lower_packed_varyings_visitor::get_packed_varying_deref(
 }
 
 bool
-lower_packed_varyings_visitor::needs_lowering(ir_variable *var)
+lower_packed_varyings_needs_lowering(ir_variable *var,
+                                     ir_variable_mode mode,
+                                     bool disable_varying_packing,
+                                     bool xfb_enabled)
 {
+   if (var->data.mode != mode || var->data.location < VARYING_SLOT_VAR0)
+      return false;
+
    /* Things composed of vec4's, varyings with explicitly assigned
     * locations or varyings marked as must_be_shader_input (which might be used
     * by interpolateAt* functions) shouldn't be lowered. Everything else can be.
@@ -794,7 +799,7 @@ lower_packed_varyings_visitor::needs_lowering(ir_variable *var)
    /* Some drivers (e.g. panfrost) don't support packing of transform
     * feedback varyings.
     */
-   if (disable_xfb_packing && var->data.is_xfb &&
+   if (disable_varying_packing && var->data.is_xfb &&
        !(type->is_array() || type->is_struct() || type->is_matrix()) &&
        xfb_enabled)
       return false;

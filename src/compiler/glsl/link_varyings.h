@@ -100,7 +100,9 @@ public:
    void init(struct gl_context *ctx, const void *mem_ctx, const char *input);
    static bool is_same(const tfeedback_decl &x, const tfeedback_decl &y);
    bool assign_location(struct gl_context *ctx,
-                        struct gl_shader_program *prog);
+                        struct gl_shader_program *prog,
+                        bool disable_varying_packing,
+                        bool xfb_enabled);
    unsigned get_num_outputs() const;
    bool store(struct gl_context *ctx, struct gl_shader_program *prog,
               struct gl_transform_feedback_info *info, unsigned buffer,
