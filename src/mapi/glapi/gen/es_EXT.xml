@@ -680,6 +680,9 @@
     </enum>
 </category>
 
+<!-- 83. GL_ANGLE_framebuffer_blit -->
+<xi:include href="ANGLE_framebuffer_blit.xml" xmlns:xi="http://www.w3.org/2001/XInclude"/>
+
 <!-- 87. GL_OES_EGL_image_external -->
 <category name="GL_OES_EGL_image_external" number="87">
     <enum name="TEXTURE_EXTERNAL_OES"                     value="0x8D65"/>

@@ -1689,6 +1689,7 @@ offsets = {
     "VertexAttribs2hvNV": 1653,
     "VertexAttribs3hvNV": 1654,
     "VertexAttribs4hvNV": 1655,
+    "BlitFramebufferANGLE": 1656,
 }
 
 functions = [
