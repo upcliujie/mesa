@@ -98,10 +98,15 @@ _mesa_regions_overlap(int srcX0, int srcY0,
  *     does not contain signed integer values."
  */
 static GLboolean
-compatible_color_datatypes(mesa_format srcFormat, mesa_format dstFormat)
+compatible_color_datatypes(const char *func, mesa_format srcFormat,
+                           mesa_format dstFormat)
 {
    GLenum srcType = _mesa_get_format_datatype(srcFormat);
    GLenum dstType = _mesa_get_format_datatype(dstFormat);
+
+   /* For ANGLE_framebuffer_blit, the formats must match exactly */
+   if (!strcmp(func, "glBlitFramebufferANGLE"))
+      return srcFormat == dstFormat;
 
    if (srcType != GL_INT && srcType != GL_UNSIGNED_INT) {
       assert(srcType == GL_UNSIGNED_NORMALIZED ||
@@ -162,8 +167,12 @@ compatible_resolve_formats(const struct gl_renderbuffer *readRb,
 
 
 static GLboolean
-is_valid_blit_filter(const struct gl_context *ctx, GLenum filter)
+is_valid_blit_filter(const struct gl_context *ctx, const char *func,
+                     GLenum filter)
 {
+   if (!strcmp(func, "glBlitFramebufferANGLE") && filter != GL_NEAREST)
+      return false;
+
    switch (filter) {
    case GL_NEAREST:
    case GL_LINEAR:
@@ -208,7 +217,7 @@ validate_color_buffer(struct gl_context *ctx, struct gl_framebuffer *readFb,
          return false;
       }
 
-      if (!compatible_color_datatypes(colorReadRb->Format,
+      if (!compatible_color_datatypes(func, colorReadRb->Format,
                                       colorDrawRb->Format)) {
          _mesa_error(ctx, GL_INVALID_OPERATION,
                      "%s(color buffer datatypes mismatch)", func);
@@ -390,7 +399,7 @@ blit_framebuffer(struct gl_context *ctx,
          return;
       }
 
-      if (!is_valid_blit_filter(ctx, filter)) {
+      if (!is_valid_blit_filter(ctx, func, filter)) {
          _mesa_error(ctx, GL_INVALID_ENUM, "%s(invalid filter %s)", func,
                      _mesa_enum_to_string(filter));
          return;
@@ -467,6 +476,20 @@ blit_framebuffer(struct gl_context *ctx,
                                        dstX0, dstY0, dstX1, dstY1))
                 return;
          }
+      }
+
+      /* for ANGLE_framebuffer_blit */
+      if (!strcmp(func, "glBlitFramebufferANGLE")) {
+         /* source and destination rectangles must be the same size */
+         if (!blit_dimensions_match(ctx, func,
+                                    srcX0, srcY0, srcX1, srcY1,
+                                    dstX0, dstY0, dstX1, dstY1))
+             return;
+
+         /* for depth or stencil buffers, the rectangles must cover the
+          * whole buffer (after scissoring).
+          * XXX and you need to write this check...
+          */
       }
    }
 
@@ -649,6 +672,28 @@ _mesa_BlitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
                         srcX0, srcY0, srcX1, srcY1,
                         dstX0, dstY0, dstX1, dstY1,
                         mask, filter, "glBlitFramebuffer");
+}
+
+
+void GLAPIENTRY
+_mesa_BlitFramebufferANGLE(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
+                           GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
+                           GLbitfield mask, GLenum filter)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   if (MESA_VERBOSE & VERBOSE_API)
+      _mesa_debug(ctx,
+                  "glBlitFramebufferANGLE(%d, %d, %d, %d, "
+                  " %d, %d, %d, %d, 0x%x, %s)\n",
+                  srcX0, srcY0, srcX1, srcY1,
+                  dstX0, dstY0, dstX1, dstY1,
+                  mask, _mesa_enum_to_string(filter));
+
+   blit_framebuffer_err(ctx, ctx->ReadBuffer, ctx->DrawBuffer,
+                        srcX0, srcY0, srcX1, srcY1,
+                        dstX0, dstY0, dstX1, dstY1,
+                        mask, filter, "glBlitFramebufferANGLE");
 }
 
 

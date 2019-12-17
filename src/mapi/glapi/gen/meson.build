@@ -107,6 +107,7 @@ api_xml_files = files(
   'AMD_draw_buffers_blend.xml',
   'AMD_gpu_shader_int64.xml',
   'AMD_performance_monitor.xml',
+  'ANGLE_framebuffer_blit.xml',
   'ARB_vertex_type_2_10_10_10_rev.xml',
   'APPLE_object_purgeable.xml',
   'APPLE_vertex_array_object.xml',
