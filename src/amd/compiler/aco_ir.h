@@ -1741,6 +1741,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
 void ssa_elimination(Program* program);
 void lower_to_hw_instr(Program* program);
 void schedule_program(Program* program, live& live_vars);
+void schedule_postRA(Program* program);
 void spill(Program* program, live& live_vars);
 void insert_wait_states(Program* program);
 void insert_NOPs(Program* program);
