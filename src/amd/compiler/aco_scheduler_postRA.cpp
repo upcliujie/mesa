@@ -36,6 +36,9 @@ namespace aco {
 
 namespace {
 
+/* Maximum addressable register */
+constexpr size_t max_reg_cnt = 512;
+
 struct Node
 {
    int index;
@@ -134,6 +137,7 @@ Node* select_candidate(sched_ctx &ctx)
 
 bool handle_read(sched_ctx &ctx, Node *node, unsigned reg)
 {
+   assert(reg < max_reg_cnt);
    bool is_candidate = true;
    std::unordered_map<unsigned, Node *>::iterator it = ctx.writes.find(reg);
 
@@ -149,6 +153,7 @@ bool handle_read(sched_ctx &ctx, Node *node, unsigned reg)
 
 bool handle_write(sched_ctx &ctx, Node *node, unsigned reg)
 {
+   assert(reg < max_reg_cnt);
    bool is_candidate = true;
    std::unordered_map<unsigned, Node*>::iterator it = ctx.writes.find(reg);
 
@@ -188,7 +193,7 @@ void build_dag(sched_ctx &ctx, const Block *block)
             continue;
 
          unsigned reg = instr->operands[i].physReg().reg();
-         for (unsigned k = 0; k < instr->operands[i].size(); k++) {
+         for (unsigned k = 0; k < instr->operands[i].size() && (reg + k) < max_reg_cnt; k++) {
             if (!handle_read(ctx, node, reg + k))
                is_candidate = false;
          }
@@ -204,7 +209,7 @@ void build_dag(sched_ctx &ctx, const Block *block)
       /* Write after Write/Read */
       for (unsigned i = 0; i < instr->definitions.size(); i++) {
          unsigned reg = instr->definitions[i].physReg().reg();
-         for (unsigned k = 0; k < instr->definitions[i].size(); k++) {
+         for (unsigned k = 0; k < instr->definitions[i].size() && (reg + k) < max_reg_cnt; k++) {
             if (!handle_write(ctx, node, reg + k))
                is_candidate = false;
          }
