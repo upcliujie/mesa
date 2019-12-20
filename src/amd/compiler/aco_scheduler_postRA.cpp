@@ -65,8 +65,8 @@ struct sched_ctx
    unsigned current_index = 0;
    std::vector<Node> nodes;
    std::set<Node *> candidates;
-   /* hashtable from PhysReg to Node */
    std::unordered_map<unsigned, Node *> writes;
+   std::unordered_set<Node *> writeless_reads[max_reg_cnt];
 
    /* here we can maintain information about the functional units */
    sched_ctx(unsigned num_instr)
@@ -146,6 +146,9 @@ bool handle_read(sched_ctx &ctx, Node *node, unsigned reg)
       is_candidate = false;
       predecessor->successors.insert(node);
       node->predecessors.insert(predecessor);
+   } else {
+      /* This register isn't written by any instruction, but the current one reads it. */
+      ctx.writeless_reads[reg].insert(node);
    }
 
    return is_candidate;
@@ -172,6 +175,18 @@ bool handle_write(sched_ctx &ctx, Node *node, unsigned reg)
       /* add previous write as predecessor */
       it->second->successors.insert(node);
       node->predecessors.insert(it->second);
+   } else if (ctx.writeless_reads[reg].size()) {
+      /* Add writeless reads as predecessors */
+      for (Node *read : ctx.writeless_reads[reg]) {
+         if (read == node)
+            continue;
+
+         read->successors.insert(node);
+         node->predecessors.insert(read);
+
+         is_candidate = false;
+      }
+      ctx.writeless_reads[reg].clear();
    }
 
    ctx.writes[reg] = node;
