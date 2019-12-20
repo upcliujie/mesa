@@ -62,18 +62,67 @@ struct Node
 
 struct sched_ctx
 {
-   unsigned current_index = 0;
+   Block *block;
+   std::vector<aco_ptr<Instruction>> new_instructions;
    std::vector<Node> nodes;
    std::set<Node *> candidates;
    std::unordered_map<unsigned, Node *> writes;
    std::unordered_set<Node *> writeless_reads[max_reg_cnt];
 
    /* here we can maintain information about the functional units */
-   sched_ctx(unsigned num_instr)
+   sched_ctx(Block *b) : block(b)
    {
-      nodes.reserve(num_instr);
+      nodes.reserve(b->instructions.size());
+   }
+
+   void barrier()
+   {
+      assert(candidates.empty());
+
+      /* Clear read/write info */
+      for (unsigned i = 0; i < max_reg_cnt; ++i) {
+         writes[i] = nullptr;
+         writeless_reads[i].clear();
+      }
    }
 };
+
+bool is_unschedulable(const Instruction *instr)
+{
+   if (instr->format == Format::SOPP) {
+      switch (instr->opcode) {
+      case aco_opcode::s_sendmsg:
+         return false;
+      default:
+         return true;
+      }
+   } else if (instr->format == Format::SOPK) {
+      switch (instr->opcode) {
+      case aco_opcode::s_call_b64:
+      case aco_opcode::s_subvector_loop_begin:
+      case aco_opcode::s_subvector_loop_end:
+      case aco_opcode::s_waitcnt:
+      case aco_opcode::s_waitcnt_vscnt:
+      case aco_opcode::s_waitcnt_vmcnt:
+      case aco_opcode::s_waitcnt_expcnt:
+      case aco_opcode::s_waitcnt_lgkmcnt:
+      case aco_opcode::s_waitcnt_depctr:
+         return true;
+      default:
+         return false;
+      }
+   } else if (instr->format == Format::SMEM) {
+      switch (instr->opcode) {
+      case aco_opcode::s_dcache_wb:
+      case aco_opcode::s_dcache_wb_vol:
+         return true;
+      default:
+         return false;
+      }
+   }
+
+   return false;
+}
 
 bool reads_exec_implicitly(const Instruction *instr)
 {
@@ -128,6 +177,9 @@ Node* select_candidate(sched_ctx &ctx)
 
    /* add successors to list of potential candidates */
    for (Node *n : next->successors) {
+      assert(n != next);
+      assert(!n->scheduled);
+
       if (is_new_candidate(n))
          ctx.candidates.insert(n);
    }
@@ -141,12 +193,12 @@ bool handle_read(sched_ctx &ctx, Node *node, unsigned reg)
    bool is_candidate = true;
    std::unordered_map<unsigned, Node *>::iterator it = ctx.writes.find(reg);
 
-   if (it != ctx.writes.end()) {
+   if (it != ctx.writes.end() && !it->second->scheduled) {
       Node *predecessor = it->second;
       is_candidate = false;
       predecessor->successors.insert(node);
       node->predecessors.insert(predecessor);
-   } else {
+   } else if (it == ctx.writes.end()) {
       /* This register isn't written by any instruction, but the current one reads it. */
       ctx.writeless_reads[reg].insert(node);
    }
@@ -160,7 +212,7 @@ bool handle_write(sched_ctx &ctx, Node *node, unsigned reg)
    bool is_candidate = true;
    std::unordered_map<unsigned, Node*>::iterator it = ctx.writes.find(reg);
 
-   if (it != ctx.writes.end()) {
+   if (it != ctx.writes.end() && !it->second->scheduled) {
       is_candidate = false;
 
       /* add all uses of previous write to predecessors */
@@ -178,7 +230,7 @@ bool handle_write(sched_ctx &ctx, Node *node, unsigned reg)
    } else if (ctx.writeless_reads[reg].size()) {
       /* Add writeless reads as predecessors */
       for (Node *read : ctx.writeless_reads[reg]) {
-         if (read == node)
+         if (read == node || read->scheduled)
             continue;
 
          read->successors.insert(node);
@@ -193,52 +245,57 @@ bool handle_write(sched_ctx &ctx, Node *node, unsigned reg)
    return is_candidate;
 }
 
-void build_dag(sched_ctx &ctx, const Block *block)
+void add_to_dag(sched_ctx &ctx, const Instruction *instr, unsigned index)
 {
-   /* TODO: add / propagate priorities */
-   for (unsigned index = 0; index < block->instructions.size(); index++) {
-      const Instruction* instr = block->instructions[index].get();
-      ctx.nodes.emplace_back(index);
-      Node* node = &ctx.nodes.back();
-      bool is_candidate = true;
+   assert(!is_unschedulable(instr));
+   ctx.nodes.emplace_back(index);
+   Node* node = &ctx.nodes.back();
+   bool is_candidate = true;
 
-      /* Read after Write */
-      for (unsigned i = 0; i < instr->operands.size(); i++) {
-         if (instr->operands[i].isConstant())
-            continue;
+   /* Read after Write */
+   for (unsigned i = 0; i < instr->operands.size(); i++) {
+      if (instr->operands[i].isConstant())
+         continue;
 
-         unsigned reg = instr->operands[i].physReg().reg();
-         for (unsigned k = 0; k < instr->operands[i].size() && (reg + k) < max_reg_cnt; k++) {
-            if (!handle_read(ctx, node, reg + k))
-               is_candidate = false;
-         }
+      unsigned reg = instr->operands[i].physReg().reg();
+      for (unsigned k = 0; k < instr->operands[i].size() && (reg + k) < max_reg_cnt; k++) {
+         if (!handle_read(ctx, node, reg + k))
+            is_candidate = false;
       }
+   }
 
-      if (reads_exec_implicitly(instr)) {
-         for (unsigned reg = exec_lo.reg(); reg <= exec_hi; reg++) {
-            if (!handle_read(ctx, node, reg))
-               is_candidate = false;
-         }
+   if (reads_exec_implicitly(instr)) {
+      for (unsigned reg = exec_lo.reg(); reg <= exec_hi.reg(); reg++) {
+         if (!handle_read(ctx, node, reg))
+            is_candidate = false;
       }
+   }
 
-      /* Write after Write/Read */
-      for (unsigned i = 0; i < instr->definitions.size(); i++) {
-         unsigned reg = instr->definitions[i].physReg().reg();
-         for (unsigned k = 0; k < instr->definitions[i].size() && (reg + k) < max_reg_cnt; k++) {
-            if (!handle_write(ctx, node, reg + k))
-               is_candidate = false;
-         }
+   /* Write after Write/Read */
+   for (unsigned i = 0; i < instr->definitions.size(); i++) {
+      unsigned reg = instr->definitions[i].physReg().reg();
+      for (unsigned k = 0; k < instr->definitions[i].size() && (reg + k) < max_reg_cnt; k++) {
+         if (!handle_write(ctx, node, reg + k))
+            is_candidate = false;
       }
+   }
 
-      if (writes_exec_implicitly(instr)) {
-         for (unsigned reg = exec_lo.reg(); reg <= exec_hi; reg++) {
-            if (!handle_write(ctx, node, reg))
-               is_candidate = false;
-         }
+   if (writes_exec_implicitly(instr)) {
+      for (unsigned reg = exec_lo.reg(); reg <= exec_hi.reg(); reg++) {
+         if (!handle_write(ctx, node, reg))
+            is_candidate = false;
       }
+   }
 
-      if (is_candidate)
-         ctx.candidates.insert(node);
+   if (is_candidate)
+      ctx.candidates.insert(node);
+}
+
+void select_candidates(sched_ctx &ctx)
+{
+   while (!ctx.candidates.empty()) {
+      Node *next_instr = select_candidate(ctx);
+      ctx.new_instructions.emplace_back(std::move(ctx.block->instructions[next_instr->index]));
    }
 }
 
@@ -247,18 +304,25 @@ void build_dag(sched_ctx &ctx, const Block *block)
 void schedule_postRA(Program *program)
 {
    for (auto &block : program->blocks) {
-      sched_ctx ctx(block.instructions.size());
-      std::vector<aco_ptr<Instruction>> new_instructions;
-      build_dag(ctx, &block);
+      sched_ctx ctx(&block);
 
-      while (!ctx.candidates.empty()) {
-         Node *next_instr = select_candidate(ctx);
-         ctx.current_index = new_instructions.size();
-         new_instructions.emplace_back(std::move(block.instructions[next_instr->index]));
-         next_instr->index = ctx.current_index;
+      for (unsigned index = 0; index < ctx.block->instructions.size(); index++) {
+         const Instruction* instr = ctx.block->instructions[index].get();
+
+         if (is_unschedulable(instr)) {
+            select_candidates(ctx);
+            ctx.nodes.emplace_back(index);
+            ctx.new_instructions.emplace_back(std::move(block.instructions[index]));
+            ctx.barrier();
+         } else {
+            add_to_dag(ctx, instr, index);
+         }
       }
 
-      block.instructions.swap(new_instructions);
+      select_candidates(ctx);
+      assert(ctx.candidates.empty());
+      assert(block.instructions.size() == ctx.new_instructions.size());
+      block.instructions.swap(ctx.new_instructions);
    }
 }
 
