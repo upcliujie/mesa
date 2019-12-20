@@ -48,7 +48,7 @@ struct Node
    std::unordered_set<Node *> predecessors;
    bool scheduled = false;
 
-   Node(int i) : index(i) {}
+   Node(int i, int prio = 0) : index(i), priority(prio) {}
 
    bool operator ==(const struct Node &other) const
    {
@@ -61,13 +61,30 @@ struct Node
    }
 };
 
+struct NodePtrPriorityCompare {
+   inline bool operator()(const Node *n1, const Node *n2)
+   {
+      if (n1 == n2)
+         return false;
+
+      /* Make sure we're not adding the same instruction twice. */
+      assert(n1->index != n2->index);
+
+      if (n1->priority == n2->priority)
+         return n1->index < n2->index;
+
+      return n1->priority > n2->priority;
+   }
+};
+
 struct sched_ctx
 {
+   Program *program;
    Block *block;
    std::vector<aco_ptr<Instruction>> new_instructions;
    std::vector<Node> nodes;
 
-   std::set<Node *> candidates;
+   std::set<Node *, NodePtrPriorityCompare> candidates;
    Node *writes[max_reg_cnt] = {0};
    std::unordered_set<Node *> writeless_reads[max_reg_cnt];
 
@@ -76,7 +93,7 @@ struct sched_ctx
    std::vector<Node *> acquired_nodes[storage_count];
 
    /* here we can maintain information about the functional units */
-   sched_ctx(Block *b) : block(b)
+   sched_ctx(Program *p, Block *b) : program(p), block(b)
    {
       nodes.reserve(b->instructions.size());
 
@@ -175,6 +192,57 @@ bool writes_exec_implicitly(const Instruction *instr)
    return false;
 }
 
+int get_latency(const sched_ctx &ctx, const Instruction *instr)
+{
+   assert(ctx.program->chip_class >= GFX10);
+
+   /* These numbers are from LLVM's GFX10SpeedModel. */
+
+   switch (instr->format) {
+   case Format::SMEM: /* Ballpark estimate according to LLVM */
+      return 20;
+   case Format::EXP:
+      return 16;
+   case Format::VINTRP: /* Interpolated inputs are loaded from LDS */
+   case Format::DS:
+      return 20;
+   case Format::PSEUDO_BARRIER:
+      return 2000;
+   default:
+      break;
+   }
+
+   if (instr->isVALU()) /* XXX: Distinguish between Write32Bit, Write64Bit, WriteDouble etc? */
+      return 5;
+   else if (instr->isSALU()) /* Branches and barriers are different, but they are not scheduled anyway */
+      return 3;
+   else if (instr->isVMEM() || instr->isFlatOrGlobal() || instr->format == Format::SCRATCH) /* Ballpark estimate */
+      return 320;
+
+   unreachable("unsupported instruction format");
+}
+
+int get_priority(const sched_ctx &ctx, const Instruction *instr)
+{
+   switch (instr->format) {
+   case Format::SMEM:
+   case Format::DS:
+   case Format::MTBUF:
+   case Format::MUBUF:
+   case Format::MIMG:
+   case Format::FLAT:
+   case Format::GLOBAL:
+   case Format::SCRATCH:
+      /* Priority correlates to latency.
+       * In other words, priority means how much latency are we willing to suffer
+       * in order to schedule more important instructions to the top.
+       */
+      return get_latency(ctx, instr) / 2;
+   default:
+      return 0;
+   }
+}
+
 template <typename TFunc>
 void foreach_reg_read(const Instruction *instr, const TFunc &func)
 {
@@ -236,10 +304,12 @@ bool is_new_candidate(const Node *node)
 
 Node* select_candidate(sched_ctx &ctx)
 {
-   std::set<Node *>::iterator it = ctx.candidates.begin();
-   /* TODO: choose candidate based on priority */
-   Node *next = *it;
-   ctx.candidates.erase(it);
+   /* The first candidate already has the highest priority */
+   assert(ctx.candidates.size() > 0);
+   std::set<Node *>::iterator selected_it = ctx.candidates.begin();
+
+   Node *next = *selected_it;
+   ctx.candidates.erase(selected_it);
    assert(!next->scheduled);
    next->scheduled = true;
 
@@ -400,7 +470,7 @@ bool handle_sync(sched_ctx &ctx, const Instruction *instr, unsigned index, Node 
 void add_to_dag(sched_ctx &ctx, const Instruction *instr, unsigned index)
 {
    assert(!is_unschedulable(instr));
-   ctx.nodes.emplace_back(index);
+   ctx.nodes.emplace_back(index, get_priority(ctx, instr));
    Node* node = &ctx.nodes.back();
    bool is_candidate = true;
 
@@ -436,7 +506,7 @@ void select_candidates(sched_ctx &ctx)
 void schedule_postRA(Program *program)
 {
    for (auto &block : program->blocks) {
-      sched_ctx ctx(&block);
+      sched_ctx ctx(program, &block);
 
       for (unsigned index = 0; index < ctx.block->instructions.size(); index++) {
          const Instruction* instr = ctx.block->instructions[index].get();
