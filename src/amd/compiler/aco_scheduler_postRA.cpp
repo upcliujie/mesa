@@ -44,11 +44,12 @@ struct Node
 {
    int index;
    int priority;
+   int latency;
    std::unordered_set<Node *> successors;
    std::unordered_set<Node *> predecessors;
    bool scheduled = false;
 
-   Node(int i) : index(i) {}
+   Node(int i, int lat) : index(i), priority(lat), latency(lat) {}
 
    bool operator ==(const struct Node &other) const
    {
@@ -61,13 +62,30 @@ struct Node
    }
 };
 
+struct NodePtrPriorityCompare {
+   inline bool operator()(const Node *n1, const Node *n2)
+   {
+      if (n1 == n2)
+         return false;
+
+      /* Make sure we're not adding the same instruction twice. */
+      assert(n1->index != n2->index);
+
+      if (n1->priority == n2->priority)
+         return n1->index < n2->index;
+
+      return n1->priority > n2->priority;
+   }
+};
+
 struct sched_ctx
 {
+   Program *program;
    Block *block;
    std::vector<aco_ptr<Instruction>> new_instructions;
    std::vector<Node> nodes;
 
-   std::set<Node *> candidates;
+   std::set<Node *, NodePtrPriorityCompare> candidates;
    Node *writes[max_reg_cnt] = {0};
    std::unordered_set<Node *> writeless_reads[max_reg_cnt];
 
@@ -76,7 +94,7 @@ struct sched_ctx
    std::vector<Node *> acquired_nodes[storage_count];
 
    /* here we can maintain information about the functional units */
-   sched_ctx() : block(nullptr)
+   sched_ctx(Program *p) : program(p), block(nullptr)
    {
       for (unsigned i = 0; i < storage_count; i++) {
          last_acquirer[i] = -1;
@@ -187,6 +205,38 @@ bool writes_exec_implicitly(const Instruction *instr)
    return false;
 }
 
+int get_latency(const sched_ctx &ctx, const Instruction *instr)
+{
+   assert(ctx.program->chip_class >= GFX10);
+
+   /* These numbers are from LLVM's GFX10SpeedModel with a few corrections of our own */
+
+   switch (instr->format) {
+   case Format::SMEM: /* Ballpark estimate */
+      return 20;
+   case Format::EXP:
+      return 16;
+   case Format::VINTRP: /* Interpolated inputs are loaded from LDS */
+   case Format::DS:
+      return 20;
+   case Format::PSEUDO_BARRIER: /* Latency already included in loads and stores, barriers don't incur any more */
+      return 0;
+   case Format::PSEUDO: /* Assume these are in the same ballpark as VALU */
+      return 4;
+   default:
+      break;
+   }
+
+   if (instr->isVALU()) /* XXX: Distinguish between Write32Bit, Write64Bit, WriteDouble etc? */
+      return 4;
+   else if (instr->isSALU()) /* Branches and barriers are different, but they are not scheduled anyway */
+      return 2;
+   else if (instr->isVMEM() || instr->isFlatOrGlobal() || instr->format == Format::SCRATCH) /* Ballpark estimate */
+      return 320;
+
+   unreachable("unsupported instruction format");
+}
+
 template <typename TFunc>
 void foreach_reg_read(const Instruction *instr, const TFunc &func)
 {
@@ -248,10 +298,12 @@ bool is_new_candidate(const Node *node)
 
 Node* select_candidate(sched_ctx &ctx)
 {
-   std::set<Node *>::iterator it = ctx.candidates.begin();
-   /* TODO: choose candidate based on priority */
-   Node *next = *it;
-   ctx.candidates.erase(it);
+   /* The first candidate already has the highest priority */
+   assert(ctx.candidates.size() > 0);
+   std::set<Node *>::iterator selected_it = ctx.candidates.begin();
+
+   Node *next = *selected_it;
+   ctx.candidates.erase(selected_it);
    assert(!next->scheduled);
    next->scheduled = true;
 
@@ -430,7 +482,7 @@ bool handle_sync(sched_ctx &ctx, const Instruction *instr, unsigned index, Node 
 void add_to_dag(sched_ctx &ctx, const Instruction *instr, unsigned index)
 {
    assert(!is_unschedulable(instr));
-   ctx.nodes.emplace_back(index);
+   ctx.nodes.emplace_back(index, get_latency(ctx, instr));
    Node* node = &ctx.nodes.back();
    bool is_candidate = true;
 
@@ -465,7 +517,7 @@ void select_candidates(sched_ctx &ctx)
 
 void schedule_postRA(Program *program)
 {
-   sched_ctx ctx;
+   sched_ctx ctx(program);
 
    for (auto &block : program->blocks) {
       ctx.reset(&block);
@@ -475,7 +527,8 @@ void schedule_postRA(Program *program)
 
          if (is_unschedulable(instr)) {
             select_candidates(ctx);
-            ctx.nodes.emplace_back(index);
+            ctx.nodes.emplace_back(index, get_latency(ctx, instr));
+            ctx.nodes.back().scheduled = true;
             ctx.new_instructions.emplace_back(std::move(block.instructions[index]));
             ctx.barrier();
          } else {
