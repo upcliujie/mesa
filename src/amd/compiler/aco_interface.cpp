@@ -153,6 +153,10 @@ void aco_compile_shader(unsigned shader_count,
    /* Lower to HW Instructions */
    aco::lower_to_hw_instr(program.get());
 
+   if (program->chip_class >= GFX10) {
+      aco::schedule_postRA(program.get());
+   }
+
    /* Insert Waitcnt */
    aco::insert_wait_states(program.get());
    aco::insert_NOPs(program.get());
