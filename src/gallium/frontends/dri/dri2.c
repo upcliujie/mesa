@@ -1086,6 +1086,17 @@ dri2_create_image_with_modifiers(__DRIscreen *dri_screen,
                                    loaderPrivate);
 }
 
+static __DRIimage *
+dri2_create_image_with_modifiers2(__DRIscreen *dri_screen,
+                                 int width, int height, int format,
+                                 const uint64_t *modifiers,
+                                 const unsigned count, unsigned int use,
+                                 void *loaderPrivate)
+{
+   return dri2_create_image_common(dri_screen, width, height, format, use,
+                                   modifiers, count, loaderPrivate);
+}
+
 static bool
 dri2_query_image_common(__DRIimage *image, int attrib, int *value)
 {
@@ -1676,7 +1687,7 @@ dri2_get_capabilities(__DRIscreen *_screen)
 
 /* The extension is modified during runtime if DRI_PRIME is detected */
 static __DRIimageExtension dri2ImageExtension = {
-    .base = { __DRI_IMAGE, 18 },
+    .base = { __DRI_IMAGE, 19 },
 
     .createImageFromName          = dri2_create_image_from_name,
     .createImageFromRenderbuffer  = dri2_create_image_from_renderbuffer,
@@ -1701,6 +1712,7 @@ static __DRIimageExtension dri2ImageExtension = {
     .queryDmaBufModifiers         = NULL,
     .queryDmaBufFormatModifierAttribs = NULL,
     .createImageFromRenderbuffer2 = dri2_create_image_from_renderbuffer2,
+    .createImageWithModifiers2    = NULL,
 };
 
 static const __DRIrobustnessExtension dri2Robustness = {
@@ -2193,9 +2205,12 @@ dri2_init_screen(__DRIscreen * sPriv)
 
    screen->throttle = pscreen->get_param(pscreen, PIPE_CAP_THROTTLE);
 
-   if (pscreen->resource_create_with_modifiers)
+   if (pscreen->resource_create_with_modifiers) {
       dri2ImageExtension.createImageWithModifiers =
          dri2_create_image_with_modifiers;
+      dri2ImageExtension.createImageWithModifiers2 =
+         dri2_create_image_with_modifiers2;
+   }
 
    if (pscreen->get_param(pscreen, PIPE_CAP_DMABUF)) {
       uint64_t cap;
@@ -2277,9 +2292,12 @@ dri_kms_init_screen(__DRIscreen * sPriv)
    if (!pscreen)
        goto release_pipe;
 
-   if (pscreen->resource_create_with_modifiers)
+   if (pscreen->resource_create_with_modifiers) {
       dri2ImageExtension.createImageWithModifiers =
          dri2_create_image_with_modifiers;
+      dri2ImageExtension.createImageWithModifiers2 =
+         dri2_create_image_with_modifiers2;
+   }
 
    if (drmGetCap(sPriv->fd, DRM_CAP_PRIME, &cap) == 0 &&
           (cap & DRM_PRIME_CAP_IMPORT)) {
