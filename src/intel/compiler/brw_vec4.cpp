@@ -2881,6 +2881,7 @@ brw_compile_vs(const struct brw_compiler *compiler, void *log_data,
    prog_data->inputs_read = nir->info.inputs_read;
    prog_data->double_inputs_read = nir->info.vs.double_inputs;
 
+   NIR_PASS_V(nir, nir_lower_vs_swap_xy, key->swap_xy);
    brw_nir_lower_vs_inputs(nir, key->gl_attrib_wa_flags);
    brw_nir_lower_vue_outputs(nir);
    brw_postprocess_nir(nir, compiler, is_scalar);
