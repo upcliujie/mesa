@@ -469,6 +469,8 @@ struct brw_wm_prog_key {
    uint64_t input_slots_valid;
    GLenum alpha_test_func;          /* < For Gen4/5 MRT alpha test */
    float alpha_test_ref;
+
+   bool swap_xy:1;
 };
 
 struct brw_cs_prog_key {

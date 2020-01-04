@@ -476,6 +476,7 @@ brw_wm_populate_key(struct brw_context *brw, struct brw_wm_prog_key *key)
    brw_populate_base_prog_key(ctx, fp, &key->base);
 
    /* _NEW_BUFFERS */
+   key->swap_xy = !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_SWAP_XY);
    key->nr_color_regions = ctx->DrawBuffer->_NumColorDrawBuffers;
 
    /* _NEW_COLOR */

@@ -8589,6 +8589,7 @@ brw_compile_fs(const struct brw_compiler *compiler, void *log_data,
    const unsigned max_subgroup_size = compiler->devinfo->gen >= 6 ? 32 : 16;
 
    brw_nir_apply_key(nir, compiler, &key->base, max_subgroup_size, true);
+   NIR_PASS_V(nir, nir_lower_fs_swap_xy, key->swap_xy);
    brw_nir_lower_fs_inputs(nir, devinfo, key);
    brw_nir_lower_fs_outputs(nir);
 
