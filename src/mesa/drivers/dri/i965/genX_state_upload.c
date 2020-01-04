@@ -2318,16 +2318,21 @@ const struct brw_tracked_state genX(cc_vp) = {
 
 static void
 set_scissor_bits(const struct gl_context *ctx, int i,
-                 bool flip_x, bool flip_y,
+                 bool flip_x, bool flip_y, bool swap_xy,
                  unsigned fb_width, unsigned fb_height,
                  struct GENX(SCISSOR_RECT) *sc)
 {
    int bbox[4];
-
+   /* For swap_xy framebuffer (display rotates to 90 or 270), it expects
+    * application updating viewport in response to screen size change.
+    * So the viewport is in rotated/swapped dimension, but fb_width and
+    * fb_height are in unrotated/default dimension. Swap fb_width and fb_height
+    * when clamping viewport if it is necessary.
+    */
    bbox[0] = MAX2(ctx->ViewportArray[i].X, 0);
-   bbox[1] = MIN2(bbox[0] + ctx->ViewportArray[i].Width, fb_width);
-   bbox[2] = CLAMP(ctx->ViewportArray[i].Y, 0, fb_height);
-   bbox[3] = MIN2(bbox[2] + ctx->ViewportArray[i].Height, fb_height);
+   bbox[1] = MIN2(bbox[0] + ctx->ViewportArray[i].Width, !swap_xy ? fb_width : fb_height);
+   bbox[2] = CLAMP(ctx->ViewportArray[i].Y, 0, !swap_xy ? fb_height : fb_width);
+   bbox[3] = MIN2(bbox[2] + ctx->ViewportArray[i].Height, !swap_xy ? fb_height : fb_width);
    _mesa_intersect_scissor_bounding_box(ctx, i, bbox);
 
    if (bbox[0] == bbox[1] || bbox[2] == bbox[3]) {
@@ -2342,6 +2347,17 @@ set_scissor_bits(const struct gl_context *ctx, int i,
       sc->ScissorRectangleYMin = 1;
       sc->ScissorRectangleYMax = 0;
    } else {
+      /* Transform the rotated user viewport/scissor to the viewport/scissor in
+       * unrotated dimension. */
+      if (swap_xy) {
+         int tmp = bbox[0];
+         bbox[0] = bbox[2];
+         bbox[2] = tmp;
+
+         tmp = bbox[1];
+         bbox[1] = bbox[3];
+         bbox[3] = tmp;
+      }
       if (!flip_x) {
          /* texmemory: X=0=left */
          sc->ScissorRectangleXMin = bbox[0];
@@ -2370,6 +2386,7 @@ genX(upload_scissor_state)(struct brw_context *brw)
    struct gl_context *ctx = &brw->ctx;
    const bool flip_x = ctx->DrawBuffer->FlipX;
    const bool flip_y = ctx->DrawBuffer->FlipY;
+   const bool swap_xy = ctx->DrawBuffer->SwapXY;
    struct GENX(SCISSOR_RECT) scissor;
    uint32_t scissor_state_offset;
    const unsigned int fb_width = _mesa_geometric_width(ctx->DrawBuffer);
@@ -2393,7 +2410,7 @@ genX(upload_scissor_state)(struct brw_context *brw)
     * inclusive but max is exclusive.
     */
    for (unsigned i = 0; i < viewport_count; i++) {
-      set_scissor_bits(ctx, i, flip_x, flip_y, fb_width, fb_height, &scissor);
+      set_scissor_bits(ctx, i, flip_x, flip_y, swap_xy, fb_width, fb_height, &scissor);
       GENX(SCISSOR_RECT_pack)(
          NULL, scissor_map + i * GENX(SCISSOR_RECT_length), &scissor);
    }
@@ -2430,6 +2447,7 @@ genX(upload_sf_clip_viewport)(struct brw_context *brw)
    /* _NEW_BUFFERS */
    const bool flip_x = ctx->DrawBuffer->FlipX;
    const bool flip_y = ctx->DrawBuffer->FlipY;
+   const bool swap_xy = ctx->DrawBuffer->SwapXY;
    const uint32_t fb_width = (float)_mesa_geometric_width(ctx->DrawBuffer);
    const uint32_t fb_height = (float)_mesa_geometric_height(ctx->DrawBuffer);
 
@@ -2472,6 +2490,18 @@ genX(upload_sf_clip_viewport)(struct brw_context *brw)
       /* _NEW_VIEWPORT: Guardband Clipping */
       float scale[3], translate[3], gb_xmin, gb_xmax, gb_ymin, gb_ymax;
       _mesa_get_viewport_xform(ctx, i, scale, translate);
+      /* Swap viewport scale and translate values from rotated dimension to 
+       * unrotated dimension.
+       */
+      if (swap_xy) {
+         float tmp = scale[0];
+         scale[0] = scale[1];
+         scale[1] = tmp;
+
+         tmp = translate[0];
+         translate[0] = translate[1];
+         translate[1] = tmp;
+      }
 
       sfv.ViewportMatrixElementm00 = scale[0] * x_scale;
       sfv.ViewportMatrixElementm11 = scale[1] * y_scale,
@@ -2493,7 +2523,7 @@ genX(upload_sf_clip_viewport)(struct brw_context *brw)
       clv.YMaxClipGuardband = gb_ymax;
 
 #if GEN_GEN < 6
-      set_scissor_bits(ctx, i, false, flip_y, fb_width, fb_height,
+      set_scissor_bits(ctx, i, false, flip_y, false, fb_width, fb_height,
                        &sfv.ScissorRectangle);
 #elif GEN_GEN >= 8
       /* _NEW_VIEWPORT | _NEW_BUFFERS: Screen Space Viewport
@@ -2503,13 +2533,24 @@ genX(upload_sf_clip_viewport)(struct brw_context *brw)
        * pipeline stall so we're better off just being a little more clever
        * with our viewport so we can emit it once at context creation time.
        */
-      const float viewport_Xmin = MAX2(ctx->ViewportArray[i].X, 0);
-      const float viewport_Ymin = MAX2(ctx->ViewportArray[i].Y, 0);
-      const float viewport_Xmax =
-         MIN2(ctx->ViewportArray[i].X + ctx->ViewportArray[i].Width, fb_width);
-      const float viewport_Ymax =
-         MIN2(ctx->ViewportArray[i].Y + ctx->ViewportArray[i].Height, fb_height);
+      float viewport_Xmin = MAX2(ctx->ViewportArray[i].X, 0);
+      float viewport_Ymin = MAX2(ctx->ViewportArray[i].Y, 0);
+      /* For swap_xy framebuffer, the viewport is in rotated dimension, but
+       * fb_width and fb_height are in unrotated dimension. Swap fb_width and
+       * fb_height if necessary. */
+      float viewport_Xmax =
+         MIN2(ctx->ViewportArray[i].X + ctx->ViewportArray[i].Width, !swap_xy? fb_width : fb_height);
+      float viewport_Ymax =
+         MIN2(ctx->ViewportArray[i].Y + ctx->ViewportArray[i].Height, !swap_xy? fb_height : fb_width);
+      if (swap_xy) {
+         float tmp = viewport_Xmin;
+         viewport_Xmin = viewport_Ymin;
+         viewport_Ymin = tmp;
 
+         tmp = viewport_Xmax;
+         viewport_Xmax = viewport_Ymax;
+         viewport_Ymax = tmp;
+      }
       if (flip_x) {
          sfv.XMinViewPort = fb_width - viewport_Xmax;
          sfv.XMaxViewPort = fb_width - viewport_Xmin - 1;
