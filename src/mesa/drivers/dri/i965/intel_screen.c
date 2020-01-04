@@ -1576,6 +1576,11 @@ brw_query_renderer_integer(__DRIscreen *dri_screen,
    case __DRI2_RENDERER_HAS_FRAMEBUFFER_SRGB:
       value[0] = 1;
       return 0;
+   case __DRI2_RENDERER_HAS_TRANSFORMS:
+      value[0] = __DRI2_RENDERER_HAS_TRANSFORMS_FLIP_Y
+                  | __DRI2_RENDERER_HAS_TRANSFORMS_FLIP_X
+                  | __DRI2_RENDERER_HAS_TRANSFORMS_SWAP_XY;
+      return 0;
    default:
       return driQueryRendererIntegerCommon(dri_screen, param, value);
    }

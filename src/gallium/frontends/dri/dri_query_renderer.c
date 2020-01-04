@@ -67,6 +67,9 @@ dri2_query_renderer_integer(__DRIscreen *_screen, int param,
       if (!value[0])
          return -1;
       return 0;
+   case __DRI2_RENDERER_HAS_TRANSFORMS:
+      value[0] = __DRI2_RENDERER_HAS_TRANSFORMS_FLIP_Y;
+      return 0;
    default:
       return driQueryRendererIntegerCommon(_screen, param, value);
    }
