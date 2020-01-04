@@ -257,6 +257,7 @@ intel_readpixels_blorp(struct gl_context *ctx,
    return brw_blorp_download_miptree(brw, irb->mt, rb->Format, swizzle,
                                      irb->mt_level, x, y, irb->mt_layer,
                                      w, h, 1, GL_TEXTURE_2D, format, type,
+                                     ctx->ReadBuffer->FlipX,
                                      ctx->ReadBuffer->FlipY, pixels, packing);
 }
 
