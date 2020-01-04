@@ -248,6 +248,8 @@ void brw_depth_cache_add_bo(struct brw_context *brw, struct brw_bo *bo);
 unsigned
 intel_quantize_num_samples(struct intel_screen *intel, unsigned num_samples);
 
+void pixels_flip_x(GLubyte *p, GLuint w, GLuint h, ptrdiff_t row_stride);
+
 #ifdef __cplusplus
 }
 #endif

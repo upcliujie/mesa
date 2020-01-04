@@ -96,6 +96,25 @@ intel_renderbuffer_upsample(struct brw_context *brw,
    intel_miptree_updownsample(brw, irb->singlesample_mt, irb->mt);
 }
 
+/* Flip pixels from left to right. */
+void pixels_flip_x(GLubyte *p, GLuint w, GLuint h, ptrdiff_t row_stride) {
+   GLint bpp = row_stride / w;
+   GLubyte tmp;
+   for (int i = 0; i < h; i++) {
+      ptrdiff_t start = 0, end = w - 1;
+      while (start < end) {
+         for (int k = 0; k < bpp; k++) {
+            tmp = *(p + i * row_stride + start * bpp + k);
+            *(p + i * row_stride + start * bpp + k) 
+                        = *(p + i * row_stride + end * bpp + k);
+            *(p + i * row_stride + end * bpp + k) = tmp;
+         }
+         start++;
+         end--;
+      }
+   }
+}
+
 /**
  * \see dd_function_table::MapRenderbuffer
  */
@@ -162,6 +181,15 @@ intel_map_renderbuffer(struct gl_context *ctx,
       mt = irb->mt;
    }
 
+   /* For x-flipped renderbuffer, we need to flip the mapping we receive
+    * from right to left. So we need to ask for a rectangle on flipped
+    * horizontally.
+    */
+   bool flip_x = !!(transform & MESA_TRANSFORM_FLIP_X);
+   if (flip_x) {
+      x = rb->Width - x - w;
+   }
+
    /* For a window-system renderbuffer, we need to flip the mapping we receive
     * upside-down.  So we need to ask for a rectangle on flipped vertically, and
     * we then return a pointer to the bottom of it with a negative stride.
@@ -173,6 +201,13 @@ intel_map_renderbuffer(struct gl_context *ctx,
 
    intel_miptree_map(brw, mt, irb->mt_level, irb->mt_layer,
 		     x, y, w, h, mode, &map, &stride);
+
+   /* Because the memory is copied from left to right,
+    * we need to flip pixels in each row for x-flipped renderbuffer.
+    */ 
+   if (flip_x) {
+      pixels_flip_x((GLubyte*)map, w, h, stride);
+   }
 
    if (flip_y) {
       map += (h - 1) * stride;

@@ -1218,8 +1218,14 @@ do_single_blorp_clear(struct brw_context *brw, struct gl_framebuffer *fb,
       format = _mesa_get_srgb_format_linear(format);
    enum isl_format isl_format = brw->mesa_to_isl_render_format[format];
 
-   x0 = fb->_Xmin;
-   x1 = fb->_Xmax;
+   if (!!(fb->Transforms & MESA_TRANSFORM_FLIP_X)) {
+      x0 = rb->Width - fb->_Xmax;
+      x1 = rb->Width - fb->_Xmin;
+   } else {
+      x0 = fb->_Xmin;
+      x1 = fb->_Xmax;
+   }
+
    if (!!(fb->Transforms & MESA_TRANSFORM_FLIP_Y)) {
       y0 = rb->Height - fb->_Ymax;
       y1 = rb->Height - fb->_Ymin;
@@ -1406,9 +1412,10 @@ brw_blorp_clear_depth_stencil(struct brw_context *brw,
    if (!(mask & (BUFFER_BITS_DEPTH_STENCIL)))
       return;
 
-   uint32_t x0, x1, y0, y1, rb_height;
+   uint32_t x0, x1, y0, y1, rb_width, rb_height;
    if (depth_rb) {
       rb_height = depth_rb->Height;
+      rb_width = depth_rb->Width;
       if (stencil_rb) {
          assert(depth_rb->Width == stencil_rb->Width);
          assert(depth_rb->Height == stencil_rb->Height);
@@ -1416,10 +1423,17 @@ brw_blorp_clear_depth_stencil(struct brw_context *brw,
    } else {
       assert(stencil_rb);
       rb_height = stencil_rb->Height;
+      rb_width = stencil_rb->Width;
    }
 
-   x0 = fb->_Xmin;
-   x1 = fb->_Xmax;
+   if (!!(fb->Transforms & MESA_TRANSFORM_FLIP_X)) {
+      x0 = rb_width - fb->_Xmax;
+      x1 = rb_width - fb->_Xmin;
+   } else {
+      x0 = fb->_Xmin;
+      x1 = fb->_Xmax;
+   }
+
    if (!!(fb->Transforms & MESA_TRANSFORM_FLIP_Y)) {
       y0 = rb_height - fb->_Ymax;
       y1 = rb_height - fb->_Ymin;
