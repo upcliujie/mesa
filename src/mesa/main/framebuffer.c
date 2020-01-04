@@ -160,6 +160,7 @@ _mesa_initialize_window_framebuffer(struct gl_framebuffer *fb,
    fb->_AllColorBuffersFixedPoint = !visual->floatMode;
    fb->_HasSNormOrFloatColorBuffer = visual->floatMode;
    fb->_HasAttachments = true;
+   fb->SwapXY = false;
    fb->FlipX = false;
    fb->FlipY = true;
 
@@ -194,6 +195,7 @@ _mesa_initialize_user_framebuffer(struct gl_framebuffer *fb, GLuint name)
    fb->ProgrammableSampleLocations = 0;
    fb->SampleLocationPixelGrid = 0;
    fb->Delete = _mesa_destroy_framebuffer;
+   fb->SwapXY = false;
    fb->FlipX = false;
    simple_mtx_init(&fb->Mutex, mtx_plain);
 }

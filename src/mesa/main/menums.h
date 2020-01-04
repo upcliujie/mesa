@@ -190,6 +190,7 @@ enum mesa_transform
    MESA_TRANSFORM_NONE = 0,
    MESA_TRANSFORM_FLIP_Y = (1 << 0),
    MESA_TRANSFORM_FLIP_X = (1 << 1),
+   MESA_TRANSFORM_SWAP_XY = (1 << 2),
 };
 
 /** @} */

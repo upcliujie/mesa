@@ -148,6 +148,9 @@ nouveau_renderbuffer_map(struct gl_context *ctx,
 	/* driver does not support GL_FRAMEBUFFER_FLIP_Y_MESA */
 	assert((rb->Name == 0) == !!(transform & MESA_TRANSFORM_FLIP_Y));
 
+	/* driver does not support GL_FRAMEBUFFER_SWAP_XY_MESA */
+	assert((transform & MESA_TRANSFORM_SWAP_XY) == 0);
+
 	if (mode & GL_MAP_READ_BIT)
 		flags |= NOUVEAU_BO_RD;
 	if (mode & GL_MAP_WRITE_BIT)

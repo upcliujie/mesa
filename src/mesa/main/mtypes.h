@@ -3618,6 +3618,9 @@ struct gl_framebuffer
    /* GL_MESA_framebuffer_flip_y */
    bool FlipY;
 
+   /* GL_MESA_framebuffer_swap_xy */
+   bool SwapXY;
+
    /** Delete this framebuffer */
    void (*Delete)(struct gl_framebuffer *fb);
 };

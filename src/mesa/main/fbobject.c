@@ -1513,6 +1513,9 @@ _mesa_fbo_transform(const struct gl_framebuffer *fb)
    if (fb->FlipY) {
       transform |= MESA_TRANSFORM_FLIP_Y;
    }
+   if (fb->SwapXY) {
+      transform |= MESA_TRANSFORM_SWAP_XY;
+   }
    return transform;
 }
 
