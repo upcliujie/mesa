@@ -696,11 +696,11 @@ try_blorp_blit(struct brw_context *brw,
 }
 
 static void
-apply_y_flip(int *y0, int *y1, int height)
+apply_flip(int *x0, int *x1, int size)
 {
-   int tmp = height - *y0;
-   *y0 = height - *y1;
-   *y1 = tmp;
+   int tmp = size - *x0;
+   *x0 = size - *x1;
+   *x1 = tmp;
 }
 
 bool
@@ -753,12 +753,17 @@ brw_blorp_copytexsubimage(struct brw_context *brw,
    int dstX1 = dstX0 + width;
    int dstY1 = dstY0 + height;
 
+   /* For the x-flipped framebuffer, the origin is at the right. */
+   bool mirror_x = !!(ctx->ReadBuffer->Transforms & MESA_TRANSFORM_FLIP_X);
+   if (mirror_x)
+      apply_flip(&srcX0, &srcX1, src_rb->Width);
+
    /* Account for the fact that in the system framebuffer, the origin is at
     * the lower left.
     */
    bool mirror_y = !!(ctx->ReadBuffer->Transforms & MESA_TRANSFORM_FLIP_Y);
    if (mirror_y)
-      apply_y_flip(&srcY0, &srcY1, src_rb->Height);
+      apply_flip(&srcY0, &srcY1, src_rb->Height);
 
    /* Account for face selection and texture view MinLayer */
    int dst_slice = slice + dst_image->TexObject->MinLayer + dst_image->Face;
@@ -771,7 +776,7 @@ brw_blorp_copytexsubimage(struct brw_context *brw,
                            dst_image->TexFormat,
                            srcX0, srcY0, srcX1, srcY1,
                            dstX0, dstY0, dstX1, dstY1,
-                           GL_NEAREST, false, mirror_y,
+                           GL_NEAREST, mirror_x, mirror_y,
                            false, false);
 
    /* If we're copying to a packed depth stencil texture and the source
@@ -798,7 +803,7 @@ brw_blorp_copytexsubimage(struct brw_context *brw,
                                  dst_mt->format,
                                  srcX0, srcY0, srcX1, srcY1,
                                  dstX0, dstY0, dstX1, dstY1,
-                                 GL_NEAREST, false, mirror_y,
+                                 GL_NEAREST, mirror_x, mirror_y,
                                  false, false);
       }
    }
@@ -1103,11 +1108,19 @@ brw_blorp_download_miptree(struct brw_context *brw,
 
    intel_miptree_check_level_layer(src_mt, level, z + depth - 1);
 
+   int x0 = x;
+   int x1 = x + width;
+   bool x_flip = !!(transform & MESA_TRANSFORM_FLIP_X);
+   if (x_flip) {
+      apply_flip(&x0, &x1, minify(src_mt->surf.phys_level0_sa.width,
+                                 level - src_mt->first_level));
+   }
+
    int y0 = y;
    int y1 = y + height;
    bool y_flip = !!(transform & MESA_TRANSFORM_FLIP_Y);
    if (y_flip) {
-      apply_y_flip(&y0, &y1, minify(src_mt->surf.phys_level0_sa.height,
+      apply_flip(&y0, &y1, minify(src_mt->surf.phys_level0_sa.height,
                                     level - src_mt->first_level));
    }
 
@@ -1145,7 +1158,7 @@ brw_blorp_download_miptree(struct brw_context *brw,
                                  dst_mt, 0, 0, dst_format,
                                  x, y0, x + width, y1,
                                  0, 0, width, height,
-                                 GL_NEAREST, false, y_flip, false, false);
+                                 GL_NEAREST, x_flip, y_flip, false, false);
       }
 
       intel_miptree_release(&dst_mt);
