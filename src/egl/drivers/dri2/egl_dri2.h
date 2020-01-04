@@ -326,6 +326,7 @@ struct dri2_egl_surface
 #ifdef HAVE_ANDROID_PLATFORM
    struct ANativeWindow *window;
    struct ANativeWindowBuffer *buffer;
+   enum dri_color_buffer_rotation rotation;
    __DRIimage *dri_image_back;
    __DRIimage *dri_image_front;
 

@@ -837,6 +837,7 @@ droid_image_get_buffers(__DRIdrawable *driDrawable,
    images->image_mask = 0;
    images->front = NULL;
    images->back = NULL;
+   images->rotation = DRI_COLOR_BUFFER_ROTATION_0;
 
    if (update_buffers(dri2_surf) < 0)
       return 0;
@@ -875,6 +876,7 @@ droid_image_get_buffers(__DRIdrawable *driDrawable,
          images->image_mask |= __DRI_IMAGE_BUFFER_BACK;
       }
    }
+   images->rotation = dri2_surf->rotation;
 
    return 1;
 }
