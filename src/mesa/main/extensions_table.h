@@ -365,6 +365,7 @@ EXT(KHR_texture_compression_astc_sliced_3d  , KHR_texture_compression_astc_slice
 
 EXT(MESA_framebuffer_flip_x                 , MESA_framebuffer_flip_x                ,  43,  43,  x ,  31, 2020)
 EXT(MESA_framebuffer_flip_y                 , MESA_framebuffer_flip_y                ,  43,  43,  x ,  30, 2018)
+EXT(MESA_framebuffer_swap_xy                , MESA_framebuffer_swap_xy               ,  43,  43,  x ,  31, 2020)
 EXT(MESA_pack_invert                        , MESA_pack_invert                       , GLL, GLC,  x ,  x , 2002)
 EXT(MESA_shader_integer_functions           , MESA_shader_integer_functions          , GLL, GLC,  x ,  30, 2016)
 EXT(MESA_texture_signed_rgba                , EXT_texture_snorm                      , GLL, GLC,  x ,  x , 2009)
