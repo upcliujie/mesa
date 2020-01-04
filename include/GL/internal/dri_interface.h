@@ -1931,6 +1931,12 @@ typedef struct __DRIDriverVtableExtensionRec {
 #define   __DRI2_RENDERER_HAS_CONTEXT_PRIORITY_MEDIUM         (1 << 1)
 #define   __DRI2_RENDERER_HAS_CONTEXT_PRIORITY_HIGH           (1 << 2)
 
+/* Bitmaks of supported/available render transforms */
+#define __DRI2_RENDERER_HAS_TRANSFORMS                        0X000e
+#define __DRI2_RENDERER_HAS_TRANSFORMS_FLIP_Y                 (1 << 0)
+#define __DRI2_RENDERER_HAS_TRANSFORMS_FLIP_X                 (1 << 1)
+#define __DRI2_RENDERER_HAS_TRANSFORMS_SWAP_XY                (1 << 2)
+
 typedef struct __DRI2rendererQueryExtensionRec __DRI2rendererQueryExtension;
 struct __DRI2rendererQueryExtensionRec {
    __DRIextension base;
