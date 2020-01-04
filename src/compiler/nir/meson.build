@@ -176,6 +176,7 @@ files_libnir = files(
   'nir_lower_var_copies.c',
   'nir_lower_vec_to_movs.c',
   'nir_lower_viewport_transform.c',
+  'nir_lower_vs_swap_xy.c',
   'nir_lower_wpos_center.c',
   'nir_lower_wpos_transform.c',
   'nir_lower_wrmasks.c',
