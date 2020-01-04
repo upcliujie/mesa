@@ -2452,6 +2452,11 @@ GL_APICALL void GL_APIENTRY glGetPerfQueryInfoINTEL (GLuint queryId, GLuint quer
 #endif
 #endif /* GL_INTEL_performance_query */
 
+#ifndef GL_MESA_framebuffer_flip_x
+#define GL_MESA_framebuffer_flip_x 1
+#define GL_FRAMEBUFFER_FLIP_X_MESA        0x8BBC
+#endif /* GL_MESA_framebuffer_flip_x */
+
 #ifndef GL_MESA_framebuffer_flip_y
 #define GL_MESA_framebuffer_flip_y 1
 #define GL_FRAMEBUFFER_FLIP_Y_MESA        0x8BBB
@@ -2462,6 +2467,11 @@ GL_APICALL void GL_APIENTRY glFramebufferParameteriMESA (GLenum target, GLenum p
 GL_APICALL void GL_APIENTRY glGetFramebufferParameterivMESA (GLenum target, GLenum pname, GLint *params);
 #endif
 #endif /* GL_MESA_framebuffer_flip_y */
+
+#ifndef GL_MESA_framebuffer_swap_xy
+#define GL_MESA_framebuffer_swap_xy 1
+#define GL_FRAMEBUFFER_SWAP_XY_MESA       0x8BBD
+#endif /* GL_MESA_framebuffer_swap_xy */
 
 #ifndef GL_MESA_program_binary_formats
 #define GL_MESA_program_binary_formats 1
