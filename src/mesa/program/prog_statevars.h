@@ -121,6 +121,7 @@ typedef enum gl_state_index_ {
    STATE_PT_SCALE,              /**< Pixel transfer RGBA scale */
    STATE_PT_BIAS,               /**< Pixel transfer RGBA bias */
    STATE_FB_SIZE,               /**< (width-1, height-1, 0, 0) */
+   STATE_FB_WPOS_XY_TRANSFORM,  /**< (1) if a FBO x y not swapped, (-1,) otherwise> */
    STATE_FB_WPOS_X_TRANSFORM,   /**< (1, 0, -1, width) if a FBO x is not flipped, (-1, width, 1, 0) otherwise> */
    STATE_FB_WPOS_Y_TRANSFORM,   /**< (1, 0, -1, height) if a FBO is bound, (-1, height, 1, 0) otherwise */
    STATE_TCS_PATCH_VERTICES_IN, /**< gl_PatchVerticesIn for TCS (integer) */

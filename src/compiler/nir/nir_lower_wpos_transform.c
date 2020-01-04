@@ -28,9 +28,9 @@
 
 /* Lower gl_FragCoord (and fddx/fddy) to account for driver's requested
  * coordinate-origin and pixel-center vs. shader. If transformation is
- * required, gl_FbWposYTransform and gl_FbWposXTransform uniforms are inserted
- * (with the specified state-slots) and additional instructions are inserted to
- * transform gl_FragCoord (and fddx/fddy src arg).
+ * required, gl_FbWposXYTransform, gl_FbWposYTransform and gl_FbWposXTransform
+ * uniforms are inserted (with the specified state-slots) and additional
+ * instructions are inserted to transform gl_FragCoord (and fddx/fddy src arg).
  *
  * This is based on the logic in emit_wpos()/emit_wpos_adjustment() in TGSI
  * compiler.
@@ -42,7 +42,7 @@ typedef struct {
    const nir_lower_wpos_transform_options *options;
    nir_shader   *shader;
    nir_builder   b;
-   nir_variable *x_transform, *y_transform;
+   nir_variable *x_transform, *y_transform, *xy_transform;
 } lower_wpos_transform_state;
 
 static nir_variable *
@@ -92,6 +92,31 @@ get_ytransform(lower_wpos_transform_state *state)
    return nir_load_var(&state->b, state->y_transform);
 }
 
+static nir_ssa_def *
+get_xytransform(lower_wpos_transform_state *state)
+{
+   // Skip the situation if xy_transform_state_tokens is not set.
+   if (!(state->options->xy_transform_state_tokens[0] == STATE_INTERNAL &&
+         state->options->xy_transform_state_tokens[1] ==
+            STATE_FB_WPOS_XY_TRANSFORM)) {
+      return nir_imm_float(&state->b, 1.0f);
+   }
+
+   if (state->xy_transform == NULL) {
+      nir_variable *var = nir_variable_create(state->shader,
+                              nir_var_uniform, glsl_float_type(),
+                              "gl_FbWposXYTransform");
+      var->num_state_slots = 1;
+      var->state_slots = ralloc_array(var, nir_state_slot, 1);
+      memcpy(var->state_slots[0].tokens,
+             state->options->xy_transform_state_tokens,
+             sizeof(var->state_slots[0].tokens));
+      var->data.how_declared = nir_var_hidden;
+      state->xy_transform = var;
+   }
+   return nir_load_var(&state->b, state->xy_transform);
+}
+
 /* NIR equiv of TGSI CMP instruction: */
 static nir_ssa_def *
 nir_cmp(nir_builder *b, nir_ssa_def *src0, nir_ssa_def *src1, nir_ssa_def *src2)
@@ -106,8 +131,9 @@ emit_wpos_adjustment(lower_wpos_transform_state *state,
                      float adj[2])
 {
    nir_builder *b = &state->b;
-   nir_ssa_def *wpostrans_x, *wpostrans_y, *wpos_temp, *wpos_temp_x,
-               *wpos_temp_y, *wpos_input, *adj_temp_x, *adj_temp_y;
+   nir_ssa_def *wpostrans_x, *wpostrans_y, *wpostrans_xy, *wpos_temp,
+               *wpos_temp_x, *wpos_temp_y, *wpos_input, *adj_temp_x,
+               *adj_temp_y;
    assert(intr->dest.is_ssa);
    wpos_input = &intr->dest.ssa;
 
@@ -118,6 +144,9 @@ emit_wpos_adjustment(lower_wpos_transform_state *state,
    /* flipY:     <-1.0, height,   1.0,     0.0> */
    /* non-flipY: < 1.0,    0.0,  -1.0,  height> */
    wpostrans_y = get_ytransform(state);
+   /* swapXY:    <-1.0> */
+   /* non-swapXY:< 1.0> */
+   wpostrans_xy = get_xytransform(state);
 
    /* First, apply the coordinate shift: */
    if (adj[0] || adj[1]) {
@@ -159,11 +188,13 @@ emit_wpos_adjustment(lower_wpos_transform_state *state,
                                          nir_channel(b, wpostrans_x, 0)),
                              nir_channel(b, wpostrans_x, 1));
 
-   wpos_temp = nir_vec4(b,
-                        wpos_temp_x,
-                        wpos_temp_y,
-                        nir_channel(b, wpos_temp, 2),
-                        nir_channel(b, wpos_temp, 3));
+   wpos_temp = nir_cmp(b, wpostrans_xy,
+                       nir_vec4(b, wpos_temp_y, wpos_temp_x,
+                                nir_channel(b, wpos_temp, 2),
+                                nir_channel(b, wpos_temp, 3)),
+                       nir_vec4(b, wpos_temp_x, wpos_temp_y,
+                                nir_channel(b, wpos_temp, 2),
+                                nir_channel(b, wpos_temp, 3)));
 
    nir_ssa_def_rewrite_uses_after(&intr->dest.ssa,
                                   nir_src_for_ssa(wpos_temp),
@@ -266,6 +297,8 @@ lower_load_pointcoord(lower_wpos_transform_state *state,
    nir_ssa_def *pntc = &intr->dest.ssa;
    nir_ssa_def *xtransform = get_xtransform(state);
    nir_ssa_def *ytransform = get_ytransform(state);
+   nir_ssa_def *xytransform = get_xytransform(state);
+   
    nir_ssa_def *x = nir_channel(b, pntc, 0);
    nir_ssa_def *y = nir_channel(b, pntc, 1);
    /* The offset is 1 if we're flipping, 0 otherwise. */
@@ -277,10 +310,14 @@ lower_load_pointcoord(lower_wpos_transform_state *state,
    nir_ssa_def *scaled_x = nir_fmul(b, x, nir_channel(b, xtransform, 0));
    nir_ssa_def *scaled_y = nir_fmul(b, y, nir_channel(b, ytransform, 0));
 
-   /* Reassemble the vector. */
-   nir_ssa_def *flipped_pntc = nir_vec2(b,
-                                        nir_fadd(b, offset_x, scaled_x),
-                                        nir_fadd(b, offset_y, scaled_y));
+   /* Reassemble the vector and swap x and y if necessary. */
+   nir_ssa_def *flipped_pntc = nir_cmp(b, xytransform,
+                                       nir_vec2(b,
+                                          nir_fadd(b, offset_y, scaled_y),
+                                          nir_fadd(b, offset_x, scaled_x)),
+                                       nir_vec2(b,
+                                          nir_fadd(b, offset_x, scaled_x),
+                                          nir_fadd(b, offset_y, scaled_y)));
 
    nir_ssa_def_rewrite_uses_after(&intr->dest.ssa, nir_src_for_ssa(flipped_pntc),
                                   flipped_pntc->parent_instr);
@@ -341,17 +378,28 @@ lower_interp_deref_at_offset(lower_wpos_transform_state *state,
 {
    nir_builder *b = &state->b;
    nir_ssa_def *offset;
-   nir_ssa_def *flip_y, *flip_x;
+   nir_ssa_def *flip_y, *flip_x, *trans_x, *trans_y, *trans_xy;
 
    b->cursor = nir_before_instr(&interp->instr);
 
+   trans_x = get_xtransform(state);
+   trans_y = get_ytransform(state);
+   trans_xy = get_xytransform(state);
+
    offset = nir_ssa_for_src(b, interp->src[1], 2);
+   offset = nir_cmp(b, trans_xy,
+                  nir_vec2(b, nir_channel(b, offset, 1), nir_channel(b, offset, 0)),
+                  nir_vec2(b, nir_channel(b, offset, 0), nir_channel(b, offset, 1)));
    flip_x = nir_fmul(b, nir_channel(b, offset, 0),
-                     nir_channel(b, get_xtransform(state), 0));
+                     nir_channel(b, trans_x, 0));
    flip_y = nir_fmul(b, nir_channel(b, offset, 1),
-                        nir_channel(b, get_ytransform(state), 0));
+                     nir_channel(b, trans_y, 0));
+   /* Reassemble the vector and swap x and y if necessary. */
+   offset = nir_cmp(b, trans_xy,
+                    nir_vec2(b, flip_y, flip_x),
+                    nir_vec2(b, flip_x, flip_y));
    nir_instr_rewrite_src(&interp->instr, &interp->src[1],
-                         nir_src_for_ssa(nir_vec2(b, flip_x, flip_y)));
+                         nir_src_for_ssa(offset));
 }
 
 static void
@@ -374,10 +422,15 @@ lower_load_sample_pos(lower_wpos_transform_state *state,
    nir_ssa_def *flipped_y =
                nir_fadd(b, nir_fmax(b, neg_scale_y, nir_imm_float(b, 0.0)),
                         nir_fmul(b, nir_channel(b, pos, 1), scale_y));
-   nir_ssa_def *flipped_pos = nir_vec2(b, flipped_x, flipped_y);
+   /* Swap x/y if necessary. */
+   nir_ssa_def *swap_pos = nir_cmp(b, 
+                                   get_xytransform(state),
+                                   nir_vec2(b, flipped_y, flipped_x),
+                                   nir_vec2(b, flipped_x, flipped_y));
 
-   nir_ssa_def_rewrite_uses_after(&intr->dest.ssa, nir_src_for_ssa(flipped_pos),
-                                  flipped_pos->parent_instr);
+   nir_ssa_def_rewrite_uses_after(&intr->dest.ssa,
+                                  nir_src_for_ssa(swap_pos),
+                                  swap_pos->parent_instr);
 }
 
 static void
