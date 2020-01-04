@@ -396,9 +396,83 @@ droid_create_image_from_native_buffer(_EGLDisplay *disp,
    return droid_create_image_from_prime_fds(disp, buf);
 }
 
+static enum dri_color_buffer_rotation colbuf_rotation_from_native(int win_hint)
+{
+   int rotation;
+   switch (win_hint) {
+      case HAL_TRANSFORM_ROT_270:
+         rotation = DRI_COLOR_BUFFER_ROTATION_270;
+         break;
+      case HAL_TRANSFORM_ROT_180:
+         rotation = DRI_COLOR_BUFFER_ROTATION_180;
+         break;
+      case HAL_TRANSFORM_ROT_90:
+         rotation = DRI_COLOR_BUFFER_ROTATION_90;
+         break;
+      default:
+         rotation = DRI_COLOR_BUFFER_ROTATION_0;
+   }
+   return rotation;
+}
+
+static EGLint
+droid_window_rotate(ANativeWindow *window,
+      enum dri_color_buffer_rotation *rotation)
+{
+   int res, width, height, win_hint;
+   
+   res = window->query(window, NATIVE_WINDOW_TRANSFORM_HINT, &win_hint);
+   if(res != 0)
+      return EGL_BAD_NATIVE_WINDOW;
+
+   *rotation = colbuf_rotation_from_native(win_hint);
+
+   /* No need to swap buffer width and height for rotation 0 and 180. */
+   if (*rotation == DRI_COLOR_BUFFER_ROTATION_0 ||
+         *rotation == DRI_COLOR_BUFFER_ROTATION_180) {
+      return EGL_SUCCESS;
+   }
+
+   res = window->query(window, NATIVE_WINDOW_DEFAULT_WIDTH, &width);
+   if(res != 0)
+      return EGL_BAD_NATIVE_WINDOW;
+   
+   res = window->query(window, NATIVE_WINDOW_DEFAULT_HEIGHT, &height);
+   if(res != 0)
+      return EGL_BAD_NATIVE_WINDOW;
+
+   /* Swap buffer width and height for rotation 90 and 270. */
+   res = native_window_set_buffers_dimensions(window, height, width);
+   if (res != 0) {
+      return EGL_BAD_NATIVE_WINDOW;
+   }
+   return EGL_SUCCESS;
+}
+
 static EGLBoolean
 droid_window_dequeue_buffer(struct dri2_egl_surface *dri2_surf)
 {
+   /* Use ROTATION_0 as default rotation. ROTATION_0 is processed in the
+    * same way in platform_android no matter whether the driver supports
+    * pre-rotation or not, so assigning ROTATION_0 makes no difference if
+    * the driver doesn't support pre-rotation. */
+   enum dri_color_buffer_rotation rotation = DRI_COLOR_BUFFER_ROTATION_0;
+   
+   /* Only the driver with flip_x, flip_y and swap_xy transforms can apply
+    * pre-rotation transform. */
+   _EGLDisplay *disp = dri2_surf->base.Resource.Display;
+   unsigned int transform = disp->Extensions.MESA_supported_transforms;
+   unsigned int rotation_mask = __DRI2_RENDERER_HAS_TRANSFORMS_FLIP_Y
+                                | __DRI2_RENDERER_HAS_TRANSFORMS_FLIP_X
+                                | __DRI2_RENDERER_HAS_TRANSFORMS_SWAP_XY;
+   if ((transform & rotation_mask) == rotation_mask) {
+      int res;
+      res = droid_window_rotate(dri2_surf->window, &rotation);
+      if (res != EGL_SUCCESS) {
+         return EGL_FALSE;
+      }
+   }
+
    int fence_fd;
 
    if (dri2_surf->window->dequeueBuffer(dri2_surf->window, &dri2_surf->buffer,
@@ -432,6 +506,8 @@ droid_window_dequeue_buffer(struct dri2_egl_surface *dri2_surf)
         close(fence_fd);
    }
 
+   dri2_surf->rotation = rotation;
+
    /* Record all the buffers created by ANativeWindow and update back buffer
     * for updating buffer's age in swap_buffers.
     */
@@ -462,6 +538,30 @@ droid_window_dequeue_buffer(struct dri2_egl_surface *dri2_surf)
    return EGL_TRUE;
 }
 
+static EGLint droid_window_unrotate(ANativeWindow *window, int rotation) {
+   int res, inverse_hint;
+   switch(rotation) {
+      case DRI_COLOR_BUFFER_ROTATION_90:
+         inverse_hint = HAL_TRANSFORM_ROT_270;
+         break;
+      case DRI_COLOR_BUFFER_ROTATION_180:
+         inverse_hint = HAL_TRANSFORM_ROT_180;
+         break;
+      case DRI_COLOR_BUFFER_ROTATION_270:
+         inverse_hint = HAL_TRANSFORM_ROT_90;
+         break;
+      default:
+         /* No need to set inverse transform hint for rotation 0. */
+         return EGL_SUCCESS;
+   }
+
+   res = native_window_set_buffers_transform(window, inverse_hint);
+   if(res != 0) {
+      return EGL_BAD_NATIVE_WINDOW;
+   }
+   return EGL_SUCCESS;
+}
+
 static EGLBoolean
 droid_window_enqueue_buffer(_EGLDisplay *disp, struct dri2_egl_surface *dri2_surf)
 {
@@ -485,6 +585,11 @@ droid_window_enqueue_buffer(_EGLDisplay *disp, struct dri2_egl_surface *dri2_sur
     */
    int fence_fd = dri2_surf->out_fence_fd;
    dri2_surf->out_fence_fd = -1;
+
+   int res = droid_window_unrotate(dri2_surf->window, dri2_surf->rotation);
+   if (res != EGL_SUCCESS) {
+      return EGL_FALSE;
+   }
    dri2_surf->window->queueBuffer(dri2_surf->window, dri2_surf->buffer,
                                   fence_fd);
 

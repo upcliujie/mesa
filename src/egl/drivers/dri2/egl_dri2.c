@@ -1017,6 +1017,8 @@ dri2_setup_screen(_EGLDisplay *disp)
 
    if (dri2_dpy->buffer_damage && dri2_dpy->buffer_damage->set_damage_region)
       disp->Extensions.KHR_partial_update = EGL_TRUE;
+   
+   disp->Extensions.MESA_supported_transforms = 0;
 }
 
 void
