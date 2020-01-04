@@ -171,6 +171,15 @@ intel_map_renderbuffer(struct gl_context *ctx,
       y = rb->Height - y - h;
    }
 
+   /* For x-flipped renderbuffer, we need to flip the mapping we receive
+    * from right to left. So we need to ask for a rectangle on flipped
+    * horizontally.
+    */
+   bool flip_x = (transform & MESA_TRANSFORM_FLIP_X) != 0;
+   if (flip_x) {
+      x = rb->Width - x - w;
+   }
+
    intel_miptree_map(brw, mt, irb->mt_level, irb->mt_layer,
 		     x, y, w, h, mode, &map, &stride);
 
