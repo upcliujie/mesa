@@ -362,6 +362,26 @@ blit_framebuffer(struct gl_context *ctx,
    /* Make sure drawFb has an initialized bounding box. */
    _mesa_update_draw_buffer_bounds(ctx, drawFb);
 
+   if (!!(readFb->Transforms && MESA_TRANSFORM_SWAP_XY)) {
+      GLfloat tmp = srcX0;
+      srcX0 = srcY0;
+      srcY0 = tmp;
+
+      tmp = srcX1;
+      srcX1 = srcY1;
+      srcY1 = tmp;
+   }
+   
+   if (!!(drawFb->Transforms & MESA_TRANSFORM_SWAP_XY)) {
+      GLfloat tmp = dstX0;
+      dstX0 = dstY0;
+      dstY0 = tmp;
+
+      tmp = dstX1;
+      dstX1 = dstY1;
+      dstY1 = tmp;
+   }
+
    if (!no_error) {
       const GLbitfield legalMaskBits = (GL_COLOR_BUFFER_BIT |
                                         GL_DEPTH_BUFFER_BIT |

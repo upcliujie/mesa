@@ -95,6 +95,12 @@ _mesa_GetMultisamplefv(GLenum pname, GLuint index, GLfloat * val)
 
       ctx->Driver.GetSamplePosition(ctx, ctx->DrawBuffer, index, val);
 
+      /* FBOs can be xy swapped */
+      if (!!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_SWAP_XY)) {
+         GLfloat tmp = val[0];
+         val[0] = val[1];
+         val[1] = tmp;
+      }
       /* FBOs can be left-right flipped */
       if (!!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_X))
          val[0] = 1.0f - val[0];

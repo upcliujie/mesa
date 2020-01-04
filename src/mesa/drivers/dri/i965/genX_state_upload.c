@@ -4597,6 +4597,8 @@ genX(upload_raster)(struct brw_context *brw)
       !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_X);
    const bool flip_y =
       !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y);
+   const bool swap_xy =
+      !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_SWAP_XY);
    bool ccw = false;
 
    /* _NEW_POLYGON */
@@ -4609,6 +4611,8 @@ genX(upload_raster)(struct brw_context *brw)
       if (brw->polygon_front_bit != flip_y)
          ccw = true;
       if (flip_x)
+         ccw = !ccw;
+      if (swap_xy)
          ccw = !ccw;
       if (ccw) {
          raster.FrontWinding = CounterClockwise;
