@@ -600,6 +600,14 @@ fetch_state(struct gl_context *ctx, const gl_state_index16 state[],
          }
          return;
 
+      case STATE_FB_WPOS_XY_TRANSFORM:
+         if (!ctx->DrawBuffer->SwapXY) {
+            value[0] = 1.0F;
+         } else {
+            value[0] = -1.0F;
+         }
+         return;
+
       case STATE_TCS_PATCH_VERTICES_IN:
          val[0].i = ctx->TessCtrlProgram.patch_vertices;
          return;
@@ -743,6 +751,7 @@ _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH])
       case STATE_FB_SIZE:
       case STATE_FB_WPOS_X_TRANSFORM:
       case STATE_FB_WPOS_Y_TRANSFORM:
+      case STATE_FB_WPOS_XY_TRANSFORM:
          return _NEW_BUFFERS;
 
       case STATE_ADVANCED_BLENDING_MODE:
@@ -959,6 +968,9 @@ append_token(char *dst, gl_state_index k)
       break;
    case STATE_FB_WPOS_Y_TRANSFORM:
       append(dst, "FbWposYTransform");
+      break;
+   case STATE_FB_WPOS_XY_TRANSFORM:
+      append(dst, "FbWposXYTransform");
       break;
    case STATE_ADVANCED_BLENDING_MODE:
       append(dst, "AdvancedBlendingMode");
