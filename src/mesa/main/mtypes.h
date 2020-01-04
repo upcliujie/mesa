@@ -4445,6 +4445,7 @@ struct gl_extensions
    GLboolean KHR_texture_compression_astc_sliced_3d;
    GLboolean MESA_framebuffer_flip_x;
    GLboolean MESA_framebuffer_flip_y;
+   GLboolean MESA_framebuffer_swap_xy;
    GLboolean MESA_tile_raster_order;
    GLboolean MESA_pack_invert;
    GLboolean EXT_shader_framebuffer_fetch;

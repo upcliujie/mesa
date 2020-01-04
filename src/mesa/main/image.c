@@ -683,6 +683,19 @@ _mesa_clip_readpixels(const struct gl_context *ctx,
    GLsizei clip_width;
    GLsizei clip_height;
 
+   /* For swapXY framebuffer, input from app is in user/swapped view.
+    * The input needs to be transformed to unswappwed view.
+    */
+   if(!!(buffer->Transforms & MESA_TRANSFORM_SWAP_XY)) {
+      GLint tmp = *srcX;
+      *srcX = *srcY;
+      *srcY = tmp;
+
+      tmp = *width;
+      *width = *height;
+      *height = tmp;
+   }
+
    if (rb) {
       clip_width = rb->Width;
       clip_height = rb->Height;

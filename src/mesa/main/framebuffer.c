@@ -385,8 +385,11 @@ scissor_bounding_box(const struct gl_context *ctx,
 {
    bbox[0] = 0;
    bbox[2] = 0;
-   bbox[1] = buffer->Width;
-   bbox[3] = buffer->Height;
+   /* For buffer with swapXY, the buffer dimensions are in original state.
+    * Keep scissor bbox in user/swapped viewport. */
+   bool swap_xy = !!(buffer->Transforms & MESA_TRANSFORM_SWAP_XY);
+   bbox[1] = !swap_xy ? buffer->Width : buffer->Height;
+   bbox[3] = !swap_xy ? buffer->Height : buffer->Width;
 
    _mesa_intersect_scissor_bounding_box(ctx, idx, bbox);
 
@@ -411,10 +414,19 @@ _mesa_update_draw_buffer_bounds(struct gl_context *ctx,
 
    /* Default to the first scissor as that's always valid */
    scissor_bounding_box(ctx, buffer, 0, bbox);
-   buffer->_Xmin = bbox[0];
-   buffer->_Ymin = bbox[2];
-   buffer->_Xmax = bbox[1];
-   buffer->_Ymax = bbox[3];
+   /* Scissor box is set in user/swapped view. Need transform from
+   * user/swapped view to unswapped view. */
+   if (!!(buffer->Transforms & MESA_TRANSFORM_SWAP_XY)) {
+      buffer->_Xmin = bbox[2];
+      buffer->_Ymin = bbox[0];
+      buffer->_Xmax = bbox[3];
+      buffer->_Ymax = bbox[1];
+   } else {
+      buffer->_Xmin = bbox[0];
+      buffer->_Ymin = bbox[2];
+      buffer->_Xmax = bbox[1];
+      buffer->_Ymax = bbox[3];
+   }
 }
 
 

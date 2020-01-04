@@ -1633,6 +1633,11 @@ framebuffer_parameteri(struct gl_context *ctx, struct gl_framebuffer *fb,
          goto invalid_pname_enum;
       cannot_be_winsys_fbo = true;
       break;
+   case GL_FRAMEBUFFER_SWAP_XY_MESA:
+      if (!ctx->Extensions.MESA_framebuffer_swap_xy)
+         goto invalid_pname_enum;
+      cannot_be_winsys_fbo = true;
+      break;
    default:
       goto invalid_pname_enum;
    }
@@ -1702,6 +1707,15 @@ framebuffer_parameteri(struct gl_context *ctx, struct gl_framebuffer *fb,
          fb->Transforms |= MESA_TRANSFORM_FLIP_Y;
       else
          fb->Transforms &= ~MESA_TRANSFORM_FLIP_Y;
+      break;
+   case GL_FRAMEBUFFER_SWAP_XY_MESA:
+      if (param != GL_TRUE && param != 1 &&
+          param != GL_FALSE && param != 0)
+         _mesa_error(ctx, GL_INVALID_VALUE, "%s", func);
+      else if (param == GL_TRUE || param == 1)
+         fb->Transforms |= MESA_TRANSFORM_SWAP_XY;
+      else
+         fb->Transforms &= ~MESA_TRANSFORM_SWAP_XY;
       break;
    }
 
@@ -1840,6 +1854,11 @@ validate_get_framebuffer_parameteriv_pname(struct gl_context *ctx,
          return false;
       }
       break;
+   case GL_FRAMEBUFFER_SWAP_XY_MESA:
+      if (!ctx->Extensions.MESA_framebuffer_swap_xy) {
+         goto invalid_pname_enum;
+      }
+      break;
    default:
       goto invalid_pname_enum;
    }
@@ -1909,6 +1928,9 @@ get_framebuffer_parameteriv(struct gl_context *ctx, struct gl_framebuffer *fb,
       break;
    case GL_FRAMEBUFFER_FLIP_Y_MESA:
       *params = !!(fb->Transforms & MESA_TRANSFORM_FLIP_Y);
+      break;
+   case GL_FRAMEBUFFER_SWAP_XY_MESA:
+      *params = !!(fb->Transforms & MESA_TRANSFORM_SWAP_XY);
       break;
    }
 }
