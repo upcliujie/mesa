@@ -1638,6 +1638,11 @@ framebuffer_parameteri(struct gl_context *ctx, struct gl_framebuffer *fb,
       if (!ctx->Extensions.ARB_sample_locations)
          goto invalid_pname_enum;
       break;
+   case GL_FRAMEBUFFER_FLIP_X_MESA:
+      if (!ctx->Extensions.MESA_framebuffer_flip_x)
+         goto invalid_pname_enum;
+      cannot_be_winsys_fbo = true;
+      break;
    case GL_FRAMEBUFFER_FLIP_Y_MESA:
       if (!ctx->Extensions.MESA_framebuffer_flip_y)
          goto invalid_pname_enum;
@@ -1694,6 +1699,13 @@ framebuffer_parameteri(struct gl_context *ctx, struct gl_framebuffer *fb,
       break;
    case GL_FRAMEBUFFER_SAMPLE_LOCATION_PIXEL_GRID_ARB:
       fb->SampleLocationPixelGrid = !!param;
+      break;
+   case GL_FRAMEBUFFER_FLIP_X_MESA:
+      if (param != GL_TRUE && param != GL_FALSE) {
+         _mesa_error(ctx, GL_INVALID_VALUE, "%s", func);
+         break;
+      }
+      fb->FlipX = param;
       break;
    case GL_FRAMEBUFFER_FLIP_Y_MESA:
       fb->FlipY = param;
@@ -1824,6 +1836,11 @@ validate_get_framebuffer_parameteriv_pname(struct gl_context *ctx,
          goto invalid_pname_enum;
       cannot_be_winsys_fbo = false;
       break;
+   case GL_FRAMEBUFFER_FLIP_X_MESA:
+      if (!ctx->Extensions.MESA_framebuffer_flip_x) {
+         goto invalid_pname_enum;
+      }
+      break;
    case GL_FRAMEBUFFER_FLIP_Y_MESA:
       if (!ctx->Extensions.MESA_framebuffer_flip_y) {
          _mesa_error(ctx, GL_INVALID_ENUM, "%s(pname=0x%x)", func, pname);
@@ -1893,6 +1910,9 @@ get_framebuffer_parameteriv(struct gl_context *ctx, struct gl_framebuffer *fb,
       break;
    case GL_FRAMEBUFFER_SAMPLE_LOCATION_PIXEL_GRID_ARB:
       *params = fb->SampleLocationPixelGrid;
+      break;
+   case GL_FRAMEBUFFER_FLIP_X_MESA:
+      *params = fb->FlipX;
       break;
    case GL_FRAMEBUFFER_FLIP_Y_MESA:
       *params = fb->FlipY;
