@@ -303,6 +303,8 @@ struct brw_vs_prog_key {
     * the VUE, even if they aren't written by the vertex shader.
     */
    uint8_t point_coord_replace;
+
+   bool swap_xy:1;
 };
 
 /** The program key for Tessellation Control Shaders. */

@@ -261,6 +261,8 @@ brw_vs_populate_key(struct brw_context *brw,
    /* _NEW_TEXTURE */
    brw_populate_base_prog_key(ctx, vp, &key->base);
 
+   key->swap_xy = !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_SWAP_XY);
+
    if (ctx->Transform.ClipPlanesEnabled != 0 &&
        (ctx->API == API_OPENGL_COMPAT || ctx->API == API_OPENGLES) &&
        vp->program.info.clip_distance_array_size == 0) {
