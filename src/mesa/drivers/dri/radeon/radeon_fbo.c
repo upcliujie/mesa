@@ -237,6 +237,9 @@ radeon_map_renderbuffer(struct gl_context *ctx,
    int ret;
    int src_x, src_y;
 
+   /* driver does not support GL_FRAMEBUFFER_FLIP_X_MESA */
+   assert((transform & MESA_TRANSFORM_FLIP_X) == 0);
+
    /* driver does not support GL_FRAMEBUFFER_FLIP_Y_MESA */
    assert((rb->Name == 0) == !!(transform & MESA_TRANSFORM_FLIP_Y));
 

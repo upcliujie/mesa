@@ -1507,6 +1507,9 @@ enum mesa_transform
 _mesa_fbo_transform(const struct gl_framebuffer *fb)
 {
    enum mesa_transform transform = MESA_TRANSFORM_NONE;
+   if (fb->FlipX) {
+      transform |= MESA_TRANSFORM_FLIP_X;
+   }
    if (fb->FlipY) {
       transform |= MESA_TRANSFORM_FLIP_Y;
    }
