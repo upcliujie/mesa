@@ -568,6 +568,20 @@ fetch_state(struct gl_context *ctx, const gl_state_index16 state[],
          value[3] = 0.0F;
          return;
 
+      case STATE_FB_WPOS_X_TRANSFORM:
+         if (!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_X)) {
+            value[0] = 1.0F;
+            value[1] = 0.0F;
+            value[2] = -1.0F;
+            value[3] = _mesa_geometric_width(ctx->DrawBuffer);
+         } else {
+            value[0] = -1.0F;
+            value[1] = _mesa_geometric_width(ctx->DrawBuffer);
+            value[2] = 1.0F;
+            value[3] = 0.0F;
+         }
+         return;
+
       case STATE_FB_WPOS_Y_TRANSFORM:
          /* A driver may negate this conditional by using ZW swizzle
           * instead of XY (based on e.g. some other state). */
@@ -727,6 +741,7 @@ _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH])
          return _NEW_PIXEL;
 
       case STATE_FB_SIZE:
+      case STATE_FB_WPOS_X_TRANSFORM:
       case STATE_FB_WPOS_Y_TRANSFORM:
          return _NEW_BUFFERS;
 
@@ -938,6 +953,9 @@ append_token(char *dst, gl_state_index k)
       break;
    case STATE_FB_SIZE:
       append(dst, "FbSize");
+      break;
+   case STATE_FB_WPOS_X_TRANSFORM:
+      append(dst, "FbWposXTransform");
       break;
    case STATE_FB_WPOS_Y_TRANSFORM:
       append(dst, "FbWposYTransform");

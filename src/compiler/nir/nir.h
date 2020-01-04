@@ -4608,6 +4608,7 @@ bool nir_lower_patch_vertices(nir_shader *nir, unsigned static_count,
                               const gl_state_index16 *uniform_state_tokens);
 
 typedef struct nir_lower_wpos_transform_options {
+   gl_state_index16 x_transform_state_tokens[STATE_LENGTH];
    gl_state_index16 y_transform_state_tokens[STATE_LENGTH];
    bool fs_coord_origin_upper_left :1;
    bool fs_coord_origin_lower_left :1;
