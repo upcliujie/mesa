@@ -433,7 +433,7 @@ lower_wpos_transform_impl(lower_wpos_transform_state *state, nir_function_impl *
 
 bool
 nir_lower_wpos_transform(nir_shader *shader,
-                          const nir_lower_wpos_transform_options *options)
+                         const nir_lower_wpos_transform_options *options)
 {
    lower_wpos_transform_state state = {
       .options = options,
