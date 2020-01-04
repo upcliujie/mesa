@@ -1756,6 +1756,60 @@ intel_process_dri2_buffer(struct brw_context *brw,
 }
 
 /**
+ *  Parse rotation value for framebuffer. For winsys fbo, the origin is at
+ * top-left. For user fbo, the origin is at bottom-left. So the value for
+ * FlipY is different for different type of fbo.
+ * 
+ *  \param fb        Framebuffer to set rotation value.
+ *  \param rotation  Rotation value.
+ */
+static void
+intel_set_rotation(struct gl_framebuffer *fb, 
+                   enum dri_color_buffer_rotation rotation) {
+   if (fb == NULL) return;
+   switch (rotation) {
+      case DRI_COLOR_BUFFER_ROTATION_0:
+         if (!_mesa_is_winsys_fbo(fb)) {
+            fb->Transforms &= ~MESA_TRANSFORM_FLIP_Y;
+         } else {
+            fb->Transforms |= MESA_TRANSFORM_FLIP_Y;
+         }
+         fb->Transforms &= ~MESA_TRANSFORM_FLIP_X;
+         fb->Transforms &= ~MESA_TRANSFORM_SWAP_XY;
+         break;
+      case DRI_COLOR_BUFFER_ROTATION_90:
+         if (!_mesa_is_winsys_fbo(fb)) {
+            fb->Transforms |= MESA_TRANSFORM_FLIP_Y;
+         } else {
+            fb->Transforms &= ~MESA_TRANSFORM_FLIP_Y;
+         }
+         fb->Transforms &= ~MESA_TRANSFORM_FLIP_X;
+         fb->Transforms |= MESA_TRANSFORM_SWAP_XY;
+         break;
+      case DRI_COLOR_BUFFER_ROTATION_180:
+         if (!_mesa_is_winsys_fbo(fb)) {
+            fb->Transforms |= MESA_TRANSFORM_FLIP_Y;
+         } else {
+            fb->Transforms &= ~MESA_TRANSFORM_FLIP_Y;
+         }
+         fb->Transforms |= MESA_TRANSFORM_FLIP_X;
+         fb->Transforms &= ~MESA_TRANSFORM_SWAP_XY;
+         break;
+      case DRI_COLOR_BUFFER_ROTATION_270:
+         if (!_mesa_is_winsys_fbo(fb)) {
+            fb->Transforms &= ~MESA_TRANSFORM_FLIP_Y;
+         } else {
+            fb->Transforms |= MESA_TRANSFORM_FLIP_Y;
+         }
+         fb->Transforms |= MESA_TRANSFORM_FLIP_X;
+         fb->Transforms |= MESA_TRANSFORM_SWAP_XY;
+         break;
+      default:
+         break;
+   }
+}
+
+/**
  * \brief Query DRI image loader to obtain a DRIdrawable's buffers.
  *
  * To determine which DRI buffers to request, examine the renderbuffers
@@ -1776,9 +1830,13 @@ intel_update_image_buffer(struct brw_context *intel,
                           __DRIdrawable *drawable,
                           struct intel_renderbuffer *rb,
                           __DRIimage *buffer,
-                          enum __DRIimageBufferMask buffer_type)
+                          enum __DRIimageBufferMask buffer_type,
+                          enum dri_color_buffer_rotation rotation)
 {
    struct gl_framebuffer *fb = drawable->driverPrivate;
+
+   /* Set rotation values to framebuffer before rendering. */
+   intel_set_rotation(fb, rotation);
 
    if (!rb || !buffer->bo)
       return;
@@ -1905,7 +1963,8 @@ intel_update_image_buffers(struct brw_context *brw, __DRIdrawable *drawable)
                                 drawable,
                                 front_rb,
                                 images.front,
-                                __DRI_IMAGE_BUFFER_FRONT);
+                                __DRI_IMAGE_BUFFER_FRONT,
+                                images.rotation);
    }
 
    if (images.image_mask & __DRI_IMAGE_BUFFER_BACK) {
@@ -1915,7 +1974,8 @@ intel_update_image_buffers(struct brw_context *brw, __DRIdrawable *drawable)
                                 drawable,
                                 back_rb,
                                 images.back,
-                                __DRI_IMAGE_BUFFER_BACK);
+                                __DRI_IMAGE_BUFFER_BACK,
+                                images.rotation);
    }
 
    if (images.image_mask & __DRI_IMAGE_BUFFER_SHARED) {
@@ -1926,7 +1986,8 @@ intel_update_image_buffers(struct brw_context *brw, __DRIdrawable *drawable)
                                 drawable,
                                 back_rb,
                                 images.back,
-                                __DRI_IMAGE_BUFFER_SHARED);
+                                __DRI_IMAGE_BUFFER_SHARED,
+                                images.rotation);
       brw->is_shared_buffer_bound = true;
    } else {
       brw->is_shared_buffer_bound = false;
