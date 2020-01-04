@@ -3614,7 +3614,8 @@ struct gl_framebuffer
 
 	
    /* GL_MESA_framebuffer_flip_x
-    * GL_MESA_framebuffer_flip_y */
+    * GL_MESA_framebuffer_flip_y
+    * GL_MESA_framebuffer_swap_xy */
    enum mesa_transform Transforms;
 
    /** Delete this framebuffer */
