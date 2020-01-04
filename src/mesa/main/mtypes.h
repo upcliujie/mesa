@@ -3612,7 +3612,9 @@ struct gl_framebuffer
    struct gl_renderbuffer *_ColorDrawBuffers[MAX_DRAW_BUFFERS];
    struct gl_renderbuffer *_ColorReadBuffer;
 
-   /* GL_MESA_framebuffer_flip_y */
+	
+   /* GL_MESA_framebuffer_flip_x
+    * GL_MESA_framebuffer_flip_y */
    enum mesa_transform Transforms;
 
    /** Delete this framebuffer */

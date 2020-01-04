@@ -872,6 +872,9 @@ st_MapRenderbuffer(struct gl_context *ctx,
    GLuint y2;
    GLubyte *map;
 
+   /* driver does not support GL_FRAMEBUFFER_FLIP_X_MESA */
+   assert((transform & MESA_TRANSFORM_FLIP_X) == 0);
+
    if (strb->software) {
       /* software-allocated renderbuffer (probably an accum buffer) */
       if (strb->data) {

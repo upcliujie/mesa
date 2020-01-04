@@ -142,6 +142,9 @@ nouveau_renderbuffer_map(struct gl_context *ctx,
 	int stride;
 	int flags = 0;
 
+	/* driver does not support GL_FRAMEBUFFER_FLIP_X_MESA */
+	assert((transform & MESA_TRANSFORM_FLIP_X) == 0);
+
 	/* driver does not support GL_FRAMEBUFFER_FLIP_Y_MESA */
 	assert((rb->Name == 0) == !!(transform & MESA_TRANSFORM_FLIP_Y));
 
