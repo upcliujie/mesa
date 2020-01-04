@@ -1996,10 +1996,19 @@ enum __DRIimageBufferMask {
    __DRI_IMAGE_BUFFER_SHARED = (1 << 2),
 };
 
+/* Render clockwisely. Display rotates counterclockwisely. */
+enum dri_color_buffer_rotation {
+    DRI_COLOR_BUFFER_ROTATION_0, /* Default */
+    DRI_COLOR_BUFFER_ROTATION_90,
+    DRI_COLOR_BUFFER_ROTATION_180,
+    DRI_COLOR_BUFFER_ROTATION_270
+};
+
 struct __DRIimageList {
    uint32_t image_mask;
    __DRIimage *back;
    __DRIimage *front;
+   enum dri_color_buffer_rotation rotation;
 };
 
 #define __DRI_IMAGE_LOADER "DRI_IMAGE_LOADER"
