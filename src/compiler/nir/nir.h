@@ -4349,6 +4349,7 @@ bool nir_lower_fragcolor(nir_shader *shader);
 bool nir_lower_fragcoord_wtrans(nir_shader *shader);
 void nir_lower_viewport_transform(nir_shader *shader);
 bool nir_lower_vs_swap_xy(nir_shader *shader, bool swap_xy);
+bool nir_lower_fs_swap_xy(nir_shader *shader, bool swap_xy);
 bool nir_lower_uniforms_to_ubo(nir_shader *shader, int multiplier);
 
 typedef struct nir_lower_subgroups_options {
@@ -4611,6 +4612,7 @@ bool nir_lower_patch_vertices(nir_shader *nir, unsigned static_count,
 typedef struct nir_lower_wpos_transform_options {
    gl_state_index16 x_transform_state_tokens[STATE_LENGTH];
    gl_state_index16 y_transform_state_tokens[STATE_LENGTH];
+
    bool fs_coord_origin_upper_left :1;
    bool fs_coord_origin_lower_left :1;
    bool fs_coord_pixel_center_integer :1;
