@@ -1493,7 +1493,7 @@ vtn_storage_class_to_mode(struct vtn_builder *b,
       break;
    case SpvStorageClassImage:
       mode = vtn_variable_mode_image;
-      nir_mode = nir_var_mem_ubo;
+      nir_mode = nir_var_mem_image;
       break;
    case SpvStorageClassCallableDataKHR:
       mode = vtn_variable_mode_call_data;
