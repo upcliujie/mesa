@@ -856,6 +856,8 @@ blorp_emit_ps_config(struct blorp_batch *batch,
          psx.PixelShaderValid = true;
          psx.AttributeEnable = prog_data->num_varying_inputs > 0;
          psx.PixelShaderIsPerSample = prog_data->persample_dispatch;
+         psx.PixelShaderUsesSourceDepth = prog_data->uses_src_depth;
+         psx.PixelShaderUsesSourceW = prog_data->uses_src_w;
       }
 
       if (params->src.enabled)
