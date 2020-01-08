@@ -984,7 +984,8 @@ check_for_aliasing(struct vectorize_ctx *ctx, struct entry *first, struct entry 
 {
    nir_variable_mode mode = get_variable_mode(first);
    if (mode & (nir_var_uniform | nir_var_system_value |
-               nir_var_mem_push_const | nir_var_mem_ubo))
+               nir_var_mem_push_const | nir_var_mem_ubo |
+               nir_var_mem_image))
       return false;
 
    unsigned mode_index = mode_to_index(mode);
