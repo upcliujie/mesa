@@ -4280,7 +4280,8 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          nir_variable_mode modes = nir_intrinsic_memory_modes(instr);
          l3_fence = modes & (nir_var_shader_out |
                              nir_var_mem_ssbo |
-                             nir_var_mem_global);
+                             nir_var_mem_global |
+                             nir_var_mem_image);
          slm_fence = modes & nir_var_mem_shared;
 
          /* NIR currently doesn't have an image mode */
