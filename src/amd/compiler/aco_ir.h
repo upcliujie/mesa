@@ -1387,6 +1387,7 @@ static_assert(sizeof(MTBUF_instruction) == sizeof(Instruction) + 8, "Unexpected 
 struct MIMG_instruction : public Instruction {
    memory_sync_info sync;
    uint8_t dmask; /* Data VGPR enable mask */
+   uint16_t wqm_mask : 13; /* Indicates which operands must be computed in WQM */
    uint8_t dim : 3; /* NAVI: dimensionality */
    bool unrm : 1; /* Force address to be un-normalized */
    bool dlc : 1; /* NAVI: device level coherent */
@@ -1399,9 +1400,7 @@ struct MIMG_instruction : public Instruction {
    bool a16 : 1; /* VEGA, NAVI: Address components are 16-bits */
    bool d16 : 1; /* Convert 32-bit data to 16-bit data */
    bool disable_wqm : 1; /* Require an exec mask without helper invocations */
-   uint8_t padding0 : 2;
-   uint8_t padding1;
-   uint8_t padding2;
+   uint8_t padding : 5;
 };
 static_assert(sizeof(MIMG_instruction) == sizeof(Instruction) + 8, "Unexpected padding");
 

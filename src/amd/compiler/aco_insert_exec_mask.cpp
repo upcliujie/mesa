@@ -176,6 +176,10 @@ void get_block_needs(wqm_ctx &ctx, exec_ctx &exec_ctx, Block* block)
       aco_ptr<Instruction>& instr = block->instructions[i];
 
       WQMState needs = needs_exact(instr) ? Exact : Unspecified;
+      /* Image instructions don't have to be executed in WQM.
+       * However, parallelcopies inserted by RA must be. */
+      if (instr->format == Format::MIMG && instr->mimg().wqm_mask)
+         needs = WQM;
       bool propagate_wqm = instr->opcode == aco_opcode::p_wqm;
       bool preserve_wqm = instr->opcode == aco_opcode::p_discard_if;
       bool pred_by_exec = needs_exec_mask(instr.get());
@@ -203,6 +207,15 @@ void get_block_needs(wqm_ctx &ctx, exec_ctx &exec_ctx, Block* block)
          }
       } else if (preserve_wqm && info.block_needs & WQM) {
          needs = Preserve_WQM;
+      } else if (instr->format == Format::MIMG && instr->mimg().wqm_mask) {
+         /* image instructions don't have to be executed in WQM.
+          * However, some of them need the coordinates and offset
+          * to be calculated in WQM
+          */
+         for (unsigned j = 3; j < instr->operands.size(); j++) {
+            if (instr->mimg().wqm_mask & (1 << (j - 3)))
+               set_needs_wqm(ctx, instr->operands[j].getTemp());
+         }
       }
 
       /* ensure the condition controlling the control flow for this phi is in WQM */

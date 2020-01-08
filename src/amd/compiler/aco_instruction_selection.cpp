@@ -5845,9 +5845,12 @@ static MIMG_instruction *emit_mimg(Builder& bld, aco_opcode op,
                                    Temp rsrc,
                                    Operand samp,
                                    std::vector<Temp> coords,
-                                   unsigned wqm_mask=0,
+                                   uint16_t wqm_mask=0,
                                    Operand vdata=Operand(v1))
 {
+   if (wqm_mask)
+      bld.program->needs_wqm = true;
+
    if (bld.program->chip_class < GFX10) {
       Temp coord = coords[0];
       if (coords.size() > 1) {
@@ -5862,21 +5865,15 @@ static MIMG_instruction *emit_mimg(Builder& bld, aco_opcode op,
          coord = bld.copy(bld.def(v1), coord);
       }
 
-      if (wqm_mask) {
-         /* We don't need the bias, sample index, compare value or offset to be
-          * computed in WQM but if the p_create_vector copies the coordinates, then it
-          * needs to be in WQM. */
-         coord = emit_wqm(bld, coord, bld.tmp(coord.regClass()), true);
-      }
+      /* We don't need the bias, sample index or compare value to be
+       * computed in WQM but if the p_create_vector copies the coordinates,
+       * then it needs to be in WQM. */
+      if (wqm_mask)
+         wqm_mask = 1u;
 
       coords[0] = coord;
       coords.resize(1);
    } else {
-      for (unsigned i = 0; i < coords.size(); i++) {
-         if (wqm_mask & (1u << i))
-            coords[i] = emit_wqm(bld, coords[i], bld.tmp(coords[i].regClass()), true);
-      }
-
       for (Temp& coord : coords) {
          if (coord.type() == RegType::sgpr)
             coord = bld.copy(bld.def(v1), coord);
@@ -5892,6 +5889,7 @@ static MIMG_instruction *emit_mimg(Builder& bld, aco_opcode op,
    mimg->operands[2] = vdata;
    for (unsigned i = 0; i < coords.size(); i++)
       mimg->operands[3 + i] = Operand(coords[i]);
+   mimg->wqm_mask = wqm_mask;
 
    MIMG_instruction *res = mimg.get();
    bld.insert(std::move(mimg));
