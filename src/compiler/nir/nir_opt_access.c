@@ -115,9 +115,11 @@ gather_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
          state->images_written |= write;
       }
 
-      if (var->data.mode == nir_var_uniform && read)
+      if ((var->data.mode == nir_var_uniform ||
+           var->data.mode == nir_var_mem_image) && read)
          _mesa_set_add(state->vars_read, var);
-      if (var->data.mode == nir_var_uniform && write)
+      if ((var->data.mode == nir_var_uniform ||
+           var->data.mode == nir_var_mem_image) && write)
          _mesa_set_add(state->vars_written, var);
       break;
 
@@ -187,7 +189,8 @@ process_variable(struct access_state *state, nir_variable *var)
 {
    const struct glsl_type *type = glsl_without_array(var->type);
    if (var->data.mode != nir_var_mem_ssbo &&
-       !(var->data.mode == nir_var_uniform && glsl_type_is_image(type)))
+       !(var->data.mode == nir_var_uniform && glsl_type_is_image(type)) &&
+       var->data.mode != nir_var_mem_image)
       return false;
 
    /* Ignore variables we've already marked */
