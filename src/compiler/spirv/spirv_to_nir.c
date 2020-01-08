@@ -368,7 +368,7 @@ vtn_get_image(struct vtn_builder *b, uint32_t value_id,
    if (access)
       *access |= spirv_to_gl_access_qualifier(b, type->access_qualifier);
    return nir_build_deref_cast(&b->nb, vtn_get_nir_ssa(b, value_id),
-                               nir_var_uniform, type->glsl_image, 0);
+                               nir_var_mem_image, type->glsl_image, 0);
 }
 
 static void
@@ -387,7 +387,7 @@ vtn_get_sampler(struct vtn_builder *b, uint32_t value_id)
    struct vtn_type *type = vtn_get_value_type(b, value_id);
    vtn_assert(type->base_type == vtn_base_type_sampler);
    return nir_build_deref_cast(&b->nb, vtn_get_nir_ssa(b, value_id),
-                               nir_var_uniform, glsl_bare_sampler_type(), 0);
+                               nir_var_mem_image, glsl_bare_sampler_type(), 0);
 }
 
 nir_ssa_def *
@@ -417,10 +417,10 @@ vtn_get_sampled_image(struct vtn_builder *b, uint32_t value_id)
 
    struct vtn_sampled_image si = { NULL, };
    si.image = nir_build_deref_cast(&b->nb, nir_channel(&b->nb, si_vec2, 0),
-                                   nir_var_uniform,
+                                   nir_var_mem_image,
                                    type->image->glsl_image, 0);
    si.sampler = nir_build_deref_cast(&b->nb, nir_channel(&b->nb, si_vec2, 1),
-                                     nir_var_uniform,
+                                     nir_var_mem_image,
                                      glsl_bare_sampler_type(), 0);
    return si;
 }
@@ -942,16 +942,25 @@ vtn_type_get_nir_type(struct vtn_builder *b, struct vtn_type *type,
       }
 
       case vtn_base_type_image:
-         return type->glsl_image;
-
       case vtn_base_type_sampler:
-         return glsl_bare_sampler_type();
-
       case vtn_base_type_sampled_image:
-         return type->image->glsl_image;
+         unreachable("invalid mode");
 
       default:
          return type->type;
+      }
+   }
+
+   if (mode == vtn_variable_mode_image) {
+      switch (type->base_type) {
+      case vtn_base_type_image:
+         return type->glsl_image;
+      case vtn_base_type_sampler:
+         return glsl_bare_sampler_type();
+      case vtn_base_type_sampled_image:
+         return type->image->glsl_image;
+      default:
+         unreachable("invalid mode");
       }
    }
 
@@ -2381,18 +2390,15 @@ vtn_mem_semantics_to_nir_var_modes(struct vtn_builder *b,
                      SpvMemorySemanticsAtomicCounterMemoryMask);
    }
 
-   /* TODO: Consider adding nir_var_mem_image mode to NIR so it can be used
-    * for SpvMemorySemanticsImageMemoryMask.
-    */
-
    nir_variable_mode modes = 0;
-   if (semantics & (SpvMemorySemanticsUniformMemoryMask |
-                    SpvMemorySemanticsImageMemoryMask)) {
+   if (semantics & SpvMemorySemanticsUniformMemoryMask) {
       modes |= nir_var_uniform |
                nir_var_mem_ubo |
                nir_var_mem_ssbo |
                nir_var_mem_global;
    }
+   if (semantics & SpvMemorySemanticsImageMemoryMask)
+      modes |= nir_var_mem_image;
    if (semantics & SpvMemorySemanticsWorkgroupMemoryMask)
       modes |= nir_var_mem_shared;
    if (semantics & SpvMemorySemanticsCrossWorkgroupMemoryMask)
