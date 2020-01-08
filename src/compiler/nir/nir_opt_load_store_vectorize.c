@@ -609,7 +609,7 @@ create_entry(struct vectorize_ctx *ctx,
 
    uint32_t restrict_modes = nir_var_shader_in | nir_var_shader_out;
    restrict_modes |= nir_var_shader_temp | nir_var_function_temp;
-   restrict_modes |= nir_var_uniform | nir_var_mem_push_const;
+   restrict_modes |= nir_var_uniform | nir_var_mem_image | nir_var_mem_push_const;
    restrict_modes |= nir_var_system_value | nir_var_mem_shared;
    if (get_variable_mode(entry) & restrict_modes)
       entry->access |= ACCESS_RESTRICT;
@@ -984,7 +984,8 @@ check_for_aliasing(struct vectorize_ctx *ctx, struct entry *first, struct entry 
 {
    nir_variable_mode mode = get_variable_mode(first);
    if (mode & (nir_var_uniform | nir_var_system_value |
-               nir_var_mem_push_const | nir_var_mem_ubo))
+               nir_var_mem_push_const | nir_var_mem_ubo |
+               nir_var_mem_image))
       return false;
 
    unsigned mode_index = mode_to_index(mode);
