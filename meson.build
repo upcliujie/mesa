@@ -445,6 +445,24 @@ else
   with_egl = false
 endif
 
+# All the other platforms can be detected and cannot reach the native platform code
+_undetectable_platforms = ['x11', 'surfaceless', 'haiku', 'android']
+
+# Don't enforce the native platform if none of the undetectable platforms are enabled
+_undetectable_platform_enabled = false
+if with_egl
+  foreach _platform : _undetectable_platforms
+    if _platform in _platforms
+      _undetectable_platform_enabled = true
+    endif
+  endforeach
+endif
+# Make sure the native platform is one of the ones that can't be detected
+if _undetectable_platform_enabled and egl_native_platform not in _undetectable_platforms
+  warning('The first platform passed in `-D platforms=...` will be used when auto-detection fails.')
+  error('It must be one of [' + ', '.join(_undetectable_platforms) + ']')
+endif
+
 # Android uses emutls for versions <= P/28. For USE_ELF_TLS we need ELF TLS.
 use_elf_tls = false
 if (not ['freebsd', 'openbsd', 'haiku'].contains(host_machine.system()) and
