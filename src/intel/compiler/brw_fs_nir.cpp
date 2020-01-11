@@ -4401,14 +4401,16 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       break;
    }
 
-   case nir_intrinsic_scoped_barrier:
-      assert(nir_intrinsic_execution_scope(instr) == NIR_SCOPE_NONE);
-      FALLTHROUGH;
    case nir_intrinsic_group_memory_barrier:
    case nir_intrinsic_memory_barrier_shared:
    case nir_intrinsic_memory_barrier_buffer:
    case nir_intrinsic_memory_barrier_image:
    case nir_intrinsic_memory_barrier:
+      unreachable("expecting only nir_intrinsic_scoped_barrier");
+
+   case nir_intrinsic_scoped_barrier:
+      assert(nir_intrinsic_execution_scope(instr) == NIR_SCOPE_NONE);
+      FALLTHROUGH;
    case nir_intrinsic_begin_invocation_interlock:
    case nir_intrinsic_end_invocation_interlock: {
       bool ugm_fence, slm_fence, tgm_fence, urb_fence;
