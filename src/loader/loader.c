@@ -61,14 +61,47 @@
 #define __IS_LOADER
 #include "pci_id_driver_map.h"
 
+#ifdef __ANDROID__
+#include <log/log.h>
+#endif
+
 static void default_logger(int level, const char *fmt, ...)
 {
+#ifdef __ANDROID__
+   int android_level;
+   va_list args;
+
+   va_start(args, fmt);
+
+   switch (level) {
+   case _LOADER_FATAL:
+      android_level = ANDROID_LOG_FATAL;
+      break;
+
+   case _LOADER_WARNING:
+      android_level = ANDROID_LOG_WARN;
+      break;
+
+   case _LOADER_INFO:
+      android_level = ANDROID_LOG_INFO;
+      break;
+
+   case _LOADER_DEBUG:
+   default:
+      android_level = ANDROID_LOG_DEBUG;
+      break;
+
+   }
+   LOG_PRI_VA(android_level, "MESA-LOADER", fmt, args);
+   va_end(args);
+#else
    if (level <= _LOADER_WARNING) {
       va_list args;
       va_start(args, fmt);
       vfprintf(stderr, fmt, args);
       va_end(args);
    }
+#endif
 }
 
 static loader_logger *log_ = default_logger;
