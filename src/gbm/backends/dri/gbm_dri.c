@@ -56,6 +56,26 @@
 #include "wayland-drm.h"
 #endif
 
+#ifdef __ANDROID__
+#include <log/log.h>
+#endif
+
+static void dri_log_error(const char *fmt, ...)
+{
+   va_list args;
+
+   va_start(args, fmt);
+
+#ifdef __ANDROID__
+   LOG_PRI_VA(ANDROID_LOG_ERROR, "GBM-DRI", fmt, args);
+#else
+   vfprintf(stderr, fmt, args);
+#endif
+
+   va_end(args);
+
+}
+
 static __DRIimage *
 dri_lookup_egl_image(__DRIscreen *screen, void *image, void *data)
 {
@@ -342,7 +362,7 @@ dri_load_driver(struct gbm_dri_device *dri)
                             ARRAY_SIZE(gbm_dri_device_extensions),
                             extensions)) {
       dlclose(dri->driver);
-      fprintf(stderr, "failed to bind extensions\n");
+      dri_log_error("failed to bind extensions\n");
       return -1;
    }
 
@@ -364,7 +384,7 @@ dri_load_driver_swrast(struct gbm_dri_device *dri)
                             ARRAY_SIZE(gbm_swrast_device_extensions),
                             extensions)) {
       dlclose(dri->driver);
-      fprintf(stderr, "failed to bind extensions\n");
+      dri_log_error("failed to bind extensions\n");
       return -1;
    }
 
@@ -384,8 +404,9 @@ dri_screen_create_dri2(struct gbm_dri_device *dri, char *driver_name)
       return -1;
 
    ret = dri_load_driver(dri);
+
    if (ret) {
-      fprintf(stderr, "failed to load driver: %s\n", dri->driver_name);
+      dri_log_error("failed to load driver: %s\n", dri->driver_name);
       return ret;
    }
 
@@ -437,7 +458,7 @@ dri_screen_create_swrast(struct gbm_dri_device *dri)
 
    ret = dri_load_driver_swrast(dri);
    if (ret) {
-      fprintf(stderr, "failed to load swrast driver\n");
+      dri_log_error("failed to load swrast driver\n");
       return ret;
    }
 
@@ -1151,7 +1172,7 @@ gbm_dri_bo_create(struct gbm_device *gbm,
    if (modifiers) {
       if (!dri->image || dri->image->base.version < 14 ||
           !dri->image->createImageWithModifiers) {
-         fprintf(stderr, "Modifiers specified, but DRI is too old\n");
+         dri_log_error("Modifiers specified, but DRI is too old\n");
          errno = ENOSYS;
          goto failed;
       }
@@ -1163,7 +1184,7 @@ gbm_dri_bo_create(struct gbm_device *gbm,
        * interface the client is using to build its modifier list.
        */
       if (count == 1 && modifiers[0] == DRM_FORMAT_MOD_INVALID) {
-         fprintf(stderr, "Only invalid modifier specified\n");
+         dri_log_error("Only invalid modifier specified\n");
          errno = EINVAL;
          goto failed;
       }
@@ -1288,7 +1309,7 @@ gbm_dri_surface_create(struct gbm_device *gbm,
     * interface the client is using to build its modifier list.
     */
    if (count == 1 && modifiers[0] == DRM_FORMAT_MOD_INVALID) {
-      fprintf(stderr, "Only invalid modifier specified\n");
+      dri_log_error("Only invalid modifier specified\n");
       errno = EINVAL;
    }
 
