@@ -856,6 +856,30 @@ namespace {
    }
 
    /**
+    * Use information from previous instructions to trim dependencies.
+    */
+   dependency
+   apply_implicit_dependencies(const unsigned *ids, tgl_sbid_mode *implicit_deps,
+                               dependency dep)
+   {
+      const unsigned id = ids[dep.id];
+
+      /* Once a $x.dst is seen, there's no need repeat $x.dst or $x.src. */
+      if (dep.unordered & TGL_SBID_DST) {
+         dep.unordered &= ~implicit_deps[id];
+         implicit_deps[id] |= TGL_SBID_DST | TGL_SBID_SRC;
+      }
+
+      /* Once a $x.src is seen, there's no need repeat $x.src. */
+      if (dep.unordered & TGL_SBID_SRC) {
+         dep.unordered &= ~implicit_deps[id];
+         implicit_deps[id] |= TGL_SBID_SRC;
+      }
+
+      return dep;
+   }
+
+   /**
     * Return the list of potential dependencies of each instruction in the
     * shader based on the result of global dependency analysis.
     */
@@ -867,39 +891,56 @@ namespace {
       scoreboard *sbs = propagate_block_scoreboards(shader, jps, eq);
       const unsigned *ids = eq.flatten();
       dependency_list *deps = new dependency_list[num_instructions(shader)];
+      tgl_sbid_mode *implicit_deps = new tgl_sbid_mode[num_instructions(shader)];
       unsigned ip = 0;
 
       foreach_block(block, shader->cfg) {
          scoreboard &sb = sbs[block->num];
 
+         for (unsigned i = 0; i < num_instructions(shader); i++)
+            implicit_deps[i] = TGL_SBID_NULL;
+
          foreach_inst_in_block(fs_inst, inst, block) {
             for (unsigned i = 0; i < inst->sources; i++) {
-               for (unsigned j = 0; j < regs_read(inst, i); j++)
-                  add_dependency(ids, deps[ip], dependency_for_read(
-                     sb.get(byte_offset(inst->src[i], REG_SIZE * j))));
+               for (unsigned j = 0; j < regs_read(inst, i); j++) {
+                  dependency d = dependency_for_read(
+                     sb.get(byte_offset(inst->src[i], REG_SIZE * j)));
+                  add_dependency(ids, deps[ip],
+                                 apply_implicit_dependencies(ids, implicit_deps, d));
+               }
             }
 
             if (is_send(inst) && inst->base_mrf != -1) {
-               for (unsigned j = 0; j < inst->mlen; j++)
-                  add_dependency(ids, deps[ip], dependency_for_read(
-                     sb.get(brw_uvec_mrf(8, inst->base_mrf + j, 0))));
+               for (unsigned j = 0; j < inst->mlen; j++) {
+                  dependency d = dependency_for_read(
+                     sb.get(brw_uvec_mrf(8, inst->base_mrf + j, 0)));
+                  add_dependency(ids, deps[ip],
+                                 apply_implicit_dependencies(ids, implicit_deps, d));
+               }
             }
 
-            if (is_unordered(inst))
+            if (is_unordered(inst)) {
                add_dependency(ids, deps[ip], dependency(TGL_SBID_SET, ip));
+               implicit_deps[ids[ip]] = TGL_SBID_NULL;
+            }
 
             if (!inst->no_dd_check) {
                if (inst->dst.file != BAD_FILE && !inst->dst.is_null()) {
                   for (unsigned j = 0; j < regs_written(inst); j++) {
-                     add_dependency(ids, deps[ip], dependency_for_write(inst,
-                        sb.get(byte_offset(inst->dst, REG_SIZE * j))));
+                     dependency d = dependency_for_write(
+                        inst, sb.get(byte_offset(inst->dst, REG_SIZE * j)));
+                     add_dependency(ids, deps[ip],
+                                    apply_implicit_dependencies(ids, implicit_deps, d));
                   }
                }
 
                if (is_send(inst) && inst->base_mrf != -1) {
-                  for (unsigned j = 0; j < inst->implied_mrf_writes(); j++)
-                     add_dependency(ids, deps[ip], dependency_for_write(inst,
-                        sb.get(brw_uvec_mrf(8, inst->base_mrf + j, 0))));
+                  for (unsigned j = 0; j < inst->implied_mrf_writes(); j++) {
+                     dependency d = dependency_for_write(
+                        inst, sb.get(brw_uvec_mrf(8, inst->base_mrf + j, 0)));
+                     add_dependency(ids, deps[ip],
+                                    apply_implicit_dependencies(ids, implicit_deps, d));
+                  }
                }
             }
 
