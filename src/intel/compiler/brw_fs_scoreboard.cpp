@@ -869,41 +869,43 @@ namespace {
       dependency_list *deps = new dependency_list[num_instructions(shader)];
       unsigned ip = 0;
 
-      foreach_block_and_inst(block, fs_inst, inst, shader->cfg) {
+      foreach_block(block, shader->cfg) {
          scoreboard &sb = sbs[block->num];
 
-         for (unsigned i = 0; i < inst->sources; i++) {
-            for (unsigned j = 0; j < regs_read(inst, i); j++)
-               add_dependency(ids, deps[ip], dependency_for_read(
-                  sb.get(byte_offset(inst->src[i], REG_SIZE * j))));
-         }
-
-         if (is_send(inst) && inst->base_mrf != -1) {
-            for (unsigned j = 0; j < inst->mlen; j++)
-               add_dependency(ids, deps[ip], dependency_for_read(
-                  sb.get(brw_uvec_mrf(8, inst->base_mrf + j, 0))));
-         }
-
-         if (is_unordered(inst))
-            add_dependency(ids, deps[ip], dependency(TGL_SBID_SET, ip));
-
-         if (!inst->no_dd_check) {
-            if (inst->dst.file != BAD_FILE && !inst->dst.is_null()) {
-               for (unsigned j = 0; j < regs_written(inst); j++) {
-                  add_dependency(ids, deps[ip], dependency_for_write(inst,
-                     sb.get(byte_offset(inst->dst, REG_SIZE * j))));
-               }
+         foreach_inst_in_block(fs_inst, inst, block) {
+            for (unsigned i = 0; i < inst->sources; i++) {
+               for (unsigned j = 0; j < regs_read(inst, i); j++)
+                  add_dependency(ids, deps[ip], dependency_for_read(
+                     sb.get(byte_offset(inst->src[i], REG_SIZE * j))));
             }
 
             if (is_send(inst) && inst->base_mrf != -1) {
-               for (unsigned j = 0; j < inst->implied_mrf_writes(); j++)
-                  add_dependency(ids, deps[ip], dependency_for_write(inst,
+               for (unsigned j = 0; j < inst->mlen; j++)
+                  add_dependency(ids, deps[ip], dependency_for_read(
                      sb.get(brw_uvec_mrf(8, inst->base_mrf + j, 0))));
             }
-         }
 
-         update_inst_scoreboard(shader, jps, inst, ip, sb);
-         ip++;
+            if (is_unordered(inst))
+               add_dependency(ids, deps[ip], dependency(TGL_SBID_SET, ip));
+
+            if (!inst->no_dd_check) {
+               if (inst->dst.file != BAD_FILE && !inst->dst.is_null()) {
+                  for (unsigned j = 0; j < regs_written(inst); j++) {
+                     add_dependency(ids, deps[ip], dependency_for_write(inst,
+                        sb.get(byte_offset(inst->dst, REG_SIZE * j))));
+                  }
+               }
+
+               if (is_send(inst) && inst->base_mrf != -1) {
+                  for (unsigned j = 0; j < inst->implied_mrf_writes(); j++)
+                     add_dependency(ids, deps[ip], dependency_for_write(inst,
+                        sb.get(brw_uvec_mrf(8, inst->base_mrf + j, 0))));
+               }
+            }
+
+            update_inst_scoreboard(shader, jps, inst, ip, sb);
+            ip++;
+         }
       }
 
       delete[] sbs;
