@@ -92,6 +92,16 @@ template = """\
    (EXTRACT_SIGN(lhs) ^                                 \
     ((EXTRACT_SIGN(lhs) ^ ((uint64_t)lhs)) >> (rhs)))
 
+/*
+ * Perform a logical left shift
+ * The MSB will be overwritten.
+ * Left shift on a negative value is UB, according to the C99 standard.
+ * Casting an integer to unsigned before performing a shift lets us
+ * simulate the logical left shift.
+ */
+#define LOGICAL_LSHIFT(lhs, rhs)                    \
+   (int64_t)((uint64_t)(lhs) << (rhs))
+
 /**
  * \brief Checks if the provided value is a denorm and flushes it to zero.
  */

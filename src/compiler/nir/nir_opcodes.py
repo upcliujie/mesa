@@ -867,8 +867,10 @@ binop("sne", tfloat, _2src_commutative, "(src0 != src1) ? 1.0f : 0.0f") # Set on
 # SPIRV shifts are undefined for shift-operands >= bitsize,
 # but SM5 shifts are defined to use only the least significant bits.
 # The NIR definition is according to the SM5 specification.
-opcode("ishl", 0, tint, [0, 0], [tint, tuint32], False, "",
-       "(uint64_t)src0 << (src1 & (sizeof(src0) * 8 - 1))")
+opcode("ishl", 0, tint, [0, 0], [tint, tuint32], False, "", """
+   LOGICAL_LSHIFT(src0,
+                  (src1 & (sizeof(src0) * 8 - 1)));
+""")
 opcode("ishr", 0, tint, [0, 0], [tint, tuint32], False, "", """
    ARITHM_RSHIFT(src0, (src1 & (sizeof(src0) * 8 - 1)));
 """)
@@ -1076,7 +1078,8 @@ unsigned bits = src2 & 0x1F;
 if (bits == 0) {
    dst = 0;
 } else if (offset + bits < 32) {
-   dst = ARITHM_RSHIFT((base << (32 - bits - offset)),
+   dst = ARITHM_RSHIFT(LOGICAL_LSHIFT(base,
+                                      (32 - bits - offset)),
                        (32 - bits));
 } else {
    dst = base >> offset;
@@ -1105,7 +1108,8 @@ if (bits == 0) {
 } else if (offset < 0 || bits < 0 || offset + bits > 32) {
    dst = 0;
 } else {
-   dst = ARITHM_RSHIFT((base << (32 - offset - bits)),
+   dst = ARITHM_RSHIFT(LOGICAL_LSHIFT(base,
+                                      (32 - offset - bits)),
                        (32 - bits));
 }
 """)
@@ -1231,15 +1235,18 @@ binop("amul", tint, _2src_commutative + associative, "src0 * src1")
 opcode("imadsh_mix16", 0, tint32,
        [0, 0, 0], [tint32, tint32, tint32], False, "", """
        int64_t src0_shifted = ARITHM_RSHIFT((src0 & 0xffff0000), 16);
-       dst = (src0_shifted * (src1 & 0x0000ffff)) << 16 + src2;
+       dst = LOGICAL_LSHIFT((src0_shifted * (src1 & 0x0000ffff)), 16) +
+             src2;
 """)
 
 # ir3-specific instruction that maps directly to ir3 mad.s24.
 #
 # 24b multiply into 32b result (with sign extension) plus 32b int
 triop("imad24_ir3", tint32, _2src_commutative, """
-       dst = ARITHM_RSHIFT(((int32_t)src0 << 8), 8) *
-             ARITHM_RSHIFT(((int32_t)src1 << 8), 8) +
+       int64_t src0_shifted = LOGICAL_LSHIFT(((int32_t)src0), 8);
+       int64_t src1_shifted = LOGICAL_LSHIFT(((int32_t)src1), 8);
+       dst = ARITHM_RSHIFT(src0_shifted, 8) *
+             ARITHM_RSHIFT(src1_shifted, 8) +
              src2;
 """)
 
@@ -1292,8 +1299,10 @@ unop("fsin_agx", tfloat, "sinf(src0 * (6.2831853/4.0))")
 
 # 24b multiply into 32b result (with sign extension)
 binop("imul24", tint32, _2src_commutative + associative, """
-       dst = ARITHM_RSHIFT(((int32_t)src0 << 8), 8) *
-             ARITHM_RSHIFT(((int32_t)src1 << 8), 8);
+       int64_t src0_shifted = LOGICAL_LSHIFT(((int32_t)src0), 8);
+       int64_t src1_shifted = LOGICAL_LSHIFT(((int32_t)src1), 8);
+       dst = ARITHM_RSHIFT(src0_shifted, 8) *
+             ARITHM_RSHIFT(src1_shifted, 8);
 """)
 
 # unsigned 24b multiply into 32b result plus 32b int
