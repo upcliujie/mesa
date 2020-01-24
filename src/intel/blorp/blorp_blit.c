@@ -879,42 +879,51 @@ bit_cast_color(struct nir_builder *b, nir_ssa_def *color,
    assert(src_fmtl->bpb == dst_fmtl->bpb);
 
    if (src_fmtl->bpb <= 32) {
-      assert(src_fmtl->channels.r.type == ISL_UINT ||
-             src_fmtl->channels.r.type == ISL_UNORM);
-      assert(dst_fmtl->channels.r.type == ISL_UINT ||
-             dst_fmtl->channels.r.type == ISL_UNORM);
+      nir_ssa_def *packed;
+      if (key->src_format == ISL_FORMAT_R11G11B10_FLOAT) {
+         packed = nir_format_pack_11f11f10f(b, color);
+      } else {
+         assert(src_fmtl->channels.r.type == ISL_UINT ||
+                src_fmtl->channels.r.type == ISL_UNORM);
+         assert(dst_fmtl->channels.r.type == ISL_UINT ||
+                dst_fmtl->channels.r.type == ISL_UNORM);
 
-      nir_ssa_def *packed = nir_imm_int(b, 0);
-      for (unsigned c = 0; c < 4; c++) {
-         if (src_fmtl->channels_array[c].bits == 0)
-            continue;
+         nir_ssa_def *packed = nir_imm_int(b, 0);
+         for (unsigned c = 0; c < 4; c++) {
+            if (src_fmtl->channels_array[c].bits == 0)
+               continue;
 
-         const unsigned chan_start_bit = src_fmtl->channels_array[c].start_bit;
-         const unsigned chan_bits = src_fmtl->channels_array[c].bits;
+            const unsigned chan_start_bit = src_fmtl->channels_array[c].start_bit;
+            const unsigned chan_bits = src_fmtl->channels_array[c].bits;
 
-         nir_ssa_def *chan =  nir_channel(b, color, c);
-         if (src_fmtl->channels_array[c].type == ISL_UNORM)
-            chan = nir_format_float_to_unorm(b, chan, &chan_bits);
+            nir_ssa_def *chan =  nir_channel(b, color, c);
+            if (src_fmtl->channels_array[c].type == ISL_UNORM)
+               chan = nir_format_float_to_unorm(b, chan, &chan_bits);
 
-         packed = nir_ior(b, packed, nir_shift(b, chan, chan_start_bit));
-      }
-
-      nir_ssa_def *chans[4] = { };
-      for (unsigned c = 0; c < 4; c++) {
-         if (dst_fmtl->channels_array[c].bits == 0) {
-            chans[c] = nir_imm_int(b, 0);
-            continue;
+            packed = nir_ior(b, packed, nir_shift(b, chan, chan_start_bit));
          }
-
-         const unsigned chan_start_bit = dst_fmtl->channels_array[c].start_bit;
-         const unsigned chan_bits = dst_fmtl->channels_array[c].bits;
-         chans[c] = nir_iand(b, nir_shift(b, packed, -(int)chan_start_bit),
-                                nir_imm_int(b, BITFIELD_MASK(chan_bits)));
-
-         if (dst_fmtl->channels_array[c].type == ISL_UNORM)
-            chans[c] = nir_format_unorm_to_float(b, chans[c], &chan_bits);
       }
-      color = nir_vec(b, chans, 4);
+
+      if (key->dst_format == ISL_FORMAT_R11G11B10_FLOAT) {
+         color = nir_format_unpack_11f11f10f(b, packed);
+      } else {
+         nir_ssa_def *chans[4] = { };
+         for (unsigned c = 0; c < 4; c++) {
+            if (dst_fmtl->channels_array[c].bits == 0) {
+               chans[c] = nir_imm_int(b, 0);
+               continue;
+            }
+
+            const unsigned chan_start_bit = dst_fmtl->channels_array[c].start_bit;
+            const unsigned chan_bits = dst_fmtl->channels_array[c].bits;
+            chans[c] = nir_iand(b, nir_shift(b, packed, -(int)chan_start_bit),
+                                   nir_imm_int(b, BITFIELD_MASK(chan_bits)));
+
+            if (dst_fmtl->channels_array[c].type == ISL_UNORM)
+               chans[c] = nir_format_unorm_to_float(b, chans[c], &chan_bits);
+         }
+         color = nir_vec(b, chans, 4);
+      }
    } else {
       /* This path only supports UINT formats */
       assert(src_fmtl->channels.r.type == ISL_UINT);
@@ -2530,6 +2539,9 @@ get_ccs_compatible_copy_format(const struct isl_format_layout *fmtl)
    case ISL_FORMAT_R10G10B10_FLOAT_A2_UNORM:
    case ISL_FORMAT_R10G10B10A2_UINT:
       return ISL_FORMAT_R10G10B10A2_UINT;
+
+   case ISL_FORMAT_R11G11B10_FLOAT:
+      return ISL_FORMAT_R11G11B10_FLOAT;
 
    case ISL_FORMAT_R16_UNORM:
    case ISL_FORMAT_R16_SNORM:
