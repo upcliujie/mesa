@@ -66,6 +66,36 @@ template = """\
 #include "util/bigmath.h"
 #include "nir_constant_expressions.h"
 
+#define MAX_UINT_FOR_SIZE(bits) (UINT64_MAX >> (64 - (bits)))
+
+/*
+ * EXTRACT_SIGN(x, size)
+ *   =  0 if x >= 0,
+ *   = -1 if x <  0.
+ */
+#define EXTRACT_SIGN(x, size)                        \
+   -((uint64_t)((x) & (MAX_UINT_FOR_SIZE(size))) >>  \
+               ((size) - 1))                         \
+
+/*
+ * Perform an arithmetic right shift.
+ * The MSB is filled with a copy of original MSB.
+ * The preserving of a MSB is done as such:
+ *
+ * ((s ^ lhs) >> rhs) ^ s
+ *    where s is
+ *       0 if lhs >= 0 (all bits of s are 0)
+ *      -1 if lhs <  0 (all bits of s are 1)
+ *
+ * s and lhs have the same MSB, so s ^ lhs is guranteed to have a 0 in
+ * the MSB. Hence, implementation-defined behavior shall be avoided.
+ * The second XOR comparation then restores the original MSB.
+ */
+#define ARITHM_RSHIFT(lhs, rhs, size)                \
+   ((EXTRACT_SIGN(lhs, size)) ^                      \
+    (((EXTRACT_SIGN(lhs, size) ^ (lhs)) &            \
+      (MAX_UINT_FOR_SIZE(size))) >> (rhs)))          \
+
 /**
  * \brief Checks if the provided value is a denorm and flushes it to zero.
  */
