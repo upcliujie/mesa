@@ -65,8 +65,9 @@ struct sched_ctx
    Block *block;
    std::vector<aco_ptr<Instruction>> new_instructions;
    std::vector<Node> nodes;
+
    std::set<Node *> candidates;
-   std::unordered_map<unsigned, Node *> writes;
+   Node *writes[max_reg_cnt] = {0};
    std::unordered_set<Node *> writeless_reads[max_reg_cnt];
 
    /* here we can maintain information about the functional units */
@@ -191,14 +192,13 @@ bool handle_read(sched_ctx &ctx, Node *node, unsigned reg)
 {
    assert(reg < max_reg_cnt);
    bool is_candidate = true;
-   std::unordered_map<unsigned, Node *>::iterator it = ctx.writes.find(reg);
+   Node *write = ctx.writes[reg];
 
-   if (it != ctx.writes.end() && !it->second->scheduled) {
-      Node *predecessor = it->second;
+   if (write && !write->scheduled) {
       is_candidate = false;
-      predecessor->successors.insert(node);
-      node->predecessors.insert(predecessor);
-   } else if (it == ctx.writes.end()) {
+      if (write->successors.insert(node).second)
+         node->predecessors.insert(write);
+   } else if (!write) {
       /* This register isn't written by any instruction, but the current one reads it. */
       ctx.writeless_reads[reg].insert(node);
    }
@@ -210,24 +210,24 @@ bool handle_write(sched_ctx &ctx, Node *node, unsigned reg)
 {
    assert(reg < max_reg_cnt);
    bool is_candidate = true;
-   std::unordered_map<unsigned, Node*>::iterator it = ctx.writes.find(reg);
+   Node *write = ctx.writes[reg];
 
-   if (it != ctx.writes.end() && !it->second->scheduled) {
+   if (write && !write->scheduled) {
       is_candidate = false;
 
       /* add all uses of previous write to predecessors */
-      for (Node* use : it->second->successors) {
+      for (Node* use : write->successors) {
          if (use == node)
             continue;
 
-         use->successors.insert(node);
-         node->predecessors.insert(use);
+         if (use->successors.insert(node).second)
+            node->predecessors.insert(use);
       }
 
       /* add previous write as predecessor */
-      it->second->successors.insert(node);
-      node->predecessors.insert(it->second);
-   } else if (ctx.writeless_reads[reg].size()) {
+      if (write->successors.insert(node).second)
+         node->predecessors.insert(write);
+   } else if (!write && ctx.writeless_reads[reg].size()) {
       /* Add writeless reads as predecessors */
       for (Node *read : ctx.writeless_reads[reg]) {
          if (read == node || read->scheduled)
