@@ -258,6 +258,12 @@ void add_to_dag(sched_ctx &ctx, const Instruction *instr, unsigned index)
          continue;
 
       unsigned reg = instr->operands[i].physReg().reg();
+      if (instr->operands[i].regClass().type() == RegType::vgpr && reg < 256)
+         reg += 256;
+
+      assert(instr->operands[i].regClass().type() != RegType::sgpr || reg <= 255);
+      assert(instr->operands[i].regClass().type() != RegType::vgpr || reg >= 256);
+
       for (unsigned k = 0; k < instr->operands[i].size() && (reg + k) < max_reg_cnt; k++) {
          if (!handle_read(ctx, node, reg + k))
             is_candidate = false;
@@ -274,6 +280,12 @@ void add_to_dag(sched_ctx &ctx, const Instruction *instr, unsigned index)
    /* Write after Write/Read */
    for (unsigned i = 0; i < instr->definitions.size(); i++) {
       unsigned reg = instr->definitions[i].physReg().reg();
+      if (instr->definitions[i].regClass().type() == RegType::vgpr && reg < 256)
+         reg += 256;
+
+      assert(instr->definitions[i].regClass().type() != RegType::sgpr || reg <= 255);
+      assert(instr->definitions[i].regClass().type() != RegType::vgpr || reg >= 256);
+
       for (unsigned k = 0; k < instr->definitions[i].size() && (reg + k) < max_reg_cnt; k++) {
          if (!handle_write(ctx, node, reg + k))
             is_candidate = false;
