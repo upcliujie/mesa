@@ -188,6 +188,19 @@ Node* select_candidate(sched_ctx &ctx)
    return next;
 }
 
+bool add_predecessor(sched_ctx &ctx, Node *node, Node *predecessor)
+{
+   assert(predecessor != node);
+
+   if (predecessor->scheduled)
+      return false;
+
+   if (predecessor->successors.insert(node).second)
+      node->predecessors.insert(predecessor);
+
+   return true;
+}
+
 bool handle_read(sched_ctx &ctx, Node *node, unsigned reg)
 {
    assert(reg < max_reg_cnt);
@@ -196,8 +209,7 @@ bool handle_read(sched_ctx &ctx, Node *node, unsigned reg)
 
    if (write && !write->scheduled) {
       is_candidate = false;
-      if (write->successors.insert(node).second)
-         node->predecessors.insert(write);
+      add_predecessor(ctx, node, write);
    } else if (!write) {
       /* This register isn't written by any instruction, but the current one reads it. */
       ctx.writeless_reads[reg].insert(node);
@@ -220,21 +232,18 @@ bool handle_write(sched_ctx &ctx, Node *node, unsigned reg)
          if (use == node)
             continue;
 
-         if (use->successors.insert(node).second)
-            node->predecessors.insert(use);
+         add_predecessor(ctx, node, use);
       }
 
       /* add previous write as predecessor */
-      if (write->successors.insert(node).second)
-         node->predecessors.insert(write);
+      add_predecessor(ctx, node, write);
    } else if (!write && ctx.writeless_reads[reg].size()) {
       /* Add writeless reads as predecessors */
       for (Node *read : ctx.writeless_reads[reg]) {
          if (read == node || read->scheduled)
             continue;
 
-         read->successors.insert(node);
-         node->predecessors.insert(read);
+         add_predecessor(ctx, node, read);
 
          is_candidate = false;
       }
