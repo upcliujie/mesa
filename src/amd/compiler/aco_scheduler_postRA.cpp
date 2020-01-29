@@ -45,6 +45,7 @@ struct Node
    int index;
    int priority;
    int latency;
+   int start_cycle = -1;
    std::unordered_set<Node *> successors;
    std::unordered_set<Node *> predecessors;
    bool scheduled = false;
@@ -93,6 +94,10 @@ struct sched_ctx
    int last_acquirer[storage_count];
    std::vector<Node *> acquired_nodes[storage_count];
 
+   int total_cycles = 0;
+   int reg_rd_dn_cycle[max_reg_cnt] = {0};
+   int reg_wr_dn_cycle[max_reg_cnt] = {0};
+
    /* here we can maintain information about the functional units */
    sched_ctx(Program *p) : program(p), block(nullptr)
    {
@@ -131,6 +136,11 @@ struct sched_ctx
       nodes.reserve(block->instructions.size());
    }
 };
+
+Instruction *get_node_instr(sched_ctx &ctx, const Node *node)
+{
+   return ctx.block->instructions[node->index].get();
+}
 
 bool is_unschedulable(const Instruction *instr)
 {
@@ -296,16 +306,76 @@ bool is_new_candidate(const Node *node)
    return true;
 }
 
+void save_candidate_cycles(sched_ctx &ctx, Node *node)
+{
+   assert(node);
+   const Instruction *instr = get_node_instr(ctx, node);
+   assert(instr);
+   ctx.total_cycles = node->start_cycle;
+
+   foreach_reg_read(instr, [&ctx, node] (unsigned reg) {
+      ctx.reg_rd_dn_cycle[reg] = node->start_cycle;
+   });
+
+   foreach_reg_write(instr, [&ctx, node] (unsigned reg) {
+      ctx.reg_wr_dn_cycle[reg] = node->start_cycle + node->latency;
+   });
+}
+
+int calculate_candidate_start_cycle(sched_ctx &ctx, Node *node)
+{
+   assert(node);
+   const Instruction *instr = get_node_instr(ctx, node);
+   assert(instr);
+   int min_start = 0;
+
+   /* For each register read, we have to wait for the previous write to finish */
+   foreach_reg_read(instr, [&ctx, &min_start] (unsigned reg) {
+      min_start = MAX2(min_start, ctx.reg_wr_dn_cycle[reg]);
+   });
+
+   /* For each register write, we have to wait for the previous write and reads to finish */
+   foreach_reg_write(instr, [&ctx, &min_start] (unsigned reg) {
+      min_start = MAX2(min_start, ctx.reg_rd_dn_cycle[reg]);
+      min_start = MAX2(min_start, ctx.reg_wr_dn_cycle[reg]);
+   });
+
+   return MAX2(min_start + 1, ctx.total_cycles + 1);
+}
+
 Node* select_candidate(sched_ctx &ctx)
 {
    /* The first candidate already has the highest priority */
    assert(ctx.candidates.size() > 0);
    std::set<Node *>::iterator selected_it = ctx.candidates.begin();
 
+   /* The cycle when this instruction can start */
+   int selected_start_cycle = calculate_candidate_start_cycle(ctx, *selected_it);
+
+   /* In order to group higher priority instructions together, we are willing to tolerate some extra cycles */
+   int selected_cost = selected_start_cycle - ((*selected_it)->priority <= 0 ? 0 : (*selected_it)->priority);
+
+   /* Find the most suitable candidate. */
+   for (auto it = std::next(selected_it);
+        it != ctx.candidates.end();
+        ++it) {
+
+      int start_cycle = calculate_candidate_start_cycle(ctx, *it);
+      int cost = start_cycle - ((*it)->priority <= 0 ? 0 : (*it)->priority);
+
+      if (cost < selected_cost) {
+         selected_it = it;
+         selected_start_cycle = start_cycle;
+         selected_cost = cost;
+      }
+   }
+
+   assert(selected_it != ctx.candidates.end());
    Node *next = *selected_it;
    ctx.candidates.erase(selected_it);
    assert(!next->scheduled);
    next->scheduled = true;
+   next->start_cycle = selected_start_cycle;
 
    /* add successors to list of potential candidates */
    for (Node *n : next->successors) {
@@ -316,6 +386,7 @@ Node* select_candidate(sched_ctx &ctx)
          ctx.candidates.insert(n);
    }
 
+   save_candidate_cycles(ctx, next);
    return next;
 }
 
@@ -529,6 +600,7 @@ void schedule_postRA(Program *program)
             select_candidates(ctx);
             ctx.nodes.emplace_back(index, get_latency(ctx, instr));
             ctx.nodes.back().scheduled = true;
+            save_candidate_cycles(ctx, &ctx.nodes[ctx.nodes.size() - 1]);
             ctx.new_instructions.emplace_back(std::move(block.instructions[index]));
             ctx.barrier();
          } else {
