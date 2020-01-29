@@ -157,6 +157,55 @@ bool writes_exec_implicitly(const Instruction *instr)
    return false;
 }
 
+template <typename TFunc>
+void foreach_reg_read(const Instruction *instr, const TFunc &func)
+{
+   for (const Operand &op : instr->operands) {
+      if (op.isConstant())
+         continue;
+
+      unsigned reg = op.physReg().reg();
+      if (op.regClass().type() == RegType::vgpr && reg < 256)
+         reg += 256;
+
+      assert(op.regClass().type() != RegType::sgpr || reg <= 255);
+      assert(op.regClass().type() != RegType::vgpr || reg >= 256);
+
+      for (unsigned k = 0; k < op.size() && (reg + k) < max_reg_cnt; k++) {
+         func(reg + k);
+      }
+   }
+
+   if (reads_exec_implicitly(instr)) {
+      for (unsigned reg = exec_lo.reg(); reg <= exec_hi.reg(); reg++) {
+         func(reg);
+      }
+   }
+}
+
+template <typename TFunc>
+void foreach_reg_write(const Instruction *instr, const TFunc &func)
+{
+   for (const Definition &def : instr->definitions) {
+      unsigned reg = def.physReg().reg();
+      if (def.regClass().type() == RegType::vgpr && reg < 256)
+         reg += 256;
+
+      assert(def.regClass().type() != RegType::sgpr || reg <= 255);
+      assert(def.regClass().type() != RegType::vgpr || reg >= 256);
+
+      for (unsigned k = 0; k < def.size() && (reg + k) < max_reg_cnt; k++) {
+         func(reg + k);
+      }
+   }
+
+   if (writes_exec_implicitly(instr)) {
+      for (unsigned reg = exec_lo.reg(); reg <= exec_hi.reg(); reg++) {
+         func(reg);
+      }
+   }
+}
+
 bool is_new_candidate(const Node *node)
 {
    for (Node *pre : node->predecessors) {
@@ -262,51 +311,16 @@ void add_to_dag(sched_ctx &ctx, const Instruction *instr, unsigned index)
    bool is_candidate = true;
 
    /* Read after Write */
-   for (unsigned i = 0; i < instr->operands.size(); i++) {
-      if (instr->operands[i].isConstant())
-         continue;
-
-      unsigned reg = instr->operands[i].physReg().reg();
-      if (instr->operands[i].regClass().type() == RegType::vgpr && reg < 256)
-         reg += 256;
-
-      assert(instr->operands[i].regClass().type() != RegType::sgpr || reg <= 255);
-      assert(instr->operands[i].regClass().type() != RegType::vgpr || reg >= 256);
-
-      for (unsigned k = 0; k < instr->operands[i].size() && (reg + k) < max_reg_cnt; k++) {
-         if (!handle_read(ctx, node, reg + k))
-            is_candidate = false;
-      }
-   }
-
-   if (reads_exec_implicitly(instr)) {
-      for (unsigned reg = exec_lo.reg(); reg <= exec_hi.reg(); reg++) {
-         if (!handle_read(ctx, node, reg))
-            is_candidate = false;
-      }
-   }
+   foreach_reg_read(instr, [&ctx, &is_candidate, node](unsigned reg) {
+      if (!handle_read(ctx, node, reg))
+         is_candidate = false;
+   });
 
    /* Write after Write/Read */
-   for (unsigned i = 0; i < instr->definitions.size(); i++) {
-      unsigned reg = instr->definitions[i].physReg().reg();
-      if (instr->definitions[i].regClass().type() == RegType::vgpr && reg < 256)
-         reg += 256;
-
-      assert(instr->definitions[i].regClass().type() != RegType::sgpr || reg <= 255);
-      assert(instr->definitions[i].regClass().type() != RegType::vgpr || reg >= 256);
-
-      for (unsigned k = 0; k < instr->definitions[i].size() && (reg + k) < max_reg_cnt; k++) {
-         if (!handle_write(ctx, node, reg + k))
-            is_candidate = false;
-      }
-   }
-
-   if (writes_exec_implicitly(instr)) {
-      for (unsigned reg = exec_lo.reg(); reg <= exec_hi.reg(); reg++) {
-         if (!handle_write(ctx, node, reg))
-            is_candidate = false;
-      }
-   }
+   foreach_reg_write(instr, [&ctx, &is_candidate, node](unsigned reg) {
+      if (!handle_write(ctx, node, reg))
+         is_candidate = false;
+   });
 
    if (is_candidate)
       ctx.candidates.insert(node);
