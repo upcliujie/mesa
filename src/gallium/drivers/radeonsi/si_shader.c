@@ -761,7 +761,7 @@ void si_create_function(struct si_shader_context *ctx, bool ngg_cull_shader)
    shader->info.num_input_vgprs -= num_prolog_vgprs;
 
    if (shader->key.as_ls || ctx->stage == MESA_SHADER_TESS_CTRL) {
-      if (USE_LDS_SYMBOLS && LLVM_VERSION_MAJOR >= 9) {
+      if (USE_LDS_SYMBOLS) {
          /* The LSHS size is not known until draw time, so we append it
           * at the end of whatever LDS use there may be in the rest of
           * the shader (currently none, unless LLVM decides to do its
