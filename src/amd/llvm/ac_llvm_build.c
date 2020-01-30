@@ -435,14 +435,11 @@ LLVMValueRef ac_build_ballot(struct ac_llvm_context *ctx, LLVMValueRef value)
 {
    const char *name;
 
-   if (LLVM_VERSION_MAJOR >= 9) {
-      if (ctx->wave_size == 64)
-         name = "llvm.amdgcn.icmp.i64.i32";
-      else
-         name = "llvm.amdgcn.icmp.i32.i32";
-   } else {
-      name = "llvm.amdgcn.icmp.i32";
-   }
+   if (ctx->wave_size == 64)
+      name = "llvm.amdgcn.icmp.i64.i32";
+   else
+      name = "llvm.amdgcn.icmp.i32.i32";
+
    LLVMValueRef args[3] = {value, ctx->i32_0, LLVMConstInt(ctx->i32, LLVMIntNE, 0)};
 
    /* We currently have no other way to prevent LLVM from lifting the icmp
@@ -461,14 +458,11 @@ LLVMValueRef ac_get_i1_sgpr_mask(struct ac_llvm_context *ctx, LLVMValueRef value
 {
    const char *name;
 
-   if (LLVM_VERSION_MAJOR >= 9) {
-      if (ctx->wave_size == 64)
-         name = "llvm.amdgcn.icmp.i64.i1";
-      else
-         name = "llvm.amdgcn.icmp.i32.i1";
-   } else {
-      name = "llvm.amdgcn.icmp.i1";
-   }
+   if (ctx->wave_size == 64)
+      name = "llvm.amdgcn.icmp.i64.i1";
+   else
+      name = "llvm.amdgcn.icmp.i32.i1";
+
    LLVMValueRef args[3] = {
       value,
       ctx->i1false,
@@ -1102,8 +1096,7 @@ void ac_build_buffer_store_dword(struct ac_llvm_context *ctx, LLVMValueRef rsrc,
                                  unsigned num_channels, LLVMValueRef voffset, LLVMValueRef soffset,
                                  unsigned inst_offset, unsigned cache_policy)
 {
-   /* Split 3 channel stores, because only LLVM 9+ support 3-channel
-    * intrinsics. */
+   /* Split 3 channel stores. */
    if (num_channels == 3 && !ac_has_vec3_support(ctx->chip_class, false)) {
       LLVMValueRef v[3], v01;
 
@@ -1273,63 +1266,24 @@ LLVMValueRef ac_build_struct_tbuffer_load(struct ac_llvm_context *ctx, LLVMValue
                                 nfmt, cache_policy, can_speculate, true);
 }
 
-LLVMValueRef ac_build_raw_tbuffer_load(struct ac_llvm_context *ctx, LLVMValueRef rsrc,
-                                       LLVMValueRef voffset, LLVMValueRef soffset,
-                                       LLVMValueRef immoffset, unsigned num_channels, unsigned dfmt,
-                                       unsigned nfmt, unsigned cache_policy, bool can_speculate)
-{
-   return ac_build_tbuffer_load(ctx, rsrc, NULL, voffset, soffset, immoffset, num_channels, dfmt,
-                                nfmt, cache_policy, can_speculate, false);
-}
-
 LLVMValueRef ac_build_tbuffer_load_short(struct ac_llvm_context *ctx, LLVMValueRef rsrc,
                                          LLVMValueRef voffset, LLVMValueRef soffset,
                                          LLVMValueRef immoffset, unsigned cache_policy)
 {
-   LLVMValueRef res;
+   voffset = LLVMBuildAdd(ctx->builder, voffset, immoffset, "");
 
-   if (LLVM_VERSION_MAJOR >= 9) {
-      voffset = LLVMBuildAdd(ctx->builder, voffset, immoffset, "");
-
-      /* LLVM 9+ supports i8/i16 with struct/raw intrinsics. */
-      res = ac_build_buffer_load_common(ctx, rsrc, NULL, voffset, soffset, 1, ctx->i16,
-                                        cache_policy, false, false, false);
-   } else {
-      unsigned dfmt = V_008F0C_BUF_DATA_FORMAT_16;
-      unsigned nfmt = V_008F0C_BUF_NUM_FORMAT_UINT;
-
-      res = ac_build_raw_tbuffer_load(ctx, rsrc, voffset, soffset, immoffset, 1, dfmt, nfmt,
-                                      cache_policy, false);
-
-      res = LLVMBuildTrunc(ctx->builder, res, ctx->i16, "");
-   }
-
-   return res;
+   return ac_build_buffer_load_common(ctx, rsrc, NULL, voffset, soffset, 1, ctx->i16,
+                                      cache_policy, false, false, false);
 }
 
 LLVMValueRef ac_build_tbuffer_load_byte(struct ac_llvm_context *ctx, LLVMValueRef rsrc,
                                         LLVMValueRef voffset, LLVMValueRef soffset,
                                         LLVMValueRef immoffset, unsigned cache_policy)
 {
-   LLVMValueRef res;
+   voffset = LLVMBuildAdd(ctx->builder, voffset, immoffset, "");
 
-   if (LLVM_VERSION_MAJOR >= 9) {
-      voffset = LLVMBuildAdd(ctx->builder, voffset, immoffset, "");
-
-      /* LLVM 9+ supports i8/i16 with struct/raw intrinsics. */
-      res = ac_build_buffer_load_common(ctx, rsrc, NULL, voffset, soffset, 1, ctx->i8, cache_policy,
-                                        false, false, false);
-   } else {
-      unsigned dfmt = V_008F0C_BUF_DATA_FORMAT_8;
-      unsigned nfmt = V_008F0C_BUF_NUM_FORMAT_UINT;
-
-      res = ac_build_raw_tbuffer_load(ctx, rsrc, voffset, soffset, immoffset, 1, dfmt, nfmt,
-                                      cache_policy, false);
-
-      res = LLVMBuildTrunc(ctx->builder, res, ctx->i8, "");
-   }
-
-   return res;
+   return ac_build_buffer_load_common(ctx, rsrc, NULL, voffset, soffset, 1, ctx->i8, cache_policy,
+                                      false, false, false);
 }
 
 /**
@@ -1445,8 +1399,6 @@ LLVMValueRef ac_build_opencoded_load_format(struct ac_llvm_context *ctx, unsigne
       load_num_channels = 1;
       load_log_size += -log_recombine;
    }
-
-   assert(load_log_size >= 2 || LLVM_VERSION_MAJOR >= 9);
 
    LLVMValueRef loads[32]; /* up to 32 bytes */
    for (unsigned i = 0; i < load_num_channels; ++i) {
@@ -1681,19 +1633,8 @@ void ac_build_tbuffer_store_short(struct ac_llvm_context *ctx, LLVMValueRef rsrc
 {
    vdata = LLVMBuildBitCast(ctx->builder, vdata, ctx->i16, "");
 
-   if (LLVM_VERSION_MAJOR >= 9) {
-      /* LLVM 9+ supports i8/i16 with struct/raw intrinsics. */
-      ac_build_buffer_store_common(ctx, rsrc, vdata, NULL, voffset, soffset, cache_policy, false,
-                                   false);
-   } else {
-      unsigned dfmt = V_008F0C_BUF_DATA_FORMAT_16;
-      unsigned nfmt = V_008F0C_BUF_NUM_FORMAT_UINT;
-
-      vdata = LLVMBuildZExt(ctx->builder, vdata, ctx->i32, "");
-
-      ac_build_raw_tbuffer_store(ctx, rsrc, vdata, voffset, soffset, ctx->i32_0, 1, dfmt, nfmt,
-                                 cache_policy);
-   }
+   ac_build_buffer_store_common(ctx, rsrc, vdata, NULL, voffset, soffset, cache_policy, false,
+                                false);
 }
 
 void ac_build_tbuffer_store_byte(struct ac_llvm_context *ctx, LLVMValueRef rsrc, LLVMValueRef vdata,
@@ -1701,20 +1642,10 @@ void ac_build_tbuffer_store_byte(struct ac_llvm_context *ctx, LLVMValueRef rsrc,
 {
    vdata = LLVMBuildBitCast(ctx->builder, vdata, ctx->i8, "");
 
-   if (LLVM_VERSION_MAJOR >= 9) {
-      /* LLVM 9+ supports i8/i16 with struct/raw intrinsics. */
-      ac_build_buffer_store_common(ctx, rsrc, vdata, NULL, voffset, soffset, cache_policy, false,
-                                   false);
-   } else {
-      unsigned dfmt = V_008F0C_BUF_DATA_FORMAT_8;
-      unsigned nfmt = V_008F0C_BUF_NUM_FORMAT_UINT;
-
-      vdata = LLVMBuildZExt(ctx->builder, vdata, ctx->i32, "");
-
-      ac_build_raw_tbuffer_store(ctx, rsrc, vdata, voffset, soffset, ctx->i32_0, 1, dfmt, nfmt,
-                                 cache_policy);
-   }
+   ac_build_buffer_store_common(ctx, rsrc, vdata, NULL, voffset, soffset, cache_policy, false,
+                                false);
 }
+
 /**
  * Set range metadata on an instruction.  This can only be used on load and
  * call instructions.  If you know an instruction can only produce the values

@@ -1442,7 +1442,9 @@ if with_gallium_opencl
 endif
 
 with_opencl_spirv = _opencl != 'disabled' and get_option('opencl-spirv')
-if with_amd_vk or with_gallium_radeonsi or with_opencl_spirv
+if with_amd_vk or with_gallium_radeonsi
+  _llvm_version = '>= 9.0.0'
+elif with_opencl_spirv
   _llvm_version = '>= 8.0.0'
 elif with_gallium_swr
   _llvm_version = '>= 6.0.0'

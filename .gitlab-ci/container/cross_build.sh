@@ -26,7 +26,7 @@ apt-get install -y --no-remove \
 if [[ $arch == "armhf" ]]; then
         LLVM=llvm-7-dev
 else
-        LLVM=llvm-8-dev
+        LLVM=llvm-9-dev
 fi
 
 apt-get install -y --no-remove -t buster-backports \
