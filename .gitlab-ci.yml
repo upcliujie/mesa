@@ -744,7 +744,7 @@ meson-android:
       -D gallium-va=disabled
       -D gallium-xa=disabled
       -D gallium-nine=false
-    LLVM_VERSION: "8"
+    LLVM_VERSION: "9"
 
 .meson-arm:
   extends:
@@ -875,7 +875,6 @@ meson-clover:
     EXTRA_OPTION: >
       -D werror=true
   script:
-    - LLVM_VERSION=8 .gitlab-ci/meson-build.sh
     - LLVM_VERSION=9 .gitlab-ci/meson-build.sh
     - .gitlab-ci/meson-build.sh
 

@@ -36,7 +36,7 @@ apt-get install -y --no-remove \
       wine32-development
 
 apt-get install -y --no-remove -t buster-backports \
-      llvm-8-dev
+      llvm-9-dev
 
 
 . .gitlab-ci/container/container_pre_build.sh

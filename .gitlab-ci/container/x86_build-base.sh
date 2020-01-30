@@ -81,8 +81,8 @@ apt-get install -y --no-remove \
         zlib1g-dev
 
 apt-get install -y --no-remove -t buster-backports \
-        libclang-8-dev \
-        libllvm8 \
+        libclang-9-dev \
+        libllvm9 \
         meson
 
 # Needed for ci-fairy, this revision is able to upload files to MinIO

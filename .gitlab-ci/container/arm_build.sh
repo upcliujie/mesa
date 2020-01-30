@@ -40,7 +40,7 @@ apt-get -y install \
 	libxrandr-dev \
 	libxshmfence-dev \
 	libxxf86vm-dev \
-	llvm-8-dev \
+	llvm-9-dev \
 	pkg-config \
 	python \
 	python3-mako \

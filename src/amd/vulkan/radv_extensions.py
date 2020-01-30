@@ -96,7 +96,7 @@ EXTENSIONS = [
     Extension('VK_KHR_sampler_mirror_clamp_to_edge',      3, True),
     Extension('VK_KHR_sampler_ycbcr_conversion',         14, True),
     Extension('VK_KHR_separate_depth_stencil_layouts',    1, True),
-    Extension('VK_KHR_shader_atomic_int64',               1, 'LLVM_VERSION_MAJOR >= 9 || !device->use_llvm'),
+    Extension('VK_KHR_shader_atomic_int64',               1, True),
     Extension('VK_KHR_shader_clock',                      1, True),
     Extension('VK_KHR_shader_draw_parameters',            1, True),
     Extension('VK_KHR_shader_float16_int8',               1, True),
@@ -154,7 +154,7 @@ EXTENSIONS = [
     Extension('VK_EXT_sampler_filter_minmax',             2, True),
     Extension('VK_EXT_scalar_block_layout',               1, 'device->rad_info.chip_class >= GFX7'),
     Extension('VK_EXT_shader_atomic_float',               1, True),
-    Extension('VK_EXT_shader_demote_to_helper_invocation',1, 'LLVM_VERSION_MAJOR >= 9 || !device->use_llvm'),
+    Extension('VK_EXT_shader_demote_to_helper_invocation',1, True),
     # LLVM versions before 11 have a bug where compilation fails when the result of an atomic is used
     Extension('VK_EXT_shader_image_atomic_int64',         1, 'LLVM_VERSION_MAJOR >= 11 || !device->use_llvm'),
     Extension('VK_EXT_shader_stencil_export',             1, True),

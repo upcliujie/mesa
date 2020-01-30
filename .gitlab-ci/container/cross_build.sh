@@ -37,11 +37,7 @@ apt-get install -y --no-remove \
         libxxf86vm-dev:$arch \
         wget
 
-if [[ $arch == "armhf" ]]; then
-        LLVM=llvm-7-dev
-else
-        LLVM=llvm-8-dev
-fi
+LLVM=llvm-9-dev
 
 apt-get install -y --no-remove -t buster-backports \
         $LLVM:$arch
