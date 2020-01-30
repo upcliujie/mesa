@@ -276,11 +276,6 @@ LLVMValueRef ac_build_struct_tbuffer_load(struct ac_llvm_context *ctx, LLVMValue
                                           unsigned num_channels, unsigned dfmt, unsigned nfmt,
                                           unsigned cache_policy, bool can_speculate);
 
-LLVMValueRef ac_build_raw_tbuffer_load(struct ac_llvm_context *ctx, LLVMValueRef rsrc,
-                                       LLVMValueRef voffset, LLVMValueRef soffset,
-                                       LLVMValueRef immoffset, unsigned num_channels, unsigned dfmt,
-                                       unsigned nfmt, unsigned cache_policy, bool can_speculate);
-
 /* For ac_build_fetch_format.
  *
  * Note: FLOAT must be 0 (used for convenience of encoding in radeonsi).

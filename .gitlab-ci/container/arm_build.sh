@@ -25,7 +25,7 @@ apt-get -y install \
 	libdrm-dev \
 	libelf-dev \
 	libexpat1-dev \
-	llvm-8-dev \
+	llvm-9-dev \
 	pkg-config \
 	python \
 	python3-mako \
