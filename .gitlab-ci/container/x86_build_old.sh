@@ -36,6 +36,7 @@ apt-get install -y --no-remove \
       libclang-5.0-dev \
       libclang-6.0-dev \
       libclang-7-dev \
+      libclang-8-dev \
       libclc-dev \
       libdrm-dev \
       libelf-dev \
@@ -48,6 +49,7 @@ apt-get install -y --no-remove \
       llvm-5.0-dev \
       llvm-6.0-dev \
       llvm-7-dev \
+      llvm-8-dev \
       ninja-build \
       pkg-config \
       python-mako \

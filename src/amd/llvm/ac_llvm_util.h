@@ -149,7 +149,7 @@ static inline bool ac_has_vec3_support(enum chip_class chip, bool use_format)
       return false;
    }
 
-   return LLVM_VERSION_MAJOR >= 9;
+   return true;
 }
 
 #ifdef __cplusplus
