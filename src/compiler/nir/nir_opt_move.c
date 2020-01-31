@@ -52,92 +52,122 @@
  */
 
 static bool
-move_source(nir_src *src, nir_block *block, nir_instr *before, nir_move_options options)
-{
-   if (!src->is_ssa)
-      return false;
-
-   nir_instr *src_instr = src->ssa->parent_instr;
-
-   if (src_instr->block == block && nir_can_move_instr(src_instr, options)) {
-      exec_node_remove(&src_instr->node);
-
-      if (before)
-         exec_node_insert_node_before(&before->node, &src_instr->node);
-      else
-         exec_list_push_tail(&block->instr_list, &src_instr->node);
-
-      return true;
-   }
-   return false;
-}
-
-struct source_cb_data {
-   bool *progress;
-   nir_move_options options;
-};
-
-static bool
-move_source_cb(nir_src *src, void *data_ptr)
-{
-   struct source_cb_data data = *(struct source_cb_data*)data_ptr;
-
-   nir_instr *instr = src->parent_instr;
-   if (move_source(src, instr->block, instr, data.options))
-      *data.progress = true;
-
-   return true; /* nir_foreach_src should keep going */
-}
-
-static bool
-move(nir_block *block, nir_move_options options)
+nir_opt_move_block(nir_block *block, nir_move_options options)
 {
    bool progress = false;
-
-   /* We use a simple approach: walk instructions backwards.
-    *
-    * If the instruction's source is a comparison from the same block,
-    * simply move it here.  This may break SSA if it's used earlier in
-    * the block as well.  However, as we walk backwards, we'll find the
-    * earlier use and move it again, further up.  It eventually ends up
-    * dominating all uses again, restoring SSA form.
-    *
-    * Before walking instructions, we consider the if-condition at the
-    * end of the block, if one exists.  It's effectively a use at the
-    * bottom of the block.
-    */
+   unsigned index = 1;
    nir_if *iff = nir_block_get_following_if(block);
-   if (iff) {
-      progress |= move_source(&iff->condition, block, NULL, options);
-   }
+   nir_instr *if_cond_instr = iff ? iff->condition.parent_instr : NULL;
 
-   nir_foreach_instr_reverse(instr, block) {
-      /* The sources of phi instructions happen after the predecessor block
-       * but before this block.  (Yes, that's between blocks).  This means
-       * that we don't need to move them in order for them to be correct.
-       * We could move them to encourage comparisons that are used in a phi to
-       * the end of the block, doing so correctly would make the pass
-       * substantially more complicated and wouldn't gain us anything since
-       * the phi can't use a flag value anyway.
-       */
+   /* Walk the instructions backwards.
+    * The instructions get indexed while iterating.
+    * For each instruction which can be moved, find the earliest user and
+    * insert the instruction before it.
+    * If multiple instructions have the same user, the original order is kept.
+    */
+   nir_foreach_instr_reverse_safe(instr, block) {
+      nir_ssa_def *def = NULL;
+      instr->index = index++;
 
-      if (instr->type == nir_instr_type_phi) {
-         /* We're going backwards so everything else is a phi too */
+      /* Check if this instruction can be moved downwards */
+      switch (instr->type) {
+      /* We're going backwards so everything else is a phi too */
+      case nir_instr_type_phi:
+         return progress;
+      case nir_instr_type_load_const:
+         if (options & nir_move_const_undef)
+            def = &nir_instr_as_load_const(instr)->def;
          break;
-      } else if (instr->type == nir_instr_type_alu) {
-         /* Walk ALU instruction sources backwards so that bcsel's boolean
-          * condition is processed last for when comparisons are being moved.
-          */
-         nir_alu_instr *alu = nir_instr_as_alu(instr);
-         for (int i = nir_op_infos[alu->op].num_inputs - 1; i >= 0; i--) {
-            progress |= move_source(&alu->src[i].src, block, instr, options);
-         }
-      } else {
-         struct source_cb_data data;
-         data.progress = &progress;
-         data.options = options;
-         nir_foreach_src(instr, move_source_cb, &data);
+      case nir_instr_type_ssa_undef:
+         if (options & nir_move_const_undef)
+            def = &nir_instr_as_ssa_undef(instr)->def;
+         break;
+      case nir_instr_type_alu:
+         if (((options & nir_move_comparisons) &&
+              nir_alu_instr_is_comparison(nir_instr_as_alu(instr))) ||
+             ((options & nir_move_copies) &&
+               (nir_op_is_vec(nir_instr_as_alu(instr)->op) ||
+                nir_instr_as_alu(instr)->op == nir_op_b2i32)))
+            def = &nir_instr_as_alu(instr)->dest.dest.ssa;
+         break;
+      case nir_instr_type_intrinsic: {
+         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+         if ((options & nir_move_load_input) &&
+             (intrin->intrinsic == nir_intrinsic_load_interpolated_input ||
+              intrin->intrinsic == nir_intrinsic_load_input ||
+              intrin->intrinsic == nir_intrinsic_load_per_vertex_input))
+            def = &intrin->dest.ssa;
+         else if ((options & nir_move_load_ubo) &&
+                  intrin->intrinsic == nir_intrinsic_load_ubo)
+            def = &intrin->dest.ssa;
+         else if ((options & nir_move_load_ssbo) &&
+                  intrin->intrinsic == nir_intrinsic_load_ssbo)
+            def = &intrin->dest.ssa;
+         break;
       }
+      /* Care to not move anything beyond a jump instruction */
+      case nir_instr_type_jump:
+         instr->index = 0;
+         break;
+      default:
+         break;
+      }
+
+      /* nothing to do... */
+      if (def == NULL)
+         continue;
+
+      /* Check all users in this block which is the first */
+      nir_instr *first_user = NULL;
+      nir_foreach_use(use, def) {
+         nir_instr *parent = use->parent_instr;
+         if (parent->type == nir_instr_type_phi || parent->block != block)
+            continue;
+         if (!first_user || parent->index > first_user->index)
+            first_user = parent;
+      }
+
+      if (first_user) {
+         /* Check predecessor instructions for the same index to keep the order */
+         while (nir_instr_prev(first_user)->index == first_user->index)
+            first_user = nir_instr_prev(first_user);
+
+         if (nir_instr_prev(first_user) == instr)
+            continue;
+
+         /* Insert the instruction before it's first user */
+         exec_node_remove(&instr->node);
+         instr->index = first_user->index;
+         exec_node_insert_node_before(&first_user->node, &instr->node);
+         progress = true;
+         continue;
+      }
+
+      /* No user was found in this block:
+       * This instruction will be moved to the end of the block.
+       * Check for an if-use: we want this instruction to be the last one,
+       * otherwise move this instruction after the last indexed one */
+      nir_instr *last_instr = nir_block_last_instr(block);
+      if (last_instr->index != 0 || instr == if_cond_instr) {
+         assert(last_instr->type != nir_instr_type_jump);
+         if (instr == last_instr)
+            continue;
+
+         exec_node_remove(&instr->node);
+         instr->index = 0;
+         exec_list_push_tail(&block->instr_list, &instr->node);
+      } else {
+         while (nir_instr_prev(last_instr)->index == 0)
+            last_instr = nir_instr_prev(last_instr);
+
+         if (nir_instr_prev(last_instr) == instr)
+            continue;
+
+         exec_node_remove(&instr->node);
+         instr->index = 0;
+         exec_node_insert_node_before(&last_instr->node, &instr->node);
+      }
+      progress = true;
    }
 
    return progress;
@@ -154,7 +184,7 @@ nir_opt_move(nir_shader *shader, nir_move_options options)
 
       bool impl_progress = false;
       nir_foreach_block(block, func->impl) {
-         if (move(block, options))
+         if (nir_opt_move_block(block, options))
             impl_progress = true;
       }
 
