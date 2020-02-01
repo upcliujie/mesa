@@ -2060,7 +2060,7 @@ iris_get_scratch_space(struct iris_context *ice,
    unsigned subslice_total = screen->subslice_total;
    if (devinfo->gen == 11)
       subslice_total = 8;
-   else if (devinfo->gen < 11)
+   else if (devinfo->gen >= 9 && devinfo->gen < 11)
       subslice_total = 4 * devinfo->num_slices;
    assert(subslice_total >= screen->subslice_total);
 
