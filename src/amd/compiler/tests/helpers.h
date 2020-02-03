@@ -86,6 +86,9 @@ void finish_assembler_test();
 
 void writeout(unsigned i, aco::Temp tmp=aco::Temp(0, aco::s1));
 
+aco::Temp fneg(aco::Temp src);
+aco::Temp fabs(aco::Temp src);
+
 /* vulkan helpers */
 VkDevice get_vk_device(enum chip_class chip_class);
 VkDevice get_vk_device(enum radeon_family family);
