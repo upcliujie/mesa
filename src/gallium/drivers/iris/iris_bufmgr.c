@@ -337,7 +337,7 @@ iris_bo_madvise(struct iris_bo *bo, int state)
    struct drm_i915_gem_madvise madv = {
       .handle = bo->gem_handle,
       .madv = state,
-      .retained = 1,
+      .retained = 0,
    };
 
    gen_ioctl(bo->bufmgr->fd, DRM_IOCTL_I915_GEM_MADVISE, &madv);
