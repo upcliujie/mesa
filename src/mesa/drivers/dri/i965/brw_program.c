@@ -453,30 +453,7 @@ brw_alloc_stage_scratch(struct brw_context *brw,
       thread_count = devinfo->max_wm_threads;
       break;
    case MESA_SHADER_COMPUTE: {
-      unsigned subslices = MAX2(brw->screen->subslice_total, 1);
-
-      /* The documentation for 3DSTATE_PS "Scratch Space Base Pointer" says:
-       *
-       * "Scratch Space per slice is computed based on 4 sub-slices.  SW must
-       *  allocate scratch space enough so that each slice has 4 slices
-       *  allowed."
-       *
-       * According to the other driver team, this applies to compute shaders
-       * as well.  This is not currently documented at all.
-       *
-       * brw->screen->subslice_total is the TOTAL number of subslices
-       * and we wish to view that there are 4 subslices per slice
-       * instead of the actual number of subslices per slice.
-       *
-       * For, ICL, scratch space allocation is based on the number of threads
-       * in the base configuration.
-       */
-      if (devinfo->gen == 11)
-         subslices = 8;
-      else if (devinfo->gen >= 9 && devinfo->gen < 11)
-         subslices = 4 * brw->screen->devinfo.num_slices;
-
-      thread_count = devinfo->scratch_space_per_subslice * subslices;
+      thread_count = devinfo->scratch_space;
       break;
    }
    default:

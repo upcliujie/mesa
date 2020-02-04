@@ -206,10 +206,9 @@ struct gen_device_info
    unsigned max_cs_threads;
 
    /**
-    * Scratch Space Per Subslice.
+    * Scratch Space.
     *
-    * Similar to max_cs_threads, but with implemented workarounds related to
-    * scratch space calculation.
+    * Precomputed value that follows all the workarounds we know.
     *
     * Current workarounds:
     *
@@ -224,6 +223,17 @@ struct gen_device_info
     *        the FFTID is calculated as if there are 8 threads per EU, which
     *        in turn requires a larger amount of Scratch Space to be allocated
     *        by the driver."
+    *
+    * - 4xS: (applies to GEN9 and GEN10):
+    *
+    *      The documentation for 3DSTATE_PS "Scratch Space Base Pointer" says:
+    *
+    *       "Scratch Space per slice is computed based on 4 sub-slices.  SW
+    *        must allocate scratch space enough so that each slice has 4
+    *        slices allowed."
+    *
+    *      According to the other driver team, this applies to compute shaders
+    *      as well.  This is not currently documented at all.
     *
     * - HSW: WaCSScratchSize:hsw
     *
@@ -245,8 +255,15 @@ struct gen_device_info
     *      Cherryview devices have either 6 or 8 EUs per subslice, and each EU
     *      has 7 threads. The 6 EU devices appear to calculate thread IDs as
     *      if it had 8 EUs.
+    *
+    * - FUS:
+    *
+    *      On gen8+, if a fused configuration has fewer threads than the
+    *      native configuration, the scratch space allocation is based on the
+    *      number of threads in the base native configuration. This is
+    *      documented in MEDIA_VFE_STATE.
     */
-   unsigned scratch_space_per_subslice;
+   unsigned scratch_space;
 
    struct {
       /**

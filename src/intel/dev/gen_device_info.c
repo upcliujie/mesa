@@ -35,8 +35,9 @@
 
 #include "drm-uapi/i915_drm.h"
 
-#define scratch_space_calc(num_eu_per_subslice, num_thread_per_eu) \
-                          ((num_eu_per_subslice) * (num_thread_per_eu))
+#define scratch_space_calc(num_subslices, num_eu_per_subslice, \
+                           num_thread_per_eu) \
+            ((num_subslices) * (num_eu_per_subslice) * (num_thread_per_eu))
 
 /**
  * Get the PCI ID for the device name.
@@ -239,7 +240,7 @@ static const struct gen_device_info gen_device_info_ivb_gt1 = {
    .max_gs_threads = 36,
    .max_wm_threads = 48,
    .max_cs_threads = 36,
-   .scratch_space_per_subslice = scratch_space_calc(6, 6),
+   .scratch_space = scratch_space_calc(1, 6, 6),
    .urb = {
       .size = 128,
       .min_entries = {
@@ -270,7 +271,7 @@ static const struct gen_device_info gen_device_info_ivb_gt2 = {
    .max_gs_threads = 128,
    .max_wm_threads = 172,
    .max_cs_threads = 64,
-   .scratch_space_per_subslice = 64, /* why not 8 * 12? */
+   .scratch_space = 64, /* why not 8 * 12? */
    .urb = {
       .size = 256,
       .min_entries = {
@@ -301,7 +302,7 @@ static const struct gen_device_info gen_device_info_byt = {
    .max_gs_threads = 36,
    .max_wm_threads = 48,
    .max_cs_threads = 32,
-   .scratch_space_per_subslice = scratch_space_calc(4, 8),
+   .scratch_space = scratch_space_calc(1, 4, 8),
    .urb = {
       .size = 128,
       .min_entries = {
@@ -337,7 +338,7 @@ static const struct gen_device_info gen_device_info_hsw_gt1 = {
    .max_gs_threads = 70,
    .max_wm_threads = 102,
    .max_cs_threads = 70,
-   .scratch_space_per_subslice = scratch_space_calc(16, 8), /* WA: HSW */
+   .scratch_space = scratch_space_calc(1, 16, 8), /* WA: HSW */
    .urb = {
       .size = 128,
       .min_entries = {
@@ -367,7 +368,7 @@ static const struct gen_device_info gen_device_info_hsw_gt2 = {
    .max_gs_threads = 256,
    .max_wm_threads = 204,
    .max_cs_threads = 70,
-   .scratch_space_per_subslice = scratch_space_calc(16, 8), /* WA: HSW */
+   .scratch_space = scratch_space_calc(2, 16, 8), /* WA: HSW */
    .urb = {
       .size = 256,
       .min_entries = {
@@ -397,7 +398,7 @@ static const struct gen_device_info gen_device_info_hsw_gt3 = {
    .max_gs_threads = 256,
    .max_wm_threads = 408,
    .max_cs_threads = 70,
-   .scratch_space_per_subslice = scratch_space_calc(16, 8), /* WA: HSW */
+   .scratch_space = scratch_space_calc(4, 16, 8), /* WA: HSW */
    .urb = {
       .size = 512,
       .min_entries = {
@@ -446,7 +447,7 @@ static const struct gen_device_info gen_device_info_bdw_gt1 = {
    .num_eu_per_subslice = 6,
    .l3_banks = 2,
    .max_cs_threads = 42,
-   .scratch_space_per_subslice = scratch_space_calc(6, 7),
+   .scratch_space = scratch_space_calc(3, 8, 7), /* WA: FUS */
    .urb = {
       .size = 192,
       .min_entries = {
@@ -472,7 +473,7 @@ static const struct gen_device_info gen_device_info_bdw_gt2 = {
    .num_eu_per_subslice = 8,
    .l3_banks = 4,
    .max_cs_threads = 56,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7),
+   .scratch_space = scratch_space_calc(3, 8, 7),
    .urb = {
       .size = 384,
       .min_entries = {
@@ -497,7 +498,7 @@ static const struct gen_device_info gen_device_info_bdw_gt3 = {
    .num_eu_per_subslice = 8,
    .l3_banks = 8,
    .max_cs_threads = 56,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7),
+   .scratch_space = scratch_space_calc(3, 8, 7),
    .urb = {
       .size = 384,
       .min_entries = {
@@ -528,7 +529,7 @@ static const struct gen_device_info gen_device_info_chv = {
    .max_gs_threads = 80,
    .max_wm_threads = 128,
    .max_cs_threads = 6 * 7,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7), /* WA: CHV */
+   .scratch_space = scratch_space_calc(2, 8, 7), /* WA: CHV */
    .urb = {
       .size = 192,
       .min_entries = {
@@ -600,7 +601,7 @@ static const struct gen_device_info gen_device_info_chv = {
    GEN9_LP_FEATURES,                               \
    .num_subslices = { 3, },                        \
    .num_eu_per_subslice = 6,                       \
-   .scratch_space_per_subslice = scratch_space_calc(6, 6)
+   .scratch_space = scratch_space_calc(4 * 1, 6, 6) /* WA: 4xS */
 
 #define GEN9_LP_FEATURES_2X6                       \
    GEN9_LP_FEATURES,                               \
@@ -611,7 +612,7 @@ static const struct gen_device_info gen_device_info_chv = {
    .max_tes_threads = 56,                          \
    .max_gs_threads = 56,                           \
    .max_cs_threads = 6 * 6,                        \
-   .scratch_space_per_subslice = scratch_space_calc(6, 6), \
+   .scratch_space = scratch_space_calc(4 * 1, 6, 6), /* WA: 4xS */ \
    .urb = {                                        \
       .size = 128,                                 \
       .min_entries = {                             \
@@ -637,7 +638,7 @@ static const struct gen_device_info gen_device_info_skl_gt1 = {
    .num_slices = 1,
    .num_subslices = { 2, },
    .num_eu_per_subslice = 6,
-   .scratch_space_per_subslice = 56, /* Not 6 * 7. */
+   .scratch_space = scratch_space_calc(4 * 1, 8, 7), /* WA: FUS */
    .l3_banks = 2,
    .urb.size = 192,
    /* GT1 seems to have a bug in the top of the pipe (VF/VS?) fixed functions
@@ -653,7 +654,7 @@ static const struct gen_device_info gen_device_info_skl_gt2 = {
    .num_slices = 1,
    .num_subslices = { 3, },
    .num_eu_per_subslice = 8,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7),
+   .scratch_space = scratch_space_calc(4 * 1,  8, 7), /* WA: 4xS */
 
    .l3_banks = 4,
    .simulator_id = 12,
@@ -665,7 +666,7 @@ static const struct gen_device_info gen_device_info_skl_gt3 = {
    .num_slices = 2,
    .num_subslices = { 3, 3, },
    .num_eu_per_subslice = 8,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7),
+   .scratch_space = scratch_space_calc(4 * 2, 8, 7), /* WA: 4xS */
    .l3_banks = 8,
    .simulator_id = 12,
 };
@@ -676,7 +677,7 @@ static const struct gen_device_info gen_device_info_skl_gt4 = {
    .num_slices = 3,
    .num_subslices = { 3, 3, 3, },
    .num_eu_per_subslice = 8,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7),
+   .scratch_space = scratch_space_calc(4 * 3, 8, 7), /* WA: 4xS */
    .l3_banks = 12,
    /* From the "L3 Allocation and Programming" documentation:
     *
@@ -718,7 +719,7 @@ static const struct gen_device_info gen_device_info_kbl_gt1 = {
    .num_slices = 1,
    .num_subslices = { 2, },
    .num_eu_per_subslice = 6,
-   .scratch_space_per_subslice = scratch_space_calc(6, 7),
+   .scratch_space = scratch_space_calc(4 * 1, 8, 7), /* WA: FUS */
    .l3_banks = 2,
    /* GT1 seems to have a bug in the top of the pipe (VF/VS?) fixed functions
     * leading to some vertices to go missing if we use too much URB.
@@ -736,7 +737,7 @@ static const struct gen_device_info gen_device_info_kbl_gt1_5 = {
    .num_slices = 1,
    .num_subslices = { 3, },
    .num_eu_per_subslice = 6,
-   .scratch_space_per_subslice = scratch_space_calc(6, 7),
+   .scratch_space = scratch_space_calc(4 * 1, 8, 7), /* WA: FUS */
    .l3_banks = 4,
    .simulator_id = 16,
 };
@@ -749,7 +750,7 @@ static const struct gen_device_info gen_device_info_kbl_gt2 = {
    .num_slices = 1,
    .num_subslices = { 3, },
    .num_eu_per_subslice = 8,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7),
+   .scratch_space = scratch_space_calc(4 * 1, 8, 7), /* WA: 4xS */
    .l3_banks = 4,
    .simulator_id = 16,
 };
@@ -762,7 +763,7 @@ static const struct gen_device_info gen_device_info_kbl_gt3 = {
    .num_slices = 2,
    .num_subslices = { 3, 3, },
    .num_eu_per_subslice = 8,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7),
+   .scratch_space = scratch_space_calc(4 * 2, 8, 7), /* WA: 4xS */
    .l3_banks = 8,
    .simulator_id = 16,
 };
@@ -786,7 +787,7 @@ static const struct gen_device_info gen_device_info_kbl_gt4 = {
    .num_slices = 3,
    .num_subslices = { 3, 3, 3, },
    .num_eu_per_subslice = 8,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7),
+   .scratch_space = scratch_space_calc(4 * 3, 8, 7), /* WA: 4xS */
    .l3_banks = 12,
    .simulator_id = 16,
 };
@@ -813,7 +814,7 @@ static const struct gen_device_info gen_device_info_cfl_gt1 = {
    .num_slices = 1,
    .num_subslices = { 2, },
    .num_eu_per_subslice = 6,
-   .scratch_space_per_subslice = 56 /* Not 6 * 7. */,
+   .scratch_space = scratch_space_calc(4 * 1, 8, 7), /* WA: FUS */
    .l3_banks = 2,
    .urb.size = 192,
    /* GT1 seems to have a bug in the top of the pipe (VF/VS?) fixed functions
@@ -830,7 +831,7 @@ static const struct gen_device_info gen_device_info_cfl_gt2 = {
    .num_slices = 1,
    .num_subslices = { 3, },
    .num_eu_per_subslice = 8,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7),
+   .scratch_space = scratch_space_calc(4 * 1, 8, 7), /* WA: 4xS */
    .l3_banks = 4,
    .simulator_id = 24,
 };
@@ -843,7 +844,7 @@ static const struct gen_device_info gen_device_info_cfl_gt3 = {
    .num_slices = 2,
    .num_subslices = { 3, 3, },
    .num_eu_per_subslice = 8,
-   .scratch_space_per_subslice = scratch_space_calc(8, 7),
+   .scratch_space = scratch_space_calc(4 * 2, 8, 7), /* WA: 4xS */
    .l3_banks = 8,
    .simulator_id = 24,
 };
@@ -881,7 +882,7 @@ static const struct gen_device_info gen_device_info_cfl_gt3 = {
    .num_slices = _slices,                           \
    .num_subslices = _subslices,                     \
    .num_eu_per_subslice = 8,                        \
-   .scratch_space_per_subslice = scratch_space_calc(8, 7), \
+   .scratch_space = scratch_space_calc(4 * (_slices), 8, 7), /* WA: 4xS */ \
    .l3_banks = _l3
 
 static const struct gen_device_info gen_device_info_cnl_gt0_5 = {
@@ -931,7 +932,7 @@ static const struct gen_device_info gen_device_info_cnl_gt2 = {
    .gt = _gt, .num_slices = _slices, .l3_banks = _l3, \
    .num_subslices = _subslices,                       \
    .num_eu_per_subslice = 8,                          \
-   .scratch_space_per_subslice = scratch_space_calc(8, 8) /* WA: ICL+ */
+   .scratch_space = scratch_space_calc(8, 8, 8) /* WA: ICL+, FUS */
 
 #define GEN11_URB_MIN_MAX_ENTRIES                     \
    .min_entries = {                                   \
@@ -1100,17 +1101,18 @@ static const struct gen_device_info gen_device_info_ehl_4 = {
    .simulator_id = 22,                                          \
    .urb.size = (_gt) == 1 ? 512 : 1024,                         \
    .num_subslices = _dual_subslices,                            \
-   .num_eu_per_subslice = 16,                                   \
-   .scratch_space_per_subslice = scratch_space_calc(8, 8) /* WA: ICL+ */
+   .num_eu_per_subslice = 16
 
 #define dual_subslices(args...) { args, }
 
 static const struct gen_device_info gen_device_info_tgl_gt1 = {
    GEN12_FEATURES(1, 1, dual_subslices(2), 8),
+   .scratch_space = scratch_space_calc(2, 8, 8) /* WA: ICL+ */
 };
 
 static const struct gen_device_info gen_device_info_tgl_gt2 = {
    GEN12_FEATURES(2, 1, dual_subslices(6), 8),
+   .scratch_space = scratch_space_calc(6, 8, 8) /* WA: ICL+ */
 };
 
 static void

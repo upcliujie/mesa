@@ -1395,35 +1395,13 @@ anv_scratch_pool_alloc(struct anv_device *device, struct anv_scratch_pool *pool,
 
    const struct gen_device_info *devinfo = &device->info;
 
-   unsigned subslices = MAX2(device->physical->subslice_total, 1);
-
-   /* The documentation for 3DSTATE_PS "Scratch Space Base Pointer" says:
-    *
-    *    "Scratch Space per slice is computed based on 4 sub-slices.  SW
-    *     must allocate scratch space enough so that each slice has 4
-    *     slices allowed."
-    *
-    * According to the other driver team, this applies to compute shaders
-    * as well.  This is not currently documented at all.
-    *
-    * This hack is no longer necessary on Gen11+.
-    *
-    * For, ICL, scratch space allocation is based on the number of threads
-    * in the base configuration.
-    */
-   if (devinfo->gen == 11)
-      subslices = 8;
-   else if (devinfo->gen >= 9 && devinfo->gen < 11)
-      subslices = 4 * devinfo->num_slices;
-
    uint32_t max_threads[] = {
       [MESA_SHADER_VERTEX]           = devinfo->max_vs_threads,
       [MESA_SHADER_TESS_CTRL]        = devinfo->max_tcs_threads,
       [MESA_SHADER_TESS_EVAL]        = devinfo->max_tes_threads,
       [MESA_SHADER_GEOMETRY]         = devinfo->max_gs_threads,
       [MESA_SHADER_FRAGMENT]         = devinfo->max_wm_threads,
-      [MESA_SHADER_COMPUTE]          = devinfo->scratch_space_per_subslice *
-                                       subslices,
+      [MESA_SHADER_COMPUTE]          = devinfo->scratch_space,
    };
 
    uint32_t size = per_thread_scratch * max_threads[stage];

@@ -2043,27 +2043,6 @@ iris_get_scratch_space(struct iris_context *ice,
 
    struct iris_bo **bop = &ice->shaders.scratch_bos[encoded_size][stage];
 
-   /* The documentation for 3DSTATE_PS "Scratch Space Base Pointer" says:
-    *
-    *    "Scratch Space per slice is computed based on 4 sub-slices.  SW
-    *     must allocate scratch space enough so that each slice has 4
-    *     slices allowed."
-    *
-    * According to the other driver team, this applies to compute shaders
-    * as well.  This is not currently documented at all.
-    *
-    * This hack is no longer necessary on Gen11+.
-    *
-    * For, ICL, scratch space allocation is based on the number of threads
-    * in the base configuration.
-    */
-   unsigned subslice_total = screen->subslice_total;
-   if (devinfo->gen == 11)
-      subslice_total = 8;
-   else if (devinfo->gen >= 9 && devinfo->gen < 11)
-      subslice_total = 4 * devinfo->num_slices;
-   assert(subslice_total >= screen->subslice_total);
-
    if (!*bop) {
       uint32_t max_threads[] = {
          [MESA_SHADER_VERTEX]    = devinfo->max_vs_threads,
@@ -2071,8 +2050,7 @@ iris_get_scratch_space(struct iris_context *ice,
          [MESA_SHADER_TESS_EVAL] = devinfo->max_tes_threads,
          [MESA_SHADER_GEOMETRY]  = devinfo->max_gs_threads,
          [MESA_SHADER_FRAGMENT]  = devinfo->max_wm_threads,
-         [MESA_SHADER_COMPUTE]   = devinfo->scratch_space_per_subslice *
-                                   subslice_total,
+         [MESA_SHADER_COMPUTE]   = devinfo->scratch_space,
       };
 
       uint32_t size = per_thread_scratch * max_threads[stage];
