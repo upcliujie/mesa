@@ -1107,12 +1107,12 @@ static const struct gen_device_info gen_device_info_ehl_4 = {
 
 static const struct gen_device_info gen_device_info_tgl_gt1 = {
    GEN12_FEATURES(1, 1, dual_subslices(2), 8),
-   .scratch_space = scratch_space_calc(2, 8, 8) /* WA: ICL+ */
+   .scratch_space = scratch_space_calc(2, 16, 8) /* WA: ICL+ */
 };
 
 static const struct gen_device_info gen_device_info_tgl_gt2 = {
    GEN12_FEATURES(2, 1, dual_subslices(6), 8),
-   .scratch_space = scratch_space_calc(6, 8, 8) /* WA: ICL+ */
+   .scratch_space = scratch_space_calc(6, 16, 8) /* WA: ICL+ */
 };
 
 static void
