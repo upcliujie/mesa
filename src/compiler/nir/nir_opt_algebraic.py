@@ -449,7 +449,7 @@ optimizations.extend([
    # !((a >= 0.0) && (a <= 1.0))
    # !(a == fsat(a))
    # a != fsat(a)
-   (('ior', ('flt', a, 0.0), ('flt', 1.0, a)), ('fne', a, ('fsat', a)), '!options->lower_fsat'),
+   (('~ior', ('flt', a, 0.0), ('flt', 1.0, a)), ('fne', a, ('fsat', a)), '!options->lower_fsat'),
 
    (('fmax',                        ('b2f(is_used_once)', 'a@1'),           ('b2f', 'b@1')),           ('b2f', ('ior', a, b))),
    (('fmax', ('fneg(is_used_once)', ('b2f(is_used_once)', 'a@1')), ('fneg', ('b2f', 'b@1'))), ('fneg', ('b2f', ('ior', a, b)))),
@@ -838,7 +838,7 @@ optimizations.extend([
    (('ftrunc', 'a(is_integral)'), a),
    # fract(x) = x - floor(x), so fract(NaN) = NaN
    (('~ffract', 'a(is_integral)'), 0.0),
-   (('fabs', 'a(is_not_negative)'), a),
+   (('~fabs', 'a(is_not_negative)'), a),
    (('iabs', 'a(is_not_negative)'), a),
    (('fsat', 'a(is_not_positive)'), 0.0),
 
