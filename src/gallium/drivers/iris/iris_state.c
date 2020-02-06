@@ -3610,19 +3610,12 @@ iris_set_stream_output_targets(struct pipe_context *ctx,
       if (active) {
          ice->state.dirty |= IRIS_DIRTY_SO_DECL_LIST;
       } else {
-         uint32_t flush = 0;
          for (int i = 0; i < PIPE_MAX_SO_BUFFERS; i++) {
             struct iris_stream_output_target *tgt =
                (void *) ice->state.so_target[i];
-            if (tgt) {
-               struct iris_resource *res = (void *) tgt->base.buffer;
-
-               flush |= iris_flush_bits_for_history(res);
-               iris_dirty_for_history(ice, res);
-            }
+            if (tgt)
+               iris_dirty_for_history(ice, (void *)tgt->base.buffer);
          }
-         iris_emit_pipe_control_flush(&ice->batches[IRIS_BATCH_RENDER],
-                                      "make streamout results visible", flush);
       }
    }
 

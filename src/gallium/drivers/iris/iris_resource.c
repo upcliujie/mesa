@@ -1953,29 +1953,8 @@ iris_transfer_flush_region(struct pipe_context *ctx,
    if (map->staging)
       iris_flush_staging_region(xfer, box);
 
-   uint32_t history_flush = 0;
-
-   if (res->base.target == PIPE_BUFFER) {
-      if (map->staging)
-         history_flush |= PIPE_CONTROL_RENDER_TARGET_FLUSH;
-
-      if (map->dest_had_defined_contents)
-         history_flush |= iris_flush_bits_for_history(res);
-
+   if (res->base.target == PIPE_BUFFER)
       util_range_add(&res->base, &res->valid_buffer_range, box->x, box->x + box->width);
-   }
-
-   if (history_flush & ~PIPE_CONTROL_CS_STALL) {
-      for (int i = 0; i < IRIS_BATCH_COUNT; i++) {
-         struct iris_batch *batch = &ice->batches[i];
-         if (batch->contains_draw || batch->cache.render->entries) {
-            iris_batch_maybe_flush(batch, 24);
-            iris_emit_pipe_control_flush(batch,
-                                         "cache history: transfer flush",
-                                         history_flush);
-         }
-      }
-   }
 
    /* Make sure we flag constants dirty even if there's no need to emit
     * any PIPE_CONTROLs to a batch.
@@ -2048,32 +2027,6 @@ iris_dirty_for_history(struct iris_context *ice,
 
    ice->state.dirty |= dirty;
    ice->state.stage_dirty |= stage_dirty;
-}
-
-/**
- * Produce a set of PIPE_CONTROL bits which ensure data written to a
- * resource becomes visible, and any stale read cache data is invalidated.
- */
-uint32_t
-iris_flush_bits_for_history(struct iris_resource *res)
-{
-   uint32_t flush = PIPE_CONTROL_CS_STALL;
-
-   if (res->bind_history & PIPE_BIND_CONSTANT_BUFFER) {
-      flush |= PIPE_CONTROL_CONST_CACHE_INVALIDATE |
-               PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE;
-   }
-
-   if (res->bind_history & PIPE_BIND_SAMPLER_VIEW)
-      flush |= PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE;
-
-   if (res->bind_history & (PIPE_BIND_VERTEX_BUFFER | PIPE_BIND_INDEX_BUFFER))
-      flush |= PIPE_CONTROL_VF_CACHE_INVALIDATE;
-
-   if (res->bind_history & (PIPE_BIND_SHADER_BUFFER | PIPE_BIND_SHADER_IMAGE))
-      flush |= PIPE_CONTROL_DATA_CACHE_FLUSH;
-
-   return flush;
 }
 
 bool
