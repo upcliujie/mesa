@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+inc_intel_tools = include_directories('.')
+
 libaub = static_library(
   'aub',
   files('aub_read.c', 'aub_mem.c'),
@@ -216,3 +218,7 @@ foreach testcase : asm_testcases
     suite : 'intel',
   )
 endforeach
+
+if with_tools.contains('intel-ui') and with_tools.contains('drm-shim')
+  subdir('mi-runner')
+endif
