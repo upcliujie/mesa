@@ -61,4 +61,17 @@ endforeach
 
 gen_pack_header_py = files('gen_pack_header.py')
 
+gen_xml_unpack = []
+foreach f : gen_xml_files
+  _name = '@0@_unpack.h'.format(f.split('.')[0])
+  gen_xml_unpack += custom_target(
+    _name,
+    input : ['gen_pack_header.py', f],
+    output : _name,
+    command : [prog_python, '@INPUT@', '--unpack'],
+    capture : true,
+  )
+endforeach
+
 idep_genxml = declare_dependency(sources : [gen_xml_pack, genX_bits_h, genX_xml_h])
+idep_genxml_unpack = declare_dependency(sources : [gen_xml_unpack])

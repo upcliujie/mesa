@@ -183,6 +183,69 @@ __gen_ufixed(float v, uint32_t start, NDEBUG_UNUSED uint32_t end, uint32_t fract
 
 """
 
+unpack_header = """%(license)s
+
+/* Instructions, enums and structures for %(platform)s.
+ *
+ * This file has been generated, do not hand edit.
+ */
+
+#ifndef %(guard)s
+#define %(guard)s
+
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <assert.h>
+#include <math.h>
+
+#ifndef __gen_field_functions
+#define __gen_field_functions
+
+#ifdef NDEBUG
+#define NDEBUG_UNUSED __attribute__((unused))
+#else
+#define NDEBUG_UNUSED
+#endif
+
+static inline uint64_t
+__read_uint_field(const void *_src, int start, int end)
+{
+   const uint32_t *src = (const uint32_t *) _src;
+   assert(end - start <= 64);
+
+   uint64_t v = src[start / 32];
+   if (start / 32 != end / 32)
+      v |= (uint64_t)(src[end / 32]) << 32;
+
+   uint64_t mask = ~0ULL >> (63 - end + start);
+   return (v >> (start %% 32)) & mask;
+}
+
+static inline uint64_t
+__read_address_field(const void *_src, int start, int end)
+{
+   const uint32_t *src = (const uint32_t *) _src;
+   assert(end - start <= 64);
+
+   uint64_t v = src[start / 32];
+   if (start / 32 != end / 32)
+      v |= (uint64_t)(src[end / 32]) << 32;
+
+   uint64_t mask = (~0ULL >> (63 - end + start)) << (start %% 32);
+   return (v & mask);
+}
+
+#ifndef __gen_address_type
+#error #define __gen_address_type before including this file
+#endif
+
+#undef NDEBUG_UNUSED
+
+#endif
+
+"""
+
 def num_from_str(num_str):
     if num_str.lower().startswith('0x'):
         return int(num_str, base=16)
@@ -198,6 +261,12 @@ class Field(object):
         self.parser = parser
         if "name" in attrs:
             self.name = safe_name(attrs["name"])
+        else:
+            self.name = None
+        if "size" in attrs:
+            self.size = int(attrs["size"])
+        else:
+            self.size = 0
         self.start = int(attrs["start"])
         self.end = int(attrs["end"])
         self.type = attrs["type"]
@@ -230,6 +299,9 @@ class Field(object):
             self.type = 'sfixed'
             self.fractional_size = int(sfixed_match.group(2))
 
+    def has_name(self):
+        return self.name is not None
+
     def is_builtin_type(self):
         builtins =  [ 'address', 'bool', 'float', 'ufixed',
                       'offset', 'sfixed', 'offset', 'int', 'uint', 'mbo' ]
@@ -241,7 +313,10 @@ class Field(object):
     def is_enum_type(self):
         return self.type in self.parser.enums
 
-    def emit_template_struct(self, dim):
+    def is_variable(self):
+        return self.is_struct_type() and self.parser.groups[self.type].is_variable()
+
+    def emit_template_struct(self, depth, dim):
         if self.type == 'address':
             type = '__gen_address_type'
         elif self.type == 'bool':
@@ -270,7 +345,7 @@ class Field(object):
             print("#error unhandled type: %s" % self.type)
             return
 
-        print("   %-36s %s%s;" % (type, self.name, dim))
+        print("%s%-36s %s%s;" % ("   " * depth, type, self.name, dim))
 
         prefix = ""
         if self.values and self.default is None:
@@ -281,23 +356,57 @@ class Field(object):
             print("#define %-40s %d" % (prefix + value.name, value.value))
 
 class Group(object):
-    def __init__(self, parser, parent, start, count, size):
+    def __init__(self, parser, parent, name, start, count, size):
         self.parser = parser
         self.parent = parent
+        self.name = name
         self.start = start
         self.count = count
         self.size = size
         self.fields = []
+        self.fields_by_name = {}
 
-    def emit_template_struct(self, dim):
+    def has_name(self):
+        return False
+
+    def opcode_mask(self):
+        value = 0
+        mask = 0
+        for field in self.fields:
+            if isinstance(field, Group):
+                continue
+            if field.start >= 32:
+                continue
+            if field.default is None:
+                continue
+            if field.name == "DWordLength":
+                continue
+            value = value | (field.default << field.start)
+            mask = mask | ((((1 << (field.end + 1)) - 1) >> field.start) << field.start)
+        return (value, mask)
+
+    def is_variable(self):
+        if self.count == 0:
+            return True
+        if len(self.fields) > 0 and self.fields[len(self.fields) - 1].is_variable():
+            return True
+        return False
+
+    def emit_template_struct(self, depth, dim):
         if self.count == 0:
             print("   /* variable length fields follow */")
+            print("   uint32_t __variable_length;")
+            print("   struct %s_variable {" % (self.parser.gen_prefix(self.parent.name)))
+            for field in self.fields:
+                field.emit_template_struct(depth + 1, dim)
+            print("   } __variable[0];");
+
         else:
             if self.count > 1:
                 dim = "%s[%d]" % (dim, self.count)
 
             for field in self.fields:
-                field.emit_template_struct(dim)
+                field.emit_template_struct(depth, dim)
 
     class DWord:
         def __init__(self):
@@ -478,13 +587,47 @@ class Group(object):
             print("   dw[%d] = %s;" % (index, v))
             print("   dw[%d] = %s >> 32;" % (index + 1, v))
 
+    def emit_unpack_function(self, dwords, length, bias):
+        for field in self.fields:
+            if isinstance(field, Group):
+                if field.count == 0 and 'DWordLength' in self.fields_by_name:
+                    print("   values->__variable_length = (4 * (values->DWordLength + %u) - %u) / %u;" %
+                          (bias, field.start / 8, field.size / 8))
+                    print("   for (uint32_t i = 0; i < values->__variable_length; i++) {")
+                    print("      const void *var_offset = src + %u + i * %u;" %
+                          (field.start / 8, field.size / 8))
+                    for rfield in field.fields:
+                        if rfield.type in ("address", "offset"):
+                            print("      values->__variable[i].%s = __read_address_field(var_offset, %u, %u);" %
+                                  (rfield.name, rfield.start, rfield.end))
+                        elif rfield.is_builtin_type():
+                            print("      values->__variable[i].%s = __read_uint_field(var_offset, %u, %u);" %
+                                  (rfield.name, rfield.start, rfield.end))
+                        else:
+                            print("      %s_unpack(&values->__variable[i].%s, var_offset);" %
+                                  (self.parser.gen_prefix(rfield.type), rfield.name))
+                    print("   }")
+                continue
+            if field.is_struct_type() or \
+               field.name is None or \
+               field.type == "mbo":
+                continue
+            if field.type == "address" or field.type == "offset":
+                print("   values->%s = __read_address_field(src, %u, %u);" %
+                      (field.name, field.start, field.end))
+            else:
+                print("   values->%s = __read_uint_field(src, %u, %u);" % (field.name, field.start, field.end))
+
+
 class Value(object):
     def __init__(self, attrs):
         self.name = safe_name(attrs["name"])
         self.value = ast.literal_eval(attrs["value"])
 
 class Parser(object):
-    def __init__(self):
+    def __init__(self, unpack):
+        self.unpack = unpack
+
         self.parser = xml.parsers.expat.ParserCreate()
         self.parser.StartElementHandler = self.start_element
         self.parser.EndElementHandler = self.end_element
@@ -494,6 +637,7 @@ class Parser(object):
         # Set of enum names we've seen.
         self.enums = set()
         self.registers = {}
+        self.groups = {}
 
     def gen_prefix(self, name):
         if name[0] == "_":
@@ -501,13 +645,17 @@ class Parser(object):
         return 'GEN%s_%s' % (self.gen, name)
 
     def gen_guard(self):
-        return self.gen_prefix("PACK_H")
+        if self.unpack:
+            return self.gen_prefix("UNPACK_H")
+        else:
+            return self.gen_prefix("PACK_H")
 
     def start_element(self, name, attrs):
         if name == "genxml":
             self.platform = attrs["name"]
             self.gen = attrs["gen"].replace('.', '')
-            print(pack_header % {'license': license, 'platform': self.platform, 'guard': self.gen_guard()})
+            header = unpack_header if self.unpack else pack_header
+            print(header % {'license': license, 'platform': self.platform, 'guard': self.gen_guard()})
         elif name in ("instruction", "struct", "register"):
             if name == "instruction":
                 self.instruction = safe_name(attrs["name"])
@@ -532,15 +680,19 @@ class Parser(object):
             else:
                 self.length = None
                 size = 0
-            self.group = Group(self, None, 0, 1, size)
+            self.group = Group(self, None, attrs["name"], 0, 1, size)
+            self.groups[self.group.name] = self.group
 
         elif name == "group":
-            group = Group(self, self.group,
+            group = Group(self, self.group, None,
                           int(attrs["start"]), int(attrs["count"]), int(attrs["size"]))
             self.group.fields.append(group)
             self.group = group
         elif name == "field":
-            self.group.fields.append(Field(self, attrs))
+            field = Field(self, attrs)
+            self.group.fields.append(field)
+            if "name" in attrs:
+                self.group.fields_by_name[field.name] = field
             self.values = []
         elif name == "enum":
             self.values = []
@@ -579,7 +731,7 @@ class Parser(object):
 
     def emit_template_struct(self, name, group):
         print("struct %s {" % self.gen_prefix(name))
-        group.emit_template_struct("")
+        group.emit_template_struct(1, "")
         print("};\n")
 
     def emit_pack_function(self, name, group):
@@ -600,6 +752,20 @@ class Parser(object):
 
         print("}\n")
 
+    def emit_unpack_function(self, name, group, bias):
+        name = self.gen_prefix(name)
+        print(textwrap.dedent("""\
+            static inline __attribute__((always_inline)) void
+            %s_unpack(__attribute__((unused)) struct %s * values,
+                  %s__attribute__((unused)) const void * restrict src)
+            {""") % (name, name, ' ' * len(name)))
+
+        (dwords, length) = group.collect_dwords_and_length()
+        if length:
+            group.emit_unpack_function(dwords, length, bias)
+
+        print("}\n")
+
     def emit_instruction(self):
         name = self.instruction
         if self.instruction_engines and not self.instruction_engines & self.engines:
@@ -610,6 +776,12 @@ class Parser(object):
                   (self.gen_prefix(name + "_length"), self.length))
         print('#define %-33s %6d' %
               (self.gen_prefix(name + "_length_bias"), self.length_bias))
+        if self.unpack:
+            opcode_mask = self.group.opcode_mask()
+            print('#define %s 0x%x' %
+                  (self.gen_prefix(name + "_opcode"), opcode_mask[0]))
+            print('#define %s 0x%x' %
+                  (self.gen_prefix(name + "_opcode_mask"), opcode_mask[1]))
 
         default_fields = []
         for field in self.group.fields:
@@ -625,14 +797,17 @@ class Parser(object):
                 assert field.is_enum_type()
                 default_fields.append("   .%-35s = (enum %s) %6d" % (field.name, self.gen_prefix(safe_name(field.type)), field.default))
 
-        if default_fields:
+        if default_fields and not self.unpack:
             print('#define %-40s\\' % (self.gen_prefix(name + '_header')))
             print(",  \\\n".join(default_fields))
             print('')
 
         self.emit_template_struct(self.instruction, self.group)
-
-        self.emit_pack_function(self.instruction, self.group)
+        if self.unpack:
+            self.emit_read_length_function(self.group)
+            self.emit_unpack_function(self.instruction, self.group, self.length_bias)
+        else:
+            self.emit_pack_function(self.instruction, self.group)
 
     def emit_register(self):
         name = self.register
@@ -645,7 +820,10 @@ class Parser(object):
                   (self.gen_prefix(name + "_length"), self.length))
 
         self.emit_template_struct(self.register, self.group)
-        self.emit_pack_function(self.register, self.group)
+        if self.unpack:
+            self.emit_unpack_function(self.register, self.group, 0)
+        else:
+            self.emit_pack_function(self.register, self.group)
 
     def emit_struct(self):
         name = self.struct
@@ -654,7 +832,10 @@ class Parser(object):
                   (self.gen_prefix(name + "_length"), self.length))
 
         self.emit_template_struct(self.struct, self.group)
-        self.emit_pack_function(self.struct, self.group)
+        if self.unpack:
+            self.emit_unpack_function(self.struct, self.group, 0)
+        else:
+            self.emit_pack_function(self.struct, self.group)
 
     def emit_enum(self):
         print('enum %s {' % self.gen_prefix(self.enum))
@@ -666,6 +847,25 @@ class Parser(object):
             print('   %-36s = %6d,' % (name.upper(), value.value))
         print('};\n')
 
+    def emit_read_length_function(self, group):
+        name = self.gen_prefix(group.name)
+        print(textwrap.dedent("""\
+            static inline uint32_t
+            %s_read_length(__attribute__((unused)) const void *src)
+            {""") % (name))
+
+        last_field = group.fields[-1]
+        if last_field.is_variable() and "DWordLength" in group.fields_by_name:
+            len_field = group.fields_by_name["DWordLength"]
+            print("   uint32_t variable_size = 4 * (__read_uint_field(src, %d, %d) + %d) - %d;" %
+                  (len_field.start, len_field.end, self.length_bias, last_field.start / 8))
+            print("   return sizeof(struct %s) + (variable_size / %u) * sizeof(struct %s_variable);" %
+                  (name, last_field.size / 8, name))
+        else:
+            print("   return sizeof(struct %s);" % name)
+
+        print("}\n")
+
     def parse(self, filename):
         file = open(filename, "rb")
         self.parser.ParseFile(file)
@@ -675,6 +875,7 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('xml_source', metavar='XML_SOURCE',
                    help="Input xml file")
+    p.add_argument('--unpack', action='store_true', help="Produce unpacking headers")
     p.add_argument('--engines', nargs='?', type=str, default='render',
                    help="Comma-separated list of engines whose instructions should be parsed (default: %(default)s)")
 
@@ -698,7 +899,7 @@ def main():
             print("\t%s" % e)
         sys.exit(1)
 
-    p = Parser()
+    p = Parser(pargs.unpack)
     p.engines = set(engines)
     p.parse(input_file)
 
