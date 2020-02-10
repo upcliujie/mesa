@@ -338,7 +338,8 @@ has_ctrl_key(int key)
 static bool
 window_has_ctrl_key(int key)
 {
-   return ImGui::IsRootWindowOrAnyChildFocused() && has_ctrl_key(key);
+   return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+      has_ctrl_key(key);
 }
 
 static void
@@ -1008,7 +1009,7 @@ display_aubfile_window(struct window *win)
    ImGui::Text("Application name: %s", context.file->app_name);
    ImGui::Text("%s", gen_get_device_name(context.file->pci_id));
 
-   ImGui::SetNextWindowContentWidth(500);
+   ImGui::SetNextWindowContentSize(ImVec2(500, 0));
    if (ImGui::BeginPopupModal("Help", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
       ImGui::Text("Some global keybindings:");
       ImGui::Separator();
