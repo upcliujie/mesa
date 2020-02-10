@@ -190,9 +190,11 @@ def_only_used_in_cf_node(nir_ssa_def *def, void *_node)
  */
 
 static bool
-loop_is_dead(nir_cf_node *node)
+loop_is_dead(nir_cf_node *node, bool *loop_is_infinite)
 {
    assert(node->type == nir_cf_node_loop);
+
+   *loop_is_infinite = false;
 
    nir_block *after = nir_cf_node_as_block(nir_cf_node_next(node));
 
@@ -206,18 +208,37 @@ loop_is_dead(nir_cf_node *node)
    nir_function_impl *impl = nir_cf_node_get_function(node);
    nir_metadata_require(impl, nir_metadata_block_index);
 
+   bool has_jump = false;
+
    nir_foreach_block_in_cf_node(block, node) {
       nir_foreach_instr(instr, block) {
          if (instr->type == nir_instr_type_call)
             return false;
 
-         /* Return instructions can cause us to skip over other side-effecting
-          * instructions after the loop, so consider them to have side effects
-          * here.
-          */
-         if (instr->type == nir_instr_type_jump &&
-             nir_instr_as_jump(instr)->type == nir_jump_return)
-            return false;
+         if (instr->type == nir_instr_type_jump) {
+            bool in_nested_loop = false;
+            for (nir_cf_node *n = &block->cf_node; n != node; n = n->parent) {
+               if (n->type == nir_cf_node_loop) {
+                  in_nested_loop = true;
+                  break;
+               }
+            }
+
+            /* Jumps in a nested loop don't affect whether the outer loop
+             * is infinite.
+             */
+            if (!in_nested_loop) {
+               has_jump = true;
+            }
+
+            /* Return instructions can cause us to skip over other side-effecting
+             * instructions after the loop, so consider them to have side effects
+             * here.
+             */
+            if (nir_instr_as_jump(instr)->type == nir_jump_return) {
+               return false;
+            }
+         }
 
          if (instr->type == nir_instr_type_intrinsic) {
             nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
@@ -231,12 +252,16 @@ loop_is_dead(nir_cf_node *node)
       }
    }
 
+   *loop_is_infinite = !has_jump;
+
    return true;
 }
 
 static bool
-dead_cf_block(nir_block *block)
+dead_cf_block(nir_block *block, bool *has_infinite_loop)
 {
+   *has_infinite_loop = false;
+
    nir_if *following_if = nir_block_get_following_if(block);
    if (following_if) {
       if (!nir_src_is_const(following_if->condition))
@@ -250,7 +275,7 @@ dead_cf_block(nir_block *block)
    if (!following_loop)
       return false;
 
-   if (!loop_is_dead(&following_loop->cf_node))
+   if (!loop_is_dead(&following_loop->cf_node, has_infinite_loop))
       return false;
 
    nir_cf_node_remove(&following_loop->cf_node);
@@ -258,10 +283,11 @@ dead_cf_block(nir_block *block)
 }
 
 static bool
-dead_cf_list(struct exec_list *list, bool *list_ends_in_jump)
+dead_cf_list(struct exec_list *list, bool *list_ends_in_jump, bool *has_infinite_loop)
 {
    bool progress = false;
    *list_ends_in_jump = false;
+   *has_infinite_loop = false;
 
    nir_cf_node *prev = NULL;
 
@@ -269,7 +295,7 @@ dead_cf_list(struct exec_list *list, bool *list_ends_in_jump)
       switch (cur->type) {
       case nir_cf_node_block: {
          nir_block *block = nir_cf_node_as_block(cur);
-         if (dead_cf_block(block)) {
+         if (dead_cf_block(block, has_infinite_loop)) {
             /* We just deleted the if or loop after this block, so we may have
              * deleted the block before or after it -- which one is an
              * implementation detail. Therefore, to recover the place we were
@@ -303,8 +329,23 @@ dead_cf_list(struct exec_list *list, bool *list_ends_in_jump)
       case nir_cf_node_if: {
          nir_if *if_stmt = nir_cf_node_as_if(cur);
          bool then_ends_in_jump, else_ends_in_jump;
-         progress |= dead_cf_list(&if_stmt->then_list, &then_ends_in_jump);
-         progress |= dead_cf_list(&if_stmt->else_list, &else_ends_in_jump);
+         bool then_has_infinite_loop, else_has_infinite_loop;
+         progress |= dead_cf_list(&if_stmt->then_list,
+            &then_ends_in_jump, &then_has_infinite_loop);
+         progress |= dead_cf_list(&if_stmt->else_list,
+            &else_ends_in_jump, &else_has_infinite_loop);
+
+         if (then_has_infinite_loop || else_has_infinite_loop) {
+            /* If one branch has infinite loop it's not enough to remove
+             * this branch. Removing it may break previous optimizations
+             * which were made on assumption that the branch with infinite
+             * loop doesn't dominate other blocks.
+             */
+            opt_constant_if(if_stmt, !then_has_infinite_loop);
+            *list_ends_in_jump = then_has_infinite_loop ? else_ends_in_jump :
+                                                          then_ends_in_jump;
+            return true;
+         }
 
          if (then_ends_in_jump && else_ends_in_jump) {
             *list_ends_in_jump = true;
@@ -322,7 +363,7 @@ dead_cf_list(struct exec_list *list, bool *list_ends_in_jump)
       case nir_cf_node_loop: {
          nir_loop *loop = nir_cf_node_as_loop(cur);
          bool dummy;
-         progress |= dead_cf_list(&loop->body, &dummy);
+         progress |= dead_cf_list(&loop->body, &dummy, &dummy);
 
          nir_block *next = nir_cf_node_as_block(nir_cf_node_next(cur));
          if (next->predecessors->entries == 0 &&
@@ -348,7 +389,7 @@ static bool
 opt_dead_cf_impl(nir_function_impl *impl)
 {
    bool dummy;
-   bool progress = dead_cf_list(&impl->body, &dummy);
+   bool progress = dead_cf_list(&impl->body, &dummy, &dummy);
 
    if (progress) {
       nir_metadata_preserve(impl, nir_metadata_none);
