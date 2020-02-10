@@ -14,13 +14,21 @@ struct aub_viewer_cfg {
    ImColor missing_color;
    ImColor boolean_color;
 
+   ImColor highlight_header_color;
+   ImColor highlight_header_hovered_color;
+   ImColor highlight_header_active_color;
+
   aub_viewer_cfg() :
     clear_color(114, 144, 154),
     dwords_color(29, 177, 194, 255),
     highlight_color(0, 230, 0, 255),
     error_color(236, 255, 0, 255),
     missing_color(230, 0, 230, 255),
-    boolean_color(228, 75, 255) {}
+    boolean_color(228, 75, 255),
+    highlight_header_color(29, 130, 29, 255),
+    highlight_header_hovered_color(11, 195, 11, 255),
+    highlight_header_active_color(0, 223, 0, 255)
+   {}
 };
 
 struct aub_viewer_decode_cfg {
@@ -78,6 +86,9 @@ struct aub_viewer_decode_ctx {
    uint64_t surface_base;
    uint64_t dynamic_base;
    uint64_t instruction_base;
+
+   /* Program counter you want to highlight. */
+   uint64_t current_pc;
 
    enum aub_decode_stage stage;
    uint32_t end_urb_offset;

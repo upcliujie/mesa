@@ -932,6 +932,15 @@ aub_viewer_render_batch(struct aub_viewer_decode_ctx *ctx,
          }
       }
 
+      if (offset == ctx->current_pc) {
+         ImGui::PushStyleColor(ImGuiCol_Header,
+                               ImVec4(ctx->cfg->highlight_header_color));
+         ImGui::PushStyleColor(ImGuiCol_HeaderHovered,
+                               ImVec4(ctx->cfg->highlight_header_hovered_color));
+         ImGui::PushStyleColor(ImGuiCol_HeaderActive,
+                               ImVec4(ctx->cfg->highlight_header_active_color));
+      }
+
       if (ctx->decode_cfg->command_filter.PassFilter(inst->name) &&
           ImGui::TreeNodeEx(p,
                             ImGuiTreeNodeFlags_Framed,
@@ -954,6 +963,9 @@ aub_viewer_render_batch(struct aub_viewer_decode_ctx *ctx,
 
          ImGui::TreePop();
       }
+
+      if (offset == ctx->current_pc)
+         ImGui::PopStyleColor(3); /* 3 colors from above */
 
       if (strcmp(inst_name, "MI_BATCH_BUFFER_START") == 0) {
          uint64_t next_batch_addr = 0xd0d0d0d0;
