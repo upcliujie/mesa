@@ -190,7 +190,7 @@ def_only_used_in_cf_node(nir_ssa_def *def, void *_node)
  */
 
 static bool
-node_is_dead(nir_cf_node *node)
+loop_is_dead(nir_cf_node *node)
 {
    assert(node->type == nir_cf_node_loop);
 
@@ -207,13 +207,6 @@ node_is_dead(nir_cf_node *node)
    nir_metadata_require(impl, nir_metadata_block_index);
 
    nir_foreach_block_in_cf_node(block, node) {
-      bool inside_loop = node->type == nir_cf_node_loop;
-      for (nir_cf_node *n = &block->cf_node;
-           !inside_loop && n != node; n = n->parent) {
-         if (n->type == nir_cf_node_loop)
-            inside_loop = true;
-      }
-
       nir_foreach_instr(instr, block) {
          if (instr->type == nir_instr_type_call)
             return false;
@@ -221,12 +214,9 @@ node_is_dead(nir_cf_node *node)
          /* Return instructions can cause us to skip over other side-effecting
           * instructions after the loop, so consider them to have side effects
           * here.
-          *
-          * When the block is not inside a loop, break and continue might also
-          * cause a skip.
           */
          if (instr->type == nir_instr_type_jump &&
-             (!inside_loop || nir_instr_as_jump(instr)->type == nir_jump_return))
+             nir_instr_as_jump(instr)->type == nir_jump_return)
             return false;
 
          if (instr->type == nir_instr_type_intrinsic) {
@@ -260,7 +250,7 @@ dead_cf_block(nir_block *block)
    if (!following_loop)
       return false;
 
-   if (!node_is_dead(&following_loop->cf_node))
+   if (!loop_is_dead(&following_loop->cf_node))
       return false;
 
    nir_cf_node_remove(&following_loop->cf_node);
