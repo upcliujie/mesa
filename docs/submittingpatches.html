@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta http-equiv="content-type" content="text/html; charset=utf-8">
-  <title>Submitting Patches</title>
+  <title>Patches Guidelines</title>
   <link rel="stylesheet" type="text/css" href="mesa.css">
 </head>
 <body>
@@ -14,7 +14,7 @@
 <iframe src="contents.html"></iframe>
 <div class="content">
 
-<h1>Submitting Patches</h1>
+<h1>Patch Guidelines</h1>
 
 
 <ul>
@@ -159,57 +159,14 @@ replacing <code>"meson test"</code> with whatever other test you want to
 run.
 </p>
 
+
 <h2 id="submit">Submitting Patches</h2>
 
 <p>
-Patches are submitted to the Mesa project via a
-<a href="https://gitlab.freedesktop.org/mesa/mesa">GitLab</a> Merge Request.
+See the instructions on the <a href="gitlab.html">Contributing with
+GitLab</a> page.
 </p>
 
-<p>
-  Add labels to your MR to help reviewers find it. For example:
-</p>
-<ul>
-  <li>Mesa changes affecting all drivers: mesa
-  <li>Hardware vendor specific code: amd, intel, nvidia, ...
-  <li>Driver specific code: anvil, freedreno, i965, iris, radeonsi,
-    radv, vc4, ...
-  <li>Other tag examples: gallium, util
-</ul>
-<p>
-  Tick the following when creating the MR. It allows developers to
-  rebase your work on top of master.
-</p>
-<pre>Allow commits from members who can merge to the target branch</pre>
-<p>
-  If you revise your patches based on code review and push an update
-  to your branch, you should maintain a <strong>clean</strong> history
-  in your patches. There should not be "fixup" patches in the history.
-  The series should be buildable and functional after every commit
-  whenever you push the branch.
-</p>
-<p>
-  It is your responsibility to keep the MR alive and making progress,
-  as there are no guarantees that a Mesa dev will independently take
-  interest in it.
-</p>
-<p>
-  Some other notes:
-</p>
-<ul>
-  <li>Make changes and update your branch based on feedback
-  <li>After an update, for the feedback you handled, close the
-    feedback discussion with the "Resolve Discussion" button. This way
-    the reviewers know which feedback got handled and which didn't.
-  <li>Old, stale MR may be closed, but you can reopen it if you
-    still want to pursue the changes
-  <li>You should periodically check to see if your MR needs to be
-    rebased
-  <li>Make sure your MR is closed if your patches get pushed outside
-    of GitLab
-  <li>Please send MRs from a personal fork rather than from the main
-    Mesa repository, as it clutters it unnecessarily.
-</ul>
 
 <h2 id="reviewing">Reviewing Patches</h2>
 
@@ -394,36 +351,10 @@ case he/she should provide a comment about the changes required, alongside the
 </p>
 
 <p>
-Developers are interested in sending backports are recommended to use either a
+Developers interested in sending backports are recommended to use either a
 <code>[BACKPORT #branch]</code> subject prefix or provides similar information
 within the commit summary.
 </p>
-
-<h2 id="gittips">Git tips</h2>
-
-<ul>
-<li><code>git rebase -i ...</code> is your friend. Don't be afraid to use it.
-<li>Apply a fixup to commit FOO.
-<pre>
-git add ...
-git commit --fixup=FOO
-git rebase -i --autosquash ...
-</pre>
-<li>Test for build breakage between patches e.g last 8 commits.
-<pre>
-git rebase -i --exec="ninja -C build/" HEAD~8
-</pre>
-<li>Sets the default mailing address for your repo.
-<pre>
-git config --local sendemail.to mesa-dev@lists.freedesktop.org
-</pre>
-<li> Add version to subject line of patch series in this case for the last 8
-commits before sending.
-<pre>
-git send-email --subject-prefix="PATCH v4" HEAD~8
-git send-email -v4 @~8 # shorter version, inherited from git format-patch
-</pre>
-</ul>
 
 
 </div>

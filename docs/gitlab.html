@@ -1,0 +1,233 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <title>Contributing with GitLab</title>
+  <link rel="stylesheet" type="text/css" href="mesa.css">
+</head>
+<body>
+
+<div class="header">
+  The Mesa 3D Graphics Library
+</div>
+
+<iframe src="contents.html"></iframe>
+<div class="content">
+
+<h1>Contributing with GitLab</h1>
+
+<p>
+NOTE: The old method of directly pushing patches to the master Mesa
+branch is deprecated.  Please use the merge request system described here.
+</p>
+
+<h2>First Time Setup</h2>
+
+<p>
+You'll need an account on
+<a href="https://gitlab.freedesktop.org/">gitlab.freedesktop.org</a>
+if you don't have one already.  To register, go to the
+<a href="https://gitlab.freedesktop.org/users/sign_in">sign in</a> page.
+</p>
+
+<p>
+Create a private fork of the GitLab reposoitory.
+This will be a private copy of the main Mesa repository which you'll
+use for your development work.
+</p>
+
+<ol>
+<li>On your local machine either do
+<pre>
+git clone git@gitlab.freedesktop.org:yourlogin/mesa.git
+</pre>
+or
+<pre>
+git clone https://gitlab.freedesktop.org/yourlogin/mesa.git
+</pre>
+Replacing 'yourlogin' with your GitLab user name.
+</li>
+<br>
+<li>
+Then, add the original/master Mesa repository as an upstream repo:
+<pre>
+cd mesa
+git remote add upstream git@gitlab.freedesktop.org:mesa/mesa.git
+</pre>
+To check the list of repositories:
+<pre>
+git remote -v
+</pre>
+You should see something like:
+<pre>
+origin	git@gitlab.freedesktop.org:yourlogin/mesa.git (fetch)
+origin	git@gitlab.freedesktop.org:yourlogin/mesa.git (push)
+upstream	git@gitlab.freedesktop.org:mesa/mesa.git (fetch)
+upstream	git@gitlab.freedesktop.org:mesa/mesa.git (push)
+</pre>
+'origin' refers to your personal, forked Mesa Git repository.
+'upstream' refers to the primary Mesa Git repository.
+</li>
+<br>
+<li>
+Set the local master branch to track the upstream master branch:
+<pre>
+ git branch --set-upstream-to=upstream/master master
+</pre>
+</li>
+<li>
+You'll want to periodically update your personal, forked repo's master
+branch from the upstream repository:
+<pre>
+git checkout master
+git fetch
+git rebase origin/master
+</pre>
+</li>
+</ol>
+
+<p>
+After this initial setup you'll take the following steps for each
+contribution (patch series).
+</p>
+
+<br>
+
+
+<h2>Create Your Patch Series</h2>
+
+<p>
+A patch series should represent a concise set of changes, not a random
+collection of changes scattered about the tree.
+</p>
+<p>
+Before beginning your work, create a topic branch in your repository.
+For example:
+</p>
+<pre>
+git checkout -b fix-bad-shader-memory-leak
+</pre>
+<p>
+Make your patches as one or more commits on your topic branch.
+Please follow the <a href="submittingpatches.html">patch guidelines</a>.
+</p>
+
+
+<h2>Create a GitLab Merge Request (MR)</h2>
+
+When your patch series is ready for peer review you'll create a merge
+request:
+
+<ol>
+<li>
+First, push your topic branch to your forked repo on the freedesktop.org
+gitlab server:
+<pre>
+git push origin fix-bad-shader-memory-leak
+</pre>
+</li>
+<li>
+Go to your personal GitLab page (for example
+https://gitlab.freedesktop.org/yourlogin/mesa.git)
+</li>
+<li>
+"Click on the "Create merge request" button.
+</li>
+<li>
+Fill in the Description if needed, etc.
+</li>
+<li>Check the "Allow commits from members who can merge to the target branch"
+checkbox.
+</li>
+<li>Add labels to your MR to help reviewers find it.  For example:
+<ul>
+  <li>Mesa changes affecting all drivers: mesa
+  <li>Hardware vendor specific code: amd, intel, nvidia, ...
+  <li>Driver specific code: anvil, freedreno, i965, iris, radeonsi,
+    radv, vc4, ...
+  <li>Other tag examples: gallium, util
+</ul>
+</li>
+<li>
+Click on "Submit merge request".
+</li>
+<li>
+Watch for a "Pipeline: passed" message which indicates that the change
+didn't break the build.
+</li>
+<li>
+Wait for someone to review your MR.
+</li>
+</ol>
+
+
+<h2>Incorporate Review Feedback</h2>
+<ol>
+  <li>If you need to make changes to your patch series, do so in
+      your local topic branch.
+  <li>When you're ready to update your MR do:
+  <pre>git push --force-with-lease origin my-topic-branch-name</pre>
+  <li>After an update, for the feedback you handled, close the
+    feedback discussion with the "Resolve Discussion" button. This way
+    the reviewers know which feedback got handled and which didn't.
+  <li>Old, stale MRs may be closed, but you can reopen them if you
+    still want to pursue the changes.
+  <li>You should periodically check to see if your MR needs to be
+    rebased.
+  <li>Make sure your MR is closed if your patches get pushed outside
+    of GitLab.
+  <li>Please send MRs from a personal fork rather than from the main
+    Mesa repository, as it clutters it unnecessarily.
+</ol>
+
+
+<h2>Merging Your Patch Series</h2>
+
+After your patch series is finalized and has been reviewed you can merge
+it into the master branch of the main Mesa repository.
+<ol>
+<li>
+First, edit your local topic branch patch series to add the
+"Reviewed-by:", "Tested-by:", etc. lines to each patch.  Then again
+push the updated topic branch with:
+<pre>git push --force-with-lease origin my-topic-branch-name</pre>
+</li>
+<li>
+Go to the <a href="https://gitlab.freedesktop.org/mesa/mesa/merge_requests/">
+merge requests page</a>.
+</li>
+<li>
+Find your merge request in the list and click on it.
+</li>
+<li>
+Reassign the MR to @marge-bot by clicking on the "Edit" button near
+the top then set the "Assignee" field to "@marge-bot".
+<br>
+Marge will rebase your patches as needed and merge the MR once the CI
+pipeline passes (this may take up to an hour, since Marge can only
+test/merge one MR at a time.)
+<br>
+If there's a problem, Marge will add a comment about it and reassign
+the MR back to you.  Fix anything that needs fixing and go back to step 1.
+</li>
+</ol>
+
+
+<h2>Update Your Master Branch</h2>
+
+<p>
+Back in your local Mesa repository, check out the master branch and
+get the latest changes (including your newly merged patches):
+<pre>
+git checkout master
+git fetch upstream
+git merge upstream/master
+git push origin master    # to update your forked repo on the freedesktop server
+</pre>
+You should see your new patch(es) in the git log.
+</p>
+
+
+</div>
+</body>
+</html>
