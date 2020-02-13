@@ -281,7 +281,7 @@ anv_pipeline_cache_init(struct anv_pipeline_cache *cache,
                         bool cache_enabled)
 {
    cache->device = device;
-   pthread_mutex_init(&cache->mutex, NULL);
+   pthread_rwlock_init(&cache->rwlock, NULL);
 
    if (cache_enabled) {
       cache->cache = _mesa_hash_table_create(NULL, shader_bin_key_hash_func,
@@ -297,7 +297,7 @@ anv_pipeline_cache_init(struct anv_pipeline_cache *cache,
 void
 anv_pipeline_cache_finish(struct anv_pipeline_cache *cache)
 {
-   pthread_mutex_destroy(&cache->mutex);
+   pthread_rwlock_destroy(&cache->rwlock);
 
    if (cache->cache) {
       /* This is a bit unfortunate.  In order to keep things from randomly
@@ -341,12 +341,12 @@ anv_pipeline_cache_search(struct anv_pipeline_cache *cache,
    if (!cache->cache)
       return NULL;
 
-   pthread_mutex_lock(&cache->mutex);
+   pthread_rwlock_rdlock(&cache->rwlock);
 
    struct anv_shader_bin *shader =
       anv_pipeline_cache_search_locked(cache, key_data, key_size);
 
-   pthread_mutex_unlock(&cache->mutex);
+   pthread_rwlock_unlock(&cache->rwlock);
 
    /* We increment refcount before handing it to the caller */
    if (shader)
@@ -362,7 +362,7 @@ anv_pipeline_cache_add_shader_bin(struct anv_pipeline_cache *cache,
    if (!cache->cache)
       return;
 
-   pthread_mutex_lock(&cache->mutex);
+   pthread_rwlock_wrlock(&cache->rwlock);
 
    struct hash_entry *entry = _mesa_hash_table_search(cache->cache, bin->key);
    if (entry == NULL) {
@@ -371,7 +371,7 @@ anv_pipeline_cache_add_shader_bin(struct anv_pipeline_cache *cache,
       _mesa_hash_table_insert(cache->cache, bin->key, bin);
    }
 
-   pthread_mutex_unlock(&cache->mutex);
+   pthread_rwlock_unlock(&cache->rwlock);
 }
 
 static struct anv_shader_bin *
@@ -422,7 +422,7 @@ anv_pipeline_cache_upload_kernel(struct anv_pipeline_cache *cache,
                                  const struct anv_pipeline_bind_map *bind_map)
 {
    if (cache->cache) {
-      pthread_mutex_lock(&cache->mutex);
+      pthread_rwlock_wrlock(&cache->rwlock);
 
       struct anv_shader_bin *bin =
          anv_pipeline_cache_add_shader_locked(cache, key_data, key_size,
@@ -433,7 +433,7 @@ anv_pipeline_cache_upload_kernel(struct anv_pipeline_cache *cache,
                                               stats, num_stats,
                                               xfb_info, bind_map);
 
-      pthread_mutex_unlock(&cache->mutex);
+      pthread_rwlock_unlock(&cache->rwlock);
 
       /* We increment refcount before handing it to the caller */
       if (bin)
@@ -750,12 +750,12 @@ anv_device_search_for_nir(struct anv_device *device,
    if (cache && cache->nir_cache) {
       const struct serialized_nir *snir = NULL;
 
-      pthread_mutex_lock(&cache->mutex);
+      pthread_rwlock_rdlock(&cache->rwlock);
       struct hash_entry *entry =
          _mesa_hash_table_search(cache->nir_cache, sha1_key);
       if (entry)
          snir = entry->data;
-      pthread_mutex_unlock(&cache->mutex);
+      pthread_rwlock_unlock(&cache->rwlock);
 
       if (snir) {
          struct blob_reader blob;
@@ -780,10 +780,10 @@ anv_device_upload_nir(struct anv_device *device,
                       unsigned char sha1_key[20])
 {
    if (cache && cache->nir_cache) {
-      pthread_mutex_lock(&cache->mutex);
+      pthread_rwlock_rdlock(&cache->rwlock);
       struct hash_entry *entry =
          _mesa_hash_table_search(cache->nir_cache, sha1_key);
-      pthread_mutex_unlock(&cache->mutex);
+      pthread_rwlock_unlock(&cache->rwlock);
       if (entry)
          return;
 
@@ -796,7 +796,7 @@ anv_device_upload_nir(struct anv_device *device,
          return;
       }
 
-      pthread_mutex_lock(&cache->mutex);
+      pthread_rwlock_wrlock(&cache->rwlock);
       /* Because ralloc isn't thread-safe, we have to do all this inside the
        * lock.  We could unlock for the big memcpy but it's probably not worth
        * the hassle.
@@ -804,7 +804,7 @@ anv_device_upload_nir(struct anv_device *device,
       entry = _mesa_hash_table_search(cache->nir_cache, sha1_key);
       if (entry) {
          blob_finish(&blob);
-         pthread_mutex_unlock(&cache->mutex);
+         pthread_rwlock_unlock(&cache->rwlock);
          return;
       }
 
@@ -818,6 +818,6 @@ anv_device_upload_nir(struct anv_device *device,
 
       _mesa_hash_table_insert(cache->nir_cache, snir->sha1_key, snir);
 
-      pthread_mutex_unlock(&cache->mutex);
+      pthread_rwlock_unlock(&cache->rwlock);
    }
 }

@@ -1181,7 +1181,7 @@ struct anv_queue {
 
 struct anv_pipeline_cache {
    struct anv_device *                          device;
-   pthread_mutex_t                              mutex;
+   pthread_rwlock_t                             rwlock;
 
    struct hash_table *                          nir_cache;
 
