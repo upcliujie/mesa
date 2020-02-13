@@ -227,11 +227,8 @@ gen6_md.extend([
 #
 # Gen6 and earlier math box instructions cannot have source modifiers.  Emit
 # explict resolve instructions here.
-for op, gen_op in (('frcp',  'SHADER_OPCODE_RCP'),
-                   ('fexp2', 'SHADER_OPCODE_EXP2'),
+for op, gen_op in (('fexp2', 'SHADER_OPCODE_EXP2'),
                    ('flog2', 'SHADER_OPCODE_LOG2'),
-                   ('fsin',  'SHADER_OPCODE_SIN'),
-                   ('fcos',  'SHADER_OPCODE_COS'),
                    ('fsqrt', 'SHADER_OPCODE_SQRT'),
                    ('frsq',  'SHADER_OPCODE_RSQ')):
     gen6_md.extend([
@@ -239,21 +236,43 @@ for op, gen_op in (('frcp',  'SHADER_OPCODE_RCP'),
     ])
 
 gen6_md.extend([
-    (('fpow', 'a(no_src_mod)',  'b(no_src_mod)'), Instruction('SHADER_OPCODE_POW', r, a, b)),
-    (('fpow', 'a(any_src_mod)', 'b(no_src_mod)'),  [TempReg(t0, F),
-                                                    Instruction('MOV', t0, a),
-                                                    Instruction('SHADER_OPCODE_POW', r, t0, b)]
+    # For frcp: f(-a) = -f(a) and f(abs(a)) = abs(f(a))
+    (('frcp', ('fneg', ('fabs', a))), [TempReg(t0, F),
+                                       Instruction('SHADER_OPCODE_RCP', t0, a),
+                                       Instruction('MOV', r, neg(abs(t0)))]
     ),
-    (('fpow', 'a(no_src_mod)',  'b(any_src_mod)'), [TempReg(t0, F),
-                                                    Instruction('MOV', t0, b),
-                                                    Instruction('SHADER_OPCODE_POW', r, a, t0)]
+    (('frcp', ('fneg', a)), [TempReg(t0, F),
+                             Instruction('SHADER_OPCODE_RCP', t0, a),
+                             Instruction('MOV', r, neg(t0))]
     ),
-    (('fpow', 'a(any_src_mod)', 'b(any_src_mod)'), [TempReg(t0, F),
-                                                    TempReg(t1, F),
-                                                    Instruction('MOV', t0, a),
-                                                    Instruction('MOV', t1, b),
-                                                    Instruction('SHADER_OPCODE_POW', r, t0, t1)]
+    (('frcp', ('fabs', a)), [TempReg(t0, F),
+                             Instruction('SHADER_OPCODE_RCP', t0, a),
+                             Instruction('MOV', r, abs(t0))]
     ),
+    (('frcp', a), Instruction('SHADER_OPCODE_RCP', r, a)),
+
+    # For fsin: f(-a) = -f(a)
+    #
+    # FINISHME: Don't apply the optimization for fsin(-fabs(x)) because this
+    # can result in two resolving moves.
+    (('fsin', ('fneg', a)), [TempReg(t0, F),
+                             Instruction('SHADER_OPCODE_SIN', t0, a),
+                             Instruction('MOV', r, neg(t0))]
+    ),
+    (('fsin', a), Instruction('SHADER_OPCODE_SIN', r, a)),
+
+    # For fcos: f(-a) = f(a) and f(abs(a)) = f(a)
+    (('fcos', ('fneg', ('fabs', a))), Instruction('SHADER_OPCODE_COS', r, a)),
+    (('fcos', ('fneg', a)), Instruction('SHADER_OPCODE_COS', r, a)),
+    (('fcos', ('fabs', a)), Instruction('SHADER_OPCODE_COS', r, a)),
+    (('fcos', a), Instruction('SHADER_OPCODE_COS', r, a)),
+
+    # For fpow: f(abs(a), b) = abs(f(a, b))
+    (('fpow', ('fabs', a), b), [TempReg(t0, F),
+                                Instruction('SHADER_OPCODE_POW', t0, a, b),
+                                Instruction('MOV', r, abs(t0))]
+    ),
+    (('fpow',          a , b), Instruction('SHADER_OPCODE_POW', r, a, b)),
 
     (('fsign', 'a@32'), [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
                          Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
