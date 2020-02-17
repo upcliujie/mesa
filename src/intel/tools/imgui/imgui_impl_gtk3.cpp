@@ -225,6 +225,11 @@ static void kick_timeout_redraw(float timeout)
     g_RedrawTimeout = g_timeout_add(timeout * 1000, timeout_callback, NULL);
 }
 
+void ImGui_ImplGtk3_Schedule_NewFrame()
+{
+    gtk_widget_queue_draw(g_GtkGlArea);
+}
+
 void ImGui_ImplGtk3_NewFrame()
 {
     bool next_redraw = false;

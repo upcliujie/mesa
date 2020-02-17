@@ -13,3 +13,4 @@ IMGUI_API void          ImGui_ImplGtk3_HandleEvent(GdkEvent *event);
 
 IMGUI_API void          ImGui_ImplGtk3_Shutdown();
 IMGUI_API void          ImGui_ImplGtk3_NewFrame();
+IMGUI_API void          ImGui_ImplGtk3_Schedule_NewFrame();
