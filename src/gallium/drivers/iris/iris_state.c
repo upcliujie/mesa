@@ -7395,6 +7395,18 @@ gen9_toggle_preemption(struct iris_context *ice,
 #endif
 
 static void
+iris_fence_wait(struct iris_batch *batch, struct iris_fine_fence *fine)
+{
+   iris_emit_cmd(batch, GENX(MI_SEMAPHORE_WAIT), sema) {
+      sema.CompareOperation = COMPARE_SAD_GREATER_THAN_OR_EQUAL_SDD;
+      sema.WaitMode = PollingMode;
+      sema.SemaphoreDataDword = fine->seqno;
+      sema.SemaphoreAddress =
+         ro_bo(iris_resource_bo(fine->ref.res), fine->ref.offset);
+   }
+}
+
+static void
 iris_lost_genx_state(struct iris_context *ice, struct iris_batch *batch)
 {
    struct iris_genx_state *genx = ice->state.genx;
@@ -7596,6 +7608,7 @@ genX(init_state)(struct iris_context *ice)
    screen->vtbl.populate_fs_key = iris_populate_fs_key;
    screen->vtbl.populate_cs_key = iris_populate_cs_key;
    screen->vtbl.lost_genx_state = iris_lost_genx_state;
+   screen->vtbl.fence_wait = iris_fence_wait;
 
    ice->state.dirty = ~0ull;
 

@@ -239,38 +239,58 @@ iris_fence_await(struct pipe_context *ctx,
                  struct pipe_fence_handle *fence)
 {
    struct iris_context *ice = (struct iris_context *)ctx;
+   struct iris_screen *screen = (struct iris_screen *)ctx->screen;
 
    /* Unflushed fences from the same context are no-ops. */
    if (ctx && ctx == fence->unflushed_ctx)
       return;
 
+   /* Timeslicing also implies HAS_SUBMIT_FENCE */
+   bool use_semaphores = screen->kernel_features & KERNEL_HAS_TIMESLICING;
+
    /* XXX: We can't safely flush the other context, because it might be
     *      bound to another thread, and poking at its internals wouldn't
-    *      be safe.  In the future we should use MI_SEMAPHORE_WAIT and
-    *      block until the other job has been submitted, relying on
-    *      kernel timeslicing to preempt us until the other job is
-    *      actually flushed and the seqno finally passes.
+    *      be safe.  Our kernel is too old to safely use MI_SEMAPHORE_WAIT,
+    *      so there isn't much we can do.  Just emit a warning.
     */
-   if (fence->unflushed_ctx) {
+   if (!use_semaphores && fence->unflushed_ctx) {
       pipe_debug_message(&ice->dbg, CONFORMANCE, "%s",
                          "glWaitSync on unflushed fence from another context "
                          "is unlikely to work without kernel 5.8+\n");
    }
 
-   /* Flush any current work in our context as it doesn't need to wait
-    * for this fence.  Any future work in our context must wait.
-    */
    for (unsigned b = 0; b < IRIS_BATCH_COUNT; b++) {
       struct iris_batch *batch = &ice->batches[b];
 
       for (unsigned i = 0; i < ARRAY_SIZE(fence->fine); i++) {
          struct iris_fine_fence *fine = fence->fine[i];
+         unsigned flags = I915_EXEC_FENCE_WAIT;
 
          if (iris_fine_fence_signaled(fine))
             continue;
 
-         iris_batch_flush(batch);
-         iris_batch_add_syncobj(batch, fine->syncobj, I915_EXEC_FENCE_WAIT);
+         if (use_semaphores && !(fine->flags & IRIS_FENCE_END)) {
+            /* Emit a MI_SEMAPHORE_WAIT in the batch to make it block until
+             * the seqno has gone past (and WAIT_FOR_SUBMIT in case the batch
+             * that updates the seqno hasn't been submitted yet.)
+             *
+             * This requires kernel scheduler support for preempting the
+             * blocked batch.
+             */
+            screen->vtbl.fence_wait(batch, fine);
+            flags |= I915_EXEC_FENCE_WAIT_SUBMIT;
+         } else {
+            /* We want to wait for the end of the batch, so rather than
+             * using a semaphore wait, we can simply flush and depend on
+             * the end-of-batch syncobj.
+             *
+             * Or, we don't have semaphore support, in which case we
+             * flush because earlier work in this batch doesn't need to
+             * wait for this fence - we just want to stall future work.
+             */
+            iris_batch_flush(batch);
+         }
+         iris_batch_add_syncobj(batch, fine->syncobj, flags);
       }
    }
 }
