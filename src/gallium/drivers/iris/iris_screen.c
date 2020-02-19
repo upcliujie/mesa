@@ -641,6 +641,13 @@ iris_detect_kernel_features(struct iris_screen *screen)
    /* Kernel 5.2+ */
    if (gen_gem_supports_syncobj_wait(screen->fd))
       screen->kernel_features |= KERNEL_HAS_WAIT_FOR_SUBMIT;
+
+   /* Kernel 5.8+ */
+   uint32_t scheduler_caps =
+      iris_getparam_integer(screen->fd, I915_PARAM_HAS_SCHEDULER);
+
+   if (scheduler_caps & I915_SCHEDULER_CAP_TIMESLICING)
+      screen->kernel_features |= KERNEL_HAS_TIMESLICING;
 }
 
 struct pipe_screen *

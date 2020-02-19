@@ -43,6 +43,7 @@ struct iris_tes_prog_key;
 struct iris_gs_prog_key;
 struct iris_fs_prog_key;
 struct iris_cs_prog_key;
+struct iris_seqno;
 enum iris_program_cache_id;
 
 #define READ_ONCE(x) (*(volatile __typeof__(x) *)&(x))
@@ -134,6 +135,7 @@ struct iris_vtable {
    void (*populate_cs_key)(const struct iris_context *ice,
                            struct iris_cs_prog_key *key);
    void (*lost_genx_state)(struct iris_context *ice, struct iris_batch *batch);
+   void (*seqno_wait)(struct iris_batch *batch, struct iris_seqno *seqno);
 };
 
 struct iris_screen {
@@ -171,6 +173,7 @@ struct iris_screen {
    /** Does the kernel support various features (KERNEL_HAS_* bitfield)? */
    unsigned kernel_features;
 #define KERNEL_HAS_WAIT_FOR_SUBMIT (1<<0)
+#define KERNEL_HAS_TIMESLICING     (1<<1)
 
    unsigned subslice_total;
 
