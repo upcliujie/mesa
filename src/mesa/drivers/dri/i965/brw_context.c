@@ -46,6 +46,7 @@
 #include "main/stencil.h"
 #include "main/state.h"
 #include "main/spirv_extensions.h"
+#include "main/shader_time.h"
 
 #include "vbo/vbo.h"
 
@@ -1014,6 +1015,8 @@ brwCreateContext(gl_api api,
       intelDestroyContext(driContextPriv);
       return false;
    }
+   if (getenv("MESA_SHADER_TIME"))
+      ctx->shader_profiling_enabled = true;
 
    driContextSetFlags(ctx, ctx_config->flags);
 

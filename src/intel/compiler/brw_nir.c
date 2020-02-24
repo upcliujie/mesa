@@ -916,6 +916,9 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
 
    UNUSED bool progress; /* Written by OPT */
 
+   if (getenv("MESA_SHADER_TIME"))
+      NIR_PASS_V(nir, nir_shader_time);
+
    OPT(brw_nir_lower_scoped_barriers);
    OPT(nir_opt_combine_memory_barriers, combine_all_barriers, NULL);
 
