@@ -26,6 +26,7 @@
  */
 
 #include "nir.h"
+#include "nir_debug.h"
 #include "compiler/shader_enums.h"
 #include "util/half_float.h"
 #include "vulkan/vulkan_core.h"
@@ -57,6 +58,9 @@ typedef struct {
     * (such as instr or var) to message to print.
     */
    struct hash_table *annotations;
+
+   unsigned last_source;
+   unsigned last_line;
 } print_state;
 
 static void
@@ -1233,6 +1237,29 @@ print_instr(const nir_instr *instr, print_state *state, unsigned tabs)
    FILE *fp = state->fp;
    print_tabs(tabs, fp);
 
+   if (state->last_source != instr->source_file) {
+      state->last_source = instr->source_file;
+      state->last_line = ~instr->source_line;
+      if (instr->source_file != 0)
+         fprintf(state->fp, "/* file: \"%s\" */\n\t",
+                 nir_shader_source_name(state->shader, instr->source_file));
+   }
+   if (state->last_line != instr->source_line) {
+      state->last_line = instr->source_line;
+      if (instr->source_line != 0) {
+         const char *line = NULL;
+         size_t line_len = 0;
+         nir_shader_source_line(state->shader, instr->source_file,
+                                instr->source_line, &line, &line_len);
+         if (line) {
+            fprintf(state->fp, "/* %d: ", instr->source_line);
+            fwrite(line, 1, line_len, state->fp);
+            fprintf(state->fp, " */\n\t");
+         }
+         else
+            fprintf(state->fp, "/* line: %d */\n\t", instr->source_line);
+      }
+   }
    switch (instr->type) {
    case nir_instr_type_alu:
       print_alu_instr(nir_instr_as_alu(instr), state);
@@ -1446,6 +1473,8 @@ init_print_state(print_state *state, nir_shader *shader, FILE *fp)
    state->syms = _mesa_set_create(NULL, _mesa_hash_string,
                                   _mesa_key_string_equal);
    state->index = 0;
+   state->last_source = 0;
+   state->last_line = 0;
 }
 
 static void

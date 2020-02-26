@@ -161,6 +161,8 @@ nir_sweep(nir_shader *nir)
    ralloc_steal(nir, (char *)nir->info.name);
    if (nir->info.label)
       ralloc_steal(nir, (char *)nir->info.label);
+   if (nir->sources)
+      ralloc_steal(nir, nir->sources);
 
    /* Variables and registers are not dead.  Steal them back. */
    steal_list(nir, nir_variable, &nir->uniforms);

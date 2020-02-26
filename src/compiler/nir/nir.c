@@ -399,6 +399,8 @@ instr_init(nir_instr *instr, nir_instr_type type)
    instr->type = type;
    instr->block = NULL;
    exec_node_init(&instr->node);
+   instr->source_file = 0;
+   instr->source_line = 0;
 }
 
 static void

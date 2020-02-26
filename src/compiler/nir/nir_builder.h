@@ -25,6 +25,7 @@
 #define NIR_BUILDER_H
 
 #include "nir_control_flow.h"
+#include "nir_debug.h"
 #include "util/bitscan.h"
 #include "util/half_float.h"
 
@@ -38,6 +39,9 @@ typedef struct nir_builder {
 
    nir_shader *shader;
    nir_function_impl *impl;
+
+   uint16_t source_file;
+   uint16_t source_line;
 } nir_builder;
 
 static inline void
@@ -65,6 +69,8 @@ nir_builder_init_simple_shader(nir_builder *build, void *mem_ctx,
 static inline void
 nir_builder_instr_insert(nir_builder *build, nir_instr *instr)
 {
+   instr->source_file = build->source_file;
+   instr->source_line = build->source_line;
    nir_instr_insert(build->cursor, instr);
 
    /* Move the cursor forward. */
@@ -187,6 +193,8 @@ nir_ssa_undef(nir_builder *build, unsigned num_components, unsigned bit_size)
    if (!undef)
       return NULL;
 
+   undef->instr.source_file = 0;
+   undef->instr.source_line = 0;
    nir_instr_insert(nir_before_cf_list(&build->impl->body), &undef->instr);
 
    return &undef->def;
@@ -1302,6 +1310,25 @@ nir_scoped_memory_barrier(nir_builder *b,
    nir_intrinsic_set_memory_semantics(intrin, semantics);
    nir_intrinsic_set_memory_modes(intrin, modes);
    nir_builder_instr_insert(b, &intrin->instr);
+}
+
+static inline void
+nir_set_source_file(nir_builder *build, const char *file)
+{
+   if (!build->shader)
+      return;
+
+   build->source_file = nir_shader_set_source_file(build->shader, file);
+}
+
+static inline void
+nir_append_source_contents(nir_builder *build, const char *contents)
+{
+   if (!build->shader || !build->source_file)
+      return;
+
+   nir_shader_append_source_contents(build->shader, build->source_file,
+                                     contents);
 }
 
 #endif /* NIR_BUILDER_H */

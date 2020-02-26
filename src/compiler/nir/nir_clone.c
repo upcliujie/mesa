@@ -230,6 +230,13 @@ clone_reg_list(clone_state *state, struct exec_list *dst,
 }
 
 static void
+__clone_debug(nir_instr *dest, const nir_instr *src)
+{
+   dest->source_file = src->source_file;
+   dest->source_line = src->source_line;
+}
+
+static void
 __clone_src(clone_state *state, void *ninstr_or_if,
             nir_src *nsrc, const nir_src *src)
 {
@@ -269,6 +276,7 @@ nir_alu_instr *
 nir_alu_instr_clone(nir_shader *shader, const nir_alu_instr *orig)
 {
    nir_alu_instr *clone = nir_alu_instr_create(shader, orig->op);
+   __clone_debug(&clone->instr, &orig->instr);
 
    clone->exact = orig->exact;
 
@@ -289,6 +297,7 @@ static nir_alu_instr *
 clone_alu(clone_state *state, const nir_alu_instr *alu)
 {
    nir_alu_instr *nalu = nir_alu_instr_create(state->ns, alu->op);
+   __clone_debug(&nalu->instr, &alu->instr);
    nalu->exact = alu->exact;
    nalu->no_signed_wrap = alu->no_signed_wrap;
    nalu->no_unsigned_wrap = alu->no_unsigned_wrap;
@@ -314,6 +323,7 @@ clone_deref_instr(clone_state *state, const nir_deref_instr *deref)
    nir_deref_instr *nderef =
       nir_deref_instr_create(state->ns, deref->deref_type);
 
+   __clone_debug(&nderef->instr, &deref->instr);
    __clone_dst(state, &nderef->instr, &nderef->dest, &deref->dest);
 
    nderef->mode = deref->mode;
@@ -357,6 +367,7 @@ clone_intrinsic(clone_state *state, const nir_intrinsic_instr *itr)
 {
    nir_intrinsic_instr *nitr =
       nir_intrinsic_instr_create(state->ns, itr->intrinsic);
+   __clone_debug(&nitr->instr, &itr->instr);
 
    unsigned num_srcs = nir_intrinsic_infos[itr->intrinsic].num_srcs;
 
@@ -378,6 +389,7 @@ clone_load_const(clone_state *state, const nir_load_const_instr *lc)
    nir_load_const_instr *nlc =
       nir_load_const_instr_create(state->ns, lc->def.num_components,
                                   lc->def.bit_size);
+   __clone_debug(&nlc->instr, &lc->instr);
 
    memcpy(&nlc->value, &lc->value, sizeof(*nlc->value) * lc->def.num_components);
 
@@ -392,6 +404,7 @@ clone_ssa_undef(clone_state *state, const nir_ssa_undef_instr *sa)
    nir_ssa_undef_instr *nsa =
       nir_ssa_undef_instr_create(state->ns, sa->def.num_components,
                                  sa->def.bit_size);
+   __clone_debug(&nsa->instr, &sa->instr);
 
    add_remap(state, &nsa->def, &sa->def);
 
@@ -402,6 +415,7 @@ static nir_tex_instr *
 clone_tex(clone_state *state, const nir_tex_instr *tex)
 {
    nir_tex_instr *ntex = nir_tex_instr_create(state->ns, tex->num_srcs);
+   __clone_debug(&ntex->instr, &tex->instr);
 
    ntex->sampler_dim = tex->sampler_dim;
    ntex->dest_type = tex->dest_type;
@@ -475,6 +489,7 @@ static nir_jump_instr *
 clone_jump(clone_state *state, const nir_jump_instr *jmp)
 {
    nir_jump_instr *njmp = nir_jump_instr_create(state->ns, jmp->type);
+   __clone_debug(&njmp->instr, &jmp->instr);
 
    return njmp;
 }
@@ -484,6 +499,7 @@ clone_call(clone_state *state, const nir_call_instr *call)
 {
    nir_function *ncallee = remap_global(state, call->callee);
    nir_call_instr *ncall = nir_call_instr_create(state->ns, ncallee);
+   __clone_debug(&ncall->instr, &call->instr);
 
    for (unsigned i = 0; i < ncall->num_params; i++)
       __clone_src(state, ncall, &ncall->params[i], &call->params[i]);

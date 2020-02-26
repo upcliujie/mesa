@@ -38,6 +38,7 @@
 #include "util/bitset.h"
 #include "util/macros.h"
 #include "util/format/u_format.h"
+#include "util/u_dynarray.h"
 #include "compiler/nir_types.h"
 #include "compiler/shader_enums.h"
 #include "compiler/shader_info.h"
@@ -660,6 +661,9 @@ typedef enum PACKED {
    nir_instr_type_parallel_copy,
 } nir_instr_type;
 
+#define NIR_INSTR_SOURCE_FILES_MAX_LOG2 3
+#define NIR_INSTR_SOURCE_LINES_MAX_LOG2 (16 - NIR_INSTR_SOURCE_FILES_MAX_LOG2)
+
 typedef struct nir_instr {
    struct exec_node node;
    struct nir_block *block;
@@ -669,6 +673,9 @@ typedef struct nir_instr {
     * flags.  For instance, DCE uses this to store the "dead/live" info.
     */
    uint8_t pass_flags;
+
+   uint16_t source_file : NIR_INSTR_SOURCE_FILES_MAX_LOG2;
+   uint16_t source_line : NIR_INSTR_SOURCE_LINES_MAX_LOG2;
 
    /** generic instruction index. */
    unsigned index;
@@ -2939,6 +2946,12 @@ typedef struct nir_shader_compiler_options {
    nir_lower_doubles_options lower_doubles_options;
 } nir_shader_compiler_options;
 
+typedef struct nir_source_file {
+   char *name;
+   struct util_dynarray/*<char>*/ source;
+   struct util_dynarray/*<char *>*/ lines;
+} nir_source_file;
+
 typedef struct nir_shader {
    /** list of uniforms (nir_variable) */
    struct exec_list uniforms;
@@ -2986,6 +2999,8 @@ typedef struct nir_shader {
     */
    void *constant_data;
    unsigned constant_data_size;
+
+   struct util_dynarray/*<struct nir_source_file>*/ *sources;
 } nir_shader;
 
 #define nir_foreach_function(func, shader) \
@@ -3271,12 +3286,16 @@ void nir_instr_insert(nir_cursor cursor, nir_instr *instr);
 static inline void
 nir_instr_insert_before(nir_instr *instr, nir_instr *before)
 {
+   before->source_file = instr->source_file;
+   before->source_line = instr->source_line;
    nir_instr_insert(nir_before_instr(instr), before);
 }
 
 static inline void
 nir_instr_insert_after(nir_instr *instr, nir_instr *after)
 {
+   after->source_file = instr->source_file;
+   after->source_line = instr->source_line;
    nir_instr_insert(nir_after_instr(instr), after);
 }
 
