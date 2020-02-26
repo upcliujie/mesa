@@ -236,6 +236,8 @@ vtn_const_ssa_value(struct vtn_builder *b, nir_constant *constant,
          unsigned num_components = glsl_get_vector_elements(val->type);
          nir_load_const_instr *load =
             nir_load_const_instr_create(b->shader, num_components, bit_size);
+         load->instr.source_file = b->nb.source_file;
+         load->instr.source_line = b->nb.source_line;
 
          memcpy(load->value, constant->values,
                 sizeof(nir_const_value) * load->def.num_components);
@@ -346,12 +348,16 @@ vtn_foreach_instruction(struct vtn_builder *b, const uint32_t *start,
          b->file = vtn_value(b, w[1], vtn_value_type_string)->str;
          b->line = w[2];
          b->col = w[3];
+         nir_set_source_file(&b->nb, b->file);
+         b->nb.source_line = b->line;
          break;
 
       case SpvOpNoLine:
          b->file = NULL;
          b->line = -1;
          b->col = -1;
+         b->nb.source_file = 0;
+         b->nb.source_line = 0;
          break;
 
       default:
@@ -3859,12 +3865,24 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
       const char *file =
          (count > 3) ? vtn_value(b, w[3], vtn_value_type_string)->str : "";
 
+      nir_set_source_file(&b->nb, file);
+      if (count > 4) {
+         const char *contents = vtn_string_literal(b, &w[4], count - 4, NULL);
+         nir_append_source_contents(&b->nb, contents);
+      }
+
       vtn_info("Parsing SPIR-V from %s %u source file %s", lang, version, file);
+
+      break;
+   }
+
+   case SpvOpSourceContinued: {
+      const char *contents = vtn_string_literal(b, &w[1], count - 1, NULL);
+      nir_append_source_contents(&b->nb, contents);
       break;
    }
 
    case SpvOpSourceExtension:
-   case SpvOpSourceContinued:
    case SpvOpExtension:
    case SpvOpModuleProcessed:
       /* Unhandled, but these are for debug so that's ok. */
@@ -5290,6 +5308,7 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
    words+= 5;
 
    b->shader = nir_shader_create(b, stage, nir_options, NULL);
+   b->nb.shader = b->shader;
 
    /* Handle all the preamble instructions */
    words = vtn_foreach_instruction(b, words, word_end,
