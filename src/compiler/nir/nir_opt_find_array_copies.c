@@ -558,7 +558,7 @@ opt_find_array_copies_block(nir_builder *b, nir_block *block,
          src_deref = NULL;
       }
 
-      state->builder.cursor = nir_after_instr(instr);
+      nir_builder_cursor_after_instr(&state->builder, instr);
       progress |= handle_write(dst_deref, src_deref, instr->index,
                                load_index, state);
    }

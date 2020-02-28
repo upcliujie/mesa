@@ -85,7 +85,7 @@ lower_intrinsic(lower_state *state, nir_intrinsic_instr *intr)
       return false;
 
    if (is_color_output(state, out)) {
-      b->cursor = nir_before_instr(&intr->instr);
+      nir_builder_cursor_before_instr(b, &intr->instr);
       int src = intr->intrinsic == nir_intrinsic_store_deref ? 1 : 0;
       s = nir_ssa_for_src(b, intr->src[src], intr->num_components);
       s = nir_fsat(b, s);

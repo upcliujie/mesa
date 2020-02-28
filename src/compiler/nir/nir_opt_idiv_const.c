@@ -109,7 +109,7 @@ nir_opt_idiv_const_instr(nir_builder *b, nir_alu_instr *alu)
 
    unsigned bit_size = alu->src[1].src.ssa->bit_size;
 
-   b->cursor = nir_before_instr(&alu->instr);
+   nir_builder_cursor_before_instr(b, &alu->instr);
 
    nir_ssa_def *q[4];
    for (unsigned comp = 0; comp < alu->dest.dest.ssa.num_components; comp++) {

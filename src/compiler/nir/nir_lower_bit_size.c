@@ -49,7 +49,7 @@ lower_instr(nir_builder *bld, nir_alu_instr *alu, unsigned bit_size)
 {
    const nir_op op = alu->op;
 
-   bld->cursor = nir_before_instr(&alu->instr);
+   nir_builder_cursor_before_instr(bld, &alu->instr);
 
    /* Convert each source to the requested bit-size */
    nir_ssa_def *srcs[4] = { NULL, NULL, NULL, NULL };

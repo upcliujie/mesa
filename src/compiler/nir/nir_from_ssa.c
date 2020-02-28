@@ -613,7 +613,7 @@ resolve_parallel_copy(nir_parallel_copy_instr *pcopy,
    NIR_VLA(int, to_do, num_copies * 2);
    int to_do_idx = -1;
 
-   state->builder.cursor = nir_before_instr(&pcopy->instr);
+   nir_builder_cursor_before_instr(&state->builder, &pcopy->instr);
 
    /* Now we set everything up:
     *  - All values get assigned a temporary index

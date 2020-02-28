@@ -8479,7 +8479,7 @@ demote_sample_qualifiers(nir_shader *nir)
                 intrin->intrinsic != nir_intrinsic_load_barycentric_at_sample)
                continue;
 
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
             nir_ssa_def *centroid =
                nir_load_barycentric(&b, nir_intrinsic_load_barycentric_centroid,
                                     nir_intrinsic_interp_mode(intrin));

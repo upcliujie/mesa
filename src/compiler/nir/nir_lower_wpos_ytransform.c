@@ -86,7 +86,7 @@ emit_wpos_adjustment(lower_wpos_ytransform_state *state,
    assert(intr->dest.is_ssa);
    wpos_input = &intr->dest.ssa;
 
-   b->cursor = nir_after_instr(&intr->instr);
+   nir_builder_cursor_after_instr(b, &intr->instr);
 
    wpostrans = get_transform(state);
 
@@ -237,7 +237,7 @@ lower_load_pointcoord(lower_wpos_ytransform_state *state,
                       nir_intrinsic_instr *intr)
 {
    nir_builder *b = &state->b;
-   b->cursor = nir_after_instr(&intr->instr);
+   nir_builder_cursor_after_instr(b, &intr->instr);
 
    nir_ssa_def *pntc = &intr->dest.ssa;
    nir_ssa_def *transform = get_transform(state);
@@ -264,7 +264,7 @@ lower_fddy(lower_wpos_ytransform_state *state, nir_alu_instr *fddy)
    nir_builder *b = &state->b;
    nir_ssa_def *p, *pt, *trans;
 
-   b->cursor = nir_before_instr(&fddy->instr);
+   nir_builder_cursor_before_instr(b, &fddy->instr);
 
    p = nir_ssa_for_alu_src(b, fddy, 0);
    trans = get_transform(state);
@@ -287,7 +287,7 @@ lower_interp_deref_at_offset(lower_wpos_ytransform_state *state,
    nir_ssa_def *offset;
    nir_ssa_def *flip_y;
 
-   b->cursor = nir_before_instr(&interp->instr);
+   nir_builder_cursor_before_instr(b, &interp->instr);
 
    offset = nir_ssa_for_src(b, interp->src[1], 2);
    flip_y = nir_fmul(b, nir_channel(b, offset, 1),
@@ -302,7 +302,7 @@ lower_load_sample_pos(lower_wpos_ytransform_state *state,
                       nir_intrinsic_instr *intr)
 {
    nir_builder *b = &state->b;
-   b->cursor = nir_after_instr(&intr->instr);
+   nir_builder_cursor_after_instr(b, &intr->instr);
 
    nir_ssa_def *pos = &intr->dest.ssa;
    nir_ssa_def *scale = nir_channel(b, get_transform(state), 0);

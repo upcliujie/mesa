@@ -58,7 +58,7 @@ convert_instr(nir_builder *bld, nir_alu_instr *alu)
                 op == nir_op_imod ||
                 op == nir_op_irem);
 
-   bld->cursor = nir_before_instr(&alu->instr);
+   nir_builder_cursor_before_instr(bld, &alu->instr);
 
    numer = nir_ssa_for_alu_src(bld, alu, 0);
    denom = nir_ssa_for_alu_src(bld, alu, 1);
@@ -217,7 +217,7 @@ convert_instr_precise(nir_builder *bld, nir_alu_instr *alu)
    if (alu->dest.dest.ssa.bit_size != 32)
       return false;
 
-   bld->cursor = nir_before_instr(&alu->instr);
+   nir_builder_cursor_before_instr(bld, &alu->instr);
 
    nir_ssa_def *numer = nir_ssa_for_alu_src(bld, alu, 0);
    nir_ssa_def *denom = nir_ssa_for_alu_src(bld, alu, 1);

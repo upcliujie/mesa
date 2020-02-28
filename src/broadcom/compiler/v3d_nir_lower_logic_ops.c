@@ -381,7 +381,7 @@ v3d_nir_lower_logic_ops_block(nir_block *block, struct v3d_compile *c)
                                 nir_cf_node_get_function(&block->cf_node);
                         nir_builder b;
                         nir_builder_init(&b, impl);
-                        b.cursor = nir_before_instr(&intr->instr);
+                        nir_builder_cursor_before_instr(&b, &intr->instr);
                         v3d_nir_lower_logic_op_instr(c, &b, intr, rt);
                 }
         }

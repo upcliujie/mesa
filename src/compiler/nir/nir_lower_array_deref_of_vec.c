@@ -100,7 +100,7 @@ nir_lower_array_deref_of_vec_impl(nir_function_impl *impl,
          unsigned num_components = glsl_get_components(vec_deref->type);
          assert(num_components > 1 && num_components <= NIR_MAX_VEC_COMPONENTS);
 
-         b.cursor = nir_after_instr(&intrin->instr);
+         nir_builder_cursor_after_instr(&b, &intrin->instr);
 
          if (intrin->intrinsic == nir_intrinsic_store_deref) {
             assert(intrin->src[1].is_ssa);

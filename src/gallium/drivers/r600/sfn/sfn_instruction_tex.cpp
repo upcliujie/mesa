@@ -139,7 +139,7 @@ const char *TexInstruction::opname(Opcode op)
 
 static bool lower_coord_shift_normalized(nir_builder& b, nir_tex_instr *tex)
 {
-   b.cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(&b, &tex->instr);
 
    nir_ssa_def * size = nir_i2f32(&b, nir_get_texture_size(&b, tex));
    nir_ssa_def *scale = nir_frcp(&b, size);
@@ -155,7 +155,7 @@ static bool lower_coord_shift_normalized(nir_builder& b, nir_tex_instr *tex)
 
 static bool lower_coord_shift_unnormalized(nir_builder& b, nir_tex_instr *tex)
 {
-   b.cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(&b, &tex->instr);
    int coord_index = nir_tex_instr_src_index(tex, nir_tex_src_coord);
    nir_ssa_def *corr = nir_fadd(&b, tex->src[coord_index].src.ssa,
                                 nir_imm_float(&b, -0.5f));
@@ -239,7 +239,7 @@ bool lower_txl_txf_array_or_cube(nir_builder *b, nir_tex_instr *tex)
    assert(nir_tex_instr_src_index(tex, nir_tex_src_ddx) < 0);
    assert(nir_tex_instr_src_index(tex, nir_tex_src_ddy) < 0);
 
-   b->cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(b, &tex->instr);
 
    int lod_idx = nir_tex_instr_src_index(tex, nir_tex_src_lod);
    int bias_idx = nir_tex_instr_src_index(tex, nir_tex_src_bias);

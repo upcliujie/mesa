@@ -108,7 +108,7 @@ lower_pack_impl(nir_function_impl *impl)
              alu_instr->op != nir_op_unpack_32_2x16)
             continue;
 
-         b.cursor = nir_before_instr(&alu_instr->instr);
+         nir_builder_cursor_before_instr(&b, &alu_instr->instr);
 
          nir_ssa_def *src = nir_ssa_for_alu_src(&b, alu_instr, 0);
          nir_ssa_def *dest;

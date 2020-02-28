@@ -754,7 +754,7 @@ vectorize_loads(nir_builder *b, struct vectorize_ctx *ctx,
    bool high_bool = high->intrin->dest.ssa.bit_size == 1;
    nir_ssa_def *data = &first->intrin->dest.ssa;
 
-   b->cursor = nir_after_instr(first->instr);
+   nir_builder_cursor_after_instr(b, first->instr);
 
    /* update the load's destination size and extract data for each of the original loads */
    data->num_components = new_num_components;
@@ -790,7 +790,7 @@ vectorize_loads(nir_builder *b, struct vectorize_ctx *ctx,
       /* let nir_opt_algebraic() remove this addition. this doesn't have much
        * issues with subtracting 16 from expressions like "(i + 1) * 16" because
        * nir_opt_algebraic() turns them into "i * 16 + 16" */
-      b->cursor = nir_before_instr(first->instr);
+      nir_builder_cursor_before_instr(b, first->instr);
 
       nir_ssa_def *new_base = first->intrin->src[info->base_src].ssa;
       new_base = nir_iadd(b, new_base, nir_imm_int(b, -(high_start / 8u)));
@@ -801,7 +801,7 @@ vectorize_loads(nir_builder *b, struct vectorize_ctx *ctx,
 
    /* update the deref */
    if (info->deref_src >= 0) {
-      b->cursor = nir_before_instr(first->instr);
+      nir_builder_cursor_before_instr(b, first->instr);
 
       nir_deref_instr *deref = nir_src_as_deref(first->intrin->src[info->deref_src]);
       if (first != low && high_start != 0)
@@ -838,7 +838,7 @@ vectorize_stores(nir_builder *b, struct vectorize_ctx *ctx,
    ASSERTED unsigned low_size = low->intrin->num_components * get_bit_size(low);
    assert(low_size % new_bit_size == 0);
 
-   b->cursor = nir_before_instr(second->instr);
+   nir_builder_cursor_before_instr(b, second->instr);
 
    /* get new writemasks */
    uint32_t low_write_mask = nir_intrinsic_write_mask(low->intrin);
@@ -890,7 +890,7 @@ vectorize_stores(nir_builder *b, struct vectorize_ctx *ctx,
 
    /* update the deref */
    if (info->deref_src >= 0) {
-      b->cursor = nir_before_instr(second->instr);
+      nir_builder_cursor_before_instr(b, second->instr);
       second->deref = cast_deref(b, new_num_components, new_bit_size,
                                  nir_src_as_deref(low->intrin->src[info->deref_src]));
       nir_instr_rewrite_src(second->instr, &second->intrin->src[info->deref_src],

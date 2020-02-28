@@ -39,7 +39,7 @@ lower_load_store(nir_builder *b,
                  nir_intrinsic_instr *intrin,
                  glsl_type_size_align_func size_align)
 {
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
 
    nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
    nir_variable *var = nir_deref_instr_get_variable(deref);

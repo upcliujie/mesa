@@ -246,7 +246,7 @@ iris_lower_storage_image_derefs(nir_shader *nir)
             nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
             nir_variable *var = nir_deref_instr_get_variable(deref);
 
-            b.cursor = nir_before_instr(&intrin->instr);
+            nir_builder_cursor_before_instr(&b, &intrin->instr);
             nir_ssa_def *index =
                nir_iadd(&b, nir_imm_int(&b, var->data.driver_location),
                             get_aoa_deref_offset(&b, deref, 1));
@@ -419,7 +419,7 @@ iris_setup_uniforms(const struct brw_compiler *compiler,
             /* This one is special because it reads from the shader constant
              * data and not cbuf0 which gallium uploads for us.
              */
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
             nir_ssa_def *offset =
                nir_iadd_imm(&b, nir_ssa_for_src(&b, intrin->src[0], 1),
                                 nir_intrinsic_base(intrin));
@@ -456,7 +456,7 @@ iris_setup_uniforms(const struct brw_compiler *compiler,
                   BRW_PARAM_BUILTIN_CLIP_PLANE(ucp, i);
             }
 
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
             offset = nir_imm_int(&b, ucp_idx[ucp] * sizeof(uint32_t));
             break;
          }
@@ -467,7 +467,7 @@ iris_setup_uniforms(const struct brw_compiler *compiler,
             system_values[patch_vert_idx] =
                BRW_PARAM_BUILTIN_PATCH_VERTICES_IN;
 
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
             offset = nir_imm_int(&b, patch_vert_idx * sizeof(uint32_t));
             break;
          case nir_intrinsic_image_deref_load_param_intel: {
@@ -506,7 +506,7 @@ iris_setup_uniforms(const struct brw_compiler *compiler,
                }
             }
 
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
             offset = nir_iadd(&b,
                get_aoa_deref_offset(&b, deref, BRW_IMAGE_PARAM_SIZE * 4),
                nir_imm_int(&b, img_idx[var->data.binding] * 4 +
@@ -560,7 +560,7 @@ iris_setup_uniforms(const struct brw_compiler *compiler,
             if (load->intrinsic != nir_intrinsic_load_ubo)
                continue;
 
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
 
             assert(load->src[0].is_ssa);
 
@@ -708,7 +708,7 @@ rewrite_src_with_bti(nir_builder *b, struct iris_binding_table *bt,
 {
    assert(bt->sizes[group] > 0);
 
-   b->cursor = nir_before_instr(instr);
+   nir_builder_cursor_before_instr(b, instr);
    nir_ssa_def *bti;
    if (nir_src_is_const(*src)) {
       uint32_t index = nir_src_as_uint(*src);

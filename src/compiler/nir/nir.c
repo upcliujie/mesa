@@ -1914,7 +1914,7 @@ nir_function_impl_lower_instructions(nir_function_impl *impl,
       list_replace(&old_def->if_uses, &old_if_uses);
       list_inithead(&old_def->if_uses);
 
-      b.cursor = nir_after_instr(instr);
+      nir_builder_cursor_after_instr(&b, instr);
       nir_ssa_def *new_def = lower(&b, instr, cb_data);
       if (new_def && new_def != NIR_LOWER_INSTR_PROGRESS) {
          assert(old_def != NULL);

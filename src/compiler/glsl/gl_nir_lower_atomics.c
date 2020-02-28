@@ -109,7 +109,7 @@ lower_deref_instr(nir_builder *b, nir_intrinsic_instr *instr,
    const unsigned idx = use_binding_as_idx ? var->data.binding :
       shader_program->data->UniformStorage[uniform_loc].opaque[shader->info.stage].index;
 
-   b->cursor = nir_before_instr(&instr->instr);
+   nir_builder_cursor_before_instr(b, &instr->instr);
 
    nir_ssa_def *offset = nir_imm_int(b, var->data.offset);
    for (nir_deref_instr *d = deref; d->deref_type != nir_deref_type_var;

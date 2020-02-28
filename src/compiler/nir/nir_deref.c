@@ -737,7 +737,7 @@ nir_rematerialize_derefs_in_use_blocks_impl(nir_function_impl *impl)
          if (instr->type == nir_instr_type_phi)
             continue;
 
-         state.builder.cursor = nir_before_instr(instr);
+         nir_builder_cursor_before_instr(&state.builder, instr);
          nir_foreach_src(instr, rematerialize_deref_src, &state);
       }
 
@@ -925,7 +925,7 @@ nir_opt_deref_impl(nir_function_impl *impl)
          if (instr->type != nir_instr_type_deref)
             continue;
 
-         b.cursor = nir_before_instr(instr);
+         nir_builder_cursor_before_instr(&b, instr);
 
          nir_deref_instr *deref = nir_instr_as_deref(instr);
          switch (deref->deref_type) {

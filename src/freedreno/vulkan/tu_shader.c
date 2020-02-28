@@ -347,7 +347,7 @@ lower_impl(nir_function_impl *impl, struct tu_shader *shader,
 
    nir_foreach_block(block, impl) {
       nir_foreach_instr_safe(instr, block) {
-         b.cursor = nir_before_instr(instr);
+         nir_builder_cursor_before_instr(&b, instr);
          switch (instr->type) {
          case nir_instr_type_tex:
             progress |= lower_sampler(&b, nir_instr_as_tex(instr), shader, layout);

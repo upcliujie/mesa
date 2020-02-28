@@ -384,7 +384,7 @@ lower_image_load_instr(nir_builder *b,
       intrin->num_components = isl_format_get_num_channels(lower_fmt);
       intrin->dest.ssa.num_components = intrin->num_components;
 
-      b->cursor = nir_after_instr(&intrin->instr);
+      nir_builder_cursor_after_instr(b, &intrin->instr);
 
       nir_ssa_def *color = convert_color_for_load(b, devinfo,
                                                   &intrin->dest.ssa,
@@ -540,7 +540,7 @@ lower_image_store_instr(nir_builder *b,
          isl_lower_storage_image_format(devinfo, image_fmt);
 
       /* Color conversion goes before the store */
-      b->cursor = nir_before_instr(&intrin->instr);
+      nir_builder_cursor_before_instr(b, &intrin->instr);
 
       nir_ssa_def *color = convert_color_for_store(b, devinfo,
                                                    intrin->src[3].ssa,

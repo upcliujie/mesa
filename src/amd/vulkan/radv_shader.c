@@ -578,7 +578,7 @@ lower_view_index(nir_shader *nir)
 			if (!layer)
 				layer = find_layer_in_var(nir);
 
-			b.cursor = nir_before_instr(instr);
+			nir_builder_cursor_before_instr(&b, instr);
 			nir_ssa_def *def = nir_load_var(&b, layer);
 			nir_ssa_def_rewrite_uses(&load->dest.ssa,
 						 nir_src_for_ssa(def));

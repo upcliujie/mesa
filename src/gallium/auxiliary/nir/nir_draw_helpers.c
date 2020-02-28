@@ -178,7 +178,7 @@ nir_lower_aaline_block(nir_block *block,
          continue;
 
       nir_ssa_def *out_input = intrin->src[1].ssa;
-      b->cursor = nir_before_instr(instr);
+      nir_builder_cursor_before_instr(b, instr);
       nir_ssa_def *lw = nir_load_var(b, state->line_width_input);
       nir_ssa_def *tmp = nir_fsat(b, nir_fadd(b, nir_channel(b, lw, 1),
                                               nir_fneg(b, nir_fabs(b, nir_channel(b, lw, 0)))));
@@ -273,7 +273,7 @@ nir_lower_aapoint_block(nir_block *block,
          continue;
 
       nir_ssa_def *out_input = intrin->src[1].ssa;
-      b->cursor = nir_before_instr(instr);
+      nir_builder_cursor_before_instr(b, instr);
 
       nir_ssa_def *tmp = nir_fmul(b, nir_channel(b, out_input, 3), sel);
       nir_ssa_def *out = nir_vec4(b, nir_channel(b, out_input, 0),

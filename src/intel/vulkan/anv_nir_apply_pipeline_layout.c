@@ -205,7 +205,7 @@ build_index_for_res_reindex(nir_intrinsic_instr *intrin,
       nir_ssa_def *bti =
          build_index_for_res_reindex(nir_src_as_intrinsic(intrin->src[0]), state);
 
-      b->cursor = nir_before_instr(&intrin->instr);
+      nir_builder_cursor_before_instr(b, &intrin->instr);
       return nir_iadd(b, bti, nir_ssa_for_src(b, intrin->src[1], 1));
    }
 
@@ -220,7 +220,7 @@ build_index_for_res_reindex(nir_intrinsic_instr *intrin,
    uint32_t surface_index = state->set[set].surface_offsets[binding];
    uint32_t array_size = bind_layout->array_size;
 
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
 
    nir_ssa_def *array_index = nir_ssa_for_src(b, intrin->src[0], 1);
    if (nir_src_is_const(intrin->src[0]) || state->add_bounds_checks)
@@ -239,7 +239,7 @@ build_index_offset_for_deref(nir_deref_instr *deref,
    if (parent) {
       nir_ssa_def *addr = build_index_offset_for_deref(parent, state);
 
-      b->cursor = nir_before_instr(&deref->instr);
+      nir_builder_cursor_before_instr(b, &deref->instr);
       return nir_explicit_io_address_from_deref(b, deref, addr,
                                                 nir_address_format_32bit_index_offset);
    }
@@ -251,7 +251,7 @@ build_index_offset_for_deref(nir_deref_instr *deref,
       build_index_for_res_reindex(nir_src_as_intrinsic(load_desc->src[0]), state);
 
    /* Return a 0 offset which will get picked up by the recursion */
-   b->cursor = nir_before_instr(&deref->instr);
+   nir_builder_cursor_before_instr(b, &deref->instr);
    return nir_vec2(b, index, nir_imm_int(b, 0));
 }
 
@@ -282,7 +282,7 @@ try_lower_direct_buffer_intrinsic(nir_intrinsic_instr *intrin, bool is_atomic,
 
    nir_ssa_def *addr = build_index_offset_for_deref(deref, state);
 
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
    nir_lower_explicit_io_instr(b, intrin, addr,
                                nir_address_format_32bit_index_offset);
    return true;
@@ -356,7 +356,7 @@ lower_res_index_intrinsic(nir_intrinsic_instr *intrin,
 {
    nir_builder *b = &state->builder;
 
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
 
    uint32_t set = nir_intrinsic_desc_set(intrin);
    uint32_t binding = nir_intrinsic_binding(intrin);
@@ -441,7 +441,7 @@ lower_res_reindex_intrinsic(nir_intrinsic_instr *intrin,
 {
    nir_builder *b = &state->builder;
 
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
 
    const VkDescriptorType desc_type = nir_intrinsic_desc_type(intrin);
 
@@ -547,7 +547,7 @@ lower_load_vulkan_descriptor(nir_intrinsic_instr *intrin,
 {
    nir_builder *b = &state->builder;
 
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
 
    const VkDescriptorType desc_type = nir_intrinsic_desc_type(intrin);
 
@@ -654,7 +654,7 @@ lower_get_buffer_size(nir_intrinsic_instr *intrin,
 
    nir_builder *b = &state->builder;
 
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
 
    const VkDescriptorType desc_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 
@@ -734,7 +734,7 @@ lower_image_intrinsic(nir_intrinsic_instr *intrin,
    unsigned binding_offset = state->set[set].surface_offsets[binding];
 
    nir_builder *b = &state->builder;
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
 
    ASSERTED const bool use_bindless = state->pdevice->has_bindless_images;
 
@@ -782,7 +782,7 @@ lower_load_constant(nir_intrinsic_instr *intrin,
 {
    nir_builder *b = &state->builder;
 
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
 
    /* Any constant-offset load_constant instructions should have been removed
     * by constant folding.
@@ -962,14 +962,14 @@ lower_gen7_tex_swizzle(nir_tex_instr *tex, unsigned plane,
       return;
 
    nir_builder *b = &state->builder;
-   b->cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(b, &tex->instr);
 
    const unsigned plane_offset =
       plane * sizeof(struct anv_texture_swizzle_descriptor);
    nir_ssa_def *swiz =
       build_descriptor_load(deref, plane_offset, 1, 32, state);
 
-   b->cursor = nir_after_instr(&tex->instr);
+   nir_builder_cursor_after_instr(b, &tex->instr);
 
    assert(tex->dest.ssa.bit_size == 32);
    assert(tex->dest.ssa.num_components == 4);
@@ -1014,7 +1014,7 @@ lower_tex(nir_tex_instr *tex, struct apply_pipeline_layout_state *state)
    if (state->pdevice->info.gen == 7 && !state->pdevice->info.is_haswell)
       lower_gen7_tex_swizzle(tex, plane, state);
 
-   state->builder.cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(&state->builder, &tex->instr);
 
    lower_tex_deref(tex, nir_tex_src_texture_deref,
                    &tex->texture_index, plane, state);

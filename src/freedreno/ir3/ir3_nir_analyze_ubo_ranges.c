@@ -164,7 +164,7 @@ lower_ubo_load_to_uniform(nir_intrinsic_instr *instr, nir_builder *b,
 			return;
 	}
 
-	b->cursor = nir_before_instr(&instr->instr);
+	nir_builder_cursor_before_instr(b, &instr->instr);
 
 	nir_ssa_def *ubo_offset = nir_ssa_for_src(b, instr->src[1], 1);
 	unsigned const_offset = 0;

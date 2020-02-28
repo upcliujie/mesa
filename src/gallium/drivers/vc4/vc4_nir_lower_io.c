@@ -171,7 +171,7 @@ static void
 vc4_nir_lower_vertex_attr(struct vc4_compile *c, nir_builder *b,
                           nir_intrinsic_instr *intr)
 {
-        b->cursor = nir_before_instr(&intr->instr);
+        nir_builder_cursor_before_instr(b, &intr->instr);
 
         int attr = nir_intrinsic_base(intr);
         enum pipe_format format = c->vs_key->attr_formats[attr];
@@ -240,7 +240,7 @@ static void
 vc4_nir_lower_fs_input(struct vc4_compile *c, nir_builder *b,
                        nir_intrinsic_instr *intr)
 {
-        b->cursor = nir_after_instr(&intr->instr);
+        nir_builder_cursor_after_instr(b, &intr->instr);
 
         if (nir_intrinsic_base(intr) >= VC4_NIR_TLB_COLOR_READ_INPUT &&
             nir_intrinsic_base(intr) < (VC4_NIR_TLB_COLOR_READ_INPUT +
@@ -321,7 +321,7 @@ static void
 vc4_nir_lower_uniform(struct vc4_compile *c, nir_builder *b,
                       nir_intrinsic_instr *intr)
 {
-        b->cursor = nir_before_instr(&intr->instr);
+        nir_builder_cursor_before_instr(b, &intr->instr);
 
         /* Generate scalar loads equivalent to the original vector. */
         nir_ssa_def *dests[4];

@@ -87,7 +87,7 @@ midgard_nir_lod_errata(nir_shader *shader)
                                 if (instr->type != nir_instr_type_tex) continue;
 
                                 nir_tex_instr *tex = nir_instr_as_tex(instr);
-                                b.cursor = nir_before_instr(instr);
+                                nir_builder_cursor_before_instr(&b, instr);
                                 mir_lod_errata_body(&b, tex);
                         }
                 }

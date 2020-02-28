@@ -62,7 +62,7 @@ nir_lower_viewport_transform(nir_shader *shader)
 
             nir_builder b;
             nir_builder_init(&b, func->impl);
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
 
             /* Grab the source and viewport */
             nir_ssa_def *input_point = nir_ssa_for_src(&b, intr->src[1], 4);

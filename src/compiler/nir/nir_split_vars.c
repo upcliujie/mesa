@@ -255,7 +255,7 @@ split_struct_derefs_impl(nir_function_impl *impl,
          nir_deref_instr *new_deref = NULL;
          for (unsigned i = 0; path.path[i]; i++) {
             nir_deref_instr *p = path.path[i];
-            b.cursor = nir_after_instr(&p->instr);
+            nir_builder_cursor_after_instr(&b, &p->instr);
 
             switch (p->deref_type) {
             case nir_deref_type_var:
@@ -777,7 +777,7 @@ split_array_access_impl(nir_function_impl *impl,
             nir_deref_path path;
             nir_deref_path_init(&path, deref, mem_ctx);
 
-            b.cursor = nir_before_instr(&intrin->instr);
+            nir_builder_cursor_before_instr(&b, &intrin->instr);
 
             if (array_path_is_out_of_bounds(&path, info)) {
                /* If one of the derefs is out-of-bounds, we just delete the
@@ -1520,7 +1520,7 @@ shrink_vec_var_access_impl(nir_function_impl *impl,
                continue;
 
             if (intrin->intrinsic == nir_intrinsic_load_deref) {
-               b.cursor = nir_after_instr(&intrin->instr);
+               nir_builder_cursor_after_instr(&b, &intrin->instr);
 
                nir_ssa_def *undef =
                   nir_ssa_undef(&b, 1, intrin->dest.ssa.bit_size);
@@ -1560,7 +1560,7 @@ shrink_vec_var_access_impl(nir_function_impl *impl,
                   }
                }
 
-               b.cursor = nir_before_instr(&intrin->instr);
+               nir_builder_cursor_before_instr(&b, &intrin->instr);
 
                nir_ssa_def *swizzled =
                   nir_swizzle(&b, intrin->src[1].ssa, swizzle, c);

@@ -736,7 +736,7 @@ nir_replace_instr(nir_builder *build, nir_alu_instr *instr,
    fprintf(stderr, " ssa_%d\n", instr->dest.dest.ssa.index);
 #endif
 
-   build->cursor = nir_before_instr(&instr->instr);
+   nir_builder_cursor_before_instr(build, &instr->instr);
 
    state.states = states;
 

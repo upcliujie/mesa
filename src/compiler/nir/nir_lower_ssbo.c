@@ -194,7 +194,7 @@ nir_lower_ssbo(nir_shader *shader)
          nir_foreach_instr_safe(instr, block) {
             if (!should_lower_ssbo_instr(instr)) continue;
             progress = true;
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
 
             nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
             nir_ssa_def *replace = lower_ssbo_instr(&b, intr);

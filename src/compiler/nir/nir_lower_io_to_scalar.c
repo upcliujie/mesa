@@ -34,7 +34,7 @@
 static void
 lower_load_input_to_scalar(nir_builder *b, nir_intrinsic_instr *intr)
 {
-   b->cursor = nir_before_instr(&intr->instr);
+   nir_builder_cursor_before_instr(b, &intr->instr);
 
    assert(intr->dest.is_ssa);
 
@@ -67,7 +67,7 @@ lower_load_input_to_scalar(nir_builder *b, nir_intrinsic_instr *intr)
 static void
 lower_store_output_to_scalar(nir_builder *b, nir_intrinsic_instr *intr)
 {
-   b->cursor = nir_before_instr(&intr->instr);
+   nir_builder_cursor_before_instr(b, &intr->instr);
 
    nir_ssa_def *value = nir_ssa_for_src(b, intr->src[0], intr->num_components);
 
@@ -175,7 +175,7 @@ lower_load_to_scalar_early(nir_builder *b, nir_intrinsic_instr *intr,
                            nir_variable *var, struct hash_table *split_inputs,
                            struct hash_table *split_outputs)
 {
-   b->cursor = nir_before_instr(&intr->instr);
+   nir_builder_cursor_before_instr(b, &intr->instr);
 
    assert(intr->dest.is_ssa);
 
@@ -239,7 +239,7 @@ lower_store_output_to_scalar_early(nir_builder *b, nir_intrinsic_instr *intr,
                                    nir_variable *var,
                                    struct hash_table *split_outputs)
 {
-   b->cursor = nir_before_instr(&intr->instr);
+   nir_builder_cursor_before_instr(b, &intr->instr);
 
    nir_ssa_def *value = nir_ssa_for_src(b, intr->src[1], intr->num_components);
 

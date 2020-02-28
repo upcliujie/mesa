@@ -41,7 +41,7 @@
 static bool
 lower_instr(nir_intrinsic_instr *instr, nir_builder *b, int multiplier)
 {
-   b->cursor = nir_before_instr(&instr->instr);
+   nir_builder_cursor_before_instr(b, &instr->instr);
 
    /* Increase all UBO binding points by 1. */
    if (instr->intrinsic == nir_intrinsic_load_ubo &&

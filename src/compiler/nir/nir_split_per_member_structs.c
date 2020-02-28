@@ -159,7 +159,7 @@ rewrite_deref_instr(nir_builder *b, nir_deref_instr *deref,
                                           var_to_member_map);
    assert(member);
 
-   b->cursor = nir_before_instr(&deref->instr);
+   nir_builder_cursor_before_instr(b, &deref->instr);
    nir_deref_instr *member_deref =
       build_member_deref(b, nir_deref_instr_parent(deref), member);
    nir_ssa_def_rewrite_uses(&deref->dest.ssa,

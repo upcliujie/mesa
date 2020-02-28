@@ -333,7 +333,7 @@ nir_lower_framebuffer(nir_shader *shader, enum pipe_format format,
 
             if (is_store) {
                /* For stores, add conversion before */
-               b.cursor = nir_before_instr(instr);
+               nir_builder_cursor_before_instr(&b, instr);
 
                /* Grab the input color */
                nir_ssa_def *c_nir = nir_ssa_for_src(&b, intr->src[1], 4);
@@ -379,7 +379,7 @@ nir_lower_framebuffer(nir_shader *shader, enum pipe_format format,
                nir_instr_remove(instr);
             } else {
                /* For loads, add conversion after */
-               b.cursor = nir_after_instr(instr);
+               nir_builder_cursor_after_instr(&b, instr);
 
                /* Determine the best op for the format/hardware */
                unsigned bitsize = raw_bitsize_in;

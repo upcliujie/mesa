@@ -619,7 +619,7 @@ vc4_nir_lower_blend_block(nir_block *block, struct vc4_compile *c)
                         nir_cf_node_get_function(&block->cf_node);
                 nir_builder b;
                 nir_builder_init(&b, impl);
-                b.cursor = nir_before_instr(&intr->instr);
+                nir_builder_cursor_before_instr(&b, &intr->instr);
                 vc4_nir_lower_blend_instr(c, &b, intr);
         }
         return true;

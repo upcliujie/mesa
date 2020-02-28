@@ -329,7 +329,7 @@ nir_atan2(nir_builder *b, nir_ssa_def *y, nir_ssa_def *x)
 nir_ssa_def *
 nir_get_texture_size(nir_builder *b, nir_tex_instr *tex)
 {
-   b->cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(b, &tex->instr);
 
    nir_tex_instr *txs;
 
@@ -381,7 +381,7 @@ nir_get_texture_size(nir_builder *b, nir_tex_instr *tex)
 nir_ssa_def *
 nir_get_texture_lod(nir_builder *b, nir_tex_instr *tex)
 {
-   b->cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(b, &tex->instr);
 
    nir_tex_instr *tql;
 

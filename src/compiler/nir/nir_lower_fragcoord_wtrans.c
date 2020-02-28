@@ -39,7 +39,7 @@ lower_fragcoord_wtrans(nir_builder *b, nir_intrinsic_instr *intr)
 {
    assert(intr->dest.is_ssa);
 
-   b->cursor = nir_before_instr(&intr->instr);
+   nir_builder_cursor_before_instr(b, &intr->instr);
 
    nir_ssa_def *fragcoord_in = nir_load_frag_coord(b);
    nir_ssa_def *w_rcp = nir_frcp(b, nir_channel(b, fragcoord_in, 3));

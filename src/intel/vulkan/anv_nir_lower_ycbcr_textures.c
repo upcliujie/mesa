@@ -365,7 +365,7 @@ try_lower_tex_ycbcr(const struct anv_pipeline_layout *layout,
       .conversion = sampler->conversion,
    };
 
-   builder->cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(builder, &tex->instr);
 
    const struct anv_format *format = state.conversion->format;
    const struct isl_format_layout *y_isl_layout = NULL;

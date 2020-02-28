@@ -234,7 +234,7 @@ lower_sampler(nir_tex_instr *instr, struct lower_samplers_as_deref_state *state,
    int sampler_idx =
       nir_tex_instr_src_index(instr, nir_tex_src_sampler_deref);
 
-   b->cursor = nir_before_instr(&instr->instr);
+   nir_builder_cursor_before_instr(b, &instr->instr);
 
    if (texture_idx >= 0) {
       assert(instr->src[texture_idx].src.is_ssa);
@@ -283,7 +283,7 @@ lower_intrinsic(nir_intrinsic_instr *instr,
        instr->intrinsic == nir_intrinsic_image_deref_atomic_fadd ||
        instr->intrinsic == nir_intrinsic_image_deref_size) {
 
-      b->cursor = nir_before_instr(&instr->instr);
+      nir_builder_cursor_before_instr(b, &instr->instr);
       nir_deref_instr *deref =
          lower_deref(b, state, nir_src_as_deref(instr->src[0]));
       /* don't lower bindless: */

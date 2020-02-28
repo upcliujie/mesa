@@ -202,7 +202,7 @@ anv_nir_lower_multiview(nir_shader *shader, uint32_t view_mask)
       nir_builder *b = &state.builder;
 
       assert(view_index->parent_instr->block == nir_start_block(entrypoint));
-      b->cursor = nir_after_instr(view_index->parent_instr);
+      nir_builder_cursor_after_instr(b, view_index->parent_instr);
 
       /* Unless there is only one possible view index (that would be set
        * directly), pass it to the next stage. */

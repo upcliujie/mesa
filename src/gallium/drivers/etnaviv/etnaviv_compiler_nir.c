@@ -85,7 +85,7 @@ etna_lower_io(nir_shader *shader, struct etna_shader_variant *v)
                    */
                   intr->dest.ssa.bit_size = 32;
 
-                  b.cursor = nir_after_instr(instr);
+                  nir_builder_cursor_after_instr(&b, instr);
 
                   nir_ssa_def *ssa = nir_ine(&b, &intr->dest.ssa, nir_imm_int(&b, 0));
                   if (v->key.front_ccw)
@@ -106,7 +106,7 @@ etna_lower_io(nir_shader *shader, struct etna_shader_variant *v)
                       deref->var->data.location != FRAG_RESULT_DATA0)
                       break;
 
-                  b.cursor = nir_before_instr(instr);
+                  nir_builder_cursor_before_instr(&b, instr);
 
                   nir_ssa_def *ssa = nir_mov(&b, intr->src[1].ssa);
                   nir_alu_instr *alu = nir_instr_as_alu(ssa->parent_instr);
@@ -128,7 +128,7 @@ etna_lower_io(nir_shader *shader, struct etna_shader_variant *v)
                   nir_ssa_dest_init(&load_ubo->instr, &load_ubo->dest,
                                     load_ubo->num_components, 32, NULL);
 
-                  b.cursor = nir_before_instr(instr);
+                  nir_builder_cursor_before_instr(&b, instr);
                   load_ubo->src[0] = nir_src_for_ssa(nir_imm_int(&b, 0));
                   load_ubo->src[1] = nir_src_for_ssa(nir_iadd(&b,
                      nir_imul(&b, intr->src[0].ssa, nir_imm_int(&b, 16)),
@@ -142,7 +142,7 @@ etna_lower_io(nir_shader *shader, struct etna_shader_variant *v)
                   nir_const_value *idx = nir_src_as_const_value(intr->src[0]);
                   assert(idx);
                   /* offset index by 1, index 0 is used for converted load_uniform */
-                  b.cursor = nir_before_instr(instr);
+                  nir_builder_cursor_before_instr(&b, instr);
                   nir_instr_rewrite_src(instr, &intr->src[0],
                                         nir_src_for_ssa(nir_imm_int(&b, idx[0].u32 + 1)));
                } break;
@@ -187,7 +187,7 @@ etna_lower_io(nir_shader *shader, struct etna_shader_variant *v)
 
             if (tex->sampler_dim == GLSL_SAMPLER_DIM_RECT) {
                /* use a dummy load_uniform here to represent texcoord scale */
-               b.cursor = nir_before_instr(instr);
+               nir_builder_cursor_before_instr(&b, instr);
                nir_intrinsic_instr *load =
                   nir_intrinsic_instr_create(b.shader, nir_intrinsic_load_uniform);
                nir_intrinsic_set_base(load, ~tex->sampler_index);
@@ -294,7 +294,7 @@ etna_lower_alu_impl(nir_function_impl *impl, struct etna_compile *c)
           * TODO: do this earlier (but it breaks const_prop opt)
           */
          if (alu->op == nir_op_fsin || alu->op == nir_op_fcos) {
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
 
             nir_ssa_def *imm = c->specs->has_new_transcendentals ?
                nir_imm_float(&b, 1.0 / M_PI) :

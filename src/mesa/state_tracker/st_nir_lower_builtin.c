@@ -199,7 +199,7 @@ lower_builtin_block(lower_builtin_state *state, nir_block *block)
       nir_variable *new_var = get_variable(state, &path, element);
       nir_deref_path_finish(&path);
 
-      b->cursor = nir_before_instr(instr);
+      nir_builder_cursor_before_instr(b, instr);
 
       nir_ssa_def *def = nir_load_var(b, new_var);
 

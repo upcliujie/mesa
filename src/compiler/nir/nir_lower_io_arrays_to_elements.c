@@ -113,7 +113,7 @@ static void
 lower_array(nir_builder *b, nir_intrinsic_instr *intr, nir_variable *var,
             struct hash_table *varyings)
 {
-   b->cursor = nir_before_instr(&intr->instr);
+   nir_builder_cursor_before_instr(b, &intr->instr);
 
    nir_variable **elements =
       get_array_elements(varyings, var, b->shader->info.stage);

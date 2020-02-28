@@ -354,7 +354,7 @@ brw_nir_lower_gl_images(nir_shader *shader,
             const unsigned image_var_idx =
                storage->opaque[shader->info.stage].index;
 
-            b.cursor = nir_before_instr(&intrin->instr);
+            nir_builder_cursor_before_instr(&b, &intrin->instr);
             nir_ssa_def *index = nir_iadd(&b, nir_imm_int(&b, image_var_idx),
                                           get_aoa_deref_offset(&b, deref, 1));
             nir_rewrite_image_intrinsic(intrin, index, false);
@@ -436,7 +436,7 @@ brw_nir_lower_legacy_clipping(nir_shader *nir, int nr_userclip_plane_consts,
          if (intrin->intrinsic != nir_intrinsic_load_user_clip_plane)
             continue;
 
-         b.cursor = nir_before_instr(instr);
+         nir_builder_cursor_before_instr(&b, instr);
 
          nir_intrinsic_instr *load =
             nir_intrinsic_instr_create(nir, nir_intrinsic_load_uniform);

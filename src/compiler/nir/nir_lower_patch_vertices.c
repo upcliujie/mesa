@@ -78,7 +78,7 @@ nir_lower_patch_vertices(nir_shader *nir,
                   if (intr->intrinsic != nir_intrinsic_load_patch_vertices_in)
                      continue;
 
-                  b.cursor = nir_before_instr(&intr->instr);
+                  nir_builder_cursor_before_instr(&b, &intr->instr);
 
                   nir_ssa_def *val = NULL;
                   if (static_count) {

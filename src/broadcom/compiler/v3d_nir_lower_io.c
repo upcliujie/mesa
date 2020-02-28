@@ -100,7 +100,7 @@ static void
 v3d_nir_lower_uniform(struct v3d_compile *c, nir_builder *b,
                       nir_intrinsic_instr *intr)
 {
-        b->cursor = nir_before_instr(&intr->instr);
+        nir_builder_cursor_before_instr(b, &intr->instr);
 
         nir_intrinsic_set_base(intr, nir_intrinsic_base(intr) * 16);
 
@@ -153,7 +153,7 @@ v3d_nir_lower_vpm_output(struct v3d_compile *c, nir_builder *b,
                          nir_intrinsic_instr *intr,
                          struct v3d_nir_lower_io_state *state)
 {
-        b->cursor = nir_before_instr(&intr->instr);
+        nir_builder_cursor_before_instr(b, &intr->instr);
 
         /* If this is a geometry shader we need to emit our outputs
          * to the current vertex offset in the VPM.
@@ -276,7 +276,7 @@ v3d_nir_lower_emit_vertex(struct v3d_compile *c, nir_builder *b,
                           nir_intrinsic_instr *instr,
                           struct v3d_nir_lower_io_state *state)
 {
-        b->cursor = nir_before_instr(&instr->instr);
+        nir_builder_cursor_before_instr(b, &instr->instr);
 
         nir_ssa_def *header = nir_load_var(b, state->gs.header_var);
         nir_ssa_def *header_offset = nir_load_var(b, state->gs.header_offset_var);
@@ -311,7 +311,7 @@ v3d_nir_lower_end_primitive(struct v3d_compile *c, nir_builder *b,
                             struct v3d_nir_lower_io_state *state)
 {
         assert(state->gs.header_var);
-        b->cursor = nir_before_instr(&instr->instr);
+        nir_builder_cursor_before_instr(b, &instr->instr);
         reset_gs_header(b, state);
 
         nir_instr_remove(&instr->instr);

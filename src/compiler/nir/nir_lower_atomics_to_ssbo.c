@@ -41,7 +41,7 @@ lower_instr(nir_intrinsic_instr *instr, unsigned ssbo_offset, nir_builder *b)
 {
    nir_intrinsic_op op;
 
-   b->cursor = nir_before_instr(&instr->instr);
+   nir_builder_cursor_before_instr(b, &instr->instr);
 
    switch (instr->intrinsic) {
    case nir_intrinsic_memory_barrier_atomic_counter:
@@ -138,7 +138,7 @@ lower_instr(nir_intrinsic_instr *instr, unsigned ssbo_offset, nir_builder *b)
    nir_instr_remove(&instr->instr);
 
    if (instr->intrinsic == nir_intrinsic_atomic_counter_pre_dec) {
-      b->cursor = nir_after_instr(&new_instr->instr);
+      nir_builder_cursor_after_instr(b, &new_instr->instr);
       nir_ssa_def *result = nir_iadd(b, &new_instr->dest.ssa, temp);
       nir_ssa_def_rewrite_uses(&instr->dest.ssa, nir_src_for_ssa(result));
    } else {

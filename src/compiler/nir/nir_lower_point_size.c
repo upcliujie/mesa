@@ -37,7 +37,7 @@ static void
 lower_point_size_instr(nir_builder *b, nir_instr *psiz_instr,
                        float min, float max)
 {
-   b->cursor = nir_before_instr(psiz_instr);
+   nir_builder_cursor_before_instr(b, psiz_instr);
 
    nir_intrinsic_instr *instr = nir_instr_as_intrinsic(psiz_instr);
 

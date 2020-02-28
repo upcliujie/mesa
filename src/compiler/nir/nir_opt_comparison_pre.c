@@ -141,7 +141,7 @@ rewrite_compare_instruction(nir_builder *bld, nir_alu_instr *orig_cmp,
 {
    void *const mem_ctx = ralloc_parent(orig_cmp);
 
-   bld->cursor = nir_before_instr(&orig_cmp->instr);
+   nir_builder_cursor_before_instr(bld, &orig_cmp->instr);
 
    /* This is somewhat tricky.  The compare instruction may be something like
     * (fcmp, a, b) while the add instruction is something like (fadd, fneg(a),

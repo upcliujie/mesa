@@ -52,7 +52,7 @@ update_fragcoord(nir_builder *b, nir_intrinsic_instr *intr,
 
    assert(intr->dest.is_ssa);
 
-   b->cursor = nir_after_instr(&intr->instr);
+   nir_builder_cursor_after_instr(b, &intr->instr);
 
    if (!for_sample_shading) {
       wpos = nir_fadd(b, wpos, nir_imm_vec4(b, 0.5f, 0.5f, 0.0f, 0.0f));

@@ -51,7 +51,7 @@ lower_cs_intrinsics_convert_block(struct lower_intrinsics_state *state,
 
       nir_intrinsic_instr *intrinsic = nir_instr_as_intrinsic(instr);
 
-      b->cursor = nir_after_instr(&intrinsic->instr);
+      nir_builder_cursor_after_instr(b, &intrinsic->instr);
 
       nir_ssa_def *sysval;
       switch (intrinsic->intrinsic) {

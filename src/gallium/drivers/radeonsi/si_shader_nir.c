@@ -873,7 +873,7 @@ si_nir_lower_color(nir_shader *nir)
                         if (deref->mode != nir_var_shader_in)
                                 continue;
 
-                        b.cursor = nir_before_instr(instr);
+                        nir_builder_cursor_before_instr(&b, instr);
                         nir_variable *var = nir_deref_instr_get_variable(deref);
                         nir_ssa_def *def;
 

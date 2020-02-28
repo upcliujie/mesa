@@ -104,7 +104,7 @@ brw_nir_clamp_image_1d_2d_array_sizes(nir_shader *shader)
             if (!image_size)
                continue;
 
-            b.cursor = nir_after_instr(instr);
+            nir_builder_cursor_after_instr(&b, instr);
 
             nir_ssa_def *components[4];
             for (int i = 0; i < image_size->num_components; i++) {
@@ -118,7 +118,7 @@ brw_nir_clamp_image_1d_2d_array_sizes(nir_shader *shader)
             nir_ssa_def *image_size_replacement =
                nir_vec(&b, components, image_size->num_components);
 
-            b.cursor = nir_after_instr(instr);
+            nir_builder_cursor_after_instr(&b, instr);
 
             nir_ssa_def_rewrite_uses_after(image_size,
                                            nir_src_for_ssa(image_size_replacement),

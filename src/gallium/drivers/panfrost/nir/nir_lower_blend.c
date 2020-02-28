@@ -326,7 +326,7 @@ nir_lower_blend(nir_shader *shader, nir_lower_blend_options options)
 
             nir_builder b;
             nir_builder_init(&b, func->impl);
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
 
             /* Grab the input color */
             nir_ssa_def *src = nir_ssa_for_src(&b, intr->src[1], 4);

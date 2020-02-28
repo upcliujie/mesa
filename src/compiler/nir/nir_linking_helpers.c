@@ -846,7 +846,7 @@ replace_constant_input(nir_shader *shader, nir_intrinsic_instr *store_intr)
          if (!does_varying_match(out_var, in_var))
             continue;
 
-         b.cursor = nir_before_instr(instr);
+         nir_builder_cursor_before_instr(&b, instr);
 
          nir_load_const_instr *out_const =
             nir_instr_as_load_const(store_intr->src[1].ssa->parent_instr);
@@ -900,7 +900,7 @@ replace_duplicate_input(nir_shader *shader, nir_variable *input_var,
              get_interp_loc(in_var) != get_interp_loc(input_var))
             continue;
 
-         b.cursor = nir_before_instr(instr);
+         nir_builder_cursor_before_instr(&b, instr);
 
          nir_ssa_def *load = nir_load_var(&b, input_var);
          nir_ssa_def_rewrite_uses(&intr->dest.ssa, nir_src_for_ssa(load));

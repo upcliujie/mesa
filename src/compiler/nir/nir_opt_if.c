@@ -925,7 +925,7 @@ opt_if_simplification(nir_builder *b, nir_if *nif)
       return false;
 
    /* Insert the inverted instruction and rewrite the condition. */
-   b->cursor = nir_after_instr(&alu_instr->instr);
+   nir_builder_cursor_after_instr(b, &alu_instr->instr);
 
    nir_ssa_def *new_condition =
       nir_inot(b, &alu_instr->dest.dest.ssa);

@@ -137,7 +137,7 @@ lower_tex_src_plane_block(nir_builder *b, lower_tex_src_state *state, nir_block 
          int tex_index = nir_tex_instr_src_index(tex, nir_tex_src_texture_deref);
          int samp_index = nir_tex_instr_src_index(tex, nir_tex_src_sampler_deref);
          if (tex_index >= 0 && samp_index >= 0) {
-            b->cursor = nir_before_instr(&tex->instr);
+            nir_builder_cursor_before_instr(b, &tex->instr);
 
             nir_variable* samp = find_sampler(state, plane[0].i32);
             assert(samp);

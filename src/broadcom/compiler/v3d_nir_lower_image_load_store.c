@@ -93,7 +93,7 @@ v3d_nir_lower_image_store(nir_builder *b, nir_intrinsic_instr *instr)
         const struct util_format_channel_description *r_chan = &desc->channel[0];
         unsigned num_components = util_format_get_nr_components(format);
 
-        b->cursor = nir_before_instr(&instr->instr);
+        nir_builder_cursor_before_instr(b, &instr->instr);
 
         nir_ssa_def *color = nir_channels(b,
                                           nir_ssa_for_src(b, instr->src[3], 4),
@@ -168,7 +168,7 @@ v3d_nir_lower_image_load(nir_builder *b, nir_intrinsic_instr *instr)
         if (v3d_gl_format_is_return_32(format))
                 return;
 
-        b->cursor = nir_after_instr(&instr->instr);
+        nir_builder_cursor_after_instr(b, &instr->instr);
 
         assert(instr->dest.is_ssa);
         nir_ssa_def *result = &instr->dest.ssa;

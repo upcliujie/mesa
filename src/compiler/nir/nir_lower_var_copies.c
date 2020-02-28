@@ -108,7 +108,7 @@ nir_lower_deref_copy_instr(nir_builder *b, nir_intrinsic_instr *copy)
    nir_deref_path_init(&dst_path, dst, NULL);
    nir_deref_path_init(&src_path, src, NULL);
 
-   b->cursor = nir_before_instr(&copy->instr);
+   nir_builder_cursor_before_instr(b, &copy->instr);
    emit_deref_copy_load_store(b, dst_path.path[0], &dst_path.path[1],
                                  src_path.path[0], &src_path.path[1],
                                  nir_intrinsic_dst_access(copy),

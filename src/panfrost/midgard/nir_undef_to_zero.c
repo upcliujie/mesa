@@ -67,7 +67,7 @@ nir_undef_to_zero(nir_shader *shader)
             nir_const_value v[NIR_MAX_VEC_COMPONENTS];
             memset(v, 0, sizeof(v));
 
-            b.cursor = nir_before_instr(instr);
+            nir_builder_cursor_before_instr(&b, instr);
             nir_ssa_def *zero = nir_build_imm(&b, c, s, v);
             nir_src zerosrc = nir_src_for_ssa(zero);
 

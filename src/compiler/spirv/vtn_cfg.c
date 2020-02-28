@@ -816,7 +816,7 @@ vtn_handle_phi_second_pass(struct vtn_builder *b, SpvOp opcode,
       if (!pred->end_nop)
          continue;
 
-      b->nb.cursor = nir_after_instr(&pred->end_nop->instr);
+      nir_builder_cursor_after_instr(&b->nb, &pred->end_nop->instr);
 
       struct vtn_ssa_value *src = vtn_ssa_value(b, w[i]);
 

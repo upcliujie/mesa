@@ -53,7 +53,7 @@ apply_attr_wa_block(nir_block *block, struct attr_wa_state *state)
       if (wa_flags == 0)
          continue;
 
-      b->cursor = nir_after_instr(instr);
+      nir_builder_cursor_after_instr(b, instr);
 
       nir_ssa_def *val = &intrin->dest.ssa;
 

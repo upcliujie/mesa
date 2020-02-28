@@ -46,7 +46,7 @@ lower_alu_instr(nir_alu_instr *instr, nir_builder *b)
 
    assert(instr->dest.dest.is_ssa);
 
-   b->cursor = nir_before_instr(&instr->instr);
+   nir_builder_cursor_before_instr(b, &instr->instr);
    b->exact = instr->exact;
 
    switch (instr->op) {

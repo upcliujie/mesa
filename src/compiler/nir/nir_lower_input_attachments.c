@@ -138,7 +138,7 @@ try_lower_input_texop(nir_function_impl *impl, nir_tex_instr *tex,
 
    nir_builder b;
    nir_builder_init(&b, impl);
-   b.cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(&b, &tex->instr);
 
    nir_ssa_def *frag_coord = use_fragcoord_sysval ? nir_load_frag_coord(&b)
                                                   : load_frag_coord(&b);

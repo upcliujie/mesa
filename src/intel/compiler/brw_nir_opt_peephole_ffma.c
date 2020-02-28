@@ -225,7 +225,7 @@ brw_nir_opt_peephole_ffma_block(nir_builder *b, nir_block *block)
          continue;
       }
 
-      b->cursor = nir_before_instr(&add->instr);
+      nir_builder_cursor_before_instr(b, &add->instr);
 
       if (abs) {
          for (unsigned i = 0; i < 2; i++)

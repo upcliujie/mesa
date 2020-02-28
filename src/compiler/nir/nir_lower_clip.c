@@ -372,7 +372,7 @@ lower_clip_in_gs_block(nir_builder *b, nir_block *block, nir_variable *position,
       switch (intrin->intrinsic) {
       case nir_intrinsic_emit_vertex_with_counter:
       case nir_intrinsic_emit_vertex:
-         b->cursor = nir_before_instr(instr);
+         nir_builder_cursor_before_instr(b, instr);
          lower_clip_outputs(b, position, clipvertex, out, ucp_enables, true,
                             use_clipdist_array, clipplane_state_tokens);
          break;

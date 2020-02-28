@@ -75,7 +75,7 @@ rewrite_emit_vertex(nir_intrinsic_instr *intrin, struct state *state)
    unsigned stream = nir_intrinsic_stream_id(intrin);
 
    /* Load the vertex count */
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
    nir_ssa_def *count = nir_load_var(b, state->vertex_count_vars[stream]);
 
    nir_ssa_def *max_vertices =
@@ -116,7 +116,7 @@ rewrite_end_primitive(nir_intrinsic_instr *intrin, struct state *state)
    nir_builder *b = state->builder;
    unsigned stream = nir_intrinsic_stream_id(intrin);
 
-   b->cursor = nir_before_instr(&intrin->instr);
+   nir_builder_cursor_before_instr(b, &intrin->instr);
    nir_ssa_def *count = nir_load_var(b, state->vertex_count_vars[stream]);
 
    nir_intrinsic_instr *lowered =

@@ -53,7 +53,7 @@ v3d_nir_scratch_offset(nir_builder *b, nir_intrinsic_instr *instr)
 static void
 v3d_nir_lower_load_scratch(nir_builder *b, nir_intrinsic_instr *instr)
 {
-        b->cursor = nir_before_instr(&instr->instr);
+        nir_builder_cursor_before_instr(b, &instr->instr);
 
         nir_ssa_def *offset = v3d_nir_scratch_offset(b,instr);
 
@@ -85,7 +85,7 @@ v3d_nir_lower_load_scratch(nir_builder *b, nir_intrinsic_instr *instr)
 static void
 v3d_nir_lower_store_scratch(nir_builder *b, nir_intrinsic_instr *instr)
 {
-        b->cursor = nir_before_instr(&instr->instr);
+        nir_builder_cursor_before_instr(b, &instr->instr);
 
         nir_ssa_def *offset = v3d_nir_scratch_offset(b, instr);
         nir_ssa_def *value = nir_ssa_for_src(b, instr->src[0],

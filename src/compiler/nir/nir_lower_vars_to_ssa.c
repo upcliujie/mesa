@@ -632,7 +632,7 @@ rename_variables(struct lower_variables_state *state)
                    glsl_get_vector_elements(node->type));
 
             nir_ssa_def *new_def;
-            b.cursor = nir_before_instr(&intrin->instr);
+            nir_builder_cursor_before_instr(&b, &intrin->instr);
 
             unsigned wrmask = nir_intrinsic_write_mask(intrin);
             if (wrmask == (1 << intrin->num_components) - 1) {

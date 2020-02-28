@@ -340,7 +340,7 @@ lower_tess_ctrl_block(nir_block *block, nir_builder *b, struct state *state)
 
 		switch (intr->intrinsic) {
 		case nir_intrinsic_load_invocation_id:
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			nir_ssa_def *invocation_id = build_invocation_id(b, state);
 			nir_ssa_def_rewrite_uses(&intr->dest.ssa,
@@ -362,7 +362,7 @@ lower_tess_ctrl_block(nir_block *block, nir_builder *b, struct state *state)
 		case nir_intrinsic_load_per_vertex_output: {
 			// src[] = { vertex, offset }.
 
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			nir_ssa_def *address = nir_load_tess_param_base_ir3(b);
 			nir_variable *var = get_var(&b->shader->outputs, nir_intrinsic_base(intr));
@@ -376,7 +376,7 @@ lower_tess_ctrl_block(nir_block *block, nir_builder *b, struct state *state)
 		case nir_intrinsic_store_per_vertex_output: {
 			// src[] = { value, vertex, offset }.
 
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			nir_ssa_def *value = intr->src[0].ssa;
 			nir_ssa_def *address = nir_load_tess_param_base_ir3(b);
@@ -396,7 +396,7 @@ lower_tess_ctrl_block(nir_block *block, nir_builder *b, struct state *state)
 		case nir_intrinsic_load_per_vertex_input: {
 			// src[] = { vertex, offset }.
 
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			nir_ssa_def *offset = build_local_offset(b, state,
 					intr->src[0].ssa, // this is typically gl_InvocationID
@@ -409,7 +409,7 @@ lower_tess_ctrl_block(nir_block *block, nir_builder *b, struct state *state)
 
 		case nir_intrinsic_load_tess_level_inner:
 		case nir_intrinsic_load_tess_level_outer: {
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			gl_varying_slot slot;
 			if (intr->intrinsic == nir_intrinsic_load_tess_level_inner)
@@ -429,7 +429,7 @@ lower_tess_ctrl_block(nir_block *block, nir_builder *b, struct state *state)
 
 			nir_variable *var = get_var(&b->shader->outputs, nir_intrinsic_base(intr));
 
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			nir_ssa_def *address = nir_load_tess_param_base_ir3(b);
 			nir_ssa_def *offset = build_patch_offset(b, state, intr->src[0].ssa, var);
@@ -451,7 +451,7 @@ lower_tess_ctrl_block(nir_block *block, nir_builder *b, struct state *state)
 			else if (var->data.location == VARYING_SLOT_TESS_LEVEL_INNER)
 				levels = state->inner_levels;
 
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			if (levels) {
 				for (int i = 0; i < 4; i++)
@@ -620,7 +620,7 @@ lower_tess_eval_block(nir_block *block, nir_builder *b, struct state *state)
 
 		switch (intr->intrinsic) {
 		case nir_intrinsic_load_tess_coord: {
-			b->cursor = nir_after_instr(&intr->instr);
+			nir_builder_cursor_after_instr(b, &intr->instr);
 			nir_ssa_def *x = nir_channel(b, &intr->dest.ssa, 0);
 			nir_ssa_def *y = nir_channel(b, &intr->dest.ssa, 1);
 			nir_ssa_def *z;
@@ -641,7 +641,7 @@ lower_tess_eval_block(nir_block *block, nir_builder *b, struct state *state)
 		case nir_intrinsic_load_per_vertex_input: {
 			// src[] = { vertex, offset }.
 
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			nir_ssa_def *address = nir_load_tess_param_base_ir3(b);
 			nir_variable *var = get_var(&b->shader->inputs, nir_intrinsic_base(intr));
@@ -654,7 +654,7 @@ lower_tess_eval_block(nir_block *block, nir_builder *b, struct state *state)
 
 		case nir_intrinsic_load_tess_level_inner:
 		case nir_intrinsic_load_tess_level_outer: {
-				b->cursor = nir_before_instr(&intr->instr);
+				nir_builder_cursor_before_instr(b, &intr->instr);
 
 				gl_varying_slot slot;
 				if (intr->intrinsic == nir_intrinsic_load_tess_level_inner)
@@ -699,7 +699,7 @@ lower_tess_eval_block(nir_block *block, nir_builder *b, struct state *state)
 
 			debug_assert(var->data.patch);
 
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			nir_ssa_def *address = nir_load_tess_param_base_ir3(b);
 			nir_ssa_def *offset = build_patch_offset(b, state, intr->src[0].ssa, var);
@@ -761,7 +761,7 @@ lower_gs_block(nir_block *block, nir_builder *b, struct state *state)
 		}
 
 		case nir_intrinsic_end_primitive: {
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 			nir_store_var(b, state->vertex_flags_var, nir_imm_int(b, 4), 0x1);
 			nir_instr_remove(&intr->instr);
 			break;
@@ -770,7 +770,7 @@ lower_gs_block(nir_block *block, nir_builder *b, struct state *state)
 		case nir_intrinsic_emit_vertex: {
 
 			/* Load the vertex count */
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 			nir_ssa_def *count = nir_load_var(b, state->vertex_count_var);
 
 			nir_push_if(b, nir_ieq(b, count, local_thread_id(b)));
@@ -807,7 +807,7 @@ lower_gs_block(nir_block *block, nir_builder *b, struct state *state)
 		case nir_intrinsic_load_per_vertex_input: {
 			// src[] = { vertex, offset }.
 
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			nir_ssa_def *offset = build_local_offset(b, state,
 					intr->src[0].ssa, // this is typically gl_InvocationID
@@ -819,7 +819,7 @@ lower_gs_block(nir_block *block, nir_builder *b, struct state *state)
 		}
 
 		case nir_intrinsic_load_invocation_id: {
-			b->cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(b, &intr->instr);
 
 			nir_ssa_def *iid = build_invocation_id(b, state);
 			nir_ssa_def_rewrite_uses(&intr->dest.ssa, nir_src_for_ssa(iid));

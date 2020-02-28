@@ -140,7 +140,7 @@ r600_create_new_load(nir_builder *b, nir_intrinsic_instr *intr, nir_variable *va
 {
    unsigned channels[4];
 
-   b->cursor = nir_before_instr(&intr->instr);
+   nir_builder_cursor_before_instr(b, &intr->instr);
 
    assert(intr->dest.is_ssa);
 

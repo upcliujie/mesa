@@ -280,7 +280,7 @@ midgard_nir_lower_fdot2_body(nir_builder *b, nir_alu_instr *alu)
         if (alu->op != nir_op_fdot2)
                 return;
 
-        b->cursor = nir_before_instr(&alu->instr);
+        nir_builder_cursor_before_instr(b, &alu->instr);
 
         nir_ssa_def *src0 = nir_ssa_for_alu_src(b, alu, 0);
         nir_ssa_def *src1 = nir_ssa_for_alu_src(b, alu, 1);
@@ -498,7 +498,7 @@ midgard_nir_lower_zs_store(nir_shader *nir)
                 nir_builder b;
                 nir_builder_init(&b, function->impl);
 
-                b.cursor = nir_before_instr(&last_store->instr);
+                nir_builder_cursor_before_instr(&b, &last_store->instr);
 
 		nir_ssa_def *zs_store_src;
 

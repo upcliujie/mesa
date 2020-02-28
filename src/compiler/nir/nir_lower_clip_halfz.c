@@ -38,7 +38,7 @@ lower_pos_write(nir_builder *b, struct nir_instr *instr)
        var->data.location != VARYING_SLOT_POS)
       return;
 
-   b->cursor = nir_before_instr(&intr->instr);
+   nir_builder_cursor_before_instr(b, &intr->instr);
 
    nir_ssa_def *pos = nir_ssa_for_src(b, intr->src[1], 4);
    nir_ssa_def *def = nir_vec4(b,

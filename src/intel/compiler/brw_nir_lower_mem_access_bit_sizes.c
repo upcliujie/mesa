@@ -246,7 +246,7 @@ lower_mem_access_bit_sizes_impl(nir_function_impl *impl,
          if (instr->type != nir_instr_type_intrinsic)
             continue;
 
-         b.cursor = nir_after_instr(instr);
+         nir_builder_cursor_after_instr(&b, instr);
 
          nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
          switch (intrin->intrinsic) {

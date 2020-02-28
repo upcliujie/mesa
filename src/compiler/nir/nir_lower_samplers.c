@@ -101,7 +101,7 @@ lower_sampler(nir_builder *b, nir_tex_instr *instr)
       nir_tex_instr_src_index(instr, nir_tex_src_texture_deref);
 
    if (texture_idx >= 0) {
-      b->cursor = nir_before_instr(&instr->instr);
+      nir_builder_cursor_before_instr(b, &instr->instr);
 
       lower_tex_src_to_offset(b, instr, texture_idx);
    }

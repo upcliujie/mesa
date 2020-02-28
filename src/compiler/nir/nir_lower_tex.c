@@ -48,7 +48,7 @@ project_src(nir_builder *b, nir_tex_instr *tex)
    if (proj_index < 0)
       return false;
 
-   b->cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(b, &tex->instr);
 
    nir_ssa_def *inv_proj =
       nir_frcp(b, nir_ssa_for_src(b, tex->src[proj_index].src, 1));
@@ -119,7 +119,7 @@ lower_offset(nir_builder *b, nir_tex_instr *tex)
    nir_ssa_def *offset = tex->src[offset_index].src.ssa;
    nir_ssa_def *coord = tex->src[coord_index].src.ssa;
 
-   b->cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(b, &tex->instr);
 
    nir_ssa_def *offset_coord;
    if (nir_tex_instr_src_type(tex, coord_index) == nir_type_float) {
@@ -192,7 +192,7 @@ lower_implicit_lod(nir_builder *b, nir_tex_instr *tex)
    assert(nir_tex_instr_src_index(tex, nir_tex_src_ddx) < 0);
    assert(nir_tex_instr_src_index(tex, nir_tex_src_ddy) < 0);
 
-   b->cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(b, &tex->instr);
 
    nir_ssa_def *lod = nir_get_texture_lod(b, tex);
 
@@ -283,7 +283,7 @@ static void
 lower_y_uv_external(nir_builder *b, nir_tex_instr *tex,
                     const nir_lower_tex_options *options)
 {
-   b->cursor = nir_after_instr(&tex->instr);
+   nir_builder_cursor_after_instr(b, &tex->instr);
 
    nir_ssa_def *y = sample_plane(b, tex, 0, options);
    nir_ssa_def *uv = sample_plane(b, tex, 1, options);
@@ -299,7 +299,7 @@ static void
 lower_y_u_v_external(nir_builder *b, nir_tex_instr *tex,
                      const nir_lower_tex_options *options)
 {
-   b->cursor = nir_after_instr(&tex->instr);
+   nir_builder_cursor_after_instr(b, &tex->instr);
 
    nir_ssa_def *y = sample_plane(b, tex, 0, options);
    nir_ssa_def *u = sample_plane(b, tex, 1, options);
@@ -316,7 +316,7 @@ static void
 lower_yx_xuxv_external(nir_builder *b, nir_tex_instr *tex,
                        const nir_lower_tex_options *options)
 {
-   b->cursor = nir_after_instr(&tex->instr);
+   nir_builder_cursor_after_instr(b, &tex->instr);
 
    nir_ssa_def *y = sample_plane(b, tex, 0, options);
    nir_ssa_def *xuxv = sample_plane(b, tex, 1, options);
@@ -332,7 +332,7 @@ static void
 lower_xy_uxvx_external(nir_builder *b, nir_tex_instr *tex,
                        const nir_lower_tex_options *options)
 {
-  b->cursor = nir_after_instr(&tex->instr);
+  nir_builder_cursor_after_instr(b, &tex->instr);
 
   nir_ssa_def *y = sample_plane(b, tex, 0, options);
   nir_ssa_def *uxvx = sample_plane(b, tex, 1, options);
@@ -348,7 +348,7 @@ static void
 lower_ayuv_external(nir_builder *b, nir_tex_instr *tex,
                     const nir_lower_tex_options *options)
 {
-  b->cursor = nir_after_instr(&tex->instr);
+  nir_builder_cursor_after_instr(b, &tex->instr);
 
   nir_ssa_def *ayuv = sample_plane(b, tex, 0, options);
 
@@ -363,7 +363,7 @@ static void
 lower_xyuv_external(nir_builder *b, nir_tex_instr *tex,
                     const nir_lower_tex_options *options)
 {
-  b->cursor = nir_after_instr(&tex->instr);
+  nir_builder_cursor_after_instr(b, &tex->instr);
 
   nir_ssa_def *xyuv = sample_plane(b, tex, 0, options);
 
@@ -606,7 +606,7 @@ lower_gradient(nir_builder *b, nir_tex_instr *tex)
 static void
 saturate_src(nir_builder *b, nir_tex_instr *tex, unsigned sat_mask)
 {
-   b->cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(b, &tex->instr);
 
    /* Walk through the sources saturating the requested arguments. */
    for (unsigned i = 0; i < tex->num_srcs; i++) {
@@ -678,7 +678,7 @@ swizzle_tg4_broadcom(nir_builder *b, nir_tex_instr *tex)
 {
    assert(tex->dest.is_ssa);
 
-   b->cursor = nir_after_instr(&tex->instr);
+   nir_builder_cursor_after_instr(b, &tex->instr);
 
    assert(nir_tex_instr_dest_size(tex) == 4);
    unsigned swiz[4] = { 2, 3, 1, 0 };
@@ -693,7 +693,7 @@ swizzle_result(nir_builder *b, nir_tex_instr *tex, const uint8_t swizzle[4])
 {
    assert(tex->dest.is_ssa);
 
-   b->cursor = nir_after_instr(&tex->instr);
+   nir_builder_cursor_after_instr(b, &tex->instr);
 
    nir_ssa_def *swizzled;
    if (tex->op == nir_texop_tg4) {
@@ -735,7 +735,7 @@ linearize_srgb_result(nir_builder *b, nir_tex_instr *tex)
    assert(nir_tex_instr_dest_size(tex) == 4);
    assert(nir_alu_type_get_base_type(tex->dest_type) == nir_type_float);
 
-   b->cursor = nir_after_instr(&tex->instr);
+   nir_builder_cursor_after_instr(b, &tex->instr);
 
    nir_ssa_def *rgb =
       nir_format_srgb_to_linear(b, nir_channels(b, &tex->dest.ssa, 0x7));
@@ -766,7 +766,7 @@ lower_tex_packing(nir_builder *b, nir_tex_instr *tex,
 {
    nir_ssa_def *color = &tex->dest.ssa;
 
-   b->cursor = nir_after_instr(&tex->instr);
+   nir_builder_cursor_after_instr(b, &tex->instr);
 
    switch (options->lower_tex_packing[tex->sampler_index]) {
    case nir_lower_tex_packing_none:
@@ -840,7 +840,7 @@ lower_tg4_offsets(nir_builder *b, nir_tex_instr *tex)
    assert(nir_tex_instr_has_explicit_tg4_offsets(tex));
    assert(nir_tex_instr_src_index(tex, nir_tex_src_offset) == -1);
 
-   b->cursor = nir_after_instr(&tex->instr);
+   nir_builder_cursor_after_instr(b, &tex->instr);
 
    nir_ssa_def *dest[4];
    for (unsigned i = 0; i < 4; ++i) {
@@ -891,7 +891,7 @@ nir_lower_txs_lod(nir_builder *b, nir_tex_instr *tex)
 
    unsigned dest_size = nir_tex_instr_dest_size(tex);
 
-   b->cursor = nir_before_instr(&tex->instr);
+   nir_builder_cursor_before_instr(b, &tex->instr);
    nir_ssa_def *lod = nir_ssa_for_src(b, tex->src[lod_idx].src, 1);
 
    /* Replace the non-0-LOD in the initial TXS operation by a 0-LOD. */
@@ -899,7 +899,7 @@ nir_lower_txs_lod(nir_builder *b, nir_tex_instr *tex)
                          nir_src_for_ssa(nir_imm_int(b, 0)));
 
    /* TXS(LOD) = max(TXS(0) >> LOD, 1) */
-   b->cursor = nir_after_instr(&tex->instr);
+   nir_builder_cursor_after_instr(b, &tex->instr);
    nir_ssa_def *minified = nir_imax(b, nir_ushr(b, &tex->dest.ssa, lod),
                                     nir_imm_int(b, 1));
 
@@ -1067,7 +1067,7 @@ nir_lower_tex_block(nir_block *block, nir_builder *b,
           (tex->op == nir_texop_txf || tex->op == nir_texop_txs ||
            tex->op == nir_texop_txl || tex->op == nir_texop_query_levels ||
            (tex->op == nir_texop_tex && !shader_supports_implicit_lod))) {
-         b->cursor = nir_before_instr(&tex->instr);
+         nir_builder_cursor_before_instr(b, &tex->instr);
          nir_tex_instr_add_src(tex, nir_tex_src_lod, nir_src_for_ssa(nir_imm_int(b, 0)));
          if (tex->op == nir_texop_tex && options->lower_tex_without_implicit_lod)
             tex->op = nir_texop_txl;

@@ -392,7 +392,7 @@ try_lower_tex_ycbcr(const struct radv_pipeline_layout *layout,
 		.conversion = ycbcr_sampler,
 	};
 
-	builder->cursor = nir_before_instr(&tex->instr);
+	nir_builder_cursor_before_instr(builder, &tex->instr);
 
 	VkFormat format = state.conversion->format;
 	const int plane_count = vk_format_get_plane_count(format);

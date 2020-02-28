@@ -119,7 +119,7 @@ combine_stores(struct combine_stores_state *state,
        combo->write_mask)
       return;
 
-   state->b.cursor = nir_before_instr(&combo->latest->instr);
+   nir_builder_cursor_before_instr(&state->b, &combo->latest->instr);
 
    /* Build a new vec, to be used as source for the combined store.  As it
     * gets build, remove previous stores that are not needed anymore.

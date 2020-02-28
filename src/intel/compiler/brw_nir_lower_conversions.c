@@ -53,7 +53,7 @@ get_opcode_rounding_mode(nir_op op)
 static void
 split_conversion(nir_builder *b, nir_alu_instr *alu, nir_op op1, nir_op op2)
 {
-   b->cursor = nir_before_instr(&alu->instr);
+   nir_builder_cursor_before_instr(b, &alu->instr);
    assert(alu->dest.write_mask == 1);
    nir_ssa_def *src = nir_ssa_for_alu_src(b, alu, 0);
    nir_ssa_def *tmp = nir_build_alu(b, op1, src, NULL, NULL, NULL);

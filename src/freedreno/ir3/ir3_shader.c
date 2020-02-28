@@ -324,7 +324,7 @@ lower_mediump_outputs(nir_shader *nir)
 			if (!lower_output_var(nir, nir_intrinsic_base(intr)))
 				continue;
 
-			b.cursor = nir_before_instr(&intr->instr);
+			nir_builder_cursor_before_instr(&b, &intr->instr);
 			nir_instr_rewrite_src(&intr->instr, &intr->src[0],
 					nir_src_for_ssa(nir_f2f16(&b, intr->src[0].ssa)));
 		}

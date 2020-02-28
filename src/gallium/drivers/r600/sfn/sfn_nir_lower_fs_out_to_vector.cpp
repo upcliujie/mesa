@@ -348,7 +348,7 @@ bool NirLowerIOToVector::vec_instr_stack_pop(nir_builder *b, InstrSubSet &ir_set
       return false;
    }
 
-   b->cursor = nir_after_instr(&intr->instr);
+   nir_builder_cursor_after_instr(b, &intr->instr);
    nir_ssa_undef_instr *instr_undef =
       nir_ssa_undef_instr_create(b->shader, 1, 32);
    nir_builder_instr_insert(b, &instr_undef->instr);
@@ -394,7 +394,7 @@ void
 NirLowerFSOutToVector::create_new_io(nir_builder *b, nir_intrinsic_instr *intr, nir_variable *var,
                                         nir_ssa_def **srcs, unsigned first_comp, unsigned num_comps)
 {
-   b->cursor = nir_before_instr(&intr->instr);
+   nir_builder_cursor_before_instr(b, &intr->instr);
 
    nir_intrinsic_instr *new_intr =
       nir_intrinsic_instr_create(b->shader, intr->intrinsic);

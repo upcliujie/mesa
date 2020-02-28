@@ -180,7 +180,7 @@ lower_buffer_interface_derefs_impl(nir_function_impl *impl,
 
             progress = true;
 
-            b.cursor = nir_before_instr(&deref->instr);
+            nir_builder_cursor_before_instr(&b, &deref->instr);
 
             nir_ssa_def *ptr;
             if (deref->deref_type == nir_deref_type_var &&
@@ -232,7 +232,7 @@ lower_buffer_interface_derefs_impl(nir_function_impl *impl,
                 */
                if (glsl_type_is_boolean(deref->type)) {
                   assert(intrin->dest.is_ssa);
-                  b.cursor = nir_after_instr(&intrin->instr);
+                  nir_builder_cursor_after_instr(&b, &intrin->instr);
                   intrin->dest.ssa.bit_size = 32;
                   nir_ssa_def *bval = nir_i2b(&b, &intrin->dest.ssa);
                   nir_ssa_def_rewrite_uses_after(&intrin->dest.ssa,
@@ -259,7 +259,7 @@ lower_buffer_interface_derefs_impl(nir_function_impl *impl,
                 */
                if (glsl_type_is_boolean(deref->type)) {
                   assert(intrin->src[1].is_ssa);
-                  b.cursor = nir_before_instr(&intrin->instr);
+                  nir_builder_cursor_before_instr(&b, &intrin->instr);
                   nir_ssa_def *ival = nir_b2i32(&b, intrin->src[1].ssa);
                   nir_instr_rewrite_src(&intrin->instr, &intrin->src[1],
                                         nir_src_for_ssa(ival));

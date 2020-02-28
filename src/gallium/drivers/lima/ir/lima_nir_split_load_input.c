@@ -63,7 +63,7 @@ lima_nir_split_load_input_block(nir_block *block, nir_builder *b)
       if (i != nir_dest_num_components(alu->dest.dest))
          continue;
 
-      b->cursor = nir_before_instr(&intrin->instr);
+      nir_builder_cursor_before_instr(b, &intrin->instr);
       nir_intrinsic_instr *new_intrin = nir_intrinsic_instr_create(
                                              b->shader,
                                              intrin->intrinsic);

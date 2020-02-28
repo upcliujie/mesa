@@ -337,7 +337,7 @@ nir_opt_large_constants(nir_shader *shader,
             nir_variable *var = nir_deref_instr_get_variable(deref);
             struct var_info *info = &var_infos[var->index];
             if (info->is_constant) {
-               b.cursor = nir_after_instr(&intrin->instr);
+               nir_builder_cursor_after_instr(&b, &intrin->instr);
                nir_ssa_def *val = build_constant_load(&b, deref, size_align);
                nir_ssa_def_rewrite_uses(&intrin->dest.ssa,
                                         nir_src_for_ssa(val));

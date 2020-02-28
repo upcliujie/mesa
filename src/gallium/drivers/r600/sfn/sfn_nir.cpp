@@ -344,7 +344,7 @@ bool r600_nir_lower_pack_unpack_2x16(nir_shader *shader)
 static void
 r600_nir_lower_scratch_address_impl(nir_builder *b, nir_intrinsic_instr *instr)
 {
-   b->cursor = nir_before_instr(&instr->instr);
+   nir_builder_cursor_before_instr(b, &instr->instr);
 
    int address_index = 0;
    int align;
@@ -389,7 +389,7 @@ bool r600_lower_scratch_addresses(nir_shader *shader)
 static nir_ssa_def *
 r600_lower_ubo_to_align16_impl(nir_builder *b, nir_instr *instr, void *_options)
 {
-   b->cursor = nir_before_instr(instr);
+   nir_builder_cursor_before_instr(b, instr);
 
    nir_intrinsic_instr *op = nir_instr_as_intrinsic(instr);
    assert(op->intrinsic == nir_intrinsic_load_ubo);

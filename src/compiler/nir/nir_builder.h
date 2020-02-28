@@ -67,6 +67,22 @@ nir_builder_init_simple_shader(nir_builder *build, void *mem_ctx,
 }
 
 static inline void
+nir_builder_cursor_before_instr(nir_builder *build, nir_instr *instr)
+{
+   build->source_file = instr->source_file;
+   build->source_line = instr->source_line;
+   build->cursor = nir_before_instr(instr);
+}
+
+static inline void
+nir_builder_cursor_after_instr(nir_builder *build, nir_instr *instr)
+{
+   build->source_file = instr->source_file;
+   build->source_line = instr->source_line;
+   build->cursor = nir_after_instr(instr);
+}
+
+static inline void
 nir_builder_instr_insert(nir_builder *build, nir_instr *instr)
 {
    instr->source_file = build->source_file;

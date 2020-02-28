@@ -98,7 +98,7 @@ nir_lower_interpolation_block(nir_block *block, nir_builder *b,
          continue;
       }
 
-      b->cursor = nir_before_instr(instr);
+      nir_builder_cursor_before_instr(b, instr);
 
       nir_ssa_def *comps[NIR_MAX_VEC_COMPONENTS];
       for (int i = 0; i < intr->num_components; i++) {

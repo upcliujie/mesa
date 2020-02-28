@@ -82,7 +82,7 @@ lower_impl(nir_builder *b, nir_instr *instr, bool bindless_only)
    if (bindless_only && !bindless)
       return false;
 
-   b->cursor = nir_before_instr(instr);
+   nir_builder_cursor_before_instr(b, instr);
 
    nir_ssa_def *src;
    if (bindless) {

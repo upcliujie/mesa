@@ -39,7 +39,7 @@
 static bool
 lower_instr(nir_intrinsic_instr *instr, nir_builder *b)
 {
-   b->cursor = nir_before_instr(&instr->instr);
+   nir_builder_cursor_before_instr(b, &instr->instr);
 
    if (instr->intrinsic == nir_intrinsic_load_ubo) {
       nir_ssa_def *old_idx = nir_ssa_for_src(b, instr->src[0], 1);
@@ -120,7 +120,7 @@ static bool
 lower_discard_if_instr(nir_intrinsic_instr *instr, nir_builder *b)
 {
    if (instr->intrinsic == nir_intrinsic_discard_if) {
-      b->cursor = nir_before_instr(&instr->instr);
+      nir_builder_cursor_before_instr(b, &instr->instr);
 
       nir_if *if_stmt = nir_push_if(b, nir_ssa_for_src(b, instr->src[0], 1));
       nir_intrinsic_instr *discard =

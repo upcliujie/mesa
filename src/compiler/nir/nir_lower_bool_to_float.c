@@ -47,7 +47,7 @@ lower_alu_instr(nir_builder *b, nir_alu_instr *alu)
 {
    const nir_op_info *op_info = &nir_op_infos[alu->op];
 
-   b->cursor = nir_before_instr(&alu->instr);
+   nir_builder_cursor_before_instr(b, &alu->instr);
 
    /* Replacement SSA value */
    nir_ssa_def *rep = NULL;

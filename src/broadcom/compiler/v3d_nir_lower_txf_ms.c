@@ -39,7 +39,7 @@ v3d_nir_lower_txf_ms_instr(nir_builder *b, nir_instr *in_instr, void *data)
 {
         nir_tex_instr *instr = nir_instr_as_tex(in_instr);
 
-        b->cursor = nir_before_instr(&instr->instr);
+        nir_builder_cursor_before_instr(b, &instr->instr);
 
         int coord_index = nir_tex_instr_src_index(instr, nir_tex_src_coord);
         int sample_index = nir_tex_instr_src_index(instr, nir_tex_src_ms_index);

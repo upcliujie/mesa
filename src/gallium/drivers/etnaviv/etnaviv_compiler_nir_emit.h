@@ -1288,7 +1288,7 @@ lower_alu(struct state *state, nir_alu_instr *alu)
 
    nir_builder b;
    nir_builder_init(&b, state->impl);
-   b.cursor = nir_before_instr(&alu->instr);
+   nir_builder_cursor_before_instr(&b, &alu->instr);
 
    switch (alu->op) {
    case nir_op_vec2:
@@ -1480,7 +1480,7 @@ emit_shader(struct etna_compile *c, unsigned *num_temps, unsigned *num_consts)
                   value[i] = UNIFORM(base * 4 + i);
             }
 
-            b.cursor = nir_after_instr(instr);
+            nir_builder_cursor_after_instr(&b, instr);
             nir_ssa_def *def = nir_build_imm(&b, intr->dest.ssa.num_components, 32, value);
 
             nir_ssa_def_rewrite_uses(&intr->dest.ssa, nir_src_for_ssa(def));
@@ -1511,7 +1511,7 @@ emit_shader(struct etna_compile *c, unsigned *num_temps, unsigned *num_consts)
          case nir_intrinsic_store_deref: {
             nir_src *src = &intr->src[1];
             if (nir_src_is_const(*src) || is_sysval(src->ssa->parent_instr)) {
-               b.cursor = nir_before_instr(instr);
+               nir_builder_cursor_before_instr(&b, instr);
                nir_instr_rewrite_src(instr, src, nir_src_for_ssa(nir_mov(&b, src->ssa)));
             }
          } break;

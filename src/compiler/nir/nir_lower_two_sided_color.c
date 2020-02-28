@@ -167,7 +167,7 @@ nir_lower_two_sided_color_block(nir_block *block,
       /* replace load_input(COLn) with
        * bcsel(load_system_value(FACE), load_input(COLn), load_input(BFCn))
        */
-      b->cursor = nir_before_instr(&intr->instr);
+      nir_builder_cursor_before_instr(b, &intr->instr);
       /* gl_FrontFace is a boolean but the intrinsic constructor creates
        * 32-bit value by default.
        */

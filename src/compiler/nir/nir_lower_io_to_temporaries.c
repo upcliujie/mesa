@@ -91,7 +91,7 @@ emit_output_copies_impl(struct lower_io_state *state, nir_function_impl *impl)
             nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
             if (intrin->intrinsic == nir_intrinsic_emit_vertex ||
                 intrin->intrinsic == nir_intrinsic_emit_vertex_with_counter) {
-               b.cursor = nir_before_instr(&intrin->instr);
+               nir_builder_cursor_before_instr(&b, &intrin->instr);
                emit_copies(&b, &state->shader->outputs, &state->old_outputs);
             }
          }
@@ -221,7 +221,7 @@ fixup_interpolation_instr(struct lower_io_state *state,
    nir_deref_path interp_path;
    nir_deref_path_init(&interp_path, nir_src_as_deref(interp->src[0]), NULL);
 
-   b->cursor = nir_before_instr(&interp->instr);
+   nir_builder_cursor_before_instr(b, &interp->instr);
 
    /* The original interpolation instruction should contain a deref path
     * starting with the original variable, which is now the temporary.

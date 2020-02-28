@@ -196,7 +196,7 @@ lower_locals_to_regs_block(nir_block *block,
          if (deref->mode != nir_var_function_temp)
             continue;
 
-         b->cursor = nir_before_instr(&intrin->instr);
+         nir_builder_cursor_before_instr(b, &intrin->instr);
 
          nir_alu_instr *mov = nir_alu_instr_create(b->shader, nir_op_mov);
          mov->src[0].src = get_deref_reg_src(deref, state);
@@ -222,7 +222,7 @@ lower_locals_to_regs_block(nir_block *block,
          if (deref->mode != nir_var_function_temp)
             continue;
 
-         b->cursor = nir_before_instr(&intrin->instr);
+         nir_builder_cursor_before_instr(b, &intrin->instr);
 
          nir_src reg_src = get_deref_reg_src(deref, state);
 

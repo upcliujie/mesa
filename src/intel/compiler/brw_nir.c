@@ -73,7 +73,7 @@ remap_tess_levels(nir_builder *b, nir_intrinsic_instr *intr,
 
    if (out_of_bounds) {
       if (nir_intrinsic_infos[intr->intrinsic].has_dest) {
-         b->cursor = nir_before_instr(&intr->instr);
+         nir_builder_cursor_before_instr(b, &intr->instr);
          nir_ssa_def *undef = nir_ssa_undef(b, 1, 32);
          nir_ssa_def_rewrite_uses(&intr->dest.ssa, nir_src_for_ssa(undef));
       }
@@ -134,7 +134,7 @@ remap_patch_urb_offsets(nir_block *block, nir_builder *b,
                intrin->const_index[0] += nir_src_as_uint(*vertex) *
                                          vue_map->num_per_vertex_slots;
             } else {
-               b->cursor = nir_before_instr(&intrin->instr);
+               nir_builder_cursor_before_instr(b, &intrin->instr);
 
                /* Multiply by the number of per-vertex slots. */
                nir_ssa_def *vertex_offset =
@@ -216,7 +216,7 @@ brw_nir_lower_vs_inputs(nir_shader *nir,
             case nir_intrinsic_load_instance_id:
             case nir_intrinsic_load_is_indexed_draw:
             case nir_intrinsic_load_draw_id: {
-               b.cursor = nir_after_instr(&intrin->instr);
+               nir_builder_cursor_after_instr(&b, &intrin->instr);
 
                /* gl_VertexID and friends are stored by the VF as the last
                 * vertex element.  We convert them to load_input intrinsics at

@@ -149,7 +149,7 @@ brw_nir_lower_alpha_to_coverage(nir_shader *shader)
          }
 
          if (sample_mask_instr && store_instr) {
-            b.cursor = nir_before_instr(&store_instr->instr);
+            nir_builder_cursor_before_instr(&b, &store_instr->instr);
             nir_ssa_def *dither_mask = build_dither_mask(b, store_instr);
 
             /* Combine dither_mask and reorder gl_SampleMask store instruction

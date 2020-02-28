@@ -531,7 +531,7 @@ load_from_ssa_entry_value(struct copy_prop_var_state *state,
       return false;
    }
 
-   b->cursor = nir_after_instr(&intrin->instr);
+   nir_builder_cursor_after_instr(b, &intrin->instr);
 
    nir_ssa_def *load_def =
       intrin->intrinsic == nir_intrinsic_load_deref ? &intrin->dest.ssa : NULL;

@@ -43,7 +43,7 @@ opt_intrinsics_impl(nir_function_impl *impl,
 
          nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
          nir_ssa_def *replacement = NULL;
-         b.cursor = nir_before_instr(instr);
+         nir_builder_cursor_before_instr(&b, instr);
 
          switch (intrin->intrinsic) {
          case nir_intrinsic_vote_any:

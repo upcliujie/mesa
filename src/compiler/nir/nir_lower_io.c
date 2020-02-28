@@ -623,7 +623,7 @@ nir_lower_io_block(nir_block *block,
 
       nir_variable *var = nir_deref_instr_get_variable(deref);
 
-      b->cursor = nir_before_instr(instr);
+      nir_builder_cursor_before_instr(b, instr);
 
       const bool per_vertex = nir_is_per_vertex_io(var, b->shader->info.stage);
 
@@ -1151,7 +1151,7 @@ nir_lower_explicit_io_instr(nir_builder *b,
                             nir_ssa_def *addr,
                             nir_address_format addr_format)
 {
-   b->cursor = nir_after_instr(&intrin->instr);
+   nir_builder_cursor_after_instr(b, &intrin->instr);
 
    nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
    unsigned vec_stride = glsl_get_explicit_stride(deref->type);
@@ -1217,7 +1217,7 @@ lower_explicit_io_deref(nir_builder *b, nir_deref_instr *deref,
       return;
    }
 
-   b->cursor = nir_after_instr(&deref->instr);
+   nir_builder_cursor_after_instr(b, &deref->instr);
 
    nir_ssa_def *base_addr = NULL;
    if (deref->deref_type != nir_deref_type_var) {
@@ -1244,7 +1244,7 @@ static void
 lower_explicit_io_array_length(nir_builder *b, nir_intrinsic_instr *intrin,
                                nir_address_format addr_format)
 {
-   b->cursor = nir_after_instr(&intrin->instr);
+   nir_builder_cursor_after_instr(b, &intrin->instr);
 
    nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
 
@@ -1652,7 +1652,7 @@ add_const_offset_to_base_block(nir_block *block, nir_builder *b,
 
          if (nir_src_is_const(*offset)) {
             intrin->const_index[0] += nir_src_as_uint(*offset);
-            b->cursor = nir_before_instr(&intrin->instr);
+            nir_builder_cursor_before_instr(b, &intrin->instr);
             nir_instr_rewrite_src(&intrin->instr, offset,
                                   nir_src_for_ssa(nir_imm_int(b, 0)));
             progress = true;

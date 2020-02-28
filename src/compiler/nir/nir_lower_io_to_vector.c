@@ -438,7 +438,7 @@ nir_lower_io_to_vector_impl(nir_function_impl *impl, nir_variable_mode modes)
             nir_component_mask_t vec4_comp_mask =
                ((1 << intrin->num_components) - 1) << old_frac;
 
-            b.cursor = nir_before_instr(&intrin->instr);
+            nir_builder_cursor_before_instr(&b, &intrin->instr);
 
             /* Rewrite the load to use the new variable and only select a
              * portion of the result.
@@ -459,7 +459,7 @@ nir_lower_io_to_vector_impl(nir_function_impl *impl, nir_variable_mode modes)
                glsl_get_components(new_deref->type);
             intrin->dest.ssa.num_components = intrin->num_components;
 
-            b.cursor = nir_after_instr(&intrin->instr);
+            nir_builder_cursor_after_instr(&b, &intrin->instr);
 
             nir_ssa_def *new_vec = nir_channels(&b, &intrin->dest.ssa,
                                                 vec4_comp_mask >> new_frac);
@@ -487,7 +487,7 @@ nir_lower_io_to_vector_impl(nir_function_impl *impl, nir_variable_mode modes)
 
             const unsigned new_frac = new_var->data.location_frac;
 
-            b.cursor = nir_before_instr(&intrin->instr);
+            nir_builder_cursor_before_instr(&b, &intrin->instr);
 
             /* Rewrite the store to be a masked store to the new variable */
             nir_deref_instr *new_deref;
