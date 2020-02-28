@@ -2886,7 +2886,7 @@ static void
 iris_set_global_binding(struct pipe_context *ctx,
                         unsigned start_slot, unsigned count,
                         struct pipe_resource **resources,
-                        uint32_t **handles)
+                        uint64_t *handles)
 {
    struct iris_context *ice = (struct iris_context *) ctx;
 
@@ -2896,8 +2896,7 @@ iris_set_global_binding(struct pipe_context *ctx,
          pipe_resource_reference(&ice->state.global_bindings[start_slot + i],
                                  resources[i]);
          struct iris_resource *res = (void *) resources[i];
-         uint64_t addr = res->bo->gtt_offset;
-         memcpy(handles[i], &addr, sizeof(addr));
+         handles[i] = res->bo->gtt_offset;
       } else {
          pipe_resource_reference(&ice->state.global_bindings[start_slot + i],
                                  NULL);

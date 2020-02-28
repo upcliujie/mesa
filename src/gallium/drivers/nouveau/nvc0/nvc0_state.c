@@ -1353,13 +1353,11 @@ nvc0_set_shader_buffers(struct pipe_context *pipe,
 }
 
 static inline void
-nvc0_set_global_handle(uint32_t *phandle, struct pipe_resource *res)
+nvc0_set_global_handle(uint64_t *phandle, struct pipe_resource *res)
 {
    struct nv04_resource *buf = nv04_resource(res);
    if (buf) {
-      uint64_t address = buf->address + *phandle;
-      /* even though it's a pointer to uint32_t that's fine */
-      memcpy(phandle, &address, 8);
+      *phandle += buf->address;
    } else {
       *phandle = 0;
    }
@@ -1369,7 +1367,7 @@ static void
 nvc0_set_global_bindings(struct pipe_context *pipe,
                          unsigned start, unsigned nr,
                          struct pipe_resource **resources,
-                         uint32_t **handles)
+                         uint64_t *handles)
 {
    struct nvc0_context *nvc0 = nvc0_context(pipe);
    struct pipe_resource **ptr;
@@ -1395,7 +1393,7 @@ nvc0_set_global_bindings(struct pipe_context *pipe,
          &nvc0->global_residents, struct pipe_resource *, start);
       for (i = 0; i < nr; ++i) {
          pipe_resource_reference(&ptr[i], resources[i]);
-         nvc0_set_global_handle(handles[i], resources[i]);
+         nvc0_set_global_handle(&handles[i], resources[i]);
       }
    } else {
       ptr = util_dynarray_element(
