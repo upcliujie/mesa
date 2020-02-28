@@ -1369,7 +1369,7 @@ static void
 llvmpipe_set_global_binding(struct pipe_context *pipe,
                             unsigned first, unsigned count,
                             struct pipe_resource **resources,
-                            uint32_t **handles)
+                            uint64_t *handles)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
    struct lp_compute_shader *cs = llvmpipe->cs;
@@ -1394,13 +1394,9 @@ llvmpipe_set_global_binding(struct pipe_context *pipe,
    }
 
    for (i = 0; i < count; i++) {
-      uintptr_t va;
-      uint32_t offset;
       pipe_resource_reference(&cs->global_buffers[first + i], resources[i]);
       struct llvmpipe_resource *lp_res = llvmpipe_resource(resources[i]);
-      offset = *handles[i];
-      va = (uintptr_t)((char *)lp_res->data + offset);
-      memcpy(handles[i], &va, sizeof(va));
+      handles[i] = (uintptr_t)((char *)lp_res->data + handles[i]);
    }
 }
 
