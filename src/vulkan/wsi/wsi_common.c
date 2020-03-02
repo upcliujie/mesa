@@ -301,10 +301,23 @@ wsi_swapchain_finish(struct wsi_swapchain *chain)
 }
 
 void
+wsi_image_init(struct wsi_image *image)
+{
+   memset(image, 0, sizeof(*image));
+   for (int i = 0; i < ARRAY_SIZE(image->fds); i++)
+      image->fds[i] = -1;
+}
+
+void
 wsi_destroy_image(const struct wsi_swapchain *chain,
                   struct wsi_image *image)
 {
    const struct wsi_device *wsi = chain->wsi;
+
+   for (int p = 0; p < image->num_planes; p++) {
+      if (image->fds[p] >= 0)
+         close(image->fds[p]);
+   }
 
    if (image->prime.blit_cmd_buffers) {
       for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
