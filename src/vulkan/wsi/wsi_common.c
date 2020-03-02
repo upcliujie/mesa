@@ -23,7 +23,6 @@
 
 #include "wsi_common_private.h"
 #include "util/macros.h"
-#include "util/os_file.h"
 #include "util/os_time.h"
 #include "util/xmlconfig.h"
 #include "vk_util.h"
@@ -304,8 +303,7 @@ void
 wsi_image_init(struct wsi_image *image)
 {
    memset(image, 0, sizeof(*image));
-   for (int i = 0; i < ARRAY_SIZE(image->fds); i++)
-      image->fds[i] = -1;
+   image->dma_buf_fd = -1;
 }
 
 void
@@ -314,10 +312,8 @@ wsi_destroy_image(const struct wsi_swapchain *chain,
 {
    const struct wsi_device *wsi = chain->wsi;
 
-   for (int p = 0; p < image->num_planes; p++) {
-      if (image->fds[p] >= 0)
-         close(image->fds[p]);
-   }
+   if (image->dma_buf_fd >= 0)
+      close(image->dma_buf_fd);
 
    if (image->prime.blit_cmd_buffers) {
       for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
