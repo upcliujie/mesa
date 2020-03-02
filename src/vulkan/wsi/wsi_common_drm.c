@@ -100,9 +100,7 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
    const struct wsi_device *wsi = chain->wsi;
    VkResult result;
 
-   memset(image, 0, sizeof(*image));
-   for (int i = 0; i < ARRAY_SIZE(image->fds); i++)
-      image->fds[i] = -1;
+   wsi_image_init(image);
 
    struct wsi_image_create_info image_wsi_info = {
       .sType = VK_STRUCTURE_TYPE_WSI_IMAGE_CREATE_INFO_MESA,
@@ -370,9 +368,6 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
          } else {
             image->fds[p] = os_dupfd_cloexec(fd);
             if (image->fds[p] == -1) {
-               for (uint32_t i = 0; i < p; i++)
-                  close(image->fds[i]);
-
                result = VK_ERROR_OUT_OF_HOST_MEMORY;
                goto fail;
             }
@@ -427,7 +422,7 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
    const struct wsi_device *wsi = chain->wsi;
    VkResult result;
 
-   memset(image, 0, sizeof(*image));
+   wsi_image_init(image);
 
    const uint32_t cpp = vk_format_size(pCreateInfo->imageFormat);
    const uint32_t linear_stride = align_u32(pCreateInfo->imageExtent.width * cpp,
