@@ -1039,8 +1039,6 @@ wsi_display_image_init(VkDevice device_h,
       if (ret < 0)
          goto fail_handle;
    }
-   close(image->base.dma_buf_fd);
-   image->base.dma_buf_fd = -1;
 
    image->chain = chain;
    image->state = WSI_IMAGE_IDLE;
