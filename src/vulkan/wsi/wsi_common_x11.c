@@ -38,6 +38,7 @@
 #include <xf86drm.h>
 #include "drm-uapi/drm_fourcc.h"
 #include "util/hash_table.h"
+#include "util/os_file.h"
 #include "util/u_thread.h"
 #include "util/xmlconfig.h"
 
@@ -1326,6 +1327,19 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
       /* If the image has a modifier, we must have DRI3 v1.2. */
       assert(chain->has_dri3_modifiers);
 
+      /* XCB requires an array of file descriptors but we only have one */
+      int fds[4] = { -1, -1, -1, -1 };
+      fds[0] = image->base.dma_buf_fd;
+      for (int i = 1; i < image->base.num_planes; i++) {
+         fds[i] = os_dupfd_cloexec(image->base.dma_buf_fd);
+         if (fds[i] == -1) {
+            for (int j = 1; j < i; j++)
+               close(fds[j]);
+
+            return VK_ERROR_OUT_OF_HOST_MEMORY;
+         }
+      }
+
       cookie =
          xcb_dri3_pixmap_from_buffers_checked(chain->conn,
                                               image->pixmap,
@@ -1343,7 +1357,7 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
                                               image->base.offsets[3],
                                               chain->depth, bpp,
                                               image->base.drm_modifier,
-                                              image->base.fds);
+                                              fds);
    } else
 #endif
    {
@@ -1359,14 +1373,13 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
                                              pCreateInfo->imageExtent.height,
                                              image->base.row_pitches[0],
                                              chain->depth, bpp,
-                                             image->base.fds[0]);
+                                             image->base.dma_buf_fd);
    }
 
    xcb_discard_reply(chain->conn, cookie.sequence);
 
-   /* XCB has now taken ownership of the FDs. */
-   for (int i = 0; i < image->base.num_planes; i++)
-      image->base.fds[i] = -1;
+   /* XCB has now taken ownership of the FD. */
+   image->base.dma_buf_fd = -1;
 
    int fence_fd = xshmfence_alloc_shm();
    if (fence_fd < 0)
