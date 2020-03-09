@@ -1102,6 +1102,7 @@ dep_ws2_32 = cc.find_library('ws2_32', required : with_platform_windows)
 # TODO: shared/static? Is this even worth doing?
 
 with_asm_arch = ''
+with_arm_neon_support = false
 if host_machine.cpu_family() == 'x86'
   if system_has_kms_drm or host_machine.system() == 'gnu'
     with_asm_arch = 'x86'
@@ -1118,6 +1119,21 @@ elif host_machine.cpu_family() == 'x86_64'
     pre_args += ['-DUSE_X86_64_ASM']
   endif
 elif host_machine.cpu_family() == 'arm'
+  if cc.compiles('''
+      int main() {
+        /* taken from src/broadcom/common/v3d_cpu_tiling.h */
+        void *gpu;
+        __asm__ volatile (
+                "vldm %[gpu], {q0, q1, q2, q3}\n"
+                :
+                : [gpu]         "r"(gpu)
+                : "q0", "q1", "q2", "q3");
+        return 0;
+      }''',
+      args : '-mfpu=neon',
+      name : 'ARM neon')
+    with_arm_neon_support = true
+  endif
   if system_has_kms_drm
     with_asm_arch = 'arm'
     pre_args += ['-DUSE_ARM_ASM']
