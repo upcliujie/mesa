@@ -118,6 +118,13 @@ option(
   description : 'enable gallium va state tracker.',
 )
 option(
+  'gallium-vc4-neon',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'disabled'],
+  description : 'enable gallium vc4 optional neon support.',
+)
+option(
   'va-libs-path',
   type : 'string',
   value : '',
