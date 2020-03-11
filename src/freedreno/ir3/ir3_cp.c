@@ -105,7 +105,8 @@ static unsigned cp_flags(unsigned flags)
 	flags &= (IR3_REG_CONST | IR3_REG_IMMED |
 			IR3_REG_FNEG | IR3_REG_FABS |
 			IR3_REG_SNEG | IR3_REG_SABS |
-			IR3_REG_BNOT | IR3_REG_RELATIV);
+			IR3_REG_BNOT | IR3_REG_RELATIV |
+			IR3_REG_R);
 	return flags;
 }
 
@@ -143,19 +144,23 @@ static bool valid_flags(struct ir3_instruction *instr, unsigned n,
 		 * in, in which case ssa() returns NULL
 		 */
 		struct ir3_instruction *src = ssa(instr->regs[n+1]);
+		if (flags & IR3_REG_R) {
+			assert (src->opc == OPC_META_COLLECT);
+			src = ssa(src->regs[1]);
+		}
 		if (src && src->address->block != instr->block)
 			return false;
 	}
 
 	switch (opc_cat(instr->opc)) {
 	case 1:
-		valid_flags = IR3_REG_IMMED | IR3_REG_CONST | IR3_REG_RELATIV;
+		valid_flags = IR3_REG_IMMED | IR3_REG_CONST | IR3_REG_RELATIV | IR3_REG_R;
 		if (flags & ~valid_flags)
 			return false;
 		break;
 	case 2:
 		valid_flags = ir3_cat2_absneg(instr->opc) |
-				IR3_REG_CONST | IR3_REG_RELATIV;
+				IR3_REG_CONST | IR3_REG_RELATIV | IR3_REG_R;
 
 		if (ir3_cat2_int(instr->opc))
 			valid_flags |= IR3_REG_IMMED;
@@ -179,7 +184,7 @@ static bool valid_flags(struct ir3_instruction *instr, unsigned n,
 		break;
 	case 3:
 		valid_flags = ir3_cat3_absneg(instr->opc) |
-				IR3_REG_CONST | IR3_REG_RELATIV;
+				IR3_REG_CONST | IR3_REG_RELATIV | IR3_REG_R;
 
 		if (flags & ~valid_flags)
 			return false;
@@ -465,6 +470,93 @@ try_swap_mad_two_srcs(struct ir3_instruction *instr, unsigned new_flags)
 	return valid_swap;
 }
 
+/* Check for the special case of folding uniform into a (rptN)'d
+ * instruction.  If the src's are immediates, we can lower those
+ * to a vecN uniform here.
+ *
+ * TODO pick better name
+ */
+static bool
+can_fold_rptn(struct ir3_cp_ctx *ctx, struct ir3_instruction *collect,
+		unsigned new_flags, bool f_opcode)
+{
+	assert(collect->opc == OPC_META_COLLECT);
+
+	/* Handle the case where we could fold uniform (or immediate
+	 * lowered to uniform) into the consuming instruction:
+	 */
+	struct ir3_instruction *c0 = ssa(collect->regs[1]);
+
+	if (!(is_same_type_mov(c0) || is_const_mov(c0)))
+		return false;
+
+	if (!(c0->regs[1]->flags & (IR3_REG_CONST | IR3_REG_IMMED)))
+		return false;
+
+	struct ir3_register *reg;
+	foreach_src_n (reg, n, collect) {
+		struct ir3_instruction *cN = ssa(reg);
+
+		/* All the srcs need to be uniform/immed, with same flags: */
+		if (cN->regs[1]->flags != c0->regs[1]->flags)
+			return false;
+
+		/* And they need to be consecutive uniforms: */
+		if (c0->regs[1]->flags & IR3_REG_RELATIV) {
+			if (cN->regs[1]->array.offset !=
+					(c0->regs[1]->array.offset + n)) {
+				return false;
+			}
+			if (c0->address != cN->address) {
+				return false;
+			}
+		} else if (c0->regs[1]->flags & IR3_REG_CONST) {
+			if (cN->regs[1]->num != (c0->regs[1]->num + n)) {
+				return false;
+			}
+		} else {
+			/* no particular constraint for immeds, we'll pack them
+			 * into consecutive uniforms:
+			 */
+			assert(cN->regs[1]->flags & IR3_REG_IMMED);
+		}
+
+		assert(is_same_type_mov(cN) || is_const_mov(cN));
+	}
+
+	if (c0->regs[1]->flags & IR3_REG_CONST) {
+		return true;
+	} else if (c0->regs[1]->flags & IR3_REG_IMMED) {
+
+		// TODO we maybe should do cp in two passes, with the first
+		// pass *only* handling collects (or at least not yet lowering
+		// scalar immeds), since a lowered scalar immed can re-use
+		// a component of a lowered vecN immed, but not necessarily
+		// the other way around
+
+		/* lower immeds to const so that they can be folded: */
+		struct ir3_register *regs[collect->regs_count - 1];
+		foreach_src_n (reg, n, collect) {
+			assert (n < (collect->regs_count - 1));
+			struct ir3_instruction *cN = ssa(reg);
+			regs[n] = cN->regs[1];
+		}
+
+		lower_immeds(ctx, regs, collect->regs_count - 1, new_flags, f_opcode);
+
+		foreach_src_n (reg, n, collect) {
+			struct ir3_instruction *cN = ssa(reg);
+			cN->regs[1] = regs[n];
+		}
+
+		return true;
+	}
+
+	unreachable("bad monkey! no banana!");
+
+	return false;
+}
+
 /**
  * Handle cp for a given src register.  This additionally handles
  * the cases of collapsing immedate/const (which replace the src
@@ -637,6 +729,73 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 
 				return true;
 			}
+		}
+	} else if (instr->repeat && (reg->flags & IR3_REG_R)) {
+		struct ir3_instruction *collect_src0 = ssa(src->regs[1]);
+		struct ir3_register *src_reg = collect_src0->regs[1];
+
+		/* an instruction cannot reference two different
+		 * address registers:
+		 */
+		if ((src_reg->flags & IR3_REG_RELATIV) &&
+				conflicts(instr->address, collect_src0->address))
+			return false;
+
+		unsigned new_flags = reg->flags;
+
+		/* Note, we can get away with only checking the first
+		 * meta:collect src, as can_fold_rptn() enforces that
+		 * all the other srcs have the same flags.
+		 */
+		combine_flags(&new_flags, collect_src0);
+
+		/* if the src is immed, we will lower to const before folding: */
+		if (new_flags & IR3_REG_IMMED) {
+			new_flags &= ~IR3_REG_IMMED;
+			new_flags |= IR3_REG_CONST;
+		}
+
+		bool f_opcode = (is_cat2_float(instr->opc) ||
+				is_cat3_float(instr->opc));
+
+		/* This will only be handling the case of folding const or
+		 * immed lowered to const, so lets make sure that this
+		 * would be valid before proceeding.
+		 */
+		if (!valid_flags(instr, n, new_flags)) {
+			/* special case for "normal" mad instructions, we can
+			 * try swapping the first two args if that fits better.
+			 *
+			 * the "plain" MAD's (ie. the ones that don't shift first
+			 * src prior to multiply) can swap their first two srcs if
+			 * src[0] is !CONST and src[1] is CONST:
+			 */
+			if ((n == 1) && try_swap_mad_two_srcs(instr, new_flags)) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+
+		/* Note we could end up rejecting the folding in the
+		 * IR3_REG_RELATIV case, but we are mostly just trying
+		 * to avoid lowering immediate to uniform if there is
+		 * no benefit.  And relative immediate is not a thing.
+		 */
+		if (can_fold_rptn(ctx, src, new_flags, f_opcode)) {
+			/* if it was immed lowered to const by can_fold_rptn(), then
+			 * the original src_reg has changed:
+			 */
+			src_reg = collect_src0->regs[1];
+
+			src_reg = ir3_reg_clone(instr->block->shader, src_reg);
+			src_reg->flags = new_flags;
+			instr->regs[n+1] = src_reg;
+
+			if (src_reg->flags & IR3_REG_RELATIV)
+				ir3_instr_set_address(instr, collect_src0->address);
+
+			return true;
 		}
 	}
 
