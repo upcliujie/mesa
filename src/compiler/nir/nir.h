@@ -4977,6 +4977,11 @@ typedef struct {
    nir_variable_mode modes;
    nir_variable_mode robust_modes;
    void *cb_data;
+
+   /* Final component stride is calculated as
+    * CLAMP(bit_size / 8u, min_component_stride, 4). If this is not 4, then
+    * you'll want to ensure that the bit sizes are the same in the callback */
+   unsigned min_component_stride[2];
 } nir_load_store_vectorize_options;
 
 bool nir_opt_load_store_vectorize(nir_shader *shader, const nir_load_store_vectorize_options *options);
