@@ -374,7 +374,13 @@ bool nir_load_store_vectorize_test::mem_vectorize_callback(
    nir_intrinsic_instr *low, nir_intrinsic_instr *high,
    void *data)
 {
-   return bit_size / 8;
+   uint32_t align;
+   if (align_offset)
+      align = 1 << (ffs(align_offset) - 1);
+   else
+      align = align_mul;
+
+   return align % bit_size / 8 == 0;
 }
 
 void nir_load_store_vectorize_test::shared_type_info(
