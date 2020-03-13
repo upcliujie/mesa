@@ -73,7 +73,8 @@ protected:
    static bool mem_vectorize_callback(unsigned align_mul, unsigned align_offset,
                                       unsigned bit_size,
                                       unsigned num_components,
-                                      nir_intrinsic_instr *low, nir_intrinsic_instr *high);
+                                      nir_intrinsic_instr *low, nir_intrinsic_instr *high,
+                                      void *data);
    static void shared_type_info(const struct glsl_type *type, unsigned *size, unsigned *align);
 
    std::string swizzle(nir_alu_instr *instr, int src);
@@ -370,7 +371,8 @@ bool nir_load_store_vectorize_test::test_alu_def(
 bool nir_load_store_vectorize_test::mem_vectorize_callback(
    unsigned align_mul, unsigned align_offset, unsigned bit_size,
    unsigned num_components,
-   nir_intrinsic_instr *low, nir_intrinsic_instr *high)
+   nir_intrinsic_instr *low, nir_intrinsic_instr *high,
+   void *data)
 {
    return bit_size / 8;
 }
