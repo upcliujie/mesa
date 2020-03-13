@@ -55,7 +55,7 @@ struct intrinsic_info {
    nir_intrinsic_op op;
    bool is_atomic;
    /* Indices into nir_intrinsic::src[] or -1 if not applicable. */
-   int resource_src; /* resource (e.g. from vulkan_resource_index) */
+   int resource_src; /* resource (e.g. from vulkan_resource_index) or vertex */
    int base_src; /* offset which it loads/stores from */
    int deref_src; /* deref which is loads/stores from */
    int value_src; /* the data it is storing */
@@ -138,6 +138,12 @@ case nir_intrinsic_##op: {\
    ATOMIC(nir_var_mem_global, global, fmin, -1, 0, -1, 1)
    ATOMIC(nir_var_mem_global, global, fmax, -1, 0, -1, 1)
    ATOMIC(nir_var_mem_global, global, fcomp_swap, -1, 0, -1, 1)
+   LOAD(nir_var_shader_in, input, -1, 0, -1)
+   LOAD(nir_var_shader_in, per_vertex_input, 0, 1, -1)
+   LOAD(nir_var_shader_out, output, -1, 0, -1)
+   LOAD(nir_var_shader_out, per_vertex_output, 0, 1, -1)
+   STORE(nir_var_shader_out, output, -1, 1, -1, 0)
+   STORE(nir_var_shader_out, per_vertex_output, 1, 2, -1, 0)
    default:
       break;
 #undef ATOMIC
@@ -555,6 +561,14 @@ calc_alignment(struct entry *entry)
    }
 }
 
+static unsigned
+get_component_stride(struct vectorize_ctx *ctx, struct entry *entry)
+{
+   nir_variable_mode mode = get_variable_mode(entry);
+   unsigned min_stride = ctx->options->min_component_stride[mode == nir_var_shader_out];
+   return CLAMP(get_bit_size(entry) / 8u, min_stride, 4);
+}
+
 static struct entry *
 create_entry(struct vectorize_ctx *ctx,
              const struct intrinsic_info *info,
@@ -573,12 +587,18 @@ create_entry(struct vectorize_ctx *ctx,
       entry->key = create_entry_key_from_deref(entry, ctx, &path, &entry->offset);
       nir_deref_path_finish(&path);
    } else {
+      bool is_io = nir_intrinsic_has_io_semantics(intrin);
+
       nir_ssa_def *base = entry->info->base_src >= 0 ?
                           intrin->src[entry->info->base_src].ssa : NULL;
       uint64_t offset = 0;
-      if (nir_intrinsic_has_base(intrin))
+      if (is_io)
+         offset += nir_intrinsic_io_semantics(intrin).location * 16u;
+      else if (nir_intrinsic_has_base(intrin))
          offset += nir_intrinsic_base(intrin);
-      entry->key = create_entry_key_from_offset(entry, base, 1, &offset);
+      if (nir_intrinsic_has_component(intrin))
+         offset += nir_intrinsic_component(intrin) * get_component_stride(ctx, entry);
+      entry->key = create_entry_key_from_offset(entry, base, is_io ? 16 : 1, &offset);
       entry->offset = offset;
 
       if (base)
@@ -742,40 +762,29 @@ vectorize_loads(nir_builder *b, struct vectorize_ctx *ctx,
    }
 
    /* update the intrinsic */
+   const struct intrinsic_info *info = first->info;
+   int64_t offset_sub = high_start / 8u;
+   bool is_io = nir_intrinsic_has_io_semantics(first->intrin);
+
    first->intrin->num_components = new_num_components;
 
-   const struct intrinsic_info *info = first->info;
-
-   /* update the offset */
-   if (first != low && info->base_src >= 0) {
-      /* let nir_opt_algebraic() remove this addition. this doesn't have much
-       * issues with subtracting 16 from expressions like "(i + 1) * 16" because
-       * nir_opt_algebraic() turns them into "i * 16 + 16" */
-      b->cursor = nir_before_instr(first->instr);
-
-      nir_ssa_def *new_base = first->intrin->src[info->base_src].ssa;
-      new_base = nir_iadd_imm(b, new_base, -(int)(high_start / 8u));
-
-      nir_instr_rewrite_src(first->instr, &first->intrin->src[info->base_src],
-                            nir_src_for_ssa(new_base));
-   }
-
-   /* update the deref */
-   if (info->deref_src >= 0) {
-      b->cursor = nir_before_instr(first->instr);
-
-      nir_deref_instr *deref = nir_src_as_deref(first->intrin->src[info->deref_src]);
-      if (first != low && high_start != 0)
-         deref = subtract_deref(b, deref, high_start / 8u);
-      first->deref = cast_deref(b, new_num_components, new_bit_size, deref);
-
-      nir_instr_rewrite_src(first->instr, &first->intrin->src[info->deref_src],
-                            nir_src_for_ssa(&first->deref->dest.ssa));
-   }
-
-   /* update base/align */
-   if (first != low && nir_intrinsic_has_base(first->intrin))
+   /* update base/component/semantics/align */
+   if (first != low && nir_intrinsic_has_base(first->intrin)) {
       nir_intrinsic_set_base(first->intrin, nir_intrinsic_base(low->intrin));
+   }
+
+   if (first != low && nir_intrinsic_has_component(first->intrin)) {
+      unsigned stride = get_component_stride(ctx, first);
+      offset_sub -= ((int)nir_intrinsic_component(first->intrin) - (int)nir_intrinsic_component(low->intrin)) * stride;
+      nir_intrinsic_set_component(first->intrin, nir_intrinsic_component(low->intrin));
+   }
+
+   if (first != low && is_io) {
+      int slot_diff = ((int)nir_intrinsic_io_semantics(first->intrin).location -
+                       (int)nir_intrinsic_io_semantics(low->intrin).location);
+      offset_sub -= slot_diff * 16;
+      nir_intrinsic_set_io_semantics(first->intrin, nir_intrinsic_io_semantics(low->intrin));
+   }
 
    if (nir_intrinsic_has_range_base(first->intrin)) {
       uint32_t low_base = nir_intrinsic_range_base(low->intrin);
@@ -789,9 +798,39 @@ vectorize_loads(nir_builder *b, struct vectorize_ctx *ctx,
 
    first->key = low->key;
    first->offset = low->offset;
-
    first->align_mul = low->align_mul;
    first->align_offset = low->align_offset;
+
+   /* update the offset */
+   if (first != low && info->base_src >= 0) {
+      /* let nir_opt_algebraic() remove this addition. this doesn't have much
+       * issues with subtracting 16 from expressions like "(i + 1) * 16" because
+       * nir_opt_algebraic() turns them into "i * 16 + 16" */
+      b->cursor = nir_before_instr(first->instr);
+
+      unsigned indirect_stride = is_io ? 16 : 1;
+
+      assert(offset_sub % indirect_stride == 0);
+
+      nir_ssa_def *new_base = first->intrin->src[info->base_src].ssa;
+      new_base = nir_iadd_imm(b, new_base, -(int)(offset_sub / indirect_stride));
+
+      nir_instr_rewrite_src(first->instr, &first->intrin->src[info->base_src],
+                            nir_src_for_ssa(new_base));
+   }
+
+   /* update the deref */
+   if (info->deref_src >= 0) {
+      b->cursor = nir_before_instr(first->instr);
+
+      nir_deref_instr *deref = nir_src_as_deref(first->intrin->src[info->deref_src]);
+      if (first != low && offset_sub != 0)
+         deref = subtract_deref(b, deref, offset_sub);
+      first->deref = cast_deref(b, new_num_components, new_bit_size, deref);
+
+      nir_instr_rewrite_src(first->instr, &first->intrin->src[info->deref_src],
+                            nir_src_for_ssa(&first->deref->dest.ssa));
+   }
 
    nir_instr_remove(second->instr);
 }
@@ -869,9 +908,13 @@ vectorize_stores(nir_builder *b, struct vectorize_ctx *ctx,
                             nir_src_for_ssa(&second->deref->dest.ssa));
    }
 
-   /* update base/align */
+   /* update base/component/semantics/align */
    if (second != low && nir_intrinsic_has_base(second->intrin))
       nir_intrinsic_set_base(second->intrin, nir_intrinsic_base(low->intrin));
+   if (second != low && nir_intrinsic_has_component(second->intrin))
+      nir_intrinsic_set_component(second->intrin, nir_intrinsic_component(low->intrin));
+   if (second != low && nir_intrinsic_has_io_semantics(first->intrin))
+      nir_intrinsic_set_io_semantics(second->intrin, nir_intrinsic_io_semantics(low->intrin));
 
    second->key = low->key;
    second->offset = low->offset;
@@ -887,6 +930,10 @@ vectorize_stores(nir_builder *b, struct vectorize_ctx *ctx,
 static bool
 bindings_different(nir_ssa_def *a, nir_ssa_def *b)
 {
+   /* this can happen with load_output and load_per_vertex_output in TCS */
+   if (!a != !b)
+      return true;
+
    if (!a || !b)
       return false;
 
@@ -955,7 +1002,8 @@ check_for_aliasing(struct vectorize_ctx *ctx, struct entry *first, struct entry 
 {
    nir_variable_mode mode = get_variable_mode(first);
    if (mode & (nir_var_uniform | nir_var_system_value |
-               nir_var_mem_push_const | nir_var_mem_ubo))
+               nir_var_mem_push_const | nir_var_mem_ubo |
+               nir_var_shader_in))
       return false;
 
    unsigned mode_index = mode_to_index(mode);
@@ -1163,7 +1211,7 @@ handle_barrier(struct vectorize_ctx *ctx, bool *progress, nir_function_impl *imp
       switch (intrin->intrinsic) {
       case nir_intrinsic_group_memory_barrier:
       case nir_intrinsic_memory_barrier:
-         modes = nir_var_mem_ssbo | nir_var_mem_shared | nir_var_mem_global;
+         modes = nir_var_mem_ssbo | nir_var_mem_shared | nir_var_mem_global | nir_var_shader_out;
          break;
       /* prevent speculative loads/stores */
       case nir_intrinsic_discard_if:
@@ -1183,13 +1231,19 @@ handle_barrier(struct vectorize_ctx *ctx, bool *progress, nir_function_impl *imp
       case nir_intrinsic_memory_barrier_shared:
          modes = nir_var_mem_shared;
          break;
+      case nir_intrinsic_memory_barrier_tcs_patch:
+      case nir_intrinsic_emit_vertex:
+      case nir_intrinsic_emit_vertex_with_counter:
+         modes = nir_var_shader_out;
+         break;
       case nir_intrinsic_scoped_barrier:
          if (nir_intrinsic_memory_scope(intrin) == NIR_SCOPE_NONE)
             break;
 
          modes = nir_intrinsic_memory_modes(intrin) & (nir_var_mem_ssbo |
                                                        nir_var_mem_shared |
-                                                       nir_var_mem_global);
+                                                       nir_var_mem_global |
+                                                       nir_var_shader_out);
          acquire = nir_intrinsic_memory_semantics(intrin) & NIR_MEMORY_ACQUIRE;
          release = nir_intrinsic_memory_semantics(intrin) & NIR_MEMORY_RELEASE;
          switch (nir_intrinsic_memory_scope(intrin)) {
