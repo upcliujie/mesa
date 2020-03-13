@@ -164,6 +164,9 @@ nir_load_store_vectorize_test::run_vectorizer(nir_variable_mode modes,
    opts.modes = modes;
    opts.callback = mem_vectorize_callback;
    opts.robust_modes = robust_modes;
+   opts.min_component_stride[0] = 4;
+   opts.min_component_stride[1] = 4;
+
    bool progress = nir_opt_load_store_vectorize(b->shader, &opts);
 
    if (progress) {
@@ -216,6 +219,9 @@ nir_load_store_vectorize_test::create_indirect_load(
    case nir_var_mem_push_const:
       intrinsic = nir_intrinsic_load_push_constant;
       break;
+   case nir_var_shader_in:
+      intrinsic = nir_intrinsic_load_input;
+      break;
    default:
       return NULL;
    }
@@ -230,7 +236,7 @@ nir_load_store_vectorize_test::create_indirect_load(
    }
    int byte_size = (bit_size == 1 ? 32 : bit_size) / 8;
 
-   if (mode != nir_var_mem_push_const) {
+   if (mode != nir_var_mem_push_const && mode != nir_var_shader_in) {
       nir_intrinsic_set_align(load, byte_size, 0);
       nir_intrinsic_set_access(load, (gl_access_qualifier)access);
    }
@@ -373,11 +379,19 @@ bool nir_load_store_vectorize_test::mem_vectorize_callback(
    nir_intrinsic_instr *low, nir_intrinsic_instr *high,
    void *data)
 {
-	uint32_t align;
-	if (align_offset)
-		align = 1 << (ffs(align_offset) - 1);
-	else
-		align = align_mul;
+   unsigned worst_start_offset = 16 - MIN2(align_mul, 16) + align_offset % 16u;
+   bool same_vec4 = worst_start_offset + (bit_size * num_components / 8u) <= 16;
+
+   if (low->intrinsic == nir_intrinsic_load_input && num_components > 4)
+      return false;
+   if (low->intrinsic == nir_intrinsic_load_input && nir_intrinsic_dest_type(low) == nir_type_float32 && !same_vec4)
+      return false;
+
+   uint32_t align;
+   if (align_offset)
+      align = 1 << (ffs(align_offset) - 1);
+   else
+      align = align_mul;
 
    return align % bit_size / 8 == 0;
 }
@@ -1946,4 +1960,151 @@ TEST_F(nir_load_store_vectorize_test, ubo_alignment_const_100)
    EXPECT_TRUE(run_vectorizer(nir_var_mem_ubo));
    EXPECT_EQ(nir_intrinsic_align_mul(load), NIR_ALIGN_MUL_MAX);
    EXPECT_EQ(nir_intrinsic_align_offset(load), 100);
+}
+
+TEST_F(nir_load_store_vectorize_test, shader_in_adjacent_component)
+{
+   nir_intrinsic_instr *intrin = create_load(nir_var_shader_in, 0, 0, 0x1);
+   nir_intrinsic_set_base(intrin, 1);
+   nir_intrinsic_set_component(intrin, 1);
+   nir_intrinsic_set_dest_type(intrin, nir_type_float32);
+   nir_intrinsic_set_io_semantics(intrin, (nir_io_semantics){.location=1});
+
+   intrin = create_load(nir_var_shader_in, 0, 0, 0x2);
+   nir_intrinsic_set_base(intrin, 1);
+   nir_intrinsic_set_component(intrin, 2);
+   nir_intrinsic_set_dest_type(intrin, nir_type_float32);
+   nir_intrinsic_set_io_semantics(intrin, (nir_io_semantics){.location=1});
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_intrinsics(nir_intrinsic_load_input), 2);
+
+   EXPECT_TRUE(run_vectorizer(nir_var_shader_in));
+
+   ASSERT_EQ(count_intrinsics(nir_intrinsic_load_input), 1);
+
+   nir_intrinsic_instr *load = get_intrinsic(nir_intrinsic_load_input, 0);
+   ASSERT_EQ(load->dest.ssa.bit_size, 32);
+   ASSERT_EQ(load->dest.ssa.num_components, 2);
+   ASSERT_EQ(nir_src_as_uint(load->src[0]), 0);
+   ASSERT_EQ(nir_intrinsic_base(load), 1);
+   ASSERT_EQ(nir_intrinsic_component(load), 1);
+   ASSERT_EQ(loads[0x1]->src.ssa, &load->dest.ssa);
+   ASSERT_EQ(loads[0x2]->src.ssa, &load->dest.ssa);
+   ASSERT_EQ(loads[0x1]->swizzle[0], 0);
+   ASSERT_EQ(loads[0x2]->swizzle[0], 1);
+}
+
+TEST_F(nir_load_store_vectorize_test, shader_in_adjacent_disallow_different_vec4)
+{
+   nir_intrinsic_instr *intrin = create_load(nir_var_shader_in, 0, 0, 0x1);
+   nir_intrinsic_set_base(intrin, 1);
+   nir_intrinsic_set_component(intrin, 3);
+   nir_intrinsic_set_dest_type(intrin, nir_type_float32);
+   nir_intrinsic_set_io_semantics(intrin, (nir_io_semantics){.location=1});
+
+   intrin = create_load(nir_var_shader_in, 0, 0, 0x2);
+   nir_intrinsic_set_base(intrin, 2);
+   nir_intrinsic_set_component(intrin, 0);
+   nir_intrinsic_set_dest_type(intrin, nir_type_float32);
+   nir_intrinsic_set_io_semantics(intrin, (nir_io_semantics){.location=2});
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_intrinsics(nir_intrinsic_load_input), 2);
+
+   EXPECT_FALSE(run_vectorizer(nir_var_shader_in));
+
+   ASSERT_EQ(count_intrinsics(nir_intrinsic_load_input), 2);
+}
+
+TEST_F(nir_load_store_vectorize_test, shader_in_adjacent_allow_different_vec4)
+{
+   nir_intrinsic_instr *intrin = create_load(nir_var_shader_in, 0, 0, 0x1);
+   nir_intrinsic_set_base(intrin, 1);
+   nir_intrinsic_set_component(intrin, 3);
+   nir_intrinsic_set_dest_type(intrin, nir_type_uint32);
+   nir_intrinsic_set_io_semantics(intrin, (nir_io_semantics){.location=1});
+
+   intrin = create_load(nir_var_shader_in, 0, 0, 0x2);
+   nir_intrinsic_set_base(intrin, 2);
+   nir_intrinsic_set_component(intrin, 0);
+   nir_intrinsic_set_dest_type(intrin, nir_type_uint32);
+   nir_intrinsic_set_io_semantics(intrin, (nir_io_semantics){.location=2});
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_intrinsics(nir_intrinsic_load_input), 2);
+
+   EXPECT_TRUE(run_vectorizer(nir_var_shader_in));
+
+   ASSERT_EQ(count_intrinsics(nir_intrinsic_load_input), 1);
+
+   nir_intrinsic_instr *load = get_intrinsic(nir_intrinsic_load_input, 0);
+   ASSERT_EQ(load->dest.ssa.bit_size, 32);
+   ASSERT_EQ(load->dest.ssa.num_components, 2);
+   ASSERT_EQ(nir_src_as_uint(load->src[0]), 0);
+   ASSERT_EQ(nir_intrinsic_base(load), 1);
+   ASSERT_EQ(nir_intrinsic_component(load), 3);
+   ASSERT_EQ(loads[0x1]->src.ssa, &load->dest.ssa);
+   ASSERT_EQ(loads[0x2]->src.ssa, &load->dest.ssa);
+   ASSERT_EQ(loads[0x1]->swizzle[0], 0);
+   ASSERT_EQ(loads[0x2]->swizzle[0], 1);
+}
+
+TEST_F(nir_load_store_vectorize_test, shader_in_adjacent_disallow_different_vec4_indirect)
+{
+   nir_ssa_def *index_base = nir_load_local_invocation_index(b);
+
+   nir_intrinsic_instr *intrin = create_indirect_load(nir_var_shader_in, 0, index_base, 0x1);
+   nir_intrinsic_set_base(intrin, 1);
+   nir_intrinsic_set_component(intrin, 3);
+   nir_intrinsic_set_dest_type(intrin, nir_type_float32);
+   nir_intrinsic_set_io_semantics(intrin, (nir_io_semantics){.location=1});
+
+   intrin = create_indirect_load(nir_var_shader_in, 0, nir_iadd_imm(b, index_base, 1), 0x2);
+   nir_intrinsic_set_base(intrin, 1);
+   nir_intrinsic_set_component(intrin, 0);
+   nir_intrinsic_set_dest_type(intrin, nir_type_float32);
+   nir_intrinsic_set_io_semantics(intrin, (nir_io_semantics){.location=1});
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_intrinsics(nir_intrinsic_load_input), 2);
+
+   EXPECT_FALSE(run_vectorizer(nir_var_shader_in));
+
+   ASSERT_EQ(count_intrinsics(nir_intrinsic_load_input), 2);
+}
+
+TEST_F(nir_load_store_vectorize_test, shader_in_adjacent_allow_different_vec4_indirect)
+{
+   nir_ssa_def *index_base = nir_load_local_invocation_index(b);
+
+   nir_intrinsic_instr *intrin = create_indirect_load(nir_var_shader_in, 0, index_base, 0x1);
+   nir_intrinsic_set_base(intrin, 1);
+   nir_intrinsic_set_component(intrin, 3);
+   nir_intrinsic_set_dest_type(intrin, nir_type_uint32);
+   nir_intrinsic_set_io_semantics(intrin, (nir_io_semantics){.location=1});
+
+   intrin = create_indirect_load(nir_var_shader_in, 0, nir_iadd_imm(b, index_base, 1), 0x2);
+   nir_intrinsic_set_base(intrin, 1);
+   nir_intrinsic_set_component(intrin, 0);
+   nir_intrinsic_set_dest_type(intrin, nir_type_uint32);
+   nir_intrinsic_set_io_semantics(intrin, (nir_io_semantics){.location=1});
+
+   nir_validate_shader(b->shader, NULL);
+   ASSERT_EQ(count_intrinsics(nir_intrinsic_load_input), 2);
+
+   EXPECT_TRUE(run_vectorizer(nir_var_shader_in));
+
+   ASSERT_EQ(count_intrinsics(nir_intrinsic_load_input), 1);
+
+   nir_intrinsic_instr *load = get_intrinsic(nir_intrinsic_load_input, 0);
+   ASSERT_EQ(load->dest.ssa.bit_size, 32);
+   ASSERT_EQ(load->dest.ssa.num_components, 2);
+   ASSERT_EQ(load->src[0].ssa, index_base);
+   ASSERT_EQ(nir_intrinsic_base(load), 1);
+   ASSERT_EQ(nir_intrinsic_component(load), 3);
+   ASSERT_EQ(loads[0x1]->src.ssa, &load->dest.ssa);
+   ASSERT_EQ(loads[0x2]->src.ssa, &load->dest.ssa);
+   ASSERT_EQ(loads[0x1]->swizzle[0], 0);
+   ASSERT_EQ(loads[0x2]->swizzle[0], 1);
 }
