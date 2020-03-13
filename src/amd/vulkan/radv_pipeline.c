@@ -2954,13 +2954,28 @@ void radv_stop_feedback(VkPipelineCreationFeedbackEXT *feedback, bool cache_hit)
 	                   (cache_hit ? VK_PIPELINE_CREATION_FEEDBACK_APPLICATION_PIPELINE_CACHE_HIT_BIT_EXT : 0);
 }
 
+struct mem_vectorize_cb_data
+{
+	enum chip_class class;
+	gl_shader_stage stage;
+};
+
+static bool
+check_lds_align(unsigned load_size, unsigned bit_size, unsigned align)
+{
+	/* 96 and 128 bit loads require 128 bit alignment and are split otherwise */
+	return align % (load_size > 64 ? 16 : MIN2(bit_size / 8u, 4)) == 0;
+}
+
 static bool
 mem_vectorize_callback(unsigned align_mul, unsigned align_offset,
-                       unsigned bit_size,
-                       unsigned num_components,
+                       unsigned bit_size, unsigned num_components,
                        nir_intrinsic_instr *low, nir_intrinsic_instr *high,
-                       void *data)
+                       void *data_)
 {
+	struct mem_vectorize_cb_data *data = (struct mem_vectorize_cb_data *)data_;
+	bool merged_vs_gs = data->stage == MESA_SHADER_GEOMETRY && data->class >= GFX9;
+
 	if (num_components > 4)
 		return false;
 
@@ -2974,7 +2989,28 @@ mem_vectorize_callback(unsigned align_mul, unsigned align_offset,
 	else
 		align = align_mul;
 
+	unsigned worst_start_offset = 16 - MIN2(align_mul, 16) + align_offset % 16u;
+	bool same_vec4 = worst_start_offset + (bit_size * num_components / 8u) <= 16;
+
+	bool is_load = false;
 	switch (low->intrinsic) {
+	case nir_intrinsic_load_input:
+	case nir_intrinsic_load_per_vertex_input:
+		if (data->stage == MESA_SHADER_VERTEX || data->stage == MESA_SHADER_TESS_EVAL ||
+		    (data->stage == MESA_SHADER_GEOMETRY && !merged_vs_gs))
+			return same_vec4;
+		else
+			return check_lds_align(bit_size * num_components, bit_size, align);
+	case nir_intrinsic_load_output:
+	case nir_intrinsic_load_per_vertex_output:
+		is_load = true;
+		/* fallthrough */
+	case nir_intrinsic_store_output:
+	case nir_intrinsic_store_per_vertex_output:
+		if (data->stage == MESA_SHADER_TESS_CTRL && !is_load)
+			return same_vec4;
+		else
+			return check_lds_align(bit_size * num_components, bit_size, align);
 	case nir_intrinsic_load_global:
 	case nir_intrinsic_store_global:
 	case nir_intrinsic_store_ssbo:
@@ -2989,10 +3025,7 @@ mem_vectorize_callback(unsigned align_mul, unsigned align_offset,
 		FALLTHROUGH;
 	case nir_intrinsic_load_shared:
 	case nir_intrinsic_store_shared:
-		if (bit_size * num_components > 64) /* 96 and 128 bit loads require 128 bit alignment and are split otherwise */
-			return align % 16 == 0;
-		else
-			return align % (bit_size == 8 ? 2 : 4) == 0;
+		return check_lds_align(bit_size * num_components, bit_size, align);
 	default:
 		return false;
 	}
@@ -3196,6 +3229,11 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			}
 			NIR_PASS_V(nir[i], nir_lower_memory_model);
 
+			/* do this again since information such as outputs_read can be out-of-date */
+			nir_shader_gather_info(nir[i], nir_shader_get_entrypoint(nir[i]));
+
+			radv_lower_io(device, nir[i]);
+
 			bool lower_to_scalar = false;
 			bool lower_pack = false;
 			nir_load_store_vectorize_options vectorize_opts;
@@ -3209,20 +3247,32 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 							      nir_var_mem_push_const;
 			}
 
+			struct mem_vectorize_cb_data cb_data;
+			cb_data.class = device->physical_device->rad_info.chip_class;
+			cb_data.stage = nir[i]->info.stage;
+
 			vectorize_opts.modes = nir_var_mem_ssbo | nir_var_mem_ubo |
 					       nir_var_mem_push_const | nir_var_mem_shared |
 					       nir_var_mem_global;
+			if (nir[i]->info.stage != MESA_SHADER_FRAGMENT)
+				vectorize_opts.modes |= nir_var_shader_in;
+			bool has_geom_tess = nir[MESA_SHADER_GEOMETRY] || nir[MESA_SHADER_TESS_EVAL];
+			if (nir[i]->info.stage != MESA_SHADER_GEOMETRY &&
+			    nir[i]->info.stage != MESA_SHADER_FRAGMENT &&
+			    nir[i]->info.stage != MESA_SHADER_TESS_EVAL &&
+			    !(nir[i]->info.stage == MESA_SHADER_VERTEX && has_geom_tess))
+				vectorize_opts.modes |= nir_var_shader_out;
 			vectorize_opts.callback = mem_vectorize_callback;
+			vectorize_opts.cb_data = &cb_data;
+			vectorize_opts.min_component_stride[0] = 4;
+			vectorize_opts.min_component_stride[1] = 4;
 
 			if (nir_opt_load_store_vectorize(nir[i], &vectorize_opts)) {
 				lower_to_scalar = true;
 				lower_pack = true;
+				/* update bit_sizes_int */
+				nir_shader_gather_info(nir[i], nir_shader_get_entrypoint(nir[i]));
 			}
-
-			/* do this again since information such as outputs_read can be out-of-date */
-			nir_shader_gather_info(nir[i], nir_shader_get_entrypoint(nir[i]));
-
-			radv_lower_io(device, nir[i]);
 
 			lower_to_scalar |= nir_opt_shrink_vectors(nir[i]);
 
