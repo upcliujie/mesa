@@ -44,16 +44,10 @@ struct ir3_cp_ctx {
 	struct ir3_shader_variant *so;
 };
 
-/* is it a type preserving mov, with ok flags?
- *
- * @instr: the mov to consider removing
- * @dst_instr: the instruction consuming the mov (instr)
- *
- * TODO maybe drop allow_flags since this is only false when dst is
- * NULL (ie. outputs)
+/**
+ * Is it a type preserving mov with ok flags?
  */
-static bool is_eligible_mov(struct ir3_instruction *instr,
-		struct ir3_instruction *dst_instr, bool allow_flags)
+static bool is_simple_mov(struct ir3_instruction *instr, bool allow_flags)
 {
 	if (is_same_type_mov(instr)) {
 		struct ir3_register *dst = instr->regs[0];
@@ -77,6 +71,28 @@ static bool is_eligible_mov(struct ir3_instruction *instr,
 			if (src->flags & (IR3_REG_FABS | IR3_REG_FNEG |
 					IR3_REG_SABS | IR3_REG_SNEG | IR3_REG_BNOT))
 				return false;
+
+		return true;
+	}
+	return false;
+}
+
+/**
+ * is it a type preserving simple mov, with ok flags, excluding
+ * the split/collect case which is handled specially.
+ *
+ * @instr: the mov to consider removing
+ * @dst_instr: the instruction consuming the mov (instr)
+ *
+ * TODO maybe drop allow_flags since this is only false when dst is
+ * NULL (ie. outputs)
+ */
+static bool is_eligible_mov(struct ir3_instruction *instr,
+		struct ir3_instruction *dst_instr, bool allow_flags)
+{
+	if (is_simple_mov(instr, allow_flags)) {
+		struct ir3_register *src = instr->regs[1];
+		struct ir3_instruction *src_instr = ssa(src);
 
 		/* If src is coming from fanout/split (ie. one component of a
 		 * texture fetch, etc) and we have constraints on swizzle of
@@ -821,6 +837,110 @@ eliminate_output_mov(struct ir3_instruction *instr)
 	return instr;
 }
 
+static bool
+try_fold_collect_src(struct ir3_instruction *collect, unsigned start, unsigned n)
+{
+	if (n == 0)
+		return false;
+
+	struct ir3_instruction *mov = ssa(collect->regs[start + n - 1]);
+	struct ir3_instruction *split = ssa(mov->regs[1]);
+
+	assert(split->opc == OPC_META_SPLIT);
+
+	/* is this really the last split src into the collect: */
+	struct ir3_instruction *splitsrc = ssa(split->regs[1]);
+	if (BITFIELD_MASK(split->split.off + 1) != splitsrc->regs[0]->wrmask)
+		return false;
+
+	struct ir3 *ir = collect->block->shader;
+	for (unsigned i = 0; i < n; i++) {
+		unsigned idx = i + start;
+		struct ir3_instruction *mov = ssa(collect->regs[idx]);
+		collect->regs[idx] = ir3_reg_clone(ir, mov->regs[1]);
+	}
+
+	return true;
+}
+
+/**
+ * Handle the special case of meta:collect.  We can handle folding a
+ * split -> mov -> collect sequence in some specific but common cases.
+ * Ie. when all the components of the split instruction appear in a
+ * contiguous sequence in (potentially a subset of) a collect.  This
+ * shows up commonly in sequences like:
+ *
+ *    vec3 c = texture(...)
+ *    fragcolor = vec4(c.xyz, 1.0);
+ *
+ * Note that we need to exclude patterns like:
+ *
+ *    vec4 c = ...
+ *    fracolor = c.yzwx;
+ *
+ * or:
+ *
+ *    vec4 c = ...
+ *    fragcolor = vec4(c.yzw, 1.0);
+ *
+ * because the split instruction doesn't completely fit into a subset
+ * of the collected value, ie. there is only partial overlap.  Other-
+ * wise RA could get into impossible situations.
+ *
+ * (NOTE this isn't strictly about fragcolor/outputs, that just happens
+ * to be a common pattern to use as an example)
+ */
+static bool
+instr_cp_collect(struct ir3_instruction *collect)
+{
+	struct ir3_instruction *splitsrc = NULL;
+	unsigned start = 0, n = 0;
+	bool progress = false;
+
+	for (int i = 1; i < collect->regs_count; i++) {
+		struct ir3_instruction *src = ssa(collect->regs[i]);
+		assert(src); /* collect src should always be ssa */
+
+		if (!is_simple_mov(src, false))
+			goto reset;
+
+		struct ir3_instruction *movsrc = ssa(src->regs[1]);
+		assert(movsrc); /* is_simple_mov() excludes non-ssa case */
+
+		if (movsrc->opc != OPC_META_SPLIT)
+			goto reset;
+
+		/* To fold src splits into collect, we need them to be
+		 * sequential offset starting from zero, ie. ".xyz" but
+		 * not ".yzx":
+		 */
+		if (movsrc->split.off != n)
+			goto reset;
+
+		if (n > 0) {
+			if (splitsrc != ssa(movsrc->regs[1]))
+				goto reset;
+		} else {
+			start = i;
+			splitsrc = ssa(movsrc->regs[1]);
+		}
+
+		n++;
+		if (try_fold_collect_src(collect, start, n)) {
+			progress |= true;
+			goto reset;
+		}
+
+		continue;
+reset:
+		n = 0;
+	}
+
+	progress |= try_fold_collect_src(collect, start, n);
+
+	return progress;
+}
+
 /**
  * Find instruction src's which are mov's that can be collapsed, replacing
  * the mov dst with the mov src
@@ -871,6 +991,10 @@ instr_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr)
 	if (instr->address) {
 		instr_cp(ctx, instr->address);
 		ir3_instr_set_address(instr, eliminate_output_mov(instr->address));
+	}
+
+	if (instr->opc == OPC_META_COLLECT) {
+		progress |= instr_cp_collect(instr);
 	}
 
 	/* we can end up with extra cmps.s from frontend, which uses a
