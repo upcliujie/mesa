@@ -34,6 +34,8 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
+#include "drm-uapi/i915_drm.h"
+
 static inline uint64_t
 intel_canonical_address(uint64_t v)
 {
@@ -142,6 +144,36 @@ intel_i915_query_alloc(int fd, uint64_t query_id)
    }
 
    return data;
+}
+
+static inline int
+intel_getparam(int fd, int param, int *value)
+{
+   struct drm_i915_getparam gp = { .param = param, .value = value };
+
+   if (intel_ioctl(fd, DRM_IOCTL_I915_GETPARAM, &gp) == -1)
+      return -errno;
+
+   return 0;
+}
+
+static inline int
+intel_getparam_integer(int fd, int param)
+{
+   /* No param uses (yet) the sign bit, reserve it for errors */
+   int value = -1;
+
+   if (intel_getparam(fd, param, &value) == 0)
+      return value;
+
+   return -1;
+}
+
+static inline bool
+intel_getparam_boolean(int fd, int param)
+{
+   int value = 0;
+   return intel_getparam(fd, param, &value) == 0 && value;
 }
 
 bool intel_gem_supports_syncobj_wait(int fd);
