@@ -522,6 +522,10 @@ add_aux_surface_if_supported(struct anv_device *device,
    if ((isl_extra_usage_flags & ISL_SURF_USAGE_DISABLE_AUX_BIT))
       return VK_SUCCESS;
 
+   if ((image->vk.usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
+        device->info.verx10 < 125)
+      return VK_SUCCESS;
+
    if (aspect == VK_IMAGE_ASPECT_DEPTH_BIT) {
       /* We don't advertise that depth buffers could be used as storage
        * images.
@@ -660,12 +664,23 @@ add_aux_surface_if_supported(struct anv_device *device,
          return VK_SUCCESS;
 
       /* Choose aux usage */
-      if (!(image->vk.usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
-          anv_formats_ccs_e_compatible(&device->info,
+      if (anv_formats_ccs_e_compatible(&device->info,
                                        image->vk.create_flags,
                                        image->vk.format,
                                        image->vk.tiling,
                                        fmt_list)) {
+         if (image->vk.usage & VK_IMAGE_USAGE_STORAGE_BIT &&
+             isl_is_storage_image_format(plane_format.isl_format)) {
+            enum isl_format lower_format =
+               isl_lower_storage_image_format(&device->info,
+                                              plane_format.isl_format);
+            if (!isl_formats_are_ccs_e_compatible(&device->info,
+                                                  plane_format.isl_format,
+                                                  lower_format)) {
+               image->planes[plane].aux_surface.isl.size_B = 0;
+               return VK_SUCCESS;
+            }
+         }
          /* For images created without MUTABLE_FORMAT_BIT set, we know that
           * they will always be used with the original format.  In particular,
           * they will always be used with a format that supports color
@@ -1999,7 +2014,7 @@ anv_layout_to_aux_state(const struct intel_device_info * const devinfo,
       }
    }
 
-   if (usage & VK_IMAGE_USAGE_STORAGE_BIT) {
+   if ((usage & VK_IMAGE_USAGE_STORAGE_BIT) && devinfo->verx10 < 125) {
       aux_supported = false;
       clear_supported = false;
    }
