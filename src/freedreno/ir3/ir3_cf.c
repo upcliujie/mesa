@@ -118,6 +118,75 @@ can_fold_cov(struct ir3_instruction *conv, struct ir3_instruction *src)
 	return true;
 }
 
+/**
+ * Handle the special case of folding conversion into the result of
+ * a "vector(ish)" instruction:
+ *  1) the SSA src of the meta:split is the instruction to potentially
+ *     fold conversion into.
+ *  2) all the use's of each meta:split coming out of the (rptN) must
+ *     be a cov.
+ *  3) the use's of each of the splits gets re-written, ie. we fold
+ *     each of the (rptN)foo -> split -> cov at the same time
+ */
+static void
+try_fold_split(struct ir3_instruction *conv, struct ir3_instruction *split)
+{
+	struct ir3_instruction *splitsrc = ssa(split->regs[1]);
+
+	if (!can_fold_cov(conv, splitsrc))
+		return;
+
+	/* all the uses of each split coming out of splitsrc must be
+	 * cov's.  The other split's can be found by iterating the
+	 * split's src instruction's uses
+	 */
+	foreach_ssa_use (othersplit, splitsrc) {
+		assert(othersplit->opc == OPC_META_SPLIT);
+
+		foreach_ssa_use (use, othersplit) {
+			if (!is_fp16_conv(use))
+				return;
+		}
+	}
+
+	/* fold the conversion into the source of the split:
+	 */
+	if (conv->regs[0]->flags & IR3_REG_HALF) {
+		splitsrc->regs[0]->flags |= IR3_REG_HALF;
+	} else {
+		splitsrc->regs[0]->flags &= ~IR3_REG_HALF;
+	}
+
+	/* We've already ensured that each use of all of the splits
+	 * is an fp16 conv.  At this point, now that we've folded
+	 * the conversion into splitsrc, re-write the uses of those
+	 * conv's to use the corresponding split directly.
+	 */
+	foreach_ssa_use (othersplit, splitsrc) {
+		/* Since we have changed the result precision of the
+		 * instruction upstream of the split, we need to fixup
+		 * the precision of the split src/dst to match:
+		 */
+		if (conv->regs[0]->flags & IR3_REG_HALF) {
+			othersplit->regs[0]->flags |= IR3_REG_HALF;
+			othersplit->regs[1]->flags |= IR3_REG_HALF;
+		} else {
+			othersplit->regs[0]->flags &= ~IR3_REG_HALF;
+			othersplit->regs[1]->flags &= ~IR3_REG_HALF;
+		}
+
+		/* And finally update the uses of the conv to
+		 * point directly at the split:
+		 */
+		foreach_ssa_use (conv, othersplit) {
+			assert(is_fp16_conv(conv));
+			foreach_ssa_use (use, conv) {
+				rewrite_uses(conv, othersplit);
+			}
+		}
+	}
+}
+
 static void
 try_conversion_folding(struct ir3_instruction *conv)
 {
@@ -127,6 +196,12 @@ try_conversion_folding(struct ir3_instruction *conv)
 		return;
 
 	src = ssa(conv->regs[1]);
+
+	if (src->opc == OPC_META_SPLIT) {
+		try_fold_split(conv, src);
+		return;
+	}
+
 	if (!can_fold_cov(conv, src))
 		return;
 
