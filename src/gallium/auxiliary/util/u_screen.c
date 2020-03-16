@@ -422,6 +422,9 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
    case PIPE_CAP_PSIZ_CLAMPED:
       return 0;
 
+   case PIPE_CAP_SUPPRESS_IMPLICIT_SYNC:
+      return false;
+
    default:
       unreachable("bad PIPE_CAP_*");
    }

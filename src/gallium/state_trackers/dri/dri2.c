@@ -1573,9 +1573,17 @@ dri2_get_capabilities(__DRIscreen *_screen)
    return (screen->can_share_buffer ? __DRI_IMAGE_CAP_GLOBAL_NAMES : 0);
 }
 
+static void
+dri2_suppress_implicit_sync(__DRIimage *image)
+{
+   const struct pipe_screen *pscreen = image->texture->screen;
+
+   pscreen->suppress_implicit_sync(image->texture);
+}
+
 /* The extension is modified during runtime if DRI_PRIME is detected */
 static __DRIimageExtension dri2ImageExtension = {
-    .base = { __DRI_IMAGE, 17 },
+    .base = { __DRI_IMAGE, 18 },
 
     .createImageFromName          = dri2_create_image_from_name,
     .createImageFromRenderbuffer  = dri2_create_image_from_renderbuffer,
@@ -1599,6 +1607,7 @@ static __DRIimageExtension dri2ImageExtension = {
     .queryDmaBufModifiers         = NULL,
     .queryDmaBufFormatModifierAttribs = NULL,
     .createImageFromRenderbuffer2 = dri2_create_image_from_renderbuffer2,
+    .suppressImplicitSync         = NULL,
 };
 
 static const __DRIrobustnessExtension dri2Robustness = {
@@ -2098,6 +2107,9 @@ dri2_init_screen(__DRIscreen * sPriv)
 
    if (pscreen->set_damage_region)
       dri2BufferDamageExtension.set_damage_region = dri2_set_damage_region;
+
+   if (pscreen->get_param(pscreen, PIPE_CAP_SUPPRESS_IMPLICIT_SYNC))
+      dri2ImageExtension.suppressImplicitSync = dri2_suppress_implicit_sync;
 
    if (pscreen->get_param(pscreen, PIPE_CAP_DEVICE_RESET_STATUS_QUERY)) {
       sPriv->extensions = dri_robust_screen_extensions;

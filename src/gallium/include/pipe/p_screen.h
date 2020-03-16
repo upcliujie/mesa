@@ -511,6 +511,14 @@ struct pipe_screen {
     *                  should be.
     */
    void (*finalize_nir)(struct pipe_screen *screen, void *nir, bool optimize);
+
+   /**
+    * Suppress implicit synchronization for the resource.
+    *
+    * Drivers providing this callback also need to set
+    * PIPE_CAP_SUPPRESS_IMPLICIT_SYNC
+    */
+   void (*suppress_implicit_sync)(struct pipe_resource *resource);
 };
 
 
