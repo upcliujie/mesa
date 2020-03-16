@@ -77,6 +77,47 @@ rewrite_uses(struct ir3_instruction *conv, struct ir3_instruction *replace)
 	}
 }
 
+/* Can the specified src instruction widen/narrow when writing
+ * it's dest register?
+ *
+ * NOTE: tex instructions could also convert, but I think that
+ * is sufficiently handled in nir.
+ */
+static bool
+can_fold_cov(struct ir3_instruction *conv, struct ir3_instruction *src)
+{
+	if (!is_alu(src))
+		return false;
+
+	/* avoid folding f2f32(f2f16) together, in cases where this is legal to
+	 * do (glsl) nir should have handled that for us already:
+	 */
+	if (is_fp16_conv(src))
+		return false;
+
+	switch (src->opc) {
+	case OPC_SEL_B32:
+	case OPC_SEL_B16:
+	case OPC_MAX_F:
+	case OPC_MIN_F:
+	case OPC_SIGN_F:
+	case OPC_ABSNEG_F:
+		return false;
+	case OPC_MOV:
+		/* if src is a "cov" and type doesn't match, then it can't be folded
+		 * for example cov.u32u16+cov.f16f32 can't be folded to cov.u32f32
+		 */
+		if (src->cat1.dst_type != src->cat1.src_type &&
+			conv->cat1.src_type != src->cat1.dst_type)
+			return false;
+		break;
+	default:
+		break;
+	}
+
+	return true;
+}
+
 static void
 try_conversion_folding(struct ir3_instruction *conv)
 {
@@ -86,33 +127,8 @@ try_conversion_folding(struct ir3_instruction *conv)
 		return;
 
 	src = ssa(conv->regs[1]);
-	if (!is_alu(src))
+	if (!can_fold_cov(conv, src))
 		return;
-
-	/* avoid folding f2f32(f2f16) together, in cases where this is legal to
-	 * do (glsl) nir should have handled that for us already:
-	 */
-	if (is_fp16_conv(src))
-		return;
-
-	switch (src->opc) {
-	case OPC_SEL_B32:
-	case OPC_SEL_B16:
-	case OPC_MAX_F:
-	case OPC_MIN_F:
-	case OPC_SIGN_F:
-	case OPC_ABSNEG_F:
-		return;
-	case OPC_MOV:
-		/* if src is a "cov" and type doesn't match, then it can't be folded
-		 * for example cov.u32u16+cov.f16f32 can't be folded to cov.u32f32
-		 */
-		if (src->cat1.dst_type != src->cat1.src_type &&
-			conv->cat1.src_type != src->cat1.dst_type)
-			return;
-	default:
-		break;
-	}
 
 	if (!all_uses_fp16_conv(src))
 		return;
