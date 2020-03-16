@@ -121,6 +121,13 @@ iris_getparam_integer(struct iris_screen *screen, int param)
 }
 
 static int
+iris_getparam_boolean(struct iris_screen *screen, int param)
+{
+   int value = 0;
+   return iris_getparam(screen, param, &value) == 0 && value;
+}
+
+static int
 iris_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 {
    struct iris_screen *screen = (struct iris_screen *)pscreen;
@@ -354,6 +361,9 @@ iris_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_OPENCL_INTEGER_FUNCTIONS:
    case PIPE_CAP_INTEGER_MULTIPLY_32X16:
       return true;
+
+   case PIPE_CAP_SUPPRESS_IMPLICIT_SYNC:
+      return iris_getparam_boolean(screen, I915_PARAM_HAS_EXEC_ASYNC);
 
    default:
       return u_pipe_screen_get_param_defaults(pscreen, param);
@@ -628,6 +638,12 @@ iris_shader_perf_log(void *data, const char *fmt, ...)
    va_end(args);
 }
 
+static void
+iris_suppress_implicit_sync(struct pipe_resource *resource)
+{
+   iris_resource_bo(resource)->kflags |= EXEC_OBJECT_ASYNC;
+}
+
 struct pipe_screen *
 iris_screen_create(int fd, const struct pipe_screen_config *config)
 {
@@ -723,6 +739,7 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
    pscreen->query_memory_info = iris_query_memory_info;
    pscreen->get_driver_query_group_info = iris_get_monitor_group_info;
    pscreen->get_driver_query_info = iris_get_monitor_info;
+   pscreen->suppress_implicit_sync = iris_suppress_implicit_sync;
 
    return pscreen;
 }
