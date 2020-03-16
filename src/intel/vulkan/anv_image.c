@@ -369,18 +369,24 @@ anv_image_plane_needs_shadow_surface(const struct intel_device_info *devinfo,
 bool
 anv_formats_ccs_e_compatible(const struct intel_device_info *devinfo,
                              VkImageCreateFlags create_flags,
-                             VkFormat vk_format,
-                             VkImageTiling vk_tiling,
+                             VkFormat vk_format, VkImageTiling vk_tiling,
+                             VkImageUsageFlags vk_usage,
                              const VkImageFormatListCreateInfoKHR *fmt_list)
 {
    enum isl_format format =
       anv_get_isl_format(devinfo, vk_format,
                          VK_IMAGE_ASPECT_COLOR_BIT, vk_tiling);
+   enum isl_format lower_format =
+      isl_is_storage_image_format(format) ?
+      isl_lower_storage_image_format(devinfo, format) : ISL_FORMAT_UNSUPPORTED;
 
-   if (!isl_format_supports_ccs_e(devinfo, format))
+   if (!isl_format_supports_ccs_e(devinfo, format) ||
+       (isl_is_storage_image_format(format) &&
+        !isl_format_supports_ccs_e(devinfo, lower_format)))
       return false;
 
-   if (!(create_flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT))
+   if (!(create_flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) &&
+       !(vk_usage & VK_IMAGE_USAGE_STORAGE_BIT))
       return true;
 
    if (!fmt_list || fmt_list->viewFormatCount == 0)
@@ -392,6 +398,11 @@ anv_formats_ccs_e_compatible(const struct intel_device_info *devinfo,
                             VK_IMAGE_ASPECT_COLOR_BIT, vk_tiling);
 
       if (!isl_formats_are_ccs_e_compatible(devinfo, format, view_format))
+         return false;
+
+      if ((vk_usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
+          !isl_formats_are_ccs_e_compatible(devinfo, lower_format,
+                                            view_format))
          return false;
    }
 
@@ -661,12 +672,9 @@ add_aux_surface_if_supported(struct anv_device *device,
          return VK_SUCCESS;
 
       /* Choose aux usage */
-      if (!(image->vk.usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
-          anv_formats_ccs_e_compatible(&device->info,
-                                       image->vk.create_flags,
-                                       image->vk.format,
-                                       image->vk.tiling,
-                                       fmt_list)) {
+      if (anv_formats_ccs_e_compatible(&device->info, image->vk.create_flags,
+                                       image->vk.format, image->vk.tiling,
+                                       image->vk.usage, fmt_list)) {
          /* For images created without MUTABLE_FORMAT_BIT set, we know that
           * they will always be used with the original format.  In particular,
           * they will always be used with a format that supports color
@@ -2001,7 +2009,7 @@ anv_layout_to_aux_state(const struct intel_device_info * const devinfo,
       }
    }
 
-   if (usage & VK_IMAGE_USAGE_STORAGE_BIT) {
+   if ((usage & VK_IMAGE_USAGE_STORAGE_BIT) && devinfo->verx10 < 125) {
       aux_supported = false;
       clear_supported = false;
    }
