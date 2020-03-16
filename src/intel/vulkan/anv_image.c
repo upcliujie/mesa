@@ -366,6 +366,58 @@ anv_image_plane_needs_shadow_surface(const struct gen_device_info *devinfo,
    return false;
 }
 
+static bool
+anv_isl_format_supports_atomics(enum isl_format format)
+{
+   switch (format) {
+   case ISL_FORMAT_R32_UINT:
+   case ISL_FORMAT_R32_SINT:
+   case ISL_FORMAT_R32_FLOAT:
+      return true;
+   default:
+      return false;
+   }
+}
+
+/* Gen12+ doesn't support atomic operations with CCS_E, the only format which
+ * supports atomics are R32_UINT, R32_SINT and R32_FLOAT, If image created with
+ * these formats or if MUTABLE_FORMAT_BIT is set, they can make R32_[SU]INT or
+ * R32_FLOAT view of any image with 32 bit format, so we have to disable CCS_E
+ * compression.
+ */
+static bool
+storage_image_format_supports_atomic(const struct gen_device_info *devinfo,
+                                     VkImageCreateFlags create_flags,
+                                     VkFormat vk_format,
+                                     VkImageTiling vk_tiling,
+                                     const VkImageFormatListCreateInfoKHR *fmt_list)
+{
+   enum isl_format format =
+      anv_get_isl_format(devinfo, vk_format,
+                         VK_IMAGE_ASPECT_COLOR_BIT, vk_tiling);
+
+   if (anv_isl_format_supports_atomics(format))
+      return true;
+
+   if (!(create_flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT))
+      return false;
+
+   if (fmt_list) {
+      for (uint32_t i = 0; i < fmt_list->viewFormatCount; i++) {
+         enum isl_format view_format =
+            anv_get_isl_format(devinfo, fmt_list->pViewFormats[i],
+                               VK_IMAGE_ASPECT_COLOR_BIT, vk_tiling);
+
+         if (anv_isl_format_supports_atomics(view_format))
+            return true;
+      }
+      return false;
+   }
+
+   /* No explicit format list. Any 32-bit format could be used for atomics */
+   return isl_format_get_layout(format)->bpb == 32;
+}
+
 bool
 anv_formats_ccs_e_compatible(const struct gen_device_info *devinfo,
                              VkImageCreateFlags create_flags,
@@ -521,6 +573,9 @@ add_aux_surface_if_supported(struct anv_device *device,
    if ((isl_extra_usage_flags & ISL_SURF_USAGE_DISABLE_AUX_BIT))
       return VK_SUCCESS;
 
+   if ((image->usage & VK_IMAGE_USAGE_STORAGE_BIT) && device->info.ver < 12)
+      return VK_SUCCESS;
+
    if (aspect == VK_IMAGE_ASPECT_DEPTH_BIT) {
       /* We don't advertise that depth buffers could be used as storage
        * images.
@@ -649,12 +704,34 @@ add_aux_surface_if_supported(struct anv_device *device,
          return VK_SUCCESS;
 
       /* Choose aux usage */
-      if (!(image->usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
-          anv_formats_ccs_e_compatible(&device->info,
+      if (anv_formats_ccs_e_compatible(&device->info,
                                        image->create_flags,
                                        image->vk_format,
                                        image->tiling,
                                        fmt_list)) {
+         /* Gen12LP doesn't support atomic operations with CCS_E, so we have to
+          * disable CCS_E.
+          */
+         if (image->usage & VK_IMAGE_USAGE_STORAGE_BIT &&
+             isl_is_storage_image_format(plane_format.isl_format)) {
+            enum isl_format lower_format =
+               isl_lower_storage_image_format(&device->info,
+                                              plane_format.isl_format);
+            bool ccs_e_comp =
+               isl_formats_are_ccs_e_compatible(&device->info,
+                                                plane_format.isl_format,
+                                                lower_format);
+            bool supports_atomic =
+               storage_image_format_supports_atomic(&device->info,
+                                                    image->create_flags,
+                                                    image->vk_format,
+                                                    image->tiling,
+                                                    fmt_list);
+            if (supports_atomic || !ccs_e_comp) {
+               image->planes[plane].aux_surface.isl.size_B = 0;
+               return VK_SUCCESS;
+            }
+         }
          /* For images created without MUTABLE_FORMAT_BIT set, we know that
           * they will always be used with the original format.  In particular,
           * they will always be used with a format that supports color
@@ -2176,7 +2253,7 @@ anv_layout_to_aux_state(const struct gen_device_info * const devinfo,
          aux_supported = false;
    }
 
-   if (usage & VK_IMAGE_USAGE_STORAGE_BIT)
+   if ((usage & VK_IMAGE_USAGE_STORAGE_BIT) && devinfo->ver < 12)
       aux_supported = false;
 
    if (usage & (VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
