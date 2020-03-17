@@ -99,6 +99,28 @@ get_aperture_size(int fd)
 }
 
 static int
+iris_getparam(struct iris_screen *screen, int param, int *value)
+{
+   struct drm_i915_getparam gp = { .param = param, .value = value };
+
+   if (ioctl(screen->fd, DRM_IOCTL_I915_GETPARAM, &gp) == -1)
+      return -errno;
+
+   return 0;
+}
+
+static int
+iris_getparam_integer(struct iris_screen *screen, int param)
+{
+   int value = -1;
+
+   if (iris_getparam(screen, param, &value) == 0)
+      return value;
+
+   return -1;
+}
+
+static int
 iris_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 {
    struct iris_screen *screen = (struct iris_screen *)pscreen;
@@ -556,28 +578,6 @@ iris_get_disk_shader_cache(struct pipe_screen *pscreen)
 {
    struct iris_screen *screen = (struct iris_screen *) pscreen;
    return screen->disk_cache;
-}
-
-static int
-iris_getparam(struct iris_screen *screen, int param, int *value)
-{
-   struct drm_i915_getparam gp = { .param = param, .value = value };
-
-   if (ioctl(screen->fd, DRM_IOCTL_I915_GETPARAM, &gp) == -1)
-      return -errno;
-
-   return 0;
-}
-
-static int
-iris_getparam_integer(struct iris_screen *screen, int param)
-{
-   int value = -1;
-
-   if (iris_getparam(screen, param, &value) == 0)
-      return value;
-
-   return -1;
 }
 
 static const struct gen_l3_config *
