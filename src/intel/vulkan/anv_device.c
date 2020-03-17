@@ -732,14 +732,14 @@ anv_physical_device_try_create(struct anv_instance *instance,
       }
    }
 
-   if (!intel_getparam_integer(fd, I915_PARAM_HAS_WAIT_TIMEOUT)) {
+   if (!intel_getparam_boolean(fd, I915_PARAM_HAS_WAIT_TIMEOUT)) {
       result = vk_errorfi(device->instance, NULL,
                           VK_ERROR_INITIALIZATION_FAILED,
                           "kernel missing gem wait");
       goto fail_base;
    }
 
-   if (!intel_getparam_integer(fd, I915_PARAM_HAS_EXECBUF2)) {
+   if (!intel_getparam_boolean(fd, I915_PARAM_HAS_EXECBUF2)) {
       result = vk_errorfi(device->instance, NULL,
                           VK_ERROR_INITIALIZATION_FAILED,
                           "kernel missing execbuf2");
@@ -754,11 +754,11 @@ anv_physical_device_try_create(struct anv_instance *instance,
       goto fail_base;
    }
 
-   device->has_softpin = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_SOFTPIN);
-   device->has_exec_async = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_ASYNC);
-   device->has_exec_capture = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_CAPTURE);
-   device->has_exec_fence = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_FENCE);
-   device->has_syncobj = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_FENCE_ARRAY);
+   device->has_softpin = intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_SOFTPIN);
+   device->has_exec_async = intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_ASYNC);
+   device->has_exec_capture = intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_CAPTURE);
+   device->has_exec_fence = intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_FENCE);
+   device->has_syncobj = intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_FENCE_ARRAY);
    device->has_syncobj_wait = device->has_syncobj &&
                               anv_gem_supports_syncobj_wait(fd);
    device->has_syncobj_wait_available =
@@ -778,10 +778,10 @@ anv_physical_device_try_create(struct anv_instance *instance,
                          device->supports_48bit_addresses;
 
    device->has_context_isolation =
-      intel_getparam_integer(fd, I915_PARAM_HAS_CONTEXT_ISOLATION);
+      intel_getparam_boolean(fd, I915_PARAM_HAS_CONTEXT_ISOLATION);
 
    device->has_exec_timeline =
-      intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_TIMELINE_FENCES);
+      intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_TIMELINE_FENCES);
    if (env_var_as_boolean("ANV_QUEUE_THREAD_DISABLE", false))
       device->has_exec_timeline = false;
 
