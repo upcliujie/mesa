@@ -613,12 +613,10 @@ anv_get_image_format_features(const struct gen_device_info *devinfo,
    /* Load/store is determined based on base format.  This prevents RGB
     * formats from showing up as load/store capable.
     */
-   if (isl_is_storage_image_format(base_isl_format))
+   if (isl_format_supports_storage(devinfo, base_isl_format))
       flags |= VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
 
-   if (base_isl_format == ISL_FORMAT_R32_SINT ||
-       base_isl_format == ISL_FORMAT_R32_UINT ||
-       base_isl_format == ISL_FORMAT_R32_FLOAT)
+   if (isl_format_supports_atomics(devinfo, base_isl_format))
       flags |= VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT;
 
    if (flags) {
@@ -717,10 +715,10 @@ get_buffer_format_features(const struct gen_device_info *devinfo,
    if (isl_format_supports_vertex_fetch(devinfo, isl_format))
       flags |= VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT;
 
-   if (isl_is_storage_image_format(isl_format))
+   if (isl_format_supports_storage(devinfo, isl_format))
       flags |= VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT;
 
-   if (isl_format == ISL_FORMAT_R32_SINT || isl_format == ISL_FORMAT_R32_UINT)
+   if (isl_format_supports_atomics(devinfo, isl_format))
       flags |= VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT;
 
    return flags;

@@ -25,7 +25,8 @@
 #include "compiler/brw_compiler.h"
 
 bool
-isl_is_storage_image_format(enum isl_format format)
+isl_format_supports_storage(const struct gen_device_info *devinfo,
+                            enum isl_format format)
 {
    /* XXX: Maybe we should put this in the CSV? */
 
@@ -73,6 +74,15 @@ isl_is_storage_image_format(enum isl_format format)
    default:
       return false;
    }
+}
+
+bool
+isl_format_supports_atomics(const struct gen_device_info *devinfo,
+                            enum isl_format format)
+{
+   return format == ISL_FORMAT_R32_SINT ||
+          format == ISL_FORMAT_R32_UINT ||
+          format == ISL_FORMAT_R32_FLOAT;
 }
 
 enum isl_format
