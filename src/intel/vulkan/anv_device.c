@@ -824,13 +824,13 @@ anv_physical_device_try_create(struct anv_instance *instance,
       }
    }
 
-   if (!intel_getparam_integer(fd, I915_PARAM_HAS_WAIT_TIMEOUT)) {
+   if (!intel_getparam_boolean(fd, I915_PARAM_HAS_WAIT_TIMEOUT)) {
       result = vk_errorf(device, VK_ERROR_INITIALIZATION_FAILED,
                          "kernel missing gem wait");
       goto fail_base;
    }
 
-   if (!intel_getparam_integer(fd, I915_PARAM_HAS_EXECBUF2)) {
+   if (!intel_getparam_boolean(fd, I915_PARAM_HAS_EXECBUF2)) {
       result = vk_errorf(device, VK_ERROR_INITIALIZATION_FAILED,
                          "kernel missing execbuf2");
       goto fail_base;
@@ -844,21 +844,21 @@ anv_physical_device_try_create(struct anv_instance *instance,
    }
 
    if (device->info.ver >= 8 && !device->info.is_cherryview &&
-       !intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_SOFTPIN)) {
+       !intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_SOFTPIN)) {
       result = vk_errorf(device, VK_ERROR_INITIALIZATION_FAILED,
                          "kernel missing softpin");
       goto fail_alloc;
    }
 
-   if (!intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_FENCE_ARRAY)) {
+   if (!intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_FENCE_ARRAY)) {
       result = vk_errorf(device, VK_ERROR_INITIALIZATION_FAILED,
                          "kernel missing syncobj support");
       goto fail_base;
    }
 
-   device->has_exec_async = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_ASYNC);
-   device->has_exec_capture = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_CAPTURE);
-   device->has_exec_fence = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_FENCE);
+   device->has_exec_async = intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_ASYNC);
+   device->has_exec_capture = intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_CAPTURE);
+   device->has_exec_fence = intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_FENCE);
    device->has_syncobj_wait = anv_gem_supports_syncobj_wait(fd);
    device->has_syncobj_wait_available =
       anv_gem_get_drm_cap(fd, DRM_CAP_SYNCOBJ_TIMELINE) != 0;
@@ -878,10 +878,10 @@ anv_physical_device_try_create(struct anv_instance *instance,
    assert(device->use_softpin == device->supports_48bit_addresses);
 
    device->has_context_isolation =
-      intel_getparam_integer(fd, I915_PARAM_HAS_CONTEXT_ISOLATION);
+      intel_getparam_boolean(fd, I915_PARAM_HAS_CONTEXT_ISOLATION);
 
    device->has_exec_timeline =
-      intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_TIMELINE_FENCES);
+      intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_TIMELINE_FENCES);
    if (env_var_as_boolean("ANV_QUEUE_THREAD_DISABLE", false))
       device->has_exec_timeline = false;
 
@@ -926,7 +926,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
       intel_getparam_integer(fd, I915_PARAM_MMAP_GTT_VERSION) >= 4;
 
    device->has_userptr_probe =
-      intel_getparam_integer(fd, I915_PARAM_HAS_USERPTR_PROBE);
+      intel_getparam_boolean(fd, I915_PARAM_HAS_USERPTR_PROBE);
 
    device->compiler = brw_compiler_create(NULL, &device->info);
    if (device->compiler == NULL) {
