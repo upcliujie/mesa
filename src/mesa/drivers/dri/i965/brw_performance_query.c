@@ -68,6 +68,8 @@
 #include "util/list.h"
 #include "util/u_math.h"
 
+#include "common/intel_gem.h"
+
 #include "brw_context.h"
 #include "brw_defines.h"
 #include "brw_batch.h"
@@ -399,12 +401,8 @@ oa_metrics_kernel_support(int fd, const struct intel_device_info *devinfo)
    if (devinfo->ver >= 8) {
       /* 4.13+ api required for gfx8 - gfx9 */
       int mask;
-      struct drm_i915_getparam gp = {
-         .param = I915_PARAM_SLICE_MASK,
-         .value = &mask,
-      };
       /* kernel 4.13+ supports this parameter */
-      return drmIoctl(fd, DRM_IOCTL_I915_GETPARAM, &gp) == 0;
+      return intel_getparam(fd, I915_PARAM_SLICE_MASK, &mask) == 0;
    }
 
    if (devinfo->ver == 7)

@@ -1795,18 +1795,6 @@ brw_reg_read(struct brw_bufmgr *bufmgr, uint32_t offset, uint64_t *result)
 }
 
 static int
-gem_param(int fd, int name)
-{
-   int v = -1; /* No param uses (yet) the sign bit, reserve it for errors */
-
-   struct drm_i915_getparam gp = { .param = name, .value = &v };
-   if (drmIoctl(fd, DRM_IOCTL_I915_GETPARAM, &gp))
-      return -1;
-
-   return v;
-}
-
-static int
 gem_context_getparam(int fd, uint32_t context, uint64_t param, uint64_t *value)
 {
    struct drm_i915_gem_context_param gp = {
@@ -1878,9 +1866,9 @@ brw_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
       gtt_size = 0;
 
    bufmgr->has_llc = devinfo->has_llc;
-   bufmgr->has_mmap_wc = gem_param(fd, I915_PARAM_MMAP_VERSION) > 0;
+   bufmgr->has_mmap_wc = intel_getparam_integer(fd, I915_PARAM_MMAP_VERSION) > 0;
    bufmgr->bo_reuse = bo_reuse;
-   bufmgr->has_mmap_offset = gem_param(fd, I915_PARAM_MMAP_GTT_VERSION) >= 4;
+   bufmgr->has_mmap_offset = intel_getparam_integer(fd, I915_PARAM_MMAP_GTT_VERSION) >= 4;
 
    const uint64_t _4GB = 4ull << 30;
 
@@ -1891,8 +1879,8 @@ brw_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
       bufmgr->initial_kflags |= EXEC_OBJECT_SUPPORTS_48B_ADDRESS;
 
       /* Allocate VMA in userspace if we have softpin and full PPGTT. */
-      if (gem_param(fd, I915_PARAM_HAS_EXEC_SOFTPIN) > 0 &&
-          gem_param(fd, I915_PARAM_HAS_ALIASING_PPGTT) > 1) {
+      if (intel_getparam_boolean(fd, I915_PARAM_HAS_EXEC_SOFTPIN) &&
+          intel_getparam_integer(fd, I915_PARAM_HAS_ALIASING_PPGTT) > 1) {
          bufmgr->initial_kflags |= EXEC_OBJECT_PINNED;
 
          util_vma_heap_init(&bufmgr->vma_allocator[BRW_MEMZONE_LOW_4G],

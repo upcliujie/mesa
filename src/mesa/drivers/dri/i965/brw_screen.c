@@ -49,6 +49,7 @@
 #include "util/u_memory.h"
 
 #include "common/intel_defines.h"
+#include "common/intel_gem.h"
 
 static const driOptionDescription brw_driconf[] = {
    DRI_CONF_SECTION_PERFORMANCE
@@ -1700,43 +1701,6 @@ static const __DRIextension *brwRobustScreenExtensions[] = {
     NULL
 };
 
-static int
-brw_get_param(struct brw_screen *screen, int param, int *value)
-{
-   int ret = 0;
-   struct drm_i915_getparam gp;
-
-   memset(&gp, 0, sizeof(gp));
-   gp.param = param;
-   gp.value = value;
-
-   if (drmIoctl(screen->fd, DRM_IOCTL_I915_GETPARAM, &gp) == -1) {
-      ret = -errno;
-      if (ret != -EINVAL)
-         _mesa_warning(NULL, "drm_i915_getparam: %d", ret);
-   }
-
-   return ret;
-}
-
-static bool
-brw_get_boolean(struct brw_screen *screen, int param)
-{
-   int value = 0;
-   return (brw_get_param(screen, param, &value) == 0) && value;
-}
-
-static int
-brw_get_integer(struct brw_screen *screen, int param)
-{
-   int value = -1;
-
-   if (brw_get_param(screen, param, &value) == 0)
-      return value;
-
-   return -1;
-}
-
 static void
 brw_destroy_screen(__DRIscreen *sPriv)
 {
@@ -1908,7 +1872,7 @@ brw_init_bufmgr(struct brw_screen *screen)
    }
    screen->fd = brw_bufmgr_get_fd(screen->bufmgr);
 
-   if (!brw_get_boolean(screen, I915_PARAM_HAS_EXEC_NO_RELOC)) {
+   if (!intel_getparam_boolean(screen->fd, I915_PARAM_HAS_EXEC_NO_RELOC)) {
       fprintf(stderr, "[%s: %u] Kernel 3.9 required.\n", __func__, __LINE__);
       return false;
    }
@@ -2570,7 +2534,7 @@ __DRIconfig **brw_init_screen(__DRIscreen *dri_screen)
       intel_debug &= ~DEBUG_SHADER_TIME;
    }
 
-   if (brw_get_integer(screen, I915_PARAM_MMAP_GTT_VERSION) >= 1) {
+   if (intel_getparam_integer(screen->fd, I915_PARAM_MMAP_GTT_VERSION) >= 1) {
       /* Theorectically unlimited! At least for individual objects...
        *
        * Currently the entire (global) address space for all GTT maps is
@@ -2709,18 +2673,18 @@ __DRIconfig **brw_init_screen(__DRIscreen *dri_screen)
     *   means that we can no longer use it as an indicator of the
     *   age of the kernel.
     */
-   if (brw_get_param(screen, I915_PARAM_CMD_PARSER_VERSION,
+   if (intel_getparam(screen->fd, I915_PARAM_CMD_PARSER_VERSION,
                        &screen->cmd_parser_version) < 0) {
       /* Command parser does not exist - getparam is unrecognized */
       screen->cmd_parser_version = 0;
    }
 
    /* Kernel 4.13 retuired for exec object capture */
-   if (brw_get_boolean(screen, I915_PARAM_HAS_EXEC_CAPTURE)) {
+   if (intel_getparam_boolean(screen->fd, I915_PARAM_HAS_EXEC_CAPTURE)) {
       screen->kernel_features |= KERNEL_ALLOWS_EXEC_CAPTURE;
    }
 
-   if (brw_get_boolean(screen, I915_PARAM_HAS_EXEC_BATCH_FIRST)) {
+   if (intel_getparam_boolean(screen->fd, I915_PARAM_HAS_EXEC_BATCH_FIRST)) {
       screen->kernel_features |= KERNEL_ALLOWS_EXEC_BATCH_FIRST;
    }
 
@@ -2755,7 +2719,7 @@ __DRIconfig **brw_init_screen(__DRIscreen *dri_screen)
    if (devinfo->ver >= 8 || screen->cmd_parser_version >= 5)
       screen->kernel_features |= KERNEL_ALLOWS_COMPUTE_DISPATCH;
 
-   if (brw_get_boolean(screen, I915_PARAM_HAS_CONTEXT_ISOLATION))
+   if (intel_getparam_boolean(screen->fd, I915_PARAM_HAS_CONTEXT_ISOLATION))
       screen->kernel_features |= KERNEL_ALLOWS_CONTEXT_ISOLATION;
 
    const char *force_msaa = getenv("INTEL_FORCE_MSAA");
@@ -2811,12 +2775,12 @@ __DRIconfig **brw_init_screen(__DRIscreen *dri_screen)
    screen->compiler->lower_variable_group_size = true;
 
    screen->has_exec_fence =
-     brw_get_boolean(screen, I915_PARAM_HAS_EXEC_FENCE);
+     intel_getparam_boolean(screen->fd, I915_PARAM_HAS_EXEC_FENCE);
 
    brw_screen_init_surface_formats(screen);
 
    if (INTEL_DEBUG & (DEBUG_BATCH | DEBUG_SUBMIT)) {
-      unsigned int caps = brw_get_integer(screen, I915_PARAM_HAS_SCHEDULER);
+      unsigned int caps = intel_getparam_integer(screen->fd, I915_PARAM_HAS_SCHEDULER);
       if (caps) {
          fprintf(stderr, "Kernel scheduler detected: %08x\n", caps);
          if (caps & I915_SCHEDULER_CAP_PRIORITY)
