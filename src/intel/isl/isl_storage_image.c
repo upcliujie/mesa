@@ -122,6 +122,9 @@ isl_lower_storage_image_format(const struct gen_device_info *devinfo,
               ISL_FORMAT_R16G16B16A16_UINT :
               ISL_FORMAT_R32G32_UINT);
 
+   case ISL_FORMAT_R64_PASSTHRU:
+      return ISL_FORMAT_R32G32_UINT;
+
    /* Up to BDW no SINT or FLOAT formats of less than 32 bits per component
     * are supported.  IVB doesn't support formats with more than one component
     * for typed access.  For 8 and 16 bpp formats IVB relies on the
