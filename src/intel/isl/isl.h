@@ -1563,6 +1563,10 @@ bool isl_format_supports_ccs_e(const struct gen_device_info *devinfo,
                                enum isl_format format);
 bool isl_format_supports_multisampling(const struct gen_device_info *devinfo,
                                        enum isl_format format);
+bool isl_format_supports_storage(const struct gen_device_info *devinfo,
+                                 enum isl_format fmt);
+bool isl_format_supports_atomics(const struct gen_device_info *devinfo,
+                                 enum isl_format fmt);
 
 bool isl_formats_are_ccs_e_compatible(const struct gen_device_info *devinfo,
                                       enum isl_format format1,
@@ -1713,8 +1717,6 @@ void isl_color_value_pack(const union isl_color_value *value,
 void isl_color_value_unpack(union isl_color_value *value,
                             enum isl_format format,
                             const uint32_t *data_in);
-
-bool isl_is_storage_image_format(enum isl_format fmt);
 
 enum isl_format
 isl_lower_storage_image_format(const struct gen_device_info *devinfo,
