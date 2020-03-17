@@ -1438,7 +1438,6 @@ int anv_gem_set_context_param(int fd, int context, uint32_t param,
                               uint64_t value);
 int anv_gem_get_context_param(int fd, int context, uint32_t param,
                               uint64_t *value);
-int anv_gem_get_param(int fd, uint32_t param);
 uint64_t anv_gem_get_drm_cap(int fd, uint32_t capability);
 int anv_gem_get_tiling(struct anv_device *device, uint32_t gem_handle);
 bool anv_gem_get_bit6_swizzle(int fd, uint32_t tiling);

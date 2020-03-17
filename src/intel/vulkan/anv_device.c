@@ -816,7 +816,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
    device->cmd_parser_version = -1;
    if (device->info.ver == 7) {
       device->cmd_parser_version =
-         anv_gem_get_param(fd, I915_PARAM_CMD_PARSER_VERSION);
+         intel_getparam_integer(fd, I915_PARAM_CMD_PARSER_VERSION);
       if (device->cmd_parser_version == -1) {
          result = vk_errorf(device, VK_ERROR_INITIALIZATION_FAILED,
                             "failed to get command parser version");
@@ -824,41 +824,41 @@ anv_physical_device_try_create(struct anv_instance *instance,
       }
    }
 
-   if (!anv_gem_get_param(fd, I915_PARAM_HAS_WAIT_TIMEOUT)) {
+   if (!intel_getparam_integer(fd, I915_PARAM_HAS_WAIT_TIMEOUT)) {
       result = vk_errorf(device, VK_ERROR_INITIALIZATION_FAILED,
                          "kernel missing gem wait");
       goto fail_base;
    }
 
-   if (!anv_gem_get_param(fd, I915_PARAM_HAS_EXECBUF2)) {
+   if (!intel_getparam_integer(fd, I915_PARAM_HAS_EXECBUF2)) {
       result = vk_errorf(device, VK_ERROR_INITIALIZATION_FAILED,
                          "kernel missing execbuf2");
       goto fail_base;
    }
 
    if (!device->info.has_llc &&
-       anv_gem_get_param(fd, I915_PARAM_MMAP_VERSION) < 1) {
+       intel_getparam_integer(fd, I915_PARAM_MMAP_VERSION) < 1) {
       result = vk_errorf(device, VK_ERROR_INITIALIZATION_FAILED,
                          "kernel missing wc mmap");
       goto fail_base;
    }
 
    if (device->info.ver >= 8 && !device->info.is_cherryview &&
-       !anv_gem_get_param(fd, I915_PARAM_HAS_EXEC_SOFTPIN)) {
+       !intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_SOFTPIN)) {
       result = vk_errorf(device, VK_ERROR_INITIALIZATION_FAILED,
                          "kernel missing softpin");
       goto fail_alloc;
    }
 
-   if (!anv_gem_get_param(fd, I915_PARAM_HAS_EXEC_FENCE_ARRAY)) {
+   if (!intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_FENCE_ARRAY)) {
       result = vk_errorf(device, VK_ERROR_INITIALIZATION_FAILED,
                          "kernel missing syncobj support");
       goto fail_base;
    }
 
-   device->has_exec_async = anv_gem_get_param(fd, I915_PARAM_HAS_EXEC_ASYNC);
-   device->has_exec_capture = anv_gem_get_param(fd, I915_PARAM_HAS_EXEC_CAPTURE);
-   device->has_exec_fence = anv_gem_get_param(fd, I915_PARAM_HAS_EXEC_FENCE);
+   device->has_exec_async = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_ASYNC);
+   device->has_exec_capture = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_CAPTURE);
+   device->has_exec_fence = intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_FENCE);
    device->has_syncobj_wait = anv_gem_supports_syncobj_wait(fd);
    device->has_syncobj_wait_available =
       anv_gem_get_drm_cap(fd, DRM_CAP_SYNCOBJ_TIMELINE) != 0;
@@ -878,10 +878,10 @@ anv_physical_device_try_create(struct anv_instance *instance,
    assert(device->use_softpin == device->supports_48bit_addresses);
 
    device->has_context_isolation =
-      anv_gem_get_param(fd, I915_PARAM_HAS_CONTEXT_ISOLATION);
+      intel_getparam_integer(fd, I915_PARAM_HAS_CONTEXT_ISOLATION);
 
    device->has_exec_timeline =
-      anv_gem_get_param(fd, I915_PARAM_HAS_EXEC_TIMELINE_FENCES);
+      intel_getparam_integer(fd, I915_PARAM_HAS_EXEC_TIMELINE_FENCES);
    if (env_var_as_boolean("ANV_QUEUE_THREAD_DISABLE", false))
       device->has_exec_timeline = false;
 
@@ -923,10 +923,10 @@ anv_physical_device_try_create(struct anv_instance *instance,
       driQueryOptionb(&instance->dri_options, "always_flush_cache");
 
    device->has_mmap_offset =
-      anv_gem_get_param(fd, I915_PARAM_MMAP_GTT_VERSION) >= 4;
+      intel_getparam_integer(fd, I915_PARAM_MMAP_GTT_VERSION) >= 4;
 
    device->has_userptr_probe =
-      anv_gem_get_param(fd, I915_PARAM_HAS_USERPTR_PROBE);
+      intel_getparam_integer(fd, I915_PARAM_HAS_USERPTR_PROBE);
 
    device->compiler = brw_compiler_create(NULL, &device->info);
    if (device->compiler == NULL) {
@@ -970,7 +970,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
          /* prod the device with a GETPARAM call which will fail if
           * we don't have permission to even render on this device
           */
-         if (anv_gem_get_param(master_fd, I915_PARAM_CHIPSET_ID) == 0) {
+         if (intel_getparam_integer(master_fd, I915_PARAM_CHIPSET_ID) == -1) {
             close(master_fd);
             master_fd = -1;
          }
