@@ -62,6 +62,20 @@ _load_image_param(nir_builder *b, nir_deref_instr *deref, unsigned offset)
    _load_image_param(b, d, BRW_IMAGE_PARAM_##o##_OFFSET)
 
 static nir_ssa_def *
+load_image_base_address(nir_builder *b, nir_deref_instr *deref)
+{
+   nir_intrinsic_instr *load =
+      nir_intrinsic_instr_create(b->shader,
+         nir_intrinsic_image_deref_load_base_address_intel);
+
+   load->src[0] = nir_src_for_ssa(&deref->dest.ssa);
+   nir_ssa_dest_init(&load->instr, &load->dest, 1, 64, NULL);
+
+   nir_builder_instr_insert(b, &load->instr);
+   return &load->dest.ssa;
+}
+
+static nir_ssa_def *
 image_coord_is_in_bounds(nir_builder *b, nir_deref_instr *deref,
                          nir_ssa_def *coord)
 {
@@ -271,6 +285,10 @@ convert_color_for_load(nir_builder *b, const struct gen_device_info *devinfo,
       assert(lower_fmt == ISL_FORMAT_R32_UINT);
       color = nir_format_unpack_11f11f10f(b, color);
       goto expand_vec;
+   } else if (image_fmt == ISL_FORMAT_R64_PASSTHRU) {
+      assert(lower_fmt == ISL_FORMAT_R32G32_UINT);
+      color = nir_pack_64_2x32(b, nir_channels(b, color, 0x3));
+      goto expand_vec;
    }
 
    struct format_info image = get_format_info(image_fmt);
@@ -348,11 +366,12 @@ expand_vec:
       comps[i] = nir_channel(b, color, i);
 
    for (unsigned i = color->num_components; i < 3; i++)
-      comps[i] = nir_imm_int(b, 0);
+      comps[i] = nir_imm_zero(b, 1, color->bit_size);
 
    if (color->num_components < 4) {
-      if (isl_format_has_int_channel(image_fmt))
-         comps[3] = nir_imm_int(b, 1);
+      if (isl_format_has_int_channel(image_fmt) ||
+          image_fmt == ISL_FORMAT_R64_PASSTHRU)
+         comps[3] = nir_imm_intN_t(b, 1, color->bit_size);
       else
          comps[3] = nir_imm_float(b, 1);
    }
@@ -383,6 +402,10 @@ lower_image_load_instr(nir_builder *b,
 
       intrin->num_components = isl_format_get_num_channels(lower_fmt);
       intrin->dest.ssa.num_components = intrin->num_components;
+      if (intrin->dest.ssa.bit_size == 64) {
+         assert(lower_fmt == ISL_FORMAT_R32G32_UINT);
+         intrin->dest.ssa.bit_size = 32;
+      }
 
       b->cursor = nir_after_instr(&intrin->instr);
 
@@ -467,6 +490,9 @@ convert_color_for_store(nir_builder *b, const struct gen_device_info *devinfo,
    if (image_fmt == ISL_FORMAT_R11G11B10_FLOAT) {
       assert(lower_fmt == ISL_FORMAT_R32_UINT);
       return nir_format_pack_11f11f10f(b, color);
+   } else if (image_fmt == ISL_FORMAT_R64_PASSTHRU) {
+      assert(lower_fmt == ISL_FORMAT_R32G32_UINT);
+      return nir_unpack_64_2x32(b, nir_channel(b, color, 0));
    }
 
    switch (image.fmtl->channels.r.type) {
@@ -526,10 +552,11 @@ lower_image_store_instr(nir_builder *b,
    nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
    nir_variable *var = nir_deref_instr_get_variable(deref);
 
-   /* For write-only surfaces, we trust that the hardware can just do the
-    * conversion for us.
+   /* For write-only surfaces with a normal 32-bit sampled type, we trust that
+    * the hardware can just do the conversion for us.
     */
-   if (var->data.access & ACCESS_NON_READABLE)
+   if ((var->data.access & ACCESS_NON_READABLE) &&
+       nir_src_bit_size(intrin->src[3]) == 32)
       return false;
 
    const enum isl_format image_fmt =
@@ -601,7 +628,12 @@ lower_image_atomic_instr(nir_builder *b,
                          const struct gen_device_info *devinfo,
                          nir_intrinsic_instr *intrin)
 {
-   if (devinfo->is_haswell || devinfo->gen >= 8)
+   /* 32-bit atomics ignore NULL surfaces on IVB so we have to check for it
+    * manually.  For 64-bit atomics, we don't have actual surface messages and
+    * have to fall all the way back to A64.
+    */
+   if ((devinfo->is_haswell || devinfo->gen >= 8) &&
+       intrin->dest.ssa.bit_size == 32)
       return false;
 
    nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
@@ -611,21 +643,80 @@ lower_image_atomic_instr(nir_builder *b,
    /* Use an undef to hold the uses of the load conversion. */
    nir_ssa_def *placeholder = nir_ssa_undef(b, 4, 32);
    nir_ssa_def_rewrite_uses(&intrin->dest.ssa, nir_src_for_ssa(placeholder));
+   nir_ssa_def *zero = nir_imm_zero(b, intrin->dest.ssa.num_components,
+                                    intrin->dest.ssa.bit_size);
 
-   /* Check the first component of the size field to find out if the
-    * image is bound.  Necessary on IVB for typed atomics because
-    * they don't seem to respect null surfaces and will happily
-    * corrupt or read random memory when no image is bound.
-    */
-   nir_ssa_def *size = load_image_param(b, deref, SIZE);
-   nir_ssa_def *zero = nir_imm_int(b, 0);
-   nir_push_if(b, nir_ine(b, nir_channel(b, size, 0), zero));
+   nir_ssa_def *atomic_result;
+   if (intrin->dest.ssa.bit_size == 64) {
+      assert(devinfo->gen >= 9);
 
-   nir_builder_instr_insert(b, &intrin->instr);
+      nir_ssa_def *coord = intrin->src[1].ssa;
 
-   nir_pop_if(b, NULL);
+      nir_push_if(b, image_coord_is_in_bounds(b, deref, coord));
 
-   nir_ssa_def *result = nir_if_phi(b, &intrin->dest.ssa, zero);
+      nir_ssa_def *addr = image_address(b, devinfo, deref, coord);
+
+      /* We have to fall all the way back to A64 messages */
+      addr = nir_iadd(b, load_image_base_address(b, deref),
+                         nir_u2u64(b, addr));
+
+      nir_intrinsic_op global_op;
+      switch (intrin->intrinsic) {
+#define CASE(op) \
+      case nir_intrinsic_image_deref_##op: \
+         global_op = nir_intrinsic_global_##op; \
+         break;
+      CASE(atomic_add)
+      CASE(atomic_imin)
+      CASE(atomic_umin)
+      CASE(atomic_imax)
+      CASE(atomic_umax)
+      CASE(atomic_and)
+      CASE(atomic_or)
+      CASE(atomic_xor)
+      CASE(atomic_exchange)
+      CASE(atomic_comp_swap)
+      CASE(atomic_fadd)
+#undef CASE
+      default:
+         unreachable("Unsupported image atomic");
+      }
+
+      nir_intrinsic_instr *global_atomic =
+         nir_intrinsic_instr_create(b->shader, global_op);
+      global_atomic->src[0] = nir_src_for_ssa(addr);
+      global_atomic->src[1] = intrin->src[3];
+      if (nir_intrinsic_infos[global_op].num_srcs > 2)
+         global_atomic->src[2] = intrin->src[4];
+
+      /* TODO: Copy ACCESS bits */
+
+      nir_ssa_dest_init(&global_atomic->instr, &global_atomic->dest,
+                        intrin->dest.ssa.num_components,
+                        intrin->dest.ssa.bit_size, NULL);
+      nir_builder_instr_insert(b, &global_atomic->instr);
+      atomic_result = &global_atomic->dest.ssa;
+
+      nir_pop_if(b, NULL);
+   } else {
+      /* This is just IVB manual NULL surface checking */
+      assert(devinfo->gen == 7 && !devinfo->is_haswell);
+
+      /* Check the first component of the size field to find out if the
+       * image is bound.  Necessary on IVB for typed atomics because
+       * they don't seem to respect null surfaces and will happily
+       * corrupt or read random memory when no image is bound.
+       */
+      nir_ssa_def *size = load_image_param(b, deref, SIZE);
+      nir_push_if(b, nir_ine(b, nir_channel(b, size, 0), zero));
+
+      nir_builder_instr_insert(b, &intrin->instr);
+      atomic_result = &intrin->dest.ssa;
+
+      nir_pop_if(b, NULL);
+   }
+
+   nir_ssa_def *result = nir_if_phi(b, atomic_result, zero);
    nir_ssa_def_rewrite_uses(placeholder, nir_src_for_ssa(result));
 
    return true;
