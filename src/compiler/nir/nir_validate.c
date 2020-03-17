@@ -724,8 +724,13 @@ validate_intrinsic_instr(nir_intrinsic_instr *instr, validate_state *state)
       enum pipe_format format = image_intrin_format(instr);
       validate_assert(state, format == PIPE_FORMAT_COUNT ||
                              format == PIPE_FORMAT_R32_UINT ||
-                             format == PIPE_FORMAT_R32_SINT);
-      validate_assert(state, nir_dest_bit_size(instr->dest) == 32);
+                             format == PIPE_FORMAT_R32_SINT ||
+                             format == PIPE_FORMAT_R64_UINT ||
+                             format == PIPE_FORMAT_R64_SINT);
+      if (format != PIPE_FORMAT_COUNT) {
+         validate_assert(state, nir_dest_bit_size(instr->dest) ==
+                                util_format_get_blocksizebits(format));
+      }
       break;
    }
 
@@ -736,8 +741,13 @@ validate_intrinsic_instr(nir_intrinsic_instr *instr, validate_state *state)
       validate_assert(state, format == PIPE_FORMAT_COUNT ||
                              format == PIPE_FORMAT_R32_UINT ||
                              format == PIPE_FORMAT_R32_SINT ||
-                             format == PIPE_FORMAT_R32_FLOAT);
-      validate_assert(state, nir_dest_bit_size(instr->dest) == 32);
+                             format == PIPE_FORMAT_R32_FLOAT ||
+                             format == PIPE_FORMAT_R64_UINT ||
+                             format == PIPE_FORMAT_R64_SINT);
+      if (format != PIPE_FORMAT_COUNT) {
+         validate_assert(state, nir_dest_bit_size(instr->dest) ==
+                                util_format_get_blocksizebits(format));
+      }
       break;
    }
 
