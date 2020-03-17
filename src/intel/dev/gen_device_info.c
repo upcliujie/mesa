@@ -1203,24 +1203,6 @@ update_from_masks(struct gen_device_info *devinfo, uint32_t slice_mask,
    return true;
 }
 
-static bool
-getparam(int fd, uint32_t param, int *value)
-{
-   int tmp;
-
-   struct drm_i915_getparam gp = {
-      .param = param,
-      .value = &tmp,
-   };
-
-   int ret = intel_ioctl(fd, DRM_IOCTL_I915_GETPARAM, &gp);
-   if (ret != 0)
-      return false;
-
-   *value = tmp;
-   return true;
-}
-
 bool
 gen_get_device_info_from_pci_id(int pci_id,
                                 struct gen_device_info *devinfo)
@@ -1305,15 +1287,15 @@ static bool
 getparam_topology(struct gen_device_info *devinfo, int fd)
 {
    int slice_mask = 0;
-   if (!getparam(fd, I915_PARAM_SLICE_MASK, &slice_mask))
+   if (intel_getparam(fd, I915_PARAM_SLICE_MASK, &slice_mask) != 0)
       goto maybe_warn;
 
    int n_eus;
-   if (!getparam(fd, I915_PARAM_EU_TOTAL, &n_eus))
+   if (intel_getparam(fd, I915_PARAM_EU_TOTAL, &n_eus) != 0)
       goto maybe_warn;
 
    int subslice_mask = 0;
-   if (!getparam(fd, I915_PARAM_SUBSLICE_MASK, &subslice_mask))
+   if (intel_getparam(fd, I915_PARAM_SUBSLICE_MASK, &subslice_mask) != 0)
       goto maybe_warn;
 
    return update_from_masks(devinfo, slice_mask, subslice_mask, n_eus);
@@ -1435,7 +1417,7 @@ gen_get_device_info_from_fd(int fd, struct gen_device_info *devinfo)
       devinfo->no_hw = true;
    } else {
       /* query the device id */
-      if (!getparam(fd, I915_PARAM_CHIPSET_ID, &devid))
+      if (intel_getparam(fd, I915_PARAM_CHIPSET_ID, &devid) != 0)
          return false;
       if (!gen_get_device_info_from_pci_id(devid, devinfo))
          return false;
@@ -1452,15 +1434,15 @@ gen_get_device_info_from_fd(int fd, struct gen_device_info *devinfo)
       return true;
 
    int timestamp_frequency;
-   if (getparam(fd, I915_PARAM_CS_TIMESTAMP_FREQUENCY,
-                &timestamp_frequency))
+   if (intel_getparam(fd, I915_PARAM_CS_TIMESTAMP_FREQUENCY,
+                &timestamp_frequency) == 0)
       devinfo->timestamp_frequency = timestamp_frequency;
    else if (devinfo->ver >= 10) {
       mesa_loge("Kernel 4.15 required to read the CS timestamp frequency.");
       return false;
    }
 
-   if (!getparam(fd, I915_PARAM_REVISION, &devinfo->revision))
+   if (intel_getparam(fd, I915_PARAM_REVISION, &devinfo->revision) != 0)
       devinfo->revision = 0;
 
    if (!query_topology(devinfo, fd)) {
