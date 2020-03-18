@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "aco_ir.h"
+#include "util/bitscan.h"
 
 namespace aco {
 
@@ -70,15 +71,30 @@ struct sched_ctx
    Node *writes[max_reg_cnt] = {0};
    std::unordered_set<Node *> writeless_reads[max_reg_cnt];
 
+   /* Collect these so that we can handle barriers correctly */
+   int last_acquirer[storage_count];
+   std::vector<Node *> acquired_nodes[storage_count];
+
    /* here we can maintain information about the functional units */
    sched_ctx(Block *b) : block(b)
    {
       nodes.reserve(b->instructions.size());
+
+      for (unsigned i = 0; i < storage_count; i++) {
+         last_acquirer[i] = -1;
+         acquired_nodes[i].reserve(10);
+      }
    }
 
    void barrier()
    {
       assert(candidates.empty());
+
+      /* Clear barrier info */
+      for (unsigned i = 0; i < storage_count; i++) {
+         last_acquirer[i] = -1;
+         acquired_nodes[i].clear();
+      }
 
       /* Clear read/write info */
       for (unsigned i = 0; i < max_reg_cnt; ++i) {
@@ -303,6 +319,100 @@ bool handle_write(sched_ctx &ctx, Node *node, unsigned reg)
    return is_candidate;
 }
 
+bool add_predecessor_by_index(sched_ctx &ctx, Node *node, unsigned predecessor_idx)
+{
+   assert(predecessor_idx >= 0);
+   assert(ctx.nodes.size() > predecessor_idx);
+   Node *predecessor = &ctx.nodes[predecessor_idx];
+   assert(predecessor != node);
+
+   if (predecessor->scheduled)
+      return false;
+
+   add_predecessor(ctx, node, predecessor);
+
+   return true;
+}
+
+memory_sync_info get_prs_sync_info(const Instruction *instr)
+{
+   if (instr->format == Format::PSEUDO_BARRIER) {
+      /* PSEUDO_BARRIER - needs special care because get_sync_info intentionally omits it */
+      return static_cast<const Pseudo_barrier_instruction *>(instr)->sync;
+   } else if (instr->opcode == aco_opcode::s_sendmsg) {
+      const SOPP_instruction *sopp = static_cast<const SOPP_instruction *>(instr);
+
+      /* MSG_GS_DONE - should wait for every vmem_output, should not be reordered with vmem_output barriers */
+      if (sopp->imm & 3u)
+         return memory_sync_info(storage_vmem_output, semantic_acqrel);
+
+      /* MSG_GS - treat it as a vmem_output, don't move preceding vmem_outputs after it */
+      if (sopp->imm & 2u)
+         return memory_sync_info(storage_vmem_output, semantic_release);
+   }
+
+   return get_sync_info(instr);
+}
+
+bool handle_sync(sched_ctx &ctx, const Instruction *instr, unsigned index, Node *node)
+{
+   memory_sync_info sync = get_prs_sync_info(instr);
+   unsigned str = sync.storage;
+   unsigned acq = 0;
+   unsigned rel = 0;
+
+   if (sync.semantics & semantic_acquire)
+      acq |= sync.storage;
+   if (sync.semantics & semantic_release)
+      rel |= sync.storage;
+
+   if (sync.semantics & semantic_atomic) {
+      acq |= sync.storage;
+      rel |= sync.storage;
+   }
+
+   if (!str && !acq && !rel)
+      return true;
+
+   bool added_predecessor = false;
+
+   while (rel) {
+      int s = u_bit_scan(&rel);
+      assert(s >= 0 && s < storage_count);
+
+      /* Add acquired nodes as predecessors */
+      for (auto &acq_node : ctx.acquired_nodes[s])
+         added_predecessor |= add_predecessor(ctx, node, acq_node);
+
+      /* Clear last acquirer and acquired nodes */
+      ctx.last_acquirer[s] = -1;
+      ctx.acquired_nodes[s].clear();
+   }
+
+   while (str) {
+      int s = u_bit_scan(&str);
+      assert(s >= 0 && s < storage_count);
+
+      /* Add last acquirer as a predecessor */
+      if (ctx.last_acquirer[s] >= 0)
+         added_predecessor |= add_predecessor_by_index(ctx, node, ctx.last_acquirer[s]);
+
+      /* Add current node into the list of acquired nodes */
+      if (!((1 << s) & rel))
+         ctx.acquired_nodes[s].push_back(node);
+   }
+
+   while (acq) {
+      int s = u_bit_scan(&acq);
+      assert(s >= 0 && s < storage_count);
+
+      /* Set last acquirer to the current node */
+      ctx.last_acquirer[s] = index;
+   }
+
+   return !added_predecessor;
+}
+
 void add_to_dag(sched_ctx &ctx, const Instruction *instr, unsigned index)
 {
    assert(!is_unschedulable(instr));
@@ -321,6 +431,9 @@ void add_to_dag(sched_ctx &ctx, const Instruction *instr, unsigned index)
       if (!handle_write(ctx, node, reg))
          is_candidate = false;
    });
+
+   if (!handle_sync(ctx, instr, index, node))
+      is_candidate = false;
 
    if (is_candidate)
       ctx.candidates.insert(node);
