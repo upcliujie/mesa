@@ -301,46 +301,70 @@ static void combine_flags(unsigned *dstflags, struct ir3_instruction *src)
 		*dstflags &= ~IR3_REG_SABS;
 }
 
-static struct ir3_register *
-lower_immed(struct ir3_cp_ctx *ctx, struct ir3_register *reg, unsigned new_flags, bool f_opcode)
+/**
+ * Check if a vecN (where N is 1 or more) immediate is already present
+ * at the specified offset
+ */
+static bool
+check_immediates(struct ir3_const_state *const_state,
+		int off, struct ir3_register **regs, int nregs)
 {
-	unsigned swiz, idx, i;
+	/* if not enough room left to fit a vecN, then bail: */
+	if ((off + nregs) > const_state->immediate_idx)
+		return false;
 
-	reg = ir3_reg_clone(ctx->shader, reg);
+	for (int n = 0; n < nregs; n++) {
+		int swiz = (off + n) % 4;
+		int idx  = (off + n) / 4;
 
-	/* Half constant registers seems to handle only 32-bit values
-	 * within floating-point opcodes. So convert back to 32-bit values.
-	 */
-	if (f_opcode && (new_flags & IR3_REG_HALF))
-		reg->uim_val = fui(_mesa_half_to_float(reg->uim_val));
-
-	/* in some cases, there are restrictions on (abs)/(neg) plus const..
-	 * so just evaluate those and clear the flags:
-	 */
-	if (new_flags & IR3_REG_SABS) {
-		reg->iim_val = abs(reg->iim_val);
-		new_flags &= ~IR3_REG_SABS;
+		if (const_state->immediates[idx].val[swiz] != regs[n]->uim_val)
+			return false;
 	}
 
-	if (new_flags & IR3_REG_FABS) {
-		reg->fim_val = fabs(reg->fim_val);
-		new_flags &= ~IR3_REG_FABS;
+	return true;
+}
+
+static void
+lower_immeds(struct ir3_cp_ctx *ctx, struct ir3_register **regs, int nregs,
+		unsigned new_flags, bool f_opcode)
+{
+	for (int n = 0; n < nregs; n++) {
+		regs[n] = ir3_reg_clone(ctx->shader, regs[n]);
+
+		/* Half constant registers seems to handle only 32-bit values
+		 * within floating-point opcodes. So convert back to 32-bit values.
+		 */
+		if (f_opcode && (new_flags & IR3_REG_HALF))
+			regs[n]->uim_val = fui(_mesa_half_to_float(regs[n]->uim_val));
+
+		/* in some cases, there are restrictions on (abs)/(neg) plus const..
+		 * so just evaluate those and clear the flags:
+		 */
+		if (new_flags & IR3_REG_SABS) {
+			regs[n]->iim_val = abs(regs[n]->iim_val);
+			new_flags &= ~IR3_REG_SABS;
+		}
+
+		if (new_flags & IR3_REG_FABS) {
+			regs[n]->fim_val = fabs(regs[n]->fim_val);
+			new_flags &= ~IR3_REG_FABS;
+		}
+
+		if (new_flags & IR3_REG_SNEG) {
+			regs[n]->iim_val = -regs[n]->iim_val;
+			new_flags &= ~IR3_REG_SNEG;
+		}
+
+		if (new_flags & IR3_REG_FNEG) {
+			regs[n]->fim_val = -regs[n]->fim_val;
+			new_flags &= ~IR3_REG_FNEG;
+		}
 	}
 
-	if (new_flags & IR3_REG_SNEG) {
-		reg->iim_val = -reg->iim_val;
-		new_flags &= ~IR3_REG_SNEG;
-	}
-
-	if (new_flags & IR3_REG_FNEG) {
-		reg->fim_val = -reg->fim_val;
-		new_flags &= ~IR3_REG_FNEG;
-	}
-
-	/* Reallocate for 4 more elements whenever it's necessary */
+	/* Reallocate for more elements whenever it's necessary */
 	struct ir3_const_state *const_state = &ctx->so->shader->const_state;
-	if (const_state->immediate_idx == const_state->immediates_size * 4) {
-		const_state->immediates_size += 4;
+	if (const_state->immediate_idx <= const_state->immediates_size * align(nregs, 4)) {
+		const_state->immediates_size += align(nregs, 4);
 		const_state->immediates = realloc (const_state->immediates,
 			const_state->immediates_size * sizeof(const_state->immediates[0]));
 
@@ -348,30 +372,38 @@ lower_immed(struct ir3_cp_ctx *ctx, struct ir3_register *reg, unsigned new_flags
 			const_state->immediates[i / 4].val[i % 4] = 0xd0d0d0d0;
 	}
 
+	int i;
 	for (i = 0; i < const_state->immediate_idx; i++) {
-		swiz = i % 4;
-		idx  = i / 4;
-
-		if (const_state->immediates[idx].val[swiz] == reg->uim_val) {
+		if (check_immediates(const_state, i, regs, nregs))
 			break;
-		}
 	}
 
 	if (i == const_state->immediate_idx) {
-		/* need to generate a new immediate: */
-		swiz = i % 4;
-		idx  = i / 4;
+		/* need to generate new immediates: */
+		for (int n = 0; n < nregs; n++) {
+			int swiz = (i + n) % 4;
+			int idx  = (i + n) / 4;
 
-		const_state->immediates[idx].val[swiz] = reg->uim_val;
-		const_state->immediates_count = idx + 1;
-		const_state->immediate_idx++;
+			const_state->immediates[idx].val[swiz] = regs[n]->uim_val;
+			const_state->immediates_count = idx + 1;
+			const_state->immediate_idx++;
+		}
 	}
 
 	new_flags &= ~IR3_REG_IMMED;
 	new_flags |= IR3_REG_CONST;
-	reg->flags = new_flags;
-	reg->num = i + (4 * const_state->offsets.immediate);
 
+	for (int n = 0; n < nregs; n++) {
+		regs[n]->flags = new_flags;
+		regs[n]->num = i + n + (4 * const_state->offsets.immediate);
+	}
+}
+
+static struct ir3_register *
+lower_immed(struct ir3_cp_ctx *ctx, struct ir3_register *reg,
+		unsigned new_flags, bool f_opcode)
+{
+	lower_immeds(ctx, &reg, 1, new_flags, f_opcode);
 	return reg;
 }
 
