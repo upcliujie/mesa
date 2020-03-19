@@ -69,9 +69,8 @@ anv_descriptor_data_for_type(const struct anv_physical_device *device,
 
    case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
    case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
-      data = ANV_DESCRIPTOR_SURFACE_STATE;
-      if (device->info.gen < 9)
-         data |= ANV_DESCRIPTOR_IMAGE_PARAM;
+      data = ANV_DESCRIPTOR_SURFACE_STATE |
+             ANV_DESCRIPTOR_IMAGE_PARAM;
       if (device->has_bindless_images)
          data |= ANV_DESCRIPTOR_STORAGE_IMAGE;
       break;

@@ -1772,7 +1772,8 @@ anv_image_fill_surface_state(struct anv_device *device,
       state_inout->clear_address = ANV_NULL_ADDRESS;
    } else {
       if (view_usage == ISL_SURF_USAGE_STORAGE_BIT &&
-          !(flags & ANV_IMAGE_VIEW_STATE_STORAGE_WRITE_ONLY)) {
+          (!(flags & ANV_IMAGE_VIEW_STATE_STORAGE_WRITE_ONLY) ||
+           view.format == ISL_FORMAT_R64_PASSTHRU)) {
          /* Typed surface reads support a very limited subset of the shader
           * image formats.  Translate it into the closest format the hardware
           * supports.
@@ -2250,8 +2251,12 @@ anv_CreateBufferView(VkDevice _device,
 
       enum isl_format wronly_format = view->format;
       enum isl_format rw_format;
-      if (isl_has_matching_typed_storage_image_format(&device->info,
-                                                      view->format)) {
+      if (view->format == ISL_FORMAT_R64_PASSTHRU) {
+         wronly_format = rw_format =
+            isl_lower_storage_image_format(&device->info, view->format);
+         assert(rw_format == ISL_FORMAT_R32G32_UINT);
+      } else if (isl_has_matching_typed_storage_image_format(&device->info,
+                                                             view->format)) {
          rw_format = isl_lower_storage_image_format(&device->info, view->format);
       } else {
          rw_format = ISL_FORMAT_RAW;

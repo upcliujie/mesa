@@ -1363,6 +1363,14 @@ void anv_GetPhysicalDeviceFeatures2(
          break;
       }
 
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT: {
+         VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT *features =
+            (VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT *)ext;
+         features->shaderImageInt64Atomics = pdevice->info.gen >= 9;
+         features->sparseImageInt64Atomics = false;
+         break;
+      }
+
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL: {
          VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL *features =
             (VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL *)ext;
