@@ -71,6 +71,8 @@ isl_format_supports_storage(const struct gen_device_info *devinfo,
    case ISL_FORMAT_R8_UNORM:
    case ISL_FORMAT_R8_SNORM:
       return true;
+   case ISL_FORMAT_R64_PASSTHRU:
+      return devinfo->gen >= 9;
    default:
       return false;
    }
@@ -80,9 +82,16 @@ bool
 isl_format_supports_atomics(const struct gen_device_info *devinfo,
                             enum isl_format format)
 {
-   return format == ISL_FORMAT_R32_SINT ||
-          format == ISL_FORMAT_R32_UINT ||
-          format == ISL_FORMAT_R32_FLOAT;
+   switch (format) {
+   case ISL_FORMAT_R32_UINT:
+   case ISL_FORMAT_R32_SINT:
+   case ISL_FORMAT_R32_FLOAT:
+      return true;
+   case ISL_FORMAT_R64_PASSTHRU:
+      return devinfo->gen >= 9;
+   default:
+      return false;
+   }
 }
 
 enum isl_format
