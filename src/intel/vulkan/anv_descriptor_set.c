@@ -1239,7 +1239,8 @@ VkResult anv_FreeDescriptorSets(
 
 static void
 anv_descriptor_set_write_image_param(uint32_t *param_desc_map,
-                                     const struct brw_image_param *param)
+                                     const struct brw_image_param *param,
+                                     uint64_t image_base_addr)
 {
 #define WRITE_PARAM_FIELD(field, FIELD) \
    for (unsigned i = 0; i < ARRAY_SIZE(param->field); i++) \
@@ -1253,6 +1254,9 @@ anv_descriptor_set_write_image_param(uint32_t *param_desc_map,
    WRITE_PARAM_FIELD(size, SIZE);
 
 #undef WRITE_PARAM_FIELD
+
+   param_desc_map[2] = image_base_addr;
+   param_desc_map[3] = image_base_addr >> 32;
 }
 
 static uint32_t
@@ -1371,7 +1375,11 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
       const struct brw_image_param *image_param =
          &image_view->planes[0].storage_image_param;
 
-      anv_descriptor_set_write_image_param(desc_map, image_param);
+      uint64_t image_base_addr =
+         anv_address_physical(image_view->image->planes[0].address);
+
+      anv_descriptor_set_write_image_param(desc_map, image_param,
+                                           image_base_addr);
    }
 
    if (bind_layout->data & ANV_DESCRIPTOR_TEXTURE_SWIZZLE) {
@@ -1443,8 +1451,11 @@ anv_descriptor_set_write_buffer_view(struct anv_device *device,
    }
 
    if (bind_layout->data & ANV_DESCRIPTOR_IMAGE_PARAM) {
-      anv_descriptor_set_write_image_param(desc_map,
-                                           &buffer_view->storage_image_param);
+      const struct brw_image_param *image_param =
+         &buffer_view->storage_image_param;
+      uint64_t image_base_addr = anv_address_physical(buffer_view->address);
+      anv_descriptor_set_write_image_param(desc_map, image_param,
+                                           image_base_addr);
    }
 }
 

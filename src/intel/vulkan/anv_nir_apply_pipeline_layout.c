@@ -769,7 +769,8 @@ lower_image_intrinsic(nir_intrinsic_instr *intrin,
    nir_builder *b = &state->builder;
    b->cursor = nir_before_instr(&intrin->instr);
 
-   if (intrin->intrinsic == nir_intrinsic_image_deref_load_param_intel) {
+   if (intrin->intrinsic == nir_intrinsic_image_deref_load_param_intel ||
+       intrin->intrinsic == nir_intrinsic_image_deref_load_base_address_intel) {
       b->cursor = nir_instr_remove(&intrin->instr);
 
       unsigned desc_offset = 0;
@@ -777,7 +778,12 @@ lower_image_intrinsic(nir_intrinsic_instr *intrin,
       if (bind_layout->data & ANV_DESCRIPTOR_STORAGE_IMAGE)
          desc_offset += sizeof(struct anv_storage_image_descriptor);
 
-      desc_offset += nir_intrinsic_base(intrin) * 16;
+      if (intrin->intrinsic == nir_intrinsic_image_deref_load_param_intel)
+         desc_offset += nir_intrinsic_base(intrin) * 16;
+
+      /* We store the base address after offsets, so 8 bytes in */
+      if (intrin->intrinsic == nir_intrinsic_image_deref_load_base_address_intel)
+         desc_offset += 8;
 
       nir_ssa_def *desc =
          build_descriptor_load(deref, desc_offset,
@@ -1119,6 +1125,7 @@ apply_pipeline_layout_block(nir_block *block,
          case nir_intrinsic_image_deref_load_param_intel:
          case nir_intrinsic_image_deref_load_raw_intel:
          case nir_intrinsic_image_deref_store_raw_intel:
+         case nir_intrinsic_image_deref_load_base_address_intel:
             lower_image_intrinsic(intrin, state);
             break;
          case nir_intrinsic_load_constant:
