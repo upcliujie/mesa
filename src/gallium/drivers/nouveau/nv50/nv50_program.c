@@ -140,6 +140,130 @@ nv50_vertprog_assign_slots(struct nv50_ir_prog_info_out *info)
 }
 
 static int
+nv50_vertprog_assign_slots_info(struct nv50_ir_prog_info_out *info)
+{
+   unsigned i, n, c;
+
+   n = 0;
+   for (i = 0; i < info->numInputs; ++i) {
+       for (c = 0; c < 4; ++c)
+         if (info->in[i].mask & (1 << c))
+            info->in[i].slot[c] = n++;
+   }
+
+   /* VertexID before InstanceID */
+   if (info->io.vertexId < info->numSysVals)
+      info->sv[info->io.vertexId].slot[0] = n++;
+   if (info->io.instanceId < info->numSysVals)
+      info->sv[info->io.instanceId].slot[0] = n++;
+
+   n = 0;
+   for (i = 0; i < info->numOutputs; ++i) {
+      for (c = 0; c < 4; ++c)
+         if (info->out[i].mask & (1 << c))
+            info->out[i].slot[c] = n++;
+   }
+
+   return 0;
+}
+
+static int
+nv50_vertprog_assign_slots_prog(struct nv50_ir_prog_info_out *info)
+{
+   struct nv50_program *prog = (struct nv50_program *)info->driverPriv;
+   unsigned i, n, c;
+
+   n = 0;
+   for (i = 0; i < info->numInputs; ++i) {
+      prog->in[i].id = i;
+      prog->in[i].sn = info->in[i].sn;
+      prog->in[i].si = info->in[i].si;
+      prog->in[i].hw = n;
+      prog->in[i].mask = info->in[i].mask;
+
+      prog->vp.attrs[(4 * i) / 32] |= info->in[i].mask << ((4 * i) % 32);
+
+      for (c = 0; c < 4; ++c)
+         if (info->in[i].mask & (1 << c))
+            n++;
+
+      if (info->in[i].sn == TGSI_SEMANTIC_PRIMID)
+         prog->vp.attrs[2] |= NV50_3D_VP_GP_BUILTIN_ATTR_EN_PRIMITIVE_ID;
+   }
+   prog->in_nr = info->numInputs;
+
+   for (i = 0; i < info->numSysVals; ++i) {
+      switch (info->sv[i].sn) {
+      case TGSI_SEMANTIC_INSTANCEID:
+         prog->vp.attrs[2] |= NV50_3D_VP_GP_BUILTIN_ATTR_EN_INSTANCE_ID;
+         continue;
+      case TGSI_SEMANTIC_VERTEXID:
+         prog->vp.attrs[2] |= NV50_3D_VP_GP_BUILTIN_ATTR_EN_VERTEX_ID;
+         prog->vp.attrs[2] |= NV50_3D_VP_GP_BUILTIN_ATTR_EN_VERTEX_ID_DRAW_ARRAYS_ADD_START;
+         continue;
+      default:
+         break;
+      }
+   }
+
+   /*
+    * Corner case: VP has no inputs, but we will still need to submit data to
+    * draw it. HW will shout at us and won't draw anything if we don't enable
+    * any input, so let's just pretend it's the first one.
+    */
+   if (prog->vp.attrs[0] == 0 &&
+       prog->vp.attrs[1] == 0 &&
+       prog->vp.attrs[2] == 0)
+      prog->vp.attrs[0] |= 0xf;
+
+   n = 0;
+   for (i = 0; i < info->numOutputs; ++i) {
+      switch (info->out[i].sn) {
+      case TGSI_SEMANTIC_PSIZE:
+         prog->vp.psiz = i;
+         break;
+      case TGSI_SEMANTIC_CLIPDIST:
+         prog->vp.clpd[info->out[i].si] = n;
+         break;
+      case TGSI_SEMANTIC_EDGEFLAG:
+         prog->vp.edgeflag = i;
+         break;
+      case TGSI_SEMANTIC_BCOLOR:
+         prog->vp.bfc[info->out[i].si] = i;
+         break;
+      case TGSI_SEMANTIC_LAYER:
+         prog->gp.has_layer = true;
+         prog->gp.layerid = n;
+         break;
+      case TGSI_SEMANTIC_VIEWPORT_INDEX:
+         prog->gp.has_viewport = true;
+         prog->gp.viewportid = n;
+         break;
+      default:
+         break;
+      }
+      prog->out[i].id = i;
+      prog->out[i].sn = info->out[i].sn;
+      prog->out[i].si = info->out[i].si;
+      prog->out[i].hw = n;
+      prog->out[i].mask = info->out[i].mask;
+
+      for (c = 0; c < 4; ++c)
+         if (info->out[i].mask & (1 << c))
+            n++;
+   }
+   prog->out_nr = info->numOutputs;
+   prog->max_out = n;
+   if (!prog->max_out)
+      prog->max_out = 1;
+
+   if (prog->vp.psiz < info->numOutputs)
+      prog->vp.psiz = prog->out[prog->vp.psiz].hw;
+
+   return 0;
+}
+
+static int
 nv50_fragprog_assign_slots(struct nv50_ir_prog_info_out *info)
 {
    struct nv50_program *prog = (struct nv50_program *)info->driverPriv;
@@ -249,6 +373,192 @@ nv50_fragprog_assign_slots(struct nv50_ir_prog_info_out *info)
 }
 
 static int
+nv50_fragprog_assign_slots_info(struct nv50_ir_prog_info_out *info)
+{
+   struct nv50_program *prog = (struct nv50_program *)info->driverPriv;
+   unsigned i, n, m, c;
+   unsigned nintp = 0;
+
+   /* TODO Can't they just be zero? */
+   ubyte prog_max_out = prog->max_out;
+   ubyte prog_in_nr = prog->in_nr;
+   uint32_t prog_interp = prog->fp.interp;
+
+   unsigned prog_in_mask[16];
+   for (i = 0; i < 16; i++)
+      prog_in_mask[i] = prog->in[i].mask;
+
+   uint8_t prog_in_id[16];
+   for (i = 0; i < 16; i++)
+      prog_in_id[i] = prog->in[i].id;
+
+
+   /* count recorded non-flat inputs */
+   for (m = 0, i = 0; i < info->numInputs; ++i) {
+      switch (info->in[i].sn) {
+      case TGSI_SEMANTIC_POSITION:
+         continue;
+      default:
+         m += info->in[i].flat ? 0 : 1;
+         break;
+      }
+   }
+
+   /* careful: id may be != i in info->in[prog->in[i].id] */
+
+   /* Fill prog->in[] so that non-flat inputs are first and
+    * kick out special inputs that don't use the RESULT_MAP.
+    */
+   for (n = 0, i = 0; i < info->numInputs; ++i) {
+      if (info->in[i].sn == TGSI_SEMANTIC_POSITION) {
+         prog_interp |= info->in[i].mask << 24;
+         for (c = 0; c < 4; ++c)
+            if (info->in[i].mask & (1 << c))
+               info->in[i].slot[c] = nintp++;
+      } else {
+         unsigned j = info->in[i].flat ? m++ : n++;
+         prog_in_id[j] = i;
+         prog_in_mask[j] = info->in[i].mask;
+         prog_in_nr++;
+      }
+   }
+   if (!(prog_interp & (8 << 24)))
+      ++nintp;
+
+   for (i = 0; i < prog_in_nr; ++i) {
+      int j = prog_in_id[i];
+
+      for (c = 0; c < 4; ++c)
+         if (prog_in_mask[i] & (1 << c))
+            info->in[j].slot[c] = nintp++;
+   }
+
+   /* FP outputs */
+
+   for (i = 0; i < info->numOutputs; ++i) {
+       if (i == info->io.fragDepth || i == info->io.sampleMask)
+         continue;
+
+      for (c = 0; c < 4; ++c)
+         info->out[i].slot[c] = info->out[i].si * 4 + c;
+
+      prog_max_out = MAX2(prog_max_out, info->out[i].si * 4 + 4);
+   }
+
+   if (info->io.sampleMask < PIPE_MAX_SHADER_OUTPUTS)
+      info->out[info->io.sampleMask].slot[0] = prog_max_out++;
+
+   if (info->io.fragDepth < PIPE_MAX_SHADER_OUTPUTS)
+      info->out[info->io.fragDepth].slot[2] = prog_max_out;
+
+   return 0;
+}
+
+static int
+nv50_fragprog_assign_slots_prog(struct nv50_ir_prog_info_out *info)
+{
+   struct nv50_program *prog = (struct nv50_program *)info->driverPriv;
+   unsigned i, n, m, c;
+   unsigned nvary;
+   unsigned nflat;
+   unsigned nintp = 0;
+
+   /* count recorded non-flat inputs */
+   for (m = 0, i = 0; i < info->numInputs; ++i) {
+      switch (info->in[i].sn) {
+      case TGSI_SEMANTIC_POSITION:
+         continue;
+      default:
+         m += info->in[i].flat ? 0 : 1;
+         break;
+      }
+   }
+   /* careful: id may be != i in info->in[prog->in[i].id] */
+
+   /* Fill prog->in[] so that non-flat inputs are first and
+    * kick out special inputs that don't use the RESULT_MAP.
+    */
+   for (n = 0, i = 0; i < info->numInputs; ++i) {
+      if (info->in[i].sn == TGSI_SEMANTIC_POSITION) {
+         prog->fp.interp |= info->in[i].mask << 24;
+         for (c = 0; c < 4; ++c)
+            if (info->in[i].mask & (1 << c))
+               nintp++;
+      } else {
+         unsigned j = info->in[i].flat ? m++ : n++;
+
+         if (info->in[i].sn == TGSI_SEMANTIC_COLOR)
+            prog->vp.bfc[info->in[i].si] = j;
+         else if (info->in[i].sn == TGSI_SEMANTIC_PRIMID)
+            prog->vp.attrs[2] |= NV50_3D_VP_GP_BUILTIN_ATTR_EN_PRIMITIVE_ID;
+
+         prog->in[j].id = i;
+         prog->in[j].mask = info->in[i].mask;
+         prog->in[j].sn = info->in[i].sn;
+         prog->in[j].si = info->in[i].si;
+         prog->in[j].linear = info->in[i].linear;
+
+         prog->in_nr++;
+      }
+   }
+   if (!(prog->fp.interp & (8 << 24))) {
+      ++nintp;
+      prog->fp.interp |= 8 << 24;
+   }
+
+   for (i = 0; i < prog->in_nr; ++i) {
+      prog->in[i].hw = nintp;
+      for (c = 0; c < 4; ++c)
+         if (prog->in[i].mask & (1 << c))
+            nintp++;
+   }
+   /* (n == m) if m never increased, i.e. no flat inputs */
+   nflat = (n < m) ? (nintp - prog->in[n].hw) : 0;
+   nintp -= bitcount4(prog->fp.interp >> 24); /* subtract position inputs */
+   nvary = nintp - nflat;
+
+   prog->fp.interp |= nvary << NV50_3D_FP_INTERPOLANT_CTRL_COUNT_NONFLAT__SHIFT;
+   prog->fp.interp |= nintp << NV50_3D_FP_INTERPOLANT_CTRL_COUNT__SHIFT;
+
+   /* put front/back colors right after HPOS */
+   prog->fp.colors = 4 << NV50_3D_SEMANTIC_COLOR_FFC0_ID__SHIFT;
+   for (i = 0; i < 2; ++i)
+      if (prog->vp.bfc[i] < 0xff)
+         prog->fp.colors += bitcount4(prog->in[prog->vp.bfc[i]].mask) << 16;
+
+   /* FP outputs */
+
+   if (info->prop.fp.numColourResults > 1)
+      prog->fp.flags[0] |= NV50_3D_FP_CONTROL_MULTIPLE_RESULTS;
+
+   for (i = 0; i < info->numOutputs; ++i) {
+      prog->out[i].id = i;
+      prog->out[i].sn = info->out[i].sn;
+      prog->out[i].si = info->out[i].si;
+      prog->out[i].mask = info->out[i].mask;
+
+      if (i == info->io.fragDepth || i == info->io.sampleMask)
+         continue;
+      prog->out[i].hw = info->out[i].si * 4;
+
+      prog->max_out = MAX2(prog->max_out, prog->out[i].hw + 4);
+   }
+
+   if (info->io.sampleMask < PIPE_MAX_SHADER_OUTPUTS) {
+      prog->max_out++;
+      prog->fp.has_samplemask = 1;
+   }
+
+   if (info->io.fragDepth < PIPE_MAX_SHADER_OUTPUTS)
+      prog->max_out++;
+
+   if (!prog->max_out)
+      prog->max_out = 4;
+
+   return 0;
+}
+
+static int
 nv50_program_assign_varying_slots(struct nv50_ir_prog_info_out *info)
 {
    switch (info->type) {
@@ -258,6 +568,40 @@ nv50_program_assign_varying_slots(struct nv50_ir_prog_info_out *info)
       return nv50_vertprog_assign_slots(info);
    case PIPE_SHADER_FRAGMENT:
       return nv50_fragprog_assign_slots(info);
+   case PIPE_SHADER_COMPUTE:
+      return 0;
+   default:
+      return -1;
+   }
+}
+
+static int
+nv50_program_assign_varying_slots_info(struct nv50_ir_prog_info_out *info)
+{
+   switch (info->type) {
+   case PIPE_SHADER_VERTEX:
+      return nv50_vertprog_assign_slots_info(info);
+   case PIPE_SHADER_GEOMETRY:
+      return nv50_vertprog_assign_slots_info(info);
+   case PIPE_SHADER_FRAGMENT:
+      return nv50_fragprog_assign_slots_info(info);
+   case PIPE_SHADER_COMPUTE:
+      return 0;
+   default:
+      return -1;
+   }
+}
+
+static int
+nv50_program_assign_varying_slots_prog(struct nv50_ir_prog_info_out *info)
+{
+   switch (info->type) {
+   case PIPE_SHADER_VERTEX:
+      return nv50_vertprog_assign_slots_prog(info);
+   case PIPE_SHADER_GEOMETRY:
+      return nv50_vertprog_assign_slots_prog(info);
+   case PIPE_SHADER_FRAGMENT:
+      return nv50_fragprog_assign_slots_prog(info);
    case PIPE_SHADER_COMPUTE:
       return 0;
    default:
