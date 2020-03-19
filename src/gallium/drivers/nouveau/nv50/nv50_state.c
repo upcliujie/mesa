@@ -779,6 +779,7 @@ nv50_sp_state_create(struct pipe_context *pipe,
 
    prog->translated = nv50_program_translate(
          prog, nv50_context(pipe)->screen->base.device->chipset,
+         nv50_context(pipe)->screen->base.disk_shader_cache,
          &nouveau_context(pipe)->debug);
 
    return (void *)prog;
