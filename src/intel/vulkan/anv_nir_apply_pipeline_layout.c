@@ -763,20 +763,24 @@ lower_image_intrinsic(nir_intrinsic_instr *intrin,
    unsigned set = var->data.descriptor_set;
    unsigned binding = var->data.binding;
    unsigned binding_offset = state->set[set].surface_offsets[binding];
+   const struct anv_descriptor_set_binding_layout *bind_layout =
+      &state->layout->set[set].layout->binding[binding];
 
    nir_builder *b = &state->builder;
    b->cursor = nir_before_instr(&intrin->instr);
 
-   ASSERTED const bool use_bindless = state->pdevice->has_bindless_images;
-
    if (intrin->intrinsic == nir_intrinsic_image_deref_load_param_intel) {
       b->cursor = nir_instr_remove(&intrin->instr);
 
-      assert(!use_bindless); /* Otherwise our offsets would be wrong */
-      const unsigned param = nir_intrinsic_base(intrin);
+      unsigned desc_offset = 0;
+
+      if (bind_layout->data & ANV_DESCRIPTOR_STORAGE_IMAGE)
+         desc_offset += sizeof(struct anv_storage_image_descriptor);
+
+      desc_offset += nir_intrinsic_base(intrin) * 16;
 
       nir_ssa_def *desc =
-         build_descriptor_load(deref, param * 16,
+         build_descriptor_load(deref, desc_offset,
                                intrin->dest.ssa.num_components,
                                intrin->dest.ssa.bit_size, state);
 
