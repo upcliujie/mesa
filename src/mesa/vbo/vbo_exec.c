@@ -159,11 +159,10 @@ try_prim_conversion(struct _mesa_prim *p)
       /* convert 3-vertex tri strip or fan to a separate triangle */
       p->mode = GL_TRIANGLES;
    }
-
-   /* Note: we can't convert a 4-vertex quad strip to a separate quad
-    * because the vertex ordering is different.  We'd have to muck
-    * around in the vertex data to make it work.
-    */
+   else if (p->mode == GL_QUAD_STRIP && p->count == 4) {
+      /* convert 4-vertex quad strip to a separate quad */
+      p->mode = GL_QUADS;
+   }
 }
 
 
