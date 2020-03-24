@@ -154,8 +154,8 @@ try_prim_conversion(struct _mesa_prim *p)
       /* convert 2-vertex line strip to a separate line */
       p->mode = GL_LINES;
    }
-   else if ((p->mode == GL_TRIANGLE_STRIP || p->mode == GL_TRIANGLE_FAN)
-       && p->count == 3) {
+   else if ((p->mode == GL_TRIANGLE_STRIP || p->mode == GL_TRIANGLE_FAN
+             || p->mode == GL_POLYGON) && p->count == 3) {
       /* convert 3-vertex tri strip or fan to a separate triangle */
       p->mode = GL_TRIANGLES;
    }
