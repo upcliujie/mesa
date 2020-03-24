@@ -536,24 +536,14 @@ compile_vertex_list(struct gl_context *ctx)
 
    node->prim_store->refcount++;
 
-   if (save->no_current_update) {
-      node->current_data = NULL;
-   }
-   else {
+   node->current_data = NULL;
+   if (!save->no_current_update) {
       GLuint current_size = save->vertex_size - save->attrsz[0];
-      node->current_data = NULL;
-
       if (current_size) {
          node->current_data = malloc(current_size * sizeof(GLfloat));
          if (node->current_data) {
-            const char *buffer = (const char *)save->buffer_map;
-            unsigned attr_offset = save->attrsz[0] * sizeof(GLfloat);
-            unsigned vertex_offset = 0;
-
-            if (node->vertex_count)
-               vertex_offset = (node->vertex_count - 1) * stride;
-
-            memcpy(node->current_data, buffer + vertex_offset + attr_offset,
+            const unsigned offset = save->attrsz[0];
+            memcpy(node->current_data, &save->vertex[offset],
                    current_size * sizeof(GLfloat));
          } else {
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "Current value allocation");
