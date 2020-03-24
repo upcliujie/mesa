@@ -116,6 +116,13 @@ lower_tex_prefetch_block(nir_block *block)
 	bool progress = false;
 
 	nir_foreach_instr_safe(instr, block) {
+		/* Don't move prefetches up past a discard, as the discard can
+		 * potentially keep us from having to hit memory for the sample.
+		 */
+		if (instr->type == nir_instr_type_intrinsic &&
+				nir_instr_as_intrinsic(instr)->intrinsic == nir_intrinsic_discard_if)
+			return progress;
+
 		if (instr->type != nir_instr_type_tex)
 			continue;
 
