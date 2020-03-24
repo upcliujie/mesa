@@ -85,6 +85,25 @@ is_render_queue_cmd_buffer(const struct anv_cmd_buffer *cmd_buffer)
    return (queue_family->queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0;
 }
 
+static bool
+is_compute_only_family(struct anv_cmd_buffer *cmd_buffer,
+                       uint64_t queue_family_num)
+{
+   if (queue_family_num == VK_QUEUE_FAMILY_IGNORED ||
+       queue_family_num == VK_QUEUE_FAMILY_EXTERNAL ||
+       queue_family_num == VK_QUEUE_FAMILY_FOREIGN_EXT)
+      return false;
+
+   const struct anv_physical_device *pdevice =
+      cmd_buffer->device->physical;
+   assert(queue_family_num < pdevice->queue.family_count);
+   const struct anv_queue_family *queue_family =
+      &pdevice->queue.families[queue_family_num];
+   uint32_t queueFlags =
+      queue_family->queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT);
+   return queueFlags == VK_QUEUE_COMPUTE_BIT;
+}
+
 void
 genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
 {
@@ -1202,6 +1221,9 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
       dst_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT ||
       dst_queue_family == VK_QUEUE_FAMILY_EXTERNAL;
 
+   const bool to_compute_queue =
+      is_compute_only_family(cmd_buffer, dst_queue_family);
+
    /* Simultaneous acquire and release on external queues is illegal. */
    assert(!src_queue_external || !dst_queue_external);
 
@@ -1456,6 +1478,10 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
 
    if (initial_aux_usage == ISL_AUX_USAGE_CCS_E &&
        final_aux_usage != ISL_AUX_USAGE_CCS_E)
+      resolve_op = ISL_AUX_OP_FULL_RESOLVE;
+
+   if (GFX_VER < 12 && resolve_op == ISL_AUX_OP_PARTIAL_RESOLVE &&
+       to_compute_queue)
       resolve_op = ISL_AUX_OP_FULL_RESOLVE;
 
    if (resolve_op == ISL_AUX_OP_NONE)
