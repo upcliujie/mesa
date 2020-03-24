@@ -457,7 +457,6 @@ compile_vertex_list(struct gl_context *ctx)
        (save->buffer_map - save->vertex_store->buffer_map) * sizeof(GLfloat);
    assert(old_offset <= buffer_offset);
    const GLintptr offset_diff = buffer_offset - old_offset;
-   GLuint start_offset = 0;
    if (offset_diff > 0 && stride > 0 && offset_diff % stride == 0) {
       /* The vertex size is an exact multiple of the buffer offset.
        * This means that we can use zero-based vertex attribute pointers
@@ -467,11 +466,14 @@ compile_vertex_list(struct gl_context *ctx)
        * changes in drivers.  In particular, the Gallium CSO module will
        * filter out redundant vertex buffer changes.
        */
-      /* We cannot immediately update the primitives as some methods below
-       * still need the uncorrected start vertices
-       */
-      start_offset = offset_diff/stride;
       assert(old_offset == buffer_offset - offset_diff);
+
+      /* Correct the primitive starts. */
+      const GLuint start_offset = offset_diff/stride;
+      for (unsigned i = 0; i < save->prim_count; i++) {
+         save->prims[i].start += start_offset;
+      }
+
       buffer_offset = old_offset;
    }
    GLuint offsets[VBO_ATTRIB_MAX];
@@ -521,15 +523,6 @@ compile_vertex_list(struct gl_context *ctx)
 
    save->vertex_store->used += save->vertex_size * node->vertex_count;
    save->prim_store->used += node->prim_count;
-
-   /* Correct the primitive starts, we can only do this here as copy_vertices
-    * and convert_line_loop_to_strip above consume the uncorrected starts.
-    * On the other hand the _vbo_loopback_vertex_list call below needs the
-    * primitves to be corrected already.
-    */
-   for (unsigned i = 0; i < node->prim_count; i++) {
-      node->prims[i].start += start_offset;
-   }
 
    /* Deal with GL_COMPILE_AND_EXECUTE:
     */
