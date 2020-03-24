@@ -851,28 +851,6 @@ vbo_exec_Begin(GLenum mode)
 
 
 /**
- * Try to merge / concatenate the two most recent VBO primitives.
- */
-static void
-try_vbo_merge(struct vbo_exec_context *exec)
-{
-   struct _mesa_prim *cur =  &exec->vtx.prim[exec->vtx.prim_count - 1];
-
-   assert(exec->vtx.prim_count >= 1);
-
-   vbo_try_prim_conversion(cur);
-
-   if (exec->vtx.prim_count >= 2) {
-      struct _mesa_prim *prev = &exec->vtx.prim[exec->vtx.prim_count - 2];
-      assert(prev == cur - 1);
-
-      if (vbo_merge_draws(exec->ctx, false, prev, cur))
-         exec->vtx.prim_count--;  /* drop the last primitive */
-   }
-}
-
-
-/**
  * Called via glEnd.
  */
 static void GLAPIENTRY
@@ -930,7 +908,8 @@ vbo_exec_End(void)
          exec->vtx.buffer_ptr += exec->vtx.vertex_size;
       }
 
-      try_vbo_merge(exec);
+      if (_vbo_optimize_prims(ctx, false, exec->vtx.prim, exec->vtx.prim_count))
+         exec->vtx.prim_count--;  /* drop the last primitive */
    }
 
    ctx->Driver.CurrentExecPrimitive = PRIM_OUTSIDE_BEGIN_END;

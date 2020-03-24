@@ -176,12 +176,10 @@ vbo_compute_max_verts(const struct vbo_exec_context *exec)
 }
 
 
-void
-vbo_try_prim_conversion(struct _mesa_prim *p);
-
 bool
-vbo_merge_draws(struct gl_context *ctx, bool in_dlist,
-                struct _mesa_prim *p0, const struct _mesa_prim *p1);
+_vbo_optimize_prims(const struct gl_context *ctx, bool in_dlist,
+                    struct _mesa_prim *prim, unsigned count);
+
 
 unsigned
 vbo_copy_vertices(struct gl_context *ctx,

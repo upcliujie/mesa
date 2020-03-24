@@ -269,51 +269,14 @@ reset_counters(struct gl_context *ctx)
 }
 
 /**
- * For a list of prims, try merging prims that can just be extensions of the
- * previous prim.
- */
-static void
-merge_prims(struct gl_context *ctx, struct _mesa_prim *prim_list,
-            GLuint *prim_count)
-{
-   GLuint i;
-   struct _mesa_prim *prev_prim = prim_list;
-
-   for (i = 1; i < *prim_count; i++) {
-      struct _mesa_prim *this_prim = prim_list + i;
-
-      vbo_try_prim_conversion(this_prim);
-
-      if (vbo_merge_draws(ctx, true, prev_prim, this_prim)) {
-         /* We've found a prim that just extend the previous one.  Tack it
-          * onto the previous one, and let this primitive struct get dropped.
-          */
-         continue;
-      }
-
-      /* If any previous primitives have been dropped, then we need to copy
-       * this later one into the next available slot.
-       */
-      prev_prim++;
-      if (prev_prim != this_prim)
-         *prev_prim = *this_prim;
-   }
-
-   *prim_count = prev_prim - prim_list + 1;
-}
-
-
-/**
  * Convert GL_LINE_LOOP primitive into GL_LINE_STRIP so that drivers
  * don't have to worry about handling the _mesa_prim::begin/end flags.
  * See https://bugs.freedesktop.org/show_bug.cgi?id=81174
  */
 static void
 convert_line_loop_to_strip(struct vbo_save_context *save,
-                           struct vbo_save_vertex_list *node)
+                           struct _mesa_prim *prim)
 {
-   struct _mesa_prim *prim = &node->prims[node->prim_count - 1];
-
    assert(prim->mode == GL_LINE_LOOP);
 
    if (prim->end) {
@@ -329,10 +292,8 @@ convert_line_loop_to_strip(struct vbo_save_context *save,
       memcpy(dst, src, sz * sizeof(float));
 
       prim->count++;
-      node->vertex_count++;
       save->vert_count++;
       save->buffer_ptr += sz;
-      save->vertex_store->used += sz;
    }
 
    if (!prim->begin) {
@@ -562,12 +523,6 @@ compile_vertex_list(struct gl_context *ctx)
    /* Copy duplicated vertices
     */
    save->copied.nr = copy_vertices(ctx, node, save->buffer_map);
-
-   if (node->prims[node->prim_count - 1].mode == GL_LINE_LOOP) {
-      convert_line_loop_to_strip(save, node);
-   }
-
-   merge_prims(ctx, node->prims, &node->prim_count);
 
    /* Correct the primitive starts, we can only do this here as copy_vertices
     * and convert_line_loop_to_strip above consume the uncorrected starts.
@@ -1162,10 +1117,21 @@ _save_End(void)
    GET_CURRENT_CONTEXT(ctx);
    struct vbo_save_context *save = &vbo_context(ctx)->save;
    const GLint i = save->prim_count - 1;
+   struct _mesa_prim *prim = &save->prims[i];
 
    ctx->Driver.CurrentSavePrimitive = PRIM_OUTSIDE_BEGIN_END;
-   save->prims[i].end = 1;
-   save->prims[i].count = (save->vert_count - save->prims[i].start);
+   prim->end = 1;
+   prim->count = (save->vert_count - prim->start);
+
+   if (prim->mode == GL_LINE_LOOP) {
+      convert_line_loop_to_strip(save, prim);
+   }
+
+   /* Try to merge the present primitive to the previous one before we need
+    * to wrap due to be short on primitive space
+    */
+   if (_vbo_optimize_prims(ctx, true, save->prims, save->prim_count))
+      save->prim_count--;  /* drop the last primitive */
 
    if (i == (GLint) save->prim_max - 1) {
       compile_vertex_list(ctx);

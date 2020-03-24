@@ -147,8 +147,8 @@ void vbo_exec_destroy( struct gl_context *ctx )
  *
  * This function converts 2-vertex line strips/loops into GL_LINES, etc.
  */
-void
-vbo_try_prim_conversion(struct _mesa_prim *p)
+static void
+try_prim_conversion(struct _mesa_prim *p)
 {
    if (p->mode == GL_LINE_STRIP && p->count == 2) {
       /* convert 2-vertex line strip to a separate line */
@@ -171,9 +171,9 @@ vbo_try_prim_conversion(struct _mesa_prim *p)
  * Function for merging two subsequent glBegin/glEnd draws.
  * Return true if p1 was concatenated onto p0 (to discard p1 in the caller).
  */
-bool
-vbo_merge_draws(struct gl_context *ctx, bool in_dlist,
-                struct _mesa_prim *p0, const struct _mesa_prim *p1)
+static bool
+merge_draws(const struct gl_context *ctx, bool in_dlist,
+            struct _mesa_prim *p0, const struct _mesa_prim *p1)
 {
    /* The prim mode must match (ex: both GL_TRIANGLES) */
    if (p0->mode != p1->mode)
@@ -247,6 +247,28 @@ vbo_merge_draws(struct gl_context *ctx, bool in_dlist,
    p0->end = p1->end;
    return true;
 }
+
+
+bool
+_vbo_optimize_prims(const struct gl_context *ctx, bool in_dlist,
+                    struct _mesa_prim *prim, unsigned count)
+{
+   if (count <= 0)
+      return false;
+
+   /* Try to change the primitive type to something equivalent to increase
+    * the likelyhood for a merged primitive.
+    */
+   try_prim_conversion(&prim[count - 1]);
+
+   /* Only the next primitive can be merged. */
+   if (count < 2)
+      return false;
+
+   /* Merge the two primitives if possible. */
+   return merge_draws(ctx, false, &prim[count - 2], &prim[count - 1]);
+}
+
 
 /**
  * Copy zero, one or two vertices from the current vertex buffer into
