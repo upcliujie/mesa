@@ -106,14 +106,12 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  * wrong-footed on replay.
  */
 static GLuint
-copy_vertices(struct gl_context *ctx,
-              const struct vbo_save_vertex_list *node,
-              const fi_type * src_buffer)
+copy_vertices(struct gl_context *ctx)
 {
    struct vbo_save_context *save = &vbo_context(ctx)->save;
-   struct _mesa_prim *prim = &node->prims[node->prim_count - 1];
+   struct _mesa_prim *prim = &save->prims[save->prim_count - 1];
    GLuint sz = save->vertex_size;
-   const fi_type *src = src_buffer + prim->start * sz;
+   const fi_type *src = save->buffer_map + prim->start * sz;
    fi_type *dst = save->copied.buffer;
 
    if (prim->end)
@@ -522,7 +520,7 @@ compile_vertex_list(struct gl_context *ctx)
 
    /* Copy duplicated vertices
     */
-   save->copied.nr = copy_vertices(ctx, node, save->buffer_map);
+   save->copied.nr = copy_vertices(ctx);
 
    /* Correct the primitive starts, we can only do this here as copy_vertices
     * and convert_line_loop_to_strip above consume the uncorrected starts.
