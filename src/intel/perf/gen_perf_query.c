@@ -246,7 +246,7 @@ struct gen_perf_context {
    void * bufmgr;
    const struct gen_device_info *devinfo;
 
-   uint32_t hw_ctx;
+   uint32_t gem_ctx;
    int drm_fd;
 
    /* The i915 perf stream we open to setup + enable the OA counters */
@@ -551,14 +551,14 @@ gen_perf_init_context(struct gen_perf_context *perf_ctx,
                       void * ctx,  /* driver context (eg, brw_context) */
                       void * bufmgr,  /* eg brw_bufmgr */
                       const struct gen_device_info *devinfo,
-                      uint32_t hw_ctx,
+                      uint32_t gem_ctx,
                       int drm_fd)
 {
    perf_ctx->perf = perf_cfg;
    perf_ctx->ctx = ctx;
    perf_ctx->bufmgr = bufmgr;
    perf_ctx->drm_fd = drm_fd;
-   perf_ctx->hw_ctx = hw_ctx;
+   perf_ctx->gem_ctx = gem_ctx;
    perf_ctx->devinfo = devinfo;
 
    perf_ctx->unaccumulated =
@@ -771,7 +771,7 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
 
          if (!gen_perf_open(perf_ctx, metric_id, queryinfo->oa_format,
                             period_exponent, perf_ctx->drm_fd,
-                            perf_ctx->hw_ctx))
+                            perf_ctx->gem_ctx))
             return false;
       } else {
          assert(perf_ctx->current_oa_metrics_set_id == metric_id &&
