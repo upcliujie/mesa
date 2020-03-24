@@ -440,6 +440,11 @@ compile_vertex_list(struct gl_context *ctx)
    /* Make sure the pointer is aligned to the size of a pointer */
    assert((GLintptr) node % sizeof(void *) == 0);
 
+   /* Copy vertices of unfinished primitives.
+    */
+   node->wrap_count = save->copied.nr;
+   save->copied.nr = copy_vertices(ctx);
+
    /* Duplicate our template, increment refcounts to the storage structs:
     */
    GLintptr old_offset = 0;
@@ -475,7 +480,6 @@ compile_vertex_list(struct gl_context *ctx)
       offset += save->attrsz[i] * sizeof(GLfloat);
    }
    node->vertex_count = save->vert_count;
-   node->wrap_count = save->copied.nr;
    node->prims = save->prims;
    node->prim_count = save->prim_count;
    node->prim_store = save->prim_store;
@@ -517,10 +521,6 @@ compile_vertex_list(struct gl_context *ctx)
 
    save->vertex_store->used += save->vertex_size * node->vertex_count;
    save->prim_store->used += node->prim_count;
-
-   /* Copy duplicated vertices
-    */
-   save->copied.nr = copy_vertices(ctx);
 
    /* Correct the primitive starts, we can only do this here as copy_vertices
     * and convert_line_loop_to_strip above consume the uncorrected starts.
