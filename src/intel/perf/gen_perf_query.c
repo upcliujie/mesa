@@ -348,7 +348,7 @@ gen_perf_close(struct gen_perf_context *perfquery,
    }
 }
 
-#define NUM_PERF_PROPERTIES(array) (ARRAY_SIZE(array) / 2)
+#define NUM_PERF_PROPERTIES(array_len) ((array_len) / 2)
 
 static bool
 gen_perf_open(struct gen_perf_context *perf_ctx,
@@ -356,28 +356,38 @@ gen_perf_open(struct gen_perf_context *perf_ctx,
               int report_format,
               int period_exponent)
 {
-   uint64_t properties[] = {
-      /* Single context sampling */
-      DRM_I915_PERF_PROP_CTX_HANDLE, perf_ctx->gem_ctx,
+   uint64_t properties[2 * DRM_I915_PERF_PROP_MAX];
+   uint32_t p = 0;
 
-      /* Include OA reports in samples */
-      DRM_I915_PERF_PROP_SAMPLE_OA, true,
+   /* Single context sampling */
+   properties[p++] = DRM_I915_PERF_PROP_CTX_HANDLE;
+   properties[p++] = perf_ctx->gem_ctx;
 
-      /* OA unit configuration */
-      DRM_I915_PERF_PROP_OA_METRICS_SET, metrics_set_id,
-      DRM_I915_PERF_PROP_OA_FORMAT, report_format,
-      DRM_I915_PERF_PROP_OA_EXPONENT, period_exponent,
+   /* Include OA reports in samples */
+   properties[p++] = DRM_I915_PERF_PROP_SAMPLE_OA;
+   properties[p++] = true;
 
+   /* OA unit configuration */
+   properties[p++] = DRM_I915_PERF_PROP_OA_METRICS_SET;
+   properties[p++] = metrics_set_id;
+
+   properties[p++] = DRM_I915_PERF_PROP_OA_FORMAT;
+   properties[p++] = report_format;
+
+   properties[p++] = DRM_I915_PERF_PROP_OA_EXPONENT;
+   properties[p++] = period_exponent;
+
+   if (perf_ctx->perf->i915_perf_version >= 4) {
       /* SSEU configuration */
-      DRM_I915_PERF_PROP_GLOBAL_SSEU, to_user_pointer(&perf_ctx->perf->sseu),
-   };
+      properties[p++] = DRM_I915_PERF_PROP_GLOBAL_SSEU;
+      properties[p++] = to_user_pointer(&perf_ctx->perf->sseu);
+   }
+
    struct drm_i915_perf_open_param param = {
       .flags = I915_PERF_FLAG_FD_CLOEXEC |
                I915_PERF_FLAG_FD_NONBLOCK |
                I915_PERF_FLAG_DISABLED,
-      .num_properties = perf_ctx->perf->i915_perf_version >= 4 ?
-                        NUM_PERF_PROPERTIES(properties) :
-                        NUM_PERF_PROPERTIES(properties) - 1,
+      .num_properties = NUM_PERF_PROPERTIES(p),
       .properties_ptr = (uintptr_t) properties,
    };
    int fd = gen_ioctl(perf_ctx->drm_fd, DRM_IOCTL_I915_PERF_OPEN, &param);
