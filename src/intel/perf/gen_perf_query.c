@@ -354,13 +354,11 @@ static bool
 gen_perf_open(struct gen_perf_context *perf_ctx,
               int metrics_set_id,
               int report_format,
-              int period_exponent,
-              int drm_fd,
-              uint32_t ctx_id)
+              int period_exponent)
 {
    uint64_t properties[] = {
       /* Single context sampling */
-      DRM_I915_PERF_PROP_CTX_HANDLE, ctx_id,
+      DRM_I915_PERF_PROP_CTX_HANDLE, perf_ctx->gem_ctx,
 
       /* Include OA reports in samples */
       DRM_I915_PERF_PROP_SAMPLE_OA, true,
@@ -382,7 +380,7 @@ gen_perf_open(struct gen_perf_context *perf_ctx,
                         NUM_PERF_PROPERTIES(properties) - 1,
       .properties_ptr = (uintptr_t) properties,
    };
-   int fd = gen_ioctl(drm_fd, DRM_IOCTL_I915_PERF_OPEN, &param);
+   int fd = gen_ioctl(perf_ctx->drm_fd, DRM_IOCTL_I915_PERF_OPEN, &param);
    if (fd == -1) {
       DBG("Error opening gen perf OA stream: %m\n");
       return false;
@@ -770,8 +768,7 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
              prev_sample_period / 1000000ul);
 
          if (!gen_perf_open(perf_ctx, metric_id, queryinfo->oa_format,
-                            period_exponent, perf_ctx->drm_fd,
-                            perf_ctx->gem_ctx))
+                            period_exponent))
             return false;
       } else {
          assert(perf_ctx->current_oa_metrics_set_id == metric_id &&
