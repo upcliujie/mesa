@@ -317,7 +317,7 @@ vma_free(struct iris_bufmgr *bufmgr,
    util_vma_heap_free(&bufmgr->vma_allocator[memzone], address, size);
 }
 
-int
+bool
 iris_bo_busy(struct iris_bo *bo)
 {
    struct iris_bufmgr *bufmgr = bo->bufmgr;
@@ -326,7 +326,7 @@ iris_bo_busy(struct iris_bo *bo)
    int ret = gen_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_BUSY, &busy);
    if (ret == 0) {
       bo->idle = !busy.busy;
-      return busy.busy;
+      return busy.busy != 0;
    }
    return false;
 }

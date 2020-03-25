@@ -317,10 +317,10 @@ int iris_bo_flink(struct iris_bo *bo, uint32_t *name);
 void iris_bo_make_external(struct iris_bo *bo);
 
 /**
- * Returns 1 if mapping the buffer for write could cause the process
- * to block, due to the object being active in the GPU.
+ * Returns true if mapping the buffer for write could cause the process to
+ * block, due to the object being active in the GPU.
  */
-int iris_bo_busy(struct iris_bo *bo);
+bool iris_bo_busy(struct iris_bo *bo);
 
 /**
  * Specify the volatility of the buffer.

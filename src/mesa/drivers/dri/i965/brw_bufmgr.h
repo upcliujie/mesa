@@ -323,10 +323,10 @@ int brw_bo_get_tiling(struct brw_bo *bo, uint32_t *tiling_mode,
 int brw_bo_flink(struct brw_bo *bo, uint32_t *name);
 
 /**
- * Returns 1 if mapping the buffer for write could cause the process
+ * Returns true if mapping the buffer for write could cause the process
  * to block, due to the object being active in the GPU.
  */
-int brw_bo_busy(struct brw_bo *bo);
+bool brw_bo_busy(struct brw_bo *bo);
 
 /**
  * Specify the volatility of the buffer.

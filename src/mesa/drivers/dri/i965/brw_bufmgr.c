@@ -442,7 +442,7 @@ vma_free(struct brw_bufmgr *bufmgr,
    }
 }
 
-int
+bool
 brw_bo_busy(struct brw_bo *bo)
 {
    struct brw_bufmgr *bufmgr = bo->bufmgr;
@@ -451,7 +451,7 @@ brw_bo_busy(struct brw_bo *bo)
    int ret = drmIoctl(bufmgr->fd, DRM_IOCTL_I915_GEM_BUSY, &busy);
    if (ret == 0) {
       bo->idle = !busy.busy;
-      return busy.busy;
+      return busy.busy != 0;
    }
    return false;
 }

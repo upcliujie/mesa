@@ -470,7 +470,7 @@ typedef void (*store_register_mem_t)(void *ctx, void *bo,
                                      uint32_t offset);
 typedef bool (*batch_references_t)(void *batch, void *bo);
 typedef void (*bo_wait_rendering_t)(void *bo);
-typedef int (*bo_busy_t)(void *bo);
+typedef bool (*bo_busy_t)(void *bo);
 
 static unsigned
 brw_init_perf_query_info(struct gl_context *ctx)

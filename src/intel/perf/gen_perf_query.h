@@ -40,7 +40,7 @@ struct gen_perf_context_vtable {
    void (*bo_unmap)(void *bo);
    bool (*batch_references)(void *batch, void *bo);
    void (*bo_wait_rendering)(void *bo);
-   int (*bo_busy)(void *bo);
+   bool (*bo_busy)(void *bo);
    void (*emit_stall_at_pixel_scoreboard)(void *ctx);
    void (*emit_mi_report_perf_count)(void *ctx,
                                      void *bo,

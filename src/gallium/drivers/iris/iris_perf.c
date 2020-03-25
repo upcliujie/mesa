@@ -82,7 +82,7 @@ typedef void (*store_register_mem_t)(void *ctx, void *bo,
                                      uint32_t offset);
 typedef bool (*batch_references_t)(void *batch, void *bo);
 typedef void (*bo_wait_rendering_t)(void *bo);
-typedef int (*bo_busy_t)(void *bo);
+typedef bool (*bo_busy_t)(void *bo);
 
 void
 iris_perf_init_vtbl(struct gen_perf_context_vtable *vtable)
