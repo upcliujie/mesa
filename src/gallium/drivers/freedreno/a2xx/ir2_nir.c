@@ -45,6 +45,8 @@ static const nir_shader_compiler_options options = {
 	.lower_rotate = true,
 	.lower_vector_cmp = true,
 	.lower_fdph = true,
+	.lower_insert_byte = true,
+	.lower_insert_word = true,
 };
 
 const nir_shader_compiler_options *
