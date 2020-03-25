@@ -63,13 +63,18 @@ iris_init_perf_query_info(struct pipe_context *pipe)
    struct gen_perf_context_vtable vtable;
    iris_perf_init_vtbl(&vtable);
 
+   uint32_t gem_ctxs[2] = {
+      ice->batches[IRIS_BATCH_RENDER].hw_ctx_id,
+      ice->batches[IRIS_BATCH_COMPUTE].hw_ctx_id,
+   };
    gen_perf_init_context(ice->perf_ctx,
                          &vtable,
                          screen->perf_cfg,
                          ice,
                          screen->bufmgr,
                          &screen->devinfo,
-                         ice->batches[IRIS_BATCH_RENDER].hw_ctx_id,
+                         gem_ctxs,
+                         gen_perf_has_multi_context(perf_cfg) ? 2 : 1,
                          screen->fd);
 
    return screen->perf_cfg->n_queries;
@@ -182,7 +187,7 @@ iris_wait_perf_query(struct pipe_context *pipe, struct pipe_query *q)
    struct gen_perf_query_object *obj = perf_query->query;
    struct gen_perf_context *perf_ctx = ice->perf_ctx;
 
-   gen_perf_wait_query(perf_ctx, obj, &ice->batches[IRIS_BATCH_RENDER]);
+   gen_perf_wait_query(perf_ctx, obj);
 }
 
 static bool
@@ -196,7 +201,7 @@ iris_is_perf_query_ready(struct pipe_context *pipe, struct pipe_query *q)
    if (perf_query->base.Ready)
       return true;
 
-   return gen_perf_is_query_ready(perf_ctx, obj, &ice->batches[IRIS_BATCH_RENDER]);
+   return gen_perf_is_query_ready(perf_ctx, obj);
 }
 
 static void

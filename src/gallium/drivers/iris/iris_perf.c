@@ -32,38 +32,44 @@ iris_oa_bo_alloc(void *bufmgr, const char *name, uint64_t size)
 }
 
 static void
-iris_perf_emit_stall_at_pixel_scoreboard(struct iris_context *ice)
+iris_perf_emit_stall_at_pixel_scoreboard(struct iris_context *ice,
+                                         uint32_t gem_ctx_idx)
 {
-   iris_emit_end_of_pipe_sync(&ice->batches[IRIS_BATCH_RENDER],
+   iris_emit_end_of_pipe_sync(&ice->batches[gem_ctx_idx],
                               "OA metrics",
                               PIPE_CONTROL_STALL_AT_SCOREBOARD);
 }
 
 static void
-iris_perf_emit_mi_report_perf_count(void *c,
-                                       void *bo,
-                                       uint32_t offset_in_bytes,
-                                       uint32_t report_id)
+iris_perf_emit_mi_report_perf_count(struct iris_context *ice,
+                                    uint32_t gem_ctx_idx,
+                                    void *bo,
+                                    uint32_t offset_in_bytes,
+                                    uint32_t report_id)
 {
-   struct iris_context *ice = c;
-   struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
+   struct iris_batch *batch = &ice->batches[gem_ctx_idx];
    ice->vtbl.emit_mi_report_perf_count(batch, bo, offset_in_bytes, report_id);
 }
 
-static void
-iris_perf_batchbuffer_flush(void *c, const char *file, int line)
+static bool
+iris_perf_batch_references(struct iris_context *ice, uint32_t gem_ctx_idx, struct iris_bo *bo)
 {
-   struct iris_context *ice = c;
-   _iris_batch_flush(&ice->batches[IRIS_BATCH_RENDER], __FILE__, __LINE__);
+   return iris_batch_references(&ice->batches[gem_ctx_idx], bo);
 }
 
 static void
-iris_perf_store_register_mem(void *ctx, void *bo,
+iris_perf_batchbuffer_flush(struct iris_context *ice, uint32_t gem_ctx_idx, const char *file, int line)
+{
+   _iris_batch_flush(&ice->batches[gem_ctx_idx], __FILE__, __LINE__);
+}
+
+static void
+iris_perf_store_register_mem(void *ctx, uint32_t gem_ctx_idx, void *bo,
                              uint32_t reg, uint32_t reg_size,
                              uint32_t offset)
 {
    struct iris_context *ice = ctx;
-   struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
+   struct iris_batch *batch = &ice->batches[gem_ctx_idx];
    if (reg_size == 8) {
       ice->vtbl.store_register_mem64(batch, reg, bo, offset, false);
    } else {
@@ -75,12 +81,13 @@ iris_perf_store_register_mem(void *ctx, void *bo,
 typedef void (*bo_unreference_t)(void *);
 typedef void *(*bo_map_t)(void *, void *, unsigned flags);
 typedef void (*bo_unmap_t)(void *);
-typedef void (*emit_mi_report_t)(void *, void *, uint32_t, uint32_t);
-typedef void (*emit_mi_flush_t)(void *);
-typedef void (*store_register_mem_t)(void *ctx, void *bo,
+typedef void (*emit_mi_report_t)(void *, uint32_t, void *, uint32_t, uint32_t);
+typedef void (*emit_mi_flush_t)(void *, uint32_t);
+typedef void (*store_register_mem_t)(void *ctx, uint32_t, void *bo,
                                      uint32_t reg, uint32_t reg_size,
                                      uint32_t offset);
-typedef bool (*batch_references_t)(void *batch, void *bo);
+typedef bool (*batch_references_t)(void *ctx, uint32_t, void *bo);
+typedef void (*batch_flush_t)(void *ctx, uint32_t, const char *, int);
 typedef void (*bo_wait_rendering_t)(void *bo);
 typedef bool (*bo_busy_t)(void *bo);
 
@@ -96,10 +103,11 @@ iris_perf_init_vtbl(struct gen_perf_context_vtable *vtable)
 
    vtable->emit_mi_report_perf_count =
       (emit_mi_report_t)iris_perf_emit_mi_report_perf_count;
-   vtable->batchbuffer_flush = iris_perf_batchbuffer_flush;
+   vtable->batchbuffer_flush =
+      (batch_flush_t) iris_perf_batchbuffer_flush;
    vtable->store_register_mem =
       (store_register_mem_t) iris_perf_store_register_mem;
-   vtable->batch_references = (batch_references_t)iris_batch_references;
+   vtable->batch_references = (batch_references_t)iris_perf_batch_references;
    vtable->bo_wait_rendering =
       (bo_wait_rendering_t)iris_bo_wait_rendering;
    vtable->bo_busy = (bo_busy_t)iris_bo_busy;

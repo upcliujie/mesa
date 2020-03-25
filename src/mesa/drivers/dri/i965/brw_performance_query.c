@@ -123,7 +123,7 @@ dump_perf_query_callback(GLuint id, void *query_void, void *brw_void)
        id,
        o->Used ? "Dirty," : "New,",
        o->Active ? "Active," : (o->Ready ? "Ready," : "Pending,"));
-   gen_perf_dump_query(perf_ctx, obj, &ctx->batch);
+   gen_perf_dump_query(perf_ctx, obj);
 }
 
 static void
@@ -280,7 +280,7 @@ brw_wait_perf_query(struct gl_context *ctx, struct gl_perf_query_object *o)
 
    assert(!o->Ready);
 
-   gen_perf_wait_query(brw->perf_ctx, obj, &brw->batch);
+   gen_perf_wait_query(brw->perf_ctx, obj);
 }
 
 static bool
@@ -294,7 +294,7 @@ brw_is_perf_query_ready(struct gl_context *ctx,
    if (o->Ready)
       return true;
 
-   return gen_perf_is_query_ready(brw->perf_ctx, obj, &brw->batch);
+   return gen_perf_is_query_ready(brw->perf_ctx, obj);
 }
 
 /**
@@ -420,40 +420,36 @@ brw_oa_bo_alloc(void *bufmgr, const char *name, uint64_t size)
 }
 
 static void
-brw_oa_emit_mi_report_perf_count(void *c,
+brw_oa_emit_mi_report_perf_count(struct brw_context *ctx,
+                                 uint32_t gem_ctx_idx,
                                  void *bo,
                                  uint32_t offset_in_bytes,
                                  uint32_t report_id)
 {
-   struct brw_context *ctx = c;
    ctx->vtbl.emit_mi_report_perf_count(ctx,
                                        bo,
                                        offset_in_bytes,
                                        report_id);
 }
 
-typedef void (*bo_unreference_t)(void *);
-typedef void *(*bo_map_t)(void *, void *, unsigned flags);
-typedef void (*bo_unmap_t)(void *);
-typedef void (* emit_mi_report_t)(void *, void *, uint32_t, uint32_t);
-typedef void (*emit_mi_flush_t)(void *);
-
 static void
-brw_oa_batchbuffer_flush(void *c, const char *file, int line)
+brw_oa_batchbuffer_flush(void *c, uint32_t gem_ctx_idx, const char *file, int line)
 {
    struct brw_context *ctx = c;
    _intel_batchbuffer_flush_fence(ctx, -1, NULL, file,  line);
 }
 
 static void
-brw_oa_emit_stall_at_pixel_scoreboard(void *c)
+brw_oa_emit_stall_at_pixel_scoreboard(struct brw_context *brw,
+                                      uint32_t gem_ctx_idx)
 {
-   struct brw_context *brw = c;
    brw_emit_end_of_pipe_sync(brw, PIPE_CONTROL_STALL_AT_SCOREBOARD);
 }
 
 static void
-brw_perf_store_register(struct brw_context *brw, struct brw_bo *bo,
+brw_perf_store_register(struct brw_context *brw,
+                        uint32_t gem_ctx_idx,
+                        struct brw_bo *bo,
                         uint32_t reg, uint32_t reg_size,
                         uint32_t offset)
 {
@@ -465,10 +461,24 @@ brw_perf_store_register(struct brw_context *brw, struct brw_bo *bo,
    }
 }
 
-typedef void (*store_register_mem_t)(void *ctx, void *bo,
+static bool
+brw_perf_batch_references(struct brw_context *brw,
+                          uint32_t gem_ctx_idx,
+                          struct brw_bo *bo)
+{
+   return brw_batch_references(&brw->batch, bo);
+}
+
+typedef void (*bo_unreference_t)(void *);
+typedef void *(*bo_map_t)(void *, void *, unsigned flags);
+typedef void (*bo_unmap_t)(void *);
+typedef void (* emit_mi_report_t)(void *, uint32_t, void *, uint32_t, uint32_t);
+
+typedef void (*emit_stall_at_pixel_scoreboard_t)(void *ctx, uint32_t ctx_idx);
+typedef void (*store_register_mem_t)(void *ctx, uint32_t ctx_idx, void *bo,
                                      uint32_t reg, uint32_t reg_size,
                                      uint32_t offset);
-typedef bool (*batch_references_t)(void *batch, void *bo);
+typedef bool (*batch_references_t)(void *ctx, uint32_t ctx_idx, void *bo);
 typedef void (*bo_wait_rendering_t)(void *bo);
 typedef bool (*bo_busy_t)(void *bo);
 
@@ -488,6 +498,7 @@ brw_init_perf_query_info(struct gl_context *ctx)
       return 0;
 
    perf_cfg = gen_perf_new(ctx);
+   gen_perf_init_metrics(perf_cfg, devinfo, brw->screen->driScrnPriv->fd);
 
    struct gen_perf_context_vtable vtable;
 
@@ -496,18 +507,18 @@ brw_init_perf_query_info(struct gl_context *ctx)
    vtable.bo_map = (bo_map_t)brw_bo_map;
    vtable.bo_unmap = (bo_unmap_t)brw_bo_unmap;
    vtable.emit_stall_at_pixel_scoreboard =
-      (emit_mi_flush_t)brw_oa_emit_stall_at_pixel_scoreboard;
+      (emit_stall_at_pixel_scoreboard_t)brw_oa_emit_stall_at_pixel_scoreboard;
    vtable.emit_mi_report_perf_count =
       (emit_mi_report_t)brw_oa_emit_mi_report_perf_count;
    vtable.batchbuffer_flush = brw_oa_batchbuffer_flush;
    vtable.store_register_mem =
       (store_register_mem_t) brw_perf_store_register;
-   vtable.batch_references = (batch_references_t)brw_batch_references;
+   vtable.batch_references = (batch_references_t)brw_perf_batch_references;
    vtable.bo_wait_rendering = (bo_wait_rendering_t)brw_bo_wait_rendering;
    vtable.bo_busy = (bo_busy_t)brw_bo_busy;
 
    gen_perf_init_context(perf_ctx, &vtable, perf_cfg, brw, brw->bufmgr, devinfo,
-                         brw->hw_ctx, brw->screen->fd);
+                         &brw->hw_ctx, 1, brw->screen->fd);
    gen_perf_init_metrics(perf_cfg, devinfo, brw->screen->fd);
 
    return perf_cfg->n_queries;

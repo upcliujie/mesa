@@ -38,17 +38,20 @@ struct gen_perf_context_vtable {
    void (*bo_unreference)(void *bo);
    void *(*bo_map)(void *ctx, void *bo, unsigned flags);
    void (*bo_unmap)(void *bo);
-   bool (*batch_references)(void *batch, void *bo);
+   bool (*batch_references)(void *ctx, uint32_t gem_ctx_idx, void *bo);
    void (*bo_wait_rendering)(void *bo);
    bool (*bo_busy)(void *bo);
-   void (*emit_stall_at_pixel_scoreboard)(void *ctx);
+   void (*emit_stall_at_pixel_scoreboard)(void *ctx, uint32_t gem_ctx_id);
    void (*emit_mi_report_perf_count)(void *ctx,
+                                     uint32_t gem_ctx_id,
                                      void *bo,
                                      uint32_t offset_in_bytes,
                                      uint32_t report_id);
    void (*batchbuffer_flush)(void *ctx,
+                             uint32_t gem_ctx_idx,
                              const char *file, int line);
-   void (*store_register_mem)(void *ctx, void *bo, uint32_t reg, uint32_t reg_size, uint32_t offset);
+   void (*store_register_mem)(void *ctx, uint32_t gem_ctx_id, void *bo,
+                              uint32_t reg, uint32_t reg_size, uint32_t offset);
 };
 
 struct gen_perf_context *gen_perf_new_context(void *parent);
@@ -59,7 +62,8 @@ void gen_perf_init_context(struct gen_perf_context *perf_ctx,
                            void * ctx,  /* driver context (eg, brw_context) */
                            void * bufmgr,  /* eg brw_bufmgr */
                            const struct gen_device_info *devinfo,
-                           uint32_t gem_ctx,
+                           uint32_t *gem_ctxs,
+                           uint32_t n_gem_ctxs,
                            int drm_fd);
 
 const struct gen_perf_query_info* gen_perf_query_info(const struct gen_perf_query_object *);
@@ -79,11 +83,9 @@ bool gen_perf_begin_query(struct gen_perf_context *perf_ctx,
 void gen_perf_end_query(struct gen_perf_context *perf_ctx,
                         struct gen_perf_query_object *query);
 void gen_perf_wait_query(struct gen_perf_context *perf_ctx,
-                         struct gen_perf_query_object *query,
-                         void *current_batch);
+                         struct gen_perf_query_object *query);
 bool gen_perf_is_query_ready(struct gen_perf_context *perf_ctx,
-                             struct gen_perf_query_object *query,
-                             void *current_batch);
+                             struct gen_perf_query_object *query);
 void gen_perf_delete_query(struct gen_perf_context *perf_ctx,
                            struct gen_perf_query_object *query);
 void gen_perf_get_query_data(struct gen_perf_context *perf_ctx,
@@ -94,7 +96,6 @@ void gen_perf_get_query_data(struct gen_perf_context *perf_ctx,
 
 void gen_perf_dump_query_count(struct gen_perf_context *perf_ctx);
 void gen_perf_dump_query(struct gen_perf_context *perf_ctx,
-                         struct gen_perf_query_object *obj,
-                         void *current_batch);
+                         struct gen_perf_query_object *obj);
 
 #endif /* GEN_PERF_QUERY_H */

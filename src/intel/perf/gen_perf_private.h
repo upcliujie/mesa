@@ -26,6 +26,16 @@
 
 #include "gen_perf.h"
 
+/* Maximum number of GEM contexts a query can run on (i915 doesn't have a
+ * limit but here we limit ourself to a page of data).
+ */
+#define PERF_MAX_GEM_CONTEXTS (4)
+
+#define STATS_BO_SIZE               4096
+#define OA_SNAPSHOT_SIZE            (STATS_BO_SIZE / (2 /* begin/end */ * \
+                                                      PERF_MAX_GEM_CONTEXTS))
+#define MAX_STAT_COUNTERS           (STATS_BO_SIZE / (2 /* begin/end */ * 8))
+
 static inline uint64_t to_user_pointer(void *ptr)
 {
    return (uintptr_t) ptr;

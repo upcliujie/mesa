@@ -77,17 +77,6 @@ struct gen_pipeline_stat {
  */
 #define MAX_OA_REPORT_COUNTERS 62
 
-/*
- * When currently allocate only one page for pipeline statistics queries. Here
- * we derived the maximum number of counters for that amount.
- */
-#define STATS_BO_SIZE               4096
-#define STATS_BO_END_OFFSET_BYTES   (STATS_BO_SIZE / 2)
-#define MAX_STAT_COUNTERS           (STATS_BO_END_OFFSET_BYTES / 8)
-
-#define I915_PERF_OA_SAMPLE_SIZE (8 +   /* drm_i915_perf_record_header */ \
-                                  256)  /* OA counter report */
-
 struct gen_perf_query_result {
    /**
     * Storage for the final accumulated OA counters.
@@ -294,6 +283,18 @@ gen_perf_new(void *ctx)
 {
    struct gen_perf_config *perf = rzalloc(ctx, struct gen_perf_config);
    return perf;
+}
+
+static inline bool
+gen_perf_has_global_sseu(const struct gen_perf_config *perf)
+{
+   return perf->i915_perf_version >= 4;
+}
+
+static inline bool
+gen_perf_has_multi_context(const struct gen_perf_config *perf)
+{
+   return perf->i915_perf_version >= 6;
 }
 
 #endif /* GEN_PERF_H */

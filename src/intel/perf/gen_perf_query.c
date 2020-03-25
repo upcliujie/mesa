@@ -39,10 +39,27 @@
 #include "util/u_math.h"
 
 #define FILE_DEBUG_FLAG DEBUG_PERFMON
+
+#define I915_PERF_OA_SAMPLE_SIZE (8 +   /* drm_i915_perf_record_header */ \
+                                  256)  /* OA counter report */
+
 #define MI_RPC_BO_SIZE              4096
-#define MI_FREQ_START_OFFSET_BYTES  (3072)
-#define MI_RPC_BO_END_OFFSET_BYTES  (MI_RPC_BO_SIZE / 2)
-#define MI_FREQ_END_OFFSET_BYTES    (3076)
+#define MI_RPC_OFFSET_BYTES         (0)
+#define MI_FREQ_OFFSET_BYTES        (256)
+
+static uint32_t
+oa_query_offset(uint32_t gem_ctx_idx, uint32_t offset, bool end)
+{
+   return gem_ctx_idx * 1024 + (end ? 512 : 0) + offset;
+}
+
+static uint32_t
+stat_query_offset(uint32_t gem_ctx_idx, bool end, uint32_t counter)
+{
+   return gem_ctx_idx * (OA_SNAPSHOT_SIZE * 2) +
+      (end ? OA_SNAPSHOT_SIZE : 0) +
+      counter * sizeof(uint64_t);
+}
 
 #define MAP_READ  (1 << 0)
 #define MAP_WRITE (1 << 1)
@@ -199,7 +216,7 @@ struct gen_perf_query_object
           * in the begin report and the the end report should be
           * @begin_report_id + 1.
           */
-         int begin_report_id;
+         int begin_report_id[PERF_MAX_GEM_CONTEXTS];
 
          /**
           * Reference the head of the brw->perfquery.sample_buffers
@@ -248,7 +265,8 @@ struct gen_perf_context {
    void * bufmgr;
    const struct gen_device_info *devinfo;
 
-   uint32_t gem_ctx;
+   uint32_t gem_ctxs[PERF_MAX_GEM_CONTEXTS];
+   uint32_t n_gem_ctxs;
    int drm_fd;
 
    /* The i915 perf stream we open to setup + enable the OA counters */
@@ -361,9 +379,18 @@ gen_perf_open(struct gen_perf_context *perf_ctx,
    uint64_t properties[2 * DRM_I915_PERF_PROP_MAX];
    uint32_t p = 0;
 
-   /* Single context sampling */
-   properties[p++] = DRM_I915_PERF_PROP_CTX_HANDLE;
-   properties[p++] = perf_ctx->gem_ctx;
+   if (gen_perf_has_multi_context(perf_ctx->perf)) {
+      /* Multi context sampling */
+      properties[p++] = DRM_I915_PERF_PROP_CTX_HANDLE_ARRAY;
+      properties[p++] = to_user_pointer(perf_ctx->gem_ctxs);
+
+      properties[p++] = DRM_I915_PERF_PROP_CTX_HANDLE_ARRAY_LENGTH;
+      properties[p++] = perf_ctx->n_gem_ctxs;
+   } else {
+      /* Single context sampling */
+      properties[p++] = DRM_I915_PERF_PROP_CTX_HANDLE;
+      properties[p++] = perf_ctx->gem_ctxs[0];
+   }
 
    /* Include OA reports in samples */
    properties[p++] = DRM_I915_PERF_PROP_SAMPLE_OA;
@@ -379,7 +406,7 @@ gen_perf_open(struct gen_perf_context *perf_ctx,
    properties[p++] = DRM_I915_PERF_PROP_OA_EXPONENT;
    properties[p++] = period_exponent;
 
-   if (perf_ctx->perf->i915_perf_version >= 4) {
+   if (gen_perf_has_global_sseu(perf_ctx->perf)) {
       /* SSEU configuration */
       properties[p++] = DRM_I915_PERF_PROP_GLOBAL_SSEU;
       properties[p++] = to_user_pointer(&perf_ctx->perf->sseu);
@@ -562,7 +589,8 @@ gen_perf_init_context(struct gen_perf_context *perf_ctx,
                       void * ctx,  /* driver context (eg, brw_context) */
                       void * bufmgr,  /* eg brw_bufmgr */
                       const struct gen_device_info *devinfo,
-                      uint32_t gem_ctx,
+                      uint32_t *gem_ctxs,
+                      uint32_t n_gem_ctxs,
                       int drm_fd)
 {
    perf_ctx->perf = perf_cfg;
@@ -570,8 +598,15 @@ gen_perf_init_context(struct gen_perf_context *perf_ctx,
    perf_ctx->ctx = ctx;
    perf_ctx->bufmgr = bufmgr;
    perf_ctx->drm_fd = drm_fd;
-   perf_ctx->gem_ctx = gem_ctx;
    perf_ctx->devinfo = devinfo;
+
+   assert(n_gem_ctxs > 0);
+   assert(n_gem_ctxs < (gen_perf_has_multi_context(perf_cfg) ?
+                        PERF_MAX_GEM_CONTEXTS : 1));
+
+   for (uint32_t i = 0; i < n_gem_ctxs; i++)
+      perf_ctx->gem_ctxs[i] = gem_ctxs[i];
+   perf_ctx->n_gem_ctxs = n_gem_ctxs;
 
    perf_ctx->unaccumulated =
       ralloc_array(ctx, struct gen_perf_query_object *, 2);
@@ -624,34 +659,61 @@ add_to_unaccumulated_query_list(struct gen_perf_context *perf_ctx,
 static void
 snapshot_statistics_registers(struct gen_perf_context *ctx,
                               struct gen_perf_query_object *obj,
-                              uint32_t offset_in_bytes)
+                              bool end)
 {
    const struct gen_perf_query_info *query = obj->queryinfo;
    const int n_counters = query->n_counters;
 
-   for (int i = 0; i < n_counters; i++) {
-      const struct gen_perf_query_counter *counter = &query->counters[i];
+   for (uint32_t i = 0; i < ctx->n_gem_ctxs; i++) {
+      for (int c = 0; c < n_counters; c++) {
+         const struct gen_perf_query_counter *counter = &query->counters[c];
 
-      assert(counter->data_type == GEN_PERF_COUNTER_DATA_TYPE_UINT64);
+         assert(counter->data_type == GEN_PERF_COUNTER_DATA_TYPE_UINT64);
 
-      ctx->vtbl.store_register_mem(ctx->ctx, obj->pipeline_stats.bo,
-                                   counter->pipeline_stat.reg, 8,
-                                   offset_in_bytes + i * sizeof(uint64_t));
+         ctx->vtbl.store_register_mem(ctx->ctx, i,
+                                      obj->pipeline_stats.bo,
+                                      counter->pipeline_stat.reg, 8,
+                                      stat_query_offset(i, end, c));
+      }
    }
 }
 
 static void
 snapshot_freq_register(struct gen_perf_context *ctx,
                        struct gen_perf_query_object *query,
-                       uint32_t bo_offset)
+                       uint32_t gem_ctx_idx, bool end)
 {
    const struct gen_device_info *devinfo = ctx->devinfo;
 
-   if (devinfo->gen == 8 && !devinfo->is_cherryview)
-      ctx->vtbl.store_register_mem(ctx->ctx, query->oa.bo, GEN7_RPSTAT1, 4, bo_offset);
-   else if (devinfo->gen >= 9)
-      ctx->vtbl.store_register_mem(ctx->ctx, query->oa.bo, GEN9_RPSTAT0, 4, bo_offset);
+   if (devinfo->gen == 8 && !devinfo->is_cherryview) {
+      ctx->vtbl.store_register_mem(ctx->ctx, gem_ctx_idx,
+                                   query->oa.bo, GEN7_RPSTAT1, 4,
+                                   oa_query_offset(gem_ctx_idx, MI_FREQ_OFFSET_BYTES, end));
+   } else if (devinfo->gen >= 9) {
+      ctx->vtbl.store_register_mem(ctx->ctx, gem_ctx_idx,
+                                   query->oa.bo, GEN9_RPSTAT0, 4,
+                                   oa_query_offset(gem_ctx_idx, MI_FREQ_OFFSET_BYTES, end));
+   }
 }
+
+static void
+snapshot_oa(struct gen_perf_context *ctx,
+            struct gen_perf_query_object *query,
+            bool end)
+{
+   for (uint32_t i = 0; i < ctx->n_gem_ctxs; i++) {
+      snapshot_freq_register(ctx, query, i, end);
+
+      uint32_t oa_report_id =
+         query->oa.begin_report_id[i] + (end ? 1 : 0);
+      ctx->vtbl.emit_mi_report_perf_count(ctx->ctx, i, query->oa.bo,
+                                          oa_query_offset(i,
+                                                          MI_RPC_OFFSET_BYTES,
+                                                          end),
+                                          oa_report_id);
+   }
+}
+
 
 bool
 gen_perf_begin_query(struct gen_perf_context *perf_ctx,
@@ -698,7 +760,8 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
     * This is our Begin synchronization point to drain current work on the
     * GPU before we capture our first counter snapshot...
     */
-   perf_ctx->vtbl.emit_stall_at_pixel_scoreboard(perf_ctx->ctx);
+   for (uint32_t i = 0; i < perf_ctx->n_gem_ctxs; i++)
+      perf_ctx->vtbl.emit_stall_at_pixel_scoreboard(perf_ctx->ctx, i);
 
    switch (queryinfo->kind) {
    case GEN_PERF_QUERY_TYPE_OA:
@@ -807,13 +870,7 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
       perf_ctx->vtbl.bo_unmap(query->oa.bo);
 #endif
 
-      query->oa.begin_report_id = perf_ctx->next_query_start_report_id;
-      perf_ctx->next_query_start_report_id += 2;
-
-      /* Take a starting OA counter snapshot. */
-      perf_ctx->vtbl.emit_mi_report_perf_count(perf_ctx->ctx, query->oa.bo, 0,
-                                               query->oa.begin_report_id);
-      snapshot_freq_register(perf_ctx, query, MI_FREQ_START_OFFSET_BYTES);
+      snapshot_oa(perf_ctx, query, false /* end */);
 
       ++perf_ctx->n_active_oa_queries;
 
@@ -853,7 +910,7 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
                                  STATS_BO_SIZE);
 
       /* Take starting snapshots. */
-      snapshot_statistics_registers(perf_ctx, query, 0);
+      snapshot_statistics_registers(perf_ctx, query, false /* end */);
 
       ++perf_ctx->n_active_pipeline_stats_queries;
       break;
@@ -876,7 +933,8 @@ gen_perf_end_query(struct gen_perf_context *perf_ctx,
     * For more details see comment in brw_begin_perf_query for
     * corresponding flush.
     */
-   perf_ctx->vtbl.emit_stall_at_pixel_scoreboard(perf_ctx->ctx);
+   for (uint32_t i = 0; i < perf_ctx->n_gem_ctxs; i++)
+      perf_ctx->vtbl.emit_stall_at_pixel_scoreboard(perf_ctx->ctx, i);
 
    switch (query->queryinfo->kind) {
    case GEN_PERF_QUERY_TYPE_OA:
@@ -887,13 +945,8 @@ gen_perf_end_query(struct gen_perf_context *perf_ctx,
        * from perf. In this case we mustn't try and emit a closing
        * MI_RPC command in case the OA unit has already been disabled
        */
-      if (!query->oa.results_accumulated) {
-         /* Take an ending OA counter snapshot. */
-         snapshot_freq_register(perf_ctx, query, MI_FREQ_END_OFFSET_BYTES);
-         perf_ctx->vtbl.emit_mi_report_perf_count(perf_ctx->ctx, query->oa.bo,
-                                                  MI_RPC_BO_END_OFFSET_BYTES,
-                                                  query->oa.begin_report_id + 1);
-      }
+      if (!query->oa.results_accumulated)
+         snapshot_oa(perf_ctx, query, true /* end */);
 
       --perf_ctx->n_active_oa_queries;
 
@@ -904,8 +957,7 @@ gen_perf_end_query(struct gen_perf_context *perf_ctx,
       break;
 
    case GEN_PERF_QUERY_TYPE_PIPELINE:
-      snapshot_statistics_registers(perf_ctx, query,
-                                    STATS_BO_END_OFFSET_BYTES);
+      snapshot_statistics_registers(perf_ctx, query, true /* end */);
       --perf_ctx->n_active_pipeline_stats_queries;
       break;
 
@@ -991,15 +1043,16 @@ read_oa_samples_until(struct gen_perf_context *perf_ctx,
 static bool
 read_oa_samples_for_query(struct gen_perf_context *perf_ctx,
                           struct gen_perf_query_object *query,
-                          void *current_batch)
+                          uint32_t gem_ctx_idx)
 {
    uint32_t *start;
-   uint32_t *last;
    uint32_t *end;
 
    /* We need the MI_REPORT_PERF_COUNT to land before we can start
     * accumulate. */
-   assert(!perf_ctx->vtbl.batch_references(current_batch, query->oa.bo) &&
+   assert(!perf_ctx->vtbl.batch_references(perf_ctx->ctx,
+                                           gem_ctx_idx,
+                                           query->oa.bo) &&
           !perf_ctx->vtbl.bo_busy(query->oa.bo));
 
    /* Map the BO once here and let accumulate_oa_reports() unmap
@@ -1007,14 +1060,14 @@ read_oa_samples_for_query(struct gen_perf_context *perf_ctx,
    if (query->oa.map == NULL)
       query->oa.map = perf_ctx->vtbl.bo_map(perf_ctx->ctx, query->oa.bo, MAP_READ);
 
-   start = last = query->oa.map;
-   end = query->oa.map + MI_RPC_BO_END_OFFSET_BYTES;
+   start = query->oa.map + oa_query_offset(gem_ctx_idx, MI_RPC_OFFSET_BYTES, false);
+   end = query->oa.map + oa_query_offset(gem_ctx_idx, MI_RPC_OFFSET_BYTES, true);
 
-   if (start[0] != query->oa.begin_report_id) {
+   if (start[0] != query->oa.begin_report_id[gem_ctx_idx]) {
       DBG("Spurious start report id=%"PRIu32"\n", start[0]);
       return true;
    }
-   if (end[0] != (query->oa.begin_report_id + 1)) {
+   if (end[0] != (query->oa.begin_report_id[gem_ctx_idx] + 1)) {
       DBG("Spurious end report id=%"PRIu32"\n", end[0]);
       return true;
    }
@@ -1036,8 +1089,7 @@ read_oa_samples_for_query(struct gen_perf_context *perf_ctx,
 
 void
 gen_perf_wait_query(struct gen_perf_context *perf_ctx,
-                    struct gen_perf_query_object *query,
-                    void *current_batch)
+                    struct gen_perf_query_object *query)
 {
    struct brw_bo *bo = NULL;
 
@@ -1062,8 +1114,10 @@ gen_perf_wait_query(struct gen_perf_context *perf_ctx,
    /* If the current batch references our results bo then we need to
     * flush first...
     */
-   if (perf_ctx->vtbl.batch_references(current_batch, bo))
-      perf_ctx->vtbl.batchbuffer_flush(perf_ctx->ctx, __FILE__, __LINE__);
+   for (uint32_t i = 0; i < perf_ctx->n_gem_ctxs; i++) {
+      if (perf_ctx->vtbl.batch_references(perf_ctx->ctx, i, bo))
+         perf_ctx->vtbl.batchbuffer_flush(perf_ctx->ctx, i, __FILE__, __LINE__);
+   }
 
    perf_ctx->vtbl.bo_wait_rendering(bo);
 
@@ -1074,28 +1128,44 @@ gen_perf_wait_query(struct gen_perf_context *perf_ctx,
     */
    if (query->queryinfo->kind == GEN_PERF_QUERY_TYPE_OA ||
        query->queryinfo->kind == GEN_PERF_QUERY_TYPE_RAW) {
-      while (!read_oa_samples_for_query(perf_ctx, query, current_batch))
-         ;
+      for (uint32_t i = 0; i < perf_ctx->n_gem_ctxs; i++) {
+         while (!read_oa_samples_for_query(perf_ctx, query, i))
+            ;
+      }
    }
 }
 
 bool
 gen_perf_is_query_ready(struct gen_perf_context *perf_ctx,
-                        struct gen_perf_query_object *query,
-                        void *current_batch)
+                        struct gen_perf_query_object *query)
 {
    switch (query->queryinfo->kind) {
    case GEN_PERF_QUERY_TYPE_OA:
    case GEN_PERF_QUERY_TYPE_RAW:
-      return (query->oa.results_accumulated ||
-              (query->oa.bo &&
-               !perf_ctx->vtbl.batch_references(current_batch, query->oa.bo) &&
-               !perf_ctx->vtbl.bo_busy(query->oa.bo) &&
-               read_oa_samples_for_query(perf_ctx, query, current_batch)));
+      if (query->oa.results_accumulated)
+         return true;
+
+      if (!query->oa.bo)
+         return false;
+
+      for (uint32_t i = 0; i < perf_ctx->n_gem_ctxs; i++) {
+         if (perf_ctx->vtbl.batch_references(perf_ctx->ctx, i, query->oa.bo) ||
+             perf_ctx->vtbl.bo_busy(query->oa.bo) ||
+             !read_oa_samples_for_query(perf_ctx, query, i))
+            return false;
+      }
+      return true;
+
    case GEN_PERF_QUERY_TYPE_PIPELINE:
-      return (query->pipeline_stats.bo &&
-              !perf_ctx->vtbl.batch_references(current_batch, query->pipeline_stats.bo) &&
-              !perf_ctx->vtbl.bo_busy(query->pipeline_stats.bo));
+      if (!query->pipeline_stats.bo)
+         return false;
+
+      for (uint32_t i = 0; i < perf_ctx->n_gem_ctxs; i++) {
+         if (perf_ctx->vtbl.batch_references(perf_ctx->ctx, i,
+                                             query->pipeline_stats.bo))
+            return false;
+      }
+      return perf_ctx->vtbl.bo_busy(query->pipeline_stats.bo);
 
    default:
       unreachable("Unknown query type");
@@ -1193,9 +1263,10 @@ oa_report_ctx_id_valid(const struct gen_device_info *devinfo,
  * subtract out the progress of counters associated with other
  * contexts running on the system.
  */
-static void
+static bool
 accumulate_oa_reports(struct gen_perf_context *perf_ctx,
-                      struct gen_perf_query_object *query)
+                      struct gen_perf_query_object *query,
+                      uint32_t gem_ctx_idx)
 {
    const struct gen_device_info *devinfo = perf_ctx->devinfo;
    uint32_t *start;
@@ -1207,14 +1278,14 @@ accumulate_oa_reports(struct gen_perf_context *perf_ctx,
 
    assert(query->oa.map != NULL);
 
-   start = last = query->oa.map;
-   end = query->oa.map + MI_RPC_BO_END_OFFSET_BYTES;
+   start = last = query->oa.map + oa_query_offset(gem_ctx_idx, MI_RPC_OFFSET_BYTES, false);
+   end = query->oa.map + oa_query_offset(gem_ctx_idx, MI_RPC_OFFSET_BYTES, true);
 
-   if (start[0] != query->oa.begin_report_id) {
+   if (start[0] != query->oa.begin_report_id[gem_ctx_idx]) {
       DBG("Spurious start report id=%"PRIu32"\n", start[0]);
       goto error;
    }
-   if (end[0] != (query->oa.begin_report_id + 1)) {
+   if (end[0] != (query->oa.begin_report_id[gem_ctx_idx] + 1)) {
       DBG("Spurious end report id=%"PRIu32"\n", end[0]);
       goto error;
    }
@@ -1344,15 +1415,13 @@ end:
    gen_perf_query_result_accumulate(&query->oa.result, query->queryinfo,
                                     last, end);
 
-   query->oa.results_accumulated = true;
-   drop_from_unaccumulated_query_list(perf_ctx, query);
-   dec_n_users(perf_ctx);
-
-   return;
+   return true;
 
 error:
 
    discard_all_queries(perf_ctx);
+
+   return false;
 }
 
 void
@@ -1410,25 +1479,35 @@ read_gt_frequency(struct gen_perf_context *perf_ctx,
                   struct gen_perf_query_object *obj)
 {
    const struct gen_device_info *devinfo = perf_ctx->devinfo;
-   uint32_t start = *((uint32_t *)(obj->oa.map + MI_FREQ_START_OFFSET_BYTES)),
-      end = *((uint32_t *)(obj->oa.map + MI_FREQ_END_OFFSET_BYTES));
 
-   switch (devinfo->gen) {
-   case 7:
-   case 8:
-      obj->oa.gt_frequency[0] = GET_FIELD(start, GEN7_RPSTAT1_CURR_GT_FREQ) * 50ULL;
-      obj->oa.gt_frequency[1] = GET_FIELD(end, GEN7_RPSTAT1_CURR_GT_FREQ) * 50ULL;
-      break;
-   case 9:
-   case 10:
-   case 11:
-   case 12:
-      obj->oa.gt_frequency[0] = GET_FIELD(start, GEN9_RPSTAT0_CURR_GT_FREQ) * 50ULL / 3ULL;
-      obj->oa.gt_frequency[1] = GET_FIELD(end, GEN9_RPSTAT0_CURR_GT_FREQ) * 50ULL / 3ULL;
-      break;
-   default:
-      unreachable("unexpected gen");
+   obj->oa.gt_frequency[0] =
+      obj->oa.gt_frequency[1] = 0;
+
+   /* Do the average across contexts. */
+   for (uint32_t ctx_id = 0; ctx_id < perf_ctx->n_gem_ctxs; ctx_id++) {
+      uint32_t start = *((uint32_t *)(obj->oa.map + oa_query_offset(ctx_id, MI_FREQ_OFFSET_BYTES, false))),
+         end = *((uint32_t *)(obj->oa.map + oa_query_offset(ctx_id, MI_FREQ_OFFSET_BYTES, true)));
+
+      switch (devinfo->gen) {
+      case 7:
+      case 8:
+         obj->oa.gt_frequency[0] += GET_FIELD(start, GEN7_RPSTAT1_CURR_GT_FREQ) * 50ULL;
+         obj->oa.gt_frequency[1] += GET_FIELD(end, GEN7_RPSTAT1_CURR_GT_FREQ) * 50ULL;
+         break;
+      case 9:
+      case 10:
+      case 11:
+      case 12:
+         obj->oa.gt_frequency[0] += GET_FIELD(start, GEN9_RPSTAT0_CURR_GT_FREQ) * 50ULL / 3ULL;
+         obj->oa.gt_frequency[1] += GET_FIELD(end, GEN9_RPSTAT0_CURR_GT_FREQ) * 50ULL / 3ULL;
+         break;
+      default:
+         unreachable("unexpected gen");
+      }
    }
+
+   obj->oa.gt_frequency[0] /= perf_ctx->n_gem_ctxs;
+   obj->oa.gt_frequency[1] /= perf_ctx->n_gem_ctxs;
 
    /* Put the numbers into Hz. */
    obj->oa.gt_frequency[0] *= 1000000ULL;
@@ -1487,13 +1566,18 @@ get_pipeline_stats_data(struct gen_perf_context *perf_ctx,
    const struct gen_perf_query_info *queryinfo = query->queryinfo;
    int n_counters = queryinfo->n_counters;
    uint8_t *p = data;
+   void *map = perf_ctx->vtbl.bo_map(perf_ctx->ctx, query->pipeline_stats.bo, MAP_READ);
 
-   uint64_t *start = perf_ctx->vtbl.bo_map(perf_ctx->ctx, query->pipeline_stats.bo, MAP_READ);
-   uint64_t *end = start + (STATS_BO_END_OFFSET_BYTES / sizeof(uint64_t));
+   for (int c = 0; c < n_counters; c++) {
+      const struct gen_perf_query_counter *counter = &queryinfo->counters[c];
+      uint64_t value = 0;
 
-   for (int i = 0; i < n_counters; i++) {
-      const struct gen_perf_query_counter *counter = &queryinfo->counters[i];
-      uint64_t value = end[i] - start[i];
+      for (uint32_t i = 0; i < perf_ctx->n_gem_ctxs; i++) {
+         uint64_t *start = map + stat_query_offset(i, false, c);
+         uint64_t *end = map + stat_query_offset(i, true, c);
+
+         value += end[i] - start[i];
+      }
 
       if (counter->pipeline_stat.numerator !=
           counter->pipeline_stat.denominator) {
@@ -1524,14 +1608,25 @@ gen_perf_get_query_data(struct gen_perf_context *perf_ctx,
    case GEN_PERF_QUERY_TYPE_RAW:
       if (!query->oa.results_accumulated) {
          read_gt_frequency(perf_ctx, query);
-         uint32_t *begin_report = query->oa.map;
-         uint32_t *end_report = query->oa.map + MI_RPC_BO_END_OFFSET_BYTES;
+         uint32_t *begin_report =
+            query->oa.map + oa_query_offset(0, MI_RPC_OFFSET_BYTES, false);
+         uint32_t *end_report =
+            query->oa.map + oa_query_offset(0, MI_RPC_OFFSET_BYTES, true);
          gen_perf_query_result_read_frequencies(&query->oa.result,
                                                 perf_ctx->devinfo,
                                                 begin_report,
                                                 end_report);
-         accumulate_oa_reports(perf_ctx, query);
+         bool accumulate_success = true;
+         for (uint32_t i = 0; i < perf_ctx->n_gem_ctxs; i++) {
+            if (!accumulate_oa_reports(perf_ctx, query, i))
+               accumulate_success = false;
+         }
+
+         query->oa.results_accumulated = accumulate_success;
          assert(query->oa.results_accumulated);
+
+         drop_from_unaccumulated_query_list(perf_ctx, query);
+         dec_n_users(perf_ctx);
 
          perf_ctx->vtbl.bo_unmap(query->oa.bo);
          query->oa.map = NULL;
@@ -1570,15 +1665,14 @@ gen_perf_dump_query_count(struct gen_perf_context *perf_ctx)
 
 void
 gen_perf_dump_query(struct gen_perf_context *ctx,
-                    struct gen_perf_query_object *obj,
-                    void *current_batch)
+                    struct gen_perf_query_object *obj)
 {
    switch (obj->queryinfo->kind) {
    case GEN_PERF_QUERY_TYPE_OA:
    case GEN_PERF_QUERY_TYPE_RAW:
       DBG("BO: %-4s OA data: %-10s %-15s\n",
           obj->oa.bo ? "yes," : "no,",
-          gen_perf_is_query_ready(ctx, obj, current_batch) ? "ready," : "not ready,",
+          gen_perf_is_query_ready(ctx, obj) ? "ready," : "not ready,",
           obj->oa.results_accumulated ? "accumulated" : "not accumulated");
       break;
    case GEN_PERF_QUERY_TYPE_PIPELINE:

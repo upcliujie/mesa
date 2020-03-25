@@ -210,6 +210,11 @@ iris_init_monitor_ctx(struct iris_context *ice)
    if (unlikely(!ice->perf_ctx))
       return;
 
+   uint32_t gem_ctxs[2] = {
+      ice->batches[IRIS_BATCH_RENDER].hw_ctx_id,
+      ice->batches[IRIS_BATCH_COMPUTE].hw_ctx_id,
+   };
+
    struct gen_perf_context_vtable vtable;
    iris_perf_init_vtbl(&vtable);
 
@@ -219,7 +224,8 @@ iris_init_monitor_ctx(struct iris_context *ice)
                          ice,
                          screen->bufmgr,
                          &screen->devinfo,
-                         ice->batches[IRIS_BATCH_RENDER].hw_ctx_id,
+                         gem_ctxs,
+                         gen_perf_has_multi_context(perf_cfg) ? 2 : 1,
                          screen->fd);
 }
 
@@ -334,18 +340,16 @@ iris_get_monitor_result(struct pipe_context *ctx,
 {
    struct iris_context *ice = (void *) ctx;
    struct gen_perf_context *perf_ctx = ice->perf_ctx;
-   struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
 
-   bool monitor_ready =
-      gen_perf_is_query_ready(perf_ctx, monitor->query, batch);
+   bool monitor_ready = gen_perf_is_query_ready(perf_ctx, monitor->query);
 
    if (!monitor_ready) {
       if (!wait)
          return false;
-      gen_perf_wait_query(perf_ctx, monitor->query, batch);
+      gen_perf_wait_query(perf_ctx, monitor->query);
    }
 
-   assert(gen_perf_is_query_ready(perf_ctx, monitor->query, batch));
+   assert(gen_perf_is_query_ready(perf_ctx, monitor->query));
 
    unsigned bytes_written;
    gen_perf_get_query_data(perf_ctx, monitor->query,
