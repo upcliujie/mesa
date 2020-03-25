@@ -48,12 +48,14 @@
 #include "iris_context.h"
 #include "iris_defines.h"
 #include "iris_fence.h"
+#include "iris_perf.h"
 #include "iris_pipe.h"
 #include "iris_resource.h"
 #include "iris_screen.h"
 #include "intel/compiler/brw_compiler.h"
 #include "intel/common/gen_gem.h"
 #include "intel/common/gen_l3_config.h"
+#include "perf/gen_perf.h"
 #include "iris_monitor.h"
 
 static void
@@ -634,6 +636,14 @@ iris_shader_perf_log(void *data, const char *fmt, ...)
    va_end(args);
 }
 
+static void
+iris_perf_init(struct iris_screen *screen)
+{
+   screen->perf_cfg = gen_perf_new(screen);
+   gen_perf_init_metrics(screen->perf_cfg, &screen->devinfo, screen->fd);
+   iris_perf_init_vtbl(screen->perf_cfg);
+}
+
 struct pipe_screen *
 iris_screen_create(int fd, const struct pipe_screen_config *config)
 {
@@ -715,6 +725,8 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
    screen->l3_config_cs = iris_get_default_l3_config(&screen->devinfo, true);
 
    iris_disk_cache_init(screen);
+
+   iris_perf_init(screen);
 
    slab_create_parent(&screen->transfer_pool,
                       sizeof(struct iris_transfer), 64);

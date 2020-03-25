@@ -35,7 +35,6 @@ iris_init_perf_query_info(struct pipe_context *pipe)
 {
    struct iris_context *ice = (void *) pipe;
    struct iris_screen *screen = (struct iris_screen *) ice->ctx.screen;
-   struct gen_perf_config *perf_cfg = NULL;
 
    /* make sure pipe perf counter type/data-type enums are matched with gen_perf's */
    STATIC_ASSERT(PIPE_PERF_COUNTER_TYPE_EVENT == (enum pipe_perf_counter_type)GEN_PERF_COUNTER_TYPE_EVENT);
@@ -50,32 +49,22 @@ iris_init_perf_query_info(struct pipe_context *pipe)
    STATIC_ASSERT(PIPE_PERF_COUNTER_DATA_TYPE_FLOAT == (enum pipe_perf_counter_data_type)GEN_PERF_COUNTER_DATA_TYPE_FLOAT);
    STATIC_ASSERT(PIPE_PERF_COUNTER_DATA_TYPE_DOUBLE == (enum pipe_perf_counter_data_type)GEN_PERF_COUNTER_DATA_TYPE_DOUBLE);
 
-   if (!ice->perf_ctx)
-      ice->perf_ctx = gen_perf_new_context(ice);
+   if (ice->perf_ctx)
+      return screen->perf_cfg->n_queries;
 
+   ice->perf_ctx = gen_perf_new_context(ice);
    if (unlikely(!ice->perf_ctx))
       return 0;
 
-   perf_cfg = gen_perf_config(ice->perf_ctx);
-
-   if (perf_cfg)
-      return perf_cfg->n_queries;
-
-   perf_cfg = gen_perf_new(ice->perf_ctx);
-
-   iris_perf_init_vtbl(perf_cfg);
-
    gen_perf_init_context(ice->perf_ctx,
-                         perf_cfg,
+                         screen->perf_cfg,
                          ice,
                          screen->bufmgr,
                          &screen->devinfo,
                          ice->batches[IRIS_BATCH_RENDER].hw_ctx_id,
                          screen->fd);
 
-   gen_perf_init_metrics(perf_cfg, &screen->devinfo, screen->fd);
-
-   return perf_cfg->n_queries;
+   return screen->perf_cfg->n_queries;
 }
 
 static struct pipe_query *

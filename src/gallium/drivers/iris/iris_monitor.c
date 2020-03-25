@@ -24,6 +24,9 @@
 
 #include <xf86drm.h>
 
+#include "perf/gen_perf.h"
+#include "perf/gen_perf_query.h"
+
 #include "iris_screen.h"
 #include "iris_context.h"
 #include "iris_perf.h"
@@ -54,7 +57,7 @@ iris_get_monitor_info(struct pipe_screen *pscreen, unsigned index,
       return monitor_cfg->num_counters;
    }
 
-   const struct gen_perf_config *perf_cfg = monitor_cfg->perf_cfg;
+   const struct gen_perf_config *perf_cfg = screen->perf_cfg;
    const int group = monitor_cfg->counters[index].group;
    const int counter_index = monitor_cfg->counters[index].counter;
    struct gen_perf_query_counter *counter =
@@ -98,18 +101,9 @@ iris_monitor_init_metrics(struct iris_screen *screen)
 {
    struct iris_monitor_config *monitor_cfg =
       rzalloc(screen, struct iris_monitor_config);
-   struct gen_perf_config *perf_cfg = NULL;
    if (unlikely(!monitor_cfg))
       goto allocation_error;
-   perf_cfg = gen_perf_new(monitor_cfg);
-   if (unlikely(!perf_cfg))
-      goto allocation_error;
 
-   monitor_cfg->perf_cfg = perf_cfg;
-
-   iris_perf_init_vtbl(perf_cfg);
-
-   gen_perf_init_metrics(perf_cfg, &screen->devinfo, screen->fd);
    screen->monitor_cfg = monitor_cfg;
 
    /* a gallium "group" is equivalent to a gen "query"
@@ -119,6 +113,7 @@ iris_monitor_init_metrics(struct iris_screen *screen)
     * allocate the array of iris_monitor_counter, we need an upper bound
     * (ignoring duplicate query_counters).
     */
+   struct gen_perf_config *perf_cfg = screen->perf_cfg;
    int gen_query_counters_count = 0;
    for (int gen_query_id = 0;
         gen_query_id < perf_cfg->n_queries;
@@ -170,7 +165,6 @@ iris_monitor_init_metrics(struct iris_screen *screen)
 allocation_error:
    if (monitor_cfg)
       free(monitor_cfg->counters);
-   free(perf_cfg);
    free(monitor_cfg);
    return false;
 }
@@ -186,8 +180,7 @@ iris_get_monitor_group_info(struct pipe_screen *pscreen,
          return 0;
    }
 
-   const struct iris_monitor_config *monitor_cfg = screen->monitor_cfg;
-   const struct gen_perf_config *perf_cfg = monitor_cfg->perf_cfg;
+   const struct gen_perf_config *perf_cfg = screen->perf_cfg;
 
    if (!info) {
       /* return the count that can be queried */
@@ -212,16 +205,13 @@ static void
 iris_init_monitor_ctx(struct iris_context *ice)
 {
    struct iris_screen *screen = (struct iris_screen *) ice->ctx.screen;
-   struct iris_monitor_config *monitor_cfg = screen->monitor_cfg;
 
    ice->perf_ctx = gen_perf_new_context(ice);
    if (unlikely(!ice->perf_ctx))
       return;
 
-   struct gen_perf_context *perf_ctx = ice->perf_ctx;
-   struct gen_perf_config *perf_cfg = monitor_cfg->perf_cfg;
-   gen_perf_init_context(perf_ctx,
-                         perf_cfg,
+   gen_perf_init_context(ice->perf_ctx,
+                         screen->perf_cfg,
                          ice,
                          screen->bufmgr,
                          &screen->devinfo,
@@ -237,7 +227,7 @@ iris_create_monitor_object(struct iris_context *ice,
 {
    struct iris_screen *screen = (struct iris_screen *) ice->ctx.screen;
    struct iris_monitor_config *monitor_cfg = screen->monitor_cfg;
-   struct gen_perf_config *perf_cfg = monitor_cfg->perf_cfg;
+   struct gen_perf_config *perf_cfg = screen->perf_cfg;
    struct gen_perf_query_object *query_obj = NULL;
 
    /* initialize perf context if this has not already been done.  This

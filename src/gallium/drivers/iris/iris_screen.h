@@ -35,6 +35,7 @@
 struct iris_bo;
 struct iris_monitor_config;
 struct gen_l3_config;
+struct gen_perf_config;
 
 #define READ_ONCE(x) (*(volatile __typeof__(x) *)&(x))
 #define WRITE_ONCE(x, v) *(volatile __typeof__(x) *)&(x) = (v)
@@ -93,6 +94,8 @@ struct iris_screen {
    struct iris_bo *workaround_bo;
 
    struct disk_cache *disk_cache;
+
+   struct gen_perf_config *perf_cfg;
 };
 
 struct pipe_screen *
