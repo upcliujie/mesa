@@ -210,7 +210,11 @@ iris_init_monitor_ctx(struct iris_context *ice)
    if (unlikely(!ice->perf_ctx))
       return;
 
+   struct gen_perf_context_vtable vtable;
+   iris_perf_init_vtbl(&vtable);
+
    gen_perf_init_context(ice->perf_ctx,
+                         &vtable,
                          screen->perf_cfg,
                          ice,
                          screen->bufmgr,

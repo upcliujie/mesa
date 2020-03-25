@@ -23,6 +23,8 @@
 #include "iris_perf.h"
 #include "iris_context.h"
 
+#include "perf/gen_perf_query.h"
+
 static void *
 iris_oa_bo_alloc(void *bufmgr, const char *name, uint64_t size)
 {
@@ -83,22 +85,22 @@ typedef void (*bo_wait_rendering_t)(void *bo);
 typedef int (*bo_busy_t)(void *bo);
 
 void
-iris_perf_init_vtbl(struct gen_perf_config *perf_cfg)
+iris_perf_init_vtbl(struct gen_perf_context_vtable *vtable)
 {
-   perf_cfg->vtbl.bo_alloc = iris_oa_bo_alloc;
-   perf_cfg->vtbl.bo_unreference = (bo_unreference_t)iris_bo_unreference;
-   perf_cfg->vtbl.bo_map = (bo_map_t)iris_bo_map;
-   perf_cfg->vtbl.bo_unmap = (bo_unmap_t)iris_bo_unmap;
-   perf_cfg->vtbl.emit_stall_at_pixel_scoreboard =
+   vtable->bo_alloc = iris_oa_bo_alloc;
+   vtable->bo_unreference = (bo_unreference_t)iris_bo_unreference;
+   vtable->bo_map = (bo_map_t)iris_bo_map;
+   vtable->bo_unmap = (bo_unmap_t)iris_bo_unmap;
+   vtable->emit_stall_at_pixel_scoreboard =
       (emit_mi_flush_t)iris_perf_emit_stall_at_pixel_scoreboard;
 
-   perf_cfg->vtbl.emit_mi_report_perf_count =
+   vtable->emit_mi_report_perf_count =
       (emit_mi_report_t)iris_perf_emit_mi_report_perf_count;
-   perf_cfg->vtbl.batchbuffer_flush = iris_perf_batchbuffer_flush;
-   perf_cfg->vtbl.store_register_mem =
+   vtable->batchbuffer_flush = iris_perf_batchbuffer_flush;
+   vtable->store_register_mem =
       (store_register_mem_t) iris_perf_store_register_mem;
-   perf_cfg->vtbl.batch_references = (batch_references_t)iris_batch_references;
-   perf_cfg->vtbl.bo_wait_rendering =
+   vtable->batch_references = (batch_references_t)iris_batch_references;
+   vtable->bo_wait_rendering =
       (bo_wait_rendering_t)iris_bo_wait_rendering;
-   perf_cfg->vtbl.bo_busy = (bo_busy_t)iris_bo_busy;
+   vtable->bo_busy = (bo_busy_t)iris_bo_busy;
 }

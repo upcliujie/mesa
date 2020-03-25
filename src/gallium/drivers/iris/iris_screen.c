@@ -48,7 +48,6 @@
 #include "iris_context.h"
 #include "iris_defines.h"
 #include "iris_fence.h"
-#include "iris_perf.h"
 #include "iris_pipe.h"
 #include "iris_resource.h"
 #include "iris_screen.h"
@@ -641,7 +640,6 @@ iris_perf_init(struct iris_screen *screen)
 {
    screen->perf_cfg = gen_perf_new(screen);
    gen_perf_init_metrics(screen->perf_cfg, &screen->devinfo, screen->fd);
-   iris_perf_init_vtbl(screen->perf_cfg);
 }
 
 struct pipe_screen *

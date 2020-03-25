@@ -24,6 +24,7 @@
 #ifndef GEN_PERF_QUERY_H
 #define GEN_PERF_QUERY_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 struct gen_device_info;
@@ -32,9 +33,28 @@ struct gen_perf_config;
 struct gen_perf_context;
 struct gen_perf_query_object;
 
+struct gen_perf_context_vtable {
+   void *(*bo_alloc)(void *bufmgr, const char *name, uint64_t size);
+   void (*bo_unreference)(void *bo);
+   void *(*bo_map)(void *ctx, void *bo, unsigned flags);
+   void (*bo_unmap)(void *bo);
+   bool (*batch_references)(void *batch, void *bo);
+   void (*bo_wait_rendering)(void *bo);
+   int (*bo_busy)(void *bo);
+   void (*emit_stall_at_pixel_scoreboard)(void *ctx);
+   void (*emit_mi_report_perf_count)(void *ctx,
+                                     void *bo,
+                                     uint32_t offset_in_bytes,
+                                     uint32_t report_id);
+   void (*batchbuffer_flush)(void *ctx,
+                             const char *file, int line);
+   void (*store_register_mem)(void *ctx, void *bo, uint32_t reg, uint32_t reg_size, uint32_t offset);
+};
+
 struct gen_perf_context *gen_perf_new_context(void *parent);
 
 void gen_perf_init_context(struct gen_perf_context *perf_ctx,
+                           struct gen_perf_context_vtable *vtable,
                            struct gen_perf_config *perf_cfg,
                            void * ctx,  /* driver context (eg, brw_context) */
                            void * bufmgr,  /* eg brw_bufmgr */
@@ -44,14 +64,6 @@ void gen_perf_init_context(struct gen_perf_context *perf_ctx,
 
 const struct gen_perf_query_info* gen_perf_query_info(const struct gen_perf_query_object *);
 
-
-void gen_perf_init_context(struct gen_perf_context *perf_ctx,
-                           struct gen_perf_config *perf_cfg,
-                           void * ctx,  /* driver context (eg, brw_context) */
-                           void * bufmgr,  /* eg brw_bufmgr */
-                           const struct gen_device_info *devinfo,
-                           uint32_t hw_ctx,
-                           int drm_fd);
 
 struct gen_perf_config *gen_perf_config(struct gen_perf_context *ctx);
 

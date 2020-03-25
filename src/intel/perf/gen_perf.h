@@ -229,25 +229,6 @@ struct gen_perf_config {
 
    /* Location of the device's sysfs entry. */
    char sysfs_dev_dir[256];
-
-   struct {
-      void *(*bo_alloc)(void *bufmgr, const char *name, uint64_t size);
-      void (*bo_unreference)(void *bo);
-      void *(*bo_map)(void *ctx, void *bo, unsigned flags);
-      void (*bo_unmap)(void *bo);
-      bool (*batch_references)(void *batch, void *bo);
-      void (*bo_wait_rendering)(void *bo);
-      int (*bo_busy)(void *bo);
-      void (*emit_stall_at_pixel_scoreboard)(void *ctx);
-      void (*emit_mi_report_perf_count)(void *ctx,
-                                        void *bo,
-                                        uint32_t offset_in_bytes,
-                                        uint32_t report_id);
-      void (*batchbuffer_flush)(void *ctx,
-                                const char *file, int line);
-      void (*store_register_mem)(void *ctx, void *bo, uint32_t reg, uint32_t reg_size, uint32_t offset);
-
-   } vtbl;
 };
 
 void gen_perf_init_metrics(struct gen_perf_config *perf_cfg,

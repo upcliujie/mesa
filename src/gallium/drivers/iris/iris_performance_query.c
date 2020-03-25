@@ -22,7 +22,11 @@
 
 #include <xf86drm.h>
 
+#include "perf/gen_perf.h"
+#include "perf/gen_perf_query.h"
+
 #include "iris_context.h"
+#include "iris_monitor.h"
 #include "iris_perf.h"
 
 struct iris_perf_query {
@@ -56,7 +60,11 @@ iris_init_perf_query_info(struct pipe_context *pipe)
    if (unlikely(!ice->perf_ctx))
       return 0;
 
+   struct gen_perf_context_vtable vtable;
+   iris_perf_init_vtbl(&vtable);
+
    gen_perf_init_context(ice->perf_ctx,
+                         &vtable,
                          screen->perf_cfg,
                          ice,
                          screen->bufmgr,

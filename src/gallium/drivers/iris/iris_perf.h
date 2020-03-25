@@ -23,9 +23,8 @@
 #ifndef IRIS_PERF_H
 #define IRIS_PERF_H
 
-#include "perf/gen_perf.h"
-#include "perf/gen_perf_query.h"
+struct gen_perf_context_vtable;
 
-void iris_perf_init_vtbl(struct gen_perf_config *cfg);
+void iris_perf_init_vtbl(struct gen_perf_context_vtable *vtable);
 
 #endif /* IRIS_PERF_H */

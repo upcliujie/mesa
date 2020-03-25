@@ -242,6 +242,8 @@ struct gen_perf_query_object
 struct gen_perf_context {
    struct gen_perf_config *perf;
 
+   struct gen_perf_context_vtable vtbl;
+
    void * ctx;  /* driver context (eg, brw_context) */
    void * bufmgr;
    const struct gen_device_info *devinfo;
@@ -555,6 +557,7 @@ gen_perf_config(struct gen_perf_context *ctx)
 
 void
 gen_perf_init_context(struct gen_perf_context *perf_ctx,
+                      struct gen_perf_context_vtable *vtable,
                       struct gen_perf_config *perf_cfg,
                       void * ctx,  /* driver context (eg, brw_context) */
                       void * bufmgr,  /* eg brw_bufmgr */
@@ -563,6 +566,7 @@ gen_perf_init_context(struct gen_perf_context *perf_ctx,
                       int drm_fd)
 {
    perf_ctx->perf = perf_cfg;
+   perf_ctx->vtbl = *vtable;
    perf_ctx->ctx = ctx;
    perf_ctx->bufmgr = bufmgr;
    perf_ctx->drm_fd = drm_fd;
@@ -622,7 +626,6 @@ snapshot_statistics_registers(struct gen_perf_context *ctx,
                               struct gen_perf_query_object *obj,
                               uint32_t offset_in_bytes)
 {
-   struct gen_perf_config *perf = ctx->perf;
    const struct gen_perf_query_info *query = obj->queryinfo;
    const int n_counters = query->n_counters;
 
@@ -631,9 +634,9 @@ snapshot_statistics_registers(struct gen_perf_context *ctx,
 
       assert(counter->data_type == GEN_PERF_COUNTER_DATA_TYPE_UINT64);
 
-      perf->vtbl.store_register_mem(ctx->ctx, obj->pipeline_stats.bo,
-                                    counter->pipeline_stat.reg, 8,
-                                    offset_in_bytes + i * sizeof(uint64_t));
+      ctx->vtbl.store_register_mem(ctx->ctx, obj->pipeline_stats.bo,
+                                   counter->pipeline_stat.reg, 8,
+                                   offset_in_bytes + i * sizeof(uint64_t));
    }
 }
 
@@ -642,13 +645,12 @@ snapshot_freq_register(struct gen_perf_context *ctx,
                        struct gen_perf_query_object *query,
                        uint32_t bo_offset)
 {
-   struct gen_perf_config *perf = ctx->perf;
    const struct gen_device_info *devinfo = ctx->devinfo;
 
    if (devinfo->gen == 8 && !devinfo->is_cherryview)
-      perf->vtbl.store_register_mem(ctx->ctx, query->oa.bo, GEN7_RPSTAT1, 4, bo_offset);
+      ctx->vtbl.store_register_mem(ctx->ctx, query->oa.bo, GEN7_RPSTAT1, 4, bo_offset);
    else if (devinfo->gen >= 9)
-      perf->vtbl.store_register_mem(ctx->ctx, query->oa.bo, GEN9_RPSTAT0, 4, bo_offset);
+      ctx->vtbl.store_register_mem(ctx->ctx, query->oa.bo, GEN9_RPSTAT0, 4, bo_offset);
 }
 
 bool
@@ -696,7 +698,7 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
     * This is our Begin synchronization point to drain current work on the
     * GPU before we capture our first counter snapshot...
     */
-   perf_cfg->vtbl.emit_stall_at_pixel_scoreboard(perf_ctx->ctx);
+   perf_ctx->vtbl.emit_stall_at_pixel_scoreboard(perf_ctx->ctx);
 
    switch (queryinfo->kind) {
    case GEN_PERF_QUERY_TYPE_OA:
@@ -791,25 +793,25 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
       }
 
       if (query->oa.bo) {
-         perf_cfg->vtbl.bo_unreference(query->oa.bo);
+         perf_ctx->vtbl.bo_unreference(query->oa.bo);
          query->oa.bo = NULL;
       }
 
-      query->oa.bo = perf_cfg->vtbl.bo_alloc(perf_ctx->bufmgr,
+      query->oa.bo = perf_ctx->vtbl.bo_alloc(perf_ctx->bufmgr,
                                              "perf. query OA MI_RPC bo",
                                              MI_RPC_BO_SIZE);
 #ifdef DEBUG
       /* Pre-filling the BO helps debug whether writes landed. */
-      void *map = perf_cfg->vtbl.bo_map(perf_ctx->ctx, query->oa.bo, MAP_WRITE);
+      void *map = perf_ctx->vtbl.bo_map(perf_ctx->ctx, query->oa.bo, MAP_WRITE);
       memset(map, 0x80, MI_RPC_BO_SIZE);
-      perf_cfg->vtbl.bo_unmap(query->oa.bo);
+      perf_ctx->vtbl.bo_unmap(query->oa.bo);
 #endif
 
       query->oa.begin_report_id = perf_ctx->next_query_start_report_id;
       perf_ctx->next_query_start_report_id += 2;
 
       /* Take a starting OA counter snapshot. */
-      perf_cfg->vtbl.emit_mi_report_perf_count(perf_ctx->ctx, query->oa.bo, 0,
+      perf_ctx->vtbl.emit_mi_report_perf_count(perf_ctx->ctx, query->oa.bo, 0,
                                                query->oa.begin_report_id);
       snapshot_freq_register(perf_ctx, query, MI_FREQ_START_OFFSET_BYTES);
 
@@ -841,12 +843,12 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
 
    case GEN_PERF_QUERY_TYPE_PIPELINE:
       if (query->pipeline_stats.bo) {
-         perf_cfg->vtbl.bo_unreference(query->pipeline_stats.bo);
+         perf_ctx->vtbl.bo_unreference(query->pipeline_stats.bo);
          query->pipeline_stats.bo = NULL;
       }
 
       query->pipeline_stats.bo =
-         perf_cfg->vtbl.bo_alloc(perf_ctx->bufmgr,
+         perf_ctx->vtbl.bo_alloc(perf_ctx->bufmgr,
                                  "perf. query pipeline stats bo",
                                  STATS_BO_SIZE);
 
@@ -868,15 +870,13 @@ void
 gen_perf_end_query(struct gen_perf_context *perf_ctx,
                    struct gen_perf_query_object *query)
 {
-   struct gen_perf_config *perf_cfg = perf_ctx->perf;
-
    /* Ensure that the work associated with the queried commands will have
     * finished before taking our query end counter readings.
     *
     * For more details see comment in brw_begin_perf_query for
     * corresponding flush.
     */
-   perf_cfg->vtbl.emit_stall_at_pixel_scoreboard(perf_ctx->ctx);
+   perf_ctx->vtbl.emit_stall_at_pixel_scoreboard(perf_ctx->ctx);
 
    switch (query->queryinfo->kind) {
    case GEN_PERF_QUERY_TYPE_OA:
@@ -890,9 +890,9 @@ gen_perf_end_query(struct gen_perf_context *perf_ctx,
       if (!query->oa.results_accumulated) {
          /* Take an ending OA counter snapshot. */
          snapshot_freq_register(perf_ctx, query, MI_FREQ_END_OFFSET_BYTES);
-         perf_cfg->vtbl.emit_mi_report_perf_count(perf_ctx->ctx, query->oa.bo,
-                                             MI_RPC_BO_END_OFFSET_BYTES,
-                                             query->oa.begin_report_id + 1);
+         perf_ctx->vtbl.emit_mi_report_perf_count(perf_ctx->ctx, query->oa.bo,
+                                                  MI_RPC_BO_END_OFFSET_BYTES,
+                                                  query->oa.begin_report_id + 1);
       }
 
       --perf_ctx->n_active_oa_queries;
@@ -996,17 +996,16 @@ read_oa_samples_for_query(struct gen_perf_context *perf_ctx,
    uint32_t *start;
    uint32_t *last;
    uint32_t *end;
-   struct gen_perf_config *perf_cfg = perf_ctx->perf;
 
    /* We need the MI_REPORT_PERF_COUNT to land before we can start
     * accumulate. */
-   assert(!perf_cfg->vtbl.batch_references(current_batch, query->oa.bo) &&
-          !perf_cfg->vtbl.bo_busy(query->oa.bo));
+   assert(!perf_ctx->vtbl.batch_references(current_batch, query->oa.bo) &&
+          !perf_ctx->vtbl.bo_busy(query->oa.bo));
 
    /* Map the BO once here and let accumulate_oa_reports() unmap
     * it. */
    if (query->oa.map == NULL)
-      query->oa.map = perf_cfg->vtbl.bo_map(perf_ctx->ctx, query->oa.bo, MAP_READ);
+      query->oa.map = perf_ctx->vtbl.bo_map(perf_ctx->ctx, query->oa.bo, MAP_READ);
 
    start = last = query->oa.map;
    end = query->oa.map + MI_RPC_BO_END_OFFSET_BYTES;
@@ -1040,7 +1039,6 @@ gen_perf_wait_query(struct gen_perf_context *perf_ctx,
                     struct gen_perf_query_object *query,
                     void *current_batch)
 {
-   struct gen_perf_config *perf_cfg = perf_ctx->perf;
    struct brw_bo *bo = NULL;
 
    switch (query->queryinfo->kind) {
@@ -1064,10 +1062,10 @@ gen_perf_wait_query(struct gen_perf_context *perf_ctx,
    /* If the current batch references our results bo then we need to
     * flush first...
     */
-   if (perf_cfg->vtbl.batch_references(current_batch, bo))
-      perf_cfg->vtbl.batchbuffer_flush(perf_ctx->ctx, __FILE__, __LINE__);
+   if (perf_ctx->vtbl.batch_references(current_batch, bo))
+      perf_ctx->vtbl.batchbuffer_flush(perf_ctx->ctx, __FILE__, __LINE__);
 
-   perf_cfg->vtbl.bo_wait_rendering(bo);
+   perf_ctx->vtbl.bo_wait_rendering(bo);
 
    /* Due to a race condition between the OA unit signaling report
     * availability and the report actually being written into memory,
@@ -1086,20 +1084,18 @@ gen_perf_is_query_ready(struct gen_perf_context *perf_ctx,
                         struct gen_perf_query_object *query,
                         void *current_batch)
 {
-   struct gen_perf_config *perf_cfg = perf_ctx->perf;
-
    switch (query->queryinfo->kind) {
    case GEN_PERF_QUERY_TYPE_OA:
    case GEN_PERF_QUERY_TYPE_RAW:
       return (query->oa.results_accumulated ||
               (query->oa.bo &&
-               !perf_cfg->vtbl.batch_references(current_batch, query->oa.bo) &&
-               !perf_cfg->vtbl.bo_busy(query->oa.bo) &&
+               !perf_ctx->vtbl.batch_references(current_batch, query->oa.bo) &&
+               !perf_ctx->vtbl.bo_busy(query->oa.bo) &&
                read_oa_samples_for_query(perf_ctx, query, current_batch)));
    case GEN_PERF_QUERY_TYPE_PIPELINE:
       return (query->pipeline_stats.bo &&
-              !perf_cfg->vtbl.batch_references(current_batch, query->pipeline_stats.bo) &&
-              !perf_cfg->vtbl.bo_busy(query->pipeline_stats.bo));
+              !perf_ctx->vtbl.batch_references(current_batch, query->pipeline_stats.bo) &&
+              !perf_ctx->vtbl.bo_busy(query->pipeline_stats.bo));
 
    default:
       unreachable("Unknown query type");
@@ -1363,8 +1359,6 @@ void
 gen_perf_delete_query(struct gen_perf_context *perf_ctx,
                       struct gen_perf_query_object *query)
 {
-   struct gen_perf_config *perf_cfg = perf_ctx->perf;
-
    /* We can assume that the frontend waits for a query to complete
     * before ever calling into here, so we don't have to worry about
     * deleting an in-flight query object.
@@ -1378,7 +1372,7 @@ gen_perf_delete_query(struct gen_perf_context *perf_ctx,
             dec_n_users(perf_ctx);
          }
 
-         perf_cfg->vtbl.bo_unreference(query->oa.bo);
+         perf_ctx->vtbl.bo_unreference(query->oa.bo);
          query->oa.bo = NULL;
       }
 
@@ -1387,7 +1381,7 @@ gen_perf_delete_query(struct gen_perf_context *perf_ctx,
 
    case GEN_PERF_QUERY_TYPE_PIPELINE:
       if (query->pipeline_stats.bo) {
-         perf_cfg->vtbl.bo_unreference(query->pipeline_stats.bo);
+         perf_ctx->vtbl.bo_unreference(query->pipeline_stats.bo);
          query->pipeline_stats.bo = NULL;
       }
       break;
@@ -1490,12 +1484,11 @@ get_pipeline_stats_data(struct gen_perf_context *perf_ctx,
                         uint8_t *data)
 
 {
-   struct gen_perf_config *perf_cfg = perf_ctx->perf;
    const struct gen_perf_query_info *queryinfo = query->queryinfo;
    int n_counters = queryinfo->n_counters;
    uint8_t *p = data;
 
-   uint64_t *start = perf_cfg->vtbl.bo_map(perf_ctx->ctx, query->pipeline_stats.bo, MAP_READ);
+   uint64_t *start = perf_ctx->vtbl.bo_map(perf_ctx->ctx, query->pipeline_stats.bo, MAP_READ);
    uint64_t *end = start + (STATS_BO_END_OFFSET_BYTES / sizeof(uint64_t));
 
    for (int i = 0; i < n_counters; i++) {
@@ -1512,7 +1505,7 @@ get_pipeline_stats_data(struct gen_perf_context *perf_ctx,
       p += 8;
    }
 
-   perf_cfg->vtbl.bo_unmap(query->pipeline_stats.bo);
+   perf_ctx->vtbl.bo_unmap(query->pipeline_stats.bo);
 
    return p - data;
 }
@@ -1524,7 +1517,6 @@ gen_perf_get_query_data(struct gen_perf_context *perf_ctx,
                         unsigned *data,
                         unsigned *bytes_written)
 {
-   struct gen_perf_config *perf_cfg = perf_ctx->perf;
    int written = 0;
 
    switch (query->queryinfo->kind) {
@@ -1541,7 +1533,7 @@ gen_perf_get_query_data(struct gen_perf_context *perf_ctx,
          accumulate_oa_reports(perf_ctx, query);
          assert(query->oa.results_accumulated);
 
-         perf_cfg->vtbl.bo_unmap(query->oa.bo);
+         perf_ctx->vtbl.bo_unmap(query->oa.bo);
          query->oa.map = NULL;
       }
       if (query->queryinfo->kind == GEN_PERF_QUERY_TYPE_OA) {

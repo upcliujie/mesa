@@ -489,22 +489,24 @@ brw_init_perf_query_info(struct gl_context *ctx)
 
    perf_cfg = gen_perf_new(ctx);
 
-   perf_cfg->vtbl.bo_alloc = brw_oa_bo_alloc;
-   perf_cfg->vtbl.bo_unreference = (bo_unreference_t)brw_bo_unreference;
-   perf_cfg->vtbl.bo_map = (bo_map_t)brw_bo_map;
-   perf_cfg->vtbl.bo_unmap = (bo_unmap_t)brw_bo_unmap;
-   perf_cfg->vtbl.emit_stall_at_pixel_scoreboard =
-      (emit_mi_flush_t)brw_oa_emit_stall_at_pixel_scoreboard;
-   perf_cfg->vtbl.emit_mi_report_perf_count =
-      (emit_mi_report_t)brw_oa_emit_mi_report_perf_count;
-   perf_cfg->vtbl.batchbuffer_flush = brw_oa_batchbuffer_flush;
-   perf_cfg->vtbl.store_register_mem =
-      (store_register_mem_t) brw_perf_store_register;
-   perf_cfg->vtbl.batch_references = (batch_references_t)brw_batch_references;
-   perf_cfg->vtbl.bo_wait_rendering = (bo_wait_rendering_t)brw_bo_wait_rendering;
-   perf_cfg->vtbl.bo_busy = (bo_busy_t)brw_bo_busy;
+   struct gen_perf_context_vtable vtable;
 
-   gen_perf_init_context(perf_ctx, perf_cfg, brw, brw->bufmgr, devinfo,
+   vtable.bo_alloc = brw_oa_bo_alloc;
+   vtable.bo_unreference = (bo_unreference_t)brw_bo_unreference;
+   vtable.bo_map = (bo_map_t)brw_bo_map;
+   vtable.bo_unmap = (bo_unmap_t)brw_bo_unmap;
+   vtable.emit_stall_at_pixel_scoreboard =
+      (emit_mi_flush_t)brw_oa_emit_stall_at_pixel_scoreboard;
+   vtable.emit_mi_report_perf_count =
+      (emit_mi_report_t)brw_oa_emit_mi_report_perf_count;
+   vtable.batchbuffer_flush = brw_oa_batchbuffer_flush;
+   vtable.store_register_mem =
+      (store_register_mem_t) brw_perf_store_register;
+   vtable.batch_references = (batch_references_t)brw_batch_references;
+   vtable.bo_wait_rendering = (bo_wait_rendering_t)brw_bo_wait_rendering;
+   vtable.bo_busy = (bo_busy_t)brw_bo_busy;
+
+   gen_perf_init_context(perf_ctx, &vtable, perf_cfg, brw, brw->bufmgr, devinfo,
                          brw->hw_ctx, brw->screen->fd);
    gen_perf_init_metrics(perf_cfg, devinfo, brw->screen->fd);
 
