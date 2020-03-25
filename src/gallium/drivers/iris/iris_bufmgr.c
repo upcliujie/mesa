@@ -380,6 +380,108 @@ bo_calloc(void)
    return bo;
 }
 
+static void dump_mem_range(unsigned char *mem, size_t start, size_t end)
+{
+   const int per_line = 32;
+   unsigned char line[per_line], prev_line[per_line];
+   size_t l, i, used;
+   int repetitions = 0;
+   const int rep_threshold = 32;
+
+   for (l = start; l < end; l += per_line) {
+      for (i = 0; i < per_line && l + i < end; i++)
+         line[i] = mem[l + i];
+      used = i;
+
+      const bool is_last_line = l + per_line >= end;
+      if (l != start && !is_last_line &&
+          memcmp(prev_line, line, per_line) == 0)
+         repetitions++;
+      else
+         repetitions = 0;
+
+      if (repetitions == rep_threshold) {
+         fprintf(stderr, "0x%08zX+ (%010zu+): (... pattern repeats ...)\n", l, l);
+      } else if (repetitions < rep_threshold) {
+         fprintf(stderr, "0x%08zX (%010zu): ", l, l);
+         for (i = 0; i < used; i++)
+            fprintf(stderr, "%02X", line[i]);
+         fprintf(stderr, "\n");
+      }
+
+      memcpy(prev_line, line, per_line);
+   }
+}
+
+static void dump_bad_bo(struct iris_bo *bo)
+{
+   unsigned char *map = iris_bo_map(NULL, bo, MAP_READ | MAP_RAW);
+   assert(map);
+
+   fprintf(stderr, "found red zone issue: bo handle %"PRIu32", name \"%s\", "
+                   "orig_size %"PRIu64", size:%"PRIu64"\n",
+           bo->gem_handle, bo->name ? bo->name : "(no name)", bo->orig_size,
+           bo->size);
+
+   /* May be handy while debugging, but eats all your scrollback. */
+   if (0) {
+      fprintf(stderr, "Real buffer:\n");
+      dump_mem_range(map, 0, bo->orig_size);
+      fprintf(stderr, "\n");
+   }
+   fprintf(stderr, "Red zone:\n");
+   dump_mem_range(map, bo->orig_size, bo->size);
+}
+
+/* How much we extend the buffers for red zone checking. */
+#define RED_ZONE_BUFFER_EXTENSION 4096
+/* What we write after the buffer: detects overflow. */
+#define RED_ZONE_VALUE 0xCA
+#define RED_ZONE_VALUE_64 0xCACACACACACACACAULL
+
+static void write_red_zone(struct iris_bo *bo)
+{
+   void *map;
+
+   assert(INTEL_DEBUG & DEBUG_MEMORY);
+   assert(bo->orig_size);
+
+   map = iris_bo_map(NULL, bo, MAP_WRITE | MAP_RAW);
+   assert(map);
+
+   memset(map + bo->orig_size, RED_ZONE_VALUE, bo->size - bo->orig_size);
+}
+
+static void check_red_zone(struct iris_bo *bo)
+{
+   unsigned char *map;
+   uint64_t *tmp;
+
+   assert(INTEL_DEBUG & DEBUG_MEMORY);
+   assert(bo->idle);
+   assert(bo->has_red_zone);
+   assert(bo->orig_size);
+
+   if (bo->size == bo->orig_size)
+      return;
+
+   map = iris_bo_map(NULL, bo, MAP_READ | MAP_RAW);
+   assert(map);
+
+   /* Try to be efficient when checking that everything from orig_size to size
+    * is RED_ZONE_VALUE. The memcmp() function really likes when both pointers
+    * are aligned, that's why we do this.
+    */
+   STATIC_ASSERT(RED_ZONE_BUFFER_EXTENSION > 8);
+   assert(bo->orig_size + 8 < bo->size);
+
+   tmp = (uint64_t *)&map[bo->orig_size];
+   if (!(*tmp == RED_ZONE_VALUE_64 &&
+         memcmp(&map[bo->orig_size], &map[bo->orig_size + 8],
+                bo->size - bo->orig_size - 8) == 0))
+      dump_bad_bo(bo);
+}
+
 static struct iris_bo *
 alloc_bo_from_cache(struct iris_bufmgr *bufmgr,
                     struct bo_cache_bucket *bucket,
@@ -404,6 +506,8 @@ alloc_bo_from_cache(struct iris_bufmgr *bufmgr,
        */
       if (iris_bo_busy(cur))
          return NULL;
+
+      assert(!cur->has_red_zone);
 
       list_del(&cur->head);
 
@@ -512,7 +616,17 @@ bo_alloc_internal(struct iris_bufmgr *bufmgr,
                   uint32_t stride)
 {
    struct iris_bo *bo;
+   uint64_t orig_size = size;
    unsigned int page_size = getpagesize();
+   bool add_red_zone = false;
+
+   if (unlikely((INTEL_DEBUG & DEBUG_MEMORY) &&
+                (memzone != IRIS_MEMZONE_BINDER &&
+                 memzone != IRIS_MEMZONE_BORDER_COLOR_POOL))) {
+      add_red_zone = true;
+      size += RED_ZONE_BUFFER_EXTENSION;
+   }
+
    struct bo_cache_bucket *bucket = bucket_for_size(bufmgr, size);
 
    /* Round the size up to the bucket size, or if we don't have caching
@@ -553,6 +667,11 @@ bo_alloc_internal(struct iris_bufmgr *bufmgr,
 
    if (bo_set_tiling_internal(bo, tiling_mode, stride))
       goto err_free;
+
+   bo->orig_size = orig_size;
+   bo->has_red_zone = add_red_zone;
+   if (unlikely(add_red_zone))
+      write_red_zone(bo);
 
    bo->name = name;
    p_atomic_set(&bo->refcount, 1);
@@ -749,6 +868,8 @@ bo_close(struct iris_bo *bo)
 {
    struct iris_bufmgr *bufmgr = bo->bufmgr;
 
+   assert(!bo->has_red_zone);
+
    if (bo->external) {
       struct hash_entry *entry;
 
@@ -861,6 +982,12 @@ bo_unreference_final(struct iris_bo *bo, time_t time)
    struct bo_cache_bucket *bucket;
 
    DBG("bo_unreference final: %d (%s)\n", bo->gem_handle, bo->name);
+
+   if (unlikely(bo->has_red_zone)) {
+      iris_bo_wait_rendering(bo);
+      check_red_zone(bo);
+      bo->has_red_zone = false;
+   }
 
    bucket = NULL;
    if (bo->reusable)

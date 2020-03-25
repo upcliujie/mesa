@@ -94,6 +94,7 @@ static const struct debug_control debug_control[] = {
    { "pc",          DEBUG_PIPE_CONTROL },
    { "nofc",        DEBUG_NO_FAST_CLEAR },
    { "no32",        DEBUG_NO32 },
+   { "mem",         DEBUG_MEMORY },
    { NULL,    0 }
 };
 

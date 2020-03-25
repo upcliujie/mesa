@@ -127,6 +127,12 @@ struct iris_bo {
     */
    uint64_t size;
 
+   /**
+    * Original size requested for the buffer, before alignment and bucket
+    * adjustments.
+    */
+   uint64_t orig_size;
+
    /** Buffer manager context associated with this buffer object */
    struct iris_bufmgr *bufmgr;
 
@@ -237,6 +243,11 @@ struct iris_bo {
     * Boolean of whether this buffer points into user memory
     */
    bool userptr;
+
+   /**
+    * Boolean of whether this buffer has a red zone for memory debug.
+    */
+   bool has_red_zone;
 };
 
 #define BO_ALLOC_ZEROED     (1<<0)
