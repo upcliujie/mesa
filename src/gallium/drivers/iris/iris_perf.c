@@ -26,9 +26,10 @@
 #include "perf/gen_perf_query.h"
 
 static void *
-iris_oa_bo_alloc(void *bufmgr, const char *name, uint64_t size)
+iris_oa_bo_alloc(struct iris_context *ice, const char *name, uint64_t size)
 {
-   return iris_bo_alloc(bufmgr, name, size, IRIS_MEMZONE_OTHER);
+   struct iris_screen *screen = (struct iris_screen *) ice->ctx.screen;
+   return iris_bo_alloc(screen->bufmgr, name, size, IRIS_MEMZONE_OTHER);
 }
 
 static void
@@ -78,6 +79,7 @@ iris_perf_store_register_mem(void *ctx, uint32_t gem_ctx_idx, void *bo,
    }
 }
 
+typedef void *(*bo_alloc_t)(void *, const char *, uint64_t);
 typedef void (*bo_unreference_t)(void *);
 typedef void *(*bo_map_t)(void *, void *, unsigned flags);
 typedef void (*bo_unmap_t)(void *);
@@ -94,7 +96,7 @@ typedef bool (*bo_busy_t)(void *bo);
 void
 iris_perf_init_vtbl(struct gen_perf_context_vtable *vtable)
 {
-   vtable->bo_alloc = iris_oa_bo_alloc;
+   vtable->bo_alloc = (bo_alloc_t) iris_oa_bo_alloc;
    vtable->bo_unreference = (bo_unreference_t)iris_bo_unreference;
    vtable->bo_map = (bo_map_t)iris_bo_map;
    vtable->bo_unmap = (bo_unmap_t)iris_bo_unmap;

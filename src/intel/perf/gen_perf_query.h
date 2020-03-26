@@ -34,7 +34,7 @@ struct gen_perf_context;
 struct gen_perf_query_object;
 
 struct gen_perf_context_vtable {
-   void *(*bo_alloc)(void *bufmgr, const char *name, uint64_t size);
+   void *(*bo_alloc)(void *ctx, const char *name, uint64_t size);
    void (*bo_unreference)(void *bo);
    void *(*bo_map)(void *ctx, void *bo, unsigned flags);
    void (*bo_unmap)(void *bo);
@@ -60,7 +60,6 @@ void gen_perf_init_context(struct gen_perf_context *perf_ctx,
                            struct gen_perf_context_vtable *vtable,
                            struct gen_perf_config *perf_cfg,
                            void * ctx,  /* driver context (eg, brw_context) */
-                           void * bufmgr,  /* eg brw_bufmgr */
                            const struct gen_device_info *devinfo,
                            uint32_t *gem_ctxs,
                            uint32_t n_gem_ctxs,

@@ -414,9 +414,9 @@ oa_metrics_kernel_support(int fd, const struct gen_device_info *devinfo)
 }
 
 static void *
-brw_oa_bo_alloc(void *bufmgr, const char *name, uint64_t size)
+brw_oa_bo_alloc(struct brw_context *brw, const char *name, uint64_t size)
 {
-   return brw_bo_alloc(bufmgr, name, size, BRW_MEMZONE_OTHER);
+   return brw_bo_alloc(brw->bufmgr, name, size, BRW_MEMZONE_OTHER);
 }
 
 static void
@@ -469,6 +469,7 @@ brw_perf_batch_references(struct brw_context *brw,
    return brw_batch_references(&brw->batch, bo);
 }
 
+typedef void *(*bo_alloc_t)(void *, const char *, uint64_t);
 typedef void (*bo_unreference_t)(void *);
 typedef void *(*bo_map_t)(void *, void *, unsigned flags);
 typedef void (*bo_unmap_t)(void *);
@@ -502,7 +503,7 @@ brw_init_perf_query_info(struct gl_context *ctx)
 
    struct gen_perf_context_vtable vtable;
 
-   vtable.bo_alloc = brw_oa_bo_alloc;
+   vtable.bo_alloc = (bo_alloc_t) brw_oa_bo_alloc;
    vtable.bo_unreference = (bo_unreference_t)brw_bo_unreference;
    vtable.bo_map = (bo_map_t)brw_bo_map;
    vtable.bo_unmap = (bo_unmap_t)brw_bo_unmap;
@@ -517,9 +518,8 @@ brw_init_perf_query_info(struct gl_context *ctx)
    vtable.bo_wait_rendering = (bo_wait_rendering_t)brw_bo_wait_rendering;
    vtable.bo_busy = (bo_busy_t)brw_bo_busy;
 
-   gen_perf_init_context(perf_ctx, &vtable, perf_cfg, brw, brw->bufmgr, devinfo,
+   gen_perf_init_context(perf_ctx, &vtable, perf_cfg, brw, devinfo,
                          &brw->hw_ctx, 1, brw->screen->fd);
-   gen_perf_init_metrics(perf_cfg, devinfo, brw->screen->fd);
 
    return perf_cfg->n_queries;
 }

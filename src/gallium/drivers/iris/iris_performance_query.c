@@ -71,10 +71,9 @@ iris_init_perf_query_info(struct pipe_context *pipe)
                          &vtable,
                          screen->perf_cfg,
                          ice,
-                         screen->bufmgr,
                          &screen->devinfo,
                          gem_ctxs,
-                         gen_perf_has_multi_context(perf_cfg) ? 2 : 1,
+                         ARRAY_SIZE(gem_ctxs),
                          screen->fd);
 
    return screen->perf_cfg->n_queries;

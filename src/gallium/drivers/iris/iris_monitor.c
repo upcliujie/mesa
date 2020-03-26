@@ -222,10 +222,9 @@ iris_init_monitor_ctx(struct iris_context *ice)
                          &vtable,
                          screen->perf_cfg,
                          ice,
-                         screen->bufmgr,
                          &screen->devinfo,
                          gem_ctxs,
-                         gen_perf_has_multi_context(perf_cfg) ? 2 : 1,
+                         gen_perf_has_multi_context(screen->perf_cfg) ? 2 : 1,
                          screen->fd);
 }
 

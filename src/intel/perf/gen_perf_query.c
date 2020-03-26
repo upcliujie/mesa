@@ -262,7 +262,6 @@ struct gen_perf_context {
    struct gen_perf_context_vtable vtbl;
 
    void * ctx;  /* driver context (eg, brw_context) */
-   void * bufmgr;
    const struct gen_device_info *devinfo;
 
    uint32_t gem_ctxs[PERF_MAX_GEM_CONTEXTS];
@@ -587,7 +586,6 @@ gen_perf_init_context(struct gen_perf_context *perf_ctx,
                       struct gen_perf_context_vtable *vtable,
                       struct gen_perf_config *perf_cfg,
                       void * ctx,  /* driver context (eg, brw_context) */
-                      void * bufmgr,  /* eg brw_bufmgr */
                       const struct gen_device_info *devinfo,
                       uint32_t *gem_ctxs,
                       uint32_t n_gem_ctxs,
@@ -596,7 +594,6 @@ gen_perf_init_context(struct gen_perf_context *perf_ctx,
    perf_ctx->perf = perf_cfg;
    perf_ctx->vtbl = *vtable;
    perf_ctx->ctx = ctx;
-   perf_ctx->bufmgr = bufmgr;
    perf_ctx->drm_fd = drm_fd;
    perf_ctx->devinfo = devinfo;
 
@@ -860,7 +857,7 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
          query->oa.bo = NULL;
       }
 
-      query->oa.bo = perf_ctx->vtbl.bo_alloc(perf_ctx->bufmgr,
+      query->oa.bo = perf_ctx->vtbl.bo_alloc(perf_ctx->ctx,
                                              "perf. query OA MI_RPC bo",
                                              MI_RPC_BO_SIZE);
 #ifdef DEBUG
@@ -905,7 +902,7 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
       }
 
       query->pipeline_stats.bo =
-         perf_ctx->vtbl.bo_alloc(perf_ctx->bufmgr,
+         perf_ctx->vtbl.bo_alloc(perf_ctx->ctx,
                                  "perf. query pipeline stats bo",
                                  STATS_BO_SIZE);
 
