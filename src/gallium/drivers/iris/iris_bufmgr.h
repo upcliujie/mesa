@@ -194,6 +194,16 @@ struct iris_bo {
     * Boolean of whether this buffer points into user memory
     */
    bool userptr;
+
+  /**
+    * If true, skip implicitly flushing when this buffer is written in multiple
+    * batches.  This can be useful if batches write to disjoint locations in the
+    * buffer, so there's no actual synchronization conflict.
+    *
+    * For example, we share a single performance query snapshots buffer, but each
+    * batch writes to different regions, and all reads are from the CPU.
+    */
+   bool skip_implicit_flush;
 };
 
 #define BO_ALLOC_ZEROED     (1<<0)

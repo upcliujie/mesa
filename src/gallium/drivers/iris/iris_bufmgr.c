@@ -833,6 +833,7 @@ bo_unreference_final(struct iris_bo *bo, time_t time)
    if (bucket && iris_bo_madvise(bo, I915_MADV_DONTNEED)) {
       bo->free_time = time;
       bo->name = NULL;
+      bo->skip_implicit_flush = false;
 
       list_addtail(&bo->head, &bucket->head);
    } else {

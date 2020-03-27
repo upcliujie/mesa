@@ -292,7 +292,7 @@ iris_use_pinned_bo(struct iris_batch *batch,
       return;
    }
 
-   if (bo != batch->bo) {
+   if (!bo->skip_implicit_flush && bo != batch->bo) {
       /* This is the first time our batch has seen this BO.  Before we use it,
        * we may need to flush and synchronize with other batches.
        */

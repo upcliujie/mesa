@@ -29,7 +29,11 @@ static void *
 iris_oa_bo_alloc(struct iris_context *ice, const char *name, uint64_t size)
 {
    struct iris_screen *screen = (struct iris_screen *) ice->ctx.screen;
-   return iris_bo_alloc(screen->bufmgr, name, size, IRIS_MEMZONE_OTHER);
+   struct iris_bo *bo = iris_bo_alloc(screen->bufmgr, name, size, IRIS_MEMZONE_OTHER);
+
+   bo->skip_implicit_flush = true;
+
+   return bo;
 }
 
 static void
