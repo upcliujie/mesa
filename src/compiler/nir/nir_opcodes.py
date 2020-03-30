@@ -276,6 +276,9 @@ unop_numeric_convert("f2fmp", tfloat16, tfloat, opcodes["f2f16"].const_expr)
 unop_numeric_convert("i2imp", tint16, tint, opcodes["i2i16"].const_expr)
 unop_numeric_convert("u2ump", tuint16, tuint, opcodes["u2u16"].const_expr)
 
+# Same as u2u32 except the upper bits are undefined.
+unop_convert("undef_extend32", tuint32, tuint, opcodes["u2u32"].const_expr)
+
 # Unary floating-point rounding operations.
 
 
