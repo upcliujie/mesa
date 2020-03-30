@@ -681,7 +681,7 @@ typedef struct nir_instr {
    /* A temporary for optimization and analysis passes to use for storing
     * flags.  For instance, DCE uses this to store the "dead/live" info.
     */
-   uint8_t pass_flags;
+   uint16_t pass_flags;
 
    /** generic instruction index. */
    unsigned index;
@@ -4438,7 +4438,8 @@ typedef unsigned (*nir_lower_bit_size_callback)(const nir_alu_instr *, void *);
 
 bool nir_lower_bit_size(nir_shader *shader,
                         nir_lower_bit_size_callback callback,
-                        void *callback_data);
+                        void *callback_data,
+                        bool allow_undef_extend32);
 
 nir_lower_int64_options nir_lower_int64_op_to_options_mask(nir_op opcode);
 bool nir_lower_int64(nir_shader *shader, nir_lower_int64_options options);

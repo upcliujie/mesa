@@ -1280,7 +1280,7 @@ setup_nir(isel_context *ctx, nir_shader *nir)
       nir_convert_to_lcssa(nir, true, true);
       nir_divergence_analysis(nir, nir_divergence_view_index_uniform);
 
-      if (nir_lower_bit_size(nir, lower_bit_size_callback, program))
+      if (nir_lower_bit_size(nir, lower_bit_size_callback, program, true))
          nir_copy_prop(nir); /* allow nir_opt_idiv_const() to optimize lowered divisions */
 
       nir_opt_remove_phis(nir); /* cleanup LCSSA phis */

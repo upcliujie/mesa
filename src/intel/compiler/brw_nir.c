@@ -693,7 +693,7 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
    OPT(nir_lower_doubles, softfp64, nir->options->lower_doubles_options);
    OPT(nir_lower_int64, nir->options->lower_int64_options);
 
-   OPT(nir_lower_bit_size, lower_bit_size_callback, (void *)compiler);
+   OPT(nir_lower_bit_size, lower_bit_size_callback, (void *)compiler, false);
 
    if (is_scalar) {
       OPT(nir_lower_load_const_to_scalar);
