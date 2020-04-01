@@ -3623,6 +3623,12 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
 
 	ir3_debug_print(ir, "AFTER SCHED");
 
+	if (ir3_cp_postsched(ir)) {
+		ir3_debug_print(ir, "AFTER POST-SCHED CP");
+		ir3_dce(ir, so);
+		ir3_debug_print(ir, "AFTER POST-SCHED DCE");
+	}
+
 	/* Pre-assign VS inputs on a6xx+ binning pass shader, to align
 	 * with draw pass VS, so binning and draw pass can both use the
 	 * same VBO state.
