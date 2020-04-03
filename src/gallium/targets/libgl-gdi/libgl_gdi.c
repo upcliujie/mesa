@@ -78,8 +78,10 @@ gdi_screen_create(void)
    default_driver = "llvmpipe";
 #elif GALLIUM_SWR
    default_driver = "swr";
-#else
+#elif defined(GALLIUM_SOFTPIPE)
    default_driver = "softpipe";
+#else
+#error "no suitable default-driver"
 #endif
 
    driver = debug_get_option("GALLIUM_DRIVER", default_driver);
@@ -100,11 +102,11 @@ gdi_screen_create(void)
 #endif
    (void) driver;
 
-   if (screen == NULL) {
+#ifdef GALLIUM_SOFTPIPE
+   if (screen == NULL)
       screen = softpipe_create_screen( winsys );
-   }
-
-   if(!screen)
+#endif
+   if (!screen)
       goto no_screen;
 
    return screen;
