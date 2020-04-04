@@ -2477,7 +2477,9 @@ struct anv_push_constants {
    uint32_t dynamic_offsets[MAX_DYNAMIC_BUFFERS];
 
    /** Pad out to a multiple of 32 bytes */
-   uint32_t push_ubo_sizes[4];
+   uint64_t push_reg_mask;
+
+   uint32_t pad[2];
 
    struct {
       /** Base workgroup ID
