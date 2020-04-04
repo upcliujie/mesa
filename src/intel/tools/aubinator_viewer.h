@@ -73,6 +73,7 @@ struct aub_viewer_decode_ctx {
    void (*display_shader)(void *user_data, const char *shader_desc, uint64_t address);
    void (*display_urb)(void *user_data, const struct aub_decode_urb_stage_state *stages);
    void (*edit_address)(void *user_data, uint64_t address, uint32_t length);
+   void (*run_up_to)(void *user, uint64_t address, bool ppgtt);
 
    void *user_data;
 

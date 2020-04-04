@@ -53,7 +53,8 @@ aub_viewer_decode_ctx_init(struct aub_viewer_decode_ctx *ctx,
 static void
 aub_viewer_print_group(struct aub_viewer_decode_ctx *ctx,
                        struct gen_group *group,
-                       uint64_t address, const void *map)
+                       uint64_t address, bool ppgtt,
+                       const void *map)
 {
    struct gen_field_iterator iter;
    int last_dword = -1;
@@ -83,11 +84,19 @@ aub_viewer_print_group(struct aub_viewer_decode_ctx *ctx,
             if (iter.struct_desc) {
                int struct_dword = iter.start_bit / 32;
                uint64_t struct_address = address + 4 * struct_dword;
-               aub_viewer_print_group(ctx, iter.struct_desc, struct_address,
+               aub_viewer_print_group(ctx, iter.struct_desc, struct_address, ppgtt,
                                       &p[struct_dword]);
             }
          }
       }
+   }
+
+   /* !group->fixed_length means this is an instruction. */
+   if (!group->fixed_length && ctx->run_up_to) {
+      char button[40];
+      snprintf(button, sizeof(button), "Advance to 0x%012" PRIx64, address);
+      if (ImGui::Button(button))
+         ctx->run_up_to(ctx->user_data, address, ppgtt);
    }
 }
 
@@ -241,7 +250,7 @@ dump_binding_table(struct aub_viewer_decode_ctx *ctx, uint32_t offset, int count
       const uint8_t *state = (const uint8_t *) bo.map + (addr - bo.addr);
       if (ImGui::TreeNodeEx(&pointers[i], ImGuiTreeNodeFlags_Framed,
                             "pointer %u: %012x", i, pointers[i])) {
-         aub_viewer_print_group(ctx, strct, addr, state);
+         aub_viewer_print_group(ctx, strct, addr, true /* ppgtt */, state);
          ImGui::TreePop();
       }
    }
@@ -273,7 +282,7 @@ dump_samplers(struct aub_viewer_decode_ctx *ctx, uint32_t offset, int count)
    for (int i = 0; i < count; i++) {
       if (ImGui::TreeNodeEx(state_map, ImGuiTreeNodeFlags_Framed,
                             "sampler state %d", i)) {
-         aub_viewer_print_group(ctx, strct, state_addr, state_map);
+         aub_viewer_print_group(ctx, strct, state_addr, true /* ppgtt */, state_map);
          ImGui::TreePop();
       }
       state_addr += 16;
@@ -315,7 +324,7 @@ handle_media_interface_descriptor_load(struct aub_viewer_decode_ctx *ctx,
    for (int i = 0; i < descriptor_count; i++) {
       ImGui::Text("descriptor %d: %012x", i, descriptor_offset);
 
-      aub_viewer_print_group(ctx, desc, desc_addr, desc_map);
+      aub_viewer_print_group(ctx, desc, desc_addr, true /* ppgtt */, desc_map);
 
       gen_field_iterator_init(&iter, desc, desc_map, 0, false);
       uint64_t ksp = 0;
@@ -667,7 +676,7 @@ decode_dynamic_state_pointers(struct aub_viewer_decode_ctx *ctx,
        * BLEND_STATE_ENTRY structs.
        */
       ImGui::Text("%s", struct_type);
-      aub_viewer_print_group(ctx, state, state_addr, state_map);
+      aub_viewer_print_group(ctx, state, state_addr, true /* ppgtt */, state_map);
 
       state_addr += state->dw_length * 4;
       state_map += state->dw_length * 4;
@@ -678,7 +687,7 @@ decode_dynamic_state_pointers(struct aub_viewer_decode_ctx *ctx,
 
    for (int i = 0; i < count; i++) {
       ImGui::Text("%s %d", struct_type, i);
-      aub_viewer_print_group(ctx, state, state_addr, state_map);
+      aub_viewer_print_group(ctx, state, state_addr, true /* ppgtt */, state_map);
 
       state_addr += state->dw_length * 4;
       state_map += state->dw_length * 4;
@@ -736,7 +745,7 @@ decode_load_register_imm(struct aub_viewer_decode_ctx *ctx,
        ImGui::TreeNodeEx(&p[1], ImGuiTreeNodeFlags_Framed,
                          "%s (0x%x) = 0x%x",
                          reg->name, reg->register_offset, p[2])) {
-      aub_viewer_print_group(ctx, reg, reg->register_offset, &p[2]);
+      aub_viewer_print_group(ctx, reg, reg->register_offset, false /* ppgtt */, &p[2]);
       ImGui::TreePop();
    }
 }
@@ -946,7 +955,7 @@ aub_viewer_render_batch(struct aub_viewer_decode_ctx *ctx,
                             ImGuiTreeNodeFlags_Framed,
                             "0x%012" PRIx64 ":  %s",
                             offset, inst->name)) {
-         aub_viewer_print_group(ctx, inst, offset, p);
+         aub_viewer_print_group(ctx, inst, offset, !from_ring /* ppgtt */, p);
 
          for (unsigned i = 0; i < ARRAY_SIZE(display_decoders); i++) {
             if (strcmp(inst_name, display_decoders[i].cmd_name) == 0) {
