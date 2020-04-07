@@ -1763,6 +1763,8 @@ void st_init_extensions(struct pipe_screen *screen,
       spirv_caps->variable_pointers          =
          screen->get_param(screen, PIPE_CAP_GL_SPIRV_VARIABLE_POINTERS);
       spirv_caps->integer_functions2         = extensions->INTEL_shader_integer_functions2;
+      spirv_caps->storage_image_ms           = consts->MaxImageSamples > 1;
+      spirv_caps->image_ms_array             = consts->MaxImageSamples > 1;
 
       consts->SpirVExtensions = CALLOC_STRUCT(spirv_supported_extensions);
       _mesa_fill_supported_spirv_extensions(consts->SpirVExtensions, spirv_caps);
