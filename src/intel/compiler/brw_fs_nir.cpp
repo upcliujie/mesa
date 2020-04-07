@@ -4476,31 +4476,54 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       break;
    }
 
-   case nir_intrinsic_load_global: {
+   case nir_intrinsic_load_global:
+   case nir_intrinsic_load_global_predicated: {
       assert(devinfo->gen >= 8);
 
+      if (instr->intrinsic == nir_intrinsic_load_global_predicated) {
+         /* Move the predicate to the flag */
+         fs_reg pred = retype(get_nir_src(instr->src[1]), BRW_REGISTER_TYPE_D);
+         set_condmod(BRW_CONDITIONAL_NZ, bld.MOV(bld.null_reg_d(), pred));
+
+         /* Copy in the default, if any */
+         if (!nir_src_is_undef(instr->src[2])) {
+            fs_reg dflt = get_nir_src(instr->src[2]);
+            for (unsigned i = 0; i < instr->num_components; i++)
+               bld.MOV(offset(dest, bld, i), offset(dflt, bld, i));
+         }
+      }
+
+      fs_inst *inst;
       assert(nir_dest_bit_size(instr->dest) <= 32);
       assert(nir_intrinsic_align(instr) > 0);
       if (nir_dest_bit_size(instr->dest) == 32 &&
           nir_intrinsic_align(instr) >= 4) {
          assert(nir_dest_num_components(instr->dest) <= 4);
-         fs_inst *inst = bld.emit(SHADER_OPCODE_A64_UNTYPED_READ_LOGICAL,
-                                  dest,
-                                  get_nir_src(instr->src[0]), /* Address */
-                                  fs_reg(), /* No source data */
-                                  brw_imm_ud(instr->num_components));
+         inst = bld.emit(SHADER_OPCODE_A64_UNTYPED_READ_LOGICAL,
+                         dest,
+                         get_nir_src(instr->src[0]), /* Address */
+                         fs_reg(), /* No source data */
+                         brw_imm_ud(instr->num_components));
          inst->size_written = instr->num_components *
                               inst->dst.component_size(inst->exec_size);
+
+         if (instr->intrinsic == nir_intrinsic_load_global_predicated)
+            inst->predicate = BRW_PREDICATE_NORMAL;
       } else {
          const unsigned bit_size = nir_dest_bit_size(instr->dest);
          assert(nir_dest_num_components(instr->dest) == 1);
          fs_reg tmp = bld.vgrf(BRW_REGISTER_TYPE_UD);
-         bld.emit(SHADER_OPCODE_A64_BYTE_SCATTERED_READ_LOGICAL,
-                  tmp,
-                  get_nir_src(instr->src[0]), /* Address */
-                  fs_reg(), /* No source data */
-                  brw_imm_ud(bit_size));
-         bld.MOV(dest, subscript(tmp, dest.type, 0));
+         inst = bld.emit(SHADER_OPCODE_A64_BYTE_SCATTERED_READ_LOGICAL,
+                         tmp,
+                         get_nir_src(instr->src[0]), /* Address */
+                         fs_reg(), /* No source data */
+                         brw_imm_ud(bit_size));
+         if (instr->intrinsic == nir_intrinsic_load_global_predicated)
+            inst->predicate = BRW_PREDICATE_NORMAL;
+
+         inst = bld.MOV(dest, subscript(tmp, dest.type, 0));
+         if (instr->intrinsic == nir_intrinsic_load_global_predicated)
+            inst->predicate = BRW_PREDICATE_NORMAL;
       }
       break;
    }

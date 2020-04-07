@@ -880,6 +880,13 @@ nir_src_is_const(nir_src src)
           src.ssa->parent_instr->type == nir_instr_type_load_const;
 }
 
+static inline bool
+nir_src_is_undef(nir_src src)
+{
+   return src.is_ssa &&
+          src.ssa->parent_instr->type == nir_instr_type_ssa_undef;
+}
+
 static inline unsigned
 nir_dest_bit_size(nir_dest dest)
 {
