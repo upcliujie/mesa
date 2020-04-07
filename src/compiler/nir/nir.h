@@ -4400,7 +4400,7 @@ bool nir_opt_rematerialize_compares(nir_shader *shader);
 bool nir_opt_remove_phis(nir_shader *shader);
 bool nir_opt_remove_phis_block(nir_block *block);
 
-bool nir_opt_shrink_load(nir_shader *shader);
+bool nir_opt_shrink_load(nir_shader *shader, nir_variable_mode modes);
 
 bool nir_opt_trivial_continues(nir_shader *shader);
 

@@ -23,8 +23,27 @@
 
 #include "nir.h"
 
+static nir_variable_mode
+load_intrin_to_mode(nir_intrinsic_op op)
+{
+   switch (op) {
+   case nir_intrinsic_load_ubo:
+      return nir_var_mem_ubo;
+   case nir_intrinsic_load_ssbo:
+      return nir_var_mem_ssbo;
+   case nir_intrinsic_load_shared:
+      return nir_var_mem_shared;
+   case nir_intrinsic_load_global:
+      return nir_var_mem_global;
+   case nir_intrinsic_load_push_constant:
+      return nir_var_mem_push_const;
+   default:
+      return 0;
+   }
+}
+
 static bool
-opt_shrink_load_impl(nir_function_impl *impl)
+opt_shrink_load_impl(nir_function_impl *impl, nir_variable_mode modes)
 {
    bool progress = false;
 
@@ -34,7 +53,7 @@ opt_shrink_load_impl(nir_function_impl *impl)
             continue;
 
          nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
-         if (intrin->intrinsic != nir_intrinsic_load_push_constant)
+         if (!(modes & load_intrin_to_mode(intrin->intrinsic)))
             continue;
 
          unsigned mask = nir_ssa_def_components_read(&intrin->dest.ssa);
@@ -60,12 +79,12 @@ opt_shrink_load_impl(nir_function_impl *impl)
 }
 
 bool
-nir_opt_shrink_load(nir_shader *shader)
+nir_opt_shrink_load(nir_shader *shader, nir_variable_mode modes)
 {
    bool progress = false;
 
    nir_foreach_function(function, shader) {
-      if (!function->impl && opt_shrink_load_impl(function->impl))
+      if (!function->impl && opt_shrink_load_impl(function->impl, modes))
          progress = true;
    }
 
