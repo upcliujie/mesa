@@ -1617,4 +1617,7 @@ TU_DEFINE_NONDISP_HANDLE_CASTS(tu_shader_module, VkShaderModule)
 /* for TU_FROM_HANDLE with both VkFence and VkSemaphore: */
 #define tu_syncobj_from_handle(x) ((struct tu_syncobj*) (uintptr_t) (x))
 
+/* Our buffer size fields allow only this much */
+#define TU_MAX_MEMORY_ALLOCATION_SIZE 0xFFFFFFFFull
+
 #endif /* TU_PRIVATE_H */

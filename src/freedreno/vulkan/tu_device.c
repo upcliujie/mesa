@@ -637,7 +637,7 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
       .maxMemoryAllocationCount = UINT32_MAX,
       .maxSamplerAllocationCount = 64 * 1024,
       .bufferImageGranularity = 64,          /* A cache line */
-      .sparseAddressSpaceSize = 0xffffffffu, /* buffer max size */
+      .sparseAddressSpaceSize = TU_MAX_MEMORY_ALLOCATION_SIZE, /* buffer max size */
       .maxBoundDescriptorSets = MAX_SETS,
       .maxPerStageDescriptorSamplers = max_descriptor_set_size,
       .maxPerStageDescriptorUniformBuffers = max_descriptor_set_size,
@@ -784,7 +784,7 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
           * our largest descriptors are 96 bytes. */
          properties->maxPerSetDescriptors = (1ull << 31) / 96;
          /* Our buffer size fields allow only this much */
-         properties->maxMemoryAllocationSize = 0xFFFFFFFFull;
+         properties->maxMemoryAllocationSize = TU_MAX_MEMORY_ALLOCATION_SIZE;
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT: {
