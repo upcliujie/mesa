@@ -1723,6 +1723,20 @@ tu_CreateBuffer(VkDevice _device,
    TU_FROM_HANDLE(tu_device, device, _device);
    struct tu_buffer *buffer;
 
+   /* It is possible to create a buffer with a size bigger than the
+    * maximum allocation size supported by the device. However, when
+    * checking its memory requirements via
+    * vkGetBufferMemoryRequirements(), if the buffer size is equal than
+    * UINT64_MAX, the buffer size will be wrapped to 0 when it is
+    * aligned.
+    *
+    * To avoid that, we don't allow the creation of buffers whose size
+    * is bigger than the maximum allocation size supported by the
+    * device.
+    */
+   if (pCreateInfo->size > TU_MAX_MEMORY_ALLOCATION_SIZE)
+      return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
 
    buffer = vk_object_alloc(&device->vk, pAllocator, sizeof(*buffer),
