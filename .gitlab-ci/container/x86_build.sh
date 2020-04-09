@@ -228,7 +228,6 @@ apt-get purge -y \
       automake \
       autotools-dev \
       cmake \
-      git \
       gnupg \
       libgbm-dev \
       libtool \
