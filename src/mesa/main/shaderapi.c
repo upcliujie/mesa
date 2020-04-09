@@ -155,6 +155,14 @@ _mesa_get_shader_flags(void)
    return flags;
 }
 
+#define ANDROID_SHADER_CAPTURE 0
+
+#if ANDROID_SHADER_CAPTURE
+#include "util/u_process.h"
+#include <sys/stat.h>
+#include <sys/types.h>
+#endif
+
 /**
  * Memoized version of getenv("MESA_SHADER_CAPTURE_PATH").
  */
@@ -167,6 +175,15 @@ _mesa_get_shader_capture_path(void)
    if (!read_env_var) {
       path = getenv("MESA_SHADER_CAPTURE_PATH");
       read_env_var = true;
+
+#if ANDROID_SHADER_CAPTURE
+      if (!path) {
+         char *p;
+         asprintf(&p, "/data/shaders/%s", util_get_process_name());
+         mkdir(p, 0755);
+         path = p;
+      }
+#endif
    }
 
    return path;
@@ -1382,7 +1399,9 @@ link_program(struct gl_context *ctx, struct gl_shader_program *shProg,
                     _mesa_shader_stage_to_string(shProg->Shaders[i]->Stage),
                     shProg->Shaders[i]->Source);
          }
+         fflush(file);
          fclose(file);
+         sync();
       } else {
          _mesa_warning(ctx, "Failed to open %s", filename);
       }
