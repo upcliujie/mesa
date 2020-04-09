@@ -30,4 +30,7 @@ export WAFFLE_PLATFORM="surfaceless_egl"
 MESA_VERSION=$(cat "$INSTALL/VERSION" | sed 's/\./\\./g')
 wflinfo --platform surfaceless_egl --api gles2 | grep "Mesa $MESA_VERSION\(\s\|$\)"
 
+tracie_store_images=$(cat "$INSTALL/tracie-store-images" 2> /dev/null || true)
+[ "$tracie_store_images" = "1" ] && export TRACIE_STORE_IMAGES=1
+
 python3 "$INSTALL/tracie/tracie.py" --file "$INSTALL/traces.yml" --device-name "$DEVICE_NAME"

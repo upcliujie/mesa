@@ -29,6 +29,7 @@ cp -Rp .gitlab-ci/traces.yml install/
 cp -Rp .gitlab-ci/tracie install/
 cp -Rp .gitlab-ci/tracie-runner-gl.sh install/
 cp -Rp .gitlab-ci/tracie-runner-vk.sh install/
+.gitlab-ci/tracie-should-store-images.sh && echo "1" > install/tracie-store-images
 cp -Rp .gitlab-ci/fossils.yml install/
 cp -Rp .gitlab-ci/fossils install/
 cp -Rp .gitlab-ci/fossilize-runner.sh install/

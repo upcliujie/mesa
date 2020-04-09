@@ -28,6 +28,9 @@ export DXVK_STATE_CACHE=0
 MESA_VERSION=$(cat "$INSTALL/VERSION" | sed 's/\./\\./g')
 vulkaninfo | grep "Mesa $MESA_VERSION\(\s\|$\)"
 
+tracie_store_images=$(cat "$INSTALL/tracie-store-images" 2> /dev/null || true)
+[ "$tracie_store_images" = "1" ] && export TRACIE_STORE_IMAGES=1
+
 # Run gfxreconstruct traces against the host's running X server (xvfb
 # doesn't have DRI3 support).
 # Set the DISPLAY env variable in each gitlab-runner's configuration
