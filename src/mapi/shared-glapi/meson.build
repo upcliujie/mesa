@@ -57,7 +57,7 @@ libglapi = shared_library(
   dependencies : [dep_thread, dep_selinux],
   soversion : host_machine.system() == 'windows' ? '' : '0',
   version : '0.0.0',
-  name_prefix : 'lib',
+  name_prefix : host_machine.system() == 'windows' ? 'lib' : [],
   install : true,
 )
 
