@@ -2005,12 +2005,8 @@ fs_visitor::split_virtual_grfs()
    foreach_block_and_inst(block, fs_inst, inst, cfg) {
       /* We fix up undef instructions later */
       if (inst->opcode == SHADER_OPCODE_UNDEF) {
-         /* UNDEF instructions are currently only used to undef entire
-          * registers.  We need this invariant later when we split them.
-          */
+         /* UNDEF instructions are only allowed on VGRFs */
          assert(inst->dst.file == VGRF);
-         assert(inst->dst.offset == 0);
-         assert(inst->size_written == alloc.sizes[inst->dst.nr] * REG_SIZE);
          continue;
       }
 
@@ -2070,11 +2066,21 @@ fs_visitor::split_virtual_grfs()
       if (inst->opcode == SHADER_OPCODE_UNDEF) {
          const fs_builder ibld(this, block, inst);
          assert(inst->size_written % REG_SIZE == 0);
-         unsigned reg_offset = 0;
-         while (reg_offset < inst->size_written / REG_SIZE) {
-            reg = vgrf_to_reg[inst->dst.nr] + reg_offset;
-            ibld.UNDEF(fs_reg(VGRF, new_virtual_grf[reg], inst->dst.type));
-            reg_offset += alloc.sizes[new_virtual_grf[reg]];
+         unsigned offset = inst->dst.offset;
+         while (offset < inst->dst.offset + inst->size_written) {
+            reg = vgrf_to_reg[inst->dst.nr] + offset / REG_SIZE;
+
+            fs_reg dst(VGRF, new_virtual_grf[reg], inst->dst.type);
+            dst.offset = new_reg_offset[reg] * REG_SIZE + offset % REG_SIZE;
+
+            assert(dst.offset < alloc.sizes[new_virtual_grf[reg]] * REG_SIZE);
+            unsigned undef_size =
+               MIN2(inst->dst.offset + inst->size_written - offset,
+                    alloc.sizes[new_virtual_grf[reg]] * REG_SIZE - dst.offset);
+
+            ibld.UNDEF(dst, undef_size);
+
+            offset += alloc.sizes[new_virtual_grf[reg]] * REG_SIZE;
          }
          inst->remove(block);
          continue;
