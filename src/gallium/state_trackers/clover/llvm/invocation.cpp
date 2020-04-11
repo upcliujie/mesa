@@ -200,8 +200,10 @@ namespace {
       // Parse the compiler options.  A file name should be present at the end
       // and must have the .cl extension in order for the CompilerInvocation
       // class to recognize it as an OpenCL source file.
-      const std::vector<const char *> copts =
+      std::vector<const char *> copts =
          map(std::mem_fn(&std::string::c_str), opts);
+
+      compat::add_device_compiler_opts(copts, dev);
 
       const target &target = ir_target;
       const std::string &device_clc_version = dev.device_clc_version();

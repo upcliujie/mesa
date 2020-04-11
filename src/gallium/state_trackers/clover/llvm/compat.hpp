@@ -209,6 +209,18 @@ namespace clover {
                dl.getSmallestLegalIntType(mod.getContext(), arg_store_size * 8);
 #endif
          }
+
+         template<typename T, typename D>
+         void add_device_compiler_opts(T& opts, const D& device) {
+#if LLVM_VERSION_MAJOR >= 11
+           if (device.has_fp32_denormals())
+	      opts.push_back("-fdenormal-fp-math-f32=ieee,ieee");
+	   else
+	      opts.push_back("-fdenormal-fp-math-f32=preserve-sign,preserve-sign");
+           // Denormal handling is required for fp64
+           opts.push_back("-fdenormal-fp-math=ieee,ieee");
+#endif
+	 }
       }
    }
 }
