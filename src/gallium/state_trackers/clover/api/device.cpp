@@ -225,7 +225,8 @@ clGetDeviceInfo(cl_device_id d_dev, cl_device_info param,
       // capability" for OpenCL 1.1.  In OpenCL 1.2, nothing is required for
       // custom devices.
       buf.as_scalar<cl_device_fp_config>() =
-         CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST;
+         CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST
+	 | (dev.has_fp32_denormals() ? CL_FP_DENORM : 0);
       break;
 
    case CL_DEVICE_DOUBLE_FP_CONFIG:

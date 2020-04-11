@@ -199,6 +199,12 @@ device::has_doubles() const {
 }
 
 bool
+device::has_fp32_denormals() const {
+   // libclc is not ready for fp32 denormals even if device supports them
+   return false;
+}
+
+bool
 device::has_halves() const {
    return pipe->get_shader_param(pipe, PIPE_SHADER_COMPUTE,
                                  PIPE_SHADER_CAP_FP16);
