@@ -10,7 +10,7 @@ cd /piglit
 PIGLIT_OPTIONS=$(echo $PIGLIT_OPTIONS | head -n 1)
 xvfb-run --server-args="-noreset" sh -c \
          "export LD_LIBRARY_PATH=$OLDPWD/install/lib;
-         wflinfo --platform glx --api gl --profile core | grep \"Mesa $VERSION\\\$\" &&
+         wflinfo --platform glx --api gl --profile core | grep -E \"Mesa $VERSION(\\\$|\\s)\" &&
          ./piglit run -j4 $PIGLIT_OPTIONS $PIGLIT_PROFILES $OLDPWD/results"
 
 PIGLIT_RESULTS=${PIGLIT_RESULTS:-$PIGLIT_PROFILES}
