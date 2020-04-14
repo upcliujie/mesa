@@ -548,6 +548,7 @@ meson-s390x:
     # For unknown reasons "too many" installed i386 libraries cause qemu to
     # crash while executing llvm-config for s390x.
     - apt-get remove -y libglib2.0-0:i386
+    - apt-get autoremove -y
     - dpkg -i /var/cache/apt/archives/$CROSS/*.deb
     - .gitlab-ci/meson-build.sh
 
