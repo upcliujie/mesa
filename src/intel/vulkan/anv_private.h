@@ -3152,9 +3152,12 @@ anv_shader_bin_unref(struct anv_device *device, struct anv_shader_bin *shader)
 }
 
 struct anv_pipeline_executable {
-   gl_shader_stage stage;
+   VkShaderStageFlags stages;
 
-   struct brw_compile_stats stats;
+   const char *name;
+   const char *description;
+
+   const struct brw_compile_stats *stats;
 
    char *nir;
    char *disasm;

@@ -1133,8 +1133,8 @@ anv_pipeline_add_executable(struct anv_pipeline *pipeline,
    }
 
    const struct anv_pipeline_executable exe = {
-      .stage = stage->stage,
-      .stats = *stats,
+      .stages = mesa_to_vk_shader_stage(stage->stage),
+      .stats = stats,
       .nir = nir,
       .disasm = disasm,
    };
@@ -2117,27 +2117,39 @@ VkResult anv_GetPipelineExecutablePropertiesKHR(
 
    util_dynarray_foreach (&pipeline->executables, struct anv_pipeline_executable, exe) {
       vk_outarray_append(&out, props) {
-         gl_shader_stage stage = exe->stage;
-         props->stages = mesa_to_vk_shader_stage(stage);
+         props->stages = exe->stages;
 
-         unsigned simd_width = exe->stats.dispatch_width;
-         if (stage == MESA_SHADER_FRAGMENT) {
-            WRITE_STR(props->name, "%s%d %s",
+         if (exe->name != NULL) {
+            assert(exe->description != NULL);
+            WRITE_STR(props->name, "%s", exe->name);
+            WRITE_STR(props->description, "%s", exe->description);
+         } else {
+            /* Determine the name from the stage and stats */
+            gl_shader_stage stage = vk_to_mesa_shader_stage(exe->stages);
+            assert(exe->stats != NULL);
+            unsigned simd_width = exe->stats->dispatch_width;
+            if (stage == MESA_SHADER_FRAGMENT) {
+               WRITE_STR(props->name, "%s%d %s",
+                         simd_width ? "SIMD" : "vec",
+                         simd_width ? simd_width : 4,
+                         _mesa_shader_stage_to_string(stage));
+            } else {
+               WRITE_STR(props->name, "%s", _mesa_shader_stage_to_string(stage));
+            }
+            WRITE_STR(props->description, "%s%d %s shader",
                       simd_width ? "SIMD" : "vec",
                       simd_width ? simd_width : 4,
                       _mesa_shader_stage_to_string(stage));
-         } else {
-            WRITE_STR(props->name, "%s", _mesa_shader_stage_to_string(stage));
          }
-         WRITE_STR(props->description, "%s%d %s shader",
-                   simd_width ? "SIMD" : "vec",
-                   simd_width ? simd_width : 4,
-                   _mesa_shader_stage_to_string(stage));
 
-         /* The compiler gives us a dispatch width of 0 for vec4 but Vulkan
-          * wants a subgroup size of 1.
-          */
-         props->subgroupSize = MAX2(simd_width, 1);
+         if (exe->stats != NULL) {
+            /* The compiler gives us a dispatch width of 0 for vec4 but Vulkan
+             * wants a subgroup size of 1.
+             */
+            props->subgroupSize = MAX2(exe->stats->dispatch_width, 1);
+         } else {
+            props->subgroupSize = 0;
+         }
       }
    }
 
@@ -2165,10 +2177,14 @@ VkResult anv_GetPipelineExecutableStatisticsKHR(
    const struct anv_pipeline_executable *exe =
       anv_pipeline_get_executable(pipeline, pExecutableInfo->executableIndex);
 
+   if (exe->stats == NULL)
+      return vk_outarray_status(&out);
+
    const struct brw_stage_prog_data *prog_data;
    switch (pipeline->type) {
    case ANV_PIPELINE_GRAPHICS: {
-      prog_data = anv_pipeline_to_graphics(pipeline)->shaders[exe->stage]->prog_data;
+      gl_shader_stage stage = vk_to_mesa_shader_stage(exe->stages);
+      prog_data = anv_pipeline_to_graphics(pipeline)->shaders[stage]->prog_data;
       break;
    }
    case ANV_PIPELINE_COMPUTE: {
@@ -2185,7 +2201,7 @@ VkResult anv_GetPipelineExecutableStatisticsKHR(
                 "Number of GEN instructions in the final generated "
                 "shader executable.");
       stat->format = VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR;
-      stat->value.u64 = exe->stats.instructions;
+      stat->value.u64 = exe->stats->instructions;
    }
 
    vk_outarray_append(&out, stat) {
@@ -2195,7 +2211,7 @@ VkResult anv_GetPipelineExecutableStatisticsKHR(
                 "executable which access external units such as the "
                 "constant cache or the sampler.");
       stat->format = VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR;
-      stat->value.u64 = exe->stats.sends;
+      stat->value.u64 = exe->stats->sends;
    }
 
    vk_outarray_append(&out, stat) {
@@ -2204,7 +2220,7 @@ VkResult anv_GetPipelineExecutableStatisticsKHR(
                 "Number of loops (not unrolled) in the final generated "
                 "shader executable.");
       stat->format = VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR;
-      stat->value.u64 = exe->stats.loops;
+      stat->value.u64 = exe->stats->loops;
    }
 
    vk_outarray_append(&out, stat) {
@@ -2214,7 +2230,7 @@ VkResult anv_GetPipelineExecutableStatisticsKHR(
                 "the final generated executable.  This is an estimate only "
                 "and may vary greatly from actual run-time performance.");
       stat->format = VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR;
-      stat->value.u64 = exe->stats.cycles;
+      stat->value.u64 = exe->stats->cycles;
    }
 
    vk_outarray_append(&out, stat) {
@@ -2225,7 +2241,7 @@ VkResult anv_GetPipelineExecutableStatisticsKHR(
                 "values to memory.  If this is non-zero, you may want to "
                 "adjust your shader to reduce register pressure.");
       stat->format = VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR;
-      stat->value.u64 = exe->stats.spills;
+      stat->value.u64 = exe->stats->spills;
    }
 
    vk_outarray_append(&out, stat) {
@@ -2236,7 +2252,7 @@ VkResult anv_GetPipelineExecutableStatisticsKHR(
                 "values to memory.  If this is non-zero, you may want to "
                 "adjust your shader to reduce register pressure.");
       stat->format = VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR;
-      stat->value.u64 = exe->stats.fills;
+      stat->value.u64 = exe->stats->fills;
    }
 
    vk_outarray_append(&out, stat) {
@@ -2250,7 +2266,7 @@ VkResult anv_GetPipelineExecutableStatisticsKHR(
       stat->value.u64 = prog_data->total_scratch;
    }
 
-   if (exe->stage == MESA_SHADER_COMPUTE) {
+   if (pipeline->type == ANV_PIPELINE_COMPUTE) {
       vk_outarray_append(&out, stat) {
          WRITE_STR(stat->name, "Workgroup Memory Size");
          WRITE_STR(stat->description,
