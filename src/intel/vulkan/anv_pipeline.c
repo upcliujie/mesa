@@ -1174,6 +1174,46 @@ anv_pipeline_add_executables(struct anv_pipeline *pipeline,
    }
 }
 
+
+void
+anv_pipeline_add_batch_executable(struct anv_pipeline *pipeline)
+{
+   struct anv_device *device = pipeline->device;
+
+   char *batch_str = NULL;
+   if (pipeline->flags &
+       VK_PIPELINE_CREATE_CAPTURE_INTERNAL_REPRESENTATIONS_BIT_KHR) {
+      char *stream_data = NULL;
+      size_t stream_size = 0;
+      FILE *stream = open_memstream(&stream_data, &stream_size);
+
+      device->cmd_buffer_being_decoded = NULL;
+      device->decoder_ctx.fp = stream;
+      gen_print_batch(&device->decoder_ctx,
+                      pipeline->batch.start,
+                      pipeline->batch.next - pipeline->batch.start,
+                      0, false);
+
+      fclose(stream);
+
+      /* Copy it to a ralloc'd thing */
+      batch_str = ralloc_size(pipeline->mem_ctx, stream_size + 1);
+      memcpy(batch_str, stream_data, stream_size);
+      batch_str[stream_size] = 0;
+
+      free(stream_data);
+   }
+
+   const struct anv_pipeline_executable exe = {
+      .stages = 0,
+      .name = "State Commands",
+      .description = "Command buffer fragment that sets up the pipeline",
+      .batch = batch_str,
+   };
+   util_dynarray_append(&pipeline->executables,
+                        struct anv_pipeline_executable, exe);
+}
+
 static void
 anv_pipeline_init_from_cached_graphics(struct anv_graphics_pipeline *pipeline)
 {
@@ -2333,6 +2373,17 @@ VkResult anv_GetPipelineExecutableInternalRepresentationsKHR(
                    "Final GEN assembly for the generated shader binary");
 
          if (!write_ir_text(ir, exe->disasm))
+            incomplete_text = true;
+      }
+   }
+
+   if (exe->batch) {
+      vk_outarray_append(&out, ir) {
+         WRITE_STR(ir->name, "State Commands");
+         WRITE_STR(ir->description,
+                   "Command buffer fragment that sets up the pipeline");
+
+         if (!write_ir_text(ir, exe->batch))
             incomplete_text = true;
       }
    }

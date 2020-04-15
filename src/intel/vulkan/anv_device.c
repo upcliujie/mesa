@@ -2666,6 +2666,7 @@ VkResult anv_CreateDevice(
 
    /* Check enabled features */
    bool robust_buffer_access = false;
+   bool pipeline_executable_properties = false;
    if (pCreateInfo->pEnabledFeatures) {
       result = check_physical_device_features(physicalDevice,
                                               pCreateInfo->pEnabledFeatures);
@@ -2687,6 +2688,13 @@ VkResult anv_CreateDevice(
 
          if (features->features.robustBufferAccess)
             robust_buffer_access = true;
+         break;
+      }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR: {
+         const VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR *features = (const void *)ext;
+         if (features->pipelineExecutableInfo)
+            pipeline_executable_properties = true;
          break;
       }
 
@@ -2720,7 +2728,7 @@ VkResult anv_CreateDevice(
    if (!device)
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   if (INTEL_DEBUG & DEBUG_BATCH) {
+   if (pipeline_executable_properties || (INTEL_DEBUG & DEBUG_BATCH)) {
       const unsigned decode_flags =
          GEN_BATCH_DECODE_FULL |
          ((INTEL_DEBUG & DEBUG_COLOR) ? GEN_BATCH_DECODE_IN_COLOR : 0) |
@@ -2810,6 +2818,7 @@ VkResult anv_CreateDevice(
    device->can_chain_batches = device->info.gen >= 8;
 
    device->robust_buffer_access = robust_buffer_access;
+   device->pipeline_executable_properties = pipeline_executable_properties;
    device->enabled_extensions = enabled_extensions;
 
    anv_device_init_dispatch(device);
@@ -3033,7 +3042,7 @@ void anv_DestroyDevice(
 
    anv_gem_destroy_context(device, device->context_id);
 
-   if (INTEL_DEBUG & DEBUG_BATCH)
+   if (device->pipeline_executable_properties || (INTEL_DEBUG & DEBUG_BATCH))
       gen_batch_decode_ctx_finish(&device->decoder_ctx);
 
    close(device->fd);

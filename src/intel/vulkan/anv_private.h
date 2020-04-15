@@ -1271,6 +1271,7 @@ struct anv_device {
     int                                         fd;
     bool                                        can_chain_batches;
     bool                                        robust_buffer_access;
+    bool                                        pipeline_executable_properties;
     struct anv_device_extension_table           enabled_extensions;
     struct anv_device_dispatch_table            dispatch;
 
@@ -3161,6 +3162,7 @@ struct anv_pipeline_executable {
 
    char *nir;
    char *disasm;
+   char *batch;
 };
 
 enum anv_pipeline_type {
@@ -3317,6 +3319,8 @@ anv_pipeline_compile_cs(struct anv_compute_pipeline *pipeline,
                         const struct anv_shader_module *module,
                         const char *entrypoint,
                         const VkSpecializationInfo *spec_info);
+
+void anv_pipeline_add_batch_executable(struct anv_pipeline *pipeline);
 
 uint32_t
 anv_cs_workgroup_size(const struct anv_compute_pipeline *pipeline);

@@ -2245,6 +2245,8 @@ genX(graphics_pipeline_create)(
 #endif
    emit_3dstate_vf_statistics(pipeline);
 
+   anv_pipeline_add_batch_executable(&pipeline->base);
+
    *pPipeline = anv_pipeline_to_handle(&pipeline->base);
 
    return pipeline->base.batch.status;
@@ -2412,6 +2414,8 @@ compute_pipeline_create(
    GENX(INTERFACE_DESCRIPTOR_DATA_pack)(NULL,
                                         pipeline->interface_descriptor_data,
                                         &desc);
+
+   anv_pipeline_add_batch_executable(&pipeline->base);
 
    *pPipeline = anv_pipeline_to_handle(&pipeline->base);
 

@@ -1662,13 +1662,16 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
          struct anv_batch_bo **bo = u_vector_tail(&submit->cmd_buffer->seen_bbos);
 
          device->cmd_buffer_being_decoded = submit->cmd_buffer;
+         device->decoder_ctx.fp = stderr;
          gen_print_batch(&device->decoder_ctx, (*bo)->bo->map,
                          (*bo)->bo->size, (*bo)->bo->offset, false);
          device->cmd_buffer_being_decoded = NULL;
       } else if (submit->simple_bo) {
+         device->decoder_ctx.fp = stderr;
          gen_print_batch(&device->decoder_ctx, submit->simple_bo->map,
                          submit->simple_bo->size, submit->simple_bo->offset, false);
       } else {
+         device->decoder_ctx.fp = stderr;
          gen_print_batch(&device->decoder_ctx,
                          device->trivial_batch_bo->map,
                          device->trivial_batch_bo->size,
