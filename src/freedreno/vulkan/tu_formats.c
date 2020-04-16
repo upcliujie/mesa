@@ -550,10 +550,6 @@ tu_get_image_format_properties(
    if (format_feature_flags == 0)
       goto unsupported;
 
-   if (info->type != VK_IMAGE_TYPE_2D &&
-       vk_format_is_depth_or_stencil(info->format))
-      goto unsupported;
-
    switch (info->type) {
    default:
       unreachable("bad vkimage type\n");
