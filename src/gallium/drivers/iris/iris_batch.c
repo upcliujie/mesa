@@ -440,7 +440,8 @@ void
 iris_batch_maybe_flush(struct iris_batch *batch, unsigned estimate)
 {
    if (batch->bo != batch->exec_bos[0] ||
-       iris_batch_bytes_used(batch) + estimate >= BATCH_SZ) {
+       iris_batch_bytes_used(batch) + estimate >= BATCH_SZ ||
+       unlikely(batch->screen->driconf.always_flush_batch)) {
       iris_batch_flush(batch);
    }
 }
