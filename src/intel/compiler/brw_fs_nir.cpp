@@ -1871,14 +1871,31 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       inst = bld.LRP(result, op[0], op[1], op[2]);
       break;
 
-   case nir_op_b32csel:
+   case nir_op_b32csel: {
       if (optimize_frontfacing_ternary(instr, result))
          return;
 
-      bld.CMP(bld.null_reg_d(), op[0], brw_imm_d(0), BRW_CONDITIONAL_NZ);
-      inst = bld.SEL(result, op[1], op[2]);
-      inst->predicate = BRW_PREDICATE_NORMAL;
+      unsigned bit_size = nir_dest_bit_size(instr->dest.dest);
+      if (devinfo->gen >= 8 && bit_size == 32 &&
+          !nir_src_is_const(instr->src[1].src) &&
+          !nir_src_is_const(instr->src[2].src)) {
+         /* On gen8-10, we don't have the integer form of CSEL.  However, our
+          * 0/~0 Boolean representation works out to 0.0f for false and a
+          * silent NaN for true.  This means that B != 0 will return the
+          * correct condition.
+          */
+         inst = bld.CSEL(retype(result, BRW_REGISTER_TYPE_F),
+                         retype(op[1], BRW_REGISTER_TYPE_F),
+                         retype(op[2], BRW_REGISTER_TYPE_F),
+                         retype(op[0], BRW_REGISTER_TYPE_F),
+                         BRW_CONDITIONAL_NZ);
+      } else {
+         bld.CMP(bld.null_reg_d(), op[0], brw_imm_d(0), BRW_CONDITIONAL_NZ);
+         inst = bld.SEL(result, op[1], op[2]);
+         inst->predicate = BRW_PREDICATE_NORMAL;
+      }
       break;
+   }
 
    case nir_op_fcsel:
       inst = bld.CSEL(result, op[1], op[2], op[0], BRW_CONDITIONAL_NZ);
