@@ -985,7 +985,7 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
    OPT(nir_lower_to_source_mods, nir_lower_all_source_mods);
    OPT(nir_copy_prop);
    OPT(nir_opt_dce);
-   OPT(nir_opt_rematerialize_compares);
+   OPT(nir_opt_rematerialize, nir_move_comparisons_used_in_if_bcsel);
    OPT(nir_opt_move, nir_move_comparisons);
 
    OPT(nir_lower_bool_to_int32);

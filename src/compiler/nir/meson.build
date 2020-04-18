@@ -199,7 +199,7 @@ files_libnir = files(
   'nir_opt_loop_unroll.c',
   'nir_opt_move.c',
   'nir_opt_peephole_select.c',
-  'nir_opt_rematerialize_compares.c',
+  'nir_opt_rematerialize.c',
   'nir_opt_remove_phis.c',
   'nir_opt_shrink_load.c',
   'nir_opt_sink.c',
