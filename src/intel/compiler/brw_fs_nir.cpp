@@ -1880,6 +1880,26 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       inst->predicate = BRW_PREDICATE_NORMAL;
       break;
 
+   case nir_op_fcsel:
+      inst = bld.CSEL(result, op[1], op[2], op[0], BRW_CONDITIONAL_NZ);
+      break;
+
+   case nir_op_fgtz_sel:
+      inst = bld.CSEL(result, op[1], op[2], op[0], BRW_CONDITIONAL_G);
+      break;
+
+   case nir_op_fgez_sel:
+      inst = bld.CSEL(result, op[1], op[2], op[0], BRW_CONDITIONAL_GE);
+      break;
+
+   case nir_op_fltz_sel:
+      inst = bld.CSEL(result, op[1], op[2], op[0], BRW_CONDITIONAL_L);
+      break;
+
+   case nir_op_flez_sel:
+      inst = bld.CSEL(result, op[1], op[2], op[0], BRW_CONDITIONAL_LE);
+      break;
+
    case nir_op_extract_u8:
    case nir_op_extract_i8: {
       unsigned byte = nir_src_as_uint(instr->src[1].src);

@@ -36,6 +36,13 @@ from __future__ import print_function
 import argparse
 import sys
 
+# Convenience variables
+a = 'a'
+b = 'b'
+c = 'c'
+d = 'd'
+e = 'e'
+
 TRIG_WORKAROUNDS = [
     (('fsin', 'x(is_not_const)'), ('fmul', ('fsin', 'x'), 0.99997)),
     (('fcos', 'x(is_not_const)'), ('fmul', ('fcos', 'x'), 0.99997)),
@@ -43,6 +50,21 @@ TRIG_WORKAROUNDS = [
 
 BOOL_OPTS = [
     (('ineg', ('b2i32', 'x@32')), ('x')),
+]
+
+LOWER_LATE_OPTS = [
+   (('bcsel', ('fne', 'a@32', 0.0), 'b@32(is_not_const)', 'c(is_not_const)'),
+    ('fcsel', a, b, c), 'devinfo->gen >= 8'),
+   (('bcsel', ('feq', 'a@32', 0.0), 'b@32(is_not_const)', 'c(is_not_const)'),
+    ('fcsel', a, c, b), 'devinfo->gen >= 8'),
+   (('bcsel', ('flt', 'a@32', 0.0), 'b@32(is_not_const)', 'c(is_not_const)'),
+    ('fltz_sel', a, b, c), 'devinfo->gen >= 8'),
+   (('bcsel', ('flt', 0.0, 'a@32'), 'b@32(is_not_const)', 'c(is_not_const)'),
+    ('fgtz_sel', a, b, c), 'devinfo->gen >= 8'),
+   (('bcsel', ('fge', 'a@32', 0.0), 'b@32(is_not_const)', 'c(is_not_const)'),
+    ('fgez_sel', a, b, c), 'devinfo->gen >= 8'),
+   (('bcsel', ('fge', 0.0, 'a@32'), 'b@32(is_not_const)', 'c(is_not_const)'),
+    ('flez_sel', a, b, c), 'devinfo->gen >= 8'),
 ]
 
 
@@ -57,10 +79,14 @@ def main():
 def run():
     import nir_algebraic  # pylint: disable=import-error
 
+    devinfo = 'const struct gen_device_info *devinfo'
+
     print('#include "brw_nir.h"')
     print(nir_algebraic.AlgebraicPass("brw_nir_apply_trig_workarounds",
                                       TRIG_WORKAROUNDS).render())
     print(nir_algebraic.AlgebraicPass("brw_nir_opt_bool32", BOOL_OPTS).render())
+    print(nir_algebraic.AlgebraicPass("brw_nir_lower_late", LOWER_LATE_OPTS,
+                                      extra_args=[devinfo]).render())
 
 
 if __name__ == '__main__':

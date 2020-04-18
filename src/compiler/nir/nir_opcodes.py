@@ -942,7 +942,12 @@ triop("flrp", tfloat, "", "src0 * (1 - src2) + src1 * src2")
 # bools (0.0 vs 1.0) and one for integer bools (0 vs ~0).
 
 
-triop("fcsel", tfloat32, "", "(src0 != 0.0f) ? src1 : src2")
+triop("fcsel", tfloat, "", "(src0 != 0.0f) ? src1 : src2")
+
+triop("fgtz_sel", tfloat, "", "src0 > 0.0 ? src1 : src2")
+triop("fgez_sel", tfloat, "", "src0 >= 0.0 ? src1 : src2")
+triop("fltz_sel", tfloat, "", "src0 < 0.0 ? src1 : src2")
+triop("flez_sel", tfloat, "", "src0 <= 0.0 ? src1 : src2")
 
 # 3 way min/max/med
 triop("fmin3", tfloat, "", "fminf(src0, fminf(src1, src2))")
