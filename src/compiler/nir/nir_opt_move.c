@@ -143,23 +143,37 @@ move(nir_block *block, nir_move_options options)
    return progress;
 }
 
+static bool
+nir_opt_move_impl(nir_function_impl *impl, nir_move_options options)
+{
+   bool progress = false;
+
+   nir_foreach_block(block, impl) {
+      if (move(block, options))
+         progress = true;
+   }
+
+   if (progress) {
+      nir_metadata_preserve(impl, nir_metadata_block_index |
+                                  nir_metadata_dominance |
+                                  nir_metadata_live_ssa_defs);
+   } else {
+#ifndef NDEBUG
+      impl->valid_metadata &= ~nir_metadata_not_properly_reset;
+#endif
+   }
+
+   return progress;
+}
+
 bool
 nir_opt_move(nir_shader *shader, nir_move_options options)
 {
    bool progress = false;
 
    nir_foreach_function(func, shader) {
-      if (!func->impl)
-         continue;
-
-      nir_foreach_block(block, func->impl) {
-         if (move(block, options)) {
-            nir_metadata_preserve(func->impl, nir_metadata_block_index |
-                                              nir_metadata_dominance |
-                                              nir_metadata_live_ssa_defs);
-            progress = true;
-         }
-      }
+      if (func->impl && nir_opt_move_impl(func->impl, options))
+         progress = true;
    }
 
    return progress;
