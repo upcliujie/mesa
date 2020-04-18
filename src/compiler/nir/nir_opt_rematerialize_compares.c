@@ -24,43 +24,17 @@
 #include "nir.h"
 
 static bool
-all_uses_are_bcsel(nir_ssa_def *def)
-{
-   nir_foreach_use(use, def) {
-      if (use->parent_instr->type != nir_instr_type_alu)
-         return false;
-
-      nir_alu_instr *const alu = nir_instr_as_alu(use->parent_instr);
-      if (alu->op != nir_op_bcsel)
-         return false;
-
-      /* Not only must the result be used by a bcsel, but it must be used as
-       * the first source (the condition).
-       */
-      if (alu->src[0].src.ssa != def)
-         return false;
-   }
-
-   return true;
-}
-
-static bool
 nir_opt_rematerialize_compares_impl(nir_shader *shader, nir_function_impl *impl)
 {
    bool progress = false;
 
    nir_foreach_block(block, impl) {
       nir_foreach_instr(instr, block) {
-         if (instr->type != nir_instr_type_alu)
+         if (!nir_can_move_instr(instr, nir_move_comparisons_used_in_if_bcsel))
             continue;
 
          nir_alu_instr *const alu = nir_instr_as_alu(instr);
-         if (!nir_alu_instr_is_comparison(alu))
-            continue;
-
          assert(alu->dest.dest.is_ssa);
-         if (!all_uses_are_bcsel(&alu->dest.dest.ssa))
-            continue;
 
          /* At this point it is known that alu is a comparison instruction
           * that is only used by nir_op_bcsel and possibly by if-statements

@@ -36,6 +36,27 @@
  * anscestor of consuming instructions.
  */
 
+static bool
+all_uses_are_bcsel(nir_ssa_def *def)
+{
+   nir_foreach_use(use, def) {
+      if (use->parent_instr->type != nir_instr_type_alu)
+         return false;
+
+      nir_alu_instr *const alu = nir_instr_as_alu(use->parent_instr);
+      if (alu->op != nir_op_bcsel)
+         return false;
+
+      /* Not only must the result be used by a bcsel, but it must be used as
+       * the first source (the condition).
+       */
+      if (alu->src[0].src.ssa != def)
+         return false;
+   }
+
+   return true;
+}
+
 bool
 nir_can_move_instr(nir_instr *instr, nir_move_options options)
 {
@@ -66,6 +87,14 @@ nir_can_move_instr(nir_instr *instr, nir_move_options options)
 
    if ((options & nir_move_comparisons) && instr->type == nir_instr_type_alu &&
        nir_alu_instr_is_comparison(nir_instr_as_alu(instr))) {
+      return true;
+   }
+
+   /* We don't have to check if statements explicitly here */
+   if ((options & nir_move_comparisons_used_in_if_bcsel) &&
+       instr->type == nir_instr_type_alu &&
+       nir_alu_instr_is_comparison(nir_instr_as_alu(instr)) &&
+       all_uses_are_bcsel(&nir_instr_as_alu(instr)->dest.dest.ssa)) {
       return true;
    }
 
