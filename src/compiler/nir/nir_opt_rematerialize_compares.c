@@ -28,25 +28,15 @@ is_two_src_comparison(const nir_alu_instr *instr)
 {
    switch (instr->op) {
    case nir_op_flt:
-   case nir_op_flt32:
    case nir_op_fge:
-   case nir_op_fge32:
    case nir_op_feq:
-   case nir_op_feq32:
    case nir_op_fne:
-   case nir_op_fne32:
    case nir_op_ilt:
-   case nir_op_ilt32:
    case nir_op_ult:
-   case nir_op_ult32:
    case nir_op_ige:
-   case nir_op_ige32:
    case nir_op_uge:
-   case nir_op_uge32:
    case nir_op_ieq:
-   case nir_op_ieq32:
    case nir_op_ine:
-   case nir_op_ine32:
       return true;
    default:
       return false;
@@ -61,8 +51,7 @@ all_uses_are_bcsel(nir_ssa_def *def)
          return false;
 
       nir_alu_instr *const alu = nir_instr_as_alu(use->parent_instr);
-      if (alu->op != nir_op_bcsel &&
-          alu->op != nir_op_b32csel)
+      if (alu->op != nir_op_bcsel)
          return false;
 
       /* Not only must the result be used by a bcsel, but it must be used as
