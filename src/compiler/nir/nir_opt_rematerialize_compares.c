@@ -24,26 +24,6 @@
 #include "nir.h"
 
 static bool
-is_two_src_comparison(const nir_alu_instr *instr)
-{
-   switch (instr->op) {
-   case nir_op_flt:
-   case nir_op_fge:
-   case nir_op_feq:
-   case nir_op_fne:
-   case nir_op_ilt:
-   case nir_op_ult:
-   case nir_op_ige:
-   case nir_op_uge:
-   case nir_op_ieq:
-   case nir_op_ine:
-      return true;
-   default:
-      return false;
-   }
-}
-
-static bool
 all_uses_are_bcsel(nir_ssa_def *def)
 {
    nir_foreach_use(use, def) {
@@ -75,7 +55,7 @@ nir_opt_rematerialize_compares_impl(nir_shader *shader, nir_function_impl *impl)
             continue;
 
          nir_alu_instr *const alu = nir_instr_as_alu(instr);
-         if (!is_two_src_comparison(alu))
+         if (!nir_alu_instr_is_comparison(alu))
             continue;
 
          assert(alu->dest.dest.is_ssa);
