@@ -58,24 +58,9 @@ is_two_src_comparison(const nir_alu_instr *instr)
 }
 
 static bool
-all_srcs_are_ssa(const nir_alu_instr *instr)
+all_uses_are_bcsel(nir_ssa_def *def)
 {
-   for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++) {
-      if (!instr->src[i].src.is_ssa)
-         return false;
-   }
-
-   return true;
-}
-
-
-static bool
-all_uses_are_bcsel(const nir_alu_instr *instr)
-{
-   if (!instr->dest.dest.is_ssa)
-      return false;
-
-   nir_foreach_use(use, &instr->dest.dest.ssa) {
+   nir_foreach_use(use, def) {
       if (use->parent_instr->type != nir_instr_type_alu)
          return false;
 
@@ -87,7 +72,7 @@ all_uses_are_bcsel(const nir_alu_instr *instr)
       /* Not only must the result be used by a bcsel, but it must be used as
        * the first source (the condition).
        */
-      if (alu->src[0].src.ssa != &instr->dest.dest.ssa)
+      if (alu->src[0].src.ssa != def)
          return false;
    }
 
@@ -108,10 +93,8 @@ nir_opt_rematerialize_compares_impl(nir_shader *shader, nir_function_impl *impl)
          if (!is_two_src_comparison(alu))
             continue;
 
-         if (!all_srcs_are_ssa(alu))
-            continue;
-
-         if (!all_uses_are_bcsel(alu))
+         assert(alu->dest.dest.is_ssa);
+         if (!all_uses_are_bcsel(&alu->dest.dest.ssa))
             continue;
 
          /* At this point it is known that alu is a comparison instruction
@@ -139,6 +122,7 @@ nir_opt_rematerialize_compares_impl(nir_shader *shader, nir_function_impl *impl)
 
             nir_alu_instr *const use_alu = nir_instr_as_alu(use_instr);
             for (unsigned i = 0; i < nir_op_infos[use_alu->op].num_inputs; i++) {
+               assert(use_alu->src[i].src.is_ssa);
                if (use_alu->src[i].src.ssa == &alu->dest.dest.ssa) {
                   nir_instr_rewrite_src(&use_alu->instr,
                                         &use_alu->src[i].src,
