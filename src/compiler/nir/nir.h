@@ -4335,6 +4335,7 @@ typedef enum {
     nir_move_comparisons                  = (1 << 3),
     nir_move_copies                       = (1 << 4),
     nir_move_comparisons_used_in_if_bcsel = (1 << 5),
+    nir_move_abs_neg                      = (1 << 6),
 } nir_move_options;
 
 bool nir_can_move_instr(nir_instr *instr, nir_move_options options);
