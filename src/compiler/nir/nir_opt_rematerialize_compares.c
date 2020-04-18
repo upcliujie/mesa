@@ -22,10 +22,6 @@
  */
 
 #include "nir.h"
-#include "nir/nir_builder.h"
-#include "nir_constant_expressions.h"
-#include "nir_control_flow.h"
-#include "nir_loop_analyze.h"
 
 static bool
 is_two_src_comparison(const nir_alu_instr *instr)
