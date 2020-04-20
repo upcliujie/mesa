@@ -638,9 +638,6 @@ emit_binning_pass(struct fd_batch *batch)
 	OUT_PKT7(ring, CP_SET_VISIBILITY_OVERRIDE, 1);
 	OUT_RING(ring, 0x1);
 
-	OUT_PKT7(ring, CP_SET_MODE, 1);
-	OUT_RING(ring, 0x1);
-
 	OUT_WFI5(ring);
 
 	OUT_REG(ring, A6XX_VFD_MODE_CNTL(.binning_pass = true));
@@ -692,9 +689,6 @@ emit_binning_pass(struct fd_batch *batch)
 	fd_log(batch, "END VSC OVERFLOW TEST");
 
 	OUT_PKT7(ring, CP_SET_VISIBILITY_OVERRIDE, 1);
-	OUT_RING(ring, 0x0);
-
-	OUT_PKT7(ring, CP_SET_MODE, 1);
 	OUT_RING(ring, 0x0);
 
 	OUT_WFI5(ring);
@@ -864,9 +858,6 @@ fd6_emit_tile_prep(struct fd_batch *batch, const struct fd_tile *tile)
 
 		OUT_PKT7(ring, CP_WAIT_FOR_ME, 0);
 
-		OUT_PKT7(ring, CP_SET_MODE, 1);
-		OUT_RING(ring, 0x0);
-
 		/*
 		 * Conditionally execute if no VSC overflow:
 		 */
@@ -907,17 +898,11 @@ fd6_emit_tile_prep(struct fd_batch *batch, const struct fd_tile *tile)
 
 		const struct fd_gmem_stateobj *gmem = batch->gmem_state;
 		set_bin_size(ring, gmem->bin_w, gmem->bin_h, 0x6000000);
-
-		OUT_PKT7(ring, CP_SET_MODE, 1);
-		OUT_RING(ring, 0x0);
 	} else {
 		set_window_offset(ring, x1, y1);
 
 		OUT_PKT7(ring, CP_SET_VISIBILITY_OVERRIDE, 1);
 		OUT_RING(ring, 0x1);
-
-		OUT_PKT7(ring, CP_SET_MODE, 1);
-		OUT_RING(ring, 0x0);
 	}
 }
 
