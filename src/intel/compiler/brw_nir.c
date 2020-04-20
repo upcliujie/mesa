@@ -988,6 +988,8 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
 
    OPT(nir_lower_bool_to_int32);
    OPT(nir_copy_prop);
+   if (OPT(brw_nir_opt_bool32))
+      OPT(nir_copy_prop);
    OPT(nir_opt_dce);
 
    OPT(nir_lower_locals_to_regs);

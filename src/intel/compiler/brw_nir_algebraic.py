@@ -41,6 +41,10 @@ TRIG_WORKAROUNDS = [
     (('fcos', 'x(is_not_const)'), ('fmul', ('fcos', 'x'), 0.99997)),
 ]
 
+BOOL_OPTS = [
+    (('ineg', ('b2i32', 'x@32')), ('x')),
+]
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -56,6 +60,7 @@ def run():
     print('#include "brw_nir.h"')
     print(nir_algebraic.AlgebraicPass("brw_nir_apply_trig_workarounds",
                                       TRIG_WORKAROUNDS).render())
+    print(nir_algebraic.AlgebraicPass("brw_nir_opt_bool32", BOOL_OPTS).render())
 
 
 if __name__ == '__main__':

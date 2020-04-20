@@ -141,6 +141,7 @@ bool brw_nir_apply_attribute_workarounds(nir_shader *nir,
                                          const uint8_t *attrib_wa_flags);
 
 bool brw_nir_apply_trig_workarounds(nir_shader *nir);
+bool brw_nir_opt_bool32(nir_shader *nir);
 
 void brw_nir_apply_tcs_quads_workaround(nir_shader *nir);
 
