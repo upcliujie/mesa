@@ -131,7 +131,7 @@ COMPILER_FILES = \
 	compiler/gen6_gs_visitor.h
 
 COMPILER_GENERATED_FILES = \
-	compiler/brw_nir_trig_workarounds.c
+	compiler/brw_nir_algebraic.c
 
 DEV_FILES = \
 	dev/gen_debug.c \

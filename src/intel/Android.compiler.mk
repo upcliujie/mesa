@@ -46,13 +46,13 @@ LOCAL_C_INCLUDES := \
 	$(MESA_TOP)/src/intel/compiler \
 	$(MESA_TOP)/src/compiler/nir
 
-brw_nir_trig_workarounds_deps := \
-	$(LOCAL_PATH)/compiler/brw_nir_trig_workarounds.py \
+brw_nir_algebraic_deps := \
+	$(LOCAL_PATH)/compiler/brw_nir_algebraic.py \
 	$(MESA_TOP)/src/compiler/nir/nir_algebraic.py
 
 intermediates := $(call local-generated-sources-dir)
 
-$(intermediates)/compiler/brw_nir_trig_workarounds.c: $(brw_nir_trig_workarounds_deps)
+$(intermediates)/compiler/brw_nir_algebraic.c: $(brw_nir_algebraic_deps)
 	@mkdir -p $(dir $@)
 	$(hide) $(MESA_PYTHON2) $< -p $(MESA_TOP)/src/compiler/nir > $@
 

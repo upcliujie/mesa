@@ -124,10 +124,10 @@ libintel_compiler_files = files(
   'gen6_gs_visitor.h',
 )
 
-brw_nir_trig = custom_target(
-  'brw_nir_trig_workarounds.c',
-  input : 'brw_nir_trig_workarounds.py',
-  output : 'brw_nir_trig_workarounds.c',
+brw_nir_algebraic = custom_target(
+  'brw_nir_algebraic.c',
+  input : 'brw_nir_algebraic.py',
+  output : 'brw_nir_algebraic.c',
   command : [
     prog_python, '@INPUT@',
     '-p', join_paths(meson.source_root(), 'src/compiler/nir/'),
@@ -138,7 +138,7 @@ brw_nir_trig = custom_target(
 
 libintel_compiler = static_library(
   'intel_compiler',
-  [libintel_compiler_files, brw_nir_trig, ir_expression_operation_h],
+  [libintel_compiler_files, brw_nir_algebraic, ir_expression_operation_h],
   include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel],
   c_args : [c_vis_args, no_override_init_args],
   cpp_args : [cpp_vis_args],

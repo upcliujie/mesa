@@ -660,7 +660,7 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
    if (nir->info.stage == MESA_SHADER_GEOMETRY)
       OPT(nir_lower_gs_intrinsics, false);
 
-   /* See also brw_nir_trig_workarounds.py */
+   /* See also brw_nir_algebraic */
    if (compiler->precise_trig &&
        !(devinfo->gen >= 10 || devinfo->is_kabylake))
       OPT(brw_nir_apply_trig_workarounds);
