@@ -427,8 +427,6 @@ emit_alu(struct ir2_context *ctx, nir_alu_instr * alu)
 
 		instr->src[i] = make_src(ctx, src->src);
 		instr->src[i].swizzle = swiz_merge(instr->src[i].swizzle, swiz);
-		instr->src[i].negate = src->negate;
-		instr->src[i].abs = src->abs;
 	}
 
 	/* workarounds for NIR ops that don't map directly to a2xx ops */
@@ -1100,7 +1098,6 @@ ir2_nir_compile(struct ir2_context *ctx, bool binning)
 	OPT_V(ctx->nir, nir_lower_bool_to_float);
 	while(OPT(ctx->nir, nir_opt_algebraic));
 	OPT_V(ctx->nir, nir_opt_algebraic_late);
-	OPT_V(ctx->nir, nir_lower_to_source_mods, nir_lower_all_source_mods);
 
 	OPT_V(ctx->nir, nir_lower_alu_to_scalar, ir2_alu_to_scalar_filter_cb, NULL);
 
