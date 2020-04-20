@@ -531,6 +531,42 @@ schedule_node::set_latency_gen7(bool is_haswell)
    }
 }
 
+class node_array {
+public:
+   node_array():
+      nodes(NULL), count(0), alloc(0)
+   {
+   }
+
+   ~node_array()
+   {
+      delete[] nodes;
+   }
+
+   void add(schedule_node *node)
+   {
+      if (alloc == count) {
+         unsigned new_alloc = MAX2(alloc * 2, 8);
+         schedule_node **new_nodes = new schedule_node*[new_alloc];
+         memcpy(new_nodes, nodes, alloc * sizeof(*nodes));
+         delete[] nodes;
+         nodes = new_nodes;
+         alloc = new_alloc;
+      }
+      nodes[count++] = node;
+   }
+
+   void clear()
+   {
+      count = 0;
+   }
+
+   schedule_node **nodes;
+   unsigned count;
+   unsigned alloc;
+};
+
+
 class instruction_scheduler {
 public:
    instruction_scheduler(const backend_shader *s, int grf_count,
@@ -585,6 +621,9 @@ public:
    void add_barrier_deps(schedule_node *n);
    void add_dep(schedule_node *before, schedule_node *after, int latency);
    void add_dep(schedule_node *before, schedule_node *after);
+   void add_dep(const node_array *before, schedule_node *after);
+   void add_dep(schedule_node *before, const node_array *after);
+   schedule_node *collapse_array(node_array *arr, bool forward);
 
    void run(cfg_t *cfg);
    void add_insts_from_block(bblock_t *block);
@@ -1021,6 +1060,42 @@ instruction_scheduler::add_dep(schedule_node *before, schedule_node *after)
    add_dep(before, after, before->latency);
 }
 
+void
+instruction_scheduler::add_dep(const node_array *before, schedule_node *after)
+{
+   for (unsigned i = 0; i < before->count; i++)
+      add_dep(before->nodes[i], after);
+}
+
+void
+instruction_scheduler::add_dep(schedule_node *before, const node_array *after)
+{
+   for (unsigned i = 0; i < after->count; i++)
+      add_dep(before, after->nodes[i]);
+}
+
+schedule_node *
+instruction_scheduler::collapse_array(node_array *arr, bool forward)
+{
+   if (arr->count == 0)
+      return NULL;
+
+   if (arr->count == 1)
+      return arr->nodes[0];
+
+   schedule_node *last_node = arr->nodes[arr->count - 1];
+   for (unsigned i = 0; i < arr->count - 1; i++) {
+      if (forward)
+         add_dep(arr->nodes[i], last_node);
+      else
+         add_dep(last_node, arr->nodes[i]);
+   }
+
+   arr->count = 1;
+   arr->nodes[0] = last_node;
+   return last_node;
+}
+
 static bool
 is_scheduling_barrier(const backend_instruction *inst)
 {
@@ -1077,7 +1152,7 @@ fs_instruction_scheduler::calculate_deps()
     */
    schedule_node **last_grf_write;
    schedule_node *last_mrf_write[BRW_MAX_MRF(v->devinfo->gen)];
-   schedule_node *last_conditional_mod[8] = {};
+   node_array last_conditional_mod[8];
    schedule_node *last_accumulator_write = NULL;
    /* Fixed HW registers are assumed to be separate from the virtual
     * GRFs, so they can be tracked separately.  We don't really write
@@ -1136,8 +1211,12 @@ fs_instruction_scheduler::calculate_deps()
          assert(mask < (1 << ARRAY_SIZE(last_conditional_mod)));
 
          for (unsigned i = 0; i < ARRAY_SIZE(last_conditional_mod); i++) {
+            /* For read-after-write flag dependencies, we first collapse the
+             * array so that the last seen write depends on all previous
+             * writes.  We then make this read depend on that last write.
+             */
             if (mask & (1 << i))
-               add_dep(last_conditional_mod[i], n);
+               add_dep(collapse_array(&last_conditional_mod[i], true), n);
          }
       }
 
@@ -1198,10 +1277,8 @@ fs_instruction_scheduler::calculate_deps()
          assert(mask < (1 << ARRAY_SIZE(last_conditional_mod)));
 
          for (unsigned i = 0; i < ARRAY_SIZE(last_conditional_mod); i++) {
-            if (mask & (1 << i)) {
-               add_dep(last_conditional_mod[i], n, 0);
-               last_conditional_mod[i] = n;
-            }
+            if (mask & (1 << i))
+               last_conditional_mod[i].add(n);
          }
       }
 
@@ -1215,7 +1292,9 @@ fs_instruction_scheduler::calculate_deps()
    /* bottom-to-top dependencies: WAR */
    memset(last_grf_write, 0, sizeof(schedule_node *) * grf_count * 16);
    memset(last_mrf_write, 0, sizeof(last_mrf_write));
-   memset(last_conditional_mod, 0, sizeof(last_conditional_mod));
+   for (unsigned i = 0; i < ARRAY_SIZE(last_conditional_mod); i++)
+      last_conditional_mod[i].clear();
+   unsigned seen_flag_read = 0;
    last_accumulator_write = NULL;
    last_fixed_grf_write = NULL;
 
@@ -1262,9 +1341,15 @@ fs_instruction_scheduler::calculate_deps()
          assert(mask < (1 << ARRAY_SIZE(last_conditional_mod)));
 
          for (unsigned i = 0; i < ARRAY_SIZE(last_conditional_mod); i++) {
+            /* For write-after-read dependencies, we insert dependencies
+             * between reads and any subsequent writes.  This creates a lot of
+             * edges but provides the most accurate picture we can to the
+             * scheduler.
+             */
             if (mask & (1 << i))
-               add_dep(n, last_conditional_mod[i]);
+               add_dep(n, &last_conditional_mod[i]);
          }
+         seen_flag_read |= mask;
       }
 
       if (inst->reads_accumulator_implicitly()) {
@@ -1320,8 +1405,18 @@ fs_instruction_scheduler::calculate_deps()
          assert(mask < (1 << ARRAY_SIZE(last_conditional_mod)));
 
          for (unsigned i = 0; i < ARRAY_SIZE(last_conditional_mod); i++) {
-            if (mask & (1 << i))
-               last_conditional_mod[i] = n;
+            if (mask & (1 << i)) {
+               /* We're walking instructions backwards so if we've seen a
+                * read, there's already a RaW dependency on this flag so we
+                * can clear the list.  Reads higher up the program don't need
+                * to worry about writes after this point.
+                */
+               if (seen_flag_read & (1 << i)) {
+                  last_conditional_mod[i].clear();
+                  seen_flag_read &= ~(1 << i);
+               }
+               last_conditional_mod[i].add(n);
+            }
          }
       }
 
