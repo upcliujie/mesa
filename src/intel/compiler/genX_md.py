@@ -153,13 +153,41 @@ partial_derivatives = [
     (('fddy_coarse', a), Instruction('FS_OPCODE_DDY_COARSE', r, a)),
 ]
 
-fmul_fsign_optimizations = [
-    (('fmul', ('fsign(is_used_once)', 'a@32'), b),
-     [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
-      Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
-      Instruction('XOR', retype(r, UD), retype(r, UD), retype(b, UD)).predicate()]
-    ),
-]
+def fmul_fsign_optimizations(gen):
+    md = []
+
+    md.extend([
+        (('fmul', ('fsign(is_used_once)', 'a@32'), b),
+         [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
+          Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
+          Instruction('XOR', retype(r, UD), retype(r, UD), retype(b, UD)).predicate()]
+        ),
+    ])
+
+    if gen >= 8:
+        md.extend([
+            (('fmul', ('fsign(is_used_once)', 'a@16'), b),
+             [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
+              Instruction('AND', retype(r, UW), retype(a, UW), imm(0x8000, UW)),
+              Instruction('XOR', retype(r, UW), retype(r, UW), retype(b, UW)).predicate()]
+            ),
+        ])
+
+    if gen >= 8 and gen <= 9:
+        # Even though Gen7 has fp64, this optimization is not applicable
+        # because Gen7 lacks the UQ type.
+        md.extend([
+            (('fmul', ('fsign(is_used_once)', 'a@64'), b),
+             [TempReg(zero, DF),
+              Instruction('MOV', zero, imm(0.0, DF)),
+              Instruction('CMP', null(DF), a, zero).cmod('NZ'),
+              Instruction('MOV', r, zero),
+              Instruction('AND', subscript(r, UD, 1), subscript(a, UD, 1), imm(0x80000000, UD)),
+              Instruction('XOR', retype(r, UQ), retype(r, UQ), retype(b, UQ)).predicate()]
+            ),
+        ])
+
+    return md
 
 arithmetic = [
     (('fadd', a, b), Instruction('ADD', r, a, b)),
@@ -255,12 +283,37 @@ for op, cmod in (('uge32', 'GE'), ('ult32', 'L')):
         ),
     ])
 
-fsign = [
-    (('fsign', 'a@32'), [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
-                         Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
-                         Instruction('OR', retype(r, UD), retype(r, UD), imm(0x3f800000, UD)).predicate()]
-    ),
-]
+def fsign(gen):
+    md = [
+        (('fsign', 'a@32'),
+         [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
+          Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
+          Instruction('OR', retype(r, UD), retype(r, UD), imm(0x3f800000, UD)).predicate()]
+        ),
+    ]
+
+    if gen >= 8:
+        md.extend([
+            (('fsign', 'a@16'),
+             [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
+              Instruction('AND', retype(r, UW), retype(a, UW), imm(0x8000, UW)),
+              Instruction('OR', retype(r, UW), retype(r, UW), imm(0x3c00, UW)).predicate()]
+            ),
+        ])
+
+    if gen >= 7 and gen <= 9:
+        md.extend([
+            (('fsign', 'a@64'),
+             [TempReg(zero, DF),
+              Instruction('MOV', zero, imm(0.0, DF)),
+              Instruction('CMP', null(DF), a, zero).cmod('NZ'),
+              Instruction('MOV', r, zero),
+              Instruction('AND', subscript(r, UD, 1), subscript(a, UD, 1), imm(0x80000000, UD)),
+              Instruction('OR', subscript(r, UD, 1), subscript(r, UD, 1), imm(0x3ff00000, UD)).predicate()]
+            ),
+        ])
+
+    return md
 
 rounding = [
     (('ftrunc', a), Instruction('RNDZ', r, a)),

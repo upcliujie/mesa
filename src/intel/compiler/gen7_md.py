@@ -21,6 +21,7 @@
 # IN THE SOFTWARE.
 
 import gen_gen_codegen
+import genX_md
 from math import ldexp
 from gen_gen_codegen import retype, abs, grf, imm, neg, null, subscript, Instruction, InstructionList, TempReg
 
@@ -46,7 +47,9 @@ F = 'F'
 DF = 'DF'
 result_type = 'VF'
 
-gen7_md = [
+gen7_md =  []
+
+gen7_md.extend([
     # Conversion instructions
     # b2[fi](inot(a)) maps a=0 => 1, a=-1 => 0.  Since a can only be 0 or -1,
     # this is float(1 + a).
@@ -159,7 +162,11 @@ gen7_md = [
     (('fddy', a), Instruction('FS_OPCODE_DDY_COARSE', r, a), '!fs_key->high_quality_derivatives'),
     (('fddy_fine', a), Instruction('FS_OPCODE_DDY_FINE', r, a)),
     (('fddy_coarse', a), Instruction('FS_OPCODE_DDY_COARSE', r, a)),
+])
 
+gen7_md.extend(genX_md.fmul_fsign_optimizations(7))
+
+gen7_md.extend([
     # General arithmetic
     (('fadd', a, b), [Instruction('SHADER_OPCODE_RND_MODE', null(UD), imm(0, D)),
                       Instruction('ADD', r, a, b)],
@@ -175,7 +182,7 @@ gen7_md = [
     (('uadd_sat', a, b), Instruction('ADD', r, a, b).saturate()),
     (('irhadd', a, b), Instruction('AVG', r, a, b)),
     (('urhadd', a, b), Instruction('AVG', r, a, b)),
-]
+])
 
 for bits, T in ((8, 'B'), (16, 'W'), (32, 'D')):
     aa = 'a@' + str(bits)
@@ -203,12 +210,6 @@ for bits, T in ((8, 'B'), (16, 'W'), (32, 'D')):
     ])
 
 gen7_md.extend([
-    (('fmul', ('fsign(is_used_once)', 'a@32'), b),
-     [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
-      Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
-      Instruction('XOR', retype(r, UD), retype(r, UD), retype(b, UD)).predicate()]
-    ),
-
     (('fmul', a, b), [Instruction('SHADER_OPCODE_RND_MODE', null(UD), imm(0, D)),
                       Instruction('MUL', r, a, b)],
      'nir_has_any_rounding_mode_rtne(execution_mode)'
@@ -347,19 +348,11 @@ gen7_md.extend([
     (('fcos', a), Instruction('SHADER_OPCODE_COS', r, a)),
     (('fsqrt', a), Instruction('SHADER_OPCODE_SQRT', r, a)),
     (('frsq', a), Instruction('SHADER_OPCODE_RSQ', r, a)),
+])
 
-    (('fsign', 'a@32'), [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
-                         Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
-                         Instruction('OR', retype(r, UD), retype(r, UD), imm(0x3f800000, UD)).predicate()]
-    ),
-    (('fsign', 'a@64'), [TempReg(zero, DF),
-                         Instruction('MOV', zero, imm(0.0, F)),
-                         Instruction('CMP', null(DF), a, zero).cmod('NZ'),
-                         Instruction('MOV', r, zero),
-                         Instruction('AND', subscript(r, UD, 1), subscript(a, UD, 1), imm(0x80000000, UD)),
-                         Instruction('OR', subscript(r, UD, 1), subscript(r, UD, 1), imm(0x3ff00000, UD)).predicate()]
-    ),
+gen7_md.extend(genX_md.fsign(7))
 
+gen7_md.extend([
     # Rounding
     (('ftrunc', a), Instruction('RNDZ', r, a)),
     (('fceil', a), [TempReg(t0, F),

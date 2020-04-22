@@ -143,7 +143,7 @@ gen8_md.extend([
 ])
 
 gen8_md.extend(genX_md.partial_derivatives)
-gen8_md.extend(genX_md.fmul_fsign_optimizations)
+gen8_md.extend(genX_md.fmul_fsign_optimizations(8))
 
 gen8_md.extend([
     # General arithmetic
@@ -183,20 +183,6 @@ for bits, T in ((8, 'B'), (16, 'W'), (32, 'D')):
     ])
 
 gen8_md.extend([
-    (('fmul', ('fsign(is_used_once)', 'a@16'), b),
-     [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
-      Instruction('AND', retype(r, UW), retype(a, UW), imm(0x8000, UW)),
-      Instruction('XOR', retype(r, UW), retype(r, UW), retype(b, UW)).predicate()]
-    ),
-    (('fmul', ('fsign(is_used_once)', 'a@64'), b),
-     [TempReg(zero, DF),
-      Instruction('MOV', zero, imm(0.0, DF)),
-      Instruction('CMP', null(DF), a, zero).cmod('NZ'),
-      Instruction('MOV', r, zero),
-      Instruction('AND', subscript(r, UD, 1), subscript(a, UD, 1), imm(0x80000000, UD)),
-      Instruction('XOR', retype(r, UQ), retype(r, UQ), retype(b, UQ)).predicate()]
-    ),
-
     (('fmul', a, b), [Instruction('SHADER_OPCODE_RND_MODE', null(UD), imm(0, D)),
                       Instruction('MUL', r, a, b)],
      'nir_has_any_rounding_mode_rtne(execution_mode)'
@@ -311,22 +297,7 @@ gen8_md.extend([
     (('frsq', a), Instruction('SHADER_OPCODE_RSQ', r, a)),
 ])
 
-gen8_md.extend(genX_md.fsign)
-
-gen8_md.extend([
-    (('fsign', 'a@16'), [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
-                         Instruction('AND', retype(r, UW), retype(a, UW), imm(0x8000, UW)),
-                         Instruction('OR', retype(r, UW), retype(r, UW), imm(0x3c00, UW)).predicate()]
-    ),
-    (('fsign', 'a@64'), [TempReg(zero, DF),
-                         Instruction('MOV', zero, imm(0.0, DF)),
-                         Instruction('CMP', null(DF), a, zero).cmod('NZ'),
-                         Instruction('MOV', r, zero),
-                         Instruction('AND', subscript(r, UD, 1), subscript(a, UD, 1), imm(0x80000000, UD)),
-                         Instruction('OR', subscript(r, UD, 1), subscript(r, UD, 1), imm(0x3ff00000, UD)).predicate()]
-    ),
-])
-
+gen8_md.extend(genX_md.fsign(8))
 gen8_md.extend(genX_md.rounding)
 
 gen8_md.extend([
