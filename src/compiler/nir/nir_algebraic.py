@@ -1115,7 +1115,7 @@ const uint16_t ${pass_name}_transform_counts[] = {
 };
 
 bool
-${pass_name}(nir_shader *shader)
+${pass_name}(nir_shader *shader${', '.join([''] + extra_args)})
 {
    bool progress = false;
    bool condition_flags[${len(condition_list)}];
@@ -1143,10 +1143,11 @@ ${pass_name}(nir_shader *shader)
 
 
 class AlgebraicPass(object):
-   def __init__(self, pass_name, transforms):
+   def __init__(self, pass_name, transforms, extra_args=[]):
       self.xforms = []
       self.opcode_xforms = defaultdict(lambda : [])
       self.pass_name = pass_name
+      self.extra_args = extra_args
 
       error = False
 
@@ -1205,6 +1206,7 @@ class AlgebraicPass(object):
 
    def render(self):
       return _algebraic_pass_template.render(pass_name=self.pass_name,
+                                             extra_args=self.extra_args,
                                              xforms=self.xforms,
                                              opcode_xforms=self.opcode_xforms,
                                              condition_list=condition_list,
