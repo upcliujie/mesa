@@ -156,7 +156,36 @@ partial_derivatives = [
 def fmul_fsign_optimizations(gen):
     md = []
 
+    if gen >= 8:
+        md.extend([
+            # The result of the fsign can only be -0 or -1.  Care is taken so
+            # that a=NaN does not produce a NaN result.
+            (('fmul', ('fsign', ('fneg', ('fabs', 'a@32'))), 'b(is_not_const)'),
+             Instruction('CSEL', r, neg(abs(a)), neg(b), a).cmod('Z')
+            ),
+
+            # The result of the fsign can only be 0 or 1.  Care is taken so
+            # that a=NaN does not produce a NaN result.
+            (('fmul', ('fsign', ('fabs', 'a@32')), 'b(is_not_const)'),
+             Instruction('CSEL', r, abs(a), b, a).cmod('Z')
+            ),
+        ])
+
     md.extend([
+        # The result of the fsign can only be -0 or -1.  Care is taken so that
+        # a=NaN does not produce a NaN result.
+        (('fmul', ('fsign(is_used_once)', ('fneg', ('fabs', 'a@32'))), b),
+         [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('Z'),
+          Instruction('SEL', r, neg(abs(a)), neg(b)).predicate()]
+        ),
+
+        # The result of the fsign can only be 0 or 1.  Care is taken so that
+        # a=NaN does not produce a NaN result.
+        (('fmul', ('fsign(is_used_once)', ('fabs', 'a@32')), b),
+         [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('Z'),
+          Instruction('SEL', r, abs(a), b).predicate()]
+        ),
+
         (('fmul', ('fsign(is_used_once)', 'a@32'), b),
          [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
           Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
@@ -285,6 +314,18 @@ for op, cmod in (('uge32', 'GE'), ('ult32', 'L')):
 
 def fsign(gen):
     md = [
+        # Straightforward since the source can be assumed to be strictly <= 0
+        (('fsign', ('fneg', ('fabs', 'a@32'))),
+         [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('Z'),
+          Instruction('SEL', r, neg(abs(a)), imm(-1.0, F)).predicate()]
+        ),
+
+        # Straightforward since the source can be assumed to be strictly >= 0
+        (('fsign', ('fabs', 'a@32')),
+         [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('Z'),
+          Instruction('SEL', r, abs(a), imm(1.0, F)).predicate()]
+        ),
+
         (('fsign', 'a@32'),
          [Instruction('CMP', null(F), a, imm(0.0, F)).cmod('NZ'),
           Instruction('AND', retype(r, UD), retype(a, UD), imm(0x80000000, UD)),
