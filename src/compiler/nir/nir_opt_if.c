@@ -309,8 +309,6 @@ alu_instr_is_type_conversion(const nir_alu_instr *alu)
  *
  * - At least one source of the instruction is a phi node from the header block.
  *
- * - The phi node selects a constant or undef from the block before the loop.
- *
  * - Any non-phi sources of the ALU instruction come from a block that
  *   dominates the block before the loop.  The most common failure mode for
  *   this check is sources that are generated in the loop header block.
@@ -395,10 +393,8 @@ opt_split_alu_of_phi(nir_builder *b, nir_loop *loop)
 
       bool has_phi_src_from_prev_block = false;
       bool all_non_phi_exist_in_prev_block = true;
-      bool is_prev_result_undef = true;
-      bool is_prev_result_const = true;
-      nir_ssa_def *prev_srcs[8];     // FINISHME: Array size?
-      nir_ssa_def *continue_srcs[8]; // FINISHME: Array size?
+      nir_ssa_def *prev_srcs[NIR_MAX_VEC_COMPONENTS];
+      nir_ssa_def *continue_srcs[NIR_MAX_VEC_COMPONENTS];
 
       for (unsigned i = 0; i < nir_op_infos[alu->op].num_inputs; i++) {
          nir_instr *const src_instr = alu->src[i].src.ssa->parent_instr;
@@ -421,16 +417,6 @@ opt_split_alu_of_phi(nir_builder *b, nir_loop *loop)
 
             nir_foreach_phi_src(src_of_phi, phi) {
                if (src_of_phi->pred == prev_block) {
-                  if (src_of_phi->src.ssa->parent_instr->type !=
-                      nir_instr_type_ssa_undef) {
-                     is_prev_result_undef = false;
-                  }
-
-                  if (src_of_phi->src.ssa->parent_instr->type !=
-                      nir_instr_type_load_const) {
-                     is_prev_result_const = false;
-                  }
-
                   prev_srcs[i] = src_of_phi->src.ssa;
                   has_phi_src_from_prev_block = true;
                } else
@@ -453,8 +439,7 @@ opt_split_alu_of_phi(nir_builder *b, nir_loop *loop)
          }
       }
 
-      if (has_phi_src_from_prev_block && all_non_phi_exist_in_prev_block &&
-          (is_prev_result_undef || is_prev_result_const)) {
+      if (has_phi_src_from_prev_block && all_non_phi_exist_in_prev_block) {
          nir_block *const continue_block = find_continue_block(loop);
 
          b->cursor = nir_after_block(prev_block);
