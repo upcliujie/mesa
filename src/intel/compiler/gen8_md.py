@@ -192,6 +192,9 @@ gen8_md.extend([
      'nir_has_any_rounding_mode_rtz(execution_mode)'
     ),
 
+    # If b is NaN, this will produce 0.0 instead of NaN.
+    (('~fmul', ('b2f(is_used_once)', a), 'b(is_not_const)'), Instruction('CSEL', r, a, b, a).cmod('Z')),
+
     (('imul_2x32_64', a, b), Instruction('MUL', r, a, b)),
     (('umul_2x32_64', a, b), Instruction('MUL', r, a, b)),
     (('imul_32x16', a, '#b'), [Instruction('MUL', r, a, retype(b, W))]),
