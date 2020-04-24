@@ -730,6 +730,8 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
               nir_lower_non_uniform_texture_access |
               nir_lower_non_uniform_image_access);
 
+   NIR_PASS_V(nir, nir_opt_shrink_load, nir_var_mem_ubo);
+
    anv_nir_compute_push_layout(pdevice, pipeline->device->robust_buffer_access,
                                nir, prog_data, &stage->bind_map, mem_ctx);
 
