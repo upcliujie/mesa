@@ -151,6 +151,7 @@ analyze_ubos_block(struct ubo_analysis_state *state, nir_block *block)
 
       if (nir_src_is_const(intrin->src[0]) &&
           nir_src_is_const(intrin->src[1])) {
+         assert(nir_src_as_uint(intrin->src[0]) < BRW_MAX_BINDING_TABLE_SIZE);
          const int block = nir_src_as_uint(intrin->src[0]);
          const unsigned byte_offset = nir_src_as_uint(intrin->src[1]);
          const int offset = byte_offset / 32;

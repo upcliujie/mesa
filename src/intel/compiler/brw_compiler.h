@@ -570,7 +570,7 @@ struct brw_image_param {
 
 struct brw_ubo_range
 {
-   uint16_t block;
+   uint8_t block;
    uint8_t start;
    uint8_t length;
 };
