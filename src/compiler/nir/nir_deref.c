@@ -121,6 +121,38 @@ nir_deref_instr_remove_if_unused(nir_deref_instr *instr)
 }
 
 bool
+nir_src_requires_deref(const nir_src *src)
+{
+   switch (src->parent_instr->type) {
+   case nir_instr_type_deref: {
+      nir_deref_instr *deref = nir_instr_as_deref(src->parent_instr);
+      return deref->deref_type != nir_deref_type_cast &&
+             src == &deref->parent;
+   }
+
+   case nir_instr_type_tex: {
+      /* The LIST_ENTRY macro is a generic container-of macro, it just happens
+       * to have a more specific name.
+       */
+      nir_tex_src *tex_src = LIST_ENTRY(nir_tex_src, src, src);
+      return tex_src->src_type == nir_tex_src_texture_deref ||
+             tex_src->src_type == nir_tex_src_sampler_deref;
+   }
+
+   case nir_instr_type_intrinsic: {
+      nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(src->parent_instr);
+      const nir_intrinsic_info *info = &nir_intrinsic_infos[intrin->intrinsic];
+
+      assert(src >= intrin->src && src <= intrin->src + info->num_srcs - 1);
+      return info->src_components[src - intrin->src] == -1;
+   }
+
+   default:
+      return false;
+   }
+}
+
+bool
 nir_deref_instr_has_indirect(nir_deref_instr *instr)
 {
    while (instr->deref_type != nir_deref_type_var) {

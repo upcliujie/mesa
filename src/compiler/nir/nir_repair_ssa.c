@@ -118,8 +118,7 @@ repair_ssa_def(nir_ssa_def *def, void *void_state)
        * deref information.
        */
       if (def->parent_instr->type == nir_instr_type_deref &&
-          src->parent_instr->type == nir_instr_type_deref &&
-          nir_instr_as_deref(src->parent_instr)->deref_type != nir_deref_type_cast) {
+          nir_src_requires_deref(src)) {
          nir_deref_instr *cast =
             nir_deref_instr_create(state->impl->function->shader,
                                    nir_deref_type_cast);

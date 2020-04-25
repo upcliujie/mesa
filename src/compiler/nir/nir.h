@@ -1392,6 +1392,8 @@ typedef struct {
    nir_dest dest;
 } nir_deref_instr;
 
+bool nir_src_requires_deref(const nir_src *src);
+
 static inline nir_deref_instr *nir_src_as_deref(nir_src src);
 
 static inline nir_deref_instr *
@@ -1690,7 +1692,7 @@ typedef struct {
     * If this value is 0, the number of components is given by the
     * num_components field of nir_intrinsic_instr.  If this value is -1, the
     * intrinsic consumes however many components are provided and it is not
-    * validated at all.
+    * validated at all.  This is used for deref sources.
     */
    int src_components[NIR_INTRINSIC_MAX_INPUTS];
 
