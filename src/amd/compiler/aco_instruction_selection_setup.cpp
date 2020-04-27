@@ -741,6 +741,16 @@ void init_context(isel_context *ctx, nir_shader *shader)
                         if (regclasses[alu_instr->src[i].src.ssa->index].type() == RegType::vgpr)
                            type = RegType::vgpr;
                      }
+                     bool has_8_16_bit_salu_impl = nir_op_is_vec(alu_instr->op) ||
+                                                   alu_instr->op == nir_op_bcsel ||
+                                                   alu_instr->op == nir_op_unpack_32_2x16_split_x ||
+                                                   alu_instr->op == nir_op_unpack_32_2x16_split_y ||
+                                                   alu_instr->op == nir_op_u2u16 ||
+                                                   alu_instr->op == nir_op_i2i16 ||
+                                                   alu_instr->op == nir_op_u2u8 ||
+                                                   alu_instr->op == nir_op_i2i8;
+                     if (alu_instr->dest.dest.ssa.bit_size < 32 && !has_8_16_bit_salu_impl)
+                        type = RegType::vgpr;
                      break;
                }
 
