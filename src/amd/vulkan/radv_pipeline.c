@@ -2952,48 +2952,55 @@ static bool should_lower_alu(const nir_alu_instr *alu, bool has_divergence_info,
 	has_divergence_info = has_divergence_info && chip >= GFX8;
 
 	if (alu->dest.dest.ssa.bit_size & 24) {
+		unsigned bit_size = alu->dest.dest.ssa.bit_size;
 		switch (alu->op) {
 		case nir_op_iabs:
-		case nir_op_iadd:
 		case nir_op_iand:
 		case nir_op_bitfield_select:
-		case nir_op_imax:
-		case nir_op_umax:
-		case nir_op_imin:
-		case nir_op_umin:
 		case nir_op_umod:
 		case nir_op_imod:
-		case nir_op_imul:
 		case nir_op_imul_high:
 		case nir_op_umul_high:
 		case nir_op_ineg:
 		case nir_op_inot:
 		case nir_op_ior:
-		case nir_op_ishl:
-		case nir_op_ishr:
-		case nir_op_ushr:
 		case nir_op_isign:
-		case nir_op_isub:
 		case nir_op_ixor:
 			return true;
+		case nir_op_imax:
+		case nir_op_umax:
+		case nir_op_imin:
+		case nir_op_umin:
+		case nir_op_ishr:
+		case nir_op_ushr:
+		case nir_op_ishl:
+		case nir_op_iadd:
+		case nir_op_uadd_sat:
+		case nir_op_isub:
+		case nir_op_imul:
+			return bit_size == 8 || !has_divergence_info ||
+			       !(chip >= GFX8 && nir_dest_is_divergent(alu->dest.dest));
 		default:
 			return false;
 		}
 	}
 
 	if (nir_src_bit_size(alu->src[0].src) & 24) {
+		unsigned bit_size = nir_src_bit_size(alu->src[0].src);
 		switch (alu->op) {
 		case nir_op_bit_count:
 		case nir_op_find_lsb:
 		case nir_op_ufind_msb:
-		case nir_op_ieq:
-		case nir_op_ige:
-		case nir_op_uge:
-		case nir_op_ilt:
-		case nir_op_ult:
-		case nir_op_ine:
 		case nir_op_i2b1:
 			return true;
+		case nir_op_ilt:
+		case nir_op_ige:
+		case nir_op_ieq:
+		case nir_op_ine:
+		case nir_op_ult:
+		case nir_op_uge:
+			return bit_size == 8 || !has_divergence_info ||
+			       !(chip >= GFX8 && nir_dest_is_divergent(alu->dest.dest));
 		default:
 			return false;
 		}
