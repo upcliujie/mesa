@@ -2958,8 +2958,32 @@ lower_bit_size_callback(const nir_alu_instr *alu, void *_)
 	if (bit_size >= 32 || bit_size == 1)
 		return 0;
 
-	if (alu->op == nir_op_bcsel)
+	switch (alu->op) {
+	case nir_op_bcsel:
 		return 0;
+	case nir_op_imax:
+	case nir_op_umax:
+	case nir_op_imin:
+	case nir_op_umin:
+	case nir_op_ishr:
+	case nir_op_ushr:
+	case nir_op_ishl:
+	case nir_op_iadd:
+	case nir_op_uadd_sat:
+	case nir_op_isub:
+	case nir_op_imul:
+	case nir_op_ilt:
+	case nir_op_ige:
+	case nir_op_ieq:
+	case nir_op_ine:
+	case nir_op_ult:
+	case nir_op_uge:
+		if (bit_size == 16 && nir_dest_is_divergent(alu->dest.dest))
+			return 0;
+		break;
+	default:
+		break;
+	}
 
 	const nir_op_info *info = &nir_op_infos[alu->op];
 
@@ -3133,6 +3157,13 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			if (!radv_use_llvm_for_stage(device, i))
 				nir_lower_int64(nir[i]);
 
+			enum chip_class chip = device->physical_device->rad_info.chip_class;
+			if (chip >= GFX8) {
+				/* GFX8+ has native 16-bit instructions, so
+				 * don't lower some divergent 16-bit arithmetic */
+				nir_convert_to_lcssa(nir[i], true, true);
+				nir_divergence_analysis(nir[i]);
+			}
 			if (nir_lower_bit_size(nir[i], lower_bit_size_callback, NULL))
 				nir_copy_prop(nir[i]); /* allow nir_opt_idiv_const() to optimize lowered divisions */
 
