@@ -1,0 +1,149 @@
+/*
+ * Copyright © 2020 Intel Corporation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "nir_instr_set.h"
+#include "nir_builder.h"
+
+static bool
+instruction_is_before(const nir_instr *before, const nir_instr *after)
+{
+   assert(before->block == after->block);
+
+   struct exec_node *n = before->node.next;
+   while (!exec_node_is_tail_sentinel(n)) {
+      if (n == &after->node)
+         return true;
+
+      n = n->next;
+   }
+
+   return false;
+}
+
+static bool
+dce_discard_condition_block(nir_block *block, nir_builder *bld)
+{
+   bool progress = false;
+
+   nir_foreach_instr_safe(instr, block) {
+      if (instr->type == nir_instr_type_intrinsic) {
+         nir_intrinsic_instr *const intrin = nir_instr_as_intrinsic(instr);
+
+         if ((intrin->intrinsic == nir_intrinsic_discard_if ||
+              intrin->intrinsic == nir_intrinsic_terminate_if) &&
+             intrin->src[0].is_ssa &&
+             !nir_src_is_const(intrin->src[0])) {
+
+            nir_foreach_use_safe(use, intrin->src[0].ssa) {
+               nir_instr *user = use->parent_instr;
+               bool replace = false;
+
+               /* One of the users is the discard_if / terminate_if.  Skip
+                * that all together.
+                */
+               if (instr == user)
+                  continue;
+
+               /* If the discard_if instruction dominates the other use of the
+                * condition, then the condition at the use can trivially be
+                * replaced with false.
+                */
+               if (instr->block == user->block) {
+                  if (instruction_is_before(instr, user)) {
+                     replace = true;
+                  } else {
+                     replace = false;
+                  }
+               } else {
+                  replace = nir_block_dominates(instr->block, user->block);
+               }
+
+               if (replace) {
+                  bld->cursor = nir_before_instr(user);
+
+                  nir_instr_rewrite_src(user, use,
+                                        nir_src_for_ssa(nir_imm_false(bld)));
+                  progress = true;
+               }
+            }
+
+            nir_foreach_if_use_safe(use, intrin->src[0].ssa) {
+               nir_if *user = use->parent_if;
+
+               if (nir_block_dominates(instr->block, nir_if_first_then_block(user))) {
+                  bld->cursor = nir_after_instr(instr);
+
+                  nir_if_rewrite_condition(user,
+                                           nir_src_for_ssa(nir_imm_false(bld)));
+                  progress = true;
+               }
+            }
+         }
+      }
+   }
+
+   for (unsigned i = 0; i < block->num_dom_children; i++) {
+      if (dce_discard_condition_block(block->dom_children[i], bld))
+          progress = true;
+   }
+
+   return progress;
+}
+
+static bool
+nir_opt_dce_discard_condition_impl(nir_function_impl *impl)
+{
+   nir_builder bld;
+   nir_builder_init(&bld, impl);
+
+   nir_metadata_require(impl, nir_metadata_dominance);
+
+   bool progress = dce_discard_condition_block(nir_start_block(impl), &bld);
+
+   if (progress) {
+      nir_metadata_preserve(impl, nir_metadata_block_index |
+                                  nir_metadata_dominance);
+   } else {
+#ifndef NDEBUG
+      impl->valid_metadata &= ~nir_metadata_not_properly_reset;
+#endif
+   }
+
+   return progress;
+}
+
+bool
+nir_opt_dce_discard_condition(nir_shader *shader)
+{
+   bool progress = false;
+
+   nir_foreach_function(function, shader) {
+      if (function->impl &&
+          nir_opt_dce_discard_condition_impl(function->impl)) {
+         progress = true;
+      }
+   }
+
+   return progress;
+}
+
