@@ -5556,6 +5556,8 @@ bool nir_opt_cse(nir_shader *shader);
 
 bool nir_opt_dce(nir_shader *shader);
 
+bool nir_opt_dce_discard_condition(nir_shader *shader);
+
 bool nir_opt_dead_cf(nir_shader *shader);
 
 bool nir_opt_dead_write_vars(nir_shader *shader);

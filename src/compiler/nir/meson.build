@@ -221,6 +221,7 @@ files_libnir = files(
   'nir_opt_copy_propagate.c',
   'nir_opt_cse.c',
   'nir_opt_dce.c',
+  'nir_opt_dce_discard_condition.c',
   'nir_opt_dead_cf.c',
   'nir_opt_dead_write_vars.c',
   'nir_opt_find_array_copies.c',
