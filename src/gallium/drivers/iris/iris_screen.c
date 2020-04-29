@@ -822,6 +822,8 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
       driQueryOptionb(config->options, "always_flush_cache");
    screen->driconf.sync_compile =
       driQueryOptionb(config->options, "sync_compile");
+   screen->driconf.glsl_correct_derivatives_after_discard =
+      driQueryOptionb(config->options, "glsl_correct_derivatives_after_discard");
 
    screen->precompile = env_var_as_boolean("shader_precompile", true);
 
@@ -834,6 +836,8 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
    screen->compiler->supports_shader_constants = true;
    screen->compiler->compact_params = false;
    screen->compiler->indirect_ubos_use_sampler = screen->devinfo.ver < 12;
+   screen->compiler->fs_correct_derivs_after_kill =
+      screen->driconf.glsl_correct_derivatives_after_discard;
 
    screen->l3_config_3d = iris_get_default_l3_config(&screen->devinfo, false);
    screen->l3_config_cs = iris_get_default_l3_config(&screen->devinfo, true);

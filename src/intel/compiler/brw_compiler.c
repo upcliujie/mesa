@@ -220,6 +220,7 @@ brw_get_compiler_config_value(const struct brw_compiler *compiler)
 {
    uint64_t config = 0;
    insert_u64_bit(&config, compiler->precise_trig);
+   insert_u64_bit(&config, compiler->fs_correct_derivs_after_kill);
    if (compiler->devinfo->ver >= 8 && compiler->devinfo->ver < 10) {
       insert_u64_bit(&config, compiler->scalar_stage[MESA_SHADER_VERTEX]);
       insert_u64_bit(&config, compiler->scalar_stage[MESA_SHADER_TESS_CTRL]);

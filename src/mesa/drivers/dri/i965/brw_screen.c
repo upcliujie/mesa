@@ -88,6 +88,7 @@ static const driOptionDescription brw_driconf[] = {
       DRI_CONF_FORCE_COMPAT_PROFILE(false)
       DRI_CONF_FORCE_GLSL_ABS_SQRT(false)
       DRI_CONF_FORCE_GL_VENDOR()
+      DRI_CONF_GLSL_CORRECT_DERIVATIVES_AFTER_DISCARD(false)
 
       DRI_CONF_OPT_B(shader_precompile, true, "Perform code generation at shader link time.")
    DRI_CONF_SECTION_END
@@ -2802,6 +2803,10 @@ __DRIconfig **brw_init_screen(__DRIscreen *dri_screen)
 
    screen->compiler->glsl_compiler_options[MESA_SHADER_VERTEX].PositionAlwaysInvariant = driQueryOptionb(&screen->optionCache, "vs_position_always_invariant");
    screen->compiler->glsl_compiler_options[MESA_SHADER_TESS_EVAL].PositionAlwaysPrecise = driQueryOptionb(&screen->optionCache, "vs_position_always_precise");
+
+   screen->compiler->fs_correct_derivs_after_kill =
+      driQueryOptionb(&screen->optionCache,
+                      "glsl_correct_derivatives_after_discard");
 
    screen->compiler->supports_pull_constants = true;
    screen->compiler->compact_params = true;
