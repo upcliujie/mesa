@@ -80,13 +80,15 @@ brw_blorp_surface_info_init(struct blorp_context *blorp,
                             struct brw_blorp_surface_info *info,
                             const struct blorp_surf *surf,
                             unsigned int level, float layer,
-                            enum isl_format format, bool is_render_target)
+                            enum isl_format format,
+                            isl_surf_usage_flags_t usage)
 {
    memset(info, 0, sizeof(*info));
    assert(level < surf->surf->levels);
    assert(layer < MAX2(surf->surf->logical_level0_px.depth >> level,
                        surf->surf->logical_level0_px.array_len));
 
+   bool is_render_target = (usage & ISL_SURF_USAGE_RENDER_TARGET_BIT);
    info->enabled = true;
 
    if (format == ISL_FORMAT_UNSUPPORTED)
@@ -105,8 +107,7 @@ brw_blorp_surface_info_init(struct blorp_context *blorp,
    info->clear_color_addr = surf->clear_color_addr;
 
    info->view = (struct isl_view) {
-      .usage = is_render_target ? ISL_SURF_USAGE_RENDER_TARGET_BIT :
-                                  ISL_SURF_USAGE_TEXTURE_BIT,
+      .usage = usage,
       .format = format,
       .base_level = level,
       .levels = 1,
@@ -333,7 +334,8 @@ blorp_hiz_op(struct blorp_batch *batch, struct blorp_surf *surf,
       const uint32_t layer = start_layer + a;
 
       brw_blorp_surface_info_init(batch->blorp, &params.depth, surf, level,
-                                  layer, surf->surf->format, true);
+                                  layer, surf->surf->format,
+                                  ISL_SURF_USAGE_RENDER_TARGET_BIT);
 
       /* Align the rectangle primitive to 8x4 pixels.
        *

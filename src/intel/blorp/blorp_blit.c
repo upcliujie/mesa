@@ -2351,9 +2351,11 @@ blorp_blit(struct blorp_batch *batch,
    }
 
    brw_blorp_surface_info_init(batch->blorp, &params.src, src_surf, src_level,
-                               src_layer, src_format, false);
+                               src_layer, src_format,
+                               ISL_SURF_USAGE_TEXTURE_BIT);
    brw_blorp_surface_info_init(batch->blorp, &params.dst, dst_surf, dst_level,
-                               dst_layer, dst_format, true);
+                               dst_layer, dst_format,
+                               ISL_SURF_USAGE_RENDER_TARGET_BIT);
 
    params.src.view.swizzle = src_swizzle;
    params.dst.view.swizzle = dst_swizzle;
@@ -2643,9 +2645,11 @@ blorp_copy(struct blorp_batch *batch,
 
    blorp_params_init(&params);
    brw_blorp_surface_info_init(batch->blorp, &params.src, src_surf, src_level,
-                               src_layer, ISL_FORMAT_UNSUPPORTED, false);
+                               src_layer, ISL_FORMAT_UNSUPPORTED,
+                               ISL_SURF_USAGE_TEXTURE_BIT);
    brw_blorp_surface_info_init(batch->blorp, &params.dst, dst_surf, dst_level,
-                               dst_layer, ISL_FORMAT_UNSUPPORTED, true);
+                               dst_layer, ISL_FORMAT_UNSUPPORTED,
+                               ISL_SURF_USAGE_RENDER_TARGET_BIT);
 
    struct brw_blorp_blit_prog_key wm_prog_key = {
       .shader_type = BLORP_SHADER_TYPE_COPY,
