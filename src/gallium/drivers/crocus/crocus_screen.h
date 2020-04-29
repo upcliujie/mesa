@@ -199,6 +199,7 @@ struct crocus_screen {
       bool dual_color_blend_by_location;
       bool disable_throttling;
       bool always_flush_cache;
+      bool glsl_correct_derivatives_after_discard;
    } driconf;
 
    uint64_t aperture_bytes;
