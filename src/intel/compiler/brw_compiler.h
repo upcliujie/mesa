@@ -119,6 +119,11 @@ struct brw_compiler {
     * constant or data cache, UBOs must use VK_FORMAT_RAW.
     */
    bool indirect_ubos_use_sampler;
+
+   /**
+    * Should discard instructions be lowered to demote instructions?
+    */
+   bool fs_correct_derivs_after_kill;
 };
 
 #define brw_shader_debug_log(compiler, data, fmt, ... ) do {    \
