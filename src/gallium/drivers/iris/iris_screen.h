@@ -179,6 +179,7 @@ struct iris_screen {
       bool disable_throttling;
       bool always_flush_cache;
       bool sync_compile;
+      bool glsl_correct_derivatives_after_discard;
    } driconf;
 
    /** Does the kernel support various features (KERNEL_HAS_* bitfield)? */
