@@ -360,7 +360,8 @@ blorp_fast_clear(struct blorp_batch *batch,
       return;
 
    brw_blorp_surface_info_init(batch->blorp, &params.dst, surf, level,
-                               start_layer, format, true);
+                               start_layer, format,
+                               ISL_SURF_USAGE_RENDER_TARGET_BIT);
    params.num_samples = params.dst.surf.samples;
 
    /* If a swizzle was provided, we need to swizzle the clear color so that
@@ -453,7 +454,8 @@ blorp_clear(struct blorp_batch *batch,
 
    while (num_layers > 0) {
       brw_blorp_surface_info_init(batch->blorp, &params.dst, surf, level,
-                                  start_layer, format, true);
+                                  start_layer, format,
+                                  ISL_SURF_USAGE_RENDER_TARGET_BIT);
       params.dst.view.swizzle = swizzle;
 
       params.x0 = x0;
@@ -628,7 +630,8 @@ blorp_clear_stencil_as_rgba(struct blorp_batch *batch,
       uint32_t layer = start_layer + a;
 
       brw_blorp_surface_info_init(batch->blorp, &params.dst, surf, level,
-                                  layer, ISL_FORMAT_UNSUPPORTED, true);
+                                  layer, ISL_FORMAT_UNSUPPORTED,
+                                  ISL_SURF_USAGE_RENDER_TARGET_BIT);
 
       if (surf->surf->samples > 1)
          blorp_surf_fake_interleaved_msaa(batch->blorp->isl_dev, &params.dst);
@@ -697,7 +700,8 @@ blorp_clear_depth_stencil(struct blorp_batch *batch,
       if (stencil_mask) {
          brw_blorp_surface_info_init(batch->blorp, &params.stencil, stencil,
                                      level, start_layer,
-                                     ISL_FORMAT_UNSUPPORTED, true);
+                                     ISL_FORMAT_UNSUPPORTED,
+                                     ISL_SURF_USAGE_RENDER_TARGET_BIT);
          params.stencil_mask = stencil_mask;
          params.stencil_ref = stencil_value;
 
@@ -719,7 +723,8 @@ blorp_clear_depth_stencil(struct blorp_batch *batch,
       if (clear_depth) {
          brw_blorp_surface_info_init(batch->blorp, &params.depth, depth,
                                      level, start_layer,
-                                     ISL_FORMAT_UNSUPPORTED, true);
+                                     ISL_FORMAT_UNSUPPORTED,
+                                     ISL_SURF_USAGE_RENDER_TARGET_BIT);
          params.z = depth_value;
          params.depth_format =
             isl_format_get_depth_format(depth->surf->format, false);
@@ -909,7 +914,8 @@ blorp_hiz_clear_depth_stencil(struct blorp_batch *batch,
       if (clear_stencil) {
          brw_blorp_surface_info_init(batch->blorp, &params.stencil, stencil,
                                      level, layer,
-                                     ISL_FORMAT_UNSUPPORTED, true);
+                                     ISL_FORMAT_UNSUPPORTED,
+                                     ISL_SURF_USAGE_RENDER_TARGET_BIT);
          params.stencil_mask = 0xff;
          params.stencil_ref = stencil_value;
          params.num_samples = params.stencil.surf.samples;
@@ -921,7 +927,8 @@ blorp_hiz_clear_depth_stencil(struct blorp_batch *batch,
 
          brw_blorp_surface_info_init(batch->blorp, &params.depth, depth,
                                      level, layer,
-                                     ISL_FORMAT_UNSUPPORTED, true);
+                                     ISL_FORMAT_UNSUPPORTED,
+                                     ISL_SURF_USAGE_RENDER_TARGET_BIT);
          params.depth.clear_color.f32[0] = depth_value;
          params.depth_format =
             isl_format_get_depth_format(depth->surf->format, false);
@@ -1046,7 +1053,8 @@ blorp_ccs_resolve(struct blorp_batch *batch,
 
    blorp_params_init(&params);
    brw_blorp_surface_info_init(batch->blorp, &params.dst, surf,
-                               level, start_layer, format, true);
+                               level, start_layer, format,
+                               ISL_SURF_USAGE_RENDER_TARGET_BIT);
 
    /* From the Ivy Bridge PRM, Vol2 Part1 11.9 "Render Target Resolve":
     *
@@ -1219,9 +1227,11 @@ blorp_mcs_partial_resolve(struct blorp_batch *batch,
    params.y1 = surf->surf->logical_level0_px.height;
 
    brw_blorp_surface_info_init(batch->blorp, &params.src, surf, 0,
-                               start_layer, format, false);
+                               start_layer, format,
+                               ISL_SURF_USAGE_TEXTURE_BIT);
    brw_blorp_surface_info_init(batch->blorp, &params.dst, surf, 0,
-                               start_layer, format, true);
+                               start_layer, format,
+                               ISL_SURF_USAGE_RENDER_TARGET_BIT);
 
    params.num_samples = params.dst.surf.samples;
    params.num_layers = num_layers;
