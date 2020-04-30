@@ -401,9 +401,7 @@ clear_color(struct iris_context *ice,
    blorp_batch_finish(&blorp_batch);
    iris_batch_sync_region_end(batch);
 
-   iris_flush_and_dirty_for_history(ice, batch, res,
-                                    PIPE_CONTROL_RENDER_TARGET_FLUSH,
-                                    "cache history: post color clear");
+   iris_dirty_for_history(ice, res);
 
    iris_resource_finish_render(ice, res, level,
                                box->z, box->depth, aux_usage);
@@ -582,8 +580,7 @@ clear_depth_stencil(struct iris_context *ice,
    if (z_res && clear_depth &&
        can_fast_clear_depth(ice, z_res, level, box, depth)) {
       fast_clear_depth(ice, z_res, level, box, depth);
-      iris_flush_and_dirty_for_history(ice, batch, res, 0,
-                                       "cache history: post fast Z clear");
+      iris_dirty_for_history(ice, res);
       clear_depth = false;
       z_res = false;
    }
@@ -630,8 +627,7 @@ clear_depth_stencil(struct iris_context *ice,
    blorp_batch_finish(&blorp_batch);
    iris_batch_sync_region_end(batch);
 
-   iris_flush_and_dirty_for_history(ice, batch, res, 0,
-                                    "cache history: post slow ZS clear");
+   iris_dirty_for_history(ice, res);
 
    if (clear_depth && z_res) {
       iris_resource_finish_depth(ice, z_res, level,

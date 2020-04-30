@@ -572,10 +572,7 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
                                  info->dst.box.depth, stc_dst_aux_usage);
    }
 
-   iris_flush_and_dirty_for_history(ice, batch, (struct iris_resource *)
-                                    info->dst.resource,
-                                    PIPE_CONTROL_RENDER_TARGET_FLUSH,
-                                    "cache history: post-blit");
+   iris_dirty_for_history(ice, (struct iris_resource *)info->dst.resource);
 }
 
 static void
@@ -789,9 +786,7 @@ iris_resource_copy_region(struct pipe_context *ctx,
                        dsty, dstz, &s_src_res->base, src_level, src_box);
    }
 
-   iris_flush_and_dirty_for_history(ice, batch, dst,
-                                    PIPE_CONTROL_RENDER_TARGET_FLUSH,
-                                    "cache history: post copy_region");
+   iris_dirty_for_history(ice, dst);
 }
 
 void
