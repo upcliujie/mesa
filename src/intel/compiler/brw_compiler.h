@@ -131,6 +131,13 @@ struct brw_compiler {
     * back-end compiler.
     */
    bool lower_variable_group_size;
+
+   /**
+    * True if the CS per-thread push data comes before cross-thread.  This
+    * allows the driver to use Indirect Data from GPGPU_WALKER for compute
+    * push rather than MEDIA_CURBE_SETUP.
+    */
+   bool cs_per_thread_push_first;
 };
 
 /**

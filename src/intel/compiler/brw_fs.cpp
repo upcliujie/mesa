@@ -8924,30 +8924,43 @@ cs_fill_push_const_info(const struct brw_compiler *compiler,
    int subgroup_id_index = get_subgroup_id_param_index(compiler, cs_prog_data);
    bool cross_thread_supported = devinfo->gen > 7 || devinfo->is_haswell;
 
-   /* The thread ID should be stored in the last param dword */
-   assert(subgroup_id_index == -1 ||
-          subgroup_id_index == (int)prog_data->nr_params - 1);
+   assert(subgroup_id_index < (int)prog_data->nr_params);
 
    unsigned cross_thread_dwords, per_thread_dwords;
    if (!cross_thread_supported) {
       cross_thread_dwords = 0u;
       per_thread_dwords = prog_data->nr_params;
-   } else if (subgroup_id_index >= 0) {
+   } else if (subgroup_id_index < 0) {
+      /* Fill all data using cross-thread payload */
+      cross_thread_dwords = prog_data->nr_params;
+      per_thread_dwords = 0u;
+   } else if (compiler->cs_per_thread_push_first) {
+      /* The thread ID should be stored in the first param dword */
+      assert(subgroup_id_index < 8);
+
+      /* Fill all but the first register with cross-thread payload */
+      per_thread_dwords = ALIGN(subgroup_id_index + 1, 8);
+      cross_thread_dwords = prog_data->nr_params - per_thread_dwords;
+   } else {
+      /* The thread ID should be stored in the last param dword */
+      assert(subgroup_id_index == (int)prog_data->nr_params - 1);
+
       /* Fill all but the last register with cross-thread payload */
       cross_thread_dwords = 8 * (subgroup_id_index / 8);
       per_thread_dwords = prog_data->nr_params - cross_thread_dwords;
       assert(per_thread_dwords > 0 && per_thread_dwords <= 8);
-   } else {
-      /* Fill all data using cross-thread payload */
-      cross_thread_dwords = prog_data->nr_params;
-      per_thread_dwords = 0u;
    }
 
    fill_push_const_block_info(&cs_prog_data->push.cross_thread, cross_thread_dwords);
    fill_push_const_block_info(&cs_prog_data->push.per_thread, per_thread_dwords);
 
-   assert(cs_prog_data->push.cross_thread.dwords % 8 == 0 ||
-          cs_prog_data->push.per_thread.size == 0);
+   if (compiler->cs_per_thread_push_first) {
+      assert(cs_prog_data->push.per_thread.dwords % 8 == 0 ||
+             cs_prog_data->push.cross_thread.size == 0);
+   } else {
+      assert(cs_prog_data->push.cross_thread.dwords % 8 == 0 ||
+             cs_prog_data->push.per_thread.size == 0);
+   }
    assert(cs_prog_data->push.cross_thread.dwords +
           cs_prog_data->push.per_thread.dwords ==
              prog_data->nr_params);
