@@ -849,22 +849,39 @@ anv_cmd_buffer_cs_push_constants(struct anv_cmd_buffer *cmd_buffer)
                                          aligned_total_push_constants_size,
                                          push_constant_alignment);
 
-   void *dst = state.map;
    const void *src = (char *)data + (range->start * 32);
+   void *dst = state.map;
+
+   const void *per_thread_src, *cross_thread_src;
+   uint32_t *subgroup_id_src;
+   if (cmd_buffer->device->info.gen >= 8) {
+      /* When we're using GPGPU_WALKER::IndirectData, the per-thread data
+       * comes first in the GRF but is still last in the buffer.
+       */
+      assert(cmd_buffer->device->physical->compiler->cs_per_thread_push_first);
+      per_thread_src = src;
+      cross_thread_src = src + cs_prog_data->push.per_thread.size;
+      subgroup_id_src = &data->gen8_cs.subgroup_id;
+   } else {
+      assert(!cmd_buffer->device->physical->compiler->cs_per_thread_push_first);
+      cross_thread_src = src;
+      per_thread_src = src + cs_prog_data->push.cross_thread.size;
+      subgroup_id_src = &data->gen7_cs.subgroup_id;
+   }
 
    if (cs_prog_data->push.cross_thread.size > 0) {
-      memcpy(dst, src, cs_prog_data->push.cross_thread.size);
+      memcpy(dst, cross_thread_src, cs_prog_data->push.cross_thread.size);
       dst += cs_prog_data->push.cross_thread.size;
-      src += cs_prog_data->push.cross_thread.size;
    }
 
    if (cs_prog_data->push.per_thread.size > 0) {
-      for (unsigned t = 0; t < threads; t++) {
-         memcpy(dst, src, cs_prog_data->push.per_thread.size);
+      uint32_t subgroup_id_offset = (void *)subgroup_id_src - per_thread_src;
+      assert(subgroup_id_offset < cs_prog_data->push.per_thread.size);
 
-         uint32_t *subgroup_id = dst +
-            offsetof(struct anv_push_constants, cs.subgroup_id) -
-            (range->start * 32 + cs_prog_data->push.cross_thread.size);
+      for (unsigned t = 0; t < threads; t++) {
+         memcpy(dst, per_thread_src, cs_prog_data->push.per_thread.size);
+
+         uint32_t *subgroup_id = dst + subgroup_id_offset;
          *subgroup_id = t;
 
          dst += cs_prog_data->push.per_thread.size;

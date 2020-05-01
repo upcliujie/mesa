@@ -118,7 +118,8 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
       sba.DynamicStateMOCS = mocs;
       sba.DynamicStateBaseAddressModifyEnable = true;
 
-      sba.IndirectObjectBaseAddress = (struct anv_address) { NULL, 0 };
+      sba.IndirectObjectBaseAddress =
+         (struct anv_address) { device->dynamic_state_pool.block_pool.bo, 0 };
       sba.IndirectObjectMOCS = mocs;
       sba.IndirectObjectBaseAddressModifyEnable = true;
 
@@ -4168,7 +4169,8 @@ void genX(CmdEndTransformFeedbackEXT)(
 void
 genX(cmd_buffer_flush_compute_state)(struct anv_cmd_buffer *cmd_buffer)
 {
-   struct anv_compute_pipeline *pipeline = cmd_buffer->state.compute.pipeline;
+   struct anv_cmd_compute_state *comp_state = &cmd_buffer->state.compute;
+   struct anv_compute_pipeline *pipeline = comp_state->pipeline;
 
    assert(pipeline->cs);
 
@@ -4232,13 +4234,12 @@ genX(cmd_buffer_flush_compute_state)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if (cmd_buffer->state.push_constants_dirty & VK_SHADER_STAGE_COMPUTE_BIT) {
-      struct anv_state push_state =
-         anv_cmd_buffer_cs_push_constants(cmd_buffer);
+      comp_state->push_data = anv_cmd_buffer_cs_push_constants(cmd_buffer);
 
-      if (push_state.alloc_size) {
+      if (comp_state->push_data.alloc_size && GEN_GEN < 8) {
          anv_batch_emit(&cmd_buffer->batch, GENX(MEDIA_CURBE_LOAD), curbe) {
-            curbe.CURBETotalDataLength    = push_state.alloc_size;
-            curbe.CURBEDataStartAddress   = push_state.offset;
+            curbe.CURBETotalDataLength    = comp_state->push_data.alloc_size;
+            curbe.CURBEDataStartAddress   = comp_state->push_data.offset;
          }
       }
 
@@ -4280,12 +4281,15 @@ anv_cmd_buffer_push_base_group_id(struct anv_cmd_buffer *cmd_buffer,
 
    struct anv_push_constants *push =
       &cmd_buffer->state.push_constants[MESA_SHADER_COMPUTE];
-   if (push->cs.base_work_group_id[0] != baseGroupX ||
-       push->cs.base_work_group_id[1] != baseGroupY ||
-       push->cs.base_work_group_id[2] != baseGroupZ) {
-      push->cs.base_work_group_id[0] = baseGroupX;
-      push->cs.base_work_group_id[1] = baseGroupY;
-      push->cs.base_work_group_id[2] = baseGroupZ;
+   if (push->gen8_cs.base_work_group_id[0] != baseGroupX ||
+       push->gen8_cs.base_work_group_id[1] != baseGroupY ||
+       push->gen8_cs.base_work_group_id[2] != baseGroupZ) {
+      push->gen8_cs.base_work_group_id[0] = baseGroupX;
+      push->gen8_cs.base_work_group_id[1] = baseGroupY;
+      push->gen8_cs.base_work_group_id[2] = baseGroupZ;
+      push->gen7_cs.base_work_group_id[0] = baseGroupX;
+      push->gen7_cs.base_work_group_id[1] = baseGroupY;
+      push->gen7_cs.base_work_group_id[2] = baseGroupZ;
 
       cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_COMPUTE_BIT;
    }
@@ -4310,7 +4314,8 @@ void genX(CmdDispatchBase)(
     uint32_t                                    groupCountZ)
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
-   struct anv_compute_pipeline *pipeline = cmd_buffer->state.compute.pipeline;
+   struct anv_cmd_compute_state *comp_state = &cmd_buffer->state.compute;
+   struct anv_compute_pipeline *pipeline = comp_state->pipeline;
    const struct brw_cs_prog_data *prog_data = get_cs_prog_data(pipeline);
 
    anv_cmd_buffer_push_base_group_id(cmd_buffer, baseGroupX,
@@ -4342,6 +4347,10 @@ void genX(CmdDispatchBase)(
 
    anv_batch_emit(&cmd_buffer->batch, GENX(GPGPU_WALKER), ggw) {
       ggw.PredicateEnable              = cmd_buffer->state.conditional_render_enabled;
+#if GEN_GEN >= 8
+      ggw.IndirectDataStartAddress     = comp_state->push_data.offset;
+      ggw.IndirectDataLength           = comp_state->push_data.alloc_size;
+#endif
       ggw.SIMDSize                     = prog_data->simd_size / 16;
       ggw.ThreadDepthCounterMaximum    = 0;
       ggw.ThreadHeightCounterMaximum   = 0;
@@ -4367,7 +4376,8 @@ void genX(CmdDispatchIndirect)(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_buffer, buffer, _buffer);
-   struct anv_compute_pipeline *pipeline = cmd_buffer->state.compute.pipeline;
+   struct anv_cmd_compute_state *comp_state = &cmd_buffer->state.compute;
+   struct anv_compute_pipeline *pipeline = comp_state->pipeline;
    const struct brw_cs_prog_data *prog_data = get_cs_prog_data(pipeline);
    struct anv_address addr = anv_address_add(buffer->address, offset);
    struct anv_batch *batch = &cmd_buffer->batch;
@@ -4459,6 +4469,10 @@ void genX(CmdDispatchIndirect)(
       ggw.PredicateEnable              = GEN_GEN <= 7 ||
                                          cmd_buffer->state.conditional_render_enabled;
       ggw.SIMDSize                     = prog_data->simd_size / 16;
+#if GEN_GEN >= 8
+      ggw.IndirectDataStartAddress     = comp_state->push_data.offset;
+      ggw.IndirectDataLength           = comp_state->push_data.alloc_size;
+#endif
       ggw.ThreadDepthCounterMaximum    = 0;
       ggw.ThreadHeightCounterMaximum   = 0;
       ggw.ThreadWidthCounterMaximum    = anv_cs_threads(pipeline) - 1;

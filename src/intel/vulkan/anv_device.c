@@ -519,6 +519,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
       device->info.gen < 8 || !device->has_context_isolation;
    device->compiler->supports_shader_constants = true;
    device->compiler->compact_params = false;
+   device->compiler->cs_per_thread_push_first = device->info.gen >= 8;
 
    /* Broadwell PRM says:
     *

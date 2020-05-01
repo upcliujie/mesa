@@ -27,9 +27,24 @@
 #include "util/mesa-sha1.h"
 
 static unsigned
+subgroup_id_offset(const struct brw_compiler *compiler)
+{
+   if (compiler->devinfo->gen >= 8) {
+      assert(compiler->cs_per_thread_push_first);
+      return offsetof(struct anv_push_constants, gen8_cs.subgroup_id);
+   } else {
+      assert(!compiler->cs_per_thread_push_first);
+      return offsetof(struct anv_push_constants, gen7_cs.subgroup_id);
+   }
+}
+
+static unsigned
 base_work_group_offset(const struct brw_compiler *compiler)
 {
-   return offsetof(struct anv_push_constants, cs.base_work_group_id);
+   if (compiler->devinfo->gen >= 8)
+      return offsetof(struct anv_push_constants, gen8_cs.base_work_group_id);
+   else
+      return offsetof(struct anv_push_constants, gen7_cs.base_work_group_id);
 }
 
 void
@@ -122,9 +137,10 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
 
    if (nir->info.stage == MESA_SHADER_COMPUTE) {
       /* For compute shaders, we always have to have the subgroup ID. */
-      assert(push_end <= offsetof(struct anv_push_constants, cs.subgroup_id));
-      push_end = offsetof(struct anv_push_constants, cs.subgroup_id) +
-                 sizeof(uint32_t);
+      unsigned subgroup_id_start = subgroup_id_offset(compiler);
+      unsigned subgroup_id_end = subgroup_id_start + sizeof(uint32_t);
+      push_start = MIN2(push_start, subgroup_id_start);
+      push_end = MAX2(push_end, subgroup_id_end);
    }
 
    /* Align push_start down to a 32B boundary and make it no larger than
@@ -142,9 +158,9 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
    prog_data->param = rzalloc_array(mem_ctx, uint32_t, prog_data->nr_params);
 
    if (nir->info.stage == MESA_SHADER_COMPUTE) {
+      unsigned subgroup_id_start = subgroup_id_offset(compiler);
       struct brw_cs_prog_data *cs_prog_data = brw_cs_prog_data(prog_data);
-      unsigned base = offsetof(struct anv_push_constants, cs.subgroup_id);
-      cs_prog_data->subgroup_id_param = (base - push_start) / 4;
+      cs_prog_data->subgroup_id_param = (subgroup_id_start - push_start) / 4;
    }
 
    struct anv_push_range push_constant_range = {

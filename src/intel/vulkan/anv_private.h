@@ -2482,7 +2482,23 @@ struct anv_xfb_binding {
 };
 
 struct anv_push_constants {
-   uint32_t pad_start[8];
+   struct {
+      /** Subgroup ID
+       *
+       * This is never set by software but is implicitly filled out when
+       * uploading the push constants for compute shaders.
+       */
+      uint32_t subgroup_id;
+
+      /** Base workgroup ID
+       *
+       * Used for vkCmdDispatchBase.
+       */
+      uint32_t base_work_group_id[3];
+
+      /* Pad out to 32 bytes */
+      uint32_t pad[4];
+   } gen8_cs;
 
    /** Push constant data provided by the client through vkPushConstants */
    uint8_t client_data[MAX_PUSH_CONSTANTS_SIZE];
@@ -2508,7 +2524,7 @@ struct anv_push_constants {
        * uploading the push constants for compute shaders.
        */
       uint32_t subgroup_id;
-   } cs;
+   } gen7_cs;
 };
 
 struct anv_dynamic_state {
@@ -2691,6 +2707,8 @@ struct anv_cmd_compute_state {
    bool pipeline_dirty;
 
    struct anv_address num_workgroups;
+
+   struct anv_state push_data;
 };
 
 /** State required while building cmd buffer */
