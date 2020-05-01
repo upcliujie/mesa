@@ -74,7 +74,8 @@ struct iris_fine_fence {
    uint32_t seqno;
 };
 
-void iris_fine_fence_init(struct iris_batch *batch);
+void iris_fine_fence_init(struct iris_batch *batch,
+                          struct u_upload_mgr *uploader);
 
 struct iris_fine_fence *iris_fine_fence_new(struct iris_batch *batch, unsigned flags);
 

@@ -181,10 +181,7 @@ iris_init_batch(struct iris_context *ice,
    batch->state_sizes = ice->state.sizes;
    batch->name = name;
 
-   batch->fine_fences.uploader =
-      u_upload_create(&ice->ctx, 4096, PIPE_BIND_CUSTOM,
-                      PIPE_USAGE_STAGING, 0);
-   iris_fine_fence_init(batch);
+   iris_fine_fence_init(batch, ice->fence_uploader);
 
    batch->hw_ctx_id = iris_create_hw_context(screen->bufmgr);
    assert(batch->hw_ctx_id);
@@ -427,7 +424,6 @@ iris_batch_free(struct iris_batch *batch)
    ralloc_free(batch->syncobjs.mem_ctx);
 
    iris_fine_fence_reference(batch->screen, &batch->last_fence, NULL);
-   u_upload_destroy(batch->fine_fences.uploader);
 
    iris_bo_unreference(batch->bo);
    batch->bo = NULL;

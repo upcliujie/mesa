@@ -14,8 +14,9 @@ iris_fine_fence_reset(struct iris_batch *batch)
 }
 
 void
-iris_fine_fence_init(struct iris_batch *batch)
+iris_fine_fence_init(struct iris_batch *batch, struct u_upload_mgr *uploader)
 {
+   batch->fine_fences.uploader = uploader;
    batch->fine_fences.ref.res = NULL;
    batch->fine_fences.next = 0;
    iris_fine_fence_reset(batch);

@@ -531,6 +531,7 @@ struct iris_context {
    struct iris_batch batches[IRIS_BATCH_COUNT];
 
    struct u_upload_mgr *query_buffer_uploader;
+   struct u_upload_mgr *fence_uploader;
 
    struct {
       struct {

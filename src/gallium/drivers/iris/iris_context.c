@@ -202,6 +202,7 @@ iris_destroy_context(struct pipe_context *ctx)
    u_upload_destroy(ice->state.surface_uploader);
    u_upload_destroy(ice->state.dynamic_uploader);
    u_upload_destroy(ice->query_buffer_uploader);
+   u_upload_destroy(ice->fence_uploader);
 
    iris_batch_free(&ice->batches[IRIS_BATCH_RENDER]);
    iris_batch_free(&ice->batches[IRIS_BATCH_COMPUTE]);
@@ -290,6 +291,10 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ice->query_buffer_uploader =
       u_upload_create(ctx, 4096, PIPE_BIND_CUSTOM, PIPE_USAGE_STAGING,
                       0);
+
+   ice->fence_uploader =
+      u_upload_create(ctx, 4096, PIPE_BIND_CUSTOM, PIPE_USAGE_STAGING,
+                      IRIS_RESOURCE_FLAG_ASYNC);
 
    genX_call(devinfo, init_state, ice);
    genX_call(devinfo, init_blorp, ice);
