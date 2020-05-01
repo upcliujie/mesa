@@ -280,7 +280,7 @@ iris_use_pinned_bo(struct iris_batch *batch,
     * would introduce data dependencies between multiple batches which share
     * the buffer.
     */
-   if (bo == batch->screen->workaround_bo)
+   if (bo->kflags & EXEC_OBJECT_ASYNC)
       writable = false;
 
    struct drm_i915_gem_exec_object2 *existing_entry =

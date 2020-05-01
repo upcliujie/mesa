@@ -1412,9 +1412,17 @@ err:
    return NULL;
 }
 
+void
+iris_bo_make_async(struct iris_bo *bo)
+{
+   assert(!bo->external);
+   bo->kflags |= EXEC_OBJECT_ASYNC;
+}
+
 static void
 iris_bo_make_external_locked(struct iris_bo *bo)
 {
+   assert(!(bo->kflags & EXEC_OBJECT_ASYNC));
    if (!bo->external) {
       _mesa_hash_table_insert(bo->bufmgr->handle_table, &bo->gem_handle, bo);
       /* If a BO is going to be used externally, it could be sent to the

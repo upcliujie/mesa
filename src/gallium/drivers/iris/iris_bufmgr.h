@@ -310,6 +310,17 @@ int iris_bo_get_tiling(struct iris_bo *bo, uint32_t *tiling_mode,
 int iris_bo_flink(struct iris_bo *bo, uint32_t *name);
 
 /**
+ * Make a BO never wait unpon implicit GEM fences.
+ *
+ * Note that we neither wait upon any implicit fences nor do we add any
+ * implicit write fences -- these buffers are incompatible for sharing
+ * with external parties [that assume implicit fencing].
+ *
+ * \param bo Buffer to make asynchronous
+ */
+void iris_bo_make_async(struct iris_bo *bo);
+
+/**
  * Make a BO externally accessible.
  *
  * \param bo Buffer to make external

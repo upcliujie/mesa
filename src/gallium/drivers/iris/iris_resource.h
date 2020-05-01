@@ -43,6 +43,7 @@ struct iris_format_info {
 #define IRIS_RESOURCE_FLAG_SHADER_MEMZONE  (PIPE_RESOURCE_FLAG_DRV_PRIV << 0)
 #define IRIS_RESOURCE_FLAG_SURFACE_MEMZONE (PIPE_RESOURCE_FLAG_DRV_PRIV << 1)
 #define IRIS_RESOURCE_FLAG_DYNAMIC_MEMZONE (PIPE_RESOURCE_FLAG_DRV_PRIV << 2)
+#define IRIS_RESOURCE_FLAG_ASYNC           (PIPE_RESOURCE_FLAG_DRV_PRIV << 3)
 
 /**
  * Resources represent a GPU buffer object or image (mipmap tree).

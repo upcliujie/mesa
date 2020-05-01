@@ -801,6 +801,9 @@ iris_resource_create_for_buffer(struct pipe_screen *pscreen,
       return NULL;
    }
 
+   if (templ->flags & IRIS_RESOURCE_FLAG_ASYNC)
+      iris_bo_make_async(res->bo);
+
    if (templ->bind & PIPE_BIND_SHARED)
       iris_bo_make_external(res->bo);
 

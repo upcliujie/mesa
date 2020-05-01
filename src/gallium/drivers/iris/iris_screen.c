@@ -712,6 +712,7 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
       iris_bo_alloc(screen->bufmgr, "workaround", 4096, IRIS_MEMZONE_OTHER);
    if (!screen->workaround_bo)
       return NULL;
+   iris_bo_make_async(screen->workaround_bo);
 
    if (!iris_init_identifier_bo(screen))
       return NULL;
