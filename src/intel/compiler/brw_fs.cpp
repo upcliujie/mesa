@@ -2180,8 +2180,12 @@ fs_visitor::compact_virtual_grfs()
 }
 
 static int
-get_subgroup_id_param_index(const struct brw_cs_prog_data *prog_data)
+get_subgroup_id_param_index(const struct brw_compiler *compiler,
+                            const struct brw_cs_prog_data *prog_data)
 {
+   if (!compiler->compact_params)
+      return prog_data->subgroup_id_param;
+
    if (prog_data->base.nr_params == 0)
       return -1;
 
@@ -2358,7 +2362,7 @@ fs_visitor::assign_constant_locations()
 
       int subgroup_id_index =
          stage != MESA_SHADER_COMPUTE ? -1 :
-         get_subgroup_id_param_index(brw_cs_prog_data(stage_prog_data));
+         get_subgroup_id_param_index(compiler, brw_cs_prog_data(stage_prog_data));
 
       /* Only allow 16 registers (128 uniform components) as push constants.
        *
@@ -8912,11 +8916,12 @@ fill_push_const_block_info(struct brw_push_const_block *block, unsigned dwords)
 }
 
 static void
-cs_fill_push_const_info(const struct gen_device_info *devinfo,
+cs_fill_push_const_info(const struct brw_compiler *compiler,
                         struct brw_cs_prog_data *cs_prog_data)
 {
+   const struct gen_device_info *devinfo = compiler->devinfo;
    const struct brw_stage_prog_data *prog_data = &cs_prog_data->base;
-   int subgroup_id_index = get_subgroup_id_param_index(cs_prog_data);
+   int subgroup_id_index = get_subgroup_id_param_index(compiler, cs_prog_data);
    bool cross_thread_supported = devinfo->gen > 7 || devinfo->is_haswell;
 
    /* The thread ID should be stored in the last param dword */
@@ -9089,7 +9094,7 @@ brw_compile_cs(const struct brw_compiler *compiler, void *log_data,
 
          v = v8;
          prog_data->simd_size = 8;
-         cs_fill_push_const_info(compiler->devinfo, prog_data);
+         cs_fill_push_const_info(compiler, prog_data);
       }
    }
 
@@ -9119,7 +9124,7 @@ brw_compile_cs(const struct brw_compiler *compiler, void *log_data,
 
          v = v16;
          prog_data->simd_size = 16;
-         cs_fill_push_const_info(compiler->devinfo, prog_data);
+         cs_fill_push_const_info(compiler, prog_data);
       }
    }
 
@@ -9151,7 +9156,7 @@ brw_compile_cs(const struct brw_compiler *compiler, void *log_data,
       } else {
          v = v32;
          prog_data->simd_size = 32;
-         cs_fill_push_const_info(compiler->devinfo, prog_data);
+         cs_fill_push_const_info(compiler, prog_data);
       }
    }
 

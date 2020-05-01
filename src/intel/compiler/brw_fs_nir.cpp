@@ -101,26 +101,32 @@ fs_visitor::nir_setup_uniforms()
    uniforms = nir->num_uniforms / 4;
 
    if (stage == MESA_SHADER_COMPUTE) {
-      /* Add uniforms for builtins after regular NIR uniforms. */
       assert(uniforms == prog_data->nr_params);
 
-      uint32_t *param;
-      if (nir->info.cs.local_size_variable &&
-          compiler->lower_variable_group_size) {
-         param = brw_stage_prog_data_add_params(prog_data, 3);
-         for (unsigned i = 0; i < 3; i++) {
-            param[i] = (BRW_PARAM_BUILTIN_WORK_GROUP_SIZE_X + i);
-            group_size[i] = fs_reg(UNIFORM, uniforms++, BRW_REGISTER_TYPE_UD);
+      if (compiler->compact_params) {
+         /* Add uniforms for builtins after regular NIR uniforms. */
+         uint32_t *param;
+         if (nir->info.cs.local_size_variable &&
+             compiler->lower_variable_group_size) {
+            param = brw_stage_prog_data_add_params(prog_data, 3);
+            for (unsigned i = 0; i < 3; i++) {
+               param[i] = (BRW_PARAM_BUILTIN_WORK_GROUP_SIZE_X + i);
+               group_size[i] = fs_reg(UNIFORM, uniforms++, BRW_REGISTER_TYPE_UD);
+            }
          }
-      }
 
-      /* Subgroup ID must be the last uniform on the list.  This will make
-       * easier later to split between cross thread and per thread
-       * uniforms.
-       */
-      param = brw_stage_prog_data_add_params(prog_data, 1);
-      *param = BRW_PARAM_BUILTIN_SUBGROUP_ID;
-      subgroup_id = fs_reg(UNIFORM, uniforms++, BRW_REGISTER_TYPE_UD);
+         /* Subgroup ID must be the last uniform on the list.  This will make
+          * easier later to split between cross thread and per thread
+          * uniforms.
+          */
+         param = brw_stage_prog_data_add_params(prog_data, 1);
+         *param = BRW_PARAM_BUILTIN_SUBGROUP_ID;
+         subgroup_id = fs_reg(UNIFORM, uniforms++, BRW_REGISTER_TYPE_UD);
+      } else {
+         struct brw_cs_prog_data *cs_prog_data = brw_cs_prog_data(prog_data);
+         subgroup_id = fs_reg(UNIFORM, cs_prog_data->subgroup_id_param,
+                              BRW_REGISTER_TYPE_UD);
+      }
    }
 }
 

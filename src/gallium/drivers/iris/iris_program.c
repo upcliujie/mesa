@@ -602,12 +602,22 @@ iris_setup_uniforms(const struct brw_compiler *compiler,
    assert(num_cbufs < PIPE_MAX_CONSTANT_BUFFERS);
    nir_validate_shader(nir, "after remap");
 
-   /* We don't use params[] but gallium leaves num_uniforms set.  We use this
-    * to detect when cbuf0 exists but we don't need it anymore when we get
-    * here.  Instead, zero it out so that the back-end doesn't get confused
-    * when nr_params * 4 != num_uniforms != nr_params * 4.
+   /* We don't use params[] for anything but gl_SubgroupId in compute */
+   assert(prog_data->nr_params == 0 && prog_data->param == NULL);
+
+   /* We do have to set up params for compute */
+   if (nir->info.stage == MESA_SHADER_COMPUTE) {
+      assert(brw_cs_prog_data(prog_data)->subgroup_id_param == 0);
+      prog_data->nr_params = 1;
+      prog_data->param = ralloc(mem_ctx, uint32_t);
+      *prog_data->param = BRW_PARAM_BUILTIN_SUBGROUP_ID;
+   }
+
+   /* We used this to detect when cbuf0 exists but we don't need it anymore
+    * when we get here.  Set it to nr_params * 4 so we don't confuse the
+    * back-end compiler.
     */
-   nir->num_uniforms = 0;
+   nir->num_uniforms = prog_data->nr_params * 4;
 
    /* Constant loads (if any) need to go at the end of the constant buffers so
     * we need to know num_cbufs before we can lower to them.

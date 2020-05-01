@@ -106,15 +106,10 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
    }
 
    if (nir->info.stage == MESA_SHADER_COMPUTE) {
-      /* For compute shaders, we always have to have the subgroup ID.  The
-       * back-end compiler will "helpfully" add it for us in the last push
-       * constant slot.  Yes, there is an off-by-one error here but that's
-       * because the back-end will add it so we want to claim the number of
-       * push constants one dword less than the full amount including
-       * gl_SubgroupId.
-       */
+      /* For compute shaders, we always have to have the subgroup ID. */
       assert(push_end <= offsetof(struct anv_push_constants, cs.subgroup_id));
-      push_end = offsetof(struct anv_push_constants, cs.subgroup_id);
+      push_end = offsetof(struct anv_push_constants, cs.subgroup_id) +
+                 sizeof(uint32_t);
    }
 
    /* Align push_start down to a 32B boundary and make it no larger than
@@ -130,6 +125,12 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
    nir->num_uniforms = ALIGN(push_end - push_start, align);
    prog_data->nr_params = nir->num_uniforms / 4;
    prog_data->param = rzalloc_array(mem_ctx, uint32_t, prog_data->nr_params);
+
+   if (nir->info.stage == MESA_SHADER_COMPUTE) {
+      struct brw_cs_prog_data *cs_prog_data = brw_cs_prog_data(prog_data);
+      unsigned base = offsetof(struct anv_push_constants, cs.subgroup_id);
+      cs_prog_data->subgroup_id_param = (base - push_start) / 4;
+   }
 
    struct anv_push_range push_constant_range = {
       .set = ANV_DESCRIPTOR_SET_PUSH_CONSTANTS,

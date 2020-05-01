@@ -922,6 +922,7 @@ struct brw_push_const_block {
 struct brw_cs_prog_data {
    struct brw_stage_prog_data base;
 
+   unsigned subgroup_id_param;
    unsigned local_size[3];
    unsigned simd_size;
    unsigned slm_size;
