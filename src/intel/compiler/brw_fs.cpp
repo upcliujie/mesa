@@ -2180,15 +2180,15 @@ fs_visitor::compact_virtual_grfs()
 }
 
 static int
-get_subgroup_id_param_index(const brw_stage_prog_data *prog_data)
+get_subgroup_id_param_index(const struct brw_cs_prog_data *prog_data)
 {
-   if (prog_data->nr_params == 0)
+   if (prog_data->base.nr_params == 0)
       return -1;
 
    /* The local thread id is always the last parameter in the list */
-   uint32_t last_param = prog_data->param[prog_data->nr_params - 1];
+   uint32_t last_param = prog_data->base.param[prog_data->base.nr_params - 1];
    if (last_param == BRW_PARAM_BUILTIN_SUBGROUP_ID)
-      return prog_data->nr_params - 1;
+      return prog_data->base.nr_params - 1;
 
    return -1;
 }
@@ -2356,7 +2356,9 @@ fs_visitor::assign_constant_locations()
          }
       }
 
-      int subgroup_id_index = get_subgroup_id_param_index(stage_prog_data);
+      int subgroup_id_index =
+         stage != MESA_SHADER_COMPUTE ? -1 :
+         get_subgroup_id_param_index(brw_cs_prog_data(stage_prog_data));
 
       /* Only allow 16 registers (128 uniform components) as push constants.
        *
@@ -8914,7 +8916,7 @@ cs_fill_push_const_info(const struct gen_device_info *devinfo,
                         struct brw_cs_prog_data *cs_prog_data)
 {
    const struct brw_stage_prog_data *prog_data = &cs_prog_data->base;
-   int subgroup_id_index = get_subgroup_id_param_index(prog_data);
+   int subgroup_id_index = get_subgroup_id_param_index(cs_prog_data);
    bool cross_thread_supported = devinfo->gen > 7 || devinfo->is_haswell;
 
    /* The thread ID should be stored in the last param dword */
