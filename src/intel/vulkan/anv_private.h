@@ -2482,6 +2482,8 @@ struct anv_xfb_binding {
 };
 
 struct anv_push_constants {
+   uint32_t pad_start[8];
+
    /** Push constant data provided by the client through vkPushConstants */
    uint8_t client_data[MAX_PUSH_CONSTANTS_SIZE];
 
