@@ -599,8 +599,7 @@ lower_load_vulkan_descriptor(nir_intrinsic_instr *intrin,
          }
 
          nir_intrinsic_instr *dyn_load =
-            nir_intrinsic_instr_create(b->shader,
-                                       nir_intrinsic_load_push_constant);
+            nir_intrinsic_instr_create(b->shader, nir_intrinsic_load_uniform);
          nir_intrinsic_set_base(dyn_load, offsetof(struct anv_push_constants,
                                                    dynamic_offsets));
          nir_intrinsic_set_range(dyn_load, MAX_DYNAMIC_BUFFERS * 4);

@@ -62,8 +62,23 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
                   has_const_ubo = true;
                break;
 
-            case nir_intrinsic_load_push_constant: {
+            case nir_intrinsic_load_uniform: {
+               /* This is a push constant that "internal" so it is relative to
+                * the start of struct anv_push_constants.
+                */
                unsigned base = nir_intrinsic_base(intrin);
+               unsigned range = nir_intrinsic_range(intrin);
+               push_start = MIN2(push_start, base);
+               push_end = MAX2(push_end, base + range);
+               break;
+            }
+
+            case nir_intrinsic_load_push_constant: {
+               /* This is a client push constant.  It is relative to the start
+                * of struct anv_push_constants::client_data.
+                */
+               unsigned base = nir_intrinsic_base(intrin) +
+                  offsetof(struct anv_push_constants, client_data);
                unsigned range = nir_intrinsic_range(intrin);
                push_start = MIN2(push_start, base);
                push_end = MAX2(push_end, base + range);
@@ -153,12 +168,19 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
 
                nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
                switch (intrin->intrinsic) {
-               case nir_intrinsic_load_push_constant:
-                  intrin->intrinsic = nir_intrinsic_load_uniform;
-                  nir_intrinsic_set_base(intrin,
-                                         nir_intrinsic_base(intrin) -
-                                         push_start);
+               case nir_intrinsic_load_uniform: {
+                  unsigned base = nir_intrinsic_base(intrin);
+                  nir_intrinsic_set_base(intrin, base - push_start);
                   break;
+               }
+
+               case nir_intrinsic_load_push_constant: {
+                  intrin->intrinsic = nir_intrinsic_load_uniform;
+                  unsigned base = nir_intrinsic_base(intrin) +
+                     offsetof(struct anv_push_constants, client_data);
+                  nir_intrinsic_set_base(intrin, base - push_start);
+                  break;
+               }
 
                case nir_intrinsic_load_base_work_group: {
                   b.cursor = nir_after_instr(&intrin->instr);
