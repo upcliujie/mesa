@@ -283,10 +283,12 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
    ice->state.surface_uploader =
       u_upload_create(ctx, 16384, PIPE_BIND_CUSTOM, PIPE_USAGE_IMMUTABLE,
-                      IRIS_RESOURCE_FLAG_SURFACE_MEMZONE);
+                      IRIS_RESOURCE_FLAG_SURFACE_MEMZONE |
+                      IRIS_RESOURCE_FLAG_ASYNC);
    ice->state.dynamic_uploader =
       u_upload_create(ctx, 16384, PIPE_BIND_CUSTOM, PIPE_USAGE_IMMUTABLE,
-                      IRIS_RESOURCE_FLAG_DYNAMIC_MEMZONE);
+                      IRIS_RESOURCE_FLAG_DYNAMIC_MEMZONE |
+                      IRIS_RESOURCE_FLAG_ASYNC);
 
    ice->query_buffer_uploader =
       u_upload_create(ctx, 4096, PIPE_BIND_CUSTOM, PIPE_USAGE_STAGING,
