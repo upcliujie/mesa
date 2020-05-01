@@ -292,7 +292,7 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
    ice->query_buffer_uploader =
       u_upload_create(ctx, 4096, PIPE_BIND_CUSTOM, PIPE_USAGE_STAGING,
-                      0);
+                      IRIS_RESOURCE_FLAG_ASYNC);
 
    ice->fence_uploader =
       u_upload_create(ctx, 4096, PIPE_BIND_CUSTOM, PIPE_USAGE_STAGING,
