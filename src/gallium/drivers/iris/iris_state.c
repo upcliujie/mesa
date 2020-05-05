@@ -3161,9 +3161,11 @@ iris_set_constant_buffer(struct pipe_context *ctx,
          assert(map);
          memcpy(map, input->user_buffer, input->buffer_size);
       } else if (input->buffer) {
-         if (cbuf->buffer != input->buffer)
+         if (cbuf->buffer != input->buffer) {
             ice->state.dirty |= (IRIS_DIRTY_RENDER_MISC_BUFFER_FLUSHES |
                                  IRIS_DIRTY_COMPUTE_MISC_BUFFER_FLUSHES);
+            shs->dirty_cbufs |= 1u << index;
+         }
 
          pipe_resource_reference(&cbuf->buffer, input->buffer);
 
@@ -6913,6 +6915,7 @@ iris_rebind_buffer(struct iris_context *ice,
 
             if (res->bo == iris_resource_bo(cbuf->buffer)) {
                pipe_resource_reference(&surf_state->res, NULL);
+               shs->dirty_cbufs |= 1u << i;
                ice->state.dirty |= (IRIS_DIRTY_RENDER_MISC_BUFFER_FLUSHES |
                                     IRIS_DIRTY_COMPUTE_MISC_BUFFER_FLUSHES);
                ice->state.stage_dirty |= IRIS_STAGE_DIRTY_CONSTANTS_VS << s;
