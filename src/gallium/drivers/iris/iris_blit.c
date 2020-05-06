@@ -421,9 +421,19 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
                                 info->dst.resource, dst_aux_usage,
                                 info->dst.level, true);
 
-   iris_resource_prepare_access(ice, dst_res, info->dst.level, 1,
-                                info->dst.box.z, info->dst.box.depth,
-                                dst_aux_usage, dst_clear_supported);
+   /* Using Fragment shader we can process 2 LODs at once, so we need to
+    * prepare resources for each level. If resource is 3D, then we have get
+    * correct layers for given level.
+    */
+   for (unsigned i = 0; i < ice->num_miplevels; i++) {
+      int16_t depth = info->dst.box.depth;
+      if (dst_res->base.target == PIPE_TEXTURE_3D && i != 0)
+         depth = util_num_layers(info->dst.resource, info->dst.level + i);
+
+      iris_resource_prepare_access(ice, dst_res, info->dst.level + i, 1,
+                                   info->dst.box.z, depth,
+                                   dst_aux_usage, dst_clear_supported);
+   }
    iris_emit_buffer_barrier_for(batch, dst_res->bo, IRIS_DOMAIN_RENDER_WRITE);
 
    if (abs(info->dst.box.width) == abs(info->src.box.width) &&
@@ -577,8 +587,14 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
    tex_cache_flush_hack(batch, src_fmt.fmt, src_res->surf.format);
 
    if (info->mask & main_mask) {
-      iris_resource_finish_write(ice, dst_res, info->dst.level, info->dst.box.z,
-                                 info->dst.box.depth, dst_aux_usage);
+      for (unsigned i = 0; i < ice->num_miplevels; i++) {
+         int16_t depth = info->dst.box.depth;
+         if (dst_res->base.target == PIPE_TEXTURE_3D && i != 0)
+            depth = util_num_layers(info->dst.resource, info->dst.level + i);
+
+         iris_resource_finish_write(ice, dst_res, info->dst.level + i,
+                                    info->dst.box.z, depth, dst_aux_usage);
+      }
    }
 
    if (stc_dst) {
