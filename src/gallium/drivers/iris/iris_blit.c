@@ -522,7 +522,8 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
                     dst_fmt.fmt, dst_fmt.swizzle,
                     src_x0, src_y0, src_x1, src_y1,
                     dst_x0, dst_y0, dst_x1, dst_y1,
-                    filter, mirror_x, mirror_y);
+                    filter, mirror_x, mirror_y,
+                    ice->num_miplevels);
 
          iris_batch_sync_region_end(batch);
       }
@@ -576,7 +577,7 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
                     ISL_FORMAT_R8_UINT, ISL_SWIZZLE_IDENTITY,
                     src_x0, src_y0, src_x1, src_y1,
                     dst_x0, dst_y0, dst_x1, dst_y1,
-                    filter, mirror_x, mirror_y);
+                    filter, mirror_x, mirror_y, 1);
 
          iris_batch_sync_region_end(batch);
       }

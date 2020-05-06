@@ -428,7 +428,7 @@ brw_blorp_blit_miptrees(struct brw_context *brw,
               dst_isl_format, ISL_SWIZZLE_IDENTITY,
               src_x0, src_y0, src_x1, src_y1,
               dst_x0, dst_y0, dst_x1, dst_y1,
-              blorp_filter, mirror_x, mirror_y);
+              blorp_filter, mirror_x, mirror_y, 1);
    blorp_batch_finish(&batch);
 
    intel_miptree_finish_write(brw, dst_mt, dst_level, dst_layer, 1,

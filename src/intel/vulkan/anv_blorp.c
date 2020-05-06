@@ -866,7 +866,7 @@ blit_image(struct anv_cmd_buffer *cmd_buffer,
                     dst_format.isl_format, dst_format.swizzle,
                     src_x0, src_y0, src_x1, src_y1,
                     dst_x0, dst_y0, dst_x1, dst_y1,
-                    blorp_filter, flip_x, flip_y);
+                    blorp_filter, flip_x, flip_y, 1);
       }
    }
 }
@@ -1610,7 +1610,7 @@ anv_image_msaa_resolve(struct anv_cmd_buffer *cmd_buffer,
                  ISL_FORMAT_UNSUPPORTED, ISL_SWIZZLE_IDENTITY,
                  src_x, src_y, src_x + width, src_y + height,
                  dst_x, dst_y, dst_x + width, dst_y + height,
-                 filter, false, false);
+                 filter, false, false, 1);
    }
 
    blorp_batch_finish(&batch);
