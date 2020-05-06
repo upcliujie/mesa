@@ -554,6 +554,8 @@ struct iris_context {
 
    struct u_upload_mgr *query_buffer_uploader;
 
+   unsigned num_miplevels;
+
    struct {
       struct {
          /**
