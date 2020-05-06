@@ -171,6 +171,116 @@ blorp_create_nir_tex_instr(nir_builder *b, struct brw_blorp_blit_vars *v,
    return tex;
 }
 
+/* Emit code to add all neighboring pixels in subspan using subgroup reduce
+ * operation.
+ */
+static nir_ssa_def *
+blorp_nir_subgroup_reduce(nir_builder *b, nir_ssa_def *pos)
+{
+   nir_intrinsic_instr *intrin =
+      nir_intrinsic_instr_create(b->shader, nir_intrinsic_reduce);
+   nir_ssa_dest_init(&intrin->instr, &intrin->dest, 4, 32, NULL);
+   intrin->num_components = 4;
+
+   /* Input data on which reduce operation will be performed. */
+   intrin->src[0] = nir_src_for_ssa(pos);
+   /* Reduce operation */
+   intrin->const_index[0] = nir_op_fadd;
+   /* Cluster size */
+   intrin->const_index[1] = 4;
+
+   nir_builder_instr_insert(b, &intrin->instr);
+   return &intrin->dest.ssa;
+}
+
+/* Emit code to find active channels.
+ *
+ * Fragment shader works on 2x2 block which is 1 subspan, so all we care about
+ * is how many channels are active in given subspan and return count.
+ *
+ * There are multiple cases which we need to consider.
+ * For example in SIMD8:
+ *    a) Both subspans may be active (8 channel)
+ *    b) Only one subspan can be active (4 Channel)
+ *       - Sampling image with dimension 4x1.
+ *    c) 2 Channels active
+ *       - In case of 1D texture or 2x1 image dimesion.
+ *    d) Every other 2 Channels active
+ *       - In case of 1D array texture.
+ */
+static nir_ssa_def *
+find_total_active_channel(nir_builder *b)
+{
+   nir_ssa_def *active_channel = nir_load_pixel_mask_intel(b);
+   return nir_bit_count(b, nir_iand(b, active_channel, nir_imm_int(b, 0xF)));
+}
+
+/* Emit code to make sure that we only trigger image store for 0th pixel of
+ * every subspan.
+ *
+ * Pseudocode:
+ *
+ * if (gl_SubgroupInvocationID & 3) == 0)
+ *    do image_store;
+ *
+ */
+static nir_ssa_def *
+subgroup_id_is_in_bounds(nir_builder *b, unsigned id)
+{
+   return nir_ieq(b, nir_imm_int(b, 0),
+                  nir_iand(b, nir_load_subgroup_invocation(b),
+                           nir_imm_int(b, id)));
+}
+
+/* Emit code to write LOD2 data using image store. */
+static void
+blorp_nir_image_store(nir_builder *b, struct brw_blorp_blit_vars *v,
+                      const struct brw_blorp_blit_prog_key *key,
+                      nir_ssa_def *color)
+{
+   nir_intrinsic_instr *image_store =
+      nir_intrinsic_instr_create(b->shader, nir_intrinsic_image_store);
+   nir_intrinsic_set_image_dim(image_store, GLSL_SAMPLER_DIM_2D);
+
+   /* Src[0] will be pointing to surface binding table index. */
+   image_store->src[0] = nir_src_for_ssa(nir_imm_int(b,
+                                                     BLORP_STORAGE_BT_INDEX));
+
+   /* Coordinate for next LOD will be gl_FragCoord.xy / 2. */
+   nir_ssa_def *fragcoord = nir_f2i32(b, nir_load_frag_coord(b));
+   nir_ssa_def *x = nir_udiv(b, nir_channel(b, fragcoord, 0),
+                             nir_imm_int(b, 2));
+   nir_ssa_def *y = nir_udiv(b, nir_channel(b, fragcoord, 1),
+                             nir_imm_int(b, 2));
+
+   nir_ssa_def *coords = nir_vec4(b, x, y, nir_imm_int(b, 0),
+                                  nir_imm_int(b, 0));
+
+   image_store->src[1] = nir_src_for_ssa(coords);
+   image_store->src[2] = nir_src_for_ssa(nir_imm_int(b, 0));
+
+   /* In order to calculate 1 pixel for next LOD, we need to add active pixels
+    * in subspan and divide by active channels. If active pixels are 2, divide
+    * by 2 or if active pixels are 4 then divide by 4.
+    */
+   nir_ssa_def *active_channel = find_total_active_channel(b);
+   nir_ssa_def *reduced_data = blorp_nir_subgroup_reduce(b, color);
+   reduced_data = nir_fdiv(b, reduced_data, nir_i2f32(b, active_channel));
+
+   /* Data to be written. */
+   image_store->src[3] = nir_src_for_ssa(reduced_data);
+   image_store->src[4] = nir_src_for_ssa(nir_imm_int(b, 0));
+   image_store->num_components = 4;
+   nir_ssa_dest_init(&image_store->instr, &image_store->dest, 4, 32, NULL);
+
+   /* Write only 0th pixels as data will be replicated in all active channels
+    * of subspan.
+    */
+   nir_push_if(b, subgroup_id_is_in_bounds(b, 3));
+   nir_builder_instr_insert(b, &image_store->instr);
+   nir_pop_if(b, NULL);
+}
+
 static nir_ssa_def *
 blorp_nir_tex(nir_builder *b, struct brw_blorp_blit_vars *v,
               const struct brw_blorp_blit_prog_key *key, nir_ssa_def *pos)
