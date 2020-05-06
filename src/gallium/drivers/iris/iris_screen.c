@@ -395,6 +395,9 @@ iris_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_INTEGER_MULTIPLY_32X16:
       return true;
 
+   case PIPE_CAP_GENERATE_MIPMAP:
+      return true;
+
    default:
       return u_pipe_screen_get_param_defaults(pscreen, param);
    }
