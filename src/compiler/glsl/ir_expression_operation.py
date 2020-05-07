@@ -417,8 +417,8 @@ class operation(object):
 ir_expression_operation = [
    operation("bit_not", 1, printable_name="~", source_types=integer_types, c_expression="~ {src0}"),
    operation("logic_not", 1, printable_name="!", source_types=(bool_type,), c_expression="!{src0}"),
-   operation("neg", 1, source_types=numeric_types, c_expression={'u': "-((int) {src0})", 'u64': "-((int64_t) {src0})", 'default': "-{src0}"}),
-   operation("abs", 1, source_types=signed_numeric_types, c_expression={'i': "{src0} < 0 ? -{src0} : {src0}", 'f': "fabsf({src0})", 'd': "fabs({src0})", 'i64': "{src0} < 0 ? -{src0} : {src0}"}),
+   operation("neg", 1, source_types=numeric_types, c_expression={'i': "-((unsigned) {src0})", 'i64': "-((uint64_t) {src0})", 'default': "-{src0}"}),
+   operation("abs", 1, source_types=signed_numeric_types, c_expression={'i': "{src0} < 0 ? -((unsigned){src0}) : {src0}", 'f': "fabsf({src0})", 'd': "fabs({src0})", 'i64': "{src0} < 0 ? -((uint64_t){src0}) : {src0}"}),
    operation("sign", 1, source_types=signed_numeric_types, c_expression={'i': "({src0} > 0) - ({src0} < 0)", 'f': "float(({src0} > 0.0F) - ({src0} < 0.0F))", 'd': "double(({src0} > 0.0) - ({src0} < 0.0))", 'i64': "({src0} > 0) - ({src0} < 0)"}),
    operation("rcp", 1, source_types=real_types, c_expression={'f': "1.0F / {src0}", 'd': "1.0 / {src0}"}),
    operation("rsq", 1, source_types=real_types, c_expression={'f': "1.0F / sqrtf({src0})", 'd': "1.0 / sqrt({src0})"}),
@@ -554,7 +554,7 @@ ir_expression_operation = [
    operation("bitfield_reverse", 1, source_types=(uint_type, int_type), c_expression="bitfield_reverse({src0})"),
    operation("bit_count", 1, source_types=(uint_type, int_type), dest_type=int_type, c_expression="util_bitcount({src0})"),
    operation("find_msb", 1, source_types=(uint_type, int_type), dest_type=int_type, c_expression={'u': "find_msb_uint({src0})", 'i': "find_msb_int({src0})"}),
-   operation("find_lsb", 1, source_types=(uint_type, int_type), dest_type=int_type, c_expression="find_msb_uint({src0} & -{src0})"),
+   operation("find_lsb", 1, source_types=(uint_type, int_type), dest_type=int_type, c_expression={'u': "find_msb_uint({src0} & -{src0})", 'i': "find_msb_uint({src0} & -(unsigned){src0})"}),
    operation("clz", 1, source_types=(uint_type,), dest_type=uint_type, c_expression="(unsigned)(31 - find_msb_uint({src0}))"),
 
    operation("saturate", 1, printable_name="sat", source_types=(float_type,), c_expression="CLAMP({src0}, 0.0f, 1.0f)"),
