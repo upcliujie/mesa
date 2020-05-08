@@ -3998,9 +3998,13 @@ iris_compute_sbe_urb_read_interval(uint64_t fs_input_slots,
     * We find the last URB slot that's actually read by the FS.
     */
    unsigned last_read_slot = last_vue_map->num_slots - 1;
-   while (last_read_slot > first_slot && !(fs_input_slots &
-          (1ull << last_vue_map->slot_to_varying[last_read_slot])))
+   int varying = last_vue_map->slot_to_varying[last_read_slot];
+   while (last_read_slot > first_slot &&
+          varying <= VARYING_SLOT_MAX &&
+          !(fs_input_slots & (1ull << varying))) {
       --last_read_slot;
+      varying = last_vue_map->slot_to_varying[last_read_slot];
+   }
 
    /* The URB read length is the difference of the two, counted in pairs. */
    *out_length = DIV_ROUND_UP(last_read_slot - first_slot + 1, 2);
