@@ -6403,7 +6403,8 @@ iris_upload_render_state(struct iris_context *ice,
                                  draw->index.resource);
          offset = 0;
 
-         iris_emit_buffer_barrier_for(batch, res->bo, IRIS_DOMAIN_VF_READ);
+         if (READ_ONCE(res->bo->index) != ~0u)
+            iris_emit_buffer_barrier_for(batch, res->bo, IRIS_DOMAIN_VF_READ);
       }
 
       struct iris_genx_state *genx = ice->state.genx;

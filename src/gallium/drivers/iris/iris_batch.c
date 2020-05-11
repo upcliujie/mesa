@@ -652,7 +652,6 @@ submit_batch(struct iris_batch *batch)
       struct iris_bo *bo = batch->exec_bos[i];
 
       bo->idle = false;
-      bo->index = -1;
 
       iris_bo_unreference(bo);
    }
