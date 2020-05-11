@@ -1177,7 +1177,7 @@ anv_device_upload_nir(struct anv_device *device,
 
 struct anv_address {
    struct anv_bo *bo;
-   uint32_t offset;
+   uint64_t offset;
 };
 
 struct anv_device {
