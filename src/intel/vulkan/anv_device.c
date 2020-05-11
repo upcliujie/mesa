@@ -788,6 +788,8 @@ anv_physical_device_try_create(struct anv_instance *instance,
    device->has_thread_submit =
       device->has_syncobj_wait_available && device->has_exec_timeline;
 
+   device->bt_block_size = 4096;
+
    device->always_use_bindless =
       env_var_as_boolean("ANV_ALWAYS_BINDLESS", false);
 
@@ -3169,7 +3171,8 @@ VkResult anv_CreateDevice(
 
    result = anv_state_pool_init(&device->surface_state_pool, device,
                                 "surface state pool",
-                                SURFACE_STATE_POOL_MIN_ADDRESS, 0, 4096);
+                                SURFACE_STATE_POOL_MIN_ADDRESS, 0,
+                                device->physical->bt_block_size);
    if (result != VK_SUCCESS)
       goto fail_instruction_state_pool;
 
@@ -3180,7 +3183,8 @@ VkResult anv_CreateDevice(
       result = anv_state_pool_init(&device->binding_table_pool, device,
                                    "binding table pool",
                                    SURFACE_STATE_POOL_MIN_ADDRESS,
-                                   bt_pool_offset, 4096);
+                                   bt_pool_offset,
+                                   device->physical->bt_block_size);
       if (result != VK_SUCCESS)
          goto fail_surface_state_pool;
    }
