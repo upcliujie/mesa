@@ -998,6 +998,16 @@ struct anv_physical_device {
     uint32_t                                    bt_block_size;
 
     bool                                        use_softpin;
+
+    /** True if we are using 256B-aligned binding table mode on Gfx11-12.0
+     *
+     * Gfx11-12.0 have a bit in GT_MODE which lets us select 256B-aligned
+     * binding table mode.  This gives us larger binding table pointers at
+     * the expense of having higher alignment requirements.  In this mode,
+     * we have to shift binding table pointers by 3 bits.
+     */
+    bool                                        use_256B_binding_tables;
+
     bool                                        always_use_bindless;
     bool                                        use_call_secondary;
 
@@ -1340,6 +1350,19 @@ anv_mocs(const struct anv_device *device,
          isl_surf_usage_flags_t usage)
 {
    return isl_mocs(&device->isl_dev, usage, bo && bo->is_external);
+}
+
+/* On Ice Lake and Tiger Lake, we have a bit in GT_MODE which lets us select
+ * 256B-aligned binding table mode.  This gives us larger binding table
+ * pointers at the expense of having higher alignment requirements.  In
+ * this mode, we have to shift binding table pointers by 3 bits.  Starting
+ * with GFX version 12.5, this flag is dropped in favor adding 5 more bits to
+ * 3DSTATE_BINDING_TABLE_POINTERS_*.
+ */
+static inline uint32_t
+anv_bt_offset_shift(const struct anv_device *device)
+{
+   return device->physical->use_256B_binding_tables ? 3 : 0;
 }
 
 void anv_device_init_blorp(struct anv_device *device);

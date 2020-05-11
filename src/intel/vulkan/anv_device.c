@@ -921,7 +921,10 @@ anv_physical_device_try_create(struct anv_instance *instance,
    assert(st_idx <= ARRAY_SIZE(device->sync_types));
    device->vk.supported_sync_types = device->sync_types;
 
-   device->bt_block_size = 65536;
+   device->use_256B_binding_tables =
+      device->info.verx10 >= 110 && device->info.verx10 <= 120;
+
+   device->bt_block_size = 64 * 1024;
 
    device->always_use_bindless =
       env_var_as_boolean("ANV_ALWAYS_BINDLESS", false);

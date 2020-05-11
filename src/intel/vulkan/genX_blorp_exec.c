@@ -199,7 +199,8 @@ static uint32_t
 blorp_binding_table_offset_to_pointer(struct blorp_batch *batch,
                                       uint32_t offset)
 {
-   return offset;
+   struct anv_cmd_buffer *cmd_buffer = batch->driver_batch;
+   return offset >> anv_bt_offset_shift(cmd_buffer->device);
 }
 
 static void *

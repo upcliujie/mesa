@@ -780,8 +780,8 @@ anv_cmd_buffer_alloc_binding_table(struct anv_cmd_buffer *cmd_buffer,
                                    uint32_t entries, uint32_t *state_offset)
 {
    struct anv_state *bt_block = u_vector_head(&cmd_buffer->bt_block_states);
-
-   uint32_t bt_size = align_u32(entries * 4, 32);
+   uint32_t bt_align = 32 << anv_bt_offset_shift(cmd_buffer->device);
+   uint32_t bt_size = align_u32(entries * 4, bt_align);
 
    struct anv_state state = cmd_buffer->bt_next;
    if (bt_size > state.alloc_size)

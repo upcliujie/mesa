@@ -2992,7 +2992,9 @@ cmd_buffer_emit_descriptor_pointers(struct anv_cmd_buffer *cmd_buffer,
       anv_batch_emit(&cmd_buffer->batch,
                      GENX(3DSTATE_BINDING_TABLE_POINTERS_VS), btp) {
          btp._3DCommandSubOpcode = binding_table_opcodes[s];
-         btp.PointertoVSBindingTable = cmd_buffer->state.binding_tables[s].offset;
+         btp.PointertoVSBindingTable =
+            cmd_buffer->state.binding_tables[s].offset >>
+               anv_bt_offset_shift(cmd_buffer->device);
       }
    }
 }
@@ -5266,7 +5268,8 @@ genX(cmd_buffer_flush_compute_state)(struct anv_cmd_buffer *cmd_buffer)
       uint32_t iface_desc_data_dw[GENX(INTERFACE_DESCRIPTOR_DATA_length)];
       struct GENX(INTERFACE_DESCRIPTOR_DATA) desc = {
          .BindingTablePointer =
-            cmd_buffer->state.binding_tables[MESA_SHADER_COMPUTE].offset,
+            cmd_buffer->state.binding_tables[MESA_SHADER_COMPUTE].offset >>
+               anv_bt_offset_shift(cmd_buffer->device),
          .SamplerStatePointer =
             cmd_buffer->state.samplers[MESA_SHADER_COMPUTE].offset,
       };

@@ -294,6 +294,16 @@ init_render_queue_state(struct anv_queue *queue)
    }
 #endif
 
+
+#if GFX_VERx10 >= 110 && GFX_VERx10 <= 120
+   if (device->physical->use_256B_binding_tables) {
+      anv_batch_write_reg(&batch, GENX(GT_MODE), gtm) {
+         gtm.BindingTableAlignment = BTP_18_8;
+         gtm.BindingTableAlignmentMask = true;
+      }
+   }
+#endif
+
    /* Set the "CONSTANT_BUFFER Address Offset Disable" bit, so
     * 3DSTATE_CONSTANT_XS buffer 0 is an absolute address.
     *
