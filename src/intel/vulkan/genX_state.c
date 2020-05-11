@@ -236,6 +236,13 @@ init_render_queue_state(struct anv_queue *queue)
    genX(emit_slice_hashing_state)(device, &batch);
 
 #if GEN_GEN >= 11
+   if (device->physical->use_256B_binding_tables) {
+      anv_batch_write_reg(&batch, GENX(GT_MODE), gtm) {
+         gtm.BindingTableAlignment = BTP_18_8;
+         gtm.BindingTableAlignmentMask = true;
+      }
+   }
+
    /* hardware specification recommends disabling repacking for
     * the compatibility with decompression mechanism in display controller.
     */

@@ -928,6 +928,16 @@ struct anv_physical_device {
     uint32_t                                    bt_block_size;
 
     bool                                        use_softpin;
+
+    /** True if we are using the 256B-aligned binding table mode on Gen11
+     *
+     * On Gen11 and above, we have a bit in GT_MODE which lets us select
+     * 256B-aligned binding table mode.  This gives us larger binding table
+     * pointers at the expense of having higher alignment requirements.  In
+     * this mode, we have to shift binding table pointers by 3 bits.
+     */
+    bool                                        use_256B_binding_tables;
+
     bool                                        always_use_bindless;
     bool                                        use_call_secondary;
 
@@ -1298,6 +1308,17 @@ anv_mocs(const struct anv_device *device,
          isl_surf_usage_flags_t usage)
 {
    return isl_mocs(&device->isl_dev, usage, bo && bo->is_external);
+}
+
+/* On Gen11 and above, we have a bit in GT_MODE which lets us select
+ * 256B-aligned binding table mode.  This gives us larger binding table
+ * pointers at the expense of having higher alignment requirements.  In
+ * this mode, we have to shift binding table pointers by 3 bits.
+ */
+static inline uint32_t
+anv_bt_offset_shift(const struct anv_device *device)
+{
+   return device->physical->use_256B_binding_tables ? 3 : 0;
 }
 
 void anv_device_init_blorp(struct anv_device *device);
