@@ -924,6 +924,9 @@ struct anv_physical_device {
     bool                                        has_mmap_offset;
     uint64_t                                    gtt_size;
 
+    /** Size of a binding table block */
+    uint32_t                                    bt_block_size;
+
     bool                                        use_softpin;
     bool                                        always_use_bindless;
     bool                                        use_call_secondary;
