@@ -1009,6 +1009,8 @@ dri2_create_image_common(__DRIscreen *_screen,
          return NULL;
       tex_usage |= PIPE_BIND_CURSOR;
    }
+   if (use & __DRI_IMAGE_USE_PROTECTED)
+      tex_usage |= PIPE_BIND_PROTECTED;
 
    img = CALLOC_STRUCT(__DRIimageRec);
    if (!img)
