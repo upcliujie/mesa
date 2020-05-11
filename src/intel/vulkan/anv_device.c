@@ -3307,7 +3307,18 @@ VkResult anv_CreateDevice(
    if (result != VK_SUCCESS)
       goto fail_instruction_state_pool;
 
-   if (!anv_use_relocations(physical_device)) {
+
+   if (device->info.ver >= 11) {
+      assert(physical_device->use_softpin);
+      /* On Gfx11+, the binding table has its own base address provided via
+       * BINDING_TABLE_POOL_ALLOC.  Prior to that, it's relative to surface
+       * state base address.
+       */
+      result = anv_state_pool_init(&device->binding_table_pool, device,
+                                   "binding table pool",
+                                   BINDING_TABLE_POOL_MIN_ADDRESS, 0,
+                                   device->physical->bt_block_size);
+   } else if (!anv_use_relocations(physical_device)) {
       int64_t bt_pool_offset = (int64_t)BINDING_TABLE_POOL_MIN_ADDRESS -
                                (int64_t)SURFACE_STATE_POOL_MIN_ADDRESS;
       assert(INT32_MIN < bt_pool_offset && bt_pool_offset < 0);
@@ -3316,9 +3327,9 @@ VkResult anv_CreateDevice(
                                    SURFACE_STATE_POOL_MIN_ADDRESS,
                                    bt_pool_offset,
                                    device->physical->bt_block_size);
-      if (result != VK_SUCCESS)
-         goto fail_surface_state_pool;
    }
+   if (result != VK_SUCCESS)
+      goto fail_surface_state_pool;
 
    if (device->info.has_aux_map) {
       device->aux_map_ctx = intel_aux_map_init(device, &aux_map_allocator,

@@ -104,6 +104,21 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
     */
    cmd_buffer->state.descriptors_dirty |= ~0;
 
+#if GFX_VER >= 11
+   anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
+      pc.CommandStreamerStallEnable = true;
+      anv_debug_dump_pc(pc);
+   }
+   anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_BINDING_TABLE_POOL_ALLOC), btp) {
+      btp.BindingTablePoolBaseAddress =
+         anv_cmd_buffer_bt_pool_base_address(cmd_buffer);
+      btp.BindingTablePoolBufferSize = device->physical->bt_block_size / 4096;
+#if GFX_VERx10 < 125
+      btp.BindingTablePoolEnable = true;
+#endif
+      btp.MOCS = mocs;
+   }
+#else /* GFX_VER < 11 */
    /* Emit a render target cache flush.
     *
     * This isn't documented anywhere in the PRM.  However, it seems to be
@@ -112,25 +127,11 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
     * clear depth, reset state base address, and then go render stuff.
     */
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
-#if GFX_VER >= 12
-      pc.HDCPipelineFlushEnable = true;
-#else
       pc.DCFlushEnable = true;
-#endif
       pc.RenderTargetCacheFlushEnable = true;
       pc.CommandStreamerStallEnable = true;
       anv_debug_dump_pc(pc);
    }
-
-#if GFX_VERx10 == 120
-   /* Wa_1607854226:
-    *
-    *  Workaround the non pipelined state not applying in MEDIA/GPGPU pipeline
-    *  mode by putting the pipeline temporarily in 3D mode.
-    */
-   uint32_t gfx12_wa_pipeline = cmd_buffer->state.current_pipeline;
-   genX(flush_pipeline_select_3d)(cmd_buffer);
-#endif
 
    anv_batch_emit(&cmd_buffer->batch, GENX(STATE_BASE_ADDRESS), sba) {
       sba.GeneralStateBaseAddress = (struct anv_address) { NULL, 0 };
@@ -204,35 +205,8 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
       sba.BindlessSurfaceStateMOCS = mocs;
       sba.BindlessSurfaceStateBaseAddressModifyEnable = true;
 #  endif
-#  if (GFX_VER >= 10)
-      sba.BindlessSamplerStateBaseAddress = (struct anv_address) { NULL, 0 };
-      sba.BindlessSamplerStateMOCS = mocs;
-      sba.BindlessSamplerStateBaseAddressModifyEnable = true;
-      sba.BindlessSamplerStateBufferSize = 0;
-#  endif
    }
-
-#if GFX_VERx10 == 120
-   /* Wa_1607854226:
-    *
-    *  Put the pipeline back into its current mode.
-    */
-   if (gfx12_wa_pipeline != UINT32_MAX)
-      genX(flush_pipeline_select)(cmd_buffer, gfx12_wa_pipeline);
-#endif
-
-#if GFX_VERx10 >= 125
-   anv_batch_emit(
-      &cmd_buffer->batch, GENX(3DSTATE_BINDING_TABLE_POOL_ALLOC), btpa) {
-      btpa.BindingTablePoolBaseAddress =
-         anv_cmd_buffer_bt_pool_base_address(cmd_buffer);
-      btpa.BindingTablePoolBufferSize = device->physical->bt_block_size / 4096;
-#if GFX_VERx10 < 125
-      btpa.BindingTablePoolEnable = true;
-#endif
-      btpa.MOCS = mocs;
-   }
-#endif
+#endif /* GFX_VER < 11 */
 
    /* After re-setting the surface state base address, we have to do some
     * cache flusing so that the sampler engine will pick up the new

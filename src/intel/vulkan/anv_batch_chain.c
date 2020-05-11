@@ -792,8 +792,16 @@ anv_cmd_buffer_alloc_binding_table(struct anv_cmd_buffer *cmd_buffer,
    cmd_buffer->bt_next.map += bt_size;
    cmd_buffer->bt_next.alloc_size -= bt_size;
 
-   assert(bt_block->offset < 0);
-   *state_offset = -bt_block->offset;
+   if (cmd_buffer->device->info.ver >= 11) {
+      /* Starting with Gen11, we have BINDING_TABLE_POOL_ALLOC which lets us
+       * have separate surface and binding table base addresses so we no
+       * longer need any sort of offsetting.
+       */
+      *state_offset = 0;
+   } else {
+      assert(bt_block->offset < 0);
+      *state_offset = -bt_block->offset;
+   }
 
    return state;
 }
