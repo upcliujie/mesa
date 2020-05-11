@@ -2877,7 +2877,8 @@ VkResult anv_CreateDevice(
       goto fail_dynamic_state_pool;
 
    result = anv_state_pool_init(&device->surface_state_pool, device,
-                                SURFACE_STATE_POOL_MIN_ADDRESS, 0, 4096);
+                                SURFACE_STATE_POOL_MIN_ADDRESS, 0,
+                                ANV_BINDING_TABLE_BLOCK_SIZE);
    if (result != VK_SUCCESS)
       goto fail_instruction_state_pool;
 
@@ -2887,7 +2888,8 @@ VkResult anv_CreateDevice(
       assert(INT32_MIN < bt_pool_offset && bt_pool_offset < 0);
       result = anv_state_pool_init(&device->binding_table_pool, device,
                                    SURFACE_STATE_POOL_MIN_ADDRESS,
-                                   bt_pool_offset, 4096);
+                                   bt_pool_offset,
+                                   ANV_BINDING_TABLE_BLOCK_SIZE);
       if (result != VK_SUCCESS)
          goto fail_surface_state_pool;
    }

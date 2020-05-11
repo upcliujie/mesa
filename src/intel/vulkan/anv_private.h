@@ -194,6 +194,11 @@ struct gen_perf_config;
  */
 #define MAX_BINDING_TABLE_SIZE 240
 
+/* The size of a binding table pool in bytes.  Every time the binding table
+ * pool fills, we have to re-emit STATE_BASE_ADDRESS
+ */
+#define ANV_BINDING_TABLE_BLOCK_SIZE 4096
+
 /* The kernel relocation API has a limitation of a 32-bit delta value
  * applied to the address before it is written which, in spite of it being
  * unsigned, is treated as signed .  Because of the way that this maps to
