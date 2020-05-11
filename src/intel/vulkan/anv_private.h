@@ -165,7 +165,6 @@ struct intel_perf_query_result;
    (DYNAMIC_STATE_POOL_MAX_ADDRESS - DYNAMIC_STATE_POOL_MIN_ADDRESS + 1)
 #define BINDING_TABLE_POOL_SIZE     \
    (BINDING_TABLE_POOL_MAX_ADDRESS - BINDING_TABLE_POOL_MIN_ADDRESS + 1)
-#define BINDING_TABLE_POOL_BLOCK_SIZE (65536)
 #define SURFACE_STATE_POOL_SIZE     \
    (SURFACE_STATE_POOL_MAX_ADDRESS - SURFACE_STATE_POOL_MIN_ADDRESS + 1)
 #define INSTRUCTION_STATE_POOL_SIZE \
@@ -994,6 +993,10 @@ struct anv_physical_device {
     uint64_t                                    gtt_size;
 
     bool                                        use_relocations;
+
+    /** Size of a binding table block */
+    uint32_t                                    bt_block_size;
+
     bool                                        use_softpin;
     bool                                        always_use_bindless;
     bool                                        use_call_secondary;
