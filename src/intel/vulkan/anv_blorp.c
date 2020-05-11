@@ -1165,6 +1165,10 @@ anv_cmd_buffer_alloc_blorp_binding_table(struct anv_cmd_buffer *cmd_buffer,
       if (result != VK_SUCCESS)
          return result;
 
+      anv_perf_warn(cmd_buffer->device, &cmd_buffer->base,
+                    "The binding table block ran out of space.  Stalling the "
+                    "GPU so we can re-emit STATE_BASE_ADDRESS");
+
       /* Re-emit state base addresses so we get the new surface state base
        * address before we start emitting binding tables etc.
        */
