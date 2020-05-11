@@ -263,6 +263,18 @@ iris_draw_vbo(struct pipe_context *ctx, const struct pipe_draw_info *info)
       iris_predraw_resolve_framebuffer(ice, batch, draw_aux_buffer_disabled);
    }
 
+   if (info->indirect) {
+      struct iris_bo *bo = iris_resource_bo(info->indirect->buffer);
+      iris_emit_buffer_barrier_for(batch, bo, IRIS_DOMAIN_VF_READ);
+
+      if (info->indirect->indirect_draw_count) {
+         struct iris_bo *draw_count_bo =
+            iris_resource_bo(info->indirect->indirect_draw_count);
+         iris_emit_buffer_barrier_for(batch, draw_count_bo,
+                                      IRIS_DOMAIN_OTHER_READ);
+      }
+   }
+
    iris_binder_reserve_3d(ice);
 
    batch->screen->vtbl.update_surface_base_address(batch, &ice->state.binder);

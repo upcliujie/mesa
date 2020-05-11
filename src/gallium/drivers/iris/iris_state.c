@@ -6453,10 +6453,6 @@ iris_upload_render_state(struct iris_context *ice,
          unsigned draw_count_offset =
             draw->indirect->indirect_draw_count_offset;
 
-         iris_emit_pipe_control_flush(batch,
-                                      "ensure indirect draw buffer is flushed",
-                                      PIPE_CONTROL_FLUSH_ENABLE);
-
          if (ice->state.predicate == IRIS_PREDICATE_STATE_USE_BIT) {
             struct gen_mi_builder b;
             gen_mi_builder_init(&b, batch);
