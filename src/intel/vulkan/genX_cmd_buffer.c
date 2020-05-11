@@ -97,6 +97,15 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
    genX(flush_pipeline_select_3d)(cmd_buffer);
 #endif
 
+#if GEN_GEN >= 11
+   anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_BINDING_TABLE_POOL_ALLOC), btp) {
+      btp.BindingTablePoolEnable = true;
+      btp.MOCS = mocs;
+      btp.BindingTablePoolBaseAddress =
+         anv_cmd_buffer_bt_pool_base_address(cmd_buffer);
+      btp.BindingTablePoolBufferSize = device->physical->bt_block_size / 4096;
+   }
+#else /* GEN_GEN < 11 */
    anv_batch_emit(&cmd_buffer->batch, GENX(STATE_BASE_ADDRESS), sba) {
       sba.GeneralStateBaseAddress = (struct anv_address) { NULL, 0 };
       sba.GeneralStateMOCS = mocs;
@@ -183,6 +192,7 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
       sba.BindlessSamplerStateBufferSize = 0;
 #  endif
    }
+#endif /* GEN_GEN < 11 */
 
 #if GEN_GEN == 12
    /* GEN:BUG:1607854226:
