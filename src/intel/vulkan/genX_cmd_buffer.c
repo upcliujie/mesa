@@ -2918,6 +2918,10 @@ flush_descriptor_sets(struct anv_cmd_buffer *cmd_buffer,
       if (result != VK_SUCCESS)
          return 0;
 
+      anv_perf_warn(VK_LOG_OBJS(&cmd_buffer->vk.base),
+                    "The binding table block ran out of space.  Stalling the "
+                    "GPU so we can update the binding pool address");
+
       /* Re-emit state base addresses so we get the new surface state base
        * address before we start emitting binding tables etc.
        */
