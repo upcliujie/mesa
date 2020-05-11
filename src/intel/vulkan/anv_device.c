@@ -755,6 +755,13 @@ anv_physical_device_try_create(struct anv_instance *instance,
    }
 
    device->has_softpin = anv_gem_get_param(fd, I915_PARAM_HAS_EXEC_SOFTPIN);
+   if (device->info.gen >= 11 && !device->has_softpin) {
+      result = vk_errorfi(device->instance, NULL,
+                          VK_ERROR_INITIALIZATION_FAILED,
+                          "kernel missing softpin");
+      goto fail_alloc;
+   }
+
    device->has_exec_async = anv_gem_get_param(fd, I915_PARAM_HAS_EXEC_ASYNC);
    device->has_exec_capture = anv_gem_get_param(fd, I915_PARAM_HAS_EXEC_CAPTURE);
    device->has_exec_fence = anv_gem_get_param(fd, I915_PARAM_HAS_EXEC_FENCE);
