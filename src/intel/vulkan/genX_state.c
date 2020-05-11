@@ -257,6 +257,16 @@ init_render_queue_state(struct anv_queue *queue)
    }
 #endif
 
+#if GEN_VERSIONx10 >= 110 && GEN_VERSIONx10 <= 120
+   if (device->physical->use_256B_binding_tables) {
+      anv_batch_write_reg(&batch, GENX(GT_MODE), gtm) {
+         gtm.BindingTableAlignment =
+            device->physical->use_256B_binding_tables ? BTP_18_8 : BTP_15_5;
+         gtm.BindingTableAlignmentMask = true;
+      }
+   }
+#endif
+
 #if GEN_GEN == 12
    if (device->info.has_aux_map) {
       uint64_t aux_base_addr = intel_aux_map_get_base(device->aux_map_ctx);
