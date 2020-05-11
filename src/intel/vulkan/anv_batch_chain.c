@@ -557,7 +557,7 @@ anv_cmd_buffer_current_batch_bo(struct anv_cmd_buffer *cmd_buffer)
 }
 
 struct anv_address
-anv_cmd_buffer_surface_base_address(struct anv_cmd_buffer *cmd_buffer)
+anv_cmd_buffer_bt_pool_base_address(struct anv_cmd_buffer *cmd_buffer)
 {
    struct anv_state_pool *pool = anv_binding_table_pool(cmd_buffer->device);
    struct anv_state *bt_block = u_vector_head(&cmd_buffer->bt_block_states);

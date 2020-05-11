@@ -140,7 +140,7 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
       sba.StatelessDataPortAccessMOCS = mocs;
 
       sba.SurfaceStateBaseAddress =
-         anv_cmd_buffer_surface_base_address(cmd_buffer);
+         anv_cmd_buffer_bt_pool_base_address(cmd_buffer);
       sba.SurfaceStateMOCS = mocs;
       sba.SurfaceStateBaseAddressModifyEnable = true;
 
@@ -225,7 +225,7 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
    anv_batch_emit(
       &cmd_buffer->batch, GENX(3DSTATE_BINDING_TABLE_POOL_ALLOC), btpa) {
       btpa.BindingTablePoolBaseAddress =
-         anv_cmd_buffer_surface_base_address(cmd_buffer);
+         anv_cmd_buffer_bt_pool_base_address(cmd_buffer);
       btpa.BindingTablePoolBufferSize = device->physical->bt_block_size / 4096;
 #if GFX_VERx10 < 125
       btpa.BindingTablePoolEnable = true;

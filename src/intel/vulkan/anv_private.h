@@ -3162,7 +3162,7 @@ struct anv_state anv_cmd_buffer_merge_dynamic(struct anv_cmd_buffer *cmd_buffer,
                                               uint32_t dwords, uint32_t alignment);
 
 struct anv_address
-anv_cmd_buffer_surface_base_address(struct anv_cmd_buffer *cmd_buffer);
+anv_cmd_buffer_bt_pool_base_address(struct anv_cmd_buffer *cmd_buffer);
 struct anv_state
 anv_cmd_buffer_alloc_binding_table(struct anv_cmd_buffer *cmd_buffer,
                                    uint32_t entries, uint32_t *state_offset);
