@@ -5016,6 +5016,17 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       break;
    }
 
+   /* Bit 31:16 of R 1.7 contains pixel/sample mask of subspan[3:0] which
+    * indicates which pixels within the four subspans are lit.
+    *
+    * Bit 15:0 contains duplicate copy of the pixel mask.
+    */
+   case nir_intrinsic_load_pixel_mask_intel:
+      assert(stage == MESA_SHADER_FRAGMENT);
+      bld.MOV(retype(dest, BRW_REGISTER_TYPE_UD),
+              retype(brw_vec1_grf(1, 7), BRW_REGISTER_TYPE_UD));
+      break;
+
    case nir_intrinsic_load_subgroup_size:
       /* This should only happen for fragment shaders because every other case
        * is lowered in NIR so we can optimize on it.

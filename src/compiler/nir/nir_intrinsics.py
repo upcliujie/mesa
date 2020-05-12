@@ -1198,3 +1198,6 @@ system_value("callable_sbt_addr_intel", 1, bit_sizes=[64])
 system_value("callable_sbt_stride_intel", 1, bit_sizes=[16])
 system_value("leaf_opaque_intel", 1, bit_sizes=[1])
 system_value("leaf_procedural_intel", 1, bit_sizes=[1])
+
+# This is Intel specific system value for active number of channels.
+system_value("pixel_mask_intel", 1)
