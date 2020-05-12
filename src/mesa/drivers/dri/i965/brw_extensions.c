@@ -216,7 +216,7 @@ brw_init_extensions(struct gl_context *ctx)
       ctx->Extensions.OES_depth_texture_cube_map = true;
       ctx->Extensions.OES_sample_variables = true;
 
-      ctx->Extensions.ARB_timer_query = brw->screen->hw_has_timestamp;
+      ctx->Extensions.ARB_timer_query = brw->screen->hw_has_timestamp != 0;
       ctx->Extensions.EXT_disjoint_timer_query =
          ctx->Extensions.ARB_timer_query;
 
