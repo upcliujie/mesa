@@ -1041,3 +1041,5 @@ store("ssbo_block_intel", [-1, 1], [WRMASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET])
 # src[] = { value, offset }.
 store("shared_block_intel", [1], [BASE, WRMASK, ALIGN_MUL, ALIGN_OFFSET])
 
+# This is Intel specific system value for active number of channels.
+system_value("pixel_mask_intel", 1)
