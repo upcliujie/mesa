@@ -608,6 +608,149 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
                                     "cache history: post-blit");
 }
 
+static bool
+can_support_multiple_miplevels(struct iris_context *ice,
+                               struct iris_resource *res,
+                               unsigned last_level,
+                               bool has_depth)
+{
+   struct iris_screen *screen = (void *) ice->ctx.screen;
+   const struct gen_device_info *devinfo = &screen->devinfo;
+
+   /* Fall back to util_gen_mipmap if we have total number of levels are less
+    * than 2, format is not supported by storage image, or format has depth as
+    * depth compression might be enabled.
+    */
+   if (has_depth || !isl_is_storage_image_format(res->surf.format) ||
+       last_level < 2)
+      return false;
+
+   if (devinfo->gen >= 12)
+      return true;
+
+   /* On older platform we can generate multiple miplevels if resource does not
+    * have any CCS_E compression enabled, because on older platform image store
+    * does not support compression.
+    */
+   struct iris_format_info src_fmt =
+      iris_format_for_usage(devinfo, res->internal_format,
+                            ISL_SURF_USAGE_TEXTURE_BIT);
+   enum isl_aux_usage src_aux_usage =
+      iris_resource_texture_aux_usage(ice, res, src_fmt.fmt);
+
+   if (src_aux_usage == ISL_AUX_USAGE_CCS_E)
+      return false;
+
+   return true;
+}
+
+static bool
+iris_generate_mipmap(struct pipe_context *ctx,
+                     struct pipe_resource *pt,
+                     enum pipe_format format,
+                     unsigned base_level,
+                     unsigned last_level,
+                     unsigned first_layer,
+                     unsigned last_layer)
+{
+   struct iris_context *ice = (void *) ctx;
+   struct iris_screen *screen = (struct iris_screen *)ctx->screen;
+   struct iris_resource *res = (void *) pt;
+   struct pipe_blit_info blit;
+   unsigned dstLevel;
+
+   bool is_zs = util_format_is_depth_or_stencil(format);
+   bool has_depth =
+      util_format_has_depth(util_format_description(format));
+
+   if (!can_support_multiple_miplevels(ice, res, last_level, has_depth))
+      return false;
+
+   /* nothing to do for stencil-only formats */
+   if (is_zs && !has_depth)
+      return true;
+
+   /* nothing to do for integer formats */
+   if (!is_zs && util_format_is_pure_integer(format))
+      return true;
+
+   if (!iris_is_format_supported(&screen->base, format, pt->target,
+                                 pt->nr_samples, pt->nr_storage_samples,
+                                 PIPE_BIND_SAMPLER_VIEW |
+                                 (is_zs ? PIPE_BIND_DEPTH_STENCIL :
+                                 PIPE_BIND_RENDER_TARGET))) {
+      return false;
+   }
+
+   /* The texture object should have room for the levels which we're
+    * about to generate.
+    */
+   assert(last_level <= pt->last_level);
+   /* If this fails, why are we here? */
+   assert(last_level > base_level);
+
+   memset(&blit, 0, sizeof(blit));
+   blit.src.resource = blit.dst.resource = pt;
+
+   /* Make sure LOD0 -> LOD1 and LOD1 -> LOD2 is power of two else fallback to
+    * util_gen_mipmap path.
+    */
+   if (!util_is_power_of_two_or_zero(u_minify(pt->width0, blit.src.level)) ||
+       !util_is_power_of_two_or_zero(u_minify(pt->height0, blit.src.level)))
+      return false;
+
+   for (unsigned i = 0; i < 2; i++) {
+      int width = u_minify(pt->width0, blit.dst.level + i);
+      int height = u_minify(pt->height0, blit.dst.level + i);
+      if (!util_is_power_of_two_or_zero(width) ||
+          !util_is_power_of_two_or_zero(height))
+         return false;
+   }
+
+   blit.src.format = blit.dst.format = format;
+   blit.mask = PIPE_MASK_RGBA;
+   blit.filter = PIPE_TEX_FILTER_LINEAR;
+
+   for (dstLevel = base_level + 1; dstLevel <= last_level;) {
+      blit.src.level = dstLevel - 1;
+      blit.dst.level = dstLevel;
+
+      /* For last odd numbered level we need to generate only 1 LOD. */
+      int pending_level = last_level - dstLevel;
+      if (!pending_level) {
+         dstLevel++;
+         ice->num_miplevels = 1;
+      } else {
+         dstLevel += 2;
+         ice->num_miplevels = 2;
+      }
+
+      blit.src.box.width = u_minify(pt->width0, blit.src.level);
+      blit.src.box.height = u_minify(pt->height0, blit.src.level);
+
+      blit.dst.box.width = u_minify(pt->width0, blit.dst.level);
+      blit.dst.box.height = u_minify(pt->height0, blit.dst.level);
+
+      if (pt->target == PIPE_TEXTURE_3D) {
+         blit.src.box.z = blit.dst.box.z = 0;
+         blit.src.box.depth = util_num_layers(pt, blit.src.level);
+         blit.dst.box.depth = util_num_layers(pt, blit.dst.level);
+      }
+      else {
+         blit.src.box.z = blit.dst.box.z = first_layer;
+         blit.src.box.depth = blit.dst.box.depth =
+            (last_layer + 1 - first_layer);
+      }
+
+      iris_blit(ctx, &blit);
+   }
+
+   /* Reset miplevels to 1 once mipmap generation is done. */
+   ice->num_miplevels = 1;
+
+   return true;
+}
+
 static void
 get_copy_region_aux_settings(struct iris_context *ice,
                              struct iris_resource *res,
@@ -817,6 +960,7 @@ iris_resource_copy_region(struct pipe_context *ctx,
 void
 iris_init_blit_functions(struct pipe_context *ctx)
 {
+   ctx->generate_mipmap = iris_generate_mipmap;
    ctx->blit = iris_blit;
    ctx->resource_copy_region = iris_resource_copy_region;
 }
