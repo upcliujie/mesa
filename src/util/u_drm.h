@@ -27,6 +27,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <xf86drm.h>
 
 /* Does the u64 array contain the listed u64? */
 
@@ -50,6 +51,46 @@ static inline bool
 drm_find_modifier(uint64_t modifier, const uint64_t *modifiers, unsigned count)
 {
    return util_array_contains_u64(modifier, modifiers, count);
+}
+
+static inline int util_set_buffer_label(int fd, int handle, char *label)
+{
+    struct drm_handle_label args = {};
+    int ret;
+
+    args.handle = handle;
+    args.label = (uintptr_t) label;
+
+    if (args.label)
+        args.len = strlen(label) + 1;
+    else
+        args.len = 0;
+
+    ret = drmIoctl(fd, DRM_IOCTL_HANDLE_SET_LABEL, &args);
+
+    return ret;
+}
+
+static inline char* util_get_buffer_label(int fd, int handle)
+{
+    struct drm_handle_label args = {};
+    int ret;
+
+    args.handle = handle;
+
+    ret = drmIoctl(fd, DRM_IOCTL_HANDLE_GET_LABEL, &args);
+    if (ret != 0 || args.len == 0)
+        return NULL;
+
+    args.label = (uintptr_t) realloc(&(args.label), args.len);
+    if (!args.label)
+        return NULL;
+
+    ret = drmIoctl(fd, DRM_IOCTL_HANDLE_GET_LABEL, &args);
+    if (!ret)
+        return NULL;
+
+    return (char *)args.label;
 }
 
 #endif
