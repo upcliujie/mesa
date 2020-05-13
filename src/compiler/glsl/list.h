@@ -718,6 +718,19 @@ inline void exec_node::insert_before(exec_list *before)
         (__inst) = exec_node_typed_forward((__inst)->next, __type *))
 
 /**
+ * Loop through a list between __start and __end.
+ * __start is assumed not to be a NULL.
+ * If __end is NULL, loops until the end of the list.
+ */
+
+#define foreach_from_to_safe(__type, __inst, __start, __end)                                  \
+   for (__type *__inst = exec_node_typed_forward(__start, __type *),                          \
+               *__next = (__inst) ? exec_node_typed_forward((__inst)->next, __type *) : NULL; \
+        (__inst) != NULL && (__inst) != (__end);                                              \
+        (__inst) = (__next),                                                                  \
+        (__next) = (__inst) ? exec_node_typed_forward((__next)->next, __type *) : NULL)
+
+/**
  * Iterate through two lists at once.  Stops at the end of the shorter list.
  *
  * This is safe against either current node being removed or replaced.

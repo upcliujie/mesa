@@ -139,6 +139,26 @@ TEST_P(list_iterators_node_inherite, foreach_in_list_use_after)
    }
 }
 
+TEST_P(list_iterators_node_inherite, foreach_from_to_safe)
+{
+   if (node_list.length() < 2)
+      return;
+
+   /* Second node in the list */
+   test_node_inherite *start =
+      exec_node_typed_forward((&node_list)->head_sentinel.next->next,
+                              test_node_inherite *);
+   /* Second to last node in the list */
+   test_node_inherite *end =
+      exec_node_typed_backward((&node_list)->tail_sentinel.prev->prev,
+                               test_node_inherite *);
+   size_t i = 1;
+   foreach_from_to_safe(test_node_inherite, n, start, end) {
+      EXPECT_EQ(n->value, i);
+      i++;
+   }
+}
+
 class test_node_embed {
    DECLARE_RZALLOC_CXX_OPERATORS(test_node_embed)
 public:
