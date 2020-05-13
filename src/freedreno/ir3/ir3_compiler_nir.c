@@ -329,15 +329,30 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 		return;
 	}
 
-	/* General case: We can just grab the one used channel per src. */
+	unsigned flags[info->num_inputs];
+
 	for (int i = 0; i < info->num_inputs; i++) {
-		unsigned chan = ffs(alu->dest.write_mask) - 1;
 		nir_alu_src *asrc = &alu->src[i];
+		unsigned src_sz = nir_ssa_alu_instr_src_components(alu, i);
+		unsigned chan = ffs(alu->dest.write_mask) - 1;
 
 		compile_assert(ctx, !asrc->abs);
 		compile_assert(ctx, !asrc->negate);
 
-		src[i] = ir3_get_src(ctx, &asrc->src)[asrc->swizzle[chan]];
+		if ((dst_sz == 1) || nir_is_same_comp_swizzle(asrc->swizzle, src_sz)) {
+			/* General case: We can just grab the one used channel per src. */
+			src[i] = ir3_get_src(ctx, &asrc->src)[asrc->swizzle[chan]];
+			flags[i] = 0;
+		} else {
+			compile_assert(ctx, src_sz == dst_sz);
+			compile_assert(ctx, nir_is_sequential_comp_swizzle(asrc->swizzle, src_sz));
+
+			/* rptN case, collect the vector srcs: */
+			struct ir3_instruction * const *vec = ir3_get_src(ctx, &asrc->src);
+			src[i] = ir3_create_collect(ctx, &vec[asrc->swizzle[chan]], dst_sz);
+			flags[i] = IR3_REG_R;
+		}
+
 		bs[i] = nir_src_bit_size(asrc->src);
 
 		compile_assert(ctx, src[i]);
@@ -419,10 +434,10 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 		dst[0] = ir3_ABSNEG_F(b, src[0], IR3_REG_FABS);
 		break;
 	case nir_op_fmax:
-		dst[0] = ir3_MAX_F(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_MAX_F(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_fmin:
-		dst[0] = ir3_MIN_F(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_MIN_F(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_fsat:
 		/* if there is just a single use of the src, and it supports
@@ -446,16 +461,17 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 		}
 		break;
 	case nir_op_fmul:
-		dst[0] = ir3_MUL_F(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_MUL_F(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_fadd:
-		dst[0] = ir3_ADD_F(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_ADD_F(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_fsub:
-		dst[0] = ir3_ADD_F(b, src[0], 0, src[1], IR3_REG_FNEG);
+		dst[0] = ir3_ADD_F(b, src[0], flags[0], src[1], IR3_REG_FNEG | flags[1]);
 		break;
 	case nir_op_ffma:
-		dst[0] = ir3_MAD_F32(b, src[0], 0, src[1], 0, src[2], 0);
+		dst[0] = ir3_MAD_F32(b, src[0], flags[0], src[1], flags[1],
+				src[2], flags[2]);
 		break;
 	case nir_op_fddx:
 	case nir_op_fddx_coarse:
@@ -477,19 +493,19 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 		dst[0]->cat5.type = TYPE_F32;
 		break;
 	case nir_op_flt:
-		dst[0] = ir3_CMPS_F(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_CMPS_F(b, src[0], flags[0], src[1], flags[1]);
 		dst[0]->cat2.condition = IR3_COND_LT;
 		break;
 	case nir_op_fge:
-		dst[0] = ir3_CMPS_F(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_CMPS_F(b, src[0], flags[0], src[1], flags[1]);
 		dst[0]->cat2.condition = IR3_COND_GE;
 		break;
 	case nir_op_feq:
-		dst[0] = ir3_CMPS_F(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_CMPS_F(b, src[0], flags[0], src[1], flags[1]);
 		dst[0]->cat2.condition = IR3_COND_EQ;
 		break;
 	case nir_op_fne:
-		dst[0] = ir3_CMPS_F(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_CMPS_F(b, src[0], flags[0], src[1], flags[1]);
 		dst[0]->cat2.condition = IR3_COND_NE;
 		break;
 	case nir_op_fceil:
@@ -534,34 +550,36 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 		dst[0] = ir3_ABSNEG_S(b, src[0], IR3_REG_SABS);
 		break;
 	case nir_op_iadd:
-		dst[0] = ir3_ADD_U(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_ADD_U(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_iand:
-		dst[0] = ir3_AND_B(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_AND_B(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_imax:
-		dst[0] = ir3_MAX_S(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_MAX_S(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_umax:
-		dst[0] = ir3_MAX_U(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_MAX_U(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_imin:
-		dst[0] = ir3_MIN_S(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_MIN_S(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_umin:
-		dst[0] = ir3_MIN_U(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_MIN_U(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_umul_low:
-		dst[0] = ir3_MULL_U(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_MULL_U(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_imadsh_mix16:
-		dst[0] = ir3_MADSH_M16(b, src[0], 0, src[1], 0, src[2], 0);
+		dst[0] = ir3_MADSH_M16(b, src[0], flags[0], src[1], flags[1],
+				src[2], flags[2]);
 		break;
 	case nir_op_imad24_ir3:
-		dst[0] = ir3_MAD_S24(b, src[0], 0, src[1], 0, src[2], 0);
+		dst[0] = ir3_MAD_S24(b, src[0], flags[0], src[1], flags[1],
+				src[2], flags[2]);
 		break;
 	case nir_op_imul24:
-		dst[0] = ir3_MUL_S24(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_MUL_S24(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_ineg:
 		dst[0] = ir3_ABSNEG_S(b, src[0], IR3_REG_SNEG);
@@ -574,45 +592,45 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 		}
 		break;
 	case nir_op_ior:
-		dst[0] = ir3_OR_B(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_OR_B(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_ishl:
-		dst[0] = ir3_SHL_B(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_SHL_B(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_ishr:
-		dst[0] = ir3_ASHR_B(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_ASHR_B(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_isub:
-		dst[0] = ir3_SUB_U(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_SUB_U(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_ixor:
-		dst[0] = ir3_XOR_B(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_XOR_B(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_ushr:
-		dst[0] = ir3_SHR_B(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_SHR_B(b, src[0], flags[0], src[1], flags[1]);
 		break;
 	case nir_op_ilt:
-		dst[0] = ir3_CMPS_S(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_CMPS_S(b, src[0], flags[0], src[1], flags[1]);
 		dst[0]->cat2.condition = IR3_COND_LT;
 		break;
 	case nir_op_ige:
-		dst[0] = ir3_CMPS_S(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_CMPS_S(b, src[0], flags[0], src[1], flags[1]);
 		dst[0]->cat2.condition = IR3_COND_GE;
 		break;
 	case nir_op_ieq:
-		dst[0] = ir3_CMPS_S(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_CMPS_S(b, src[0], flags[0], src[1], flags[1]);
 		dst[0]->cat2.condition = IR3_COND_EQ;
 		break;
 	case nir_op_ine:
-		dst[0] = ir3_CMPS_S(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_CMPS_S(b, src[0], flags[0], src[1], flags[1]);
 		dst[0]->cat2.condition = IR3_COND_NE;
 		break;
 	case nir_op_ult:
-		dst[0] = ir3_CMPS_U(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_CMPS_U(b, src[0], flags[0], src[1], flags[1]);
 		dst[0]->cat2.condition = IR3_COND_LT;
 		break;
 	case nir_op_uge:
-		dst[0] = ir3_CMPS_U(b, src[0], 0, src[1], 0);
+		dst[0] = ir3_CMPS_U(b, src[0], flags[0], src[1], flags[1]);
 		dst[0]->cat2.condition = IR3_COND_GE;
 		break;
 
@@ -644,10 +662,12 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 			}
 		}
 
+		compile_assert(ctx, flags[0] == 0);
+
 		if (bs[1] != 16)
-			dst[0] = ir3_SEL_B32(b, src[1], 0, cond, 0, src[2], 0);
+			dst[0] = ir3_SEL_B32(b, src[1], flags[1], cond, 0, src[2], flags[2]);
 		else
-			dst[0] = ir3_SEL_B16(b, src[1], 0, cond, 0, src[2], 0);
+			dst[0] = ir3_SEL_B16(b, src[1], flags[1], cond, 0, src[2], flags[2]);
 		break;
 	}
 	case nir_op_bit_count: {
@@ -722,6 +742,14 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 		default:
 			compile_assert(ctx, nir_dest_bit_size(alu->dest.dest) != 1);
 		}
+	}
+
+	if (dst_sz > 1) {
+		compile_assert(ctx,
+			nir_alu_type_get_base_type(info->output_type) != nir_type_bool);
+		dst[0]->repeat = dst_sz - 1;
+		dst[0]->regs[0]->wrmask = BITFIELD_MASK(dst_sz);
+		ir3_split_dest(b, dst, dst[0], 0, dst_sz);
 	}
 
 	ir3_put_dst(ctx, &alu->dest.dest);
