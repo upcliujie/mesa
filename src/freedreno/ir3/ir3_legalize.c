@@ -127,7 +127,8 @@ legalize_block(struct ir3_legalize_ctx *ctx, struct ir3_block *block)
 		if (is_input(n)) {
 			struct ir3_register *inloc = n->regs[1];
 			assert(inloc->flags & IR3_REG_IMMED);
-			ctx->max_bary = MAX2(ctx->max_bary, inloc->iim_val);
+			int inc = (inloc->flags & IR3_REG_R) ? n->repeat : 0;
+			ctx->max_bary = MAX2(ctx->max_bary, inloc->iim_val + inc);
 		}
 
 		if (last_n && is_barrier(last_n)) {
