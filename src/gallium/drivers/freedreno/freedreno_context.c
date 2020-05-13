@@ -131,31 +131,14 @@ fd_memory_barrier(struct pipe_context *pctx, unsigned flags)
 	/* TODO do we need to check for persistently mapped buffers and fd_bo_cpu_prep()?? */
 }
 
-/**
- * emit marker string as payload of a no-op packet, which can be
- * decoded by cffdump.
- */
-static void
-fd_emit_string_marker(struct pipe_context *pctx, const char *string, int len)
+/* for prior to a5xx: */
+void
+fd_emit_string(struct fd_ringbuffer *ring,
+		const char *string, int len)
 {
-	struct fd_context *ctx = fd_context(pctx);
-	struct fd_ringbuffer *ring;
 	const uint32_t *buf = (const void *)string;
 
-	if (!ctx->batch)
-		return;
-
-	ctx->batch->needs_flush = true;
-
-	ring = ctx->batch->draw;
-
-	/* max packet size is 0x3fff dwords: */
-	len = MIN2(len, 0x3fff * 4);
-
-	if (ctx->screen->gpu_id >= 500)
-		OUT_PKT7(ring, CP_NOP, align(len, 4) / 4);
-	else
-		OUT_PKT3(ring, CP_NOP, align(len, 4) / 4);
+	OUT_PKT3(ring, CP_NOP, align(len, 4) / 4);
 	while (len >= 4) {
 		OUT_RING(ring, *buf);
 		buf++;
@@ -167,6 +150,52 @@ fd_emit_string_marker(struct pipe_context *pctx, const char *string, int len)
 		uint32_t w = 0;
 		memcpy(&w, buf, len);
 		OUT_RING(ring, w);
+	}
+}
+
+/* for a5xx+ */
+void
+fd_emit_string5(struct fd_ringbuffer *ring,
+		const char *string, int len)
+{
+	const uint32_t *buf = (const void *)string;
+
+	OUT_PKT7(ring, CP_NOP, align(len, 4) / 4);
+	while (len >= 4) {
+		OUT_RING(ring, *buf);
+		buf++;
+		len -= 4;
+	}
+
+	/* copy remainder bytes without reading past end of input string: */
+	if (len > 0) {
+		uint32_t w = 0;
+		memcpy(&w, buf, len);
+		OUT_RING(ring, w);
+	}
+}
+
+/**
+ * emit marker string as payload of a no-op packet, which can be
+ * decoded by cffdump.
+ */
+static void
+fd_emit_string_marker(struct pipe_context *pctx, const char *string, int len)
+{
+	struct fd_context *ctx = fd_context(pctx);
+
+	if (!ctx->batch)
+		return;
+
+	ctx->batch->needs_flush = true;
+
+	/* max packet size is 0x3fff dwords: */
+	len = MIN2(len, 0x3fff * 4);
+
+	if (ctx->screen->gpu_id >= 500) {
+		fd_emit_string5(ctx->batch->draw, string, len);
+	} else {
+		fd_emit_string(ctx->batch->draw, string, len);
 	}
 }
 
