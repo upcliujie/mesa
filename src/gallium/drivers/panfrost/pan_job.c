@@ -32,6 +32,7 @@
 #include "util/hash_table.h"
 #include "util/ralloc.h"
 #include "util/format/u_format.h"
+#include "util/u_drm.h"
 #include "util/u_pack_color.h"
 #include "pan_util.h"
 #include "pandecode/decode.h"
@@ -647,6 +648,9 @@ panfrost_batch_get_polygon_list(struct panfrost_batch *batch, unsigned size)
                                                                PAN_BO_ACCESS_RW |
                                                                PAN_BO_ACCESS_VERTEX_TILER |
                                                                PAN_BO_ACCESS_FRAGMENT);
+                util_set_buffer_label(batch->polygon_list->dev->fd,
+                                      batch->polygon_list->gem_handle,
+                                      "Polygon List");
         }
 
         return batch->polygon_list->gpu;
@@ -672,6 +676,9 @@ panfrost_batch_get_scratchpad(struct panfrost_batch *batch,
                                              PAN_BO_ACCESS_VERTEX_TILER |
                                              PAN_BO_ACCESS_FRAGMENT);
         }
+        util_set_buffer_label(batch->scratchpad->dev->fd,
+                              batch->scratchpad->gem_handle,
+                              "Scratchpad");
 
         return batch->scratchpad;
 }
@@ -707,6 +714,9 @@ panfrost_batch_get_tiler_heap(struct panfrost_batch *batch)
                                                      PAN_BO_ACCESS_RW |
                                                      PAN_BO_ACCESS_VERTEX_TILER |
                                                      PAN_BO_ACCESS_FRAGMENT);
+        util_set_buffer_label(batch->tiler_heap->dev->fd,
+                              batch->tiler_heap->gem_handle,
+                              "Tiler Heap");
         assert(batch->tiler_heap);
         return batch->tiler_heap;
 }
@@ -763,6 +773,9 @@ panfrost_batch_get_tiler_dummy(struct panfrost_batch *batch)
                                                       PAN_BO_ACCESS_RW |
                                                       PAN_BO_ACCESS_VERTEX_TILER |
                                                       PAN_BO_ACCESS_FRAGMENT);
+        util_set_buffer_label(batch->tiler_dummy->dev->fd,
+                              batch->tiler_dummy->gem_handle,
+                              "Dummy Tiler");
         assert(batch->tiler_dummy);
         return batch->tiler_dummy;
 }

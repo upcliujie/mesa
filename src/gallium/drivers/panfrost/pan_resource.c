@@ -35,6 +35,7 @@
 
 #include "state_tracker/winsys_handle.h"
 #include "util/format/u_format.h"
+#include "util/u_drm.h"
 #include "util/u_memory.h"
 #include "util/u_surface.h"
 #include "util/u_transfer.h"
@@ -383,6 +384,7 @@ static void
 panfrost_resource_create_bo(struct panfrost_device *dev, struct panfrost_resource *pres)
 {
         struct pipe_resource *res = &pres->base;
+        char *label;
 
         /* Based on the usage, figure out what storing will be used. There are
          * various tradeoffs:
@@ -433,6 +435,12 @@ panfrost_resource_create_bo(struct panfrost_device *dev, struct panfrost_resourc
         /* We create a BO immediately but don't bother mapping, since we don't
          * care to map e.g. FBOs which the CPU probably won't touch */
         pres->bo = pan_bo_create(dev, bo_size, PAN_BO_DELAY_MMAP);
+
+        asprintf(&label, "%d resource", res->bind);
+        util_set_buffer_label(pres->bo->dev->fd,
+                              pres->bo->gem_handle,
+                              label);
+        free(label);
 }
 
 void
@@ -849,6 +857,8 @@ panfrost_resource_hint_layout(
                 enum mali_texture_layout layout,
                 signed weight)
 {
+        char *label = NULL;
+
         /* Nothing to do, although a sophisticated implementation might store
          * the hint */
 
@@ -893,11 +903,14 @@ panfrost_resource_hint_layout(
 
         /* If we grew in size, reallocate the BO */
         if (new_size > rsrc->bo->size) {
+                label = util_get_buffer_label(rsrc->bo->dev->fd, rsrc->bo->gem_handle);
                 panfrost_bo_unreference(rsrc->bo);
                 rsrc->bo = pan_bo_create(dev, new_size, PAN_BO_DELAY_MMAP);
         }
 
         /* TODO: If there are textures bound, regenerate their descriptors */
+        util_set_buffer_label(rsrc->bo->dev->fd, rsrc->bo->gem_handle, label);
+        free(label);
 }
 
 static void

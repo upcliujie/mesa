@@ -31,6 +31,7 @@
 #include <panfrost-job.h>
 #include "pan_bo.h"
 #include "pan_context.h"
+#include "util/u_drm.h"
 
 /* TODO: What does this actually have to be? */
 #define ALIGNMENT 128
@@ -75,6 +76,7 @@ panfrost_allocate_transient(struct panfrost_batch *batch, size_t sz)
                                               PAN_BO_ACCESS_RW |
                                               PAN_BO_ACCESS_VERTEX_TILER |
                                               PAN_BO_ACCESS_FRAGMENT);
+                util_set_buffer_label(bo->dev->fd, bo->gem_handle, "Command Stream Pool");
 
                 if (sz < TRANSIENT_SLAB_SIZE) {
                         batch->transient_bo = bo;

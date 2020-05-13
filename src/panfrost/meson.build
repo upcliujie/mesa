@@ -51,6 +51,7 @@ bifrost_compiler = executable(
     inc_gallium_aux,
     inc_include,
     inc_src,
+    inc_util,
     inc_panfrost,
     inc_panfrost_hw,
  ],

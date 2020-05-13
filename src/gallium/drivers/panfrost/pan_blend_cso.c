@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include "util/u_memory.h"
+#include "util/u_drm.h"
 #include "pan_blend_shaders.h"
 #include "pan_blending.h"
 #include "pan_bo.h"
@@ -275,7 +276,9 @@ panfrost_get_blend_for_context(struct panfrost_context *ctx, unsigned rti, struc
                    PAN_BO_ACCESS_VERTEX_TILER |
                    PAN_BO_ACCESS_FRAGMENT);
         }
-
+        util_set_buffer_label((*bo)->dev->fd,
+                              (*bo)->gem_handle,
+                              "Blend Shader");
         /* Size check */
         assert((*shader_offset + shader->size) < 4096);
 

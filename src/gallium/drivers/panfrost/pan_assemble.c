@@ -34,6 +34,7 @@
 #include "nir/tgsi_to_nir.h"
 #include "midgard/midgard_compile.h"
 #include "bifrost/bifrost_compile.h"
+#include "util/u_drm.h"
 #include "util/u_dynarray.h"
 
 #include "tgsi/tgsi_dump.h"
@@ -157,6 +158,12 @@ panfrost_shader_compile(struct panfrost_context *ctx,
         /* Upload the shader. The lookahead tag is ORed on as a tagged pointer.
          * I bet someone just thought that would be a cute pun. At least,
          * that's how I'd do it. */
+
+        /* TODO: Figure out why enabling this breaks weston
+        util_set_buffer_label(state->bo->dev->fd,
+                              state->bo->gem_handle,
+                              "Shader upload");
+        */
 
         if (size) {
                 state->bo = pan_bo_create(dev, size, PAN_BO_EXECUTE);

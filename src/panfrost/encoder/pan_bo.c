@@ -34,6 +34,7 @@
 
 #include "os/os_mman.h"
 
+#include "util/u_drm.h"
 #include "util/u_inlines.h"
 #include "util/u_math.h"
 
@@ -279,6 +280,8 @@ panfrost_bo_cache_put(struct panfrost_bo *bo)
 	madv.retained = 0;
 
         drmIoctl(dev->fd, DRM_IOCTL_PANFROST_MADVISE, &madv);
+
+        util_set_buffer_label(bo->dev->fd, bo->gem_handle, "Userspace BO cache");
 
         /* Add us to the bucket */
         list_addtail(&bo->bucket_link, bucket);
