@@ -1567,6 +1567,9 @@ brw_blorp_build_nir_shader(struct blorp_context *blorp, void *mem_ctx,
                              glsl_vec4_type(), "gl_FragColor");
       color_out->data.location = FRAG_RESULT_COLOR;
       nir_store_var(&b, color_out, color, 0xf);
+
+      if (key->image_dst_usage == ISL_SURF_USAGE_STORAGE_BIT)
+         blorp_nir_image_store(&b, &v, key, color);
    } else if (key->dst_usage == ISL_SURF_USAGE_DEPTH_BIT) {
       nir_variable *depth_out =
          nir_variable_create(b.shader, nir_var_shader_out,
@@ -1942,6 +1945,9 @@ try_blorp_blit(struct blorp_batch *batch,
       wm_prog_key->dst_usage = ISL_SURF_USAGE_RENDER_TARGET_BIT;
    }
 
+   if (params->image_dst.enabled)
+      wm_prog_key->image_dst_usage = ISL_SURF_USAGE_STORAGE_BIT;
+
    if (isl_format_has_sint_channel(params->src.view.format)) {
       wm_prog_key->texture_data_type = nir_type_int;
    } else if (isl_format_has_uint_channel(params->src.view.format)) {
@@ -2220,6 +2226,11 @@ try_blorp_blit(struct blorp_batch *batch,
       params->y1 += params->wm_inputs.dst_offset.y;
    }
 
+   if (params->image_dst.enabled) {
+      params->image_dst.view.format = params->dst.view.format;
+      params->image_dst.view.swizzle = params->dst.view.swizzle;
+   }
+
    /* For some texture types, we need to pass the layer through the sampler. */
    params->wm_inputs.src_z = params->src.z_offset;
 
@@ -2467,6 +2478,21 @@ blorp_blit(struct blorp_batch *batch,
    brw_blorp_surface_info_init(batch->blorp, &params.dst, dst_surf, dst_level,
                                dst_layer, dst_format,
                                ISL_SURF_USAGE_RENDER_TARGET_BIT);
+
+   if (num_miplevels > 1) {
+      /* For 3D surfaces we need to handle depth slices according to level
+       * which we are processing.
+       */
+      int next_lod_slices =
+         MAX2(dst_surf->surf->logical_level0_px.depth >> (dst_level + 1),
+              dst_surf->surf->logical_level0_px.array_len);
+      if (dst_layer < next_lod_slices) {
+         brw_blorp_surface_info_init(batch->blorp, &params.image_dst,
+                                     dst_surf, dst_level + 1, dst_layer,
+                                     dst_format, ISL_SURF_USAGE_STORAGE_BIT);
+         params.image_dst.view.swizzle = dst_swizzle;
+      }
+   }
 
    params.src.view.swizzle = src_swizzle;
    params.dst.view.swizzle = dst_swizzle;

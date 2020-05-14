@@ -354,6 +354,8 @@ struct brw_blorp_blit_prog_key
     */
    float x_scale;
    float y_scale;
+
+   isl_surf_usage_flags_t image_dst_usage;
 };
 
 /**
