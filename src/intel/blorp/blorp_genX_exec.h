@@ -1529,14 +1529,15 @@ blorp_emit_surface_states(struct blorp_batch *batch,
                           const struct blorp_params *params)
 {
    const struct isl_device *isl_dev = batch->blorp->isl_dev;
-   uint32_t bind_offset = 0, surface_offsets[2];
-   void *surface_maps[2];
+   uint32_t bind_offset = 0, surface_offsets[3];
+   void *surface_maps[3];
 
    UNUSED bool has_indirect_clear_color = false;
    if (params->use_pre_baked_binding_table) {
       bind_offset = params->pre_baked_binding_table_offset;
    } else {
-      unsigned num_surfaces = 1 + params->src.enabled;
+      unsigned num_surfaces = 1 + params->src.enabled +
+                              params->image_dst.enabled;
       blorp_alloc_binding_table(batch, num_surfaces,
                                 isl_dev->ss.size, isl_dev->ss.align,
                                 &bind_offset, surface_offsets, surface_maps);
@@ -1564,6 +1565,16 @@ blorp_emit_surface_states(struct blorp_batch *batch,
                                   surface_offsets[BLORP_TEXTURE_BT_INDEX],
                                   NULL, false);
          if (params->src.clear_color_addr.buffer != NULL)
+            has_indirect_clear_color = true;
+      }
+
+      if (params->image_dst.enabled) {
+         blorp_emit_surface_state(batch, &params->image_dst,
+                                  params->fast_clear_op,
+                                  surface_maps[BLORP_STORAGE_BT_INDEX],
+                                  surface_offsets[BLORP_STORAGE_BT_INDEX],
+                                  params->color_write_disable, false);
+         if (params->image_dst.clear_color_addr.buffer != NULL)
             has_indirect_clear_color = true;
       }
    }

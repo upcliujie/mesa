@@ -41,6 +41,7 @@ extern "C" {
 enum {
    BLORP_RENDERBUFFER_BT_INDEX,
    BLORP_TEXTURE_BT_INDEX,
+   BLORP_STORAGE_BT_INDEX,
    BLORP_NUM_BT_ENTRIES
 };
 
@@ -200,6 +201,7 @@ struct blorp_params
    uint32_t depth_format;
    struct brw_blorp_surface_info src;
    struct brw_blorp_surface_info dst;
+   struct brw_blorp_surface_info image_dst;
    enum isl_aux_op hiz_op;
    bool full_surface_hiz_op;
    enum isl_aux_op fast_clear_op;
