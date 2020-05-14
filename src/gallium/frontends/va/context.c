@@ -298,6 +298,7 @@ vlVaCreateContext(VADriverContextP ctx, VAConfigID config_id, int picture_width,
 
    context->desc.base.profile = config->profile;
    context->desc.base.entry_point = config->entrypoint;
+
    if (config->entrypoint == PIPE_VIDEO_ENTRYPOINT_ENCODE) {
       switch (u_reduce_video_profile(context->templat.profile)) {
       case PIPE_VIDEO_FORMAT_MPEG4_AVC:
