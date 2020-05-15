@@ -241,6 +241,16 @@ struct dri2_egl_display
    struct zwp_linux_dmabuf_v1 *wl_dmabuf;
    struct zwp_linux_dmabuf_hints_v1 *wl_dmabuf_hints;
    struct u_vector          *wl_modifiers;
+   /* Modifier preference levels seperated and terminated by
+    * DRM_FORMAT_MOD_INVALID.
+    * e.g.
+    * 1st----------------  2nd----------
+    * MOD1, MOD2, INVALID, MOD3, INVALID
+    */
+   struct u_vector          *default_hints;
+   unsigned                  default_hints_serial;
+   dev_t                     target_device;
+   bool                      default_hints_pending;
    bool                      authenticated;
    BITSET_DECLARE(formats, EGL_DRI2_MAX_FORMATS);
    uint32_t                  capabilities;
@@ -288,6 +298,17 @@ struct dri2_egl_surface
    struct zwp_linux_dmabuf_hints_v1 *wl_dmabuf_hints;
    struct wl_callback    *throttle_callback;
    int                    format;
+   /* Modifier preference levels seperated and terminated by
+    * DRM_FORMAT_MOD_INVALID.
+    * e.g.
+    * 1st----------------  2nd----------
+    * MOD1, MOD2, INVALID, MOD3, INVALID
+    */
+   struct u_vector        surface_hints;
+   dev_t                  target_device;
+   bool                   surface_hints_pending;
+   bool                   surface_hints_updated;
+   unsigned               default_hints_serial;
 #endif
 
 #ifdef HAVE_DRM_PLATFORM

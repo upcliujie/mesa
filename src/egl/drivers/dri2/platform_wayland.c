@@ -260,20 +260,128 @@ static const struct wl_buffer_listener wl_buffer_listener = {
 };
 
 static void
+hints_add_modifier(struct u_vector *hints, uint32_t mod_hi, uint32_t mod_lo)
+{
+   uint64_t *mod;
+
+   mod = u_vector_add(hints);
+   if (!mod)
+      return;
+
+   *mod = combine_u32_into_u64(mod_hi, mod_lo);
+}
+
+static void
+hints_add_tranche(struct u_vector *hints)
+{
+   uint64_t *head = NULL, *mod;
+
+   if (u_vector_length(hints) > 0) {
+      head = u_vector_head(hints);
+
+      /* No new modifier added; no need to terminate */
+      if (*head == DRM_FORMAT_MOD_INVALID)
+         return;
+   }
+
+   /*
+    * We need to make absolutely sure we terminate the array, so we
+    * overwrite the last element on failure.
+    */
+   mod = u_vector_add(hints);
+   if (!mod)
+      mod = head;
+
+   assert(mod);
+   *mod = DRM_FORMAT_MOD_INVALID;
+}
+
+static bool
+hints_needs_rollback(struct dri2_egl_display *dri2_dpy, dev_t target)
+{
+   drmDevicePtr dev;
+   bool ret = true;
+
+   if (target == 0)
+      return false;
+
+   if (drmGetDeviceFromMajorMinor(major(target), minor(target), 0, &dev) < 0)
+      return true;
+
+   /* It's safe to assume the render node will match, because we explicitly
+    * select the render node when we receive the device.
+    */
+   if (dev->available_nodes & (1 << DRM_NODE_RENDER))
+      ret = strcmp(dev->nodes[DRM_NODE_RENDER], dri2_dpy->device_name) != 0;
+
+   drmFreeDevice(&dev);
+   return ret;
+}
+
+static bool
+hints_empty(struct u_vector *hints)
+{
+   /* Either empty or only contains DRM_FORMAT_MOD_INVALID */
+   return u_vector_length(hints) <= 1;
+}
+
+static void
+hints_rollback(struct u_vector *hints)
+{
+   uint64_t *head;
+
+   if (hints_empty(hints))
+      return;
+
+   head = u_vector_head(hints);
+
+   while (*head != DRM_FORMAT_MOD_INVALID && hints->head > 0) {
+      head--;
+      hints->head -= hints->element_size;
+   }
+
+   assert(hints->head >= hints->tail);
+}
+
+static void
 surface_hints_done(void *data, struct zwp_linux_dmabuf_hints_v1 *hints)
 {
+   struct dri2_egl_surface *dri2_surf = data;
+
+   dri2_surf->surface_hints_pending = false;
+   dri2_surf->surface_hints_updated = true;
 }
 
 static void
 surface_hints_primary_device(void *data, struct zwp_linux_dmabuf_hints_v1 *hints,
                              uint32_t maj, uint32_t min)
 {
-   /* Ignored for surface hints */
+   struct dri2_egl_surface *dri2_surf = data;
+
+   /* The spec gurantees that the primary_device event is the first in the
+    * hints sequence. This provides a convenient place for us to reset our
+    * hint state.
+    */
+   dri2_surf->surface_hints_pending = true;
+   dri2_surf->surface_hints.head = 0;
+   dri2_surf->surface_hints.tail = 0;
+
+   /* We don't use the primary device itself for surface hints. */
 }
 
 static void
 surface_hints_tranche_done(void *data, struct zwp_linux_dmabuf_hints_v1 *hints)
 {
+   struct dri2_egl_surface *dri2_surf = data;
+   struct dri2_egl_display *dri2_dpy =
+      dri2_egl_display(dri2_surf->base.Resource.Display);
+
+   if (hints_needs_rollback(dri2_dpy, dri2_surf->target_device))
+      hints_rollback(&dri2_surf->surface_hints);
+   else
+      hints_add_tranche(&dri2_surf->surface_hints);
+
+   dri2_surf->target_device = 0;
 }
 
 static void
@@ -281,6 +389,10 @@ surface_hints_tranche_target_device(void *data,
                                     struct zwp_linux_dmabuf_hints_v1 *hints,
                                     uint32_t maj, uint32_t min)
 {
+   struct dri2_egl_surface *dri2_surf = data;
+
+   assert(dri2_surf->target_device == 0);
+   dri2_surf->target_device = makedev(maj, min);
 }
 
 static void
@@ -288,6 +400,12 @@ surface_hints_tranche_modifier(void *data,
                                struct zwp_linux_dmabuf_hints_v1 *hints,
                                uint32_t format, uint32_t mod_hi, uint32_t mod_lo)
 {
+   struct dri2_egl_surface *dri2_surf = data;
+
+   if (format != dri2_surf->format)
+      return;
+
+   hints_add_modifier(&dri2_surf->surface_hints, mod_hi, mod_lo);
 }
 
 static const struct zwp_linux_dmabuf_hints_v1_listener surface_hints_listener = {
@@ -421,11 +539,16 @@ dri2_wl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
    wl_proxy_set_queue((struct wl_proxy *)dri2_surf->wl_surface_wrapper,
                       dri2_surf->wl_queue);
 
+   if (!u_vector_init(&dri2_surf->surface_hints, sizeof(uint64_t), 32)) {
+      _eglError(EGL_BAD_ALLOC, "dri2_create_surface");
+      goto cleanup_surf_wrapper;
+   }
+
    if (dri2_dpy->wl_dmabuf_hints) {
       dmabuf_wrapper = wl_proxy_create_wrapper(dri2_dpy->wl_dmabuf);
       if (!dmabuf_wrapper) {
          _eglError(EGL_BAD_ALLOC, "dri2_create_surface");
-         goto cleanup_surf_wrapper;
+         goto cleanup_modifier_hints;
       }
 
       wl_proxy_set_queue((struct wl_proxy *)dmabuf_wrapper,
@@ -437,7 +560,7 @@ dri2_wl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
 
       if (!dri2_surf->wl_dmabuf_hints) {
          _eglError(EGL_BAD_ALLOC, "dri2_create_surface");
-         goto cleanup_surf_wrapper;
+         goto cleanup_modifier_hints;
       }
 
       zwp_linux_dmabuf_hints_v1_add_listener(dri2_surf->wl_dmabuf_hints,
@@ -464,6 +587,8 @@ dri2_wl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
  cleanup_dmabuf_hints:
    if (dri2_surf->wl_dmabuf_hints)
       zwp_linux_dmabuf_hints_v1_destroy(dri2_surf->wl_dmabuf_hints);
+ cleanup_modifier_hints:
+   u_vector_finish(&dri2_surf->surface_hints);
  cleanup_surf_wrapper:
    wl_proxy_wrapper_destroy(dri2_surf->wl_surface_wrapper);
  cleanup_dpy_wrapper:
@@ -529,6 +654,7 @@ dri2_wl_destroy_surface(_EGLDisplay *disp, _EGLSurface *surf)
       dri2_surf->wl_win->destroy_window_callback = NULL;
    }
 
+   u_vector_finish(&dri2_surf->surface_hints);
    wl_proxy_wrapper_destroy(dri2_surf->wl_surface_wrapper);
    wl_proxy_wrapper_destroy(dri2_surf->wl_dpy_wrapper);
    if (dri2_surf->wl_drm_wrapper)
@@ -1284,6 +1410,10 @@ static const struct zwp_linux_dmabuf_v1_listener dmabuf_listener = {
 static void
 default_hints_done(void *data, struct zwp_linux_dmabuf_hints_v1 *hints)
 {
+   struct dri2_egl_display *dri2_dpy = data;
+
+   dri2_dpy->default_hints_pending = false;
+   dri2_dpy->default_hints_serial++;
 }
 
 static void
@@ -1297,6 +1427,17 @@ default_hints_primary_device(void *data, struct zwp_linux_dmabuf_hints_v1 *hints
 static void
 default_hints_tranche_done(void *data, struct zwp_linux_dmabuf_hints_v1 *hints)
 {
+   struct dri2_egl_display *dri2_dpy = data;
+
+   if (hints_needs_rollback(dri2_dpy, dri2_dpy->target_device)) {
+      for (int i = 0; i < ARRAY_SIZE(dri2_wl_visuals); i++)
+         hints_rollback(&dri2_dpy->default_hints[i]);
+   } else {
+      for (int i = 0; i < ARRAY_SIZE(dri2_wl_visuals); i++)
+         hints_add_tranche(&dri2_dpy->default_hints[i]);
+   }
+
+   dri2_dpy->target_device = 0;
 }
 
 static void
@@ -1304,6 +1445,10 @@ default_hints_tranche_target_device(void *data,
                                     struct zwp_linux_dmabuf_hints_v1 *hints,
                                     uint32_t maj, uint32_t min)
 {
+   struct dri2_egl_display *dri2_dpy = data;
+
+   assert(dri2_dpy->target_device == 0);
+   dri2_dpy->target_device = makedev(maj, min);
 }
 
 static void
@@ -1311,6 +1456,16 @@ default_hints_tranche_modifier(void *data,
                                struct zwp_linux_dmabuf_hints_v1 *hints,
                                uint32_t format, uint32_t mod_hi, uint32_t mod_lo)
 {
+   struct dri2_egl_display *dri2_dpy = data;
+   int visual_idx = dri2_wl_visual_idx_from_fourcc(format);
+
+   if (visual_idx == -1)
+      return;
+
+   if (!BITSET_TEST(dri2_dpy->formats, visual_idx))
+      return;
+
+   hints_add_modifier(&dri2_dpy->default_hints[visual_idx], mod_hi, mod_lo);
 }
 
 static const struct zwp_linux_dmabuf_hints_v1_listener default_hints_listener = {
@@ -1504,8 +1659,16 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
       calloc(ARRAY_SIZE(dri2_wl_visuals), sizeof(*dri2_dpy->wl_modifiers));
    if (!dri2_dpy->wl_modifiers)
       goto cleanup;
+
+   dri2_dpy->default_hints =
+      calloc(ARRAY_SIZE(dri2_wl_visuals), sizeof(*dri2_dpy->default_hints));
+   if (!dri2_dpy->default_hints)
+      goto cleanup;
+
    for (int i = 0; i < ARRAY_SIZE(dri2_wl_visuals); i++) {
       if (!u_vector_init(&dri2_dpy->wl_modifiers[i], sizeof(uint64_t), 32))
+         goto cleanup;
+      if (!u_vector_init(&dri2_dpy->default_hints[i], sizeof(uint64_t), 32))
          goto cleanup;
    }
 
@@ -2096,9 +2259,12 @@ dri2_teardown_wayland(struct dri2_egl_display *dri2_dpy)
    if (dri2_dpy->wl_dpy_wrapper)
       wl_proxy_wrapper_destroy(dri2_dpy->wl_dpy_wrapper);
 
-   for (int i = 0; dri2_dpy->wl_modifiers && i < ARRAY_SIZE(dri2_wl_visuals); i++)
+   for (int i = 0; dri2_dpy->wl_modifiers && i < ARRAY_SIZE(dri2_wl_visuals); i++) {
       u_vector_finish(&dri2_dpy->wl_modifiers[i]);
+      u_vector_finish(&dri2_dpy->default_hints[i]);
+   }
    free(dri2_dpy->wl_modifiers);
+   free(dri2_dpy->default_hints);
 
    if (dri2_dpy->own_device)
       wl_display_disconnect(dri2_dpy->wl_dpy);
