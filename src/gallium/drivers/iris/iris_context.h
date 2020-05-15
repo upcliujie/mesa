@@ -563,6 +563,7 @@ struct iris_border_color_pool {
  */
 struct iris_context {
    struct pipe_context ctx;
+   struct threaded_context *thrctx;
 
    /** A debug callback for KHR_debug output. */
    struct pipe_debug_callback dbg;
@@ -575,6 +576,9 @@ struct iris_context {
 
    /** Slab allocator for iris_transfer_map objects. */
    struct slab_child_pool transfer_pool;
+
+   /** Slab allocator for threaded_context's iris_transfer_map objects */
+   struct slab_child_pool transfer_pool_unsync;
 
    struct blorp_context blorp;
 

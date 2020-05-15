@@ -24,6 +24,7 @@
 #include <time.h>
 #include "pipe/p_defines.h"
 #include "pipe/p_state.h"
+#include "util/debug.h"
 #include "util/ralloc.h"
 #include "util/u_inlines.h"
 #include "util/format/u_format.h"
@@ -252,6 +253,7 @@ iris_destroy_context(struct pipe_context *ctx)
    iris_destroy_binder(&ice->state.binder);
 
    slab_destroy_child(&ice->transfer_pool);
+   slab_destroy_child(&ice->transfer_pool_unsync);
 
    ralloc_free(ice);
 }
@@ -329,6 +331,7 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
    iris_init_binder(ice);
 
    slab_create_child(&ice->transfer_pool, &screen->transfer_pool);
+   slab_create_child(&ice->transfer_pool_unsync, &screen->transfer_pool);
 
    ice->state.surface_uploader =
       u_upload_create(ctx, 16384, PIPE_BIND_CUSTOM, PIPE_USAGE_IMMUTABLE,
@@ -361,5 +364,13 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
    screen->vtbl.init_render_context(&ice->batches[IRIS_BATCH_RENDER]);
    screen->vtbl.init_compute_context(&ice->batches[IRIS_BATCH_COMPUTE]);
 
-   return ctx;
+   if (!(flags & PIPE_CONTEXT_PREFER_THREADED) ||
+       (flags & PIPE_CONTEXT_COMPUTE_ONLY) ||
+       !env_var_as_boolean("IRIS_THREADED_CONTEXT", false))
+      return ctx;
+
+   return threaded_context_create(ctx, &screen->transfer_pool,
+                                  iris_replace_buffer_storage,
+                                  NULL, /* TODO: asynchronous flushes? */
+                                  &ice->thrctx);
 }

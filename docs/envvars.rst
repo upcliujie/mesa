@@ -355,6 +355,9 @@ i945/i965 driver environment variables (non-Gallium)
    if set to 1, true or yes, then the OpenGL implementation will
    default ``GL_BLACKHOLE_RENDER_INTEL`` to true, thus disabling any
    rendering.
+``IRIS_THREADED_CONTEXT``
+   setting to false will disable internal multi-threading of driver work
+   (Gallium's u_threaded_context support)
 
 
 Radeon driver environment variables (radeon, r200, and r300g)
