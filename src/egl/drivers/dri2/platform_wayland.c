@@ -633,7 +633,7 @@ get_back_bo(struct dri2_egl_surface *dri2_surf)
                                          dri2_surf->base.Height,
                                          dri_image_format,
                                          dri2_dpy->is_different_gpu ?
-                                              0 : use_flags,
+                                              0 : (use_flags | __DRI_IMAGE_USE_SCANOUT),
                                          NULL);
       }
 
