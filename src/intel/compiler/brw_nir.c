@@ -756,6 +756,49 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
       OPT(nir_lower_alu_to_scalar, NULL, NULL);
    }
 
+   if (devinfo->gen >= 6 && nir->info.stage == MESA_SHADER_FRAGMENT) {
+      nir_function_impl *impl = nir_shader_get_entrypoint(nir);
+      bool progress = false;
+      nir_foreach_block_safe(block, impl) {
+         nir_builder b;
+         nir_builder_init(&b, impl);
+
+         nir_foreach_instr(instr, block) {
+            if (instr->type != nir_instr_type_intrinsic)
+               continue;
+
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            switch (intrin->intrinsic) {
+            case nir_intrinsic_discard: {
+               /* Delete anything after the discard */
+               nir_cf_list list;
+               nir_cf_extract(&list, nir_after_instr(&intrin->instr),
+                                     nir_after_block(block));
+               nir_cf_delete(&list);
+
+               b.cursor = nir_after_instr(&intrin->instr);
+               nir_jump(&b, nir_jump_halt);
+               progress = true;
+               break;
+            }
+
+            case nir_intrinsic_discard_if:
+               assert(intrin->src[0].is_ssa);
+               b.cursor = nir_after_instr(&intrin->instr);
+               nir_push_if(&b, intrin->src[0].ssa);
+               nir_jump(&b, nir_jump_halt);
+               progress = true;
+               break;
+
+            default:
+               break;
+            }
+         }
+      }
+      if (progress)
+         nir_metadata_preserve(impl, nir_metadata_none);
+   }
+
    if (nir->info.stage == MESA_SHADER_GEOMETRY)
       OPT(nir_lower_gs_intrinsics, 0);
 
