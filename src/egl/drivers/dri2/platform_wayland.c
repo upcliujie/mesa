@@ -669,36 +669,130 @@ dri2_wl_destroy_surface(_EGLDisplay *disp, _EGLSurface *surf)
    return EGL_TRUE;
 }
 
+/* Attempt to use modifiers in order of the preference levels the
+ * compositor has given us.
+ */
+static void
+allocate_with_hints(struct dri2_egl_surface *dri2_surf, struct u_vector *hints,
+                    unsigned int format)
+{
+   struct dri2_egl_display *dri2_dpy =
+      dri2_egl_display(dri2_surf->base.Resource.Display);
+   uint64_t *mods = u_vector_tail(hints);
+   int len = u_vector_length(hints);
+   int i, end;
+
+   for (i = 0; !dri2_surf->back->dri_image && i < len; i = end + 1) {
+      end = i;
+      while (mods[end] != DRM_FORMAT_MOD_INVALID)
+         ++end;
+
+      /* Empty preference level */
+      if (end == i)
+         continue;
+
+      dri2_surf->back->dri_image =
+        dri2_dpy->image->createImageWithModifiers(dri2_dpy->dri_screen,
+                                                  dri2_surf->base.Width,
+                                                  dri2_surf->base.Height,
+                                                  format,
+                                                  &mods[i],
+                                                  end - i,
+                                                  NULL);
+   }
+}
+
+static void
+dri2_wl_release_buffer(struct dri2_egl_surface *dri2_surf, int i)
+{
+   struct dri2_egl_display *dri2_dpy =
+      dri2_egl_display(dri2_surf->base.Resource.Display);
+
+   if (dri2_surf->color_buffers[i].wl_buffer) {
+      if (dri2_surf->color_buffers[i].locked) {
+         dri2_surf->color_buffers[i].wl_release = true;
+      } else {
+         wl_buffer_destroy(dri2_surf->color_buffers[i].wl_buffer);
+         dri2_surf->color_buffers[i].wl_buffer = NULL;
+      }
+   }
+   if (dri2_surf->color_buffers[i].dri_image)
+      dri2_dpy->image->destroyImage(dri2_surf->color_buffers[i].dri_image);
+   if (dri2_surf->color_buffers[i].linear_copy)
+      dri2_dpy->image->destroyImage(dri2_surf->color_buffers[i].linear_copy);
+   if (dri2_surf->color_buffers[i].data)
+      munmap(dri2_surf->color_buffers[i].data,
+             dri2_surf->color_buffers[i].data_size);
+
+   dri2_surf->color_buffers[i].dri_image = NULL;
+   dri2_surf->color_buffers[i].linear_copy = NULL;
+   dri2_surf->color_buffers[i].data = NULL;
+}
+
 static void
 dri2_wl_release_buffers(struct dri2_egl_surface *dri2_surf)
 {
    struct dri2_egl_display *dri2_dpy =
       dri2_egl_display(dri2_surf->base.Resource.Display);
 
-   for (int i = 0; i < ARRAY_SIZE(dri2_surf->color_buffers); i++) {
-      if (dri2_surf->color_buffers[i].wl_buffer) {
-         if (dri2_surf->color_buffers[i].locked) {
-            dri2_surf->color_buffers[i].wl_release = true;
-         } else {
-            wl_buffer_destroy(dri2_surf->color_buffers[i].wl_buffer);
-            dri2_surf->color_buffers[i].wl_buffer = NULL;
-         }
-      }
-      if (dri2_surf->color_buffers[i].dri_image)
-         dri2_dpy->image->destroyImage(dri2_surf->color_buffers[i].dri_image);
-      if (dri2_surf->color_buffers[i].linear_copy)
-         dri2_dpy->image->destroyImage(dri2_surf->color_buffers[i].linear_copy);
-      if (dri2_surf->color_buffers[i].data)
-         munmap(dri2_surf->color_buffers[i].data,
-                dri2_surf->color_buffers[i].data_size);
-
-      dri2_surf->color_buffers[i].dri_image = NULL;
-      dri2_surf->color_buffers[i].linear_copy = NULL;
-      dri2_surf->color_buffers[i].data = NULL;
-   }
+   for (int i = 0; i < ARRAY_SIZE(dri2_surf->color_buffers); i++)
+      dri2_wl_release_buffer(dri2_surf, i);
 
    if (dri2_dpy->dri2)
       dri2_egl_surface_free_local_buffers(dri2_surf);
+}
+
+static bool
+has_optimal_hints(struct dri2_egl_surface *dri2_surf, struct u_vector *hints)
+{
+   struct dri2_egl_display *dri2_dpy =
+      dri2_egl_display(dri2_surf->base.Resource.Display);
+   uint64_t *modifiers;
+   int num_modifiers;
+   int query;
+   int mod_hi, mod_lo;
+   uint64_t mod;
+
+   if (dri2_surf->back->dri_image == NULL)
+      return false;
+
+   if (dri2_dpy->image->base.version < 15)
+      return true;
+
+   modifiers = u_vector_tail(hints);
+   num_modifiers = u_vector_length(hints);
+
+   /* server sent no hints */
+   if (num_modifiers == 0)
+      return true;
+
+   /* server sent empty hints */
+   if (modifiers[0] == DRM_FORMAT_MOD_INVALID)
+      return true;
+
+   query = dri2_dpy->image->queryImage(dri2_surf->back->dri_image,
+                                       __DRI_IMAGE_ATTRIB_MODIFIER_UPPER,
+                                       &mod_hi);
+   query &= dri2_dpy->image->queryImage(dri2_surf->back->dri_image,
+                                        __DRI_IMAGE_ATTRIB_MODIFIER_LOWER,
+                                        &mod_lo);
+
+   /* If we can't query the modifiers, there isn't anything we can do */
+   if (query)
+      return true;
+
+   mod = combine_u32_into_u64(mod_hi, mod_lo);
+
+   for (int i = 0; i < num_modifiers; ++i) {
+      /* End of first tranch */
+      if (modifiers[i] == DRM_FORMAT_MOD_INVALID)
+         break;
+
+      if (modifiers[i] == mod)
+         return true;
+   }
+
+   return false;
 }
 
 static int
@@ -771,6 +865,31 @@ get_back_bo(struct dri2_egl_surface *dri2_surf)
    if (dri2_surf->back == NULL)
       return -1;
 
+   while (dri2_dpy->default_hints_pending || dri2_surf->surface_hints_pending) {
+      /* We're in the middle of a hints sequence, so we block waiting for the
+       * server to complete it. Like above, it's possible that the server
+       * did not flush the connection, so we spam the server with roundtrips
+       * to cause a client flush.
+       */
+      if (wl_display_roundtrip_queue(dri2_dpy->wl_dpy,
+                                     dri2_surf->wl_queue) < 0)
+          return -1;
+   }
+
+   if (dri2_surf->surface_hints_updated &&
+       !has_optimal_hints(dri2_surf, &dri2_surf->surface_hints)) {
+      dri2_wl_release_buffer(dri2_surf,
+                             dri2_surf->back - dri2_surf->color_buffers);
+      dri2_surf->surface_hints_updated = false;
+   } else if (hints_empty(&dri2_surf->surface_hints) &&
+              !hints_empty(&dri2_dpy->default_hints[visual_idx]) &&
+              dri2_surf->default_hints_serial < dri2_dpy->default_hints_serial &&
+              !has_optimal_hints(dri2_surf, &dri2_dpy->default_hints[visual_idx])) {
+      dri2_wl_release_buffer(dri2_surf,
+                             dri2_surf->back - dri2_surf->color_buffers);
+      dri2_surf->default_hints_serial = dri2_dpy->default_hints_serial;
+   }
+
    use_flags = __DRI_IMAGE_USE_SHARE | __DRI_IMAGE_USE_BACKBUFFER;
 
    if (dri2_surf->base.ProtectedContent) {
@@ -817,14 +936,25 @@ get_back_bo(struct dri2_egl_surface *dri2_surf)
         */
       if (num_modifiers && dri2_dpy->image->base.version >= 15 &&
           dri2_dpy->image->createImageWithModifiers) {
-         dri2_surf->back->dri_image =
-           dri2_dpy->image->createImageWithModifiers(dri2_dpy->dri_screen,
-                                                     dri2_surf->base.Width,
-                                                     dri2_surf->base.Height,
-                                                     dri_image_format,
-                                                     modifiers,
-                                                     num_modifiers,
-                                                     NULL);
+         if (!hints_empty(&dri2_surf->surface_hints))
+            allocate_with_hints(dri2_surf, &dri2_surf->surface_hints,
+                                dri_image_format);
+
+         if (!dri2_surf->back->dri_image &&
+             !hints_empty(&dri2_dpy->default_hints[visual_idx]))
+            allocate_with_hints(dri2_surf, &dri2_dpy->default_hints[visual_idx],
+                                dri_image_format);
+
+         /* Fallback to selecting from all advertised modifiers */
+         if (!dri2_surf->back->dri_image)
+            dri2_surf->back->dri_image =
+              dri2_dpy->image->createImageWithModifiers(dri2_dpy->dri_screen,
+                                                        dri2_surf->base.Width,
+                                                        dri2_surf->base.Height,
+                                                        dri_image_format,
+                                                        modifiers,
+                                                        num_modifiers,
+                                                        NULL);
       } else {
          dri2_surf->back->dri_image =
             dri2_dpy->image->createImage(dri2_dpy->dri_screen,
