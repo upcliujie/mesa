@@ -798,22 +798,17 @@ lower_continue:
              * any instructions that that are already wrapped in the
              * appropriate guard.
              */
-            ir_instruction* ir_after;
-            for(ir_after = (ir_instruction*)ir->get_next(); !ir_after->is_tail_sentinel();)
+            foreach_from_to_safe(ir_instruction, ir_after, ir->next, NULL)
             {
                ir_if* ir_if = ir_after->as_if();
                if(ir_if && ir_if->else_instructions.is_empty()) {
                   ir_dereference_variable* ir_if_cond_deref = ir_if->condition->as_dereference_variable();
                   if(ir_if_cond_deref && ir_if_cond_deref->var == this->loop.execute_flag) {
-                     ir_instruction* ir_next = (ir_instruction*)ir_after->get_next();
                      ir_after->insert_before(&ir_if->then_instructions);
                      ir_after->remove();
-                     ir_after = ir_next;
                      continue;
                   }
                }
-               ir_after = (ir_instruction*)ir_after->get_next();
-
                /* only set this if we find any unprotected instruction */
                this->progress = true;
             }

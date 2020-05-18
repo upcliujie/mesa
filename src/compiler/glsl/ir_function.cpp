@@ -62,9 +62,12 @@ parameter_lists_match(_mesa_glsl_parse_state *state,
 
 
       const ir_variable *const param = (ir_variable *) node_a;
-      const ir_rvalue *const actual = (ir_rvalue *) node_b;
+      const glsl_type *actual_type =
+         ((ir_instruction *) node_b)->is_rvalue() ?
+         ((ir_instruction *) node_b)->as_rvalue()->type :
+         ((ir_instruction *) node_b)->as_variable()->type;
 
-      if (param->type == actual->type)
+      if (param->type == actual_type)
 	 continue;
 
       /* Try to find an implicit conversion from actual to param. */
@@ -84,12 +87,12 @@ parameter_lists_match(_mesa_glsl_parse_state *state,
       case ir_var_const_in:
       case ir_var_function_in:
          if (param->data.implicit_conversion_prohibited ||
-             !actual->type->can_implicitly_convert_to(param->type, state))
+             !actual_type->can_implicitly_convert_to(param->type, state))
             return PARAMETER_LIST_NO_MATCH;
 	 break;
 
       case ir_var_function_out:
-	 if (!param->type->can_implicitly_convert_to(actual->type, state))
+	 if (!param->type->can_implicitly_convert_to(actual_type, state))
 	    return PARAMETER_LIST_NO_MATCH;
 	 break;
 
@@ -380,12 +383,15 @@ parameter_lists_match_exact(const exec_list *list_a, const exec_list *list_b)
 	; !node_a->is_tail_sentinel() && !node_b->is_tail_sentinel()
 	; node_a = node_a->next, node_b = node_b->next) {
       ir_variable *a = (ir_variable *) node_a;
-      ir_variable *b = (ir_variable *) node_b;
+      const glsl_type *b_type =
+         ((ir_instruction *) node_b)->is_rvalue() ?
+         ((ir_instruction *) node_b)->as_rvalue()->type :
+         ((ir_instruction *) node_b)->as_variable()->type;
 
       /* If the types of the parameters do not match, the parameters lists
        * are different.
        */
-      if (a->type != b->type)
+      if (a->type != b_type)
          return false;
    }
 

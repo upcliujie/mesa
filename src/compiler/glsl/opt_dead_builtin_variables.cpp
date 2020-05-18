@@ -35,8 +35,9 @@ void
 optimize_dead_builtin_variables(exec_list *instructions,
                                 enum ir_variable_mode other)
 {
-   foreach_in_list_safe(ir_variable, var, instructions) {
-      if (var->ir_type != ir_type_variable || var->data.used)
+   foreach_in_list_safe(ir_instruction, var_, instructions) {
+      ir_variable *var = var_->as_variable();
+      if (!var || var->data.used)
          continue;
 
       if (var->data.mode != ir_var_uniform

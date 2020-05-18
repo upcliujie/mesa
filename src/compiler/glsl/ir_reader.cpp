@@ -718,10 +718,13 @@ ir_reader::read_expression(s_expression *expr)
 			  "<operand> [<operand>] [<operand>] [<operand>])");
       return NULL;
    }
-   s_arg[1] = (s_expression *) s_arg[0]->next; // may be tail sentinel
-   s_arg[2] = (s_expression *) s_arg[1]->next; // may be tail sentinel or NULL
-   if (s_arg[2])
-      s_arg[3] = (s_expression *) s_arg[2]->next; // may be tail sentinel or NULL
+   s_arg[1] = exec_node_typed_forward(s_arg[0]->next, s_expression *);
+   s_arg[2] = s_arg[1] ? exec_node_typed_forward(s_arg[1]->next,
+                                                 s_expression *) :
+                         NULL;
+   s_arg[3] = s_arg[2] ? exec_node_typed_forward(s_arg[2]->next,
+                                                 s_expression *) :
+                         NULL;
 
    const glsl_type *type = read_type(s_type);
    if (type == NULL)
