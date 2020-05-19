@@ -2924,6 +2924,51 @@ tu6_emit_tess_consts(struct tu_cmd_buffer *cmd,
    return VK_SUCCESS;
 }
 
+static struct tu_draw_state
+tu6_build_lrz(struct tu_cmd_buffer *cmd)
+{
+   const uint32_t a = cmd->state.subpass->depth_stencil_attachment.attachment;
+
+   if (a == VK_ATTACHMENT_UNUSED || !cmd->state.lrz.valid) {
+      /* If LRZ is disabled or there is no depth attachment, disable LRZ in
+       * draw state.
+       */
+      struct tu_cs lrz_cs;
+      tu_cs_begin_sub_stream(&cmd->sub_cs, 4, &lrz_cs);
+      tu_cs_emit_regs(&lrz_cs, A6XX_GRAS_LRZ_CNTL(0));
+      tu_cs_emit_regs(&lrz_cs, A6XX_RB_LRZ_CNTL(0));
+      struct tu_cs_entry entry = tu_cs_end_sub_stream(&cmd->sub_cs, &lrz_cs);
+      cmd->state.dirty &= ~TU_CMD_DIRTY_LRZ;
+      return (struct tu_draw_state) {entry.bo->iova + entry.offset, entry.size / 4};
+   }
+
+
+   if (cmd->state.pipeline->lrz.invalidate) {
+      /* LRZ is not valid for next draw commands, so don't use it until cleared */
+      cmd->state.lrz.valid = false;
+   }
+
+   bool lrz_write = cmd->state.pipeline->lrz.write;
+   if (cmd->state.pipeline->lrz.blend_disable_write && use_hw_binning(cmd))
+      lrz_write = false;
+
+   struct tu_cs lrz_cs;
+   tu_cs_begin_sub_stream(&cmd->sub_cs, 4, &lrz_cs);
+
+   tu_cs_emit_regs(&lrz_cs, A6XX_GRAS_LRZ_CNTL(
+      .enable = cmd->state.lrz.valid && cmd->state.pipeline->lrz.enable,
+      .greater = cmd->state.lrz.valid && cmd->state.pipeline->lrz.greater,
+      .lrz_write = cmd->state.lrz.valid && lrz_write,
+      .z_test_enable = cmd->state.lrz.valid && cmd->state.pipeline->lrz.z_test_enable,
+   ));
+
+   tu_cs_emit_regs(&lrz_cs, A6XX_RB_LRZ_CNTL(.enable = cmd->state.lrz.valid && cmd->state.pipeline->lrz.enable));
+
+   struct tu_cs_entry entry = tu_cs_end_sub_stream(&cmd->sub_cs, &lrz_cs);
+   cmd->state.dirty &= ~TU_CMD_DIRTY_LRZ;
+   return (struct tu_draw_state) {entry.bo->iova + entry.offset, entry.size / 4};
+}
+
 static VkResult
 tu6_draw_common(struct tu_cmd_buffer *cmd,
                 struct tu_cs *cs,
@@ -2939,7 +2984,9 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
 
    tu_emit_cache_flush_renderpass(cmd, cs);
 
-   /* TODO lrz */
+   cmd->state.lrz.state.size = 0;
+   if (cmd->state.dirty & TU_CMD_DIRTY_LRZ)
+      cmd->state.lrz.state = tu6_build_lrz(cmd);
 
    tu_cs_emit_regs(cs, A6XX_PC_PRIMITIVE_CNTL_0(
          .primitive_restart =
@@ -3014,6 +3061,7 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
       tu_cs_emit_draw_state(cs, TU_DRAW_STATE_DESC_SETS_LOAD, pipeline->load_state);
       tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VB, cmd->state.vertex_buffers);
       tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VS_PARAMS, cmd->state.vs_params);
+      tu_cs_emit_draw_state(cs, TU_DRAW_STATE_LRZ, cmd->state.lrz.state);
 
       for (uint32_t i = 0; i < ARRAY_SIZE(cmd->state.dynamic_state); i++) {
          tu_cs_emit_draw_state(cs, TU_DRAW_STATE_DYNAMIC + i,
@@ -3031,7 +3079,8 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
          ((cmd->state.dirty & TU_CMD_DIRTY_SHADER_CONSTS) ? 5 : 0) +
          ((cmd->state.dirty & TU_CMD_DIRTY_DESC_SETS_LOAD) ? 1 : 0) +
          ((cmd->state.dirty & TU_CMD_DIRTY_VERTEX_BUFFERS) ? 1 : 0) +
-         1; /* vs_params */
+         1 + /* vs_params */
+         1; /* lrz */
 
          tu_cs_emit_pkt7(cs, CP_SET_DRAW_STATE, 3 * draw_state_count);
 
@@ -3051,6 +3100,7 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
          if (cmd->state.dirty & TU_CMD_DIRTY_VERTEX_BUFFERS)
             tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VB, cmd->state.vertex_buffers);
          tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VS_PARAMS, cmd->state.vs_params);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_LRZ, cmd->state.lrz.state);
    }
 
    tu_cs_sanity_check(cs);
