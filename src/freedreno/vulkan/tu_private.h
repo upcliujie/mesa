@@ -1142,6 +1142,9 @@ void
 tu6_emit_viewport(struct tu_cs *cs, const VkViewport *viewport);
 
 void
+tu6_clear_lrz(struct tu_cmd_buffer *cmd, struct tu_cs *cs, unsigned attachment, const VkClearValue *value);
+
+void
 tu6_emit_scissor(struct tu_cs *cs, const VkRect2D *scissor);
 
 void

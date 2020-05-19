@@ -915,6 +915,55 @@ copy_format(VkFormat format, VkImageAspectFlags aspect_mask, bool copy_buffer)
    }
 }
 
+void
+tu6_clear_lrz(struct tu_cmd_buffer *cmd, struct tu_cs *cs, unsigned a, const VkClearValue *value)
+{
+   const struct blit_ops *ops = &r2d_ops;
+   const struct tu_framebuffer *fb = cmd->state.framebuffer;
+   const struct tu_render_pass_attachment *att = &cmd->state.pass->attachments[a];
+
+   const struct tu_image_view *iview = fb->attachments[a].attachment;
+   struct tu_image *image = iview->image;
+
+   if (!image->lrz_height || !(att->clear_mask &(VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT)))
+      return;
+
+   /* LRZ clear changes its state, emit it again. */
+   cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
+   /* LRZ is going to be cleared in CmdEndRenderpass() before emitting the rest
+    * of the commands. Mark LRZ as valid, so they can work with it.
+    */
+   cmd->state.lrz.valid = true;
+
+   ops->setup(cmd, cs, VK_FORMAT_D16_UNORM, VK_IMAGE_ASPECT_DEPTH_BIT, ROTATE_0, true, false);
+
+   ops->clear_value(cs, VK_FORMAT_D16_UNORM, value);
+
+   /* Set origin */
+   tu_cs_emit_pkt4(cs, REG_A6XX_SP_PS_2D_SRC_INFO, 13);
+   for (int i = 0; i < 13; i++)
+      tu_cs_emit(cs, 0x00000000);
+
+   /* Set destination */
+   uint64_t va = image->bo->iova + image->bo_offset + image->lrz_offset;
+
+   tu_cs_emit_regs(cs,
+                   A6XX_RB_2D_DST_INFO(
+                                       .color_format = FMT6_16_UNORM,
+                                       .tile_mode = TILE6_LINEAR),
+                   A6XX_RB_2D_DST_LO((uint32_t) va),
+                   A6XX_RB_2D_DST_HI(va >> 32),
+                   A6XX_RB_2D_DST_PITCH((uint32_t)image->lrz_pitch * 2));
+
+   VkOffset2D offset = { 0, 0 };
+   VkExtent2D extent;
+   extent.width = image->lrz_pitch;
+   extent.height = image->lrz_height;
+
+   ops->coords(cs, &offset, &offset, &extent);
+   ops->run(cmd, cs);
+}
+
 static void
 tu_image_view_copy_blit(struct tu_image_view *iview,
                         struct tu_image *image,
