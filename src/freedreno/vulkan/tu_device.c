@@ -196,6 +196,7 @@ static const struct debug_control tu_debug_options[] = {
    { "sysmem", TU_DEBUG_SYSMEM },
    { "forcebin", TU_DEBUG_FORCEBIN },
    { "noubwc", TU_DEBUG_NOUBWC },
+   { "nolrz", TU_DEBUG_NOLRZ },
    { NULL, 0 }
 };
 
