@@ -858,6 +858,8 @@ struct tu_cache_state {
 struct tu_lrz_attachments
 {
    bool valid : 1;
+   bool valid_clear_value : 1;
+   float clear_value;
 };
 
 struct tu_lrz_pipeline
@@ -1193,6 +1195,12 @@ struct tu_pipeline
 
 void
 tu6_emit_viewport(struct tu_cs *cs, const VkViewport *viewport);
+
+void
+tu6_clear_lrz(struct tu_cmd_buffer *cmd, struct tu_cs *cs);
+
+void
+tu6_clear_lrz_setup(struct tu_cmd_buffer *cmd, unsigned attachment, const VkClearValue *value);
 
 void
 tu6_emit_scissor(struct tu_cs *cs, const VkRect2D *scissor);

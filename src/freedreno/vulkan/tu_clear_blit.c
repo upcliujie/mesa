@@ -915,6 +915,91 @@ copy_format(VkFormat format, VkImageAspectFlags aspect_mask, bool copy_buffer)
    }
 }
 
+void
+tu6_clear_lrz_setup(struct tu_cmd_buffer *cmd, unsigned attachment, const VkClearValue *value)
+{
+   if (attachment == VK_ATTACHMENT_UNUSED)
+      return;
+
+   const struct tu_render_pass_attachment *att = &cmd->state.pass->attachments[attachment];
+   const struct util_format_description *desc = vk_format_description(att->format);
+
+   if (!util_format_has_depth(desc))
+      return;
+
+   const struct tu_framebuffer *fb = cmd->state.framebuffer;
+   const struct tu_image_view *iview = fb->attachments[attachment].attachment;
+   struct tu_image *depth_image = iview->image;
+
+   if (!depth_image->layout[0].lrz)
+      return;
+
+   /* LRZ clear changes its state, emit it again. */
+   cmd->state.lrz.changed = true;
+
+   /* clear_mask value is set to either VK_IMAGE_ASPECT_COLOR_BIT or VK_IMAGE_ASPECT_DEPTH_BIT
+    * in attachment_set_ops() for depth attachments.
+    */
+   if (att->clear_mask & (VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT)) {
+      assert(value != NULL);
+      cmd->state.lrz.attachments[attachment].clear_value = value->depthStencil.depth;
+      cmd->state.lrz.attachments[attachment].valid_clear_value = true;
+      /* LRZ is going to be cleared in CmdEndRenderpass() before emitting the rest
+       * of the commands. Mark LRZ as valid, so they can work with it.
+       */
+      cmd->state.lrz.attachments[attachment].valid = true;
+   }
+}
+
+void
+tu6_clear_lrz(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
+{
+   const struct blit_ops *ops = &r2d_ops;
+   const struct tu_framebuffer *fb = cmd->state.framebuffer;
+
+   for (uint32_t a = 0; a < cmd->state.pass->attachment_count; a++) {
+      const struct tu_image_view *iview = fb->attachments[a].attachment;
+      struct tu_image *image = iview->image;
+
+      if (!image->layout[0].lrz || !cmd->state.lrz.attachments[a].valid_clear_value)
+         continue;
+
+      ops->setup(cmd, cs, VK_FORMAT_D16_UNORM, VK_IMAGE_ASPECT_DEPTH_BIT, ROTATE_0, true, false);
+
+      VkClearValue value = { 0 };
+      value.depthStencil.depth = cmd->state.lrz.attachments[a].clear_value;
+      ops->clear_value(cs, VK_FORMAT_D16_UNORM, &value);
+
+      /* Set origin */
+      tu_cs_emit_pkt4(cs, REG_A6XX_SP_PS_2D_SRC_INFO, 13);
+      for (int i = 0; i < 13; i++)
+         tu_cs_emit(cs, 0x00000000);
+
+      /* Set destination */
+      uint64_t va = image->bo->iova + image->bo_offset + image->layout[0].lrz_offset;
+
+      tu_cs_emit_regs(cs,
+                      A6XX_RB_2D_DST_INFO(
+                         .color_format = FMT6_16_UNORM,
+                         .tile_mode = TILE6_LINEAR),
+                      A6XX_RB_2D_DST_LO((uint32_t) va),
+                      A6XX_RB_2D_DST_HI(va >> 32),
+                      A6XX_RB_2D_DST_PITCH((uint32_t)image->layout[0].lrz_pitch * 2));
+
+      VkOffset2D offset = { 0, 0 };
+      VkExtent2D extent;
+      extent.width = image->layout[0].lrz_width;
+      extent.height = image->layout[0].lrz_height;
+
+      ops->coords(cs, &offset, &offset, &extent);
+      ops->run(cmd, cs);
+
+      /* LRZ was cleared. Disable LRZ clears until the application wants to clear
+       * again. */
+      cmd->state.lrz.attachments[a].valid_clear_value = false;
+   }
+}
+
 static void
 tu_image_view_copy_blit(struct tu_image_view *iview,
                         struct tu_image *image,

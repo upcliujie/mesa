@@ -286,14 +286,8 @@ tu6_emit_zs(struct tu_cmd_buffer *cmd,
    tu_cs_emit_pkt4(cs, REG_A6XX_RB_DEPTH_FLAG_BUFFER_BASE_LO, 3);
    tu_cs_image_flag_ref(cs, iview, 0);
 
-   tu_cs_emit_regs(cs,
-                   A6XX_GRAS_LRZ_BUFFER_BASE(0),
-                   A6XX_GRAS_LRZ_BUFFER_PITCH(0),
-                   A6XX_GRAS_LRZ_FAST_CLEAR_BUFFER_BASE(0));
-
    if (attachment->format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
        attachment->format == VK_FORMAT_S8_UINT) {
-
       tu_cs_emit_pkt4(cs, REG_A6XX_RB_STENCIL_INFO, 6);
       tu_cs_emit(cs, A6XX_RB_STENCIL_INFO(.separate_stencil = true).value);
       if (attachment->format == VK_FORMAT_D32_SFLOAT_S8_UINT) {
@@ -306,6 +300,18 @@ tu6_emit_zs(struct tu_cmd_buffer *cmd,
    } else {
       tu_cs_emit_regs(cs,
                      A6XX_RB_STENCIL_INFO(0));
+   }
+
+   if (iview->image->layout[0].lrz) {
+      tu_cs_emit_regs(cs, A6XX_GRAS_LRZ_BUFFER_BASE(.bo = iview->image->bo,
+                                                    .bo_offset = iview->image->bo_offset + iview->image->layout[0].lrz_offset),
+                      A6XX_GRAS_LRZ_BUFFER_PITCH(.pitch = iview->image->layout[0].lrz_pitch),
+                      A6XX_GRAS_LRZ_FAST_CLEAR_BUFFER_BASE_LO(0),
+                      A6XX_GRAS_LRZ_FAST_CLEAR_BUFFER_BASE_HI(0));
+   } else {
+      tu_cs_emit_regs(cs, A6XX_GRAS_LRZ_BUFFER_BASE(0),
+                      A6XX_GRAS_LRZ_BUFFER_PITCH(0),
+                      A6XX_GRAS_LRZ_FAST_CLEAR_BUFFER_BASE(0));
    }
 }
 
@@ -1230,6 +1236,9 @@ tu_emit_renderpass_begin(struct tu_cmd_buffer *cmd,
       tu_clear_sysmem_attachment(cmd, cs, i, info);
 
    tu_cond_exec_end(cs);
+
+   for (uint32_t i = 0; i < cmd->state.pass->attachment_count; ++i)
+      tu6_clear_lrz_setup(cmd, i, &info->pClearValues[i]);
 }
 
 static void
@@ -1244,6 +1253,8 @@ tu6_sysmem_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    tu6_emit_bin_size(cs, 0, 0, 0xc00000); /* 0xc00000 = BYPASS? */
 
    tu6_emit_event_write(cmd, cs, LRZ_FLUSH);
+   tu_emit_cache_flush_ccu(cmd, cs, TU_CMD_CCU_SYSMEM);
+   tu6_clear_lrz(cmd, cs);
 
    tu_cs_emit_pkt7(cs, CP_SET_MARKER, 1);
    tu_cs_emit(cs, A6XX_CP_SET_MARKER_0_MODE(RM6_BYPASS));
@@ -1289,8 +1300,11 @@ tu6_tile_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    struct tu_physical_device *phys_dev = cmd->device->physical_device;
 
    tu6_emit_event_write(cmd, cs, LRZ_FLUSH);
+   tu_emit_cache_flush_ccu(cmd, cs, TU_CMD_CCU_SYSMEM);
 
-   /* lrz clear? */
+   tu6_clear_lrz(cmd, cs);
+
+   tu_emit_cache_flush_ccu(cmd, cs, TU_CMD_CCU_SYSMEM);
 
    tu_cs_emit_pkt7(cs, CP_SKIP_IB2_ENABLE_GLOBAL, 1);
    tu_cs_emit(cs, 0x0);
