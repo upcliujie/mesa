@@ -2375,6 +2375,66 @@ tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
       tu_cs_emit_regs(&cs, A6XX_RB_STENCILREF(.ref = ds_info->front.reference & 0xff,
                                               .bfref = ds_info->back.reference & 0xff));
    }
+
+   if (builder->create_info->pDepthStencilState &&
+       builder->create_info->pDepthStencilState->depthTestEnable) {
+      pipeline->lrz.write = builder->create_info->pDepthStencilState->depthWriteEnable;
+      pipeline->lrz.invalidate = false;
+      pipeline->lrz.z_test_enable = true;
+
+      /* LRZ does not support some depth modes.
+       *
+       * The HW has a flag for GREATER and GREATER_OR_EQUAL modes which is used
+       * in freedreno, however there are some dEQP-VK tests that fail if we use here.
+       * Furthermore, blob disables LRZ on these comparison opcodes too.
+       *
+       * TODO: investigate if we can enable GREATER flag here.
+       */
+      switch(builder->create_info->pDepthStencilState->depthCompareOp) {
+      case VK_COMPARE_OP_ALWAYS:
+      case VK_COMPARE_OP_NOT_EQUAL:
+      case VK_COMPARE_OP_GREATER:
+      case VK_COMPARE_OP_GREATER_OR_EQUAL:
+         pipeline->lrz.invalidate = true;
+         pipeline->lrz.write = false;
+         break;
+      case VK_COMPARE_OP_EQUAL:
+      case VK_COMPARE_OP_NEVER:
+         pipeline->lrz.enable = true;
+         pipeline->lrz.write = false;
+         break;
+      case VK_COMPARE_OP_LESS:
+      case VK_COMPARE_OP_LESS_OR_EQUAL:
+         pipeline->lrz.enable = true;
+         break;
+      default:
+         unreachable("bad VK_COMPARE_OP value");
+         break;
+      };
+   }
+
+   if (builder->create_info->pDepthStencilState &&
+       builder->create_info->pDepthStencilState->stencilTestEnable) {
+      pipeline->lrz.write = false;
+      pipeline->lrz.invalidate = true;
+   }
+
+   if (builder->create_info->pColorBlendState && builder->create_info->pColorBlendState->attachmentCount) {
+      for (int i = 0; i < builder->create_info->pColorBlendState->attachmentCount; i++) {
+         VkPipelineColorBlendAttachmentState blendAttachment = builder->create_info->pColorBlendState->pAttachments[i];
+         /* Blend state is ignored if the pipeline has rasterization
+          * disabled or if the subpass of the render pass the pipeline
+          * is created against does not use any color attachments.
+          *
+          * In that case, we don't need to disable LRZ write.
+          */
+         if (blendAttachment.blendEnable &&
+             !builder->create_info->pRasterizationState->rasterizerDiscardEnable &&
+             builder->use_color_attachments) {
+            pipeline->lrz.write = false;
+         }
+      }
+   }
 }
 
 static void
