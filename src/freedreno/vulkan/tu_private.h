@@ -493,6 +493,7 @@ enum tu_draw_state_group_id
    TU_DRAW_STATE_VS_PARAMS,
    TU_DRAW_STATE_INPUT_ATTACHMENTS_GMEM,
    TU_DRAW_STATE_INPUT_ATTACHMENTS_SYSMEM,
+   TU_DRAW_STATE_LRZ,
 
    /* dynamic state related draw states */
    TU_DRAW_STATE_DYNAMIC,
@@ -876,6 +877,7 @@ struct tu_lrz_state
 {
    bool changed;
    struct tu_lrz_pipeline pipeline;
+   struct tu_draw_state state;
    struct tu_lrz_attachments *attachments;
 };
 
