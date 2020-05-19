@@ -283,6 +283,38 @@ tu_image_create(VkDevice _device,
          layout->size += offset;
       }
 
+      const struct util_format_description *desc = util_format_description(image->layout[0].format);
+      if (util_format_has_depth(desc) && !(device->instance->debug_flags & TU_DEBUG_NOLRZ))
+      {
+         /* Depth plane is the first one */
+         struct fdl_layout *layout = &image->layout[0];
+         unsigned width = layout->width0;
+         unsigned height = layout->height0;
+
+         layout->lrz = true;
+
+         /* LRZ buffer is super-sampled */
+         switch (layout->nr_samples) {
+         case 4:
+            width *= 2;
+            /* fallthru */
+         case 2:
+            height *= 2;
+            break;
+         default:
+            break;
+         }
+
+         unsigned lrz_pitch  = align(DIV_ROUND_UP(width, 8), 32);
+         unsigned lrz_height = align(DIV_ROUND_UP(height, 8), 16);
+
+         layout->lrz_height = lrz_height;
+         layout->lrz_width = lrz_pitch;
+         layout->lrz_pitch = lrz_pitch;
+         layout->lrz_offset = layout->size;
+         layout->size += lrz_pitch * lrz_height * 2;
+      }
+
       image->total_size = MAX2(image->total_size, layout->size);
    }
 

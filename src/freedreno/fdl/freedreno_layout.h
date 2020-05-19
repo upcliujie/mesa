@@ -102,6 +102,7 @@ struct fdl_layout {
 	uint32_t ubwc_layer_size; /* in bytes */
 	bool ubwc : 1;
 	bool layer_first : 1;    /* see above description */
+	bool lrz : 1;
 
 	/* Note that for tiled textures, beyond a certain mipmap level (ie.
 	 * when width is less than block size) things switch to linear.  In
@@ -129,6 +130,11 @@ struct fdl_layout {
 	uint32_t size; /* Size of the whole image, in bytes. */
 	uint32_t base_align; /* Alignment of the base address, in bytes. */
 	uint8_t pitchalign; /* log2(pitchalign) */
+
+	uint32_t lrz_height;
+	uint32_t lrz_width;  // for lrz clear, does this differ from lrz_pitch?
+	uint32_t lrz_pitch;
+	uint32_t lrz_offset;
 };
 
 static inline uint32_t
