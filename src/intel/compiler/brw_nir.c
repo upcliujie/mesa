@@ -805,23 +805,7 @@ brw_nir_link_shaders(const struct brw_compiler *compiler,
       brw_nir_optimize(consumer, compiler, c_is_scalar, false);
    }
 
-   NIR_PASS_V(producer, nir_lower_io_to_vector, nir_var_shader_out);
-   NIR_PASS_V(producer, nir_opt_combine_stores, nir_var_shader_out);
-   NIR_PASS_V(consumer, nir_lower_io_to_vector, nir_var_shader_in);
-
-   if (producer->info.stage != MESA_SHADER_TESS_CTRL) {
-      /* Calling lower_io_to_vector creates output variable writes with
-       * write-masks.  On non-TCS outputs, the back-end can't handle it and we
-       * need to call nir_lower_io_to_temporaries to get rid of them.  This,
-       * in turn, creates temporary variables and extra copy_deref intrinsics
-       * that we need to clean up.
-       */
-      NIR_PASS_V(producer, nir_lower_io_to_temporaries,
-                 nir_shader_get_entrypoint(producer), true, false);
-      NIR_PASS_V(producer, nir_lower_global_vars_to_local);
-      NIR_PASS_V(producer, nir_split_var_copies);
-      NIR_PASS_V(producer, nir_lower_var_copies);
-   }
+   nir_vectorize_io(producer, consumer);
 }
 
 static bool

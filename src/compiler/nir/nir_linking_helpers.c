@@ -1300,3 +1300,26 @@ nir_assign_linked_io_var_locations(nir_shader *producer, nir_shader *consumer)
 
    return result;
 }
+
+
+void
+nir_vectorize_io(nir_shader *producer, nir_shader *consumer)
+{
+   NIR_PASS_V(producer, nir_lower_io_to_vector, nir_var_shader_out);
+   NIR_PASS_V(producer, nir_opt_combine_stores, nir_var_shader_out);
+   NIR_PASS_V(consumer, nir_lower_io_to_vector, nir_var_shader_in);
+
+   if (producer->info.stage != MESA_SHADER_TESS_CTRL) {
+      /* Calling lower_io_to_vector creates output variable writes with
+       * write-masks.  We only support these for TCS outputs, so for other
+       * stages, we need to call nir_lower_io_to_temporaries to get rid of
+       * them.  This, in turn, creates temporary variables and extra
+       * copy_deref intrinsics that we need to clean up.
+       */
+      NIR_PASS_V(producer, nir_lower_io_to_temporaries,
+                 nir_shader_get_entrypoint(producer), true, false);
+      NIR_PASS_V(producer, nir_lower_global_vars_to_local);
+      NIR_PASS_V(producer, nir_split_var_copies);
+      NIR_PASS_V(producer, nir_lower_var_copies);
+   }
+}
