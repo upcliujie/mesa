@@ -768,16 +768,17 @@ void
 brw_nir_link_shaders(const struct brw_compiler *compiler,
                      nir_shader *producer, nir_shader *consumer)
 {
+   if (producer->options->lower_to_scalar) {
+      NIR_PASS_V(producer, nir_lower_io_to_scalar_early, nir_var_shader_out);
+      NIR_PASS_V(consumer, nir_lower_io_to_scalar_early, nir_var_shader_in);
+   }
+
    nir_lower_io_arrays_to_elements(producer, consumer);
    nir_validate_shader(producer, "after nir_lower_io_arrays_to_elements");
    nir_validate_shader(consumer, "after nir_lower_io_arrays_to_elements");
 
-   if (producer->options->lower_to_scalar) {
-      NIR_PASS_V(producer, nir_lower_io_to_scalar_early, nir_var_shader_out);
-      NIR_PASS_V(consumer, nir_lower_io_to_scalar_early, nir_var_shader_in);
-      brw_nir_optimize(producer, compiler, false);
-      brw_nir_optimize(consumer, compiler, false);
-   }
+   brw_nir_optimize(producer, compiler, false);
+   brw_nir_optimize(consumer, compiler, false);
 
    if (nir_link_opt_varyings(producer, consumer))
       brw_nir_optimize(consumer, compiler, false);
