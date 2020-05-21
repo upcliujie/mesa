@@ -794,6 +794,13 @@ brw_nir_link_shaders(const struct brw_compiler *compiler,
 
       brw_nir_optimize(producer, compiler, false);
       brw_nir_optimize(consumer, compiler, false);
+
+      /* Optimizations can cause varyings to become unused.
+       * nir_compact_varyings() depends on all dead varyings being removed so
+       * we need to call nir_remove_dead_variables() again here.
+       */
+      NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out);
+      NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in);
    }
 
    nir_vectorize_io(producer, consumer);
