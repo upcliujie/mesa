@@ -772,10 +772,7 @@ brw_nir_link_shaders(const struct brw_compiler *compiler,
    nir_validate_shader(producer, "after nir_lower_io_arrays_to_elements");
    nir_validate_shader(consumer, "after nir_lower_io_arrays_to_elements");
 
-   const bool p_is_scalar = compiler->scalar_stage[producer->info.stage];
-   const bool c_is_scalar = compiler->scalar_stage[consumer->info.stage];
-
-   if (p_is_scalar && c_is_scalar) {
+   if (producer->options->lower_to_scalar) {
       NIR_PASS_V(producer, nir_lower_io_to_scalar_early, nir_var_shader_out);
       NIR_PASS_V(consumer, nir_lower_io_to_scalar_early, nir_var_shader_in);
       brw_nir_optimize(producer, compiler, false);
