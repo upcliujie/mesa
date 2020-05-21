@@ -146,8 +146,7 @@ void brw_nir_apply_tcs_quads_workaround(nir_shader *nir);
 void brw_nir_apply_key(nir_shader *nir,
                        const struct brw_compiler *compiler,
                        const struct brw_base_prog_key *key,
-                       unsigned max_subgroup_size,
-                       bool is_scalar);
+                       unsigned max_subgroup_size);
 
 enum brw_conditional_mod brw_cmod_for_nir_comparison(nir_op op);
 uint32_t brw_aop_for_nir_intrinsic(const nir_intrinsic_instr *atomic);
@@ -177,7 +176,6 @@ bool brw_nir_opt_peephole_ffma(nir_shader *shader);
 
 void brw_nir_optimize(nir_shader *nir,
                       const struct brw_compiler *compiler,
-                      bool is_scalar,
                       bool allow_copies);
 
 nir_shader *brw_nir_create_passthrough_tcs(void *mem_ctx,

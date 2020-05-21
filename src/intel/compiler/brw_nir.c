@@ -489,7 +489,7 @@ brw_nir_no_indirect_mask(const struct brw_compiler *compiler,
 
 void
 brw_nir_optimize(nir_shader *nir, const struct brw_compiler *compiler,
-                 bool is_scalar, bool allow_copies)
+                 bool allow_copies)
 {
    nir_variable_mode indirect_mask =
       brw_nir_no_indirect_mask(compiler, nir->info.stage);
@@ -517,13 +517,13 @@ brw_nir_optimize(nir_shader *nir, const struct brw_compiler *compiler,
       OPT(nir_opt_dead_write_vars);
       OPT(nir_opt_combine_stores, nir_var_all);
 
-      if (is_scalar) {
+      if (nir->options->lower_to_scalar) {
          OPT(nir_lower_alu_to_scalar, NULL, NULL);
       }
 
       OPT(nir_copy_prop);
 
-      if (is_scalar) {
+      if (nir->options->lower_to_scalar) {
          OPT(nir_lower_phis_to_scalar);
       }
 
@@ -549,7 +549,7 @@ brw_nir_optimize(nir_shader *nir, const struct brw_compiler *compiler,
        * However, in vec4 tessellation shaders, these loads operate by
        * actually pulling from memory.
        */
-      const bool is_vec4_tessellation = !is_scalar &&
+      const bool is_vec4_tessellation = !nir->options->lower_to_scalar &&
          (nir->info.stage == MESA_SHADER_TESS_CTRL ||
           nir->info.stage == MESA_SHADER_TESS_EVAL);
       OPT(nir_opt_peephole_select, 0, !is_vec4_tessellation, false);
@@ -688,7 +688,7 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
    OPT(nir_split_var_copies);
    OPT(nir_split_struct_vars, nir_var_function_temp);
 
-   brw_nir_optimize(nir, compiler, is_scalar, true);
+   brw_nir_optimize(nir, compiler, true);
 
    OPT(nir_lower_doubles, softfp64, nir->options->lower_doubles_options);
    OPT(nir_lower_int64, nir->options->lower_int64_options);
@@ -761,7 +761,7 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
        nir_lower_direct_array_deref_of_vec_load);
 
    /* Get rid of split copies */
-   brw_nir_optimize(nir, compiler, is_scalar, false);
+   brw_nir_optimize(nir, compiler, false);
 }
 
 void
@@ -778,12 +778,12 @@ brw_nir_link_shaders(const struct brw_compiler *compiler,
    if (p_is_scalar && c_is_scalar) {
       NIR_PASS_V(producer, nir_lower_io_to_scalar_early, nir_var_shader_out);
       NIR_PASS_V(consumer, nir_lower_io_to_scalar_early, nir_var_shader_in);
-      brw_nir_optimize(producer, compiler, p_is_scalar, false);
-      brw_nir_optimize(consumer, compiler, c_is_scalar, false);
+      brw_nir_optimize(producer, compiler, false);
+      brw_nir_optimize(consumer, compiler, false);
    }
 
    if (nir_link_opt_varyings(producer, consumer))
-      brw_nir_optimize(consumer, compiler, c_is_scalar, false);
+      brw_nir_optimize(consumer, compiler, false);
 
    NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out);
    NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in);
@@ -801,8 +801,8 @@ brw_nir_link_shaders(const struct brw_compiler *compiler,
       NIR_PASS_V(consumer, nir_lower_indirect_derefs,
                  brw_nir_no_indirect_mask(compiler, consumer->info.stage));
 
-      brw_nir_optimize(producer, compiler, p_is_scalar, false);
-      brw_nir_optimize(consumer, compiler, c_is_scalar, false);
+      brw_nir_optimize(producer, compiler, false);
+      brw_nir_optimize(consumer, compiler, false);
    }
 
    nir_vectorize_io(producer, consumer);
@@ -907,12 +907,12 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
       OPT(nir_opt_algebraic_before_ffma);
    } while (progress);
 
-   brw_nir_optimize(nir, compiler, is_scalar, false);
+   brw_nir_optimize(nir, compiler, false);
 
    brw_vectorize_lower_mem_access(nir, compiler, is_scalar);
 
    if (OPT(nir_lower_int64, nir->options->lower_int64_options))
-      brw_nir_optimize(nir, compiler, is_scalar, false);
+      brw_nir_optimize(nir, compiler, false);
 
    if (devinfo->gen >= 6) {
       /* Try and fuse multiply-adds */
@@ -1118,8 +1118,7 @@ void
 brw_nir_apply_key(nir_shader *nir,
                   const struct brw_compiler *compiler,
                   const struct brw_base_prog_key *key,
-                  unsigned max_subgroup_size,
-                  bool is_scalar)
+                  unsigned max_subgroup_size)
 {
    bool progress = false;
 
@@ -1134,7 +1133,7 @@ brw_nir_apply_key(nir_shader *nir,
    OPT(nir_lower_subgroups, &subgroups_options);
 
    if (progress)
-      brw_nir_optimize(nir, compiler, is_scalar, false);
+      brw_nir_optimize(nir, compiler, false);
 }
 
 enum brw_conditional_mod
