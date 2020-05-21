@@ -3926,6 +3926,11 @@ void nir_compact_varyings(nir_shader *producer, nir_shader *consumer,
 void nir_link_xfb_varyings(nir_shader *producer, nir_shader *consumer);
 bool nir_link_opt_varyings(nir_shader *producer, nir_shader *consumer);
 
+typedef void (*nir_optimize_cb)(nir_shader*, void *);
+
+void nir_reduce_interstage_io(nir_shader *producer, nir_shader *consumer,
+                              nir_optimize_cb opt, void *data);
+
 bool nir_lower_amul(nir_shader *shader,
                     int (*type_size)(const struct glsl_type *, bool));
 

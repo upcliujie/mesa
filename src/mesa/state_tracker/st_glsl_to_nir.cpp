@@ -524,41 +524,6 @@ st_glsl_to_nir_post_opts(struct st_context *st, struct gl_program *prog,
 }
 
 static void
-st_nir_link_shaders(nir_shader *producer, nir_shader *consumer)
-{
-   if (producer->options->lower_to_scalar) {
-      NIR_PASS_V(producer, nir_lower_io_to_scalar_early, nir_var_shader_out);
-      NIR_PASS_V(consumer, nir_lower_io_to_scalar_early, nir_var_shader_in);
-   }
-
-   nir_lower_io_arrays_to_elements(producer, consumer);
-
-   st_nir_opts(producer);
-   st_nir_opts(consumer);
-
-   if (nir_link_opt_varyings(producer, consumer))
-      st_nir_opts(consumer);
-
-   NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out);
-   NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in);
-
-   if (nir_remove_unused_varyings(producer, consumer)) {
-      NIR_PASS_V(producer, nir_lower_global_vars_to_local);
-      NIR_PASS_V(consumer, nir_lower_global_vars_to_local);
-
-      st_nir_opts(producer);
-      st_nir_opts(consumer);
-
-      /* Optimizations can cause varyings to become unused.
-       * nir_compact_varyings() depends on all dead varyings being removed so
-       * we need to call nir_remove_dead_variables() again here.
-       */
-      NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out);
-      NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in);
-   }
-}
-
-static void
 st_lower_patch_vertices_in(struct gl_shader_program *shader_prog)
 {
    struct gl_linked_shader *linked_tcs =
@@ -613,6 +578,11 @@ st_nir_lower_wpos_ytransform(struct nir_shader *nir,
       nir_validate_shader(nir, "after nir_lower_wpos_ytransform");
       _mesa_add_state_reference(prog->Parameters, wposTransformState);
    }
+}
+
+void st_nir_opts_cb(nir_shader *nir, UNUSED void *data)
+{
+   st_nir_opts(nir);
 }
 
 bool
@@ -697,8 +667,9 @@ st_link_nir(struct gl_context *ctx,
     * stage.
     */
    for (int i = num_shaders - 2; i >= 0; i--) {
-      st_nir_link_shaders(linked_shader[i]->Program->nir,
-                          linked_shader[i + 1]->Program->nir);
+      nir_reduce_interstage_io(linked_shader[i]->Program->nir,
+                               linked_shader[i + 1]->Program->nir,
+                               st_nir_opts_cb, NULL);
    }
    /* Linking shaders also optimizes them. Separate shaders, compute shaders
     * and shaders with a fixed-func VS or FS that don't need linking are

@@ -1323,3 +1323,39 @@ nir_vectorize_io(nir_shader *producer, nir_shader *consumer)
       NIR_PASS_V(producer, nir_lower_var_copies);
    }
 }
+
+void
+nir_reduce_interstage_io(nir_shader *producer, nir_shader *consumer,
+                         nir_optimize_cb opt, void *data)
+{
+   if (producer->options->lower_to_scalar) {
+      NIR_PASS_V(producer, nir_lower_io_to_scalar_early, nir_var_shader_out);
+      NIR_PASS_V(consumer, nir_lower_io_to_scalar_early, nir_var_shader_in);
+   }
+
+   nir_lower_io_arrays_to_elements(producer, consumer);
+
+   opt(producer, data);
+   opt(consumer, data);
+
+   if (nir_link_opt_varyings(producer, consumer))
+      opt(consumer, data);
+
+   NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out);
+   NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in);
+
+   if (nir_remove_unused_varyings(producer, consumer)) {
+      NIR_PASS_V(producer, nir_lower_global_vars_to_local);
+      NIR_PASS_V(consumer, nir_lower_global_vars_to_local);
+
+      opt(producer, data);
+      opt(consumer, data);
+
+      /* Optimizations can cause varyings to become unused.
+       * nir_compact_varyings() depends on all dead varyings being removed so
+       * we need to call nir_remove_dead_variables() again here.
+       */
+      NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out);
+      NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in);
+   }
+}
