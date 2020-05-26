@@ -53,6 +53,7 @@ struct wl_registry;
 struct wl_shm;
 struct wl_surface;
 struct zwp_linux_dmabuf_v1;
+struct zwp_linux_dmabuf_hints_v1;
 #endif
 
 #include <GL/gl.h>
@@ -238,6 +239,7 @@ struct dri2_egl_display
    struct wl_shm            *wl_shm;
    struct wl_event_queue    *wl_queue;
    struct zwp_linux_dmabuf_v1 *wl_dmabuf;
+   struct zwp_linux_dmabuf_hints_v1 *wl_dmabuf_hints;
    struct u_vector          *wl_modifiers;
    bool                      authenticated;
    BITSET_DECLARE(formats, EGL_DRI2_MAX_FORMATS);
@@ -283,6 +285,7 @@ struct dri2_egl_surface
    struct wl_surface     *wl_surface_wrapper;
    struct wl_display     *wl_dpy_wrapper;
    struct wl_drm         *wl_drm_wrapper;
+   struct zwp_linux_dmabuf_hints_v1 *wl_dmabuf_hints;
    struct wl_callback    *throttle_callback;
    int                    format;
 #endif

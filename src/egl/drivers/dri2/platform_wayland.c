@@ -260,6 +260,45 @@ static const struct wl_buffer_listener wl_buffer_listener = {
 };
 
 static void
+surface_hints_done(void *data, struct zwp_linux_dmabuf_hints_v1 *hints)
+{
+}
+
+static void
+surface_hints_primary_device(void *data, struct zwp_linux_dmabuf_hints_v1 *hints,
+                             uint32_t maj, uint32_t min)
+{
+   /* Ignored for surface hints */
+}
+
+static void
+surface_hints_tranche_done(void *data, struct zwp_linux_dmabuf_hints_v1 *hints)
+{
+}
+
+static void
+surface_hints_tranche_target_device(void *data,
+                                    struct zwp_linux_dmabuf_hints_v1 *hints,
+                                    uint32_t maj, uint32_t min)
+{
+}
+
+static void
+surface_hints_tranche_modifier(void *data,
+                               struct zwp_linux_dmabuf_hints_v1 *hints,
+                               uint32_t format, uint32_t mod_hi, uint32_t mod_lo)
+{
+}
+
+static const struct zwp_linux_dmabuf_hints_v1_listener surface_hints_listener = {
+   .done = surface_hints_done,
+   .primary_device = surface_hints_primary_device,
+   .tranche_done = surface_hints_tranche_done,
+   .tranche_target_device = surface_hints_tranche_target_device,
+   .tranche_modifier = surface_hints_tranche_modifier,
+};
+
+static void
 resize_callback(struct wl_egl_window *wl_win, void *data)
 {
    struct dri2_egl_surface *dri2_surf = data;
@@ -317,6 +356,7 @@ dri2_wl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
    struct dri2_egl_surface *dri2_surf;
    int visual_idx;
    const __DRIconfig *config;
+   struct zwp_linux_dmabuf_v1 *dmabuf_wrapper;
 
    dri2_surf = calloc(1, sizeof *dri2_surf);
    if (!dri2_surf) {
@@ -381,6 +421,33 @@ dri2_wl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
    wl_proxy_set_queue((struct wl_proxy *)dri2_surf->wl_surface_wrapper,
                       dri2_surf->wl_queue);
 
+   if (dri2_dpy->wl_dmabuf_hints) {
+      dmabuf_wrapper = wl_proxy_create_wrapper(dri2_dpy->wl_dmabuf);
+      if (!dmabuf_wrapper) {
+         _eglError(EGL_BAD_ALLOC, "dri2_create_surface");
+         goto cleanup_surf_wrapper;
+      }
+
+      wl_proxy_set_queue((struct wl_proxy *)dmabuf_wrapper,
+                         dri2_surf->wl_queue);
+      dri2_surf->wl_dmabuf_hints =
+         zwp_linux_dmabuf_v1_get_surface_hints(dmabuf_wrapper,
+                                               dri2_surf->wl_surface_wrapper);
+      wl_proxy_wrapper_destroy(dmabuf_wrapper);
+
+      if (!dri2_surf->wl_dmabuf_hints) {
+         _eglError(EGL_BAD_ALLOC, "dri2_create_surface");
+         goto cleanup_surf_wrapper;
+      }
+
+      zwp_linux_dmabuf_hints_v1_add_listener(dri2_surf->wl_dmabuf_hints,
+                                             &surface_hints_listener,
+                                             dri2_surf);
+
+      if (roundtrip(dri2_dpy) < 0)
+         goto cleanup_dmabuf_hints;
+   }
+
    dri2_surf->wl_win = window;
    dri2_surf->wl_win->driver_private = dri2_surf;
    dri2_surf->wl_win->destroy_window_callback = destroy_window_callback;
@@ -388,12 +455,15 @@ dri2_wl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
       dri2_surf->wl_win->resize_callback = resize_callback;
 
    if (!dri2_create_drawable(dri2_dpy, config, dri2_surf, dri2_surf))
-       goto cleanup_surf_wrapper;
+       goto cleanup_dmabuf_hints;
 
    dri2_surf->base.SwapInterval = dri2_dpy->default_swap_interval;
 
    return &dri2_surf->base;
 
+ cleanup_dmabuf_hints:
+   if (dri2_surf->wl_dmabuf_hints)
+      zwp_linux_dmabuf_hints_v1_destroy(dri2_surf->wl_dmabuf_hints);
  cleanup_surf_wrapper:
    wl_proxy_wrapper_destroy(dri2_surf->wl_surface_wrapper);
  cleanup_dpy_wrapper:
@@ -463,6 +533,8 @@ dri2_wl_destroy_surface(_EGLDisplay *disp, _EGLSurface *surf)
    wl_proxy_wrapper_destroy(dri2_surf->wl_dpy_wrapper);
    if (dri2_surf->wl_drm_wrapper)
       wl_proxy_wrapper_destroy(dri2_surf->wl_drm_wrapper);
+   if (dri2_surf->wl_dmabuf_hints)
+      zwp_linux_dmabuf_hints_v1_destroy(dri2_surf->wl_dmabuf_hints);
    wl_event_queue_destroy(dri2_surf->wl_queue);
 
    dri2_fini_surface(surf);
@@ -1210,6 +1282,44 @@ static const struct zwp_linux_dmabuf_v1_listener dmabuf_listener = {
 };
 
 static void
+default_hints_done(void *data, struct zwp_linux_dmabuf_hints_v1 *hints)
+{
+}
+
+static void
+default_hints_primary_device(void *data, struct zwp_linux_dmabuf_hints_v1 *hints,
+                             uint32_t maj, uint32_t min)
+{
+}
+
+static void
+default_hints_tranche_done(void *data, struct zwp_linux_dmabuf_hints_v1 *hints)
+{
+}
+
+static void
+default_hints_tranche_target_device(void *data,
+                                    struct zwp_linux_dmabuf_hints_v1 *hints,
+                                    uint32_t maj, uint32_t min)
+{
+}
+
+static void
+default_hints_tranche_modifier(void *data,
+                               struct zwp_linux_dmabuf_hints_v1 *hints,
+                               uint32_t format, uint32_t mod_hi, uint32_t mod_lo)
+{
+}
+
+static const struct zwp_linux_dmabuf_hints_v1_listener default_hints_listener = {
+   .done = default_hints_done,
+   .primary_device = default_hints_primary_device,
+   .tranche_done = default_hints_tranche_done,
+   .tranche_target_device = default_hints_tranche_target_device,
+   .tranche_modifier = default_hints_tranche_modifier,
+};
+
+static void
 registry_handle_global_drm(void *data, struct wl_registry *registry,
                            uint32_t name, const char *interface,
                            uint32_t version)
@@ -1223,9 +1333,15 @@ registry_handle_global_drm(void *data, struct wl_registry *registry,
    } else if (strcmp(interface, "zwp_linux_dmabuf_v1") == 0 && version >= 3) {
       dri2_dpy->wl_dmabuf =
          wl_registry_bind(registry, name, &zwp_linux_dmabuf_v1_interface,
-                          MIN2(version, 3));
+                          MIN2(version, 4));
       zwp_linux_dmabuf_v1_add_listener(dri2_dpy->wl_dmabuf, &dmabuf_listener,
                                        dri2_dpy);
+      if (version >= 4) {
+         dri2_dpy->wl_dmabuf_hints =
+            zwp_linux_dmabuf_v1_get_default_hints(dri2_dpy->wl_dmabuf);
+         zwp_linux_dmabuf_hints_v1_add_listener(dri2_dpy->wl_dmabuf_hints,
+                                                &default_hints_listener, dri2_dpy);
+      }
    }
 }
 
