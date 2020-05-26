@@ -38,6 +38,7 @@
 #include <xf86drm.h>
 #include "drm-uapi/drm_fourcc.h"
 #include <sys/mman.h>
+#include <sys/sysmacros.h>
 
 #include "egl_dri2.h"
 #include "loader.h"
@@ -647,27 +648,6 @@ get_back_bo(struct dri2_egl_surface *dri2_surf)
    return 0;
 }
 
-
-static void
-back_bo_to_dri_buffer(struct dri2_egl_surface *dri2_surf, __DRIbuffer *buffer)
-{
-   struct dri2_egl_display *dri2_dpy =
-      dri2_egl_display(dri2_surf->base.Resource.Display);
-   __DRIimage *image;
-   int name, pitch;
-
-   image = dri2_surf->back->dri_image;
-
-   dri2_dpy->image->queryImage(image, __DRI_IMAGE_ATTRIB_NAME, &name);
-   dri2_dpy->image->queryImage(image, __DRI_IMAGE_ATTRIB_STRIDE, &pitch);
-
-   buffer->attachment = __DRI_BUFFER_BACK_LEFT;
-   buffer->name = name;
-   buffer->pitch = pitch;
-   buffer->cpp = 4;
-   buffer->flags = 0;
-}
-
 static int
 update_buffers(struct dri2_egl_surface *dri2_surf)
 {
@@ -721,84 +701,6 @@ update_buffers_if_needed(struct dri2_egl_surface *dri2_surf)
    return update_buffers(dri2_surf);
 }
 
-static __DRIbuffer *
-dri2_wl_get_buffers_with_format(__DRIdrawable * driDrawable,
-                                int *width, int *height,
-                                unsigned int *attachments, int count,
-                                int *out_count, void *loaderPrivate)
-{
-   struct dri2_egl_surface *dri2_surf = loaderPrivate;
-   int i, j;
-
-   if (update_buffers(dri2_surf) < 0)
-      return NULL;
-
-   for (i = 0, j = 0; i < 2 * count; i += 2, j++) {
-      __DRIbuffer *local;
-
-      switch (attachments[i]) {
-      case __DRI_BUFFER_BACK_LEFT:
-         back_bo_to_dri_buffer(dri2_surf, &dri2_surf->buffers[j]);
-         break;
-      default:
-         local = dri2_egl_surface_alloc_local_buffer(dri2_surf, attachments[i],
-                                                     attachments[i + 1]);
-
-         if (!local) {
-            _eglError(EGL_BAD_ALLOC, "failed to allocate local buffer");
-            return NULL;
-         }
-         dri2_surf->buffers[j] = *local;
-         break;
-      }
-   }
-
-   *out_count = j;
-   if (j == 0)
-      return NULL;
-
-   *width = dri2_surf->base.Width;
-   *height = dri2_surf->base.Height;
-
-   return dri2_surf->buffers;
-}
-
-static __DRIbuffer *
-dri2_wl_get_buffers(__DRIdrawable * driDrawable,
-                    int *width, int *height,
-                    unsigned int *attachments, int count,
-                    int *out_count, void *loaderPrivate)
-{
-   struct dri2_egl_surface *dri2_surf = loaderPrivate;
-   unsigned int *attachments_with_format;
-   __DRIbuffer *buffer;
-   int visual_idx = dri2_wl_visual_idx_from_fourcc(dri2_surf->format);
-
-   if (visual_idx == -1)
-      return NULL;
-
-   attachments_with_format = calloc(count, 2 * sizeof(unsigned int));
-   if (!attachments_with_format) {
-      *out_count = 0;
-      return NULL;
-   }
-
-   for (int i = 0; i < count; ++i) {
-      attachments_with_format[2*i] = attachments[i];
-      attachments_with_format[2*i + 1] = dri2_wl_visuals[visual_idx].bpp;
-   }
-
-   buffer =
-      dri2_wl_get_buffers_with_format(driDrawable,
-                                      width, height,
-                                      attachments_with_format, count,
-                                      out_count, loaderPrivate);
-
-   free(attachments_with_format);
-
-   return buffer;
-}
-
 static int
 image_get_buffers(__DRIdrawable *driDrawable,
                   unsigned int format,
@@ -835,15 +737,6 @@ dri2_wl_get_capability(void *loaderPrivate, enum dri_loader_cap cap)
       return 0;
    }
 }
-
-static const __DRIdri2LoaderExtension dri2_loader_extension = {
-   .base = { __DRI_DRI2_LOADER, 4 },
-
-   .getBuffers           = dri2_wl_get_buffers,
-   .flushFrontBuffer     = dri2_wl_flush_front_buffer,
-   .getBuffersWithFormat = dri2_wl_get_buffers_with_format,
-   .getCapability        = dri2_wl_get_capability,
-};
 
 static const __DRIimageLoaderExtension image_loader_extension = {
    .base = { __DRI_IMAGE_LOADER, 2 },
@@ -1003,7 +896,7 @@ create_wl_buffer(struct dri2_egl_display *dri2_dpy,
       ret = zwp_linux_buffer_params_v1_create_immed(params, width, height,
                                                     fourcc, 0);
       zwp_linux_buffer_params_v1_destroy(params);
-   } else if (dri2_dpy->capabilities & WL_DRM_CAPABILITY_PRIME) {
+   } else {
       struct wl_drm *wl_drm =
          dri2_surf ? dri2_surf->wl_drm_wrapper : dri2_dpy->wl_drm;
       int fd, stride;
@@ -1016,17 +909,6 @@ create_wl_buffer(struct dri2_egl_display *dri2_dpy,
       ret = wl_drm_create_prime_buffer(wl_drm, fd, width, height, fourcc, 0,
                                        stride, 0, 0, 0, 0);
       close(fd);
-   } else {
-      struct wl_drm *wl_drm =
-         dri2_surf ? dri2_surf->wl_drm_wrapper : dri2_dpy->wl_drm;
-      int name, stride;
-
-      if (num_planes > 1)
-         return NULL;
-
-      dri2_dpy->image->queryImage(image, __DRI_IMAGE_ATTRIB_NAME, &name);
-      dri2_dpy->image->queryImage(image, __DRI_IMAGE_ATTRIB_STRIDE, &stride);
-      ret = wl_drm_create_buffer(wl_drm, name, width, height, stride, fourcc);
    }
 
    return ret;
@@ -1213,38 +1095,29 @@ bad_format:
 static int
 dri2_wl_authenticate(_EGLDisplay *disp, uint32_t id)
 {
-   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
-   int ret = 0;
-
-   if (dri2_dpy->is_render_node) {
-      _eglLog(_EGL_WARNING, "wayland-egl: client asks server to "
-                            "authenticate for render-nodes");
-      return 0;
-   }
-   dri2_dpy->authenticated = false;
-
-   wl_drm_authenticate(dri2_dpy->wl_drm, id);
-   if (roundtrip(dri2_dpy) < 0)
-      ret = -1;
-
-   if (!dri2_dpy->authenticated)
-      ret = -1;
-
-   /* reset authenticated */
-   dri2_dpy->authenticated = true;
-
-   return ret;
+   _eglLog(_EGL_WARNING, "wayland-egl: client asks server to "
+                         "authenticate for render-nodes");
+   return 0;
 }
 
 static void
-drm_handle_device(void *data, struct wl_drm *drm, const char *device)
+dri2_open_device(struct dri2_egl_display *dri2_dpy, unsigned maj, unsigned min)
 {
-   struct dri2_egl_display *dri2_dpy = data;
-   drm_magic_t magic;
+   drmDevicePtr dev;
 
-   dri2_dpy->device_name = strdup(device);
-   if (!dri2_dpy->device_name)
+   /* Already opened a device; ignore all extra events */
+   if (dri2_dpy->device_name)
       return;
+
+   if (drmGetDeviceFromMajorMinor(maj, min, 0, &dev))
+      return;
+
+   if (!(dev->available_nodes & (1 << DRM_NODE_RENDER)))
+      goto out;
+
+   dri2_dpy->device_name = strdup(dev->nodes[DRM_NODE_RENDER]);
+   if (!dri2_dpy->device_name)
+      goto out;
 
    dri2_dpy->fd = loader_open_device(dri2_dpy->device_name);
    if (dri2_dpy->fd == -1) {
@@ -1252,22 +1125,25 @@ drm_handle_device(void *data, struct wl_drm *drm, const char *device)
               dri2_dpy->device_name, strerror(errno));
       free(dri2_dpy->device_name);
       dri2_dpy->device_name = NULL;
+   }
+
+out:
+   drmFreeDevice(&dev);
+}
+
+static void
+drm_handle_device(void *data, struct wl_drm *drm, const char *device)
+{
+   struct dri2_egl_display *dri2_dpy = data;
+   struct stat st;
+
+   if (stat(device, &st) == -1) {
+      _eglLog(_EGL_WARNING, "wayland-egl: could not stat %s (%s)",
+              dri2_dpy->device_name, strerror(errno));
       return;
    }
 
-   if (drmGetNodeTypeFromFd(dri2_dpy->fd) == DRM_NODE_RENDER) {
-      dri2_dpy->authenticated = true;
-   } else {
-      if (drmGetMagic(dri2_dpy->fd, &magic)) {
-         close(dri2_dpy->fd);
-         dri2_dpy->fd = -1;
-         free(dri2_dpy->device_name);
-         dri2_dpy->device_name = NULL;
-         _eglLog(_EGL_WARNING, "wayland-egl: drmGetMagic failed");
-         return;
-      }
-      wl_drm_authenticate(dri2_dpy->wl_drm, magic);
-   }
+   dri2_open_device(dri2_dpy, major(st.st_rdev), minor(st.st_rdev));
 }
 
 static void
@@ -1293,9 +1169,7 @@ drm_handle_capabilities(void *data, struct wl_drm *drm, uint32_t value)
 static void
 drm_handle_authenticated(void *data, struct wl_drm *drm)
 {
-   struct dri2_egl_display *dri2_dpy = data;
-
-   dri2_dpy->authenticated = true;
+   /* We always use render nodes, so this is unused */
 }
 
 static const struct wl_drm_listener drm_listener = {
@@ -1388,14 +1262,6 @@ static const struct dri2_egl_display_vtbl dri2_wl_display_vtbl = {
    .query_buffer_age = dri2_wl_query_buffer_age,
    .create_wayland_buffer_from_image = dri2_wl_create_wayland_buffer_from_image,
    .get_dri_drawable = dri2_surface_get_dri_drawable,
-};
-
-static const __DRIextension *dri2_loader_extensions[] = {
-   &dri2_loader_extension.base,
-   &image_loader_extension.base,
-   &image_lookup_extension.base,
-   &use_invalidate.base,
-   NULL,
 };
 
 static const __DRIextension *image_loader_extensions[] = {
@@ -1531,9 +1397,6 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
    if (roundtrip(dri2_dpy) < 0 || dri2_dpy->fd == -1)
       goto cleanup;
 
-   if (roundtrip(dri2_dpy) < 0 || !dri2_dpy->authenticated)
-      goto cleanup;
-
    dri2_dpy->fd = loader_get_user_preferred_fd(dri2_dpy->fd,
                                                &dri2_dpy->is_different_gpu);
    dev = _eglAddDevice(dri2_dpy->fd, false);
@@ -1554,32 +1417,16 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
       }
    }
 
-   /* we have to do the check now, because loader_get_user_preferred_fd
-    * will return a render-node when the requested gpu is different
-    * to the server, but also if the client asks for the same gpu than
-    * the server by requesting its pci-id */
-   dri2_dpy->is_render_node = drmGetNodeTypeFromFd(dri2_dpy->fd) == DRM_NODE_RENDER;
-
    dri2_dpy->driver_name = loader_get_driver_for_fd(dri2_dpy->fd);
    if (dri2_dpy->driver_name == NULL) {
       _eglError(EGL_BAD_ALLOC, "DRI2: failed to get driver name");
       goto cleanup;
    }
 
-   /* render nodes cannot use Gem names, and thus do not support
-    * the __DRI_DRI2_LOADER extension */
-   if (!dri2_dpy->is_render_node) {
-      dri2_dpy->loader_extensions = dri2_loader_extensions;
-      if (!dri2_load_driver(disp)) {
-         _eglError(EGL_BAD_ALLOC, "DRI2: failed to load driver");
-         goto cleanup;
-      }
-   } else {
-      dri2_dpy->loader_extensions = image_loader_extensions;
-      if (!dri2_load_driver_dri3(disp)) {
-         _eglError(EGL_BAD_ALLOC, "DRI3: failed to load driver");
-         goto cleanup;
-      }
+   dri2_dpy->loader_extensions = image_loader_extensions;
+   if (!dri2_load_driver_dri3(disp)) {
+      _eglError(EGL_BAD_ALLOC, "DRI3: failed to load driver");
+      goto cleanup;
    }
 
    if (!dri2_create_screen(disp))
@@ -1592,22 +1439,9 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
 
    dri2_wl_setup_swap_interval(disp);
 
-   /* To use Prime, we must have _DRI_IMAGE v7 at least.
-    * createImageFromFds support indicates that Prime export/import
-    * is supported by the driver. Fall back to
-    * gem names if we don't have Prime support. */
-
    if (dri2_dpy->image->base.version < 7 ||
        dri2_dpy->image->createImageFromFds == NULL)
-      dri2_dpy->capabilities &= ~WL_DRM_CAPABILITY_PRIME;
-
-   /* We cannot use Gem names with render-nodes, only prime fds (dma-buf).
-    * The server needs to accept them */
-   if (dri2_dpy->is_render_node &&
-       !(dri2_dpy->capabilities & WL_DRM_CAPABILITY_PRIME)) {
-      _eglLog(_EGL_WARNING, "wayland-egl: display is not render-node capable");
       goto cleanup;
-   }
 
    if (dri2_dpy->is_different_gpu &&
        (dri2_dpy->image->base.version < 9 ||
