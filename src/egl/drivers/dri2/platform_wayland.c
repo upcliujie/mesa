@@ -1290,6 +1290,8 @@ static void
 default_hints_primary_device(void *data, struct zwp_linux_dmabuf_hints_v1 *hints,
                              uint32_t maj, uint32_t min)
 {
+   struct dri2_egl_display *dri2_dpy = data;
+   dri2_open_device(dri2_dpy, maj, min);
 }
 
 static void
@@ -1327,9 +1329,14 @@ registry_handle_global_drm(void *data, struct wl_registry *registry,
    struct dri2_egl_display *dri2_dpy = data;
 
    if (strcmp(interface, "wl_drm") == 0) {
-      dri2_dpy->wl_drm =
-         wl_registry_bind(registry, name, &wl_drm_interface, MIN2(version, 2));
-      wl_drm_add_listener(dri2_dpy->wl_drm, &drm_listener, dri2_dpy);
+      /* Don't bind wl_drm if we have v4 dmabuf, because we prefer to use that,
+       * and they "collide" and overwrite the same fields.
+       */
+      if (!dri2_dpy->wl_dmabuf_hints) {
+         dri2_dpy->wl_drm =
+            wl_registry_bind(registry, name, &wl_drm_interface, MIN2(version, 2));
+         wl_drm_add_listener(dri2_dpy->wl_drm, &drm_listener, dri2_dpy);
+      }
    } else if (strcmp(interface, "zwp_linux_dmabuf_v1") == 0 && version >= 3) {
       dri2_dpy->wl_dmabuf =
          wl_registry_bind(registry, name, &zwp_linux_dmabuf_v1_interface,
@@ -1341,6 +1348,16 @@ registry_handle_global_drm(void *data, struct wl_registry *registry,
             zwp_linux_dmabuf_v1_get_default_hints(dri2_dpy->wl_dmabuf);
          zwp_linux_dmabuf_hints_v1_add_listener(dri2_dpy->wl_dmabuf_hints,
                                                 &default_hints_listener, dri2_dpy);
+
+         /* We don't want to use this, as they will "collide" and overwrite the
+          * same fields. The server will send the initial burst of events for
+          * wl_drm, but destroying it now before they've been processed will
+          * discard then.
+          */
+         if (dri2_dpy->wl_drm) {
+            wl_drm_destroy(dri2_dpy->wl_drm);
+            dri2_dpy->wl_drm = NULL;
+         }
       }
    }
 }
@@ -1507,7 +1524,9 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
    dri2_dpy->wl_registry = wl_display_get_registry(dri2_dpy->wl_dpy_wrapper);
    wl_registry_add_listener(dri2_dpy->wl_registry,
                             &registry_listener_drm, dri2_dpy);
-   if (roundtrip(dri2_dpy) < 0 || dri2_dpy->wl_drm == NULL)
+   if (roundtrip(dri2_dpy) < 0)
+      goto cleanup;
+   if (dri2_dpy->wl_drm == NULL && dri2_dpy->wl_dmabuf_hints == NULL)
       goto cleanup;
 
    if (roundtrip(dri2_dpy) < 0 || dri2_dpy->fd == -1)
