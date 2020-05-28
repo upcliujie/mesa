@@ -283,10 +283,6 @@ dmabuf_handle_modifier(void *data, struct zwp_linux_dmabuf_v1 *dmabuf,
    if (display->dmabuf.formats.element_size == 0)
       return;
 
-   if (modifier_hi == (DRM_FORMAT_MOD_INVALID >> 32) &&
-       modifier_lo == (DRM_FORMAT_MOD_INVALID & 0xffffffff))
-      return;
-
    switch (format) {
    case WL_DRM_FORMAT_ARGB8888:
       modifiers = &display->dmabuf.modifiers.argb8888;
@@ -299,6 +295,10 @@ dmabuf_handle_modifier(void *data, struct zwp_linux_dmabuf_v1 *dmabuf,
    }
 
    wsi_wl_display_add_wl_format(display, &display->dmabuf.formats, format);
+
+   if (modifier_hi == (DRM_FORMAT_MOD_INVALID >> 32) &&
+       modifier_lo == (DRM_FORMAT_MOD_INVALID & 0xffffffff))
+      return;
 
    mod = u_vector_add(modifiers);
    if (!mod)
@@ -326,8 +326,7 @@ registry_handle_global(void *data, struct wl_registry *registry,
       display->drm.wl_drm =
          wl_registry_bind(registry, name, &wl_drm_interface, 2);
       wl_drm_add_listener(display->drm.wl_drm, &drm_listener, display);
-   } else if (strcmp(interface, "zwp_linux_dmabuf_v1") == 0 && version >= 3 &&
-              display->wsi_wl->wsi->supports_modifiers) {
+   } else if (strcmp(interface, "zwp_linux_dmabuf_v1") == 0 && version >= 3) {
       display->dmabuf.wl_dmabuf =
          wl_registry_bind(registry, name, &zwp_linux_dmabuf_v1_interface, 3);
       zwp_linux_dmabuf_v1_add_listener(display->dmabuf.wl_dmabuf,
@@ -434,12 +433,13 @@ wsi_wl_display_init(struct wsi_wayland *wsi_wl,
       }
    }
 
-   /* We need prime support for wl_drm */
-   if (display->drm.wl_drm &&
-       (display->drm.capabilities & WL_DRM_CAPABILITY_PRIME)) {
-      display->formats = &display->drm.formats;
-   } else if (display->dmabuf.wl_dmabuf) {
+   /* Prefer the linux-dmabuf protocol if available */
+   if (display->dmabuf.wl_dmabuf) {
       display->formats = &display->dmabuf.formats;
+   } else if (display->drm.wl_drm &&
+       (display->drm.capabilities & WL_DRM_CAPABILITY_PRIME)) {
+      /* We need prime support for wl_drm */
+      display->formats = &display->drm.formats;
    }
 
    if (!display->formats) {
@@ -920,6 +920,7 @@ wsi_wl_image_init(struct wsi_wl_swapchain *chain,
 {
    struct wsi_wl_display *display = chain->display;
    VkResult result;
+   uint64_t modifier;
 
    result = wsi_create_native_image(&chain->base, pCreateInfo,
                                     chain->num_drm_modifiers > 0 ? 1 : 0,
@@ -929,14 +930,16 @@ wsi_wl_image_init(struct wsi_wl_swapchain *chain,
    if (result != VK_SUCCESS)
       return result;
 
-   if (!chain->drm_wrapper) {
-      /* Only request modifiers if we have dmabuf, else it must be implicit. */
-      assert(display->dmabuf.wl_dmabuf);
-      assert(image->base.drm_modifier != DRM_FORMAT_MOD_INVALID);
-
+   if (display->dmabuf.wl_dmabuf) {
       struct zwp_linux_buffer_params_v1 *params =
          zwp_linux_dmabuf_v1_create_params(display->dmabuf.wl_dmabuf);
       wl_proxy_set_queue((struct wl_proxy *) params, chain->display->queue);
+
+      /* Handle the case where the driver supports modifiers but the parent
+       * compositor doesn't */
+      modifier = image->base.drm_modifier;
+      if (chain->num_drm_modifiers == 0)
+         modifier = DRM_FORMAT_MOD_INVALID;
 
       for (int i = 0; i < image->base.num_planes; i++) {
          zwp_linux_buffer_params_v1_add(params,
@@ -944,8 +947,8 @@ wsi_wl_image_init(struct wsi_wl_swapchain *chain,
                                         i,
                                         image->base.offsets[i],
                                         image->base.row_pitches[i],
-                                        image->base.drm_modifier >> 32,
-                                        image->base.drm_modifier & 0xffffffff);
+                                        modifier >> 32,
+                                        modifier & 0xffffffff);
          close(image->base.fds[i]);
       }
 
@@ -1117,13 +1120,7 @@ wsi_wl_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
       }
    }
 
-   /* When there are explicit DRM format modifiers, we must use
-    * zwp_linux_dmabuf_v1 for wl_buffer creation.  Otherwise, we must use
-    * wl_drm.
-    */
-   if (!chain->num_drm_modifiers) {
-      assert(chain->display->drm.wl_drm);
-
+   if (chain->display->drm.wl_drm) {
       chain->drm_wrapper =
          wl_proxy_create_wrapper(chain->display->drm.wl_drm);
       if (!chain->drm_wrapper) {
