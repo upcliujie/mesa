@@ -2726,6 +2726,17 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       }
       break;
    }
+   case nir_op_undef_extend32: {
+      if (dst.type() == RegType::sgpr) {
+         /* no need to do the extract in get_alu_sc() */
+         extract_8_16_bit_sgpr_element(ctx, dst, &instr->src[0], sgpr_extract_undef);
+      } else {
+         RegClass padding = RegClass::get(RegType::vgpr, 4 - instr->src[0].src.ssa->bit_size / 8u);
+         //TODO: copy-propagate this in the optimizer so the RA can avoid copies
+         bld.pseudo(aco_opcode::p_create_vector, Definition(dst), get_alu_src(ctx, instr->src[0]), Operand(padding));
+      }
+      break;
+   }
    case nir_op_b2b32:
    case nir_op_b2i32: {
       Temp src = get_alu_src(ctx, instr->src[0]);
