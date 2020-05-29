@@ -32,6 +32,7 @@
 #include "util/os_file.h"
 
 #include "anv_private.h"
+#include "anv_measure.h"
 #include "vk_util.h"
 
 #include "genxml/gen7_pack.h"
@@ -1187,7 +1188,6 @@ VkResult anv_QueueSubmit(
    VkResult result = anv_device_query_status(queue->device);
    if (result != VK_SUCCESS)
       return result;
-
    if (fence && submitCount == 0) {
       /* If we don't have any command buffers, we need to submit a dummy
        * batch to give GEM something to wait on.  We could, potentially,
@@ -1250,7 +1250,7 @@ VkResult anv_QueueSubmit(
                          pSubmits[i].pCommandBuffers[j]);
          assert(cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
          assert(!anv_batch_has_error(&cmd_buffer->batch));
-
+         anv_measure_submit(cmd_buffer);
          /* Fence for this execbuf.  NULL for all but the last one */
          VkFence execbuf_fence =
             (j == pSubmits[i].commandBufferCount - 1) ?

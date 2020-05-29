@@ -22,6 +22,7 @@
  */
 
 #include "anv_private.h"
+#include "anv_measure.h"
 
 static bool
 lookup_blorp_shader(struct blorp_batch *batch,
@@ -307,6 +308,8 @@ copy_image(struct anv_cmd_buffer *cmd_buffer,
    VkExtent3D extent =
       anv_sanitize_image_extent(src_image->type, region->extent);
 
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_BLIT);
+
    const uint32_t dst_level = region->dstSubresource.mipLevel;
    unsigned dst_base_layer, layer_count;
    if (dst_image->type == VK_IMAGE_TYPE_3D) {
@@ -513,6 +516,8 @@ copy_buffer_to_image(struct anv_cmd_buffer *cmd_buffer,
    }
 
    const VkImageAspectFlags aspect = region->imageSubresource.aspectMask;
+
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_BLIT);
 
    get_blorp_surf_for_anv_image(cmd_buffer->device, anv_image, aspect,
                                 buffer_to_image ?
@@ -780,6 +785,8 @@ blit_image(struct anv_cmd_buffer *cmd_buffer,
    assert(anv_image_aspects_compatible(src_res->aspectMask,
                                        dst_res->aspectMask));
 
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_BLIT);
+
    uint32_t aspect_bit;
    anv_foreach_image_aspect_bit(aspect_bit, src_image, src_res->aspectMask) {
       get_blorp_surf_for_anv_image(cmd_buffer->device,
@@ -987,6 +994,8 @@ void anv_CmdCopyBuffer(
    struct blorp_batch batch;
    blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
 
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_BLIT);
+
    for (unsigned r = 0; r < regionCount; r++) {
       VkBufferCopy2KHR copy = {
          .sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2_KHR,
@@ -1013,6 +1022,8 @@ void anv_CmdCopyBuffer2KHR(
 
    struct blorp_batch batch;
    blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_BLIT);
 
    for (unsigned r = 0; r < pCopyBufferInfo->regionCount; r++) {
       copy_buffer(cmd_buffer->device, &batch, src_buffer, dst_buffer,
@@ -1050,6 +1061,8 @@ void anv_CmdUpdateBuffer(
     * texture cache so we don't get anything stale.
     */
    cmd_buffer->state.pending_pipe_bits |= ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT;
+
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_BLIT);
 
    while (dataSize) {
       const uint32_t copy_size = MIN2(dataSize, max_update_size);
@@ -1101,6 +1114,8 @@ void anv_CmdFillBuffer(
 
    fillSize = anv_buffer_get_range(dst_buffer, dstOffset, fillSize);
 
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_SLOW_COLOR_CLEAR);
+   
    /* From the Vulkan spec:
     *
     *    "size is the number of bytes to fill, and must be either a multiple
@@ -1189,6 +1204,7 @@ void anv_CmdClearColorImage(
    struct blorp_batch batch;
    blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
 
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_SLOW_COLOR_CLEAR);
 
    for (unsigned r = 0; r < rangeCount; r++) {
       if (pRanges[r].aspectMask == 0)
@@ -1273,6 +1289,8 @@ void anv_CmdClearDepthStencilImage(
    } else {
       memset(&stencil, 0, sizeof(stencil));
    }
+
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_SLOW_DEPTH_CLEAR);
 
    for (unsigned r = 0; r < rangeCount; r++) {
       if (pRanges[r].aspectMask == 0)
@@ -1392,6 +1410,8 @@ clear_color_attachment(struct anv_cmd_buffer *cmd_buffer,
    union isl_color_value clear_color =
       vk_to_isl_color(attachment->clearValue.color);
 
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_SLOW_COLOR_CLEAR);
+
    /* If multiview is enabled we ignore baseArrayLayer and layerCount */
    if (subpass->view_mask) {
       uint32_t view_idx;
@@ -1460,6 +1480,7 @@ clear_depth_stencil_attachment(struct anv_cmd_buffer *cmd_buffer,
    if (result != VK_SUCCESS)
       return;
 
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_SLOW_DEPTH_CLEAR);
    /* If multiview is enabled we ignore baseArrayLayer and layerCount */
    if (subpass->view_mask) {
       uint32_t view_idx;
@@ -1566,6 +1587,8 @@ anv_image_msaa_resolve(struct anv_cmd_buffer *cmd_buffer,
    assert(src_image->n_planes == dst_image->n_planes);
    assert(!src_image->format->can_ycbcr);
    assert(!dst_image->format->can_ycbcr);
+
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_BLIT);
 
    struct blorp_surf src_surf, dst_surf;
    get_blorp_surf_for_anv_image(cmd_buffer->device, src_image, aspect,
@@ -1754,7 +1777,6 @@ anv_image_copy_to_shadow(struct anv_cmd_buffer *cmd_buffer,
 
       for (uint32_t a = 0; a < layer_count; a++) {
          const uint32_t layer = base_layer + a;
-
          blorp_copy(&batch, &surf, level, layer,
                     &shadow_surf, level, layer,
                     0, 0, 0, 0, extent.width, extent.height);
@@ -1793,6 +1815,7 @@ anv_image_clear_color(struct anv_cmd_buffer *cmd_buffer,
    anv_cmd_buffer_mark_image_written(cmd_buffer, image, aspect, aux_usage,
                                      level, base_layer, layer_count);
 
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_SLOW_COLOR_CLEAR);
    blorp_clear(&batch, &surf, format, anv_swizzle_for_render(swizzle),
                level, base_layer, layer_count,
                area.offset.x, area.offset.y,
@@ -1845,6 +1868,7 @@ anv_image_clear_depth_stencil(struct anv_cmd_buffer *cmd_buffer,
    cmd_buffer->state.pending_pipe_bits |=
       ANV_PIPE_DEPTH_CACHE_FLUSH_BIT | ANV_PIPE_END_OF_PIPE_SYNC_BIT;
 
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_SLOW_DEPTH_CLEAR);
    blorp_clear_depth_stencil(&batch, &depth, &stencil,
                              level, base_layer, layer_count,
                              area.offset.x, area.offset.y,
@@ -1903,6 +1927,17 @@ anv_image_hiz_op(struct anv_cmd_buffer *cmd_buffer,
                                 0, ANV_IMAGE_LAYOUT_EXPLICIT_AUX,
                                 image->planes[plane].aux_usage, &surf);
    surf.clear_color.f32[0] = ANV_HZ_FC_VAL;
+
+   switch (hiz_op) {
+   case ISL_AUX_OP_FULL_RESOLVE:
+      anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_HIZ_RESOLVE);
+      break;
+   case ISL_AUX_OP_AMBIGUATE:
+      anv_measure_set_operation(cmd_buffer,  INTEL_SNAPSHOT_HIZ_AMBIGUATE);
+      break;
+   default:
+      assert(false);
+   }
 
    blorp_hiz_op(&batch, &surf, level, base_layer, layer_count, hiz_op);
 
@@ -1964,6 +1999,7 @@ anv_image_hiz_clear(struct anv_cmd_buffer *cmd_buffer,
    cmd_buffer->state.pending_pipe_bits |=
       ANV_PIPE_DEPTH_CACHE_FLUSH_BIT | ANV_PIPE_DEPTH_STALL_BIT;
 
+   anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_HIZ_CLEAR);
    blorp_hiz_clear_depth_stencil(&batch, &depth, &stencil,
                                  level, base_layer, layer_count,
                                  area.offset.x, area.offset.y,
@@ -2063,6 +2099,24 @@ anv_image_mcs_op(struct anv_cmd_buffer *cmd_buffer,
       unreachable("Unsupported MCS operation");
    }
 
+   switch (mcs_op) {
+   case ISL_AUX_OP_FAST_CLEAR:
+      anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_MCS_COLOR_CLEAR);
+      blorp_fast_clear(&batch, &surf, format, swizzle,
+                       0, base_layer, layer_count,
+                       0, 0, image->extent.width, image->extent.height);
+      break;
+   case ISL_AUX_OP_PARTIAL_RESOLVE:
+      anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_MCS_PARTIAL_RESOLVE);
+      blorp_mcs_partial_resolve(&batch, &surf, format,
+                                base_layer, layer_count);
+      break;
+   case ISL_AUX_OP_FULL_RESOLVE:
+   case ISL_AUX_OP_AMBIGUATE:
+   default:
+      unreachable("Unsupported MCS operation");
+   }
+
    cmd_buffer->state.pending_pipe_bits |=
       ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT | ANV_PIPE_END_OF_PIPE_SYNC_BIT;
 
@@ -2130,17 +2184,22 @@ anv_image_ccs_op(struct anv_cmd_buffer *cmd_buffer,
 
    switch (ccs_op) {
    case ISL_AUX_OP_FAST_CLEAR:
+      anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_CCS_COLOR_CLEAR);
       blorp_fast_clear(&batch, &surf, format, swizzle,
                        level, base_layer, layer_count,
                        0, 0, level_width, level_height);
       break;
    case ISL_AUX_OP_FULL_RESOLVE:
    case ISL_AUX_OP_PARTIAL_RESOLVE:
+      anv_measure_set_operation(cmd_buffer,
+                            ccs_op == ISL_AUX_OP_FULL_RESOLVE ?
+                            INTEL_SNAPSHOT_CCS_RESOLVE : INTEL_SNAPSHOT_CCS_PARTIAL_RESOLVE);
       blorp_ccs_resolve(&batch, &surf, level, base_layer, layer_count,
                         format, ccs_op);
       break;
    case ISL_AUX_OP_AMBIGUATE:
       for (uint32_t a = 0; a < layer_count; a++) {
+         anv_measure_set_operation(cmd_buffer, INTEL_SNAPSHOT_CCS_AMBIGUATE);
          const uint32_t layer = base_layer + a;
          blorp_ccs_ambiguate(&batch, &surf, level, layer);
       }
