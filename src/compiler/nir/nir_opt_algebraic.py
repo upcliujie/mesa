@@ -1419,6 +1419,18 @@ optimizations.extend([
    (('imul24', a, '#b@32(is_pos_power_of_two)'), ('ishl', a, ('find_lsb', b)), '!options->lower_bitops'),
    (('imul24', a, '#b@32(is_neg_power_of_two)'), ('ineg', ('ishl', a, ('find_lsb', ('iabs', b)))), '!options->lower_bitops'),
    (('imul24', a, 0), (0)),
+
+   # Cleanups and optimizations for nir_lower_bit_size
+   (('i2i8', 'a@32'), ('u2u8', a)),
+   (('i2i16', 'a@32'), ('u2u16', a)),
+
+   (('undef_extend32', ('u2u8', 'a@32')), a),
+   (('undef_extend32', ('u2u16', 'a@32')), a),
+
+   (('ushr', ('u2u32', ('u2u16', 'a@32')), '#b'), ('ubitfield_extract', a, b, ('isub', 16, b))),
+   (('ishr', ('i2i32', ('u2u16', 'a@32')), '#b'), ('ibitfield_extract', a, b, ('isub', 16, b))),
+   (('ushr', ('u2u32', ('u2u8', 'a@32')), '#b'), ('ubitfield_extract', a, b, ('isub', 8, b))),
+   (('ishr', ('i2i32', ('u2u8', 'a@32')), '#b'), ('ibitfield_extract', a, b, ('isub', 8, b))),
 ])
 
 # bit_size dependent lowerings
