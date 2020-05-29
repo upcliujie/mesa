@@ -32,6 +32,7 @@
 #include <xf86drm.h>
 
 #include "anv_private.h"
+#include "anv_measure.h"
 #include "util/debug.h"
 #include "util/build_id.h"
 #include "util/disk_cache.h"
@@ -347,6 +348,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
       result = vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
       goto fail_fd;
    }
+   memset(device, 0, sizeof(*device));
 
    vk_object_base_init(NULL, &device->base, VK_OBJECT_TYPE_PHYSICAL_DEVICE);
    device->instance = instance;
@@ -3047,6 +3049,8 @@ VkResult anv_CreateDevice(
 
    anv_device_perf_init(device);
 
+   anv_measure_device_init(device);
+
    *pDevice = anv_device_to_handle(device);
 
    return VK_SUCCESS;
@@ -3110,6 +3114,7 @@ void anv_DestroyDevice(
       return;
 
    anv_queue_finish(&device->queue);
+   anv_measure_device_destroy(device);
 
    anv_device_finish_blorp(device);
 
