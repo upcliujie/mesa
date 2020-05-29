@@ -263,6 +263,11 @@ iris_draw_vbo(struct pipe_context *ctx, const struct pipe_draw_info *info)
       iris_predraw_resolve_framebuffer(ice, batch, draw_aux_buffer_disabled);
    }
 
+   if (ice->state.dirty & IRIS_DIRTY_RENDER_MISC_BUFFER_FLUSHES) {
+      for (gl_shader_stage stage = 0; stage < MESA_SHADER_COMPUTE; stage++)
+         iris_predraw_flush_buffers(ice, batch, stage);
+   }
+
    if (info->indirect) {
       struct iris_bo *bo = iris_resource_bo(info->indirect->buffer);
       iris_emit_buffer_barrier_for(batch, bo, IRIS_DOMAIN_VF_READ);
@@ -365,6 +370,9 @@ iris_launch_grid(struct pipe_context *ctx, const struct pipe_grid_info *grid)
 
    if (ice->state.dirty & IRIS_DIRTY_COMPUTE_RESOLVES_AND_FLUSHES)
       iris_predraw_resolve_inputs(ice, batch, NULL, MESA_SHADER_COMPUTE, false);
+
+   if (ice->state.dirty & IRIS_DIRTY_COMPUTE_MISC_BUFFER_FLUSHES)
+      iris_predraw_flush_buffers(ice, batch, MESA_SHADER_COMPUTE);
 
    iris_batch_maybe_flush(batch, 1500);
 
