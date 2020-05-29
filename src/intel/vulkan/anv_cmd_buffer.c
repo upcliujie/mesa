@@ -28,6 +28,7 @@
 #include <fcntl.h>
 
 #include "anv_private.h"
+#include "anv_measure.h"
 
 #include "vk_format_info.h"
 #include "vk_util.h"
@@ -272,6 +273,8 @@ static VkResult anv_create_cmd_buffer(
 
    list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
 
+   anv_measure_init(cmd_buffer);
+
    *pCommandBuffer = anv_cmd_buffer_to_handle(cmd_buffer);
 
    return VK_SUCCESS;
@@ -313,6 +316,8 @@ VkResult anv_AllocateCommandBuffers(
 static void
 anv_cmd_buffer_destroy(struct anv_cmd_buffer *cmd_buffer)
 {
+   anv_measure_destroy(cmd_buffer);
+
    list_del(&cmd_buffer->pool_link);
 
    anv_cmd_buffer_fini_batch_bo_chain(cmd_buffer);
@@ -357,6 +362,7 @@ anv_cmd_buffer_reset(struct anv_cmd_buffer *cmd_buffer)
    anv_state_stream_finish(&cmd_buffer->dynamic_state_stream);
    anv_state_stream_init(&cmd_buffer->dynamic_state_stream,
                          &cmd_buffer->device->dynamic_state_pool, 16384);
+   anv_measure_reset(cmd_buffer);
    return VK_SUCCESS;
 }
 
