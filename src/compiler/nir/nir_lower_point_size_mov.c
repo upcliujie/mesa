@@ -57,6 +57,24 @@ lower_impl(nir_function_impl *impl,
       out->data.location = VARYING_SLOT_PSIZ;
    }
 
+   nir_foreach_block(block, impl)
+      nir_foreach_instr(instr, block) {
+         if (instr->type != nir_instr_type_intrinsic)
+            continue;
+
+         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+         if (intrin->intrinsic != nir_intrinsic_store_deref ||
+             intrin->intrinsic != nir_intrinsic_copy_deref)
+            continue;
+
+         nir_variable *var = nir_intrinsic_get_var(intrin, 0);
+         if (var->data.mode != nir_var_shader_out ||
+             var->data.location != VARYING_SLOT_PSIZ)
+            continue;
+
+         nir_instr_remove(instr);
+      }
+
    nir_copy_var(&b, out, in);
 
    nir_metadata_preserve(impl, nir_metadata_block_index |
