@@ -2937,18 +2937,18 @@
       <value name="Draw Level Granularity" value="2"/>
     </field>
     <field name="Granularity Threshold Disable" start="34" end="34" type="bool"/>
-    <field name="POSH-Disabled Distribution Mode" start="36" end="36" type="uint">
-      <value name="Round Robin Mode" value="0"/>
-      <value name="Round Robin Free Pipe Mode" value="1"/>
+    <field name="List Cut Index Enable" start="35" end="35" type="bool"/>
+    <field name="Distribution Mode" start="36" end="36" type="uint">
+      <value name="RR_STRICT" value="0"/>
+      <value name="RR_FREE" value="1"/>
     </field>
-    <field name="Distribution Pipe Disable" start="48" end="59" type="uint"/>
     <field name="List 1 Batch Size Scale" start="64" end="66" type="uint"/>
     <field name="List 2 Batch Size Scale" start="72" end="74" type="uint"/>
     <field name="List 3 Batch Size Scale" start="80" end="82" type="uint"/>
     <field name="List N Batch Size Scale" start="88" end="90" type="uint"/>
     <field name="Strip Batch Size Scale" start="96" end="98" type="uint"/>
     <field name="Patch Batch Size Scale" start="104" end="106" type="uint"/>
-    <field name="Patch Batch Size Fast Mode Multiplier" start="112" end="116" type="uint"/>
+    <field name="Patch Batch Size Multiplier" start="112" end="116" type="uint"/>
   </instruction>
 
   <instruction name="3DSTATE_VF_COMPONENT_PACKING" bias="2" length="5" engine="render">
