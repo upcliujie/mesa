@@ -359,7 +359,8 @@ void st_init_limits(struct pipe_screen *screen,
       if (sh == PIPE_SHADER_VERTEX || sh == PIPE_SHADER_GEOMETRY) {
          if (screen->get_param(screen, PIPE_CAP_VIEWPORT_TRANSFORM_LOWERED))
             options->LowerBuiltinVariablesXfb |= VARYING_BIT_POS;
-         if (screen->get_param(screen, PIPE_CAP_PSIZ_CLAMPED))
+         if (screen->get_param(screen, PIPE_CAP_PSIZ_CLAMPED) ||
+             !screen->get_param(screen, PIPE_CAP_POINT_SIZE_FIXED))
             options->LowerBuiltinVariablesXfb |= VARYING_BIT_PSIZ;
       }
 
