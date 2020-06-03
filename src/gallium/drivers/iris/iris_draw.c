@@ -107,6 +107,9 @@ iris_update_draw_info(struct iris_context *ice,
       ice->state.dirty |= IRIS_DIRTY_VF;
       ice->state.primitive_restart = info->primitive_restart;
       ice->state.cut_index = cut_index;
+      ice->state.dirty |=
+         (ice->state.primitive_restart != info->primitive_restart) ?
+         IRIS_DIRTY_VFG : 0;
    }
 }
 
