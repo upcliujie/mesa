@@ -1778,6 +1778,7 @@ iris_update_compiled_tes(struct iris_context *ice)
       ice->state.stage_dirty |= IRIS_STAGE_DIRTY_TES |
                                 IRIS_STAGE_DIRTY_BINDINGS_TES |
                                 IRIS_STAGE_DIRTY_CONSTANTS_TES;
+      ice->state.dirty |= IRIS_DIRTY_VFG;
       shs->sysvals_need_upload = true;
 
       unsigned urb_entry_size = shader ?
