@@ -1092,8 +1092,7 @@ handle_compressed_blit(struct fd_context *ctx,
       dump_blit_info(info);
    }
 
-   if (info->src.format != info->dst.format)
-      return fd_blitter_blit(ctx, info);
+   assert(util_format_get_blocksize(info->src.format) == util_format_get_blocksize(info->dst.format));
 
    if (util_format_get_blocksize(info->src.format) == 8) {
       blit.src.format = blit.dst.format = PIPE_FORMAT_R16G16B16A16_UINT;
@@ -1118,13 +1117,15 @@ handle_compressed_blit(struct fd_context *ctx,
    blit.src.box.width = DIV_ROUND_UP(blit.src.box.width, bw);
    blit.src.box.height = DIV_ROUND_UP(blit.src.box.height, bh);
 
-   debug_assert((blit.dst.box.x % bw) == 0);
-   debug_assert((blit.dst.box.y % bh) == 0);
+   int dbw = util_format_get_blockwidth(info->dst.format);
+   int dbh = util_format_get_blockheight(info->dst.format);
+   debug_assert((blit.dst.box.x % dbw) == 0);
+   debug_assert((blit.dst.box.y % dbh) == 0);
 
-   blit.dst.box.x /= bw;
-   blit.dst.box.y /= bh;
-   blit.dst.box.width = DIV_ROUND_UP(blit.dst.box.width, bw);
-   blit.dst.box.height = DIV_ROUND_UP(blit.dst.box.height, bh);
+   blit.dst.box.x /= dbw;
+   blit.dst.box.y /= dbh;
+   blit.dst.box.width = DIV_ROUND_UP(blit.dst.box.width, dbw);
+   blit.dst.box.height = DIV_ROUND_UP(blit.dst.box.height, dbh);
 
    return do_rewritten_blit(ctx, &blit);
 }

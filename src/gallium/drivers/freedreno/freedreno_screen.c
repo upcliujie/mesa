@@ -408,6 +408,9 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
          return 1;
       return 0;
 
+   case PIPE_CAP_COPY_BETWEEN_COMPRESSED_AND_PLAIN_FORMATS:
+      return is_a6xx(screen) ? 1 : 0;
+
    /* Geometry shaders.. */
    case PIPE_CAP_MAX_GEOMETRY_OUTPUT_VERTICES:
       return 512;
