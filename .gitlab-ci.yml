@@ -802,7 +802,7 @@ meson-windows-vs2019:
   extends:
     - .build-windows
     - .use-windows_build_vs2019
-  stage: meson-misc
+  stage: meson-x86_64
   script:
     - . .\.gitlab-ci\windows\mesa_build.ps1
   artifacts:
