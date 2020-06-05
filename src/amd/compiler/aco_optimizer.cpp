@@ -1451,6 +1451,8 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
    case aco_opcode::s_lshl_b32:
    case aco_opcode::v_or_b32:
    case aco_opcode::v_lshlrev_b32:
+   case aco_opcode::v_mul_u32_u24:
+   case aco_opcode::v_mul_i32_i24:
       ctx.info[instr->definitions[0].tempId()].set_bitwise(instr.get());
       break;
    case aco_opcode::v_min_f32:
@@ -2782,6 +2784,8 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
       else combine_three_valu_op(ctx, instr, aco_opcode::s_xor_b32, aco_opcode::v_xor3_b32, "012", 1 | 2);
    } else if (instr->opcode == aco_opcode::v_add_u32) {
       if (combine_add_sub_b2i(ctx, instr, aco_opcode::v_addc_co_u32, 1 | 2)) ;
+      else if (combine_three_valu_op(ctx, instr, aco_opcode::v_mul_u32_u24, aco_opcode::v_mad_u32_u24, "120", 1 | 2)) ;
+      else if (combine_three_valu_op(ctx, instr, aco_opcode::v_mul_i32_i24, aco_opcode::v_mad_i32_i24, "120", 1 | 2)) ;
       else if (ctx.program->chip_class >= GFX9) {
          if (combine_three_valu_op(ctx, instr, aco_opcode::s_xor_b32, aco_opcode::v_xad_u32, "120", 1 | 2)) ;
          else if (combine_three_valu_op(ctx, instr, aco_opcode::v_xor_b32, aco_opcode::v_xad_u32, "120", 1 | 2)) ;
@@ -2793,7 +2797,9 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
       }
    } else if (instr->opcode == aco_opcode::v_add_co_u32 ||
               instr->opcode == aco_opcode::v_add_co_u32_e64) {
-      combine_add_sub_b2i(ctx, instr, aco_opcode::v_addc_co_u32, 1 | 2);
+      if (combine_add_sub_b2i(ctx, instr, aco_opcode::v_addc_co_u32, 1 | 2)) ;
+      else if (combine_three_valu_op(ctx, instr, aco_opcode::v_mul_u32_u24, aco_opcode::v_mad_u32_u24, "120", 1 | 2)) ;
+      else combine_three_valu_op(ctx, instr, aco_opcode::v_mul_i32_i24, aco_opcode::v_mad_i32_i24, "120", 1 | 2);
    } else if (instr->opcode == aco_opcode::v_sub_u32 ||
               instr->opcode == aco_opcode::v_sub_co_u32 ||
               instr->opcode == aco_opcode::v_sub_co_u32_e64) {
