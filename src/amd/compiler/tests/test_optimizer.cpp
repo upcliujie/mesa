@@ -222,3 +222,35 @@ BEGIN_TEST(optimize.mad_u32_u16)
       finish_opt_test();
    }
 END_TEST
+
+BEGIN_TEST(optimize.mad_32_24)
+   for (unsigned i = GFX8; i <= GFX9; i++) {
+      //>> v1: %a, v1: %b, v1: %c, s1: %d, s2: %_:exec = p_startpgm
+      if (!setup_cs("v1 v1 v1 s1", (chip_class)i))
+         continue;
+
+      //! v1: %res0 = v_mad_u32_u24 %b, %c, %a
+      //! p_unit_test 0, %res0
+      Temp mul = bld.vop2(aco_opcode::v_mul_u32_u24, bld.def(v1), inputs[1], inputs[2]);
+      writeout(0, bld.vadd32(bld.def(v1), inputs[0], mul));
+
+      //! v1: %res1 = v_mad_i32_i24 %b, %c, %a
+      //! p_unit_test 1, %res1
+      mul = bld.vop2(aco_opcode::v_mul_i32_i24, bld.def(v1), inputs[1], inputs[2]);
+      writeout(1, bld.vadd32(bld.def(v1), inputs[0], mul));
+
+      //! v1: %res2_tmp = v_mul_u32_u24 %b, %c
+      //! v1: %_, s2: %res2 = v_add_co_u32 %a, %res2_tmp
+      //! p_unit_test 2, %res2
+      mul = bld.vop2(aco_opcode::v_mul_u32_u24, bld.def(v1), inputs[1], inputs[2]);
+      writeout(2, bld.vadd32(bld.def(v1), inputs[0], mul, true).def(1).getTemp());
+
+      //! v1: %res3_tmp = v_mul_i32_i24 %b, %c
+      //! v1: %_, s2: %res3 = v_add_co_u32 %a, %res3_tmp
+      //! p_unit_test 3, %res3
+      mul = bld.vop2(aco_opcode::v_mul_i32_i24, bld.def(v1), inputs[1], inputs[2]);
+      writeout(3, bld.vadd32(bld.def(v1), inputs[0], mul, true).def(1).getTemp());
+
+      finish_opt_test();
+   }
+END_TEST
