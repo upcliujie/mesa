@@ -362,7 +362,7 @@ public:
          return op.op.getTemp();
    }
 
-   Result v_mul_imm(Definition dst, Temp tmp, uint32_t imm, bool bits24=false)
+   Result v_mul_imm(Definition dst, Temp tmp, uint32_t imm, bool bits24=false, bool require_fast=false)
    {
       assert(tmp.type() == RegType::vgpr);
       bool has_lshl_add = program->chip_class >= GFX9;
@@ -400,10 +400,11 @@ public:
             cur = tmp_dst.getTemp();
          }
          return res;
-      } else {
+      } else if (!require_fast) {
         Temp imm_tmp = copy(def(v1), Operand(imm));
         return vop3(aco_opcode::v_mul_lo_u32, dst, imm_tmp, tmp);
       }
+      return Result(NULL);
    }
 
    Result v_mul24_imm(Definition dst, Temp tmp, uint32_t imm)

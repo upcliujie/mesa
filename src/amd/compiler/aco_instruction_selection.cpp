@@ -1656,7 +1656,18 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    }
    case nir_op_imul: {
       if (dst.regClass() == v1) {
-         emit_vop3a_instruction(ctx, instr, aco_opcode::v_mul_lo_u32, dst);
+         Builder::Result res(NULL);
+         for (unsigned i = 0; i < 2; i++) {
+            if (!nir_src_is_const(instr->src[i].src))
+               continue;
+            res = bld.v_mul_imm(Definition(dst), get_alu_src(ctx, instr->src[!i]), nir_src_as_uint(instr->src[i].src), false, true);
+            if (res.instr)
+               break;
+         }
+         if (!res.instr) {
+            bld.vop3(aco_opcode::v_mul_lo_u32, Definition(dst),
+                     get_alu_src(ctx, instr->src[0]), get_alu_src(ctx, instr->src[1]));
+         }
       } else if (dst.regClass() == s1) {
          emit_sop2_instruction(ctx, instr, aco_opcode::s_mul_i32, dst, false);
       } else {
