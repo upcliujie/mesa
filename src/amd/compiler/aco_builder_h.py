@@ -365,6 +365,10 @@ public:
    Result v_mul_imm(Definition dst, Temp tmp, uint32_t imm, bool bits24=false)
    {
       assert(tmp.type() == RegType::vgpr);
+      bool has_lshl_add = program->chip_class >= GFX9;
+      /* v_mul_lo_u32 has 1.6x the latency of most VALU on GFX10 (8 vs 5 cycles),
+       * compared to 4x the latency on <GFX10. */
+      bool has_faster_mul = program->chip_class >= GFX10;
       if (imm == 0) {
          return vop1(aco_opcode::v_mov_b32, dst, Operand(0u));
       } else if (imm == 1) {
@@ -373,6 +377,29 @@ public:
          return vop2(aco_opcode::v_lshlrev_b32, dst, Operand((uint32_t)ffs(imm) - 1u), tmp);
       } else if (bits24) {
         return vop2(aco_opcode::v_mul_u32_u24, dst, Operand(imm), tmp);
+      } else if (util_is_power_of_two_nonzero(imm - 1u)) {
+         return vadd32(dst, vop2(aco_opcode::v_lshlrev_b32, def(v1), Operand((uint32_t)ffs(imm - 1u) - 1u), tmp), tmp);
+      } else if (!has_faster_mul && util_is_power_of_two_nonzero(imm + 1u)) {
+         return vsub32(dst, vop2(aco_opcode::v_lshlrev_b32, def(v1), Operand((uint32_t)ffs(imm + 1u) - 1u), tmp), tmp);
+      } else if (!has_faster_mul && (has_lshl_add ? util_bitcount(imm) : (util_bitcount(imm) * 2 - (imm & 0x1))) < 4) {
+         Result res(NULL);
+         Temp cur;
+         while (imm) {
+            unsigned shift = u_bit_scan(&imm);
+            Definition tmp_dst = imm ? def(v1) : dst;
+
+            if (shift && cur.id())
+               res = vadd32(Definition(tmp_dst), vop2(aco_opcode::v_lshlrev_b32, def(v1), Operand(shift), tmp), cur);
+            else if (shift)
+               res = vop2(aco_opcode::v_lshlrev_b32, Definition(tmp_dst), Operand(shift), tmp);
+            else if (cur.id())
+               res = vadd32(Definition(tmp_dst), tmp, cur);
+            else
+               tmp_dst = Definition(tmp);
+
+            cur = tmp_dst.getTemp();
+         }
+         return res;
       } else {
         Temp imm_tmp = copy(def(v1), Operand(imm));
         return vop3(aco_opcode::v_mul_lo_u32, dst, imm_tmp, tmp);
