@@ -2248,23 +2248,26 @@ anv_CreateBufferView(VkDevice _device,
       view->storage_surface_state = alloc_surface_state(device);
       view->writeonly_storage_surface_state = alloc_surface_state(device);
 
-      enum isl_format storage_format =
-         isl_has_matching_typed_storage_image_format(&device->info,
-                                                     view->format) ?
-         isl_lower_storage_image_format(&device->info, view->format) :
-         ISL_FORMAT_RAW;
+      enum isl_format wronly_format = view->format;
+      enum isl_format rw_format;
+      if (isl_has_matching_typed_storage_image_format(&device->info,
+                                                      view->format)) {
+         rw_format = isl_lower_storage_image_format(&device->info, view->format);
+      } else {
+         rw_format = ISL_FORMAT_RAW;
+      }
 
       anv_fill_buffer_surface_state(device, view->storage_surface_state,
-                                    storage_format, ISL_SURF_USAGE_STORAGE_BIT,
+                                    rw_format, ISL_SURF_USAGE_STORAGE_BIT,
                                     view->address, view->range,
-                                    (storage_format == ISL_FORMAT_RAW ? 1 :
-                                     isl_format_get_layout(storage_format)->bpb / 8));
+                                    (rw_format == ISL_FORMAT_RAW ? 1 :
+                                     isl_format_get_layout(rw_format)->bpb / 8));
 
       /* Write-only accesses should use the original format. */
       anv_fill_buffer_surface_state(device, view->writeonly_storage_surface_state,
-                                    view->format, ISL_SURF_USAGE_STORAGE_BIT,
+                                    wronly_format, ISL_SURF_USAGE_STORAGE_BIT,
                                     view->address, view->range,
-                                    isl_format_get_layout(view->format)->bpb / 8);
+                                    isl_format_get_layout(wronly_format)->bpb / 8);
 
       isl_buffer_fill_image_param(&device->isl_dev,
                                   &view->storage_image_param,
