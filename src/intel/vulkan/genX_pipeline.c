@@ -240,6 +240,32 @@ emit_vertex_input(struct anv_graphics_pipeline *pipeline,
    }
 #endif
 
+#if GFX_VERx10 >= 125
+   struct anv_dynamic_state *d = &pipeline->dynamic_state;
+   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_VFG), vfg) {
+      /* If 3DSTATE_TE: TE Enable == 1 then RR_STRICT else RR_FREE*/
+      vfg.DistributionMode =
+         anv_pipeline_has_stage(pipeline, MESA_SHADER_TESS_EVAL) ? RR_STRICT :
+                                                                   RR_FREE;
+      vfg.DistributionGranularity = BatchLevelGranularity;
+      vfg.ListCutIndexEnable = d->primitive_restart_enable;
+      /* 192 vertices for TRILIST_ADJ */
+      vfg.ListNBatchSizeScale = 0;
+      /* Batch size of 384 vertices */
+      vfg.List3BatchSizeScale = 2;
+      /* Batch size of 128 vertices */
+      vfg.List2BatchSizeScale = 1;
+      /* Batch size of 128 vertices */
+      vfg.List1BatchSizeScale = 2;
+      /* Batch size of 256 vertices for STRIP topologies */
+      vfg.StripBatchSizeScale = 3;
+      /* 192 control points for PATCHLIST_3 */
+      vfg.PatchBatchSizeScale = 1;
+      /* 192 control points for PATCHLIST_3 */
+      vfg.PatchBatchSizeMultiplier = 31;
+   }
+#endif
+
    const uint32_t drawid_slot = elem_count + needs_svgs_elem;
    if (vs_prog_data->uses_drawid) {
       struct GENX(VERTEX_ELEMENT_STATE) element = {
