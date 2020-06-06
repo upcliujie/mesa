@@ -1185,6 +1185,10 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       inst = bld.ADD(result, op[0], op[1]);
       break;
 
+   case nir_op_iadd3:
+      inst = bld.ADD3(result, op[0], op[1], op[2]);
+      break;
+
    case nir_op_iadd_sat:
    case nir_op_uadd_sat:
       inst = bld.ADD(result, op[0], op[1]);
@@ -3920,6 +3924,7 @@ brw_op_for_nir_reduction_op(nir_op op)
    case nir_op_iand: return BRW_OPCODE_AND;
    case nir_op_ior:  return BRW_OPCODE_OR;
    case nir_op_ixor: return BRW_OPCODE_XOR;
+   case nir_op_iadd3: return BRW_OPCODE_ADD3;
    default:
       unreachable("Invalid reduction operation");
    }
@@ -3942,6 +3947,7 @@ brw_cond_mod_for_nir_reduction_op(nir_op op)
    case nir_op_iand: return BRW_CONDITIONAL_NONE;
    case nir_op_ior:  return BRW_CONDITIONAL_NONE;
    case nir_op_ixor: return BRW_CONDITIONAL_NONE;
+   case nir_op_iadd3: return BRW_CONDITIONAL_NONE;
    default:
       unreachable("Invalid reduction operation");
    }
