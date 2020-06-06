@@ -1185,6 +1185,10 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       inst = bld.ADD(result, op[0], op[1]);
       break;
 
+   case nir_op_iadd3:
+      inst = bld.ADD3(result, op[0], op[1], op[2]);
+      break;
+
    case nir_op_iadd_sat:
    case nir_op_uadd_sat:
       inst = bld.ADD(result, op[0], op[1]);
@@ -3908,6 +3912,7 @@ brw_op_for_nir_reduction_op(nir_op op)
 {
    switch (op) {
    case nir_op_iadd: return BRW_OPCODE_ADD;
+   case nir_op_iadd3: return BRW_OPCODE_ADD3;
    case nir_op_fadd: return BRW_OPCODE_ADD;
    case nir_op_imul: return BRW_OPCODE_MUL;
    case nir_op_fmul: return BRW_OPCODE_MUL;
@@ -3930,6 +3935,7 @@ brw_cond_mod_for_nir_reduction_op(nir_op op)
 {
    switch (op) {
    case nir_op_iadd: return BRW_CONDITIONAL_NONE;
+   case nir_op_iadd3: return BRW_CONDITIONAL_NONE;
    case nir_op_fadd: return BRW_CONDITIONAL_NONE;
    case nir_op_imul: return BRW_CONDITIONAL_NONE;
    case nir_op_fmul: return BRW_CONDITIONAL_NONE;
