@@ -2056,6 +2056,10 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          assert(src[0].file == BRW_IMMEDIATE_VALUE);
          brw_SYNC(p, tgl_sync_function(src[0].ud));
          break;
+      case BRW_OPCODE_ADD3:
+         assert(devinfo->verx10 >= 125);
+         brw_ADD3(p, dst, src[0], src[1], src[2]);
+         break;
       case BRW_OPCODE_MOV:
 	 brw_MOV(p, dst, src[0]);
 	 break;
