@@ -79,6 +79,7 @@ must_promote_imm(const struct intel_device_info *devinfo, const fs_inst *inst)
    case SHADER_OPCODE_POW:
       return devinfo->ver < 8;
    case BRW_OPCODE_MAD:
+   case BRW_OPCODE_ADD3:
    case BRW_OPCODE_LRP:
       return true;
    default:
@@ -336,16 +337,34 @@ representable_as_hf(float f, uint16_t *hf)
 }
 
 static bool
+representable_as_w(int i, int16_t *w)
+{
+   int res = ((i & 0xffff8000) + 0x8000) & 0xffff7fff;
+   if (!res) {
+      *w = i;
+      return true;
+   }
+
+   return false;
+}
+
+static bool
 represent_src_as_imm(const struct intel_device_info *devinfo,
-                     fs_reg *src)
+                     fs_reg *src, enum opcode op)
 {
    /* TODO - Fix the codepath below to use a bfloat16 immediate on XeHP,
     *        since HF/F mixed mode has been removed from the hardware.
     */
-   if (devinfo->ver == 12 && devinfo->verx10 < 125) {
+   if (op == BRW_OPCODE_MAD && devinfo->ver == 12 && devinfo->verx10 < 125) {
       uint16_t hf;
       if (representable_as_hf(src->f, &hf)) {
          *src = retype(brw_imm_uw(hf), BRW_REGISTER_TYPE_HF);
+         return true;
+      }
+   } else if (op == BRW_OPCODE_ADD3 && devinfo->verx10 >= 125) {
+      int16_t w;
+      if (representable_as_w(src->d, &w)) {
+         *src = retype(brw_imm_w(w), BRW_REGISTER_TYPE_W);
          return true;
       }
    }
@@ -381,8 +400,7 @@ fs_visitor::opt_combine_constants()
             continue;
 
          if (!represented_as_imm && i == 0 &&
-             inst->opcode == BRW_OPCODE_MAD &&
-             represent_src_as_imm(devinfo, &inst->src[i])) {
+             represent_src_as_imm(devinfo, &inst->src[i], inst->opcode)) {
             represented_as_imm = true;
             continue;
          }
