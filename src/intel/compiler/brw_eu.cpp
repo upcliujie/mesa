@@ -667,6 +667,7 @@ static const struct opcode_desc opcode_descs[] = {
    { BRW_OPCODE_SENDSC,   52,  "sendsc",  2,    1,    GFX_GE(GFX9) & GFX_LT(GFX12) },
    { BRW_OPCODE_MATH,     56,  "math",    2,    1,    GFX_GE(GFX6) },
    { BRW_OPCODE_ADD,      64,  "add",     2,    1,    GFX_ALL },
+   { BRW_OPCODE_ADD3,     82,  "add3",    3,    1,    GFX_GE(GFX125) },
    { BRW_OPCODE_MUL,      65,  "mul",     2,    1,    GFX_ALL },
    { BRW_OPCODE_AVG,      66,  "avg",     2,    1,    GFX_ALL },
    { BRW_OPCODE_FRC,      67,  "frc",     1,    1,    GFX_ALL },

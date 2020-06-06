@@ -866,6 +866,7 @@ backend_instruction::is_commutative() const
    case BRW_OPCODE_OR:
    case BRW_OPCODE_XOR:
    case BRW_OPCODE_ADD:
+   case BRW_OPCODE_ADD3:
    case BRW_OPCODE_MUL:
    case SHADER_OPCODE_MULH:
       return true;

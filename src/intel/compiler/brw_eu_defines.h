@@ -281,6 +281,7 @@ enum opcode {
    BRW_OPCODE_MADM, /**< Gfx8+ */
    BRW_OPCODE_NENOP, /**< G45 only */
    BRW_OPCODE_NOP,
+   BRW_OPCODE_ADD3, /* Gen12+ only */
 
    NUM_BRW_OPCODES,
 
