@@ -1349,6 +1349,11 @@ typedef enum {
     * Operation is associative
     */
    NIR_OP_IS_ASSOCIATIVE = (1 << 1),
+
+   /**
+    * Operation where the 3-sources are commutative. For e.g Ternary addition
+    */
+   NIR_OP_IS_3SRC_COMMUTATIVE = (1 << 2),
 } nir_op_algebraic_property;
 
 /* vec16 is the widest ALU op in NIR, making the max number of input of ALU

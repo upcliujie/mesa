@@ -434,7 +434,8 @@ class Expression(Value):
       # that the expected second source exists before accessing it. Without
       # this check, a unit test that does "('iadd', 'a')" will crash.
       if self.opcode not in conv_opcode_types and \
-         "2src_commutative" in opcodes[self.opcode].algebraic_properties and \
+         ("2src_commutative" in opcodes[self.opcode].algebraic_properties or \
+          "3src_commutative" in opcodes[self.opcode].algebraic_properties) and \
          len(self.sources) >= 2 and \
          not self.sources[0].equivalent(self.sources[1]):
          self.comm_expr_idx = base_idx
@@ -893,7 +894,8 @@ class TreeAutomaton(object):
 
       def get_item(opcode, children, pattern=None):
          commutative = len(children) >= 2 \
-               and "2src_commutative" in opcodes[opcode].algebraic_properties
+               and ("2src_commutative" in opcodes[opcode].algebraic_properties \
+                    or "3src_commutative" in opcodes[opcode].algebraic_properties)
          item = self.items.setdefault((opcode, children),
                                       self.Item(opcode, children))
          if commutative:

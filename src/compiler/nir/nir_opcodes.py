@@ -147,6 +147,7 @@ def type_base_type(type_):
 # 3-source operations, like ffma, are only commutative in the first two
 # sources.
 _2src_commutative = "2src_commutative "
+_3src_commutative = "3src_commutative "
 associative = "associative "
 
 # global dictionary of opcodes
