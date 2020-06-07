@@ -82,6 +82,10 @@ struct lima_job {
 
    /* for dump command stream */
    struct lima_dump *dump;
+
+   /* performance monitor attached to this job. */
+   struct lima_hwperfmon *perfmon;
+
 };
 
 static inline bool
@@ -102,4 +106,5 @@ void lima_do_job(struct lima_job *job);
 bool lima_job_init(struct lima_context *ctx);
 void lima_job_fini(struct lima_context *ctx);
 
+bool lima_job_wait(struct lima_job *job, int pipe, uint64_t timeout_ns);
 #endif

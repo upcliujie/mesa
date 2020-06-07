@@ -21,6 +21,7 @@ enum drm_lima_param {
 	DRM_LIMA_PARAM_NUM_PP,
 	DRM_LIMA_PARAM_GP_VERSION,
 	DRM_LIMA_PARAM_PP_VERSION,
+	DRM_LIMA_PARAM_SUPPORTS_PERFMON,
 };
 
 /**
@@ -123,6 +124,7 @@ struct drm_lima_gem_submit {
 	__u32 flags;       /* in, submit flags */
 	__u32 out_sync;    /* in, drm_syncobj handle used to wait task finish after submission */
 	__u32 in_sync[2];  /* in, drm_syncobj handle used to wait before start this task */
+	__u32 perfmonid;   /* in, id of the perfmon to attach to this task. 0 means no perfmon. */
 };
 
 #define LIMA_GEM_WAIT_READ   0x01
@@ -153,6 +155,29 @@ struct drm_lima_ctx_free {
 	__u32 _pad;        /* pad, must be zero */
 };
 
+#define DRM_LIMA_PERF_COUNTERS_GROUP_GP   0
+#define DRM_LIMA_PERF_COUNTERS_GROUP_PP   1
+#define DRM_LIMA_PERF_COUNTERS_GROUP_L2   2
+#define DRM_LIMA_PERF_COUNTERS_GROUP_L2_1 3
+#define DRM_LIMA_PERF_COUNTERS_GROUP_L2_2 4
+#define DRM_LIMA_PERF_MAX_COUNTERS       10
+
+struct drm_lima_perfmon_create {
+	uint32_t id;
+	uint8_t ncounters;
+	uint8_t groups[DRM_LIMA_PERF_MAX_COUNTERS];
+	uint8_t events[DRM_LIMA_PERF_MAX_COUNTERS];
+};
+
+struct drm_lima_perfmon_destroy {
+	uint32_t id;
+};
+
+struct drm_lima_perfmon_get_values {
+	uint32_t id;
+	uint64_t values_ptr;
+};
+
 #define DRM_LIMA_GET_PARAM   0x00
 #define DRM_LIMA_GEM_CREATE  0x01
 #define DRM_LIMA_GEM_INFO    0x02
@@ -160,6 +185,9 @@ struct drm_lima_ctx_free {
 #define DRM_LIMA_GEM_WAIT    0x04
 #define DRM_LIMA_CTX_CREATE  0x05
 #define DRM_LIMA_CTX_FREE    0x06
+#define DRM_LIMA_PERFMON_CREATE     0x07
+#define DRM_LIMA_PERFMON_DESTROY    0x08
+#define DRM_LIMA_PERFMON_GET_VALUES 0x09
 
 #define DRM_IOCTL_LIMA_GET_PARAM DRM_IOWR(DRM_COMMAND_BASE + DRM_LIMA_GET_PARAM, struct drm_lima_get_param)
 #define DRM_IOCTL_LIMA_GEM_CREATE DRM_IOWR(DRM_COMMAND_BASE + DRM_LIMA_GEM_CREATE, struct drm_lima_gem_create)
@@ -168,6 +196,9 @@ struct drm_lima_ctx_free {
 #define DRM_IOCTL_LIMA_GEM_WAIT DRM_IOW(DRM_COMMAND_BASE + DRM_LIMA_GEM_WAIT, struct drm_lima_gem_wait)
 #define DRM_IOCTL_LIMA_CTX_CREATE DRM_IOR(DRM_COMMAND_BASE + DRM_LIMA_CTX_CREATE, struct drm_lima_ctx_create)
 #define DRM_IOCTL_LIMA_CTX_FREE DRM_IOW(DRM_COMMAND_BASE + DRM_LIMA_CTX_FREE, struct drm_lima_ctx_free)
+#define DRM_IOCTL_LIMA_PERFMON_CREATE DRM_IOWR(DRM_COMMAND_BASE + DRM_LIMA_PERFMON_CREATE, struct drm_lima_perfmon_create)
+#define DRM_IOCTL_LIMA_PERFMON_DESTROY DRM_IOWR(DRM_COMMAND_BASE + DRM_LIMA_PERFMON_DESTROY, struct drm_lima_perfmon_destroy)
+#define DRM_IOCTL_LIMA_PERFMON_GET_VALUES DRM_IOWR(DRM_COMMAND_BASE + DRM_LIMA_PERFMON_GET_VALUES, struct drm_lima_perfmon_get_values)
 
 #if defined(__cplusplus)
 }

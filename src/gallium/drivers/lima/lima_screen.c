@@ -423,6 +423,12 @@ lima_screen_query_info(struct lima_screen *screen)
 
    screen->num_pp = param.value;
 
+   memset(&param, 0, sizeof(param));
+   param.param = DRM_LIMA_PARAM_SUPPORTS_PERFMON;
+   if (drmIoctl(screen->fd, DRM_IOCTL_LIMA_GET_PARAM, &param))
+      return false;
+   screen->has_perfmon_ioctl = param.value;
+
    lima_screen_set_plb_max_blk(screen);
 
    return true;
@@ -621,6 +627,11 @@ lima_screen_create(int fd, struct renderonly *ro)
    slab_create_parent(&screen->transfer_pool, sizeof(struct lima_transfer), 16);
 
    screen->refcnt = 1;
+
+   if (screen->has_perfmon_ioctl) {
+      screen->base.get_driver_query_group_info = lima_get_driver_query_group_info;
+      screen->base.get_driver_query_info = lima_get_driver_query_info;
+   }
 
    return &screen->base;
 

@@ -249,6 +249,22 @@ struct lima_context {
 
    unsigned index_offset;
    struct lima_resource *index_res;
+
+   struct lima_hwperfmon *perfmon;
+};
+
+#define LIMA_PERF_COUNTERS_GROUP_GP   0
+#define LIMA_PERF_COUNTERS_GROUP_PP   1
+#define LIMA_PERF_COUNTERS_GROUP_L2   2
+#define LIMA_PERF_COUNTERS_GROUP_L2_1 3
+#define LIMA_PERF_COUNTERS_GROUP_L2_2 4
+#define LIMA_PERF_MAX_COUNTERS       10
+
+struct lima_hwperfmon {
+        uint32_t id;
+        uint8_t groups[LIMA_PERF_MAX_COUNTERS];
+        uint8_t events[LIMA_PERF_MAX_COUNTERS];
+        uint64_t counters[LIMA_PERF_MAX_COUNTERS];
 };
 
 static inline struct lima_context *
@@ -296,5 +312,12 @@ void lima_flush_job_accessing_bo(
    struct lima_context *ctx, struct lima_bo *bo, bool write);
 void lima_flush_previous_job_writing_resource(
    struct lima_context *ctx, struct pipe_resource *prsc);
+
+int
+lima_get_driver_query_group_info(struct pipe_screen *pscreen, unsigned index,
+                                 struct pipe_driver_query_group_info *info);
+
+int lima_get_driver_query_info(struct pipe_screen *pscreen, unsigned index,
+                               struct pipe_driver_query_info *info);
 
 #endif

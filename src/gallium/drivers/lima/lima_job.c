@@ -117,6 +117,9 @@ lima_job_create(struct lima_context *ctx)
 
    s->dump = lima_dump_create();
 
+   if (ctx->perfmon)
+      s->perfmon = ctx->perfmon;
+
    return s;
 }
 
@@ -227,6 +230,9 @@ lima_job_start(struct lima_job *job, int pipe, void *frame, uint32_t size)
       ctx->in_sync_fd = -1;
    }
 
+   if (job->perfmon)
+      req.perfmonid = job->perfmon->id;
+
    bool ret = drmIoctl(job->fd, DRM_IOCTL_LIMA_GEM_SUBMIT, &req) == 0;
 
    util_dynarray_foreach(job->bos + pipe, struct lima_bo *, bo) {
@@ -236,7 +242,7 @@ lima_job_start(struct lima_job *job, int pipe, void *frame, uint32_t size)
    return ret;
 }
 
-static bool
+bool
 lima_job_wait(struct lima_job *job, int pipe, uint64_t timeout_ns)
 {
    int64_t abs_timeout = os_time_get_absolute_timeout(timeout_ns);
