@@ -35,6 +35,8 @@ files_mesa_util = files(
   'branch_and_bound.h',
   'build_id.c',
   'build_id.h',
+  'combine_constants.c',
+  'combine_constants.h',
   'compiler.h',
   'crc32.c',
   'crc32.h',
