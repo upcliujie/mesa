@@ -390,6 +390,7 @@ intelInitExtensions(struct gl_context *ctx)
    ctx->Extensions.ANGLE_texture_compression_dxt = true;
 
    ctx->Extensions.EXT_demote_to_helper_invocation = true;
-
    ctx->Const.PrimitiveRestartFixedIndex = true;
+   ctx->Extensions.EXT_memory_object_fd = true;
+   ctx->Extensions.EXT_memory_object = true;
 }
