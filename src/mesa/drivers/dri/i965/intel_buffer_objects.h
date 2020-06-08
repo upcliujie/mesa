@@ -127,4 +127,15 @@ intel_buffer_object(struct gl_buffer_object *obj)
    return (struct intel_buffer_object *) obj;
 }
 
+struct intel_memory_object {
+   struct gl_memory_object Base;
+   struct brw_bo *bo;
+};
+
+static inline struct intel_memory_object *
+intel_memory_object(struct gl_memory_object *obj)
+{
+   return (struct intel_memory_object *)obj;
+}
+
 #endif
