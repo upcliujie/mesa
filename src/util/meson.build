@@ -34,6 +34,8 @@ files_mesa_util = files(
   'build_id.c',
   'build_id.h',
   'cnd_monotonic.h',
+  'combine_constants.c',
+  'combine_constants.h',
   'compiler.h',
   'crc32.c',
   'crc32.h',
