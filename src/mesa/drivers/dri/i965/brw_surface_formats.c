@@ -224,6 +224,12 @@ brw_screen_init_surface_formats(struct brw_screen *screen)
 
       render = texture = brw_isl_format_for_mesa_format(format);
 
+      /* Only exposed with EXT_memory_object_* support which
+       * is not for older gens.
+       */
+      if (gen < 70 && format == MESA_FORMAT_Z_UNORM16)
+         continue;
+
       if (texture == ISL_FORMAT_UNSUPPORTED)
          continue;
 
