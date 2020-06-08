@@ -27,6 +27,7 @@
 
 #ifdef HAVE_LIBDRM
 #include <xf86drm.h>
+#include "util/u_string.h"
 #endif
 #include "util/macros.h"
 
@@ -40,7 +41,8 @@
 struct _egl_device {
    _EGLDevice *Next;
 
-   const char *extensions;
+   /* Remember to grow this when adding extensions */
+   char extensions[44];
 
    EGLBoolean MESA_device_software;
    EGLBoolean EXT_device_drm;
@@ -138,7 +140,19 @@ _eglAddDRMDevice(drmDevicePtr device, _EGLDevice **out_dev)
    }
 
    dev = dev->Next;
-   dev->extensions = "EGL_EXT_device_drm";
+   sprintf(dev->extensions, "EGL_EXT_device_drm");
+
+#define add_extension(str) \
+   do { \
+      assert(strlen(dev->extensions) + strlen(" " str) < sizeof(dev->extensions)); \
+      strcat(dev->extensions, " " str); \
+   } while(0)
+
+   if (device->bustype == DRM_BUS_PCI)
+      add_extension("EGL_EXT_device_query_pci");
+
+#undef add_extension
+
    dev->EXT_device_drm = EGL_TRUE;
    dev->device = device;
 
@@ -223,6 +237,26 @@ _eglQueryDeviceAttribEXT(_EGLDevice *dev, EGLint attribute,
                          EGLAttrib *value)
 {
    switch (attribute) {
+#ifdef HAVE_LIBDRM
+   case EGL_QUERY_PCI_VENDOR_ID_EXT:
+      *value = dev->device->deviceinfo.pci->vendor_id;
+      return EGL_TRUE;
+   case EGL_QUERY_PCI_DEVICE_ID_EXT:
+      *value = dev->device->deviceinfo.pci->device_id;
+      return EGL_TRUE;
+   case EGL_QUERY_PCI_DOMAIN_EXT:
+      *value = dev->device->businfo.pci->domain;
+      return EGL_TRUE;
+   case EGL_QUERY_PCI_BUS_EXT:
+      *value = dev->device->businfo.pci->bus;
+      return EGL_TRUE;
+   case EGL_QUERY_PCI_SLOT_EXT:
+      *value = dev->device->businfo.pci->dev;
+      return EGL_TRUE;
+   case EGL_QUERY_PCI_FUNCTION_EXT:
+      *value = dev->device->businfo.pci->func;
+      return EGL_TRUE;
+#endif
    default:
       _eglError(EGL_BAD_ATTRIBUTE, "eglQueryDeviceStringEXT");
       return EGL_FALSE;
