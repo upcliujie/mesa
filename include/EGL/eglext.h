@@ -707,6 +707,16 @@ EGLAPI EGLBoolean EGLAPIENTRY eglQueryDisplayAttribEXT (EGLDisplay dpy, EGLint a
 #define EGL_EXT_device_query 1
 #endif /* EGL_EXT_device_query */
 
+#ifndef EGL_EXT_device_query_pci
+#define EGL_EXT_device_query_pci 1
+#define EGL_QUERY_PCI_VENDOR_ID_EXT       0x3290
+#define EGL_QUERY_PCI_DEVICE_ID_EXT       0x3291
+#define EGL_QUERY_PCI_DOMAIN_EXT          0x3292
+#define EGL_QUERY_PCI_BUS_EXT             0x3293
+#define EGL_QUERY_PCI_SLOT_EXT            0x3294
+#define EGL_QUERY_PCI_FUNCTION_EXT        0x3295
+#endif /* EGL_EXT_device_query_pci */
+
 #ifndef EGL_EXT_gl_colorspace_bt2020_linear
 #define EGL_EXT_gl_colorspace_bt2020_linear 1
 #define EGL_GL_COLORSPACE_BT2020_LINEAR_EXT 0x333F
