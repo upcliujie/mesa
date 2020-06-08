@@ -1366,8 +1366,39 @@ tu6_emit_fs_inputs(struct tu_cs *cs, const struct ir3_shader_variant *fs)
    tu_cs_emit(cs, COND(sample_shading, A6XX_GRAS_SAMPLE_CNTL_PER_SAMP_MODE));
 }
 
+static enum a6xx_ztest_mode
+compute_ztest_mode(struct tu_pipeline_builder *builder,
+                   const struct ir3_shader_variant *fs,
+                   bool is_s8_uint)
+{
+   enum a6xx_ztest_mode ztest = A6XX_EARLY_Z;
+   bool zsbuf = false;
+   const struct util_format_description *desc = vk_format_description(builder->depth_attachment_format);
+   if (util_format_has_depth(desc)) {
+      zsbuf = true;
+   }
+
+   bool lrz_valid = !(builder->device->instance->debug_flags & TU_DEBUG_NOLRZ) && zsbuf;
+
+   if (fs->has_kill) {
+      if (builder->create_info->pDepthStencilState &&
+          builder->create_info->pDepthStencilState->depthWriteEnable && lrz_valid) {
+         ztest = A6XX_EARLY_LRZ_LATE_Z;
+      } else {
+         ztest = A6XX_LATE_Z;
+      }
+   }
+
+   if (fs->no_earlyz || fs->writes_pos || fs->writes_stencilref || is_s8_uint) {
+      ztest = A6XX_LATE_Z;
+   }
+
+   return ztest;
+}
+
 static void
 tu6_emit_fs_outputs(struct tu_cs *cs,
+                    struct tu_pipeline_builder *builder,
                     const struct ir3_shader_variant *fs,
                     uint32_t mrt_count, bool dual_src_blend,
                     uint32_t render_components,
@@ -1417,13 +1448,7 @@ tu6_emit_fs_outputs(struct tu_cs *cs,
    tu_cs_emit_regs(cs,
                    A6XX_RB_RENDER_COMPONENTS(.dword = render_components));
 
-   enum a6xx_ztest_mode zmode;
-
-   if (fs->no_earlyz || fs->has_kill || fs->writes_pos || fs->writes_stencilref || is_s8_uint) {
-      zmode = A6XX_LATE_Z;
-   } else {
-      zmode = A6XX_EARLY_Z;
-   }
+   enum a6xx_ztest_mode zmode = compute_ztest_mode(builder, fs, is_s8_uint);
 
    tu_cs_emit_pkt4(cs, REG_A6XX_GRAS_SU_DEPTH_PLANE_CNTL, 1);
    tu_cs_emit(cs, A6XX_GRAS_SU_DEPTH_PLANE_CNTL_Z_MODE(zmode));
@@ -1572,7 +1597,7 @@ tu6_emit_program(struct tu_cs *cs,
 
    if (fs) {
       tu6_emit_fs_inputs(cs, fs);
-      tu6_emit_fs_outputs(cs, fs, builder->color_attachment_count,
+      tu6_emit_fs_outputs(cs, builder, fs, builder->color_attachment_count,
                           builder->use_dual_src_blend,
                           builder->render_components,
                           builder->depth_attachment_format == VK_FORMAT_S8_UINT);
@@ -1580,7 +1605,7 @@ tu6_emit_program(struct tu_cs *cs,
       /* TODO: check if these can be skipped if fs is disabled */
       struct ir3_shader_variant dummy_variant = {};
       tu6_emit_fs_inputs(cs, &dummy_variant);
-      tu6_emit_fs_outputs(cs, &dummy_variant, builder->color_attachment_count,
+      tu6_emit_fs_outputs(cs, builder, &dummy_variant, builder->color_attachment_count,
                           builder->use_dual_src_blend,
                           builder->render_components,
                           builder->depth_attachment_format == VK_FORMAT_S8_UINT);
