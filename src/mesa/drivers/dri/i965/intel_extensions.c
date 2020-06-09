@@ -393,4 +393,6 @@ intelInitExtensions(struct gl_context *ctx)
    ctx->Const.PrimitiveRestartFixedIndex = true;
    ctx->Extensions.EXT_memory_object_fd = true;
    ctx->Extensions.EXT_memory_object = true;
+   ctx->Extensions.EXT_semaphore = true;
+   ctx->Extensions.EXT_semaphore_fd = true;
 }

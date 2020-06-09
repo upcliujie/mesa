@@ -529,6 +529,10 @@ struct intel_batchbuffer {
    struct hash_table_u64 *state_batch_sizes;
 
    struct gen_batch_decode_ctx decoder;
+
+   /** A list of drm_i915_exec_fences to have execbuf signal or wait on */
+   struct util_dynarray exec_fences;
+
 };
 
 #define BRW_MAX_XFB_STREAMS 4
