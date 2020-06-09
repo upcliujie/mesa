@@ -2653,20 +2653,12 @@ tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
       pipeline->lrz.write = ds_info->depthWriteEnable;
       pipeline->lrz.invalidate = false;
       pipeline->lrz.z_test_enable = true;
+      enum tu_lrz_direction lrz_direction = TU_LRZ_UNKNOWN;
 
-      /* LRZ does not support some depth modes.
-       *
-       * The HW has a flag for GREATER and GREATER_OR_EQUAL modes which is used
-       * in freedreno, however there are some dEQP-VK tests that fail if we use here.
-       * Furthermore, blob disables LRZ on these comparison opcodes too.
-       *
-       * TODO: investigate if we can enable GREATER flag here.
-       */
+      /* LRZ does not support some depth modes. */
       switch(ds_info->depthCompareOp) {
       case VK_COMPARE_OP_ALWAYS:
       case VK_COMPARE_OP_NOT_EQUAL:
-      case VK_COMPARE_OP_GREATER:
-      case VK_COMPARE_OP_GREATER_OR_EQUAL:
          pipeline->lrz.invalidate = true;
          pipeline->lrz.write = false;
          break;
@@ -2675,14 +2667,24 @@ tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
          pipeline->lrz.enable = true;
          pipeline->lrz.write = false;
          break;
+      case VK_COMPARE_OP_GREATER:
+      case VK_COMPARE_OP_GREATER_OR_EQUAL:
+         lrz_direction = TU_LRZ_GREATER;
+         pipeline->lrz.greater = true;
+         pipeline->lrz.enable = true;
+         break;
       case VK_COMPARE_OP_LESS:
       case VK_COMPARE_OP_LESS_OR_EQUAL:
+         lrz_direction = TU_LRZ_LESS;
          pipeline->lrz.enable = true;
          break;
       default:
          unreachable("bad VK_COMPARE_OP value");
          break;
       };
+
+      if (ds_info->depthWriteEnable)
+         pipeline->lrz.direction = lrz_direction;
    }
 
    if (ds_info->stencilTestEnable) {

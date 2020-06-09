@@ -113,6 +113,15 @@ typedef uint32_t xcb_window_t;
 #define A6XX_TEX_CONST_DWORDS 16
 #define A6XX_TEX_SAMP_DWORDS 4
 
+enum tu_lrz_direction
+{
+   TU_LRZ_UNKNOWN,
+   /* Depth func less/less-than: */
+   TU_LRZ_LESS,
+   /* Depth func greater/greater-than: */
+   TU_LRZ_GREATER,
+};
+
 #define for_each_bit(b, dword)                                               \
    for (uint32_t __dword = (dword);                                          \
         (b) = __builtin_ffs(__dword) - 1, __dword; __dword &= ~(1 << (b)))
@@ -838,6 +847,7 @@ struct tu_lrz_pipeline
    bool greater : 1;
    bool z_test_enable : 1;
    bool blend_disable_write : 1;
+   enum tu_lrz_direction direction : 2;
 };
 
 struct tu_lrz_state
@@ -846,6 +856,7 @@ struct tu_lrz_state
    struct tu_image *image;
    bool valid : 1;
    struct tu_draw_state state;
+   enum tu_lrz_direction prev_direction;
 };
 
 struct tu_cmd_state

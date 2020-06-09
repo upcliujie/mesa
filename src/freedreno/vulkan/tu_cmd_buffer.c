@@ -2953,6 +2953,7 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
           (att->clear_mask & (VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT))) {
          cmd->state.lrz.image = image;
          cmd->state.lrz.valid = true;
+         cmd->state.lrz.prev_direction = TU_LRZ_UNKNOWN;
 
          tu6_clear_lrz(cmd, &cmd->cs, image, &pRenderPassBegin->pClearValues[a]);
          tu6_emit_event_write(cmd, &cmd->cs, PC_CCU_FLUSH_COLOR_TS);
@@ -3229,6 +3230,12 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
    struct tu_cs lrz_cs;
    struct tu_draw_state ds = tu_cs_draw_state(&cmd->sub_cs, &lrz_cs, 4);
 
+   if (cmd->state.lrz.prev_direction != TU_LRZ_UNKNOWN &&
+       cmd->state.pipeline->lrz.direction != TU_LRZ_UNKNOWN &&
+       cmd->state.lrz.prev_direction != cmd->state.pipeline->lrz.direction) {
+      cmd->state.lrz.valid = false;
+   }
+
    if (cmd->state.pipeline->lrz.invalidate) {
       /* LRZ is not valid for next draw commands, so don't use it until cleared */
       cmd->state.lrz.valid = false;
@@ -3239,6 +3246,8 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
       tu_cs_emit_regs(&lrz_cs, A6XX_RB_LRZ_CNTL(0));
       return ds;
    }
+
+   cmd->state.lrz.prev_direction = cmd->state.pipeline->lrz.direction;
 
    /* Disable LRZ writes when blend is enabled, since the
     * resulting pixel value from the blend-draw
