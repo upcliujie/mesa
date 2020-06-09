@@ -1562,6 +1562,7 @@ tu_BeginCommandBuffer(VkCommandBuffer commandBuffer,
          cmd_buffer->state.lrz.image = (fb && depth_attachment != VK_ATTACHMENT_UNUSED) ? fb->attachments[depth_attachment].attachment->image : NULL;
          cmd_buffer->state.lrz.valid = false;
          cmd_buffer->state.dirty |= TU_CMD_DIRTY_LRZ;
+         cmd_buffer->state.lrz.prev_direction = TU_LRZ_UNKNOWN;
       } else {
          /* When executing in the middle of another command buffer, the CCU
           * state is unknown.
@@ -2481,6 +2482,7 @@ tu_CmdExecuteCommands(VkCommandBuffer commandBuffer,
        * until it is cleared again.
        */
       cmd->state.lrz.valid = false;
+      cmd->state.lrz.prev_direction = TU_LRZ_UNKNOWN;
    }
 
    /* After executing secondary command buffers, there may have been arbitrary
@@ -2639,6 +2641,7 @@ tu_CmdBeginRenderPass(VkCommandBuffer commandBuffer,
    if (depth_attachment != VK_ATTACHMENT_UNUSED) {
       cmd->state.lrz.image = fb->attachments[depth_attachment].attachment->image;
       cmd->state.lrz.valid = false;
+      cmd->state.lrz.prev_direction = TU_LRZ_UNKNOWN;
       cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
    }
 
@@ -2683,6 +2686,7 @@ tu_CmdNextSubpass(VkCommandBuffer commandBuffer, VkSubpassContents contents)
       if (depth_image != cmd->state.lrz.image) {
          cmd->state.lrz.valid = false;
          cmd->state.lrz.image = depth_image;
+         cmd->state.lrz.prev_direction = TU_LRZ_UNKNOWN;
          cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
       }
    } else {
@@ -2690,6 +2694,7 @@ tu_CmdNextSubpass(VkCommandBuffer commandBuffer, VkSubpassContents contents)
          cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
       cmd->state.lrz.image = NULL;
       cmd->state.lrz.valid = false;
+      cmd->state.lrz.prev_direction = TU_LRZ_UNKNOWN;
    }
 
    tu_cond_exec_start(cs, CP_COND_EXEC_0_RENDER_MODE_GMEM);
@@ -2942,8 +2947,14 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
       return (struct tu_draw_state) {entry.bo->iova + entry.offset, entry.size / 4};
    }
 
+   bool invalid_direction = false;
+   if (cmd->state.lrz.prev_direction != TU_LRZ_UNKNOWN &&
+       cmd->state.pipeline->lrz.direction != TU_LRZ_UNKNOWN &&
+       cmd->state.lrz.prev_direction != cmd->state.pipeline->lrz.direction) {
+      invalid_direction = true;
+   }
 
-   if (cmd->state.pipeline->lrz.invalidate) {
+   if (cmd->state.pipeline->lrz.invalidate || invalid_direction) {
       /* LRZ is not valid for next draw commands, so don't use it until cleared */
       cmd->state.lrz.valid = false;
    }
@@ -2965,6 +2976,7 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
    tu_cs_emit_regs(&lrz_cs, A6XX_RB_LRZ_CNTL(.enable = cmd->state.lrz.valid && cmd->state.pipeline->lrz.enable));
 
    struct tu_cs_entry entry = tu_cs_end_sub_stream(&cmd->sub_cs, &lrz_cs);
+   cmd->state.lrz.prev_direction = cmd->state.pipeline->lrz.direction;
    cmd->state.dirty &= ~TU_CMD_DIRTY_LRZ;
    return (struct tu_draw_state) {entry.bo->iova + entry.offset, entry.size / 4};
 }

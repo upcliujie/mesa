@@ -934,6 +934,7 @@ tu6_clear_lrz(struct tu_cmd_buffer *cmd, struct tu_cs *cs, unsigned a, const VkC
     * of the commands. Mark LRZ as valid, so they can work with it.
     */
    cmd->state.lrz.valid = true;
+   cmd->state.lrz.prev_direction = TU_LRZ_UNKNOWN;
 
    ops->setup(cmd, cs, VK_FORMAT_D16_UNORM, VK_IMAGE_ASPECT_DEPTH_BIT, ROTATE_0, true, false);
 
