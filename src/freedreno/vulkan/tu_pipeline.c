@@ -2568,6 +2568,62 @@ tu_pipeline_builder_parse_rasterization(struct tu_pipeline_builder *builder,
 
 }
 
+/* update lrz state based on stencil-test func:
+ *
+ * Conceptually the order of the pipeline is:
+ *
+ *
+ *   FS -> Alpha-Test  ->  Stencil-Test  ->  Depth-Test
+ *                              |                |
+ *                       if wrmask != 0     if wrmask != 0
+ *                              |                |
+ *                              v                v
+ *                        Stencil-Write      Depth-Write
+ *
+ * Because Stencil-Test can have side effects (Stencil-Write) prior
+ * to depth test, in this case we potentially need to disable early
+ * lrz-test.  See:
+ *
+ * https://www.khronos.org/opengl/wiki/Per-Sample_Processing
+ */
+void
+tu6_update_lrz_stencil(struct tu_lrz_pipeline *pipeline, enum VkCompareOp func,
+                       bool stencil_write)
+{
+   switch (func) {
+   case VK_COMPARE_OP_ALWAYS:
+      /* nothing to do for LRZ, but for stencil test when stencil-
+       * write is enabled, we need to disable lrz-test, since
+       * conceptually stencil test and write happens before depth-test.
+       */
+      if (stencil_write) {
+         pipeline->enable = false;
+         pipeline->z_test_enable = false;
+         pipeline->invalidate = true;
+      }
+      break;
+   case VK_COMPARE_OP_NEVER:
+      /* fragment never passes, disable lrz_write for this draw. */
+      pipeline->write = false;
+      break;
+   default:
+      /* whether the fragment passes or not depends on result
+       * of stencil test, which we cannot know when doing binning
+       * pass.
+       */
+      pipeline->write = false;
+      /* similarly to the VK_COMPARE_OP_ALWAYS case, if there are side-
+       * effects from stencil test we need to disable lrz-test.
+       */
+      if (stencil_write) {
+         pipeline->enable = false;
+         pipeline->z_test_enable = false;
+         pipeline->invalidate = true;
+      }
+      break;
+   }
+}
+
 static void
 tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
                                         struct tu_pipeline *pipeline)
@@ -2713,6 +2769,15 @@ tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
    }
 
    if (ds_info->stencilTestEnable) {
+      tu6_update_lrz_stencil(&pipeline->lrz, ds_info->front.compareOp,
+                             !!ds_info->front.writeMask);
+      pipeline->lrz.front_compare_op = ds_info->front.compareOp;
+      tu6_update_lrz_stencil(&pipeline->lrz, ds_info->back.compareOp,
+                             !!ds_info->back.writeMask);
+      pipeline->lrz.back_compare_op = ds_info->back.compareOp;
+   }
+
+   if (pipeline->dynamic_state_mask & BIT(VK_DYNAMIC_STATE_STENCIL_WRITE_MASK)) {
       pipeline->lrz.write = false;
       pipeline->lrz.invalidate = true;
    }
