@@ -2282,6 +2282,24 @@ tu_CmdSetStencilCompareMask(VkCommandBuffer commandBuffer,
    tu_cs_emit_regs(&cs, A6XX_RB_STENCILMASK(.dword = cmd->state.dynamic_stencil_mask));
 }
 
+static void
+update_lrz_stencil(struct tu_cmd_buffer *cmd,
+                   VkStencilFaceFlags faceMask,
+                   uint32_t writeMask)
+{
+   if (faceMask & VK_STENCIL_FACE_FRONT_BIT) {
+      tu6_update_lrz_stencil(&cmd->state.lrz.pipeline, cmd->state.lrz.pipeline.front_compare_op,
+                             writeMask);
+      cmd->state.lrz.changed = true;
+   }
+
+   if (faceMask & VK_STENCIL_FACE_BACK_BIT) {
+      tu6_update_lrz_stencil(&cmd->state.lrz.pipeline, cmd->state.lrz.pipeline.back_compare_op,
+                             writeMask);
+      cmd->state.lrz.changed = true;
+   }
+}
+
 void
 tu_CmdSetStencilWriteMask(VkCommandBuffer commandBuffer,
                           VkStencilFaceFlags faceMask,
@@ -2291,6 +2309,8 @@ tu_CmdSetStencilWriteMask(VkCommandBuffer commandBuffer,
    struct tu_cs cs = tu_cmd_dynamic_state(cmd, VK_DYNAMIC_STATE_STENCIL_WRITE_MASK, 2);
 
    update_stencil_mask(&cmd->state.dynamic_stencil_wrmask, faceMask, writeMask);
+
+   update_lrz_stencil(cmd, faceMask, writeMask);
 
    tu_cs_emit_regs(&cs, A6XX_RB_STENCILWRMASK(.dword = cmd->state.dynamic_stencil_wrmask));
 }

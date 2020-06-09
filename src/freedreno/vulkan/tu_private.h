@@ -882,6 +882,9 @@ struct tu_lrz_pipeline
    bool greater : 1;
    bool z_test_enable : 1;
    enum tu_lrz_direction direction : 2;
+
+   VkCompareOp front_compare_op;
+   VkCompareOp back_compare_op;
 };
 
 struct tu_lrz_state
@@ -1214,6 +1217,10 @@ tu6_clear_lrz(struct tu_cmd_buffer *cmd, struct tu_cs *cs);
 
 void
 tu6_clear_lrz_setup(struct tu_cmd_buffer *cmd, unsigned attachment, bool partial_clear, const VkClearValue *value);
+
+void
+tu6_update_lrz_stencil(struct tu_lrz_pipeline *pipeline, enum VkCompareOp func,
+                       bool stencil_write);
 
 void
 tu6_emit_scissor(struct tu_cs *cs, const VkRect2D *scissor);
