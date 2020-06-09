@@ -953,6 +953,7 @@ tu6_clear_lrz_setup(struct tu_cmd_buffer *cmd, unsigned attachment, bool partial
        * of the commands. Mark LRZ as valid, so they can work with it.
        */
       cmd->state.lrz.attachments[attachment].valid = true;
+      cmd->state.lrz.attachments[attachment].prev_direction = TU_LRZ_UNKNOWN;
    }
 }
 

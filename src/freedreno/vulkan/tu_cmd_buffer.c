@@ -3119,8 +3119,14 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
       return (struct tu_draw_state) {entry.bo->iova + entry.offset, entry.size / 4};
    }
 
+   bool invalid_direction = false;
+   if (cmd->state.lrz.attachments[a].prev_direction != TU_LRZ_UNKNOWN &&
+       cmd->state.lrz.pipeline.direction != TU_LRZ_UNKNOWN &&
+       cmd->state.lrz.attachments[a].prev_direction != cmd->state.lrz.pipeline.direction) {
+      invalid_direction = true;
+   }
 
-   if (cmd->state.lrz.pipeline.invalidate) {
+   if (cmd->state.lrz.pipeline.invalidate || invalid_direction) {
       /* LRZ is not valid for next draw commands, so don't use it until cleared */
       cmd->state.lrz.attachments[a].valid = false;
    }
@@ -3138,6 +3144,7 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
    tu_cs_emit_regs(&lrz_cs, A6XX_RB_LRZ_CNTL(.enable = cmd->state.lrz.attachments[a].valid && cmd->state.lrz.pipeline.enable));
 
    struct tu_cs_entry entry = tu_cs_end_sub_stream(&cmd->sub_cs, &lrz_cs);
+   cmd->state.lrz.attachments[a].prev_direction = cmd->state.lrz.pipeline.direction;
    cmd->state.lrz.changed = false;
    return (struct tu_draw_state) {entry.bo->iova + entry.offset, entry.size / 4};
 }
