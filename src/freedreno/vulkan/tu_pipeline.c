@@ -2440,6 +2440,17 @@ tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
       pipeline->lrz.invalidate = true;
    }
 
+   if (builder->shaders[MESA_SHADER_FRAGMENT]) {
+      const struct ir3_shader_variant *fs = &builder->shaders[MESA_SHADER_FRAGMENT]->ir3_shader->variants[0];
+      if (fs->has_kill || fs->no_earlyz || fs->writes_pos) {
+         pipeline->lrz.write = false;
+      }
+      if (fs->no_earlyz || fs->writes_pos) {
+         pipeline->lrz.enable = false;
+         pipeline->lrz.z_test_enable = false;
+      }
+   }
+
    if (builder->create_info->pColorBlendState && builder->create_info->pColorBlendState->attachmentCount) {
       for (int i = 0; i < builder->create_info->pColorBlendState->attachmentCount; i++) {
          VkPipelineColorBlendAttachmentState blendAttachment = builder->create_info->pColorBlendState->pAttachments[i];
