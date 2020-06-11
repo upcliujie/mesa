@@ -8543,6 +8543,8 @@ fs_visitor::run_bs(bool allow_spilling)
    if (failed)
       return false;
 
+   bld.emit(FS_OPCODE_PLACEHOLDER_HALT);
+
    /* TODO(RT): Perhaps rename this? */
    emit_cs_terminate();
 
