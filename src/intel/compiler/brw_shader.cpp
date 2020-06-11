@@ -1110,6 +1110,7 @@ backend_instruction::has_side_effects() const
    case SHADER_OPCODE_A64_OWORD_BLOCK_WRITE_LOGICAL:
    case SHADER_OPCODE_BTD_SPAWN_LOGICAL:
    case SHADER_OPCODE_BTD_RETIRE_LOGICAL:
+   case FS_OPCODE_DISCARD_JUMP:
       return true;
    default:
       return eot;

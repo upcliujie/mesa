@@ -7874,8 +7874,9 @@ fs_visitor::fixup_3src_null_dest()
 static const fs_inst *
 find_halt_control_flow_region_start(const fs_visitor *v)
 {
-   if (v->stage == MESA_SHADER_FRAGMENT &&
-       brw_wm_prog_data(v->prog_data)->uses_kill) {
+   if (brw_shader_stage_is_bindless(v->stage) ||
+       (v->stage == MESA_SHADER_FRAGMENT &&
+        brw_wm_prog_data(v->prog_data)->uses_kill)) {
       foreach_block_and_inst(block, fs_inst, inst, v->cfg) {
          if (inst->opcode == FS_OPCODE_DISCARD_JUMP ||
              inst->opcode == FS_OPCODE_PLACEHOLDER_HALT)
@@ -8543,6 +8544,8 @@ fs_visitor::run_bs(bool allow_spilling)
 
    if (failed)
       return false;
+
+   bld.emit(FS_OPCODE_PLACEHOLDER_HALT);
 
    /* TODO(RT): Perhaps rename this? */
    emit_cs_terminate();
