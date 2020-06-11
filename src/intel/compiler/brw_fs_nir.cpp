@@ -5904,6 +5904,8 @@ fs_visitor::nir_emit_jump(const fs_builder &bld, nir_jump_instr *instr)
       bld.emit(BRW_OPCODE_CONTINUE);
       break;
    case nir_jump_return:
+      bld.emit(FS_OPCODE_DISCARD_JUMP);
+      break;
    default:
       unreachable("unknown jump");
    }
