@@ -1,0 +1,2 @@
+spec@arb_vertex_program@big-param,Fail
+spec@glsl-es-1.00@execution@glsl-no-vertex-attribs,Fail
