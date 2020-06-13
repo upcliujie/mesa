@@ -47,6 +47,13 @@ type_size_vec4_bytes(const struct glsl_type *type, bool bindless)
    return type_size_vec4(type, bindless) * 16;
 }
 
+static inline bool
+brw_shader_stage_is_bindless(gl_shader_stage stage)
+{
+   return stage >= MESA_SHADER_RAYGEN &&
+          stage <= MESA_SHADER_CALLABLE;
+}
+
 /* Flags set in the instr->pass_flags field by i965 analysis passes */
 enum {
    BRW_NIR_NON_BOOLEAN           = 0x0,
