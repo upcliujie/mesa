@@ -1017,3 +1017,13 @@ system_value("simd_width_intel", 1)
 # Load a relocatable 32-bit value
 intrinsic("load_reloc_const_intel", dest_comp=1, bit_sizes=[32],
           indices=[PARAM_IDX], flags=[CAN_ELIMINATE, CAN_REORDER])
+
+# Intrinsics for Intel bindless thread dispatch
+system_value("btd_dss_id_intel", 1)
+system_value("btd_stack_id_intel", 1)
+system_value("btd_global_arg_addr_intel", 1, bit_sizes=[64])
+system_value("btd_local_arg_addr_intel", 1, bit_sizes=[64])
+# src[] = { global_arg_addr, btd_record }
+intrinsic("btd_spawn_intel", src_comp=[1, 1])
+# src[] = { }
+intrinsic("btd_retire_intel")
