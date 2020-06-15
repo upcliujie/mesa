@@ -2756,6 +2756,11 @@ tu_CmdBeginRenderPass(VkCommandBuffer commandBuffer,
       cmd->state.cache.pending_flush_bits;
    cmd->state.renderpass_cache.flush_bits = 0;
 
+   /* Track LRZ valid state per attachment */
+   size_t lrz_valid_size = sizeof(struct tu_lrz_state) * pass->attachment_count;
+   cmd->state.lrz.attachments = vk_zalloc2(&cmd->pool->alloc, NULL, lrz_valid_size, 8,
+                                           VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+
    tu_emit_renderpass_begin(cmd, pRenderPassBegin);
 
    tu6_emit_zs(cmd, cmd->state.subpass, &cmd->draw_cs);
@@ -3730,6 +3735,9 @@ tu_CmdEndRenderPass(VkCommandBuffer commandBuffer)
    cmd_buffer->state.framebuffer = NULL;
    cmd_buffer->state.has_tess = false;
    cmd_buffer->state.has_subpass_predication = false;
+
+   vk_free2(&cmd_buffer->pool->alloc, NULL, cmd_buffer->state.lrz.attachments);
+   cmd_buffer->state.lrz.attachments = NULL;
 }
 
 void

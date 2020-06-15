@@ -855,6 +855,11 @@ struct tu_cache_state {
    enum tu_cmd_flush_bits flush_bits;
 };
 
+struct tu_lrz_attachments
+{
+   bool valid : 1;
+};
+
 struct tu_lrz_pipeline
 {
    bool write : 1;
@@ -863,6 +868,11 @@ struct tu_lrz_pipeline
    bool enable : 1;
    bool greater : 1;
    bool z_test_enable : 1;
+};
+
+struct tu_lrz_state
+{
+   struct tu_lrz_attachments *attachments;
 };
 
 struct tu_cmd_state
@@ -926,6 +936,8 @@ struct tu_cmd_state
    bool has_tess;
    bool has_subpass_predication;
    bool predication_active;
+
+   struct tu_lrz_state lrz;
 };
 
 struct tu_cmd_pool
