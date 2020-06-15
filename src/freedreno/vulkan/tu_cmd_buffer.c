@@ -1977,7 +1977,7 @@ tu_CmdBindPipeline(VkCommandBuffer commandBuffer,
    assert(pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS);
 
    cmd->state.pipeline = pipeline;
-   cmd->state.dirty |= TU_CMD_DIRTY_DESC_SETS_LOAD | TU_CMD_DIRTY_SHADER_CONSTS;
+   cmd->state.dirty |= TU_CMD_DIRTY_DESC_SETS_LOAD | TU_CMD_DIRTY_SHADER_CONSTS | TU_CMD_DIRTY_LRZ;
 
    struct tu_cs *cs = &cmd->draw_cs;
    uint32_t mask = ~pipeline->dynamic_state_mask & BITFIELD_MASK(TU_DYNAMIC_STATE_COUNT);
@@ -2611,6 +2611,14 @@ tu_CmdBeginRenderPass(VkCommandBuffer commandBuffer,
       cmd->state.cache.pending_flush_bits;
    cmd->state.renderpass_cache.flush_bits = 0;
 
+   /* Track LRZ valid state */
+   unsigned depth_attachment = cmd->state.subpass->depth_stencil_attachment.attachment;
+   if (depth_attachment != VK_ATTACHMENT_UNUSED) {
+      cmd->state.lrz.image = fb->attachments[depth_attachment].attachment->image;
+      cmd->state.lrz.valid = false;
+      cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
+   }
+
    tu_emit_renderpass_begin(cmd, pRenderPassBegin);
 
    tu6_emit_zs(cmd, cmd->state.subpass, &cmd->draw_cs);
@@ -2640,6 +2648,26 @@ tu_CmdNextSubpass(VkCommandBuffer commandBuffer, VkSubpassContents contents)
    struct tu_cs *cs = &cmd->draw_cs;
 
    const struct tu_subpass *subpass = cmd->state.subpass++;
+
+   /* Track LRZ valid state
+    *
+    * TODO: Improve this tracking for keeping the state of the past depth/stencil images,
+    * so if they become active again, we reuse its old state.
+    */
+   unsigned depth_attachment = cmd->state.subpass->depth_stencil_attachment.attachment;
+   if (depth_attachment != VK_ATTACHMENT_UNUSED) {
+      struct tu_image *depth_image = cmd->state.framebuffer->attachments[depth_attachment].attachment->image;
+      if (depth_image != cmd->state.lrz.image) {
+         cmd->state.lrz.valid = false;
+         cmd->state.lrz.image = depth_image;
+         cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
+      }
+   } else {
+      if (cmd->state.lrz.image)
+         cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
+      cmd->state.lrz.image = NULL;
+      cmd->state.lrz.valid = false;
+   }
 
    tu_cond_exec_start(cs, CP_COND_EXEC_0_RENDER_MODE_GMEM);
 
@@ -3535,6 +3563,7 @@ tu_CmdEndRenderPass(VkCommandBuffer commandBuffer)
    cmd_buffer->state.framebuffer = NULL;
    cmd_buffer->state.has_tess = false;
    cmd_buffer->state.has_subpass_predication = false;
+   cmd_buffer->state.lrz.valid = false;
 }
 
 void
