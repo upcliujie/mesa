@@ -141,6 +141,24 @@ is_zero_to_one(UNUSED struct hash_table *ht, nir_alu_instr *instr, unsigned src,
    return true;
 }
 
+static inline bool
+is_nan(UNUSED struct hash_table *ht, nir_alu_instr *instr,
+       unsigned src, unsigned num_components,
+       const uint8_t *swizzle)
+{
+   /* This only makes sense for constants.  Pre-condition the check by using
+    * "#" in the algebraic pattern.
+    */
+   assert(nir_src_as_const_value(instr->src[src].src) != NULL);
+
+   for (unsigned i = 0; i < num_components; i++) {
+      if (!isnan(nir_src_comp_as_float(instr->src[src].src, swizzle[i])))
+         return false;
+   }
+
+   return true;
+}
+
 /**
  * Exclusive compare with (0, 1).
  *
