@@ -312,6 +312,8 @@ struct radv_physical_device {
 #ifndef _WIN32
 	drmPciBusInfo bus_info;
 #endif
+
+	nir_shader_compiler_options nir_options;
 };
 
 struct radv_instance {
