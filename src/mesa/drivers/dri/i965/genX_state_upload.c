@@ -116,7 +116,7 @@ genX(upload_polygon_stipple)(struct brw_context *brw)
        * to a FBO (i.e. any named frame buffer object), we *don't*
        * need to invert - we already match the layout.
        */
-      if (ctx->DrawBuffer->FlipY) {
+      if (!!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y)) {
          for (unsigned i = 0; i < 32; i++)
             poly.PatternRow[i] = ctx->PolygonStipple[31 - i]; /* invert */
       } else {
@@ -156,7 +156,7 @@ genX(upload_polygon_stipple_offset)(struct brw_context *brw)
        * to a user-created FBO then our native pixel coordinate system
        * works just fine, and there's no window system to worry about.
        */
-      if (ctx->DrawBuffer->FlipY) {
+      if (!!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y)) {
          poly.PolygonStippleYOffset =
             (32 - (_mesa_geometric_height(ctx->DrawBuffer) & 31)) & 31;
       }
@@ -1399,7 +1399,8 @@ genX(upload_clip_state)(struct brw_context *brw)
 #endif
 
 #if GEN_GEN == 7
-      clip.FrontWinding = brw->polygon_front_bit != fb->FlipY;
+      clip.FrontWinding = brw->polygon_front_bit
+                          != !!(fb->Transforms & MESA_TRANSFORM_FLIP_Y);
 
       if (ctx->Polygon.CullFlag) {
          switch (ctx->Polygon.CullFaceMode) {
@@ -1515,7 +1516,7 @@ genX(upload_sf)(struct brw_context *brw)
 
 #if GEN_GEN <= 7
    /* _NEW_BUFFERS */
-   bool flip_y = ctx->DrawBuffer->FlipY;
+   bool flip_y = !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y);
    UNUSED const bool multisampled_fbo =
       _mesa_geometric_samples(ctx->DrawBuffer) > 1;
 #endif
@@ -2356,7 +2357,8 @@ static void
 genX(upload_scissor_state)(struct brw_context *brw)
 {
    struct gl_context *ctx = &brw->ctx;
-   const bool flip_y = ctx->DrawBuffer->FlipY;
+   const bool flip_y =
+      !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y);
    struct GENX(SCISSOR_RECT) scissor;
    uint32_t scissor_state_offset;
    const unsigned int fb_width = _mesa_geometric_width(ctx->DrawBuffer);
@@ -2415,7 +2417,8 @@ genX(upload_sf_clip_viewport)(struct brw_context *brw)
    const unsigned viewport_count = brw->clip.viewport_count;
 
    /* _NEW_BUFFERS */
-   const bool flip_y = ctx->DrawBuffer->FlipY;
+   const bool flip_y =
+      !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y);
    const uint32_t fb_width = (float)_mesa_geometric_width(ctx->DrawBuffer);
    const uint32_t fb_height = (float)_mesa_geometric_height(ctx->DrawBuffer);
 
@@ -3479,7 +3482,7 @@ genX(upload_sbe)(struct brw_context *brw)
       sbe.NumberofSFOutputAttributes = wm_prog_data->num_varying_inputs;
 
       /* _NEW_BUFFERS */
-      bool flip_y = ctx->DrawBuffer->FlipY;
+      bool flip_y = !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y);
 
       /* _NEW_POINT
        *
@@ -4521,7 +4524,8 @@ genX(upload_raster)(struct brw_context *brw)
    const struct gl_context *ctx = &brw->ctx;
 
    /* _NEW_BUFFERS */
-   const bool flip_y = ctx->DrawBuffer->FlipY;
+   const bool flip_y =
+      !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y);
 
    /* _NEW_POLYGON */
    const struct gl_polygon_attrib *polygon = &ctx->Polygon;

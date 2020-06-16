@@ -74,7 +74,7 @@ st_update_polygon_stipple( struct st_context *st )
 
       memcpy(st->state.poly_stipple, ctx->PolygonStipple, sz);
 
-      if (!ctx->DrawBuffer->FlipY) {
+      if (!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y)) {
          memcpy(newStipple.stipple, ctx->PolygonStipple, sizeof(newStipple.stipple));
       } else {
          invert_stipple(newStipple.stipple, ctx->PolygonStipple,

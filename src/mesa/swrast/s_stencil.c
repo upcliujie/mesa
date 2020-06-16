@@ -580,7 +580,7 @@ _swrast_clear_stencil_buffer(struct gl_context *ctx)
 
    ctx->Driver.MapRenderbuffer(ctx, rb, x, y, width, height,
                                mapMode, &map, &rowStride,
-                               ctx->DrawBuffer->FlipY);
+                               ctx->DrawBuffer->Transforms);
    if (!map) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glClear(stencil)");
       return;

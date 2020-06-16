@@ -135,7 +135,7 @@ nouveau_renderbuffer_map(struct gl_context *ctx,
 			 GLbitfield mode,
 			 GLubyte **out_map,
 			 GLint *out_stride,
-			 bool flip_y)
+			 enum mesa_transform transform)
 {
 	struct nouveau_surface *s = &to_nouveau_renderbuffer(rb)->surface;
 	GLubyte *map;
@@ -143,7 +143,7 @@ nouveau_renderbuffer_map(struct gl_context *ctx,
 	int flags = 0;
 
 	/* driver does not support GL_FRAMEBUFFER_FLIP_Y_MESA */
-	assert((rb->Name == 0) == flip_y);
+	assert((rb->Name == 0) == !!(transform & MESA_TRANSFORM_FLIP_Y));
 
 	if (mode & GL_MAP_READ_BIT)
 		flags |= NOUVEAU_BO_RD;

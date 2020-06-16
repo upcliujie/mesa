@@ -1681,7 +1681,13 @@ framebuffer_parameteri(struct gl_context *ctx, struct gl_framebuffer *fb,
       fb->SampleLocationPixelGrid = !!param;
       break;
    case GL_FRAMEBUFFER_FLIP_Y_MESA:
-      fb->FlipY = param;
+      if (param != GL_TRUE && param != 1 
+          && param != GL_FALSE && param != 0)
+        _mesa_error(ctx, GL_INVALID_VALUE, "%s", func);
+      else if (param == GL_TRUE || param == 1)
+         fb->Transforms |= MESA_TRANSFORM_FLIP_Y;
+      else
+         fb->Transforms &= ~MESA_TRANSFORM_FLIP_Y;
       break;
    }
 
@@ -1880,7 +1886,7 @@ get_framebuffer_parameteriv(struct gl_context *ctx, struct gl_framebuffer *fb,
       *params = fb->SampleLocationPixelGrid;
       break;
    case GL_FRAMEBUFFER_FLIP_Y_MESA:
-      *params = fb->FlipY;
+      *params = !!(fb->Transforms & MESA_TRANSFORM_FLIP_Y);
       break;
    }
 }

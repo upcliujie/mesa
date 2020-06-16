@@ -863,12 +863,12 @@ st_MapRenderbuffer(struct gl_context *ctx,
                    GLuint x, GLuint y, GLuint w, GLuint h,
                    GLbitfield mode,
                    GLubyte **mapOut, GLint *rowStrideOut,
-                   bool flip_y)
+                   enum mesa_transform transform)
 {
    struct st_context *st = st_context(ctx);
    struct st_renderbuffer *strb = st_renderbuffer(rb);
    struct pipe_context *pipe = st->pipe;
-   const GLboolean invert = flip_y;
+   const GLboolean invert = !!(transform & MESA_TRANSFORM_FLIP_Y);
    GLuint y2;
    GLubyte *map;
 

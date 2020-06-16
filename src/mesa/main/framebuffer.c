@@ -160,7 +160,7 @@ _mesa_initialize_window_framebuffer(struct gl_framebuffer *fb,
    fb->_AllColorBuffersFixedPoint = !visual->floatMode;
    fb->_HasSNormOrFloatColorBuffer = visual->floatMode;
    fb->_HasAttachments = true;
-   fb->FlipY = true;
+   fb->Transforms |= MESA_TRANSFORM_FLIP_Y;
 
    fb->SampleLocationTable = NULL;
    fb->ProgrammableSampleLocations = 0;

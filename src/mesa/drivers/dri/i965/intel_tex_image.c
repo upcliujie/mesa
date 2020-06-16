@@ -715,7 +715,7 @@ intel_gettexsubimage_blorp(struct brw_context *brw,
                                      mt_level, x, y, mt_z,
                                      width, height, depth,
                                      tex_image->TexObject->Target,
-                                     format, type, false, pixels, packing);
+                                     format, type, MESA_TRANSFORM_NONE, pixels, packing);
 }
 
 /**

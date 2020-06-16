@@ -170,9 +170,9 @@ do_blit_copypixels(struct gl_context * ctx,
 
    if (!intel_miptree_blit(brw,
                            read_irb->mt, read_irb->mt_level, read_irb->mt_layer,
-                           srcx, srcy, read_fb->FlipY,
+                           srcx, srcy, !!(read_fb->Transforms & MESA_TRANSFORM_FLIP_Y),
                            draw_irb->mt, draw_irb->mt_level, draw_irb->mt_layer,
-                           dstx, dsty, fb->FlipY,
+                           dstx, dsty, !!(fb->Transforms & MESA_TRANSFORM_FLIP_Y),
                            width, height,
                            (ctx->Color.ColorLogicOpEnabled ?
                             ctx->Color._LogicOp : COLOR_LOGICOP_COPY))) {

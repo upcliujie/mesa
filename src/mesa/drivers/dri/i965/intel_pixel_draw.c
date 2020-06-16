@@ -127,7 +127,7 @@ do_blit_drawpixels(struct gl_context * ctx,
                            pbo_mt, 0, 0,
                            0, 0, src_flip,
                            irb->mt, irb->mt_level, irb->mt_layer,
-                           x, y, ctx->DrawBuffer->FlipY,
+                           x, y, !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y),
                            width, height, COLOR_LOGICOP_COPY)) {
       DBG("%s: blit failed\n", __func__);
       intel_miptree_release(&pbo_mt);

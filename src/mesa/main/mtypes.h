@@ -3613,7 +3613,7 @@ struct gl_framebuffer
    struct gl_renderbuffer *_ColorReadBuffer;
 
    /* GL_MESA_framebuffer_flip_y */
-   bool FlipY;
+   enum mesa_transform Transforms;
 
    /** Delete this framebuffer */
    void (*Delete)(struct gl_framebuffer *fb);

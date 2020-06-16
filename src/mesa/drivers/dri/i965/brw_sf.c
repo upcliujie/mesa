@@ -90,7 +90,7 @@ brw_upload_sf_prog(struct brw_context *brw)
       return;
 
    /* _NEW_BUFFERS */
-   bool flip_y = ctx->DrawBuffer->FlipY;
+   bool flip_y = !!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y);
 
    memset(&key, 0, sizeof(key));
 

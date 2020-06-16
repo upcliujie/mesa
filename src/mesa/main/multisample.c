@@ -96,7 +96,7 @@ _mesa_GetMultisamplefv(GLenum pname, GLuint index, GLfloat * val)
       ctx->Driver.GetSamplePosition(ctx, ctx->DrawBuffer, index, val);
 
       /* FBOs can be upside down (winsys always are)*/
-      if (ctx->DrawBuffer->FlipY)
+      if (!!(ctx->DrawBuffer->Transforms & MESA_TRANSFORM_FLIP_Y))
          val[1] = 1.0f - val[1];
 
       return;

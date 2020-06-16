@@ -84,7 +84,7 @@ brw_blorp_download_miptree(struct brw_context *brw,
                            uint32_t level, uint32_t x, uint32_t y, uint32_t z,
                            uint32_t width, uint32_t height, uint32_t depth,
                            GLenum target, GLenum format, GLenum type,
-                           bool y_flip, const void *pixels,
+                           enum mesa_transform transform, const void *pixels,
                            const struct gl_pixelstore_attrib *packing);
 
 void

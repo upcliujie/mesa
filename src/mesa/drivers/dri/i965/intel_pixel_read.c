@@ -181,7 +181,7 @@ intel_readpixels_tiled_memcpy(struct gl_context * ctx,
     * tiled_to_linear a negative pitch so that it walks through the
     * client's data backwards as it walks through the renderbufer forwards.
     */
-   if (ctx->ReadBuffer->FlipY) {
+   if (!!(ctx->ReadBuffer->Transforms & MESA_TRANSFORM_FLIP_Y)) {
       yoffset = rb->Height - yoffset - height;
       pixels += (ptrdiff_t) (height - 1) * dst_pitch;
       dst_pitch = -dst_pitch;
@@ -249,7 +249,8 @@ intel_readpixels_blorp(struct gl_context *ctx,
    return brw_blorp_download_miptree(brw, irb->mt, rb->Format, swizzle,
                                      irb->mt_level, x, y, irb->mt_layer,
                                      w, h, 1, GL_TEXTURE_2D, format, type,
-                                     ctx->ReadBuffer->FlipY, pixels, packing);
+                                     ctx->ReadBuffer->Transforms,
+                                     pixels, packing);
 }
 
 void

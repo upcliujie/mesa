@@ -756,7 +756,7 @@ brw_blorp_copytexsubimage(struct brw_context *brw,
    /* Account for the fact that in the system framebuffer, the origin is at
     * the lower left.
     */
-   bool mirror_y = ctx->ReadBuffer->FlipY;
+   bool mirror_y = !!(ctx->ReadBuffer->Transforms & MESA_TRANSFORM_FLIP_Y);
    if (mirror_y)
       apply_y_flip(&srcY0, &srcY1, src_rb->Height);
 
@@ -1050,7 +1050,7 @@ brw_blorp_download_miptree(struct brw_context *brw,
                            uint32_t level, uint32_t x, uint32_t y, uint32_t z,
                            uint32_t width, uint32_t height, uint32_t depth,
                            GLenum target, GLenum format, GLenum type,
-                           bool y_flip, const void *pixels,
+                           enum mesa_transform transform, const void *pixels,
                            const struct gl_pixelstore_attrib *packing)
 {
    const mesa_format dst_format =
@@ -1105,6 +1105,7 @@ brw_blorp_download_miptree(struct brw_context *brw,
 
    int y0 = y;
    int y1 = y + height;
+   bool y_flip = !!(transform & MESA_TRANSFORM_FLIP_Y);
    if (y_flip) {
       apply_y_flip(&y0, &y1, minify(src_mt->surf.phys_level0_sa.height,
                                     level - src_mt->first_level));
@@ -1219,7 +1220,7 @@ do_single_blorp_clear(struct brw_context *brw, struct gl_framebuffer *fb,
 
    x0 = fb->_Xmin;
    x1 = fb->_Xmax;
-   if (fb->FlipY) {
+   if (!!(fb->Transforms & MESA_TRANSFORM_FLIP_Y)) {
       y0 = rb->Height - fb->_Ymax;
       y1 = rb->Height - fb->_Ymin;
    } else {
@@ -1419,7 +1420,7 @@ brw_blorp_clear_depth_stencil(struct brw_context *brw,
 
    x0 = fb->_Xmin;
    x1 = fb->_Xmax;
-   if (fb->FlipY) {
+   if (!!(fb->Transforms & MESA_TRANSFORM_FLIP_Y)) {
       y0 = rb_height - fb->_Ymax;
       y1 = rb_height - fb->_Ymin;
    } else {

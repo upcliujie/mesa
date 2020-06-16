@@ -158,7 +158,7 @@ static GLuint get_bitmap_rect(GLsizei width, GLsizei height,
 static inline int
 y_flip(struct gl_framebuffer *fb, int y, int height)
 {
-   if (fb->FlipY)
+   if (!!(fb->Transforms & MESA_TRANSFORM_FLIP_Y))
       return fb->Height - y - height;
    else
       return y;
@@ -283,7 +283,7 @@ do_blit_bitmap( struct gl_context *ctx,
                                      w, h,
                                      (GLubyte *)stipple,
                                      8,
-                                     fb->FlipY);
+                                     !!(fb->Transforms & MESA_TRANSFORM_FLIP_Y));
          if (count == 0)
 	    continue;
 

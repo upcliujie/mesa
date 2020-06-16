@@ -425,7 +425,7 @@ xmesa_MapRenderbuffer(struct gl_context *ctx,
                       GLuint x, GLuint y, GLuint w, GLuint h,
                       GLbitfield mode,
                       GLubyte **mapOut, GLint *rowStrideOut,
-                      bool flip_y)
+                      enum mesa_transform transform)
 {
    struct xmesa_renderbuffer *xrb = xmesa_renderbuffer(rb);
 
@@ -508,7 +508,7 @@ xmesa_MapRenderbuffer(struct gl_context *ctx,
 
    /* otherwise, this is an ordinary malloc-based renderbuffer */
    _swrast_map_soft_renderbuffer(ctx, rb, x, y, w, h, mode,
-                                 mapOut, rowStrideOut, false);
+                                 mapOut, rowStrideOut, MESA_TRANSFORM_NONE);
 }
 
 

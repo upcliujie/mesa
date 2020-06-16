@@ -87,7 +87,7 @@ intel_map_renderbuffer(struct gl_context *ctx,
 		       GLbitfield mode,
 		       GLubyte **out_map,
 		       GLint *out_stride,
-		       bool flip_y)
+		       enum mesa_transform transform)
 {
    struct intel_context *intel = intel_context(ctx);
    struct swrast_renderbuffer *srb = (struct swrast_renderbuffer *)rb;
@@ -96,7 +96,7 @@ intel_map_renderbuffer(struct gl_context *ctx,
    int stride;
 
    /* driver does not support GL_FRAMEBUFFER_FLIP_Y_MESA */
-   assert((rb->Name == 0) == flip_y);
+   assert((rb->Name == 0) == !!(transform & MESA_TRANSFORM_FLIP_Y));
 
    if (srb->Buffer) {
       /* this is a malloc'd renderbuffer (accum buffer), not an irb */

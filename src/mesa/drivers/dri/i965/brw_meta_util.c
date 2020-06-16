@@ -254,13 +254,13 @@ brw_meta_mirror_clip_and_scissor(const struct gl_context *ctx,
    /* Account for the fact that in the system framebuffer, the origin is at
     * the lower left.
     */
-   if (read_fb->FlipY) {
+   if (!!(read_fb->Transforms & MESA_TRANSFORM_FLIP_Y)) {
       GLint tmp = read_fb->Height - *srcY0;
       *srcY0 = read_fb->Height - *srcY1;
       *srcY1 = tmp;
       *mirror_y = !*mirror_y;
    }
-   if (draw_fb->FlipY) {
+   if (!!(draw_fb->Transforms & MESA_TRANSFORM_FLIP_Y)) {
       GLint tmp = draw_fb->Height - *dstY0;
       *dstY0 = draw_fb->Height - *dstY1;
       *dstY1 = tmp;

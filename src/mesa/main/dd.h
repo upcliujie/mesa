@@ -440,7 +440,7 @@ struct dd_function_table {
 			   GLuint x, GLuint y, GLuint w, GLuint h,
 			   GLbitfield mode,
 			   GLubyte **mapOut, GLint *rowStrideOut,
-			   bool flip_y);
+			   enum mesa_transform transform);
 
    void (*UnmapRenderbuffer)(struct gl_context *ctx,
 			     struct gl_renderbuffer *rb);
