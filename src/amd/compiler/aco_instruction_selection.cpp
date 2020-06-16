@@ -1970,6 +1970,20 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       }
       break;
    }
+   case nir_op_ffma: {
+      if (dst.regClass() == v2b) {
+         emit_vop3a_instruction(ctx, instr, aco_opcode::v_fma_f16, dst, false, 3);
+      } else if (dst.regClass() == v1) {
+         emit_vop3a_instruction(ctx, instr, aco_opcode::v_fma_f32, dst, ctx->block->fp_mode.must_flush_denorms32, 3);
+      } else if (dst.regClass() == v2) {
+         emit_vop3a_instruction(ctx, instr, aco_opcode::v_fma_f64, dst, false, 3);
+      } else {
+         fprintf(stderr, "Unimplemented NIR instr bit size: ");
+         nir_print_instr(&instr->instr, stderr);
+         fprintf(stderr, "\n");
+      }
+      break;
+   }
    case nir_op_fmax: {
       if (dst.regClass() == v2b) {
          // TODO: check fp_mode.must_flush_denorms16_64
