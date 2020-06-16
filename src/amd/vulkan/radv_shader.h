@@ -42,6 +42,7 @@
 
 #define RADV_VERT_ATTRIB_MAX MAX2(VERT_ATTRIB_MAX, VERT_ATTRIB_GENERIC0 + MAX_VERTEX_ATTRIBS)
 
+struct radv_physical_device;
 struct radv_device;
 
 struct radv_shader_module {
@@ -598,5 +599,8 @@ get_tcs_num_patches(unsigned tcs_num_input_vertices,
 
 void
 radv_lower_io(struct radv_device *device, nir_shader *nir);
+
+void
+radv_get_nir_options(struct radv_physical_device *device);
 
 #endif
