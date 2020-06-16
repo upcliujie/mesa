@@ -326,6 +326,8 @@ struct radv_physical_device {
 	drmPciBusInfo bus_info;
 
 	struct radv_device_extension_table supported_extensions;
+
+	nir_shader_compiler_options nir_options;
 };
 
 struct radv_instance {
