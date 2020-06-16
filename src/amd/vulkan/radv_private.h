@@ -323,6 +323,8 @@ struct radv_physical_device {
 #endif
 
 	struct radv_device_extension_table supported_extensions;
+
+	nir_shader_compiler_options nir_options;
 };
 
 struct radv_instance {
