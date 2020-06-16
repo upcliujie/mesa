@@ -26,6 +26,7 @@
 #include "accum.h"
 #include "condrender.h"
 #include "context.h"
+#include "fbobject.h"
 #include "format_unpack.h"
 #include "format_pack.h"
 #include "framebuffer.h"
@@ -83,7 +84,7 @@ _mesa_clear_accum_buffer(struct gl_context *ctx)
 
    ctx->Driver.MapRenderbuffer(ctx, accRb, x, y, width, height,
                                GL_MAP_WRITE_BIT, &accMap, &accRowStride,
-                               ctx->DrawBuffer->FlipY);
+                               _mesa_fbo_transform(ctx->DrawBuffer));
 
    if (!accMap) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glAccum");
@@ -139,7 +140,7 @@ accum_scale_or_bias(struct gl_context *ctx, GLfloat value,
    ctx->Driver.MapRenderbuffer(ctx, accRb, xpos, ypos, width, height,
                                GL_MAP_READ_BIT | GL_MAP_WRITE_BIT,
                                &accMap, &accRowStride,
-                               ctx->DrawBuffer->FlipY);
+                               _mesa_fbo_transform(ctx->DrawBuffer));
 
    if (!accMap) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glAccum");
@@ -209,7 +210,7 @@ accum_or_load(struct gl_context *ctx, GLfloat value,
    /* Map accum buffer */
    ctx->Driver.MapRenderbuffer(ctx, accRb, xpos, ypos, width, height,
                                mappingFlags, &accMap, &accRowStride,
-                               ctx->DrawBuffer->FlipY);
+                               _mesa_fbo_transform(ctx->DrawBuffer));
    if (!accMap) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glAccum");
       return;
@@ -219,7 +220,7 @@ accum_or_load(struct gl_context *ctx, GLfloat value,
    ctx->Driver.MapRenderbuffer(ctx, colorRb, xpos, ypos, width, height,
                                GL_MAP_READ_BIT,
                                &colorMap, &colorRowStride,
-                               ctx->DrawBuffer->FlipY);
+                               _mesa_fbo_transform(ctx->DrawBuffer));
    if (!colorMap) {
       ctx->Driver.UnmapRenderbuffer(ctx, accRb);
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glAccum");
@@ -292,7 +293,8 @@ accum_return(struct gl_context *ctx, GLfloat value,
    /* Map accum buffer */
    ctx->Driver.MapRenderbuffer(ctx, accRb, xpos, ypos, width, height,
                                GL_MAP_READ_BIT,
-                               &accMap, &accRowStride, fb->FlipY);
+                               &accMap, &accRowStride,
+                               _mesa_fbo_transform(fb));
    if (!accMap) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glAccum");
       return;
@@ -313,7 +315,7 @@ accum_return(struct gl_context *ctx, GLfloat value,
       /* Map color buffer */
       ctx->Driver.MapRenderbuffer(ctx, colorRb, xpos, ypos, width, height,
                                   mappingFlags, &colorMap, &colorRowStride,
-                                  fb->FlipY);
+                                  _mesa_fbo_transform(fb));
       if (!colorMap) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glAccum");
          continue;

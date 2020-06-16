@@ -28,6 +28,7 @@
 #include "main/colormac.h"
 #include "main/condrender.h"
 #include "main/context.h"
+#include "main/fbobject.h"
 #include "main/format_pack.h"
 #include "main/format_utils.h"
 #include "main/glformats.h"
@@ -56,7 +57,7 @@ fast_draw_rgb_ubyte_pixels(struct gl_context *ctx,
                            GLsizei width, GLsizei height,
                            const struct gl_pixelstore_attrib *unpack,
                            const GLvoid *pixels,
-                           bool flip_y)
+                           enum mesa_transform transform)
 {
    const GLubyte *src = (const GLubyte *)
       _mesa_image_address2d(unpack, pixels, width,
@@ -69,7 +70,7 @@ fast_draw_rgb_ubyte_pixels(struct gl_context *ctx,
 
    ctx->Driver.MapRenderbuffer(ctx, rb, x, y, width, height,
                                GL_MAP_WRITE_BIT, &dst, &dstRowStride,
-                               flip_y);
+                               transform);
 
    if (!dst) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glDrawPixels");
@@ -105,7 +106,7 @@ fast_draw_rgba_ubyte_pixels(struct gl_context *ctx,
                            GLsizei width, GLsizei height,
                            const struct gl_pixelstore_attrib *unpack,
                            const GLvoid *pixels,
-                           bool flip_y)
+                           enum mesa_transform transform)
 {
    const GLubyte *src = (const GLubyte *)
       _mesa_image_address2d(unpack, pixels, width,
@@ -118,7 +119,7 @@ fast_draw_rgba_ubyte_pixels(struct gl_context *ctx,
 
    ctx->Driver.MapRenderbuffer(ctx, rb, x, y, width, height,
                                GL_MAP_WRITE_BIT, &dst, &dstRowStride,
-                               flip_y);
+                               transform);
 
    if (!dst) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glDrawPixels");
@@ -156,7 +157,7 @@ fast_draw_generic_pixels(struct gl_context *ctx,
                          GLenum format, GLenum type,
                          const struct gl_pixelstore_attrib *unpack,
                          const GLvoid *pixels,
-                         bool flip_y)
+                         enum mesa_transform transform)
 {
    const GLubyte *src = (const GLubyte *)
       _mesa_image_address2d(unpack, pixels, width,
@@ -170,7 +171,7 @@ fast_draw_generic_pixels(struct gl_context *ctx,
 
    ctx->Driver.MapRenderbuffer(ctx, rb, x, y, width, height,
                                GL_MAP_WRITE_BIT, &dst, &dstRowStride,
-                               flip_y);
+                               transform);
 
    if (!dst) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glDrawPixels");
@@ -235,7 +236,7 @@ fast_draw_rgba_pixels(struct gl_context *ctx, GLint x, GLint y,
        (rb->Format == MESA_FORMAT_B8G8R8X8_UNORM ||
         rb->Format == MESA_FORMAT_B8G8R8A8_UNORM)) {
       fast_draw_rgb_ubyte_pixels(ctx, rb, x, y, width, height,
-                                 &unpack, pixels, fb->FlipY);
+                                 &unpack, pixels, _mesa_fbo_transform(fb));
       return GL_TRUE;
    }
 
@@ -244,7 +245,7 @@ fast_draw_rgba_pixels(struct gl_context *ctx, GLint x, GLint y,
        (rb->Format == MESA_FORMAT_B8G8R8X8_UNORM ||
         rb->Format == MESA_FORMAT_B8G8R8A8_UNORM)) {
       fast_draw_rgba_ubyte_pixels(ctx, rb, x, y, width, height,
-                                  &unpack, pixels, fb->FlipY);
+                                  &unpack, pixels, _mesa_fbo_transform(fb));
       return GL_TRUE;
    }
 
@@ -252,7 +253,7 @@ fast_draw_rgba_pixels(struct gl_context *ctx, GLint x, GLint y,
                                             ctx->Unpack.SwapBytes, NULL)) {
       fast_draw_generic_pixels(ctx, rb, x, y, width, height,
                                format, type, &unpack, pixels,
-                               fb->FlipY);
+                               _mesa_fbo_transform(fb));
       return GL_TRUE;
    }
 

@@ -145,6 +145,9 @@ _mesa_bind_framebuffers(struct gl_context *ctx,
                         struct gl_framebuffer *newDrawFb,
                         struct gl_framebuffer *newReadFb);
 
+extern enum mesa_transform
+_mesa_fbo_transform(const struct gl_framebuffer *fb);
+
 extern GLboolean GLAPIENTRY
 _mesa_IsRenderbuffer(GLuint renderbuffer);
 

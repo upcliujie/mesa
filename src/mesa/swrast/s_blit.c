@@ -25,6 +25,7 @@
 
 #include "main/glheader.h"
 #include "main/condrender.h"
+#include "main/fbobject.h"
 #include "main/image.h"
 #include "main/macros.h"
 #include "main/format_unpack.h"
@@ -253,7 +254,7 @@ blit_nearest(struct gl_context *ctx,
          ctx->Driver.MapRenderbuffer(ctx, readRb, 0, 0,
                                      readRb->Width, readRb->Height,
                                      GL_MAP_READ_BIT | GL_MAP_WRITE_BIT,
-                                     &map, &rowStride, readFb->FlipY);
+                                     &map, &rowStride, _mesa_fbo_transform(readFb));
          if (!map) {
             goto fail_no_memory;
          }
@@ -281,7 +282,7 @@ blit_nearest(struct gl_context *ctx,
                                      srcXpos, srcYpos,
                                      srcWidth, srcHeight,
                                      GL_MAP_READ_BIT, &srcMap, &srcRowStride,
-                                     readFb->FlipY);
+                                     _mesa_fbo_transform(readFb));
          if (!srcMap) {
             goto fail_no_memory;
          }
@@ -289,7 +290,7 @@ blit_nearest(struct gl_context *ctx,
                                      dstXpos, dstYpos,
                                      dstWidth, dstHeight,
                                      GL_MAP_WRITE_BIT, &dstMap, &dstRowStride,
-                                     drawFb->FlipY);
+                                     _mesa_fbo_transform(drawFb));
          if (!dstMap) {
             ctx->Driver.UnmapRenderbuffer(ctx, readRb);
             goto fail_no_memory;
@@ -597,7 +598,7 @@ blit_linear(struct gl_context *ctx,
                                      0, 0, readRb->Width, readRb->Height,
                                      GL_MAP_READ_BIT | GL_MAP_WRITE_BIT,
                                      &srcMap, &srcRowStride,
-                                     readFb->FlipY);
+                                     _mesa_fbo_transform(readFb));
          if (!srcMap) {
             goto fail_no_memory;
          }
@@ -613,14 +614,14 @@ blit_linear(struct gl_context *ctx,
          ctx->Driver.MapRenderbuffer(ctx, readRb,
                                      0, 0, readRb->Width, readRb->Height,
                                      GL_MAP_READ_BIT, &srcMap, &srcRowStride,
-                                     readFb->FlipY);
+                                     _mesa_fbo_transform(readFb));
          if (!srcMap) {
             goto fail_no_memory;
          }
          ctx->Driver.MapRenderbuffer(ctx, drawRb,
                                      0, 0, drawRb->Width, drawRb->Height,
                                      GL_MAP_WRITE_BIT, &dstMap, &dstRowStride,
-                                     drawFb->FlipY);
+                                     _mesa_fbo_transform(drawFb));
          if (!dstMap) {
             ctx->Driver.UnmapRenderbuffer(ctx, readRb);
             goto fail_no_memory;

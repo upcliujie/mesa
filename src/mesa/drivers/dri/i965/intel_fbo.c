@@ -106,7 +106,7 @@ intel_map_renderbuffer(struct gl_context *ctx,
 		       GLbitfield mode,
 		       GLubyte **out_map,
 		       GLint *out_stride,
-		       bool flip_y)
+		       enum mesa_transform transform)
 {
    struct brw_context *brw = brw_context(ctx);
    struct swrast_renderbuffer *srb = (struct swrast_renderbuffer *)rb;
@@ -163,6 +163,7 @@ intel_map_renderbuffer(struct gl_context *ctx,
     * upside-down.  So we need to ask for a rectangle on flipped vertically, and
     * we then return a pointer to the bottom of it with a negative stride.
     */
+   bool flip_y = (transform & MESA_TRANSFORM_FLIP_Y) != 0;
    if (flip_y) {
       y = rb->Height - y - h;
    }

@@ -181,7 +181,7 @@ _swrast_map_soft_renderbuffer(struct gl_context *ctx,
                               GLbitfield mode,
                               GLubyte **out_map,
                               GLint *out_stride,
-                              bool flip_y)
+                              enum mesa_transform transform)
 {
    struct swrast_renderbuffer *srb = swrast_renderbuffer(rb);
    GLubyte *map = srb->Buffer;
@@ -580,7 +580,7 @@ map_attachment(struct gl_context *ctx,
                                   0, 0, rb->Width, rb->Height,
                                   GL_MAP_READ_BIT | GL_MAP_WRITE_BIT,
                                   &srb->Map, &srb->RowStride,
-                                  fb->FlipY);
+                                  _mesa_fbo_transform(fb));
    }
 
    assert(srb->Map);

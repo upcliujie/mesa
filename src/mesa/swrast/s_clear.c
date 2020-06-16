@@ -25,6 +25,7 @@
 #include "main/glheader.h"
 #include "main/accum.h"
 #include "main/condrender.h"
+#include "main/fbobject.h"
 #include "main/format_pack.h"
 #include "main/macros.h"
 
@@ -137,7 +138,7 @@ clear_rgba_buffer(struct gl_context *ctx, struct gl_renderbuffer *rb,
    /* map dest buffer */
    ctx->Driver.MapRenderbuffer(ctx, rb, x, y, width, height,
                                mapMode, &map, &rowStride,
-                               ctx->DrawBuffer->FlipY);
+                               _mesa_fbo_transform(ctx->DrawBuffer));
    if (!map) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glClear(color)");
       return;

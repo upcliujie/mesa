@@ -25,6 +25,7 @@
 
 #include "main/glheader.h"
 #include "main/context.h"
+#include "main/fbobject.h"
 
 #include "main/format_pack.h"
 #include "main/format_unpack.h"
@@ -580,7 +581,7 @@ _swrast_clear_stencil_buffer(struct gl_context *ctx)
 
    ctx->Driver.MapRenderbuffer(ctx, rb, x, y, width, height,
                                mapMode, &map, &rowStride,
-                               ctx->DrawBuffer->FlipY);
+                               _mesa_fbo_transform(ctx->DrawBuffer));
    if (!map) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glClear(stencil)");
       return;

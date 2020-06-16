@@ -44,7 +44,7 @@ _swrast_map_soft_renderbuffer(struct gl_context *ctx,
                               GLbitfield mode,
                               GLubyte **out_map,
                               GLint *out_stride,
-                              bool flip_y);
+                              enum mesa_transform transform);
 
 extern void
 _swrast_unmap_soft_renderbuffer(struct gl_context *ctx,

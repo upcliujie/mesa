@@ -1500,6 +1500,18 @@ _mesa_test_framebuffer_completeness(struct gl_context *ctx,
    _mesa_update_framebuffer_visual(ctx, fb);
 }
 
+/*
+ * Return mesa_transform value for the given framebuffer.
+ */
+enum mesa_transform
+_mesa_fbo_transform(const struct gl_framebuffer *fb)
+{
+   enum mesa_transform transform = MESA_TRANSFORM_NONE;
+   if (fb->FlipY) {
+      transform |= MESA_TRANSFORM_FLIP_Y;
+   }
+   return transform;
+}
 
 GLboolean GLAPIENTRY
 _mesa_IsRenderbuffer(GLuint renderbuffer)

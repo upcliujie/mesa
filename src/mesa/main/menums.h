@@ -185,6 +185,12 @@ enum mesa_debug_severity
    MESA_DEBUG_SEVERITY_COUNT
 };
 
+enum mesa_transform
+{
+   MESA_TRANSFORM_NONE = 0,
+   MESA_TRANSFORM_FLIP_Y = (1 << 0),
+};
+
 /** @} */
 
 #endif
