@@ -89,6 +89,25 @@ def intBitsToFloat(i):
     return struct.unpack('!f', struct.pack('!I', i))[0]
 
 optimizations = [
+   # NaN folding.  Unary ops and other operations where all the sources are
+   # constant are handled by constant folding.
+   (('feq', a, '#b(is_nan)'), False),
+   (('fneu', a, '#b(is_nan)'), True),
+   (('flt', '#a(is_nan)', b), False),
+   (('flt', a, '#b(is_nan)'), False),
+   (('fge', '#a(is_nan)', b), False),
+   (('fge', a, '#b(is_nan)'), False),
+   (('fadd', a, '#b(is_nan)'), b),
+   (('fmul', a, '#b(is_nan)'), b),
+   (('fmax', '#a(is_nan)', b), b),
+   (('fmin', '#a(is_nan)', b), b),
+   (('fpow', '#a(is_nan)', b), a),
+   (('fpow', a, '#b(is_nan)'), b),
+   (('flrp', '#a(is_nan)', b, c), a),
+   (('flrp', a, '#b(is_nan)', c), b),
+   (('flrp', a, b, '#c(is_nan)'), c),
+   (('ffma', '#a(is_nan)', b, c), a),
+   (('ffma', a, b, '#c(is_nan)'), c),
 
    (('imul', a, '#b(is_pos_power_of_two)'), ('ishl', a, ('find_lsb', b)), '!options->lower_bitops'),
    (('imul', a, '#b(is_neg_power_of_two)'), ('ineg', ('ishl', a, ('find_lsb', ('iabs', b)))), '!options->lower_bitops'),
