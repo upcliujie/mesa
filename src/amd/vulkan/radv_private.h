@@ -310,6 +310,8 @@ struct radv_physical_device {
    dev_t primary_devid;
    dev_t render_devid;
 #endif
+
+   nir_shader_compiler_options nir_options;
 };
 
 struct radv_instance {
