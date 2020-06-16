@@ -3082,6 +3082,9 @@ typedef struct nir_shader_compiler_options {
    bool fuse_ffma16;
    bool fuse_ffma32;
    bool fuse_ffma64;
+   bool avoid_ffma16;
+   bool avoid_ffma32;
+   bool avoid_ffma64;
    bool lower_flrp16;
    bool lower_flrp32;
    /** Lowers flrp when it does not support doubles */
