@@ -2839,12 +2839,21 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
          add_op_idx = 0;
       } else if (uses_src0 != UINT32_MAX) {
          /* tiebreaker: quite random what to pick */
-         if (op0_info->instr->operands[0].isLiteral()) {
+         if (op0_info->instr->operands[0].isLiteral() && !op1_info->instr->operands[0].isLiteral()) {
             mul_instr = op1_info->instr;
             add_op_idx = 0;
-         } else {
+         } else if (op1_info->instr->operands[0].isLiteral() && !op0_info->instr->operands[0].isLiteral()) {
             mul_instr = op0_info->instr;
             add_op_idx = 1;
+         } else {
+            /* pick the one that probably appears first, to reduce noise when swapping v_add_f32 operands */
+            if (instr->operands[0].tempId() < instr->operands[1].tempId()) {
+               mul_instr = op0_info->instr;
+               add_op_idx = 1;
+            } else {
+               mul_instr = op1_info->instr;
+               add_op_idx = 0;
+            }
          }
       }
       if (mul_instr) {
