@@ -482,4 +482,31 @@ is_a_number(struct hash_table *ht, const nir_alu_instr *instr, unsigned src,
    return v.is_a_number;
 }
 
+static inline bool
+is_used_by_mul(struct hash_table *ht, const nir_alu_instr *instr, unsigned src,
+               UNUSED unsigned num_components, UNUSED const uint8_t *swizzle)
+{
+   const nir_alu_instr *src_alu =
+      nir_src_as_alu_instr(instr->src[src].src);
+
+   nir_ssa_def *ssa = src_alu && src_alu->op == nir_op_fneg ?
+                      src_alu->src[0].src.ssa : instr->src[src].src.ssa;
+   src_alu = src_alu ? src_alu : instr;
+
+   if (list_is_singular(&ssa->uses))
+      return false;
+
+   nir_foreach_use(src, ssa) {
+      if (src->parent_instr == &src_alu->instr || src->parent_instr->type != nir_instr_type_alu)
+         continue;
+      nir_alu_instr *user = nir_instr_as_alu(src->parent_instr);
+      unsigned index = (nir_alu_src*)container_of(src, nir_alu_src, src) - user->src;
+
+      if (user->op == nir_op_fmul || (user->op == nir_op_ffma && index <= 1))
+         return true;
+   }
+
+   return false;
+}
+
 #endif /* _NIR_SEARCH_ */
