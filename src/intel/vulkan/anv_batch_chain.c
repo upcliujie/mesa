@@ -1761,6 +1761,16 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
       submit->cmd_buffer &&
       submit->cmd_buffer->perf_query_pool;
 
+   if (INTEL_DEBUG & DEBUG_SUBMIT) {
+      fprintf(stderr, "Batch on queue 0\n");
+      for (uint32_t i = 0; i < execbuf.bo_count; i++) {
+         const struct anv_bo *bo = execbuf.bos[i];
+
+         fprintf(stderr, "   BO: addr=0x%016"PRIx64" size=%010lu handle=%05u name=%s\n",
+                 bo->offset, bo->size, bo->gem_handle, bo->name);
+      }
+   }
+
    if (INTEL_DEBUG & DEBUG_BATCH) {
       if (submit->cmd_buffer) {
          if (has_perf_query) {
