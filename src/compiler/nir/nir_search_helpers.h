@@ -302,6 +302,26 @@ is_used_by_non_fsat(nir_alu_instr *instr)
    return false;
 }
 
+static inline bool
+is_only_used_as_float(nir_alu_instr *instr)
+{
+   nir_foreach_use(src, &instr->dest.dest.ssa) {
+      const nir_instr *const user_instr = src->parent_instr;
+      if (user_instr->type != nir_instr_type_alu)
+         return false;
+
+      const nir_alu_instr *const user_alu = nir_instr_as_alu(user_instr);
+      assert(instr != user_alu);
+
+      nir_alu_src *sample = NULL;
+      unsigned index = (nir_alu_src*)container_of(src, sample, src) - user_alu->src;
+      if (nir_op_infos[user_alu->op].input_types[index] != nir_type_float)
+         return false;
+   }
+
+   return true;
+}
+
 /**
  * Returns true if a NIR ALU src represents a constant integer
  * of either 32 or 64 bits, and the higher word (bit-size / 2)
