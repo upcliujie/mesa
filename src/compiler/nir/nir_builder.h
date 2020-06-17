@@ -598,6 +598,7 @@ static inline nir_ssa_def *
 nir_fdot(nir_builder *build, nir_ssa_def *src0, nir_ssa_def *src1)
 {
    assert(src0->num_components == src1->num_components);
+
    switch (src0->num_components) {
    case 1: return nir_fmul(build, src0, src1);
    case 2: return nir_fdot2(build, src0, src1);
@@ -958,6 +959,42 @@ nir_uclamp(nir_builder *b,
            nir_ssa_def *x, nir_ssa_def *min_val, nir_ssa_def *max_val)
 {
    return nir_umin(b, nir_umax(b, x, min_val), max_val);
+}
+
+static inline nir_ssa_def *
+nir_ffma_imm12(nir_builder *build, nir_ssa_def *src0, double src1, double src2)
+{
+   if (build->shader->options->avoid_ternary_with_two_constants)
+      return nir_fadd_imm(build, nir_fmul_imm(build, src0, src1), src2);
+   else
+      return nir_ffma(build, src0, nir_imm_floatN_t(build, src1, src0->bit_size),
+                             nir_imm_floatN_t(build, src2, src0->bit_size));
+}
+
+static inline nir_ssa_def *
+nir_ffma_imm1(nir_builder *build, nir_ssa_def *src0, double src1, nir_ssa_def *src2)
+{
+   return nir_ffma(build, src0, nir_imm_floatN_t(build, src1, src0->bit_size), src2);
+}
+
+static inline nir_ssa_def *
+nir_ffma_imm2(nir_builder *build, nir_ssa_def *src0, nir_ssa_def *src1, double src2)
+{
+   return nir_ffma(build, src0, src1, nir_imm_floatN_t(build, src2, src0->bit_size));
+}
+
+static inline nir_ssa_def *
+nir_ffma_neg2(nir_builder *build, nir_ssa_def *src0, nir_ssa_def *src1,
+              nir_ssa_def *src2)
+{
+   return nir_ffma(build, src0, src1, nir_fneg(build, src2));
+}
+
+static inline nir_ssa_def *
+nir_a_minus_bc(nir_builder *build, nir_ssa_def *src0, nir_ssa_def *src1,
+               nir_ssa_def *src2)
+{
+   return nir_ffma(build, nir_fneg(build, src1), src2, src0);
 }
 
 static inline nir_ssa_def *
