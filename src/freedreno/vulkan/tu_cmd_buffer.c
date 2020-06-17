@@ -1640,6 +1640,9 @@ tu_BeginCommandBuffer(VkCommandBuffer commandBuffer,
          cmd_buffer->state.pass = tu_render_pass_from_handle(pBeginInfo->pInheritanceInfo->renderPass);
          cmd_buffer->state.subpass =
             &cmd_buffer->state.pass->subpasses[pBeginInfo->pInheritanceInfo->subpass];
+         /* This is optional in the inheritance info. */
+         TU_FROM_HANDLE(tu_framebuffer, fb, pBeginInfo->pInheritanceInfo->framebuffer);
+         cmd_buffer->state.framebuffer = fb;
       } else {
          /* When executing in the middle of another command buffer, the CCU
           * state is unknown.
