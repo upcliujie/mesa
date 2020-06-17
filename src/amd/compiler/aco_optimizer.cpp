@@ -3033,8 +3033,19 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
          Operand op[3] = {info.instr->operands[0], info.instr->operands[1], instr->operands[1 - i]};
          if (info.instr->isSDWA() ||
              !check_vop3_operands(ctx, 3, op) ||
-             ctx.uses[instr->operands[i].tempId()] >= uses)
+             ctx.uses[instr->operands[i].tempId()] > uses)
             continue;
+
+         if (ctx.uses[instr->operands[i].tempId()] == uses) {
+            /* prefer a VOP3 mul */
+            if (mul_instr->isVOP3() && !info.instr->isVOP3()) {
+               continue;
+            } else if (!mul_instr->isVOP3() && !info.instr->isVOP3()) {
+               /* pick the one that probably appears first, to reduce noise when swapping v_add_f32 operands */
+               if (mul_instr->definitions[0].tempId() < info.instr->definitions[0].tempId())
+                  continue;
+            }
+         }
 
          mul_instr = info.instr;
          add_op_idx = 1 - i;
