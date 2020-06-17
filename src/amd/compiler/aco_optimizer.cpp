@@ -116,6 +116,7 @@ enum Label {
    label_b2i = 1 << 27,
    label_constant_16bit = 1 << 29,
    label_usedef = 1 << 30, /* generic label */
+   label_fcanonicalize = 1 << 31,
 };
 
 static constexpr uint64_t instr_usedef_labels = label_vec | label_mul | label_mad | label_add_sub |
@@ -124,7 +125,7 @@ static constexpr uint64_t instr_mod_labels = label_omod2 | label_omod4 | label_o
 
 static constexpr uint64_t instr_labels = instr_usedef_labels | instr_mod_labels;
 static constexpr uint64_t temp_labels = label_abs | label_neg | label_temp | label_vcc | label_b2f | label_uniform_bool |
-                                        label_scc_invert | label_b2i;
+                                        label_scc_invert | label_b2i | label_fcanonicalize;
 static constexpr uint32_t val_labels = label_constant_32bit | label_constant_64bit | label_constant_16bit | label_literal;
 
 static_assert((instr_labels & temp_labels) == 0, "labels cannot intersect");
@@ -499,6 +500,18 @@ struct ssa_info {
    {
       return label & label_usedef;
    }
+
+   void set_fcanonicalize(Temp tmp)
+   {
+      add_label(label_fcanonicalize);
+      temp = tmp;
+   }
+
+   bool is_fcanonicalize()
+   {
+      return label & label_fcanonicalize;
+   }
+
 };
 
 struct opt_ctx {
@@ -800,6 +813,12 @@ bool fixed_to_exec(Operand op)
    return op.isFixed() && op.physReg() == exec;
 }
 
+bool can_eliminate_fcanonicalize(aco_opcode op)
+{
+   return op == aco_opcode::v_add_f32 || op == aco_opcode::v_mul_f32 ||
+          op == aco_opcode::v_add_f16 || op == aco_opcode::v_mul_f16;
+}
+
 void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
 {
    if (instr->isSALU() || instr->isVALU() || instr->format == Format::PSEUDO) {
@@ -875,7 +894,8 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
 
       /* VALU: propagate neg, abs & inline constants */
       else if (instr->isVALU()) {
-         if (info.is_temp() && info.temp.type() == RegType::vgpr && valu_can_accept_vgpr(instr, i)) {
+         bool is_fp = can_eliminate_fcanonicalize(instr->opcode);
+         if ((info.is_temp() || (info.is_fcanonicalize() && is_fp)) && info.temp.type() == RegType::vgpr && valu_can_accept_vgpr(instr, i)) {
             instr->operands[i].setTemp(info.temp);
             info = ctx.info[info.temp.id()];
          }
@@ -1276,8 +1296,14 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
             } else if (instr->operands[!i].constantValue() == (fp16 ? 0x3800 : 0x3f000000)) { /* 0.5 */
                ctx.info[instr->operands[i].tempId()].set_omod5(instr.get());
             } else if (instr->operands[!i].constantValue() == (fp16 ? 0x3c00 : 0x3f800000) &&
-                       !(fp16 ? block.fp_mode.must_flush_denorms16_64 : block.fp_mode.must_flush_denorms32)) { /* 1.0 */
+                       !(fp16 ? block.fp_mode.must_flush_denorms16_64 : block.fp_mode.must_flush_denorms32) &&
+                       !instr->definitions[0].isPrecise()) { /* 1.0 */
                ctx.info[instr->definitions[0].tempId()].set_temp(instr->operands[i].getTemp());
+            } else if (instr->operands[!i].constantValue() == (fp16 ? 0x3c00 : 0x3f800000)) {
+               ctx.info[instr->definitions[0].tempId()].set_fcanonicalize(instr->operands[i].getTemp());
+            } else if (instr->operands[!i].constantValue() == 0u &&
+                       !(fp16 ? block.fp_mode.preserve_signed_zero_inf_nan16_64 : block.fp_mode.preserve_signed_zero_inf_nan32)) { /* 0.0 */
+               ctx.info[instr->definitions[0].tempId()].set_constant(ctx.program->chip_class, 0u);
             } else {
                continue;
             }
@@ -2490,7 +2516,8 @@ void apply_sgprs(opt_ctx &ctx, aco_ptr<Instruction>& instr)
             sgpr_ids[!!sgpr_ids[0]] = instr->operands[i].tempId();
       }
       ssa_info& info = ctx.info[instr->operands[i].tempId()];
-      if (info.is_temp() && info.temp.type() == RegType::sgpr)
+      if ((info.is_temp() || (info.is_fcanonicalize() && can_eliminate_fcanonicalize(instr->opcode))) &&
+          info.temp.type() == RegType::sgpr)
          operand_mask |= 1u << i;
    }
    unsigned max_sgprs = 1;
