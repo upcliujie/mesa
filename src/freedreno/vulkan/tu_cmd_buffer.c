@@ -1546,6 +1546,12 @@ tu_BeginCommandBuffer(VkCommandBuffer commandBuffer,
          cmd_buffer->state.pass = tu_render_pass_from_handle(pBeginInfo->pInheritanceInfo->renderPass);
          cmd_buffer->state.subpass =
             &cmd_buffer->state.pass->subpasses[pBeginInfo->pInheritanceInfo->subpass];
+         /* Track LRZ */
+         TU_FROM_HANDLE(tu_framebuffer, fb, pBeginInfo->pInheritanceInfo->framebuffer);
+         unsigned depth_attachment = cmd_buffer->state.subpass->depth_stencil_attachment.attachment;
+         cmd_buffer->state.lrz.image = (fb && depth_attachment != VK_ATTACHMENT_UNUSED) ? fb->attachments[depth_attachment].attachment->image : NULL;
+         cmd_buffer->state.lrz.valid = false;
+         cmd_buffer->state.dirty |= TU_CMD_DIRTY_LRZ;
       } else {
          /* When executing in the middle of another command buffer, the CCU
           * state is unknown.
@@ -2459,6 +2465,13 @@ tu_CmdExecuteCommands(VkCommandBuffer commandBuffer,
       cmd->state.index_size = secondary->state.index_size; /* for restart index update */
    }
    cmd->state.dirty = ~0u; /* TODO: set dirty only what needs to be */
+
+   if (cmd->state.pass) {
+      /* After a secondary command buffer is executed, LRZ is not valid
+       * until it is cleared again.
+       */
+      cmd->state.lrz.valid = false;
+   }
 
    /* After executing secondary command buffers, there may have been arbitrary
     * flushes executed, so when we encounter a pipeline barrier with a
