@@ -43,6 +43,7 @@
 #define TU6_xTC(vk, fmt, swap) TU6_FMT(vk, fmt, swap, FMT_TEXTURE | FMT_COLOR)
 #define TU6_Vxx(vk, fmt, swap) TU6_FMT(vk, fmt, swap, FMT_VERTEX)
 #define TU6_xTx(vk, fmt, swap) TU6_FMT(vk, fmt, swap, FMT_TEXTURE)
+#define TU6_VTx(vk, fmt, swap) TU6_FMT(vk, fmt, swap, FMT_VERTEX | FMT_TEXTURE)
 #define TU6_xxx(vk, fmt, swap) TU6_FMT(vk, NONE, WZYX, 0)
 
 static const struct tu_native_format tu6_format_table[] = {
@@ -79,22 +80,22 @@ static const struct tu_native_format tu6_format_table[] = {
    TU6_xTC(R8G8_SRGB,                  8_8_UNORM,         WZYX), /* 22 */
 
    /* 24-bit RGB */
-   TU6_Vxx(R8G8B8_UNORM,               8_8_8_UNORM,       WZYX), /* 23 */
-   TU6_Vxx(R8G8B8_SNORM,               8_8_8_SNORM,       WZYX), /* 24 */
+   TU6_VTx(R8G8B8_UNORM,               8_8_8_UNORM,       WZYX), /* 23 */
+   TU6_VTx(R8G8B8_SNORM,               8_8_8_SNORM,       WZYX), /* 24 */
    TU6_Vxx(R8G8B8_USCALED,             8_8_8_UINT,        WZYX), /* 25 */
    TU6_Vxx(R8G8B8_SSCALED,             8_8_8_SINT,        WZYX), /* 26 */
-   TU6_Vxx(R8G8B8_UINT,                8_8_8_UINT,        WZYX), /* 27 */
-   TU6_Vxx(R8G8B8_SINT,                8_8_8_SINT,        WZYX), /* 28 */
-   TU6_xxx(R8G8B8_SRGB,                8_8_8_UNORM,       WZYX), /* 29 */
+   TU6_VTx(R8G8B8_UINT,                8_8_8_UINT,        WZYX), /* 27 */
+   TU6_VTx(R8G8B8_SINT,                8_8_8_SINT,        WZYX), /* 28 */
+   TU6_xTx(R8G8B8_SRGB,                8_8_8_UNORM,       WZYX), /* 29 */
 
    /* 24-bit BGR */
-   TU6_xxx(B8G8R8_UNORM,               8_8_8_UNORM,       WXYZ), /* 30 */
-   TU6_xxx(B8G8R8_SNORM,               8_8_8_SNORM,       WXYZ), /* 31 */
+   TU6_xTx(B8G8R8_UNORM,               8_8_8_UNORM,       WXYZ), /* 30 */
+   TU6_xTx(B8G8R8_SNORM,               8_8_8_SNORM,       WXYZ), /* 31 */
    TU6_xxx(B8G8R8_USCALED,             8_8_8_UINT,        WXYZ), /* 32 */
    TU6_xxx(B8G8R8_SSCALED,             8_8_8_SINT,        WXYZ), /* 33 */
-   TU6_xxx(B8G8R8_UINT,                8_8_8_UINT,        WXYZ), /* 34 */
-   TU6_xxx(B8G8R8_SINT,                8_8_8_SINT,        WXYZ), /* 35 */
-   TU6_xxx(B8G8R8_SRGB,                8_8_8_UNORM,       WXYZ), /* 36 */
+   TU6_xTx(B8G8R8_UINT,                8_8_8_UINT,        WXYZ), /* 34 */
+   TU6_xTx(B8G8R8_SINT,                8_8_8_SINT,        WXYZ), /* 35 */
+   TU6_xTx(B8G8R8_SRGB,                8_8_8_UNORM,       WXYZ), /* 36 */
 
    /* 32-bit RGBA */
    TU6_VTC(R8G8B8A8_UNORM,             8_8_8_8_UNORM,     WZYX), /* 37 */
@@ -154,13 +155,13 @@ static const struct tu_native_format tu6_format_table[] = {
    TU6_VTC(R16G16_SFLOAT,              16_16_FLOAT,       WZYX), /* 83 */
 
    /* 48-bit RGB */
-   TU6_Vxx(R16G16B16_UNORM,            16_16_16_UNORM,    WZYX), /* 84 */
-   TU6_Vxx(R16G16B16_SNORM,            16_16_16_SNORM,    WZYX), /* 85 */
+   TU6_VTx(R16G16B16_UNORM,            16_16_16_UNORM,    WZYX), /* 84 */
+   TU6_VTx(R16G16B16_SNORM,            16_16_16_SNORM,    WZYX), /* 85 */
    TU6_Vxx(R16G16B16_USCALED,          16_16_16_UINT,     WZYX), /* 86 */
    TU6_Vxx(R16G16B16_SSCALED,          16_16_16_SINT,     WZYX), /* 87 */
-   TU6_Vxx(R16G16B16_UINT,             16_16_16_UINT,     WZYX), /* 88 */
-   TU6_Vxx(R16G16B16_SINT,             16_16_16_SINT,     WZYX), /* 89 */
-   TU6_Vxx(R16G16B16_SFLOAT,           16_16_16_FLOAT,    WZYX), /* 90 */
+   TU6_VTx(R16G16B16_UINT,             16_16_16_UINT,     WZYX), /* 88 */
+   TU6_VTx(R16G16B16_SINT,             16_16_16_SINT,     WZYX), /* 89 */
+   TU6_VTx(R16G16B16_SFLOAT,           16_16_16_FLOAT,    WZYX), /* 90 */
 
    /* 64-bit RGBA */
    TU6_VTC(R16G16B16A16_UNORM,         16_16_16_16_UNORM, WZYX), /* 91 */
@@ -182,9 +183,9 @@ static const struct tu_native_format tu6_format_table[] = {
    TU6_VTC(R32G32_SFLOAT,              32_32_FLOAT,       WZYX), /* 103 */
 
    /* 96-bit RGB */
-   TU6_Vxx(R32G32B32_UINT,             32_32_32_UINT,     WZYX), /* 104 */
+   TU6_VTx(R32G32B32_UINT,             32_32_32_UINT,     WZYX), /* 104 */
    TU6_Vxx(R32G32B32_SINT,             32_32_32_SINT,     WZYX), /* 105 */
-   TU6_Vxx(R32G32B32_SFLOAT,           32_32_32_FLOAT,    WZYX), /* 106 */
+   TU6_VTx(R32G32B32_SFLOAT,           32_32_32_FLOAT,    WZYX), /* 106 */
 
    /* 128-bit RGBA */
    TU6_VTC(R32G32B32A32_UINT,          32_32_32_32_UINT,  WZYX), /* 107 */

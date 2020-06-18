@@ -53,6 +53,13 @@ fdl6_get_ubwc_blockwidth(struct fdl_layout *layout,
 		{ 0, 0 },  /* cpp = 64 (TODO) */
 	};
 
+	/* NPOT formats don't support tiling at all */
+	if (!util_is_power_of_two_or_zero(layout->cpp)) {
+		*blockwidth = 0;
+		*blockheight = 0;
+		return;
+	}
+
 	/* special case for r8g8: */
 	if (is_r8g8(layout)) {
 		*blockwidth = 16;
@@ -141,13 +148,13 @@ fdl6_layout(struct fdl_layout *layout,
 		 * aligned gmem store. turnip can use CP_BLIT to work without this
 		 * extra alignment, but gallium driver doesn't implement it yet
 		 */
-		if (layout->cpp > 4)
+		if (layout->cpp > 4 && util_is_power_of_two_or_zero(layout->cpp))
 			layout->pitchalign = fdl_cpp_shift(layout) - 2;
 
 		/* when possible, use a bit more alignment than necessary
 		 * presumably this is better for performance?
 		 */
-		if (!explicit_layout)
+		if (!explicit_layout && util_is_power_of_two_or_zero(layout->cpp))
 			layout->pitchalign = fdl_cpp_shift(layout);
 
 		/* not used, avoid "may be used uninitialized" warning */
@@ -262,6 +269,12 @@ fdl6_layout(struct fdl_layout *layout,
 
 	/* include explicit offset in size */
 	layout->size += offset;
+
+	/* NPOT formats seem to read a little beyond what is necessary
+	 * (this is probably way more than what is needed)
+	 */
+	if (!util_is_power_of_two_or_zero(layout->cpp))
+		layout->size += 4096;
 
 	return true;
 }

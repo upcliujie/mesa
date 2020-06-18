@@ -905,7 +905,7 @@ coords(const struct blit_ops *ops,
 }
 
 static VkFormat
-copy_format(VkFormat format, VkImageAspectFlags aspect_mask, bool copy_buffer)
+copy_format(VkFormat format, VkImageAspectFlags aspect_mask)
 {
    if (vk_format_is_compressed(format)) {
       switch (vk_format_get_blocksize(format)) {
@@ -926,10 +926,6 @@ copy_format(VkFormat format, VkImageAspectFlags aspect_mask, bool copy_buffer)
       /* fallthrough */
    case VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
       return VK_FORMAT_R8_UNORM;
-   case VK_FORMAT_D24_UNORM_S8_UINT:
-      if (aspect_mask == VK_IMAGE_ASPECT_STENCIL_BIT && copy_buffer)
-         return VK_FORMAT_R8_UNORM;
-      /* fallthrough */
    default:
       return format;
    case VK_FORMAT_E5B9G9R9_UFLOAT_PACK32:
@@ -1139,6 +1135,34 @@ copy_compressed(VkFormat format,
 }
 
 static void
+copy_npot(VkFormat *dst_format,
+          VkFormat *src_format,
+          VkOffset3D *offset,
+          VkExtent3D *extent,
+          uint32_t *width)
+{
+   VkFormat format;
+   switch (vk_format_get_blocksize(*dst_format)) {
+   case 3:
+      format = VK_FORMAT_R8_UINT;
+      break;
+   case 6:
+      format = VK_FORMAT_R16_UINT;
+      break;
+   case 12:
+      format = VK_FORMAT_R32_UINT;
+      break;
+   default:
+      return;
+   }
+   offset->x *= 3;
+   extent->width *= 3;
+   *width *= 3;
+   *dst_format = format;
+   *src_format = format;
+}
+
+static void
 tu_copy_buffer_to_image(struct tu_cmd_buffer *cmd,
                         struct tu_buffer *src_buffer,
                         struct tu_image *dst_image,
@@ -1146,13 +1170,15 @@ tu_copy_buffer_to_image(struct tu_cmd_buffer *cmd,
 {
    struct tu_cs *cs = &cmd->cs;
    uint32_t layers = MAX2(info->imageExtent.depth, info->imageSubresource.layerCount);
-   VkFormat src_format =
-      copy_format(dst_image->vk_format, info->imageSubresource.aspectMask, true);
+   VkFormat dst_format =
+      copy_format(dst_image->vk_format, info->imageSubresource.aspectMask);
+   VkFormat src_format = dst_format;
    const struct blit_ops *ops = &r2d_ops;
 
    /* special case for buffer to stencil */
    if (dst_image->vk_format == VK_FORMAT_D24_UNORM_S8_UINT &&
        info->imageSubresource.aspectMask == VK_IMAGE_ASPECT_STENCIL_BIT) {
+      src_format = VK_FORMAT_R8_UNORM;
       ops = &r3d_ops;
    }
 
@@ -1166,16 +1192,16 @@ tu_copy_buffer_to_image(struct tu_cmd_buffer *cmd,
    uint32_t src_height = info->bufferImageHeight ?: extent.height;
 
    copy_compressed(dst_image->vk_format, &offset, &extent, &src_width, &src_height);
+   copy_npot(&dst_format, &src_format, &offset, &extent, &src_width);
 
    uint32_t pitch = src_width * vk_format_get_blocksize(src_format);
    uint32_t layer_size = src_height * pitch;
 
-   ops->setup(cmd, cs,
-              copy_format(dst_image->vk_format, info->imageSubresource.aspectMask, false),
+   ops->setup(cmd, cs, dst_format,
               info->imageSubresource.aspectMask, ROTATE_0, false, dst_image->layout[0].ubwc);
 
    struct tu_image_view dst;
-   tu_image_view_copy(&dst, dst_image, dst_image->vk_format, &info->imageSubresource, offset.z, false);
+   tu_image_view_copy(&dst, dst_image, dst_format, &info->imageSubresource, offset.z, false);
 
    for (uint32_t i = 0; i < layers; i++) {
       ops->dst(cs, &dst, i);
@@ -1228,12 +1254,14 @@ tu_copy_image_to_buffer(struct tu_cmd_buffer *cmd,
 {
    struct tu_cs *cs = &cmd->cs;
    uint32_t layers = MAX2(info->imageExtent.depth, info->imageSubresource.layerCount);
-   VkFormat dst_format =
-      copy_format(src_image->vk_format, info->imageSubresource.aspectMask, true);
+   VkFormat src_format =
+      copy_format(src_image->vk_format, info->imageSubresource.aspectMask);
+   VkFormat dst_format = src_format;
    bool stencil_read = false;
 
    if (src_image->vk_format == VK_FORMAT_D24_UNORM_S8_UINT &&
        info->imageSubresource.aspectMask == VK_IMAGE_ASPECT_STENCIL_BIT) {
+      dst_format = VK_FORMAT_R8_UNORM;
       stencil_read = true;
    }
 
@@ -1244,6 +1272,7 @@ tu_copy_image_to_buffer(struct tu_cmd_buffer *cmd,
    uint32_t dst_height = info->bufferImageHeight ?: extent.height;
 
    copy_compressed(src_image->vk_format, &offset, &extent, &dst_width, &dst_height);
+   copy_npot(&dst_format, &src_format, &offset, &extent, &dst_width);
 
    uint32_t pitch = dst_width * vk_format_get_blocksize(dst_format);
    uint32_t layer_size = pitch * dst_height;
@@ -1251,7 +1280,7 @@ tu_copy_image_to_buffer(struct tu_cmd_buffer *cmd,
    ops->setup(cmd, cs, dst_format, VK_IMAGE_ASPECT_COLOR_BIT, ROTATE_0, false, false);
 
    struct tu_image_view src;
-   tu_image_view_copy(&src, src_image, src_image->vk_format, &info->imageSubresource, offset.z, stencil_read);
+   tu_image_view_copy(&src, src_image, src_format, &info->imageSubresource, offset.z, stencil_read);
 
    for (uint32_t i = 0; i < layers; i++) {
       ops->src(cmd, cs, &src, i, VK_FILTER_NEAREST);
@@ -1360,8 +1389,10 @@ tu_copy_image_to_image(struct tu_cmd_buffer *cmd,
    copy_compressed(src_image->vk_format, &src_offset, &extent, NULL, NULL);
    copy_compressed(dst_image->vk_format, &dst_offset, NULL, NULL, NULL);
 
-   VkFormat dst_format = copy_format(dst_image->vk_format, info->dstSubresource.aspectMask, false);
-   VkFormat src_format = copy_format(src_image->vk_format, info->srcSubresource.aspectMask, false);
+   VkFormat dst_format = copy_format(dst_image->vk_format, info->dstSubresource.aspectMask);
+   VkFormat src_format = copy_format(src_image->vk_format, info->srcSubresource.aspectMask);
+
+   copy_npot(&dst_format, &src_format, &src_offset, &extent, (uint32_t*) &dst_offset.x);
 
    bool use_staging_blit = false;
 
@@ -1718,7 +1749,7 @@ clear_image(struct tu_cmd_buffer *cmd,
    struct tu_cs *cs = &cmd->cs;
    VkFormat format = image->vk_format;
    if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_E5B9G9R9_UFLOAT_PACK32)
-      format = copy_format(format, aspect_mask, false);
+      format = copy_format(format, aspect_mask);
 
    if (image->type == VK_IMAGE_TYPE_3D) {
       assert(layer_count == 1);

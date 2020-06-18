@@ -148,6 +148,7 @@ tu_image_create(VkDevice _device,
    if (pCreateInfo->tiling == VK_IMAGE_TILING_LINEAR ||
        modifier == DRM_FORMAT_MOD_LINEAR ||
        vk_format_description(image->vk_format)->layout == UTIL_FORMAT_LAYOUT_SUBSAMPLED ||
+       !util_is_power_of_two_or_zero(vk_format_get_blocksize(image->vk_format)) ||
        (pCreateInfo->flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT &&
         !vk_format_is_depth_or_stencil(image->vk_format))) {
       tile_mode = TILE6_LINEAR;
@@ -454,6 +455,13 @@ tu_image_view_init(struct tu_image_view *iview,
        * depth by 6 for the texture descriptor.
        */
       depth /= 6;
+   }
+
+   /* for the case when a NPOT format is casted for copy: */
+   if ((format == VK_FORMAT_R8_UINT && layout->cpp == 3) ||
+       (format == VK_FORMAT_R16_UINT && layout->cpp == 6) ||
+       (format == VK_FORMAT_R32_UINT && layout->cpp == 12)) {
+      width *= 3;
    }
 
    uint64_t base_addr = image->bo->iova + image->bo_offset +
