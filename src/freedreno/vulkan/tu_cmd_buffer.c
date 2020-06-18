@@ -1601,6 +1601,9 @@ tu_BeginCommandBuffer(VkCommandBuffer commandBuffer,
          return result;
    }
 
+   if (cmd_buffer->state.lrz.attachments)
+      vk_free2(&cmd_buffer->pool->alloc, NULL, cmd_buffer->state.lrz.attachments);
+
    memset(&cmd_buffer->state, 0, sizeof(cmd_buffer->state));
    cmd_buffer->state.index_size = 0xff; /* dirty restart index */
 
@@ -1643,6 +1646,11 @@ tu_BeginCommandBuffer(VkCommandBuffer commandBuffer,
          /* This is optional in the inheritance info. */
          TU_FROM_HANDLE(tu_framebuffer, fb, pBeginInfo->pInheritanceInfo->framebuffer);
          cmd_buffer->state.framebuffer = fb;
+         /* Track LRZ valid state per attachment */
+         size_t lrz_valid_size = sizeof(struct tu_lrz_state) * cmd_buffer->state.pass->attachment_count;
+         cmd_buffer->state.lrz.attachments = vk_zalloc2(&cmd_buffer->pool->alloc, NULL, lrz_valid_size, 8,
+                                                        VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+
       } else {
          /* When executing in the middle of another command buffer, the CCU
           * state is unknown.
@@ -2075,6 +2083,11 @@ tu_EndCommandBuffer(VkCommandBuffer commandBuffer)
    tu_cs_end(&cmd_buffer->draw_epilogue_cs);
 
    cmd_buffer->status = TU_CMD_BUFFER_STATUS_EXECUTABLE;
+
+   if (cmd_buffer->state.lrz.attachments) {
+      vk_free2(&cmd_buffer->pool->alloc, NULL, cmd_buffer->state.lrz.attachments);
+      cmd_buffer->state.lrz.attachments = NULL;
+   }
 
    return cmd_buffer->record_result;
 }
@@ -2612,6 +2625,16 @@ tu_CmdExecuteCommands(VkCommandBuffer commandBuffer,
       cmd->state.index_size = secondary->state.index_size; /* for restart index update */
    }
    cmd->state.dirty = ~0u; /* TODO: set dirty only what needs to be */
+
+   if (cmd->state.pass) {
+      /* After a secondary command buffer is executed, LRZ is not valid
+       * until it is cleared again.
+       */
+      for (uint32_t i = 0; i < cmd->state.pass->attachment_count; i++) {
+         cmd->state.lrz.attachments[i].valid = false;
+      }
+      cmd->state.lrz.changed = true;
+   }
 
    /* After executing secondary command buffers, there may have been arbitrary
     * flushes executed, so when we encounter a pipeline barrier with a
