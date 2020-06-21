@@ -3218,6 +3218,12 @@ typedef struct {
    uint8_t bit_size;
 } nir_parameter;
 
+typedef struct nir_printf_format_info {
+   unsigned num_args;
+   unsigned *arg_sizes;
+   char *fmt_str;
+} nir_printf_format_info;
+
 typedef struct nir_function {
    struct exec_node node;
 
@@ -3614,6 +3620,11 @@ typedef struct nir_shader {
    void *constant_data;
    /** Size of the constant data associated with the shader, in bytes */
    unsigned constant_data_size;
+
+   unsigned printf_string_arg_count;
+   char **printf_strings;
+   unsigned printf_fmt_string_count;
+   nir_printf_format_info *printf_fmts;
 } nir_shader;
 
 #define nir_foreach_function(func, shader) \
