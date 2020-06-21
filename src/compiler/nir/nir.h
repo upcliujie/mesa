@@ -3581,6 +3581,9 @@ typedef struct nir_shader {
    void *constant_data;
    /** Size of the constant data associated with the shader, in bytes */
    unsigned constant_data_size;
+
+   unsigned printf_string_arg_count;
+   char **printf_strings;
 } nir_shader;
 
 #define nir_foreach_function(func, shader) \
