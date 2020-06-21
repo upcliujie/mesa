@@ -101,6 +101,8 @@ struct spirv_supported_capabilities {
 
    bool intel_subgroup_shuffle;
    bool intel_subgroup_buffer_block_io;
+
+   bool printf;
 };
 
 typedef struct shader_info {
