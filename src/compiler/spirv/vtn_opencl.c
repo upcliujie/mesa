@@ -27,6 +27,7 @@
 #include "math.h"
 #include "nir/nir_builtin_builder.h"
 
+#include "util/u_printf.h"
 #include "vtn_private.h"
 #include "OpenCL.std.h"
 
@@ -723,13 +724,104 @@ vtn_handle_opencl_vstore_half_r(struct vtn_builder *b, enum OpenCLstd_Entrypoint
                         vtn_rounding_mode_to_nir(b, w[8]));
 }
 
+static inline nir_variable *
+nir_deref_instr_get_variable_cast_me(const nir_deref_instr *instr)
+{
+   while (instr->deref_type != nir_deref_type_var) {
+      instr = nir_deref_instr_parent(instr);
+      if (!instr)
+         return NULL;
+   }
+
+   return instr->var;
+}
+
+
+static void
+write_string_constant(void *dst, const nir_constant *c, const struct glsl_type *type)
+{
+   if (glsl_type_is_vector_or_scalar(type)) {
+      const unsigned num_components = glsl_get_vector_elements(type);
+      const unsigned bit_size = glsl_get_bit_size(type);
+      assert(bit_size == 8);
+      memcpy(dst, c->values, num_components);
+   } else if (glsl_type_is_array_or_matrix(type)) {
+      const unsigned array_len = glsl_get_length(type);
+      const unsigned stride = 1;
+      const struct glsl_type *elem_type = glsl_get_array_element(type);
+      for (unsigned i = 0; i < array_len; i++)
+         write_string_constant((char *)dst + i * stride, c->elements[i], elem_type);
+   }
+}
+
 static nir_ssa_def *
 handle_printf(struct vtn_builder *b, uint32_t opcode,
               unsigned num_srcs, nir_ssa_def **srcs, struct vtn_type **src_types,
               const struct vtn_type *dest_type)
 {
-   /* hahah, yeah, right.. */
-   return nir_imm_int(&b->nb, -1);
+   if (!b->options->caps.printf)
+      return nir_imm_int(&b->nb, -1);
+
+   /* Step 1. extract the format strings */
+   nir_variable *fmt_var = nir_deref_instr_get_variable_cast_me(nir_instr_as_deref(srcs[0]->parent_instr));
+   assert(fmt_var->constant_initializer);
+   unsigned fmt_idx = b->shader->printf_fmt_string_count + 1;
+
+   b->shader->printf_fmts = realloc(b->shader->printf_fmts, fmt_idx * sizeof(nir_printf_format_info));
+   nir_printf_format_info *fmt_tmp = &b->shader->printf_fmts[b->shader->printf_fmt_string_count++];
+
+   fmt_tmp->fmt_str = malloc(fmt_var->constant_initializer->num_elements);
+   write_string_constant(fmt_tmp->fmt_str, fmt_var->constant_initializer, fmt_var->type);
+
+   fmt_tmp->num_args = num_srcs - 1;
+   fmt_tmp->arg_sizes = malloc(fmt_tmp->num_args * sizeof(uint32_t));
+
+   /* Step 2, build an ad-hoc struct type out of the args */
+   struct glsl_struct_field *fields = rzalloc_array(b->shader, struct glsl_struct_field, num_srcs);
+   for (unsigned i = 1; i < num_srcs; ++i) {
+      fields[i - 1].type = src_types[i]->type;
+      fields[i - 1].name = ralloc_asprintf(b->shader, "arg_%u", i);
+
+      fmt_tmp->arg_sizes[i - 1] = glsl_get_cl_size(src_types[i]->type);
+   }
+
+   const struct glsl_type *struct_type = glsl_struct_type(fields, num_srcs - 1, "printf", false);
+   ralloc_free(fields);
+
+   /* Step 3, create a variable of that type and populate its fields */
+   nir_variable *var = nir_local_variable_create(b->func->impl, struct_type, NULL);
+   nir_deref_instr *deref_var = nir_build_deref_var(&b->nb, var);
+   size_t fmt_pos = 0;
+   for (unsigned i = 1; i < num_srcs; ++i) {
+      nir_deref_instr *field_deref = nir_build_deref_struct(&b->nb, deref_var, i - 1);
+      /* extract strings */
+      bool is_string = util_printf_next_spec_is_string(fmt_tmp->fmt_str, &fmt_pos);
+      if (is_string) {
+         nir_variable *field_var = nir_deref_instr_get_variable_cast_me(nir_instr_as_deref(srcs[i]->parent_instr));
+         vtn_fail_if(!field_var || !field_var->constant_initializer, "Cannot find printf string initializer");
+         vtn_fail_if(!glsl_type_is_array(field_var->type) || glsl_get_array_element(field_var->type) != glsl_uint8_t_type(),
+                     "printf format string has incorrect type");
+
+         unsigned idx = b->shader->printf_string_arg_count + 1;
+         b->shader->printf_strings = realloc(b->shader->printf_strings, idx + sizeof(char *));
+         char **str = &b->shader->printf_strings[b->shader->printf_string_arg_count++];
+
+         *str = malloc(field_var->constant_initializer->num_elements);
+         write_string_constant(*str, field_var->constant_initializer, field_var->type);
+
+         nir_store_deref(&b->nb, field_deref, nir_imm_intN_t(&b->nb, idx, srcs[i]->bit_size), ~0);
+      } else
+         nir_store_deref(&b->nb, field_deref, srcs[i], ~0);
+   }
+
+   /* Lastly, the actual intrinsic */
+   nir_intrinsic_instr *printf = nir_intrinsic_instr_create(b->shader, nir_intrinsic_printf);
+   nir_ssa_dest_init(&printf->instr, &printf->dest, 1, 32, NULL);
+   printf->src[0] = nir_src_for_ssa(nir_imm_intN_t(&b->nb, fmt_idx, srcs[0]->bit_size));
+   printf->src[1] = nir_src_for_ssa(&deref_var->dest.ssa);
+   nir_builder_instr_insert(&b->nb, &printf->instr);
+
+   return &printf->dest.ssa;
 }
 
 static nir_ssa_def *
