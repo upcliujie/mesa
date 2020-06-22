@@ -160,6 +160,10 @@ genX(upload_polygon_stipple_offset)(struct brw_context *brw)
          poly.PolygonStippleYOffset =
             (32 - (_mesa_geometric_height(ctx->DrawBuffer) & 31)) & 31;
       }
+      if (ctx->DrawBuffer->FlipX) {
+         poly.PolygonStippleXOffset =
+            (32 - (_mesa_geometric_width(ctx->DrawBuffer) & 31)) & 31;
+      }
    }
 }
 
@@ -2314,7 +2318,8 @@ const struct brw_tracked_state genX(cc_vp) = {
 
 static void
 set_scissor_bits(const struct gl_context *ctx, int i,
-                 bool flip_y, unsigned fb_width, unsigned fb_height,
+                 bool flip_x, bool flip_y,
+                 unsigned fb_width, unsigned fb_height,
                  struct GENX(SCISSOR_RECT) *sc)
 {
    int bbox[4];
@@ -2336,18 +2341,25 @@ set_scissor_bits(const struct gl_context *ctx, int i,
       sc->ScissorRectangleXMax = 0;
       sc->ScissorRectangleYMin = 1;
       sc->ScissorRectangleYMax = 0;
-   } else if (!flip_y) {
-      /* texmemory: Y=0=bottom */
-      sc->ScissorRectangleXMin = bbox[0];
-      sc->ScissorRectangleXMax = bbox[1] - 1;
-      sc->ScissorRectangleYMin = bbox[2];
-      sc->ScissorRectangleYMax = bbox[3] - 1;
    } else {
-      /* memory: Y=0=top */
-      sc->ScissorRectangleXMin = bbox[0];
-      sc->ScissorRectangleXMax = bbox[1] - 1;
-      sc->ScissorRectangleYMin = fb_height - bbox[3];
-      sc->ScissorRectangleYMax = fb_height - bbox[2] - 1;
+      if (!flip_x) {
+         /* texmemory: X=0=left */
+         sc->ScissorRectangleXMin = bbox[0];
+         sc->ScissorRectangleXMax = bbox[1] - 1;
+      } else {
+         /* memory: X=0=right */
+         sc->ScissorRectangleXMin = fb_width - bbox[1];
+         sc->ScissorRectangleXMax = fb_width - bbox[0] - 1;
+      }
+      if (!flip_y) {
+         /* texmemory: Y=0=bottom */
+         sc->ScissorRectangleYMin = bbox[2];
+         sc->ScissorRectangleYMax = bbox[3] - 1;
+      } else {
+         /* memory: Y=0=top */
+         sc->ScissorRectangleYMin = fb_height - bbox[3];
+         sc->ScissorRectangleYMax = fb_height - bbox[2] - 1;
+      }
    }
 }
 
@@ -2356,6 +2368,7 @@ static void
 genX(upload_scissor_state)(struct brw_context *brw)
 {
    struct gl_context *ctx = &brw->ctx;
+   const bool flip_x = ctx->DrawBuffer->FlipX;
    const bool flip_y = ctx->DrawBuffer->FlipY;
    struct GENX(SCISSOR_RECT) scissor;
    uint32_t scissor_state_offset;
@@ -2380,7 +2393,7 @@ genX(upload_scissor_state)(struct brw_context *brw)
     * inclusive but max is exclusive.
     */
    for (unsigned i = 0; i < viewport_count; i++) {
-      set_scissor_bits(ctx, i, flip_y, fb_width, fb_height, &scissor);
+      set_scissor_bits(ctx, i, flip_x, flip_y, fb_width, fb_height, &scissor);
       GENX(SCISSOR_RECT_pack)(
          NULL, scissor_map + i * GENX(SCISSOR_RECT_length), &scissor);
    }
@@ -2409,12 +2422,13 @@ static void
 genX(upload_sf_clip_viewport)(struct brw_context *brw)
 {
    struct gl_context *ctx = &brw->ctx;
-   float y_scale, y_bias;
+   float y_scale, y_bias, x_scale, x_bias;
 
    /* BRW_NEW_VIEWPORT_COUNT */
    const unsigned viewport_count = brw->clip.viewport_count;
 
    /* _NEW_BUFFERS */
+   const bool flip_x = ctx->DrawBuffer->FlipX;
    const bool flip_y = ctx->DrawBuffer->FlipY;
    const uint32_t fb_width = (float)_mesa_geometric_width(ctx->DrawBuffer);
    const uint32_t fb_height = (float)_mesa_geometric_height(ctx->DrawBuffer);
@@ -2439,6 +2453,13 @@ genX(upload_sf_clip_viewport)(struct brw_context *brw)
 #endif
 
    /* _NEW_BUFFERS */
+   if (flip_x) {
+      x_scale = -1.0;
+      x_bias = (float)fb_width;
+   } else {
+      x_scale = 1.0;
+      x_bias = 0;
+   }
    if (flip_y) {
       y_scale = -1.0;
       y_bias = (float)fb_height;
@@ -2452,10 +2473,10 @@ genX(upload_sf_clip_viewport)(struct brw_context *brw)
       float scale[3], translate[3], gb_xmin, gb_xmax, gb_ymin, gb_ymax;
       _mesa_get_viewport_xform(ctx, i, scale, translate);
 
-      sfv.ViewportMatrixElementm00 = scale[0];
+      sfv.ViewportMatrixElementm00 = scale[0] * x_scale;
       sfv.ViewportMatrixElementm11 = scale[1] * y_scale,
       sfv.ViewportMatrixElementm22 = scale[2],
-      sfv.ViewportMatrixElementm30 = translate[0],
+      sfv.ViewportMatrixElementm30 = translate[0] * x_scale + x_bias,
       sfv.ViewportMatrixElementm31 = translate[1] * y_scale + y_bias,
       sfv.ViewportMatrixElementm32 = translate[2],
       gen_calculate_guardband_size(fb_width, fb_height,
@@ -2472,7 +2493,7 @@ genX(upload_sf_clip_viewport)(struct brw_context *brw)
       clv.YMaxClipGuardband = gb_ymax;
 
 #if GEN_GEN < 6
-      set_scissor_bits(ctx, i, flip_y, fb_width, fb_height,
+      set_scissor_bits(ctx, i, false, flip_y, fb_width, fb_height,
                        &sfv.ScissorRectangle);
 #elif GEN_GEN >= 8
       /* _NEW_VIEWPORT | _NEW_BUFFERS: Screen Space Viewport
@@ -2489,14 +2510,17 @@ genX(upload_sf_clip_viewport)(struct brw_context *brw)
       const float viewport_Ymax =
          MIN2(ctx->ViewportArray[i].Y + ctx->ViewportArray[i].Height, fb_height);
 
-      if (flip_y) {
-         sfv.XMinViewPort = viewport_Xmin;
-         sfv.XMaxViewPort = viewport_Xmax - 1;
-         sfv.YMinViewPort = fb_height - viewport_Ymax;
-         sfv.YMaxViewPort = fb_height - viewport_Ymin - 1;
+      if (flip_x) {
+         sfv.XMinViewPort = fb_width - viewport_Xmax;
+         sfv.XMaxViewPort = fb_width - viewport_Xmin - 1;
       } else {
          sfv.XMinViewPort = viewport_Xmin;
          sfv.XMaxViewPort = viewport_Xmax - 1;
+      }
+      if (flip_y) {
+         sfv.YMinViewPort = fb_height - viewport_Ymax;
+         sfv.YMaxViewPort = fb_height - viewport_Ymin - 1;
+      } else {
          sfv.YMinViewPort = viewport_Ymin;
          sfv.YMaxViewPort = viewport_Ymax - 1;
       }
@@ -4521,7 +4545,9 @@ genX(upload_raster)(struct brw_context *brw)
    const struct gl_context *ctx = &brw->ctx;
 
    /* _NEW_BUFFERS */
+   const bool flip_x = ctx->DrawBuffer->FlipX;
    const bool flip_y = ctx->DrawBuffer->FlipY;
+   bool ccw = false;
 
    /* _NEW_POLYGON */
    const struct gl_polygon_attrib *polygon = &ctx->Polygon;
@@ -4531,8 +4557,12 @@ genX(upload_raster)(struct brw_context *brw)
 
    brw_batch_emit(brw, GENX(3DSTATE_RASTER), raster) {
       if (brw->polygon_front_bit != flip_y)
+         ccw = true;
+      if (flip_x)
+         ccw = !ccw;
+      if (ccw) {
          raster.FrontWinding = CounterClockwise;
-
+      }
       if (polygon->CullFlag) {
          switch (polygon->CullFaceMode) {
          case GL_FRONT:

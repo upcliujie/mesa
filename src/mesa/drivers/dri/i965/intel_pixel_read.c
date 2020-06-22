@@ -172,6 +172,14 @@ intel_readpixels_tiled_memcpy(struct gl_context * ctx,
 
    dst_pitch = _mesa_image_row_stride(pack, width, format, type);
 
+   /* For x-flipped renderbuffer, we need to flip the mapping we receive
+    * horizontally. Flip each pixel in each row so it can linearly read
+    * memory.
+    */
+   if (ctx->ReadBuffer->FlipX) {
+      xoffset = rb->Width - xoffset - width;
+   }
+
    /* For a window-system renderbuffer, the buffer is actually flipped
     * vertically, so we need to handle that.  Since the detiling function
     * can only really work in the forwards direction, we have to be a

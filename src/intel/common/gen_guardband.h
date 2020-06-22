@@ -97,12 +97,15 @@ gen_calculate_guardband_size(uint32_t fb_width, uint32_t fb_height,
       const float ndc_gb_ymin = (ss_gb_ymin - m31) / m11;
       const float ndc_gb_ymax = (ss_gb_ymax - m31) / m11;
 
-      /* Thanks to Y-flipping and ORIGIN_UPPER_LEFT, the Y coordinates may be
-       * flipped upside-down.  X should be fine though.
+      /* The X coordinates may be flipped when GL_MESA_framebuffer_flip_x
+       * is applied.
        */
-      assert(ndc_gb_xmin <= ndc_gb_xmax);
-      *xmin = ndc_gb_xmin;
-      *xmax = ndc_gb_xmax;
+      *xmin = MIN2(ndc_gb_xmin, ndc_gb_xmax);
+      *xmax = MAX2(ndc_gb_xmin, ndc_gb_xmax);
+
+      /* Thanks to Y-flipping and ORIGIN_UPPER_LEFT, the Y coordinates may be
+       * flipped upside-down.
+       */
       *ymin = MIN2(ndc_gb_ymin, ndc_gb_ymax);
       *ymax = MAX2(ndc_gb_ymin, ndc_gb_ymax);
    } else {
