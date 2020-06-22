@@ -31,6 +31,8 @@ files_mesa_util = files(
   'bitset.h',
   'blob.c',
   'blob.h',
+  'branch_and_bound.c',
+  'branch_and_bound.h',
   'build_id.c',
   'build_id.h',
   'compiler.h',
