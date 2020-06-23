@@ -2810,6 +2810,28 @@ decode_get_bo(void *v_batch, bool ppgtt, uint64_t address)
       }
    }
 
+   struct anv_reloc_list *relocs =
+      device->cmd_buffer_being_decoded->batch.relocs;
+   for (uint32_t w = 0; w < relocs->dep_words; w++) {
+      BITSET_WORD mask = relocs->deps[w];
+
+      while (mask) {
+         int i = u_bit_scan(&mask);
+         uint32_t gem_handle = w * BITSET_WORDBITS + i;
+         struct anv_bo *reloc_bo = anv_device_lookup_bo(device, gem_handle);
+         assert(reloc_bo->refcount > 0);
+         uint64_t bo_address = reloc_bo->offset & (~0ull >> 16);
+
+         if (address >= bo_address && address < bo_address + reloc_bo->size) {
+            return (struct gen_batch_decode_bo) {
+               .addr = bo_address,
+                  .size = reloc_bo->size,
+                  .map = reloc_bo->map,
+                  };
+         }
+      }
+   }
+
    return (struct gen_batch_decode_bo) { };
 }
 
