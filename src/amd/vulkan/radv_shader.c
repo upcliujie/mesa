@@ -140,15 +140,10 @@ radv_optimize_nir(const struct radv_device *device, struct nir_shader *shader,
       NIR_PASS_V(shader, nir_lower_alu_to_scalar, NULL, NULL);
       NIR_PASS_V(shader, nir_lower_phis_to_scalar, true);
 
+      NIR_PASS(progress, shader, nir_opt_trivial_continues);
       NIR_PASS(progress, shader, nir_copy_prop);
       NIR_PASS(progress, shader, nir_opt_remove_phis);
       NIR_PASS(progress, shader, nir_opt_dce);
-      if (nir_opt_trivial_continues(shader)) {
-         progress = true;
-         NIR_PASS(progress, shader, nir_copy_prop);
-         NIR_PASS(progress, shader, nir_opt_remove_phis);
-         NIR_PASS(progress, shader, nir_opt_dce);
-      }
       NIR_PASS(progress, shader, nir_opt_if, true);
       NIR_PASS(progress, shader, nir_opt_dead_cf);
       NIR_PASS(progress, shader, nir_opt_cse);
