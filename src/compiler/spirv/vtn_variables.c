@@ -1986,12 +1986,20 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
 
    /* We can only have one type of initializer */
    assert(!(const_initializer && var_initializer));
-   if (const_initializer) {
-      var->var->constant_initializer =
-         nir_constant_clone(const_initializer, var->var);
+
+   if (b->options->environment == NIR_SPIRV_VULKAN &&
+       var->mode == vtn_variable_mode_workgroup) {
+      /* See VK_KHR_zero_initialize_workgroup_memory. */
+      if (const_initializer)
+         b->shader->info.cs.zero_initialize_shared_memory = true;
+   } else {
+      if (const_initializer) {
+         var->var->constant_initializer =
+            nir_constant_clone(const_initializer, var->var);
+      }
+      if (var_initializer)
+         var->var->pointer_initializer = var_initializer;
    }
-   if (var_initializer)
-      var->var->pointer_initializer = var_initializer;
 
    if (var->mode == vtn_variable_mode_uniform ||
        var->mode == vtn_variable_mode_ssbo) {
