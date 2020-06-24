@@ -1981,6 +1981,18 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
       case vtn_value_type_constant:
          var->var->constant_initializer =
             nir_constant_clone(initializer->constant, var->var);
+
+         /* VK_KHR_zero_initialize_workgroup_memory. */
+         if (var->mode == vtn_variable_mode_workgroup &&
+             b->options->environment == NIR_SPIRV_VULKAN) {
+            vtn_fail_if(!initializer->is_null_constant,
+                        "Per VK_KHR_zero_initialize_workgroup_memory, "
+                        "constant initializer %u for Workgroup "
+                        "variable %u can only be OpConstantNull",
+                        vtn_id_for_value(b, initializer),
+                        vtn_id_for_value(b, val));
+            b->shader->info.cs.zero_initialize_shared_memory = true;
+         }
          break;
       case vtn_value_type_pointer:
          var->var->pointer_initializer = initializer->pointer->var->var;
