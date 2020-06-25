@@ -121,16 +121,16 @@ radv_optimize_nir(const struct radv_device *device, struct nir_shader *shader,
    do {
       progress = false;
 
-      NIR_PASS(progress, shader, nir_split_array_vars, nir_var_function_temp);
-      NIR_PASS(progress, shader, nir_shrink_vec_array_vars, nir_var_function_temp);
-
       if (allow_copies) {
-         /* Only run this pass in the first call to
-          * radv_optimize_nir.  Later calls assume that we've
+         allow_copies = false;
+         /* Only run these passes in the first call to
+          * radv_optimize_nir. Later calls assume that we've
           * lowered away any copy_deref instructions and we
-          *  don't want to introduce any more.
+          * don't want to introduce any more.
           */
-         NIR_PASS(progress, shader, nir_opt_find_array_copies);
+         NIR_PASS(allow_copies, shader, nir_opt_find_array_copies);
+         NIR_PASS(allow_copies, shader, nir_split_array_vars, nir_var_function_temp);
+         NIR_PASS(allow_copies, shader, nir_shrink_vec_array_vars, nir_var_function_temp);
       }
 
       NIR_PASS(progress, shader, nir_opt_copy_prop_vars);
