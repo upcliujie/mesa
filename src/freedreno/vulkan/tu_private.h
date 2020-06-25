@@ -872,6 +872,8 @@ struct tu_lrz_pipeline
 
 struct tu_lrz_state
 {
+   bool changed;
+   struct tu_lrz_pipeline pipeline;
    struct tu_lrz_attachments *attachments;
 };
 

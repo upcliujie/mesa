@@ -2150,6 +2150,14 @@ tu_CmdBindPipeline(VkCommandBuffer commandBuffer,
 
       tu_cs_emit_regs(&cs, A6XX_GRAS_SU_CNTL(.dword = cmd->state.dynamic_gras_su_cntl));
    }
+
+   if (cmd->state.pipeline) {
+      /* Save struct tu_lrz_pipeline in command buffer stream as the pipeline
+       * is an immutable object and we might need to modify its content later.
+       */
+      cmd->state.lrz.pipeline = pipeline->lrz;
+      cmd->state.lrz.changed = true;
+   }
 }
 
 void
