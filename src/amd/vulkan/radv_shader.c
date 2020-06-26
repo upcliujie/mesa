@@ -125,6 +125,8 @@ radv_optimize_nir(const struct radv_device *device, struct nir_shader *shader,
 {
    bool progress;
 
+   NIR_PASS_V(shader, nir_lower_load_const_to_scalar);
+
    do {
       progress = false;
 
@@ -667,8 +669,6 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
                                .lower_quad_broadcast_dynamic_to_const = gfx7minus,
                                .lower_shuffle_to_swizzle_amd = 1,
                             });
-
-   nir_lower_load_const_to_scalar(nir);
 
    if (!key->optimisations_disabled)
       radv_optimize_nir(device, nir, false, true);
