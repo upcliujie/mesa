@@ -118,6 +118,8 @@ radv_optimize_nir(const struct radv_device *device, struct nir_shader *shader,
 {
    bool progress;
 
+   NIR_PASS_V(shader, nir_lower_load_const_to_scalar);
+
    do {
       progress = false;
 
@@ -658,8 +660,6 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
                                .lower_shuffle_to_swizzle_amd = 1,
                                .lower_elect = radv_use_llvm_for_stage(device, stage),
                             });
-
-   nir_lower_load_const_to_scalar(nir);
 
    if (!(flags & VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT))
       radv_optimize_nir(device, nir, false, true);
