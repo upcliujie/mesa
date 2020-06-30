@@ -34,6 +34,7 @@
 #include "common/gen_sample_positions.h"
 #include "blorp/blorp_genX_exec.h"
 
+static void blorp_measure_start(struct blorp_batch *batch) { }
 static void *
 blorp_emit_dwords(struct blorp_batch *batch, unsigned n)
 {
