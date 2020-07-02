@@ -69,6 +69,28 @@ unmask32(uint32_t *inout_mask, uint32_t test_mask)
    return *inout_mask != orig_mask;
 }
 
+static VkResult
+dup_sync_fd(int old_fd, int *restrict new_fd)
+{
+   if (old_fd == -1) {
+      *new_fd = -1;
+      return VK_SUCCESS;
+   }
+
+   *new_fd = dup(old_fd);
+   if (*new_fd == -1) {
+      switch (errno) {
+      default:
+      case EBADF:
+         return vk_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
+      case EMFILE:
+         return vk_error(VK_ERROR_TOO_MANY_OBJECTS);
+      }
+   }
+
+   return VK_SUCCESS;
+}
+
 static int
 anv_hal_open(const struct hw_module_t* mod, const char* id,
              struct hw_device_t** dev)
@@ -698,110 +720,214 @@ VkResult anv_GetSwapchainGrallocUsageANDROID(
    return setup_gralloc0_usage(format, imageUsage, grallocUsage);
 }
 
+/* The AOSP documentation [1] specifies vkAcquireImageANDROID as follows:
+ *
+ *    vkAcquireImageANDROID acquires ownership of a swapchain image and
+ *    imports an externally signaled native fence into both an existing
+ *    VkSemaphore object and an existing VkFence object.
+ *
+ *    [...]
+ *
+ *    vkAcquireImageANDROID() is called during vkAcquireNextImageKHR to import
+ *    a native fence into the VkSemaphore and VkFence objects provided by the
+ *    app (however, both semaphore and fence objects are optional in this
+ *    call). The driver may also use this opportunity to recognize and handle
+ *    any external changes to the Gralloc buffer state; many drivers won't
+ *    need to do anything here. This call puts VkSemaphore and VkFence into
+ *    the same pending state as vkQueueSignalSemaphore and vkQueueSubmit
+ *    respectively, so queues can wait on the semaphore and the app can wait
+ *    on the fence.
+ *
+ *    Both objects become signaled when the underlying native fence signals;
+ *    if the native fence has already signaled, then the semaphore is in the
+ *    signaled state when this function returns. The driver takes ownership of
+ *    the fence file descriptor and closes the fence file descriptor when no
+ *    longer needed. The driver must do so even if neither a semaphore or
+ *    fence object is provided, or even if vkAcquireImageANDROID fails and
+ *    returns an error. If fenceFd is -1, it's as if the native fence was
+ *    already signaled.
+ *
+ * [1]: https://source.android.com/devices/graphics/implement-vulkan
+ */
 VkResult
 anv_AcquireImageANDROID(
-      VkDevice            device_h,
-      VkImage             image_h,
-      int                 nativeFenceFd,
-      VkSemaphore         semaphore_h,
-      VkFence             fence_h)
+    VkDevice            device_h,
+    VkImage             image_h,
+    int                 nativeFenceFd,
+    VkSemaphore         semaphore_h,
+    VkFence             fence_h)
 {
-   ANV_FROM_HANDLE(anv_device, device, device_h);
    VkResult result = VK_SUCCESS;
 
-   if (nativeFenceFd != -1) {
-      /* As a simple, firstpass implementation of VK_ANDROID_native_buffer, we
-       * block on the nativeFenceFd. This may introduce latency and is
-       * definitiely inefficient, yet it's correct.
-       *
-       * FINISHME(chadv): Import the nativeFenceFd into the VkSemaphore and
-       * VkFence.
-       */
-      if (sync_wait(nativeFenceFd, /*timeout*/ -1) < 0) {
-         result = vk_errorf(device, device, VK_ERROR_DEVICE_LOST,
-                            "%s: failed to wait on nativeFenceFd=%d",
-                            __func__, nativeFenceFd);
+   if (semaphore_h) {
+      int semaphore_fd = -1;
+
+      result = dup_sync_fd(nativeFenceFd, &semaphore_fd);
+      if (result != VK_SUCCESS) {
+         goto cleanup;
       }
 
-      /* From VK_ANDROID_native_buffer's pseudo spec
-       * (https://source.android.com/devices/graphics/implement-vulkan):
+      /* The Vulkan 1.2.143 spec says:
        *
-       *    The driver takes ownership of the fence fd and is responsible for
-       *    closing it [...] even if vkAcquireImageANDROID fails and returns
-       *    an error.
+       *    Passing a semaphore to vkAcquireNextImageKHR is equivalent to
+       *    temporarily importing a semaphore payload to that semaphore.
        */
-      close(nativeFenceFd);
 
-      if (result != VK_SUCCESS)
-         return result;
-   }
-
-   if (semaphore_h || fence_h) {
-      /* Thanks to implicit sync, the image is ready for GPU access.  But we
-       * must still put the semaphore into the "submit" state; otherwise the
-       * client may get unexpected behavior if the client later uses it as
-       * a wait semaphore.
-       *
-       * Because we blocked above on the nativeFenceFd, the image is also
-       * ready for foreign-device access (including CPU access). But we must
-       * still signal the fence; otherwise the client may get unexpected
-       * behavior if the client later waits on it.
-       *
-       * For some values of anv_semaphore_type, we must submit the semaphore
-       * to execbuf in order to signal it.  Likewise for anv_fence_type.
-       * Instead of open-coding here the signal operation for each
-       * anv_semaphore_type and anv_fence_type, we piggy-back on
-       * vkQueueSubmit.
-       */
-      const VkSubmitInfo submit = {
-         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-         .waitSemaphoreCount = 0,
-         .commandBufferCount = 0,
-         .signalSemaphoreCount = (semaphore_h ? 1 : 0),
-         .pSignalSemaphores = &semaphore_h,
+      const VkImportSemaphoreFdInfoKHR import_info = {
+         .sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR,
+         .semaphore = semaphore_h,
+         .flags = VK_SEMAPHORE_IMPORT_TEMPORARY_BIT,
+         .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+         .fd = semaphore_fd,
       };
 
-      result = anv_QueueSubmit(anv_queue_to_handle(&device->queue), 1,
-                               &submit, fence_h);
+      result = anv_ImportSemaphoreFdKHR(device_h, &import_info);
       if (result != VK_SUCCESS) {
-         return vk_errorf(device, device, result,
-                          "anv_QueueSubmit failed inside %s", __func__);
+         if (semaphore_fd != -1)
+            close(semaphore_fd);
+         goto cleanup;
       }
    }
 
-   return VK_SUCCESS;
-}
+   if (fence_h) {
+      int fence_fd = -1;
 
-VkResult
-anv_QueueSignalReleaseImageANDROID(
-      VkQueue             queue,
-      uint32_t            waitSemaphoreCount,
-      const VkSemaphore*  pWaitSemaphores,
-      VkImage             image,
-      int*                pNativeFenceFd)
-{
-   VkResult result;
+      result = dup_sync_fd(nativeFenceFd, &fence_fd);
+      if (result != VK_SUCCESS)
+         goto cleanup;
 
-   if (waitSemaphoreCount == 0)
-      goto done;
-
-   result = anv_QueueSubmit(queue, 1,
-      &(VkSubmitInfo) {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .waitSemaphoreCount = 1,
-            .pWaitSemaphores = pWaitSemaphores,
-      },
-      (VkFence) VK_NULL_HANDLE);
-   if (result != VK_SUCCESS)
-      return result;
-
- done:
-   if (pNativeFenceFd) {
-      /* We can rely implicit on sync because above we submitted all
-       * semaphores to the queue.
+      /* The Vulkan 1.2.143 spec says:
+       *
+       *    Passing a fence to vkAcquireNextImageKHR is equivalent to
+       *    temporarily importing a fence payload to that fence.
        */
-      *pNativeFenceFd = -1;
+      const VkImportFenceFdInfoKHR import_info = {
+         .sType = VK_STRUCTURE_TYPE_IMPORT_FENCE_FD_INFO_KHR,
+         .fence = fence_h,
+         .flags = VK_FENCE_IMPORT_TEMPORARY_BIT,
+         .handleType = VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT,
+         .fd = fence_fd,
+      };
+
+      result = anv_ImportFenceFdKHR(device_h, &import_info);
+      if (result != VK_SUCCESS) {
+         if (fence_fd != -1)
+            close(fence_fd);
+         goto cleanup;
+      }
    }
 
+ cleanup:
+   /* vkAcquireImageANDROID must always close the imported sync fd, even on
+    * failure.
+    */
+   if (nativeFenceFd != -1)
+      close(nativeFenceFd);
+
+   return result;
+}
+
+/* The AOSP documentation [1] specifies vkQueueSignalReleaseImageANDROID as
+ * follows:
+ *
+ *    vkQueueSignalReleaseImageANDROID prepares a swapchain image for external
+ *    use, creates a native fence, and schedules the native fence to be
+ *    signaled after the input semaphores have signaled.
+ *
+ *    [...]
+ *
+ *    vkQueuePresentKHR() calls vkQueueSignalReleaseImageANDROID() on the
+ *    provided queue. The driver must produce a native fence that doesn't
+ *    signal until all waitSemaphoreCount semaphores in pWaitSemaphores
+ *    signal, and any additional work required to prepare image for
+ *    presentation completes.
+ *
+ *    If the wait semaphores (if any) already signaled, and queue is already
+ *    idle, the driver can set *pNativeFenceFd to -1 instead of an actual
+ *    native fence file descriptor, indicating that there's nothing to wait
+ *    for. The caller owns and closes the file descriptor returned in
+ *    *pNativeFenceFd.
+ *
+ * The Vulkan 1.1 spec requires that each wait semaphore given to
+ * vkQueuePresentKHR must be a binary semaphore (not a timeline semaphore).
+ * Since Android implements vkQueuePresentKHR with
+ * vkQueueSignalReleaseImageANDROID, the same restriction applies here.
+ *
+ * [1]: https://source.android.com/devices/graphics/implement-vulkan
+ */
+VkResult
+anv_QueueSignalReleaseImageANDROID(
+    VkQueue             queue_h,
+    uint32_t            waitSemaphoreCount,
+    const VkSemaphore*  pWaitSemaphores,
+    VkImage             image,
+    int*                pNativeFenceFd)
+{
+   ANV_FROM_HANDLE(anv_queue, queue, queue_h);
+   VkDevice device_h = anv_device_to_handle(queue->device);
+   int merge_fd = -1;
+   VkResult result;
+
+   if (waitSemaphoreCount == 0) {
+      if (pNativeFenceFd)
+         *pNativeFenceFd = -1;
+      return VK_SUCCESS;
+  }
+
+   for (uint32_t i = 0; i < waitSemaphoreCount; ++i) {
+      ANV_FROM_HANDLE(anv_semaphore, semaphore, pWaitSemaphores[i]);
+
+      struct anv_semaphore_impl *impl =
+         semaphore->temporary.type != ANV_SEMAPHORE_TYPE_NONE
+         ? &semaphore->temporary : &semaphore->permanent;
+
+      /* TODO(chadv): Explain why we need it and why it's true. */
+      assert(impl->type == ANV_SEMAPHORE_TYPE_DRM_SYNCOBJ || impl->type == ANV_SEMAPHORE_TYPE_SYNC_FILE);
+
+      /* We use vkGetSemaphoreFdKHR instead of open-coding the fd export
+       * because vkGetSemaphoreFdKHR takes care of the temporary payload
+       * semantics.  Specifically, it handles this text from the Vulkan
+       * 1.2.143 spec:
+       *
+       *    If the import is temporary, the implementation must restore the
+       *    semaphore to its prior permanent state after submitting the next
+       *    semaphore wait operation.
+       *
+       * And vkQueueSignalReleaseImageANDROID qualifies as a "semaphore wait
+       * operation".
+       */
+      const VkSemaphoreGetFdInfoKHR get_info = {
+         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
+         .semaphore = pWaitSemaphores[i],
+         .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+      };
+
+      int tmp_fd = -1;
+      result = anv_GetSemaphoreFdKHR(device_h, &get_info, &tmp_fd);
+      if (result != VK_SUCCESS)
+         goto fail;
+
+      if (merge_fd < 0)
+         merge_fd = tmp_fd;
+      else if (tmp_fd >= 0) {
+         int next_fd = anv_gem_sync_file_merge(queue->device, merge_fd, tmp_fd);
+         close(merge_fd);
+         close(tmp_fd);
+         merge_fd = next_fd;
+      }
+   }
+
+   if (pNativeFenceFd)
+      *pNativeFenceFd = merge_fd;
+
    return VK_SUCCESS;
+
+ fail:
+   if (merge_fd != -1)
+      close(merge_fd);
+
+   /* TODO(chadv): How should we handle the remaining semaphores that the loop
+    * did not touch?.
+    */
+   return result;
 }
