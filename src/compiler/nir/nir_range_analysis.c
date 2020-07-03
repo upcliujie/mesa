@@ -37,10 +37,17 @@ is_not_negative(enum ssa_ranges r)
    return r == gt_zero || r == ge_zero || r == eq_zero;
 }
 
+static bool
+is_not_zero(enum ssa_ranges r)
+{
+   return r == gt_zero || r == lt_zero || r == ne_zero;
+}
+
 static void *
 pack_data(const struct ssa_result_range r)
 {
-   return (void *)(uintptr_t)(r.range | r.is_integral << 8 | r.is_finite << 9);
+   return (void *)(uintptr_t)(r.range | r.is_integral << 8 | r.is_finite << 9 |
+                              r.is_a_number << 10);
 }
 
 static struct ssa_result_range
@@ -51,7 +58,8 @@ unpack_data(const void *p)
    return (struct ssa_result_range){
       .range       = v & 0xff,
       .is_integral = (v & 0x00100) != 0,
-      .is_finite   = (v & 0x00200) != 0
+      .is_finite   = (v & 0x00200) != 0,
+      .is_a_number = (v & 0x00400) != 0
    };
 }
 
@@ -107,7 +115,7 @@ analyze_constant(const struct nir_alu_instr *instr, unsigned src,
    const nir_load_const_instr *const load =
       nir_instr_as_load_const(instr->src[src].src.ssa->parent_instr);
 
-   struct ssa_result_range r = { unknown, false, false };
+   struct ssa_result_range r = { unknown, false, false, false };
 
    switch (nir_alu_type_get_base_type(use_type)) {
    case nir_type_float: {
@@ -117,6 +125,7 @@ analyze_constant(const struct nir_alu_instr *instr, unsigned src,
       bool all_zero = true;
 
       r.is_integral = true;
+      r.is_a_number = true;
 
       for (unsigned i = 0; i < num_components; ++i) {
          const double v = nir_const_value_as_float(load->value[swizzle[i]],
@@ -124,6 +133,9 @@ analyze_constant(const struct nir_alu_instr *instr, unsigned src,
 
          if (floor(v) != v)
             r.is_integral = false;
+
+         if (isnan(v))
+            r.is_a_number = false;
 
          if (isfinite(v))
             r.is_finite = true;
@@ -162,6 +174,8 @@ analyze_constant(const struct nir_alu_instr *instr, unsigned src,
       bool any_zero = false;
       bool all_zero = true;
 
+      r.is_a_number = true;
+
       for (unsigned i = 0; i < num_components; ++i) {
          const int64_t v = nir_const_value_as_int(load->value[swizzle[i]],
                                                   load->def.bit_size);
@@ -196,6 +210,8 @@ analyze_constant(const struct nir_alu_instr *instr, unsigned src,
    case nir_type_uint: {
       bool any_zero = false;
       bool all_zero = true;
+
+      r.is_a_number = true;
 
       for (unsigned i = 0; i < num_components; ++i) {
          const uint64_t v = nir_const_value_as_uint(load->value[swizzle[i]],
@@ -452,7 +468,7 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
    if (he != NULL)
       return unpack_data(he->data);
 
-   struct ssa_result_range r = {unknown, false, false};
+   struct ssa_result_range r = {unknown, false, false, false};
 
    /* ge_zero: ge_zero + ge_zero
     *
@@ -555,7 +571,7 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
    switch (alu->op) {
    case nir_op_b2f32:
    case nir_op_b2i32:
-      r = (struct ssa_result_range){ge_zero, alu->op == nir_op_b2f32, alu->op == nir_op_b2f32};
+      r = (struct ssa_result_range){ge_zero, alu->op == nir_op_b2f32, true, alu->op == nir_op_b2f32};
       break;
 
    case nir_op_bcsel: {
@@ -565,6 +581,20 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
          analyze_expression(alu, 2, ht, use_type);
 
       r.is_integral = left.is_integral && right.is_integral;
+
+      /* This could be better, but it would require a lot of work.  For
+       * example, the result of the following is a number:
+       *
+       *    bcsel(a > 0.0, a, 38.6)
+       *
+       * If the result of 'a > 0.0' is true, then the use of 'a' in the true
+       * part of the bcsel must be a number.
+       *
+       * Other cases are even more challenging.
+       *
+       *    bcsel(a > 0.5, a - 0.5, 0.0)
+       */
+      r.is_a_number = left.is_a_number && right.is_a_number;
       r.is_finite = left.is_finite && right.is_finite;
 
       /* le_zero: bcsel(<any>, le_zero, lt_zero)
@@ -631,6 +661,7 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
       r = analyze_expression(alu, 0, ht, nir_alu_src_type(alu, 0));
 
       r.is_integral = true;
+      r.is_a_number = true;
       r.is_finite = true;
 
       if (r.range == unknown && alu->op == nir_op_u2f32)
@@ -668,6 +699,13 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
 
       r.is_integral = left.is_integral && right.is_integral;
       r.range = fadd_table[left.range][right.range];
+
+      /* X + Y is NaN if either operand is NaN or if one operand is +Inf and
+       * the other is -Inf.  If neither operand is NaN and at least one of the
+       * operands is finite, then the result cannot be NaN.
+       */
+      r.is_a_number = left.is_a_number && right.is_a_number &&
+         (left.is_finite || right.is_finite);
       break;
    }
 
@@ -691,6 +729,7 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
 
       /* Various cases can result in NaN, so assume the worst. */
       r.is_finite = false;
+      r.is_a_number = false;
       break;
    }
 
@@ -708,6 +747,9 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
        * {lt_zero}) should result in {lt_zero, finite}.
        */
       r.is_finite = left.is_finite && right.is_finite;
+
+      /* If one source is NaN, fmax always picks the other source. */
+      r.is_a_number = left.is_a_number || right.is_a_number;
 
       /* gt_zero: fmax(gt_zero, *)
        *        | fmax(*, gt_zero)        # Treat fmax as commutative
@@ -780,6 +822,9 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
        * {gt_zero}) should result in {gt_zero, finite}.
        */
       r.is_finite = left.is_finite && right.is_finite;
+
+      /* If one source is NaN, fmin always picks the other source. */
+      r.is_a_number = left.is_a_number || right.is_a_number;
 
       /* lt_zero: fmin(lt_zero, *)
        *        | fmin(*, lt_zero)        # Treat fmin as commutative
@@ -858,6 +903,15 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
       } else
          r.range = fmul_table[left.range][right.range];
 
+      /* Mulitpliation produces NaN for X * NaN and for 0 * ±Inf.  If both
+       * operands are numbers and either both are finite or one is finite and
+       * the other cannot be zero, then the result must be a number.
+       */
+      r.is_a_number = (left.is_a_number && right.is_a_number) &&
+         ((left.is_finite && right.is_finite) ||
+          (!is_not_zero(left.range) && right.is_finite) ||
+          (left.is_finite && !is_not_zero(right.range)));
+
       break;
    }
 
@@ -865,7 +919,8 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
       r = (struct ssa_result_range){
          analyze_expression(alu, 0, ht, nir_alu_src_type(alu, 0)).range,
          false,
-         false  /* Various cases can result in NaN, so assume the worst. */
+         false, /* Various cases can result in NaN, so assume the worst. */
+         false  /*    "      "    "     "    "  "    "    "    "    "    */
       };
       break;
 
@@ -883,6 +938,7 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
       r = analyze_expression(alu, 0, ht, nir_alu_src_type(alu, 0));
 
       /* fsat(NaN) = 0. */
+      r.is_a_number = true;
       r.is_finite = true;
 
       switch (r.range) {
@@ -912,13 +968,14 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
       r = (struct ssa_result_range){
          analyze_expression(alu, 0, ht, nir_alu_src_type(alu, 0)).range,
          true,
-         true    /* fsign(NaN) = 0. */
+         true,   /* fsign(NaN) = 0. */
+         true    /*    "         "  */
       };
       break;
 
    case nir_op_fsqrt:
    case nir_op_frsq:
-      r = (struct ssa_result_range){ge_zero, false, false};
+      r = (struct ssa_result_range){ge_zero, false, false, false};
       break;
 
    case nir_op_ffloor: {
@@ -930,6 +987,7 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
       /* In IEEE 754, floor(NaN) is NaN, and floor(±Inf) is ±Inf. See
        * https://pubs.opengroup.org/onlinepubs/9699919799.2016edition/functions/floor.html
        */
+      r.is_a_number = left.is_a_number;
       r.is_finite = left.is_finite;
 
       if (left.is_integral || left.range == le_zero || left.range == lt_zero)
@@ -951,6 +1009,7 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
       /* In IEEE 754, ceil(NaN) is NaN, and ceil(±Inf) is ±Inf. See
        * https://pubs.opengroup.org/onlinepubs/9699919799.2016edition/functions/ceil.html
        */
+      r.is_a_number = left.is_a_number;
       r.is_finite = left.is_finite;
 
       if (left.is_integral || left.range == ge_zero || left.range == gt_zero)
@@ -972,6 +1031,7 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
       /* In IEEE 754, trunc(NaN) is NaN, and trunc(±Inf) is ±Inf.  See
        * https://pubs.opengroup.org/onlinepubs/9699919799.2016edition/functions/trunc.html
        */
+      r.is_a_number = left.is_a_number;
       r.is_finite = left.is_finite;
 
       if (left.is_integral)
@@ -997,7 +1057,7 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
    case nir_op_ult:
    case nir_op_uge:
       /* Boolean results are 0 or -1. */
-      r = (struct ssa_result_range){le_zero, false, false};
+      r = (struct ssa_result_range){le_zero, false, true, false};
       break;
 
    case nir_op_fpow: {
@@ -1062,6 +1122,10 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
       r.is_integral = left.is_integral && right.is_integral &&
                       is_not_negative(right.range);
       r.range = table[left.range][right.range];
+
+      /* Various cases can result in NaN, so assume the worst. */
+      r.is_a_number = false;
+
       break;
    }
 
@@ -1075,6 +1139,9 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
 
       r.is_integral = first.is_integral && second.is_integral &&
                       third.is_integral;
+
+      /* Various cases can result in NaN, so assume the worst. */
+      r.is_a_number = false;
 
       enum ssa_ranges fmul_range;
 
@@ -1104,6 +1171,9 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
       r.is_integral = first.is_integral && second.is_integral &&
                       third.is_integral;
 
+      /* Various cases can result in NaN, so assume the worst. */
+      r.is_a_number = false;
+
       /* Decompose the flrp to first + third * (second + -first) */
       const enum ssa_ranges inner_fadd_range =
          fadd_table[second.range][fneg_table[first.range]];
@@ -1116,7 +1186,7 @@ analyze_expression(const nir_alu_instr *instr, unsigned src,
    }
 
    default:
-      r = (struct ssa_result_range){unknown, false, false};
+      r = (struct ssa_result_range){unknown, false, false, false};
       break;
    }
 
