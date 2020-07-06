@@ -2013,6 +2013,17 @@ tu_clear_sysmem_attachments(struct tu_cmd_buffer *cmd,
             .component_enable = COND(clear_rts & (1 << i), 0xf)));
    }
 
+   for (uint32_t i = 0; i < attachment_count; i++) {
+      if (attachments[i].aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) {
+         /* VkCmdClearAttachments() 3D fallback is not supported by LRZ */
+         tu_cs_emit_regs(cs,
+                         A6XX_GRAS_LRZ_CNTL(0));
+         tu_cs_emit_regs(cs,
+                         A6XX_RB_LRZ_CNTL(0));
+         break;
+      }
+   }
+
    tu_cs_emit_regs(cs, A6XX_RB_DEPTH_PLANE_CNTL());
    tu_cs_emit_regs(cs, A6XX_RB_DEPTH_CNTL(
          .z_enable = z_clear,
