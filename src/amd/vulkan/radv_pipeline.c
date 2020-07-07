@@ -496,6 +496,25 @@ format_is_int10(VkFormat format)
 	return false;
 }
 
+static unsigned
+radv_get_spi_shader_col_format(unsigned spi_shader_col_format)
+{
+	unsigned value = 0, num_mrts = 0;
+	unsigned i, num_targets = (util_last_bit(spi_shader_col_format) + 3) / 4;
+
+	/* Remove holes in spi_shader_col_format. */
+	for (i = 0; i < num_targets; i++) {
+		unsigned spi_format = (spi_shader_col_format >> (i * 4)) & 0xf;
+
+		if (spi_format) {
+			value |= spi_format << (num_mrts * 4);
+			num_mrts++;
+		}
+	}
+
+	return value;
+}
+
 static void
 radv_pipeline_compute_spi_color_formats(const struct radv_pipeline *pipeline,
 					const VkGraphicsPipelineCreateInfo *pCreateInfo,
@@ -504,7 +523,6 @@ radv_pipeline_compute_spi_color_formats(const struct radv_pipeline *pipeline,
 	RADV_FROM_HANDLE(radv_render_pass, pass, pCreateInfo->renderPass);
 	struct radv_subpass *subpass = pass->subpasses + pCreateInfo->subpass;
 	unsigned col_format = 0, is_int8 = 0, is_int10 = 0;
-	unsigned num_targets;
 
 	for (unsigned i = 0; i < (blend->single_cb_enable ? 1 : subpass->color_count); ++i) {
 		unsigned cf;
@@ -538,16 +556,6 @@ radv_pipeline_compute_spi_color_formats(const struct radv_pipeline *pipeline,
 		col_format |= V_028714_SPI_SHADER_32_AR;
 	}
 
-	/* If the i-th target format is set, all previous target formats must
-	 * be non-zero to avoid hangs.
-	 */
-	num_targets = (util_last_bit(col_format) + 3) / 4;
-	for (unsigned i = 0; i < num_targets; i++) {
-		if (!(col_format & (0xfu << (i * 4)))) {
-			col_format |= V_028714_SPI_SHADER_32_R << (i * 4);
-		}
-	}
-
 	/* The output for dual source blending should have the same format as
 	 * the first output.
 	 */
@@ -555,7 +563,7 @@ radv_pipeline_compute_spi_color_formats(const struct radv_pipeline *pipeline,
 		col_format |= (col_format & 0xf) << 4;
 
 	blend->cb_shader_mask = ac_get_cb_shader_mask(col_format);
-	blend->spi_shader_col_format = col_format;
+	blend->spi_shader_col_format = radv_get_spi_shader_col_format(col_format);
 	blend->col_format_is_int8 = is_int8;
 	blend->col_format_is_int10 = is_int10;
 }
