@@ -45,6 +45,11 @@ struct ir3_block;
 
 struct ir3_info {
 	void *data;              /* used internally in ir3 assembler */
+	/* Size in bytes of the shader binary, including NIR constants and
+	 * padding
+	 */
+	uint32_t size;
+	/* Size in dwords of the instructions.  NIR constants follow. */
 	uint16_t sizedwords;
 	uint16_t instrs_count;   /* expanded to account for rpt's */
 	uint16_t nops_count;     /* # of nop instructions, including nopN */
