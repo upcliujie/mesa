@@ -1019,12 +1019,13 @@ fs_visitor::opt_copy_propagation_local(void *copy_prop_ctx, bblock_t *block,
          int offset = 0;
          for (int i = 0; i < inst->sources; i++) {
             int effective_width = i < inst->header_size ? 8 : inst->exec_size;
-            assert(effective_width * type_sz(inst->src[i].type) % REG_SIZE == 0);
-            const unsigned size_written = effective_width *
-                                          type_sz(inst->src[i].type);
+            const unsigned size_written = (effective_width *
+                                           type_sz(inst->src[i].type)) +
+                                           inst->src[i].pad_per_component;
             if (inst->src[i].file == VGRF ||
                 (inst->src[i].file == FIXED_GRF &&
                  inst->src[i].is_contiguous())) {
+               assert(size_written % REG_SIZE == 0);
                acp_entry *entry = rzalloc(copy_prop_ctx, acp_entry);
                entry->dst = byte_offset(inst->dst, offset);
                entry->src = inst->src[i];
