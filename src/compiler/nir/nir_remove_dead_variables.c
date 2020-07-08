@@ -69,10 +69,14 @@ add_var_use_deref(nir_deref_instr *deref, struct set *live)
 
    /* Since these local variables don't escape the shader, writing doesn't
     * make them live.  Only keep them if they are used by some intrinsic.
+    *
+    * Shared memory blocks (interface type) alias each other, so be
+    * conservative in that case.
     */
    if ((deref->var->data.mode & (nir_var_function_temp |
                                  nir_var_shader_temp |
                                  nir_var_mem_shared)) &&
+       !glsl_type_is_interface(deref->var->type) &&
        !deref_used_for_not_store(deref))
       return;
 
