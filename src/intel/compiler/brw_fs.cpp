@@ -4026,12 +4026,23 @@ fs_visitor::lower_load_payload()
 
       for (uint8_t i = inst->header_size; i < inst->sources; i++) {
          if (inst->src[i].file != BAD_FILE) {
-            dst.type = inst->src[i].type;
-            ibld.MOV(dst, inst->src[i]);
+            /* All payloads containing 16-bit channels will still take full
+             * register per channel even in case of SIMD8. Half of those
+             * registers simply contain unused data.
+             */
+            const fs_reg dst_i =
+               retype_pad_to_full_register(dst, dispatch_width,
+                                           inst->src[i].type);
+            ibld.MOV(dst_i, inst->src[i]);
+            if (dst_i.pad_per_component)
+               dst = byte_offset(dst, dst_i.component_size(dispatch_width));
+            else
+               dst = offset(dst, ibld, 1);
          } else {
             dst.type = BRW_REGISTER_TYPE_UD;
+            /* If the source type isn't known, advance based on the dst.  */
+            dst = offset(dst, ibld, 1);
          }
-         dst = offset(dst, ibld, 1);
       }
 
       inst->remove(block);
