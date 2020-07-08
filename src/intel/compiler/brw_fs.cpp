@@ -5188,8 +5188,13 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
 
    unsigned header_size = 0, length = 0;
    fs_reg sources[MAX_SAMPLER_MESSAGE_SIZE];
+
+   /* In case of SIMD8H payloads, each component takes full register. */
+   const bool pad_to_full_registers = bld.dispatch_width() == 8 &&
+                                      payload_type == BRW_REGISTER_TYPE_HF;
+   assert(devinfo->verx10 >= 11 || !pad_to_full_registers);
    for (unsigned i = 0; i < ARRAY_SIZE(sources); i++)
-      sources[i] = bld.vgrf(payload_type);
+      sources[i] = bld.vgrf(payload_type, 1, pad_to_full_registers);
 
    /* We must have exactly one of surface/sampler and surface/sampler_handle */
    assert((surface.file == BAD_FILE) != (surface_handle.file == BAD_FILE));
