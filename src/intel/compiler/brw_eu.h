@@ -450,12 +450,23 @@ brw_sampler_desc_simd_mode(const struct intel_device_info *devinfo,
       return GET_BITS(desc, 17, 16);
 }
 
+static inline unsigned
+brw_sampler_desc_simd_mode_high(const struct intel_device_info *devinfo,
+                                uint32_t desc)
+{
+   assert(devinfo->ver >= 8);
+   return GET_BITS(desc, 29, 29) << 2;
+}
+
 static  inline unsigned
 brw_sampler_desc_return_format(ASSERTED const struct intel_device_info *devinfo,
                                uint32_t desc)
 {
-   assert(devinfo->ver == 4 && !devinfo->is_g4x);
-   return GET_BITS(desc, 13, 12);
+   assert((devinfo->ver == 4 && !devinfo->is_g4x) || devinfo->ver >= 8);
+   if (devinfo->ver >= 8)
+      return GET_BITS(desc, 30, 30);
+   else
+      return GET_BITS(desc, 13, 12);
 }
 
 /**
