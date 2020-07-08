@@ -1216,7 +1216,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          /* Don't use s_andn2 here, this allows the optimizer to make a better decision */
          Temp tmp = bld.sop1(Builder::s_not, bld.def(bld.lm), bld.def(s1, scc), src);
          bld.sop2(Builder::s_and, Definition(dst), bld.def(s1, scc), tmp, Operand(exec, bld.lm));
-      } else if (dst.regClass() == v1) {
+      } else if (dst.regClass() == v1 || dst.regClass() == v2b) {
          emit_vop1_instruction(ctx, instr, aco_opcode::v_not_b32, dst);
       } else if (dst.regClass() == v2) {
          Temp lo = bld.tmp(v1), hi = bld.tmp(v1);
@@ -1357,7 +1357,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_ior: {
       if (instr->dest.dest.ssa.bit_size == 1) {
          emit_boolean_logic(ctx, instr, Builder::s_or, dst);
-      } else if (dst.regClass() == v1) {
+      } else if (dst.regClass() == v1 || dst.regClass() == v2b) {
          emit_vop2_instruction(ctx, instr, aco_opcode::v_or_b32, dst, true);
       } else if (dst.regClass() == v2) {
          emit_vop2_instruction_logic64(ctx, instr, aco_opcode::v_or_b32, dst);
@@ -1373,7 +1373,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_iand: {
       if (instr->dest.dest.ssa.bit_size == 1) {
          emit_boolean_logic(ctx, instr, Builder::s_and, dst);
-      } else if (dst.regClass() == v1) {
+      } else if (dst.regClass() == v1 || dst.regClass() == v2b) {
          emit_vop2_instruction(ctx, instr, aco_opcode::v_and_b32, dst, true);
       } else if (dst.regClass() == v2) {
          emit_vop2_instruction_logic64(ctx, instr, aco_opcode::v_and_b32, dst);
@@ -1389,7 +1389,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_ixor: {
       if (instr->dest.dest.ssa.bit_size == 1) {
          emit_boolean_logic(ctx, instr, Builder::s_xor, dst);
-      } else if (dst.regClass() == v1) {
+      } else if (dst.regClass() == v1 || dst.regClass() == v2b) {
          emit_vop2_instruction(ctx, instr, aco_opcode::v_xor_b32, dst, true);
       } else if (dst.regClass() == v2) {
          emit_vop2_instruction_logic64(ctx, instr, aco_opcode::v_xor_b32, dst);
