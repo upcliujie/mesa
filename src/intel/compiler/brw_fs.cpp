@@ -5166,7 +5166,15 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
    const enum brw_reg_type payload_signed_type =
       brw_reg_type_from_bit_size(payload_type_bit_size, BRW_REGISTER_TYPE_D);
    const brw_stage_prog_data *prog_data = bld.shader->stage_prog_data;
-   unsigned reg_width = bld.dispatch_width() / 8;
+
+   /* In case of 16-bit payload each component takes one full register in
+    * both SIMD8H and SIMD16H modes. In both cases one reg can hold 16
+    * elements. In SIMD8H case hardware simply expects the components to be
+    * padded (i.e., aligned on reg boundary).
+    */
+   const unsigned reg_width = payload_type == BRW_REGISTER_TYPE_HF ?
+                              1 : bld.dispatch_width() / 8;
+
    unsigned header_size = 0, length = 0;
    fs_reg sources[MAX_SAMPLER_MESSAGE_SIZE];
    for (unsigned i = 0; i < ARRAY_SIZE(sources); i++)
