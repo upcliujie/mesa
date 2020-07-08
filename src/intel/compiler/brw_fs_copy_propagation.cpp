@@ -650,6 +650,7 @@ fs_visitor::try_copy_propagate(fs_inst *inst, int arg, acp_entry *entry)
    inst->src[arg].nr = entry->src.nr;
    inst->src[arg].subnr = entry->src.subnr;
    inst->src[arg].offset = entry->src.offset;
+   inst->src[arg].pad_per_component = entry->src.pad_per_component;
 
    /* Compose the strides of both regions. */
    if (entry->src.file == FIXED_GRF) {
