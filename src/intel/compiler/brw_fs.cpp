@@ -777,6 +777,7 @@ fs_inst::components_read(unsigned i) const
    case FS_OPCODE_TXB_LOGICAL:
    case SHADER_OPCODE_TXF_CMS_LOGICAL:
    case SHADER_OPCODE_TXF_CMS_W_LOGICAL:
+   case SHADER_OPCODE_TXF_CMS_W_GFX12_LOGICAL:
    case SHADER_OPCODE_TXF_UMS_LOGICAL:
    case SHADER_OPCODE_TXF_MCS_LOGICAL:
    case SHADER_OPCODE_LOD_LOGICAL:
@@ -796,9 +797,14 @@ fs_inst::components_read(unsigned i) const
       else if (i == TEX_LOGICAL_SRC_TG4_OFFSET)
          return 2;
       /* MCS */
-      else if (i == TEX_LOGICAL_SRC_MCS && opcode == SHADER_OPCODE_TXF_CMS_W_LOGICAL)
-         return 2;
-      else
+      else if (i == TEX_LOGICAL_SRC_MCS) {
+         if (opcode == SHADER_OPCODE_TXF_CMS_W_LOGICAL)
+            return 2;
+         else if (opcode == SHADER_OPCODE_TXF_CMS_W_GFX12_LOGICAL)
+            return 4;
+         else
+            return 1;
+      } else
          return 1;
 
    case SHADER_OPCODE_UNTYPED_SURFACE_READ_LOGICAL:
@@ -6993,6 +6999,7 @@ fs_visitor::lower_logical_sends()
          break;
 
       case SHADER_OPCODE_TXF_CMS_W_LOGICAL:
+      case SHADER_OPCODE_TXF_CMS_W_GFX12_LOGICAL:
          lower_sampler_logical_send(ibld, inst, SHADER_OPCODE_TXF_CMS_W);
          break;
 
@@ -7624,6 +7631,12 @@ get_lowered_simd_width(const struct intel_device_info *devinfo,
    case SHADER_OPCODE_TXF_CMS_W_LOGICAL:
    case SHADER_OPCODE_TG4_OFFSET_LOGICAL:
       return get_sampler_lowered_simd_width(devinfo, inst);
+
+   /* On gfx12 parameters are fixed to 16-bit values and therefore they all
+    * always fit regardless of the execution size.
+    */
+   case SHADER_OPCODE_TXF_CMS_W_GFX12_LOGICAL:
+      return MIN2(16, inst->exec_size);
 
    case SHADER_OPCODE_TXD_LOGICAL:
       /* TXD is unsupported in SIMD16 mode. */
