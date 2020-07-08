@@ -908,6 +908,13 @@ FF(sampler_simd_mode,
    /* 7:   */ MD(18), MD(17),
    /* 8:   */ MD(18), MD(17),
    /* 12:  */ MD12(18), MD12(17))
+FF(sampler_simd_mode_high,
+   /* 4: doesn't exist */ -1, -1, -1, -1,
+   /* 5: doesn't exist */ -1, -1,
+   /* 6: doesn't exist */ -1, -1,
+   /* 7: doesn't exist */ -1, -1,
+   /* 8:    */ MD(29), MD(29),
+   /* 12:   */ MD12(29), MD12(29))
 FF(sampler_msg_type,
    /* 4:   */ MD(15), MD(14),
    /* 4.5: */ MD(15), MD(12),
