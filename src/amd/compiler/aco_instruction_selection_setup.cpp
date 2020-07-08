@@ -1142,32 +1142,86 @@ setup_variables(isel_context *ctx, nir_shader *nir)
    }
 }
 
-unsigned
-lower_bit_size_callback(const nir_alu_instr *alu, void *_)
+bool should_lower_alu(const nir_alu_instr *alu, Program *program, bool has_divergence_info)
 {
-   if (nir_op_is_vec(alu->op))
-      return 0;
+   if (alu->dest.dest.ssa.bit_size & 24) {
+      switch (alu->op) {
+      case nir_op_iabs:
+      case nir_op_iadd:
+      case nir_op_iand:
+      case nir_op_bitfield_select:
+      case nir_op_imax:
+      case nir_op_umax:
+      case nir_op_imax3:
+      case nir_op_umax3:
+      case nir_op_imed3:
+      case nir_op_umed3:
+      case nir_op_imin:
+      case nir_op_umin:
+      case nir_op_imin3:
+      case nir_op_umin3:
+      case nir_op_umod:
+      case nir_op_imod:
+      case nir_op_imul:
+      case nir_op_imul_high:
+      case nir_op_umul_high:
+      case nir_op_ineg:
+      case nir_op_inot:
+      case nir_op_ior:
+      case nir_op_ishl:
+      case nir_op_ishr:
+      case nir_op_ushr:
+      case nir_op_isign:
+      case nir_op_isub:
+      case nir_op_ixor:
+         return true;
+      default:
+         return false;
+      }
+   }
 
-   unsigned bit_size = alu->dest.dest.ssa.bit_size;
-   if (nir_alu_instr_is_comparison(alu))
-      bit_size = nir_src_bit_size(alu->src[0].src);
+   if (nir_src_bit_size(alu->src[0].src) & 24) {
+      switch (alu->op) {
+      case nir_op_bit_count:
+      case nir_op_find_lsb:
+      case nir_op_ufind_msb:
+      case nir_op_ieq:
+      case nir_op_ige:
+      case nir_op_uge:
+      case nir_op_ilt:
+      case nir_op_ult:
+      case nir_op_ine:
+      case nir_op_i2b1:
+         return true;
+      default:
+         return false;
+      }
+   }
 
-   if (bit_size >= 32 || bit_size == 1)
-      return 0;
+   return false;
+}
 
-   if (alu->op == nir_op_bcsel)
-      return 0;
+unsigned lower_bit_size_callback(const nir_alu_instr *alu, void *_)
+{
+   return should_lower_alu(alu, (Program*)_, true) ? 32 : 0;
+}
 
-   const nir_op_info *info = &nir_op_infos[alu->op];
+bool might_need_lower_bit_size(nir_shader *shader, Program *program)
+{
+   nir_foreach_function(function, shader) {
+      if (!function->impl)
+         continue;
 
-   if (info->is_conversion)
-      return 0;
+      nir_foreach_block(block, function->impl) {
+         nir_foreach_instr(instr, block) {
+            if (instr->type == nir_instr_type_alu &&
+                should_lower_alu(nir_instr_as_alu(instr), program, false))
+               return true;
+         }
+      }
+   }
 
-   bool is_integer = info->output_type & (nir_type_uint | nir_type_int);
-   for (unsigned i = 0; is_integer && (i < info->num_inputs); i++)
-      is_integer = info->input_types[i] & (nir_type_uint | nir_type_int);
-
-   return is_integer ? 32 : 0;
+   return false;
 }
 
 void
@@ -1222,8 +1276,15 @@ setup_nir(isel_context *ctx, nir_shader *nir)
    /* lower ALU operations */
    nir_lower_int64(nir, nir->options->lower_int64_options);
 
-   if (nir_lower_bit_size(nir, lower_bit_size_callback, NULL))
-      nir_copy_prop(nir); /* allow nir_opt_idiv_const() to optimize lowered divisions */
+   if (might_need_lower_bit_size(nir, program)) {
+      nir_convert_to_lcssa(nir, true, true);
+      nir_divergence_analysis(nir, nir_divergence_view_index_uniform);
+
+      if (nir_lower_bit_size(nir, lower_bit_size_callback, program))
+         nir_copy_prop(nir); /* allow nir_opt_idiv_const() to optimize lowered divisions */
+
+      nir_opt_remove_phis(nir); /* cleanup LCSSA phis */
+   }
 
    nir_opt_idiv_const(nir, 32);
    nir_lower_idiv(nir, nir_lower_idiv_precise);
