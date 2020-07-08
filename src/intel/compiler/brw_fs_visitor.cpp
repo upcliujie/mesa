@@ -38,7 +38,16 @@ fs_visitor::emit_mcs_fetch(const fs_reg &coordinate, unsigned components,
                            const fs_reg &texture,
                            const fs_reg &texture_handle)
 {
-   const fs_reg dest = vgrf(glsl_type::uvec4_type);
+   /* On XeHP sampler message expects the mcs data in 16-bits. Therefore the
+    * hardware has also changed to return 16-bits when fetching the data.
+    *
+    * TODO: Based on HSD, no Bspec quote found yet.
+    */
+   const enum brw_reg_type mcs_data_type =
+      devinfo->verx10 >= 125 ?  BRW_REGISTER_TYPE_UW : BRW_REGISTER_TYPE_UD;
+   const bool pad_to_full_registers = devinfo->verx10 >= 125 &&
+                                      dispatch_width == 8;
+   const fs_reg dest = bld.vgrf(mcs_data_type, 4, pad_to_full_registers);
 
    fs_reg srcs[TEX_LOGICAL_NUM_SRCS];
    srcs[TEX_LOGICAL_SRC_COORDINATE] = coordinate;
