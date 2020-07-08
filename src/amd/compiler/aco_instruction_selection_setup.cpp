@@ -748,7 +748,14 @@ void init_context(isel_context *ctx, nir_shader *shader)
                                                    alu_instr->op == nir_op_u2u16 ||
                                                    alu_instr->op == nir_op_i2i16 ||
                                                    alu_instr->op == nir_op_u2u8 ||
-                                                   alu_instr->op == nir_op_i2i8;
+                                                   alu_instr->op == nir_op_i2i8 ||
+                                                   alu_instr->op == nir_op_iand ||
+                                                   alu_instr->op == nir_op_ior ||
+                                                   alu_instr->op == nir_op_ixor ||
+                                                   alu_instr->op == nir_op_inot ||
+                                                   alu_instr->op == nir_op_iadd ||
+                                                   alu_instr->op == nir_op_isub ||
+                                                   alu_instr->op == nir_op_imul;
                      if (alu_instr->dest.dest.ssa.bit_size < 32 && !has_8_16_bit_salu_impl)
                         type = RegType::vgpr;
                      break;
