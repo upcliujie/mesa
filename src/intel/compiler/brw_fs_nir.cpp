@@ -3204,7 +3204,7 @@ fs_visitor::emit_non_coherent_fb_read(const fs_builder &bld, const fs_reg &dst,
        *
        * On Gfx12HP, there is only CMS_W variant available.
        */
-      if (devinfo->verx10 >= 12)
+      if (devinfo->verx10 >= 125)
          op = SHADER_OPCODE_TXF_CMS_W_GFX12_LOGICAL;
       else if (devinfo->ver >= 9)
          op = SHADER_OPCODE_TXF_CMS_W_LOGICAL;
