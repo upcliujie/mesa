@@ -5215,16 +5215,31 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
                                 const fs_reg &surface_handle,
                                 const fs_reg &sampler_handle,
                                 const fs_reg &tg4_offset,
+                                unsigned payload_type_bit_size,
                                 unsigned coord_components,
                                 unsigned grad_components)
 {
    const intel_device_info *devinfo = bld.shader->devinfo;
+   const enum brw_reg_type payload_type =
+      brw_reg_type_from_bit_size(payload_type_bit_size, BRW_REGISTER_TYPE_F);
+   const enum brw_reg_type payload_unsigned_type =
+      brw_reg_type_from_bit_size(payload_type_bit_size, BRW_REGISTER_TYPE_UD);
+   const enum brw_reg_type payload_signed_type =
+      brw_reg_type_from_bit_size(payload_type_bit_size, BRW_REGISTER_TYPE_D);
    const brw_stage_prog_data *prog_data = bld.shader->stage_prog_data;
-   unsigned reg_width = bld.dispatch_width() / 8;
+
+   /* In case of 16-bit payload each component takes one full register in
+    * both SIMD8H and SIMD16H modes. In both cases one reg can hold 16
+    * elements. In SIMD8H case hardware simply expects the components to be
+    * padded (i.e., aligned on reg boundary).
+    */
+   const unsigned reg_width = payload_type_bit_size == 16 ?
+                              1 : bld.dispatch_width() / 8;
+
    unsigned header_size = 0, length = 0;
    fs_reg sources[MAX_SAMPLER_MESSAGE_SIZE];
    for (unsigned i = 0; i < ARRAY_SIZE(sources); i++)
-      sources[i] = bld.vgrf(BRW_REGISTER_TYPE_F);
+      sources[i] = bld.vgrf(payload_type);
 
    /* We must have exactly one of surface/sampler and surface/sampler_handle */
    assert((surface.file == BAD_FILE) != (surface_handle.file == BAD_FILE));
@@ -5363,23 +5378,23 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
       coordinate_done = true;
       break;
    case SHADER_OPCODE_TXS:
-      bld.MOV(retype(sources[length], BRW_REGISTER_TYPE_UD), lod);
+      bld.MOV(retype(sources[length], payload_unsigned_type), lod);
       length++;
       break;
    case SHADER_OPCODE_IMAGE_SIZE_LOGICAL:
       /* We need an LOD; just use 0 */
-      bld.MOV(retype(sources[length], BRW_REGISTER_TYPE_UD), brw_imm_ud(0));
+      bld.MOV(retype(sources[length], payload_unsigned_type), brw_imm_ud(0));
       length++;
       break;
    case SHADER_OPCODE_TXF:
       /* Unfortunately, the parameters for LD are intermixed: u, lod, v, r.
        * On Gfx9 they are u, v, lod, r
        */
-      bld.MOV(retype(sources[length++], BRW_REGISTER_TYPE_D), coordinate);
+      bld.MOV(retype(sources[length++], payload_signed_type), coordinate);
 
       if (devinfo->ver >= 9) {
          if (coord_components >= 2) {
-            bld.MOV(retype(sources[length], BRW_REGISTER_TYPE_D),
+            bld.MOV(retype(sources[length], payload_signed_type),
                     offset(coordinate, bld, 1));
          } else {
             sources[length] = brw_imm_d(0);
@@ -5390,12 +5405,12 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
       if (devinfo->ver >= 9 && lod.is_zero()) {
          op = SHADER_OPCODE_TXF_LZ;
       } else {
-         bld.MOV(retype(sources[length], BRW_REGISTER_TYPE_D), lod);
+         bld.MOV(retype(sources[length], payload_signed_type), lod);
          length++;
       }
 
       for (unsigned i = devinfo->ver >= 9 ? 2 : 1; i < coord_components; i++)
-         bld.MOV(retype(sources[length++], BRW_REGISTER_TYPE_D),
+         bld.MOV(retype(sources[length++], payload_signed_type),
                  offset(coordinate, bld, i));
 
       coordinate_done = true;
@@ -5408,20 +5423,19 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
       if (op == SHADER_OPCODE_TXF_UMS ||
           op == SHADER_OPCODE_TXF_CMS ||
           op == SHADER_OPCODE_TXF_CMS_W) {
-         bld.MOV(retype(sources[length], BRW_REGISTER_TYPE_UD), sample_index);
-         length++;
+         bld.MOV(retype(sources[length++], payload_unsigned_type), sample_index);
       }
 
       if (op == SHADER_OPCODE_TXF_CMS || op == SHADER_OPCODE_TXF_CMS_W) {
          /* Data from the multisample control surface. */
-         bld.MOV(retype(sources[length], BRW_REGISTER_TYPE_UD), mcs);
+         bld.MOV(retype(sources[length], payload_unsigned_type), mcs);
          length++;
 
          /* On Gfx9+ we'll use ld2dms_w instead which has two registers for
           * the MCS data.
           */
          if (op == SHADER_OPCODE_TXF_CMS_W) {
-            bld.MOV(retype(sources[length], BRW_REGISTER_TYPE_UD),
+            bld.MOV(retype(sources[length], payload_unsigned_type),
                     mcs.file == IMM ?
                     mcs :
                     offset(mcs, bld, 1));
@@ -5433,7 +5447,7 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
        * texture coordinates.
        */
       for (unsigned i = 0; i < coord_components; i++)
-         bld.MOV(retype(sources[length++], BRW_REGISTER_TYPE_D),
+         bld.MOV(retype(sources[length++], payload_signed_type),
                  offset(coordinate, bld, i));
 
       coordinate_done = true;
@@ -5444,7 +5458,7 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
          bld.MOV(sources[length++], offset(coordinate, bld, i));
 
       for (unsigned i = 0; i < 2; i++) /* offu, offv */
-         bld.MOV(retype(sources[length++], BRW_REGISTER_TYPE_D),
+         bld.MOV(retype(sources[length++], payload_signed_type),
                  offset(tg4_offset, bld, i));
 
       if (coord_components == 3) /* r if present */
@@ -5478,8 +5492,9 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
       mlen = length * reg_width;
 
    const fs_reg src_payload = fs_reg(VGRF, bld.shader->alloc.allocate(mlen),
-                                     BRW_REGISTER_TYPE_F);
-   bld.LOAD_PAYLOAD(src_payload, sources, length, header_size);
+                                     payload_type);
+   emit_load_payload_with_padding(bld, src_payload, sources, length,
+                                  header_size, BRW_REGISTER_TYPE_F);
 
    /* Generate the SEND. */
    inst->opcode = SHADER_OPCODE_SEND;
@@ -5593,6 +5608,34 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
    assert(inst->mlen <= MAX_SAMPLER_MESSAGE_SIZE);
 }
 
+static unsigned
+get_sampler_msg_payload_type_bit_size(const fs_reg *src)
+{
+   unsigned src_type_size = 0;
+
+   /* All sources need to have the same size, therefore seek the first valid
+    * and take the size from there.
+    */
+   for (unsigned i = 0; i < TEX_LOGICAL_NUM_SRCS; i++) {
+      if (src[i].file != BAD_FILE) {
+         src_type_size = brw_reg_type_to_size(src[i].type);
+         break;
+      }
+   }
+
+   assert(src_type_size == 2 || src_type_size == 4);
+
+#ifndef NDEBUG
+   /* Make sure all sources agree. */
+   for (unsigned i = 0; i < TEX_LOGICAL_NUM_SRCS; i++) {
+      assert(src[i].file == BAD_FILE ||
+             brw_reg_type_to_size(src[i].type) == src_type_size);
+   }
+#endif
+
+   return src_type_size * 8;
+}
+
 static void
 lower_sampler_logical_send(const fs_builder &bld, fs_inst *inst, opcode op)
 {
@@ -5615,12 +5658,19 @@ lower_sampler_logical_send(const fs_builder &bld, fs_inst *inst, opcode op)
    const unsigned grad_components = inst->src[TEX_LOGICAL_SRC_GRAD_COMPONENTS].ud;
 
    if (devinfo->ver >= 7) {
+      const unsigned msg_payload_type_bit_size =
+         get_sampler_msg_payload_type_bit_size(inst->src);
+
+      /* 16-bit payloads are available only on gfx11+ */
+      assert(msg_payload_type_bit_size != 16 || devinfo->ver >= 11);
+
       lower_sampler_logical_send_gfx7(bld, inst, op, coordinate,
                                       shadow_c, lod, lod2, min_lod,
                                       sample_index,
                                       mcs, surface, sampler,
                                       surface_handle, sampler_handle,
                                       tg4_offset,
+                                      msg_payload_type_bit_size,
                                       coord_components, grad_components);
    } else if (devinfo->ver >= 5) {
       lower_sampler_logical_send_gfx5(bld, inst, op, coordinate,
