@@ -2955,17 +2955,13 @@ static bool should_lower_alu(const nir_alu_instr *alu, bool has_divergence_info,
 		unsigned bit_size = alu->dest.dest.ssa.bit_size;
 		switch (alu->op) {
 		case nir_op_iabs:
-		case nir_op_iand:
 		case nir_op_bitfield_select:
 		case nir_op_umod:
 		case nir_op_imod:
 		case nir_op_imul_high:
 		case nir_op_umul_high:
 		case nir_op_ineg:
-		case nir_op_inot:
-		case nir_op_ior:
 		case nir_op_isign:
-		case nir_op_ixor:
 			return true;
 		case nir_op_imax:
 		case nir_op_umax:
@@ -2979,6 +2975,12 @@ static bool should_lower_alu(const nir_alu_instr *alu, bool has_divergence_info,
 		case nir_op_isub:
 		case nir_op_imul:
 			return bit_size == 8 || !has_divergence_info ||
+			       !(chip >= GFX8 && nir_dest_is_divergent(alu->dest.dest));
+		case nir_op_iand:
+		case nir_op_inot:
+		case nir_op_ior:
+		case nir_op_ixor:
+			return !has_divergence_info ||
 			       !(chip >= GFX8 && nir_dest_is_divergent(alu->dest.dest));
 		default:
 			return false;
