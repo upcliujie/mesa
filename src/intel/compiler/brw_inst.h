@@ -916,7 +916,14 @@ FF(sampler_msg_type,
    /* 7:   */ MD(16), MD(12),
    /* 8:   */ MD(16), MD(12),
    /* 12:  */ MD12(16), MD12(12))
-FC(sampler_return_format, /* 4+ */ MD(13), MD(12), /* 12+ */ -1, -1, devinfo->ver == 4 && !devinfo->is_g4x)
+FF(sampler_return_format,
+   /* 4:   */ MD(13), MD(12),
+   /* 4.5: doesn't exist */ -1, -1,
+   /* 5: doesn't exist */ -1, -1,
+   /* 6: doesn't exist */ -1, -1,
+   /* 7: doesn't exist */ -1, -1,
+   /* 8:    */ MD(30), MD(30),
+   /* 12:   */ MD12(30), MD12(30))
 FD(sampler,
    /* 4:   */ MD(11), MD(8),
    /* 4.5: */ MD(11), MD(8),
