@@ -143,6 +143,7 @@
 #include "main/dispatch.h" /* for _gloffset_COUNT */
 #include "macros.h"
 #include "git_sha1.h"
+#include "shader_time.h"
 
 #ifdef USE_SPARC_ASM
 #include "sparc/sparc.h"
@@ -876,6 +877,7 @@ init_attrib_groups(struct gl_context *ctx)
    _mesa_init_varray( ctx );
    _mesa_init_viewport( ctx );
    _mesa_init_resident_handles( ctx );
+   _mesa_init_shader_times( ctx );
 
    if (!_mesa_init_texture( ctx ))
       return GL_FALSE;
@@ -1205,6 +1207,7 @@ _mesa_initialize_context(struct gl_context *ctx,
 
    /* misc one-time initializations */
    _mesa_initialize();
+   ctx->shader_profiling_enabled = false;
 
    /* Plug in driver functions and context pointer here.
     * This is important because when we call alloc_shared_state() below
@@ -1368,6 +1371,7 @@ _mesa_free_context_data(struct gl_context *ctx)
    _mesa_free_performance_monitors(ctx);
    _mesa_free_performance_queries(ctx);
    _mesa_free_resident_handles(ctx);
+   _mesa_free_shader_times(ctx);
 
    _mesa_reference_buffer_object(ctx, &ctx->Pack.BufferObj, NULL);
    _mesa_reference_buffer_object(ctx, &ctx->Unpack.BufferObj, NULL);

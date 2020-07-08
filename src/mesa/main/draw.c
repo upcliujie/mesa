@@ -40,6 +40,10 @@
 #include "enums.h"
 #include "macros.h"
 #include "transformfeedback.h"
+#include "program_resource.h"
+#include "shaderapi.h"
+#include "get.h"
+#include "shader_time.h"
 
 typedef struct {
    GLuint count;
@@ -1957,9 +1961,11 @@ _mesa_driver_draw(struct gl_context *ctx,
                   GLuint num_instances, GLuint base_instance,
                   struct gl_transform_feedback_object *tfb_vertcount,
                   unsigned tfb_stream) {
+   _mesa_prepare_shader_time_buffer(ctx);
    ctx->Driver.Draw(ctx, prims, nr_prims, ib, index_bounds_valid, min_index,
                     max_index, num_instances, base_instance, tfb_vertcount,
                     tfb_stream);
+   _mesa_collect_and_report_shader_time(ctx);
 }
 
 void
@@ -1970,7 +1976,9 @@ _mesa_driver_draw_indirect(struct gl_context *ctx, GLuint mode,
                            struct gl_buffer_object *indirect_draw_count_buffer,
                            GLsizeiptr indirect_draw_count_offset,
                            const struct _mesa_index_buffer *ib) {
+   _mesa_prepare_shader_time_buffer(ctx);
    ctx->Driver.DrawIndirect(ctx, mode, indirect_data, indirect_offset,
                             draw_count, stride, indirect_draw_count_buffer,
                             indirect_draw_count_offset, ib);
+   _mesa_collect_and_report_shader_time(ctx);
 }
