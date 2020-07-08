@@ -1310,6 +1310,9 @@ fs_generator::generate_tex(fs_inst *inst, struct brw_reg dst,
               inst->header_size != 0,
               simd_mode,
               return_format);
+
+   if (brw_reg_type_to_size(dst.type) == 2)
+      brw_inst_set_sampler_return_format(p->devinfo, brw_last_inst, 1);
 }
 
 
