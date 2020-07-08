@@ -1216,7 +1216,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          /* Don't use s_andn2 here, this allows the optimizer to make a better decision */
          Temp tmp = bld.sop1(Builder::s_not, bld.def(bld.lm), bld.def(s1, scc), src);
          bld.sop2(Builder::s_and, Definition(dst), bld.def(s1, scc), tmp, Operand(exec, bld.lm));
-      } else if (dst.regClass() == v1) {
+      } else if (dst.regClass() == v1 || dst.regClass() == v2b || dst.regClass() == v1b) {
          emit_vop1_instruction(ctx, instr, aco_opcode::v_not_b32, dst);
       } else if (dst.regClass() == v2) {
          Temp lo = bld.tmp(v1), hi = bld.tmp(v1);
@@ -1357,7 +1357,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_ior: {
       if (instr->dest.dest.ssa.bit_size == 1) {
          emit_boolean_logic(ctx, instr, Builder::s_or, dst);
-      } else if (dst.regClass() == v1) {
+      } else if (dst.regClass() == v1 || dst.regClass() == v2b || dst.regClass() == v1b) {
          emit_vop2_instruction(ctx, instr, aco_opcode::v_or_b32, dst, true);
       } else if (dst.regClass() == v2) {
          emit_vop2_instruction_logic64(ctx, instr, aco_opcode::v_or_b32, dst);
@@ -1373,7 +1373,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_iand: {
       if (instr->dest.dest.ssa.bit_size == 1) {
          emit_boolean_logic(ctx, instr, Builder::s_and, dst);
-      } else if (dst.regClass() == v1) {
+      } else if (dst.regClass() == v1 || dst.regClass() == v2b || dst.regClass() == v1b) {
          emit_vop2_instruction(ctx, instr, aco_opcode::v_and_b32, dst, true);
       } else if (dst.regClass() == v2) {
          emit_vop2_instruction_logic64(ctx, instr, aco_opcode::v_and_b32, dst);
@@ -1389,7 +1389,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_ixor: {
       if (instr->dest.dest.ssa.bit_size == 1) {
          emit_boolean_logic(ctx, instr, Builder::s_xor, dst);
-      } else if (dst.regClass() == v1) {
+      } else if (dst.regClass() == v1 || dst.regClass() == v2b || dst.regClass() == v1b) {
          emit_vop2_instruction(ctx, instr, aco_opcode::v_xor_b32, dst, true);
       } else if (dst.regClass() == v2) {
          emit_vop2_instruction_logic64(ctx, instr, aco_opcode::v_xor_b32, dst);
@@ -1519,10 +1519,10 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       if (dst.regClass() == s1) {
          emit_sop2_instruction(ctx, instr, aco_opcode::s_add_u32, dst, true);
          break;
-      } else if (dst.regClass() == v2b && ctx->program->chip_class < GFX10) {
+      } else if (dst.bytes() <= 2 && ctx->program->chip_class < GFX10) {
          emit_vop2_instruction(ctx, instr, aco_opcode::v_add_u16, dst, true);
          break;
-      } else if (dst.regClass() == v2b) {
+      } else if (dst.bytes() <= 2) {
          emit_vop3a_instruction(ctx, instr, aco_opcode::v_add_u16_e64, dst);
          break;
       }
@@ -1641,7 +1641,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       if (dst.regClass() == v1) {
          bld.vsub32(Definition(dst), src0, src1);
          break;
-      } else if (dst.regClass() == v2b) {
+      } else if (dst.bytes() <= 2) {
          if (ctx->program->chip_class >= GFX10)
             bld.vop3(aco_opcode::v_sub_u16_e64, Definition(dst), src0, src1);
          else if (src1.type() == RegType::sgpr)
@@ -1708,9 +1708,9 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_imul: {
       if (dst.regClass() == v1) {
          emit_vop3a_instruction(ctx, instr, aco_opcode::v_mul_lo_u32, dst);
-      } else if (dst.regClass() == v2b && ctx->program->chip_class >= GFX10) {
+      } else if (dst.bytes() <= 2 && ctx->program->chip_class >= GFX10) {
          emit_vop3a_instruction(ctx, instr, aco_opcode::v_mul_lo_u16_e64, dst);
-      } else if (dst.regClass() == v2b) {
+      } else if (dst.bytes() <= 2) {
          emit_vop2_instruction(ctx, instr, aco_opcode::v_mul_lo_u16, dst, true);
       } else if (dst.regClass() == s1) {
          emit_sop2_instruction(ctx, instr, aco_opcode::s_mul_i32, dst, false);
