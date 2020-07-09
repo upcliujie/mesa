@@ -979,6 +979,11 @@ static const struct gen_device_info gen_device_info_adl_gt1 = {
    .is_alderlake = true,
 };
 
+static const struct gen_device_info gen_device_info_adl_gt2 = {
+   GEN12_GT_FEATURES(2),
+   .is_alderlake = true,
+};
+
 #define GEN12_DG1_FEATURES                      \
    GEN12_GT_FEATURES(2),                        \
    .is_dg1 = true,                              \
