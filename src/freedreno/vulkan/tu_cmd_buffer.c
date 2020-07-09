@@ -1238,7 +1238,7 @@ tu_emit_renderpass_begin(struct tu_cmd_buffer *cmd,
    tu_cond_exec_end(cs);
 
    for (uint32_t i = 0; i < cmd->state.pass->attachment_count; ++i)
-      tu6_clear_lrz_setup(cmd, i, &info->pClearValues[i]);
+      tu6_clear_lrz_setup(cmd, i, false, &info->pClearValues[i]);
 }
 
 static void

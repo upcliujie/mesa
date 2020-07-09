@@ -916,7 +916,7 @@ copy_format(VkFormat format, VkImageAspectFlags aspect_mask, bool copy_buffer)
 }
 
 void
-tu6_clear_lrz_setup(struct tu_cmd_buffer *cmd, unsigned attachment, const VkClearValue *value)
+tu6_clear_lrz_setup(struct tu_cmd_buffer *cmd, unsigned attachment, bool partial_clear, const VkClearValue *value)
 {
    if (attachment == VK_ATTACHMENT_UNUSED)
       return;
@@ -936,6 +936,11 @@ tu6_clear_lrz_setup(struct tu_cmd_buffer *cmd, unsigned attachment, const VkClea
 
    /* LRZ clear changes its state, emit it again. */
    cmd->state.lrz.changed = true;
+
+   if (partial_clear) {
+      cmd->state.lrz.attachments[attachment].valid = false;
+      return;
+   }
 
    /* clear_mask value is set to either VK_IMAGE_ASPECT_COLOR_BIT or VK_IMAGE_ASPECT_DEPTH_BIT
     * in attachment_set_ops() for depth attachments.
@@ -2256,6 +2261,13 @@ tu_CmdClearAttachments(VkCommandBuffer commandBuffer,
    tu_cond_exec_start(cs, CP_COND_EXEC_0_RENDER_MODE_SYSMEM);
    tu_clear_sysmem_attachments(cmd, attachmentCount, pAttachments, rectCount, pRects);
    tu_cond_exec_end(cs);
+
+   for (uint32_t j = 0; j < attachmentCount; j++) {
+      if ((pAttachments[j].aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) != 0) {
+         uint32_t a = cmd->state.subpass->depth_stencil_attachment.attachment;
+         tu6_clear_lrz_setup(cmd, a, true, NULL);
+      }
+   }
 }
 
 static void
