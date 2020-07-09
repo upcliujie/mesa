@@ -2188,6 +2188,16 @@ tu_CmdClearAttachments(VkCommandBuffer commandBuffer,
    tu_cond_exec_start(cs, CP_COND_EXEC_0_RENDER_MODE_SYSMEM);
    tu_clear_sysmem_attachments(cmd, attachmentCount, pAttachments, rectCount, pRects);
    tu_cond_exec_end(cs);
+
+   uint32_t a = cmd->state.subpass->depth_stencil_attachment.attachment;
+   if (a != VK_ATTACHMENT_UNUSED) {
+      for (uint32_t j = 0; j < attachmentCount; j++) {
+         if ((pAttachments[j].aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) != 0)
+            continue;
+         cmd->state.lrz.valid = false;
+         cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
+      }
+   }
 }
 
 static void
