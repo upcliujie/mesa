@@ -900,12 +900,6 @@ tu6_init_hw(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
                    A6XX_SP_GS_CTRL_REG0(0));
 
    tu_cs_emit_regs(cs,
-                   A6XX_GRAS_LRZ_CNTL(0));
-
-   tu_cs_emit_regs(cs,
-                   A6XX_RB_LRZ_CNTL(0));
-
-   tu_cs_emit_regs(cs,
                    A6XX_SP_TP_BORDER_COLOR_BASE_ADDR(.bo = &dev->global_bo,
                                                      .bo_offset = gb_offset(bcolor_builtin)));
    tu_cs_emit_regs(cs,
