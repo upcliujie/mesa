@@ -5512,9 +5512,17 @@ lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
 
    const unsigned msg_type =
       sampler_msg_type(devinfo, op, inst->shadow_compare);
-   const unsigned simd_mode =
-      inst->exec_size <= 8 ? BRW_SAMPLER_SIMD_MODE_SIMD8 :
-                             BRW_SAMPLER_SIMD_MODE_SIMD16;
+
+   unsigned simd_mode = 0;
+   if (devinfo->ver >= 11 && payload_type_bit_size == 16) {
+      simd_mode =
+         inst->exec_size <= 8 ? GFX10_SAMPLER_SIMD_MODE_SIMD8H :
+                                GFX10_SAMPLER_SIMD_MODE_SIMD16H;
+   } else {
+      simd_mode =
+         inst->exec_size <= 8 ? BRW_SAMPLER_SIMD_MODE_SIMD8 :
+                                BRW_SAMPLER_SIMD_MODE_SIMD16;
+   }
 
    uint32_t base_binding_table_index;
    switch (op) {
