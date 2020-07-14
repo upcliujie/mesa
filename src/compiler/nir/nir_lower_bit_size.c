@@ -283,6 +283,17 @@ update_uses(nir_builder *bld, nir_ssa_def *old, nir_ssa_def *new, pass_flags fla
       if (src->parent_instr->pass_flags && !flags.is_output_float)
          def = new;
 
+      /* Optimize upcasts to copies. */
+      if (!def && src->parent_instr->type == nir_instr_type_alu) {
+         nir_alu_instr *src_alu = nir_instr_as_alu(src->parent_instr);
+         nir_op use_op = src_alu->op;
+         if ((use_op == cvt_unsigned && flags.zext) ||
+             (use_op == cvt_signed && flags.sext)) {
+            src_alu->op = nir_op_mov;
+            def = new;
+         }
+      }
+
       if (!def)
          def = nir_convert_to_bit_size(bld, new, type, old_size);
 
