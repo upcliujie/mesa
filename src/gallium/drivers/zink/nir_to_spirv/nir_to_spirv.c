@@ -1951,10 +1951,14 @@ tex_instr_is_lod_allowed(nir_tex_instr *tex)
 }
 
 static SpvId
-pad_coord_vector(struct ntv_context *ctx, SpvId orig, unsigned old_size, unsigned new_size)
+pad_coord_vector(struct ntv_context *ctx, SpvId orig, unsigned old_size, unsigned new_size, bool f)
 {
     SpvId int_type = spirv_builder_type_int(&ctx->builder, 32);
-    SpvId type = get_ivec_type(ctx, 32, new_size);
+    SpvId type;
+    if (f)
+       type = get_fvec_type(ctx, 32, new_size);
+    else
+       type = get_ivec_type(ctx, 32, new_size);
     SpvId constituents[NIR_MAX_VEC_COMPONENTS] = {0};
     SpvId zero = emit_int_const(ctx, 32, 0);
     assert(new_size < NIR_MAX_VEC_COMPONENTS);
@@ -1983,7 +1987,8 @@ emit_tex(struct ntv_context *ctx, nir_tex_instr *tex)
           tex->op == nir_texop_txf ||
           tex->op == nir_texop_txf_ms ||
           tex->op == nir_texop_txs ||
-          tex->op == nir_texop_lod);
+          tex->op == nir_texop_lod ||
+          tex->op == nir_texop_tg4);
    assert(tex->texture_index == tex->sampler_index);
 
    SpvId coord = 0, proj = 0, bias = 0, lod = 0, dref = 0, dx = 0, dy = 0,
@@ -2117,7 +2122,8 @@ emit_tex(struct ntv_context *ctx, nir_tex_instr *tex)
 
    SpvId result;
    if (tex->op == nir_texop_txf ||
-       tex->op == nir_texop_txf_ms) {
+       tex->op == nir_texop_txf_ms ||
+       tex->op == nir_texop_tg4) {
       SpvId image = spirv_builder_emit_image(&ctx->builder, image_type, load);
       /* if the driver doesn't support extended features, we have to manually apply the offset */
       if (offset && !ctx->feats->shaderImageGatherExtended) {
@@ -2126,16 +2132,26 @@ emit_tex(struct ntv_context *ctx, nir_tex_instr *tex)
           * to mimic how GLSL does this implicitly
           */
          if (offset_components > coord_components)
-            coord = pad_coord_vector(ctx, coord, coord_components, offset_components);
+            coord = pad_coord_vector(ctx, coord, coord_components, offset_components, tex->op == nir_texop_tg4);
          else if (coord_components > offset_components)
-            offset = pad_coord_vector(ctx, offset, offset_components, coord_components);
-         coord = emit_binop(ctx, SpvOpIAdd,
-                            get_ivec_type(ctx, coord_bitsize, coord_components),
-                            coord, offset);
+            offset = pad_coord_vector(ctx, offset, offset_components, coord_components, tex->op == nir_texop_tg4);
+         if (tex->op == nir_texop_tg4)
+            coord = emit_binop(ctx, SpvOpFAdd,
+                               get_fvec_type(ctx, coord_bitsize, coord_components),
+                               coord, offset);
+         else
+            coord = emit_binop(ctx, SpvOpIAdd,
+                               get_ivec_type(ctx, coord_bitsize, coord_components),
+                               coord, offset);
          offset = 0;
       }
-      result = spirv_builder_emit_image_fetch(&ctx->builder, dest_type,
-                                              image, coord, lod, sample, offset);
+      if (tex->op == nir_texop_tg4)
+         result = spirv_builder_emit_image_gather(&ctx->builder, dest_type,
+                                                 load, coord, emit_uint_const(ctx, 32, tex->component),
+                                                 lod, sample, offset);
+      else
+         result = spirv_builder_emit_image_fetch(&ctx->builder, dest_type,
+                                                 image, coord, lod, sample, offset);
    } else {
       result = spirv_builder_emit_image_sample(&ctx->builder,
                                                actual_dest_type, load,
