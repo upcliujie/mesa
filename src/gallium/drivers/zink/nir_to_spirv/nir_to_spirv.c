@@ -40,6 +40,7 @@ struct ntv_context {
 
    gl_shader_stage stage;
    const struct zink_so_info *so_info;
+   const VkPhysicalDeviceFeatures *feats;
 
    SpvId ubos[128];
    size_t num_ubos;
@@ -2489,7 +2490,8 @@ get_output_prim_type_mode(uint16_t type)
 
 struct spirv_shader *
 nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
-             unsigned char *shader_slot_map, unsigned char *shader_slots_reserved, bool have_i64)
+             unsigned char *shader_slot_map, unsigned char *shader_slots_reserved,
+             const VkPhysicalDeviceFeatures *feats)
 {
    struct spirv_shader *ret = NULL;
 
@@ -2544,6 +2546,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
 
    ctx.stage = s->info.stage;
    ctx.so_info = so_info;
+   ctx.feats = feats;
    ctx.shader_slot_map = shader_slot_map;
    ctx.shader_slots_reserved = *shader_slots_reserved;
    ctx.GLSL_std_450 = spirv_builder_import(&ctx.builder, "GLSL.std.450");
