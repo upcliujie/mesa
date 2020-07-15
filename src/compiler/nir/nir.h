@@ -3201,7 +3201,7 @@ typedef struct nir_shader_compiler_options {
 
    bool lower_device_index_to_zero;
 
-   /* Set if nir_lower_wpos_ytransform() should also invert gl_PointCoord. */
+   /* Set if nir_lower_wpos_transform() should also invert gl_PointCoord. */
    bool lower_wpos_pntc;
 
    /**
@@ -4607,16 +4607,16 @@ void nir_lower_passthrough_edgeflags(nir_shader *shader);
 bool nir_lower_patch_vertices(nir_shader *nir, unsigned static_count,
                               const gl_state_index16 *uniform_state_tokens);
 
-typedef struct nir_lower_wpos_ytransform_options {
-   gl_state_index16 state_tokens[STATE_LENGTH];
+typedef struct nir_lower_wpos_transform_options {
+   gl_state_index16 y_transform_state_tokens[STATE_LENGTH];
    bool fs_coord_origin_upper_left :1;
    bool fs_coord_origin_lower_left :1;
    bool fs_coord_pixel_center_integer :1;
    bool fs_coord_pixel_center_half_integer :1;
-} nir_lower_wpos_ytransform_options;
+} nir_lower_wpos_transform_options;
 
-bool nir_lower_wpos_ytransform(nir_shader *shader,
-                               const nir_lower_wpos_ytransform_options *options);
+bool nir_lower_wpos_transform(nir_shader *shader,
+                              const nir_lower_wpos_transform_options *options);
 bool nir_lower_wpos_center(nir_shader *shader, const bool for_sample_shading);
 
 bool nir_lower_wrmasks(nir_shader *shader, nir_instr_filter_cb cb, const void *data);

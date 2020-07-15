@@ -251,7 +251,7 @@ brw_nir_setup_arb_uniforms(void *mem_ctx, nir_shader *shader,
 
    /* For ARB programs, prog_to_nir generates a single "parameters" variable
     * for all uniform data.  There may be additional sampler variables, and
-    * an extra uniform from nir_lower_wpos_ytransform.
+    * an extra uniform from nir_lower_wpos_transform.
     */
 
    for (unsigned p = 0; p < plist->NumParameters; p++) {

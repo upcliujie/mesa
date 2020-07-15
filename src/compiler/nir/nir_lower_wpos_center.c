@@ -31,7 +31,7 @@
  *
  * Run before nir_lower_io().
  *
- * For a more full featured pass, consider using nir_lower_wpos_ytransform(),
+ * For a more full featured pass, consider using nir_lower_wpos_transform(),
  * which can handle pixel center integer / half integer, and origin lower
  * left / upper left transformations.
  *
