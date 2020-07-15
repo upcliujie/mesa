@@ -123,6 +123,13 @@ optimizations = [
    (('f2b', ('fneg', a)), ('f2b', a)),
    (('i2b', ('ineg', a)), ('i2b', a)),
    (('~fadd', a, 0.0), a),
+   # The a+0.0 is a unless a is denormal or -0.0. If it's only used by
+   # a floating point instruction, they should flush any input denormals and
+   # we can remove the addition if the float execution mode allows it.
+   (('fadd(is_only_used_as_float)', 'a@16', 0.0), a,
+    '!nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 16)'),
+   (('fadd(is_only_used_as_float)', 'a@32', 0.0), a,
+    '!nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 32)'),
    (('iadd', a, 0), a),
    (('usadd_4x8', a, 0), a),
    (('usadd_4x8', a, ~0), ~0),
