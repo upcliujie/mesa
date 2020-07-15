@@ -2119,7 +2119,8 @@ emit_tex(struct ntv_context *ctx, nir_tex_instr *tex)
    if (tex->op == nir_texop_txf ||
        tex->op == nir_texop_txf_ms) {
       SpvId image = spirv_builder_emit_image(&ctx->builder, image_type, load);
-      if (offset) {
+      /* if the driver doesn't support extended features, we have to manually apply the offset */
+      if (offset && !ctx->feats->shaderImageGatherExtended) {
          /* SPIRV requires matched length vectors for OpIAdd, so if a shader
           * uses vecs of differing sizes we need to make a new vec padded with zeroes
           * to mimic how GLSL does this implicitly
@@ -2131,9 +2132,10 @@ emit_tex(struct ntv_context *ctx, nir_tex_instr *tex)
          coord = emit_binop(ctx, SpvOpIAdd,
                             get_ivec_type(ctx, coord_bitsize, coord_components),
                             coord, offset);
+         offset = 0;
       }
       result = spirv_builder_emit_image_fetch(&ctx->builder, dest_type,
-                                              image, coord, lod, sample);
+                                              image, coord, lod, sample, offset);
    } else {
       result = spirv_builder_emit_image_sample(&ctx->builder,
                                                actual_dest_type, load,
@@ -2543,6 +2545,9 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityInt64);
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityFloat64);
    }
+
+   if (feats->shaderImageGatherExtended)
+      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityImageGatherExtended);
 
    ctx.stage = s->info.stage;
    ctx.so_info = so_info;
