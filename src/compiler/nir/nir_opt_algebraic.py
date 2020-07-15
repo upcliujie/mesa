@@ -145,6 +145,11 @@ optimizations = [
    (('~fadd', a, ('fadd', ('fneg', a), b)), b),
    (('fadd', ('fsat', a), ('fsat', ('fneg', a))), ('fsat', ('fabs', a))),
    (('~fmul', a, 0.0), 0.0),
+   # The only effect a*0.0 should have is when a is infinity, -0.0 or NaN
+   (('fmul', 'a@16', 0.0), 0.0,
+    '!nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 16)'),
+   (('fmul', 'a@32', 0.0), 0.0,
+    '!nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 32)'),
    (('imul', a, 0), 0),
    (('umul_unorm_4x8', a, 0), 0),
    (('umul_unorm_4x8', a, ~0), a),
