@@ -349,7 +349,7 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
          optimize_nir(nir);
       }
    }
-   struct spirv_shader *spirv = nir_to_spirv(nir, streamout, shader_slot_map, shader_slots_reserved);
+   struct spirv_shader *spirv = nir_to_spirv(nir, streamout, shader_slot_map, shader_slots_reserved, &screen->info.feats.features);
    assert(spirv);
 
    if (zink_debug & ZINK_DEBUG_SPIRV) {
