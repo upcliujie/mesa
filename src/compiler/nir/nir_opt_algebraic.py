@@ -146,6 +146,9 @@ optimizations = [
    (('~fadd', a, ('fadd', ('fneg', a), b)), b),
    (('fadd', ('fsat', a), ('fsat', ('fneg', a))), ('fsat', ('fabs', a))),
    (('~fmul', a, 0.0), 0.0),
+   # The only effect a*0.0 should have is when 'a' is infinity, -0.0 or NaN
+   (('fmul', 'a@16', 0.0), 0.0, '!'+signed_zero_inf_nan_preserve_16),
+   (('fmul', 'a@32', 0.0), 0.0, '!'+signed_zero_inf_nan_preserve_16),
    (('imul', a, 0), 0),
    (('umul_unorm_4x8', a, 0), 0),
    (('umul_unorm_4x8', a, ~0), a),
