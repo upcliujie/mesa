@@ -620,10 +620,10 @@ st_nir_lower_wpos_ytransform(struct nir_shader *nir,
    static const gl_state_index16 wposTransformState[STATE_LENGTH] = {
       STATE_INTERNAL, STATE_FB_WPOS_Y_TRANSFORM
    };
-   nir_lower_wpos_ytransform_options wpos_options = { { 0 } };
+   nir_lower_wpos_transform_options wpos_options = { { 0 } };
 
-   memcpy(wpos_options.state_tokens, wposTransformState,
-          sizeof(wpos_options.state_tokens));
+   memcpy(wpos_options.y_transform_state_tokens, wposTransformState,
+          sizeof(wpos_options.y_transform_state_tokens));
    wpos_options.fs_coord_origin_upper_left =
       pscreen->get_param(pscreen,
                          PIPE_CAP_TGSI_FS_COORD_ORIGIN_UPPER_LEFT);
@@ -637,8 +637,8 @@ st_nir_lower_wpos_ytransform(struct nir_shader *nir,
       pscreen->get_param(pscreen,
                          PIPE_CAP_TGSI_FS_COORD_PIXEL_CENTER_HALF_INTEGER);
 
-   if (nir_lower_wpos_ytransform(nir, &wpos_options)) {
-      nir_validate_shader(nir, "after nir_lower_wpos_ytransform");
+   if (nir_lower_wpos_transform(nir, &wpos_options)) {
+      nir_validate_shader(nir, "after nir_lower_wpos_transform");
       _mesa_add_state_reference(prog->Parameters, wposTransformState);
    }
 }

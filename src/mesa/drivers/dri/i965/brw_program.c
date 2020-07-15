@@ -147,17 +147,17 @@ brw_create_nir(struct brw_context *brw,
    }
 
    if (stage == MESA_SHADER_FRAGMENT) {
-      static const struct nir_lower_wpos_ytransform_options wpos_options = {
-         .state_tokens = {STATE_INTERNAL, STATE_FB_WPOS_Y_TRANSFORM, 0, 0, 0},
+      static const struct nir_lower_wpos_transform_options wpos_options = {
+         .y_transform_state_tokens = {STATE_INTERNAL, STATE_FB_WPOS_Y_TRANSFORM, 0, 0, 0},
          .fs_coord_pixel_center_integer = 1,
          .fs_coord_origin_upper_left = 1,
       };
 
       bool progress = false;
-      NIR_PASS(progress, nir, nir_lower_wpos_ytransform, &wpos_options);
+      NIR_PASS(progress, nir, nir_lower_wpos_transform, &wpos_options);
       if (progress) {
          _mesa_add_state_reference(prog->Parameters,
-                                   wpos_options.state_tokens);
+                                   wpos_options.y_transform_state_tokens);
       }
    }
 

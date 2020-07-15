@@ -26,7 +26,7 @@
 #include "program/prog_instruction.h"
 
 /* Lower gl_FragCoord (and fddy) to account for driver's requested coordinate-
- * origin and pixel-center vs. shader.  If transformation is required, a
+ * origin and pixel-center vs. shader. If transformation is required, a
  * gl_FbWposYTransform uniform is inserted (with the specified state-slots)
  * and additional instructions are inserted to transform gl_FragCoord (and
  * fddy src arg).
@@ -38,14 +38,14 @@
  */
 
 typedef struct {
-   const nir_lower_wpos_ytransform_options *options;
+   const nir_lower_wpos_transform_options *options;
    nir_shader   *shader;
    nir_builder   b;
    nir_variable *transform;
-} lower_wpos_ytransform_state;
+} lower_wpos_transform_state;
 
 static nir_ssa_def *
-get_transform(lower_wpos_ytransform_state *state)
+get_ytransform(lower_wpos_transform_state *state)
 {
    if (state->transform == NULL) {
       /* NOTE: name must be prefixed w/ "gl_" to trigger slot based
@@ -59,7 +59,7 @@ get_transform(lower_wpos_ytransform_state *state)
       var->num_state_slots = 1;
       var->state_slots = ralloc_array(var, nir_state_slot, 1);
       var->state_slots[0].swizzle = SWIZZLE_XYZW;
-      memcpy(var->state_slots[0].tokens, state->options->state_tokens,
+      memcpy(var->state_slots[0].tokens, state->options->y_transform_state_tokens,
              sizeof(var->state_slots[0].tokens));
       var->data.how_declared = nir_var_hidden;
       state->transform = var;
@@ -76,7 +76,7 @@ nir_cmp(nir_builder *b, nir_ssa_def *src0, nir_ssa_def *src1, nir_ssa_def *src2)
 
 /* see emit_wpos_adjustment() in st_mesa_to_tgsi.c */
 static void
-emit_wpos_adjustment(lower_wpos_ytransform_state *state,
+emit_wpos_adjustment(lower_wpos_transform_state *state,
                      nir_intrinsic_instr *intr, bool invert,
                      float adjX, float adjY[2])
 {
@@ -88,7 +88,7 @@ emit_wpos_adjustment(lower_wpos_ytransform_state *state,
 
    b->cursor = nir_after_instr(&intr->instr);
 
-   wpostrans = get_transform(state);
+   wpostrans = get_ytransform(state);
 
    /* First, apply the coordinate shift: */
    if (adjX || adjY[0] || adjY[1]) {
@@ -145,9 +145,9 @@ emit_wpos_adjustment(lower_wpos_ytransform_state *state,
 }
 
 static void
-lower_fragcoord(lower_wpos_ytransform_state *state, nir_intrinsic_instr *intr)
+lower_fragcoord(lower_wpos_transform_state *state, nir_intrinsic_instr *intr)
 {
-   const nir_lower_wpos_ytransform_options *options = state->options;
+   const nir_lower_wpos_transform_options *options = state->options;
    float adjX = 0.0f;
    float adjY[2] = { 0.0f, 0.0f };
    bool invert = false;
@@ -233,14 +233,14 @@ lower_fragcoord(lower_wpos_ytransform_state *state, nir_intrinsic_instr *intr)
 }
 
 static void
-lower_load_pointcoord(lower_wpos_ytransform_state *state,
+lower_load_pointcoord(lower_wpos_transform_state *state,
                       nir_intrinsic_instr *intr)
 {
    nir_builder *b = &state->b;
    b->cursor = nir_after_instr(&intr->instr);
 
    nir_ssa_def *pntc = &intr->dest.ssa;
-   nir_ssa_def *transform = get_transform(state);
+   nir_ssa_def *transform = get_ytransform(state);
    nir_ssa_def *y = nir_channel(b, pntc, 1);
    /* The offset is 1 if we're flipping, 0 otherwise. */
    nir_ssa_def *offset = nir_fmax(b, nir_channel(b, transform, 2),
@@ -259,7 +259,7 @@ lower_load_pointcoord(lower_wpos_ytransform_state *state,
 
 /* turns 'fddy(p)' into 'fddy(fmul(p, transform.x))' */
 static void
-lower_fddy(lower_wpos_ytransform_state *state, nir_alu_instr *fddy)
+lower_fddy(lower_wpos_transform_state *state, nir_alu_instr *fddy)
 {
    nir_builder *b = &state->b;
    nir_ssa_def *p, *pt, *trans;
@@ -267,7 +267,7 @@ lower_fddy(lower_wpos_ytransform_state *state, nir_alu_instr *fddy)
    b->cursor = nir_before_instr(&fddy->instr);
 
    p = nir_ssa_for_alu_src(b, fddy, 0);
-   trans = nir_channel(b, get_transform(state), 0);
+   trans = nir_channel(b, get_ytransform(state), 0);
    if (p->bit_size == 16)
       trans = nir_f2f16(b, trans);
 
@@ -283,7 +283,7 @@ lower_fddy(lower_wpos_ytransform_state *state, nir_alu_instr *fddy)
 
 /* Multiply interp_deref_at_offset's offset by transform.x to flip it. */
 static void
-lower_interp_deref_at_offset(lower_wpos_ytransform_state *state,
+lower_interp_deref_at_offset(lower_wpos_transform_state *state,
                            nir_intrinsic_instr *interp)
 {
    nir_builder *b = &state->b;
@@ -294,22 +294,22 @@ lower_interp_deref_at_offset(lower_wpos_ytransform_state *state,
 
    offset = nir_ssa_for_src(b, interp->src[1], 2);
    flip_y = nir_fmul(b, nir_channel(b, offset, 1),
-                        nir_channel(b, get_transform(state), 0));
+                        nir_channel(b, get_ytransform(state), 0));
    nir_instr_rewrite_src(&interp->instr, &interp->src[1],
                          nir_src_for_ssa(nir_vec2(b, nir_channel(b, offset, 0),
                                                      flip_y)));
 }
 
 static void
-lower_load_sample_pos(lower_wpos_ytransform_state *state,
+lower_load_sample_pos(lower_wpos_transform_state *state,
                       nir_intrinsic_instr *intr)
 {
    nir_builder *b = &state->b;
    b->cursor = nir_after_instr(&intr->instr);
 
    nir_ssa_def *pos = &intr->dest.ssa;
-   nir_ssa_def *scale = nir_channel(b, get_transform(state), 0);
-   nir_ssa_def *neg_scale = nir_channel(b, get_transform(state), 2);
+   nir_ssa_def *scale = nir_channel(b, get_ytransform(state), 0);
+   nir_ssa_def *neg_scale = nir_channel(b, get_ytransform(state), 2);
    /* Either y or 1-y for scale equal to 1 or -1 respectively. */
    nir_ssa_def *flipped_y =
                nir_fadd(b, nir_fmax(b, neg_scale, nir_imm_float(b, 0.0)),
@@ -321,7 +321,7 @@ lower_load_sample_pos(lower_wpos_ytransform_state *state,
 }
 
 static void
-lower_wpos_ytransform_block(lower_wpos_ytransform_state *state, nir_block *block)
+lower_wpos_transform_block(lower_wpos_transform_state *state, nir_block *block)
 {
    nir_foreach_instr_safe(instr, block) {
       if (instr->type == nir_instr_type_intrinsic) {
@@ -362,22 +362,22 @@ lower_wpos_ytransform_block(lower_wpos_ytransform_state *state, nir_block *block
 }
 
 static void
-lower_wpos_ytransform_impl(lower_wpos_ytransform_state *state, nir_function_impl *impl)
+lower_wpos_transform_impl(lower_wpos_transform_state *state, nir_function_impl *impl)
 {
    nir_builder_init(&state->b, impl);
 
    nir_foreach_block(block, impl) {
-      lower_wpos_ytransform_block(state, block);
+      lower_wpos_transform_block(state, block);
    }
    nir_metadata_preserve(impl, nir_metadata_block_index |
                                nir_metadata_dominance);
 }
 
 bool
-nir_lower_wpos_ytransform(nir_shader *shader,
-                          const nir_lower_wpos_ytransform_options *options)
+nir_lower_wpos_transform(nir_shader *shader,
+                          const nir_lower_wpos_transform_options *options)
 {
-   lower_wpos_ytransform_state state = {
+   lower_wpos_transform_state state = {
       .options = options,
       .shader = shader,
    };
@@ -386,7 +386,7 @@ nir_lower_wpos_ytransform(nir_shader *shader,
 
    nir_foreach_function(function, shader) {
       if (function->impl)
-         lower_wpos_ytransform_impl(&state, function->impl);
+         lower_wpos_transform_impl(&state, function->impl);
    }
 
    return state.transform != NULL;
