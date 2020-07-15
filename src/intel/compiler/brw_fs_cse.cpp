@@ -293,6 +293,8 @@ fs_visitor::opt_cse_local(const fs_live_variables &live, bblock_t *block, int &i
                entry->tmp = fs_reg(VGRF, alloc.allocate(written),
                                    entry->generator->dst.type);
 
+               entry->tmp.pad_per_component = entry->generator->dst.pad_per_component;
+
                create_copy_instr(ibld, entry->generator, entry->tmp, false);
 
                entry->generator->dst = entry->tmp;
