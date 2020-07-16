@@ -97,6 +97,7 @@ void init_program(Program *program, Stage stage, struct radv_shader_info *info,
    program->lds_limit = chip_class >= GFX7 ? 65536 : 32768;
    /* apparently gfx702 also has 16-bank LDS but I can't find a family for that */
    program->has_16bank_lds = family == CHIP_KABINI || family == CHIP_STONEY;
+   program->has_unaligned_lds_access = chip_class >= GFX9;
 
    program->vgpr_limit = 256;
    program->physical_vgprs = 256;
