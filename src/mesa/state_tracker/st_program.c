@@ -1938,10 +1938,16 @@ st_precompile_shader_variant(struct st_context *st,
       memset(&key, 0, sizeof(key));
 
       key.st = st->has_shareable_shaders ? NULL : st;
-      if (prog->Target == GL_GEOMETRY_PROGRAM_NV)
-            /* _NEW_POINT */
+      if (prog->Target == GL_GEOMETRY_PROGRAM_NV ||
+          (prog->Target == GL_TESS_EVALUATION_PROGRAM_NV && !st->ctx->GeometryProgram._Current)) {
+         /* _NEW_POINT */
          key.lower_point_size = st->lower_point_size &&
                                 !st_point_size_per_vertex(st->ctx);
+
+         /* _NEW_TRANSFORM */
+         if (st->lower_ucp && st_user_clip_planes_enabled(st->ctx))
+            key.lower_ucp = st->ctx->Transform.ClipPlanesEnabled;
+      }
 
       st_get_common_variant(st, p, &key);
       break;
