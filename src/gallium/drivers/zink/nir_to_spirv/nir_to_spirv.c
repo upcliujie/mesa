@@ -72,7 +72,8 @@ struct ntv_context {
 
    SpvId front_face_var, instance_id_var, vertex_id_var,
          primitive_id_var, invocation_id_var, // geometry
-         sample_mask_type, sample_id_var, sample_pos_var;
+         sample_mask_type, sample_id_var, sample_pos_var,
+         tess_patch_vertices_in, tess_coord_var; // tess
 };
 
 static SpvId
@@ -232,8 +233,8 @@ get_glsl_type(struct ntv_context *ctx, const struct glsl_type *type)
 
    if (glsl_type_is_array(type)) {
       SpvId ret = spirv_builder_type_array(&ctx->builder,
-         get_glsl_type(ctx, glsl_get_array_element(type)),
-         emit_uint_const(ctx, 32, glsl_get_length(type)));
+                                           get_glsl_type(ctx, glsl_get_array_element(type)),
+                                           emit_uint_const(ctx, 32, glsl_get_length(type)));
       uint32_t stride = glsl_get_explicit_stride(type);
       if (stride)
          spirv_builder_emit_array_stride(&ctx->builder, ret, stride);
@@ -330,7 +331,12 @@ emit_input(struct ntv_context *ctx, struct nir_variable *var)
          break;
 
       default:
-         slot = handle_slot(ctx, slot);
+         if (var->data.patch)
+            slot -= VARYING_SLOT_PATCH0;
+         else if (ctx->stage == MESA_SHADER_TESS_EVAL)
+            slot -= VARYING_SLOT_VAR0;
+         else
+            slot = handle_slot(ctx, slot);
          spirv_builder_emit_location(&ctx->builder, var_id, slot);
       }
    }
@@ -338,6 +344,9 @@ emit_input(struct ntv_context *ctx, struct nir_variable *var)
    if (var->data.location_frac)
       spirv_builder_emit_component(&ctx->builder, var_id,
                                    var->data.location_frac);
+
+   if (var->data.patch)
+      spirv_builder_emit_decoration(&ctx->builder, var_id, SpvDecorationPatch);
 
    if (var->data.interpolation == INTERP_MODE_FLAT)
       spirv_builder_emit_decoration(&ctx->builder, var_id, SpvDecorationFlat);
@@ -386,12 +395,20 @@ emit_output(struct ntv_context *ctx, struct nir_variable *var)
          break;
 
       default:
-         slot = handle_slot(ctx, slot);
+         if (var->data.patch)
+            slot -= VARYING_SLOT_PATCH0;
+         else if (ctx->stage == MESA_SHADER_TESS_CTRL)
+            slot -= VARYING_SLOT_VAR0;
+         else
+            slot = handle_slot(ctx, slot);
          spirv_builder_emit_location(&ctx->builder, var_id, slot);
       }
-      ctx->outputs[var->data.location] = var_id;
-      ctx->so_output_gl_types[var->data.location] = var->type;
-      ctx->so_output_types[var->data.location] = var_type;
+      /* tcs can't do xfb */
+      if (ctx->stage != MESA_SHADER_TESS_CTRL) {
+         ctx->outputs[var->data.location] = var_id;
+         ctx->so_output_gl_types[var->data.location] = var->type;
+         ctx->so_output_types[var->data.location] = var_type;
+      }
    } else {
       if (var->data.location >= FRAG_RESULT_DATA0) {
          spirv_builder_emit_location(&ctx->builder, var_id,
@@ -440,6 +457,9 @@ emit_output(struct ntv_context *ctx, struct nir_variable *var)
    default:
       unreachable("unknown interpolation value");
    }
+
+   if (var->data.patch)
+      spirv_builder_emit_decoration(&ctx->builder, var_id, SpvDecorationPatch);
 
    _mesa_hash_table_insert(ctx->vars, var, (void *)(intptr_t)var_id);
 
@@ -1902,6 +1922,22 @@ emit_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
       spirv_builder_end_primitive(&ctx->builder);
       break;
 
+   case nir_intrinsic_load_patch_vertices_in:
+      emit_load_vec_input(ctx, intr, &ctx->tess_patch_vertices_in, "gl_PatchVerticesIn", SpvBuiltInPatchVertices, nir_type_int);
+      break;
+
+   case nir_intrinsic_load_tess_coord:
+      emit_load_vec_input(ctx, intr, &ctx->tess_coord_var, "gl_TessCoord", SpvBuiltInTessCoord, nir_type_float);
+      break;
+
+   case nir_intrinsic_memory_barrier_tcs_patch:
+      spirv_builder_emit_memory_barrier(&ctx->builder, SpvScopeWorkgroup, SpvMemorySemanticsOutputMemoryMask | SpvMemorySemanticsReleaseMask);
+      break;
+
+   case nir_intrinsic_control_barrier:
+      spirv_builder_emit_control_barrier(&ctx->builder, SpvScopeWorkgroup, SpvScopeWorkgroup, SpvMemorySemanticsWorkgroupMemoryMask | SpvMemorySemanticsAcquireMask);
+      break;
+
    default:
       fprintf(stderr, "emit_intrinsic: not implemented (%s)\n",
               nir_intrinsic_infos[intr->intrinsic].name);
@@ -2529,6 +2565,9 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
    case MESA_SHADER_TESS_CTRL:
    case MESA_SHADER_TESS_EVAL:
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityTessellation);
+      /* TODO: check features for this */
+      if (s->info.outputs_written & BITFIELD64_BIT(VARYING_SLOT_PSIZ))
+         spirv_builder_emit_cap(&ctx.builder, SpvCapabilityTessellationPointSize);
       break;
 
    case MESA_SHADER_GEOMETRY:
@@ -2573,8 +2612,15 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
    ctx.GLSL_std_450 = spirv_builder_import(&ctx.builder, "GLSL.std.450");
    spirv_builder_emit_source(&ctx.builder, SpvSourceLanguageGLSL, 450);
 
-   spirv_builder_emit_mem_model(&ctx.builder, SpvAddressingModelLogical,
-                                SpvMemoryModelGLSL450);
+   if (s->info.stage == MESA_SHADER_TESS_CTRL) {
+      spirv_builder_emit_extension(&ctx.builder, "SPV_KHR_vulkan_memory_model");
+      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityVulkanMemoryModel);
+      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityVulkanMemoryModelDeviceScope);
+      spirv_builder_emit_mem_model(&ctx.builder, SpvAddressingModelLogical,
+                                   SpvMemoryModelVulkan);
+   } else
+      spirv_builder_emit_mem_model(&ctx.builder, SpvAddressingModelLogical,
+                                   SpvMemoryModelGLSL450);
 
    SpvExecutionModel exec_model;
    switch (s->info.stage) {
@@ -2635,6 +2681,43 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
       if (s->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_DEPTH))
          spirv_builder_emit_exec_mode(&ctx.builder, entry_point,
                                       SpvExecutionModeDepthReplacing);
+      break;
+   case MESA_SHADER_TESS_CTRL:
+      spirv_builder_emit_exec_mode_literal(&ctx.builder, entry_point, SpvExecutionModeOutputVertices, s->info.tess.tcs_vertices_out);
+      break;
+   case MESA_SHADER_TESS_EVAL:
+      switch (s->info.tess.primitive_mode) {
+      case GL_TRIANGLES:
+         spirv_builder_emit_exec_mode(&ctx.builder, entry_point, SpvExecutionModeTriangles);
+         break;
+      case GL_QUADS:
+         spirv_builder_emit_exec_mode(&ctx.builder, entry_point, SpvExecutionModeQuads);
+         break;
+      case GL_ISOLINES:
+         spirv_builder_emit_exec_mode(&ctx.builder, entry_point, SpvExecutionModeIsolines);
+         break;
+      default:
+         unreachable("unknown tess prim type!");
+      }
+      if (s->info.tess.ccw)
+         spirv_builder_emit_exec_mode(&ctx.builder, entry_point, SpvExecutionModeVertexOrderCcw);
+      else
+         spirv_builder_emit_exec_mode(&ctx.builder, entry_point, SpvExecutionModeVertexOrderCw);
+      switch (s->info.tess.spacing) {
+      case TESS_SPACING_EQUAL:
+         spirv_builder_emit_exec_mode(&ctx.builder, entry_point, SpvExecutionModeSpacingEqual);
+         break;
+      case TESS_SPACING_FRACTIONAL_ODD:
+         spirv_builder_emit_exec_mode(&ctx.builder, entry_point, SpvExecutionModeSpacingFractionalOdd);
+         break;
+      case TESS_SPACING_FRACTIONAL_EVEN:
+         spirv_builder_emit_exec_mode(&ctx.builder, entry_point, SpvExecutionModeSpacingFractionalEven);
+         break;
+      default:
+         unreachable("unknown tess spacing!");
+      }
+      if (s->info.tess.point_mode)
+         spirv_builder_emit_exec_mode(&ctx.builder, entry_point, SpvExecutionModePointMode);
       break;
    case MESA_SHADER_GEOMETRY:
       spirv_builder_emit_exec_mode(&ctx.builder, entry_point, get_input_prim_type_mode(s->info.gs.input_primitive));
