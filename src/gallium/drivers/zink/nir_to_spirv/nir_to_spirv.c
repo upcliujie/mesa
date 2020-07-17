@@ -308,6 +308,8 @@ emit_input(struct ntv_context *ctx, struct nir_variable *var)
 
       default:
          slot = handle_slot(ctx, slot);
+         if (ctx->stage == MESA_SHADER_TESS_CTRL || ctx->stage == MESA_SHADER_TESS_EVAL)
+            printf("INPUT %s: %s:%u -> %u:\n", gl_shader_stage_name(ctx->stage), gl_varying_slot_name(var->data.location), var->data.location_frac, slot);
          spirv_builder_emit_location(&ctx->builder, var_id, slot);
       }
       if (var->data.centroid)
