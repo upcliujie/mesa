@@ -594,7 +594,9 @@ zink_set_tess_state(struct pipe_context *pctx,
                     const float default_outer_level[4],
                     const float default_inner_level[2])
 {
-   /* TODO: generate a TCS with these values if no TCS present */
+   struct zink_context *ctx = zink_context(pctx);
+   memcpy(&ctx->default_inner_level, default_inner_level, sizeof(ctx->default_inner_level));
+   memcpy(&ctx->default_outer_level, default_outer_level, sizeof(ctx->default_outer_level));
 }
 
 static struct zink_render_pass *
