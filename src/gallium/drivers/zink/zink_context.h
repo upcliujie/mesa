@@ -126,10 +126,10 @@ struct zink_context {
    float line_width;
    float blend_constants[4];
 
-   float default_outer_level[4];
-   float default_inner_level[2];
-
    struct pipe_stencil_ref stencil_ref;
+
+   float default_inner_level[2];
+   float default_outer_level[4];
 
    struct list_head suspended_queries;
    struct list_head primitives_generated_queries;
