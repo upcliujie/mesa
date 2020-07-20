@@ -42,6 +42,8 @@
 #include "pipe/p_defines.h"
 #include "cso_cache/cso_context.h"
 
+#include "main/context.h"
+
 
 static GLuint
 translate_fill(GLenum mode)
@@ -91,6 +93,8 @@ st_update_rasterizer(struct st_context *st)
          raster->front_ccw ^= 1;
       }
    }
+
+   raster->point_tri_clip = !_mesa_is_desktop_gl(ctx);
 
    /* _NEW_LIGHT
     */
