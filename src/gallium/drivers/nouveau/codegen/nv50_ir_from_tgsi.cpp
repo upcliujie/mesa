@@ -1437,8 +1437,10 @@ bool Source::scanDeclaration(const struct tgsi_full_declaration *decl)
       for (i = first; i <= last; ++i)
          bufferAtomics[i] = decl->Declaration.Atomic;
       break;
-   case TGSI_FILE_ADDRESS:
    case TGSI_FILE_CONSTANT:
+      info->usedConstantBuffers |= BITFIELD_BIT(decl->Dim.Index2D);
+      break;
+   case TGSI_FILE_ADDRESS:
    case TGSI_FILE_IMMEDIATE:
    case TGSI_FILE_SAMPLER:
    case TGSI_FILE_IMAGE:

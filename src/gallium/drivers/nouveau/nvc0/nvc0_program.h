@@ -65,6 +65,7 @@ struct nvc0_program {
       unsigned num_syms;
    } cp;
    uint8_t num_barriers;
+   uint32_t used_cbs;
 
    void *relocs;
    void *fixups;

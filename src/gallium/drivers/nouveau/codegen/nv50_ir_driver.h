@@ -111,6 +111,7 @@ struct nv50_ir_prog_info
    uint8_t numOutputs;
    uint8_t numPatchConstants; /* also included in numInputs/numOutputs */
    uint8_t numSysVals;
+   uint32_t usedConstantBuffers;
 
    union {
       struct {

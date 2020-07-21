@@ -651,6 +651,7 @@ nvc0_program_translate(struct nvc0_program *prog, uint16_t chipset,
       prog->num_gprs = MAX2(4, (info->bin.maxGPR + 1));
    prog->cp.smem_size = info->bin.smemSize;
    prog->num_barriers = info->numBarriers;
+   prog->used_cbs = info->usedConstantBuffers;
 
    prog->vp.need_vertex_id = info->io.vertexId < PIPE_MAX_SHADER_INPUTS;
    prog->vp.need_draw_parameters = info->prop.vp.usesDrawParameters;

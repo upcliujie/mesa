@@ -578,10 +578,24 @@ nvc0_constbufs_validate(struct nvc0_context *nvc0)
 
    bool can_serialize = true;
 
+   struct nvc0_program *progs[] = { /* sorted by nvc0->constbuf[s] */
+      nvc0->vertprog,
+      nvc0->tctlprog,
+      nvc0->tevlprog,
+      nvc0->gmtyprog,
+      nvc0->fragprog,
+   };
+
    for (s = 0; s < 5; ++s) {
-      while (nvc0->constbuf_dirty[s]) {
-         int i = ffs(nvc0->constbuf_dirty[s]) - 1;
-         nvc0->constbuf_dirty[s] &= ~(1 << i);
+      if (!progs[s])
+         continue;
+
+      uint32_t constbufs = progs[s]->used_cbs & nvc0->constbuf_dirty[s];
+      nvc0->constbuf_dirty[s] &= ~constbufs;
+
+      while (constbufs) {
+         int i = ffs(constbufs) - 1;
+         constbufs &= ~(1 << i);
 
          if (nvc0->constbuf[s][i].user) {
             struct nouveau_bo *bo = nvc0->screen->uniform_bo;

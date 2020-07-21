@@ -191,10 +191,12 @@ nvc0_compute_validate_constbufs(struct nvc0_context *nvc0)
 {
    struct nouveau_pushbuf *push = nvc0->base.pushbuf;
    const int s = 5;
+   uint16_t constbufs = nvc0->compprog->used_cbs & nvc0->constbuf_dirty[s];
+   nvc0->constbuf_dirty[s] &= ~constbufs;
 
-   while (nvc0->constbuf_dirty[s]) {
-      int i = ffs(nvc0->constbuf_dirty[s]) - 1;
-      nvc0->constbuf_dirty[s] &= ~(1 << i);
+   while (constbufs) {
+      int i = ffs(constbufs) - 1;
+      constbufs &= ~(1 << i);
 
       if (nvc0->constbuf[s][i].user) {
          struct nouveau_bo *bo = nvc0->screen->uniform_bo;
