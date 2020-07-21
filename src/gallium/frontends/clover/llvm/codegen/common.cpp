@@ -265,6 +265,14 @@ namespace {
                         module::argument::zero_ext,
                         module::argument::grid_offset);
 
+      const unsigned global_space =
+                        static_cast<unsigned>(clang::LangAS::opencl_global);
+      args.emplace_back(module::argument::global, sizeof(size_t),
+                        dl.getPointerSize(global_space),
+                        compat::getPointerABIAlignment(dl, global_space),
+                        module::argument::zero_ext,
+                        module::argument::printf_buffer);
+
       return args;
    }
 
@@ -280,6 +288,25 @@ namespace {
 
       return text;
    }
+
+   std::vector<std::string> make_printf_fmts(const Module &mod) {
+      auto fmts_metadata = mod.getNamedMetadata("llvm.printf.fmts");
+      if (!fmts_metadata)
+         return {};
+
+      std::vector<std::string> fmts;
+      fmts.reserve(fmts_metadata->getNumOperands());
+
+      for (auto node: range(fmts_metadata->op_begin(),
+                                                   fmts_metadata->op_end())) {
+         std::string fmt = ::llvm::cast< ::llvm::MDString>(
+                                    node->getOperand(0))->getString().str();
+         fmts.push_back(fmt.substr(fmt.find_first_of(":")+1));
+      }
+
+      return fmts;
+   }
+
 }
 
 module
@@ -301,5 +328,7 @@ clover::llvm::build_module_common(const Module &mod,
    }
 
    m.secs.push_back(make_text_section(code));
+   m.printf_fmts = make_printf_fmts(mod);
+
    return m;
 }

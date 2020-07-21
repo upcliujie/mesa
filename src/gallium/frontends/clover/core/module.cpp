@@ -206,6 +206,7 @@ namespace {
       proc(S &s, QT &x) {
          _proc(s, x.syms);
          _proc(s, x.secs);
+         _proc(s, x.printf_fmts);
       }
    };
 };

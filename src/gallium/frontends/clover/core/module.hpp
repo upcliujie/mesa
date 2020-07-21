@@ -98,7 +98,8 @@ namespace clover {
             grid_offset,
             image_size,
             image_format,
-            constant_buffer
+            constant_buffer,
+            printf_buffer
          };
 
          argument(enum type type, size_t size,
@@ -153,6 +154,7 @@ namespace clover {
 
       std::vector<symbol> syms;
       std::vector<section> secs;
+      std::vector<std::string> printf_fmts;
    };
 }
 
