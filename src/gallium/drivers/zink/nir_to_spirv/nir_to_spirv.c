@@ -1656,6 +1656,10 @@ emit_load_ubo(struct ntv_context *ctx, nir_intrinsic_instr *intr)
       constituents[i] = spirv_builder_emit_load(&ctx->builder, uint_type, ptr);
       /* increment to the next vec4 member index for the next load */
       vec_member_offset = emit_binop(ctx, SpvOpIAdd, uint_type, vec_member_offset, one);
+      if (i == 3 && num_components >= 4) {
+         vec_offset = emit_binop(ctx, SpvOpIAdd, uint_type, vec_offset, one);
+         vec_member_offset = emit_uint_const(ctx, 32, 0);
+      }
    }
 
    /* if we're loading a 64bit value, we have to reassemble all the u32 values we've loaded into u64 values
