@@ -1208,6 +1208,9 @@ emit_alu(struct ntv_context *ctx, nir_alu_instr *alu)
    UNOP(nir_op_i2f32, SpvOpConvertSToF)
    UNOP(nir_op_u2f32, SpvOpConvertUToF)
    UNOP(nir_op_f2f32, SpvOpFConvert)
+   UNOP(nir_op_u2f64, SpvOpConvertUToF)
+   UNOP(nir_op_i2f64, SpvOpConvertSToF)
+   UNOP(nir_op_f2f64, SpvOpFConvert)
    UNOP(nir_op_bitfield_reverse, SpvOpBitReverse)
 #undef UNOP
 
@@ -1229,6 +1232,13 @@ emit_alu(struct ntv_context *ctx, nir_alu_instr *alu)
       result = emit_bitcast(ctx, dest_type, result);
       break;
 
+   case nir_op_b2f64: {
+      result = emit_select(ctx, get_fvec_type(ctx, 32, num_components), src[0],
+                           get_fvec_constant(ctx, 32, num_components, 1),
+                           get_fvec_constant(ctx, 32, num_components, 0));
+      result = emit_unop(ctx, SpvOpFConvert, dest_type, result);
+      break;
+   }
    case nir_op_inot:
       if (bit_size == 1)
          result = emit_unop(ctx, SpvOpLogicalNot, dest_type, src[0]);
