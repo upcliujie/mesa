@@ -389,7 +389,7 @@ public:
 
    void emit_block_mov(ir_assignment *ir, const struct glsl_type *type,
                        st_dst_reg *l, st_src_reg *r,
-                       st_src_reg *cond, bool cond_swap);
+                       st_src_reg *cond, bool cond_swap, bool is_struct);
 
    void print_stats();
 
@@ -3030,19 +3030,20 @@ glsl_to_tgsi_visitor::process_move_condition(ir_rvalue *ir)
 void
 glsl_to_tgsi_visitor::emit_block_mov(ir_assignment *ir, const struct glsl_type *type,
                                      st_dst_reg *l, st_src_reg *r,
-                                     st_src_reg *cond, bool cond_swap)
+                                     st_src_reg *cond, bool cond_swap, bool is_struct)
 {
    if (type->is_struct()) {
       for (unsigned int i = 0; i < type->length; i++) {
          emit_block_mov(ir, type->fields.structure[i].type, l, r,
-                        cond, cond_swap);
+                        cond, cond_swap, true);
       }
       return;
    }
 
    if (type->is_array()) {
       for (unsigned int i = 0; i < type->length; i++) {
-         emit_block_mov(ir, type->fields.array, l, r, cond, cond_swap);
+         emit_block_mov(ir, type->fields.array, l, r, cond, cond_swap,
+                        is_struct);
       }
       return;
    }
@@ -3055,7 +3056,7 @@ glsl_to_tgsi_visitor::emit_block_mov(ir_assignment *ir, const struct glsl_type *
                                          type->vector_elements, 1);
 
       for (int i = 0; i < type->matrix_columns; i++) {
-         emit_block_mov(ir, vec_type, l, r, cond, cond_swap);
+         emit_block_mov(ir, vec_type, l, r, cond, cond_swap, is_struct);
       }
       return;
    }
@@ -3064,6 +3065,10 @@ glsl_to_tgsi_visitor::emit_block_mov(ir_assignment *ir, const struct glsl_type *
 
    l->type = type->base_type;
    r->type = type->base_type;
+
+   if (is_struct)
+      l->writemask = u_bit_consecutive(0, type->vector_elements);
+
    if (cond) {
       st_src_reg l_src = st_src_reg(*l);
 
@@ -3101,6 +3106,7 @@ glsl_to_tgsi_visitor::emit_block_mov(ir_assignment *ir, const struct glsl_type *
 void
 glsl_to_tgsi_visitor::visit(ir_assignment *ir)
 {
+   bool is_struct = false;
    int dst_component;
    st_dst_reg l;
    st_src_reg r;
@@ -3141,6 +3147,7 @@ glsl_to_tgsi_visitor::visit(ir_assignment *ir)
             l.writemask = u_bit_consecutive(0, num_elements);
          } else {
             /* The type is a struct or an array of (array of) structs. */
+            is_struct = true;
             l.writemask = WRITEMASK_XYZW;
          }
       } else {
@@ -3179,7 +3186,7 @@ glsl_to_tgsi_visitor::visit(ir_assignment *ir)
       const bool switch_order = this->process_move_condition(ir->condition);
       st_src_reg condition = this->result;
 
-      emit_block_mov(ir, ir->lhs->type, &l, &r, &condition, switch_order);
+      emit_block_mov(ir, ir->lhs->type, &l, &r, &condition, switch_order, is_struct);
    } else if (ir->rhs->as_expression() &&
               this->instructions.get_tail() &&
               ir->rhs == ((glsl_to_tgsi_instruction *)this->instructions.get_tail())->ir &&
@@ -3198,7 +3205,7 @@ glsl_to_tgsi_visitor::visit(ir_assignment *ir)
       new_inst->resource = inst->resource;
       inst->dead_mask = inst->dst[0].writemask;
    } else {
-      emit_block_mov(ir, ir->rhs->type, &l, &r, NULL, false);
+      emit_block_mov(ir, ir->rhs->type, &l, &r, NULL, false, is_struct);
    }
    this->precise = 0;
 }
