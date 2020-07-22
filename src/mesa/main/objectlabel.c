@@ -52,11 +52,13 @@ set_label(struct gl_context *ctx, char **labelPtr, const char *label,
    /* set new label string */
    if (label) {
       if (length >= 0) {
-         if (length >= MAX_LABEL_LENGTH)
+         if (length >= MAX_LABEL_LENGTH) {
             _mesa_error(ctx, GL_INVALID_VALUE,
                         "%s(length=%d, which is not less than "
                         "GL_MAX_LABEL_LENGTH=%d)", caller, length,
                         MAX_LABEL_LENGTH);
+            return;
+         }
 
          /* explicit length */
          *labelPtr = malloc(length+1);
