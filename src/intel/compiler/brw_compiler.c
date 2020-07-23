@@ -49,7 +49,8 @@
    .lower_base_vertex = true,                                                 \
    .use_scoped_barrier = true,                                                \
    .support_16bit_alu = true,                                                 \
-   .lower_uniforms_to_ubo = true
+   .lower_uniforms_to_ubo = true,                                             \
+   .avoid_ffma_with_two_constants = true
 
 #define COMMON_SCALAR_OPTIONS                                                 \
    .lower_to_scalar = true,                                                   \
@@ -75,6 +76,8 @@ static const struct nir_shader_compiler_options scalar_nir_options = {
 
 static const struct nir_shader_compiler_options vector_nir_options = {
    COMMON_OPTIONS,
+
+   .has_fdot = true,
 
    /* In the vec4 backend, our dpN instruction replicates its result to all the
     * components of a vec4.  We would like NIR to give us replicated fdot

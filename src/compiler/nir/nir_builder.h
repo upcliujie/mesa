@@ -593,24 +593,72 @@ nir_swizzle(nir_builder *build, nir_ssa_def *src, const unsigned *swiz,
    return nir_mov_alu(build, alu_src, num_components);
 }
 
+static inline nir_ssa_def *
+nir_channel(nir_builder *b, nir_ssa_def *def, unsigned c);
+
+static inline nir_ssa_def *
+nir_channels(nir_builder *b, nir_ssa_def *def, nir_component_mask_t mask);
+
+static inline bool
+nir_lower_ffma(nir_builder *build, unsigned bit_size)
+{
+   switch (bit_size) {
+   case 16:
+      return build->shader->options->lower_ffma16;
+   case 32:
+      return build->shader->options->lower_ffma32;
+   case 64:
+      return build->shader->options->lower_ffma64;
+   }
+   unreachable("bad bit size");
+}
+
 /* Selects the right fdot given the number of components in each source. */
 static inline nir_ssa_def *
 nir_fdot(nir_builder *build, nir_ssa_def *src0, nir_ssa_def *src1)
 {
    assert(src0->num_components == src1->num_components);
-   switch (src0->num_components) {
-   case 1: return nir_fmul(build, src0, src1);
-   case 2: return nir_fdot2(build, src0, src1);
-   case 3: return nir_fdot3(build, src0, src1);
-   case 4: return nir_fdot4(build, src0, src1);
-   case 5: return nir_fdot5(build, src0, src1);
-   case 8: return nir_fdot8(build, src0, src1);
-   case 16: return nir_fdot16(build, src0, src1);
-   default:
-      unreachable("bad component size");
-   }
 
-   return NULL;
+   if (src0->num_components == 1)
+      return nir_fmul(build, src0, src1);
+
+   /* If the backend doesn't implement fdot and we don't want to lower ffma,
+    * create several ffma instead of fdot, since a lowered fdot cannot be
+    * used to ffma instructions if it was exact.
+    */
+   if (!build->shader->options->has_fdot && !nir_lower_ffma(build, src0->bit_size)) {
+      assert(src0->num_components <= 16);
+
+      nir_ssa_def *res = NULL;
+      for (int i = src0->num_components - 1; i >= 0; i--) {
+         nir_alu_instr *instr = nir_alu_instr_create(build->shader, res ? nir_op_ffma : nir_op_fmul);
+         instr->src[0].src = nir_src_for_ssa(src0);
+         instr->src[1].src = nir_src_for_ssa(src1);
+         instr->src[0].swizzle[0] = i;
+         instr->src[1].swizzle[0] = i;
+         if (res)
+            instr->src[2].src = nir_src_for_ssa(res);
+         instr->exact = build->exact;
+         instr->dest.write_mask = 0x1;
+         nir_ssa_dest_init(&instr->instr, &instr->dest.dest, 1, src0->bit_size, NULL);
+         nir_builder_instr_insert(build, &instr->instr);
+         res = &instr->dest.dest.ssa;
+      }
+      return res;
+   } else {
+      switch (src0->num_components) {
+      case 2: return nir_fdot2(build, src0, src1);
+      case 3: return nir_fdot3(build, src0, src1);
+      case 4: return nir_fdot4(build, src0, src1);
+      case 5: return nir_fdot5(build, src0, src1);
+      case 8: return nir_fdot8(build, src0, src1);
+      case 16: return nir_fdot16(build, src0, src1);
+      default:
+         unreachable("bad component size");
+      }
+
+      return NULL;
+   }
 }
 
 static inline nir_ssa_def *
@@ -914,6 +962,42 @@ nir_udiv_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
    } else {
       return nir_udiv(build, x, nir_imm_intN_t(build, y, x->bit_size));
    }
+}
+
+static inline nir_ssa_def *
+nir_ffma_imm12(nir_builder *build, nir_ssa_def *src0, double src1, double src2)
+{
+   if (build->shader->options->lower_bfe_with_two_constants)
+      return nir_fadd_imm(build, nir_fmul_imm(build, src0, src1), src2);
+   else
+      return nir_ffma(build, src0, nir_imm_floatN_t(build, src1, src0->bit_size),
+                             nir_imm_floatN_t(build, src2, src0->bit_size));
+}
+
+static inline nir_ssa_def *
+nir_ffma_imm1(nir_builder *build, nir_ssa_def *src0, double src1, nir_ssa_def *src2)
+{
+   return nir_ffma(build, src0, nir_imm_floatN_t(build, src1, src0->bit_size), src2);
+}
+
+static inline nir_ssa_def *
+nir_ffma_imm2(nir_builder *build, nir_ssa_def *src0, nir_ssa_def *src1, double src2)
+{
+   return nir_ffma(build, src0, src1, nir_imm_floatN_t(build, src2, src0->bit_size));
+}
+
+static inline nir_ssa_def *
+nir_ffma_neg2(nir_builder *build, nir_ssa_def *src0, nir_ssa_def *src1,
+              nir_ssa_def *src2)
+{
+   return nir_ffma(build, src0, src1, nir_fneg(build, src2));
+}
+
+static inline nir_ssa_def *
+nir_a_minus_bc(nir_builder *build, nir_ssa_def *src0, nir_ssa_def *src1,
+               nir_ssa_def *src2)
+{
+   return nir_ffma(build, nir_fneg(build, src1), src2, src0);
 }
 
 static inline nir_ssa_def *

@@ -55,6 +55,7 @@ static const nir_shader_compiler_options midgard_nir_options = {
         .lower_find_lsb = true,
         .lower_ifind_msb = true,
         .lower_fdph = true,
+        .has_fdot = true,
 
         .lower_wpos_pntc = true,
 
