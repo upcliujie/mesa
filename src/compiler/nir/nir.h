@@ -3198,6 +3198,9 @@ typedef struct nir_shader_compiler_options {
    /* lower fdph to fdot4 */
    bool lower_fdph;
 
+   /* whether fdot instructions are beneficial */
+   bool has_fdot;
+
    /** lower fdot to fmul and fsum/fadd. */
    bool lower_fdot;
 
@@ -3417,8 +3420,11 @@ typedef struct nir_shader_compiler_options {
     */
    bool intel_vec4;
 
-   /** Lower nir_op_ibfe and nir_op_ubfe that have two constant sources. */
-   bool lower_bfe_with_two_constants;
+   /**
+    * For most Intel GPUs, all ternary operations such as FMA and BFE cannot
+    * have immediates, so two to three instructions may eventually be needed.
+    */
+   bool avoid_ternary_with_two_constants;
 
    /** Whether 8-bit ALU is supported. */
    bool support_8bit_alu;
