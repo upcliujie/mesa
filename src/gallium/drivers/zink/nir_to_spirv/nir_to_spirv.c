@@ -237,6 +237,25 @@ get_glsl_type(struct ntv_context *ctx, const struct glsl_type *type)
                                            get_glsl_type(ctx, glsl_get_array_element(type)),
                                            emit_uint_const(ctx, 32, glsl_get_length(type)));
       uint32_t stride = glsl_get_explicit_stride(type);
+      if (!stride && glsl_type_is_scalar(glsl_get_array_element(type))) {
+         switch (glsl_get_bit_size(glsl_get_array_element(type))) {
+         case 1:
+         case 8:
+            stride = sizeof(uint8_t);
+            break;
+         case 16:
+            stride = sizeof(uint16_t);
+            break;
+         case 32:
+            stride = sizeof(uint32_t);
+            break;
+         case 64:
+            stride = sizeof(uint64_t);
+            break;
+         default:
+            unreachable("unknown array element size");
+         }
+      }
       if (stride)
          spirv_builder_emit_array_stride(&ctx->builder, ret, stride);
       return ret;
