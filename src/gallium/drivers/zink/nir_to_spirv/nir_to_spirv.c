@@ -2405,6 +2405,40 @@ emit_deref_array(struct ntv_context *ctx, nir_deref_instr *deref)
 }
 
 static void
+emit_deref_struct(struct ntv_context *ctx, nir_deref_instr *deref)
+{
+   assert(deref->deref_type == nir_deref_type_struct);
+   nir_variable *var = nir_deref_instr_get_variable(deref);
+
+   SpvStorageClass storage_class;
+   switch (var->data.mode) {
+   case nir_var_shader_in:
+      storage_class = SpvStorageClassInput;
+      break;
+
+   case nir_var_shader_out:
+      storage_class = SpvStorageClassOutput;
+      break;
+
+   default:
+      unreachable("Unsupported nir_variable_mode\n");
+   }
+
+   SpvId index = emit_uint_const(ctx, 32, deref->strct.index);
+
+   SpvId ptr_type = spirv_builder_type_pointer(&ctx->builder,
+                                               storage_class,
+                                               get_glsl_type(ctx, deref->type));
+
+   SpvId result = spirv_builder_emit_access_chain(&ctx->builder,
+                                                  ptr_type,
+                                                  get_src(ctx, &deref->parent),
+                                                  &index, 1);
+   /* uint is a bit of a lie here, it's really just an opaque type */
+   store_dest(ctx, &deref->dest, result, nir_type_uint);
+}
+
+static void
 emit_deref(struct ntv_context *ctx, nir_deref_instr *deref)
 {
    switch (deref->deref_type) {
@@ -2414,6 +2448,10 @@ emit_deref(struct ntv_context *ctx, nir_deref_instr *deref)
 
    case nir_deref_type_array:
       emit_deref_array(ctx, deref);
+      break;
+
+   case nir_deref_type_struct:
+      emit_deref_struct(ctx, deref);
       break;
 
    default:
