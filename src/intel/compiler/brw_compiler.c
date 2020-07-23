@@ -76,6 +76,8 @@ static const struct nir_shader_compiler_options scalar_nir_options = {
 static const struct nir_shader_compiler_options vector_nir_options = {
    COMMON_OPTIONS,
 
+   .has_fdot = true,
+
    /* In the vec4 backend, our dpN instruction replicates its result to all the
     * components of a vec4.  We would like NIR to give us replicated fdot
     * instructions because it can optimize better for us.

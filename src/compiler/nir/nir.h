@@ -3187,6 +3187,9 @@ typedef struct nir_shader_compiler_options {
    /* lower fdph to fdot4 */
    bool lower_fdph;
 
+   /* whether fdot instructions are beneficial */
+   bool has_fdot;
+
    /** lower fdot to fmul and fsum/fadd. */
    bool lower_fdot;
 
