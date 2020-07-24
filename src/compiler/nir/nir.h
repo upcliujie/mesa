@@ -1804,14 +1804,18 @@ nir_intrinsic_##name(const nir_intrinsic_instr *instr)                        \
 {                                                                             \
    const nir_intrinsic_info *info = &nir_intrinsic_infos[instr->intrinsic];   \
    assert(info->index_map[NIR_INTRINSIC_##flag] > 0);                         \
-   return (type)instr->const_index[info->index_map[NIR_INTRINSIC_##flag] - 1]; \
+   unsigned idx = info->index_map[NIR_INTRINSIC_##flag] - 1;                  \
+   assert(idx < NIR_INTRINSIC_MAX_CONST_INDEX);                               \
+   return (type)instr->const_index[idx];                                      \
 }                                                                             \
 static inline void                                                            \
 nir_intrinsic_set_##name(nir_intrinsic_instr *instr, type val)                \
 {                                                                             \
    const nir_intrinsic_info *info = &nir_intrinsic_infos[instr->intrinsic];   \
    assert(info->index_map[NIR_INTRINSIC_##flag] > 0);                         \
-   instr->const_index[info->index_map[NIR_INTRINSIC_##flag] - 1] = val;       \
+   unsigned idx = info->index_map[NIR_INTRINSIC_##flag] - 1;                  \
+   assert(idx < NIR_INTRINSIC_MAX_CONST_INDEX);                               \
+   instr->const_index[idx] = val;                                             \
 }
 
 INTRINSIC_IDX_ACCESSORS(write_mask, WRMASK, unsigned)

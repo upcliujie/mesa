@@ -26,6 +26,8 @@ template = """\
 
 #include "nir.h"
 
+<% max_num_indices = 0 %>
+
 const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics] = {
 % for name, opcode in sorted(INTR_OPCODES.items()):
 {
@@ -41,6 +43,7 @@ const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics] = {
    .dest_bit_sizes = ${hex(reduce(operator.or_, opcode.bit_sizes, 0))},
    .num_indices = ${opcode.num_indices},
 % if opcode.indices:
+<% max_num_indices = max(max_num_indices, len(opcode.indices)) %>\
    .index_map = {
 % for i in range(len(opcode.indices)):
       [${opcode.indices[i]}] = ${i + 1},
@@ -51,6 +54,11 @@ const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics] = {
 },
 % endfor
 };
+
+UNUSED static void asserts()
+{
+    STATIC_ASSERT(NIR_INTRINSIC_MAX_CONST_INDEX >= ${max_num_indices});
+}
 """
 
 from nir_intrinsics import INTR_OPCODES
