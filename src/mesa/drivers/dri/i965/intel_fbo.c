@@ -115,11 +115,6 @@ intel_map_renderbuffer(struct gl_context *ctx,
    void *map;
    ptrdiff_t stride;
 
-   /* driver does not support GL_FRAMEBUFFER_FLIP_X_MESA */
-   assert((transform & MESA_TRANSFORM_FLIP_X) == 0);
-   /* driver does not support GL_FRAMEBUFFER_SWAP_XY_MESA */
-   assert((transform & MESA_TRANSFORM_SWAP_XY) == 0);
-
    if (srb->Buffer) {
       /* this is a malloc'd renderbuffer (accum buffer), not an irb */
       GLint bpp = _mesa_get_format_bytes(rb->Format);
