@@ -399,6 +399,16 @@ struct tu_device
 
    struct tu_bo global_bo;
 
+   /* the blob seems to always use 8K factor and 128K param sizes
+    * however since the "scratch bo" size is PoT aligned, use sizes
+    * that add up to a power of two.
+    */
+#define TU_TESS_FACTOR_SIZE (12 * 1024)
+#define TU_TESS_PARAM_SIZE (244 * 1024)
+#define TU_TESS_BO_SIZE (TU_TESS_FACTOR_SIZE + TU_TESS_PARAM_SIZE)
+   /* Lazily allocated, protected by the device mutex. */
+   struct tu_bo tess_bo;
+
    struct ir3_shader_variant *global_shaders[GLOBAL_SH_COUNT];
    uint64_t global_shader_va[GLOBAL_SH_COUNT];
 
@@ -1025,6 +1035,7 @@ struct tu_cmd_state
 
    bool xfb_used;
    bool has_tess;
+   bool tessfactor_addr_set;
    bool has_subpass_predication;
    bool predication_active;
    bool disable_gmem;

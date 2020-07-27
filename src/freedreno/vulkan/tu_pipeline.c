@@ -1599,7 +1599,6 @@ tu6_emit_geom_tess_consts(struct tu_cs *cs,
       tu6_emit_const(cs, CP_LOAD_STATE6_GEOM, ds_base, SB6_DS_SHADER, 0,
                      ARRAY_SIZE(ds_params), ds_params);
    }
-
    if (gs) {
       const struct ir3_shader_variant *prev = ds ? ds : vs;
       uint32_t gs_params[4] = {
@@ -2602,6 +2601,7 @@ static void
 tu_pipeline_builder_parse_shader_stages(struct tu_pipeline_builder *builder,
                                         struct tu_pipeline *pipeline)
 {
+   struct tu_device *dev = builder->device;
    struct tu_cs prog_cs;
 
    /* Emit HLSQ_xS_CNTL/HLSQ_SP_xS_CONFIG *first*, before emitting anything
@@ -2632,6 +2632,14 @@ tu_pipeline_builder_parse_shader_stages(struct tu_pipeline_builder *builder,
       stages |= builder->create_info->pStages[i].stage;
    }
    pipeline->active_stages = stages;
+
+   /* Create the shared tess factor BO the first time tess is used on the device. */
+   if (pipeline->active_stages & VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT) {
+      mtx_lock(&dev->mutex);
+      if (!dev->tess_bo.size)
+         tu_bo_init_new(dev, &dev->tess_bo, TU_TESS_BO_SIZE, TU_BO_ALLOC_NO_FLAGS);
+      mtx_unlock(&dev->mutex);
+   }
 
    for (unsigned i = 0; i < ARRAY_SIZE(builder->shaders); i++) {
       if (!builder->shaders[i])
