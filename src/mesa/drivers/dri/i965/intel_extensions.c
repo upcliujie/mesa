@@ -228,6 +228,8 @@ intelInitExtensions(struct gl_context *ctx)
          ctx->Extensions.ARB_viewport_array = true;
          ctx->Extensions.AMD_vertex_shader_viewport_index = true;
       }
+      ctx->Extensions.MESA_framebuffer_flip_x = true;
+      ctx->Extensions.MESA_framebuffer_swap_xy = true;
    }
 
    brw->predicate.supported = false;
