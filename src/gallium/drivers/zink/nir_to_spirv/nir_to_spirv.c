@@ -221,11 +221,11 @@ get_glsl_basetype(struct ntv_context *ctx, enum glsl_base_type type)
 }
 
 static SpvId
-get_glsl_type(struct ntv_context *ctx, const struct glsl_type *type)
+get_glsl_type_element(struct ntv_context *ctx, const struct glsl_type *type, SpvId element)
 {
    assert(type);
    if (glsl_type_is_scalar(type))
-      return get_glsl_basetype(ctx, glsl_get_base_type(type));
+      return element ? element : get_glsl_basetype(ctx, glsl_get_base_type(type));
 
    if (glsl_type_is_vector(type))
       return spirv_builder_type_vector(&ctx->builder,
@@ -234,7 +234,7 @@ get_glsl_type(struct ntv_context *ctx, const struct glsl_type *type)
 
    if (glsl_type_is_array(type)) {
       SpvId ret = spirv_builder_type_array(&ctx->builder,
-                                           get_glsl_type(ctx, glsl_get_array_element(type)),
+                                           get_glsl_type_element(ctx, glsl_get_array_element(type), element),
                                            emit_uint_const(ctx, 32, glsl_get_length(type)));
       uint32_t stride = glsl_get_explicit_stride(type);
       if (!stride && glsl_type_is_scalar(glsl_get_array_element(type))) {
@@ -260,10 +260,11 @@ get_glsl_type(struct ntv_context *ctx, const struct glsl_type *type)
          spirv_builder_emit_array_stride(&ctx->builder, ret, stride);
       return ret;
    }
+
    if (glsl_type_is_struct(type)) {
       SpvId types[glsl_get_length(type)];
       for (unsigned i = 0; i < glsl_get_length(type); i++)
-         types[i] = get_glsl_type(ctx, glsl_get_struct_field(type, i));
+         types[i] = get_glsl_type_element(ctx, glsl_get_struct_field(type, i), element);
       SpvId ret = spirv_builder_type_struct(&ctx->builder,
                                            types,
                                            glsl_get_length(type));
@@ -282,6 +283,12 @@ get_glsl_type(struct ntv_context *ctx, const struct glsl_type *type)
                                        glsl_get_matrix_columns(type));
 
    unreachable("we shouldn't get here, I think...");
+}
+
+static SpvId
+get_glsl_type(struct ntv_context *ctx, const struct glsl_type *type)
+{
+   return get_glsl_type_element(ctx, type, 0);
 }
 
 static inline unsigned char
