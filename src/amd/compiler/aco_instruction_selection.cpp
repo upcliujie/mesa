@@ -2947,6 +2947,7 @@ struct LoadEmitInfo {
    unsigned align_offset = 0;
 
    bool glc = false;
+   bool slc = false;
    unsigned swizzle_component_size = 0;
    memory_sync_info sync;
    Temp soffset = Temp(0, s1);
@@ -3367,6 +3368,7 @@ Temp mubuf_load_callback(Builder& bld, const LoadEmitInfo &info,
    mubuf->offen = (offset.type() == RegType::vgpr);
    mubuf->glc = info.glc;
    mubuf->dlc = info.glc && bld.program->chip_class >= GFX10;
+   mubuf->slc = info.slc;
    mubuf->sync = info.sync;
    mubuf->offset = const_offset;
    mubuf->swizzled = info.swizzle_component_size != 0;
@@ -3871,7 +3873,8 @@ void store_vmem_mubuf(isel_context *ctx, Temp src, Temp descriptor, Temp voffset
 
 void load_vmem_mubuf(isel_context *ctx, Temp dst, Temp descriptor, Temp voffset, Temp soffset,
                      unsigned base_const_offset, unsigned elem_size_bytes, unsigned num_components,
-                     unsigned stride = 0u, bool allow_combining = true, bool allow_reorder = true)
+                     unsigned stride = 0u, bool allow_combining = true, bool allow_reorder = true,
+                     bool slc = false)
 {
    assert(elem_size_bytes == 2 || elem_size_bytes == 4 || elem_size_bytes == 8);
    assert((num_components * elem_size_bytes) == dst.bytes());
@@ -11814,28 +11817,13 @@ void select_gs_copy_shader(Program *program, struct nir_shader *gs_shader,
             if (!(output_usage_mask & (1 << j)))
                continue;
 
+            Temp val = bld.tmp(v1);
             unsigned const_offset = offset * args->shader_info->gs.vertices_out * 16 * 4;
-            Temp voffset = vtx_offset;
-            if (const_offset >= 4096u) {
-               voffset = bld.vadd32(bld.def(v1), Operand(const_offset / 4096u * 4096u), voffset);
-               const_offset %= 4096u;
-            }
-
-            aco_ptr<MUBUF_instruction> mubuf{create_instruction<MUBUF_instruction>(aco_opcode::buffer_load_dword, Format::MUBUF, 3, 1)};
-            mubuf->definitions[0] = bld.def(v1);
-            mubuf->operands[0] = Operand(gsvs_ring);
-            mubuf->operands[1] = Operand(voffset);
-            mubuf->operands[2] = Operand(0u);
-            mubuf->offen = true;
-            mubuf->offset = const_offset;
-            mubuf->glc = true;
-            mubuf->slc = true;
-            mubuf->dlc = args->options->chip_class >= GFX10;
+            load_vmem_mubuf(&ctx, val, gsvs_ring, vtx_offset, Temp(), const_offset, 4, 1,
+                            0u, true, true, true);
 
             ctx.outputs.mask[i] |= 1 << j;
-            ctx.outputs.temps[i * 4u + j] = mubuf->definitions[0].getTemp();
-
-            bld.insert(std::move(mubuf));
+            ctx.outputs.temps[i * 4u + j] = val;
 
             offset++;
          }
