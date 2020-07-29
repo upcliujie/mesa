@@ -394,6 +394,8 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
    return mod;
 }
 
+bool nir_lower_dynamic_bo_access(nir_shader *shader);
+
 struct zink_shader *
 zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
                    const struct pipe_stream_output_info *so_info)
@@ -419,6 +421,8 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
    NIR_PASS_V(nir, lower_discard_if);
    NIR_PASS_V(nir, nir_lower_fragcolor);
    NIR_PASS_V(nir, lower_64bit_vertex_attribs);
+   if (nir->info.num_ubos || nir->info.num_ssbos)
+      NIR_PASS_V(nir, nir_lower_dynamic_bo_access);
    NIR_PASS_V(nir, nir_convert_from_ssa, true);
 
    if (zink_debug & ZINK_DEBUG_NIR) {
