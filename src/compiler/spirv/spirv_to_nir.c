@@ -1521,6 +1521,10 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
 
       SpvStorageClass storage_class = w[2];
 
+      struct vtn_type *deref_type = NULL;
+      if (opcode == SpvOpTypePointer)
+         deref_type = vtn_get_type(b, w[3]);
+
       if (val->value_type == vtn_value_type_invalid) {
          val->value_type = vtn_value_type_type;
          val->type = rzalloc(b, struct vtn_type);
@@ -1532,7 +1536,7 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
           * values so they need a real glsl_type.
           */
          enum vtn_variable_mode mode = vtn_storage_class_to_mode(
-            b, storage_class, NULL, NULL);
+            b, storage_class, deref_type, NULL);
          val->type->type = nir_address_format_to_glsl_type(
             vtn_mode_to_address_format(b, mode));
       } else {
@@ -1548,7 +1552,7 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
                      "forward declaration of a pointer, OpTypePointer can "
                      "only be used once for a given id.");
 
-         val->type->deref = vtn_get_type(b, w[3]);
+         val->type->deref = deref_type;
 
          /* Only certain storage classes use ArrayStride.  The others (in
           * particular Workgroup) are expected to be laid out by the driver.
