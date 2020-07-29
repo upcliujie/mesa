@@ -461,7 +461,7 @@ vtn_handle_alu(struct vtn_builder *b, SpvOp opcode,
    struct vtn_value *dest_val = vtn_untyped_value(b, w[2]);
    const struct glsl_type *dest_type = vtn_get_type(b, w[1])->type;
 
-   vtn_foreach_decoration(b, dest_val, handle_no_contraction, NULL);
+   vtn_handle_no_contraction(b, dest_val);
 
    /* Collect the various SSA sources */
    const unsigned num_inputs = count - 3;
@@ -805,4 +805,10 @@ vtn_handle_bitcast(struct vtn_builder *b, const uint32_t *w, unsigned count)
    nir_ssa_def *val =
       nir_bitcast_vector(&b->nb, src, glsl_get_bit_size(type->type));
    vtn_push_nir_ssa(b, w[2], val);
+}
+
+void
+vtn_handle_no_contraction(struct vtn_builder *b, struct vtn_value *val)
+{
+   vtn_foreach_decoration(b, val, handle_no_contraction, NULL);
 }
