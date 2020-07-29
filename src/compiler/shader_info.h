@@ -92,6 +92,7 @@ struct spirv_supported_capabilities {
    bool variable_pointers;
    bool vk_memory_model;
    bool vk_memory_model_device_scope;
+   bool workgroup_memory_explicit_layout;
    bool float16;
    bool amd_fragment_mask;
    bool amd_gcn_shader;

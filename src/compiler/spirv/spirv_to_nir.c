@@ -826,7 +826,8 @@ wrap_type_in_array(const struct glsl_type *type,
 }
 
 static bool
-vtn_type_needs_explicit_layout(struct vtn_builder *b, enum vtn_variable_mode mode)
+vtn_type_needs_explicit_layout(struct vtn_builder *b, struct vtn_type *type,
+                               enum vtn_variable_mode mode)
 {
    /* For OpenCL we never want to strip the info from the types, and it makes
     * type comparisons easier in later stages.
@@ -848,6 +849,9 @@ vtn_type_needs_explicit_layout(struct vtn_builder *b, enum vtn_variable_mode mod
    case vtn_variable_mode_push_constant:
    case vtn_variable_mode_shader_record:
       return true;
+
+   case vtn_variable_mode_workgroup:
+      return b->options->caps.workgroup_memory_explicit_layout;
 
    default:
       return false;
@@ -922,7 +926,7 @@ vtn_type_get_nir_type(struct vtn_builder *b, struct vtn_type *type,
     * to allow SPIR-V generators perform type deduplication.  Discard
     * unnecessary ones when passing to NIR.
     */
-   if (!vtn_type_needs_explicit_layout(b, mode))
+   if (!vtn_type_needs_explicit_layout(b, type, mode))
       return glsl_get_bare_type(type->type);
 
    return type->type;
@@ -1575,16 +1579,20 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
 
          val->type->deref = deref_type;
 
-         /* Only certain storage classes use ArrayStride.  The others (in
-          * particular Workgroup) are expected to be laid out by the driver.
-          */
+         /* Only certain storage classes use ArrayStride. */
          switch (storage_class) {
+         case SpvStorageClassWorkgroup:
+            if (!b->options->caps.workgroup_memory_explicit_layout)
+               break;
+            FALLTHROUGH;
+
          case SpvStorageClassUniform:
          case SpvStorageClassPushConstant:
          case SpvStorageClassStorageBuffer:
          case SpvStorageClassPhysicalStorageBuffer:
             vtn_foreach_decoration(b, val, array_stride_decoration_cb, NULL);
             break;
+
          default:
             /* Nothing to do. */
             break;
@@ -4537,6 +4545,20 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
 
       case SpvCapabilityFragmentShadingRateKHR:
          spv_check_supported(fragment_shading_rate, cap);
+         break;
+
+      case SpvCapabilityWorkgroupMemoryExplicitLayoutKHR:
+         spv_check_supported(workgroup_memory_explicit_layout, cap);
+         break;
+
+      case SpvCapabilityWorkgroupMemoryExplicitLayout8BitAccessKHR:
+         spv_check_supported(workgroup_memory_explicit_layout, cap);
+         spv_check_supported(storage_8bit, cap);
+         break;
+
+      case SpvCapabilityWorkgroupMemoryExplicitLayout16BitAccessKHR:
+         spv_check_supported(workgroup_memory_explicit_layout, cap);
+         spv_check_supported(storage_16bit, cap);
          break;
 
       default:
