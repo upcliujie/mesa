@@ -48,42 +48,22 @@ static const bool debug = false;
 static bool
 could_coissue(const struct gen_device_info *devinfo, const fs_inst *inst)
 {
+   assert(inst->opcode == BRW_OPCODE_MOV ||
+          inst->opcode == BRW_OPCODE_CMP ||
+          inst->opcode == BRW_OPCODE_ADD ||
+          inst->opcode == BRW_OPCODE_MUL);
+
    if (devinfo->gen != 7)
       return false;
 
-   switch (inst->opcode) {
-   case BRW_OPCODE_MOV:
-   case BRW_OPCODE_CMP:
-   case BRW_OPCODE_ADD:
-   case BRW_OPCODE_MUL:
-      /* Only float instructions can coissue.  We don't have a great
-       * understanding of whether or not something like float(int(a) + int(b))
-       * would be considered float (based on the destination type) or integer
-       * (based on the source types), so we take the conservative choice of
-       * only promoting when both destination and source are float.
-       */
+   /* Only float instructions can coissue.  We don't have a great
+    * understanding of whether or not something like float(int(a) + int(b))
+    * would be considered float (based on the destination type) or integer
+    * (based on the source types), so we take the conservative choice of
+    * only promoting when both destination and source are float.
+    */
       return inst->dst.type == BRW_REGISTER_TYPE_F &&
              inst->src[0].type == BRW_REGISTER_TYPE_F;
-   default:
-      return false;
-   }
-}
-
-/**
- * Returns true for instructions that don't support immediate sources.
- */
-static bool
-must_promote_imm(const struct gen_device_info *devinfo, const fs_inst *inst)
-{
-   switch (inst->opcode) {
-   case SHADER_OPCODE_POW:
-      return devinfo->gen < 8;
-   case BRW_OPCODE_MAD:
-   case BRW_OPCODE_LRP:
-      return true;
-   default:
-      return false;
-   }
 }
 
 /** A box for putting fs_regs in a linked list. */
@@ -353,6 +333,7 @@ represent_src_as_imm(const struct gen_device_info *devinfo,
 static void
 add_candidate_immediate(struct table *table, fs_inst *inst, unsigned ip,
                         unsigned i,
+                        bool must_promote,
                         const brw::idom_tree &idom, bblock_t *block,
                         const struct gen_device_info *devinfo,
                         void *const_ctx)
@@ -372,8 +353,8 @@ add_candidate_immediate(struct table *table, fs_inst *inst, unsigned ip,
          imm->inst = NULL;
       imm->block = intersection;
       imm->uses->push_tail(link(const_ctx, &inst->src[i]));
-      imm->uses_by_coissue += could_coissue(devinfo, inst);
-      imm->must_promote = imm->must_promote || must_promote_imm(devinfo, inst);
+      imm->uses_by_coissue += int(!must_promote);
+      imm->must_promote = imm->must_promote || must_promote;
       imm->last_use_ip = ip;
       if (type == BRW_REGISTER_TYPE_HF)
          imm->is_half_float = true;
@@ -386,8 +367,8 @@ add_candidate_immediate(struct table *table, fs_inst *inst, unsigned ip,
       memcpy(imm->bytes, data, size);
       imm->size = size;
       imm->is_half_float = type == BRW_REGISTER_TYPE_HF;
-      imm->uses_by_coissue = could_coissue(devinfo, inst);
-      imm->must_promote = must_promote_imm(devinfo, inst);
+      imm->uses_by_coissue = int(!must_promote);
+      imm->must_promote = must_promote;
       imm->first_use_ip = ip;
       imm->last_use_ip = ip;
    }
@@ -413,23 +394,67 @@ fs_visitor::opt_combine_constants()
    foreach_block_and_inst(block, fs_inst, inst, cfg) {
       ip++;
 
-      if (!could_coissue(devinfo, inst) && !must_promote_imm(devinfo, inst))
-         continue;
+      switch (inst->opcode) {
+      case SHADER_OPCODE_POW:
+         assert(inst->src[0].file != IMM);
 
-      bool represented_as_imm = false;
-      for (int i = 0; i < inst->sources; i++) {
-         if (inst->src[i].file != IMM)
-            continue;
-
-         if (!represented_as_imm && i == 0 &&
-             inst->opcode == BRW_OPCODE_MAD &&
-             represent_src_as_imm(devinfo, &inst->src[i])) {
-            represented_as_imm = true;
-            continue;
+         if (inst->src[1].file == IMM && devinfo->gen < 8) {
+            add_candidate_immediate(&table, inst, ip, 1, true, idom, block,
+                                    devinfo, const_ctx);
          }
 
-         add_candidate_immediate(&table, inst, ip, i, idom, block, devinfo,
-                                 const_ctx);
+         break;
+
+      case BRW_OPCODE_MAD: {
+         bool represented_as_imm = false;
+         for (int i = 0; i < inst->sources; i++) {
+            if (inst->src[i].file != IMM)
+               continue;
+
+            if (!represented_as_imm && i == 0 &&
+                represent_src_as_imm(devinfo, &inst->src[i])) {
+               represented_as_imm = true;
+               continue;
+            }
+
+            add_candidate_immediate(&table, inst, ip, i, true, idom, block,
+                                    devinfo, const_ctx);
+         }
+
+         break;
+      }
+
+      case BRW_OPCODE_LRP:
+         for (int i = 0; i < inst->sources; i++) {
+            if (inst->src[i].file != IMM)
+               continue;
+
+            add_candidate_immediate(&table, inst, ip, i, true, idom, block,
+                                    devinfo, const_ctx);
+         }
+
+         break;
+
+      case BRW_OPCODE_MOV:
+         if (could_coissue(devinfo, inst) && inst->src[0].file == IMM) {
+            add_candidate_immediate(&table, inst, ip, 0, false, idom, block,
+                                    devinfo, const_ctx);
+         }
+         break;
+
+      case BRW_OPCODE_CMP:
+      case BRW_OPCODE_ADD:
+      case BRW_OPCODE_MUL:
+         assert(inst->src[0].file != IMM);
+
+         if (could_coissue(devinfo, inst) && inst->src[1].file == IMM) {
+            add_candidate_immediate(&table, inst, ip, 1, false, idom, block,
+                                    devinfo, const_ctx);
+         }
+         break;
+
+      default:
+         break;
       }
    }
 
