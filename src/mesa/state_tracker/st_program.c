@@ -732,6 +732,7 @@ st_create_vp_variant(struct st_context *st,
          _mesa_add_state_reference(params, point_size_state);
          NIR_PASS_V(state.ir.nir, nir_lower_point_size_mov,
                     point_size_state);
+         stvp->affected_states |= ST_NEW_VS_CONSTANTS;
          finalize = true;
       }
 
@@ -1741,6 +1742,7 @@ st_get_common_variant(struct st_context *st,
                _mesa_add_state_reference(params, point_size_state);
                NIR_PASS_V(state.ir.nir, nir_lower_point_size_mov,
                           point_size_state);
+               prog->affected_states |= ST_NEW_VS_CONSTANTS;
                finalize = true;
             }
             state.stream_output = prog->state.stream_output;
