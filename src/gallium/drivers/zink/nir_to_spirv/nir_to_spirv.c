@@ -503,6 +503,18 @@ emit_output(struct ntv_context *ctx, struct nir_variable *var)
    if (var->data.patch)
       spirv_builder_emit_decoration(&ctx->builder, var_id, SpvDecorationPatch);
 
+   if (var->data.stream & ~NIR_STREAM_PACKED) {
+      unsigned stream = var->data.stream & ~NIR_STREAM_PACKED;
+      if (stream && stream < 4)
+         /* ordinary stream value */
+         spirv_builder_emit_stream(&ctx->builder, var_id, stream);
+      else if (stream) {
+         /* packed stream ughhhhhh */
+         stream = stream >> (var->data.location_frac / 2);
+         spirv_builder_emit_stream(&ctx->builder, var_id, stream);
+      }
+   }
+
    _mesa_hash_table_insert(ctx->vars, var, (void *)(intptr_t)var_id);
 
    assert(ctx->num_entry_ifaces < ARRAY_SIZE(ctx->entry_ifaces));
@@ -969,6 +981,8 @@ emit_so_info(struct ntv_context *ctx, const struct zink_so_info *so_info)
       spirv_builder_emit_offset(&ctx->builder, var_id, (so_output.dst_offset * 4));
       spirv_builder_emit_xfb_buffer(&ctx->builder, var_id, so_output.output_buffer);
       spirv_builder_emit_xfb_stride(&ctx->builder, var_id, so_info->so_info.stride[so_output.output_buffer] * 4);
+      if (so_output.stream)
+         spirv_builder_emit_stream(&ctx->builder, var_id, so_output.stream);
 
       /* output location is incremented by VARYING_SLOT_VAR0 for non-builtins in vtn,
        * so we need to ensure that the new xfb location slot doesn't conflict with any previously-emitted
@@ -2035,7 +2049,7 @@ emit_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
        */
       if (ctx->so_info)
          emit_so_outputs(ctx, ctx->so_info);
-      spirv_builder_emit_vertex(&ctx->builder);
+      spirv_builder_emit_vertex(&ctx->builder, nir_intrinsic_stream_id(intr));
       break;
 
    case nir_intrinsic_set_vertex_and_primitive_count:
@@ -2043,7 +2057,7 @@ emit_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
       break;
 
    case nir_intrinsic_end_primitive_with_counter:
-      spirv_builder_end_primitive(&ctx->builder);
+      spirv_builder_end_primitive(&ctx->builder, nir_intrinsic_stream_id(intr));
       break;
 
    case nir_intrinsic_load_patch_vertices_in:
