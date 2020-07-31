@@ -90,7 +90,6 @@ struct ac_llvm_compiler {
    struct ac_compiler_passes *low_opt_passes;
 };
 
-const char *ac_get_llvm_processor_name(enum radeon_family family);
 void ac_add_attr_dereferenceable(LLVMValueRef val, uint64_t bytes);
 void ac_add_attr_alignment(LLVMValueRef val, uint64_t bytes);
 bool ac_is_sgpr_param(LLVMValueRef param);
