@@ -152,6 +152,7 @@ enum ring_type
 };
 
 const char *ac_get_family_name(enum radeon_family family);
+const char *ac_get_llvm_processor_name(enum radeon_family family);
 
 #ifdef __cplusplus
 }

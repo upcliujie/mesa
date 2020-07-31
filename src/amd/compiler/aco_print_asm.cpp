@@ -1,8 +1,8 @@
 #include <array>
 #include <iomanip>
-#include "aco_ir.h"
 #include "llvm-c/Disassembler.h"
-#include "ac_llvm_util.h"
+#include "aco_ir.h"
+#include "amd_family.h"
 
 #include <llvm/ADT/StringRef.h>
 #include <llvm/MC/MCDisassembler/MCDisassembler.h>
