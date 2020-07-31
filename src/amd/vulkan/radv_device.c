@@ -51,10 +51,13 @@ typedef void *drmDevicePtr;
 #include "util/timespec.h"
 #include "util/u_atomic.h"
 #include "winsys/null/radv_null_winsys_public.h"
-#include "ac_llvm_util.h"
 #include "git_sha1.h"
 #include "sid.h"
 #include "vk_format.h"
+
+#ifdef LLVM_AVAILABLE
+#include "ac_llvm_util.h"
+#endif
 
 /* The number of IBs per submit isn't infinite, it depends on the ring type
  * (ie. some initial setup needed for a submit) and the number of IBs (4 DW).
@@ -108,8 +111,11 @@ radv_device_get_cache_uuid(enum radeon_family family, void *uuid)
    memset(uuid, 0, VK_UUID_SIZE);
    _mesa_sha1_init(&ctx);
 
-   if (!disk_cache_get_function_identifier(radv_device_get_cache_uuid, &ctx) ||
-       !disk_cache_get_function_identifier(LLVMInitializeAMDGPUTargetInfo, &ctx))
+   if (!disk_cache_get_function_identifier(radv_device_get_cache_uuid, &ctx)
+#ifdef LLVM_AVAILABLE
+       || !disk_cache_get_function_identifier(LLVMInitializeAMDGPUTargetInfo, &ctx)
+#endif
+   )
       return -1;
 
    _mesa_sha1_update(&ctx, &family, sizeof(family));
@@ -293,7 +299,11 @@ radv_get_compiler_string(struct radv_physical_device *pdevice)
       return "";
    }
 
+#ifdef LLVM_AVAILABLE
    return " (LLVM " MESA_LLVM_VERSION_STRING ")";
+#else
+   unreachable("LLVM is not available");
+#endif
 }
 
 int
@@ -625,6 +635,13 @@ radv_physical_device_try_create(struct radv_instance *instance, drmDevicePtr drm
    device->ws->query_info(device->ws, &device->rad_info);
 
    device->use_llvm = instance->debug_flags & RADV_DEBUG_LLVM;
+#ifndef LLVM_AVAILABLE
+   if (device->use_llvm) {
+      fprintf(stderr, "ERROR: LLVM compiler backend selected for radv, but LLVM support was not "
+                      "enabled at build time.\n");
+      abort();
+   }
+#endif
 
    snprintf(device->name, sizeof(device->name), "AMD RADV %s%s", device->rad_info.name,
             radv_get_compiler_string(device));
