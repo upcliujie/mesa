@@ -1666,8 +1666,14 @@ if with_llvm
       language : ['c', 'cpp'],
     )
   endif
-elif with_amd_vk or with_gallium_radeonsi or with_gallium_swr or with_swrast_vk
-  error('The following drivers require LLVM: Radv, RadeonSI, SWR, Lavapipe. One of these is enabled, but LLVM is disabled.')
+elif with_amd_vk
+  if with_aco_tests
+    error('ACO tests require LLVM, but LLVM is disabled.')
+  else
+    warning('Building Radv without LLVM is unsupported, use at your own risk.')
+  endif
+elif with_gallium_radeonsi or with_gallium_swr or with_swrast_vk
+  error('The following drivers require LLVM: RadeonSI, SWR, Lavapipe. One of these is enabled, but LLVM is disabled.')
 elif with_gallium_opencl
   error('The OpenCL "Clover" state tracker requires LLVM, but LLVM is disabled.')
 elif with_microsoft_clc
