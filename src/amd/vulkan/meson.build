@@ -48,8 +48,6 @@ libradv_files = files(
   'radv_descriptor_set.h',
   'radv_formats.c',
   'radv_image.c',
-  'radv_llvm_helper.cpp',
-  'radv_llvm_helper.h',
   'radv_meta.c',
   'radv_meta.h',
   'radv_meta_blit.c',
@@ -67,7 +65,6 @@ libradv_files = files(
   'radv_meta_resolve_cs.c',
   'radv_meta_resolve_fs.c',
   'radv_nir_lower_ycbcr_textures.c',
-  'radv_nir_to_llvm.c',
   'radv_pass.c',
   'radv_pipeline.c',
   'radv_pipeline_cache.c',
@@ -97,6 +94,14 @@ if not with_platform_windows
     'winsys/amdgpu/radv_amdgpu_winsys.c',
     'winsys/amdgpu/radv_amdgpu_winsys.h',
     'winsys/amdgpu/radv_amdgpu_winsys_public.h',
+  )
+endif
+
+if with_llvm
+  libradv_files += files(
+    'radv_llvm_helper.cpp',
+    'radv_llvm_helper.h',
+    'radv_nir_to_llvm.c',
   )
 endif
 
