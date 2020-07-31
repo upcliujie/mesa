@@ -104,3 +104,73 @@ const char *ac_get_family_name(enum radeon_family family)
       unreachable("Unknown GPU family");
    }
 }
+
+const char *ac_get_llvm_processor_name(enum radeon_family family)
+{
+   switch (family) {
+   case CHIP_TAHITI:
+      return "tahiti";
+   case CHIP_PITCAIRN:
+      return "pitcairn";
+   case CHIP_VERDE:
+      return "verde";
+   case CHIP_OLAND:
+      return "oland";
+   case CHIP_HAINAN:
+      return "hainan";
+   case CHIP_BONAIRE:
+      return "bonaire";
+   case CHIP_KABINI:
+      return "kabini";
+   case CHIP_KAVERI:
+      return "kaveri";
+   case CHIP_HAWAII:
+      return "hawaii";
+   case CHIP_TONGA:
+      return "tonga";
+   case CHIP_ICELAND:
+      return "iceland";
+   case CHIP_CARRIZO:
+      return "carrizo";
+   case CHIP_FIJI:
+      return "fiji";
+   case CHIP_STONEY:
+      return "stoney";
+   case CHIP_POLARIS10:
+      return "polaris10";
+   case CHIP_POLARIS11:
+   case CHIP_POLARIS12:
+   case CHIP_VEGAM:
+      return "polaris11";
+   case CHIP_VEGA10:
+      return "gfx900";
+   case CHIP_RAVEN:
+      return "gfx902";
+   case CHIP_VEGA12:
+      return "gfx904";
+   case CHIP_VEGA20:
+      return "gfx906";
+   case CHIP_RAVEN2:
+   case CHIP_RENOIR:
+      return "gfx909";
+   case CHIP_ARCTURUS:
+      return "gfx908";
+   case CHIP_ALDEBARAN:
+      return "gfx90a";
+   case CHIP_NAVI10:
+      return "gfx1010";
+   case CHIP_NAVI12:
+      return "gfx1011";
+   case CHIP_NAVI14:
+      return "gfx1012";
+   case CHIP_SIENNA_CICHLID:
+   case CHIP_NAVY_FLOUNDER:
+   case CHIP_DIMGREY_CAVEFISH:
+   case CHIP_BEIGE_GOBY:
+   case CHIP_VANGOGH:
+   case CHIP_YELLOW_CARP:
+      return "gfx1030";
+   default:
+      return "";
+   }
+}
