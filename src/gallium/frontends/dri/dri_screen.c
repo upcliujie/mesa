@@ -99,10 +99,12 @@ dri_fill_st_options(struct dri_screen *screen)
    options->allow_draw_out_of_order =
       driQueryOptionb(optionCache, "allow_draw_out_of_order");
 
-   char *vendor_str = driQueryOptionstr(optionCache, "force_gl_vendor");
-   /* not an empty string */
-   if (*vendor_str)
-      options->force_gl_vendor = strdup(vendor_str);
+   if (driCheckOption(optionCache, "force_gl_vendor", DRI_STRING)) {
+      char *vendor_str = driQueryOptionstr(optionCache, "force_gl_vendor");
+      /* not an empty string */
+      if (*vendor_str)
+         options->force_gl_vendor = strdup(vendor_str);
+   }
 
    driComputeOptionsSha1(optionCache, options->config_options_sha1);
 }
