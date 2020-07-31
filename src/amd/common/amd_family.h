@@ -105,10 +105,10 @@ enum radeon_family
    CHIP_RENOIR,
    CHIP_ARCTURUS,
    CHIP_ALDEBARAN,
-   CHIP_NAVI10,
+   CHIP_NAVI10, /* GFX10 */
    CHIP_NAVI12,
    CHIP_NAVI14,
-   CHIP_SIENNA_CICHLID,
+   CHIP_SIENNA_CICHLID, /* GFX10.3 */
    CHIP_NAVY_FLOUNDER,
    CHIP_VANGOGH,
    CHIP_DIMGREY_CAVEFISH,
@@ -152,6 +152,7 @@ enum ring_type
 };
 
 const char *ac_get_family_name(enum radeon_family family);
+const char *ac_get_llvm_processor_name(enum radeon_family family);
 
 #ifdef __cplusplus
 }
