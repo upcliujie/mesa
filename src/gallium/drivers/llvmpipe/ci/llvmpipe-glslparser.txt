@@ -368,8 +368,6 @@ spec/arb_draw_instanced/preprocessor/disabled-undefined-core.geom: skip
 spec/arb_draw_instanced/preprocessor/disabled-undefined-core.tesc: skip
 spec/arb_draw_instanced/preprocessor/disabled-undefined-core.tese: skip
 spec/arb_draw_instanced/preprocessor/disabled-undefined-core.vert: skip
-spec/arb_enhanced_layouts/compiler/block-member-locations/arrayed-block-member-location.frag: fail
-spec/arb_enhanced_layouts/compiler/block-member-locations/arrayed-block-member-location.vert: fail
 spec/arb_enhanced_layouts/preprocessor/disabled-defined-core.comp: skip
 spec/arb_enhanced_layouts/preprocessor/disabled-defined-core.frag: skip
 spec/arb_enhanced_layouts/preprocessor/disabled-defined-core.geom: skip
