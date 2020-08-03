@@ -394,6 +394,31 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
    return mod;
 }
 
+static bool
+lower_baseinstance_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+   if (intr->intrinsic != nir_intrinsic_load_instance_id)
+      return false;
+   b->cursor = nir_after_instr(instr);
+   nir_intrinsic_instr *base_instance = nir_intrinsic_instr_create(b->shader, nir_intrinsic_load_base_instance);
+   nir_ssa_dest_init(&base_instance->instr, &base_instance->dest, 1, 32, NULL);
+   nir_builder_instr_insert(b, &base_instance->instr);
+   nir_ssa_def *def = nir_build_alu(b, nir_op_isub, &intr->dest.ssa, &base_instance->dest.ssa, NULL, NULL);
+   nir_ssa_def_rewrite_uses_after(&intr->dest.ssa, nir_src_for_ssa(def), def->parent_instr);
+   return true;
+}
+
+static bool
+lower_baseinstance(nir_shader *shader)
+{
+   if (shader->info.stage != MESA_SHADER_VERTEX)
+      return false;
+   return nir_shader_instructions_pass(shader, lower_baseinstance_instr, nir_metadata_dominance, NULL);
+}
+
 struct zink_shader *
 zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
                    const struct pipe_stream_output_info *so_info)
@@ -421,6 +446,7 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
    if (nir->info.stage == MESA_SHADER_GEOMETRY)
       NIR_PASS_V(nir, nir_lower_gs_intrinsics, nir_lower_gs_intrinsics_per_stream);
    NIR_PASS_V(nir, nir_lower_regs_to_ssa);
+   NIR_PASS_V(nir, lower_baseinstance);
    optimize_nir(nir);
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
    NIR_PASS_V(nir, lower_discard_if);
