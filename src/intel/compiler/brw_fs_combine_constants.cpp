@@ -37,6 +37,7 @@
 #include "brw_fs.h"
 #include "brw_cfg.h"
 #include "util/half_float.h"
+#include "util/combine_constants.h"
 
 using namespace brw;
 
@@ -66,20 +67,38 @@ could_coissue(const struct gen_device_info *devinfo, const fs_inst *inst)
              inst->src[0].type == BRW_REGISTER_TYPE_F;
 }
 
+/**
+ * Box for storing fs_inst and some other necessary data
+ *
+ * The \c fs_inst_box is used as the \c abstract_instruction for
+ * \c util_combine_constants.
+ *
+ * \sa box_instruction
+ */
+struct fs_inst_box {
+   fs_inst *inst;
+   unsigned ip;
+   bblock_t *block;
+   bool must_promote;
+};
+
 /** A box for putting fs_regs in a linked list. */
 struct reg_link {
    DECLARE_RALLOC_CXX_OPERATORS(reg_link)
 
-   reg_link(fs_reg *reg) : reg(reg) {}
+   reg_link(fs_inst *inst, unsigned src, bool negate)
+   : inst(inst), src(src), negate(negate) {}
 
    struct exec_node link;
-   fs_reg *reg;
+   fs_inst *inst;
+   uint8_t src;
+   bool negate;
 };
 
 static struct exec_node *
-link(void *mem_ctx, fs_reg *reg)
+link(void *mem_ctx, fs_inst *inst, unsigned src, bool negate)
 {
-   reg_link *l = new(mem_ctx) reg_link(reg);
+   reg_link *l = new(mem_ctx) reg_link(inst, src, negate);
    return &l->link;
 }
 
@@ -138,31 +157,66 @@ struct imm {
 
 /** The working set of information about immediates. */
 struct table {
-   struct imm *imm;
+   struct value *values;
    int size;
+   int num_values;
+
+   struct imm *imm;
    int len;
+
+   struct fs_inst_box *boxes;
+   unsigned num_boxes;
+   unsigned size_boxes;
 };
 
-static struct imm *
-find_imm(struct table *table, void *data, uint8_t size)
+static struct value *
+new_value(struct table *table, void *mem_ctx)
 {
-   for (int i = 0; i < table->len; i++) {
-      if (table->imm[i].size == size &&
-          !memcmp(table->imm[i].bytes, data, size)) {
-         return &table->imm[i];
-      }
+   if (table->num_values == table->size) {
+      table->size *= 2;
+      table->values = reralloc(mem_ctx, table->values, struct value, table->size);
    }
-   return NULL;
+   return &table->values[table->num_values++];
 }
 
-static struct imm *
-new_imm(struct table *table, void *mem_ctx)
+/**
+ * Store an instruction with some other data in a table.
+ *
+ * \returns the index into the dynamic array of boxes for the instruction.
+ */
+static unsigned
+box_instruction(struct table *table, void *mem_ctx, fs_inst *inst,
+                unsigned ip, bblock_t *block, bool must_promote)
 {
-   if (table->len == table->size) {
-      table->size *= 2;
-      table->imm = reralloc(mem_ctx, table->imm, struct imm, table->size);
+   /* It is common for box_instruction to be called consecutively for each
+    * source of an instruction.  As a result, the most common case for finding
+    * an instruction in the table is when that instruction was the last one
+    * added.  Search the list back to front.
+    */
+   for (unsigned i = table->num_boxes; i > 0; /* empty */) {
+      i--;
+
+      if (table->boxes[i].inst == inst)
+         return i;
    }
-   return &table->imm[table->len++];
+
+   if (table->num_boxes == table->size_boxes) {
+      table->size_boxes *= 2;
+      table->boxes = reralloc(mem_ctx, table->boxes, fs_inst_box,
+                              table->size_boxes);
+   }
+
+   assert(table->num_boxes < table->size_boxes);
+
+   const unsigned idx = table->num_boxes++;
+   fs_inst_box *ib =  &table->boxes[idx];
+
+   ib->inst = inst;
+   ib->block = block;
+   ib->ip = ip;
+   ib->must_promote = must_promote;
+
+   return idx;
 }
 
 /**
@@ -190,67 +244,6 @@ compare(const void *_a, const void *_b)
    return a->first_use_ip - b->first_use_ip;
 }
 
-static bool
-get_constant_value(const struct gen_device_info *devinfo,
-                   const fs_inst *inst, uint32_t src_idx,
-                   void *out, brw_reg_type *out_type)
-{
-   const bool can_do_source_mods = inst->can_do_source_mods(devinfo);
-   const fs_reg *src = &inst->src[src_idx];
-
-   *out_type = src->type;
-
-   switch (*out_type) {
-   case BRW_REGISTER_TYPE_DF: {
-      double val = !can_do_source_mods ? src->df : fabs(src->df);
-      memcpy(out, &val, 8);
-      break;
-   }
-   case BRW_REGISTER_TYPE_F: {
-      float val = !can_do_source_mods ? src->f : fabsf(src->f);
-      memcpy(out, &val, 4);
-      break;
-   }
-   case BRW_REGISTER_TYPE_HF: {
-      uint16_t val = src->d & 0xffffu;
-      if (can_do_source_mods)
-         val = _mesa_float_to_half(fabsf(_mesa_half_to_float(val)));
-      memcpy(out, &val, 2);
-      break;
-   }
-   case BRW_REGISTER_TYPE_Q: {
-      int64_t val = !can_do_source_mods ? src->d64 : llabs(src->d64);
-      memcpy(out, &val, 8);
-      break;
-   }
-   case BRW_REGISTER_TYPE_UQ:
-      memcpy(out, &src->u64, 8);
-      break;
-   case BRW_REGISTER_TYPE_D: {
-      int32_t val = !can_do_source_mods ? src->d : abs(src->d);
-      memcpy(out, &val, 4);
-      break;
-   }
-   case BRW_REGISTER_TYPE_UD:
-      memcpy(out, &src->ud, 4);
-      break;
-   case BRW_REGISTER_TYPE_W: {
-      int16_t val = src->d & 0xffffu;
-      if (can_do_source_mods)
-         val = abs(val);
-      memcpy(out, &val, 2);
-      break;
-   }
-   case BRW_REGISTER_TYPE_UW:
-      memcpy(out, &src->ud, 2);
-      break;
-   default:
-      return false;
-   };
-
-   return true;
-}
-
 static struct brw_reg
 build_imm_reg_for_copy(struct imm *imm)
 {
@@ -273,31 +266,6 @@ get_alignment_for_imm(const struct imm *imm)
       return 4; /* At least MAD seems to require this */
    else
       return imm->size;
-}
-
-static bool
-needs_negate(const fs_reg *reg, const struct imm *imm)
-{
-   switch (reg->type) {
-   case BRW_REGISTER_TYPE_DF:
-      return signbit(reg->df) != signbit(imm->df);
-   case BRW_REGISTER_TYPE_F:
-      return signbit(reg->f) != signbit(imm->f);
-   case BRW_REGISTER_TYPE_Q:
-      return (reg->d64 < 0) != (imm->d64 < 0);
-   case BRW_REGISTER_TYPE_D:
-      return (reg->d < 0) != (imm->d < 0);
-   case BRW_REGISTER_TYPE_HF:
-      return (reg->d & 0x8000u) != (imm->w & 0x8000u);
-   case BRW_REGISTER_TYPE_W:
-      return ((int16_t)reg->d < 0) != (imm->w < 0);
-   case BRW_REGISTER_TYPE_UQ:
-   case BRW_REGISTER_TYPE_UD:
-   case BRW_REGISTER_TYPE_UW:
-      return false;
-   default:
-      unreachable("not implemented");
-   };
 }
 
 static bool
@@ -334,43 +302,49 @@ static void
 add_candidate_immediate(struct table *table, fs_inst *inst, unsigned ip,
                         unsigned i,
                         bool must_promote,
-                        const brw::idom_tree &idom, bblock_t *block,
-                        const struct gen_device_info *devinfo,
+                        bblock_t *block,
+                        ASSERTED const struct gen_device_info *devinfo,
                         void *const_ctx)
 {
-   char data[8];
-   brw_reg_type type;
-   if (!get_constant_value(devinfo, inst, i, data, &type))
-      return;
+   struct value *v = new_value(table, const_ctx);
 
-   uint8_t size = type_sz(type);
+   unsigned box_idx = box_instruction(table, const_ctx, inst, ip, block,
+                                      must_promote);
 
-   struct imm *imm = find_imm(table, data, size);
+   /* Just for now... */
+   assert(inst->can_do_source_mods(devinfo));
 
-   if (imm) {
-      bblock_t *intersection = idom.intersect(block, imm->block);
-      if (intersection != imm->block)
-         imm->inst = NULL;
-      imm->block = intersection;
-      imm->uses->push_tail(link(const_ctx, &inst->src[i]));
-      imm->uses_by_coissue += int(!must_promote);
-      imm->must_promote = imm->must_promote || must_promote;
-      imm->last_use_ip = ip;
-      if (type == BRW_REGISTER_TYPE_HF)
-         imm->is_half_float = true;
-   } else {
-      imm = new_imm(table, const_ctx);
-      imm->block = block;
-      imm->inst = inst;
-      imm->uses = new(const_ctx) exec_list();
-      imm->uses->push_tail(link(const_ctx, &inst->src[i]));
-      memcpy(imm->bytes, data, size);
-      imm->size = size;
-      imm->is_half_float = type == BRW_REGISTER_TYPE_HF;
-      imm->uses_by_coissue = int(!must_promote);
-      imm->must_promote = must_promote;
-      imm->first_use_ip = ip;
-      imm->last_use_ip = ip;
+   v->value.u64 = inst->src[i].d64;
+   v->bit_size = 8 * type_sz(inst->src[i].type);
+   v->instr = (struct abstract_instruction *)(uintptr_t) box_idx;
+   v->src = i;
+   v->allow_one_constant = false;
+   v->no_negations = false;
+
+   switch (inst->src[i].type) {
+   case BRW_REGISTER_TYPE_DF:
+   case BRW_REGISTER_TYPE_NF:
+   case BRW_REGISTER_TYPE_F:
+   case BRW_REGISTER_TYPE_HF:
+      v->type = float_only;
+      break;
+
+   case BRW_REGISTER_TYPE_UQ:
+   case BRW_REGISTER_TYPE_Q:
+   case BRW_REGISTER_TYPE_UD:
+   case BRW_REGISTER_TYPE_D:
+   case BRW_REGISTER_TYPE_UW:
+   case BRW_REGISTER_TYPE_W:
+      v->type = integer_only;
+      break;
+
+   case BRW_REGISTER_TYPE_VF:
+   case BRW_REGISTER_TYPE_UV:
+   case BRW_REGISTER_TYPE_V:
+   case BRW_REGISTER_TYPE_UB:
+   case BRW_REGISTER_TYPE_B:
+   default:
+      unreachable("not reached");
    }
 }
 
@@ -380,9 +354,20 @@ fs_visitor::opt_combine_constants()
    void *const_ctx = ralloc_context(NULL);
 
    struct table table;
-   table.size = 8;
-   table.len = 0;
-   table.imm = ralloc_array(const_ctx, struct imm, table.size);
+
+   /* For each of the dynamic arrays in the table, allocate about a page of
+    * memory.  On LP64 systems, this gives 126 value objects 169 fs_inst_box
+    * objects.  Even larger shaders that have been obverved rarely need more
+    * than 20 or 30 values.  Most smaller shaders, which is most shaders, need
+    * at most a couple dozen fs_inst_box.
+    */
+   table.size = (4096 - (5 * sizeof(void *))) / sizeof(struct value);
+   table.num_values = 0;
+   table.values = ralloc_array(const_ctx, struct value, table.size);
+
+   table.size_boxes = (4096 - (5 * sizeof(void *))) / sizeof(struct fs_inst_box);
+   table.num_boxes = 0;
+   table.boxes = ralloc_array(const_ctx, fs_inst_box, table.size_boxes);
 
    const brw::idom_tree &idom = idom_analysis.require();
    unsigned ip = -1;
@@ -399,7 +384,7 @@ fs_visitor::opt_combine_constants()
          assert(inst->src[0].file != IMM);
 
          if (inst->src[1].file == IMM && devinfo->gen < 8) {
-            add_candidate_immediate(&table, inst, ip, 1, true, idom, block,
+            add_candidate_immediate(&table, inst, ip, 1, true, block,
                                     devinfo, const_ctx);
          }
 
@@ -417,7 +402,7 @@ fs_visitor::opt_combine_constants()
                continue;
             }
 
-            add_candidate_immediate(&table, inst, ip, i, true, idom, block,
+            add_candidate_immediate(&table, inst, ip, i, true, block,
                                     devinfo, const_ctx);
          }
 
@@ -429,7 +414,7 @@ fs_visitor::opt_combine_constants()
             if (inst->src[i].file != IMM)
                continue;
 
-            add_candidate_immediate(&table, inst, ip, i, true, idom, block,
+            add_candidate_immediate(&table, inst, ip, i, true, block,
                                     devinfo, const_ctx);
          }
 
@@ -437,7 +422,7 @@ fs_visitor::opt_combine_constants()
 
       case BRW_OPCODE_MOV:
          if (could_coissue(devinfo, inst) && inst->src[0].file == IMM) {
-            add_candidate_immediate(&table, inst, ip, 0, false, idom, block,
+            add_candidate_immediate(&table, inst, ip, 0, false, block,
                                     devinfo, const_ctx);
          }
          break;
@@ -448,7 +433,7 @@ fs_visitor::opt_combine_constants()
          assert(inst->src[0].file != IMM);
 
          if (could_coissue(devinfo, inst) && inst->src[1].file == IMM) {
-            add_candidate_immediate(&table, inst, ip, 1, false, idom, block,
+            add_candidate_immediate(&table, inst, ip, 1, false, block,
                                     devinfo, const_ctx);
          }
          break;
@@ -458,19 +443,106 @@ fs_visitor::opt_combine_constants()
       }
    }
 
-   /* Remove constants from the table that don't have enough uses to make them
-    * profitable to store in a register.
-    */
-   for (int i = 0; i < table.len;) {
-      struct imm *imm = &table.imm[i];
-
-      if (!imm->must_promote && imm->uses_by_coissue < 4) {
-         table.imm[i] = table.imm[table.len - 1];
-         table.len--;
-         continue;
-      }
-      i++;
+   if (table.num_values == 0) {
+      ralloc_free(const_ctx);
+      return false;
    }
+
+   struct combine_constants_result *result =
+      util_combine_constants(table.values, table.num_values);
+
+   table.imm = ralloc_array(const_ctx, struct imm, result->num_values_to_emit);
+   table.len = 0;
+
+   for (unsigned i = 0; i < result->num_values_to_emit; i++) {
+      struct imm *imm = &table.imm[table.len];
+
+      imm->block = NULL;
+      imm->inst = NULL;
+      imm->d64 = result->values_to_emit[i].value.u64;
+      imm->size = result->values_to_emit[i].bit_size / 8;
+
+      imm->uses_by_coissue = 0;
+      imm->must_promote = false;
+      imm->is_half_float = false;
+
+      imm->first_use_ip = UINT16_MAX;
+      imm->last_use_ip = 0;
+
+      imm->uses = new(const_ctx) exec_list;
+
+      const unsigned first_user = result->values_to_emit[i].first_user;
+      const unsigned last_user = first_user +
+         result->values_to_emit[i].num_users;
+
+      for (unsigned j = first_user; j < last_user; j++) {
+         const unsigned idx =
+            (unsigned)(uintptr_t) table.values[result->user_map[j].index].instr;
+         fs_inst_box *const ib = &table.boxes[idx];
+
+         const unsigned src = table.values[result->user_map[j].index].src;
+
+         imm->uses->push_tail(link(const_ctx, ib->inst, src,
+                                   result->user_map[j].negate));
+
+         if (ib->must_promote)
+            imm->must_promote = true;
+         else
+            imm->uses_by_coissue++;
+
+         if (imm->block == NULL) {
+            /* Block should only be NULL on the first pass.  On the first
+             * pass, inst should also be NULL.
+             */
+            assert(imm->inst == NULL);
+
+            imm->inst = ib->inst;
+            imm->block = ib->block;
+            imm->first_use_ip = ib->ip;
+            imm->last_use_ip = ib->ip;
+         } else {
+            bblock_t *intersection = idom.intersect(ib->block,
+                                                    imm->block);
+
+            if (imm->first_use_ip > ib->ip) {
+               imm->first_use_ip = ib->ip;
+
+               /* If the first-use instruction is to be tracked, block must be
+                * the block that contains it.  The old block was read in the
+                * idom.intersect call above, so it is safe to overwrite it
+                * here.
+                */
+               imm->inst = ib->inst;
+               imm->block = ib->block;
+            }
+
+            if (imm->last_use_ip < ib->ip)
+               imm->last_use_ip = ib->ip;
+
+            /* The common dominator is not the block that contains the
+             * first-use instruction, so don't track that instruction.  The
+             * load instruction will be added in the common dominator block
+             * instead of before the first-use instruction.
+             */
+            if (intersection != imm->block)
+               imm->inst = NULL;
+
+            imm->block = intersection;
+         }
+
+         if (ib->inst->src[src].type == BRW_REGISTER_TYPE_HF)
+            imm->is_half_float = true;
+      }
+
+      /* Remove constants from the table that don't have enough uses to make
+       * them profitable to store in a register.
+       */
+      if (imm->must_promote || imm->uses_by_coissue >= 4)
+         table.len++;
+   }
+
+   util_combine_constants_result_dtor(result);
+
    if (table.len == 0) {
       ralloc_free(const_ctx);
       return false;
@@ -528,7 +600,7 @@ fs_visitor::opt_combine_constants()
    /* Rewrite the immediate sources to refer to the new GRFs. */
    for (int i = 0; i < table.len; i++) {
       foreach_list_typed(reg_link, link, link, table.imm[i].uses) {
-         fs_reg *reg = link->reg;
+         fs_reg *reg = &link->inst->src[link->src];
 #ifdef DEBUG
          switch (reg->type) {
          case BRW_REGISTER_TYPE_DF:
@@ -549,18 +621,21 @@ fs_visitor::opt_combine_constants()
             assert(abs(reg->d64) == abs(table.imm[i].d64));
             break;
          case BRW_REGISTER_TYPE_UQ:
+            assert(!link->negate);
             assert(reg->d64 == table.imm[i].d64);
             break;
          case BRW_REGISTER_TYPE_D:
             assert(abs(reg->d) == abs(table.imm[i].d));
             break;
          case BRW_REGISTER_TYPE_UD:
+            assert(!link->negate);
             assert(reg->d == table.imm[i].d);
             break;
          case BRW_REGISTER_TYPE_W:
             assert(abs((int16_t) (reg->d & 0xffff)) == table.imm[i].w);
             break;
          case BRW_REGISTER_TYPE_UW:
+            assert(!link->negate);
             assert((reg->ud & 0xffffu) == (uint16_t) table.imm[i].w);
             break;
          default:
@@ -571,7 +646,7 @@ fs_visitor::opt_combine_constants()
          reg->file = VGRF;
          reg->offset = table.imm[i].subreg_offset;
          reg->stride = 0;
-         reg->negate = needs_negate(reg, &table.imm[i]);
+         reg->negate = link->negate;
          reg->nr = table.imm[i].nr;
       }
    }
