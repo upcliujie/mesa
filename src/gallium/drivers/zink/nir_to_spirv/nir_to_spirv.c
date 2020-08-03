@@ -71,7 +71,7 @@ struct ntv_context {
    unsigned char *shader_slot_map;
    unsigned char shader_slots_reserved;
 
-   SpvId front_face_var, instance_id_var, vertex_id_var,
+   SpvId front_face_var, instance_id_var, vertex_id_var, base_instance_var,
          primitive_id_var, invocation_id_var, // geometry
          sample_mask_type, sample_id_var, sample_pos_var, sample_mask_in_var,
          tess_patch_vertices_in, tess_coord_var, // tess
@@ -1971,6 +1971,11 @@ emit_load_uint_input(struct ntv_context *ctx, nir_intrinsic_instr *intr, SpvId *
 
    SpvId result = spirv_builder_emit_load(&ctx->builder, var_type, *var_id);
    assert(1 == nir_dest_num_components(intr->dest));
+   if (builtin == SpvBuiltInInstanceIndex) {
+      /* GL's gl_InstanceID always begins at 0, so we have to normalize with gl_BaseInstance */
+      SpvId base = spirv_builder_emit_load(&ctx->builder, var_type, ctx->base_instance_var);
+      result = emit_binop(ctx, SpvOpISub, var_type, result, base);
+   }
    store_dest(ctx, &intr->dest, result, nir_type_uint);
 }
 
@@ -2064,6 +2069,8 @@ emit_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
       break;
 
    case nir_intrinsic_load_instance_id:
+      if (!ctx->base_instance_var)
+         emit_load_uint_input(ctx, intr, &ctx->base_instance_var, "gl_BaseInstance", SpvBuiltInBaseInstance);
       emit_load_uint_input(ctx, intr, &ctx->instance_id_var, "gl_InstanceId", SpvBuiltInInstanceIndex);
       break;
 
@@ -2938,6 +2945,10 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
          emit_uniform(&ctx, var);
 
    switch (s->info.stage) {
+   case MESA_SHADER_VERTEX:
+      spirv_builder_emit_extension(&ctx.builder, "SPV_KHR_shader_draw_parameters");
+      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityDrawParameters);
+      break;
    case MESA_SHADER_FRAGMENT:
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityInterpolationFunction);
       spirv_builder_emit_exec_mode(&ctx.builder, entry_point,
