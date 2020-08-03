@@ -558,7 +558,7 @@ nvc0_prim_gl(unsigned prim)
 static void
 nvc0_draw_vbo_kick_notify(struct nouveau_pushbuf *push)
 {
-   struct nvc0_screen *screen = push->user_priv;
+   struct nvc0_screen *screen = pushbuf_data(push)->priv;
 
    nouveau_fence_update(&screen->base, true);
 
@@ -979,6 +979,7 @@ nvc0_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
       }
    }
 
+   PUSH_ACQ(push);
    if (info->mode == PIPE_PRIM_PATCHES &&
        nvc0->state.patch_vertices != info->vertices_per_patch) {
       nvc0->state.patch_vertices = info->vertices_per_patch;
@@ -1137,6 +1138,7 @@ cleanup:
    push->kick_notify = nvc0_default_kick_notify;
 
    nvc0_release_user_vbufs(nvc0);
+   PUSH_DONE(push);
 
    nouveau_pushbuf_bufctx(push, NULL);
 
