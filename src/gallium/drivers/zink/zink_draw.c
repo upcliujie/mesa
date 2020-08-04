@@ -295,9 +295,9 @@ zink_draw_vbo(struct pipe_context *pctx,
        }
    }
 
-   VkWriteDescriptorSet wds[PIPE_SHADER_TYPES * PIPE_MAX_CONSTANT_BUFFERS + PIPE_SHADER_TYPES * PIPE_MAX_SHADER_SAMPLER_VIEWS];
-   struct zink_resource *write_desc_resources[PIPE_SHADER_TYPES * PIPE_MAX_CONSTANT_BUFFERS + PIPE_SHADER_TYPES * PIPE_MAX_SHADER_SAMPLER_VIEWS];
-   VkDescriptorBufferInfo buffer_infos[PIPE_SHADER_TYPES * PIPE_MAX_CONSTANT_BUFFERS];
+   VkWriteDescriptorSet wds[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS)];
+   struct zink_resource *write_desc_resources[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS)];
+   VkDescriptorBufferInfo buffer_infos[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_BUFFERS)];
    VkDescriptorImageInfo image_infos[PIPE_SHADER_TYPES * PIPE_MAX_SHADER_SAMPLER_VIEWS];
    VkBufferView buffer_view[] = {VK_NULL_HANDLE};
    int num_wds = 0, num_buffer_info = 0, num_image_info = 0;
@@ -331,6 +331,17 @@ zink_draw_vbo(struct pipe_context *pctx,
             buffer_infos[num_buffer_info].buffer = res->buffer;
             buffer_infos[num_buffer_info].offset = ctx->ubos[i][index].buffer_offset;
             buffer_infos[num_buffer_info].range  = ctx->ubos[i][index].buffer_size;
+            wds[num_wds].pBufferInfo = buffer_infos + num_buffer_info;
+            ++num_buffer_info;
+         } else if (shader->bindings[j].type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER) {
+            assert(ctx->ssbos[i][index].buffer_size > 0);
+            assert(ctx->ssbos[i][index].buffer_size <= screen->info.props.limits.maxStorageBufferRange);
+            assert(ctx->ssbos[i][index].buffer);
+            struct zink_resource *res = zink_resource(ctx->ssbos[i][index].buffer);
+            write_desc_resources[num_wds] = res;
+            buffer_infos[num_buffer_info].buffer = res->buffer;
+            buffer_infos[num_buffer_info].offset = ctx->ssbos[i][index].buffer_offset;
+            buffer_infos[num_buffer_info].range  = ctx->ssbos[i][index].buffer_size;
             wds[num_wds].pBufferInfo = buffer_infos + num_buffer_info;
             ++num_buffer_info;
          } else {
