@@ -211,8 +211,8 @@ zink_blit(struct pipe_context *pctx,
                                              ctx->num_samplers[PIPE_SHADER_FRAGMENT],
                                              ctx->sampler_states[PIPE_SHADER_FRAGMENT]);
    util_blitter_save_fragment_sampler_views(ctx->blitter,
-                                            ctx->num_image_views[PIPE_SHADER_FRAGMENT],
-                                            ctx->image_views[PIPE_SHADER_FRAGMENT]);
+                                            ctx->num_sampler_views[PIPE_SHADER_FRAGMENT],
+                                            ctx->sampler_views[PIPE_SHADER_FRAGMENT]);
    util_blitter_save_fragment_constant_buffer_slot(ctx->blitter, ctx->ubos[PIPE_SHADER_FRAGMENT]);
    util_blitter_save_vertex_buffer_slot(ctx->blitter, ctx->buffers);
    util_blitter_save_sample_mask(ctx->blitter, ctx->gfx_pipeline_state.sample_mask);
