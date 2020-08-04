@@ -64,6 +64,8 @@ struct zink_screen {
    VkDevice dev;
    VkDebugUtilsMessengerEXT debugUtilsCallbackHandle;
 
+   uint32_t cur_custom_border_color_samplers;
+
    bool have_debug_utils_ext;
 #if defined(MVK_VERSION)
    bool have_moltenvk;
