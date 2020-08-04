@@ -939,12 +939,12 @@ copy_format(VkFormat format, VkImageAspectFlags aspect_mask)
 }
 
 static void
-tu_image_view_copy_blit(struct tu_image_view *iview,
-                        struct tu_image *image,
-                        VkFormat format,
-                        const VkImageSubresourceLayers *subres,
-                        uint32_t layer,
-                        bool stencil_read)
+tu_image_view_copy(struct tu_image_view *iview,
+                   struct tu_image *image,
+                   VkFormat format,
+                   const VkImageSubresourceLayers *subres,
+                   uint32_t layer,
+                   bool stencil_read)
 {
    VkImageAspectFlags aspect_mask = subres->aspectMask;
 
@@ -971,24 +971,12 @@ tu_image_view_copy_blit(struct tu_image_view *iview,
 }
 
 static void
-tu_image_view_copy(struct tu_image_view *iview,
-                   struct tu_image *image,
-                   VkFormat format,
-                   const VkImageSubresourceLayers *subres,
-                   uint32_t layer,
-                   bool stencil_read)
-{
-   format = copy_format(format, subres->aspectMask, false);
-   tu_image_view_copy_blit(iview, image, format, subres, layer, stencil_read);
-}
-
-static void
 tu_image_view_blit(struct tu_image_view *iview,
                    struct tu_image *image,
                    const VkImageSubresourceLayers *subres,
                    uint32_t layer)
 {
-   tu_image_view_copy_blit(iview, image, image->vk_format, subres, layer, false);
+   tu_image_view_copy(iview, image, image->vk_format, subres, layer, false);
 }
 
 static void
@@ -1774,7 +1762,7 @@ clear_image(struct tu_cmd_buffer *cmd,
                   });
 
       struct tu_image_view dst;
-      tu_image_view_copy_blit(&dst, image, format, &(VkImageSubresourceLayers) {
+      tu_image_view_copy(&dst, image, format, &(VkImageSubresourceLayers) {
          .aspectMask = aspect_mask,
          .mipLevel = range->baseMipLevel + j,
          .baseArrayLayer = range->baseArrayLayer,
