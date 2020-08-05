@@ -2346,6 +2346,10 @@ vtn_scope_to_nir_scope(struct vtn_builder *b, SpvScope scope)
       nir_scope = NIR_SCOPE_INVOCATION;
       break;
 
+   case SpvScopeShaderCallKHR:
+      nir_scope = NIR_SCOPE_SHADER_CALL;
+      break;
+
    default:
       vtn_fail("Invalid memory scope");
    }
