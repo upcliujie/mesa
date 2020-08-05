@@ -2161,6 +2161,7 @@ lower_vars_to_explicit(nir_shader *shader,
    case nir_var_mem_constant:
       offset = shader->constant_data_size;
       break;
+   case nir_var_shader_call_data:
    case nir_var_ray_hit_attrib:
       offset = 0;
       break;
@@ -2200,6 +2201,7 @@ lower_vars_to_explicit(nir_shader *shader,
    case nir_var_mem_constant:
       shader->constant_data_size = offset;
       break;
+   case nir_var_shader_call_data:
    case nir_var_ray_hit_attrib:
       break;
    default:
@@ -2226,7 +2228,7 @@ nir_lower_vars_to_explicit_types(nir_shader *shader,
    ASSERTED nir_variable_mode supported =
       nir_var_mem_shared | nir_var_mem_global |
       nir_var_shader_temp | nir_var_function_temp | nir_var_uniform |
-      nir_var_ray_hit_attrib;
+      nir_var_shader_call_data | nir_var_ray_hit_attrib;
    assert(!(modes & ~supported) && "unsupported");
 
    bool progress = false;
@@ -2237,6 +2239,8 @@ nir_lower_vars_to_explicit_types(nir_shader *shader,
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_mem_shared, type_info);
    if (modes & nir_var_shader_temp)
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_shader_temp, type_info);
+   if (modes & nir_var_shader_call_data)
+      progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_shader_call_data, type_info);
    if (modes & nir_var_ray_hit_attrib)
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_ray_hit_attrib, type_info);
 
