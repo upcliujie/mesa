@@ -1427,3 +1427,9 @@ void anv_CmdSetDeviceMask(
 {
    /* No-op */
 }
+
+void anv_CmdSetRayTracingPipelineStackSizeKHR(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    pipelineStackSize)
+{
+}

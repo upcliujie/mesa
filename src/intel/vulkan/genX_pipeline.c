@@ -2630,3 +2630,17 @@ VkResult genX(CreateComputePipelines)(
 
    return result;
 }
+
+VkResult
+genX(CreateRayTracingPipelinesKHR)(
+    VkDevice                                    _device,
+    VkDeferredOperationKHR                      deferredOperation,
+    VkPipelineCache                             pipelineCache,
+    uint32_t                                    createInfoCount,
+    const VkRayTracingPipelineCreateInfoKHR*    pCreateInfos,
+    const VkAllocationCallbacks*                pAllocator,
+    VkPipeline*                                 pPipelines)
+{
+   unreachable("Unimplemented");
+   return VK_INCOMPLETE;
+}
