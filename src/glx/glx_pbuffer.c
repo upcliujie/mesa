@@ -246,6 +246,86 @@ DestroyDRIDrawable(Display *dpy, GLXDrawable drawable, int destroy_xdrawable)
 #endif
 }
 
+int
+__glXGetDrawableAttributes(Display *dpy, GLXDrawable drawable,
+                           CARD32 **attribs, unsigned int *num_attribs)
+{
+   struct glx_display *priv;
+   xGLXGetDrawableAttributesReply reply;
+   CARD32 *data = NULL;
+   CARD8 opcode;
+   unsigned int length;
+   unsigned int num_attributes = 0;
+   GLboolean use_glx_1_3;
+
+   if (dpy == NULL)
+      return 0;
+
+   priv = __glXInitialize(dpy);
+   if (priv == NULL)
+      return 0;
+
+   use_glx_1_3 = ((priv->majorVersion > 1) || (priv->minorVersion >= 3));
+
+   *num_attribs = 0;
+
+   opcode = __glXSetupForCommand(dpy);
+   if (!opcode)
+      return 0;
+
+   LockDisplay(dpy);
+
+   if (use_glx_1_3) {
+      xGLXGetDrawableAttributesReq *req;
+
+      GetReq(GLXGetDrawableAttributes, req);
+      req->reqType = opcode;
+      req->glxCode = X_GLXGetDrawableAttributes;
+      req->drawable = drawable;
+   }
+   else {
+      xGLXVendorPrivateWithReplyReq *vpreq;
+
+      GetReqExtra(GLXVendorPrivateWithReply, 4, vpreq);
+      data = (CARD32 *) (vpreq + 1);
+      data[0] = (CARD32) drawable;
+
+      vpreq->reqType = opcode;
+      vpreq->glxCode = X_GLXVendorPrivateWithReply;
+      vpreq->vendorCode = X_GLXvop_GetDrawableAttributesSGIX;
+   }
+
+   _XReply(dpy, (xReply *) & reply, 0, False);
+
+   if (reply.type == X_Error) {
+      UnlockDisplay(dpy);
+      SyncHandle();
+      return 0;
+   }
+
+   length = reply.length;
+   if (length) {
+      num_attributes = (use_glx_1_3) ? reply.numAttribs : length / 2;
+      data = malloc(length * sizeof(CARD32));
+      if (data == NULL) {
+         /* Throw data on the floor */
+         _XEatData(dpy, length);
+         num_attributes = 0;
+      }
+      else {
+         _XRead(dpy, (char *) data, length * sizeof(CARD32));
+      }
+   }
+
+   *attribs = data;
+   *num_attribs = num_attributes;
+
+   UnlockDisplay(dpy);
+   SyncHandle();
+
+   return 1;
+}
+
 /**
  * Get a drawable's attribute.
  *
@@ -265,33 +345,15 @@ int
 __glXGetDrawableAttribute(Display * dpy, GLXDrawable drawable,
                           int attribute, unsigned int *value)
 {
-   struct glx_display *priv;
-   xGLXGetDrawableAttributesReply reply;
    CARD32 *data;
-   CARD8 opcode;
-   unsigned int length;
    unsigned int i;
    unsigned int num_attributes;
-   GLboolean use_glx_1_3;
 
 #if defined(GLX_DIRECT_RENDERING) && !defined(GLX_USE_APPLEGL)
    __GLXDRIdrawable *pdraw;
 #endif
 
    if (dpy == NULL)
-      return 0;
-
-   priv = __glXInitialize(dpy);
-   if (priv == NULL)
-      return 0;
-
-   use_glx_1_3 = ((priv->majorVersion > 1) || (priv->minorVersion >= 3));
-
-   *value = 0;
-
-
-   opcode = __glXSetupForCommand(dpy);
-   if (!opcode)
       return 0;
 
 #if defined(GLX_DIRECT_RENDERING) && !defined(GLX_USE_APPLEGL)
@@ -338,74 +400,30 @@ __glXGetDrawableAttribute(Display * dpy, GLXDrawable drawable,
    }
 #endif
 
-   LockDisplay(dpy);
+   __glXGetDrawableAttributes(dpy, drawable, &data, &num_attributes);
 
-   if (use_glx_1_3) {
-      xGLXGetDrawableAttributesReq *req;
-
-      GetReq(GLXGetDrawableAttributes, req);
-      req->reqType = opcode;
-      req->glxCode = X_GLXGetDrawableAttributes;
-      req->drawable = drawable;
-   }
-   else {
-      xGLXVendorPrivateWithReplyReq *vpreq;
-
-      GetReqExtra(GLXVendorPrivateWithReply, 4, vpreq);
-      data = (CARD32 *) (vpreq + 1);
-      data[0] = (CARD32) drawable;
-
-      vpreq->reqType = opcode;
-      vpreq->glxCode = X_GLXVendorPrivateWithReply;
-      vpreq->vendorCode = X_GLXvop_GetDrawableAttributesSGIX;
-   }
-
-   _XReply(dpy, (xReply *) & reply, 0, False);
-
-   if (reply.type == X_Error) {
-      UnlockDisplay(dpy);
-      SyncHandle();
-      return 0;
-   }
-
-   length = reply.length;
-   if (length) {
-      num_attributes = (use_glx_1_3) ? reply.numAttribs : length / 2;
-      data = malloc(length * sizeof(CARD32));
-      if (data == NULL) {
-         /* Throw data on the floor */
-         _XEatData(dpy, length);
+   /* Search the set of returned attributes for the attribute requested by
+    * the caller.
+    */
+   for (i = 0; i < num_attributes; i++) {
+      if (data[i * 2] == attribute) {
+         *value = data[(i * 2) + 1];
+         break;
       }
-      else {
-         _XRead(dpy, (char *) data, length * sizeof(CARD32));
-
-         /* Search the set of returned attributes for the attribute requested by
-          * the caller.
-          */
-         for (i = 0; i < num_attributes; i++) {
-            if (data[i * 2] == attribute) {
-               *value = data[(i * 2) + 1];
-               break;
-            }
-         }
+   }
 
 #if defined(GLX_DIRECT_RENDERING) && !defined(GLX_USE_APPLEGL)
-         if (pdraw != NULL) {
-            if (!pdraw->textureTarget)
-               pdraw->textureTarget =
-                  determineTextureTarget((const int *) data, num_attributes);
-            if (!pdraw->textureFormat)
-               pdraw->textureFormat =
-                  determineTextureFormat((const int *) data, num_attributes);
-         }
+   if (pdraw != NULL) {
+      if (!pdraw->textureTarget)
+         pdraw->textureTarget =
+            determineTextureTarget((const int *) data, num_attributes);
+      if (!pdraw->textureFormat)
+         pdraw->textureFormat =
+            determineTextureFormat((const int *) data, num_attributes);
+   }
 #endif
 
-         free(data);
-      }
-   }
-
-   UnlockDisplay(dpy);
-   SyncHandle();
+   free(data);
 
    return 1;
 }

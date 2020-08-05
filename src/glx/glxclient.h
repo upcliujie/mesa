@@ -839,6 +839,9 @@ indirect_create_context_attribs(struct glx_screen *base,
 
 extern int __glXGetDrawableAttribute(Display * dpy, GLXDrawable drawable,
                                      int attribute, unsigned int *value);
+extern int __glXGetDrawableAttributes(Display *dpy, GLXDrawable drawable,
+                                      CARD32 **attribs,
+                                      unsigned int *num_attribs);
 
 #ifdef __cplusplus
 }
