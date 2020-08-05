@@ -627,6 +627,10 @@ struct radv_meta_state {
 		VkDescriptorSetLayout                     dcc_decompress_compute_ds_layout;
 		VkPipelineLayout                          dcc_decompress_compute_p_layout;
 		VkPipeline                                dcc_decompress_compute_pipeline;
+
+		VkDescriptorSetLayout                     dcc_retile_compute_ds_layout;
+		VkPipelineLayout                          dcc_retile_compute_p_layout;
+		VkPipeline                                dcc_retile_compute_pipeline;
 	} fast_clear_flush;
 
 	struct {
