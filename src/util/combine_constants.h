@@ -94,6 +94,19 @@ struct value {
    bool allow_one_constant;
 
    /**
+    * Restrict values that can reach this value to not include negations.
+    *
+    * This is useful for instructions that cannot have source modifiers.  For
+    * example, on Intel GPUs the integer source of a shift instruction (e.g.,
+    * SHL) can have a source modifier, but the integer source of the bitfield
+    * insertion instruction (i.e., BFI2) cannot.  A pair of these instructions
+    * might have sources that are negations of each other.  Using this flag
+    * will ensure that the BFI2 does not have a negated source, but the SHL
+    * might.
+    */
+   bool no_negations;
+
+   /**
     * \name UtilCombineConstantsPrivate
     * Private data used only by util_combine_constants
     *

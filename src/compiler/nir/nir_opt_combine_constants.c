@@ -91,6 +91,7 @@ add_candidate_constant(struct value **candidates, unsigned num_candidates,
    updated_candidates[num_candidates].instr = (struct abstract_instruction *) alu;
    updated_candidates[num_candidates].bit_size = load->def.bit_size;
    updated_candidates[num_candidates].src = src;
+   updated_candidates[num_candidates].no_negations = false;
 
    if (alu->op == nir_op_bcsel || alu->op == nir_op_b32csel) {
       updated_candidates[num_candidates].allow_one_constant = true;

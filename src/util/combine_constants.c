@@ -1043,6 +1043,17 @@ preprocess_candidates(struct value *candidates, unsigned num_candidates)
                       candidates[i].bit_size,
                       &candidates[i].reachable_mask,
                       &candidates[i].reaching_mask);
+
+      /* If negations are not allowed, then only the original value is
+       * reaching.  This also restricts the set of reachable values to those
+       * involving a single negation.
+       */
+      if (candidates[i].no_negations) {
+         candidates[i].reaching_mask = 0;
+
+         candidates[i].reachable_mask &= ~(INT_NEG_OF_FLOAT_NEG_EXISTS |
+                                           FLOAT_NEG_OF_INT_NEG_EXISTS);
+      }
    }
 
    for (unsigned i = 0; i < num_candidates; i++)
@@ -1182,6 +1193,11 @@ util_combine_constants(struct value *candidates, unsigned num_candidates)
             }
 
             if (type != either_type) {
+               /* Finding a match on this path implies that the user must
+                * allow source negations.
+                */
+               assert(!candidates[i].no_negations);
+
                result->user_map[total_users].index = i;
                result->user_map[total_users].type = type;
                result->user_map[total_users].negate = true;

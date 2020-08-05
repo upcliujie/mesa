@@ -335,6 +335,7 @@ add_candidate_immediate(struct table *table, fs_inst *inst, unsigned ip,
    v->instr = (struct abstract_instruction *)(uintptr_t) box_idx;
    v->src = i;
    v->allow_one_constant = allow_one_constant;
+   v->no_negations = false;
 
    switch (inst->src[i].type) {
    case BRW_REGISTER_TYPE_DF:
