@@ -281,16 +281,6 @@ __glXGetDrawableAttribute(Display * dpy, GLXDrawable drawable,
    if (dpy == NULL)
       return 0;
 
-   /* Page 38 (page 52 of the PDF) of glxencode1.3.pdf says:
-    *
-    *     "If drawable is not a valid GLX drawable, a GLXBadDrawable error is
-    *     generated."
-    */
-   if (drawable == 0) {
-      __glXSendError(dpy, GLXBadDrawable, 0, X_GLXGetDrawableAttributes, false);
-      return 0;
-   }
-
    priv = __glXInitialize(dpy);
    if (priv == NULL)
       return 0;
