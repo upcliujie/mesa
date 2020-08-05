@@ -754,6 +754,49 @@ get_render_pass(struct zink_context *ctx)
    return entry->data;
 }
 
+static uint32_t
+hash_ivci(const void *key)
+{
+   return _mesa_hash_data(key, sizeof(VkImageViewCreateInfo));
+}
+
+static bool
+equals_ivci(const void *a, const void *b)
+{
+   return memcmp(a, b, sizeof(VkImageViewCreateInfo)) == 0;
+}
+
+struct zink_surface *
+get_surface(struct zink_context *ctx,
+            struct pipe_resource *pres,
+            const struct pipe_surface *templ)
+{
+   struct zink_surface* surface = NULL;
+
+   VkImageViewCreateInfo ivci = create_ivci(zink_screen(ctx->base.screen),
+                                            zink_resource(pres), templ);
+
+   uint32_t hash = hash_ivci(&ivci);
+
+   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(ctx->surface_cache, hash, &ivci);
+
+   if (!entry) {
+      /* create a new surface */
+      surface = create_surface(&ctx->base, pres, templ);
+      entry = _mesa_hash_table_insert_pre_hashed(ctx->surface_cache, hash, &ivci, surface);
+      if (!entry)
+         return NULL;
+
+      surface = entry->data;
+   } else {
+      surface = entry->data;
+      pipe_resource_reference(&surface->base.texture, pres);
+   }
+   pipe_reference_init(&surface->base.reference, surface->base.reference.count + 1);
+
+   return surface;
+}
+
 static struct zink_framebuffer *
 create_framebuffer(struct zink_context *ctx)
 {
@@ -1810,7 +1853,10 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ctx->render_pass_cache = _mesa_hash_table_create(NULL,
                                                     hash_render_pass_state,
                                                     equals_render_pass_state);
-   if (!ctx->program_cache || !ctx->compute_program_cache || !ctx->render_pass_cache)
+   ctx->surface_cache = _mesa_hash_table_create(NULL,
+                                                hash_ivci,
+                                                equals_ivci);
+   if (!ctx->program_cache || !ctx->compute_program_cache || !ctx->render_pass_cache || !ctx->surface_cache)
       goto fail;
 
    const uint8_t data[] = { 0 };

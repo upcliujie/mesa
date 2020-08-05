@@ -139,6 +139,7 @@ struct zink_context {
    unsigned dirty_shader_stages : 7; /* mask of changed shader stages */
 
    struct hash_table *render_pass_cache;
+   struct hash_table *surface_cache;
 
    struct primconvert_context *primconvert;
 
@@ -293,4 +294,9 @@ zink_sampler_state_reference(struct zink_screen *screen,
       zink_destroy_sampler_state(screen, old_dst);
    if (dst) *dst = src;
 }
+struct zink_surface *
+get_surface(struct zink_context *ctx,
+            struct pipe_resource *pres,
+            const struct pipe_surface *templ);
+
 #endif

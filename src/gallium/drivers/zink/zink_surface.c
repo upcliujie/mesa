@@ -30,36 +30,16 @@
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 
-static struct pipe_surface *
-zink_create_surface(struct pipe_context *pctx,
-                    struct pipe_resource *pres,
-                    const struct pipe_surface *templ)
+VkImageViewCreateInfo
+create_ivci(struct zink_screen *screen,
+            struct zink_resource *res,
+            const struct pipe_surface *templ)
 {
-   struct zink_screen *screen = zink_screen(pctx->screen);
-   unsigned int level = templ->u.tex.level;
-
-   struct zink_surface *surface = CALLOC_STRUCT(zink_surface);
-   if (!surface)
-      return NULL;
-
-   pipe_resource_reference(&surface->base.texture, pres);
-   pipe_reference_init(&surface->base.reference, 1);
-   surface->base.context = pctx;
-   surface->base.format = templ->format;
-   surface->base.width = u_minify(pres->width0, level);
-   surface->base.height = u_minify(pres->height0, level);
-   surface->base.nr_samples = templ->nr_samples;
-   surface->base.u.tex.level = level;
-   surface->base.u.tex.first_layer = templ->u.tex.first_layer;
-   surface->base.u.tex.last_layer = templ->u.tex.last_layer;
-
-   struct zink_resource *res = zink_resource(pres);
-
    VkImageViewCreateInfo ivci = {};
    ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
    ivci.image = res->image;
 
-   switch (pres->target) {
+   switch (res->base.target) {
    case PIPE_TEXTURE_1D:
       ivci.viewType = VK_IMAGE_VIEW_TYPE_1D;
       break;
@@ -108,11 +88,41 @@ zink_create_surface(struct pipe_context *pctx,
    ivci.subresourceRange.baseArrayLayer = templ->u.tex.first_layer;
    ivci.subresourceRange.layerCount = 1 + templ->u.tex.last_layer - templ->u.tex.first_layer;
 
-   if (pres->target == PIPE_TEXTURE_CUBE ||
-       pres->target == PIPE_TEXTURE_CUBE_ARRAY) {
+   if (res->base.target == PIPE_TEXTURE_CUBE ||
+       res->base.target == PIPE_TEXTURE_CUBE_ARRAY) {
       if (ivci.subresourceRange.layerCount != 6)
          ivci.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
    }
+
+   return ivci;
+}
+
+struct zink_surface *
+create_surface(struct pipe_context *pctx,
+               struct pipe_resource *pres,
+               const struct pipe_surface *templ)
+{
+   struct zink_screen *screen = zink_screen(pctx->screen);
+   unsigned int level = templ->u.tex.level;
+
+   struct zink_surface *surface = CALLOC_STRUCT(zink_surface);
+   if (!surface)
+      return NULL;
+
+   pipe_resource_reference(&surface->base.texture, pres);
+   pipe_reference_init(&surface->base.reference, 1);
+   surface->base.context = pctx;
+   surface->base.format = templ->format;
+   surface->base.width = u_minify(pres->width0, level);
+   surface->base.height = u_minify(pres->height0, level);
+   surface->base.nr_samples = templ->nr_samples;
+   surface->base.u.tex.level = level;
+   surface->base.u.tex.first_layer = templ->u.tex.first_layer;
+   surface->base.u.tex.last_layer = templ->u.tex.last_layer;
+
+   struct zink_resource *res = zink_resource(pres);
+
+   VkImageViewCreateInfo ivci = create_ivci(screen, res, templ);
 
    if (vkCreateImageView(screen->dev, &ivci, NULL,
                          &surface->image_view) != VK_SUCCESS) {
@@ -120,7 +130,15 @@ zink_create_surface(struct pipe_context *pctx,
       return NULL;
    }
 
-   return &surface->base;
+   return surface;
+}
+
+static struct pipe_surface *
+zink_create_surface(struct pipe_context *pctx,
+                    struct pipe_resource *pres,
+                    const struct pipe_surface *templ)
+{
+   return &get_surface(zink_context(pctx), pres, templ)->base;
 }
 
 static void
