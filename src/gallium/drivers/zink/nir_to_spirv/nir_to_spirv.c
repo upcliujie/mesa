@@ -265,16 +265,21 @@ get_glsl_type_element(struct ntv_context *ctx, const struct glsl_type *type, Spv
    }
 
    if (glsl_type_is_struct(type)) {
+      static unsigned recursion;
+      recursion++;
       SpvId types[glsl_get_length(type)];
       for (unsigned i = 0; i < glsl_get_length(type); i++)
          types[i] = get_glsl_type_element(ctx, glsl_get_struct_field(type, i), element);
       SpvId ret = spirv_builder_type_struct(&ctx->builder,
                                            types,
                                            glsl_get_length(type));
-      spirv_builder_emit_decoration(&ctx->builder, ret,
-                                    SpvDecorationBlock);
+      /* only the outermost struct can have the Block decoration */
+      if (recursion == 1)
+         spirv_builder_emit_decoration(&ctx->builder, ret,
+                                       SpvDecorationBlock);
       for (unsigned i = 0; i < glsl_get_length(type); i++)
          spirv_builder_emit_member_offset(&ctx->builder, ret, i, glsl_get_struct_field_offset(type, i));
+      recursion--;
       return ret;
    }
 
