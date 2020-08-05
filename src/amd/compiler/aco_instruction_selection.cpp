@@ -6564,6 +6564,8 @@ sync_scope translate_nir_scope(nir_scope scope)
       return scope_queuefamily;
    case NIR_SCOPE_DEVICE:
       return scope_device;
+   case NIR_SCOPE_SHADER_CALL:
+      unreachable("unsupported scope");
    }
    unreachable("invalid scope");
 }
