@@ -1553,6 +1553,9 @@ uint32_t radv_fill_buffer(struct radv_cmd_buffer *cmd_buffer,
 			  const struct radv_image *image,
 			  struct radeon_winsys_bo *bo,
 			  uint64_t offset, uint64_t size, uint32_t value);
+void radv_update_buffer(struct radv_cmd_buffer *cmd_buffer,
+		      struct radeon_winsys_bo *bo,
+		      uint64_t offset, uint64_t size, const void *data);
 void radv_cmd_buffer_trace_emit(struct radv_cmd_buffer *cmd_buffer);
 bool radv_get_memory_fd(struct radv_device *device,
 			struct radv_device_memory *memory,
