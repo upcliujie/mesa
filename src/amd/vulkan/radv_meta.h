@@ -214,6 +214,7 @@ void radv_fast_clear_flush_image_inplace(struct radv_cmd_buffer *cmd_buffer,
 void radv_decompress_dcc(struct radv_cmd_buffer *cmd_buffer,
 			struct radv_image *image,
                         const VkImageSubresourceRange *subresourceRange);
+void radv_retile_dcc(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image);
 void radv_expand_fmask_image_inplace(struct radv_cmd_buffer *cmd_buffer,
 				     struct radv_image *image,
 				     const VkImageSubresourceRange *subresourceRange);
