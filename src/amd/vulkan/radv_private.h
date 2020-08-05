@@ -1867,6 +1867,7 @@ struct radv_image {
 	uint64_t fce_pred_offset;
 	uint64_t dcc_pred_offset;
 
+	struct radeon_winsys_bo *retile_map;
 	/*
 	 * Metadata for the TC-compat zrange workaround. If the 32-bit value
 	 * stored at this offset is UINT_MAX, the driver will emit
