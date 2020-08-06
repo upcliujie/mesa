@@ -83,6 +83,27 @@ struct brw_rt_scratch_layout {
    uint64_t total_size;
 };
 
+/** Parameters passed to the raygen trampoline shader
+ *
+ * This struct is carefully construected to be 32B and must be passed to the
+ * raygen trampoline shader as as inline constant data.
+ */
+struct brw_rt_raygen_trampoline_params {
+   /** The GPU address of the RT_DISPATCH_GLOBALS */
+   uint64_t rt_disp_globals_addr;
+
+   /** The GPU address of the BINDLESS_SHADER_RECORD for the raygen shader */
+   uint64_t raygen_bsr_addr;
+
+   /** 1 if this is an indirect dispatch, 0 otherwise */
+   uint8_t is_indirect;
+
+   /** The integer log2 of the local group size */
+   uint8_t local_group_size_log2[3];
+
+   uint32_t pad[3];
+};
+
 /** Size of the "hot zone" in bytes
  *
  * The hot zone is a SW-defined data structure which is a single uvec4
