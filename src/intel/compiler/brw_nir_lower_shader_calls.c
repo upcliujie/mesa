@@ -1098,3 +1098,26 @@ brw_nir_lower_shader_calls(nir_shader *shader,
 
    return true;
 }
+
+/** Creates a trivial return shader
+ *
+ * This is a callable shader that doesn't really do anything.  It just loads
+ * the resume address from the stack and does a return.
+ */
+nir_shader *
+brw_nir_create_trivial_return_shader(const struct brw_compiler *compiler,
+                                     void *mem_ctx)
+{
+   const nir_shader_compiler_options *nir_options =
+      compiler->glsl_compiler_options[MESA_SHADER_CALLABLE].NirOptions;
+
+   nir_builder b;
+   nir_builder_init_simple_shader(&b, mem_ctx, MESA_SHADER_CALLABLE,
+                                  nir_options);
+   nir_shader *nir = b.shader;
+   nir->info.name = ralloc_strdup(nir, "RT: Dummy return shader");
+
+   NIR_PASS_V(nir, brw_nir_lower_shader_returns);
+
+   return nir;
+}
