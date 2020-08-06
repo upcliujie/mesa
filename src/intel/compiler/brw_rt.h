@@ -1,0 +1,151 @@
+/*
+ * Copyright © 2020 Intel Corporation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#ifndef BRW_RT_H
+#define BRW_RT_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/** This is defined to be 32 by the Vulkan spec */
+#define BRW_RT_SBT_HANDLE_SIZE 32
+
+/* Vulkan always uses exactly two levels of BVH: world and object.  At the API
+ * level, these are referred to as top and bottom.
+ *
+ * NOTE: BRW_RT_SIZEOF_RAY_QUERY assumes this number is even.
+ */
+enum brw_rt_bvh_level {
+   BRW_RT_BVH_LEVEL_WORLD = 0,
+   BRW_RT_BVH_LEVEL_OBJECT = 1,
+};
+#define BRW_RT_MAX_BVH_LEVELS 2
+
+struct brw_rt_scratch_layout {
+   /** Number of stack IDs per DSS */
+   uint32_t stack_ids_per_dss;
+
+   /** Start offset (in bytes) of the hardware MemRay stack */
+   uint32_t ray_stack_start;
+
+   /** Stride (in bytes) of the hardware MemRay stack */
+   uint32_t ray_stack_stride;
+
+   /** Start offset (in bytes) of the SW stacks */
+   uint64_t sw_stack_start;
+
+   /** Size (in bytes) of the SW stack for a single shader invocation */
+   uint32_t sw_stack_size;
+
+   /** Total size (in bytes) of the RT scratch memory area */
+   uint64_t total_size;
+};
+
+struct brw_rt_hotzone {
+   uint32_t stack_offset;
+   uint32_t launch_id[3];
+};
+
+#define BRW_RT_SIZEOF_HOTZONE 16
+
+/* From the BSpec "Address Computation for Memory Based Data Structures:
+ * Ray and TraversalStack (Async Ray Tracing)":
+ *
+ *    sizeof(Ray) = 64B, sizeof(HitInfo) = 32B, sizeof(TravStack) = 32B.
+ */
+#define BRW_RT_SIZEOF_RAY 64
+#define BRW_RT_SIZEOF_HIT_INFO 32
+#define BRW_RT_SIZEOF_TRAV_STACK 32
+
+/* From the BSpec:
+ *
+ *    syncStackSize = (maxBVHLevels % 2 == 1) ?
+ *       (sizeof(HitInfo) * 2 +
+ *          (sizeof(Ray) + sizeof(TravStack)) * maxBVHLevels + 32B) :
+ *       (sizeof(HitInfo) * 2 +
+ *          (sizeof(Ray) + sizeof(TravStack)) * maxBVHLevels);
+ *
+ * The select is just to align to 64B.
+ */
+#define BRW_RT_SIZEOF_RAY_QUERY \
+   (BRW_RT_SIZEOF_HIT_INFO * 2 + \
+    (BRW_RT_SIZEOF_RAY + BRW_RT_SIZEOF_TRAV_STACK) * BRW_RT_MAX_BVH_LEVELS)
+
+#define BRW_RT_SIZEOF_HW_STACK \
+   (BRW_RT_SIZEOF_HIT_INFO * 2 + \
+    BRW_RT_SIZEOF_RAY * BRW_RT_MAX_BVH_LEVELS + \
+    BRW_RT_SIZEOF_TRAV_STACK * BRW_RT_MAX_BVH_LEVELS)
+
+/* This is a mesa-defined region for hit attribute data */
+#define BRW_RT_SIZEOF_HIT_ATTRIB_DATA 64
+#define BRW_RT_OFFSETOF_HIT_ATTRIB_DATA BRW_RT_SIZEOF_HW_STACK
+
+#define BRW_RT_ASYNC_STACK_STRIDE \
+   ALIGN(BRW_RT_OFFSETOF_HIT_ATTRIB_DATA + \
+         BRW_RT_SIZEOF_HIT_ATTRIB_DATA, 64)
+
+#define BRW_LSC_SECTOR_SIZE 16
+
+static inline void
+brw_rt_compute_scratch_layout(struct brw_rt_scratch_layout *layout,
+                              const struct gen_device_info *devinfo,
+                              uint32_t stack_ids_per_dss,
+                              uint32_t sw_stack_size)
+{
+   layout->stack_ids_per_dss = stack_ids_per_dss;
+
+   const uint32_t dss_count = gen_device_info_num_dual_subslices(devinfo);
+   const uint32_t num_stack_ids = dss_count * stack_ids_per_dss;
+
+   uint64_t size = 0;
+
+   /* The first thing in our scratch area is an array of "hot zones" which
+    * store the stack offset as well as the launch IDs for this thread.
+    */
+   size += BRW_RT_SIZEOF_HOTZONE * num_stack_ids;
+
+   /* Next, we place the HW ray stacks */
+   assert(size % 64 == 0); /* Cache-line aligned */
+   assert(size < UINT32_MAX);
+   layout->ray_stack_start = size;
+   layout->ray_stack_stride = BRW_RT_ASYNC_STACK_STRIDE;
+   size += num_stack_ids * layout->ray_stack_stride;
+
+   /* Finally, we place the SW stacks for the individual ray-tracing shader
+    * invocations.  We align these to 64B to ensure that we don't have any
+    * shared cache lines which could hurt performance.
+    */
+   assert(size % 64 == 0);
+   layout->sw_stack_start = size;
+   layout->sw_stack_size = ALIGN(sw_stack_size, 64);
+   size += num_stack_ids * layout->sw_stack_size;
+
+   layout->total_size = size;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* BRW_RT_H */
