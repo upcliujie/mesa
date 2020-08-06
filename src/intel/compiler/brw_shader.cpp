@@ -533,6 +533,9 @@ brw_instruction_name(const struct gen_device_info *devinfo, enum opcode op)
    case TES_OPCODE_GET_PRIMITIVE_ID:
       return "tes_get_primitive_id";
 
+   case RT_OPCODE_TRACE_RAY_LOGICAL:
+      return "rt_trace_ray_logical";
+
    case SHADER_OPCODE_RND_MODE:
       return "rnd_mode";
    case SHADER_OPCODE_FLOAT_CONTROL_MODE:
@@ -1098,6 +1101,7 @@ backend_instruction::has_side_effects() const
    case FS_OPCODE_SCHEDULING_FENCE:
    case SHADER_OPCODE_BTD_SPAWN_LOGICAL:
    case SHADER_OPCODE_BTD_RETIRE_LOGICAL:
+   case RT_OPCODE_TRACE_RAY_LOGICAL:
    case FS_OPCODE_DISCARD_JUMP:
       return true;
    default:
