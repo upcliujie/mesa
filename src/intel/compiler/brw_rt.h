@@ -31,6 +31,9 @@ extern "C" {
 /** This is defined to be 32 by the Vulkan spec */
 #define BRW_RT_SBT_HANDLE_SIZE 32
 
+/** Stride of the resume SBT */
+#define BRW_BTD_RESUME_SBT_STRIDE 8
+
 /* Vulkan always uses exactly two levels of BVH: world and object.  At the API
  * level, these are referred to as top and bottom.
  *
