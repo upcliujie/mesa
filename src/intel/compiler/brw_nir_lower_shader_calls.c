@@ -234,6 +234,10 @@ can_remat_instr(nir_instr *instr, struct bitset *remat)
       case nir_intrinsic_load_ray_hw_stack_size_intel:
       case nir_intrinsic_load_ray_sw_stack_size_intel:
       case nir_intrinsic_load_ray_num_dss_rt_stacks_intel:
+      case nir_intrinsic_load_ray_hit_sbt_addr_intel:
+      case nir_intrinsic_load_ray_hit_sbt_stride_intel:
+      case nir_intrinsic_load_ray_miss_sbt_addr_intel:
+      case nir_intrinsic_load_ray_miss_sbt_stride_intel:
       case nir_intrinsic_load_callable_sbt_addr_intel:
       case nir_intrinsic_load_callable_sbt_stride_intel:
          /* Notably missing from the above list is btd_local_arg_addr_intel.
@@ -512,8 +516,50 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
 
          /* Lower to the _intel intrinsic */
          switch (call->intrinsic) {
-         case nir_intrinsic_trace_ray:
-            unreachable("TODO");
+         case nir_intrinsic_trace_ray: {
+            nir_ssa_def *hit_sbt_stride = nir_load_ray_hit_sbt_stride_intel(b);
+            /* Only the bottom 4 bits of SBTOffset are used */
+            nir_ssa_def *hit_sbt_offset32 =
+               nir_umul_32x16(b, nir_u2u32(b, hit_sbt_stride),
+                                 nir_iand_imm(b, call->src[3].ssa, 0xf));
+            nir_ssa_def *hit_sbt_addr =
+               nir_iadd(b, nir_load_ray_hit_sbt_addr_intel(b),
+                           nir_u2u64(b, hit_sbt_offset32));
+            /* Only the bottom 4 bits of SBTStride are used */
+            nir_ssa_def *sbt_idx_mult = nir_iand_imm(b, call->src[4].ssa, 0xf);
+
+            nir_ssa_def *miss_sbt_offset32 =
+               nir_imul(b, nir_iand_imm(b, call->src[5].ssa, 0xffff),
+                        nir_u2u32(b, nir_load_ray_miss_sbt_stride_intel(b)));
+            nir_ssa_def *miss_sbt_addr =
+               nir_iadd(b, nir_load_ray_miss_sbt_addr_intel(b),
+                           nir_u2u64(b, miss_sbt_offset32));
+
+            nir_ssa_def *root_node_ptr =
+               nir_iadd(b, call->src[0].ssa,
+                           nir_load_global(b, call->src[0].ssa, 256, 1, 64));
+
+            struct brw_nir_rt_mem_ray_defs ray_defs = {
+               .root_node_ptr = root_node_ptr,
+               .ray_flags = nir_u2u16(b, call->src[1].ssa),
+               .ray_mask = nir_iand_imm(b, call->src[2].ssa, 0xff),
+               .hit_group_sr_base_ptr = hit_sbt_addr,
+               .hit_group_sr_stride = hit_sbt_stride,
+               .miss_sr_ptr = miss_sbt_addr,
+               .orig = call->src[6].ssa,
+               .t_near = call->src[7].ssa,
+               .dir = call->src[8].ssa,
+               .t_far = call->src[9].ssa,
+               .shader_index_multiplier = sbt_idx_mult,
+            };
+            brw_nir_rt_store_mem_ray(b, &ray_defs,
+                                     BRW_RT_BVH_LEVEL_WORLD);
+            nir_intrinsic_instr *ray_intel =
+               nir_intrinsic_instr_create(b->shader,
+                                          nir_intrinsic_trace_ray_initial_intel);
+            nir_builder_instr_insert(b, &ray_intel->instr);
+            break;
+         }
 
          case nir_intrinsic_report_ray_intersection:
             unreachable("Any-hit shaders must be inlined");
