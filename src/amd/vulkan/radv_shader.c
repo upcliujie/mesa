@@ -40,12 +40,15 @@
 #include "util/debug.h"
 #include "ac_binary.h"
 #include "ac_exp_param.h"
-#include "ac_llvm_util.h"
 #include "ac_nir.h"
 #include "ac_rtld.h"
 #include "aco_interface.h"
 #include "sid.h"
 #include "vk_format.h"
+
+#ifdef LLVM_AVAILABLE
+#include "ac_llvm_util.h"
+#endif
 
 static const struct nir_shader_compiler_options nir_options = {
    .vertex_id_zero_based = true,
@@ -1455,11 +1458,15 @@ shader_variant_compile(struct radv_device *device, struct vk_shader_module *modu
       shader_count >= 2,
       shader_count >= 2 ? shaders[shader_count - 2]->info.stage : MESA_SHADER_VERTEX);
 
+#ifdef LLVM_AVAILABLE
    if (radv_use_llvm_for_stage(device, stage) || options->dump_shader || options->record_ir)
       ac_init_llvm_once();
 
    if (radv_use_llvm_for_stage(device, stage)) {
       llvm_compile_shader(device, shader_count, shaders, &binary, &args);
+#else
+   if (false) {
+#endif
    } else {
       aco_compile_shader(shader_count, shaders, &binary, &args);
    }
