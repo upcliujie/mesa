@@ -45,6 +45,13 @@ enum brw_rt_bvh_level {
 };
 #define BRW_RT_MAX_BVH_LEVELS 2
 
+enum brw_rt_bvh_node_type {
+   BRW_RT_BVH_NODE_TYPE_INTERNAL = 0,
+   BRW_RT_BVH_NODE_TYPE_INSTANCE = 1,
+   BRW_RT_BVH_NODE_TYPE_PROCEDURAL = 3,
+   BRW_RT_BVH_NODE_TYPE_QUAD = 4,
+};
+
 struct brw_rt_scratch_layout {
    /** Number of stack IDs per DSS */
    uint32_t stack_ids_per_dss;
