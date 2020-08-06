@@ -181,7 +181,9 @@ lower_rt_io_and_scratch(nir_shader *nir)
    /* Finally, lower any remaining function_temp access to 64-bit global
     * memory access.
     */
-   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_function_temp,
+   NIR_PASS_V(nir, nir_lower_explicit_io,
+              nir_var_function_temp |
+              nir_var_mem_constant,
               nir_address_format_64bit_global);
 }
 
