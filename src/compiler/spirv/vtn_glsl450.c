@@ -339,8 +339,13 @@ handle_glsl450_alu(struct vtn_builder *b, enum GLSLstd450 entrypoint,
       nir_ssa_def *sign = nir_fsign(nb, src[0]);
       nir_ssa_def *abs = nir_fabs(nb, src[0]);
       dest->def = nir_fmul(nb, sign, nir_ffract(nb, abs));
-      nir_store_deref(nb, vtn_nir_deref(b, w[6]),
-                      nir_fmul(nb, sign, nir_ffloor(nb, abs)), 0xf);
+
+      struct vtn_pointer *i_ptr = vtn_value(b, w[6], vtn_value_type_pointer)->pointer;
+      struct vtn_ssa_value i;
+      memset(&i, 0, sizeof(i));
+      i.def = nir_fmul(nb, sign, nir_ffloor(nb, abs));
+      i.type = i_ptr->type->type;
+      vtn_variable_store(b, &i, i_ptr, 0);
       break;
    }
 
