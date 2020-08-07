@@ -641,8 +641,15 @@ zink_is_format_supported(struct pipe_screen *pscreen,
         return false;
 
       if (bind & PIPE_BIND_SAMPLER_VIEW &&
-          !(props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT))
-         return false;
+         !(props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT))
+            return false;
+
+      if ((bind & PIPE_BIND_SAMPLER_VIEW) || (bind & PIPE_BIND_RENDER_TARGET)) {
+         /* if this is a 3-component texture, force gallium to give us 4 components by rejecting this one */
+         unsigned bpb = util_format_get_blocksizebits(format);
+         if (bpb == 24 || bpb == 48 || bpb == 96)
+            return false;
+      }
 
       if (bind & PIPE_BIND_DEPTH_STENCIL &&
           !(props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT))
