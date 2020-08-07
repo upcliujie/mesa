@@ -2957,6 +2957,9 @@ VkResult anv_CreateDevice(
 
    anv_scratch_pool_init(device, &device->scratch_pool);
 
+   /* TODO(RT): Do we want some sort of data structure for this? */
+   memset(device->rt_scratch_bos, 0, sizeof(device->rt_scratch_bos));
+
    result = anv_genX(&device->info, init_device_state)(device);
    if (result != VK_SUCCESS)
       goto fail_clear_value_bo;
@@ -3051,6 +3054,11 @@ void anv_DestroyDevice(
    anv_state_pool_free(&device->dynamic_state_pool, device->border_colors);
    anv_state_pool_free(&device->dynamic_state_pool, device->slice_hash);
 #endif
+
+   for (unsigned i = 0; i < ARRAY_SIZE(device->rt_scratch_bos); i++) {
+      if (device->rt_scratch_bos[i] != NULL)
+         anv_device_release_bo(device, device->rt_scratch_bos[i]);
+   }
 
    anv_scratch_pool_finish(device, &device->scratch_pool);
 
