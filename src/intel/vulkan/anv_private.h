@@ -1633,6 +1633,9 @@ _anv_combine_address(struct anv_batch *batch, void *location,
 {
    if (address.bo == NULL) {
       return address.offset + delta;
+   } else if (batch == NULL) {
+      assert(address.bo->flags & EXEC_OBJECT_PINNED);
+      return anv_address_physical(anv_address_add(address, delta));
    } else {
       assert(batch->start <= location && location < batch->end);
 
