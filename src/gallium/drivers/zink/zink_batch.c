@@ -48,6 +48,12 @@ reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    }
    _mesa_set_clear(batch->sampler_views, NULL);
 
+   set_foreach(batch->surfaces, entry) {
+      struct pipe_surface *surf = (struct pipe_surface *)entry->key;
+      pipe_surface_reference(&surf, NULL);
+   }
+   _mesa_set_clear(batch->surfaces, NULL);
+
    util_dynarray_foreach(&batch->zombie_samplers, VkSampler, samp) {
       vkDestroySampler(screen->dev, *samp, NULL);
    }
@@ -157,5 +163,17 @@ zink_batch_reference_program(struct zink_batch *batch,
    if (!entry) {
       entry = _mesa_set_add(batch->programs, prog);
       pipe_reference(NULL, &prog->reference);
+   }
+}
+
+void
+zink_batch_reference_surface(struct zink_batch *batch,
+                             struct zink_surface *surface)
+{
+   struct pipe_surface *surf = (void*)surface;
+   struct set_entry *entry = _mesa_set_search(batch->surfaces, surf);
+   if (!entry) {
+      entry = _mesa_set_add(batch->surfaces, surf);
+      pipe_reference(NULL, &surf->reference);
    }
 }

@@ -299,10 +299,11 @@ zink_draw_vbo(struct pipe_context *pctx,
    VkWriteDescriptorSet wds[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS + PIPE_MAX_SHADER_IMAGES)];
    struct zink_resource *read_desc_resources[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS + PIPE_MAX_SHADER_IMAGES)] = {};
    struct zink_resource *write_desc_resources[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS + PIPE_MAX_SHADER_IMAGES)] = {};
+   struct zink_surface *surface_refs[PIPE_SHADER_TYPES * PIPE_MAX_SHADER_IMAGES] = {};
    VkDescriptorBufferInfo buffer_infos[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_BUFFERS + PIPE_MAX_SHADER_IMAGES)];
    VkDescriptorImageInfo image_infos[PIPE_SHADER_TYPES * (PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_IMAGES)];
    VkBufferView buffer_view[] = {VK_NULL_HANDLE};
-   int num_wds = 0, num_buffer_info = 0, num_image_info = 0;
+   int num_wds = 0, num_buffer_info = 0, num_image_info = 0, num_surface_refs = 0;
 
    struct zink_resource *transitions[PIPE_SHADER_TYPES * (PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_IMAGES)];
    int num_transitions = 0;
@@ -386,6 +387,7 @@ zink_draw_vbo(struct pipe_context *pctx,
                case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
                   struct zink_image_view *image_view = &ctx->image_views[i][index + k];
                   assert(image_view);
+                  surface_refs[num_surface_refs++] = image_view->surface;
                   res = zink_resource(image_view->base.resource);
                   if (!res)
                      break;
@@ -552,6 +554,10 @@ zink_draw_vbo(struct pipe_context *pctx,
             zink_batch_reference_resource_rw(batch, write_desc_resources[i], true);
       }
       vkUpdateDescriptorSets(screen->dev, num_wds, wds, 0, NULL);
+      for (int i = 0; i < num_surface_refs; i++) {
+         if (surface_refs[i])
+            zink_batch_reference_surface(batch, surface_refs[i]);
+      }
    }
 
    vkCmdBindPipeline(batch->cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
