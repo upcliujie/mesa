@@ -141,20 +141,91 @@ choose_isl_tiling_flags(const struct gen_device_info *devinfo,
    return flags;
 }
 
-static void
-add_surface(struct anv_image *image, struct anv_surface *surf, uint32_t plane)
+/**
+ * Ignore offset if UINT64_MAX.
+ *
+ * The surface will be placed exactly at the given offset. If the offset is
+ * invalid due to alignment or size constraints, then fail.
+ *
+ * The offset has type VkDeviceSize because it may come from
+ * VkImageDrmFormatModifierExplicitCreateInfoEXT::pPlanesLayouts::offset.
+ */
+static VkResult MUST_CHECK
+add_surface(struct anv_device *device,
+            struct anv_image *image,
+            struct anv_surface *surf,
+            uint32_t plane,
+            VkDeviceSize offset)
 {
+   struct anv_instance *instance = device->physical->instance;
+
    assert(surf->isl.size_B > 0); /* isl surface must be initialized */
 
-   if (image->disjoint) {
+   if (offset != UINT64_MAX) {
+      /* Offsets come from VkImageDrmFormatModifierExplicitCreateInfoEXT. */
+      assert(image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT);
+
+      /* The offset may be untrusted user input because it may come from
+       * VkImageDrmFormatModifierExplicitCreateInfoEXT.
+       */
+
+      /* Prevent overflow. */
+      if (unlikely(offset > UINT64_MAX - image->size - surf->isl.size_B)) {
+         return vk_errorfi(instance, device,
+                           VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT,
+                           "VkImageDrmFormatModifierExplicitCreateInfoEXT::"
+                           "pPlaneLayouts[%u]::offset is too large",
+                           plane);
+      }
+
+      /* To simplify the layout validation required by
+       * VK_EXT_image_drm_format_modifier, we require that surfaces be added in
+       * memory-order.
+       */
+      if (unlikely(offset < image->size)) {
+         return vk_errorfi(instance, device,
+                           VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT,
+                           "VkImageDrmFormatModifierExplicitCreateInfoEXT::"
+                           "pPlaneLayouts[%u]::offset is too small",
+                           plane);
+      }
+
+      if (unlikely(!anv_is_aligned(offset, surf->isl.alignment_B))) {
+         return vk_errorfi(instance, device,
+                           VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT,
+                           "VkImageDrmFormatModifierExplicitCreateInfoEXT::"
+                           "pPlaneLayouts[%u]::offset is misaligned",
+                           plane);
+      }
+
+      /* We store the offset as uint32_t. */
+      STATIC_ASSERT(sizeof(surf->offset) == 4);
+      if (unlikely(offset >= UINT32_MAX)) {
+         return vk_errorfi(instance, device,
+                           VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT,
+                           "VkImageDrmFormatModifierExplicitCreateInfoEXT::"
+                           "pPlaneLayouts[%u]::offset >= UINT32_MAX",
+                           plane);
+      }
+
+      surf->offset = offset;
+   } else if (image->disjoint) {
+      assert(image->planes[plane].offset == 0);
       surf->offset = align_u32(image->planes[plane].size,
                                surf->isl.alignment_B);
-      /* Plane offset is always 0 when it's disjoint. */
    } else {
       surf->offset = align_u32(image->size, surf->isl.alignment_B);
-      /* Determine plane's offset only once when the first surface is added. */
-      if (image->planes[plane].size == 0)
-         image->planes[plane].offset = image->size;
+   }
+
+   /* Set the plane's offset only when adding its first surface.
+    *
+    * The plane offset is always 0 for disjoint images and modifier images.
+    */
+   if (image->disjoint ||
+       image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
+      assert(image->planes[plane].offset == 0);
+   } else if (image->planes[plane].size == 0) {
+      image->planes[plane].offset = image->size;
    }
 
    image->size = surf->offset + surf->isl.size_B;
@@ -163,15 +234,18 @@ add_surface(struct anv_image *image, struct anv_surface *surf, uint32_t plane)
    image->alignment = MAX2(image->alignment, surf->isl.alignment_B);
    image->planes[plane].alignment = MAX2(image->planes[plane].alignment,
                                          surf->isl.alignment_B);
+
+   return VK_SUCCESS;
 }
 
-static void
+static VkResult MUST_CHECK
 add_aux_private_surface(struct anv_image *image,
                         struct anv_surface *surf)
 {
    surf->offset = align_u32(image->aux_private.size, surf->isl.alignment_B);
    image->aux_private.size = surf->offset + surf->isl.size_B;
    image->aux_private.has_aux_surface = true;
+   return VK_SUCCESS;
 }
 
 /**
@@ -390,6 +464,7 @@ add_aux_surface_if_supported(struct anv_device *device,
                              isl_surf_usage_flags_t isl_extra_usage_flags)
 {
    VkImageAspectFlags aspect = plane_format.aspect;
+   VkResult result;
    bool ok;
 
    /* The aux surface must not be already added. */
@@ -457,8 +532,14 @@ add_aux_surface_if_supported(struct anv_device *device,
          assert(device->info.gen >= 12);
          image->planes[plane].aux_usage = ISL_AUX_USAGE_HIZ_CCS;
       }
-      add_surface(image, &image->planes[plane].aux_surface, plane);
+
+      result = add_surface(device, image, &image->planes[plane].aux_surface,
+                           plane, UINT64_MAX);
+      if (result != VK_SUCCESS)
+         return result;
    } else if (aspect == VK_IMAGE_ASPECT_STENCIL_BIT) {
+      /* Assert no modifier so we can safely ignore anv_image::aux_private. */
+      assert(image->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT);
 
       if (INTEL_DEBUG & DEBUG_NO_RBC)
          return VK_SUCCESS;
@@ -549,9 +630,15 @@ add_aux_surface_if_supported(struct anv_device *device,
       if (!device->physical->has_implicit_ccs) {
          if (image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
              !isl_drm_modifier_has_aux(image->drm_format_mod)) {
-            add_aux_private_surface(image, &image->planes[plane].aux_surface);
+            result = add_aux_private_surface(image, &image->planes[plane].aux_surface);
+            if (result != VK_SUCCESS)
+               return result;
          } else {
-            add_surface(image, &image->planes[plane].aux_surface, plane);
+            result = add_surface(device, image,
+                                 &image->planes[plane].aux_surface, plane,
+                                 UINT64_MAX);
+            if (result != VK_SUCCESS)
+               return result;
          }
       }
 
@@ -568,7 +655,12 @@ add_aux_surface_if_supported(struct anv_device *device,
          return VK_SUCCESS;
 
       image->planes[plane].aux_usage = ISL_AUX_USAGE_MCS;
-      add_surface(image, &image->planes[plane].aux_surface, plane);
+
+      result = add_surface(device, image, &image->planes[plane].aux_surface,
+                           plane, UINT64_MAX);
+      if (result != VK_SUCCESS)
+         return result;
+
       add_aux_state_tracking_buffer(image, plane, device);
    }
 
@@ -606,8 +698,8 @@ add_shadow_surface(struct anv_device *device,
     */
    assert(ok);
 
-   add_surface(image, &image->planes[plane].shadow_surface, plane);
-   return VK_SUCCESS;
+   return add_surface(device, image, &image->planes[plane].shadow_surface,
+                      plane, UINT64_MAX);
 }
 
 /**
@@ -646,9 +738,7 @@ add_primary_surface(struct anv_device *device,
 
    image->planes[plane].aux_usage = ISL_AUX_USAGE_NONE;
 
-   add_surface(image, anv_surf, plane);
-
-   return VK_SUCCESS;
+   return add_surface(device, image, anv_surf, plane, UINT64_MAX);
 }
 
 /**

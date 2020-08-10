@@ -3891,8 +3891,11 @@ struct anv_image {
     */
    struct anv_image_plane {
       /**
-       * Offset of the entire plane (whenever the image is disjoint this is
-       * set to 0).
+       * Offset of the entire plane.
+       *
+       * If the image is disjoint or has a DRM format modifier, then this is 0.
+       *
+       * TODO(chadv): Update comment.
        */
       uint32_t offset;
 
