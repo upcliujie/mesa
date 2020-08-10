@@ -305,7 +305,10 @@ zink_draw_vbo(struct pipe_context *pctx,
    VkBufferView buffer_view[] = {VK_NULL_HANDLE};
    int num_wds = 0, num_buffer_info = 0, num_image_info = 0, num_surface_refs = 0;
 
-   struct zink_resource *transitions[PIPE_SHADER_TYPES * (PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_IMAGES)];
+   struct {
+      struct zink_resource *res;
+      VkImageLayout layout;
+   } transitions[PIPE_SHADER_TYPES * (PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_IMAGES)];
    int num_transitions = 0;
 
    for (int i = 0; i < ARRAY_SIZE(ctx->gfx_stages); i++) {
@@ -375,13 +378,15 @@ zink_draw_vbo(struct pipe_context *pctx,
                   if (res->base.target == PIPE_BUFFER)
                      wds[num_wds].pTexelBufferView = &sampler_view->buffer_view;
                   else {
-                     imageview =sampler_view->image_view;
-                     layout = res->layout;
-                     if (layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL &&
-                         layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL &&
-                         layout != VK_IMAGE_LAYOUT_GENERAL) {
-                        transitions[num_transitions++] = res;
+                     imageview = sampler_view->image_view;
+                     layout = 0;
+                     if (util_format_is_depth_and_stencil(psampler_view->format))
+                        layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+                     else
                         layout = VK_IMAGE_LAYOUT_GENERAL;
+                     if (res->layout != layout) {
+                        transitions[num_transitions].layout = layout;
+                        transitions[num_transitions++].res = res;
                      }
                      sampler = ctx->samplers[i][index + k];
                   }
@@ -404,8 +409,8 @@ zink_draw_vbo(struct pipe_context *pctx,
                      layout = res->layout;
                      if (layout != VK_IMAGE_LAYOUT_GENERAL &&
                          layout != VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR) {
-                        transitions[num_transitions++] = res;
-                        layout = VK_IMAGE_LAYOUT_GENERAL;
+                        transitions[num_transitions].layout = VK_IMAGE_LAYOUT_GENERAL;
+                        transitions[num_transitions++].res = res;
                      }
                   }
                   if (image_view->base.access & PIPE_IMAGE_ACCESS_WRITE)
@@ -468,9 +473,9 @@ zink_draw_vbo(struct pipe_context *pctx,
       batch = zink_batch_no_rp(ctx);
 
       for (int i = 0; i < num_transitions; ++i)
-         zink_resource_barrier(batch->cmdbuf, transitions[i],
-                               transitions[i]->aspect,
-                               VK_IMAGE_LAYOUT_GENERAL);
+         zink_resource_barrier(batch->cmdbuf, transitions[i].res,
+                               transitions[i].res->aspect,
+                               transitions[i].layout);
    }
 
    if (ctx->xfb_barrier)
