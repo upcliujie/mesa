@@ -140,6 +140,7 @@ struct zink_context {
 
    struct hash_table *render_pass_cache;
    struct hash_table *surface_cache;
+   struct hash_table *framebuffer_cache;
 
    struct primconvert_context *primconvert;
 
