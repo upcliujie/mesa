@@ -4196,20 +4196,23 @@ enum isl_aux_state
 anv_layout_to_aux_state(const struct gen_device_info * const devinfo,
                         const struct anv_image *image,
                         const VkImageAspectFlagBits aspect,
-                        const VkImageLayout layout);
+                        const VkImageLayout layout,
+                        uint32_t queue_family);
 
 enum isl_aux_usage
 anv_layout_to_aux_usage(const struct gen_device_info * const devinfo,
                         const struct anv_image *image,
                         const VkImageAspectFlagBits aspect,
                         const VkImageUsageFlagBits usage,
-                        const VkImageLayout layout);
+                        const VkImageLayout layout,
+                        uint32_t queue_family);
 
 enum anv_fast_clear_type
 anv_layout_to_fast_clear_type(const struct gen_device_info * const devinfo,
                               const struct anv_image * const image,
                               const VkImageAspectFlagBits aspect,
-                              const VkImageLayout layout);
+                              const VkImageLayout layout,
+                              uint32_t queue_family);
 
 /* This is defined as a macro so that it works for both
  * VkImageSubresourceRange and VkImageSubresourceLayers

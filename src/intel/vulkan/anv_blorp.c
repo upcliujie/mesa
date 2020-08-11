@@ -208,7 +208,8 @@ get_blorp_surf_for_anv_image(const struct anv_device *device,
    if (layout != ANV_IMAGE_LAYOUT_EXPLICIT_AUX) {
       assert(usage != 0);
       aux_usage = anv_layout_to_aux_usage(&device->info, image,
-                                          aspect, usage, layout);
+                                          aspect, usage, layout,
+                                          VK_QUEUE_FAMILY_IGNORED);
    }
 
    isl_surf_usage_flags_t mocs_usage =
@@ -1636,12 +1637,14 @@ resolve_image(struct anv_cmd_buffer *cmd_buffer,
          anv_layout_to_aux_usage(&cmd_buffer->device->info, src_image,
                                  (1 << aspect_bit),
                                  VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-                                 src_image_layout);
+                                 src_image_layout,
+                                 VK_QUEUE_FAMILY_IGNORED);
       enum isl_aux_usage dst_aux_usage =
          anv_layout_to_aux_usage(&cmd_buffer->device->info, dst_image,
                                  (1 << aspect_bit),
                                  VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-                                 dst_image_layout);
+                                 dst_image_layout,
+                                 VK_QUEUE_FAMILY_IGNORED);
 
       anv_image_msaa_resolve(cmd_buffer,
                              src_image, src_aux_usage,

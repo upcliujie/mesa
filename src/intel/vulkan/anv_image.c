@@ -1725,7 +1725,8 @@ enum isl_aux_state
 anv_layout_to_aux_state(const struct gen_device_info * const devinfo,
                         const struct anv_image * const image,
                         const VkImageAspectFlagBits aspect,
-                        const VkImageLayout layout)
+                        const VkImageLayout layout,
+                        uint32_t queue_family)
 {
    /* Validate the inputs. */
 
@@ -1912,7 +1913,8 @@ anv_layout_to_aux_usage(const struct gen_device_info * const devinfo,
                         const struct anv_image * const image,
                         const VkImageAspectFlagBits aspect,
                         const VkImageUsageFlagBits usage,
-                        const VkImageLayout layout)
+                        const VkImageLayout layout,
+                        uint32_t queue_family)
 {
    uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
 
@@ -1923,7 +1925,7 @@ anv_layout_to_aux_usage(const struct gen_device_info * const devinfo,
       return ISL_AUX_USAGE_NONE;
 
    enum isl_aux_state aux_state =
-      anv_layout_to_aux_state(devinfo, image, aspect, layout);
+      anv_layout_to_aux_state(devinfo, image, aspect, layout, queue_family);
 
    switch (aux_state) {
    case ISL_AUX_STATE_CLEAR:
@@ -1978,7 +1980,8 @@ enum anv_fast_clear_type
 anv_layout_to_fast_clear_type(const struct gen_device_info * const devinfo,
                               const struct anv_image * const image,
                               const VkImageAspectFlagBits aspect,
-                              const VkImageLayout layout)
+                              const VkImageLayout layout,
+                              uint32_t queue_family)
 {
    if (INTEL_DEBUG & DEBUG_NO_FAST_CLEAR)
       return ANV_FAST_CLEAR_NONE;
@@ -1996,7 +1999,7 @@ anv_layout_to_fast_clear_type(const struct gen_device_info * const devinfo,
       return ANV_FAST_CLEAR_NONE;
 
    enum isl_aux_state aux_state =
-      anv_layout_to_aux_state(devinfo, image, aspect, layout);
+      anv_layout_to_aux_state(devinfo, image, aspect, layout, queue_family);
 
    switch (aux_state) {
    case ISL_AUX_STATE_CLEAR:
@@ -2495,11 +2498,13 @@ anv_CreateImageView(VkDevice _device,
          enum isl_aux_usage general_aux_usage =
             anv_layout_to_aux_usage(&device->info, image, 1UL << iaspect_bit,
                                     VK_IMAGE_USAGE_SAMPLED_BIT,
-                                    VK_IMAGE_LAYOUT_GENERAL);
+                                    VK_IMAGE_LAYOUT_GENERAL,
+                                    VK_QUEUE_FAMILY_IGNORED);
          enum isl_aux_usage optimal_aux_usage =
             anv_layout_to_aux_usage(&device->info, image, 1UL << iaspect_bit,
                                     VK_IMAGE_USAGE_SAMPLED_BIT,
-                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                    VK_QUEUE_FAMILY_IGNORED);
 
          anv_image_fill_surface_state(device, image, 1ULL << iaspect_bit,
                                       &iview->planes[vplane].isl,

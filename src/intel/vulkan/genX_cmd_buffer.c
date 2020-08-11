@@ -332,7 +332,8 @@ anv_can_fast_clear_color_view(struct anv_device * device,
    enum anv_fast_clear_type fast_clear_type =
       anv_layout_to_fast_clear_type(&device->info, iview->image,
                                     VK_IMAGE_ASPECT_COLOR_BIT,
-                                    layout);
+                                    layout,
+                                    VK_QUEUE_FAMILY_IGNORED);
    switch (fast_clear_type) {
    case ANV_FAST_CLEAR_NONE:
       return false;
@@ -422,7 +423,8 @@ anv_can_hiz_clear_ds_view(struct anv_device *device,
       anv_layout_to_aux_usage(&device->info, iview->image,
                               VK_IMAGE_ASPECT_DEPTH_BIT,
                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                              layout);
+                              layout,
+                              VK_QUEUE_FAMILY_IGNORED);
    if (!blorp_can_hiz_clear_depth(&device->info,
                                   &iview->image->planes[0].surface.isl,
                                   clear_aux_usage,
@@ -587,11 +589,13 @@ transition_depth_buffer(struct anv_cmd_buffer *cmd_buffer,
    const enum isl_aux_state initial_state =
       anv_layout_to_aux_state(&cmd_buffer->device->info, image,
                               VK_IMAGE_ASPECT_DEPTH_BIT,
-                              initial_layout);
+                              initial_layout,
+                              VK_QUEUE_FAMILY_IGNORED);
    const enum isl_aux_state final_state =
       anv_layout_to_aux_state(&cmd_buffer->device->info, image,
                               VK_IMAGE_ASPECT_DEPTH_BIT,
-                              final_layout);
+                              final_layout,
+                              VK_QUEUE_FAMILY_IGNORED);
 
    const bool initial_depth_valid =
       isl_aux_state_has_valid_primary(initial_state);
@@ -1115,6 +1119,8 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
                         uint32_t base_layer, uint32_t layer_count,
                         VkImageLayout initial_layout,
                         VkImageLayout final_layout,
+                        uint32_t src_queue_family,
+                        uint32_t dst_queue_family,
                         bool will_full_fast_clear)
 {
    struct anv_device *device = cmd_buffer->device;
@@ -1261,9 +1267,11 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
    }
 
    const enum isl_aux_usage initial_aux_usage =
-      anv_layout_to_aux_usage(devinfo, image, aspect, 0, initial_layout);
+      anv_layout_to_aux_usage(devinfo, image, aspect, 0, initial_layout,
+                              src_queue_family);
    const enum isl_aux_usage final_aux_usage =
-      anv_layout_to_aux_usage(devinfo, image, aspect, 0, final_layout);
+      anv_layout_to_aux_usage(devinfo, image, aspect, 0, final_layout,
+                              dst_queue_family);
 
    /* The current code assumes that there is no mixing of CCS_E and CCS_D.
     * We can handle transitions between CCS_D/E to and from NONE.  What we
@@ -1286,9 +1294,11 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
     * then we need at least a partial resolve.
     */
    const enum anv_fast_clear_type initial_fast_clear =
-      anv_layout_to_fast_clear_type(devinfo, image, aspect, initial_layout);
+      anv_layout_to_fast_clear_type(devinfo, image, aspect, initial_layout,
+                                    src_queue_family);
    const enum anv_fast_clear_type final_fast_clear =
-      anv_layout_to_fast_clear_type(devinfo, image, aspect, final_layout);
+      anv_layout_to_fast_clear_type(devinfo, image, aspect, final_layout,
+                                    dst_queue_family);
    if (final_fast_clear < initial_fast_clear)
       resolve_op = ISL_AUX_OP_PARTIAL_RESOLVE;
 
@@ -1665,7 +1675,8 @@ genX(BeginCommandBuffer)(
                anv_layout_to_aux_usage(&cmd_buffer->device->info, iview->image,
                                        VK_IMAGE_ASPECT_DEPTH_BIT,
                                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                       layout);
+                                       layout,
+                                       VK_QUEUE_FAMILY_IGNORED);
 
             cmd_buffer->state.hiz_enabled = isl_aux_usage_has_hiz(aux_usage);
          }
@@ -2414,6 +2425,8 @@ void genX(CmdPipelineBarrier)(
                                     base_layer, layer_count,
                                     pImageMemoryBarriers[i].oldLayout,
                                     pImageMemoryBarriers[i].newLayout,
+                                    pImageMemoryBarriers[i].srcQueueFamilyIndex,
+                                    pImageMemoryBarriers[i].dstQueueFamilyIndex,
                                     false /* will_full_fast_clear */);
          }
       }
@@ -5259,12 +5272,15 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
          transition_color_buffer(cmd_buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
                                  level, 1, base_layer, layer_count,
                                  att_state->current_layout, target_layout,
+                                 VK_QUEUE_FAMILY_IGNORED,
+                                 VK_QUEUE_FAMILY_IGNORED,
                                  will_full_fast_clear);
          att_state->aux_usage =
             anv_layout_to_aux_usage(&cmd_buffer->device->info, image,
                                     VK_IMAGE_ASPECT_COLOR_BIT,
                                     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                    target_layout);
+                                    target_layout,
+                                    VK_QUEUE_FAMILY_IGNORED);
       }
 
       if (image->aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
@@ -5280,7 +5296,8 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
             anv_layout_to_aux_usage(&cmd_buffer->device->info, image,
                                     VK_IMAGE_ASPECT_DEPTH_BIT,
                                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                    target_layout);
+                                    target_layout,
+                                    VK_QUEUE_FAMILY_IGNORED);
       }
 
       if (image->aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
@@ -5506,7 +5523,9 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
             anv_layout_to_aux_usage(&cmd_buffer->device->info, iview->image,
                                     VK_IMAGE_ASPECT_COLOR_BIT,
                                     VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-                                    att_state->current_layout);
+                                    att_state->current_layout,
+                                    VK_QUEUE_FAMILY_IGNORED);
+
       } else {
          continue;
       }
@@ -5779,7 +5798,8 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
             anv_layout_to_aux_usage(&cmd_buffer->device->info, src_iview->image,
                                     VK_IMAGE_ASPECT_DEPTH_BIT,
                                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-                                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                    VK_QUEUE_FAMILY_IGNORED);
          src_state->current_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
          /* MSAA resolves write to the resolve attachment as if it were any
@@ -5807,7 +5827,8 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
             anv_layout_to_aux_usage(&cmd_buffer->device->info, dst_iview->image,
                                     VK_IMAGE_ASPECT_DEPTH_BIT,
                                     VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-                                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                    VK_QUEUE_FAMILY_IGNORED);
          dst_state->current_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
          enum blorp_filter filter =
@@ -5936,6 +5957,8 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
                                  iview->planes[0].isl.base_level, 1,
                                  base_layer, layer_count,
                                  att_state->current_layout, target_layout,
+                                 VK_QUEUE_FAMILY_IGNORED,
+                                 VK_QUEUE_FAMILY_IGNORED,
                                  false /* will_full_fast_clear */);
       }
 
