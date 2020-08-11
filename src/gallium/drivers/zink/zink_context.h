@@ -84,6 +84,7 @@ zink_so_target(struct pipe_stream_output_target *so_target)
 }
 
 #define ZINK_SHADER_COUNT (PIPE_SHADER_TYPES - 1)
+#define ZINK_COMPUTE_BATCH_ID 4
 
 struct zink_context {
    struct pipe_context base;
