@@ -1141,11 +1141,23 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
    assert(final_layout != VK_IMAGE_LAYOUT_UNDEFINED &&
           final_layout != VK_IMAGE_LAYOUT_PREINITIALIZED);
 
-   /* No work is necessary if the layout stays the same or if this subresource
-    * range lacks auxiliary data.
+   /* Ownership transition on the foreign queue requires special action when the
+    * image has a DRM format modifier.
     */
-   if (initial_layout == final_layout)
-      return;
+   const bool mod_foreign_acquire =
+      image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
+      src_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT;
+
+   const bool mod_foreign_release =
+      image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
+      dst_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT;
+
+   if (initial_layout == final_layout &&
+       !mod_foreign_acquire &&
+       !mod_foreign_release) {
+      /* No work is needed. */
+       return;
+   }
 
    uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
 
@@ -1155,6 +1167,7 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
        * for texturing.  The client is about to use it in READ_ONLY_OPTIMAL so
        * we need to ensure the shadow copy is up-to-date.
        */
+      assert(image->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT);
       assert(image->aspects == VK_IMAGE_ASPECT_COLOR_BIT);
       assert(image->planes[plane].surface.isl.tiling == ISL_TILING_LINEAR);
       assert(image->planes[plane].shadow_surface.isl.tiling != ISL_TILING_LINEAR);
@@ -1171,8 +1184,121 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
 
    assert(image->planes[plane].surface.isl.tiling != ISL_TILING_LINEAR);
 
-   if (initial_layout == VK_IMAGE_LAYOUT_UNDEFINED ||
-       initial_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
+   /* Initialization and Retention of Aux Data
+    * ----------------------------------------
+    *
+    * We implement the image transition as if it had two stages. In the first
+    * stage, we initialize the aux data if needed. In the second stage, we
+    * resolve the aux data if needed.
+    *
+    * The table below explains which actions are needed for the first
+    * transition stage.
+    *
+    * We do not branch the code for each row in the table. To the contrary,
+    * a single 'if' condition in the following code may represent several rows
+    * in the table.  The table's purpose is to explain the choices behind the
+    * 'if' conditions.
+    *
+    * Key for below table:
+    *
+    *    - main: main surface
+    *    - aux: aux surface
+    *    - cc: clear color value
+    *    - x: impossible
+    *
+    *    - Transition Properties
+    *       - 1: The first time this VkDevice accesses the image.
+    *       - f: Initial queue is VK_QUEUE_FAMILY_FOREIGN and tiling is
+    *            VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT.
+    *       - u: Initial layout is undefined. (Recall that both layouts
+    *            UNDEFINED and PREINITIALIZED are identical for non-linear images).
+    *       - In column for anv_image::aux_private :
+    *          - c: has_fast_clear_state is true
+    *          - s: has_aux_surface is true
+    *          - 0: neither are true
+    *          - *: row holds for all values of has_fast_clear_state and has_aux_surface
+    *          - NOTE: s requires c
+    *
+    *    - Worst Case State
+    *       - c: Data is correct.
+    *       - o: Data is out-of-date, but is still "valid" data. That is, the
+    *            data may be incorrect but it won't hang the GPU.
+    *       - u(l): Data is undefined because the initial layout is undefined.
+    *               This state only applies to application-visible memory (that
+    *               is, VkDeviceMemory but not anv_image::aux_private::bo).
+    *               If the initial layout is undefined, then the app may have
+    *               mmapped it and scribbled bits into it; or the app may have
+    *               aliased it to a different image.
+    *       - u(n): Data is undefined because it has never been initialized.
+    *               This state never applies to application-visible memory (that
+    *               is, anv_image::aux_private::bo but not VkDeviceMemory).
+    *       - NOTE: In u(l) and u(n), the state of the data is the same. What
+    *               differs is the *cause* for that state.  The table specifies the
+    *               cause because it may help you better understand the wonderful
+    *               world of image transition logic.
+    *       - c&r: Data is correct and the clear color has been resolved.
+    *
+    *    - Valid Actions
+    *       - k: Keep the data.
+    *       - a: Ambiguate the aux surface.
+    *       - i: Initialize the data to anything "valid" (that is, data that
+    *            won't hang the GPU).
+    *       - i|k: Either keep the data or initialize. Both actions produce the
+    *              correct result because (a) the data is already "valid" and
+    *              (b) we don't care what the data contains as long as it's
+    *              "valid". It's probably more performant to keep the data, but
+    *              we may reinitialize it anyway because we're lazy.
+    *
+    * +-----------------------++---------------------++------------++---------------------
+    * | Transition Properties || Worst Case State    || Valid      || Notes
+    * |                       ||                     || Actions    ||
+    * +-----------------------++---------------------++------------++---------------------
+    * |                       || main | aux  | cc    || aux | cc   ||
+    * +-----------------------++------+------+-------++-------------++--------------------
+    * |  1   f   u   0        || x    | x    | x     || x   | x    || impossible b/c image with modifier never has non-private clear color
+    * |  1   f   u   c        || u(l) | u(l) | u(n)  || i   | i    ||
+    * |  1   f   u   s&c      || u(l) | u(n) | u(n)  || i   | i    ||
+    * |  1   f  !u   0        || x    | x    | x     || x   | x    || impossible b/c image with modifier never has non-private aux state
+    * |  1   f  !u   c        || c&r  | c&r  | u(n)  || k   | i    || ok to init aux state to anything b/c aux surface is resolved
+    * |  1   f  !u   s&c      || c    | u(n) | u(n)  || a   | i    || must ambiguate because main surface is correct
+    * |  1  !f   u   *        || u(l) | u(n) | u(n)  || i   | i    ||
+    * |  1  !f  !u   *        || x    | x    | x     || x   | x    || non-foreign non-linear image must have undefined layout on first access
+    * | !1   f   u   0        || x    | x    | x     || x   | x    || impossible b/c image with modifier never has non-private aux state
+    * | !1   f   u   c        || u(l) | u(l) | o     || i   | i|k  ||
+    * | !1   f   u   s&c      || u(l) | o    | o     || i|k | i|k  ||
+    * | !1   f  !u   0        || x    | x    | x     || x   | x    || impossible b/c image with modifier never has non-private aux state
+    * | !1   f  !u   c        || c&r  | c&r  | o     || k   | i|k  ||
+    * | !1   f  !u   s&c      || c&r  | o    | o     || a   | i|k  || must ambiguate because the main surface is correct
+    * | !1  !f   u   0        || u(l) | u(l) | u(l)  || i   | i    ||
+    * | !1  !f   u   c        || u(l) | u(l) | o     || i   | i|k  ||
+    * | !1  !f   u   s&c      || u(l) | o    | o     || i|k | i|k  ||
+    * | !1  !f  !u   *        || c    | c    | c     || k   | k    ||
+    * +-----------------------++------+------+-------++-----+------++---------------------
+    */
+
+   /* Recall that an initial layout of PREINITIALIZED is identical to UNDEFINED
+    * for non-linear images.
+    */
+   const bool initial_layout_undefined =
+      initial_layout == VK_IMAGE_LAYOUT_UNDEFINED ||
+      initial_layout == VK_IMAGE_LAYOUT_PREINITIALIZED;
+
+   /* Initialize the aux state if needed.
+    *
+    * For table column "Valid Actions: cc".
+    */
+   if (initial_layout_undefined || mod_foreign_acquire) {
+      if (image->aux_private.has_fast_clear_state) {
+         /* We do not persistently track the initialization of state in
+          * anv_image::aux_private, therefore this may be a redundant
+          * reinitialization.
+          */
+         anv_perf_warn(cmd_buffer->device, image,
+                       "Potentially redundant initialization of foreign image's "
+                       "aux state.");
+      }
+
+
 #if GEN_GEN == 12
       if (device->physical->has_implicit_ccs && devinfo->has_aux_map) {
          anv_image_init_aux_tt(cmd_buffer, image, aspect,
@@ -1183,50 +1309,49 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
       assert(!(device->physical->has_implicit_ccs && devinfo->has_aux_map));
 #endif
 
-      /* A subresource in the undefined layout may have been aliased and
-       * populated with any arrangement of bits. Therefore, we must initialize
-       * the related aux buffer and clear buffer entry with desirable values.
-       * An initial layout of PREINITIALIZED is the same as UNDEFINED for
-       * images with VK_IMAGE_TILING_OPTIMAL.
-       *
-       * Initialize the relevant clear buffer entries.
-       */
-      if (base_level == 0 && base_layer == 0)
+      if (base_level == 0 && base_layer == 0) {
          init_fast_clear_color(cmd_buffer, image, aspect);
+      }
+   }
 
-      /* Initialize the aux buffers to enable correct rendering.  In order to
-       * ensure that things such as storage images work correctly, aux buffers
-       * need to be initialized to valid data.
-       *
-       * Having an aux buffer with invalid data is a problem for two reasons:
-       *
-       *  1) Having an invalid value in the buffer can confuse the hardware.
-       *     For instance, with CCS_E on SKL, a two-bit CCS value of 2 is
-       *     invalid and leads to the hardware doing strange things.  It
-       *     doesn't hang as far as we can tell but rendering corruption can
-       *     occur.
-       *
-       *  2) If this transition is into the GENERAL layout and we then use the
-       *     image as a storage image, then we must have the aux buffer in the
-       *     pass-through state so that, if we then go to texture from the
-       *     image, we get the results of our storage image writes and not the
-       *     fast clear color or other random data.
-       *
-       * For CCS both of the problems above are real demonstrable issues.  In
-       * that case, the only thing we can do is to perform an ambiguate to
-       * transition the aux surface into the pass-through state.
-       *
-       * For MCS, (2) is never an issue because we don't support multisampled
-       * storage images.  In theory, issue (1) is a problem with MCS but we've
-       * never seen it in the wild.  For 4x and 16x, all bit patters could, in
-       * theory, be interpreted as something but we don't know that all bit
-       * patterns are actually valid.  For 2x and 8x, you could easily end up
-       * with the MCS referring to an invalid plane because not all bits of
-       * the MCS value are actually used.  Even though we've never seen issues
-       * in the wild, it's best to play it safe and initialize the MCS.  We
-       * can use a fast-clear for MCS because we only ever touch from render
-       * and texture (no image load store).
-       */
+   /* Initialize the aux buffer if needed.
+    *
+    * For table column "Valid Actions: aux".
+    *
+    * We always initialize by ambiguation. Therefore, we handle the table
+    * column entries 'i' and 'a' identically.
+    *
+    * Having an aux buffer with invalid data is a problem for two reasons:
+    *
+    *  1) Having an invalid value in the buffer can confuse the hardware.
+    *     For instance, with CCS_E on SKL, a two-bit CCS value of 2 is
+    *     invalid and leads to the hardware doing strange things.  It
+    *     doesn't hang as far as we can tell but rendering corruption can
+    *     occur.
+    *
+    *  2) If this transition is into the GENERAL layout and we then use the
+    *     image as a storage image, then we must have the aux buffer in the
+    *     pass-through state so that, if we then go to texture from the
+    *     image, we get the results of our storage image writes and not the
+    *     fast clear color or other random data.
+    *
+    * For CCS both of the problems above are real demonstrable issues.  In
+    * that case, the only thing we can do is to perform an ambiguate to
+    * transition the aux surface into the pass-through state.
+    *
+    * For MCS, (2) is never an issue because we don't support multisampled
+    * storage images.  In theory, issue (1) is a problem with MCS but we've
+    * never seen it in the wild.  For 4x and 16x, all bit patters could, in
+    * theory, be interpreted as something but we don't know that all bit
+    * patterns are actually valid.  For 2x and 8x, you could easily end up
+    * with the MCS referring to an invalid plane because not all bits of
+    * the MCS value are actually used.  Even though we've never seen issues
+    * in the wild, it's best to play it safe and initialize the MCS.  We
+    * can use a fast-clear for MCS because we only ever touch from render
+    * and texture (no image load store).
+    */
+   if (initial_layout_undefined ||
+       (mod_foreign_acquire && image->aux_private.has_aux_surface)) {
       if (image->samples == 1) {
          for (uint32_t l = 0; l < level_count; l++) {
             const uint32_t level = base_level + l;
@@ -1263,7 +1388,6 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
                           aspect, base_layer, layer_count,
                           ISL_AUX_OP_FAST_CLEAR, NULL, false);
       }
-      return;
    }
 
    const enum isl_aux_usage initial_aux_usage =
@@ -1299,12 +1423,38 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
    const enum anv_fast_clear_type final_fast_clear =
       anv_layout_to_fast_clear_type(devinfo, image, aspect, final_layout,
                                     dst_queue_family);
+
    if (final_fast_clear < initial_fast_clear)
       resolve_op = ISL_AUX_OP_PARTIAL_RESOLVE;
 
    if (initial_aux_usage == ISL_AUX_USAGE_CCS_E &&
        final_aux_usage != ISL_AUX_USAGE_CCS_E)
       resolve_op = ISL_AUX_OP_FULL_RESOLVE;
+
+#if DEBUG
+   /* The special case when a resolve is required because the transition
+    * releases ownership to the foreign queue, it should be implicitly handled
+    * above by anv_layout_to_aux_usage() and anv_layout_to_fast_clear_type().
+    */
+   if (mod_foreign_release) {
+      switch (isl_drm_modifier_get_default_aux_state(image->drm_format_mod)) {
+      case ISL_AUX_STATE_AUX_INVALID:
+         if (initial_aux_usage != ISL_AUX_USAGE_NONE)
+            assert(resolve_op == ISL_AUX_OP_FULL_RESOLVE);
+         break;
+      case ISL_AUX_STATE_COMPRESSED_NO_CLEAR:
+         if (initial_aux_usage != ISL_AUX_USAGE_NONE)
+            assert(resolve_op == ISL_AUX_OP_PARTIAL_RESOLVE);
+         break;
+      case ISL_AUX_STATE_COMPRESSED_CLEAR:
+         /* no modifiers support clear color yet */
+      default:
+         assert(!"bad isl_aux_state");
+         break;
+      }
+   }
+#endif
+
 
    if (resolve_op == ISL_AUX_OP_NONE)
       return;

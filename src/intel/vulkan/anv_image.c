@@ -1799,6 +1799,15 @@ anv_layout_to_aux_state(const struct gen_device_info * const devinfo,
       break;
    }
 
+   /* If none of the above special cases apply, and if this is a modifier image,
+    * then ABI requires that the image be in the default aux state during
+    * ownership transfers on the foreign queue.
+    */
+   if (image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
+       queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT) {
+      return isl_drm_modifier_get_default_aux_state(image->drm_format_mod);
+   }
+
    const bool read_only = vk_image_layout_is_read_only(layout, aspect);
 
    const VkImageUsageFlags image_aspect_usage =
