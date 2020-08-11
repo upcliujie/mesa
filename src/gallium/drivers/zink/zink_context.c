@@ -882,9 +882,11 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
    ctx->gfx_pipeline_state.num_attachments = state->nr_cbufs;
    ctx->gfx_pipeline_state.hash = 0;
 
-   struct zink_batch *batch = zink_batch_no_rp(ctx);
+   /* need to start a new renderpass */
+   if (zink_curr_batch(ctx)->rp)
+      flush_batch(ctx);
 
-   framebuffer_state_buffer_barriers_setup(ctx, state, batch);
+   framebuffer_state_buffer_barriers_setup(ctx, &ctx->fb_state, zink_curr_batch(ctx));
 }
 
 static void
