@@ -67,7 +67,9 @@ struct zink_screen {
    bool have_triangle_fans;
 
    uint32_t gfx_queue;
+   uint32_t compute_queue;
    uint32_t timestamp_valid_bits;
+   uint32_t compute_timestamp_valid_bits;
    VkDevice dev;
    VkDebugUtilsMessengerEXT debugUtilsCallbackHandle;
 
