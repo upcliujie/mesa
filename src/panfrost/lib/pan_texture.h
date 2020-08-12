@@ -138,11 +138,6 @@ panfrost_texture_offset(struct panfrost_slice *slices, bool is_3d, unsigned cube
 
 /* Formats */
 
-struct panfrost_format {
-        enum mali_format hw;
-        unsigned bind;
-};
-
 struct pan_blendable_format {
         enum mali_color_buffer_internal_format internal;
         enum mali_mfbd_color_format writeback;
@@ -151,7 +146,8 @@ struct pan_blendable_format {
 struct pan_blendable_format
 panfrost_blend_format(enum pipe_format format);
 
-extern struct panfrost_format panfrost_pipe_format_table[PIPE_FORMAT_COUNT];
+extern const struct panfrost_format panfrost_pipe_format_v6[PIPE_FORMAT_COUNT];
+extern const struct panfrost_format panfrost_pipe_format_v7[PIPE_FORMAT_COUNT];
 
 enum mali_z_internal_format
 panfrost_get_z_internal_format(enum pipe_format fmt);
