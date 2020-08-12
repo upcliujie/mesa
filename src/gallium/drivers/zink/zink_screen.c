@@ -271,10 +271,8 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_GLSL_FEATURE_LEVEL:
       return 420;
 
-#if 0 /* TODO: Enable me */
    case PIPE_CAP_COMPUTE:
-      return 1;
-#endif
+      return screen->compute_queue != UINT_MAX;
 
    case PIPE_CAP_CONSTANT_BUFFER_OFFSET_ALIGNMENT:
       return screen->info.props.limits.minUniformBufferOffsetAlignment;
