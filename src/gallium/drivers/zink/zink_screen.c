@@ -715,10 +715,13 @@ update_queue_props(struct zink_screen *screen)
    vkGetPhysicalDeviceQueueFamilyProperties(screen->pdev, &num_queues, props);
 
    for (uint32_t i = 0; i < num_queues; i++) {
-      if (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+      if (!screen->timestamp_valid_bits && (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
          screen->gfx_queue = i;
          screen->timestamp_valid_bits = props[i].timestampValidBits;
-         break;
+      }
+      if ((screen->compute_queue == UINT_MAX) && (props[i].queueFlags & VK_QUEUE_COMPUTE_BIT)) {
+         screen->compute_queue = i;
+         screen->compute_timestamp_valid_bits = props[i].timestampValidBits;
       }
    }
    free(props);
@@ -966,6 +969,8 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
    if (!screen)
       return NULL;
 
+   screen->compute_queue = UINT_MAX;
+   screen->gfx_queue = UINT_MAX;
    zink_debug = debug_get_option_zink_debug();
 
    screen->instance = zink_create_instance(screen);
@@ -980,6 +985,7 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
 
    screen->pdev = choose_pdev(screen->instance);
    update_queue_props(screen);
+   assert(screen->gfx_queue < UINT_MAX);
 
    screen->have_X8_D24_UNORM_PACK32 = zink_is_depth_format_supported(screen,
                                               VK_FORMAT_X8_D24_UNORM_PACK32);
@@ -1004,18 +1010,26 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
       debug_printf("ZINK: KHR_external_memory_fd required!\n");
       goto fail;
    }
-   
-   VkDeviceQueueCreateInfo qci = {};
-   float dummy = 0.0f;
-   qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-   qci.queueFamilyIndex = screen->gfx_queue;
-   qci.queueCount = 1;
-   qci.pQueuePriorities = &dummy;
 
    VkDeviceCreateInfo dci = {};
    dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
    dci.queueCreateInfoCount = 1;
-   dci.pQueueCreateInfos = &qci;
+
+   VkDeviceQueueCreateInfo qci[2] = {};
+   float dummy = 0.0f;
+   qci[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+   qci[0].queueFamilyIndex = screen->gfx_queue;
+   qci[0].queueCount = 1;
+   qci[0].pQueuePriorities = &dummy;
+   if (screen->compute_queue != UINT_MAX && screen->compute_queue != screen->gfx_queue) {
+      qci[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+      qci[1].queueFamilyIndex = screen->compute_queue;
+      qci[1].queueCount = 1;
+      qci[1].pQueuePriorities = &dummy;
+      dci.queueCreateInfoCount++;
+   }
+
+   dci.pQueueCreateInfos = &qci[0];
    /* extensions don't have bool members in pEnabledFeatures.
     * this requires us to pass the whole VkPhysicalDeviceFeatures2 struct
     */
