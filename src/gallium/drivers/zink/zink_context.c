@@ -50,6 +50,9 @@
 #include "util/u_memory.h"
 #include "util/u_upload_mgr.h"
 
+#define XXH_INLINE_ALL
+#include "util/xxhash.h"
+
 static void
 zink_context_destroy(struct pipe_context *pctx)
 {
@@ -1131,13 +1134,27 @@ zink_shader_stage(enum pipe_shader_type type)
 static uint32_t
 hash_gfx_program(const void *key)
 {
-   return _mesa_hash_data(key, sizeof(struct zink_shader *) * (ZINK_SHADER_COUNT));
+   const struct zink_shader **shaders = (void*)key;
+   uint32_t hash = 0;
+   unsigned zero = 0;
+   /* pointers can be recycled, so we need to check the shader ids */
+   for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++)
+      hash = XXH32(shaders[i] ? &shaders[i]->shader_id : &zero, sizeof(unsigned), hash);
+   return hash;
 }
 
 static bool
 equals_gfx_program(const void *a, const void *b)
 {
-   return memcmp(a, b, sizeof(struct zink_shader *) * (ZINK_SHADER_COUNT)) == 0;
+   const struct zink_shader **left = (void*)a, **right = (void*)b;
+   /* if any shaders are set/unset or shader ids don't match then these aren't equal */
+   for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++) {
+      if (!!left[i] != !!right[i])
+         return false;
+      if (left[i] && right[i] && left[i]->shader_id != right[i]->shader_id)
+         return false;
+   }
+   return true;
 }
 
 static void
