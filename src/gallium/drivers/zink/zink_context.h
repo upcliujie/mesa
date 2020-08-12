@@ -100,6 +100,10 @@ struct zink_context {
 
    VkQueue queue;
 
+   VkCommandPool compute_cmdpool;
+   struct zink_batch compute_batch;
+   VkQueue compute_queue;
+
    struct pipe_constant_buffer ubos[PIPE_SHADER_TYPES][PIPE_MAX_CONSTANT_BUFFERS];
    struct pipe_shader_buffer ssbos[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
    uint32_t writable_ssbos;

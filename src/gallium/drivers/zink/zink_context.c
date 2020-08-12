@@ -1188,8 +1188,7 @@ void
 zink_wait_on_batch(struct zink_context *ctx, int batch_id)
 {
    if (batch_id >= 0) {
-      assert(batch_id != ZINK_COMPUTE_BATCH_ID);
-      struct zink_batch *batch = &ctx->batches[batch_id];
+      struct zink_batch *batch = batch_id == ZINK_COMPUTE_BATCH_ID ? &ctx->compute_batch : &ctx->batches[batch_id];
       if (batch != zink_curr_batch(ctx)) {
          if (!batch->fence) { // this is the compute batch
             zink_end_batch(ctx, batch);
@@ -1499,7 +1498,7 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    VkCommandBufferAllocateInfo cbai = {};
    cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-   cbai.commandPool = ctx->cmdpool;
+   cbai.commandPool = idx == ZINK_COMPUTE_BATCH_ID ? ctx->compute_cmdpool : ctx->cmdpool;
    cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
    cbai.commandBufferCount = 1;
 
@@ -1628,10 +1627,25 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    cpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
    if (vkCreateCommandPool(screen->dev, &cpci, NULL, &ctx->cmdpool) != VK_SUCCESS)
       goto fail;
+   if (screen->compute_queue != UINT_MAX) {
+      cpci.queueFamilyIndex = screen->compute_queue;
+      if (vkCreateCommandPool(screen->dev, &cpci, NULL, &ctx->compute_cmdpool) != VK_SUCCESS)
+         goto fail;
+   }
 
    for (int i = 0; i < ARRAY_SIZE(ctx->batches); ++i) {
       if (!init_batch(ctx, &ctx->batches[i], i))
          goto fail;
+   }
+
+   if (screen->compute_queue != UINT_MAX) {
+      cpci.queueFamilyIndex = screen->compute_queue;
+      if (vkCreateCommandPool(screen->dev, &cpci, NULL, &ctx->compute_cmdpool) != VK_SUCCESS)
+         goto fail;
+      if (!init_batch(ctx, &ctx->compute_batch, ZINK_COMPUTE_BATCH_ID))
+         goto fail;
+      vkGetDeviceQueue(screen->dev, screen->compute_queue, 0, &ctx->compute_queue);
+      zink_start_batch(ctx, &ctx->compute_batch);
    }
 
    vkGetDeviceQueue(screen->dev, screen->gfx_queue, 0, &ctx->queue);
@@ -1662,6 +1676,8 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 fail:
    if (ctx) {
       vkDestroyCommandPool(screen->dev, ctx->cmdpool, NULL);
+      if (ctx->compute_cmdpool)
+         vkDestroyCommandPool(screen->dev, ctx->compute_cmdpool, NULL);
       FREE(ctx);
    }
    return NULL;
