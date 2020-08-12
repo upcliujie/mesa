@@ -8,6 +8,7 @@
 #include "zink_surface.h"
 
 #include "indices/u_primconvert.h"
+#include "tgsi/tgsi_from_mesa.h"
 #include "util/hash_table.h"
 #include "util/u_debug.h"
 #include "util/u_helpers.h"
@@ -316,42 +317,42 @@ zink_draw_vbo(struct pipe_context *pctx,
       struct zink_shader *shader = ctx->gfx_stages[i];
       if (!shader)
          continue;
-
+      enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
       if (ctx->num_so_targets &&
-          (i == PIPE_SHADER_GEOMETRY ||
-          (i == PIPE_SHADER_TESS_EVAL && !ctx->gfx_stages[PIPE_SHADER_GEOMETRY]) ||
-          (i == PIPE_SHADER_VERTEX && !ctx->gfx_stages[PIPE_SHADER_GEOMETRY] && !ctx->gfx_stages[PIPE_SHADER_TESS_EVAL]))) {
-         for (unsigned i = 0; i < ctx->num_so_targets; i++) {
-            struct zink_so_target *t = zink_so_target(ctx->so_targets[i]);
-            t->stride = shader->streamout.so_info.stride[i] * sizeof(uint32_t);
+          (stage == PIPE_SHADER_GEOMETRY ||
+          (stage == PIPE_SHADER_TESS_EVAL && !ctx->gfx_stages[PIPE_SHADER_GEOMETRY]) ||
+          (stage == PIPE_SHADER_VERTEX && !ctx->gfx_stages[PIPE_SHADER_GEOMETRY] && !ctx->gfx_stages[PIPE_SHADER_TESS_EVAL]))) {
+         for (unsigned j = 0; j < ctx->num_so_targets; j++) {
+            struct zink_so_target *t = zink_so_target(ctx->so_targets[j]);
+            t->stride = shader->streamout.so_info.stride[j] * sizeof(uint32_t);
          }
       }
 
       for (int j = 0; j < shader->num_bindings; j++) {
          int index = shader->bindings[j].index;
          if (shader->bindings[j].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-            assert(ctx->ubos[i][index].buffer_size > 0);
-            assert(ctx->ubos[i][index].buffer_size <= screen->info.props.limits.maxUniformBufferRange);
-            assert(ctx->ubos[i][index].buffer);
-            struct zink_resource *res = zink_resource(ctx->ubos[i][index].buffer);
+            assert(ctx->ubos[stage][index].buffer_size > 0);
+            assert(ctx->ubos[stage][index].buffer_size <= screen->info.props.limits.maxUniformBufferRange);
+            assert(ctx->ubos[stage][index].buffer);
+            struct zink_resource *res = zink_resource(ctx->ubos[stage][index].buffer);
             read_desc_resources[num_wds] = res;
             buffer_infos[num_buffer_info].buffer = res->buffer;
-            buffer_infos[num_buffer_info].offset = ctx->ubos[i][index].buffer_offset;
-            buffer_infos[num_buffer_info].range  = ctx->ubos[i][index].buffer_size;
+            buffer_infos[num_buffer_info].offset = ctx->ubos[stage][index].buffer_offset;
+            buffer_infos[num_buffer_info].range  = ctx->ubos[stage][index].buffer_size;
             wds[num_wds].pBufferInfo = buffer_infos + num_buffer_info;
             ++num_buffer_info;
          } else if (shader->bindings[j].type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER) {
-            struct zink_resource *res = zink_resource(ctx->ssbos[i][index].buffer);
+            struct zink_resource *res = zink_resource(ctx->ssbos[stage][index].buffer);
             if (res) {
-               assert(ctx->ssbos[i][index].buffer_size > 0);
-               assert(ctx->ssbos[i][index].buffer_size <= screen->info.props.limits.maxStorageBufferRange);
+               assert(ctx->ssbos[stage][index].buffer_size > 0);
+               assert(ctx->ssbos[stage][index].buffer_size <= screen->info.props.limits.maxStorageBufferRange);
                if (ctx->writable_ssbos & (1 << index))
                   write_desc_resources[num_wds] = res;
                else
                   read_desc_resources[num_wds] = res;
                buffer_infos[num_buffer_info].buffer = res->buffer;
-               buffer_infos[num_buffer_info].offset = ctx->ssbos[i][index].buffer_offset;
-               buffer_infos[num_buffer_info].range  = ctx->ssbos[i][index].buffer_size;
+               buffer_infos[num_buffer_info].offset = ctx->ssbos[stage][index].buffer_offset;
+               buffer_infos[num_buffer_info].range  = ctx->ssbos[stage][index].buffer_size;
             } else {
                assert(screen->info.rb2_feats.nullDescriptor);
                buffer_infos[num_buffer_info].buffer = VK_NULL_HANDLE;
@@ -371,7 +372,7 @@ zink_draw_vbo(struct pipe_context *pctx,
                case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
                /* fallthrough */
                case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: {
-                  struct pipe_sampler_view *psampler_view = ctx->sampler_views[i][index + k];
+                  struct pipe_sampler_view *psampler_view = ctx->sampler_views[stage][index + k];
                   struct zink_sampler_view *sampler_view = zink_sampler_view(psampler_view);
                   res = psampler_view ? zink_resource(psampler_view->texture) : NULL;
                   if (!res)
@@ -389,7 +390,7 @@ zink_draw_vbo(struct pipe_context *pctx,
                         transitions[num_transitions].layout = layout;
                         transitions[num_transitions++].res = res;
                      }
-                     sampler = ctx->samplers[i][index + k];
+                     sampler = ctx->samplers[stage][index + k];
                   }
                   read_desc_resources[num_wds] = res;
                }
@@ -397,7 +398,7 @@ zink_draw_vbo(struct pipe_context *pctx,
                case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
                /* fallthrough */
                case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
-                  struct zink_image_view *image_view = &ctx->image_views[i][index + k];
+                  struct zink_image_view *image_view = &ctx->image_views[stage][index + k];
                   assert(image_view);
                   surface_refs[num_surface_refs++] = image_view->surface;
                   res = zink_resource(image_view->base.resource);
@@ -451,7 +452,7 @@ zink_draw_vbo(struct pipe_context *pctx,
                   assert(layout != VK_IMAGE_LAYOUT_UNDEFINED);
                   image_infos[num_image_info].imageLayout = layout;
                   image_infos[num_image_info].imageView = imageview;
-                  image_infos[num_image_info].sampler = ctx->samplers[i][index + k];
+                  image_infos[num_image_info].sampler = ctx->samplers[stage][index + k];
                   if (!k)
                      wds[num_wds].pImageInfo = image_infos + num_image_info;
                   ++num_image_info;
@@ -506,11 +507,12 @@ zink_draw_vbo(struct pipe_context *pctx,
       struct zink_shader *shader = ctx->gfx_stages[i];
       if (!shader)
          continue;
+      enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
 
       for (int j = 0; j < shader->num_bindings; j++) {
          int index = shader->bindings[j].index;
          if (shader->bindings[j].type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-            struct zink_sampler_view *sampler_view = zink_sampler_view(ctx->sampler_views[i][index]);
+            struct zink_sampler_view *sampler_view = zink_sampler_view(ctx->sampler_views[stage][index]);
             if (sampler_view)
                zink_batch_reference_sampler_view(batch, sampler_view);
          }
