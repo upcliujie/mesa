@@ -115,7 +115,12 @@ struct zink_context {
    struct hash_table *program_cache;
    struct zink_gfx_program *curr_program;
 
-   unsigned dirty_shader_stages : 6; /* mask of changed shader stages */
+   struct zink_shader *compute_stage;
+   struct zink_compute_pipeline_state compute_pipeline_state;
+   struct hash_table *compute_program_cache;
+   struct zink_compute_program *curr_compute;
+
+   unsigned dirty_shader_stages : 7; /* mask of changed shader stages */
 
    struct hash_table *render_pass_cache;
 
