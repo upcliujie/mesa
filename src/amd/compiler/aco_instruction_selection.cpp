@@ -631,21 +631,13 @@ Temp extract_8_16_bit_sgpr_element(isel_context *ctx, Temp dst, nir_alu_src *src
    }
 
    Builder bld(ctx->program, ctx->block);
-   unsigned offset = src_size * swizzle;
    Temp tmp = dst.regClass() == s2 ? bld.tmp(s1) : dst;
 
-   if (mode == sgpr_extract_undef && swizzle == 0) {
+   if (mode == sgpr_extract_undef && swizzle == 0)
       bld.copy(Definition(tmp), vec);
-   } else if (mode == sgpr_extract_undef || (offset == 24 && mode == sgpr_extract_zext)) {
-      bld.sop2(aco_opcode::s_lshr_b32, Definition(tmp), bld.def(s1, scc), vec, Operand(offset));
-   } else if (src_size == 8 && swizzle == 0 && mode == sgpr_extract_sext) {
-      bld.sop1(aco_opcode::s_sext_i32_i8, Definition(tmp), vec);
-   } else if (src_size == 16 && swizzle == 0 && mode == sgpr_extract_sext) {
-      bld.sop1(aco_opcode::s_sext_i32_i16, Definition(tmp), vec);
-   } else {
-      aco_opcode op = mode == sgpr_extract_zext ? aco_opcode::s_bfe_u32 : aco_opcode::s_bfe_i32;
-      bld.sop2(op, Definition(tmp), bld.def(s1, scc), vec, Operand((src_size << 16) | offset));
-   }
+   else
+      bld.pseudo(aco_opcode::p_extract, Definition(tmp), bld.def(s1, scc), Operand(vec),
+                 Operand(swizzle), Operand(src_size), Operand((uint32_t)(mode == sgpr_extract_sext)));
 
    if (dst.regClass() == s2)
       convert_int(ctx, bld, tmp, 32, 64, mode == sgpr_extract_sext, dst);
@@ -2591,7 +2583,8 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       if (dst.type() == RegType::vgpr) {
          bld.pseudo(aco_opcode::p_split_vector, bld.def(dst.regClass()), Definition(dst), get_alu_src(ctx, instr->src[0]));
       } else {
-         bld.sop2(aco_opcode::s_bfe_u32, Definition(dst), bld.def(s1, scc), get_alu_src(ctx, instr->src[0]), Operand(uint32_t(16 << 16 | 16)));
+         bld.pseudo(aco_opcode::p_extract, Definition(dst), bld.def(s1, scc),
+                    get_alu_src(ctx, instr->src[0]), Operand(1u), Operand(16u), Operand(0u));
       }
       break;
    case nir_op_pack_32_2x16_split: {
@@ -2770,6 +2763,84 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       } else {
          aco_opcode opcode = instr->op == nir_op_ubfe ? aco_opcode::v_bfe_u32 : aco_opcode::v_bfe_i32;
          emit_vop3a_instruction(ctx, instr, opcode, dst, false, 3);
+      }
+      break;
+   }
+   case nir_op_extract_u8:
+   case nir_op_extract_i8:
+   case nir_op_extract_u16:
+   case nir_op_extract_i16: {
+      bool is_signed = instr->op == nir_op_extract_i16 || instr->op == nir_op_extract_i8;
+      unsigned comp = instr->op == nir_op_extract_u8 || instr->op == nir_op_extract_i8 ? 4 : 2;
+      uint32_t size = comp == 4 ? 8 : 16;
+      unsigned index = nir_src_as_uint(instr->src[1].src);
+      if (size >= instr->dest.dest.ssa.bit_size || index * size >= instr->dest.dest.ssa.bit_size) {
+         if (index == 0)
+            bld.copy(Definition(dst), get_alu_src(ctx, instr->src[0]));
+         else
+            bld.copy(Definition(dst), Operand::get_const(0, dst.bytes()));
+      } else if (dst.regClass() == s1 && instr->dest.dest.ssa.bit_size == 16) {
+         Temp vec = get_ssa_temp(ctx, instr->src[0].src.ssa);
+         unsigned swizzle = instr->src[0].swizzle[0];
+         if (vec.size() > 1) {
+            vec = emit_extract_vector(ctx, vec, swizzle / 2, s1);
+            swizzle = swizzle & 1;
+         }
+         index += swizzle * instr->dest.dest.ssa.bit_size / size;
+         bld.pseudo(aco_opcode::p_extract, Definition(dst), bld.def(s1, scc), Operand(vec),
+                    Operand(index), Operand(size), Operand((uint32_t)is_signed));
+      } else {
+         Temp src = get_alu_src(ctx, instr->src[0]);
+         Definition def(dst);
+         if (dst.bytes() == 8) {
+            src = emit_extract_vector(ctx, src, index / 4u, RegClass(src.type(), 1));
+            index %= 2u;
+            def = bld.def(src.type(), 1);
+         }
+         assert(def.bytes() <= 4);
+         if (def.regClass() == s1) {
+            bld.pseudo(aco_opcode::p_extract, def, bld.def(s1, scc), Operand(src),
+                       Operand(index), Operand(size), Operand((uint32_t)is_signed));
+         } else {
+            src = emit_extract_vector(ctx, src, 0, def.regClass());
+            bld.pseudo(aco_opcode::p_extract, def, Operand(src), Operand(index),
+                       Operand(size), Operand((uint32_t)is_signed));
+         }
+         if (dst.size() == 2)
+            bld.pseudo(aco_opcode::p_create_vector, Definition(dst), def.getTemp(), Operand(0u));
+      }
+      break;
+   }
+   case nir_op_insert_u8:
+   case nir_op_insert_u16: {
+      unsigned comp = instr->op == nir_op_insert_u8 ? 4 : 2;
+      uint32_t size = comp == 4 ? 8 : 16;
+      unsigned index = nir_src_as_uint(instr->src[1].src);
+      if (size >= instr->dest.dest.ssa.bit_size || index * size >= instr->dest.dest.ssa.bit_size) {
+         if (index == 0)
+            bld.copy(Definition(dst), get_alu_src(ctx, instr->src[0]));
+         else
+            bld.copy(Definition(dst), Operand::get_const(0, dst.bytes()));
+      } else {
+         Temp src = get_alu_src(ctx, instr->src[0]);
+         Definition def(dst);
+         bool swap = false;
+         if (dst.bytes() == 8) {
+            src = emit_extract_vector(ctx, src, 0u, RegClass(src.type(), 1));
+            swap = index >= comp;
+            index %= comp;
+            def = bld.def(src.type(), 1);
+         }
+         if (def.regClass() == s1) {
+            bld.pseudo(aco_opcode::p_insert, def, bld.def(s1, scc), Operand(src), Operand(index), Operand(size));
+         } else {
+            src = emit_extract_vector(ctx, src, 0, def.regClass());
+            bld.pseudo(aco_opcode::p_insert, def, Operand(src), Operand(index), Operand(size));
+         }
+         if (dst.size() == 2 && swap)
+            bld.pseudo(aco_opcode::p_create_vector, Definition(dst), Operand(0u), def.getTemp());
+         else if (dst.size() == 2)
+            bld.pseudo(aco_opcode::p_create_vector, Definition(dst), def.getTemp(), Operand(0u));
       }
       break;
    }
@@ -4036,8 +4107,9 @@ Temp get_tess_rel_patch_id(isel_context *ctx)
 
    switch (ctx->shader->info.stage) {
    case MESA_SHADER_TESS_CTRL:
-      return bld.vop2(aco_opcode::v_and_b32, bld.def(v1), Operand(0xffu),
-                      get_arg(ctx, ctx->args->ac.tcs_rel_ids));
+      return bld.pseudo(aco_opcode::p_extract, bld.def(v1),
+                        get_arg(ctx, ctx->args->ac.tcs_rel_ids),
+                        Operand(0u), Operand(8u), Operand(0u));
    case MESA_SHADER_TESS_EVAL:
       return get_arg(ctx, ctx->args->tes_rel_patch_id);
    default:
@@ -4825,7 +4897,7 @@ std::pair<Temp, unsigned> get_gs_per_vertex_input_offset(isel_context *ctx, nir_
          if (merged_esgs) {
             elem = get_arg(ctx, ctx->args->gs_vtx_offset[i / 2u * 2u]);
             if (i % 2u)
-               elem = bld.vop2(aco_opcode::v_lshrrev_b32, bld.def(v1), Operand(16u), elem);
+               elem = bld.pseudo(aco_opcode::p_extract, bld.def(v1), elem, Operand(2u), Operand(16u), Operand(0u));
          } else {
             elem = get_arg(ctx, ctx->args->gs_vtx_offset[i]);
          }
@@ -4840,13 +4912,13 @@ std::pair<Temp, unsigned> get_gs_per_vertex_input_offset(isel_context *ctx, nir_
       }
 
       if (merged_esgs)
-         vertex_offset = bld.vop2(aco_opcode::v_and_b32, bld.def(v1), Operand(0xffffu), vertex_offset);
+         vertex_offset = bld.pseudo(aco_opcode::p_extract, bld.def(v1), vertex_offset, Operand(0u), Operand(16u), Operand(0u));
    } else {
-      unsigned vertex = nir_src_as_uint(*vertex_src);
+      unsigned vertex = nir_src_as_uint(instr->src[0]);
       if (merged_esgs)
-         vertex_offset = bld.vop3(aco_opcode::v_bfe_u32, bld.def(v1),
-                                  get_arg(ctx, ctx->args->gs_vtx_offset[vertex / 2u * 2u]),
-                                  Operand((vertex % 2u) * 16u), Operand(16u));
+         vertex_offset = bld.pseudo(aco_opcode::p_extract, bld.def(v1),
+                                    get_arg(ctx, ctx->args->gs_vtx_offset[vertex / 2u * 2u]),
+                                    Operand(vertex % 2u), Operand(16u), Operand(0u));
       else
          vertex_offset = get_arg(ctx, ctx->args->gs_vtx_offset[vertex]);
    }
@@ -11637,7 +11709,8 @@ void select_program(Program *program,
             create_workgroup_barrier(bld);
 
          if (ctx.stage == vertex_geometry_gs || ctx.stage == tess_eval_geometry_gs) {
-            ctx.gs_wave_id = bld.sop2(aco_opcode::s_bfe_u32, bld.def(s1, m0), bld.def(s1, scc), get_arg(&ctx, args->merged_wave_info), Operand((8u << 16) | 16u));
+            ctx.gs_wave_id = bld.pseudo(aco_opcode::p_extract, bld.def(s1, m0), bld.def(s1, scc),
+                                        get_arg(&ctx, args->merged_wave_info), Operand(2u), Operand(8u), Operand(0u));
          }
       } else if (ctx.stage == geometry_gs)
          ctx.gs_wave_id = get_arg(&ctx, args->gs_wave_id);

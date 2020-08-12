@@ -385,6 +385,10 @@ public:
    }
 
    Result copy(Definition dst, Op op) {
+      if (op.op.bytes() < 4 && op.op.isConstant() && program->chip_class <= GFX8)
+         return pseudo(aco_opcode::p_extract_vector, dst,
+                       copy(def(s1), Operand(op.op.constantValue())),
+                       Operand(0u));
       return pseudo(aco_opcode::p_parallelcopy, dst, op);
    }
 

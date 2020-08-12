@@ -2951,14 +2951,24 @@ lower_bit_size_callback(const nir_alu_instr *alu, void *_)
 	if (nir_op_is_vec(alu->op))
 		return 0;
 
+	switch (alu->op) {
+	case nir_op_bcsel:
+	case nir_op_extract_u8:
+	case nir_op_extract_i8:
+	case nir_op_extract_u16:
+	case nir_op_extract_i16:
+	case nir_op_insert_u8:
+	case nir_op_insert_u16:
+		return 0;
+	default:
+		break;
+	}
+
 	unsigned bit_size = alu->dest.dest.ssa.bit_size;
 	if (nir_alu_instr_is_comparison(alu))
 		bit_size = nir_src_bit_size(alu->src[0].src);
 
 	if (bit_size >= 32 || bit_size == 1)
-		return 0;
-
-	if (alu->op == nir_op_bcsel)
 		return 0;
 
 	const nir_op_info *info = &nir_op_infos[alu->op];

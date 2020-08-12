@@ -553,6 +553,21 @@ public:
       setFixed(reg);
    }
 
+   static constexpr Operand get_const(uint64_t val, unsigned bytes) {
+      switch (bytes) {
+      case 1:
+         return Operand((uint8_t)val);
+      case 2:
+         return Operand((uint16_t)val);
+      case 4:
+         return Operand((uint32_t)val);
+      case 8:
+         return Operand((uint64_t)val);
+      default:
+         assert(false && "invalid constant size");
+      }
+   }
+
    constexpr bool isTemp() const noexcept
    {
       return isTemp_;
