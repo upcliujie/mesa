@@ -452,8 +452,13 @@ HazardResult perform_hazard_query(hazard_query *query, Instruction *instr, bool 
    }
 
    /* don't move exports so that they stay closer together */
-   if (instr->format == Format::EXP)
-      return hazard_fail_export;
+   if (instr->format == Format::EXP) {
+      unsigned target = static_cast<Export_instruction*>(instr)->dest;
+      if (upwards && target >= V_008DFC_SQ_EXP_POS && target < V_008DFC_SQ_EXP_PARAM)
+         return hazard_success;
+      else
+         return hazard_fail_export;
+   }
 
    /* don't move non-reorderable instructions */
    if (instr->opcode == aco_opcode::s_memtime ||
