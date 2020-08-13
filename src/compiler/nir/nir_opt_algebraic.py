@@ -977,6 +977,7 @@ optimizations.extend([
    (('ior', ('ior', a, b), b), ('ior', a, b)),
    (('iand', ('ior', a, b), b), b),
    (('iand', ('iand', a, b), b), ('iand', a, b)),
+   (('iand', ('ishl', 'a@32', 16), 0xffff0000), ('ishl', 'a@32', 16)),
    # DeMorgan's Laws
    (('iand', ('inot', a), ('inot', b)), ('inot', ('ior',  a, b))),
    (('ior',  ('inot', a), ('inot', b)), ('inot', ('iand', a, b))),
