@@ -107,6 +107,17 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
    if (!batch->fence)
       return;
 
+   util_dynarray_foreach(&batch->persistent_resources, struct zink_resource*, res) {
+       VkMappedMemoryRange range = {
+          VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+          NULL,
+          (*res)->mem,
+          (*res)->offset,
+          (*res)->size,
+       };
+       vkFlushMappedMemoryRanges(zink_screen(ctx->base.screen)->dev, 1, &range);
+   }
+
    VkSubmitInfo si = {};
    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
    si.waitSemaphoreCount = 0;
