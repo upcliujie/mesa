@@ -206,7 +206,7 @@ get_gfx_program(struct zink_context *ctx)
    return ctx->curr_program;
 }
 
-static void
+static struct set *
 update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is_compute)
 {
    VkWriteDescriptorSet wds[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS + PIPE_MAX_SHADER_IMAGES)];
@@ -230,6 +230,7 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
       VkImageLayout layout;
    } transitions[PIPE_SHADER_TYPES * (PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_IMAGES)];
    int num_transitions = 0;
+   struct set *persistent = _mesa_pointer_set_create(NULL);
 
    for (int i = 0; i < num_stages; i++) {
       struct zink_shader *shader = stages[i];
@@ -455,6 +456,8 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
          struct zink_resource *res = read_desc_resources[i] ?: write_desc_resources[i];
          if (res) {
             need_flush |= zink_batch_reference_resource_rw(batch, res, res == write_desc_resources[i]) == check_flush_id;
+            if (res->persistent_maps)
+               _mesa_set_add(persistent, res);
          }
       }
       vkUpdateDescriptorSets(screen->dev, num_wds, wds, 0, NULL);
@@ -471,7 +474,7 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
       vkCmdBindDescriptorSets(batch->cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
                               ctx->curr_program->layout, 0, 1, &desc_set, 0, NULL);
    if (!need_flush)
-      return;
+      return persistent;
 
    if (is_compute)
       /* flush gfx batch */
@@ -481,6 +484,25 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
       zink_end_batch(ctx, &ctx->compute_batch);
       zink_start_batch(ctx, &ctx->compute_batch);
    }
+   return persistent;
+}
+
+static void
+flush_persistent_maps(struct zink_screen *screen, struct set *persistent)
+{
+   set_foreach(persistent, entry) {
+      struct zink_resource *res = (struct zink_resource *)entry->key;
+      /* TODO: only flush the actual mapped region */
+      VkMappedMemoryRange range = {
+         VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+         NULL,
+         res->mem,
+         res->offset,
+         res->size,
+      };
+      vkFlushMappedMemoryRanges(screen->dev, 1, &range);
+   }
+   _mesa_set_destroy(persistent, NULL);
 }
 
 static bool
@@ -606,7 +628,7 @@ zink_draw_vbo(struct pipe_context *pctx,
    if (so_target && zink_resource(so_target->base.buffer)->needs_xfb_barrier)
       zink_emit_xfb_vertex_input_barrier(ctx, zink_resource(so_target->base.buffer));
 
-   update_descriptors(ctx, screen, false);
+   struct set *persistent = update_descriptors(ctx, screen, false);
 
    struct zink_batch *batch = zink_batch_rp(ctx);
    vkCmdSetViewport(batch->cmdbuf, 0, ctx->gfx_pipeline_state.num_viewports, ctx->viewports);
@@ -673,6 +695,8 @@ zink_draw_vbo(struct pipe_context *pctx,
       }
       screen->vk_CmdBeginTransformFeedbackEXT(batch->cmdbuf, 0, ctx->num_so_targets, counter_buffers, counter_buffer_offsets);
    }
+
+   flush_persistent_maps(screen, persistent);
 
    if (dinfo->index_size > 0) {
       VkIndexType index_type;
@@ -748,10 +772,12 @@ zink_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
    VkPipeline pipeline = zink_get_compute_pipeline(screen, comp_program,
                                                &ctx->compute_pipeline_state);
 
-   update_descriptors(ctx, screen, true);
+   struct set *persistent = update_descriptors(ctx, screen, true);
 
 
    vkCmdBindPipeline(batch->cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+
+   flush_persistent_maps(screen, persistent);
 
    if (info->indirect) {
       vkCmdDispatchIndirect(batch->cmdbuf, zink_resource(info->indirect)->buffer, info->indirect_offset);
