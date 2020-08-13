@@ -601,6 +601,7 @@ void schedule_SMEM(sched_ctx& ctx, Block* block,
 
    /* find the first instruction depending on current or find another MEM */
    ctx.mv.upwards_init(idx + 1, false);
+   init_hazard_query(&hq);
 
    bool found_dependency = false;
    /* second, check if we have instructions after current to move up */
@@ -746,6 +747,7 @@ void schedule_VMEM(sched_ctx& ctx, Block* block,
 
    /* find the first instruction depending on current or find another VMEM */
    ctx.mv.upwards_init(idx + 1, true);
+   init_hazard_query(&indep_hq);
 
    bool found_dependency = false;
    /* second, check if we have instructions after current to move up */
