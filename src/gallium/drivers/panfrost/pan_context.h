@@ -244,9 +244,6 @@ struct panfrost_shader_state {
         unsigned sysval_count;
         unsigned sysval[MAX_SYSVAL_COUNT];
 
-        /* Should we enable helper invocations */
-        bool helper_invocations;
-
         /* GPU-executable memory */
         struct panfrost_bo *bo;
 
