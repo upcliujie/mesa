@@ -166,7 +166,7 @@ resource_create(struct pipe_screen *pscreen,
       }
 
       vkGetBufferMemoryRequirements(screen->dev, res->buffer, &reqs);
-      flags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+      flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
    } else {
       res->format = zink_get_format(screen, templ->format);
 
@@ -285,9 +285,9 @@ resource_create(struct pipe_screen *pscreen,
 
       vkGetImageMemoryRequirements(screen->dev, res->image, &reqs);
       if (templ->usage == PIPE_USAGE_STAGING || (screen->winsys && (templ->bind & (PIPE_BIND_SCANOUT|PIPE_BIND_DISPLAY_TARGET|PIPE_BIND_SHARED))))
-        flags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+        flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
       else
-        flags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
    }
 
    VkMemoryAllocateInfo mai = {};
