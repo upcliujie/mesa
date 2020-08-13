@@ -347,6 +347,12 @@ panfrost_shader_compile(struct panfrost_context *ctx,
                         s->info.writes_memory ||
                         s->info.fs.uses_discard ||
                         s->info.fs.uses_demote;
+
+                state->can_discard = s->info.fs.uses_discard;
+
+                /* Ordering gaurantees are the same */
+                state->properties.shader_contains_barrier =
+                       s->info.fs.needs_quad_helper_invocations;
                 break;
         case MESA_SHADER_COMPUTE:
                 attribute_count = util_bitcount(s->info.images_used);
@@ -356,10 +362,11 @@ panfrost_shader_compile(struct panfrost_context *ctx,
                 unreachable("Unknown shader state");
         }
 
-        state->can_discard = s->info.fs.uses_discard;
-        state->helper_invocations = s->info.fs.needs_quad_helper_invocations;
-        state->stack_size = program->tls_size;
+        state->properties.shader_contains_barrier |=
+                s->info.uses_memory_barrier |
+                s->info.uses_control_barrier;
 
+        state->stack_size = program->tls_size;
         state->reads_frag_coord = (s->info.inputs_read & (1 << VARYING_SLOT_POS)) ||
                                   BITSET_TEST(s->info.system_values_read, SYSTEM_VALUE_FRAG_COORD);
         state->reads_point_coord = s->info.inputs_read & (1 << VARYING_SLOT_PNTC);
@@ -423,7 +430,6 @@ panfrost_shader_compile(struct panfrost_context *ctx,
                 pan_prepare_midgard_props(state, stage);
 
         state->properties.stencil_from_shader = state->writes_stencil;
-        state->properties.shader_contains_barrier = state->helper_invocations;
         state->properties.depth_source = state->writes_depth ?
                                          MALI_DEPTH_SOURCE_SHADER :
                                          MALI_DEPTH_SOURCE_FIXED_FUNCTION;
