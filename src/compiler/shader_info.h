@@ -365,6 +365,12 @@ typedef struct shader_info {
          enum gl_derivative_group derivative_group:2;
 
          /**
+          * Whether explicit barriers are used
+          */
+         bool uses_control_barrier : 1;
+         bool uses_memory_barrier : 1;
+
+         /**
           * Size of shared variables accessed by the compute shader.
           */
          unsigned shared_size;
