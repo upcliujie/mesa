@@ -371,6 +371,12 @@ typedef struct shader_info {
          bool zero_initialize_shared_memory;
 
          /**
+          * Whether explicit barriers are used
+          */
+         bool uses_control_barrier : 1;
+         bool uses_memory_barrier : 1;
+
+         /**
           * Size of shared variables accessed by the compute shader.
           */
          unsigned shared_size;
