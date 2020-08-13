@@ -1616,6 +1616,7 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
       return false;
 
    util_dynarray_init(&batch->zombie_samplers, NULL);
+   util_dynarray_init(&batch->persistent_resources, NULL);
 
    if (vkCreateDescriptorPool(screen->dev, &dpci, 0,
                               &batch->descpool) != VK_SUCCESS)
