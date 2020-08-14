@@ -1642,6 +1642,12 @@ typedef enum {
    NIR_INTRINSIC_UCP_ID,
 
    /**
+    * The start of NIR_INTRINSIC_RANGE, for instructions that don't have
+    * NIR_INTRINSIC_BASE.
+    */
+   NIR_INTRINSIC_RANGE_BASE,
+
+   /**
     * The amount of data, starting from BASE, that this instruction may
     * access.  This is used to provide bounds if the offset is not constant.
     */
@@ -1896,6 +1902,7 @@ INTRINSIC_IDX_ACCESSORS(base, BASE, int)
 INTRINSIC_IDX_ACCESSORS(stream_id, STREAM_ID, unsigned)
 INTRINSIC_IDX_ACCESSORS(ucp_id, UCP_ID, unsigned)
 INTRINSIC_IDX_ACCESSORS(range, RANGE, unsigned)
+INTRINSIC_IDX_ACCESSORS(range_base, RANGE_BASE, unsigned)
 INTRINSIC_IDX_ACCESSORS(desc_set, DESC_SET, unsigned)
 INTRINSIC_IDX_ACCESSORS(binding, BINDING, unsigned)
 INTRINSIC_IDX_ACCESSORS(component, COMPONENT, unsigned)
