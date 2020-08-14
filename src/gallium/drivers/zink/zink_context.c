@@ -61,10 +61,37 @@ debug_describe_zink_sampler_state(char *buf, const struct zink_sampler_state *pt
 }
 
 static void
+destroy_batch(struct zink_context* ctx, struct zink_batch* batch)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+
+   vkDestroyDescriptorPool(screen->dev, batch->descpool, NULL);
+   vkFreeCommandBuffers(screen->dev, batch->cmdpool, 1, &batch->cmdbuf);
+   vkDestroyCommandPool(screen->dev, batch->cmdpool, NULL);
+   zink_fence_reference(screen, &batch->fence, NULL);
+
+   for (struct hash_entry* entry = _mesa_hash_table_next_entry(batch->framebuffer_cache, NULL);
+        entry != NULL;
+        entry = _mesa_hash_table_next_entry(batch->framebuffer_cache, entry)) {
+      struct zink_framebuffer* fb = (struct zink_framebuffer*)entry->data;
+      zink_framebuffer_reference(screen, &fb, NULL);
+   }
+   _mesa_hash_table_destroy(batch->framebuffer_cache, NULL);
+
+   for (struct hash_entry* entry = _mesa_hash_table_next_entry(batch->surface_cache, NULL);
+        entry != NULL;
+        entry = _mesa_hash_table_next_entry(batch->surface_cache, entry)) {
+      struct pipe_surface* sf = (struct pipe_surface*)entry->data;
+      pipe_resource_reference(&sf->texture, NULL);
+      pipe_surface_reference(&sf, NULL);
+   }
+   _mesa_hash_table_destroy(batch->surface_cache, NULL);
+}
+
+static void
 zink_context_destroy(struct pipe_context *pctx)
 {
    struct zink_context *ctx = zink_context(pctx);
-   struct zink_screen *screen = zink_screen(pctx->screen);
 
    if (vkQueueWaitIdle(ctx->queue) != VK_SUCCESS)
       debug_printf("vkQueueWaitIdle failed\n");
@@ -72,16 +99,10 @@ zink_context_destroy(struct pipe_context *pctx)
    for (unsigned i = 0; i < ARRAY_SIZE(ctx->null_buffers); i++)
       pipe_resource_reference(&ctx->null_buffers[i], NULL);
 
-   for (int i = 0; i < ARRAY_SIZE(ctx->batches); ++i) {
-      vkDestroyDescriptorPool(screen->dev, ctx->batches[i].descpool, NULL);
-      vkFreeCommandBuffers(screen->dev, ctx->batches[i].cmdpool, 1, &ctx->batches[i].cmdbuf);
-      vkDestroyCommandPool(screen->dev, ctx->batches[i].cmdpool, NULL);
-   }
-   if (ctx->compute_batch.cmdpool) {
-      vkDestroyDescriptorPool(screen->dev, ctx->compute_batch.descpool, NULL);
-      vkFreeCommandBuffers(screen->dev, ctx->compute_batch.cmdpool, 1, &ctx->compute_batch.cmdbuf);
-      vkDestroyCommandPool(screen->dev, ctx->compute_batch.cmdpool, NULL);
-   }
+   for (int i = 0; i < ARRAY_SIZE(ctx->batches); ++i)
+      destroy_batch(ctx, &ctx->batches[i]);
+   if (ctx->compute_batch.cmdpool)
+      destroy_batch(ctx, &ctx->compute_batch);
 
    util_primconvert_destroy(ctx->primconvert);
    u_upload_destroy(pctx->stream_uploader);
