@@ -2268,44 +2268,33 @@ bool combine_add_or_then_and_lshl(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    if (instr->isSDWA())
       return false;
 
+   /* v_or_b32(p_extract(a, 0, 8/16, 0), b) -> v_and_or_b32(a, 0xff/0xffff, b)
+    * v_or_b32(p_insert(a, 0, 8/16), b) -> v_and_or_b32(a, 0xff/0xffff, b)
+    * v_or_b32(p_insert(a, 24/16, 8/16), b) -> v_lshl_or_b32(a, 24/16, b)
+    * v_add_u32(p_insert(a, 24/16, 8/16), b) -> v_lshl_add_b32(a, 24/16, b)
+    */
    for (unsigned i = 0; i < 2; i++) {
-      if (!instr->operands[i].isTemp() || ctx.uses[instr->operands[i].tempId()] > 1)
+      Instruction *extins = follow_operand(ctx, instr->operands[i]);
+      if (!extins)
          continue;
-      ssa_info& info = ctx.info[instr->operands[i].tempId()];
-      if (!(info.is_bitwise() && info.instr->opcode == aco_opcode::p_insert) &&
-          !(info.is_bitwise() && info.instr->opcode == aco_opcode::p_extract && ctx.program->chip_class >= GFX10 && is_or))
-         continue;
-      bool is_extract = info.instr->opcode == aco_opcode::p_extract;
-      Temp tmp;
-      sdwa_sel usel;
-      if (is_extract) {
-         Instruction *extract = info.instr;
-         if (!extract->operands[0].isTemp())
-            continue;
-         bool is_byte = extract->operands[2].constantEquals(8);
-         unsigned index = extract->operands[1].constantValue();
-         if (index != 0 || !extract->operands[3].constantEquals(0))
-            continue;
-         tmp = extract->operands[0].getTemp();
-         usel = is_byte ? sdwa_ubyte0 : sdwa_uword0;
+
+      aco_opcode op;
+      Operand operands[3];
+
+      if (extins->opcode == aco_opcode::p_insert &&
+          (extins->operands[1].constantValue() + 1) * extins->operands[2].constantValue() == 32) {
+         op = new_op_lshl;
+         operands[1] = Operand(extins->operands[1].constantValue() * extins->operands[2].constantValue());
+      } else if (is_or && (extins->opcode == aco_opcode::p_insert ||
+                           (extins->opcode == aco_opcode::p_extract && extins->operands[3].constantEquals(0))) &&
+                 extins->operands[1].constantEquals(0)) {
+         op = aco_opcode::v_and_or_b32;
+         operands[1] = Operand(extins->operands[2].constantEquals(8) ? 0xffu : 0xffffu);
       } else {
-         Instruction *insert = info.instr;
-         if (!insert->operands[0].isTemp())
-            continue;
-         bool is_byte = insert->operands[2].constantEquals(8);
-         unsigned index = insert->operands[1].constantValue();
-         if (index != (is_byte ? 3 : 1))
-            continue;
-         tmp = insert->operands[0].getTemp();
-         usel = is_byte ? sdwa_ubyte3 : sdwa_uword1;
+        continue;
       }
 
-      Operand operands[3];
-      operands[0] = Operand(tmp);
-      if (is_extract)
-         operands[1] = Operand(usel == sdwa_ubyte0 ? 0xffu : 0xffffu);
-      else
-         operands[1] = Operand(usel == sdwa_ubyte3 ? 24u : 16u);
+      operands[0] = extins->operands[0];
       operands[2] = instr->operands[!i];
 
       if (!check_vop3_operands(ctx, 3, operands))
@@ -2318,8 +2307,7 @@ bool combine_add_or_then_and_lshl(opt_ctx& ctx, aco_ptr<Instruction>& instr)
          clamp = static_cast<VOP3A_instruction *>(instr.get())->clamp;
 
       ctx.uses[instr->operands[i].tempId()]--;
-      create_vop3_for_op3(ctx, is_extract ? aco_opcode::v_and_or_b32 : new_op_lshl,
-                          instr, operands, neg, abs, opsel, clamp, omod);
+      create_vop3_for_op3(ctx, op, instr, operands, neg, abs, opsel, clamp, omod);
       return true;
    }
 
