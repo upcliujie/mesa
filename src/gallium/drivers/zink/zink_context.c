@@ -771,6 +771,7 @@ get_surface(struct zink_context *ctx,
             struct pipe_resource *pres,
             const struct pipe_surface *templ)
 {
+   struct zink_batch *batch = zink_curr_batch(ctx);
    struct zink_surface* surface = NULL;
 
    VkImageViewCreateInfo ivci = create_ivci(zink_screen(ctx->base.screen),
@@ -778,12 +779,12 @@ get_surface(struct zink_context *ctx,
 
    uint32_t hash = hash_ivci(&ivci);
 
-   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(ctx->surface_cache, hash, &ivci);
+   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(batch->surface_cache, hash, &ivci);
 
    if (!entry) {
       /* create a new surface */
       surface = create_surface(&ctx->base, pres, templ);
-      entry = _mesa_hash_table_insert_pre_hashed(ctx->surface_cache, hash, &ivci, surface);
+      entry = _mesa_hash_table_insert_pre_hashed(batch->surface_cache, hash, &ivci, surface);
       if (!entry)
          return NULL;
 
@@ -800,6 +801,7 @@ get_surface(struct zink_context *ctx,
 static struct zink_framebuffer *
 get_framebuffer(struct zink_context *ctx)
 {
+   struct zink_batch *batch = zink_batch_no_rp(ctx);
    struct zink_screen *screen = zink_screen(ctx->base.screen);
 
    struct zink_framebuffer_state state = {};
@@ -821,11 +823,11 @@ get_framebuffer(struct zink_context *ctx)
    state.layers = MAX2(util_framebuffer_get_num_layers(&ctx->fb_state), 1);
    state.samples = ctx->fb_state.samples;
 
-   struct hash_entry *entry = _mesa_hash_table_search(ctx->framebuffer_cache, &state);
+   struct hash_entry *entry = _mesa_hash_table_search(batch->framebuffer_cache, &state);
 
    if (!entry) {
       struct zink_framebuffer *fb = zink_create_framebuffer(ctx, screen, &state);
-      entry = _mesa_hash_table_insert(ctx->framebuffer_cache, &state, fb);
+      entry = _mesa_hash_table_insert(batch->framebuffer_cache, &state, fb);
       if (!entry)
          return NULL;
    }
@@ -964,6 +966,8 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
    /* need to start a new renderpass */
    if (zink_curr_batch(ctx)->rp)
       flush_batch(ctx);
+   struct zink_batch *batch = zink_batch_no_rp(ctx);
+   zink_framebuffer_reference(screen, &batch->fb, fb);
 
    framebuffer_state_buffer_barriers_setup(ctx, &ctx->fb_state, zink_curr_batch(ctx));
 }
@@ -1751,8 +1755,15 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
    batch->programs = _mesa_pointer_set_create(NULL);
    batch->surfaces = _mesa_pointer_set_create(NULL);
 
+   batch->surface_cache = _mesa_hash_table_create(NULL,
+                                                           hash_ivci,
+                                                           equals_ivci);
+   batch->framebuffer_cache = _mesa_hash_table_create(NULL,
+                                                               hash_framebuffer_state,
+                                                               equals_framebuffer_state);
+
    if (!batch->resources || !batch->sampler_views || !batch->sampler_states ||
-       !batch->programs || !batch->surfaces)
+       !batch->programs || !batch->surfaces || !batch->surface_cache || !batch->framebuffer_cache)
       return false;
 
    if (vkCreateDescriptorPool(screen->dev, &dpci, 0,
@@ -1873,13 +1884,7 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ctx->render_pass_cache = _mesa_hash_table_create(NULL,
                                                     hash_render_pass_state,
                                                     equals_render_pass_state);
-   ctx->surface_cache = _mesa_hash_table_create(NULL,
-                                                hash_ivci,
-                                                equals_ivci);
-   ctx->framebuffer_cache = _mesa_hash_table_create(NULL,
-                                                    hash_framebuffer_state,
-                                                    equals_framebuffer_state);
-   if (!ctx->program_cache || !ctx->compute_program_cache || !ctx->render_pass_cache || !ctx->surface_cache || !ctx->framebuffer_cache)
+   if (!ctx->program_cache || !ctx->compute_program_cache || !ctx->render_pass_cache)
       goto fail;
 
    const uint8_t data[] = { 0 };
