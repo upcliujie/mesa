@@ -30,12 +30,14 @@ struct winsys_handle;
 
 struct tegra_resource {
    struct pipe_resource base;
+   struct pipe_resource tmpl;
    struct pipe_resource *gpu;
+   /* used for de-tiling blits if necessary */
+   struct pipe_resource *kms;
 
    uint64_t modifier;
    uint32_t stride;
    uint32_t handle;
-   size_t size;
 };
 
 static inline struct tegra_resource *
