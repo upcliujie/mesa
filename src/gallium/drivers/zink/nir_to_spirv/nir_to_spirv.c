@@ -856,7 +856,7 @@ emit_bo(struct ntv_context *ctx, struct nir_variable *var)
    /* variables accessed inside a uniform block will get merged into a big
     * memory blob and accessed by offset
     */
-   if (var->data.location && !is_ubo_array)
+   if (var->data.location && !is_ubo_array && var->type != var->interface_type)
       return;
    bool ssbo = var->data.mode == nir_var_mem_ssbo;
 
