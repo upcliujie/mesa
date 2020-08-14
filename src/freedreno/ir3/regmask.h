@@ -27,7 +27,8 @@
 #include <string.h>
 #include "util/bitset.h"
 
-#define MAX_REG 256
+/* Represents each individual half reg */
+#define MAX_REG (64 * 4 * 2)
 
 typedef BITSET_DECLARE(regmaskstate_t, 2 * MAX_REG);
 
