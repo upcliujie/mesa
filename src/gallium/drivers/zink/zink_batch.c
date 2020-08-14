@@ -24,7 +24,6 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
       return;
 
    zink_fence_finish(screen, batch->fence, PIPE_TIMEOUT_INFINITE);
-   zink_fence_reference(screen, &batch->fence, NULL);
 
    zink_render_pass_reference(screen, &batch->rp, NULL);
    zink_framebuffer_reference(screen, &batch->fb, NULL);
@@ -99,10 +98,13 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
       return;
    }
 
-   assert(batch->fence == NULL);
-   batch->fence = zink_create_fence(ctx->base.screen, batch);
-   if (!batch->fence)
-      return;
+   if (!batch->fence) {
+      batch->fence = zink_create_fence(ctx->base.screen, batch);
+      if (!batch->fence)
+         return;
+   } else {
+      vkResetFences(zink_screen(ctx->base.screen)->dev, 1, &batch->fence->fence);
+   }
 
    VkSubmitInfo si = {};
    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
