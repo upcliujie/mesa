@@ -473,6 +473,8 @@ get_variable_mode_str(nir_variable_mode mode, bool want_local_global_mode)
    case nir_var_ray_hit_attrib:
       return "ray_hit_attrib";
    default:
+      if (mode && (mode & nir_var_mem_generic) == mode)
+         return "generic";
       return "";
    }
 }
