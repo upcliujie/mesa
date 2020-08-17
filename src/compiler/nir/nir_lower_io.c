@@ -620,7 +620,7 @@ nir_lower_io_block(nir_block *block,
 
       nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
 
-      nir_variable_mode mode = deref->mode;
+      nir_variable_mode mode = deref->modes;
       assert(util_is_power_of_two_nonzero(mode));
       if ((state->modes & mode) == 0)
          continue;
@@ -1100,7 +1100,7 @@ build_explicit_io_load(nir_builder *b, nir_intrinsic_instr *intrin,
                        unsigned num_components)
 {
    nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-   nir_variable_mode mode = deref->mode;
+   nir_variable_mode mode = deref->modes;
 
    nir_intrinsic_op op;
    switch (mode) {
@@ -1244,7 +1244,7 @@ build_explicit_io_store(nir_builder *b, nir_intrinsic_instr *intrin,
                         uint32_t align_mul, uint32_t align_offset,
                         nir_ssa_def *value, nir_component_mask_t write_mask)
 {
-   nir_variable_mode mode = nir_src_as_deref(intrin->src[0])->mode;
+   nir_variable_mode mode = nir_src_as_deref(intrin->src[0])->modes;
 
    nir_intrinsic_op op;
    switch (mode) {
@@ -1332,7 +1332,7 @@ static nir_ssa_def *
 build_explicit_io_atomic(nir_builder *b, nir_intrinsic_instr *intrin,
                          nir_ssa_def *addr, nir_address_format addr_format)
 {
-   nir_variable_mode mode = nir_src_as_deref(intrin->src[0])->mode;
+   nir_variable_mode mode = nir_src_as_deref(intrin->src[0])->modes;
    const unsigned num_data_srcs =
       nir_intrinsic_infos[intrin->intrinsic].num_srcs - 1;
 
@@ -1676,7 +1676,7 @@ lower_explicit_io_array_length(nir_builder *b, nir_intrinsic_instr *intrin,
 
    assert(glsl_type_is_array(deref->type));
    assert(glsl_get_length(deref->type) == 0);
-   assert(deref->mode == nir_var_mem_ssbo);
+   assert(deref->modes == nir_var_mem_ssbo);
    unsigned stride = glsl_get_explicit_stride(deref->type);
    assert(stride > 0);
 
@@ -1716,7 +1716,7 @@ nir_lower_explicit_io_impl(nir_function_impl *impl, nir_variable_mode modes,
          switch (instr->type) {
          case nir_instr_type_deref: {
             nir_deref_instr *deref = nir_instr_as_deref(instr);
-            if (deref->mode & modes) {
+            if (deref->modes & modes) {
                lower_explicit_io_deref(&b, deref, addr_format);
                progress = true;
             }
@@ -1743,7 +1743,7 @@ nir_lower_explicit_io_impl(nir_function_impl *impl, nir_variable_mode modes,
             case nir_intrinsic_deref_atomic_fmax:
             case nir_intrinsic_deref_atomic_fcomp_swap: {
                nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-               if (deref->mode & modes) {
+               if (deref->modes & modes) {
                   lower_explicit_io_access(&b, intrin, addr_format);
                   progress = true;
                }
@@ -1752,7 +1752,7 @@ nir_lower_explicit_io_impl(nir_function_impl *impl, nir_variable_mode modes,
 
             case nir_intrinsic_deref_buffer_array_length: {
                nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-               if (deref->mode & modes) {
+               if (deref->modes & modes) {
                   lower_explicit_io_array_length(&b, intrin, addr_format);
                   progress = true;
                }
@@ -1831,7 +1831,7 @@ nir_lower_vars_to_explicit_types_impl(nir_function_impl *impl,
             continue;
 
          nir_deref_instr *deref = nir_instr_as_deref(instr);
-         if (!(deref->mode & modes))
+         if (!(deref->modes & modes))
             continue;
 
          unsigned size, alignment;

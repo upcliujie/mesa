@@ -47,10 +47,10 @@ lower_vec3_to_vec4_impl(nir_function_impl *impl, nir_variable_mode modes)
          switch (instr->type) {
          case nir_instr_type_deref: {
             nir_deref_instr *deref = nir_instr_as_deref(instr);
-            if (!(deref->mode & modes))
+            if (!(deref->modes & modes))
                continue;
 
-            assert(!(deref->mode & ~modes));
+            assert(!(deref->modes & ~modes));
             const struct glsl_type *vec4_type =
                glsl_type_replace_vec3_with_vec4(deref->type);
             if (deref->type != vec4_type) {
@@ -68,7 +68,7 @@ lower_vec3_to_vec4_impl(nir_function_impl *impl, nir_variable_mode modes)
                   break;
 
                nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-               if (!(deref->mode & modes))
+               if (!(deref->modes & modes))
                   break;
 
                assert(intrin->dest.is_ssa);
@@ -89,7 +89,7 @@ lower_vec3_to_vec4_impl(nir_function_impl *impl, nir_variable_mode modes)
                   break;
 
                nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-               if (!(deref->mode & modes))
+               if (!(deref->modes & modes))
                   break;
 
                assert(intrin->src[1].is_ssa);
@@ -112,7 +112,7 @@ lower_vec3_to_vec4_impl(nir_function_impl *impl, nir_variable_mode modes)
                /* If we convert once side of a copy and not the other, that
                 * would be very bad.
                 */
-               assert(!(src->mode & modes) == !(dst->mode & modes));
+               assert(!(src->modes & modes) == !(dst->modes & modes));
                break;
             }
 

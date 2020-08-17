@@ -1441,8 +1441,8 @@ typedef struct {
    /** The type of this deref instruction */
    nir_deref_type deref_type;
 
-   /** The mode of the underlying variable */
-   nir_variable_mode mode;
+   /** Bitmask what modes the underlying variable might be */
+   nir_variable_mode modes;
 
    /** The dereferenced type of the resulting pointer value */
    const struct glsl_type *type;

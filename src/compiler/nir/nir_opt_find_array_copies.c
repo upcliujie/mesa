@@ -553,7 +553,7 @@ opt_find_array_copies_block(nir_builder *b, nir_block *block,
        * continue on because it won't affect local stores or read-only
        * variables.
        */
-      if (dst_deref->mode != nir_var_function_temp)
+      if (dst_deref->modes != nir_var_function_temp)
          continue;
 
       /* If there are any known out-of-bounds writes, then we can just skip
@@ -590,7 +590,7 @@ opt_find_array_copies_block(nir_builder *b, nir_block *block,
       const nir_variable_mode read_only_modes =
          nir_var_shader_in | nir_var_uniform | nir_var_system_value;
       if (src_deref &&
-          !(src_deref->mode & (nir_var_function_temp | read_only_modes))) {
+          (src_deref->modes & ~(nir_var_function_temp | read_only_modes))) {
          src_deref = NULL;
       }
 
