@@ -40,7 +40,7 @@
 /*@{*/
 
 /** Creates an instruction set, using a given ralloc mem_ctx */
-struct set *nir_instr_set_create(void *mem_ctx);
+struct set *nir_instr_set_create(void *mem_ctx, bool cse);
 
 /** Destroys an instruction set. */
 void nir_instr_set_destroy(struct set *instr_set);
