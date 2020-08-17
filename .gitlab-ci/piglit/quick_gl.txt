@@ -913,8 +913,10 @@ spec/ext_direct_state_access/named-buffers 15/mapnamedbufferrangeext: skip
 spec/ext_direct_state_access/named-buffers 15/namedcopybuffersubdataext: skip
 spec/ext_external_objects/memory-object-api-errors: skip
 spec/ext_external_objects/semaphore-api-errors: skip
+spec/ext_external_objects/vk-buf-exchange: skip
 spec/ext_external_objects/vk-image-display: skip
-spec/ext_external_objects/vk-image-override: skip
+spec/ext_external_objects/vk-image-display-overwrite: skip
+spec/ext_external_objects/vk-image-overwrite: skip
 spec/ext_external_objects_fd/memory-object-api-errors: skip
 spec/ext_external_objects_fd/semaphore-api-errors: skip
 spec/ext_framebuffer_blit/fbo-blit-check-limits: fail
@@ -1655,10 +1657,10 @@ wgl/wgl-sanity: skip
 summary:
        name:  results
        ----  --------
-       pass:    23075
-       fail:      197
+       pass:    23066
+       fail:      198
       crash:        0
-       skip:     1433
+       skip:     1440
     timeout:        0
        warn:        6
  incomplete:        0
@@ -1667,4 +1669,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:    24729
+      total:    24728
