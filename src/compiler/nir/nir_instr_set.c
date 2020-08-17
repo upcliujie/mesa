@@ -789,10 +789,23 @@ cmp_func(const void *data1, const void *data2)
    return nir_instrs_equal(data1, data2);
 }
 
-struct set *
-nir_instr_set_create(void *mem_ctx)
+static bool
+cmp_func_cse(const void *data1, const void *data2)
 {
-   return _mesa_set_create(mem_ctx, hash_instr, cmp_func);
+   const nir_instr *instr1 = data1;
+   const nir_instr *instr2 = data2;
+
+   if (!nir_block_dominates(instr1->block, instr2->block) &&
+       !nir_block_dominates(instr2->block, instr1->block))
+      return false;
+
+   return nir_instrs_equal(instr1, instr2);
+}
+
+struct set *
+nir_instr_set_create(void *mem_ctx, bool cse)
+{
+   return _mesa_set_create(mem_ctx, hash_instr, cse ? cmp_func_cse : cmp_func);
 }
 
 void
@@ -810,6 +823,15 @@ nir_instr_set_add_or_rewrite(struct set *instr_set, nir_instr *instr)
    struct set_entry *e = _mesa_set_search_or_add(instr_set, instr, NULL);
    nir_instr *match = (nir_instr *) e->key;
    if (match != instr) {
+      if (instr_set->key_equals_function == cmp_func_cse &&
+          !nir_block_dominates(match->block, instr->block)) {
+         nir_instr *tmp = match;
+         match = instr;
+         instr = tmp;
+
+         e->key = match;
+      }
+
       nir_ssa_def *def = nir_instr_get_dest_ssa_def(instr);
       nir_ssa_def *new_def = nir_instr_get_dest_ssa_def(match);
 
@@ -822,6 +844,9 @@ nir_instr_set_add_or_rewrite(struct set *instr_set, nir_instr *instr)
          nir_instr_as_alu(match)->exact = true;
 
       nir_ssa_def_rewrite_uses_ssa(def, new_def);
+
+      nir_instr_remove(instr);
+
       return true;
    }
 
