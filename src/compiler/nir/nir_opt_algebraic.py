@@ -818,6 +818,16 @@ for s in [8, 16, 32, 64]:
     ])
 
 optimizations.extend([
+   # A number of shaders contain a pattern like a.x < 0.0 || a.x > 1.0 || a.y
+   # < 0.0, || a.y > 1.0 || ...  These patterns rearrange and replace in a
+   # single step.  Doing just the replacement can lead to an infinite loop as
+   # the pattern is repeatedly applied to the result of the previous
+   # application of the pattern.
+   (('ior', ('ior(is_used_once)', ('flt(is_used_once)', a, c), d), ('flt', b, c)), ('ior', ('flt', ('fmin', a, b), c), d)),
+   (('ior', ('ior(is_used_once)', ('flt', a, c), d), ('flt(is_used_once)', b, c)), ('ior', ('flt', ('fmin', a, b), c), d)),
+   (('ior', ('ior(is_used_once)', ('flt(is_used_once)', a, b), d), ('flt', a, c)), ('ior', ('flt', a, ('fmax', b, c)), d)),
+   (('ior', ('ior(is_used_once)', ('flt', a, b), d), ('flt(is_used_once)', a, c)), ('ior', ('flt', a, ('fmax', b, c)), d)),
+
    # Common pattern like 'if (i == 0 || i == 1 || ...)'
    (('ior', ('ieq', a, 0), ('ieq', a, 1)), ('uge', 1, a)),
    (('ior', ('uge', 1, a), ('ieq', a, 2)), ('uge', 2, a)),
