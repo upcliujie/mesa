@@ -173,7 +173,7 @@ create_pipeline_layout(VkDevice dev, VkDescriptorSetLayout dsl)
 
  
 static void
-shader_key_fs_gen(struct zink_context *ctx, struct zink_shader *zs, struct zink_shader_key *key)
+shader_key_fs_gen(struct zink_context *ctx, struct zink_shader *zs, struct zink_shader *shaders[ZINK_SHADER_COUNT], struct zink_shader_key *key)
 {
    struct zink_fs_key *fs_key = &key->key.fs;
    key->size = sizeof(struct zink_fs_key);
@@ -190,7 +190,7 @@ shader_key_fs_gen(struct zink_context *ctx, struct zink_shader *zs, struct zink_
 }
 
 static void
-shader_key_dummy_gen(struct zink_context *ctx, struct zink_shader *zs, struct zink_shader_key *key)
+shader_key_dummy_gen(struct zink_context *ctx, struct zink_shader *zs, struct zink_shader *shaders[ZINK_SHADER_COUNT], struct zink_shader_key *key)
 {
    struct zink_fs_key *fs_key = &key->key.fs;
    key->size = sizeof(uint32_t);
@@ -198,7 +198,7 @@ shader_key_dummy_gen(struct zink_context *ctx, struct zink_shader *zs, struct zi
    fs_key->shader_id = zs->shader_id;
 }
 
-typedef void (*zink_shader_key_gen)(struct zink_context *ctx, struct zink_shader *zs, struct zink_shader_key *key);
+typedef void (*zink_shader_key_gen)(struct zink_context *ctx, struct zink_shader *zs, struct zink_shader *shaders[ZINK_SHADER_COUNT], struct zink_shader_key *key);
 static zink_shader_key_gen shader_key_vtbl[] =
 {
    [MESA_SHADER_VERTEX] = shader_key_dummy_gen,
@@ -216,7 +216,7 @@ get_shader_module_for_stage(struct zink_context *ctx, struct zink_shader *zs, st
    VkShaderModule mod;
    struct zink_shader_module *zm;
 
-   shader_key_vtbl[stage](ctx, zs, &key);
+   shader_key_vtbl[stage](ctx, zs, ctx->gfx_stages, &key);
 
    zm = find_cached_shader(prog, stage, key.size, &key);
    if (!zm) {
