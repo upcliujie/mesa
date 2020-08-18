@@ -35,7 +35,13 @@
 #include "util/u_memory.h"
 #include "tgsi/tgsi_from_mesa.h"
 
-struct pipeline_cache_entry {
+#ifdef NDEBUG
+/* for pipeline cache */
+# define XXH_INLINE_ALL
+# include "util/xxhash.h"
+#endif
+
+struct gfx_pipeline_cache_entry {
    struct zink_gfx_pipeline_state state;
    VkPipeline pipeline;
 };
@@ -96,17 +102,6 @@ keybox_equals(const void *void_a, const void *void_b)
       return false;
 
    return memcmp(a->data, b->data, a->size) == 0;
-}
-
-static struct zink_shader_module *
-find_cached_shader(struct zink_gfx_program *prog, gl_shader_stage stage, uint32_t key_size, const void *key)
-{
-   struct keybox *keybox = make_keybox(NULL, stage, key, key_size);
-   struct hash_entry *entry = _mesa_hash_table_search(prog->shader_cache->shader_cache, keybox);
-
-   ralloc_free(keybox);
-
-   return entry ? entry->data : NULL;
 }
 
 static VkDescriptorSetLayout
@@ -215,12 +210,18 @@ get_shader_module_for_stage(struct zink_context *ctx, struct zink_shader *zs, st
    struct zink_shader_key key = {};
    VkShaderModule mod;
    struct zink_shader_module *zm;
+   struct keybox *keybox;
+   uint32_t hash;
 
    shader_key_vtbl[stage](ctx, zs, ctx->gfx_stages, &key);
+   keybox = make_keybox(NULL, stage, &key, key.size);
+   hash = keybox_hash(keybox);
+   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(prog->shader_cache->shader_cache, hash, keybox);
 
-   zm = find_cached_shader(prog, stage, key.size, &key);
-   if (!zm) {
-      struct keybox *keybox = make_keybox(NULL, stage, &key, key.size);
+   if (entry) {
+      ralloc_free(keybox);
+      zm = entry->data;
+   } else {
       zm = CALLOC_STRUCT(zink_shader_module);
       if (!zm) {
          ralloc_free(keybox);
@@ -234,10 +235,9 @@ get_shader_module_for_stage(struct zink_context *ctx, struct zink_shader *zs, st
          return NULL;
       }
       zm->shader = mod;
+      zm->hash = hash;
 
-      _mesa_hash_table_insert(prog->shader_cache->shader_cache, keybox, zm);
-
-      ralloc_free(keybox);
+      _mesa_hash_table_insert_pre_hashed(prog->shader_cache->shader_cache, hash, keybox, zm);
    }
    return zm;
 }
@@ -307,6 +307,8 @@ update_shader_modules(struct zink_context *ctx, struct zink_shader *stages[ZINK_
          dirty[i]->has_geometry_shader = dirty[MESA_SHADER_GEOMETRY] || stages[PIPE_SHADER_GEOMETRY];
          zm = get_shader_module_for_stage(ctx, dirty[i], prog);
          zink_shader_module_reference(zink_screen(ctx->base.screen), &prog->modules[type], zm);
+         /* we probably need a new pipeline when we switch shader modules */
+         ctx->gfx_pipeline_state.hash = 0;
       } else if (stages[type] && !update) /* reuse existing shader module */
          zink_shader_module_reference(zink_screen(ctx->base.screen), &prog->modules[type], ctx->curr_program->modules[type]);
       prog->shaders[type] = stages[type];
@@ -452,7 +454,7 @@ zink_destroy_gfx_program(struct zink_screen *screen,
 
    for (int i = 0; i < ARRAY_SIZE(prog->pipelines); ++i) {
       hash_table_foreach(prog->pipelines[i], entry) {
-         struct pipeline_cache_entry *pc_entry = entry->data;
+         struct gfx_pipeline_cache_entry *pc_entry = entry->data;
 
          vkDestroyPipeline(screen->dev, pc_entry->pipeline, NULL);
          free(pc_entry);
@@ -528,7 +530,26 @@ zink_get_gfx_pipeline(struct zink_screen *screen,
    struct hash_entry *entry = NULL;
    
    if (!state->hash) {
+#ifndef NDEBUG
+      /* mesa hash table "pre_hashed" functions will re-hash and assert the pre-hashed value,
+       * so the state needs to include that if asserts are enabled
+       */
+      for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++) {
+         state->stages[i] = prog->modules[i] ? prog->modules[i]->hash : 0;
+      }
+#endif
+
       state->hash = hash_gfx_pipeline_state(state);
+
+#ifdef NDEBUG
+      for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++) {
+         uint32_t zero = 0;
+         if (prog->modules[i])
+            state->hash = XXH32(&prog->modules[i]->hash, sizeof(uint32_t), state->hash);
+         else
+            state->hash = XXH32(&zero, sizeof(uint32_t), state->hash);
+      }
+#endif
       /* make sure the hash is not zero, as we take it as invalid.
        * TODO: rework this using a separate dirty-bit */
       assert(state->hash != 0);
@@ -541,7 +562,7 @@ zink_get_gfx_pipeline(struct zink_screen *screen,
       if (pipeline == VK_NULL_HANDLE)
          return VK_NULL_HANDLE;
 
-      struct pipeline_cache_entry *pc_entry = CALLOC_STRUCT(pipeline_cache_entry);
+      struct gfx_pipeline_cache_entry *pc_entry = CALLOC_STRUCT(gfx_pipeline_cache_entry);
       if (!pc_entry)
          return VK_NULL_HANDLE;
 
@@ -555,7 +576,7 @@ zink_get_gfx_pipeline(struct zink_screen *screen,
       reference_render_pass(screen, prog, state->render_pass);
    }
 
-   return ((struct pipeline_cache_entry *)(entry->data))->pipeline;
+   return ((struct gfx_pipeline_cache_entry *)(entry->data))->pipeline;
 }
 
 
