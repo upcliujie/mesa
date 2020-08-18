@@ -463,6 +463,7 @@ static void
 zink_bind_rasterizer_state(struct pipe_context *pctx, void *cso)
 {
    struct zink_context *ctx = zink_context(pctx);
+   bool clip_halfz = ctx->rast_state ? ctx->rast_state->base.clip_halfz : false;
    ctx->rast_state = cso;
 
    if (ctx->rast_state) {
@@ -470,6 +471,11 @@ zink_bind_rasterizer_state(struct pipe_context *pctx, void *cso)
          ctx->gfx_pipeline_state.rast_state = &ctx->rast_state->hw_state;
          ctx->gfx_pipeline_state.hash = 0;
       }
+
+      if (clip_halfz != ctx->rast_state->base.clip_halfz)
+         ctx->dirty_shader_stages |= BITFIELD64_BIT(PIPE_SHADER_VERTEX) |
+                                     BITFIELD64_BIT(PIPE_SHADER_TESS_EVAL) |
+                                     BITFIELD64_BIT(PIPE_SHADER_GEOMETRY);
 
       if (ctx->line_width != ctx->rast_state->line_width) {
          ctx->line_width = ctx->rast_state->line_width;

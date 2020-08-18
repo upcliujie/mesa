@@ -247,28 +247,34 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
 {
    VkShaderModule mod = VK_NULL_HANDLE;
    void *streamout = NULL;
-   nir_shader *nir = zs->nir;
+   nir_shader *needs_free = NULL, *nir = zs->nir;
+   bool want_halfz = false;
    /* TODO: use a separate mem ctx here for ralloc */
    if (zs->has_geometry_shader) {
       if (zs->nir->info.stage == MESA_SHADER_GEOMETRY) {
          streamout = &zs->streamout;
-         NIR_PASS_V(nir, nir_lower_clip_halfz);
+         want_halfz = true;
       }
    } else if (zs->has_tess_shader) {
       if (zs->nir->info.stage == MESA_SHADER_TESS_EVAL) {
          streamout = &zs->streamout;
-         NIR_PASS_V(nir, nir_lower_clip_halfz);
+         want_halfz = true;
       }
    } else {
       streamout = &zs->streamout;
+      want_halfz = true;
+   }
+   /* only run this if we aren't already using halfz */
+   if (want_halfz && key && !zink_vs_key(key)->clip_halfz) {
+      needs_free = nir = nir_shader_clone(NULL, nir);
       NIR_PASS_V(nir, nir_lower_clip_halfz);
    }
    if (!zs->streamout.so_info_slots)
        streamout = NULL;
    if (zs->nir->info.stage == MESA_SHADER_FRAGMENT) {
-      nir = nir_shader_clone(NULL, nir);
       if (!zink_fs_key(key)->samples &&
           nir->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_SAMPLE_MASK)) {
+         needs_free = nir = nir_shader_clone(NULL, nir);
          /* VK will always use gl_SampleMask[] values even if sample count is 0,
           * so we need to skip this write here to mimic GL's behavior of ignoring it
           */
@@ -304,8 +310,8 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
    if (vkCreateShaderModule(screen->dev, &smci, NULL, &mod) != VK_SUCCESS)
       mod = VK_NULL_HANDLE;
 
-   if (zs->nir->info.stage == MESA_SHADER_FRAGMENT)
-      ralloc_free(nir);
+   if (needs_free)
+      ralloc_free(needs_free);
 
    /* TODO: determine if there's any reason to cache spirv output? */
    free(spirv->words);
