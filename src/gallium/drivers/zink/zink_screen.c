@@ -173,6 +173,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_TGSI_ARRAY_COMPONENTS:
    case PIPE_CAP_QUERY_BUFFER_OBJECT:
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP_TO_EDGE:
+   case PIPE_CAP_CONDITIONAL_RENDER_INVERTED:
       return 1;
 
    case PIPE_CAP_VERTEX_ELEMENT_INSTANCE_DIVISOR:
