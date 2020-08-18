@@ -47,6 +47,7 @@ struct set;
 struct zink_shader_module {
    struct pipe_reference reference;
    VkShaderModule shader;
+   uint32_t hash;
 };
 
 /* the shader cache stores a mapping of zink_shader_key::VkShaderModule */
