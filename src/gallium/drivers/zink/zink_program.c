@@ -189,13 +189,22 @@ shader_key_fs_gen(struct zink_context *ctx, struct zink_shader *zs, struct zink_
       fs_key->samples = !!ctx->fb_state.samples;
 }
 
+static void
+shader_key_dummy_gen(struct zink_context *ctx, struct zink_shader *zs, struct zink_shader_key *key)
+{
+   struct zink_fs_key *fs_key = &key->key.fs;
+   key->size = sizeof(uint32_t);
+ 
+   fs_key->shader_id = zs->shader_id;
+}
+
 typedef void (*zink_shader_key_gen)(struct zink_context *ctx, struct zink_shader *zs, struct zink_shader_key *key);
 static zink_shader_key_gen shader_key_vtbl[] =
 {
-   [MESA_SHADER_VERTEX] = NULL,
-   [MESA_SHADER_TESS_CTRL] = NULL,
-   [MESA_SHADER_TESS_EVAL] = NULL,
-   [MESA_SHADER_GEOMETRY] = NULL,
+   [MESA_SHADER_VERTEX] = shader_key_dummy_gen,
+   [MESA_SHADER_TESS_CTRL] = shader_key_dummy_gen,
+   [MESA_SHADER_TESS_EVAL] = shader_key_dummy_gen,
+   [MESA_SHADER_GEOMETRY] = shader_key_dummy_gen,
    [MESA_SHADER_FRAGMENT] = shader_key_fs_gen,
 };
 
@@ -204,30 +213,21 @@ get_shader_module_for_stage(struct zink_context *ctx, struct zink_shader *zs, st
 {
    gl_shader_stage stage = zs->nir->info.stage;
    struct zink_shader_key key = {};
-   /* TODO: all stages should have keys and 'shader_key' below should disappear */
-   void *shader_key = &key;
-   uint32_t key_size;
    VkShaderModule mod;
    struct zink_shader_module *zm;
 
-   if (shader_key_vtbl[stage]) {
-      shader_key_vtbl[stage](ctx, zs, &key);
-      key_size = key.size;
-   } else {
-      shader_key = zs;
-      key_size = sizeof(void*);
-   }
+   shader_key_vtbl[stage](ctx, zs, &key);
 
-   zm = find_cached_shader(prog, stage, key_size, shader_key);
+   zm = find_cached_shader(prog, stage, key.size, &key);
    if (!zm) {
-      struct keybox *keybox = make_keybox(NULL, stage, shader_key, key_size);
+      struct keybox *keybox = make_keybox(NULL, stage, &key, key.size);
       zm = CALLOC_STRUCT(zink_shader_module);
       if (!zm) {
          ralloc_free(keybox);
          return NULL;
       }
       pipe_reference_init(&zm->reference, 1);
-      mod = zink_shader_compile(zink_screen(ctx->base.screen), zs, shader_key, prog->shader_slot_map, &prog->shader_slots_reserved);
+      mod = zink_shader_compile(zink_screen(ctx->base.screen), zs, &key, prog->shader_slot_map, &prog->shader_slots_reserved);
       if (!mod) {
          ralloc_free(keybox);
          FREE(zm);
