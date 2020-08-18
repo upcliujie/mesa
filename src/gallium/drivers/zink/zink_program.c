@@ -35,6 +35,7 @@
 #include "util/u_memory.h"
 #include "tgsi/tgsi_from_mesa.h"
 
+
 struct pipeline_cache_entry {
    struct zink_gfx_pipeline_state state;
    VkPipeline pipeline;
@@ -96,17 +97,6 @@ keybox_equals(const void *void_a, const void *void_b)
       return false;
 
    return memcmp(a->data, b->data, a->size) == 0;
-}
-
-static struct zink_shader_module *
-find_cached_shader(struct zink_gfx_program *prog, gl_shader_stage stage, uint32_t key_size, const void *key)
-{
-   struct keybox *keybox = make_keybox(NULL, stage, key, key_size);
-   struct hash_entry *entry = _mesa_hash_table_search(prog->shader_cache->shader_cache, keybox);
-
-   ralloc_free(keybox);
-
-   return entry ? entry->data : NULL;
 }
 
 static VkDescriptorSetLayout
@@ -215,12 +205,18 @@ get_shader_module_for_stage(struct zink_context *ctx, struct zink_shader *zs, st
    struct zink_shader_key key = {};
    VkShaderModule mod;
    struct zink_shader_module *zm;
+   struct keybox *keybox;
+   uint32_t hash;
 
    shader_key_vtbl[stage](ctx, zs, ctx->gfx_stages, &key);
+   keybox = make_keybox(NULL, stage, &key, key.size);
+   hash = keybox_hash(keybox);
+   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(prog->shader_cache->shader_cache, hash, keybox);
 
-   zm = find_cached_shader(prog, stage, key.size, &key);
-   if (!zm) {
-      struct keybox *keybox = make_keybox(NULL, stage, &key, key.size);
+   if (entry) {
+      ralloc_free(keybox);
+      zm = entry->data;
+   } else {
       zm = CALLOC_STRUCT(zink_shader_module);
       if (!zm) {
          ralloc_free(keybox);
@@ -235,9 +231,7 @@ get_shader_module_for_stage(struct zink_context *ctx, struct zink_shader *zs, st
       }
       zm->shader = mod;
 
-      _mesa_hash_table_insert(prog->shader_cache->shader_cache, keybox, zm);
-
-      ralloc_free(keybox);
+      _mesa_hash_table_insert_pre_hashed(prog->shader_cache->shader_cache, hash, keybox, zm);
    }
    return zm;
 }
@@ -307,6 +301,8 @@ update_shader_modules(struct zink_context *ctx, struct zink_shader *stages[ZINK_
          dirty[i]->has_geometry_shader = dirty[MESA_SHADER_GEOMETRY] || stages[PIPE_SHADER_GEOMETRY];
          zm = get_shader_module_for_stage(ctx, dirty[i], prog);
          zink_shader_module_reference(zink_screen(ctx->base.screen), &prog->modules[type], zm);
+         /* we probably need a new pipeline when we switch shader modules */
+         ctx->gfx_pipeline_state.hash = 0;
       } else if (stages[type] && !update) /* reuse existing shader module */
          zink_shader_module_reference(zink_screen(ctx->base.screen), &prog->modules[type], ctx->curr_program->modules[type]);
       prog->shaders[type] = stages[type];
@@ -323,7 +319,13 @@ hash_gfx_pipeline_state(const void *key)
 static bool
 equals_gfx_pipeline_state(const void *a, const void *b)
 {
-   return memcmp(a, b, offsetof(struct zink_gfx_pipeline_state, hash)) == 0;
+   const struct zink_gfx_pipeline_state *sa = a;
+   const struct zink_gfx_pipeline_state *sb = b;
+   for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++) {
+      if (sa->modules[i] != sb->modules[i])
+         return false;
+   }
+   return true;
 }
 
 static void
@@ -379,7 +381,7 @@ zink_create_gfx_program(struct zink_context *ctx,
 
    for (int i = 0; i < ARRAY_SIZE(prog->pipelines); ++i) {
       prog->pipelines[i] = _mesa_hash_table_create(NULL,
-                                                   hash_gfx_pipeline_state,
+                                                   NULL,
                                                    equals_gfx_pipeline_state);
       if (!prog->pipelines[i])
          goto fail;
@@ -529,9 +531,10 @@ zink_get_gfx_pipeline(struct zink_screen *screen,
    
    if (!state->hash) {
       state->hash = hash_gfx_pipeline_state(state);
-      /* make sure the hash is not zero, as we take it as invalid.
-       * TODO: rework this using a separate dirty-bit */
       assert(state->hash != 0);
+
+      for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++)
+         state->modules[i] = prog->modules[i] ? prog->modules[i]->shader : NULL;
    }
    entry = _mesa_hash_table_search_pre_hashed(prog->pipelines[vkmode], state->hash, state);
 
