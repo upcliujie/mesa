@@ -567,16 +567,16 @@ zink_shader_tcs_create(struct zink_context *ctx, struct zink_shader *vs)
    pushconst->data.location = VARYING_SLOT_VAR0;
 
    nir_intrinsic_instr *load_inner = nir_intrinsic_instr_create(b.shader, nir_intrinsic_load_push_constant);
-   load_inner->src[0] = nir_src_for_ssa(nir_imm_int(&b, 0));
-   nir_intrinsic_set_base(load_inner, 0);
+   load_inner->src[0] = nir_src_for_ssa(nir_imm_int(&b, offsetof(struct zink_push_constant, default_inner_level)));
+   nir_intrinsic_set_base(load_inner, offsetof(struct zink_push_constant, default_inner_level));
    nir_intrinsic_set_range(load_inner, 8);
    load_inner->num_components = 2;
    nir_ssa_dest_init(&load_inner->instr, &load_inner->dest, 2, 32, "TessLevelInner");
    nir_builder_instr_insert(&b, &load_inner->instr);
 
    nir_intrinsic_instr *load_outer = nir_intrinsic_instr_create(b.shader, nir_intrinsic_load_push_constant);
-   load_outer->src[0] = nir_src_for_ssa(nir_imm_int(&b, 8));
-   nir_intrinsic_set_base(load_outer, 8);
+   load_outer->src[0] = nir_src_for_ssa(nir_imm_int(&b, offsetof(struct zink_push_constant, default_outer_level)));
+   nir_intrinsic_set_base(load_outer, offsetof(struct zink_push_constant, default_outer_level));
    nir_intrinsic_set_range(load_outer, 16);
    load_outer->num_components = 4;
    nir_ssa_dest_init(&load_outer->instr, &load_outer->dest, 4, 32, "TessLevelOuter");
