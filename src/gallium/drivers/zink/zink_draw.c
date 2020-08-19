@@ -759,6 +759,12 @@ zink_draw_vbo(struct pipe_context *pctx,
                          offsetof(struct zink_push_constant, draw_mode_is_indexed), sizeof(unsigned),
                          &draw_mode_is_indexed);
    }
+   if (ctx->gfx_stages[PIPE_SHADER_VERTEX]->nir->info.system_values_read & (1ull << SYSTEM_VALUE_DRAW_ID)) {
+      unsigned draw_id = dinfo->drawid;
+      vkCmdPushConstants(batch->cmdbuf, gfx_program->layout, VK_SHADER_STAGE_VERTEX_BIT,
+                         offsetof(struct zink_push_constant, draw_id), sizeof(unsigned),
+                         &draw_id);
+   }
    if (gfx_program->shaders[PIPE_SHADER_TESS_CTRL] && gfx_program->shaders[PIPE_SHADER_TESS_CTRL]->is_generated)
       vkCmdPushConstants(batch->cmdbuf, gfx_program->layout, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,
                          offsetof(struct zink_push_constant, default_inner_level), sizeof(float) * 6,
