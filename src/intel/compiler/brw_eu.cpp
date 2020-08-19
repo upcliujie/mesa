@@ -177,6 +177,9 @@ void brw_set_default_flag_reg(struct brw_codegen *p, int reg, int subreg)
 
 void brw_set_default_access_mode( struct brw_codegen *p, unsigned access_mode )
 {
+   /* Align16 is not supported on Gen11+ */
+   assert(p->devinfo->gen < 11 || access_mode == BRW_ALIGN_1);
+
    p->current->access_mode = access_mode;
 }
 
