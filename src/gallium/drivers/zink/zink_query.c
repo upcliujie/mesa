@@ -563,7 +563,7 @@ zink_get_query_result_resource(struct pipe_context *pctx,
        * VK_QUERY_RESULT_WITH_AVAILABILITY_BIT always writes result data at the specified offset,
        * so we have to do a manual read
        */
-      //zink_resource_buffer_barrier(batch->cmdbuf, res, VK_ACCESS_TRANSFER_WRITE_BIT, 0);
+      //zink_resource_buffer_barrier(batch, res, VK_ACCESS_TRANSFER_WRITE_BIT, 0);
       //zink_batch_reference_resource_rw(batch, res, true);
       //vkCmdCopyQueryPoolResults(batch->cmdbuf, query->query_pool, query_id, 1, res->buffer,
                                 //offset, 0, size_flags | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
@@ -601,7 +601,7 @@ zink_get_query_result_resource(struct pipe_context *pctx,
          struct zink_batch *batch = zink_batch_no_rp(ctx);
          /* if it's a single query that doesn't need special handling, we can copy it and be done */
          zink_batch_reference_resource_rw(batch, res, true);
-         zink_resource_buffer_barrier(batch->cmdbuf, res, VK_ACCESS_TRANSFER_WRITE_BIT, 0);
+         zink_resource_buffer_barrier(batch, res, VK_ACCESS_TRANSFER_WRITE_BIT, 0);
          vkCmdCopyQueryPoolResults(batch->cmdbuf, query->query_pool, query_id, 1, res->buffer,
                                    offset, 0, size_flags);
          /* TODO: I don't really understand why, but we need to submit this cmdbuf or else the buffer isn't synced
