@@ -38,6 +38,7 @@
 
 #include "util/u_memory.h"
 
+
 static bool
 lower_discard_if_instr(nir_intrinsic_instr *instr, nir_builder *b)
 {
@@ -114,6 +115,80 @@ lower_discard_if(nir_shader *shader)
                   progress |= lower_discard_if_instr(
                                                   nir_instr_as_intrinsic(instr),
                                                   &builder);
+            }
+         }
+
+         nir_metadata_preserve(function->impl, nir_metadata_dominance);
+      }
+   }
+
+   return progress;
+}
+
+static bool
+lower_basevertex_instr(nir_intrinsic_instr *instr, nir_builder *b)
+{
+   nir_variable *vs_pushconst = NULL;
+
+   if (instr->intrinsic != nir_intrinsic_load_base_vertex)
+      return false;
+
+   nir_foreach_shader_in_variable(var, b->shader) {
+      if (var->data.location == INT_MAX) {
+         vs_pushconst = var;
+         break;
+      }
+   }
+   b->cursor = nir_after_instr(&instr->instr);
+
+   if (!vs_pushconst) {
+      /* create compatible layout for the ntv push constant loader */
+      struct glsl_struct_field *fields = ralloc_size(b->shader, 1 * sizeof(struct glsl_struct_field));
+      fields[0].type = glsl_array_type(glsl_uint_type(), 1, 0);
+      fields[0].name = ralloc_asprintf(b->shader, "draw_mode_is_indexed");
+      fields[0].offset = 0;
+      vs_pushconst = nir_variable_create(b->shader, nir_var_shader_in,
+                                                    glsl_struct_type(fields, 1, "struct", false), "vs_pushconst");
+      vs_pushconst->data.location = INT_MAX; //doesn't really matter
+   }
+
+   nir_intrinsic_instr *load = nir_intrinsic_instr_create(b->shader, nir_intrinsic_load_push_constant);
+   load->src[0] = nir_src_for_ssa(nir_imm_int(b, 0));
+   nir_intrinsic_set_range(load, 4);
+   load->num_components = 1;
+   nir_ssa_dest_init(&load->instr, &load->dest, 1, 32, "draw_mode_is_indexed");
+   nir_builder_instr_insert(b, &load->instr);
+
+   nir_ssa_def *composite = nir_build_alu(b, nir_op_bcsel,
+                                          nir_build_alu(b, nir_op_ieq, &load->dest.ssa, nir_imm_int(b, 1), NULL, NULL),
+                                          &instr->dest.ssa,
+                                          nir_imm_int(b, 0),
+                                          NULL);
+
+   nir_ssa_def_rewrite_uses_after(&instr->dest.ssa, nir_src_for_ssa(composite), composite->parent_instr);
+   return true;
+}
+
+static bool
+lower_basevertex(nir_shader *shader)
+{
+   bool progress = false;
+
+   if (shader->info.stage != MESA_SHADER_VERTEX)
+      return false;
+
+   if (!(shader->info.system_values_read & (1ull << SYSTEM_VALUE_BASE_VERTEX)))
+      return false;
+
+   nir_foreach_function(function, shader) {
+      if (function->impl) {
+         nir_builder builder;
+         nir_builder_init(&builder, function->impl);
+         nir_foreach_block(block, function->impl) {
+            nir_foreach_instr_safe(instr, block) {
+               if (instr->type == nir_instr_type_intrinsic)
+                  progress |= lower_basevertex_instr(nir_instr_as_intrinsic(instr),
+                                                     &builder);
             }
          }
 
@@ -249,6 +324,7 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
    void *streamout = NULL;
    nir_shader *needs_free = NULL, *nir = zs->nir;
    bool want_halfz = false;
+   nir_variable *vs_pushconst = NULL;
    /* TODO: use a separate mem ctx here for ralloc */
    if (zs->has_geometry_shader) {
       if (zs->nir->info.stage == MESA_SHADER_GEOMETRY) {
@@ -271,6 +347,16 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
    }
    if (!zs->streamout.so_info_slots)
        streamout = NULL;
+   if (zs->nir->info.stage == MESA_SHADER_VERTEX) {
+      nir_foreach_shader_in_variable(var, nir) {
+         if (var->data.location == INT_MAX) {
+            vs_pushconst = var;
+            break;
+         }
+      }
+      /* this breaks validation, so we have to swizzle it when we know there's no more nir nannying us */
+      vs_pushconst->data.mode = nir_var_mem_push_const;
+   }
    if (zs->nir->info.stage == MESA_SHADER_FRAGMENT) {
       if (!zink_fs_key(key)->samples &&
           nir->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_SAMPLE_MASK)) {
@@ -289,6 +375,9 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
    }
    struct spirv_shader *spirv = nir_to_spirv(nir, streamout, shader_slot_map, shader_slots_reserved, &screen->info.feats.features);
    assert(spirv);
+
+   if (vs_pushconst)
+      vs_pushconst->data.mode = nir_var_shader_in;
 
    if (zink_debug & ZINK_DEBUG_SPIRV) {
       char buf[256];
@@ -340,6 +429,7 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
       have_psiz = check_psiz(nir);
    if (nir->info.stage == MESA_SHADER_GEOMETRY)
       NIR_PASS_V(nir, nir_lower_gs_intrinsics, nir_lower_gs_intrinsics_per_stream);
+   NIR_PASS_V(nir, lower_basevertex);
    NIR_PASS_V(nir, nir_lower_regs_to_ssa);
    optimize_nir(nir);
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
@@ -555,16 +645,19 @@ zink_shader_tcs_create(struct zink_context *ctx, struct zink_shader *vs)
    gl_TessLevelOuter->data.patch = 1;
 
    /* hacks so we can size these right for now */
-   struct glsl_struct_field *fields = ralloc_size(nir, sizeof(struct glsl_struct_field));
+   struct glsl_struct_field *fields = ralloc_size(nir, 3 * sizeof(struct glsl_struct_field));
    /* just use a single blob for padding here because it's easier */
-   fields[0].type = glsl_array_type(glsl_uint_type(), 2, 0);
-   fields[0].name = ralloc_asprintf(nir, "gl_TessLevelInner");
-   fields[0].offset = offsetof(struct zink_push_constant, default_inner_level);
-   fields[1].type = glsl_array_type(glsl_uint_type(), 4, 0);
-   fields[1].name = ralloc_asprintf(nir, "gl_TessLevelOuter");
-   fields[1].offset = offsetof(struct zink_push_constant, default_outer_level);
+   fields[0].type = glsl_array_type(glsl_uint_type(), offsetof(struct zink_push_constant, default_inner_level) / 4, 0);
+   fields[0].name = ralloc_asprintf(nir, "padding");
+   fields[0].offset = 0;
+   fields[1].type = glsl_array_type(glsl_uint_type(), 2, 0);
+   fields[1].name = ralloc_asprintf(nir, "gl_TessLevelInner");
+   fields[1].offset = offsetof(struct zink_push_constant, default_inner_level);
+   fields[2].type = glsl_array_type(glsl_uint_type(), 4, 0);
+   fields[2].name = ralloc_asprintf(nir, "gl_TessLevelOuter");
+   fields[2].offset = offsetof(struct zink_push_constant, default_outer_level);
    nir_variable *pushconst = nir_variable_create(nir, nir_var_shader_in,
-                                                 glsl_struct_type(fields, 2, "struct", false), "pushconst");
+                                                 glsl_struct_type(fields, 3, "struct", false), "pushconst");
    pushconst->data.location = VARYING_SLOT_VAR0;
 
    nir_intrinsic_instr *load_inner = nir_intrinsic_instr_create(b.shader, nir_intrinsic_load_push_constant);
