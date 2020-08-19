@@ -917,6 +917,9 @@ spec/ext_external_objects/vk-buf-exchange: skip
 spec/ext_external_objects/vk-image-display: skip
 spec/ext_external_objects/vk-image-display-overwrite: skip
 spec/ext_external_objects/vk-image-overwrite: skip
+spec/ext_external_objects/vk-pix-buf-update-errors: skip
+spec/ext_external_objects/vk-vert-buf-reuse: skip
+spec/ext_external_objects/vk-vert-buf-update-errors: skip
 spec/ext_external_objects_fd/memory-object-api-errors: skip
 spec/ext_external_objects_fd/semaphore-api-errors: skip
 spec/ext_framebuffer_blit/fbo-blit-check-limits: fail
@@ -1657,10 +1660,10 @@ wgl/wgl-sanity: skip
 summary:
        name:  results
        ----  --------
-       pass:    23066
-       fail:      198
+       pass:    23082
+       fail:      197
       crash:        0
-       skip:     1440
+       skip:     1438
     timeout:        0
        warn:        6
  incomplete:        0
@@ -1669,4 +1672,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:    24728
+      total:    24741
