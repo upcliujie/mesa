@@ -507,6 +507,7 @@ anv_block_pool_expand_range(struct anv_block_pool *pool,
                                             pool->name,
                                             new_bo_size,
                                             bo_alloc_flags |
+                                            ANV_BO_ALLOC_LOCAL_MEM |
                                             ANV_BO_ALLOC_FIXED_ADDRESS |
                                             ANV_BO_ALLOC_MAPPED |
                                             ANV_BO_ALLOC_SNOOPED,
@@ -1378,7 +1379,8 @@ anv_bo_pool_alloc(struct anv_bo_pool *pool, uint32_t size,
                                          pow2_size,
                                          ANV_BO_ALLOC_MAPPED |
                                          ANV_BO_ALLOC_SNOOPED |
-                                         ANV_BO_ALLOC_CAPTURE,
+                                         ANV_BO_ALLOC_CAPTURE |
+                                         ANV_BO_ALLOC_LOCAL_MEM,
                                          0 /* explicit_address */,
                                          &bo);
    if (result != VK_SUCCESS)
