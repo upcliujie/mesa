@@ -1076,6 +1076,7 @@ void
 zink_resource_barrier(struct zink_batch *batch, struct zink_resource *res,
                       VkImageLayout new_layout, VkPipelineStageFlags pipeline)
 {
+   assert(!batch->in_rp);
    if (!pipeline)
       pipeline = pipeline_dst_stage(new_layout);
    if (!zink_resource_image_needs_barrier(res, new_layout, pipeline))
@@ -1164,6 +1165,7 @@ zink_resource_buffer_needs_barrier(struct zink_resource *res, VkAccessFlags flag
 void
 zink_resource_buffer_barrier(struct zink_batch *batch, struct zink_resource *res, VkAccessFlags flags, VkPipelineStageFlags pipeline)
 {
+   assert(!batch->in_rp);
    if (!pipeline)
       pipeline = pipeline_access_stage(flags);
    if (!zink_resource_buffer_needs_barrier(res, flags, pipeline))
