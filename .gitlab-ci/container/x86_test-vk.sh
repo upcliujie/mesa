@@ -34,7 +34,9 @@ apt-get install -y --no-remove \
       libwayland-dev \
       libx11-xcb-dev \
       libxcb-keysyms1-dev \
-      libxcb1-dev
+      libxcb1-dev \
+      libxcb-shm0 \
+      $STABLE_EPHEMERAL
 
 # We need multiarch for Wine
 dpkg --add-architecture i386
