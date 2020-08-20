@@ -776,18 +776,6 @@ def main():
         doc = et.parse(filename)
         entrypoints += get_entrypoints(doc, get_entrypoints_defines(doc))
 
-    # Manually add CreateDmaBufImageINTEL for which we don't have an extension
-    # defined.
-    entrypoints.append(Entrypoint('vkCreateDmaBufImageINTEL', 'VkResult', [
-        EntrypointParam('VkDevice', 'device', 'VkDevice device'),
-        EntrypointParam('VkDmaBufImageCreateInfo', 'pCreateInfo',
-                        'const VkDmaBufImageCreateInfo* pCreateInfo'),
-        EntrypointParam('VkAllocationCallbacks', 'pAllocator',
-                        'const VkAllocationCallbacks* pAllocator'),
-        EntrypointParam('VkDeviceMemory', 'pMem', 'VkDeviceMemory* pMem'),
-        EntrypointParam('VkImage', 'pImage', 'VkImage* pImage')
-    ]))
-
     device_entrypoints = []
     physical_device_entrypoints = []
     instance_entrypoints = []
