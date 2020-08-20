@@ -1103,8 +1103,13 @@ update_from_topology(struct intel_device_info *devinfo,
    }
 
    if (devinfo->ver == 12 && devinfo->num_slices == 1) {
-      if (n_subslices >= 6) {
-         assert(n_subslices == 6);
+      if (n_subslices > 16) {
+         assert(n_subslices <= 32);
+         devinfo->l3_banks = 32;
+      } else if (n_subslices > 8) {
+         devinfo->l3_banks = 16;
+      } else if (n_subslices >= 6) {
+         assert(n_subslices == 6 || intel_device_info_is_dg2(devinfo));
          devinfo->l3_banks = 8;
       } else if (n_subslices > 2) {
          devinfo->l3_banks = 6;
