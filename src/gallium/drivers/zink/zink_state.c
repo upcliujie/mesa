@@ -26,6 +26,7 @@
 #include "zink_context.h"
 #include "zink_screen.h"
 
+#include "compiler/shader_enums.h"
 #include "util/u_memory.h"
 
 #include <math.h>
@@ -177,6 +178,30 @@ blend_op(enum pipe_blend_func func)
    unreachable("unexpected blend function");
 }
 
+static VkBlendOp
+advanced_blend_op(enum gl_advanced_blend_mode mode)
+{
+   switch (mode) {
+   case BLEND_MULTIPLY: return VK_BLEND_OP_MULTIPLY_EXT;
+   case BLEND_SCREEN: return VK_BLEND_OP_SCREEN_EXT;
+   case BLEND_OVERLAY: return VK_BLEND_OP_OVERLAY_EXT;
+   case BLEND_DARKEN: return VK_BLEND_OP_DARKEN_EXT;
+   case BLEND_LIGHTEN: return VK_BLEND_OP_LIGHTEN_EXT;
+   case BLEND_COLORDODGE: return VK_BLEND_OP_COLORDODGE_EXT;
+   case BLEND_COLORBURN: return VK_BLEND_OP_COLORBURN_EXT;
+   case BLEND_HARDLIGHT: return VK_BLEND_OP_HARDLIGHT_EXT;
+   case BLEND_SOFTLIGHT: return VK_BLEND_OP_SOFTLIGHT_EXT;
+   case BLEND_DIFFERENCE: return VK_BLEND_OP_DIFFERENCE_EXT;
+   case BLEND_EXCLUSION: return VK_BLEND_OP_EXCLUSION_EXT;
+   case BLEND_HSL_HUE: return VK_BLEND_OP_HSL_HUE_EXT;
+   case BLEND_HSL_SATURATION: return VK_BLEND_OP_HSL_SATURATION_EXT;
+   case BLEND_HSL_COLOR: return VK_BLEND_OP_HSL_COLOR_EXT;
+   case BLEND_HSL_LUMINOSITY: return VK_BLEND_OP_HSL_LUMINOSITY_EXT;
+   default:
+      unreachable("unknown advanced blend mode");
+   }
+}
+
 static VkLogicOp
 logic_op(enum pipe_logicop func)
 {
@@ -220,6 +245,7 @@ static void *
 zink_create_blend_state(struct pipe_context *pctx,
                         const struct pipe_blend_state *blend_state)
 {
+   struct zink_screen *screen = zink_screen(pctx->screen);
    struct zink_blend_state *cso = CALLOC_STRUCT(zink_blend_state);
    if (!cso)
       return NULL;
@@ -240,6 +266,11 @@ zink_create_blend_state(struct pipe_context *pctx,
    cso->alpha_to_one = blend_state->alpha_to_one;
 
    cso->need_blend_constants = false;
+   cso->advanced_blend = blend_state->advanced_blend_func && screen->info.have_EXT_blend_operation_advanced;
+   if (cso->advanced_blend) {
+      cso->logicop_enable = VK_TRUE;
+      cso->logicop_func = VK_LOGIC_OP_COPY;
+   }
 
    for (int i = 0; i < PIPE_MAX_COLOR_BUFS; ++i) {
       const struct pipe_rt_blend_state *rt = blend_state->rt;
@@ -248,7 +279,18 @@ zink_create_blend_state(struct pipe_context *pctx,
 
       VkPipelineColorBlendAttachmentState att = { };
 
-      if (rt->blend_enable) {
+      if (cso->advanced_blend) {
+         assert(i < screen->info.blend_props.advancedBlendMaxColorAttachments);
+         att.blendEnable = VK_TRUE;
+         att.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_COLOR;
+         att.dstColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
+         att.colorBlendOp = advanced_blend_op(blend_state->advanced_blend_func);
+         att.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+         att.dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+         att.alphaBlendOp = att.colorBlendOp;
+      } else if (rt->blend_enable) {
+         if (blend_state->advanced_blend_func)
+            debug_printf("ignoring advanced blend mode due to missing EXT_blend_operation_advanced extension");
          att.blendEnable = VK_TRUE;
          att.srcColorBlendFactor = blend_factor(fix_blendfactor(rt->rgb_src_factor, cso->alpha_to_one));
          att.dstColorBlendFactor = blend_factor(fix_blendfactor(rt->rgb_dst_factor, cso->alpha_to_one));
