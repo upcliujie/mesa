@@ -24,6 +24,7 @@
 
 #include "nir_control_flow.h"
 #include "nir_builder.h"
+#include "util/u_math.h"
 
 /**
  * This file implements an optimization for multiview. Some GPU's have a
@@ -203,10 +204,16 @@ nir_can_lower_multiview(nir_shader *shader)
 
 /**
  * The lowering. Call with the last active geometry stage.
+ *
+ * If sparse_pos is true, then the gl_Position array is indexed by
+ * gl_ViewIndex, and there may be "holes" i.e. array elements which aren't
+ * written. If false, then array elements are packed so that e.g. if
+ * view_mask is 0b1010, then there are two array elements corresponding to
+ * views 1 and 3.
  */
 
 bool
-nir_lower_multiview(nir_shader *shader, uint32_t view_mask)
+nir_lower_multiview(nir_shader *shader, uint32_t view_mask, bool sparse_pos)
 {
    assert(shader->info.stage != MESA_SHADER_FRAGMENT);
    int view_count = util_bitcount(view_mask);
@@ -218,7 +225,10 @@ nir_lower_multiview(nir_shader *shader, uint32_t view_mask)
    nir_foreach_shader_out_variable(var, shader) {
       if (var->data.location == VARYING_SLOT_POS) {
          assert(var->type == glsl_vec4_type());
-         var->type = glsl_array_type(glsl_vec4_type(), view_count, 0);
+         var->type =
+            glsl_array_type(glsl_vec4_type(),
+                            sparse_pos ? util_logbase2(view_mask) + 1 : view_count,
+                            0);
          var->data.per_view = true;
          pos_var = var;
          break;
@@ -265,7 +275,7 @@ nir_lower_multiview(nir_shader *shader, uint32_t view_mask)
     *          break
     *
     *       view_index = active_indices[loop_index]
-    *       pos_deref = &pos[loop_index]
+    *       pos_deref = &pos[sparse_pos ? view_index : loop_index]
     *
     *       # Placeholder for the body to be reinserted.
     *
@@ -286,7 +296,8 @@ nir_lower_multiview(nir_shader *shader, uint32_t view_mask)
    nir_ssa_def *view_index =
       nir_load_deref(&b, nir_build_deref_array(&b, view_index_deref, loop_index));
    nir_deref_instr *pos_deref =
-      nir_build_deref_array(&b, nir_build_deref_var(&b, pos_var), loop_index);
+      nir_build_deref_array(&b, nir_build_deref_var(&b, pos_var),
+                            sparse_pos ? view_index : loop_index);
 
    nir_store_deref(&b, loop_index_deref, nir_iadd_imm(&b, loop_index, 1), 1);
    nir_pop_loop(&b, loop);

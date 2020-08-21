@@ -173,7 +173,7 @@ anv_nir_lower_multiview(nir_shader *shader,
       if (shader->info.stage == MESA_SHADER_FRAGMENT)
          return false;
 
-      bool progress = nir_lower_multiview(shader, pipeline->subpass->view_mask);
+      bool progress = nir_lower_multiview(shader, pipeline->subpass->view_mask, false);
 
       if (progress) {
          nir_builder b;

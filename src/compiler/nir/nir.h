@@ -4646,7 +4646,7 @@ bool nir_lower_goto_ifs(nir_shader *shader);
 
 bool nir_shader_uses_view_index(nir_shader *shader);
 bool nir_can_lower_multiview(nir_shader *shader);
-bool nir_lower_multiview(nir_shader *shader, uint32_t view_mask);
+bool nir_lower_multiview(nir_shader *shader, uint32_t view_mask, bool sparse_pos);
 
 bool nir_normalize_cubemap_coords(nir_shader *shader);
 
