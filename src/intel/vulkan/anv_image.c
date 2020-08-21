@@ -165,6 +165,15 @@ add_surface(struct anv_image *image, struct anv_surface *surf, uint32_t plane)
                                          surf->isl.alignment_B);
 }
 
+static void
+add_aux_private_surface(struct anv_image *image,
+                        struct anv_surface *surf)
+{
+   surf->offset = align_u32(image->aux_private.size, surf->isl.alignment_B);
+   image->aux_private.size = surf->offset + surf->isl.size_B;
+   image->aux_private.has_aux_surface = true;
+}
+
 /**
  * Do hardware limitations require the image plane to use a shadow surface?
  *
@@ -310,17 +319,22 @@ add_aux_state_tracking_buffer(struct anv_image *image,
    /* Compressed images must be tiled and therefore everything should be 4K
     * aligned.  The CCS has the same alignment requirements.  This is good
     * because we need at least dword-alignment for MI_LOAD/STORE operations.
+    *
+    * This buffer should be at the very end of the plane or the aux_private::bo.
     */
-   assert(image->alignment % 4 == 0);
-   assert((image->planes[plane].offset + image->planes[plane].size) % 4 == 0);
-
-   /* This buffer should be at the very end of the plane. */
-   if (image->disjoint) {
-      assert(image->planes[plane].size ==
-             (image->planes[plane].offset + image->planes[plane].size));
+   if (image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
+      assert(image->aux_private.size % 4 == 0);
    } else {
-      assert(image->size ==
-             (image->planes[plane].offset + image->planes[plane].size));
+      assert(image->alignment % 4 == 0);
+      assert((image->planes[plane].offset + image->planes[plane].size) % 4 == 0);
+
+      if (image->disjoint) {
+         assert(image->planes[plane].size ==
+                (image->planes[plane].offset + image->planes[plane].size));
+      } else {
+         assert(image->size ==
+                (image->planes[plane].offset + image->planes[plane].size));
+      }
    }
 
    const unsigned clear_color_state_size = device->info.gen >= 10 ?
@@ -344,16 +358,20 @@ add_aux_state_tracking_buffer(struct anv_image *image,
     * a 4K alignment. We believe that 256B might be enough, but due to lack of
     * testing we will leave this as 4K for now.
     */
-   image->planes[plane].size = align_u64(image->planes[plane].size, 4096);
-   image->size = align_u64(image->size, 4096);
-
-   assert(image->planes[plane].offset % 4096 == 0);
-
-   image->planes[plane].fast_clear_state_offset =
-      image->planes[plane].offset + image->planes[plane].size;
-
-   image->planes[plane].size += state_size;
-   image->size += state_size;
+   if (image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
+      image->aux_private.size = align_u64(image->aux_private.size, 4096);
+      image->planes[plane].fast_clear_state_offset = image->aux_private.size;
+      image->aux_private.size += state_size;
+      image->aux_private.has_fast_clear_state = true;
+   } else {
+      image->planes[plane].size = align_u64(image->planes[plane].size, 4096);
+      image->size = align_u64(image->size, 4096);
+      assert(image->planes[plane].offset % 4096 == 0);
+      image->planes[plane].fast_clear_state_offset =
+         image->planes[plane].offset + image->planes[plane].size;
+      image->planes[plane].size += state_size;
+      image->size += state_size;
+   }
 }
 
 /**
@@ -381,6 +399,9 @@ add_aux_surface_if_supported(struct anv_device *device,
       return VK_SUCCESS;
 
    if (aspect == VK_IMAGE_ASPECT_DEPTH_BIT) {
+      /* Assert no modifier so we can safely ignore anv_image::aux_private. */
+      assert(image->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT);
+
       /* We don't advertise that depth buffers could be used as storage
        * images.
        */
@@ -525,11 +546,20 @@ add_aux_surface_if_supported(struct anv_device *device,
          image->planes[plane].aux_usage = ISL_AUX_USAGE_CCS_D;
       }
 
-      if (!device->physical->has_implicit_ccs)
-         add_surface(image, &image->planes[plane].aux_surface, plane);
+      if (!device->physical->has_implicit_ccs) {
+         if (image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
+             !isl_drm_modifier_has_aux(image->drm_format_mod)) {
+            add_aux_private_surface(image, &image->planes[plane].aux_surface);
+         } else {
+            add_surface(image, &image->planes[plane].aux_surface, plane);
+         }
+      }
 
       add_aux_state_tracking_buffer(image, plane, device);
    } else if ((aspect & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) && image->samples > 1) {
+      /* Assert no modifier so we can safely ignore anv_image::aux_private. */
+      assert(image->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT);
+
       assert(!(image->usage & VK_IMAGE_USAGE_STORAGE_BIT));
       ok = isl_surf_get_mcs_surf(&device->isl_dev,
                                  &image->planes[plane].surface.isl,
@@ -630,24 +660,61 @@ check_surfaces(const struct anv_image *image,
 {
 #ifdef DEBUG
    /* FINISHME: Check the shadow surface. */
+   /* FINISHME: Check for overlap. */
 
-   /* XXX: This looks buggy. If the aux surface starts before the primary
-    * surface, then it derives a meaningless value by adding the primary's size
-    * to the aux's offset.
-    */
    uintmax_t plane_end = plane->offset + plane->size;
    const struct anv_surface *primary_surface = &plane->surface;
    const struct anv_surface *aux_surface = &plane->aux_surface;
-   uintmax_t last_surface_offset = MAX2(primary_surface->offset, aux_surface->offset);
-   uintmax_t last_surface_size = aux_surface->isl.size_B > 0
-                               ? aux_surface->isl.size_B
-                               : primary_surface->isl.size_B;
-   uintmax_t last_surface_end = last_surface_offset + last_surface_size;
+   uintmax_t primary_surface_end = primary_surface->offset + primary_surface->isl.size_B;
+   uintmax_t aux_surface_end = aux_surface->offset + aux_surface->isl.size_B;
+   bool has_aux_usage = plane->aux_usage != ISL_AUX_USAGE_NONE;
+   bool has_aux_surface = aux_surface->isl.size_B > 0;
 
-   if (plane->aux_usage != ISL_AUX_USAGE_NONE)
-      assert(plane->fast_clear_state_offset < plane_end);
+   /* If the primary surface and aux surface live in the same bo, then we assert
+    * that the aux follows the primary. Nothing requires such a layout. The
+    * assertions exist merely to confirm that the actual layout agrees with the
+    * comments to struct anv_image.
+    */
 
-   assert(last_surface_end <= plane_end);
+   if (image->aux_private.has_aux_surface) {
+      assert(image->aux_private.has_fast_clear_state);
+      assert(has_aux_surface);
+      assert(has_aux_usage);
+
+      /* Primary surface lives in the plane's bo. */
+      assert(primary_surface_end <= plane_end);
+
+      /* Aux surface and fast clear live in aux_private::bo. */
+      assert(aux_surface_end <= plane->fast_clear_state_offset);
+      assert(plane->fast_clear_state_offset < image->aux_private.size);
+   } else if (image->aux_private.has_fast_clear_state) {
+      assert(has_aux_surface);
+      assert(has_aux_usage);
+
+      /* Primary surface and aux surface live in the plane's bo. */
+      assert(primary_surface_end <= aux_surface->offset);
+      assert(aux_surface_end <= plane_end);
+
+      /* Fast clear lives in aux_private::bo. */
+      assert(plane->fast_clear_state_offset < image->aux_private.size);
+   } else if (has_aux_surface &&
+              (image->aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV)) {
+      assert(has_aux_usage);
+
+      /* Everything lives in the plane's bo. Image has fast clear state. */
+      assert(primary_surface_end <= aux_surface->offset);
+      assert(aux_surface_end <= plane->fast_clear_state_offset);
+      assert(plane->fast_clear_state_offset < plane->size);
+   } else if (has_aux_surface &&
+              !(image->aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV)) {
+      assert(has_aux_usage);
+
+      /* Everything lives in the plane's bo. Image has no fast clear state. */
+      assert(primary_surface_end <= aux_surface->offset);
+      assert(aux_surface_end <= plane->size);
+      assert(plane->fast_clear_state_offset == 0);
+   }
+
    assert(plane_end == image->size);
 #endif
 }
@@ -957,6 +1024,9 @@ anv_DestroyImage(VkDevice _device, VkImage _image,
    if (!image)
       return;
 
+   if (image->aux_private.bo)
+      anv_device_release_bo(device, image->aux_private.bo);
+
    for (uint32_t p = 0; p < image->n_planes; ++p) {
       if (image->planes[p].bo_is_owned) {
          assert(image->planes[p].address.bo != NULL);
@@ -1076,6 +1146,7 @@ VkResult anv_BindImageMemory(
    ANV_FROM_HANDLE(anv_device, device, _device);
    ANV_FROM_HANDLE(anv_device_memory, mem, _memory);
    ANV_FROM_HANDLE(anv_image, image, _image);
+   VkResult result;
 
    if (mem->ahw)
       resolve_ahw_image(device, image, mem);
@@ -1087,6 +1158,15 @@ VkResult anv_BindImageMemory(
       anv_image_bind_memory_plane(device, image, plane, mem, memoryOffset);
    }
 
+   if (image->aux_private.size > 0) {
+      result = anv_device_alloc_bo(device, image->aux_private.size,
+                                   0 /* flags */,
+                                   0 /* explicit_address */,
+                                   &image->aux_private.bo);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
    return VK_SUCCESS;
 }
 
@@ -1096,11 +1176,21 @@ VkResult anv_BindImageMemory2(
     const VkBindImageMemoryInfo*                pBindInfos)
 {
    ANV_FROM_HANDLE(anv_device, device, _device);
+   VkResult result;
 
    for (uint32_t i = 0; i < bindInfoCount; i++) {
       const VkBindImageMemoryInfo *bind_info = &pBindInfos[i];
       ANV_FROM_HANDLE(anv_device_memory, mem, bind_info->memory);
       ANV_FROM_HANDLE(anv_image, image, bind_info->image);
+
+      if (image->aux_private.size > 0 && !image->aux_private.bo) {
+         result = anv_device_alloc_bo(device, image->aux_private.size,
+                                      0 /* flags */,
+                                      0 /* explicit_address */,
+                                      &image->aux_private.bo);
+         if (result != VK_SUCCESS)
+            return result;
+      }
 
       /* Resolve will alter the image's aspects, do this first. */
       if (mem && mem->ahw)

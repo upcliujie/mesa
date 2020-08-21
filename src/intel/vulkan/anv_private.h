@@ -3717,7 +3717,14 @@ struct anv_surface {
    struct isl_surf isl;
 
    /**
-    * Offset from VkImage's base address, as bound by vkBindImageMemory().
+    * If this is an aux surface and anv_image::aux_private::has_aux_surface,
+    * then this offset is relative to anv_image::aux_private::bo.
+    *
+    * If anv_image::disjoint, then this offset is relative to the base address
+    * of anv_image_plane as bound by vkBindImageMemory2().
+    *
+    * Otherwise, this offset is relative to the VkImage's base address, as bound
+    * by vkBindImageMemory().
     */
    uint32_t offset;
 };
@@ -3758,7 +3765,9 @@ struct anv_image {
     */
    uint64_t drm_format_mod;
 
+   /** Does not include aux_private::size. */
    VkDeviceSize size;
+
    uint32_t alignment;
 
    /* Whether the image is made of several underlying buffer objects rather a
@@ -3768,6 +3777,76 @@ struct anv_image {
 
    /* Image was created with external format. */
    bool external_format;
+
+   /**
+    * A driver-private BO for aux state and aux surfaces, used when the image
+    * has a DRM format modifier.
+    *
+    *
+    * Contents
+    * --------
+    * If the DRM format modifier supports an aux surface (such as
+    * I915_FORMAT_MOD_Y_TILED_CCS), the bo contains:
+    *   - fast_clear_state
+    *
+    * If the DRM format modifier does not support an aux surface, but the
+    * hardware does (such as I915_FORMAT_MOD_TILED_Y +
+    * VK_FORMAT_R8G8B8A8_UNORM), then the bo contains:
+    *   - fast_clear_state
+    *   - aux_surface
+    *
+    *
+    * Rationale
+    * ---------
+    * For fast clear state:
+    *    If the app imports memory for an image with a DRM format modifier, the
+    *    image's allocator may not have added sufficient padding to accommodate
+    *    the fast clear state. Therefore, VkImageMemoryRequirements must not
+    *    contain the fast clear state size; otherwise, the imported dma_buf
+    *    would be too small for vkBindImageMemory. To workaround this, we place
+    *    the fast clear state in the driver-private bo.
+    *
+    * For the aux surface:
+    *    If the modifier does not support an aux surface, but the hardware does
+    *    support aux for the image's format and tiling, then we still allocate
+    *    and use an aux surface because we want the performance benefit. Similar
+    *    to the workaround for fast clear state, we place the aux surface in the
+    *    driver-private bo.
+    *
+    *    For example, suppose the app creates an image with
+    *    VK_FORMAT_R8G8B8A8_UNORM and I915_FORMAT_MOD_Y_TILED on Gen9. Even
+    *    though the modifier itself does not support an aux surface (as opposed
+    *    to I915_FORMAT_MOD_Y_TILED_CCS, which does), the hardware *does*
+    *    support CCS for Y-tiled r8g8b8a8_unorm. Therefore, we allocate
+    *    an aux surface in the driver-private bo.
+    *
+    *    The primary motivation for the driver-private aux surface is to provide
+    *    performance-parity with OpenGL when using a VkSwapchain with a winsys
+    *    that (a) has no support for modifiers or (b) supports no aux-enabled
+    *    modifier, such as I915_FORMAT_MOD_Y_TILED_CCS.
+    *
+    *    The winsys implementation may be provided by a Vulkan layer that
+    *    implements it atop non-swapchain VkImages,
+    *    VK_EXT_image_drm_format_modifier, and VK_EXT_external_memory_dma_buf.
+    *    Therefore, to fully satisfy the performance goals for winsys interop,
+    *    we must use a driver-private aux surface for swapchain images *and*
+    *    non-swapchain VkImages.
+    */
+   struct {
+      /**
+       * The image owns the bo. Allocated in vkBindImageMemory if
+       * aux_private::size != 0.
+       */
+      struct anv_bo *bo;
+
+      /**
+       * This size is not included in anv_image::size nor anv_image_plane::size.
+       */
+      VkDeviceSize size;
+
+      bool has_fast_clear_state:1;
+      bool has_aux_surface:1;
+   } aux_private;
 
    /**
     * Image subsurfaces
@@ -3789,21 +3868,26 @@ struct anv_image {
     * -----------------------    |
     * |   shadow surface0   |    |
     * -----------------------    | Plane 0
-    * |    aux surface0     |    |
+    * |    aux surface0 †   |    |
     * -----------------------    |
-    * | fast clear colors0  |   \|/
+    * |fast clear colors0 ‡ |   \|/
     * -----------------------
     * |     surface1        |   /|\
     * -----------------------    |
     * |   shadow surface1   |    |
     * -----------------------    | Plane 1
-    * |    aux surface1     |    |
+    * |    aux surface1 †   |    |
     * -----------------------    |
-    * | fast clear colors1  |   \|/
+    * |fast clear colors1 ‡ |   \|/
     * -----------------------
     * |        ...          |
     * |                     |
     * -----------------------
+    *
+    * Footnotes:
+    *
+    *   † Placed in aux_private::bo if aux_private::has_aux_surface .
+    *   ‡ Placed in aux_private::bo if aux_private::has_fast_clear_state .
     */
    struct anv_image_plane {
       /**
@@ -3812,7 +3896,9 @@ struct anv_image {
        */
       uint32_t offset;
 
+      /** Does not include aux_private::size. */
       VkDeviceSize size;
+
       uint32_t alignment;
 
       struct anv_surface surface;
@@ -3831,11 +3917,17 @@ struct anv_image {
        */
       enum isl_aux_usage aux_usage;
 
+      /**
+       * If aux_private::has_aux_surface, then aux_surface::offset is relative
+       * to aux_private::bo.  Otherwise, the offset is relative to
+       * anv_image_plane::address.
+       */
       struct anv_surface aux_surface;
 
       /**
-       * Offset of the fast clear state (used to compute the
-       * fast_clear_state_offset of the following planes).
+       * If aux_private::has_fast_clear_state, then the offset is relative to
+       * aux_private::bo.  Otherwise, the offset is relative to the
+       * anv_image_plane::address.
        */
       uint32_t fast_clear_state_offset;
 
@@ -3902,8 +3994,16 @@ anv_image_get_aux_addr(UNUSED const struct anv_device *device,
    /* Aspect must have an aux surface. */
    assert(image->planes[plane].aux_surface.isl.size_B > 0);
 
-   return anv_address_add(image->planes[plane].address,
-                          image->planes[plane].aux_surface.offset);
+   uint32_t offset = image->planes[plane].aux_surface.offset;
+
+   if (image->aux_private.has_aux_surface) {
+      return (struct anv_address) {
+         .bo = image->aux_private.bo,
+         .offset = offset,
+      };
+   } else {
+      return anv_address_add(image->planes[plane].address, offset);
+   }
 }
 
 static inline struct anv_address
@@ -3914,8 +4014,16 @@ anv_image_get_clear_color_addr(UNUSED const struct anv_device *device,
    assert(image->aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV);
 
    uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
-   return anv_address_add(image->planes[plane].address,
-                          image->planes[plane].fast_clear_state_offset);
+   uint32_t offset = image->planes[plane].fast_clear_state_offset;
+
+   if (image->aux_private.has_fast_clear_state) {
+      return (struct anv_address) {
+         .bo = image->aux_private.bo,
+         .offset = offset,
+      };
+   } else {
+      return anv_address_add(image->planes[plane].address, offset);
+   }
 }
 
 static inline struct anv_address
@@ -3955,8 +4063,13 @@ anv_image_get_compression_state_addr(const struct anv_device *device,
    }
    addr.offset += array_layer * 4;
 
-   assert(addr.offset <
-          image->planes[plane].address.offset + image->planes[plane].size);
+   if (image->aux_private.has_fast_clear_state) {
+      assert(addr.offset < image->aux_private.size);
+   } else {
+      assert(addr.offset <
+             image->planes[plane].address.offset + image->planes[plane].size);
+   }
+
    return addr;
 }
 
