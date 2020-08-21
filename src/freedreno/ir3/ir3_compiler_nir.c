@@ -3295,7 +3295,11 @@ setup_output(struct ir3_context *ctx, nir_variable *out)
 
 	for (int i = 0; i < slots; i++) {
 		int slot_base = n + i;
-		so->outputs[slot_base].slot = slot + i;
+
+		if (out->data.per_view && i > 0)
+			so->outputs[slot_base].noslot = true;
+		else
+			so->outputs[slot_base].slot = slot + i;
 
 		for (int i = 0; i < ncomp; i++) {
 			unsigned idx = (slot_base * 4) + i + frac;

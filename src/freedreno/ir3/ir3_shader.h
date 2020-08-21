@@ -560,6 +560,11 @@ struct ir3_shader_variant {
 		uint8_t slot;
 		uint8_t regid;
 		bool    half : 1;
+		/* True if this is part of a per-view array and not the first element
+		 * of the array, in which case it doesn't really have its own slot and
+		 * we can mostly ignore it when linking.
+		 */
+		bool    noslot : 1;
 	} outputs[32 + 2];  /* +POSITION +PSIZE */
 	bool writes_pos, writes_smask, writes_psize, writes_stencilref;
 
@@ -788,7 +793,7 @@ ir3_find_output(const struct ir3_shader_variant *so, gl_varying_slot slot)
 	int j;
 
 	for (j = 0; j < so->outputs_count; j++)
-		if (so->outputs[j].slot == slot)
+		if (!so->outputs[j].noslot && so->outputs[j].slot == slot)
 			return j;
 
 	/* it seems optional to have a OUT.BCOLOR[n] for each OUT.COLOR[n]
@@ -811,7 +816,7 @@ ir3_find_output(const struct ir3_shader_variant *so, gl_varying_slot slot)
 	}
 
 	for (j = 0; j < so->outputs_count; j++)
-		if (so->outputs[j].slot == slot)
+		if (!so->outputs[j].noslot && so->outputs[j].slot == slot)
 			return j;
 
 	debug_assert(0);
@@ -926,7 +931,7 @@ ir3_find_output_regid(const struct ir3_shader_variant *so, unsigned slot)
 {
 	int j;
 	for (j = 0; j < so->outputs_count; j++)
-		if (so->outputs[j].slot == slot) {
+		if (!so->outputs[j].noslot && so->outputs[j].slot == slot) {
 			uint32_t regid = so->outputs[j].regid;
 			if (so->outputs[j].half)
 				regid |= HALF_REG_ID;

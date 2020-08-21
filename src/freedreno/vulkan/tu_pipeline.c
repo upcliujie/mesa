@@ -745,6 +745,7 @@ tu6_emit_vpc(struct tu_cs *cs,
              const struct ir3_shader_variant *gs,
              const struct ir3_shader_variant *fs,
              uint32_t patch_control_points,
+             unsigned extra_pos,
              bool vshs_workgroup)
 {
    /* note: doesn't compile as static because of the array regs.. */
@@ -825,8 +826,8 @@ tu6_emit_vpc(struct tu_cs *cs,
    tu_cs_emit(cs, ~linkage.varmask[3]);
 
    /* a6xx finds position/pointsize at the end */
-   const uint32_t position_regid =
-      ir3_find_output_regid(last_shader, VARYING_SLOT_POS);
+   const int position_idx =
+      ir3_find_output(last_shader, VARYING_SLOT_POS);
    const uint32_t pointsize_regid =
       ir3_find_output_regid(last_shader, VARYING_SLOT_PSIZ);
    const uint32_t layer_regid =
@@ -841,9 +842,13 @@ tu6_emit_vpc(struct tu_cs *cs,
       layer_loc = linkage.max_loc;
       ir3_link_add(&linkage, layer_regid, 0x1, linkage.max_loc);
    }
-   if (position_regid != regid(63, 0)) {
+   if (position_idx >= 0) {
       position_loc = linkage.max_loc;
-      ir3_link_add(&linkage, position_regid, 0xf, linkage.max_loc);
+
+      for (unsigned i = 0; i <= extra_pos; i++) {
+         ir3_link_add(&linkage, last_shader->outputs[position_idx + i].regid,
+                      0xf, linkage.max_loc);
+      }
    }
    if (pointsize_regid != regid(63, 0)) {
       pointsize_loc = linkage.max_loc;
@@ -883,7 +888,8 @@ tu6_emit_vpc(struct tu_cs *cs,
    tu_cs_emit_pkt4(cs, cfg->reg_vpc_xs_pack, 1);
    tu_cs_emit(cs, A6XX_VPC_VS_PACK_POSITIONLOC(position_loc) |
                   A6XX_VPC_VS_PACK_PSIZELOC(pointsize_loc) |
-                  A6XX_VPC_VS_PACK_STRIDE_IN_VPC(linkage.max_loc));
+                  A6XX_VPC_VS_PACK_STRIDE_IN_VPC(linkage.max_loc) |
+                  A6XX_VPC_VS_PACK_EXTRAPOS(extra_pos));
 
    tu_cs_emit_pkt4(cs, cfg->reg_vpc_xs_clip_cntl, 1);
    tu_cs_emit(cs, 0xffff00);
@@ -1389,6 +1395,7 @@ tu6_emit_program(struct tu_cs *cs,
    gl_shader_stage stage = MESA_SHADER_VERTEX;
    uint32_t cps_per_patch = builder->create_info->pTessellationState ?
       builder->create_info->pTessellationState->patchControlPoints : 0;
+   bool multi_pos_output = builder->shaders[MESA_SHADER_VERTEX]->multi_pos_output;
 
    STATIC_ASSERT(MESA_SHADER_VERTEX == 0);
 
@@ -1422,7 +1429,7 @@ tu6_emit_program(struct tu_cs *cs,
    uint32_t multiview_cntl = builder->multiview_mask ?
       A6XX_PC_MULTIVIEW_CNTL_ENABLE |
       A6XX_PC_MULTIVIEW_CNTL_VIEWS(multiview_views) |
-      A6XX_PC_MULTIVIEW_CNTL_DISABLEMULTIPOS /* TODO multi-pos output */
+      COND(!multi_pos_output, A6XX_PC_MULTIVIEW_CNTL_DISABLEMULTIPOS)
       : 0;
 
    /* Copy what the blob does here. This will emit an extra 0x3f
@@ -1446,7 +1453,9 @@ tu6_emit_program(struct tu_cs *cs,
    tu_cs_emit_pkt4(cs, REG_A6XX_SP_HS_UNKNOWN_A831, 1);
    tu_cs_emit(cs, 0);
 
-   tu6_emit_vpc(cs, vs, hs, ds, gs, fs, cps_per_patch,
+   unsigned extra_pos = multi_pos_output ? util_logbase2(builder->multiview_mask) : 0;
+
+   tu6_emit_vpc(cs, vs, hs, ds, gs, fs, cps_per_patch, extra_pos,
                 builder->device->physical_device->gpu_id == 650);
    tu6_emit_vpc_varying_modes(cs, fs);
 

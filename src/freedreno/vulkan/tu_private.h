@@ -1077,6 +1077,7 @@ struct tu_shader
 
    struct tu_push_constant_range push_consts;
    uint8_t active_desc_sets;
+   bool multi_pos_output;
 };
 
 bool
@@ -1203,6 +1204,7 @@ tu6_emit_vpc(struct tu_cs *cs,
              const struct ir3_shader_variant *gs,
              const struct ir3_shader_variant *fs,
              uint32_t patch_control_points,
+             unsigned extra_pos,
              bool vshs_workgroup);
 
 void
