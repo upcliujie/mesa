@@ -73,11 +73,19 @@ zink_create_gfx_pipeline(struct zink_screen *screen,
    }
 
    VkPipelineColorBlendStateCreateInfo blend_state = {};
+   VkPipelineColorBlendAdvancedStateCreateInfoEXT advanced_blend_state = {};
    blend_state.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
    blend_state.pAttachments = state->blend_state->attachments;
    blend_state.attachmentCount = state->num_attachments;
    blend_state.logicOpEnable = state->blend_state->logicop_enable;
    blend_state.logicOp = state->blend_state->logicop_func;
+   if (state->blend_state->advanced_blend) {
+      blend_state.pNext = &advanced_blend_state;
+      advanced_blend_state.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_ADVANCED_STATE_CREATE_INFO_EXT;
+      advanced_blend_state.blendOverlap = VK_BLEND_OVERLAP_UNCORRELATED_EXT;
+      advanced_blend_state.srcPremultiplied = VK_TRUE;
+      advanced_blend_state.dstPremultiplied = VK_TRUE;
+   }
 
    VkPipelineMultisampleStateCreateInfo ms_state = {};
    ms_state.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
