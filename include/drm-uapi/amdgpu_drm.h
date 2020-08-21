@@ -551,6 +551,7 @@ struct drm_amdgpu_gem_va {
 #define AMDGPU_CHUNK_ID_SCHEDULED_DEPENDENCIES	0x07
 #define AMDGPU_CHUNK_ID_SYNCOBJ_TIMELINE_WAIT    0x08
 #define AMDGPU_CHUNK_ID_SYNCOBJ_TIMELINE_SIGNAL  0x09
+#define AMDGPU_CHUNK_ID_TRAP            0x0a
 
 struct drm_amdgpu_cs_chunk {
 	__u32		chunk_id;
@@ -643,6 +644,13 @@ struct drm_amdgpu_cs_chunk_syncobj {
        __u32 handle;
        __u32 flags;
        __u64 point;
+};
+
+struct drm_amdgpu_cs_chunk_trap {
+	/** Trap Base Address */
+       __u64 tba_addr;
+	/** Trap Memory Address */
+       __u64 tma_addr;
 };
 
 #define AMDGPU_FENCE_TO_HANDLE_GET_SYNCOBJ	0
