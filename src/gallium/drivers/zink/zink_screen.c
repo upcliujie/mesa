@@ -193,6 +193,9 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_VERTEX_ELEMENT_INSTANCE_DIVISOR:
       return screen->info.have_EXT_vertex_attribute_divisor;
 
+   case PIPE_CAP_BLEND_EQUATION_ADVANCED:
+      return screen->info.have_EXT_blend_operation_advanced;
+
    case PIPE_CAP_MAX_VERTEX_STREAMS:
       return screen->info.tf_props.maxTransformFeedbackStreams;
 
