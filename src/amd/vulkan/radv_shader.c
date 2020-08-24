@@ -1429,6 +1429,7 @@ shader_variant_compile(struct radv_device *device, struct vk_shader_module *modu
    options->has_image_load_dcc_bug = device->physical_device->rad_info.has_image_load_dcc_bug;
    options->debug.func = radv_compiler_debug;
    options->debug.private_data = &debug_data;
+   options->enable_user_trap = stage == MESA_SHADER_VERTEX && !module->nir;
 
    switch (device->force_vrs) {
    case RADV_FORCE_VRS_2x2:

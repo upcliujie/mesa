@@ -151,6 +151,8 @@ struct radv_nir_compiler_options {
       void (*func)(void *private_data, enum radv_compiler_debug_level level, const char *message);
       void *private_data;
    } debug;
+
+   bool enable_user_trap;
 };
 
 enum radv_ud_index {

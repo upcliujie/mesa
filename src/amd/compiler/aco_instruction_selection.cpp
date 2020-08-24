@@ -11343,6 +11343,14 @@ void select_program(Program *program,
    append_logical_end(ctx.block);
    ctx.block->kind |= block_kind_uniform;
    Builder bld(ctx.program, ctx.block);
+
+   if (ctx.args->options->enable_user_trap) {
+      aco_ptr<SOPP_instruction> trap{create_instruction<SOPP_instruction>(aco_opcode::s_trap, Format::SOPP, 0, 0)};
+      trap->imm = 2;
+      trap->block = -1;
+      ctx.block->instructions.emplace_back(std::move(trap));
+   }
+
    bld.sopp(aco_opcode::s_endpgm);
 
    cleanup_cfg(program);
