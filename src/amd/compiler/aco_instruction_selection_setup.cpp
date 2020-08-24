@@ -721,6 +721,19 @@ void init_context(isel_context *ctx, nir_shader *shader)
                   case nir_op_cube_face_coord:
                      type = RegType::vgpr;
                      break;
+                  case nir_op_iadd:
+                  case nir_op_isub:
+                  case nir_op_imul:
+                  case nir_op_imin:
+                  case nir_op_imax:
+                  case nir_op_umin:
+                  case nir_op_umax:
+                  case nir_op_ishl:
+                  case nir_op_ishr:
+                  case nir_op_ushr:
+                     /* packed 16bit instructions have to be VGPR */
+                     type = alu_instr->dest.dest.ssa.num_components == 2 ? RegType::vgpr : RegType::sgpr;
+                     break;
                   case nir_op_f2i16:
                   case nir_op_f2u16:
                   case nir_op_f2i32:
