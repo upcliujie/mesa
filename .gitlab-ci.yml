@@ -243,7 +243,7 @@ x86_build-base:
     - .fdo.container-build@debian
     - .container
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_build-base "2020-11-05-kmod"
+    FDO_DISTRIBUTION_TAG: &x86_build-base "2020-11-07-use-ephemeral"
 
 .use-x86_build-base:
   extends:
@@ -261,7 +261,7 @@ x86_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_build "2020-11-05-kmod"
+    FDO_DISTRIBUTION_TAG: &x86_build "2020-11-07-use-ephemeral"
 
 .use-x86_build:
   variables:
@@ -276,7 +276,7 @@ i386_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &i386_build "2020-11-05-kmod"
+    FDO_DISTRIBUTION_TAG: &i386_build "2020-11-07-use-ephemeral"
 
 .use-i386_build:
   variables:
@@ -291,7 +291,7 @@ ppc64el_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &ppc64el_build "2020-11-05-kmod"
+    FDO_DISTRIBUTION_TAG: &ppc64el_build "2020-11-07-use-ephemeral"
 
 .use-ppc64el_build:
   variables:
@@ -306,7 +306,7 @@ s390x_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &s390x_build "2020-11-05-kmod"
+    FDO_DISTRIBUTION_TAG: &s390x_build "2020-11-07-use-ephemeral"
 
 .use-s390x_build:
   variables:
