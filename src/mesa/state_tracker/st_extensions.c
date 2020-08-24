@@ -72,7 +72,6 @@ static int _clamp(int a, int min, int max)
       return a;
 }
 
-
 /**
  * Query driver to get implementation limits.
  * Note that we have to limit/clamp against Mesa's internal limits too.
