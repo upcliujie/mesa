@@ -32,7 +32,7 @@
 #define SMEM_WINDOW_SIZE (350 - ctx.num_waves * 35)
 #define VMEM_WINDOW_SIZE (1024 - ctx.num_waves * 64)
 #define POS_EXP_WINDOW_SIZE 512
-#define SMEM_MAX_MOVES (64 - ctx.num_waves * 4)
+#define SMEM_MAX_MOVES (128 - ctx.num_waves * 8)
 #define VMEM_MAX_MOVES (128 - ctx.num_waves * 8)
 /* creating clauses decreases def-use distances, so make it less aggressive the lower num_waves is */
 #define VMEM_CLAUSE_MAX_GRAB_DIST ((ctx.num_waves - 1) * 8)
@@ -342,7 +342,7 @@ memory_sync_info get_sync_info_with_hack(const Instruction* instr)
    if (instr->format == Format::SMEM && !instr->operands.empty() && instr->operands[0].bytes() == 16) {
       // FIXME: currently, it doesn't seem beneficial to omit this due to how our scheduler works
       sync.storage = (storage_class)(sync.storage | storage_buffer);
-      sync.semantics = (memory_semantics)(sync.semantics | semantic_private);
+      sync.semantics = (memory_semantics)((sync.semantics | semantic_private) & ~semantic_can_reorder);
    }
    return sync;
 }
@@ -565,9 +565,9 @@ void schedule_SMEM(sched_ctx& ctx, Block* block,
       else if (haz != hazard_success)
          break;
 
-      /* don't use LDS/GDS instructions to hide latency since it can
-       * significanly worsen LDS scheduling */
-      if (candidate->format == Format::DS || !can_move_down) {
+      /* don't use LDS/GDS/SMEM instructions to hide latency since it can
+       * significanly worsen scheduling because these all use the same counter */
+      if (candidate->format == Format::DS || candidate->format == Format::SMEM || !can_move_down) {
          add_to_hazard_query(&hq, candidate.get());
          ctx.mv.downwards_skip();
          continue;

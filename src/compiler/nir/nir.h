@@ -4873,7 +4873,12 @@ bool nir_opt_comparison_pre_impl(nir_function_impl *impl);
 
 bool nir_opt_comparison_pre(nir_shader *shader);
 
-bool nir_opt_access(nir_shader *shader);
+typedef struct nir_opt_access_options {
+   bool is_vulkan;
+   bool infer_non_readable;
+} nir_opt_access_options;
+
+bool nir_opt_access(nir_shader *shader, const nir_opt_access_options *options);
 bool nir_opt_algebraic(nir_shader *shader);
 bool nir_opt_algebraic_before_ffma(nir_shader *shader);
 bool nir_opt_algebraic_late(nir_shader *shader);
@@ -4926,7 +4931,7 @@ bool nir_opt_loop_unroll(nir_shader *shader, nir_variable_mode indirect_mask);
 
 typedef enum {
     nir_move_const_undef = (1 << 0),
-    nir_move_load_ubo    = (1 << 1),
+    nir_move_load_buffer = (1 << 1),
     nir_move_load_input  = (1 << 2),
     nir_move_comparisons = (1 << 3),
     nir_move_copies      = (1 << 4),
