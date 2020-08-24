@@ -358,7 +358,7 @@ x86_test-gl:
 x86_test-vk:
   extends: .use-x86_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_test-vk "2020-11-08-piglit-replayer"
+    FDO_DISTRIBUTION_TAG: &x86_test-vk "2020-11-09-build-piglit"
 
 # Debian 9 based x86 build image (old LLVM)
 x86_build_old:
