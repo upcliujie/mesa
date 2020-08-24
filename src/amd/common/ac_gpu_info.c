@@ -1079,6 +1079,12 @@ bool ac_query_gpu_info(int fd, void *dev_p, struct radeon_info *info,
    info->num_physical_wave64_vgprs_per_simd = info->chip_class >= GFX10 ? 512 : 256;
    info->num_simd_per_compute_unit = info->chip_class >= GFX10 ? 2 : 4;
 
+   /* On GFX6-GFX8, the TBA/TMA registers can be configured from the
+    * userspace, while they are privileged on GFX9+ and has to be set
+    * from the KMD.
+    */
+   info->has_trap_handler = info->chip_class <= GFX8 || info->drm_minor >= 42;
+
    return true;
 }
 
@@ -1232,6 +1238,7 @@ void ac_print_gpu_info(struct radeon_info *info, FILE *f)
    fprintf(f, "    mid_command_buffer_preemption_enabled = %u\n",
            info->mid_command_buffer_preemption_enabled);
    fprintf(f, "    has_tmz_support = %u\n", info->has_tmz_support);
+   fprintf(f, "    has_trap_handler = %u\n", info->has_trap_handler);
 
    fprintf(f, "Shader core info:\n");
    fprintf(f, "    max_shader_clock = %i\n", info->max_shader_clock);

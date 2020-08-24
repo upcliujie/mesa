@@ -185,6 +185,7 @@ struct radeon_info {
    bool mid_command_buffer_preemption_enabled;
    bool has_tmz_support;
    bool kernel_has_modifiers;
+   bool has_trap_handler;
 
    /* Shader cores. */
    uint32_t cu_mask[4][2];
