@@ -11,7 +11,13 @@ pushd /piglit
 git checkout 5d3fbc00e32293d0b7029b986bfb99fa891c9bae
 patch -p1 <$OLDPWD/.gitlab-ci/piglit/disable-vs_in.diff
 cmake -S . -B . -G Ninja -DCMAKE_BUILD_TYPE=Release $PIGLIT_OPTS
-ninja
+ninja $PIGLIT_BUILD_TARGETS
 find -name .git -o -name '*ninja*' -o -iname '*cmake*' -o -name '*.[chao]' | xargs rm -rf
+if [ "x$PIGLIT_BUILD_TARGETS" = "xpiglit_replayer" ]; then
+    find ! -regex "^\.\/piglit.*" \
+         ! -regex "^\.\/framework.*" \
+         ! -regex "^\.\/bin\/replayer\.py" \
+         ! -regex "^\.\/tests\/replay\.py" | xargs rm -rf
+fi
 rm -rf target_api
 popd
