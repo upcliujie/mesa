@@ -15,6 +15,7 @@ STABLE_EPHEMERAL=" \
       liblz4-dev \
       libpng-dev \
       libvulkan-dev \
+      libwaffle-dev \
       libxcb-ewmh-dev \
       libxkbcommon-dev \
       libxrandr-dev \
@@ -22,6 +23,7 @@ STABLE_EPHEMERAL=" \
       libzstd-dev \
       meson \
       p7zip \
+      patch \
       pkg-config \
       python3-distutils \
       wget \
@@ -34,7 +36,9 @@ apt-get install -y --no-remove \
       libwayland-dev \
       libx11-xcb-dev \
       libxcb-keysyms1-dev \
-      libxcb1-dev
+      libxcb1-dev \
+      python3-lxml \
+      python3-simplejson
 
 # We need multiarch for Wine
 dpkg --add-architecture i386
@@ -106,6 +110,10 @@ wine \
 ############### Building ...
 
 . .gitlab-ci/container/container_pre_build.sh
+
+############### Build piglit
+
+PIGLIT_BUILD_TARGETS="piglit_replayer" . .gitlab-ci/build-piglit.sh
 
 ############### Build dEQP runner (and install rust temporarily for it)
 . .gitlab-ci/build-rust.sh
