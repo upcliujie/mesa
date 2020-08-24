@@ -531,13 +531,7 @@ st_translate_vertex_program(struct st_context *st,
                                                   MESA_SHADER_VERTEX);
          stp->Base.info = stp->Base.nir->info;
 
-         /* For st_draw_feedback, we need to generate TGSI too if draw doesn't
-          * use LLVM.
-          */
-         if (draw_has_llvm()) {
-            st_prepare_vertex_program(stp);
-            return true;
-         }
+         st_prepare_vertex_program(stp);
       }
    }
 
