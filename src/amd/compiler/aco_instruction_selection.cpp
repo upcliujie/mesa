@@ -11446,7 +11446,7 @@ void select_trap_handler_shader(Program *program, struct nir_shader *shader,
                                 ac_shader_config* config,
                                 struct radv_shader_args *args)
 {
-   assert(args->options->chip_class == GFX8);
+   assert(args->options->chip_class >= GFX8);
 
    init_program(program, compute_cs, args->shader_info,
                 args->options->chip_class, args->options->family, args->options->wgp_mode, config);
@@ -11467,13 +11467,31 @@ void select_trap_handler_shader(Program *program, struct nir_shader *shader,
 
    Builder bld(ctx.program, ctx.block);
 
-   /* Load the buffer descriptor from TMA. */
-   bld.smem(aco_opcode::s_load_dwordx4, Definition(PhysReg{ttmp4}, s4),
-            Operand(PhysReg{tma}, s2), Operand(0u));
+   if (ctx.program->chip_class >= GFX9) {
+      /* Get TMA. */
+      bld.sopk(aco_opcode::s_getreg_b32, Definition(PhysReg{ttmp10}, s1),
+               ((20 - 1) << 11) | 18);
+      bld.sop2(aco_opcode::s_lshl_b32, Definition(PhysReg{ttmp10}, s1),
+             Operand(PhysReg{ttmp10}, s1), Operand(8u));
+      bld.copy(Definition(PhysReg{ttmp11}, s1),
+               Operand((unsigned)ctx.options->address32_hi));
 
-   /* Store TTMP0-TTMP1. */
-   bld.smem(aco_opcode::s_buffer_store_dwordx2, Operand(PhysReg{ttmp4}, s4),
-            Operand(0u), Operand(PhysReg{ttmp0}, s2), memory_sync_info(), true);
+      /* Load the buffer descriptor from TMA. */
+      bld.smem(aco_opcode::s_load_dwordx4, Definition(PhysReg{ttmp4}, s4),
+               Operand(PhysReg{ttmp10}, s2), Operand(0u));
+
+      /* Store TTMP0-TTMP1. */
+      bld.smem(aco_opcode::s_buffer_store_dwordx2, Operand(PhysReg{ttmp4}, s4),
+               Operand(0u), Operand(PhysReg{tba}, s2), memory_sync_info(), true);
+   } else {
+      /* Load the buffer descriptor from TMA. */
+      bld.smem(aco_opcode::s_load_dwordx4, Definition(PhysReg{ttmp4}, s4),
+               Operand(PhysReg{tma}, s2), Operand(0u));
+
+      /* Store TTMP0-TTMP1. */
+      bld.smem(aco_opcode::s_buffer_store_dwordx2, Operand(PhysReg{ttmp4}, s4),
+               Operand(0u), Operand(PhysReg{ttmp0}, s2), memory_sync_info(), true);
+   }
 
    uint32_t hw_regs_idx[] = {
       2, /* HW_REG_STATUS */
