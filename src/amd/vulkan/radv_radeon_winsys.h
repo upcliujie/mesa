@@ -183,6 +183,11 @@ struct radv_winsys_sem_info {
    struct radv_winsys_sem_counts signal;
 };
 
+struct radv_winsys_trap_info {
+   uint64_t tba_addr;
+   uint64_t tma_addr;
+};
+
 struct radv_winsys_bo_list {
    struct radeon_winsys_bo **bos;
    unsigned count;
@@ -276,7 +281,8 @@ struct radeon_winsys {
                          struct radeon_cmdbuf **cs_array, unsigned cs_count,
                          struct radeon_cmdbuf *initial_preamble_cs,
                          struct radeon_cmdbuf *continue_preamble_cs,
-                         struct radv_winsys_sem_info *sem_info, bool can_patch);
+                         struct radv_winsys_sem_info *sem_info, bool can_patch,
+                         struct radv_winsys_trap_info *trap_info);
 
    void (*cs_add_buffer)(struct radeon_cmdbuf *cs, struct radeon_winsys_bo *bo);
 

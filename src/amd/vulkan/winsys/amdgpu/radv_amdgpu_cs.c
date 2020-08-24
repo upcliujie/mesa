@@ -130,7 +130,8 @@ struct radv_amdgpu_cs_request {
 
 static int radv_amdgpu_cs_submit(struct radv_amdgpu_ctx *ctx,
                                  struct radv_amdgpu_cs_request *request,
-                                 struct radv_winsys_sem_info *sem_info);
+                                 struct radv_winsys_sem_info *sem_info,
+                                 struct radv_winsys_trap_info *trap_info);
 
 static void
 radv_amdgpu_request_to_fence(struct radv_amdgpu_ctx *ctx, struct radv_amdgpu_fence *fence,
@@ -774,7 +775,8 @@ static VkResult
 radv_amdgpu_winsys_cs_submit_chained(struct radeon_winsys_ctx *_ctx, int queue_idx,
                                      struct radv_winsys_sem_info *sem_info,
                                      struct radeon_cmdbuf **cs_array, unsigned cs_count,
-                                     struct radeon_cmdbuf *initial_preamble_cs)
+                                     struct radeon_cmdbuf *initial_preamble_cs,
+                                     struct radv_winsys_trap_info *trap_info)
 {
    struct radv_amdgpu_ctx *ctx = radv_amdgpu_ctx(_ctx);
    struct radv_amdgpu_cs *cs0 = radv_amdgpu_cs(cs_array[0]);
@@ -834,7 +836,7 @@ radv_amdgpu_winsys_cs_submit_chained(struct radeon_winsys_ctx *_ctx, int queue_i
    request.num_handles = num_handles;
 
    /* Submit the CS. */
-   result = radv_amdgpu_cs_submit(ctx, &request, sem_info);
+   result = radv_amdgpu_cs_submit(ctx, &request, sem_info, trap_info);
 
    free(request.handles);
 
@@ -852,7 +854,8 @@ static VkResult
 radv_amdgpu_winsys_cs_submit_fallback(struct radeon_winsys_ctx *_ctx, int queue_idx,
                                       struct radv_winsys_sem_info *sem_info,
                                       struct radeon_cmdbuf **cs_array, unsigned cs_count,
-                                      struct radeon_cmdbuf *initial_preamble_cs)
+                                      struct radeon_cmdbuf *initial_preamble_cs,
+                                      struct radv_winsys_trap_info *trap_info)
 {
    struct radv_amdgpu_ctx *ctx = radv_amdgpu_ctx(_ctx);
    struct drm_amdgpu_bo_list_entry *handles = NULL;
@@ -911,7 +914,7 @@ radv_amdgpu_winsys_cs_submit_fallback(struct radeon_winsys_ctx *_ctx, int queue_
    request.ibs = ibs;
 
    /* Submit the CS. */
-   result = radv_amdgpu_cs_submit(ctx, &request, sem_info);
+   result = radv_amdgpu_cs_submit(ctx, &request, sem_info, trap_info);
 
    free(request.handles);
    free(ibs);
@@ -931,7 +934,8 @@ radv_amdgpu_winsys_cs_submit_sysmem(struct radeon_winsys_ctx *_ctx, int queue_id
                                     struct radv_winsys_sem_info *sem_info,
                                     struct radeon_cmdbuf **cs_array, unsigned cs_count,
                                     struct radeon_cmdbuf *initial_preamble_cs,
-                                    struct radeon_cmdbuf *continue_preamble_cs)
+                                    struct radeon_cmdbuf *continue_preamble_cs,
+                                    struct radv_winsys_trap_info *trap_info)
 {
    struct radv_amdgpu_ctx *ctx = radv_amdgpu_ctx(_ctx);
    struct radv_amdgpu_cs *cs0 = radv_amdgpu_cs(cs_array[0]);
@@ -1092,7 +1096,7 @@ radv_amdgpu_winsys_cs_submit_sysmem(struct radeon_winsys_ctx *_ctx, int queue_id
       request.ibs = ibs;
 
       sem_info->cs_emit_signal = (i == cs_count - cnt) ? emit_signal_sem : false;
-      result = radv_amdgpu_cs_submit(ctx, &request, sem_info);
+      result = radv_amdgpu_cs_submit(ctx, &request, sem_info, trap_info);
 
       free(request.handles);
       u_rwlock_rdunlock(&aws->global_bo_list.lock);
@@ -1120,7 +1124,8 @@ radv_amdgpu_winsys_cs_submit(struct radeon_winsys_ctx *_ctx, int queue_idx,
                              struct radeon_cmdbuf **cs_array, unsigned cs_count,
                              struct radeon_cmdbuf *initial_preamble_cs,
                              struct radeon_cmdbuf *continue_preamble_cs,
-                             struct radv_winsys_sem_info *sem_info, bool can_patch)
+                             struct radv_winsys_sem_info *sem_info, bool can_patch,
+                             struct radv_winsys_trap_info *trap_info)
 {
    struct radv_amdgpu_cs *cs = radv_amdgpu_cs(cs_array[0]);
    VkResult result;
@@ -1128,13 +1133,14 @@ radv_amdgpu_winsys_cs_submit(struct radeon_winsys_ctx *_ctx, int queue_idx,
    assert(sem_info);
    if (!cs->ws->use_ib_bos) {
       result = radv_amdgpu_winsys_cs_submit_sysmem(_ctx, queue_idx, sem_info, cs_array, cs_count,
-                                                   initial_preamble_cs, continue_preamble_cs);
+                                                   initial_preamble_cs, continue_preamble_cs,
+                                                   trap_info);
    } else if (can_patch) {
       result = radv_amdgpu_winsys_cs_submit_chained(_ctx, queue_idx, sem_info, cs_array, cs_count,
-                                                    initial_preamble_cs);
+                                                    initial_preamble_cs, trap_info);
    } else {
       result = radv_amdgpu_winsys_cs_submit_fallback(_ctx, queue_idx, sem_info, cs_array, cs_count,
-                                                     initial_preamble_cs);
+                                                     initial_preamble_cs, trap_info);
    }
 
    return result;
@@ -1441,22 +1447,26 @@ fail:
 
 static VkResult
 radv_amdgpu_cs_submit(struct radv_amdgpu_ctx *ctx, struct radv_amdgpu_cs_request *request,
-                      struct radv_winsys_sem_info *sem_info)
+                      struct radv_winsys_sem_info *sem_info, struct radv_winsys_trap_info *trap_info)
 {
    int r;
    int num_chunks;
    int size;
    struct drm_amdgpu_cs_chunk *chunks;
    struct drm_amdgpu_cs_chunk_data *chunk_data;
+   struct drm_amdgpu_cs_chunk_trap *trap = NULL;
    bool use_bo_list_create = ctx->ws->info.drm_minor < 27;
    struct drm_amdgpu_bo_list_in bo_list_in;
    void *wait_syncobj = NULL, *signal_syncobj = NULL;
    uint32_t *in_syncobjs = NULL;
+   bool user_trap;
    int i;
    uint32_t bo_list = 0;
    VkResult result = VK_SUCCESS;
 
-   size = request->number_of_ibs + 2 /* user fence */ + (!use_bo_list_create ? 1 : 0) + 3;
+   user_trap = trap_info && trap_info->tba_addr && trap_info->tma_addr;
+
+   size = request->number_of_ibs + 2 /* user fence */ + (!use_bo_list_create ? 1 : 0) + (user_trap ? 1 : 0) + 3;
 
    chunks = malloc(sizeof(chunks[0]) * size);
    if (!chunks)
@@ -1567,6 +1577,22 @@ radv_amdgpu_cs_submit(struct radv_amdgpu_ctx *ctx, struct radv_amdgpu_cs_request
       num_chunks++;
    }
 
+   if (user_trap) {
+      trap = malloc(sizeof(*trap));
+      if (!trap) {
+         result = VK_ERROR_OUT_OF_HOST_MEMORY;
+         goto error_out;
+      }
+
+      trap->tba_addr = trap_info->tba_addr;
+      trap->tma_addr = trap_info->tma_addr;
+
+      chunks[num_chunks].chunk_id = AMDGPU_CHUNK_ID_TRAP;
+      chunks[num_chunks].length_dw = sizeof(struct drm_amdgpu_cs_chunk_trap) / 4;
+      chunks[num_chunks].chunk_data = (uintptr_t)trap;
+      num_chunks++;
+   }
+
    r = amdgpu_cs_submit_raw2(ctx->ws->dev, ctx->ctx, bo_list, num_chunks, chunks, &request->seq_no);
 
    if (r) {
@@ -1597,6 +1623,7 @@ error_out:
    free(chunk_data);
    free(wait_syncobj);
    free(signal_syncobj);
+   free(trap);
    return result;
 }
 
