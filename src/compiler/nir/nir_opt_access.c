@@ -122,6 +122,7 @@ gather_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
       state->buffers_written = true;
       break;
 
+   case nir_intrinsic_group_memory_barrier:
    case nir_intrinsic_memory_barrier:
       state->buffer_barriers = true;
       state->image_barriers = true;
