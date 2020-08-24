@@ -4581,6 +4581,7 @@ radv_queue_submit_deferred(struct radv_deferred_queue_submission *submission,
    bool can_patch = true;
    uint32_t advance;
    struct radv_winsys_sem_info sem_info = {0};
+   struct radv_winsys_trap_info trap_info = {0};
    VkResult result;
    struct radeon_cmdbuf *initial_preamble_cs = NULL;
    struct radeon_cmdbuf *initial_flush_preamble_cs = NULL;
@@ -4618,10 +4619,16 @@ radv_queue_submit_deferred(struct radv_deferred_queue_submission *submission,
          goto fail;
    }
 
+   if (queue->device->trap_handler_shader) {
+      trap_info.tba_addr = radv_buffer_get_va(queue->device->trap_handler_shader->bo);
+      trap_info.tba_addr += queue->device->trap_handler_shader->bo_offset;
+      trap_info.tma_addr = radv_buffer_get_va(queue->device->tma_bo);
+   }
+
    if (!submission->cmd_buffer_count) {
       result = queue->device->ws->cs_submit(ctx, queue->queue_idx,
                                             &queue->device->empty_cs[queue->queue_family_index], 1,
-                                            NULL, NULL, &sem_info, false);
+                                            NULL, NULL, &sem_info, false, NULL);
       if (result != VK_SUCCESS)
          goto fail;
    } else {
@@ -4652,7 +4659,7 @@ radv_queue_submit_deferred(struct radv_deferred_queue_submission *submission,
 
          result = queue->device->ws->cs_submit(ctx, queue->queue_idx, cs_array + j, advance,
                                                initial_preamble, continue_preamble_cs, &sem_info,
-                                               can_patch);
+                                               can_patch, &trap_info);
          if (result != VK_SUCCESS) {
             free(cs_array);
             goto fail;
@@ -4871,7 +4878,7 @@ radv_queue_internal_submit(struct radv_queue *queue, struct radeon_cmdbuf *cs)
       return false;
 
    result =
-      queue->device->ws->cs_submit(ctx, queue->queue_idx, &cs, 1, NULL, NULL, &sem_info, false);
+      queue->device->ws->cs_submit(ctx, queue->queue_idx, &cs, 1, NULL, NULL, &sem_info, false, NULL);
    radv_free_sem_info(&sem_info);
    if (result != VK_SUCCESS)
       return false;
