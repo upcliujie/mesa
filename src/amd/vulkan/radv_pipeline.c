@@ -3415,7 +3415,9 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			nir_move_options move_opts = (nir_move_options)(
 				nir_move_const_undef | nir_move_load_ubo | nir_move_load_input |
 				nir_move_comparisons | nir_move_copies);
-			nir_opt_sink(nir[i], move_opts);
+			nir_move_options sink_opts = (nir_move_options)(
+				move_opts | nir_move_load_ssbo);
+			nir_opt_sink(nir[i], sink_opts);
 			nir_opt_move(nir[i], move_opts);
 
 			radv_stop_feedback(stage_feedbacks[i], false);
