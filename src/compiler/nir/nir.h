@@ -4931,7 +4931,7 @@ bool nir_opt_loop_unroll(nir_shader *shader, nir_variable_mode indirect_mask);
 
 typedef enum {
     nir_move_const_undef = (1 << 0),
-    nir_move_load_ubo    = (1 << 1),
+    nir_move_load_buffer = (1 << 1),
     nir_move_load_input  = (1 << 2),
     nir_move_comparisons = (1 << 3),
     nir_move_copies      = (1 << 4),

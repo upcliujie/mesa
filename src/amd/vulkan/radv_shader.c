@@ -245,7 +245,7 @@ radv_optimize_nir(struct nir_shader *shader, bool optimize_conservatively,
         } while (progress && !optimize_conservatively);
 
 	NIR_PASS(progress, shader, nir_opt_conditional_discard);
-        NIR_PASS(progress, shader, nir_opt_move, nir_move_load_ubo);
+        NIR_PASS(progress, shader, nir_opt_move, nir_move_load_buffer);
 }
 
 static void
@@ -622,6 +622,12 @@ radv_shader_compile_to_nir(struct radv_device *device,
 	 * to remove any copies introduced by nir_opt_find_array_copies().
 	 */
 	nir_lower_var_copies(nir);
+
+	const nir_opt_access_options opt_access_options = {
+		.is_vulkan = true,
+		.infer_non_readable = true,
+	};
+	NIR_PASS_V(nir, nir_opt_access, &opt_access_options);
 
 	NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_push_const,
 		   nir_address_format_32bit_offset);

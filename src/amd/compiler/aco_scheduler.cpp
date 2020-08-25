@@ -342,7 +342,7 @@ memory_sync_info get_sync_info_with_hack(const Instruction* instr)
    if (instr->format == Format::SMEM && !instr->operands.empty() && instr->operands[0].bytes() == 16) {
       // FIXME: currently, it doesn't seem beneficial to omit this due to how our scheduler works
       sync.storage = (storage_class)(sync.storage | storage_buffer);
-      sync.semantics = (memory_semantics)(sync.semantics | semantic_private);
+      sync.semantics = (memory_semantics)((sync.semantics | semantic_private) & ~semantic_can_reorder);
    }
    return sync;
 }
@@ -554,7 +554,11 @@ void schedule_SMEM(sched_ctx& ctx, Block* block,
       /* break when encountering another MEM instruction, logical_start or barriers */
       if (candidate->opcode == aco_opcode::p_logical_start)
          break;
-      if (candidate->isVMEM())
+      /* only move VMEM instructions below descriptor loads */
+      if (candidate->isVMEM() && (ctx.mv.insert_idx - candidate_idx > 6 || current->operands[0].size() == 4))
+         break;
+      /* don't move descriptor loads below buffer loads */
+      if (candidate->format == Format::SMEM && current->operands[0].size() == 4 && candidate->operands[0].size() == 2)
          break;
 
       bool can_move_down = true;
