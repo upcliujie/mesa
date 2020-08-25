@@ -174,28 +174,47 @@ process_variable(struct access_state *state, nir_variable *var)
 }
 
 static bool
-can_reorder(struct access_state *state, enum gl_access_qualifier access,
-            bool is_buffer, bool is_ssbo)
+update_access(struct access_state *state, nir_intrinsic_instr *instr, bool is_image, bool is_buffer)
 {
-   bool is_any_written = is_buffer ? state->buffers_written :
-      state->images_written;
+   enum gl_access_qualifier access = nir_intrinsic_access(instr);
 
-   /* Can we guarantee that the underlying memory is never written? */
-   if (!is_any_written ||
-       ((access & ACCESS_NON_WRITEABLE) &&
-        (access & ACCESS_RESTRICT))) {
-      /* Note: memoryBarrierBuffer() is only guaranteed to flush buffer
-       * variables and not imageBuffer's, so we only consider the GL-level
-       * type here.
+   bool is_restrict = access & ACCESS_RESTRICT;
+   bool is_var_readonly = access & ACCESS_NON_WRITEABLE;
+
+   if (instr->intrinsic == nir_intrinsic_bindless_image_load) {
+      /* We have less information about bindless intrinsics, since we can't
+       * always trace uses back to the variable. Don't try and infer if it's
+       * read-only, unless there are no image writes at all.
        */
-      bool is_any_barrier = is_ssbo ?
-         state->buffer_barriers : state->image_barriers;
-
-      return (!is_any_barrier || !(access & ACCESS_COHERENT)) &&
-          !(access & ACCESS_VOLATILE);
+      is_var_readonly |=
+         is_buffer ? !state->buffers_written : !state->images_written;
+   } else {
+      const nir_variable *var = nir_intrinsic_get_var(instr, 0);
+      is_restrict |= var->data.access & ACCESS_RESTRICT;
+      is_var_readonly |= var->data.access & ACCESS_NON_WRITEABLE;
    }
 
-   return false;
+   bool is_memory_readonly = is_var_readonly && is_restrict;
+   is_memory_readonly |= is_buffer ? !state->buffers_written : !state->images_written;
+
+   /* Note: memoryBarrierBuffer() is only guaranteed to flush buffer
+    * variables and not imageBuffer's, so we only consider the GL-level
+    * type here.
+    */
+   bool is_any_barrier = is_image ?
+      state->image_barriers : state->buffer_barriers;
+   bool coherent = access & ACCESS_COHERENT;
+   if ((!is_any_barrier || !coherent) &&
+       !(access & ACCESS_VOLATILE) &&
+       is_memory_readonly)
+      access |= ACCESS_CAN_REORDER;
+
+   if (is_var_readonly)
+      access |= ACCESS_NON_WRITEABLE;
+
+   bool progress = nir_intrinsic_access(instr) != access;
+   nir_intrinsic_set_access(instr, access);
+   return progress;
 }
 
 static bool
@@ -203,72 +222,24 @@ process_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
 {
    switch (instr->intrinsic) {
    case nir_intrinsic_bindless_image_load:
-      if (nir_intrinsic_access(instr) & ACCESS_CAN_REORDER)
+      return update_access(state, instr, true,
+                           nir_intrinsic_image_dim(instr) == GLSL_SAMPLER_DIM_BUF);
+
+   case nir_intrinsic_load_deref: {
+      nir_variable *var = nir_intrinsic_get_var(instr, 0);
+      if (var->data.mode != nir_var_mem_ssbo)
          return false;
 
-      /* We have less information about bindless intrinsics, since we can't
-       * always trace uses back to the variable. Don't try and infer if it's
-       * read-only, unless there are no image writes at all.
-       */
-      bool progress = false;
-      bool is_buffer =
-         nir_intrinsic_image_dim(instr) == GLSL_SAMPLER_DIM_BUF;
+      return update_access(state, instr, false, true);
+   }
 
-      bool is_any_written =
-         is_buffer ? state->buffers_written : state->images_written;
-
-      if (!(nir_intrinsic_access(instr) & ACCESS_NON_WRITEABLE) &&
-          !is_any_written) {
-         progress = true;
-         nir_intrinsic_set_access(instr,
-                                  nir_intrinsic_access(instr) |
-                                  ACCESS_NON_WRITEABLE);
-      }
-
-      if (can_reorder(state, nir_intrinsic_access(instr), is_buffer, false)) {
-         progress = true;
-         nir_intrinsic_set_access(instr,
-                                  nir_intrinsic_access(instr) |
-                                  ACCESS_CAN_REORDER);
-      }
-
-      return progress;
-
-   case nir_intrinsic_load_deref:
    case nir_intrinsic_image_deref_load: {
       nir_variable *var = nir_intrinsic_get_var(instr, 0);
 
-      if (instr->intrinsic == nir_intrinsic_load_deref &&
-          var->data.mode != nir_var_mem_ssbo)
-         return false;
-
-      if (nir_intrinsic_access(instr) & ACCESS_CAN_REORDER)
-         return false;
-
-      bool progress = false;
-
-      /* Check if we were able to mark the whole variable non-writeable */
-      if (!(nir_intrinsic_access(instr) & ACCESS_NON_WRITEABLE) &&
-          var->data.access & ACCESS_NON_WRITEABLE) {
-         progress = true;
-         nir_intrinsic_set_access(instr,
-                                  nir_intrinsic_access(instr) |
-                                  ACCESS_NON_WRITEABLE);
-      }
-
-      bool is_ssbo = var->data.mode == nir_var_mem_ssbo;
-
-      bool is_buffer = is_ssbo ||
+      bool is_buffer =
          glsl_get_sampler_dim(glsl_without_array(var->type)) == GLSL_SAMPLER_DIM_BUF;
 
-      if (can_reorder(state, nir_intrinsic_access(instr), is_buffer, is_ssbo)) {
-         progress = true;
-         nir_intrinsic_set_access(instr,
-                                  nir_intrinsic_access(instr) |
-                                  ACCESS_CAN_REORDER);
-      }
-
-      return progress;
+      return update_access(state, instr, true, is_buffer);
    }
 
    default:
