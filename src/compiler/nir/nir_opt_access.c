@@ -41,6 +41,10 @@
  */
 
 struct access_state {
+   nir_shader *shader;
+   bool is_vulkan;
+
+   struct set *vulkan_vars;
    struct set *vars_written;
    bool images_written;
    bool buffers_written;
@@ -48,10 +52,64 @@ struct access_state {
    bool buffer_barriers;
 };
 
+static uint32_t
+vulkan_var_hash(const void *var_)
+{
+   const nir_variable *var = var_;
+   uint32_t data[2] = {var->data.descriptor_set, var->data.binding};
+   return XXH32(data, sizeof(data), 0);
+}
+
+static bool
+vulkan_var_equals(const void *a_, const void *b_)
+{
+   const nir_variable *a = a_;
+   const nir_variable *b = b_;
+   return a->data.descriptor_set == b->data.descriptor_set &&
+          a->data.binding == b->data.binding;
+}
+
+static const nir_variable *
+get_variable(struct access_state *state, nir_ssa_def *def)
+{
+   while (def->parent_instr->type == nir_instr_type_deref) {
+      nir_deref_instr *deref = nir_instr_as_deref(def->parent_instr);
+
+      if (deref->deref_type == nir_deref_type_var)
+         return deref->var;
+
+      def = deref->parent.ssa;
+   }
+
+   assert(state->is_vulkan);
+
+   if (def->parent_instr->type != nir_instr_type_intrinsic)
+      return NULL;
+
+   /* skip load_vulkan_descriptor */
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(def->parent_instr);
+   if (intrin->intrinsic == nir_intrinsic_load_vulkan_descriptor) {
+      intrin = nir_src_as_intrinsic(intrin->src[0]);
+      if (!intrin)
+         return NULL;
+   }
+
+   /* lookup the variable */
+   if (intrin->intrinsic != nir_intrinsic_vulkan_resource_index)
+      return NULL;
+
+   nir_variable key;
+   key.data.descriptor_set = nir_intrinsic_desc_set(intrin);
+   key.data.binding = nir_intrinsic_binding(intrin);
+   struct set_entry *entry = _mesa_set_search(state->vulkan_vars, &key);
+
+   return entry ? entry->key : NULL;
+}
+
 static void
 gather_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
 {
-   nir_variable *var;
+   const nir_variable *var;
    switch (instr->intrinsic) {
    case nir_intrinsic_image_deref_store:
    case nir_intrinsic_image_deref_atomic_add:
@@ -164,7 +222,10 @@ process_variable(struct access_state *state, nir_variable *var)
    if (var->data.access & ACCESS_CAN_REORDER)
       return false;
 
-   if (!(var->data.access & ACCESS_NON_WRITEABLE) &&
+   bool restrict_or_gl = (var->data.access & ACCESS_RESTRICT) ||
+                         !state->is_vulkan;
+
+   if (!(var->data.access & ACCESS_NON_WRITEABLE) && restrict_or_gl &&
        !_mesa_set_search(state->vars_written, var)) {
       var->data.access |= ACCESS_NON_WRITEABLE;
       return true;
@@ -186,16 +247,24 @@ update_access(struct access_state *state, nir_intrinsic_instr *instr, bool is_im
        * always trace uses back to the variable. Don't try and infer if it's
        * read-only, unless there are no image writes at all.
        */
+      assert(!state->is_vulkan);
       is_var_readonly |=
          is_buffer ? !state->buffers_written : !state->images_written;
    } else {
-      const nir_variable *var = nir_intrinsic_get_var(instr, 0);
+      const nir_variable *var = get_variable(state, instr->src[0].ssa);
       is_restrict |= var->data.access & ACCESS_RESTRICT;
       is_var_readonly |= var->data.access & ACCESS_NON_WRITEABLE;
    }
 
-   bool is_memory_readonly = is_var_readonly && is_restrict;
-   is_memory_readonly |= is_buffer ? !state->buffers_written : !state->images_written;
+   /* In Vulkan, ACCESS_NON_WRITEABLE means that the memory is
+    * non-writeable while in GL it means that the variable is non-writeable.
+    */
+   bool is_memory_readonly = state->is_vulkan && (access & ACCESS_NON_WRITEABLE);
+   is_memory_readonly |= is_var_readonly && is_restrict;
+   if (state->is_vulkan)
+      is_memory_readonly |= !state->buffers_written && !state->images_written;
+   else
+      is_memory_readonly |= is_buffer ? !state->buffers_written : !state->images_written;
 
    /* Note: memoryBarrierBuffer() is only guaranteed to flush buffer
     * variables and not imageBuffer's, so we only consider the GL-level
@@ -209,7 +278,7 @@ update_access(struct access_state *state, nir_intrinsic_instr *instr, bool is_im
        is_memory_readonly)
       access |= ACCESS_CAN_REORDER;
 
-   if (is_var_readonly)
+   if (state->is_vulkan ? is_memory_readonly : is_var_readonly)
       access |= ACCESS_NON_WRITEABLE;
 
    bool progress = nir_intrinsic_access(instr) != access;
@@ -274,14 +343,23 @@ opt_access_impl(struct access_state *state,
 }
 
 bool
-nir_opt_access(nir_shader *shader)
+nir_opt_access(nir_shader *shader, bool is_vulkan)
 {
    struct access_state state = {
+      .shader = shader,
+      .is_vulkan = is_vulkan,
+      .vulkan_vars = _mesa_set_create(NULL, &vulkan_var_hash, &vulkan_var_equals),
       .vars_written = _mesa_pointer_set_create(NULL),
    };
 
    bool var_progress = false;
    bool progress = false;
+
+   if (is_vulkan) {
+      nir_foreach_variable_with_modes(var, shader, nir_var_uniform |
+                                                   nir_var_mem_ssbo)
+         _mesa_set_add(state.vulkan_vars, var);
+   }
 
    nir_foreach_function(func, shader) {
       if (func->impl) {
@@ -317,5 +395,6 @@ nir_opt_access(nir_shader *shader)
    progress |= var_progress;
 
    _mesa_set_destroy(state.vars_written, NULL);
+   _mesa_set_destroy(state.vulkan_vars, NULL);
    return progress;
 }
