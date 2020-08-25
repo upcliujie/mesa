@@ -41,6 +41,9 @@
  */
 
 struct access_state {
+   nir_shader *shader;
+   bool is_vulkan;
+
    struct set *vars_written;
    bool images_written;
    bool buffers_written;
@@ -51,7 +54,7 @@ struct access_state {
 static void
 gather_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
 {
-   nir_variable *var;
+   const nir_variable *var;
    switch (instr->intrinsic) {
    case nir_intrinsic_image_deref_store:
    case nir_intrinsic_image_deref_atomic_add:
@@ -164,7 +167,10 @@ process_variable(struct access_state *state, nir_variable *var)
    if (var->data.access & ACCESS_CAN_REORDER)
       return false;
 
-   if (!(var->data.access & ACCESS_NON_WRITEABLE) &&
+   bool restrict_or_gl = (var->data.access & ACCESS_RESTRICT) ||
+                         !state->is_vulkan;
+
+   if (!(var->data.access & ACCESS_NON_WRITEABLE) && restrict_or_gl &&
        !_mesa_set_search(state->vars_written, var)) {
       var->data.access |= ACCESS_NON_WRITEABLE;
       return true;
@@ -186,16 +192,25 @@ update_access(struct access_state *state, nir_intrinsic_instr *instr, bool is_im
        * always trace uses back to the variable. Don't try and infer if it's
        * read-only, unless there are no image writes at all.
        */
+      assert(!state->is_vulkan);
       is_var_readonly |=
          is_buffer ? !state->buffers_written : !state->images_written;
    } else {
-      const nir_variable *var = nir_intrinsic_get_var(instr, 0);
+      const nir_variable *var = nir_get_binding_variable(
+         state->shader, nir_chase_binding(instr->src[0]));
       is_restrict |= var->data.access & ACCESS_RESTRICT;
       is_var_readonly |= var->data.access & ACCESS_NON_WRITEABLE;
    }
 
-   bool is_memory_readonly = is_var_readonly && is_restrict;
-   is_memory_readonly |= is_buffer ? !state->buffers_written : !state->images_written;
+   /* In Vulkan, ACCESS_NON_WRITEABLE means that the memory is
+    * non-writeable while in GL it means that the variable is non-writeable.
+    */
+   bool is_memory_readonly = state->is_vulkan && (access & ACCESS_NON_WRITEABLE);
+   is_memory_readonly |= is_var_readonly && is_restrict;
+   if (state->is_vulkan)
+      is_memory_readonly |= !state->buffers_written && !state->images_written;
+   else
+      is_memory_readonly |= is_buffer ? !state->buffers_written : !state->images_written;
 
    /* Note: memoryBarrierBuffer() is only guaranteed to flush buffer
     * variables and not imageBuffer's, so we only consider the GL-level
@@ -209,7 +224,7 @@ update_access(struct access_state *state, nir_intrinsic_instr *instr, bool is_im
        is_memory_readonly)
       access |= ACCESS_CAN_REORDER;
 
-   if (is_var_readonly)
+   if (state->is_vulkan ? is_memory_readonly : is_var_readonly)
       access |= ACCESS_NON_WRITEABLE;
 
    bool progress = nir_intrinsic_access(instr) != access;
@@ -274,9 +289,11 @@ opt_access_impl(struct access_state *state,
 }
 
 bool
-nir_opt_access(nir_shader *shader)
+nir_opt_access(nir_shader *shader, bool is_vulkan)
 {
    struct access_state state = {
+      .shader = shader,
+      .is_vulkan = is_vulkan,
       .vars_written = _mesa_pointer_set_create(NULL),
    };
 
