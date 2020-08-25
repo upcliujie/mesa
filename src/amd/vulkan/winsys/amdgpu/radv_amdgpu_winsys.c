@@ -170,6 +170,9 @@ radv_amdgpu_winsys_destroy(struct radeon_winsys *rws)
    u_rwlock_destroy(&ws->global_bo_list.lock);
    free(ws->global_bo_list.bos);
 
+   if (ws->reserve_vmid)
+      amdgpu_vm_unreserve_vmid(ws->dev, 0);
+
    pthread_mutex_destroy(&ws->syncobj_lock);
    u_rwlock_destroy(&ws->log_bo_list_lock);
    ac_addrlib_destroy(ws->addrlib);
@@ -223,6 +226,13 @@ radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags)
    if (debug_flags & RADV_DEBUG_NO_IBS)
       ws->use_ib_bos = false;
 
+   ws->reserve_vmid = debug_flags & RADV_DEBUG_RESERVE_VMID;
+   if (ws->reserve_vmid) {
+      r = amdgpu_vm_reserve_vmid(dev, 0);
+      if (r)
+         goto vmid_fail;
+   }
+
    ws->perftest = perftest_flags;
    ws->zero_all_vram_allocs = debug_flags & RADV_DEBUG_ZERO_VRAM;
    u_rwlock_init(&ws->global_bo_list.lock);
@@ -243,6 +253,8 @@ radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags)
 
    return &ws->base;
 
+vmid_fail:
+   ac_addrlib_destroy(ws->addrlib);
 winsys_fail:
    free(ws);
 fail:

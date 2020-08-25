@@ -801,6 +801,7 @@ static const struct debug_control radv_debug_options[] = {
    {"nodisplaydcc", RADV_DEBUG_NO_DISPLAY_DCC},
    {"notccompatcmask", RADV_DEBUG_NO_TC_COMPAT_CMASK},
    {"novrsflatshading", RADV_DEBUG_NO_VRS_FLAT_SHADING},
+   {"reservevmid", RADV_DEBUG_RESERVE_VMID},
    {NULL, 0}};
 
 const char *
