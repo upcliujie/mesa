@@ -2981,7 +2981,13 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
 
    if (getenv("RADV_TRAP_HANDLER")) {
       /* TODO: Add support for more hardware. */
-      assert(device->physical_device->rad_info.chip_class == GFX8);
+      assert(device->physical_device->rad_info.chip_class >= GFX8);
+
+      if (!device->physical_device->rad_info.has_trap_handler) {
+         fprintf(stderr, "GPU hardware not supported: please upgrade your kernel if you want to "
+                         "use the trap handler!\n");
+         abort();
+      }
 
       fprintf(stderr, "**********************************************************************\n");
       fprintf(stderr, "* WARNING: RADV_TRAP_HANDLER is experimental and only for debugging! *\n");
