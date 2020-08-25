@@ -71,7 +71,7 @@ public:
 
    virtual void handle_rvalue(ir_rvalue **rvalue);
 
-   void fix_lhs(ir_assignment *);
+   bool fix_lhs(ir_assignment *);
 
    bool progress;
 
@@ -246,11 +246,14 @@ lower_tess_level_visitor::handle_rvalue(ir_rvalue **rv)
    }
 }
 
-void
+/**
+ * Return false if constant index is out of bounds.
+ */
+bool
 lower_tess_level_visitor::fix_lhs(ir_assignment *ir)
 {
    if (ir->lhs->ir_type != ir_type_expression)
-      return;
+      return true;
    void *mem_ctx = ralloc_parent(ir);
    ir_expression *const expr = (ir_expression *) ir->lhs;
 
@@ -273,7 +276,14 @@ lower_tess_level_visitor::fix_lhs(ir_assignment *ir)
                                            new_lhs->clone(mem_ctx, NULL),
                                            ir->rhs,
                                            expr->operands[1]);
+   } else {
+      unsigned idx = old_index_constant->get_uint_component(0);
+      unsigned vector_length = expr->operands[0]->type->vector_elements;
+      if (idx >= vector_length) {
+         return false;
+      }
    }
+
    ir->set_lhs(new_lhs);
 
    if (old_index_constant) {
@@ -284,6 +294,8 @@ lower_tess_level_visitor::fix_lhs(ir_assignment *ir)
    } else {
       ir->write_mask = (1 << expr->operands[0]->type->vector_elements) - 1;
    }
+
+   return true;
 }
 
 /**
@@ -350,7 +362,17 @@ lower_tess_level_visitor::visit_leave(ir_assignment *ir)
     * of the vector, and replace the RHS with an ir_triop_vector_insert.
     */
    handle_rvalue((ir_rvalue **)&ir->lhs);
-   this->fix_lhs(ir);
+   if (!this->fix_lhs(ir)) {
+      /* Section 5.11 (Out-of-Bounds Accesses) of the GLSL 4.60 spec says:
+       *
+       *  In the subsections described above for array, vector, matrix and
+       *  structure accesses, any out-of-bounds access produced undefined
+       *  behavior.... Out-of-bounds writes may be discarded or overwrite
+       *  other variables of the active program.
+       */
+      ir->remove();
+      return visit_continue;
+   }
 
    return rvalue_visit(ir);
 }
