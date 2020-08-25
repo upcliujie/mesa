@@ -131,7 +131,8 @@ si_emit_compute(struct radv_device *device, struct radeon_cmdbuf *cs)
       }
    }
 
-   if (device->tma_bo) {
+   if (device->tma_bo &&
+       device->physical_device->rad_info.chip_class == GFX8) {
       uint64_t tba_va, tma_va;
 
       assert(device->physical_device->rad_info.chip_class == GFX8);
@@ -587,7 +588,8 @@ si_emit_graphics(struct radv_device *device, struct radeon_cmdbuf *cs)
                              S_028818_VPORT_Y_OFFSET_ENA(1) | S_028818_VPORT_Z_SCALE_ENA(1) |
                              S_028818_VPORT_Z_OFFSET_ENA(1));
 
-   if (device->tma_bo) {
+   if (device->tma_bo &&
+       device->physical_device->rad_info.chip_class == GFX8) {
       uint64_t tba_va, tma_va;
 
       assert(device->physical_device->rad_info.chip_class == GFX8);

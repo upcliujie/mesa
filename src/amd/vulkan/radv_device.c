@@ -325,6 +325,12 @@ radv_thread_trace_enabled()
           getenv("RADV_THREAD_TRACE_TRIGGER");
 }
 
+static bool
+radv_trap_handler_enabled()
+{
+   return getenv("RADV_TRAP_HANDLER");
+}
+
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR) || defined(VK_USE_PLATFORM_XCB_KHR) ||                    \
    defined(VK_USE_PLATFORM_XLIB_KHR) || defined(VK_USE_PLATFORM_DISPLAY_KHR)
 #define RADV_USE_WSI_PLATFORM
@@ -590,7 +596,9 @@ radv_physical_device_try_create(struct radv_instance *instance, drmDevicePtr drm
    device->ws = radv_null_winsys_create();
 #else
    if (drm_device) {
-      device->ws = radv_amdgpu_winsys_create(fd, instance->debug_flags, instance->perftest_flags, false);
+      bool reserve_vmid = radv_trap_handler_enabled() && device->rad_info.chip_class >= GFX9;
+      device->ws = radv_amdgpu_winsys_create(fd, instance->debug_flags, instance->perftest_flags,
+                                             reserve_vmid);
    } else {
       device->ws = radv_null_winsys_create();
    }
@@ -3027,9 +3035,15 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
          goto fail;
    }
 
-   if (getenv("RADV_TRAP_HANDLER")) {
+   if (radv_trap_handler_enabled()) {
       /* TODO: Add support for more hardware. */
-      assert(device->physical_device->rad_info.chip_class == GFX8);
+      assert(device->physical_device->rad_info.chip_class >= GFX8);
+
+      if (!device->physical_device->rad_info.has_trap_handler) {
+         fprintf(stderr, "GPU hardware not supported: please upgrade your kernel if you want to "
+                         "use the trap handler!\n");
+         abort();
+      }
 
       fprintf(stderr, "**********************************************************************\n");
       fprintf(stderr, "* WARNING: RADV_TRAP_HANDLER is experimental and only for debugging! *\n");
