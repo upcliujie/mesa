@@ -118,7 +118,7 @@ gather_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
    case nir_intrinsic_deref_atomic_fmax:
    case nir_intrinsic_deref_atomic_fcomp_swap: {
       nir_deref_instr *deref = nir_src_as_deref(instr->src[0]);
-      if (!nir_deref_mode_is(deref, nir_var_mem_ssbo))
+      if (!nir_deref_mode_may_be(deref, nir_var_mem_ssbo | nir_var_mem_global))
          break;
 
       if (nir_deref_mode_is(deref, nir_var_mem_ssbo)) {
