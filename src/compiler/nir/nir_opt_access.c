@@ -50,6 +50,7 @@ struct access_state {
    bool buffers_written;
    bool image_barriers;
    bool buffer_barriers;
+   bool make_visible;
 };
 
 static uint32_t
@@ -213,6 +214,9 @@ gather_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
          state->buffer_barriers = true;
          state->image_barriers = true;
       }
+
+      if (nir_intrinsic_memory_semantics(instr) & NIR_MEMORY_MAKE_VISIBLE)
+         state->make_visible = true;
       break;
 
    default:
@@ -282,7 +286,8 @@ update_access(struct access_state *state, nir_intrinsic_instr *instr, bool is_im
     */
    bool is_any_barrier = is_image ?
       state->image_barriers : state->buffer_barriers;
-   bool coherent = access & ACCESS_COHERENT;
+   /* TODO: SPIR-V has a private qualifier that we could use here */
+   bool coherent = (access & ACCESS_COHERENT) || state->make_visible;
    if ((!is_any_barrier || !coherent) &&
        !(access & ACCESS_VOLATILE) &&
        is_memory_readonly)
