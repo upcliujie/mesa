@@ -116,14 +116,24 @@ gather_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
    case nir_intrinsic_deref_atomic_fadd:
    case nir_intrinsic_deref_atomic_fmin:
    case nir_intrinsic_deref_atomic_fmax:
-   case nir_intrinsic_deref_atomic_fcomp_swap:
-      var = nir_intrinsic_get_var(instr, 0);
-      if (var->data.mode != nir_var_mem_ssbo)
+   case nir_intrinsic_deref_atomic_fcomp_swap: {
+      nir_deref_instr *deref = nir_src_as_deref(instr->src[0]);
+      if (!nir_deref_mode_is(deref, nir_var_mem_ssbo))
          break;
 
-      _mesa_set_add(state->vars_written, var);
+      if (nir_deref_mode_is(deref, nir_var_mem_ssbo)) {
+         var = nir_get_binding_variable(state->shader, nir_chase_binding(instr->src[0]));
+         if (var) {
+            _mesa_set_add(state->vars_written, var);
+         } else {
+            nir_foreach_variable_with_modes(possible_var, state->shader, nir_var_mem_ssbo)
+               _mesa_set_add(state->vars_written, possible_var);
+         }
+      }
+
       state->buffers_written = true;
       break;
+   }
 
    case nir_intrinsic_group_memory_barrier:
    case nir_intrinsic_memory_barrier:
@@ -198,8 +208,8 @@ update_access(struct access_state *state, nir_intrinsic_instr *instr, bool is_im
    } else {
       const nir_variable *var = nir_get_binding_variable(
          state->shader, nir_chase_binding(instr->src[0]));
-      is_restrict |= var->data.access & ACCESS_RESTRICT;
-      is_var_readonly |= var->data.access & ACCESS_NON_WRITEABLE;
+      is_restrict |= var && (var->data.access & ACCESS_RESTRICT);
+      is_var_readonly |= var && (var->data.access & ACCESS_NON_WRITEABLE);
    }
 
    /* In Vulkan, ACCESS_NON_WRITEABLE means that the memory is
@@ -241,8 +251,7 @@ process_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
                            nir_intrinsic_image_dim(instr) == GLSL_SAMPLER_DIM_BUF);
 
    case nir_intrinsic_load_deref: {
-      nir_variable *var = nir_intrinsic_get_var(instr, 0);
-      if (var->data.mode != nir_var_mem_ssbo)
+      if (!nir_deref_mode_is(nir_src_as_deref(instr->src[0]), nir_var_mem_ssbo))
          return false;
 
       return update_access(state, instr, false, true);
