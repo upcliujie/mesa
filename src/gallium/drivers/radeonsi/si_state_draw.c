@@ -101,7 +101,7 @@ static void si_emit_derived_tess_state(struct si_context *sctx, const struct pip
    }
 
    if (sctx->last_ls == ls_current && sctx->last_tcs == tcs &&
-       sctx->last_tes_sh_base == tes_sh_base && sctx->last_num_tcs_input_cp == num_tcs_input_cp &&
+       sctx->last_tes_sh_base == (int)tes_sh_base && sctx->last_num_tcs_input_cp == (int)num_tcs_input_cp &&
        (!has_primid_instancing_bug || (sctx->last_tess_uses_primid == tess_uses_primid))) {
       *num_patches = sctx->last_num_patches;
       return;
@@ -321,7 +321,7 @@ static void si_emit_derived_tess_state(struct si_context *sctx, const struct pip
    ls_hs_config = S_028B58_NUM_PATCHES(*num_patches) | S_028B58_HS_NUM_INPUT_CP(num_tcs_input_cp) |
                   S_028B58_HS_NUM_OUTPUT_CP(num_tcs_output_cp);
 
-   if (sctx->last_ls_hs_config != ls_hs_config) {
+   if (sctx->last_ls_hs_config != (int)ls_hs_config) {
       if (sctx->chip_class >= GFX7) {
          radeon_set_context_reg_idx(cs, R_028B58_VGT_LS_HS_CONFIG, 2, ls_hs_config);
       } else {
@@ -617,7 +617,7 @@ static void si_emit_rasterizer_prim_state(struct si_context *sctx)
    }
 
    unsigned gs_out_prim = si_conv_prim_to_gs_out(rast_prim);
-   if (unlikely(gs_out_prim != sctx->last_gs_out_prim && (sctx->ngg || sctx->gs_shader.cso))) {
+   if (unlikely((int)gs_out_prim != sctx->last_gs_out_prim && (sctx->ngg || sctx->gs_shader.cso))) {
       radeon_set_context_reg(cs, R_028A6C_VGT_GS_OUT_PRIM_TYPE, gs_out_prim);
       sctx->last_gs_out_prim = gs_out_prim;
    }
@@ -679,7 +679,7 @@ ALWAYS_INLINE
 static bool si_prim_restart_index_changed(struct si_context *sctx, bool primitive_restart,
                                           unsigned restart_index)
 {
-   return primitive_restart && (restart_index != sctx->last_restart_index ||
+   return primitive_restart && ((int)restart_index != sctx->last_restart_index ||
                                 sctx->last_restart_index == SI_RESTART_INDEX_UNKNOWN);
 }
 
@@ -698,7 +698,7 @@ static void si_emit_ia_multi_vgt_param(struct si_context *sctx, const struct pip
                                 primitive_restart, min_vertex_count);
 
    /* Draw state. */
-   if (ia_multi_vgt_param != sctx->last_multi_vgt_param) {
+   if ((int)ia_multi_vgt_param != sctx->last_multi_vgt_param) {
       if (sctx->chip_class == GFX9)
          radeon_set_uconfig_reg_idx(cs, sctx->screen, R_030960_IA_MULTI_VGT_PARAM, 4,
                                     ia_multi_vgt_param);
@@ -750,7 +750,7 @@ static void gfx10_emit_ge_cntl(struct si_context *sctx, unsigned num_patches)
 
    ge_cntl |= S_03096C_PACKET_TO_ONE_PA(si_is_line_stipple_enabled(sctx));
 
-   if (ge_cntl != sctx->last_multi_vgt_param) {
+   if ((int)ge_cntl != sctx->last_multi_vgt_param) {
       radeon_set_uconfig_reg(sctx->gfx_cs, R_03096C_GE_CNTL, ge_cntl);
       sctx->last_multi_vgt_param = ge_cntl;
    }
@@ -772,7 +772,7 @@ static void si_emit_draw_registers(struct si_context *sctx, const struct pipe_dr
       si_emit_ia_multi_vgt_param(sctx, info, indirect, prim, num_patches, instance_count,
                                  primitive_restart, min_vertex_count);
 
-   if (vgt_prim != sctx->last_prim) {
+   if ((int)vgt_prim != sctx->last_prim) {
       if (sctx->chip_class >= GFX10)
          radeon_set_uconfig_reg(cs, R_030908_VGT_PRIMITIVE_TYPE, vgt_prim);
       else if (sctx->chip_class >= GFX7)
@@ -828,7 +828,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
    /* draw packet */
    if (index_size) {
       /* Register shadowing doesn't shadow INDEX_TYPE. */
-      if (index_size != sctx->last_index_size || sctx->shadowed_regs) {
+      if ((int)index_size != sctx->last_index_size || sctx->shadowed_regs) {
          unsigned index_type;
 
          /* index type */
@@ -951,7 +951,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
       /* Register shadowing requires that we always emit PKT3_NUM_INSTANCES. */
       if (sctx->shadowed_regs ||
           sctx->last_instance_count == SI_INSTANCE_COUNT_UNKNOWN ||
-          sctx->last_instance_count != instance_count) {
+          sctx->last_instance_count != (int)instance_count) {
          radeon_emit(cs, PKT3(PKT3_NUM_INSTANCES, 0, 0));
          radeon_emit(cs, instance_count);
          sctx->last_instance_count = instance_count;
@@ -969,8 +969,9 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
          radeon_emit_array(cs, sctx->vs_blit_sh_data, sctx->num_vs_blit_sgprs);
       } else if (base_vertex != sctx->last_base_vertex ||
                  sctx->last_base_vertex == SI_BASE_VERTEX_UNKNOWN ||
-                 info->start_instance != sctx->last_start_instance ||
-                 info->drawid != sctx->last_drawid || sh_base_reg != sctx->last_sh_base_reg) {
+                 (int)info->start_instance != sctx->last_start_instance ||
+                 (int)info->drawid != sctx->last_drawid ||
+                 (int)sh_base_reg != sctx->last_sh_base_reg) {
          radeon_set_sh_reg_seq(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, 3);
          radeon_emit(cs, base_vertex);
          radeon_emit(cs, info->drawid);
@@ -1663,7 +1664,8 @@ static void si_get_draw_start_count(struct si_context *sctx, const struct pipe_d
       unsigned *data;
 
       if (indirect->indirect_draw_count) {
-         data = pipe_buffer_map_range(&sctx->b, indirect->indirect_draw_count,
+         data = (unsigned*)
+                pipe_buffer_map_range(&sctx->b, indirect->indirect_draw_count,
                                       indirect->indirect_draw_count_offset, sizeof(unsigned),
                                       PIPE_MAP_READ, &transfer);
 
@@ -1680,7 +1682,8 @@ static void si_get_draw_start_count(struct si_context *sctx, const struct pipe_d
       }
 
       map_size = (indirect_count - 1) * indirect->stride + 3 * sizeof(unsigned);
-      data = pipe_buffer_map_range(&sctx->b, indirect->buffer, indirect->offset, map_size,
+      data = (unsigned*)
+             pipe_buffer_map_range(&sctx->b, indirect->buffer, indirect->offset, map_size,
                                    PIPE_MAP_READ, &transfer);
 
       begin = UINT_MAX;
@@ -1763,15 +1766,18 @@ static bool si_all_vs_resources_read_only(struct si_context *sctx, struct pipe_r
 {
    struct radeon_winsys *ws = sctx->ws;
    struct radeon_cmdbuf *cs = sctx->gfx_cs;
+   struct si_descriptors *buffers =
+      &sctx->descriptors[si_const_and_shader_buffer_descriptors_idx(PIPE_SHADER_VERTEX)];
+   struct si_shader_selector *vs = sctx->vs_shader.cso;
+   struct si_vertex_elements *velems = sctx->vertex_elements;
+   unsigned num_velems = velems->count;
+   unsigned num_images = vs->info.base.num_images;
 
    /* Index buffer. */
    if (indexbuf && ws->cs_is_buffer_referenced(cs, si_resource(indexbuf)->buf, RADEON_USAGE_WRITE))
       goto has_write_reference;
 
    /* Vertex buffers. */
-   struct si_vertex_elements *velems = sctx->vertex_elements;
-   unsigned num_velems = velems->count;
-
    for (unsigned i = 0; i < num_velems; i++) {
       if (!((1 << i) & velems->first_vb_use_mask))
          continue;
@@ -1786,8 +1792,6 @@ static bool si_all_vs_resources_read_only(struct si_context *sctx, struct pipe_r
    }
 
    /* Constant and shader buffers. */
-   struct si_descriptors *buffers =
-      &sctx->descriptors[si_const_and_shader_buffer_descriptors_idx(PIPE_SHADER_VERTEX)];
    for (unsigned i = 0; i < buffers->num_active_slots; i++) {
       unsigned index = buffers->first_active_slot + i;
       struct pipe_resource *res = sctx->const_and_shader_buffers[PIPE_SHADER_VERTEX].buffers[index];
@@ -1799,7 +1803,6 @@ static bool si_all_vs_resources_read_only(struct si_context *sctx, struct pipe_r
    }
 
    /* Samplers. */
-   struct si_shader_selector *vs = sctx->vs_shader.cso;
    if (vs->info.base.textures_used) {
       unsigned num_samplers = util_last_bit(vs->info.base.textures_used);
 
@@ -1814,7 +1817,6 @@ static bool si_all_vs_resources_read_only(struct si_context *sctx, struct pipe_r
    }
 
    /* Images. */
-   unsigned num_images = vs->info.base.num_images;
    if (num_images) {
       for (unsigned i = 0; i < num_images; i++) {
          struct pipe_resource *res = sctx->images[PIPE_SHADER_VERTEX].views[i].resource;
