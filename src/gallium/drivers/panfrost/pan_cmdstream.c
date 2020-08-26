@@ -1612,13 +1612,7 @@ pan_emit_general_varying(struct mali_attribute_packed *out,
         unsigned offset = gen_offsets[other_idx];
 
         if (should_alloc) {
-                /* We're linked, so allocate a space via a watermark allocation */
-                enum mali_format alt = other->varyings[other_idx];
-
-                /* Do interpolation at minimum precision */
-                unsigned size_main = pan_varying_size(format);
-                unsigned size_alt = pan_varying_size(alt);
-                unsigned size = MIN2(size_main, size_alt);
+                unsigned size = pan_varying_size(format);
 
                 /* If a varying is marked for XFB but not actually captured, we
                  * should match the format to the format that would otherwise
@@ -1629,8 +1623,6 @@ pan_emit_general_varying(struct mali_attribute_packed *out,
                         struct pipe_stream_output *o = pan_get_so(&xfb->stream_output, loc);
                         format = pan_xfb_format(format, o->num_components);
                         size = pan_varying_size(format);
-                } else if (size == size_alt) {
-                        format = alt;
                 }
 
                 gen_offsets[idx] = *gen_stride;
