@@ -32,7 +32,7 @@
 #define SMEM_WINDOW_SIZE (350 - ctx.num_waves * 35)
 #define VMEM_WINDOW_SIZE (1024 - ctx.num_waves * 64)
 #define POS_EXP_WINDOW_SIZE 512
-#define SMEM_MAX_MOVES (64 - ctx.num_waves * 4)
+#define SMEM_MAX_MOVES (128 - ctx.num_waves * 8)
 #define VMEM_MAX_MOVES (128 - ctx.num_waves * 8)
 /* creating clauses decreases def-use distances, so make it less aggressive the lower num_waves is */
 #define VMEM_CLAUSE_MAX_GRAB_DIST ((ctx.num_waves - 1) * 8)
