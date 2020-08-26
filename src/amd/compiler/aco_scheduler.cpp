@@ -565,9 +565,9 @@ void schedule_SMEM(sched_ctx& ctx, Block* block,
       else if (haz != hazard_success)
          break;
 
-      /* don't use LDS/GDS instructions to hide latency since it can
-       * significanly worsen LDS scheduling */
-      if (candidate->format == Format::DS || !can_move_down) {
+      /* don't use LDS/GDS/SMEM instructions to hide latency since it can
+       * significanly worsen scheduling because these all use the same counter */
+      if (candidate->format == Format::DS || candidate->format == Format::SMEM || !can_move_down) {
          add_to_hazard_query(&hq, candidate.get());
          ctx.mv.downwards_skip();
          continue;
