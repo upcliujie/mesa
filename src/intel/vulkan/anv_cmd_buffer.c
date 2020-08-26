@@ -268,6 +268,8 @@ static VkResult anv_create_cmd_buffer(
    anv_state_stream_init(&cmd_buffer->dynamic_state_stream,
                          &device->dynamic_state_pool, 16384);
 
+   cmd_buffer->self_mod_locations = NULL;
+
    anv_cmd_state_init(cmd_buffer);
 
    list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
@@ -321,6 +323,8 @@ anv_cmd_buffer_destroy(struct anv_cmd_buffer *cmd_buffer)
    anv_state_stream_finish(&cmd_buffer->dynamic_state_stream);
 
    anv_cmd_state_finish(cmd_buffer);
+
+   vk_free(&cmd_buffer->pool->alloc, cmd_buffer->self_mod_locations);
 
    vk_object_base_finish(&cmd_buffer->base);
    vk_free(&cmd_buffer->pool->alloc, cmd_buffer);
