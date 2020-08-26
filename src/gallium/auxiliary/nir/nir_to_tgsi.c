@@ -2645,3 +2645,28 @@ nir_to_tgsi(struct nir_shader *s,
 
    return tgsi_tokens;
 }
+
+static const nir_shader_compiler_options nir_to_tgsi_compiler_options = {
+   .fuse_ffma = true,
+   .lower_extract_byte = true,
+   .lower_extract_word = true,
+   .lower_fdph = true,
+   .lower_fmod = true,
+   .lower_rotate = true,
+   .lower_sub = true,
+   .lower_vector_cmp = true,
+   .use_interpolated_input_intrinsics = true,
+   .vectorize_vec2_64bit = true,
+};
+
+/* Returns a default compiler options for drivers with only nir-to-tgsi-based
+ * NIR support.
+ */
+const void *
+nir_to_tgsi_get_compiler_options(struct pipe_screen *pscreen,
+                                 enum pipe_shader_ir ir,
+                                 unsigned shader)
+{
+   assert(ir == PIPE_SHADER_IR_NIR);
+   return &nir_to_tgsi_compiler_options;
+}
