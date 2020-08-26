@@ -2126,9 +2126,12 @@ static void si_draw_vbo(struct pipe_context *ctx,
          break;
       case SI_PRIM_DISCARD_DRAW_SPLIT:
          sctx->compute_num_verts_rejected -= total_direct_count;
-         goto return_cleanup;
+         FALLTHROUGH;
       case SI_PRIM_DISCARD_MULTI_DRAW_SPLIT:
-         goto return_cleanup;
+         /* The multi draw was split into multiple ones and executed. Return. */
+         if (index_size && indexbuf != info->index.resource)
+            pipe_resource_reference(&indexbuf, NULL);
+         return;
       }
    }
 
@@ -2199,8 +2202,11 @@ static void si_draw_vbo(struct pipe_context *ctx,
    }
 
    if (unlikely(sctx->do_update_shaders)) {
-      if (unlikely(!si_update_shaders(sctx)))
-         goto return_cleanup;
+      if (unlikely(!si_update_shaders(sctx))) {
+         if (index_size && indexbuf != info->index.resource)
+            pipe_resource_reference(&indexbuf, NULL);
+         return;
+      }
 
       /* Insert a VGT_FLUSH when enabling fast launch changes to prevent hangs.
        * See issues #2418, #2426, #2434
@@ -2247,8 +2253,11 @@ static void si_draw_vbo(struct pipe_context *ctx,
    if (unlikely(!si_upload_graphics_shader_descriptors(sctx) ||
                 (sctx->vertex_buffers_dirty &&
                  sctx->num_vertex_elements &&
-                 !si_upload_vertex_buffer_descriptors(sctx))))
-      goto return_cleanup;
+                 !si_upload_vertex_buffer_descriptors(sctx)))) {
+      if (index_size && indexbuf != info->index.resource)
+         pipe_resource_reference(&indexbuf, NULL);
+      return;
+   }
 
    /* Vega10/Raven scissor bug workaround. When any context register is
     * written (i.e. the GPU rolls the context), PA_SC_VPORT_SCISSOR
@@ -2364,7 +2373,6 @@ static void si_draw_vbo(struct pipe_context *ctx,
          sctx->num_spill_draw_calls++;
    }
 
-return_cleanup:
    if (index_size && indexbuf != info->index.resource)
       pipe_resource_reference(&indexbuf, NULL);
 }
