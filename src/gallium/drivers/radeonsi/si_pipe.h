@@ -895,6 +895,12 @@ struct si_small_prim_cull_info {
    float scale[2], translate[2];
 };
 
+typedef void (*pipe_draw_vbo_func)(struct pipe_context *pipe,
+                                   const struct pipe_draw_info *info,
+                                   const struct pipe_draw_indirect_info *indirect,
+                                   const struct pipe_draw_start_count *draws,
+                                   unsigned num_draws);
+
 struct si_context {
    struct pipe_context b; /* base class */
 
@@ -1291,6 +1297,8 @@ struct si_context {
     * a context flush.
     */
    struct hash_table *dirty_implicit_resources;
+
+   pipe_draw_vbo_func draw_vbo[NUM_GFX_VERSIONS][2][2][2][2];
 };
 
 /* cik_sdma.c */
@@ -1939,6 +1947,18 @@ static inline unsigned si_get_shader_wave_size(struct si_shader *shader)
                            shader->key.as_es,
                            shader->key.opt.ngg_culling & SI_NGG_CULL_GS_FAST_LAUNCH_ALL,
                            shader->key.opt.vs_as_prim_discard_cs);
+}
+
+static inline void si_select_draw_vbo(struct si_context *sctx)
+{
+   sctx->b.draw_vbo = sctx->draw_vbo[sctx->chip_class]
+                                    [!!sctx->tes_shader.cso]
+                                    [!!sctx->gs_shader.cso]
+                                    [sctx->ngg]
+                                    [si_compute_prim_discard_enabled(sctx) &&
+                                     !sctx->tes_shader.cso &&
+                                     !sctx->gs_shader.cso];
+   assert(sctx->b.draw_vbo);
 }
 
 #define PRINT_ERR(fmt, args...)                                                                    \
