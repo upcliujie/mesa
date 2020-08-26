@@ -745,7 +745,6 @@ void st_init_extensions(struct pipe_screen *screen,
       { o(ARB_occlusion_query2),             PIPE_CAP_OCCLUSION_QUERY                  },
       { o(ARB_pipeline_statistics_query),    PIPE_CAP_QUERY_PIPELINE_STATISTICS        },
       { o(ARB_pipeline_statistics_query),    PIPE_CAP_QUERY_PIPELINE_STATISTICS_SINGLE },
-      { o(ARB_point_sprite),                 PIPE_CAP_POINT_SPRITE                     },
       { o(ARB_polygon_offset_clamp),         PIPE_CAP_POLYGON_OFFSET_CLAMP             },
       { o(ARB_post_depth_coverage),          PIPE_CAP_POST_DEPTH_COVERAGE              },
       { o(ARB_query_buffer_object),          PIPE_CAP_QUERY_BUFFER_OBJECT              },
@@ -1053,6 +1052,7 @@ void st_init_extensions(struct pipe_screen *screen,
    extensions->ARB_internalformat_query = GL_TRUE;
    extensions->ARB_internalformat_query2 = GL_TRUE;
    extensions->ARB_map_buffer_range = GL_TRUE;
+   extensions->ARB_point_sprite = GL_TRUE;
    extensions->ARB_sync = GL_TRUE;
    extensions->ARB_texture_border_clamp = GL_TRUE;
    extensions->ARB_texture_cube_map = GL_TRUE;
