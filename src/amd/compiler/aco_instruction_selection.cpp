@@ -1272,33 +1272,6 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       }
       break;
    }
-   case nir_op_ineg: {
-      Temp src = get_alu_src(ctx, instr->src[0]);
-      if (dst.regClass() == v1) {
-         bld.vsub32(Definition(dst), Operand(0u), Operand(src));
-      } else if (dst.regClass() == s1) {
-         bld.sop2(aco_opcode::s_mul_i32, Definition(dst), Operand((uint32_t) -1), src);
-      } else if (dst.size() == 2) {
-         Temp src0 = bld.tmp(dst.type(), 1);
-         Temp src1 = bld.tmp(dst.type(), 1);
-         bld.pseudo(aco_opcode::p_split_vector, Definition(src0), Definition(src1), src);
-
-         if (dst.regClass() == s2) {
-            Temp borrow = bld.tmp(s1);
-            Temp dst0 = bld.sop2(aco_opcode::s_sub_u32, bld.def(s1), bld.scc(Definition(borrow)), Operand(0u), src0);
-            Temp dst1 = bld.sop2(aco_opcode::s_subb_u32, bld.def(s1), bld.def(s1, scc), Operand(0u), src1, bld.scc(borrow));
-            bld.pseudo(aco_opcode::p_create_vector, Definition(dst), dst0, dst1);
-         } else {
-            Temp lower = bld.tmp(v1);
-            Temp borrow = bld.vsub32(Definition(lower), Operand(0u), src0, true).def(1).getTemp();
-            Temp upper = bld.vsub32(bld.def(v1), Operand(0u), src1, false, borrow);
-            bld.pseudo(aco_opcode::p_create_vector, Definition(dst), lower, upper);
-         }
-      } else {
-         isel_err(&instr->instr, "Unimplemented NIR instr bit size");
-      }
-      break;
-   }
    case nir_op_iabs: {
       Temp src = get_alu_src(ctx, instr->src[0]);
       if (dst.regClass() == s1) {
@@ -1849,29 +1822,6 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          emit_vop2_instruction(ctx, instr, aco_opcode::v_add_f32, dst, true);
       } else if (dst.regClass() == v2) {
          emit_vop3a_instruction(ctx, instr, aco_opcode::v_add_f64, dst);
-      } else {
-         isel_err(&instr->instr, "Unimplemented NIR instr bit size");
-      }
-      break;
-   }
-   case nir_op_fsub: {
-      Temp src0 = get_alu_src(ctx, instr->src[0]);
-      Temp src1 = get_alu_src(ctx, instr->src[1]);
-      if (dst.regClass() == v2b) {
-         if (src1.type() == RegType::vgpr || src0.type() != RegType::vgpr)
-            emit_vop2_instruction(ctx, instr, aco_opcode::v_sub_f16, dst, false);
-         else
-            emit_vop2_instruction(ctx, instr, aco_opcode::v_subrev_f16, dst, true);
-      } else if (dst.regClass() == v1) {
-         if (src1.type() == RegType::vgpr || src0.type() != RegType::vgpr)
-            emit_vop2_instruction(ctx, instr, aco_opcode::v_sub_f32, dst, false);
-         else
-            emit_vop2_instruction(ctx, instr, aco_opcode::v_subrev_f32, dst, true);
-      } else if (dst.regClass() == v2) {
-         Instruction* add = bld.vop3(aco_opcode::v_add_f64, Definition(dst),
-                                     as_vgpr(ctx, src0), as_vgpr(ctx, src1));
-         VOP3A_instruction* sub = static_cast<VOP3A_instruction*>(add);
-         sub->neg[1] = true;
       } else {
          isel_err(&instr->instr, "Unimplemented NIR instr bit size");
       }
