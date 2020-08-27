@@ -73,10 +73,17 @@ apt-get install -y automake \
                    libpython3-dev \
                    libssl-dev \
                    libvulkan-dev \
+                   libwaffle-dev \
                    libxcb-keysyms1-dev \
+                   libxkbcommon-dev \
+                   patch \
                    python3-dev \
                    python3-distutils \
                    python3-serial \
+                   python3-mako \
+                   python3-numpy \
+                   python3-pip \
+                   python3-setuptools \
                    qt5-default \
                    qt5-qmake \
                    qtbase5-dev \
@@ -93,9 +100,11 @@ if [[ "$DEBIAN_ARCH" = "armhf" ]]; then
                        libpython3-dev:armhf \
                        libvulkan-dev:armhf \
                        libxcb-keysyms1-dev:armhf \
+                       libxkbcommon-dev:armhf \
                        libboost-dev:armhf \
                        qtbase5-dev:armhf
 fi
+
 
 ############### Build dEQP runner
 
@@ -109,6 +118,11 @@ STRIP_CMD="${GCC_ARCH}-strip"
 DEQP_TARGET=surfaceless . .gitlab-ci/build-deqp.sh
 
 mv /deqp /lava-files/rootfs-${DEBIAN_ARCH}/.
+
+
+############### Build piglit
+. .gitlab-ci/build-piglit.sh
+mv /piglit /lava-files/rootfs-${DEBIAN_ARCH}/.
 
 
 ############### Build apitrace
