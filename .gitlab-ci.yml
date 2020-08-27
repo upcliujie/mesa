@@ -1554,29 +1554,12 @@ radv-fossils:
     reports:
       junit: results/junit.xml
 
-.traces-test-gl:
-  extends:
-    - .test-gl
-    - .traces-test
-  script:
-    - ./install/tracie-runner-gl.sh
-
 .traces-test-vk:
   extends:
     - .test-vk
     - .traces-test
   script:
     - ./install/tracie-runner-vk.sh
-
-llvmpipe-traces:
-  extends:
-    - .traces-test-gl
-    - .llvmpipe-rules
-  variables:
-    LIBGL_ALWAYS_SOFTWARE: "true"
-    GALLIUM_DRIVER: "llvmpipe"
-    DEVICE_NAME: "gl-vmware-llvmpipe"
-    DRIVER_NAME: "llvmpipe"
 
 radv-polaris10-traces:
   extends:
@@ -1599,15 +1582,3 @@ radv-raven-traces:
     DRIVER_NAME: "radv"
   tags:
     - raven
-
-virgl-traces:
-  extends:
-    - .traces-test-gl
-    - .virgl-rules
-  variables:
-    LIBGL_ALWAYS_SOFTWARE: "true"
-    GALLIUM_DRIVER: "virpipe"
-    DEVICE_NAME: "gl-virgl"
-    DRIVER_NAME: "virgl"
-    MESA_GLES_VERSION_OVERRIDE: "3.1"
-    MESA_GLSL_VERSION_OVERRIDE: "310"
