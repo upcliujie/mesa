@@ -416,7 +416,9 @@ arm64_test:
   extends:
     - .use-arm_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &arm64_test "2020-11-10-cmake"
+    FDO_DISTRIBUTION_TAG: &arm64_test "2020-11-13-build-piglit"
+    INCLUDE_PIGLIT: 1
+    PIGLIT_BUILD_TARGETS: "piglit_replayer"
 
 .use-arm64_test:
   variables:

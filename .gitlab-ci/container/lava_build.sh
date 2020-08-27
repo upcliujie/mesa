@@ -73,9 +73,14 @@ apt-get install -y automake \
                    libpython3-dev \
                    libssl-dev \
                    libvulkan-dev \
+                   libwaffle-dev \
                    libxcb-keysyms1-dev \
+                   libxkbcommon-dev \
+                   patch \
                    python3-dev \
                    python3-distutils \
+                   python3-mako \
+                   python3-numpy \
                    python3-serial \
                    qt5-default \
                    qt5-qmake \
@@ -84,7 +89,8 @@ apt-get install -y automake \
 
 
 if [[ "$DEBIAN_ARCH" = "armhf" ]]; then
-    apt-get install -y libegl1-mesa-dev:armhf \
+    apt-get install -y libboost-dev:armhf \
+                       libegl1-mesa-dev:armhf \
                        libelf-dev:armhf \
                        libgbm-dev:armhf \
                        libgles2-mesa-dev:armhf \
@@ -92,8 +98,9 @@ if [[ "$DEBIAN_ARCH" = "armhf" ]]; then
                        libpng-dev:armhf \
                        libpython3-dev:armhf \
                        libvulkan-dev:armhf \
+                       libwaffle-dev:armhf \
                        libxcb-keysyms1-dev:armhf \
-                       libboost-dev:armhf \
+                       libxkbcommon-dev:armhf \
                        qtbase5-dev:armhf
 fi
 
@@ -113,6 +120,13 @@ mv /usr/local/bin/deqp-runner /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/.
 DEQP_TARGET=surfaceless . .gitlab-ci/build-deqp.sh
 
 mv /deqp /lava-files/rootfs-${DEBIAN_ARCH}/.
+
+
+############### Build piglit
+if [ -n "$INCLUDE_PIGLIT" ]; then
+    . .gitlab-ci/build-piglit.sh
+    mv /piglit /lava-files/rootfs-${DEBIAN_ARCH}/.
+fi
 
 
 ############### Build apitrace
