@@ -26,6 +26,7 @@ fi
 apt-get -y install --no-install-recommends \
     ca-certificates \
     curl \
+    git \
     initramfs-tools \
     libpng16-16 \
     strace \
@@ -33,15 +34,21 @@ apt-get -y install --no-install-recommends \
     libexpat1 \
     libx11-6 \
     libx11-xcb1 \
+    libxkbcommon0 \
     $ARCH_PACKAGES \
     netcat-openbsd \
     python3 \
     libpython3.7 \
+    python3-mako \
+    python3-numpy \
     python3-pil \
+    python3-pip \
     python3-pytest \
     python3-requests \
+    python3-setuptools \
     python3-yaml \
     sntp \
+    waffle-utils \
     wget \
     xz-utils
 
@@ -61,6 +68,14 @@ chmod +x  /init
 
 mkdir -p /lib/firmware/rtl_nic
 wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/tree/rtl_nic/rtl8153a-3.fw -O /lib/firmware/rtl_nic/rtl8153a-3.fw
+
+# Needed for ci-fairy, this revision is able to upload files to MinIO
+pip3 install git+http://gitlab.freedesktop.org/freedesktop/ci-templates@6f5af7e5574509726c79109e3c147cee95e81366
+
+apt-get purge -y \
+    git \
+    python3-pip \
+    python3-setuptools
 
 #######################################################################
 # Strip the image to a small minimal system without removing the debian
