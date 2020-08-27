@@ -1908,7 +1908,9 @@ varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
    this->matches[this->num_matches].packing_order
       = this->compute_packing_order(var);
    if ((this->disable_varying_packing && !is_varying_packing_safe(type, var)) ||
-       (this->disable_xfb_packing && var->data.is_xfb) ||
+       (this->disable_xfb_packing && var->data.is_xfb &&
+       !(type->is_array() || type->is_struct() || type->is_matrix())
+        ) ||
        var->data.must_be_shader_input) {
       unsigned slots = type->count_attribute_slots(false);
       this->matches[this->num_matches].num_components = slots * 4;
