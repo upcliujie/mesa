@@ -674,7 +674,6 @@ void init_context(isel_context *ctx, nir_shader *shader)
                switch(alu_instr->op) {
                   case nir_op_fmul:
                   case nir_op_fadd:
-                  case nir_op_fsub:
                   case nir_op_fmax:
                   case nir_op_fmin:
                   case nir_op_fneg:
