@@ -23,8 +23,32 @@ elif [ $DEBIAN_ARCH = amd64 ]; then
                   "
 fi
 
+if [ -n "$INCLUDE_VK_CTS" ]; then
+    VK_CTS_PACKAGES="libvulkan1"
+fi
+
+if [ -n "$INCLUDE_PIGLIT" ]; then
+    PIGLIT_PACKAGES="libwaffle-1-0
+                     libxkbcommon0
+                     python3-lxml
+                     python3-mako
+                     python3-numpy
+                     python3-simplejson
+                    "
+    CI_FAIRY_PACKAGES="git"
+    INSTALL_CI_FAIRY_PACKAGES="python3-dev
+                               python3-pip
+                               python3-setuptools
+                               python3-wheel
+                              "
+fi
+
 apt-get -y install --no-install-recommends \
     $ARCH_PACKAGES \
+    $CI_FAIRY_PACKAGES \
+    $INSTALL_CI_FAIRY_PACKAGES \
+    $PIGLIT_PACKAGES \
+    $VK_CTS_PACKAGES \
     ca-certificates \
     curl \
     initramfs-tools \
@@ -45,8 +69,12 @@ apt-get -y install --no-install-recommends \
     wget \
     xz-utils
 
-if [ -n "$INCLUDE_VK_CTS" ]; then
-    apt-get install -y libvulkan1
+if [ -n "$INCLUDE_PIGLIT" ]; then
+    # Needed for ci-fairy, this revision is able to upload files to MinIO
+    pip3 install git+http://gitlab.freedesktop.org/freedesktop/ci-templates@6f5af7e5574509726c79109e3c147cee95e81366
+
+    apt-get purge -y \
+        $INSTALL_CI_FAIRY_PACKAGES
 fi
 
 passwd root -d
