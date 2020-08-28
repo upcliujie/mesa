@@ -922,7 +922,7 @@ build_explicit_io_load(nir_builder *b, nir_intrinsic_instr *intrin,
       assert(addr_format_is_global(addr_format));
       op = nir_intrinsic_load_global;
       break;
-   case nir_var_shader_in:
+   case nir_var_uniform:
       assert(addr_format_is_offset(addr_format));
       op = nir_intrinsic_load_kernel_input;
       break;
@@ -1184,7 +1184,7 @@ nir_explicit_io_address_from_deref(nir_builder *b, nir_deref_instr *deref,
    assert(deref->dest.is_ssa);
    switch (deref->deref_type) {
    case nir_deref_type_var:
-      assert(deref->mode & (nir_var_shader_in | nir_var_mem_shared |
+      assert(deref->mode & (nir_var_uniform | nir_var_mem_shared |
                             nir_var_shader_temp | nir_var_function_temp));
       if (addr_format_is_global(addr_format)) {
          assert(nir_var_shader_temp | nir_var_function_temp);
