@@ -137,7 +137,7 @@ enum iris_mmap_mode {
    IRIS_MMAP_WB, /**< Write-back mapping with CPU caches enabled */
 };
 
-#define IRIS_BATCH_COUNT 2
+#define IRIS_BATCH_COUNT 3
 
 struct iris_bo_screen_deps {
    struct iris_syncobj *write_syncobjs[IRIS_BATCH_COUNT];
