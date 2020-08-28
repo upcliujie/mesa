@@ -296,7 +296,8 @@ zink_draw_vbo(struct pipe_context *pctx,
    }
 
    VkWriteDescriptorSet wds[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS)];
-   struct zink_resource *write_desc_resources[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS)];
+   struct zink_resource *read_desc_resources[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS)] = {};
+   struct zink_resource *write_desc_resources[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS)] = {};
    VkDescriptorBufferInfo buffer_infos[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_BUFFERS)];
    VkDescriptorImageInfo image_infos[PIPE_SHADER_TYPES * PIPE_MAX_SHADER_SAMPLER_VIEWS];
    VkBufferView buffer_view[] = {VK_NULL_HANDLE};
@@ -327,7 +328,7 @@ zink_draw_vbo(struct pipe_context *pctx,
             assert(ctx->ubos[i][index].buffer_size <= screen->info.props.limits.maxUniformBufferRange);
             assert(ctx->ubos[i][index].buffer);
             struct zink_resource *res = zink_resource(ctx->ubos[i][index].buffer);
-            write_desc_resources[num_wds] = res;
+            read_desc_resources[num_wds] = res;
             buffer_infos[num_buffer_info].buffer = res->buffer;
             buffer_infos[num_buffer_info].offset = ctx->ubos[i][index].buffer_offset;
             buffer_infos[num_buffer_info].range  = ctx->ubos[i][index].buffer_size;
@@ -350,7 +351,7 @@ zink_draw_vbo(struct pipe_context *pctx,
                struct zink_sampler_view *sampler_view = zink_sampler_view(psampler_view);
 
                struct zink_resource *res = psampler_view ? zink_resource(psampler_view->texture) : NULL;
-               write_desc_resources[num_wds] = res;
+               read_desc_resources[num_wds] = res;
                if (!res) {
                   /* if we're hitting this assert often, we can probably just throw a junk buffer in since
                    * the results of this codepath are undefined in ARB_texture_buffer_object spec
@@ -487,8 +488,10 @@ zink_draw_vbo(struct pipe_context *pctx,
    if (num_wds > 0) {
       for (int i = 0; i < num_wds; ++i) {
          wds[i].dstSet = desc_set;
-         if (write_desc_resources[i])
-            zink_batch_reference_resource_rw(batch, write_desc_resources[i], false);
+         if (read_desc_resources[i])
+            zink_batch_reference_resource_rw(batch, read_desc_resources[i], false);
+         else if (write_desc_resources[i])
+            zink_batch_reference_resource_rw(batch, write_desc_resources[i], true);
       }
       vkUpdateDescriptorSets(screen->dev, num_wds, wds, 0, NULL);
    }
