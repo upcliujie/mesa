@@ -132,7 +132,7 @@ panfrost_sfbd_set_cbuf(
         unsigned level = surf->u.tex.level;
         unsigned first_layer = surf->u.tex.first_layer;
         assert(surf->u.tex.last_layer == first_layer);
-        signed stride = rsrc->slices[level].stride;
+        signed stride = rsrc->layout.slices[level].stride;
 
         mali_ptr base = panfrost_get_texture_address(rsrc, level, first_layer, 0);
 
@@ -141,9 +141,9 @@ panfrost_sfbd_set_cbuf(
         fb->framebuffer = base;
         fb->stride = stride;
 
-        if (rsrc->modifier == DRM_FORMAT_MOD_LINEAR)
+        if (rsrc->layout.modifier == DRM_FORMAT_MOD_LINEAR)
                 fb->format.block = MALI_BLOCK_FORMAT_LINEAR;
-        else if (rsrc->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
+        else if (rsrc->layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
                 fb->format.block = MALI_BLOCK_FORMAT_TILED;
                 fb->stride *= 16;
         } else {
@@ -163,11 +163,11 @@ panfrost_sfbd_set_zsbuf(
         unsigned level = surf->u.tex.level;
         assert(surf->u.tex.first_layer == 0);
 
-        if (rsrc->modifier != DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED)
+        if (rsrc->layout.modifier != DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED)
                 unreachable("Invalid render modifier.");
 
-        fb->depth_buffer = rsrc->bo->gpu + rsrc->slices[level].offset;
-        fb->depth_stride = rsrc->slices[level].stride;
+        fb->depth_buffer = rsrc->bo->gpu + rsrc->layout.slices[level].offset;
+        fb->depth_stride = rsrc->layout.slices[level].stride;
 
         /* No stencil? Job done. */
         if (!ctx->depth_stencil || !ctx->depth_stencil->base.stencil[0].enabled)
@@ -182,10 +182,10 @@ panfrost_sfbd_set_zsbuf(
         } else if (surf->format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT) {
                 /* Stencil data in separate buffer */
                 struct panfrost_resource *stencil = rsrc->separate_stencil;
-                struct panfrost_slice stencil_slice = stencil->slices[level];
+                const struct pan_slice_layout *layout = &stencil->layout.slices[level];
 
-                fb->stencil_buffer = stencil->bo->gpu + stencil_slice.offset;
-                fb->stencil_stride = stencil_slice.stride;
+                fb->stencil_buffer = stencil->bo->gpu + layout->offset;
+                fb->stencil_stride = layout->stride;
         } else
                 unreachable("Unsupported depth/stencil format.");
 }
@@ -249,12 +249,12 @@ panfrost_sfbd_fragment(struct panfrost_batch *batch, bool has_draws)
 
                 panfrost_sfbd_set_cbuf(&fb, surf);
 
-                if (rsrc->checksummed) {
+                if (rsrc->layout.checksummed) {
                         unsigned level = surf->u.tex.level;
-                        struct panfrost_slice *slice = &rsrc->slices[level];
+                        const struct pan_slice_layout *layout = &rsrc->layout.slices[level];
 
-                        fb.checksum_stride = slice->checksum_stride;
-                        fb.checksum = bo->gpu + slice->checksum_offset;
+                        fb.checksum_stride = layout->checksum_stride;
+                        fb.checksum = bo->gpu + layout->checksum_offset;
                 }
         }
 

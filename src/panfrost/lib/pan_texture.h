@@ -38,7 +38,7 @@
 #define PAN_MODIFIER_COUNT 4
 extern uint64_t pan_best_modifiers[PAN_MODIFIER_COUNT];
 
-struct panfrost_slice {
+struct pan_slice_layout {
         unsigned offset;
         unsigned stride;
         unsigned size0;
@@ -51,29 +51,41 @@ struct panfrost_slice {
          * is its offset/stride? */
         unsigned checksum_offset;
         unsigned checksum_stride;
-        struct panfrost_bo *checksum_bo;
+        unsigned checksum_size;
+};
 
-        /* Has anything been written to this slice? */
-        bool initialized;
+#define PAN_MAX_MIP_LEVELS 13
+
+struct pan_plane_layout {
+        struct pan_slice_layout slices[PAN_MAX_MIP_LEVELS];
+        unsigned width0, height0, depth0;
+        unsigned array_size;
+        enum pipe_format format;
+        unsigned nr_samples;
+        unsigned cubemap_stride;
+        unsigned size;
+        uint64_t modifier;
+        bool checksummed;
+};
+
+struct pan_plane_explicit_layout {
+        unsigned offset;
+        unsigned stride;
+        unsigned size;
 };
 
 struct pan_image {
         /* Format and size */
-        uint16_t width0, height0, depth0, array_size;
-        enum pipe_format format;
         enum mali_texture_dimension dim;
         unsigned first_level, last_level;
         unsigned first_layer, last_layer;
-        unsigned nr_samples;
         struct panfrost_bo *bo;
-        struct panfrost_slice *slices;
-        unsigned cubemap_stride;
-        uint64_t modifier;
+        const struct pan_plane_layout *layout;
 };
 
 unsigned
 panfrost_compute_checksum_size(
-        struct panfrost_slice *slice,
+        struct pan_slice_layout *layout,
         unsigned width,
         unsigned height);
 
@@ -95,45 +107,43 @@ panfrost_estimate_texture_payload_size(
                 unsigned nr_samples,
                 enum mali_texture_dimension dim, uint64_t modifier);
 
+bool
+pan_plane_layout_init(struct pan_plane_layout *layout,
+                      const struct pan_plane_explicit_layout *explicit_layout,
+                      enum pipe_format format, unsigned nr_samples,
+                      unsigned width0, unsigned height0, unsigned depth0,
+                      unsigned array_size, unsigned mip_levels, bool is_3d,
+                      bool checksummed, bool force_tile_alignment, uint64_t mod);
+
 void
 panfrost_new_texture(
         void *out,
-        uint16_t width, uint16_t height,
-        uint16_t depth, uint16_t array_size,
-        enum pipe_format format,
         enum mali_texture_dimension dim,
-        uint64_t modifier,
         unsigned first_level, unsigned last_level,
         unsigned first_layer, unsigned last_layer,
-        unsigned nr_samples,
-        unsigned cube_stride,
         unsigned swizzle,
         mali_ptr base,
-        struct panfrost_slice *slices);
+        const struct pan_plane_layout *layout);
 
 void
 panfrost_new_texture_bifrost(
         struct mali_bifrost_texture_packed *out,
-        uint16_t width, uint16_t height,
-        uint16_t depth, uint16_t array_size,
-        enum pipe_format format,
         enum mali_texture_dimension dim,
-        uint64_t modifier,
         unsigned first_level, unsigned last_level,
         unsigned first_layer, unsigned last_layer,
-        unsigned nr_samples,
-        unsigned cube_stride,
         unsigned swizzle,
         mali_ptr base,
-        struct panfrost_slice *slices,
+        const struct pan_plane_layout *layout,
         struct panfrost_bo *payload);
 
 
 unsigned
-panfrost_get_layer_stride(struct panfrost_slice *slices, bool is_3d, unsigned cube_stride, unsigned level);
+panfrost_get_layer_stride(const struct pan_plane_layout *layout,
+                          bool is_3d, unsigned level);
 
 unsigned
-panfrost_texture_offset(struct panfrost_slice *slices, bool is_3d, unsigned cube_stride, unsigned level, unsigned face, unsigned sample);
+panfrost_texture_offset(const struct pan_plane_layout *layout, bool is_3d,
+                        unsigned level, unsigned face, unsigned sample);
 
 /* Formats */
 

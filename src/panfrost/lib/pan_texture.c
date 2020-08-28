@@ -77,15 +77,13 @@ panfrost_modifier_to_layout(uint64_t modifier)
  * alignment requirements for their strides as it is */
 
 static bool
-panfrost_needs_explicit_stride(
-                struct panfrost_slice *slices,
-                uint16_t width,
-                unsigned first_level, unsigned last_level,
-                unsigned bytes_per_pixel)
+panfrost_needs_explicit_stride(const struct pan_plane_layout *layout,
+                               unsigned first_level, unsigned last_level,
+                               unsigned bytes_per_pixel)
 {
         for (unsigned l = first_level; l <= last_level; ++l) {
-                unsigned actual = slices[l].stride;
-                unsigned expected = u_minify(width, l) * bytes_per_pixel;
+                unsigned actual = layout->slices[l].stride;
+                unsigned expected = u_minify(layout->width0, l) * bytes_per_pixel;
 
                 if (actual != expected)
                         return true;
@@ -224,17 +222,13 @@ panfrost_emit_texture_payload(
         const struct util_format_description *desc,
         enum mali_format mali_format,
         enum mali_texture_dimension dim,
-        uint64_t modifier,
-        unsigned width, unsigned height,
         unsigned first_level, unsigned last_level,
         unsigned first_layer, unsigned last_layer,
-        unsigned nr_samples,
-        unsigned cube_stride,
         bool manual_stride,
         mali_ptr base,
-        struct panfrost_slice *slices)
+        const struct pan_plane_layout *layout)
 {
-        base |= panfrost_compression_tag(desc, mali_format, modifier);
+        base |= panfrost_compression_tag(desc, mali_format, layout->modifier);
 
         /* Inject the addresses in, interleaving array indices, mip levels,
          * cube faces, and strides in that order */
@@ -246,7 +240,7 @@ panfrost_emit_texture_payload(
                 panfrost_adjust_cube_dimensions(&first_face, &last_face, &first_layer, &last_layer);
         }
 
-        nr_samples = MAX2(nr_samples, 1);
+        unsigned nr_samples = MAX2(layout->nr_samples, 1);
 
         unsigned idx = 0;
 
@@ -254,18 +248,19 @@ panfrost_emit_texture_payload(
                 for (unsigned l = first_level; l <= last_level; ++l) {
                         for (unsigned f = first_face; f <= last_face; ++f) {
                                 for (unsigned s = 0; s < nr_samples; ++s) {
-                                        payload[idx++] = base + panfrost_texture_offset(
-                                                        slices, dim == MALI_TEXTURE_DIMENSION_3D,
-                                                        cube_stride, l, w * face_mult + f, s);
+                                        payload[idx++] = base +
+                                                         panfrost_texture_offset(layout,
+                                                                                 dim == MALI_TEXTURE_DIMENSION_3D,
+                                                                                 l, w * face_mult + f, s);
+                                        if (!manual_stride)
+                                                continue;
 
-                                        if (manual_stride) {
-                                                payload[idx++] = (modifier == DRM_FORMAT_MOD_LINEAR) ?
-                                                        slices[l].stride :
-                                                        panfrost_nonlinear_stride(modifier,
-                                                                        MAX2(desc->block.bits / 8, 1),
-                                                                        u_minify(width, l),
-                                                                        u_minify(height, l));
-                                        }
+                                        payload[idx++] = (layout->modifier == DRM_FORMAT_MOD_LINEAR) ?
+                                                         layout->slices[l].stride :
+                                                         panfrost_nonlinear_stride(layout->modifier,
+                                                                                   MAX2(desc->block.bits / 8, 1),
+                                                                                   u_minify(layout->width0, l),
+                                                                                   u_minify(layout->height0, l));
                                 }
                         }
                 }
@@ -288,47 +283,41 @@ panfrost_emit_texture_payload(
 void
 panfrost_new_texture(
         void *out,
-        uint16_t width, uint16_t height,
-        uint16_t depth, uint16_t array_size,
-        enum pipe_format format,
         enum mali_texture_dimension dim,
-        uint64_t modifier,
         unsigned first_level, unsigned last_level,
         unsigned first_layer, unsigned last_layer,
-        unsigned nr_samples,
-        unsigned cube_stride,
         unsigned swizzle,
         mali_ptr base,
-        struct panfrost_slice *slices)
+        const struct pan_plane_layout *layout)
 {
         const struct util_format_description *desc =
-                util_format_description(format);
+                util_format_description(layout->format);
 
-        unsigned bytes_per_pixel = util_format_get_blocksize(format);
+        unsigned bytes_per_pixel = util_format_get_blocksize(layout->format);
 
         enum mali_format mali_format = panfrost_pipe_format_table[desc->format].hw;
         assert(mali_format);
 
-        bool manual_stride = (modifier == DRM_FORMAT_MOD_LINEAR)
-                && panfrost_needs_explicit_stride(slices, width,
+        bool manual_stride = (layout->modifier == DRM_FORMAT_MOD_LINEAR)
+                && panfrost_needs_explicit_stride(layout,
                                 first_level, last_level, bytes_per_pixel);
 
-        unsigned format_swizzle = (format == PIPE_FORMAT_X24S8_UINT) ?
+        unsigned format_swizzle = (layout->format == PIPE_FORMAT_X24S8_UINT) ?
                                 MALI_SWIZZLE_A001 :
-                                (format == PIPE_FORMAT_S8_UINT) ?
+                                (layout->format == PIPE_FORMAT_S8_UINT) ?
                                 MALI_SWIZZLE_R001 :
                                 panfrost_translate_swizzle_4(desc->swizzle);
 
         bool srgb = (desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB);
 
         pan_pack(out, MIDGARD_TEXTURE, cfg) {
-                cfg.width = u_minify(width, first_level);
-                cfg.height = u_minify(height, first_level);
-                cfg.depth = u_minify(depth, first_level);
-                cfg.array_size = array_size;
+                cfg.width = u_minify(layout->width0, first_level);
+                cfg.height = u_minify(layout->height0, first_level);
+                cfg.depth = u_minify(layout->depth0, first_level);
+                cfg.array_size = layout->array_size;
                 cfg.format = format_swizzle | (mali_format << 12) | (srgb << 20);
                 cfg.dimension = dim;
-                cfg.texel_ordering = panfrost_modifier_to_layout(modifier);
+                cfg.texel_ordering = panfrost_modifier_to_layout(layout->modifier);
                 cfg.manual_stride = manual_stride;
                 cfg.levels = last_level - first_level;
                 cfg.swizzle = swizzle;
@@ -339,36 +328,26 @@ panfrost_new_texture(
                 desc,
                 mali_format,
                 dim,
-                modifier,
-                width, height,
                 first_level, last_level,
                 first_layer, last_layer,
-                nr_samples,
-                cube_stride,
                 manual_stride,
                 base,
-                slices);
+                layout);
 }
 
 void
 panfrost_new_texture_bifrost(
         struct mali_bifrost_texture_packed *out,
-        uint16_t width, uint16_t height,
-        uint16_t depth, uint16_t array_size,
-        enum pipe_format format,
         enum mali_texture_dimension dim,
-        uint64_t modifier,
         unsigned first_level, unsigned last_level,
         unsigned first_layer, unsigned last_layer,
-        unsigned nr_samples,
-        unsigned cube_stride,
         unsigned swizzle,
         mali_ptr base,
-        struct panfrost_slice *slices,
+        const struct pan_plane_layout *layout,
         struct panfrost_bo *payload)
 {
         const struct util_format_description *desc =
-                util_format_description(format);
+                util_format_description(layout->format);
 
         enum mali_format mali_format = panfrost_pipe_format_table[desc->format].hw;
         assert(mali_format);
@@ -378,25 +357,21 @@ panfrost_new_texture_bifrost(
                 desc,
                 mali_format,
                 dim,
-                modifier,
-                width, height,
                 first_level, last_level,
                 first_layer, last_layer,
-                nr_samples,
-                cube_stride,
                 true, /* Stride explicit on Bifrost */
                 base,
-                slices);
+                layout);
 
         bool srgb = (desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB);
 
         pan_pack(out, BIFROST_TEXTURE, cfg) {
                 cfg.dimension = dim;
                 cfg.format = (mali_format << 12) | (srgb << 20);
-                cfg.width = u_minify(width, first_level);
-                cfg.height = u_minify(height, first_level);
+                cfg.width = u_minify(layout->width0, first_level);
+                cfg.height = u_minify(layout->height0, first_level);
                 cfg.swizzle = swizzle;
-                cfg.texel_ordering = panfrost_modifier_to_layout(modifier);
+                cfg.texel_ordering = panfrost_modifier_to_layout(layout->modifier);
                 cfg.levels = last_level - first_level;
                 cfg.surfaces = payload->gpu;
 
@@ -416,7 +391,7 @@ panfrost_new_texture_bifrost(
 
 unsigned
 panfrost_compute_checksum_size(
-        struct panfrost_slice *slice,
+        struct pan_slice_layout *layout,
         unsigned width,
         unsigned height)
 {
@@ -426,23 +401,185 @@ panfrost_compute_checksum_size(
         unsigned tile_count_x = aligned_width / CHECKSUM_TILE_WIDTH;
         unsigned tile_count_y = aligned_height / CHECKSUM_TILE_HEIGHT;
 
-        slice->checksum_stride = tile_count_x * CHECKSUM_BYTES_PER_TILE;
+        layout->checksum_stride = tile_count_x * CHECKSUM_BYTES_PER_TILE;
 
-        return slice->checksum_stride * tile_count_y;
+        return layout->checksum_stride * tile_count_y;
 }
 
 unsigned
-panfrost_get_layer_stride(struct panfrost_slice *slices, bool is_3d, unsigned cube_stride, unsigned level)
+panfrost_get_layer_stride(const struct pan_plane_layout *layout, bool is_3d,
+                          unsigned level)
 {
-        return is_3d ? slices[level].size0 : cube_stride;
+        return is_3d ? layout->slices[level].size0 : layout->cubemap_stride;
 }
 
 /* Computes the offset into a texture at a particular level/face. Add to
  * the base address of a texture to get the address to that level/face */
 
 unsigned
-panfrost_texture_offset(struct panfrost_slice *slices, bool is_3d, unsigned cube_stride, unsigned level, unsigned face, unsigned sample)
+panfrost_texture_offset(const struct pan_plane_layout *layout, bool is_3d,
+                        unsigned level, unsigned face, unsigned sample)
 {
-        unsigned layer_stride = panfrost_get_layer_stride(slices, is_3d, cube_stride, level);
-        return slices[level].offset + (face * layer_stride) + (sample * slices[level].size0);
+        unsigned layer_stride = panfrost_get_layer_stride(layout, is_3d, level);
+        return layout->slices[level].offset + (face * layer_stride) +
+               (sample * layout->slices[level].size0);
+}
+
+bool
+pan_plane_layout_init(struct pan_plane_layout *layout,
+                      const struct pan_plane_explicit_layout *explicit_layout,
+                      enum pipe_format format, unsigned nr_samples,
+                      unsigned width0, unsigned height0, unsigned depth0,
+                      unsigned array_size, unsigned mip_levels, bool is_3d,
+                      bool checksummed, bool force_tile_alignment, uint64_t mod)
+{
+        /* Is that supposed to be supported? */
+        if (explicit_layout && (mip_levels > 1 || depth0 > 1 || is_3d))
+                return false;
+
+        memset(layout, 0, sizeof(*layout));
+        layout->format = format;
+        layout->nr_samples = nr_samples;
+        layout->width0 = width0;
+        layout->height0 = height0;
+        layout->depth0 = depth0;
+        layout->array_size = array_size;
+        layout->modifier = mod;
+        layout->checksummed = checksummed;
+
+        unsigned width = width0;
+        unsigned height = height0;
+        unsigned depth = depth0;
+        unsigned bytes_per_pixel = util_format_get_blocksize(format);
+
+        /* MSAA is implemented as a 3D texture with z corresponding to the
+         * sample #, horrifyingly enough */
+
+        bool msaa = nr_samples > 1;
+
+        if (msaa) {
+                assert(depth == 1);
+                depth = nr_samples;
+        }
+
+        assert(depth > 0);
+
+        bool afbc = drm_is_afbc(mod);
+        bool tiled = mod == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED;
+        bool linear = mod == DRM_FORMAT_MOD_LINEAR;
+        bool can_align_stride = !is_3d && !explicit_layout;
+        bool should_align = (tiled || afbc || force_tile_alignment) &
+                            can_align_stride;
+        unsigned offset = explicit_layout ? explicit_layout->offset : 0;
+        /* Do we have stronger alignment constraints for AFBC/tiled? */
+        unsigned min_align = bytes_per_pixel;
+        unsigned size_2d = 0;
+
+        if (offset % min_align)
+                return false;
+
+        for (unsigned l = 0; l < mip_levels; ++l) {
+                struct pan_slice_layout *slice = &layout->slices[l];
+
+                unsigned effective_width = width;
+                unsigned effective_height = height;
+                unsigned effective_depth = depth;
+
+                if (should_align) {
+                        effective_width = ALIGN_POT(effective_width, 16);
+                        effective_height = ALIGN_POT(effective_height, 16);
+
+                        /* We don't need to align depth */
+                }
+
+                /* Align levels to cache-line as a performance improvement for
+                 * linear/tiled and as a requirement for AFBC */
+                if (!explicit_layout)
+                        offset = ALIGN_POT(offset, 64);
+
+                slice->offset = offset;
+
+                /* Compute the would-be stride */
+                unsigned stride = bytes_per_pixel * effective_width;
+
+                if (util_format_is_compressed(format))
+                        stride /= 4;
+
+                if (explicit_layout) {
+                        if (explicit_layout->stride < stride ||
+                            explicit_layout->stride % min_align)
+                                return false;
+
+                        stride = explicit_layout->stride;
+                }
+
+                /* ..but cache-line align it for performance */
+                if (can_align_stride && linear)
+                        stride = ALIGN_POT(stride, 64);
+
+                slice->stride = stride;
+
+                unsigned slice_one_size = slice->stride * effective_height;
+                unsigned slice_full_size = slice_one_size * effective_depth;
+
+                slice->size0 = slice_one_size;
+
+                /* Report 2D size for 3D texturing */
+
+                if (l == 0)
+                        size_2d = slice_one_size;
+
+                /* Compute AFBC sizes if necessary */
+                if (afbc) {
+                        slice->header_size = panfrost_afbc_header_size(width, height);
+                        if (!explicit_layout)
+                                offset += slice->header_size;
+                }
+
+                if (!explicit_layout)
+                        offset += slice_full_size;
+                else
+                        offset += slice_one_size;
+                /* Add a checksum region if necessary */
+                if (checksummed) {
+                        if (!explicit_layout)
+                                slice->checksum_offset = offset;
+
+                        slice->checksum_stride = DIV_ROUND_UP(width, CHECKSUM_TILE_WIDTH) *
+                                                 CHECKSUM_BYTES_PER_TILE;
+                        slice->checksum_size = DIV_ROUND_UP(height, CHECKSUM_TILE_HEIGHT) *
+                                               slice->checksum_stride;
+
+                        if (!explicit_layout)
+                                offset += slice->checksum_size;
+                }
+
+                width = u_minify(width, 1);
+                height = u_minify(height, 1);
+
+                /* Don't mipmap the sample count */
+                if (!msaa)
+                        depth = u_minify(depth, 1);
+        }
+
+        assert(array_size);
+
+        if (explicit_layout) {
+                if (explicit_layout->size < offset - explicit_layout->offset)
+                        return false;
+
+                layout->size = explicit_layout->size;
+        } else if (!is_3d) {
+                /* Arrays and cubemaps have the entire miptree duplicated */
+                layout->cubemap_stride = ALIGN_POT(offset, 64);
+                layout->size = ALIGN_POT(layout->cubemap_stride * layout->array_size, 4096);
+        } else {
+                /* 3D strides across the 2D layers */
+                assert(array_size == 1);
+
+                layout->cubemap_stride = size_2d;
+                layout->size = ALIGN_POT(offset, 4096);
+        }
+
+        return true;
 }

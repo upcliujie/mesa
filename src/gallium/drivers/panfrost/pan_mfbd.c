@@ -209,12 +209,12 @@ panfrost_mfbd_set_cbuf(
         unsigned level = surf->u.tex.level;
         unsigned first_layer = surf->u.tex.first_layer;
         assert(surf->u.tex.last_layer == first_layer);
-        int stride = rsrc->slices[level].stride;
+        int stride = rsrc->layout.slices[level].stride;
 
         /* Only set layer_stride for layered MSAA rendering  */
 
         unsigned nr_samples = surf->texture->nr_samples;
-        unsigned layer_stride = (nr_samples > 1) ? rsrc->slices[level].size0 : 0;
+        unsigned layer_stride = (nr_samples > 1) ? rsrc->layout.slices[level].size0 : 0;
 
         mali_ptr base = panfrost_get_texture_address(rsrc, level, first_layer, 0);
 
@@ -229,7 +229,7 @@ panfrost_mfbd_set_cbuf(
 
         /* Now, we set the modifier specific pieces */
 
-        if (rsrc->modifier == DRM_FORMAT_MOD_LINEAR) {
+        if (rsrc->layout.modifier == DRM_FORMAT_MOD_LINEAR) {
                 if (is_bifrost) {
                         rt->format.unk4 = 0x1;
                 } else {
@@ -239,7 +239,7 @@ panfrost_mfbd_set_cbuf(
                 rt->framebuffer = base;
                 rt->framebuffer_stride = stride / 16;
                 rt->layer_stride = layer_stride;
-        } else if (rsrc->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
+        } else if (rsrc->layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
                 if (is_bifrost) {
                         rt->format.unk3 |= 0x8;
                 } else {
@@ -249,10 +249,10 @@ panfrost_mfbd_set_cbuf(
                 rt->framebuffer = base;
                 rt->framebuffer_stride = stride;
                 rt->layer_stride = layer_stride;
-        } else if (drm_is_afbc(rsrc->modifier)) {
+        } else if (drm_is_afbc(rsrc->layout.modifier)) {
                 rt->format.block = MALI_BLOCK_FORMAT_AFBC;
 
-                unsigned header_size = rsrc->slices[level].header_size;
+                unsigned header_size = rsrc->layout.slices[level].header_size;
 
                 rt->framebuffer = base + header_size;
                 rt->layer_stride = layer_stride;
@@ -260,7 +260,7 @@ panfrost_mfbd_set_cbuf(
                 rt->afbc.stride = 0;
                 rt->afbc.flags = MALI_AFBC_FLAGS;
 
-                if (rsrc->modifier & AFBC_FORMAT_MOD_YTR)
+                if (rsrc->layout.modifier & AFBC_FORMAT_MOD_YTR)
                         rt->afbc.flags |= MALI_AFBC_YTR;
 
                 /* TODO: The blob sets this to something nonzero, but it's not
@@ -292,12 +292,12 @@ panfrost_mfbd_set_zsbuf(
 
         mali_ptr base = panfrost_get_texture_address(rsrc, level, first_layer, 0);
 
-        if (drm_is_afbc(rsrc->modifier)) {
+        if (drm_is_afbc(rsrc->layout.modifier)) {
                 /* The only Z/S format we can compress is Z24S8 or variants
                  * thereof (handled by the gallium frontend) */
                 assert(panfrost_is_z24s8_variant(surf->format));
 
-                unsigned header_size = rsrc->slices[level].header_size;
+                unsigned header_size = rsrc->layout.slices[level].header_size;
 
                 fb->mfbd_flags |= MALI_MFBD_EXTRA | MALI_MFBD_DEPTH_WRITE;
 
@@ -312,12 +312,13 @@ panfrost_mfbd_set_zsbuf(
                 fbx->ds_afbc.flags = MALI_AFBC_FLAGS;
                 fbx->ds_afbc.padding = 0x1000;
         } else {
-                assert(rsrc->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED || rsrc->modifier == DRM_FORMAT_MOD_LINEAR);
+                assert(rsrc->layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED ||
+                       rsrc->layout.modifier == DRM_FORMAT_MOD_LINEAR);
                 /* TODO: Z32F(S8) support, which is always linear */
 
-                int stride = rsrc->slices[level].stride;
+                int stride = rsrc->layout.slices[level].stride;
 
-                unsigned layer_stride = (nr_samples > 1) ? rsrc->slices[level].size0 : 0;
+                unsigned layer_stride = (nr_samples > 1) ? rsrc->layout.slices[level].size0 : 0;
 
                 fb->mfbd_flags |= MALI_MFBD_EXTRA | MALI_MFBD_DEPTH_WRITE;
                 fbx->flags_hi |= MALI_EXTRA_PRESENT;
@@ -325,7 +326,7 @@ panfrost_mfbd_set_zsbuf(
 
                 fbx->ds_linear.depth = base;
 
-                if (rsrc->modifier == DRM_FORMAT_MOD_LINEAR) {
+                if (rsrc->layout.modifier == DRM_FORMAT_MOD_LINEAR) {
                         fbx->zs_block = MALI_BLOCK_FORMAT_LINEAR;
                         fbx->ds_linear.depth_stride = stride / 16;
                         fbx->ds_linear.depth_layer_stride = layer_stride;
@@ -356,11 +357,11 @@ panfrost_mfbd_set_zsbuf(
                         fb->mfbd_flags |= 0x201;
 
                         struct panfrost_resource *stencil = rsrc->separate_stencil;
-                        struct panfrost_slice stencil_slice = stencil->slices[level];
-                        unsigned stencil_layer_stride = (nr_samples > 1) ? stencil_slice.size0 : 0;
+                        const struct pan_slice_layout *layout = &stencil->layout.slices[level];
+                        unsigned stencil_layer_stride = (nr_samples > 1) ? layout->size0 : 0;
 
                         fbx->ds_linear.stencil = panfrost_get_texture_address(stencil, level, first_layer, 0);
-                        fbx->ds_linear.stencil_stride = stencil_slice.stride;
+                        fbx->ds_linear.stencil_stride = layout->stride;
                         fbx->ds_linear.stencil_layer_stride = stencil_layer_stride;
                 }
         }
@@ -619,17 +620,18 @@ panfrost_mfbd_fragment(struct panfrost_batch *batch, bool has_draws)
                 struct pipe_surface *surf = batch->key.cbufs[0];
                 struct panfrost_resource *rsrc = pan_resource(surf->texture);
 
-                if (rsrc->checksummed) {
+                if (rsrc->layout.checksummed) {
                         unsigned level = surf->u.tex.level;
-                        struct panfrost_slice *slice = &rsrc->slices[level];
+                        struct panfrost_slice_state *slice = &rsrc->slices[level];
+                        const struct pan_slice_layout *layout = &rsrc->layout.slices[level];
 
                         fb.mfbd_flags |= MALI_MFBD_EXTRA;
                         fbx.flags_hi |= MALI_EXTRA_PRESENT;
-                        fbx.checksum_stride = slice->checksum_stride;
+                        fbx.checksum_stride = layout->checksum_stride;
                         if (slice->checksum_bo)
                                 fbx.checksum = slice->checksum_bo->gpu;
                         else
-                                fbx.checksum = rsrc->bo->gpu + slice->checksum_offset;
+                                fbx.checksum = rsrc->bo->gpu + layout->checksum_offset;
                 }
         }
 

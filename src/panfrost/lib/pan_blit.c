@@ -180,9 +180,9 @@ panfrost_load_midg(
                 struct pan_image *image,
                 unsigned loc)
 {
-        bool srgb = util_format_is_srgb(image->format);
-        unsigned width = u_minify(image->width0, image->first_level);
-        unsigned height = u_minify(image->height0, image->first_level);
+        bool srgb = util_format_is_srgb(image->layout->format);
+        unsigned width = u_minify(image->layout->width0, image->first_level);
+        unsigned height = u_minify(image->layout->height0, image->first_level);
 
         struct panfrost_transfer viewport = panfrost_pool_alloc(pool, MALI_VIEWPORT_LENGTH);
         struct panfrost_transfer sampler = panfrost_pool_alloc(pool, MALI_MIDGARD_SAMPLER_LENGTH);
@@ -227,11 +227,11 @@ panfrost_load_midg(
 
         enum pan_blit_type T =
                 (loc == FRAG_RESULT_STENCIL) ? PAN_BLIT_UINT :
-                (util_format_is_pure_uint(image->format)) ? PAN_BLIT_UINT :
-                (util_format_is_pure_sint(image->format)) ? PAN_BLIT_INT :
+                (util_format_is_pure_uint(image->layout->format)) ? PAN_BLIT_UINT :
+                (util_format_is_pure_sint(image->layout->format)) ? PAN_BLIT_INT :
                 PAN_BLIT_FLOAT;
 
-        bool ms = image->nr_samples > 1;
+        bool ms = image->layout->nr_samples > 1;
 
         struct mali_midgard_properties_packed properties;
 
@@ -293,23 +293,21 @@ panfrost_load_midg(
          * 2D and 3D variants */
 
         struct panfrost_transfer texture_t = panfrost_pool_alloc_aligned(
-                        pool, MALI_MIDGARD_TEXTURE_LENGTH + sizeof(mali_ptr) * 2 * MAX2(image->nr_samples, 1), 128);
+                        pool,
+                        MALI_MIDGARD_TEXTURE_LENGTH + sizeof(mali_ptr) *
+			2 * MAX2(image->layout->nr_samples, 1),
+                        128);
 
         panfrost_new_texture(texture_t.cpu,
-                        image->width0, image->height0,
-                        MAX2(image->nr_samples, 1), 1,
-                        image->format, MALI_TEXTURE_DIMENSION_2D,
-                        image->modifier,
+                        MALI_TEXTURE_DIMENSION_2D,
                         image->first_level, image->last_level,
                         0, 0,
-                        image->nr_samples,
-                        0,
                         (MALI_CHANNEL_R << 0) | (MALI_CHANNEL_G << 3) | (MALI_CHANNEL_B << 6) | (MALI_CHANNEL_A << 9),
                         image->bo->gpu + image->first_layer *
-                                panfrost_get_layer_stride(image->slices,
+                                panfrost_get_layer_stride(image->layout,
                                         image->dim == MALI_TEXTURE_DIMENSION_3D,
-                                        image->cubemap_stride, image->first_level),
-                        image->slices);
+                                        image->first_level),
+                        image->layout);
 
         pan_pack(sampler.cpu, MIDGARD_SAMPLER, cfg)
                 cfg.normalized_coordinates = false;

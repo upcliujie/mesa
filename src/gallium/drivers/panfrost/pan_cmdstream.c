@@ -989,7 +989,7 @@ panfrost_update_sampler_view(struct panfrost_sampler_view *view,
 {
         struct panfrost_resource *rsrc = pan_resource(view->base.texture);
         if (view->texture_bo != rsrc->bo->gpu ||
-            view->modifier != rsrc->modifier) {
+            view->modifier != rsrc->layout.modifier) {
                 panfrost_bo_unreference(view->bo);
                 panfrost_create_sampler_view_bo(view, pctx, &rsrc->base);
         }

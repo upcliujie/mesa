@@ -881,7 +881,7 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
         }
 
         so->texture_bo = prsrc->bo->gpu;
-        so->modifier = prsrc->modifier;
+        so->modifier = prsrc->layout.modifier;
 
         unsigned char user_swizzle[4] = {
                 so->base.swizzle_r,
@@ -926,25 +926,20 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
                                 so->base.u.tex.first_layer,
                                 so->base.u.tex.last_layer,
                                 texture->nr_samples,
-                                type, prsrc->modifier);
+                                type, prsrc->layout.modifier);
 
                 so->bo = panfrost_bo_create(device, size, 0);
 
                 panfrost_new_texture_bifrost(
                                 &so->bifrost_descriptor,
-                                texture->width0, texture->height0,
-                                depth, array_size,
-                                format,
-                                type, prsrc->modifier,
+                                type,
                                 so->base.u.tex.first_level,
                                 so->base.u.tex.last_level,
                                 so->base.u.tex.first_layer,
                                 so->base.u.tex.last_layer,
-                                texture->nr_samples,
-                                prsrc->cubemap_stride,
                                 panfrost_translate_swizzle_4(composed_swizzle),
                                 prsrc->bo->gpu,
-                                prsrc->slices,
+                                &prsrc->layout,
                                 so->bo);
         } else {
                 unsigned size = panfrost_estimate_texture_payload_size(
@@ -953,26 +948,21 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
                                 so->base.u.tex.first_layer,
                                 so->base.u.tex.last_layer,
                                 texture->nr_samples,
-                                type, prsrc->modifier);
+                                type, prsrc->layout.modifier);
                 size += MALI_MIDGARD_TEXTURE_LENGTH;
 
                 so->bo = panfrost_bo_create(device, size, 0);
 
                 panfrost_new_texture(
                                 so->bo->cpu,
-                                texture->width0, texture->height0,
-                                depth, array_size,
-                                format,
-                                type, prsrc->modifier,
+                                type,
                                 so->base.u.tex.first_level,
                                 so->base.u.tex.last_level,
                                 so->base.u.tex.first_layer,
                                 so->base.u.tex.last_layer,
-                                texture->nr_samples,
-                                prsrc->cubemap_stride,
                                 panfrost_translate_swizzle_4(user_swizzle),
                                 prsrc->bo->gpu,
-                                prsrc->slices);
+                                &prsrc->layout);
         }
 }
 

@@ -37,6 +37,13 @@
 
 #define LAYOUT_CONVERT_THRESHOLD 8
 
+struct panfrost_slice_state {
+        struct panfrost_bo *checksum_bo;
+
+        /* Has anything been written to this slice? */
+        bool initialized;
+};
+
 struct panfrost_resource {
         struct pipe_resource base;
         struct {
@@ -53,24 +60,14 @@ struct panfrost_resource {
         struct util_range valid_buffer_range;
 
         /* Description of the mip levels */
-        struct panfrost_slice slices[MAX_MIP_LEVELS];
-
-        /* Distance from tree to tree */
-        unsigned cubemap_stride;
-
-        /* DRM fourcc code: linear, 16x16 u-interleaved, AFBC */
-        uint64_t modifier;
+        struct pan_plane_layout layout;
+        struct panfrost_slice_state slices[MAX_MIP_LEVELS];
 
         /* Whether the modifier can be changed */
         bool modifier_constant;
 
-        /* Is transaciton elimination enabled? */
-        bool checksummed;
-
         /* Used to decide when to convert to another modifier */
         uint16_t modifier_updates;
-
-        enum pipe_format internal_format;
 
         /* Cached min/max values for index buffers */
         struct panfrost_minmax_cache *index_cache;
