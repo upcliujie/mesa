@@ -576,6 +576,7 @@ static const struct nir_shader_compiler_options gallivm_nir_options = {
    .lower_mul_2x32_64 = true,
    .lower_ifind_msb = true,
    .max_unroll_iterations = 32,
+   .max_unroll_iterations_aggressive = 32,
    .use_interpolated_input_intrinsics = true,
    .lower_to_scalar = true,
    .lower_cs_local_index_from_id = true,

@@ -3281,6 +3281,7 @@ nvir_nir_shader_compiler_options(int chipset)
    op.has_imul24 = false;
    op.intel_vec4 = false;
    op.max_unroll_iterations = 32;
+   op.max_unroll_iterations_aggressive = 32;
    op.lower_int64_options = (nir_lower_int64_options) (
       ((chipset >= NVISA_GV100_CHIPSET) ? nir_lower_imul64 : 0) |
       ((chipset >= NVISA_GV100_CHIPSET) ? nir_lower_isign64 : 0) |

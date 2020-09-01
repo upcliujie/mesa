@@ -964,6 +964,7 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .lower_to_scalar = true,
       .optimize_sample_mask_in = true,
       .max_unroll_iterations = 32,
+      .max_unroll_iterations_aggressive = 32,
       .use_interpolated_input_intrinsics = true,
       .lower_uniforms_to_ubo = true,
       .support_16bit_alu = sscreen->info.has_packed_math_16bit,

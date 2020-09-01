@@ -67,7 +67,8 @@
    .lower_usub_sat64 = true,                                                  \
    .lower_hadd64 = true,                                                      \
    .lower_bfe_with_two_constants = true,                                      \
-   .max_unroll_iterations = 32
+   .max_unroll_iterations = 32,                                               \
+   .max_unroll_iterations_aggressive = 32
 
 static const struct nir_shader_compiler_options scalar_nir_options = {
    COMMON_OPTIONS,
@@ -91,6 +92,7 @@ static const struct nir_shader_compiler_options vector_nir_options = {
    .lower_extract_word = true,
    .intel_vec4 = true,
    .max_unroll_iterations = 32,
+   .max_unroll_iterations_aggressive = 32,
 };
 
 struct brw_compiler *

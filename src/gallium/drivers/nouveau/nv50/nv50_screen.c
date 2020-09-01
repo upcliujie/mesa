@@ -952,6 +952,7 @@ static const nir_shader_compiler_options nir_options = {
    .lower_to_scalar = true,
    .use_interpolated_input_intrinsics = true,
    .max_unroll_iterations = 32,
+   .max_unroll_iterations_aggressive = 32,
 };
 
 static const void *

@@ -126,6 +126,7 @@ static const nir_shader_compiler_options options_a6xx = {
 		.lower_to_scalar = true,
 		.has_imul24 = true,
 		.max_unroll_iterations = 32,
+		.max_unroll_iterations_aggressive = 32,
 		.lower_wpos_pntc = true,
 		.lower_cs_local_index_from_id = true,
 

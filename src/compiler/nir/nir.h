@@ -3382,6 +3382,7 @@ typedef struct nir_shader_compiler_options {
    bool support_16bit_alu;
 
    unsigned max_unroll_iterations;
+   unsigned max_unroll_iterations_aggressive;
 
    /* For the non-zero value of the enum corresponds multiplier when
     * calling lower_uniforms_to_ubo */
