@@ -951,6 +951,7 @@ anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
                             .SecondLevelBatchBuffer = Firstlevelbatch) +
             (GEN8_MI_BATCH_BUFFER_START_BatchBufferStartAddress_start / 8);
          cmd_buffer->return_addr = anv_batch_address(&cmd_buffer->batch, jump_addr);
+         batch_bo = anv_cmd_buffer_current_batch_bo(cmd_buffer);
       } else if ((cmd_buffer->batch_bos.next == cmd_buffer->batch_bos.prev) &&
                  (length < ANV_CMD_BUFFER_BATCH_SIZE / 2)) {
          /* If the secondary has exactly one batch buffer in its list *and*
