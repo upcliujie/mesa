@@ -753,6 +753,7 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
       .lower_vote_trivial = !is_scalar,
       .lower_shuffle = true,
       .lower_quad_broadcast_dynamic = true,
+      .lower_elect = true,
    };
    OPT(nir_lower_subgroups, &subgroups_options);
 
@@ -1202,6 +1203,7 @@ brw_nir_apply_key(nir_shader *nir,
       .ballot_bit_size = 32,
       .ballot_components = 1,
       .lower_subgroup_masks = true,
+      .lower_subgroup_elect = true,
    };
    OPT(nir_lower_subgroups, &subgroups_options);
 

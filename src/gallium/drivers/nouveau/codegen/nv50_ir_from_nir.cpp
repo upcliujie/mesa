@@ -3113,6 +3113,7 @@ Converter::run()
       .subgroup_size = 32,
       .ballot_bit_size = 32,
       .ballot_components = 1,
+      .lower_elect = true,
    };
 
    /* prepare for IO lowering */
