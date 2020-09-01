@@ -65,14 +65,16 @@ create_input(struct ir3_context *ctx, unsigned compmask)
 }
 
 static struct ir3_instruction *
-create_frag_input(struct ir3_context *ctx, bool use_ldlv, unsigned n)
+create_frag_input(struct ir3_context *ctx, struct ir3_instruction *coord, unsigned n)
 {
 	struct ir3_block *block = ctx->block;
 	struct ir3_instruction *instr;
 	/* packed inloc is fixed up later: */
 	struct ir3_instruction *inloc = create_immed(block, n);
 
-	if (use_ldlv) {
+	if (coord) {
+		instr = ir3_BARY_F(block, inloc, 0, coord, 0);
+	} else if (ctx->compiler->flat_bypass) {
 		instr = ir3_LDLV(block, inloc, 0, create_immed(block, 1), 0);
 		instr->cat6.type = TYPE_U32;
 		instr->cat6.iim_val = 1;
@@ -1342,7 +1344,6 @@ static void add_sysval_input_compmask(struct ir3_context *ctx,
 	so->inputs[n].sysval = true;
 	so->inputs[n].slot = slot;
 	so->inputs[n].compmask = compmask;
-	so->inputs[n].interpolate = INTERP_MODE_FLAT;
 	so->total_in++;
 }
 
@@ -1472,8 +1473,7 @@ get_frag_coord(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 }
 
 static void
-setup_input(struct ir3_context *ctx, unsigned idx, unsigned offset,
-			unsigned frac, unsigned ncomp);
+setup_input(struct ir3_context *ctx, nir_intrinsic_instr *intr);
 
 static void
 setup_output(struct ir3_context *ctx, unsigned idx, unsigned offset,
@@ -1666,45 +1666,8 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 		emit_intrinsic_barycentric(ctx, intr, dst);
 		break;
 	case nir_intrinsic_load_interpolated_input:
-		idx = nir_intrinsic_base(intr);
-		comp = nir_intrinsic_component(intr);
-		src = ir3_get_src(ctx, &intr->src[0]);
-		if (nir_src_is_const(intr->src[1])) {
-			struct ir3_instruction *coord = ir3_create_collect(ctx, src, 2);
-			unsigned offset = nir_src_as_uint(intr->src[1]);
-			setup_input(ctx, idx, offset, comp, dest_components);
-			for (int i = 0; i < dest_components; i++) {
-				unsigned inloc = (idx + offset) * 4 + i + comp;
-				if (ctx->so->inputs[idx].bary &&
-						!ctx->so->inputs[idx].use_ldlv) {
-					dst[i] = ir3_BARY_F(b, create_immed(b, inloc), 0, coord, 0);
-				} else {
-					/* for non-varyings use the pre-setup input, since
-					 * that is easier than mapping things back to a
-					 * nir_variable to figure out what it is.
-					 */
-					dst[i] = ctx->inputs[inloc];
-					compile_assert(ctx, dst[i]);
-				}
-			}
-		} else {
-			ir3_context_error(ctx, "unhandled");
-		}
-		break;
 	case nir_intrinsic_load_input:
-		idx = nir_intrinsic_base(intr);
-		comp = nir_intrinsic_component(intr);
-		if (nir_src_is_const(intr->src[0])) {
-			unsigned offset = nir_src_as_uint(intr->src[0]);
-			setup_input(ctx, idx, offset, comp, dest_components);
-			for (int i = 0; i < dest_components; i++) {
-				unsigned n = (idx + offset) * 4 + i + comp;
-				dst[i] = ctx->inputs[n];
-				compile_assert(ctx, ctx->inputs[n]);
-			}
-		} else {
-			ir3_context_error(ctx, "unhandled");
-		}
+		setup_input(ctx, intr);
 		break;
 	/* All SSBO intrinsics should have been lowered by 'lower_io_offsets'
 	 * pass and replaced by an ir3-specifc version that adds the
@@ -2961,19 +2924,18 @@ emit_function(struct ir3_context *ctx, nir_function_impl *impl)
 }
 
 static void
-setup_input(struct ir3_context *ctx, unsigned idx, unsigned offset,
-			unsigned frac, unsigned ncomp)
+setup_input(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 {
 	struct ir3_shader_variant *so = ctx->so;
-	nir_variable *in;
-	unsigned n = idx + offset;
-	unsigned slot;
+	struct ir3_instruction *coord = NULL;
+	if (intr->intrinsic == nir_intrinsic_load_interpolated_input)
+		coord = ir3_create_collect(ctx, ir3_get_src(ctx, &intr->src[0]), 2);
+	unsigned frac = nir_intrinsic_component(intr);
+	unsigned offset = nir_src_as_uint(intr->src[coord ? 1 : 0]);
+	unsigned ncomp = nir_intrinsic_dest_components(intr);
+	unsigned n = nir_intrinsic_base(intr) + offset;
+	unsigned slot = nir_intrinsic_io_semantics(intr).location + offset;
 	unsigned compmask;
-
-	in = nir_find_variable_with_driver_location(ctx->s, nir_var_shader_in, idx);
-	assert(in);
-
-	slot = in->data.location + offset;
 
 	/* Inputs are loaded using ldlw or ldg for other stages. */
 	compile_assert(ctx, ctx->so->type == MESA_SHADER_FRAGMENT ||
@@ -2984,62 +2946,25 @@ setup_input(struct ir3_context *ctx, unsigned idx, unsigned offset,
 	else
 		compmask = BITFIELD_MASK(ncomp + frac);
 
-	/* remove any already set set components */
-	compmask &= ~so->inputs[n].compmask;
-	if (!compmask)
-		return;
+	/* for rasterflat case - forced flat shading: */
+	if (so->inputs[n].flat)
+		coord = NULL;
+
+	so->total_in += util_bitcount(compmask & ~so->inputs[n].compmask);
 
 	so->inputs[n].slot = slot;
 	so->inputs[n].compmask |= compmask;
 	so->inputs_count = MAX2(so->inputs_count, n + 1);
-	so->inputs[n].interpolate = in->data.interpolation;
+	so->inputs[n].flat = !coord;
 
 	if (ctx->so->type == MESA_SHADER_FRAGMENT) {
-		/* if any varyings have 'sample' qualifer, that triggers us
-		 * to run in per-sample mode:
-		 */
-		so->per_samp |= in->data.sample;
+		compile_assert(ctx, slot != VARYING_SLOT_POS);
+
+		so->inputs[n].bary = true;
 
 		for (int i = 0; i < ncomp; i++) {
-			struct ir3_instruction *instr = NULL;
 			unsigned idx = (n * 4) + i + frac;
-
-			if (!(compmask & (1 << (i + frac))))
-				continue;
-
-			if (slot == VARYING_SLOT_POS) {
-				ir3_context_error(ctx, "fragcoord should be a sysval!\n");
-			} else {
-				/* detect the special case for front/back colors where
-				 * we need to do flat vs smooth shading depending on
-				 * rast state:
-				 */
-				if (in->data.interpolation == INTERP_MODE_NONE) {
-					switch (slot) {
-					case VARYING_SLOT_COL0:
-					case VARYING_SLOT_COL1:
-					case VARYING_SLOT_BFC0:
-					case VARYING_SLOT_BFC1:
-						so->inputs[n].rasterflat = true;
-						break;
-					default:
-						break;
-					}
-				}
-
-				if (ctx->compiler->flat_bypass) {
-					if ((so->inputs[n].interpolate == INTERP_MODE_FLAT) ||
-							(so->inputs[n].rasterflat && ctx->so->key.rasterflat))
-						so->inputs[n].use_ldlv = true;
-				}
-
-				so->inputs[n].bary = true;
-
-				instr = create_frag_input(ctx, so->inputs[n].use_ldlv, idx);
-			}
-
-			compile_assert(ctx, idx < ctx->ninputs && !ctx->inputs[idx]);
-			ctx->inputs[idx] = instr;
+			ctx->last_dst[i] = create_frag_input(ctx, coord, idx);
 		}
 	} else {
 		struct ir3_instruction *input = NULL;
@@ -3074,10 +2999,11 @@ setup_input(struct ir3_context *ctx, unsigned idx, unsigned offset,
 
 			ir3_split_dest(ctx->block, &ctx->inputs[idx], input, i, 1);
 		}
-	}
 
-	if (so->inputs[n].bary || (ctx->so->type == MESA_SHADER_VERTEX)) {
-		so->total_in += util_bitcount(compmask);
+		for (int i = 0; i < ncomp; i++) {
+			unsigned idx = (n * 4) + i + frac;
+			ctx->last_dst[i] = ctx->inputs[idx];
+		}
 	}
 }
 
@@ -3283,6 +3209,31 @@ static void
 emit_instructions(struct ir3_context *ctx)
 {
 	nir_function_impl *fxn = nir_shader_get_entrypoint(ctx->s);
+
+	/* some varying setup which can't be done in setup_input(): */
+	if (ctx->so->type == MESA_SHADER_FRAGMENT) {
+		nir_foreach_shader_in_variable (var, ctx->s) {
+			/* if any varyings have 'sample' qualifer, that triggers us
+			 * to run in per-sample mode:
+			 */
+			if (var->data.sample)
+				ctx->so->per_samp = true;
+
+			/* force flat shading for front/back colors if rasterflat enabled: */
+			if (var->data.interpolation == INTERP_MODE_NONE && ctx->so->key.rasterflat) {
+				switch (var->data.location) {
+				case VARYING_SLOT_COL0:
+				case VARYING_SLOT_COL1:
+				case VARYING_SLOT_BFC0:
+				case VARYING_SLOT_BFC1:
+					ctx->so->inputs[var->data.driver_location].flat = true;
+					break;
+				default:
+					break;
+				}
+			}
+		}
+	}
 
 	/* TODO: for GS/HS/DS, load_input isn't used. but ctx->s->num_inputs is non-zero
 	 * likely the same for num_outputs in cases where store_output isn't used

@@ -587,10 +587,8 @@ struct ir3_shader_variant {
 		bool    sysval     : 1;   /* slot is a gl_system_value */
 		/* fragment shader specific: */
 		bool    bary       : 1;   /* fetched varying (vs one loaded into reg) */
-		bool    rasterflat : 1;   /* special handling for emit->rasterflat */
-		bool    use_ldlv   : 1;   /* internal to ir3_compiler_nir */
 		bool    half       : 1;
-		enum glsl_interp_mode interpolate;
+		bool    flat       : 1;
 	} inputs[32 + 2];  /* +POSITION +FACE */
 
 	/* sum of input components (scalar).  For frag shaders, it only counts
