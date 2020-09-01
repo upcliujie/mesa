@@ -90,6 +90,7 @@ actions:
 
           - export PYTHONPATH=$(python3 -c "import sys;print(\":\".join(sys.path))")
           - export LIBGL_DRIVERS_PATH=`pwd`/install/lib/dri
+          - ls -lha "$LIBGL_DRIVERS_PATH"
           - export PIGLIT_REPLAY_EXTRA_ARGS="--keep-image"
           - export PIGLIT_REPLAY_REFERENCE_IMAGES_BASE_URL="/mesa-tracie-results/${CI_PROJECT_PATH}"
           - export PIGLIT_REPLAY_ARTIFACTS_BASE_URL="/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}"
