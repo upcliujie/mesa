@@ -701,6 +701,7 @@ BEGIN_TEST(optimize.add3)
    finish_opt_test();
 END_TEST
 
+<<<<<<< HEAD
 BEGIN_TEST(optimize.minmax)
    for (unsigned i = GFX8; i <= GFX10; i++) {
       //>> v1: %a, s2: %_:exec = p_startpgm
