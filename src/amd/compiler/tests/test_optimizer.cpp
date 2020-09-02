@@ -530,3 +530,21 @@ BEGIN_TEST(optimize.add3)
 
    finish_opt_test();
 END_TEST
+
+BEGIN_TEST(optimize.mad_clamp)
+   //>> v1: %a, v1: %b, v1: %c, s2: %_:exec = p_startpgm
+   if (!setup_cs("v1 v1 v1", GFX9))
+      return;
+
+   //! v1: %mul0 = v_mul_f32 %a, %b clamp
+   //! v1: %res0 = v_mad_f32 %c, -%c, %mul0 clamp
+   //! p_unit_test 0, %res0
+   Instruction *clamped_mul = bld.vop2_e64(aco_opcode::v_mul_f32, bld.def(v1), Operand(inputs[0]), Operand(inputs[1]));
+   static_cast<VOP3A_instruction*>(clamped_mul)->clamp = true;
+   Temp mul = bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), Operand(inputs[2]), Operand(inputs[2]));
+   Instruction *clamped_sub = bld.vop2_e64(aco_opcode::v_sub_f32, bld.def(v1), clamped_mul->definitions[0].getTemp(), mul);
+   static_cast<VOP3A_instruction *>(clamped_sub)->clamp = true;
+   writeout(0, clamped_sub->definitions[0].getTemp());
+
+   finish_opt_test();
+END_TEST
