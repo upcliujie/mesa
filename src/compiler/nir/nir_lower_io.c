@@ -431,6 +431,7 @@ emit_store(struct lower_io_state *state, nir_ssa_def *data,
    semantics.num_slots = get_number_of_slots(state, var);
    semantics.dual_source_blend_index = var->data.index;
    semantics.gs_streams = gs_streams;
+   semantics.per_view = var->data.per_view;
    nir_intrinsic_set_io_semantics(store, semantics);
 
    nir_builder_instr_insert(b, &store->instr);
@@ -1992,7 +1993,9 @@ add_const_offset_to_base_block(nir_block *block, nir_builder *b,
           (mode == nir_var_shader_out && is_output(intrin))) {
          nir_src *offset = nir_get_io_offset_src(intrin);
 
-         if (nir_src_is_const(*offset)) {
+         /* TODO: Better handling of per-view variables here */
+         if (nir_src_is_const(*offset) &&
+             !nir_intrinsic_io_semantics(intrin).per_view) {
             unsigned off = nir_src_as_uint(*offset);
 
             nir_intrinsic_set_base(intrin, nir_intrinsic_base(intrin) + off);
