@@ -555,28 +555,27 @@ zink_shader_tcs_create(struct zink_context *ctx, struct zink_shader *vs)
    gl_TessLevelOuter->data.patch = 1;
 
    /* hacks so we can size these right for now */
-   struct glsl_struct_field *fields = ralloc_size(nir, 2 * sizeof(struct glsl_struct_field));
+   struct glsl_struct_field *fields = ralloc_size(nir, sizeof(struct glsl_struct_field));
+   /* just use a single blob for padding here because it's easier */
    fields[0].type = glsl_array_type(glsl_uint_type(), 2, 0);
    fields[0].name = ralloc_asprintf(nir, "gl_TessLevelInner");
-   fields[0].offset = 0;
+   fields[0].offset = offsetof(struct zink_push_constant, default_inner_level);
    fields[1].type = glsl_array_type(glsl_uint_type(), 4, 0);
    fields[1].name = ralloc_asprintf(nir, "gl_TessLevelOuter");
-   fields[1].offset = 8;
+   fields[1].offset = offsetof(struct zink_push_constant, default_outer_level);
    nir_variable *pushconst = nir_variable_create(nir, nir_var_shader_in,
                                                  glsl_struct_type(fields, 2, "struct", false), "pushconst");
    pushconst->data.location = VARYING_SLOT_VAR0;
 
    nir_intrinsic_instr *load_inner = nir_intrinsic_instr_create(b.shader, nir_intrinsic_load_push_constant);
-   load_inner->src[0] = nir_src_for_ssa(nir_imm_int(&b, offsetof(struct zink_push_constant, default_inner_level)));
-   nir_intrinsic_set_base(load_inner, offsetof(struct zink_push_constant, default_inner_level));
+   load_inner->src[0] = nir_src_for_ssa(nir_imm_int(&b, 1));
    nir_intrinsic_set_range(load_inner, 8);
    load_inner->num_components = 2;
    nir_ssa_dest_init(&load_inner->instr, &load_inner->dest, 2, 32, "TessLevelInner");
    nir_builder_instr_insert(&b, &load_inner->instr);
 
    nir_intrinsic_instr *load_outer = nir_intrinsic_instr_create(b.shader, nir_intrinsic_load_push_constant);
-   load_outer->src[0] = nir_src_for_ssa(nir_imm_int(&b, offsetof(struct zink_push_constant, default_outer_level)));
-   nir_intrinsic_set_base(load_outer, offsetof(struct zink_push_constant, default_outer_level));
+   load_outer->src[0] = nir_src_for_ssa(nir_imm_int(&b, 2));
    nir_intrinsic_set_range(load_outer, 16);
    load_outer->num_components = 4;
    nir_ssa_dest_init(&load_outer->instr, &load_outer->dest, 4, 32, "TessLevelOuter");
