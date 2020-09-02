@@ -11,6 +11,12 @@ git clone \
     /VK-GL-CTS
 pushd /VK-GL-CTS
 
+# cherry-pick fix for surfaceless config choosing:
+git remote add robclark https://github.com/robclark/VK-GL-CTS.git
+git fetch robclark fix-surfaceless-config
+git cherry-pick -x 08e647628a496ec442ec87208daa851664a62851
+
+
 # --insecure is due to SSL cert failures hitting sourceforge for zlib and
 # libpng (sigh).  The archives get their checksums checked anyway, and git
 # always goes through ssh or https.
