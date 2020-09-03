@@ -116,13 +116,14 @@ enum Label {
    label_b2i = 1 << 27,
    label_constant_16bit = 1 << 29,
    label_usedef = 1 << 30, /* generic label */
+   label_vop3p = 1 << 31,
 };
 
 static constexpr uint64_t instr_usedef_labels = label_vec | label_mul | label_mad | label_add_sub |
                                                 label_bitwise | label_uniform_bitwise | label_minmax | label_vopc | label_usedef;
 static constexpr uint64_t instr_mod_labels = label_omod2 | label_omod4 | label_omod5 | label_clamp;
 
-static constexpr uint64_t instr_labels = instr_usedef_labels | instr_mod_labels;
+static constexpr uint64_t instr_labels = instr_usedef_labels | instr_mod_labels | label_vop3p;
 static constexpr uint64_t temp_labels = label_abs | label_neg | label_temp | label_vcc | label_b2f | label_uniform_bool |
                                         label_scc_invert | label_b2i;
 static constexpr uint32_t val_labels = label_constant_32bit | label_constant_64bit | label_constant_16bit | label_literal;
@@ -157,6 +158,13 @@ struct ssa_info {
       if (new_label & temp_labels) {
          label &= ~temp_labels;
          label &= ~(instr_labels | val_labels); /* instr, temp and val alias */
+      }
+
+      /* should never interfere with other labels */
+      if (new_label == label_vop3p) {
+         label = label_vop3p;
+      } else {
+         assert(!(label & label_vop3p) || new_label == label_mad);
       }
 
       uint32_t const_labels = label_literal | label_constant_32bit | label_constant_64bit | label_constant_16bit;
@@ -489,6 +497,7 @@ struct ssa_info {
       return label & label_b2i;
    }
 
+
    void set_usedef(Instruction *label_instr)
    {
       add_label(label_usedef);
@@ -498,6 +507,17 @@ struct ssa_info {
    bool is_usedef()
    {
       return label & label_usedef;
+   }
+
+   void set_vop3p(Instruction* vop3p_instr)
+   {
+      add_label(label_vop3p);
+      instr = vop3p_instr;
+   }
+
+   bool is_vop3p()
+   {
+      return label & label_vop3p;
    }
 };
 
@@ -1082,6 +1102,10 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
 
    if ((uint16_t) instr->format & (uint16_t) Format::VOPC) {
       ctx.info[instr->definitions[0].tempId()].set_vopc(instr.get());
+      return;
+   }
+   if (instr->format == Format::VOP3P) {
+      ctx.info[instr->definitions[0].tempId()].set_vop3p(instr.get());
       return;
    }
 
@@ -2708,6 +2732,85 @@ bool combine_add_lshl(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    return false;
 }
 
+void combine_vop3p(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
+{
+   // TODO: clamp, fneg?
+
+   if (instr->opcode == aco_opcode::v_pk_add_f16) {
+      if (instr->definitions[0].isPrecise())
+         return;
+
+      Instruction* mul_instr = nullptr;
+      unsigned add_op_idx;
+      uint32_t uses = UINT32_MAX;
+
+      /* find the 'best' mul instruction to combine with the add */
+      for (unsigned i = 0; i < 2; i++) {
+         if (!instr->operands[i].isTemp() || !ctx.info[instr->operands[i].tempId()].is_vop3p())
+            continue;
+         ssa_info& info = ctx.info[instr->operands[i].tempId()];
+         if (info.instr->opcode != aco_opcode::v_pk_mul_f16 || info.instr->definitions[0].isPrecise())
+            continue;
+
+         Operand op[3] = {info.instr->operands[0], info.instr->operands[1], instr->operands[1 - i]};
+         if (ctx.uses[instr->operands[i].tempId()] >= uses ||
+             !check_vop3_operands(ctx, 3, op))
+            continue;
+
+         /* opsel of mul needs to be .xy */
+         if (static_cast<VOP3P_instruction*>(instr.get())->opsel_lo & (1 << i) ||
+             !(static_cast<VOP3P_instruction*>(instr.get())->opsel_hi & (1 << i)))
+            continue;
+         /* no clamp allowed between mul and add */
+         if (static_cast<VOP3P_instruction*>(info.instr)->clamp)
+            continue;
+
+         mul_instr = info.instr;
+         add_op_idx = 1 - i;
+         uses = ctx.uses[instr->operands[i].tempId()];
+      }
+
+      if (!mul_instr)
+         return;
+
+      /* convert to mad */
+      Operand op[3] = {mul_instr->operands[0], mul_instr->operands[1], instr->operands[add_op_idx]};
+      ctx.uses[mul_instr->definitions[0].tempId()]--;
+      if (ctx.uses[mul_instr->definitions[0].tempId()]) {
+         if (op[0].isTemp())
+            ctx.uses[op[0].tempId()]++;
+         if (op[1].isTemp())
+            ctx.uses[op[1].tempId()]++;
+      }
+
+      /* turn packed mul+add into v_pk_fma_f16 */
+      assert(mul_instr->format == Format::VOP3P);
+      aco_ptr<VOP3P_instruction> fma{create_instruction<VOP3P_instruction>(aco_opcode::v_pk_fma_f16, Format::VOP3P, 3, 1)};
+      VOP3P_instruction* mul = static_cast<VOP3P_instruction*>(mul_instr);
+      VOP3P_instruction* vop3p = static_cast<VOP3P_instruction*>(instr.get());
+      for (unsigned i = 0; i < 2; i++) {
+         fma->operands[i] = op[i];
+         fma->neg_lo[i] = mul->neg_lo[i];
+         fma->neg_hi[i] = mul->neg_hi[i];
+      }
+      fma->operands[2] = op[2];
+      fma->neg_lo[2] = vop3p->neg_lo[add_op_idx];
+      fma->neg_hi[2] = vop3p->neg_hi[add_op_idx];
+      fma->clamp = vop3p->clamp;
+      fma->opsel_lo = mul->opsel_lo | ((vop3p->opsel_lo << (2 - add_op_idx)) & 0x4);
+      fma->opsel_hi = mul->opsel_hi | ((vop3p->opsel_hi << (2 - add_op_idx)) & 0x4);
+      fma->neg_lo[1] = fma->neg_lo[1] ^ vop3p->neg_lo[1 - add_op_idx];
+      fma->neg_hi[1] = fma->neg_hi[1] ^ vop3p->neg_hi[1 - add_op_idx];
+      fma->definitions[0] = instr->definitions[0];
+
+      /* mark this ssa_def to be re-checked for profitability and literals */
+      ctx.mad_infos.emplace_back(std::move(instr), mul_instr->definitions[0].tempId());
+      ctx.info[fma->definitions[0].tempId()].set_mad(fma.get(), ctx.mad_infos.size() - 1);
+      instr.reset(fma.release());
+      return;
+   }
+}
+
 // TODO: we could possibly move the whole label_instruction pass to combine_instruction:
 // this would mean that we'd have to fix the instruction uses while value propagation
 
@@ -2721,6 +2824,9 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
          apply_sgprs(ctx, instr);
       while (apply_omod_clamp(ctx, block, instr)) ;
    }
+
+   if (instr->format == Format::VOP3P)
+      return combine_vop3p(ctx, block, instr);
 
    if (ctx.info[instr->definitions[0].tempId()].is_vcc_hint()) {
       instr->definitions[0].setHint(vcc);
@@ -2805,21 +2911,35 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
          ssa_info& info = ctx.info[instr->operands[i].tempId()];
          if (need_fma && info.instr->definitions[0].isPrecise())
             continue;
+
          Operand op[3] = {info.instr->operands[0], info.instr->operands[1], instr->operands[1 - i]};
-         if (check_vop3_operands(ctx, 3, op) &&
-             !info.instr->isSDWA() &&
-             (!info.instr->isVOP3() ||
-              (!static_cast<VOP3A_instruction*>(info.instr)->clamp &&
-               !static_cast<VOP3A_instruction*>(info.instr)->omod)) &&
-             ctx.uses[instr->operands[i].tempId()] < uses) {
-            mul_instr = info.instr;
-            add_op_idx = 1 - i;
-            uses = ctx.uses[instr->operands[i].tempId()];
-         }
+         if (ctx.uses[instr->operands[i].tempId()] >= uses ||
+             info.instr->isSDWA() ||
+             !check_vop3_operands(ctx, 3, op))
+            continue;
+
+         /* no clamp/omod allowed between mul and add */
+         if (info.instr->isVOP3() &&
+             (static_cast<VOP3A_instruction*>(info.instr)->clamp ||
+              static_cast<VOP3A_instruction*>(info.instr)->omod))
+            continue;
+
+         mul_instr = info.instr;
+         add_op_idx = 1 - i;
+         uses = ctx.uses[instr->operands[i].tempId()];
       }
 
       if (mul_instr) {
+         /* turn mul+add into v_mad/v_fma */
          Operand op[3] = {mul_instr->operands[0], mul_instr->operands[1], instr->operands[add_op_idx]};
+         ctx.uses[mul_instr->definitions[0].tempId()]--;
+         if (ctx.uses[mul_instr->definitions[0].tempId()]) {
+            if (op[0].isTemp())
+               ctx.uses[op[0].tempId()]++;
+            if (op[1].isTemp())
+               ctx.uses[op[1].tempId()]++;
+         }
+
          bool neg[3] = {false, false, false};
          bool abs[3] = {false, false, false};
          unsigned omod = 0;
@@ -2831,15 +2951,6 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
             neg[1] = vop3->neg[1];
             abs[0] = vop3->abs[0];
             abs[1] = vop3->abs[1];
-         }
-
-         /* convert to mad */
-         ctx.uses[mul_instr->definitions[0].tempId()]--;
-         if (ctx.uses[mul_instr->definitions[0].tempId()]) {
-            if (op[0].isTemp())
-               ctx.uses[op[0].tempId()]++;
-            if (op[1].isTemp())
-               ctx.uses[op[1].tempId()]++;
          }
 
          if (instr->isVOP3()) {
@@ -2869,8 +2980,7 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
                                 (ctx.program->chip_class == GFX8 ? aco_opcode::v_mad_legacy_f16 : aco_opcode::v_mad_f16);
 
          aco_ptr<VOP3A_instruction> mad{create_instruction<VOP3A_instruction>(mad_op, Format::VOP3A, 3, 1)};
-         for (unsigned i = 0; i < 3; i++)
-         {
+         for (unsigned i = 0; i < 3; i++) {
             mad->operands[i] = op[i];
             mad->neg[i] = neg[i];
             mad->abs[i] = abs[i];
