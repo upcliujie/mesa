@@ -70,7 +70,7 @@ static const struct nir_shader_compiler_options nir_options_llvm = {
 	.lower_unpack_unorm_4x8 = true,
 	.lower_extract_byte = true,
 	.lower_extract_word = true,
-	.lower_ffma = true,
+	.has_ffma = false,
 	.lower_fpow = true,
 	.lower_mul_2x32_64 = true,
 	.lower_rotate = true,
@@ -113,7 +113,7 @@ static const struct nir_shader_compiler_options nir_options_aco = {
 	.lower_unpack_half_2x16 = true,
 	.lower_extract_byte = true,
 	.lower_extract_word = true,
-	.lower_ffma = true,
+	.has_ffma = false,
 	.lower_fpow = true,
 	.lower_mul_2x32_64 = true,
 	.lower_rotate = true,
@@ -262,7 +262,7 @@ radv_optimize_nir(struct nir_shader *shader, bool optimize_conservatively,
                                  nir_lower_flrp,
                                  lower_flrp,
                                  false /* always_precise */,
-                                 shader->options->lower_ffma);
+                                 !shader->options->has_ffma);
                         if (lower_flrp_progress) {
                                 NIR_PASS(progress, shader,
                                          nir_opt_constant_folding);

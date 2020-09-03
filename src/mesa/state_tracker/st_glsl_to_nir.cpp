@@ -306,7 +306,7 @@ st_nir_opts(nir_shader *nir)
             NIR_PASS(lower_flrp_progress, nir, nir_lower_flrp,
                      lower_flrp,
                      false /* always_precise */,
-                     nir->options->lower_ffma);
+                     !nir->options->has_ffma);
             if (lower_flrp_progress) {
                NIR_PASS(progress, nir,
                         nir_opt_constant_folding);

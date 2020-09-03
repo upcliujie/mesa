@@ -3043,8 +3043,8 @@ typedef enum {
 
 typedef struct nir_shader_compiler_options {
    bool lower_fdiv;
-   bool lower_ffma;
-   bool fuse_ffma;
+   bool has_ffma;
+   bool has_fmad;
    bool lower_flrp16;
    bool lower_flrp32;
    /** Lowers flrp when it does not support doubles */
