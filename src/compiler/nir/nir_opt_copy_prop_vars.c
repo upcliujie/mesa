@@ -599,7 +599,7 @@ load_from_ssa_entry_value(struct copy_prop_var_state *state,
           * list.  Just re-use a channel from the load.
           */
          if (load_def == NULL)
-            load_def = nir_load_deref(b, entry->dst.instr);
+            load_def = nir_build_load_deref(b, entry->dst.instr);
 
          if (load_def->parent_instr == &intrin->instr)
             keep_intrin = true;
@@ -1104,7 +1104,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
          if (try_load_from_entry(state, src_entry, b, intrin, &src, &value)) {
             /* If load works, intrin (the copy_deref) is removed. */
             if (value.is_ssa) {
-               nir_store_deref(b, dst.instr, value.ssa.def[0], full_mask);
+               nir_build_store_deref(b, dst.instr, value.ssa.def[0], full_mask);
             } else {
                /* If this would be a no-op self-copy, don't bother. */
                comp = nir_compare_derefs_and_paths(state->mem_ctx, &value.deref, &dst);

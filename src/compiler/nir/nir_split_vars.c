@@ -683,7 +683,7 @@ emit_split_copies(nir_builder *b,
 
    if (src_p == NULL || dst_p == NULL) {
       assert(src_p == NULL && dst_p == NULL);
-      nir_copy_deref(b, dst, src);
+      nir_build_copy_deref(b, dst, src);
    } else {
       assert(dst_p->deref_type == nir_deref_type_array_wildcard &&
              src_p->deref_type == nir_deref_type_array_wildcard);
