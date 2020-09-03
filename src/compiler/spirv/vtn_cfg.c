@@ -100,7 +100,7 @@ vtn_ssa_value_load_function_param(struct vtn_builder *b,
                                   unsigned *param_idx)
 {
    if (glsl_type_is_vector_or_scalar(value->type)) {
-      value->def = nir_load_param(&b->nb, (*param_idx)++);
+      value->def = nir_load_param_idx(&b->nb, (*param_idx)++);
    } else {
       unsigned elems = glsl_get_length(value->type);
       for (unsigned i = 0; i < elems; i++)
@@ -1026,7 +1026,7 @@ vtn_emit_ret_store(struct vtn_builder *b, struct vtn_block *block)
    const struct glsl_type *ret_type =
       glsl_get_bare_type(b->func->type->return_type->type);
    nir_deref_instr *ret_deref =
-      nir_build_deref_cast(&b->nb, nir_load_param(&b->nb, 0),
+      nir_build_deref_cast(&b->nb, nir_load_param_idx(&b->nb, 0),
                            nir_var_function_temp, ret_type, 0);
    vtn_local_store(b, src, ret_deref, 0);
 }

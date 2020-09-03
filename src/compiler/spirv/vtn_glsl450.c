@@ -339,8 +339,8 @@ handle_glsl450_alu(struct vtn_builder *b, enum GLSLstd450 entrypoint,
       nir_ssa_def *sign = nir_fsign(nb, src[0]);
       nir_ssa_def *abs = nir_fabs(nb, src[0]);
       dest->def = nir_fmul(nb, sign, nir_ffract(nb, abs));
-      nir_store_deref(nb, vtn_nir_deref(b, w[6]),
-                      nir_fmul(nb, sign, nir_ffloor(nb, abs)), 0xf);
+      nir_store_deref_instr(nb, vtn_nir_deref(b, w[6]),
+                            nir_fmul(nb, sign, nir_ffloor(nb, abs)), 0xf);
       break;
    }
 
@@ -528,7 +528,7 @@ handle_glsl450_alu(struct vtn_builder *b, enum GLSLstd450 entrypoint,
    case GLSLstd450Frexp: {
       nir_ssa_def *exponent = nir_frexp_exp(nb, src[0]);
       dest->def = nir_frexp_sig(nb, src[0]);
-      nir_store_deref(nb, vtn_nir_deref(b, w[6]), exponent, 0xf);
+      nir_store_deref_instr(nb, vtn_nir_deref(b, w[6]), exponent, 0xf);
       break;
    }
 

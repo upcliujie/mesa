@@ -182,7 +182,7 @@ ptn_get_src(struct ptn_compile *c, const struct prog_src_register *prog_src)
             index = nir_iadd(b, index, nir_load_reg(b, c->addr_reg));
          deref = nir_build_deref_array(b, deref, nir_channel(b, index, 0));
 
-         src.src = nir_src_for_ssa(nir_load_deref(b, deref));
+         src.src = nir_src_for_ssa(nir_load_deref_instr(b, deref));
          break;
       }
       default:

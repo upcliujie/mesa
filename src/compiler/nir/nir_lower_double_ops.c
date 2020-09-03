@@ -602,7 +602,7 @@ lower_doubles_instr_to_soft(nir_builder *b, nir_alu_instr *instr,
 
    nir_inline_function_impl(b, func->impl, params, NULL);
 
-   return nir_load_deref(b, ret_deref);
+   return nir_load_deref_instr(b, ret_deref);
 }
 
 nir_lower_doubles_options

@@ -143,7 +143,7 @@ build_view_index(struct lower_multiview_state *state)
          if (glsl_type_is_array(type))
             deref = nir_build_deref_array_imm(b, deref, 0);
 
-         state->view_index = nir_load_deref(b, deref);
+         state->view_index = nir_load_deref_instr(b, deref);
       }
    }
 
@@ -204,7 +204,7 @@ lower_multiview_with_primitive_replication(nir_shader *shader,
    nir_variable *loop_index_var =
       nir_local_variable_create(entrypoint, glsl_uint_type(), "loop_index");
    nir_deref_instr *loop_index_deref = nir_build_deref_var(&b, loop_index_var);
-   nir_store_deref(&b, loop_index_deref, nir_imm_int(&b, 0), 1);
+   nir_store_deref_instr(&b, loop_index_deref, nir_imm_int(&b, 0), 1);
 
    /* Array of view index values that are active in the loop.  Note that the
     * loop index only matches the view index if there are no gaps in the
@@ -217,7 +217,7 @@ lower_multiview_with_primitive_replication(nir_shader *shader,
       int array_position = 0;
       uint32_t view_index;
       for_each_bit(view_index, view_mask) {
-         nir_store_deref(&b, nir_build_deref_array_imm(&b, view_index_deref, array_position),
+         nir_store_deref_instr(&b, nir_build_deref_array_imm(&b, view_index_deref, array_position),
                          nir_imm_int(&b, view_index), 1);
          array_position++;
       }
@@ -242,18 +242,18 @@ lower_multiview_with_primitive_replication(nir_shader *shader,
 
    nir_loop* loop = nir_push_loop(&b);
 
-   nir_ssa_def *loop_index = nir_load_deref(&b, loop_index_deref);
+   nir_ssa_def *loop_index = nir_load_deref_instr(&b, loop_index_deref);
    nir_ssa_def *cmp = nir_ige(&b, loop_index, nir_imm_int(&b, view_count));
    nir_if *loop_check = nir_push_if(&b, cmp);
    nir_jump(&b, nir_jump_break);
    nir_pop_if(&b, loop_check);
 
    nir_ssa_def *view_index =
-      nir_load_deref(&b, nir_build_deref_array(&b, view_index_deref, loop_index));
+      nir_load_deref_instr(&b, nir_build_deref_array(&b, view_index_deref, loop_index));
    nir_deref_instr *pos_deref =
       nir_build_deref_array(&b, nir_build_deref_var(&b, pos_var), loop_index);
 
-   nir_store_deref(&b, loop_index_deref, nir_iadd_imm(&b, loop_index, 1), 1);
+   nir_store_deref_instr(&b, loop_index_deref, nir_iadd_imm(&b, loop_index, 1), 1);
    nir_pop_loop(&b, loop);
 
    /* Reinsert the body. */

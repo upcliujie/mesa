@@ -768,7 +768,7 @@ nir_visitor::visit(ir_function_signature *ir)
             nir_local_variable_create(impl, param->type, param->name);
 
          if (param->data.mode == ir_var_function_in) {
-            nir_store_var(&b, var, nir_load_param(&b, i), ~0);
+            nir_store_var(&b, var, nir_load_param_idx(&b, i), ~0);
          }
 
          _mesa_hash_table_insert(var_table, param, var);
@@ -875,11 +875,11 @@ nir_visitor::visit(ir_return *ir)
 {
    if (ir->value != NULL) {
       nir_deref_instr *ret_deref =
-         nir_build_deref_cast(&b, nir_load_param(&b, 0),
+         nir_build_deref_cast(&b, nir_load_param_idx(&b, 0),
                               nir_var_function_temp, ir->value->type, 0);
 
       nir_ssa_def *val = evaluate_rvalue(ir->value);
-      nir_store_deref(&b, ret_deref, val, ~0);
+      nir_store_deref_instr(&b, ret_deref, val, ~0);
    }
 
    nir_jump_instr *instr = nir_jump_instr_create(this->shader, nir_jump_return);
@@ -1601,7 +1601,7 @@ nir_visitor::visit(ir_call *ir)
       }
 
       if (ir->return_deref)
-         nir_store_deref(&b, evaluate_deref(ir->return_deref), ret, ~0);
+         nir_store_deref_instr(&b, evaluate_deref(ir->return_deref), ret, ~0);
 
       return;
    }
@@ -1646,7 +1646,7 @@ nir_visitor::visit(ir_call *ir)
    nir_builder_instr_insert(&b, &call->instr);
 
    if (ir->return_deref)
-      nir_store_deref(&b, evaluate_deref(ir->return_deref), nir_load_deref(&b, ret_deref), ~0);
+      nir_store_deref_instr(&b, evaluate_deref(ir->return_deref), nir_load_deref_instr(&b, ret_deref), ~0);
 }
 
 void
@@ -2454,7 +2454,7 @@ nir_visitor::visit(ir_texture *ir)
    /* check for bindless handles */
    if (sampler_deref->mode != nir_var_uniform ||
        nir_deref_instr_get_variable(sampler_deref)->data.bindless) {
-      nir_ssa_def *load = nir_load_deref(&b, sampler_deref);
+      nir_ssa_def *load = nir_load_deref_instr(&b, sampler_deref);
       instr->src[0].src = nir_src_for_ssa(load);
       instr->src[0].src_type = nir_tex_src_texture_handle;
       instr->src[1].src = nir_src_for_ssa(load);
@@ -2593,7 +2593,7 @@ nir_visitor::visit(ir_dereference_variable *ir)
          i++;
       }
 
-      this->deref = nir_build_deref_cast(&b, nir_load_param(&b, i),
+      this->deref = nir_build_deref_cast(&b, nir_load_param_idx(&b, i),
                                          nir_var_function_temp, ir->type, 0);
       return;
    }

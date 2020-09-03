@@ -577,7 +577,7 @@ ttn_src_for_file_and_index(struct ttn_compile *c, unsigned file, unsigned index,
       if (c->temp_regs[index].var) {
          unsigned offset = c->temp_regs[index].offset;
          nir_variable *var = c->temp_regs[index].var;
-         nir_ssa_def *load = nir_load_deref(&c->build,
+         nir_ssa_def *load = nir_load_deref_instr(&c->build,
                ttn_array_deref(c, var, offset, indirect));
 
          src = nir_src_for_ssa(load);
@@ -696,7 +696,7 @@ ttn_src_for_file_and_index(struct ttn_compile *c, unsigned file, unsigned index,
          assert(!dim);
          nir_deref_instr *deref = nir_build_deref_var(&c->build,
                                                       c->inputs[index]);
-         return nir_src_for_ssa(nir_load_deref(&c->build, deref));
+         return nir_src_for_ssa(nir_load_deref_instr(&c->build, deref));
       }
       break;
 
@@ -2266,8 +2266,8 @@ ttn_emit_instruction(struct ttn_compile *c)
       struct tgsi_ind_register *indirect = tgsi_dst->Register.Indirect ?
                                            &tgsi_dst->Indirect : NULL;
       nir_src val = nir_src_for_reg(dest.dest.reg.reg);
-      nir_store_deref(b, ttn_array_deref(c, var, offset, indirect),
-                      nir_ssa_for_src(b, val, 4), dest.write_mask);
+      nir_store_deref_instr(b, ttn_array_deref(c, var, offset, indirect),
+                            nir_ssa_for_src(b, val, 4), dest.write_mask);
    }
 }
 
@@ -2310,8 +2310,8 @@ ttn_add_output_stores(struct ttn_compile *c)
          }
       }
 
-      nir_store_deref(b, nir_build_deref_var(b, var), store_value,
-                      (1 << store_value->num_components) - 1);
+      nir_store_deref_instr(b, nir_build_deref_var(b, var), store_value,
+                            (1 << store_value->num_components) - 1);
    }
 }
 

@@ -268,7 +268,7 @@ lower_clip_outputs(nir_builder *b, nir_variable *position,
          deref = nir_build_deref_array_imm(b,
                                            nir_build_deref_var(b, out[0]),
                                            plane);
-         nir_store_deref(b, deref, clipdist[plane], 1);
+         nir_store_deref_instr(b, deref, clipdist[plane], 1);
       }
    }
 

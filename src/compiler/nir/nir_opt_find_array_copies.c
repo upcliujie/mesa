@@ -485,9 +485,9 @@ handle_write(nir_deref_instr *dst, nir_deref_instr *src,
                                         state);
 
          if (src_node->last_overwritten <= dst_node->first_src_read) {
-            nir_copy_deref(b, build_wildcard_deref(b, &dst_path, idx),
-                              build_wildcard_deref(b, &dst_node->first_src_path,
-                                                   dst_node->src_wildcard_idx));
+            nir_copy_deref_instr(b, build_wildcard_deref(b, &dst_path, idx),
+                                    build_wildcard_deref(b, &dst_node->first_src_path,
+                                                         dst_node->src_wildcard_idx));
             foreach_aliasing_node(&dst_path, clobber, state);
             return true;
          }
