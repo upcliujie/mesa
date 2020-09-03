@@ -47,7 +47,7 @@ static const nir_shader_compiler_options options = {
 		.lower_usub_borrow = true,
 		.lower_mul_high = true,
 		.lower_mul_2x32_64 = true,
-		.fuse_ffma = true,
+		.has_ffma = true,
 		.vertex_id_zero_based = true,
 		.lower_extract_byte = true,
 		.lower_extract_word = true,
@@ -96,7 +96,7 @@ static const nir_shader_compiler_options options_a6xx = {
 		.lower_usub_borrow = true,
 		.lower_mul_high = true,
 		.lower_mul_2x32_64 = true,
-		.fuse_ffma = true,
+		.has_ffma = true,
 		.vertex_id_zero_based = false,
 		.lower_extract_byte = true,
 		.lower_extract_word = true,
@@ -186,7 +186,7 @@ ir3_optimize_loop(nir_shader *s)
 			if (OPT(s, nir_lower_flrp,
 					lower_flrp,
 					false /* always_precise */,
-					s->options->lower_ffma)) {
+					!s->options->has_ffma)) {
 				OPT(s, nir_opt_constant_folding);
 				progress = true;
 			}

@@ -423,6 +423,7 @@ Converter::getOperation(nir_op op)
       return OP_EX2;
    case nir_op_ffloor:
       return OP_FLOOR;
+   case nir_op_fmad:
    case nir_op_ffma:
       return OP_FMA;
    case nir_op_flog2:
@@ -2478,6 +2479,7 @@ Converter::visit(nir_alu_instr *insn)
    case nir_op_ffloor:
    case nir_op_ffma:
    case nir_op_flog2:
+   case nir_op_fmad:
    case nir_op_fmax:
    case nir_op_imax:
    case nir_op_umax:
@@ -3204,8 +3206,8 @@ nvir_nir_shader_compiler_options(int chipset)
 {
    nir_shader_compiler_options op = {};
    op.lower_fdiv = (chipset >= NVISA_GV100_CHIPSET);
-   op.lower_ffma = false;
-   op.fuse_ffma = false; /* nir doesn't track mad vs fma */
+   op.has_ffma = chipset >= NVISA_GF100_CHIPSET;
+   op.has_fmad = chipset < NVISA_GF100_CHIPSET;
    op.lower_flrp16 = (chipset >= NVISA_GV100_CHIPSET);
    op.lower_flrp32 = true;
    op.lower_flrp64 = true;

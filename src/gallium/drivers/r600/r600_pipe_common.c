@@ -1179,7 +1179,7 @@ struct pipe_resource *r600_resource_create_common(struct pipe_screen *screen,
 }
 
 const struct nir_shader_compiler_options r600_nir_fs_options = {
-	.fuse_ffma = true,
+	.has_ffma = true,
 	.lower_scmp = true,
 	.lower_flrp32 = true,
 	.lower_flrp64 = true,
@@ -1200,7 +1200,7 @@ const struct nir_shader_compiler_options r600_nir_fs_options = {
 };
 
 const struct nir_shader_compiler_options r600_nir_options = {
-	.fuse_ffma = true,
+	.has_ffma = true,
 	.lower_scmp = true,
 	.lower_flrp32 = true,
 	.lower_flrp64 = true,

@@ -923,7 +923,8 @@ int nv50_tls_realloc(struct nv50_screen *screen, unsigned tls_space)
 }
 
 static const nir_shader_compiler_options nir_options = {
-   .fuse_ffma = false, /* nir doesn't track mad vs fma */
+   .has_ffma = false,
+   .has_fmad = true,
    .lower_flrp32 = true,
    .lower_flrp64 = true,
    .lower_fpow = false,

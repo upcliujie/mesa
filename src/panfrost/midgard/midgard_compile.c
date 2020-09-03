@@ -537,7 +537,7 @@ optimise_nir(nir_shader *nir, unsigned quirks, bool is_blend)
                                  nir_lower_flrp,
                                  lower_flrp,
                                  false /* always_precise */,
-                                 nir->options->lower_ffma);
+                                 !nir->options->has_ffma);
                         if (lower_flrp_progress) {
                                 NIR_PASS(progress, nir,
                                          nir_opt_constant_folding);

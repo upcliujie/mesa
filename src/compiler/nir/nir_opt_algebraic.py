@@ -80,10 +80,10 @@ e = 'e'
 # "(many-comm-expr,is_used_once)").
 
 # based on https://web.archive.org/web/20180105155939/http://forum.devmaster.net/t/fast-and-accurate-sine-cosine/9648
-def lowered_sincos(c):
+def lowered_sincos(c, ffma_or_fmad):
     x = ('fsub', ('fmul', 2.0, ('ffract', ('fadd', ('fmul', 0.5 / pi, a), c))), 1.0)
     x = ('fmul', ('fsub', x, ('fmul', x, ('fabs', x))), 4.0)
-    return ('ffma', ('ffma', x, ('fabs', x), ('fneg', x)), 0.225, x)
+    return (ffma_or_fmad, (ffma_or_fmad, x, ('fabs', x), ('fneg', x)), 0.225, x)
 
 def intBitsToFloat(i):
     return struct.unpack('!f', struct.pack('!I', i))[0]
@@ -143,9 +143,13 @@ optimizations = [
    # If a == 0: fsign(a)*a*a => 0*0*0 => abs(0)*0
    (('fmul', ('fsign', a), ('fmul', a, a)), ('fmul', ('fabs', a), a)),
    (('fmul', ('fmul', ('fsign', a), a), a), ('fmul', ('fabs', a), a)),
+   (('~fmad', 0.0, a, b), b),
    (('~ffma', 0.0, a, b), b),
+   (('fmad', a, b, 0.0), ('fmul', a, b)),
    (('~ffma', a, b, 0.0), ('fmul', a, b)),
+   (('fmad', 1.0, a, b), ('fadd', a, b)),
    (('ffma', 1.0, a, b), ('fadd', a, b)),
+   (('fmad', -1.0, a, b), ('fadd', ('fneg', a), b)),
    (('ffma', -1.0, a, b), ('fadd', ('fneg', a), b)),
    (('~flrp', a, b, 0.0), a),
    (('~flrp', a, b, 1.0), b),
@@ -183,8 +187,13 @@ optimizations = [
    (('~fadd', a, ('fmul', ('b2f', 'c@1'), ('fadd', b, ('fneg', a)))), ('bcsel', c, b, a), 'options->lower_flrp32'),
    (('~fadd@32', a, ('fmul',         c , ('fadd', b, ('fneg', a)))), ('flrp', a, b, c), '!options->lower_flrp32'),
    (('~fadd@64', a, ('fmul',         c , ('fadd', b, ('fneg', a)))), ('flrp', a, b, c), '!options->lower_flrp64'),
-   (('ffma', a, b, c), ('fadd', ('fmul', a, b), c), 'options->lower_ffma'),
-   (('~fadd', ('fmul', a, b), c), ('ffma', a, b, c), 'options->fuse_ffma'),
+
+   (('fmad', a, b, c), ('fadd', ('fmul', a, b), c), '!options->has_ffma && !options->has_fmad'),
+   # If the hw doesn't support ffma we can just lower all ffmas to a * b + c
+   (('ffma', a, b, c), ('fadd', ('fmul', a, b), c), '!options->has_ffma && !options->has_fmad'),
+
+   (('fadd', ('fmul', a, b), c), ('fmad', a, b, c), 'options->has_fmad'),
+   (('~fadd', ('fmul', a, b), c), ('ffma', a, b, c), 'options->has_ffma'),
 
    (('~fmul', ('fadd', ('iand', ('ineg', ('b2i32', 'a@bool')), ('fmul', b, c)), '#d'), '#e'),
     ('bcsel', a, ('fmul', ('fadd', ('fmul', b, c), d), e), ('fmul', d, e))),
@@ -861,8 +870,10 @@ optimizations.extend([
    (('fsqrt', a), ('frcp', ('frsq', a)), 'options->lower_fsqrt'),
    (('~frcp', ('frsq', a)), ('fsqrt', a), '!options->lower_fsqrt'),
    # Trig
-   (('fsin', a), lowered_sincos(0.5), 'options->lower_sincos'),
-   (('fcos', a), lowered_sincos(0.75), 'options->lower_sincos'),
+   (('fsin', a), lowered_sincos(0.5, 'fmad'), 'options->has_fmad && options->lower_sincos'),
+   (('fsin', a), lowered_sincos(0.5, 'ffma'), 'options->has_ffma && options->lower_sincos'),
+   (('fcos', a), lowered_sincos(0.75, 'fmad'), 'options->has_fmad && options->lower_sincos'),
+   (('fcos', a), lowered_sincos(0.75, 'ffma'), 'options->has_ffma && options->lower_sincos'),
    # Boolean simplifications
    (('i2b32(is_used_by_if)', a), ('ine32', a, 0)),
    (('i2b1(is_used_by_if)', a), ('ine', a, 0)),
@@ -1973,9 +1984,13 @@ late_optimizations = [
    # A similar operation could apply to any ffma(#a, b, #(-a/2)), but this
    # particular operation is common for expanding values stored in a texture
    # from [0,1] to [-1,1].
+   (('fmad@32', a,  2.0, -1.0),  ('flrp', -1.0,  1.0,          a ), '!options->lower_flrp32'),
    (('~ffma@32', a,  2.0, -1.0), ('flrp', -1.0,  1.0,          a ), '!options->lower_flrp32'),
+   (('fmad@32', a, -2.0, -1.0),  ('flrp', -1.0,  1.0, ('fneg', a)), '!options->lower_flrp32'),
    (('~ffma@32', a, -2.0, -1.0), ('flrp', -1.0,  1.0, ('fneg', a)), '!options->lower_flrp32'),
+   (('fmad@32', a, -2.0,  1.0),  ('flrp',  1.0, -1.0,          a ), '!options->lower_flrp32'),
    (('~ffma@32', a, -2.0,  1.0), ('flrp',  1.0, -1.0,          a ), '!options->lower_flrp32'),
+   (('fmad@32', a,  2.0,  1.0),  ('flrp',  1.0, -1.0, ('fneg', a)), '!options->lower_flrp32'),
    (('~ffma@32', a,  2.0,  1.0), ('flrp',  1.0, -1.0, ('fneg', a)), '!options->lower_flrp32'),
    (('~fadd@32', ('fmul(is_used_once)',  2.0, a), -1.0), ('flrp', -1.0,  1.0,          a ), '!options->lower_flrp32'),
    (('~fadd@32', ('fmul(is_used_once)', -2.0, a), -1.0), ('flrp', -1.0,  1.0, ('fneg', a)), '!options->lower_flrp32'),
@@ -2000,9 +2015,13 @@ late_optimizations = [
     # Option 5: a * (2 - a)
     #
     # There are a lot of other possible combinations.
+   (('fmad@32',  ('fadd', b, ('fneg', a)), a, a), ('flrp', a, b, a), '!options->lower_flrp32'),
    (('~ffma@32', ('fadd', b, ('fneg', a)), a, a), ('flrp', a, b, a), '!options->lower_flrp32'),
+   (('fmad@32',  a, 2.0, ('fneg', ('fmul', a, a))), ('flrp', a, 1.0, a), '!options->lower_flrp32'),
    (('~ffma@32', a, 2.0, ('fneg', ('fmul', a, a))), ('flrp', a, 1.0, a), '!options->lower_flrp32'),
+   (('fmad@32',  a, 2.0, ('fmul', ('fneg', a), a)), ('flrp', a, 1.0, a), '!options->lower_flrp32'),
    (('~ffma@32', a, 2.0, ('fmul', ('fneg', a), a)), ('flrp', a, 1.0, a), '!options->lower_flrp32'),
+   (('fmad@32',  a, ('fneg', a), ('fmul', 2.0, a)), ('flrp', a, 1.0, a), '!options->lower_flrp32'),
    (('~ffma@32', a, ('fneg', a), ('fmul', 2.0, a)), ('flrp', a, 1.0, a), '!options->lower_flrp32'),
    (('~fmul@32', a, ('fadd', 2.0, ('fneg', a))),    ('flrp', a, 1.0, a), '!options->lower_flrp32'),
 
@@ -2033,8 +2052,12 @@ late_optimizations = [
    # optimization in these stages.  See bugzilla #111490.  In tessellation
    # stages applications seem to use 'precise' when necessary, so allow the
    # optimization in those stages.
+   (('fadd', ('fmad(is_used_once)', a, b, ('fmad', c, d, ('fmul', 'e(is_not_const_and_not_fsign)', 'f(is_not_const_and_not_fsign)'))), 'g(is_not_const)'),
+    ('fmad', a, b, ('fmad', c, d, ('fmad', e, 'f', 'g'))), 'options->has_fmad && !options->intel_vec4'),
    (('~fadd', ('ffma(is_used_once)', a, b, ('ffma', c, d, ('fmul', 'e(is_not_const_and_not_fsign)', 'f(is_not_const_and_not_fsign)'))), 'g(is_not_const)'),
     ('ffma', a, b, ('ffma', c, d, ('ffma', e, 'f', 'g'))), '(info->stage != MESA_SHADER_VERTEX && info->stage != MESA_SHADER_GEOMETRY) && !options->intel_vec4'),
+   (('fadd', ('fmad(is_used_once)', a, b, ('fmul', 'c(is_not_const_and_not_fsign)', 'd(is_not_const_and_not_fsign)') ), 'e(is_not_const)'),
+    ('fmad', a, b, ('fmad', c, d, e)), 'options->has_fmad && !options->intel_vec4'),
    (('~fadd', ('ffma(is_used_once)', a, b, ('fmul', 'c(is_not_const_and_not_fsign)', 'd(is_not_const_and_not_fsign)') ), 'e(is_not_const)'),
     ('ffma', a, b, ('ffma', c, d, e)), '(info->stage != MESA_SHADER_VERTEX && info->stage != MESA_SHADER_GEOMETRY) && !options->intel_vec4'),
 
@@ -2084,7 +2107,7 @@ for op in ['fadd']:
         (('bcsel', a, (op, b, c), (op + '(is_used_once)', b, d)), (op, b, ('bcsel', a, c, d))),
     ]
 
-for op in ['ffma']:
+for op in ['fmad', 'ffma']:
     late_optimizations += [
         (('bcsel', a, (op + '(is_used_once)', b, c, d), (op, b, c, e)), (op, b, c, ('bcsel', a, d, e))),
         (('bcsel', a, (op, b, c, d), (op + '(is_used_once)', b, c, e)), (op, b, c, ('bcsel', a, d, e))),
@@ -2093,9 +2116,17 @@ for op in ['ffma']:
         (('bcsel', a, (op, b, c, d), (op + '(is_used_once)', b, e, d)), (op, b, ('bcsel', a, c, e), d)),
     ]
 
+# replace ffma and fmad with each other depending on hw support
+late_optimizations += [
+   # if the driver doesn't support ffma all ffmas can be implemented as fmad
+   (('ffma', a, b, c), ('fmad', a, b, c), '!options->has_ffma && options->has_fmad'),
+   (('~fmad', a, b, c), ('ffma', a, b, c), '!options->has_fmad && options->has_ffma'),
+]
+
 distribute_src_mods = [
    # Try to remove some spurious negations rather than pushing them down.
    (('fmul', ('fneg', a), ('fneg', b)), ('fmul', a, b)),
+   (('fmad', ('fneg', a), ('fneg', b), c), ('fmad', a, b, c)),
    (('ffma', ('fneg', a), ('fneg', b), c), ('ffma', a, b, c)),
    (('fdot_replicated2', ('fneg', a), ('fneg', b)), ('fdot_replicated2', a, b)),
    (('fdot_replicated3', ('fneg', a), ('fneg', b)), ('fdot_replicated3', a, b)),
@@ -2105,6 +2136,7 @@ distribute_src_mods = [
    (('fneg', ('fmul(is_used_once)', a, b)), ('fmul', ('fneg', a), b)),
    (('fabs', ('fmul(is_used_once)', a, b)), ('fmul', ('fabs', a), ('fabs', b))),
 
+   (('fneg', ('fmad(is_used_once)', a, b, c)), ('fmad', ('fneg', a), b, ('fneg', c))),
    (('fneg', ('ffma(is_used_once)', a, b, c)), ('ffma', ('fneg', a), b, ('fneg', c))),
    (('fneg', ('flrp(is_used_once)', a, b, c)), ('flrp', ('fneg', a), ('fneg', b), c)),
    (('fneg', ('fadd(is_used_once)', a, b)), ('fadd', ('fneg', a), ('fneg', b))),
