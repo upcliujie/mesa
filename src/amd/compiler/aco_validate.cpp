@@ -240,7 +240,8 @@ bool validate_ir(Program* program)
                      instr->format == Format::VOP1 ||
                      instr->format == Format::VOP2 ||
                      instr->format == Format::VOPC ||
-                     (instr->isVOP3() && program->chip_class >= GFX10),
+                     (instr->isVOP3() && program->chip_class >= GFX10) ||
+                     (instr->format == Format::VOP3P && program->chip_class >= GFX10),
                      "Literal applied on wrong instruction format", instr.get());
 
                check(literal.isUndefined() || (literal.size() == op.size() && literal.constantValue() == op.constantValue()), "Only 1 Literal allowed", instr.get());
@@ -257,7 +258,7 @@ bool validate_ir(Program* program)
                if (program->chip_class >= GFX10 && !is_shift64)
                   const_bus_limit = 2;
 
-               uint32_t scalar_mask = instr->isVOP3() ? 0x7 : 0x5;
+               uint32_t scalar_mask = instr->isVOP3() || instr->format == Format::VOP3P ? 0x7 : 0x5;
                if (instr->isSDWA())
                   scalar_mask = program->chip_class >= GFX9 ? 0x7 : 0x4;
 
