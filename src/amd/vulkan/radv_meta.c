@@ -505,9 +505,7 @@ radv_device_finish_meta(struct radv_device *device)
 nir_ssa_def *radv_meta_gen_rect_vertices_comp2(nir_builder *vs_b, nir_ssa_def *comp2)
 {
 
-	nir_intrinsic_instr *vertex_id = nir_intrinsic_instr_create(vs_b->shader, nir_intrinsic_load_vertex_id_zero_base);
-	nir_ssa_dest_init(&vertex_id->instr, &vertex_id->dest, 1, 32, "vertexid");
-	nir_builder_instr_insert(vs_b, &vertex_id->instr);
+	nir_ssa_def *vertex_id = nir_load_vertex_id_zero_base(vs_b);
 
 	/* vertex 0 - -1.0, -1.0 */
 	/* vertex 1 - -1.0, 1.0 */
@@ -515,10 +513,8 @@ nir_ssa_def *radv_meta_gen_rect_vertices_comp2(nir_builder *vs_b, nir_ssa_def *c
 	/* so channel 0 is vertex_id != 2 ? -1.0 : 1.0
 	   channel 1 is vertex id != 1 ? -1.0 : 1.0 */
 
-	nir_ssa_def *c0cmp = nir_ine(vs_b, &vertex_id->dest.ssa,
-				     nir_imm_int(vs_b, 2));
-	nir_ssa_def *c1cmp = nir_ine(vs_b, &vertex_id->dest.ssa,
-				     nir_imm_int(vs_b, 1));
+	nir_ssa_def *c0cmp = nir_ine(vs_b, vertex_id, nir_imm_int(vs_b, 2));
+	nir_ssa_def *c1cmp = nir_ine(vs_b, vertex_id, nir_imm_int(vs_b, 1));
 
 	nir_ssa_def *comp[4];
 	comp[0] = nir_bcsel(vs_b, c0cmp,

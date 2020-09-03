@@ -57,20 +57,14 @@ build_color_shaders(struct nir_shader **out_vs,
 				    "gl_Position");
 	vs_out_pos->data.location = VARYING_SLOT_POS;
 
-	nir_intrinsic_instr *in_color_load = nir_intrinsic_instr_create(fs_b.shader, nir_intrinsic_load_push_constant);
-	nir_intrinsic_set_base(in_color_load, 0);
-	nir_intrinsic_set_range(in_color_load, 16);
-	in_color_load->src[0] = nir_src_for_ssa(nir_imm_int(&fs_b, 0));
-	in_color_load->num_components = 4;
-	nir_ssa_dest_init(&in_color_load->instr, &in_color_load->dest, 4, 32, "clear color");
-	nir_builder_instr_insert(&fs_b, &in_color_load->instr);
+	nir_ssa_def *in_color_load = nir_load_push_constant(&fs_b, 4, 32, nir_imm_int(&fs_b, 0), 0, 16);
 
 	nir_variable *fs_out_color =
 		nir_variable_create(fs_b.shader, nir_var_shader_out, color_type,
 				    "f_color");
 	fs_out_color->data.location = FRAG_RESULT_DATA0 + frag_output;
 
-	nir_store_var(&fs_b, fs_out_color, &in_color_load->dest.ssa, 0xf);
+	nir_store_var(&fs_b, fs_out_color, in_color_load, 0xf);
 
 	nir_ssa_def *outvec = radv_meta_gen_rect_vertices(&vs_b);
 	nir_store_var(&vs_b, vs_out_pos, outvec, 0xf);
@@ -527,31 +521,17 @@ build_depthstencil_shader(struct nir_shader **out_vs,
 
 	nir_ssa_def *z;
 	if (unrestricted) {
-		nir_intrinsic_instr *in_color_load = nir_intrinsic_instr_create(fs_b.shader, nir_intrinsic_load_push_constant);
-		nir_intrinsic_set_base(in_color_load, 0);
-		nir_intrinsic_set_range(in_color_load, 4);
-		in_color_load->src[0] = nir_src_for_ssa(nir_imm_int(&fs_b, 0));
-		in_color_load->num_components = 1;
-		nir_ssa_dest_init(&in_color_load->instr, &in_color_load->dest, 1, 32, "depth value");
-		nir_builder_instr_insert(&fs_b, &in_color_load->instr);
+		nir_ssa_def *in_color_load = nir_load_push_constant(&fs_b, 1, 32, nir_imm_int(&fs_b, 0), 0, 4);
 
 		nir_variable *fs_out_depth =
 			nir_variable_create(fs_b.shader, nir_var_shader_out,
 					    glsl_int_type(), "f_depth");
 		fs_out_depth->data.location = FRAG_RESULT_DEPTH;
-		nir_store_var(&fs_b, fs_out_depth, &in_color_load->dest.ssa, 0x1);
+		nir_store_var(&fs_b, fs_out_depth, in_color_load, 0x1);
 
 		z = nir_imm_float(&vs_b, 0.0);
 	} else {
-		nir_intrinsic_instr *in_color_load = nir_intrinsic_instr_create(vs_b.shader, nir_intrinsic_load_push_constant);
-		nir_intrinsic_set_base(in_color_load, 0);
-		nir_intrinsic_set_range(in_color_load, 4);
-		in_color_load->src[0] = nir_src_for_ssa(nir_imm_int(&vs_b, 0));
-		in_color_load->num_components = 1;
-		nir_ssa_dest_init(&in_color_load->instr, &in_color_load->dest, 1, 32, "depth value");
-		nir_builder_instr_insert(&vs_b, &in_color_load->instr);
-
-		z = &in_color_load->dest.ssa;
+		z = nir_load_push_constant(&vs_b, 1, 32, nir_imm_int(&vs_b, 0), 0, 4);
 	}
 
 	nir_ssa_def *outvec = radv_meta_gen_rect_vertices_comp2(&vs_b, z);
@@ -1186,52 +1166,18 @@ build_clear_htile_mask_shader()
 	nir_ssa_def *offset = nir_imul(&b, global_id, nir_imm_int(&b, 16));
 	offset = nir_channel(&b, offset, 0);
 
-	nir_intrinsic_instr *buf =
-		nir_intrinsic_instr_create(b.shader,
-					   nir_intrinsic_vulkan_resource_index);
+	nir_ssa_def *buf = nir_vulkan_resource_index(&b, 1, 32, nir_imm_int(&b, 0),
+							 0, 0, 0);
 
-	buf->src[0] = nir_src_for_ssa(nir_imm_int(&b, 0));
-	buf->num_components = 1;
-	nir_intrinsic_set_desc_set(buf, 0);
-	nir_intrinsic_set_binding(buf, 0);
-	nir_ssa_dest_init(&buf->instr, &buf->dest, buf->num_components, 32, NULL);
-	nir_builder_instr_insert(&b, &buf->instr);
+	nir_ssa_def *constants = nir_load_push_constant(&b, 2, 32, nir_imm_int(&b, 0), 0, 8);
 
-	nir_intrinsic_instr *constants =
-		nir_intrinsic_instr_create(b.shader,
-					   nir_intrinsic_load_push_constant);
-	nir_intrinsic_set_base(constants, 0);
-	nir_intrinsic_set_range(constants, 8);
-	constants->src[0] = nir_src_for_ssa(nir_imm_int(&b, 0));
-	constants->num_components = 2;
-	nir_ssa_dest_init(&constants->instr, &constants->dest, 2, 32, "constants");
-	nir_builder_instr_insert(&b, &constants->instr);
-
-	nir_intrinsic_instr *load =
-		nir_intrinsic_instr_create(b.shader, nir_intrinsic_load_ssbo);
-	load->src[0] = nir_src_for_ssa(&buf->dest.ssa);
-	load->src[1] = nir_src_for_ssa(offset);
-	nir_ssa_dest_init(&load->instr, &load->dest, 4, 32, NULL);
-	load->num_components = 4;
-	nir_intrinsic_set_align(load, 16, 0);
-	nir_builder_instr_insert(&b, &load->instr);
+	nir_ssa_def *load = nir_load_ssbo(&b, 4, 32, buf, offset, 0, 16, 0);
 
 	/* data = (data & ~htile_mask) | (htile_value & htile_mask) */
-	nir_ssa_def *data =
-		nir_iand(&b, &load->dest.ssa,
-			 nir_channel(&b, &constants->dest.ssa, 1));
-	data = nir_ior(&b, data, nir_channel(&b, &constants->dest.ssa, 0));
+	nir_ssa_def *data = nir_iand(&b, load, nir_channel(&b, constants, 1));
+	data = nir_ior(&b, data, nir_channel(&b, constants, 0));
 
-	nir_intrinsic_instr *store =
-		nir_intrinsic_instr_create(b.shader, nir_intrinsic_store_ssbo);
-	store->src[0] = nir_src_for_ssa(data);
-	store->src[1] = nir_src_for_ssa(&buf->dest.ssa);
-	store->src[2] = nir_src_for_ssa(offset);
-	nir_intrinsic_set_write_mask(store, 0xf);
-	nir_intrinsic_set_access(store, ACCESS_NON_READABLE);
-	nir_intrinsic_set_align(store, 16, 0);
-	store->num_components = 4;
-	nir_builder_instr_insert(&b, &store->instr);
+	nir_store_ssbo(&b, data, buf, offset, 0xf, ACCESS_NON_READABLE, 16, 0);
 
 	return b.shader;
 }
