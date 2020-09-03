@@ -107,7 +107,7 @@ emit_load_store_deref(nir_builder *b, nir_intrinsic_instr *orig_instr,
       *dest = &load->dest.ssa;
    } else {
       assert(orig_instr->intrinsic == nir_intrinsic_store_deref);
-      nir_store_deref(b, parent, src, nir_intrinsic_write_mask(orig_instr));
+      nir_store_deref_instr(b, parent, src, nir_intrinsic_write_mask(orig_instr));
    }
 }
 

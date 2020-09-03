@@ -212,8 +212,8 @@ emit_interp(nir_builder *b, nir_deref_instr **old_interp_deref,
                      interp->dest.ssa.bit_size, NULL);
 
    nir_builder_instr_insert(b, &new_interp->instr);
-   nir_store_deref(b, temp_deref, &new_interp->dest.ssa,
-                   (1 << interp->dest.ssa.num_components) - 1);
+   nir_store_deref_instr(b, temp_deref, &new_interp->dest.ssa,
+                         (1 << interp->dest.ssa.num_components) - 1);
 }
 
 static void
@@ -245,7 +245,7 @@ fixup_interpolation_instr(struct lower_io_state *state,
     * load from it. We can reuse the original deref, since it points to the
     * correct part of the temporary.
     */
-   nir_ssa_def *load = nir_load_deref(b, nir_src_as_deref(interp->src[0]));
+   nir_ssa_def *load = nir_load_deref_instr(b, nir_src_as_deref(interp->src[0]));
    nir_ssa_def_rewrite_uses(&interp->dest.ssa, nir_src_for_ssa(load));
    nir_instr_remove(&interp->instr);
 

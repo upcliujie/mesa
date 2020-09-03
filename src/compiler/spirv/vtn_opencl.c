@@ -470,7 +470,7 @@ handle_clc_fn(struct vtn_builder *b, enum OpenCLstd_Entrypoints opcode,
                               dest_type, srcs, &ret_deref))
       return NULL;
 
-   return ret_deref ? nir_load_deref(&b->nb, ret_deref) : NULL;
+   return ret_deref ? nir_load_deref_instr(&b->nb, ret_deref) : NULL;
 }
 
 static nir_ssa_def *
@@ -608,7 +608,7 @@ handle_core(struct vtn_builder *b, uint32_t opcode,
       return NULL;
    }
 
-   return ret_deref ? nir_load_deref(&b->nb, ret_deref) : NULL;
+   return ret_deref ? nir_load_deref_instr(&b->nb, ret_deref) : NULL;
 }
 
 

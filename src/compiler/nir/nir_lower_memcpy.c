@@ -54,7 +54,7 @@ memcpy_load_deref_elem(nir_builder *b, nir_deref_instr *parent,
    assert(parent->deref_type == nir_deref_type_cast);
    deref = nir_build_deref_ptr_as_array(b, parent, index);
 
-   return nir_load_deref(b, deref);
+   return nir_load_deref_instr(b, deref);
 }
 
 static nir_ssa_def *
@@ -74,7 +74,7 @@ memcpy_store_deref_elem(nir_builder *b, nir_deref_instr *parent,
    index = nir_i2i(b, index, nir_dest_bit_size(parent->dest));
    assert(parent->deref_type == nir_deref_type_cast);
    deref = nir_build_deref_ptr_as_array(b, parent, index);
-   nir_store_deref(b, deref, value, ~0);
+   nir_store_deref_instr(b, deref, value, ~0);
 }
 
 static void

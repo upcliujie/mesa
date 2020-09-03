@@ -1087,7 +1087,7 @@ TEST_F(nir_copy_prop_vars_test, load_direct_array_deref_on_vector_reuses_previou
    /* This load will be dropped, as vec.y (or vec[1]) is already known. */
    nir_deref_instr *deref =
       nir_build_deref_array_imm(b, nir_build_deref_var(b, vec), 1);
-   nir_ssa_def *loaded_from_deref = nir_load_deref(b, deref);
+   nir_ssa_def *loaded_from_deref = nir_load_deref_instr(b, deref);
 
    /* This store should use the value loaded from in1. */
    nir_store_var(b, out, loaded_from_deref, 1 << 0);
@@ -1120,7 +1120,7 @@ TEST_F(nir_copy_prop_vars_test, load_direct_array_deref_on_vector_reuses_previou
    /* This load will be replaced with one from in0. */
    nir_deref_instr *deref =
       nir_build_deref_array_imm(b, nir_build_deref_var(b, vec), 1);
-   nir_load_deref(b, deref);
+   nir_load_deref_instr(b, deref);
 
    nir_validate_shader(b->shader, NULL);
 
@@ -1143,7 +1143,7 @@ TEST_F(nir_copy_prop_vars_test, load_direct_array_deref_on_vector_gets_reused)
    /* Loading "vec[1]" deref will save the information about vec.y. */
    nir_deref_instr *deref =
       nir_build_deref_array_imm(b, nir_build_deref_var(b, vec), 1);
-   nir_load_deref(b, deref);
+   nir_load_deref_instr(b, deref);
 
    /* Store to vec.x. */
    nir_store_var(b, vec, nir_load_var(b, in0), 1 << 0);
@@ -1177,16 +1177,16 @@ TEST_F(nir_copy_prop_vars_test, store_load_direct_array_deref_on_vector)
    /* Store to "vec[1]" and "vec[0]". */
    nir_deref_instr *store_deref_y =
       nir_build_deref_array_imm(b, nir_build_deref_var(b, vec), 1);
-   nir_store_deref(b, store_deref_y, nir_imm_int(b, 20), 1);
+   nir_store_deref_instr(b, store_deref_y, nir_imm_int(b, 20), 1);
 
    nir_deref_instr *store_deref_x =
       nir_build_deref_array_imm(b, nir_build_deref_var(b, vec), 0);
-   nir_store_deref(b, store_deref_x, nir_imm_int(b, 10), 1);
+   nir_store_deref_instr(b, store_deref_x, nir_imm_int(b, 10), 1);
 
    /* Both loads below will be dropped, because the values are already known. */
    nir_deref_instr *load_deref_y =
       nir_build_deref_array_imm(b, nir_build_deref_var(b, vec), 1);
-   nir_store_var(b, out0, nir_load_deref(b, load_deref_y), 1);
+   nir_store_var(b, out0, nir_load_deref_instr(b, load_deref_y), 1);
 
    nir_store_var(b, out1, nir_load_var(b, vec), 1);
 
@@ -1224,12 +1224,12 @@ TEST_F(nir_copy_prop_vars_test, store_load_indirect_array_deref_on_vector)
    /* Store to vec[idx]. */
    nir_deref_instr *store_deref =
       nir_build_deref_array(b, nir_build_deref_var(b, vec), idx_ssa);
-   nir_store_deref(b, store_deref, nir_imm_int(b, 20), 1);
+   nir_store_deref_instr(b, store_deref, nir_imm_int(b, 20), 1);
 
    /* Load from vec[idx] to store in out. This load should be dropped. */
    nir_deref_instr *load_deref =
       nir_build_deref_array(b, nir_build_deref_var(b, vec), idx_ssa);
-   nir_store_var(b, out, nir_load_deref(b, load_deref), 1);
+   nir_store_var(b, out, nir_load_deref_instr(b, load_deref), 1);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_intrinsics(nir_intrinsic_load_deref), 2);
@@ -1264,10 +1264,10 @@ TEST_F(nir_copy_prop_vars_test, store_load_direct_and_indirect_array_deref_on_ve
    /* Load from vec[idx]. This load is currently not dropped. */
    nir_deref_instr *indirect =
       nir_build_deref_array(b, nir_build_deref_var(b, vec), idx_ssa);
-   nir_store_var(b, out[0], nir_load_deref(b, indirect), 1);
+   nir_store_var(b, out[0], nir_load_deref_instr(b, indirect), 1);
 
    /* Load from vec[idx] again. This load should be dropped. */
-   nir_store_var(b, out[1], nir_load_deref(b, indirect), 1);
+   nir_store_var(b, out[1], nir_load_deref_instr(b, indirect), 1);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_intrinsics(nir_intrinsic_load_deref), 3);
@@ -1301,12 +1301,12 @@ TEST_F(nir_copy_prop_vars_test, store_load_indirect_array_deref)
    /* Store to arr[idx]. */
    nir_deref_instr *store_deref =
       nir_build_deref_array(b, nir_build_deref_var(b, arr), idx_ssa);
-   nir_store_deref(b, store_deref, nir_imm_int(b, 20), 1);
+   nir_store_deref_instr(b, store_deref, nir_imm_int(b, 20), 1);
 
    /* Load from arr[idx] to store in out. This load should be dropped. */
    nir_deref_instr *load_deref =
       nir_build_deref_array(b, nir_build_deref_var(b, arr), idx_ssa);
-   nir_store_var(b, out, nir_load_deref(b, load_deref), 1);
+   nir_store_var(b, out, nir_load_deref_instr(b, load_deref), 1);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_intrinsics(nir_intrinsic_load_deref), 2);
@@ -1701,24 +1701,24 @@ TEST_F(nir_combine_stores_test, direct_array_derefs)
    nir_deref_instr *out_deref = nir_build_deref_var(b, out);
 
    /* Store to vector with mask x. */
-   nir_store_deref(b, out_deref, nir_load_var(b, v[0]),
-                   1 << 0);
+   nir_store_deref_instr(b, out_deref, nir_load_var(b, v[0]),
+                         1 << 0);
 
    /* Store to vector with mask yz. */
-   nir_store_deref(b, out_deref, nir_load_var(b, v[1]),
-                   (1 << 2) | (1 << 1));
+   nir_store_deref_instr(b, out_deref, nir_load_var(b, v[1]),
+                         (1 << 2) | (1 << 1));
 
    /* Store to vector[2], overlapping with previous store. */
-   nir_store_deref(b,
-                   nir_build_deref_array_imm(b, out_deref, 2),
-                   nir_load_var(b, s[0]),
-                   1 << 0);
+   nir_store_deref_instr(b,
+                         nir_build_deref_array_imm(b, out_deref, 2),
+                         nir_load_var(b, s[0]),
+                         1 << 0);
 
    /* Store to vector[3], no overlap. */
-   nir_store_deref(b,
-                   nir_build_deref_array_imm(b, out_deref, 3),
-                   nir_load_var(b, s[1]),
-                   1 << 0);
+   nir_store_deref_instr(b,
+                         nir_build_deref_array_imm(b, out_deref, 3),
+                         nir_load_var(b, s[1]),
+                         1 << 0);
 
    nir_validate_shader(b->shader, NULL);
 
@@ -1820,7 +1820,7 @@ TEST_F(nir_split_vars_test, simple_split)
                                    "temp");
    nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
    for (int i = 0; i < 4; i++)
-      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_derefs(nir_deref_type_array), 4);
@@ -1853,10 +1853,10 @@ TEST_F(nir_split_vars_test, simple_no_split_array_struct)
    nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
    nir_deref_instr *temp2_deref = nir_build_deref_var(b, temp2);
    for (int i = 0; i < 4; i++)
-      nir_store_deref(b, nir_build_deref_array_imm(b, temp2_deref, i), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array_imm(b, temp2_deref, i), nir_load_var(b, in[i]), 1);
 
    for (int i = 0; i < 4; i++)
-      nir_store_deref(b, nir_build_deref_struct(b, nir_build_deref_array_imm(b, temp_deref, i), 0), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_struct(b, nir_build_deref_array_imm(b, temp_deref, i), 0), nir_load_var(b, in[i]), 1);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_derefs(nir_deref_type_array), 8);
@@ -1887,7 +1887,7 @@ TEST_F(nir_split_vars_test, simple_split_shader_temp)
    nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
 
    for (int i = 0; i < 4; i++)
-      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_derefs(nir_deref_type_array), 4);
@@ -1909,7 +1909,7 @@ TEST_F(nir_split_vars_test, simple_oob)
    nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
 
    for (int i = 0; i < 6; i++)
-      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_derefs(nir_deref_type_array), 6);
@@ -1931,7 +1931,7 @@ TEST_F(nir_split_vars_test, simple_unused)
    nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
 
    for (int i = 0; i < 2; i++)
-      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_derefs(nir_deref_type_array), 2);
@@ -1956,7 +1956,7 @@ TEST_F(nir_split_vars_test, two_level_split)
       nir_deref_instr *level0 = nir_build_deref_array_imm(b, temp_deref, i);
       for (int j = 0; j < 4; j++) {
          nir_deref_instr *level1 = nir_build_deref_array_imm(b, level0, j);
-         nir_store_deref(b, level1, nir_load_var(b, in[i]), 1);
+         nir_store_deref_instr(b, level1, nir_load_var(b, in[i]), 1);
       }
    }
 
@@ -1983,7 +1983,7 @@ TEST_F(nir_split_vars_test, simple_dont_split)
    nir_deref_instr *temp_deref = nir_build_deref_var(b, temp);
 
    for (int i = 0; i < 4; i++)
-      nir_store_deref(b, nir_build_deref_array(b, temp_deref, &ind_deref->dest.ssa), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array(b, temp_deref, &ind_deref->dest.ssa), nir_load_var(b, in[i]), 1);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_derefs(nir_deref_type_array), 4);
@@ -2011,7 +2011,7 @@ TEST_F(nir_split_vars_test, twolevel_dont_split_lvl_0)
       nir_deref_instr *level0 = nir_build_deref_array(b, temp_deref, &ind_deref->dest.ssa);
       for (int j = 0; j < 6; j++) {
          nir_deref_instr *level1 = nir_build_deref_array_imm(b, level0, j);
-         nir_store_deref(b, level1, nir_load_var(b, in[i]), 1);
+         nir_store_deref_instr(b, level1, nir_load_var(b, in[i]), 1);
       }
    }
 
@@ -2042,7 +2042,7 @@ TEST_F(nir_split_vars_test, twolevel_dont_split_lvl_1)
       for (int j = 0; j < 6; j++) {
          /* just add the inner index to get some different derefs */
          nir_deref_instr *level1 = nir_build_deref_array(b, level0, nir_iadd(b, &ind_deref->dest.ssa, nir_imm_int(b, j)));
-         nir_store_deref(b, level1, nir_load_var(b, in[i]), 1);
+         nir_store_deref_instr(b, level1, nir_load_var(b, in[i]), 1);
       }
    }
 
@@ -2070,10 +2070,10 @@ TEST_F(nir_split_vars_test, split_multiple_store)
    nir_deref_instr *temp2_deref = nir_build_deref_var(b, temp2);
 
    for (int i = 0; i < 4; i++)
-      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
 
    for (int i = 0; i < 4; i++)
-      nir_store_deref(b, nir_build_deref_array_imm(b, temp2_deref, i), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array_imm(b, temp2_deref, i), nir_load_var(b, in[i]), 1);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_derefs(nir_deref_type_array), 8);
@@ -2099,12 +2099,12 @@ TEST_F(nir_split_vars_test, split_load_store)
    nir_deref_instr *temp2_deref = nir_build_deref_var(b, temp2);
 
    for (int i = 0; i < 4; i++)
-      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
 
    for (int i = 0; i < 4; i++) {
       nir_deref_instr *store_deref = nir_build_deref_array_imm(b, temp2_deref, i);
       nir_deref_instr *load_deref = nir_build_deref_array_imm(b, temp_deref, i);
-      nir_store_deref(b, store_deref, nir_load_deref(b, load_deref), 1);
+      nir_store_deref_instr(b, store_deref, nir_load_deref_instr(b, load_deref), 1);
    }
 
    nir_validate_shader(b->shader, NULL);
@@ -2131,12 +2131,12 @@ TEST_F(nir_split_vars_test, split_copy)
    nir_deref_instr *temp2_deref = nir_build_deref_var(b, temp2);
 
    for (int i = 0; i < 4; i++)
-      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
 
    for (int i = 0; i < 4; i++) {
       nir_deref_instr *store_deref = nir_build_deref_array_imm(b, temp2_deref, i);
       nir_deref_instr *load_deref = nir_build_deref_array_imm(b, temp_deref, i);
-      nir_copy_deref(b, store_deref, load_deref);
+      nir_copy_deref_instr(b, store_deref, load_deref);
    }
 
    nir_validate_shader(b->shader, NULL);
@@ -2163,12 +2163,12 @@ TEST_F(nir_split_vars_test, split_wildcard_copy)
    nir_deref_instr *temp2_deref = nir_build_deref_var(b, temp2);
 
    for (int i = 0; i < 4; i++)
-      nir_store_deref(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
+      nir_store_deref_instr(b, nir_build_deref_array_imm(b, temp_deref, i), nir_load_var(b, in[i]), 1);
 
    nir_deref_instr *src_wildcard = nir_build_deref_array_wildcard(b, temp_deref);
    nir_deref_instr *dst_wildcard = nir_build_deref_array_wildcard(b, temp2_deref);
 
-   nir_copy_deref(b, dst_wildcard, src_wildcard);
+   nir_copy_deref_instr(b, dst_wildcard, src_wildcard);
 
    nir_validate_shader(b->shader, NULL);
    ASSERT_EQ(count_derefs(nir_deref_type_array), 4);

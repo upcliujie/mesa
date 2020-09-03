@@ -1331,7 +1331,7 @@ nir_load_deref_with_access(nir_builder *build, nir_deref_instr *deref,
 }
 
 static inline nir_ssa_def *
-nir_load_deref(nir_builder *build, nir_deref_instr *deref)
+nir_load_deref_instr(nir_builder *build, nir_deref_instr *deref)
 {
    return nir_load_deref_with_access(build, deref, (enum gl_access_qualifier)0);
 }
@@ -1353,8 +1353,8 @@ nir_store_deref_with_access(nir_builder *build, nir_deref_instr *deref,
 }
 
 static inline void
-nir_store_deref(nir_builder *build, nir_deref_instr *deref,
-                nir_ssa_def *value, unsigned writemask)
+nir_store_deref_instr(nir_builder *build, nir_deref_instr *deref,
+                      nir_ssa_def *value, unsigned writemask)
 {
    nir_store_deref_with_access(build, deref, value, writemask,
                                (enum gl_access_qualifier)0);
@@ -1376,7 +1376,7 @@ nir_copy_deref_with_access(nir_builder *build, nir_deref_instr *dest,
 }
 
 static inline void
-nir_copy_deref(nir_builder *build, nir_deref_instr *dest, nir_deref_instr *src)
+nir_copy_deref_instr(nir_builder *build, nir_deref_instr *dest, nir_deref_instr *src)
 {
    nir_copy_deref_with_access(build, dest, src,
                               (enum gl_access_qualifier) 0,
@@ -1400,8 +1400,8 @@ nir_memcpy_deref_with_access(nir_builder *build, nir_deref_instr *dest,
 }
 
 static inline void
-nir_memcpy_deref(nir_builder *build, nir_deref_instr *dest,
-                 nir_deref_instr *src, nir_ssa_def *size)
+nir_memcpy_deref_instr(nir_builder *build, nir_deref_instr *dest,
+                       nir_deref_instr *src, nir_ssa_def *size)
 {
    nir_memcpy_deref_with_access(build, dest, src, size,
                                 (enum gl_access_qualifier)0,
@@ -1411,21 +1411,21 @@ nir_memcpy_deref(nir_builder *build, nir_deref_instr *dest,
 static inline nir_ssa_def *
 nir_load_var(nir_builder *build, nir_variable *var)
 {
-   return nir_load_deref(build, nir_build_deref_var(build, var));
+   return nir_load_deref_instr(build, nir_build_deref_var(build, var));
 }
 
 static inline void
 nir_store_var(nir_builder *build, nir_variable *var, nir_ssa_def *value,
               unsigned writemask)
 {
-   nir_store_deref(build, nir_build_deref_var(build, var), value, writemask);
+   nir_store_deref_instr(build, nir_build_deref_var(build, var), value, writemask);
 }
 
 static inline void
 nir_copy_var(nir_builder *build, nir_variable *dest, nir_variable *src)
 {
-   nir_copy_deref(build, nir_build_deref_var(build, dest),
-                         nir_build_deref_var(build, src));
+   nir_copy_deref_instr(build, nir_build_deref_var(build, dest),
+                               nir_build_deref_var(build, src));
 }
 
 static inline nir_ssa_def *
@@ -1459,7 +1459,7 @@ nir_store_global(nir_builder *build, nir_ssa_def *addr, unsigned align,
 }
 
 static inline nir_ssa_def *
-nir_load_param(nir_builder *build, uint32_t param_idx)
+nir_load_param_idx(nir_builder *build, uint32_t param_idx)
 {
    assert(param_idx < build->impl->function->num_params);
    nir_parameter *param = &build->impl->function->params[param_idx];

@@ -38,7 +38,7 @@ build_write_masked_store(nir_builder *b, nir_deref_instr *vec_deref,
       comps[i] = (i == component) ? value : u;
 
    nir_ssa_def *vec = nir_vec(b, comps, num_components);
-   nir_store_deref(b, vec_deref, vec, (1u << component));
+   nir_store_deref_instr(b, vec_deref, vec, (1u << component));
 }
 
 static void

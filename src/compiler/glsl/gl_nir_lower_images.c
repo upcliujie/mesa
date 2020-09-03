@@ -95,7 +95,7 @@ lower_impl(nir_builder *b, nir_instr *instr, bool bindless_only)
 
    nir_ssa_def *src;
    if (bindless) {
-      src = nir_load_deref(b, deref);
+      src = nir_load_deref_instr(b, deref);
    } else {
       src = nir_iadd_imm(b,
                          nir_build_deref_offset(b, deref, type_size_align_1),
