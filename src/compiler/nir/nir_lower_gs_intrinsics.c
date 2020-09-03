@@ -89,12 +89,7 @@ rewrite_emit_vertex(nir_intrinsic_instr *intrin, struct state *state)
     */
    nir_push_if(b, nir_ilt(b, count, max_vertices));
 
-   nir_intrinsic_instr *lowered =
-      nir_intrinsic_instr_create(b->shader,
-                                 nir_intrinsic_emit_vertex_with_counter);
-   nir_intrinsic_set_stream_id(lowered, stream);
-   lowered->src[0] = nir_src_for_ssa(count);
-   nir_builder_instr_insert(b, &lowered->instr);
+   nir_emit_vertex_with_counter(b, count, stream);
 
    /* Increment the vertex count by 1 */
    nir_store_var(b, state->vertex_count_vars[stream],
@@ -121,12 +116,7 @@ rewrite_end_primitive(nir_intrinsic_instr *intrin, struct state *state)
    assert(state->vertex_count_vars[stream] != NULL);
    nir_ssa_def *count = nir_load_var(b, state->vertex_count_vars[stream]);
 
-   nir_intrinsic_instr *lowered =
-      nir_intrinsic_instr_create(b->shader,
-                                 nir_intrinsic_end_primitive_with_counter);
-   nir_intrinsic_set_stream_id(lowered, stream);
-   lowered->src[0] = nir_src_for_ssa(count);
-   nir_builder_instr_insert(b, &lowered->instr);
+   nir_end_primitive_with_counter(b, count, stream);
 
    nir_instr_remove(&intrin->instr);
 
@@ -165,7 +155,6 @@ static void
 append_set_vertex_count(nir_block *end_block, struct state *state)
 {
    nir_builder *b = state->builder;
-   nir_shader *shader = state->builder->shader;
 
    /* Insert the new intrinsic in all of the predecessors of the end block,
     * but before any jump instructions (return).
@@ -176,11 +165,7 @@ append_set_vertex_count(nir_block *end_block, struct state *state)
 
       nir_ssa_def *count = nir_load_var(b, state->vertex_count_vars[0]);
 
-      nir_intrinsic_instr *set_vertex_count =
-         nir_intrinsic_instr_create(shader, nir_intrinsic_set_vertex_count);
-      set_vertex_count->src[0] = nir_src_for_ssa(count);
-
-      nir_builder_instr_insert(b, &set_vertex_count->instr);
+      nir_set_vertex_count(b, count);
    }
 }
 
