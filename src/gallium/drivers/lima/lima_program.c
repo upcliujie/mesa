@@ -143,6 +143,7 @@ lima_program_optimize_vs_nir(struct nir_shader *s)
    NIR_PASS_V(s, nir_lower_bool_to_float);
 
    NIR_PASS_V(s, nir_copy_prop);
+   NIR_PASS_V(s, nir_opt_algebraic_late);
    NIR_PASS_V(s, nir_opt_dce);
    NIR_PASS_V(s, nir_lower_locals_to_regs);
    NIR_PASS_V(s, nir_convert_from_ssa, true);
@@ -252,6 +253,9 @@ lima_program_optimize_fs_nir(struct nir_shader *s,
       progress = false;
       NIR_PASS(progress, s, nir_opt_algebraic);
    } while (progress);
+
+   NIR_PASS_V(s, nir_opt_algebraic_late);
+   NIR_PASS_V(s, nir_opt_dce);
 
    /* Must be run after optimization loop */
    NIR_PASS_V(s, lima_nir_scale_trig);
