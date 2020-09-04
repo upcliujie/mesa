@@ -192,6 +192,11 @@ def unop_numeric_convert(name, out_type, in_type, const_expr):
    opcode(name, 0, out_type, [0], [in_type], True, "", const_expr)
 
 unop("mov", tuint, "src0")
+# Flush subnormal values to zero with the same sign if required by
+# the float controls execution mode.  See
+# https://llvm.org/docs/LangRef.html#llvm-canonicalize-intrinsic
+# for more details.
+unop("fcanonicalize", tfloat, "src0")
 
 unop("ineg", tint, "-src0")
 unop("fneg", tfloat, "-src0")

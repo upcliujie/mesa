@@ -39,6 +39,14 @@ c = 'c'
 d = 'd'
 e = 'e'
 
+denorm_ftz_16 = 'nir_is_denorm_flush_to_zero(info->float_controls_execution_mode, 16)'
+denorm_ftz_32 = 'nir_is_denorm_flush_to_zero(info->float_controls_execution_mode, 32)'
+denorm_ftz_64 = 'nir_is_denorm_flush_to_zero(info->float_controls_execution_mode, 64)'
+
+denorm_preserve_16 = 'nir_is_denorm_preserve(info->float_controls_execution_mode, 16)'
+denorm_preserve_32 = 'nir_is_denorm_preserve(info->float_controls_execution_mode, 32)'
+denorm_preserve_64 = 'nir_is_denorm_preserve(info->float_controls_execution_mode, 64)'
+
 signed_zero_inf_nan_preserve_16 = 'nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 16)'
 signed_zero_inf_nan_preserve_32 = 'nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 32)'
 
@@ -93,6 +101,26 @@ def lowered_sincos(c):
 
 def intBitsToFloat(i):
     return struct.unpack('!f', struct.pack('!I', i))[0]
+
+optimize_fcanonicalize = [
+   # Eliminate all fcanonicalize if we are required to not flush denormals.
+   (('fcanonicalize', 'a@16'), a, denorm_preserve_16),
+   (('fcanonicalize', 'a@32'), a, denorm_preserve_32),
+   (('fcanonicalize', 'a@64'), a, denorm_preserve_64),
+
+   # Eliminate inexact fcanonicalize if we are not required to flush denormals.
+   (imprecise('fcanonicalize', 'a@16'), a, '!'+denorm_ftz_16),
+   (imprecise('fcanonicalize', 'a@32'), a, '!'+denorm_ftz_32),
+   (imprecise('fcanonicalize', 'a@64'), a, '!'+denorm_ftz_64),
+
+   # If denormals are required to be flushed or it's exact, we can still
+   # eliminate it if any denormals are already flushed or will be flushed.
+   (('fcanonicalize(is_only_used_as_float)', a), a),
+   (('fcanonicalize', 'a(is_created_as_float)'), a),
+
+   # Integral numbers are not denormal.
+   (('fcanonicalize', 'a(is_integral)'), a),
+]
 
 optimizations = [
 
@@ -434,6 +462,8 @@ optimizations.extend([
    # a * (#b << #c)
    (('ishl', ('imul', a, '#b'), '#c'), ('imul', a, ('ishl', b, c))),
 ])
+
+optimizations.extend(optimize_fcanonicalize)
 
 # Care must be taken here.  Shifts in NIR uses only the lower log2(bitsize)
 # bits of the second source.  These replacements must correctly handle the
@@ -2611,12 +2641,12 @@ for op in ['fpow']:
         (('bcsel', a, (op, b, c), (op + '(is_used_once)', d, c)), (op, ('bcsel', a, b, d), c)),
     ]
 
-for op in ['frcp', 'frsq', 'fsqrt', 'fexp2', 'flog2', 'fsign', 'fsin', 'fcos', 'fsin_amd', 'fcos_amd', 'fsin_mdg', 'fcos_mdg', 'fsin_agx', 'fneg', 'fabs', 'fsign']:
+for op in ['frcp', 'frsq', 'fsqrt', 'fexp2', 'flog2', 'fsign', 'fsin', 'fcos', 'fsin_amd', 'fcos_amd', 'fsin_mdg', 'fcos_mdg', 'fsin_agx', 'fneg', 'fabs', 'fsign', 'fcanonicalize']:
     optimizations += [
         (('bcsel', c, (op + '(is_used_once)', a), (op + '(is_used_once)', b)), (op, ('bcsel', c, a, b))),
     ]
 
-for op in ['ineg', 'iabs', 'inot', 'isign']:
+for op in ['ineg', 'iabs', 'inot', 'isign', 'fcanonicalize']:
     optimizations += [
         ((op, ('bcsel', c, '#a', '#b')), ('bcsel', c, (op, a), (op, b))),
     ]
@@ -2961,6 +2991,15 @@ late_optimizations.extend([
    (('extract_u8', ('extract_i8', a, b), 0), ('extract_u8', a, b)),
    (('extract_u8', ('extract_u8', a, b), 0), ('extract_u8', a, b)),
 ])
+
+# late_optimizations has a fneg(fneg(a)) optimization that can create fcanonicalize
+late_optimizations += optimize_fcanonicalize
+
+late_optimizations += [
+   # If we can't eliminate it, lower it so that backends don't have to deal with
+   # it.
+   (('fcanonicalize', a), ('fmul', a, 1.0), '!options->has_fcanonicalize'),
+]
 
 # A few more extract cases we'd rather leave late
 for N in [16, 32]:
