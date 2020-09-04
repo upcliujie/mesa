@@ -191,6 +191,7 @@ def unop_numeric_convert(name, out_type, in_type, const_expr):
    opcode(name, 0, out_type, [0], [in_type], True, "", const_expr)
 
 unop("mov", tuint, "src0")
+unop("fcanonicalize", tfloat, "src0") # flush denormals if required
 
 unop("ineg", tint, "-src0")
 unop("fneg", tfloat, "-src0")
