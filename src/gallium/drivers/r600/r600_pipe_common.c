@@ -1196,6 +1196,8 @@ const struct nir_shader_compiler_options r600_nir_fs_options = {
 	.has_umad24 = true,
 	.has_umul24 = true,
         .use_interpolated_input_intrinsics = true
+        .has_fsub = true,
+        .has_isub = true,
 };
 
 const struct nir_shader_compiler_options r600_nir_options = {
@@ -1217,6 +1219,8 @@ const struct nir_shader_compiler_options r600_nir_options = {
 	.vectorize_io = true,
 	.has_umad24 = true,
 	.has_umul24 = true,
+        .has_fsub = true,
+        .has_isub = true,
 };
 
 
