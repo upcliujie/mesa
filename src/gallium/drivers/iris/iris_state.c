@@ -7525,6 +7525,20 @@ iris_emit_raw_pipe_control(struct iris_batch *batch,
    enum pipe_control_flags non_lri_post_sync_flags =
       post_sync_flags & ~PIPE_CONTROL_LRI_POST_SYNC_OP;
 
+#if GFX_VER >= 12
+   if (batch->name == IRIS_BATCH_BLITTER) {
+      batch_mark_sync_for_pipe_control(batch, flags);
+      iris_batch_sync_region_start(batch);
+
+      iris_emit_cmd(batch, GENX(MI_FLUSH_DW), fd) {
+         fd.Address = rw_bo(bo, offset, IRIS_DOMAIN_OTHER_WRITE);
+         fd.ImmediateData = imm;
+      }
+      iris_batch_sync_region_end(batch);
+      return;
+   }
+#endif
+
    /* Recursive PIPE_CONTROL workarounds --------------------------------
     * (http://knowyourmeme.com/memes/xzibit-yo-dawg)
     *
