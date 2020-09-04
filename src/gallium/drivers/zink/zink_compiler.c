@@ -221,6 +221,8 @@ static const struct nir_shader_compiler_options nir_options = {
    .use_scoped_barrier = true,
    .lower_int64_options = ~0,
    .lower_doubles_options = ~nir_lower_fp64_full_software,
+   .has_fsub = true,
+   .has_isub = true,
 };
 
 static const struct nir_shader_compiler_options softfp_nir_options = {
@@ -241,6 +243,8 @@ static const struct nir_shader_compiler_options softfp_nir_options = {
    .use_scoped_barrier = true,
    .lower_int64_options = ~0,
    .lower_doubles_options = ~0,
+   .has_fsub = true,
+   .has_isub = true,
 };
 
 const void *
