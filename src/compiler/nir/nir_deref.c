@@ -33,7 +33,8 @@ is_trivial_deref_cast(nir_deref_instr *cast)
    if (!parent)
       return false;
 
-   return cast->mode == parent->mode &&
+   return (cast->mode == parent->mode ||
+           cast->mode == nir_var_function_temp) &&
           cast->type == parent->type &&
           cast->dest.ssa.num_components == parent->dest.ssa.num_components &&
           cast->dest.ssa.bit_size == parent->dest.ssa.bit_size;
