@@ -349,8 +349,8 @@ comparison_pre_block(nir_block *block, struct block_queue *bq, nir_builder *bld)
           * and neither operand is immediate value 0, add it to the set.
           */
          if (is_compatible_condition(alu) &&
-             is_not_const_zero(NULL, alu, 0, 1, swizzle) &&
-             is_not_const_zero(NULL, alu, 1, 1, swizzle))
+             is_not_const_zero(NULL, NULL, alu, 0, 1, swizzle) &&
+             is_not_const_zero(NULL, NULL, alu, 1, 1, swizzle))
             add_instruction_for_block(bi, alu);
 
          break;
