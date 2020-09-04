@@ -3387,6 +3387,10 @@ typedef struct nir_shader_compiler_options {
     * iadd(x, ineg(y)). If true, driver should call nir_opt_algebraic_late(). */
    bool has_isub;
 
+   /** Backend supports fcanonicalize, if not set fcanonicalize will be lowered
+    * to fmul(a, 1.0) */
+   bool has_fcanonicalize;
+
    /* Whether to generate only scoped_barrier intrinsics instead of the set of
     * memory and control barrier intrinsics based on GLSL.
     */
