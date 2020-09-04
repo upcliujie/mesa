@@ -593,6 +593,9 @@ bool can_use_VOP3(opt_ctx& ctx, const aco_ptr<Instruction>& instr)
    if (instr->isVOP3())
       return true;
 
+   if (instr->format == Format::VOP3P)
+      return false;
+
    if (instr->operands.size() && instr->operands[0].isLiteral() && ctx.program->chip_class < GFX10)
       return false;
 
@@ -930,7 +933,8 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
              (!instr->isSDWA() || ctx.program->chip_class >= GFX9)) {
             Operand op = get_constant_op(ctx, info, bits);
             perfwarn(ctx.program, instr->opcode == aco_opcode::v_cndmask_b32 && i == 2, "v_cndmask_b32 with a constant selector", instr.get());
-            if (i == 0 || instr->isSDWA() || instr->opcode == aco_opcode::v_readlane_b32 ||
+            if (i == 0 || instr->isSDWA() || instr->format == Format::VOP3P ||
+                instr->opcode == aco_opcode::v_readlane_b32 ||
                 instr->opcode == aco_opcode::v_writelane_b32) {
                instr->operands[i] = op;
                continue;
@@ -3254,7 +3258,9 @@ void select_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
    if (instr->opcode == aco_opcode::v_mad_u32_u16)
       select_mul_u32_u24(ctx, instr);
 
-   if (instr->isSDWA() || instr->isDPP() || (instr->isVOP3() && ctx.program->chip_class < GFX10))
+   if (instr->isSDWA() || instr->isDPP() ||
+       (instr->isVOP3() && ctx.program->chip_class < GFX10) ||
+       (instr->format == Format::VOP3P && ctx.program->chip_class < GFX10))
       return; /* some encodings can't ever take literals */
 
    /* we do not apply the literals yet as we don't know if it is profitable */
