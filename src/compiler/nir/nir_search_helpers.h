@@ -438,19 +438,6 @@ is_integral(struct hash_table *ht, UNUSED nir_shader *shader,
    return r.is_integral;
 }
 
-/**
- * Is the value finite?
- */
-static inline bool
-is_finite(UNUSED struct hash_table *ht, UNUSED nir_shader *shader,
-          nir_alu_instr *instr, unsigned src, unsigned num_components,
-          const uint8_t *swizzle)
-{
-   const struct ssa_result_range v = nir_analyze_range(ht, instr, src);
-
-   return v.is_finite;
-}
-
 
 #define RELATION(r)                                                     \
 static inline bool                                                      \
@@ -496,11 +483,84 @@ is_not_zero(struct hash_table *ht, UNUSED nir_shader *shader,
 }
 
 static inline bool
-is_a_number(struct hash_table *ht, nir_alu_instr *instr, unsigned src,
-            UNUSED unsigned num_components, UNUSED const uint8_t *swizzle)
+is_signed_zero_inf_nan_preserve_for_instr(nir_shader *shader, nir_alu_instr *instr, unsigned src)
 {
+   if (instr->op == nir_op_fmin || instr->op == nir_op_fmax)
+      return true;
+   if (instr->exact && nir_alu_instr_is_comparison(instr))
+      return true;
+
+   nir_ssa_def *def = instr->src[src].src.ssa;
+   uint16_t controls = shader->info.float_controls_execution_mode;
+   return nir_is_float_control_signed_zero_inf_nan_preserve(controls, def->bit_size);
+}
+
+/**
+ * Is the value finite and not NaN?
+ */
+static inline bool
+is_finite(UNUSED struct hash_table *ht, nir_shader *shader, nir_alu_instr *instr,
+          unsigned src, unsigned num_components, const uint8_t *swizzle)
+{
+   if (!is_signed_zero_inf_nan_preserve_for_instr(shader, instr, src))
+      return true;
+
+   const struct ssa_result_range v = nir_analyze_range(ht, instr, src);
+   return v.is_finite;
+}
+
+static inline bool
+is_a_number(struct hash_table *ht, nir_shader *shader, nir_alu_instr *instr,
+            unsigned src, UNUSED unsigned num_components, UNUSED const uint8_t *swizzle)
+{
+   if (!is_signed_zero_inf_nan_preserve_for_instr(shader, instr, src))
+      return true;
+
    const struct ssa_result_range v = nir_analyze_range(ht, instr, src);
    return v.is_a_number;
+}
+
+static inline bool
+can_elim_negative_zero(struct hash_table *ht, nir_shader *shader, nir_alu_instr *instr,
+                       unsigned src, unsigned num_components, const uint8_t *swizzle)
+{
+   if (!is_signed_zero_inf_nan_preserve_for_instr(shader, instr, src))
+      return true;
+
+   if (!nir_src_is_const(instr->src[src].src))
+      return is_not_zero(ht, shader, instr, src, num_components, swizzle);
+
+   for (unsigned i = 0; i < num_components; i++) {
+      double val = nir_src_comp_as_float(instr->src[src].src, swizzle[i]);
+      if (val == 0.0 && signbit(val))
+         return false;
+   }
+
+   return true;
+}
+
+static inline bool
+is_finite_and_can_elim_neg_zero(struct hash_table *ht, nir_shader *shader,
+                                nir_alu_instr *instr, unsigned src,
+                                unsigned num_components, const uint8_t *swizzle)
+{
+   if (!is_signed_zero_inf_nan_preserve_for_instr(shader, instr, src))
+      return true;
+
+   const struct ssa_result_range v = nir_analyze_range(ht, instr, src);
+
+   bool neg_zero = false;
+   if (nir_src_is_const(instr->src[src].src)) {
+      for (unsigned i = 0; i < num_components; i++) {
+         double val = nir_src_comp_as_float(instr->src[src].src, swizzle[i]);
+         if (val == 0.0 && signbit(val))
+            return false;
+      }
+   } else {
+      neg_zero = v.range != lt_zero && v.range != gt_zero && v.range != ne_zero;
+   }
+
+   return !neg_zero && v.is_finite;
 }
 
 #endif /* _NIR_SEARCH_ */
