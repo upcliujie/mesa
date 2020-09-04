@@ -568,6 +568,9 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
       progress |= nir_lower_alu_to_scalar(nir, NULL, NULL);
    } while (progress);
 
+   nir_opt_algebraic_late(nir);
+   nir_opt_dce(nir);
+
    nir_lower_var_copies(nir);
    nir_remove_dead_variables(nir, nir_var_function_temp, NULL);
 

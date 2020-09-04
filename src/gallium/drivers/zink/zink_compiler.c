@@ -387,6 +387,9 @@ optimize_nir(struct nir_shader *s)
       NIR_PASS(progress, s, nir_opt_undef);
       NIR_PASS(progress, s, zink_nir_lower_b2b);
    } while (progress);
+
+   NIR_PASS_V(s, nir_opt_algebraic_late);
+   NIR_PASS_V(s, nir_opt_dce);
 }
 
 /* check for a genuine gl_PointSize output vs one from nir_lower_point_size_mov */
