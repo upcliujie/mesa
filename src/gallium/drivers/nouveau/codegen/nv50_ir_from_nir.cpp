@@ -3158,6 +3158,9 @@ Converter::run()
       NIR_PASS(progress, nir, nir_opt_dead_cf);
    } while (progress);
 
+   NIR_PASS_V(nir, nir_opt_algebraic_late);
+   NIR_PASS_V(nir, nir_opt_dce);
+
    NIR_PASS_V(nir, nir_lower_bool_to_int32);
    NIR_PASS_V(nir, nir_convert_from_ssa, true);
 
