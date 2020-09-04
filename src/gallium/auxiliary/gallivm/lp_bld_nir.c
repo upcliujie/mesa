@@ -2299,5 +2299,7 @@ void lp_build_opt_nir(struct nir_shader *nir)
       nir_lower_tex_options options = { .lower_tex_without_implicit_lod = true };
       NIR_PASS_V(nir, nir_lower_tex, &options);
    } while (progress);
+   nir_opt_algebraic_late(nir);
    nir_lower_bool_to_int32(nir);
+   nir_opt_dce(nir);
 }
