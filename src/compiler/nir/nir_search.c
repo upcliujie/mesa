@@ -46,6 +46,7 @@ struct match_state {
 
    nir_alu_src variables[NIR_SEARCH_MAX_VARIABLES];
    struct hash_table *range_ht;
+   nir_shader *shader;
 };
 
 static bool
@@ -313,7 +314,7 @@ match_value(const nir_search_value *value, nir_alu_instr *instr, unsigned src,
              instr->src[src].src.ssa->parent_instr->type != nir_instr_type_load_const)
             return false;
 
-         if (var->cond && !var->cond(state->range_ht, instr,
+         if (var->cond && !var->cond(state->range_ht, &state->shader->info, instr,
                                      src, num_components, new_swizzle))
             return false;
 
@@ -706,6 +707,7 @@ nir_replace_instr(nir_builder *build, nir_alu_instr *instr,
    state.inexact_match = false;
    state.has_exact_alu = false;
    state.range_ht = range_ht;
+   state.shader = build->shader;
    state.pass_op_table = pass_op_table;
 
    STATIC_ASSERT(sizeof(state.comm_op_direction) * 8 >= NIR_SEARCH_MAX_COMM_OPS);
