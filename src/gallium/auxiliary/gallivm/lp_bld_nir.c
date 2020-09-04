@@ -2327,5 +2327,7 @@ void lp_build_opt_nir(struct nir_shader *nir)
       NIR_PASS_V(nir, nir_lower_subgroups, &subgroups_options);
 
    } while (progress);
+   nir_opt_algebraic_late(nir);
    nir_lower_bool_to_int32(nir);
+   nir_opt_dce(nir);
 }
