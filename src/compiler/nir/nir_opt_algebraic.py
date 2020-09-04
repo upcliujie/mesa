@@ -2062,7 +2062,7 @@ for op in ['fpow']:
 
 for op in ['frcp', 'frsq', 'fsqrt', 'fexp2', 'flog2', 'fsign', 'fsin', 'fcos', 'fneg', 'fabs', 'fsign']:
     optimizations += [
-        (('bcsel', c, (op + '(is_used_once)', a), (op + '(is_used_once)', b)), (op, ('bcsel', c, a, b))),
+        (('bcsel', c, (op + '(is_used_once)', 'a(is_not_const)'), (op + '(is_used_once)', 'b(is_not_const)')), (op, ('bcsel', c, a, b))),
     ]
 
 for op in ['ineg', 'iabs', 'inot', 'isign']:
