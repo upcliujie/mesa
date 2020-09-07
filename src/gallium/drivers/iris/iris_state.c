@@ -406,7 +406,7 @@ flush_before_state_base_change(struct iris_batch *batch)
     * other processes are definitely complete before we try to do our own
     * rendering.  It's a bit of a big hammer but it appears to work.
     */
-   iris_emit_end_of_pipe_sync(batch,
+   iris_emit_end_of_pipe_sync(batch, NULL,
                               "change STATE_BASE_ADDRESS (flushes)",
                               PIPE_CONTROL_RENDER_TARGET_FLUSH |
                               PIPE_CONTROL_DEPTH_CACHE_FLUSH |
@@ -464,7 +464,7 @@ flush_after_state_base_change(struct iris_batch *batch)
     * units cache the binding table in the texture cache.  However, we have
     * yet to be able to actually confirm this.
     */
-   iris_emit_end_of_pipe_sync(batch,
+   iris_emit_end_of_pipe_sync(batch, NULL,
                               "change STATE_BASE_ADDRESS (invalidates)",
                               PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE |
                               PIPE_CONTROL_CONST_CACHE_INVALIDATE |
@@ -790,8 +790,8 @@ iris_enable_obj_preemption(struct iris_batch *batch, bool enable)
    uint32_t reg_val;
 
    /* A fixed function pipe flush is required before modifying this field */
-   iris_emit_end_of_pipe_sync(batch, enable ? "enable preemption"
-                                            : "disable preemption",
+   iris_emit_end_of_pipe_sync(batch, NULL, enable ? "enable preemption"
+                                                  : "disable preemption",
                               PIPE_CONTROL_RENDER_TARGET_FLUSH);
 
    /* enable object level preemption */
@@ -5274,7 +5274,7 @@ genX(invalidate_aux_map_state)(struct iris_batch *batch)
        * An end of pipe sync is needed here, otherwise we see GPU hangs in
        * dEQP-GLES31.functional.copy_image.* tests.
        */
-      iris_emit_end_of_pipe_sync(batch, "Invalidate aux map table",
+      iris_emit_end_of_pipe_sync(batch, NULL, "Invalidate aux map table",
                                  PIPE_CONTROL_CS_STALL);
 
       /* If the aux-map state number increased, then we need to rewrite the
@@ -6091,7 +6091,7 @@ iris_upload_dirty_render_state(struct iris_context *ice,
        * case, we want to do a depth flush and stall, so the pipeline is not
        * using these settings while we change the registers.
        */
-      iris_emit_end_of_pipe_sync(batch,
+      iris_emit_end_of_pipe_sync(batch, NULL,
                                  "Workaround: Stop pipeline for 14010455700",
                                  PIPE_CONTROL_DEPTH_STALL |
                                  PIPE_CONTROL_DEPTH_CACHE_FLUSH);

@@ -408,7 +408,7 @@ iris_resolve_color(struct iris_context *ice,
     * and again afterwards to ensure that the resolve is complete before we
     * do any more regular drawing.
     */
-   iris_emit_end_of_pipe_sync(batch, "color resolve: pre-flush",
+   iris_emit_end_of_pipe_sync(batch, res->bo, "color resolve: pre-flush",
                               PIPE_CONTROL_RENDER_TARGET_FLUSH);
 
    iris_batch_sync_region_start(batch);
@@ -419,7 +419,7 @@ iris_resolve_color(struct iris_context *ice,
    blorp_batch_finish(&blorp_batch);
 
    /* See comment above */
-   iris_emit_end_of_pipe_sync(batch, "color resolve: post-flush",
+   iris_emit_end_of_pipe_sync(batch, res->bo, "color resolve: post-flush",
                               PIPE_CONTROL_RENDER_TARGET_FLUSH);
    iris_batch_sync_region_end(batch);
 }

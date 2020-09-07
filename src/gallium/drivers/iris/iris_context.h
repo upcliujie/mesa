@@ -843,7 +843,7 @@ void iris_emit_pipe_control_write(struct iris_batch *batch,
                                   const char *reason, uint32_t flags,
                                   struct iris_bo *bo, uint32_t offset,
                                   uint64_t imm);
-void iris_emit_end_of_pipe_sync(struct iris_batch *batch,
+void iris_emit_end_of_pipe_sync(struct iris_batch *batch, struct iris_bo *bo,
                                 const char *reason, uint32_t flags);
 void iris_emit_buffer_barrier_for(struct iris_batch *batch,
                                   struct iris_bo *bo,
