@@ -300,7 +300,7 @@ fast_clear_color(struct iris_context *ice,
     * and again afterwards to ensure that the resolve is complete before we
     * do any more regular drawing.
     */
-   iris_emit_end_of_pipe_sync(batch,
+   iris_emit_end_of_pipe_sync(batch, res->bo,
                               "fast clear: pre-flush",
                               PIPE_CONTROL_RENDER_TARGET_FLUSH);
 
@@ -323,7 +323,7 @@ fast_clear_color(struct iris_context *ice,
                     box->x, box->y, box->x + box->width,
                     box->y + box->height);
    blorp_batch_finish(&blorp_batch);
-   iris_emit_end_of_pipe_sync(batch,
+   iris_emit_end_of_pipe_sync(batch, res->bo,
                               "fast clear: post flush",
                               PIPE_CONTROL_RENDER_TARGET_FLUSH);
    iris_batch_sync_region_end(batch);

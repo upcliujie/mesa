@@ -32,7 +32,7 @@ iris_oa_bo_alloc(void *bufmgr, const char *name, uint64_t size)
 static void
 iris_perf_emit_stall_at_pixel_scoreboard(struct iris_context *ice)
 {
-   iris_emit_end_of_pipe_sync(&ice->batches[IRIS_BATCH_RENDER],
+   iris_emit_end_of_pipe_sync(&ice->batches[IRIS_BATCH_RENDER], NULL,
                               "OA metrics",
                               PIPE_CONTROL_STALL_AT_SCOREBOARD);
 }

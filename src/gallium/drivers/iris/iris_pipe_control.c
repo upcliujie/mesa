@@ -72,7 +72,7 @@ iris_emit_pipe_control_flush(struct iris_batch *batch,
        * with any write cache flush, so this shouldn't be a concern.  In order
        * to ensure a full stall, we do an end-of-pipe sync.
        */
-      iris_emit_end_of_pipe_sync(batch, reason,
+      iris_emit_end_of_pipe_sync(batch, NULL, reason,
                                  flags & PIPE_CONTROL_CACHE_FLUSH_BITS);
       flags &= ~(PIPE_CONTROL_CACHE_FLUSH_BITS | PIPE_CONTROL_CS_STALL);
    }
@@ -120,7 +120,7 @@ iris_emit_pipe_control_write(struct iris_batch *batch,
  *  Data" in the PIPE_CONTROL command.
  */
 void
-iris_emit_end_of_pipe_sync(struct iris_batch *batch,
+iris_emit_end_of_pipe_sync(struct iris_batch *batch, struct iris_bo *bo,
                            const char *reason, uint32_t flags)
 {
    /* From Sandybridge PRM, volume 2, "1.7.3.1 Writing a Value to Memory":
@@ -272,7 +272,7 @@ iris_emit_buffer_barrier_for(struct iris_batch *batch,
 
       /* Emit any required flushes and invalidations. */
       if (bits & all_flush_bits)
-         iris_emit_end_of_pipe_sync(batch, "cache tracker: flush",
+         iris_emit_end_of_pipe_sync(batch, NULL, "cache tracker: flush",
                                     bits & all_flush_bits);
 
       if (bits & ~all_flush_bits)
