@@ -373,10 +373,18 @@ iris_cache_flush_for_render(struct iris_batch *batch,
       _mesa_hash_table_insert_pre_hashed(batch->cache.render, bo->hash, bo,
                                          format_aux_tuple(format, aux_usage));
    } else if (entry->data != format_aux_tuple(format, aux_usage)) {
-      iris_emit_pipe_control_flush(batch,
-                                   "cache tracker: render format mismatch",
-                                   PIPE_CONTROL_RENDER_TARGET_FLUSH |
-                                   PIPE_CONTROL_CS_STALL);
+      if (batch->screen->devinfo.is_dg1) {
+         batch->screen->vtbl.emit_raw_l3_control(
+            batch, bo,
+            "cache tracker: render format mismatch",
+            PIPE_CONTROL_RENDER_TARGET_FLUSH | PIPE_CONTROL_CS_STALL,
+            NULL, 0, 0);
+      } else {
+         iris_emit_pipe_control_flush(batch,
+                                      "cache tracker: render format mismatch",
+                                      PIPE_CONTROL_RENDER_TARGET_FLUSH |
+                                      PIPE_CONTROL_CS_STALL);
+      }
       entry->data = format_aux_tuple(format, aux_usage);
    }
 }
