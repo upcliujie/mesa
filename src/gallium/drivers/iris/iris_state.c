@@ -101,6 +101,7 @@
 #include "intel/compiler/brw_compiler.h"
 #include "intel/common/gen_aux_map.h"
 #include "intel/common/gen_l3_config.h"
+#include "intel/common/gen_l3_control.h"
 #include "intel/common/gen_sample_positions.h"
 #include "iris_batch.h"
 #include "iris_context.h"
@@ -7105,6 +7106,91 @@ flags_to_post_sync_op(uint32_t flags)
    return 0;
 }
 
+static void
+iris_emit_raw_l3_control(struct iris_batch *batch,
+                         struct iris_bo *bo,
+                         const char *reason,
+                         uint32_t flags,
+                         struct iris_bo *imm_bo,
+                         uint32_t offset,
+                         uint64_t imm)
+{
+   /* Requires at least 1 range, so it requires some bo, maybe we
+    * could use workaround bo here if no bo given?
+    */
+   assert(bo);
+
+   if (flags & (~L3_CONTROL_BITS))
+      assert(!"unsupported set of flags for L3_CONTROL");
+
+#if GEN_GEN == 12 && !GEN_IS_GEN12HP
+   uint64_t addr = bo ? bo->gtt_offset : 0;
+   uint64_t size = bo ? bo->size : 0;
+
+   uint32_t address_ranges = bo ? 1 : 0;
+   uint32_t *map = iris_get_command_space(batch, 4 * (5 + 2 * address_ranges));
+   uint32_t *pmap = map;
+
+   unsigned write_imm = (flags & PIPE_CONTROL_WRITE_IMMEDIATE) ?
+      WriteImmediateData : NoWrite;
+
+   _iris_pack_command(batch, GENX(L3_CONTROL), map, l3c) {
+      /* 2b + 3 (where 'b' is number of L3 Flush Address Ranges) */
+      l3c.DWordLength = 2 * address_ranges + 3;
+      l3c.DepthCacheFlush = flags & PIPE_CONTROL_DEPTH_CACHE_FLUSH;
+      l3c.RenderTargetCacheFlushEnable = flags & PIPE_CONTROL_RENDER_TARGET_FLUSH;
+      l3c.HDCPipelineFlush = flags & PIPE_CONTROL_FLUSH_HDC;
+      l3c.PostSyncOperation = write_imm;
+      l3c.CommandStreamerStallEnable = flags & PIPE_CONTROL_CS_STALL;
+      l3c.DestinationAddressType = PPGTT;
+
+      /* "SW must always program Post-Sync operation address and data qword fields
+       * in the command. Hardware will ignore these fields when Post-Sync Operation
+       * is not enabled in the command."
+       *
+       * Using dummy address if no bo provided by the caller.
+       */
+      l3c.Address = imm_bo ? rw_bo(imm_bo, offset, IRIS_DOMAIN_NONE) :
+                    rw_bo(batch->screen->workaround_bo,
+                    batch->screen->workaround_address.offset, IRIS_DOMAIN_NONE);
+      l3c.ImmediateData = imm;
+   }
+
+   pmap += GENX(L3_CONTROL_length); /* jump header */
+
+   uint64_t base_addr;
+   uint32_t addr_mask;
+
+   gen_calculate_l3_address_and_mask(addr, size, &base_addr, &addr_mask);
+
+   UNUSED const struct gen_device_info *devinfo = &batch->screen->devinfo;
+
+   for (int i = 0; i < address_ranges; i++) {
+      /* GEN_BUG_1606928324, A0 stepping and some simulator versions. */
+      if (devinfo->revision == 0) {
+         _iris_pack_state(batch, GENX(L3_FLUSH_ADDRESS_RANGE_WA),
+                          pmap, data) {
+            data.AddressLow = ((uint32_t) (base_addr & UINT32_MAX)) >> 0xC;
+            data.AddressHigh = (uint32_t) (base_addr >> 32);
+            data.AddressMask = addr_mask;
+            data.L3FlushEvictionPolicy = FlushL3WithEviction;
+         }
+      } else {
+         _iris_pack_state(batch, GENX(L3_FLUSH_ADDRESS_RANGE),
+                          pmap, data) {
+            data.AddressLow = ((uint32_t) (base_addr & UINT32_MAX)) >> 0xC;
+            data.AddressHigh = (uint32_t) (base_addr >> 32);
+            data.AddressMask = addr_mask;
+            data.L3FlushEvictionPolicy = FlushL3WithEviction;
+         }
+      }
+      pmap += GENX(L3_FLUSH_ADDRESS_RANGE_length);
+   }
+
+   iris_batch_emit(batch, map, sizeof(uint32_t) * (5 + 2 * address_ranges));
+#endif
+}
+
 /**
  * Do the given flags have a Post Sync or LRI Post Sync operation?
  */
@@ -7772,6 +7858,7 @@ genX(init_screen_state)(struct iris_screen *screen)
    screen->vtbl.update_surface_base_address = iris_update_surface_base_address;
    screen->vtbl.upload_compute_state = iris_upload_compute_state;
    screen->vtbl.emit_raw_pipe_control = iris_emit_raw_pipe_control;
+   screen->vtbl.emit_raw_l3_control = iris_emit_raw_l3_control;
    screen->vtbl.emit_mi_report_perf_count = iris_emit_mi_report_perf_count;
    screen->vtbl.rebind_buffer = iris_rebind_buffer;
    screen->vtbl.load_register_reg32 = iris_load_register_reg32;

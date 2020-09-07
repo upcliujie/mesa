@@ -103,6 +103,10 @@ struct iris_vtable {
                                  const char *reason, uint32_t flags,
                                  struct iris_bo *bo, uint32_t offset,
                                  uint64_t imm);
+   void (*emit_raw_l3_control)(struct iris_batch *batch,
+                               struct iris_bo *bo, const char *reason,
+                               uint32_t flags, struct iris_bo *imm_bo,
+                               uint32_t offset, uint64_t imm);
 
    void (*emit_mi_report_perf_count)(struct iris_batch *batch,
                                      struct iris_bo *bo,
