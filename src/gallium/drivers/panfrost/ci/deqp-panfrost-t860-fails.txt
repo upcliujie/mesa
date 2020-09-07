@@ -12,3 +12,10 @@ dEQP-GLES3.functional.fbo.blit.rect.nearest_consistency_min_reverse_src_dst_x,Fa
 dEQP-GLES3.functional.fbo.blit.rect.nearest_consistency_min_reverse_src_dst_y,Fail
 dEQP-GLES3.functional.fbo.blit.rect.nearest_consistency_min_reverse_src_x,Fail
 dEQP-GLES3.functional.fbo.blit.rect.nearest_consistency_min_reverse_src_y,Fail
+dEQP-GLES31.functional.compute.shared_var.basic_type.bvec2,Fail
+dEQP-GLES31.functional.compute.shared_var.basic_type.ivec2_highp,Fail
+dEQP-GLES31.functional.compute.shared_var.basic_type.ivec2_lowp,Fail
+dEQP-GLES31.functional.compute.shared_var.basic_type.ivec2_mediump,Fail
+dEQP-GLES31.functional.compute.shared_var.basic_type.vec2_highp,Fail
+dEQP-GLES31.functional.compute.shared_var.basic_type.vec2_lowp,Fail
+dEQP-GLES31.functional.compute.shared_var.basic_type.vec2_mediump,Fail
