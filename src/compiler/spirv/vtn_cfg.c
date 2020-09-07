@@ -961,20 +961,15 @@ vtn_emit_branch(struct vtn_builder *b, enum vtn_branch_type branch_type,
    case vtn_branch_type_return:
       nir_jump(&b->nb, nir_jump_return);
       break;
-   case vtn_branch_type_discard: {
-      nir_intrinsic_op op =
-         b->convert_discard_to_demote ? nir_intrinsic_demote : nir_intrinsic_discard;
-      nir_intrinsic_instr *discard =
-         nir_intrinsic_instr_create(b->nb.shader, op);
-      nir_builder_instr_insert(&b->nb, &discard->instr);
+   case vtn_branch_type_discard:
+      if (b->convert_discard_to_demote)
+         nir_demote(&b->nb);
+      else
+         nir_discard(&b->nb);
       break;
-   }
-   case vtn_branch_type_terminate_invocation: {
-      nir_intrinsic_instr *terminate =
-         nir_intrinsic_instr_create(b->nb.shader, nir_intrinsic_terminate);
-      nir_builder_instr_insert(&b->nb, &terminate->instr);
+   case vtn_branch_type_terminate_invocation:
+      nir_terminate(&b->nb);
       break;
-   }
    case vtn_branch_type_ignore_intersection: {
       nir_intrinsic_instr *ignore =
          nir_intrinsic_instr_create(b->nb.shader,
@@ -1089,9 +1084,7 @@ vtn_emit_cf_list_structured(struct vtn_builder *b, struct list_head *cf_list,
 
          vtn_foreach_instruction(b, block_start, block_end, handler);
 
-         block->end_nop = nir_intrinsic_instr_create(b->nb.shader,
-                                                     nir_intrinsic_nop);
-         nir_builder_instr_insert(&b->nb, &block->end_nop->instr);
+         block->end_nop = nir_nop(&b->nb);
 
          vtn_emit_ret_store(b, block);
 
@@ -1280,9 +1273,7 @@ vtn_emit_cf_func_unstructured(struct vtn_builder *b, struct vtn_function *func,
       block_start = vtn_foreach_instruction(b, block_start, block_end,
                                             vtn_handle_phis_first_pass);
       vtn_foreach_instruction(b, block_start, block_end, handler);
-      block->end_nop = nir_intrinsic_instr_create(b->nb.shader,
-                                                  nir_intrinsic_nop);
-      nir_builder_instr_insert(&b->nb, &block->end_nop->instr);
+      block->end_nop = nir_nop(&b->nb);
 
       SpvOp op = *block_end & SpvOpCodeMask;
       switch (op) {
@@ -1348,9 +1339,7 @@ vtn_emit_cf_func_unstructured(struct vtn_builder *b, struct vtn_function *func,
       }
 
       case SpvOpKill: {
-         nir_intrinsic_instr *discard =
-            nir_intrinsic_instr_create(b->nb.shader, nir_intrinsic_discard);
-         nir_builder_instr_insert(&b->nb, &discard->instr);
+         nir_discard(&b->nb);
          nir_goto(&b->nb, b->func->impl->end_block);
          break;
       }
