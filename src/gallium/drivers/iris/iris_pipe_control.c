@@ -145,11 +145,21 @@ iris_emit_end_of_pipe_sync(struct iris_batch *batch, struct iris_bo *bo,
     *         Data, Required Write Cache Flush bits set)
     *       - Workload-2 (Can use the data produce or output by Workload-1)
     */
-   iris_emit_pipe_control_write(batch, reason,
-                                flags | PIPE_CONTROL_CS_STALL |
-                                PIPE_CONTROL_WRITE_IMMEDIATE,
-                                batch->screen->workaround_address.bo,
-                                batch->screen->workaround_address.offset, 0);
+   if (batch->screen->devinfo.is_dg1 && (!(flags & (~L3_CONTROL_BITS))) && bo) {
+     batch->screen->vtbl.emit_raw_l3_control(
+        batch, bo, reason,
+        flags | PIPE_CONTROL_CS_STALL | PIPE_CONTROL_WRITE_IMMEDIATE,
+        batch->screen->workaround_address.bo,
+        batch->screen->workaround_address.offset,
+        0);
+   } else {
+      iris_emit_pipe_control_write(batch, reason,
+                                   flags | PIPE_CONTROL_CS_STALL |
+                                   PIPE_CONTROL_WRITE_IMMEDIATE,
+                                   batch->screen->workaround_address.bo,
+                                   batch->screen->workaround_address.offset,
+                                   0);
+   }
 }
 
 /**
