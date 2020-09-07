@@ -1848,6 +1848,9 @@ typedef struct {
    /** bitfield of legal bit sizes */
    uint8_t dest_bit_sizes;
 
+   /** source which the destination bit size must match */
+   int bit_size_src;
+
    /** the number of constant indices used by the intrinsic */
    uint8_t num_indices;
 
