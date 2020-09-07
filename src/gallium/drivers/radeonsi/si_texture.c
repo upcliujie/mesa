@@ -587,6 +587,7 @@ static bool si_has_displayable_dcc(struct si_texture *tex)
 
 static bool si_resource_get_param(struct pipe_screen *screen, struct pipe_context *context,
                                   struct pipe_resource *resource, unsigned plane, unsigned layer,
+                                  unsigned level,
                                   enum pipe_resource_param param, unsigned handle_usage,
                                   uint64_t *value)
 {
