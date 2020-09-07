@@ -1307,6 +1307,7 @@ accumulate_oa_reports(struct gen_perf_context *perf_ctx,
             if (add) {
                gen_perf_query_result_accumulate(&query->oa.result,
                                                 query->queryinfo,
+                                                devinfo,
                                                 last, report);
             } else {
                /* We're not adding the delta because we've identified it's not
@@ -1335,7 +1336,7 @@ accumulate_oa_reports(struct gen_perf_context *perf_ctx,
 end:
 
    gen_perf_query_result_accumulate(&query->oa.result, query->queryinfo,
-                                    last, end);
+                                    devinfo, last, end);
 
    query->oa.results_accumulated = true;
    drop_from_unaccumulated_query_list(perf_ctx, query);
