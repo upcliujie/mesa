@@ -50,63 +50,65 @@ nir_${name}(nir_builder *build, ${src_decl_list(opcode.num_inputs)})
 }
 % endfor
 
-/* Generic builder for system values. */
-static inline nir_ssa_def *
-nir_load_system_value(nir_builder *build, nir_intrinsic_op op, int index,
-                      unsigned num_components, unsigned bit_size)
-{
-   nir_intrinsic_instr *load = nir_intrinsic_instr_create(build->shader, op);
-   if (nir_intrinsic_infos[op].dest_components > 0)
-      assert(num_components == nir_intrinsic_infos[op].dest_components);
-   else
-      load->num_components = num_components;
-   load->const_index[0] = index;
-
-   nir_ssa_dest_init(&load->instr, &load->dest,
-                     num_components, bit_size, NULL);
-   nir_builder_instr_insert(build, &load->instr);
-   return &load->dest.ssa;
-}
-
 <%
-def sysval_decl_list(opcode):
+def intrinsic_decl_list(opcode):
+   need_components = opcode.dest_components == 0 and \
+                     0 not in opcode.src_components
+
    res = ''
-   if opcode.indices:
-      res += ', unsigned ' + opcode.indices[0].lower()
-   if opcode.dest_components == 0:
+   if (opcode.has_dest or opcode.num_srcs) and need_components:
       res += ', unsigned num_components'
-   if len(opcode.bit_sizes) != 1:
+   if opcode.has_dest and len(opcode.bit_sizes) != 1 and opcode.bit_size_src == -1:
       res += ', unsigned bit_size'
+   for i in range(opcode.num_srcs):
+      res += ', nir_ssa_def *src' + str(i)
+   for index in opcode.indices:
+      res += ', unsigned ' + index.lower().replace('nir_intrinsic_', '')
    return res
 
-def sysval_arg_list(opcode):
-   args = []
-   if opcode.indices:
-      args.append(opcode.indices[0].lower())
-   else:
-      args.append('0')
-
-   if opcode.dest_components == 0:
-      args.append('num_components')
-   else:
-      args.append(str(opcode.dest_components))
-
+def get_intrinsic_bitsize(opcode):
    if len(opcode.bit_sizes) == 1:
-      bit_size = opcode.bit_sizes[0]
-      args.append(str(bit_size))
+      return str(opcode.bit_sizes[0])
+   elif opcode.bit_size_src != -1:
+      return 'src' + str(opcode.bit_size_src) + '->bit_size'
    else:
-      args.append('bit_size')
-
-   return ', '.join(args)
+      return 'bit_size'
 %>
 
-% for name, opcode in filter(lambda v: v[1].sysval, sorted(INTR_OPCODES.items())):
-<% assert len(opcode.bit_sizes) > 0 %>
+% for name, opcode in sorted(INTR_OPCODES.items()):
+% if opcode.has_dest:
 static inline nir_ssa_def *
-nir_${name}(nir_builder *build${sysval_decl_list(opcode)})
+% else:
+static inline nir_intrinsic_instr *
+% endif
+nir_${name}(nir_builder *build${intrinsic_decl_list(opcode)})
 {
-   return nir_load_system_value(build, nir_intrinsic_${name},
-                                ${sysval_arg_list(opcode)});
+   nir_intrinsic_instr *intrin = nir_intrinsic_instr_create(
+      build->shader, nir_intrinsic_${name});
+
+   % if 0 in opcode.src_components:
+   intrin->num_components = src${opcode.src_components.index(0)}->num_components;
+   % elif opcode.dest_components == 0:
+   intrin->num_components = num_components;
+   % endif
+   % if opcode.dest_components == 0:
+   nir_ssa_dest_init(&intrin->instr, &intrin->dest, intrin->num_components, ${get_intrinsic_bitsize(opcode)}, NULL);
+   % elif opcode.has_dest:
+   nir_ssa_dest_init(&intrin->instr, &intrin->dest, ${opcode.dest_components}, ${get_intrinsic_bitsize(opcode)}, NULL);
+   % endif
+   % for i in range(opcode.num_srcs):
+   intrin->src[${i}] = nir_src_for_ssa(src${i});
+   % endfor
+   % for i in range(len(opcode.indices)):
+   intrin->const_index[${i}] = ${opcode.indices[i].lower().replace('nir_intrinsic_', '')};
+   % endfor
+
+   nir_builder_instr_insert(build, &intrin->instr);
+   % if opcode.has_dest:
+   return &intrin->dest.ssa;
+   % else:
+   return intrin;
+   % endif
 }
 % endfor
 

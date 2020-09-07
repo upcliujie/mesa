@@ -1309,15 +1309,9 @@ static inline nir_ssa_def *
 nir_load_deref_with_access(nir_builder *build, nir_deref_instr *deref,
                            enum gl_access_qualifier access)
 {
-   nir_intrinsic_instr *load =
-      nir_intrinsic_instr_create(build->shader, nir_intrinsic_load_deref);
-   load->num_components = glsl_get_vector_elements(deref->type);
-   load->src[0] = nir_src_for_ssa(&deref->dest.ssa);
-   nir_ssa_dest_init(&load->instr, &load->dest, load->num_components,
-                     glsl_get_bit_size(deref->type), NULL);
-   nir_intrinsic_set_access(load, access);
-   nir_builder_instr_insert(build, &load->instr);
-   return &load->dest.ssa;
+   return nir_load_deref(build, glsl_get_vector_elements(deref->type),
+                         glsl_get_bit_size(deref->type), &deref->dest.ssa,
+                         access);
 }
 
 static inline nir_ssa_def *
@@ -1331,15 +1325,8 @@ nir_store_deref_with_access(nir_builder *build, nir_deref_instr *deref,
                             nir_ssa_def *value, unsigned writemask,
                             enum gl_access_qualifier access)
 {
-   nir_intrinsic_instr *store =
-      nir_intrinsic_instr_create(build->shader, nir_intrinsic_store_deref);
-   store->num_components = glsl_get_vector_elements(deref->type);
-   store->src[0] = nir_src_for_ssa(&deref->dest.ssa);
-   store->src[1] = nir_src_for_ssa(value);
-   nir_intrinsic_set_write_mask(store,
-                                writemask & ((1 << store->num_components) - 1));
-   nir_intrinsic_set_access(store, access);
-   nir_builder_instr_insert(build, &store->instr);
+   writemask &= (1u << value->num_components) - 1u;
+   nir_store_deref(build, &deref->dest.ssa, value, writemask, access);
 }
 
 static inline void
@@ -1356,13 +1343,7 @@ nir_copy_deref_with_access(nir_builder *build, nir_deref_instr *dest,
                            enum gl_access_qualifier dest_access,
                            enum gl_access_qualifier src_access)
 {
-   nir_intrinsic_instr *copy =
-      nir_intrinsic_instr_create(build->shader, nir_intrinsic_copy_deref);
-   copy->src[0] = nir_src_for_ssa(&dest->dest.ssa);
-   copy->src[1] = nir_src_for_ssa(&src->dest.ssa);
-   nir_intrinsic_set_dst_access(copy, dest_access);
-   nir_intrinsic_set_src_access(copy, src_access);
-   nir_builder_instr_insert(build, &copy->instr);
+   nir_copy_deref(build, &dest->dest.ssa, &src->dest.ssa, dest_access, src_access);
 }
 
 static inline void
@@ -1394,60 +1375,28 @@ nir_copy_var(nir_builder *build, nir_variable *dest, nir_variable *src)
 }
 
 static inline nir_ssa_def *
-nir_load_global(nir_builder *build, nir_ssa_def *addr, unsigned align,
-                unsigned num_components, unsigned bit_size)
-{
-   nir_intrinsic_instr *load =
-      nir_intrinsic_instr_create(build->shader, nir_intrinsic_load_global);
-   load->num_components = num_components;
-   load->src[0] = nir_src_for_ssa(addr);
-   nir_intrinsic_set_align(load, align, 0);
-   nir_ssa_dest_init(&load->instr, &load->dest,
-                     num_components, bit_size, NULL);
-   nir_builder_instr_insert(build, &load->instr);
-   return &load->dest.ssa;
-}
-
-static inline void
-nir_store_global(nir_builder *build, nir_ssa_def *addr, unsigned align,
-                 nir_ssa_def *value, nir_component_mask_t write_mask)
-{
-   nir_intrinsic_instr *store =
-      nir_intrinsic_instr_create(build->shader, nir_intrinsic_store_global);
-   store->num_components = value->num_components;
-   store->src[0] = nir_src_for_ssa(value);
-   store->src[1] = nir_src_for_ssa(addr);
-   nir_intrinsic_set_write_mask(store,
-      write_mask & BITFIELD_MASK(value->num_components));
-   nir_intrinsic_set_align(store, align, 0);
-   nir_builder_instr_insert(build, &store->instr);
-}
-
-static inline nir_ssa_def *
 nir_load_param_idx(nir_builder *build, uint32_t param_idx)
 {
    assert(param_idx < build->impl->function->num_params);
    nir_parameter *param = &build->impl->function->params[param_idx];
-
-   nir_intrinsic_instr *load =
-      nir_intrinsic_instr_create(build->shader, nir_intrinsic_load_param);
-   nir_intrinsic_set_param_idx(load, param_idx);
-   load->num_components = param->num_components;
-   nir_ssa_dest_init(&load->instr, &load->dest,
-                     param->num_components, param->bit_size, NULL);
-   nir_builder_instr_insert(build, &load->instr);
-   return &load->dest.ssa;
+   return nir_load_param(build, param->num_components, param->bit_size, param_idx);
 }
 
+/* Generic builder for system values. */
 static inline nir_ssa_def *
-nir_load_reloc_const_intel(nir_builder *b, uint32_t id)
+nir_load_system_value(nir_builder *build, nir_intrinsic_op op, int index,
+                      unsigned num_components, unsigned bit_size)
 {
-   nir_intrinsic_instr *load =
-      nir_intrinsic_instr_create(b->shader,
-                                 nir_intrinsic_load_reloc_const_intel);
-   nir_intrinsic_set_param_idx(load, id);
-   nir_ssa_dest_init(&load->instr, &load->dest, 1, 32, NULL);
-   nir_builder_instr_insert(b, &load->instr);
+   nir_intrinsic_instr *load = nir_intrinsic_instr_create(build->shader, op);
+   if (nir_intrinsic_infos[op].dest_components > 0)
+      assert(num_components == nir_intrinsic_infos[op].dest_components);
+   else
+      load->num_components = num_components;
+   load->const_index[0] = index;
+
+   nir_ssa_dest_init(&load->instr, &load->dest,
+                     num_components, bit_size, NULL);
+   nir_builder_instr_insert(build, &load->instr);
    return &load->dest.ssa;
 }
 
@@ -1553,22 +1502,6 @@ nir_compare_func(nir_builder *b, enum compare_func func,
       return nir_fge(b, src1, src0);
    }
    unreachable("bad compare func");
-}
-
-static inline void
-nir_scoped_barrier(nir_builder *b,
-                   nir_scope exec_scope,
-                   nir_scope mem_scope,
-                   nir_memory_semantics mem_semantics,
-                   nir_variable_mode mem_modes)
-{
-   nir_intrinsic_instr *intrin =
-      nir_intrinsic_instr_create(b->shader, nir_intrinsic_scoped_barrier);
-   nir_intrinsic_set_execution_scope(intrin, exec_scope);
-   nir_intrinsic_set_memory_scope(intrin, mem_scope);
-   nir_intrinsic_set_memory_semantics(intrin, mem_semantics);
-   nir_intrinsic_set_memory_modes(intrin, mem_modes);
-   nir_builder_instr_insert(b, &intrin->instr);
 }
 
 static inline void
