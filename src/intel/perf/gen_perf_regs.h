@@ -39,6 +39,12 @@
 #define  GEN9_RPSTAT0_PREV_GT_FREQ_SHIFT   0
 #define  GEN9_RPSTAT0_PREV_GT_FREQ_MASK    INTEL_MASK(8, 0)
 
+/* Programmable perf 64bits counters (used for GTRequestQueueFull counter on
+ * gen7-11)
+ */
+#define PERFCNT1                           0x91b8
+#define PERFCNT2                           0x91c0
+
 /* Pipeline statistic counters */
 #define IA_VERTICES_COUNT          0x2310
 #define IA_PRIMITIVES_COUNT        0x2318
