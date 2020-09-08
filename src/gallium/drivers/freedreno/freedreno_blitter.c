@@ -228,7 +228,7 @@ fd_blitter_clear(struct pipe_context *pctx, unsigned buffers,
 		.max_index = 1,
 		.instance_count = 1,
 	};
-	ctx->draw_vbo(ctx, &info, 0);
+	pctx->draw_vbo(pctx, &info);
 
 	util_blitter_restore_constant_buffer_state(blitter);
 	util_blitter_restore_vertex_states(blitter);
