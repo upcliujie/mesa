@@ -539,7 +539,7 @@ set_sampler_wrap_s(struct gl_context *ctx, struct gl_sampler_object *samp,
       samp->WrapS = param;
       return GL_TRUE;
    }
-   return INVALID_PARAM;
+   return INVALID_VALUE;
 }
 
 
@@ -554,7 +554,7 @@ set_sampler_wrap_t(struct gl_context *ctx, struct gl_sampler_object *samp,
       samp->WrapT = param;
       return GL_TRUE;
    }
-   return INVALID_PARAM;
+   return INVALID_VALUE;
 }
 
 
@@ -569,7 +569,7 @@ set_sampler_wrap_r(struct gl_context *ctx, struct gl_sampler_object *samp,
       samp->WrapR = param;
       return GL_TRUE;
    }
-   return INVALID_PARAM;
+   return INVALID_VALUE;
 }
 
 void
