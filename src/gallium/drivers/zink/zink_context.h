@@ -100,14 +100,12 @@ struct zink_context {
 
    struct pipe_device_reset_callback reset;
 
-   VkCommandPool cmdpool;
    struct zink_batch batches[4];
    bool is_device_lost;
    unsigned curr_batch;
 
    VkQueue queue;
 
-   VkCommandPool compute_cmdpool;
    struct zink_batch compute_batch;
    VkQueue compute_queue;
 

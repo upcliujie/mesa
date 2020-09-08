@@ -67,9 +67,14 @@ zink_context_destroy(struct pipe_context *pctx)
 
    for (int i = 0; i < ARRAY_SIZE(ctx->batches); ++i) {
       vkDestroyDescriptorPool(screen->dev, ctx->batches[i].descpool, NULL);
-      vkFreeCommandBuffers(screen->dev, ctx->cmdpool, 1, &ctx->batches[i].cmdbuf);
+      vkFreeCommandBuffers(screen->dev, ctx->batches[i].cmdpool, 1, &ctx->batches[i].cmdbuf);
+      vkDestroyCommandPool(screen->dev, ctx->batches[i].cmdpool, NULL);
    }
-   vkDestroyCommandPool(screen->dev, ctx->cmdpool, NULL);
+   if (ctx->compute_batch.cmdpool) {
+      vkDestroyDescriptorPool(screen->dev, ctx->compute_batch.descpool, NULL);
+      vkFreeCommandBuffers(screen->dev, ctx->compute_batch.cmdpool, 1, &ctx->compute_batch.cmdbuf);
+      vkDestroyCommandPool(screen->dev, ctx->compute_batch.cmdpool, NULL);
+   }
 
    util_primconvert_destroy(ctx->primconvert);
    u_upload_destroy(pctx->stream_uploader);
@@ -1606,9 +1611,18 @@ static bool
 init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
+   VkCommandPoolCreateInfo cpci = {};
+   cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+   cpci.queueFamilyIndex = idx == ZINK_COMPUTE_BATCH_ID ?
+                                  (screen->compute_queue != UINT_MAX ? screen->compute_queue : screen->gfx_queue) :
+                                  screen->gfx_queue;
+   cpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+   if (vkCreateCommandPool(screen->dev, &cpci, NULL, &batch->cmdpool) != VK_SUCCESS)
+      return false;
+
    VkCommandBufferAllocateInfo cbai = {};
    cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-   cbai.commandPool = idx == ZINK_COMPUTE_BATCH_ID ? ctx->compute_cmdpool : ctx->cmdpool;
+   cbai.commandPool = batch->cmdpool;
    cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
    cbai.commandBufferCount = 1;
 
@@ -1735,27 +1749,12 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    if (!ctx->blitter)
       goto fail;
 
-   VkCommandPoolCreateInfo cpci = {};
-   cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-   cpci.queueFamilyIndex = screen->gfx_queue;
-   cpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-   if (vkCreateCommandPool(screen->dev, &cpci, NULL, &ctx->cmdpool) != VK_SUCCESS)
-      goto fail;
-   if (screen->compute_queue != UINT_MAX) {
-      cpci.queueFamilyIndex = screen->compute_queue;
-      if (vkCreateCommandPool(screen->dev, &cpci, NULL, &ctx->compute_cmdpool) != VK_SUCCESS)
-         goto fail;
-   }
-
    for (int i = 0; i < ARRAY_SIZE(ctx->batches); ++i) {
       if (!init_batch(ctx, &ctx->batches[i], i))
          goto fail;
    }
 
    if (screen->compute_queue != UINT_MAX) {
-      cpci.queueFamilyIndex = screen->compute_queue;
-      if (vkCreateCommandPool(screen->dev, &cpci, NULL, &ctx->compute_cmdpool) != VK_SUCCESS)
-         goto fail;
       if (!init_batch(ctx, &ctx->compute_batch, ZINK_COMPUTE_BATCH_ID))
          goto fail;
       vkGetDeviceQueue(screen->dev, screen->compute_queue, 0, &ctx->compute_queue);
@@ -1793,9 +1792,12 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
 fail:
    if (ctx) {
-      vkDestroyCommandPool(screen->dev, ctx->cmdpool, NULL);
-      if (ctx->compute_cmdpool)
-         vkDestroyCommandPool(screen->dev, ctx->compute_cmdpool, NULL);
+      for (int i = 0; i < ARRAY_SIZE(ctx->batches); ++i) {
+         vkDestroyDescriptorPool(screen->dev, ctx->batches[i].descpool, NULL);
+         vkFreeCommandBuffers(screen->dev, ctx->batches[i].cmdpool, 1, &ctx->batches[i].cmdbuf);
+         vkDestroyCommandPool(screen->dev, ctx->batches[i].cmdpool, NULL);
+      }
+      vkDestroyCommandPool(screen->dev, ctx->compute_batch.cmdpool, NULL);
       FREE(ctx);
    }
    return NULL;
