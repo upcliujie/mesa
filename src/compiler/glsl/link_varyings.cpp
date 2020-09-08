@@ -620,9 +620,6 @@ validate_explicit_variable_location(struct gl_context *ctx,
                                     gl_linked_shader *sh)
 {
    const glsl_type *type = get_varying_type(var, sh->Stage);
-   unsigned num_elements = type->count_attribute_slots(false);
-   unsigned idx = compute_variable_location_slot(var, sh->Stage);
-   unsigned slot_limit = idx + num_elements;
 
    /* Vertex shader inputs and fragment shader outputs are validated in
     * assign_attribute_or_color_locations() so we should not attempt to
@@ -640,19 +637,21 @@ validate_explicit_variable_location(struct gl_context *ctx,
          ctx->Const.Program[sh->Stage].MaxInputComponents / 4;
    }
 
-   if (slot_limit > slot_max) {
-      linker_error(prog,
-                   "Invalid location %u in %s shader\n",
-                   idx, _mesa_shader_stage_to_string(sh->Stage));
-      return false;
-   }
-
    const glsl_type *type_without_array = type->without_array();
    if (type_without_array->is_interface()) {
       for (unsigned i = 0; i < type_without_array->length; i++) {
          glsl_struct_field *field = &type_without_array->fields.structure[i];
          unsigned field_location = field->location -
             (field->patch ? VARYING_SLOT_PATCH0 : VARYING_SLOT_VAR0);
+         unsigned num_elements = field->type->count_attribute_slots(false);
+
+         if ((field_location + num_elements) > slot_max) {
+            linker_error(prog,
+                         "Invalid location %u in %s shader\n",
+                         field_location, _mesa_shader_stage_to_string(sh->Stage));
+            return false;
+         }
+
          if (!check_location_aliasing(explicit_locations, var,
                                       field_location,
                                       0, field_location + 1,
@@ -665,7 +664,18 @@ validate_explicit_variable_location(struct gl_context *ctx,
             return false;
          }
       }
-   } else if (!check_location_aliasing(explicit_locations, var,
+   } else {
+      unsigned num_elements = type->count_attribute_slots(false);
+      unsigned idx = compute_variable_location_slot(var, sh->Stage);
+      unsigned slot_limit = idx + num_elements;
+
+      if (slot_limit > slot_max) {
+         linker_error(prog,
+                      "Invalid location %u in %s shader\n",
+                      idx, _mesa_shader_stage_to_string(sh->Stage));
+         return false;
+      }
+      if (!check_location_aliasing(explicit_locations, var,
                                        idx, var->data.location_frac,
                                        slot_limit, type,
                                        var->data.interpolation,
@@ -673,7 +683,8 @@ validate_explicit_variable_location(struct gl_context *ctx,
                                        var->data.sample,
                                        var->data.patch,
                                        prog, sh->Stage)) {
-      return false;
+         return false;
+      }
    }
 
    return true;
@@ -824,23 +835,32 @@ cross_validate_outputs_to_inputs(struct gl_context *ctx,
                                                      input, prog, consumer)) {
                return;
             }
+            if (!input->get_interface_type()) {
 
-            while (idx < slot_limit) {
-               if (idx >= MAX_VARYING) {
-                  linker_error(prog,
-                               "Invalid location %u in %s shader\n", idx,
-                               _mesa_shader_stage_to_string(consumer->Stage));
-                  return;
-               }
+               while (idx < slot_limit) {
+                  if (idx >= MAX_VARYING) {
+                     linker_error(prog,
+                                  "Invalid location %u in %s shader\n", idx,
+                                  _mesa_shader_stage_to_string(consumer->Stage));
+                     return;
+                  }
 
-               output = output_explicit_locations[idx][input->data.location_frac].var;
+                  output = output_explicit_locations[idx][input->data.location_frac].var;
 
-               if (output == NULL) {
-                  /* A linker failure should only happen when there is no
-                   * output declaration and there is Static Use of the
-                   * declared input.
-                   */
-                  if (input->data.used) {
+                  if (output == NULL) {
+                     /* A linker failure should only happen when there is no
+                      * output declaration and there is Static Use of the
+                      * declared input.
+                      */
+                     if (input->data.used) {
+                        linker_error(prog,
+                                     "%s shader input `%s' with explicit location "
+                                     "has no matching output\n",
+                                     _mesa_shader_stage_to_string(consumer->Stage),
+                                     input->name);
+                        break;
+                     }
+                  } else if (input->data.location != output->data.location) {
                      linker_error(prog,
                                   "%s shader input `%s' with explicit location "
                                   "has no matching output\n",
@@ -848,15 +868,8 @@ cross_validate_outputs_to_inputs(struct gl_context *ctx,
                                   input->name);
                      break;
                   }
-               } else if (input->data.location != output->data.location) {
-                  linker_error(prog,
-                               "%s shader input `%s' with explicit location "
-                               "has no matching output\n",
-                               _mesa_shader_stage_to_string(consumer->Stage),
-                               input->name);
-                  break;
+                  idx++;
                }
-               idx++;
             }
          } else {
             output = parameters.get_variable(input->name);
