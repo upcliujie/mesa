@@ -1718,10 +1718,14 @@ typedef enum {
     * Alignment for offsets and addresses
     *
     * These two parameters, specify an alignment in terms of a multiplier and
-    * an offset.  The offset or address parameter X of the intrinsic is
-    * guaranteed to satisfy the following:
+    * an offset.  The multiplier is always a power of two.  The offset or
+    * address parameter X of the intrinsic is guaranteed to satisfy the
+    * following:
     *
     *                (X - align_offset) % align_mul == 0
+    *
+    * for constant offset values, the convention is to have a large align_mul
+    * and align_offset = offset.
     */
    NIR_INTRINSIC_ALIGN_MUL,
    NIR_INTRINSIC_ALIGN_OFFSET,
