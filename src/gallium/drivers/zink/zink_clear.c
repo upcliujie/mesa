@@ -203,7 +203,7 @@ zink_clear(struct pipe_context *pctx,
    }
 
 
-   if (needs_rp || batch->rp || ctx->render_condition_active) {
+   if (needs_rp || batch->in_rp || ctx->render_condition_active) {
       clear_in_rp(pctx, buffers, scissor_state, pcolor, depth, stencil);
       return;
    }
@@ -284,7 +284,7 @@ zink_clear_texture(struct pipe_context *pctx,
       util_format_unpack_rgba(pres->format, color.ui, data, 1);
 
       if (pscreen->is_format_supported(pscreen, pres->format, pres->target, 0, 0,
-                                      PIPE_BIND_RENDER_TARGET) && !needs_rp && !batch->rp) {
+                                      PIPE_BIND_RENDER_TARGET) && !needs_rp && !batch->in_rp) {
          clear_color_no_rp(batch, res, &color, level, box->z, box->depth);
       } else {
          surf = create_clear_surface(pctx, pres, level, box);
@@ -303,7 +303,7 @@ zink_clear_texture(struct pipe_context *pctx,
       if (res->aspect & VK_IMAGE_ASPECT_STENCIL_BIT)
          util_format_unpack_s_8uint(pres->format, &stencil, data, 1);
 
-      if (!needs_rp && !batch->rp)
+      if (!needs_rp && !batch->in_rp)
          clear_zs_no_rp(batch, res, res->aspect, depth, stencil, level, box->z, box->depth);
       else {
          unsigned flags = 0;

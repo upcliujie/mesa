@@ -803,15 +803,22 @@ zink_begin_render_pass(struct zink_context *ctx, struct zink_batch *batch)
       zink_batch_reference_resource_rw(batch, zink_resource((*surf)->base.texture), true);
 
    vkCmdBeginRenderPass(batch->cmdbuf, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
+   batch->in_rp = true;
+}
+
+static void
+zink_end_render_pass(struct zink_context *ctx, struct zink_batch *batch)
+{
+   if (batch->in_rp)
+      vkCmdEndRenderPass(batch->cmdbuf);
+   batch->in_rp = false;
 }
 
 static void
 flush_batch(struct zink_context *ctx)
 {
    struct zink_batch *batch = zink_curr_batch(ctx);
-   if (batch->rp)
-      vkCmdEndRenderPass(batch->cmdbuf);
-
+   zink_end_render_pass(ctx, batch);
    zink_end_batch(ctx, batch);
 
    ctx->curr_batch++;
@@ -825,7 +832,7 @@ struct zink_batch *
 zink_batch_rp(struct zink_context *ctx)
 {
    struct zink_batch *batch = zink_curr_batch(ctx);
-   if (!batch->rp) {
+   if (!batch->in_rp) {
       zink_begin_render_pass(ctx, batch);
       assert(batch->rp);
    }
@@ -836,11 +843,11 @@ struct zink_batch *
 zink_batch_no_rp(struct zink_context *ctx)
 {
    struct zink_batch *batch = zink_curr_batch(ctx);
-   if (batch->rp) {
+   if (batch->in_rp) {
       /* flush batch and get a new one */
       flush_batch(ctx);
       batch = zink_curr_batch(ctx);
-      assert(!batch->rp);
+      assert(!batch->in_rp);
    }
    return batch;
 }
@@ -1033,7 +1040,7 @@ void
 zink_resource_image_barrier(struct zink_batch *batch, struct zink_resource *res,
                       VkImageLayout new_layout, VkAccessFlags flags, VkPipelineStageFlags pipeline)
 {
-   assert(!batch->rp);
+   assert(!batch->in_rp);
    if (!pipeline)
       pipeline = pipeline_dst_stage(new_layout);
    if (!flags)
@@ -1128,7 +1135,7 @@ zink_resource_buffer_needs_barrier(struct zink_resource *res, VkAccessFlags flag
 void
 zink_resource_buffer_barrier(struct zink_batch *batch, struct zink_resource *res, VkAccessFlags flags, VkPipelineStageFlags pipeline)
 {
-   assert(!batch->rp);
+   assert(!batch->in_rp);
    if (!pipeline)
       pipeline = pipeline_access_stage(flags);
    if (!zink_resource_buffer_needs_barrier(res, flags, pipeline))
@@ -1407,13 +1414,12 @@ zink_memory_barrier(struct pipe_context *pctx, unsigned flags)
        * can't barrier during renderpass without inlining flush_batch() here
        */
 
-      if (batch->rp)
-         vkCmdEndRenderPass(batch->cmdbuf);
+      zink_end_render_pass(ctx, batch);
 
       /* this should be the only call needed */
       vkCmdPipelineBarrier(batch->cmdbuf, src, dst, 0, 0, &b, 0, NULL, 0, NULL);
       zink_end_batch(ctx, batch);
-      if (batch->rp)
+      if (batch->in_rp)
          ctx->base.screen->fence_finish(ctx->base.screen, NULL, (void*)batch->fence,
                                     PIPE_TIMEOUT_INFINITE);
 
