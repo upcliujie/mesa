@@ -511,8 +511,8 @@ zink_get_shader_param(struct pipe_screen *pscreen,
          return MIN2(screen->info.props.limits.maxGeometryInputComponents,
                      PIPE_MAX_SHADER_INPUTS);
       case PIPE_SHADER_FRAGMENT:
-         return MIN2(screen->info.props.limits.maxFragmentInputComponents / 4,
-                     PIPE_MAX_SHADER_INPUTS);
+         /* vulkan drivers may exclude certain builtins here, but that doesn't affect us */
+         return MIN2(128 / 4, PIPE_MAX_SHADER_INPUTS);
       default:
          return 0; /* unsupported stage */
       }
