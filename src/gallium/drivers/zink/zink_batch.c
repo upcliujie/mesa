@@ -13,11 +13,11 @@
 #include "util/u_debug.h"
 #include "util/set.h"
 
-static void
-reset_batch(struct zink_context *ctx, struct zink_batch *batch)
+void
+zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   batch->descs_left = ZINK_BATCH_DESC_SIZE;
+   batch->descs_used = 0;
 
    // cmdbuf hasn't been submitted before
    if (!batch->fence)
@@ -75,7 +75,7 @@ reset_batch(struct zink_context *ctx, struct zink_batch *batch)
 void
 zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
 {
-   reset_batch(ctx, batch);
+   zink_reset_batch(ctx, batch);
 
    VkCommandBufferBeginInfo cbbi = {};
    cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -156,7 +156,7 @@ zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource 
          pipe_reference(NULL, &stencil->base.reference);
    }
    /* the batch_uses value for this batch is guaranteed to not be in use now because
-    * reset_batch() waits on the fence and removes access before resetting
+    * zink_reset_batch() waits on the fence and removes access before resetting
     */
    res->batch_uses[batch->batch_id] |= mask;
 

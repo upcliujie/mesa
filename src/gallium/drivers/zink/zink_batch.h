@@ -46,7 +46,8 @@ struct zink_batch {
    VkCommandPool cmdpool;
    VkCommandBuffer cmdbuf;
    VkDescriptorPool descpool;
-   int descs_left;
+   unsigned short max_descs; //set if the device gives oom when allocating a new desc set
+   unsigned short descs_used; //number of descriptors currently allocated
    struct zink_fence *fence;
 
    struct zink_render_pass *rp;
@@ -64,6 +65,8 @@ struct zink_batch {
    bool in_rp; //renderpass is currently active
 };
 
+void
+zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch);
 void
 zink_start_batch(struct zink_context *ctx, struct zink_batch *batch);
 

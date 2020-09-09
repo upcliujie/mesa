@@ -1638,7 +1638,7 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
    dpci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
    dpci.pPoolSizes = sizes;
    dpci.poolSizeCount = ARRAY_SIZE(sizes);
-   dpci.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+   dpci.flags = 0;
    dpci.maxSets = ZINK_BATCH_DESC_SIZE;
 
    if (vkAllocateCommandBuffers(screen->dev, &cbai, &batch->cmdbuf) != VK_SUCCESS)
@@ -1660,6 +1660,7 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
       return false;
 
    batch->batch_id = idx;
+   batch->max_descs = 1500;
    return true;
 }
 
