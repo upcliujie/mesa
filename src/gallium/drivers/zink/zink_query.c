@@ -87,10 +87,11 @@ convert_query_type(unsigned query_type, bool *use_64bit, bool *precise)
    *precise = false;
    switch (query_type) {
    case PIPE_QUERY_OCCLUSION_COUNTER:
-      *precise = true;
       *use_64bit = true;
       /* fallthrough */
    case PIPE_QUERY_OCCLUSION_PREDICATE:
+      *precise = true;
+      /* fallthrough */
    case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
       return VK_QUERY_TYPE_OCCLUSION;
    case PIPE_QUERY_TIME_ELAPSED:
