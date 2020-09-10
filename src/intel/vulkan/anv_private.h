@@ -4032,6 +4032,13 @@ anv_image_ccs_op(struct anv_cmd_buffer *cmd_buffer,
                  enum isl_aux_op ccs_op, union isl_color_value *clear_value,
                  bool predicate);
 
+bool
+anv_can_hiz_clear_ds_view(struct anv_device *device,
+                          const struct anv_image_view *iview,
+                          VkImageLayout layout,
+                          VkImageAspectFlags clear_aspects,
+                          float depth_clear_value,
+                          VkRect2D render_area);
 void
 anv_image_copy_to_shadow(struct anv_cmd_buffer *cmd_buffer,
                          const struct anv_image *image,
