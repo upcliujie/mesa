@@ -54,7 +54,8 @@ class Intrinsic(object):
        assert isinstance(dest_components, int)
        assert isinstance(indices, list)
        if indices:
-           assert isinstance(indices[0], str)
+           assert isinstance(indices[0][0], str)
+           assert isinstance(indices[0][1], str)
        assert isinstance(flags, list)
        if flags:
            assert isinstance(flags[0], str)
@@ -78,73 +79,73 @@ class Intrinsic(object):
 #
 
 # A constant 'base' value that is added to an offset src:
-BASE = "NIR_INTRINSIC_BASE"
+BASE = "NIR_INTRINSIC_BASE", "base"
 # For store instructions, a writemask:
-WRMASK = "NIR_INTRINSIC_WRMASK"
+WRMASK = "NIR_INTRINSIC_WRMASK", "mask"
 # The stream-id for GS emit_vertex/end_primitive intrinsics:
-STREAM_ID = "NIR_INTRINSIC_STREAM_ID"
+STREAM_ID = "NIR_INTRINSIC_STREAM_ID", "stream"
 # The clip-plane id for load_user_clip_plane intrinsics:
-UCP_ID = "NIR_INTRINSIC_UCP_ID"
+UCP_ID = "NIR_INTRINSIC_UCP_ID", "ucp"
 # The amount of data, starting from BASE, that this instruction
 # may access.  This is used to provide bounds if the offset is
 # not constant.
-RANGE = "NIR_INTRINSIC_RANGE"
+RANGE = "NIR_INTRINSIC_RANGE", "range"
 # The offset to the start of the NIR_INTRINSIC_RANGE.  This is an alternative
 # to NIR_INTRINSIC_BASE for describing the valid range in intrinsics that don't
 # have the implicit addition of a base to the offset.
-RANGE_BASE = "NIR_INTRINSIC_RANGE_BASE"
+RANGE_BASE = "NIR_INTRINSIC_RANGE_BASE", "base"
 # The vulkan descriptor set binding for vulkan_resource_index
 # intrinsic
-DESC_SET = "NIR_INTRINSIC_DESC_SET"
+DESC_SET = "NIR_INTRINSIC_DESC_SET", "set"
 # The vulkan descriptor set binding for vulkan_resource_index
 # intrinsic
-BINDING = "NIR_INTRINSIC_BINDING"
+BINDING = "NIR_INTRINSIC_BINDING", "binding"
 # Component offset
-COMPONENT = "NIR_INTRINSIC_COMPONENT"
+COMPONENT = "NIR_INTRINSIC_COMPONENT", "comp"
 # Interpolation mode (only meaningful for FS inputs)
-INTERP_MODE = "NIR_INTRINSIC_INTERP_MODE"
+INTERP_MODE = "NIR_INTRINSIC_INTERP_MODE", "mode"
 # A binary nir_op to use when performing a reduction or scan operation
-REDUCTION_OP = "NIR_INTRINSIC_REDUCTION_OP"
+REDUCTION_OP = "NIR_INTRINSIC_REDUCTION_OP", "op"
 # Cluster size for reduction operations
-CLUSTER_SIZE = "NIR_INTRINSIC_CLUSTER_SIZE"
+CLUSTER_SIZE = "NIR_INTRINSIC_CLUSTER_SIZE", "cluster"
 # Parameter index for a load_param intrinsic
-PARAM_IDX = "NIR_INTRINSIC_PARAM_IDX"
+PARAM_IDX = "NIR_INTRINSIC_PARAM_IDX", "idx"
 # Image dimensionality for image intrinsics
-IMAGE_DIM = "NIR_INTRINSIC_IMAGE_DIM"
+IMAGE_DIM = "NIR_INTRINSIC_IMAGE_DIM", "dim"
 # Non-zero if we are accessing an array image
-IMAGE_ARRAY = "NIR_INTRINSIC_IMAGE_ARRAY"
+IMAGE_ARRAY = "NIR_INTRINSIC_IMAGE_ARRAY", "array"
 # Access qualifiers for image and memory access intrinsics
-ACCESS = "NIR_INTRINSIC_ACCESS"
-DST_ACCESS = "NIR_INTRINSIC_DST_ACCESS"
-SRC_ACCESS = "NIR_INTRINSIC_SRC_ACCESS"
+ACCESS = "NIR_INTRINSIC_ACCESS", "access"
+DST_ACCESS = "NIR_INTRINSIC_DST_ACCESS", "dst_access"
+SRC_ACCESS = "NIR_INTRINSIC_SRC_ACCESS", "src_access"
 # Image format for image intrinsics
-FORMAT = "NIR_INTRINSIC_FORMAT"
+FORMAT = "NIR_INTRINSIC_FORMAT", "fmt"
 # Offset or address alignment
-ALIGN_MUL = "NIR_INTRINSIC_ALIGN_MUL"
-ALIGN_OFFSET = "NIR_INTRINSIC_ALIGN_OFFSET"
+ALIGN_MUL = "NIR_INTRINSIC_ALIGN_MUL", "align"
+ALIGN_OFFSET = "NIR_INTRINSIC_ALIGN_OFFSET", "align_off"
 # The vulkan descriptor type for vulkan_resource_index
-DESC_TYPE = "NIR_INTRINSIC_DESC_TYPE"
+DESC_TYPE = "NIR_INTRINSIC_DESC_TYPE", "type"
 # The nir_alu_type of input data to a store or conversion
-SRC_TYPE = "NIR_INTRINSIC_SRC_TYPE"
+SRC_TYPE = "NIR_INTRINSIC_SRC_TYPE", "src_type"
 # The nir_alu_type of the data output from a load or conversion
-DEST_TYPE = "NIR_INTRINSIC_DEST_TYPE"
+DEST_TYPE = "NIR_INTRINSIC_DEST_TYPE", "dst_type"
 # The swizzle mask for quad_swizzle_amd & masked_swizzle_amd
-SWIZZLE_MASK = "NIR_INTRINSIC_SWIZZLE_MASK"
+SWIZZLE_MASK = "NIR_INTRINSIC_SWIZZLE_MASK", "mask"
 # Driver location of attribute
-DRIVER_LOCATION = "NIR_INTRINSIC_DRIVER_LOCATION"
+DRIVER_LOCATION = "NIR_INTRINSIC_DRIVER_LOCATION", "drv_loc"
 # Ordering and visibility of a memory operation
-MEMORY_SEMANTICS = "NIR_INTRINSIC_MEMORY_SEMANTICS"
+MEMORY_SEMANTICS = "NIR_INTRINSIC_MEMORY_SEMANTICS", "sem"
 # Modes affected by a memory operation
-MEMORY_MODES = "NIR_INTRINSIC_MEMORY_MODES"
+MEMORY_MODES = "NIR_INTRINSIC_MEMORY_MODES", "modes"
 # Scope of a memory operation
-MEMORY_SCOPE = "NIR_INTRINSIC_MEMORY_SCOPE"
+MEMORY_SCOPE = "NIR_INTRINSIC_MEMORY_SCOPE", "mem_scope"
 # Scope of a control barrier
-EXECUTION_SCOPE = "NIR_INTRINSIC_EXECUTION_SCOPE"
-IO_SEMANTICS = "NIR_INTRINSIC_IO_SEMANTICS"
+EXECUTION_SCOPE = "NIR_INTRINSIC_EXECUTION_SCOPE", "exec_scope"
+IO_SEMANTICS = "NIR_INTRINSIC_IO_SEMANTICS", "sem"
 # Rounding mode for conversions
-ROUNDING_MODE = "NIR_INTRINSIC_ROUNDING_MODE"
+ROUNDING_MODE = "NIR_INTRINSIC_ROUNDING_MODE", "rnd"
 # Whether or not to saturate in conversions
-SATURATE = "NIR_INTRINSIC_SATURATE"
+SATURATE = "NIR_INTRINSIC_SATURATE", "sat"
 
 #
 # Possible flags:

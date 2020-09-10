@@ -43,7 +43,7 @@ const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics] = {
 % if opcode.indices:
    .index_map = {
 % for i in range(len(opcode.indices)):
-      [${opcode.indices[i]}] = ${i + 1},
+      [${opcode.indices[i][0]}] = ${i + 1},
 % endfor
     },
 % endif
