@@ -28,9 +28,10 @@
 # structure.
 
 class Index(object):
-   def __init__(self, c_data_type, name):
+   def __init__(self, c_data_type, name, short_name):
       self.c_data_type = c_data_type
       self.name = name
+      self.short_name = short_name
 
 class Intrinsic(object):
    """Class that represents all the information about an intrinsic opcode.
@@ -88,8 +89,8 @@ CAN_REORDER   = "NIR_INTRINSIC_CAN_REORDER"
 INTR_INDICES = []
 INTR_OPCODES = {}
 
-def index(c_data_type, name):
-   idx = Index(c_data_type, name)
+def index(c_data_type, name, short_name=None):
+   idx = Index(c_data_type, name, short_name or name)
    INTR_INDICES.append(idx)
    globals()[name.upper()] = idx
 
@@ -119,13 +120,13 @@ def intrinsic(name, src_comp=[], dest_comp=-1, indices=[],
 index("int", "base")
 
 # For store instructions, a writemask for the store.
-index("unsigned", "write_mask")
+index("unsigned", "write_mask", "mask")
 
 # The stream-id for GS emit_vertex/end_primitive intrinsics.
-index("unsigned", "stream_id")
+index("unsigned", "stream_id", "stream")
 
 # The clip-plane id for load_user_clip_plane intrinsic.
-index("unsigned", "ucp_id")
+index("unsigned", "ucp_id", "ucp")
 
 # The offset to the start of the NIR_INTRINSIC_RANGE.  This is an alternative
 # to NIR_INTRINSIC_BASE for describing the valid range in intrinsics that don't
@@ -133,45 +134,45 @@ index("unsigned", "ucp_id")
 #
 # If the [range_base, range] is [0, ~0], then we don't know the possible
 # range of the access.
-index("unsigned", "range_base")
+index("unsigned", "range_base", "base")
 
 # The amount of data, starting from BASE or RANGE_BASE, that this
 # instruction may access.  This is used to provide bounds if the offset is
 # not constant.
-index("unsigned", "range")
+index("unsigned", "range", "range")
 
 # The Vulkan descriptor set for vulkan_resource_index intrinsic.
-index("unsigned", "desc_set")
+index("unsigned", "desc_set", "set")
 
 # The Vulkan descriptor set binding for vulkan_resource_index intrinsic.
-index("unsigned", "binding")
+index("unsigned", "binding", "binding")
 
 # Component offset
-index("unsigned", "component")
+index("unsigned", "component", "comp")
 
 # Column index for matrix system values
-index("unsigned", "column")
+index("unsigned", "column", "col")
 
 # Interpolation mode (only meaningful for FS inputs)
-index("unsigned", "interp_mode")
+index("unsigned", "interp_mode", "mode")
 
 # A binary nir_op to use when performing a reduction or scan operation
-index("unsigned", "reduction_op")
+index("unsigned", "reduction_op", "op")
 
 # Cluster size for reduction operations
 index("unsigned", "cluster_size")
 
 # Parameter index for a load_param intrinsic
-index("unsigned", "param_idx")
+index("unsigned", "param_idx", "idx")
 
 # Image dimensionality for image intrinsics
-index("enum glsl_sampler_dim", "image_dim")
+index("enum glsl_sampler_dim", "image_dim", "dim")
 
 # Non-zero if we are accessing an array image
-index("bool", "image_array")
+index("bool", "image_array", "array")
 
 # Image format for image intrinsics
-index("enum pipe_format", "format")
+index("enum pipe_format", "format", "fmt")
 
 # Access qualifiers for image and memory access intrinsics
 index("enum gl_access_qualifier", "access")
@@ -187,7 +188,7 @@ index("enum gl_access_qualifier", "access")
 #
 # For constant offset values, align_mul will be NIR_ALIGN_MUL_MAX and the
 # align_offset will be modulo that.
-index("unsigned", "align_mul")
+index("unsigned", "align_mul", "align")
 index("unsigned", "align_offset")
 
 # The Vulkan descriptor type for a vulkan_resource_[re]index intrinsic.
@@ -200,35 +201,35 @@ index("nir_alu_type", "src_type")
 index("nir_alu_type", "dest_type")
 
 # The swizzle mask for quad_swizzle_amd & masked_swizzle_amd
-index("unsigned", "swizzle_mask")
+index("unsigned", "swizzle_mask", "mask")
 
 # Separate source/dest access flags for copies
 index("enum gl_access_qualifier", "dst_access")
 index("enum gl_access_qualifier", "src_access")
 
 # Driver location of attribute
-index("unsigned", "driver_location")
+index("unsigned", "driver_location", "drv_loc")
 
 # Ordering and visibility of a memory operation
-index("nir_memory_semantics", "memory_semantics")
+index("nir_memory_semantics", "memory_semantics", "sem")
 
 # Modes affected by a memory operation
-index("nir_variable_mode", "memory_modes")
+index("nir_variable_mode", "memory_modes", "modes")
 
 # Scope of a memory operation
-index("nir_scope", "memory_scope")
+index("nir_scope", "memory_scope", "mem_scope")
 
 # Scope of a control barrier
-index("nir_scope", "execution_scope")
+index("nir_scope", "execution_scope", "exec_scope")
 
 # Semantics of an IO instruction
-index("struct nir_io_semantics", "io_semantics")
+index("struct nir_io_semantics", "io_semantics", "sem")
 
 # Rounding mode for conversions
-index("nir_rounding_mode", "rounding_mode")
+index("nir_rounding_mode", "rounding_mode", "rnd")
 
 # Whether or not to saturate in conversions
-index("unsigned", "saturate")
+index("unsigned", "saturate", "sat")
 
 intrinsic("nop", flags=[CAN_ELIMINATE])
 
