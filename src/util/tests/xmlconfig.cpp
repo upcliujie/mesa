@@ -41,7 +41,7 @@ xmlconfig_test::xmlconfig_test()
 
 xmlconfig_test::~xmlconfig_test()
 {
-   driDestroyOptionCache(&options);
+   driDestroyOptionInfo(&options);
 }
 
 /* wraps a DRI_CONF_OPT_* in the required xml bits */
@@ -134,9 +134,6 @@ TEST_F(xmlconfig_test, copy_cache)
               DRI_CONF_DESC("option")
               DRI_CONF_OPT_END));
 
-   /* Note: The user-configured option cache is typically called "cache" in
-    * xmlconfig callers, while the driver's option cache is called "info"
-    */
    driOptionCache cache;
 
    /* This tries to parse user config files.  We've called our option
