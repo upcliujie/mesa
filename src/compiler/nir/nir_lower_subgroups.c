@@ -23,6 +23,7 @@
 
 #include "nir.h"
 #include "nir_builder.h"
+#include "util/u_math.h"
 
 /**
  * \file nir_opt_intrinsics.c
@@ -61,53 +62,30 @@ lower_subgroup_op_to_32bit(nir_builder *b, nir_intrinsic_instr *intrin)
 }
 
 static nir_ssa_def *
-ballot_type_to_uint(nir_builder *b, nir_ssa_def *value, unsigned bit_size)
+ballot_type_to_uint(nir_builder *b, nir_ssa_def *value,
+                    const nir_lower_subgroups_options *options)
 {
-   /* We only use this on uvec4 types */
-   assert(value->num_components == 4 && value->bit_size == 32);
-
-   if (bit_size == 32) {
-      return nir_channel(b, value, 0);
-   } else {
-      assert(bit_size == 64);
-      return nir_pack_64_2x32_split(b, nir_channel(b, value, 0),
-                                       nir_channel(b, value, 1));
-   }
+   return nir_extract_bits(b, &value, 1, 0, options->ballot_components,
+                           options->ballot_bit_size);
 }
 
-/* Converts a uint32_t or uint64_t value to uint64_t or uvec4 */
 static nir_ssa_def *
 uint_to_ballot_type(nir_builder *b, nir_ssa_def *value,
                     unsigned num_components, unsigned bit_size)
 {
-   assert(value->num_components == 1);
-   assert(value->bit_size == 32 || value->bit_size == 64);
-
-   nir_ssa_def *zero = nir_imm_int(b, 0);
-   if (num_components > 1) {
-      /* SPIR-V uses a uvec4 for ballot values */
-      assert(num_components == 4);
-      assert(bit_size == 32);
-
-      if (value->bit_size == 32) {
-         return nir_vec4(b, value, zero, zero, zero);
-      } else {
-         assert(value->bit_size == 64);
-         return nir_vec4(b, nir_unpack_64_2x32_split_x(b, value),
-                            nir_unpack_64_2x32_split_y(b, value),
-                            zero, zero);
-      }
+   value = nir_bitcast_vector(b, value, bit_size);
+   assert(value->num_components <= num_components);
+   if (value->num_components < num_components) {
+      nir_ssa_def *zero = nir_imm_zero(b, 1, bit_size);
+      nir_ssa_def *srcs[NIR_MAX_VEC_COMPONENTS];
+      unsigned i;
+      for (i = 0; i < value->num_components; i++)
+         srcs[i] = nir_channel(b, value, i);
+      for (; i < num_components; i++)
+         srcs[i] = zero;
+      return nir_vec(b, srcs, num_components);
    } else {
-      /* GLSL uses a uint64_t for ballot values */
-      assert(num_components == 1);
-      assert(bit_size == 64);
-
-      if (value->bit_size == 32) {
-         return nir_pack_64_2x32_split(b, value, zero);
-      } else {
-         assert(value->bit_size == 64);
-         return value;
-      }
+      return value;
    }
 }
 
@@ -203,8 +181,12 @@ lower_vote_eq_to_ballot(nir_builder *b, nir_intrinsic_instr *intrin,
       }
    }
 
-   nir_ssa_def *ballot = nir_ballot(b, 1, options->ballot_bit_size, nir_inot(b, all_eq));
-   return nir_ieq(b, ballot, nir_imm_intN_t(b, 0, options->ballot_bit_size));
+   nir_ssa_def *ballot =
+      nir_ballot(b, options->ballot_components, options->ballot_bit_size,
+                 nir_inot(b, all_eq));
+   return nir_ieq(b, ballot,
+                  nir_imm_zero(b, options->ballot_components,
+                               options->ballot_bit_size));
 }
 
 static nir_ssa_def *
@@ -319,13 +301,117 @@ lower_subgroups_filter(const nir_instr *instr, const void *_options)
    return instr->type == nir_instr_type_intrinsic;
 }
 
+/* This fixes up the result of the various subgroup mask generation routines
+ * when there is > 1 component. The idea is that NIR shifts mask out the high
+ * bits of the shift value already, so in case there's more than one component
+ * all we have to do is fixup the components which don't contain the current
+ * thread. For example, if the target ballot result is 2 x uint32, and we're
+ * computing the gl_SubgroupLeMask for thread 33, then then computing the mask
+ * we'll feed 33 into ishl or ushr, which will mask it off to get 1, so we'll
+ * compute a single-component result of 0x3, the same as for thread 1. This is
+ * correct for the second component, but the first component needs to be ~0,
+ * which we get by comparing the high bits of the thread ID with 1 and
+ * selecting the original answer or ~0 for the second component (and something
+ * similar with the first component). This idea is generalized here for any
+ * component count and multiple different mask types.
+ */
 static nir_ssa_def *
-build_subgroup_mask(nir_builder *b, unsigned bit_size,
+build_subgroup_mask_fixup(nir_builder *b, nir_ssa_def *value,
+                          nir_ssa_def *subgroup_idx,
+                          uint64_t lt_value, uint64_t gt_value,
+                          const nir_lower_subgroups_options *options)
+{
+   nir_const_value vec_idx[4] = { 0 };
+   for (unsigned i = 0; i < options->ballot_components; i++)
+      vec_idx[i].i32 = i;
+   nir_ssa_def *vec_idx_val = nir_build_imm(b, options->ballot_components, 32, vec_idx);
+
+   assert(util_is_power_of_two_or_zero(options->ballot_bit_size));
+   unsigned shift = util_logbase2(options->ballot_bit_size);
+   subgroup_idx = nir_ushr(b, subgroup_idx, nir_imm_int(b, shift));
+   return nir_bcsel(b, nir_ieq(b, subgroup_idx, vec_idx_val), value,
+                    nir_bcsel(b, nir_ult(b, subgroup_idx, vec_idx_val),
+                                 nir_imm_intN_t(b, lt_value, value->bit_size),
+                                 nir_imm_intN_t(b, gt_value, value->bit_size)));
+}
+
+static nir_ssa_def *
+build_subgroup_eq_mask(nir_builder *b,
+                       const nir_lower_subgroups_options *options)
+{
+   nir_ssa_def *subgroup_idx = nir_load_subgroup_invocation(b);
+
+   nir_ssa_def *result =
+      nir_ishl(b, nir_imm_intN_t(b, 1, options->ballot_bit_size), subgroup_idx);
+
+   if (options->ballot_components == 1)
+      return result;
+   else
+      return build_subgroup_mask_fixup(b, result, subgroup_idx, 0, 0, options);
+}
+
+static nir_ssa_def *
+build_subgroup_ge_mask(nir_builder *b,
+                       const nir_lower_subgroups_options *options)
+{
+   nir_ssa_def *subgroup_idx = nir_load_subgroup_invocation(b);
+
+   nir_ssa_def *result =
+      nir_ishl(b, nir_imm_intN_t(b, ~0ull, options->ballot_bit_size),
+               subgroup_idx);
+
+   if (options->ballot_components == 1)
+      return result;
+   else
+      return build_subgroup_mask_fixup(b, result, subgroup_idx, ~0ull, 0, options);
+}
+
+static nir_ssa_def *
+build_subgroup_gt_mask(nir_builder *b,
+                       const nir_lower_subgroups_options *options)
+{
+   nir_ssa_def *subgroup_idx = nir_load_subgroup_invocation(b);
+
+   nir_ssa_def *result =
+      nir_ishl(b, nir_imm_intN_t(b, ~1ull, options->ballot_bit_size),
+               subgroup_idx);
+
+   if (options->ballot_components == 1)
+      return result;
+   else
+      return build_subgroup_mask_fixup(b, result, subgroup_idx, ~0ull, 0, options);
+}
+
+static nir_ssa_def *
+build_subgroup_mask(nir_builder *b,
                     const nir_lower_subgroups_options *options)
 {
-   return nir_ushr(b, nir_imm_intN_t(b, ~0ull, bit_size),
-                      nir_isub(b, nir_imm_int(b, bit_size),
-                                  nir_load_subgroup_size(b)));
+   nir_ssa_def *subgroup_size = nir_load_subgroup_size(b);
+   nir_ssa_def *result =
+      nir_ushr(b, nir_imm_intN_t(b, ~0ull, options->ballot_bit_size),
+                  nir_isub(b, nir_imm_int(b, options->ballot_bit_size),
+                           subgroup_size));
+
+   if (options->ballot_components == 1)
+      return result;
+
+   nir_const_value vec_idx[4] = { 0 };
+   for (unsigned i = 0; i < options->ballot_components; i++)
+      vec_idx[i].i32 = i * options->ballot_bit_size;
+   nir_ssa_def *vec_idx_val = nir_build_imm(b, options->ballot_components, 32, vec_idx);
+
+   return nir_bcsel(b, nir_ult(b, subgroup_size, vec_idx_val), result,
+                    nir_imm_intN_t(b, ~0ull, options->ballot_bit_size));
+}
+
+static nir_ssa_def *
+vec_bit_count(nir_builder *b, nir_ssa_def *value)
+{
+   nir_ssa_def *vec_result = nir_bit_count(b, value);
+   nir_ssa_def *result = nir_channel(b, vec_result, 0);
+   for (unsigned i = 1; i < value->num_components; i++)
+      result = nir_iadd(b, result, nir_channel(b, vec_result, i));
+   return result;
 }
 
 static nir_ssa_def *
@@ -412,32 +498,24 @@ lower_subgroups_instr(nir_builder *b, nir_instr *instr, void *_options)
       if (!options->lower_subgroup_masks)
          return NULL;
 
-      /* If either the result or the requested bit size is 64-bits then we
-       * know that we have 64-bit types and using them will probably be more
-       * efficient than messing around with 32-bit shifts and packing.
-       */
-      const unsigned bit_size = MAX2(options->ballot_bit_size,
-                                     intrin->dest.ssa.bit_size);
-
-      nir_ssa_def *count = nir_load_subgroup_invocation(b);
       nir_ssa_def *val;
       switch (intrin->intrinsic) {
       case nir_intrinsic_load_subgroup_eq_mask:
-         val = nir_ishl(b, nir_imm_intN_t(b, 1ull, bit_size), count);
+         val = build_subgroup_eq_mask(b, options);
          break;
       case nir_intrinsic_load_subgroup_ge_mask:
-         val = nir_iand(b, nir_ishl(b, nir_imm_intN_t(b, ~0ull, bit_size), count),
-                           build_subgroup_mask(b, bit_size, options));
+         val = nir_iand(b, build_subgroup_ge_mask(b, options),
+                           build_subgroup_mask(b, options));
          break;
       case nir_intrinsic_load_subgroup_gt_mask:
-         val = nir_iand(b, nir_ishl(b, nir_imm_intN_t(b, ~1ull, bit_size), count),
-                           build_subgroup_mask(b, bit_size, options));
+         val = nir_iand(b, build_subgroup_gt_mask(b, options),
+                           build_subgroup_mask(b, options));
          break;
       case nir_intrinsic_load_subgroup_le_mask:
-         val = nir_inot(b, nir_ishl(b, nir_imm_intN_t(b, ~1ull, bit_size), count));
+         val = nir_inot(b, build_subgroup_gt_mask(b, options));
          break;
       case nir_intrinsic_load_subgroup_lt_mask:
-         val = nir_inot(b, nir_ishl(b, nir_imm_intN_t(b, ~0ull, bit_size), count));
+         val = nir_inot(b, build_subgroup_ge_mask(b, options));
          break;
       default:
          unreachable("you seriously can't tell this is unreachable?");
@@ -449,11 +527,13 @@ lower_subgroups_instr(nir_builder *b, nir_instr *instr, void *_options)
    }
 
    case nir_intrinsic_ballot: {
-      if (intrin->dest.ssa.num_components == 1 &&
+      if (intrin->dest.ssa.num_components == options->ballot_components &&
           intrin->dest.ssa.bit_size == options->ballot_bit_size)
          return NULL;
 
-      nir_ssa_def *ballot = nir_ballot(b, 1, options->ballot_bit_size, intrin->src[0].ssa);
+      nir_ssa_def *ballot =
+         nir_ballot(b, options->ballot_bit_size, options->ballot_bit_size,
+                    intrin->src[0].ssa);
 
       return uint_to_ballot_type(b, ballot,
                                  intrin->dest.ssa.num_components,
@@ -466,7 +546,7 @@ lower_subgroups_instr(nir_builder *b, nir_instr *instr, void *_options)
    case nir_intrinsic_ballot_find_msb: {
       assert(intrin->src[0].is_ssa);
       nir_ssa_def *int_val = ballot_type_to_uint(b, intrin->src[0].ssa,
-                                                 options->ballot_bit_size);
+                                                 options);
 
       if (intrin->intrinsic != nir_intrinsic_ballot_bitfield_extract &&
           intrin->intrinsic != nir_intrinsic_ballot_find_lsb) {
@@ -489,22 +569,57 @@ lower_subgroups_instr(nir_builder *b, nir_instr *instr, void *_options)
           * valid bits, we hit the undefined results case and we can return
           * anything we want.
           */
-         int_val = nir_iand(b, int_val,
-            build_subgroup_mask(b, options->ballot_bit_size, options));
+         int_val = nir_iand(b, int_val, build_subgroup_mask(b, options));
       }
 
       switch (intrin->intrinsic) {
-      case nir_intrinsic_ballot_bitfield_extract:
+      case nir_intrinsic_ballot_bitfield_extract: {
          assert(intrin->src[1].is_ssa);
-         return nir_i2b(b, nir_iand(b, nir_ushr(b, int_val,
-                                                   intrin->src[1].ssa),
+         nir_ssa_def *idx = intrin->src[1].ssa;
+         if (int_val->num_components > 1) {
+            /* idx will be truncated by nir_ushr, so we just need to select
+             * the right component using the bits of idx that are truncated in
+             * the shift.
+             */
+            assert(util_is_power_of_two_or_zero(options->ballot_bit_size));
+            unsigned shift = util_logbase2(options->ballot_bit_size);
+            int_val =
+               nir_vector_extract(b, int_val,
+                                  nir_ushr(b, idx, nir_imm_int(b, shift)));
+         }
+
+         return nir_i2b(b, nir_iand(b, nir_ushr(b, int_val, idx),
                                        nir_imm_intN_t(b, 1, options->ballot_bit_size)));
-      case nir_intrinsic_ballot_bit_count_reduce:
-         return nir_bit_count(b, int_val);
-      case nir_intrinsic_ballot_find_lsb:
-         return nir_find_lsb(b, int_val);
-      case nir_intrinsic_ballot_find_msb:
-         return nir_ufind_msb(b, int_val);
+      }
+      case nir_intrinsic_ballot_bit_count_reduce: {
+         return vec_bit_count(b, int_val);
+      }
+      case nir_intrinsic_ballot_find_lsb: {
+         nir_ssa_def *vec_result = nir_find_lsb(b, int_val);
+         nir_ssa_def *result = nir_imm_int(b, -1);
+         for (int i = options->ballot_components - 1; i >= 0; i--) {
+            nir_ssa_def *channel = nir_channel(b, vec_result, i);
+            /* result = channel >= 0 ? (i * bitsize + channel) : result */
+            result = nir_bcsel(b, nir_ige(b, channel, nir_imm_int(b, 0)),
+                               nir_iadd(b, channel,
+                                        nir_imm_int(b, i * options->ballot_bit_size)),
+                               result);
+         }
+         return result;
+      }
+      case nir_intrinsic_ballot_find_msb: {
+         nir_ssa_def *vec_result = nir_ufind_msb(b, int_val);
+         nir_ssa_def *result = nir_imm_int(b, -1);
+         for (unsigned i = 0; i < options->ballot_components; i++) {
+            nir_ssa_def *channel = nir_channel(b, vec_result, i);
+            /* result = channel >= 0 ? (i * bitsize + channel) : result */
+            result = nir_bcsel(b, nir_ige(b, channel, nir_imm_int(b, 0)),
+                               nir_iadd(b, channel,
+                                        nir_imm_int(b, i * options->ballot_bit_size)),
+                               result);
+         }
+         return result;
+      }
       default:
          unreachable("you seriously can't tell this is unreachable?");
       }
@@ -512,20 +627,18 @@ lower_subgroups_instr(nir_builder *b, nir_instr *instr, void *_options)
 
    case nir_intrinsic_ballot_bit_count_exclusive:
    case nir_intrinsic_ballot_bit_count_inclusive: {
-      nir_ssa_def *count = nir_load_subgroup_invocation(b);
-      nir_ssa_def *mask = nir_imm_intN_t(b, ~0ull, options->ballot_bit_size);
+      nir_ssa_def *mask;
       if (intrin->intrinsic == nir_intrinsic_ballot_bit_count_inclusive) {
-         const unsigned bits = options->ballot_bit_size;
-         mask = nir_ushr(b, mask, nir_isub(b, nir_imm_int(b, bits - 1), count));
+         mask = nir_inot(b, build_subgroup_gt_mask(b, options));
       } else {
-         mask = nir_inot(b, nir_ishl(b, mask, count));
+         mask = nir_inot(b, build_subgroup_ge_mask(b, options));
       }
 
       assert(intrin->src[0].is_ssa);
       nir_ssa_def *int_val = ballot_type_to_uint(b, intrin->src[0].ssa,
-                                                 options->ballot_bit_size);
+                                                 options);
 
-      return nir_bit_count(b, nir_iand(b, int_val, mask));
+      return vec_bit_count(b, nir_iand(b, int_val, mask));
    }
 
    case nir_intrinsic_elect: {
