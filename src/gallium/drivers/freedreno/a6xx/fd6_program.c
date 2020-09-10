@@ -314,7 +314,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_screen *screen,
 	uint32_t tess_coord_x_regid, tess_coord_y_regid, hs_patch_regid, ds_patch_regid;
 	uint32_t ij_regid[IJ_COUNT];
 	uint32_t gs_header_regid;
-	enum a3xx_threadsize fssz;
+	enum a6xx_threadsize fssz;
 	uint8_t psize_loc = ~0, pos_loc = ~0, layer_loc = ~0;
 	int i, j;
 
@@ -333,7 +333,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_screen *screen,
 
 	bool sample_shading = fs->per_samp | key->sample_shading;
 
-	fssz = FOUR_QUADS;
+	fssz = THREAD128;
 
 	pos_regid = ir3_find_output_regid(vs, VARYING_SLOT_POS);
 	psize_regid = ir3_find_output_regid(vs, VARYING_SLOT_PSIZ);
@@ -442,11 +442,11 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_screen *screen,
 			 A6XX_SP_FS_OUTPUT_CNTL0_SAMPMASK_REGID(smask_regid) |
 			 0xfc000000);
 
-	enum a3xx_threadsize vssz;
+	enum a6xx_threadsize vssz;
 	if (ds || hs) {
-		vssz = TWO_QUADS;
+		vssz = THREAD64;
 	} else {
-		vssz = FOUR_QUADS;
+		vssz = THREAD128;
 	}
 
 	OUT_PKT4(ring, REG_A6XX_SP_VS_CTRL_REG0, 1);
@@ -552,7 +552,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_screen *screen,
 
 	if (hs) {
 		OUT_PKT4(ring, REG_A6XX_SP_HS_CTRL_REG0, 1);
-		OUT_RING(ring, A6XX_SP_HS_CTRL_REG0_THREADSIZE(TWO_QUADS) |
+		OUT_RING(ring, A6XX_SP_HS_CTRL_REG0_THREADSIZE(THREAD64) |
 			A6XX_SP_HS_CTRL_REG0_FULLREGFOOTPRINT(hs->info.max_reg + 1) |
 			A6XX_SP_HS_CTRL_REG0_HALFREGFOOTPRINT(hs->info.max_half_reg + 1) |
 			COND(hs->mergedregs, A6XX_SP_HS_CTRL_REG0_MERGEDREGS) |
@@ -564,7 +564,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_screen *screen,
 		fd6_emit_link_map(screen, vs, hs, ring);
 
 		OUT_PKT4(ring, REG_A6XX_SP_DS_CTRL_REG0, 1);
-		OUT_RING(ring, A6XX_SP_DS_CTRL_REG0_THREADSIZE(TWO_QUADS) |
+		OUT_RING(ring, A6XX_SP_DS_CTRL_REG0_THREADSIZE(THREAD64) |
 			A6XX_SP_DS_CTRL_REG0_FULLREGFOOTPRINT(ds->info.max_reg + 1) |
 			A6XX_SP_DS_CTRL_REG0_HALFREGFOOTPRINT(ds->info.max_half_reg + 1) |
 			COND(ds->mergedregs, A6XX_SP_DS_CTRL_REG0_MERGEDREGS) |
@@ -670,8 +670,9 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_screen *screen,
 			 A6XX_HLSQ_CONTROL_4_REG_IJ_LINEAR_SAMPLE(ij_regid[IJ_LINEAR_SAMPLE]));
 	OUT_RING(ring, 0xfc);              /* XXX */
 
-	OUT_PKT4(ring, REG_A6XX_HLSQ_UNKNOWN_B980, 1);
-	OUT_RING(ring, enable_varyings ? 3 : 1);
+	OUT_PKT4(ring, REG_A6XX_HLSQ_FS_CNTL_0, 1);
+	OUT_RING(ring, A6XX_HLSQ_FS_CNTL_0_THREADSIZE(THREAD64) |
+			       COND(enable_varyings, A6XX_HLSQ_FS_CNTL_0_VARYINGS));
 
 	OUT_PKT4(ring, REG_A6XX_SP_FS_CTRL_REG0, 1);
 	OUT_RING(ring, A6XX_SP_FS_CTRL_REG0_THREADSIZE(fssz) |
@@ -750,7 +751,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_screen *screen,
 
 	if (gs) {
 		OUT_PKT4(ring, REG_A6XX_SP_GS_CTRL_REG0, 1);
-		OUT_RING(ring, A6XX_SP_GS_CTRL_REG0_THREADSIZE(TWO_QUADS) |
+		OUT_RING(ring, A6XX_SP_GS_CTRL_REG0_THREADSIZE(THREAD64) |
 			A6XX_SP_GS_CTRL_REG0_FULLREGFOOTPRINT(gs->info.max_reg + 1) |
 			A6XX_SP_GS_CTRL_REG0_HALFREGFOOTPRINT(gs->info.max_half_reg + 1) |
 			COND(gs->mergedregs, A6XX_SP_GS_CTRL_REG0_MERGEDREGS) |
