@@ -113,6 +113,17 @@ static void print_instr_name(struct ir3_instruction *instr, bool flags)
 			printf("cov");
 		printf(".%s%s", type_name(instr->cat1.src_type),
 				type_name(instr->cat1.dst_type));
+	} else if (instr->opc == OPC_B) {
+		const char *name[8] = {
+			[BRANCH_PLAIN] = "br",
+			[BRANCH_OR]    = "brao",
+			[BRANCH_AND]   = "braa",
+			[BRANCH_CONST] = "brac",
+			[BRANCH_ANY]   = "bany",
+			[BRANCH_ALL]   = "ball",
+			[BRANCH_X]     = "brax",
+		};
+		printf("%s", name[instr->cat0.brtype]);
 	} else {
 		printf("%s", disasm_a3xx_instr_name(instr->opc));
 		if (instr->flags & IR3_INSTR_3D)
@@ -348,9 +359,26 @@ print_block(struct ir3_block *block, int lvl)
 	if (block->successors[1]) {
 		/* leading into if/else: */
 		tab(lvl+1);
-		printf("/* succs: if _[");
-		print_instr_name(block->condition, false);
-		printf("] block%u; else block%u; */\n",
+		printf("/* succs: if ");
+		switch (block->brtype) {
+		case IR3_BRANCH_COND:
+			break;
+		case IR3_BRANCH_ANY:
+			printf("any ");
+			break;
+		case IR3_BRANCH_ALL:
+			printf("all ");
+			break;
+		case IR3_BRANCH_GETONE:
+			printf("getone ");
+			break;
+		}
+		if (block->condition) {
+			printf("_[");
+			print_instr_name(block->condition, false);
+			printf("] ");
+		}
+		printf("block%u; else block%u; */\n",
 				block_id(block->successors[0]),
 				block_id(block->successors[1]));
 	} else if (block->successors[0]) {

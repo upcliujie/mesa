@@ -241,6 +241,7 @@ struct ir3_instruction {
 		struct {
 			char inv;
 			char comp;
+			brtype_t brtype;
 			int  immed;
 			struct ir3_block *target;
 		} cat0;
@@ -515,6 +516,13 @@ struct ir3_array {
 
 struct ir3_array * ir3_lookup_array(struct ir3 *ir, unsigned id);
 
+enum ir3_branch_type {
+	IR3_BRANCH_COND, /* condition */
+	IR3_BRANCH_ANY, /* subgroupAny(condition) */
+	IR3_BRANCH_ALL, /* subgroupAll(condition) */
+	IR3_BRANCH_GETONE, /* subgroupElect() */
+};
+
 struct ir3_block {
 	struct list_head node;
 	struct ir3 *shader;
@@ -522,6 +530,9 @@ struct ir3_block {
 	const struct nir_block *nblock;
 
 	struct list_head instr_list;  /* list of ir3_instruction */
+
+	/* The actual branch condition, if there are two successors */
+	enum ir3_branch_type brtype;
 
 	/* each block has either one or two successors.. in case of
 	 * two successors, 'condition' decides which one to follow.
@@ -1567,6 +1578,7 @@ INSTR0(CHMASK)
 INSTR1(PREDT)
 INSTR0(PREDF)
 INSTR0(PREDE)
+INSTR0(GETONE)
 
 /* cat2 instructions, most 2 src but some 1 src: */
 INSTR2(ADD_F)
