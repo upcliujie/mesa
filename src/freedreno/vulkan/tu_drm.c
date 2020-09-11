@@ -145,7 +145,8 @@ static VkResult
 tu_bo_init(struct tu_device *dev,
            struct tu_bo *bo,
            uint32_t gem_handle,
-           uint64_t size)
+           uint64_t size,
+           bool dump)
 {
    uint64_t iova = tu_gem_info(dev, gem_handle, MSM_INFO_GET_IOVA);
    if (!iova) {
@@ -159,11 +160,32 @@ tu_bo_init(struct tu_device *dev,
       .iova = iova,
    };
 
+   mtx_lock(&dev->bo_mutex);
+   uint32_t idx = dev->bo_count++;
+
+   /* TODO: check for errors, use device allocator, call realloc() less */
+   if (dev->bo_count > dev->bo_list_size)
+      dev->bo_list = realloc(dev->bo_list, dev->bo_count * sizeof(*dev->bo_list));
+   if (bo->gem_handle >= dev->max_bo_handle) {
+      dev->max_bo_handle = bo->gem_handle + 1;
+      dev->bo_list_idx = realloc(dev->bo_list_idx, dev->max_bo_handle * sizeof(*dev->bo_list_idx));
+   }
+   assert(dev->bo_list && dev->bo_list_idx);
+
+   dev->bo_list_idx[bo->gem_handle] = idx;
+   dev->bo_list[idx] = (struct drm_msm_gem_submit_bo) {
+      .flags = MSM_SUBMIT_BO_READ | MSM_SUBMIT_BO_WRITE |
+               COND(dump, MSM_SUBMIT_BO_DUMP),
+      .handle = gem_handle,
+      .presumed = iova,
+   };
+   mtx_unlock(&dev->bo_mutex);
+
    return VK_SUCCESS;
 }
 
 VkResult
-tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size)
+tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size, bool dump)
 {
    /* TODO: Choose better flags. As of 2018-11-12, freedreno/drm/msm_bo.c
     * always sets `flags = MSM_BO_WC`, and we copy that behavior here.
@@ -178,7 +200,7 @@ tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size)
    if (ret)
       return vk_error(dev->instance, VK_ERROR_OUT_OF_DEVICE_MEMORY);
 
-   return tu_bo_init(dev, bo, req.handle, size);
+   return tu_bo_init(dev, bo, req.handle, size, dump);
 }
 
 VkResult
@@ -199,7 +221,7 @@ tu_bo_init_dmabuf(struct tu_device *dev,
    if (ret)
       return vk_error(dev->instance, VK_ERROR_INVALID_EXTERNAL_HANDLE);
 
-   return tu_bo_init(dev, bo, gem_handle, size);
+   return tu_bo_init(dev, bo, gem_handle, size, false);
 }
 
 int
@@ -239,6 +261,13 @@ tu_bo_finish(struct tu_device *dev, struct tu_bo *bo)
 
    if (bo->map)
       munmap(bo->map, bo->size);
+
+   mtx_lock(&dev->bo_mutex);
+   uint32_t idx = dev->bo_list_idx[bo->gem_handle];
+   dev->bo_count--;
+   dev->bo_list[idx] = dev->bo_list[dev->bo_count];
+   dev->bo_list_idx[dev->bo_list[idx].handle] = idx;
+   mtx_unlock(&dev->bo_mutex);
 
    tu_gem_close(dev, bo->gem_handle);
 }
@@ -659,8 +688,6 @@ tu_QueueSubmit(VkQueue _queue,
       const bool last_submit = (i == submitCount - 1);
       struct drm_msm_gem_submit_syncobj *in_syncobjs = NULL, *out_syncobjs = NULL;
       uint32_t nr_in_syncobjs, nr_out_syncobjs;
-      struct tu_bo_list bo_list;
-      tu_bo_list_init(&bo_list);
 
       result = tu_get_semaphore_syncobjs(pSubmits[i].pWaitSemaphores,
                                          pSubmits[i].waitSemaphoreCount,
@@ -685,6 +712,8 @@ tu_QueueSubmit(VkQueue _queue,
          entry_count += cmdbuf->cs.entry_count;
       }
 
+      mtx_lock(&queue->device->bo_mutex);
+
       struct drm_msm_gem_submit_cmd cmds[entry_count];
       uint32_t entry_idx = 0;
       for (uint32_t j = 0; j < submit->commandBufferCount; ++j) {
@@ -693,16 +722,13 @@ tu_QueueSubmit(VkQueue _queue,
          for (unsigned i = 0; i < cs->entry_count; ++i, ++entry_idx) {
             cmds[entry_idx].type = MSM_SUBMIT_CMD_BUF;
             cmds[entry_idx].submit_idx =
-               tu_bo_list_add(&bo_list, cs->entries[i].bo,
-                              MSM_SUBMIT_BO_READ | MSM_SUBMIT_BO_DUMP);
+               queue->device->bo_list_idx[cs->entries[i].bo->gem_handle];
             cmds[entry_idx].submit_offset = cs->entries[i].offset;
             cmds[entry_idx].size = cs->entries[i].size;
             cmds[entry_idx].pad = 0;
             cmds[entry_idx].nr_relocs = 0;
             cmds[entry_idx].relocs = 0;
          }
-
-         tu_bo_list_merge(&bo_list, &cmdbuf->bo_list);
       }
 
       uint32_t flags = MSM_PIPE_3D0;
@@ -720,8 +746,8 @@ tu_QueueSubmit(VkQueue _queue,
       struct drm_msm_gem_submit req = {
          .flags = flags,
          .queueid = queue->msm_queue_id,
-         .bos = (uint64_t)(uintptr_t) bo_list.bo_infos,
-         .nr_bos = bo_list.count,
+         .bos = (uint64_t)(uintptr_t) queue->device->bo_list,
+         .nr_bos = queue->device->bo_count,
          .cmds = (uint64_t)(uintptr_t)cmds,
          .nr_cmds = entry_count,
          .in_syncobjs = (uint64_t)(uintptr_t)in_syncobjs,
@@ -741,7 +767,7 @@ tu_QueueSubmit(VkQueue _queue,
                                    strerror(errno));
       }
 
-      tu_bo_list_destroy(&bo_list);
+      mtx_unlock(&queue->device->bo_mutex);
       free(in_syncobjs);
       free(out_syncobjs);
 
