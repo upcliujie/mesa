@@ -199,11 +199,12 @@ struct ir3_instruction * ir3_get_addr1(struct ir3_context *ctx,
 struct ir3_instruction * ir3_get_predicate(struct ir3_context *ctx,
 		struct ir3_instruction *src);
 
+struct ir3_array *ir3_create_array(struct ir3_context *ctx, unsigned components, bool half);
 void ir3_declare_array(struct ir3_context *ctx, nir_register *reg);
 struct ir3_array * ir3_get_array(struct ir3_context *ctx, nir_register *reg);
-struct ir3_instruction *ir3_create_array_load(struct ir3_context *ctx,
+struct ir3_instruction *ir3_create_array_load(struct ir3_block *block,
 		struct ir3_array *arr, int n, struct ir3_instruction *address);
-void ir3_create_array_store(struct ir3_context *ctx, struct ir3_array *arr, int n,
+void ir3_create_array_store(struct ir3_block *block, struct ir3_array *arr, int n,
 		struct ir3_instruction *src, struct ir3_instruction *address);
 
 static inline type_t utype_for_size(unsigned bit_size)
