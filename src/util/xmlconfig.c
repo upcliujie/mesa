@@ -35,7 +35,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#if XMLCONFIG
 #include <expat.h>
+#endif
 #include <fcntl.h>
 #include <math.h>
 #include <unistd.h>
@@ -53,6 +55,7 @@
 #define PATH_MAX 4096
 #endif
 
+#if XMLCONFIG
 static bool
 be_verbose(void)
 {
@@ -62,6 +65,7 @@ be_verbose(void)
 
    return strstr(s, "silent") == NULL;
 }
+#endif
 
 static driOptionInfo *
 lookupInfo(const driOptionCache *cache, const char *name)
@@ -99,6 +103,7 @@ lookupValue(const driOptionCache *cache, const char *name)
       ALLOC_CHECK(dest);                                                \
    } while (0)
 
+#if XMLCONFIG
 static int compare (const void *a, const void *b) {
    return strcmp (*(char *const*)a, *(char *const*)b);
 }
@@ -113,6 +118,7 @@ bsearchStr (const char *name, const char *elems[], uint32_t count)
    else
       return count;
 }
+#endif
 
 /** \brief Locale-independent integer parser.
  *
@@ -291,6 +297,26 @@ parseValue(driOptionValue *v, driOptionType type, const char *string)
    return true;
 }
 
+static bool
+lookupType(const char *str, driOptionType *type)
+{
+   if (!strcmp (str, "bool"))
+      *type = DRI_BOOL;
+   else if (!strcmp (str, "enum"))
+      *type = DRI_ENUM;
+   else if (!strcmp (str, "int"))
+      *type = DRI_INT;
+   else if (!strcmp (str, "float"))
+      *type = DRI_FLOAT;
+   else if (!strcmp (str, "string"))
+      *type = DRI_STRING;
+   else
+      return false;
+
+   return true;
+}
+
+#if XMLCONFIG
 /** \brief Parse a list of ranges of type info->type. */
 static unsigned char
 parseRanges(driOptionInfo *info, const char *string)
@@ -543,17 +569,7 @@ parseOptInfoAttr(struct OptInfoData *data, const char **attr)
 
    _mesa_hash_table_insert(cache->info, opt->name, opt);
 
-   if (!strcmp (attrVal[OA_TYPE], "bool"))
-      opt->type = DRI_BOOL;
-   else if (!strcmp (attrVal[OA_TYPE], "enum"))
-      opt->type = DRI_ENUM;
-   else if (!strcmp (attrVal[OA_TYPE], "int"))
-      opt->type = DRI_INT;
-   else if (!strcmp (attrVal[OA_TYPE], "float"))
-      opt->type = DRI_FLOAT;
-   else if (!strcmp (attrVal[OA_TYPE], "string"))
-      opt->type = DRI_STRING;
-   else
+   if (!lookupType(attrVal[OA_TYPE], &opt->type))
       XML_FATAL ("illegal type in option: %s.", attrVal[OA_TYPE]);
 
    defaultVal = getenv (opt->name);
@@ -667,14 +683,62 @@ optInfoEndElem(void *userData, const char *name)
    }
 }
 
+#else /* !XMLCONFIG */
+
+static char *
+next_field(void *mem_ctx, const char **configp)
+{
+   const char *config = *configp;
+
+   int field_len;
+   const char *sep = strchr(config, ',');
+   if (sep) {
+      field_len = sep - config;
+      *configp = config + field_len + 1;
+   } else {
+      field_len = strlen(config);
+      *configp = config + field_len;
+   }
+
+   if (!field_len)
+      return NULL;
+
+   return ralloc_strndup(mem_ctx, config, field_len);
+}
+
+static void
+notxml_parse(driOptionCache *info, const char *configOptions)
+{
+   void *mem_ctx = info->info;
+   char *name;
+   while ((name = next_field(mem_ctx, &configOptions))) {
+      driOptionInfo *opt = rzalloc(mem_ctx, driOptionInfo);
+      opt->name = name;
+
+      char *typestr = next_field(mem_ctx, &configOptions);
+      if (!lookupType(typestr, &opt->type)) {
+         fprintf (stderr, "Failed to parse type '%s'", typestr);
+         abort();
+      }
+      ralloc_free(typestr);
+
+      _mesa_hash_table_insert(info->info, opt->name, opt);
+
+      driOptionValue *val = lookupValue(info, opt->name);
+      char *valstr = next_field(mem_ctx, &configOptions);
+      if (!parseValue(val, opt->type, valstr)) {
+         fprintf (stderr, "Failed to parse value '%s'", valstr);
+         abort();
+      }
+      ralloc_free(valstr);
+   }
+}
+
+#endif /* !XMLCONFIG */
+
 void
 driParseOptionInfo(driOptionCache *info, const char *configOptions)
 {
-   XML_Parser p;
-   int status;
-   struct OptInfoData userData;
-   struct OptInfoData *data = &userData;
-
    /* Make the hash table big enough to fit more than the maximum number of
     * config options we've ever seen in a driver.
     */
@@ -689,7 +753,11 @@ driParseOptionInfo(driOptionCache *info, const char *configOptions)
       abort();
    }
 
-   p = XML_ParserCreate ("UTF-8"); /* always UTF-8 */
+#if XMLCONFIG
+   struct OptInfoData userData;
+   struct OptInfoData *data = &userData;
+
+   XML_Parser p = XML_ParserCreate ("UTF-8"); /* always UTF-8 */
    XML_SetElementHandler (p, optInfoStartElem, optInfoEndElem);
    XML_SetUserData (p, data);
 
@@ -703,13 +771,17 @@ driParseOptionInfo(driOptionCache *info, const char *configOptions)
    userData.inEnum = false;
    userData.curOption = NULL;
 
-   status = XML_Parse (p, configOptions, strlen (configOptions), 1);
+   int status = XML_Parse (p, configOptions, strlen (configOptions), 1);
    if (!status)
       XML_FATAL ("%s.", XML_ErrorString(XML_GetErrorCode(p)));
 
    XML_ParserFree (p);
+#else /* !XMLCONFIG */
+   notxml_parse(info, configOptions);
+#endif /* !XMLCONFIG */
 }
 
+#if XMLCONFIG
 /** \brief Parser context for configuration files. */
 struct OptConfData {
    const char *name;
@@ -996,6 +1068,7 @@ optConfEndElem(void *userData, const char *name)
       /* unknown element, warning was produced on start tag */;
    }
 }
+#endif /* XMLCONFIG */
 
 /** \brief Initialize an option cache based on info */
 static void
@@ -1019,6 +1092,7 @@ initOptionCache(driOptionCache *cache, const driOptionCache *info)
    }
 }
 
+#if XMLCONFIG
 static void
 _parseOneConfigFile(XML_Parser p)
 {
@@ -1133,6 +1207,8 @@ parseConfigDir(struct OptConfData *data, const char *dirname)
 #define DATADIR "/usr/share"
 #endif
 
+#endif /* XMLCONFIG */
+
 void
 driParseConfigFiles(driOptionCache *cache, const driOptionCache *info,
                     int screenNum, const char *driverName,
@@ -1140,10 +1216,10 @@ driParseConfigFiles(driOptionCache *cache, const driOptionCache *info,
                     const char *applicationName, uint32_t applicationVersion,
                     const char *engineName, uint32_t engineVersion)
 {
-   char *home;
-   struct OptConfData userData;
-
    initOptionCache (cache, info);
+
+#if XMLCONFIG
+   struct OptConfData userData;
 
    userData.cache = cache;
    userData.screenNum = screenNum;
@@ -1158,12 +1234,14 @@ driParseConfigFiles(driOptionCache *cache, const driOptionCache *info,
    parseConfigDir(&userData, DATADIR "/drirc.d");
    parseOneConfigFile(&userData, SYSCONFDIR "/drirc");
 
-   if ((home = getenv ("HOME"))) {
+   char *home = getenv ("HOME");
+   if (home) {
       char filename[PATH_MAX];
 
       snprintf(filename, PATH_MAX, "%s/.drirc", home);
       parseOneConfigFile(&userData, filename);
    }
+#endif /* XMLCONFIG */
 }
 
 void

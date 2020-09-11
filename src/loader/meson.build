@@ -51,6 +51,6 @@ libloader = static_library(
   c_args : loader_c_args,
   gnu_symbol_visibility : 'hidden',
   include_directories : [inc_include, inc_src, inc_util],
-  dependencies : [dep_libdrm, dep_thread],
+  dependencies : [dep_libdrm, dep_thread, idep_xmlconfig],
   build_by_default : false,
 )

@@ -95,6 +95,7 @@ with open("VERSION") as f:
 env.Append(CPPDEFINES = [
     ('PACKAGE_VERSION', '\\"%s\\"' % mesa_version),
     ('PACKAGE_BUGREPORT', '\\"https://gitlab.freedesktop.org/mesa/mesa/-/issues\\"'),
+    ('XMLCONFIG', 1),
 ])
 
 # Includes

@@ -6,7 +6,7 @@ libvulkan_val = shared_library(
   link_with : [libpipe_loader_static, libmegadriver_stub, libdri, libdricommon ,libgallium, libwsw, libswdri, libws_null, libswkmsdri ],
   gnu_symbol_visibility : 'hidden',
   link_args : [ld_args_bsymbolic, ld_args_gc_sections],
-  dependencies : driver_swrast,
+  dependencies : [driver_swrast, idep_xmlconfig],
   install : true,
   name_suffix : 'so',
 )

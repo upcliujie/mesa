@@ -33,9 +33,15 @@
 #ifndef __DRICONF_H
 #define __DRICONF_H
 
+#ifndef XMLCONFIG
+#error XMLCONFIG must be defined to 1 (expat) or 0 (non-expat) based on how you compiled xmlconfig.c
+#endif
+
 /*
  * generic macros
  */
+
+#if XMLCONFIG
 
 /** \brief Begin __driConfigOptions */
 #define DRI_CONF_BEGIN \
@@ -104,6 +110,34 @@
 #define DRI_CONF_ENUM(value,text) \
 "<enum value=\""#value"\" text=\"" text "\"/>\n"
 
+#else /* !XMLCONFIG */
+
+/* On Android, we don't user-defined drircs to parse, or even the Mesa-defined
+ * drirc.  We don't need the option descriptions, or the ranges of value,
+ * either.  Just "this driver has an option of this name and type and this
+ * default value" so the rest of the system can interact with driconf options
+ * like normal.  There are no callers of the XML config entrypoint outside of
+ * Mesa.  xmlconfig.c uses this option to parse these simplified strings.
+ */
+
+#define DRI_CONF_BEGIN ""
+#define DRI_CONF_END ""
+
+#define DRI_CONF_SECTION_BEGIN ""
+#define DRI_CONF_SECTION_END ""
+
+#define DRI_CONF_OPT_BEGIN(name,type,def) #name "," #type "," #def ","
+#define DRI_CONF_OPT_BEGIN_B(name,def) #name ",bool," def ","
+#define DRI_CONF_OPT_BEGIN_V(name,type,def,valid) DRI_CONF_OPT_BEGIN(name,type,def)
+#define DRI_CONF_OPT_END ""
+
+#define DRI_CONF_DESC(text) ""
+#define DRI_CONF_DESC_BEGIN(text) ""
+#define DRI_CONF_DESC_END ""
+
+#define DRI_CONF_ENUM(value,text) ""
+
+#endif
 
 /**
  * \brief Debugging options

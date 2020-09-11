@@ -134,6 +134,7 @@ anv_deps = [
   dep_valgrind,
   idep_nir_headers,
   idep_vulkan_util_headers,
+  idep_xmlconfig
 ]
 anv_flags = [
   no_override_init_args,
@@ -200,7 +201,7 @@ libvulkan_intel = shared_library(
   ],
   dependencies : [
     dep_thread, dep_dl, dep_m, anv_deps, idep_libintel_common,
-    idep_nir, idep_genxml, idep_vulkan_util, idep_mesautil, idep_xmlconfig,
+    idep_nir, idep_genxml, idep_vulkan_util, idep_mesautil,
   ],
   c_args : anv_flags,
   gnu_symbol_visibility : 'hidden',

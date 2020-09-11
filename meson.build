@@ -1346,7 +1346,7 @@ if dep_thread.found() and host_machine.system() != 'windows'
     pre_args += '-DHAVE_PTHREAD_SETAFFINITY'
   endif
 endif
-if host_machine.system() != 'windows'
+if host_machine.system() != 'windows' and not with_platform_android
   dep_expat = dependency('expat', fallback : ['expat', 'expat_dep'])
 else
   dep_expat = null_dep

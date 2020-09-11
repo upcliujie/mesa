@@ -191,41 +191,74 @@ idep_mesautil = declare_dependency(
   dependencies : [dep_zlib, dep_clock, dep_thread, dep_atomic, dep_m],
 )
 
-_libxmlconfig = static_library(
-  'xmlconfig',
+_libnotxmlconfig = static_library(
+  'notxmlconfig',
   files_xmlconfig,
   include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
-  dependencies : [idep_mesautil, dep_expat, dep_m],
+  dependencies : [idep_mesautil, dep_m],
   c_args : [
     c_msvc_compat_args,
-    '-DSYSCONFDIR="@0@"'.format(
-      join_paths(get_option('prefix'), get_option('sysconfdir'))
-    ),
-    '-DDATADIR="@0@"'.format(
-      join_paths(get_option('prefix'), get_option('datadir'))
-    ),
+    '-DXMLCONFIG=0',
   ],
   gnu_symbol_visibility : 'hidden',
   build_by_default : false,
 )
-
-idep_xmlconfig = declare_dependency(
-  dependencies : dep_expat,
-  link_with : _libxmlconfig,
+idep_xmlconfig_noexpat = declare_dependency(
+  link_with : _libnotxmlconfig,
+  compile_args: '-DXMLCONFIG=0',
 )
+
+if dep_expat.found()
+  _libxmlconfig = static_library(
+    'xmlconfig',
+    files_xmlconfig,
+    include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
+    dependencies : [idep_mesautil, dep_expat, dep_m],
+    c_args : [
+      c_msvc_compat_args,
+      '-DSYSCONFDIR="@0@"'.format(
+        join_paths(get_option('prefix'), get_option('sysconfdir'))
+      ),
+      '-DDATADIR="@0@"'.format(
+        join_paths(get_option('prefix'), get_option('datadir'))
+      ),
+      '-DXMLCONFIG=1',
+    ],
+    gnu_symbol_visibility : 'hidden',
+    build_by_default : false,
+  )
+  idep_xmlconfig_expat = declare_dependency(
+    dependencies : dep_expat,
+    link_with : _libxmlconfig,
+    compile_args: '-DXMLCONFIG=1',
+  )
+  idep_xmlconfig = idep_xmlconfig_expat
+else
+  idep_xmlconfig = idep_xmlconfig_noexpat
+endif
 
 if with_tests
   if host_machine.system() != 'windows'
-    test('xmlconfig',
-      executable('xmlconfig_test',
+    if dep_expat.found()
+      test('xmlconfig',
+        executable('xmlconfig_test',
+          files('tests/xmlconfig.cpp'),
+          include_directories : [inc_include, inc_src],
+          dependencies : [idep_mesautil, idep_xmlconfig_expat, idep_gtest],
+        ),
+        suite : ['util'],
+      )
+    endif
+    test('notxmlconfig',
+      executable('notxmlconfig_test',
         files('tests/xmlconfig.cpp'),
         include_directories : [inc_include, inc_src],
-        dependencies : [idep_mesautil, idep_xmlconfig, idep_gtest],
+        dependencies : [idep_mesautil, idep_xmlconfig_noexpat, idep_gtest],
       ),
       suite : ['util'],
-        )
+    )
   endif
-
+  
   test(
     'u_atomic',
     executable(
