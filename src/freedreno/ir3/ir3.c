@@ -142,6 +142,7 @@ static int emit_cat0(struct ir3_instruction *instr, void *ptr,
 	} else {
 		cat0->a3xx.immed = instr->cat0.immed;
 	}
+	cat0->brtype   = instr->cat0.brtype;
 	cat0->repeat   = instr->repeat;
 	cat0->ss       = !!(instr->flags & IR3_INSTR_SS);
 	cat0->inv0     = instr->cat0.inv;
