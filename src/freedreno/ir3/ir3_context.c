@@ -227,7 +227,7 @@ ir3_get_src(struct ir3_context *ctx, nir_src *src)
 		for (unsigned i = 0; i < num_components; i++) {
 			unsigned n = src->reg.base_offset * reg->num_components + i;
 			compile_assert(ctx, n < arr->length);
-			value[i] = ir3_create_array_load(ctx, arr, n, addr);
+			value[i] = ir3_create_array_load(ctx->block, arr, n, addr);
 		}
 
 		return value;
@@ -280,7 +280,7 @@ ir3_put_dst(struct ir3_context *ctx, nir_dest *dst)
 			compile_assert(ctx, n < arr->length);
 			if (!ctx->last_dst[i])
 				continue;
-			ir3_create_array_store(ctx, arr, n, ctx->last_dst[i], addr);
+			ir3_create_array_store(ctx->block, arr, n, ctx->last_dst[i], addr);
 		}
 
 		ralloc_free(ctx->last_dst);
@@ -541,6 +541,18 @@ ir3_get_predicate(struct ir3_context *ctx, struct ir3_instruction *src)
  * Array helpers
  */
 
+struct ir3_array *
+ir3_create_array(struct ir3_context *ctx, unsigned components, bool half)
+{
+	struct ir3_array *arr = rzalloc(ctx, struct ir3_array);
+	arr->id = ++ctx->num_arrays;
+	arr->length = components;
+	arr->r = NULL;
+	arr->half = half;
+	list_addtail(&arr->node, &ctx->ir->array_list);
+	return arr;
+}
+
 void
 ir3_declare_array(struct ir3_context *ctx, nir_register *reg)
 {
@@ -576,10 +588,9 @@ ir3_get_array(struct ir3_context *ctx, nir_register *reg)
 
 /* relative (indirect) if address!=NULL */
 struct ir3_instruction *
-ir3_create_array_load(struct ir3_context *ctx, struct ir3_array *arr, int n,
+ir3_create_array_load(struct ir3_block *block, struct ir3_array *arr, int n,
 		struct ir3_instruction *address)
 {
-	struct ir3_block *block = ctx->block;
 	struct ir3_instruction *mov;
 	struct ir3_register *src;
 	unsigned flags = 0;
@@ -612,10 +623,9 @@ ir3_create_array_load(struct ir3_context *ctx, struct ir3_array *arr, int n,
 
 /* relative (indirect) if address!=NULL */
 void
-ir3_create_array_store(struct ir3_context *ctx, struct ir3_array *arr, int n,
+ir3_create_array_store(struct ir3_block *block, struct ir3_array *arr, int n,
 		struct ir3_instruction *src, struct ir3_instruction *address)
 {
-	struct ir3_block *block = ctx->block;
 	struct ir3_instruction *mov;
 	struct ir3_register *dst;
 	unsigned flags = 0;
