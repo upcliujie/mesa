@@ -20,7 +20,7 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    batch->descs_used = 0;
 
    // cmdbuf hasn't been submitted before
-   if (!batch->fence)
+   if (!batch->submitted)
       return;
 
    zink_fence_finish(screen, batch->fence, PIPE_TIMEOUT_INFINITE);
@@ -69,7 +69,7 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
 
    if (vkResetCommandPool(screen->dev, batch->cmdpool, 0) != VK_SUCCESS)
       fprintf(stderr, "vkResetCommandPool failed\n");
-   batch->has_work = false;
+   batch->submitted = batch->has_work = false;
 }
 
 void
@@ -105,6 +105,7 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
    } else {
       vkResetFences(zink_screen(ctx->base.screen)->dev, 1, &batch->fence->fence);
    }
+   zink_fence_init(batch->fence, batch);
 
    VkSubmitInfo si = {};
    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -124,6 +125,7 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
          ctx->reset.reset(ctx->reset.data, PIPE_GUILTY_CONTEXT_RESET);
       }
    }
+   batch->submitted = true;
 }
 
 int

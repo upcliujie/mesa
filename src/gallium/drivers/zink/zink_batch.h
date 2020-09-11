@@ -66,6 +66,7 @@ struct zink_batch {
    struct hash_table *framebuffer_cache;
 
    bool has_work;
+   bool submitted;
    bool in_rp; //renderpass is currently active
 };
 

@@ -1356,9 +1356,8 @@ zink_wait_on_batch(struct zink_context *ctx, int batch_id)
    if (batch_id >= 0) {
       struct zink_batch *batch = batch_id == ZINK_COMPUTE_BATCH_ID ? &ctx->compute_batch : &ctx->batches[batch_id];
       if (batch != zink_curr_batch(ctx)) {
-         if (!batch->fence) { // this is the compute batch
-            zink_end_batch(ctx, batch);
-            zink_start_batch(ctx, batch);
+         if (!batch->submitted) { // this is the compute batch
+            zink_flush_compute(ctx);
          } else
             ctx->base.screen->fence_finish(ctx->base.screen, NULL, (struct pipe_fence_handle*)batch->fence,
                                        PIPE_TIMEOUT_INFINITE);
