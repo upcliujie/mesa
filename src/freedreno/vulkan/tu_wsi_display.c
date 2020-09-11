@@ -260,6 +260,30 @@ tu_DisplayPowerControlEXT(VkDevice                    _device,
                                     display_power_info);
 }
 
+static VkResult
+tu_create_wsi_fence(VkDevice _device,
+                    struct wsi_fence *wsi_fence,
+                    VkFence *_fence)
+{
+   TU_FROM_HANDLE(tu_device, device, _device);
+   VkResult ret;
+
+   ret = tu_CreateFence(_device, &(VkFenceCreateInfo) {}, wsi_fence->alloc, _fence);
+   if (ret != VK_SUCCESS) {
+      wsi_fence->destroy(wsi_fence);
+      return ret;
+   }
+
+   TU_FROM_HANDLE(tu_fence, fence, *_fence);
+
+   ret = tu_fence_import_wsi_fence(device, fence, wsi_fence);
+   if (ret != VK_SUCCESS) {
+      tu_DestroyFence(_device, *_fence, wsi_fence->alloc);
+      wsi_fence->destroy(wsi_fence);
+   }
+   return ret;
+}
+
 VkResult
 tu_RegisterDeviceEventEXT(VkDevice                    _device,
                           const VkDeviceEventInfoEXT  *device_event_info,
@@ -267,26 +291,18 @@ tu_RegisterDeviceEventEXT(VkDevice                    _device,
                           VkFence                     *_fence)
 {
    TU_FROM_HANDLE(tu_device, device, _device);
-   struct tu_fence            *fence;
-   VkResult                     ret;
-
-   fence = vk_alloc2(&device->instance->alloc, allocator, sizeof (*fence),
-                     8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (!fence)
-      return VK_ERROR_OUT_OF_HOST_MEMORY;
-
-   tu_fence_init(fence, false);
+   struct wsi_fence *wsi_fence;
+   VkResult ret;
 
    ret = wsi_register_device_event(_device,
                                    &device->physical_device->wsi_device,
                                    device_event_info,
                                    allocator,
-                                   &fence->fence_wsi);
-   if (ret == VK_SUCCESS)
-      *_fence = tu_fence_to_handle(fence);
-   else
-      vk_free2(&device->instance->alloc, allocator, fence);
-   return ret;
+                                   &wsi_fence);
+   if (ret != VK_SUCCESS)
+      return ret;
+
+   return tu_create_wsi_fence(_device, wsi_fence, _fence);
 }
 
 VkResult
@@ -297,29 +313,19 @@ tu_RegisterDisplayEventEXT(VkDevice                           _device,
                            VkFence                            *_fence)
 {
    TU_FROM_HANDLE(tu_device, device, _device);
-
-   struct tu_fence            *fence;
-   VkResult                     ret;
-
-   fence = vk_alloc2(&device->instance->alloc, allocator, sizeof (*fence),
-                     8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (!fence)
-      return VK_ERROR_OUT_OF_HOST_MEMORY;
-
-   tu_fence_init(fence, false);
+   struct wsi_fence *wsi_fence;
+   VkResult ret;
 
    ret = wsi_register_display_event(_device,
                                     &device->physical_device->wsi_device,
                                     display,
                                     display_event_info,
                                     allocator,
-                                    &fence->fence_wsi);
+                                    &wsi_fence);
+   if (ret != VK_SUCCESS)
+      return ret;
 
-   if (ret == VK_SUCCESS)
-      *_fence = tu_fence_to_handle(fence);
-   else
-      vk_free2(&device->instance->alloc, allocator, fence);
-   return ret;
+   return tu_create_wsi_fence(_device, wsi_fence, _fence);
 }
 
 VkResult

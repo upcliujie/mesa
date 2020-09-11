@@ -956,36 +956,6 @@ tu_GetPhysicalDeviceMemoryProperties2(
       physicalDevice, &pMemoryProperties->memoryProperties);
 }
 
-static VkResult
-tu_queue_init(struct tu_device *device,
-              struct tu_queue *queue,
-              uint32_t queue_family_index,
-              int idx,
-              VkDeviceQueueCreateFlags flags)
-{
-   vk_object_base_init(&device->vk, &queue->base, VK_OBJECT_TYPE_QUEUE);
-
-   queue->device = device;
-   queue->queue_family_index = queue_family_index;
-   queue->queue_idx = idx;
-   queue->flags = flags;
-
-   int ret = tu_drm_submitqueue_new(device, 0, &queue->msm_queue_id);
-   if (ret)
-      return VK_ERROR_INITIALIZATION_FAILED;
-
-   tu_fence_init(&queue->submit_fence, false);
-
-   return VK_SUCCESS;
-}
-
-static void
-tu_queue_finish(struct tu_queue *queue)
-{
-   tu_fence_finish(&queue->submit_fence);
-   tu_drm_submitqueue_close(queue->device, queue->msm_queue_id);
-}
-
 static int
 tu_get_device_extension_index(const char *name)
 {
@@ -1316,19 +1286,6 @@ tu_GetDeviceQueue(VkDevice _device,
                              .queueIndex = queueIndex };
 
    tu_GetDeviceQueue2(_device, &info, pQueue);
-}
-
-VkResult
-tu_QueueWaitIdle(VkQueue _queue)
-{
-   TU_FROM_HANDLE(tu_queue, queue, _queue);
-
-   if (tu_device_is_lost(queue->device))
-      return VK_ERROR_DEVICE_LOST;
-
-   tu_fence_wait_idle(&queue->submit_fence);
-
-   return VK_SUCCESS;
 }
 
 VkResult
@@ -2084,25 +2041,6 @@ tu_GetMemoryFdPropertiesKHR(VkDevice _device,
 {
    assert(handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT);
    pMemoryFdProperties->memoryTypeBits = 1;
-   return VK_SUCCESS;
-}
-
-VkResult
-tu_ImportFenceFdKHR(VkDevice _device,
-                    const VkImportFenceFdInfoKHR *pImportFenceFdInfo)
-{
-   tu_stub();
-
-   return VK_SUCCESS;
-}
-
-VkResult
-tu_GetFenceFdKHR(VkDevice _device,
-                 const VkFenceGetFdInfoKHR *pGetFdInfo,
-                 int *pFd)
-{
-   tu_stub();
-
    return VK_SUCCESS;
 }
 
