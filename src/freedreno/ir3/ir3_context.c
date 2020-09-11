@@ -542,13 +542,14 @@ ir3_get_predicate(struct ir3_context *ctx, struct ir3_instruction *src)
  */
 
 struct ir3_array *
-ir3_create_array(struct ir3_context *ctx, unsigned components, bool half)
+ir3_create_array(struct ir3_context *ctx, unsigned components, bool half, bool shared)
 {
 	struct ir3_array *arr = rzalloc(ctx, struct ir3_array);
 	arr->id = ++ctx->num_arrays;
 	arr->length = components;
 	arr->r = NULL;
 	arr->half = half;
+	arr->shared = shared;
 	list_addtail(&arr->node, &ctx->ir->array_list);
 	return arr;
 }
@@ -605,11 +606,15 @@ ir3_create_array_load(struct ir3_block *block, struct ir3_array *arr, int n,
 		mov->cat1.dst_type = TYPE_U32;
 	}
 
+	if (arr->shared)
+		flags |= IR3_REG_SHARED;
+
 	mov->barrier_class = IR3_BARRIER_ARRAY_R;
 	mov->barrier_conflict = IR3_BARRIER_ARRAY_W;
 	__ssa_dst(mov)->flags |= flags;
 	src = ir3_reg_create(mov, 0, IR3_REG_ARRAY |
-			COND(address, IR3_REG_RELATIV) | flags);
+			COND(address, IR3_REG_RELATIV) |
+			flags);
 	src->instr = arr->last_write;
 	src->size  = arr->length;
 	src->array.id = arr->id;
@@ -664,6 +669,10 @@ ir3_create_array_store(struct ir3_block *block, struct ir3_array *arr, int n,
 		mov->cat1.src_type = TYPE_U32;
 		mov->cat1.dst_type = TYPE_U32;
 	}
+
+	if (arr->shared)
+		flags |= IR3_REG_SHARED;
+
 	mov->barrier_class = IR3_BARRIER_ARRAY_W;
 	mov->barrier_conflict = IR3_BARRIER_ARRAY_R | IR3_BARRIER_ARRAY_W;
 	dst = ir3_reg_create(mov, 0, IR3_REG_ARRAY |

@@ -508,6 +508,7 @@ struct ir3_array {
 
 	/* Indicates if half-precision */
 	bool half;
+	bool shared;
 
 	bool unused;
 };
