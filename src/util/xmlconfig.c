@@ -63,54 +63,40 @@ be_verbose(void)
    return strstr(s, "silent") == NULL;
 }
 
-/** \brief Find an option in an option cache with the name as key */
-static uint32_t
-findOption(const driOptionCache *cache, const char *name)
-{
-   uint32_t len = strlen (name);
-   uint32_t size = 1 << cache->tableSize, mask = size - 1;
-   uint32_t hash = 0;
-   uint32_t i, shift;
-
-   /* compute a hash from the variable length name */
-   for (i = 0, shift = 0; i < len; ++i, shift = (shift+8) & 31)
-      hash += (uint32_t)name[i] << shift;
-   hash *= hash;
-   hash = (hash >> (16-cache->tableSize/2)) & mask;
-
-   /* this is just the starting point of the linear search for the option */
-   for (i = 0; i < size; ++i, hash = (hash+1) & mask) {
-      /* if we hit an empty entry then the option is not defined (yet) */
-      if (cache->info[hash].name == 0)
-         break;
-      else if (!strcmp (name, cache->info[hash].name))
-         break;
-   }
-   /* this assertion fails if the hash table is full */
-   assert (i < size);
-
-   return hash;
-}
-
-static const driOptionInfo *
+static driOptionInfo *
 lookupInfo(const driOptionCache *cache, const char *name)
 {
-   return &cache->info[findOption(cache, name)];
+   struct hash_entry *entry = _mesa_hash_table_search(cache->info, name);
+   if (entry)
+      return entry->data;
+   return NULL;
 }
 
-static const driOptionValue *
+static driOptionValue *
 lookupValue(const driOptionCache *cache, const char *name)
 {
-   return &cache->values[findOption(cache, name)];
+   struct hash_entry *entry = _mesa_hash_table_search(cache->values, name);
+
+   /* We store the values in the pointer field of the hash tables. */
+   STATIC_ASSERT(sizeof(entry->data) >= sizeof(driOptionValue));
+
+   if (!entry)
+      entry = _mesa_hash_table_insert(cache->values, name, 0);
+   return (driOptionValue *)(void *)(&entry->data);
 }
 
 
-/** \brief Like strdup with error checking. */
-#define XSTRDUP(dest,source) do {                                       \
-      if (!(dest = strdup(source))) {                                   \
+#define ALLOC_CHECK(x) do {                                             \
+      if (!(x)) {                                                       \
          fprintf (stderr, "%s: %d: out of memory.\n", __FILE__, __LINE__); \
          abort();                                                       \
       }                                                                 \
+   } while (0)
+
+/** \brief Like strdup with error checking. */
+#define XSTRDUP(dest,source) do {                                       \
+      dest = strdup(source);                                            \
+      ALLOC_CHECK(dest);                                                \
    } while (0)
 
 static int compare (const void *a, const void *b) {
@@ -289,7 +275,7 @@ parseValue(driOptionValue *v, driOptionType type, const XML_Char *string)
       v->_float = strToF (string, &tail);
       break;
    case DRI_STRING:
-      free (v->_string);
+      ralloc_free (v->_string);
       v->_string = strndup(string, STRING_CONF_MAXLEN);
       return true;
    }
@@ -320,10 +306,8 @@ parseRanges(driOptionInfo *info, const XML_Char *string)
       if (*range == ',')
          ++nRanges;
 
-   if ((ranges = malloc(nRanges*sizeof(driOptionRange))) == NULL) {
-      fprintf (stderr, "%s: %d: out of memory.\n", __FILE__, __LINE__);
-      abort();
-   }
+   ranges = ralloc_array(info, driOptionRange, nRanges);
+   ALLOC_CHECK(ranges);
 
    /* pass 2: parse all ranges into preallocated array */
    range = cp;
@@ -357,7 +341,7 @@ parseRanges(driOptionInfo *info, const XML_Char *string)
    }
    free(cp);
    if (i < nRanges) {
-      free(ranges);
+      ralloc_free(ranges);
       return false;
    } else
       assert (range == NULL);
@@ -472,7 +456,7 @@ struct OptInfoData {
    bool inDesc;
    bool inOption;
    bool inEnum;
-   int curOption;
+   driOptionInfo *curOption;
 };
 
 /** \brief Elements in __driConfigOptions. */
@@ -494,7 +478,6 @@ parseEnumAttr(struct OptInfoData *data, const XML_Char **attr)
    uint32_t i;
    const XML_Char *value = NULL, *text = NULL;
    driOptionValue v;
-   uint32_t opt = data->curOption;
    for (i = 0; attr[i]; i += 2) {
       if (!strcmp (attr[i], "value")) value = attr[i+1];
       else if (!strcmp (attr[i], "text")) text = attr[i+1];
@@ -502,9 +485,9 @@ parseEnumAttr(struct OptInfoData *data, const XML_Char **attr)
    }
    if (!value) XML_FATAL1 ("value attribute missing in enum.");
    if (!text) XML_FATAL1 ("text attribute missing in enum.");
-   if (!parseValue (&v, data->cache->info[opt].type, value))
+   if (!parseValue (&v, data->curOption->type, value))
       XML_FATAL ("illegal enum value: %s.", value);
-   if (!checkValue (&v, &data->cache->info[opt]))
+   if (!checkValue (&v, data->curOption))
       XML_FATAL ("enum value out of valid range: %s.", value);
 }
 
@@ -536,7 +519,8 @@ parseOptInfoAttr(struct OptInfoData *data, const XML_Char **attr)
    const XML_Char *attrVal[OA_COUNT] = {NULL, NULL, NULL, NULL};
    const char *defaultVal;
    driOptionCache *cache = data->cache;
-   uint32_t opt, i;
+   driOptionInfo *opt;
+   uint32_t i;
    for (i = 0; attr[i]; i += 2) {
       uint32_t attrName = bsearchStr (attr[i], optAttr, OA_COUNT);
       if (attrName >= OA_COUNT)
@@ -547,52 +531,58 @@ parseOptInfoAttr(struct OptInfoData *data, const XML_Char **attr)
    if (!attrVal[OA_TYPE]) XML_FATAL1 ("type attribute missing in option.");
    if (!attrVal[OA_DEFAULT]) XML_FATAL1 ("default attribute missing in option.");
 
-   opt = findOption (cache, attrVal[OA_NAME]);
-   if (cache->info[opt].name)
-      XML_FATAL ("option %s redefined.", attrVal[OA_NAME]);
+   opt = ralloc(cache->info, driOptionInfo);
+   ALLOC_CHECK(opt);
+
+   opt->name = ralloc_strdup(opt, attrVal[OA_NAME]);
+   ALLOC_CHECK(opt->name);
    data->curOption = opt;
 
-   XSTRDUP (cache->info[opt].name, attrVal[OA_NAME]);
+   if (lookupInfo(cache, opt->name))
+      XML_FATAL ("option %s redefined.", attrVal[OA_NAME]);
+
+   _mesa_hash_table_insert(cache->info, opt->name, opt);
 
    if (!strcmp (attrVal[OA_TYPE], "bool"))
-      cache->info[opt].type = DRI_BOOL;
+      opt->type = DRI_BOOL;
    else if (!strcmp (attrVal[OA_TYPE], "enum"))
-      cache->info[opt].type = DRI_ENUM;
+      opt->type = DRI_ENUM;
    else if (!strcmp (attrVal[OA_TYPE], "int"))
-      cache->info[opt].type = DRI_INT;
+      opt->type = DRI_INT;
    else if (!strcmp (attrVal[OA_TYPE], "float"))
-      cache->info[opt].type = DRI_FLOAT;
+      opt->type = DRI_FLOAT;
    else if (!strcmp (attrVal[OA_TYPE], "string"))
-      cache->info[opt].type = DRI_STRING;
+      opt->type = DRI_STRING;
    else
       XML_FATAL ("illegal type in option: %s.", attrVal[OA_TYPE]);
 
-   defaultVal = getenv (cache->info[opt].name);
+   defaultVal = getenv (opt->name);
    if (defaultVal != NULL) {
       /* don't use XML_WARNING, we want the user to see this! */
       if (be_verbose()) {
          fprintf(stderr,
                  "ATTENTION: default value of option %s overridden by environment.\n",
-                 cache->info[opt].name);
+                 opt->name);
       }
    } else
       defaultVal = attrVal[OA_DEFAULT];
-   if (!parseValue (&cache->values[opt], cache->info[opt].type, defaultVal))
-      XML_FATAL ("illegal default value for %s: %s.", cache->info[opt].name, defaultVal);
+   driOptionValue *val = lookupValue(cache, opt->name);
+   if (!parseValue (val, opt->type, defaultVal))
+      XML_FATAL ("illegal default value for %s: %s.", opt->name, defaultVal);
 
    if (attrVal[OA_VALID]) {
-      if (cache->info[opt].type == DRI_BOOL)
+      if (opt->type == DRI_BOOL)
          XML_FATAL1 ("boolean option with valid attribute.");
-      if (!parseRanges (&cache->info[opt], attrVal[OA_VALID]))
+      if (!parseRanges (opt, attrVal[OA_VALID]))
          XML_FATAL ("illegal valid attribute: %s.", attrVal[OA_VALID]);
-      if (!checkValue (&cache->values[opt], &cache->info[opt]))
+      if (!checkValue (val, opt))
          XML_FATAL ("default value out of valid range '%s': %s.",
                     attrVal[OA_VALID], defaultVal);
-   } else if (cache->info[opt].type == DRI_ENUM) {
+   } else if (opt->type == DRI_ENUM) {
       XML_FATAL1 ("valid attribute missing in option (mandatory for enums).");
    } else {
-      cache->info[opt].nRanges = 0;
-      cache->info[opt].ranges = NULL;
+      opt->nRanges = 0;
+      opt->ranges = NULL;
    }
 }
 
@@ -688,9 +678,12 @@ driParseOptionInfo(driOptionCache *info, const char *configOptions)
    /* Make the hash table big enough to fit more than the maximum number of
     * config options we've ever seen in a driver.
     */
-   info->tableSize = 6;
-   info->info = calloc(1 << info->tableSize, sizeof (driOptionInfo));
-   info->values = calloc(1 << info->tableSize, sizeof (driOptionValue));
+   info->info = _mesa_hash_table_create(NULL,
+                                        _mesa_hash_string,
+                                        _mesa_key_string_equal);
+   info->values = _mesa_hash_table_create(NULL,
+                                          _mesa_hash_string,
+                                          _mesa_key_string_equal);
    if (info->info == NULL || info->values == NULL) {
       fprintf (stderr, "%s: %d: out of memory.\n", __FILE__, __LINE__);
       abort();
@@ -708,7 +701,7 @@ driParseOptionInfo(driOptionCache *info, const char *configOptions)
    userData.inDesc = false;
    userData.inOption = false;
    userData.inEnum = false;
-   userData.curOption = -1;
+   userData.curOption = NULL;
 
    status = XML_Parse (p, configOptions, strlen (configOptions), 1);
    if (!status)
@@ -797,9 +790,8 @@ parseAppAttr(struct OptConfData *data, const XML_Char **attr)
    const XML_Char *sha1 = NULL;
    const XML_Char *application_name_match = NULL;
    const XML_Char *application_versions = NULL;
-   driOptionInfo version_ranges = {
-      .type = DRI_INT,
-   };
+   driOptionInfo *version_ranges = rzalloc(NULL, driOptionInfo);
+   version_ranges->type = DRI_INT;
 
    for (i = 0; attr[i]; i += 2) {
       if (!strcmp (attr[i], "name")) /* not needed here */;
@@ -848,10 +840,11 @@ parseAppAttr(struct OptConfData *data, const XML_Char **attr)
          XML_WARNING ("Invalid application_name_match=\"%s\".", application_name_match);
    }
    if (application_versions) {
-      if (parseRanges (&version_ranges, application_versions) &&
-          !valueInRanges (&version_ranges, data->applicationVersion))
+      if (parseRanges (version_ranges, application_versions) &&
+          !valueInRanges (version_ranges, data->applicationVersion))
          data->ignoringApp = data->inApp;
    }
+   ralloc_free(version_ranges);
 }
 
 /** \brief Parse attributes of an application element. */
@@ -860,9 +853,9 @@ parseEngineAttr(struct OptConfData *data, const XML_Char **attr)
 {
    uint32_t i;
    const XML_Char *engine_name_match = NULL, *engine_versions = NULL;
-   driOptionInfo version_ranges = {
-      .type = DRI_INT,
-   };
+   driOptionInfo *version_ranges = rzalloc(NULL, driOptionInfo);
+   version_ranges->type = DRI_INT;
+
    for (i = 0; attr[i]; i += 2) {
       if (!strcmp (attr[i], "name")) /* not needed here */;
       else if (!strcmp (attr[i], "engine_name_match")) engine_name_match = attr[i+1];
@@ -880,12 +873,12 @@ parseEngineAttr(struct OptConfData *data, const XML_Char **attr)
          XML_WARNING ("Invalid engine_name_match=\"%s\".", engine_name_match);
    }
    if (engine_versions) {
-      if (parseRanges (&version_ranges, engine_versions) &&
-          !valueInRanges (&version_ranges, data->engineVersion))
+      if (parseRanges (version_ranges, engine_versions) &&
+          !valueInRanges (version_ranges, data->engineVersion))
          data->ignoringApp = data->inApp;
    }
 
-   free(version_ranges.ranges);
+   ralloc_free(version_ranges);
 }
 
 /** \brief Parse attributes of an option element. */
@@ -903,19 +896,20 @@ parseOptConfAttr(struct OptConfData *data, const XML_Char **attr)
    if (!value) XML_WARNING1 ("value attribute missing in option.");
    if (name && value) {
       driOptionCache *cache = data->cache;
-      uint32_t opt = findOption (cache, name);
-      if (cache->info[opt].name == NULL)
+      driOptionInfo *opt = lookupInfo (cache, name);
+      if (!opt)
          /* don't use XML_WARNING, drirc defines options for all drivers,
           * but not all drivers support them */
          return;
-      else if (getenv (cache->info[opt].name)) {
+      else if (getenv (opt->name)) {
          /* don't use XML_WARNING, we want the user to see this! */
          if (be_verbose()) {
             fprintf(stderr,
                     "ATTENTION: option value of option %s ignored.\n",
-                    cache->info[opt].name);
+                    opt->name);
          }
-      } else if (!parseValue (&cache->values[opt], cache->info[opt].type, value))
+      } else if (!parseValue (lookupValue(data->cache, opt->name),
+                              opt->type, value))
          XML_WARNING ("illegal option value: %s.", value);
    }
 }
@@ -1007,19 +1001,21 @@ optConfEndElem(void *userData, const XML_Char *name)
 static void
 initOptionCache(driOptionCache *cache, const driOptionCache *info)
 {
-   unsigned i, size = 1 << info->tableSize;
    cache->info = info->info;
-   cache->tableSize = info->tableSize;
-   cache->values = malloc((1<<info->tableSize) * sizeof (driOptionValue));
-   if (cache->values == NULL) {
-      fprintf (stderr, "%s: %d: out of memory.\n", __FILE__, __LINE__);
-      abort();
-   }
-   memcpy (cache->values, info->values,
-           (1<<info->tableSize) * sizeof (driOptionValue));
-   for (i = 0; i < size; ++i) {
-      if (cache->info[i].type == DRI_STRING)
-         XSTRDUP(cache->values[i]._string, info->values[i]._string);
+   cache->values = _mesa_hash_table_create(NULL,
+                                           _mesa_hash_string,
+                                           _mesa_key_string_equal);
+   ALLOC_CHECK(cache->values);
+
+   hash_table_foreach(info->info, entry) {
+      driOptionInfo *opt = entry->data;
+      driOptionValue *src = lookupValue(info, opt->name);
+      driOptionValue *dst = lookupValue(cache, opt->name);
+      if (opt->type == DRI_STRING) {
+         dst->_string = ralloc_strdup(cache->values, src->_string);
+      } else {
+         *dst = *src;
+      }
    }
 }
 
@@ -1174,29 +1170,13 @@ void
 driDestroyOptionInfo(driOptionCache *info)
 {
    driDestroyOptionCache(info);
-   if (info->info) {
-      uint32_t i, size = 1 << info->tableSize;
-      for (i = 0; i < size; ++i) {
-         if (info->info[i].name) {
-            free(info->info[i].name);
-            free(info->info[i].ranges);
-         }
-      }
-      free(info->info);
-   }
+   ralloc_free(info->info);
 }
 
 void
 driDestroyOptionCache(driOptionCache *cache)
 {
-   if (cache->info) {
-      unsigned i, size = 1 << cache->tableSize;
-      for (i = 0; i < size; ++i) {
-         if (cache->info[i].type == DRI_STRING)
-            free(cache->values[i]._string);
-      }
-   }
-   free(cache->values);
+   ralloc_free(cache->values);
 }
 
 unsigned char
@@ -1204,7 +1184,7 @@ driCheckOption(const driOptionCache *cache, const char *name,
                driOptionType type)
 {
    const driOptionInfo *info = lookupInfo(cache, name);
-   return info->name && info->type == type;
+   return info && info->type == type;
 }
 
 unsigned char
@@ -1250,32 +1230,31 @@ driComputeOptionsSha1(const driOptionCache *cache, unsigned char *sha1)
    void *ctx = ralloc_context(NULL);
    char *dri_options = ralloc_strdup(ctx, "");
 
-   for (int i = 0; i < 1 << cache->tableSize; i++) {
-      if (cache->info[i].name == NULL)
-         continue;
+   /* Note that the table is hashed by string key contents, so it will be
+    * stable when walking
+    */
+   hash_table_foreach(cache->info, entry) {
+      const driOptionInfo *opt = entry->data;
+      const driOptionValue *value = lookupValue(cache, opt->name);
 
       bool ret = false;
-      switch (cache->info[i].type) {
+      switch (opt->type) {
       case DRI_BOOL:
          ret = ralloc_asprintf_append(&dri_options, "%s:%u,",
-                                      cache->info[i].name,
-                                      cache->values[i]._bool);
+                                      opt->name, value->_bool);
          break;
       case DRI_INT:
       case DRI_ENUM:
          ret = ralloc_asprintf_append(&dri_options, "%s:%d,",
-                                      cache->info[i].name,
-                                      cache->values[i]._int);
+                                      opt->name, value->_int);
          break;
       case DRI_FLOAT:
          ret = ralloc_asprintf_append(&dri_options, "%s:%f,",
-                                      cache->info[i].name,
-                                      cache->values[i]._float);
+                                      opt->name, value->_float);
          break;
       case DRI_STRING:
          ret = ralloc_asprintf_append(&dri_options, "%s:%s,",
-                                      cache->info[i].name,
-                                      cache->values[i]._string);
+                                      opt->name, value->_string);
          break;
       default:
          unreachable("unsupported dri config type!");

@@ -31,6 +31,7 @@
 #define __XMLCONFIG_H
 
 #include "util/mesa-sha1.h"
+#include "util/hash_table.h"
 #include "util/ralloc.h"
 #include <stdint.h>
 #include <string.h>
@@ -75,21 +76,11 @@ typedef struct driOptionInfo {
  * \li One in <driver>Screen caching option info and the default values
  * \li One in each <driver>Context with the actual values for that context */
 typedef struct driOptionCache {
-   driOptionInfo *info;
+   struct hash_table *info;
    /**< \brief Array of option infos
     *
     * Points to the same array in the screen and all contexts */
-   driOptionValue *values;
-   /**< \brief Array of option values
-    *
-    * \li Default values in screen
-    * \li Actual values in contexts
-    */
-   unsigned int tableSize;
-   /**< \brief Size of the arrays
-    *
-    * In the current implementation it's not actually a size but log2(size).
-    * The value is the same in the screen and all contexts. */
+   struct hash_table *values;
 } driOptionCache;
 
 /** \brief Parse XML option info from configOptions
