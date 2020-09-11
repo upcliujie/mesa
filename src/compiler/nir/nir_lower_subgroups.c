@@ -496,6 +496,37 @@ lower_subgroups_instr(nir_builder *b, nir_instr *instr, void *_options)
          return nir_imm_int(b, options->subgroup_size);
       break;
 
+   case nir_intrinsic_load_subgroup_invocation:
+      if (options->lower_subgroup_id_to_local_id) {
+         assert(util_is_power_of_two_nonzero(options->subgroup_size));
+         return nir_iand(b, nir_load_local_invocation_index(b),
+                         nir_imm_int(b, options->subgroup_size - 1));
+      }
+      break;
+
+   case nir_intrinsic_load_subgroup_id:
+      if (options->lower_subgroup_id_to_local_id) {
+         assert(util_is_power_of_two_nonzero(options->subgroup_size));
+         unsigned shift = util_logbase2(options->subgroup_size);
+         return nir_ushr(b, nir_load_local_invocation_index(b),
+                         nir_imm_int(b, shift));
+      }
+      break;
+
+   case nir_intrinsic_load_num_subgroups:
+      if (options->lower_subgroup_id_to_local_id) {
+         assert(util_is_power_of_two_nonzero(options->subgroup_size));
+         unsigned shift = util_logbase2(options->subgroup_size);
+         nir_ssa_def *local_size = nir_load_local_group_size(b);
+         local_size = nir_imul(b, nir_channel(b, local_size, 0),
+                               nir_imul(b, nir_channel(b, local_size, 1),
+                                        nir_channel(b, local_size, 2)));
+         return nir_ushr(b, nir_iadd(b, local_size,
+                                     nir_imm_int(b, options->subgroup_size - 1)),
+                         nir_imm_int(b, shift));
+      }
+      break;
+
    case nir_intrinsic_read_invocation:
    case nir_intrinsic_read_first_invocation:
       if (options->lower_to_scalar && intrin->num_components > 1)

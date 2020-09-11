@@ -4363,6 +4363,7 @@ typedef struct nir_lower_subgroups_options {
    bool lower_quad:1;
    bool lower_quad_broadcast_dynamic:1;
    bool lower_quad_broadcast_dynamic_to_const:1;
+   bool lower_subgroup_id_to_local_id:1;
 } nir_lower_subgroups_options;
 
 bool nir_lower_subgroups(nir_shader *shader,
