@@ -92,6 +92,19 @@ findOption(const driOptionCache *cache, const char *name)
    return hash;
 }
 
+static const driOptionInfo *
+lookupInfo(const driOptionCache *cache, const char *name)
+{
+   return &cache->info[findOption(cache, name)];
+}
+
+static const driOptionValue *
+lookupValue(const driOptionCache *cache, const char *name)
+{
+   return &cache->values[findOption(cache, name)];
+}
+
+
 /** \brief Like strdup with error checking. */
 #define XSTRDUP(dest,source) do {                                       \
       if (!(dest = strdup(source))) {                                   \
@@ -1190,46 +1203,40 @@ unsigned char
 driCheckOption(const driOptionCache *cache, const char *name,
                driOptionType type)
 {
-   uint32_t i = findOption (cache, name);
-   return cache->info[i].name != NULL && cache->info[i].type == type;
+   const driOptionInfo *info = lookupInfo(cache, name);
+   return info->name && info->type == type;
 }
 
 unsigned char
 driQueryOptionb(const driOptionCache *cache, const char *name)
 {
-   uint32_t i = findOption (cache, name);
    /* make sure the option is defined and has the correct type */
-   assert (cache->info[i].name != NULL);
-   assert (cache->info[i].type == DRI_BOOL);
-   return cache->values[i]._bool;
+   assert(driCheckOption(cache, name, DRI_BOOL));
+   return lookupValue(cache, name)->_bool;
 }
 
 int
 driQueryOptioni(const driOptionCache *cache, const char *name)
 {
-   uint32_t i = findOption (cache, name);
    /* make sure the option is defined and has the correct type */
-   assert (cache->info[i].name != NULL);
-   assert (cache->info[i].type == DRI_INT || cache->info[i].type == DRI_ENUM);
-   return cache->values[i]._int;
+   assert(lookupInfo(cache, name));
+   assert(lookupInfo(cache, name)->type == DRI_INT ||
+          lookupInfo(cache, name)->type == DRI_ENUM);
+   return lookupValue(cache, name)->_int;
 }
 
 float
 driQueryOptionf(const driOptionCache *cache, const char *name)
 {
-   uint32_t i = findOption (cache, name);
    /* make sure the option is defined and has the correct type */
-   assert (cache->info[i].name != NULL);
-   assert (cache->info[i].type == DRI_FLOAT);
-   return cache->values[i]._float;
+   assert(driCheckOption(cache, name, DRI_FLOAT));
+   return lookupValue(cache, name)->_float;
 }
 
 char *
 driQueryOptionstr(const driOptionCache *cache, const char *name)
 {
-   uint32_t i = findOption (cache, name);
    /* make sure the option is defined and has the correct type */
-   assert (cache->info[i].name != NULL);
-   assert (cache->info[i].type == DRI_STRING);
-   return cache->values[i]._string;
+   assert(driCheckOption(cache, name, DRI_STRING));
+   return lookupValue(cache, name)->_string;
 }
