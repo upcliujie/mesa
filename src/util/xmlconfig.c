@@ -104,10 +104,10 @@ static int compare (const void *a, const void *b) {
 }
 /** \brief Binary search in a string array. */
 static uint32_t
-bsearchStr (const XML_Char *name, const XML_Char *elems[], uint32_t count)
+bsearchStr (const char *name, const char *elems[], uint32_t count)
 {
-   const XML_Char **found;
-   found = bsearch (&name, elems, count, sizeof (XML_Char *), compare);
+   const char **found;
+   found = bsearch (&name, elems, count, sizeof (char *), compare);
    if (found)
       return found - elems;
    else
@@ -124,13 +124,13 @@ bsearchStr (const XML_Char *name, const XML_Char *elems[], uint32_t count)
  * the integer number. If no number was found then tail points to the
  * start of the input string. */
 static int
-strToI(const XML_Char *string, const XML_Char **tail, int base)
+strToI(const char *string, const char **tail, int base)
 {
    int radix = base == 0 ? 10 : base;
    int result = 0;
    int sign = 1;
    bool numberFound = false;
-   const XML_Char *start = string;
+   const char *start = string;
 
    assert (radix >= 2 && radix <= 36);
 
@@ -186,11 +186,11 @@ strToI(const XML_Char *string, const XML_Char **tail, int base)
  *
  * Uses two passes for maximum accuracy. */
 static float
-strToF(const XML_Char *string, const XML_Char **tail)
+strToF(const char *string, const char **tail)
 {
    int nDigits = 0, pointPos, exponent;
    float sign = 1.0f, result = 0.0f, scale;
-   const XML_Char *start = string, *numStart;
+   const char *start = string, *numStart;
 
    /* sign */
    if (*string == '-') {
@@ -221,7 +221,7 @@ strToF(const XML_Char *string, const XML_Char **tail)
    }
    *tail = string;
    if (*string == 'e' || *string == 'E') {
-      const XML_Char *expTail;
+      const char *expTail;
       exponent = strToI (string+1, &expTail, 10);
       if (expTail == string+1)
          exponent = 0;
@@ -250,9 +250,9 @@ strToF(const XML_Char *string, const XML_Char **tail)
 
 /** \brief Parse a value of a given type. */
 static unsigned char
-parseValue(driOptionValue *v, driOptionType type, const XML_Char *string)
+parseValue(driOptionValue *v, driOptionType type, const char *string)
 {
-   const XML_Char *tail = NULL;
+   const char *tail = NULL;
    /* skip leading white-space */
    string += strspn (string, " \f\n\r\t\v");
    switch (type) {
@@ -293,9 +293,9 @@ parseValue(driOptionValue *v, driOptionType type, const XML_Char *string)
 
 /** \brief Parse a list of ranges of type info->type. */
 static unsigned char
-parseRanges(driOptionInfo *info, const XML_Char *string)
+parseRanges(driOptionInfo *info, const char *string)
 {
-   XML_Char *cp, *range;
+   char *cp, *range;
    uint32_t nRanges, i;
    driOptionRange *ranges;
 
@@ -312,7 +312,7 @@ parseRanges(driOptionInfo *info, const XML_Char *string)
    /* pass 2: parse all ranges into preallocated array */
    range = cp;
    for (i = 0; i < nRanges; ++i) {
-      XML_Char *end, *sep;
+      char *end, *sep;
       assert (range);
       end = strchr (range, ',');
       if (end)
@@ -463,7 +463,7 @@ struct OptInfoData {
 enum OptInfoElem {
    OI_DESCRIPTION = 0, OI_DRIINFO, OI_ENUM, OI_OPTION, OI_SECTION, OI_COUNT
 };
-static const XML_Char *OptInfoElems[] = {
+static const char *OptInfoElems[] = {
    "description", "driinfo", "enum", "option", "section"
 };
 
@@ -473,10 +473,10 @@ static const XML_Char *OptInfoElems[] = {
  * for external configuration tools.
  */
 static void
-parseEnumAttr(struct OptInfoData *data, const XML_Char **attr)
+parseEnumAttr(struct OptInfoData *data, const char **attr)
 {
    uint32_t i;
-   const XML_Char *value = NULL, *text = NULL;
+   const char *value = NULL, *text = NULL;
    driOptionValue v;
    for (i = 0; attr[i]; i += 2) {
       if (!strcmp (attr[i], "value")) value = attr[i+1];
@@ -497,10 +497,10 @@ parseEnumAttr(struct OptInfoData *data, const XML_Char **attr)
  * for external configuration tools.
  */
 static void
-parseDescAttr(struct OptInfoData *data, const XML_Char **attr)
+parseDescAttr(struct OptInfoData *data, const char **attr)
 {
    uint32_t i;
-   const XML_Char *lang = NULL, *text = NULL;
+   const char *lang = NULL, *text = NULL;
    for (i = 0; attr[i]; i += 2) {
       if (!strcmp (attr[i], "lang")) lang = attr[i+1];
       else if (!strcmp (attr[i], "text")) text = attr[i+1];
@@ -512,11 +512,11 @@ parseDescAttr(struct OptInfoData *data, const XML_Char **attr)
 
 /** \brief Parse attributes of an option element. */
 static void
-parseOptInfoAttr(struct OptInfoData *data, const XML_Char **attr)
+parseOptInfoAttr(struct OptInfoData *data, const char **attr)
 {
    enum OptAttr {OA_DEFAULT = 0, OA_NAME, OA_TYPE, OA_VALID, OA_COUNT};
-   static const XML_Char *optAttr[] = {"default", "name", "type", "valid"};
-   const XML_Char *attrVal[OA_COUNT] = {NULL, NULL, NULL, NULL};
+   static const char *optAttr[] = {"default", "name", "type", "valid"};
+   const char *attrVal[OA_COUNT] = {NULL, NULL, NULL, NULL};
    const char *defaultVal;
    driOptionCache *cache = data->cache;
    driOptionInfo *opt;
@@ -588,7 +588,7 @@ parseOptInfoAttr(struct OptInfoData *data, const XML_Char **attr)
 
 /** \brief Handler for start element events. */
 static void
-optInfoStartElem(void *userData, const XML_Char *name, const XML_Char **attr)
+optInfoStartElem(void *userData, const char *name, const char **attr)
 {
    struct OptInfoData *data = (struct OptInfoData *)userData;
    enum OptInfoElem elem = bsearchStr (name, OptInfoElems, OI_COUNT);
@@ -642,7 +642,7 @@ optInfoStartElem(void *userData, const XML_Char *name, const XML_Char **attr)
 
 /** \brief Handler for end element events. */
 static void
-optInfoEndElem(void *userData, const XML_Char *name)
+optInfoEndElem(void *userData, const char *name)
 {
    struct OptInfoData *data = (struct OptInfoData *)userData;
    enum OptInfoElem elem = bsearchStr (name, OptInfoElems, OI_COUNT);
@@ -734,7 +734,7 @@ struct OptConfData {
 enum OptConfElem {
    OC_APPLICATION = 0, OC_DEVICE, OC_DRICONF, OC_ENGINE, OC_OPTION, OC_COUNT
 };
-static const XML_Char *OptConfElems[] = {
+static const char *OptConfElems[] = {
    [OC_APPLICATION]  = "application",
    [OC_DEVICE] = "device",
    [OC_DRICONF] = "driconf",
@@ -744,10 +744,10 @@ static const XML_Char *OptConfElems[] = {
 
 /** \brief Parse attributes of a device element. */
 static void
-parseDeviceAttr(struct OptConfData *data, const XML_Char **attr)
+parseDeviceAttr(struct OptConfData *data, const char **attr)
 {
    uint32_t i;
-   const XML_Char *driver = NULL, *screen = NULL, *kernel = NULL;
+   const char *driver = NULL, *screen = NULL, *kernel = NULL;
    for (i = 0; attr[i]; i += 2) {
       if (!strcmp (attr[i], "driver")) driver = attr[i+1];
       else if (!strcmp (attr[i], "screen")) screen = attr[i+1];
@@ -783,13 +783,13 @@ valueInRanges(const driOptionInfo *info, uint32_t value)
 
 /** \brief Parse attributes of an application element. */
 static void
-parseAppAttr(struct OptConfData *data, const XML_Char **attr)
+parseAppAttr(struct OptConfData *data, const char **attr)
 {
    uint32_t i;
-   const XML_Char *exec = NULL;
-   const XML_Char *sha1 = NULL;
-   const XML_Char *application_name_match = NULL;
-   const XML_Char *application_versions = NULL;
+   const char *exec = NULL;
+   const char *sha1 = NULL;
+   const char *application_name_match = NULL;
+   const char *application_versions = NULL;
    driOptionInfo *version_ranges = rzalloc(NULL, driOptionInfo);
    version_ranges->type = DRI_INT;
 
@@ -849,10 +849,10 @@ parseAppAttr(struct OptConfData *data, const XML_Char **attr)
 
 /** \brief Parse attributes of an application element. */
 static void
-parseEngineAttr(struct OptConfData *data, const XML_Char **attr)
+parseEngineAttr(struct OptConfData *data, const char **attr)
 {
    uint32_t i;
-   const XML_Char *engine_name_match = NULL, *engine_versions = NULL;
+   const char *engine_name_match = NULL, *engine_versions = NULL;
    driOptionInfo *version_ranges = rzalloc(NULL, driOptionInfo);
    version_ranges->type = DRI_INT;
 
@@ -883,10 +883,10 @@ parseEngineAttr(struct OptConfData *data, const XML_Char **attr)
 
 /** \brief Parse attributes of an option element. */
 static void
-parseOptConfAttr(struct OptConfData *data, const XML_Char **attr)
+parseOptConfAttr(struct OptConfData *data, const char **attr)
 {
    uint32_t i;
-   const XML_Char *name = NULL, *value = NULL;
+   const char *name = NULL, *value = NULL;
    for (i = 0; attr[i]; i += 2) {
       if (!strcmp (attr[i], "name")) name = attr[i+1];
       else if (!strcmp (attr[i], "value")) value = attr[i+1];
@@ -916,8 +916,8 @@ parseOptConfAttr(struct OptConfData *data, const XML_Char **attr)
 
 /** \brief Handler for start element events. */
 static void
-optConfStartElem(void *userData, const XML_Char *name,
-                 const XML_Char **attr)
+optConfStartElem(void *userData, const char *name,
+                 const char **attr)
 {
    struct OptConfData *data = (struct OptConfData *)userData;
    enum OptConfElem elem = bsearchStr (name, OptConfElems, OC_COUNT);
@@ -972,7 +972,7 @@ optConfStartElem(void *userData, const XML_Char *name,
 
 /** \brief Handler for end element events. */
 static void
-optConfEndElem(void *userData, const XML_Char *name)
+optConfEndElem(void *userData, const char *name)
 {
    struct OptConfData *data = (struct OptConfData *)userData;
    enum OptConfElem elem = bsearchStr (name, OptConfElems, OC_COUNT);
