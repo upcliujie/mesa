@@ -311,6 +311,26 @@ ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
 		NIR_PASS_V(s, nir_lower_mediump_outputs);
 	}
 
+	if (s->info.stage == MESA_SHADER_COMPUTE) {
+		bool progress = false;
+		NIR_PASS(progress, s, nir_lower_subgroups, &(nir_lower_subgroups_options) {
+						.subgroup_size = 128,
+						.ballot_bit_size = 32,
+						.ballot_components = 4,
+						.lower_to_scalar = true,
+						.lower_vote_eq = true,
+						.lower_subgroup_masks = true,
+						.lower_subgroup_id_to_local_id = true,
+						.lower_read_invocation_to_cond = true,
+				   });
+
+		/* local_subgroup_id_to_local_id can wind up creating extra compute
+		 * intrinsics which we need to lower again.
+		 */
+		if (progress)
+			NIR_PASS_V(s, nir_lower_compute_system_values, NULL);
+	}
+
 	/* we cannot ensure that ir3_finalize_nir() is only called once, so
 	 * we also need to do trig workarounds here:
 	 */
