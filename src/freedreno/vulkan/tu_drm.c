@@ -88,6 +88,15 @@ tu_drm_get_gmem_base(const struct tu_physical_device *dev, uint64_t *base)
    return tu_drm_get_param(dev, MSM_PARAM_GMEM_BASE, base);
 }
 
+static int
+tu_drm_has_syncobj(const struct tu_physical_device *pdev)
+{
+   uint64_t value;
+   if (drmGetCap(pdev->local_fd, DRM_CAP_SYNCOBJ, &value))
+      return false;
+   return value && pdev->msm_major_version == 1 && pdev->msm_minor_version >= 6;
+}
+
 int
 tu_drm_submitqueue_new(const struct tu_device *dev,
                        int priority,
@@ -334,6 +343,13 @@ tu_drm_device_init(struct tu_physical_device *device,
          tu_logi("Could not query the GMEM size");
       result = vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
                          "could not get GMEM size");
+      goto fail;
+   }
+
+   if (!tu_drm_has_syncobj(device)) {
+      tu_logi("kernel with syncobj support is required");
+      result = vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
+                         "kernel with syncobj support is required");
       goto fail;
    }
 
@@ -615,14 +631,6 @@ tu_GetSemaphoreFdKHR(VkDevice _device,
    return VK_SUCCESS;
 }
 
-static bool tu_has_syncobj(struct tu_physical_device *pdev)
-{
-   uint64_t value;
-   if (drmGetCap(pdev->local_fd, DRM_CAP_SYNCOBJ, &value))
-      return false;
-   return value && pdev->msm_major_version == 1 && pdev->msm_minor_version >= 6;
-}
-
 void
 tu_GetPhysicalDeviceExternalSemaphoreProperties(
    VkPhysicalDevice physicalDevice,
@@ -631,7 +639,7 @@ tu_GetPhysicalDeviceExternalSemaphoreProperties(
 {
    TU_FROM_HANDLE(tu_physical_device, pdev, physicalDevice);
 
-   if (tu_has_syncobj(pdev) &&
+   if (tu_drm_has_syncobj(pdev) &&
        (pExternalSemaphoreInfo->handleType == VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT ||
         pExternalSemaphoreInfo->handleType == VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT)) {
       pExternalSemaphoreProperties->exportFromImportedHandleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT | VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT;
