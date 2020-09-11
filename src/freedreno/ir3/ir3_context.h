@@ -199,7 +199,8 @@ struct ir3_instruction * ir3_get_addr1(struct ir3_context *ctx,
 struct ir3_instruction * ir3_get_predicate(struct ir3_context *ctx,
 		struct ir3_instruction *src);
 
-struct ir3_array *ir3_create_array(struct ir3_context *ctx, unsigned components, bool half);
+struct ir3_array *ir3_create_array(struct ir3_context *ctx, unsigned components,
+								   bool half, bool shared);
 void ir3_declare_array(struct ir3_context *ctx, nir_register *reg);
 struct ir3_array * ir3_get_array(struct ir3_context *ctx, nir_register *reg);
 struct ir3_instruction *ir3_create_array_load(struct ir3_block *block,

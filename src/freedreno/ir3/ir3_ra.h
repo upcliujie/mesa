@@ -44,11 +44,8 @@ static const unsigned half_class_sizes[] = {
 };
 #define half_class_count  ARRAY_SIZE(half_class_sizes)
 
-/* seems to just be used for compute shaders?  Seems like vec1 and vec3
- * are sufficient (for now?)
- */
 static const unsigned shared_class_sizes[] = {
-	1, 3,
+	1, 2, 3, 4,
 };
 #define shared_class_count ARRAY_SIZE(shared_class_sizes)
 

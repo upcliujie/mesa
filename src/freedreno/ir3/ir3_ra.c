@@ -693,7 +693,9 @@ ra_block_compute_live_ranges(struct ir3_ra_ctx *ctx, struct ir3_block *block)
 
 				for (unsigned i = 0; i < arr->length; i++) {
 					unsigned name = arr->base + i;
-					if(arr->half)
+					if (arr->shared)
+						ra_set_node_class(ctx->g, name, ctx->set->shared_classes[0]);
+					else if (arr->half)
 						ra_set_node_class(ctx->g, name, ctx->set->half_classes[0]);
 					else
 						ra_set_node_class(ctx->g, name, ctx->set->classes[0]);
@@ -861,7 +863,7 @@ name_size(struct ir3_ra_ctx *ctx, unsigned name)
 {
 	if (name_is_array(ctx, name)) {
 		struct ir3_array *arr = name_to_array(ctx, name);
-		return arr->half ? 1 : 2;
+		return arr->shared ? 0 : (arr->half ? 1 : 2);
 	} else {
 		struct ir3_instruction *instr = name_to_instr(ctx, name);
 		/* in scalar pass, each name represents on scalar value,
@@ -1136,6 +1138,9 @@ reg_assign(struct ir3_ra_ctx *ctx, struct ir3_register *reg,
 		unsigned r = ra_get_node_reg(ctx->g, name);
 		unsigned num = ctx->set->ra_reg_to_gpr[r];
 
+		if (arr->shared)
+			num += FIRST_SHARED_REG;
+
 		if (reg->flags & IR3_REG_RELATIV) {
 			reg->array.offset = num;
 		} else {
@@ -1398,7 +1403,8 @@ ra_precolor(struct ir3_ra_ctx *ctx, struct ir3_instruction **precolor, unsigned 
 			assign_arr_base(ctx, arr, precolor, nprecolor);
 
 		for (unsigned i = 0; i < arr->length; i++) {
-			unsigned cls = arr->half ? HALF_OFFSET : 0;
+			unsigned cls = arr->shared ? SHARED_OFFSET :
+				(arr->half ? HALF_OFFSET : 0);
 
 			ra_set_node_reg(ctx->g,
 					arr->base + i,   /* vreg name */
