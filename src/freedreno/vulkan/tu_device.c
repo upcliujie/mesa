@@ -1044,6 +1044,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
 
    device->instance = physical_device->instance;
    device->physical_device = physical_device;
+   device->fd = physical_device->local_fd;
    device->_lost = false;
 
    for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
