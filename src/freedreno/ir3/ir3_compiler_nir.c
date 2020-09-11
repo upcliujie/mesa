@@ -1476,6 +1476,66 @@ static void setup_input(struct ir3_context *ctx, nir_intrinsic_instr *intr);
 static void setup_output(struct ir3_context *ctx, nir_intrinsic_instr *intr);
 
 static void
+reset_block_cache(struct ir3_context *ctx)
+{
+	for (int i = 0; i < ARRAY_SIZE(ctx->addr0_ht); i++) {
+		_mesa_hash_table_destroy(ctx->addr0_ht[i], NULL);
+		ctx->addr0_ht[i] = NULL;
+	}
+
+	_mesa_hash_table_u64_destroy(ctx->addr1_ht, NULL);
+	ctx->addr1_ht = NULL;
+
+	_mesa_hash_table_clear(ctx->sel_cond_conversions, NULL);
+}
+
+/* End the current block and create a simple if-then construct:
+ *
+ * old_block:
+ * ...
+ * if cond goto then else endif
+ * then:
+ * ...
+ * endif:
+ * ...
+ *
+ * We advance the current block to "endif" and return the pointer to "then"
+ * for the user to add instructions to.
+ */
+
+static struct ir3_block *
+build_if_then(struct ir3_context *ctx, struct ir3_instruction *condition,
+			  enum ir3_branch_type brtype)
+{
+	struct ir3_block *then = ir3_block_create(ctx->ir);
+	struct ir3_block *endif = ir3_block_create(ctx->ir);
+
+	/* Handle the case where we already optimized the block condition and then
+	 * we need to insert an if later in the NIR block.
+	 */
+	endif->brtype = ctx->block->brtype;
+
+	then->successors[0] = endif;
+
+	if (condition)
+		condition = ir3_get_predicate(ctx, condition);
+
+	ctx->block->brtype = brtype;
+	ctx->block->condition = condition;
+	ctx->block->successors[0] = then;
+	ctx->block->successors[1] = endif;
+
+	/* Handle the stack. */
+	ctx->max_stack = MAX2(ctx->max_stack, ctx->stack + 1);
+
+	list_addtail(&ctx->block->node, &ctx->ir->block_list);
+	list_addtail(&then->node, &ctx->ir->block_list);
+
+	ctx->block = endif;
+	return then;
+}
+
+static void
 emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 {
 	const nir_intrinsic_info *info = &nir_intrinsic_infos[intr->intrinsic];
@@ -1939,6 +1999,59 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 	case nir_intrinsic_bindless_resource_ir3:
 		dst[0] = ir3_get_src(ctx, &intr->src[0])[0];
 		break;
+	case nir_intrinsic_vote_all:
+	case nir_intrinsic_vote_any:
+	case nir_intrinsic_elect: {
+		struct ir3_instruction *condition = NULL;
+		if (intr->intrinsic != nir_intrinsic_elect) {
+			condition = ir3_get_src(ctx, &intr->src[0])[0];
+		}
+
+		enum ir3_branch_type brtype;
+		switch (intr->intrinsic) {
+		case nir_intrinsic_vote_all:
+			brtype = IR3_BRANCH_ALL;
+			break;
+		case nir_intrinsic_vote_any:
+			brtype = IR3_BRANCH_ANY;
+			break;
+		case nir_intrinsic_elect:
+			brtype = IR3_BRANCH_GETONE;
+			break;
+		default:
+			unreachable("bad intrinsic");
+		}
+
+		/* As an optimization, if the only use of this intrinsic is the
+		 * condition for this NIR block, we can turn it into a move and then
+		 * change the branch condition. This optimizes something like
+		 * "if(voteAll(...))" directly to a ball/bany instruction.
+		 */
+		if (intr->dest.is_ssa &&
+			list_is_singular(&intr->dest.ssa.if_uses) &&
+			list_is_empty(&intr->dest.ssa.uses)) {
+			nir_if *nif =
+				LIST_ENTRY(nir_src, intr->dest.ssa.if_uses.next, use_link)->parent_if;
+			if (nir_cf_node_as_block(nir_cf_node_prev(&nif->cf_node)) == ctx->nblock) {
+				dst[0] = condition;
+				ctx->block->brtype = brtype;
+				break;
+			}
+		}
+
+		/* Handle the general case, where we insert something like:
+		 * dst = false
+		 * if (cond) dst = true;
+		 */
+		struct ir3_array *arr = ir3_create_array(ctx, 1, false, false);
+		ir3_create_array_store(ctx->block, arr, 0, create_immed(ctx->block, 0), NULL);
+
+		struct ir3_block *then = build_if_then(ctx, condition, brtype);
+		ir3_create_array_store(then, arr, 0, create_immed(then, 1), NULL);
+
+		dst[0] = ir3_create_array_load(ctx->block, arr, 0, NULL);
+		break;
+	}
 	default:
 		ir3_context_error(ctx, "Unhandled intrinsic type: %s\n",
 				nir_intrinsic_infos[intr->intrinsic].name);
@@ -2638,17 +2751,10 @@ static void
 emit_block(struct ir3_context *ctx, nir_block *nblock)
 {
 	ctx->block = get_block(ctx, nblock);
-
-	list_addtail(&ctx->block->node, &ctx->ir->block_list);
+	ctx->nblock = nblock;
 
 	/* re-emit addr register in each block if needed: */
-	for (int i = 0; i < ARRAY_SIZE(ctx->addr0_ht); i++) {
-		_mesa_hash_table_destroy(ctx->addr0_ht[i], NULL);
-		ctx->addr0_ht[i] = NULL;
-	}
-
-	_mesa_hash_table_u64_destroy(ctx->addr1_ht, NULL);
-	ctx->addr1_ht = NULL;
+	reset_block_cache(ctx);
 
 	nir_foreach_instr (instr, nblock) {
 		ctx->cur_instr = instr;
@@ -2658,14 +2764,14 @@ emit_block(struct ir3_context *ctx, nir_block *nblock)
 			return;
 	}
 
+	list_addtail(&ctx->block->node, &ctx->ir->block_list);
+
 	for (int i = 0; i < ARRAY_SIZE(ctx->block->successors); i++) {
 		if (nblock->successors[i]) {
 			ctx->block->successors[i] =
 				get_block(ctx, nblock->successors[i]);
 		}
 	}
-
-	_mesa_hash_table_clear(ctx->sel_cond_conversions, NULL);
 }
 
 static void emit_cf_list(struct ir3_context *ctx, struct exec_list *list);
@@ -2673,9 +2779,10 @@ static void emit_cf_list(struct ir3_context *ctx, struct exec_list *list);
 static void
 emit_if(struct ir3_context *ctx, nir_if *nif)
 {
-	struct ir3_instruction *condition = ir3_get_src(ctx, &nif->condition)[0];
-
-	ctx->block->condition = ir3_get_predicate(ctx, condition);
+	if (ctx->block->brtype != IR3_BRANCH_GETONE) {
+		struct ir3_instruction *condition = ir3_get_src(ctx, &nif->condition)[0];
+		ctx->block->condition = ir3_get_predicate(ctx, condition);
+	}
 
 	emit_cf_list(ctx, &nif->then_list);
 	emit_cf_list(ctx, &nif->else_list);

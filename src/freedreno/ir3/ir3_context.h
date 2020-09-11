@@ -65,6 +65,7 @@ struct ir3_context {
 	struct ir3_instruction **outputs;
 
 	struct ir3_block *block;      /* the current block */
+	nir_block *nblock;            /* the current NIR block */
 	struct ir3_block *in_block;   /* block created for shader inputs */
 
 	nir_function_impl *impl;
