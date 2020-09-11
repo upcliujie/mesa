@@ -446,7 +446,7 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
                      image_infos[num_image_info].imageView = VK_NULL_HANDLE;
                      if (sampler) {
                         sampler_states[num_sampler_states++] = sampler;
-                        image_infos[num_image_info].sampler = sampler->sampler;
+                        image_infos[num_image_info].sampler = sampler->sampler[0];
                      }
                      if (!k)
                         wds[num_wds].pImageInfo = image_infos + num_image_info;
@@ -461,7 +461,13 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
                   image_infos[num_image_info].imageView = imageview;
                   if (sampler) {
                      sampler_states[num_sampler_states++] = sampler;
-                     image_infos[num_image_info].sampler = sampler->sampler;
+                     VkFormatProperties props;
+                     vkGetPhysicalDeviceFormatProperties(screen->pdev, res->format, &props);
+                     if ((res->optimal_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
+                         (!res->optimal_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
+                        image_infos[num_image_info].sampler = sampler->sampler[0];
+                     else
+                        image_infos[num_image_info].sampler = sampler->sampler[1] ?: sampler->sampler[0];
                   }
                   if (!k)
                      wds[num_wds].pImageInfo = image_infos + num_image_info;

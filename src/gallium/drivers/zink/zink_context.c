@@ -174,21 +174,21 @@ wrap_needs_border_color(unsigned wrap)
           wrap == PIPE_TEX_WRAP_MIRROR_CLAMP || wrap == PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER;
 }
 
-static void *
-zink_create_sampler_state(struct pipe_context *pctx,
-                          const struct pipe_sampler_state *state)
+static VkSampler
+create_sampler(struct pipe_context *pctx, const struct pipe_sampler_state *state, bool no_linear)
 {
    struct zink_screen *screen = zink_screen(pctx->screen);
    bool need_custom = false;
+   VkSampler sampler = VK_NULL_HANDLE;
 
    VkSamplerCreateInfo sci = {};
    VkSamplerCustomBorderColorCreateInfoEXT cbci = {};
    sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-   sci.magFilter = zink_filter(state->mag_img_filter);
-   sci.minFilter = zink_filter(state->min_img_filter);
+   sci.magFilter = no_linear ? VK_FILTER_NEAREST : zink_filter(state->mag_img_filter);
+   sci.minFilter = no_linear ? VK_FILTER_NEAREST : zink_filter(state->min_img_filter);
 
    if (state->min_mip_filter != PIPE_TEX_MIPFILTER_NONE) {
-      sci.mipmapMode = sampler_mipmap_mode(state->min_mip_filter);
+      sci.mipmapMode = no_linear ? VK_SAMPLER_MIPMAP_MODE_NEAREST : sampler_mipmap_mode(state->min_mip_filter);
       sci.minLod = state->min_lod;
       sci.maxLod = state->max_lod;
    } else {
@@ -231,14 +231,31 @@ zink_create_sampler_state(struct pipe_context *pctx,
       sci.maxAnisotropy = state->max_anisotropy;
       sci.anisotropyEnable = VK_TRUE;
    }
+   vkCreateSampler(screen->dev, &sci, NULL, &sampler);
+   return sampler;
+}
 
+static void *
+zink_create_sampler_state(struct pipe_context *pctx,
+                          const struct pipe_sampler_state *state)
+{
    struct zink_sampler_state *sampler = CALLOC(1, sizeof(struct zink_sampler_state));
    if (!sampler)
       return NULL;
-
-   if (vkCreateSampler(screen->dev, &sci, NULL, &sampler->sampler) != VK_SUCCESS) {
+   sampler->sampler[0] = create_sampler(pctx, state, false);
+   if (!sampler->sampler[0]) {
       FREE(sampler);
       return NULL;
+   }
+   /* If filter is VK_FILTER_LINEAR, then the format features of srcImage
+    * must contain VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
+    *
+    * we need 2 samplers to ensure this is possible
+    */
+   if (state->mag_img_filter == PIPE_TEX_FILTER_LINEAR ||
+       state->min_img_filter == PIPE_TEX_FILTER_LINEAR ||
+       state->min_mip_filter == PIPE_TEX_MIPFILTER_LINEAR) {
+      sampler->sampler[1] = create_sampler(pctx, state, true);
    }
    pipe_reference_init(&sampler->reference, 1);
 
@@ -264,8 +281,12 @@ zink_destroy_sampler_state(struct zink_screen *screen, struct zink_sampler_state
 {
    if (sampler_state->custom_border_color) {
       p_atomic_dec(&screen->cur_custom_border_color_samplers);
+      if (sampler_state->sampler[1])
+         p_atomic_dec(&screen->cur_custom_border_color_samplers);
    }
-   vkDestroySampler(screen->dev, sampler_state->sampler, NULL);
+   vkDestroySampler(screen->dev, sampler_state->sampler[0], NULL);
+   if (sampler_state->sampler[1])
+      vkDestroySampler(screen->dev, sampler_state->sampler[1], NULL);
    free(sampler_state);
 }
 

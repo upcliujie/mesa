@@ -73,7 +73,7 @@ struct zink_image_view {
 
 struct zink_sampler_state {
    struct pipe_reference reference;
-   VkSampler sampler;
+   VkSampler sampler[2]; //base, non-linear
    bool custom_border_color;
 };
 
