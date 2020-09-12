@@ -36,6 +36,7 @@ struct zink_fence;
 struct zink_framebuffer;
 struct zink_render_pass;
 struct zink_resource;
+struct zink_sampler_state;
 struct zink_sampler_view;
 struct zink_surface;
 
@@ -56,9 +57,8 @@ struct zink_batch {
 
    struct set *resources;
    struct set *sampler_views;
+   struct set *sampler_states;
    struct set *surfaces;
-
-   struct util_dynarray zombie_samplers;
 
    struct set *active_queries; /* zink_query objects which were active at some point in this batch */
    bool has_draw;
@@ -81,6 +81,9 @@ zink_batch_reference_resource_rw(struct zink_batch *batch,
 void
 zink_batch_reference_sampler_view(struct zink_batch *batch,
                                   struct zink_sampler_view *sv);
+void
+zink_batch_reference_sampler_state(struct zink_batch *batch,
+                                  struct zink_sampler_state *state);
 
 void
 zink_batch_reference_program(struct zink_batch *batch,

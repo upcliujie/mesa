@@ -53,6 +53,13 @@
 #define XXH_INLINE_ALL
 #include "util/xxhash.h"
 
+
+void
+debug_describe_zink_sampler_state(char *buf, const struct zink_sampler_state *ptr)
+{
+   sprintf(buf, "zink_sampler_state");
+}
+
 static void
 zink_context_destroy(struct pipe_context *pctx)
 {
@@ -167,11 +174,6 @@ wrap_needs_border_color(unsigned wrap)
           wrap == PIPE_TEX_WRAP_MIRROR_CLAMP || wrap == PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER;
 }
 
-struct zink_sampler_state {
-   VkSampler sampler;
-   bool custom_border_color;
-};
-
 static void *
 zink_create_sampler_state(struct pipe_context *pctx,
                           const struct pipe_sampler_state *state)
@@ -238,6 +240,7 @@ zink_create_sampler_state(struct pipe_context *pctx,
       FREE(sampler);
       return NULL;
    }
+   pipe_reference_init(&sampler->reference, 1);
 
    return sampler;
 }
@@ -251,11 +254,19 @@ zink_bind_sampler_states(struct pipe_context *pctx,
 {
    struct zink_context *ctx = zink_context(pctx);
    for (unsigned i = 0; i < num_samplers; ++i) {
-      VkSampler *sampler = samplers[i];
-      ctx->sampler_states[shader][start_slot + i] = sampler;
-      ctx->samplers[shader][start_slot + i] = sampler ? *sampler : VK_NULL_HANDLE;
+      ctx->sampler_states[shader][start_slot + i] = samplers[i];
    }
    ctx->num_samplers[shader] = start_slot + num_samplers;
+}
+
+void
+zink_destroy_sampler_state(struct zink_screen *screen, struct zink_sampler_state *sampler_state)
+{
+   if (sampler_state->custom_border_color) {
+      p_atomic_dec(&screen->cur_custom_border_color_samplers);
+   }
+   vkDestroySampler(screen->dev, sampler_state->sampler, NULL);
+   free(sampler_state);
 }
 
 static void
@@ -263,12 +274,7 @@ zink_delete_sampler_state(struct pipe_context *pctx,
                           void *sampler_state)
 {
    struct zink_sampler_state *sampler = sampler_state;
-   struct zink_batch *batch = zink_curr_batch(zink_context(pctx));
-   util_dynarray_append(&batch->zombie_samplers, VkSampler,
-                        sampler->sampler);
-   if (sampler->custom_border_color)
-      p_atomic_dec(&zink_screen(pctx->screen)->cur_custom_border_color_samplers);
-   FREE(sampler);
+   zink_sampler_state_reference(zink_screen(pctx->screen), &sampler, NULL);
 }
 
 
@@ -1657,14 +1663,13 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
 
    batch->resources = _mesa_pointer_set_create(NULL);
    batch->sampler_views = _mesa_pointer_set_create(NULL);
+   batch->sampler_states = _mesa_pointer_set_create(NULL);
    batch->programs = _mesa_pointer_set_create(NULL);
    batch->surfaces = _mesa_pointer_set_create(NULL);
 
-   if (!batch->resources || !batch->sampler_views ||
+   if (!batch->resources || !batch->sampler_views || !batch->sampler_states ||
        !batch->programs || !batch->surfaces)
       return false;
-
-   util_dynarray_init(&batch->zombie_samplers, NULL);
 
    if (vkCreateDescriptorPool(screen->dev, &dpci, 0,
                               &batch->descpool) != VK_SUCCESS)

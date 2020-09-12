@@ -53,16 +53,17 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    }
    _mesa_set_clear(batch->sampler_views, NULL);
 
+   set_foreach(batch->sampler_states, entry) {
+      struct zink_sampler_state *state = (struct zink_sampler_state*)entry->key;
+      zink_sampler_state_reference(screen, &state, NULL);
+   }
+   _mesa_set_clear(batch->sampler_states, NULL);
+
    set_foreach(batch->surfaces, entry) {
       struct pipe_surface *surf = (struct pipe_surface *)entry->key;
       pipe_surface_reference(&surf, NULL);
    }
    _mesa_set_clear(batch->surfaces, NULL);
-
-   util_dynarray_foreach(&batch->zombie_samplers, VkSampler, samp) {
-      vkDestroySampler(screen->dev, *samp, NULL);
-   }
-   util_dynarray_clear(&batch->zombie_samplers);
 
    if (vkResetDescriptorPool(screen->dev, batch->descpool, 0) != VK_SUCCESS)
       fprintf(stderr, "vkResetDescriptorPool failed\n");
@@ -173,6 +174,17 @@ zink_batch_reference_sampler_view(struct zink_batch *batch,
    if (!entry) {
       entry = _mesa_set_add(batch->sampler_views, sv);
       pipe_reference(NULL, &sv->base.reference);
+   }
+}
+
+void
+zink_batch_reference_sampler_state(struct zink_batch *batch,
+                                   struct zink_sampler_state *state)
+{
+   struct set_entry *entry = _mesa_set_search(batch->sampler_states, state);
+   if (!entry) {
+      entry = _mesa_set_add(batch->sampler_states, state);
+      pipe_reference(NULL, &state->reference);
    }
 }
 

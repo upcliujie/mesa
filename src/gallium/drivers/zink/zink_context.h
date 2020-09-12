@@ -29,6 +29,7 @@
 
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
+#include "util/u_inlines.h"
 
 #include "util/slab.h"
 #include "util/list.h"
@@ -68,6 +69,12 @@ struct zink_image_view {
       struct zink_surface *surface;
       VkBufferView buffer_view;
    };
+};
+
+struct zink_sampler_state {
+   struct pipe_reference reference;
+   VkSampler sampler;
+   bool custom_border_color;
 };
 
 static inline struct zink_sampler_view *
@@ -143,8 +150,7 @@ struct zink_context {
    struct pipe_vertex_buffer buffers[PIPE_MAX_ATTRIBS];
    uint32_t buffers_enabled_mask;
 
-   void *sampler_states[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
-   VkSampler samplers[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
+   struct zink_sampler_state *sampler_states[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
    unsigned num_samplers[PIPE_SHADER_TYPES];
    struct pipe_sampler_view *sampler_views[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_SAMPLER_VIEWS];
    unsigned num_sampler_views[PIPE_SHADER_TYPES];
@@ -268,4 +274,23 @@ zink_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info);
 void
 zink_copy_buffer(struct zink_context *ctx, struct zink_batch *batch, struct zink_resource *dst, struct zink_resource *src,
                  unsigned dst_offset, unsigned src_offset, unsigned size);
+
+
+void
+zink_destroy_sampler_state(struct zink_screen *screen, struct zink_sampler_state *sampler_state);
+void
+debug_describe_zink_sampler_state(char *buf, const struct zink_sampler_state *ptr);
+
+static inline void
+zink_sampler_state_reference(struct zink_screen *screen,
+                             struct zink_sampler_state **dst,
+                             struct zink_sampler_state *src)
+{
+   struct zink_sampler_state *old_dst = dst ? *dst : NULL;
+
+   if (pipe_reference_described(old_dst ? &old_dst->reference : NULL, &src->reference,
+                                (debug_reference_descriptor)debug_describe_zink_sampler_state))
+      zink_destroy_sampler_state(screen, old_dst);
+   if (dst) *dst = src;
+}
 #endif
