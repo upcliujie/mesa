@@ -2086,6 +2086,33 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 		dst[0] = ir3_create_array_load(ctx->block, arr, 0, NULL);
 		break;
 	}
+	case nir_intrinsic_ballot: {
+		if (nir_src_is_const(intr->src[0]) &&
+			nir_src_as_bool(intr->src[0])) {
+			/* ballot(true) is the same as MOVMSK */
+			struct ir3_instruction *movmsk = ir3_MOVMSK(ctx->block, 4);
+			ir3_split_dest(b, dst, movmsk, 0, 4);
+			break;
+		}
+
+		struct ir3_instruction *src = ir3_get_src(ctx, &intr->src[0])[0];
+
+		struct ir3_array *arr = ir3_create_array(ctx, 4, false, true);
+
+		for (unsigned i = 0; i < 4; i++)
+			ir3_create_array_store(ctx->block, arr, i, create_immed(ctx->block, 0), NULL);
+
+		struct ir3_block *then = build_if_then(ctx, src, IR3_BRANCH_COND);
+		struct ir3_instruction *movmsk_split[4];
+		struct ir3_instruction *movmsk = ir3_MOVMSK(then, 4);
+		ir3_split_dest(then, movmsk_split, movmsk, 0, 4);
+		for (unsigned i = 0; i < 4; i++)
+			ir3_create_array_store(then, arr, i, movmsk_split[i], NULL);
+
+		for (unsigned i = 0; i < 4; i++)
+			dst[i] = ir3_create_array_load(ctx->block, arr, i, NULL);
+		break;
+	}
 	default:
 		ir3_context_error(ctx, "Unhandled intrinsic type: %s\n",
 				nir_intrinsic_infos[intr->intrinsic].name);
