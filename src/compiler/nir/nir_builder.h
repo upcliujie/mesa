@@ -1547,8 +1547,6 @@ nir_convert_alu_types(nir_builder *b, nir_ssa_def *src,
    return &conv->dest.ssa;
 }
 
-#include "nir_builder_opcodes.h"
-
 static inline nir_ssa_def *
 nir_f2b(nir_builder *build, nir_ssa_def *f)
 {
