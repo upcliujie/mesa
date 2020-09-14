@@ -68,6 +68,9 @@ tu_spirv_to_nir(struct ir3_compiler *compiler,
          .variable_pointers = true,
          .stencil_export = true,
          .multiview = true,
+         .subgroup_basic = true,
+         .subgroup_ballot = true,
+         .subgroup_vote = true,
       },
    };
    const nir_shader_compiler_options *nir_options =
