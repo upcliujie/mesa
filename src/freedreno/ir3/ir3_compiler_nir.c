@@ -2052,6 +2052,40 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 		dst[0] = ir3_create_array_load(ctx->block, arr, 0, NULL);
 		break;
 	}
+	case nir_intrinsic_read_first_invocation: {
+		struct ir3_instruction *src = ir3_get_src(ctx, &intr->src[0])[0];
+		struct ir3_array *arr = ir3_create_array(ctx, 1, false, true);
+
+		/* TODO this really shouldn't be necessary, since "arr" is shared and
+		 * the condition is always taken by at least one thread so it's always
+		 * defined in practice, but RA doesn't know this. Define it here to
+		 * keep the live range from blowing up.
+		 */
+		ir3_create_array_store(ctx->block, arr, 0, create_immed(ctx->block, 0), NULL);
+
+		struct ir3_block *then = build_if_then(ctx, NULL, IR3_BRANCH_GETONE);
+		struct ir3_instruction *mov = ir3_MOV(then, src, TYPE_U32);
+		mov->regs[0]->flags |= IR3_REG_SHARED;
+		ir3_create_array_store(then, arr, 0, mov, NULL);
+
+		dst[0] = ir3_create_array_load(ctx->block, arr, 0, NULL);
+		break;
+	}
+	case nir_intrinsic_read_invocation_cond: {
+		struct ir3_instruction *src = ir3_get_src(ctx, &intr->src[0])[0];
+		struct ir3_instruction *cond = ir3_get_src(ctx, &intr->src[1])[0];
+		struct ir3_array *arr = ir3_create_array(ctx, 1, false, true);
+
+		ir3_create_array_store(ctx->block, arr, 0, create_immed(ctx->block, 0), NULL);
+
+		struct ir3_block *then = build_if_then(ctx, cond, IR3_BRANCH_COND);
+		struct ir3_instruction *mov = ir3_MOV(then, src, TYPE_U32);
+		mov->regs[0]->flags |= IR3_REG_SHARED;
+		ir3_create_array_store(then, arr, 0, mov, NULL);
+
+		dst[0] = ir3_create_array_load(ctx->block, arr, 0, NULL);
+		break;
+	}
 	default:
 		ir3_context_error(ctx, "Unhandled intrinsic type: %s\n",
 				nir_intrinsic_infos[intr->intrinsic].name);
