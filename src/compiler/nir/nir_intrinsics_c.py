@@ -42,6 +42,11 @@ const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics] = {
    .bit_size_src = ${opcode.bit_size_src},
    .num_indices = ${opcode.num_indices},
 % if opcode.indices:
+   .indices = {
+% for i in range(len(opcode.indices)):
+      ${opcode.indices[i][0]},
+% endfor
+   },
    .index_map = {
 % for i in range(len(opcode.indices)):
       [${opcode.indices[i][0]}] = ${i + 1},
