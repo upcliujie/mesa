@@ -54,6 +54,7 @@ DRI_CONF_BEGIN
    DRI_CONF_SECTION_PERFORMANCE
       DRI_CONF_VK_X11_OVERRIDE_MIN_IMAGE_COUNT(0)
       DRI_CONF_VK_X11_STRICT_IMAGE_COUNT("false")
+      DRI_CONF_DISABLE_D16UNORM_COMPRESSION("false")
    DRI_CONF_SECTION_END
 
    DRI_CONF_SECTION_DEBUG
@@ -308,6 +309,18 @@ anv_physical_device_free_disk_cache(struct anv_physical_device *device)
 #endif
 }
 
+static void
+anv_parse_dri_options(struct anv_physical_device *device)
+{
+   struct anv_instance *instance = device->instance;
+
+   device->always_flush_cache =
+      driQueryOptionb(&instance->dri_options, "always_flush_cache");
+   device->disable_d16unorm_compression =
+      driQueryOptionb(&instance->dri_options,
+                      "disable_d16unorm_compression");
+}
+
 static VkResult
 anv_physical_device_try_create(struct anv_instance *instance,
                                drmDevicePtr drm_device,
@@ -475,8 +488,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
    uint64_t avail_mem;
    device->has_mem_available = os_get_available_system_memory(&avail_mem);
 
-   device->always_flush_cache =
-      driQueryOptionb(&instance->dri_options, "always_flush_cache");
+   anv_parse_dri_options(device);
 
    device->has_mmap_offset =
       anv_gem_get_param(fd, I915_PARAM_MMAP_GTT_VERSION) >= 4;

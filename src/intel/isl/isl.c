@@ -1931,7 +1931,8 @@ isl_surf_get_mcs_surf(const struct isl_device *dev,
 
 bool
 isl_surf_supports_ccs(const struct isl_device *dev,
-                      const struct isl_surf *surf)
+                      const struct isl_surf *surf,
+                      bool disable_d16unorm_compression)
 {
    /* CCS support does not exist prior to Gen7 */
    if (ISL_DEV_GEN(dev) <= 6)
@@ -1970,6 +1971,14 @@ isl_surf_supports_ccs(const struct isl_device *dev,
 
    if (ISL_DEV_GEN(dev) >= 12) {
       if (isl_surf_usage_is_stencil(surf->usage) && surf->samples > 1)
+         return false;
+
+      /* Disable D16_UNORM HIZ_CCS_WT compression for Fallout4 to avoid perf
+       * regression.
+       */
+      if (isl_surf_usage_is_depth(surf->usage) &&
+          surf->format == ISL_FORMAT_R16_UNORM &&
+          disable_d16unorm_compression)
          return false;
 
       /* On Gen12, 8BPP surfaces cannot be compressed if any level is not
@@ -2089,7 +2098,7 @@ isl_surf_get_ccs_surf(const struct isl_device *dev,
    if (aux_surf->usage & ISL_SURF_USAGE_CCS_BIT)
       return false;
 
-   if (!isl_surf_supports_ccs(dev, surf))
+   if (!isl_surf_supports_ccs(dev, surf, false))
       return false;
 
    if (ISL_DEV_GEN(dev) >= 12) {

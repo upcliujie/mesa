@@ -406,7 +406,8 @@ add_aux_surface_if_supported(struct anv_device *device,
                                  &image->planes[plane].aux_surface.isl);
       assert(ok);
       if (!isl_surf_supports_ccs(&device->isl_dev,
-                                 &image->planes[plane].surface.isl)) {
+                                 &image->planes[plane].surface.isl,
+                                 device->physical->disable_d16unorm_compression)) {
          image->planes[plane].aux_usage = ISL_AUX_USAGE_HIZ;
       } else if (image->usage & (VK_IMAGE_USAGE_SAMPLED_BIT |
                                  VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) &&

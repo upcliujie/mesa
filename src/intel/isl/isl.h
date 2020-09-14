@@ -2011,7 +2011,8 @@ isl_surf_get_tile_info(const struct isl_surf *surf,
 
 bool
 isl_surf_supports_ccs(const struct isl_device *dev,
-                      const struct isl_surf *surf);
+                      const struct isl_surf *surf,
+                      bool disable_d16unorm_compression);
 
 bool
 isl_surf_get_hiz_surf(const struct isl_device *dev,
