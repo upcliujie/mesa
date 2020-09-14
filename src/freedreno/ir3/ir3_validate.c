@@ -118,15 +118,22 @@ validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
 	 */
 	switch (opc_cat(instr->opc)) {
 	case 1: /* move instructions */
-		if (instr->regs[0]->flags & IR3_REG_HALF) {
-			validate_assert(ctx, instr->cat1.dst_type == half_type(instr->cat1.dst_type));
+		if (instr->opc == OPC_MOVMSK) {
+			validate_assert(ctx, instr->regs_count == 1);
+			validate_assert(ctx, instr->regs[0]->flags & IR3_REG_SHARED);
+			validate_assert(ctx, !(instr->regs[0]->flags & IR3_REG_HALF));
+			validate_assert(ctx, util_is_power_of_two_or_zero(instr->regs[0]->wrmask + 1));
 		} else {
-			validate_assert(ctx, instr->cat1.dst_type == full_type(instr->cat1.dst_type));
-		}
-		if (instr->regs[1]->flags & IR3_REG_HALF) {
-			validate_assert(ctx, instr->cat1.src_type == half_type(instr->cat1.src_type));
-		} else {
-			validate_assert(ctx, instr->cat1.src_type == full_type(instr->cat1.src_type));
+			if (instr->regs[0]->flags & IR3_REG_HALF) {
+				validate_assert(ctx, instr->cat1.dst_type == half_type(instr->cat1.dst_type));
+			} else {
+				validate_assert(ctx, instr->cat1.dst_type == full_type(instr->cat1.dst_type));
+			}
+			if (instr->regs[1]->flags & IR3_REG_HALF) {
+				validate_assert(ctx, instr->cat1.src_type == half_type(instr->cat1.src_type));
+			} else {
+				validate_assert(ctx, instr->cat1.src_type == full_type(instr->cat1.src_type));
+			}
 		}
 		break;
 	case 3:
