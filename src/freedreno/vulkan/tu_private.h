@@ -288,10 +288,9 @@ struct tu_pipeline_key
 
 #define TU_MAX_QUEUE_FAMILIES 1
 
-struct tu_fence
-{
+struct tu_syncobj {
    struct vk_object_base base;
-   uint32_t syncobj;
+   uint32_t permanent, temporary;
 };
 
 struct tu_queue
@@ -1468,11 +1467,6 @@ struct tu_query_pool
    struct tu_bo bo;
 };
 
-struct tu_semaphore {
-   struct vk_object_base base;
-   uint32_t permanent, temporary;
-};
-
 void
 tu_set_descriptor_set(struct tu_cmd_buffer *cmd_buffer,
                       VkPipelineBindPoint bind_point,
@@ -1554,7 +1548,6 @@ TU_DEFINE_NONDISP_HANDLE_CASTS(tu_descriptor_set_layout,
 TU_DEFINE_NONDISP_HANDLE_CASTS(tu_descriptor_update_template,
                                VkDescriptorUpdateTemplate)
 TU_DEFINE_NONDISP_HANDLE_CASTS(tu_device_memory, VkDeviceMemory)
-TU_DEFINE_NONDISP_HANDLE_CASTS(tu_fence, VkFence)
 TU_DEFINE_NONDISP_HANDLE_CASTS(tu_event, VkEvent)
 TU_DEFINE_NONDISP_HANDLE_CASTS(tu_framebuffer, VkFramebuffer)
 TU_DEFINE_NONDISP_HANDLE_CASTS(tu_image, VkImage)
@@ -1567,6 +1560,11 @@ TU_DEFINE_NONDISP_HANDLE_CASTS(tu_render_pass, VkRenderPass)
 TU_DEFINE_NONDISP_HANDLE_CASTS(tu_sampler, VkSampler)
 TU_DEFINE_NONDISP_HANDLE_CASTS(tu_sampler_ycbcr_conversion, VkSamplerYcbcrConversion)
 TU_DEFINE_NONDISP_HANDLE_CASTS(tu_shader_module, VkShaderModule)
-TU_DEFINE_NONDISP_HANDLE_CASTS(tu_semaphore, VkSemaphore)
+
+/* for TU_FROM_HANDLE with both VkFence and VkSemaphore: */
+static inline struct tu_syncobj* tu_syncobj_from_handle(void *handle)
+{
+   return (struct tu_syncobj*) (uintptr_t) handle;
+}
 
 #endif /* TU_PRIVATE_H */
