@@ -411,40 +411,14 @@ tu_enumerate_devices(struct tu_instance *instance)
    return result;
 }
 
-// Queue semaphore functions
-
 static void
-tu_semaphore_part_destroy(struct tu_device *device,
-                          struct tu_semaphore_part *part)
+semaphore_set_temporary(struct tu_device *device, struct tu_semaphore *sem, uint32_t syncobj)
 {
-   switch(part->kind) {
-   case TU_SEMAPHORE_NONE:
-      break;
-   case TU_SEMAPHORE_SYNCOBJ:
-      drmSyncobjDestroy(device->fd, part->syncobj);
-      break;
+   if (sem->temporary) {
+      ioctl(device->fd, DRM_IOCTL_SYNCOBJ_DESTROY,
+            &(struct drm_syncobj_destroy) { .handle = sem->temporary });
    }
-   part->kind = TU_SEMAPHORE_NONE;
-}
-
-static void
-tu_semaphore_remove_temp(struct tu_device *device,
-                         struct tu_semaphore *sem)
-{
-   if (sem->temporary.kind != TU_SEMAPHORE_NONE) {
-      tu_semaphore_part_destroy(device, &sem->temporary);
-   }
-}
-
-static void
-tu_semaphores_remove_temp(struct tu_device *device,
-                          const VkSemaphore *sems,
-                          uint32_t sem_count)
-{
-   for (uint32_t i = 0; i  < sem_count; ++i) {
-      TU_FROM_HANDLE(tu_semaphore, sem, sems[i]);
-      tu_semaphore_remove_temp(device, sem);
-   }
+   sem->temporary = syncobj;
 }
 
 VkResult
@@ -461,21 +435,16 @@ tu_CreateSemaphore(VkDevice _device,
    if (!sem)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   const VkExportSemaphoreCreateInfo *export =
-      vk_find_struct_const(pCreateInfo->pNext, EXPORT_SEMAPHORE_CREATE_INFO);
-   VkExternalSemaphoreHandleTypeFlags handleTypes =
-      export ? export->handleTypes : 0;
-
-   sem->permanent.kind = TU_SEMAPHORE_NONE;
-   sem->temporary.kind = TU_SEMAPHORE_NONE;
-
-   if (handleTypes) {
-      if (drmSyncobjCreate(device->fd, 0, &sem->permanent.syncobj) < 0) {
-          vk_free2(&device->vk.alloc, pAllocator, sem);
-          return VK_ERROR_OUT_OF_HOST_MEMORY;
-      }
-      sem->permanent.kind = TU_SEMAPHORE_SYNCOBJ;
+   struct drm_syncobj_create create = {};
+   int ret = ioctl(device->fd, DRM_IOCTL_SYNCOBJ_CREATE, &create);
+   if (ret) {
+      vk_free2(&device->vk.alloc, pAllocator, sem);
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
    }
+
+   sem->permanent = create.handle;
+   sem->temporary = 0;
+
    *pSemaphore = tu_semaphore_to_handle(sem);
    return VK_SUCCESS;
 }
@@ -490,106 +459,104 @@ tu_DestroySemaphore(VkDevice _device,
    if (!_semaphore)
       return;
 
-   tu_semaphore_part_destroy(device, &sem->permanent);
-   tu_semaphore_part_destroy(device, &sem->temporary);
+   semaphore_set_temporary(device, sem, 0);
+   ioctl(device->fd, DRM_IOCTL_SYNCOBJ_DESTROY,
+         &(struct drm_syncobj_destroy) { .handle = sem->permanent });
 
    vk_object_free(&device->vk, pAllocator, sem);
 }
 
 VkResult
 tu_ImportSemaphoreFdKHR(VkDevice _device,
-                        const VkImportSemaphoreFdInfoKHR *pImportSemaphoreFdInfo)
+                        const VkImportSemaphoreFdInfoKHR *info)
 {
    TU_FROM_HANDLE(tu_device, device, _device);
-   TU_FROM_HANDLE(tu_semaphore, sem, pImportSemaphoreFdInfo->semaphore);
+   TU_FROM_HANDLE(tu_semaphore, sem, info->semaphore);
    int ret;
-   struct tu_semaphore_part *dst = NULL;
 
-   if (pImportSemaphoreFdInfo->flags & VK_SEMAPHORE_IMPORT_TEMPORARY_BIT) {
-      dst = &sem->temporary;
-   } else {
-      dst = &sem->permanent;
-   }
-
-   uint32_t syncobj = dst->kind == TU_SEMAPHORE_SYNCOBJ ? dst->syncobj : 0;
-
-   switch(pImportSemaphoreFdInfo->handleType) {
+   switch(info->handleType) {
       case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT: {
-         uint32_t old_syncobj = syncobj;
-         ret = drmSyncobjFDToHandle(device->fd, pImportSemaphoreFdInfo->fd, &syncobj);
-         if (ret == 0) {
-            close(pImportSemaphoreFdInfo->fd);
-            if (old_syncobj)
-               drmSyncobjDestroy(device->fd, old_syncobj);
+         uint32_t *dst;
+         if (info->flags & VK_SEMAPHORE_IMPORT_TEMPORARY_BIT)
+            dst = &sem->temporary;
+         else
+            dst = &sem->permanent;
+
+         struct drm_syncobj_handle handle = { .fd = info->fd };
+         ret = ioctl(device->fd, DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE, &handle);
+         if (ret)
+            return VK_ERROR_INVALID_EXTERNAL_HANDLE;
+
+         if (*dst) {
+            ioctl(device->fd, DRM_IOCTL_SYNCOBJ_DESTROY,
+                  &(struct drm_syncobj_destroy) { .handle = *dst });
          }
+         *dst = handle.handle;
+         close(info->fd);
          break;
       }
       case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT: {
-         if (!syncobj) {
-            ret = drmSyncobjCreate(device->fd, 0, &syncobj);
-            if (ret)
-               break;
+         assert(info->flags & VK_SEMAPHORE_IMPORT_TEMPORARY_BIT);
+
+         struct drm_syncobj_create create = {};
+
+         if (info->fd == -1)
+            create.flags |= DRM_SYNCOBJ_CREATE_SIGNALED;
+
+         ret = ioctl(device->fd, DRM_IOCTL_SYNCOBJ_CREATE, &create);
+         if (ret)
+            return VK_ERROR_INVALID_EXTERNAL_HANDLE;
+
+         if (info->fd != -1) {
+            ret = ioctl(device->fd, DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE, &(struct drm_syncobj_handle) {
+               .fd = info->fd,
+               .handle = create.handle,
+               .flags = DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE,
+            });
+            if (ret) {
+               ioctl(device->fd, DRM_IOCTL_SYNCOBJ_DESTROY,
+                     &(struct drm_syncobj_destroy) { .handle = create.handle });
+               return VK_ERROR_INVALID_EXTERNAL_HANDLE;
+            }
+            close(info->fd);
          }
-         if (pImportSemaphoreFdInfo->fd == -1) {
-            ret = drmSyncobjSignal(device->fd, &syncobj, 1);
-         } else {
-            ret = drmSyncobjImportSyncFile(device->fd, syncobj, pImportSemaphoreFdInfo->fd);
-         }
-         if (!ret)
-            close(pImportSemaphoreFdInfo->fd);
+
+         semaphore_set_temporary(device, sem, create.handle);
          break;
       }
       default:
          unreachable("Unhandled semaphore handle type");
    }
 
-   if (ret) {
-      return VK_ERROR_INVALID_EXTERNAL_HANDLE;
-   }
-   dst->syncobj = syncobj;
-   dst->kind = TU_SEMAPHORE_SYNCOBJ;
-
    return VK_SUCCESS;
 }
 
 VkResult
 tu_GetSemaphoreFdKHR(VkDevice _device,
-                     const VkSemaphoreGetFdInfoKHR *pGetFdInfo,
+                     const VkSemaphoreGetFdInfoKHR *info,
                      int *pFd)
 {
    TU_FROM_HANDLE(tu_device, device, _device);
-   TU_FROM_HANDLE(tu_semaphore, sem, pGetFdInfo->semaphore);
+   TU_FROM_HANDLE(tu_semaphore, sem, info->semaphore);
    int ret;
-   uint32_t syncobj_handle;
 
-   if (sem->temporary.kind != TU_SEMAPHORE_NONE) {
-      assert(sem->temporary.kind == TU_SEMAPHORE_SYNCOBJ);
-      syncobj_handle = sem->temporary.syncobj;
-   } else {
-      assert(sem->permanent.kind == TU_SEMAPHORE_SYNCOBJ);
-      syncobj_handle = sem->permanent.syncobj;
-   }
+   assert(info->handleType == VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT ||
+          info->handleType == VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT);
 
-   switch(pGetFdInfo->handleType) {
-   case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT:
-      ret = drmSyncobjHandleToFD(device->fd, syncobj_handle, pFd);
-      break;
-   case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT:
-      ret = drmSyncobjExportSyncFile(device->fd, syncobj_handle, pFd);
-      if (!ret) {
-         if (sem->temporary.kind != TU_SEMAPHORE_NONE) {
-            tu_semaphore_part_destroy(device, &sem->temporary);
-         } else {
-            drmSyncobjReset(device->fd, &syncobj_handle, 1);
-         }
-      }
-      break;
-   default:
-      unreachable("Unhandled semaphore handle type");
-   }
-
+   struct drm_syncobj_handle handle = {
+      .handle = sem->temporary ?: sem->permanent,
+      .flags = COND(info->handleType == VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+                    DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE),
+      .fd = -1,
+   };
+   ret = ioctl(device->fd, DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD, &handle);
    if (ret)
-      return vk_error(device->instance, VK_ERROR_INVALID_EXTERNAL_HANDLE);
+      return VK_ERROR_INVALID_EXTERNAL_HANDLE;
+
+   /* restore permanent payload on export */
+   semaphore_set_temporary(device, sem, 0);
+
+   *pFd = handle.fd;
    return VK_SUCCESS;
 }
 
@@ -634,28 +601,16 @@ tu_QueueSubmit(VkQueue _queue,
 
       for (uint32_t i = 0; i < submit->waitSemaphoreCount; i++) {
          TU_FROM_HANDLE(tu_semaphore, sem, submit->pWaitSemaphores[i]);
-
-         struct tu_semaphore_part *part =
-            sem->temporary.kind != TU_SEMAPHORE_NONE ?
-               &sem->temporary : &sem->permanent;
-         if (part->kind != TU_SEMAPHORE_SYNCOBJ)
-            continue;
          in_syncobjs[nr_in_syncobjs++] = (struct drm_msm_gem_submit_syncobj) {
-            .handle = part->syncobj,
-            .flags = 0,
+            .handle = sem->temporary ?: sem->permanent,
+            .flags = MSM_SUBMIT_SYNCOBJ_RESET,
          };
       }
 
       for (uint32_t i = 0; i < submit->signalSemaphoreCount; i++) {
          TU_FROM_HANDLE(tu_semaphore, sem, submit->pSignalSemaphores[i]);
-
-         struct tu_semaphore_part *part =
-            sem->temporary.kind != TU_SEMAPHORE_NONE ?
-               &sem->temporary : &sem->permanent;
-         if (part->kind != TU_SEMAPHORE_SYNCOBJ)
-            continue;
          out_syncobjs[nr_out_syncobjs++] = (struct drm_msm_gem_submit_syncobj) {
-            .handle = part->syncobj,
+            .handle = sem->temporary ?: sem->permanent,
             .flags = 0,
          };
       }
@@ -727,8 +682,12 @@ tu_QueueSubmit(VkQueue _queue,
 
       mtx_unlock(&queue->device->bo_mutex);
 
-      tu_semaphores_remove_temp(queue->device, pSubmits[i].pWaitSemaphores,
-                                pSubmits[i].waitSemaphoreCount);
+      /* restore permanent payload on wait */
+      for (uint32_t i = 0; i < submit->waitSemaphoreCount; i++) {
+         TU_FROM_HANDLE(tu_semaphore, sem, submit->pWaitSemaphores[i]);
+         semaphore_set_temporary(queue->device, sem, 0);
+      }
+
       if (last_submit) {
          if (queue->fence >= 0)
             close(queue->fence);
