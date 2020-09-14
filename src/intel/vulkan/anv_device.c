@@ -645,6 +645,18 @@ VkResult anv_EnumerateInstanceExtensionProperties(
    return vk_outarray_status(&out);
 }
 
+static void
+anv_init_dri_options(struct anv_instance *instance)
+{
+   driParseOptionInfo(&instance->available_dri_options, anv_dri_options_xml);
+   driParseConfigFiles(&instance->dri_options, &instance->available_dri_options,
+                       0, "anv", NULL,
+                       instance->app_info.app_name,
+                       instance->app_info.app_version,
+                       instance->app_info.engine_name,
+                       instance->app_info.engine_version);
+}
+
 VkResult anv_CreateInstance(
     const VkInstanceCreateInfo*                 pCreateInfo,
     const VkAllocationCallbacks*                pAllocator,
@@ -762,13 +774,7 @@ VkResult anv_CreateInstance(
 
    VG(VALGRIND_CREATE_MEMPOOL(instance, 0, false));
 
-   driParseOptionInfo(&instance->available_dri_options, anv_dri_options_xml);
-   driParseConfigFiles(&instance->dri_options, &instance->available_dri_options,
-                       0, "anv", NULL,
-                       instance->app_info.app_name,
-                       instance->app_info.app_version,
-                       instance->app_info.engine_name,
-                       instance->app_info.engine_version);
+   anv_init_dri_options(instance);
 
    *pInstance = anv_instance_to_handle(instance);
 
