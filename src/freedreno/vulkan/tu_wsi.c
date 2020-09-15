@@ -28,6 +28,7 @@
 #include "vk_util.h"
 #include "wsi_common.h"
 #include "drm-uapi/drm_fourcc.h"
+#include <sys/ioctl.h>
 
 static VKAPI_PTR PFN_vkVoidFunction
 tu_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
@@ -224,16 +225,34 @@ tu_AcquireNextImageKHR(VkDevice device,
 
 VkResult
 tu_AcquireNextImage2KHR(VkDevice _device,
-                        const VkAcquireNextImageInfoKHR *pAcquireInfo,
+                        const VkAcquireNextImageInfoKHR *info,
                         uint32_t *pImageIndex)
 {
    TU_FROM_HANDLE(tu_device, device, _device);
    struct tu_physical_device *pdevice = device->physical_device;
 
    VkResult result = wsi_common_acquire_next_image2(
-      &pdevice->wsi_device, _device, pAcquireInfo, pImageIndex);
+      &pdevice->wsi_device, _device, info, pImageIndex);
 
-   /* TODO signal fence and semaphore */
+   /* signal fence/semaphore (TODO: is this right? and this should be in tu_drm.c) */
+
+   uint32_t handles[2], count = 0;
+   if (info->fence) {
+      TU_FROM_HANDLE(tu_syncobj, sync, info->fence);
+      handles[count++] = sync->permanent;
+   }
+
+   if (info->semaphore) {
+      TU_FROM_HANDLE(tu_syncobj, sync, info->semaphore);
+      handles[count++] = sync->permanent;
+   }
+
+   if (count) {
+      ioctl(device->fd, DRM_IOCTL_SYNCOBJ_SIGNAL, &(struct drm_syncobj_array) {
+         .handles = (uintptr_t) handles,
+         .count_handles = count
+      });
+   }
 
    return result;
 }
