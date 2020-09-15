@@ -1117,6 +1117,7 @@ struct anv_physical_device {
 
     bool                                        always_flush_cache;
     bool                                        disable_d16unorm_compression;
+    bool                                        enable_r11g11b10_ccs_e;
 
     struct anv_device_extension_table           supported_extensions;
 

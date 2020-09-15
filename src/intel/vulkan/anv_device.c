@@ -55,6 +55,7 @@ DRI_CONF_BEGIN
       DRI_CONF_VK_X11_OVERRIDE_MIN_IMAGE_COUNT(0)
       DRI_CONF_VK_X11_STRICT_IMAGE_COUNT("false")
       DRI_CONF_DISABLE_D16UNORM_COMPRESSION("false")
+      DRI_CONF_ENABLE_R11G11B10_CCS_E("false")
    DRI_CONF_SECTION_END
 
    DRI_CONF_SECTION_DEBUG
@@ -319,6 +320,8 @@ anv_parse_dri_options(struct anv_physical_device *device)
    device->disable_d16unorm_compression =
       driQueryOptionb(&instance->dri_options,
                       "disable_d16unorm_compression");
+   device->enable_r11g11b10_ccs_e =
+      driQueryOptionb(&instance->dri_options, "enable_r11g11b10_ccs_e");
 }
 
 static VkResult

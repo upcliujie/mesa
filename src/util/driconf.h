@@ -532,3 +532,8 @@ DRI_CONF_OPT_END
 DRI_CONF_OPT_BEGIN_B(disable_d16unorm_compression, def) \
         DRI_CONF_DESC("Disable HIZ_CCS_WT compression for D16_UNORM surface format") \
 DRI_CONF_OPT_END
+
+#define DRI_CONF_ENABLE_R11G11B10_CCS_E(def) \
+DRI_CONF_OPT_BEGIN_B(enable_r11g11b10_ccs_e, def) \
+        DRI_CONF_DESC("Enable CCS_E support for R11G11B10_FLOAT surfaces)") \
+DRI_CONF_OPT_END

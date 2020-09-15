@@ -214,7 +214,8 @@ anv_formats_ccs_e_compatible(struct anv_physical_device *physical,
       anv_get_isl_format(devinfo, vk_format,
                          VK_IMAGE_ASPECT_COLOR_BIT, vk_tiling);
 
-   if (!isl_format_supports_ccs_e(devinfo, format))
+   if (!isl_format_supports_ccs_e(devinfo, format,
+                                  physical->enable_r11g11b10_ccs_e))
       return false;
 
    if (!(create_flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT))

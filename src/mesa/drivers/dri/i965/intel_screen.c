@@ -383,7 +383,8 @@ modifier_is_supported(const struct gen_device_info *devinfo,
       format = _mesa_format_fallback_rgbx_to_rgba(format);
       format = _mesa_get_srgb_format_linear(format);
       if (!isl_format_supports_ccs_e(devinfo,
-                                     brw_isl_format_for_mesa_format(format)))
+                                     brw_isl_format_for_mesa_format(format),
+                                     false))
          return false;
    }
 

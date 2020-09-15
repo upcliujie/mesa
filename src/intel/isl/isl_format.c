@@ -854,7 +854,8 @@ isl_format_supports_ccs_d(const struct gen_device_info *devinfo,
  */
 bool
 isl_format_supports_ccs_e(const struct gen_device_info *devinfo,
-                          enum isl_format format)
+                          enum isl_format format,
+                          bool enable_r11g11b10_ccs_e)
 {
    if (!format_info_exists(format))
       return false;
@@ -865,7 +866,7 @@ isl_format_supports_ccs_e(const struct gen_device_info *devinfo,
     * there is no way to copy to/from it which doesn't potentially loose data
     * if one of the bit patterns being copied isn't valid finite floats.
     */
-   if (format == ISL_FORMAT_R11G11B10_FLOAT)
+   if (format == ISL_FORMAT_R11G11B10_FLOAT && !enable_r11g11b10_ccs_e)
       return false;
 
    return format_gen(devinfo) >= format_info[format].ccs_e;
@@ -924,8 +925,8 @@ isl_formats_are_ccs_e_compatible(const struct gen_device_info *devinfo,
                                  enum isl_format format2)
 {
    /* They must support CCS_E */
-   if (!isl_format_supports_ccs_e(devinfo, format1) ||
-       !isl_format_supports_ccs_e(devinfo, format2))
+   if (!isl_format_supports_ccs_e(devinfo, format1, false) ||
+       !isl_format_supports_ccs_e(devinfo, format2, false))
       return false;
 
    /* Gen12 added CCS_E support for A8_UNORM, A8_UNORM and R8_UNORM share the

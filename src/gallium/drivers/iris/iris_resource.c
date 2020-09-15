@@ -121,7 +121,7 @@ modifier_is_supported(const struct gen_device_info *devinfo,
                                ISL_SURF_USAGE_RENDER_TARGET_BIT).fmt;
 
       if (rt_format == ISL_FORMAT_UNSUPPORTED ||
-          !isl_format_supports_ccs_e(devinfo, rt_format))
+          !isl_format_supports_ccs_e(devinfo, rt_format, false))
          return false;
       break;
    }
@@ -466,7 +466,7 @@ static bool
 want_ccs_e_for_format(const struct gen_device_info *devinfo,
                       enum isl_format format)
 {
-   if (!isl_format_supports_ccs_e(devinfo, format))
+   if (!isl_format_supports_ccs_e(devinfo, format, false))
       return false;
 
    const struct isl_format_layout *fmtl = isl_format_get_layout(format);

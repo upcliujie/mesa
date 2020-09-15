@@ -100,7 +100,7 @@ format_supports_ccs_e(const struct brw_context *brw, mesa_format format)
     */
    mesa_format linear_format = _mesa_get_srgb_format_linear(format);
    enum isl_format isl_format = brw_isl_format_for_mesa_format(linear_format);
-   return isl_format_supports_ccs_e(&brw->screen->devinfo, isl_format);
+   return isl_format_supports_ccs_e(&brw->screen->devinfo, isl_format, false);
 }
 
 /**

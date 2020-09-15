@@ -1555,7 +1555,8 @@ bool isl_format_supports_typed_reads(const struct gen_device_info *devinfo,
 bool isl_format_supports_ccs_d(const struct gen_device_info *devinfo,
                                enum isl_format format);
 bool isl_format_supports_ccs_e(const struct gen_device_info *devinfo,
-                               enum isl_format format);
+                               enum isl_format format,
+                               bool enable_r11g11b10_ccs_e);
 bool isl_format_supports_multisampling(const struct gen_device_info *devinfo,
                                        enum isl_format format);
 

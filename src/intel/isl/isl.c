@@ -1390,7 +1390,7 @@ isl_calc_row_pitch_alignment(const struct isl_device *dev,
        * matches CCS expectations.
        */
       if (ISL_DEV_GEN(dev) >= 12 &&
-          isl_format_supports_ccs_e(dev->info, surf_info->format) &&
+          isl_format_supports_ccs_e(dev->info, surf_info->format, false) &&
           tile_info->tiling != ISL_TILING_X &&
           !(surf_info->usage & ISL_SURF_USAGE_DISABLE_AUX_BIT) &&
           surf_info->row_pitch_B == 0) {

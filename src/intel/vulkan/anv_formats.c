@@ -755,7 +755,8 @@ get_wsi_format_modifier_properties_list(const struct anv_physical_device *physic
 
       if (mod_info->aux_usage == ISL_AUX_USAGE_CCS_E &&
           !isl_format_supports_ccs_e(&physical_device->info,
-                                     anv_format->planes[0].isl_format))
+                                     anv_format->planes[0].isl_format,
+                                     physical_device->enable_r11g11b10_ccs_e))
          continue;
 
       /* Gen12's CCS layout changes compared to Gen9-11. */
