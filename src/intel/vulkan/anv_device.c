@@ -553,7 +553,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
    if (result != VK_SUCCESS)
       goto fail_disk_cache;
 
-   device->perf = anv_get_perf(&device->info, fd);
+   anv_physical_device_init_perf(device, fd);
 
    anv_physical_device_get_supported_extensions(device,
                                                 &device->supported_extensions);
