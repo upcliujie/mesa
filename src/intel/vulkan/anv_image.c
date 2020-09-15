@@ -202,12 +202,14 @@ anv_image_plane_needs_shadow_surface(const struct gen_device_info *devinfo,
 }
 
 bool
-anv_formats_ccs_e_compatible(const struct gen_device_info *devinfo,
+anv_formats_ccs_e_compatible(struct anv_physical_device *physical,
                              VkImageCreateFlags create_flags,
                              VkFormat vk_format,
                              VkImageTiling vk_tiling,
                              const VkImageFormatListCreateInfoKHR *fmt_list)
 {
+   const struct gen_device_info *devinfo = &physical->info;
+
    enum isl_format format =
       anv_get_isl_format(devinfo, vk_format,
                          VK_IMAGE_ASPECT_COLOR_BIT, vk_tiling);
@@ -481,7 +483,7 @@ add_aux_surface_if_supported(struct anv_device *device,
 
       /* Choose aux usage */
       if (!(image->usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
-          anv_formats_ccs_e_compatible(&device->info,
+          anv_formats_ccs_e_compatible(device->physical,
                                        image->create_flags,
                                        image->vk_format,
                                        image->tiling,

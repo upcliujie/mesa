@@ -3676,7 +3676,7 @@ anv_get_isl_format(const struct gen_device_info *devinfo, VkFormat vk_format,
    return anv_get_format_plane(devinfo, vk_format, aspect, tiling).isl_format;
 }
 
-bool anv_formats_ccs_e_compatible(const struct gen_device_info *devinfo,
+bool anv_formats_ccs_e_compatible(struct anv_physical_device *physical,
                                   VkImageCreateFlags create_flags,
                                   VkFormat vk_format,
                                   VkImageTiling vk_tiling,

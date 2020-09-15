@@ -960,7 +960,7 @@ anv_get_image_format_properties(
          const VkImageFormatListCreateInfoKHR *fmt_list =
             vk_find_struct_const(info->pNext,
                                  IMAGE_FORMAT_LIST_CREATE_INFO_KHR);
-         if (!anv_formats_ccs_e_compatible(devinfo, info->flags,
+         if (!anv_formats_ccs_e_compatible(physical_device, info->flags,
                                            info->format, info->tiling,
                                            fmt_list))
             goto unsupported;
