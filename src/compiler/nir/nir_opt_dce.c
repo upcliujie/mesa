@@ -105,28 +105,34 @@ init_instr(nir_instr *instr, nir_instr_worklist *worklist)
 }
 
 static bool
-init_block(nir_block *block, nir_instr_worklist *worklist)
-{
-   nir_foreach_instr(instr, block)
-      init_instr(instr, worklist);
-
-   nir_if *following_if = nir_block_get_following_if(block);
-   if (following_if) {
-      if (following_if->condition.is_ssa &&
-          !following_if->condition.ssa->parent_instr->pass_flags)
-         mark_and_push(worklist, following_if->condition.ssa->parent_instr);
-   }
-
-   return true;
-}
-
-static bool
 nir_opt_dce_impl(nir_function_impl *impl)
 {
    nir_instr_worklist *worklist = nir_instr_worklist_create();
 
-   nir_foreach_block(block, impl) {
-      init_block(block, worklist);
+   if (impl->structured) {
+      nir_foreach_block(block, impl) {
+         nir_foreach_instr(instr, block)
+            init_instr(instr, worklist);
+
+         /* If we're structured, we need to deal with if statements.  Because
+          * we use nir_foreach_block, we're guaranteed that the instruction
+          * which generates the if condition has already been initialized.
+          */
+         nir_if *following_if = nir_block_get_following_if(block);
+         if (following_if) {
+            if (following_if->condition.is_ssa &&
+                !following_if->condition.ssa->parent_instr->pass_flags)
+               mark_and_push(worklist, following_if->condition.ssa->parent_instr);
+         }
+      }
+   } else {
+      /* With unstructured, if conditions come as the sources of goto_if jump
+       * instructions so we don't need any special handling.
+       */
+      nir_foreach_block_unstructured(block, impl) {
+         nir_foreach_instr(instr, block)
+            init_instr(instr, worklist);
+      }
    }
 
    nir_foreach_instr_in_worklist(instr, worklist)
@@ -136,7 +142,7 @@ nir_opt_dce_impl(nir_function_impl *impl)
 
    bool progress = false;
 
-   nir_foreach_block(block, impl) {
+   nir_foreach_block_unstructured(block, impl) {
       nir_foreach_instr_safe(instr, block) {
          if (!instr->pass_flags) {
             nir_instr_remove(instr);
