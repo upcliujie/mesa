@@ -317,6 +317,7 @@ NIR_FILES = \
 	nir/nir_opt_dce.c \
 	nir/nir_opt_dead_cf.c \
 	nir/nir_opt_dead_write_vars.c \
+	nir/nir_opt_empty_blocks.c \
 	nir/nir_opt_find_array_copies.c \
 	nir/nir_opt_gcm.c \
 	nir/nir_opt_idiv_const.c \
