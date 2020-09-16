@@ -531,7 +531,7 @@ tu_get_image_format_properties(
        * modifier and checking if it's LINEAR or not.
        */
       if (vk_format_is_depth_or_stencil(info->format))
-         goto unsupported;
+         return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
       assert(format_props.optimalTilingFeatures == format_props.linearTilingFeatures);
       /* fallthrough */
@@ -543,7 +543,7 @@ tu_get_image_format_properties(
    }
 
    if (format_feature_flags == 0)
-      goto unsupported;
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    switch (info->type) {
    default:
@@ -580,7 +580,7 @@ tu_get_image_format_properties(
            VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
    if ((format_feature_flags & required) != required)
-      goto unsupported;
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    *pImageFormatProperties = (VkImageFormatProperties) {
       .maxExtent = maxExtent,
@@ -599,16 +599,6 @@ tu_get_image_format_properties(
       *p_feature_flags = format_feature_flags;
 
    return VK_SUCCESS;
-unsupported:
-   *pImageFormatProperties = (VkImageFormatProperties) {
-      .maxExtent = { 0, 0, 0 },
-      .maxMipLevels = 0,
-      .maxArrayLayers = 0,
-      .sampleCounts = 0,
-      .maxResourceSize = 0,
-   };
-
-   return VK_ERROR_FORMAT_NOT_SUPPORTED;
 }
 
 VkResult
