@@ -637,8 +637,6 @@ tu_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
                                VkPhysicalDeviceProperties *pProperties)
 {
    TU_FROM_HANDLE(tu_physical_device, pdevice, physicalDevice);
-   VkSampleCountFlags sample_counts =
-      VK_SAMPLE_COUNT_1_BIT | VK_SAMPLE_COUNT_2_BIT | VK_SAMPLE_COUNT_4_BIT;
 
    /* I have no idea what the maximum size is, but the hardware supports very
     * large numbers of descriptors (at least 2^16). This limit is based on
@@ -729,15 +727,15 @@ tu_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
       .maxFramebufferWidth = (1 << 14),
       .maxFramebufferHeight = (1 << 14),
       .maxFramebufferLayers = (1 << 10),
-      .framebufferColorSampleCounts = sample_counts,
-      .framebufferDepthSampleCounts = sample_counts,
-      .framebufferStencilSampleCounts = sample_counts,
-      .framebufferNoAttachmentsSampleCounts = sample_counts,
+      .framebufferColorSampleCounts = VK_SAMPLE_COUNT_1_2_4_BIT,
+      .framebufferDepthSampleCounts = VK_SAMPLE_COUNT_1_2_4_BIT,
+      .framebufferStencilSampleCounts = VK_SAMPLE_COUNT_1_2_4_BIT,
+      .framebufferNoAttachmentsSampleCounts = VK_SAMPLE_COUNT_1_2_4_BIT,
       .maxColorAttachments = MAX_RTS,
-      .sampledImageColorSampleCounts = sample_counts,
-      .sampledImageIntegerSampleCounts = VK_SAMPLE_COUNT_1_BIT,
-      .sampledImageDepthSampleCounts = sample_counts,
-      .sampledImageStencilSampleCounts = sample_counts,
+      .sampledImageColorSampleCounts = VK_SAMPLE_COUNT_1_2_4_BIT,
+      .sampledImageIntegerSampleCounts = VK_SAMPLE_COUNT_1_2_4_BIT,
+      .sampledImageDepthSampleCounts = VK_SAMPLE_COUNT_1_2_4_BIT,
+      .sampledImageStencilSampleCounts = VK_SAMPLE_COUNT_1_2_4_BIT,
       .storageImageSampleCounts = VK_SAMPLE_COUNT_1_BIT,
       .maxSampleMaskWords = 1,
       .timestampComputeAndGraphics = true,
