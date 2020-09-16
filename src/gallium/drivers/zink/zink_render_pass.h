@@ -34,12 +34,17 @@ struct zink_screen;
 struct zink_rt_attrib {
   VkFormat format;
   VkSampleCountFlagBits samples;
+  bool clear_color;
+  bool clear_stencil;
 };
 
 struct zink_render_pass_state {
    uint8_t num_cbufs : 4; /* PIPE_MAX_COLOR_BUFS = 8 */
    uint8_t have_zsbuf : 1;
    struct zink_rt_attrib rts[PIPE_MAX_COLOR_BUFS + 1];
+#ifndef NDEBUG
+   uint32_t clears; //for extra verification
+#endif
 };
 
 struct zink_render_pass {
