@@ -513,12 +513,11 @@ tu_get_image_format_properties(
    tu_physical_device_get_format_properties(physical_device, info->format,
                                             &format_props);
 
-   switch (info->tiling) {
-   case VK_IMAGE_TILING_LINEAR:
+   format_feature_flags = format_props.optimalTilingFeatures;
+   if (info->tiling == VK_IMAGE_TILING_LINEAR)
       format_feature_flags = format_props.linearTilingFeatures;
-      break;
 
-   case VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT:
+   if (info->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
       /* The only difference between optimal and linear is currently whether
        * depth/stencil attachments are allowed on depth/stencil formats.
        * There's no reason to allow importing depth/stencil textures, so just
@@ -531,16 +530,7 @@ tu_get_image_format_properties(
          return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
       assert(format_props.optimalTilingFeatures == format_props.linearTilingFeatures);
-      /* fallthrough */
-   case VK_IMAGE_TILING_OPTIMAL:
-      format_feature_flags = format_props.optimalTilingFeatures;
-      break;
-   default:
-      unreachable("bad VkPhysicalDeviceImageFormatInfo2");
    }
-
-   if (format_feature_flags == 0)
-      return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    VkFormatFeatureFlags required =
       COND(info->usage & VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) |
@@ -550,7 +540,7 @@ tu_get_image_format_properties(
       COND(info->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
            VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
-   if ((format_feature_flags & required) != required)
+   if (!format_feature_flags || ((format_feature_flags & required) != required))
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    /* TODO: fix maxMipLevels/maxArrayLayers for ycbcr formats */
