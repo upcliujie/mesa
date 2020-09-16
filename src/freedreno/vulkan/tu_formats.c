@@ -571,30 +571,16 @@ tu_get_image_format_properties(
       break;
    }
 
-   if (info->usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
-      if (!(format_feature_flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) {
-         goto unsupported;
-      }
-   }
+   VkFormatFeatureFlags required =
+      COND(info->usage & VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) |
+      COND(info->usage & VK_IMAGE_USAGE_STORAGE_BIT, VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) |
+      COND(info->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+           VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) |
+      COND(info->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+           VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
-   if (info->usage & VK_IMAGE_USAGE_STORAGE_BIT) {
-      if (!(format_feature_flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT)) {
-         goto unsupported;
-      }
-   }
-
-   if (info->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
-      if (!(format_feature_flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
-         goto unsupported;
-      }
-   }
-
-   if (info->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-      if (!(format_feature_flags &
-            VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
-         goto unsupported;
-      }
-   }
+   if ((format_feature_flags & required) != required)
+      goto unsupported;
 
    *pImageFormatProperties = (VkImageFormatProperties) {
       .maxExtent = maxExtent,
