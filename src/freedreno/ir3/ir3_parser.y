@@ -294,6 +294,7 @@ static void print_token(FILE *file, int type, YYSTYPE value)
 %token <tok> T_OP_CHMASK
 %token <tok> T_OP_CHSH
 %token <tok> T_OP_FLOW_REV
+%token <tok> T_OP_GETONE
 
 /* category 1: */
 %token <tok> T_OP_MOVA
@@ -601,6 +602,7 @@ cat0_instr:        T_OP_NOP        { new_instr(OPC_NOP); }
 |                  T_OP_CHMASK     { new_instr(OPC_CHMASK); }
 |                  T_OP_CHSH       { new_instr(OPC_CHSH); }
 |                  T_OP_FLOW_REV   { new_instr(OPC_FLOW_REV); }
+|                  T_OP_GETONE     { new_instr(OPC_GETONE); } cat0_immed
 
 cat1_opc:          T_OP_MOVA {
                        new_instr(OPC_MOV);
