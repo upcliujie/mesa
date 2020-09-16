@@ -24,6 +24,9 @@
 
 #include <vulkan/vulkan.h>
 
+#define VK_SAMPLE_COUNT_1_2_4_BIT \
+   (VK_SAMPLE_COUNT_1_BIT | VK_SAMPLE_COUNT_2_BIT | VK_SAMPLE_COUNT_4_BIT)
+
 static inline gl_shader_stage
 vk_to_mesa_shader_stage(VkShaderStageFlagBits vk_stage)
 {
