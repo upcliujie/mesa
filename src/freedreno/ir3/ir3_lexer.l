@@ -117,6 +117,7 @@ static int parse_reg(const char *str)
 "chmask"                          return TOKEN(T_OP_CHMASK);
 "chsh"                            return TOKEN(T_OP_CHSH);
 "flow_rev"                        return TOKEN(T_OP_FLOW_REV);
+"getone"                          return TOKEN(T_OP_GETONE);
 
                                   /* category 1: */
 "mova"                            return TOKEN(T_OP_MOVA);
