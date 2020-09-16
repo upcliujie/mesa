@@ -509,9 +509,6 @@ tu_get_image_format_properties(
 {
    VkFormatProperties format_props;
    VkFormatFeatureFlags format_feature_flags;
-   VkExtent3D maxExtent;
-   uint32_t maxMipLevels;
-   uint32_t maxArraySize;
 
    tu_physical_device_get_format_properties(physical_device, info->format,
                                             &format_props);
@@ -545,32 +542,6 @@ tu_get_image_format_properties(
    if (format_feature_flags == 0)
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
-   switch (info->type) {
-   default:
-      unreachable("bad vkimage type\n");
-   case VK_IMAGE_TYPE_1D:
-      maxExtent.width = 16384;
-      maxExtent.height = 1;
-      maxExtent.depth = 1;
-      maxMipLevels = 15; /* log2(maxWidth) + 1 */
-      maxArraySize = 2048;
-      break;
-   case VK_IMAGE_TYPE_2D:
-      maxExtent.width = 16384;
-      maxExtent.height = 16384;
-      maxExtent.depth = 1;
-      maxMipLevels = 15; /* log2(maxWidth) + 1 */
-      maxArraySize = 2048;
-      break;
-   case VK_IMAGE_TYPE_3D:
-      maxExtent.width = 2048;
-      maxExtent.height = 2048;
-      maxExtent.depth = 2048;
-      maxMipLevels = 12; /* log2(maxWidth) + 1 */
-      maxArraySize = 1;
-      break;
-   }
-
    VkFormatFeatureFlags required =
       COND(info->usage & VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) |
       COND(info->usage & VK_IMAGE_USAGE_STORAGE_BIT, VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) |
@@ -582,18 +553,26 @@ tu_get_image_format_properties(
    if ((format_feature_flags & required) != required)
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
+   /* TODO: fix maxMipLevels/maxArrayLayers for ycbcr formats */
    *pImageFormatProperties = (VkImageFormatProperties) {
-      .maxExtent = maxExtent,
-      .maxMipLevels = maxMipLevels,
-      .maxArrayLayers = maxArraySize,
+      .maxExtent = {
+         .width = 16384,
+         .height = (info->type != VK_IMAGE_TYPE_1D) ? 16384 : 1,
+         .depth = 1,
+      },
+      .maxMipLevels = 15,
+      .maxArrayLayers = 2048,
       .sampleCounts = (info->usage & VK_IMAGE_USAGE_STORAGE_BIT) ?
          VK_SAMPLE_COUNT_1_BIT : VK_SAMPLE_COUNT_1_2_4_BIT,
-
-      /* FINISHME: Accurately calculate
-       * VkImageFormatProperties::maxResourceSize.
-       */
+      /* real maximum might be higher but we use 32-bit values in layout: */
       .maxResourceSize = UINT32_MAX,
    };
+
+   if (info->type == VK_IMAGE_TYPE_3D) {
+      pImageFormatProperties->maxExtent = (VkExtent3D) { 2048, 2048, 2048 };
+      pImageFormatProperties->maxMipLevels = 12;
+      pImageFormatProperties->maxArrayLayers = 1;
+   }
 
    if (p_feature_flags)
       *p_feature_flags = format_feature_flags;
