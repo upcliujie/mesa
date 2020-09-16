@@ -516,7 +516,6 @@ tu_get_image_format_properties(
    VkExtent3D maxExtent;
    uint32_t maxMipLevels;
    uint32_t maxArraySize;
-   VkSampleCountFlags sampleCounts = VK_SAMPLE_COUNT_1_BIT;
 
    tu_physical_device_get_format_properties(physical_device, info->format,
                                             &format_props);
@@ -576,20 +575,6 @@ tu_get_image_format_properties(
       break;
    }
 
-   if (info->tiling == VK_IMAGE_TILING_OPTIMAL &&
-       info->type == VK_IMAGE_TYPE_2D &&
-       (format_feature_flags &
-        (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT |
-         VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)) &&
-       !(info->flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) &&
-       !(info->usage & VK_IMAGE_USAGE_STORAGE_BIT)) {
-      sampleCounts |= VK_SAMPLE_COUNT_2_BIT | VK_SAMPLE_COUNT_4_BIT;
-      /* note: most operations support 8 samples (GMEM render/resolve do at least)
-       * but some do not (which ones?), just disable 8 samples completely,
-       * (no 8x msaa matches the blob driver behavior)
-       */
-   }
-
    if (info->usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
       if (!(format_feature_flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) {
          goto unsupported;
@@ -619,13 +604,23 @@ tu_get_image_format_properties(
       .maxExtent = maxExtent,
       .maxMipLevels = maxMipLevels,
       .maxArrayLayers = maxArraySize,
-      .sampleCounts = sampleCounts,
+      .sampleCounts = VK_SAMPLE_COUNT_1_2_4_BIT,
 
       /* FINISHME: Accurately calculate
        * VkImageFormatProperties::maxResourceSize.
        */
       .maxResourceSize = UINT32_MAX,
    };
+
+   /* note: this is about keeping CTS happy, not actual limits */
+   if (info->tiling != VK_IMAGE_TILING_OPTIMAL ||
+       info->type != VK_IMAGE_TYPE_2D ||
+       !(format_feature_flags &
+         (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT |
+          VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)) ||
+       (info->flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) ||
+       (info->usage & VK_IMAGE_USAGE_STORAGE_BIT))
+      pImageFormatProperties->sampleCounts = VK_SAMPLE_COUNT_1_BIT;
 
    if (p_feature_flags)
       *p_feature_flags = format_feature_flags;
