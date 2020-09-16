@@ -1322,6 +1322,53 @@ emit_intrinsic_barrier(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 				IR3_BARRIER_IMAGE_R | IR3_BARRIER_IMAGE_W |
 				IR3_BARRIER_BUFFER_R | IR3_BARRIER_BUFFER_W;
 		break;
+	case nir_intrinsic_scoped_barrier: {
+		nir_scope exec_scope = nir_intrinsic_execution_scope(intr);
+		nir_variable_mode modes = nir_intrinsic_memory_modes(intr);
+
+		if (modes & (nir_var_shader_out | nir_var_mem_ssbo |
+					 nir_var_mem_global | nir_var_mem_shared)) {
+			barrier = ir3_FENCE(b);
+			if (modes & (nir_var_shader_out | nir_var_mem_ssbo |
+						 nir_var_mem_global))
+				barrier->cat7.g = true;
+			if (modes & nir_var_mem_shared)
+				barrier->cat7.l = true;
+			barrier->cat7.r = true;
+			barrier->cat7.w = true;
+			barrier->barrier_class = 0;
+			barrier->barrier_conflict = 0;
+			if (modes & (nir_var_shader_out | nir_var_mem_ssbo |
+						 nir_var_mem_global)) {
+				barrier->barrier_class |= IR3_BARRIER_BUFFER_W;
+				barrier->barrier_conflict |=
+					IR3_BARRIER_BUFFER_W | IR3_BARRIER_BUFFER_R;
+			}
+			/* TODO switch this over when images get a separate mode */
+			if (modes & nir_var_mem_ssbo) {
+				barrier->barrier_class |= IR3_BARRIER_IMAGE_W;
+				barrier->barrier_conflict |=
+					IR3_BARRIER_IMAGE_W | IR3_BARRIER_IMAGE_R;
+			}
+			if (modes & nir_var_mem_shared) {
+				barrier->barrier_class |= IR3_BARRIER_SHARED_W;
+				barrier->barrier_conflict |=
+					IR3_BARRIER_IMAGE_W | IR3_BARRIER_SHARED_R;
+			}
+			array_insert(b, b->keeps, barrier);
+		}
+
+		if (exec_scope >= NIR_SCOPE_WORKGROUP) {
+			barrier = ir3_BAR(b);
+			barrier->cat7.g = true;
+			barrier->cat7.l = true;
+			barrier->flags = IR3_INSTR_SS | IR3_INSTR_SY;
+			barrier->barrier_class = IR3_BARRIER_EVERYTHING;
+			array_insert(b, b->keeps, barrier);
+		}
+
+		return;
+	}
 	default:
 		unreachable("boo");
 	}
@@ -1827,6 +1874,7 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 	case nir_intrinsic_memory_barrier_buffer:
 	case nir_intrinsic_memory_barrier_image:
 	case nir_intrinsic_memory_barrier_shared:
+	case nir_intrinsic_scoped_barrier:
 		emit_intrinsic_barrier(ctx, intr);
 		/* note that blk ptr no longer valid, make that obvious: */
 		b = NULL;
