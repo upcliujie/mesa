@@ -72,6 +72,7 @@ static const nir_shader_compiler_options options = {
 		.has_imul24 = true,
 		.lower_wpos_pntc = true,
 		.lower_cs_local_index_from_id = true,
+		.use_scoped_barrier = true,
 
 		/* Only needed for the spirv_to_nir() pass done in ir3_cmdline.c
 		 * but that should be harmless for GL since 64b is not
