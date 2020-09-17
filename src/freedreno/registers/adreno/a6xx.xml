@@ -2079,7 +2079,7 @@ to upconvert to 32b float internally?
 	 -->
 	<reg32 offset="0x8106" name="GRAS_LRZ_FAST_CLEAR_BUFFER_BASE_LO"/>
 	<reg32 offset="0x8107" name="GRAS_LRZ_FAST_CLEAR_BUFFER_BASE_HI"/>
-	<reg32 offset="0x8106" name="GRAS_LRZ_FAST_CLEAR_BUFFER_BASE" align="64" type="waddress"/>
+	<reg64 offset="0x8106" name="GRAS_LRZ_FAST_CLEAR_BUFFER_BASE" align="64" type="waddress"/>
 	<!-- 0x8108 invalid -->
 	<reg32 offset="0x8109" name="GRAS_SAMPLE_CNTL">
 		<bitfield name="PER_SAMP_MODE" pos="0" type="boolean"/>
@@ -2638,7 +2638,7 @@ to upconvert to 32b float internally?
 	<!-- GMEM save/restore for preemption: -->
 	<reg32 offset="0x8e50" name="RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE" pos="0" type="boolean"/>
 	<!-- address for GMEM save/restore? -->
-	<reg32 offset="0x8e51" name="RB_UNKNOWN_8E51" type="waddress" align="1"/>
+	<reg64 offset="0x8e51" name="RB_UNKNOWN_8E51" type="waddress" align="1"/>
 	<!-- 0x8e53-0x8e7f invalid -->
 	<!-- 0x8e80-0x8e83 are valid -->
 	<!-- 0x8e84-0x90ff invalid -->
@@ -2708,7 +2708,7 @@ to upconvert to 32b float internally?
 
 	<reg32 offset="0x9218" name="VPC_SO_STREAM_COUNTS_LO"/>
 	<reg32 offset="0x9219" name="VPC_SO_STREAM_COUNTS_HI"/>
-	<reg32 offset="0x9218" name="VPC_SO_STREAM_COUNTS" type="waddress" align="32"/>
+	<reg64 offset="0x9218" name="VPC_SO_STREAM_COUNTS" type="waddress" align="32"/>
 
 	<array offset="0x921a" name="VPC_SO" stride="7" length="4">
 		<reg64 offset="0" name="BUFFER_BASE" type="waddress" align="32"/>
@@ -2931,7 +2931,7 @@ to upconvert to 32b float internally?
 	<reg32 offset="0x9e01" name="PC_ADDR_MODE_CNTL" type="a5xx_address_mode"/>
 	<reg32 offset="0x9e08" name="PC_TESSFACTOR_ADDR_LO"/>
 	<reg32 offset="0x9e09" name="PC_TESSFACTOR_ADDR_HI"/>
-	<reg32 offset="0x9e08" name="PC_TESSFACTOR_ADDR" type="waddress" align="32"/>
+	<reg64 offset="0x9e08" name="PC_TESSFACTOR_ADDR" type="waddress" align="32"/>
 
 	<!-- These match the contents of CP_SET_BIN_DATA (not written directly) -->
 	<reg32 offset="0x9e11" name="PC_VSTREAM_CONTROL">
