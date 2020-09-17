@@ -236,7 +236,7 @@ emit_border_color(struct fd_context *ctx, struct fd_ringbuffer *ring)
 	setup_border_colors(&ctx->tex[PIPE_SHADER_FRAGMENT],
 			&entries[ctx->tex[PIPE_SHADER_VERTEX].num_samplers]);
 
-	OUT_PKT4(ring, REG_A6XX_SP_TP_BORDER_COLOR_BASE_ADDR_LO, 2);
+	OUT_PKT4(ring, REG_A6XX_SP_TP_BORDER_COLOR_BASE_ADDR, 2);
 	OUT_RELOC(ring, fd_resource(fd6_ctx->border_color_buf)->bo, off, 0, 0);
 
 	u_upload_unmap(fd6_ctx->border_color_uploader);
@@ -740,7 +740,7 @@ fd6_emit_streamout(struct fd_ringbuffer *ring, struct fd6_emit *emit, struct ir3
 		if (!target)
 			continue;
 
-		OUT_PKT4(ring, REG_A6XX_VPC_SO_BUFFER_BASE_LO(i), 3);
+		OUT_PKT4(ring, REG_A6XX_VPC_SO_BUFFER_BASE(i), 3);
 		/* VPC_SO[i].BUFFER_BASE_LO: */
 		OUT_RELOC(ring, fd_resource(target->buffer)->bo, target->buffer_offset, 0, 0);
 		OUT_RING(ring, target->buffer_size - target->buffer_offset);
@@ -757,7 +757,7 @@ fd6_emit_streamout(struct fd_ringbuffer *ring, struct fd6_emit *emit, struct ir3
 			OUT_RELOC(ring, control_ptr(fd6_context(ctx), flush_base[i].offset));
 		}
 
-		OUT_PKT4(ring, REG_A6XX_VPC_SO_FLUSH_BASE_LO(i), 2);
+		OUT_PKT4(ring, REG_A6XX_VPC_SO_FLUSH_BASE(i), 2);
 		OUT_RELOC(ring, control_ptr(fd6_context(ctx), flush_base[i]));
 
 		so->reset &= ~(1 << i);

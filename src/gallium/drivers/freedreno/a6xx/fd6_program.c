@@ -51,28 +51,28 @@ fd6_emit_shader(struct fd_ringbuffer *ring, const struct ir3_shader_variant *so)
 
 	switch (so->type) {
 	case MESA_SHADER_VERTEX:
-		obj_start = REG_A6XX_SP_VS_OBJ_START_LO;
+		obj_start = REG_A6XX_SP_VS_OBJ_START;
 		instrlen = REG_A6XX_SP_VS_INSTRLEN;
 		break;
 	case MESA_SHADER_TESS_CTRL:
-		obj_start = REG_A6XX_SP_HS_OBJ_START_LO;
+		obj_start = REG_A6XX_SP_HS_OBJ_START;
 		instrlen = REG_A6XX_SP_HS_INSTRLEN;
 		break;
 	case MESA_SHADER_TESS_EVAL:
-		obj_start = REG_A6XX_SP_DS_OBJ_START_LO;
+		obj_start = REG_A6XX_SP_DS_OBJ_START;
 		instrlen = REG_A6XX_SP_DS_INSTRLEN;
 		break;
 	case MESA_SHADER_GEOMETRY:
-		obj_start = REG_A6XX_SP_GS_OBJ_START_LO;
+		obj_start = REG_A6XX_SP_GS_OBJ_START;
 		instrlen = REG_A6XX_SP_GS_INSTRLEN;
 		break;
 	case MESA_SHADER_FRAGMENT:
-		obj_start = REG_A6XX_SP_FS_OBJ_START_LO;
+		obj_start = REG_A6XX_SP_FS_OBJ_START;
 		instrlen = REG_A6XX_SP_FS_INSTRLEN;
 		break;
 	case MESA_SHADER_COMPUTE:
 	case MESA_SHADER_KERNEL:
-		obj_start = REG_A6XX_SP_CS_OBJ_START_LO;
+		obj_start = REG_A6XX_SP_CS_OBJ_START;
 		instrlen = REG_A6XX_SP_CS_INSTRLEN;
 		break;
 	case MESA_SHADER_NONE:

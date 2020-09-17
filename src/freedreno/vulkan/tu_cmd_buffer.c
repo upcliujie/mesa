@@ -209,7 +209,7 @@ tu6_emit_zs(struct tu_cmd_buffer *cmd,
    tu_cs_emit_regs(cs,
                    A6XX_GRAS_SU_DEPTH_BUFFER_INFO(.depth_format = fmt));
 
-   tu_cs_emit_pkt4(cs, REG_A6XX_RB_DEPTH_FLAG_BUFFER_BASE_LO, 3);
+   tu_cs_emit_pkt4(cs, REG_A6XX_RB_DEPTH_FLAG_BUFFER_BASE, 3);
    tu_cs_image_flag_ref(cs, iview, 0);
 
    tu_cs_emit_regs(cs,
@@ -257,7 +257,7 @@ tu6_emit_mrt(struct tu_cmd_buffer *cmd,
       tu_cs_emit_regs(cs,
                       A6XX_SP_FS_MRT_REG(i, .dword = iview->SP_FS_MRT_REG));
 
-      tu_cs_emit_pkt4(cs, REG_A6XX_RB_MRT_FLAG_BUFFER_ADDR_LO(i), 3);
+      tu_cs_emit_pkt4(cs, REG_A6XX_RB_MRT_FLAG_BUFFER_ADDR(i), 3);
       tu_cs_image_flag_ref(cs, iview, 0);
    }
 
@@ -1572,8 +1572,7 @@ tu_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
 
    for (uint32_t i = 0; i < MAX_VBS; i++) {
       tu_cs_emit_regs(&cs,
-                      A6XX_VFD_FETCH_BASE_LO(i, cmd->state.vb[i].base),
-                      A6XX_VFD_FETCH_BASE_HI(i, cmd->state.vb[i].base >> 32),
+                      A6XX_VFD_FETCH_BASE(i, cmd->state.vb[i].base),
                       A6XX_VFD_FETCH_SIZE(i, cmd->state.vb[i].size));
    }
 
@@ -2922,8 +2921,7 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
        */
       tu_cs_emit_wfi(cs);
 
-      tu_cs_emit_pkt4(cs, REG_A6XX_PC_TESSFACTOR_ADDR_LO, 2);
-      tu_cs_emit_qw(cs, tess_factor_iova);
+      tu_cs_emit_regs(cs, A6XX_PC_TESSFACTOR_ADDR(tess_factor_iova));
 
       tu_cs_emit_pkt7(cs, CP_SET_SUBDRAW_SIZE, 1);
       tu_cs_emit(cs, draw_count);

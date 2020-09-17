@@ -164,13 +164,13 @@ cs_program_emit(struct fd_ringbuffer *ring, struct kernel *kernel)
 		A6XX_HLSQ_CS_CNTL_0_LOCALIDREGID(local_invocation_id));
 	OUT_RING(ring, 0x2fc);             /* HLSQ_CS_UNKNOWN_B998 */
 
-	OUT_PKT4(ring, REG_A6XX_SP_CS_OBJ_START_LO, 2);
+	OUT_PKT4(ring, REG_A6XX_SP_CS_OBJ_START, 2);
 	OUT_RELOC(ring, v->bo, 0, 0, 0);   /* SP_CS_OBJ_START_LO/HI */
 
 	OUT_PKT4(ring, REG_A6XX_SP_CS_INSTRLEN, 1);
 	OUT_RING(ring, v->instrlen);
 
-	OUT_PKT4(ring, REG_A6XX_SP_CS_OBJ_START_LO, 2);
+	OUT_PKT4(ring, REG_A6XX_SP_CS_OBJ_START, 2);
 	OUT_RELOC(ring, v->bo, 0, 0, 0);
 
 	OUT_PKT7(ring, CP_LOAD_STATE6_FRAG, 3);
