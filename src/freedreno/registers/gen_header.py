@@ -132,8 +132,10 @@ class Bitset(object):
 			if f.type == "waddress":
 				value_name = "qword"
 			if f.type in [ "address", "waddress" ]:
+				print("#ifndef TU_PRIVATE_H")
 				tab_to("    __bo_type", "bo;")
 				tab_to("    uint32_t", "bo_offset;")
+				print("#endif\n")
 				continue
 			name = field_name(prefix, f.name)
 
@@ -141,8 +143,8 @@ class Bitset(object):
 
 			tab_to("    %s" % type, "%s;" % name)
 		if value_name == "qword":
-			tab_to("    uint64_t", "unknown;")
 			tab_to("    uint64_t", "qword;")
+			tab_to("    uint64_t", "unknown;")
 		else:
 			tab_to("    uint32_t", "unknown;")
 			tab_to("    uint32_t", "dword;")
@@ -187,11 +189,13 @@ class Bitset(object):
 
 		if address:
 			print("        .is_address = true,")
+			print("#ifndef TU_PRIVATE_H")
 			print("        .bo = fields.bo,")
 			if f.type == "waddress":
 				print("        .bo_write = true,")
 			print("        .bo_offset = fields.bo_offset,")
 			print("        .bo_shift = %d" % address.shr)
+			print("#endif\n")
 
 		print("    };\n}\n")
 
