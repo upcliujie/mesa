@@ -812,12 +812,8 @@ tu6_init_hw(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    tu_cs_emit_regs(cs,
                    A6XX_RB_LRZ_CNTL(0));
 
-   tu_cs_emit_regs(cs,
-                   A6XX_SP_TP_BORDER_COLOR_BASE_ADDR(.bo = &dev->global_bo,
-                                                     .bo_offset = gb_offset(bcolor_builtin)));
-   tu_cs_emit_regs(cs,
-                   A6XX_SP_PS_TP_BORDER_COLOR_BASE_ADDR(.bo = &dev->global_bo,
-                                                        .bo_offset = gb_offset(bcolor_builtin)));
+   tu_cs_emit_regs(cs, A6XX_SP_TP_BORDER_COLOR_BASE_ADDR(global_iova(cmd, bcolor_builtin)));
+   tu_cs_emit_regs(cs, A6XX_SP_PS_TP_BORDER_COLOR_BASE_ADDR(global_iova(cmd, bcolor_builtin)));
 
    /* VSC buffers:
     * use vsc pitches from the largest values used so far with this device
@@ -850,13 +846,9 @@ tu6_init_hw(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 
    tu_get_scratch_bo(dev, size0 + MAX_VSC_PIPES * 4, &vsc_bo);
 
-   tu_cs_emit_regs(cs,
-                   A6XX_VSC_DRAW_STRM_SIZE_ADDRESS(.bo = vsc_bo, .bo_offset = size0));
-   tu_cs_emit_regs(cs,
-                   A6XX_VSC_PRIM_STRM_ADDRESS(.bo = vsc_bo));
-   tu_cs_emit_regs(cs,
-                   A6XX_VSC_DRAW_STRM_ADDRESS(.bo = vsc_bo,
-                                              .bo_offset = cmd->vsc_prim_strm_pitch * MAX_VSC_PIPES));
+   tu_cs_emit_regs(cs, A6XX_VSC_DRAW_STRM_SIZE_ADDRESS(vsc_bo->iova + size0));
+   tu_cs_emit_regs(cs, A6XX_VSC_PRIM_STRM_ADDRESS(vsc_bo->iova));
+   tu_cs_emit_regs(cs, A6XX_VSC_DRAW_STRM_ADDRESS(vsc_bo->iova + cmd->vsc_prim_strm_pitch * MAX_VSC_PIPES));
 
    tu_cs_sanity_check(cs);
 }

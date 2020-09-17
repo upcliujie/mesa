@@ -327,7 +327,6 @@ tu_cond_exec_end(struct tu_cs *cs)
 }
 
 #define fd_reg_pair tu_reg_value
-#define __bo_type struct tu_bo *
 
 #include "a6xx.xml.h"
 #include "a6xx-pack.xml.h"
@@ -344,18 +343,9 @@ tu_cond_exec_end(struct tu_cs *cs)
    do {                                                         \
       if (i < ARRAY_SIZE(regs) && regs[i].reg > 0) {            \
          __assert_eq(regs[0].reg + i, regs[i].reg);             \
-         if (regs[i].bo) {                                      \
-            uint64_t v = regs[i].bo->iova + regs[i].bo_offset;  \
-            v >>= regs[i].bo_shift;                             \
-            v |= regs[i].value;                                 \
-                                                                \
-            *p++ = v;                                           \
-            *p++ = v >> 32;                                     \
-         } else {                                               \
-            *p++ = regs[i].value;                               \
-            if (regs[i].is_address)                             \
-               *p++ = regs[i].value >> 32;                      \
-         }                                                      \
+         *p++ = regs[i].value;                                  \
+         if (regs[i].is_address)                                \
+            *p++ = regs[i].value >> 32;                         \
       }                                                         \
    } while (0)
 
