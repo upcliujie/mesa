@@ -766,7 +766,9 @@ zink_draw_vbo(struct pipe_context *pctx,
    barrier_vertex_buffers(ctx);
    barrier_draw_buffers(ctx, dinfo, dindirect, index_buffer);
 
-   struct set *persistent = update_descriptors(ctx, screen, false);
+   struct set *persistent = NULL;
+   if (gfx_program->num_descriptors)
+      persistent = update_descriptors(ctx, screen, false);
 
    struct zink_batch *batch = zink_batch_rp(ctx);
    VkViewport viewports[PIPE_MAX_VIEWPORTS] = {};
@@ -876,7 +878,8 @@ zink_draw_vbo(struct pipe_context *pctx,
       screen->vk_CmdBeginTransformFeedbackEXT(batch->cmdbuf, 0, ctx->num_so_targets, counter_buffers, counter_buffer_offsets);
    }
 
-   flush_persistent_maps(screen, persistent);
+   if (persistent)
+      flush_persistent_maps(screen, persistent);
 
    if (dinfo->index_size > 0) {
       VkIndexType index_type;
@@ -975,12 +978,15 @@ zink_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
    VkPipeline pipeline = zink_get_compute_pipeline(screen, comp_program,
                                                &ctx->compute_pipeline_state);
 
-   struct set *persistent = update_descriptors(ctx, screen, true);
+   struct set *persistent = NULL;
+   if (comp_program->num_descriptors)
+      persistent = update_descriptors(ctx, screen, true);
 
 
    vkCmdBindPipeline(batch->cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 
-   flush_persistent_maps(screen, persistent);
+   if (persistent)
+      flush_persistent_maps(screen, persistent);
 
    if (info->indirect) {
       vkCmdDispatchIndirect(batch->cmdbuf, zink_resource(info->indirect)->buffer, info->indirect_offset);
