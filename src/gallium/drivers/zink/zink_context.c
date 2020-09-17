@@ -108,7 +108,7 @@ zink_context_destroy(struct pipe_context *pctx)
    u_upload_destroy(pctx->stream_uploader);
    slab_destroy_child(&ctx->transfer_pool);
    util_blitter_destroy(ctx->blitter);
-   FREE(ctx);
+   ralloc_free(ctx);
 }
 
 static enum pipe_reset_status
@@ -1800,7 +1800,7 @@ struct pipe_context *
 zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 {
    struct zink_screen *screen = zink_screen(pscreen);
-   struct zink_context *ctx = CALLOC_STRUCT(zink_context);
+   struct zink_context *ctx = rzalloc(NULL, struct zink_context);
    if (!ctx)
       goto fail;
 
