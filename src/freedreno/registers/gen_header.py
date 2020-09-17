@@ -98,7 +98,7 @@ def tab_to(name, value):
 	print(name + ('\t' * tab_count) + value)
 
 def mask(low, high):
-	return ((0xffffffff >> (32 - (high + 1 - low))) << low)
+	return ((1 << (high + 1 - low)) - 1) << low
 
 class Bitset(object):
 	def __init__(self, name, template):
