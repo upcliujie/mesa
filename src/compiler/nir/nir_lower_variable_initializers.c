@@ -135,3 +135,76 @@ nir_lower_variable_initializers(nir_shader *shader, nir_variable_mode modes)
 
    return progress;
 }
+
+static void
+nir_add_phi_src_for_ssa(nir_phi_instr *phi, nir_block *pred, nir_ssa_def *ssa)
+{
+   nir_phi_src *src = ralloc(phi, nir_phi_src);
+   src->pred = pred;
+   src->src = nir_src_for_ssa(ssa);
+   exec_list_push_tail(&phi->srcs, &src->node);
+}
+
+/* Zero initialize shared_size bytes of shared memory by splitting work writes
+ * of chunk_size bytes among the invocations.
+ *
+ * Used for implementing VK_KHR_zero_initialize_workgroup_memory.
+ */
+bool
+nir_zero_initialize_shared_memory(nir_shader *shader,
+                                  const unsigned shared_size,
+                                  const unsigned chunk_size)
+{
+   assert(shared_size > 0);
+   assert(chunk_size > 0);
+   assert(chunk_size % 4 == 0);
+
+   nir_builder b;
+   nir_builder_init(&b, nir_shader_get_entrypoint(shader));
+   b.cursor = nir_before_cf_list(&b.impl->body);
+
+   assert(!shader->info.cs.local_size_variable);
+   const unsigned local_count = shader->info.cs.local_size[0] *
+                                shader->info.cs.local_size[1] *
+                                shader->info.cs.local_size[2];
+
+   /* The initialization logic is simplified if we can always split the memory
+    * in full chunk_size units.
+    */
+   assert(shared_size % chunk_size == 0);
+
+   const unsigned chunk_comps = chunk_size / 4;
+
+   nir_ssa_def *local_index = nir_load_local_invocation_index(&b);
+   nir_ssa_def *first_offset = nir_imul_imm(&b, local_index, chunk_size);
+
+   nir_loop *loop = nir_push_loop(&b);
+
+   nir_phi_instr *phi = nir_phi_instr_create(b.shader);
+   nir_ssa_dest_init(&phi->instr, &phi->dest, 1, 32, NULL);
+   nir_ssa_def *offset = &phi->dest.ssa;
+
+   nir_push_if(&b, nir_uge(&b, offset, nir_imm_int(&b, shared_size)));
+   nir_jump(&b, nir_jump_break);
+   nir_pop_if(&b, NULL);
+
+   nir_store_shared(&b, nir_imm_zero(&b, chunk_comps, 32), offset,
+                    .align_mul=chunk_size,
+                    .write_mask=((1 << chunk_comps) - 1));
+
+   nir_ssa_def *new_offset = nir_iadd_imm(&b, offset, chunk_size * local_count);
+
+   nir_pop_loop(&b, loop);
+
+   nir_scoped_barrier(&b, NIR_SCOPE_WORKGROUP, NIR_SCOPE_WORKGROUP,
+                      NIR_MEMORY_ACQ_REL, nir_var_mem_shared);
+
+   /* Complete the phi after its predecessor blocks are formed. */
+   nir_add_phi_src_for_ssa(phi, first_offset->parent_instr->block, first_offset);
+   nir_add_phi_src_for_ssa(phi, nir_loop_last_block(loop), new_offset);
+   nir_instr_insert_before_block(nir_loop_first_block(loop), &phi->instr);
+
+   nir_metadata_preserve(nir_shader_get_entrypoint(shader), nir_metadata_none);
+
+   return true;
+}
