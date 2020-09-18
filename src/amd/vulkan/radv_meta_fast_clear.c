@@ -745,7 +745,8 @@ radv_emit_color_decompress(struct radv_cmd_buffer *cmd_buffer,
 
 	assert(cmd_buffer->queue_family_index == RADV_QUEUE_GENERAL);
 
-	if ((decompress_dcc && radv_dcc_enabled(image, subresourceRange->baseMipLevel)) ||
+	if ((decompress_dcc && radv_dcc_enabled(image, subresourceRange->baseMipLevel) &&
+	     radv_image_use_dcc_predication(cmd_buffer->device, image)) ||
 	    (!(radv_image_has_fmask(image) && !image->tc_compatible_cmask) && image->fce_pred_offset)) {
 		use_predication = true;
 	}
