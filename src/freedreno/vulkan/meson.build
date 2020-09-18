@@ -110,6 +110,7 @@ if with_freedreno_kgsl
   libtu_files += files('tu_kgsl.c')
 else
   libtu_files += files('tu_drm.c')
+  tu_deps += dep_libdrm
 endif
 
 libvulkan_freedreno = shared_library(
@@ -135,7 +136,6 @@ libvulkan_freedreno = shared_library(
     idep_libfreedreno_common,
     dep_dl,
     dep_elf,
-    dep_libdrm,
     dep_m,
     dep_thread,
     dep_valgrind,
