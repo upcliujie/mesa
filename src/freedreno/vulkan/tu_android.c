@@ -26,13 +26,13 @@
 #include <hardware/gralloc.h>
 #include <hardware/hardware.h>
 #include <hardware/hwvulkan.h>
-#include <libsync.h>
 
 #include <vulkan/vk_android_native_buffer.h>
 #include <vulkan/vk_icd.h>
 
 #include "drm-uapi/drm_fourcc.h"
 
+#include "util/libsync.h"
 #include "util/os_file.h"
 
 static int
