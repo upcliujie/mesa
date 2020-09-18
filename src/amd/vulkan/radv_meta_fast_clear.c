@@ -752,6 +752,11 @@ radv_emit_color_decompress(struct radv_cmd_buffer *cmd_buffer,
 		use_predication = true;
 	}
 
+	/* If we are asked for DCC decompression without DCC predicates we cannot
+	 * use the FCE predicate. */
+	if (decompress_dcc && !radv_image_use_dcc_predication(cmd_buffer->device, image))
+		use_predication = false;
+
 	if (radv_dcc_enabled(image, subresourceRange->baseMipLevel) &&
 	    (image->info.array_size != radv_get_layerCount(image, subresourceRange) ||
 	    subresourceRange->baseArrayLayer != 0)) {
