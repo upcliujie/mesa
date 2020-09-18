@@ -968,15 +968,20 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
    struct zink_framebuffer *fb = get_framebuffer(ctx);
 
    zink_framebuffer_reference(screen, &ctx->framebuffer, fb);
+   if (ctx->gfx_pipeline_state.render_pass != fb->rp)
+      ctx->gfx_pipeline_state.hash = 0;
    zink_render_pass_reference(screen, &ctx->gfx_pipeline_state.render_pass, fb->rp);
 
    uint8_t rast_samples = util_framebuffer_get_num_samples(state);
    /* in vulkan, gl_SampleMask needs to be explicitly ignored for sampleCount == 1 */
    if ((ctx->gfx_pipeline_state.rast_samples > 1) != (rast_samples > 1))
       ctx->dirty_shader_stages |= 1 << PIPE_SHADER_FRAGMENT;
+   if (ctx->gfx_pipeline_state.rast_samples != rast_samples)
+      ctx->gfx_pipeline_state.hash = 0;
    ctx->gfx_pipeline_state.rast_samples = rast_samples;
+   if (ctx->gfx_pipeline_state.num_attachments != state->nr_cbufs)
+      ctx->gfx_pipeline_state.hash = 0;
    ctx->gfx_pipeline_state.num_attachments = state->nr_cbufs;
-   ctx->gfx_pipeline_state.hash = 0;
 
    /* need to start a new renderpass */
    if (zink_curr_batch(ctx)->rp)
