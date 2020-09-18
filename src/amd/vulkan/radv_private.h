@@ -1538,6 +1538,10 @@ void radv_update_color_clear_metadata(struct radv_cmd_buffer *cmd_buffer,
 				      int cb_idx,
 				      uint32_t color_values[2]);
 
+bool radv_image_use_dcc_image_stores(const struct radv_device *device,
+				     const struct radv_image *image);
+bool radv_image_use_dcc_predication(const struct radv_device *device,
+				    const struct radv_image *image);
 void radv_update_fce_metadata(struct radv_cmd_buffer *cmd_buffer,
 			      struct radv_image *image,
 			      const VkImageSubresourceRange *range, bool value);
