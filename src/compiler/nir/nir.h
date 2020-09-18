@@ -4476,6 +4476,9 @@ bool nir_remove_dead_variables(nir_shader *shader, nir_variable_mode modes,
                                bool (*can_remove_var)(nir_variable *var));
 bool nir_lower_variable_initializers(nir_shader *shader,
                                      nir_variable_mode modes);
+bool nir_zero_initialize_shared_memory(nir_shader *shader,
+                                       const unsigned shared_size,
+                                       const unsigned chunk_size);
 
 bool nir_move_vec_src_uses_to_dest(nir_shader *shader);
 bool nir_lower_vec_to_movs(nir_shader *shader, nir_instr_writemask_filter_cb cb,
