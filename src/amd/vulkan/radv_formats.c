@@ -774,11 +774,7 @@ radv_physical_device_get_format_properties(struct radv_physical_device *physical
 		          VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
 	}
 
-	if (format == VK_FORMAT_R32_UINT ||
-	    format == VK_FORMAT_R32_SINT ||
-	    format == VK_FORMAT_R32_SFLOAT ||
-	    format == VK_FORMAT_R64_UINT ||
-	    format == VK_FORMAT_R64_SINT) {
+	if (radv_format_is_atomic_allowed(format)) {
 		buffer |= VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT;
 		linear |= VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT;
 		tiled |= VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT;
