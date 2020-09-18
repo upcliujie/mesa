@@ -2165,6 +2165,9 @@ radv_update_dcc_metadata(struct radv_cmd_buffer *cmd_buffer,
 
 	assert(radv_dcc_enabled(image, range->baseMipLevel));
 
+	if (!radv_image_use_dcc_predication(cmd_buffer->device, image))
+		return;
+
 	radeon_emit(cmd_buffer->cs, PKT3(PKT3_WRITE_DATA, 2 + count, 0));
 	radeon_emit(cmd_buffer->cs, S_370_DST_SEL(V_370_MEM) |
 				    S_370_WR_CONFIRM(1) |
