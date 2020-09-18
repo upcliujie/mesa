@@ -42,8 +42,6 @@ struct zink_sampler_state;
 struct zink_sampler_view;
 struct zink_surface;
 
-#define ZINK_BATCH_DESC_SIZE 1000
-
 struct zink_batch {
    unsigned batch_id : 3;
    VkCommandPool cmdpool;
