@@ -251,7 +251,7 @@ tu_image_create(VkDevice _device,
                        pCreateInfo->mipLevels,
                        pCreateInfo->arrayLayers,
                        pCreateInfo->imageType == VK_IMAGE_TYPE_3D,
-                       plane_layouts ? &plane_layout : NULL)) {
+                       plane_layouts ? &plane_layout : NULL, false)) {
          assert(plane_layouts); /* can only fail with explicit layout */
          goto invalid_layout;
       }
