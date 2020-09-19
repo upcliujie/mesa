@@ -57,6 +57,10 @@ fdl6_get_ubwc_blockwidth(struct fdl_layout *layout, enum pipe_format format,
       *blockwidth = 16;
       *blockheight = 8;
       return;
+   } else if (format == PIPE_FORMAT_Y8_UNORM) {
+      *blockwidth = 32;
+      *blockheight = 8;
+      return;
    }
 
    uint32_t cpp = fdl_cpp_shift(layout);
