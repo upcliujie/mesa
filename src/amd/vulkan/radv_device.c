@@ -1509,6 +1509,12 @@ void radv_GetPhysicalDeviceFeatures2(
 			features->attachmentFragmentShadingRate = false; /* TODO */
 			break;
 		}
+		case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ZERO_INITIALIZE_WORKGROUP_MEMORY_FEATURES_KHR: {
+			VkPhysicalDeviceZeroInitializeWorkgroupMemoryFeaturesKHR *features =
+				(void*)ext;
+			features->shaderZeroInitializeWorkgroupMemory = true;
+			break;
+		}
 		default:
 			break;
 		}
