@@ -50,7 +50,7 @@ fdl_test_layout(const struct testcase *testcase, int gpu_id)
                   MAX2(testcase->layout.nr_samples, 1), testcase->layout.width0,
                   MAX2(testcase->layout.height0, 1),
                   MAX2(testcase->layout.depth0, 1), mip_levels,
-                  MAX2(testcase->array_size, 1), testcase->is_3d, NULL);
+                  MAX2(testcase->array_size, 1), testcase->is_3d, NULL, false);
    } else {
       assert(gpu_id >= 500);
       fdl5_layout(&layout, testcase->format,
