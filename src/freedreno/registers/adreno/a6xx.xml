@@ -2931,7 +2931,7 @@ to upconvert to 32b float internally?
 	<reg32 offset="0x9e01" name="PC_ADDR_MODE_CNTL" type="a5xx_address_mode"/>
 	<reg32 offset="0x9e08" name="PC_TESSFACTOR_ADDR_LO"/>
 	<reg32 offset="0x9e09" name="PC_TESSFACTOR_ADDR_HI"/>
-	<reg64 offset="0x9e08" name="PC_TESSFACTOR_ADDR" type="waddress" align="32"/>
+	<reg64 offset="0x9e08" name="PC_TESSFACTOR_ADDR" type="address" align="32"/>
 
 	<!-- These match the contents of CP_SET_BIN_DATA (not written directly) -->
 	<reg32 offset="0x9e11" name="PC_VSTREAM_CONTROL">
@@ -2939,8 +2939,8 @@ to upconvert to 32b float internally?
 		<bitfield name="VSC_SIZE" low="16" high="21" type="uint"/>
 		<bitfield name="VSC_N" low="22" high="26" type="uint"/>
 	</reg32>
-	<reg64 offset="0x9e12" name="PC_BIN_PRIM_STRM" type="waddress" align="32"/>
-	<reg64 offset="0x9e14" name="PC_BIN_DRAW_STRM" type="waddress" align="32"/>
+	<reg64 offset="0x9e12" name="PC_BIN_PRIM_STRM" type="address" align="32"/>
+	<reg64 offset="0x9e14" name="PC_BIN_DRAW_STRM" type="address" align="32"/>
 
 	<reg32 offset="0x9e34" name="PC_PERFCTR_PC_SEL_0"/>
 	<reg32 offset="0x9e35" name="PC_PERFCTR_PC_SEL_1"/>
@@ -3339,7 +3339,7 @@ to upconvert to 32b float internally?
 	<reg32 offset="0xa9e7" name="SP_CS_TEX_CONST_HI"/>
 
 	<array offset="0xa9e8" name="SP_CS_BINDLESS_BASE" stride="2" length="5">
-		<reg64 offset="0" name="ADDR" type="waddress"/>
+		<reg64 offset="0" name="ADDR" type="address"/>
 	</array>
 
 	<array offset="0xa98e" name="SP_FS_OUTPUT" stride="1" length="8">
@@ -3380,7 +3380,7 @@ to upconvert to 32b float internally?
 	<reg32 offset="0xab05" name="SP_FS_INSTRLEN" type="uint"/>
 
 	<array offset="0xab10" name="SP_BINDLESS_BASE" stride="2" length="5">
-		<reg64 offset="0" name="ADDR" type="waddress"/>
+		<reg64 offset="0" name="ADDR" type="address"/>
 	</array>
 
 	<!--
@@ -3455,14 +3455,14 @@ to upconvert to 32b float internally?
 	</reg32>
 	<reg32 offset="0xb4c2" name="SP_PS_2D_SRC_LO"/>
 	<reg32 offset="0xb4c3" name="SP_PS_2D_SRC_HI"/>
-	<reg64 offset="0xb4c2" name="SP_PS_2D_SRC" type="waddress"/>
+	<reg64 offset="0xb4c2" name="SP_PS_2D_SRC" type="address"/>
 	<reg32 offset="0xb4c4" name="SP_PS_2D_SRC_PITCH">
 	   <bitfield name="PITCH" low="9" high="24" shr="6" type="uint"/>
 	</reg32>
 
 	<reg32 offset="0xb4ca" name="SP_PS_2D_SRC_FLAGS_LO"/>
 	<reg32 offset="0xb4cb" name="SP_PS_2D_SRC_FLAGS_HI"/>
-	<reg64 offset="0xb4ca" name="SP_PS_2D_SRC_FLAGS" type="waddress"/>
+	<reg64 offset="0xb4ca" name="SP_PS_2D_SRC_FLAGS" type="address"/>
 	<reg32 offset="0xb4cc" name="SP_PS_2D_SRC_FLAGS_PITCH">
 		<bitfield name="PITCH" low="0" high="10" shr="6" type="uint"/>
 		<bitfield name="ARRAY_PITCH" low="11" high="21" shr="7" type="uint"/>
@@ -3565,7 +3565,7 @@ to upconvert to 32b float internally?
 
 	<!-- mirror of SP_CS_BINDLESS_BASE -->
 	<array offset="0xb9c0" name="HLSQ_CS_BINDLESS_BASE" stride="2" length="5">
-		<reg64 offset="0" name="ADDR" type="waddress"/>
+		<reg64 offset="0" name="ADDR" type="address"/>
 	</array>
 
 	<reg32 offset="0xbb00" name="HLSQ_DRAW_CMD">
@@ -3635,7 +3635,7 @@ to upconvert to 32b float internally?
 
 	<!-- mirror of SP_BINDLESS_BASE -->
 	<array offset="0xbb20" name="HLSQ_BINDLESS_BASE" stride="2" length="5">
-		<reg64 offset="0" name="ADDR" type="waddress"/>
+		<reg64 offset="0" name="ADDR" type="address"/>
 	</array>
 
 	<reg32 offset="0xbd80" name="HLSQ_2D_EVENT_CMD">
