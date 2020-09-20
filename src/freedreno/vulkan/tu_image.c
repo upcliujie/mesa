@@ -55,8 +55,7 @@ tu6_plane_format(VkFormat format, uint32_t plane)
 {
    switch (format) {
    case VK_FORMAT_G8_B8R8_2PLANE_420_UNORM:
-      /* note: with UBWC, and Y plane UBWC is different from R8_UNORM */
-      return plane ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_R8_UNORM;
+      return plane ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_Y8_UNORM;
    case VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
       return VK_FORMAT_R8_UNORM;
    case VK_FORMAT_D32_SFLOAT_S8_UINT:
@@ -139,18 +138,10 @@ tu_image_create(VkDevice _device,
       ubwc_enabled = false;
    }
 
-   /* UBWC is supported for these formats, but NV12 has a special UBWC
-    * format for accessing the Y plane aspect, which isn't implemented
-    * For IYUV, the blob doesn't use UBWC, but it seems to work, but
-    * disable it since we don't know if a special UBWC format is needed
-    * like NV12
-    *
-    * Disable tiling completely, because we set the TILE_ALL bit to
-    * match the blob, however fdl expects the TILE_ALL bit to not be
-    * set for non-UBWC tiled formats
+   /* Disable tiling/UBWC for IYUV, it is not useful and the blob doesn't use it
+    * note: tiled NV12 without UBWC won't work correctly due to TILE_ALL bit
     */
-   if (image->vk_format == VK_FORMAT_G8_B8R8_2PLANE_420_UNORM ||
-       image->vk_format == VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM) {
+   if (image->vk_format == VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM) {
       tile_mode = TILE6_LINEAR;
       ubwc_enabled = false;
    }
@@ -251,7 +242,8 @@ tu_image_create(VkDevice _device,
                        pCreateInfo->mipLevels,
                        pCreateInfo->arrayLayers,
                        pCreateInfo->imageType == VK_IMAGE_TYPE_3D,
-                       plane_layouts ? &plane_layout : NULL, false)) {
+                       plane_layouts ? &plane_layout : NULL,
+                       format == VK_FORMAT_Y8_UNORM)) {
          assert(plane_layouts); /* can only fail with explicit layout */
          goto invalid_layout;
       }
