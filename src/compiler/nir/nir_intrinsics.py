@@ -1226,6 +1226,14 @@ intrinsic("load_sbt_amd", src_comp=[-1], dest_comp=0, indices=[BINDING, BASE],
 # 6. inverse ray direction (componentwise 1.0/ray direction)
 intrinsic("bvh64_intersect_ray_amd", [4, 2, 1, 3, 3, 3], 4, flags=[CAN_ELIMINATE, CAN_REORDER])
 
+intrinsic("load_scalar_arg_amd", dest_comp=0, bit_sizes=[32], indices=[BASE], flags=[CAN_ELIMINATE, CAN_REORDER])
+intrinsic("load_vector_arg_amd", dest_comp=0, bit_sizes=[32], indices=[BASE], flags=[CAN_ELIMINATE, CAN_REORDER])
+
+# src[] = { 64-bit base address, 32-bit offset }.
+intrinsic("load_smem_amd", src_comp=[1, 1], dest_comp=0, bit_sizes=[32],
+                           indices=[ALIGN_MUL, ALIGN_OFFSET],
+                           flags=[CAN_ELIMINATE, CAN_REORDER])
+
 # V3D-specific instrinc for tile buffer color reads.
 #
 # The hardware requires that we read the samples and components of a pixel
