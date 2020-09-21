@@ -129,7 +129,7 @@ tu_fence_copy(struct tu_fence *fence, const struct tu_fence *src)
    if (src->fd >= 0) {
       fd = os_dupfd_cloexec(src->fd);
       if (fd < 0) {
-         tu_loge("failed to dup fd %d for fence", src->fd);
+         mesa_loge("failed to dup fd %d for fence", src->fd);
          sync_wait(src->fd, -1);
       }
    }
@@ -155,7 +155,7 @@ tu_fence_wait_idle(struct tu_fence *fence)
 {
    if (fence->fd >= 0) {
       if (sync_wait(fence->fd, -1))
-         tu_loge("sync_wait on fence fd %d failed", fence->fd);
+         mesa_loge("sync_wait on fence fd %d failed", fence->fd);
 
       tu_fence_set_state(fence, TU_FENCE_STATE_SIGNALED, -1);
    }
