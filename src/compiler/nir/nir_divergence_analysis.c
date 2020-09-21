@@ -158,6 +158,8 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_user_data_amd:
    case nir_intrinsic_load_tess_level_inner_default:
    case nir_intrinsic_load_tess_level_outer_default:
+   case nir_intrinsic_load_scalar_arg_amd:
+   case nir_intrinsic_load_smem_amd:
       is_divergent = false;
       break;
 
@@ -540,6 +542,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_gds_atomic_add_amd:
    case nir_intrinsic_load_rt_arg_scratch_offset_amd:
    case nir_intrinsic_load_intersection_opaque_amd:
+   case nir_intrinsic_load_vector_arg_amd:
       is_divergent = true;
       break;
 
