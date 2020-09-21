@@ -167,6 +167,8 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_DEMOTE_TO_HELPER_INVOCATION:
    case PIPE_CAP_FRONTEND_NOOP:
    case PIPE_CAP_COMPUTE_SHADER_DERIVATIVES:
+   case PIPE_CAP_OPENCL_INTEGER_FUNCTIONS:
+   case PIPE_CAP_INTEGER_MULTIPLY_32X16:
       return 1;
 
    case PIPE_CAP_GLSL_ZERO_INIT:
@@ -965,6 +967,9 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .max_unroll_iterations = 32,
       .use_interpolated_input_intrinsics = true,
       .lower_uniforms_to_ubo = true,
+      .lower_hadd = true,
+      .lower_hadd64 = true,
+      .lower_add_sat = true,
    };
    sscreen->nir_options = nir_options;
 }

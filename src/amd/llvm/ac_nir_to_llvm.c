@@ -1004,6 +1004,15 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
    case nir_op_ifind_msb:
       result = ac_build_imsb(&ctx->ac, src[0], ctx->ac.i32);
       break;
+   case nir_op_uclz: {
+      LLVMValueRef params[2] = {
+         src[0],
+         ctx->ac.i1false,
+      };
+      result = ac_build_intrinsic(&ctx->ac, "llvm.ctlz.i32", ctx->ac.i32,
+                                  params, 2, AC_FUNC_ATTR_READNONE);
+      break;
+   }
    case nir_op_uadd_carry:
       result = emit_uint_carry(&ctx->ac, "llvm.uadd.with.overflow.i32", src[0], src[1]);
       break;
@@ -1035,6 +1044,17 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
       break;
    case nir_op_imul_high:
       result = emit_imul_high(&ctx->ac, src[0], src[1]);
+      break;
+   case nir_op_umul_32x16:
+      result = LLVMBuildMul(ctx->ac.builder, src[0],
+                            LLVMBuildAnd(ctx->ac.builder, src[1],
+                                         LLVMConstInt(ctx->ac.i32, 0xffff, 0), ""), "");
+      break;
+   case nir_op_imul_32x16:
+      result = LLVMBuildMul(ctx->ac.builder, src[0],
+                            LLVMBuildSExt(ctx->ac.builder,
+                                          LLVMBuildTrunc(ctx->ac.builder, src[1], ctx->ac.i16, ""),
+                                          ctx->ac.i32, ""), "");
       break;
    case nir_op_pack_half_2x16:
       result = emit_pack_2x16(&ctx->ac, src[0], ac_build_cvt_pkrtz_f16);
