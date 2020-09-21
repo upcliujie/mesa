@@ -27,6 +27,7 @@
 
 #include "nir.h"
 #include "nir_builder.h"
+#include "util/u_math.h"
 
 static nir_ssa_def *
 sanitize_32bit_sysval(nir_builder *b, nir_intrinsic_instr *intrin)
@@ -276,15 +277,98 @@ lower_compute_system_value_instr(nir_builder *b,
                             nir_imul(b, nir_channel(b, local_size, 0),
                                         nir_channel(b, local_size, 1)));
          return nir_u2u(b, nir_vec3(b, id_x, id_y, id_z), bit_size);
-      } else {
-         return NULL;
       }
+      if (options && options->shuffle_local_ids_for_quad_derivatives &&
+          b->shader->info.cs.derivative_group == DERIVATIVE_GROUP_QUADS) {
+         /* Update this so as not to lower it again if invoked again.
+          * This requires that load_local_invocation_id is CSE'd because
+          * other occurences won't be lowered.
+          *
+          * load_local_invocation_index should be lowered to
+          * load_local_invocation_id and CSE'd before shuffling local IDs
+          * for quad derivatives.
+          */
+         b->shader->info.cs.derivative_group = DERIVATIVE_GROUP_LINEAR;
+
+         nir_ssa_def *ids = nir_load_local_invocation_id(b);
+         nir_ssa_def *x = nir_channel(b, ids, 0);
+         nir_ssa_def *y = nir_channel(b, ids, 1);
+         nir_ssa_def *z = nir_channel(b, ids, 2);
+         unsigned size_x = b->shader->info.cs.local_size[0];
+         nir_ssa_def *size_x_imm;
+
+         if (b->shader->info.cs.local_size_variable)
+            size_x_imm = nir_channel(b, nir_load_local_group_size(b), 0);
+         else
+            size_x_imm = nir_imm_int(b, size_x);
+
+         /* Remap indices from:
+          *    | 0| 1| 2| 3|
+          *    | 4| 5| 6| 7|
+          *    | 8| 9|10|11|
+          *    |12|13|14|15|
+          * to:
+          *    | 0| 1| 4| 5|
+          *    | 2| 3| 6| 7|
+          *    | 8| 9|12|13|
+          *    |10|11|14|15|
+          *
+          * That's the layout required by AMD hardware for derivatives to
+          * work. Other hardware may work differently.
+          *
+          * It's a classic tiling pattern that can be implemented by inserting
+          * bit y[0] between bits x[0] and x[1] like this:
+          *
+          *    x[0],y[0],x[1],...x[last],y[1],...,y[last]
+          *
+          * If the width is a power of two, use:
+          *    i = ((x & 1) | ((y & 1) << 1) | ((x & ~1) << 1)) | ((y & ~1) << logbase2(size_x))
+          *
+          * If the width is not a power of two or the local size is variable, use:
+          *    i = ((x & 1) | ((y & 1) << 1) | ((x & ~1) << 1)) + ((y & ~1) * size_x)
+          *
+          * GL_NV_compute_shader_derivatives requires that the width and height
+          * are a multiple of two, which is also a requirement for the second
+          * expression to work.
+          *
+          * The 2D result is: (x,y) = (i % w, i / w)
+          */
+
+         nir_ssa_def *one = nir_imm_int(b, 1);
+         nir_ssa_def *inv_one = nir_imm_int(b, ~1);
+         nir_ssa_def *x_bit0 = nir_iand(b, x, one);
+         nir_ssa_def *y_bit0 = nir_iand(b, y, one);
+         nir_ssa_def *x_bits_1n = nir_iand(b, x, inv_one);
+         nir_ssa_def *y_bits_1n = nir_iand(b, y, inv_one);
+         nir_ssa_def *bits_01 = nir_ior(b, x_bit0, nir_ishl(b, y_bit0, one));
+         nir_ssa_def *bits_01x = nir_ior(b, bits_01,
+                                         nir_ishl(b, x_bits_1n, one));
+         nir_ssa_def *i;
+
+         if (!b->shader->info.cs.local_size_variable &&
+             util_is_power_of_two_nonzero(size_x)) {
+            nir_ssa_def *log2_size_x = nir_imm_int(b, util_logbase2(size_x));
+            i = nir_ior(b, bits_01x, nir_ishl(b, y_bits_1n, log2_size_x));
+         } else {
+            i = nir_iadd(b, bits_01x, nir_imul(b, y_bits_1n, size_x_imm));
+         }
+
+         /* This should be fast if size_x is an immediate or even a power
+          * of two.
+          */
+         x = nir_umod(b, i, size_x_imm);
+         y = nir_udiv(b, i, size_x_imm);
+
+         return nir_vec3(b, x, y, z);
+      }
+      return NULL;
 
    case nir_intrinsic_load_local_invocation_index:
       /* If lower_cs_local_index_from_id is true, then we derive the local
        * index from the local id.
        */
-      if (b->shader->options->lower_cs_local_index_from_id) {
+      if (b->shader->options->lower_cs_local_index_from_id ||
+          (options && options->lower_local_invocation_index)) {
          /* From the GLSL man page for gl_LocalInvocationIndex:
           *
           *    "The value of gl_LocalInvocationIndex is equal to
