@@ -421,8 +421,9 @@ gather_intrinsic_info(nir_intrinsic_instr *instr, nir_shader *shader,
    case nir_intrinsic_quad_swap_horizontal:
    case nir_intrinsic_quad_swap_vertical:
    case nir_intrinsic_quad_swap_diagonal:
+   case nir_intrinsic_quad_swizzle_amd:
       if (shader->info.stage == MESA_SHADER_FRAGMENT)
-         shader->info.fs.needs_helper_invocations = true;
+         shader->info.fs.needs_quad_helper_invocations = true;
       break;
 
    case nir_intrinsic_end_primitive:
@@ -575,7 +576,7 @@ gather_tex_info(nir_tex_instr *instr, nir_shader *shader)
 {
    if (shader->info.stage == MESA_SHADER_FRAGMENT &&
        nir_tex_instr_has_implicit_derivative(instr))
-      shader->info.fs.needs_helper_invocations = true;
+      shader->info.fs.needs_quad_helper_invocations = true;
 
    switch (instr->op) {
    case nir_texop_tg4:
@@ -599,7 +600,7 @@ gather_alu_info(nir_alu_instr *instr, nir_shader *shader)
    case nir_op_fddx_coarse:
    case nir_op_fddy_coarse:
       if (shader->info.stage == MESA_SHADER_FRAGMENT)
-         shader->info.fs.needs_helper_invocations = true;
+         shader->info.fs.needs_quad_helper_invocations = true;
       break;
    default:
       break;
@@ -688,7 +689,7 @@ nir_shader_gather_info(nir_shader *shader, nir_function_impl *entrypoint)
       shader->info.fs.uses_sample_qualifier = false;
       shader->info.fs.uses_discard = false;
       shader->info.fs.uses_demote = false;
-      shader->info.fs.needs_helper_invocations = false;
+      shader->info.fs.needs_quad_helper_invocations = false;
    }
    if (shader->info.stage == MESA_SHADER_TESS_CTRL) {
       shader->info.tess.tcs_cross_invocation_inputs_read = 0;
