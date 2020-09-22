@@ -3895,6 +3895,18 @@ anv_image_aux_layers(const struct anv_image * const image,
 }
 
 static inline struct anv_address
+anv_image_get_aux_addr(UNUSED const struct anv_device *device,
+                       const struct anv_image *image,
+                       uint32_t plane)
+{
+   /* Aspect must have an aux surface. */
+   assert(image->planes[plane].aux_surface.isl.size_B > 0);
+
+   return anv_address_add(image->planes[plane].address,
+                          image->planes[plane].aux_surface.offset);
+}
+
+static inline struct anv_address
 anv_image_get_clear_color_addr(UNUSED const struct anv_device *device,
                                const struct anv_image *image,
                                VkImageAspectFlagBits aspect)
