@@ -1343,6 +1343,53 @@ anv_fast_clear_depth_stencil(struct anv_cmd_buffer *cmd_buffer,
       ANV_PIPE_DEPTH_CACHE_FLUSH_BIT | ANV_PIPE_DEPTH_STALL_BIT;
 }
 
+static bool
+can_hiz_clear_att(struct anv_cmd_buffer *cmd_buffer,
+                  struct blorp_batch *batch,
+                  const VkClearAttachment *attachment,
+                  uint32_t rectCount, const VkClearRect *pRects)
+{
+   /* From Bspec's section MI_PREDICATE:
+    *
+    *    "The MI_PREDICATE command is used to control the Predicate state bit,
+    *    which in turn can be used to enable/disable the processing of
+    *    3DPRIMITIVE commands."
+    *
+    * Also from BDW/CHV Bspec's 3DSTATE_WM_HZ_OP programming notes:
+    *
+    *    "This command does NOT support predication from the use of the
+    *    MI_PREDICATE register. To predicate depth clears and resolves on you
+    *    must fall back to using the 3D_PRIMITIVE or GPGPU_WALKER commands."
+    *
+    * Since BLORP's predication is currently dependent on MI_PREDICATE, fall
+    * back to the slow depth clear path when the BLORP_BATCH_PREDICATE_ENABLE
+    * flag is set.
+    */
+   if (batch->flags & BLORP_BATCH_PREDICATE_ENABLE)
+      return false;
+
+   /* When the BLORP_BATCH_NO_EMIT_DEPTH_STENCIL flag is set, BLORP can only
+    * clear the first slice of the currently configured depth/stencil view.
+    */
+   assert(batch->flags & BLORP_BATCH_NO_EMIT_DEPTH_STENCIL);
+   if (pRects[0].layerCount > 1 || pRects[0].baseArrayLayer > 0 ||
+       rectCount > 1)
+      return false;
+
+   const struct anv_image_view *iview =
+      anv_cmd_buffer_get_depth_stencil_view(cmd_buffer);
+   if (!iview)
+      return false;
+
+   VkImageLayout layout =
+      cmd_buffer->state.subpass->depth_stencil_attachment->layout;
+
+   return anv_can_hiz_clear_ds_view(cmd_buffer->device, iview, layout,
+                                    attachment->aspectMask,
+                                    attachment->clearValue.depthStencil.depth,
+                                    pRects->rect);
+}
+
 static void
 clear_depth_stencil_attachment(struct anv_cmd_buffer *cmd_buffer,
                                struct blorp_batch *batch,
@@ -1353,6 +1400,18 @@ clear_depth_stencil_attachment(struct anv_cmd_buffer *cmd_buffer,
    const struct anv_subpass *subpass = cmd_buffer->state.subpass;
    if (!subpass->depth_stencil_attachment)
       return;
+
+   if (can_hiz_clear_att(cmd_buffer, batch, attachment, rectCount, pRects)) {
+      const struct anv_image_view *iview =
+         anv_cmd_buffer_get_depth_stencil_view(cmd_buffer);
+      anv_fast_clear_depth_stencil(cmd_buffer, batch, iview->image,
+                                   attachment->aspectMask,
+                                   iview->planes[0].isl.base_level,
+                                   iview->planes[0].isl.base_array_layer,
+                                   pRects[0].layerCount, pRects->rect,
+                                   attachment->clearValue.depthStencil.stencil);
+      return;
+   }
 
    const uint32_t att_idx = subpass->depth_stencil_attachment->attachment;
    assert(att_idx != VK_ATTACHMENT_UNUSED);
