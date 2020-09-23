@@ -815,7 +815,7 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          properties->maxTransformFeedbackBufferDataStride = 512;
          properties->transformFeedbackQueries = true;
          properties->transformFeedbackStreamsLinesTriangles = true;
-         properties->transformFeedbackRasterizationStreamSelect = false;
+         properties->transformFeedbackRasterizationStreamSelect = true;
          properties->transformFeedbackDraw = true;
          break;
       }
