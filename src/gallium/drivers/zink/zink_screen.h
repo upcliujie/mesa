@@ -110,6 +110,10 @@ struct zink_screen {
    PFN_vkUseIOSurfaceMVK vk_UseIOSurfaceMVK;
    PFN_vkGetIOSurfaceMVK vk_GetIOSurfaceMVK;
 #endif
+
+   struct {
+      bool dual_color_blend_by_location;
+   } driconf;
 };
 
 static inline struct zink_screen *
