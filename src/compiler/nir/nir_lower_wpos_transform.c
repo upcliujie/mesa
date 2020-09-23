@@ -78,7 +78,7 @@ nir_cmp(nir_builder *b, nir_ssa_def *src0, nir_ssa_def *src1, nir_ssa_def *src2)
 static void
 emit_wpos_adjustment(lower_wpos_transform_state *state,
                      nir_intrinsic_instr *intr, bool invert,
-                     float adjX, float adjY[2])
+                     float adj[2])
 {
    nir_builder *b = &state->b;
    nir_ssa_def *wpostrans, *wpos_temp, *wpos_temp_y, *wpos_input;
@@ -91,27 +91,19 @@ emit_wpos_adjustment(lower_wpos_transform_state *state,
    wpostrans = get_ytransform(state);
 
    /* First, apply the coordinate shift: */
-   if (adjX || adjY[0] || adjY[1]) {
-      if (adjY[0] != adjY[1]) {
-         /* Adjust the y coordinate by adjY[1] or adjY[0] respectively
-          * depending on whether inversion is actually going to be applied
-          * or not, which is determined by testing against the inversion
-          * state variable used below, which will be either +1 or -1.
-          */
-         nir_ssa_def *adj_temp;
+   if (adj[0] || adj[1]) {
+      /* Adjust the coordinate by adj[1] or adj[0] respectively
+       * depending on whether inversion is actually going to be applied
+       * or not, which is determined by testing against the inversion
+       * state variable used below, which will be either +1 or -1.
+       */
+      nir_ssa_def *adj_temp;
+      adj_temp = nir_cmp(b,
+                         nir_channel(b, wpostrans, invert ? 2 : 0),
+                         nir_imm_vec4(b, adj[0], adj[0], 0.0f, 0.0f),
+                         nir_imm_vec4(b, adj[0], adj[1], 0.0f, 0.0f));
 
-         adj_temp = nir_cmp(b,
-                            nir_channel(b, wpostrans, invert ? 2 : 0),
-                            nir_imm_vec4(b, adjX, adjY[0], 0.0f, 0.0f),
-                            nir_imm_vec4(b, adjX, adjY[1], 0.0f, 0.0f));
-
-         wpos_temp = nir_fadd(b, wpos_input, adj_temp);
-      } else {
-         wpos_temp = nir_fadd(b,
-                              wpos_input,
-                              nir_imm_vec4(b, adjX, adjY[0], 0.0f, 0.0f));
-      }
-      wpos_input = wpos_temp;
+      wpos_temp = nir_fadd(b, wpos_input, adj_temp);
    } else {
       /* MOV wpos_temp, input[wpos]
        */
@@ -148,8 +140,7 @@ static void
 lower_fragcoord(lower_wpos_transform_state *state, nir_intrinsic_instr *intr)
 {
    const nir_lower_wpos_transform_options *options = state->options;
-   float adjX = 0.0f;
-   float adjY[2] = { 0.0f, 0.0f };
+   float adj[2] = { 0.0f, 0.0f };
    bool invert = false;
 
    /* Based on logic in emit_wpos():
@@ -208,12 +199,11 @@ lower_fragcoord(lower_wpos_transform_state *state, nir_intrinsic_instr *intr)
       /* Fragment shader wants pixel center integer */
       if (options->fs_coord_pixel_center_integer) {
          /* the driver supports pixel center integer */
-         adjY[1] = 1.0f;
+         adj[1] = 1.0f;
       } else if (options->fs_coord_pixel_center_half_integer) {
          /* the driver supports pixel center half integer, need to bias X,Y */
-         adjX = -0.5f;
-         adjY[0] = -0.5f;
-         adjY[1] = 0.5f;
+         adj[0] = -0.5f;
+         adj[1] = 0.5f;
       } else {
          unreachable("invalid options");
       }
@@ -223,13 +213,13 @@ lower_fragcoord(lower_wpos_transform_state *state, nir_intrinsic_instr *intr)
          /* the driver supports pixel center half integer */
       } else if (options->fs_coord_pixel_center_integer) {
          /* the driver supports pixel center integer, need to bias X,Y */
-         adjX = adjY[0] = adjY[1] = 0.5f;
+         adj[0] = adj[1] = 0.5f;
       } else {
          unreachable("invalid options");
       }
    }
 
-   emit_wpos_adjustment(state, intr, invert, adjX, adjY);
+   emit_wpos_adjustment(state, intr, invert, adj);
 }
 
 static void
