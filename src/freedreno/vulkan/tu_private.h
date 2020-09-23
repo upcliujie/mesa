@@ -1450,6 +1450,8 @@ struct tu_subpass
 {
    uint32_t input_count;
    uint32_t color_count;
+   uint32_t resolve_count;
+   bool resolve_depth_stencil;
    struct tu_subpass_attachment *input_attachments;
    struct tu_subpass_attachment *color_attachments;
    struct tu_subpass_attachment *resolve_attachments;
