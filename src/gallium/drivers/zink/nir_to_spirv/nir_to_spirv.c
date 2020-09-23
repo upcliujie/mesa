@@ -31,6 +31,8 @@
 
 #define SLOT_UNSET ((unsigned char) -1)
 
+static bool hit = false;
+
 struct ntv_context {
    void *mem_ctx;
 
@@ -274,7 +276,19 @@ get_dest_uvec_type(struct ntv_context *ctx, nir_dest *dest)
    unsigned bit_size = nir_dest_bit_size(*dest);
    return get_uvec_type(ctx, bit_size, nir_dest_num_components(*dest));
 }
-
+static SpvId
+clobber(struct ntv_context *ctx)
+{
+   SpvId type = get_fvec_type(ctx, 32, 4);
+   SpvId vals[] = {
+      emit_float_const(ctx, 32, 1.0),
+      emit_float_const(ctx, 32, 0.0),
+      emit_float_const(ctx, 32, 0.0),
+      emit_float_const(ctx, 32, 1.0)
+    };
+   printf("CLOBBERING\n");
+   return spirv_builder_emit_composite_construct(&ctx->builder, type, vals, 4);
+}
 static SpvId
 get_glsl_basetype(struct ntv_context *ctx, enum glsl_base_type type)
 {
@@ -2153,6 +2167,8 @@ emit_store_deref(struct ntv_context *ctx, nir_intrinsic_instr *intr)
       result = spirv_builder_emit_composite_construct(&ctx->builder, ctx->sample_mask_type, &src, 1);
    } else
       result = emit_bitcast(ctx, type, src);
+   //if (ctx->stage == MESA_SHADER_FRAGMENT && var->data.location == FRAG_RESULT_DATA0 && hit)
+          //result = clobber(ctx);
    spirv_builder_emit_store(&ctx->builder, ptr, result);
 }
 
@@ -3219,6 +3235,8 @@ emit_tex(struct ntv_context *ctx, nir_tex_instr *tex)
                                                proj != 0,
                                                lod, bias, dref, dx, dy,
                                                offset);
+       if (nir_dest_num_components(tex->dest) == 4 && hit)
+          result = clobber(ctx);
    }
 
    spirv_builder_emit_decoration(&ctx->builder, result,
@@ -3635,6 +3653,13 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
    struct ntv_context ctx = {};
    ctx.mem_ctx = ralloc_context(NULL);
    ctx.builder.mem_ctx = ctx.mem_ctx;
+
+   if (s->info.stage == MESA_SHADER_FRAGMENT) {
+      const char *env = getenv("TEST_SHADER");
+      hit = env && s->info.name && !strcmp(s->info.name, env);
+      if (hit)
+         printf("HIT %s\n", env);
+   }
 
    switch (s->info.stage) {
    case MESA_SHADER_VERTEX:
