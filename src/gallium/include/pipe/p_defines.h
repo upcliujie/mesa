@@ -986,7 +986,7 @@ enum pipe_cap
    PIPE_CAP_GL_CLAMP,
    PIPE_CAP_TEXRECT,
    PIPE_CAP_SAMPLER_REDUCTION_MINMAX,
-
+   PIPE_CAP_NO_DITHERING,
    PIPE_CAP_LAST,
    /* XXX do not add caps after PIPE_CAP_LAST! */
 };
