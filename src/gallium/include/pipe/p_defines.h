@@ -999,6 +999,7 @@ enum pipe_cap
    PIPE_CAP_PREFER_BACK_BUFFER_REUSE,
    PIPE_CAP_DRAW_VERTEX_STATE,
 
+   PIPE_CAP_NO_DITHERING,
    PIPE_CAP_LAST,
    /* XXX do not add caps after PIPE_CAP_LAST! */
 };
