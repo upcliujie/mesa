@@ -526,10 +526,13 @@ tu_CreateRenderPass2(VkDevice _device,
    struct tu_subpass_attachment *p;
    for (uint32_t i = 0; i < pCreateInfo->subpassCount; i++) {
       const VkSubpassDescription2 *desc = &pCreateInfo->pSubpasses[i];
+      const VkSubpassDescriptionDepthStencilResolve *depth_stencil_resolve =
+         vk_find_struct_const(desc->pNext, SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR);
 
       subpass_attachment_count +=
          desc->inputAttachmentCount + desc->colorAttachmentCount +
-         (desc->pResolveAttachments ? desc->colorAttachmentCount : 0);
+         (desc->pResolveAttachments ? desc->colorAttachmentCount : 0) +
+         (depth_stencil_resolve ? 1 : 0);
    }
 
    if (subpass_attachment_count) {
@@ -547,10 +550,14 @@ tu_CreateRenderPass2(VkDevice _device,
    p = pass->subpass_attachments;
    for (uint32_t i = 0; i < pCreateInfo->subpassCount; i++) {
       const VkSubpassDescription2 *desc = &pCreateInfo->pSubpasses[i];
+      const VkSubpassDescriptionDepthStencilResolve *depth_stencil_resolve =
+         vk_find_struct_const(desc->pNext, SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR);
       struct tu_subpass *subpass = &pass->subpasses[i];
 
       subpass->input_count = desc->inputAttachmentCount;
       subpass->color_count = desc->colorAttachmentCount;
+      subpass->resolve_count = 0;
+      subpass->resolve_depth_stencil = depth_stencil_resolve != NULL;
       subpass->samples = 0;
       subpass->srgb_cntl = 0;
 
@@ -588,15 +595,22 @@ tu_CreateRenderPass2(VkDevice _device,
          }
       }
 
-      subpass->resolve_attachments = desc->pResolveAttachments ? p : NULL;
+      subpass->resolve_attachments = (desc->pResolveAttachments || depth_stencil_resolve) ? p : NULL;
       if (desc->pResolveAttachments) {
          p += desc->colorAttachmentCount;
+         subpass->resolve_count += desc->colorAttachmentCount;
          for (uint32_t j = 0; j < desc->colorAttachmentCount; j++) {
             subpass->resolve_attachments[j].attachment =
                   desc->pResolveAttachments[j].attachment;
          }
       }
 
+      if (depth_stencil_resolve) {
+         p++;
+         subpass->resolve_count++;
+         uint32_t a = depth_stencil_resolve->pDepthStencilResolveAttachment->attachment;
+         subpass->resolve_attachments[subpass->resolve_count - 1].attachment = a;
+      }
 
       uint32_t a = desc->pDepthStencilAttachment ?
          desc->pDepthStencilAttachment->attachment : VK_ATTACHMENT_UNUSED;

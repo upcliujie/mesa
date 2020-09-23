@@ -99,6 +99,7 @@ EXTENSIONS = [
     Extension('VK_EXT_extended_dynamic_state',            1, True),
     Extension('VK_KHR_push_descriptor',                   1, True),
     Extension('VK_KHR_incremental_present',               1, 'TU_HAS_SURFACE'),
+    Extension('VK_KHR_depth_stencil_resolve',             1, 'device->gpu_id == 650'),
 ]
 
 MAX_API_VERSION = VkVersion(MAX_API_VERSION)
