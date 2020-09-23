@@ -85,3 +85,18 @@ dEQP-GLES31.functional.texture.multisample.samples_3.use_texture_depth_2d
 dEQP-GLES31.functional.texture.multisample.samples_3.use_texture_depth_2d_array
 dEQP-GLES31.functional.texture.multisample.samples_4.use_texture_depth_2d
 dEQP-GLES31.functional.texture.multisample.samples_4.use_texture_depth_2d_array
+
+# A630 hangs when clearing multisample D24_UNORM_S8_UINT images, see https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/6884
+# Non-D24_UNORM failures are because the tests are wrong. They will be fixed in VK-GL-CTS 1.2.5.0.
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_16_64_6.samples_2.d24_unorm_s8_uint.depth_zero_unused_resolve
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_16_64_6.samples_4.d32_sfloat_s8_uint.depth_zero
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_17_1.samples_2.d32_sfloat.depth_zero_stencil_zero_testing_depth
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_17_1.samples_4.d32_sfloat.depth_zero_stencil_zero_testing_depth
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_32_32.samples_2.d32_sfloat.depth_zero_stencil_zero_testing_depth
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_32_32.samples_4.d32_sfloat.depth_zero_stencil_zero_testing_depth
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_49_13.samples_2.d32_sfloat.depth_zero_stencil_zero_testing_depth
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_49_13.samples_4.d32_sfloat.depth_zero_stencil_zero_testing_depth
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_5_1.samples_2.d32_sfloat.depth_zero_stencil_zero_testing_depth
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_5_1.samples_4.d32_sfloat.depth_zero_stencil_zero_testing_depth
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_8_32.samples_2.d32_sfloat.depth_zero_stencil_zero_testing_depth
+dEQP-VK.renderpass2.depth_stencil_resolve.image_2d_8_32.samples_4.d32_sfloat.depth_zero_stencil_zero_testing_depth
