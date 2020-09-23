@@ -27,6 +27,7 @@
 #include "zink_screen.h"
 
 #include "compiler/shader_enums.h"
+#include "util/u_dual_blend.h"
 #include "util/u_memory.h"
 
 #include <math.h>
@@ -316,6 +317,7 @@ zink_create_blend_state(struct pipe_context *pctx,
 
       cso->attachments[i] = att;
    }
+   cso->dual_src_blend = util_blend_state_is_dual(blend_state, 0);
 
    return cso;
 }

@@ -38,6 +38,7 @@
 #include "util/u_memory.h"
 #include "util/u_screen.h"
 #include "util/u_string.h"
+#include "util/xmlconfig.h"
 
 #include "frontend/sw_winsys.h"
 
@@ -1146,6 +1147,9 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
    zink_screen_fence_init(&screen->base);
 
    slab_create_parent(&screen->transfer_pool, sizeof(struct zink_transfer), 16);
+
+   if (config)
+      screen->driconf.dual_color_blend_by_location = driQueryOptionb(config->options, "dual_color_blend_by_location");
 
    return &screen->base;
 

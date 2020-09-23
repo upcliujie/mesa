@@ -71,6 +71,7 @@ struct zink_blend_state {
 
    bool need_blend_constants;
    bool advanced_blend;
+   bool dual_src_blend;
 };
 
 struct zink_depth_stencil_alpha_hw_state {
