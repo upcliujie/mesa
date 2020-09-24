@@ -10611,7 +10611,7 @@ brw_fs_test_dispatch_packing(const fs_builder &bld)
 unsigned
 fs_visitor::workgroup_size() const
 {
-   assert(stage == MESA_SHADER_COMPUTE);
+   assert(stage == MESA_SHADER_COMPUTE || stage == MESA_SHADER_KERNEL);
    const struct brw_cs_prog_data *cs = brw_cs_prog_data(prog_data);
    return cs->local_size[0] * cs->local_size[1] * cs->local_size[2];
 }
