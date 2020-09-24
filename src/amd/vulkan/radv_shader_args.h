@@ -31,6 +31,7 @@
 struct radv_shader_args {
    struct ac_shader_args ac;
    struct radv_shader_info *shader_info;
+   const struct radv_pipeline_key *key;
    const struct radv_nir_compiler_options *options;
 
    struct ac_arg descriptor_sets[MAX_SETS];
@@ -45,6 +46,9 @@ struct radv_shader_args {
    struct ac_arg ngg_viewport_scale[2];
    struct ac_arg ngg_viewport_translate[2];
 
+   enum chip_class chip_class;
+   bool explicit_scratch_args;
+   bool remap_spi_ps_input;
    bool is_gs_copy_shader;
    bool is_trap_handler_shader;
 };

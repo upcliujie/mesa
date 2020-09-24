@@ -81,12 +81,12 @@ needs_view_index_sgpr(struct radv_shader_args *args, gl_shader_stage stage)
    case MESA_SHADER_VERTEX:
       if (args->shader_info->needs_multiview_view_index ||
           (!args->shader_info->vs.as_es && !args->shader_info->vs.as_ls &&
-           args->options->key.has_multiview_view_index))
+           args->key->has_multiview_view_index))
          return true;
       break;
    case MESA_SHADER_TESS_EVAL:
       if (args->shader_info->needs_multiview_view_index ||
-          (!args->shader_info->tes.as_es && args->options->key.has_multiview_view_index))
+          (!args->shader_info->tes.as_es && args->key->has_multiview_view_index))
          return true;
       break;
    case MESA_SHADER_TESS_CTRL:
@@ -95,7 +95,7 @@ needs_view_index_sgpr(struct radv_shader_args *args, gl_shader_stage stage)
       break;
    case MESA_SHADER_GEOMETRY:
       if (args->shader_info->needs_multiview_view_index ||
-          (args->shader_info->is_ngg && args->options->key.has_multiview_view_index))
+          (args->shader_info->is_ngg && args->key->has_multiview_view_index))
          return true;
       break;
    default:
@@ -230,8 +230,7 @@ allocate_user_sgprs(struct radv_shader_args *args, gl_shader_stage stage, bool h
    if (args->shader_info->so.num_outputs)
       user_sgpr_count++;
 
-   uint32_t available_sgprs =
-      args->options->chip_class >= GFX9 && stage != MESA_SHADER_COMPUTE ? 32 : 16;
+   uint32_t available_sgprs = args->chip_class >= GFX9 && stage != MESA_SHADER_COMPUTE ? 32 : 16;
    uint32_t remaining_sgprs = available_sgprs - user_sgpr_count;
    uint32_t num_desc_set = util_bitcount(args->shader_info->desc_set_used_mask);
 
@@ -303,7 +302,7 @@ declare_vs_input_vgprs(struct radv_shader_args *args)
    if (!args->is_gs_copy_shader) {
       if (args->shader_info->vs.as_ls) {
          ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, &args->ac.vs_rel_patch_id);
-         if (args->options->chip_class >= GFX10) {
+         if (args->chip_class >= GFX10) {
             ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, NULL); /* user vgpr */
             ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, &args->ac.instance_id);
          } else {
@@ -311,7 +310,7 @@ declare_vs_input_vgprs(struct radv_shader_args *args)
             ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, NULL); /* unused */
          }
       } else {
-         if (args->options->chip_class >= GFX10) {
+         if (args->chip_class >= GFX10) {
             if (args->shader_info->is_ngg) {
                ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, NULL); /* user vgpr */
                ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, NULL); /* user vgpr */
@@ -385,7 +384,7 @@ declare_ps_input_vgprs(struct radv_shader_args *args)
    ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, &args->ac.sample_coverage);
    ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, NULL); /* fixed pt */
 
-   if (args->options->remap_spi_ps_input) {
+   if (args->remap_spi_ps_input) {
       /* LLVM optimizes away unused FS inputs and computes spi_ps_input_addr itself and then
        * communicates the results back via the ELF binary. Mirror what LLVM does by re-mapping the
        * VGPR arguments here.
@@ -490,7 +489,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
    bool needs_view_index = needs_view_index_sgpr(args, stage);
    bool has_api_gs = stage == MESA_SHADER_GEOMETRY;
 
-   if (args->options->chip_class >= GFX10) {
+   if (args->chip_class >= GFX10) {
       if (is_pre_gs_stage(stage) && args->shader_info->is_ngg) {
          /* On GFX10, VS is merged into GS for NGG. */
          previous_stage = stage;
@@ -507,7 +506,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
    allocate_user_sgprs(args, stage, has_previous_stage, previous_stage, needs_view_index,
                        has_api_gs, &user_sgpr_info);
 
-   if (args->options->explicit_scratch_args) {
+   if (args->explicit_scratch_args) {
       ac_add_arg(&args->ac, AC_ARG_SGPR, 2, AC_ARG_CONST_DESC_PTR, &args->ring_offsets);
    }
 
@@ -537,7 +536,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.tg_size);
       }
 
-      if (args->options->explicit_scratch_args) {
+      if (args->explicit_scratch_args) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.scratch_offset);
       }
 
@@ -563,7 +562,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
          declare_streamout_sgprs(args, stage);
       }
 
-      if (args->options->explicit_scratch_args) {
+      if (args->explicit_scratch_args) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.scratch_offset);
       }
 
@@ -601,7 +600,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
 
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.tess_offchip_offset);
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.tcs_factor_offset);
-         if (args->options->explicit_scratch_args) {
+         if (args->explicit_scratch_args) {
             ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.scratch_offset);
          }
          ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, &args->ac.tcs_patch_id);
@@ -625,7 +624,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
          declare_streamout_sgprs(args, stage);
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.tess_offchip_offset);
       }
-      if (args->options->explicit_scratch_args) {
+      if (args->explicit_scratch_args) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.scratch_offset);
       }
       declare_tes_input_vgprs(args);
@@ -680,7 +679,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
 
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.gs2vs_offset);
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.gs_wave_id);
-         if (args->options->explicit_scratch_args) {
+         if (args->explicit_scratch_args) {
             ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.scratch_offset);
          }
          ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, &args->ac.gs_vtx_offset[0]);
@@ -697,7 +696,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
       declare_global_input_sgprs(args, &user_sgpr_info);
 
       ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.prim_mask);
-      if (args->options->explicit_scratch_args) {
+      if (args->explicit_scratch_args) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.scratch_offset);
       }
 
