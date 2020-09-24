@@ -252,26 +252,38 @@ anv_RegisterDeviceEventEXT(VkDevice _device,
                             VkFence *_fence)
 {
    ANV_FROM_HANDLE(anv_device, device, _device);
-   struct anv_fence *fence;
    VkResult ret;
 
-   fence = vk_zalloc2(&device->vk.alloc, allocator, sizeof (*fence), 8,
-                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (!fence)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+   ret = anv_CreateFence(_device, &(VkFenceCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+      .pNext = &(VkExportFenceCreateInfo) {
+         .sType = VK_STRUCTURE_TYPE_EXPORT_FENCE_CREATE_INFO,
+         .handleTypes = VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT,
+      },
+   }, allocator, _fence);
+   if (ret != VK_SUCCESS)
+      return ret;
 
-   fence->permanent.type = ANV_FENCE_TYPE_WSI;
+   ANV_FROM_HANDLE(anv_fence, fence, *_fence);
 
-   ret = wsi_register_device_event(_device,
-                                   &device->physical->wsi_device,
-                                   device_event_info,
-                                   allocator,
-                                   &fence->permanent.fence_wsi,
-                                   -1);
-   if (ret == VK_SUCCESS)
-      *_fence = anv_fence_to_handle(fence);
-   else
-      vk_free2(&device->vk.alloc, allocator, fence);
+   assert(fence->permanent.type == ANV_FENCE_TYPE_SYNCOBJ);
+
+   int fd = anv_gem_syncobj_handle_to_fd(device, fence->permanent.syncobj);
+   if (fd >= 0) {
+      ret = wsi_register_device_event(_device,
+                                      &device->physical->wsi_device,
+                                      device_event_info,
+                                      allocator,
+                                      NULL,
+                                      fd);
+      close(fd);
+   } else {
+      ret = VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+
+   if (ret != VK_SUCCESS)
+      anv_DestroyFence(_device, *_fence, allocator);
+
    return ret;
 }
 
@@ -283,24 +295,39 @@ anv_RegisterDisplayEventEXT(VkDevice _device,
                              VkFence *_fence)
 {
    ANV_FROM_HANDLE(anv_device, device, _device);
-   struct anv_fence *fence;
    VkResult ret;
 
-   fence = vk_zalloc2(&device->vk.alloc, allocator, sizeof (*fence), 8,
-                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (!fence)
-      return VK_ERROR_OUT_OF_HOST_MEMORY;
+   ret = anv_CreateFence(_device, &(VkFenceCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+      .pNext = &(VkExportFenceCreateInfo) {
+         .sType = VK_STRUCTURE_TYPE_EXPORT_FENCE_CREATE_INFO,
+         .handleTypes = VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT,
+      },
+   }, allocator, _fence);
+   if (ret != VK_SUCCESS)
+      return ret;
 
-   fence->permanent.type = ANV_FENCE_TYPE_WSI;
+   ANV_FROM_HANDLE(anv_fence, fence, *_fence);
 
-   ret = wsi_register_display_event(
-      _device, &device->physical->wsi_device,
-      display, display_event_info, allocator, &fence->permanent.fence_wsi, -1);
+   assert(fence->permanent.type == ANV_FENCE_TYPE_SYNCOBJ);
 
-   if (ret == VK_SUCCESS)
-      *_fence = anv_fence_to_handle(fence);
-   else
-      vk_free2(&device->vk.alloc, allocator, fence);
+   int fd = anv_gem_syncobj_handle_to_fd(device, fence->permanent.syncobj);
+   if (fd >= 0) {
+      ret = wsi_register_display_event(_device,
+                                       &device->physical->wsi_device,
+                                       display,
+                                       display_event_info,
+                                       allocator,
+                                       NULL,
+                                       fd);
+      close(fd);
+   } else {
+      ret = VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+
+   if (ret != VK_SUCCESS)
+      anv_DestroyFence(_device, *_fence, allocator);
+
    return ret;
 }
 

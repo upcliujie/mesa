@@ -1387,10 +1387,6 @@ anv_fence_impl_cleanup(struct anv_device *device,
       anv_gem_syncobj_destroy(device, impl->syncobj);
       break;
 
-   case ANV_FENCE_TYPE_WSI:
-      impl->fence_wsi->destroy(impl->fence_wsi);
-      break;
-
    default:
       unreachable("Invalid fence type");
    }
@@ -1702,14 +1698,6 @@ done:
 }
 
 static VkResult
-anv_wait_for_wsi_fence(struct anv_device *device,
-                       struct anv_fence_impl *impl,
-                       uint64_t abs_timeout)
-{
-   return impl->fence_wsi->wait(impl->fence_wsi, abs_timeout);
-}
-
-static VkResult
 anv_wait_for_fences(struct anv_device *device,
                     uint32_t fenceCount,
                     const VkFence *pFences,
@@ -1736,9 +1724,6 @@ anv_wait_for_fences(struct anv_device *device,
          case ANV_FENCE_TYPE_SYNCOBJ:
             result = anv_wait_for_syncobj_fences(device, 1, &pFences[i],
                                                  true, abs_timeout);
-            break;
-         case ANV_FENCE_TYPE_WSI:
-            result = anv_wait_for_wsi_fence(device, impl, abs_timeout);
             break;
          case ANV_FENCE_TYPE_NONE:
             result = VK_SUCCESS;
