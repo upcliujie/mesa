@@ -46,6 +46,7 @@ struct radv_device;
 struct radv_pipeline;
 struct radv_pipeline_cache;
 struct radv_pipeline_key;
+struct radv_shader_args;
 
 struct radv_pipeline_key {
    uint32_t has_multiview_view_index : 1;
@@ -100,7 +101,6 @@ enum radv_compiler_debug_level {
 struct radv_nir_compiler_options {
    struct radv_pipeline_layout *layout;
    struct radv_pipeline_key key;
-   bool explicit_scratch_args;
    bool robust_buffer_access;
    bool adjust_frag_coord_z;
    bool dump_shader;
@@ -420,15 +420,16 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device 
 struct radv_shader_variant *radv_shader_variant_create(struct radv_device *device,
                                                        const struct radv_shader_binary *binary,
                                                        bool keep_shader_info);
-struct radv_shader_variant *radv_shader_variant_compile(
-   struct radv_device *device, struct vk_shader_module *module, struct nir_shader *const *shaders,
-   int shader_count, struct radv_pipeline_layout *layout, const struct radv_pipeline_key *key,
-   struct radv_shader_info *info, bool keep_shader_info, bool keep_statistic_info,
-   struct radv_shader_binary **binary_out);
+struct radv_shader_variant *
+radv_shader_variant_compile(struct radv_device *device, struct vk_shader_module *module,
+                            struct nir_shader *const *shaders, int shader_count,
+                            struct radv_pipeline_layout *layout, bool keep_shader_info,
+                            bool keep_statistic_info, struct radv_shader_args *args,
+                            struct radv_shader_binary **binary_out);
 
 struct radv_shader_variant *
 radv_create_gs_copy_shader(struct radv_device *device, struct nir_shader *nir,
-                           struct radv_shader_info *info, struct radv_shader_binary **binary_out,
+                           struct radv_shader_args *args, struct radv_shader_binary **binary_out,
                            bool multiview, bool keep_shader_info, bool keep_statistic_info,
                            bool disable_optimizations);
 
