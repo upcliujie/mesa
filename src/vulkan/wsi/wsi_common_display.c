@@ -2537,6 +2537,13 @@ wsi_register_display_event(VkDevice device,
    struct wsi_display_fence *fence;
    VkResult ret;
 
+   /* make sure event thread is started so that vblank event can be received
+    * note: should create the thread as soon as VK_KHR_display is used instead
+    * of having this here.
+    */
+   if (wsi_display_start_wait_thread(wsi))
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
    switch (display_event_info->displayEvent) {
    case VK_DISPLAY_EVENT_TYPE_FIRST_PIXEL_OUT_EXT:
 
