@@ -1889,6 +1889,8 @@ wsi_display_finish_wsi(struct wsi_device *wsi_device,
       pthread_mutex_destroy(&wsi->wait_mutex);
       pthread_cond_destroy(&wsi->wait_cond);
 
+      /* TODO: free any pending wsi_display_fence */
+
       vk_free(alloc, wsi);
    }
 }
