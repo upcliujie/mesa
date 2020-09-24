@@ -3051,6 +3051,21 @@ pack_inlocs(struct ir3_context *ctx)
 		so->inputs[i].inloc = inloc;
 		so->inputs[i].bary = false;
 
+		/* for clip+cull distances, unused components can't be eliminated
+		 * because they're read by fixed-function, even if there's a hole.
+		 */
+		if (so->inputs[i].slot == VARYING_SLOT_CLIP_DIST0 ||
+			so->inputs[i].slot == VARYING_SLOT_CLIP_DIST1) {
+			unsigned clip_cull_mask = ctx->so->clip_mask | ctx->so->cull_mask;
+			unsigned components = util_last_bit(clip_cull_mask);
+			clip_cull_mask = (1u << components) - 1;
+			if (so->inputs[i].slot == VARYING_SLOT_CLIP_DIST0)
+				compmask = clip_cull_mask & 0xf;
+			else
+				compmask = clip_cull_mask >> 4;
+			used_components[i] = compmask;
+		}
+
 		for (unsigned j = 0; j < 4; j++) {
 			if (!(used_components[i] & (1 << j)))
 				continue;
@@ -3319,6 +3334,19 @@ emit_instructions(struct ir3_context *ctx)
 	 */
 	ctx->so->num_samp = util_last_bit(ctx->s->info.textures_used) + ctx->s->info.num_images;
 
+	/* Save off clip+cull information. Note that legacy user clip planes may
+	 * be individually enabled/disabled, so we can't use the
+	 * clip_distance_array_size for them.
+	 */
+	if (ctx->so->key.ucp_enables) {
+		ctx->so->clip_mask = ctx->so->key.ucp_enables;
+		ctx->so->cull_mask = 0;
+	} else { 
+		ctx->so->clip_mask = (1u << ctx->s->info.clip_distance_array_size) - 1;
+		ctx->so->cull_mask = ((1u << ctx->s->info.cull_distance_array_size) - 1) <<
+			ctx->s->info.clip_distance_array_size;
+	}
+
 	/* NOTE: need to do something more clever when we support >1 fxn */
 	nir_foreach_register (reg, &fxn->registers) {
 		ir3_declare_array(ctx, reg);
@@ -3376,8 +3404,9 @@ fixup_binning_pass(struct ir3_context *ctx)
 		unsigned outidx = out->collect.outidx;
 		unsigned slot = so->outputs[outidx].slot;
 
-		/* throw away everything but first position/psize */
-		if ((slot == VARYING_SLOT_POS) || (slot == VARYING_SLOT_PSIZ)) {
+		/* throw away everything but first position/psize/clip0/clip1 */
+		if ((slot == VARYING_SLOT_POS) || (slot == VARYING_SLOT_PSIZ) ||
+			(slot == VARYING_SLOT_CLIP_DIST0) || (slot == VARYING_SLOT_CLIP_DIST1)) {
 			ir->outputs[j] = ir->outputs[i];
 			j++;
 		}
@@ -3390,8 +3419,9 @@ fixup_binning_pass(struct ir3_context *ctx)
 	for (i = 0, j = 0; i < so->outputs_count; i++) {
 		unsigned slot = so->outputs[i].slot;
 
-		/* throw away everything but first position/psize */
-		if ((slot == VARYING_SLOT_POS) || (slot == VARYING_SLOT_PSIZ)) {
+		/* throw away everything but first position/psize/clip0/clip1 */
+		if ((slot == VARYING_SLOT_POS) || (slot == VARYING_SLOT_PSIZ) ||
+			(slot == VARYING_SLOT_CLIP_DIST0) || (slot == VARYING_SLOT_CLIP_DIST1)) {
 			so->outputs[j] = so->outputs[i];
 
 			/* fixup outidx to point to new output table entry: */
