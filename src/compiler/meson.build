@@ -97,4 +97,6 @@ if with_tests
   )
 endif
 
-subdir('glsl')
+if with_any_opengl or with_broadcom_vk
+  subdir('glsl')
+endif

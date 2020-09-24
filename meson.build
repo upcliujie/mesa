@@ -1645,38 +1645,40 @@ endif
 
 # pthread stubs. Lets not and say we didn't
 
-if host_machine.system() == 'windows'
-  # Prefer the winflexbison versions, they're much easier to install and have
-  # better windows support.
+if with_any_opengl or with_freedreno_vk or with_broadcom_vk
+  if host_machine.system() == 'windows'
+    # Prefer the winflexbison versions, they're much easier to install and have
+    # better windows support.
 
-  prog_flex = find_program('win_flex', required : false)
-  if prog_flex.found()
-    # windows compatibility (uses <io.h> instead of <unistd.h> and _isatty,
-    # _fileno functions)
-    prog_flex = [prog_flex, '--wincompat', '-D__STDC_VERSION__=199901']
+    prog_flex = find_program('win_flex', required : false)
+    if prog_flex.found()
+      # windows compatibility (uses <io.h> instead of <unistd.h> and _isatty,
+      # _fileno functions)
+      prog_flex = [prog_flex, '--wincompat', '-D__STDC_VERSION__=199901']
+    else
+      prog_flex = [find_program('lex', 'flex')]
+    endif
+    # Force flex to use const keyword in prototypes, as relies on __cplusplus or
+    # __STDC__ macro to determine whether it's safe to use const keyword, but
+    # MSVC never defines __STDC__ unless we disable all MSVC extensions.
+    prog_flex += '-DYY_USE_CONST='
+
+    prog_bison = find_program('win_bison', required : false)
+    if not prog_bison.found()
+      prog_bison = find_program('yacc', 'bison')
+    endif
   else
-    prog_flex = [find_program('lex', 'flex', required : with_any_opengl)]
-  endif
-  # Force flex to use const keyword in prototypes, as relies on __cplusplus or
-  # __STDC__ macro to determine whether it's safe to use const keyword, but
-  # MSVC never defines __STDC__ unless we disable all MSVC extensions.
-  prog_flex += '-DYY_USE_CONST='
+    prog_bison = find_program('bison')
 
-  prog_bison = find_program('win_bison', required : false)
-  if not prog_bison.found()
-    prog_bison = find_program('yacc', 'bison', required : with_any_opengl)
-  endif
-else
-  prog_bison = find_program('bison', required : with_any_opengl)
+    # Disable deprecated keyword warnings, since we have to use them for
+    # old-bison compat.  See discussion in
+    # https://gitlab.freedesktop.org/mesa/mesa/merge_requests/2161
+    if find_program('bison', required : false, version : '> 2.3').found()
+      prog_bison = [prog_bison, '-Wno-deprecated']
+    endif
 
-  # Disable deprecated keyword warnings, since we have to use them for
-  # old-bison compat.  See discussion in
-  # https://gitlab.freedesktop.org/mesa/mesa/merge_requests/2161
-  if find_program('bison', required : false, version : '> 2.3').found()
-    prog_bison = [prog_bison, '-Wno-deprecated']
+    prog_flex = find_program('flex')
   endif
-
-  prog_flex = find_program('flex', required : with_any_opengl)
 endif
 
 dep_selinux = null_dep

@@ -56,7 +56,9 @@ else
 endif
 subdir('android_stub')
 subdir('util')
-subdir('mapi')
+if with_any_opengl
+  subdir('mapi')
+endif
 # TODO: opengl
 subdir('compiler')
 if with_tools.contains('drm-shim')
@@ -95,7 +97,9 @@ endif
 if with_microsoft_clc or with_gallium_d3d12
   subdir('microsoft')
 endif
-subdir('mesa')
+if with_any_opengl
+  subdir('mesa')
+endif
 subdir('loader')
 if with_platform_haiku
   subdir('hgl')
