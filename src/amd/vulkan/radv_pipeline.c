@@ -36,6 +36,7 @@
 #include "radv_debug.h"
 #include "radv_private.h"
 #include "radv_shader.h"
+#include "radv_shader_args.h"
 #include "vk_util.h"
 
 #include "util/debug.h"
@@ -2990,6 +2991,53 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 }
 
 static void
+radv_declare_pipeline_args(struct radv_device *device, struct radv_shader_args *args,
+                           nir_shader **nir, struct radv_shader_info *infos,
+                           const struct radv_pipeline_key *pipeline_key)
+{
+   unsigned active_stages = 0;
+
+   for (int i = 0; i < MESA_SHADER_STAGES; i++) {
+      if (nir[i])
+         active_stages |= (1 << i);
+   }
+
+   for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
+      args[i].shader_info = &infos[i];
+      args[i].is_gs_copy_shader = false;
+      args[i].chip_class = device->physical_device->rad_info.chip_class;
+      args[i].explicit_scratch_args = !radv_use_llvm_for_stage(device, i);
+      args[i].remap_spi_ps_input = !radv_use_llvm_for_stage(device, i);
+      args[i].key = pipeline_key;
+   }
+
+   if (device->physical_device->rad_info.chip_class >= GFX9 && nir[MESA_SHADER_TESS_CTRL]) {
+      radv_declare_shader_args(&args[MESA_SHADER_TESS_CTRL], MESA_SHADER_TESS_CTRL, true,
+                               MESA_SHADER_VERTEX);
+
+      args[MESA_SHADER_VERTEX] = args[MESA_SHADER_TESS_CTRL];
+      active_stages ^= (1 << MESA_SHADER_VERTEX);
+      active_stages ^= (1 << MESA_SHADER_TESS_CTRL);
+   }
+
+   if (device->physical_device->rad_info.chip_class >= GFX9 && nir[MESA_SHADER_GEOMETRY]) {
+      gl_shader_stage pre_stage =
+         nir[MESA_SHADER_TESS_EVAL] ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
+      args[MESA_SHADER_GEOMETRY].key = pipeline_key;
+      radv_declare_shader_args(&args[MESA_SHADER_GEOMETRY], MESA_SHADER_GEOMETRY, true, pre_stage);
+
+      args[pre_stage] = args[MESA_SHADER_GEOMETRY];
+      active_stages ^= (1 << pre_stage);
+      active_stages ^= (1 << MESA_SHADER_GEOMETRY);
+   }
+
+   while (active_stages) {
+      int i = u_bit_scan(&active_stages);
+      radv_declare_shader_args(&args[i], i, false, MESA_SHADER_VERTEX);
+   }
+}
+
+static void
 merge_tess_info(struct shader_info *tes_info, struct shader_info *tcs_info)
 {
    /* The Vulkan 1.0.38 spec, section 21.1 Tessellator says:
@@ -3470,6 +3518,9 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
 
    radv_determine_ngg_settings(pipeline, pipeline_key, infos, nir);
 
+   struct radv_shader_args args[MESA_SHADER_STAGES] = {{{{{0}}}}};
+   radv_declare_pipeline_args(device, args, nir, infos, pipeline_key);
+
    for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
       if (nir[i]) {
          radv_start_feedback(stage_feedbacks[i]);
@@ -3587,8 +3638,17 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          info.workgroup_size = 64; /* HW VS: separate waves, no workgroups */
          info.ballot_bit_size = 64;
 
+         struct radv_shader_args gs_copy_args = {0};
+         gs_copy_args.shader_info = &info;
+         gs_copy_args.is_gs_copy_shader = true;
+         gs_copy_args.chip_class = device->physical_device->rad_info.chip_class;
+         gs_copy_args.explicit_scratch_args = !radv_use_llvm_for_stage(device, MESA_SHADER_VERTEX);
+         gs_copy_args.remap_spi_ps_input = !radv_use_llvm_for_stage(device, MESA_SHADER_VERTEX);
+         gs_copy_args.key = pipeline_key;
+         radv_declare_shader_args(&gs_copy_args, MESA_SHADER_VERTEX, false, MESA_SHADER_VERTEX);
+
          pipeline->gs_copy_shader = radv_create_gs_copy_shader(
-            device, nir[MESA_SHADER_GEOMETRY], &info, &gs_copy_binary, keep_executable_info,
+            device, nir[MESA_SHADER_GEOMETRY], &gs_copy_args, &gs_copy_binary, keep_executable_info,
             keep_statistic_info, pipeline_key->has_multiview_view_index,
             pipeline_key->optimisations_disabled);
       }
@@ -3614,8 +3674,8 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
 
          pipeline->shaders[MESA_SHADER_FRAGMENT] = radv_shader_variant_compile(
             device, modules[MESA_SHADER_FRAGMENT], &nir[MESA_SHADER_FRAGMENT], 1, pipeline_layout,
-            pipeline_key, infos + MESA_SHADER_FRAGMENT, keep_executable_info,
-            keep_statistic_info, &binaries[MESA_SHADER_FRAGMENT]);
+            keep_executable_info, keep_statistic_info, &args[MESA_SHADER_FRAGMENT],
+            &binaries[MESA_SHADER_FRAGMENT]);
 
          radv_stop_feedback(stage_feedbacks[MESA_SHADER_FRAGMENT], false);
       }
@@ -3628,8 +3688,8 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          radv_start_feedback(stage_feedbacks[MESA_SHADER_TESS_CTRL]);
 
          pipeline->shaders[MESA_SHADER_TESS_CTRL] = radv_shader_variant_compile(
-            device, modules[MESA_SHADER_TESS_CTRL], combined_nir, 2, pipeline_layout, pipeline_key,
-            &infos[MESA_SHADER_TESS_CTRL], keep_executable_info, keep_statistic_info,
+            device, modules[MESA_SHADER_TESS_CTRL], combined_nir, 2, pipeline_layout,
+            keep_executable_info, keep_statistic_info, &args[MESA_SHADER_TESS_CTRL],
             &binaries[MESA_SHADER_TESS_CTRL]);
 
          radv_stop_feedback(stage_feedbacks[MESA_SHADER_TESS_CTRL], false);
@@ -3646,9 +3706,9 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          radv_start_feedback(stage_feedbacks[MESA_SHADER_GEOMETRY]);
 
          pipeline->shaders[MESA_SHADER_GEOMETRY] = radv_shader_variant_compile(
-            device, modules[MESA_SHADER_GEOMETRY], combined_nir, 2, pipeline_layout, pipeline_key,
-            &infos[MESA_SHADER_GEOMETRY], keep_executable_info,
-            keep_statistic_info, &binaries[MESA_SHADER_GEOMETRY]);
+            device, modules[MESA_SHADER_GEOMETRY], combined_nir, 2, pipeline_layout,
+            keep_executable_info, keep_statistic_info, &args[MESA_SHADER_GEOMETRY],
+            &binaries[MESA_SHADER_GEOMETRY]);
 
          radv_stop_feedback(stage_feedbacks[MESA_SHADER_GEOMETRY], false);
       }
@@ -3660,8 +3720,8 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          radv_start_feedback(stage_feedbacks[i]);
 
          pipeline->shaders[i] = radv_shader_variant_compile(
-            device, modules[i], &nir[i], 1, pipeline_layout, pipeline_key, infos + i,
-            keep_executable_info, keep_statistic_info, &binaries[i]);
+            device, modules[i], &nir[i], 1, pipeline_layout, keep_executable_info,
+            keep_statistic_info, &args[i], &binaries[i]);
 
          radv_stop_feedback(stage_feedbacks[i], false);
       }
