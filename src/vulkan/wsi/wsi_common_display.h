@@ -143,7 +143,6 @@ wsi_register_device_event(VkDevice                      device,
                           struct wsi_device             *wsi_device,
                           const VkDeviceEventInfoEXT    *device_event_info,
                           const VkAllocationCallbacks   *allocator,
-                          struct wsi_fence              **fence,
                           int sync_fd);
 
 VkResult
@@ -152,7 +151,6 @@ wsi_register_display_event(VkDevice                     device,
                            VkDisplayKHR                 display,
                            const VkDisplayEventInfoEXT  *display_event_info,
                            const VkAllocationCallbacks  *allocator,
-                           struct wsi_fence             **fence,
                            int sync_fd);
 
 VkResult

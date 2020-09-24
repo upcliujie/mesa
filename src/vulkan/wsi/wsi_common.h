@@ -66,15 +66,6 @@ struct wsi_memory_signal_submit_info {
     VkDeviceMemory memory;
 };
 
-struct wsi_fence {
-   VkDevice                     device;
-   const struct wsi_device      *wsi_device;
-   VkDisplayKHR                 display;
-   const VkAllocationCallbacks  *alloc;
-   VkResult                     (*wait)(struct wsi_fence *fence, uint64_t abs_timeout);
-   void                         (*destroy)(struct wsi_fence *fence);
-};
-
 struct wsi_interface;
 
 struct driOptionCache;

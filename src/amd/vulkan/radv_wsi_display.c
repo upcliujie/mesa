@@ -297,7 +297,6 @@ radv_RegisterDeviceEventEXT(VkDevice                    _device,
 						&device->physical_device->wsi_device,
 						device_event_info,
 						allocator,
-						NULL,
 						fd);
 		close(fd);
 	}
@@ -341,7 +340,6 @@ radv_RegisterDisplayEventEXT(VkDevice                           _device,
 						 display,
 						 display_event_info,
 						 allocator,
-						 NULL,
 						 fd);
 		close(fd);
 	}

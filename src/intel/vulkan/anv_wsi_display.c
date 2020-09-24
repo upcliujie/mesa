@@ -274,7 +274,6 @@ anv_RegisterDeviceEventEXT(VkDevice _device,
                                       &device->physical->wsi_device,
                                       device_event_info,
                                       allocator,
-                                      NULL,
                                       fd);
       close(fd);
    } else {
@@ -318,7 +317,6 @@ anv_RegisterDisplayEventEXT(VkDevice _device,
                                        display,
                                        display_event_info,
                                        allocator,
-                                       NULL,
                                        fd);
       close(fd);
    } else {

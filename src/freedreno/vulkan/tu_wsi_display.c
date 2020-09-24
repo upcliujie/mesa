@@ -293,7 +293,6 @@ tu_RegisterDeviceEventEXT(VkDevice                    _device,
                                       &device->physical_device->wsi_device,
                                       device_event_info,
                                       allocator,
-                                      NULL,
                                       sync_fd);
    } else {
       ret = VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -330,7 +329,6 @@ tu_RegisterDisplayEventEXT(VkDevice                           _device,
                                        display,
                                        display_event_info,
                                        allocator,
-                                       NULL,
                                        sync_fd);
    } else {
       ret = VK_ERROR_OUT_OF_HOST_MEMORY;
