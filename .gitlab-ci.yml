@@ -655,6 +655,7 @@ meson-android:
     EXTRA_OPTION: >
       -D android-stub=true
       -D werror=true
+      -D platform-sdk-version=26
     GALLIUM_ST: >
       -D dri3=disabled
       -D gallium-vdpau=disabled
