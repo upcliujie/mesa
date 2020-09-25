@@ -23,6 +23,7 @@ stages:
   - sanity
   - container
   - container-2
+  - container-3
   - git-archive
   - meson-x86_64
   - build-misc
@@ -519,6 +520,16 @@ windows_build_vs2019:
   needs:
     - windows_build_vs2019
 
+x86_devel:
+  extends:
+    - x86_build
+  stage: container-3
+  variables:
+    MESA_BASE_IMAGE: "debian/x86_build"
+    MESA_BASE_TAG: *x86_build
+    MESA_IMAGE_TAG: &x86_devel "2021-02-17"
+  needs:
+    - x86_build
 
 # Git archive
 
