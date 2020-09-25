@@ -195,6 +195,11 @@ idep_mesautil = declare_dependency(
   dependencies : [dep_zlib, dep_clock, dep_thread, dep_atomic, dep_m],
 )
 
+xmlconfig_c_args = []
+if with_android_stub
+  xmlconfig_c_args += '-DXMLCONFIG_STUB'
+endif
+
 _libxmlconfig = static_library(
   'xmlconfig',
   files_xmlconfig,
@@ -208,6 +213,7 @@ _libxmlconfig = static_library(
     '-DDATADIR="@0@"'.format(
       join_paths(get_option('prefix'), get_option('datadir'))
     ),
+    xmlconfig_c_args,
   ],
   gnu_symbol_visibility : 'hidden',
   build_by_default : false,

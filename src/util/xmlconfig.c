@@ -35,7 +35,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#ifndef XMLCONFIG_STUB
 #include <expat.h>
+#endif
 #include <fcntl.h>
 #include <math.h>
 #include <unistd.h>
@@ -53,6 +55,7 @@
 #define PATH_MAX 4096
 #endif
 
+#ifndef XMLCONFIG_STUB
 static bool
 be_verbose(void)
 {
@@ -62,6 +65,7 @@ be_verbose(void)
 
    return strstr(s, "silent") == NULL;
 }
+#endif /* !XMLCONFIG_STUB */
 
 /** \brief Find an option in an option cache with the name as key */
 static uint32_t
@@ -101,6 +105,8 @@ findOption(const driOptionCache *cache, const char *name)
     } \
     memcpy (dest, source, len+1); \
 } while (0)
+
+#ifndef XMLCONFIG_STUB
 
 static int compare (const void *a, const void *b) {
     return strcmp (*(char *const*)a, *(char *const*)b);
@@ -666,14 +672,11 @@ optInfoEndElem(void *userData, const XML_Char *name)
     }
 }
 
+#endif /* !XMLCONFIG_STUB */
+
 void
 driParseOptionInfo(driOptionCache *info, const char *configOptions)
 {
-    XML_Parser p;
-    int status;
-    struct OptInfoData userData;
-    struct OptInfoData *data = &userData;
-
     /* Make the hash table big enough to fit more than the maximum number of
      * config options we've ever seen in a driver.
      */
@@ -685,7 +688,11 @@ driParseOptionInfo(driOptionCache *info, const char *configOptions)
         abort();
     }
 
-    p = XML_ParserCreate ("UTF-8"); /* always UTF-8 */
+#ifndef XMLCONFIG_STUB
+    struct OptInfoData userData;
+    struct OptInfoData *data = &userData;
+
+    XML_Parser p = XML_ParserCreate ("UTF-8"); /* always UTF-8 */
     XML_SetElementHandler (p, optInfoStartElem, optInfoEndElem);
     XML_SetUserData (p, data);
 
@@ -699,12 +706,15 @@ driParseOptionInfo(driOptionCache *info, const char *configOptions)
     userData.inEnum = false;
     userData.curOption = -1;
 
-    status = XML_Parse (p, configOptions, strlen (configOptions), 1);
+    int status = XML_Parse (p, configOptions, strlen (configOptions), 1);
     if (!status)
         XML_FATAL ("%s.", XML_ErrorString(XML_GetErrorCode(p)));
 
     XML_ParserFree (p);
+#endif /* !XMLCONFIG_STUB */
 }
+
+#ifndef XMLCONFIG_STUB
 
 /** \brief Parser context for configuration files. */
 struct OptConfData {
@@ -991,6 +1001,7 @@ optConfEndElem(void *userData, const XML_Char *name)
         /* unknown element, warning was produced on start tag */;
     }
 }
+#endif /* !XMLCONFIG_STUB */
 
 /** \brief Initialize an option cache based on info */
 static void
@@ -1012,6 +1023,7 @@ initOptionCache(driOptionCache *cache, const driOptionCache *info)
     }
 }
 
+#ifndef XMLCONFIG_STUB
 static void
 _parseOneConfigFile(XML_Parser p)
 {
@@ -1116,6 +1128,7 @@ parseConfigDir(struct OptConfData *data, const char *dirname)
 
     free(entries);
 }
+#endif /* !XMLCONFIG_STUB */
 
 #ifndef SYSCONFDIR
 #define SYSCONFDIR "/etc"
@@ -1132,11 +1145,10 @@ driParseConfigFiles(driOptionCache *cache, const driOptionCache *info,
                     const char *applicationName, uint32_t applicationVersion,
                     const char *engineName, uint32_t engineVersion)
 {
-    char *home;
-    struct OptConfData userData;
-
     initOptionCache (cache, info);
 
+#ifndef XMLCONFIG_STUB
+    struct OptConfData userData;
     userData.cache = cache;
     userData.screenNum = screenNum;
     userData.driverName = driverName;
@@ -1150,12 +1162,14 @@ driParseConfigFiles(driOptionCache *cache, const driOptionCache *info,
     parseConfigDir(&userData, DATADIR "/drirc.d");
     parseOneConfigFile(&userData, SYSCONFDIR "/drirc");
 
-    if ((home = getenv ("HOME"))) {
+    char *home = getenv ("HOME");
+    if (home) {
         char filename[PATH_MAX];
 
         snprintf(filename, PATH_MAX, "%s/.drirc", home);
         parseOneConfigFile(&userData, filename);
     }
+#endif /* !XMLCONFIG_STUB */
 }
 
 void
