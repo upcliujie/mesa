@@ -249,6 +249,7 @@ unsigned
 intel_quantize_num_samples(struct intel_screen *intel, unsigned num_samples);
 
 void pixels_flip_x(GLubyte *p, GLuint w, GLuint h, ptrdiff_t row_stride);
+void pixels_swap_xy(GLubyte *p, GLuint w, GLuint h, GLint bpp);
 
 #ifdef __cplusplus
 }

@@ -115,6 +115,19 @@ void pixels_flip_x(GLubyte *p, GLuint w, GLuint h, ptrdiff_t row_stride) {
    }
 }
 
+/* Swap pixels by coordinate x and y. */
+void pixels_swap_xy(GLubyte *p, GLuint w, GLuint h, GLint bpp) {
+   GLubyte *tmp = (GLubyte*) malloc(w * h * bpp * sizeof(GLubyte));
+   GLuint out_w = h, out_h = w;
+   memcpy(tmp, p, w * h * bpp * sizeof(GLubyte));
+   for (int j = 0; j < out_h; j++) {
+         for(int i = 0; i < out_w; i++) {
+            memcpy(p + (j * out_w + i) * bpp, tmp + (i * w + j) * bpp, bpp);
+         }
+      }
+   free(tmp);
+}
+
 /**
  * \see dd_function_table::MapRenderbuffer
  */
@@ -204,16 +217,46 @@ intel_map_renderbuffer(struct gl_context *ctx,
    intel_miptree_map(brw, mt, irb->mt_level, irb->mt_layer,
 		     x, y, w, h, mode, &map, &stride);
 
-   /* Because the memory is copied from left to right,
-    * we need to flip pixels in each row for x-flipped renderbuffer.
-    */ 
-   if (flip_x) {
-      pixels_flip_x((GLubyte*)map, w, h, stride);
-   }
+   /* For SwapXY framebuffer, we expect the input x, y, w, h are swapped in
+    * _mesa_clip_readpixels() already. So we don't need to unswap the input
+    * coordinate to locate correct render position here before calling
+    * intel_miptree_map().
+    *
+    * After MapRenderBuffer, Mesa core will copy memory from map based
+    * on stride. Then we need to convert the memory from base coordinate back
+    * to transformed view. Instead of transforming each pixel/memory after
+    * each MapRenderBuffer, we can transform it here.
+    *
+    * For SwapXY framebuffer, we have to swap xy on memory/pixels first since
+    * flip y is processed in Mesa core by stride. Once swap xy is done on
+    * memory, then we need do flip x for FlipY framebuffer and do flip y for
+    * FlipX framebuffer. */
+   bool swap_xy = !!(transform & MESA_TRANSFORM_SWAP_XY);
+   if (swap_xy) {
+      pixels_swap_xy((GLubyte*)map, w, h, (GLint)(stride / w));
+      GLuint out_w = h, out_h = w;
+      ptrdiff_t out_stride = stride / w * out_w;
 
-   if (flip_y) {
-      map += (h - 1) * stride;
-      stride = -stride;
+      /* FlipY is considered as FlipX after swapping xy on pixels/memory. */
+      if (flip_y) {
+         pixels_flip_x((GLubyte*)map, out_w, out_h, out_stride);
+      }
+
+      /* FlipX is considered as FlipY after swapping xy on pixels/memory. */
+      if (flip_x) {
+         map += (out_h - 1) * stride;
+         stride = -stride;
+      }
+   } else {
+      /* Because the memory is copied from left to right,
+       * we need to flip pixels in each row for x-flipped renderbuffer. */
+      if (flip_x) {
+         pixels_flip_x((GLubyte*)map, w, h, stride);
+      }
+      if (flip_y) {
+         map += (h - 1) * stride;
+         stride = -stride;
+      }
    }
 
    DBG("%s: rb %d (%s) mt mapped: (%d, %d) (%dx%d) -> %p/%"PRIdPTR"\n",

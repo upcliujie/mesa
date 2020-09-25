@@ -220,6 +220,13 @@ intel_readpixels_tiled_memcpy(struct gl_context * ctx,
    if (!!(ctx->ReadBuffer->Transforms & MESA_TRANSFORM_FLIP_X)) {
       pixels_flip_x((GLubyte*) pixels, width, height, (ptrdiff_t)abs(dst_pitch));
    }
+   /* For SwapXY framebuffer, we expect the input x, y, w, h are swapped in
+    * _mesa_clip_readpixels() already. So we don't need to unswap the input
+    * coordinate to locate correct render position here before calling
+    * isl_memcpy_tiled_to_linear(). */
+   if (!!(ctx->ReadBuffer->Transforms & MESA_TRANSFORM_SWAP_XY)) {
+      pixels_swap_xy((GLubyte*) pixels, width, height, abs(dst_pitch) / width);
+   }
 
    brw_bo_unmap(bo);
    return true;
