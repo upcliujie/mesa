@@ -2527,6 +2527,10 @@ nir_tex_instr_src_size(const nir_tex_instr *instr, unsigned src)
        instr->src[src].src_type == nir_tex_src_backend2)
       return nir_src_num_components(instr->src[src].src);
 
+   if (instr->src[src].src_type == nir_tex_src_texture_handle ||
+       instr->src[src].src_type == nir_tex_src_sampler_handle)
+      return 0;
+
    return 1;
 }
 
