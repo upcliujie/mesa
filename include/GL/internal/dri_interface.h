@@ -1319,7 +1319,7 @@ struct __DRIdri2ExtensionRec {
  * extensions.
  */
 #define __DRI_IMAGE "DRI_IMAGE"
-#define __DRI_IMAGE_VERSION 17
+#define __DRI_IMAGE_VERSION 18
 
 /**
  * These formats correspond to the similarly named MESA_FORMAT_*
@@ -1769,6 +1769,26 @@ struct __DRIimageExtensionRec {
                                                 int renderbuffer,
                                                 void *loaderPrivate,
                                                 unsigned *error);
+
+   /*
+    * Like createImageFromDmaBufs2, but takes a ContentProtected flag.
+    *
+    * For EGL_EXT_protected_surface.
+    *
+    * \since 18
+    */
+   __DRIimage *(*createImageFromDmaBufs3)(__DRIscreen *screen,
+                                          int width, int height, int fourcc,
+                                          uint64_t modifier,
+                                          int *fds, int num_fds,
+                                          int *strides, int *offsets,
+                                          enum __DRIYUVColorSpace color_space,
+                                          enum __DRISampleRange sample_range,
+                                          enum __DRIChromaSiting horiz_siting,
+                                          enum __DRIChromaSiting vert_siting,
+                                          GLboolean protected_content,
+                                          unsigned *error,
+                                          void *loaderPrivate);
 };
 
 
