@@ -1609,22 +1609,20 @@ genX(BeginCommandBuffer)(
          return result;
 
       /* Record that HiZ is enabled if we can. */
-      if (cmd_buffer->state.framebuffer) {
-         const struct anv_image_view * const iview =
-            anv_cmd_buffer_get_depth_stencil_view(cmd_buffer);
+      const struct anv_image_view * const iview =
+         anv_cmd_buffer_get_depth_stencil_view(cmd_buffer);
 
-         if (iview) {
-            VkImageLayout layout =
-                cmd_buffer->state.subpass->depth_stencil_attachment->layout;
+      if (iview) {
+         VkImageLayout layout =
+             cmd_buffer->state.subpass->depth_stencil_attachment->layout;
 
-            enum isl_aux_usage aux_usage =
-               anv_layout_to_aux_usage(&cmd_buffer->device->info, iview->image,
-                                       VK_IMAGE_ASPECT_DEPTH_BIT,
-                                       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                       layout);
+         enum isl_aux_usage aux_usage =
+            anv_layout_to_aux_usage(&cmd_buffer->device->info, iview->image,
+                                    VK_IMAGE_ASPECT_DEPTH_BIT,
+                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                    layout);
 
-            cmd_buffer->state.hiz_enabled = isl_aux_usage_has_hiz(aux_usage);
-         }
+         cmd_buffer->state.hiz_enabled = isl_aux_usage_has_hiz(aux_usage);
       }
 
       cmd_buffer->state.gfx.dirty |= ANV_CMD_DIRTY_RENDER_TARGETS;

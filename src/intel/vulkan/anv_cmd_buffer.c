@@ -1207,6 +1207,9 @@ void anv_TrimCommandPool(
 const struct anv_image_view *
 anv_cmd_buffer_get_depth_stencil_view(const struct anv_cmd_buffer *cmd_buffer)
 {
+   if (!cmd_buffer->state.framebuffer)
+      return NULL;
+
    const struct anv_subpass *subpass = cmd_buffer->state.subpass;
 
    if (subpass->depth_stencil_attachment == NULL)
