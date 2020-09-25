@@ -1198,31 +1198,13 @@ build_clear_htile_mask_shader()
 	nir_ssa_dest_init(&constants->instr, &constants->dest, 2, 32, "constants");
 	nir_builder_instr_insert(&b, &constants->instr);
 
-	nir_intrinsic_instr *load =
-		nir_intrinsic_instr_create(b.shader, nir_intrinsic_load_ssbo);
-	load->src[0] = nir_src_for_ssa(buf);
-	load->src[1] = nir_src_for_ssa(offset);
-	nir_ssa_dest_init(&load->instr, &load->dest, 4, 32, NULL);
-	load->num_components = 4;
-	nir_intrinsic_set_align(load, 16, 0);
-	nir_builder_instr_insert(&b, &load->instr);
+	nir_ssa_def *data = nir_load_ssbo(&b, buf, offset, 16, 4, 32);
 
 	/* data = (data & ~htile_mask) | (htile_value & htile_mask) */
-	nir_ssa_def *data =
-		nir_iand(&b, &load->dest.ssa,
-			 nir_channel(&b, &constants->dest.ssa, 1));
+	data = nir_iand(&b, data, nir_channel(&b, &constants->dest.ssa, 1));
 	data = nir_ior(&b, data, nir_channel(&b, &constants->dest.ssa, 0));
 
-	nir_intrinsic_instr *store =
-		nir_intrinsic_instr_create(b.shader, nir_intrinsic_store_ssbo);
-	store->src[0] = nir_src_for_ssa(data);
-	store->src[1] = nir_src_for_ssa(buf);
-	store->src[2] = nir_src_for_ssa(offset);
-	nir_intrinsic_set_write_mask(store, 0xf);
-	nir_intrinsic_set_access(store, ACCESS_NON_READABLE);
-	nir_intrinsic_set_align(store, 16, 0);
-	store->num_components = 4;
-	nir_builder_instr_insert(&b, &store->instr);
+	nir_store_ssbo(&b, buf, offset, 16, data, 0xf);
 
 	return b.shader;
 }
