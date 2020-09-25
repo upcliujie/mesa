@@ -34,6 +34,7 @@ stages:
   - sanity
   - container
   - container-2
+  - container-3
   - git-archive
   - meson-x86_64
   - build-misc
@@ -209,6 +210,11 @@ success:
   variables:
     FDO_BASE_IMAGE: "${CI_REGISTRY_IMAGE}/${MESA_BASE_IMAGE}:${MESA_BASE_TAG}--${MESA_TEMPLATES_COMMIT}"
     FDO_DISTRIBUTION_TAG: "${MESA_IMAGE_TAG}--${MESA_BASE_TAG}--${MESA_TEMPLATES_COMMIT}"
+
+.incorporate-root-base-tag+templates-commit:
+  variables:
+    FDO_BASE_IMAGE: "${CI_REGISTRY_IMAGE}/${MESA_BASE_IMAGE}:${MESA_BASE_TAG}--${MESA_ROOT_TAG}--${MESA_TEMPLATES_COMMIT}"
+    FDO_DISTRIBUTION_TAG: "${MESA_IMAGE_TAG}--${MESA_BASE_TAG}--${MESA_ROOT_TAG}--${MESA_TEMPLATES_COMMIT}"
 
 .set-image:
   variables:
@@ -530,6 +536,18 @@ windows_build_vs2019:
   needs:
     - windows_build_vs2019
 
+x86_devel:
+  extends:
+    - x86_build
+    - .incorporate-root-base-tag+templates-commit
+  stage: container-3
+  variables:
+    MESA_BASE_IMAGE: "debian/x86_build"
+    MESA_ROOT_TAG: *x86_build-base
+    MESA_BASE_TAG: *x86_build
+    MESA_IMAGE_TAG: &x86_devel "2021-03-04"
+  needs:
+    - x86_build
 
 # Git archive
 
