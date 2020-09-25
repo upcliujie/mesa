@@ -683,15 +683,28 @@ nir_cf_extract(nir_cf_list *extracted, nir_cursor begin, nir_cursor end)
       return;
    }
 
-   /* In the case where begin points to an instruction in some basic block and
-    * end points to the end of the same basic block, we rely on the fact that
-    * splitting on an instruction moves earlier instructions into a new basic
-    * block. If the later instructions were moved instead, then the end cursor
-    * would be pointing to the same place that begin used to point to, which
-    * is obviously not what we want.
-    */
    split_block_cursor(begin, &block_before, &block_begin);
+
+   /* Splitting a block twice with two cursors created before either split is
+    * tricky and there are a couple of places it can go wrong if both cursors
+    * point to the same block.  One is if the second cursor is an after_block
+    * cursor.  In that case, we need to re-adjust to ensure that it points to
+    * the second one of the split blocks, regardless of which it is.
+    */
+   if (end.option == nir_cursor_after_block && end.block == block_before)
+      end.block = block_begin;
+
    split_block_cursor(end, &block_end, &block_after);
+
+   /* The second place this can all go wrong is that it could be that the
+    * second split places the original block after the new block in which case
+    * the block_begin pointer that we saved off above is pointing to the block
+    * at the end rather than the block in the middle like it's supposed to be.
+    * In this case, we have to re-adjust begin_block to point to the middle
+    * one.
+    */
+   if (block_begin == block_after)
+      block_begin = block_end;
 
    extracted->impl = nir_cf_node_get_function(&block_begin->cf_node);
    exec_list_make_empty(&extracted->list);
