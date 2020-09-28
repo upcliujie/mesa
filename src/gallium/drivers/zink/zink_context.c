@@ -537,9 +537,10 @@ zink_set_vertex_buffers(struct pipe_context *pctx,
    if (buffers) {
       for (int i = 0; i < num_buffers; ++i) {
          const struct pipe_vertex_buffer *vb = buffers + i;
+         if (ctx->gfx_pipeline_state.bindings[start_slot + i].stride != vb->stride)
+            ctx->gfx_pipeline_state.hash = 0;
          ctx->gfx_pipeline_state.bindings[start_slot + i].stride = vb->stride;
       }
-      ctx->gfx_pipeline_state.hash = 0;
    }
 
    util_set_vertex_buffers_mask(ctx->buffers, &ctx->buffers_enabled_mask,
