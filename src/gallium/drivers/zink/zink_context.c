@@ -534,7 +534,7 @@ zink_set_vertex_buffers(struct pipe_context *pctx,
 {
    struct zink_context *ctx = zink_context(pctx);
 
-   if (buffers) {
+   if (buffers && !zink_screen(pctx->screen)->info.have_EXT_extended_dynamic_state) {
       for (int i = 0; i < num_buffers; ++i) {
          const struct pipe_vertex_buffer *vb = buffers + i;
          if (ctx->gfx_pipeline_state.bindings[start_slot + i].stride != vb->stride)

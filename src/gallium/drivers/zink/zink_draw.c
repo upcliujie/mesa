@@ -159,7 +159,9 @@ zink_bind_vertex_buffers(struct zink_batch *batch, struct zink_context *ctx)
 {
    VkBuffer buffers[PIPE_MAX_ATTRIBS];
    VkDeviceSize buffer_offsets[PIPE_MAX_ATTRIBS];
+   VkDeviceSize buffer_strides[PIPE_MAX_ATTRIBS];
    const struct zink_vertex_elements_state *elems = ctx->element_state;
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
 
    if (!elems->hw_state.num_bindings)
       return;
@@ -171,16 +173,23 @@ zink_bind_vertex_buffers(struct zink_batch *batch, struct zink_context *ctx)
          struct zink_resource *res = zink_resource(vb->buffer.resource);
          buffers[i] = res->buffer;
          buffer_offsets[i] = vb->buffer_offset;
+         buffer_strides[i] = vb->stride;
          zink_batch_reference_resource_rw(batch, res, false);
       } else {
          buffers[i] = zink_resource(ctx->dummy_vertex_buffer)->buffer;
          buffer_offsets[i] = 0;
+         buffer_strides[i] = 0;
       }
    }
 
-   vkCmdBindVertexBuffers(batch->cmdbuf, 0,
-                          elems->hw_state.num_bindings,
-                          buffers, buffer_offsets);
+   if (screen->info.have_EXT_extended_dynamic_state)
+      screen->vk_CmdBindVertexBuffers2EXT(batch->cmdbuf, 0,
+                                          elems->hw_state.num_bindings,
+                                          buffers, buffer_offsets, NULL, buffer_strides);
+   else
+      vkCmdBindVertexBuffers(batch->cmdbuf, 0,
+                             elems->hw_state.num_bindings,
+                             buffers, buffer_offsets);
 }
 
 static struct zink_compute_program *
