@@ -65,6 +65,8 @@ struct zink_batch {
    struct hash_table *surface_cache;
    struct hash_table *framebuffer_cache;
 
+   VkDeviceSize resource_size;
+
    bool has_work;
    bool submitted;
    bool in_rp; //renderpass is currently active
