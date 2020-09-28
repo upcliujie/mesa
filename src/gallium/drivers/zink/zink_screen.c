@@ -32,6 +32,7 @@
 #include "zink_resource.h"
 
 #include "os/os_process.h"
+#include "util/os_misc.h"
 #include "util/u_debug.h"
 #include "util/format/u_format.h"
 #include "util/u_math.h"
@@ -1151,6 +1152,11 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
 
    if (config)
       screen->driconf.dual_color_blend_by_location = driQueryOptionb(config->options, "dual_color_blend_by_location");
+
+   if (!os_get_total_physical_memory(&screen->total_mem)) {
+      zink_destroy_screen(&screen->base);
+      return NULL;
+   }
 
    return &screen->base;
 
