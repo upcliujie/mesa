@@ -140,6 +140,12 @@ struct gl_program_parameter_list
    gl_constant_value *ParameterValues; /**< Array [Size] of gl_constant_value */
    GLbitfield StateFlags; /**< _NEW_* flags indicating which state changes
                                might invalidate ParameterValues[] */
+
+   /* Parameters are optionally sorted as follows. Uniforms and constants
+    * are first, then state vars.
+    */
+   int LastUniformIndex;
+   int FirstStateVarIndex;
 };
 
 
@@ -235,6 +241,9 @@ _mesa_gl_datatype_is_64bit(GLenum datatype)
       return false;
    }
 }
+
+void
+_mesa_recompute_parameter_bounds(struct gl_program_parameter_list *list);
 
 #ifdef __cplusplus
 }
