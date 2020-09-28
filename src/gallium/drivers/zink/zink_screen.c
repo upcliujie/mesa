@@ -1319,6 +1319,8 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
       screen->driconf.dual_color_blend_by_location = driQueryOptionb(config->options, "dual_color_blend_by_location");
 #endif
 
+   screen->total_mem = get_video_mem(screen);
+
    return screen;
 
 fail:
