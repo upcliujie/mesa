@@ -160,6 +160,11 @@ _mesa_load_state_parameters(struct gl_context *ctx,
                             struct gl_program_parameter_list *paramList);
 
 extern void
+_mesa_upload_state_parameters(struct gl_context *ctx,
+                              struct gl_program_parameter_list *paramList,
+                              uint32_t *dst);
+
+extern void
 _mesa_optimize_state_parameters(struct gl_program_parameter_list *list);
 
 extern unsigned
