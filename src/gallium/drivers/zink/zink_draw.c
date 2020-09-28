@@ -301,7 +301,7 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
    struct zink_surface *surface_refs[PIPE_SHADER_TYPES * PIPE_MAX_SHADER_IMAGES] = {};
    VkDescriptorBufferInfo buffer_infos[PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_BUFFERS + PIPE_MAX_SHADER_IMAGES)];
    VkDescriptorImageInfo image_infos[PIPE_SHADER_TYPES * (PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_IMAGES)];
-   struct zink_sampler_state *sampler_states[ZINK_SHADER_COUNT * PIPE_MAX_SAMPLERS] = {};
+   struct zink_sampler_state *sampler_states[ZINK_SHADER_COUNT * PIPE_MAX_SAMPLERS];
    VkBufferView buffer_view[] = {VK_NULL_HANDLE};
    unsigned num_wds = 0, num_buffer_info = 0, num_image_info = 0, num_surface_refs = 0, num_sampler_states = 0;
    struct zink_shader **stages;
