@@ -972,6 +972,8 @@ st_finalize_nir(struct st_context *st, struct gl_program *prog,
 
    if (finalize_by_driver && screen->finalize_nir)
       screen->finalize_nir(screen, nir, false);
+
+   _mesa_optimize_state_parameters(prog->Parameters);
 }
 
 } /* extern "C" */
