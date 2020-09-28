@@ -12,6 +12,7 @@ apt-get install -y \
 # Upstream LLVM package repository
 apt-key add .gitlab-ci/container/llvm-snapshot.gpg.key
 echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-9 main" >/etc/apt/sources.list.d/llvm9.list
+echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-10 main" >/etc/apt/sources.list.d/llvm10.list
 
 sed -i -e 's/http:\/\/deb/https:\/\/deb/g' /etc/apt/sources.list
 echo 'deb https://deb.debian.org/debian buster-backports main' >/etc/apt/sources.list.d/backports.list
@@ -20,10 +21,13 @@ apt-get update
 apt-get dist-upgrade -y
 
 apt-get install -y --no-remove \
+      clinfo \
       git \
       git-lfs \
       libexpat1 \
       libllvm9 \
+      libllvm10 \
+      libclang-cpp10 \
       liblz4-1 \
       libpcre32-3 \
       libpng16-16 \
@@ -38,6 +42,8 @@ apt-get install -y --no-remove \
       libxkbcommon0 \
       libxrandr2 \
       libxrender1 \
+      opencl-headers \
+      ocl-icd-libopencl1 \
       python \
       python3-mako \
       python3-numpy \
@@ -49,6 +55,7 @@ apt-get install -y --no-remove \
       python3.7 \
       qt5-default \
       qt5-qmake \
+      spirv-tools \
       vulkan-tools \
       waffle-utils \
       xauth \
