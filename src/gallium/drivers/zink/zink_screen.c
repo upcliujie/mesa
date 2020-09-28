@@ -94,6 +94,16 @@ get_video_mem(struct zink_screen *screen)
    return (int)(size >> 20);
 }
 
+static VkDeviceSize
+get_biggest_heap_mem(struct zink_screen *screen)
+{
+   VkDeviceSize size = 0;
+   for (uint32_t i = 0; i < screen->info.mem_props.memoryHeapCount; ++i) {
+      size = MAX2(size, screen->info.mem_props.memoryHeaps[i].size);
+   }
+   return size;
+}
+
 static void
 disk_cache_init(struct zink_screen *screen)
 {
@@ -1318,6 +1328,8 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
    if (config)
       screen->driconf.dual_color_blend_by_location = driQueryOptionb(config->options, "dual_color_blend_by_location");
 #endif
+
+   screen->total_mem = get_biggest_heap_mem(screen);
 
    return screen;
 
