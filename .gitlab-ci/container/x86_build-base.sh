@@ -16,6 +16,7 @@ apt-get install -y \
 # Upstream LLVM package repository
 apt-key add .gitlab-ci/container/llvm-snapshot.gpg.key
 echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-9 main" >/etc/apt/sources.list.d/llvm9.list
+echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-10 main" >/etc/apt/sources.list.d/llvm10.list
 
 sed -i -e 's/http:\/\/deb/https:\/\/deb/g' /etc/apt/sources.list
 echo 'deb https://deb.debian.org/debian buster-backports main' >/etc/apt/sources.list.d/backports.list
@@ -27,6 +28,7 @@ apt-get install -y --no-remove \
         bison \
         ccache \
         clang-9 \
+        clang-10 \
         dpkg-cross \
         flex \
         g++ \
@@ -34,6 +36,9 @@ apt-get install -y --no-remove \
         gcc \
         git \
         libclang-9-dev \
+        libclang-10-dev \
+        libclang-cpp10 \
+        libclang-cpp10-dev \
         libclc-dev \
         libelf-dev \
         libepoxy-dev \
@@ -57,6 +62,7 @@ apt-get install -y --no-remove \
         libxxf86vm-dev \
         libz-mingw-w64-dev \
         llvm-9-dev \
+        llvm-10-dev \
         pkg-config \
         python-mako \
         python3-mako \
@@ -66,6 +72,7 @@ apt-get install -y --no-remove \
         python3-setuptools \
         qemu-user \
         scons \
+        spirv-tools \
         wine64-development \
         x11proto-dri2-dev \
         x11proto-gl-dev \

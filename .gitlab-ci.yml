@@ -240,7 +240,7 @@ x86_build-base:
     - .fdo.container-build@debian
     - .container
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_build-base "2020-08-13-gold"
+    FDO_DISTRIBUTION_TAG: &x86_build-base "2020-09-29-cl"
 
 .use-x86_build-base:
   extends:
@@ -258,7 +258,7 @@ x86_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_build "2020-09-10-libdrm"
+    FDO_DISTRIBUTION_TAG: &x86_build "2020-09-29-cl"
 
 .use-x86_build:
   variables:
@@ -313,7 +313,7 @@ s390x_build:
 x86_test-base:
   extends: x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_test-base "2020-08-13-gold"
+    FDO_DISTRIBUTION_TAG: &x86_test-base "2020-09-29-cl"
 
 .use-x86_test-base:
   extends:
@@ -330,7 +330,7 @@ x86_test-base:
 x86_test-gl:
   extends: .use-x86_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_test-gl "2020-09-10-libdrm"
+    FDO_DISTRIBUTION_TAG: &x86_test-gl "2020-09-29-cl"
 
 # Debian 10 based x86 test image for VK
 x86_test-vk:
@@ -561,6 +561,29 @@ meson-testing:
     EXTRA_OPTION: >
       -D werror=true
     UPLOAD_FOR_LAVA: 1
+    DEBIAN_ARCH: amd64
+  script:
+    - .gitlab-ci/meson-build.sh
+    - .gitlab-ci/prepare-artifacts.sh
+
+meson-clover-testing:
+  extends:
+    - .meson-build
+    - .ci-deqp-artifacts
+  variables:
+    UNWIND: "enabled"
+    LLVM_VERSION: 10
+    DRI_LOADERS: >
+      -D glx=disabled
+      -D egl=disabled
+      -D gbm=disabled
+    GALLIUM_ST: >
+      -D dri3=enabled
+      -D gallium-opencl=icd
+      -D opencl-spirv=true
+    GALLIUM_DRIVERS: "swrast"
+    BUILDTYPE: "debugoptimized"
+    UPLOAD_FOR_LAVA: 0
     DEBIAN_ARCH: amd64
   script:
     - .gitlab-ci/meson-build.sh
@@ -900,6 +923,16 @@ meson-mingw32-x86_64:
     - meson-testing
     - x86_test-vk
 
+.test-cl:
+  extends:
+    - .test
+  variables:
+    TAG: *x86_test-gl
+  image: "$CI_REGISTRY_IMAGE/debian/x86_test-gl:$TAG"
+  needs:
+    - meson-clover-testing
+    - x86_test-gl
+
 .piglit-test:
   extends:
     - .test-gl
@@ -914,6 +947,26 @@ meson-mingw32-x86_64:
     PIGLIT_NO_WINDOW: 1
   script:
     - install/piglit/run.sh
+
+piglit-cl-test:
+  extends:
+    - .test-cl
+    - .llvmpipe-rules
+  artifacts:
+    when: on_failure
+    name: "mesa_${CI_JOB_NAME}"
+    paths:
+      - summary/
+  variables:
+    LP_DEBUG: cl
+    LP_NUM_THREADS: 1
+    PIGLIT_NO_WINDOW: 1
+    PIGLIT_PROFILES: cl
+    PIGLIT_OPTIONS: >
+      -x bswap
+    OCL_ICD_VENDORS: $PWD/install/etc/OpenCL/vendors
+  script:
+    - install/piglit/run_cl.sh
 
 piglit-quick_gl:
   extends: .piglit-test
