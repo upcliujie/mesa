@@ -243,7 +243,7 @@ _mesa_add_parameter(struct gl_program_parameter_list *paramList,
                     const gl_state_index16 state[STATE_LENGTH],
                     bool pad_and_align)
 {
-   assert(0 < size && size <=4);
+   assert(0 < size);
    const GLuint oldNum = paramList->NumParameters;
    unsigned oldValNum = paramList->NumParameterValues;
 
@@ -252,7 +252,7 @@ _mesa_add_parameter(struct gl_program_parameter_list *paramList,
    else if (_mesa_gl_datatype_is_64bit(datatype))
       oldValNum = align(oldValNum, 2); /* pad start to 64-bit */
 
-   _mesa_reserve_parameter_storage(paramList, 1);
+   _mesa_reserve_parameter_storage(paramList, DIV_ROUND_UP(size, 4));
 
    if (!paramList->Parameters || !paramList->ParameterValueOffset ||
        !paramList->ParameterValues) {
@@ -280,7 +280,8 @@ _mesa_add_parameter(struct gl_program_parameter_list *paramList,
    paramList->ParameterValueOffset[oldNum] = oldValNum;
    if (values) {
       if (size >= 4) {
-         COPY_4V(paramList->ParameterValues + oldValNum, values);
+         memcpy(paramList->ParameterValues + oldValNum, values,
+                size * sizeof(values[0]));
       } else {
          /* copy 1, 2 or 3 values */
          assert(size < 4);
