@@ -10,8 +10,10 @@ STABLE_EPHEMERAL=" \
       autoconf \
       automake \
       ccache \
+      clang-10 \
       cmake \
       g++ \
+      llvm-10-dev \
       libgbm-dev \
       libgles2-mesa-dev \
       libpcre3-dev \
@@ -22,6 +24,7 @@ STABLE_EPHEMERAL=" \
       libxcb-keysyms1-dev \
       libxkbcommon-dev \
       libxrender-dev \
+      ocl-icd-opencl-dev \
       make \
       meson \
       patch \
@@ -33,11 +36,19 @@ STABLE_EPHEMERAL=" \
       "
 
 apt-get install -y --no-remove \
+      clinfo \
+      libclang-common-10-dev \
+      libclang-cpp10-dev \
       libxcb-shm0 \
+      spirv-tools \
       $STABLE_EPHEMERAL
 
 
 . .gitlab-ci/container/container_pre_build.sh
+
+############### Build libclc
+
+. .gitlab-ci/build-libclc.sh
 
 ############### Build virglrenderer
 
