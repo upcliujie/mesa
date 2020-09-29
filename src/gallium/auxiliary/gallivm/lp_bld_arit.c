@@ -3069,8 +3069,12 @@ lp_build_pow(struct lp_build_context *bld,
       debug_printf("%s: inefficient/imprecise constant arithmetic\n",
                    __FUNCTION__);
    }
-
-   return lp_build_exp2(bld, lp_build_mul(bld, lp_build_log2(bld, x), y));
+   LLVMTypeRef type = LLVMTypeOf(x);
+   char intrinsic[32];
+   lp_format_intrinsic(intrinsic, sizeof intrinsic, "llvm.pow", type);
+   return lp_build_intrinsic_binary(bld->gallivm->builder, intrinsic,
+				    type,
+				    x, y);
 }
 
 
