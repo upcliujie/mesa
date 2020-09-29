@@ -206,14 +206,14 @@ tu_bo_init(struct tu_device *dev,
 }
 
 VkResult
-tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size, bool dump)
+tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size, bool dump, bool cached)
 {
    /* TODO: Choose better flags. As of 2018-11-12, freedreno/drm/msm_bo.c
     * always sets `flags = MSM_BO_WC`, and we copy that behavior here.
     */
    struct drm_msm_gem_new req = {
       .size = size,
-      .flags = MSM_BO_WC
+      .flags = cached ? MSM_BO_CACHED : MSM_BO_WC
    };
 
    int ret = drmCommandWriteRead(dev->fd,

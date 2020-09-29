@@ -74,12 +74,15 @@ tu_drm_submitqueue_close(const struct tu_device *dev, uint32_t queue_id)
 }
 
 VkResult
-tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size, bool dump)
+tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size, bool dump, bool cached)
 {
    struct kgsl_gpumem_alloc_id req = {
       .size = size,
    };
    int ret;
+
+   if (cached)
+      req.flags |= KGSL_CACHEMODE_WRITEBACK << KGSL_CACHEMODE_SHIFT;
 
    ret = safe_ioctl(dev->physical_device->local_fd,
                     IOCTL_KGSL_GPUMEM_ALLOC_ID, &req);

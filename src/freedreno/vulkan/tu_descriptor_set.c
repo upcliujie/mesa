@@ -583,7 +583,7 @@ tu_CreateDescriptorPool(VkDevice _device,
    if (bo_size) {
       VkResult ret;
 
-      ret = tu_bo_init_new(device, &pool->bo, bo_size, true);
+      ret = tu_bo_init_new(device, &pool->bo, bo_size, true, false);
       assert(ret == VK_SUCCESS);
 
       ret = tu_bo_map(device, &pool->bo);
