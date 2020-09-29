@@ -1317,7 +1317,7 @@ zink_texture_barrier(struct pipe_context *pctx, unsigned flags)
 {
    struct zink_context *ctx = zink_context(pctx);
    /* TODO: if we ever start using fully parallelized batches, this probably needs a stall */
-   if (zink_curr_batch(ctx)->has_draw)
+   if (zink_curr_batch(ctx)->has_work)
       pctx->flush(pctx, NULL, 0);
    zink_flush_compute(ctx);
 }
@@ -1436,7 +1436,7 @@ zink_memory_barrier(struct pipe_context *pctx, unsigned flags)
    b.dstAccessMask = dflags;
 
    struct zink_batch *batch = zink_curr_batch(ctx);
-   if (batch->has_draw) {
+   if (batch->has_work) {
       /* TODO: figure out self-referencing renderpass dependency and remove this
        * 
        * can't barrier during renderpass without inlining flush_batch() here
@@ -1458,7 +1458,7 @@ zink_memory_barrier(struct pipe_context *pctx, unsigned flags)
       zink_start_batch(ctx, zink_curr_batch(ctx));
    }
    batch = &ctx->compute_batch;
-   if (batch->has_draw) {
+   if (batch->has_work) {
       /* this should be the only call needed */
       vkCmdPipelineBarrier(batch->cmdbuf, src, dst, 0, 0, &b, 0, NULL, 0, NULL);
       zink_end_batch(ctx, batch);

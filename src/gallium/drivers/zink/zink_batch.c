@@ -70,7 +70,7 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
 
    if (vkResetCommandPool(screen->dev, batch->cmdpool, 0) != VK_SUCCESS)
       fprintf(stderr, "vkResetCommandPool failed\n");
-   batch->has_draw = false;
+   batch->has_work = false;
 }
 
 void
@@ -163,6 +163,8 @@ zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource 
 
    if (stencil)
       stencil->batch_uses[batch->batch_id] |= mask;
+
+   batch->has_work = true;
    return batch_to_flush;
 }
 
@@ -175,6 +177,7 @@ zink_batch_reference_sampler_view(struct zink_batch *batch,
       entry = _mesa_set_add(batch->sampler_views, sv);
       pipe_reference(NULL, &sv->base.reference);
    }
+   batch->has_work = true;
 }
 
 void
@@ -186,6 +189,7 @@ zink_batch_reference_sampler_state(struct zink_batch *batch,
       entry = _mesa_set_add(batch->sampler_states, state);
       pipe_reference(NULL, &state->reference);
    }
+   batch->has_work = true;
 }
 
 void
@@ -197,6 +201,7 @@ zink_batch_reference_program(struct zink_batch *batch,
       entry = _mesa_set_add(batch->programs, prog);
       pipe_reference(NULL, prog);
    }
+   batch->has_work = true;
 }
 
 void
@@ -209,4 +214,5 @@ zink_batch_reference_surface(struct zink_batch *batch,
       entry = _mesa_set_add(batch->surfaces, surf);
       pipe_reference(NULL, &surf->reference);
    }
+   batch->has_work = true;
 }
