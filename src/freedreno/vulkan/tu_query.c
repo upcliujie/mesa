@@ -168,7 +168,7 @@ tu_CreateQueryPool(VkDevice _device,
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    VkResult result = tu_bo_init_new(device, &pool->bo,
-         pCreateInfo->queryCount * slot_size, false);
+         pCreateInfo->queryCount * slot_size, false, false);
    if (result != VK_SUCCESS) {
       vk_object_free(&device->vk, pAllocator, pool);
       return result;

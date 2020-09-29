@@ -939,18 +939,25 @@ tu_get_system_heap_size()
 void
 tu_GetPhysicalDeviceMemoryProperties(
    VkPhysicalDevice physicalDevice,
-   VkPhysicalDeviceMemoryProperties *pMemoryProperties)
+   VkPhysicalDeviceMemoryProperties *props)
 {
-   pMemoryProperties->memoryHeapCount = 1;
-   pMemoryProperties->memoryHeaps[0].size = tu_get_system_heap_size();
-   pMemoryProperties->memoryHeaps[0].flags = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
+   props->memoryHeapCount = 1;
+   props->memoryHeaps[0].size = tu_get_system_heap_size();
+   props->memoryHeaps[0].flags = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
 
-   pMemoryProperties->memoryTypeCount = 1;
-   pMemoryProperties->memoryTypes[0].propertyFlags =
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-   pMemoryProperties->memoryTypes[0].heapIndex = 0;
+   /* two memory types: write-combined and cached */
+   props->memoryTypeCount = 2;
+   props->memoryTypes[0] = (VkMemoryType) {
+      .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+   };
+   props->memoryTypes[1] = (VkMemoryType) {
+      .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+                       VK_MEMORY_PROPERTY_HOST_CACHED_BIT
+   };
 }
 
 void
@@ -1106,7 +1113,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    if (custom_border_colors)
       global_size += TU_BORDER_COLOR_COUNT * sizeof(struct bcolor_entry);
 
-   result = tu_bo_init_new(device, &device->global_bo, global_size, false);
+   result = tu_bo_init_new(device, &device->global_bo, global_size, false, false);
    if (result != VK_SUCCESS)
       goto fail_global_bo;
 
@@ -1258,7 +1265,7 @@ tu_get_scratch_bo(struct tu_device *dev, uint64_t size, struct tu_bo **bo)
    }
 
    unsigned bo_size = 1ull << size_log2;
-   VkResult result = tu_bo_init_new(dev, &dev->scratch_bos[index].bo, bo_size, false);
+   VkResult result = tu_bo_init_new(dev, &dev->scratch_bos[index].bo, bo_size, false, false);
    if (result != VK_SUCCESS) {
       mtx_unlock(&dev->scratch_bos[index].construct_mtx);
       return result;
@@ -1493,8 +1500,8 @@ tu_AllocateMemory(VkDevice _device,
          close(fd_info->fd);
       }
    } else {
-      result =
-         tu_bo_init_new(device, &mem->bo, pAllocateInfo->allocationSize, false);
+      result = tu_bo_init_new(device, &mem->bo, pAllocateInfo->allocationSize, false,
+                              pAllocateInfo->memoryTypeIndex == 1);
    }
 
    if (result != VK_SUCCESS) {
@@ -1739,7 +1746,7 @@ tu_CreateEvent(VkDevice _device,
    if (!event)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   VkResult result = tu_bo_init_new(device, &event->bo, 0x1000, false);
+   VkResult result = tu_bo_init_new(device, &event->bo, 0x1000, false, false);
    if (result != VK_SUCCESS)
       goto fail_alloc;
 

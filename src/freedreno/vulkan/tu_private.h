@@ -414,7 +414,7 @@ tu_device_is_lost(struct tu_device *device)
 }
 
 VkResult
-tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size, bool dump);
+tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size, bool dump, bool cached);
 VkResult
 tu_bo_init_dmabuf(struct tu_device *dev,
                   struct tu_bo *bo,
