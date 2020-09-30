@@ -81,7 +81,7 @@ tu6_plane_index(VkFormat format, VkImageAspectFlags aspect_mask)
    }
 }
 
-VkResult
+static VkResult
 tu_image_create(VkDevice _device,
                 const VkImageCreateInfo *pCreateInfo,
                 const VkAllocationCallbacks *alloc,
@@ -668,15 +668,6 @@ tu_CreateImage(VkDevice device,
                const VkAllocationCallbacks *pAllocator,
                VkImage *pImage)
 {
-#ifdef ANDROID
-   const VkNativeBufferANDROID *gralloc_info =
-      vk_find_struct_const(pCreateInfo->pNext, NATIVE_BUFFER_ANDROID);
-
-   if (gralloc_info)
-      return tu_image_from_gralloc(device, pCreateInfo, gralloc_info,
-                                   pAllocator, pImage);
-#endif
-
    uint64_t modifier = DRM_FORMAT_MOD_INVALID;
    const VkSubresourceLayout *plane_layouts = NULL;
 
@@ -709,7 +700,22 @@ tu_CreateImage(VkDevice device,
          modifier = DRM_FORMAT_MOD_LINEAR;
    }
 
-   return tu_image_create(device, pCreateInfo, pAllocator, pImage, modifier, plane_layouts);
+#ifdef ANDROID
+   const VkNativeBufferANDROID *gralloc_info =
+      vk_find_struct_const(pCreateInfo->pNext, NATIVE_BUFFER_ANDROID);
+   if (gralloc_info)
+      modifier = DRM_FORMAT_MOD_LINEAR;
+#endif
+
+   VkResult result = tu_image_create(device, pCreateInfo, pAllocator, pImage, modifier, plane_layouts);
+   if (result != VK_SUCCESS)
+      return result;
+
+#ifdef ANDROID
+   if (gralloc_info)
+      return tu_image_from_gralloc(device, gralloc_info, pAllocator, *pImage);
+#endif
+   return VK_SUCCESS;
 }
 
 void
