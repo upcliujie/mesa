@@ -26,13 +26,13 @@ set -e
 PIGLIT_RESULTS=${PIGLIT_RESULTS:-$PIGLIT_PROFILES}
 mkdir -p .gitlab-ci/piglit
 cp $OLDPWD/install/piglit/$PIGLIT_RESULTS.txt .gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline
-./piglit summary console $OLDPWD/results | head -n -1 | grep -v ": pass" >.gitlab-ci/piglit/$PIGLIT_RESULTS.txt
+./piglit summary console $OLDPWD/results | head -n -1  >.gitlab-ci/piglit/$PIGLIT_RESULTS.txt
 
 if diff -q .gitlab-ci/piglit/$PIGLIT_RESULTS.txt{.baseline,}; then
     exit 0
 fi
 
-./piglit summary html --exclude-details=pass $OLDPWD/summary $OLDPWD/results
+./piglit summary html $OLDPWD/summary $OLDPWD/results
 
 echo Unexpected change in results:
 diff -u .gitlab-ci/piglit/$PIGLIT_RESULTS.txt{.baseline,}

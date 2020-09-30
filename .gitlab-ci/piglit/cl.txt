@@ -1,29 +1,355 @@
 api/clbuildprogram: fail
 api/clcompileprogram: skip
+api/clcreatebuffer: pass
+api/clcreatecommandqueue: pass
+api/clcreatecontext: pass
+api/clcreatecontextfromtype: pass
+api/clcreateimage: pass
+api/clcreatekernel: pass
+api/clcreatekernelsinprogram: pass
+api/clcreateprogramwithbinary: pass
+api/clcreateprogramwithsource: pass
+api/clcreatesampler: pass
+api/clenqueuecopybuffer: pass
+api/clenqueuecopybufferrect: pass
 api/clenqueuefillbuffer: skip
 api/clenqueuefillimage: skip
 api/clenqueuemigratememobjects: skip
+api/clenqueuereadbuffer and clenqueuewritebuffer: pass
+api/clgetcommandqueueinfo: pass
+api/clgetcontextinfo: pass
+api/clgetdeviceids: pass
+api/clgetdeviceinfo: pass
+api/clgeteventinfo: pass
 api/clgetextensionfunctionaddressforplatform: skip
 api/clgetimageinfo: skip
 api/clgetkernelarginfo: skip
+api/clgetkernelinfo: pass
 api/clgetkernelworkgroupinfo: fail
+api/clgetmemobjectinfo/cl_mem_associated_memobject: pass
+api/clgetmemobjectinfo/cl_mem_context: pass
+api/clgetmemobjectinfo/cl_mem_flags: pass
+api/clgetmemobjectinfo/cl_mem_host_ptr: pass
+api/clgetmemobjectinfo/cl_mem_map_count: pass
+api/clgetmemobjectinfo/cl_mem_offset: pass
+api/clgetmemobjectinfo/cl_mem_reference_count: pass
+api/clgetmemobjectinfo/cl_mem_size: pass
+api/clgetmemobjectinfo/cl_mem_type: pass
+api/clgetplatformids: pass
+api/clgetplatforminfo: pass
+api/clgetprogrambuildinfo: pass
+api/clgetprograminfo: pass
 api/cllinkprogram: skip
+api/clretaincomandqueue and clreleasecommandqueue: pass
+api/clretaincontext and clreleasecontext: pass
+api/clretainevent and clreleaseevent: pass
+api/clretainkernel and clreleasekernel: pass
+api/clretainmemobject and clreleasememobject: pass
+api/clretainprogram and clreleaseprogram: pass
+api/clsetkernelarg/input checks: pass
+api/clsetkernelarg/set kernel argument for array: pass
+api/clsetkernelarg/set kernel argument for buffer: pass
+api/clsetkernelarg/set kernel argument for buffer which is null: pass
 api/clsetkernelarg/set kernel argument for cl_int3: fail
 api/clsetkernelarg/set kernel argument for sampler: skip
+api/clsetkernelarg/set kernel argument for scalar: pass
+api/clsetkernelarg/set kernel argument for struct: pass
+api/clunloadcompiler: pass
+custom/buffer flags/in-0x0-out-0x0: pass
+custom/buffer flags/in-0x0-out-0x10: pass
+custom/buffer flags/in-0x0-out-0x20: pass
+custom/buffer flags/in-0x0-out-0x30: pass
+custom/buffer flags/in-0x0-out-0x8: pass
+custom/buffer flags/in-0x10-out-0x0: pass
+custom/buffer flags/in-0x10-out-0x10: pass
+custom/buffer flags/in-0x10-out-0x20: pass
+custom/buffer flags/in-0x10-out-0x30: pass
+custom/buffer flags/in-0x10-out-0x8: pass
+custom/buffer flags/in-0x20-out-0x0: pass
+custom/buffer flags/in-0x20-out-0x10: pass
+custom/buffer flags/in-0x20-out-0x20: pass
+custom/buffer flags/in-0x20-out-0x30: pass
+custom/buffer flags/in-0x20-out-0x8: pass
+custom/buffer flags/in-0x30-out-0x0: pass
+custom/buffer flags/in-0x30-out-0x10: pass
+custom/buffer flags/in-0x30-out-0x20: pass
+custom/buffer flags/in-0x30-out-0x30: pass
+custom/buffer flags/in-0x30-out-0x8: pass
+custom/buffer flags/in-0x8-out-0x0: pass
+custom/buffer flags/in-0x8-out-0x10: pass
+custom/buffer flags/in-0x8-out-0x20: pass
+custom/buffer flags/in-0x8-out-0x30: pass
+custom/buffer flags/in-0x8-out-0x8: pass
+custom/flush after enqueue kernel: pass
+custom/r600 create release buffer bug: pass
+custom/run simple kernel: pass
 interop/egl_khr_cl_event2: skip
 program/bitcoin: phatk kernel: crash
+program/build/define-gentype: pass
+program/build/disable-warnings: pass
+program/build/fail/add-different-size-vector: pass
+program/build/fail/increment-float: pass
+program/build/fail/invalid-version-declaration: pass
+program/build/fail/warnings-as-errors: pass
 program/build/include-directories: fail
+program/build/macro-definitions: pass
+program/build/macro-definitions-with-values: pass
+program/build/math-intrinsics: pass
+program/build/mixed-macro-definitions: pass
+program/build/optimization-options-cl10: pass
+program/build/optimization-options-cl11+: pass
+program/build/other-data-types: pass
 program/build/printf: skip
+program/build/scalar-and-vector-operators: pass
+program/build/scalar-data-type-half: pass
+program/build/scalar-data-types: pass
+program/build/scalar-operators: pass
+program/build/vector-data-types: pass
+program/build/vector-operators: pass
+program/build/version-declaration: pass
+program/check predefined preprocessor macros/__endian_little__ must be 1 if defined: pass
+program/check predefined preprocessor macros/__endian_little__ must be consistent with host: pass
+program/check predefined preprocessor macros/__file__ must be defined: pass
+program/check predefined preprocessor macros/__image_support__ must be 1 if defined: pass
+program/check predefined preprocessor macros/__image_support__ must be consistent with host: pass
+program/check predefined preprocessor macros/__line__ must be defined: pass
 program/check predefined preprocessor macros/__opencl_c_version__ must be consistent with host (if defined): skip
 program/check predefined preprocessor macros/__opencl_c_version__ must be defined for opencl 1.2 and later: skip
+program/check predefined preprocessor macros/__opencl_version__ must be consistent with host: pass
+program/check predefined preprocessor macros/__opencl_version__ must be defined: pass
+program/check predefined preprocessor macros/cl_version_1_0 must be 100 if defined: pass
+program/check predefined preprocessor macros/cl_version_1_0 must be defined for opencl 1.1 and later: pass
+program/check predefined preprocessor macros/cl_version_1_1 must be 110 if defined: pass
+program/check predefined preprocessor macros/cl_version_1_1 must be defined for opencl 1.1 and later: pass
+program/check predefined preprocessor macros/cl_version_1_2 must be 120 if defined: pass
 program/check predefined preprocessor macros/cl_version_1_2 must be defined for opencl 1.2 and later: skip
+program/check predefined preprocessor macros/cl_version_2_0 must be 200 if defined: pass
 program/check predefined preprocessor macros/cl_version_2_0 must be defined for opencl 2.0 and later: skip
 program/execute/amdgcn-callee-saved-registers: skip
 program/execute/amdgcn-f16-inline-immediates: skip
+program/execute/amdgcn-f32-inline-immediates/add 0.5: pass
+program/execute/amdgcn-f32-inline-immediates/add 1.0: pass
+program/execute/amdgcn-f32-inline-immediates/add 2.0: pass
+program/execute/amdgcn-f32-inline-immediates/add 4.0: pass
 program/execute/amdgcn-f32-inline-immediates/add integer 64: fail
+program/execute/amdgcn-f32-inline-immediates/add other: pass
+program/execute/amdgcn-f32-inline-immediates/add rcp(2pi): pass
+program/execute/amdgcn-f32-inline-immediates/sub 0.5: pass
+program/execute/amdgcn-f32-inline-immediates/sub 1.0: pass
+program/execute/amdgcn-f32-inline-immediates/sub 2.0: pass
+program/execute/amdgcn-f32-inline-immediates/sub 4.0: pass
+program/execute/amdgcn-f32-inline-immediates/sub other: pass
+program/execute/amdgcn-f64-inline-immediates/add 0.5: pass
+program/execute/amdgcn-f64-inline-immediates/add 1.0: pass
+program/execute/amdgcn-f64-inline-immediates/add 2.0: pass
+program/execute/amdgcn-f64-inline-immediates/add 4.0: pass
+program/execute/amdgcn-f64-inline-immediates/add float 1.0: pass
+program/execute/amdgcn-f64-inline-immediates/add float 4.0: pass
+program/execute/amdgcn-f64-inline-immediates/add integer 64: pass
+program/execute/amdgcn-f64-inline-immediates/add other: pass
+program/execute/amdgcn-f64-inline-immediates/add rcp(2pi): pass
+program/execute/amdgcn-f64-inline-immediates/sub 0.5: pass
+program/execute/amdgcn-f64-inline-immediates/sub 1.0: pass
+program/execute/amdgcn-f64-inline-immediates/sub 2.0: pass
+program/execute/amdgcn-f64-inline-immediates/sub 4.0: pass
+program/execute/amdgcn-f64-inline-immediates/sub other: pass
 program/execute/amdgcn-i16-inline-immediates: skip
 program/execute/amdgcn-mubuf-negative-vaddr: crash
 program/execute/amdgcn.sign_extend_inreg: crash
+program/execute/atomic_add-global-return/simple int: pass
+program/execute/atomic_add-global-return/simple uint: pass
+program/execute/atomic_add-global-return/threads int: pass
+program/execute/atomic_add-global-return/threads uint: pass
+program/execute/atomic_add-global/simple int: pass
+program/execute/atomic_add-global/simple uint: pass
+program/execute/atomic_add-global/threads int: pass
+program/execute/atomic_add-global/threads uint: pass
+program/execute/atomic_add-local/simple int: pass
+program/execute/atomic_add-local/simple uint: pass
+program/execute/atomic_add-local/threads int: pass
+program/execute/atomic_add-local/threads uint: pass
+program/execute/atomic_and-global-return/simple int: pass
+program/execute/atomic_and-global-return/simple uint: pass
+program/execute/atomic_and-global-return/threads int: pass
+program/execute/atomic_and-global-return/threads uint: pass
+program/execute/atomic_and-global/simple int: pass
+program/execute/atomic_and-global/simple uint: pass
+program/execute/atomic_and-global/threads int: pass
+program/execute/atomic_and-global/threads uint: pass
+program/execute/atomic_and-local/simple int: pass
+program/execute/atomic_and-local/simple uint: pass
+program/execute/atomic_and-local/threads int: pass
+program/execute/atomic_and-local/threads uint: pass
+program/execute/atomic_cmpxchg-global-return/simple int: pass
+program/execute/atomic_cmpxchg-global-return/simple uint: pass
+program/execute/atomic_cmpxchg-global-return/threads int: pass
+program/execute/atomic_cmpxchg-global-return/threads uint: pass
+program/execute/atomic_cmpxchg-global/simple int: pass
+program/execute/atomic_cmpxchg-global/simple uint: pass
+program/execute/atomic_cmpxchg-global/threads int: pass
+program/execute/atomic_cmpxchg-global/threads uint: pass
+program/execute/atomic_cmpxchg-local/simple int: pass
+program/execute/atomic_cmpxchg-local/simple uint: pass
+program/execute/atomic_cmpxchg-local/threads int: pass
+program/execute/atomic_cmpxchg-local/threads uint: pass
+program/execute/atomic_dec-global-return/simple int: pass
+program/execute/atomic_dec-global-return/simple uint: pass
+program/execute/atomic_dec-global-return/threads int: pass
+program/execute/atomic_dec-global-return/threads uint: pass
+program/execute/atomic_dec-global/simple int: pass
+program/execute/atomic_dec-global/simple uint: pass
+program/execute/atomic_dec-global/threads int: pass
+program/execute/atomic_dec-global/threads uint: pass
+program/execute/atomic_dec-local/simple int: pass
+program/execute/atomic_dec-local/simple uint: pass
+program/execute/atomic_dec-local/threads int: pass
+program/execute/atomic_dec-local/threads uint: pass
+program/execute/atomic_inc-global-return/simple int: pass
+program/execute/atomic_inc-global-return/simple uint: pass
+program/execute/atomic_inc-global-return/threads int: pass
+program/execute/atomic_inc-global-return/threads uint: pass
+program/execute/atomic_inc-global/simple int: pass
+program/execute/atomic_inc-global/simple uint: pass
+program/execute/atomic_inc-global/threads int: pass
+program/execute/atomic_inc-global/threads uint: pass
+program/execute/atomic_inc-local/simple int: pass
+program/execute/atomic_inc-local/simple uint: pass
+program/execute/atomic_inc-local/threads int: pass
+program/execute/atomic_inc-local/threads uint: pass
+program/execute/atomic_int32_add-global-return/simple int: pass
+program/execute/atomic_int32_add-global-return/simple uint: pass
+program/execute/atomic_int32_add-global-return/threads int: pass
+program/execute/atomic_int32_add-global-return/threads uint: pass
+program/execute/atomic_int32_add-global/simple int: pass
+program/execute/atomic_int32_add-global/simple uint: pass
+program/execute/atomic_int32_add-global/threads int: pass
+program/execute/atomic_int32_add-global/threads uint: pass
+program/execute/atomic_int32_add-local/simple int: pass
+program/execute/atomic_int32_add-local/simple uint: pass
+program/execute/atomic_int32_add-local/threads int: pass
+program/execute/atomic_int32_add-local/threads uint: pass
+program/execute/atomic_int32_and-global-return/simple int: pass
+program/execute/atomic_int32_and-global-return/simple uint: pass
+program/execute/atomic_int32_and-global-return/threads int: pass
+program/execute/atomic_int32_and-global-return/threads uint: pass
+program/execute/atomic_int32_and-global/simple int: pass
+program/execute/atomic_int32_and-global/simple uint: pass
+program/execute/atomic_int32_and-global/threads int: pass
+program/execute/atomic_int32_and-global/threads uint: pass
+program/execute/atomic_int32_and-local/simple int: pass
+program/execute/atomic_int32_and-local/simple uint: pass
+program/execute/atomic_int32_and-local/threads int: pass
+program/execute/atomic_int32_and-local/threads uint: pass
+program/execute/atomic_int32_cmpxchg-global-return/simple int: pass
+program/execute/atomic_int32_cmpxchg-global-return/simple uint: pass
+program/execute/atomic_int32_cmpxchg-global-return/threads int: pass
+program/execute/atomic_int32_cmpxchg-global-return/threads uint: pass
+program/execute/atomic_int32_cmpxchg-global/simple int: pass
+program/execute/atomic_int32_cmpxchg-global/simple uint: pass
+program/execute/atomic_int32_cmpxchg-global/threads int: pass
+program/execute/atomic_int32_cmpxchg-global/threads uint: pass
+program/execute/atomic_int32_cmpxchg-local/simple int: pass
+program/execute/atomic_int32_cmpxchg-local/simple uint: pass
+program/execute/atomic_int32_cmpxchg-local/threads int: pass
+program/execute/atomic_int32_cmpxchg-local/threads uint: pass
+program/execute/atomic_int32_dec-global-return/simple int: pass
+program/execute/atomic_int32_dec-global-return/simple uint: pass
+program/execute/atomic_int32_dec-global-return/threads int: pass
+program/execute/atomic_int32_dec-global-return/threads uint: pass
+program/execute/atomic_int32_dec-global/simple int: pass
+program/execute/atomic_int32_dec-global/simple uint: pass
+program/execute/atomic_int32_dec-global/threads int: pass
+program/execute/atomic_int32_dec-global/threads uint: pass
+program/execute/atomic_int32_dec-local/simple int: pass
+program/execute/atomic_int32_dec-local/simple uint: pass
+program/execute/atomic_int32_dec-local/threads int: pass
+program/execute/atomic_int32_dec-local/threads uint: pass
+program/execute/atomic_int32_inc-global-return/simple int: pass
+program/execute/atomic_int32_inc-global-return/simple uint: pass
+program/execute/atomic_int32_inc-global-return/threads int: pass
+program/execute/atomic_int32_inc-global-return/threads uint: pass
+program/execute/atomic_int32_inc-global/simple int: pass
+program/execute/atomic_int32_inc-global/simple uint: pass
+program/execute/atomic_int32_inc-global/threads int: pass
+program/execute/atomic_int32_inc-global/threads uint: pass
+program/execute/atomic_int32_inc-local/simple int: pass
+program/execute/atomic_int32_inc-local/simple uint: pass
+program/execute/atomic_int32_inc-local/threads int: pass
+program/execute/atomic_int32_inc-local/threads uint: pass
+program/execute/atomic_int32_max-global-return/simple int: pass
+program/execute/atomic_int32_max-global-return/simple uint: pass
+program/execute/atomic_int32_max-global-return/threads int: pass
+program/execute/atomic_int32_max-global-return/threads uint: pass
+program/execute/atomic_int32_max-global/simple int: pass
+program/execute/atomic_int32_max-global/simple uint: pass
+program/execute/atomic_int32_max-global/threads int: pass
+program/execute/atomic_int32_max-global/threads uint: pass
+program/execute/atomic_int32_max-local/simple int: pass
+program/execute/atomic_int32_max-local/simple uint: pass
+program/execute/atomic_int32_max-local/simple uint 2: pass
+program/execute/atomic_int32_max-local/threads int: pass
+program/execute/atomic_int32_max-local/threads uint: pass
+program/execute/atomic_int32_min-global-return/simple int: pass
+program/execute/atomic_int32_min-global-return/simple uint: pass
+program/execute/atomic_int32_min-global-return/threads int: pass
+program/execute/atomic_int32_min-global-return/threads uint: pass
+program/execute/atomic_int32_min-global/simple int: pass
+program/execute/atomic_int32_min-global/simple uint: pass
+program/execute/atomic_int32_min-global/threads int: pass
+program/execute/atomic_int32_min-global/threads uint: pass
+program/execute/atomic_int32_min-local/simple int: pass
+program/execute/atomic_int32_min-local/simple uint: pass
+program/execute/atomic_int32_min-local/simple uint 2: pass
+program/execute/atomic_int32_min-local/threads int: pass
+program/execute/atomic_int32_min-local/threads uint: pass
+program/execute/atomic_int32_or-global-return/simple int: pass
+program/execute/atomic_int32_or-global-return/simple uint: pass
+program/execute/atomic_int32_or-global-return/threads int: pass
+program/execute/atomic_int32_or-global-return/threads uint: pass
+program/execute/atomic_int32_or-global/simple int: pass
+program/execute/atomic_int32_or-global/simple uint: pass
+program/execute/atomic_int32_or-global/threads int: pass
+program/execute/atomic_int32_or-global/threads uint: pass
+program/execute/atomic_int32_or-local/simple int: pass
+program/execute/atomic_int32_or-local/simple uint: pass
+program/execute/atomic_int32_or-local/threads int: pass
+program/execute/atomic_int32_or-local/threads uint: pass
+program/execute/atomic_int32_sub-global-return/simple int: pass
+program/execute/atomic_int32_sub-global-return/simple uint: pass
+program/execute/atomic_int32_sub-global-return/threads int: pass
+program/execute/atomic_int32_sub-global-return/threads uint: pass
+program/execute/atomic_int32_sub-global/simple int: pass
+program/execute/atomic_int32_sub-global/simple uint: pass
+program/execute/atomic_int32_sub-global/threads int: pass
+program/execute/atomic_int32_sub-global/threads uint: pass
+program/execute/atomic_int32_sub-local/simple int: pass
+program/execute/atomic_int32_sub-local/simple uint: pass
+program/execute/atomic_int32_sub-local/threads int: pass
+program/execute/atomic_int32_sub-local/threads uint: pass
+program/execute/atomic_int32_xchg-global-return/simple int: pass
+program/execute/atomic_int32_xchg-global-return/simple uint: pass
+program/execute/atomic_int32_xchg-global-return/threads int: pass
+program/execute/atomic_int32_xchg-global-return/threads uint: pass
+program/execute/atomic_int32_xchg-global/simple int: pass
+program/execute/atomic_int32_xchg-global/simple uint: pass
+program/execute/atomic_int32_xchg-global/threads int: pass
+program/execute/atomic_int32_xchg-global/threads uint: pass
+program/execute/atomic_int32_xchg-local/simple int: pass
+program/execute/atomic_int32_xchg-local/simple uint: pass
+program/execute/atomic_int32_xchg-local/threads int: pass
+program/execute/atomic_int32_xchg-local/threads uint: pass
+program/execute/atomic_int32_xor-global-return/simple int: pass
+program/execute/atomic_int32_xor-global-return/simple uint: pass
+program/execute/atomic_int32_xor-global-return/threads int: pass
+program/execute/atomic_int32_xor-global-return/threads uint: pass
+program/execute/atomic_int32_xor-global/simple int: pass
+program/execute/atomic_int32_xor-global/simple uint: pass
+program/execute/atomic_int32_xor-global/threads int: pass
+program/execute/atomic_int32_xor-global/threads uint: pass
+program/execute/atomic_int32_xor-local/simple int: pass
+program/execute/atomic_int32_xor-local/simple uint: pass
+program/execute/atomic_int32_xor-local/threads int: pass
+program/execute/atomic_int32_xor-local/threads uint: pass
 program/execute/atomic_int64_add-global: skip
 program/execute/atomic_int64_add-global-return: skip
 program/execute/atomic_int64_add-local: skip
@@ -57,6 +383,93 @@ program/execute/atomic_int64_xchg-local: skip
 program/execute/atomic_int64_xor-global: skip
 program/execute/atomic_int64_xor-global-return: skip
 program/execute/atomic_int64_xor-local: skip
+program/execute/atomic_max-global-return/simple int: pass
+program/execute/atomic_max-global-return/simple uint: pass
+program/execute/atomic_max-global-return/threads int: pass
+program/execute/atomic_max-global-return/threads uint: pass
+program/execute/atomic_max-global/simple int: pass
+program/execute/atomic_max-global/simple uint: pass
+program/execute/atomic_max-global/threads int: pass
+program/execute/atomic_max-global/threads uint: pass
+program/execute/atomic_max-local/simple int: pass
+program/execute/atomic_max-local/simple uint: pass
+program/execute/atomic_max-local/simple uint 2: pass
+program/execute/atomic_max-local/threads int: pass
+program/execute/atomic_max-local/threads uint: pass
+program/execute/atomic_min-global-return/simple int: pass
+program/execute/atomic_min-global-return/simple uint: pass
+program/execute/atomic_min-global-return/threads int: pass
+program/execute/atomic_min-global-return/threads uint: pass
+program/execute/atomic_min-global/simple int: pass
+program/execute/atomic_min-global/simple uint: pass
+program/execute/atomic_min-global/threads int: pass
+program/execute/atomic_min-global/threads uint: pass
+program/execute/atomic_min-local/simple int: pass
+program/execute/atomic_min-local/simple uint: pass
+program/execute/atomic_min-local/simple uint 2: pass
+program/execute/atomic_min-local/threads int: pass
+program/execute/atomic_min-local/threads uint: pass
+program/execute/atomic_or-global-return/simple int: pass
+program/execute/atomic_or-global-return/simple uint: pass
+program/execute/atomic_or-global-return/threads int: pass
+program/execute/atomic_or-global-return/threads uint: pass
+program/execute/atomic_or-global/simple int: pass
+program/execute/atomic_or-global/simple uint: pass
+program/execute/atomic_or-global/threads int: pass
+program/execute/atomic_or-global/threads uint: pass
+program/execute/atomic_or-local/simple int: pass
+program/execute/atomic_or-local/simple uint: pass
+program/execute/atomic_or-local/threads int: pass
+program/execute/atomic_or-local/threads uint: pass
+program/execute/atomic_sub-global-return/simple int: pass
+program/execute/atomic_sub-global-return/simple uint: pass
+program/execute/atomic_sub-global-return/threads int: pass
+program/execute/atomic_sub-global-return/threads uint: pass
+program/execute/atomic_sub-global/simple int: pass
+program/execute/atomic_sub-global/simple uint: pass
+program/execute/atomic_sub-global/threads int: pass
+program/execute/atomic_sub-global/threads uint: pass
+program/execute/atomic_sub-local/simple int: pass
+program/execute/atomic_sub-local/simple uint: pass
+program/execute/atomic_sub-local/threads int: pass
+program/execute/atomic_sub-local/threads uint: pass
+program/execute/atomic_xchg-global-return/simple float: pass
+program/execute/atomic_xchg-global-return/simple int: pass
+program/execute/atomic_xchg-global-return/simple uint: pass
+program/execute/atomic_xchg-global-return/threads int: pass
+program/execute/atomic_xchg-global-return/threads uint: pass
+program/execute/atomic_xchg-global/simple float: pass
+program/execute/atomic_xchg-global/simple int: pass
+program/execute/atomic_xchg-global/simple uint: pass
+program/execute/atomic_xchg-global/threads int: pass
+program/execute/atomic_xchg-global/threads uint: pass
+program/execute/atomic_xchg-local/simple float: pass
+program/execute/atomic_xchg-local/simple int: pass
+program/execute/atomic_xchg-local/simple uint: pass
+program/execute/atomic_xchg-local/threads: pass
+program/execute/atomic_xchg-local/threads int: pass
+program/execute/atomic_xchg-local/threads uint: pass
+program/execute/atomic_xor-global-return/simple int: pass
+program/execute/atomic_xor-global-return/simple uint: pass
+program/execute/atomic_xor-global-return/threads int: pass
+program/execute/atomic_xor-global-return/threads uint: pass
+program/execute/atomic_xor-global/simple int: pass
+program/execute/atomic_xor-global/simple uint: pass
+program/execute/atomic_xor-global/threads int: pass
+program/execute/atomic_xor-global/threads uint: pass
+program/execute/atomic_xor-local/simple int: pass
+program/execute/atomic_xor-local/simple uint: pass
+program/execute/atomic_xor-local/threads int: pass
+program/execute/atomic_xor-local/threads uint: pass
+program/execute/attributes/work_group_size_hint: pass
+program/execute/bitselect/bitselect int1: pass
+program/execute/bswap/s_bswap_u16: pass
+program/execute/bswap/s_bswap_u32: pass
+program/execute/bswap/s_bswap_u64: pass
+program/execute/bswap/v_bswap_u16: pass
+program/execute/bswap/v_bswap_u16_zext32: pass
+program/execute/bswap/v_bswap_u32: pass
+program/execute/bswap/v_bswap_u64: pass
 program/execute/builtin/builtin-char-abs-1.0.generated: fail
 program/execute/builtin/builtin-char-abs_diff-1.0.generated: fail
 program/execute/builtin/builtin-char-add_sat-1.0.generated: fail
@@ -302,12 +715,114 @@ program/execute/call-clobbers-amdgcn: skip
 program/execute/calls: crash
 program/execute/calls-large-struct: crash
 program/execute/calls-struct: crash
+program/execute/calls-workitem-id/callee function use get_global_id 0..2: pass
+program/execute/calls-workitem-id/callee function use get_global_id(0): pass
+program/execute/clz-optimizations/v_clz_u32: pass
+program/execute/comma/comma: pass
+program/execute/constant-load/constant load global write int: pass
+program/execute/constant-load/constant load global write int2: pass
+program/execute/constant-load/constant load global write int4: pass
+program/execute/fdiv-modifiers-f32/fdiv -x, -y: pass
+program/execute/fdiv-modifiers-f32/fdiv -x, y: pass
+program/execute/fdiv-modifiers-f32/fdiv -|x|, -|y|: pass
+program/execute/fdiv-modifiers-f32/fdiv -|x|, y: pass
+program/execute/fdiv-modifiers-f32/fdiv 4.0, y: pass
+program/execute/fdiv-modifiers-f32/fdiv x, -y: pass
+program/execute/fdiv-modifiers-f32/fdiv x, -|y|: pass
+program/execute/fdiv-modifiers-f32/fdiv x, |y|: pass
+program/execute/fdiv-modifiers-f32/fdiv |x|, y: pass
+program/execute/fdiv-modifiers-f32/fdiv |x|, |y|: pass
+program/execute/fdiv-modifiers-f64/fdiv -x, -y: pass
+program/execute/fdiv-modifiers-f64/fdiv -x, y: pass
+program/execute/fdiv-modifiers-f64/fdiv -|x|, -|y|: pass
+program/execute/fdiv-modifiers-f64/fdiv -|x|, y: pass
+program/execute/fdiv-modifiers-f64/fdiv 4.0, y: pass
+program/execute/fdiv-modifiers-f64/fdiv x, -y: pass
+program/execute/fdiv-modifiers-f64/fdiv x, -|y|: pass
+program/execute/fdiv-modifiers-f64/fdiv x, |y|: pass
+program/execute/fdiv-modifiers-f64/fdiv |x|, y: pass
+program/execute/fdiv-modifiers-f64/fdiv |x|, |y|: pass
+program/execute/float-convert_long/convert_long(float): pass
+program/execute/float-convert_long/convert_ulong(float): pass
+program/execute/for-loop/loop ge: pass
+program/execute/for-loop/loop gt: pass
+program/execute/for-loop/loop le: pass
+program/execute/for-loop/loop lt: pass
+program/execute/gegl-fir-get-mean-component-1d-cl/(null): pass
+program/execute/gegl-gamma-2-2-to-linear/input = -12.92: pass
+program/execute/gegl-gamma-2-2-to-linear/input = 0.3928: pass
+program/execute/gegl-gamma-2-2-to-linear/input = 0.5: pass
+program/execute/gegl-gamma-2-2-to-linear/input = 1.0: pass
 program/execute/gegl-rgb-gamma-u8-to-ragabaf: crash
+program/execute/get-global-id/1d, global_size 4 0 0, local_size 1 0 0: pass
+program/execute/get-global-id/1d, global_size 4 0 0, local_size 2 0 0: pass
+program/execute/get-global-id/1d, global_size 4 0 0, local_size 4 0 0: pass
+program/execute/get-global-id/2d, global_size 4 4 0, local_size 1 1 0: pass
+program/execute/get-global-id/2d, global_size 4 4 0, local_size 2 2 0: pass
+program/execute/get-global-id/2d, global_size 4 4 0, local_size 4 4 0: pass
+program/execute/get-global-id/3d, global_size 4 4 4, local_size 1 1 1: pass
+program/execute/get-global-id/3d, global_size 4 4 4, local_size 2 2 2: pass
+program/execute/get-global-id/3d, global_size 4 4 4, local_size 4 4 4: pass
+program/execute/get-global-size/1d, global_size 4 0 0: pass
+program/execute/get-global-size/1d, global_size 4 0 0, local_size 2 0 0: pass
+program/execute/get-global-size/1d, global_size 4 0 0, local_size 4 0 0: pass
+program/execute/get-global-size/2d, global_size 4 4 0, local_size 1 1 0: pass
+program/execute/get-global-size/2d, global_size 4 4 0, local_size 2 2 0: pass
+program/execute/get-global-size/2d, global_size 4 4 0, local_size 4 4 0: pass
+program/execute/get-global-size/3d, global_size 4 4 4, local_size 1 1 1: pass
+program/execute/get-global-size/3d, global_size 4 4 4, local_size 2 2 2: pass
+program/execute/get-global-size/3d, global_size 4 4 4, local_size 4 4 4: pass
+program/execute/get-group-id/1d 64 (8): pass
+program/execute/get-group-id/2d (4 x 4), (2 x 2): pass
+program/execute/get-group-id/3d (4 x 4 x 4), (2 x 2 x 2): pass
+program/execute/get-local-id/1d, global_size 4 0 0, local_size 1 0 0: pass
+program/execute/get-local-id/1d, global_size 4 0 0, local_size 2 0 0: pass
+program/execute/get-local-id/1d, global_size 4 0 0, local_size 4 0 0: pass
+program/execute/get-local-id/2d, global_size 4 4 0, local_size 1 1 0: pass
+program/execute/get-local-id/2d, global_size 4 4 0, local_size 2 2 0: pass
+program/execute/get-local-id/2d, global_size 4 4 0, local_size 4 4 0: pass
+program/execute/get-local-id/3d, global_size 4 4 4, local_size 1 1 1: pass
+program/execute/get-local-id/3d, global_size 4 4 4, local_size 2 2 2: pass
+program/execute/get-local-id/3d, global_size 4 4 4, local_size 4 2 1: pass
+program/execute/get-local-id/3d, global_size 4 4 4, local_size 4 4 4: pass
+program/execute/get-local-size/1d 4 (2): pass
+program/execute/get-local-size/2d 4 x 4 (2 x 1): pass
+program/execute/get-local-size/3d 8 x 4 x 2 (4 x 2 x 1): pass
+program/execute/get-num-groups/1d, global_size 1 0 0, local_size 1 0 0: pass
+program/execute/get-num-groups/1d, global_size 2 0 0, local_size 1 0 0: pass
+program/execute/get-num-groups/1d, global_size 4 0 0, local_size 1 0 0: pass
+program/execute/get-num-groups/1d, global_size 4 0 0, local_size 2 0 0: pass
+program/execute/get-num-groups/1d, global_size 4 0 0, local_size 4 0 0: pass
+program/execute/get-num-groups/2d, global_size 4 4 0, local_size 1 1 0: pass
+program/execute/get-num-groups/2d, global_size 4 4 0, local_size 2 2 0: pass
+program/execute/get-num-groups/2d, global_size 4 4 0, local_size 4 4 0: pass
+program/execute/get-num-groups/3d, global_size 4 4 4, local_size 1 1 1: pass
+program/execute/get-num-groups/3d, global_size 4 4 4, local_size 2 2 2: pass
+program/execute/get-num-groups/3d, global_size 4 4 4, local_size 4 2 1: pass
+program/execute/get-num-groups/3d, global_size 4 4 4, local_size 4 4 4: pass
+program/execute/get-work-dim/get_work_dim (1): pass
+program/execute/get-work-dim/get_work_dim (2): pass
+program/execute/get-work-dim/get_work_dim (3): pass
+program/execute/global-memory/(16 x 1 x 1) (16 x 1 x 1): pass
+program/execute/global-memory/(64 x 1 x 1) (4 x 1 x 1): pass
+program/execute/global-memory/2 global memory objects: pass
+program/execute/global-memory/simple: pass
+program/execute/global-offset/1d, global_size 4 0 0, global_offset 9 0 0: pass
+program/execute/global-offset/1d, global_size 4 0 0, global_offset 9 8 0: pass
+program/execute/global-offset/1d, global_size 4 0 0, global_offset 9 8 7: pass
+program/execute/global-offset/2d, global_size 4 4 0, global_offset 9 8 0: pass
+program/execute/global-offset/2d, global_size 4 4 0, global_offset 9 8 7: pass
+program/execute/global-offset/3d, global_size 4 4 4, global_offset 9 8 7: pass
 program/execute/global-offset/3d, input dependent: fail
 program/execute/i32-stack-array: crash
 program/execute/image-attributes: skip
 program/execute/image-read-2d: skip
 program/execute/image-write-2d: skip
+program/execute/int-definitions/char definitions: pass
+program/execute/int-definitions/int definitions: pass
+program/execute/int-definitions/long definitions: pass
+program/execute/int-definitions/short definitions: pass
+program/execute/kernel_exec/kernel_exec: pass
 program/execute/load-hi16: crash
 program/execute/load-hi16-generic: skip
 program/execute/load-lo16: crash
@@ -321,75 +836,766 @@ program/execute/program-tester-check-local-size-test-should-skip/this test shoul
 program/execute/pyrit-wpa-psk: crash
 program/execute/realign-stack: crash
 program/execute/reference: crash
+program/execute/reserved-words/and: pass
+program/execute/reserved-words/and_eq: pass
+program/execute/reserved-words/bitand: pass
+program/execute/reserved-words/bitor: pass
+program/execute/reserved-words/compl: pass
+program/execute/reserved-words/not: pass
+program/execute/reserved-words/not_eq: pass
+program/execute/reserved-words/or: pass
+program/execute/reserved-words/or_eq: pass
+program/execute/reserved-words/xor: pass
+program/execute/reserved-words/xor_eq: pass
 program/execute/sampler: skip
+program/execute/scalar-arithmetic-char/++num: pass
+program/execute/scalar-arithmetic-char/+neg: pass
+program/execute/scalar-arithmetic-char/+pos: pass
+program/execute/scalar-arithmetic-char/--num: pass
+program/execute/scalar-arithmetic-char/-neg: pass
+program/execute/scalar-arithmetic-char/-pos: pass
+program/execute/scalar-arithmetic-char/0 div num: pass
+program/execute/scalar-arithmetic-char/0*num: pass
+program/execute/scalar-arithmetic-char/max_char mod num: pass
+program/execute/scalar-arithmetic-char/min_char mod num: pass
+program/execute/scalar-arithmetic-char/neg div neg: pass
+program/execute/scalar-arithmetic-char/neg div neg (remainder): pass
+program/execute/scalar-arithmetic-char/neg div pos: pass
+program/execute/scalar-arithmetic-char/neg div pos (remainder): pass
+program/execute/scalar-arithmetic-char/neg mod pos=0: pass
+program/execute/scalar-arithmetic-char/neg mod pos=neg: pass
+program/execute/scalar-arithmetic-char/neg*neg: pass
+program/execute/scalar-arithmetic-char/neg*pos: pass
+program/execute/scalar-arithmetic-char/neg+neg: pass
+program/execute/scalar-arithmetic-char/neg+pos: pass
+program/execute/scalar-arithmetic-char/neg-neg: pass
+program/execute/scalar-arithmetic-char/neg-pos: pass
+program/execute/scalar-arithmetic-char/num++: pass
+program/execute/scalar-arithmetic-char/num--: pass
+program/execute/scalar-arithmetic-char/pos div neg: pass
+program/execute/scalar-arithmetic-char/pos div neg (remainder): pass
+program/execute/scalar-arithmetic-char/pos div pos: pass
+program/execute/scalar-arithmetic-char/pos div pos (remainder): pass
+program/execute/scalar-arithmetic-char/pos mod neg=0: pass
+program/execute/scalar-arithmetic-char/pos mod neg=pos: pass
+program/execute/scalar-arithmetic-char/pos mod pos=0: pass
+program/execute/scalar-arithmetic-char/pos mod pos=pos: pass
+program/execute/scalar-arithmetic-char/pos*neg: pass
+program/execute/scalar-arithmetic-char/pos*pos: pass
+program/execute/scalar-arithmetic-char/pos+neg: pass
+program/execute/scalar-arithmetic-char/pos+pos: pass
+program/execute/scalar-arithmetic-char/pos-neg: pass
+program/execute/scalar-arithmetic-char/pos-pos: pass
+program/execute/scalar-arithmetic-char/small_pos mod big_pos: pass
+program/execute/scalar-arithmetic-double/minus: pass
+program/execute/scalar-arithmetic-float/+-inf: pass
+program/execute/scalar-arithmetic-float/+inf: pass
+program/execute/scalar-arithmetic-float/+neg: pass
+program/execute/scalar-arithmetic-float/+pos: pass
+program/execute/scalar-arithmetic-float/-inf*-inf: pass
+program/execute/scalar-arithmetic-float/-inf+-inf: pass
+program/execute/scalar-arithmetic-float/-num div 0: pass
+program/execute/scalar-arithmetic-float/0 div inf: pass
+program/execute/scalar-arithmetic-float/0 div neg: pass
+program/execute/scalar-arithmetic-float/0 div pos: pass
+program/execute/scalar-arithmetic-float/0*inf: pass
+program/execute/scalar-arithmetic-float/0*neg: pass
+program/execute/scalar-arithmetic-float/0*pos: pass
+program/execute/scalar-arithmetic-float/0--inf: pass
+program/execute/scalar-arithmetic-float/0-inf: pass
+program/execute/scalar-arithmetic-float/inf div 0: pass
+program/execute/scalar-arithmetic-float/inf div inf: pass
+program/execute/scalar-arithmetic-float/inf*-inf: pass
+program/execute/scalar-arithmetic-float/inf*inf: pass
+program/execute/scalar-arithmetic-float/inf+inf: pass
+program/execute/scalar-arithmetic-float/minus: pass
+program/execute/scalar-arithmetic-float/nan div 0: pass
+program/execute/scalar-arithmetic-float/neg div neg: pass
+program/execute/scalar-arithmetic-float/neg div pos: pass
+program/execute/scalar-arithmetic-float/neg*neg: pass
+program/execute/scalar-arithmetic-float/neg*pos: pass
+program/execute/scalar-arithmetic-float/neg+neg: pass
+program/execute/scalar-arithmetic-float/neg+pos: pass
+program/execute/scalar-arithmetic-float/neg-neg: pass
+program/execute/scalar-arithmetic-float/neg-pos: pass
+program/execute/scalar-arithmetic-float/num div 0: pass
+program/execute/scalar-arithmetic-float/num div nan: pass
+program/execute/scalar-arithmetic-float/num*nan: pass
+program/execute/scalar-arithmetic-float/pos div neg: pass
+program/execute/scalar-arithmetic-float/pos div pos: pass
+program/execute/scalar-arithmetic-float/pos*neg: pass
+program/execute/scalar-arithmetic-float/pos*pos: pass
+program/execute/scalar-arithmetic-float/pos+neg: pass
+program/execute/scalar-arithmetic-float/pos+pos: pass
+program/execute/scalar-arithmetic-float/pos-neg: pass
+program/execute/scalar-arithmetic-float/pos-pos: pass
+program/execute/scalar-arithmetic-int/++num: pass
+program/execute/scalar-arithmetic-int/+neg: pass
+program/execute/scalar-arithmetic-int/+pos: pass
+program/execute/scalar-arithmetic-int/--num: pass
+program/execute/scalar-arithmetic-int/-neg: pass
+program/execute/scalar-arithmetic-int/-pos: pass
+program/execute/scalar-arithmetic-int/0 div num: pass
+program/execute/scalar-arithmetic-int/0 sdiv24 num: pass
+program/execute/scalar-arithmetic-int/0 sdiv25 num: pass
+program/execute/scalar-arithmetic-int/0 sdiv25_1: pass
+program/execute/scalar-arithmetic-int/0 sdiv26 num: pass
+program/execute/scalar-arithmetic-int/0 srem25 num: pass
+program/execute/scalar-arithmetic-int/0 srem25_1 num: pass
+program/execute/scalar-arithmetic-int/0 srem25_2 num: pass
+program/execute/scalar-arithmetic-int/0*num: pass
+program/execute/scalar-arithmetic-int/max_int mod num: pass
+program/execute/scalar-arithmetic-int/min_int mod num: pass
+program/execute/scalar-arithmetic-int/neg div neg: pass
+program/execute/scalar-arithmetic-int/neg div neg (remainder): pass
+program/execute/scalar-arithmetic-int/neg div pos: pass
+program/execute/scalar-arithmetic-int/neg div pos (remainder): pass
+program/execute/scalar-arithmetic-int/neg mod pos=0: pass
+program/execute/scalar-arithmetic-int/neg mod pos=neg: pass
+program/execute/scalar-arithmetic-int/neg*neg: pass
+program/execute/scalar-arithmetic-int/neg*pos: pass
+program/execute/scalar-arithmetic-int/neg+neg: pass
+program/execute/scalar-arithmetic-int/neg+pos: pass
+program/execute/scalar-arithmetic-int/neg-neg: pass
+program/execute/scalar-arithmetic-int/neg-pos: pass
+program/execute/scalar-arithmetic-int/num++: pass
+program/execute/scalar-arithmetic-int/num--: pass
+program/execute/scalar-arithmetic-int/pos div neg: pass
+program/execute/scalar-arithmetic-int/pos div neg (remainder): pass
+program/execute/scalar-arithmetic-int/pos div pos: pass
+program/execute/scalar-arithmetic-int/pos div pos (remainder): pass
+program/execute/scalar-arithmetic-int/pos mod neg=0: pass
+program/execute/scalar-arithmetic-int/pos mod neg=pos: pass
+program/execute/scalar-arithmetic-int/pos mod pos=0: pass
+program/execute/scalar-arithmetic-int/pos mod pos=pos: pass
+program/execute/scalar-arithmetic-int/pos*neg: pass
+program/execute/scalar-arithmetic-int/pos*pos: pass
+program/execute/scalar-arithmetic-int/pos+neg: pass
+program/execute/scalar-arithmetic-int/pos+pos: pass
+program/execute/scalar-arithmetic-int/pos-neg: pass
+program/execute/scalar-arithmetic-int/pos-pos: pass
+program/execute/scalar-arithmetic-int/small_pos mod big_pos: pass
+program/execute/scalar-arithmetic-long/++num: pass
+program/execute/scalar-arithmetic-long/+neg: pass
+program/execute/scalar-arithmetic-long/+pos: pass
+program/execute/scalar-arithmetic-long/--num: pass
+program/execute/scalar-arithmetic-long/-neg: pass
+program/execute/scalar-arithmetic-long/-pos: pass
+program/execute/scalar-arithmetic-long/0 div num: pass
+program/execute/scalar-arithmetic-long/0*num: pass
+program/execute/scalar-arithmetic-long/max_long mod num: pass
+program/execute/scalar-arithmetic-long/min_long mod num: pass
+program/execute/scalar-arithmetic-long/neg div neg: pass
+program/execute/scalar-arithmetic-long/neg div neg (remainder): pass
+program/execute/scalar-arithmetic-long/neg div pos: pass
+program/execute/scalar-arithmetic-long/neg div pos (remainder): pass
+program/execute/scalar-arithmetic-long/neg mod pos=0: pass
+program/execute/scalar-arithmetic-long/neg mod pos=neg: pass
+program/execute/scalar-arithmetic-long/neg*neg: pass
+program/execute/scalar-arithmetic-long/neg*pos: pass
+program/execute/scalar-arithmetic-long/neg+neg: pass
+program/execute/scalar-arithmetic-long/neg+pos: pass
+program/execute/scalar-arithmetic-long/neg-neg: pass
+program/execute/scalar-arithmetic-long/neg-pos: pass
+program/execute/scalar-arithmetic-long/num++: pass
+program/execute/scalar-arithmetic-long/num--: pass
+program/execute/scalar-arithmetic-long/pos div neg: pass
+program/execute/scalar-arithmetic-long/pos div neg (remainder): pass
+program/execute/scalar-arithmetic-long/pos div pos: pass
+program/execute/scalar-arithmetic-long/pos div pos (remainder): pass
+program/execute/scalar-arithmetic-long/pos mod neg=0: pass
+program/execute/scalar-arithmetic-long/pos mod neg=pos: pass
+program/execute/scalar-arithmetic-long/pos mod pos=0: pass
+program/execute/scalar-arithmetic-long/pos mod pos=pos: pass
+program/execute/scalar-arithmetic-long/pos*neg: pass
+program/execute/scalar-arithmetic-long/pos*pos: pass
+program/execute/scalar-arithmetic-long/pos+neg: pass
+program/execute/scalar-arithmetic-long/pos+pos: pass
+program/execute/scalar-arithmetic-long/pos-neg: pass
+program/execute/scalar-arithmetic-long/pos-pos: pass
+program/execute/scalar-arithmetic-long/small_pos mod big_pos: pass
+program/execute/scalar-arithmetic-short/++num: pass
+program/execute/scalar-arithmetic-short/+neg: pass
+program/execute/scalar-arithmetic-short/+pos: pass
+program/execute/scalar-arithmetic-short/--num: pass
+program/execute/scalar-arithmetic-short/-neg: pass
+program/execute/scalar-arithmetic-short/-pos: pass
+program/execute/scalar-arithmetic-short/0 div num: pass
+program/execute/scalar-arithmetic-short/0*num: pass
+program/execute/scalar-arithmetic-short/max_short mod num: pass
+program/execute/scalar-arithmetic-short/min_short mod num: pass
+program/execute/scalar-arithmetic-short/neg div neg: pass
+program/execute/scalar-arithmetic-short/neg div neg (remainder): pass
+program/execute/scalar-arithmetic-short/neg div pos: pass
+program/execute/scalar-arithmetic-short/neg div pos (remainder): pass
+program/execute/scalar-arithmetic-short/neg mod pos=0: pass
+program/execute/scalar-arithmetic-short/neg mod pos=neg: pass
+program/execute/scalar-arithmetic-short/neg*neg: pass
+program/execute/scalar-arithmetic-short/neg*pos: pass
+program/execute/scalar-arithmetic-short/neg+neg: pass
+program/execute/scalar-arithmetic-short/neg+pos: pass
+program/execute/scalar-arithmetic-short/neg-neg: pass
+program/execute/scalar-arithmetic-short/neg-pos: pass
+program/execute/scalar-arithmetic-short/num++: pass
+program/execute/scalar-arithmetic-short/num--: pass
+program/execute/scalar-arithmetic-short/pos div neg: pass
+program/execute/scalar-arithmetic-short/pos div neg (remainder): pass
+program/execute/scalar-arithmetic-short/pos div pos: pass
+program/execute/scalar-arithmetic-short/pos div pos (remainder): pass
+program/execute/scalar-arithmetic-short/pos mod neg=0: pass
+program/execute/scalar-arithmetic-short/pos mod neg=pos: pass
+program/execute/scalar-arithmetic-short/pos mod pos=0: pass
+program/execute/scalar-arithmetic-short/pos mod pos=pos: pass
+program/execute/scalar-arithmetic-short/pos*neg: pass
+program/execute/scalar-arithmetic-short/pos*pos: pass
+program/execute/scalar-arithmetic-short/pos+neg: pass
+program/execute/scalar-arithmetic-short/pos+pos: pass
+program/execute/scalar-arithmetic-short/pos-neg: pass
+program/execute/scalar-arithmetic-short/pos-pos: pass
+program/execute/scalar-arithmetic-short/small_pos mod big_pos: pass
+program/execute/scalar-arithmetic-uchar/++num: pass
+program/execute/scalar-arithmetic-uchar/+pos: pass
+program/execute/scalar-arithmetic-uchar/--num: pass
+program/execute/scalar-arithmetic-uchar/0 div num: pass
+program/execute/scalar-arithmetic-uchar/0*pos: pass
+program/execute/scalar-arithmetic-uchar/max_uchar mod num: pass
+program/execute/scalar-arithmetic-uchar/min_uchar mod num: pass
+program/execute/scalar-arithmetic-uchar/num++: pass
+program/execute/scalar-arithmetic-uchar/num--: pass
+program/execute/scalar-arithmetic-uchar/pos div pos: pass
+program/execute/scalar-arithmetic-uchar/pos div pos (remainder): pass
+program/execute/scalar-arithmetic-uchar/pos mod pos=0: pass
+program/execute/scalar-arithmetic-uchar/pos mod pos=pos: pass
+program/execute/scalar-arithmetic-uchar/pos*pos: pass
+program/execute/scalar-arithmetic-uchar/pos+0: pass
+program/execute/scalar-arithmetic-uchar/pos+pos: pass
+program/execute/scalar-arithmetic-uchar/pos-0: pass
+program/execute/scalar-arithmetic-uchar/pos-pos: pass
+program/execute/scalar-arithmetic-uchar/small_pos mod big_pos: pass
+program/execute/scalar-arithmetic-uint/++num: pass
+program/execute/scalar-arithmetic-uint/+pos: pass
+program/execute/scalar-arithmetic-uint/--num: pass
+program/execute/scalar-arithmetic-uint/0 div num: pass
+program/execute/scalar-arithmetic-uint/0 udiv24 num: pass
+program/execute/scalar-arithmetic-uint/0 udiv25 num: pass
+program/execute/scalar-arithmetic-uint/0 udiv25_1: pass
+program/execute/scalar-arithmetic-uint/0 udiv26 num: pass
+program/execute/scalar-arithmetic-uint/0 urem25 num: pass
+program/execute/scalar-arithmetic-uint/0 urem25_1 num: pass
+program/execute/scalar-arithmetic-uint/0 urem25_2 num: pass
+program/execute/scalar-arithmetic-uint/0*pos: pass
+program/execute/scalar-arithmetic-uint/max_uint mod num: pass
+program/execute/scalar-arithmetic-uint/min_uint mod num: pass
+program/execute/scalar-arithmetic-uint/num++: pass
+program/execute/scalar-arithmetic-uint/num--: pass
+program/execute/scalar-arithmetic-uint/pos div pos: pass
+program/execute/scalar-arithmetic-uint/pos div pos (remainder): pass
+program/execute/scalar-arithmetic-uint/pos mod pos=0: pass
+program/execute/scalar-arithmetic-uint/pos mod pos=pos: pass
+program/execute/scalar-arithmetic-uint/pos*pos: pass
+program/execute/scalar-arithmetic-uint/pos+0: pass
+program/execute/scalar-arithmetic-uint/pos+pos: pass
+program/execute/scalar-arithmetic-uint/pos-0: pass
+program/execute/scalar-arithmetic-uint/pos-pos: pass
+program/execute/scalar-arithmetic-uint/small_pos mod big_pos: pass
+program/execute/scalar-arithmetic-ulong/++num: pass
+program/execute/scalar-arithmetic-ulong/+pos: pass
+program/execute/scalar-arithmetic-ulong/--num: pass
+program/execute/scalar-arithmetic-ulong/0 div num: pass
+program/execute/scalar-arithmetic-ulong/0*pos: pass
+program/execute/scalar-arithmetic-ulong/max_ulong mod num: pass
+program/execute/scalar-arithmetic-ulong/min_ulong mod num: pass
+program/execute/scalar-arithmetic-ulong/num++: pass
+program/execute/scalar-arithmetic-ulong/num--: pass
+program/execute/scalar-arithmetic-ulong/pos div pos: pass
+program/execute/scalar-arithmetic-ulong/pos div pos (remainder): pass
+program/execute/scalar-arithmetic-ulong/pos mod pos=0: pass
+program/execute/scalar-arithmetic-ulong/pos mod pos=pos: pass
+program/execute/scalar-arithmetic-ulong/pos*pos: pass
+program/execute/scalar-arithmetic-ulong/pos+0: pass
+program/execute/scalar-arithmetic-ulong/pos+pos: pass
+program/execute/scalar-arithmetic-ulong/pos-0: pass
+program/execute/scalar-arithmetic-ulong/pos-pos: pass
+program/execute/scalar-arithmetic-ulong/small_pos mod big_pos: pass
+program/execute/scalar-arithmetic-ushort/++num: pass
+program/execute/scalar-arithmetic-ushort/+pos: pass
+program/execute/scalar-arithmetic-ushort/--num: pass
+program/execute/scalar-arithmetic-ushort/0 div num: pass
+program/execute/scalar-arithmetic-ushort/0*pos: pass
+program/execute/scalar-arithmetic-ushort/max_ushort mod num: pass
+program/execute/scalar-arithmetic-ushort/min_ushort mod num: pass
+program/execute/scalar-arithmetic-ushort/num++: pass
+program/execute/scalar-arithmetic-ushort/num--: pass
+program/execute/scalar-arithmetic-ushort/pos div pos: pass
+program/execute/scalar-arithmetic-ushort/pos div pos (remainder): pass
+program/execute/scalar-arithmetic-ushort/pos mod pos=0: pass
+program/execute/scalar-arithmetic-ushort/pos mod pos=pos: pass
+program/execute/scalar-arithmetic-ushort/pos*pos: pass
+program/execute/scalar-arithmetic-ushort/pos+0: pass
+program/execute/scalar-arithmetic-ushort/pos+pos: pass
+program/execute/scalar-arithmetic-ushort/pos-0: pass
+program/execute/scalar-arithmetic-ushort/pos-pos: pass
+program/execute/scalar-arithmetic-ushort/small_pos mod big_pos: pass
+program/execute/scalar-bitwise-int/neg>>num: pass
+program/execute/scalar-bitwise-int/num&0: pass
+program/execute/scalar-bitwise-int/num&num: pass
+program/execute/scalar-bitwise-int/num<<0: pass
+program/execute/scalar-bitwise-int/num<<num: pass
+program/execute/scalar-bitwise-int/num>>0: pass
+program/execute/scalar-bitwise-int/num^0: pass
+program/execute/scalar-bitwise-int/num^num: pass
+program/execute/scalar-bitwise-int/num|0: pass
+program/execute/scalar-bitwise-int/num|num: pass
+program/execute/scalar-bitwise-int/pos>>num: pass
+program/execute/scalar-bitwise-int/~0: pass
+program/execute/scalar-bitwise-int/~num: pass
+program/execute/scalar-comparison-char/big_num<=small_num: pass
+program/execute/scalar-comparison-char/big_num<small_num: pass
+program/execute/scalar-comparison-char/big_num>=small_num: pass
+program/execute/scalar-comparison-char/big_num>small_num: pass
+program/execute/scalar-comparison-char/num!=-num: pass
+program/execute/scalar-comparison-char/num!=num: pass
+program/execute/scalar-comparison-char/num1!=num2: pass
+program/execute/scalar-comparison-char/num1==num2: pass
+program/execute/scalar-comparison-char/num<=num: pass
+program/execute/scalar-comparison-char/num<num: pass
+program/execute/scalar-comparison-char/num==-num: pass
+program/execute/scalar-comparison-char/num==num: pass
+program/execute/scalar-comparison-char/num>=num: pass
+program/execute/scalar-comparison-char/num>num: pass
+program/execute/scalar-comparison-char/small_num<=big_num: pass
+program/execute/scalar-comparison-char/small_num<big_num: pass
+program/execute/scalar-comparison-char/small_num>=big_num: pass
+program/execute/scalar-comparison-char/small_num>big_num: pass
+program/execute/scalar-comparison-float/big_num<=small_num: pass
+program/execute/scalar-comparison-float/big_num<small_num: pass
+program/execute/scalar-comparison-float/big_num>=small_num: pass
+program/execute/scalar-comparison-float/big_num>small_num: pass
+program/execute/scalar-comparison-float/num!=-num: pass
+program/execute/scalar-comparison-float/num!=num: pass
+program/execute/scalar-comparison-float/num1!=num2: pass
+program/execute/scalar-comparison-float/num1==num2: pass
+program/execute/scalar-comparison-float/num<=num: pass
+program/execute/scalar-comparison-float/num<num: pass
+program/execute/scalar-comparison-float/num==-num: pass
+program/execute/scalar-comparison-float/num==num: pass
+program/execute/scalar-comparison-float/num>=num: pass
+program/execute/scalar-comparison-float/num>num: pass
+program/execute/scalar-comparison-float/small_num<=big_num: pass
+program/execute/scalar-comparison-float/small_num<big_num: pass
+program/execute/scalar-comparison-float/small_num>=big_num: pass
+program/execute/scalar-comparison-float/small_num>big_num: pass
+program/execute/scalar-comparison-int/big_num<=small_num: pass
+program/execute/scalar-comparison-int/big_num<small_num: pass
+program/execute/scalar-comparison-int/big_num>=small_num: pass
+program/execute/scalar-comparison-int/big_num>small_num: pass
+program/execute/scalar-comparison-int/num!=-num: pass
+program/execute/scalar-comparison-int/num!=num: pass
+program/execute/scalar-comparison-int/num1!=num2: pass
+program/execute/scalar-comparison-int/num1==num2: pass
+program/execute/scalar-comparison-int/num<=num: pass
+program/execute/scalar-comparison-int/num<num: pass
+program/execute/scalar-comparison-int/num==-num: pass
+program/execute/scalar-comparison-int/num==num: pass
+program/execute/scalar-comparison-int/num>=num: pass
+program/execute/scalar-comparison-int/num>num: pass
+program/execute/scalar-comparison-int/small_num<=big_num: pass
+program/execute/scalar-comparison-int/small_num<big_num: pass
+program/execute/scalar-comparison-int/small_num>=big_num: pass
+program/execute/scalar-comparison-int/small_num>big_num: pass
+program/execute/scalar-comparison-long/big_num<=small_num: pass
+program/execute/scalar-comparison-long/big_num<small_num: pass
+program/execute/scalar-comparison-long/big_num>=small_num: pass
+program/execute/scalar-comparison-long/big_num>small_num: pass
+program/execute/scalar-comparison-long/num!=-num: pass
+program/execute/scalar-comparison-long/num!=num: pass
+program/execute/scalar-comparison-long/num1!=num2: pass
+program/execute/scalar-comparison-long/num1==num2: pass
+program/execute/scalar-comparison-long/num<=num: pass
+program/execute/scalar-comparison-long/num<num: pass
+program/execute/scalar-comparison-long/num==-num: pass
+program/execute/scalar-comparison-long/num==num: pass
+program/execute/scalar-comparison-long/num>=num: pass
+program/execute/scalar-comparison-long/num>num: pass
+program/execute/scalar-comparison-long/small_num<=big_num: pass
+program/execute/scalar-comparison-long/small_num<big_num: pass
+program/execute/scalar-comparison-long/small_num>=big_num: pass
+program/execute/scalar-comparison-long/small_num>big_num: pass
+program/execute/scalar-comparison-short/big_num<=small_num: pass
+program/execute/scalar-comparison-short/big_num<small_num: pass
+program/execute/scalar-comparison-short/big_num>=small_num: pass
+program/execute/scalar-comparison-short/big_num>small_num: pass
+program/execute/scalar-comparison-short/num!=-num: pass
+program/execute/scalar-comparison-short/num!=num: pass
+program/execute/scalar-comparison-short/num1!=num2: pass
+program/execute/scalar-comparison-short/num1==num2: pass
+program/execute/scalar-comparison-short/num<=num: pass
+program/execute/scalar-comparison-short/num<num: pass
+program/execute/scalar-comparison-short/num==-num: pass
+program/execute/scalar-comparison-short/num==num: pass
+program/execute/scalar-comparison-short/num>=num: pass
+program/execute/scalar-comparison-short/num>num: pass
+program/execute/scalar-comparison-short/small_num<=big_num: pass
+program/execute/scalar-comparison-short/small_num<big_num: pass
+program/execute/scalar-comparison-short/small_num>=big_num: pass
+program/execute/scalar-comparison-short/small_num>big_num: pass
+program/execute/scalar-comparison-uchar/big_num<=small_num: pass
+program/execute/scalar-comparison-uchar/big_num<small_num: pass
+program/execute/scalar-comparison-uchar/big_num>=small_num: pass
+program/execute/scalar-comparison-uchar/big_num>small_num: pass
+program/execute/scalar-comparison-uchar/num!=num: pass
+program/execute/scalar-comparison-uchar/num1!=num2: pass
+program/execute/scalar-comparison-uchar/num1==num2: pass
+program/execute/scalar-comparison-uchar/num<=num: pass
+program/execute/scalar-comparison-uchar/num<num: pass
+program/execute/scalar-comparison-uchar/num==num: pass
+program/execute/scalar-comparison-uchar/num>=num: pass
+program/execute/scalar-comparison-uchar/num>num: pass
+program/execute/scalar-comparison-uchar/small_num<=big_num: pass
+program/execute/scalar-comparison-uchar/small_num<big_num: pass
+program/execute/scalar-comparison-uchar/small_num>=big_num: pass
+program/execute/scalar-comparison-uchar/small_num>big_num: pass
+program/execute/scalar-comparison-uint/big_num<=small_num: pass
+program/execute/scalar-comparison-uint/big_num<small_num: pass
+program/execute/scalar-comparison-uint/big_num>=small_num: pass
+program/execute/scalar-comparison-uint/big_num>small_num: pass
+program/execute/scalar-comparison-uint/num!=num: pass
+program/execute/scalar-comparison-uint/num1!=num2: pass
+program/execute/scalar-comparison-uint/num1==num2: pass
+program/execute/scalar-comparison-uint/num<=num: pass
+program/execute/scalar-comparison-uint/num<num: pass
+program/execute/scalar-comparison-uint/num==num: pass
+program/execute/scalar-comparison-uint/num>=num: pass
+program/execute/scalar-comparison-uint/num>num: pass
+program/execute/scalar-comparison-uint/small_num<=big_num: pass
+program/execute/scalar-comparison-uint/small_num<big_num: pass
+program/execute/scalar-comparison-uint/small_num>=big_num: pass
+program/execute/scalar-comparison-uint/small_num>big_num: pass
+program/execute/scalar-comparison-ulong/big_num<=small_num: pass
+program/execute/scalar-comparison-ulong/big_num<small_num: pass
+program/execute/scalar-comparison-ulong/big_num>=small_num: pass
+program/execute/scalar-comparison-ulong/big_num>small_num: pass
+program/execute/scalar-comparison-ulong/num!=num: pass
+program/execute/scalar-comparison-ulong/num1!=num2: pass
+program/execute/scalar-comparison-ulong/num1==num2: pass
+program/execute/scalar-comparison-ulong/num<=num: pass
+program/execute/scalar-comparison-ulong/num<num: pass
+program/execute/scalar-comparison-ulong/num==num: pass
+program/execute/scalar-comparison-ulong/num>=num: pass
+program/execute/scalar-comparison-ulong/num>num: pass
+program/execute/scalar-comparison-ulong/small_num<=big_num: pass
+program/execute/scalar-comparison-ulong/small_num<big_num: pass
+program/execute/scalar-comparison-ulong/small_num>=big_num: pass
+program/execute/scalar-comparison-ulong/small_num>big_num: pass
+program/execute/scalar-comparison-ushort/big_num<=small_num: pass
+program/execute/scalar-comparison-ushort/big_num<small_num: pass
+program/execute/scalar-comparison-ushort/big_num>=small_num: pass
+program/execute/scalar-comparison-ushort/big_num>small_num: pass
+program/execute/scalar-comparison-ushort/num!=num: pass
+program/execute/scalar-comparison-ushort/num1!=num2: pass
+program/execute/scalar-comparison-ushort/num1==num2: pass
+program/execute/scalar-comparison-ushort/num<=num: pass
+program/execute/scalar-comparison-ushort/num<num: pass
+program/execute/scalar-comparison-ushort/num==num: pass
+program/execute/scalar-comparison-ushort/num>=num: pass
+program/execute/scalar-comparison-ushort/num>num: pass
+program/execute/scalar-comparison-ushort/small_num<=big_num: pass
+program/execute/scalar-comparison-ushort/small_num<big_num: pass
+program/execute/scalar-comparison-ushort/small_num>=big_num: pass
+program/execute/scalar-comparison-ushort/small_num>big_num: pass
+program/execute/scalar-load-char/constant address space: pass
+program/execute/scalar-load-char/global address space: pass
+program/execute/scalar-load-char/parameter address space: pass
+program/execute/scalar-load-float/constant address space: pass
+program/execute/scalar-load-float/global address space: pass
+program/execute/scalar-load-float/parameter address space: pass
+program/execute/scalar-load-int/constant address space: pass
+program/execute/scalar-load-int/global address space: pass
+program/execute/scalar-load-int/parameter address space: pass
+program/execute/scalar-load-long/constant address space: pass
+program/execute/scalar-load-long/global address space: pass
+program/execute/scalar-load-long/parameter address space: pass
+program/execute/scalar-load-short/constant address space: pass
+program/execute/scalar-load-short/global address space: pass
+program/execute/scalar-load-short/parameter address space: pass
+program/execute/scalar-load-uchar/constant address space: pass
+program/execute/scalar-load-uchar/global address space: pass
+program/execute/scalar-load-uchar/parameter address space: pass
+program/execute/scalar-load-uint/constant address space: pass
+program/execute/scalar-load-uint/global address space: pass
+program/execute/scalar-load-uint/parameter address space: pass
+program/execute/scalar-load-ulong/constant address space: pass
+program/execute/scalar-load-ulong/global address space: pass
+program/execute/scalar-load-ulong/parameter address space: pass
+program/execute/scalar-load-ushort/constant address space: pass
+program/execute/scalar-load-ushort/global address space: pass
+program/execute/scalar-load-ushort/parameter address space: pass
 program/execute/scalar-logical-float: skip
+program/execute/scalar-logical-int/!big_num: pass
+program/execute/scalar-logical-int/!false: pass
+program/execute/scalar-logical-int/!true: pass
+program/execute/scalar-logical-int/false&&false: pass
+program/execute/scalar-logical-int/false||false: pass
+program/execute/scalar-logical-int/true&&false: pass
+program/execute/scalar-logical-int/true&&true: pass
+program/execute/scalar-logical-int/true||false: pass
+program/execute/scalar-logical-int/true||true: pass
+program/execute/sha256-ch/000: pass
+program/execute/sha256-ch/001: pass
+program/execute/sha256-ch/010: pass
+program/execute/sha256-ch/011: pass
+program/execute/sha256-ch/100: pass
+program/execute/sha256-ch/101: pass
+program/execute/sha256-ch/110: pass
+program/execute/sha256-ch/111: pass
+program/execute/sizeof/sizeof: pass
 program/execute/store-hi16-generic: skip
+program/execute/store-hi16/store hi16 global: pass
+program/execute/store/store-char-global/global address space: pass
+program/execute/store/store-char-global/global address space work items: pass
 program/execute/store/store-char-local: crash
+program/execute/store/store-char16-global/global address space: pass
+program/execute/store/store-char16-global/global address space work items: pass
 program/execute/store/store-char16-local: crash
+program/execute/store/store-char2-global/global address space: pass
+program/execute/store/store-char2-global/global address space work items: pass
 program/execute/store/store-char2-local: crash
+program/execute/store/store-char4-global/global address space: pass
+program/execute/store/store-char4-global/global address space work items: pass
 program/execute/store/store-char4-local: crash
+program/execute/store/store-char8-global/global address space: pass
+program/execute/store/store-char8-global/global address space work items: pass
 program/execute/store/store-char8-local: crash
+program/execute/store/store-double-global/global address space: pass
+program/execute/store/store-double-global/global address space work items: pass
 program/execute/store/store-double-local: crash
+program/execute/store/store-double16-global/global address space: pass
+program/execute/store/store-double16-global/global address space work items: pass
 program/execute/store/store-double16-local: crash
+program/execute/store/store-double2-global/global address space: pass
+program/execute/store/store-double2-global/global address space work items: pass
 program/execute/store/store-double2-local: crash
+program/execute/store/store-double4-global/global address space: pass
+program/execute/store/store-double4-global/global address space work items: pass
 program/execute/store/store-double4-local: crash
+program/execute/store/store-double8-global/global address space: pass
+program/execute/store/store-double8-global/global address space work items: pass
 program/execute/store/store-double8-local: crash
+program/execute/store/store-float-global/global address space: pass
+program/execute/store/store-float-global/global address space work items: pass
 program/execute/store/store-float-local: crash
+program/execute/store/store-float16-global/global address space: pass
+program/execute/store/store-float16-global/global address space work items: pass
 program/execute/store/store-float16-local: crash
+program/execute/store/store-float2-global/global address space: pass
+program/execute/store/store-float2-global/global address space work items: pass
 program/execute/store/store-float2-local: crash
+program/execute/store/store-float4-global/global address space: pass
+program/execute/store/store-float4-global/global address space work items: pass
 program/execute/store/store-float4-local: crash
+program/execute/store/store-float8-global/global address space: pass
+program/execute/store/store-float8-global/global address space work items: pass
 program/execute/store/store-float8-local: crash
+program/execute/store/store-int-global/global address space: pass
+program/execute/store/store-int-global/global address space work items: pass
 program/execute/store/store-int-local: crash
+program/execute/store/store-int16-global/global address space: pass
+program/execute/store/store-int16-global/global address space work items: pass
 program/execute/store/store-int16-local: crash
+program/execute/store/store-int2-global/global address space: pass
+program/execute/store/store-int2-global/global address space work items: pass
 program/execute/store/store-int2-local: crash
+program/execute/store/store-int4-global/global address space: pass
+program/execute/store/store-int4-global/global address space work items: pass
 program/execute/store/store-int4-local: crash
+program/execute/store/store-int8-global/global address space: pass
+program/execute/store/store-int8-global/global address space work items: pass
 program/execute/store/store-int8-local: crash
+program/execute/store/store-long-global/global address space: pass
+program/execute/store/store-long-global/global address space work items: pass
 program/execute/store/store-long-local: crash
+program/execute/store/store-long16-global/global address space: pass
+program/execute/store/store-long16-global/global address space work items: pass
 program/execute/store/store-long16-local: crash
+program/execute/store/store-long2-global/global address space: pass
+program/execute/store/store-long2-global/global address space work items: pass
 program/execute/store/store-long2-local: crash
+program/execute/store/store-long4-global/global address space: pass
+program/execute/store/store-long4-global/global address space work items: pass
 program/execute/store/store-long4-local: crash
+program/execute/store/store-long8-global/global address space: pass
+program/execute/store/store-long8-global/global address space work items: pass
 program/execute/store/store-long8-local: crash
+program/execute/store/store-short-global/global address space: pass
+program/execute/store/store-short-global/global address space work items: pass
 program/execute/store/store-short-local: crash
+program/execute/store/store-short16-global/global address space: pass
+program/execute/store/store-short16-global/global address space work items: pass
 program/execute/store/store-short16-local: crash
+program/execute/store/store-short2-global/global address space: pass
+program/execute/store/store-short2-global/global address space work items: pass
 program/execute/store/store-short2-local: crash
+program/execute/store/store-short4-global/global address space: pass
+program/execute/store/store-short4-global/global address space work items: pass
 program/execute/store/store-short4-local: crash
+program/execute/store/store-short8-global/global address space: pass
+program/execute/store/store-short8-global/global address space work items: pass
 program/execute/store/store-short8-local: crash
+program/execute/store/store-uchar-global/global address space: pass
+program/execute/store/store-uchar-global/global address space work items: pass
 program/execute/store/store-uchar-local: crash
+program/execute/store/store-uchar16-global/global address space: pass
+program/execute/store/store-uchar16-global/global address space work items: pass
 program/execute/store/store-uchar16-local: crash
+program/execute/store/store-uchar2-global/global address space: pass
+program/execute/store/store-uchar2-global/global address space work items: pass
 program/execute/store/store-uchar2-local: crash
+program/execute/store/store-uchar4-global/global address space: pass
+program/execute/store/store-uchar4-global/global address space work items: pass
 program/execute/store/store-uchar4-local: crash
+program/execute/store/store-uchar8-global/global address space: pass
+program/execute/store/store-uchar8-global/global address space work items: pass
 program/execute/store/store-uchar8-local: crash
+program/execute/store/store-uint-global/global address space: pass
+program/execute/store/store-uint-global/global address space work items: pass
 program/execute/store/store-uint-local: crash
+program/execute/store/store-uint16-global/global address space: pass
+program/execute/store/store-uint16-global/global address space work items: pass
 program/execute/store/store-uint16-local: crash
+program/execute/store/store-uint2-global/global address space: pass
+program/execute/store/store-uint2-global/global address space work items: pass
 program/execute/store/store-uint2-local: crash
+program/execute/store/store-uint4-global/global address space: pass
+program/execute/store/store-uint4-global/global address space work items: pass
 program/execute/store/store-uint4-local: crash
+program/execute/store/store-uint8-global/global address space: pass
+program/execute/store/store-uint8-global/global address space work items: pass
 program/execute/store/store-uint8-local: crash
+program/execute/store/store-ulong-global/global address space: pass
+program/execute/store/store-ulong-global/global address space work items: pass
 program/execute/store/store-ulong-local: crash
+program/execute/store/store-ulong16-global/global address space: pass
+program/execute/store/store-ulong16-global/global address space work items: pass
 program/execute/store/store-ulong16-local: crash
+program/execute/store/store-ulong2-global/global address space: pass
+program/execute/store/store-ulong2-global/global address space work items: pass
 program/execute/store/store-ulong2-local: crash
+program/execute/store/store-ulong4-global/global address space: pass
+program/execute/store/store-ulong4-global/global address space work items: pass
 program/execute/store/store-ulong4-local: crash
+program/execute/store/store-ulong8-global/global address space: pass
+program/execute/store/store-ulong8-global/global address space work items: pass
 program/execute/store/store-ulong8-local: crash
+program/execute/store/store-ushort-global/global address space: pass
+program/execute/store/store-ushort-global/global address space work items: pass
 program/execute/store/store-ushort-local: crash
+program/execute/store/store-ushort16-global/global address space: pass
+program/execute/store/store-ushort16-global/global address space work items: pass
 program/execute/store/store-ushort16-local: crash
+program/execute/store/store-ushort2-global/global address space: pass
+program/execute/store/store-ushort2-global/global address space work items: pass
 program/execute/store/store-ushort2-local: crash
+program/execute/store/store-ushort4-global/global address space: pass
+program/execute/store/store-ushort4-global/global address space work items: pass
 program/execute/store/store-ushort4-local: crash
+program/execute/store/store-ushort8-global/global address space: pass
+program/execute/store/store-ushort8-global/global address space work items: pass
 program/execute/store/store-ushort8-local: crash
+program/execute/switch-case/switch_case: pass
+program/execute/tail-calls/basic tail call: pass
+program/execute/tail-calls/tail call with fewer arguments than acller: pass
+program/execute/tail-calls/tail call with more arguments than caller: pass
 program/execute/v2i32-stack: crash
 program/execute/v3i32-stack: crash
 program/execute/v3i32-stack-array: crash
 program/execute/v4i32-stack: crash
+program/execute/vector-arithmetic-float4/+pos, +neg, +inf, +-inf: pass
+program/execute/vector-arithmetic-float4/-pos, -neg, -inf, --inf: pass
+program/execute/vector-arithmetic-float4/0 div inf, inf div 0, inf div inf, nan div 0: pass
+program/execute/vector-arithmetic-float4/0 div pos, 0 div neg, pos div 0, neg div 0: pass
+program/execute/vector-arithmetic-float4/0*inf, inf*inf, inf*-inf, -inf*-inf: pass
+program/execute/vector-arithmetic-float4/0*num, num*0: pass
+program/execute/vector-arithmetic-float4/0-inf, 0--inf, inf--inf, -inf-inf: pass
+program/execute/vector-arithmetic-float4/inf+inf, -inf+-inf, inf+-inf, -inf+inf: pass
+program/execute/vector-arithmetic-float4/num*nan: pass
+program/execute/vector-arithmetic-float4/pos div pos, neg div neg, pos div neg, neg div pos: pass
+program/execute/vector-arithmetic-float4/pos*pos, neg*neg, pos*neg, neg*pos: pass
+program/execute/vector-arithmetic-float4/pos+neg, neg+pos: pass
+program/execute/vector-arithmetic-float4/pos+pos, neg+neg: pass
+program/execute/vector-arithmetic-float4/pos-neg, neg-pos: pass
+program/execute/vector-arithmetic-float4/pos-pos, neg-neg: pass
+program/execute/vector-arithmetic-int4/++num: pass
+program/execute/vector-arithmetic-int4/+pos, +neg: pass
+program/execute/vector-arithmetic-int4/--num: pass
+program/execute/vector-arithmetic-int4/-pos, -neg: pass
+program/execute/vector-arithmetic-int4/0 div num: pass
+program/execute/vector-arithmetic-int4/0*num, num*0: pass
+program/execute/vector-arithmetic-int4/max_int mod num, min_int mod num: pass
+program/execute/vector-arithmetic-int4/neg div meg, neg div neg (remainder): pass
+program/execute/vector-arithmetic-int4/neg div pos, neg div pos (remainder): pass
+program/execute/vector-arithmetic-int4/neg mod pos=0, neg mod pos=neg, small_pos mod big_pos, small_pos mod big_pos: pass
+program/execute/vector-arithmetic-int4/num++: pass
+program/execute/vector-arithmetic-int4/num--: pass
+program/execute/vector-arithmetic-int4/pos div neg, pos div neg (remainder): pass
+program/execute/vector-arithmetic-int4/pos div pos, pos div pos (remainder): pass
+program/execute/vector-arithmetic-int4/pos mod pos=0, pos mod neg=0, pos mod pos=pos, pos mod neg=pos: pass
+program/execute/vector-arithmetic-int4/pos*neg, neg*pos: pass
+program/execute/vector-arithmetic-int4/pos*pos, neg*neg: pass
+program/execute/vector-arithmetic-int4/pos+neg, neg+pos: pass
+program/execute/vector-arithmetic-int4/pos+pos, neg+neg: pass
+program/execute/vector-arithmetic-int4/pos-neg, neg-pos: pass
+program/execute/vector-arithmetic-int4/pos-pos, neg-neg: pass
+program/execute/vector-conversion/convert char4 to int4: pass
 program/execute/vector-conversion/convert float4 to int4, round to negative infinity: fail
 program/execute/vector-conversion/convert float4 to int4, round to positive infinity: fail
+program/execute/vector-conversion/convert float4 to int4, round to zero: pass
+program/execute/vector-conversion/convert float8 to int8, round (default rounding mode, rtz): pass
 program/execute/vector-conversion/convert float8 to int8, round (half) to nearest even: fail
 program/execute/vector-conversion/convert float8 to int8, round to negative infinity (floor): fail
 program/execute/vector-conversion/convert float8 to int8, round to positive infinity (ceil): fail
+program/execute/vector-conversion/convert float8 to int8, round to zero (trunc): pass
+program/execute/vector-conversion/convert int4 to float4: pass
 program/execute/vector-conversion/convert int4 to saturated char4: fail
+program/execute/vector-conversion/convert int4 to uint4 via cast, no rounding, no saturation: pass
+program/execute/vector-conversion/convert scalar int to vector int4 via cast: pass
+program/execute/vector-load-int4/vector load: pass
+program/execute/vector-store-int4/global address space: pass
+program/execute/vload/vload-char-constant/vector load constant char16: pass
+program/execute/vload/vload-char-constant/vector load constant char2: pass
+program/execute/vload/vload-char-constant/vector load constant char3: pass
+program/execute/vload/vload-char-constant/vector load constant char4: pass
+program/execute/vload/vload-char-constant/vector load constant char8: pass
+program/execute/vload/vload-char-constant/vector load constant offset char16: pass
+program/execute/vload/vload-char-constant/vector load constant offset char2: pass
+program/execute/vload/vload-char-constant/vector load constant offset char3: pass
+program/execute/vload/vload-char-constant/vector load constant offset char4: pass
+program/execute/vload/vload-char-constant/vector load constant offset char8: pass
 program/execute/vload/vload-char-global: fail
 program/execute/vload/vload-char-local: fail
 program/execute/vload/vload-char-private: fail
+program/execute/vload/vload-double-constant/vector load constant double16: pass
+program/execute/vload/vload-double-constant/vector load constant double2: pass
+program/execute/vload/vload-double-constant/vector load constant double3: pass
+program/execute/vload/vload-double-constant/vector load constant double4: pass
+program/execute/vload/vload-double-constant/vector load constant double8: pass
+program/execute/vload/vload-double-constant/vector load constant offset double16: pass
+program/execute/vload/vload-double-constant/vector load constant offset double2: pass
+program/execute/vload/vload-double-constant/vector load constant offset double3: pass
+program/execute/vload/vload-double-constant/vector load constant offset double4: pass
+program/execute/vload/vload-double-constant/vector load constant offset double8: pass
 program/execute/vload/vload-double-global: fail
 program/execute/vload/vload-double-local: fail
 program/execute/vload/vload-double-private: fail
+program/execute/vload/vload-float-constant/vector load constant float16: pass
+program/execute/vload/vload-float-constant/vector load constant float2: pass
+program/execute/vload/vload-float-constant/vector load constant float3: pass
+program/execute/vload/vload-float-constant/vector load constant float4: pass
+program/execute/vload/vload-float-constant/vector load constant float8: pass
+program/execute/vload/vload-float-constant/vector load constant offset float16: pass
+program/execute/vload/vload-float-constant/vector load constant offset float2: pass
+program/execute/vload/vload-float-constant/vector load constant offset float3: pass
+program/execute/vload/vload-float-constant/vector load constant offset float4: pass
+program/execute/vload/vload-float-constant/vector load constant offset float8: pass
 program/execute/vload/vload-float-global: fail
 program/execute/vload/vload-float-local: fail
 program/execute/vload/vload-float-private: fail
@@ -397,24 +1603,94 @@ program/execute/vload/vload-half-constant: skip
 program/execute/vload/vload-half-global: skip
 program/execute/vload/vload-half-local: skip
 program/execute/vload/vload-half-private: skip
+program/execute/vload/vload-int-constant/vector load constant int16: pass
+program/execute/vload/vload-int-constant/vector load constant int2: pass
+program/execute/vload/vload-int-constant/vector load constant int3: pass
+program/execute/vload/vload-int-constant/vector load constant int4: pass
+program/execute/vload/vload-int-constant/vector load constant int8: pass
+program/execute/vload/vload-int-constant/vector load constant offset int16: pass
+program/execute/vload/vload-int-constant/vector load constant offset int2: pass
+program/execute/vload/vload-int-constant/vector load constant offset int3: pass
+program/execute/vload/vload-int-constant/vector load constant offset int4: pass
+program/execute/vload/vload-int-constant/vector load constant offset int8: pass
 program/execute/vload/vload-int-global: fail
 program/execute/vload/vload-int-local: fail
 program/execute/vload/vload-int-private: fail
+program/execute/vload/vload-long-constant/vector load constant long16: pass
+program/execute/vload/vload-long-constant/vector load constant long2: pass
+program/execute/vload/vload-long-constant/vector load constant long3: pass
+program/execute/vload/vload-long-constant/vector load constant long4: pass
+program/execute/vload/vload-long-constant/vector load constant long8: pass
+program/execute/vload/vload-long-constant/vector load constant offset long16: pass
+program/execute/vload/vload-long-constant/vector load constant offset long2: pass
+program/execute/vload/vload-long-constant/vector load constant offset long3: pass
+program/execute/vload/vload-long-constant/vector load constant offset long4: pass
+program/execute/vload/vload-long-constant/vector load constant offset long8: pass
 program/execute/vload/vload-long-global: fail
 program/execute/vload/vload-long-local: fail
 program/execute/vload/vload-long-private: fail
+program/execute/vload/vload-short-constant/vector load constant offset short16: pass
+program/execute/vload/vload-short-constant/vector load constant offset short2: pass
+program/execute/vload/vload-short-constant/vector load constant offset short3: pass
+program/execute/vload/vload-short-constant/vector load constant offset short4: pass
+program/execute/vload/vload-short-constant/vector load constant offset short8: pass
+program/execute/vload/vload-short-constant/vector load constant short16: pass
+program/execute/vload/vload-short-constant/vector load constant short2: pass
+program/execute/vload/vload-short-constant/vector load constant short3: pass
+program/execute/vload/vload-short-constant/vector load constant short4: pass
+program/execute/vload/vload-short-constant/vector load constant short8: pass
 program/execute/vload/vload-short-global: fail
 program/execute/vload/vload-short-local: fail
 program/execute/vload/vload-short-private: fail
+program/execute/vload/vload-uchar-constant/vector load constant offset uchar16: pass
+program/execute/vload/vload-uchar-constant/vector load constant offset uchar2: pass
+program/execute/vload/vload-uchar-constant/vector load constant offset uchar3: pass
+program/execute/vload/vload-uchar-constant/vector load constant offset uchar4: pass
+program/execute/vload/vload-uchar-constant/vector load constant offset uchar8: pass
+program/execute/vload/vload-uchar-constant/vector load constant uchar16: pass
+program/execute/vload/vload-uchar-constant/vector load constant uchar2: pass
+program/execute/vload/vload-uchar-constant/vector load constant uchar3: pass
+program/execute/vload/vload-uchar-constant/vector load constant uchar4: pass
+program/execute/vload/vload-uchar-constant/vector load constant uchar8: pass
 program/execute/vload/vload-uchar-global: fail
 program/execute/vload/vload-uchar-local: fail
 program/execute/vload/vload-uchar-private: fail
+program/execute/vload/vload-uint-constant/vector load constant offset uint16: pass
+program/execute/vload/vload-uint-constant/vector load constant offset uint2: pass
+program/execute/vload/vload-uint-constant/vector load constant offset uint3: pass
+program/execute/vload/vload-uint-constant/vector load constant offset uint4: pass
+program/execute/vload/vload-uint-constant/vector load constant offset uint8: pass
+program/execute/vload/vload-uint-constant/vector load constant uint16: pass
+program/execute/vload/vload-uint-constant/vector load constant uint2: pass
+program/execute/vload/vload-uint-constant/vector load constant uint3: pass
+program/execute/vload/vload-uint-constant/vector load constant uint4: pass
+program/execute/vload/vload-uint-constant/vector load constant uint8: pass
 program/execute/vload/vload-uint-global: fail
 program/execute/vload/vload-uint-local: fail
 program/execute/vload/vload-uint-private: fail
+program/execute/vload/vload-ulong-constant/vector load constant offset ulong16: pass
+program/execute/vload/vload-ulong-constant/vector load constant offset ulong2: pass
+program/execute/vload/vload-ulong-constant/vector load constant offset ulong3: pass
+program/execute/vload/vload-ulong-constant/vector load constant offset ulong4: pass
+program/execute/vload/vload-ulong-constant/vector load constant offset ulong8: pass
+program/execute/vload/vload-ulong-constant/vector load constant ulong16: pass
+program/execute/vload/vload-ulong-constant/vector load constant ulong2: pass
+program/execute/vload/vload-ulong-constant/vector load constant ulong3: pass
+program/execute/vload/vload-ulong-constant/vector load constant ulong4: pass
+program/execute/vload/vload-ulong-constant/vector load constant ulong8: pass
 program/execute/vload/vload-ulong-global: fail
 program/execute/vload/vload-ulong-local: fail
 program/execute/vload/vload-ulong-private: fail
+program/execute/vload/vload-ushort-constant/vector load constant offset ushort16: pass
+program/execute/vload/vload-ushort-constant/vector load constant offset ushort2: pass
+program/execute/vload/vload-ushort-constant/vector load constant offset ushort3: pass
+program/execute/vload/vload-ushort-constant/vector load constant offset ushort4: pass
+program/execute/vload/vload-ushort-constant/vector load constant offset ushort8: pass
+program/execute/vload/vload-ushort-constant/vector load constant ushort16: pass
+program/execute/vload/vload-ushort-constant/vector load constant ushort2: pass
+program/execute/vload/vload-ushort-constant/vector load constant ushort3: pass
+program/execute/vload/vload-ushort-constant/vector load constant ushort4: pass
+program/execute/vload/vload-ushort-constant/vector load constant ushort8: pass
 program/execute/vload/vload-ushort-global: fail
 program/execute/vload/vload-ushort-local: fail
 program/execute/vload/vload-ushort-private: fail
@@ -471,10 +1747,11 @@ program/execute/vstore/vstorea_half-double-private: fail
 program/execute/vstore/vstorea_half-float-global: fail
 program/execute/vstore/vstorea_half-float-local: fail
 program/execute/vstore/vstorea_half-float-private: fail
+program/run kernel with max work item sizes: pass
 summary:
        name:  results
        ----  --------
-       pass:     1279
+       pass:     1277
        fail:      323
       crash:       71
        skip:       79
@@ -486,4 +1763,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:     1752
+      total:     1750
