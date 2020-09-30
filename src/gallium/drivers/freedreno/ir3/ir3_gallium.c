@@ -188,6 +188,7 @@ ir3_shader_create(struct ir3_compiler *compiler,
 	 */
 	struct ir3_shader_key key = {
 		.tessellation = IR3_TESS_NONE,
+		.ucp_enables = (1u << nir->info.clip_distance_array_size) - 1,
 		.msaa = true,
 	};
 
