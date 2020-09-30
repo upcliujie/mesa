@@ -112,21 +112,15 @@ tu_hal_close(struct hw_device_t *dev)
 
 VkResult
 tu_image_from_gralloc(VkDevice device_h,
-                      const VkImageCreateInfo *base_info,
                       const VkNativeBufferANDROID *gralloc_info,
                       const VkAllocationCallbacks *alloc,
-                      VkImage *out_image_h)
+                      VkImage image_h)
 
 {
    TU_FROM_HANDLE(tu_device, device, device_h);
    VkImage image_h = VK_NULL_HANDLE;
    struct tu_image *image = NULL;
    VkResult result;
-
-   result = tu_image_create(device_h, base_info, alloc, &image_h,
-                            DRM_FORMAT_MOD_LINEAR, NULL);
-   if (result != VK_SUCCESS)
-      return result;
 
    if (gralloc_info->handle->numFds != 1) {
       return vk_errorf(device->instance, VK_ERROR_INVALID_EXTERNAL_HANDLE,
@@ -174,8 +168,6 @@ tu_image_from_gralloc(VkDevice device_h,
    tu_BindImageMemory(device_h, image_h, memory_h, 0);
 
    image->owned_memory = memory_h;
-   /* Don't clobber the out-parameter until success is certain. */
-   *out_image_h = image_h;
 
    return VK_SUCCESS;
 
