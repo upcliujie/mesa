@@ -98,13 +98,7 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
       return;
    }
 
-   if (!batch->fence) {
-      batch->fence = zink_create_fence(ctx->base.screen, batch);
-      if (!batch->fence)
-         return;
-   } else {
-      vkResetFences(zink_screen(ctx->base.screen)->dev, 1, &batch->fence->fence);
-   }
+   vkResetFences(zink_screen(ctx->base.screen)->dev, 1, &batch->fence->fence);
    zink_fence_init(batch->fence, batch);
 
    VkSubmitInfo si = {};

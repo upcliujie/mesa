@@ -1759,6 +1759,11 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
       return false;
 
    batch->batch_id = idx;
+
+   batch->fence = zink_create_fence(ctx->base.screen, batch);
+   if (!batch->fence)
+      return false;
+
    batch->max_descs = 1500;
    return true;
 }
