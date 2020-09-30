@@ -1,3 +1,11 @@
+dEQP-GLES2.functional.shaders.indexing.tmp_array.float_const_write_dynamic_loop_read_fragment
+dEQP-GLES2.functional.shaders.indexing.tmp_array.float_const_write_dynamic_loop_read_vertex
+dEQP-GLES2.functional.shaders.indexing.tmp_array.float_const_write_dynamic_read_fragment
+dEQP-GLES2.functional.shaders.indexing.tmp_array.float_const_write_dynamic_read_vertex
+dEQP-GLES2.functional.shaders.indexing.tmp_array.vec2_const_write_dynamic_loop_read_fragment
+dEQP-GLES2.functional.shaders.indexing.tmp_array.vec2_const_write_dynamic_loop_read_vertex
+dEQP-GLES2.functional.shaders.indexing.tmp_array.vec2_const_write_dynamic_read_fragment
+dEQP-GLES2.functional.shaders.indexing.tmp_array.vec2_const_write_dynamic_read_vertex
 dEQP-GLES3.functional.fbo.blit.rect.nearest_consistency_mag
 dEQP-GLES3.functional.fbo.blit.rect.nearest_consistency_mag_reverse_dst_x
 dEQP-GLES3.functional.fbo.blit.rect.nearest_consistency_mag_reverse_dst_y

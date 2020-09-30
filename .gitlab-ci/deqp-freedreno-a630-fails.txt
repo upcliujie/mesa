@@ -1,17 +1,36 @@
-# Possibly https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/2035 related
-dEQP-GLES2.functional.clipping.triangle_vertex.clip_three.clip_neg_x_neg_z_and_pos_x_pos_z_and_neg_x_neg_y_pos_z
-
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.3d.a8b8g8r8_sint_pack32.a8b8g8r8_sint_pack32.general_optimal_nearest
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.3d.a8b8g8r8_snorm_pack32.a8b8g8r8_snorm_pack32.general_optimal_nearest
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.3d.b5g6r5_unorm_pack16.b5g6r5_unorm_pack16.general_general_nearest
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.3d.r16g16b16a16_unorm.r16g16b16a16_unorm.linear_linear_nearest
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.3d.r32_sfloat.r32_sfloat.linear_linear_nearest
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.3d.r32_uint.r32_uint.general_optimal_nearest
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.3d.r8g8_uint.r8g8_uint.optimal_optimal_nearest
+dEQP-VK.api.copy_and_blit.dedicated_allocation.blit_image.simple_tests.scaling_whole1_3d.r32_sfloat_nearest
 dEQP-VK.api.image_clearing.core.clear_color_attachment.single_layer.a8b8g8r8_srgb_pack32_1x33
 dEQP-VK.api.image_clearing.dedicated_allocation.clear_color_attachment.single_layer.b8g8r8a8_srgb_33x128
-dEQP-VK.compute.indirect_dispatch.upload_buffer.multi_dispatch
-dEQP-VK.draw.output_location.array.r8g8-uint-mediump-output-uint
-dEQP-VK.memory_model.message_passing.core11.u32.coherent.fence_fence.atomicwrite.device.payload_local.image.guard_nonlocal.workgroup.comp
-dEQP-VK.spirv_assembly.instruction.graphics.opquantize.round_to_negative_inf_geom
-dEQP-VK.spirv_assembly.instruction.graphics.opquantize.spec_const_positive_round_up_or_round_down_geom
+dEQP-VK.draw.output_location.array.b8g8r8a8-unorm-highp-output-vec3
+dEQP-VK.draw.shader_viewport_index.vertex_shader_11
+dEQP-VK.glsl.atomic_operations.max_unsigned_geometry
+dEQP-VK.image.subresource_layout.3d.1_level.r32g32b32a32_sfloat
+dEQP-VK.image.subresource_layout.3d.1_level.r8_unorm
+dEQP-VK.image.subresource_layout.3d.2_levels.r8g8b8a8_snorm
+dEQP-VK.image.subresource_layout.3d.4_levels.r8g8_snorm
+dEQP-VK.image.subresource_layout.3d.all_levels.r16g16b16a16_sint
+dEQP-VK.memory_model.message_passing.core11.u32.coherent.fence_fence.atomicwrite.device.payload_local.image.guard_local.image.comp
+dEQP-VK.multiview.renderpass2.index.fragment_shader.max_multi_view_view_count
+dEQP-VK.multiview.renderpass2.multisample.max_multi_view_view_count
+dEQP-VK.pipeline.framebuffer_attachment.2d_array_19x27_32x32_4_ms
+dEQP-VK.pipeline.render_to_image.core.2d.huge.height.r8g8b8a8_unorm_d16_unorm
+dEQP-VK.spirv_assembly.instruction.graphics.opquantize.positive_round_up_or_round_down_vert
+dEQP-VK.spirv_assembly.instruction.graphics.opquantize.too_small_vert
+dEQP-VK.tessellation.invariance.outer_edge_index_independence.quads_fractional_even_spacing_cw
+
+# Timeout on what looks like an infinite loop in ir3's mark_kill_path()
+dEQP-VK.geometry.layered.cube_array.36_36_12.secondary_cmd_buffer_inherit_framebuffer
 
 # not sure what's wrong here
-dEQP-VK.tessellation.invariance.outer_edge_index_independence.quads_fractional_even_spacing_ccw_point_mode
-dEQP-VK.tessellation.invariance.outer_edge_symmetry.triangles_fractional_odd_spacing_cw_point_mode
+dEQP-VK.tessellation.invariance.outer_edge_symmetry.triangles_fractional_even_spacing_ccw
+dEQP-VK.tessellation.invariance.primitive_set.triangles_equal_spacing_ccw
 
 KHR-GL30.clip_distance.functional
 KHR-GL30.transform_feedback.api_errors_test

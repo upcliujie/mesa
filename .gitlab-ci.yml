@@ -330,13 +330,13 @@ x86_test-base:
 x86_test-gl:
   extends: .use-x86_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_test-gl "2020-09-10-libdrm"
+    FDO_DISTRIBUTION_TAG: &x86_test-gl "2020-09-30-deqp-version"
 
 # Debian 10 based x86 test image for VK
 x86_test-vk:
   extends: .use-x86_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_test-vk "2020-08-31-deqp-version"
+    FDO_DISTRIBUTION_TAG: &x86_test-vk "2020-09-30-deqp-version"
 
 # Debian 9 based x86 build image (old LLVM)
 x86_build_old:
@@ -391,7 +391,7 @@ arm64_test:
   extends:
     - .use-arm_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &arm64_test "2020-09-28-deqp-surfaceless-fix"
+    FDO_DISTRIBUTION_TAG: &arm64_test "2020-09-30-deqp-version"
 
 .use-arm64_test:
   variables:
@@ -1222,6 +1222,7 @@ arm64_a630_vk:
     DEQP_VER: vk
     CI_NODE_INDEX: 1
     CI_NODE_TOTAL: 50
+    DEQP_SKIPS: deqp-freedreno-a630-skips.txt
     VK_DRIVER: freedreno
     # Force binning in the main run, which makes sure we render at
     # least 2 bins.  This is the path that impacts the most different

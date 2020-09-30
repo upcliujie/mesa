@@ -6,7 +6,7 @@ git config --global user.email "mesa@example.com"
 git config --global user.name "Mesa CI"
 git clone \
     https://github.com/KhronosGroup/VK-GL-CTS.git \
-    -b vulkan-cts-1.2.3.2 \
+    -b vulkan-cts-1.2.4.0 \
     --depth 1 \
     /VK-GL-CTS
 pushd /VK-GL-CTS
@@ -14,6 +14,12 @@ pushd /VK-GL-CTS
 # cherry-pick fix for surfaceless config choosing:
 git fetch origin master
 git cherry-pick -x 8f3bfc6c7def0c0cb452d5dadf31aa7fef242365
+
+# cherry-pick the fix for dEQP-GLES2.functional.clipping.triangle_vertex.clip_three.clip_neg_x_neg_z_and_pos_x_pos_z_and_neg_x_neg_y_pos_z
+git cherry-pick -x 75330ac293d802997347cddc90b8327e5faf0e70
+
+# cherry-pick the VK opt_large_constants test
+git cherry-pick -x 58d0646ceab416f463145e07a80001fb1b323379
 
 
 # --insecure is due to SSL cert failures hitting sourceforge for zlib and
