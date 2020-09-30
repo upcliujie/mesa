@@ -23,7 +23,7 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    if (!batch->submitted)
       return;
 
-   zink_fence_finish(screen, batch->fence, PIPE_TIMEOUT_INFINITE);
+   zink_fence_finish(screen, &ctx->base, batch->fence, PIPE_TIMEOUT_INFINITE);
 
    zink_render_pass_reference(screen, &batch->rp, NULL);
    zink_framebuffer_reference(screen, &batch->fb, NULL);
