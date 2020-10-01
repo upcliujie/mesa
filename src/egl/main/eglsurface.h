@@ -151,6 +151,8 @@ struct _egl_surface
    EGLint AspectRatio;
 
    EGLint SwapInterval;
+   /* EGL_MESA_swap_control_tear: True if late swaps are requested to tear */
+   EGLBoolean LateSwapsTear;
 
    /* EGL_KHR_partial_update
     * True if the damage region is already set
