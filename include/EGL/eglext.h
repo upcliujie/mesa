@@ -1063,6 +1063,11 @@ EGLAPI const char *EGLAPIENTRY eglGetDisplayDriverName (EGLDisplay dpy);
 #endif
 #endif /* EGL_MESA_query_driver */
 
+#ifndef EGL_MESA_swap_control_tear
+#define EGL_MESA_swap_control_tear 1
+#define EGL_LATE_SWAPS_TEAR_MESA          0x31DC
+#endif /* EGL_MESA_swap_control_tear */
+
 #ifndef EGL_NOK_swap_region
 #define EGL_NOK_swap_region 1
 typedef EGLBoolean (EGLAPIENTRYP PFNEGLSWAPBUFFERSREGIONNOKPROC) (EGLDisplay dpy, EGLSurface surface, EGLint numRects, const EGLint *rects);
