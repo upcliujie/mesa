@@ -24,10 +24,10 @@ apt-get install -y --no-remove \
       clinfo \
       git \
       git-lfs \
+      libclang-cpp10 \
       libexpat1 \
       libllvm9 \
       libllvm10 \
-      libclang-cpp10 \
       liblz4-1 \
       libpcre32-3 \
       libpng16-16 \
@@ -42,8 +42,8 @@ apt-get install -y --no-remove \
       libxkbcommon0 \
       libxrandr2 \
       libxrender1 \
-      opencl-headers \
       ocl-icd-libopencl1 \
+      opencl-headers \
       python \
       python3-mako \
       python3-numpy \

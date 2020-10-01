@@ -27,7 +27,6 @@ apt-get install -y --no-remove \
         $STABLE_EPHEMERAL \
         bison \
         ccache \
-        clang-9 \
         clang-10 \
         dpkg-cross \
         flex \
@@ -37,7 +36,6 @@ apt-get install -y --no-remove \
         git \
         libclang-9-dev \
         libclang-10-dev \
-        libclang-cpp10 \
         libclang-cpp10-dev \
         libclc-dev \
         libelf-dev \
