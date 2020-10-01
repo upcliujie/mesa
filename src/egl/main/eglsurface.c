@@ -407,6 +407,7 @@ _eglInitSurface(_EGLSurface *surf, _EGLDisplay *disp, EGLint type,
 
    /* the default swap interval is 1 */
    surf->SwapInterval = 1;
+   surf->LateSwapsTear = EGL_FALSE;
 
    surf->HdrMetadata.display_primary_r.x = EGL_DONT_CARE;
    surf->HdrMetadata.display_primary_r.y = EGL_DONT_CARE;
@@ -595,6 +596,12 @@ _eglQuerySurface(_EGLDisplay *disp, _EGLSurface *surface,
          return _eglError(EGL_BAD_ATTRIBUTE, "eglQuerySurface");
       *value = surface->ProtectedContent;
       break;
+   case EGL_LATE_SWAPS_TEAR_MESA:
+      if (!disp->Extensions.MESA_swap_control_tear ||
+          surface->Type != EGL_WINDOW_BIT)
+         return _eglError(EGL_BAD_ATTRIBUTE, "eglQuerySurface");
+      *value = surface->LateSwapsTear;
+      break;
    default:
       return _eglError(EGL_BAD_ATTRIBUTE, "eglQuerySurface");
    }
@@ -719,6 +726,19 @@ _eglSurfaceAttrib(_EGLDisplay *disp, _EGLSurface *surface,
       break;
    case EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT:
       surface->HdrMetadata.max_fall = value;
+      break;
+   case EGL_LATE_SWAPS_TEAR_MESA:
+      if (!disp->Extensions.MESA_swap_control_tear ||
+          surface->Type != EGL_WINDOW_BIT) {
+         err = EGL_BAD_ATTRIBUTE;
+         break;
+      }
+      /* The double-assignment here is to silently reset LateSwapsTear to
+       * EGL_FALSE if setting the swap interval fails for some reason.
+       */
+      surface->LateSwapsTear = !!value;
+      surface->LateSwapsTear = _eglSwapInterval(disp, surface,
+                                                surface->SwapInterval);
       break;
    default:
       err = EGL_BAD_ATTRIBUTE;
