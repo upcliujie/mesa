@@ -688,6 +688,7 @@ zink_binding(gl_shader_stage stage, VkDescriptorType type, int index)
 
       switch (type) {
       case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
          assert(index < PIPE_MAX_CONSTANT_BUFFERS);
          return stage_offset + index;
 
@@ -979,7 +980,9 @@ emit_bo(struct ntv_context *ctx, struct nir_variable *var)
 
       spirv_builder_emit_descriptor_set(&ctx->builder, var_id, ssbo ? ZINK_DESCRIPTOR_TYPE_SSBO : ZINK_DESCRIPTOR_TYPE_UBO);
       int binding = zink_binding(ctx->stage,
-                                 ssbo ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                 ssbo ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER :
+                                        /* only make the first ubo dynamic to stay within driver limits */
+                                        (ctx->num_ubos == 1) ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                                  var->data.binding + i);
       spirv_builder_emit_binding(&ctx->builder, var_id, binding);
    }

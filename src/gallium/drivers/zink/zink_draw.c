@@ -271,6 +271,13 @@ add_transition(struct zink_resource *res, VkImageLayout layout, VkAccessFlags fl
    t->stage |= pipeline;
 }
 
+static int
+cmp_dynamic_offset_binding(const void *a, const void *b)
+{
+   const uint32_t *binding_a = a, *binding_b = b;
+   return *binding_a - *binding_b;
+}
+
 struct zink_descriptor_resource {
    struct zink_resource *res;
    bool write;
@@ -311,6 +318,12 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
    unsigned num_surface_refs = 0;
    unsigned num_sampler_states = 0;
    struct zink_shader **stages;
+   struct {
+      uint32_t binding;
+      uint32_t offset;
+   } dynamic_buffers[PIPE_MAX_CONSTANT_BUFFERS];
+   uint32_t dynamic_offsets[PIPE_MAX_CONSTANT_BUFFERS];
+   unsigned dynamic_offset_idx = 0;
 
    unsigned num_stages = is_compute ? 1 : ZINK_SHADER_COUNT;
    if (is_compute)
@@ -335,7 +348,8 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
 
          for (int j = 0; j < shader->num_bindings[h]; j++) {
             int index = shader->bindings[h][j].index;
-            if (shader->bindings[h][j].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+            if (shader->bindings[h][j].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
+                shader->bindings[h][j].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
                assert(ctx->ubos[stage][index].buffer_size > 0);
                assert(ctx->ubos[stage][index].buffer_size <= screen->info.props.limits.maxUniformBufferRange);
                assert(ctx->ubos[stage][index].buffer);
@@ -344,7 +358,13 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
                read_descriptor_resource(&resources[h][num_wds[h]], res);
                assert(num_buffer_info[h] < num_bindings);
                buffer_infos[h][num_buffer_info[h]].buffer = res->buffer;
-               buffer_infos[h][num_buffer_info[h]].offset = ctx->ubos[stage][index].buffer_offset;
+               if (shader->bindings[h][j].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
+                  buffer_infos[h][num_buffer_info[h]].offset = 0;
+                  /* we're storing this to qsort later */
+                  dynamic_buffers[dynamic_offset_idx].binding = shader->bindings[h][j].binding;
+                  dynamic_buffers[dynamic_offset_idx++].offset = ctx->ubos[stage][index].buffer_offset;
+               } else
+                  buffer_infos[h][num_buffer_info[h]].offset = ctx->ubos[stage][index].buffer_offset;
                buffer_infos[h][num_buffer_info[h]].range  = ctx->ubos[stage][index].buffer_size;
                desc_hash[h] = XXH32(&buffer_infos[h][num_buffer_info[h]], sizeof(VkDescriptorBufferInfo), desc_hash[h]);
                add_transition(res, 0, VK_ACCESS_UNIFORM_READ_BIT, stage, &transitions[num_transitions], &num_transitions, ht);
@@ -514,6 +534,18 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
    }
    _mesa_set_destroy(ht, NULL);
 
+   /* Values are taken from pDynamicOffsets in an order such that all entries for set N come before set N+1;
+    * within a set, entries are ordered by the binding numbers in the descriptor set layouts
+    * - vkCmdBindDescriptorSets spec
+    *
+    * because of this, we have to sort all the dynamic offsets by their associated binding to ensure they
+    * match what the driver expects
+    */
+   if (dynamic_offset_idx > 1)
+      qsort(dynamic_buffers, dynamic_offset_idx, sizeof(uint32_t) * 2, cmp_dynamic_offset_binding);
+   for (int i = 0; i < dynamic_offset_idx; i++)
+      dynamic_offsets[i] = dynamic_buffers[i].offset;
+
    struct zink_batch *batch = NULL;
    bool cache_hit[ZINK_DESCRIPTOR_TYPES];
    struct zink_descriptor_set *zds[ZINK_DESCRIPTOR_TYPES];
@@ -553,11 +585,11 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
 
       if (is_compute)
          vkCmdBindDescriptorSets(batch->cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                 ctx->curr_compute->layout, h, 1, &zds[h]->desc_set, 0, NULL);
+                                 ctx->curr_compute->layout, h, 1, &zds[h]->desc_set, h == ZINK_DESCRIPTOR_TYPE_UBO ? dynamic_offset_idx : 0, dynamic_offsets);
       else {
          batch = zink_batch_rp(ctx);
          vkCmdBindDescriptorSets(batch->cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                 ctx->curr_program->layout, h, 1, &zds[h]->desc_set, 0, NULL);
+                                 ctx->curr_program->layout, h, 1, &zds[h]->desc_set, h == ZINK_DESCRIPTOR_TYPE_UBO ? dynamic_offset_idx : 0, dynamic_offsets);
       }
 
       for (int i = 0; i < num_sampler_states; i++)
