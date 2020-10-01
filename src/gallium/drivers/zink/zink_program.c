@@ -775,14 +775,15 @@ struct zink_descriptor_set *
 zink_program_allocate_desc_set(struct zink_context *ctx,
                                struct zink_batch *batch,
                                struct zink_program *pg,
-                               uint32_t hash,
                                enum zink_descriptor_type type,
+                               bool is_compute,
                                bool *cache_hit)
 {
    struct zink_descriptor_set *zds;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    unsigned descs_used = 1;
    assert(type < ZINK_DESCRIPTOR_TYPES);
+   uint32_t hash = pg->num_descriptors[type] ? ctx->descriptor_states[is_compute].state[type] : 0;
    assert(hash || !pg->num_descriptors[type]);
 
    if (hash) {
@@ -841,7 +842,7 @@ zink_program_allocate_desc_set(struct zink_context *ctx,
       if (descs_used + pg->num_descriptors[type] > ZINK_DEFAULT_MAX_DESCS) {
          batch = zink_flush_batch(ctx, batch);
          zink_batch_reference_program(batch, pg);
-         return zink_program_allocate_desc_set(ctx, batch, pg, hash, type, cache_hit);
+         return zink_program_allocate_desc_set(ctx, batch, pg, type, is_compute, cache_hit);
       }
    } else {
       zds = pg->null_set;

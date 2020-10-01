@@ -27,6 +27,7 @@
 #include "zink_clear.h"
 #include "zink_pipeline.h"
 #include "zink_batch.h"
+#include "zink_compiler.h"
 
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
@@ -112,6 +113,11 @@ struct zink_viewport_state {
 #define ZINK_COMPUTE_BATCH_ID ZINK_GFX_BATCH_COUNT
 #define ZINK_DEFAULT_MAX_DESCS 5000
 
+/* hashes of all the named types in a given state */
+struct zink_descriptor_state {
+   uint32_t state[ZINK_DESCRIPTOR_TYPES];
+};
+
 struct zink_context {
    struct pipe_context base;
    struct slab_child_pool transfer_pool;
@@ -132,6 +138,7 @@ struct zink_context {
    struct pipe_shader_buffer ssbos[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
    uint32_t writable_ssbos;
    struct zink_image_view image_views[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
+
    struct pipe_framebuffer_state fb_state;
 
    struct zink_vertex_elements_state *element_state;
@@ -142,6 +149,9 @@ struct zink_context {
    struct zink_gfx_pipeline_state gfx_pipeline_state;
    struct hash_table *program_cache;
    struct zink_gfx_program *curr_program;
+
+   struct zink_descriptor_state gfx_descriptor_states[ZINK_SHADER_COUNT]; // keep incremental hashes here
+   struct zink_descriptor_state descriptor_states[2]; // gfx, compute
 
    struct zink_shader *compute_stage;
    struct zink_compute_pipeline_state compute_pipeline_state;
@@ -321,5 +331,8 @@ struct zink_surface *
 get_surface(struct zink_context *ctx,
             struct pipe_resource *pres,
             const struct pipe_surface *templ);
+
+void
+zink_context_update_descriptor_states(struct zink_context *ctx, bool is_compute);
 
 #endif

@@ -236,8 +236,8 @@ struct zink_descriptor_set *
 zink_program_allocate_desc_set(struct zink_context *ctx,
                                struct zink_batch *batch,
                                struct zink_program *pg,
-                               uint32_t desc_hash,
                                enum zink_descriptor_type type,
+                               bool is_compute,
                                bool *cache_hit);
 void
 zink_program_recycle_desc_set(struct zink_program *pg, struct zink_descriptor_set *zds);
