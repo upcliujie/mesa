@@ -81,7 +81,7 @@ struct zink_program {
    VkDescriptorPool descpool[ZINK_DESCRIPTOR_TYPES];
    VkDescriptorSetLayout dsl[ZINK_DESCRIPTOR_TYPES];
    unsigned num_descriptors[ZINK_DESCRIPTOR_TYPES];
-   struct zink_descriptor_set *null_set;
+   struct zink_descriptor_set *last_set[ZINK_DESCRIPTOR_TYPES];
 };
 
 static inline struct zink_program *
@@ -99,7 +99,7 @@ struct zink_gfx_program {
    VkDescriptorPool descpool[ZINK_DESCRIPTOR_TYPES];
    VkDescriptorSetLayout dsl[ZINK_DESCRIPTOR_TYPES];
    unsigned num_descriptors[ZINK_DESCRIPTOR_TYPES];
-   struct zink_descriptor_set *null_set;
+   struct zink_descriptor_set *last_set[ZINK_DESCRIPTOR_TYPES];
 
    struct zink_shader_module *modules[ZINK_SHADER_COUNT]; // compute stage doesn't belong here
    struct zink_shader *shaders[ZINK_SHADER_COUNT];
@@ -120,7 +120,7 @@ struct zink_compute_program {
    VkDescriptorPool descpool[ZINK_DESCRIPTOR_TYPES];
    VkDescriptorSetLayout dsl[ZINK_DESCRIPTOR_TYPES];
    unsigned num_descriptors[ZINK_DESCRIPTOR_TYPES];
-   struct zink_descriptor_set *null_set;
+   struct zink_descriptor_set *last_set[ZINK_DESCRIPTOR_TYPES];
 
    struct zink_shader_module *module;
    struct zink_shader *shader;

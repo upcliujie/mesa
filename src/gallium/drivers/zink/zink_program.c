@@ -785,6 +785,17 @@ zink_program_allocate_desc_set(struct zink_context *ctx,
    assert(type < ZINK_DESCRIPTOR_TYPES);
    uint32_t hash = pg->num_descriptors[type] ? ctx->descriptor_states[is_compute].state[type] : 0;
    assert(hash || !pg->num_descriptors[type]);
+   if (pg->last_set[type] && pg->last_set[type]->hash == hash) {
+      zds = pg->last_set[type];
+      *cache_hit = true;
+      if (hash) {
+         struct hash_entry *he = _mesa_hash_table_search_pre_hashed(pg->free_desc_sets[type], hash, (void*)(uintptr_t)hash);
+         if (he)
+            _mesa_hash_table_remove(pg->free_desc_sets[type], he);
+      }
+      //printf("%u LAST%u %p %u\n", type, batch->batch_id, pg, hash);
+      goto out;
+   }
 
    if (hash) {
       struct hash_entry *he = _mesa_hash_table_search_pre_hashed(pg->desc_sets[type], hash, (void*)(uintptr_t)hash);
@@ -845,8 +856,8 @@ zink_program_allocate_desc_set(struct zink_context *ctx,
          return zink_program_allocate_desc_set(ctx, batch, pg, type, is_compute, cache_hit);
       }
    } else {
-      zds = pg->null_set;
-      if (zds) {
+      if (pg->last_set[type] && !pg->last_set[type]->hash) {
+         zds = pg->last_set[type];
          *cache_hit = true;
          goto quick_out;
       }
@@ -861,12 +872,17 @@ out:
    zds->hash = hash;
    if (hash)
       _mesa_hash_table_insert_pre_hashed(pg->desc_sets[type], hash, (void*)(uintptr_t)hash, zds);
-   else
-      pg->null_set = zds;
+   else {
+      /* we can safely apply the null set to all the slots which will need it here */
+      for (unsigned i = 0; i < ZINK_DESCRIPTOR_TYPES; i++) {
+         if (!pg->num_descriptors[i])
+            pg->last_set[i] = zds;
+      }
+   }
 quick_out:
    if (zink_batch_add_desc_set(batch, pg, zds))
       batch->descs_used += pg->num_descriptors[type];
-   
+   pg->last_set[type] = zds;
    return zds;
 }
 
@@ -877,16 +893,20 @@ zink_program_recycle_desc_set(struct zink_program *pg, struct zink_descriptor_se
    uint32_t refcount = p_atomic_read(&zds->reference.count);
    if (refcount != 1)
       return;
-   if (zds->hash) {
-      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(pg->desc_sets[zds->type], zds->hash, (void*)(uintptr_t)zds->hash);
-      if (!he)
-         /* desc sets can be used multiple times in the same batch */
-         return;
+   /* this is a null set */
+   if (!zds->hash && !pg->num_descriptors[zds->type])
+      return;
 
-      _mesa_hash_table_remove(pg->desc_sets[zds->type], he);
-      _mesa_hash_table_insert_pre_hashed(pg->free_desc_sets[zds->type], zds->hash, (void*)(uintptr_t)zds->hash, zds);
-   } else
-      util_dynarray_append(&pg->alloc_desc_sets[zds->type], struct zink_descriptor_set *, zds);
+   /* there should be no other reason why the hash is unset */
+   assert(zds->hash);
+
+   struct hash_entry *he = _mesa_hash_table_search_pre_hashed(pg->desc_sets[zds->type], zds->hash, (void*)(uintptr_t)zds->hash);
+   if (!he)
+      /* desc sets can be used multiple times in the same batch */
+      return;
+
+   _mesa_hash_table_remove(pg->desc_sets[zds->type], he);
+   _mesa_hash_table_insert_pre_hashed(pg->free_desc_sets[zds->type], zds->hash, (void*)(uintptr_t)zds->hash, zds);
 }
 
 static void
