@@ -540,6 +540,7 @@ _eglCreateExtensionsString(_EGLDisplay *disp)
    _EGL_CHECK_EXTENSION(MESA_drm_image);
    _EGL_CHECK_EXTENSION(MESA_image_dma_buf_export);
    _EGL_CHECK_EXTENSION(MESA_query_driver);
+   _EGL_CHECK_EXTENSION(MESA_swap_control_tear);
 
    _EGL_CHECK_EXTENSION(NOK_swap_region);
    _EGL_CHECK_EXTENSION(NOK_texture_from_pixmap);
@@ -1284,13 +1285,16 @@ _eglSwapInterval(_EGLDisplay *disp, _EGLSurface *surf, EGLint interval)
                     surf->Config->MinSwapInterval,
                     surf->Config->MaxSwapInterval);
 
+   if (disp->Extensions.MESA_swap_control_tear && surf->LateSwapsTear)
+      interval = -interval;
+
    if (surf->SwapInterval != interval && disp->Driver->SwapInterval)
       ret = disp->Driver->SwapInterval(disp, surf, interval);
    else
       ret = EGL_TRUE;
 
    if (ret)
-      surf->SwapInterval = interval;
+      surf->SwapInterval = abs(interval);
 
    return ret;
 }
