@@ -5,11 +5,14 @@ set -o xtrace
 
 VERSION=`cat install/VERSION`
 
+#export LP_CL=1
+#export OCL_ICD_VENDORS=$OLDPWD/install/etc/OpenCL/vendors/
+
+echo $LP_CL
+echo $OCL_ICD_VENDORS
+
 rm -rf results
 cd /piglit
-
-export LP_CL=1
-export OCL_ICD_VENDORS=$OLDPWD/install/etc/OpenCL/vendors/
 
 PIGLIT_OPTIONS=$(echo $PIGLIT_OPTIONS | head -n 1)
 set +e
