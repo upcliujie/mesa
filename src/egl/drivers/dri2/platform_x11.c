@@ -1399,6 +1399,7 @@ dri2_initialize_x11_dri3(_EGLDisplay *disp)
    disp->Extensions.CHROMIUM_sync_control = EGL_TRUE;
    disp->Extensions.EXT_buffer_age = EGL_TRUE;
    disp->Extensions.EXT_swap_buffers_with_damage = EGL_TRUE;
+   disp->Extensions.MESA_swap_control_tear = EGL_TRUE;
 
    dri2_set_WL_bind_wayland_display(disp);
 
