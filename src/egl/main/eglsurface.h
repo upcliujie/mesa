@@ -190,6 +190,8 @@ _eglQuerySurface(_EGLDisplay *disp, _EGLSurface *surf, EGLint attribute, EGLint 
 extern EGLBoolean
 _eglSurfaceAttrib(_EGLDisplay *disp, _EGLSurface *surf, EGLint attribute, EGLint value);
 
+extern EGLBoolean
+_eglSwapInterval(_EGLDisplay *disp, _EGLSurface *surf, EGLint interval);
 
 extern EGLBoolean
 _eglBindTexImage(_EGLDisplay *disp, _EGLSurface *surf, EGLint buffer);
