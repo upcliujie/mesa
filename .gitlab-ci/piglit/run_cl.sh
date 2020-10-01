@@ -8,9 +8,6 @@ VERSION=`cat install/VERSION`
 rm -rf results
 cd /piglit
 
-export LP_CL=1
-export OCL_ICD_VENDORS=$OLDPWD/install/etc/OpenCL/vendors/
-
 PIGLIT_OPTIONS=$(echo $PIGLIT_OPTIONS | head -n 1)
 set +e
 unset DISPLAY

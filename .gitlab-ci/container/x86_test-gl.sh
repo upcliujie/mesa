@@ -10,10 +10,9 @@ STABLE_EPHEMERAL=" \
       autoconf \
       automake \
       ccache \
-      cmake \
       clang-10 \
+      cmake \
       g++ \
-      llvm-10-dev \
       libgbm-dev \
       libgles2-mesa-dev \
       libpcre3-dev \
@@ -24,9 +23,10 @@ STABLE_EPHEMERAL=" \
       libxcb-keysyms1-dev \
       libxkbcommon-dev \
       libxrender-dev \
-      ocl-icd-opencl-dev \
+      llvm-10-dev \
       make \
       meson \
+      ocl-icd-opencl-dev \
       patch \
       pkg-config \
       python3-distutils \
