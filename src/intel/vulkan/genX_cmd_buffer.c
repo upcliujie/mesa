@@ -1231,6 +1231,17 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
             uint32_t level_layer_count =
                MIN2(layer_count, aux_layers - base_layer);
 
+            /* If will_full_fast_clear is set, the caller promises to
+             * fast-clear the largest portion of the specified range as it can.
+             * For color images, that means only the first LOD and array slice.
+             */
+            if (level == 0 && base_layer == 0 && will_full_fast_clear) {
+               base_layer++;
+               level_layer_count--;
+               if (level_layer_count == 0)
+                  continue;
+            }
+
             anv_image_ccs_op(cmd_buffer, image,
                              image->planes[plane].surface.isl.format,
                              ISL_SWIZZLE_IDENTITY,
@@ -1249,6 +1260,12 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
                           "Doing a potentially unnecessary fast-clear to "
                           "define an MCS buffer.");
          }
+
+         /* If will_full_fast_clear is set, the caller promises to fast-clear
+          * the largest portion of the specified range as it can.
+          */
+         if (will_full_fast_clear)
+            return;
 
          assert(base_level == 0 && level_count == 1);
          anv_image_mcs_op(cmd_buffer, image,
@@ -1330,13 +1347,6 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
 
       for (uint32_t a = 0; a < level_layer_count; a++) {
          uint32_t array_layer = base_layer + a;
-
-         /* If will_full_fast_clear is set, the caller promises to fast-clear
-          * the largest portion of the specified range as it can.  For color
-          * images, that means only the first LOD and array slice.
-          */
-         if (level == 0 && array_layer == 0 && will_full_fast_clear)
-            continue;
 
          if (image->samples == 1) {
             anv_cmd_predicated_ccs_resolve(cmd_buffer, image,
