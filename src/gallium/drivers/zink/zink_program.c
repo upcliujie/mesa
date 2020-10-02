@@ -26,6 +26,7 @@
 #include "zink_compiler.h"
 #include "zink_context.h"
 #include "zink_render_pass.h"
+#include "zink_resource.h"
 #include "zink_screen.h"
 #include "zink_state.h"
 
@@ -112,7 +113,8 @@ keybox_equals(const void *void_a, const void *void_b)
 static VkDescriptorSetLayout
 create_desc_set_layout(VkDevice dev,
                        struct zink_shader *stages[ZINK_SHADER_COUNT],
-                       unsigned *num_descriptors)
+                       unsigned *num_descriptors,
+                       VkDescriptorPool *descpool)
 {
    VkDescriptorSetLayoutBinding bindings[(PIPE_SHADER_TYPES * (PIPE_MAX_CONSTANT_BUFFERS + PIPE_MAX_SHADER_SAMPLER_VIEWS + PIPE_MAX_SHADER_BUFFERS + PIPE_MAX_SHADER_IMAGES))];
    int num_bindings = 0;
@@ -147,6 +149,25 @@ create_desc_set_layout(VkDevice dev,
    VkDescriptorSetLayout dsl;
    if (vkCreateDescriptorSetLayout(dev, &dcslci, 0, &dsl) != VK_SUCCESS) {
       debug_printf("vkCreateDescriptorSetLayout failed\n");
+      return VK_NULL_HANDLE;
+   }
+   VkDescriptorPoolSize sizes[] = {
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         ZINK_BATCH_DESC_SIZE},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   ZINK_BATCH_DESC_SIZE},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, ZINK_BATCH_DESC_SIZE},
+      {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   ZINK_BATCH_DESC_SIZE},
+      {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          ZINK_BATCH_DESC_SIZE},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         ZINK_BATCH_DESC_SIZE},
+   };
+
+   VkDescriptorPoolCreateInfo dpci = {};
+   dpci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+   dpci.pPoolSizes = sizes;
+   dpci.poolSizeCount = ARRAY_SIZE(sizes);
+   dpci.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+   dpci.maxSets = ZINK_BATCH_DESC_SIZE;
+   if (vkCreateDescriptorPool(dev, &dpci, 0, descpool) != VK_SUCCESS) {
+      vkDestroyDescriptorSetLayout(dev, dsl, NULL);
       return VK_NULL_HANDLE;
    }
 
@@ -461,8 +482,8 @@ zink_create_gfx_program(struct zink_context *ctx,
    }
 
    prog->dsl = create_desc_set_layout(screen->dev, stages,
-                                      &prog->num_descriptors);
-   if (prog->num_descriptors && !prog->dsl)
+                                      &prog->num_descriptors, &prog->descpool);
+   if (prog->num_descriptors && (!prog->dsl || !prog->descpool))
       goto fail;
 
    prog->layout = create_gfx_pipeline_layout(screen->dev, prog->dsl);
@@ -473,6 +494,8 @@ zink_create_gfx_program(struct zink_context *ctx,
                                           _mesa_key_pointer_equal);
    if (!prog->render_passes)
       goto fail;
+
+   util_dynarray_init(&prog->alloc_desc_sets, NULL);
 
    return prog;
 
@@ -541,13 +564,15 @@ zink_create_compute_program(struct zink_context *ctx, struct zink_shader *shader
    struct zink_shader *stages[ZINK_SHADER_COUNT] = {};
    stages[0] = shader;
    comp->dsl = create_desc_set_layout(screen->dev, stages,
-                                      &comp->num_descriptors);
-   if (comp->num_descriptors && !comp->dsl)
+                                      &comp->num_descriptors, &comp->descpool);
+   if (comp->num_descriptors && (!comp->dsl || !comp->descpool))
       goto fail;
 
    comp->layout = create_compute_pipeline_layout(screen->dev, comp->dsl);
    if (!comp->layout)
       goto fail;
+
+   util_dynarray_init(&comp->alloc_desc_sets, NULL);
 
    return comp;
 
@@ -604,6 +629,11 @@ zink_destroy_gfx_program(struct zink_screen *screen,
    }
    zink_shader_cache_reference(screen, &prog->shader_cache, NULL);
 
+   if (prog->descpool)
+      vkDestroyDescriptorPool(screen->dev, prog->descpool, NULL);
+
+   util_dynarray_fini(&prog->alloc_desc_sets);
+
    ralloc_free(prog);
 }
 
@@ -630,6 +660,11 @@ zink_destroy_compute_program(struct zink_screen *screen,
    }
    _mesa_hash_table_destroy(comp->pipelines, NULL);
    zink_shader_cache_reference(screen, &comp->shader_cache, NULL);
+
+   if (comp->descpool)
+      vkDestroyDescriptorPool(screen->dev, comp->descpool, NULL);
+
+   util_dynarray_fini(&comp->alloc_desc_sets);
 
    ralloc_free(comp);
 }

@@ -66,7 +66,6 @@ destroy_batch(struct zink_context* ctx, struct zink_batch* batch)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
 
-   vkDestroyDescriptorPool(screen->dev, batch->descpool, NULL);
    vkFreeCommandBuffers(screen->dev, batch->cmdpool, 1, &batch->cmdbuf);
    vkDestroyCommandPool(screen->dev, batch->cmdpool, NULL);
    zink_fence_reference(screen, &batch->fence, NULL);
@@ -1839,28 +1838,13 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
    cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
    cbai.commandBufferCount = 1;
 
-   VkDescriptorPoolSize sizes[] = {
-      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         ZINK_BATCH_DESC_SIZE},
-      {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   ZINK_BATCH_DESC_SIZE},
-      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, ZINK_BATCH_DESC_SIZE},
-      {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   ZINK_BATCH_DESC_SIZE},
-      {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          ZINK_BATCH_DESC_SIZE},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         ZINK_BATCH_DESC_SIZE},
-   };
-   VkDescriptorPoolCreateInfo dpci = {};
-   dpci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-   dpci.pPoolSizes = sizes;
-   dpci.poolSizeCount = ARRAY_SIZE(sizes);
-   dpci.flags = 0;
-   dpci.maxSets = ZINK_BATCH_DESC_SIZE;
-
    if (vkAllocateCommandBuffers(screen->dev, &cbai, &batch->cmdbuf) != VK_SUCCESS)
       return false;
 
    batch->resources = _mesa_pointer_set_create(NULL);
    batch->sampler_views = _mesa_pointer_set_create(NULL);
    batch->sampler_states = _mesa_pointer_set_create(NULL);
-   batch->programs = _mesa_pointer_set_create(NULL);
+   batch->programs = _mesa_pointer_hash_table_create(NULL);
    batch->surfaces = _mesa_pointer_set_create(NULL);
 
    batch->surface_cache = _mesa_hash_table_create(NULL,
@@ -1872,10 +1856,6 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
 
    if (!batch->resources || !batch->sampler_views || !batch->sampler_states ||
        !batch->programs || !batch->surfaces || !batch->surface_cache || !batch->framebuffer_cache)
-      return false;
-
-   if (vkCreateDescriptorPool(screen->dev, &dpci, 0,
-                              &batch->descpool) != VK_SUCCESS)
       return false;
 
    batch->batch_id = idx;

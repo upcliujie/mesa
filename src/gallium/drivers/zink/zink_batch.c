@@ -54,7 +54,14 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    }
    _mesa_set_clear(batch->surfaces, NULL);
 
-   set_foreach(batch->programs, entry) {
+   hash_table_foreach(batch->programs, entry) {
+      struct zink_program *pg = (struct zink_program*)entry->key;
+      struct set *desc_sets = (struct set*)entry->data;
+      set_foreach(desc_sets, sentry) {
+         VkDescriptorSet desc_set = (VkDescriptorSet)sentry->key;
+         vkFreeDescriptorSets(screen->dev, pg->descpool, 1, &desc_set);
+      }
+      _mesa_set_destroy(desc_sets, NULL);
       if (batch->batch_id == ZINK_COMPUTE_BATCH_ID) {
          struct zink_compute_program *comp = (struct zink_compute_program*)entry->key;
          zink_compute_program_reference(screen, &comp, NULL);
@@ -63,10 +70,7 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
          zink_gfx_program_reference(screen, &prog, NULL);
       }
    }
-   _mesa_set_clear(batch->programs, NULL);
-
-   if (vkResetDescriptorPool(screen->dev, batch->descpool, 0) != VK_SUCCESS)
-      fprintf(stderr, "vkResetDescriptorPool failed\n");
+   _mesa_hash_table_clear(batch->programs, NULL);
 
    if (vkResetCommandPool(screen->dev, batch->cmdpool, 0) != VK_SUCCESS)
       fprintf(stderr, "vkResetCommandPool failed\n");
@@ -199,12 +203,25 @@ void
 zink_batch_reference_program(struct zink_batch *batch,
                              struct zink_program *pg)
 {
-   struct set_entry *entry = _mesa_set_search(batch->programs, pg);
+   struct hash_entry *entry = _mesa_hash_table_search(batch->programs, pg);
    if (!entry) {
-      entry = _mesa_set_add(batch->programs, pg);
+      entry = _mesa_hash_table_insert(batch->programs, pg, _mesa_pointer_set_create(NULL));
       pipe_reference(NULL, &pg->reference);
    }
    batch->has_work = true;
+}
+
+bool
+zink_batch_add_desc_set(struct zink_batch *batch, struct zink_program *pg, VkDescriptorSet desc_set)
+{
+   struct hash_entry *entry = _mesa_hash_table_search(batch->programs, pg);
+   assert(entry);
+   struct set *desc_sets = (void*)entry->data;
+   if (!_mesa_set_search(desc_sets, desc_set)) {
+      _mesa_set_add(desc_sets, desc_set);
+      return true;
+   }
+   return false;
 }
 
 void

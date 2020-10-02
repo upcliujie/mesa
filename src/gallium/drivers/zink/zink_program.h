@@ -39,6 +39,7 @@ struct zink_gfx_pipeline_state;
 
 struct hash_table;
 struct set;
+struct util_dynarray;
 
 struct zink_push_constant {
    unsigned draw_mode_is_indexed;
@@ -65,15 +66,21 @@ struct zink_shader_cache {
 struct zink_program {
    struct pipe_reference reference;
 
+   struct util_dynarray alloc_desc_sets;
+   VkDescriptorPool descpool;
    VkDescriptorSetLayout dsl;
    unsigned num_descriptors;
+   unsigned descs_used;
 };
 
 struct zink_gfx_program {
    struct pipe_reference reference;
 
+   struct util_dynarray alloc_desc_sets;
+   VkDescriptorPool descpool;
    VkDescriptorSetLayout dsl;
    unsigned num_descriptors;
+   unsigned descs_used;
 
    struct zink_shader_module *modules[ZINK_SHADER_COUNT]; // compute stage doesn't belong here
    struct zink_shader *shaders[ZINK_SHADER_COUNT];
@@ -88,8 +95,11 @@ struct zink_gfx_program {
 struct zink_compute_program {
    struct pipe_reference reference;
 
+   struct util_dynarray alloc_desc_sets;
+   VkDescriptorPool descpool;
    VkDescriptorSetLayout dsl;
    unsigned num_descriptors;
+   unsigned descs_used;
 
    struct zink_shader_module *module;
    struct zink_shader *shader;
@@ -160,4 +170,5 @@ VkPipeline
 zink_get_compute_pipeline(struct zink_screen *screen,
                       struct zink_compute_program *comp,
                       struct zink_compute_pipeline_state *state);
+
 #endif

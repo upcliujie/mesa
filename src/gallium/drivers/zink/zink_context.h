@@ -110,6 +110,7 @@ struct zink_viewport_state {
 #define ZINK_GFX_BATCH_COUNT 4
 #define ZINK_COMPUTE_BATCH_COUNT 1
 #define ZINK_COMPUTE_BATCH_ID ZINK_GFX_BATCH_COUNT
+#define ZINK_DEFAULT_MAX_DESCS 5000
 
 struct zink_context {
    struct pipe_context base;
