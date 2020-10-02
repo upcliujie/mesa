@@ -66,26 +66,28 @@ struct zink_shader_cache {
 struct zink_descriptor_set {
    struct pipe_reference reference; //incremented for batch usage
    VkDescriptorSet desc_set;
+   bool valid;
+   struct zink_resource **resources;
 };
 
 struct zink_program {
    struct pipe_reference reference;
 
+   struct hash_table *desc_sets;
    struct util_dynarray alloc_desc_sets;
    VkDescriptorPool descpool;
    VkDescriptorSetLayout dsl;
    unsigned num_descriptors;
-   unsigned descs_used;
 };
 
 struct zink_gfx_program {
    struct pipe_reference reference;
 
+   struct hash_table *desc_sets;
    struct util_dynarray alloc_desc_sets;
    VkDescriptorPool descpool;
    VkDescriptorSetLayout dsl;
    unsigned num_descriptors;
-   unsigned descs_used;
 
    struct zink_shader_module *modules[ZINK_SHADER_COUNT]; // compute stage doesn't belong here
    struct zink_shader *shaders[ZINK_SHADER_COUNT];
@@ -100,11 +102,11 @@ struct zink_gfx_program {
 struct zink_compute_program {
    struct pipe_reference reference;
 
+   struct hash_table *desc_sets;
    struct util_dynarray alloc_desc_sets;
    VkDescriptorPool descpool;
    VkDescriptorSetLayout dsl;
    unsigned num_descriptors;
-   unsigned descs_used;
 
    struct zink_shader_module *module;
    struct zink_shader *shader;
@@ -176,11 +178,12 @@ zink_get_compute_pipeline(struct zink_screen *screen,
                       struct zink_compute_program *comp,
                       struct zink_compute_pipeline_state *state);
 
-void
-zink_program_invalidate_desc_set(struct zink_program *pg, struct zink_descriptor_set *zds);
-
 struct zink_descriptor_set *
 zink_program_allocate_desc_set(struct zink_context *ctx,
                                struct zink_batch *batch,
-                               struct zink_program *pg);
+                               struct zink_program *pg,
+                               uint32_t desc_hash,
+                               bool *cache_hit);
+void
+zink_program_recycle_desc_set(struct zink_program *pg, uint32_t hash, struct zink_descriptor_set *zds);
 #endif
