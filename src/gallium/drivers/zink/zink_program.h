@@ -62,17 +62,25 @@ struct zink_shader_cache {
    struct hash_table *shader_cache;
 };
 
+struct zink_program {
+   struct pipe_reference reference;
+
+   VkDescriptorSetLayout dsl;
+   unsigned num_descriptors;
+};
+
 struct zink_gfx_program {
    struct pipe_reference reference;
+
+   VkDescriptorSetLayout dsl;
+   unsigned num_descriptors;
 
    struct zink_shader_module *modules[ZINK_SHADER_COUNT]; // compute stage doesn't belong here
    struct zink_shader *shaders[ZINK_SHADER_COUNT];
    struct zink_shader_cache *shader_cache;
    unsigned char shader_slot_map[VARYING_SLOT_MAX];
    unsigned char shader_slots_reserved;
-   VkDescriptorSetLayout dsl;
    VkPipelineLayout layout;
-   unsigned num_descriptors;
    struct hash_table *pipelines[11]; // number of draw modes we support
    struct set *render_passes;
 };
@@ -80,12 +88,13 @@ struct zink_gfx_program {
 struct zink_compute_program {
    struct pipe_reference reference;
 
+   VkDescriptorSetLayout dsl;
+   unsigned num_descriptors;
+
    struct zink_shader_module *module;
    struct zink_shader *shader;
    struct zink_shader_cache *shader_cache;
-   VkDescriptorSetLayout dsl;
    VkPipelineLayout layout;
-   unsigned num_descriptors;
    struct hash_table *pipelines;
 };
 
