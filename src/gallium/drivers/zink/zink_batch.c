@@ -196,12 +196,12 @@ zink_batch_reference_sampler_state(struct zink_batch *batch,
 
 void
 zink_batch_reference_program(struct zink_batch *batch,
-                             struct pipe_reference *prog)
+                             struct zink_program *pg)
 {
-   struct set_entry *entry = _mesa_set_search(batch->programs, prog);
+   struct set_entry *entry = _mesa_set_search(batch->programs, pg);
    if (!entry) {
-      entry = _mesa_set_add(batch->programs, prog);
-      pipe_reference(NULL, prog);
+      entry = _mesa_set_add(batch->programs, pg);
+      pipe_reference(NULL, &pg->reference);
    }
    batch->has_work = true;
 }
