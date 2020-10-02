@@ -1114,13 +1114,15 @@ is_vector_bitcast_deref(nir_deref_instr *cast,
    if (cast->deref_type != nir_deref_type_cast)
       return false;
 
-   /* Don't throw away useful alignment information */
-   if (cast->cast.align_mul > 0)
-      return false;
-
    /* It has to be a cast of another deref */
    nir_deref_instr *parent = nir_src_as_deref(cast->parent);
    if (parent == NULL)
+      return false;
+
+   /* It has to actually change types.  This prevents infinite looping from
+    * alignment cast derefs where we "optimize" but then create a new one.
+    */
+   if (parent->type == cast->type)
       return false;
 
    /* Don't bother with 1-bit types */
@@ -1181,9 +1183,17 @@ opt_load_vec_deref(nir_builder *b, nir_intrinsic_instr *load)
       const unsigned new_num_comps = glsl_get_vector_elements(parent->type);
       const unsigned new_bit_size = glsl_get_bit_size(parent->type);
 
+      /* If the cast had alignment information, preserve it. */
+      nir_deref_instr *new_deref = parent;
+      if (deref->cast.align_mul) {
+         new_deref = nir_alignment_deref_cast(b, new_deref,
+                                              deref->cast.align_mul,
+                                              deref->cast.align_offset);
+      }
+
       /* Stomp it to reference the parent */
       nir_instr_rewrite_src(&load->instr, &load->src[0],
-                            nir_src_for_ssa(&parent->dest.ssa));
+                            nir_src_for_ssa(&new_deref->dest.ssa));
       assert(load->dest.is_ssa);
       load->dest.ssa.bit_size = new_bit_size;
       load->dest.ssa.num_components = new_num_comps;
@@ -1223,8 +1233,16 @@ opt_store_vec_deref(nir_builder *b, nir_intrinsic_instr *store)
       const unsigned new_num_comps = glsl_get_vector_elements(parent->type);
       const unsigned new_bit_size = glsl_get_bit_size(parent->type);
 
+      /* If the cast had alignment information, preserve it. */
+      nir_deref_instr *new_deref = parent;
+      if (deref->cast.align_mul) {
+         new_deref = nir_alignment_deref_cast(b, new_deref,
+                                              deref->cast.align_mul,
+                                              deref->cast.align_offset);
+      }
+
       nir_instr_rewrite_src(&store->instr, &store->src[0],
-                            nir_src_for_ssa(&parent->dest.ssa));
+                            nir_src_for_ssa(&new_deref->dest.ssa));
 
       /* Restrict things down as needed so the bitcast doesn't fail */
       data = nir_channels(b, data, (1 << util_last_bit(write_mask)) - 1);
