@@ -107,7 +107,9 @@ struct zink_viewport_state {
 
 
 #define ZINK_SHADER_COUNT (PIPE_SHADER_TYPES - 1)
-#define ZINK_COMPUTE_BATCH_ID 4
+#define ZINK_GFX_BATCH_COUNT 4
+#define ZINK_COMPUTE_BATCH_COUNT 1
+#define ZINK_COMPUTE_BATCH_ID ZINK_GFX_BATCH_COUNT
 
 struct zink_context {
    struct pipe_context base;
