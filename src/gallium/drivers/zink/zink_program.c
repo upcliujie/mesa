@@ -435,7 +435,7 @@ zink_create_gfx_program(struct zink_context *ctx,
                         struct zink_shader *stages[ZINK_SHADER_COUNT])
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   struct zink_gfx_program *prog = CALLOC_STRUCT(zink_gfx_program);
+   struct zink_gfx_program *prog = rzalloc(NULL, struct zink_gfx_program);
    if (!prog)
       goto fail;
 
@@ -498,7 +498,7 @@ struct zink_compute_program *
 zink_create_compute_program(struct zink_context *ctx, struct zink_shader *shader)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   struct zink_compute_program *comp = CALLOC_STRUCT(zink_compute_program);
+   struct zink_compute_program *comp = rzalloc(NULL, struct zink_compute_program);
    if (!comp)
       goto fail;
 
@@ -604,7 +604,7 @@ zink_destroy_gfx_program(struct zink_screen *screen,
    }
    zink_shader_cache_reference(screen, &prog->shader_cache, NULL);
 
-   FREE(prog);
+   ralloc_free(prog);
 }
 
 void
@@ -631,7 +631,7 @@ zink_destroy_compute_program(struct zink_screen *screen,
    _mesa_hash_table_destroy(comp->pipelines, NULL);
    zink_shader_cache_reference(screen, &comp->shader_cache, NULL);
 
-   FREE(comp);
+   ralloc_free(comp);
 }
 
 static VkPrimitiveTopology
