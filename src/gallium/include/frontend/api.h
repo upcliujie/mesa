@@ -224,6 +224,7 @@ struct st_config_options
    bool disable_glsl_line_continuations;
    bool disable_arb_gpu_shader5;
    bool force_glsl_extensions_warn;
+   bool glflush_syncs_threads;
    unsigned force_glsl_version;
    bool allow_extra_pp_tokens;
    bool allow_glsl_extension_directive_midshader;

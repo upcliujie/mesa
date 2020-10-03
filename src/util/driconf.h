@@ -148,6 +148,10 @@
    DRI_CONF_OPT_B(force_glsl_extensions_warn, def, \
                   "Force GLSL extension default behavior to 'warn'")
 
+#define DRI_CONF_GLFLUSH_SYNCS_THREADS(def) \
+   DRI_CONF_OPT_B(glflush_syncs_threads, def, \
+                  "glFlush synchronizes threads if multithreading is enabled")
+
 #define DRI_CONF_DISABLE_BLEND_FUNC_EXTENDED(def) \
    DRI_CONF_OPT_B(disable_blend_func_extended, def, \
                   "Disable dual source blending")

@@ -70,6 +70,8 @@ dri_fill_st_options(struct dri_screen *screen)
       driQueryOptionb(optionCache, "disable_glsl_line_continuations");
    options->force_glsl_extensions_warn =
       driQueryOptionb(optionCache, "force_glsl_extensions_warn");
+   options->glflush_syncs_threads =
+      driQueryOptionb(optionCache, "glflush_syncs_threads");
    options->force_glsl_version =
       driQueryOptioni(optionCache, "force_glsl_version");
    options->allow_extra_pp_tokens =
