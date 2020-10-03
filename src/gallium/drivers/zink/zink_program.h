@@ -69,6 +69,10 @@ struct zink_descriptor_set {
    struct pipe_reference reference; //incremented for batch usage
    VkDescriptorSet desc_set;
    uint32_t hash;
+#ifndef NDEBUG
+   /* for extra debug asserts */
+   unsigned num_resources;
+#endif
    struct zink_resource **resources;
 };
 
