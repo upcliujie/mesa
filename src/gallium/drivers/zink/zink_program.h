@@ -73,6 +73,7 @@ struct zink_descriptor_set {
    VkDescriptorSet desc_set;
    uint32_t hash;
    bool invalid;
+   bool recycled;
 #ifndef NDEBUG
    /* for extra debug asserts */
    unsigned num_resources;
