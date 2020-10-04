@@ -16,6 +16,49 @@
 #include "util/u_prim.h"
 #include "util/u_prim_restart.h"
 
+
+static void
+desc_set_res_add(struct zink_descriptor_set *zds, struct zink_resource *res, unsigned int i, bool cache_hit)
+{
+   /* if we got a cache hit, we have to verify that the cached set is still valid;
+    * we store the vk resource to the set here to avoid a more complex and costly mechanism of maintaining a
+    * hash table on every resource with the associated descriptor sets that then needs to be iterated through
+    * whenever a resource is destroyed
+    */
+   assert(!cache_hit || zds->resources[i] == res);
+   if (!cache_hit)
+      zink_resource_desc_set_add(res, zds, i);
+}
+
+static void
+desc_set_sampler_add(struct zink_descriptor_set *zds, struct zink_sampler_view *sv, struct zink_sampler_state *state, unsigned int i, bool cache_hit)
+{
+   /* if we got a cache hit, we have to verify that the cached set is still valid;
+    * we store the vk resource to the set here to avoid a more complex and costly mechanism of maintaining a
+    * hash table on every resource with the associated descriptor sets that then needs to be iterated through
+    * whenever a resource is destroyed
+    */
+   assert(!cache_hit || zds->sampler_views[i] == sv);
+   assert(!cache_hit || zds->sampler_states[i] == state);
+   if (!cache_hit) {
+      zink_sampler_view_desc_set_add(sv, zds, i);
+      zink_sampler_state_desc_set_add(state, zds, i);
+   }
+}
+
+static void
+desc_set_image_add(struct zink_descriptor_set *zds, struct zink_image_view *image_view, unsigned int i, bool cache_hit)
+{
+   /* if we got a cache hit, we have to verify that the cached set is still valid;
+    * we store the vk resource to the set here to avoid a more complex and costly mechanism of maintaining a
+    * hash table on every resource with the associated descriptor sets that then needs to be iterated through
+    * whenever a resource is destroyed
+    */
+   assert(!cache_hit || zds->image_views[i] == image_view);
+   if (!cache_hit)
+      zink_image_view_desc_set_add(image_view, zds, i);
+}
+
 static void
 zink_emit_xfb_counter_barrier(struct zink_context *ctx)
 {
@@ -350,7 +393,6 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
    struct set *persistent = _mesa_pointer_set_create(NULL);
    struct set *ht = _mesa_set_create(NULL, transition_hash, transition_equals);
 
-
    for (int h = 0; h < ZINK_DESCRIPTOR_TYPES; h++) {
       for (int i = 0; i < num_stages; i++) {
          struct zink_shader *shader = stages[i];
@@ -367,6 +409,7 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
                assert(ctx->ubos[stage][index].buffer);
                struct zink_resource *res = zink_resource(ctx->ubos[stage][index].buffer);
                assert(num_resources[h] < num_bindings);
+               desc_set_res_add(zds[h], res, num_resources[h], cache_hit[h]);
                read_descriptor_resource(&resources[h][num_resources[h]], res, &num_resources[h]);
                assert(num_buffer_info[h] < num_bindings);
                buffer_infos[h][num_buffer_info[h]].buffer = res->buffer;
@@ -383,6 +426,7 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
                ++num_buffer_info[h];
             } else if (shader->bindings[h][j].type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER) {
                struct zink_resource *res = zink_resource(ctx->ssbos[stage][index].buffer);
+               desc_set_res_add(zds[h], res, num_resources[h], cache_hit[h]);
                if (res) {
                   assert(ctx->ssbos[stage][index].buffer_size > 0);
                   assert(ctx->ssbos[stage][index].buffer_size <= screen->info.props.limits.maxStorageBufferRange);
@@ -437,6 +481,7 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
                      }
                      add_transition(res, layout, VK_ACCESS_SHADER_READ_BIT, stage, &transitions[num_transitions], &num_transitions, ht);
                      assert(num_resources[h] < num_bindings);
+                     desc_set_sampler_add(zds[h], sampler_view, sampler, num_resources[h], cache_hit[h]);
                      read_descriptor_resource(&resources[h][num_resources[h]], res, &num_resources[h]);
                   }
                   break;
@@ -464,6 +509,7 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
                         flags |= VK_ACCESS_SHADER_WRITE_BIT;
                      add_transition(res, layout, flags, stage, &transitions[num_transitions], &num_transitions, ht);
                      assert(num_resources[h] < num_bindings);
+                     desc_set_image_add(zds[h], image_view, num_resources[h], cache_hit[h]);
                      if (image_view->base.access & PIPE_IMAGE_ACCESS_WRITE)
                         write_descriptor_resource(&resources[h][num_resources[h]], res, &num_resources[h]);
                      else
@@ -572,14 +618,6 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
             if (res->persistent_maps)
                _mesa_set_add(persistent, res);
          }
-         /* if we got a cache hit, we have to verify that the cached set is still valid;
-          * we store the vk resource to the set here to avoid a more complex and costly mechanism of maintaining a
-          * hash table on every resource with the associated descriptor sets that then needs to be iterated through
-          * whenever a resource is destroyed
-          */
-         cache_hit[h] = cache_hit[h] && zds[h]->resources[i] == res;
-         if (zds[h]->resources[i] != res)
-            zink_resource_desc_set_add(res, zds[h], i);
       }
       if (!cache_hit[h] && num_wds[h])
          vkUpdateDescriptorSets(screen->dev, num_wds[h], wds[h], 0, NULL);

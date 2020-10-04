@@ -33,6 +33,7 @@
 #include "pipe/p_state.h"
 #include "util/u_inlines.h"
 #include "util/u_rect.h"
+#include "util/u_dynarray.h"
 
 #include "util/slab.h"
 #include "util/list.h"
@@ -51,6 +52,11 @@ struct zink_resource;
 struct zink_surface;
 struct zink_vertex_elements_state;
 
+
+struct zink_descriptor_refs {
+   struct util_dynarray refs;
+};
+
 enum zink_blit_flags {
    ZINK_BLIT_NORMAL = 1 << 0,
    ZINK_BLIT_SAVE_FS = 1 << 1,
@@ -60,6 +66,7 @@ enum zink_blit_flags {
 
 struct zink_sampler_view {
    struct pipe_sampler_view base;
+   struct zink_descriptor_refs desc_set_refs;
    union {
       VkImageView image_view;
       VkBufferView buffer_view;
@@ -68,6 +75,7 @@ struct zink_sampler_view {
 
 struct zink_image_view {
    struct pipe_image_view base;
+   struct zink_descriptor_refs desc_set_refs;
    union {
       struct zink_surface *surface;
       VkBufferView buffer_view;
@@ -76,6 +84,7 @@ struct zink_image_view {
 
 struct zink_sampler_state {
    struct pipe_reference reference;
+   struct zink_descriptor_refs desc_set_refs;
    VkSampler sampler[2]; //base, non-linear
    bool custom_border_color;
 };

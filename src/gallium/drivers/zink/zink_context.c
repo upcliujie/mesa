@@ -413,6 +413,7 @@ zink_create_sampler_state(struct pipe_context *pctx,
       sampler->sampler[1] = create_sampler(pctx, state, true);
    }
    pipe_reference_init(&sampler->reference, 1);
+   util_dynarray_init(&sampler->desc_set_refs.refs, NULL);
 
    return sampler;
 }
@@ -439,6 +440,7 @@ zink_bind_sampler_states(struct pipe_context *pctx,
 void
 zink_destroy_sampler_state(struct zink_screen *screen, struct zink_sampler_state *sampler_state)
 {
+   zink_descriptor_set_refs_clear(&sampler_state->desc_set_refs, sampler_state);
    if (sampler_state->custom_border_color) {
       p_atomic_dec(&screen->cur_custom_border_color_samplers);
       if (sampler_state->sampler[1])
@@ -457,7 +459,6 @@ zink_delete_sampler_state(struct pipe_context *pctx,
    struct zink_sampler_state *sampler = sampler_state;
    zink_sampler_state_reference(zink_screen(pctx->screen), &sampler, NULL);
 }
-
 
 static VkImageViewType
 image_view_type(enum pipe_texture_target target)
@@ -570,6 +571,7 @@ zink_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *pres,
       FREE(sampler_view);
       return NULL;
    }
+   util_dynarray_init(&sampler_view->desc_set_refs.refs, NULL);
    return &sampler_view->base;
 }
 
@@ -578,6 +580,7 @@ zink_sampler_view_destroy(struct pipe_context *pctx,
                           struct pipe_sampler_view *pview)
 {
    struct zink_sampler_view *view = zink_sampler_view(pview);
+   zink_descriptor_set_refs_clear(&view->desc_set_refs, view);
    if (pview->texture->target == PIPE_BUFFER)
       vkDestroyBufferView(zink_screen(pctx->screen)->dev, view->buffer_view, NULL);
    else
@@ -805,6 +808,7 @@ zink_set_shader_images(struct pipe_context *pctx,
    for (unsigned i = 0; i < count; i++) {
       struct zink_image_view *image_view = &ctx->image_views[p_stage][start_slot + i];
       if (images && images[i].resource) {
+         util_dynarray_init(&image_view->desc_set_refs.refs, NULL);
          struct zink_resource *res = (void *) images[i].resource;
          util_copy_image_view(&image_view->base, images + i);
          if (images[i].resource->target == PIPE_BUFFER) {
@@ -824,6 +828,7 @@ zink_set_shader_images(struct pipe_context *pctx,
          }
          update = true;
       } else if (image_view->base.resource) {
+         zink_descriptor_set_refs_clear(&image_view->desc_set_refs, image_view);
          if (image_view->base.resource->target == PIPE_BUFFER)
             vkDestroyBufferView(zink_screen(pctx->screen)->dev, image_view->buffer_view, NULL);
          else
