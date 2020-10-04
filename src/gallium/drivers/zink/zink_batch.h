@@ -52,12 +52,13 @@ struct zink_batch {
 
    struct zink_render_pass *rp;
    struct zink_framebuffer *fb;
-   struct hash_table *programs;
+   struct set *programs;
 
    struct set *resources;
    struct set *sampler_views;
    struct set *sampler_states;
    struct set *surfaces;
+   struct set *desc_sets;
 
    struct set *active_queries; /* zink_query objects which were active at some point in this batch */
 
@@ -100,5 +101,5 @@ zink_batch_reference_surface(struct zink_batch *batch,
                              struct zink_surface *surface);
 
 bool
-zink_batch_add_desc_set(struct zink_batch *batch, struct zink_program *pg, struct zink_descriptor_set *zds);
+zink_batch_add_desc_set(struct zink_batch *batch, struct zink_descriptor_set *zds);
 #endif

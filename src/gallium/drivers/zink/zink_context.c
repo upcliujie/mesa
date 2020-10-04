@@ -2018,9 +2018,9 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
    batch->resources = _mesa_pointer_set_create(NULL);
    batch->sampler_views = _mesa_pointer_set_create(NULL);
    batch->sampler_states = _mesa_pointer_set_create(NULL);
-   batch->programs = _mesa_pointer_hash_table_create(NULL);
    batch->surfaces = _mesa_pointer_set_create(NULL);
-
+   batch->programs = _mesa_pointer_set_create(NULL);
+   batch->desc_sets = _mesa_pointer_set_create(ctx);
    batch->surface_cache = _mesa_hash_table_create(NULL,
                                                            hash_ivci,
                                                            equals_ivci);
@@ -2028,7 +2028,7 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
                                                                hash_framebuffer_state,
                                                                equals_framebuffer_state);
 
-   if (!batch->resources || !batch->sampler_views || !batch->sampler_states ||
+   if (!batch->resources || !batch->sampler_views || !batch->sampler_states || !batch->desc_sets ||
        !batch->programs || !batch->surfaces || !batch->surface_cache || !batch->framebuffer_cache)
       return false;
 
