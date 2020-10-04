@@ -32,27 +32,27 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    set_foreach(batch->resources, entry) {
       struct pipe_resource *pres = (struct pipe_resource *)entry->key;
       pipe_resource_reference(&pres, NULL);
+      _mesa_set_remove(batch->resources, entry);
    }
-   _mesa_set_clear(batch->resources, NULL);
 
    /* unref all used sampler-views */
    set_foreach(batch->sampler_views, entry) {
       struct pipe_sampler_view *pres = (struct pipe_sampler_view *)entry->key;
       pipe_sampler_view_reference(&pres, NULL);
+      _mesa_set_remove(batch->sampler_views, entry);
    }
-   _mesa_set_clear(batch->sampler_views, NULL);
 
    set_foreach(batch->sampler_states, entry) {
       struct zink_sampler_state *state = (struct zink_sampler_state*)entry->key;
       zink_sampler_state_reference(screen, &state, NULL);
+      _mesa_set_remove(batch->sampler_states, entry);
    }
-   _mesa_set_clear(batch->sampler_states, NULL);
 
    set_foreach(batch->surfaces, entry) {
       struct pipe_surface *surf = (struct pipe_surface *)entry->key;
       pipe_surface_reference(&surf, NULL);
+      _mesa_set_remove(batch->surfaces, entry);
    }
-   _mesa_set_clear(batch->surfaces, NULL);
 
    set_foreach(batch->desc_sets, entry) {
       struct zink_descriptor_set *zds = (void*)entry->key;
@@ -72,8 +72,8 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
          struct zink_gfx_program *prog = (struct zink_gfx_program*)entry->key;
          zink_gfx_program_reference(screen, &prog, NULL);
       }
+      _mesa_set_remove(batch->programs, entry);
    }
-   _mesa_set_clear(batch->programs, NULL);
 
    if (vkResetCommandPool(screen->dev, batch->cmdpool, 0) != VK_SUCCESS)
       fprintf(stderr, "vkResetCommandPool failed\n");
