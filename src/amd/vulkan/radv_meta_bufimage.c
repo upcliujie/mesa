@@ -44,8 +44,8 @@ build_nir_itob_compute_shader(struct radv_device *dev, bool is_3d)
 							   false,
 							   GLSL_TYPE_FLOAT);
 	nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, is_3d ? "meta_itob_cs_3d" : "meta_itob_cs");
-	b.shader->info.cs.local_size[0] = 16;
-	b.shader->info.cs.local_size[1] = 16;
+	b.shader->info.cs.local_size[0] = 8;
+	b.shader->info.cs.local_size[1] = 8;
 	b.shader->info.cs.local_size[2] = 1;
 	nir_variable *input_img = nir_variable_create(b.shader, nir_var_uniform,
 						      sampler_type, "s_tex");
@@ -250,8 +250,8 @@ build_nir_btoi_compute_shader(struct radv_device *dev, bool is_3d)
 							   false,
 							   GLSL_TYPE_FLOAT);
 	nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, is_3d ? "meta_btoi_cs_3d" : "meta_btoi_cs");
-	b.shader->info.cs.local_size[0] = 16;
-	b.shader->info.cs.local_size[1] = 16;
+	b.shader->info.cs.local_size[0] = 8;
+	b.shader->info.cs.local_size[1] = 8;
 	b.shader->info.cs.local_size[2] = 1;
 	nir_variable *input_img = nir_variable_create(b.shader, nir_var_uniform,
 						      buf_type, "s_tex");
@@ -451,8 +451,8 @@ build_nir_btoi_r32g32b32_compute_shader(struct radv_device *dev)
 							   false,
 							   GLSL_TYPE_FLOAT);
 	nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_btoi_r32g32b32_cs");
-	b.shader->info.cs.local_size[0] = 16;
-	b.shader->info.cs.local_size[1] = 16;
+	b.shader->info.cs.local_size[0] = 8;
+	b.shader->info.cs.local_size[1] = 8;
 	b.shader->info.cs.local_size[2] = 1;
 	nir_variable *input_img = nir_variable_create(b.shader, nir_var_uniform,
 						      buf_type, "s_tex");
@@ -632,8 +632,8 @@ build_nir_itoi_compute_shader(struct radv_device *dev, bool is_3d)
 							   false,
 							   GLSL_TYPE_FLOAT);
 	nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, is_3d ? "meta_itoi_cs_3d" : "meta_itoi_cs");
-	b.shader->info.cs.local_size[0] = 16;
-	b.shader->info.cs.local_size[1] = 16;
+	b.shader->info.cs.local_size[0] = 8;
+	b.shader->info.cs.local_size[1] = 8;
 	b.shader->info.cs.local_size[2] = 1;
 	nir_variable *input_img = nir_variable_create(b.shader, nir_var_uniform,
 						      buf_type, "s_tex");
@@ -828,8 +828,8 @@ build_nir_itoi_r32g32b32_compute_shader(struct radv_device *dev)
 							   false,
 							   GLSL_TYPE_FLOAT);
 	nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_itoi_r32g32b32_cs");
-	b.shader->info.cs.local_size[0] = 16;
-	b.shader->info.cs.local_size[1] = 16;
+	b.shader->info.cs.local_size[0] = 8;
+	b.shader->info.cs.local_size[1] = 8;
 	b.shader->info.cs.local_size[2] = 1;
 	nir_variable *input_img = nir_variable_create(b.shader, nir_var_uniform,
 						      type, "input_img");
@@ -1016,8 +1016,8 @@ build_nir_cleari_compute_shader(struct radv_device *dev, bool is_3d)
 							   false,
 							   GLSL_TYPE_FLOAT);
 	nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, is_3d ? "meta_cleari_cs_3d" : "meta_cleari_cs");
-	b.shader->info.cs.local_size[0] = 16;
-	b.shader->info.cs.local_size[1] = 16;
+	b.shader->info.cs.local_size[0] = 8;
+	b.shader->info.cs.local_size[1] = 8;
 	b.shader->info.cs.local_size[2] = 1;
 
 	nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform,
@@ -1187,8 +1187,8 @@ build_nir_cleari_r32g32b32_compute_shader(struct radv_device *dev)
 							   false,
 							   GLSL_TYPE_FLOAT);
 	nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_cleari_r32g32b32_cs");
-	b.shader->info.cs.local_size[0] = 16;
-	b.shader->info.cs.local_size[1] = 16;
+	b.shader->info.cs.local_size[0] = 8;
+	b.shader->info.cs.local_size[1] = 8;
 	b.shader->info.cs.local_size[2] = 1;
 
 	nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform,
