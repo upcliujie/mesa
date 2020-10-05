@@ -4072,6 +4072,38 @@ fs_visitor::swizzle_nir_scratch_addr(const brw::fs_builder &bld,
    return addr;
 }
 
+static unsigned
+choose_oword_block_size_dwords(unsigned dwords)
+{
+   unsigned block;
+   if (dwords >= 32) {
+      block = 32;
+   } else if (dwords >= 16) {
+      block = 16;
+   } else {
+      block = 8;
+   }
+   assert(block <= dwords);
+   return block;
+}
+
+static void
+increment_a64_address_scalar(const fs_builder &bld, fs_reg address, uint32_t v)
+{
+   const fs_builder bld1 = bld.group(1, 0);
+
+   if (bld.shader->devinfo->has_64bit_int) {
+      bld1.ADD(address, address, brw_imm_ud(v));
+   } else {
+      fs_reg low = retype(address, BRW_REGISTER_TYPE_UD);
+      fs_reg high = offset(low, bld, 1);
+
+      /* Add low and if that overflows, add carry to high. */
+      bld1.ADD(low, low, brw_imm_ud(v))->conditional_mod = BRW_CONDITIONAL_O;
+      bld1.ADD(high, high, brw_imm_ud(0x1))->predicate = BRW_PREDICATE_NORMAL;
+   }
+}
+
 void
 fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr)
 {
@@ -5323,6 +5355,64 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       bld.emit_scan(brw_op, scan, dispatch_width, cond_mod);
 
       bld.MOV(retype(dest, src.type), scan);
+      break;
+   }
+
+   case nir_intrinsic_load_global_block_intel: {
+      assert(nir_dest_bit_size(instr->dest) == 32);
+
+      const fs_builder ubld16 = bld.exec_all().group(16, 0);
+      fs_reg address = offset(bld.emit_uniformize(get_nir_src(instr->src[0])), ubld16, 0);
+
+      const unsigned total = instr->num_components * dispatch_width;
+      unsigned loaded = 0;
+
+      while (loaded < total) {
+         const unsigned block =
+            choose_oword_block_size_dwords(total - loaded);
+         const unsigned block_bytes = block * 4;
+
+         ubld16.emit(SHADER_OPCODE_A64_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
+                     retype(byte_offset(dest, loaded * 4), BRW_REGISTER_TYPE_UD),
+                     address,
+                     fs_reg(), /* No source data */
+                     brw_imm_ud(block))->size_written = block_bytes;
+
+         increment_a64_address_scalar(ubld16, address, block_bytes);
+         loaded += block;
+      }
+      break;
+   }
+
+   case nir_intrinsic_store_global_block_intel: {
+      assert(nir_src_bit_size(instr->src[0]) == 32);
+
+      const fs_builder ubld16 = bld.exec_all().group(16, 0);
+      fs_reg address = offset(bld.emit_uniformize(get_nir_src(instr->src[1])), ubld16, 0);
+      fs_reg src = get_nir_src(instr->src[0]);
+
+      const unsigned total = instr->num_components * dispatch_width;
+      unsigned written = 0;
+
+      while (written < total) {
+         const unsigned block =
+            choose_oword_block_size_dwords(total - written);
+         /* Make sure that at least one full component is read.  See
+          * corresponding case in components_read().
+          */
+         const brw_reg_type chunk_type =
+            block == 8 ? BRW_REGISTER_TYPE_UW : BRW_REGISTER_TYPE_UD;
+
+         ubld16.emit(SHADER_OPCODE_A64_OWORD_BLOCK_WRITE_LOGICAL,
+                     fs_reg(),
+                     address,
+                     retype(byte_offset(src, written * 4), chunk_type),
+                     brw_imm_ud(block));
+
+         const unsigned block_bytes = block * 4;
+         increment_a64_address_scalar(ubld16, address, block_bytes);
+         written += block;
+      }
       break;
    }
 
