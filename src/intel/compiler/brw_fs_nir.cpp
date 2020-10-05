@@ -4074,6 +4074,23 @@ fs_visitor::swizzle_nir_scratch_addr(const brw::fs_builder &bld,
    return addr;
 }
 
+static void
+increment_a64_address_scalar(const fs_builder &bld, fs_reg address, uint32_t v)
+{
+   const fs_builder bld1 = bld.group(1, 0);
+
+   if (bld.shader->devinfo->has_64bit_int) {
+      bld1.ADD(address, address, brw_imm_ud(v));
+   } else {
+      fs_reg low = retype(address, BRW_REGISTER_TYPE_UD);
+      fs_reg high = offset(low, bld, 1);
+
+      /* Add low and if that overflows, add carry to high. */
+      bld1.ADD(low, low, brw_imm_ud(v))->conditional_mod = BRW_CONDITIONAL_O;
+      bld1.ADD(high, high, brw_imm_ud(0x1))->predicate = BRW_PREDICATE_NORMAL;
+   }
+}
+
 void
 fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr)
 {
@@ -5325,6 +5342,102 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       bld.emit_scan(brw_op, scan, dispatch_width, cond_mod);
 
       bld.MOV(retype(dest, src.type), scan);
+      break;
+   }
+
+   case nir_intrinsic_load_global_block_intel: {
+      assert(nir_dest_bit_size(instr->dest) == 32);
+
+      /* Read blocks as large as possible using SIMD16 first, that will fill
+       * full OWORDs.
+       */
+      const fs_builder ubld16 = bld.exec_all().group(16, 0);
+      fs_reg address = offset(bld.emit_uniformize(get_nir_src(instr->src[0])), ubld16, 0);
+      unsigned dest_index = 0;
+
+      unsigned dwords = instr->num_components * dispatch_width;
+      while (dwords >= 16) {
+         const unsigned chunk_dwords = dwords >= 32 ? 32 : 16;
+         assert(dwords % chunk_dwords == 0);
+         const unsigned chunk_regs = chunk_dwords / 16;
+
+         ubld16.emit(SHADER_OPCODE_A64_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
+                     retype(offset(dest, ubld16, dest_index), BRW_REGISTER_TYPE_UD),
+                     address,
+                     fs_reg(), /* No source data */
+                     brw_imm_ud(chunk_dwords))->size_written = chunk_dwords * 4;
+
+         increment_a64_address_scalar(ubld16, address, chunk_dwords * 4);
+
+         dwords -= chunk_dwords;
+         dest_index += chunk_regs;
+      }
+
+      /* Due to the dispatch width sizes (8, 16, 32), if there's something
+       * remaining, it must be 8 dwords.  So use a SIMD8, that will fill half OWORD.
+       */
+      if (dwords > 0) {
+         assert(dwords == 8);
+         const fs_builder ubld8 = bld.exec_all().group(8, 0);
+         fs_reg chunk = ubld8.vgrf(BRW_REGISTER_TYPE_UD);
+
+         ubld8.emit(SHADER_OPCODE_A64_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
+                    chunk,
+                    address,
+                    fs_reg(), /* No source data */
+                    brw_imm_ud(dwords))->size_written = dwords * 4;
+
+         /* Note dest_index is in terms of ubld16, so use that for offset. */
+         ubld8.MOV(retype(offset(dest, ubld16, dest_index), BRW_REGISTER_TYPE_UD),
+                   chunk);
+      }
+
+      break;
+   }
+
+   case nir_intrinsic_store_global_block_intel: {
+      assert(nir_src_bit_size(instr->src[0]) == 32);
+
+      /* Write blocks as large as possible using SIMD16 first, that will write
+       * full OWORDs.
+       */
+      const fs_builder ubld16 = bld.exec_all().group(16, 0);
+      fs_reg address = offset(bld.emit_uniformize(get_nir_src(instr->src[1])), ubld16, 0);
+      fs_reg src = get_nir_src(instr->src[0]);
+      unsigned src_index = 0;
+
+      unsigned dwords = instr->num_components * dispatch_width;
+      while (dwords >= 16) {
+         const unsigned chunk_dwords = dwords >= 32 ? 32 : 16;
+         assert(dwords % chunk_dwords == 0);
+         const unsigned chunk_regs = chunk_dwords / 16;
+
+         ubld16.emit(SHADER_OPCODE_A64_OWORD_BLOCK_WRITE_LOGICAL,
+                     fs_reg(),
+                     address,
+                     offset(src, ubld16, src_index * 1),
+                     brw_imm_ud(chunk_dwords));
+
+         increment_a64_address_scalar(ubld16, address, chunk_dwords * 4);
+
+         dwords -= chunk_dwords;
+         src_index += chunk_regs;
+      }
+
+      /* Due to the dispatch width sizes (8, 16, 32), if there's something
+       * remaining, it must be 8 dwords.  So use a SIMD8, that will write half OWORD.
+       */
+      if (dwords > 0) {
+         assert(dwords == 8);
+         const fs_builder ubld8 = bld.exec_all().group(8, 0);
+
+         /* Note src_index is in terms of ubld16, so use that for offset. */
+         ubld8.emit(SHADER_OPCODE_A64_OWORD_BLOCK_WRITE_LOGICAL,
+                    fs_reg(),
+                    address,
+                    offset(src, ubld16, src_index),
+                    brw_imm_ud(dwords));
+      }
       break;
    }
 
