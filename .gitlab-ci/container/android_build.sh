@@ -2,7 +2,9 @@
 
 set -ex
 
-EPHEMERAL=unzip
+EPHEMERAL=\
+         rdfind \
+         unzip
 
 apt-get install -y --no-remove $EPHEMERAL
 
@@ -11,6 +13,9 @@ ndk=android-ndk-r21d
 wget -O $ndk.zip https://dl.google.com/android/repository/$ndk-linux-x86_64.zip
 unzip -d / $ndk.zip "$ndk/toolchains/llvm/*"
 rm $ndk.zip
+# Since it was packed as a zip file, symlinks/hardlinks got turned into
+# duplicate files.  Turn them into hardlinks to save on container space.
+rdfind /android-ndk-r21d/ -makehardlinks true -makeresultsfile false
 
 sh .gitlab-ci/create-android-ndk-pc.sh /$ndk zlib.pc "" "-lz" "1.2.3"
 
