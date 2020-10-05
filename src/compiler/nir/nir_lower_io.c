@@ -1151,6 +1151,14 @@ build_explicit_io_load(nir_builder *b, nir_intrinsic_instr *intrin,
       unreachable("Unsupported explicit IO variable mode");
    }
 
+   /* TODO: Factor this out so the code after op selection is shared. */
+   if (intrin->intrinsic == nir_intrinsic_load_deref_block_intel) {
+      assert(mode == nir_var_mem_ssbo);
+      /* TODO: Support more formats. */
+      assert(addr_format_is_global(addr_format));
+      op = nir_intrinsic_load_global_block_intel;
+   }
+
    nir_intrinsic_instr *load = nir_intrinsic_instr_create(b->shader, op);
 
    if (addr_format_is_global(addr_format)) {
@@ -1273,6 +1281,14 @@ build_explicit_io_store(nir_builder *b, nir_intrinsic_instr *intrin,
       break;
    default:
       unreachable("Unsupported explicit IO variable mode");
+   }
+
+   /* TODO: Factor this out so the code after op selection is shared. */
+   if (intrin->intrinsic == nir_intrinsic_store_deref_block_intel) {
+      assert(mode == nir_var_mem_ssbo);
+      /* TODO: Support more formats. */
+      assert(addr_format_is_global(addr_format));
+      op = nir_intrinsic_store_global_block_intel;
    }
 
    nir_intrinsic_instr *store = nir_intrinsic_instr_create(b->shader, op);
@@ -1518,6 +1534,24 @@ nir_lower_explicit_io_instr(nir_builder *b,
       break;
    }
 
+   case nir_intrinsic_load_deref_block_intel: {
+      nir_ssa_def *value = build_explicit_io_load(b, intrin, addr, addr_format,
+                                                  align_mul, align_offset,
+                                                  intrin->num_components);
+      nir_ssa_def_rewrite_uses(&intrin->dest.ssa, nir_src_for_ssa(value));
+      break;
+   }
+
+   case nir_intrinsic_store_deref_block_intel: {
+      assert(intrin->src[1].is_ssa);
+      nir_ssa_def *value = intrin->src[1].ssa;
+      nir_component_mask_t write_mask = 0x1;
+      build_explicit_io_store(b, intrin, addr, addr_format,
+                              align_mul, align_offset,
+                              value, write_mask); // FIXME.
+      break;
+   }
+
    default: {
       nir_ssa_def *value =
          build_explicit_io_atomic(b, intrin, addr, addr_format);
@@ -1728,6 +1762,8 @@ nir_lower_explicit_io_impl(nir_function_impl *impl, nir_variable_mode modes,
             switch (intrin->intrinsic) {
             case nir_intrinsic_load_deref:
             case nir_intrinsic_store_deref:
+            case nir_intrinsic_load_deref_block_intel:
+            case nir_intrinsic_store_deref_block_intel:
             case nir_intrinsic_deref_atomic_add:
             case nir_intrinsic_deref_atomic_imin:
             case nir_intrinsic_deref_atomic_umin:
