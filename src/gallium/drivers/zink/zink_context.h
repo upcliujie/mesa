@@ -24,16 +24,22 @@
 #ifndef ZINK_CONTEXT_H
 #define ZINK_CONTEXT_H
 
+#define ZINK_SHADER_COUNT (PIPE_SHADER_TYPES - 1)
+#define ZINK_GFX_BATCH_COUNT 4
+#define ZINK_COMPUTE_BATCH_COUNT 1
+#define ZINK_COMPUTE_BATCH_ID ZINK_GFX_BATCH_COUNT
+#define ZINK_DEFAULT_MAX_DESCS 5000
+
 #include "zink_clear.h"
 #include "zink_pipeline.h"
 #include "zink_batch.h"
 #include "zink_compiler.h"
+#include "zink_descriptors.h"
 
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
 #include "util/u_inlines.h"
 #include "util/u_rect.h"
-#include "util/u_dynarray.h"
 
 #include "util/slab.h"
 #include "util/list.h"
@@ -51,11 +57,6 @@ struct zink_rasterizer_state;
 struct zink_resource;
 struct zink_surface;
 struct zink_vertex_elements_state;
-
-
-struct zink_descriptor_refs {
-   struct util_dynarray refs;
-};
 
 enum zink_blit_flags {
    ZINK_BLIT_NORMAL = 1 << 0,
@@ -115,12 +116,6 @@ struct zink_viewport_state {
    uint8_t num_viewports;
 };
 
-
-#define ZINK_SHADER_COUNT (PIPE_SHADER_TYPES - 1)
-#define ZINK_GFX_BATCH_COUNT 4
-#define ZINK_COMPUTE_BATCH_COUNT 1
-#define ZINK_COMPUTE_BATCH_ID ZINK_GFX_BATCH_COUNT
-#define ZINK_DEFAULT_MAX_DESCS 5000
 
 /* hashes of all the named types in a given state */
 struct zink_descriptor_state {

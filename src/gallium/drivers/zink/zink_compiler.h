@@ -31,6 +31,7 @@
 #include "compiler/shader_info.h"
 
 #include <vulkan/vulkan.h>
+#include "zink_descriptors.h"
 
 struct pipe_screen;
 struct zink_context;
@@ -57,14 +58,6 @@ zink_get_compiler_options(struct pipe_screen *screen,
 
 struct nir_shader *
 zink_tgsi_to_nir(struct pipe_screen *screen, const struct tgsi_token *tokens);
-
-enum zink_descriptor_type {
-   ZINK_DESCRIPTOR_TYPE_UBO,
-   ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW,
-   ZINK_DESCRIPTOR_TYPE_SSBO,
-   ZINK_DESCRIPTOR_TYPE_IMAGE,
-   ZINK_DESCRIPTOR_TYPES,
-};
 
 struct zink_shader {
    unsigned shader_id;
