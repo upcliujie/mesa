@@ -314,7 +314,7 @@ android_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &android_build "2020-09-11"
+    FDO_DISTRIBUTION_TAG: &android_build "2020-10-05"
 
 .use-android_build:
   variables:
