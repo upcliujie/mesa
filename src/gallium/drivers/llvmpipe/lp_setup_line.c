@@ -369,11 +369,13 @@ try_setup_line( struct lp_setup_context *setup,
       if (y2diff==-0.5 && dy<0){
          y2diff = 0.5;
       }
-      
+
       /* 
        * Diamond exit rule test for starting point 
-       */    
-      if (fabsf(x1diff) + fabsf(y1diff) < 0.5) {
+       */
+      if (setup->line_last_pixel) {
+	 draw_start = TRUE;
+      } else if (fabsf(x1diff) + fabsf(y1diff) < 0.5) {
          draw_start = TRUE;
       }
       else if (sign(x1diff) == sign(-dx)) {
@@ -389,10 +391,13 @@ try_setup_line( struct lp_setup_context *setup,
       }
 
 
+      if (setup->line_last_pixel) {
+	 draw_end = TRUE;
+      }
       /* 
        * Diamond exit rule test for ending point 
        */    
-      if (fabsf(x2diff) + fabsf(y2diff) < 0.5) {
+      else if (fabsf(x2diff) + fabsf(y2diff) < 0.5) {
          draw_end = FALSE;
       }
       else if (sign(x2diff) != sign(-dx)) {
@@ -411,6 +416,10 @@ try_setup_line( struct lp_setup_context *setup,
        */
       will_draw_start = sign(-x1diff) != sign(dx);
       will_draw_end = (sign(x2diff) == sign(-dx)) || x2diff==0;
+      if (setup->line_last_pixel) {
+         will_draw_start = TRUE;
+         will_draw_end = TRUE;
+      }
 
       if (dx < 0) {
          /* if v2 is to the right of v1, swap pointers */
@@ -468,10 +477,12 @@ try_setup_line( struct lp_setup_context *setup,
          x2diff = 0.5;
       }
 
+      if (setup->line_last_pixel) {
+	 draw_start = TRUE;
       /* 
        * Diamond exit rule test for starting point 
        */    
-      if (fabsf(x1diff) + fabsf(y1diff) < 0.5) {
+      } else if (fabsf(x1diff) + fabsf(y1diff) < 0.5) {
          draw_start = TRUE;
       }
       else if (sign(-y1diff) == sign(dy)) {
@@ -488,8 +499,11 @@ try_setup_line( struct lp_setup_context *setup,
 
       /* 
        * Diamond exit rule test for ending point 
-       */    
-      if (fabsf(x2diff) + fabsf(y2diff) < 0.5) {
+       */
+      if (setup->line_last_pixel) {
+	 draw_end = TRUE;
+      }
+      else if (fabsf(x2diff) + fabsf(y2diff) < 0.5) {
          draw_end = FALSE;
       }
       else if (sign(-y2diff) != sign(dy) ) {
@@ -503,11 +517,17 @@ try_setup_line( struct lp_setup_context *setup,
          float xintersect = fracf(v2[0][0]) + y2diff * dxdy;
          draw_end = (xintersect < 1.0 && xintersect >= 0.0);
       }
-
       /* Are we already drawing start/end?
        */
       will_draw_start = sign(y1diff) == sign(dy);
-      will_draw_end = (sign(-y2diff) == sign(dy)) || y2diff==0;
+
+      if (setup->line_last_pixel) {
+	 will_draw_start = TRUE;
+	 will_draw_end = TRUE;
+      } else {
+	 will_draw_start = sign(y1diff) == sign(dy);
+	 will_draw_end = (sign(-y2diff) == sign(dy)) || y2diff==0;
+      }
 
       if (dy > 0) {
          /* if v2 is on top of v1, swap pointers */

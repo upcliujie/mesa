@@ -102,6 +102,7 @@ struct lp_setup_context
    boolean point_size_per_vertex;
    boolean rasterizer_discard;
    boolean multisample;
+   boolean line_last_pixel;
    unsigned cullmode;
    unsigned bottom_edge_rule;
    float pixel_offset;
