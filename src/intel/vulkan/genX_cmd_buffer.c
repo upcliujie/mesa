@@ -1391,6 +1391,13 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
 
    enum isl_aux_op resolve_op = ISL_AUX_OP_NONE;
 
+   /* Independent of final layout, do resolve when releasing ownership
+    * for foreign or external queues.
+    */
+   const bool ownership_release =
+      dst_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT ||
+      dst_queue_family == VK_QUEUE_FAMILY_EXTERNAL;
+
    /* If the initial layout supports more fast clear than the final layout
     * then we need at least a partial resolve.
     */
@@ -1403,6 +1410,10 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
 
    if (initial_aux_usage == ISL_AUX_USAGE_CCS_E &&
        final_aux_usage != ISL_AUX_USAGE_CCS_E)
+      resolve_op = ISL_AUX_OP_FULL_RESOLVE;
+
+   /* If color compression is in use and we are releasing ownership. */
+   if (initial_aux_usage == ISL_AUX_USAGE_CCS_E && ownership_release)
       resolve_op = ISL_AUX_OP_FULL_RESOLVE;
 
    if (resolve_op == ISL_AUX_OP_NONE)
