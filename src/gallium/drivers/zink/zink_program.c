@@ -462,7 +462,7 @@ zink_create_gfx_program(struct zink_context *ctx,
       }
    }
 
-   if (!zink_descriptor_program_init(screen, stages, (struct zink_program*)prog))
+   if (!zink_descriptor_program_init(ctx, stages, (struct zink_program*)prog))
       goto fail;
 
    prog->base.layout = create_gfx_pipeline_layout(screen->dev, prog);
@@ -560,7 +560,7 @@ zink_create_compute_program(struct zink_context *ctx, struct zink_shader *shader
 
    struct zink_shader *stages[ZINK_SHADER_COUNT] = {};
    stages[0] = shader;
-   if (!zink_descriptor_program_init(screen, stages, (struct zink_program*)comp))
+   if (!zink_descriptor_program_init(ctx, stages, (struct zink_program*)comp))
       goto fail;
 
    comp->base.layout = create_compute_pipeline_layout(screen->dev, comp);
@@ -657,7 +657,7 @@ zink_program_num_descriptors(const struct zink_program *pg)
 {
    unsigned num_descriptors = 0;
    for (unsigned i = 0; i < ZINK_DESCRIPTOR_TYPES; i++)
-      num_descriptors += pg->pool[i] ? pg->pool[i]->num_descriptors : 0;
+      num_descriptors += pg->pool[i] ? pg->pool[i]->key.num_descriptors : 0;
    return num_descriptors;
 }
 
@@ -697,7 +697,7 @@ zink_destroy_gfx_program(struct zink_screen *screen,
    zink_shader_cache_reference(screen, &prog->shader_cache, NULL);
 
    for (unsigned i = 0; i < ZINK_DESCRIPTOR_TYPES; i++)
-      zink_descriptor_pool_free(screen, prog->base.pool[i]);
+      zink_descriptor_pool_reference(screen, &prog->base.pool[i], NULL);
 
    ralloc_free(prog);
 }
@@ -724,7 +724,7 @@ zink_destroy_compute_program(struct zink_screen *screen,
    zink_shader_cache_reference(screen, &comp->shader_cache, NULL);
 
    for (unsigned i = 0; i < ZINK_DESCRIPTOR_TYPES; i++)
-      zink_descriptor_pool_free(screen, comp->base.pool[i]);
+      zink_descriptor_pool_reference(screen, &comp->base.pool[i], NULL);
 
    ralloc_free(comp);
 }
