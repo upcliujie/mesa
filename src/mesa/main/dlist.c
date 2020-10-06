@@ -11350,9 +11350,13 @@ _mesa_compile_error(struct gl_context *ctx, GLenum error, const char *s)
  * Test if ID names a display list.
  */
 static GLboolean
-islist(struct gl_context *ctx, GLuint list)
+islist(struct gl_context *ctx, GLuint list,
+       struct gl_display_list ** dlist)
 {
-   if (list > 0 && _mesa_lookup_list(ctx, list)) {
+   struct gl_display_list * dl;
+   if (list > 0 && (dl = _mesa_lookup_list(ctx, list))) {
+      if (dlist)
+         *dlist = dl;
       return GL_TRUE;
    }
    else {
@@ -11380,17 +11384,13 @@ execute_list(struct gl_context *ctx, GLuint list)
    Node *n;
    GLboolean done;
 
-   if (list == 0 || !islist(ctx, list))
+   if (list == 0 || !islist(ctx, list, &dlist))
       return;
 
    if (ctx->ListState.CallDepth == MAX_LIST_NESTING) {
       /* raise an error? */
       return;
    }
-
-   dlist = _mesa_lookup_list(ctx, list);
-   if (!dlist)
-      return;
 
    ctx->ListState.CallDepth++;
 
@@ -13624,7 +13624,7 @@ _mesa_IsList(GLuint list)
    GET_CURRENT_CONTEXT(ctx);
    FLUSH_VERTICES(ctx, 0);      /* must be called before assert */
    ASSERT_OUTSIDE_BEGIN_END_WITH_RETVAL(ctx, GL_FALSE);
-   return islist(ctx, list);
+   return islist(ctx, list, NULL);
 }
 
 
@@ -14694,13 +14694,8 @@ print_list(struct gl_context *ctx, GLuint list, const char *fname)
          return;
    }
 
-   if (!islist(ctx, list)) {
+   if (!islist(ctx, list, &dlist)) {
       fprintf(f, "%u is not a display list ID\n", list);
-      goto out;
-   }
-
-   dlist = _mesa_lookup_list(ctx, list);
-   if (!dlist) {
       goto out;
    }
 
