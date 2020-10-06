@@ -552,7 +552,8 @@ transition_depth_buffer(struct anv_cmd_buffer *cmd_buffer,
                         uint32_t base_layer, uint32_t layer_count,
                         VkImageLayout initial_layout,
                         VkImageLayout final_layout,
-                        bool will_full_fast_clear)
+                        bool will_full_fast_clear,
+                        uint32_t dst_queue_family)
 {
    uint32_t depth_plane =
       anv_image_aspect_to_plane(image->aspects, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -586,12 +587,20 @@ transition_depth_buffer(struct anv_cmd_buffer *cmd_buffer,
                               VK_IMAGE_ASPECT_DEPTH_BIT,
                               final_layout);
 
+   /* Independent of final layout, resolve hiz when releasing ownership
+    * for foreign or external queues.
+    */
+   const bool ownership_release =
+      dst_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT ||
+      dst_queue_family == VK_QUEUE_FAMILY_EXTERNAL;
+
    const bool initial_depth_valid =
       isl_aux_state_has_valid_primary(initial_state);
    const bool initial_hiz_valid =
       isl_aux_state_has_valid_aux(initial_state);
    const bool final_needs_depth =
-      isl_aux_state_has_valid_primary(final_state);
+      isl_aux_state_has_valid_primary(final_state) ||
+      ownership_release;
    const bool final_needs_hiz =
       isl_aux_state_has_valid_aux(final_state);
 
@@ -2386,7 +2395,8 @@ void genX(CmdPipelineBarrier)(
                                  base_layer, layer_count,
                                  pImageMemoryBarriers[i].oldLayout,
                                  pImageMemoryBarriers[i].newLayout,
-                                 false /* will_full_fast_clear */);
+                                 false /* will_full_fast_clear */,
+                                 pImageMemoryBarriers[i].dstQueueFamilyIndex);
       }
 
       if (range->aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) {
@@ -5389,7 +5399,8 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
          transition_depth_buffer(cmd_buffer, image,
                                  base_layer, layer_count,
                                  att_state->current_layout, target_layout,
-                                 will_full_fast_clear);
+                                 will_full_fast_clear,
+                                 VK_QUEUE_FAMILY_IGNORED);
          att_state->aux_usage =
             anv_layout_to_aux_usage(&cmd_buffer->device->info, image,
                                     VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -5886,7 +5897,8 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
                                  fb->layers,
                                  src_state->current_layout,
                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                 false /* will_full_fast_clear */);
+                                 false /* will_full_fast_clear */,
+                                 VK_QUEUE_FAMILY_IGNORED);
          src_state->aux_usage =
             anv_layout_to_aux_usage(&cmd_buffer->device->info, src_iview->image,
                                     VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -5914,7 +5926,8 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
                                  fb->layers,
                                  dst_initial_layout,
                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                 false /* will_full_fast_clear */);
+                                 false /* will_full_fast_clear */,
+                                 VK_QUEUE_FAMILY_IGNORED);
          dst_state->aux_usage =
             anv_layout_to_aux_usage(&cmd_buffer->device->info, dst_iview->image,
                                     VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -6057,7 +6070,8 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
          transition_depth_buffer(cmd_buffer, image,
                                  base_layer, layer_count,
                                  att_state->current_layout, target_layout,
-                                 false /* will_full_fast_clear */);
+                                 false /* will_full_fast_clear */,
+                                 VK_QUEUE_FAMILY_IGNORED);
       }
 
       if (image->aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
