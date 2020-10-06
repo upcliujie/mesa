@@ -400,7 +400,7 @@ update_ubo_descriptors(struct zink_context *ctx, struct zink_descriptor_set *zds
 {
    struct zink_program *pg = zds->pg;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   unsigned num_descriptors = pg->num_descriptors[zds->type];
+   unsigned num_descriptors = pg->pool[zds->type]->num_descriptors;
    unsigned num_bindings = zink_program_num_bindings_typed(pg, zds->type, is_compute);
    VkWriteDescriptorSet wds[num_descriptors];
    struct zink_descriptor_resource resources[num_bindings];
@@ -478,7 +478,7 @@ update_ssbo_descriptors(struct zink_context *ctx, struct zink_descriptor_set *zd
 {
    struct zink_program *pg = zds->pg;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   unsigned num_descriptors = pg->num_descriptors[zds->type];
+   unsigned num_descriptors = pg->pool[zds->type]->num_descriptors;
    unsigned num_bindings = zink_program_num_bindings_typed(pg, zds->type, is_compute);
    VkWriteDescriptorSet wds[num_descriptors];
    struct zink_descriptor_resource resources[num_bindings];
@@ -591,7 +591,7 @@ update_sampler_descriptors(struct zink_context *ctx, struct zink_descriptor_set 
 {
    struct zink_program *pg = zds->pg;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   unsigned num_descriptors = pg->num_descriptors[zds->type];
+   unsigned num_descriptors = pg->pool[zds->type]->num_descriptors;
    unsigned num_bindings = zink_program_num_bindings(pg, is_compute);
    VkWriteDescriptorSet wds[num_descriptors];
    struct zink_descriptor_resource resources[num_bindings];
@@ -670,7 +670,7 @@ update_image_descriptors(struct zink_context *ctx, struct zink_descriptor_set *z
 {
    struct zink_program *pg = zds->pg;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   unsigned num_descriptors = pg->num_descriptors[zds->type];
+   unsigned num_descriptors = pg->pool[zds->type]->num_descriptors;
    unsigned num_bindings = zink_program_num_bindings(pg, is_compute);
    VkWriteDescriptorSet wds[num_descriptors];
    struct zink_descriptor_resource resources[num_bindings];
@@ -755,7 +755,7 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
    bool cache_hit[ZINK_DESCRIPTOR_TYPES];
    struct zink_descriptor_set *zds[ZINK_DESCRIPTOR_TYPES];
    for (int h = 0; h < ZINK_DESCRIPTOR_TYPES; h++) {
-      if (pg->dsl[h])
+      if (pg->pool[h])
          zds[h] = get_descriptor_set(ctx, is_compute, h, &cache_hit[h]);
       else
          zds[h] = NULL;
@@ -971,7 +971,7 @@ zink_draw_vbo(struct pipe_context *pctx,
    }
 
    struct set *persistent = NULL;
-   if (gfx_program->num_descriptors)
+   if (zink_program_num_descriptors(zink_program(gfx_program)))
       persistent = update_descriptors(ctx, screen, false);
 
    struct zink_batch *batch = zink_batch_rp(ctx);
@@ -1183,7 +1183,7 @@ zink_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
                                                &ctx->compute_pipeline_state);
 
    struct set *persistent = NULL;
-   if (comp_program->num_descriptors)
+   if (zink_program_num_descriptors(zink_program(comp_program)))
       persistent = update_descriptors(ctx, screen, true);
 
 
