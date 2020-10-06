@@ -509,6 +509,8 @@ radv_shader_compile_to_nir(struct radv_device *device,
 		 */
 		NIR_PASS_V(nir, nir_lower_variable_initializers, ~0);
 
+		NIR_PASS_V(nir, nir_find_dynamic_resource_indexing);
+
 		/* Split member structs.  We do this before lower_io_to_temporaries so that
 		 * it doesn't lower system values to temporaries by accident.
 		 */

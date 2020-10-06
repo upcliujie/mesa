@@ -347,3 +347,154 @@ nir_opt_access(nir_shader *shader)
    _mesa_set_destroy(state.vars_written, NULL);
    return progress;
 }
+
+static bool
+find_dynamic_tex_indexing(nir_tex_instr *tex)
+{
+   bool texture_dynamic_index = false;
+   bool sampler_dynamic_index = false;
+   for (unsigned i = 0; i < tex->num_srcs; i++) {
+      nir_src src = tex->src[i].src;
+      switch (tex->src[i].src_type) {
+      case nir_tex_src_texture_deref:
+         texture_dynamic_index |= nir_deref_instr_has_indirect(nir_src_as_deref(src));
+         break;
+      case nir_tex_src_sampler_deref:
+         sampler_dynamic_index |= nir_deref_instr_has_indirect(nir_src_as_deref(src));
+         break;
+      case nir_tex_src_texture_offset:
+         texture_dynamic_index |= !nir_src_is_const(src);
+         break;
+      case nir_tex_src_sampler_offset:
+         sampler_dynamic_index |= !nir_src_is_const(src);
+         break;
+      case nir_tex_src_texture_handle:
+         texture_dynamic_index = true;
+         break;
+      case nir_tex_src_sampler_handle:
+         sampler_dynamic_index = true;
+         break;
+      default:
+         break;
+      }
+   }
+
+   bool progress = (texture_dynamic_index && !tex->texture_dynamic_index) ||
+                   (sampler_dynamic_index && !tex->sampler_dynamic_index);
+
+   tex->texture_dynamic_index |= texture_dynamic_index;
+   tex->sampler_dynamic_index |= sampler_dynamic_index;
+
+   return progress;
+}
+
+static nir_intrinsic_instr *
+find_resource_index(nir_ssa_def *def)
+{
+   if (def->parent_instr->type != nir_instr_type_intrinsic)
+      return NULL;
+
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(def->parent_instr);
+   if (intrin->intrinsic == nir_intrinsic_load_vulkan_descriptor)
+      intrin = nir_src_as_intrinsic(intrin->src[0]);
+
+   if (!intrin || intrin->intrinsic != nir_intrinsic_vulkan_resource_index)
+      return NULL;
+
+   return intrin;
+}
+
+static bool
+is_buffer_dynamically_indexed(nir_ssa_def *def)
+{
+   while (def->parent_instr->type == nir_instr_type_deref) {
+      nir_deref_instr *deref = nir_instr_as_deref(def->parent_instr);
+
+      if (deref->deref_type == nir_deref_type_var)
+         return false;
+
+      def = deref->parent.ssa;
+   }
+
+   nir_intrinsic_instr *intrin = find_resource_index(def);
+   return !intrin || !nir_src_is_const(intrin->src[0]);
+}
+
+static bool
+find_dynamic_intrin_indexing(nir_intrinsic_instr *intrin)
+{
+   unsigned access = 0;
+   if (nir_intrinsic_has_access(intrin))
+      access = nir_intrinsic_access(intrin);
+   else if (nir_intrinsic_has_src_access(intrin))
+      access = nir_intrinsic_src_access(intrin);
+
+   if (access & ACCESS_DYNAMIC_RESOURCE_INDEX)
+      return false;
+
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_image_load:
+      if (intrin->src[0].ssa->parent_instr->type == nir_instr_type_load_const)
+         return false;
+      break;
+   case nir_intrinsic_image_deref_load:
+   case nir_intrinsic_image_deref_size:
+   case nir_intrinsic_image_deref_samples:
+   case nir_intrinsic_image_deref_format:
+   case nir_intrinsic_image_deref_order:
+      if (!nir_deref_instr_has_indirect(nir_src_as_deref(intrin->src[0])))
+         return false;
+      break;
+   case nir_intrinsic_load_deref:
+   case nir_intrinsic_copy_deref: {
+      bool copy = intrin->intrinsic == nir_intrinsic_copy_deref;
+      nir_deref_instr *deref = nir_src_as_deref(intrin->src[copy]);
+      if (!nir_deref_mode_is_one_of(deref, nir_var_mem_ubo | nir_var_mem_ssbo))
+         return false;
+      if (!is_buffer_dynamically_indexed(intrin->src[copy].ssa))
+         return false;
+      break;
+   default:
+      return false;
+   }
+   }
+
+   if (nir_intrinsic_has_access(intrin))
+      nir_intrinsic_set_access(intrin, access | ACCESS_DYNAMIC_RESOURCE_INDEX);
+   else if (nir_intrinsic_has_src_access(intrin))
+      nir_intrinsic_set_src_access(intrin, access | ACCESS_DYNAMIC_RESOURCE_INDEX);
+
+   return true;
+}
+
+bool
+nir_find_dynamic_resource_indexing(nir_shader *shader)
+{
+   bool progress = false;
+   nir_foreach_function(func, shader) {
+      if (!func->impl)
+         continue;
+
+      bool impl_progress = false;
+      nir_foreach_block(block, func->impl) {
+         nir_foreach_instr(instr, block) {
+            if (instr->type == nir_instr_type_tex)
+               impl_progress |= find_dynamic_tex_indexing(nir_instr_as_tex(instr));
+            if (instr->type == nir_instr_type_intrinsic)
+               impl_progress |= find_dynamic_intrin_indexing(nir_instr_as_intrinsic(instr));
+         }
+      }
+
+      if (impl_progress)
+         nir_metadata_preserve(func->impl,
+                               nir_metadata_block_index |
+                               nir_metadata_dominance |
+                               nir_metadata_live_ssa_defs);
+      else
+         nir_metadata_preserve(func->impl, nir_metadata_all);
+
+      progress |= impl_progress;
+   }
+
+   return progress;
+}
