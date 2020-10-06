@@ -34,4 +34,10 @@ zink_filter(enum pipe_tex_filter filter)
    unreachable("unexpected filter");
 }
 
+#include "util/os_time.h"
+
+#define TIMING_START(id) int64_t id##_0 = os_time_get_nano()
+#define TIMING_END(id) id##_0 = os_time_get_nano() - id##_0;
+#define TIMING_PRINT(id, name) printf(name" %ld\n", id##_0)
+
 #endif

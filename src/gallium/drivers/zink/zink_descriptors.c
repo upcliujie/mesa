@@ -214,7 +214,7 @@ zink_descriptor_set_get(struct zink_context *ctx,
          if (he)
             _mesa_hash_table_remove(pool->free_desc_sets, he);
       }
-      //printf("%u LAST%u %p %u\n", type, batch->batch_id, pg, hash);
+      //printf("%u LAST %s %u %p %u\n", type, zds->invalid ? "MISS" : "HIT", batch->batch_id, pg, hash);
       goto out;
    }
 
@@ -235,7 +235,7 @@ zink_descriptor_set_get(struct zink_context *ctx,
       if (he) {
          zds = (void*)he->data;
          *cache_hit = !zds->invalid;
-         //printf("%u CACHE HIT%u %p %u -> %u %s\n", type, batch->batch_id, pg, he->hash, hash, recycled ? "RECYCLED" : "VALID");
+         //printf("%u CACHE %s%u %p %u -> %u %s\n", type, zds->invalid ? "MISS" : "HIT", batch->batch_id, pg, he->hash, hash, recycled ? "RECYCLED" : "VALID");
          if (recycled) {
             /* need to migrate this entry back to the in-use hash */
             _mesa_hash_table_remove(pool->free_desc_sets, he);
