@@ -823,6 +823,9 @@ enum gl_access_qualifier
 
    /** Use as little cache space as possible. */
    ACCESS_STREAM_CACHE_POLICY = (1 << 7),
+
+   /* This load uses a dynamically indexed resource. */
+   ACCESS_DYNAMIC_RESOURCE_INDEX = (1 << 8),
 };
 
 /**

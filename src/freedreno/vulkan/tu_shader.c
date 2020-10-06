@@ -141,6 +141,8 @@ tu_spirv_to_nir(struct tu_device *dev,
    assert(exec_list_length(&nir->functions) == 1);
    NIR_PASS_V(nir, nir_lower_variable_initializers, ~nir_var_function_temp);
 
+   NIR_PASS_V(nir, nir_find_dynamic_resource_indexing);
+
    /* Split member structs.  We do this before lower_io_to_temporaries so that
     * it doesn't lower system values to temporaries by accident.
     */

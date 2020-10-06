@@ -2046,6 +2046,12 @@ typedef struct {
    /* True if the sampler index or handle is not dynamically uniform */
    bool sampler_non_uniform;
 
+   /* True if the texture is dynamically indexed. */
+   bool texture_dynamic_index;
+
+   /* True if the sampler is dynamically indexed. */
+   bool sampler_dynamic_index;
+
    /** The texture index
     *
     * If this texture instruction has a nir_tex_src_texture_offset source,
@@ -4876,6 +4882,7 @@ bool nir_opt_comparison_pre_impl(nir_function_impl *impl);
 bool nir_opt_comparison_pre(nir_shader *shader);
 
 bool nir_opt_access(nir_shader *shader);
+bool nir_find_dynamic_resource_indexing(nir_shader *shader);
 bool nir_opt_algebraic(nir_shader *shader);
 bool nir_opt_algebraic_before_ffma(nir_shader *shader);
 bool nir_opt_algebraic_late(nir_shader *shader);
