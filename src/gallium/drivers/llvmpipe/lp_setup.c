@@ -586,13 +586,14 @@ lp_setup_set_triangle_state( struct lp_setup_context *setup,
    }
 }
 
-void 
+void
 lp_setup_set_line_state( struct lp_setup_context *setup,
-			 float line_width)
+			 float line_width, bool line_last_pixel)
 {
    LP_DBG(DEBUG_SETUP, "%s\n", __FUNCTION__);
 
    setup->line_width = line_width;
+   setup->line_last_pixel = line_last_pixel;
 }
 
 void 
