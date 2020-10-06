@@ -322,12 +322,6 @@ hash_gfx_pipeline_state(const void *key)
    return _mesa_hash_data(key, offsetof(struct zink_gfx_pipeline_state, hash));
 }
 
-static bool
-equals_gfx_pipeline_state(const void *a, const void *b)
-{
-   return memcmp(a, b, offsetof(struct zink_gfx_pipeline_state, hash)) == 0;
-}
-
 static void
 init_slot_map(struct zink_context *ctx, struct zink_gfx_program *prog)
 {
@@ -381,8 +375,8 @@ zink_create_gfx_program(struct zink_context *ctx,
 
    for (int i = 0; i < ARRAY_SIZE(prog->pipelines); ++i) {
       prog->pipelines[i] = _mesa_hash_table_create(NULL,
-                                                   hash_gfx_pipeline_state,
-                                                   equals_gfx_pipeline_state);
+                                                   NULL,
+                                                   _mesa_key_pointer_equal);
       if (!prog->pipelines[i])
          goto fail;
    }
@@ -530,18 +524,8 @@ zink_get_gfx_pipeline(struct zink_screen *screen,
    struct hash_entry *entry = NULL;
    
    if (!state->hash) {
-#ifndef NDEBUG
-      /* mesa hash table "pre_hashed" functions will re-hash and assert the pre-hashed value,
-       * so the state needs to include that if asserts are enabled
-       */
-      for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++) {
-         state->stages[i] = prog->modules[i] ? prog->modules[i]->hash : 0;
-      }
-#endif
-
       state->hash = hash_gfx_pipeline_state(state);
 
-#ifdef NDEBUG
       for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++) {
          uint32_t zero = 0;
          if (prog->modules[i])
@@ -549,12 +533,9 @@ zink_get_gfx_pipeline(struct zink_screen *screen,
          else
             state->hash = XXH32(&zero, sizeof(uint32_t), state->hash);
       }
-#endif
-      /* make sure the hash is not zero, as we take it as invalid.
-       * TODO: rework this using a separate dirty-bit */
       assert(state->hash != 0);
    }
-   entry = _mesa_hash_table_search_pre_hashed(prog->pipelines[vkmode], state->hash, state);
+   entry = _mesa_hash_table_search_pre_hashed(prog->pipelines[vkmode], state->hash, (void*)(uintptr_t)state->hash);
 
    if (!entry) {
       VkPipeline pipeline = zink_create_gfx_pipeline(screen, prog,
@@ -570,7 +551,7 @@ zink_get_gfx_pipeline(struct zink_screen *screen,
       pc_entry->pipeline = pipeline;
 
       assert(state->hash);
-      entry = _mesa_hash_table_insert_pre_hashed(prog->pipelines[vkmode], state->hash, state, pc_entry);
+      entry = _mesa_hash_table_insert_pre_hashed(prog->pipelines[vkmode], state->hash, (void*)(uintptr_t)state->hash, pc_entry);
       assert(entry);
 
       reference_render_pass(screen, prog, state->render_pass);

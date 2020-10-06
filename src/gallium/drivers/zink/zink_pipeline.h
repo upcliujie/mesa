@@ -58,10 +58,6 @@ struct zink_gfx_pipeline_state {
 
    bool primitive_restart;
 
-#ifndef NDEBUG
-   /* needed when assert()s can trigger because mesa pre-hash asserts the hash value */
-   uint32_t stages[PIPE_SHADER_TYPES - 1];
-#endif
    /* Pre-hashed value for table lookup, invalid when zero.
     * Members after this point are not included in pipeline state hash key */
    uint32_t hash;
