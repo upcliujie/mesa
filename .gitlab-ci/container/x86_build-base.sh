@@ -26,14 +26,14 @@ apt-get install -y --no-remove \
         $STABLE_EPHEMERAL \
         bison \
         ccache \
-        clang-9 \
+        clang-10 \
         dpkg-cross \
         flex \
         g++ \
         g++-mingw-w64-x86-64 \
         gcc \
         git \
-        libclang-9-dev \
+        libclang-10-dev \
         libclc-dev \
         libelf-dev \
         libepoxy-dev \
