@@ -963,7 +963,7 @@ zink_draw_vbo(struct pipe_context *pctx,
    }
 
    struct set *persistent = NULL;
-   if (zink_program_num_descriptors(zink_program(gfx_program)))
+   if (zink_program_has_descriptors(zink_program(gfx_program)))
       persistent = update_descriptors(ctx, screen, false);
 
    struct zink_batch *batch = zink_batch_rp(ctx);
@@ -1175,7 +1175,7 @@ zink_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
                                                &ctx->compute_pipeline_state);
 
    struct set *persistent = NULL;
-   if (zink_program_num_descriptors(zink_program(comp_program)))
+   if (zink_program_has_descriptors(zink_program(comp_program)))
       persistent = update_descriptors(ctx, screen, true);
 
 
