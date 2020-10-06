@@ -951,17 +951,11 @@ meson-mingw32-x86_64:
 
 piglit-cl:
   extends:
+    - .piglit-test
     - .test-cl
-    - .llvmpipe-rules
-  artifacts:
-    when: on_failure
-    name: "mesa_${CI_JOB_NAME}"
-    paths:
-      - summary/
   variables:
     LP_CL: 1
     LP_NUM_THREADS: 1
-    PIGLIT_NO_WINDOW: 1
     PIGLIT_PROFILES: cl
     PIGLIT_OPTIONS: >
       -x bswap
