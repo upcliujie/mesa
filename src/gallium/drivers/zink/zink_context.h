@@ -37,6 +37,7 @@
 #include "zink_batch.h"
 #include "zink_compiler.h"
 #include "zink_descriptors.h"
+#include "zink_helpers.h"
 
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
