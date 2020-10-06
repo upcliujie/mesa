@@ -1124,7 +1124,8 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
                         uint32_t base_layer, uint32_t layer_count,
                         VkImageLayout initial_layout,
                         VkImageLayout final_layout,
-                        bool will_full_fast_clear)
+                        bool will_full_fast_clear,
+                        uint32_t dst_queue_family)
 {
    struct anv_device *device = cmd_buffer->device;
    const struct gen_device_info *devinfo = &device->info;
@@ -1291,6 +1292,13 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
 
    enum isl_aux_op resolve_op = ISL_AUX_OP_NONE;
 
+   /* Independent of final layout, do resolve when releasing ownership
+    * for foreign or external queues.
+    */
+   const bool ownership_release =
+      dst_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT ||
+      dst_queue_family == VK_QUEUE_FAMILY_EXTERNAL;
+
    /* If the initial layout supports more fast clear than the final layout
     * then we need at least a partial resolve.
     */
@@ -1303,6 +1311,10 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
 
    if (initial_aux_usage == ISL_AUX_USAGE_CCS_E &&
        final_aux_usage != ISL_AUX_USAGE_CCS_E)
+      resolve_op = ISL_AUX_OP_FULL_RESOLVE;
+
+   /* If color compression is in use and we are releasing ownership. */
+   if (initial_aux_usage == ISL_AUX_USAGE_CCS_E && ownership_release)
       resolve_op = ISL_AUX_OP_FULL_RESOLVE;
 
    if (resolve_op == ISL_AUX_OP_NONE)
@@ -2424,7 +2436,8 @@ void genX(CmdPipelineBarrier)(
                                     base_layer, layer_count,
                                     pImageMemoryBarriers[i].oldLayout,
                                     pImageMemoryBarriers[i].newLayout,
-                                    false /* will_full_fast_clear */);
+                                    false /* will_full_fast_clear */,
+                                    pImageMemoryBarriers[i].dstQueueFamilyIndex);
          }
       }
    }
@@ -5346,7 +5359,8 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
          transition_color_buffer(cmd_buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
                                  level, 1, base_layer, layer_count,
                                  att_state->current_layout, target_layout,
-                                 will_full_fast_clear);
+                                 will_full_fast_clear,
+                                 VK_QUEUE_FAMILY_IGNORED);
          att_state->aux_usage =
             anv_layout_to_aux_usage(&cmd_buffer->device->info, image,
                                     VK_IMAGE_ASPECT_COLOR_BIT,
@@ -6026,7 +6040,8 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
                                  iview->planes[0].isl.base_level, 1,
                                  base_layer, layer_count,
                                  att_state->current_layout, target_layout,
-                                 false /* will_full_fast_clear */);
+                                 false /* will_full_fast_clear */,
+                                 VK_QUEUE_FAMILY_IGNORED);
       }
 
       if (image->aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
