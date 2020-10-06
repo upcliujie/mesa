@@ -757,6 +757,7 @@ zink_destroy_screen(struct pipe_screen *pscreen)
       screen->vk_DestroyDebugUtilsMessengerEXT(screen->instance, screen->debugUtilsCallbackHandle, NULL);
    }
 
+   vkDestroyPipelineCache(screen->dev, screen->pipeline_cache, NULL);
    slab_destroy_parent(&screen->transfer_pool);
    FREE(screen);
 }
@@ -1148,6 +1149,15 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
 
    zink_screen_resource_init(&screen->base);
    zink_screen_fence_init(&screen->base);
+
+   VkPipelineCacheCreateInfo pcci;
+   pcci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+   pcci.pNext = NULL;
+   /* we're single-threaded now, so we don't need synchronization */
+   pcci.flags = screen->info.have_EXT_pipeline_creation_cache_control ? VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT_EXT : 0;
+   pcci.initialDataSize = 0;
+   pcci.pInitialData = NULL;
+   vkCreatePipelineCache(screen->dev, &pcci, NULL, &screen->pipeline_cache);
 
    slab_create_parent(&screen->transfer_pool, sizeof(struct zink_transfer), 16);
 
