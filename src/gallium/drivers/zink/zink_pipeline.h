@@ -65,6 +65,7 @@ struct zink_gfx_pipeline_state {
    /* Pre-hashed value for table lookup, invalid when zero.
     * Members after this point are not included in pipeline state hash key */
    uint32_t hash;
+   uint32_t vertex_buffers_enabled_mask;
 };
 
 struct zink_compute_pipeline_state {
