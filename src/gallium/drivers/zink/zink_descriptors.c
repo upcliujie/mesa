@@ -27,14 +27,23 @@
 #include "tgsi/tgsi_from_mesa.h"
 
 
+
 #include "zink_context.h"
 #include "zink_descriptors.h"
 #include "zink_program.h"
 #include "zink_resource.h"
 #include "zink_screen.h"
 
+#define XXH_INLINE_ALL
+#include "util/xxhash.h"
+
 #define MAX_SET_ITER_COUNT 4
 
+void
+debug_describe_zink_descriptor_pool(char *buf, const struct zink_descriptor_pool *ptr)
+{
+   sprintf(buf, "zink_descriptor_pool");
+}
 
 static struct zink_descriptor_pool *
 descriptor_pool_create(struct zink_screen *screen, enum zink_descriptor_type type, VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, VkDescriptorPoolSize *sizes, unsigned num_type_sizes)
@@ -42,6 +51,7 @@ descriptor_pool_create(struct zink_screen *screen, enum zink_descriptor_type typ
    struct zink_descriptor_pool *pool = rzalloc(NULL, struct zink_descriptor_pool);
    if (!pool)
       return NULL;
+   pipe_reference_init(&pool->reference, 1);
    pool->type = type;
    pool->num_descriptors = num_bindings;
    pool->desc_sets = _mesa_hash_table_create(NULL, NULL, _mesa_key_pointer_equal);
@@ -80,6 +90,24 @@ descriptor_pool_create(struct zink_screen *screen, enum zink_descriptor_type typ
 fail:
    zink_descriptor_pool_free(screen, pool);
    return NULL;
+}
+
+static struct zink_descriptor_pool *
+descriptor_pool_get(struct zink_context *ctx, enum zink_descriptor_type type, VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, VkDescriptorPoolSize *sizes, unsigned num_type_sizes)
+{
+   uint32_t hash = 0;
+
+   for (unsigned i = 0; i < num_bindings; i++)
+      hash = XXH32(&bindings[i], sizeof(VkDescriptorSetLayoutBinding), hash);
+   for (unsigned i = 0; i < num_type_sizes; i++)
+      hash = XXH32(&sizes[i], sizeof(VkDescriptorPoolSize), hash);
+
+   struct hash_entry *he = _mesa_hash_table_search_pre_hashed(ctx->descriptor_pools[type], hash, (void*)(uintptr_t)hash);
+   if (he)
+      return (void*)he->data;
+   struct zink_descriptor_pool *pool = descriptor_pool_create(zink_screen(ctx->base.screen), type, bindings, num_bindings, sizes, num_type_sizes);
+   _mesa_hash_table_insert_pre_hashed(ctx->descriptor_pools[type], hash, (void*)(uintptr_t)hash, pool);
+   return pool;
 }
 
 static bool
@@ -357,7 +385,7 @@ zink_descriptor_set_refs_clear(struct zink_descriptor_refs *refs, void *ptr)
 }
 
 bool
-zink_descriptor_program_init(struct zink_screen *screen,
+zink_descriptor_program_init(struct zink_context *ctx,
                        struct zink_shader *stages[ZINK_SHADER_COUNT],
                        struct zink_program *pg)
 {
@@ -404,6 +432,7 @@ zink_descriptor_program_init(struct zink_screen *screen,
 
    bool found_descriptors = false;
    for (unsigned i = ZINK_DESCRIPTOR_TYPES - 1; i < ZINK_DESCRIPTOR_TYPES; i--) {
+      struct zink_descriptor_pool *pool;
       if (!num_bindings[i]) {
          if (!found_descriptors)
             continue;
@@ -416,10 +445,11 @@ zink_descriptor_program_init(struct zink_screen *screen,
                                    VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT |
                                    VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
          VkDescriptorPoolSize null_size = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, ZINK_DEFAULT_MAX_DESCS};
-         pg->pool[i] = descriptor_pool_create(screen, i, &null_binding, 1, &null_size, 1);
-         if (!pg->pool[i])
+         pool = descriptor_pool_get(ctx, i, &null_binding, 1, &null_size, 1);
+         if (!pool)
             return false;
-         pg->pool[i]->num_descriptors = 0;
+         pool->num_descriptors = 0;
+         zink_descriptor_pool_reference(zink_screen(ctx->base.screen), &pg->pool[i], pool);
          continue;
       }
       found_descriptors = true;
@@ -464,9 +494,10 @@ zink_descriptor_program_init(struct zink_screen *screen,
          }
          break;
       }
-      pg->pool[i] = descriptor_pool_create(screen, i, bindings[i], num_bindings[i], type_sizes, num_type_sizes);
-      if (!pg->pool[i])
+      pool = descriptor_pool_get(ctx, i, bindings[i], num_bindings[i], type_sizes, num_type_sizes);
+      if (!pool)
          return false;
+      zink_descriptor_pool_reference(zink_screen(ctx->base.screen), &pg->pool[i], pool);
    }
    return true;
 }
@@ -512,4 +543,27 @@ zink_descriptor_pool_free(struct zink_screen *screen, struct zink_descriptor_poo
 
    util_dynarray_fini(&pool->alloc_desc_sets);
    ralloc_free(pool);
+}
+
+void
+zink_descriptor_pool_deinit(struct zink_context *ctx)
+{
+   for (unsigned i = 0; i < ZINK_DESCRIPTOR_TYPES; i++) {
+      hash_table_foreach(ctx->descriptor_pools[i], entry) {
+         struct zink_descriptor_pool *pool = (void*)entry->data;
+         zink_descriptor_pool_reference(zink_screen(ctx->base.screen), &pool, NULL);
+      }
+      _mesa_hash_table_destroy(ctx->descriptor_pools[i], NULL);
+   }
+}
+
+bool
+zink_descriptor_pool_init(struct zink_context *ctx)
+{
+   for (unsigned i = 0; i < ZINK_DESCRIPTOR_TYPES; i++) {
+      ctx->descriptor_pools[i] = _mesa_hash_table_create(ctx, NULL, _mesa_key_pointer_equal);
+      if (!ctx->descriptor_pools[i])
+         return false;
+   }
+   return true;
 }
