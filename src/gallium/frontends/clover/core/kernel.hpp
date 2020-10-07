@@ -78,6 +78,7 @@ namespace clover {
          argument &
          operator=(const argument &arg) = delete;
 
+         virtual std::unique_ptr<argument> clone() const;
          /// \a true if the argument has been set.
          bool set() const;
 
@@ -120,9 +121,14 @@ namespace clover {
       kernel(clover::program &prog, const std::string &name,
              const std::vector<clover::module::argument> &margs);
 
+      kernel(clover::program &prog, const std::string &name,
+             std::vector<std::unique_ptr<argument>> &args);
+
       kernel(const kernel &kern) = delete;
       kernel &
       operator=(const kernel &kern) = delete;
+
+      kernel *clone();
 
       void launch(command_queue &q,
                   const std::vector<size_t> &grid_offset,
@@ -153,6 +159,7 @@ namespace clover {
       public:
          scalar_argument(size_t size);
 
+         virtual std::unique_ptr<argument> clone() const;
          virtual void set(size_t size, const void *value);
          virtual void bind(exec_context &ctx,
                            const module::argument &marg);
@@ -165,6 +172,7 @@ namespace clover {
 
       class global_argument : public argument {
       public:
+         virtual std::unique_ptr<argument> clone() const;
          virtual void set(size_t size, const void *value);
          virtual void set_svm(const void *value);
          virtual void bind(exec_context &ctx,
@@ -178,6 +186,7 @@ namespace clover {
 
       class local_argument : public argument {
       public:
+         virtual std::unique_ptr<argument> clone() const;
          virtual size_t storage() const;
 
          virtual void set(size_t size, const void *value);
@@ -191,6 +200,7 @@ namespace clover {
 
       class constant_argument : public argument {
       public:
+         virtual std::unique_ptr<argument> clone() const;
          virtual void set(size_t size, const void *value);
          virtual void bind(exec_context &ctx,
                            const module::argument &marg);
@@ -212,6 +222,7 @@ namespace clover {
 
       class image_rd_argument : public image_argument {
       public:
+         virtual std::unique_ptr<argument> clone() const;
          virtual void set(size_t size, const void *value);
          virtual void bind(exec_context &ctx,
                            const module::argument &marg);
@@ -223,6 +234,7 @@ namespace clover {
 
       class image_wr_argument : public image_argument {
       public:
+         virtual std::unique_ptr<argument> clone() const;
          virtual void set(size_t size, const void *value);
          virtual void bind(exec_context &ctx,
                            const module::argument &marg);
@@ -231,6 +243,7 @@ namespace clover {
 
       class sampler_argument : public argument {
       public:
+         virtual std::unique_ptr<argument> clone() const;
          virtual void set(size_t size, const void *value);
          virtual void bind(exec_context &ctx,
                            const module::argument &marg);
