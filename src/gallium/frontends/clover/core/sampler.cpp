@@ -32,6 +32,29 @@ sampler::sampler(clover::context &ctx, bool norm_mode,
    _addr_mode(addr_mode), _filter_mode(filter_mode) {
 }
 
+sampler::sampler(clover::context &ctx,
+                 std::vector<cl_sampler_properties> properties) :
+   context(ctx), _properties(properties) {
+
+   _norm_mode = CL_TRUE;
+   _addr_mode = CL_ADDRESS_CLAMP;
+   _filter_mode = CL_FILTER_NEAREST;
+
+   for (auto &p : properties) {
+      switch (p) {
+      case CL_SAMPLER_NORMALIZED_COORDS:
+	 _norm_mode = static_cast<cl_bool>(_properties[p + 1]);
+	 break;
+      case CL_SAMPLER_ADDRESSING_MODE:
+	 _addr_mode = static_cast<cl_addressing_mode>(_properties[p + 1]);
+	 break;
+      case CL_SAMPLER_FILTER_MODE:
+	 _filter_mode = static_cast<cl_filter_mode>(_properties[p + 1]);
+	 break;
+      }
+   }
+}
+
 bool
 sampler::norm_mode() {
    return _norm_mode;
@@ -45,6 +68,10 @@ sampler::addr_mode() {
 cl_filter_mode
 sampler::filter_mode() {
    return _filter_mode;
+}
+
+std::vector<cl_sampler_properties> sampler::properties() {
+   return _properties;
 }
 
 void *
