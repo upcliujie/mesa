@@ -1763,6 +1763,31 @@ bool combine_comparison_ordering(opt_ctx &ctx, aco_ptr<Instruction>& instr)
    return true;
 }
 
+bool is_operand_constant_nonnan(opt_ctx &ctx, Operand op, unsigned bit_size)
+{
+   uint64_t constant;
+   if (op.isConstant()) {
+      constant = op.constantValue64();
+   } else if (op.isTemp()) {
+      unsigned id = original_temp_id(ctx, op.getTemp());
+      if (!ctx.info[id].is_constant_or_literal(bit_size))
+         return false;
+      constant = get_constant_op(ctx, ctx.info[id], bit_size).constantValue64();
+   } else {
+      return false;
+   }
+
+   bool is_nan = false;
+   if (bit_size == 16)
+      is_nan = ((constant >> 10) & 0x1f) == 0x1f && (constant & 0x3ff);
+   else if (bit_size == 32)
+      is_nan = ((constant >> 23) & 0xff) == 0xff && (constant & 0x7fffff);
+   else
+      is_nan = ((constant >> 52) & 0x7ff) == 0x7ff && (constant & 0xfffffffffffff);
+
+   return !is_nan;
+}
+
 /* s_or_b64(v_cmp_neq_f32(a, a), cmp(a, #b)) and b is not NaN -> get_unordered(cmp)(a, b)
  * s_and_b64(v_cmp_eq_f32(a, a), cmp(a, #b)) and b is not NaN -> get_ordered(cmp)(a, b) */
 bool combine_constant_comparison_ordering(opt_ctx &ctx, aco_ptr<Instruction>& instr)
@@ -1786,7 +1811,8 @@ bool combine_constant_comparison_ordering(opt_ctx &ctx, aco_ptr<Instruction>& in
    else if (get_f32_cmp(nan_test->opcode) != expected_nan_test)
       return false;
 
-   if (!is_cmp(cmp->opcode) || get_cmp_bitsize(cmp->opcode) != get_cmp_bitsize(nan_test->opcode))
+   unsigned bit_size = get_cmp_bitsize(cmp->opcode);
+   if (!is_cmp(cmp->opcode) || get_cmp_bitsize(nan_test->opcode) != bit_size)
       return false;
 
    if (!nan_test->operands[0].isTemp() || !nan_test->operands[1].isTemp())
@@ -1815,22 +1841,7 @@ bool combine_constant_comparison_ordering(opt_ctx &ctx, aco_ptr<Instruction>& in
    if (constant_operand == -1)
       return false;
 
-   uint32_t constant;
-   if (cmp->operands[constant_operand].isConstant()) {
-      constant = cmp->operands[constant_operand].constantValue();
-   } else if (cmp->operands[constant_operand].isTemp()) {
-      Temp tmp = cmp->operands[constant_operand].getTemp();
-      unsigned id = original_temp_id(ctx, tmp);
-      if (!ctx.info[id].is_constant_or_literal(32))
-         return false;
-      constant = ctx.info[id].val;
-   } else {
-      return false;
-   }
-
-   float constantf;
-   memcpy(&constantf, &constant, 4);
-   if (isnan(constantf))
+   if (!is_operand_constant_nonnan(ctx, cmp->operands[constant_operand], bit_size))
       return false;
 
    if (cmp->operands[0].isTemp())
