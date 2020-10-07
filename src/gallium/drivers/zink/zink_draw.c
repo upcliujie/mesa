@@ -562,10 +562,10 @@ handle_image_descriptor(struct zink_screen *screen, struct zink_resource *res, e
         image_info->imageLayout = layout;
         image_info->imageView = imageview;
         if (sampler) {
-           VkFormatProperties props;
-           vkGetPhysicalDeviceFormatProperties(screen->pdev, res->format, &props);
-           if ((res->optimal_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
-               (!res->optimal_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
+           VkFormatProperties props = screen->format_props[res->base.format];
+           bool can_linear = (res->optimal_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
+                             (!res->optimal_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
+           if (can_linear)
               image_info->sampler = sampler->sampler[0];
            else
               image_info->sampler = sampler->sampler[1] ?: sampler->sampler[0];

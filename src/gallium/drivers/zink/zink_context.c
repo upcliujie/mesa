@@ -99,12 +99,12 @@ update_descriptor_stage_state(struct zink_context *ctx, enum pipe_shader_type sh
                hash = XXH32(hash_data, data_size, hash);
             } else {
                struct zink_sampler_state *sampler_state = ctx->sampler_states[shader][idx + k];
-               VkFormatProperties props;
                struct zink_resource *res = zink_resource(ctx->sampler_views[shader][idx + k]->texture);
                if (sampler_state) {
-                  vkGetPhysicalDeviceFormatProperties(screen->pdev, res->format, &props);
-                  if ((res->optimial_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
-                      (!res->optimial_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
+                  VkFormatProperties props = screen->format_props[res->base.format];
+                  bool can_linear = (res->optimial_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
+                                    (!res->optimial_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
+                  if (can_linear)
                      info.sampler = sampler_state->sampler[0];
                   else
                      info.sampler = sampler_state->sampler[1] ?: sampler_state->sampler[0];

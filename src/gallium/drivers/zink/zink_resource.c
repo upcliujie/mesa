@@ -262,8 +262,7 @@ resource_create(struct pipe_screen *pscreen,
       if ((templ->nr_samples < 2 || screen->info.feats.features.shaderStorageImageMultisample) &&
           (templ->bind & PIPE_BIND_SHADER_IMAGE ||
           (templ->bind & PIPE_BIND_SAMPLER_VIEW && templ->flags & PIPE_RESOURCE_FLAG_TEXTURING_MORE_LIKELY))) {
-         VkFormatProperties props;
-         vkGetPhysicalDeviceFormatProperties(screen->pdev, res->format, &props);
+         VkFormatProperties props = screen->format_props[templ->format];
          /* gallium doesn't provide any way to actually know whether this will be used as a shader image,
           * so we have to just assume and set the bit if it's available
           */
