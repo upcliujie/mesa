@@ -74,6 +74,13 @@ static std::mutex create_device_mutex;
 FUNCTION_LIST
 #undef ITEM
 
+static void compiler_debug(void *private_data,
+                           enum radv_compiler_debug_level level,
+                           const char *message)
+{
+   fprintf(output, "%s\n", message);
+}
+
 void create_program(enum chip_class chip_class, Stage stage, unsigned wave_size, enum radeon_family family)
 {
    memset(&config, 0, sizeof(config));
@@ -81,6 +88,11 @@ void create_program(enum chip_class chip_class, Stage stage, unsigned wave_size,
 
    program.reset(new Program);
    aco::init_program(program.get(), stage, &info, chip_class, family, &config);
+
+   program->debug.print_to_stderr = false;
+   program->debug.shorten_messages = true;
+   program->debug.func = compiler_debug;
+   program->debug.private_data = nullptr;
 
    Block *block = program->create_and_insert_block();
    block->kind = block_kind_top_level;
