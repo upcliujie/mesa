@@ -429,3 +429,13 @@ clSetKernelExecInfo(cl_kernel d_kern,
 } catch (error &e) {
    return e.get();
 }
+
+CLOVER_API cl_kernel
+clCloneKernel(cl_kernel d_kern,
+	      cl_int *r_errcode) try {
+   auto &kern = obj(d_kern);
+   return kern.clone();
+} catch (error &e) {
+   ret_error(r_errcode, e);
+   return NULL;
+}
