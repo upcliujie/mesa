@@ -54,6 +54,9 @@ descriptor_pool_create(struct zink_screen *screen, enum zink_descriptor_type typ
    pipe_reference_init(&pool->reference, 1);
    pool->type = type;
    pool->num_descriptors = num_bindings;
+   for (unsigned i = 0; i < num_bindings; i++) {
+       pool->num_resources += bindings[i].descriptorCount;
+   }
    pool->desc_sets = _mesa_hash_table_create(NULL, NULL, _mesa_key_pointer_equal);
    if (!pool->desc_sets)
       goto fail;
