@@ -72,6 +72,13 @@ static std::mutex create_device_mutex;
 FUNCTION_LIST
 #undef ITEM
 
+static void compiler_debug(void *private_data,
+                           enum radv_compiler_debug_level level,
+                           const char *message)
+{
+   fprintf(output, "%s\n", message);
+}
+
 void create_program(enum chip_class chip_class, Stage stage, unsigned wave_size, enum radeon_family family)
 {
    memset(&config, 0, sizeof(config));
@@ -83,6 +90,11 @@ void create_program(enum chip_class chip_class, Stage stage, unsigned wave_size,
    calc_min_waves(program.get());
 
    program->debug.func = nullptr;
+   program->debug.private_data = nullptr;
+
+   program->debug.print_to_stderr = false;
+   program->debug.shorten_messages = true;
+   program->debug.func = compiler_debug;
    program->debug.private_data = nullptr;
 
    Block *block = program->create_and_insert_block();

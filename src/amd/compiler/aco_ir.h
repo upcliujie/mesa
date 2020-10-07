@@ -1906,6 +1906,8 @@ public:
    unsigned next_uniform_if_depth = 0;
 
    struct {
+      bool print_to_stderr = true;
+      bool shorten_messages = false;
       void (*func)(void *private_data,
                    enum radv_compiler_debug_level level,
                    const char *message);
