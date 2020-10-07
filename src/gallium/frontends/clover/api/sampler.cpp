@@ -89,6 +89,10 @@ clGetSamplerInfo(cl_sampler d_s, cl_sampler_info param,
       buf.as_scalar<cl_filter_mode>() = s.filter_mode();
       break;
 
+   case CL_SAMPLER_PROPERTIES:
+      buf.as_vector<cl_sampler_properties>() = s.properties();
+      break;
+
    default:
       throw error(CL_INVALID_VALUE);
    }
@@ -97,4 +101,35 @@ clGetSamplerInfo(cl_sampler d_s, cl_sampler_info param,
 
 } catch (error &e) {
    return e.get();
+}
+
+CLOVER_API cl_sampler
+clCreateSamplerWithProperties(cl_context d_ctx,
+			      const cl_sampler_properties *sampler_properties,
+			      cl_int *r_errcode)
+{
+   auto &ctx = obj(d_ctx);
+   cl_bool norm_mode = CL_TRUE;
+   cl_addressing_mode addr_mode = CL_ADDRESS_CLAMP;
+   cl_filter_mode filter_mode = CL_FILTER_NEAREST;
+   if (!any_of(std::mem_fn(&device::image_support), ctx.devices()))
+      throw error(CL_INVALID_OPERATION);
+
+   ret_error(r_errcode, CL_SUCCESS);
+
+   if (!sampler_properties)
+      return new sampler(ctx, norm_mode, addr_mode, filter_mode);
+
+   std::vector<cl_sampler_properties> properties;
+
+   const cl_sampler_properties *sampler_prop_ptr = sampler_properties;
+   while (*sampler_prop_ptr) {
+      properties.push_back(*sampler_prop_ptr);
+      sampler_prop_ptr++;
+      properties.push_back(*sampler_prop_ptr);
+      sampler_prop_ptr++;
+   }
+   properties.push_back(0);
+
+   return new sampler(ctx, properties);
 }
