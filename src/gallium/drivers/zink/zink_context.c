@@ -55,13 +55,107 @@
 #include "util/xxhash.h"
 
 static uint32_t
+calc_descriptor_state_hash_ubo(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
+{
+   hash = XXH32(&ctx->ubos[shader][idx].buffer, sizeof(void*), hash);
+   void *hash_data = &ctx->ubos[shader][idx].buffer_size;
+   size_t data_size = sizeof(unsigned);
+   hash = XXH32(hash_data, data_size, hash);
+   if (zs->bindings[ZINK_DESCRIPTOR_TYPE_UBO][i].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+      hash = XXH32(&ctx->ubos[shader][idx].buffer_offset, sizeof(unsigned), hash);
+   return hash;
+}
+
+static uint32_t
+calc_descriptor_state_hash_ssbo(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
+{
+   void *hash_data = &ctx->ssbos[shader][idx];
+   size_t data_size = sizeof(struct pipe_shader_buffer);
+   return XXH32(hash_data, data_size, hash);
+}
+
+static uint32_t
+calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
+{
+   void *hash_data;
+   size_t data_size;
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+
+   for (unsigned k = 0; k < zs->bindings[ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW][i].size; k++) {
+      VkDescriptorImageInfo info;
+      if (!ctx->sampler_views[shader][idx + k]) {
+         VkDescriptorImageInfo null_info = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
+         hash_data = &null_info;
+         data_size = sizeof(VkDescriptorImageInfo);
+         hash = XXH32(hash_data, data_size, hash);
+         continue;
+      }
+      hash = XXH32(&ctx->sampler_views[shader][idx + k]->texture, sizeof(void*), hash);
+      if (ctx->sampler_views[shader][idx + k]->target == PIPE_BUFFER) {
+         hash_data = &ctx->sampler_views[shader][idx + k]->u.buf;
+         data_size = sizeof(ctx->sampler_views[shader][idx + k]->u.buf);
+         hash = XXH32(hash_data, data_size, hash);
+      } else {
+         struct zink_sampler_state *sampler_state = ctx->sampler_states[shader][idx + k];
+         struct zink_resource *res = zink_resource(ctx->sampler_views[shader][idx + k]->texture);
+         if (sampler_state) {
+            VkFormatProperties props = screen->format_props[res->base.format];
+            bool can_linear = (res->optimial_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
+                              (!res->optimial_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
+            if (can_linear)
+               info.sampler = sampler_state->sampler[0];
+            else
+               info.sampler = sampler_state->sampler[1] ?: sampler_state->sampler[0];
+         } else
+            info.sampler = VK_NULL_HANDLE;
+         info.imageView = zink_sampler_view(ctx->sampler_views[shader][idx + k])->image_view;
+         if (util_format_is_depth_and_stencil(ctx->sampler_views[shader][idx + k]->format))
+            info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+         else
+            info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+         hash_data = &info;
+         data_size = sizeof(VkDescriptorImageInfo);
+         hash = XXH32(hash_data, data_size, hash);
+      }
+   }
+   return hash;
+}
+
+static uint32_t
+calc_descriptor_state_hash_image(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
+{
+   void *hash_data;
+   size_t data_size;
+
+   for (unsigned k = 0; k < zs->bindings[ZINK_DESCRIPTOR_TYPE_IMAGE][i].size; k++) {
+      VkDescriptorImageInfo info;
+      if (!ctx->image_views[shader][idx + k].base.resource) {
+         VkDescriptorImageInfo null_info = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
+         hash_data = &null_info;
+         data_size = sizeof(VkDescriptorImageInfo);
+         hash = XXH32(hash_data, data_size, hash);
+         break;
+      }
+      struct zink_resource *res = zink_resource(ctx->image_views[shader][idx + k].base.resource);
+      if (res->base.target == PIPE_BUFFER) {
+         hash = XXH32(&ctx->image_views[shader][idx + k].base.resource, sizeof(void*), hash);
+         hash_data = &ctx->image_views[shader][idx + k].base.u.buf;
+         data_size = sizeof(ctx->image_views[shader][idx + k].base.u.buf);
+         hash = XXH32(hash_data, data_size, hash);
+      } else {
+         info.imageView = ctx->image_views[shader][idx + k].surface->image_view;
+         info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+         hash_data = &info;
+         data_size = sizeof(VkDescriptorImageInfo);
+         hash = XXH32(hash_data, data_size, hash);
+      }
+   }
+   return hash;
+}
+
+static uint32_t
 update_descriptor_stage_state(struct zink_context *ctx, enum pipe_shader_type shader, enum zink_descriptor_type type)
 {
-   VkDescriptorImageInfo info;
-   struct zink_screen *screen = zink_screen(ctx->base.screen);
-   void *hash_data = NULL;
-   size_t data_size = 0;
-   VkDescriptorImageInfo null_info = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
    struct zink_shader *zs = shader == PIPE_SHADER_COMPUTE ? ctx->compute_stage : ctx->gfx_stages[shader];
 
    if (!zink_program_get_descriptor_usage(ctx, shader, type))
@@ -72,77 +166,16 @@ update_descriptor_stage_state(struct zink_context *ctx, enum pipe_shader_type sh
       int idx = zs->bindings[type][i].index;
       switch (type) {
       case ZINK_DESCRIPTOR_TYPE_UBO:
-         hash = XXH32(&ctx->ubos[shader][idx].buffer, sizeof(void*), hash);
-         hash_data = &ctx->ubos[shader][idx].buffer_size;
-         data_size = sizeof(unsigned);
-         hash = XXH32(hash_data, data_size, hash);
-         if (zs->bindings[type][i].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-            hash = XXH32(&ctx->ubos[shader][idx].buffer_offset, sizeof(unsigned), hash);
+         hash = calc_descriptor_state_hash_ubo(ctx, zs, shader, i, idx, hash);
          break;
       case ZINK_DESCRIPTOR_TYPE_SSBO:
-         hash_data = &ctx->ssbos[shader][idx];
-         data_size = sizeof(struct pipe_shader_buffer);
-         hash = XXH32(hash_data, data_size, hash);
+         hash = calc_descriptor_state_hash_ssbo(ctx, zs, shader, i, idx, hash);
          break;
       case ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW:
-         for (unsigned k = 0; k < zs->bindings[type][i].size; k++) {
-            if (!ctx->sampler_views[shader][idx + k]) {
-               hash_data = &null_info;
-               data_size = sizeof(VkDescriptorImageInfo);
-               hash = XXH32(hash_data, data_size, hash);
-               continue;
-            }
-            hash = XXH32(&ctx->sampler_views[shader][idx + k]->texture, sizeof(void*), hash);
-            if (ctx->sampler_views[shader][idx + k]->target == PIPE_BUFFER) {
-               hash_data = &ctx->sampler_views[shader][idx + k]->u.buf;
-               data_size = sizeof(ctx->sampler_views[shader][idx + k]->u.buf);
-               hash = XXH32(hash_data, data_size, hash);
-            } else {
-               struct zink_sampler_state *sampler_state = ctx->sampler_states[shader][idx + k];
-               struct zink_resource *res = zink_resource(ctx->sampler_views[shader][idx + k]->texture);
-               if (sampler_state) {
-                  VkFormatProperties props = screen->format_props[res->base.format];
-                  bool can_linear = (res->optimial_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
-                                    (!res->optimial_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
-                  if (can_linear)
-                     info.sampler = sampler_state->sampler[0];
-                  else
-                     info.sampler = sampler_state->sampler[1] ?: sampler_state->sampler[0];
-               } else
-                  info.sampler = VK_NULL_HANDLE;
-               info.imageView = zink_sampler_view(ctx->sampler_views[shader][idx + k])->image_view;
-               if (util_format_is_depth_and_stencil(ctx->sampler_views[shader][idx + k]->format))
-                  info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-               else
-                  info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-               hash_data = &info;
-               data_size = sizeof(VkDescriptorImageInfo);
-               hash = XXH32(hash_data, data_size, hash);
-            }
-         }
+         hash = calc_descriptor_state_hash_sampler(ctx, zs, shader, i, idx, hash);
          break;
       case ZINK_DESCRIPTOR_TYPE_IMAGE:
-         for (unsigned k = 0; k < zs->bindings[type][i].size; k++) {
-            if (!ctx->image_views[shader][idx + k].base.resource) {
-               hash_data = &null_info;
-               data_size = sizeof(VkDescriptorImageInfo);
-               hash = XXH32(hash_data, data_size, hash);
-               break;
-            }
-            struct zink_resource *res = zink_resource(ctx->image_views[shader][idx + k].base.resource);
-            if (res->base.target == PIPE_BUFFER) {
-               hash = XXH32(&ctx->image_views[shader][idx + k].base.resource, sizeof(void*), hash);
-               hash_data = &ctx->image_views[shader][idx + k].base.u.buf;
-               data_size = sizeof(ctx->image_views[shader][idx + k].base.u.buf);
-               hash = XXH32(hash_data, data_size, hash);
-            } else {
-               info.imageView = ctx->image_views[shader][idx + k].surface->image_view;
-               info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-               hash_data = &info;
-               data_size = sizeof(VkDescriptorImageInfo);
-               hash = XXH32(hash_data, data_size, hash);
-            }
-         }
+         hash = calc_descriptor_state_hash_image(ctx, zs, shader, i, idx, hash);
          break;
       default:
          unreachable("unknown descriptor type");
