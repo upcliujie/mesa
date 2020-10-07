@@ -29,6 +29,7 @@
 #include <vulkan/vulkan.h>
 #include "util/u_dynarray.h"
 #include "util/u_inlines.h"
+#include "util/u_dynarray.h"
 
 enum zink_descriptor_type {
    ZINK_DESCRIPTOR_TYPE_UBO,
@@ -52,6 +53,14 @@ struct zink_program;
 struct zink_resource;
 struct zink_shader;
 
+
+struct zink_descriptor_barrier {
+   struct zink_resource *res;
+   VkImageLayout layout;
+   VkAccessFlags access;
+   VkPipelineStageFlagBits stage;
+};
+
 struct zink_descriptor_pool {
    struct pipe_reference reference;
    enum zink_descriptor_type type;
@@ -71,6 +80,7 @@ struct zink_descriptor_set {
    uint32_t hash;
    bool invalid;
    bool recycled;
+   struct util_dynarray barriers;
 #ifndef NDEBUG
    /* for extra debug asserts */
    unsigned num_resources;
