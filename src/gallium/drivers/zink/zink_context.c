@@ -74,48 +74,80 @@ calc_descriptor_state_hash_ssbo(struct zink_context *ctx, struct zink_shader *zs
    return XXH32(hash_data, data_size, hash);
 }
 
-static uint32_t
-calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
+static void
+calc_descriptor_hash_sampler_view(struct zink_context *ctx, struct zink_sampler_view *sampler_view)
 {
    void *hash_data;
    size_t data_size;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
 
+   if (!sampler_view) {
+      sampler_view->hash = screen->null_descriptor_hashes.sampler_view;
+      return;
+   }
+
+   uint32_t hash = _mesa_hash_pointer(sampler_view->base.texture);
+   if (sampler_view->base.target == PIPE_BUFFER) {
+      hash_data = &sampler_view->base.u.buf;
+      data_size = sizeof(sampler_view->base.u.buf);
+      sampler_view->hash = XXH32(hash_data, data_size, hash);
+      return;
+   }
+
+   hash_data = &sampler_view->image_view;
+   data_size = sizeof(VkImageView*);
+   hash = XXH32(hash_data, data_size, hash);
+   VkImageLayout layout;
+   if (util_format_is_depth_and_stencil(sampler_view->base.format))
+      layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+   else
+      layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+   hash_data = &layout;
+   data_size = sizeof(VkImageLayout);
+   sampler_view->hash = XXH32(hash_data, data_size, hash);
+}
+
+static void
+calc_descriptor_hash_sampler_state(struct zink_sampler_state *sampler_state)
+{
+   for (int i = 0; i < ARRAY_SIZE(sampler_state->hash); i++) {
+      if (!sampler_state->sampler[i])
+         continue;
+
+      void *hash_data = &sampler_state->sampler[i];
+      size_t data_size = sizeof(VkSampler*);
+      sampler_state->hash[i] = XXH32(hash_data, data_size, 0);
+   }
+}
+
+static uint32_t
+calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+
    for (unsigned k = 0; k < zs->bindings[ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW][i].size; k++) {
-      VkDescriptorImageInfo info;
-      if (!ctx->sampler_views[shader][idx + k]) {
-         VkDescriptorImageInfo null_info = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
-         hash_data = &null_info;
-         data_size = sizeof(VkDescriptorImageInfo);
-         hash = XXH32(hash_data, data_size, hash);
+      struct zink_sampler_view *sampler_view = zink_sampler_view(ctx->sampler_views[shader][idx + k]);
+      if (!sampler_view) {
+         hash = XXH32(&screen->null_descriptor_hashes.sampler_view, sizeof(uint32_t), hash);
          continue;
       }
-      hash = XXH32(&ctx->sampler_views[shader][idx + k]->texture, sizeof(void*), hash);
-      if (ctx->sampler_views[shader][idx + k]->target == PIPE_BUFFER) {
-         hash_data = &ctx->sampler_views[shader][idx + k]->u.buf;
-         data_size = sizeof(ctx->sampler_views[shader][idx + k]->u.buf);
-         hash = XXH32(hash_data, data_size, hash);
-      } else {
-         struct zink_sampler_state *sampler_state = ctx->sampler_states[shader][idx + k];
-         struct zink_resource *res = zink_resource(ctx->sampler_views[shader][idx + k]->texture);
-         if (sampler_state) {
-            VkFormatProperties props = screen->format_props[res->base.format];
-            bool can_linear = (res->optimial_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
-                              (!res->optimial_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
-            if (can_linear)
-               info.sampler = sampler_state->sampler[0];
-            else
-               info.sampler = sampler_state->sampler[1] ?: sampler_state->sampler[0];
-         } else
-            info.sampler = VK_NULL_HANDLE;
-         info.imageView = zink_sampler_view(ctx->sampler_views[shader][idx + k])->image_view;
-         if (util_format_is_depth_and_stencil(ctx->sampler_views[shader][idx + k]->format))
-            info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+      hash = XXH32(&sampler_view->hash, sizeof(uint32_t), hash);
+      if (sampler_view->base.target == PIPE_BUFFER)
+         continue;
+
+      struct zink_sampler_state *sampler_state = ctx->sampler_states[shader][idx + k];
+      struct zink_resource *res = zink_resource(sampler_view->base.texture);
+
+      if (sampler_state) {
+         VkFormatProperties props = screen->format_props[res->base.format];
+         bool can_linear = (res->optimal_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
+                           (!res->optimal_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
+         uint32_t sampler_hash;
+         if (can_linear)
+            sampler_hash = sampler_state->hash[0];
          else
-            info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-         hash_data = &info;
-         data_size = sizeof(VkDescriptorImageInfo);
-         hash = XXH32(hash_data, data_size, hash);
+            sampler_hash = sampler_state->hash[1] ?: sampler_state->hash[0];
+         hash = XXH32(&sampler_hash, sizeof(uint32_t), hash);
       }
    }
    return hash;
@@ -450,6 +482,7 @@ zink_create_sampler_state(struct pipe_context *pctx,
    }
    pipe_reference_init(&sampler->reference, 1);
    util_dynarray_init(&sampler->desc_set_refs.refs, NULL);
+   calc_descriptor_hash_sampler_state(sampler);
 
    return sampler;
 }
@@ -465,8 +498,11 @@ zink_bind_sampler_states(struct pipe_context *pctx,
    uint32_t usage = zink_program_get_descriptor_usage(ctx, shader, ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW);
    bool update = false;
    for (unsigned i = 0; i < num_samplers; ++i) {
+      struct zink_sampler_state *a = ctx->sampler_states[shader][start_slot + i];
+      struct zink_sampler_state *b = samplers[i];
+      if (usage & BITFIELD64_BIT(start_slot + i))
+         update |= !!a != !!b || (a && ((a->hash[0] != b->hash[0]) || (a->hash[1] != b->hash[1])));
       ctx->sampler_states[shader][start_slot + i] = samplers[i];
-      update |= ctx->sampler_states[shader][start_slot + i] || (usage & BITFIELD64_BIT(start_slot + i));
    }
    ctx->num_samplers[shader] = start_slot + num_samplers;
    if (update)
@@ -608,6 +644,7 @@ zink_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *pres,
       return NULL;
    }
    util_dynarray_init(&sampler_view->desc_set_refs.refs, NULL);
+   calc_descriptor_hash_sampler_view(zink_context(pctx), sampler_view);
    return &sampler_view->base;
 }
 
@@ -891,8 +928,11 @@ zink_set_sampler_views(struct pipe_context *pctx,
    uint32_t usage = zink_program_get_descriptor_usage(ctx, shader_type, ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW);
    bool update = false;
    for (unsigned i = 0; i < num_views; ++i) {
+      struct zink_sampler_view *a = zink_sampler_view(ctx->sampler_views[shader_type][start_slot + i]);
+      struct zink_sampler_view *b = zink_sampler_view(views[i]);
+      if (usage & BITFIELD64_BIT(start_slot + i))
+         update |= !!a != !!b || (a && a->hash != b->hash);
       pipe_sampler_view_reference(&ctx->sampler_views[shader_type][start_slot + i], views[i]);
-      update |= ctx->sampler_views[shader_type][start_slot + i] || (usage & BITFIELD64_BIT(start_slot + i));
    }
    ctx->num_sampler_views[shader_type] = start_slot + num_views;
    if (update)
