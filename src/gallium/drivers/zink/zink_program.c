@@ -793,12 +793,10 @@ reference_render_pass(struct zink_screen *screen,
                       struct zink_gfx_program *prog,
                       struct zink_render_pass *render_pass)
 {
-   struct set_entry *entry = _mesa_set_search(prog->render_passes,
-                                              render_pass);
-   if (!entry) {
-      entry = _mesa_set_add(prog->render_passes, render_pass);
+   bool found = false;
+   _mesa_set_search_and_add(prog->render_passes, render_pass, &found);
+   if (!found)
       pipe_reference(NULL, &render_pass->reference);
-   }
 }
 
 VkPipeline
