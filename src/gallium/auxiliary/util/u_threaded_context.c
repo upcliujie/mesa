@@ -98,10 +98,66 @@ tc_batch_execute(void *job, UNUSED int thread_index)
 
    assert(!batch->token);
 
-   for (struct tc_call *iter = batch->call; iter != last;
-        iter += iter->num_call_slots) {
+   for (struct tc_call *iter = batch->call; iter != last;) {
       tc_assert(iter->sentinel == TC_SENTINEL);
+
+      /* Draw call merging. */
+      if (iter->call_id == TC_CALL_draw_vbo) {
+         struct tc_call *first = iter;
+         struct tc_call *second = first + first->num_call_slots;
+         struct tc_full_draw_info *first_info =
+            (struct tc_full_draw_info*)&first->payload;
+         struct tc_full_draw_info *second_info =
+            (struct tc_full_draw_info*)&second->payload;
+
+         /* If at least 2 consecutive draw calls can be merged... */
+         /* All fields must be the same except start and count. */
+         if (second != last && second->call_id == TC_CALL_draw_vbo &&
+             first_info->draw.drawid == 0 &&
+             !first_info->draw.indirect &&
+             !first_info->draw.count_from_stream_output &&
+             memcmp((uint32_t*)&first_info->draw + 2,
+                    (uint32_t*)&second_info->draw + 2,
+                    sizeof(struct pipe_draw_info) - 8) == 0) {
+            /* Merge up to 256 draw calls. */
+            struct pipe_draw_start_count multi[256];
+            unsigned num_draws = 2;
+
+            multi[0].start = first_info->draw.start;
+            multi[0].count = first_info->draw.count;
+            multi[1].start = second_info->draw.start;
+            multi[1].count = second_info->draw.count;
+
+            if (second_info->draw.index_size)
+               pipe_resource_reference(&second_info->draw.index.resource, NULL);
+
+            /* Find how many other draws can be merged. */
+            struct tc_call *next = second + second->num_call_slots;
+            struct tc_full_draw_info *next_info;
+            for (; next != last && next->call_id == TC_CALL_draw_vbo &&
+                 num_draws < 256 &&
+                 (next_info = (struct tc_full_draw_info*)&next->payload) &&
+                 memcmp((uint32_t*)&first_info->draw + 2,
+                        (uint32_t*)&next_info->draw + 2,
+                        sizeof(struct pipe_draw_info) - 8) == 0;
+                 next += next->num_call_slots, num_draws++) {
+               multi[num_draws].start = next_info->draw.start;
+               multi[num_draws].count = next_info->draw.count;
+
+               if (next_info->draw.index_size)
+                  pipe_resource_reference(&next_info->draw.index.resource, NULL);
+            }
+
+            pipe->multi_draw(pipe, &first_info->draw, multi, num_draws);
+            if (first_info->draw.index_size)
+               pipe_resource_reference(&first_info->draw.index.resource, NULL);
+            iter = next;
+            continue;
+         }
+      }
+
       execute_func[iter->call_id](pipe, &iter->payload);
+      iter += iter->num_call_slots;
    }
 
    tc_batch_check(batch);
