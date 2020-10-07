@@ -93,6 +93,7 @@ namespace clover {
       std::string supported_extensions() const;
       cl_version numeric_version() const;
       std::vector<cl_name_version> opencl_c_all_versions() const;
+      std::vector<cl_name_version> supported_extensions_ver() const;
 
       friend class command_queue;
       friend class root_resource;

@@ -346,6 +346,29 @@ device::supported_extensions() const {
       + std::string(svm_support() ? " cl_arm_shared_virtual_memory" : "");
 }
 
+std::vector<cl_name_version>
+device::supported_extensions_ver() const {
+   std::vector<cl_name_version> vec;
+
+   vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_khr_byte_addressable_store" } );
+   vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_khr_global_int32_base_atomics" } );
+   vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_khr_global_int32_extended_atomics" } );
+   vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_khr_local_int32_base_atomics" } );
+   vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_khr_local_int32_extended_atomics" } );
+   if (has_int64_atomics()) {
+      vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_khr_int64_base_atomics" } );
+      vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_khr_int64_extended_atomics" } );
+   }
+   if (has_doubles())
+      vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_khr_fp64" } );
+   if (has_halves())
+      vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_khr_fp16" } );
+   if (svm_support())
+      vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_arm_shared_virtual_memory" } );
+   return vec;
+}
+
+
 const void *
 device::get_compiler_options(enum pipe_shader_ir ir) const {
    return pipe->get_compiler_options(pipe, ir, PIPE_SHADER_COMPUTE);
