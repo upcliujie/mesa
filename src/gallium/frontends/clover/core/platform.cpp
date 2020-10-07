@@ -44,3 +44,12 @@ std::string
 platform::supported_extensions() const {
    return "cl_khr_icd";
 }
+
+
+std::vector<cl_name_version>
+platform::supported_extensions_ver() const {
+   std::vector<cl_name_version> vec;
+
+   vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "cl_khr_icd" } );
+   return vec;
+}
