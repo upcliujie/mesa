@@ -1078,6 +1078,17 @@ check_device_needs_mesa_wsi(struct zink_screen *screen)
    if (screen->info.props.vendorID == 0x14E4 &&
        screen->info.props.deviceID == 42) {
       screen->needs_mesa_wsi = true;
+       }
+}
+
+static void
+populate_format_props(struct zink_screen *screen)
+{
+   for (unsigned i = 0; i < PIPE_FORMAT_COUNT; i++) {
+      VkFormat format = zink_get_format(screen, i);
+      if (!format)
+         continue;
+      vkGetPhysicalDeviceFormatProperties(screen->pdev, format, &screen->format_props[i]);
    }
 }
 
@@ -1186,6 +1197,7 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
    zink_screen_fence_init(&screen->base);
 
    disk_cache_init(screen);
+   populate_format_props(screen);
 
    VkPipelineCacheCreateInfo pcci;
    pcci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
