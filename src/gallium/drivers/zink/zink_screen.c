@@ -1091,6 +1091,13 @@ populate_format_props(struct zink_screen *screen)
    }
 }
 
+static void
+pre_hash_descriptor_states(struct zink_screen *screen)
+{
+   VkDescriptorImageInfo null_info = {};
+   screen->null_descriptor_hashes.sampler_view = _mesa_hash_data(&null_info, sizeof(VkDescriptorImageInfo));
+}
+
 static struct pipe_screen *
 zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_screen_config *config)
 {
@@ -1197,6 +1204,7 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
 
    disk_cache_init(screen);
    populate_format_props(screen);
+   pre_hash_descriptor_states(screen);
 
    VkPipelineCacheCreateInfo pcci;
    pcci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
