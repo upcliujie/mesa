@@ -316,6 +316,10 @@ void
 zink_copy_buffer(struct zink_context *ctx, struct zink_batch *batch, struct zink_resource *dst, struct zink_resource *src,
                  unsigned dst_offset, unsigned src_offset, unsigned size);
 
+void
+zink_copy_image_buffer(struct zink_context *ctx, struct zink_batch *batch, struct zink_resource *dst, struct zink_resource *src,
+                       unsigned dst_level, unsigned dstx, unsigned dsty, unsigned dstz,
+                       unsigned src_level, const struct pipe_box *src_box, enum pipe_map_flags map_flags);
 
 void
 zink_destroy_sampler_state(struct zink_screen *screen, struct zink_sampler_state *sampler_state);
