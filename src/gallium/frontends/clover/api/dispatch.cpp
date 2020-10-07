@@ -178,7 +178,7 @@ namespace clover {
       clEnqueueSVMMemFill,
       clEnqueueSVMMap,
       clEnqueueSVMUnmap,
-      NULL, // clCreateSamplerWithProperties
+      clCreateSamplerWithProperties,
       clSetKernelArgSVMPointer,
       clSetKernelExecInfo,
 
