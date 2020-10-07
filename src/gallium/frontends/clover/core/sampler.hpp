@@ -33,6 +33,9 @@ namespace clover {
               cl_addressing_mode addr_mode,
               cl_filter_mode filter_mode);
 
+      sampler(clover::context &ctx,
+              std::vector<cl_sampler_properties> properties);
+
       sampler(const sampler &s) = delete;
       sampler &
       operator=(const sampler &s) = delete;
@@ -40,6 +43,8 @@ namespace clover {
       bool norm_mode();
       cl_addressing_mode addr_mode();
       cl_filter_mode filter_mode();
+
+      std::vector<cl_sampler_properties> properties();
 
       const intrusive_ref<clover::context> context;
 
@@ -49,6 +54,7 @@ namespace clover {
       void *bind(command_queue &q);
       void unbind(command_queue &q, void *st);
 
+      std::vector<cl_sampler_properties> _properties;
       bool _norm_mode;
       cl_addressing_mode _addr_mode;
       cl_filter_mode _filter_mode;
