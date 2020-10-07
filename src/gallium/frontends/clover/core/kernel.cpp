@@ -51,12 +51,42 @@ kernel::kernel(clover::program &prog, const std::string &name,
    }
 }
 
+kernel::kernel(clover::program &prog, const std::string &name,
+               std::vector<std::unique_ptr<argument>> &args) :
+   program(prog), _name(name), exec(*this),
+   program_ref(prog._kernel_ref_counter) {
+   for (auto &arg : args) {
+      _args.emplace_back(arg->clone());
+   }
+   for (auto &dev : prog.devices()) {
+      auto &m = prog.build(dev).binary;
+      auto msym = find(name_equals(name), m.syms);
+      const auto f = id_type_equals(msym.section, module::section::data_constant);
+      if (!any_of(f, m.secs))
+         continue;
+
+      auto mconst = find(f, m.secs);
+      auto rb = std::make_unique<root_buffer>(prog.context(), std::vector<cl_mem_properties>(),
+                                              CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
+                                              mconst.size, mconst.data.data());
+      _constant_buffers.emplace(&dev, std::move(rb));
+   }
+}
+
+
 template<typename V>
 static inline std::vector<uint>
 pad_vector(command_queue &q, const V &v, uint x) {
    std::vector<uint> w { v.begin(), v.end() };
    w.resize(q.device().max_block_size().size(), x);
    return w;
+}
+
+kernel *
+kernel::clone()
+{
+   kernel *cloned = new kernel(program, _name, _args);
+   return cloned;
 }
 
 void
@@ -396,6 +426,10 @@ kernel::argument::create(const module::argument &marg) {
    throw error(CL_INVALID_KERNEL_DEFINITION);
 }
 
+std::unique_ptr<kernel::argument> kernel::argument::clone() const {
+   return NULL;
+}
+
 kernel::argument::argument() : _set(false) {
 }
 
@@ -410,6 +444,13 @@ kernel::argument::storage() const {
 }
 
 kernel::scalar_argument::scalar_argument(size_t size) : size(size) {
+}
+
+std::unique_ptr<kernel::argument> kernel::scalar_argument::clone() const {
+   kernel::scalar_argument *cloned = new scalar_argument(size);
+   cloned->_set = _set;
+   cloned->v = v;
+   return std::unique_ptr<kernel::argument>(cloned);
 }
 
 void
@@ -437,6 +478,15 @@ kernel::scalar_argument::bind(exec_context &ctx,
 
 void
 kernel::scalar_argument::unbind(exec_context &ctx) {
+}
+
+std::unique_ptr<kernel::argument>
+kernel::global_argument::clone() const {
+   kernel::global_argument *cloned = new global_argument;
+   cloned->_set = _set;
+   cloned->buf = buf;
+   cloned->svm = svm;
+   return std::unique_ptr<kernel::argument>(cloned);
 }
 
 void
@@ -488,6 +538,14 @@ void
 kernel::global_argument::unbind(exec_context &ctx) {
 }
 
+std::unique_ptr<kernel::argument>
+kernel::local_argument::clone() const {
+   kernel::local_argument *cloned = new local_argument;
+   cloned->_set = _set;
+   cloned->_storage = _storage;
+   return std::unique_ptr<kernel::argument>(cloned);
+}
+
 size_t
 kernel::local_argument::storage() const {
    return _storage;
@@ -520,6 +578,15 @@ kernel::local_argument::bind(exec_context &ctx,
 
 void
 kernel::local_argument::unbind(exec_context &ctx) {
+}
+
+std::unique_ptr<kernel::argument>
+kernel::constant_argument::clone() const {
+   kernel::constant_argument *cloned = new constant_argument;
+   cloned->_set = _set;
+   cloned->buf = buf;
+   cloned->st = st;
+   return std::unique_ptr<kernel::argument>(cloned);
 }
 
 void
@@ -558,6 +625,15 @@ kernel::constant_argument::unbind(exec_context &ctx) {
       buf->resource_in(*ctx.q).unbind_surface(*ctx.q, st);
 }
 
+std::unique_ptr<kernel::argument>
+kernel::image_rd_argument::clone() const {
+   kernel::image_rd_argument *cloned = new image_rd_argument;
+   cloned->_set = _set;
+   cloned->img = img;
+   cloned->st = st;
+   return std::unique_ptr<kernel::argument>(cloned);
+}
+
 void
 kernel::image_rd_argument::set(size_t size, const void *value) {
    if (!value)
@@ -589,6 +665,14 @@ kernel::image_rd_argument::unbind(exec_context &ctx) {
    img->resource_in(*ctx.q).unbind_sampler_view(*ctx.q, st);
 }
 
+std::unique_ptr<kernel::argument>
+kernel::image_wr_argument::clone() const {
+   kernel::image_wr_argument *cloned = new image_wr_argument;
+   cloned->_set = _set;
+   cloned->img = img;
+   return std::unique_ptr<kernel::argument>(cloned);
+}
+
 void
 kernel::image_wr_argument::set(size_t size, const void *value) {
    if (!value)
@@ -615,6 +699,15 @@ kernel::image_wr_argument::bind(exec_context &ctx,
 
 void
 kernel::image_wr_argument::unbind(exec_context &ctx) {
+}
+
+std::unique_ptr<kernel::argument>
+kernel::sampler_argument::clone() const {
+   kernel::sampler_argument *cloned = new sampler_argument;
+   cloned->_set = _set;
+   cloned->s = s;
+   cloned->st = st;
+   return std::unique_ptr<kernel::argument>(cloned);
 }
 
 void
