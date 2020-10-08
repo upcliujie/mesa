@@ -604,7 +604,7 @@ compile_vertex_list(struct gl_context *ctx)
       int end = node->prims[node->prim_count - 1].start +
                 node->prims[node->prim_count - 1].count;
       int total_vert_count = end - node->prims[0].start;
-      int max_indices_count = total_vert_count;
+      int max_indices_count = total_vert_count * 2;
       int size = max_indices_count * sizeof(uint32_t);
       uint32_t* indices = (uint32_t*) malloc(size);
       uint32_t max_index = 0, min_index = 0xFFFFFFFF;
@@ -617,8 +617,21 @@ compile_vertex_list(struct gl_context *ctx)
          int vertex_count = node->prims[i].count;
          int start = idx;
 
-         for (unsigned j = 0; j < vertex_count; j++) {
-            indices[idx++] = node->prims[i].start + j;
+         if (node->prims[i].mode == GL_LINE_STRIP) {
+            /* Convert all line strips to lines. */
+            for (unsigned j = 0; j < vertex_count; j++) {
+               indices[idx++] = node->prims[i].start + j;
+               /* Repeat all but the first/last indices. */
+               if (j && j != vertex_count - 1) {
+                  indices[idx++] = node->prims[i].start + j;
+                  node->prims[i].count++;
+               }
+            }
+            node->prims[i].mode = GL_LINES;
+         } else {
+            for (unsigned j = 0; j < vertex_count; j++) {
+               indices[idx++] = node->prims[i].start + j;
+            }
          }
 
          min_index = MIN2(min_index, indices[start]);
