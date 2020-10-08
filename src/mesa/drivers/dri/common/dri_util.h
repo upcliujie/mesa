@@ -55,6 +55,7 @@
 
 #include <GL/gl.h>
 #include <GL/internal/dri_interface.h>
+#include "copper_interface.h"
 #include "main/menums.h"
 #include "main/formats.h"
 #include "util/xmlconfig.h"
@@ -69,6 +70,7 @@ struct gl_context;
 extern const __DRIcoreExtension driCoreExtension;
 extern const __DRIswrastExtension driSWRastExtension;
 extern const __DRIdri2Extension driDRI2Extension;
+extern const __DRIcopperExtension driCopperExtension;
 extern const __DRI2configQueryExtension dri2ConfigQueryExtension;
 extern const __DRIcopySubBufferExtension driCopySubBufferExtension;
 extern const __DRI2flushControlExtension dri2FlushControlExtension;
@@ -219,6 +221,10 @@ struct __DRIscreenRec {
     struct {
        const __DRImutableRenderBufferLoaderExtension *loader;
     } mutableRenderBuffer;
+
+    struct {
+       const __DRIcopperLoaderExtension *loader;
+    } copper;
 
     driOptionCache optionInfo;
     driOptionCache optionCache;

@@ -37,6 +37,7 @@
 #include "sw/dri/dri_sw_winsys.h"
 #include "sw/kms-dri/kms_dri_sw_winsys.h"
 #include "sw/null/null_sw_winsys.h"
+#include "sw/vkwsi/vkwsi_winsys.h"
 #include "sw/wrapper/wrapper_sw_winsys.h"
 #include "target-helpers/sw_helper_public.h"
 #include "target-helpers/inline_debug_helper.h"
@@ -73,6 +74,12 @@ static const struct sw_driver_descriptor driver_descriptors = {
       {
          .name = "kms_dri",
          .create_winsys = kms_dri_create_winsys,
+      },
+#endif
+#if 1 // def HAVE_PIPE_LOADER_VK
+      {
+         .name = "vkwsi",
+         .create_winsys = vkwsi_create_winsys,
       },
 #endif
 #ifndef __ANDROID__
@@ -197,6 +204,39 @@ fail:
    pipe_loader_sw_probe_teardown_common(sdev);
    if (sdev->fd != -1)
       close(sdev->fd);
+   FREE(sdev);
+   return false;
+}
+#endif
+
+/* XXX uncanny valley of pipe_loader_sw_probe_null */
+#ifdef HAVE_PIPE_LOADER_VK
+bool
+pipe_loader_sw_probe_vk(struct pipe_loader_device **devs)
+{
+   struct pipe_loader_sw_device *sdev = CALLOC_STRUCT(pipe_loader_sw_device);
+   int i;
+
+   if (!sdev)
+      return false;
+
+   if (!pipe_loader_sw_probe_init_common(sdev))
+      goto fail;
+
+   for (i = 0; sdev->dd->winsys[i].name; i++) {
+      if (strcmp(sdev->dd->winsys[i].name, "vkwsi") == 0) {
+         sdev->ws = sdev->dd->winsys[i].create_winsys();
+         break;
+      }
+   }
+   if (!sdev->ws)
+      goto fail;
+
+   *devs = &sdev->base;
+   return true;
+
+fail:
+   pipe_loader_sw_probe_teardown_common(sdev);
    FREE(sdev);
    return false;
 }

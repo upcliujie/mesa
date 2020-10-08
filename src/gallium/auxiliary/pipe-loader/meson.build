@@ -39,13 +39,16 @@ endif
 if with_gallium_drisw_kms
   libpipe_loader_defines += '-DHAVE_PIPE_LOADER_KMS'
 endif
+if with_gallium_zink
+  libpipe_loader_defines += '-DHAVE_PIPE_LOADER_VK'
+endif
 
 libpipe_loader_static = static_library(
   'pipe_loader_static',
   files_pipe_loader,
   include_directories : [
     inc_util, inc_loader, inc_gallium, inc_include, inc_src, inc_gallium_aux,
-    inc_gallium_winsys,
+    inc_gallium_winsys, inc_gallium_drivers,
   ],
   c_args : [libpipe_loader_defines, '-DGALLIUM_STATIC_TARGETS=1'],
   gnu_symbol_visibility : 'hidden',

@@ -1604,3 +1604,18 @@ zink_drm_create_screen(int fd, const struct pipe_screen_config *config)
 
    return &ret->base;
 }
+
+VkInstance
+zink_get_screen_instance(struct zink_screen *screen)
+{
+   return screen->instance;
+}
+
+VkSwapchainKHR
+zink_create_swapchain(struct zink_screen *screen,
+                      const VkSwapchainCreateInfoKHR *ci)
+{
+   VkSwapchainKHR ret = VK_NULL_HANDLE;
+   screen->vk_CreateSwapchainKHR(screen->dev, ci, NULL, &ret);
+   return ret;
+}

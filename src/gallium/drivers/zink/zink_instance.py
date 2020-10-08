@@ -47,6 +47,8 @@ EXTENSIONS = [
                    "GetPhysicalDeviceFormatProperties2", "GetPhysicalDeviceImageFormatProperties2"]),
     Extension("VK_MVK_moltenvk",
         nonstandard=True),
+    Extension("VK_KHR_surface"),
+    Extension("VK_KHR_xlib_surface"),
 ]
 
 # constructor: Layer(name, conditions=[])
@@ -95,6 +97,13 @@ zink_create_instance(struct zink_instance_info *instance_info);
 
 bool
 zink_load_instance_extensions(struct zink_screen *screen);
+
+VkInstance
+zink_get_screen_instance(struct zink_screen *screen);
+
+VkSwapchainKHR
+zink_create_swapchain(struct zink_screen *screen,
+                      const VkSwapchainCreateInfoKHR *ci);
 
 #endif
 """
