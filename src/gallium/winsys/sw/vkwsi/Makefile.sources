@@ -1,0 +1,3 @@
+C_SOURCES := \
+	vkwsi_winsys.c \
+	vkwsi_winsys.h
