@@ -155,6 +155,7 @@ static const struct extension_info known_glx_extensions[] = {
    { GLX(EXT_visual_rating),           VER(0,0), Y, Y, N, N },
    { GLX(ATI_pixel_format_float),      VER(0,0), N, N, N, N },
    { GLX(INTEL_swap_event),            VER(0,0), Y, N, N, N },
+   { GLX(MESA_copper),                 VER(0,0), Y, N, N, N },
    { GLX(MESA_copy_sub_buffer),        VER(0,0), Y, N, N, N },
    { GLX(MESA_multithread_makecurrent),VER(0,0), Y, N, N, Y },
    { GLX(MESA_query_renderer),         VER(0,0), Y, N, N, Y },

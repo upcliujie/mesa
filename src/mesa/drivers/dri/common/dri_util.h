@@ -55,6 +55,7 @@
 
 #include <GL/gl.h>
 #include <GL/internal/dri_interface.h>
+#include "copper_interface.h"
 #include "main/menums.h"
 #include "main/formats.h"
 #include "util/xmlconfig.h"
@@ -69,6 +70,7 @@ struct gl_context;
 extern const __DRIcoreExtension driCoreExtension;
 extern const __DRIswrastExtension driSWRastExtension;
 extern const __DRIdri2Extension driDRI2Extension;
+extern const __DRIcopperExtension driCopperExtension;
 extern const __DRI2configQueryExtension dri2ConfigQueryExtension;
 extern const __DRIcopySubBufferExtension driCopySubBufferExtension;
 extern const __DRI2flushControlExtension dri2FlushControlExtension;
@@ -186,6 +188,13 @@ struct __DRIscreenRec {
     int fd;
 
     /**
+     * Opaque handle to the system device corresponding to this screen.
+     * For drivk this is the VkPhysicalDevice.
+     */
+    void *dev;
+    void *instance;
+
+    /**
      * Device-dependent private information (not stored in the SAREA).
      * 
      * This pointer is never touched by the DRI layer.
@@ -219,6 +228,10 @@ struct __DRIscreenRec {
     struct {
        const __DRImutableRenderBufferLoaderExtension *loader;
     } mutableRenderBuffer;
+
+    struct {
+       const __DRIcopperLoaderExtension *loader;
+    } copper;
 
     driOptionCache optionInfo;
     driOptionCache optionCache;
@@ -338,5 +351,24 @@ driContextSetFlags(struct gl_context *ctx, uint32_t flags);
 extern const __DRIimageDriverExtension driImageDriverExtension;
 
 extern const __DRInoErrorExtension dri2NoErrorExtension;
+
+extern __DRIscreen *
+driCopperCreateNewScreen(void *dev, const __DRIextension **extensions,
+                         const __DRIextension **driver_extensions,
+                         const __DRIconfig ***driver_configs, void *data);
+
+extern __DRIcontext *
+driCreateContextAttribs(__DRIscreen *screen, int api,
+                        const __DRIconfig *config,
+                        __DRIcontext *shared,
+                        unsigned num_attribs,
+                        const uint32_t *attribs,
+                        unsigned *error,
+                        void *data);
+
+extern __DRIdrawable *
+driCreateNewDrawable(__DRIscreen *screen,
+                     const __DRIconfig *config,
+                     void *data);
 
 #endif /* _DRI_UTIL_H_ */

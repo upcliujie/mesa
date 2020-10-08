@@ -88,6 +88,8 @@ setupLoaderExtensions(__DRIscreen *psp,
            psp->image.loader = (__DRIimageLoaderExtension *) extensions[i];
         if (strcmp(extensions[i]->name, __DRI_MUTABLE_RENDER_BUFFER_LOADER) == 0)
            psp->mutableRenderBuffer.loader = (__DRImutableRenderBufferLoaderExtension *) extensions[i];
+        if (strcmp(extensions[i]->name, __DRI_COPPER_LOADER) == 0)
+           psp->copper.loader = (__DRIcopperLoaderExtension *) extensions[i];
     }
 }
 
@@ -116,7 +118,7 @@ const struct __DriverAPIRec *globalDriverAPI = &driDriverAPI;
  * Display.
  */
 static __DRIscreen *
-driCreateNewScreen2(int scrn, int fd,
+driCreateNewScreen3(void *dev, int scrn, int fd,
                     const __DRIextension **extensions,
                     const __DRIextension **driver_extensions,
                     const __DRIconfig ***driver_configs, void *data)
@@ -150,6 +152,7 @@ driCreateNewScreen2(int scrn, int fd,
     psp->extensions = emptyExtensionList;
     psp->fd = fd;
     psp->myNum = scrn;
+    psp->dev = dev;
 
     /* Option parsing before ->InitScreen(), as some options apply there. */
     driParseOptionInfo(&psp->optionInfo,
@@ -194,12 +197,22 @@ driCreateNewScreen2(int scrn, int fd,
 }
 
 static __DRIscreen *
+driCreateNewScreen2(int scrn, int fd,
+                    const __DRIextension **extensions,
+                    const __DRIextension **driver_extensions,
+                    const __DRIconfig ***driver_configs, void *data)
+{
+   return driCreateNewScreen3(NULL, scrn, fd, extensions, driver_extensions,
+                              driver_configs, data);
+}
+
+static __DRIscreen *
 dri2CreateNewScreen(int scrn, int fd,
 		    const __DRIextension **extensions,
 		    const __DRIconfig ***driver_configs, void *data)
 {
    return driCreateNewScreen2(scrn, fd, extensions, NULL,
-                               driver_configs, data);
+                              driver_configs, data);
 }
 
 /** swrast driver createNewScreen entrypoint. */
@@ -208,7 +221,7 @@ driSWRastCreateNewScreen(int scrn, const __DRIextension **extensions,
                          const __DRIconfig ***driver_configs, void *data)
 {
    return driCreateNewScreen2(scrn, -1, extensions, NULL,
-                               driver_configs, data);
+                              driver_configs, data);
 }
 
 static __DRIscreen *
@@ -217,7 +230,16 @@ driSWRastCreateNewScreen2(int scrn, const __DRIextension **extensions,
                           const __DRIconfig ***driver_configs, void *data)
 {
    return driCreateNewScreen2(scrn, -1, extensions, driver_extensions,
-                               driver_configs, data);
+                              driver_configs, data);
+}
+
+__DRIscreen *
+driCopperCreateNewScreen(void *dev, const __DRIextension **extensions,
+                         const __DRIextension **driver_extensions,
+                         const __DRIconfig ***driver_configs, void *data)
+{
+   return driCreateNewScreen3(dev, -1, -1, extensions, driver_extensions,
+                              driver_configs, data);
 }
 
 /**
@@ -296,7 +318,7 @@ validate_context_version(__DRIscreen *screen,
 /*****************************************************************/
 /*@{*/
 
-static __DRIcontext *
+__DRIcontext *
 driCreateContextAttribs(__DRIscreen *screen, int api,
                         const __DRIconfig *config,
                         __DRIcontext *shared,
@@ -671,7 +693,7 @@ static void dri_put_drawable(__DRIdrawable *pdp)
     }
 }
 
-static __DRIdrawable *
+__DRIdrawable *
 driCreateNewDrawable(__DRIscreen *screen,
                      const __DRIconfig *config,
                      void *data)
