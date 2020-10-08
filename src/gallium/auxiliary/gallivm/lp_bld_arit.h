@@ -85,6 +85,14 @@ lp_build_mul(struct lp_build_context *bld,
              LLVMValueRef b);
 
 LLVMValueRef
+lp_build_mul_8_16_lohi(struct lp_build_context *bld,
+		       unsigned bit_size,
+		       bool is_signed,
+		       LLVMValueRef a,
+		       LLVMValueRef b,
+		       LLVMValueRef *res_hi);
+
+LLVMValueRef
 lp_build_mul_32_lohi_cpu(struct lp_build_context *bld,
                          LLVMValueRef a,
                          LLVMValueRef b,

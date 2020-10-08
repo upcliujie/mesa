@@ -1176,6 +1176,41 @@ lp_build_mul_32_lohi_cpu(struct lp_build_context *bld,
    }
 }
 
+LLVMValueRef
+lp_build_mul_8_16_lohi(struct lp_build_context *bld,
+		       unsigned bit_size,
+		       bool is_signed,
+		       LLVMValueRef a,
+		       LLVMValueRef b,
+		       LLVMValueRef *res_hi)
+{
+   struct gallivm_state *gallivm = bld->gallivm;
+   LLVMBuilderRef builder = gallivm->builder;
+   LLVMValueRef res, res_lo;
+   struct lp_type type_tmp;
+   LLVMTypeRef narrow_type;
+
+   type_tmp = bld->type;
+   type_tmp.width = bit_size;
+   narrow_type = lp_build_vec_type(gallivm, type_tmp);
+
+   if (is_signed) {
+      a = LLVMBuildSExt(builder, a, bld->vec_type, "");
+      b = LLVMBuildSExt(builder, b, bld->vec_type, "");
+   } else {
+      a = LLVMBuildZExt(builder, a, bld->vec_type, "");
+      b = LLVMBuildZExt(builder, b, bld->vec_type, "");
+   }
+
+   res = LLVMBuildMul(builder, a, b, "");
+
+   res_lo = LLVMBuildTrunc(builder, res, narrow_type, "");
+
+   res = LLVMBuildLShr(builder, res, lp_build_const_vec(gallivm, bld->type, bit_size), "");
+   res = LLVMBuildTrunc(builder, res, narrow_type, "");
+   *res_hi = res;
+   return res_lo;
+}
 
 /*
  * Widening mul, valid for 32x32 bit -> 64bit only.

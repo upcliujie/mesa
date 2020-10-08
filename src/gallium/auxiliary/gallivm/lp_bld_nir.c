@@ -767,7 +767,10 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
       break;
    case nir_op_imul_high: {
       LLVMValueRef hi_bits;
-      lp_build_mul_32_lohi(get_int_bld(bld_base, false, src_bit_size[0]), src[0], src[1], &hi_bits);
+      if (src_bit_size[0] < 32)
+         lp_build_mul_8_16_lohi(&bld_base->uint_bld, src_bit_size[0], true, src[0], src[1], &hi_bits);
+      else
+         lp_build_mul_32_lohi(get_int_bld(bld_base, false, src_bit_size[0]), src[0], src[1], &hi_bits);
       result = hi_bits;
       break;
    }
@@ -901,7 +904,10 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
       break;
    case nir_op_umul_high: {
       LLVMValueRef hi_bits;
-      lp_build_mul_32_lohi(get_int_bld(bld_base, true, src_bit_size[0]), src[0], src[1], &hi_bits);
+      if (src_bit_size[0] < 32)
+         lp_build_mul_8_16_lohi(&bld_base->uint_bld, src_bit_size[0], false, src[0], src[1], &hi_bits);
+      else
+         lp_build_mul_32_lohi(get_int_bld(bld_base, true, src_bit_size[0]), src[0], src[1], &hi_bits);
       result = hi_bits;
       break;
    }
