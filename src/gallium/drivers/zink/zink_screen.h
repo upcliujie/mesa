@@ -169,4 +169,10 @@ zink_is_depth_format_supported(struct zink_screen *screen, VkFormat format);
 void
 zink_screen_update_pipeline_cache(struct zink_screen *screen);
 
+uint32_t
+zink_get_loader_version(void);
+
+void
+zink_init_debug(void);
+
 #endif
