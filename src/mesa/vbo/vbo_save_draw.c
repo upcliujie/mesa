@@ -31,6 +31,7 @@
 #include "main/glheader.h"
 #include "main/bufferobj.h"
 #include "main/context.h"
+#include "main/enable.h"
 #include "main/mesa_private.h"
 #include "main/macros.h"
 #include "main/light.h"
@@ -210,10 +211,14 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
       assert(ctx->NewState == 0);
 
       if (node->vertex_count > 0) {
-         GLuint min_index = _vbo_save_get_min_index(node);
-         GLuint max_index = _vbo_save_get_max_index(node);
-         ctx->Driver.Draw(ctx, node->prims, node->prim_count, NULL, GL_TRUE,
-                          min_index, max_index, 1, 0, NULL, 0);
+         /* Primitive restart should not affect display list execution, so disable it */
+         bool was_on = _mesa_IsEnabled(GL_PRIMITIVE_RESTART_NV);
+         _mesa_set_enable(ctx, GL_PRIMITIVE_RESTART_NV, false);
+
+         ctx->Driver.Draw(ctx, node->prims, node->prim_count, &node->ib, GL_TRUE,
+                          node->min_index, node->max_index, 1, 0, NULL, 0);
+
+         _mesa_set_enable(ctx, GL_PRIMITIVE_RESTART_NV, was_on);
       }
    }
 
