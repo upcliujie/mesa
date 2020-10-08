@@ -1696,6 +1696,11 @@ zink_flush(struct pipe_context *pctx,
    zink_fence_reference(zink_screen(pctx->screen),
                         (struct zink_fence **)pfence,
                         batch->fence);
+   if (flags & PIPE_FLUSH_END_OF_FRAME) {
+      if (!ctx->first_frame)
+         zink_fence_finish(zink_screen(pctx->screen), pctx, batch->fence, PIPE_TIMEOUT_INFINITE);
+      ctx->first_frame = true;
+   }
 }
 
 void
