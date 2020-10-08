@@ -20,8 +20,6 @@ program/execute/amdgcn-callee-saved-registers: skip
 program/execute/amdgcn-f16-inline-immediates: skip
 program/execute/amdgcn-f32-inline-immediates/add integer 64: fail
 program/execute/amdgcn-i16-inline-immediates: skip
-program/execute/amdgcn-mubuf-negative-vaddr: crash
-program/execute/amdgcn.sign_extend_inreg: crash
 program/execute/atomic_int64_add-global: skip
 program/execute/atomic_int64_add-global-return: skip
 program/execute/atomic_int64_add-local: skip
@@ -180,11 +178,10 @@ program/execute/builtin/builtin-ushort-popcount-1.2.generated: skip
 program/execute/builtin/builtin-ushort-upsample-1.0.generated: crash
 program/execute/call-clobbers-amdgcn: skip
 program/execute/calls: crash
-program/execute/calls-large-struct: crash
-program/execute/calls-struct: crash
-program/execute/gegl-rgb-gamma-u8-to-ragabaf: crash
+program/execute/calls-large-struct/byval struct: fail
+program/execute/calls-struct/regs struct: fail
+program/execute/calls-struct/small struct in regs: fail
 program/execute/global-offset/3d, input dependent: fail
-program/execute/i32-stack-array: crash
 program/execute/image-attributes: skip
 program/execute/image-read-2d: skip
 program/execute/image-write-2d: skip
@@ -193,12 +190,7 @@ program/execute/load-hi16-generic: skip
 program/execute/load-lo16: crash
 program/execute/load-lo16-generic: skip
 program/execute/mad-mix: skip
-program/execute/multiple-stack-objects: crash
-program/execute/negative-private-base-pointer: crash
 program/execute/program-tester-check-local-size-test-should-skip/this test should skip: skip
-program/execute/pyrit-wpa-psk: crash
-program/execute/realign-stack: crash
-program/execute/reference: crash
 program/execute/sampler: skip
 program/execute/scalar-logical-float: skip
 program/execute/store-hi16-generic: skip
@@ -213,18 +205,36 @@ program/execute/vload/vload-half-constant: skip
 program/execute/vload/vload-half-global: skip
 program/execute/vload/vload-half-local: skip
 program/execute/vload/vload-half-private: skip
-program/execute/vload/vload-int-private: crash
-program/execute/vload/vload-long-private: crash
-program/execute/vload/vload-short-private: crash
-program/execute/vload/vload-uchar-private: crash
-program/execute/vload/vload-uint-private: crash
-program/execute/vload/vload-ulong-private: crash
-program/execute/vload/vload-ushort-private: crash
-program/execute/vload/vload_half-float-private: crash
-program/execute/vload/vloada_half-float-private: crash
-program/execute/vstore/vstore-char-private: crash
-program/execute/vstore/vstore-double-private: crash
-program/execute/vstore/vstore-float-private: crash
+program/execute/vload/vload-int-global: fail
+program/execute/vload/vload-int-local: fail
+program/execute/vload/vload-int-private: fail
+program/execute/vload/vload-long-global: fail
+program/execute/vload/vload-long-local: fail
+program/execute/vload/vload-long-private: fail
+program/execute/vload/vload-short-global: fail
+program/execute/vload/vload-short-local: fail
+program/execute/vload/vload-short-private: fail
+program/execute/vload/vload-uchar-global: fail
+program/execute/vload/vload-uchar-local: fail
+program/execute/vload/vload-uchar-private: fail
+program/execute/vload/vload-uint-global: fail
+program/execute/vload/vload-uint-local: fail
+program/execute/vload/vload-uint-private: fail
+program/execute/vload/vload-ulong-global: fail
+program/execute/vload/vload-ulong-local: fail
+program/execute/vload/vload-ulong-private: fail
+program/execute/vload/vload-ushort-global: fail
+program/execute/vload/vload-ushort-local: fail
+program/execute/vload/vload-ushort-private: fail
+program/execute/vstore/vstore-char-global: fail
+program/execute/vstore/vstore-char-local: fail
+program/execute/vstore/vstore-char-private: fail
+program/execute/vstore/vstore-double-global: fail
+program/execute/vstore/vstore-double-local: fail
+program/execute/vstore/vstore-double-private: fail
+program/execute/vstore/vstore-float-global: fail
+program/execute/vstore/vstore-float-local: fail
+program/execute/vstore/vstore-float-private: fail
 program/execute/vstore/vstore-half-global: skip
 program/execute/vstore/vstore-half-local: skip
 program/execute/vstore/vstore-half-private: skip
@@ -238,11 +248,9 @@ program/execute/vstore/vstore-ushort-private: crash
 program/execute/vstore/vstore_half-double-global: crash
 program/execute/vstore/vstore_half-double-local: crash
 program/execute/vstore/vstore_half-double-private: crash
-program/execute/vstore/vstore_half-float-private: crash
 program/execute/vstore/vstorea_half-double-global: crash
 program/execute/vstore/vstorea_half-double-local: crash
 program/execute/vstore/vstorea_half-double-private: crash
-program/execute/vstore/vstorea_half-float-private: crash
 summary:
        name:  results
        ----  --------
