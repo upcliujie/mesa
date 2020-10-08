@@ -48,6 +48,7 @@ enum pipe_loader_device_type {
    PIPE_LOADER_DEVICE_SOFTWARE,
    PIPE_LOADER_DEVICE_PCI,
    PIPE_LOADER_DEVICE_PLATFORM,
+   PIPE_LOADER_DEVICE_VULKAN,
    NUM_PIPE_LOADER_DEVICE_TYPES
 };
 
@@ -148,6 +149,16 @@ bool
 pipe_loader_sw_probe_kms(struct pipe_loader_device **devs, int fd);
 
 /**
+ * Initialize a Vulkan device
+ *
+ * This function is platform-specific.
+ *
+ * \sa pipe_loader_probe
+ */
+bool
+pipe_loader_sw_probe_vk(struct pipe_loader_device **devs);
+
+/**
  * Initialize a null sw device.
  *
  * This function is platform-specific.
@@ -205,6 +216,27 @@ pipe_loader_drm_probe_fd(struct pipe_loader_device **dev, int fd);
  */
 const struct driOptionDescription *
 pipe_loader_drm_get_driconf_by_name(const char *driver_name, unsigned *count);
+
+/**
+ * Get a list of known Vulkan physical devices.
+ *
+ * This function is platform-specific.
+ *
+ * \sa pipe_loader_probe
+ */
+int
+pipe_loader_vk_probe(struct pipe_loader_device **devs, int ndev);
+
+/**
+ * Initialize a Vulkan physical device
+ *
+ * This function is platform-specific.
+ *
+ * \sa pipe_loader_probe
+ */
+bool
+pipe_loader_vk_probe_one(struct pipe_loader_device **dev, void *instance,
+                         void *pdev);
 
 #ifdef __cplusplus
 }

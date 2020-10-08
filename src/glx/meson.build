@@ -91,6 +91,10 @@ if with_dri3
   files_libglx += files('dri3_glx.c', 'dri3_priv.h')
 endif
 
+if with_gallium_zink
+  files_libglx += files('copper_glx.c', 'copper_priv.h')
+endif
+
 if with_dri_platform == 'apple'
   files_libglx += files('applegl_glx.c')
   extra_libs_libglx += libappleglx
