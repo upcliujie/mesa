@@ -380,18 +380,12 @@ program/execute/vstore/vstore-ulong-private: fail
 program/execute/vstore/vstore-ushort-global: fail
 program/execute/vstore/vstore-ushort-local: fail
 program/execute/vstore/vstore-ushort-private: fail
-program/execute/vstore/vstore_half-double-global: crash
-program/execute/vstore/vstore_half-double-local: crash
-program/execute/vstore/vstore_half-double-private: crash
-program/execute/vstore/vstorea_half-double-global: crash
-program/execute/vstore/vstorea_half-double-local: crash
-program/execute/vstore/vstorea_half-double-private: crash
 summary:
        name:  results
        ----  --------
-       pass:     1551
+       pass:     1617
        fail:      299
-      crash:       10
+      crash:        4
        skip:       79
     timeout:        0
        warn:        0
@@ -401,4 +395,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:     1939
+      total:     1999
