@@ -41,6 +41,10 @@ if with_dri2
   files_libdri += files('dri2.c')
 endif
 
+if with_gallium_zink
+  files_libdri += files('copper.c')
+endif
+
 libdri_c_args = []
 if with_gallium_softpipe
   libdri_c_args += '-DGALLIUM_SOFTPIPE'

@@ -1079,7 +1079,8 @@ check_device_needs_mesa_wsi(struct zink_screen *screen)
 }
 
 static struct pipe_screen *
-zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_screen_config *config)
+zink_internal_create_screen(VkPhysicalDevice pdev, struct sw_winsys *winsys,
+                            int fd, const struct pipe_screen_config *config)
 {
    struct zink_screen *screen = CALLOC_STRUCT(zink_screen);
    if (!screen)
@@ -1087,9 +1088,13 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
 
    zink_debug = debug_get_option_zink_debug();
 
-   screen->instance = create_instance(screen);
-   if (!screen->instance)
-      goto fail;
+   /* XXX, this should probably be the other way around now, instance
+    * as the first arg... anyway this is hideous */
+   if (pdev) {
+      screen->instance = (VkInstance) winsys; /* ewwwww */
+   } else {
+      screen->instance = create_instance(screen);
+   }
 
    if (!load_instance_extensions(screen))
       goto fail;
@@ -1097,7 +1102,12 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
    if (screen->have_debug_utils_ext && !create_debug(screen))
       debug_printf("ZINK: failed to setup debug utils\n");
 
-   screen->pdev = choose_pdev(screen->instance);
+   if (pdev) {
+      screen->pdev = pdev;
+   } else {
+      screen->pdev = choose_pdev(screen->instance);
+   }
+
    update_queue_props(screen);
 
    screen->have_X8_D24_UNORM_PACK32 = zink_is_depth_format_supported(screen,
@@ -1187,11 +1197,18 @@ fail:
 struct pipe_screen *
 zink_create_screen(struct sw_winsys *winsys)
 {
-   return zink_internal_create_screen(winsys, -1, NULL);
+   return zink_internal_create_screen(VK_NULL_HANDLE, winsys, -1, NULL);
 }
 
 struct pipe_screen *
 zink_drm_create_screen(int fd, const struct pipe_screen_config *config)
 {
-   return zink_internal_create_screen(NULL, fd, config);
+   return zink_internal_create_screen(VK_NULL_HANDLE, NULL, fd, config);
+}
+
+struct pipe_screen *
+zink_vk_create_screen(void *pdev, void *instance,
+                      const struct pipe_screen_config *config)
+{
+   return zink_internal_create_screen(pdev, instance, -1, config);
 }
