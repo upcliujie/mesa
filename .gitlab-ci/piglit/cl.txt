@@ -303,9 +303,7 @@ program/execute/global-offset/3d, input dependent: fail
 program/execute/image-attributes: skip
 program/execute/image-read-2d: skip
 program/execute/image-write-2d: skip
-program/execute/load-hi16: crash
 program/execute/load-hi16-generic: skip
-program/execute/load-lo16: crash
 program/execute/load-lo16-generic: skip
 program/execute/mad-mix: skip
 program/execute/program-tester-check-local-size-test-should-skip/this test should skip: skip
@@ -383,9 +381,9 @@ program/execute/vstore/vstore-ushort-private: fail
 summary:
        name:  results
        ----  --------
-       pass:     1617
+       pass:     1635
        fail:      299
-      crash:        4
+      crash:        2
        skip:       79
     timeout:        0
        warn:        0
@@ -395,4 +393,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:     1999
+      total:     2015
