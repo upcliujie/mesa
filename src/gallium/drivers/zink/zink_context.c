@@ -1635,18 +1635,14 @@ zink_flush(struct pipe_context *pctx,
    zink_fence_reference(zink_screen(pctx->screen),
                         (struct zink_fence **)pfence,
                         batch->fence);
-   /* HACK:
-    * For some strange reason, we need to finish before presenting, or else
-    * we start rendering on top of the back-buffer for the next frame. This
-    * seems like a bug in the DRI-driver to me, because we really should
-    * be properly protected by fences here, and the back-buffer should
-    * either be swapped with the front-buffer, or blitted from. But for
-    * some strange reason, neither of these things happen.
-    */
-   if (flags & PIPE_FLUSH_END_OF_FRAME)
-      pctx->screen->fence_finish(pctx->screen, pctx,
-                                 (struct pipe_fence_handle *)batch->fence,
-                                 PIPE_TIMEOUT_INFINITE);
+
+   if (flags & PIPE_FLUSH_END_OF_FRAME) {
+      if (!ctx->first_frame)
+         pctx->screen->fence_finish(pctx->screen, pctx,
+                                    (struct pipe_fence_handle *)batch->fence,
+                                    PIPE_TIMEOUT_INFINITE);
+      ctx->first_frame = true;
+   }
 }
 
 void
