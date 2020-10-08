@@ -295,7 +295,6 @@ program/execute/builtin/builtin-ushort-rotate-1.0.generated: fail
 program/execute/builtin/builtin-ushort-sub_sat-1.0.generated: fail
 program/execute/builtin/builtin-ushort-upsample-1.0.generated: fail
 program/execute/call-clobbers-amdgcn: skip
-program/execute/calls: crash
 program/execute/calls-large-struct/byval struct: fail
 program/execute/calls-struct/regs struct: fail
 program/execute/calls-struct/small struct in regs: fail
@@ -381,9 +380,9 @@ program/execute/vstore/vstore-ushort-private: fail
 summary:
        name:  results
        ----  --------
-       pass:     1635
+       pass:     1645
        fail:      299
-      crash:        2
+      crash:        1
        skip:       79
     timeout:        0
        warn:        0
@@ -393,4 +392,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:     2015
+      total:     2024
