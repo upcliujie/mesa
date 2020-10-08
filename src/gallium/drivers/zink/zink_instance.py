@@ -47,6 +47,8 @@ EXTENSIONS = [
     Extension("VK_KHR_external_memory_capabilities"),
     Extension("VK_MVK_moltenvk",
         nonstandard=True),
+    Extension("VK_KHR_surface"),
+    Extension("VK_KHR_xlib_surface"),
 ]
 
 # constructor: Layer(name, conditions=[])

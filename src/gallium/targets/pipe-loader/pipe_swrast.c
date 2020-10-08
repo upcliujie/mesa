@@ -5,6 +5,7 @@
 #include "sw/dri/dri_sw_winsys.h"
 #include "sw/kms-dri/kms_dri_sw_winsys.h"
 #include "sw/null/null_sw_winsys.h"
+#include "sw/vkwsi/vkwsi_winsys.h"
 #include "sw/wrapper/wrapper_sw_winsys.h"
 
 PUBLIC struct pipe_screen *
@@ -36,6 +37,12 @@ const struct sw_driver_descriptor swrast_driver_descriptor = {
       {
          .name = "kms_dri",
          .create_winsys = kms_dri_create_winsys,
+      },
+#endif
+#if 1 // THING
+      {
+         .name = "vkwsi",
+         .create_winsys = vkwsi_create_winsys,
       },
 #endif
       {
