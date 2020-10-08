@@ -20,8 +20,6 @@ program/execute/amdgcn-callee-saved-registers: skip
 program/execute/amdgcn-f16-inline-immediates: skip
 program/execute/amdgcn-f32-inline-immediates/add integer 64: fail
 program/execute/amdgcn-i16-inline-immediates: skip
-program/execute/amdgcn-mubuf-negative-vaddr: crash
-program/execute/amdgcn.sign_extend_inreg: crash
 program/execute/atomic_int64_add-global: skip
 program/execute/atomic_int64_add-global-return: skip
 program/execute/atomic_int64_add-local: skip
@@ -298,11 +296,10 @@ program/execute/builtin/builtin-ushort-sub_sat-1.0.generated: fail
 program/execute/builtin/builtin-ushort-upsample-1.0.generated: fail
 program/execute/call-clobbers-amdgcn: skip
 program/execute/calls: crash
-program/execute/calls-large-struct: crash
-program/execute/calls-struct: crash
-program/execute/gegl-rgb-gamma-u8-to-ragabaf: crash
+program/execute/calls-large-struct/byval struct: fail
+program/execute/calls-struct/regs struct: fail
+program/execute/calls-struct/small struct in regs: fail
 program/execute/global-offset/3d, input dependent: fail
-program/execute/i32-stack-array: crash
 program/execute/image-attributes: skip
 program/execute/image-read-2d: skip
 program/execute/image-write-2d: skip
@@ -311,19 +308,10 @@ program/execute/load-hi16-generic: skip
 program/execute/load-lo16: crash
 program/execute/load-lo16-generic: skip
 program/execute/mad-mix: skip
-program/execute/multiple-stack-objects: crash
-program/execute/negative-private-base-pointer: crash
 program/execute/program-tester-check-local-size-test-should-skip/this test should skip: skip
-program/execute/pyrit-wpa-psk: crash
-program/execute/realign-stack: crash
-program/execute/reference: crash
 program/execute/sampler: skip
 program/execute/scalar-logical-float: skip
 program/execute/store-hi16-generic: skip
-program/execute/v2i32-stack: crash
-program/execute/v3i32-stack: crash
-program/execute/v3i32-stack-array: crash
-program/execute/v4i32-stack: crash
 program/execute/vload/vload-char-global: fail
 program/execute/vload/vload-char-local: fail
 program/execute/vload/vload-char-private: fail
@@ -359,8 +347,6 @@ program/execute/vload/vload-ushort-global: fail
 program/execute/vload/vload-ushort-local: fail
 program/execute/vload/vload-ushort-private: fail
 program/execute/vload/vload_half-float-local: crash
-program/execute/vload/vload_half-float-private: crash
-program/execute/vload/vloada_half-float-private: crash
 program/execute/vstore/vstore-char-global: fail
 program/execute/vstore/vstore-char-local: fail
 program/execute/vstore/vstore-char-private: fail
@@ -397,17 +383,15 @@ program/execute/vstore/vstore-ushort-private: fail
 program/execute/vstore/vstore_half-double-global: crash
 program/execute/vstore/vstore_half-double-local: crash
 program/execute/vstore/vstore_half-double-private: crash
-program/execute/vstore/vstore_half-float-private: crash
 program/execute/vstore/vstorea_half-double-global: crash
 program/execute/vstore/vstorea_half-double-local: crash
 program/execute/vstore/vstorea_half-double-private: crash
-program/execute/vstore/vstorea_half-float-private: crash
 summary:
        name:  results
        ----  --------
-       pass:     1418
-       fail:      296
-      crash:       29
+       pass:     1551
+       fail:      299
+      crash:       10
        skip:       79
     timeout:        0
        warn:        0
@@ -417,4 +401,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:     1822
+      total:     1939
