@@ -47,6 +47,8 @@ EXTENSIONS = [
     Extension("VK_KHR_external_memory_capabilities"),
     Extension("VK_MVK_moltenvk",
         nonstandard=True),
+    Extension("VK_KHR_surface"),
+    Extension("VK_KHR_xlib_surface"),
 ]
 
 # constructor: Layer(name, conditions=[])
@@ -91,7 +93,7 @@ struct zink_instance_info {
 };
 
 VkInstance
-zink_create_instance(struct zink_instance_info *instance_info);
+zink_create_instance(VkInstance instance, struct zink_instance_info *instance_info);
 
 bool
 zink_load_instance_extensions(struct zink_screen *screen);
@@ -104,7 +106,7 @@ impl_code = """
 #include "zink_screen.h"
 
 VkInstance
-zink_create_instance(struct zink_instance_info *instance_info)
+zink_create_instance(VkInstance instance, struct zink_instance_info *instance_info)
 {
    /* reserve one slot for MoltenVK */
    const char *layers[${len(extensions) + 1}] = { 0 };
@@ -203,30 +205,31 @@ zink_create_instance(struct zink_instance_info *instance_info)
    }
 %endfor
 
-   VkApplicationInfo ai = {};
-   ai.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+   if (instance == VK_NULL_HANDLE) {
+      VkApplicationInfo ai = {};
+      ai.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 
-   char proc_name[128];
-   if (os_get_process_name(proc_name, ARRAY_SIZE(proc_name)))
-      ai.pApplicationName = proc_name;
-   else
-      ai.pApplicationName = "unknown";
+      char proc_name[128];
+      if (os_get_process_name(proc_name, ARRAY_SIZE(proc_name)))
+         ai.pApplicationName = proc_name;
+      else
+         ai.pApplicationName = "unknown";
 
-   ai.pEngineName = "mesa zink";
-   ai.apiVersion = VK_MAKE_VERSION(1, 0, 0);
+      ai.pEngineName = "mesa zink";
+      ai.apiVersion = VK_MAKE_VERSION(1, 0, 0);
 
-   VkInstanceCreateInfo ici = {};
-   ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-   ici.pApplicationInfo = &ai;
-   ici.ppEnabledExtensionNames = extensions;
-   ici.enabledExtensionCount = num_extensions;
-   ici.ppEnabledLayerNames = layers;
-   ici.enabledLayerCount = num_layers;
+      VkInstanceCreateInfo ici = {};
+      ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+      ici.pApplicationInfo = &ai;
+      ici.ppEnabledExtensionNames = extensions;
+      ici.enabledExtensionCount = num_extensions;
+      ici.ppEnabledLayerNames = layers;
+      ici.enabledLayerCount = num_layers;
 
-   VkInstance instance = VK_NULL_HANDLE;
-   VkResult err = vkCreateInstance(&ici, NULL, &instance);
-   if (err != VK_SUCCESS)
-      return VK_NULL_HANDLE;
+      VkResult err = vkCreateInstance(&ici, NULL, &instance);
+      if (err != VK_SUCCESS)
+         return VK_NULL_HANDLE;
+   }
 
    return instance;
 }
