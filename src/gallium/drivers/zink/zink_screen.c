@@ -1080,7 +1080,7 @@ check_device_needs_mesa_wsi(struct zink_screen *screen)
 }
 
 static struct zink_screen *
-zink_internal_create_screen(const struct pipe_screen_config *config)
+zink_internal_create_screen(VkInstance instance, VkPhysicalDevice pdev, const struct pipe_screen_config *config)
 {
    struct zink_screen *screen = CALLOC_STRUCT(zink_screen);
    if (!screen)
@@ -1088,9 +1088,9 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
 
    zink_debug = debug_get_option_zink_debug();
 
-   screen->instance = create_instance(screen);
-   if (!screen->instance)
-      goto fail;
+   if (instance == VK_NULL_HANDLE)
+      instance = create_instance(screen);
+   screen->instance = instance;
 
    if (!load_instance_extensions(screen))
       goto fail;
@@ -1098,7 +1098,11 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
    if (screen->have_debug_utils_ext && !create_debug(screen))
       debug_printf("ZINK: failed to setup debug utils\n");
 
-   screen->pdev = choose_pdev(screen->instance);
+   if (pdev == VK_NULL_HANDLE) {
+      screen->pdev = choose_pdev(screen->instance);
+   }
+   screen->pdev = pdev;
+
    update_queue_props(screen);
 
    screen->have_X8_D24_UNORM_PACK32 = zink_is_depth_format_supported(screen,
@@ -1171,7 +1175,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
 
    slab_create_parent(&screen->transfer_pool, sizeof(struct zink_transfer), 16);
 
-   return &screen->base;
+   return screen;
 
 fail:
    FREE(screen);
@@ -1181,7 +1185,7 @@ fail:
 struct pipe_screen *
 zink_create_screen(struct sw_winsys *winsys)
 {
-   struct zink_screen *ret = zink_internal_create_screen(NULL);
+   struct zink_screen *ret = zink_internal_create_screen(VK_NULL_HANDLE, VK_NULL_HANDLE, NULL);
 
    if (ret)
       ret->winsys = winsys;
@@ -1192,7 +1196,7 @@ zink_create_screen(struct sw_winsys *winsys)
 struct pipe_screen *
 zink_drm_create_screen(int fd, const struct pipe_screen_config *config)
 {
-   struct zink_screen *ret = zink_internal_create_screen(config);
+   struct zink_screen *ret = zink_internal_create_screen(VK_NULL_HANDLE, VK_NULL_HANDLE, config);
 
    if (ret) {
       if (fd >= 0 && !ret->info.have_KHR_external_memory_fd) {
@@ -1203,4 +1207,12 @@ zink_drm_create_screen(int fd, const struct pipe_screen_config *config)
    }
 
    return &ret->base;
+}
+
+/* XXX fix arg order... */
+struct pipe_screen *
+zink_vk_create_screen(void *pdev, void *instance,
+                      const struct pipe_screen_config *config)
+{
+   return (struct pipe_screen *) zink_internal_create_screen(instance, pdev, config);
 }
