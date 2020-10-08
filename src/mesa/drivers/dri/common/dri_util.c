@@ -88,6 +88,8 @@ setupLoaderExtensions(__DRIscreen *psp,
            psp->image.loader = (__DRIimageLoaderExtension *) extensions[i];
         if (strcmp(extensions[i]->name, __DRI_MUTABLE_RENDER_BUFFER_LOADER) == 0)
            psp->mutableRenderBuffer.loader = (__DRImutableRenderBufferLoaderExtension *) extensions[i];
+        if (strcmp(extensions[i]->name, __DRI_COPPER_LOADER) == 0)
+           psp->copper.loader = (__DRIcopperLoaderExtension *) extensions[i];
     }
 }
 
@@ -199,7 +201,7 @@ dri2CreateNewScreen(int scrn, int fd,
 		    const __DRIconfig ***driver_configs, void *data)
 {
    return driCreateNewScreen2(scrn, fd, extensions, NULL,
-                               driver_configs, data);
+                              driver_configs, data);
 }
 
 /** swrast driver createNewScreen entrypoint. */
@@ -208,7 +210,7 @@ driSWRastCreateNewScreen(int scrn, const __DRIextension **extensions,
                          const __DRIconfig ***driver_configs, void *data)
 {
    return driCreateNewScreen2(scrn, -1, extensions, NULL,
-                               driver_configs, data);
+                              driver_configs, data);
 }
 
 static __DRIscreen *
@@ -798,8 +800,6 @@ driGetAPIMask(__DRIscreen *screen)
 static void
 driSwapBuffers(__DRIdrawable *pdp)
 {
-    assert(pdp->driScreenPriv->swrast_loader);
-
     pdp->driScreenPriv->driver->SwapBuffers(pdp);
 }
 
