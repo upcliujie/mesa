@@ -25,6 +25,7 @@ inc_gallium_winsys_sw = include_directories('winsys/sw')
 
 subdir('auxiliary')
 subdir('auxiliary/pipe-loader')
+
 subdir('winsys/sw/null')
 if with_dri
   subdir('winsys/sw/dri')
@@ -45,6 +46,7 @@ subdir('winsys/sw/wrapper')
 if with_platform_haiku
   subdir('winsys/sw/hgl')
 endif
+
 if with_gallium_swr
   subdir('drivers/swr')
 else
@@ -159,6 +161,7 @@ else
   driver_lima = declare_dependency()
 endif
 if with_gallium_zink
+  subdir('winsys/sw/vkwsi')
   subdir('drivers/zink')
 else
   driver_zink = declare_dependency()

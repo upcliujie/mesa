@@ -88,7 +88,7 @@ libzink = static_library(
 
 driver_zink = declare_dependency(
   compile_args : '-DGALLIUM_ZINK',
-  link_with : [libzink],
+  link_with : [libzink, libws_vkwsi],
 )
 
 if with_tests

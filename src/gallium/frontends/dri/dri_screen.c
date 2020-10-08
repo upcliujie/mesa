@@ -616,6 +616,11 @@ dri_init_screen_helper(struct dri_screen *screen,
                                   &screen->sPriv->max_gl_es1_version,
                                   &screen->sPriv->max_gl_es2_version);
 
+#if 0 // XXX something like this
+   if (screen->sPriv->configLoader)
+      return screen->sPriv->configLoader->fillInModes(screen);
+#endif
+
    return dri_fill_in_modes(screen);
 }
 
