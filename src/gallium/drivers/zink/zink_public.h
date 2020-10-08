@@ -33,4 +33,8 @@ zink_create_screen(struct sw_winsys *winsys);
 
 struct pipe_screen *
 zink_drm_create_screen(int fd, const struct pipe_screen_config *config);
+
+struct pipe_screen *
+zink_vk_create_screen(void *pdev, void *instance,
+                      const struct pipe_screen_config *config);
 #endif

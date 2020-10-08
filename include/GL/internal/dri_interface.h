@@ -90,6 +90,8 @@ typedef struct __DRI2bufferDamageExtensionRec   __DRI2bufferDamageExtension;
 typedef struct __DRIimageLoaderExtensionRec     __DRIimageLoaderExtension;
 typedef struct __DRIimageDriverExtensionRec     __DRIimageDriverExtension;
 
+typedef struct __DRIvkrastExtensionRec          __DRIvkrastExtension;
+typedef struct __DRIvkrastLoaderExtensionRec    __DRIvkrastLoaderExtension;
 /*@}*/
 
 
@@ -2243,4 +2245,76 @@ struct __DRImutableRenderBufferLoaderExtensionRec {
                                void *loaderPrivate);
 };
 
+/**
+ * This extension defines the core DRIVK functionality. This is used by the
+ * zink driver to implement GL (or other APIs) natively atop Vulkan, without
+ * relying on a particular window system or DRI protocol.
+ *
+ * XXX type safety would be nice, wouldn't it
+ */
+#define __DRI_VKRAST "DRI_VkRast"
+#define __DRI_VKRAST_VERSION 1
+
+struct __DRIvkrastExtensionRec {
+    __DRIextension base;
+
+    /* vulkan setup glue */
+    void *(*CreateInstance)(void);
+    void *(*GetInstanceProcAddr)(void *instance, const char *proc);
+    void (*EnumeratePhysicalDevices)(void *instance,
+                                     unsigned int *count,
+                                     void ***devs);
+
+    __DRIscreen *(*createVkScreen)(/* VkPhysicalDevice */ void *pdev,
+                                   const __DRIextension **loader_extensions,
+                                   const __DRIextension **driver_extensions,
+                                   const __DRIconfig ***driver_configs,
+                                   void *loaderPrivate);
+
+    void (*destroyScreen)(__DRIscreen *screen);
+
+    const __DRIextension **(*getExtensions)(__DRIscreen *screen);
+
+    __DRIdrawable *(*createNewDrawable)(__DRIscreen *screen,
+					const __DRIconfig *config,
+					void *loaderPrivate);
+
+    void (*destroyDrawable)(__DRIdrawable *drawable);
+
+    void (*swapBuffers)(__DRIdrawable *drawable);
+
+    /* XXX delete this */
+    __DRIcontext *(*createNewContext)(__DRIscreen *screen,
+				      const __DRIconfig *config,
+				      __DRIcontext *shared,
+				      void *loaderPrivate);
+
+   __DRIcontext *(*createContextAttribs)(__DRIscreen *screen,
+					 int api,
+					 const __DRIconfig *config,
+					 __DRIcontext *shared,
+					 unsigned num_attribs,
+					 const uint32_t *attribs,
+					 unsigned *error,
+					 void *loaderPrivate);
+
+    void (*destroyContext)(__DRIcontext *context);
+
+    int (*bindContext)(__DRIcontext *ctx,
+		       __DRIdrawable *pdraw,
+		       __DRIdrawable *pread);
+
+    int (*unbindContext)(__DRIcontext *ctx);
+};
+
+/**
+ * VKRast Loader extension.
+ */
+#define __DRI_VKRAST_LOADER "DRI_VKRastLoader"
+#define __DRI_VKRAST_LOADER_VERSION 1
+struct __DRIvkrastLoaderExtensionRec {
+    __DRIextension base;
+
+    void *(*GetInstance)(void *vkscr);
+};
 #endif
