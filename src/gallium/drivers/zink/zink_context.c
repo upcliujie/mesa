@@ -1635,6 +1635,10 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
       PIPE_BIND_VERTEX_BUFFER, PIPE_USAGE_IMMUTABLE, sizeof(data), data);
    if (!ctx->dummy_vertex_buffer)
       goto fail;
+   ctx->dummy_xfb_buffer = pipe_buffer_create_with_data(&ctx->base,
+      PIPE_BIND_STREAM_OUTPUT, PIPE_USAGE_DEFAULT, sizeof(data), data);
+   if (!ctx->dummy_xfb_buffer)
+      goto fail;
 
    /* start the first batch */
    zink_start_batch(ctx, zink_curr_batch(ctx));
