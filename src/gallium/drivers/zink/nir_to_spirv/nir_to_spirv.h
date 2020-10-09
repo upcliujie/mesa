@@ -57,7 +57,7 @@ static inline VkDescriptorType
 zink_sampler_type(const struct glsl_type *type)
 {
    assert(glsl_type_is_sampler(type));
-   if (glsl_get_sampler_dim(type) < GLSL_SAMPLER_DIM_BUF || glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_MS)
+   if (glsl_get_sampler_dim(type) < GLSL_SAMPLER_DIM_BUF || glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_MS || glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_EXTERNAL)
       return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
    if (glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_BUF)
       return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
@@ -69,7 +69,7 @@ static inline VkDescriptorType
 zink_image_type(const struct glsl_type *type)
 {
    assert(glsl_type_is_image(type));
-   if (glsl_get_sampler_dim(type) < GLSL_SAMPLER_DIM_BUF || glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_MS)
+   if (glsl_get_sampler_dim(type) < GLSL_SAMPLER_DIM_BUF || glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_MS || glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_EXTERNAL)
       return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
    if (glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_BUF)
       return VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
