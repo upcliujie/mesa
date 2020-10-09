@@ -150,7 +150,7 @@ zink_bind_vertex_buffers(struct zink_batch *batch, struct zink_context *ctx)
          buffer_offsets[i] = vb->buffer_offset;
          zink_batch_reference_resource_rw(batch, res, false);
       } else {
-         buffers[i] = zink_resource(ctx->dummy_buffer)->buffer;
+         buffers[i] = zink_resource(ctx->dummy_vertex_buffer)->buffer;
          buffer_offsets[i] = 0;
       }
    }
