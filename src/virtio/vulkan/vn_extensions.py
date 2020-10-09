@@ -155,7 +155,7 @@ EXTENSIONS = [
     Extension('VK_EXT_shader_subgroup_vote',              0, False),
     Extension('VK_EXT_subgroup_size_control',             0, False),
     Extension('VK_EXT_texel_buffer_alignment',            0, False),
-    Extension('VK_EXT_transform_feedback',                0, False),
+    Extension('VK_EXT_transform_feedback',                0, True),
     Extension('VK_EXT_vertex_attribute_divisor',          0, False),
     Extension('VK_EXT_ycbcr_image_arrays',                0, False),
     # vendors
