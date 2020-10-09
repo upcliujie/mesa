@@ -950,19 +950,28 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
             return;
          }
 
-         index_va += draws[0].start * index_size;
+         for (unsigned i = 0; i < num_draws; i++) {
+            uint64_t va = index_va + draws[i].start * index_size;
 
-         radeon_emit(cs, PKT3(PKT3_DRAW_INDEX_2, 4, render_cond_bit));
-         radeon_emit(cs, index_max_size);
-         radeon_emit(cs, index_va);
-         radeon_emit(cs, index_va >> 32);
-         radeon_emit(cs, draws[0].count);
-         radeon_emit(cs, V_0287F0_DI_SRC_SEL_DMA);
+            radeon_emit(cs, PKT3(PKT3_DRAW_INDEX_2, 4, render_cond_bit));
+            radeon_emit(cs, index_max_size);
+            radeon_emit(cs, va);
+            radeon_emit(cs, va >> 32);
+            radeon_emit(cs, draws[i].count);
+            radeon_emit(cs, V_0287F0_DI_SRC_SEL_DMA);
+         }
       } else {
-         radeon_emit(cs, PKT3(PKT3_DRAW_INDEX_AUTO, 1, render_cond_bit));
-         radeon_emit(cs, draws[0].count);
-         radeon_emit(cs, V_0287F0_DI_SRC_SEL_AUTO_INDEX |
+         for (unsigned i = 0; i < num_draws; i++) {
+            if (i > 0)
+               radeon_set_sh_reg(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, draws[i].start);
+
+            radeon_emit(cs, PKT3(PKT3_DRAW_INDEX_AUTO, 1, render_cond_bit));
+            radeon_emit(cs, draws[i].count);
+            radeon_emit(cs, V_0287F0_DI_SRC_SEL_AUTO_INDEX |
                             S_0287F0_USE_OPAQUE(!!info->count_from_stream_output));
+         }
+         if (num_draws > 1 && !sctx->num_vs_blit_sgprs)
+            sctx->last_base_vertex = draws[num_draws - 1].start;
       }
    }
 }
@@ -2064,7 +2073,7 @@ static void si_multi_draw_vbo(struct pipe_context *ctx,
    if (unlikely(sctx->do_update_shaders && !si_update_shaders(sctx)))
       goto return_cleanup;
 
-   si_need_gfx_cs_space(sctx, 0);
+   si_need_gfx_cs_space(sctx, num_draws);
 
    /* If we're using a secure context, determine if cs must be secure or not */
    if (unlikely(radeon_uses_secure_bos(sctx->ws))) {
