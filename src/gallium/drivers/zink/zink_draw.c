@@ -624,11 +624,7 @@ update_sampler_descriptors(struct zink_context *ctx, struct zink_descriptor_set 
                wds[num_wds].pTexelBufferView = &sampler_view->buffer_view;
             } else if (res) {
                imageview = sampler_view->image_view;
-               layout = 0;
-               if (util_format_is_depth_and_stencil(psampler_view->format))
-                  layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-               else
-                  layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+               layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                sampler = ctx->sampler_states[stage][index + k];
             }
             assert(num_resources < num_bindings);
