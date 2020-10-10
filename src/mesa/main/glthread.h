@@ -101,7 +101,7 @@ struct glthread_batch
    struct gl_context *ctx;
 
    /** Amount of data used by batch commands, in bytes. */
-   int used;
+   unsigned used;
 
    /** Data contained in the command buffer. */
    uint64_t buffer[MARSHAL_MAX_CMD_SIZE / 8];
@@ -149,7 +149,7 @@ struct glthread_state
    unsigned next;
 
    /** Amount of data filled in next_batch, in bytes. */
-   int used;
+   unsigned used;
 
    /** Upload buffer. */
    struct gl_buffer_object *upload_buffer;
