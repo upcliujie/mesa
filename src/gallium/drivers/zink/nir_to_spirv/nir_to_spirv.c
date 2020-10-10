@@ -590,6 +590,10 @@ emit_output(struct ntv_context *ctx, struct nir_variable *var)
             spirv_builder_emit_builtin(&ctx->builder, var_id, SpvBuiltInFragDepth);
             break;
 
+         case FRAG_RESULT_STENCIL:
+            spirv_builder_emit_builtin(&ctx->builder, var_id, SpvBuiltInFragStencilRefEXT);
+            break;
+
          case FRAG_RESULT_SAMPLE_MASK:
             spirv_builder_emit_builtin(&ctx->builder, var_id, SpvBuiltInSampleMask);
             break;
@@ -3821,6 +3825,10 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityDrawParameters);
       break;
    case MESA_SHADER_FRAGMENT:
+      if (s->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_STENCIL)) {
+         spirv_builder_emit_extension(&ctx.builder, "SPV_EXT_shader_stencil_export");
+         spirv_builder_emit_cap(&ctx.builder, SpvCapabilityStencilExportEXT);
+      }
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityInterpolationFunction);
       spirv_builder_emit_exec_mode(&ctx.builder, entry_point,
                                    SpvExecutionModeOriginUpperLeft);
