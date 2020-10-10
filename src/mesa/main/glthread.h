@@ -100,7 +100,7 @@ struct glthread_batch
    /** The worker thread will access the context with this. */
    struct gl_context *ctx;
 
-   /** Amount of data used by batch commands, in bytes. */
+   /** Number of uint64_t elements filled already. */
    unsigned used;
 
    /** Data contained in the command buffer. */
@@ -148,7 +148,7 @@ struct glthread_state
    /** Index of the batch being filled and about to be submitted. */
    unsigned next;
 
-   /** Amount of data filled in next_batch, in bytes. */
+   /** Number of uint64_t elements filled already. */
    unsigned used;
 
    /** Upload buffer. */
