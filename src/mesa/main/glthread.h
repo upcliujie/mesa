@@ -153,6 +153,9 @@ struct glthread_state
    /** Index of the batch being filled and about to be submitted. */
    unsigned next;
 
+   /** Amount of data filled in next_batch, in bytes. */
+   int used;
+
    /** Upload buffer. */
    struct gl_buffer_object *upload_buffer;
    uint8_t *upload_ptr;
