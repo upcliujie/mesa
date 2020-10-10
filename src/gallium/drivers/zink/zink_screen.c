@@ -304,6 +304,9 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_VERTEX_COLOR_UNCLAMPED:
       return 1;
 
+   case PIPE_CAP_SHADER_STENCIL_EXPORT:
+      return screen->info.have_EXT_shader_stencil_export;
+
    case PIPE_CAP_CONDITIONAL_RENDER:
      return screen->info.have_EXT_conditional_rendering;
 
