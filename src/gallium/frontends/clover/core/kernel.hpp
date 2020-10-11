@@ -61,6 +61,7 @@ namespace clover {
          std::vector<pipe_surface *> resources;
          std::vector<pipe_resource *> g_buffers;
          std::vector<size_t> g_handles;
+         std::vector<std::unique_ptr<sampler>> inline_samplers;
          size_t mem_local;
 
       private:
