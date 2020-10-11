@@ -20,6 +20,7 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 //
 
+#include "util/format/u_format.h"
 #include "util/u_math.h"
 #include "api/util.hpp"
 #include "core/memory.hpp"
@@ -179,6 +180,9 @@ clCreateImage(cl_context d_ctx, cl_mem_flags d_flags,
 
    ret_error(r_errcode, CL_SUCCESS);
 
+   const size_t row_pitch = desc->image_row_pitch ? desc->image_row_pitch :
+      util_format_get_blocksize(translate_format(*format)) * desc->image_width;
+
    switch (desc->image_type) {
    case CL_MEM_OBJECT_IMAGE1D:
       if (!desc->image_width)
@@ -195,7 +199,7 @@ clCreateImage(cl_context d_ctx, cl_mem_flags d_flags,
 
       return new image1d(ctx, flags, format,
                          desc->image_width,
-                         desc->image_row_pitch, host_ptr);
+                         row_pitch, host_ptr);
 
    case CL_MEM_OBJECT_IMAGE1D_BUFFER:
       if (!desc->image_width)
@@ -221,7 +225,7 @@ clCreateImage(cl_context d_ctx, cl_mem_flags d_flags,
       //We don't necessarily enforce any of the above....
       return new image1d_buffer(ctx, flags, format,
                                 desc->image_width,
-                                desc->image_row_pitch, host_ptr, desc->buffer);
+                                row_pitch, host_ptr, desc->buffer);
 
    case CL_MEM_OBJECT_IMAGE1D_ARRAY:
       if (!desc->image_width)
@@ -253,7 +257,7 @@ clCreateImage(cl_context d_ctx, cl_mem_flags d_flags,
 
       return new image2d(ctx, flags, format,
                          desc->image_width, desc->image_height,
-                         desc->image_row_pitch, host_ptr);
+                         row_pitch, host_ptr);
 
    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
       if (!desc->image_width || !desc->image_height)
@@ -269,10 +273,10 @@ clCreateImage(cl_context d_ctx, cl_mem_flags d_flags,
 
       return new image2d_array(ctx, flags, format,
                                desc->image_width, desc->image_height,
-                               desc->image_array_size, desc->image_row_pitch,
+                               desc->image_array_size, row_pitch,
                                desc->image_slice_pitch, host_ptr);
 
-   case CL_MEM_OBJECT_IMAGE3D:
+   case CL_MEM_OBJECT_IMAGE3D: {
       if (!desc->image_width || !desc->image_height || !desc->image_depth)
          throw error(CL_INVALID_IMAGE_SIZE);
 
@@ -284,10 +288,14 @@ clCreateImage(cl_context d_ctx, cl_mem_flags d_flags,
             }, ctx.devices()))
          throw error(CL_INVALID_IMAGE_SIZE);
 
+      const size_t slice_pitch = desc->image_slice_pitch ?
+         desc->image_slice_pitch : row_pitch * desc->image_height;
+
       return new image3d(ctx, flags, format,
                          desc->image_width, desc->image_height,
-                         desc->image_depth, desc->image_row_pitch,
-                         desc->image_slice_pitch, host_ptr);
+                         desc->image_depth, row_pitch,
+                         slice_pitch, host_ptr);
+   }
 
    default:
       throw error(CL_INVALID_IMAGE_DESCRIPTOR);
