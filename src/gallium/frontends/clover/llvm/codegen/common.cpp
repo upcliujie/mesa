@@ -301,7 +301,7 @@ clover::llvm::build_module_common(const Module &mod,
          b.syms.emplace_back(name, kernel_attributes(mod, name),
                              get_reqd_work_group_size(mod, name),
                              0, offsets.at(name),
-                             make_kernel_args(mod, name, c));
+                             make_kernel_args(mod, name, c), std::vector<binary::sampler>());
    }
 
    b.secs.push_back(make_text_section(code));
