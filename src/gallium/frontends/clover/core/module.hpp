@@ -28,10 +28,23 @@
 
 #include "CL/cl.h"
 
+#include "util/macros.h"
+
 namespace clover {
    struct module {
       typedef uint32_t resource_id;
       typedef uint32_t size_t;
+
+      // used for storing inline samplers
+      struct sampler {
+         sampler(cl_addressing_mode addr_mode, cl_filter_mode filter_mode, bool norm_coords) :
+                 addr_mode(addr_mode), filter_mode(filter_mode), norm_coords(norm_coords) { }
+         sampler() = default;
+
+         cl_addressing_mode addr_mode;
+         cl_filter_mode filter_mode;
+         bool norm_coords;
+      };
 
       struct section {
          enum type {
@@ -102,7 +115,8 @@ namespace clover {
             image_size,
             image_format,
             constant_buffer,
-            printf_buffer
+            printf_buffer,
+            inline_sampler,
          };
 
          argument(enum type type, size_t size,
@@ -135,13 +149,14 @@ namespace clover {
          symbol(const std::string &name, const std::string &attributes,
                 const std::vector<::size_t> &reqd_work_group_size,
                 resource_id section, size_t offset,
-                const std::vector<argument> &args) :
+                const std::vector<argument> &args,
+                const std::vector<sampler> &samplers) :
             name(name), attributes(attributes),
             reqd_work_group_size(reqd_work_group_size),
             section(section),
-            offset(offset), args(args) { }
+            offset(offset), args(args), samplers(samplers) { }
          symbol() : name(), attributes(), reqd_work_group_size({0, 0, 0}),
-            section(0), offset(0), args() { }
+            section(0), offset(0), args(), samplers() { }
 
          std::string name;
          std::string attributes;
@@ -149,6 +164,7 @@ namespace clover {
          resource_id section;
          size_t offset;
          std::vector<argument> args;
+         std::vector<sampler> samplers;
       };
 
       module() : printf_strings_in_buffer(0) { }
