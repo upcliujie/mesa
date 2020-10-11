@@ -206,6 +206,19 @@ namespace {
          _proc(s, x.section);
          _proc(s, x.offset);
          _proc(s, x.args);
+         _proc(s, x.samplers);
+      }
+   };
+
+   /// (De)serialize a module::sampler.
+   template<>
+   struct _serializer<module::sampler> {
+      template<typename S, typename QT>
+      static void
+      proc(S &s, QT &x) {
+         _proc(s, x.addr_mode);
+         _proc(s, x.filter_mode);
+         _proc(s, x.norm_coords);
       }
    };
 
