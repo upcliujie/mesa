@@ -142,6 +142,7 @@ namespace clover {
 
    public:
       cl_image_format format() const;
+      virtual cl_uint dimensions() const;
       size_t width() const;
       size_t height() const;
       size_t depth() const;
@@ -220,6 +221,7 @@ namespace clover {
               void *host_ptr);
 
       virtual cl_mem_object_type type() const;
+      virtual cl_uint dimensions() const;
    };
 
    class image2d_array : public image {
@@ -233,6 +235,7 @@ namespace clover {
                     void *host_ptr);
 
       virtual cl_mem_object_type type() const;
+      virtual cl_uint dimensions() const;
    };
 
    class image3d : public image {
@@ -246,6 +249,7 @@ namespace clover {
               void *host_ptr);
 
       virtual cl_mem_object_type type() const;
+      virtual cl_uint dimensions() const;
    };
 }
 
