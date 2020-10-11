@@ -237,7 +237,7 @@ namespace clover {
          virtual void unbind(exec_context &ctx);
 
       private:
-         sampler *s;
+         intrusive_ptr<sampler> s;
          void *st;
       };
 
