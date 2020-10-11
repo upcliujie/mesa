@@ -499,7 +499,8 @@ namespace {
                args[i].info.type_name = param_type_names[kernel_name][i];
 
             b.syms.emplace_back(kernel_name, detokenize(attributes, " "),
-                                req_local_size, 0, kernel_nb, args);
+                                req_local_size, 0, kernel_nb, args,
+                                std::vector<binary::sampler>());
             ++kernel_nb;
             kernel_name.clear();
             args.clear();

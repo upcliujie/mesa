@@ -130,7 +130,6 @@ clover_nir_lower_images(nir_shader *shader)
          assert(var->data.location > last_loc);
          last_loc = var->data.location;
 
-         /* TODO: Constant samplers */
          var->data.driver_location = num_samplers++;
       } else {
          /* CL shouldn't have any sampled images */
@@ -335,7 +334,9 @@ clover_lower_nir_instr(nir_builder *b, nir_instr *instr, void *_state)
 }
 
 static bool
-clover_lower_nir(nir_shader *nir, std::vector<binary::argument> &args,
+clover_lower_nir(nir_shader *nir,
+                 std::vector<binary::argument> &args,
+                 std::vector<binary::sampler> &sampler,
                  uint32_t dims, uint32_t pointer_bit_size)
 {
    nir_variable *constant_var = NULL;
@@ -350,6 +351,40 @@ clover_lower_nir(nir_shader *nir, std::vector<binary::argument> &args,
                         pointer_bit_size / 8, pointer_bit_size / 8,
                         binary::argument::zero_ext,
                         binary::argument::constant_buffer);
+   }
+
+   unsigned last_loc = 0;
+   nir_foreach_uniform_variable_safe(var, nir) {
+      if (glsl_type_is_sampler(var->type) && var->data.sampler.is_inline_sampler) {
+         var->data.sampler.is_inline_sampler = 0;
+         var->data.location = 0;
+
+         exec_node_remove(&var->node);
+         nir_shader_add_variable(nir, var);
+
+         args.emplace_back(binary::argument::sampler, sizeof(cl_sampler), 0, 0, binary::argument::zero_ext, binary::argument::inline_sampler);
+
+         cl_addressing_mode addr_mode = CL_ADDRESS_NONE;
+         cl_filter_mode filter_mode;
+         bool norm_coords = var->data.sampler.normalized_coordinates;
+
+         switch (var->data.sampler.addressing_mode) {
+         case SAMPLER_ADDRESSING_MODE_NONE:            addr_mode = CL_ADDRESS_NONE;            break;
+         case SAMPLER_ADDRESSING_MODE_CLAMP_TO_EDGE:   addr_mode = CL_ADDRESS_CLAMP_TO_EDGE;   break;
+         case SAMPLER_ADDRESSING_MODE_CLAMP:           addr_mode = CL_ADDRESS_CLAMP;           break;
+         case SAMPLER_ADDRESSING_MODE_REPEAT:          addr_mode = CL_ADDRESS_REPEAT;          break;
+         case SAMPLER_ADDRESSING_MODE_REPEAT_MIRRORED: addr_mode = CL_ADDRESS_MIRRORED_REPEAT; break;
+         }
+
+         switch (var->data.sampler.filter_mode) {
+         case SAMPLER_FILTER_MODE_NEAREST: filter_mode = CL_FILTER_NEAREST; break;
+         case SAMPLER_FILTER_MODE_LINEAR:  filter_mode = CL_FILTER_LINEAR;  break;
+         }
+
+         sampler.emplace_back(addr_mode, filter_mode, norm_coords);
+      } else {
+         var->data.location = last_loc++;
+      }
    }
 
    clover_lower_nir_state state = { args, dims, constant_var };
@@ -378,9 +413,10 @@ create_spirv_options(const device &dev, std::string &r_log)
    spirv_options.caps.int8 = true;
    spirv_options.caps.int16 = true;
    spirv_options.caps.int64 = true;
+   spirv_options.caps.int64_atomics = dev.has_int64_atomics();
    spirv_options.caps.kernel = true;
    spirv_options.caps.kernel_image = dev.image_support();
-   spirv_options.caps.int64_atomics = dev.has_int64_atomics();
+   spirv_options.caps.literal_sampler = true;
    spirv_options.debug.func = &debug_function;
    spirv_options.debug.private_data = &r_log;
    spirv_options.caps.printf = true;
@@ -523,7 +559,8 @@ binary clover::nir::spirv_to_nir(const binary &mod, const device &dev,
                  spirv_options.constant_addr_format);
 
       auto args = sym.args;
-      NIR_PASS_V(nir, clover_lower_nir, args, dev.max_block_size().size(),
+      std::vector<binary::sampler> samplers;
+      NIR_PASS_V(nir, clover_lower_nir, args, samplers, dev.max_block_size().size(),
                  dev.address_bits());
 
       NIR_PASS_V(nir, clover_nir_add_image_uniforms);
@@ -616,7 +653,7 @@ binary clover::nir::spirv_to_nir(const binary &mod, const device &dev,
       ralloc_free(mem_ctx);
 
       b.syms.emplace_back(sym.name, sym.attributes,
-                          sym.reqd_work_group_size, section_id, 0, args);
+                          sym.reqd_work_group_size, section_id, 0, args, samplers);
       b.secs.push_back(text);
       section_id++;
    }
