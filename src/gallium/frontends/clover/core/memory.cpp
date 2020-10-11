@@ -156,10 +156,10 @@ image::image(clover::context &ctx, cl_mem_flags flags,
              const cl_image_format *format,
              size_t width, size_t height, size_t depth, size_t array_size,
              size_t row_pitch, size_t slice_pitch, size_t size,
-             void *host_ptr) :
+             void *host_ptr, cl_mem buffer) :
    memory_obj(ctx, flags, size, host_ptr),
    _format(*format), _width(width), _height(height), _depth(depth),
-   _row_pitch(row_pitch), _slice_pitch(slice_pitch), _array_size(array_size) {
+   _row_pitch(row_pitch), _slice_pitch(slice_pitch), _array_size(array_size), _buffer(buffer) {
 }
 
 resource &
@@ -200,6 +200,11 @@ image::format() const {
    return _format;
 }
 
+cl_uint
+image::dimensions() const {
+   return 1;
+}
+
 size_t
 image::width() const {
    return _width;
@@ -235,12 +240,17 @@ image::array_size() const {
    return _array_size;
 }
 
+cl_mem
+image::buffer() const {
+   return _buffer;
+}
+
 image1d::image1d(clover::context &ctx, cl_mem_flags flags,
                  const cl_image_format *format,
                  size_t width, size_t row_pitch,
                  void *host_ptr) :
    image(ctx, flags, format, width, 1, 1, 0,
-         row_pitch, 0, row_pitch, host_ptr) {
+         row_pitch, 0, row_pitch, host_ptr, nullptr) {
 }
 
 cl_mem_object_type
@@ -251,9 +261,9 @@ image1d::type() const {
 image1d_buffer::image1d_buffer(clover::context &ctx, cl_mem_flags flags,
                                const cl_image_format *format,
                                size_t width, size_t row_pitch,
-                               void *host_ptr) :
+                               void *host_ptr, cl_mem buffer) :
    image(ctx, flags, format, width, 1, 1, 0,
-         row_pitch, 0, row_pitch, host_ptr) {
+         row_pitch, 0, row_pitch, host_ptr, buffer) {
 }
 
 cl_mem_object_type
@@ -267,7 +277,7 @@ image1d_array::image1d_array(clover::context &ctx, cl_mem_flags flags,
                              size_t array_size, size_t slice_pitch,
                              void *host_ptr) :
    image(ctx, flags, format, width, 1, 1, array_size,
-         0, slice_pitch, slice_pitch * array_size, host_ptr) {
+         0, slice_pitch, slice_pitch * array_size, host_ptr, nullptr) {
 }
 
 cl_mem_object_type
@@ -280,12 +290,17 @@ image2d::image2d(clover::context &ctx, cl_mem_flags flags,
                  size_t height, size_t row_pitch,
                  void *host_ptr) :
    image(ctx, flags, format, width, height, 1, 0,
-         row_pitch, 0, height * row_pitch, host_ptr) {
+         row_pitch, 0, height * row_pitch, host_ptr, nullptr) {
 }
 
 cl_mem_object_type
 image2d::type() const {
    return CL_MEM_OBJECT_IMAGE2D;
+}
+
+cl_uint
+image2d::dimensions() const {
+   return 2;
 }
 
 image2d_array::image2d_array(clover::context &ctx, cl_mem_flags flags,
@@ -294,12 +309,17 @@ image2d_array::image2d_array(clover::context &ctx, cl_mem_flags flags,
                              size_t row_pitch, size_t slice_pitch,
                              void *host_ptr) :
    image(ctx, flags, format, width, height, 1, array_size,
-         row_pitch, slice_pitch, slice_pitch * array_size, host_ptr) {
+         row_pitch, slice_pitch, slice_pitch * array_size, host_ptr, nullptr) {
 }
 
 cl_mem_object_type
 image2d_array::type() const {
    return CL_MEM_OBJECT_IMAGE2D_ARRAY;
+}
+
+cl_uint
+image2d_array::dimensions() const {
+   return 2;
 }
 
 image3d::image3d(clover::context &ctx, cl_mem_flags flags,
@@ -309,10 +329,15 @@ image3d::image3d(clover::context &ctx, cl_mem_flags flags,
                  void *host_ptr) :
    image(ctx, flags, format, width, height, depth, 0,
          row_pitch, slice_pitch, depth * slice_pitch,
-         host_ptr) {
+         host_ptr, nullptr) {
 }
 
 cl_mem_object_type
 image3d::type() const {
    return CL_MEM_OBJECT_IMAGE3D;
+}
+
+cl_uint
+image3d::dimensions() const {
+   return 3;
 }
