@@ -199,6 +199,8 @@ kernel::exec_context::bind(intrusive_ptr<command_queue> _q,
    auto bargs = bsym.args;
    auto msec = find(id_type_equals(bsym.section, binary::section::text_executable), b.secs);
    auto explicit_arg = kern._args.begin();
+   auto samplers = bsym.samplers;
+   size_t sidx = 0;
 
    for (auto &barg : bargs) {
       switch (barg.semantic) {
@@ -266,6 +268,16 @@ kernel::exec_context::bind(intrusive_ptr<command_queue> _q,
 
          auto arg = argument::create(barg);
          arg->set(sizeof(cl_mem), &print_mem);
+         arg->bind(*this, barg);
+         break;
+      }
+      case binary::argument::inline_sampler: {
+         assert(sidx < samplers.size());
+         auto arg = argument::create(barg);
+         binary::sampler &d = samplers[sidx++];
+         auto s = create<sampler>(q->context(), d.norm_coords, d.addr_mode, d.filter_mode);
+         cl_sampler samp = desc(s());
+         arg->set(sizeof(cl_sampler), &samp);
          arg->bind(*this, barg);
          break;
       }
@@ -654,7 +666,7 @@ kernel::sampler_argument::set(size_t size, const void *value) {
    if (size != sizeof(cl_sampler))
       throw error(CL_INVALID_ARG_SIZE);
 
-   s = &obj(*(cl_sampler *)value);
+   s = intrusive_ptr<sampler>(&obj(*(cl_sampler *)value));
    _set = true;
 }
 
