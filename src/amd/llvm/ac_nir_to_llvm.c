@@ -1610,12 +1610,23 @@ static LLVMValueRef visit_load_push_constant(struct ac_nir_context *ctx, nir_int
    return LLVMBuildLoad(ctx->ac.builder, ptr, "");
 }
 
+static LLVMValueRef enter_waterfall_ssbo(struct ac_nir_context *ctx, struct waterfall_context *wctx,
+                                         const nir_intrinsic_instr *instr, nir_src src)
+{
+   return enter_waterfall(ctx, wctx, get_src(ctx, src),
+                          nir_intrinsic_access(instr) & ACCESS_NON_UNIFORM);
+}
+
 static LLVMValueRef visit_get_ssbo_size(struct ac_nir_context *ctx,
                                         const nir_intrinsic_instr *instr)
 {
-   LLVMValueRef index = get_src(ctx, instr->src[0]);
+   struct waterfall_context wctx;
+   LLVMValueRef rsrc_base = enter_waterfall_ssbo(ctx, &wctx, instr, instr->src[0]);
+   LLVMValueRef rsrc = ctx->abi->load_ssbo(ctx->abi, rsrc_base, false);
 
-   return get_buffer_size(ctx, ctx->abi->load_ssbo(ctx->abi, index, false), false);
+   LLVMValueRef size = get_buffer_size(ctx, rsrc, false);
+
+   return exit_waterfall(ctx, &wctx, size);
 }
 
 static LLVMValueRef extract_vector_range(struct ac_llvm_context *ctx, LLVMValueRef src,
@@ -1662,13 +1673,6 @@ static unsigned get_cache_policy(struct ac_nir_context *ctx, enum gl_access_qual
       cache_policy |= ac_slc | ac_glc;
 
    return cache_policy;
-}
-
-static LLVMValueRef enter_waterfall_ssbo(struct ac_nir_context *ctx, struct waterfall_context *wctx,
-                                         const nir_intrinsic_instr *instr, nir_src src)
-{
-   return enter_waterfall(ctx, wctx, get_src(ctx, src),
-                          nir_intrinsic_access(instr) & ACCESS_NON_UNIFORM);
 }
 
 static void visit_store_ssbo(struct ac_nir_context *ctx, nir_intrinsic_instr *instr)
