@@ -374,6 +374,7 @@ threaded_resource_init(struct pipe_resource *res)
    tres->base_valid_buffer_range = &tres->valid_buffer_range;
    tres->is_shared = false;
    tres->is_user_ptr = false;
+   tres->pending_staging_uploads = 0;
 }
 
 void
@@ -1580,6 +1581,10 @@ tc_improve_map_buffer_flags(struct threaded_context *tc,
    return usage;
 }
 
+static void
+tc_flush(struct pipe_context *_pipe, struct pipe_fence_handle **fence,
+         unsigned flags);
+
 static void *
 tc_transfer_map(struct pipe_context *_pipe,
                 struct pipe_resource *resource, unsigned level,
@@ -1618,7 +1623,19 @@ tc_transfer_map(struct pipe_context *_pipe,
          ttrans->b.stride = 0;
          ttrans->b.layer_stride = 0;
          *transfer = &ttrans->b;
+
+         p_atomic_inc(&tres->pending_staging_uploads);
+
          return map + (box->x % tc->map_buffer_alignment);
+      }
+
+      if (tres->pending_staging_uploads) {
+         /* Flush to make sure the mapping happens after the staging-copy is
+          * sent to the GPU.
+          * If usage includes PIPE_MAP_UNSYNCHRONIZED the staging-copy may
+          * not be finished before the buffer is mapped though.
+          */
+         tc_flush(_pipe, NULL, 0);
       }
    }
 
@@ -1719,15 +1736,28 @@ tc_transfer_flush_region(struct pipe_context *_pipe,
    p->box = *rel_box;
 }
 
+struct tc_transfer_unmap {
+   union {
+      struct pipe_transfer *transfer;
+      struct pipe_resource *resource;
+   };
+   bool was_staging_transfer;
+};
+
 static void
 tc_call_transfer_unmap(struct pipe_context *pipe, union tc_payload *payload)
 {
-   pipe->transfer_unmap(pipe, payload->transfer);
+   struct tc_transfer_unmap *p = (struct tc_transfer_unmap *) payload;
+   if (p->was_staging_transfer) {
+      struct threaded_resource *tres = threaded_resource(payload->resource);
+      /* Nothing to do except keeping track of staging uploads */
+      assert(tres->pending_staging_uploads > 0);
+      p_atomic_dec_return(&tres->pending_staging_uploads);
+      tc_set_resource_reference(&p->resource, NULL);
+      return;
+   }
+   pipe->transfer_unmap(pipe, p->transfer);
 }
-
-static void
-tc_flush(struct pipe_context *_pipe, struct pipe_fence_handle **fence,
-         unsigned flags);
 
 static void
 tc_transfer_unmap(struct pipe_context *_pipe, struct pipe_transfer *transfer)
@@ -1751,21 +1781,30 @@ tc_transfer_unmap(struct pipe_context *_pipe, struct pipe_transfer *transfer)
       return;
    }
 
+   bool was_staging_transfer = false;
+
    if (tres->b.target == PIPE_BUFFER) {
       if (transfer->usage & PIPE_MAP_WRITE &&
           !(transfer->usage & PIPE_MAP_FLUSH_EXPLICIT))
          tc_buffer_do_flush_region(tc, ttrans, &transfer->box);
 
-      /* Staging transfers don't send the call to the driver. */
       if (ttrans->staging) {
+         was_staging_transfer = true;
+
          pipe_resource_reference(&ttrans->staging, NULL);
          pipe_resource_reference(&ttrans->b.resource, NULL);
          slab_free(&tc->pool_transfers, ttrans);
-         return;
       }
    }
-
-   tc_add_small_call(tc, TC_CALL_transfer_unmap)->transfer = transfer;
+   struct tc_transfer_unmap *p = tc_add_struct_typed_call(tc, TC_CALL_transfer_unmap,
+                                                          tc_transfer_unmap);
+   if (was_staging_transfer) {
+      tc_set_resource_reference(&p->resource, &tres->b);
+      p->was_staging_transfer = true;
+   } else {
+      p->transfer = transfer;
+      p->was_staging_transfer = false;
+   }
 
    /* tc_transfer_map directly maps the buffers, but tc_transfer_unmap
     * defers the unmap operation to the batch execution.
