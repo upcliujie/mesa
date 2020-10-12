@@ -222,6 +222,7 @@ nir_lower_non_uniform_access_impl(nir_function_impl *impl,
             case nir_intrinsic_ssbo_atomic_fmin:
             case nir_intrinsic_ssbo_atomic_fmax:
             case nir_intrinsic_ssbo_atomic_fcomp_swap:
+            case nir_intrinsic_get_ssbo_size:
                if ((types & nir_lower_non_uniform_ssbo_access) &&
                    lower_non_uniform_access_intrin(&b, intrin, 0))
                   progress = true;
