@@ -282,6 +282,10 @@ struct threaded_resource {
     * are too large for the visible VRAM window.
     */
    int max_forced_staging_uploads;
+
+   /* If positive, then a staging transfer is in progress.
+    */
+   int pending_staging_uploads;
 };
 
 struct threaded_transfer {
