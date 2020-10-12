@@ -2460,7 +2460,8 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
          vtn_assert(ptr->block_index);
       }
 
-      nir_ssa_def *buf_size = nir_get_ssbo_size(&b->nb, ptr->block_index);
+      nir_ssa_def *buf_size = nir_get_ssbo_size(&b->nb, ptr->block_index,
+                                                .access=ptr->access | ptr->type->access);
 
       /* array_length = max(buffer_size - offset, 0) / stride */
       nir_ssa_def *array_length =
