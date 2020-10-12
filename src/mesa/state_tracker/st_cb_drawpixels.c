@@ -76,6 +76,7 @@
 #include "util/u_math.h"
 #include "util/u_simple_shaders.h"
 #include "util/u_tile.h"
+#include "util/image_compare.h"
 #include "cso_cache/cso_context.h"
 
 #include "compiler/nir/nir_builder.h"
@@ -1286,6 +1287,147 @@ get_effective_raster_z(struct gl_context *ctx)
 
 
 /**
+ * Try to do glDrawPixels with a clear. This assumes that all pixels are equal.
+ */
+static bool
+try_clear_for_draw_pixels(struct gl_context *ctx, int dstx, int dsty,
+                          int width, int height, GLenum format, GLenum type,
+                          const void *pixels,
+                          const struct gl_pixelstore_attrib *unpack)
+{
+   struct st_context *st = st_context(ctx);
+   struct pipe_context *pipe = st->pipe;
+
+   if (ctx->Pixel.ZoomX == 1.0 &&
+       ctx->Pixel.ZoomY == 1.0 &&
+       (format == GL_DEPTH_COMPONENT ||
+        format == GL_DEPTH_STENCIL ||
+        format == GL_STENCIL_INDEX ||
+        (ctx->_ImageTransferState == 0x0 &&
+         !ctx->Color.BlendEnabled &&
+         !ctx->Color.AlphaEnabled &&
+         (!ctx->Color.ColorLogicOpEnabled || ctx->Color.LogicOp == GL_COPY) &&
+         (!ctx->Depth.Test ||
+          (ctx->Depth.Func == GL_ALWAYS && !ctx->Depth.Mask)) &&
+         !ctx->Fog.Enabled &&
+         (!ctx->Stencil.Enabled ||
+          (ctx->Stencil.FailFunc[0] == GL_KEEP &&
+           ctx->Stencil.ZPassFunc[0] == GL_KEEP &&
+           ctx->Stencil.ZFailFunc[0] == GL_KEEP)) &&
+         !ctx->FragmentProgram.Enabled &&
+         !ctx->VertexProgram.Enabled &&
+         !ctx->_Shader->CurrentProgram[MESA_SHADER_FRAGMENT] &&
+         !_mesa_ati_fragment_shader_enabled(ctx) &&
+         ctx->DrawBuffer->_NumColorDrawBuffers == 1)) &&
+       !ctx->Scissor.NumWindowRects &&
+       !ctx->Query.CurrentOcclusionObject) {
+      struct st_renderbuffer *rbDraw;
+
+      if (format == GL_DEPTH_COMPONENT || format == GL_DEPTH_STENCIL)
+         rbDraw = st_renderbuffer(ctx->DrawBuffer->Attachment[BUFFER_DEPTH].Renderbuffer);
+      else if (format == GL_STENCIL_INDEX)
+         rbDraw = st_renderbuffer(ctx->DrawBuffer->Attachment[BUFFER_STENCIL].Renderbuffer);
+      else
+         rbDraw = st_renderbuffer(ctx->DrawBuffer->_ColorDrawBuffers[0]);
+
+      if (st_fb_orientation(ctx->DrawBuffer) == Y_0_TOP)
+         dsty = rbDraw->Base.Height - dsty - height;
+
+      struct pipe_surface *surf = rbDraw->surface;
+      unsigned clear_buffers;
+
+      /* Determine clear flags. */
+      if (format == GL_DEPTH_COMPONENT)
+         clear_buffers = PIPE_CLEAR_DEPTH;
+      else if (format == GL_DEPTH_STENCIL)
+         clear_buffers = PIPE_CLEAR_DEPTHSTENCIL;
+      else if (format == GL_STENCIL_INDEX)
+         clear_buffers = PIPE_CLEAR_STENCIL;
+      else
+         clear_buffers = PIPE_CLEAR_COLOR0;
+
+      /* Set clear values. */
+      union pipe_color_union color = {{0}};
+      float depth = 0;
+      unsigned stencil = 0;
+
+      if (clear_buffers & PIPE_CLEAR_COLOR0) {
+         ubyte *dest = (ubyte*)&color;
+         enum pipe_format format;
+
+         if (util_format_is_pure_sint(surf->format))
+            format = PIPE_FORMAT_R32G32B32A32_SINT;
+         else if (util_format_is_pure_uint(surf->format))
+            format = PIPE_FORMAT_R32G32B32A32_UINT;
+         else
+            format = PIPE_FORMAT_R32G32B32A32_FLOAT;
+
+         if (!_mesa_texstore(ctx, 1,           /* dims */
+                             GL_RGBA,          /* baseInternalFormat */
+                             format,           /* mesa_format */
+                             sizeof(color),    /* dstRowStride, bytes */
+                             &dest,            /* destSlices */
+                             1, 1, 1,          /* size */
+                             format, type,     /* src format/type */
+                             pixels,           /* data source */
+                             unpack)) {
+            assert(!"_mesa_texstore shouldn't fail");
+            return false;
+         }
+      }
+
+      if (clear_buffers & PIPE_CLEAR_DEPTH) {
+         _mesa_unpack_depth_span(ctx, 1, GL_FLOAT, &depth, 0, type, pixels,
+                                 unpack);
+      }
+
+      if (clear_buffers & PIPE_CLEAR_STENCIL) {
+         _mesa_unpack_stencil_span(ctx, 1, GL_UNSIGNED_INT, &stencil, type,
+                                   pixels, unpack, ctx->_ImageTransferState);
+      }
+
+      assert(dstx >= 0);
+      assert(dsty >= 0);
+      assert(dstx + width <= surf->width);
+      assert(dsty + height <= surf->height);
+
+      /* Full framebuffer clear. */
+      if (dstx == 0 && dsty == 0 &&
+          width == surf->width && height == surf->height &&
+          surf->u.tex.first_layer == surf->u.tex.last_layer &&
+          !ctx->Query.CondRenderQuery) {
+         pipe->clear(pipe, clear_buffers, NULL, &color, depth, stencil);
+         return true;
+      }
+
+      /* Make sure last_layer == first_layer. */
+      if (surf->u.tex.last_layer != surf->u.tex.first_layer) {
+         struct pipe_surface templ = *surf;
+         templ.u.tex.last_layer = templ.u.tex.first_layer;
+
+         surf = pipe->create_surface(pipe, surf->texture, &templ);
+      }
+
+      /* Partial framebuffer clear. */
+      if (clear_buffers & PIPE_CLEAR_COLOR0) {
+         pipe->clear_render_target(pipe, surf, &color,
+                                   dstx, dsty, width, height, true);
+      } else {
+         pipe->clear_depth_stencil(pipe, surf, clear_buffers, depth,
+                                   stencil, dstx, dsty, width, height,
+                                   true);
+      }
+
+      if (surf != rbDraw->surface)
+         pipe_surface_reference(&surf, NULL);
+      return true;
+   }
+
+   return false;
+}
+
+
+/**
  * Called via ctx->Driver.DrawPixels()
  */
 static void
@@ -1326,6 +1468,24 @@ st_DrawPixels(struct gl_context *ctx, GLint x, GLint y,
    if (ctx->Pixel.ZoomX == 1 && ctx->Pixel.ZoomY == 1 &&
        !_mesa_clip_drawpixels(ctx, &x, &y, &width, &height, &clippedUnpack))
       return;
+
+   /* Convert DrawPixels to Clear for non-PBOs if possible.
+    * This improves GPU performance since clears result in better hardware
+    * compression.
+    */
+   if (!unpack->BufferObj) {
+      const unsigned stride = _mesa_image_row_stride(unpack, width,
+                                                     format, type);
+      const unsigned pixel_size = _mesa_bytes_per_pixel(format, type);
+      const void *src = _mesa_image_address(2, unpack, pixels, width, height,
+                                            format, type, 0, 0, 0);
+
+      /* Check if all pixels are the same. */
+      if (util_pixels_equal(width, height, pixel_size, stride, src) &&
+          try_clear_for_draw_pixels(ctx, x, y, width, height, format, type,
+                                    src, unpack))
+            return;
+   }
 
    if (format == GL_DEPTH_STENCIL)
       write_stencil = write_depth = GL_TRUE;
