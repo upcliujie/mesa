@@ -125,18 +125,48 @@ st_query_memory_info(struct gl_context *ctx, struct gl_memory_info *out)
    struct pipe_screen *screen = st_context(ctx)->pipe->screen;
    struct pipe_memory_info info;
 
-   assert(screen->query_memory_info);
-   if (!screen->query_memory_info)
-      return;
+   if (!screen->query_memory_info) {
+      /* Some drivers, especially for UMA devices, may choose to not implement
+       * this.  The NVIDIA extension spec even says that it's not applicable
+       * to UMA devices:
+       *
+       *    2)    Should Tegra advertise and support this extension?
+       *
+       *          RESOLVED: No.  Tegra's unified memory architecture doesn't
+       *          sensibly map to the queries of this extensions.
+       *
+       *          A future extension is needed to address this.
+       *
+       * Some applications (e.g., SPECviewperf13) attempt to use this
+       * extension without even checking for it, and those applications tend
+       * to misbehave when nothing is reported.  To workaround this, report
+       * back (mostly lies) to the application using whatever data
+       * PIPE_CAP_VIDEO_MEMORY reports.  Also use
+       * MESA_EXTENSION_OVERRIDE=+GL_NVX_gpu_memory_info to enable the
+       * extension.
+       */
+      const unsigned value =
+         (unsigned)screen->get_param(screen, PIPE_CAP_VIDEO_MEMORY);
 
-   screen->query_memory_info(screen, &info);
+      /* PIPE_CAP_VIDEO_MEMORY reports the size in MB, but gl_memory_info is
+       * measured in KB.
+       */
+      out->total_device_memory = value * 1024;
+      out->avail_device_memory = value * 1024;
+      out->total_staging_memory = 0;
+      out->avail_staging_memory = 0;
+      out->device_memory_evicted = 0;
+      out->nr_device_memory_evictions = 0;
+   } else {
+      screen->query_memory_info(screen, &info);
 
-   out->total_device_memory = info.total_device_memory;
-   out->avail_device_memory = info.avail_device_memory;
-   out->total_staging_memory = info.total_staging_memory;
-   out->avail_staging_memory = info.avail_staging_memory;
-   out->device_memory_evicted = info.device_memory_evicted;
-   out->nr_device_memory_evictions = info.nr_device_memory_evictions;
+      out->total_device_memory = info.total_device_memory;
+      out->avail_device_memory = info.avail_device_memory;
+      out->total_staging_memory = info.total_staging_memory;
+      out->avail_staging_memory = info.avail_staging_memory;
+      out->device_memory_evicted = info.device_memory_evicted;
+      out->nr_device_memory_evictions = info.nr_device_memory_evictions;
+   }
 }
 
 
