@@ -247,6 +247,10 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
                      instr->src[1].ssa->divergent;
       break;
 
+   case nir_intrinsic_get_ssbo_size:
+      is_divergent = instr->src[0].ssa->divergent && (nir_intrinsic_access(instr) & ACCESS_NON_UNIFORM);
+      break;
+
    case nir_intrinsic_image_load:
    case nir_intrinsic_image_deref_load:
    case nir_intrinsic_bindless_image_load:
@@ -279,7 +283,6 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_image_samples:
    case nir_intrinsic_image_deref_samples:
    case nir_intrinsic_bindless_image_samples:
-   case nir_intrinsic_get_ssbo_size:
    case nir_intrinsic_image_size:
    case nir_intrinsic_image_deref_size:
    case nir_intrinsic_bindless_image_size:

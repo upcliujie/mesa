@@ -277,7 +277,7 @@ intrinsic("deref_buffer_array_length", src_comp=[-1], dest_comp=1,
 # Ask the driver for the size of a given SSBO. It takes the buffer index
 # as source.
 intrinsic("get_ssbo_size", src_comp=[-1], dest_comp=1, bit_sizes=[32],
-          flags=[CAN_ELIMINATE, CAN_REORDER])
+          indices=[ACCESS], flags=[CAN_ELIMINATE, CAN_REORDER])
 intrinsic("get_ubo_size", src_comp=[-1], dest_comp=1,
           flags=[CAN_ELIMINATE, CAN_REORDER])
 
