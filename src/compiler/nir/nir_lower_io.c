@@ -1992,9 +1992,10 @@ lower_explicit_io_array_length(nir_builder *b, nir_intrinsic_instr *intrin,
    nir_ssa_def *addr = &deref->dest.ssa;
    nir_ssa_def *index = addr_to_index(b, addr, addr_format);
    nir_ssa_def *offset = addr_to_offset(b, addr, addr_format);
+   unsigned access = nir_intrinsic_access(intrin);
 
    nir_ssa_def *arr_size =
-      nir_idiv(b, nir_isub(b, nir_get_ssbo_size(b, index), offset),
+      nir_idiv(b, nir_isub(b, nir_get_ssbo_size(b, index, .access=access), offset),
                   nir_imm_int(b, stride));
 
    nir_ssa_def_rewrite_uses(&intrin->dest.ssa, nir_src_for_ssa(arr_size));
