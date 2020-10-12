@@ -958,14 +958,6 @@ draw_stencil_pixels(struct gl_context *ctx, GLint x, GLint y,
    GLubyte *sValues;
    GLuint *zValues;
 
-   if (!zoom) {
-      if (!_mesa_clip_drawpixels(ctx, &x, &y, &width, &height,
-                                 &clippedUnpack)) {
-         /* totally clipped */
-         return;
-      }
-   }
-
    strb = st_renderbuffer(ctx->DrawBuffer->
                           Attachment[BUFFER_STENCIL].Renderbuffer);
 
@@ -1329,6 +1321,11 @@ st_DrawPixels(struct gl_context *ctx, GLint x, GLint y,
    clippedUnpack = *unpack;
    unpack = &clippedUnpack;
    clamp_size(st->pipe, &width, &height, &clippedUnpack);
+
+   /* Skip totally clipped DrawPixels. */
+   if (ctx->Pixel.ZoomX == 1 && ctx->Pixel.ZoomY == 1 &&
+       !_mesa_clip_drawpixels(ctx, &x, &y, &width, &height, &clippedUnpack))
+      return;
 
    if (format == GL_DEPTH_STENCIL)
       write_stencil = write_depth = GL_TRUE;
