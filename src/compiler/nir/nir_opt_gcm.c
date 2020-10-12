@@ -215,10 +215,15 @@ gcm_pin_instructions(nir_function_impl *impl, struct gcm_state *state)
             }
             break;
 
-         case nir_instr_type_tex:
-            if (nir_tex_instr_has_implicit_derivative(nir_instr_as_tex(instr)))
+         case nir_instr_type_tex: {
+            nir_tex_instr *tex = nir_instr_as_tex(instr);
+            if ((tex->texture_dynamic_index && !tex->texture_non_uniform) ||
+                (tex->sampler_dynamic_index && !tex->sampler_non_uniform))
+               instr->pass_flags = GCM_INSTR_PINNED;
+            else if (nir_tex_instr_has_implicit_derivative(nir_instr_as_tex(instr)))
                instr->pass_flags = GCM_INSTR_SCHEDULE_EARLIER_ONLY;
             break;
+         }
 
          case nir_instr_type_deref:
          case nir_instr_type_load_const:
