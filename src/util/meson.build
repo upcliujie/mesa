@@ -58,6 +58,8 @@ files_mesa_util = files(
   'hash_table.h',
   'u_idalloc.c',
   'u_idalloc.h',
+  'image_compare.c',
+  'image_compare.h',
   'list.h',
   'log.c',
   'macros.h',
