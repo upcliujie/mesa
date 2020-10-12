@@ -5,6 +5,8 @@
 #include "i965_asm.h"
 #include "i965_gram.tab.h"
 
+#undef ALIGN16
+
 /* Locations */
 int yycolumn = 1;
 
