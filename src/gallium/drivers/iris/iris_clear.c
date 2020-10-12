@@ -127,6 +127,14 @@ can_fast_clear_color(struct iris_context *ice,
       return false;
    }
 
+   /* Avoid clear color changes that may require resolving. */
+   if (memcmp(&res->aux.clear_color, &color, sizeof(color)) != 0 &&
+       isl_surf_has_multiple_slices(&res->surf) &&
+       iris_has_invalid_primary(res, 0, INTEL_REMAINING_LEVELS,
+                                0, INTEL_REMAINING_LAYERS)) {
+      return false;
+   }
+
    return true;
 }
 
@@ -228,54 +236,6 @@ fast_clear_color(struct iris_context *ice,
       batch->screen->vtbl.resolve_conditional_render(ice);
       if (ice->state.predicate == IRIS_PREDICATE_STATE_DONT_RENDER)
          return;
-
-      /* If we are clearing to a new clear value, we need to resolve fast
-       * clears from other levels/layers first, since we can't have different
-       * levels/layers with different fast clear colors.
-       */
-      for (unsigned res_lvl = 0; res_lvl < res->surf.levels; res_lvl++) {
-         const unsigned level_layers =
-            iris_get_num_logical_layers(res, res_lvl);
-         for (unsigned layer = 0; layer < level_layers; layer++) {
-            if (res_lvl == level &&
-                layer >= box->z &&
-                layer < box->z + box->depth) {
-               /* We're going to clear this layer anyway.  Leave it alone. */
-               continue;
-            }
-
-            enum isl_aux_state aux_state =
-               iris_resource_get_aux_state(res, res_lvl, layer);
-
-            if (aux_state != ISL_AUX_STATE_CLEAR &&
-                aux_state != ISL_AUX_STATE_PARTIAL_CLEAR &&
-                aux_state != ISL_AUX_STATE_COMPRESSED_CLEAR) {
-               /* This slice doesn't have any fast-cleared bits. */
-               continue;
-            }
-
-            /* If we got here, then the level may have fast-clear bits that use
-             * the old clear value.  We need to do a color resolve to get rid
-             * of their use of the clear color before we can change it.
-             * Fortunately, few applications ever change their clear color at
-             * different levels/layers, so this shouldn't happen often.
-             */
-            iris_resource_prepare_access(ice, res,
-                                         res_lvl, 1, layer, 1,
-                                         res->aux.usage,
-                                         false);
-            perf_debug(&ice->dbg,
-                       "Resolving resource (%p) level %d, layer %d: color changing from "
-                       "(%0.2f, %0.2f, %0.2f, %0.2f) to "
-                       "(%0.2f, %0.2f, %0.2f, %0.2f)\n",
-                       res, res_lvl, layer,
-                       res->aux.clear_color.f32[0],
-                       res->aux.clear_color.f32[1],
-                       res->aux.clear_color.f32[2],
-                       res->aux.clear_color.f32[3],
-                       color.f32[0], color.f32[1], color.f32[2], color.f32[3]);
-         }
-      }
    }
 
    iris_resource_set_clear_color(ice, res, color);
@@ -435,6 +395,14 @@ can_fast_clear_depth(struct iris_context *ice,
       return false;
    }
 
+   /* Avoid clear color changes that may require resolving. */
+   if (res->aux.clear_color.f32[0] != depth &&
+       isl_surf_has_multiple_slices(&res->surf) &&
+       iris_has_invalid_primary(res, 0, INTEL_REMAINING_LEVELS,
+                                0, INTEL_REMAINING_LAYERS)) {
+      return false;
+   }
+
    return true;
 }
 
@@ -449,9 +417,6 @@ fast_clear_depth(struct iris_context *ice,
 
    bool update_clear_depth = false;
 
-   /* If we're clearing to a new clear value, then we need to resolve any clear
-    * flags out of the HiZ buffer into the real depth buffer.
-    */
    if (res->aux.clear_color.f32[0] != depth) {
       /* We decided that we are going to fast clear, and the color is
        * changing. But if we have a predicate bit set, the predication
@@ -462,53 +427,13 @@ fast_clear_depth(struct iris_context *ice,
        * commands don't support that). And we would lose track of the
        * color, preventing us from doing some optimizations later.
        *
-       * For depth clears, things are even more complicated, because here we
-       * resolve the other levels/layers if they have a different color than
-       * the current one. That resolve can be predicated, but we also set those
-       * layers as ISL_AUX_STATE_RESOLVED, and this can't be predicated.
-       * Keeping track of the aux state when predication is involved is just
-       * even more complex, so the easiest thing to do when the fast clear
-       * depth is changing is to stall on the CPU and resolve the predication.
+       * The easiest thing to do when the fast clear depth is changing
+       * is to stall on the CPU and resolve the predication.
        */
       batch->screen->vtbl.resolve_conditional_render(ice);
       if (ice->state.predicate == IRIS_PREDICATE_STATE_DONT_RENDER)
          return;
 
-      for (unsigned res_level = 0; res_level < res->surf.levels; res_level++) {
-         if (!(res->aux.has_hiz & (1 << res_level)))
-            continue;
-
-         const unsigned level_layers =
-            iris_get_num_logical_layers(res, res_level);
-         for (unsigned layer = 0; layer < level_layers; layer++) {
-            if (res_level == level &&
-                layer >= box->z &&
-                layer < box->z + box->depth) {
-               /* We're going to clear this layer anyway.  Leave it alone. */
-               continue;
-            }
-
-            enum isl_aux_state aux_state =
-               iris_resource_get_aux_state(res, res_level, layer);
-
-            if (aux_state != ISL_AUX_STATE_CLEAR &&
-                aux_state != ISL_AUX_STATE_COMPRESSED_CLEAR) {
-               /* This slice doesn't have any fast-cleared bits. */
-               continue;
-            }
-
-            /* If we got here, then the level may have fast-clear bits that
-             * use the old clear value.  We need to do a depth resolve to get
-             * rid of their use of the clear value before we can change it.
-             * Fortunately, few applications ever change their depth clear
-             * value so this shouldn't happen often.
-             */
-            iris_hiz_exec(ice, batch, res, res_level, layer, 1,
-                          ISL_AUX_OP_FULL_RESOLVE, false);
-            iris_resource_set_aux_state(ice, res, res_level, layer, 1,
-                                        ISL_AUX_STATE_RESOLVED);
-         }
-      }
       const union isl_color_value clear_value = { .f32 = {depth, } };
       iris_resource_set_clear_color(ice, res, clear_value);
       update_clear_depth = true;
