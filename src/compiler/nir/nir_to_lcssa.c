@@ -178,13 +178,21 @@ instr_is_invariant(nir_instr *instr, nir_loop *loop)
       nir_intrinsic_instr *intrinsic = nir_instr_as_intrinsic(instr);
       if (!nir_intrinsic_can_reorder(intrinsic))
          return not_invariant;
+      break;
    }
-   FALLTHROUGH;
+   case nir_instr_type_tex: {
+      nir_tex_instr *tex = nir_instr_as_tex(instr);
+      if ((tex->texture_dynamic_index && !tex->texture_non_uniform) ||
+          (tex->sampler_dynamic_index && !tex->sampler_non_uniform)) {
+         return not_invariant;
+      }
+      break;
+   }
    default:
-      return nir_foreach_src(instr, src_is_invariant, loop) ? invariant : not_invariant;
+      break;
    }
 
-   return invariant;
+   return nir_foreach_src(instr, src_is_invariant, loop) ? invariant : not_invariant;
 }
 
 static bool
