@@ -1939,9 +1939,9 @@ nir_image_intrinsic_coord_components(const nir_intrinsic_instr *instr);
 void nir_rewrite_image_intrinsic(nir_intrinsic_instr *instr,
                                  nir_ssa_def *handle, bool bindless);
 
-/* Determine if an intrinsic can be arbitrarily reordered and eliminated. */
+/* Determine if an intrinsic can be CSE'd. */
 static inline bool
-nir_intrinsic_can_reorder(nir_intrinsic_instr *instr)
+nir_intrinsic_can_cse(nir_intrinsic_instr *instr)
 {
    if (instr->intrinsic == nir_intrinsic_load_deref) {
       nir_deref_instr *deref = nir_src_as_deref(instr->src[0]);
@@ -1952,12 +1952,28 @@ nir_intrinsic_can_reorder(nir_intrinsic_instr *instr)
               instr->intrinsic == nir_intrinsic_image_deref_load ||
               instr->intrinsic == nir_intrinsic_image_load) {
       return nir_intrinsic_access(instr) & ACCESS_CAN_REORDER;
+   } else if (instr->intrinsic == nir_intrinsic_load_ubo) {
+      return true;
    } else {
       const nir_intrinsic_info *info =
          &nir_intrinsic_infos[instr->intrinsic];
       return (info->flags & NIR_INTRINSIC_CAN_ELIMINATE) &&
              (info->flags & NIR_INTRINSIC_CAN_REORDER);
    }
+}
+
+/* Determine if an intrinsic can be arbitrarily reordered and eliminated. */
+static inline bool
+nir_intrinsic_can_reorder(nir_intrinsic_instr *instr)
+{
+   if (nir_intrinsic_has_access(instr)) {
+       unsigned access = nir_intrinsic_access(instr);
+       /* We have to be careful to not make a dynamic resource index divergent. */
+       if ((access & ACCESS_DYNAMIC_RESOURCE_INDEX) && !(access & ACCESS_NON_UNIFORM))
+         return false;
+   }
+
+   return nir_intrinsic_can_cse(instr);
 }
 
 /**
