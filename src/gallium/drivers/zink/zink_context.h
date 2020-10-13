@@ -72,6 +72,7 @@ struct zink_sampler_state {
    VkSampler sampler;
    struct zink_descriptor_refs desc_set_refs;
    uint32_t hash;
+   uint32_t batch_uses;
    bool custom_border_color;
 };
 
@@ -83,6 +84,7 @@ struct zink_sampler_view {
       VkBufferView buffer_view;
    };
    uint32_t hash;
+   uint32_t batch_uses;
 };
 
 struct zink_image_view {
