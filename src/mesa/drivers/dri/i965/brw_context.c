@@ -326,6 +326,27 @@ intel_finish(struct gl_context * ctx)
 }
 
 static void
+brw_query_memory_info(struct gl_context *ctx, struct gl_memory_info *out)
+{
+   struct brw_context *brw = brw_context(ctx);
+
+   unsigned value = 0;
+
+   brw_query_video_memory(brw->screen, &value);
+
+   /* brw_query_video_memory reports the size in MB, but gl_memory_info is
+    * measured in KB.
+    */
+   out->total_device_memory = value * 1024;
+   out->avail_device_memory = value * 1024;
+   out->total_staging_memory = 0;
+   out->avail_staging_memory = 0;
+   out->device_memory_evicted = 0;
+   out->nr_device_memory_evictions = 0;
+}
+
+
+static void
 brw_init_driver_functions(struct brw_context *brw,
                           struct dd_function_table *functions)
 {
@@ -414,6 +435,7 @@ brw_init_driver_functions(struct brw_context *brw,
    }
 
    functions->SetBackgroundContext = brw_set_background_context;
+   functions->QueryMemoryInfo = brw_query_memory_info;
 }
 
 static void

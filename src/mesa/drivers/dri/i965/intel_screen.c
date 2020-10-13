@@ -1518,6 +1518,32 @@ static const __DRIimageExtension intelImageExtension = {
     .queryDmaBufFormatModifierAttribs   = intel_query_format_modifier_attribs,
 };
 
+int
+brw_query_video_memory(const struct intel_screen *screen, unsigned *value)
+{
+   /* Once a batch uses more than 75% of the maximum mappable size, we
+    * assume that there's some fragmentation, and we start doing extra
+    * flushing, etc.  That's the big cliff apps will care about.
+    */
+   const unsigned gpu_mappable_megabytes =
+      screen->aperture_threshold / (1024 * 1024);
+
+   const long system_memory_pages = sysconf(_SC_PHYS_PAGES);
+   const long system_page_size = sysconf(_SC_PAGE_SIZE);
+
+   if (system_memory_pages <= 0 || system_page_size <= 0)
+      return -1;
+
+   const uint64_t system_memory_bytes = (uint64_t) system_memory_pages
+      * (uint64_t) system_page_size;
+
+   const unsigned system_memory_megabytes =
+      (unsigned) (system_memory_bytes / (1024 * 1024));
+
+   value[0] = MIN2(system_memory_megabytes, gpu_mappable_megabytes);
+   return 0;
+}
+
 static int
 brw_query_renderer_integer(__DRIscreen *dri_screen,
                            int param, unsigned int *value)
@@ -1535,29 +1561,8 @@ brw_query_renderer_integer(__DRIscreen *dri_screen,
    case __DRI2_RENDERER_ACCELERATED:
       value[0] = 1;
       return 0;
-   case __DRI2_RENDERER_VIDEO_MEMORY: {
-      /* Once a batch uses more than 75% of the maximum mappable size, we
-       * assume that there's some fragmentation, and we start doing extra
-       * flushing, etc.  That's the big cliff apps will care about.
-       */
-      const unsigned gpu_mappable_megabytes =
-         screen->aperture_threshold / (1024 * 1024);
-
-      const long system_memory_pages = sysconf(_SC_PHYS_PAGES);
-      const long system_page_size = sysconf(_SC_PAGE_SIZE);
-
-      if (system_memory_pages <= 0 || system_page_size <= 0)
-         return -1;
-
-      const uint64_t system_memory_bytes = (uint64_t) system_memory_pages
-         * (uint64_t) system_page_size;
-
-      const unsigned system_memory_megabytes =
-         (unsigned) (system_memory_bytes / (1024 * 1024));
-
-      value[0] = MIN2(system_memory_megabytes, gpu_mappable_megabytes);
-      return 0;
-   }
+   case __DRI2_RENDERER_VIDEO_MEMORY:
+      return brw_query_video_memory(screen, value);
    case __DRI2_RENDERER_UNIFIED_MEMORY_ARCHITECTURE:
       value[0] = 1;
       return 0;
