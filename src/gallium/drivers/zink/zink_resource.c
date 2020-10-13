@@ -85,6 +85,25 @@ zink_get_resource_latest_batch_usage(struct zink_context *ctx, uint32_t batch_us
 }
 
 static void
+cache_or_free_mem(struct zink_screen *screen, struct zink_resource *res)
+{
+   if (res->mem_hash) {
+      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(screen->resource_mem_cache, res->mem_hash, (void*)(uintptr_t)res->mem_hash);
+      struct util_dynarray *array = he ? (void*)he->data : NULL;
+      if (!array) {
+         array = rzalloc(screen->resource_mem_cache, struct util_dynarray);
+         util_dynarray_init(array, screen->resource_mem_cache);
+         _mesa_hash_table_insert_pre_hashed(screen->resource_mem_cache, res->mem_hash, (void*)(uintptr_t)res->mem_hash, array);
+      }
+      if (util_dynarray_num_elements(array, VkDeviceMemory) < 10) {
+         util_dynarray_append(array, VkDeviceMemory, res->mem);
+         return;
+      }
+   }
+   vkFreeMemory(screen->dev, res->mem, NULL);
+}
+
+static void
 zink_resource_destroy(struct pipe_screen *pscreen,
                       struct pipe_resource *pres)
 {
@@ -98,7 +117,8 @@ zink_resource_destroy(struct pipe_screen *pscreen,
 
    zink_descriptor_set_refs_clear(&res->desc_set_refs, res);
 
-   vkFreeMemory(screen->dev, res->mem, NULL);
+   cache_or_free_mem(screen, res);
+
    FREE(res);
 }
 
@@ -372,7 +392,17 @@ resource_create(struct pipe_screen *pscreen,
       mai.pNext = &memory_wsi_info;
    }
 
-   if (vkAllocateMemory(screen->dev, &mai, NULL, &res->mem) != VK_SUCCESS)
+   if (!mai.pNext && !(templ->flags & PIPE_RESOURCE_FLAG_MAP_COHERENT)) {
+      res->mem_hash = _mesa_hash_data(&reqs, sizeof(reqs));
+
+      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(screen->resource_mem_cache, res->mem_hash, (void*)(uintptr_t)res->mem_hash);
+      struct util_dynarray *array = he ? (void*)he->data : NULL;
+      if (array && util_dynarray_num_elements(array, VkDeviceMemory)) {
+         res->mem = util_dynarray_pop(array, VkDeviceMemory);
+      }
+   }
+
+   if (!res->mem && vkAllocateMemory(screen->dev, &mai, NULL, &res->mem) != VK_SUCCESS)
       goto fail;
 
    res->offset = 0;

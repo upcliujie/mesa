@@ -61,6 +61,7 @@ struct zink_resource {
       };
    };
    VkDeviceMemory mem;
+   uint32_t mem_hash;
    VkDeviceSize offset, size;
 
    struct sw_displaytarget *dt;

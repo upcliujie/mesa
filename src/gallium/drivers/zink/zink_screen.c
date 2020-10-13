@@ -35,6 +35,7 @@
 #include "util/os_misc.h"
 #include "util/u_debug.h"
 #include "util/format/u_format.h"
+#include "util/hash_table.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
 #include "util/u_screen.h"
@@ -782,6 +783,15 @@ zink_is_format_supported(struct pipe_screen *pscreen,
 }
 
 static void
+resource_cache_entry_destroy(struct zink_screen *screen, struct hash_entry *he)
+{
+   struct util_dynarray *array = (void*)he->data;
+   util_dynarray_foreach(array, VkDeviceMemory, mem)
+      vkFreeMemory(screen->dev, *mem, NULL);
+   util_dynarray_fini(array);
+}
+
+static void
 zink_destroy_screen(struct pipe_screen *pscreen)
 {
    struct zink_screen *screen = zink_screen(pscreen);
@@ -794,6 +804,9 @@ zink_destroy_screen(struct pipe_screen *pscreen)
    if (screen->disk_cache)
       disk_cache_wait_for_idle(screen->disk_cache);
    disk_cache_destroy(screen->disk_cache);
+   hash_table_foreach(screen->resource_mem_cache, he)
+      resource_cache_entry_destroy(screen, he);
+   _mesa_hash_table_destroy(screen->resource_mem_cache, NULL);
    vkDestroyPipelineCache(screen->dev, screen->pipeline_cache, NULL);
    slab_destroy_parent(&screen->transfer_pool);
    FREE(screen);
@@ -1208,6 +1221,9 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
    disk_cache_init(screen);
    populate_format_props(screen);
    pre_hash_descriptor_states(screen);
+   screen->resource_mem_cache = _mesa_hash_table_create(NULL, NULL, _mesa_key_pointer_equal);
+   if (!screen->resource_mem_cache)
+      goto fail;
 
    VkPipelineCacheCreateInfo pcci;
    pcci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
