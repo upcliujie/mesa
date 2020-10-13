@@ -683,6 +683,8 @@ struct si_screen {
     * Hyperthreaded CPUs report the number of threads, but we want
     * the number of cores. We only need this many threads for shader-db. */
    struct ac_llvm_compiler compiler[24]; /* used by the queue only */
+   /* only used for opencl kernels. */
+   struct ac_llvm_compiler kernel_compiler[24]; /* used by the queue only */
 
    struct util_queue shader_compiler_queue_low_priority;
    /* Use at most 2 low priority threads on quadcore and better.
@@ -1501,7 +1503,7 @@ void si_emit_initial_compute_regs(struct si_context *sctx, struct radeon_cmdbuf 
 void si_init_compute_functions(struct si_context *sctx);
 
 /* si_pipe.c */
-void si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compiler);
+void si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compiler, bool support_spill);
 void si_init_aux_async_compute_ctx(struct si_screen *sscreen);
 
 /* si_perfcounters.c */

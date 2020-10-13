@@ -136,7 +136,8 @@ static const struct debug_named_value test_options[] = {
    DEBUG_NAMED_VALUE_END /* must be last */
 };
 
-void si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compiler)
+void si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compiler,
+                      bool support_spill)
 {
    /* Only create the less-optimizing version of the compiler on APUs
     * predating Ryzen (Raven). */
@@ -145,6 +146,7 @@ void si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compil
 
    enum ac_target_machine_options tm_options =
       (sscreen->debug_flags & DBG(CHECK_IR) ? AC_TM_CHECK_IR : 0) |
+      (support_spill ? AC_TM_SUPPORTS_SPILL : 0) |
       (create_low_opt_compiler ? AC_TM_CREATE_LOW_OPT : 0);
 
    ac_init_llvm_once();
