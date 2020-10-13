@@ -91,14 +91,15 @@ kernel::launch(command_queue &q,
                               exec.g_buffers.data(), g_handles.data());
 
    // Fill information for the launch_grid() call.
-   info.work_dim = grid_size.size();
-   copy(pad_vector(q, block_size, 1), info.block);
-   copy(pad_vector(q, reduced_grid_size, 1), info.grid);
-   info.pc = find(name_equals(_name), m.syms).offset;
-   info.input = exec.input.data();
+   if (!any_of(is_zero(), grid_size)) {
+      info.work_dim = grid_size.size();
+      copy(pad_vector(q, block_size, 1), info.block);
+      copy(pad_vector(q, reduced_grid_size, 1), info.grid);
+      info.pc = find(name_equals(_name), m.syms).offset;
+      info.input = exec.input.data();
 
-   q.pipe->launch_grid(q.pipe, &info);
-
+      q.pipe->launch_grid(q.pipe, &info);
+   }
    q.pipe->set_global_binding(q.pipe, 0, exec.g_buffers.size(), NULL, NULL);
    q.pipe->set_compute_resources(q.pipe, 0, exec.resources.size(), NULL);
    q.pipe->set_shader_images(q.pipe, PIPE_SHADER_COMPUTE, 0,
@@ -137,6 +138,9 @@ kernel::name() const {
 std::vector<size_t>
 kernel::optimal_block_size(const command_queue &q,
                            const std::vector<size_t> &grid_size) const {
+   if (any_of(is_zero(), grid_size))
+      return grid_size;
+
    return factor::find_grid_optimal_factor<size_t>(
       q.device().max_threads_per_block(), q.device().max_block_size(),
       grid_size);
