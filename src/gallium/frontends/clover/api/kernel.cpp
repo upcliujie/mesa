@@ -271,9 +271,6 @@ namespace {
       if (dims < 1 || dims > q.device().max_block_size().size())
          throw error(CL_INVALID_WORK_DIMENSION);
 
-      if (!d_grid_size || any_of(is_zero(), grid_size))
-         throw error(CL_INVALID_GLOBAL_WORK_SIZE);
-
       return grid_size;
    }
 
@@ -299,8 +296,6 @@ namespace {
              any_of(greater(), block_size, q.device().max_block_size()))
             throw error(CL_INVALID_WORK_ITEM_SIZE);
 
-         if (any_of(modulus(), grid_size, block_size))
-            throw error(CL_INVALID_WORK_GROUP_SIZE);
 
          if (fold(multiplies(), 1u, block_size) >
              q.device().max_threads_per_block())
