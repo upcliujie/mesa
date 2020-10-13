@@ -1832,6 +1832,14 @@ bool isl_format_has_uint_channel(enum isl_format fmt) ATTRIBUTE_CONST;
 bool isl_format_has_sint_channel(enum isl_format fmt) ATTRIBUTE_CONST;
 
 static inline bool
+isl_format_supports_atomics(enum isl_format fmt)
+{
+   return fmt == ISL_FORMAT_R32_UINT ||
+          fmt == ISL_FORMAT_R32_SINT ||
+          fmt == ISL_FORMAT_R32_FLOAT;
+}
+
+static inline bool
 isl_format_has_normalized_channel(enum isl_format fmt)
 {
    return isl_format_has_unorm_channel(fmt) ||
