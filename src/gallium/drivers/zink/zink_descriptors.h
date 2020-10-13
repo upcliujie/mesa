@@ -82,6 +82,7 @@ struct zink_descriptor_set {
    bool invalid;
    bool recycled;
    struct util_dynarray barriers;
+   uint32_t batch_uses;
 #ifndef NDEBUG
    /* for extra debug asserts */
    unsigned num_resources;
