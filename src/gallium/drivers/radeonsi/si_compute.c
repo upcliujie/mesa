@@ -123,7 +123,7 @@ static void si_create_compute_state_async(void *job, int thread_index)
    compiler = &sscreen->compiler[thread_index];
 
    if (!compiler->passes)
-      si_init_compiler(sscreen, compiler);
+      si_init_compiler(sscreen, compiler, sel->nir->info.stage == MESA_SHADER_KERNEL);
 
    assert(program->ir_type == PIPE_SHADER_IR_NIR);
    si_nir_scan_shader(sel->nir, &sel->info);
