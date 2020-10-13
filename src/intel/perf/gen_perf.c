@@ -501,6 +501,7 @@ load_pipeline_statistic_metrics(struct gen_perf_config *perf_cfg,
 
    query->kind = GEN_PERF_QUERY_TYPE_PIPELINE;
    query->name = "Pipeline Statistics Registers";
+   query->symbol_name = "PipelineStatisticsRegisters";
 
    gen_perf_query_add_basic_stat_reg(query, IA_VERTICES_COUNT,
                                      "N vertices submitted");

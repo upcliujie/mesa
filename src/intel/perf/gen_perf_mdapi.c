@@ -139,7 +139,7 @@ gen_perf_register_mdapi_statistic_query(struct gen_perf_config *perf_cfg,
       gen_perf_append_query_info(perf_cfg, MAX_STAT_COUNTERS);
 
    query->kind = GEN_PERF_QUERY_TYPE_PIPELINE;
-   query->name = "Intel_Raw_Pipeline_Statistics_Query";
+   query->name = query->symbol_name = "Intel_Raw_Pipeline_Statistics_Query";
 
    /* The order has to match mdapi_pipeline_metrics. */
    gen_perf_query_add_basic_stat_reg(query, IA_VERTICES_COUNT,
@@ -195,7 +195,7 @@ fill_mdapi_perf_query_counter(struct gen_perf_query_info *query,
 
    assert(query->n_counters <= query->max_counters);
 
-   counter->name = name;
+   counter->name = counter->symbol_name = name;
    counter->desc = "Raw counter value";
    counter->type = GEN_PERF_COUNTER_TYPE_RAW;
    counter->data_type = data_type;
@@ -343,7 +343,7 @@ gen_perf_register_mdapi_oa_query(struct gen_perf_config *perf,
    }
 
    query->kind = GEN_PERF_QUERY_TYPE_RAW;
-   query->name = "Intel_Raw_Hardware_Counters_Set_0_Query";
+   query->name = query->symbol_name = "Intel_Raw_Hardware_Counters_Set_0_Query";
    query->guid = GEN_PERF_QUERY_GUID_MDAPI;
 
    {
