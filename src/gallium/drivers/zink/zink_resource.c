@@ -695,8 +695,10 @@ zink_transfer_map(struct pipe_context *pctx,
          ptr = ((uint8_t *)ptr) + offset;
       }
    }
-   if ((usage & PIPE_MAP_PERSISTENT) && !(usage & PIPE_MAP_COHERENT))
+   if ((usage & PIPE_MAP_PERSISTENT) && !(usage & PIPE_MAP_COHERENT)) {
       res->persistent_maps++;
+      ctx->num_persistent_maps++;
+   }
 
    *transfer = &trans->base;
    return ptr;
@@ -743,8 +745,10 @@ zink_transfer_unmap(struct pipe_context *pctx,
       vkUnmapMemory(screen->dev, staging_res->mem);
    } else
       vkUnmapMemory(screen->dev, res->mem);
-   if ((trans->base.usage & PIPE_MAP_PERSISTENT) && !(trans->base.usage & PIPE_MAP_COHERENT))
+   if ((trans->base.usage & PIPE_MAP_PERSISTENT) && !(trans->base.usage & PIPE_MAP_COHERENT)) {
       res->persistent_maps--;
+      ctx->num_persistent_maps--;
+   }
    if (!(trans->base.usage & (PIPE_MAP_FLUSH_EXPLICIT | PIPE_MAP_COHERENT))) {
       zink_transfer_flush_region(pctx, ptrans, &ptrans->box);
    }

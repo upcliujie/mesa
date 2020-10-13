@@ -719,7 +719,9 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
    struct zink_batch *batch = is_compute ? &ctx->compute_batch : zink_curr_batch(ctx);
    zink_batch_reference_program(batch, pg);
 
-   struct set *persistent = _mesa_pointer_set_create(NULL);
+   struct set *persistent = NULL;
+   if (ctx->num_persistent_maps)
+      persistent = _mesa_pointer_set_create(NULL);
 
    uint32_t dynamic_offsets[PIPE_MAX_CONSTANT_BUFFERS];
    unsigned dynamic_offset_idx = 0;

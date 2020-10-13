@@ -202,6 +202,8 @@ struct zink_context {
    struct pipe_resource *dummy_xfb_buffer;
    struct pipe_resource *null_buffers[5]; /* used to create zink_framebuffer->null_surface, one buffer per samplecount */
 
+   unsigned num_persistent_maps;
+
    uint32_t num_so_targets;
    struct pipe_stream_output_target *so_targets[PIPE_MAX_SO_OUTPUTS];
    bool dirty_so_targets;
