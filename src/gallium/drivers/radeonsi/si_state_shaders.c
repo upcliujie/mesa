@@ -2071,7 +2071,7 @@ static void si_build_shader_variant(struct si_shader *shader, int thread_index, 
    }
 
    if (!compiler->passes)
-      si_init_compiler(sscreen, compiler);
+      si_init_compiler(sscreen, compiler, false);
 
    if (unlikely(!si_create_shader_variant(sscreen, compiler, shader, debug))) {
       PRINT_ERR("Failed to build shader variant (type=%u)\n", sel->info.stage);
@@ -2421,7 +2421,7 @@ static void si_init_shader_selector_async(void *job, int thread_index)
    compiler = &sscreen->compiler[thread_index];
 
    if (!compiler->passes)
-      si_init_compiler(sscreen, compiler);
+      si_init_compiler(sscreen, compiler, false);
 
    /* Serialize NIR to save memory. Monolithic shader variants
     * have to deserialize NIR before compilation.
@@ -3873,7 +3873,7 @@ bool si_update_shaders(struct si_context *sctx)
    int r;
 
    if (!sctx->compiler.passes)
-      si_init_compiler(sctx->screen, &sctx->compiler);
+      si_init_compiler(sctx->screen, &sctx->compiler, false);
 
    compiler_state.compiler = &sctx->compiler;
    compiler_state.debug = sctx->debug;

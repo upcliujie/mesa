@@ -1464,7 +1464,7 @@ void si_initialize_prim_discard_tunables(struct si_screen *sscreen, bool is_aux_
                                          unsigned *index_ring_size_per_ib);
 
 /* si_pipe.c */
-void si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compiler);
+void si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compiler, bool is_compute_kernel);
 
 /* si_perfcounters.c */
 void si_init_perfcounters(struct si_screen *screen);
