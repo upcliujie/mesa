@@ -708,6 +708,12 @@ oa_metrics_available(struct gen_perf_config *perf, int fd,
    bool i915_perf_oa_available = false;
    struct stat sb;
 
+   /* Consider an invalid as supported. */
+   if (fd == -1) {
+      perf->i915_query_supported = true;
+      return true;
+   }
+
    perf->i915_query_supported = i915_query_perf_config_supported(perf, fd);
    perf->i915_perf_version = i915_perf_version(fd);
 
