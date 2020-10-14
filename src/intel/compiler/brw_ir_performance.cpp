@@ -1505,15 +1505,10 @@ namespace {
                          unsigned dispatch_width)
    {
       /* XXX - Plumbing the trip counts from NIR loop analysis would allow us
-       *       to do a better job regarding the loop weights.  And some branch
-       *       divergence analysis would allow us to do a better job with
-       *       branching weights.
+       *       to do a better job regarding the loop weights.
        *
        *       In the meantime use values that roughly match the control flow
-       *       weights used elsewhere in the compiler back-end -- Main
-       *       difference is the worst-case scenario branch_weight used for
-       *       SIMD32 which accounts for the possibility of a dynamically
-       *       uniform branch becoming divergent in SIMD32.
+       *       weights used elsewhere in the compiler back-end.
        *
        *       Note that we provide slightly more pessimistic weights on
        *       Gen12+ for SIMD32, since the effective warp size on that
@@ -1522,7 +1517,6 @@ namespace {
        *       previous generations, giving narrower SIMD modes a performance
        *       advantage in several test-cases with non-uniform discard jumps.
        */
-      const float branch_weight = (dispatch_width > 16 ? 1.0 : 0.5);
       const float discard_weight = (dispatch_width > 16 || s->devinfo->gen < 12 ?
                                     1.0 : 0.5);
       const float loop_weight = 10;
@@ -1538,16 +1532,12 @@ namespace {
 
             issue_instruction(st, s->devinfo, inst);
 
-            if (inst->opcode == BRW_OPCODE_ENDIF)
-               st.weight /= branch_weight;
-            else if (inst->opcode == FS_OPCODE_PLACEHOLDER_HALT && discard_count)
+            if (inst->opcode == FS_OPCODE_PLACEHOLDER_HALT && discard_count)
                st.weight /= discard_weight;
 
             elapsed += (st.unit_ready[unit_fe] - clock0) * st.weight;
 
-            if (inst->opcode == BRW_OPCODE_IF)
-               st.weight *= branch_weight;
-            else if (inst->opcode == BRW_OPCODE_DO)
+            if (inst->opcode == BRW_OPCODE_DO)
                st.weight *= loop_weight;
             else if (inst->opcode == BRW_OPCODE_WHILE)
                st.weight /= loop_weight;
