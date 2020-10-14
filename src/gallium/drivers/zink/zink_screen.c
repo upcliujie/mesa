@@ -222,6 +222,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_QUERY_PIPELINE_STATISTICS_SINGLE:
    case PIPE_CAP_GL_SPIRV:
    case PIPE_CAP_TEXTURE_HALF_FLOAT_LINEAR:
+   case PIPE_CAP_CLEAR_SCISSORED:
       return 1;
 
    case PIPE_CAP_VERTEX_ELEMENT_INSTANCE_DIVISOR:
