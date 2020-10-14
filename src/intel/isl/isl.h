@@ -2103,6 +2103,14 @@ isl_buffer_fill_image_param(const struct isl_device *dev,
                             enum isl_format format,
                             uint64_t size);
 
+static inline bool
+isl_surf_has_multiple_slices(const struct isl_surf *surf)
+{
+   return surf->levels > 1 ||
+          surf->logical_level0_px.depth > 1 ||
+          surf->logical_level0_px.array_len > 1;
+}
+
 /**
  * Alignment of the upper-left sample of each subimage, in units of surface
  * elements.
