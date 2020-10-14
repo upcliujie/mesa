@@ -144,8 +144,7 @@ brw_blorp_surface_info_init(struct blorp_context *blorp,
       /* This is only allowed on simple 2D surfaces without MSAA */
       assert(info->surf.dim == ISL_SURF_DIM_2D);
       assert(info->surf.samples == 1);
-      assert(info->surf.levels == 1);
-      assert(info->surf.logical_level0_px.array_len == 1);
+      assert(!isl_surf_has_multiple_slices(&info->surf));
       assert(info->aux_usage == ISL_AUX_USAGE_NONE);
 
       info->tile_x_sa = surf->tile_x_sa;
