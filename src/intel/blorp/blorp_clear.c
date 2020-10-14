@@ -525,11 +525,9 @@ blorp_clear(struct blorp_batch *batch,
           * images.
           */
          assert(clear_rgb_as_red);
+         assert(!isl_surf_has_multiple_slices(&params.dst.surf));
          assert(params.dst.surf.dim == ISL_SURF_DIM_2D);
          assert(params.dst.surf.tiling == ISL_TILING_LINEAR);
-         assert(params.dst.surf.logical_level0_px.depth == 1);
-         assert(params.dst.surf.logical_level0_px.array_len == 1);
-         assert(params.dst.surf.levels == 1);
          assert(params.dst.surf.samples == 1);
          assert(params.dst.tile_x_sa == 0 || params.dst.tile_y_sa == 0);
          assert(params.dst.aux_usage == ISL_AUX_USAGE_NONE);
@@ -846,11 +844,8 @@ blorp_can_hiz_clear_depth(const struct gen_device_info *devinfo,
                              (max_x1_y1 ? haligned_x1 % 16 || valigned_y1 % 8 :
                               x1 % 16 || y1 % 8);
       const bool partial_clear = x0 > 0 || y0 > 0 || !max_x1_y1;
-      const bool multislice_surf = surf->levels > 1 ||
-                                   surf->logical_level0_px.depth > 1 ||
-                                   surf->logical_level0_px.array_len > 1;
 
-      if (unaligned && (partial_clear || multislice_surf))
+      if (unaligned && (partial_clear || isl_surf_has_multiple_slices(surf)))
          return false;
    }
 
@@ -1370,8 +1365,7 @@ blorp_ccs_ambiguate(struct blorp_batch *batch,
        * guaranteed that we only have a single level and slice so we don't
        * have to worry about it and can just align to a whole tile.
        */
-      assert(surf->aux_surf->logical_level0_px.depth == 1);
-      assert(surf->aux_surf->logical_level0_px.array_len == 1);
+      assert(!isl_surf_has_multiple_slices(surf->aux_surf));
       assert(x_offset_el == 0 && y_offset_el == 0);
       const uint32_t width_tl =
          DIV_ROUND_UP(width_el, ccs_tile_info.logical_extent_el.w);

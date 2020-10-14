@@ -1572,7 +1572,7 @@ blorp_surf_convert_to_single_slice(const struct isl_device *isl_dev,
    /* Just bail if we have nothing to do. */
    if (info->surf.dim == ISL_SURF_DIM_2D &&
        info->view.base_level == 0 && info->view.base_array_layer == 0 &&
-       info->surf.levels == 1 && info->surf.logical_level0_px.array_len == 1)
+       !isl_surf_has_multiple_slices(&info->surf))
       return;
 
    /* If this gets triggered then we've gotten here twice which.  This

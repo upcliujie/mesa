@@ -718,10 +718,8 @@ create_ccs_buf_for_image(struct brw_context *brw,
    /* CCS is only supported for very simple miptrees */
    assert(image->aux_offset != 0 && image->aux_pitch != 0);
    assert(image->tile_x == 0 && image->tile_y == 0);
+   assert(!isl_surf_has_multiple_slices(&mt->surf));
    assert(mt->surf.samples == 1);
-   assert(mt->surf.levels == 1);
-   assert(mt->surf.logical_level0_px.depth == 1);
-   assert(mt->surf.logical_level0_px.array_len == 1);
    assert(mt->first_level == 0);
    assert(mt->last_level == 0);
 
@@ -2118,9 +2116,8 @@ intel_miptree_prepare_external(struct brw_context *brw,
        */
       assert(mod_info->aux_usage == ISL_AUX_USAGE_CCS_E);
       assert(_mesa_is_format_color_format(mt->format));
+      assert(!isl_surf_has_multiple_slices(&mt->surf));
       assert(mt->first_level == 0 && mt->last_level == 0);
-      assert(mt->surf.logical_level0_px.depth == 1);
-      assert(mt->surf.logical_level0_px.array_len == 1);
       assert(mt->surf.samples == 1);
       assert(mt->aux_buf != NULL);
 
