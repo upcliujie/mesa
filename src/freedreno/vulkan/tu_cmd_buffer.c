@@ -2908,7 +2908,7 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
       const struct tu_render_pass_attachment *att = &cmd->state.pass->attachments[a];
       struct tu_image *image = fb->attachments[a].attachment->image;
       /* if image as lrz and it isn't a stencil-only clear: */
-      if (image->lrz_height &&
+      if (a < pRenderPassBegin->clearValueCount && image->lrz_height &&
           (att->clear_mask & (VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT))) {
          cmd->state.lrz.image = image;
          cmd->state.lrz.valid = true;

@@ -2213,7 +2213,7 @@ tu_clear_sysmem_attachment(struct tu_cmd_buffer *cmd,
    const struct tu_render_pass_attachment *attachment =
       &cmd->state.pass->attachments[a];
 
-   if (!attachment->clear_mask)
+   if (!attachment->clear_mask || a >= info->clearValueCount)
       return;
 
    /* Wait for any flushes at the beginning of the renderpass to complete */
@@ -2260,7 +2260,7 @@ tu_clear_gmem_attachment(struct tu_cmd_buffer *cmd,
    const struct tu_render_pass_attachment *attachment =
       &cmd->state.pass->attachments[a];
 
-   if (!attachment->clear_mask)
+   if (!attachment->clear_mask || a >= info->clearValueCount)
       return;
 
    tu_cs_emit_regs(cs, A6XX_RB_MSAA_CNTL(tu_msaa_samples(attachment->samples)));
