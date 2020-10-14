@@ -408,7 +408,13 @@ void process_block(vn_ctx& ctx, Block& block)
             for (unsigned i = 0; i < instr->definitions.size(); i++) {
                assert(instr->definitions[i].regClass() == orig_instr->definitions[i].regClass());
                assert(instr->definitions[i].isTemp());
-               ctx.renames[instr->definitions[i].tempId()] = orig_instr->definitions[i].getTemp();
+
+               auto it = ctx.renames.find(orig_instr->definitions[i].tempId());
+               if (it != ctx.renames.end())
+                  ctx.renames[instr->definitions[i].tempId()] = it->second;
+               else
+                  ctx.renames[instr->definitions[i].tempId()] = orig_instr->definitions[i].getTemp();
+
                if (instr->definitions[i].isPrecise())
                   orig_instr->definitions[i].setPrecise(true);
                /* SPIR_V spec says that an instruction marked with NUW wrapping
