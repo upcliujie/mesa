@@ -556,8 +556,7 @@ isl_genX(surf_fill_state_s)(const struct isl_device *dev, void *state,
       assert(info->surf->tiling != ISL_TILING_LINEAR);
       assert(info->surf->dim == ISL_SURF_DIM_2D);
       assert(isl_is_pow2(isl_format_get_layout(info->view->format)->bpb));
-      assert(info->surf->levels == 1);
-      assert(info->surf->logical_level0_px.array_len == 1);
+      assert(!isl_surf_has_multiple_slices(info->surf));
       assert(info->aux_usage == ISL_AUX_USAGE_NONE);
 
       if (GEN_GEN >= 8) {
