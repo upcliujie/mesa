@@ -277,7 +277,7 @@ zink_clear_framebuffer(struct zink_context *ctx, unsigned clear_buffers)
             if (num_clears != zink_fb_clear_count(fb_clear))
                goto out;
             /* compare all the clears to determine if we can batch these buffers together */
-            for (int j = 0; j < num_clears; j++) {
+            for (int j = !zink_fb_clear_first_needs_explicit(fb_clear); j < num_clears; j++) {
                struct zink_framebuffer_clear_data *a = zink_fb_clear_element(color_clear, j);
                struct zink_framebuffer_clear_data *b = zink_fb_clear_element(fb_clear, j);
                /* scissors don't match, fire this one off */
@@ -302,7 +302,7 @@ zink_clear_framebuffer(struct zink_context *ctx, unsigned clear_buffers)
             if (num_clears != zink_fb_clear_count(fb_clear))
                goto out;
             /* compare all the clears to determine if we can batch these buffers together */
-            for (int j = 0; j < zink_fb_clear_count(color_clear); j++) {
+            for (int j = !zink_fb_clear_first_needs_explicit(fb_clear); j < zink_fb_clear_count(color_clear); j++) {
                struct zink_framebuffer_clear_data *a = zink_fb_clear_element(color_clear, j);
                struct zink_framebuffer_clear_data *b = zink_fb_clear_element(fb_clear, j);
                /* scissors don't match, fire this one off */
@@ -317,7 +317,7 @@ zink_clear_framebuffer(struct zink_context *ctx, unsigned clear_buffers)
 out:
       if (to_clear) {
          if (num_clears) {
-            for (int j = 0; j < num_clears; j++) {
+            for (int j = !zink_fb_clear_first_needs_explicit(color_clear); j < num_clears; j++) {
                struct zink_framebuffer_clear_data *clear = zink_fb_clear_element(color_clear, j);
                struct zink_framebuffer_clear_data *zsclear = NULL;
                if (zs_clear)
@@ -329,7 +329,7 @@ out:
                           zsclear ? zsclear->zs.stencil : 0);
             }
          } else {
-            for (int j = 0; j < zink_fb_clear_count(zs_clear); j++) {
+            for (int j = !zink_fb_clear_first_needs_explicit(zs_clear); j < zink_fb_clear_count(zs_clear); j++) {
                struct zink_framebuffer_clear_data *clear = zink_fb_clear_element(zs_clear, j);
                zink_clear(&ctx->base, to_clear,
                           clear->has_scissor ? &clear->scissor : NULL,
@@ -418,8 +418,15 @@ zink_fb_clear_needs_explicit(struct zink_framebuffer_clear *fb_clear)
 {
    if (zink_fb_clear_count(fb_clear) != 1)
       return true;
-   struct zink_framebuffer_clear_data *clear = zink_fb_clear_element(fb_clear, 0);
-   return clear->has_scissor || clear->conditional;
+   return zink_fb_clear_element_needs_explicit(zink_fb_clear_element(fb_clear, 0));
+}
+
+bool
+zink_fb_clear_first_needs_explicit(struct zink_framebuffer_clear *fb_clear)
+{
+   if (!zink_fb_clear_count(fb_clear))
+      return false;
+   return zink_fb_clear_element_needs_explicit(zink_fb_clear_element(fb_clear, 0));
 }
 
 static void
