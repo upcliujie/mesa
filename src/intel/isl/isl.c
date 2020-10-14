@@ -2259,8 +2259,7 @@ isl_surf_supports_ccs(const struct isl_device *dev,
        * follow the docs and don't allow CCS_D for arrayed or mip-mapped
        * surfaces.
        */
-      if (ISL_GFX_VER(dev) <= 7 &&
-          (surf->levels > 1 || surf->logical_level0_px.array_len > 1))
+      if (ISL_GFX_VER(dev) <= 7 && isl_surf_has_multiple_slices(surf))
          return false;
 
       /* From the Ivy Bridge PRM, Vol2 Part1 11.7 "MCS Buffer for Render
