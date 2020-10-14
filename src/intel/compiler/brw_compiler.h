@@ -1193,6 +1193,7 @@ struct brw_vue_prog_data {
    bool include_vue_handles;
 
    GLuint urb_read_length;
+   GLuint urb_read_offset;
    GLuint total_grf;
 
    uint32_t clip_distance_mask;

@@ -1307,6 +1307,7 @@ brw_compile_tes(const struct brw_compiler *compiler,
       prog_data->base.urb_entry_size++;
 
    prog_data->base.urb_read_length = 0;
+   prog_data->base.urb_read_offset = 0;
 
    STATIC_ASSERT(BRW_TESS_PARTITIONING_INTEGER == TESS_SPACING_EQUAL - 1);
    STATIC_ASSERT(BRW_TESS_PARTITIONING_ODD_FRACTIONAL ==

@@ -3044,6 +3044,7 @@ fs_visitor::nir_emit_tes_intrinsic(const fs_builder &bld,
             tes_prog_data->base.urb_read_length =
                MAX2(tes_prog_data->base.urb_read_length,
                     (imm_offset / 2) + 1);
+            tes_prog_data->base.urb_read_offset = 0;
          } else {
             /* Replicate the patch handle to all enabled channels */
             const fs_reg srcs[] = {

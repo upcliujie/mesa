@@ -810,6 +810,7 @@ brw_compile_gs(const struct brw_compiler *compiler, void *log_data,
     * need to program a URB read length of ceiling(num_slots / 2).
     */
    prog_data->base.urb_read_length = (c.input_vue_map.num_slots + 1) / 2;
+   prog_data->base.urb_read_offset = 0;
 
    /* Now that prog_data setup is done, we are ready to actually compile the
     * program.

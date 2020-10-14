@@ -1632,7 +1632,7 @@ emit_3dstate_vs(struct anv_graphics_pipeline *pipeline)
       }
 
       vs.VertexURBEntryReadLength      = vs_prog_data->base.urb_read_length;
-      vs.VertexURBEntryReadOffset      = 0;
+      vs.VertexURBEntryReadOffset      = vs_prog_data->base.urb_read_offset;
       vs.DispatchGRFStartRegisterForURBData =
          vs_prog_data->base.base.dispatch_grf_start_reg;
 
@@ -1691,8 +1691,8 @@ emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
       hs.IncludeVertexHandles = true;
       hs.InstanceCount = tcs_prog_data->instances - 1;
 
-      hs.VertexURBEntryReadLength = 0;
-      hs.VertexURBEntryReadOffset = 0;
+      hs.VertexURBEntryReadLength = tcs_prog_data->base.urb_read_length;
+      hs.VertexURBEntryReadOffset = tcs_prog_data->base.urb_read_offset;
       hs.DispatchGRFStartRegisterForURBData =
          tcs_prog_data->base.base.dispatch_grf_start_reg & 0x1f;
 #if GEN_GEN >= 12
@@ -1760,7 +1760,7 @@ emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
          tes_prog_data->domain == BRW_TESS_DOMAIN_TRI;
 
       ds.PatchURBEntryReadLength = tes_prog_data->base.urb_read_length;
-      ds.PatchURBEntryReadOffset = 0;
+      ds.PatchURBEntryReadOffset = tes_prog_data->base.urb_read_offset;
       ds.DispatchGRFStartRegisterForURBData =
          tes_prog_data->base.base.dispatch_grf_start_reg;
 
@@ -1837,7 +1837,7 @@ emit_3dstate_gs(struct anv_graphics_pipeline *pipeline)
                                    gs_prog_data->static_vertex_count : 0;
 #endif
 
-      gs.VertexURBEntryReadOffset = 0;
+      gs.VertexURBEntryReadOffset = gs_prog_data->base.urb_read_offset;
       gs.VertexURBEntryReadLength = gs_prog_data->base.urb_read_length;
       gs.DispatchGRFStartRegisterForURBData =
          gs_prog_data->base.base.dispatch_grf_start_reg;

@@ -452,6 +452,7 @@ brw_compile_tcs(const struct brw_compiler *compiler,
     * the hardware is broken on Haswell anyway.
     */
    vue_prog_data->urb_read_length = 0;
+   vue_prog_data->urb_read_offset = 0;
 
    if (INTEL_DEBUG & DEBUG_TCS) {
       fprintf(stderr, "TCS Input ");

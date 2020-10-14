@@ -7361,6 +7361,7 @@ fs_visitor::setup_gs_payload()
        max_push_components) {
       vue_prog_data->urb_read_length =
          ROUND_DOWN_TO(max_push_components / nir->info.gs.vertices_in, 8) / 8;
+      vue_prog_data->urb_read_offset = 0;
    }
 }
 
