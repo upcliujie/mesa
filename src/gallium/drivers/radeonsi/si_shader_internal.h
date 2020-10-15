@@ -248,6 +248,7 @@ LLVMValueRef si_unpack_param(struct si_shader_context *ctx, struct ac_arg param,
                              unsigned bitwidth);
 LLVMValueRef si_get_primitive_id(struct si_shader_context *ctx, unsigned swizzle);
 LLVMValueRef si_llvm_get_block_size(struct ac_shader_abi *abi);
+LLVMValueRef si_llvm_get_grid_size(struct ac_shader_abi *abi);
 void si_llvm_declare_compute_memory(struct si_shader_context *ctx);
 bool si_nir_build_llvm(struct si_shader_context *ctx, struct nir_shader *nir);
 void si_build_wrapper_function(struct si_shader_context *ctx, LLVMValueRef *parts,

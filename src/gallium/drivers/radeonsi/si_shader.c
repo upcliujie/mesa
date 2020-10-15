@@ -1395,6 +1395,7 @@ static bool si_build_main_function(struct si_shader_context *ctx, struct si_shad
    case MESA_SHADER_COMPUTE:
    case MESA_SHADER_KERNEL:
       ctx->abi.load_local_group_size = si_llvm_get_block_size;
+      ctx->abi.load_global_group_size = si_llvm_get_grid_size;
       break;
    default:
       assert(!"Unsupported shader type");
