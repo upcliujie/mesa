@@ -124,6 +124,8 @@ struct ac_shader_abi {
 
    LLVMValueRef (*load_local_group_size)(struct ac_shader_abi *abi);
 
+   LLVMValueRef (*load_global_group_size)(struct ac_shader_abi *abi);
+
    LLVMValueRef (*load_sample_mask_in)(struct ac_shader_abi *abi);
 
    LLVMValueRef (*load_base_vertex)(struct ac_shader_abi *abi, bool non_indexed_is_zero);

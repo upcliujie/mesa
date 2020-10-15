@@ -3792,6 +3792,11 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
          result = ac_build_load_invariant(&ctx->ac, ptr, ctx->ac.i32_0);
       }
       break;
+   case nir_intrinsic_load_global_group_size:
+      result = ctx->abi->load_global_group_size(ctx->abi);
+      if (nir_dest_bit_size(instr->dest) == 64)
+         result = LLVMBuildZExt(ctx->ac.builder, result, LLVMVectorType(ctx->ac.i64, 3), "");
+      break;
    case nir_intrinsic_load_local_invocation_index:
       result = visit_load_local_invocation_index(ctx);
       break;

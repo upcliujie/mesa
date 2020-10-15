@@ -477,6 +477,27 @@ static LLVMValueRef si_llvm_get_block_size(struct ac_shader_abi *abi)
    return ac_build_gather_values(&ctx->ac, chan, 3);
 }
 
+static LLVMValueRef si_llvm_get_grid_size(struct ac_shader_abi *abi)
+{
+   struct si_shader_context *ctx = si_shader_context_from_abi(abi);
+
+   if (ctx->stage == MESA_SHADER_KERNEL) {
+      LLVMValueRef values[3];
+      LLVMValueRef ptr = ac_build_intrinsic(&ctx->ac,
+                                            "llvm.amdgcn.dispatch.ptr",
+                                            LLVMPointerType(ctx->ac.i8, AC_ADDR_SPACE_CONST), NULL, 0,
+                                            AC_FUNC_ATTR_READNONE);
+
+      ptr = ac_cast_ptr(&ctx->ac, ptr, ctx->ac.i32);
+      values[0] = ac_build_load(&ctx->ac, ptr, LLVMConstInt(ctx->ac.i32, 3, 0));
+      values[1] = ac_build_load(&ctx->ac, ptr, LLVMConstInt(ctx->ac.i32, 4, 0));
+      values[2] = ac_build_load(&ctx->ac, ptr, LLVMConstInt(ctx->ac.i32, 5, 0));
+
+      return ac_build_gather_values(&ctx->ac, values, 3);
+   }
+   return NULL;
+}
+
 static void si_llvm_declare_compute_memory(struct si_shader_context *ctx)
 {
    struct si_shader_selector *sel = ctx->shader->selector;
@@ -927,6 +948,7 @@ bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shader *shad
       break;
    case MESA_SHADER_COMPUTE:
       ctx->abi.load_local_group_size = si_llvm_get_block_size;
+      ctx->abi.load_global_group_size = si_llvm_get_grid_size;
       break;
    default:
       assert(!"Unsupported shader type");
