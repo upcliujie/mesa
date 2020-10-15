@@ -981,6 +981,7 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .lower_extract_word = true,
       .lower_rotate = true,
       .lower_to_scalar = true,
+      .dont_lower_global_group_size = true,
       .optimize_sample_mask_in = true,
       .max_unroll_iterations = 32,
       .use_interpolated_input_intrinsics = true,
