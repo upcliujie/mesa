@@ -1213,7 +1213,21 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
    case aco_opcode::s_mov_b64:
    case aco_opcode::v_mov_b32:
    case aco_opcode::p_as_uniform:
-      if (instr->definitions[0].isFixed()) {
+      if (instr->opcode != aco_opcode::p_as_uniform && instr->operands[0].isTemp() && ctx.info[instr->operands[0].tempId()].is_vec()) {
+         Instruction *vec = ctx.info[instr->operands[0].tempId()].instr;
+         aco_ptr<Instruction> old_copy = std::move(instr);
+
+         instr.reset(create_instruction<Pseudo_instruction>(aco_opcode::p_create_vector, Format::PSEUDO, vec->operands.size(), 1));
+         instr->definitions[0] = old_copy->definitions[0];
+         std::copy(vec->operands.begin(), vec->operands.end(), instr->operands.begin());
+         for (unsigned i = 0; i < vec->operands.size(); i++) {
+            Operand& op = instr->operands[i];
+            if (op.isTemp() && ctx.info[op.tempId()].is_temp() &&
+                ctx.info[op.tempId()].temp.type() == instr->definitions[0].regClass().type())
+               op.setTemp(ctx.info[op.tempId()].temp);
+         }
+         ctx.info[instr->definitions[0].tempId()].set_vec(instr.get());
+      } else if (instr->definitions[0].isFixed()) {
          /* don't copy-propagate copies into fixed registers */
       } else if (instr->usesModifiers()) {
          // TODO
