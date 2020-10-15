@@ -387,23 +387,23 @@ update_ubo_descriptors(struct zink_context *ctx, struct zink_descriptor_set *zds
          int index = shader->bindings[zds->pool->type][j].index;
          assert(shader->bindings[zds->pool->type][j].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
              shader->bindings[zds->pool->type][j].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
-         assert(ctx->ubos[stage][index].buffer_size > 0);
          assert(ctx->ubos[stage][index].buffer_size <= screen->info.props.limits.maxUniformBufferRange);
-         assert(ctx->ubos[stage][index].buffer);
          struct zink_resource *res = zink_resource(ctx->ubos[stage][index].buffer);
          assert(num_resources < num_bindings);
+         assert(!res || ctx->ubos[stage][index].buffer_size > 0);
+         assert(!res || ctx->ubos[stage][index].buffer);
          desc_set_res_add(zds, res, num_resources++, cache_hit);
          assert(num_buffer_info < num_bindings);
-         buffer_infos[num_buffer_info].buffer = res->buffer;
+         buffer_infos[num_buffer_info].buffer = res ? res->buffer : VK_NULL_HANDLE;
          if (shader->bindings[zds->pool->type][j].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
             buffer_infos[num_buffer_info].offset = 0;
             /* we're storing this to qsort later */
             dynamic_buffers[dynamic_offset_count].binding = shader->bindings[zds->pool->type][j].binding;
             dynamic_buffers[dynamic_offset_count++].offset = ctx->ubos[stage][index].buffer_offset;
          } else
-            buffer_infos[num_buffer_info].offset = ctx->ubos[stage][index].buffer_offset;
-         buffer_infos[num_buffer_info].range  = ctx->ubos[stage][index].buffer_size;
-         if (!cache_hit)
+            buffer_infos[num_buffer_info].offset = res ? ctx->ubos[stage][index].buffer_offset : 0;
+         buffer_infos[num_buffer_info].range  = res ? ctx->ubos[stage][index].buffer_size : VK_WHOLE_SIZE;
+         if (!cache_hit && res)
             add_barrier(res, 0, VK_ACCESS_UNIFORM_READ_BIT, stage, &zds->barriers, ht);
          wds[num_wds].pBufferInfo = buffer_infos + num_buffer_info;
          ++num_buffer_info;
