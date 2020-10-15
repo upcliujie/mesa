@@ -33,6 +33,10 @@
 #include <vulkan/vulkan.h>
 #include "zink_descriptors.h"
 
+#define ZINK_WORKGROUP_SIZE_X 1
+#define ZINK_WORKGROUP_SIZE_Y 2
+#define ZINK_WORKGROUP_SIZE_Z 3
+
 struct pipe_screen;
 struct zink_context;
 struct zink_screen;

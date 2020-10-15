@@ -77,6 +77,8 @@ struct zink_compute_pipeline_state {
    /* Pre-hashed value for table lookup, invalid when zero.
     * Members after this point are not included in pipeline state hash key */
    uint32_t hash;
+   bool use_local_size;
+   uint32_t local_size[3];
 };
 
 VkPipeline
