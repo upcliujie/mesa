@@ -1053,8 +1053,7 @@ static void
 genX(calculate_attr_overrides)(const struct brw_context *brw,
                                struct GENX(SF_OUTPUT_ATTRIBUTE_DETAIL) *attr_overrides,
                                uint32_t *point_sprite_enables,
-                               uint32_t *urb_entry_read_length,
-                               uint32_t *urb_entry_read_offset)
+                               uint32_t *urb_entry_read_length)
 {
    const struct gl_context *ctx = &brw->ctx;
 
@@ -1070,14 +1069,6 @@ genX(calculate_attr_overrides)(const struct brw_context *brw,
    uint32_t max_source_attr = 0;
 
    *point_sprite_enables = 0;
-
-   int first_slot =
-      brw_compute_first_urb_slot_required(fp->info.inputs_read,
-                                          &brw->vue_map_geom_out);
-
-   /* Each URB offset packs two varying slots */
-   assert(first_slot % 2 == 0);
-   *urb_entry_read_offset = first_slot / 2;
 
    /* From the Ivybridge PRM, Vol 2 Part 1, 3DSTATE_SBE,
     * description of dw10 Point Sprite Texture Coordinate Enable:
@@ -1126,7 +1117,7 @@ genX(calculate_attr_overrides)(const struct brw_context *brw,
       if (!point_sprite) {
          genX(get_attr_override)(&attribute,
                                  &brw->vue_map_geom_out,
-                                 *urb_entry_read_offset, attr,
+                                 wm_prog_data->urb_read_offset, attr,
                                  _mesa_vertex_program_two_side_enabled(ctx),
                                  &max_source_attr);
       }
@@ -1295,7 +1286,7 @@ genX(upload_clip_state)(struct brw_context *brw)
       /* BRW_NEW_PUSH_CONSTANT_ALLOCATION */
       clip.ConstantURBEntryReadOffset = brw->curbe.clip_start * 2;
       clip.DispatchGRFStartRegisterForURBData = 1;
-      clip.VertexURBEntryReadOffset = 0;
+      clip.VertexURBEntryReadOffset = brw->clip.prog_data->urb_read_offset;
 
       /* BRW_NEW_URB_FENCE */
       clip.NumberofURBEntries = brw->urb.nr_clip_entries;
@@ -1530,7 +1521,7 @@ genX(upload_sf)(struct brw_context *brw)
       sf.FloatingPointMode = FLOATING_POINT_MODE_Alternate;
       sf.GRFRegisterCount = DIV_ROUND_UP(sf_prog_data->total_grf, 16) - 1;
       sf.DispatchGRFStartRegisterForURBData = 3;
-      sf.VertexURBEntryReadOffset = BRW_SF_URB_ENTRY_READ_OFFSET;
+      sf.VertexURBEntryReadOffset = sf_prog_data->urb_read_offset;
       sf.VertexURBEntryReadLength = sf_prog_data->urb_read_length;
       sf.NumberofURBEntries = brw->urb.nr_sf_entries;
       sf.URBEntryAllocationSize = brw->urb.sfsize - 1;
@@ -1715,13 +1706,11 @@ genX(upload_sf)(struct brw_context *brw)
        * _NEW_POINT | _NEW_LIGHT | _NEW_PROGRAM | BRW_NEW_FS_PROG_DATA
        */
       uint32_t urb_entry_read_length;
-      uint32_t urb_entry_read_offset;
       uint32_t point_sprite_enables;
       genX(calculate_attr_overrides)(brw, sf.Attribute, &point_sprite_enables,
-                                     &urb_entry_read_length,
-                                     &urb_entry_read_offset);
+                                     &urb_entry_read_length);
+      sf.VertexURBEntryReadOffset = wm_prog_data->urb_read_offset;
       sf.VertexURBEntryReadLength = urb_entry_read_length;
-      sf.VertexURBEntryReadOffset = urb_entry_read_offset;
       sf.PointSpriteTextureCoordinateEnable = point_sprite_enables;
       sf.ConstantInterpolationEnable = wm_prog_data->flat_inputs;
 #endif
@@ -2112,8 +2101,8 @@ static const struct brw_tracked_state genX(wm_state) = {
                                                                           \
    pkt.DispatchGRFStartRegisterForURBData =                               \
       stage_prog_data->dispatch_grf_start_reg;                            \
+   pkt.prefix##URBEntryReadOffset = vue_prog_data->urb_read_offset;       \
    pkt.prefix##URBEntryReadLength = vue_prog_data->urb_read_length;       \
-   pkt.prefix##URBEntryReadOffset = 0;                                    \
                                                                           \
    pkt.StatisticsEnable = true;                                           \
    pkt.Enable           = true;
@@ -3471,7 +3460,6 @@ genX(upload_sbe)(struct brw_context *brw)
 #define attr_overrides sbe.Attribute
 #endif
    uint32_t urb_entry_read_length;
-   uint32_t urb_entry_read_offset;
    uint32_t point_sprite_enables;
 
    brw_batch_emit(brw, GENX(3DSTATE_SBE), sbe) {
@@ -3499,8 +3487,7 @@ genX(upload_sbe)(struct brw_context *brw)
       genX(calculate_attr_overrides)(brw,
                                      attr_overrides,
                                      &point_sprite_enables,
-                                     &urb_entry_read_length,
-                                     &urb_entry_read_offset);
+                                     &urb_entry_read_length);
 
       /* Typically, the URB entry read length and offset should be programmed
        * in 3DSTATE_VS and 3DSTATE_GS; SBE inherits it from the last active
@@ -3510,8 +3497,8 @@ genX(upload_sbe)(struct brw_context *brw)
        * To fit with our existing code, we override the inherited values and
        * specify it here directly, as we did on previous generations.
        */
+      sbe.VertexURBEntryReadOffset = wm_prog_data->urb_read_offset;
       sbe.VertexURBEntryReadLength = urb_entry_read_length;
-      sbe.VertexURBEntryReadOffset = urb_entry_read_offset;
       sbe.PointSpriteTextureCoordinateEnable = point_sprite_enables;
       sbe.ConstantInterpolationEnable = wm_prog_data->flat_inputs;
 

@@ -82,8 +82,8 @@ blorp_emit_sf_state(struct blorp_batch *batch,
       sf.KernelStartPointer = params->sf_prog_kernel;
 #endif
       sf.GRFRegisterCount = DIV_ROUND_UP(prog_data->total_grf, 16) - 1;
+      sf.VertexURBEntryReadOffset = prog_data->urb_read_offset;
       sf.VertexURBEntryReadLength = prog_data->urb_read_length;
-      sf.VertexURBEntryReadOffset = BRW_SF_URB_ENTRY_READ_OFFSET;
       sf.DispatchGRFStartRegisterForURBData = 3;
 
       sf.URBEntryAllocationSize = brw->urb.sfsize - 1;

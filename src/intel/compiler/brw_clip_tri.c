@@ -125,6 +125,7 @@ void brw_clip_tri_alloc_regs( struct brw_clip_compile *c,
    c->first_tmp = i;
    c->last_tmp = i;
 
+   c->prog_data.urb_read_offset = 0;
    c->prog_data.urb_read_length = c->nr_regs; /* ? */
    c->prog_data.total_grf = i;
 }

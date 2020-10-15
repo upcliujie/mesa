@@ -190,7 +190,7 @@ vec4_tes_visitor::nir_emit_intrinsic(nir_intrinsic_instr *instr)
             prog_data->urb_read_length =
                MAX2(prog_data->urb_read_length,
                     DIV_ROUND_UP(imm_offset + 1, 2));
-			prog_data->urb_read_offset = 0;
+            prog_data->urb_read_offset = 0;
             break;
          }
       }

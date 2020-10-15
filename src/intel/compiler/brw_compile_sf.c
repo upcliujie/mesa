@@ -830,6 +830,7 @@ brw_compile_sf(const struct brw_compiler *compiler,
    c.nr_attr_regs = (c.vue_map.num_slots + 1)/2 - c.urb_entry_read_offset;
    c.nr_setup_regs = c.nr_attr_regs;
 
+   c.prog_data.urb_read_offset = c.urb_entry_read_offset;
    c.prog_data.urb_read_length = c.nr_attr_regs;
    c.prog_data.urb_entry_size = c.nr_setup_regs * 2;
 

@@ -670,9 +670,10 @@ blorp_emit_vs_config(struct blorp_batch *batch,
 
          vs.DispatchGRFStartRegisterForURBData =
             vs_prog_data->base.base.dispatch_grf_start_reg;
+         vs.VertexURBEntryReadOffset = 
+            vs_prog_data->base.urb_read_offset;
          vs.VertexURBEntryReadLength =
             vs_prog_data->base.urb_read_length;
-         vs.VertexURBEntryReadOffset = 0;
 
          vs.MaximumNumberofThreads =
             batch->blorp->isl_dev->info->max_vs_threads - 1;

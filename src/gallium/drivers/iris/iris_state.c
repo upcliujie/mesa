@@ -3882,21 +3882,8 @@ static void
 iris_compute_sbe_urb_read_interval(uint64_t fs_input_slots,
                                    const struct brw_vue_map *last_vue_map,
                                    bool two_sided_color,
-                                   unsigned *out_offset,
                                    unsigned *out_length)
 {
-   /* The compiler computes the first URB slot without considering COL/BFC
-    * swizzling (because it doesn't know whether it's enabled), so we need
-    * to do that here too.  This may result in a smaller offset, which
-    * should be safe.
-    */
-   const unsigned first_slot =
-      brw_compute_first_urb_slot_required(fs_input_slots, last_vue_map);
-
-   /* This becomes the URB read offset (counted in pairs of slots). */
-   assert(first_slot % 2 == 0);
-   *out_offset = first_slot / 2;
-
    /* We need to adjust the inputs read to account for front/back color
     * swizzling, as it can make the URB length longer.
     */
@@ -4076,11 +4063,11 @@ iris_emit_sbe(struct iris_batch *batch, const struct iris_context *ice)
    const struct shader_info *fs_info =
       iris_get_shader_info(ice, MESA_SHADER_FRAGMENT);
 
-   unsigned urb_read_offset, urb_read_length;
+   unsigned urb_read_length;
    iris_compute_sbe_urb_read_interval(fs_info->inputs_read,
                                       ice->shaders.last_vue_map,
                                       cso_rast->light_twoside,
-                                      &urb_read_offset, &urb_read_length);
+                                      &urb_read_length);
 
    unsigned sprite_coord_overrides =
       iris_calculate_point_sprite_overrides(wm_prog_data, cso_rast);
@@ -4089,7 +4076,7 @@ iris_emit_sbe(struct iris_batch *batch, const struct iris_context *ice)
       sbe.AttributeSwizzleEnable = true;
       sbe.NumberofSFOutputAttributes = wm_prog_data->num_varying_inputs;
       sbe.PointSpriteTextureCoordinateOrigin = cso_rast->sprite_coord_mode;
-      sbe.VertexURBEntryReadOffset = urb_read_offset;
+      sbe.VertexURBEntryReadOffset = wm_prog_data->urb_read_offset;
       sbe.VertexURBEntryReadLength = urb_read_length;
       sbe.ForceVertexURBEntryReadOffset = true;
       sbe.ForceVertexURBEntryReadLength = true;
@@ -4224,8 +4211,8 @@ KSP(const struct iris_compiled_shader *shader)
                                                                           \
    pkt.DispatchGRFStartRegisterForURBData =                               \
       prog_data->dispatch_grf_start_reg;                                  \
+   pkt.prefix##URBEntryReadOffset = vue_prog_data->urb_read_offset;       \
    pkt.prefix##URBEntryReadLength = vue_prog_data->urb_read_length;       \
-   pkt.prefix##URBEntryReadOffset = 0;                                    \
                                                                           \
    pkt.StatisticsEnable = true;                                           \
    pkt.Enable           = true;                                           \

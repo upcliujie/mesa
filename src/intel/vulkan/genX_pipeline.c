@@ -361,10 +361,6 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
 #  define swiz sbe
 #endif
 
-   int first_slot = brw_compute_first_urb_slot_required(wm_prog_data->inputs,
-                                                        fs_input_map);
-   assert(first_slot % 2 == 0);
-   unsigned urb_entry_read_offset = first_slot / 2;
    int max_source_attr = 0;
    for (uint8_t idx = 0; idx < wm_prog_data->urb_setup_attribs_count; idx++) {
       uint8_t attr = wm_prog_data->urb_setup_attribs[idx];
@@ -403,7 +399,7 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
       /* We have to subtract two slots to accout for the URB entry output
        * read offset in the VS and GS stages.
        */
-      const int source_attr = slot - 2 * urb_entry_read_offset;
+      const int source_attr = slot - 2 * wm_prog_data->urb_read_offset;
       assert(source_attr >= 0 && source_attr < 32);
       max_source_attr = MAX2(max_source_attr, source_attr);
       /* The hardware can only do overrides on 16 overrides at a time, and the
@@ -417,7 +413,7 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
          assert(source_attr == input_index);
    }
 
-   sbe.VertexURBEntryReadOffset = urb_entry_read_offset;
+   sbe.VertexURBEntryReadOffset = wm_prog_data->urb_read_offset;
    sbe.VertexURBEntryReadLength = DIV_ROUND_UP(max_source_attr + 1, 2);
 #if GEN_GEN >= 8
    sbe.ForceVertexURBEntryReadOffset = true;
@@ -1631,8 +1627,8 @@ emit_3dstate_vs(struct anv_graphics_pipeline *pipeline)
          vs.VertexCacheDisable = true;
       }
 
-      vs.VertexURBEntryReadLength      = vs_prog_data->base.urb_read_length;
       vs.VertexURBEntryReadOffset      = vs_prog_data->base.urb_read_offset;
+      vs.VertexURBEntryReadLength      = vs_prog_data->base.urb_read_length;
       vs.DispatchGRFStartRegisterForURBData =
          vs_prog_data->base.base.dispatch_grf_start_reg;
 
@@ -1691,8 +1687,8 @@ emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
       hs.IncludeVertexHandles = true;
       hs.InstanceCount = tcs_prog_data->instances - 1;
 
-      hs.VertexURBEntryReadLength = tcs_prog_data->base.urb_read_length;
       hs.VertexURBEntryReadOffset = tcs_prog_data->base.urb_read_offset;
+      hs.VertexURBEntryReadLength = tcs_prog_data->base.urb_read_length;
       hs.DispatchGRFStartRegisterForURBData =
          tcs_prog_data->base.base.dispatch_grf_start_reg & 0x1f;
 #if GEN_GEN >= 12
@@ -1759,8 +1755,8 @@ emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
       ds.ComputeWCoordinateEnable =
          tes_prog_data->domain == BRW_TESS_DOMAIN_TRI;
 
-      ds.PatchURBEntryReadLength = tes_prog_data->base.urb_read_length;
       ds.PatchURBEntryReadOffset = tes_prog_data->base.urb_read_offset;
+      ds.PatchURBEntryReadLength = tes_prog_data->base.urb_read_length;
       ds.DispatchGRFStartRegisterForURBData =
          tes_prog_data->base.base.dispatch_grf_start_reg;
 

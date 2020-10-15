@@ -1718,6 +1718,16 @@ calculate_urb_setup(const struct gen_device_info *devinfo,
    memset(prog_data->urb_setup, -1,
           sizeof(prog_data->urb_setup[0]) * VARYING_SLOT_MAX);
 
+   struct brw_vue_map prev_stage_vue_map;
+   brw_compute_vue_map(devinfo, &prev_stage_vue_map,
+                       key->input_slots_valid,
+                       nir->info.separate_shader, 1);
+
+   int first_slot =
+            brw_compute_first_urb_slot_required(nir->info.inputs_read,
+                                                &prev_stage_vue_map);
+   assert(first_slot % 2 == 0);
+
    int urb_next = 0;
    /* Figure out where each of the incoming setup attributes lands. */
    if (devinfo->gen >= 6) {
@@ -1744,15 +1754,6 @@ calculate_urb_setup(const struct gen_device_info *devinfo,
           * in an order that matches the output of the previous pipeline stage
           * (geometry or vertex shader).
           */
-         struct brw_vue_map prev_stage_vue_map;
-         brw_compute_vue_map(devinfo, &prev_stage_vue_map,
-                             key->input_slots_valid,
-                             nir->info.separate_shader, 1);
-
-         int first_slot =
-            brw_compute_first_urb_slot_required(nir->info.inputs_read,
-                                                &prev_stage_vue_map);
-
          assert(prev_stage_vue_map.num_slots <= first_slot + 32);
          for (int slot = first_slot; slot < prev_stage_vue_map.num_slots;
               slot++) {
@@ -1795,6 +1796,7 @@ calculate_urb_setup(const struct gen_device_info *devinfo,
          prog_data->urb_setup[VARYING_SLOT_PNTC] = urb_next++;
    }
 
+   prog_data->urb_read_offset = first_slot / 2;
    prog_data->num_varying_inputs = urb_next;
    prog_data->inputs = nir->info.inputs_read;
 

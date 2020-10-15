@@ -795,6 +795,8 @@ struct brw_wm_prog_data {
 
    GLuint num_varying_inputs;
 
+   uint32_t urb_read_offset;
+
    uint8_t reg_blocks_8;
    uint8_t reg_blocks_16;
    uint8_t reg_blocks_32;
@@ -1192,8 +1194,8 @@ struct brw_vue_prog_data {
    /** Should the hardware deliver input VUE handles for URB pull loads? */
    bool include_vue_handles;
 
-   GLuint urb_read_length;
    GLuint urb_read_offset;
+   GLuint urb_read_length;
    GLuint total_grf;
 
    uint32_t clip_distance_mask;
@@ -1311,6 +1313,7 @@ struct brw_gs_prog_data
 };
 
 struct brw_sf_prog_data {
+   uint32_t urb_read_offset;
    uint32_t urb_read_length;
    uint32_t total_grf;
 
@@ -1326,6 +1329,7 @@ struct brw_sf_prog_data {
 struct brw_clip_prog_data {
    uint32_t curb_read_length;	/* user planes? */
    uint32_t clip_mode;
+   uint32_t urb_read_offset;
    uint32_t urb_read_length;
    uint32_t total_grf;
 };
