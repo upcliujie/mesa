@@ -150,8 +150,9 @@ lower_system_value_instr(nir_builder *b, nir_instr *instr, void *_state)
          break;
 
       case SYSTEM_VALUE_GLOBAL_GROUP_SIZE:
-         return build_global_group_size(b, bit_size);
-
+         if (!b->shader->options->dont_lower_global_group_size)
+            return build_global_group_size(b, bit_size);
+         break;
       case SYSTEM_VALUE_BARYCENTRIC_LINEAR_PIXEL:
          return nir_load_barycentric(b, nir_intrinsic_load_barycentric_pixel,
                                      INTERP_MODE_NOPERSPECTIVE);

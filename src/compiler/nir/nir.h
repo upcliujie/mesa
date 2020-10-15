@@ -3398,6 +3398,7 @@ typedef struct nir_shader_compiler_options {
    /** Whether 16-bit ALU is supported. */
    bool support_16bit_alu;
 
+   bool dont_lower_global_group_size;
    unsigned max_unroll_iterations;
 
    /* For the non-zero value of the enum corresponds multiplier when
