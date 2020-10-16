@@ -333,8 +333,8 @@ v3d_nir_lower_vertex_input(struct v3d_compile *c, nir_builder *b,
                 return;
 
         const uint32_t location =
-           nir_intrinsic_io_semantics(instr).location - VERT_ATTRIB_GENERIC0;
-        assert(location < V3D_MAX_VS_INPUTS / 4);
+                nir_intrinsic_io_semantics(instr).location;
+
         if (!(c->vs_key->va_swap_rb_mask & (1 << location)))
                 return;
 
