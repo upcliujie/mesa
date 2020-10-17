@@ -30,5 +30,6 @@ if [[ -n "$GCC_ARCH" ]]; then
     echo "set(CMAKE_C_COMPILER /usr/lib/ccache/$GCC_ARCH-gcc)" >> "$toolchain_file"
     echo "set(CMAKE_CXX_COMPILER /usr/lib/ccache/$GCC_ARCH-g++)" >> "$toolchain_file"
     echo "set(ENV{PKG_CONFIG} \"/usr/bin/$GCC_ARCH-pkg-config\")" >> "$toolchain_file"
+    echo "set(PKG_CONFIG_EXECUTABLE \"/usr/bin/$GCC_ARCH-pkg-config\")" >> "$toolchain_file"
     echo "set(DE_CPU $DE_CPU)" >> "$toolchain_file"
 fi

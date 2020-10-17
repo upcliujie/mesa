@@ -25,19 +25,29 @@ apt-get -y install --no-install-recommends \
     strace \
     libsensors5 \
     libexpat1 \
+    libwaffle-1-0 \
     libxcb-dri2-0 \
     libxcb-dri3-0 \
+    libxcb-glx0 \
     libxcb-present0 \
     libxcb-randr0 \
+    libxcb-shm0 \
     libxcb-sync1 \
     libxcb-xfixes0 \
     libxshmfence1 \
     libx11-6 \
     libx11-xcb1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxxf86vm1 \
     $ARCH_PACKAGES \
     netcat-openbsd \
     python3 \
     libpython3.7 \
+    python3-numpy \
+    python3-mako \
     python3-pil \
     python3-pytest \
     python3-requests \

@@ -32,6 +32,8 @@ BAREMETAL_EPHEMERAL=" \
         libvulkan-dev:$arch \
         libxcb-keysyms1-dev:$arch \
         libpython3-dev:$arch \
+        libwaffle-dev:$arch \
+        libxkbcommon-dev:$arch \
         python3-dev \
         qt5-default \
         qt5-qmake \
@@ -51,7 +53,7 @@ mkdir /var/cache/apt/archives/$arch
 ############### Create rootfs
 KERNEL_URL=https://github.com/anholt/linux/archive/cheza-pagetables-2020-09-04.tar.gz
 
-DEBIAN_ARCH=$arch INCLUDE_VK_CTS=1 . .gitlab-ci/container/lava_build.sh
+DEBIAN_ARCH=$arch INCLUDE_VK_CTS=1 INCLUDE_PIGLIT=1 . .gitlab-ci/container/lava_build.sh
 
 ############### Uninstall the build software
 

@@ -67,6 +67,8 @@ apt-get install -y automake \
                    python3-dev \
                    python3-distutils \
                    python3-serial \
+                   python3-numpy \
+                   python3-mako \
                    qt5-default \
                    qt5-qmake \
                    qtbase5-dev
@@ -108,6 +110,14 @@ rm -rf /apitrace
 mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/waffle
 mv /waffle/build /lava-files/rootfs-${DEBIAN_ARCH}/waffle
 rm -rf /waffle
+
+
+############### Build piglit
+if [ -n "$INCLUDE_PIGLIT" ]; then
+    . .gitlab-ci/build-piglit.sh
+
+    mv /piglit /lava-files/rootfs-${DEBIAN_ARCH}/.
+fi
 
 
 ############### Build renderdoc
