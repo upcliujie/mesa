@@ -381,7 +381,7 @@ arm_build:
     - .fdo.container-build@debian@arm64v8
     - .container
   variables:
-    FDO_DISTRIBUTION_TAG: &arm_build "2020-09-10-libdrm"
+    FDO_DISTRIBUTION_TAG: &arm_build "2020-10-20-opengl"
 
 .use-arm_build:
   variables:
@@ -772,13 +772,13 @@ meson-android:
   variables:
     UNWIND: "disabled"
     DRI_LOADERS: >
-      -D glx=disabled
+      -D glx=dri
       -D gbm=disabled
       -D egl=enabled
-      -D platforms=[]
+      -D platforms=surfaceless,x11
       -D osmesa=none
     GALLIUM_ST: >
-      -D dri3=disabled
+      -D dri3=enabled
       -D gallium-vdpau=disabled
       -D gallium-xvmc=disabled
       -D gallium-omx=disabled

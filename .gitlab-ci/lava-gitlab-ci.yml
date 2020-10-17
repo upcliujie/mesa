@@ -1,5 +1,5 @@
 variables:
-  DISTRIBUTION_TAG: "2020-10-08-new-kernel"
+  DISTRIBUTION_TAG: "2020-10-20-opengl"
 
 .kernel+rootfs:
   stage: container-2

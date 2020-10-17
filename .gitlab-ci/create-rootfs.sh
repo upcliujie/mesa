@@ -13,12 +13,6 @@ elif [ $DEBIAN_ARCH = amd64 ]; then
 
     ARCH_PACKAGES="libelf1
                    libllvm10
-                   libxcb-dri2-0
-                   libxcb-dri3-0
-                   libxcb-present0
-                   libxcb-sync1
-                   libxcb-xfixes0
-                   libxshmfence1
                    firmware-amd-graphics
                   "
 fi
@@ -31,6 +25,13 @@ apt-get -y install --no-install-recommends \
     strace \
     libsensors5 \
     libexpat1 \
+    libxcb-dri2-0 \
+    libxcb-dri3-0 \
+    libxcb-present0 \
+    libxcb-randr0 \
+    libxcb-sync1 \
+    libxcb-xfixes0 \
+    libxshmfence1 \
     libx11-6 \
     libx11-xcb1 \
     $ARCH_PACKAGES \
