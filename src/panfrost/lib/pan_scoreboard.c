@@ -122,7 +122,7 @@ panfrost_add_job(
                  * job must depend on the write value job, whose index we
                  * reserve now */
 
-                if (scoreboard->tiler_dep)
+                if (scoreboard->tiler_dep && !inject)
                         global_dep = scoreboard->tiler_dep;
                 else if (!(pool->dev->quirks & IS_BIFROST)) {
                         scoreboard->write_value_index = ++scoreboard->job_index;
@@ -144,14 +144,35 @@ panfrost_add_job(
                         header.next = scoreboard->first_job;
         }
 
+
         if (inject) {
+                if (type == MALI_JOB_TYPE_TILER) {
+                        if (scoreboard->first_tiler) {
+                                assert((scoreboard->first_tiler_deps & 0xffff0000) == 0);
+                                /* Manual update of the dep2 field . This is bad,
+                                 * don't copy this pattern.
+                                 */
+                                scoreboard->first_tiler->opaque[5] =
+                                        scoreboard->first_tiler_deps | (index << 16);
+                        }
+
+                        scoreboard->first_tiler = (void *)job->cpu;
+                        assert(!global_dep);
+                        scoreboard->first_tiler_deps = local_dep;
+                }
                 scoreboard->first_job = job->gpu;
                 return index;
         }
 
         /* Form a chain */
-        if (type == MALI_JOB_TYPE_TILER)
+        if (type == MALI_JOB_TYPE_TILER) {
+                if (!scoreboard->first_tiler) {
+                        scoreboard->first_tiler = (void *)job->cpu;
+                        assert(!global_dep);
+                        scoreboard->first_tiler_deps = local_dep;
+                }
                 scoreboard->tiler_dep = index;
+        }
 
         if (scoreboard->prev_job) {
                 /* Manual update of the next pointer. This is bad, don't copy
