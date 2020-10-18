@@ -235,8 +235,8 @@ struct lvp_instance {
    struct lvp_device_dispatch_table device_dispatch;
 };
 
-VkResult lvp_init_wsi(struct lvp_physical_device *physical_device);
-void lvp_finish_wsi(struct lvp_physical_device *physical_device);
+VkResult VKAPI_CALL lvp_init_wsi(struct lvp_physical_device *physical_device);
+void VKAPI_CALL lvp_finish_wsi(struct lvp_physical_device *physical_device);
 
 bool lvp_instance_extension_supported(const char *name);
 uint32_t lvp_physical_device_api_version(struct lvp_physical_device *dev);
@@ -325,7 +325,7 @@ struct lvp_image_create_info {
    uint32_t stride;
 };
 
-VkResult
+VkResult VKAPI_CALL
 lvp_image_create(VkDevice _device,
                  const struct lvp_image_create_info *create_info,
                  const VkAllocationCallbacks* alloc,
@@ -487,12 +487,12 @@ struct lvp_descriptor_pool {
    struct list_head sets;
 };
 
-VkResult
+VkResult VKAPI_CALL
 lvp_descriptor_set_create(struct lvp_device *device,
                           const struct lvp_descriptor_set_layout *layout,
                           struct lvp_descriptor_set **out_set);
 
-void
+void VKAPI_CALL
 lvp_descriptor_set_destroy(struct lvp_device *device,
                            struct lvp_descriptor_set *set);
 

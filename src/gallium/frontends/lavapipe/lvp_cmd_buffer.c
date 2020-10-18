@@ -74,7 +74,7 @@ static VkResult lvp_reset_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer)
    return VK_SUCCESS;
 }
 
-VkResult lvp_AllocateCommandBuffers(
+VkResult VKAPI_CALL lvp_AllocateCommandBuffers(
    VkDevice                                    _device,
    const VkCommandBufferAllocateInfo*          pAllocateInfo,
    VkCommandBuffer*                            pCommandBuffers)
@@ -124,7 +124,7 @@ lvp_cmd_buffer_destroy(struct lvp_cmd_buffer *cmd_buffer)
    vk_free(&cmd_buffer->pool->alloc, cmd_buffer);
 }
 
-void lvp_FreeCommandBuffers(
+void VKAPI_CALL lvp_FreeCommandBuffers(
    VkDevice                                    device,
    VkCommandPool                               commandPool,
    uint32_t                                    commandBufferCount,
@@ -143,7 +143,7 @@ void lvp_FreeCommandBuffers(
    }
 }
 
-VkResult lvp_ResetCommandBuffer(
+VkResult VKAPI_CALL lvp_ResetCommandBuffer(
    VkCommandBuffer                             commandBuffer,
    VkCommandBufferResetFlags                   flags)
 {
@@ -152,7 +152,7 @@ VkResult lvp_ResetCommandBuffer(
    return lvp_reset_cmd_buffer(cmd_buffer);
 }
 
-VkResult lvp_BeginCommandBuffer(
+VkResult VKAPI_CALL lvp_BeginCommandBuffer(
    VkCommandBuffer                             commandBuffer,
    const VkCommandBufferBeginInfo*             pBeginInfo)
 {
@@ -167,7 +167,7 @@ VkResult lvp_BeginCommandBuffer(
    return VK_SUCCESS;
 }
 
-VkResult lvp_EndCommandBuffer(
+VkResult VKAPI_CALL lvp_EndCommandBuffer(
    VkCommandBuffer                             commandBuffer)
 {
    LVP_FROM_HANDLE(lvp_cmd_buffer, cmd_buffer, commandBuffer);
@@ -175,7 +175,7 @@ VkResult lvp_EndCommandBuffer(
    return VK_SUCCESS;
 }
 
-VkResult lvp_CreateCommandPool(
+VkResult VKAPI_CALL lvp_CreateCommandPool(
    VkDevice                                    _device,
    const VkCommandPoolCreateInfo*              pCreateInfo,
    const VkAllocationCallbacks*                pAllocator,
@@ -204,7 +204,7 @@ VkResult lvp_CreateCommandPool(
    return VK_SUCCESS;
 }
 
-void lvp_DestroyCommandPool(
+void VKAPI_CALL lvp_DestroyCommandPool(
    VkDevice                                    _device,
    VkCommandPool                               commandPool,
    const VkAllocationCallbacks*                pAllocator)
@@ -229,7 +229,7 @@ void lvp_DestroyCommandPool(
    vk_free2(&device->alloc, pAllocator, pool);
 }
 
-VkResult lvp_ResetCommandPool(
+VkResult VKAPI_CALL lvp_ResetCommandPool(
    VkDevice                                    device,
    VkCommandPool                               commandPool,
    VkCommandPoolResetFlags                     flags)
@@ -246,7 +246,7 @@ VkResult lvp_ResetCommandPool(
    return VK_SUCCESS;
 }
 
-void lvp_TrimCommandPool(
+void VKAPI_CALL lvp_TrimCommandPool(
    VkDevice                                    device,
    VkCommandPool                               commandPool,
    VkCommandPoolTrimFlags                      flags)
@@ -324,7 +324,7 @@ state_setup_attachments(struct lvp_attachment_state *attachments,
    }
 }
 
-void lvp_CmdBeginRenderPass(
+void VKAPI_CALL lvp_CmdBeginRenderPass(
    VkCommandBuffer                             commandBuffer,
    const VkRenderPassBeginInfo*                pRenderPassBegin,
    VkSubpassContents                           contents)
@@ -349,7 +349,7 @@ void lvp_CmdBeginRenderPass(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdNextSubpass(
+void VKAPI_CALL lvp_CmdNextSubpass(
    VkCommandBuffer                             commandBuffer,
    VkSubpassContents                           contents)
 {
@@ -365,7 +365,7 @@ void lvp_CmdNextSubpass(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdBindVertexBuffers(
+void VKAPI_CALL lvp_CmdBindVertexBuffers(
    VkCommandBuffer                             commandBuffer,
    uint32_t                                    firstBinding,
    uint32_t                                    bindingCount,
@@ -398,7 +398,7 @@ void lvp_CmdBindVertexBuffers(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdBindPipeline(
+void VKAPI_CALL lvp_CmdBindPipeline(
    VkCommandBuffer                             commandBuffer,
    VkPipelineBindPoint                         pipelineBindPoint,
    VkPipeline                                  _pipeline)
@@ -417,7 +417,7 @@ void lvp_CmdBindPipeline(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdBindDescriptorSets(
+void VKAPI_CALL lvp_CmdBindDescriptorSets(
    VkCommandBuffer                             commandBuffer,
    VkPipelineBindPoint                         pipelineBindPoint,
    VkPipelineLayout                            _layout,
@@ -459,7 +459,7 @@ void lvp_CmdBindDescriptorSets(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdDraw(
+void VKAPI_CALL lvp_CmdDraw(
    VkCommandBuffer                             commandBuffer,
    uint32_t                                    vertexCount,
    uint32_t                                    instanceCount,
@@ -481,7 +481,7 @@ void lvp_CmdDraw(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdEndRenderPass(
+void VKAPI_CALL lvp_CmdEndRenderPass(
    VkCommandBuffer                             commandBuffer)
 {
    LVP_FROM_HANDLE(lvp_cmd_buffer, cmd_buffer, commandBuffer);
@@ -494,7 +494,7 @@ void lvp_CmdEndRenderPass(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdSetViewport(
+void VKAPI_CALL lvp_CmdSetViewport(
    VkCommandBuffer                             commandBuffer,
    uint32_t                                    firstViewport,
    uint32_t                                    viewportCount,
@@ -516,7 +516,7 @@ void lvp_CmdSetViewport(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdSetScissor(
+void VKAPI_CALL lvp_CmdSetScissor(
    VkCommandBuffer                             commandBuffer,
    uint32_t                                    firstScissor,
    uint32_t                                    scissorCount,
@@ -538,7 +538,7 @@ void lvp_CmdSetScissor(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdSetLineWidth(
+void VKAPI_CALL lvp_CmdSetLineWidth(
    VkCommandBuffer                             commandBuffer,
    float                                       lineWidth)
 {
@@ -554,7 +554,7 @@ void lvp_CmdSetLineWidth(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdSetDepthBias(
+void VKAPI_CALL lvp_CmdSetDepthBias(
    VkCommandBuffer                             commandBuffer,
    float                                       depthBiasConstantFactor,
    float                                       depthBiasClamp,
@@ -574,7 +574,7 @@ void lvp_CmdSetDepthBias(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdSetBlendConstants(
+void VKAPI_CALL lvp_CmdSetBlendConstants(
    VkCommandBuffer                             commandBuffer,
    const float                                 blendConstants[4])
 {
@@ -590,7 +590,7 @@ void lvp_CmdSetBlendConstants(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdSetDepthBounds(
+void VKAPI_CALL lvp_CmdSetDepthBounds(
    VkCommandBuffer                             commandBuffer,
    float                                       minDepthBounds,
    float                                       maxDepthBounds)
@@ -608,7 +608,7 @@ void lvp_CmdSetDepthBounds(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdSetStencilCompareMask(
+void VKAPI_CALL lvp_CmdSetStencilCompareMask(
    VkCommandBuffer                             commandBuffer,
    VkStencilFaceFlags                          faceMask,
    uint32_t                                    compareMask)
@@ -626,7 +626,7 @@ void lvp_CmdSetStencilCompareMask(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdSetStencilWriteMask(
+void VKAPI_CALL lvp_CmdSetStencilWriteMask(
    VkCommandBuffer                             commandBuffer,
    VkStencilFaceFlags                          faceMask,
    uint32_t                                    writeMask)
@@ -645,7 +645,7 @@ void lvp_CmdSetStencilWriteMask(
 }
 
 
-void lvp_CmdSetStencilReference(
+void VKAPI_CALL lvp_CmdSetStencilReference(
    VkCommandBuffer                             commandBuffer,
    VkStencilFaceFlags                          faceMask,
    uint32_t                                    reference)
@@ -663,7 +663,7 @@ void lvp_CmdSetStencilReference(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdPushConstants(
+void VKAPI_CALL lvp_CmdPushConstants(
    VkCommandBuffer                             commandBuffer,
    VkPipelineLayout                            layout,
    VkShaderStageFlags                          stageFlags,
@@ -686,7 +686,7 @@ void lvp_CmdPushConstants(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdBindIndexBuffer(
+void VKAPI_CALL lvp_CmdBindIndexBuffer(
    VkCommandBuffer                             commandBuffer,
    VkBuffer                                    _buffer,
    VkDeviceSize                                offset,
@@ -707,7 +707,7 @@ void lvp_CmdBindIndexBuffer(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdDrawIndexed(
+void VKAPI_CALL lvp_CmdDrawIndexed(
    VkCommandBuffer                             commandBuffer,
    uint32_t                                    indexCount,
    uint32_t                                    instanceCount,
@@ -731,7 +731,7 @@ void lvp_CmdDrawIndexed(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdDrawIndirect(
+void VKAPI_CALL lvp_CmdDrawIndirect(
    VkCommandBuffer                             commandBuffer,
    VkBuffer                                    _buffer,
    VkDeviceSize                                offset,
@@ -754,7 +754,7 @@ void lvp_CmdDrawIndirect(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdDrawIndexedIndirect(
+void VKAPI_CALL lvp_CmdDrawIndexedIndirect(
    VkCommandBuffer                             commandBuffer,
    VkBuffer                                    _buffer,
    VkDeviceSize                                offset,
@@ -777,7 +777,7 @@ void lvp_CmdDrawIndexedIndirect(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdDispatch(
+void VKAPI_CALL lvp_CmdDispatch(
    VkCommandBuffer                             commandBuffer,
    uint32_t                                    x,
    uint32_t                                    y,
@@ -797,7 +797,7 @@ void lvp_CmdDispatch(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdDispatchIndirect(
+void VKAPI_CALL lvp_CmdDispatchIndirect(
    VkCommandBuffer                             commandBuffer,
    VkBuffer                                    _buffer,
    VkDeviceSize                                offset)
@@ -815,7 +815,7 @@ void lvp_CmdDispatchIndirect(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdExecuteCommands(
+void VKAPI_CALL lvp_CmdExecuteCommands(
    VkCommandBuffer                             commandBuffer,
    uint32_t                                    commandBufferCount,
    const VkCommandBuffer*                      pCmdBuffers)
@@ -835,7 +835,7 @@ void lvp_CmdExecuteCommands(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdSetEvent(VkCommandBuffer commandBuffer,
+void VKAPI_CALL lvp_CmdSetEvent(VkCommandBuffer commandBuffer,
                      VkEvent _event,
                      VkPipelineStageFlags stageMask)
 {
@@ -854,7 +854,7 @@ void lvp_CmdSetEvent(VkCommandBuffer commandBuffer,
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdResetEvent(VkCommandBuffer commandBuffer,
+void VKAPI_CALL lvp_CmdResetEvent(VkCommandBuffer commandBuffer,
                        VkEvent _event,
                        VkPipelineStageFlags stageMask)
 {
@@ -874,7 +874,7 @@ void lvp_CmdResetEvent(VkCommandBuffer commandBuffer,
 
 }
 
-void lvp_CmdWaitEvents(VkCommandBuffer commandBuffer,
+void VKAPI_CALL lvp_CmdWaitEvents(VkCommandBuffer commandBuffer,
                        uint32_t eventCount,
                        const VkEvent* pEvents,
                        VkPipelineStageFlags srcStageMask,
@@ -914,7 +914,7 @@ void lvp_CmdWaitEvents(VkCommandBuffer commandBuffer,
 }
 
 
-void lvp_CmdCopyBufferToImage(
+void VKAPI_CALL lvp_CmdCopyBufferToImage(
    VkCommandBuffer                             commandBuffer,
    VkBuffer                                    srcBuffer,
    VkImage                                     destImage,
@@ -948,7 +948,7 @@ void lvp_CmdCopyBufferToImage(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdCopyImageToBuffer(
+void VKAPI_CALL lvp_CmdCopyImageToBuffer(
    VkCommandBuffer                             commandBuffer,
    VkImage                                     srcImage,
    VkImageLayout                               srcImageLayout,
@@ -982,7 +982,7 @@ void lvp_CmdCopyImageToBuffer(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdCopyImage(
+void VKAPI_CALL lvp_CmdCopyImage(
    VkCommandBuffer                             commandBuffer,
    VkImage                                     srcImage,
    VkImageLayout                               srcImageLayout,
@@ -1019,7 +1019,7 @@ void lvp_CmdCopyImage(
 }
 
 
-void lvp_CmdCopyBuffer(
+void VKAPI_CALL lvp_CmdCopyBuffer(
    VkCommandBuffer                             commandBuffer,
    VkBuffer                                    srcBuffer,
    VkBuffer                                    destBuffer,
@@ -1051,7 +1051,7 @@ void lvp_CmdCopyBuffer(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdBlitImage(
+void VKAPI_CALL lvp_CmdBlitImage(
    VkCommandBuffer                             commandBuffer,
    VkImage                                     srcImage,
    VkImageLayout                               srcImageLayout,
@@ -1089,7 +1089,7 @@ void lvp_CmdBlitImage(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdClearAttachments(
+void VKAPI_CALL lvp_CmdClearAttachments(
    VkCommandBuffer                             commandBuffer,
    uint32_t                                    attachmentCount,
    const VkClearAttachment*                    pAttachments,
@@ -1116,7 +1116,7 @@ void lvp_CmdClearAttachments(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdFillBuffer(
+void VKAPI_CALL lvp_CmdFillBuffer(
    VkCommandBuffer                             commandBuffer,
    VkBuffer                                    dstBuffer,
    VkDeviceSize                                dstOffset,
@@ -1139,7 +1139,7 @@ void lvp_CmdFillBuffer(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdUpdateBuffer(
+void VKAPI_CALL lvp_CmdUpdateBuffer(
    VkCommandBuffer                             commandBuffer,
    VkBuffer                                    dstBuffer,
    VkDeviceSize                                dstOffset,
@@ -1162,7 +1162,7 @@ void lvp_CmdUpdateBuffer(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdClearColorImage(
+void VKAPI_CALL lvp_CmdClearColorImage(
    VkCommandBuffer                             commandBuffer,
    VkImage                                     image_h,
    VkImageLayout                               imageLayout,
@@ -1190,7 +1190,7 @@ void lvp_CmdClearColorImage(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdClearDepthStencilImage(
+void VKAPI_CALL lvp_CmdClearDepthStencilImage(
    VkCommandBuffer                             commandBuffer,
    VkImage                                     image_h,
    VkImageLayout                               imageLayout,
@@ -1219,7 +1219,7 @@ void lvp_CmdClearDepthStencilImage(
 }
 
 
-void lvp_CmdResolveImage(
+void VKAPI_CALL lvp_CmdResolveImage(
    VkCommandBuffer                             commandBuffer,
    VkImage                                     srcImage,
    VkImageLayout                               srcImageLayout,
@@ -1250,7 +1250,7 @@ void lvp_CmdResolveImage(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdResetQueryPool(
+void VKAPI_CALL lvp_CmdResetQueryPool(
    VkCommandBuffer                             commandBuffer,
    VkQueryPool                                 queryPool,
    uint32_t                                    firstQuery,
@@ -1271,7 +1271,7 @@ void lvp_CmdResetQueryPool(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdBeginQueryIndexedEXT(
+void VKAPI_CALL lvp_CmdBeginQueryIndexedEXT(
    VkCommandBuffer                             commandBuffer,
    VkQueryPool                                 queryPool,
    uint32_t                                    query,
@@ -1294,7 +1294,7 @@ void lvp_CmdBeginQueryIndexedEXT(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdBeginQuery(
+void VKAPI_CALL lvp_CmdBeginQuery(
    VkCommandBuffer                             commandBuffer,
    VkQueryPool                                 queryPool,
    uint32_t                                    query,
@@ -1303,7 +1303,7 @@ void lvp_CmdBeginQuery(
    lvp_CmdBeginQueryIndexedEXT(commandBuffer, queryPool, query, flags, 0);
 }
 
-void lvp_CmdEndQueryIndexedEXT(
+void VKAPI_CALL lvp_CmdEndQueryIndexedEXT(
    VkCommandBuffer                             commandBuffer,
    VkQueryPool                                 queryPool,
    uint32_t                                    query,
@@ -1324,7 +1324,7 @@ void lvp_CmdEndQueryIndexedEXT(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdEndQuery(
+void VKAPI_CALL lvp_CmdEndQuery(
    VkCommandBuffer                             commandBuffer,
    VkQueryPool                                 queryPool,
    uint32_t                                    query)
@@ -1332,7 +1332,7 @@ void lvp_CmdEndQuery(
    lvp_CmdEndQueryIndexedEXT(commandBuffer, queryPool, query, 0);
 }
 
-void lvp_CmdWriteTimestamp(
+void VKAPI_CALL lvp_CmdWriteTimestamp(
    VkCommandBuffer                             commandBuffer,
    VkPipelineStageFlagBits                     pipelineStage,
    VkQueryPool                                 queryPool,
@@ -1353,7 +1353,7 @@ void lvp_CmdWriteTimestamp(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdCopyQueryPoolResults(
+void VKAPI_CALL lvp_CmdCopyQueryPoolResults(
    VkCommandBuffer                             commandBuffer,
    VkQueryPool                                 queryPool,
    uint32_t                                    firstQuery,
@@ -1383,7 +1383,7 @@ void lvp_CmdCopyQueryPoolResults(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
-void lvp_CmdPipelineBarrier(
+void VKAPI_CALL lvp_CmdPipelineBarrier(
    VkCommandBuffer                             commandBuffer,
    VkPipelineStageFlags                        srcStageMask,
    VkPipelineStageFlags                        destStageMask,

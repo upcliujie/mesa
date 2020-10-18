@@ -32,7 +32,7 @@
 
 #define SPIR_V_MAGIC_NUMBER 0x07230203
 
-VkResult lvp_CreateShaderModule(
+VkResult VKAPI_CALL lvp_CreateShaderModule(
    VkDevice                                    _device,
    const VkShaderModuleCreateInfo*             pCreateInfo,
    const VkAllocationCallbacks*                pAllocator,
@@ -61,7 +61,7 @@ VkResult lvp_CreateShaderModule(
 
 }
 
-void lvp_DestroyShaderModule(
+void VKAPI_CALL lvp_DestroyShaderModule(
    VkDevice                                    _device,
    VkShaderModule                              _module,
    const VkAllocationCallbacks*                pAllocator)
@@ -75,7 +75,7 @@ void lvp_DestroyShaderModule(
    vk_free2(&device->alloc, pAllocator, module);
 }
 
-void lvp_DestroyPipeline(
+void VKAPI_CALL lvp_DestroyPipeline(
    VkDevice                                    _device,
    VkPipeline                                  _pipeline,
    const VkAllocationCallbacks*                pAllocator)
@@ -837,7 +837,7 @@ lvp_graphics_pipeline_create(
    return VK_SUCCESS;
 }
 
-VkResult lvp_CreateGraphicsPipelines(
+VkResult VKAPI_CALL lvp_CreateGraphicsPipelines(
    VkDevice                                    _device,
    VkPipelineCache                             pipelineCache,
    uint32_t                                    count,
@@ -923,7 +923,7 @@ lvp_compute_pipeline_create(
    return VK_SUCCESS;
 }
 
-VkResult lvp_CreateComputePipelines(
+VkResult VKAPI_CALL lvp_CreateComputePipelines(
    VkDevice                                    _device,
    VkPipelineCache                             pipelineCache,
    uint32_t                                    count,

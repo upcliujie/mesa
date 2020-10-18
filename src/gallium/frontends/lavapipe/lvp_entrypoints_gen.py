@@ -47,6 +47,8 @@ LAYERS = [
 TEMPLATE_H = Template("""\
 /* This file generated from ${filename}, don't edit directly. */
 
+#include <vulkan/vk_platform.h>
+
 struct lvp_instance_dispatch_table {
    union {
       void *entrypoints[${len(instance_entrypoints)}];
@@ -119,7 +121,7 @@ extern const struct lvp_device_dispatch_table ${layer}_device_dispatch_table;
   % if e.guard is not None:
 #ifdef ${e.guard}
   % endif
-  ${e.return_type} ${e.prefixed_name('lvp')}(${e.decl_params()});
+  ${e.return_type} VKAPI_CALL ${e.prefixed_name('lvp')}(${e.decl_params()});
   % if e.guard is not None:
 #endif // ${e.guard}
   % endif
@@ -133,7 +135,7 @@ extern const struct lvp_device_dispatch_table ${layer}_device_dispatch_table;
 #ifdef ${e.guard}
   % endif
   % for layer in LAYERS:
-  ${e.return_type} ${e.prefixed_name(layer)}(${e.decl_params()});
+  ${e.return_type} VKAPI_CALL ${e.prefixed_name(layer)}(${e.decl_params()});
   % endfor
   % if e.guard is not None:
 #endif // ${e.guard}
@@ -148,7 +150,7 @@ extern const struct lvp_device_dispatch_table ${layer}_device_dispatch_table;
 #ifdef ${e.guard}
   % endif
   % for layer in LAYERS:
-  ${e.return_type} ${e.prefixed_name(layer)}(${e.decl_params()});
+  ${e.return_type} VKAPI_CALL ${e.prefixed_name(layer)}(${e.decl_params()});
   % endfor
   % if e.guard is not None:
 #endif // ${e.guard}
@@ -279,7 +281,7 @@ ${strmap(device_strmap, 'device')}
   % if e.guard is not None:
 #ifdef ${e.guard}
   % endif
-  ${e.return_type} ${e.prefixed_name('lvp')}(${e.decl_params()}) __attribute__ ((weak));
+  ${e.return_type} VKAPI_CALL ${e.prefixed_name('lvp')}(${e.decl_params()}) __attribute__ ((weak));
   % if e.guard is not None:
 #endif // ${e.guard}
   % endif
@@ -304,7 +306,7 @@ const struct lvp_instance_dispatch_table lvp_instance_dispatch_table = {
   % if e.guard is not None:
 #ifdef ${e.guard}
   % endif
-  ${e.return_type} ${e.prefixed_name('lvp')}(${e.decl_params()}) __attribute__ ((weak));
+  ${e.return_type} VKAPI_CALL ${e.prefixed_name('lvp')}(${e.decl_params()}) __attribute__ ((weak));
   % if e.guard is not None:
 #endif // ${e.guard}
   % endif
@@ -332,7 +334,7 @@ const struct lvp_physical_device_dispatch_table lvp_physical_device_dispatch_tab
 #ifdef ${e.guard}
     % endif
     % if layer == 'lvp':
-      ${e.return_type} __attribute__ ((weak))
+      ${e.return_type} VKAPI_CALL __attribute__ ((weak))
       ${e.prefixed_name('lvp')}(${e.decl_params()})
       {
         % if e.params[0].type == 'VkDevice':
@@ -349,7 +351,7 @@ const struct lvp_physical_device_dispatch_table lvp_physical_device_dispatch_tab
         % endif
       }
     % else:
-      ${e.return_type} ${e.prefixed_name(layer)}(${e.decl_params()}) __attribute__ ((weak));
+      ${e.return_type} VKAPI_CALL ${e.prefixed_name(layer)}(${e.decl_params()}) __attribute__ ((weak));
     % endif
     % if e.guard is not None:
 #endif // ${e.guard}

@@ -112,7 +112,7 @@ _TEMPLATE_C = Template(COPYRIGHT + """
 
 static const uint32_t MAX_API_VERSION = ${MAX_API_VERSION.c_vk_version()};
 
-VkResult ${driver}_EnumerateInstanceVersion(
+VkResult VKAPI_CALL ${driver}_EnumerateInstanceVersion(
     uint32_t*                                   pApiVersion)
 {
     *pApiVersion = MAX_API_VERSION;

@@ -231,7 +231,7 @@ lvp_physical_device_get_format_properties(struct lvp_physical_device *physical_d
    return;
 }
 
-void lvp_GetPhysicalDeviceFormatProperties(
+void VKAPI_CALL lvp_GetPhysicalDeviceFormatProperties(
     VkPhysicalDevice                            physicalDevice,
     VkFormat                                    format,
     VkFormatProperties*                         pFormatProperties)
@@ -243,7 +243,7 @@ void lvp_GetPhysicalDeviceFormatProperties(
                                              pFormatProperties);
 }
 
-void lvp_GetPhysicalDeviceFormatProperties2(
+void VKAPI_CALL lvp_GetPhysicalDeviceFormatProperties2(
         VkPhysicalDevice                            physicalDevice,
         VkFormat                                    format,
         VkFormatProperties2*                        pFormatProperties)
@@ -377,7 +377,7 @@ static VkResult lvp_get_image_format_properties(struct lvp_physical_device *phys
    return VK_ERROR_FORMAT_NOT_SUPPORTED;
 }
 
-VkResult lvp_GetPhysicalDeviceImageFormatProperties(
+VkResult VKAPI_CALL lvp_GetPhysicalDeviceImageFormatProperties(
     VkPhysicalDevice                            physicalDevice,
     VkFormat                                    format,
     VkImageType                                 type,
@@ -402,7 +402,7 @@ VkResult lvp_GetPhysicalDeviceImageFormatProperties(
                                            pImageFormatProperties);
 }
 
-VkResult lvp_GetPhysicalDeviceImageFormatProperties2(
+VkResult VKAPI_CALL lvp_GetPhysicalDeviceImageFormatProperties2(
         VkPhysicalDevice                            physicalDevice,
         const VkPhysicalDeviceImageFormatInfo2     *base_info,
         VkImageFormatProperties2                   *base_props)
@@ -417,7 +417,7 @@ VkResult lvp_GetPhysicalDeviceImageFormatProperties2(
    return VK_SUCCESS;
 }
 
-void lvp_GetPhysicalDeviceSparseImageFormatProperties(
+void VKAPI_CALL lvp_GetPhysicalDeviceSparseImageFormatProperties(
     VkPhysicalDevice                            physicalDevice,
     VkFormat                                    format,
     VkImageType                                 type,
@@ -431,7 +431,7 @@ void lvp_GetPhysicalDeviceSparseImageFormatProperties(
    *pNumProperties = 0;
 }
 
-void lvp_GetPhysicalDeviceSparseImageFormatProperties2(
+void VKAPI_CALL lvp_GetPhysicalDeviceSparseImageFormatProperties2(
         VkPhysicalDevice                            physicalDevice,
         const VkPhysicalDeviceSparseImageFormatInfo2 *pFormatInfo,
         uint32_t                                   *pPropertyCount,
