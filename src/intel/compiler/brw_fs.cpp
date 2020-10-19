@@ -4568,7 +4568,8 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
          (inst->group / 16) << 11 | /* rt slot group */
          brw_dp_write_desc(devinfo, inst->target, msg_ctl,
                            GEN6_DATAPORT_WRITE_MESSAGE_RENDER_TARGET_WRITE,
-                           inst->last_rt, false);
+                           inst->last_rt, false,
+                           prog_data->per_coarse_pixel_dispatch);
 
       if (devinfo->gen >= 11) {
          /* Set the "Render Target Index" and "Src0 Alpha Present" fields
@@ -5216,6 +5217,11 @@ lower_sampler_logical_send_gen7(const fs_builder &bld, fs_inst *inst, opcode op,
       break;
    }
 
+   uint32_t ex_desc = 0;
+   if (bld.shader->stage == MESA_SHADER_FRAGMENT &&
+       brw_wm_prog_data(bld.shader->stage_prog_data)->per_coarse_pixel_dispatch)
+      ex_desc |= 1u << 11;
+
    inst->sfid = BRW_SFID_SAMPLER;
    if (surface.file == IMM &&
        (sampler.file == IMM || sampler_handle.file != BAD_FILE)) {
@@ -5226,7 +5232,7 @@ lower_sampler_logical_send_gen7(const fs_builder &bld, fs_inst *inst, opcode op,
                                     simd_mode,
                                     0 /* return_format unused on gen7+ */);
       inst->src[0] = brw_imm_ud(0);
-      inst->src[1] = brw_imm_ud(0); /* ex_desc */
+      inst->src[1] = brw_imm_ud(ex_desc);
    } else if (surface_handle.file != BAD_FILE) {
       /* Bindless surface */
       assert(devinfo->gen >= 9);
@@ -5251,8 +5257,18 @@ lower_sampler_logical_send_gen7(const fs_builder &bld, fs_inst *inst, opcode op,
 
       /* We assume that the driver provided the handle in the top 20 bits so
        * we can use the surface handle directly as the extended descriptor.
+       *
+       * Add the "CPS Message LOD Compensation Enable" when working with
+       * coarse pixels.
        */
-      inst->src[1] = retype(surface_handle, BRW_REGISTER_TYPE_UD);
+      if (ex_desc) {
+         fs_reg tmp = bld.vgrf(BRW_REGISTER_TYPE_UD);
+
+         bld.OR(tmp, retype(surface_handle, BRW_REGISTER_TYPE_UD), brw_imm_ud(ex_desc));
+         inst->src[1] = tmp; /* ex_desc */
+      } else {
+         inst->src[1] = retype(surface_handle, BRW_REGISTER_TYPE_UD);
+      }
    } else {
       /* Immediate portion of the descriptor */
       inst->desc = brw_sampler_desc(devinfo,
@@ -5281,7 +5297,7 @@ lower_sampler_logical_send_gen7(const fs_builder &bld, fs_inst *inst, opcode op,
       ubld.AND(desc, desc, brw_imm_ud(0xfff));
 
       inst->src[0] = component(desc, 0);
-      inst->src[1] = brw_imm_ud(0); /* ex_desc */
+      inst->src[1] = brw_imm_ud(ex_desc);
    }
 
    inst->src[2] = src_payload;
