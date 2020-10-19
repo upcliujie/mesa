@@ -261,7 +261,11 @@ VkResult VKAPI_CALL lvp_EnumeratePhysicalDevices(
 
       assert(instance->num_devices == 1);
 
+#ifndef _WIN32
       pipe_loader_sw_probe_dri(&instance->devs, &lvp_sw_lf);
+#else
+      pipe_loader_sw_probe_null(&instance->devs);
+#endif
 
 
       result = lvp_physical_device_init(&instance->physicalDevice,
