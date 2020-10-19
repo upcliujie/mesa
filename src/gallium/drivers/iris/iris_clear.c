@@ -351,7 +351,6 @@ clear_color(struct iris_context *ice,
    struct iris_resource *res = (void *) p_res;
 
    struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
-   const struct intel_device_info *devinfo = &batch->screen->devinfo;
    enum blorp_batch_flags blorp_flags = 0;
 
    if (render_condition_enabled) {
@@ -390,10 +389,6 @@ clear_color(struct iris_context *ice,
 
    struct blorp_batch blorp_batch;
    blorp_batch_init(&ice->blorp, &blorp_batch, batch, blorp_flags);
-
-   if (!isl_format_supports_rendering(devinfo, format) &&
-       isl_format_is_rgbx(format))
-      format = isl_format_rgbx_to_rgba(format);
 
    blorp_clear(&blorp_batch, &surf, format, swizzle,
                level, box->z, box->depth, box->x, box->y,
