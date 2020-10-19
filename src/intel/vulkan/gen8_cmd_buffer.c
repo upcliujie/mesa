@@ -655,6 +655,49 @@ genX(cmd_buffer_flush_dynamic_state)(struct anv_cmd_buffer *cmd_buffer)
                                 cmd_buffer->state.gfx.dynamic.sample_locations.locations);
    }
 
+#if GEN_GEN >= 11
+   if (cmd_buffer->device->vk.enabled_extensions.KHR_fragment_shading_rate &&
+       (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE)) {
+      bool cps_enable = pipeline->coarse_pixel_enable &&
+         (d->fragment_shading_rate.width > 1 || d->fragment_shading_rate.height > 1);
+
+#if GEN_GEN == 11
+      anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_CPS), cps) {
+         cps.CoarsePixelShadingMode = cps_enable ? CPS_MODE_CONSTANT : CPS_MODE_NONE;
+         if (cps_enable) {
+            cps.MinCPSizeX = d->fragment_shading_rate.width;
+            cps.MinCPSizeY = d->fragment_shading_rate.height;
+         }
+      }
+#elif GEN_GEN == 12
+      uint32_t count = cmd_buffer->state.gfx.dynamic.viewport.count;
+      struct anv_state cps_states =
+         anv_cmd_buffer_alloc_dynamic_state(cmd_buffer,
+                                            GENX(CPS_STATE_length) * 4 * count,
+                                            64);
+
+      for (uint32_t i = 0; i < count; i++) {
+         uint32_t *cps_state_dwords =
+            cps_states.map + GENX(CPS_STATE_length) * 4 * i;
+         struct GENX(CPS_STATE) cps_state = {
+            .CoarsePixelShadingMode = cps_enable ? CPS_MODE_CONSTANT : CPS_MODE_NONE,
+         };
+
+         if (cps_enable) {
+            cps_state.MinCPSizeX = d->fragment_shading_rate.width;
+            cps_state.MinCPSizeY = d->fragment_shading_rate.height;
+         }
+
+         GENX(CPS_STATE_pack)(NULL, cps_state_dwords, &cps_state);
+      }
+
+      anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_CPS_POINTERS), cps) {
+         cps.CoarsePixelShadingStateArrayPointer = cps_states.offset;
+      }
+#endif // GEN_GEN == 11
+   }
+#endif // GEN_GEN >= 11
+
    cmd_buffer->state.gfx.dirty = 0;
 }
 

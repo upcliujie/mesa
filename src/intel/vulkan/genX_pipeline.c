@@ -1940,7 +1940,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline, struct anv_subpass *subp
 
 #if GEN_GEN < 8
          wm.PixelShaderComputedDepthMode  = wm_prog_data->computed_depth_mode;
-         wm.PixelShaderUsesSourceDepth    = wm_prog_data->uses_src_depth;
+         wm.PixelShaderUsesSourceDepth    = wm_prog_data->uses_src_depth && !wm_prog_data->per_coarse_pixel_dispatch;
          wm.PixelShaderUsesSourceW        = wm_prog_data->uses_src_w;
          wm.PixelShaderUsesInputCoverageMask = wm_prog_data->uses_sample_mask;
 
@@ -2128,13 +2128,21 @@ emit_3dstate_ps_extra(struct anv_graphics_pipeline *pipeline,
 
       ps.InputCoverageMaskState  = ICMS_NONE;
       if (wm_prog_data->uses_sample_mask) {
-         if (wm_prog_data->post_depth_coverage)
+         if (wm_prog_data->per_coarse_pixel_dispatch)
+            ps.InputCoverageMaskState  = ICMS_NORMAL;
+         else if (wm_prog_data->post_depth_coverage)
             ps.InputCoverageMaskState  = ICMS_DEPTH_COVERAGE;
          else
             ps.InputCoverageMaskState  = ICMS_INNER_CONSERVATIVE;
       }
 #else
       ps.PixelShaderUsesInputCoverageMask = wm_prog_data->uses_sample_mask;
+#endif
+
+#if GEN_GEN >= 11
+      pipeline->coarse_pixel_enable = wm_prog_data->per_coarse_pixel_dispatch;
+      ps.PixelShaderIsPerCoarsePixel = wm_prog_data->per_coarse_pixel_dispatch;
+      ps.PixelShaderRequiresRequestedCoarsePixelShadingSize = wm_prog_data->uses_rate_shading;
 #endif
    }
 }
