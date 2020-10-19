@@ -26,7 +26,7 @@ inc_gallium_winsys_sw = include_directories('winsys/sw')
 subdir('auxiliary')
 subdir('auxiliary/pipe-loader')
 subdir('winsys/sw/null')
-if with_dri
+if with_dri or with_platform_windows
   subdir('winsys/sw/dri')
 else
   libswdri = []
