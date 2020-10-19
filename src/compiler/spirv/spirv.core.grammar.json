@@ -7763,6 +7763,36 @@
       ]
     },
     {
+      "category" : "BitEnum",
+      "kind" : "FragmentShadingRate",
+      "enumerants" : [
+        {
+          "enumerant" : "Vertical2Pixels",
+          "value" : "0x0001",
+          "capabilities" : [ "FragmentShadingRateKHR" ],
+          "version" : "None"
+        },
+        {
+          "enumerant" : "Vertical4Pixels",
+          "value" : "0x0002",
+          "capabilities" : [ "FragmentShadingRateKHR" ],
+          "version" : "None"
+        },
+        {
+          "enumerant" : "Horizontal2Pixels",
+          "value" : "0x0004",
+          "capabilities" : [ "FragmentShadingRateKHR" ],
+          "version" : "None"
+        },
+        {
+          "enumerant" : "Horizontal4Pixels",
+          "value" : "0x0008",
+          "capabilities" : [ "FragmentShadingRateKHR" ],
+          "version" : "None"
+        }
+      ]
+    },
+    {
       "category" : "ValueEnum",
       "kind" : "SourceLanguage",
       "enumerants" : [
