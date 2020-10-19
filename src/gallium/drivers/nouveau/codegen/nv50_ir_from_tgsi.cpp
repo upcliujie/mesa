@@ -1691,7 +1691,7 @@ private:
 
    class BindArgumentsPass : public Pass {
    public:
-      BindArgumentsPass(Converter &conv) : conv(conv) { }
+      BindArgumentsPass(Converter &conv) : conv(conv), sub(NULL) { }
 
    private:
       Converter &conv;
