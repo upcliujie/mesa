@@ -1815,10 +1815,11 @@ radv_get_binning_settings(const struct radv_physical_device *pdev);
 
 struct vk_format_description;
 uint32_t radv_translate_buffer_dataformat(const struct vk_format_description *desc,
-					  int first_non_void);
+					  int first_non_void,
+					  bool storage);
 uint32_t radv_translate_buffer_numformat(const struct vk_format_description *desc,
 					 int first_non_void);
-bool radv_is_buffer_format_supported(VkFormat format, bool *scaled);
+bool radv_is_buffer_format_supported(VkFormat format, bool *scaled, bool storage);
 uint32_t radv_translate_colorformat(VkFormat format);
 uint32_t radv_translate_color_numformat(VkFormat format,
 					const struct vk_format_description *desc,
@@ -1828,7 +1829,8 @@ unsigned radv_translate_colorswap(VkFormat format, bool do_endian_swap);
 uint32_t radv_translate_dbformat(VkFormat format);
 uint32_t radv_translate_tex_dataformat(VkFormat format,
 				       const struct vk_format_description *desc,
-				       int first_non_void);
+				       int first_non_void,
+				       bool storage);
 uint32_t radv_translate_tex_numformat(VkFormat format,
 				      const struct vk_format_description *desc,
 				      int first_non_void);
