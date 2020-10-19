@@ -33,7 +33,7 @@ if dep_libdrm.found()
   files_pipe_loader += files('pipe_loader_drm.c')
   libpipe_loader_links += libloader
 endif
-if with_dri
+if with_dri or with_platform_windows
   libpipe_loader_defines += '-DHAVE_PIPE_LOADER_DRI'
 endif
 if with_gallium_drisw_kms
