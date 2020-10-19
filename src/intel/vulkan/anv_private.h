@@ -2233,6 +2233,7 @@ enum anv_cmd_dirty_bits {
    ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE         = 1 << 22, /* VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT */
    ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP                  = 1 << 23, /* VK_DYNAMIC_STATE_STENCIL_OP_EXT */
    ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS            = 1 << 24, /* VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT */
+   ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE                = 1 << 25, /* VK_DYNAMIC_STATE_FRAGMENT_SHADING_RATE_KHR */
 };
 typedef uint32_t anv_cmd_dirty_mask_t;
 
@@ -2257,7 +2258,8 @@ typedef uint32_t anv_cmd_dirty_mask_t;
     ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS_TEST_ENABLE |    \
     ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE |         \
     ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP |                  \
-    ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)
+    ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS |            \
+    ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE)
 
 static inline enum anv_cmd_dirty_bits
 anv_cmd_dirty_bit_for_vk_dynamic_state(VkDynamicState vk_state)
@@ -2307,6 +2309,8 @@ anv_cmd_dirty_bit_for_vk_dynamic_state(VkDynamicState vk_state)
       return ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP;
    case VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT:
       return ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS;
+   case VK_DYNAMIC_STATE_FRAGMENT_SHADING_RATE_KHR:
+      return ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE;
    default:
       assert(!"Unsupported dynamic state");
       return 0;
@@ -2635,6 +2639,8 @@ struct anv_dynamic_state {
       uint32_t                                  samples;
       VkSampleLocationEXT                       locations[MAX_SAMPLE_LOCATIONS];
    } sample_locations;
+
+   VkExtent2D                                   fragment_shading_rate;
 
    VkCullModeFlags                              cull_mode;
    VkFrontFace                                  front_face;
@@ -3353,8 +3359,14 @@ struct anv_graphics_pipeline {
 
    uint32_t                                     batch_data[512];
 
+   /* Bits of states to emit dynamically (can be larger then
+    * dynamic_states)
+    */
    anv_cmd_dirty_mask_t                         dynamic_state_mask;
    struct anv_dynamic_state                     dynamic_state;
+
+   /* States declared dynamic at pipeline creation. */
+   anv_cmd_dirty_mask_t                         dynamic_states;
 
    uint32_t                                     topology;
 
@@ -3381,6 +3393,8 @@ struct anv_graphics_pipeline {
    bool                                         use_primitive_replication;
 
    struct anv_state                             blend_state;
+
+   struct anv_state                             cps_state;
 
    uint32_t                                     vb_used;
    struct anv_pipeline_vertex_binding {
