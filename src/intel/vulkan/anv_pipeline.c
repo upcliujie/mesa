@@ -217,6 +217,7 @@ anv_shader_compile_to_nir(struct anv_device *device,
          .vk_memory_model = true,
          .vk_memory_model_device_scope = true,
          .workgroup_memory_explicit_layout = true,
+         .fragment_shading_rate = pdevice->info.gen >= 11,
       },
       .ubo_addr_format = nir_address_format_32bit_index_offset,
       .ssbo_addr_format =
@@ -501,6 +502,7 @@ populate_wm_prog_key(const struct gen_device_info *devinfo,
                      VkPipelineShaderStageCreateFlags flags,
                      const struct anv_subpass *subpass,
                      const VkPipelineMultisampleStateCreateInfo *ms_info,
+                     const VkPipelineFragmentShadingRateStateCreateInfoKHR *fsr_info,
                      struct brw_wm_prog_key *key)
 {
    memset(key, 0, sizeof(*key));
@@ -550,6 +552,8 @@ populate_wm_prog_key(const struct gen_device_info *devinfo,
 
       key->frag_coord_adds_sample_pos = key->persample_interp;
    }
+
+   key->coarse_pixel = fsr_info && !ms_info->sampleShadingEnable;
 }
 
 static void
@@ -1321,6 +1325,8 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
          populate_wm_prog_key(devinfo, sinfo->flags,
                               pipeline->subpass,
                               raster_enabled ? info->pMultisampleState : NULL,
+                              vk_find_struct_const(info->pNext,
+                                                   PIPELINE_FRAGMENT_SHADING_RATE_STATE_CREATE_INFO_KHR),
                               &stages[stage].key.wm);
          break;
       }
@@ -1449,6 +1455,24 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
       if (stages[s].nir == NULL) {
          result = vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
          goto fail;
+      }
+
+      /* This is rather ugly.
+       *
+       * Any variable annotated as interpolated by sample essentially disables
+       * coarse pixel shading. Unfortunately the CTS tests exercising this set
+       * the varying value in the previous stage using a constant. Our NIR
+       * infrastructure is clever enough to lookup variables across stages and
+       * constant fold, removing the variable. So in order to comply with CTS
+       * we have check variables here.
+       */
+      if (s == MESA_SHADER_FRAGMENT) {
+         nir_foreach_variable_in_list(var, &stages[s].nir->variables) {
+            if (var->data.sample) {
+               stages[s].key.wm.coarse_pixel = false;
+               break;
+            }
+         }
       }
 
       stages[s].feedback.duration += os_time_get_nano() - stage_start;
@@ -2084,6 +2108,12 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
          }
       }
    }
+
+   const VkPipelineFragmentShadingRateStateCreateInfoKHR *fsr_state =
+      vk_find_struct_const(pCreateInfo->pNext,
+                           PIPELINE_FRAGMENT_SHADING_RATE_STATE_CREATE_INFO_KHR);
+   if (fsr_state)
+      dynamic->fragment_shading_rate = fsr_state->fragmentSize;
 
    pipeline->dynamic_state_mask = states;
 }

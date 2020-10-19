@@ -1172,6 +1172,13 @@ void anv_GetPhysicalDeviceFeatures2(
          break;
       }
 
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR: {
+         VkPhysicalDeviceFragmentShadingRateFeaturesKHR *features =
+            (VkPhysicalDeviceFragmentShadingRateFeaturesKHR *)ext;
+         features->pipelineFragmentShadingRate = true;
+         break;
+      }
+
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES_EXT: {
          VkPhysicalDeviceImageRobustnessFeaturesEXT *features =
             (VkPhysicalDeviceImageRobustnessFeaturesEXT *)ext;
@@ -1877,6 +1884,38 @@ void anv_GetPhysicalDeviceProperties2(
          CORE_PROPERTY(1, 2, maxDescriptorSetUpdateAfterBindSampledImages);
          CORE_PROPERTY(1, 2, maxDescriptorSetUpdateAfterBindStorageImages);
          CORE_PROPERTY(1, 2, maxDescriptorSetUpdateAfterBindInputAttachments);
+         break;
+      }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR: {
+         VkPhysicalDeviceFragmentShadingRatePropertiesKHR *props =
+            (VkPhysicalDeviceFragmentShadingRatePropertiesKHR *)ext;
+         if (pdevice->info.gen < 11) {
+            *props = (VkPhysicalDeviceFragmentShadingRatePropertiesKHR) { 0, };
+         } else {
+            VkSampleCountFlags sample_counts =
+               isl_device_get_sample_counts(&pdevice->isl_dev);
+
+            *props = (VkPhysicalDeviceFragmentShadingRatePropertiesKHR) {
+               .minFragmentShadingRateAttachmentTexelSize = { 4, 4 },
+               .maxFragmentShadingRateAttachmentTexelSize = { 1, 1 },
+               .maxFragmentShadingRateAttachmentTexelSizeAspectRatio = 0,
+               .primitiveFragmentShadingRateWithMultipleViewports = pdevice->info.gen > 11,
+               .layeredShadingRateAttachments = false,
+               .fragmentShadingRateNonTrivialCombinerOps = true,
+               .maxFragmentSize = { 4, 4 },
+               .maxFragmentSizeAspectRatio = 4,
+               .maxFragmentShadingRateCoverageSamples = 4 * 4,
+               .maxFragmentShadingRateRasterizationSamples = 4 * 4 * (1u << (util_last_bit64(sample_counts) - 1)),
+               .fragmentShadingRateWithShaderDepthStencilWrites = false,
+               .fragmentShadingRateWithSampleMask = true,
+               .fragmentShadingRateWithShaderSampleMask = false,
+               .fragmentShadingRateWithConservativeRasterization = false,
+               .fragmentShadingRateWithFragmentShaderInterlock = true,
+               .fragmentShadingRateWithCustomSampleLocations = true,
+               .fragmentShadingRateStrictMultiplyCombiner = true,
+            };
+         }
          break;
       }
 
@@ -4542,4 +4581,38 @@ vk_icdNegotiateLoaderICDInterfaceVersion(uint32_t* pSupportedVersion)
     */
    *pSupportedVersion = MIN2(*pSupportedVersion, 4u);
    return VK_SUCCESS;
+}
+
+VkResult anv_GetPhysicalDeviceFragmentShadingRatesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t*                                   pFragmentShadingRateCount,
+    VkPhysicalDeviceFragmentShadingRateKHR*     pFragmentShadingRates)
+{
+   ANV_FROM_HANDLE(anv_physical_device, physical_device, physicalDevice);
+   VK_OUTARRAY_MAKE(out, pFragmentShadingRates, pFragmentShadingRateCount);
+
+#define append_rate(_samples, _width, _height) {                        \
+      VkPhysicalDeviceFragmentShadingRateKHR rate = {                   \
+         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR, \
+         .sampleCounts = _samples,                                      \
+         .fragmentSize = {                                              \
+            .width = _width,                                            \
+            .height = _height,                                          \
+         },                                                             \
+      };                                                                \
+      vk_outarray_append(&out, r) *r = rate;                            \
+   }
+
+   VkSampleCountFlags sample_counts =
+      isl_device_get_sample_counts(&physical_device->isl_dev);
+
+   for (uint32_t x = 4; x >= 1; x /= 2) {
+       for (uint32_t y = 4; y >= 1; y /= 2) {
+         append_rate(sample_counts, x, y);
+      }
+   }
+
+#undef append_rate
+
+   return vk_outarray_status(&out);
 }

@@ -643,6 +643,10 @@ VkResult genX(CreateSampler)(
          .SamplerDisable = false,
          .TextureBorderColorMode = DX10OGL,
 
+#if GEN_GEN >= 11
+         .CPSLODCompensationEnable = true,
+#endif
+
 #if GEN_GEN >= 8
          .LODPreClampMode = CLAMP_MODE_OGL,
 #else
