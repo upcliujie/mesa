@@ -1260,7 +1260,8 @@ generate_scratch_write(struct brw_codegen *p,
                                   BRW_DATAPORT_OWORD_DUAL_BLOCK_1OWORD,
                                   msg_type,
                                   false, /* not a render target write */
-                                  write_commit));
+                                  write_commit,
+                                  false /* coarse_write */));
 }
 
 static void
