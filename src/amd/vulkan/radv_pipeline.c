@@ -2461,7 +2461,7 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
 		first_non_void = vk_format_get_first_non_void_channel(desc->format);
 
 		num_format = radv_translate_buffer_numformat(format_desc, first_non_void);
-		data_format = radv_translate_buffer_dataformat(format_desc, first_non_void);
+		data_format = radv_translate_buffer_dataformat(format_desc, first_non_void, false);
 
 		key.vertex_attribute_formats[location] = data_format | (num_format << 4);
 		key.vertex_attribute_bindings[location] = desc->binding;

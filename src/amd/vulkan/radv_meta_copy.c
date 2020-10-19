@@ -184,7 +184,7 @@ copy_buffer_to_image(struct radv_cmd_buffer *cmd_buffer,
 						&region->imageSubresource,
 						region->imageSubresource.aspectMask);
 
-	if (!radv_is_buffer_format_supported(img_bsurf.format, NULL)) {
+	if (!radv_is_buffer_format_supported(img_bsurf.format, NULL, false)) {
 		uint32_t queue_mask = radv_image_queue_family_mask(image,
 								   cmd_buffer->queue_family_index,
 								   cmd_buffer->queue_family_index);
@@ -351,7 +351,7 @@ copy_image_to_buffer(struct radv_cmd_buffer *cmd_buffer,
 						&region->imageSubresource,
 						region->imageSubresource.aspectMask);
 
-	if (!radv_is_buffer_format_supported(img_info.format, NULL)) {
+	if (!radv_is_buffer_format_supported(img_info.format, NULL, true)) {
 		uint32_t queue_mask = radv_image_queue_family_mask(image,
 								   cmd_buffer->queue_family_index,
 								   cmd_buffer->queue_family_index);
