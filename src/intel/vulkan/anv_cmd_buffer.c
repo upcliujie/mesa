@@ -188,6 +188,9 @@ anv_dynamic_state_copy(struct anv_dynamic_state *dest,
    ANV_CMP_COPY(dyn_vbo_stride, ANV_CMD_DIRTY_DYNAMIC_VERTEX_INPUT_BINDING_STRIDE);
    ANV_CMP_COPY(dyn_vbo_size, ANV_CMD_DIRTY_DYNAMIC_VERTEX_INPUT_BINDING_STRIDE);
 
+   ANV_CMP_COPY(fragment_shading_rate.width, ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE);
+   ANV_CMP_COPY(fragment_shading_rate.height, ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE);
+
 #undef ANV_CMP_COPY
 
    return changed;
@@ -1399,4 +1402,16 @@ void anv_CmdSetDeviceMask(
     uint32_t                                    deviceMask)
 {
    /* No-op */
+}
+
+
+void anv_CmdSetFragmentShadingRateKHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkExtent2D*                           pFragmentSize,
+    const VkFragmentShadingRateCombinerOpKHR    combinerOps[2])
+{
+   ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
+
+   cmd_buffer->state.gfx.dynamic.fragment_shading_rate = *pFragmentSize;
+   cmd_buffer->state.gfx.dirty |= ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE;
 }

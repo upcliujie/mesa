@@ -2366,6 +2366,7 @@ enum anv_cmd_dirty_bits {
    ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS_TEST_ENABLE    = 1 << 21, /* VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT */
    ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE         = 1 << 22, /* VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT */
    ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP                  = 1 << 23, /* VK_DYNAMIC_STATE_STENCIL_OP_EXT */
+   ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE                = 1 << 24, /* VK_DYNAMIC_STATE_FRAGMENT_SHADING_RATE_KHR */
 };
 typedef uint32_t anv_cmd_dirty_mask_t;
 
@@ -2389,7 +2390,8 @@ typedef uint32_t anv_cmd_dirty_mask_t;
     ANV_CMD_DIRTY_DYNAMIC_DEPTH_COMPARE_OP |            \
     ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS_TEST_ENABLE |    \
     ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE |         \
-    ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP)
+    ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP |                  \
+    ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE)
 
 static inline enum anv_cmd_dirty_bits
 anv_cmd_dirty_bit_for_vk_dynamic_state(VkDynamicState vk_state)
@@ -2437,6 +2439,8 @@ anv_cmd_dirty_bit_for_vk_dynamic_state(VkDynamicState vk_state)
       return ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE;
    case VK_DYNAMIC_STATE_STENCIL_OP_EXT:
       return ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP;
+   case VK_DYNAMIC_STATE_FRAGMENT_SHADING_RATE_KHR:
+      return ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE;
    default:
       assert(!"Unsupported dynamic state");
       return 0;
@@ -2762,6 +2766,8 @@ struct anv_dynamic_state {
       uint32_t                                  factor;
       uint16_t                                  pattern;
    } line_stipple;
+
+   VkExtent2D                                   fragment_shading_rate;
 
    VkCullModeFlags                              cull_mode;
    VkFrontFace                                  front_face;
@@ -3460,6 +3466,7 @@ struct anv_graphics_pipeline {
    bool                                         sample_shading_enable;
    bool                                         kill_pixel;
    bool                                         depth_bounds_test_enable;
+   bool                                         coarse_pixel_enable;
 
    /* When primitive replication is used, subpass->view_mask will describe what
     * views to replicate.
