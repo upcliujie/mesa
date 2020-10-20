@@ -722,5 +722,84 @@ void si_finalize_nir(struct pipe_screen *screen, void *nirptr, bool optimize)
 
    si_lower_io(nir);
    si_lower_nir(sscreen, nir);
-   nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
+   if (nir->info.stage != MESA_SHADER_KERNEL)
+      nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
+}
+
+static int arg_compare(const void *_a, const void *_b)
+{
+   const struct ac_shader_arg *a = _a;
+   const struct ac_shader_arg *b = _b;
+
+   return (a->offset > b->offset);
+}
+
+void si_nir_setup_kernel_args(struct nir_shader *nir,
+                              struct ac_shader_args *args)
+{
+   nir_function *func;
+   func = (struct nir_function *)exec_list_get_head_const(&nir->functions);
+   nir_foreach_block (block, func->impl) {
+      nir_foreach_instr (instr, block) {
+         if (instr->type != nir_instr_type_intrinsic)
+            continue;
+
+         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+         if (intrin->intrinsic != nir_intrinsic_load_kernel_input)
+            continue;
+         int bit_size = nir_dest_bit_size(intrin->dest);
+         int this_offset = nir_src_as_int(intrin->src[0]);
+         int this_size = bit_size >> 3;
+         int this_nc = nir_dest_num_components(intrin->dest);
+
+         bool found = false;
+         for (unsigned i = 0; i < args->arg_count; i++) {
+            if (args->args[i].offset == this_offset) {
+               found = true;
+               break;
+            }
+         }
+         if (!found)
+            ac_add_kernel_arg(args, this_nc, this_offset, this_size);
+      }
+   }
+
+   qsort(args->args, args->arg_count, sizeof(struct ac_shader_arg),
+         arg_compare);
+
+   /* fill in the gaps */
+   unsigned next_offset = 0;
+   int arg_count = args->arg_count;
+   for (unsigned i = 0; i < arg_count; i++) {
+      int this_offset = args->args[i].offset;
+
+      while (this_offset != next_offset) {
+         ac_add_kernel_arg(args, 1, next_offset, 4);
+         next_offset += 4;
+      }
+
+      int this_arg_size = 0;
+      switch (args->args[i].type) {
+      default:
+      case AC_ARG_INT:
+         this_arg_size = 4;
+         break;
+      case AC_ARG_INT8:
+         this_arg_size = 1;
+         break;
+      case AC_ARG_INT16:
+         this_arg_size = 2;
+         break;
+      case AC_ARG_INT64:
+         this_arg_size = 8;
+         break;
+      }
+      this_arg_size *= args->args[i].size;
+
+      next_offset = this_offset + this_arg_size;
+   }
+
+   qsort(args->args, args->arg_count, sizeof(struct ac_shader_arg),
+         arg_compare);
+
 }
