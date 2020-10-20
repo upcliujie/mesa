@@ -3194,10 +3194,11 @@ static LLVMValueRef load_interpolated_input(struct ac_nir_context *ctx, LLVMValu
    return ac_to_integer(&ctx->ac, ac_build_gather_values(&ctx->ac, values, num_components));
 }
 
-static LLVMValueRef visit_load_kernel_input(struct ac_nir_context *ctx,
+static LLVMValueRef visit_load_deref_kernel_input(struct ac_nir_context *ctx,
                                             nir_intrinsic_instr *instr)
 {
-   uint64_t offset = nir_src_as_int(instr->src[0]);
+   nir_variable *var = nir_deref_instr_get_variable(nir_src_as_deref(instr->src[0]));
+   uint64_t offset = var->data.driver_location;
    for (unsigned i = 0; i < ctx->args->arg_count; i++) {
       if (ctx->args->args[i].offset == offset) {
            return LLVMGetParam(ctx->main_function, i);
@@ -3539,9 +3540,6 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
    case nir_intrinsic_load_per_vertex_input:
       result = visit_load(ctx, instr, false);
       break;
-   case nir_intrinsic_load_kernel_input:
-      result = visit_load_kernel_input(ctx, instr);
-      break;
    case nir_intrinsic_load_output:
    case nir_intrinsic_load_per_vertex_output:
       result = visit_load(ctx, instr, true);
@@ -3877,6 +3875,11 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       unsigned addr_space = LLVMGetPointerAddressSpace(LLVMTypeOf(ptr));
       ptr = LLVMBuildBitCast(ctx->ac.builder, ptr, LLVMPointerType(vec_type, addr_space), "");
       result = LLVMBuildLoad(ctx->ac.builder, ptr, "");
+      break;
+   }
+   case nir_intrinsic_load_deref: {
+      /* only for shader kernel inputs */
+      result = visit_load_deref_kernel_input(ctx, instr);
       break;
    }
    default:
