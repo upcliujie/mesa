@@ -52,3 +52,24 @@ void ac_add_arg(struct ac_shader_args *info, enum ac_arg_regfile regfile, unsign
 
    info->arg_count++;
 }
+
+void ac_add_kernel_arg(struct ac_shader_args *info,
+                       unsigned num_components,
+                       unsigned offset,
+                       unsigned size)
+{
+   info->args[info->arg_count].file = AC_ARG_SGPR;
+   info->args[info->arg_count].offset = offset;
+   info->args[info->arg_count].size = num_components;
+
+   if (size == 4)
+      info->args[info->arg_count].type = AC_ARG_INT;
+   else if (size == 1)
+      info->args[info->arg_count].type = AC_ARG_INT8;
+   else if (size == 2)
+      info->args[info->arg_count].type = AC_ARG_INT16;
+   else
+      info->args[info->arg_count].type = AC_ARG_INT64;
+   info->arg_count++;
+
+}
