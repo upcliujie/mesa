@@ -211,8 +211,27 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
       assert(ctx->NewState == 0);
 
       if (node->vertex_count > 0) {
-         ctx->Driver.Draw(ctx, node->prims, node->prim_count, &node->ib, true,
-                          false, 0, node->min_index, node->max_index, 1, 0);
+         if (!node->ib.obj) {
+            ctx->Driver.Draw(ctx, node->prims, node->prim_count,
+                             node->ib.obj ? &node->ib : NULL, true,
+                             false, 0, node->min_index, node->max_index, 1, 0);
+         } else {
+            bool draw_using_merged_prim = ctx->_AllowIncorrectPrimitiveId &&
+                                          node->merged_prims;
+
+            if (!draw_using_merged_prim) {
+               /* Draw primitives one-by-one because gl_PrimitiveID is used */
+               for (int i = 0; i < node->prim_count; i++) {
+                  ctx->Driver.Draw(ctx, &node->prims[i], 1, NULL, true,
+                                   false, 0, node->min_index, node->max_index, 1, 0);
+               }
+            } else {
+               /* Draw primitives using one draw calls */
+               ctx->Driver.Draw(ctx, node->merged_prims, node->merged_prim_count,
+                                &node->ib, true,
+                                false, 0, node->min_index, node->max_index, 1, 0);
+            }
+         }
       }
    }
 
