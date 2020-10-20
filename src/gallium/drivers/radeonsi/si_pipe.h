@@ -156,6 +156,7 @@ enum
    /* Shader compiler options the shader cache should be aware of: */
    DBG_FS_CORRECT_DERIVS_AFTER_KILL,
    DBG_GISEL,
+   DBG_KERN = MESA_SHADER_KERNEL,
    DBG_W32_GE,
    DBG_W32_PS,
    DBG_W32_CS,
