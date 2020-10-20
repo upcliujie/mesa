@@ -1015,17 +1015,6 @@ tgsi_scan_arrays(const struct tgsi_token *tokens,
    return;
 }
 
-static void
-check_no_subroutines(const struct tgsi_full_instruction *inst)
-{
-   switch (inst->Instruction.Opcode) {
-   case TGSI_OPCODE_BGNSUB:
-   case TGSI_OPCODE_ENDSUB:
-   case TGSI_OPCODE_CAL:
-      unreachable("subroutines unhandled");
-   }
-}
-
 static unsigned
 get_inst_tessfactor_writemask(const struct tgsi_shader_info *info,
                               const struct tgsi_full_instruction *inst)
@@ -1059,7 +1048,6 @@ get_block_tessfactor_writemask(const struct tgsi_shader_info *info,
    tgsi_parse_token(parse);
    assert(parse->FullToken.Token.Type == TGSI_TOKEN_TYPE_INSTRUCTION);
    inst = &parse->FullToken.FullInstruction;
-   check_no_subroutines(inst);
 
    while (inst->Instruction.Opcode != end_opcode) {
 
@@ -1087,7 +1075,6 @@ get_block_tessfactor_writemask(const struct tgsi_shader_info *info,
       tgsi_parse_token(parse);
       assert(parse->FullToken.Token.Type == TGSI_TOKEN_TYPE_INSTRUCTION);
       inst = &parse->FullToken.FullInstruction;
-      check_no_subroutines(inst);
    }
 
    return writemask;
@@ -1108,7 +1095,6 @@ get_if_block_tessfactor_writemask(const struct tgsi_shader_info *info,
    tgsi_parse_token(parse);
    assert(parse->FullToken.Token.Type == TGSI_TOKEN_TYPE_INSTRUCTION);
    inst = &parse->FullToken.FullInstruction;
-   check_no_subroutines(inst);
 
    while (inst->Instruction.Opcode != TGSI_OPCODE_ENDIF) {
 
@@ -1149,7 +1135,6 @@ get_if_block_tessfactor_writemask(const struct tgsi_shader_info *info,
       tgsi_parse_token(parse);
       assert(parse->FullToken.Token.Type == TGSI_TOKEN_TYPE_INSTRUCTION);
       inst = &parse->FullToken.FullInstruction;
-      check_no_subroutines(inst);
    }
 
    if (then_tessfactor_writemask || else_tessfactor_writemask) {
@@ -1200,7 +1185,6 @@ tgsi_scan_tess_ctrl(const struct tgsi_token *tokens,
          continue;
 
       struct tgsi_full_instruction *inst = &parse.FullToken.FullInstruction;
-      check_no_subroutines(inst);
 
       /* Process nested blocks. */
       switch (inst->Instruction.Opcode) {

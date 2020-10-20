@@ -1646,12 +1646,6 @@ These opcodes are part of :term:`GLSL`'s opcode set. Support for these
 opcodes is determined by a special capability bit, ``GLSL``.
 Some require glsl version 1.30 (UIF/SWITCH/CASE/DEFAULT/ENDSWITCH).
 
-.. opcode:: CAL - Subroutine Call
-
-  push(pc)
-  pc = target
-
-
 .. opcode:: RET - Subroutine Call Return
 
   pc = pop()
@@ -1673,19 +1667,9 @@ Some require glsl version 1.30 (UIF/SWITCH/CASE/DEFAULT/ENDSWITCH).
   Start a loop. Must have a matching endloop.
 
 
-.. opcode:: BGNSUB - Begin Subroutine
-
-  Starts definition of a subroutine. Must have a matching endsub.
-
-
 .. opcode:: ENDLOOP - End a Loop
 
   End a loop started with bgnloop.
-
-
-.. opcode:: ENDSUB - End Subroutine
-
-  Ends definition of a subroutine.
 
 
 .. opcode:: NOP - No Operation

@@ -207,20 +207,12 @@ tgsi_transform_shader(const struct tgsi_token *tokens_in,
                case TGSI_OPCODE_BGNLOOP:
                   cond_stack++;
                   break;
-               case TGSI_OPCODE_CAL:
-                  call_stack++;
-                  break;
                case TGSI_OPCODE_ENDIF:
                case TGSI_OPCODE_ENDSWITCH:
                case TGSI_OPCODE_ENDLOOP:
                   assert(cond_stack > 0);
                   cond_stack--;
                   break;
-               case TGSI_OPCODE_ENDSUB:
-                  assert(call_stack > 0);
-                  call_stack--;
-                  break;
-               case TGSI_OPCODE_BGNSUB:
                case TGSI_OPCODE_RET:
                default:
                   break;

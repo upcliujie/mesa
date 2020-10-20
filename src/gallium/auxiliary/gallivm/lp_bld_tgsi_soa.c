@@ -365,22 +365,6 @@ static void lp_exec_default(struct lp_exec_mask *mask,
    }
 }
 
-
-static void lp_exec_mask_call(struct lp_exec_mask *mask,
-                              int func,
-                              int *pc)
-{
-   if (mask->function_stack_size >= LP_MAX_NUM_FUNCS) {
-      return;
-   }
-
-   lp_exec_mask_function_init(mask, mask->function_stack_size);
-   mask->function_stack[mask->function_stack_size].pc = *pc;
-   mask->function_stack[mask->function_stack_size].ret_mask = mask->ret_mask;
-   mask->function_stack_size++;
-   *pc = func;
-}
-
 static void lp_exec_mask_ret(struct lp_exec_mask *mask, int *pc)
 {
    LLVMBuilderRef builder = mask->bld->gallivm->builder;
@@ -415,27 +399,6 @@ static void lp_exec_mask_ret(struct lp_exec_mask *mask, int *pc)
 
    lp_exec_mask_update(mask);
 }
-
-static void lp_exec_mask_bgnsub(struct lp_exec_mask *mask)
-{
-}
-
-static void lp_exec_mask_endsub(struct lp_exec_mask *mask, int *pc)
-{
-   struct function_ctx *ctx;
-
-   assert(mask->function_stack_size > 1);
-   assert(mask->function_stack_size <= LP_MAX_NUM_FUNCS);
-
-   ctx = func_ctx(mask);
-   mask->function_stack_size--;
-
-   *pc = ctx->pc;
-   mask->ret_mask = ctx->ret_mask;
-
-   lp_exec_mask_update(mask);
-}
-
 
 static LLVMValueRef
 get_file_ptr(struct lp_build_tgsi_soa_context *bld,
@@ -2694,7 +2657,6 @@ near_end_of_shader(struct lp_build_tgsi_soa_context *bld,
          opcode == TGSI_OPCODE_SAMPLE_I_MS ||
          opcode == TGSI_OPCODE_SAMPLE_L ||
          opcode == TGSI_OPCODE_SVIEWINFO ||
-         opcode == TGSI_OPCODE_CAL ||
          opcode == TGSI_OPCODE_IF ||
          opcode == TGSI_OPCODE_UIF ||
          opcode == TGSI_OPCODE_BGNLOOP ||
@@ -4077,19 +4039,6 @@ barrier_emit_tcs(
    }
 }
 
-
-static void
-cal_emit(
-   const struct lp_build_tgsi_action * action,
-   struct lp_build_tgsi_context * bld_base,
-   struct lp_build_emit_data * emit_data)
-{
-   struct lp_build_tgsi_soa_context * bld = lp_soa_context(bld_base);
-
-   lp_exec_mask_call(&bld->exec_mask, emit_data->inst->Label.Label,
-                     &bld_base->pc);
-}
-
 static void
 ret_emit(
    const struct lp_build_tgsi_action * action,
@@ -4197,17 +4146,6 @@ bgnloop_emit(
 }
 
 static void
-bgnsub_emit(
-   const struct lp_build_tgsi_action * action,
-   struct lp_build_tgsi_context * bld_base,
-   struct lp_build_emit_data * emit_data)
-{
-   struct lp_build_tgsi_soa_context * bld = lp_soa_context(bld_base);
-
-   lp_exec_mask_bgnsub(&bld->exec_mask);
-}
-
-static void
 else_emit(
    const struct lp_build_tgsi_action * action,
    struct lp_build_tgsi_context * bld_base,
@@ -4238,17 +4176,6 @@ endloop_emit(
    struct lp_build_tgsi_soa_context * bld = lp_soa_context(bld_base);
 
    lp_exec_endloop(bld_base->base.gallivm, &bld->exec_mask);
-}
-
-static void
-endsub_emit(
-   const struct lp_build_tgsi_action * action,
-   struct lp_build_tgsi_context * bld_base,
-   struct lp_build_emit_data * emit_data)
-{
-   struct lp_build_tgsi_soa_context * bld = lp_soa_context(bld_base);
-
-   lp_exec_mask_endsub(&bld->exec_mask, &bld_base->pc);
 }
 
 static void
@@ -4500,9 +4427,7 @@ lp_build_tgsi_soa(struct gallivm_state *gallivm,
    lp_set_default_actions_cpu(&bld.bld_base);
 
    bld.bld_base.op_actions[TGSI_OPCODE_BGNLOOP].emit = bgnloop_emit;
-   bld.bld_base.op_actions[TGSI_OPCODE_BGNSUB].emit = bgnsub_emit;
    bld.bld_base.op_actions[TGSI_OPCODE_BRK].emit = brk_emit;
-   bld.bld_base.op_actions[TGSI_OPCODE_CAL].emit = cal_emit;
    bld.bld_base.op_actions[TGSI_OPCODE_CASE].emit = case_emit;
    bld.bld_base.op_actions[TGSI_OPCODE_CONT].emit = cont_emit;
    bld.bld_base.op_actions[TGSI_OPCODE_DDX].emit = ddx_emit;
@@ -4511,7 +4436,6 @@ lp_build_tgsi_soa(struct gallivm_state *gallivm,
    bld.bld_base.op_actions[TGSI_OPCODE_ELSE].emit = else_emit;
    bld.bld_base.op_actions[TGSI_OPCODE_ENDIF].emit = endif_emit;
    bld.bld_base.op_actions[TGSI_OPCODE_ENDLOOP].emit = endloop_emit;
-   bld.bld_base.op_actions[TGSI_OPCODE_ENDSUB].emit = endsub_emit;
    bld.bld_base.op_actions[TGSI_OPCODE_ENDSWITCH].emit = endswitch_emit;
    bld.bld_base.op_actions[TGSI_OPCODE_IF].emit = if_emit;
    bld.bld_base.op_actions[TGSI_OPCODE_UIF].emit = uif_emit;

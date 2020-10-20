@@ -411,7 +411,7 @@ enum tgsi_opcode {
    TGSI_OPCODE_I642F              = 60,
    TGSI_OPCODE_ARR                = 61,
    TGSI_OPCODE_I642D              = 62,
-   TGSI_OPCODE_CAL                = 63,
+   /* gap */
    TGSI_OPCODE_RET                = 64,
    TGSI_OPCODE_SSG                = 65 /* SGN */,
    TGSI_OPCODE_CMP                = 66,
@@ -447,9 +447,9 @@ enum tgsi_opcode {
    TGSI_OPCODE_EMIT               = 97,
    TGSI_OPCODE_ENDPRIM            = 98,
    TGSI_OPCODE_BGNLOOP            = 99,
-   TGSI_OPCODE_BGNSUB             = 100,
+   /* gap */
    TGSI_OPCODE_ENDLOOP            = 101,
-   TGSI_OPCODE_ENDSUB             = 102,
+   /* gap */
    TGSI_OPCODE_ATOMFADD           = 103,
    TGSI_OPCODE_TXQS               = 104,
    TGSI_OPCODE_RESQ               = 105,

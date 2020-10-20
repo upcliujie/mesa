@@ -1838,7 +1838,6 @@ static const nir_op op_trans[TGSI_OPCODE_LAST] = {
    [TGSI_OPCODE_ARR] = 0,
 
    /* No function calls, yet. */
-   [TGSI_OPCODE_CAL] = 0, /* XXX */
    [TGSI_OPCODE_RET] = 0, /* XXX */
 
    [TGSI_OPCODE_SSG] = nir_op_fsign,
@@ -1875,9 +1874,7 @@ static const nir_op op_trans[TGSI_OPCODE_LAST] = {
    [TGSI_OPCODE_ENDPRIM] = 0, /* XXX */
 
    [TGSI_OPCODE_BGNLOOP] = 0,
-   [TGSI_OPCODE_BGNSUB] = 0, /* XXX: no function calls */
    [TGSI_OPCODE_ENDLOOP] = 0,
-   [TGSI_OPCODE_ENDSUB] = 0, /* XXX: no function calls */
 
    [TGSI_OPCODE_NOP] = 0,
    [TGSI_OPCODE_FSEQ] = nir_op_feq,

@@ -471,7 +471,6 @@ nvfx_vertprog_parse_instruction(struct nvfx_vpc *vpc,
    int mask;
    int ai = -1, ci = -1, ii = -1;
    int i;
-   unsigned sub_depth = 0;
 
    for (i = 0; i < finst->Instruction.NumSrcRegs; i++) {
       const struct tgsi_full_src_register *fsrc;
@@ -698,19 +697,14 @@ nvfx_vertprog_parse_instruction(struct nvfx_vpc *vpc,
       nvfx_vp_emit(vpc, insn);
       break;
    case TGSI_OPCODE_ELSE:
-   case TGSI_OPCODE_CAL:
       reloc.location = vpc->vp->nr_insns;
       reloc.target = finst->Label.Label;
       util_dynarray_append(&vpc->label_relocs, struct nvfx_relocation, reloc);
-
-      if(finst->Instruction.Opcode == TGSI_OPCODE_CAL)
-         insn = arith(0, SCA, CAL, none.reg, 0, none, none, none);
-      else
-         insn = arith(0, SCA, BRA, none.reg, 0, none, none, none);
+      insn = arith(0, SCA, BRA, none.reg, 0, none, none, none);
       nvfx_vp_emit(vpc, insn);
       break;
    case TGSI_OPCODE_RET:
-      if(sub_depth || !vpc->vp->enabled_ucps) {
+      if(!vpc->vp->enabled_ucps) {
          tmp = none;
          tmp.swz[0] = tmp.swz[1] = tmp.swz[2] = tmp.swz[3] = 0;
          nvfx_vp_emit(vpc, arith(0, SCA, RET, none.reg, 0, none, none, tmp));
@@ -720,12 +714,6 @@ nvfx_vertprog_parse_instruction(struct nvfx_vpc *vpc,
          util_dynarray_append(&vpc->label_relocs, struct nvfx_relocation, reloc);
          nvfx_vp_emit(vpc, arith(0, SCA, BRA, none.reg, 0, none, none, none));
       }
-      break;
-   case TGSI_OPCODE_BGNSUB:
-      ++sub_depth;
-      break;
-   case TGSI_OPCODE_ENDSUB:
-      --sub_depth;
       break;
    case TGSI_OPCODE_ENDIF:
       /* nothing to do here */
@@ -763,7 +751,6 @@ nvfx_vertprog_parse_instruction(struct nvfx_vpc *vpc,
       nvfx_vp_emit(vpc, arith(0, SCA, BRA, none.reg, 0, none, none, none));
       break;
    case TGSI_OPCODE_END:
-      assert(!sub_depth);
       if(vpc->vp->enabled_ucps) {
          if(idx != (vpc->info->num_instructions - 1)) {
             reloc.location = vpc->vp->nr_insns;

@@ -1257,7 +1257,6 @@ get_temp_registers_required_live_ranges(void *mem_ctx, exec_list *instructions,
          }
          break;
       }
-      case TGSI_OPCODE_CAL:
       case TGSI_OPCODE_RET:
          /* These opcodes are not supported and if a subroutine would
 	  * be called in a shader, then the live_range tracking would have

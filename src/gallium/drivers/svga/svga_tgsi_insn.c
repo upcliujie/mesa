@@ -2685,63 +2685,6 @@ emit_trunc_round(struct svga_shader_emitter *emit,
 
 
 /**
- * Translate/emit "begin subroutine" instruction/marker/label.
- */
-static boolean
-emit_bgnsub(struct svga_shader_emitter *emit,
-            unsigned position,
-            const struct tgsi_full_instruction *insn)
-{
-   unsigned i;
-
-   /* Note that we've finished the main function and are now emitting
-    * subroutines.  This affects how we terminate the generated
-    * shader.
-    */
-   emit->in_main_func = FALSE;
-
-   for (i = 0; i < emit->nr_labels; i++) {
-      if (emit->label[i] == position) {
-         return (emit_instruction( emit, inst_token( SVGA3DOP_RET ) ) &&
-                 emit_instruction( emit, inst_token( SVGA3DOP_LABEL ) ) &&
-                 emit_src( emit, src_register( SVGA3DREG_LABEL, i )));
-      }
-   }
-
-   assert(0);
-   return TRUE;
-}
-
-
-/**
- * Translate/emit subroutine call instruction.
- */
-static boolean
-emit_call(struct svga_shader_emitter *emit,
-          const struct tgsi_full_instruction *insn)
-{
-   unsigned position = insn->Label.Label;
-   unsigned i;
-
-   for (i = 0; i < emit->nr_labels; i++) {
-      if (emit->label[i] == position)
-         break;
-   }
-
-   if (emit->nr_labels == ARRAY_SIZE(emit->label))
-      return FALSE;
-
-   if (i == emit->nr_labels) {
-      emit->label[i] = position;
-      emit->nr_labels++;
-   }
-
-   return (emit_instruction( emit, inst_token( SVGA3DOP_CALL ) ) &&
-           emit_src( emit, src_register( SVGA3DREG_LABEL, i )));
-}
-
-
-/**
  * Called at the end of the shader.  Actually, emit special "fix-up"
  * code for the vertex/fragment shader.
  */
@@ -2780,15 +2723,6 @@ svga_emit_instruction(struct svga_shader_emitter *emit,
    case TGSI_OPCODE_DDX:
    case TGSI_OPCODE_DDY:
       return emit_deriv( emit, insn );
-
-   case TGSI_OPCODE_BGNSUB:
-      return emit_bgnsub( emit, position, insn );
-
-   case TGSI_OPCODE_ENDSUB:
-      return TRUE;
-
-   case TGSI_OPCODE_CAL:
-      return emit_call( emit, insn );
 
    case TGSI_OPCODE_FLR:
       return emit_floor( emit, insn );

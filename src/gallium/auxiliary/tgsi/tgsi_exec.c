@@ -5480,52 +5480,6 @@ exec_instruction(
       exec_vector_unary(mach, inst, micro_arr, TGSI_EXEC_DATA_INT, TGSI_EXEC_DATA_FLOAT);
       break;
 
-   case TGSI_OPCODE_CAL:
-      /* skip the call if no execution channels are enabled */
-      if (mach->ExecMask) {
-         /* do the call */
-
-         /* First, record the depths of the execution stacks.
-          * This is important for deeply nested/looped return statements.
-          * We have to unwind the stacks by the correct amount.  For a
-          * real code generator, we could determine the number of entries
-          * to pop off each stack with simple static analysis and avoid
-          * implementing this data structure at run time.
-          */
-         mach->CallStack[mach->CallStackTop].CondStackTop = mach->CondStackTop;
-         mach->CallStack[mach->CallStackTop].LoopStackTop = mach->LoopStackTop;
-         mach->CallStack[mach->CallStackTop].ContStackTop = mach->ContStackTop;
-         mach->CallStack[mach->CallStackTop].SwitchStackTop = mach->SwitchStackTop;
-         mach->CallStack[mach->CallStackTop].BreakStackTop = mach->BreakStackTop;
-         /* note that PC was already incremented above */
-         mach->CallStack[mach->CallStackTop].ReturnAddr = *pc;
-
-         mach->CallStackTop++;
-
-         /* Second, push the Cond, Loop, Cont, Func stacks */
-         assert(mach->CondStackTop < TGSI_EXEC_MAX_COND_NESTING);
-         assert(mach->LoopStackTop < TGSI_EXEC_MAX_LOOP_NESTING);
-         assert(mach->ContStackTop < TGSI_EXEC_MAX_LOOP_NESTING);
-         assert(mach->SwitchStackTop < TGSI_EXEC_MAX_SWITCH_NESTING);
-         assert(mach->BreakStackTop < TGSI_EXEC_MAX_BREAK_STACK);
-         assert(mach->FuncStackTop < TGSI_EXEC_MAX_CALL_NESTING);
-
-         mach->CondStack[mach->CondStackTop++] = mach->CondMask;
-         mach->LoopStack[mach->LoopStackTop++] = mach->LoopMask;
-         mach->ContStack[mach->ContStackTop++] = mach->ContMask;
-         mach->SwitchStack[mach->SwitchStackTop++] = mach->Switch;
-         mach->BreakStack[mach->BreakStackTop++] = mach->BreakType;
-         mach->FuncStack[mach->FuncStackTop++] = mach->FuncMask;
-
-         /* Finally, jump to the subroutine.  The label is a pointer
-          * (an instruction number) to the BGNSUB instruction.
-          */
-         *pc = inst->Label.Label;
-         assert(mach->Instructions[*pc].Instruction.Opcode
-                == TGSI_OPCODE_BGNSUB);
-      }
-      break;
-
    case TGSI_OPCODE_RET:
       mach->FuncMask &= ~mach->ExecMask;
       UPDATE_EXEC_MASK(mach);
@@ -5758,41 +5712,6 @@ exec_instruction(
       /* turn off cont channels for each enabled exec channel */
       mach->ContMask &= ~mach->ExecMask;
       /* Todo: if mach->LoopMask == 0, jump to end of loop */
-      UPDATE_EXEC_MASK(mach);
-      break;
-
-   case TGSI_OPCODE_BGNSUB:
-      /* no-op */
-      break;
-
-   case TGSI_OPCODE_ENDSUB:
-      /*
-       * XXX: This really should be a no-op. We should never reach this opcode.
-       */
-
-      assert(mach->CallStackTop > 0);
-      mach->CallStackTop--;
-
-      mach->CondStackTop = mach->CallStack[mach->CallStackTop].CondStackTop;
-      mach->CondMask = mach->CondStack[mach->CondStackTop];
-
-      mach->LoopStackTop = mach->CallStack[mach->CallStackTop].LoopStackTop;
-      mach->LoopMask = mach->LoopStack[mach->LoopStackTop];
-
-      mach->ContStackTop = mach->CallStack[mach->CallStackTop].ContStackTop;
-      mach->ContMask = mach->ContStack[mach->ContStackTop];
-
-      mach->SwitchStackTop = mach->CallStack[mach->CallStackTop].SwitchStackTop;
-      mach->Switch = mach->SwitchStack[mach->SwitchStackTop];
-
-      mach->BreakStackTop = mach->CallStack[mach->CallStackTop].BreakStackTop;
-      mach->BreakType = mach->BreakStack[mach->BreakStackTop];
-
-      assert(mach->FuncStackTop > 0);
-      mach->FuncMask = mach->FuncStack[--mach->FuncStackTop];
-
-      *pc = mach->CallStack[mach->CallStackTop].ReturnAddr;
-
       UPDATE_EXEC_MASK(mach);
       break;
 

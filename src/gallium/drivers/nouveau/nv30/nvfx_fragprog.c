@@ -264,27 +264,6 @@ nv40_fp_if(struct nvfx_fpc *fpc, struct nvfx_src src)
    util_dynarray_append(&fpc->if_stack, unsigned, fpc->inst_offset);
 }
 
-/* IF src.x != 0, as TGSI specifies */
-static void
-nv40_fp_cal(struct nvfx_fpc *fpc, unsigned target)
-{
-        struct nvfx_relocation reloc;
-        uint32_t *hw;
-        fpc->inst_offset = fpc->fp->insn_len;
-        grow_insns(fpc, 4);
-        hw = &fpc->fp->insn[fpc->inst_offset];
-        /* I really wonder why fp16 precision is used. Presumably the hardware ignores it? */
-        hw[0] = (NV40_FP_OP_BRA_OPCODE_CAL << NVFX_FP_OP_OPCODE_SHIFT);
-        /* Use .xxxx swizzle so that we check only src[0].x*/
-        hw[1] = (NVFX_SWZ_IDENTITY << NVFX_FP_OP_COND_SWZ_ALL_SHIFT) |
-                        (NVFX_FP_OP_COND_TR << NVFX_FP_OP_COND_SHIFT);
-        hw[2] = NV40_FP_OP_OPCODE_IS_BRANCH; /* | call_offset */
-        hw[3] = 0;
-        reloc.target = target;
-        reloc.location = fpc->inst_offset + 2;
-        util_dynarray_append(&fpc->label_relocs, struct nvfx_relocation, reloc);
-}
-
 static void
 nv40_fp_ret(struct nvfx_fpc *fpc)
 {
@@ -789,17 +768,6 @@ nvfx_fragprog_parse_instruction(struct nvfx_fpc *fpc,
       hw[3] = fpc->fp->insn_len;
       break;
    }
-
-   case TGSI_OPCODE_BGNSUB:
-   case TGSI_OPCODE_ENDSUB:
-      /* nothing to do here */
-      break;
-
-   case TGSI_OPCODE_CAL:
-      if(!fpc->is_nv4x)
-         goto nv3x_cflow;
-      nv40_fp_cal(fpc, finst->Label.Label);
-      break;
 
    case TGSI_OPCODE_RET:
       if(!fpc->is_nv4x)

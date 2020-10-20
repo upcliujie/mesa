@@ -288,12 +288,6 @@ static void transform_inst(struct tgsi_transform_context *ctx,
             }
         }
 
-        /* Inserting 2 instructions before the END opcode moves all following
-         * labels by 2. Subroutines are always after the END opcode so
-         * they're always moved. */
-        if (inst->Instruction.Opcode == TGSI_OPCODE_CAL) {
-            inst->Label.Label += 2;
-        }
         /* The labels of the following opcodes are moved only after
          * the END opcode. */
         if (vsctx->end_instruction &&

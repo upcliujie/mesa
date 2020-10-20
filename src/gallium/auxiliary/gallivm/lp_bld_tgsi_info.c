@@ -446,9 +446,6 @@ analyse_instruction(struct analysis_context *ctx,
    case TGSI_OPCODE_BRK:
    case TGSI_OPCODE_CONT:
    case TGSI_OPCODE_ENDLOOP:
-   case TGSI_OPCODE_CAL:
-   case TGSI_OPCODE_BGNSUB:
-   case TGSI_OPCODE_ENDSUB:
    case TGSI_OPCODE_SWITCH:
    case TGSI_OPCODE_CASE:
    case TGSI_OPCODE_DEFAULT:
@@ -567,8 +564,7 @@ lp_build_tgsi_info(const struct tgsi_token *tokens,
             struct tgsi_full_instruction *inst =
                   &parse.FullToken.FullInstruction;
 
-            if (inst->Instruction.Opcode == TGSI_OPCODE_END ||
-                inst->Instruction.Opcode == TGSI_OPCODE_BGNSUB) {
+            if (inst->Instruction.Opcode == TGSI_OPCODE_END) {
                /* We reached the end of main function body. */
                goto finished;
             }

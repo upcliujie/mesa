@@ -852,8 +852,6 @@ translate_opcode(enum tgsi_opcode opcode)
       return VGPU10_OPCODE_LOOP;
    case TGSI_OPCODE_ENDLOOP:
       return VGPU10_OPCODE_ENDLOOP;
-   case TGSI_OPCODE_ENDSUB:
-      return VGPU10_OPCODE_RET;
    case TGSI_OPCODE_NOP:
       return VGPU10_OPCODE_NOP;
    case TGSI_OPCODE_END:
@@ -6348,27 +6346,6 @@ emit_arl_uarl(struct svga_shader_emitter_v10 *emit,
 
 
 /**
- * Emit code for TGSI_OPCODE_CAL instruction.
- */
-static boolean
-emit_cal(struct svga_shader_emitter_v10 *emit,
-         const struct tgsi_full_instruction *inst)
-{
-   unsigned label = inst->Label.Label;
-   VGPU10OperandToken0 operand;
-   operand.value = 0;
-   operand.operandType = VGPU10_OPERAND_TYPE_LABEL;
-
-   begin_emit_instruction(emit);
-   emit_dword(emit, operand.value);
-   emit_dword(emit, label);
-   end_emit_instruction(emit);
-
-   return TRUE;
-}
-
-
-/**
  * Emit code for TGSI_OPCODE_IABS instruction.
  */
 static boolean
@@ -9238,7 +9215,6 @@ emit_vgpu10_instruction(struct svga_shader_emitter_v10 *emit,
    case TGSI_OPCODE_ELSE:
    case TGSI_OPCODE_ENDIF:
    case TGSI_OPCODE_ENDLOOP:
-   case TGSI_OPCODE_ENDSUB:
    case TGSI_OPCODE_F2I:
    case TGSI_OPCODE_F2U:
    case TGSI_OPCODE_FLR:
@@ -9324,11 +9300,6 @@ emit_vgpu10_instruction(struct svga_shader_emitter_v10 *emit,
       /* fall-through */
    case TGSI_OPCODE_UARL:
       return emit_arl_uarl(emit, inst);
-   case TGSI_OPCODE_BGNSUB:
-      /* no-op */
-      return TRUE;
-   case TGSI_OPCODE_CAL:
-      return emit_cal(emit, inst);
    case TGSI_OPCODE_CMP:
       return emit_cmp(emit, inst);
    case TGSI_OPCODE_COS:

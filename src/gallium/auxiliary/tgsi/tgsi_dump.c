@@ -676,8 +676,6 @@ iter_instruction(
       case TGSI_OPCODE_ELSE:
       case TGSI_OPCODE_BGNLOOP:
       case TGSI_OPCODE_ENDLOOP:
-      case TGSI_OPCODE_CAL:
-      case TGSI_OPCODE_BGNSUB:
          TXT( " :" );
          UID( inst->Label.Label );
          break;

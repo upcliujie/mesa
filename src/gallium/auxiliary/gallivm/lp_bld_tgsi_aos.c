@@ -694,9 +694,6 @@ lp_emit_instruction_aos(
       dst0 = lp_build_round(&bld->bld_base.base, src0);
       break;
 
-   case TGSI_OPCODE_CAL:
-      return FALSE;
-
    case TGSI_OPCODE_RET:
       /* safe to ignore at end */
       break;
@@ -749,9 +746,6 @@ lp_emit_instruction_aos(
    case TGSI_OPCODE_BGNLOOP:
       return FALSE;
 
-   case TGSI_OPCODE_BGNSUB:
-      return FALSE;
-
    case TGSI_OPCODE_ELSE:
       return FALSE;
 
@@ -759,9 +753,6 @@ lp_emit_instruction_aos(
       return FALSE;
 
    case TGSI_OPCODE_ENDLOOP:
-      return FALSE;
-
-   case TGSI_OPCODE_ENDSUB:
       return FALSE;
 
    case TGSI_OPCODE_CEIL:

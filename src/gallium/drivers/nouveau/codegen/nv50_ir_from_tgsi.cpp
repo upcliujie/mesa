@@ -770,7 +770,6 @@ static nv50_ir::operation translateOpcode(uint opcode)
    NV50_IR_OPCODE_CASE(TXD, TXD);
    NV50_IR_OPCODE_CASE(TXP, TEX);
 
-   NV50_IR_OPCODE_CASE(CAL, CALL);
    NV50_IR_OPCODE_CASE(RET, RET);
    NV50_IR_OPCODE_CASE(CMP, SLCT);
 
@@ -3099,10 +3098,7 @@ Converter::isEndOfSubroutine(uint ip)
 {
    assert(ip < code->scan.num_instructions);
    tgsi::Instruction insn(&code->insns[ip]);
-   return (insn.getOpcode() == TGSI_OPCODE_END ||
-           insn.getOpcode() == TGSI_OPCODE_ENDSUB ||
-           // does END occur at end of main or the very end ?
-           insn.getOpcode() == TGSI_OPCODE_BGNSUB);
+   return insn.getOpcode() == TGSI_OPCODE_END;
 }
 
 bool
@@ -3647,35 +3643,6 @@ Converter::handleInstruction(const struct tgsi_full_instruction *insn)
       bb->cfg.attach(&contBB->cfg, Graph::Edge::BACK);
    }
       break;
-   case TGSI_OPCODE_BGNSUB:
-   {
-      Subroutine *s = getSubroutine(ip);
-      BasicBlock *entry = new BasicBlock(s->f);
-      BasicBlock *leave = new BasicBlock(s->f);
-
-      // multiple entrypoints possible, keep the graph connected
-      if (prog->getType() == Program::TYPE_COMPUTE)
-         prog->main->call.attach(&s->f->call, Graph::Edge::TREE);
-
-      sub.cur = s;
-      s->f->setEntry(entry);
-      s->f->setExit(leave);
-      setPosition(entry, true);
-      return true;
-   }
-   case TGSI_OPCODE_ENDSUB:
-   {
-      sub.cur = getSubroutine(prog->main);
-      setPosition(BasicBlock::get(sub.cur->f->cfg.getRoot()), true);
-      return true;
-   }
-   case TGSI_OPCODE_CAL:
-   {
-      Subroutine *s = getSubroutine(tgsi.getLabel());
-      mkFlow(OP_CALL, s->f, CC_ALWAYS, NULL);
-      func->call.attach(&s->f->call, Graph::Edge::TREE);
-      return true;
-   }
    case TGSI_OPCODE_RET:
    {
       if (bb->isTerminated())
