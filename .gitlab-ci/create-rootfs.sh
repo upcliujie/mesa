@@ -46,11 +46,13 @@ apt-get -y install --no-install-recommends \
     netcat-openbsd \
     python3 \
     libpython3.7 \
+    python3-lxml \
     python3-numpy \
     python3-mako \
     python3-pil \
     python3-pytest \
     python3-requests \
+    python3-simplejson \
     python3-yaml \
     sntp \
     wget \
@@ -151,7 +153,6 @@ UNNEEDED_PACKAGES="apt libapt-pkg6.0 "\
 "insserv "\
 "udev "\
 "init-system-helpers "\
-"bash "\
 "cpio "\
 "xz-utils "\
 "passwd "\
