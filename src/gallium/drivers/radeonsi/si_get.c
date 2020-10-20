@@ -370,7 +370,13 @@ static int si_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_typ
    case PIPE_SHADER_COMPUTE:
       switch (param) {
       case PIPE_SHADER_CAP_SUPPORTED_IRS: {
-         int ir = 1 << PIPE_SHADER_IR_NATIVE;
+         int ir;
+
+         if (getenv("R600_CL_NIR"))
+            ir = 1 << PIPE_SHADER_IR_NIR_SERIALIZED;
+         else
+            ir = 1 << PIPE_SHADER_IR_NATIVE;
+
 
          if (sscreen->info.has_indirect_compute_dispatch)
             ir |= 1 << PIPE_SHADER_IR_NIR;
