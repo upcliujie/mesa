@@ -325,6 +325,11 @@ spirv_builder_emit_image_query_size(struct spirv_builder *b,
                                     SpvId lod);
 
 SpvId
+spirv_builder_emit_image_query_levels(struct spirv_builder *b,
+                                    SpvId result_type,
+                                    SpvId image);
+
+SpvId
 spirv_builder_emit_image_query_lod(struct spirv_builder *b,
                                     SpvId result_type,
                                     SpvId image,
