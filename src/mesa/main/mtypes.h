@@ -5491,8 +5491,6 @@ struct gl_context
 
    GLuint TextureStateTimestamp; /**< detect changes to shared state */
 
-   struct gl_list_extensions *ListExt; /**< driver dlist extensions */
-
    /** \name For debugging/development only */
    /*@{*/
    GLboolean FirstTimeCurrent;
