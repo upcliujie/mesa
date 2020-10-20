@@ -175,6 +175,9 @@ void si_llvm_create_func(struct si_shader_context *ctx, const char *name, LLVMTy
    case MESA_SHADER_COMPUTE:
       call_conv = AC_LLVM_AMDGPU_CS;
       break;
+   case MESA_SHADER_KERNEL:
+      call_conv = AC_LLVM_AMDGPU_KERNEL;
+      break;
    default:
       unreachable("Unhandle shader type");
    }
