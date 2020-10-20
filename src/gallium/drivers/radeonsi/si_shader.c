@@ -732,6 +732,37 @@ void si_create_function(struct si_shader_context *ctx, bool ngg_cull_shader)
    si_llvm_create_func(ctx, ngg_cull_shader ? "ngg_cull_main" : "main", returns, num_returns,
                        si_get_max_workgroup_size(shader));
 
+   if (ctx->stage == MESA_SHADER_KERNEL) {
+      LLVMValueRef values[3];
+      for (i = 0; i < 3; i++)
+         values[i] = ctx->ac.i32_0;
+      if (shader->selector->info.uses_block_id[0])
+         values[0] = ac_build_intrinsic(&ctx->ac,
+                                        "llvm.amdgcn.workgroup.id.x", ctx->ac.i32,
+                                        NULL, 0, AC_FUNC_ATTR_READNONE);
+      if (shader->selector->info.uses_block_id[1])
+         values[1] = ac_build_intrinsic(&ctx->ac,
+                                        "llvm.amdgcn.workgroup.id.y", ctx->ac.i32,
+                                        NULL, 0, AC_FUNC_ATTR_READNONE);
+      if (shader->selector->info.uses_block_id[2])
+         values[2] = ac_build_intrinsic(&ctx->ac,
+                                        "llvm.amdgcn.workgroup.id.z", ctx->ac.i32,
+                                        NULL, 0, AC_FUNC_ATTR_READNONE);
+
+      ctx->abi.kernel_workgroup_ids = ac_build_gather_values(&ctx->ac, values, 3);
+
+      values[0] = ac_build_intrinsic(&ctx->ac,
+                                     "llvm.amdgcn.workitem.id.x", ctx->ac.i32,
+                                     NULL, 0, AC_FUNC_ATTR_READNONE);
+      values[1] = ac_build_intrinsic(&ctx->ac,
+                                     "llvm.amdgcn.workitem.id.y", ctx->ac.i32,
+                                     NULL, 0, AC_FUNC_ATTR_READNONE);
+      values[2] = ac_build_intrinsic(&ctx->ac,
+                                     "llvm.amdgcn.workitem.id.z", ctx->ac.i32,
+                                     NULL, 0, AC_FUNC_ATTR_READNONE);
+
+      ctx->abi.kernel_local_invocation_ids = ac_build_gather_values(&ctx->ac, values, 3);
+   }
    /* Reserve register locations for VGPR inputs the PS prolog may need. */
    if (ctx->stage == MESA_SHADER_FRAGMENT && !ctx->shader->is_monolithic) {
       ac_llvm_add_target_dep_function_attr(
