@@ -115,6 +115,6 @@ void ac_add_arg(struct ac_shader_args *info, enum ac_arg_regfile regfile, unsign
 
 void ac_add_kernel_arg(struct ac_shader_args *info,
                        unsigned num_components,
-                       unsigned offset,
-                       unsigned size);
+                       unsigned arg_type,
+                       unsigned offset);
 #endif
