@@ -5208,6 +5208,8 @@ struct gl_context
 
    GLboolean ViewportInitialized;  /**< has viewport size been initialized? */
    GLboolean _AllowDrawOutOfOrder;
+   /* Can display list draws generate incorrect gl_PrimitiveID? */
+   GLboolean _AllowIncorrectPrimitiveId;
 
    GLbitfield varying_vp_inputs;  /**< mask of VERT_BIT_* flags */
 

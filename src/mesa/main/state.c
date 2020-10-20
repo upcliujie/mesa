@@ -59,6 +59,41 @@
 void
 _mesa_update_allow_draw_out_of_order(struct gl_context *ctx)
 {
+   /* Only the compatibility profile with immediate mode needs this. */
+   if (ctx->API != API_OPENGL_COMPAT)
+      return;
+
+   /* If all of these are NULL, GLSL is disabled. */
+   struct gl_program *vs =
+      ctx->_Shader->CurrentProgram[MESA_SHADER_VERTEX];
+   struct gl_program *tcs =
+      ctx->_Shader->CurrentProgram[MESA_SHADER_TESS_CTRL];
+   struct gl_program *tes =
+      ctx->_Shader->CurrentProgram[MESA_SHADER_TESS_EVAL];
+   struct gl_program *gs =
+      ctx->_Shader->CurrentProgram[MESA_SHADER_GEOMETRY];
+   struct gl_program *fs =
+      ctx->_Shader->CurrentProgram[MESA_SHADER_FRAGMENT];
+
+   /* Update ctx->_AllowIncorrectPrimitiveId for display list if
+    * allow_incorrect_primitive_id isn't enabled.
+    * We can use merged primitives (see vbo_save) for drawing unless
+    * one program expects a correct primitive-ID value.
+    */
+   /* TODO: it may be possible to relax the restriction in some cases. If the current
+    * geometry shader doesn't read gl_PrimitiveIDIn but does write gl_PrimitiveID,
+    * then the restriction on fragment shaders reading gl_PrimitiveID can be lifted.
+    */
+   ctx->_AllowIncorrectPrimitiveId = !(
+         (tcs && (tcs->info.system_values_read & BITFIELD64_BIT(SYSTEM_VALUE_PRIMITIVE_ID) ||
+                  tcs->info.inputs_read & VARYING_BIT_PRIMITIVE_ID)) ||
+         (tes && (tes->info.system_values_read & BITFIELD64_BIT(SYSTEM_VALUE_PRIMITIVE_ID) ||
+                  tes->info.inputs_read & VARYING_BIT_PRIMITIVE_ID)) ||
+         (gs && (gs->info.system_values_read & BITFIELD64_BIT(SYSTEM_VALUE_PRIMITIVE_ID) ||
+                 gs->info.inputs_read & VARYING_BIT_PRIMITIVE_ID)) ||
+         (fs && (fs->info.system_values_read & BITFIELD64_BIT(SYSTEM_VALUE_PRIMITIVE_ID) ||
+                 fs->info.inputs_read & VARYING_BIT_PRIMITIVE_ID)));
+
    /* Out-of-order drawing is useful when vertex array draws and immediate
     * mode are interleaved.
     *
@@ -88,21 +123,9 @@ _mesa_update_allow_draw_out_of_order(struct gl_context *ctx)
     * RadeonSI has a complete and more complicated out-of-order determination
     * for driver-internal reasons.
     */
-   /* Only the compatibility profile with immediate mode needs this. */
-   if (ctx->API != API_OPENGL_COMPAT || !ctx->Const.AllowDrawOutOfOrder)
+   if (!ctx->Const.AllowDrawOutOfOrder)
       return;
 
-   /* If all of these are NULL, GLSL is disabled. */
-   struct gl_program *vs =
-      ctx->_Shader->CurrentProgram[MESA_SHADER_VERTEX];
-   struct gl_program *tcs =
-      ctx->_Shader->CurrentProgram[MESA_SHADER_TESS_CTRL];
-   struct gl_program *tes =
-      ctx->_Shader->CurrentProgram[MESA_SHADER_TESS_EVAL];
-   struct gl_program *gs =
-      ctx->_Shader->CurrentProgram[MESA_SHADER_GEOMETRY];
-   struct gl_program *fs =
-      ctx->_Shader->CurrentProgram[MESA_SHADER_FRAGMENT];
    GLenum16 depth_func = ctx->Depth.Func;
 
    /* Z fighting and any primitives with equal Z shouldn't be reordered
