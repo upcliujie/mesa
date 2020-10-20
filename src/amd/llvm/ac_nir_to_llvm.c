@@ -1175,6 +1175,22 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
    case nir_op_imul_high:
       result = emit_imul_high(&ctx->ac, src[0], src[1], nir_dest_bit_size(instr->dest.dest));
       break;
+   case nir_op_umul24: {
+      LLVMValueRef args[2];
+      args[0] = src[0];
+      args[1] = src[1];
+      result =
+         ac_build_intrinsic(&ctx->ac, "llvm.amdgcn.mul.u24", ctx->ac.i32, args, 2, AC_FUNC_ATTR_READNONE);
+      break;
+   }
+   case nir_op_imul24: {
+      LLVMValueRef args[2];
+      args[0] = src[0];
+      args[1] = src[1];
+      result =
+         ac_build_intrinsic(&ctx->ac, "llvm.amdgcn.mul.i24", ctx->ac.i32, args, 2, AC_FUNC_ATTR_READNONE);
+      break;
+   }
    case nir_op_pack_half_2x16:
       result = emit_pack_2x16(&ctx->ac, src[0], ac_build_cvt_pkrtz_f16);
       break;
