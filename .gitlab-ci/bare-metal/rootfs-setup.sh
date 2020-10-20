@@ -53,6 +53,12 @@ for var in \
     TRACIE_UPLOAD_TO_MINIO \
     TU_DEBUG \
     VK_DRIVER \
+    PIGLIT_FLAKES \
+    PIGLIT_OPTIONS \
+    PIGLIT_PARALLEL \
+    PIGLIT_PLATFORM \
+    PIGLIT_PROFILES \
+    PIGLIT_RESULTS \
     ; do
   if [ -n "${!var+x}" ]; then
     echo "export $var=${!var@Q}" >> $rootfs_dst/set-job-env-vars.sh
