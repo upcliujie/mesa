@@ -205,6 +205,7 @@ unsigned si_get_max_workgroup_size(const struct si_shader *shader)
       return shader->selector->screen->info.chip_class >= GFX9 ? 128 : 0;
 
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_KERNEL:
       break; /* see below */
 
    default:
@@ -991,6 +992,7 @@ static void si_calculate_max_simd_waves(struct si_shader *shader)
       lds_per_wave = conf->lds_size * lds_increment + align(num_inputs * 48, lds_increment);
       break;
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_KERNEL:
       if (shader->selector) {
          unsigned max_workgroup_size = si_get_max_workgroup_size(shader);
          lds_per_wave = (conf->lds_size * lds_increment) /
@@ -1102,6 +1104,8 @@ const char *si_get_shader_name(const struct si_shader *shader)
       return "Pixel Shader";
    case MESA_SHADER_COMPUTE:
       return "Compute Shader";
+   case MESA_SHADER_KERNEL:
+      return "Kernel Shader";
    default:
       return "Unknown Shader";
    }
@@ -1236,6 +1240,7 @@ static void si_dump_shader_key(const struct si_shader *shader, FILE *f)
       break;
 
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_KERNEL:
       break;
 
    case MESA_SHADER_FRAGMENT:
@@ -1357,6 +1362,7 @@ static bool si_build_main_function(struct si_shader_context *ctx, struct si_shad
       si_llvm_init_ps_callbacks(ctx);
       break;
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_KERNEL:
       ctx->abi.load_local_group_size = si_llvm_get_block_size;
       break;
    default:
@@ -1831,7 +1837,8 @@ static bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_com
    }
 
    /* Make sure the input is a pointer and not integer followed by inttoptr. */
-   assert(LLVMGetTypeKind(LLVMTypeOf(LLVMGetParam(ctx.main_fn, 0))) == LLVMPointerTypeKind);
+   if (ctx.stage != MESA_SHADER_KERNEL)
+      assert(LLVMGetTypeKind(LLVMTypeOf(LLVMGetParam(ctx.main_fn, 0))) == LLVMPointerTypeKind);
 
    /* Compile to bytecode. */
    if (!si_compile_llvm(sscreen, &shader->binary, &shader->config, compiler, &ctx.ac, debug,
@@ -1876,7 +1883,7 @@ bool si_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *compi
    /* Validate SGPR and VGPR usage for compute to detect compiler bugs.
     * LLVM 3.9svn has this bug.
     */
-   if (sel->info.stage == MESA_SHADER_COMPUTE) {
+   if (sel->info.stage == MESA_SHADER_COMPUTE || sel->info.stage == MESA_SHADER_KERNEL) {
       unsigned wave_size = sscreen->compute_wave_size;
       unsigned max_vgprs =
          sscreen->info.num_physical_wave64_vgprs_per_simd * (wave_size == 32 ? 2 : 1);
