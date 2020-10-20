@@ -3461,6 +3461,20 @@ static LLVMValueRef load_interpolated_input(struct ac_nir_context *ctx, LLVMValu
    return ac_to_integer(&ctx->ac, ac_build_gather_values(&ctx->ac, values, num_components));
 }
 
+static LLVMValueRef visit_load_deref_kernel_input(struct ac_nir_context *ctx,
+                                            nir_intrinsic_instr *instr)
+{
+   nir_variable *var = nir_deref_instr_get_variable(nir_src_as_deref(instr->src[0]));
+   uint64_t offset = var->data.driver_location;
+   for (unsigned i = 0; i < ctx->args->arg_count; i++) {
+      if (ctx->args->args[i].offset == offset) {
+           return LLVMGetParam(ctx->main_function, i);
+      }
+   }
+   assert(0);
+   return NULL;
+}
+
 static LLVMValueRef visit_load(struct ac_nir_context *ctx, nir_intrinsic_instr *instr,
                                bool is_output)
 {
@@ -4387,6 +4401,11 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       LLVMSetMetadata(addr, ctx->ac.uniform_md_kind, ctx->ac.empty_md);
       result = LLVMBuildLoad2(ctx->ac.builder, result_type, addr, "");
       LLVMSetMetadata(result, ctx->ac.invariant_load_md_kind, ctx->ac.empty_md);
+      break;
+   }
+   case nir_intrinsic_load_deref: {
+      /* only for shader kernel inputs */
+      result = visit_load_deref_kernel_input(ctx, instr);
       break;
    }
    default:

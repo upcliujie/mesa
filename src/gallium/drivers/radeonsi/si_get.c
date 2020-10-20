@@ -1104,6 +1104,7 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .support_indirect_inputs = BITFIELD_BIT(MESA_SHADER_TESS_CTRL) |
                                  BITFIELD_BIT(MESA_SHADER_TESS_EVAL),
       .support_indirect_outputs = BITFIELD_BIT(MESA_SHADER_TESS_CTRL),
+      .use_kernel_input_vars = true,
    };
    sscreen->nir_options = nir_options;
 }

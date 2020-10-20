@@ -303,14 +303,17 @@ char *si_finalize_nir(struct pipe_screen *screen, void *nirptr)
    NIR_PASS_V(nir, nir_opt_dce);
 
    /* Remove uniforms because those should have been lowered to UBOs already. */
-   nir_foreach_variable_with_modes_safe(var, nir, nir_var_uniform) {
-      if (!glsl_type_get_image_count(var->type) &&
-          !glsl_type_get_sampler_count(var->type))
-         exec_node_remove(&var->node);
+   if (nir->info.stage != MESA_SHADER_KERNEL) {
+      nir_foreach_variable_with_modes_safe(var, nir, nir_var_uniform) {
+         if (!glsl_type_get_image_count(var->type) &&
+             !glsl_type_get_sampler_count(var->type))
+            exec_node_remove(&var->node);
+      }
    }
 
    si_lower_nir(sscreen, nir);
-   nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
+   if (nir->info.stage != MESA_SHADER_KERNEL)
+      nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
 
    if (sscreen->options.inline_uniforms)
       nir_find_inlinable_uniforms(nir);
@@ -319,4 +322,68 @@ char *si_finalize_nir(struct pipe_screen *screen, void *nirptr)
    NIR_PASS_V(nir, nir_divergence_analysis); /* to find divergent loops */
 
    return NULL;
+}
+
+void si_nir_setup_kernel_args(struct nir_shader *nir,
+                              struct ac_shader_args *args)
+{
+   int offset = 0;
+   nir_foreach_uniform_variable(var, nir) {
+      int nc = glsl_get_components(var->type);
+      enum glsl_base_type base_type = glsl_get_base_type(var->type);
+      int arg_type;
+      switch (base_type) {
+      case GLSL_TYPE_FLOAT:
+      case GLSL_TYPE_UINT:
+      case GLSL_TYPE_INT:
+         arg_type = AC_ARG_INT;
+         break;
+      case GLSL_TYPE_DOUBLE:
+      case GLSL_TYPE_UINT64:
+      case GLSL_TYPE_INT64:
+         arg_type = AC_ARG_INT64;
+         break;
+      case GLSL_TYPE_FLOAT16:
+      case GLSL_TYPE_UINT16:
+      case GLSL_TYPE_INT16:
+         arg_type = AC_ARG_INT16;
+         break;
+      case GLSL_TYPE_UINT8:
+      case GLSL_TYPE_INT8:
+         arg_type = AC_ARG_INT8;
+         break;
+      default:
+         assert(0);
+         break;
+      }
+
+      /* add alignment arguments. */
+      while (offset != var->data.driver_location) {
+         int diff = var->data.driver_location - offset;
+         if (diff >= 4)
+            diff = 4;
+         if (diff == 3)
+            diff = 2;
+         switch (diff) {
+         case 1:
+            ac_add_kernel_arg(args, 1, AC_ARG_INT8, offset);
+            offset += 1;
+            break;
+         case 2:
+            ac_add_kernel_arg(args, 1, AC_ARG_INT16, offset);
+            offset += 2;
+            break;
+         case 4:
+            ac_add_kernel_arg(args, 1, AC_ARG_INT, offset);
+            offset += 4;
+            break;
+         default:
+            assert(0);
+            break;
+         }
+      }
+
+      ac_add_kernel_arg(args, nc, arg_type, var->data.driver_location);
+      offset += glsl_get_cl_size(var->type);
+   }
 }

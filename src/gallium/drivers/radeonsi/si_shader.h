@@ -965,6 +965,8 @@ struct si_shader *si_generate_gs_copy_shader(struct si_screen *sscreen,
 void si_nir_opts(struct si_screen *sscreen, struct nir_shader *nir, bool first);
 void si_nir_late_opts(nir_shader *nir);
 char *si_finalize_nir(struct pipe_screen *screen, void *nirptr);
+void si_nir_setup_kernel_args(struct nir_shader *nir,
+                              struct ac_shader_args *args);
 
 /* si_state_shaders.cpp */
 unsigned si_determine_wave_size(struct si_screen *sscreen, struct si_shader *shader);
