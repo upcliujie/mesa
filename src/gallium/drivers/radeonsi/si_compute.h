@@ -33,6 +33,7 @@ struct si_compute {
    struct si_shader shader;
 
    unsigned ir_type;
+   unsigned shared_size;
    unsigned private_size;
    unsigned input_size;
    bool is_nir_kernel;
