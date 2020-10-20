@@ -35,6 +35,7 @@ struct si_compute {
    unsigned ir_type;
    unsigned private_size;
    unsigned input_size;
+   bool is_nir_kernel;
 
    int max_global_buffers;
    struct pipe_resource **global_buffers;

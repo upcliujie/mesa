@@ -57,6 +57,7 @@ static const struct debug_named_value radeonsi_debug_options[] = {
    {"tcs", DBG(TCS), "Print tessellation control shaders"},
    {"tes", DBG(TES), "Print tessellation evaluation shaders"},
    {"cs", DBG(CS), "Print compute shaders"},
+   {"kern", DBG(KERN), "Print compute kernels"},
    {"noir", DBG(NO_IR), "Don't print the LLVM IR"},
    {"nonir", DBG(NO_NIR), "Don't print NIR when printing shaders"},
    {"noasm", DBG(NO_ASM), "Don't print disassembled shaders"},

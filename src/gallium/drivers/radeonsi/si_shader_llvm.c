@@ -174,6 +174,9 @@ void si_llvm_create_func(struct si_shader_context *ctx, const char *name, LLVMTy
    case MESA_SHADER_COMPUTE:
       call_conv = AC_LLVM_AMDGPU_CS;
       break;
+   case MESA_SHADER_KERNEL:
+      call_conv = AC_LLVM_AMDGPU_KERNEL;
+      break;
    default:
       unreachable("Unhandle shader type");
    }
@@ -947,6 +950,7 @@ bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shader *shad
       si_llvm_init_ps_callbacks(ctx);
       break;
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_KERNEL:
       ctx->abi.load_local_group_size = si_llvm_get_block_size;
       ctx->abi.load_global_group_size = si_llvm_get_grid_size;
       break;
@@ -1371,7 +1375,8 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
    si_optimize_vs_outputs(&ctx);
 
    /* Make sure the input is a pointer and not integer followed by inttoptr. */
-   assert(LLVMGetTypeKind(LLVMTypeOf(LLVMGetParam(ctx.main_fn, 0))) == LLVMPointerTypeKind);
+   if (ctx.stage != MESA_SHADER_KERNEL)
+      assert(LLVMGetTypeKind(LLVMTypeOf(LLVMGetParam(ctx.main_fn, 0))) == LLVMPointerTypeKind);
 
    /* Compile to bytecode. */
    if (!si_compile_llvm(sscreen, &shader->binary, &shader->config, compiler, &ctx.ac, debug,
