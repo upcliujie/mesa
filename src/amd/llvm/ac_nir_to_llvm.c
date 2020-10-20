@@ -372,28 +372,87 @@ static LLVMValueRef emit_f2f16(struct ac_llvm_context *ctx, LLVMValueRef src0)
 }
 
 static LLVMValueRef emit_umul_high(struct ac_llvm_context *ctx, LLVMValueRef src0,
-                                   LLVMValueRef src1)
+                                   LLVMValueRef src1, unsigned dest_bit_size)
 {
-   LLVMValueRef dst64, result;
-   src0 = LLVMBuildZExt(ctx->builder, src0, ctx->i64, "");
-   src1 = LLVMBuildZExt(ctx->builder, src1, ctx->i64, "");
+   LLVMValueRef dst_large, result, shift;
 
-   dst64 = LLVMBuildMul(ctx->builder, src0, src1, "");
-   dst64 = LLVMBuildLShr(ctx->builder, dst64, LLVMConstInt(ctx->i64, 32, false), "");
-   result = LLVMBuildTrunc(ctx->builder, dst64, ctx->i32, "");
+   if (dest_bit_size == 64) {
+      src0 = LLVMBuildZExt(ctx->builder, src0, ctx->i128, "");
+      src1 = LLVMBuildZExt(ctx->builder, src1, ctx->i128, "");
+      shift = LLVMConstInt(ctx->i128, dest_bit_size, false);
+   } else if (dest_bit_size == 32) {
+      src0 = LLVMBuildZExt(ctx->builder, src0, ctx->i64, "");
+      src1 = LLVMBuildZExt(ctx->builder, src1, ctx->i64, "");
+      shift = LLVMConstInt(ctx->i64, dest_bit_size, false);
+   } else if (dest_bit_size < 32) {
+      src0 = LLVMBuildZExt(ctx->builder, src0, ctx->i32, "");
+      src1 = LLVMBuildZExt(ctx->builder, src1, ctx->i32, "");
+      shift = LLVMConstInt(ctx->i32, dest_bit_size, false);
+   } else {
+      assert(0);
+      return NULL;
+   }
+
+   dst_large = LLVMBuildMul(ctx->builder, src0, src1, "");
+   dst_large = LLVMBuildLShr(ctx->builder, dst_large, shift, "");
+
+   switch (dest_bit_size) {
+   case 64:
+      result = LLVMBuildTrunc(ctx->builder, dst_large, ctx->i64, "");
+      break;
+   case 32:
+   default:
+      result = LLVMBuildTrunc(ctx->builder, dst_large, ctx->i32, "");
+      break;
+   case 16:
+      result = LLVMBuildTrunc(ctx->builder, dst_large, ctx->i16, "");
+      break;
+   case 8:
+      result = LLVMBuildTrunc(ctx->builder, dst_large, ctx->i8, "");
+      break;
+   }
    return result;
 }
 
 static LLVMValueRef emit_imul_high(struct ac_llvm_context *ctx, LLVMValueRef src0,
-                                   LLVMValueRef src1)
+                                   LLVMValueRef src1, unsigned dest_bit_size)
 {
-   LLVMValueRef dst64, result;
-   src0 = LLVMBuildSExt(ctx->builder, src0, ctx->i64, "");
-   src1 = LLVMBuildSExt(ctx->builder, src1, ctx->i64, "");
+   LLVMValueRef dst_large, result, shift;
 
-   dst64 = LLVMBuildMul(ctx->builder, src0, src1, "");
-   dst64 = LLVMBuildAShr(ctx->builder, dst64, LLVMConstInt(ctx->i64, 32, false), "");
-   result = LLVMBuildTrunc(ctx->builder, dst64, ctx->i32, "");
+   if (dest_bit_size == 64) {
+      src0 = LLVMBuildSExt(ctx->builder, src0, ctx->i128, "");
+      src1 = LLVMBuildSExt(ctx->builder, src1, ctx->i128, "");
+      shift = LLVMConstInt(ctx->i128, dest_bit_size, false);
+   } else if (dest_bit_size == 32) {
+      src0 = LLVMBuildSExt(ctx->builder, src0, ctx->i64, "");
+      src1 = LLVMBuildSExt(ctx->builder, src1, ctx->i64, "");
+      shift = LLVMConstInt(ctx->i64, dest_bit_size, false);
+   } else if (dest_bit_size < 32) {
+      src0 = LLVMBuildSExt(ctx->builder, src0, ctx->i32, "");
+      src1 = LLVMBuildSExt(ctx->builder, src1, ctx->i32, "");
+      shift = LLVMConstInt(ctx->i32, dest_bit_size, false);
+   } else {
+      assert(0);
+      return NULL;
+   }
+
+   dst_large = LLVMBuildMul(ctx->builder, src0, src1, "");
+   dst_large = LLVMBuildAShr(ctx->builder, dst_large, shift, "");
+   switch (dest_bit_size) {
+   case 64:
+      result = LLVMBuildTrunc(ctx->builder, dst_large, ctx->i64, "");
+      break;
+   case 32:
+   default:
+      result = LLVMBuildTrunc(ctx->builder, dst_large, ctx->i32, "");
+      break;
+   case 16:
+      result = LLVMBuildTrunc(ctx->builder, dst_large, ctx->i16, "");
+      break;
+   case 8:
+      result = LLVMBuildTrunc(ctx->builder, dst_large, ctx->i8, "");
+      break;
+   }
    return result;
 }
 
@@ -1111,10 +1170,10 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
       result = emit_f2f16(&ctx->ac, src[0]);
       break;
    case nir_op_umul_high:
-      result = emit_umul_high(&ctx->ac, src[0], src[1]);
+      result = emit_umul_high(&ctx->ac, src[0], src[1], nir_dest_bit_size(instr->dest.dest));
       break;
    case nir_op_imul_high:
-      result = emit_imul_high(&ctx->ac, src[0], src[1]);
+      result = emit_imul_high(&ctx->ac, src[0], src[1], nir_dest_bit_size(instr->dest.dest));
       break;
    case nir_op_pack_half_2x16:
       result = emit_pack_2x16(&ctx->ac, src[0], ac_build_cvt_pkrtz_f16);
