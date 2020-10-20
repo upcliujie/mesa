@@ -298,7 +298,8 @@ static void scan_instruction(const struct nir_shader *nir, struct si_shader_info
       case nir_intrinsic_interp_deref_at_centroid:
       case nir_intrinsic_interp_deref_at_sample:
       case nir_intrinsic_interp_deref_at_offset:
-         unreachable("these opcodes should have been lowered");
+         if (nir->info.stage != MESA_SHADER_KERNEL)
+            unreachable("these opcodes should have been lowered");
          break;
       default:
          break;
@@ -625,15 +626,18 @@ static void si_lower_io(struct nir_shader *nir)
    /* Remove input and output nir_variables, because we don't need them
     * anymore. Also remove uniforms, because those should have been lowered
     * to UBOs already.
+    * Kernel needs inputs to rebuild LLVM ABI.
     */
-   unsigned modes = nir_var_shader_in | nir_var_shader_out | nir_var_uniform;
-   nir_foreach_variable_with_modes_safe(var, nir, modes) {
-      if (var->data.mode == nir_var_uniform &&
-          (glsl_type_get_image_count(var->type) ||
-           glsl_type_get_sampler_count(var->type)))
-         continue;
+   if (nir->info.stage != MESA_SHADER_KERNEL) {
+      unsigned modes = nir_var_shader_in | nir_var_shader_out | nir_var_uniform;
+      nir_foreach_variable_with_modes_safe(var, nir, modes) {
+         if (var->data.mode == nir_var_uniform &&
+            (glsl_type_get_image_count(var->type) ||
+             glsl_type_get_sampler_count(var->type)))
+            continue;
 
-      exec_node_remove(&var->node);
+         exec_node_remove(&var->node);
+      }
    }
 }
 
@@ -726,80 +730,45 @@ void si_finalize_nir(struct pipe_screen *screen, void *nirptr, bool optimize)
       nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
 }
 
-static int arg_compare(const void *_a, const void *_b)
-{
-   const struct ac_shader_arg *a = _a;
-   const struct ac_shader_arg *b = _b;
-
-   return (a->offset > b->offset);
-}
-
 void si_nir_setup_kernel_args(struct nir_shader *nir,
                               struct ac_shader_args *args)
 {
-   nir_function *func;
-   func = (struct nir_function *)exec_list_get_head_const(&nir->functions);
-   nir_foreach_block (block, func->impl) {
-      nir_foreach_instr (instr, block) {
-         if (instr->type != nir_instr_type_intrinsic)
-            continue;
-
-         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
-         if (intrin->intrinsic != nir_intrinsic_load_kernel_input)
-            continue;
-         int bit_size = nir_dest_bit_size(intrin->dest);
-         int this_offset = nir_src_as_int(intrin->src[0]);
-         int this_size = bit_size >> 3;
-         int this_nc = nir_dest_num_components(intrin->dest);
-
-         bool found = false;
-         for (unsigned i = 0; i < args->arg_count; i++) {
-            if (args->args[i].offset == this_offset) {
-               found = true;
-               break;
-            }
-         }
-         if (!found)
-            ac_add_kernel_arg(args, this_nc, this_offset, this_size);
-      }
-   }
-
-   qsort(args->args, args->arg_count, sizeof(struct ac_shader_arg),
-         arg_compare);
-
-   /* fill in the gaps */
-   unsigned next_offset = 0;
-   int arg_count = args->arg_count;
-   for (unsigned i = 0; i < arg_count; i++) {
-      int this_offset = args->args[i].offset;
-
-      while (this_offset != next_offset) {
-         ac_add_kernel_arg(args, 1, next_offset, 4);
-         next_offset += 4;
-      }
-
-      int this_arg_size = 0;
-      switch (args->args[i].type) {
+   int offset = 0;
+   nir_foreach_uniform_variable(var, nir) {
+      int nc = glsl_get_components(var->type);
+      enum glsl_base_type base_type = glsl_get_base_type(var->type);
+      int arg_type;
+      switch (base_type) {
+      case GLSL_TYPE_FLOAT:
+      case GLSL_TYPE_UINT:
+      case GLSL_TYPE_INT:
+         arg_type = AC_ARG_INT;
+         break;
+      case GLSL_TYPE_DOUBLE:
+      case GLSL_TYPE_UINT64:
+      case GLSL_TYPE_INT64:
+         arg_type = AC_ARG_INT64;
+         break;
+      case GLSL_TYPE_FLOAT16:
+      case GLSL_TYPE_UINT16:
+      case GLSL_TYPE_INT16:
+         arg_type = AC_ARG_INT16;
+         break;
+      case GLSL_TYPE_UINT8:
+      case GLSL_TYPE_INT8:
+         arg_type = AC_ARG_INT8;
+         break;
       default:
-      case AC_ARG_INT:
-         this_arg_size = 4;
-         break;
-      case AC_ARG_INT8:
-         this_arg_size = 1;
-         break;
-      case AC_ARG_INT16:
-         this_arg_size = 2;
-         break;
-      case AC_ARG_INT64:
-         this_arg_size = 8;
+         assert(0);
          break;
       }
-      this_arg_size *= args->args[i].size;
 
-      next_offset = this_offset + this_arg_size;
+      while (offset != var->data.driver_location) {
+         ac_add_kernel_arg(args, 1, AC_ARG_INT, offset);
+         offset += 4;
+      }
+
+      ac_add_kernel_arg(args, nc, arg_type, var->data.driver_location);
+      offset += glsl_get_cl_size(var->type);
    }
-
-   qsort(args->args, args->arg_count, sizeof(struct ac_shader_arg),
-         arg_compare);
-
 }
