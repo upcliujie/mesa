@@ -562,7 +562,7 @@ static LLVMValueRef exit_waterfall(struct ac_nir_context *ctx, struct waterfall_
 
 static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
 {
-   LLVMValueRef src[16], result = NULL;
+   LLVMValueRef src[NIR_MAX_VEC_COMPONENTS], result = NULL;
    unsigned num_components = instr->dest.dest.ssa.num_components;
    unsigned src_components;
    LLVMTypeRef def_type = get_def_type(ctx, &instr->dest.dest.ssa);
@@ -1346,7 +1346,7 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
 
 static void visit_load_const(struct ac_nir_context *ctx, const nir_load_const_instr *instr)
 {
-   LLVMValueRef values[4], value = NULL;
+   LLVMValueRef values[NIR_MAX_VEC_COMPONENTS], value = NULL;
    LLVMTypeRef element_type = LLVMIntTypeInContext(ctx->ac.context, instr->def.bit_size);
 
    for (unsigned i = 0; i < instr->def.num_components; ++i) {
@@ -2068,7 +2068,7 @@ static LLVMValueRef visit_load_buffer(struct ac_nir_context *ctx, nir_intrinsic_
    LLVMTypeRef def_type = get_def_type(ctx, &instr->dest.ssa);
    LLVMTypeRef def_elem_type = num_components > 1 ? LLVMGetElementType(def_type) : def_type;
 
-   LLVMValueRef results[4];
+   LLVMValueRef results[NIR_MAX_VEC_COMPONENTS];
    for (int i = 0; i < num_components;) {
       int num_elems = num_components - i;
       if (elem_size_bytes < 4 && nir_intrinsic_align(instr) % 4 != 0)
@@ -3081,7 +3081,7 @@ static LLVMValueRef visit_first_invocation(struct ac_nir_context *ctx)
 
 static LLVMValueRef visit_load_shared(struct ac_nir_context *ctx, const nir_intrinsic_instr *instr)
 {
-   LLVMValueRef values[4], derived_ptr, index, ret;
+   LLVMValueRef values[NIR_MAX_VEC_COMPONENTS], derived_ptr, index, ret;
    unsigned const_off = nir_intrinsic_base(instr);
 
    LLVMTypeRef elem_type = LLVMIntTypeInContext(ctx->ac.context, instr->dest.ssa.bit_size);
@@ -3109,7 +3109,7 @@ static void visit_store_shared(struct ac_nir_context *ctx, const nir_intrinsic_i
    LLVMValueRef src = get_src(ctx, instr->src[0]);
 
    int writemask = nir_intrinsic_write_mask(instr);
-   for (int chan = 0; chan < 4; chan++) {
+   for (int chan = 0; chan < nir_src_num_components(instr->src[0]); chan++) {
       if (!(writemask & (1 << chan))) {
          continue;
       }
@@ -3389,7 +3389,7 @@ static LLVMValueRef load_interpolated_input(struct ac_nir_context *ctx, LLVMValu
 static LLVMValueRef visit_load(struct ac_nir_context *ctx, nir_intrinsic_instr *instr,
                                bool is_output)
 {
-   LLVMValueRef values[8];
+   LLVMValueRef values[NIR_MAX_VEC_COMPONENTS*2];
    LLVMTypeRef dest_type = get_def_type(ctx, &instr->dest.ssa);
    LLVMTypeRef component_type;
    unsigned base = nir_intrinsic_base(instr);
