@@ -132,6 +132,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_blend_const_color_rgba:
    case nir_intrinsic_load_blend_const_color_aaaa8888_unorm:
    case nir_intrinsic_load_blend_const_color_rgba8888_unorm:
+   case nir_intrinsic_load_frag_shading_rate:
       is_divergent = false;
       break;
 

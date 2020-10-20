@@ -493,6 +493,7 @@ gather_intrinsic_info(nir_intrinsic_instr *instr, nir_shader *shader,
    case nir_intrinsic_load_barycentric_model:
    case nir_intrinsic_load_gs_header_ir3:
    case nir_intrinsic_load_tcs_header_ir3:
+   case nir_intrinsic_load_frag_shading_rate:
       shader->info.system_values_read |=
          (1ull << nir_system_value_from_intrinsic(instr->intrinsic));
       break;
