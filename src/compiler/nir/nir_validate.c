@@ -946,6 +946,9 @@ validate_phi_srcs(nir_block *block, nir_block *succ, validate_state *state)
    }
 }
 
+/* Note that we can't use nir_foreach_block() to replace this, as it wouldn't
+ * work for unstructured NIR.
+ */
 static void
 collect_blocks(struct exec_list *cf_list, validate_state *state)
 {
