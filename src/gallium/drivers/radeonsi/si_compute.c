@@ -234,11 +234,11 @@ static void *si_create_compute_state(struct pipe_context *ctx, const struct pipe
       si_const_and_shader_buffer_descriptors_idx(PIPE_SHADER_COMPUTE);
    sel->sampler_and_images_descriptors_index =
       si_sampler_and_image_descriptors_idx(PIPE_SHADER_COMPUTE);
-   sel->info.base.cs.shared_size = cso->req_local_mem;
    program->shader.selector = &program->sel;
    program->ir_type = cso->ir_type;
    program->private_size = cso->req_private_mem;
    program->input_size = cso->req_input_mem;
+   program->shared_size = cso->req_local_mem;
    program->is_nir_kernel = false;
    if (cso->ir_type != PIPE_SHADER_IR_NATIVE) {
       if (cso->ir_type == PIPE_SHADER_IR_NIR_SERIALIZED) {
@@ -479,9 +479,9 @@ static bool si_switch_compute_shader(struct si_context *sctx, struct si_compute 
        * tracker, then we will set LDS_SIZE to 512 bytes rather than 256.
        */
       if (sctx->chip_class <= GFX6) {
-         lds_blocks += align(program->sel.info.base.cs.shared_size, 256) >> 8;
+         lds_blocks += align(program->sel.info.base.cs.shared_size + program->shared_size, 256) >> 8;
       } else {
-         lds_blocks += align(program->sel.info.base.cs.shared_size, 512) >> 9;
+         lds_blocks += align(program->sel.info.base.cs.shared_size + program->shared_size, 512) >> 9;
       }
 
       /* TODO: use si_multiwave_lds_size_workaround */
