@@ -359,6 +359,25 @@ LLVMValueRef si_llvm_get_block_size(struct ac_shader_abi *abi)
 {
    struct si_shader_context *ctx = si_shader_context_from_abi(abi);
 
+   if (ctx->stage == MESA_SHADER_KERNEL) {
+      LLVMValueRef result;
+      LLVMValueRef values[3];
+      LLVMValueRef ptr = ac_build_intrinsic(&ctx->ac,
+                                            "llvm.amdgcn.dispatch.ptr",
+                                            LLVMPointerType(ctx->ac.i8, AC_ADDR_SPACE_CONST), NULL, 0,
+                                            AC_FUNC_ATTR_READNONE);
+
+      ptr = ac_cast_ptr(&ctx->ac, ptr, ctx->ac.i32);
+      result = ac_build_load(&ctx->ac, ptr, ctx->ac.i32_1);
+      values[0] = LLVMBuildAnd(ctx->ac.builder, result,
+                               LLVMConstInt(ctx->ac.i32, 0xffff, 0), "");
+      values[1] = LLVMBuildAShr(ctx->ac.builder, result, LLVMConstInt(ctx->ac.i32, 16, 0), "");
+      values[2] = ac_build_load(&ctx->ac, ptr, LLVMConstInt(ctx->ac.i32, 2, 0));
+      values[2] = LLVMBuildAnd(ctx->ac.builder, values[2],
+                               LLVMConstInt(ctx->ac.i32, 0xffff, 0), "");
+
+      return ac_build_gather_values(&ctx->ac, values, 3);
+   }
    assert(ctx->shader->selector->info.base.cs.local_size_variable);
    return ac_get_arg(&ctx->ac, ctx->block_size);
 }

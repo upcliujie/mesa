@@ -58,6 +58,9 @@ struct ac_shader_abi {
    LLVMValueRef color0, color1;
    LLVMValueRef user_data;
 
+   LLVMValueRef kernel_workgroup_ids;
+   LLVMValueRef kernel_local_invocation_ids;
+
    /* For VS and PS: pre-loaded shader inputs.
     *
     * Currently only used for NIR shaders; indexed by variables'
