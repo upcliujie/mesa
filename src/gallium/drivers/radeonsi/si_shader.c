@@ -724,6 +724,10 @@ void si_create_function(struct si_shader_context *ctx, bool ngg_cull_shader)
       /* Hardware VGPRs. */
       ac_add_arg(&ctx->args, AC_ARG_VGPR, 3, AC_ARG_INT, &ctx->args.local_invocation_ids);
       break;
+   case MESA_SHADER_KERNEL: {
+      si_nir_setup_kernel_args(ctx->shader->selector->nir, &ctx->args);
+      break;
+   }
    default:
       assert(0 && "unimplemented shader");
       return;

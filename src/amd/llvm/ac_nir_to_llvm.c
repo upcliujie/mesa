@@ -3186,6 +3186,18 @@ static LLVMValueRef load_interpolated_input(struct ac_nir_context *ctx, LLVMValu
    return ac_to_integer(&ctx->ac, ac_build_gather_values(&ctx->ac, values, num_components));
 }
 
+static LLVMValueRef visit_load_kernel_input(struct ac_nir_context *ctx,
+                                            nir_intrinsic_instr *instr)
+{
+   uint64_t offset = nir_src_as_int(instr->src[0]);
+   for (unsigned i = 0; i < ctx->args->arg_count; i++) {
+      if (ctx->args->args[i].offset == offset) {
+           return LLVMGetParam(ctx->main_function, i);
+      }
+   }
+   assert(0);
+}
+
 static LLVMValueRef visit_load(struct ac_nir_context *ctx, nir_intrinsic_instr *instr,
                                bool is_output)
 {
@@ -3518,6 +3530,9 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
    case nir_intrinsic_load_input_vertex:
    case nir_intrinsic_load_per_vertex_input:
       result = visit_load(ctx, instr, false);
+      break;
+   case nir_intrinsic_load_kernel_input:
+      result = visit_load_kernel_input(ctx, instr);
       break;
    case nir_intrinsic_load_output:
    case nir_intrinsic_load_per_vertex_output:
