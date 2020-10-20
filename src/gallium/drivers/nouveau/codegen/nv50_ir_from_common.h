@@ -30,30 +30,16 @@ class ConverterCommon : public BuildUtil
 public:
    ConverterCommon(Program *, nv50_ir_prog_info *, nv50_ir_prog_info_out *);
 protected:
-   struct Subroutine
-   {
-      Subroutine(Function *f) : f(f) { }
-      Function *f;
-      ValueMap values;
-   };
-
-   Subroutine *getSubroutine(unsigned ip);
-   Subroutine *getSubroutine(Function *);
-
    uint8_t translateInterpMode(const struct nv50_ir_varying *var, operation& op);
 
    void handleUserClipPlanes();
-
-   struct {
-      std::map<unsigned, Subroutine> map;
-      Subroutine *cur;
-   } sub;
 
    struct nv50_ir_prog_info *info;
    struct nv50_ir_prog_info_out *info_out;
    Value *fragCoord[4];
    Value *clipVtx[4];
    Value *outBase; // base address of vertex out patch (for TCP)
+   ValueMap values;
 };
 
 } // namespace nv50_ir

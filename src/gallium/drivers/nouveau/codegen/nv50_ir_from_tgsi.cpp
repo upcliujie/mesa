@@ -1688,29 +1688,6 @@ private:
 
    Value *buildDot(int dim);
 
-   class BindArgumentsPass : public Pass {
-   public:
-      BindArgumentsPass(Converter &conv) : conv(conv) { }
-
-   private:
-      Converter &conv;
-      Subroutine *sub;
-
-      inline const Location *getValueLocation(Subroutine *, Value *);
-
-      template<typename T> inline void
-      updateCallArgs(Instruction *i, void (Instruction::*setArg)(int, Value *),
-                     T (Function::*proto));
-
-      template<typename T> inline void
-      updatePrototype(BitSet *set, void (Function::*updateSet)(),
-                      T (Function::*proto));
-
-   protected:
-      bool visit(Function *);
-      bool visit(BasicBlock *bb) { return false; }
-   };
-
 private:
    const tgsi::Source *code;
 
@@ -2067,7 +2044,7 @@ Converter::fetchSrc(tgsi::Instruction::SrcRegister src, int c, Value *ptr)
       /* fallthrough */
    default:
       return getArrayForFile(src.getFile(), idx2d)->load(
-         sub.cur->values, idx, swz, shiftAddress(ptr));
+         values, idx, swz, shiftAddress(ptr));
    }
 }
 
@@ -2095,7 +2072,7 @@ Converter::acquireDst(int d, int c)
       adjustTempIndex(arrayid, idx, idx2d);
    }
 
-   return getArrayForFile(f, idx2d)-> acquire(sub.cur->values, idx, c);
+   return getArrayForFile(f, idx2d)-> acquire(values, idx, c);
 }
 
 void
@@ -2157,7 +2134,7 @@ Converter::storeDst(const tgsi::Instruction::DstRegister dst, int c,
          adjustTempIndex(arrayid, idx, idx2d);
       }
 
-      getArrayForFile(f, idx2d)->store(sub.cur->values, idx, c, ptr, val);
+      getArrayForFile(f, idx2d)->store(values, idx, c, ptr, val);
    } else {
       assert(!"invalid dst file");
    }
@@ -4125,9 +4102,9 @@ Converter::exportOutputs()
              info_out->out[i].si != 0)
             continue;
          const unsigned int c = 3;
-         if (!oData.exists(sub.cur->values, i, c))
+         if (!oData.exists(values, i, c))
             continue;
-         Value *val = oData.load(sub.cur->values, i, c, NULL);
+         Value *val = oData.load(values, i, c, NULL);
          if (!val)
             continue;
 
@@ -4143,11 +4120,11 @@ Converter::exportOutputs()
 
    for (unsigned int i = 0; i < info_out->numOutputs; ++i) {
       for (unsigned int c = 0; c < 4; ++c) {
-         if (!oData.exists(sub.cur->values, i, c))
+         if (!oData.exists(values, i, c))
             continue;
          Symbol *sym = mkSymbol(FILE_SHADER_OUTPUT, 0, TYPE_F32,
                                 info_out->out[i].slot[c] * 4);
-         Value *val = oData.load(sub.cur->values, i, c, NULL);
+         Value *val = oData.load(values, i, c, NULL);
          if (val) {
             if (info_out->out[i].sn == TGSI_SEMANTIC_POSITION)
                mkOp1(OP_SAT, TYPE_F32, val, val);
@@ -4181,72 +4158,6 @@ Converter::~Converter()
 {
 }
 
-inline const Converter::Location *
-Converter::BindArgumentsPass::getValueLocation(Subroutine *s, Value *v)
-{
-   ValueMap::l_iterator it = s->values.l.find(v);
-   return it == s->values.l.end() ? NULL : &it->second;
-}
-
-template<typename T> inline void
-Converter::BindArgumentsPass::updateCallArgs(
-   Instruction *i, void (Instruction::*setArg)(int, Value *),
-   T (Function::*proto))
-{
-   Function *g = i->asFlow()->target.fn;
-   Subroutine *subg = conv.getSubroutine(g);
-
-   for (unsigned a = 0; a < (g->*proto).size(); ++a) {
-      Value *v = (g->*proto)[a].get();
-      const Converter::Location &l = *getValueLocation(subg, v);
-      Converter::DataArray *array = conv.getArrayForFile(l.array, l.arrayIdx);
-
-      (i->*setArg)(a, array->acquire(sub->values, l.i, l.c));
-   }
-}
-
-template<typename T> inline void
-Converter::BindArgumentsPass::updatePrototype(
-   BitSet *set, void (Function::*updateSet)(), T (Function::*proto))
-{
-   (func->*updateSet)();
-
-   for (unsigned i = 0; i < set->getSize(); ++i) {
-      Value *v = func->getLValue(i);
-      const Converter::Location *l = getValueLocation(sub, v);
-
-      // only include values with a matching TGSI register
-      if (set->test(i) && l && !conv.code->locals.count(*l))
-         (func->*proto).push_back(v);
-   }
-}
-
-bool
-Converter::BindArgumentsPass::visit(Function *f)
-{
-   sub = conv.getSubroutine(f);
-
-   for (ArrayList::Iterator bi = f->allBBlocks.iterator();
-        !bi.end(); bi.next()) {
-      for (Instruction *i = BasicBlock::get(bi)->getFirst();
-           i; i = i->next) {
-         if (i->op == OP_CALL && !i->asFlow()->builtin) {
-            updateCallArgs(i, &Instruction::setSrc, &Function::ins);
-            updateCallArgs(i, &Instruction::setDef, &Function::outs);
-         }
-      }
-   }
-
-   if (func == prog->main /* && prog->getType() != Program::TYPE_COMPUTE */)
-      return true;
-   updatePrototype(&BasicBlock::get(f->cfg.getRoot())->liveSet,
-                   &Function::buildLiveSets, &Function::ins);
-   updatePrototype(&BasicBlock::get(f->cfgExit)->defSet,
-                   &Function::buildDefSets, &Function::outs);
-
-   return true;
-}
-
 bool
 Converter::run()
 {
@@ -4257,7 +4168,6 @@ Converter::run()
    prog->main->setExit(leave);
 
    setPosition(entry, true);
-   sub.cur = getSubroutine(prog->main);
 
    if (info_out->io.genUserClip > 0) {
       for (int c = 0; c < 4; ++c)
@@ -4290,9 +4200,6 @@ Converter::run()
       if (!handleInstruction(&code->insns[ip]))
          return false;
    }
-
-   if (!BindArgumentsPass(*this).run(prog))
-      return false;
 
    return true;
 }
