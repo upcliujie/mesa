@@ -1026,6 +1026,14 @@ vtn_get_builtin_location(struct vtn_builder *b,
       *location = SYSTEM_VALUE_BARYCENTRIC_PULL_MODEL;
       set_mode_system_value(b, mode);
       break;
+   case SpvBuiltInShadingRateKHR:
+      *location = SYSTEM_VALUE_FRAG_SHADING_RATE;
+      set_mode_system_value(b, mode);
+      break;
+   case SpvBuiltInPrimitiveShadingRateKHR:
+      *location = SYSTEM_VALUE_PRIMITIVE_SHADING_RATE;
+      *mode = nir_var_shader_out;
+      break;
    default:
       vtn_fail("Unsupported builtin: %s (%u)",
                spirv_builtin_to_string(builtin), builtin);
