@@ -3463,6 +3463,7 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       result = visit_load_buffer(ctx, instr);
       break;
    case nir_intrinsic_load_global:
+   case nir_intrinsic_load_global_constant:
       result = visit_load_global(ctx, instr);
       break;
    case nir_intrinsic_store_global:
