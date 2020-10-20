@@ -1000,3 +1000,11 @@ store("ssbo_block_intel", [-1, 1], [WRMASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET])
 # src[] = { value, offset }.
 store("shared_block_intel", [1], [BASE, WRMASK, ALIGN_MUL, ALIGN_OFFSET])
 
+# A bit field to implement SPIRV FragmentShadingRateKHR
+# bit | name              | description
+#   0 | Vertical2Pixels   | Fragment invocation covers 2 pixels vertically
+#   1 | Vertical4Pixels   | Fragment invocation covers 4 pixels vertically
+#   2 | Horizontal2Pixels | Fragment invocation covers 2 pixels horizontally
+#   3 | Horizontal4Pixels | Fragment invocation covers 4 pixels horizontally
+intrinsic("load_frag_shading_rate", dest_comp=1, bit_sizes=[32],
+          flags=[CAN_ELIMINATE, CAN_REORDER])
