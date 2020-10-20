@@ -1463,6 +1463,26 @@ arm64_a530_gles31:
     CI_NODE_INDEX: 1
     CI_NODE_TOTAL: 10
 
+arm64_a530_piglit:
+  extends:
+    - .arm64_a530_deqp
+  variables:
+    BARE_METAL_TEST_SCRIPT: "/install/piglit-runner.sh"
+    PIGLIT_PARALLEL: 2
+    PIGLIT_RESULTS: piglit-freedreno-a530-results.txt
+    PIGLIT_FLAKES: piglit-freedreno-a530-flakes.txt
+    PIGLIT_OPTIONS: >
+      --process-isolation false
+      -x egl_ext_device_
+      -x egl_ext_platform_device
+      -x ext_timer_query@time-elapsed
+      -x glx-multithread-clearbuffer
+      -x glx-multithread-shader-compile
+      -x max-texture-size
+      -x maxsize
+    PIGLIT_PROFILES: quick_gl
+    PIGLIT_PLATFORM: gbm
+
 # RADV CI
 .test-radv:
   extends: .radv-rules

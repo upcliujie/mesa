@@ -1,0 +1,23 @@
+spec/arb_shader_atomic_counters/semantics/fragment shader atomic built-in semantics
+spec/arb_shader_atomic_counters/unique-id/fragment atomic decrement atomicity
+spec/arb_shader_atomic_counters/unique-id/fragment atomic read atomicity
+spec/arb_texture_multisample/texelfetch/2-fs-usampler2dmsarray
+spec/arb_texture_multisample/texelfetch/2-vs-isampler2dmsarray
+spec/arb_texture_multisample/texelfetch/2-vs-sampler2dmsarray
+spec/arb_texture_multisample/texelfetch/2-vs-usampler2dmsarray
+spec/arb_texture_multisample/texelfetch/4-fs-isampler2dmsarray
+spec/arb_texture_multisample/texelfetch/4-fs-sampler2dmsarray
+spec/arb_texture_multisample/texelfetch/4-fs-usampler2dmsarray
+spec/arb_texture_multisample/texelfetch/4-vs-isampler2dmsarray
+spec/arb_texture_multisample/texelfetch/4-vs-usampler2dmsarray
+spec/ext_framebuffer_multisample/accuracy 2 depth_resolve depthstencil
+spec/ext_framebuffer_multisample/accuracy 4 depth_resolve depthstencil
+spec/ext_framebuffer_multisample/accuracy 2 depth_resolve small depthstencil
+spec/ext_framebuffer_multisample/accuracy 4 depth_resolve small depthstencil
+spec/ext_framebuffer_multisample/accuracy all_samples depth_resolve depthstencil
+spec/ext_framebuffer_multisample/clip-and-scissor-blit 2 msaa
+spec/ext_framebuffer_multisample/clip-and-scissor-blit 4 msaa
+spec/!opengl 1.0/gl-1.0-blend-func
+spec/!opengl 1.1/getteximage-formats
+spec/!opengl 1.1/stencil-drawpixels
+spec/!opengl 1.1/user-clip

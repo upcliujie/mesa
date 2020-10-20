@@ -27,6 +27,7 @@ cp -Rp .gitlab-ci/bare-metal install/
 cp -Rp .gitlab-ci/deqp* install/
 cp -Rp .gitlab-ci/piglit install/
 cp -Rp .gitlab-ci/piglit-runner.sh install/
+cp -Rp .gitlab-ci/piglit-*.txt install/
 cp -Rp .gitlab-ci/traces*.yml install/
 cp -Rp .gitlab-ci/tracie install/
 cp -Rp .gitlab-ci/tracie-runner-gl.sh install/
