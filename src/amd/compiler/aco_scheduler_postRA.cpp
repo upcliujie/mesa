@@ -146,6 +146,8 @@ bool is_unschedulable(const Instruction *instr)
       default:
          return false;
       }
+   } else if (instr->isVMEM() || instr->isFlatOrGlobal() || instr->format == Format::SCRATCH) {
+      return true;
    }
 
    return false;
