@@ -661,6 +661,13 @@ typedef enum
    SYSTEM_VALUE_GS_HEADER_IR3,
    SYSTEM_VALUE_TCS_HEADER_IR3,
 
+   /**
+    * Primitive shading rate (output) & fragment shading rate (input) used for
+    * KHR_fragment_shading_rate (Vulkan).
+    */
+   SYSTEM_VALUE_PRIMITIVE_SHADING_RATE,
+   SYSTEM_VALUE_FRAG_SHADING_RATE,
+
    SYSTEM_VALUE_MAX             /**< Number of values */
 } gl_system_value;
 

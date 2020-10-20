@@ -2216,6 +2216,8 @@ nir_intrinsic_from_system_value(gl_system_value val)
       return nir_intrinsic_load_work_dim;
    case SYSTEM_VALUE_USER_DATA_AMD:
       return nir_intrinsic_load_user_data_amd;
+   case SYSTEM_VALUE_FRAG_SHADING_RATE:
+      return nir_intrinsic_load_frag_shading_rate;
    default:
       unreachable("system value does not directly correspond to intrinsic");
    }
@@ -2323,6 +2325,8 @@ nir_system_value_from_intrinsic(nir_intrinsic_op intrin)
       return SYSTEM_VALUE_GS_HEADER_IR3;
    case nir_intrinsic_load_tcs_header_ir3:
       return SYSTEM_VALUE_TCS_HEADER_IR3;
+   case nir_intrinsic_load_frag_shading_rate:
+      return SYSTEM_VALUE_FRAG_SHADING_RATE;
    default:
       unreachable("intrinsic doesn't produce a system value");
    }
