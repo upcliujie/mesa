@@ -3323,15 +3323,22 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       result = ac_get_thread_id(&ctx->ac);
       break;
    case nir_intrinsic_load_work_group_id: {
-      LLVMValueRef values[3];
 
-      for (int i = 0; i < 3; i++) {
-         values[i] = ctx->args->workgroup_ids[i].used
-                        ? ac_get_arg(&ctx->ac, ctx->args->workgroup_ids[i])
-                        : ctx->ac.i32_0;
+      if (ctx->stage == MESA_SHADER_KERNEL) {
+         result = ctx->abi->kernel_workgroup_ids;
+         if (nir_dest_bit_size(instr->dest) == 64)
+            result = LLVMBuildZExt(ctx->ac.builder, result, LLVMVectorType(ctx->ac.i64, 3), "");
+      } else {
+         LLVMValueRef values[3];
+
+         for (int i = 0; i < 3; i++) {
+            values[i] = ctx->args->workgroup_ids[i].used
+               ? ac_get_arg(&ctx->ac, ctx->args->workgroup_ids[i])
+               : ctx->ac.i32_0;
+            result = ac_build_gather_values(&ctx->ac, values, 3);
+         }
       }
 
-      result = ac_build_gather_values(&ctx->ac, values, 3);
       break;
    }
    case nir_intrinsic_load_base_vertex:
@@ -3350,7 +3357,10 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       break;
    }
    case nir_intrinsic_load_local_invocation_id: {
-      result = ac_get_arg(&ctx->ac, ctx->args->local_invocation_ids);
+      if (ctx->stage == MESA_SHADER_KERNEL)
+         result = ctx->abi->kernel_local_invocation_ids;
+      else
+         result = ac_get_arg(&ctx->ac, ctx->args->local_invocation_ids);
       break;
    }
    case nir_intrinsic_load_base_instance:
