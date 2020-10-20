@@ -1033,6 +1033,10 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .lower_flrp64 = true,
       .lower_fsat = true,
       .lower_fdiv = true,
+      .lower_hadd = true,
+      .lower_uadd_sat = true,
+      .lower_iadd_sat = true,
+      .lower_hadd64 = true,
       .lower_bitfield_insert_to_bitfield_select = true,
       .lower_bitfield_extract = true,
       /*        |---------------------------------- Performance & Availability --------------------------------|
