@@ -2059,9 +2059,15 @@ static LLVMValueRef visit_load_global(struct ac_nir_context *ctx,
 
    val = LLVMBuildLoad(ctx->ac.builder, addr, "");
 
-   if (nir_intrinsic_access(instr) & (ACCESS_COHERENT | ACCESS_VOLATILE)) {
-      LLVMSetOrdering(val, LLVMAtomicOrderingMonotonic);
-      LLVMSetAlignment(val, ac_get_type_size(result_type));
+   if (ctx->stage == MESA_SHADER_KERNEL) {
+      if (nir_intrinsic_access(instr) & (ACCESS_COHERENT | ACCESS_VOLATILE)) {
+         LLVMSetVolatile(val, true);
+      }
+   } else {
+      if (nir_intrinsic_access(instr) & (ACCESS_COHERENT | ACCESS_VOLATILE)) {
+         LLVMSetOrdering(val, LLVMAtomicOrderingMonotonic);
+         LLVMSetAlignment(val, ac_get_type_size(result_type));
+      }
    }
 
    return val;
@@ -2086,9 +2092,15 @@ static void visit_store_global(struct ac_nir_context *ctx,
 
    val = LLVMBuildStore(ctx->ac.builder, data, addr);
 
-   if (nir_intrinsic_access(instr) & (ACCESS_COHERENT | ACCESS_VOLATILE)) {
-      LLVMSetOrdering(val, LLVMAtomicOrderingMonotonic);
-      LLVMSetAlignment(val, ac_get_type_size(type));
+   if (ctx->stage == MESA_SHADER_KERNEL) {
+      if (nir_intrinsic_access(instr) & (ACCESS_COHERENT | ACCESS_VOLATILE)) {
+         LLVMSetVolatile(val, true);
+      }
+   } else {
+      if (nir_intrinsic_access(instr) & (ACCESS_COHERENT | ACCESS_VOLATILE)) {
+         LLVMSetOrdering(val, LLVMAtomicOrderingMonotonic);
+         LLVMSetAlignment(val, ac_get_type_size(type));
+      }
    }
 
    if (ctx->ac.postponed_kill)
