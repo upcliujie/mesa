@@ -32,6 +32,7 @@
  * @author Jose Fonseca <jfonseca@vmware.com>
  */
 
+#include "drm-uapi/drm_fourcc.h"
 #include "util/format/u_format.h"
 #include "util/format/u_format_s3tc.h"
 #include "util/u_math.h"
@@ -955,5 +956,46 @@ util_format_snorm8_to_sint8(enum pipe_format format)
 
    default:
       return format;
+   }
+}
+
+unsigned
+util_format_get_modifier_num_planes(uint64_t modifier, enum pipe_format format)
+{
+   switch (modifier) {
+   case I915_FORMAT_MOD_Y_TILED_GEN12_MC_CCS:
+   case I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS:
+   case I915_FORMAT_MOD_Y_TILED_CCS:
+      return 2 * util_format_get_num_planes(format);
+   case DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED:
+   case DRM_FORMAT_MOD_ARM_AFBC(
+                        AFBC_FORMAT_MOD_BLOCK_SIZE_16x16 |
+                        AFBC_FORMAT_MOD_SPARSE |
+                        AFBC_FORMAT_MOD_YTR):
+   case DRM_FORMAT_MOD_ARM_AFBC(
+                        AFBC_FORMAT_MOD_BLOCK_SIZE_16x16 |
+                        AFBC_FORMAT_MOD_SPARSE):
+   case DRM_FORMAT_MOD_BROADCOM_UIF:
+   case DRM_FORMAT_MOD_BROADCOM_VC4_T_TILED:
+   case DRM_FORMAT_MOD_LINEAR:
+   /* DRM_FORMAT_MOD_NONE is the same as LINEAR */
+   case DRM_FORMAT_MOD_NVIDIA_16BX2_BLOCK_EIGHT_GOB:
+   case DRM_FORMAT_MOD_NVIDIA_16BX2_BLOCK_FOUR_GOB:
+   case DRM_FORMAT_MOD_NVIDIA_16BX2_BLOCK_ONE_GOB:
+   case DRM_FORMAT_MOD_NVIDIA_16BX2_BLOCK_SIXTEEN_GOB:
+   case DRM_FORMAT_MOD_NVIDIA_16BX2_BLOCK_THIRTYTWO_GOB:
+   case DRM_FORMAT_MOD_NVIDIA_16BX2_BLOCK_TWO_GOB:
+   case DRM_FORMAT_MOD_QCOM_COMPRESSED:
+   case DRM_FORMAT_MOD_VIVANTE_SPLIT_SUPER_TILED:
+   case DRM_FORMAT_MOD_VIVANTE_SPLIT_TILED:
+   case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
+   case DRM_FORMAT_MOD_VIVANTE_TILED:
+   /* FD_FORMAT_MOD_QCOM_TILED is not in drm_fourcc.h */
+   case I915_FORMAT_MOD_X_TILED:
+   case I915_FORMAT_MOD_Y_TILED:
+   case DRM_FORMAT_MOD_INVALID:
+      return util_format_get_num_planes(format);
+   default:
+      return 0;
    }
 }

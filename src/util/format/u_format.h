@@ -1309,6 +1309,10 @@ util_format_get_num_planes(enum pipe_format format)
    }
 }
 
+
+unsigned
+util_format_get_modifier_num_planes(uint64_t modifier, enum pipe_format format);
+
 static inline enum pipe_format
 util_format_get_plane_format(enum pipe_format format, unsigned plane)
 {
