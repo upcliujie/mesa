@@ -3465,7 +3465,11 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
          result = LLVMBuildZExt(ctx->ac.builder, result, LLVMVectorType(ctx->ac.i64, 3), "");
       break;
    case nir_intrinsic_load_num_work_groups:
-      result = ac_get_arg(&ctx->ac, ctx->args->num_work_groups);
+      if (ctx->stage == MESA_SHADER_KERNEL) {
+         result = LLVMBuildUDiv(ctx->ac.builder, ctx->abi->load_global_group_size(ctx->abi),
+                                ctx->abi->load_local_group_size(ctx->abi), "");
+      } else
+         result = ac_get_arg(&ctx->ac, ctx->args->num_work_groups);
       break;
    case nir_intrinsic_load_local_invocation_index:
       result = visit_load_local_invocation_index(ctx);
