@@ -1141,6 +1141,7 @@ struct anv_physical_device {
     struct wsi_device                       wsi_device;
     int                                         local_fd;
     int                                         master_fd;
+    struct intel_measure_device *               measure_device;
 };
 
 struct anv_app_info {
@@ -3061,6 +3062,8 @@ struct anv_cmd_buffer {
 
    /* Set by SetPerformanceMarkerINTEL, written into queries by CmdBeginQuery */
    uint64_t                                     intel_perf_marker;
+
+   struct anv_measure_batch *measure;
 };
 
 VkResult anv_cmd_buffer_init_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer);
