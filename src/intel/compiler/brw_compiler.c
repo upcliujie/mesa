@@ -119,6 +119,9 @@ brw_compiler_create(void *mem_ctx, const struct gen_device_info *devinfo)
          i == MESA_SHADER_FRAGMENT || i == MESA_SHADER_COMPUTE;
    }
 
+   for (int i = MESA_SHADER_TASK; i < MESA_VULKAN_SHADER_STAGES; i++)
+      compiler->scalar_stage[i] = true;
+
    nir_lower_int64_options int64_options =
       nir_lower_imul64 |
       nir_lower_isign64 |
