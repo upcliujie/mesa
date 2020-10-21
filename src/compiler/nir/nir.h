@@ -3587,6 +3587,11 @@ typedef struct nir_shader_compiler_options {
     * Let global group size go to the backend.
     */
    bool has_global_group_size;
+
+   /**
+    * lower work dimension in frontend.
+    */
+   bool lower_work_dim;
 } nir_shader_compiler_options;
 
 typedef struct nir_shader {

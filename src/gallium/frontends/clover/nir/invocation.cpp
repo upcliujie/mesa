@@ -265,6 +265,7 @@ struct clover_lower_nir_state {
    nir_variable *constant_var;
    nir_variable *printf_buffer;
    nir_variable *offset_vars[3];
+   nir_variable *work_dim_var;
 };
 
 static bool
@@ -324,6 +325,27 @@ clover_lower_nir_instr(nir_builder *b, nir_instr *instr, void *_state)
 
       return nir_u2u(b, nir_vec(b, loads, state->global_dims),
                      nir_dest_bit_size(intrinsic->dest));
+   }
+
+   case nir_intrinsic_load_work_dim: {
+      if (b->shader->options->lower_work_dim) {
+         if (!state->work_dim_var) {
+            unsigned location = state->args.size();
+            state->args.emplace_back(binary::argument::scalar, 4, 4, 4,
+                                     binary::argument::zero_ext,
+                                     binary::argument::grid_dimension);
+
+            const glsl_type *type = glsl_uint_type();
+            state->work_dim_var = nir_variable_create(b->shader, nir_var_uniform,
+                                                      type, "work_dim");
+            state->work_dim_var->data.location = location;
+         }
+
+         nir_ssa_def *load = nir_load_var(b, state->work_dim_var);
+
+         return nir_u2u(b, load, nir_dest_bit_size(intrinsic->dest));
+      }
+      return NULL;
    }
    case nir_intrinsic_load_constant_base_ptr: {
       return nir_load_var(b, state->constant_var);
