@@ -3783,7 +3783,10 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       result = ctx->instance_id_replaced ? ctx->instance_id_replaced : ctx->abi->instance_id;
       break;
    case nir_intrinsic_load_num_workgroups:
-      if (ctx->abi->load_grid_size_from_user_sgpr) {
+      if (ctx->stage == MESA_SHADER_KERNEL) {
+         result = LLVMBuildUDiv(ctx->ac.builder, ctx->abi->load_global_group_size(ctx->abi),
+                                ctx->abi->load_local_group_size(ctx->abi), "");
+      } else if (ctx->abi->load_grid_size_from_user_sgpr) {
          result = ac_get_arg(&ctx->ac, ctx->args->num_work_groups);
       } else {
          LLVMTypeRef ptr_type = ac_array_in_const_addr_space(ctx->ac.v3i32);
