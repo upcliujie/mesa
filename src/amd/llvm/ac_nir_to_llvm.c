@@ -4191,6 +4191,27 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
                                                    ctx->ac.i1false},
                                   6, AC_FUNC_ATTR_READNONE | AC_FUNC_ATTR_CONVERGENT);
       break;
+   case nir_intrinsic_load_scalar_arg_amd:
+   case nir_intrinsic_load_vector_arg_amd: {
+      assert(nir_intrinsic_base(instr) < AC_MAX_ARGS);
+      result = ac_to_integer(&ctx->ac, LLVMGetParam(ctx->main_function, nir_intrinsic_base(instr)));
+      break;
+   }
+   case nir_intrinsic_load_smem_amd: {
+      LLVMValueRef base = get_src(ctx, instr->src[0]);
+      LLVMValueRef offset =
+         LLVMBuildZExt(ctx->ac.builder, get_src(ctx, instr->src[1]), ctx->ac.i64, "");
+      LLVMTypeRef result_type = get_def_type(ctx, &instr->dest.ssa);
+      LLVMTypeRef ptr_type = LLVMPointerType(result_type, AC_ADDR_SPACE_CONST);
+
+      LLVMValueRef addr = LLVMBuildAdd(ctx->ac.builder, base, offset, "");
+      addr = LLVMBuildIntToPtr(ctx->ac.builder, addr, ptr_type, "");
+
+      LLVMSetMetadata(addr, ctx->ac.uniform_md_kind, ctx->ac.empty_md);
+      result = LLVMBuildLoad(ctx->ac.builder, addr, "");
+      LLVMSetMetadata(result, ctx->ac.invariant_load_md_kind, ctx->ac.empty_md);
+      break;
+   }
    default:
       fprintf(stderr, "Unknown intrinsic: ");
       nir_print_instr(&instr->instr, stderr);
