@@ -306,10 +306,11 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
       NIR_PASS_V(nir, nir_lower_memcpy);
 
       /* use offsets for kernel inputs (uniform) */
-      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_uniform,
-                 nir->info.cs.ptr_size == 64 ?
-                 nir_address_format_32bit_offset_as_64bit :
-                 nir_address_format_32bit_offset);
+      if (!compiler_options->use_kernel_input_vars)
+         NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_uniform,
+                    nir->info.cs.ptr_size == 64 ?
+                    nir_address_format_32bit_offset_as_64bit :
+                    nir_address_format_32bit_offset);
 
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_constant,
                  spirv_options.constant_addr_format);
