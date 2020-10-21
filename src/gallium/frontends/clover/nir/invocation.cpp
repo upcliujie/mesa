@@ -282,6 +282,7 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
       NIR_PASS_V(nir, nir_lower_system_values);
       nir_lower_compute_system_values_options sysval_options = { 0 };
       sysval_options.has_base_global_invocation_id = true;
+      sysval_options.has_global_group_size = dev.has_global_group_size();
       NIR_PASS_V(nir, nir_lower_compute_system_values, &sysval_options);
 
       // constant fold before lowering mem constants
