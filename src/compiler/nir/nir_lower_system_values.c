@@ -65,7 +65,6 @@ lower_system_value_instr(nir_builder *b, nir_instr *instr, void *_state)
       return NULL;
 
    assert(intrin->dest.is_ssa);
-   const unsigned bit_size = intrin->dest.ssa.bit_size;
 
    switch (intrin->intrinsic) {
    case nir_intrinsic_load_vertex_id:
@@ -148,9 +147,6 @@ lower_system_value_instr(nir_builder *b, nir_instr *instr, void *_state)
          if (b->shader->options->lower_device_index_to_zero)
             return nir_imm_int(b, 0);
          break;
-
-      case SYSTEM_VALUE_GLOBAL_GROUP_SIZE:
-         return build_global_group_size(b, bit_size);
 
       case SYSTEM_VALUE_BARYCENTRIC_LINEAR_PIXEL:
          return nir_load_barycentric(b, nir_intrinsic_load_barycentric_pixel,
@@ -379,6 +375,14 @@ lower_compute_system_value_instr(nir_builder *b,
       if (options && options->has_base_work_group_id)
          return nir_iadd(b, nir_u2u(b, nir_load_work_group_id_zero_base(b), bit_size),
                             nir_load_base_work_group_id(b, bit_size));
+      else
+         return NULL;
+
+   }
+
+   case nir_intrinsic_load_global_group_size: {
+      if (options && !options->has_global_group_size)
+         return build_global_group_size(b, bit_size);
       else
          return NULL;
    }
