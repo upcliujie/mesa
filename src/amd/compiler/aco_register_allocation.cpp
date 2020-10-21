@@ -682,13 +682,12 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
 
    bool found = false;
    unsigned reg_lo = lb;
-   unsigned reg_hi = lb + size - 1;
    while (!found && reg_lo + size <= ub) {
       if (reg_file[reg_lo] != 0) {
          reg_lo += stride;
          continue;
       }
-      reg_hi = reg_lo + size - 1;
+      unsigned reg_hi = reg_lo + size - 1;
       found = true;
       for (unsigned reg = reg_lo + 1; found && reg <= reg_hi; reg++) {
          if (reg_file[reg] != 0 || ctx.war_hint[reg])
