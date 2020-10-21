@@ -441,6 +441,7 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
       return 0;
 
    case PIPE_CAP_SHADER_ATOMIC_INT64:
+   case PIPE_CAP_COMPUTE_GLOBAL_GROUP_SIZE:
       return 0;
 
    default:
