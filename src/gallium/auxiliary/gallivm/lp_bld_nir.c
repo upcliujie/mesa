@@ -2079,6 +2079,7 @@ bool lp_build_nir_llvm(
 {
    struct nir_function *func;
 
+   nir_lower_bool_to_bitsize(nir);
    nir_convert_from_ssa(nir, true);
    nir_lower_locals_to_regs(nir);
    nir_remove_dead_derefs(nir);
