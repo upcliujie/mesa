@@ -3579,6 +3579,11 @@ typedef struct nir_shader_compiler_options {
     * fragment task is far more than vertex one, so better left it disabled.
     */
    bool lower_varying_from_uniform;
+
+   /**
+    * Let global group size go to the backend.
+    */
+   bool has_global_group_size;
 } nir_shader_compiler_options;
 
 typedef struct nir_shader {
