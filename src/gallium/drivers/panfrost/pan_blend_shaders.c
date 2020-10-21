@@ -311,7 +311,7 @@ panfrost_compile_blend_shader(struct panfrost_blend_shader *shader,
                 return;
 
         /* Compile or recompile the NIR shader */
-        panfrost_program program;
+        panfrost_program program = {0};
 
         struct panfrost_compile_inputs inputs = {
                 .gpu_id = dev->gpu_id,
