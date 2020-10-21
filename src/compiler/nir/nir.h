@@ -3501,6 +3501,9 @@ typedef struct nir_shader_compiler_options {
    /** Backend supports fmulz (and ffmaz if lower_ffma32=false) */
    bool has_fmulz;
 
+   /* Pass the backend the compute kernel variables */
+   bool use_kernel_input_vars;
+
    /**
     * Is this the Intel vec4 backend?
     *
