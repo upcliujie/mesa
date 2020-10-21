@@ -225,6 +225,11 @@ device::has_unified_memory() const {
    return pipe->get_param(pipe, PIPE_CAP_UMA);
 }
 
+bool
+device::has_global_group_size() const {
+   return pipe->get_param(pipe, PIPE_CAP_COMPUTE_GLOBAL_GROUP_SIZE);
+}
+
 size_t
 device::mem_base_addr_align() const {
    return std::max((size_t)sysconf(_SC_PAGESIZE), sizeof(cl_long) * 16);
