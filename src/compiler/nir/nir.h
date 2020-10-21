@@ -3507,6 +3507,9 @@ typedef struct nir_shader_compiler_options {
     */
    bool use_scoped_barrier;
 
+   /* Pass the backend the compute kernel variables */
+   bool use_kernel_input_vars;
+
    /**
     * Is this the Intel vec4 backend?
     *
