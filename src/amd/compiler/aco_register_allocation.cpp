@@ -438,7 +438,10 @@ std::pair<unsigned, unsigned> get_subdword_definition_info(Program *program, con
    default:
       break;
    }
-   bytes_written = MAX2(bytes_written, instr_info.definition_size[(int)instr->opcode] / 8u);
+   unsigned def_size = instr_info.definition_size[(int)instr->opcode] / 8u;
+   if (!def_size)
+      def_size = rc.size() * 4u;
+   bytes_written = MAX2(bytes_written, def_size);
 
    if (can_use_SDWA(chip, instr)) {
       return std::make_pair(rc.bytes(), rc.bytes());

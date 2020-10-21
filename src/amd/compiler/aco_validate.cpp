@@ -675,7 +675,11 @@ unsigned get_subdword_bytes_written(Program *program, const aco_ptr<Instruction>
       break;
    }
 
-   return MAX2(chip >= GFX10 ? def.bytes() : 4, instr_info.definition_size[(int)instr->opcode] / 8u);
+   unsigned def_size = instr_info.definition_size[(int)instr->opcode] / 8u;
+   if (!def_size)
+      def_size = def.size() * 4u;
+
+   return MAX2(chip >= GFX10 ? def.bytes() : 4, def_size);
 }
 
 } /* end namespace */
