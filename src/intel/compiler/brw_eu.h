@@ -451,10 +451,7 @@ brw_dp_desc(const struct gen_device_info *devinfo,
     */
    assert(devinfo->gen >= 6);
    const unsigned desc = SET_BITS(binding_table_index, 7, 0);
-   if (devinfo->gen >= 8) {
-      return (desc | SET_BITS(msg_control, 13, 8) |
-              SET_BITS(msg_type, 18, 14));
-   } else if (devinfo->gen >= 7) {
+   if (devinfo->gen >= 7) {
       return (desc | SET_BITS(msg_control, 13, 8) |
               SET_BITS(msg_type, 17, 14));
    } else {
@@ -474,9 +471,7 @@ static inline unsigned
 brw_dp_desc_msg_type(const struct gen_device_info *devinfo, uint32_t desc)
 {
    assert(devinfo->gen >= 6);
-   if (devinfo->gen >= 8)
-      return GET_BITS(desc, 18, 14);
-   else if (devinfo->gen >= 7)
+   if (devinfo->gen >= 7)
       return GET_BITS(desc, 17, 14);
    else
       return GET_BITS(desc, 16, 13);
