@@ -477,6 +477,7 @@ struct brw_wm_prog_key {
    bool force_dual_color_blend:1;
    bool coherent_fb_fetch:1;
    bool ignore_sample_mask_out:1;
+   bool coarse_pixel:1;
 
    uint8_t color_outputs_valid;
    uint64_t input_slots_valid;
@@ -849,6 +850,16 @@ struct brw_wm_prog_data {
 
    bool contains_flat_varying;
    bool contains_noperspective_varying;
+
+   /**
+    * Shader is ran at the coarse pixel shading dispatch rate (3DSTATE_CPS).
+    */
+   bool per_coarse_pixel_dispatch;
+
+   /**
+    * Shader reads the coarse pixel shading rate.
+    */
+   bool uses_rate_shading;
 
    /**
     * Mask of which interpolation modes are required by the fragment shader.
