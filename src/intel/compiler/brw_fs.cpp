@@ -4658,7 +4658,8 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
       inst->desc =
          (inst->group / 16) << 11 | /* rt slot group */
          brw_fb_write_desc(devinfo, inst->target, msg_ctl,
-                           inst->last_rt, false /* send_commit_msg */);
+                           inst->last_rt, false /* send_commit_msg */,
+                           prog_data->per_coarse_pixel_dispatch);
 
       uint32_t ex_desc = 0;
       if (devinfo->gen >= 11) {
@@ -5335,7 +5336,7 @@ lower_sampler_logical_send_gen7(const fs_builder &bld, fs_inst *inst, opcode op,
                                     simd_mode,
                                     0 /* return_format unused on gen7+ */);
       inst->src[0] = brw_imm_ud(0);
-      inst->src[1] = brw_imm_ud(0); /* ex_desc */
+      inst->src[1] = brw_imm_ud(0);
    } else if (surface_handle.file != BAD_FILE) {
       /* Bindless surface */
       assert(devinfo->gen >= 9);
@@ -5392,6 +5393,8 @@ lower_sampler_logical_send_gen7(const fs_builder &bld, fs_inst *inst, opcode op,
       inst->src[0] = component(desc, 0);
       inst->src[1] = brw_imm_ud(0); /* ex_desc */
    }
+
+   inst->ex_desc = 0;
 
    inst->src[2] = src_payload;
    inst->resize_sources(3);
@@ -9018,6 +9021,13 @@ brw_nir_populate_wm_prog_data(const nir_shader *shader,
 
    prog_data->barycentric_interp_modes =
       brw_compute_barycentric_interp_modes(devinfo, shader);
+
+   prog_data->per_coarse_pixel_dispatch =
+      key->coarse_pixel &&
+      !prog_data->persample_dispatch &&
+      !prog_data->uses_sample_mask &&
+      (prog_data->computed_depth_mode == BRW_PSCDEPTH_OFF) &&
+      !prog_data->computed_stencil;
 
    calculate_urb_setup(devinfo, key, prog_data, shader);
    brw_compute_flat_inputs(prog_data, shader);
