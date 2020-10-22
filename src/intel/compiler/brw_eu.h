@@ -1065,17 +1065,21 @@ brw_fb_write_desc(const struct gen_device_info *devinfo,
                   unsigned binding_table_index,
                   unsigned msg_control,
                   bool last_render_target,
-                  bool send_commit_msg)
+                  bool send_commit_msg,
+                  bool coarse_write)
 {
    const unsigned msg_type =
       devinfo->gen >= 6 ?
       GEN6_DATAPORT_WRITE_MESSAGE_RENDER_TARGET_WRITE :
       BRW_DATAPORT_WRITE_MESSAGE_RENDER_TARGET_WRITE;
 
+   assert(devinfo->gen >= 10 || !coarse_write);
+
    if (devinfo->gen >= 6) {
       return brw_fb_desc(devinfo, binding_table_index, msg_type, msg_control) |
              SET_BITS(last_render_target, 12, 12) |
-             SET_BITS(send_commit_msg, 17, 17);
+             SET_BITS(send_commit_msg, 17, 17) |
+             SET_BITS(coarse_write, 18, 18);
    } else {
       return (SET_BITS(binding_table_index, 7, 0) |
               SET_BITS(msg_control, 11, 8) |
@@ -1124,6 +1128,14 @@ brw_fb_write_desc_write_commit(const struct gen_device_info *devinfo,
       return GET_BITS(desc, 17, 17);
    else
       return GET_BITS(desc, 15, 15);
+}
+
+static inline bool
+brw_fb_write_desc_coarse_write(const struct gen_device_info *devinfo,
+                               uint32_t desc)
+{
+   assert(devinfo->gen >= 10);
+   return GET_BITS(desc, 18, 18);
 }
 
 static inline uint32_t
@@ -1191,12 +1203,15 @@ static inline uint32_t
 brw_pixel_interp_desc(UNUSED const struct gen_device_info *devinfo,
                       unsigned msg_type,
                       bool noperspective,
+                      bool coarse_pixel_rate,
                       unsigned simd_mode,
                       unsigned slot_group)
 {
+   assert(devinfo->gen >= 10 || !coarse_pixel_rate);
    return (SET_BITS(slot_group, 11, 11) |
            SET_BITS(msg_type, 13, 12) |
            SET_BITS(!!noperspective, 14, 14) |
+           SET_BITS(coarse_pixel_rate, 15, 15) |
            SET_BITS(simd_mode, 16, 16));
 }
 
@@ -1260,7 +1275,8 @@ brw_inst *brw_fb_WRITE(struct brw_codegen *p,
                        unsigned response_length,
                        bool eot,
                        bool last_render_target,
-                       bool header_present);
+                       bool header_present,
+                       bool coarse_write);
 
 brw_inst *gen9_fb_READ(struct brw_codegen *p,
                        struct brw_reg dst,
@@ -1436,6 +1452,7 @@ brw_pixel_interpolator_query(struct brw_codegen *p,
                              struct brw_reg dest,
                              struct brw_reg mrf,
                              bool noperspective,
+                             bool coarse_pixel_rate,
                              unsigned mode,
                              struct brw_reg data,
                              unsigned msg_length,

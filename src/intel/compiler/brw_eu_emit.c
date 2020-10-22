@@ -2396,7 +2396,8 @@ brw_fb_WRITE(struct brw_codegen *p,
              unsigned response_length,
              bool eot,
              bool last_render_target,
-             bool header_present)
+             bool header_present,
+             bool coarse_write)
 {
    const struct gen_device_info *devinfo = p->devinfo;
    const unsigned target_cache =
@@ -2433,7 +2434,8 @@ brw_fb_WRITE(struct brw_codegen *p,
                 brw_message_desc(devinfo, msg_length, response_length,
                                  header_present) |
                 brw_fb_write_desc(devinfo, binding_table_index, msg_control,
-                                  last_render_target, 0 /* send_commit_msg */));
+                                  last_render_target, 0 /* send_commit_msg */,
+                                  coarse_write));
    brw_inst_set_eot(devinfo, insn, eot);
 
    return insn;
@@ -3216,6 +3218,7 @@ brw_pixel_interpolator_query(struct brw_codegen *p,
                              struct brw_reg dest,
                              struct brw_reg mrf,
                              bool noperspective,
+                             bool coarse_pixel_rate,
                              unsigned mode,
                              struct brw_reg data,
                              unsigned msg_length,
@@ -3227,8 +3230,8 @@ brw_pixel_interpolator_query(struct brw_codegen *p,
    const unsigned simd_mode = (exec_size == BRW_EXECUTE_16);
    const unsigned desc =
       brw_message_desc(devinfo, msg_length, response_length, false) |
-      brw_pixel_interp_desc(devinfo, mode, noperspective, simd_mode,
-                            slot_group);
+      brw_pixel_interp_desc(devinfo, mode, noperspective, coarse_pixel_rate,
+                            simd_mode, slot_group);
 
    /* brw_send_indirect_message will automatically use a direct send message
     * if data is actually immediate.
