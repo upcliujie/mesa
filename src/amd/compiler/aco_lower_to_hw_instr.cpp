@@ -1716,8 +1716,9 @@ void lower_to_hw_instr(Program* program)
                if (reg == def.physReg())
                   break;
 
-               RegClass op_rc = def.regClass().is_subdword() ? def.regClass() :
-                                RegClass(instr->operands[0].getTemp().type(), def.size());
+               RegClass op_rc = def.regClass().is_subdword()
+                                ? RegClass::get(instr->operands[0].getTemp().type(), def.bytes())
+                                : RegClass(instr->operands[0].getTemp().type(), def.size());
                std::map<PhysReg, copy_operation> copy_operations;
                copy_operations[def.physReg()] = {Operand(reg, op_rc), def, def.bytes()};
                handle_operands(copy_operations, &ctx, program->chip_class, pi);
@@ -1756,8 +1757,9 @@ void lower_to_hw_instr(Program* program)
                PhysReg reg = instr->operands[0].physReg();
 
                for (const Definition& def : instr->definitions) {
-                  RegClass rc_op = def.regClass().is_subdword() ? def.regClass() :
-                                   RegClass(instr->operands[0].getTemp().type(), def.size());
+                  RegClass rc_op = def.regClass().is_subdword()
+                                   ? RegClass::get(instr->operands[0].getTemp().type(), def.bytes())
+                                   : RegClass(instr->operands[0].getTemp().type(), def.size());
                   const Operand op = Operand(reg, rc_op);
                   copy_operations[def.physReg()] = {op, def, def.bytes()};
                   reg.reg_b += def.bytes();
