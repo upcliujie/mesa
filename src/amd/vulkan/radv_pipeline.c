@@ -252,6 +252,9 @@ radv_pipeline_init_scratch(const struct radv_device *device,
 		min_waves = MAX2(min_waves, round_up_u32(group_size, 64));
 	}
 
+	/* Navi10 seems to clamp the scratch size after 256 KiB */
+	assert(scratch_bytes_per_wave <= 256 * 1024);
+
 	pipeline->scratch_bytes_per_wave = scratch_bytes_per_wave;
 	pipeline->max_waves = max_waves;
 }
