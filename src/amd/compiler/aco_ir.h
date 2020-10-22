@@ -289,7 +289,7 @@ struct RegClass {
    constexpr operator RC() const { return rc; }
    explicit operator bool() = delete;
 
-   constexpr RegType type() const { return rc <= RC::s16 ? RegType::sgpr : RegType::vgpr; }
+   constexpr RegType type() const { return (rc & (1 << 5)) ? RegType::vgpr : RegType::sgpr; }
    constexpr bool is_subdword() const { return rc & (1 << 7); }
    constexpr unsigned bytes() const { return ((unsigned) rc & 0x1F) * (is_subdword() ? 1 : 4); }
    //TODO: use size() less in favor of bytes()
