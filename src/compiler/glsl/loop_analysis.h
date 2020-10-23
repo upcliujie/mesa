@@ -195,7 +195,7 @@ public:
 class loop_terminator : public exec_node {
 public:
    loop_terminator()
-      : ir(NULL), iterations(-1)
+      : ir(NULL), iterations(-1), continue_from_then(false)
    {
    }
 
