@@ -2603,6 +2603,21 @@ nir_ssa_scalar_chase_alu_src(nir_ssa_scalar s, unsigned alu_src_idx)
 }
 
 
+typedef struct {
+   bool success;
+
+   nir_variable *var;
+   unsigned desc_set;
+   unsigned binding;
+   unsigned num_indices;
+   nir_src indices[4];
+} nir_binding;
+
+nir_binding nir_chase_binding(nir_src rsrc);
+bool nir_all_binding_indices_const(nir_binding binding);
+nir_variable *nir_get_binding_variable(struct nir_shader *shader, nir_binding binding);
+
+
 /*
  * Control flow
  *
