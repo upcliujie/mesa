@@ -2516,3 +2516,109 @@ nir_get_shader_call_payload_src(nir_intrinsic_instr *call)
       return NULL;
    }
 }
+
+nir_binding nir_chase_binding(nir_src rsrc)
+{
+   nir_binding res = {0};
+   if (rsrc.ssa->parent_instr->type == nir_instr_type_deref) {
+      const struct glsl_type *type = glsl_without_array(nir_src_as_deref(rsrc)->type);
+      bool is_image = glsl_type_is_image(type) || glsl_type_is_sampler(type);
+      while (rsrc.ssa->parent_instr->type == nir_instr_type_deref) {
+         nir_deref_instr *deref = nir_src_as_deref(rsrc);
+
+         if (deref->deref_type == nir_deref_type_var) {
+            res.success = true;
+            res.var = deref->var;
+            res.desc_set = deref->var->data.descriptor_set;
+            res.binding = deref->var->data.binding;
+            return res;
+         } else if (deref->deref_type == nir_deref_type_array && is_image) {
+            if (res.num_indices == ARRAY_SIZE(res.indices))
+               return (nir_binding){0};
+            res.indices[res.num_indices++] = deref->arr.index;
+         }
+
+         rsrc = deref->parent;
+      }
+   }
+
+   /* skip copies and trimming */
+   while (rsrc.ssa->parent_instr->type == nir_instr_type_alu) {
+      nir_alu_instr *alu = nir_src_as_alu_instr(rsrc);
+      if (alu->op == nir_op_mov) {
+         for (unsigned i = 0; i < alu->dest.dest.ssa.num_components; i++) {
+            if (alu->src[0].swizzle[i] != i)
+               return (nir_binding){0};
+         }
+      } else if (nir_op_is_vec(alu->op)) {
+         for (unsigned i = 0; i < nir_op_infos[alu->op].num_inputs; i++) {
+            if (alu->src[i].swizzle[0] != i || alu->src[i].src.ssa != alu->src[0].src.ssa)
+               return (nir_binding){0};
+         }
+      } else {
+         return (nir_binding){0};
+      }
+
+      rsrc = alu->src[0].src;
+   }
+
+   if (nir_src_is_const(rsrc)) {
+      /* GL binding model after deref lowering */
+      res.success = true;
+      res.binding = nir_src_as_uint(rsrc);
+      return res;
+   }
+
+   /* otherwise, must be Vulkan binding model after deref lowering or GL bindless */
+
+   nir_intrinsic_instr *intrin = nir_src_as_intrinsic(rsrc);
+   if (!intrin)
+      return (nir_binding){0};
+
+   /* skip load_vulkan_descriptor */
+   if (intrin->intrinsic == nir_intrinsic_load_vulkan_descriptor) {
+      intrin = nir_src_as_intrinsic(intrin->src[0]);
+      if (!intrin)
+         return (nir_binding){0};
+   }
+
+   if (intrin->intrinsic != nir_intrinsic_vulkan_resource_index)
+      return (nir_binding){0};
+
+   assert(res.num_indices == 0);
+   res.success = true;
+   res.desc_set = nir_intrinsic_desc_set(intrin);
+   res.binding = nir_intrinsic_binding(intrin);
+   res.num_indices = 1;
+   res.indices[0] = intrin->src[0];
+   return res;
+}
+
+bool nir_all_binding_indices_const(nir_binding binding)
+{
+   if (!binding.success)
+      return false;
+
+   for (unsigned i = 0; i < binding.num_indices; i++) {
+      if (!nir_src_is_const(binding.indices[i]))
+         return false;
+   }
+
+   return true;
+}
+
+nir_variable *nir_get_binding_variable(nir_shader *shader, nir_binding binding)
+{
+   if (!binding.success)
+      return NULL;
+
+   if (binding.var)
+      return binding.var;
+
+   nir_foreach_variable_with_modes(var, shader, nir_var_mem_ubo | nir_var_mem_ssbo) {
+      if (var->data.descriptor_set == binding.desc_set && var->data.binding == binding.binding)
+         return var;
+   }
+
+   return NULL;
+}
