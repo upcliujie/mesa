@@ -44,11 +44,11 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
       _mesa_set_remove(batch->sampler_views, entry);
    }
 
-   set_foreach(batch->sampler_states, entry) {
-      struct zink_sampler_state *state = (struct zink_sampler_state*)entry->key;
-      state->batch_uses &= ~BITFIELD64_BIT(batch->batch_id);
-      zink_sampler_state_reference(screen, &state, NULL);
-      _mesa_set_remove(batch->sampler_states, entry);
+   set_foreach(batch->samplers, entry) {
+      struct zink_sampler *sampler = (struct zink_sampler*)entry->key;
+      sampler->batch_uses &= ~BITFIELD64_BIT(batch->batch_id);
+      zink_sampler_reference(ctx, &sampler, NULL);
+      _mesa_set_remove(batch->samplers, entry);
    }
 
    set_foreach(batch->surfaces, entry) {
@@ -203,17 +203,17 @@ zink_batch_reference_sampler_view(struct zink_batch *batch,
 }
 
 void
-zink_batch_reference_sampler_state(struct zink_batch *batch,
-                                   struct zink_sampler_state *state)
+zink_batch_reference_sampler(struct zink_batch *batch,
+                             struct zink_sampler *sampler)
 {
    bool found = false;
    uint32_t bit = BITFIELD64_BIT(batch->batch_id);
-   if (state->batch_uses & bit)
+   if (sampler->batch_uses & bit)
       return;
-   _mesa_set_search_and_add(batch->sampler_states, state, &found);
+   _mesa_set_search_and_add(batch->samplers, sampler, &found);
    assert(!found);
-   state->batch_uses |= bit;
-   pipe_reference(NULL, &state->reference);
+   sampler->batch_uses |= bit;
+   pipe_reference(NULL, &sampler->reference);
    batch->has_work = true;
 }
 

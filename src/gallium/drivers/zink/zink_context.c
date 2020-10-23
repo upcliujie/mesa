@@ -107,19 +107,6 @@ calc_descriptor_hash_sampler_view(struct zink_context *ctx, struct zink_sampler_
    sampler_view->hash = XXH32(hash_data, data_size, hash);
 }
 
-static void
-calc_descriptor_hash_sampler_state(struct zink_sampler_state *sampler_state)
-{
-   for (int i = 0; i < ARRAY_SIZE(sampler_state->hash); i++) {
-      if (!sampler_state->sampler[i])
-         continue;
-
-      void *hash_data = &sampler_state->sampler[i];
-      size_t data_size = sizeof(VkSampler);
-      sampler_state->hash[i] = XXH32(hash_data, data_size, 0);
-   }
-}
-
 static uint32_t
 calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
 {
@@ -142,12 +129,12 @@ calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader 
          VkFormatProperties props = screen->format_props[res->base.format];
          bool can_linear = (res->optimal_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
                            (!res->optimal_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
-         uint32_t sampler_hash;
+         struct zink_sampler *sampler;
          if (can_linear)
-            sampler_hash = sampler_state->hash[0];
+            sampler = sampler_state->samplers[0];
          else
-            sampler_hash = sampler_state->hash[1] ?: sampler_state->hash[0];
-         hash = XXH32(&sampler_hash, sizeof(uint32_t), hash);
+            sampler = sampler_state->samplers[1] ? sampler_state->samplers[1] : sampler_state->samplers[0];
+         hash = XXH32(&sampler, sizeof(void*), hash);
       }
    }
    return hash;
@@ -252,9 +239,9 @@ invalidate_descriptor_state(struct zink_context *ctx, enum pipe_shader_type shad
 }
 
 void
-debug_describe_zink_sampler_state(char *buf, const struct zink_sampler_state *ptr)
+debug_describe_zink_sampler(char *buf, const struct zink_sampler *ptr)
 {
-   sprintf(buf, "zink_sampler_state");
+   sprintf(buf, "zink_sampler");
 }
 
 static void
@@ -395,7 +382,7 @@ wrap_needs_border_color(unsigned wrap)
 }
 
 static VkSampler
-create_sampler(struct pipe_context *pctx, const struct pipe_sampler_state *state, bool no_linear)
+create_sampler(struct pipe_context *pctx, const struct pipe_sampler_state *state, bool *custom_border_color)
 {
    struct zink_screen *screen = zink_screen(pctx->screen);
    bool need_custom = false;
@@ -404,11 +391,11 @@ create_sampler(struct pipe_context *pctx, const struct pipe_sampler_state *state
    VkSamplerCreateInfo sci = {};
    VkSamplerCustomBorderColorCreateInfoEXT cbci = {};
    sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-   sci.magFilter = no_linear ? VK_FILTER_NEAREST : zink_filter(state->mag_img_filter);
-   sci.minFilter = no_linear ? VK_FILTER_NEAREST : zink_filter(state->min_img_filter);
+   sci.magFilter = zink_filter(state->mag_img_filter);
+   sci.minFilter = zink_filter(state->min_img_filter);
 
    if (state->min_mip_filter != PIPE_TEX_MIPFILTER_NONE) {
-      sci.mipmapMode = no_linear ? VK_SAMPLER_MIPMAP_MODE_NEAREST : sampler_mipmap_mode(state->min_mip_filter);
+      sci.mipmapMode = sampler_mipmap_mode(state->min_mip_filter);
       sci.minLod = state->min_lod;
       sci.maxLod = state->max_lod;
    } else {
@@ -443,6 +430,7 @@ create_sampler(struct pipe_context *pctx, const struct pipe_sampler_state *state
       sci.borderColor = VK_BORDER_COLOR_INT_CUSTOM_EXT;
       UNUSED uint32_t check = p_atomic_inc_return(&screen->cur_custom_border_color_samplers);
       assert(check <= screen->info.border_color_props.maxCustomBorderColorSamplers);
+      *custom_border_color = true;
    } else
       sci.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK; // TODO with custom shader if we're super interested?
    sci.unnormalizedCoordinates = !state->normalized_coords;
@@ -455,16 +443,45 @@ create_sampler(struct pipe_context *pctx, const struct pipe_sampler_state *state
    return sampler;
 }
 
+static struct zink_sampler *
+get_sampler(struct pipe_context *pctx, const struct pipe_sampler_state *state)
+{
+   struct zink_sampler *sampler = ralloc(NULL, struct zink_sampler);
+   if (!sampler)
+      return NULL;
+   pipe_reference_init(&sampler->reference, 1);
+   sampler->sampler = create_sampler(pctx, state, &sampler->custom_border_color);
+   sampler->batch_uses = 0;
+   sampler->custom_border_color = false;
+   util_dynarray_init(&sampler->desc_set_refs.refs, NULL);
+   if (!sampler->sampler) {
+       ralloc_free(sampler);
+       return NULL;
+   }
+   return sampler;
+}
+
+static void
+zink_delete_sampler_state(struct pipe_context *pctx,
+                          void *sampler_state)
+{
+   struct zink_sampler_state *sampler = sampler_state;
+   zink_sampler_reference(zink_context(pctx), &sampler->samplers[0], NULL);
+   zink_sampler_reference(zink_context(pctx), &sampler->samplers[1], NULL);
+   free(sampler_state);
+}
+
 static void *
 zink_create_sampler_state(struct pipe_context *pctx,
                           const struct pipe_sampler_state *state)
 {
-   struct zink_sampler_state *sampler = CALLOC(1, sizeof(struct zink_sampler_state));
-   if (!sampler)
+   struct zink_sampler_state *sampler_state = CALLOC(1, sizeof(struct zink_sampler_state));
+   if (!sampler_state)
       return NULL;
-   sampler->sampler[0] = create_sampler(pctx, state, false);
-   if (!sampler->sampler[0]) {
-      FREE(sampler);
+
+   sampler_state->samplers[0] = get_sampler(pctx, state);
+   if (!sampler_state->samplers[0]) {
+      FREE(sampler_state);
       return NULL;
    }
    /* If filter is VK_FILTER_LINEAR, then the format features of srcImage
@@ -475,13 +492,19 @@ zink_create_sampler_state(struct pipe_context *pctx,
    if (state->mag_img_filter == PIPE_TEX_FILTER_LINEAR ||
        state->min_img_filter == PIPE_TEX_FILTER_LINEAR ||
        state->min_mip_filter == PIPE_TEX_MIPFILTER_LINEAR) {
-      sampler->sampler[1] = create_sampler(pctx, state, true);
-   }
-   pipe_reference_init(&sampler->reference, 1);
-   util_dynarray_init(&sampler->desc_set_refs.refs, NULL);
-   calc_descriptor_hash_sampler_state(sampler);
+        struct pipe_sampler_state nearest = *state;
+        nearest.mag_img_filter = nearest.min_img_filter = PIPE_TEX_FILTER_NEAREST;
+        if (state->min_mip_filter != PIPE_TEX_MIPFILTER_NONE)
+           nearest.min_mip_filter = PIPE_TEX_MIPFILTER_NEAREST;
 
-   return sampler;
+      sampler_state->samplers[1] = get_sampler(pctx, &nearest);
+      if (!sampler_state->samplers[1]) {
+         zink_delete_sampler_state(pctx, sampler_state);
+         return NULL;
+      }
+   }
+
+   return sampler_state;
 }
 
 static void
@@ -498,7 +521,9 @@ zink_bind_sampler_states(struct pipe_context *pctx,
       struct zink_sampler_state *a = ctx->sampler_states[shader][start_slot + i];
       struct zink_sampler_state *b = samplers[i];
       if (usage & BITFIELD64_BIT(start_slot + i))
-         update |= !!a != !!b || (a && ((a->hash[0] != b->hash[0]) || (a->hash[1] != b->hash[1])));
+         update |= !!a != !!b ||
+                   (a && ((a->samplers[0] != b->samplers[0]) ||
+                          (a->samplers[1] != b->samplers[1])));
       ctx->sampler_states[shader][start_slot + i] = samplers[i];
    }
    ctx->num_samplers[shader] = start_slot + num_samplers;
@@ -507,26 +532,14 @@ zink_bind_sampler_states(struct pipe_context *pctx,
 }
 
 void
-zink_destroy_sampler_state(struct zink_screen *screen, struct zink_sampler_state *sampler_state)
+zink_destroy_sampler(struct zink_context *ctx, struct zink_sampler *sampler)
 {
-   zink_descriptor_set_refs_clear(&sampler_state->desc_set_refs, sampler_state);
-   if (sampler_state->custom_border_color) {
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   zink_descriptor_set_refs_clear(&sampler->desc_set_refs, sampler);
+   if (sampler->custom_border_color)
       p_atomic_dec(&screen->cur_custom_border_color_samplers);
-      if (sampler_state->sampler[1])
-         p_atomic_dec(&screen->cur_custom_border_color_samplers);
-   }
-   vkDestroySampler(screen->dev, sampler_state->sampler[0], NULL);
-   if (sampler_state->sampler[1])
-      vkDestroySampler(screen->dev, sampler_state->sampler[1], NULL);
-   free(sampler_state);
-}
-
-static void
-zink_delete_sampler_state(struct pipe_context *pctx,
-                          void *sampler_state)
-{
-   struct zink_sampler_state *sampler = sampler_state;
-   zink_sampler_state_reference(zink_screen(pctx->screen), &sampler, NULL);
+   vkDestroySampler(screen->dev, sampler->sampler, NULL);
+   ralloc_free(sampler);
 }
 
 static VkImageViewType
@@ -2193,7 +2206,7 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
 
    batch->resources = _mesa_pointer_set_create(NULL);
    batch->sampler_views = _mesa_pointer_set_create(NULL);
-   batch->sampler_states = _mesa_pointer_set_create(NULL);
+   batch->samplers = _mesa_pointer_set_create(NULL);
    batch->surfaces = _mesa_pointer_set_create(NULL);
    batch->programs = _mesa_pointer_set_create(NULL);
    batch->desc_sets = _mesa_pointer_set_create(ctx);
@@ -2204,7 +2217,7 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
                                                                hash_framebuffer_state,
                                                                equals_framebuffer_state);
 
-   if (!batch->resources || !batch->sampler_views || !batch->sampler_states || !batch->desc_sets ||
+   if (!batch->resources || !batch->sampler_views || !batch->samplers || !batch->desc_sets ||
        !batch->programs || !batch->surfaces || !batch->surface_cache || !batch->framebuffer_cache)
       return false;
 

@@ -92,7 +92,7 @@ struct zink_descriptor_set {
       struct zink_image_view **image_views;
       struct {
          struct zink_sampler_view **sampler_views;
-         struct zink_sampler_state **sampler_states;
+         struct zink_sampler **samplers;
       };
    };
 };
@@ -108,7 +108,7 @@ zink_descriptor_set_refs_clear(struct zink_descriptor_refs *refs, void *ptr);
 void
 zink_image_view_desc_set_add(struct zink_image_view *image_view, struct zink_descriptor_set *zds, unsigned idx);
 void
-zink_sampler_state_desc_set_add(struct zink_sampler_state *sampler_state, struct zink_descriptor_set *zds, unsigned idx);
+zink_sampler_desc_set_add(struct zink_sampler *sampler, struct zink_descriptor_set *zds, unsigned idx);
 void
 zink_sampler_view_desc_set_add(struct zink_sampler_view *sv, struct zink_descriptor_set *zds, unsigned idx);
 void

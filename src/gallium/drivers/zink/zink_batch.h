@@ -38,7 +38,7 @@ struct zink_framebuffer;
 struct zink_program;
 struct zink_render_pass;
 struct zink_resource;
-struct zink_sampler_state;
+struct zink_sampler;
 struct zink_sampler_view;
 struct zink_surface;
 
@@ -56,7 +56,7 @@ struct zink_batch {
 
    struct set *resources;
    struct set *sampler_views;
-   struct set *sampler_states;
+   struct set *samplers;
    struct set *surfaces;
    struct set *desc_sets;
 
@@ -89,8 +89,8 @@ void
 zink_batch_reference_sampler_view(struct zink_batch *batch,
                                   struct zink_sampler_view *sv);
 void
-zink_batch_reference_sampler_state(struct zink_batch *batch,
-                                  struct zink_sampler_state *state);
+zink_batch_reference_sampler(struct zink_batch *batch,
+                                  struct zink_sampler *sampler);
 
 void
 zink_batch_reference_program(struct zink_batch *batch,

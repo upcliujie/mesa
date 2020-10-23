@@ -86,13 +86,16 @@ struct zink_image_view {
    };
 };
 
-struct zink_sampler_state {
+struct zink_sampler {
    struct pipe_reference reference;
    struct zink_descriptor_refs desc_set_refs;
-   VkSampler sampler[2]; //base, non-linear
-   uint32_t hash[2]; //base, non-linear
-   uint32_t batch_uses;
+   VkSampler sampler;
+   unsigned batch_uses;
    bool custom_border_color;
+};
+
+struct zink_sampler_state {
+   struct zink_sampler *samplers[2];
 };
 
 static inline struct zink_sampler_view *
@@ -327,20 +330,20 @@ zink_copy_image_buffer(struct zink_context *ctx, struct zink_batch *batch, struc
                        unsigned src_level, const struct pipe_box *src_box, enum pipe_map_flags map_flags);
 
 void
-zink_destroy_sampler_state(struct zink_screen *screen, struct zink_sampler_state *sampler_state);
+zink_destroy_sampler(struct zink_context *ctx, struct zink_sampler *sampler);
 void
-debug_describe_zink_sampler_state(char *buf, const struct zink_sampler_state *ptr);
+debug_describe_zink_sampler(char *buf, const struct zink_sampler *ptr);
 
 static inline void
-zink_sampler_state_reference(struct zink_screen *screen,
-                             struct zink_sampler_state **dst,
-                             struct zink_sampler_state *src)
+zink_sampler_reference(struct zink_context *ctx,
+                             struct zink_sampler **dst,
+                             struct zink_sampler *src)
 {
-   struct zink_sampler_state *old_dst = dst ? *dst : NULL;
+   struct zink_sampler *old_dst = dst ? *dst : NULL;
 
    if (pipe_reference_described(old_dst ? &old_dst->reference : NULL, &src->reference,
-                                (debug_reference_descriptor)debug_describe_zink_sampler_state))
-      zink_destroy_sampler_state(screen, old_dst);
+                                (debug_reference_descriptor)debug_describe_zink_sampler))
+      zink_destroy_sampler(ctx, old_dst);
    if (dst) *dst = src;
 }
 struct zink_surface *

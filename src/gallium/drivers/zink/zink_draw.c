@@ -31,7 +31,7 @@ desc_set_res_add(struct zink_descriptor_set *zds, struct zink_resource *res, uns
 }
 
 static void
-desc_set_sampler_add(struct zink_descriptor_set *zds, struct zink_sampler_view *sv, struct zink_sampler_state *state, unsigned int i, bool cache_hit)
+desc_set_sampler_add(struct zink_descriptor_set *zds, struct zink_sampler_view *sv, struct zink_sampler *sampler, unsigned int i, bool cache_hit)
 {
    /* if we got a cache hit, we have to verify that the cached set is still valid;
     * we store the vk resource to the set here to avoid a more complex and costly mechanism of maintaining a
@@ -39,10 +39,10 @@ desc_set_sampler_add(struct zink_descriptor_set *zds, struct zink_sampler_view *
     * whenever a resource is destroyed
     */
    assert(!cache_hit || zds->sampler_views[i] == sv);
-   assert(!cache_hit || zds->sampler_states[i] == state);
+   assert(!cache_hit || zds->samplers[i] == sampler);
    if (!cache_hit) {
       zink_sampler_view_desc_set_add(sv, zds, i);
-      zink_sampler_state_desc_set_add(state, zds, i);
+      zink_sampler_desc_set_add(sampler, zds, i);
    }
 }
 
@@ -494,13 +494,14 @@ update_ssbo_descriptors(struct zink_context *ctx, struct zink_descriptor_set *zd
    return write_descriptors(ctx, zds, num_wds, wds, persistent, is_compute, cache_hit, need_resource_refs);
 }
 
-static void
+static struct zink_sampler *
 handle_image_descriptor(struct zink_screen *screen, struct zink_resource *res, enum zink_descriptor_type type, VkDescriptorType vktype, VkWriteDescriptorSet *wd,
                         VkImageLayout layout, unsigned *num_image_info, VkDescriptorImageInfo *image_info,
                         unsigned *num_buffer_info, VkBufferView *buffer_info,
                         struct zink_sampler_state *sampler,
                         VkImageView imageview, VkBufferView bufferview, bool do_set)
 {
+    struct zink_sampler *ret = NULL;
     if (!res) {
         /* if we're hitting this assert often, we can probably just throw a junk buffer in since
          * the results of this codepath are undefined in ARB_texture_buffer_object spec
@@ -520,7 +521,7 @@ handle_image_descriptor(struct zink_screen *screen, struct zink_resource *res, e
            image_info->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
            image_info->imageView = VK_NULL_HANDLE;
            if (sampler)
-              image_info->sampler = sampler->sampler[0];
+              image_info->sampler = sampler->samplers[0]->sampler;
            if (do_set)
               wd->pImageInfo = image_info;
            ++(*num_image_info);
@@ -537,9 +538,10 @@ handle_image_descriptor(struct zink_screen *screen, struct zink_resource *res, e
            bool can_linear = (res->optimal_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
                              (!res->optimal_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
            if (can_linear)
-              image_info->sampler = sampler->sampler[0];
+              ret = sampler->samplers[0];
            else
-              image_info->sampler = sampler->sampler[1] ?: sampler->sampler[0];
+              ret = sampler->samplers[1] ? sampler->samplers[1] : sampler->samplers[0];
+           image_info->sampler = ret->sampler;
         }
         if (do_set)
            wd->pImageInfo = image_info;
@@ -550,6 +552,7 @@ handle_image_descriptor(struct zink_screen *screen, struct zink_resource *res, e
         *buffer_info = bufferview;
         ++(*num_buffer_info);
      }
+     return ret;
 }
 
 static bool
@@ -596,7 +599,8 @@ update_sampler_descriptors(struct zink_context *ctx, struct zink_descriptor_set 
             VkBufferView bufferview = VK_NULL_HANDLE;
             struct zink_resource *res = NULL;
             VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-            struct zink_sampler_state *sampler = NULL;
+            struct zink_sampler_state *sampler_state = NULL;
+            struct zink_sampler *sampler;
 
             struct pipe_sampler_view *psampler_view = ctx->sampler_views[stage][index + k];
             struct zink_sampler_view *sampler_view = zink_sampler_view(psampler_view);
@@ -606,25 +610,24 @@ update_sampler_descriptors(struct zink_context *ctx, struct zink_descriptor_set 
             } else if (res) {
                imageview = sampler_view->image_view;
                layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-               sampler = ctx->sampler_states[stage][index + k];
+               sampler_state = ctx->sampler_states[stage][index + k];
             }
             assert(num_resources < num_bindings);
-            desc_set_sampler_add(zds, sampler_view, sampler, num_resources++, cache_hit);
             if (res) {
                if (!cache_hit)
                   add_barrier(res, layout, VK_ACCESS_SHADER_READ_BIT, stage, &zds->barriers, ht);
             }
             assert(num_image_info < num_bindings);
-            handle_image_descriptor(screen, res, zds->pool->type, shader->bindings[zds->pool->type][j].type,
+            sampler = handle_image_descriptor(screen, res, zds->pool->type, shader->bindings[zds->pool->type][j].type,
                                     &wds[num_wds], layout, &num_image_info, &image_infos[num_image_info],
                                     &num_buffer_info, &buffer_views[num_buffer_info],
-                                    sampler, imageview, bufferview, !k);
-
+                                    sampler_state, imageview, bufferview, !k);
+            desc_set_sampler_add(zds, sampler_view, sampler, num_resources++, cache_hit);
             struct zink_batch *batch = is_compute ? &ctx->compute_batch : zink_curr_batch(ctx);
             if (sampler_view)
                zink_batch_reference_sampler_view(batch, sampler_view);
             if (sampler)
-              zink_batch_reference_sampler_state(batch, sampler);
+              zink_batch_reference_sampler(batch, sampler);
          }
          assert(num_wds < num_descriptors);
 

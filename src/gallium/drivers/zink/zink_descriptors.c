@@ -191,7 +191,7 @@ allocate_desc_set(struct zink_screen *screen, struct zink_program *pg, enum zink
 #endif
       if (type == ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW) {
          zds->sampler_views = (struct zink_sampler_view**)&resources[i * pool->num_descriptors];
-         zds->sampler_states = (struct zink_sampler_state**)&samplers[i * pool->num_descriptors];
+         zds->samplers = (struct zink_sampler**)&samplers[i * pool->num_descriptors];
       } else
          zds->resources = (struct zink_resource**)&resources[i * pool->num_descriptors];
       zds->desc_set = desc_set[i];
@@ -372,9 +372,9 @@ zink_image_view_desc_set_add(struct zink_image_view *image_view, struct zink_des
 }
 
 void
-zink_sampler_state_desc_set_add(struct zink_sampler_state *sampler_state, struct zink_descriptor_set *zds, unsigned idx)
+zink_sampler_desc_set_add(struct zink_sampler *sampler, struct zink_descriptor_set *zds, unsigned idx)
 {
-   desc_set_ref_add(zds, &sampler_state->desc_set_refs, (void**)&zds->sampler_states[idx], sampler_state);
+   desc_set_ref_add(zds, &sampler->desc_set_refs, (void**)&zds->samplers[idx], sampler);
 }
 
 void
