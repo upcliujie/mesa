@@ -54,6 +54,14 @@
 #define XXH_INLINE_ALL
 #include "util/xxhash.h"
 
+static inline uint32_t
+maybe_hash_u32(uint32_t val, uint32_t hash)
+{
+   if (!hash)
+      return val;
+   return XXH32(&val, sizeof(uint32_t), hash);
+}
+
 static uint32_t
 calc_descriptor_state_hash_ubo(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
 {
@@ -114,10 +122,10 @@ calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader 
    for (unsigned k = 0; k < zs->bindings[ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW][i].size; k++) {
       struct zink_sampler_view *sampler_view = zink_sampler_view(ctx->sampler_views[shader][idx + k]);
       if (!sampler_view) {
-         hash = XXH32(&screen->null_descriptor_hashes.sampler_view, sizeof(uint32_t), hash);
+         hash = maybe_hash_u32(screen->null_descriptor_hashes.sampler_view, hash);
          continue;
       }
-      hash = XXH32(&sampler_view->hash, sizeof(uint32_t), hash);
+      hash = maybe_hash_u32(sampler_view->hash, hash);
       if (sampler_view->base.target == PIPE_BUFFER)
          continue;
 
@@ -208,9 +216,8 @@ update_descriptor_state(struct zink_context *ctx, enum zink_descriptor_type type
          }
          if (ctx->gfx_descriptor_states[i].valid[type]) {
             /* this is the overall state update for the descriptor set hash */
-            ctx->descriptor_states[is_compute].state[type] = XXH32(&ctx->gfx_descriptor_states[i].state[type],
-                                                                   sizeof(uint32_t),
-                                                                   ctx->descriptor_states[is_compute].state[type]);
+            ctx->descriptor_states[is_compute].state[type] = maybe_hash_u32(ctx->gfx_descriptor_states[i].state[type],
+                                                                            ctx->descriptor_states[is_compute].state[type]);
          }
       }
    }
