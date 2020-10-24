@@ -419,6 +419,8 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
 
 	(void) mtx_init(&ctx->gmem_lock, mtx_plain);
 
+	ctx->seqno = p_atomic_inc_return(&screen->ctx_seqno);
+
 	/* need some sane default in case gallium frontends don't
 	 * set some state:
 	 */
