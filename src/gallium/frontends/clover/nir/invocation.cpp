@@ -99,8 +99,15 @@ clover_nir_add_image_uniforms(nir_shader *shader)
    }
 }
 
+struct _clover_nir_image_data {
+   nir_variable *image;
+   nir_variable *format;
+   nir_variable *order;
+};
+typedef std::map<unsigned, _clover_nir_image_data> clover_nir_image_data;
+
 static bool
-clover_nir_lower_images(nir_shader *shader)
+clover_nir_lower_images(nir_shader *shader, const clover_nir_image_data &images)
 {
    nir_function_impl *impl = nir_shader_get_entrypoint(shader);
 
@@ -248,6 +255,35 @@ clover_nir_lower_images(nir_shader *shader)
       }
    }
 
+   nir_foreach_block(block, impl) {
+      nir_foreach_instr(instr, block) {
+         switch (instr->type) {
+         case nir_instr_type_intrinsic: {
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            b.cursor = nir_after_instr(&intrin->instr);
+            switch (intrin->intrinsic) {
+            case nir_intrinsic_image_deref_format: {
+               unsigned id = nir_src_as_uint(intrin->src[0]);
+               nir_ssa_def *load = nir_isub(&b, nir_load_var(&b, images.at(id).format), nir_imm_int(&b, CL_SNORM_INT8));
+               nir_ssa_def_rewrite_uses(&intrin->dest.ssa, load);
+               break;
+            }
+            case nir_intrinsic_image_deref_order: {
+               unsigned id = nir_src_as_uint(intrin->src[0]);
+               nir_ssa_def *load = nir_isub(&b, nir_load_var(&b, images.at(id).order), nir_imm_int(&b, CL_R));
+               nir_ssa_def_rewrite_uses(&intrin->dest.ssa, load);
+               break;
+            }
+            default:
+               break;
+            }
+         }
+         default:
+            break;
+         }
+      }
+   }
+
    if (progress) {
       nir_metadata_preserve(impl, nir_metadata_block_index |
                                   nir_metadata_dominance);
@@ -337,6 +373,7 @@ static bool
 clover_lower_nir(nir_shader *nir,
                  std::vector<binary::argument> &args,
                  std::vector<binary::sampler> &sampler,
+                 clover_nir_image_data &image_data,
                  uint32_t dims, uint32_t pointer_bit_size)
 {
    nir_variable *constant_var = NULL;
@@ -353,7 +390,6 @@ clover_lower_nir(nir_shader *nir,
                         binary::argument::constant_buffer);
    }
 
-   unsigned last_loc = 0;
    nir_foreach_uniform_variable_safe(var, nir) {
       if (glsl_type_is_sampler(var->type) && var->data.sampler.is_inline_sampler) {
          var->data.sampler.is_inline_sampler = 0;
@@ -385,8 +421,32 @@ clover_lower_nir(nir_shader *nir,
          }
 
          sampler.emplace_back(addr_mode, filter_mode, norm_coords);
-      } else {
-         var->data.location = last_loc++;
+      }
+   }
+
+   nir_foreach_image_variable_safe(var, nir) {
+     nir_variable *format = nir_variable_create(nir, nir_var_uniform, glsl_type::uint_type, "image_format");
+     format->node.remove();
+     var->node.insert_after(&format->node);
+     nir_variable *order = nir_variable_create(nir, nir_var_uniform, glsl_type::uint_type, "image_order");
+     order->node.remove();
+     format->node.insert_after(&order->node);
+     image_data[var->data.driver_location] = { var, format, order };
+   }
+
+   unsigned last_loc = 0;
+   nir_foreach_uniform_variable_safe(var, nir)
+      var->data.location = last_loc++;
+
+   // also insert clover args
+   for (auto it = args.begin(); it != args.end();) {
+      auto &arg = *it;
+      it++;
+      if (arg.type == binary::argument::image_rd || arg.type == binary::argument::image_wr) {
+         it = args.emplace(it, binary::argument::scalar,
+			   sizeof(cl_uint), sizeof(cl_uint), sizeof(cl_uint),
+			   binary::argument::zero_ext,
+			   binary::argument::image_format);
       }
    }
 
@@ -563,7 +623,8 @@ binary clover::nir::spirv_to_nir(const binary &mod, const device &dev,
 
       auto args = sym.args;
       std::vector<binary::sampler> samplers;
-      NIR_PASS_V(nir, clover_lower_nir, args, samplers, dev.max_block_size().size(),
+      clover_nir_image_data images;
+      NIR_PASS_V(nir, clover_lower_nir, args, samplers, images, dev.max_block_size().size(),
                  dev.address_bits());
 
       NIR_PASS_V(nir, clover_nir_add_image_uniforms);
@@ -576,7 +637,7 @@ binary clover::nir::spirv_to_nir(const binary &mod, const device &dev,
 
       NIR_PASS_V(nir, nir_opt_deref);
       NIR_PASS_V(nir, nir_lower_readonly_images_to_tex, false);
-      NIR_PASS_V(nir, clover_nir_lower_images);
+      NIR_PASS_V(nir, clover_nir_lower_images, images);
       NIR_PASS_V(nir, nir_lower_memcpy);
 
       /* use offsets for kernel inputs (uniform) */
