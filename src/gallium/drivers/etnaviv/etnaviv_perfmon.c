@@ -42,6 +42,22 @@ static const char *group_names[] = {
 
 static const struct etna_perfmon_config query_config[] = {
    {
+      .name = "hi-total-read-bytes8",
+      .type = ETNA_QUERY_HI_TOTAL_READ_BYTES8,
+      .group_id = ETNA_QUERY_HI_GROUP_ID,
+      .source = (const struct etna_perfmon_source[]) {
+         { "HI", "TOTAL_READ_BYTES8" }
+      }
+   },
+   {
+      .name = "hi-total-write-bytes8",
+      .type = ETNA_QUERY_HI_TOTAL_WRITE_BYTES8,
+      .group_id = ETNA_QUERY_HI_GROUP_ID,
+      .source = (const struct etna_perfmon_source[]) {
+         { "HI", "TOTAL_WRITE_BYTES8" }
+      }
+   },
+   {
       .name = "hi-total-cycles",
       .type = ETNA_QUERY_HI_TOTAL_CYCLES,
       .group_id = ETNA_QUERY_HI_GROUP_ID,
