@@ -422,6 +422,43 @@ st_nir_preprocess(struct st_context *st, struct gl_program *prog,
    NIR_PASS_V(nir, nir_opt_constant_folding);
 }
 
+static bool
+dest_is_64bit(nir_dest *dest, void *state)
+{
+   bool *lower = (bool *)state;
+   if (dest && (nir_dest_bit_size(*dest) == 64)) {
+      *lower = true;
+      return false;
+   }
+   return true;
+}
+
+static bool
+src_is_64bit(nir_src *src, void *state)
+{
+   bool *lower = (bool *)state;
+   if (src && (nir_src_bit_size(*src) == 64)) {
+      *lower = true;
+      return false;
+   }
+   return true;
+}
+
+static bool
+filter_64_bit_instr(const nir_instr *const_instr, UNUSED const void *data)
+{
+   bool lower = false;
+   /* lower_alu_to_scalar required nir_instr bo be const, but nir_foreach_* doesn't
+    * have const variants, so do the ugly const_cast here. */
+   nir_instr *instr = const_cast<nir_instr *>(const_instr);
+
+   nir_foreach_dest(instr, dest_is_64bit, &lower);
+   if (lower)
+      return true;
+   nir_foreach_src(instr, src_is_64bit, &lower);
+   return lower;
+}
+
 /* Second third of converting glsl_to_nir. This creates uniforms, gathers
  * info on varyings, etc after NIR link time opts have been applied.
  */
@@ -494,12 +531,19 @@ st_glsl_to_nir_post_opts(struct st_context *st, struct gl_program *prog,
    if (nir->options->lower_int64_options ||
        nir->options->lower_doubles_options) {
       bool lowered_64bit_ops = false;
+      if (!nir->options->lower_to_scalar) {
+         NIR_PASS_V(nir, nir_lower_alu_to_scalar, filter_64_bit_instr, nullptr);
+         NIR_PASS_V(nir, nir_lower_phis_to_scalar);
+      }
       if (nir->options->lower_doubles_options) {
          NIR_PASS(lowered_64bit_ops, nir, nir_lower_doubles,
                   st->ctx->SoftFP64, nir->options->lower_doubles_options);
       }
       if (nir->options->lower_int64_options)
          NIR_PASS(lowered_64bit_ops, nir, nir_lower_int64);
+
+      if (!nir->options->lower_to_scalar)
+         NIR_PASS_V(nir, nir_opt_vectorize, nullptr, nullptr);
 
       if (lowered_64bit_ops)
          st_nir_opts(nir);
