@@ -478,11 +478,25 @@ bool add_predecessor_by_index(sched_ctx &ctx, Node *node, unsigned predecessor_i
    return true;
 }
 
+memory_sync_info get_prs_sync_info(const Instruction *instr)
+{
+   if (instr->format == Format::PSEUDO_BARRIER) {
+      return static_cast<const Pseudo_barrier_instruction *>(instr)->sync;
+   } else if (instr->opcode == aco_opcode::s_sendmsg) {
+      const SOPP_instruction *sopp = static_cast<const SOPP_instruction *>(instr);
+      /* Check for MSG_GS and MSG_GS_DONE */
+      if (sopp->imm & 3u)
+         return memory_sync_info(storage_vmem_output, semantic_acqrel);
+      if (sopp->imm & 2u)
+         return memory_sync_info(storage_vmem_output);
+   }
+
+   return get_sync_info(instr);
+}
+
 bool handle_sync(sched_ctx &ctx, const Instruction *instr, unsigned index, Node *node)
 {
-   memory_sync_info sync = instr->format == Format::PSEUDO_BARRIER
-                           ? static_cast<const Pseudo_barrier_instruction *>(instr)->sync
-                           : get_sync_info(instr);
+   memory_sync_info sync = get_prs_sync_info(instr);
    unsigned str = sync.storage;
    unsigned acq = 0;
    unsigned rel = 0;
