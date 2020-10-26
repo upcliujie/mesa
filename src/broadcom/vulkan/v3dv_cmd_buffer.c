@@ -123,6 +123,7 @@ cmd_buffer_init(struct v3dv_cmd_buffer *cmd_buffer,
    list_inithead(&cmd_buffer->private_objs);
    list_inithead(&cmd_buffer->jobs);
    list_inithead(&cmd_buffer->list_link);
+   list_inithead(&cmd_buffer->meta.blit.dspool_list);
 
    assert(pool);
    list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
@@ -319,9 +320,11 @@ cmd_buffer_free_resources(struct v3dv_cmd_buffer *cmd_buffer)
       cmd_buffer_destroy_private_obj(cmd_buffer, pobj);
    }
 
-   if (cmd_buffer->meta.blit.dspool) {
+   list_for_each_entry_safe(struct v3dv_descriptor_pool, pool,
+                            &cmd_buffer->meta.blit.dspool_list, list_link) {
+      list_del(&pool->list_link);
       v3dv_DestroyDescriptorPool(v3dv_device_to_handle(cmd_buffer->device),
-                                 cmd_buffer->meta.blit.dspool,
+                                 v3dv_descriptor_pool_to_handle(pool),
                                  &cmd_buffer->device->alloc);
    }
 
