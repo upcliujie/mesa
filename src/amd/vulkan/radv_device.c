@@ -6804,11 +6804,7 @@ radv_init_dcc_control_reg(struct radv_device *device,
 		min_compressed_block_size = V_028C78_MIN_BLOCK_SIZE_64B;
 	}
 
-	if (device->physical_device->rad_info.chip_class >= GFX10) {
-		max_compressed_block_size = V_028C78_MAX_BLOCK_SIZE_128B;
-		independent_64b_blocks = 0;
-		independent_128b_blocks = 1;
-	} else {
+	if (device->physical_device->rad_info.chip_class < GFX10) {
 		independent_128b_blocks = 0;
 
 		if (iview->image->info.samples > 1) {
@@ -6819,8 +6815,8 @@ radv_init_dcc_control_reg(struct radv_device *device,
 		}
 
 		if (iview->image->usage & (VK_IMAGE_USAGE_SAMPLED_BIT |
-					   VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-					   VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) {
+		                           VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+		                           VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) {
 			/* If this DCC image is potentially going to be used in texture
 			 * fetches, we need some special settings.
 			 */
@@ -6834,6 +6830,13 @@ radv_init_dcc_control_reg(struct radv_device *device,
 			independent_64b_blocks = 0;
 			max_compressed_block_size = max_uncompressed_block_size;
 		}
+	}
+
+	/* For GFX9+ ac_surface computes values for us (except min_compressed and max_uncompressed) */
+	if (device->physical_device->rad_info.chip_class >= GFX9) {
+		max_compressed_block_size = iview->image->planes[0].surface.u.gfx9.dcc.max_compressed_block_size;
+		independent_128b_blocks = iview->image->planes[0].surface.u.gfx9.dcc.independent_128B_blocks;
+		independent_64b_blocks = iview->image->planes[0].surface.u.gfx9.dcc.independent_64B_blocks;
 	}
 
 	return S_028C78_MAX_UNCOMPRESSED_BLOCK_SIZE(max_uncompressed_block_size) |
