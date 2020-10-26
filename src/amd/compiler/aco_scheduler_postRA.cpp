@@ -45,10 +45,12 @@ struct Node
    int index;
    int priority;
    int latency;
+   int total_load_latency = 0;
    int start_cycle = -1;
    std::unordered_set<Node *> successors;
    std::unordered_set<Node *> predecessors;
    bool scheduled = false;
+   bool propagated_priority = false;
 
    Node(int i, int lat) : index(i), priority(lat), latency(lat) {}
 
@@ -94,6 +96,7 @@ struct sched_ctx
    int last_acquirer[storage_count];
    std::vector<Node *> acquired_nodes[storage_count];
 
+   int total_load_latency = 0;
    int total_cycles = 0;
    int reg_rd_dn_cycle[max_reg_cnt] = {0};
    int reg_wr_dn_cycle[max_reg_cnt] = {0};
@@ -110,6 +113,7 @@ struct sched_ctx
    void barrier()
    {
       assert(candidates.empty());
+      total_load_latency = 0;
 
       /* Clear barrier info */
       for (unsigned i = 0; i < storage_count; i++) {
@@ -140,6 +144,31 @@ struct sched_ctx
 Instruction *get_node_instr(sched_ctx &ctx, const Node *node)
 {
    return ctx.block->instructions[node->index].get();
+}
+
+bool is_load_store(const Instruction *instr)
+{
+   switch (instr->format) {
+   case Format::SMEM:
+   case Format::MUBUF:
+   case Format::MTBUF:
+   case Format::MIMG:
+   case Format::FLAT:
+   case Format::GLOBAL:
+   case Format::SCRATCH:
+      return true;
+   case Format::DS:
+      switch (instr->opcode) {
+         case aco_opcode::ds_swizzle_b32:
+         case aco_opcode::ds_bpermute_b32:
+         case aco_opcode::ds_nop:
+            return false;
+         default:
+            return true;
+      }
+   default:
+      return false;
+   }
 }
 
 bool is_unschedulable(const Instruction *instr)
@@ -550,6 +579,23 @@ bool handle_sync(sched_ctx &ctx, const Instruction *instr, unsigned index, Node 
    return !added_predecessor;
 }
 
+void accumulate_load_latency(sched_ctx &ctx, const Instruction *instr, Node *node)
+{
+   for (auto it = node->predecessors.begin(); it != node->predecessors.end(); ++it) {
+      Node *predecessor = *it;
+      if (predecessor->total_load_latency > node->total_load_latency)
+         node->total_load_latency = predecessor->total_load_latency;
+   }
+
+   /* TODO: VMEM */
+
+   if (is_load_store(instr))
+      node->total_load_latency += node->latency;
+
+   if (node->total_load_latency > ctx.total_load_latency)
+      ctx.total_load_latency = node->total_load_latency;
+}
+
 void add_to_dag(sched_ctx &ctx, const Instruction *instr, unsigned index)
 {
    assert(!is_unschedulable(instr));
@@ -572,12 +618,53 @@ void add_to_dag(sched_ctx &ctx, const Instruction *instr, unsigned index)
    if (!handle_sync(ctx, instr, index, node))
       is_candidate = false;
 
+   accumulate_load_latency(ctx, instr, node);
+
    if (is_candidate)
       ctx.candidates.insert(node);
 }
 
+void set_priorities(sched_ctx &ctx)
+{
+   /* Assign and propagate priorities backwards */
+   for (auto it = ctx.nodes.rbegin(); it != ctx.nodes.rend(); ++it) {
+      Node &node = *it;
+
+      if (node.scheduled)
+         continue;
+
+      Instruction *instr = get_node_instr(ctx, &node);
+      bool load_store = is_load_store(instr);
+
+      /* TODO: VMEM */
+
+      if (load_store) {
+         /* Set priority based on accumulated load latency */
+         node.priority = ctx.total_load_latency - node.total_load_latency + node.latency;
+      }
+
+      if (node.propagated_priority || load_store) {
+         /* Propagate the priority of the current node to all predecessors */
+         for (auto pred_it = node.predecessors.begin(); pred_it != node.predecessors.end(); ++pred_it) {
+            Node *predecessor = *pred_it;
+            int priority_to_propagate = node.priority;
+
+            if (!node.propagated_priority || node.latency != predecessor->latency)
+               priority_to_propagate += predecessor->latency;
+
+            if (priority_to_propagate > predecessor->priority) {
+               predecessor->propagated_priority = true;
+               predecessor->priority = priority_to_propagate;
+            }
+         }
+      }
+   }
+}
+
 void select_candidates(sched_ctx &ctx)
 {
+   set_priorities(ctx);
+
    while (!ctx.candidates.empty()) {
       Node *next_instr = select_candidate(ctx);
       ctx.new_instructions.emplace_back(std::move(ctx.block->instructions[next_instr->index]));
