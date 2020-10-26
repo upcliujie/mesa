@@ -638,6 +638,11 @@ tu_QueueSubmit(VkQueue _queue,
       const VkSubmitInfo *submit = pSubmits + i;
       const bool last_submit = (i == submitCount - 1);
       uint32_t out_syncobjs_size = submit->signalSemaphoreCount;
+
+      const VkPerformanceQuerySubmitInfoKHR *perf_info =
+         vk_find_struct_const(pSubmits[i].pNext,
+                              PERFORMANCE_QUERY_SUBMIT_INFO_KHR);
+
       if (last_submit && fence)
          out_syncobjs_size += 1;
       /* note: assuming there won't be any very large semaphore counts */
@@ -671,6 +676,14 @@ tu_QueueSubmit(VkQueue _queue,
       uint32_t entry_count = 0;
       for (uint32_t j = 0; j < submit->commandBufferCount; ++j) {
          TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, submit->pCommandBuffers[j]);
+
+         /* Note that the perf query cs for the first pass is already emitted */
+         if (perf_info && perf_info->counterPassIndex > 0) {
+            assert(cmdbuf->perf_query_pool);
+
+            tu_emit_perf_query_per_pass(cmdbuf, cmdbuf->perf_query_pool,
+                  perf_info->counterPassIndex);
+         }
          entry_count += cmdbuf->cs.entry_count;
       }
 

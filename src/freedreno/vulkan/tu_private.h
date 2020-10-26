@@ -979,9 +979,15 @@ struct tu_cmd_buffer
    struct tu_cs draw_cs;
    struct tu_cs draw_epilogue_cs;
    struct tu_cs sub_cs;
+   struct tu_cs perf_query_begin_cs;
+   struct tu_cs perf_query_end_cs;
+   struct tu_cs perf_select_reg_cs;
+   struct tu_cs perf_accumulate_result_cs;
 
    uint32_t vsc_draw_strm_pitch;
    uint32_t vsc_prim_strm_pitch;
+
+   struct tu_query_pool *perf_query_pool;
 };
 
 /* Temporary struct for tracking a register state to be written, used by
@@ -1508,6 +1514,14 @@ struct tu_render_pass
    struct tu_subpass subpasses[0];
 };
 
+struct tu_perf_query_data
+{
+   uint32_t gid;      /* group-id */
+   uint32_t cid;      /* countable-id within the group */
+   uint32_t cntr_reg; /* counter register within the group */
+   uint32_t pass;     /* pass that countables can be requested */
+};
+
 struct tu_query_pool
 {
    struct vk_object_base base;
@@ -1522,8 +1536,12 @@ struct tu_query_pool
    const struct fd_perfcntr_group *perf_group;
    uint32_t perf_group_count;
    uint32_t counter_index_count;
-   uint32_t counter_indices[0];
+   struct tu_perf_query_data perf_query_data[0];
 };
+
+void
+tu_emit_perf_query_per_pass(struct tu_cmd_buffer *cmdbuf,
+                            struct tu_query_pool *pool, uint32_t pass);
 
 void
 tu_update_descriptor_sets(VkDescriptorSet overrideSet,

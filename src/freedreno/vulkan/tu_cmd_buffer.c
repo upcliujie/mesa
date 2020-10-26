@@ -1376,6 +1376,10 @@ tu_cmd_buffer_destroy(struct tu_cmd_buffer *cmd_buffer)
    tu_cs_finish(&cmd_buffer->draw_cs);
    tu_cs_finish(&cmd_buffer->draw_epilogue_cs);
    tu_cs_finish(&cmd_buffer->sub_cs);
+   tu_cs_finish(&cmd_buffer->perf_query_begin_cs);
+   tu_cs_finish(&cmd_buffer->perf_query_end_cs);
+   tu_cs_finish(&cmd_buffer->perf_select_reg_cs);
+   tu_cs_finish(&cmd_buffer->perf_accumulate_result_cs);
 
    vk_object_free(&cmd_buffer->device->vk, &cmd_buffer->pool->alloc, cmd_buffer);
 }
@@ -1389,6 +1393,10 @@ tu_reset_cmd_buffer(struct tu_cmd_buffer *cmd_buffer)
    tu_cs_reset(&cmd_buffer->draw_cs);
    tu_cs_reset(&cmd_buffer->draw_epilogue_cs);
    tu_cs_reset(&cmd_buffer->sub_cs);
+   tu_cs_reset(&cmd_buffer->perf_query_begin_cs);
+   tu_cs_reset(&cmd_buffer->perf_query_end_cs);
+   tu_cs_reset(&cmd_buffer->perf_select_reg_cs);
+   tu_cs_reset(&cmd_buffer->perf_accumulate_result_cs);
 
    for (unsigned i = 0; i < MAX_BIND_POINTS; i++)
       memset(&cmd_buffer->descriptors[i].sets, 0, sizeof(cmd_buffer->descriptors[i].sets));
