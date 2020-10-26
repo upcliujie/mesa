@@ -376,7 +376,7 @@ create_fs(struct st_context *st, bool download,
    bool pos_is_sysval =
       screen->get_param(screen, PIPE_CAP_TGSI_FS_POSITION_IS_SYSVAL);
 
-   nir_builder b = nir_builder_init_simple_shader(NULL, MESA_SHADER_FRAGMENT, options);
+   nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, options);
 
    nir_ssa_def *zero = nir_imm_int(&b, 0);
 
