@@ -79,7 +79,7 @@ lower_cl_images_to_tex_impl(nir_function_impl *impl)
          unsigned coord_components =
             glsl_get_sampler_dim_coordinate_components(tex->sampler_dim);
          if (glsl_sampler_type_is_array(deref->type))
-            tex->coord_components++;
+            coord_components++;
 
          tex->src[0].src_type = nir_tex_src_texture_deref;
          tex->src[0].src = nir_src_for_ssa(&deref->dest.ssa);
