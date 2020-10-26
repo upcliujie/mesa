@@ -1142,6 +1142,7 @@ struct v3dv_cmd_buffer {
    /* Per-command buffer resources for meta operations. */
    struct {
       struct {
+         /* The current descriptor pool for blit sources */
          VkDescriptorPool dspool;
       } blit;
    } meta;
@@ -1377,6 +1378,9 @@ struct v3dv_descriptor_pool_entry
 };
 
 struct v3dv_descriptor_pool {
+   /* For private driver object destruction. */
+   struct list_head list_link;
+
    struct v3dv_bo *bo;
    /* Current offset at the descriptor bo. 0 means that we didn't use it for
     * any descriptor. If the descriptor bo is NULL, current offset is
