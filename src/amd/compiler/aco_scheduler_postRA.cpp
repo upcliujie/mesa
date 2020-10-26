@@ -137,6 +137,8 @@ bool reads_exec_implicitly(const Instruction *instr)
          case aco_opcode::s_nand_saveexec_b64:
          case aco_opcode::s_nor_saveexec_b64:
          case aco_opcode::s_xnor_saveexec_b64:
+         case aco_opcode::s_sendmsg:
+         case aco_opcode::s_sendmsghalt:
             return true;
          default:
             return false;
