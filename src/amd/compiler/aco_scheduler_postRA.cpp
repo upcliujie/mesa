@@ -76,10 +76,8 @@ struct sched_ctx
    std::vector<Node *> acquired_nodes[storage_count];
 
    /* here we can maintain information about the functional units */
-   sched_ctx(Block *b) : block(b)
+   sched_ctx() : block(nullptr)
    {
-      nodes.reserve(b->instructions.size());
-
       for (unsigned i = 0; i < storage_count; i++) {
          last_acquirer[i] = -1;
          acquired_nodes[i].reserve(10);
@@ -101,6 +99,18 @@ struct sched_ctx
          writes[i] = nullptr;
          writeless_reads[i].clear();
       }
+   }
+
+   void reset(Block *next_block)
+   {
+      new_instructions.clear();
+      nodes.clear();
+      candidates.clear();
+
+      barrier();
+
+      block = next_block;
+      nodes.reserve(block->instructions.size());
    }
 };
 
@@ -451,8 +461,10 @@ void select_candidates(sched_ctx &ctx)
 
 void schedule_postRA(Program *program)
 {
+   sched_ctx ctx;
+
    for (auto &block : program->blocks) {
-      sched_ctx ctx(&block);
+      ctx.reset(&block);
 
       for (unsigned index = 0; index < ctx.block->instructions.size(); index++) {
          const Instruction* instr = ctx.block->instructions[index].get();
