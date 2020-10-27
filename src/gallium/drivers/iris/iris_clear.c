@@ -147,14 +147,7 @@ convert_fast_clear_color(struct iris_context *ice,
       util_format_description(format);
    unsigned colormask = util_format_colormask(desc);
 
-   if (util_format_is_intensity(format) ||
-       util_format_is_luminance(format) ||
-       util_format_is_luminance_alpha(format)) {
-      override_color.u32[1] = override_color.u32[0];
-      override_color.u32[2] = override_color.u32[0];
-      if (util_format_is_intensity(format))
-         override_color.u32[3] = override_color.u32[0];
-   } else {
+   if (colormask != PIPE_MASK_RGBA) {
       for (int chan = 0; chan < 3; chan++) {
          if (!(colormask & (1 << chan)))
             override_color.u32[chan] = 0;
