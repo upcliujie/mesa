@@ -57,7 +57,11 @@
 static uint32_t
 calc_descriptor_state_hash_ubo(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
 {
-   hash = XXH32(&ctx->ubos[shader][idx].buffer, sizeof(void*), hash);
+   struct zink_resource *res = zink_resource(ctx->ubos[shader][idx].buffer);
+   if (res)
+      hash = XXH32(&res->obj, sizeof(void*), hash);
+   else //this should be a ternary but CI has compiler bugs
+      hash = XXH32(&res, sizeof(void*), hash);
    void *hash_data = &ctx->ubos[shader][idx].buffer_size;
    size_t data_size = sizeof(unsigned);
    hash = XXH32(hash_data, data_size, hash);
@@ -69,9 +73,17 @@ calc_descriptor_state_hash_ubo(struct zink_context *ctx, struct zink_shader *zs,
 static uint32_t
 calc_descriptor_state_hash_ssbo(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
 {
-   void *hash_data = &ctx->ssbos[shader][idx];
-   size_t data_size = sizeof(struct pipe_shader_buffer);
-   return XXH32(hash_data, data_size, hash);
+   struct zink_resource *res = zink_resource(ctx->ssbos[shader][idx].buffer);
+   if (res)
+      hash = XXH32(&res->obj, sizeof(void*), hash);
+   else //this should be a ternary but CI has compiler bugs
+      hash = XXH32(&res, sizeof(void*), hash);
+   if (res) {
+      struct pipe_shader_buffer *ssbo = &ctx->ssbos[shader][idx];
+      hash = XXH32(&ssbo->buffer_offset, sizeof(ssbo->buffer_offset), hash);
+      hash = XXH32(&ssbo->buffer_size, sizeof(ssbo->buffer_size), hash);
+   }
+   return hash;
 }
 
 static void
