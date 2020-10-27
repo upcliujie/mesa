@@ -261,14 +261,6 @@ destroy_batch(struct zink_context* ctx, struct zink_batch* batch)
    }
    _mesa_hash_table_destroy(batch->framebuffer_cache, NULL);
 
-   for (struct hash_entry* entry = _mesa_hash_table_next_entry(batch->surface_cache, NULL);
-        entry != NULL;
-        entry = _mesa_hash_table_next_entry(batch->surface_cache, entry)) {
-      struct pipe_surface* sf = (struct pipe_surface*)entry->data;
-      pipe_resource_reference(&sf->texture, NULL);
-      pipe_surface_reference(&sf, NULL);
-   }
-   _mesa_hash_table_destroy(batch->surface_cache, NULL);
 }
 
 static void
@@ -286,6 +278,12 @@ zink_context_destroy(struct pipe_context *pctx)
       destroy_batch(ctx, &ctx->batches[i]);
    if (ctx->compute_batch.cmdpool)
       destroy_batch(ctx, &ctx->compute_batch);
+
+   hash_table_foreach(&ctx->surface_cache, entry) {
+      struct pipe_surface* sf = (struct pipe_surface*)entry->data;
+      pipe_resource_reference(&sf->texture, NULL);
+      pipe_surface_reference(&sf, NULL);
+   }
 
    util_primconvert_destroy(ctx->primconvert);
    u_upload_destroy(pctx->stream_uploader);
@@ -1040,16 +1038,16 @@ get_render_pass(struct zink_context *ctx)
    return entry->data;
 }
 
-static uint32_t
-hash_ivci(const void *key)
-{
-   return _mesa_hash_data(key, sizeof(VkImageViewCreateInfo));
-}
-
 static bool
 equals_ivci(const void *a, const void *b)
 {
    return memcmp(a, b, sizeof(VkImageViewCreateInfo)) == 0;
+}
+
+static uint32_t
+hash_ivci(const void *key)
+{
+   return _mesa_hash_data(key, sizeof(VkImageViewCreateInfo));
 }
 
 struct zink_surface *
@@ -1057,7 +1055,6 @@ get_surface(struct zink_context *ctx,
             struct pipe_resource *pres,
             const struct pipe_surface *templ)
 {
-   struct zink_batch *batch = zink_curr_batch(ctx);
    struct zink_surface* surface = NULL;
 
    VkImageViewCreateInfo ivci = create_ivci(zink_screen(ctx->base.screen),
@@ -1065,12 +1062,13 @@ get_surface(struct zink_context *ctx,
 
    uint32_t hash = hash_ivci(&ivci);
 
-   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(batch->surface_cache, hash, &ivci);
+   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(&ctx->surface_cache, hash, &ivci);
 
    if (!entry) {
       /* create a new surface */
       surface = create_surface(&ctx->base, pres, templ);
-      entry = _mesa_hash_table_insert_pre_hashed(batch->surface_cache, hash, &ivci, surface);
+      surface->ivci = ivci;
+      entry = _mesa_hash_table_insert_pre_hashed(&ctx->surface_cache, hash, &surface->ivci, surface);
       if (!entry)
          return NULL;
 
@@ -2210,9 +2208,6 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
    batch->surfaces = _mesa_pointer_set_create(NULL);
    batch->programs = _mesa_pointer_set_create(NULL);
    batch->desc_sets = _mesa_pointer_set_create(ctx);
-   batch->surface_cache = _mesa_hash_table_create(NULL,
-                                                           hash_ivci,
-                                                           equals_ivci);
    batch->framebuffer_cache = _mesa_hash_table_create(NULL,
                                                                hash_framebuffer_state,
                                                                equals_framebuffer_state);
@@ -2294,6 +2289,8 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    zink_context_surface_init(&ctx->base);
    zink_context_resource_init(&ctx->base);
    zink_context_query_init(&ctx->base);
+
+   _mesa_hash_table_init(&ctx->surface_cache, ctx, NULL, equals_ivci);
 
    ctx->gfx_pipeline_state.have_EXT_extended_dynamic_state = screen->info.have_EXT_extended_dynamic_state;
 

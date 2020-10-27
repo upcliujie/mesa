@@ -32,6 +32,7 @@ struct pipe_context;
 
 struct zink_surface {
    struct pipe_surface base;
+   VkImageViewCreateInfo ivci;
    VkImageView image_view;
 };
 

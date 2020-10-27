@@ -62,7 +62,6 @@ struct zink_batch {
 
    struct set *active_queries; /* zink_query objects which were active at some point in this batch */
 
-   struct hash_table *surface_cache;
    struct hash_table *framebuffer_cache;
 
    VkDeviceSize resource_size;
