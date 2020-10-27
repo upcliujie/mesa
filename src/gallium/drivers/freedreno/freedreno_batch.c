@@ -243,20 +243,15 @@ batch_reset_resources_locked(struct fd_batch *batch)
 }
 
 static void
-batch_reset_resources(struct fd_batch *batch)
-{
-	fd_screen_lock(batch->ctx->screen);
-	batch_reset_resources_locked(batch);
-	fd_screen_unlock(batch->ctx->screen);
-}
-
-static void
 batch_reset(struct fd_batch *batch)
 {
 	DBG("%p", batch);
 
 	batch_flush_reset_dependencies(batch, false);
-	batch_reset_resources(batch);
+
+	fd_screen_lock(batch->ctx->screen);
+	batch_reset_resources_locked(batch);
+	fd_screen_unlock(batch->ctx->screen);
 
 	batch_fini(batch);
 	batch_init(batch);
@@ -325,12 +320,12 @@ batch_flush(struct fd_batch *batch)
 
 	fd_fence_ref(&batch->ctx->last_fence, batch->fence);
 
+	fd_screen_lock(batch->ctx->screen);
 	fd_gmem_render_tiles(batch);
-	batch_reset_resources(batch);
+	batch_reset_resources_locked(batch);
 
 	debug_assert(batch->reference.count > 0);
 
-	fd_screen_lock(batch->ctx->screen);
 	fd_bc_invalidate_batch(batch, false);
 	fd_screen_unlock(batch->ctx->screen);
 }

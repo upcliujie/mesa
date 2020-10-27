@@ -423,6 +423,8 @@ fd6_texture_state(struct fd_context *ctx, enum pipe_shader_type type,
 	struct fd6_texture_key key;
 	bool needs_border = false;
 
+	fd_screen_assert_locked(ctx->screen);
+
 	memset(&key, 0, sizeof(key));
 
 	for (unsigned i = 0; i < tex->num_textures; i++) {
@@ -452,13 +454,12 @@ fd6_texture_state(struct fd_context *ctx, enum pipe_shader_type type,
 	key.bcolor_offset = fd6_border_color_offset(ctx, type, tex);
 
 	uint32_t hash = key_hash(&key);
-	fd_screen_lock(ctx->screen);
 	struct hash_entry *entry =
 		_mesa_hash_table_search_pre_hashed(fd6_ctx->tex_cache, hash, &key);
 
 	if (entry) {
 		fd6_texture_state_reference(&state, entry->data);
-		goto out_unlock;
+		return state;
 	}
 
 	state = CALLOC_STRUCT(fd6_texture_state);
@@ -478,8 +479,6 @@ fd6_texture_state(struct fd_context *ctx, enum pipe_shader_type type,
 	_mesa_hash_table_insert_pre_hashed(fd6_ctx->tex_cache, hash,
 			&state->key, state);
 
-out_unlock:
-	fd_screen_unlock(ctx->screen);
 	return state;
 }
 

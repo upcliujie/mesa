@@ -318,8 +318,10 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
 		util_format_short_name(pipe_surface_format(pfb->cbufs[0])),
 		util_format_short_name(pipe_surface_format(pfb->zsbuf)));
 
+	fd_screen_lock(ctx->screen);
 	if (ctx->draw_vbo(ctx, info, index_offset))
 		batch->needs_flush = true;
+	fd_screen_unlock(ctx->screen);
 
 	batch->num_vertices += info->count * info->instance_count;
 
@@ -437,12 +439,14 @@ fd_clear(struct pipe_context *pctx, unsigned buffers,
 	if (ctx->clear) {
 		fd_batch_set_stage(batch, FD_STAGE_CLEAR);
 
+		fd_screen_lock(ctx->screen);
 		if (ctx->clear(ctx, buffers, color, depth, stencil)) {
 			if (fd_mesa_debug & FD_DBG_DCLEAR)
 				fd_context_all_dirty(ctx);
 
 			fallback = false;
 		}
+		fd_screen_unlock(ctx->screen);
 	}
 
 	if (fallback) {
@@ -519,10 +523,10 @@ fd_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
 	if (info->indirect)
 		resource_read(batch, info->indirect);
 
-	fd_screen_unlock(ctx->screen);
-
 	batch->needs_flush = true;
 	ctx->launch_grid(ctx, info);
+
+	fd_screen_unlock(ctx->screen);
 
 	fd_batch_flush(batch);
 

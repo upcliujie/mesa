@@ -531,7 +531,7 @@ lookup_gmem_state(struct fd_batch *batch, bool assume_zs, bool no_scis_opt)
 	struct gmem_key *key = gmem_key_init(batch, assume_zs, no_scis_opt);
 	uint32_t hash = gmem_key_hash(key);
 
-	fd_screen_lock(screen);
+	fd_screen_assert_locked(screen);
 
 	struct hash_entry *entry =
 		_mesa_hash_table_search_pre_hashed(cache->ht, hash, key);
@@ -557,8 +557,6 @@ found:
 	/* Move to the head of the LRU: */
 	list_delinit(&gmem->node);
 	list_add(&gmem->node, &cache->lru);
-
-	fd_screen_unlock(screen);
 
 	return gmem;
 }
@@ -662,6 +660,8 @@ fd_gmem_render_tiles(struct fd_batch *batch)
 	struct pipe_framebuffer_state *pfb = &batch->framebuffer;
 	bool sysmem = false;
 
+	fd_screen_assert_locked(ctx->screen);
+
 	if (ctx->emit_sysmem_prep && !batch->nondraw) {
 		if (batch->cleared || batch->gmem_reason ||
 				((batch->num_draws > 5) && !batch->blit) ||
@@ -737,9 +737,7 @@ fd_gmem_render_tiles(struct fd_batch *batch)
 		render_tiles(batch, gmem);
 		batch->gmem_state = NULL;
 
-		fd_screen_lock(ctx->screen);
 		fd_gmem_reference(&gmem, NULL);
-		fd_screen_unlock(ctx->screen);
 
 		ctx->stats.batch_gmem++;
 	}
@@ -755,12 +753,11 @@ fd_gmem_estimate_bins_per_pipe(struct fd_batch *batch)
 {
 	struct pipe_framebuffer_state *pfb = &batch->framebuffer;
 	struct fd_screen *screen = batch->ctx->screen;
+	fd_screen_assert_locked(screen);
 	struct fd_gmem_stateobj *gmem = lookup_gmem_state(batch, !!pfb->zsbuf, true);
 	unsigned nbins = gmem->maxpw * gmem->maxph;
 
-	fd_screen_lock(screen);
 	fd_gmem_reference(&gmem, NULL);
-	fd_screen_unlock(screen);
 
 	return nbins;
 }
