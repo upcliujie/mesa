@@ -883,10 +883,10 @@ zink_flush_frontbuffer(struct pipe_screen *pscreen,
       isr.mipLevel = level;
       isr.arrayLayer = layer;
       VkSubresourceLayout layout;
-      vkGetImageSubresourceLayout(screen->dev, res->image, &isr, &layout);
+      vkGetImageSubresourceLayout(screen->dev, res->obj->image, &isr, &layout);
 
       void *ptr;
-      VkResult result = vkMapMemory(screen->dev, res->mem, res->offset, res->size, 0, &ptr);
+      VkResult result = vkMapMemory(screen->dev, res->obj->mem, res->obj->offset, res->obj->size, 0, &ptr);
       if (result != VK_SUCCESS) {
          debug_printf("failed to map memory for display\n");
          return;
@@ -896,7 +896,7 @@ zink_flush_frontbuffer(struct pipe_screen *pscreen,
          uint8_t *dst = (uint8_t *)map + i * res->dt_stride;
          memcpy(dst, src, res->dt_stride);
       }
-      vkUnmapMemory(screen->dev, res->mem);
+      vkUnmapMemory(screen->dev, res->obj->mem);
    }
 
    winsys->displaytarget_unmap(winsys, res->dt);

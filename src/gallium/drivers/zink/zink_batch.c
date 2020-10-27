@@ -182,10 +182,10 @@ zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource 
       _mesa_set_search_and_add(batch->resources, res, &found);
       if (!found) {
          pipe_reference(NULL, &res->base.reference);
-         batch->resource_size += res->size;
+         batch->resource_size += res->obj->size;
          if (stencil) {
             pipe_reference(NULL, &stencil->base.reference);
-            batch->resource_size += stencil->size;
+            batch->resource_size += stencil->obj->size;
          }
       }
    }
