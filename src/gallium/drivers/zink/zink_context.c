@@ -1077,7 +1077,7 @@ get_surface(struct zink_context *ctx,
       surface = entry->data;
       pipe_resource_reference(&surface->base.texture, pres);
    }
-   pipe_reference_init(&surface->base.reference, surface->base.reference.count + 1);
+   p_atomic_inc(&surface->base.reference.count);
 
    return surface;
 }
