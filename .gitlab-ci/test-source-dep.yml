@@ -78,6 +78,24 @@
       when: on_success
     - when: never
 
+.llvmpipe-cl-rules:
+  stage: llvmpipe
+  rules:
+    - *ignore_scheduled_pipelines
+    - changes:
+        *mesa_core_file_list
+      when: on_success
+    - changes:
+        *gallium_core_file_list
+      when: on_success
+    - changes:
+        *llvmpipe_file_list
+      when: on_success
+    - changes: &clover_file_list
+      - src/gallium/frontends/clover/**/*
+      when: on_success
+    - when: never
+
 .freedreno-rules:
   stage: freedreno
   rules:
