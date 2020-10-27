@@ -1035,6 +1035,7 @@ piglit-cl:
   extends:
     - .piglit-test
     - .test-cl
+    - .llvmpipe-cl-rules
   variables:
     LP_CL: 1
     LP_NUM_THREADS: 1
