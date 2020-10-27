@@ -51,4 +51,11 @@ create_ivci(struct zink_screen *screen,
             struct zink_resource *res,
             const struct pipe_surface *templ);
 
+struct pipe_surface *
+zink_get_surface(struct zink_context *ctx,
+            struct pipe_resource *pres,
+            const struct pipe_surface *templ,
+            VkImageViewCreateInfo *ivci);
+
+
 #endif

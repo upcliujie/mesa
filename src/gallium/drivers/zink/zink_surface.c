@@ -136,8 +136,8 @@ hash_ivci(const void *key)
    return _mesa_hash_data((char*)key + offsetof(VkImageViewCreateInfo, flags), sizeof(VkImageViewCreateInfo) - offsetof(VkImageViewCreateInfo, flags));
 }
 
-static struct pipe_surface *
-get_surface(struct zink_context *ctx,
+struct pipe_surface *
+zink_get_surface(struct zink_context *ctx,
             struct pipe_resource *pres,
             const struct pipe_surface *templ,
             VkImageViewCreateInfo *ivci)
@@ -174,7 +174,7 @@ zink_create_surface(struct pipe_context *pctx,
    VkImageViewCreateInfo ivci = create_ivci(zink_screen(pctx->screen),
                                             zink_resource(pres), templ);
 
-   return get_surface(zink_context(pctx), pres, templ, &ivci);
+   return zink_get_surface(zink_context(pctx), pres, templ, &ivci);
 }
 
 static void
