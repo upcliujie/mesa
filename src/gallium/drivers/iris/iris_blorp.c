@@ -374,7 +374,17 @@ iris_blorp_exec(struct blorp_batch *blorp_batch,
                          IRIS_DOMAIN_DEPTH_WRITE);
 }
 
-static void blorp_measure_start(struct blorp_batch *batch) { }
+static void
+blorp_measure_start(struct blorp_batch *blorp_batch)
+{
+   struct iris_context *ice = blorp_batch->blorp->driver_ctx;
+   struct iris_batch *batch = blorp_batch->driver_batch;
+
+   if (batch->measure == NULL)
+      return;
+
+   iris_measure_snapshot(ice, batch, batch->measure->base.operation, NULL);
+}
 
 void
 genX(init_blorp)(struct iris_context *ice)

@@ -32,6 +32,7 @@
 #include "iris_context.h"
 #include "iris_resource.h"
 #include "iris_screen.h"
+#include "iris_measure.h"
 
 /**
  * Helper function for handling mirror image blits.
@@ -492,6 +493,7 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
          iris_batch_maybe_flush(batch, 1500);
          iris_batch_sync_region_start(batch);
 
+         iris_measure_set_operation(batch, INTEL_SNAPSHOT_BLIT);
          blorp_blit(&blorp_batch,
                     &src_surf, info->src.level, info->src.box.z + slice,
                     src_fmt.fmt, src_fmt.swizzle,
@@ -546,6 +548,7 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
          iris_batch_maybe_flush(batch, 1500);
          iris_batch_sync_region_start(batch);
 
+         iris_measure_set_operation(batch, INTEL_SNAPSHOT_BLIT);
          blorp_blit(&blorp_batch,
                     &src_surf, info->src.level, info->src.box.z + slice,
                     ISL_FORMAT_R8_UINT, ISL_SWIZZLE_IDENTITY,
@@ -648,6 +651,8 @@ iris_copy_region(struct blorp_context *blorp,
    struct iris_resource *src_res = (void *) src;
    struct iris_resource *dst_res = (void *) dst;
 
+   iris_measure_set_operation(batch, INTEL_SNAPSHOT_COPY);
+
    enum isl_aux_usage src_aux_usage, dst_aux_usage;
    bool src_clear_supported, dst_clear_supported;
    get_copy_region_aux_settings(ice, src_res, &src_aux_usage,
@@ -709,6 +714,7 @@ iris_copy_region(struct blorp_context *blorp,
          iris_batch_maybe_flush(batch, 1500);
 
          iris_batch_sync_region_start(batch);
+         iris_measure_set_operation(batch, INTEL_SNAPSHOT_COPY);
          blorp_copy(&blorp_batch, &src_surf, src_level, src_box->z + slice,
                     &dst_surf, dst_level, dstz + slice,
                     src_box->x, src_box->y, dstx, dsty,

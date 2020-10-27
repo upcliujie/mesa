@@ -396,6 +396,8 @@ iris_resolve_color(struct iris_context *ice,
 
    iris_batch_maybe_flush(batch, 1500);
 
+   iris_measure_set_operation(batch, INTEL_SNAPSHOT_COLOR_RESOLVE);
+
    /* Ivybridge PRM Vol 2, Part 1, "11.7 MCS Buffer for Render Target(s)":
     *
     *    "Any transition from any value in {Clear, Render, Resolve} to a
@@ -444,10 +446,14 @@ iris_mcs_partial_resolve(struct iris_context *ice,
 
    assert(isl_aux_usage_has_mcs(res->aux.usage));
 
+   iris_batch_maybe_flush(batch, 1500);
+
    struct blorp_surf surf;
    iris_blorp_surf_for_resource(&batch->screen->isl_dev, &surf,
                                 &res->base, res->aux.usage, 0, true);
    iris_emit_buffer_barrier_for(batch, res->bo, IRIS_DOMAIN_RENDER_WRITE);
+
+   iris_measure_set_operation(batch, INTEL_SNAPSHOT_MCS_PARTIAL_RESOLVE);
 
    struct blorp_batch blorp_batch;
    iris_batch_sync_region_start(batch);
@@ -521,15 +527,20 @@ iris_hiz_exec(struct iris_context *ice,
    assert(op != ISL_AUX_OP_NONE);
    UNUSED const char *name = NULL;
 
+   iris_batch_maybe_flush(batch, 1500);
+
    switch (op) {
    case ISL_AUX_OP_FULL_RESOLVE:
       name = "depth resolve";
+      iris_measure_set_operation(batch, INTEL_SNAPSHOT_HIZ_RESOLVE);
       break;
    case ISL_AUX_OP_AMBIGUATE:
       name = "hiz ambiguate";
+      iris_measure_set_operation(batch, INTEL_SNAPSHOT_HIZ_AMBIGUATE);
       break;
    case ISL_AUX_OP_FAST_CLEAR:
       name = "depth clear";
+      iris_measure_set_operation(batch, INTEL_SNAPSHOT_SLOW_DEPTH_CLEAR);
       break;
    case ISL_AUX_OP_PARTIAL_RESOLVE:
    case ISL_AUX_OP_NONE:
@@ -559,8 +570,6 @@ iris_hiz_exec(struct iris_context *ice,
                                 PIPE_CONTROL_CS_STALL);
 
    assert(isl_aux_usage_has_hiz(res->aux.usage) && res->aux.bo);
-
-   iris_batch_maybe_flush(batch, 1500);
 
    iris_batch_sync_region_start(batch);
 

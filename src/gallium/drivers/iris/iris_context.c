@@ -200,6 +200,10 @@ iris_destroy_context(struct pipe_context *ctx)
    screen->vtbl.destroy_state(ice);
    iris_destroy_program_cache(ice);
    iris_destroy_border_color_pool(ice);
+   if (screen->measure.config) {
+      iris_destroy_batch_measure(ice->batches[0].measure);
+      iris_destroy_batch_measure(ice->batches[1].measure);
+   }
    u_upload_destroy(ice->state.surface_uploader);
    u_upload_destroy(ice->state.dynamic_uploader);
    u_upload_destroy(ice->query_buffer_uploader);

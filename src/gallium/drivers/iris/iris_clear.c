@@ -324,6 +324,8 @@ fast_clear_color(struct iris_context *ice,
    struct blorp_batch blorp_batch;
    blorp_batch_init(&ice->blorp, &blorp_batch, batch, blorp_flags);
 
+   iris_measure_set_operation(batch, INTEL_SNAPSHOT_FAST_COLOR_CLEAR);
+
    struct blorp_surf surf;
    iris_blorp_surf_for_resource(&batch->screen->isl_dev, &surf,
                                 p_res, res->aux.usage, level, true);
@@ -398,6 +400,8 @@ clear_color(struct iris_context *ice,
 
    struct blorp_batch blorp_batch;
    blorp_batch_init(&ice->blorp, &blorp_batch, batch, blorp_flags);
+
+   iris_measure_set_operation(batch, INTEL_SNAPSHOT_SLOW_COLOR_CLEAR);
 
    if (!isl_format_supports_rendering(devinfo, format) &&
        isl_format_is_rgbx(format))
@@ -628,6 +632,8 @@ clear_depth_stencil(struct iris_context *ice,
 
    struct blorp_batch blorp_batch;
    blorp_batch_init(&ice->blorp, &blorp_batch, batch, blorp_flags);
+
+   iris_measure_set_operation(batch, INTEL_SNAPSHOT_SLOW_DEPTH_CLEAR);
 
    blorp_clear_depth_stencil(&blorp_batch, &z_surf, &stencil_surf,
                              level, box->z, box->depth,

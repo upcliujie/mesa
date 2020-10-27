@@ -227,6 +227,8 @@ iris_init_batch(struct iris_context *ice,
       batch->decoder.max_vbo_decoded_lines = 32;
    }
 
+   iris_init_batch_measure(ice, batch);
+
    iris_batch_reset(batch);
 }
 
@@ -298,7 +300,8 @@ iris_use_pinned_bo(struct iris_batch *batch,
       return;
    }
 
-   if (bo != batch->bo) {
+   if (bo != batch->bo &&
+       (!batch->measure || bo != batch->measure->bo)) {
       /* This is the first time our batch has seen this BO.  Before we use it,
        * we may need to flush and synchronize with other batches.
        */
@@ -682,6 +685,8 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
 
    if (iris_batch_bytes_used(batch) == 0)
       return;
+
+   iris_measure_batch_end(batch->ice, batch);
 
    iris_finish_batch(batch);
 
