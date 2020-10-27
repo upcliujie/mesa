@@ -184,13 +184,16 @@ realloc_bo(struct fd_resource *rsc, uint32_t size)
 			DRM_FREEDRENO_GEM_TYPE_KMEM |
 			COND(prsc->bind & PIPE_BIND_SCANOUT, DRM_FREEDRENO_GEM_SCANOUT);
 			/* TODO other flags? */
+	bool needs_invalidate = false;
 
 	/* if we start using things other than write-combine,
 	 * be sure to check for PIPE_RESOURCE_FLAG_MAP_COHERENT
 	 */
 
-	if (rsc->bo)
+	if (rsc->bo) {
 		fd_bo_del(rsc->bo);
+		needs_invalidate = true;
+	}
 
 	struct fd_bo *bo = fd_bo_new(screen->dev, size, flags, "%ux%ux%u@%u:%x",
 			prsc->width0, prsc->height0, prsc->depth0, rsc->layout.cpp, prsc->bind);
@@ -208,7 +211,8 @@ realloc_bo(struct fd_resource *rsc, uint32_t size)
 	}
 
 	util_range_set_empty(&rsc->valid_buffer_range);
-	fd_bc_invalidate_resource(rsc, true);
+	if (needs_invalidate)
+		fd_bc_invalidate_resource(rsc, true);
 }
 
 static void
