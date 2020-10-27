@@ -133,7 +133,7 @@ create_surface(struct pipe_context *pctx,
 static uint32_t
 hash_ivci(const void *key)
 {
-   return _mesa_hash_data(key, sizeof(VkImageViewCreateInfo));
+   return _mesa_hash_data((char*)key + offsetof(VkImageViewCreateInfo, flags), sizeof(VkImageViewCreateInfo) - offsetof(VkImageViewCreateInfo, flags));
 }
 
 static struct pipe_surface *
