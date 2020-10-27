@@ -49,6 +49,7 @@ struct zink_resource_object {
    VkDeviceMemory mem;
    uint32_t mem_hash;
    VkDeviceSize offset, size;
+   bool is_buffer;
 };
 
 struct zink_resource {

@@ -85,22 +85,34 @@ zink_get_resource_latest_batch_usage(struct zink_context *ctx, uint32_t batch_us
 }
 
 static void
-cache_or_free_mem(struct zink_screen *screen, struct zink_resource *res)
+cache_or_free_mem(struct zink_screen *screen, struct zink_resource_object *obj)
 {
-   if (res->obj->mem_hash) {
-      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(screen->resource_mem_cache, res->obj->mem_hash, (void*)(uintptr_t)res->obj->mem_hash);
+   if (obj->mem_hash) {
+      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(screen->resource_mem_cache, obj->mem_hash, (void*)(uintptr_t)obj->mem_hash);
       struct util_dynarray *array = he ? (void*)he->data : NULL;
       if (!array) {
          array = rzalloc(screen->resource_mem_cache, struct util_dynarray);
          util_dynarray_init(array, screen->resource_mem_cache);
-         _mesa_hash_table_insert_pre_hashed(screen->resource_mem_cache, res->obj->mem_hash, (void*)(uintptr_t)res->obj->mem_hash, array);
+         _mesa_hash_table_insert_pre_hashed(screen->resource_mem_cache, obj->mem_hash, (void*)(uintptr_t)obj->mem_hash, array);
       }
       if (util_dynarray_num_elements(array, VkDeviceMemory) < 10) {
-         util_dynarray_append(array, VkDeviceMemory, res->obj->mem);
+         util_dynarray_append(array, VkDeviceMemory, obj->mem);
          return;
       }
    }
-   vkFreeMemory(screen->dev, res->obj->mem, NULL);
+   vkFreeMemory(screen->dev, obj->mem, NULL);
+}
+
+static void
+resource_object_destroy(struct zink_screen *screen, struct zink_resource_object *obj)
+{
+   if (obj->is_buffer)
+      vkDestroyBuffer(screen->dev, obj->buffer, NULL);
+   else
+      vkDestroyImage(screen->dev, obj->image, NULL);
+
+   cache_or_free_mem(screen, obj);
+   FREE(obj);
 }
 
 static void
@@ -109,16 +121,11 @@ zink_resource_destroy(struct pipe_screen *pscreen,
 {
    struct zink_screen *screen = zink_screen(pscreen);
    struct zink_resource *res = zink_resource(pres);
-   if (pres->target == PIPE_BUFFER) {
-      vkDestroyBuffer(screen->dev, res->obj->buffer, NULL);
+   if (pres->target == PIPE_BUFFER)
       util_range_destroy(&res->valid_buffer_range);
-   } else
-      vkDestroyImage(screen->dev, res->obj->image, NULL);
 
    zink_descriptor_set_refs_clear(&res->desc_set_refs, res);
-
-   cache_or_free_mem(screen, res);
-   FREE(res->obj);
+   resource_object_destroy(screen, res->obj);
    FREE(res);
 }
 
@@ -155,29 +162,16 @@ aspect_from_format(enum pipe_format fmt)
      return VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
-static struct pipe_resource *
-resource_create(struct pipe_screen *pscreen,
-                const struct pipe_resource *templ,
-                struct winsys_handle *whandle,
-                unsigned external_usage)
+static struct zink_resource_object *
+resource_object_create(struct zink_screen *screen, const struct pipe_resource *templ, struct winsys_handle *whandle, bool *optimal_tiling)
 {
-   struct zink_screen *screen = zink_screen(pscreen);
-   struct zink_resource *res = CALLOC_STRUCT(zink_resource);
-
-   res->base = *templ;
-
-   pipe_reference_init(&res->base.reference, 1);
-   res->base.screen = pscreen;
-   res->obj = CALLOC_STRUCT(zink_resource_object);
-   if (!res->obj) {
-      FREE(res);
+   struct zink_resource_object *obj = CALLOC_STRUCT(zink_resource_object);
+   if (!obj)
       return NULL;
-   }
 
    VkMemoryRequirements reqs;
    VkMemoryPropertyFlags flags = 0;
 
-   res->internal_format = templ->format;
    if (templ->target == PIPE_BUFFER) {
       VkBufferCreateInfo bci = {};
       bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -228,18 +222,13 @@ resource_create(struct pipe_screen *pscreen,
                       VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
       }
 
-      if (vkCreateBuffer(screen->dev, &bci, NULL, &res->obj->buffer) !=
-          VK_SUCCESS) {
-         FREE(res->obj);
-         FREE(res);
-         return NULL;
-      }
+      if (vkCreateBuffer(screen->dev, &bci, NULL, &obj->buffer) != VK_SUCCESS)
+         goto fail1;
 
-      vkGetBufferMemoryRequirements(screen->dev, res->obj->buffer, &reqs);
+      vkGetBufferMemoryRequirements(screen->dev, obj->buffer, &reqs);
       flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+      obj->is_buffer = true;
    } else {
-      res->format = zink_get_format(screen, templ->format);
-
       VkImageCreateInfo ici = {};
       VkExternalMemoryImageCreateInfo emici = {};
       ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -274,7 +263,7 @@ resource_create(struct pipe_screen *pscreen,
          unreachable("Unknown target");
       }
 
-      ici.format = res->format;
+      ici.format = zink_get_format(screen, templ->format);
       ici.extent.width = templ->width0;
       ici.extent.height = templ->height0;
       ici.extent.depth = templ->depth0;
@@ -313,6 +302,7 @@ resource_create(struct pipe_screen *pscreen,
              (ici.tiling == VK_IMAGE_TILING_OPTIMAL && props.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT))
             ici.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
       }
+      *optimal_tiling = ici.tiling != VK_IMAGE_TILING_LINEAR;
 
       if (templ->bind & PIPE_BIND_RENDER_TARGET)
          ici.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -328,7 +318,6 @@ resource_create(struct pipe_screen *pscreen,
 
       ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
       ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-      res->layout = VK_IMAGE_LAYOUT_UNDEFINED;
 
       struct wsi_image_create_info image_wsi_info = {
          VK_STRUCTURE_TYPE_WSI_IMAGE_CREATE_INFO_MESA,
@@ -339,17 +328,11 @@ resource_create(struct pipe_screen *pscreen,
       if (screen->needs_mesa_wsi && (templ->bind & PIPE_BIND_SCANOUT))
          ici.pNext = &image_wsi_info;
 
-      VkResult result = vkCreateImage(screen->dev, &ici, NULL, &res->obj->image);
-      if (result != VK_SUCCESS) {
-         FREE(res->obj);
-         FREE(res);
-         return NULL;
-      }
+      VkResult result = vkCreateImage(screen->dev, &ici, NULL, &obj->image);
+      if (result != VK_SUCCESS)
+         goto fail1;
 
-      res->optimal_tiling = ici.tiling != VK_IMAGE_TILING_LINEAR;
-      res->aspect = aspect_from_format(templ->format);
-
-      vkGetImageMemoryRequirements(screen->dev, res->obj->image, &reqs);
+      vkGetImageMemoryRequirements(screen->dev, obj->image, &reqs);
       if (templ->usage == PIPE_USAGE_STAGING || (screen->winsys && (templ->bind & (PIPE_BIND_SCANOUT|PIPE_BIND_DISPLAY_TARGET|PIPE_BIND_SHARED))))
         flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
       else
@@ -400,26 +383,67 @@ resource_create(struct pipe_screen *pscreen,
    }
 
    if (!mai.pNext && !(templ->flags & PIPE_RESOURCE_FLAG_MAP_COHERENT)) {
-      res->obj->mem_hash = _mesa_hash_data(&reqs, sizeof(reqs));
+      obj->mem_hash = _mesa_hash_data(&reqs, sizeof(reqs));
 
-      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(screen->resource_mem_cache, res->obj->mem_hash, (void*)(uintptr_t)res->obj->mem_hash);
+      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(screen->resource_mem_cache, obj->mem_hash, (void*)(uintptr_t)obj->mem_hash);
       struct util_dynarray *array = he ? (void*)he->data : NULL;
       if (array && util_dynarray_num_elements(array, VkDeviceMemory)) {
-         res->obj->mem = util_dynarray_pop(array, VkDeviceMemory);
+         obj->mem = util_dynarray_pop(array, VkDeviceMemory);
       }
    }
 
-   if (!res->obj->mem && vkAllocateMemory(screen->dev, &mai, NULL, &res->obj->mem) != VK_SUCCESS)
-      goto fail;
+   if (!obj->mem && vkAllocateMemory(screen->dev, &mai, NULL, &obj->mem) != VK_SUCCESS)
+      goto fail2;
 
-   res->obj->offset = 0;
-   res->obj->size = reqs.size;
+   obj->offset = 0;
+   obj->size = reqs.size;
 
+   if (templ->target == PIPE_BUFFER)
+      vkBindBufferMemory(screen->dev, obj->buffer, obj->mem, obj->offset);
+   else
+      vkBindImageMemory(screen->dev, obj->image, obj->mem, obj->offset);
+   return obj;
+
+fail2:
+   if (templ->target == PIPE_BUFFER)
+      vkDestroyBuffer(screen->dev, obj->buffer, NULL);
+   else
+      vkDestroyImage(screen->dev, obj->image, NULL);
+fail1:
+   FREE(obj);
+   return NULL;
+}
+
+static struct pipe_resource *
+resource_create(struct pipe_screen *pscreen,
+                const struct pipe_resource *templ,
+                struct winsys_handle *whandle,
+                unsigned external_usage)
+{
+   struct zink_screen *screen = zink_screen(pscreen);
+   struct zink_resource *res = CALLOC_STRUCT(zink_resource);
+
+   res->base = *templ;
+
+   pipe_reference_init(&res->base.reference, 1);
+   res->base.screen = pscreen;
+
+   bool optimal_tiling = false;
+   res->obj = resource_object_create(screen, templ, whandle, &optimal_tiling);
+   if (!res->obj) {
+      FREE(res);
+      return NULL;
+   }
+
+   res->internal_format = templ->format;
    if (templ->target == PIPE_BUFFER) {
-      vkBindBufferMemory(screen->dev, res->obj->buffer, res->obj->mem, res->obj->offset);
       util_range_init(&res->valid_buffer_range);
-   } else
-      vkBindImageMemory(screen->dev, res->obj->image, res->obj->mem, res->obj->offset);
+   } else {
+      res->format = zink_get_format(screen, templ->format);
+      res->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+      res->optimal_tiling = optimal_tiling;
+      res->aspect = aspect_from_format(templ->format);
+   }
 
    if (screen->winsys && (templ->bind & (PIPE_BIND_DISPLAY_TARGET |
                                          PIPE_BIND_SCANOUT |
@@ -436,16 +460,6 @@ resource_create(struct pipe_screen *pscreen,
 
    util_dynarray_init(&res->desc_set_refs.refs, NULL);
    return &res->base;
-
-fail:
-   if (templ->target == PIPE_BUFFER)
-      vkDestroyBuffer(screen->dev, res->obj->buffer, NULL);
-   else
-      vkDestroyImage(screen->dev, res->obj->image, NULL);
-   FREE(res->obj);
-   FREE(res);
-
-   return NULL;
 }
 
 static struct pipe_resource *
