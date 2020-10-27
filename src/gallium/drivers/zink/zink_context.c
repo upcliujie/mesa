@@ -606,17 +606,25 @@ get_buffer_view(struct zink_context *ctx, struct zink_resource *res, enum pipe_f
    bvci.range = range;
 
    uint32_t hash = hash_bufferview(&bvci);
-   VkBufferView view;
-   if (vkCreateBufferView(screen->dev, &bvci, NULL, &view) != VK_SUCCESS)
-      return NULL;
-   buffer_view = CALLOC_STRUCT(zink_buffer_view);
-   if (!buffer_view) {
-      vkDestroyBufferView(screen->dev, view, NULL);
-      return NULL;
+   struct hash_entry *he = _mesa_hash_table_search_pre_hashed(&ctx->bufferview_cache, hash, &bvci);
+   if (he) {
+      buffer_view = he->data;
+      p_atomic_inc(&buffer_view->reference.count);
+   } else {
+      VkBufferView view;
+      if (vkCreateBufferView(screen->dev, &bvci, NULL, &view) != VK_SUCCESS)
+         return NULL;
+      buffer_view = CALLOC_STRUCT(zink_buffer_view);
+      if (!buffer_view) {
+         vkDestroyBufferView(screen->dev, view, NULL);
+         return NULL;
+      }
+      pipe_reference_init(&buffer_view->reference, 1);
+      buffer_view->bvci = bvci;
+      buffer_view->buffer_view = view;
+      buffer_view->hash = hash;
+      _mesa_hash_table_insert_pre_hashed(&ctx->bufferview_cache, hash, &buffer_view->bvci, buffer_view);
    }
-   pipe_reference_init(&buffer_view->reference, 1);
-   buffer_view->buffer_view = view;
-   buffer_view->hash = hash;
    return buffer_view;
 }
 
@@ -687,6 +695,9 @@ zink_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *pres,
 void
 zink_destroy_buffer_view(struct zink_context *ctx, struct zink_buffer_view *buffer_view)
 {
+   struct hash_entry *he = _mesa_hash_table_search_pre_hashed(&ctx->bufferview_cache, buffer_view->hash, &buffer_view->bvci);
+   assert(he);
+   _mesa_hash_table_remove(&ctx->bufferview_cache, he);
    vkDestroyBufferView(zink_screen(ctx->base.screen)->dev, buffer_view->buffer_view, NULL);
    FREE(buffer_view);
 }
@@ -1081,6 +1092,12 @@ static bool
 equals_ivci(const void *a, const void *b)
 {
    return memcmp(a, b, sizeof(VkImageViewCreateInfo)) == 0;
+}
+
+static bool
+equals_bvci(const void *a, const void *b)
+{
+   return memcmp(a, b, sizeof(VkBufferViewCreateInfo)) == 0;
 }
 
 static struct zink_framebuffer *
@@ -2297,6 +2314,7 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    zink_context_query_init(&ctx->base);
 
    _mesa_hash_table_init(&ctx->surface_cache, ctx, NULL, equals_ivci);
+   _mesa_hash_table_init(&ctx->bufferview_cache, ctx, NULL, equals_bvci);
 
    ctx->gfx_pipeline_state.have_EXT_extended_dynamic_state = screen->info.have_EXT_extended_dynamic_state;
 

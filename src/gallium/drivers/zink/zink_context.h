@@ -68,6 +68,7 @@ enum zink_blit_flags {
 
 struct zink_buffer_view {
    struct pipe_reference reference;
+   VkBufferViewCreateInfo bvci;
    VkBufferView buffer_view;
    uint32_t hash;
    uint32_t batch_uses;
@@ -189,6 +190,8 @@ struct zink_context {
    struct pipe_vertex_buffer vertex_buffers[PIPE_MAX_ATTRIBS];
 
    struct hash_table surface_cache;
+   struct hash_table bufferview_cache;
+
    struct zink_sampler_state *sampler_states[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
    unsigned num_samplers[PIPE_SHADER_TYPES];
    struct pipe_sampler_view *sampler_views[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_SAMPLER_VIEWS];
