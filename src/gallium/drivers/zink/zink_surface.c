@@ -181,8 +181,12 @@ static void
 zink_surface_destroy(struct pipe_context *pctx,
                      struct pipe_surface *psurface)
 {
+   struct zink_context *ctx = zink_context(pctx);
    struct zink_screen *screen = zink_screen(pctx->screen);
    struct zink_surface *surface = zink_surface(psurface);
+   struct hash_entry *he = _mesa_hash_table_search_pre_hashed(&ctx->surface_cache, surface->hash, &surface->ivci);
+   assert(he);
+   _mesa_hash_table_remove(&ctx->surface_cache, he);
    pipe_resource_reference(&psurface->texture, NULL);
    vkDestroyImageView(screen->dev, surface->image_view, NULL);
    FREE(surface);
