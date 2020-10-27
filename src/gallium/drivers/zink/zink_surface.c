@@ -150,6 +150,7 @@ get_surface(struct zink_context *ctx,
    if (!entry) {
       /* create a new surface */
       surface = create_surface(&ctx->base, pres, templ, ivci);
+      surface->hash = hash;
       surface->ivci = *ivci;
       entry = _mesa_hash_table_insert_pre_hashed(&ctx->surface_cache, hash, &surface->ivci, surface);
       if (!entry)

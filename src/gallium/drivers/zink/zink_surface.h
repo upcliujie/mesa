@@ -34,6 +34,7 @@ struct zink_surface {
    struct pipe_surface base;
    VkImageViewCreateInfo ivci;
    VkImageView image_view;
+   uint32_t hash;
 };
 
 static inline struct zink_surface *
