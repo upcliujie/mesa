@@ -47,6 +47,13 @@
 #include "drm-uapi/drm_fourcc.h"
 #endif
 
+void
+debug_describe_zink_resource_object(char *buf, const struct zink_resource_object *ptr)
+{
+   sprintf(buf, "zink_resource_object");
+}
+
+
 static void
 resource_sync_writes_from_batch_id(struct zink_context *ctx, uint32_t batch_uses)
 {
@@ -103,14 +110,15 @@ cache_or_free_mem(struct zink_screen *screen, struct zink_resource_object *obj)
    vkFreeMemory(screen->dev, obj->mem, NULL);
 }
 
-static void
-resource_object_destroy(struct zink_screen *screen, struct zink_resource_object *obj)
+void
+zink_destroy_resource_object(struct zink_screen *screen, struct zink_resource_object *obj)
 {
    if (obj->is_buffer)
       vkDestroyBuffer(screen->dev, obj->buffer, NULL);
    else
       vkDestroyImage(screen->dev, obj->image, NULL);
 
+   zink_descriptor_set_refs_clear(&obj->desc_set_refs, obj);
    cache_or_free_mem(screen, obj);
    FREE(obj);
 }
@@ -124,8 +132,7 @@ zink_resource_destroy(struct pipe_screen *pscreen,
    if (pres->target == PIPE_BUFFER)
       util_range_destroy(&res->valid_buffer_range);
 
-   zink_descriptor_set_refs_clear(&res->desc_set_refs, res);
-   resource_object_destroy(screen, res->obj);
+   zink_resource_object_reference(screen, &res->obj, NULL);
    FREE(res);
 }
 
@@ -172,6 +179,8 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    VkMemoryRequirements reqs;
    VkMemoryPropertyFlags flags = 0;
 
+   pipe_reference_init(&obj->reference, 1);
+   util_dynarray_init(&obj->desc_set_refs.refs, NULL);
    if (templ->target == PIPE_BUFFER) {
       VkBufferCreateInfo bci = {};
       bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -302,7 +311,8 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
              (ici.tiling == VK_IMAGE_TILING_OPTIMAL && props.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT))
             ici.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
       }
-      *optimal_tiling = ici.tiling != VK_IMAGE_TILING_LINEAR;
+      if (optimal_tiling)
+         *optimal_tiling = ici.tiling != VK_IMAGE_TILING_LINEAR;
 
       if (templ->bind & PIPE_BIND_RENDER_TARGET)
          ici.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -458,7 +468,6 @@ resource_create(struct pipe_screen *pscreen,
                                              &res->dt_stride);
    }
 
-   util_dynarray_init(&res->desc_set_refs.refs, NULL);
    return &res->base;
 }
 
@@ -550,7 +559,7 @@ zink_get_resource_usage(struct zink_resource *res)
 {
    uint32_t batch_uses = 0;
    for (unsigned i = 0; i < 5; i++)
-      batch_uses |= p_atomic_read(&res->batch_uses[i]) << i;
+      batch_uses |= p_atomic_read(&res->obj->batch_uses[i]) << i;
    return batch_uses;
 }
 
