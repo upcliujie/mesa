@@ -3090,6 +3090,11 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 		}
 	}
 
+	for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
+		if (radv_can_dump_shader(device, modules[i], false))
+			nir_print_shader(nir[i], stderr);
+	}
+
 	radv_set_driver_locations(pipeline, nir, infos);
 
 	for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
@@ -3186,11 +3191,6 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 
 			radv_stop_feedback(stage_feedbacks[i], false);
 		}
-	}
-
-	for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
-		if (radv_can_dump_shader(device, modules[i], false))
-			nir_print_shader(nir[i], stderr);
 	}
 
 	radv_fill_shader_keys(device, keys, key, nir);
