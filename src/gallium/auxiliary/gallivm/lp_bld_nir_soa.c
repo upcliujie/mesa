@@ -651,6 +651,7 @@ static LLVMValueRef emit_load_reg(struct lp_build_nir_context *bld_base,
    int nc = reg->reg->num_components;
    LLVMValueRef vals[NIR_MAX_VEC_COMPONENTS] = { NULL };
    struct lp_build_context *uint_bld = &bld_base->uint_bld;
+   LLVMValueRef exec_mask = mask_vec(bld_base);
    if (reg->reg->num_array_elems) {
       LLVMValueRef indirect_val = lp_build_const_int_vec(gallivm, uint_bld->type, reg->base_offset);
       if (reg->indirect) {
@@ -670,6 +671,14 @@ static LLVMValueRef emit_load_reg(struct lp_build_nir_context *bld_base,
          vals[i] = LLVMBuildLoad(builder, this_storage, "");
       }
    }
+
+   if (reg->reg->bit_size < 32)
+      exec_mask = LLVMBuildTrunc(builder, exec_mask, reg_bld->vec_type, "");
+   else
+      exec_mask = LLVMBuildSExt(builder, exec_mask, reg_bld->vec_type, "");
+   for (unsigned i = 0; i < nc; i++)
+      vals[i] = LLVMBuildAnd(builder, vals[i], exec_mask, "");
+
    return nc == 1 ? vals[0] : lp_nir_array_build_gather_values(builder, vals, nc);
 }
 
