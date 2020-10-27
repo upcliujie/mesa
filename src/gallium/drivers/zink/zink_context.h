@@ -347,10 +347,6 @@ zink_sampler_reference(struct zink_context *ctx,
       zink_destroy_sampler(ctx, old_dst);
    if (dst) *dst = src;
 }
-struct zink_surface *
-get_surface(struct zink_context *ctx,
-            struct pipe_resource *pres,
-            const struct pipe_surface *templ);
 
 void
 zink_context_update_descriptor_states(struct zink_context *ctx, bool is_compute);

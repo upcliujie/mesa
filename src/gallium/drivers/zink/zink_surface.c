@@ -133,6 +133,44 @@ create_surface(struct pipe_context *pctx,
    return surface;
 }
 
+static uint32_t
+hash_ivci(const void *key)
+{
+   return _mesa_hash_data(key, sizeof(VkImageViewCreateInfo));
+}
+
+static struct zink_surface *
+get_surface(struct zink_context *ctx,
+            struct pipe_resource *pres,
+            const struct pipe_surface *templ)
+{
+   struct zink_surface* surface = NULL;
+
+   VkImageViewCreateInfo ivci = create_ivci(zink_screen(ctx->base.screen),
+                                            zink_resource(pres), templ);
+
+   uint32_t hash = hash_ivci(&ivci);
+
+   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(&ctx->surface_cache, hash, &ivci);
+
+   if (!entry) {
+      /* create a new surface */
+      surface = create_surface(&ctx->base, pres, templ);
+      surface->ivci = ivci;
+      entry = _mesa_hash_table_insert_pre_hashed(&ctx->surface_cache, hash, &surface->ivci, surface);
+      if (!entry)
+         return NULL;
+
+      surface = entry->data;
+   } else {
+      surface = entry->data;
+      pipe_resource_reference(&surface->base.texture, pres);
+   }
+   p_atomic_inc(&surface->base.reference.count);
+
+   return surface;
+}
+
 static struct pipe_surface *
 zink_create_surface(struct pipe_context *pctx,
                     struct pipe_resource *pres,
