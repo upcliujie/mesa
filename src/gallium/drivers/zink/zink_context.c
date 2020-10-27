@@ -866,8 +866,13 @@ zink_set_constant_buffer(struct pipe_context *pctx,
                        cb->user_buffer, &offset, &buffer);
       }
       struct zink_resource *res = zink_resource(ctx->ubos[shader][index].buffer);
+      struct zink_resource *new_res = zink_resource(buffer);
+      if (new_res) {
+         new_res->bind_history |= BITFIELD64_BIT(ZINK_DESCRIPTOR_TYPE_UBO);
+         new_res->bind_stages |= 1 << shader;
+      }
       update |= (index && ctx->ubos[shader][index].buffer_offset != offset) ||
-                !!res != !!buffer || (res && res->obj->buffer != zink_resource(buffer)->obj->buffer) ||
+                !!res != !!buffer || (res && res->obj->buffer != new_res->obj->buffer) ||
                 ctx->ubos[shader][index].buffer_size != cb->buffer_size;
 
       pipe_resource_reference(&ctx->ubos[shader][index].buffer, buffer);
@@ -908,6 +913,8 @@ zink_set_shader_buffers(struct pipe_context *pctx,
       struct pipe_shader_buffer *ssbo = &ctx->ssbos[p_stage][start_slot + i];
       if (buffers && buffers[i].buffer) {
          struct zink_resource *res = (void *) buffers[i].buffer;
+         res->bind_history |= BITFIELD64_BIT(ZINK_DESCRIPTOR_TYPE_SSBO);
+         res->bind_stages |= 1 << p_stage;
          pipe_resource_reference(&ssbo->buffer, &res->base);
          ssbo->buffer_offset = buffers[i].buffer_offset;
          ssbo->buffer_size = MIN2(buffers[i].buffer_size, res->obj->size - ssbo->buffer_offset);
@@ -939,6 +946,8 @@ zink_set_shader_images(struct pipe_context *pctx,
       if (images && images[i].resource) {
          util_dynarray_init(&image_view->desc_set_refs.refs, NULL);
          struct zink_resource *res = (void *) images[i].resource;
+         res->bind_history |= BITFIELD64_BIT(ZINK_DESCRIPTOR_TYPE_IMAGE);
+         res->bind_stages |= 1 << p_stage;
          util_copy_image_view(&image_view->base, images + i);
          if (images[i].resource->target == PIPE_BUFFER) {
             image_view->buffer_view = get_buffer_view(ctx, res, images[i].format, images[i].u.buf.offset, images[i].u.buf.size);
@@ -986,6 +995,11 @@ zink_set_sampler_views(struct pipe_context *pctx,
    for (unsigned i = 0; i < num_views; ++i) {
       struct zink_sampler_view *a = zink_sampler_view(ctx->sampler_views[shader_type][start_slot + i]);
       struct zink_sampler_view *b = zink_sampler_view(views[i]);
+      if (b && b->base.texture) {
+         struct zink_resource *res = zink_resource(b->base.texture);
+         res->bind_history |= BITFIELD64_BIT(ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW);
+         res->bind_stages |= 1 << shader_type;
+      }
       uint32_t hash_a = get_sampler_view_hash(a);
       uint32_t hash_b = get_sampler_view_hash(b);
       if (usage & BITFIELD64_BIT(start_slot + i))
