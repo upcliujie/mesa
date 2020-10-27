@@ -97,10 +97,11 @@ create_ivci(struct zink_screen *screen,
    return ivci;
 }
 
-struct zink_surface *
+static struct zink_surface *
 create_surface(struct pipe_context *pctx,
                struct pipe_resource *pres,
-               const struct pipe_surface *templ)
+               const struct pipe_surface *templ,
+               VkImageViewCreateInfo *ivci)
 {
    struct zink_screen *screen = zink_screen(pctx->screen);
    unsigned int level = templ->u.tex.level;
@@ -120,11 +121,7 @@ create_surface(struct pipe_context *pctx,
    surface->base.u.tex.first_layer = templ->u.tex.first_layer;
    surface->base.u.tex.last_layer = templ->u.tex.last_layer;
 
-   struct zink_resource *res = zink_resource(pres);
-
-   VkImageViewCreateInfo ivci = create_ivci(screen, res, templ);
-
-   if (vkCreateImageView(screen->dev, &ivci, NULL,
+   if (vkCreateImageView(screen->dev, ivci, NULL,
                          &surface->image_view) != VK_SUCCESS) {
       FREE(surface);
       return NULL;
@@ -139,24 +136,21 @@ hash_ivci(const void *key)
    return _mesa_hash_data(key, sizeof(VkImageViewCreateInfo));
 }
 
-static struct zink_surface *
+static struct pipe_surface *
 get_surface(struct zink_context *ctx,
             struct pipe_resource *pres,
-            const struct pipe_surface *templ)
+            const struct pipe_surface *templ,
+            VkImageViewCreateInfo *ivci)
 {
    struct zink_surface* surface = NULL;
+   uint32_t hash = hash_ivci(ivci);
 
-   VkImageViewCreateInfo ivci = create_ivci(zink_screen(ctx->base.screen),
-                                            zink_resource(pres), templ);
-
-   uint32_t hash = hash_ivci(&ivci);
-
-   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(&ctx->surface_cache, hash, &ivci);
+   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(&ctx->surface_cache, hash, ivci);
 
    if (!entry) {
       /* create a new surface */
-      surface = create_surface(&ctx->base, pres, templ);
-      surface->ivci = ivci;
+      surface = create_surface(&ctx->base, pres, templ, ivci);
+      surface->ivci = *ivci;
       entry = _mesa_hash_table_insert_pre_hashed(&ctx->surface_cache, hash, &surface->ivci, surface);
       if (!entry)
          return NULL;
@@ -168,7 +162,7 @@ get_surface(struct zink_context *ctx,
    }
    p_atomic_inc(&surface->base.reference.count);
 
-   return surface;
+   return &surface->base;
 }
 
 static struct pipe_surface *
@@ -176,7 +170,11 @@ zink_create_surface(struct pipe_context *pctx,
                     struct pipe_resource *pres,
                     const struct pipe_surface *templ)
 {
-   return &get_surface(zink_context(pctx), pres, templ)->base;
+
+   VkImageViewCreateInfo ivci = create_ivci(zink_screen(pctx->screen),
+                                            zink_resource(pres), templ);
+
+   return get_surface(zink_context(pctx), pres, templ, &ivci);
 }
 
 static void
