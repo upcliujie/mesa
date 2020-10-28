@@ -161,7 +161,7 @@ namespace {
                         }
 
                      } else {
-                        cl_long l;
+                        cl_long l = 0;
                         std::memcpy(&l, &buffer[elmt_buf_pos], elmt_size);
                         printf(print_str.c_str(), l);
                      }
@@ -169,7 +169,7 @@ namespace {
                }
 
                // print the remaining
-               if (cur_tok - fmt_last_pos) {
+               if (cur_tok == fmt_last_pos) {
                   std::string s = fmt.format.substr(spec_pos + 1,
                                                     next_tok - spec_pos);
                   printf(s.c_str(), 0);
