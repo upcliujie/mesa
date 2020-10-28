@@ -330,6 +330,19 @@ etna_blit_clear_color_rs(struct pipe_context *pctx, struct pipe_surface *dst,
          ctx->framebuffer.TS_MEM_CONFIG |= VIVS_TS_MEM_CONFIG_COLOR_AUTO_DISABLE;
       }
 
+      /* update clear color in SW meta area of the buffer is TS is exported */
+      if (unlikely(new_clear_value != surf->level->clear_value &&
+          etna_resource_ext_ts(etna_resource(dst->texture)))) {
+         struct etna_resource *rsc = etna_resource(dst->texture);
+         void *map = etna_bo_map(rsc->ts_bo);
+         /* SW meta is always located before the actual TS data */
+         struct etna_ts_sw_meta *meta =
+               map + surf->level->ts_offset - sizeof(struct etna_ts_sw_meta);
+         etna_bo_cpu_prep(rsc->bo, DRM_ETNA_PREP_WRITE | DRM_ETNA_PREP_NOSYNC);
+         meta->clear_value = new_clear_value;
+         etna_bo_cpu_fini(rsc->bo);
+      }
+
       surf->level->ts_valid = true;
       ctx->dirty |= ETNA_DIRTY_TS | ETNA_DIRTY_DERIVE_TS;
    } else if (unlikely(new_clear_value != surf->level->clear_value)) { /* Queue normal RS clear for non-TS surfaces */
@@ -645,6 +658,12 @@ etna_try_rs_blit(struct pipe_context *pctx,
    etna_get_rs_alignment_mask(ctx, dst->layout, &w_mask, &h_mask);
    if ((blit_info->dst.box.x & w_mask) || (blit_info->dst.box.y & h_mask))
       return false;
+
+   if (etna_resource_unfinished_ts_import(src))
+      etna_resource_finish_ts_import(pctx->screen, src);
+
+   if (etna_resource_unfinished_ts_import(dst))
+      etna_resource_finish_ts_import(pctx->screen, dst);
 
    struct etna_resource_level *src_lev = &src->levels[blit_info->src.level];
    struct etna_resource_level *dst_lev = &dst->levels[blit_info->dst.level];
