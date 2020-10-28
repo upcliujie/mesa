@@ -2303,8 +2303,38 @@ nir_lower_vars_to_explicit_types(nir_shader *shader,
 
    if (modes & nir_var_uniform)
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_uniform, type_info);
-   if (modes & nir_var_mem_shared)
-      progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_mem_shared, type_info);
+
+   if (modes & nir_var_mem_shared) {
+      bool uses_shared_blocks = false;
+      nir_foreach_variable_with_modes(var, shader, nir_var_mem_shared) {
+         /* If one shared variable is a block, all of them will be. */
+         if (glsl_type_is_interface(var->type)) {
+            uses_shared_blocks = true;
+            break;
+         }
+      }
+
+      if (uses_shared_blocks) {
+         /* Per VK_KHR_workgroup_memory_explicit_layout, the shared blocks
+          * types will be already laid out, *and* will alias each other, so
+          * the largest block defines the shared memory size.
+          */
+         unsigned size = 0;
+         nir_foreach_variable_with_modes(var, shader, nir_var_mem_shared) {
+            assert(glsl_type_is_interface(var->type));
+            const bool align_to_stride = false;
+            size = MAX2(size, glsl_get_explicit_size(var->type, align_to_stride));
+         }
+         shader->info.cs.shared_size = size;
+         shader->shared_size = size;
+
+         /* Skip further lowering for shared. */
+         modes &= ~nir_var_mem_shared;
+      } else {
+         progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_mem_shared, type_info);
+      }
+   }
+
    if (modes & nir_var_shader_temp)
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_shader_temp, type_info);
    if (modes & nir_var_mem_constant)
@@ -2313,6 +2343,9 @@ nir_lower_vars_to_explicit_types(nir_shader *shader,
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_shader_call_data, type_info);
    if (modes & nir_var_ray_hit_attrib)
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_ray_hit_attrib, type_info);
+
+   if (!modes)
+      return progress;
 
    nir_foreach_function(function, shader) {
       if (function->impl) {
