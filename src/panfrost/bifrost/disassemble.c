@@ -210,13 +210,13 @@ bi_disasm_dest_fma(FILE *fp, struct bifrost_regs *next_regs, bool last)
     /* If this is the last instruction, next_regs points to the first reg entry. */
     struct bifrost_reg_ctrl ctrl = DecodeRegCtrl(fp, *next_regs, last);
     if (ctrl.slot23.slot2 >= BIFROST_OP_WRITE) {
-        fprintf(fp, "r%u:t0", next_regs->reg2);
+        fprintf(fp, "r%u", next_regs->reg2);
         bi_disasm_dest_mask(fp, ctrl.slot23.slot2);
     } else if (ctrl.slot23.slot3 >= BIFROST_OP_WRITE && ctrl.slot23.slot3_fma) {
-        fprintf(fp, "r%u:t0", next_regs->reg3);
+        fprintf(fp, "r%u", next_regs->reg3);
         bi_disasm_dest_mask(fp, ctrl.slot23.slot3);
     } else
-        fprintf(fp, "t0");
+        fprintf(fp, "_");
 }
 
 void
@@ -226,10 +226,10 @@ bi_disasm_dest_add(FILE *fp, struct bifrost_regs *next_regs, bool last)
     struct bifrost_reg_ctrl ctrl = DecodeRegCtrl(fp, *next_regs, last);
 
     if (ctrl.slot23.slot3 >= BIFROST_OP_WRITE && !ctrl.slot23.slot3_fma) {
-        fprintf(fp, "r%u:t0", next_regs->reg3);
+        fprintf(fp, "r%u", next_regs->reg3);
         bi_disasm_dest_mask(fp, ctrl.slot23.slot3);
     } else
-        fprintf(fp, "t0");
+        fprintf(fp, "_");
 }
 
 static void dump_const_imm(FILE *fp, uint32_t imm)
@@ -368,7 +368,7 @@ dump_src(FILE *fp, unsigned src, struct bifrost_regs srcs, struct bi_constants *
                 if (isFMA)
                         fprintf(fp, "#0");
                 else
-                        fprintf(fp, "t"); // i.e. the output of FMA this cycle
+                        fprintf(fp, "cur(*)"); // i.e. the output of FMA this cycle
                 break;
         case 4:
                 dump_fau_src(fp, srcs, consts, false);
@@ -377,10 +377,10 @@ dump_src(FILE *fp, unsigned src, struct bifrost_regs srcs, struct bi_constants *
                 dump_fau_src(fp, srcs, consts, true);
                 break;
         case 6:
-                fprintf(fp, "t0");
+                fprintf(fp, "prev(*)");
                 break;
         case 7:
-                fprintf(fp, "t1");
+                fprintf(fp, "prev(+)");
                 break;
         }
 }
