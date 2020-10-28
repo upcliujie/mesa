@@ -35,6 +35,7 @@ struct zink_context;
 struct zink_descriptor_set;
 struct zink_fence;
 struct zink_framebuffer;
+struct zink_image_view;
 struct zink_program;
 struct zink_render_pass;
 struct zink_resource;
@@ -58,6 +59,7 @@ struct zink_batch {
    struct set *sampler_views;
    struct set *samplers;
    struct set *surfaces;
+   struct set *bufferviews;
    struct set *desc_sets;
 
    struct set *active_queries; /* zink_query objects which were active at some point in this batch */
@@ -96,8 +98,8 @@ zink_batch_reference_program(struct zink_batch *batch,
                              struct zink_program *pg);
 
 void
-zink_batch_reference_surface(struct zink_batch *batch,
-                             struct zink_surface *surface);
+zink_batch_reference_image_view(struct zink_batch *batch,
+                                struct zink_image_view *image_view);
 
 bool
 zink_batch_add_desc_set(struct zink_batch *batch, struct zink_descriptor_set *zds);
