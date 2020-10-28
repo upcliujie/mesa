@@ -29,6 +29,7 @@
 #include <unordered_set>
 #include <set>
 #include <vector>
+#include <algorithm>
 
 #include "aco_ir.h"
 #include "util/bitscan.h"
@@ -98,7 +99,6 @@ struct sched_ctx
 
    int total_load_latency = 0;
    int total_cycles = 0;
-   int reg_rd_dn_cycle[max_reg_cnt] = {0};
    int reg_wr_dn_cycle[max_reg_cnt] = {0};
 
    /* here we can maintain information about the functional units */
@@ -342,10 +342,6 @@ void save_candidate_cycles(sched_ctx &ctx, Node *node)
    assert(instr);
    ctx.total_cycles = node->start_cycle;
 
-   foreach_reg_read(instr, [&ctx, node] (unsigned reg) {
-      ctx.reg_rd_dn_cycle[reg] = node->start_cycle;
-   });
-
    foreach_reg_write(instr, [&ctx, node] (unsigned reg) {
       ctx.reg_wr_dn_cycle[reg] = node->start_cycle + node->latency;
    });
@@ -356,7 +352,7 @@ int calculate_candidate_start_cycle(sched_ctx &ctx, Node *node)
    assert(node);
    const Instruction *instr = get_node_instr(ctx, node);
    assert(instr);
-   int min_start = 0;
+   int min_start = ctx.total_cycles;
 
    /* For each register read, we have to wait for the previous write to finish */
    foreach_reg_read(instr, [&ctx, &min_start] (unsigned reg) {
@@ -365,32 +361,23 @@ int calculate_candidate_start_cycle(sched_ctx &ctx, Node *node)
 
    /* For each register write, we have to wait for the previous write and reads to finish */
    foreach_reg_write(instr, [&ctx, &min_start] (unsigned reg) {
-      min_start = MAX2(min_start, ctx.reg_rd_dn_cycle[reg]);
       min_start = MAX2(min_start, ctx.reg_wr_dn_cycle[reg]);
    });
 
-   return MAX2(min_start + 1, ctx.total_cycles + 1);
+   return min_start + 1;
 }
 
 Node* select_candidate(sched_ctx &ctx)
 {
-   /* The first candidate already has the highest priority */
    assert(ctx.candidates.size() > 0);
-   std::set<Node *>::iterator selected_it = ctx.candidates.begin();
 
-   /* The cycle when this instruction can start */
-   int selected_start_cycle = calculate_candidate_start_cycle(ctx, *selected_it);
+   decltype(ctx.candidates)::iterator selected_it;
+   int selected_start_cycle = -1;
+   int selected_cost = INT32_MAX;
 
-   /* In order to group higher priority instructions together, we are willing to tolerate some extra cycles */
-   int selected_cost = selected_start_cycle - ((*selected_it)->priority <= 0 ? 0 : (*selected_it)->priority);
-
-   /* Find the most suitable candidate. */
-   for (auto it = std::next(selected_it);
-        it != ctx.candidates.end();
-        ++it) {
-
+   for (auto it = ctx.candidates.begin(); it != ctx.candidates.end(); ++it) {
       int start_cycle = calculate_candidate_start_cycle(ctx, *it);
-      int cost = start_cycle - ((*it)->priority <= 0 ? 0 : (*it)->priority);
+      int cost = start_cycle - (*it)->priority;
 
       if (cost < selected_cost) {
          selected_it = it;
@@ -399,6 +386,7 @@ Node* select_candidate(sched_ctx &ctx)
       }
    }
 
+   assert(selected_start_cycle >= 0);
    assert(selected_it != ctx.candidates.end());
    Node *next = *selected_it;
    ctx.candidates.erase(selected_it);
@@ -684,11 +672,18 @@ void schedule_postRA(Program *program)
          const Instruction* instr = ctx.block->instructions[index].get();
 
          if (is_unschedulable(instr)) {
+            /* Schedule the candidates we got so far */
             select_candidates(ctx);
+
+            /* Add the scheduling barrier to our calculations */
             ctx.nodes.emplace_back(index, get_latency(ctx, instr));
-            ctx.nodes.back().scheduled = true;
+            Node &sched_barr = ctx.nodes.back();
+            sched_barr.scheduled = true;
+            sched_barr.start_cycle = calculate_candidate_start_cycle(ctx, &sched_barr);
             save_candidate_cycles(ctx, &ctx.nodes[ctx.nodes.size() - 1]);
             ctx.new_instructions.emplace_back(std::move(block.instructions[index]));
+
+            /* Reset the context for a new scheduling unit */
             ctx.barrier();
          } else {
             add_to_dag(ctx, instr, index);
