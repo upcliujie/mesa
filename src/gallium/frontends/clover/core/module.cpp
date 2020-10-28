@@ -155,6 +155,30 @@ namespace {
       }
    };
 
+   /// (De)serialize a printf format
+   template<>
+   struct _serializer<printf_fmt> {
+      static void
+      proc(std::ostream &os, const printf_fmt &fmt) {
+         _proc<uint32_t>(os, fmt.arg_sizes.size());
+         os.write((const char *)&fmt.arg_sizes[0], fmt.arg_sizes.size() * sizeof(uint32_t));
+         _proc<std::string>(os, fmt.format);
+      }
+
+      static void
+      proc(std::istream &is, printf_fmt &fmt) {
+         fmt.arg_sizes.resize(_proc<uint32_t>(is));
+         is.read((char *)&fmt.arg_sizes[0], fmt.arg_sizes.size() * sizeof(uint32_t));
+         _proc<std::string>(is, fmt.format);
+      }
+
+      static void
+      proc(module::size_t &sz, const printf_fmt &fmt) {
+         sz += sizeof(uint32_t) + sizeof(uint32_t) * fmt.arg_sizes.size() +
+            sizeof(uint32_t) + sizeof(std::string::value_type) * fmt.format.size();
+      }
+   };
+
    /// (De)serialize a module::section.
    template<>
    struct _serializer<module::section> {
@@ -206,6 +230,8 @@ namespace {
       proc(S &s, QT &x) {
          _proc(s, x.syms);
          _proc(s, x.secs);
+         _proc(s, x.printf_fmts);
+         _proc(s, x.printf_buffer_header_fmt_llvm);
       }
    };
 };
