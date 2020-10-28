@@ -94,6 +94,7 @@ pan_prepare_bifrost_props(struct panfrost_shader_state *state,
                 state->preload.fragment.fragment_position = state->reads_frag_coord;
                 state->preload.fragment.coverage = true;
                 state->preload.fragment.primitive_flags = state->reads_face;
+                state->preload.fragment.sample_mask_id = state->reads_sample_id || state->reads_sample_mask;
                 break;
         default:
                 unreachable("TODO");
@@ -346,6 +347,8 @@ panfrost_shader_compile(struct panfrost_context *ctx,
         state->reads_point_coord = s->info.inputs_read & (1 << VARYING_SLOT_PNTC);
         state->reads_face = (s->info.inputs_read & (1 << VARYING_SLOT_FACE)) ||
                             (s->info.system_values_read & (1 << SYSTEM_VALUE_FRONT_FACE));
+        state->reads_sample_id = s->info.system_values_read & (1 << SYSTEM_VALUE_SAMPLE_ID);
+        state->reads_sample_mask = s->info.system_values_read & (1 << SYSTEM_VALUE_SAMPLE_MASK_IN);
         state->writes_point_size = s->info.outputs_written & (1 << VARYING_SLOT_PSIZ);
 
         if (outputs_written)
