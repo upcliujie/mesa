@@ -473,7 +473,7 @@ if __name__ == "__main__":
    stdin = sys.stdin.buffer
    while True:
        packet_type = stdin.read(4)
-       if packet_type == b'':
+       if packet_type == b'done':
            break;
 
        test_name = get_cstr(stdin)
