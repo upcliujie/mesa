@@ -29,6 +29,12 @@
 #include "CL/cl.h"
 
 namespace clover {
+
+   struct printf_fmt {
+      std::vector<uint32_t> arg_sizes;
+      std::string format;
+   };
+
    struct module {
       typedef uint32_t resource_id;
       typedef uint32_t size_t;
@@ -153,6 +159,10 @@ namespace clover {
 
       std::vector<symbol> syms;
       std::vector<section> secs;
+      std::vector<printf_fmt> printf_fmts;
+      std::vector<uint8_t> printf_strings;
+      // nir format vs llvm format for printf buffer
+      uint32_t printf_buffer_fmt_llvm;
    };
 }
 
