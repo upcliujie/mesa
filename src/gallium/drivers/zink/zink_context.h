@@ -39,6 +39,7 @@
 #include "pipe/p_state.h"
 #include "util/u_inlines.h"
 #include "util/u_rect.h"
+#include "util/u_threaded_context.h"
 
 #include "util/slab.h"
 #include "util/list.h"
@@ -138,7 +139,9 @@ struct zink_descriptor_state {
 
 struct zink_context {
    struct pipe_context base;
+   struct threaded_context *tc;
    struct slab_child_pool transfer_pool;
+   struct slab_child_pool transfer_pool_unsync;
    struct blitter_context *blitter;
 
    struct pipe_device_reset_callback reset;
@@ -147,7 +150,6 @@ struct zink_context {
    uint32_t curr_batch; //the current batch id
    struct zink_batch batch;
    struct zink_fence *last_fence; //the last command buffer submitted
-   VkQueue queue; //gfx+compute
    struct hash_table batch_states; //submitted batch states
    struct util_dynarray free_batch_states; //unused batch states
    VkDeviceSize resource_size; //the accumulated size of resources in submitted buffers
@@ -224,6 +226,7 @@ struct zink_context {
    bool dirty_so_targets;
    bool xfb_barrier;
    bool first_frame;
+   bool threaded;
 };
 
 static inline struct zink_context *
@@ -251,6 +254,9 @@ zink_fence_wait(struct pipe_context *ctx);
 
 void
 zink_wait_on_batch(struct zink_context *ctx, uint32_t batch_id);
+
+bool
+zink_check_batch_completion(struct zink_context *ctx, uint32_t batch_id);
 
 void
 zink_flush_queue(struct zink_context *ctx);

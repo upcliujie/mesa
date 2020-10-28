@@ -52,8 +52,12 @@ struct zink_batch_usage {
 
 struct zink_batch_state {
    struct zink_fence fence;
+   struct pipe_reference reference;
    VkCommandPool cmdpool;
    VkCommandBuffer cmdbuf;
+   VkQueue queue; //duplicated from batch for threading
+
+   struct util_queue_fence flush_completed; //TODO: move to wsi
 
    unsigned short descs_used; //number of descriptors currently allocated
 
@@ -71,12 +75,16 @@ struct zink_batch_state {
    struct hash_table *framebuffer_cache;
 
    VkDeviceSize resource_size;
+
+   bool is_device_lost;
 };
 
 struct zink_batch {
    struct zink_batch_state *state;
 
    uint32_t last_batch_id;
+   VkQueue queue; //gfx+compute
+   struct util_queue flush_queue; //TODO: move to wsi
 
    bool has_work;
    bool in_rp; //renderpass is currently active
@@ -131,6 +139,23 @@ zink_batch_reference_program(struct zink_batch *batch,
 void
 zink_batch_reference_image_view(struct zink_batch *batch,
                                 struct zink_image_view *image_view);
+
+
+void
+debug_describe_zink_batch_state(char *buf, const struct zink_batch_state *ptr);
+
+static inline void
+zink_batch_state_reference(struct zink_screen *screen,
+                           struct zink_batch_state **dst,
+                           struct zink_batch_state *src)
+{
+   struct zink_batch_state *old_dst = dst ? *dst : NULL;
+
+   if (pipe_reference_described(old_dst ? &old_dst->reference : NULL, src ? &src->reference : NULL,
+                                (debug_reference_descriptor)debug_describe_zink_batch_state))
+      zink_batch_state_destroy(screen, old_dst);
+   if (dst) *dst = src;
+}
 
 bool
 zink_batch_add_desc_set(struct zink_batch *batch, struct zink_descriptor_set *zds);

@@ -9,9 +9,17 @@
 #include "zink_resource.h"
 #include "zink_screen.h"
 
+#include "util/u_cpu_detect.h"
 #include "util/hash_table.h"
 #include "util/u_debug.h"
 #include "util/set.h"
+
+
+void
+debug_describe_zink_batch_state(char *buf, const struct zink_batch_state *ptr)
+{
+   sprintf(buf, "zink_batch_state");
+}
 
 static void
 batch_usage_unset(struct zink_batch_usage *u, uint32_t batch_id)
@@ -24,6 +32,7 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
 
+   assert(bs->fence.completed | !bs->fence.submitted);
    zink_render_pass_reference(screen, &bs->rp, NULL);
    zink_framebuffer_reference(screen, &bs->fb, NULL);
    zink_fence_clear_resources(screen, &bs->fence);
@@ -80,12 +89,18 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
    bs->descs_used = 0;
    ctx->resource_size -= bs->resource_size;
    bs->resource_size = 0;
+   /* only reset submitted here so that tc fence desync can pick up the 'completed' flag
+    * before the state is reused
+    */
+   bs->fence.submitted = false;
+   bs->fence.batch_id = 0;
 }
 
 void
 zink_clear_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
+   bs->fence.completed = true;
    hash_table_foreach(bs->framebuffer_cache, entry) {
       struct zink_framebuffer* fb = (struct zink_framebuffer*)entry->data;
       zink_framebuffer_reference(screen, &fb, NULL);
@@ -99,6 +114,7 @@ zink_batch_reset_all(struct zink_context *ctx)
 {
    hash_table_foreach(&ctx->batch_states, entry) {
       struct zink_batch_state *bs = entry->data;
+      bs->fence.completed = true;
       zink_reset_batch_state(ctx, bs);
       _mesa_hash_table_remove(&ctx->batch_states, entry);
       util_dynarray_append(&ctx->free_batch_states, struct zink_batch_state *, bs);
@@ -110,6 +126,11 @@ zink_batch_state_destroy(struct zink_screen *screen, struct zink_batch_state *bs
 {
    if (!bs)
       return;
+
+   util_queue_fence_destroy(&bs->flush_completed);
+
+   if (bs->fence.fence)
+      vkDestroyFence(screen->dev, bs->fence.fence, NULL);
 
    if (bs->cmdbuf)
       vkFreeCommandBuffers(screen->dev, bs->cmdpool, 1, &bs->cmdbuf);
@@ -124,9 +145,9 @@ zink_batch_state_destroy(struct zink_screen *screen, struct zink_batch_state *bs
    _mesa_set_destroy(bs->programs, NULL);
    _mesa_set_destroy(bs->desc_sets, NULL);
    _mesa_set_destroy(bs->active_queries, NULL);
+   simple_mtx_destroy(&bs->fence.resource_mtx);
    ralloc_free(bs);
 }
-
 
 static uint32_t
 hash_framebuffer_state(const void *key)
@@ -168,8 +189,8 @@ create_batch_state(struct zink_context *ctx)
    if (!ptr) \
       goto fail
 
+   pipe_reference_init(&bs->reference, 1);
    SET_CREATE_OR_FAIL(bs->fence.resources);
-   pipe_reference_init(&bs->fence.reference, 1);
    SET_CREATE_OR_FAIL(bs->samplers);
    SET_CREATE_OR_FAIL(bs->surfaces);
    SET_CREATE_OR_FAIL(bs->bufferviews);
@@ -181,9 +202,15 @@ create_batch_state(struct zink_context *ctx)
    if (!bs->framebuffer_cache)
       goto fail;
 
-   if (!zink_create_fence(screen, bs))
-      /* this destroys the batch state on failure */
-      return NULL;
+   VkFenceCreateInfo fci = {};
+   fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+
+   if (vkCreateFence(screen->dev, &fci, NULL, &bs->fence.fence) != VK_SUCCESS)
+      goto fail;
+
+   bs->queue = ctx->batch.queue;
+   simple_mtx_init(&bs->fence.resource_mtx, mtx_plain);
+   util_queue_fence_init(&bs->flush_completed);
 
    return bs;
 fail:
@@ -196,12 +223,13 @@ find_unused_state(struct hash_entry *entry)
 {
    struct zink_fence *fence = entry->data;
    /* we can't reset these from fence_finish because threads */
+   bool completed = p_atomic_read(&fence->completed);
    bool submitted = p_atomic_read(&fence->submitted);
-   return !submitted;
+   return submitted && completed;
 }
 
-static void
-init_batch_state(struct zink_context *ctx, struct zink_batch *batch)
+static struct zink_batch_state *
+get_batch_state(struct zink_context *ctx, struct zink_batch *batch)
 {
    struct zink_batch_state *bs = NULL;
 
@@ -226,7 +254,7 @@ init_batch_state(struct zink_context *ctx, struct zink_batch *batch)
       }
       bs = create_batch_state(ctx);
    }
-   batch->state = bs;
+   return bs;
 }
 
 void
@@ -235,7 +263,7 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    bool fresh = !batch->state;
 
-   init_batch_state(ctx, batch);
+   batch->state = get_batch_state(ctx, batch);
    assert(batch->state);
 
    if (!fresh) {
@@ -257,12 +285,38 @@ zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
       debug_printf("vkBeginCommandBuffer failed\n");
 
    batch->state->fence.batch_id = ctx->curr_batch;
+   batch->state->fence.completed = false;
    if (ctx->last_fence) {
       struct zink_batch_state *last_state = zink_batch_state(ctx->last_fence);
       batch->last_batch_id = last_state->fence.batch_id;
+   } else {
+      /* TODO: move to wsi */
+      if (util_cpu_caps.nr_cpus > 1 && debug_get_bool_option("GALLIUM_THREAD", util_cpu_caps.nr_cpus > 1))
+         util_queue_init(&batch->flush_queue, "zfq", 8, 1, 0);
    }
    if (!ctx->queries_disabled)
       zink_resume_queries(ctx, batch);
+}
+
+static void
+submit_queue(void *data, int thread_index)
+{
+   struct zink_batch_state *bs = data;
+   VkSubmitInfo si = {};
+   si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+   si.waitSemaphoreCount = 0;
+   si.pWaitSemaphores = NULL;
+   si.signalSemaphoreCount = 0;
+   si.pSignalSemaphores = NULL;
+   si.pWaitDstStageMask = NULL;
+   si.commandBufferCount = 1;
+   si.pCommandBuffers = &bs->cmdbuf;
+
+   if (vkQueueSubmit(bs->queue, 1, &si, bs->fence.fence) != VK_SUCCESS) {
+      debug_printf("ZINK: vkQueueSubmit() failed\n");
+      bs->is_device_lost = true;
+   }
+   p_atomic_set(&bs->fence.submitted, true);
 }
 
 void
@@ -276,30 +330,18 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
       return;
    }
 
-   zink_fence_init(ctx, batch);
-
-   VkSubmitInfo si = {};
-   si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-   si.waitSemaphoreCount = 0;
-   si.pWaitSemaphores = NULL;
-   si.signalSemaphoreCount = 0;
-   si.pSignalSemaphores = NULL;
-   si.pWaitDstStageMask = NULL;
-   si.commandBufferCount = 1;
-   si.pCommandBuffers = &batch->state->cmdbuf;
-
-   if (vkQueueSubmit(ctx->queue, 1, &si, batch->state->fence.fence) != VK_SUCCESS) {
-      debug_printf("ZINK: vkQueueSubmit() failed\n");
-      ctx->is_device_lost = true;
-
-      if (ctx->reset.reset) {
-         ctx->reset.reset(ctx->reset.data, PIPE_GUILTY_CONTEXT_RESET);
-      }
-   }
+   vkResetFences(zink_screen(ctx->base.screen)->dev, 1, &batch->state->fence.fence);
 
    ctx->last_fence = &batch->state->fence;
    _mesa_hash_table_insert_pre_hashed(&ctx->batch_states, batch->state->fence.batch_id, (void*)(uintptr_t)batch->state->fence.batch_id, batch->state);
    ctx->resource_size += batch->state->resource_size;
+
+
+   if (util_queue_is_initialized(&batch->flush_queue))
+      util_queue_add_job(&batch->flush_queue, batch->state, &batch->state->flush_completed,
+                         submit_queue, NULL, 0);
+   else
+      submit_queue(batch->state, 0);
 }
 
 void
@@ -325,7 +367,7 @@ zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource 
              */
             batch->state->resource_size += res->obj->size;
          if (stencil) {
-            pipe_reference(NULL, &stencil->base.reference);
+            pipe_reference(NULL, &stencil->base.b.reference);
             if (!batch->last_batch_id || !zink_batch_usage_matches(&stencil->obj->reads, batch->last_batch_id))
                batch->state->resource_size += stencil->obj->size;
          }

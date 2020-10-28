@@ -302,7 +302,7 @@ zink_descriptor_set_get(struct zink_context *ctx,
       }
 
       if (pool->num_sets_allocated + pool->num_descriptors > ZINK_DEFAULT_MAX_DESCS) {
-         zink_wait_on_batch(ctx, batch->state->fence.batch_id);
+         zink_wait_on_batch(ctx, 0);
          zink_batch_reference_program(batch, pg);
          return zink_descriptor_set_get(ctx, type, is_compute, cache_hit, need_resource_refs);
       }
@@ -912,12 +912,12 @@ handle_image_descriptor(struct zink_screen *screen, struct zink_resource *res, e
         default:
            unreachable("unknown descriptor type");
         }
-     } else if (res->base.target != PIPE_BUFFER) {
+     } else if (res->base.b.target != PIPE_BUFFER) {
         assert(layout != VK_IMAGE_LAYOUT_UNDEFINED);
         image_info->imageLayout = layout;
         image_info->imageView = imageview;
         if (sampler) {
-           VkFormatProperties props = screen->format_props[res->base.format];
+           VkFormatProperties props = screen->format_props[res->base.b.format];
            bool can_linear = (res->optimal_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
                              (!res->optimal_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
            if (can_linear)
@@ -988,7 +988,7 @@ update_sampler_descriptors(struct zink_context *ctx, struct zink_descriptor_set 
             struct pipe_sampler_view *psampler_view = ctx->sampler_views[stage][index + k];
             struct zink_sampler_view *sampler_view = zink_sampler_view(psampler_view);
             res = psampler_view ? zink_resource(psampler_view->texture) : NULL;
-            if (res && res->base.target == PIPE_BUFFER) {
+            if (res && res->base.b.target == PIPE_BUFFER) {
                bufferview = sampler_view->buffer_view->buffer_view;
             } else if (res) {
                imageview = sampler_view->image_view->image_view;

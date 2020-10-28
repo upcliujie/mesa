@@ -25,6 +25,7 @@
 
 #include "zink_batch.h"
 #include "zink_context.h"
+#include "zink_fence.h"
 #include "zink_program.h"
 #include "zink_screen.h"
 
@@ -36,6 +37,7 @@
 #include "util/u_transfer_helper.h"
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
+#include "util/u_upload_mgr.h"
 
 #include "frontend/sw_winsys.h"
 
@@ -46,6 +48,21 @@
 #ifdef ZINK_USE_DMABUF
 #include "drm-uapi/drm_fourcc.h"
 #endif
+
+static void
+zink_transfer_flush_region(struct pipe_context *pctx,
+                           struct pipe_transfer *ptrans,
+                           const struct pipe_box *box);
+static void *
+zink_transfer_map(struct pipe_context *pctx,
+                  struct pipe_resource *pres,
+                  unsigned level,
+                  unsigned usage,
+                  const struct pipe_box *box,
+                  struct pipe_transfer **transfer);
+static void
+zink_transfer_unmap(struct pipe_context *pctx,
+                    struct pipe_transfer *ptrans);
 
 void
 debug_describe_zink_resource_object(char *buf, const struct zink_resource_object *ptr)
@@ -125,6 +142,7 @@ zink_resource_destroy(struct pipe_screen *pscreen,
       util_range_destroy(&res->valid_buffer_range);
 
    zink_resource_object_reference(screen, &res->obj, NULL);
+   threaded_resource_deinit(pres);
    FREE(res);
 }
 
@@ -416,6 +434,14 @@ fail1:
    return NULL;
 }
 
+static const struct u_resource_vtbl zink_resource_vtbl = {
+   NULL,
+   zink_resource_destroy,
+   zink_transfer_map,
+   zink_transfer_flush_region,
+   zink_transfer_unmap,
+};
+
 static struct pipe_resource *
 resource_create(struct pipe_screen *pscreen,
                 const struct pipe_resource *templ,
@@ -425,10 +451,12 @@ resource_create(struct pipe_screen *pscreen,
    struct zink_screen *screen = zink_screen(pscreen);
    struct zink_resource *res = CALLOC_STRUCT(zink_resource);
 
-   res->base = *templ;
+   res->base.b = *templ;
 
-   pipe_reference_init(&res->base.reference, 1);
-   res->base.screen = pscreen;
+   res->base.vtbl = &zink_resource_vtbl;
+   threaded_resource_init(&res->base.b);
+   pipe_reference_init(&res->base.b.reference, 1);
+   res->base.b.screen = pscreen;
 
    bool optimal_tiling = false;
    res->obj = resource_object_create(screen, templ, whandle, &optimal_tiling);
@@ -452,15 +480,15 @@ resource_create(struct pipe_screen *pscreen,
                                          PIPE_BIND_SHARED))) {
       struct sw_winsys *winsys = screen->winsys;
       res->dt = winsys->displaytarget_create(screen->winsys,
-                                             res->base.bind,
-                                             res->base.format,
+                                             res->base.b.bind,
+                                             res->base.b.format,
                                              templ->width0,
                                              templ->height0,
                                              64, NULL,
                                              &res->dt_stride);
    }
 
-   return &res->base;
+   return &res->base.b;
 }
 
 static struct pipe_resource *
@@ -480,7 +508,7 @@ zink_resource_get_handle(struct pipe_screen *pscreen,
    struct zink_resource *res = zink_resource(tex);
    struct zink_screen *screen = zink_screen(pscreen);
 
-   if (res->base.target != PIPE_BUFFER) {
+   if (res->base.b.target != PIPE_BUFFER) {
       VkImageSubresource sub_res = {};
       VkSubresourceLayout sub_res_layout = {};
 
@@ -526,28 +554,25 @@ zink_resource_from_handle(struct pipe_screen *pscreen,
 #endif
 }
 
-static void
-zink_resource_invalidate(struct pipe_context *pctx, struct pipe_resource *pres)
+static bool
+invalidate_buffer(struct zink_context *ctx, struct zink_resource *res)
 {
-   struct zink_context *ctx = zink_context(pctx);
-   struct zink_resource *res = zink_resource(pres);
-   struct zink_screen *screen = zink_screen(pctx->screen);
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
 
-   if (pres->target != PIPE_BUFFER)
-      return;
+   assert(res->base.b.target == PIPE_BUFFER);
 
    if (res->valid_buffer_range.start > res->valid_buffer_range.end)
-      return;
+      return false;
 
    util_range_set_empty(&res->valid_buffer_range);
    if (!get_resource_usage(res))
-      return;
+      return false;
 
    struct zink_resource_object *old_obj = res->obj;
-   struct zink_resource_object *new_obj = resource_object_create(screen, pres, NULL, NULL);
+   struct zink_resource_object *new_obj = resource_object_create(screen, &res->base.b, NULL, NULL);
    if (!new_obj) {
       debug_printf("new backing resource alloc failed!");
-      return;
+      return false;
    }
    res->obj = new_obj;
    res->access_stage = 0;
@@ -555,6 +580,15 @@ zink_resource_invalidate(struct pipe_context *pctx, struct pipe_resource *pres)
    zink_resource_rebind(ctx, res);
    zink_descriptor_set_refs_clear(&old_obj->desc_set_refs, old_obj);
    zink_resource_object_reference(screen, &old_obj, NULL);
+   return true;
+}
+
+
+static void
+zink_resource_invalidate(struct pipe_context *pctx, struct pipe_resource *pres)
+{
+   if (pres->target == PIPE_BUFFER)
+      invalidate_buffer(zink_context(pctx), zink_resource(pres));
 }
 
 static void
@@ -563,18 +597,18 @@ zink_transfer_copy_bufimage(struct zink_context *ctx,
                             struct zink_resource *src,
                             struct zink_transfer *trans)
 {
-   assert((trans->base.usage & (PIPE_MAP_DEPTH_ONLY | PIPE_MAP_STENCIL_ONLY)) !=
+   assert((trans->base.b.usage & (PIPE_MAP_DEPTH_ONLY | PIPE_MAP_STENCIL_ONLY)) !=
           (PIPE_MAP_DEPTH_ONLY | PIPE_MAP_STENCIL_ONLY));
 
-   bool buf2img = src->base.target == PIPE_BUFFER;
+   bool buf2img = src->base.b.target == PIPE_BUFFER;
 
-   struct pipe_box box = trans->base.box;
+   struct pipe_box box = trans->base.b.box;
    int x = box.x;
    if (buf2img)
-      box.x = src->obj->offset;
+      box.x = src->obj->offset + trans->offset;
 
-   zink_copy_image_buffer(ctx, NULL, dst, src, trans->base.level, buf2img ? x : dst->obj->offset,
-                           box.y, box.z, trans->base.level, &box, trans->base.usage);
+   zink_copy_image_buffer(ctx, NULL, dst, src, trans->base.b.level, buf2img ? x : dst->obj->offset,
+                           box.y, box.z, trans->base.b.level, &box, trans->base.b.usage);
 }
 
 bool
@@ -584,6 +618,34 @@ zink_resource_has_usage(struct zink_resource *res, enum zink_resource_access usa
    return batch_uses & usage;
 }
 
+bool
+zink_resource_has_curr_read_usage(struct zink_context *ctx, struct zink_resource *res)
+{
+   return zink_batch_usage_matches(&res->obj->reads, ctx->curr_batch);
+}
+
+static uint32_t
+get_most_recent_access(struct zink_resource *res, enum zink_resource_access flags)
+{
+   uint32_t usage[3]; // read, write, failure
+   uint32_t latest = ARRAY_SIZE(usage) - 1;
+   usage[latest] = 0;
+
+   if (flags & ZINK_RESOURCE_ACCESS_READ) {
+      usage[0] = p_atomic_read(&res->obj->reads.usage);
+      if (usage[0] > usage[latest]) {
+         latest = 0;
+      }
+   }
+   if (flags & ZINK_RESOURCE_ACCESS_WRITE) {
+      usage[1] = p_atomic_read(&res->obj->writes.usage);
+      if (usage[1] > usage[latest]) {
+         latest = 1;
+      }
+   }
+   return usage[latest];
+}
+
 static void *
 buffer_transfer_map(struct zink_context *ctx, struct zink_resource *res, unsigned usage,
                     const struct pipe_box *box, struct zink_transfer *trans)
@@ -591,31 +653,67 @@ buffer_transfer_map(struct zink_context *ctx, struct zink_resource *res, unsigne
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    void *ptr = NULL;
 
-   if (!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
-      if (usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE) {
-         /* Replace the backing storage with a fresh buffer for non-async maps */
-         //if (!(usage & TC_TRANSFER_MAP_NO_INVALIDATE))
-            zink_resource_invalidate(&ctx->base, &res->base);
+   /* See if the buffer range being mapped has never been initialized,
+    * in which case it can be mapped unsynchronized. */
+   if (!(usage & (PIPE_MAP_UNSYNCHRONIZED | TC_TRANSFER_MAP_NO_INFER_UNSYNCHRONIZED)) &&
+       usage & PIPE_MAP_WRITE && !res->base.is_shared &&
+       !util_ranges_intersect(&res->valid_buffer_range, box->x, box->x + box->width)) {
+      usage |= PIPE_MAP_UNSYNCHRONIZED;
+   }
 
-         /* If we can discard the whole resource, we can discard the range. */
+   /* If discarding the entire range, discard the whole resource instead. */
+   if (usage & PIPE_MAP_DISCARD_RANGE && box->x == 0 && box->width == res->base.b.width0) {
+      usage |= PIPE_MAP_DISCARD_WHOLE_RESOURCE;
+   }
+
+   if (usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE &&
+       !(usage & (PIPE_MAP_UNSYNCHRONIZED | TC_TRANSFER_MAP_NO_INVALIDATE))) {
+      assert(usage & PIPE_MAP_WRITE);
+
+      if (invalidate_buffer(ctx, res)) {
+         /* At this point, the buffer is always idle. */
+         usage |= PIPE_MAP_UNSYNCHRONIZED;
+      } else {
+         /* Fall back to a temporary buffer. */
          usage |= PIPE_MAP_DISCARD_RANGE;
       }
-      if (util_ranges_intersect(&res->valid_buffer_range, box->x, box->x + box->width)) {
-         /* special case compute reads since they aren't handled by zink_fence_wait() */
-         if (usage & PIPE_MAP_WRITE && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_READ))
-            resource_sync_reads(ctx, res);
-         if (usage & PIPE_MAP_READ && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_WRITE))
-            resource_sync_writes_from_batch_id(ctx, res);
-         else if (usage & PIPE_MAP_WRITE && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_RW)) {
-            /* need to wait for all rendering to finish
-             * TODO: optimize/fix this to be much less obtrusive
-             * mesa/mesa#2966
-             */
+   }
 
-            trans->staging_res = pipe_buffer_create(&screen->base, 0, PIPE_USAGE_STAGING, res->base.width0);
-            res = zink_resource(trans->staging_res);
-         }
+   if ((usage & PIPE_MAP_WRITE) &&
+       (usage & PIPE_MAP_DISCARD_RANGE ||
+        zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_RW)) &&
+       !(usage & (PIPE_MAP_UNSYNCHRONIZED | PIPE_MAP_PERSISTENT))) {
+
+      /* Check if mapping this buffer would cause waiting for the GPU.
+       */
+
+      uint32_t latest_access = get_most_recent_access(res, ZINK_RESOURCE_ACCESS_RW);
+      if (zink_resource_has_curr_read_usage(ctx, res) ||
+          (latest_access && !zink_check_batch_completion(ctx, latest_access))) {
+         /* Do a wait-free write-only transfer using a temporary buffer. */
+         unsigned offset;
+
+         /* If we are not called from the driver thread, we have
+          * to use the uploader from u_threaded_context, which is
+          * local to the calling thread.
+          */
+         if (usage & TC_TRANSFER_MAP_THREADED_UNSYNC) {
+            u_upload_alloc(ctx->tc->base.stream_uploader, 0, box->width + box->x,
+                        screen->info.props.limits.minMemoryMapAlignment, &offset,
+                        (struct pipe_resource **)&trans->staging_res, (void **)&ptr);
+         } else
+            trans->staging_res = pipe_buffer_create(&screen->base, 0, PIPE_USAGE_STAGING, res->base.b.width0);
+         res = zink_resource(trans->staging_res);
+         trans->offset = offset;
+      } else {
+         /* At this point, the buffer is always idle (we checked it above). */
+         usage |= PIPE_MAP_UNSYNCHRONIZED;
       }
+   } else if ((usage & PIPE_MAP_READ) && !(usage & PIPE_MAP_PERSISTENT)) {
+      assert(!(usage & (TC_TRANSFER_MAP_THREADED_UNSYNC | PIPE_MAP_THREAD_SAFE)));
+      uint32_t latest_write = get_most_recent_access(res, ZINK_RESOURCE_ACCESS_WRITE);
+      if (latest_write)
+         zink_wait_on_batch(ctx, latest_write);
    }
 
    if (!trans->staging_res && res->obj->map)
@@ -628,7 +726,7 @@ buffer_transfer_map(struct zink_context *ctx, struct zink_resource *res, unsigne
    }
 
 #if defined(__APPLE__)
-      if (!(usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE)) {
+      if (!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
          // Work around for MoltenVk limitation
          // MoltenVk returns blank memory ranges when there should be data present
          // This is a known limitation of MoltenVK.
@@ -646,10 +744,11 @@ buffer_transfer_map(struct zink_context *ctx, struct zink_resource *res, unsigne
       }
 #endif
 
-   trans->base.stride = 0;
-   trans->base.layer_stride = 0;
+   trans->base.b.stride = 0;
+   trans->base.b.layer_stride = 0;
+   trans->base.b.usage = usage;
    if (usage & PIPE_MAP_WRITE)
-      util_range_add(&res->base, &res->valid_buffer_range, box->x, box->x + box->width);
+      util_range_add(&res->base.b, &res->valid_buffer_range, box->x, box->x + box->width);
    return ptr;
 }
 
@@ -665,17 +764,24 @@ zink_transfer_map(struct pipe_context *pctx,
    struct zink_screen *screen = zink_screen(pctx->screen);
    struct zink_resource *res = zink_resource(pres);
 
-   struct zink_transfer *trans = slab_alloc(&ctx->transfer_pool);
+   struct zink_transfer *trans;
+
+   if (usage & PIPE_MAP_THREAD_SAFE)
+      trans = malloc(sizeof(*trans));
+   else if (usage & TC_TRANSFER_MAP_THREADED_UNSYNC)
+      trans = slab_alloc(&ctx->transfer_pool_unsync);
+   else
+      trans = slab_alloc(&ctx->transfer_pool);
    if (!trans)
       return NULL;
 
    memset(trans, 0, sizeof(*trans));
-   pipe_resource_reference(&trans->base.resource, pres);
+   pipe_resource_reference(&trans->base.b.resource, pres);
 
-   trans->base.resource = pres;
-   trans->base.level = level;
-   trans->base.usage = usage;
-   trans->base.box = *box;
+   trans->base.b.resource = pres;
+   trans->base.b.level = level;
+   trans->base.b.usage = usage;
+   trans->base.b.box = *box;
 
    void *ptr, *base;
    if (pres->target == PIPE_BUFFER) {
@@ -688,15 +794,15 @@ zink_transfer_map(struct pipe_context *pctx,
       else if (usage & PIPE_MAP_READ)
          /* if the map region intersects with any clears then we have to apply them */
          zink_fb_clears_apply_region(ctx, pres, zink_rect_from_box(box));
-      if (res->optimal_tiling || ((res->base.usage != PIPE_USAGE_STAGING))) {
+      if (res->optimal_tiling || ((res->base.b.usage != PIPE_USAGE_STAGING))) {
          enum pipe_format format = pres->format;
          if (usage & PIPE_MAP_DEPTH_ONLY)
             format = util_format_get_depth_only(pres->format);
          else if (usage & PIPE_MAP_STENCIL_ONLY)
             format = PIPE_FORMAT_S8_UINT;
-         trans->base.stride = util_format_get_stride(format, box->width);
-         trans->base.layer_stride = util_format_get_2d_size(format,
-                                                            trans->base.stride,
+         trans->base.b.stride = util_format_get_stride(format, box->width);
+         trans->base.b.layer_stride = util_format_get_2d_size(format,
+                                                            trans->base.b.stride,
                                                             box->height);
 
          struct pipe_resource templ = *pres;
@@ -704,7 +810,7 @@ zink_transfer_map(struct pipe_context *pctx,
          templ.usage = PIPE_USAGE_STAGING;
          templ.target = PIPE_BUFFER;
          templ.bind = 0;
-         templ.width0 = trans->base.layer_stride * box->depth;
+         templ.width0 = trans->base.b.layer_stride * box->depth;
          templ.height0 = templ.depth0 = 0;
          templ.last_level = 0;
          templ.array_size = 1;
@@ -759,9 +865,9 @@ zink_transfer_map(struct pipe_context *pctx,
          };
          VkSubresourceLayout srl;
          vkGetImageSubresourceLayout(screen->dev, res->obj->image, &isr, &srl);
-         trans->base.stride = srl.rowPitch;
-         trans->base.layer_stride = srl.arrayPitch;
-         const struct util_format_description *desc = util_format_description(res->base.format);
+         trans->base.b.stride = srl.rowPitch;
+         trans->base.b.layer_stride = srl.arrayPitch;
+         const struct util_format_description *desc = util_format_description(res->base.b.format);
          unsigned offset = srl.offset +
                            box->z * srl.depthPitch +
                            (box->y / desc->block.height) * srl.rowPitch +
@@ -782,7 +888,7 @@ zink_transfer_map(struct pipe_context *pctx,
       p_atomic_inc(&res->obj->map_count);
    }
 
-   *transfer = &trans->base;
+   *transfer = &trans->base.b;
    return ptr;
 }
 
@@ -795,12 +901,12 @@ zink_transfer_flush_region(struct pipe_context *pctx,
    struct zink_resource *res = zink_resource(ptrans->resource);
    struct zink_transfer *trans = (struct zink_transfer *)ptrans;
 
-   if (trans->base.usage & PIPE_MAP_WRITE) {
+   if (trans->base.b.usage & PIPE_MAP_WRITE) {
       if (trans->staging_res) {
          struct zink_resource *staging_res = zink_resource(trans->staging_res);
 
          if (ptrans->resource->target == PIPE_BUFFER)
-            zink_copy_buffer(ctx, NULL, res, staging_res, box->x, box->x, box->width);
+            zink_copy_buffer(ctx, NULL, res, staging_res, box->x, box->x + trans->offset, box->width);
          else
             zink_transfer_copy_bufimage(ctx, res, staging_res, trans);
       }
@@ -825,18 +931,26 @@ zink_transfer_unmap(struct pipe_context *pctx,
       vkUnmapMemory(screen->dev, res->obj->mem);
       res->obj->map = NULL;
    }
-   if ((trans->base.usage & PIPE_MAP_PERSISTENT) && !(trans->base.usage & PIPE_MAP_COHERENT)) {
+   if ((trans->base.b.usage & PIPE_MAP_PERSISTENT) && !(trans->base.b.usage & PIPE_MAP_COHERENT)) {
       res->persistent_maps--;
       ctx->num_persistent_maps--;
    }
-   if (!(trans->base.usage & (PIPE_MAP_FLUSH_EXPLICIT | PIPE_MAP_COHERENT))) {
+   if (!(trans->base.b.usage & (PIPE_MAP_FLUSH_EXPLICIT | PIPE_MAP_COHERENT))) {
       zink_transfer_flush_region(pctx, ptrans, &ptrans->box);
    }
 
    if (trans->staging_res)
       pipe_resource_reference(&trans->staging_res, NULL);
-   pipe_resource_reference(&trans->base.resource, NULL);
-   slab_free(&ctx->transfer_pool, ptrans);
+   pipe_resource_reference(&trans->base.b.resource, NULL);
+
+   if (trans->base.b.usage & PIPE_MAP_THREAD_SAFE) {
+      free(trans);
+   } else {
+      /* Don't use pool_transfers_unsync. We are always in the driver
+       * thread. Freeing an object into a different pool is allowed.
+       */
+      slab_free(&ctx->transfer_pool, ptrans);
+   }
 }
 
 static struct pipe_resource *
