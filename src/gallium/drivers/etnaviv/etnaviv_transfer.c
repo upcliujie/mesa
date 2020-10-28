@@ -208,6 +208,9 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
    /* slab_alloc() doesn't zero */
    memset(trans, 0, sizeof(*trans));
 
+   if (etna_resource_unfinished_ts_import(rsc))
+      etna_resource_finish_ts_import(pctx->screen, rsc);
+
    /*
     * Upgrade to UNSYNCHRONIZED if target is PIPE_BUFFER and range is uninitialized.
     */
