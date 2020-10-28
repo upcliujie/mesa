@@ -30,6 +30,7 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <sys/wait.h>
 #include <llvm-c/Target.h>
 #include "aco_ir.h"
 #include "framework.h"
@@ -173,14 +174,40 @@ int check_output(char **argv)
    int stdin_pipe[2];
    pipe(stdin_pipe);
 
-   write(stdin_pipe[1], checker_stdin_data, checker_stdin_size);
+   pid_t child = fork();
+   if (child < 0) {
+      fprintf(stderr, "%s: fork() failed: %s\n", argv[0], strerror(errno));
+      return 99;
+   }
+
+   if (!child) {
+      dup2(stdin_pipe[0], STDIN_FILENO);
+      close(stdin_pipe[1]);
+      execlp(ACO_TEST_PYTHON_BIN, ACO_TEST_PYTHON_BIN, ACO_TEST_SOURCE_DIR "/check_output.py", NULL);
+      fprintf(stderr, "%s: execl() failed: %s\n", argv[0], strerror(errno));
+      return 99;
+   }
+
+   close(stdin_pipe[0]);
+   while (checker_stdin_size) {
+      ssize_t amount = write(stdin_pipe[1], checker_stdin_data, checker_stdin_size);
+      if (amount < 0) {
+         if (errno == EAGAIN) {
+            continue;
+         } else {
+            fprintf(stderr, "%s: write() failed: %s\n", argv[0], strerror(errno));
+            return 99;
+         }
+      }
+      checker_stdin_data += amount;
+      checker_stdin_size -= amount;
+   }
+   write(stdin_pipe[1], "done", 4);
    close(stdin_pipe[1]);
-   dup2(stdin_pipe[0], STDIN_FILENO);
 
-   execlp(ACO_TEST_PYTHON_BIN, ACO_TEST_PYTHON_BIN, ACO_TEST_SOURCE_DIR "/check_output.py", NULL);
-
-   fprintf(stderr, "%s: execl() failed: %s\n", argv[0], strerror(errno));
-   return 99;
+   int wstatus;
+   waitpid(child, &wstatus, 0);
+   return wstatus;
 }
 
 bool match_test(std::string name, std::string pattern)
