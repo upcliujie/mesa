@@ -149,11 +149,11 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
    batch->submitted = true;
 }
 
-int
+enum zink_queue
 zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource *res, bool write)
 {
    unsigned mask = write ? ZINK_RESOURCE_ACCESS_WRITE : ZINK_RESOURCE_ACCESS_READ;
-   int batch_to_flush = -1;
+   enum zink_queue batch_to_flush = 0;
 
    /* u_transfer_helper unrefs the stencil buffer when the depth buffer is unrefed,
     * so we add an extra ref here to the stencil buffer to compensate
@@ -165,11 +165,11 @@ zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource 
    if (batch->batch_id == ZINK_COMPUTE_BATCH_ID) {
       if ((write && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_RW, ZINK_QUEUE_GFX)) ||
           (!write && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_WRITE, ZINK_QUEUE_GFX)))
-         batch_to_flush = 0;
+         batch_to_flush = ZINK_QUEUE_GFX;
    } else {
       if ((write && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_READ, ZINK_QUEUE_COMPUTE)) ||
           zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_WRITE, ZINK_QUEUE_COMPUTE))
-         batch_to_flush = ZINK_COMPUTE_BATCH_ID;
+         batch_to_flush = ZINK_QUEUE_COMPUTE;
    }
 
    /* if the resource already has usage of any sort set for this batch, we can skip hashing */
