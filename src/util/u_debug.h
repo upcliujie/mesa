@@ -60,6 +60,8 @@ extern "C" {
 #define _util_printf_format(fmt, list)
 #endif
 
+#define __must_check __attribute__((__warn_unused_result__))
+
 void _debug_vprintf(const char *format, va_list ap);
    
 
