@@ -53,11 +53,19 @@ debug_describe_zink_resource_object(char *buf, const struct zink_resource_object
    sprintf(buf, "zink_resource_object");
 }
 
+static uint32_t
+get_resource_usage(struct zink_resource *res)
+{
+   uint32_t batch_uses = 0;
+   for (unsigned i = 0; i < 5; i++)
+      batch_uses |= p_atomic_read(&res->obj->batch_uses[i]) << i;
+   return batch_uses;
+}
 
 static void
 resource_sync_writes_from_batch_id(struct zink_context *ctx, struct zink_resource *res)
 {
-   uint32_t batch_uses = zink_get_resource_usage(res);
+   uint32_t batch_uses = get_resource_usage(res);
    batch_uses &= ~(ZINK_RESOURCE_ACCESS_READ << ZINK_COMPUTE_BATCH_ID);
 
    uint32_t write_mask = 0;
@@ -68,7 +76,7 @@ resource_sync_writes_from_batch_id(struct zink_context *ctx, struct zink_resourc
       if (batch_id == -1)
          break;
       zink_wait_on_batch(ctx, batch_id);
-      batch_uses &= ~((ZINK_RESOURCE_ACCESS_READ | ZINK_RESOURCE_ACCESS_WRITE) << batch_id);
+      batch_uses &= ~((ZINK_RESOURCE_ACCESS_RW) << batch_id);
    }
 }
 
@@ -551,7 +559,7 @@ zink_resource_invalidate(struct pipe_context *pctx, struct pipe_resource *pres)
       return;
 
    util_range_set_empty(&res->valid_buffer_range);
-   if (!zink_get_resource_usage(res))
+   if (!get_resource_usage(res))
       return;
 
    struct zink_resource_object *old_obj = res->obj;
@@ -588,13 +596,29 @@ zink_transfer_copy_bufimage(struct zink_context *ctx,
                            box.y, box.z, trans->base.level, &box, trans->base.usage);
 }
 
-uint32_t
-zink_get_resource_usage(struct zink_resource *res)
+bool
+zink_resource_has_usage(struct zink_resource *res, enum zink_resource_access usage, enum zink_queue queue)
 {
-   uint32_t batch_uses = 0;
-   for (unsigned i = 0; i < 5; i++)
-      batch_uses |= p_atomic_read(&res->obj->batch_uses[i]) << i;
-   return batch_uses;
+   uint32_t batch_uses = get_resource_usage(res);
+   switch (queue) {
+   case ZINK_QUEUE_COMPUTE:
+      return batch_uses & (usage << ZINK_COMPUTE_BATCH_ID);
+   case ZINK_QUEUE_GFX:
+      return batch_uses & (usage << ZINK_QUEUE_GFX);
+   case ZINK_QUEUE_ANY:
+      return batch_uses & ((usage << ZINK_QUEUE_GFX) | (usage << ZINK_QUEUE_COMPUTE));
+   default:
+      break;
+   }
+   unreachable("unknown queue type");
+   return false;
+}
+
+bool
+zink_resource_has_usage_for_id(struct zink_resource *res, uint32_t id)
+{
+   uint32_t batch_uses = get_resource_usage(res);
+   return batch_uses & (ZINK_RESOURCE_ACCESS_RW) << id;
 }
 
 static void *
@@ -608,7 +632,6 @@ zink_transfer_map(struct pipe_context *pctx,
    struct zink_context *ctx = zink_context(pctx);
    struct zink_screen *screen = zink_screen(pctx->screen);
    struct zink_resource *res = zink_resource(pres);
-   uint32_t batch_uses = zink_get_resource_usage(res);
 
    struct zink_transfer *trans = slab_alloc(&ctx->transfer_pool);
    if (!trans)
@@ -635,12 +658,11 @@ zink_transfer_map(struct pipe_context *pctx,
          }
          if (util_ranges_intersect(&res->valid_buffer_range, box->x, box->x + box->width)) {
             /* special case compute reads since they aren't handled by zink_fence_wait() */
-            if (usage & PIPE_MAP_WRITE && (batch_uses & (ZINK_RESOURCE_ACCESS_READ << ZINK_COMPUTE_BATCH_ID)))
+            if (usage & PIPE_MAP_WRITE && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_READ, ZINK_QUEUE_COMPUTE))
                zink_wait_on_batch(ctx, ZINK_COMPUTE_BATCH_ID);
-            batch_uses &= ~(ZINK_RESOURCE_ACCESS_READ << ZINK_COMPUTE_BATCH_ID);
-            if (usage & PIPE_MAP_READ && batch_uses >= ZINK_RESOURCE_ACCESS_WRITE)
+            if (usage & PIPE_MAP_READ && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_WRITE, ZINK_QUEUE_ANY))
                resource_sync_writes_from_batch_id(ctx, res);
-            else if (usage & PIPE_MAP_WRITE && batch_uses) {
+            else if (usage & PIPE_MAP_WRITE && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_RW, ZINK_QUEUE_ANY)) {
                /* need to wait for all rendering to finish
                 * TODO: optimize/fix this to be much less obtrusive
                 * mesa/mesa#2966
@@ -718,7 +740,7 @@ zink_transfer_map(struct pipe_context *pctx,
 
          if (usage & PIPE_MAP_READ) {
             /* TODO: can probably just do a full cs copy if it's already in a cs batch */
-            if (batch_uses & (ZINK_RESOURCE_ACCESS_WRITE << ZINK_COMPUTE_BATCH_ID))
+            if (zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_WRITE, ZINK_QUEUE_COMPUTE))
                /* don't actually have to stall here, only ensure batch is submitted */
                zink_flush_compute(ctx);
             struct zink_context *ctx = zink_context(pctx);
@@ -736,10 +758,9 @@ zink_transfer_map(struct pipe_context *pctx,
       } else {
          assert(!res->optimal_tiling);
          /* special case compute reads since they aren't handled by zink_fence_wait() */
-         if (batch_uses & (ZINK_RESOURCE_ACCESS_READ << ZINK_COMPUTE_BATCH_ID))
+         if (zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_READ, ZINK_QUEUE_COMPUTE))
             zink_wait_on_batch(ctx, ZINK_COMPUTE_BATCH_ID);
-         batch_uses &= ~(ZINK_RESOURCE_ACCESS_READ << ZINK_COMPUTE_BATCH_ID);
-         if (batch_uses >= ZINK_RESOURCE_ACCESS_WRITE) {
+         if (zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_RW, ZINK_QUEUE_ANY)) {
             if (usage & PIPE_MAP_READ)
                resource_sync_writes_from_batch_id(ctx, res);
             else
@@ -786,13 +807,9 @@ zink_transfer_flush_region(struct pipe_context *pctx,
    if (trans->base.usage & PIPE_MAP_WRITE) {
       if (trans->staging_res) {
          struct zink_resource *staging_res = zink_resource(trans->staging_res);
-         uint32_t batch_uses = zink_get_resource_usage(res) | zink_get_resource_usage(staging_res);
-         if (batch_uses & (ZINK_RESOURCE_ACCESS_WRITE << ZINK_COMPUTE_BATCH_ID)) {
+         if (zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_WRITE, ZINK_QUEUE_COMPUTE))
             /* don't actually have to stall here, only ensure batch is submitted */
             zink_flush_compute(ctx);
-            batch_uses &= ~(ZINK_RESOURCE_ACCESS_WRITE << ZINK_COMPUTE_BATCH_ID);
-            batch_uses &= ~(ZINK_RESOURCE_ACCESS_READ << ZINK_COMPUTE_BATCH_ID);
-         }
 
          if (ptrans->resource->target == PIPE_BUFFER)
             zink_copy_buffer(ctx, NULL, res, staging_res, box->x, box->x, box->width);
