@@ -1182,7 +1182,7 @@ bool get_reg_specified(ra_ctx& ctx,
    uint32_t reg_lo = reg.reg();
    uint32_t reg_hi = reg + (size - 1);
 
-   if (reg_lo < lb || reg_hi >= ub || reg_lo > reg_hi)
+   if (reg_lo < lb || reg_hi >= ub)
       return false;
 
    if (rc.is_subdword()) {
