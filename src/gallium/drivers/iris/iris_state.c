@@ -813,7 +813,7 @@ iris_upload_slice_hashing_state(struct iris_batch *batch)
       return;
 
    struct iris_context *ice = NULL;
-   ice = container_of(batch, ice, batches[IRIS_BATCH_RENDER]);
+   ice = batch->ice;
    assert(&ice->batches[IRIS_BATCH_RENDER] == batch);
 
    unsigned size = GENX(SLICE_HASH_TABLE_length) * 4;
