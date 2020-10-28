@@ -59,6 +59,12 @@ struct zink_rasterizer_state;
 struct zink_resource;
 struct zink_vertex_elements_state;
 
+enum zink_queue {
+   ZINK_QUEUE_GFX = 1,
+   ZINK_QUEUE_COMPUTE = 2,
+   ZINK_QUEUE_ANY = ZINK_QUEUE_GFX | ZINK_QUEUE_COMPUTE,
+};
+
 enum zink_blit_flags {
    ZINK_BLIT_NORMAL = 1 << 0,
    ZINK_BLIT_SAVE_FS = 1 << 1,
