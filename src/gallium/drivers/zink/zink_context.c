@@ -57,9 +57,10 @@
 static void
 incr_curr_batch(struct zink_context *ctx)
 {
-   ctx->curr_batch++;
-   if (!ctx->curr_batch)
-      ctx->curr_batch = 1;
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   ctx->curr_batch = p_atomic_inc_return(&screen->curr_batch);
+   if (!ctx->curr_batch) //never use batchid 0
+      incr_curr_batch(ctx);
 }
 
 static struct zink_resource *
@@ -299,6 +300,9 @@ zink_context_destroy(struct pipe_context *pctx)
 
    pipe_resource_reference(&ctx->dummy_vertex_buffer, NULL);
    pipe_resource_reference(&ctx->dummy_xfb_buffer, NULL);
+   if (ctx->tc)
+      util_queue_destroy(&ctx->batch.flush_queue);
+
    for (unsigned i = 0; i < ARRAY_SIZE(ctx->null_buffers); i++)
       pipe_resource_reference(&ctx->null_buffers[i], NULL);
 
@@ -333,6 +337,7 @@ zink_context_destroy(struct pipe_context *pctx)
    _mesa_hash_table_destroy(ctx->program_cache, NULL);
    _mesa_hash_table_destroy(ctx->compute_program_cache, NULL);
    _mesa_hash_table_destroy(ctx->render_pass_cache, NULL);
+   slab_destroy_child(&ctx->transfer_pool_unsync);
 
    zink_descriptor_pool_deinit(ctx);
 
@@ -1373,11 +1378,21 @@ zink_end_render_pass(struct zink_context *ctx, struct zink_batch *batch)
 }
 
 static void
-flush_batch(struct zink_context *ctx)
+sync_flush(struct zink_context *ctx, struct zink_batch_state *bs)
+{
+   if (util_queue_is_initialized(&ctx->batch.flush_queue))
+      util_queue_fence_wait(&bs->flush_completed);
+}
+
+static void
+flush_batch(struct zink_context *ctx, bool sync)
 {
    struct zink_batch *batch = &ctx->batch;
    zink_end_render_pass(ctx, batch);
    zink_end_batch(ctx, batch);
+
+   if (sync)
+      sync_flush(ctx, ctx->batch.state);
 
    if (ctx->batch.state->is_device_lost && ctx->reset.reset) {
       ctx->is_device_lost = true;
@@ -1414,7 +1429,7 @@ zink_batch_no_rp(struct zink_context *ctx)
 void
 zink_flush_queue(struct zink_context *ctx)
 {
-   flush_batch(ctx);
+   flush_batch(ctx, true);
 }
 
 static bool
@@ -1855,8 +1870,9 @@ zink_flush(struct pipe_context *pctx,
 {
    struct zink_context *ctx = zink_context(pctx);
    bool deferred = flags & PIPE_FLUSH_DEFERRED;
+   bool deferred_fence = false;
    struct zink_batch *batch = &ctx->batch;
-   struct zink_fence *fence = &batch->state->fence;
+   struct zink_fence *fence = NULL;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
 
    if (!deferred && ctx->clears_enabled) {
@@ -1864,29 +1880,72 @@ zink_flush(struct pipe_context *pctx,
       zink_begin_render_pass(ctx, batch);
    }
 
-   if (deferred)
-      batch->state->fence.deferred_ctx = pctx;
-   else if (batch->has_work) {
-      if (flags & PIPE_FLUSH_END_OF_FRAME) {
-         if (ctx->fb_state.nr_cbufs)
-            zink_end_render_pass(ctx, batch);
-         for (int i = 0; i < ctx->fb_state.nr_cbufs; i++)
-            zink_resource_image_barrier(ctx, batch,
-                                        ctx->fb_state.cbufs[i] ? zink_resource(ctx->fb_state.cbufs[i]->texture) : NULL,
-                                        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0, 0);
-         if (screen->needs_mesa_flush_wsi && ctx->fb_state.cbufs[0])
-            batch->state->flush_res = zink_resource(ctx->fb_state.cbufs[0]->texture);
-      }
-      flush_batch(ctx);
+   if (flags & PIPE_FLUSH_END_OF_FRAME && ctx->fb_state.nr_cbufs) {
+      zink_end_render_pass(ctx, batch);
+      for (int i = 0; i < ctx->fb_state.nr_cbufs; i++)
+         zink_resource_image_barrier(ctx, batch,
+                                     ctx->fb_state.cbufs[i] ? zink_resource(ctx->fb_state.cbufs[i]->texture) : NULL,
+                                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0, 0);
+      if (zink_screen(pctx->screen)->needs_mesa_flush_wsi && ctx->fb_state.cbufs[0])
+         batch->state->flush_res = zink_resource(ctx->fb_state.cbufs[0]->texture);
    }
 
-   if (!pfence)
-      return;
-   if (deferred && !batch->has_work) {
-      fence = ctx->last_fence;
+   if (!batch->has_work) {
+       if (pfence) {
+          /* reuse last fence */
+          fence = ctx->last_fence;
+       }
+       if (!deferred) {
+          struct zink_batch_state *last = zink_batch_state(ctx->last_fence);
+          if (last) {
+             sync_flush(ctx, last);
+             if (last->is_device_lost && ctx->reset.reset) {
+                ctx->is_device_lost = true;
+                ctx->reset.reset(ctx->reset.data, PIPE_GUILTY_CONTEXT_RESET);
+             }
+          }
+       }
+   } else {
+      fence = &batch->state->fence;
+      if (deferred && !(flags & PIPE_FLUSH_FENCE_FD) && pfence)
+         deferred_fence = true;
+      else
+         flush_batch(ctx, true);
    }
-   zink_batch_state_reference(screen, NULL, zink_batch_state(fence));
-   if (flags & PIPE_FLUSH_END_OF_FRAME) {
+
+   if (pfence) {
+      struct zink_tc_fence *mfence;
+
+      if (flags & TC_FLUSH_ASYNC) {
+         mfence = zink_tc_fence(*pfence);
+         assert(mfence);
+      } else {
+         mfence = zink_create_tc_fence();
+
+         screen->base.fence_reference(&screen->base, pfence, NULL);
+         *pfence = (struct pipe_fence_handle *)mfence;
+      }
+
+      zink_batch_state_reference(screen, NULL, zink_batch_state(fence));
+      mfence->fence = fence;
+      if (fence)
+         mfence->batch_id = fence->batch_id;
+
+      if (deferred_fence) {
+         assert(fence);
+         mfence->deferred_ctx = pctx;
+         mfence->deferred_id = fence->batch_id;
+      }
+
+      if (!fence || flags & TC_FLUSH_ASYNC) {
+         if (!util_queue_fence_is_signalled(&mfence->ready))
+            util_queue_fence_signal(&mfence->ready);
+      }
+   }
+   if (fence && !(flags & (PIPE_FLUSH_DEFERRED | PIPE_FLUSH_ASYNC)))
+      sync_flush(ctx, zink_batch_state(fence));
+
+   if (flags & PIPE_FLUSH_END_OF_FRAME && !(flags & TC_FLUSH_ASYNC) && !deferred) {
       /* if the first frame has not yet occurred, we need an explicit fence here
        * in some cases in order to correctly draw the first frame, though it's
        * unknown at this time why this is the case
@@ -1903,10 +1962,11 @@ zink_maybe_flush_or_stall(struct zink_context *ctx)
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    /* flush anytime our total batch memory usage is potentially >= 1/10 of total system memory */
    if (ctx->batch.state->resource_size >= screen->total_mem / 10)
-      flush_batch(ctx);
+      flush_batch(ctx, true);
 
    if (ctx->resource_size >= screen->total_mem / 10 || _mesa_hash_table_num_entries(&ctx->batch_states) > 10) {
-      zink_vkfence_wait(zink_screen(ctx->base.screen), ctx->last_fence, PIPE_TIMEOUT_INFINITE);
+      sync_flush(ctx, zink_batch_state(ctx->last_fence));
+      zink_vkfence_wait(screen, ctx->last_fence, PIPE_TIMEOUT_INFINITE);
       zink_batch_reset_all(ctx);
    }
 }
@@ -1919,7 +1979,8 @@ zink_fence_wait(struct pipe_context *pctx)
    if (ctx->batch.has_work)
       pctx->flush(pctx, NULL, PIPE_FLUSH_HINT_FINISH);
    if (ctx->last_fence) {
-      zink_vkfence_wait(zink_screen(pctx->screen), ctx->last_fence, PIPE_TIMEOUT_INFINITE);
+      sync_flush(ctx, zink_batch_state(ctx->last_fence));
+      zink_vkfence_wait(zink_screen(ctx->base.screen), ctx->last_fence, PIPE_TIMEOUT_INFINITE);
       zink_batch_reset_all(ctx);
    }
 }
@@ -1931,8 +1992,7 @@ zink_wait_on_batch(struct zink_context *ctx, uint32_t batch_id)
    assert(bs);
    if (!batch_id || bs->fence.batch_id == batch_id)
       /* not submitted yet */
-      flush_batch(ctx);
-
+      flush_batch(ctx, true);
    simple_mtx_lock(&ctx->batch_mtx);
    struct zink_fence *fence;
 
@@ -1941,16 +2001,17 @@ zink_wait_on_batch(struct zink_context *ctx, uint32_t batch_id)
       fence = ctx->last_fence;
    else {
       struct hash_entry *he = _mesa_hash_table_search_pre_hashed(&ctx->batch_states, batch_id, (void*)(uintptr_t)batch_id);
+      /* if we can't find it, it must have finished already */
       if (!he) {
-        /* batch has already completed */
-        simple_mtx_unlock(&ctx->batch_mtx);
-        return;
+         simple_mtx_unlock(&ctx->batch_mtx);
+         return;
       }
       fence = he->data;
    }
-   assert(fence);
-   ctx->base.screen->fence_finish(ctx->base.screen, &ctx->base, (struct pipe_fence_handle*)fence, PIPE_TIMEOUT_INFINITE);
    simple_mtx_unlock(&ctx->batch_mtx);
+   assert(fence);
+   sync_flush(ctx, zink_batch_state(fence));
+   zink_vkfence_wait(zink_screen(ctx->base.screen), fence, PIPE_TIMEOUT_INFINITE);
 }
 
 bool
@@ -1980,6 +2041,9 @@ zink_check_batch_completion(struct zink_context *ctx, uint32_t batch_id)
    }
    simple_mtx_unlock(&ctx->batch_mtx);
    assert(fence);
+   if (util_queue_is_initialized(&ctx->batch.flush_queue) &&
+       !util_queue_fence_is_signalled(&zink_batch_state(fence)->flush_completed))
+      return false;
    return zink_vkfence_wait(zink_screen(ctx->base.screen), fence, 0);
 }
 
@@ -2493,6 +2557,19 @@ zink_resource_rebind(struct zink_context *ctx, struct zink_resource *res)
    }
 }
 
+static void
+zink_context_replace_buffer_storage(struct pipe_context *pctx, struct pipe_resource *dst, struct pipe_resource *src)
+{
+   struct zink_resource *d = zink_resource(dst);
+   struct zink_resource *s = zink_resource(src);
+
+   assert(d->internal_format == s->internal_format);
+   zink_resource_object_reference(zink_screen(pctx->screen), &d->obj, s->obj);
+   d->access = s->access;
+   d->access_stage = s->access_stage;
+   zink_resource_rebind(zink_context(pctx), d);
+}
+
 struct pipe_context *
 zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 {
@@ -2566,6 +2643,7 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ctx->gfx_pipeline_state.have_EXT_extended_dynamic_state = screen->info.have_EXT_extended_dynamic_state;
 
    slab_create_child(&ctx->transfer_pool, &screen->transfer_pool);
+   slab_create_child(&ctx->transfer_pool_unsync, &screen->transfer_pool);
 
    ctx->base.stream_uploader = u_upload_create_default(&ctx->base);
    ctx->base.const_uploader = u_upload_create_default(&ctx->base);
@@ -2589,12 +2667,15 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
       goto fail;
 
    vkGetDeviceQueue(screen->dev, screen->gfx_queue, 0, &ctx->batch.queue);
+   if (screen->threaded && screen->max_queues > 1)
+      vkGetDeviceQueue(screen->dev, screen->gfx_queue, 1, &ctx->batch.thread_queue);
+   else
+      ctx->batch.thread_queue = ctx->batch.queue;
 
    incr_curr_batch(ctx);
    zink_start_batch(ctx, &ctx->batch);
    if (!ctx->batch.state)
       goto fail;
-
    simple_mtx_init(&ctx->batch_mtx, mtx_plain);
 
    ctx->program_cache = _mesa_hash_table_create(NULL,
@@ -2622,7 +2703,19 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    if (!zink_descriptor_pool_init(ctx))
       goto fail;
 
-   return &ctx->base;
+   if (!(flags & PIPE_CONTEXT_PREFER_THREADED) || flags & PIPE_CONTEXT_COMPUTE_ONLY) {
+      return &ctx->base;
+   }
+
+   struct threaded_context *tc = (struct threaded_context*)threaded_context_create(&ctx->base, &screen->transfer_pool,
+                                                     zink_context_replace_buffer_storage,
+                                                     zink_create_tc_fence_for_tc, &ctx->tc);
+
+   if (tc && (struct zink_context*)tc != ctx) {
+      tc->bytes_mapped_limit = screen->total_mem / 4;
+   }
+
+   return (struct pipe_context*)tc;
 
 fail:
    if (ctx)

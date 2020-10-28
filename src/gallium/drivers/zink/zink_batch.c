@@ -10,6 +10,7 @@
 #include "zink_screen.h"
 #include "zink_surface.h"
 
+#include "util/u_cpu_detect.h"
 #include "util/hash_table.h"
 #include "util/u_debug.h"
 #include "util/set.h"
@@ -88,12 +89,14 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
    }
 
    bs->flush_res = NULL;
-   bs->fence.deferred_ctx = NULL;
 
    bs->descs_used = 0;
    ctx->resource_size -= bs->resource_size;
    bs->resource_size = 0;
 
+   /* only reset submitted here so that tc fence desync can pick up the 'completed' flag
+    * before the state is reused
+    */
    bs->fence.submitted = false;
    bs->fence.batch_id = 0;
 }
@@ -124,6 +127,11 @@ zink_batch_state_destroy(struct zink_screen *screen, struct zink_batch_state *bs
 {
    if (!bs)
       return;
+
+   util_queue_fence_destroy(&bs->flush_completed);
+
+   if (bs->fence.fence)
+      vkDestroyFence(screen->dev, bs->fence.fence, NULL);
 
    if (bs->cmdbuf)
       vkFreeCommandBuffers(screen->dev, bs->cmdpool, 1, &bs->cmdbuf);
@@ -185,9 +193,10 @@ create_batch_state(struct zink_context *ctx)
 
    if (vkCreateFence(screen->dev, &fci, NULL, &bs->fence.fence) != VK_SUCCESS)
       goto fail;
-   pipe_reference_init(&bs->fence.reference, 1);
 
    simple_mtx_init(&bs->fence.resource_mtx, mtx_plain);
+   util_queue_fence_init(&bs->flush_completed);
+
    return bs;
 fail:
    zink_batch_state_destroy(screen, bs);
@@ -267,6 +276,9 @@ zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
    if (ctx->last_fence) {
       struct zink_batch_state *last_state = zink_batch_state(ctx->last_fence);
       batch->last_batch_id = last_state->fence.batch_id;
+   } else {
+      if (zink_screen(ctx->base.screen)->threaded)
+         util_queue_init(&batch->flush_queue, "zfq", 8, 1, UTIL_QUEUE_INIT_RESIZE_IF_FULL);
    }
    if (!ctx->queries_disabled)
       zink_resume_queries(ctx, batch);
@@ -343,9 +355,15 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
    simple_mtx_unlock(&ctx->batch_mtx);
    ctx->resource_size += batch->state->resource_size;
 
-   batch->state->queue = batch->queue;
-   submit_queue(batch->state, 0);
-   post_submit(batch->state, 0);
+   if (util_queue_is_initialized(&batch->flush_queue)) {
+      batch->state->queue = batch->thread_queue;
+      util_queue_add_job(&batch->flush_queue, batch->state, &batch->state->flush_completed,
+                         submit_queue, post_submit, 0);
+   } else {
+      batch->state->queue = batch->queue;
+      submit_queue(batch->state, 0);
+      post_submit(batch->state, 0);
+   }
 }
 
 void

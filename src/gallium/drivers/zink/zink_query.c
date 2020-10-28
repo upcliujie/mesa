@@ -21,6 +21,7 @@ struct zink_query_buffer {
 };
 
 struct zink_query {
+   struct threaded_query base;
    enum pipe_query_type type;
 
    VkQueryPool query_pool;
@@ -733,6 +734,9 @@ zink_end_query(struct pipe_context *pctx,
    struct zink_query *query = (struct zink_query *)q;
    struct zink_batch *batch = &ctx->batch;
 
+   /* FIXME: this can be called from a thread, but it needs to write to the cmdbuf */
+   threaded_context_unwrap_sync(pctx);
+
    if (needs_stats_list(query))
       list_delinit(&query->stats_list);
    if (query->active)
@@ -753,7 +757,7 @@ zink_get_query_result(struct pipe_context *pctx,
    if (query->needs_update)
       update_qbo(ctx, query);
 
-   if (query->batch_id.usage == ctx->curr_batch)
+   if (!threaded_query(q)->flushed && query->batch_id.usage == ctx->curr_batch)
       pctx->flush(pctx, NULL, 0);
 
    return get_query_result(pctx, q, wait, result);

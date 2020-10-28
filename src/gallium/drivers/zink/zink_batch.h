@@ -57,6 +57,8 @@ struct zink_batch_state {
    VkCommandBuffer cmdbuf;
    VkQueue queue; //duplicated from batch for threading
 
+   struct util_queue_fence flush_completed;
+
    struct zink_resource *flush_res;
 
    unsigned short descs_used; //number of descriptors currently allocated
@@ -83,6 +85,8 @@ struct zink_batch {
 
    uint32_t last_batch_id;
    VkQueue queue; //gfx+compute
+   VkQueue thread_queue; //gfx+compute
+   struct util_queue flush_queue; //TODO: move to wsi
 
    bool has_work;
    bool in_rp; //renderpass is currently active
