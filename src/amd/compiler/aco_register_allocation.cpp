@@ -88,6 +88,38 @@ struct ra_ctx {
    }
 };
 
+/* Pair of register bounds that is used in "sliding window"-style for-loops */
+struct RegisterWindow {
+   unsigned lo_;
+   unsigned size;
+
+   unsigned lo() const {
+      return lo_;
+   }
+
+   /* inclusive bound */
+   unsigned hi() const {
+      return lo() + size - 1;
+   }
+
+   [[deprecated]] unsigned hi_excl() const {
+      return lo() + size;
+   }
+
+   RegisterWindow& operator+=(uint32_t stride) {
+      lo_ += stride;
+      return *this;
+   }
+
+   bool operator!=(const RegisterWindow& oth) const {
+      return lo_ != oth.lo_ || size != oth.size;
+   }
+
+   static RegisterWindow from_to(unsigned first, unsigned last) {
+      return { first, last - first + 1 };
+   }
+};
+
 struct DefInfo {
    uint16_t lb;
    uint16_t ub;
@@ -131,6 +163,10 @@ struct DefInfo {
       }
    }
 };
+
+[[deprecated]] RegisterWindow from(const DefInfo& info) {
+   return { info.lb, (unsigned)(info.ub - info.lb) };
+}
 
 class RegisterFile {
 public:
