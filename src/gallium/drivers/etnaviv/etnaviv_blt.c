@@ -252,6 +252,20 @@ etna_blit_clear_color_blt(struct pipe_context *pctx, struct pipe_surface *dst,
    if (surf->surf.ts_size) {
       ctx->framebuffer.TS_COLOR_CLEAR_VALUE = new_clear_value;
       ctx->framebuffer.TS_COLOR_CLEAR_VALUE_EXT = new_clear_value >> 32;
+
+      /* update clear color in SW meta area of the buffer is TS is exported */
+      if (unlikely(new_clear_value != surf->level->clear_value &&
+          etna_resource_ext_ts(etna_resource(dst->texture)))) {
+         struct etna_resource *rsc = etna_resource(dst->texture);
+         void *map = etna_bo_map(rsc->ts_bo);
+         /* SW meta is always located before the actual TS data */
+         struct etna_ts_sw_meta *meta =
+               map + surf->level->ts_offset - sizeof(struct etna_ts_sw_meta);
+         etna_bo_cpu_prep(rsc->bo, DRM_ETNA_PREP_WRITE | DRM_ETNA_PREP_NOSYNC);
+         meta->clear_value = new_clear_value;
+         etna_bo_cpu_fini(rsc->bo);
+      }
+
       surf->level->ts_valid = true;
       ctx->dirty |= ETNA_DIRTY_TS | ETNA_DIRTY_DERIVE_TS;
    }

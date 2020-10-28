@@ -90,6 +90,9 @@ etna_create_surface(struct pipe_context *pctx, struct pipe_resource *prsc,
    unsigned level = templat->u.tex.level;
    assert(layer < rsc->base.array_size);
 
+   if (etna_resource_unfinished_ts_import(rsc))
+      etna_resource_finish_ts_import(pctx->screen, rsc);
+
    surf->base.context = pctx;
 
    pipe_reference_init(&surf->base.reference, 1);
@@ -109,7 +112,7 @@ etna_create_surface(struct pipe_context *pctx, struct pipe_resource *prsc,
        (rsc->levels[level].padded_width & ETNA_RS_WIDTH_MASK) == 0 &&
        (rsc->levels[level].padded_height & ETNA_RS_HEIGHT_MASK) == 0 &&
        etna_resource_hw_tileable(screen->specs.use_blt, prsc)) {
-      etna_screen_resource_alloc_ts(pctx->screen, rsc);
+      etna_screen_resource_alloc_ts(pctx->screen, rsc, 0);
    }
 
    surf->base.format = templat->format;
