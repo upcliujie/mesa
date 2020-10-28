@@ -1297,10 +1297,14 @@ copy_image_tlb(struct v3dv_cmd_buffer *cmd_buffer,
 
    /* From the Vulkan spec, VkImageCopy valid usage:
     *
-    * "The layerCount member of srcSubresource and dstSubresource must match"
+    * "The number of slices of the extent (for 3D) or layers of the
+    *  srcSubresource (for non-3D) must match the number of slices of the
+    *  extent (for 3D) or layers of the dstSubresource (for non-3D)."
     */
-   assert(region->srcSubresource.layerCount ==
-          region->dstSubresource.layerCount);
+   assert((src->type != VK_IMAGE_TYPE_3D ?
+           region->srcSubresource.layerCount : region->extent.depth) ==
+          (dst->type != VK_IMAGE_TYPE_3D ?
+           region->dstSubresource.layerCount : region->extent.depth));
    uint32_t num_layers;
    if (dst->type != VK_IMAGE_TYPE_3D)
       num_layers = region->dstSubresource.layerCount;
