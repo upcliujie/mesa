@@ -88,6 +88,38 @@ struct ra_ctx {
    }
 };
 
+struct RegisterWindowIterator {
+   using difference_type = int;
+   using value_type = unsigned;
+   using reference = const unsigned&;
+   using pointer = const unsigned*;
+   using iterator_category = std::bidirectional_iterator_tag;
+
+   unsigned reg;
+
+   unsigned operator*() const {
+      return reg;
+   }
+
+   RegisterWindowIterator& operator++() {
+      reg++;
+      return *this;
+   }
+
+   RegisterWindowIterator& operator--() {
+      reg--;
+      return *this;
+   }
+
+   bool operator==(RegisterWindowIterator oth) const {
+      return reg == oth.reg;
+   }
+
+   bool operator!=(RegisterWindowIterator oth) const {
+      return reg != oth.reg;
+   }
+};
+
 /* Pair of register bounds that is used in "sliding window"-style for-loops */
 struct RegisterWindow {
    unsigned lo_;
@@ -117,6 +149,14 @@ struct RegisterWindow {
 
    static RegisterWindow from_to(unsigned first, unsigned last) {
       return { first, last - first + 1 };
+   }
+
+   RegisterWindowIterator begin() const {
+      return { lo_ };
+   }
+
+   RegisterWindowIterator end() const {
+      return { lo_ + size };
    }
 };
 
@@ -655,7 +695,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
       RegisterWindow best_gap { 0xFFFF, 0xFFFF };
       unsigned last_pos = 0xFFFF;
 
-      for (unsigned current_reg = bounds.lo(); current_reg < bounds.hi_excl(); current_reg++) {
+      for (const unsigned current_reg : bounds) {
          if (reg_file[current_reg] == 0 && !ctx.war_hint[current_reg]) {
             if (last_pos == 0xFFFF)
                last_pos = current_reg;
@@ -874,7 +914,7 @@ bool get_regs_for_copies(ra_ctx& ctx,
          unsigned n = 0;
          unsigned last_var = 0;
          bool found = true;
-         for (unsigned j = reg_win.lo(); found && j <= reg_win.hi(); j++) {
+         for (const unsigned j : reg_win) {
             if (reg_file[j] == 0 || reg_file[j] == last_var)
                continue;
 
@@ -1007,7 +1047,7 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
       unsigned last_var = 0;
       bool found = true;
       bool aligned = rc == RegClass::v4 && reg_win.lo() % 4 == 0;
-      for (unsigned j = reg_win.lo(); j <= reg_win.hi(); j++) {
+      for (const unsigned j : reg_win) {
          if (reg_file[j] == 0 || reg_file[j] == last_var)
             continue;
 
@@ -1357,7 +1397,11 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
       /* count variables to be moved and check war_hint */
       bool war_hint = false;
       bool linear_vgpr = false;
-      for (unsigned j = reg_win.lo(); j <= reg_win.hi() && !linear_vgpr; j++) {
+      for (unsigned j : reg_win) {
+         if (linear_vgpr) {
+            break;
+         }
+
          if (reg_file[j] != 0) {
             if (reg_file[j] == 0xF0000000) {
                PhysReg reg;
