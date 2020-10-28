@@ -709,7 +709,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
 
    bool found = false;
    RegisterWindow reg_win = { bounds.lo(), size };
-   while (!found && reg_win.hi_excl() <= bounds.hi_excl()) {
+   while (reg_win.hi_excl() <= bounds.hi_excl()) {
       if (reg_file[reg_win.lo()] != 0) {
          reg_win += stride;
          continue;
@@ -1007,7 +1007,7 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
       unsigned last_var = 0;
       bool found = true;
       bool aligned = rc == RegClass::v4 && reg_win.lo() % 4 == 0;
-      for (unsigned j = reg_win.lo(); found && j <= reg_win.hi(); j++) {
+      for (unsigned j = reg_win.lo(); j <= reg_win.hi(); j++) {
          if (reg_file[j] == 0 || reg_file[j] == last_var)
             continue;
 
