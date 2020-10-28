@@ -1178,11 +1178,10 @@ bool get_reg_specified(ra_ctx& ctx,
 
    uint32_t size = rc.size();
    uint32_t stride = 1;
-   uint32_t lb, ub;
+   PhysRegInterval bounds;
 
    if (rc.type() == RegType::vgpr) {
-      lb = 256;
-      ub = 256 + ctx.program->max_reg_demand.vgpr;
+      bounds = {256, (unsigned)ctx.program->max_reg_demand.vgpr };
    } else {
       if (size == 2)
          stride = 2;
@@ -1190,14 +1189,11 @@ bool get_reg_specified(ra_ctx& ctx,
          stride = 4;
       if (reg % stride != 0)
          return false;
-      lb = 0;
-      ub = ctx.program->max_reg_demand.sgpr;
+      bounds = { 0, (unsigned)ctx.program->max_reg_demand.sgpr };
    }
 
-   uint32_t reg_lo = reg.reg();
-   uint32_t reg_hi = reg + (size - 1);
-
-   if (reg_lo < lb || reg_hi >= ub)
+   PhysRegInterval reg_win = { reg.reg(), size };
+   if (reg_win.lo() < bounds.lo() || reg_win.hi() > bounds.hi())
       return false;
 
    if (rc.is_subdword()) {
@@ -1210,7 +1206,7 @@ bool get_reg_specified(ra_ctx& ctx,
          return false;
    }
 
-   adjust_max_used_regs(ctx, rc, reg_lo);
+   adjust_max_used_regs(ctx, rc, reg_win.lo());
    return true;
 }
 
