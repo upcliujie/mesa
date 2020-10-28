@@ -99,6 +99,7 @@ EXTENSIONS = [
     Extension('VK_EXT_extended_dynamic_state',            1, True),
     Extension('VK_KHR_push_descriptor',                   1, True),
     Extension('VK_KHR_incremental_present',               1, 'TU_HAS_SURFACE'),
+    Extension('VK_KHR_performance_query',                 1, 'device->instance->debug_flags & TU_DEBUG_PERFC'),
 ]
 
 MAX_API_VERSION = VkVersion(MAX_API_VERSION)
