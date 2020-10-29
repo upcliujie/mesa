@@ -694,7 +694,7 @@ choose_pdev(const VkInstance instance)
    return pdev;
 }
 
-static void
+static bool
 update_queue_props(struct zink_screen *screen)
 {
    uint32_t num_queues;
@@ -704,15 +704,17 @@ update_queue_props(struct zink_screen *screen)
    VkQueueFamilyProperties *props = malloc(sizeof(*props) * num_queues);
    vkGetPhysicalDeviceQueueFamilyProperties(screen->pdev, &num_queues, props);
 
+   bool result = false;
    for (uint32_t i = 0; i < num_queues; i++) {
       if (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
          screen->gfx_queue = i;
          screen->timestamp_valid_bits = props[i].timestampValidBits;
-         assert(screen->timestamp_valid_bits);
+         result = screen->timestamp_valid_bits > 0;
          break;
       }
    }
    free(props);
+   return result;
 }
 
 static void
@@ -836,7 +838,10 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
 
    screen->instance = create_instance();
    screen->pdev = choose_pdev(screen->instance);
-   update_queue_props(screen);
+   if (!update_queue_props(screen)) {
+      debug_printf("ZINK: failed to find a valid queue\n");
+      goto fail;
+   }
 
    screen->have_X8_D24_UNORM_PACK32 = zink_is_depth_format_supported(screen,
                                               VK_FORMAT_X8_D24_UNORM_PACK32);
