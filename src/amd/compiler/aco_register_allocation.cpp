@@ -1188,7 +1188,6 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
 bool get_reg_specified(ra_ctx& ctx,
                        RegisterFile& reg_file,
                        RegClass rc,
-                       std::vector<std::pair<Operand, Definition>>& parallelcopies,
                        aco_ptr<Instruction>& instr,
                        PhysReg reg)
 {
@@ -1259,7 +1258,7 @@ PhysReg get_reg(ra_ctx& ctx,
          if (affinity_it != ctx.affinities.end() && ctx.assignments[affinity_it->second].assigned) {
             PhysReg reg = ctx.assignments[affinity_it->second].reg;
             reg.reg_b -= offset;
-            if (get_reg_specified(ctx, reg_file, temp.regClass(), parallelcopies, instr, reg))
+            if (get_reg_specified(ctx, reg_file, temp.regClass(), instr, reg))
                return reg;
          }
          offset += def.bytes();
@@ -1269,7 +1268,7 @@ PhysReg get_reg(ra_ctx& ctx,
    if (ctx.affinities.find(temp.id()) != ctx.affinities.end() &&
        ctx.assignments[ctx.affinities[temp.id()]].assigned) {
       PhysReg reg = ctx.assignments[ctx.affinities[temp.id()]].reg;
-      if (get_reg_specified(ctx, reg_file, temp.regClass(), parallelcopies, instr, reg))
+      if (get_reg_specified(ctx, reg_file, temp.regClass(), instr, reg))
          return reg;
    }
 
@@ -1290,7 +1289,7 @@ PhysReg get_reg(ra_ctx& ctx,
              ctx.assignments[op.tempId()].assigned) {
             PhysReg reg = ctx.assignments[op.tempId()].reg;
             reg.reg_b += (byte_offset - k);
-            if (get_reg_specified(ctx, reg_file, temp.regClass(), parallelcopies, instr, reg))
+            if (get_reg_specified(ctx, reg_file, temp.regClass(), instr, reg))
                return reg;
          }
          k += op.bytes();
@@ -1302,7 +1301,7 @@ PhysReg get_reg(ra_ctx& ctx,
       if (res.second) {
          reg.reg_b += byte_offset;
          /* make sure to only use byte offset if the instruction supports it */
-         if (get_reg_specified(ctx, reg_file, temp.regClass(), parallelcopies, instr, reg))
+         if (get_reg_specified(ctx, reg_file, temp.regClass(), instr, reg))
             return reg;
       }
    }
@@ -1978,7 +1977,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                /* we tried this already on the previous loop */
                if (reg == scc || reg == exec)
                   continue;
-               if (get_reg_specified(ctx, register_file, definition.regClass(), parallelcopy, phi, reg)) {
+               if (get_reg_specified(ctx, register_file, definition.regClass(), phi, reg)) {
                   definition.setFixed(reg);
                   break;
                }
@@ -2246,7 +2245,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                PhysReg reg = instr->operands[0].physReg();
                for (unsigned j = 0; j < i; j++)
                   reg.reg_b += instr->definitions[j].bytes();
-               if (get_reg_specified(ctx, register_file, definition->regClass(), parallelcopy, instr, reg))
+               if (get_reg_specified(ctx, register_file, definition->regClass(), instr, reg))
                   definition->setFixed(reg);
             } else if (instr->opcode == aco_opcode::p_wqm || instr->opcode == aco_opcode::p_parallelcopy) {
                PhysReg reg = instr->operands[i].physReg();
@@ -2257,7 +2256,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
             } else if (instr->opcode == aco_opcode::p_extract_vector) {
                PhysReg reg = instr->operands[0].physReg();
                reg.reg_b += definition->bytes() * instr->operands[1].constantValue();
-               if (get_reg_specified(ctx, register_file, definition->regClass(), parallelcopy, instr, reg))
+               if (get_reg_specified(ctx, register_file, definition->regClass(), instr, reg))
                   definition->setFixed(reg);
             } else if (instr->opcode == aco_opcode::p_create_vector) {
                PhysReg reg = get_reg_create_vector(ctx, register_file, definition->getTemp(),
