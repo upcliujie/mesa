@@ -1543,6 +1543,44 @@ fs_visitor::emit_samplemaskin_setup()
    return reg;
 }
 
+fs_reg *
+fs_visitor::emit_shading_rate_setup()
+{
+   assert(devinfo->gen >= 11);
+
+   const fs_builder abld = bld.annotate("compute fragment shading rate");
+
+   fs_reg *reg = new(this->mem_ctx) fs_reg(vgrf(glsl_type::int_type));
+
+   struct brw_wm_prog_data *wm_prog_data =
+      brw_wm_prog_data(bld.shader->stage_prog_data);
+
+   /* Coarse pixel shading size fields overlap with other fields of not in
+    * coarse pixel dispatch mode, so report 0 when that's not the case.
+    */
+   if (wm_prog_data->per_coarse_pixel_dispatch) {
+      fs_reg r1_0 = fs_reg(retype(brw_vec1_grf(1, 0), BRW_REGISTER_TYPE_UD));
+      fs_reg int_rate_x = vgrf(glsl_type::int_type);
+      fs_reg int_rate_y = vgrf(glsl_type::int_type);
+
+      abld.MOV(int_rate_x, r1_0);
+      abld.MOV(int_rate_y, r1_0);
+
+      /* r1.0 - 0:7 ActualCoarsePixelShadingSize.X */
+      abld.AND(int_rate_x, int_rate_x, brw_imm_ud(0x6));
+      abld.SHL(int_rate_x, int_rate_x, brw_imm_ud(1));
+      /* r1.0 - 15:8 ActualCoarsePixelShadingSize.Y */
+      abld.AND(int_rate_y, int_rate_y, brw_imm_ud(0x6 << 8));
+      abld.SHR(int_rate_y, int_rate_y, brw_imm_ud(9));
+
+      abld.OR(*reg, int_rate_x, int_rate_y);
+   } else {
+      abld.MOV(*reg, brw_imm_ud(0));
+   }
+
+   return reg;
+}
+
 fs_reg
 fs_visitor::resolve_source_modifiers(const fs_reg &src)
 {
