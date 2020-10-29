@@ -155,6 +155,14 @@ struct RegisterWindow {
       return { first, last - first + 1 };
    }
 
+   bool contains(PhysReg reg) const {
+       return lo() <= reg && reg <= hi();
+   }
+
+   bool contains(const RegisterWindow& needle) const {
+       return needle.lo() >= lo() && needle.hi() <= hi();
+   }
+
    RegisterWindowIterator begin() const {
       return { lo_ };
    }
@@ -783,7 +791,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
    if (rc.is_subdword()) {
       for (std::pair<uint32_t, std::array<uint32_t, 4>> entry : reg_file.subdword_regs) {
          assert(reg_file[entry.first] == 0xF0000000);
-         if (bounds.lo() > entry.first || entry.first >= bounds.hi_excl())
+         if (!bounds.contains(PhysReg{entry.first}))
             continue;
 
          for (unsigned i = 0; i < 4; i+= info.stride) {
@@ -1017,8 +1025,7 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
    for (unsigned j = 0; !is_phi(instr) && j < instr->operands.size(); j++) {
       if (instr->operands[j].isTemp() &&
           instr->operands[j].isFirstKillBeforeDef() &&
-          instr->operands[j].physReg() >= bounds.lo() &&
-          instr->operands[j].physReg() < bounds.hi_excl() &&
+          bounds.contains(instr->operands[j].physReg()) &&
           !reg_file.test(instr->operands[j].physReg(), instr->operands[j].bytes())) {
          assert(instr->operands[j].isFixed());
          reg_file.block(instr->operands[j].physReg(), instr->operands[j].regClass());
@@ -1222,7 +1229,7 @@ bool get_reg_specified(ra_ctx& ctx,
    }
 
    RegisterWindow reg_win = { reg.reg(), rc.size() };
-   if (reg_win.lo() < bounds.lo() || reg_win.hi() > bounds.hi())
+   if (!bounds.contains(reg_win))
       return false;
 
    if (rc.is_subdword()) {
@@ -1383,7 +1390,7 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
 
       /* check borders */
       // TODO: this can be improved */
-      if (reg_win.lo() < bounds.lo() || reg_win.hi() >= bounds.hi_excl() || reg_win.lo() % stride != 0)
+      if (!bounds.contains(reg_win) || reg_win.lo() % stride != 0)
          continue;
       if (reg_win.lo() > bounds.lo() && reg_file[reg_win.lo()] != 0 && reg_file.get_id(PhysReg(reg_win.lo())) == reg_file.get_id(PhysReg(reg_win.lo()).advance(-1)))
          continue;
