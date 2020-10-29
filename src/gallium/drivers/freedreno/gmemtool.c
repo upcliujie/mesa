@@ -168,11 +168,13 @@ main(int argc, char **argv)
 	 */
 	struct fd_screen screen = {
 		.gpu_id         = gpu_info->gpu_id,
-		.gmem_alignw    = gpu_info->gmem_alignw,
-		.gmem_alignh    = gpu_info->gmem_alignh,
-		.tile_alignw    = gpu_info->tile_alignw,
-		.tile_alignh    = gpu_info->tile_alignh,
-		.num_vsc_pipes  = gpu_info->num_vsc_pipes,
+		.info = {
+			.gmem_align_w    = gpu_info->gmem_alignw,
+			.gmem_align_h    = gpu_info->gmem_alignh,
+			.tile_align_w    = gpu_info->tile_alignw,
+			.tile_align_h    = gpu_info->tile_alignh,
+			.num_vsc_pipes  = gpu_info->num_vsc_pipes,
+		},
 		.gmemsize_bytes = gpu_info->gmemsize_bytes,
 	};
 

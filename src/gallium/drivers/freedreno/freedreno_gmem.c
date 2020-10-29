@@ -187,8 +187,8 @@ layout_gmem(struct gmem_key *key, uint32_t nbins_x, uint32_t nbins_y,
 		return false;
 
 	uint32_t bin_w, bin_h;
-	bin_w = div_align(key->width, nbins_x, screen->tile_alignw);
-	bin_h = div_align(key->height, nbins_y, screen->tile_alignh);
+	bin_w = div_align(key->width, nbins_x, screen->info.tile_align_w);
+	bin_h = div_align(key->height, nbins_y, screen->info.tile_align_h);
 
 	gmem->bin_w = bin_w;
 	gmem->bin_h = bin_h;
@@ -237,7 +237,7 @@ calc_nbins(struct gmem_key *key, struct fd_gmem_stateobj *gmem)
 	/* first, find a bin width that satisfies the maximum width
 	 * restrictions:
 	 */
-	while (div_align(key->width, nbins_x, screen->tile_alignw) > max_width) {
+	while (div_align(key->width, nbins_x, screen->info.tile_align_w) > max_width) {
 		nbins_x++;
 	}
 
@@ -279,7 +279,7 @@ gmem_stateobj_init(struct fd_screen *screen, struct gmem_key *key)
 	gmem->key = key;
 	list_inithead(&gmem->node);
 
-	const unsigned npipes = screen->num_vsc_pipes;
+	const unsigned npipes = screen->info.num_vsc_pipes;
 	uint32_t i, j, t, xoff, yoff;
 	uint32_t tpp_x, tpp_y;
 	int tile_n[npipes];
@@ -499,8 +499,8 @@ gmem_key_init(struct fd_batch *batch, bool assume_zs, bool no_scis_opt)
 		}
 
 		/* round down to multiple of alignment: */
-		key->minx = scissor->minx & ~(screen->gmem_alignw - 1);
-		key->miny = scissor->miny & ~(screen->gmem_alignh - 1);
+		key->minx = scissor->minx & ~(screen->info.gmem_align_w - 1);
+		key->miny = scissor->miny & ~(screen->info.gmem_align_h - 1);
 		key->width = scissor->maxx - key->minx;
 		key->height = scissor->maxy - key->miny;
 	}
