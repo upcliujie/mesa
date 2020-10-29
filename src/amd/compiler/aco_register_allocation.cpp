@@ -164,6 +164,11 @@ struct RegisterWindow {
    }
 };
 
+bool intersects(const RegisterWindow& a, const RegisterWindow& b) {
+   return ((a.lo() >= b.lo() && a.lo() <= b.hi()) ||
+           (a.hi() >= b.lo() && a.hi() <= b.hi()));
+}
+
 /* Gets the stride for full (non-subdword) register */
 uint32_t stride_for_register(RegClass rc) {
     if (rc.type() == RegType::vgpr) {
@@ -909,8 +914,7 @@ bool get_regs_for_copies(ra_ctx& ctx,
       RegisterWindow reg_win { bounds.lo(), size };
       unsigned stride = var.rc.is_subdword() ? 1 : info.stride;
       for (; reg_win.hi() < bounds.hi_excl(); reg_win += stride) {
-         if (!is_dead_operand && ((reg_win.lo() >= def_reg.lo() && reg_win.lo() <= def_reg.hi()) ||
-                                  (reg_win.hi() >= def_reg.lo() && reg_win.hi() <= def_reg.hi())))
+         if (!is_dead_operand && intersects(reg_win, def_reg))
             continue;
 
          /* second, check that we have at most k=num_moves elements in the window
