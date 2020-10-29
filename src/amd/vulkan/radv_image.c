@@ -854,7 +854,7 @@ gfx10_make_texture_descriptor(struct radv_device *device,
 	}
 
 	/* Initialize the sampler view for FMASK. */
-	if (radv_image_has_fmask(image)) {
+	if (radv_image_has_fmask(image) && fmask_state) {
 		uint64_t gpu_address = radv_buffer_get_va(image->bo);
 		uint32_t format;
 		uint64_t va;
@@ -1018,7 +1018,7 @@ si_make_texture_descriptor(struct radv_device *device,
 	}
 
 	/* Initialize the sampler view for FMASK. */
-	if (radv_image_has_fmask(image)) {
+	if (radv_image_has_fmask(image) && fmask_state) {
 		uint32_t fmask_format, num_format;
 		uint64_t gpu_address = radv_buffer_get_va(image->bo);
 		uint64_t va;
