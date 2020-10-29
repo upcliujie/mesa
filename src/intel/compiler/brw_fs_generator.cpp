@@ -2266,6 +2266,18 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          src[0].subnr = 4 * type_sz(src[0].type);
          brw_MOV(p, dst, stride(src[0], 8, 4, 1));
          break;
+      case FS_OPCODE_PIXEL_COARSE_X:
+         assert(src[0].type == BRW_REGISTER_TYPE_UW);
+         assert(src[1].type == BRW_REGISTER_TYPE_UW);
+         src[0].subnr = 0 * type_sz(src[0].type);
+         brw_ADD(p, dst, stride(src[0], 8, 4, 1), src[1]);
+         break;
+      case FS_OPCODE_PIXEL_COARSE_Y:
+         assert(src[0].type == BRW_REGISTER_TYPE_UW);
+         assert(src[1].type == BRW_REGISTER_TYPE_UW);
+         src[0].subnr = 4 * type_sz(src[0].type);
+         brw_ADD(p, dst, stride(src[0], 8, 4, 1), src[1]);
+         break;
 
       case SHADER_OPCODE_SEND:
          generate_send(inst, dst, src[0], src[1], src[2],

@@ -434,6 +434,10 @@ brw_instruction_name(const struct gen_device_info *devinfo, enum opcode op)
       return "pixel_x";
    case FS_OPCODE_PIXEL_Y:
       return "pixel_y";
+   case FS_OPCODE_PIXEL_COARSE_X:
+      return "pixel_coarse_x";
+   case FS_OPCODE_PIXEL_COARSE_Y:
+      return "pixel_coarse_y";
 
    case FS_OPCODE_UNIFORM_PULL_CONSTANT_LOAD:
       return "uniform_pull_const";
