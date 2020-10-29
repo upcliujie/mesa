@@ -1515,6 +1515,9 @@ fs_visitor::emit_samplemaskin_setup()
 
    fs_reg *reg = new(this->mem_ctx) fs_reg(vgrf(glsl_type::int_type));
 
+   /* The HW doesn't provide us with expected values. */
+   assert(!wm_prog_data->per_coarse_pixel_dispatch);
+
    fs_reg coverage_mask =
       fetch_payload_reg(bld, payload.sample_mask_in_reg, BRW_REGISTER_TYPE_D);
 
@@ -9175,6 +9178,15 @@ brw_compile_fs(const struct brw_compiler *compiler, void *log_data,
       assert(!use_rep_send);
       v8->limit_dispatch_width(8, "gen8 workaround: "
                                "using SIMD8 when dual src blending.\n");
+   }
+
+   if (key->coarse_pixel) {
+      if (prog_data->dual_src_blend) {
+         v8->limit_dispatch_width(8, "SIMD16 coarse pixel shading cannot"
+                                  " use SIMD8 messages.\n");
+      }
+      v8->limit_dispatch_width(16, "SIMD32 not supported with coarse"
+                               " pixel shading.\n");
    }
 
    if (!has_spilled &&
