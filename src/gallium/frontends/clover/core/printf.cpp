@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <string>
 
+#include "util/u_math.h"
 #include "core/printf.hpp"
 
 using namespace clover;
@@ -73,6 +74,7 @@ namespace {
 
       for (size_t buf_pos = 0; buf_pos < buffer.size(); ) {
          cl_uint fmt_idx = *(cl_uint*)&buffer[buf_pos];
+         assert(fmt_idx > 0);
          printf_fmt fmt = formatters[fmt_idx-1];
 
          buf_pos += sizeof(cl_uint);
@@ -186,6 +188,7 @@ namespace {
                fmt_last_pos = next_tok;
 
                buf_pos+= arg_size;
+               buf_pos = ALIGN(buf_pos, 4);
             }
          }
       }
