@@ -128,6 +128,8 @@ clover_files = files(
   'core/object.hpp',
   'core/platform.cpp',
   'core/platform.hpp',
+  'core/printf.cpp',
+  'core/printf.hpp',
   'core/program.cpp',
   'core/program.hpp',
   'core/property.hpp',
