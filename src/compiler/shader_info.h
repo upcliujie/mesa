@@ -191,6 +191,12 @@ typedef struct shader_info {
     */
    bool uses_64bit:1;
 
+   /* Bitmask of bit-sizes used with integer ALU instructions. Unlike
+    * uses_64bit, it excludes copies, conversions and floating point
+    * sources/destinations.
+    */
+   uint8_t bit_sizes_used;
+
    /* Whether the first UBO is the default uniform buffer, i.e. uniforms. */
    bool first_ubo_is_default_ubo:1;
 

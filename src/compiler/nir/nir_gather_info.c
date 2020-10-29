@@ -719,10 +719,20 @@ gather_alu_info(nir_alu_instr *instr, nir_shader *shader)
       break;
    }
 
+   const nir_op_info *info = &nir_op_infos[instr->op];
+
    shader->info.uses_64bit |= instr->dest.dest.ssa.bit_size == 64;
-   unsigned num_srcs = nir_op_infos[instr->op].num_inputs;
-   for (unsigned i = 0; i < num_srcs; i++) {
+   for (unsigned i = 0; i < info->num_inputs; i++) {
       shader->info.uses_64bit |= nir_src_bit_size(instr->src[i].src) == 64;
+   }
+
+   if (!nir_op_is_vec(instr->op) && !info->is_conversion) {
+      for (unsigned i = 0; i < info->num_inputs; i++) {
+         if (info->input_types[i] & (nir_type_int | nir_type_uint))
+            shader->info.bit_sizes_used |= nir_src_bit_size(instr->src[i].src);
+      }
+      if (info->output_type & (nir_type_int | nir_type_uint))
+         shader->info.bit_sizes_used |= nir_dest_bit_size(instr->dest.dest);
    }
 }
 
