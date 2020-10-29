@@ -754,8 +754,11 @@ fs_inst::components_read(unsigned i) const
 
    case FS_OPCODE_PIXEL_X:
    case FS_OPCODE_PIXEL_Y:
-      assert(i == 0);
-      return 2;
+      assert(i < 2);
+      if (i == 0)
+         return 2;
+      else
+         return 1;
 
    case FS_OPCODE_FB_WRITE_LOGICAL:
       assert(src[FB_WRITE_LOGICAL_SRC_COMPONENTS].file == IMM);
@@ -1357,6 +1360,7 @@ fs_visitor::compute_sample_position(fs_reg dst, fs_reg int_sample_pos)
        *  rasterization is disabled, gl_SamplePosition will always be
        *  (0.5, 0.5).
        */
+      // TODO
       bld.MOV(dst, brw_imm_f(0.5f));
    }
 }
