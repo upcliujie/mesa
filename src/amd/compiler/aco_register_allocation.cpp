@@ -88,7 +88,8 @@ struct ra_ctx {
    }
 };
 
-struct RegisterWindowIterator {
+/* Iterator type for making PhysRegInterval compatible with range-based for */
+struct PhysRegIterator {
    using difference_type = int;
    using value_type = unsigned;
    using reference = const unsigned&;
@@ -101,31 +102,31 @@ struct RegisterWindowIterator {
       return PhysReg { reg };
    }
 
-   RegisterWindowIterator& operator++() {
+   PhysRegIterator& operator++() {
       reg++;
       return *this;
    }
 
-   RegisterWindowIterator& operator--() {
+   PhysRegIterator& operator--() {
       reg--;
       return *this;
    }
 
-   bool operator==(RegisterWindowIterator oth) const {
+   bool operator==(PhysRegIterator oth) const {
       return reg == oth.reg;
    }
 
-   bool operator!=(RegisterWindowIterator oth) const {
+   bool operator!=(PhysRegIterator oth) const {
       return reg != oth.reg;
    }
 
-   bool operator<(RegisterWindowIterator oth) const {
+   bool operator<(PhysRegIterator oth) const {
       return reg < oth.reg;
    }
 };
 
 /* Pair of register bounds that is used in "sliding window"-style for-loops */
-struct RegisterWindow {
+struct PhysRegInterval {
    PhysReg lo_;
    unsigned size;
 
@@ -150,16 +151,16 @@ struct RegisterWindow {
       return PhysReg { lo() + size };
    }
 
-   RegisterWindow& operator+=(uint32_t stride) {
+   PhysRegInterval& operator+=(uint32_t stride) {
       lo_ = PhysReg { lo_.reg() + stride };
       return *this;
    }
 
-   bool operator!=(const RegisterWindow& oth) const {
+   bool operator!=(const PhysRegInterval& oth) const {
       return lo_ != oth.lo_ || size != oth.size;
    }
 
-   static RegisterWindow from_to(PhysReg first, PhysReg last) {
+   static PhysRegInterval from_to(PhysReg first, PhysReg last) {
       return { first, last - first + 1 };
    }
 
@@ -167,20 +168,20 @@ struct RegisterWindow {
        return lo() <= reg && reg <= hi();
    }
 
-   bool contains(const RegisterWindow& needle) const {
+   bool contains(const PhysRegInterval& needle) const {
        return needle.lo() >= lo() && needle.hi() <= hi();
    }
 
-   RegisterWindowIterator begin() const {
+   PhysRegIterator begin() const {
       return { lo_ };
    }
 
-   RegisterWindowIterator end() const {
+   PhysRegIterator end() const {
       return { lo_ + size };
    }
 };
 
-bool intersects(const RegisterWindow& a, const RegisterWindow& b) {
+bool intersects(const PhysRegInterval& a, const PhysRegInterval& b) {
    return ((a.lo() >= b.lo() && a.lo() <= b.hi()) ||
            (a.hi() >= b.lo() && a.hi() <= b.hi()));
 }
@@ -202,7 +203,7 @@ uint32_t stride_for_register(RegClass rc) {
 }
 
 struct DefInfo {
-   RegisterWindow bounds;
+   PhysRegInterval bounds;
    uint8_t size;
    uint8_t stride;
    RegClass rc;
@@ -712,7 +713,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
                                         RegisterFile& reg_file,
                                         DefInfo info)
 {
-   const RegisterWindow& bounds = info.bounds;
+   const PhysRegInterval& bounds = info.bounds;
    uint32_t size = info.size;
    uint32_t stride = info.rc.is_subdword() ? DIV_ROUND_UP(info.stride, 4) : info.stride;
    RegClass rc = info.rc;
@@ -730,11 +731,11 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
       }
 
       /* best fit algorithm: find the smallest gap to fit in the variable */
-      RegisterWindow best_gap { PhysReg { 0 }, UINT_MAX };
+      PhysRegInterval best_gap { PhysReg { 0 }, UINT_MAX };
       const unsigned max_gpr = (rc.type() == RegType::vgpr) ? (256 + ctx.max_used_vgpr) : ctx.max_used_sgpr;
 
-      RegisterWindowIterator reg_it = bounds.begin();
-      const RegisterWindowIterator end_it = std::min(bounds.end(), std::max(RegisterWindowIterator { PhysReg { max_gpr + 1 } }, reg_it));
+      PhysRegIterator reg_it = bounds.begin();
+      const PhysRegIterator end_it = std::min(bounds.end(), std::max(PhysRegIterator { PhysReg { max_gpr + 1 } }, reg_it));
       while (reg_it != bounds.end()) {
          /* Find the next chunk of available register slots */
          reg_it = std::find_if(reg_it, end_it, is_free);
@@ -748,7 +749,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
             next_nonfree_it = bounds.end();
          }
 
-         RegisterWindow gap = RegisterWindow::from_to(*reg_it, *std::prev(next_nonfree_it));
+         PhysRegInterval gap = PhysRegInterval::from_to(*reg_it, *std::prev(next_nonfree_it));
 
          /* early return on exact matches */
          if (size == gap.size) {
@@ -781,7 +782,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
       return {best_gap.first_reg(), true};
    }
 
-   for (RegisterWindow reg_win = { bounds.lo(), size }; reg_win.hi_excl() <= bounds.hi_excl(); reg_win += stride) {
+   for (PhysRegInterval reg_win = { bounds.lo(), size }; reg_win.hi_excl() <= bounds.hi_excl(); reg_win += stride) {
       if (reg_file[reg_win.lo()] != 0) {
          continue;
       }
@@ -829,7 +830,7 @@ std::set<std::pair<unsigned, unsigned>> collect_vars(ra_ctx& ctx, RegisterFile& 
                                                      PhysReg reg, unsigned size)
 {
    std::set<std::pair<unsigned, unsigned>> vars;
-   for (PhysReg j : RegisterWindow { reg, size }) {
+   for (PhysReg j : PhysRegInterval { reg, size }) {
       if (reg_file.is_blocked(j))
          continue;
       if (reg_file[j] == 0xF0000000) {
@@ -857,9 +858,9 @@ bool get_regs_for_copies(ra_ctx& ctx,
                          RegisterFile& reg_file,
                          std::vector<std::pair<Operand, Definition>>& parallelcopies,
                          const std::set<std::pair<unsigned, unsigned>> &vars,
-                         const RegisterWindow bounds,
+                         const PhysRegInterval bounds,
                          aco_ptr<Instruction>& instr,
-                         const RegisterWindow def_reg)
+                         const PhysRegInterval def_reg)
 {
    /* variables are sorted from small sized to large */
    /* NOTE: variables are also sorted by ID. this only affects a very small number of shaders slightly though. */
@@ -903,7 +904,7 @@ bool get_regs_for_copies(ra_ctx& ctx,
          res = get_reg_simple(ctx, reg_file, info);
          if (!res.second && def_reg.hi() < bounds.hi_excl()) {
             unsigned lo = (def_reg.hi() + info.stride) & ~(info.stride - 1);
-            info.bounds = RegisterWindow::from_to(PhysReg{lo}, bounds.hi());
+            info.bounds = PhysRegInterval::from_to(PhysReg{lo}, bounds.hi());
             res = get_reg_simple(ctx, reg_file, info);
          }
       }
@@ -926,7 +927,7 @@ bool get_regs_for_copies(ra_ctx& ctx,
       unsigned num_vars = 0;
 
       /* we use a sliding window to find potential positions */
-      RegisterWindow reg_win { bounds.lo(), size };
+      PhysRegInterval reg_win { bounds.lo(), size };
       unsigned stride = var.rc.is_subdword() ? 1 : info.stride;
       for (; reg_win.hi() < bounds.hi_excl(); reg_win += stride) {
          if (!is_dead_operand && intersects(reg_win, def_reg))
@@ -1019,7 +1020,7 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
                                       const DefInfo& info,
                                       aco_ptr<Instruction>& instr)
 {
-   const RegisterWindow& bounds = info.bounds;
+   const PhysRegInterval& bounds = info.bounds;
    uint32_t size = info.size;
    uint32_t stride = info.stride;
    RegClass rc = info.rc;
@@ -1048,12 +1049,12 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
       op_moves = size - (regs_free - killed_ops);
 
    /* find the best position to place the definition */
-   RegisterWindow best_win = { bounds.lo(), size };
+   PhysRegInterval best_win = { bounds.lo(), size };
    unsigned num_moves = 0xFF;
    unsigned num_vars = 0;
 
    /* we use a sliding window to check potential positions */
-   for (RegisterWindow reg_win = { bounds.lo(), size }; reg_win.hi() < bounds.hi_excl(); reg_win += stride) {
+   for (PhysRegInterval reg_win = { bounds.lo(), size }; reg_win.hi() < bounds.hi_excl(); reg_win += stride) {
       /* first check the edges: this is what we have to fix to allow for num_moves > size */
       if (reg_win.lo() > bounds.lo() && !reg_file.is_empty_or_blocked(reg_win.first_reg()) &&
           reg_file.get_id(reg_win.first_reg()) == reg_file.get_id(reg_win.first_reg().advance(-1)))
@@ -1224,7 +1225,7 @@ bool get_reg_specified(ra_ctx& ctx,
       return false;
 
    const uint32_t stride = stride_for_register(rc);
-   RegisterWindow bounds;
+   PhysRegInterval bounds;
 
    if (rc.type() == RegType::vgpr) {
       bounds = { PhysReg { 256 }, (unsigned)ctx.program->max_reg_demand.vgpr };
@@ -1234,7 +1235,7 @@ bool get_reg_specified(ra_ctx& ctx,
          return false;
    }
 
-   RegisterWindow reg_win = { reg, rc.size() };
+   PhysRegInterval reg_win = { reg, rc.size() };
    if (!bounds.contains(reg_win))
       return false;
 
@@ -1362,7 +1363,7 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
    uint32_t size = rc.size();
    uint32_t bytes = rc.bytes();
    uint32_t stride = stride_for_register(rc);
-   RegisterWindow bounds;
+   PhysRegInterval bounds;
    if (rc.type() == RegType::vgpr) {
       bounds = { PhysReg { 256 }, (unsigned)ctx.program->max_reg_demand.vgpr };
    } else {
@@ -1387,7 +1388,7 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
       unsigned reg_lower = instr->operands[i].physReg().reg_b - offset;
       if (reg_lower % 4)
          continue;
-      RegisterWindow reg_win = { PhysReg { reg_lower / 4 }, size };
+      PhysRegInterval reg_win = { PhysReg { reg_lower / 4 }, size };
       unsigned k = 0;
 
       /* no need to check multiple times */
@@ -1480,7 +1481,7 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
       }
    }
    ASSERTED bool success = false;
-   success = get_regs_for_copies(ctx, reg_file, parallelcopies, vars, bounds, instr, RegisterWindow { best_pos, size });
+   success = get_regs_for_copies(ctx, reg_file, parallelcopies, vars, bounds, instr, PhysRegInterval { best_pos, size });
    assert(success);
 
    update_renames(ctx, reg_file, parallelcopies, instr, false);
@@ -2216,7 +2217,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                DefInfo info(ctx, instr, definition.regClass(), -1);
                success = get_regs_for_copies(ctx, register_file, parallelcopy,
                                              vars, info.bounds, instr,
-                                             RegisterWindow { definition.physReg(), definition.size() });
+                                             PhysRegInterval { definition.physReg(), definition.size() });
                assert(success);
 
                update_renames(ctx, register_file, parallelcopy, instr, false);
