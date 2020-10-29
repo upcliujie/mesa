@@ -268,6 +268,14 @@ namespace {
                         module::argument::zero_ext,
                         module::argument::grid_offset);
 
+      const unsigned global_space =
+                        static_cast<unsigned>(clang::LangAS::opencl_global);
+      args.emplace_back(module::argument::global, sizeof(size_t),
+                        dl.getPointerSize(global_space),
+                        compat::getPointerABIAlignment(dl, global_space),
+                        module::argument::zero_ext,
+                        module::argument::printf_buffer);
+
       return args;
    }
 
@@ -283,6 +291,71 @@ namespace {
 
       return text;
    }
+
+   void formatter(std::string raw, module::printf_info &out) {
+      // arg count
+      size_t token_pos = raw.find_first_of(":");
+      int arg_count = std::stoi(raw.substr(0, token_pos));
+      out.arg_sizes.reserve(arg_count);
+
+      // args sizes
+      for (int i = 0; i < arg_count && token_pos != std::string::npos ; i++) {
+         size_t arg_size_start = token_pos + 1;
+         token_pos = raw.find_first_of(":", arg_size_start);
+
+         if (token_pos != std::string::npos && raw[arg_size_start] != ':') {
+            int arg_size = std::stoi(raw.substr(arg_size_start, token_pos));
+            out.arg_sizes.push_back(arg_size);
+         }
+      }
+
+      // printf format
+      for (size_t i = raw.find_last_of(":") + 1; i < raw.size(); i++) {
+         char c = raw[i];
+
+         if (c == '\\') {
+            i++; // i++ is possible because there is always a \0;
+            switch (raw[i]) {
+            case 'a': c = '\a'; break;
+            case 'b': c = '\b'; break;
+            case 'e': c = '\e'; break;
+            case 'f': c = '\f'; break;
+            case 'n': c = '\n'; break;
+            case 'r': c = '\r'; break;
+            case 't': c = '\t'; break;
+            case 'v': c = '\v'; break;
+            case '?': c = '\?'; break;
+            case '\\': c = '\\'; break;
+            case '\'': c = '\''; break;
+            case '\"': c = '\"'; break;
+            default: --i;
+            }
+         }
+
+         out.strings.push_back(c);
+      }
+   }
+
+   std::vector<module::printf_info> make_printf_infos(const Module &mod) {
+      auto fmts_metadata = mod.getNamedMetadata("llvm.printf.fmts");
+      if (!fmts_metadata)
+         return {};
+
+      std::vector<module::printf_info> infos;
+      infos.reserve(fmts_metadata->getNumOperands());
+
+      for (auto node: clover::range(fmts_metadata->op_begin(),
+                                    fmts_metadata->op_end())) {
+         module::printf_info pinfo;
+         std::string fmt = ::llvm::cast< ::llvm::MDString>(
+                                    node->getOperand(0))->getString().str();
+         formatter(fmt.substr(fmt.find_first_of(":")+1), pinfo);
+         infos.push_back(pinfo);
+      }
+
+      return infos;
+   }
+
 }
 
 module
@@ -304,5 +377,8 @@ clover::llvm::build_module_common(const Module &mod,
    }
 
    m.secs.push_back(make_text_section(code));
+   m.printf_infos = make_printf_infos(mod);
+   m.printf_strings_in_buffer = true;
+
    return m;
 }
