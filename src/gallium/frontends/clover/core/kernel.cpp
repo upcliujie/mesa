@@ -290,7 +290,8 @@ kernel::exec_context::bind(intrusive_ptr<command_queue> _q,
 
 void
 kernel::exec_context::unbind() {
-   print_handler->print();
+   if (print_handler)
+      print_handler->print();
 
    for (auto &arg : kern.args())
       arg.unbind(*this);
