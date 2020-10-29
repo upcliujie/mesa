@@ -333,6 +333,8 @@ namespace {
       case FS_OPCODE_DDY_COARSE:
       case FS_OPCODE_PIXEL_X:
       case FS_OPCODE_PIXEL_Y:
+      case FS_OPCODE_PIXEL_COARSE_X:
+      case FS_OPCODE_PIXEL_COARSE_Y:
       case FS_OPCODE_SET_SAMPLE_ID:
       case VEC4_OPCODE_MOV_BYTES:
       case VEC4_OPCODE_UNPACK_UNIFORM:
