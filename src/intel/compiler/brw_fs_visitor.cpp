@@ -274,6 +274,35 @@ fs_visitor::emit_interpolation_setup_gen6()
    this->pixel_x = vgrf(glsl_type::float_type);
    this->pixel_y = vgrf(glsl_type::float_type);
 
+   struct brw_wm_prog_data *wm_prog_data = brw_wm_prog_data(prog_data);
+
+   fs_reg int_pixel_offset_xy, half_int_pixel_offset_x, half_int_pixel_offset_y;
+   if (wm_prog_data->per_coarse_pixel_dispatch) {
+      struct brw_reg r1_0 = retype(brw_vec1_reg(BRW_GENERAL_REGISTER_FILE, 1, 0), BRW_REGISTER_TYPE_UB);
+
+      const fs_builder dbld =
+         abld.exec_all().group(MIN2(16, dispatch_width) * 2, 0);
+
+      fs_reg int_pixel_offset_x = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+      dbld.AND(int_pixel_offset_x, byte_offset(r1_0, 0), brw_imm_v(0x0000f0f0));
+
+      fs_reg int_pixel_offset_y = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+      dbld.AND(int_pixel_offset_y, byte_offset(r1_0, 1), brw_imm_v(0xff000000));
+
+      int_pixel_offset_xy = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+      dbld.OR(int_pixel_offset_xy, int_pixel_offset_x, int_pixel_offset_y);
+
+      half_int_pixel_offset_x = bld.vgrf(BRW_REGISTER_TYPE_UW);
+      half_int_pixel_offset_y = bld.vgrf(BRW_REGISTER_TYPE_UW);
+
+      bld.SHR(half_int_pixel_offset_x, suboffset(r1_0, 0), brw_imm_ud(1));
+      bld.SHR(half_int_pixel_offset_y, suboffset(r1_0, 1), brw_imm_ud(1));
+   } else {
+      int_pixel_offset_xy = fs_reg(brw_imm_v(0x11001010));
+      half_int_pixel_offset_x = fs_reg(brw_imm_uw(0));
+      half_int_pixel_offset_y = fs_reg(brw_imm_uw(0));
+   }
+
    for (unsigned i = 0; i < DIV_ROUND_UP(dispatch_width, 16); i++) {
       const fs_builder hbld = abld.group(MIN2(16, dispatch_width), i);
       struct brw_reg gi_uw = retype(brw_vec1_grf(1 + i, 0), BRW_REGISTER_TYPE_UW);
@@ -295,10 +324,12 @@ fs_visitor::emit_interpolation_setup_gen6()
 
          dbld.ADD(int_pixel_xy,
                   fs_reg(stride(suboffset(gi_uw, 4), 1, 4, 0)),
-                  fs_reg(brw_imm_v(0x11001010)));
+                  int_pixel_offset_xy);
 
-         hbld.emit(FS_OPCODE_PIXEL_X, offset(pixel_x, hbld, i), int_pixel_xy);
-         hbld.emit(FS_OPCODE_PIXEL_Y, offset(pixel_y, hbld, i), int_pixel_xy);
+         hbld.emit(FS_OPCODE_PIXEL_X, offset(pixel_x, hbld, i), int_pixel_xy,
+                                      horiz_stride(half_int_pixel_offset_x, 0));
+         hbld.emit(FS_OPCODE_PIXEL_Y, offset(pixel_y, hbld, i), int_pixel_xy,
+                                      horiz_stride(half_int_pixel_offset_y, 0));
       } else {
          /* The "Register Region Restrictions" page says for SNB, IVB, HSW:
           *
@@ -331,8 +362,6 @@ fs_visitor::emit_interpolation_setup_gen6()
    this->pixel_w = fetch_payload_reg(abld, payload.source_w_reg);
    this->wpos_w = vgrf(glsl_type::float_type);
    abld.emit(SHADER_OPCODE_RCP, this->wpos_w, this->pixel_w);
-
-   struct brw_wm_prog_data *wm_prog_data = brw_wm_prog_data(prog_data);
 
    for (int i = 0; i < BRW_BARYCENTRIC_MODE_COUNT; ++i) {
       this->delta_xy[i] = fetch_barycentric_reg(
