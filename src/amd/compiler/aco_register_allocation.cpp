@@ -126,16 +126,16 @@ struct RegisterWindowIterator {
 
 /* Pair of register bounds that is used in "sliding window"-style for-loops */
 struct RegisterWindow {
-   unsigned lo_;
+   PhysReg lo_;
    unsigned size;
 
-   unsigned lo() const {
+   PhysReg lo() const {
       return lo_;
    }
 
    /* inclusive bound */
-   unsigned hi() const {
-      return lo() + size - 1;
+   PhysReg hi() const {
+      return PhysReg { lo() + size - 1 };
    }
 
    PhysReg first_reg() const {
@@ -146,12 +146,12 @@ struct RegisterWindow {
       return PhysReg { hi() };
    }
 
-   [[deprecated]] unsigned hi_excl() const {
-      return lo() + size;
+   [[deprecated]] PhysReg hi_excl() const {
+      return PhysReg { lo() + size };
    }
 
    RegisterWindow& operator+=(uint32_t stride) {
-      lo_ += stride;
+      lo_ = PhysReg { lo_.reg() + stride };
       return *this;
    }
 
@@ -159,7 +159,7 @@ struct RegisterWindow {
       return lo_ != oth.lo_ || size != oth.size;
    }
 
-   static RegisterWindow from_to(unsigned first, unsigned last) {
+   static RegisterWindow from_to(PhysReg first, PhysReg last) {
       return { first, last - first + 1 };
    }
 
@@ -212,9 +212,9 @@ struct DefInfo {
       stride = stride_for_register(rc);
 
       if (rc.type() == RegType::vgpr) {
-         bounds = { 256, (unsigned)ctx.program->max_reg_demand.vgpr };
+         bounds = { PhysReg { 256 }, (unsigned)ctx.program->max_reg_demand.vgpr };
       } else {
-         bounds = { 0, (unsigned)ctx.program->max_reg_demand.sgpr };
+         bounds = { PhysReg { 0 }, (unsigned)ctx.program->max_reg_demand.sgpr };
       }
 
       if (rc.is_subdword() && operand >= 0) {
@@ -730,11 +730,11 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
       }
 
       /* best fit algorithm: find the smallest gap to fit in the variable */
-      RegisterWindow best_gap { 0xFFFF, 0xFFFF };
+      RegisterWindow best_gap { PhysReg { 0 }, UINT_MAX };
       const unsigned max_gpr = (rc.type() == RegType::vgpr) ? (256 + ctx.max_used_vgpr) : ctx.max_used_sgpr;
 
       RegisterWindowIterator reg_it = bounds.begin();
-      const RegisterWindowIterator end_it = std::min(bounds.end(), std::max(RegisterWindowIterator { max_gpr + 1 }, reg_it));
+      const RegisterWindowIterator end_it = std::min(bounds.end(), std::max(RegisterWindowIterator { PhysReg { max_gpr + 1 } }, reg_it));
       while (reg_it != bounds.end()) {
          /* Find the next chunk of available register slots */
          reg_it = std::find_if(reg_it, end_it, is_free);
@@ -753,7 +753,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
          /* early return on exact matches */
          if (size == gap.size) {
             adjust_max_used_regs(ctx, rc, gap.lo());
-            return {PhysReg{gap.lo()}, true};
+            return {gap.lo(), true};
          }
 
          /* check if it fits and the gap size is smaller */
@@ -765,7 +765,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
          reg_it = next_nonfree_it;
       }
 
-      if (best_gap.lo() == 0xFFFF)
+      if (best_gap.size == UINT_MAX)
          return {{}, false};
 
       /* find best position within gap by leaving a good stride for other variables*/
@@ -774,7 +774,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
          if (((best_gap.lo() + size) % 8 != 0 && (best_gap.lo() + buffer) % 8 == 0) ||
              ((best_gap.lo() + size) % 4 != 0 && (best_gap.lo() + buffer) % 4 == 0) ||
              ((best_gap.lo() + size) % 2 != 0 && (best_gap.lo() + buffer) % 2 == 0))
-            best_gap = { best_gap.lo() + buffer, best_gap.size - buffer };
+            best_gap = { PhysReg { best_gap.lo() + buffer }, best_gap.size - buffer };
       }
 
       adjust_max_used_regs(ctx, rc, best_gap.lo());
@@ -782,7 +782,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
    }
 
    for (RegisterWindow reg_win = { bounds.lo(), size }; reg_win.hi_excl() <= bounds.hi_excl(); reg_win += stride) {
-      if (reg_file[PhysReg{reg_win.lo()}] != 0) {
+      if (reg_file[reg_win.lo()] != 0) {
          continue;
       }
 
@@ -903,7 +903,7 @@ bool get_regs_for_copies(ra_ctx& ctx,
          res = get_reg_simple(ctx, reg_file, info);
          if (!res.second && def_reg.hi() < bounds.hi_excl()) {
             unsigned lo = (def_reg.hi() + info.stride) & ~(info.stride - 1);
-            info.bounds = { lo, bounds.hi_excl() - lo };
+            info.bounds = RegisterWindow::from_to(PhysReg{lo}, bounds.hi());
             res = get_reg_simple(ctx, reg_file, info);
          }
       }
@@ -921,7 +921,7 @@ bool get_regs_for_copies(ra_ctx& ctx,
          continue;
       }
 
-      unsigned best_pos = bounds.lo();
+      PhysReg best_pos = bounds.lo();
       unsigned num_moves = 0xFF;
       unsigned num_vars = 0;
 
@@ -1075,7 +1075,7 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
             continue;
 
          /* dead operands effectively reduce the number of estimated moves */
-         if (reg_file.is_blocked(PhysReg{j})) {
+         if (reg_file.is_blocked(j)) {
             if (remaining_op_moves) {
                k--;
                remaining_op_moves--;
@@ -1141,14 +1141,14 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
    if (instr->opcode == aco_opcode::p_create_vector) {
       /* move killed operands which aren't yet at the correct position (GFX9+)
        * or which are in the definition space */
-      PhysReg reg = PhysReg{best_win.lo()};
+      PhysReg reg = best_win.lo();
       for (Operand& op : instr->operands) {
          if (op.isTemp() && op.isFirstKillBeforeDef() &&
              op.getTemp().type() == rc.type()) {
             if (op.physReg() != reg &&
                 (ctx.program->chip_class >= GFX9 ||
                  (op.physReg().advance(op.bytes()) > best_win.first_reg() &&
-                  op.physReg() < PhysReg{best_win.hi_excl()}))) {
+                  op.physReg() < best_win.hi_excl()))) {
                vars.emplace(op.bytes(), op.tempId());
                reg_file.clear(op);
             } else {
@@ -1227,14 +1227,14 @@ bool get_reg_specified(ra_ctx& ctx,
    RegisterWindow bounds;
 
    if (rc.type() == RegType::vgpr) {
-      bounds = {256, (unsigned)ctx.program->max_reg_demand.vgpr };
+      bounds = { PhysReg { 256 }, (unsigned)ctx.program->max_reg_demand.vgpr };
    } else {
-      bounds = { 0, (unsigned)ctx.program->max_reg_demand.sgpr };
+      bounds = { PhysReg { 0 }, (unsigned)ctx.program->max_reg_demand.sgpr };
       if (reg % stride != 0)
          return false;
    }
 
-   RegisterWindow reg_win = { reg.reg(), rc.size() };
+   RegisterWindow reg_win = { reg, rc.size() };
    if (!bounds.contains(reg_win))
       return false;
 
@@ -1364,14 +1364,14 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
    uint32_t stride = stride_for_register(rc);
    RegisterWindow bounds;
    if (rc.type() == RegType::vgpr) {
-      bounds = { 256, (unsigned)ctx.program->max_reg_demand.vgpr };
+      bounds = { PhysReg { 256 }, (unsigned)ctx.program->max_reg_demand.vgpr };
    } else {
-      bounds = { 0, (unsigned)ctx.program->max_reg_demand.sgpr };
+      bounds = { PhysReg { 0 }, (unsigned)ctx.program->max_reg_demand.sgpr };
    }
 
    //TODO: improve p_create_vector for sub-dword vectors
 
-   unsigned best_pos = -1;
+   PhysReg best_pos { 0xFFF };
    unsigned num_moves = 0xFF;
    bool best_war_hint = true;
 
@@ -1387,7 +1387,7 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
       unsigned reg_lower = instr->operands[i].physReg().reg_b - offset;
       if (reg_lower % 4)
          continue;
-      RegisterWindow reg_win = { reg_lower / 4, size };
+      RegisterWindow reg_win = { PhysReg { reg_lower / 4 }, size };
       unsigned k = 0;
 
       /* no need to check multiple times */
@@ -1398,9 +1398,9 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
       // TODO: this can be improved */
       if (!bounds.contains(reg_win) || reg_win.lo() % stride != 0)
          continue;
-      if (reg_win.lo() > bounds.lo() && reg_file[PhysReg{reg_win.lo()}] != 0 && reg_file.get_id(reg_win.first_reg()) == reg_file.get_id(reg_win.first_reg().advance(-1)))
+      if (reg_win.lo() > bounds.lo() && reg_file[reg_win.lo()] != 0 && reg_file.get_id(reg_win.first_reg()) == reg_file.get_id(reg_win.first_reg().advance(-1)))
          continue;
-      if (reg_win.hi() < bounds.hi() && reg_file[PhysReg{reg_win.hi()}] != 0 && reg_file.get_id(reg_win.last_reg().advance(3)) == reg_file.get_id(reg_win.last_reg().advance(4)))
+      if (reg_win.hi() < bounds.hi() && reg_file[reg_win.hi()] != 0 && reg_file.get_id(reg_win.last_reg().advance(3)) == reg_file.get_id(reg_win.last_reg().advance(4)))
          continue;
 
       /* count variables to be moved and check war_hint */
@@ -1455,18 +1455,18 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
    for (unsigned i = 0, offset = 0; i < instr->operands.size(); offset += instr->operands[i].bytes(), i++) {
       if (instr->operands[i].isTemp() &&
           instr->operands[i].isFirstKillBeforeDef() &&
-          instr->operands[i].physReg().reg_b != best_pos * 4 + offset)
+          instr->operands[i].physReg().reg_b != best_pos.reg_b + offset)
          reg_file.fill(instr->operands[i]);
    }
 
    /* collect variables to be moved */
-   std::set<std::pair<unsigned, unsigned>> vars = collect_vars(ctx, reg_file, PhysReg{best_pos}, size);
+   std::set<std::pair<unsigned, unsigned>> vars = collect_vars(ctx, reg_file, best_pos, size);
 
    for (unsigned i = 0, offset = 0; i < instr->operands.size(); offset += instr->operands[i].bytes(), i++) {
       if (!instr->operands[i].isTemp() || !instr->operands[i].isFirstKillBeforeDef() ||
           instr->operands[i].getTemp().type() != rc.type())
          continue;
-      bool correct_pos = instr->operands[i].physReg().reg_b == best_pos * 4 + offset;
+      bool correct_pos = instr->operands[i].physReg().reg_b == best_pos.reg_b + offset;
       /* GFX9+: move killed operands which aren't yet at the correct position
        * Moving all killed operands generally leads to more register swaps.
        * This is only done on GFX9+ because of the cheap v_swap instruction.
@@ -1495,7 +1495,7 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
          reg_file.clear(instr->operands[i]);
    }
 
-   return PhysReg{best_pos};
+   return best_pos;
 }
 
 void handle_pseudo(ra_ctx& ctx,
@@ -1620,7 +1620,7 @@ void get_reg_for_operand(ra_ctx& ctx, RegisterFile& register_file,
 
          /* find free reg */
          PhysReg reg = get_reg(ctx, register_file, pc_op.getTemp(), parallelcopy, ctx.pseudo_dummy);
-         Definition pc_def = Definition(PhysReg{reg}, pc_op.regClass());
+         Definition pc_def = Definition(reg, pc_op.regClass());
          register_file.clear(pc_op);
          parallelcopy.emplace_back(pc_op, pc_def);
       }
