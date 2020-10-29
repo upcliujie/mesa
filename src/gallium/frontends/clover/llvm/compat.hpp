@@ -88,6 +88,17 @@ namespace clover {
                cinv, copts.data(), copts.data() + copts.size(), diag);
 #endif
          }
+
+         inline unsigned int
+         getPointerABIAlignment(const ::llvm::DataLayout &dl,
+                                unsigned int AS) {
+#if LLVM_VERSION_MAJOR >= 10
+            return dl.getPointerABIAlignment(AS).value();
+#else
+            return dl.getPointerABIAlignment(AS);
+#endif
+         }
+
       }
    }
 }
