@@ -68,7 +68,8 @@ namespace {
 
    void
    print_formatted(const std::vector<printf_fmt> &formatters,
-                  const std::vector<char> &buffer) {
+                   bool _header_fmt_llvm,
+                   const std::vector<char> &buffer) {
 
       for (size_t buf_pos = 0; buf_pos < buffer.size(); ) {
          cl_uint fmt_idx = *(cl_uint*)&buffer[buf_pos];
@@ -119,7 +120,13 @@ namespace {
                   printf("%s", print_str.c_str());
 
                } else if (is_string) {
-                  printf(print_str.c_str(), &buffer[buf_pos]);
+                  if (_header_fmt_llvm)
+                     printf(print_str.c_str(), &buffer[buf_pos]);
+                  else {
+                     uint64_t ptr;
+                     memcpy(&ptr, &buffer[buf_pos], 8);
+                     printf(print_str.c_str(), (void *)ptr);
+                  }
 
                } else {
                   int component_count = 1;
@@ -247,5 +254,5 @@ printf_handler::print() {
                static_cast<const char *>(src) + initial_buffer_offset,
                buffer_size);
 
-   print_formatted(_formatters, buf);
+   print_formatted(_formatters, _header_fmt_llvm, buf);
 }
