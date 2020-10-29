@@ -4003,7 +4003,10 @@ fs_visitor::get_nir_ssbo_intrinsic_index(const brw::fs_builder &bld,
                                          nir_intrinsic_instr *instr)
 {
    /* SSBO stores are weird in that their index is in src[1] */
-   const unsigned src = instr->intrinsic == nir_intrinsic_store_ssbo ? 1 : 0;
+   const bool is_store =
+      instr->intrinsic == nir_intrinsic_store_ssbo ||
+      instr->intrinsic == nir_intrinsic_store_ssbo_block_intel;
+   const unsigned src = is_store ? 1 : 0;
 
    if (nir_src_is_const(instr->src[src])) {
       unsigned index = stage_prog_data->binding_table.ssbo_start +
@@ -5409,6 +5412,71 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
 
          const unsigned block_bytes = block * 4;
          increment_a64_address_scalar(ubld16, address, block_bytes);
+         written += block;
+      }
+      break;
+   }
+
+   case nir_intrinsic_load_ssbo_block_intel: {
+      assert(nir_dest_bit_size(instr->dest) == 32);
+
+      const fs_builder ubld16 = bld.exec_all().group(16, 0);
+      fs_reg address = bld.emit_uniformize(get_nir_src(instr->src[1]));
+
+      fs_reg srcs[SURFACE_LOGICAL_NUM_SRCS];
+      srcs[SURFACE_LOGICAL_SRC_SURFACE] = get_nir_ssbo_intrinsic_index(ubld16, instr);
+      srcs[SURFACE_LOGICAL_SRC_ADDRESS] = address;
+
+      const unsigned total = instr->num_components * dispatch_width;
+      unsigned loaded = 0;
+
+      while (loaded < total) {
+         const unsigned block = choose_block_size_dwords(total - loaded);
+         const unsigned block_bytes = block * 4;
+
+         srcs[SURFACE_LOGICAL_SRC_IMM_ARG] = brw_imm_ud(block);
+
+         ubld16.emit(SHADER_OPCODE_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
+                     retype(byte_offset(dest, loaded * 4), BRW_REGISTER_TYPE_UD),
+                     srcs, SURFACE_LOGICAL_NUM_SRCS)->size_written = block_bytes;
+
+         ubld16.ADD(address, address, brw_imm_ud(block_bytes));
+         loaded += block;
+      }
+      break;
+   }
+
+   case nir_intrinsic_store_ssbo_block_intel: {
+      assert(nir_src_bit_size(instr->src[0]) == 32);
+
+      const fs_builder ubld16 = bld.exec_all().group(16, 0);
+      fs_reg address = bld.emit_uniformize(get_nir_src(instr->src[2]));
+      fs_reg src = get_nir_src(instr->src[0]);
+
+      fs_reg srcs[SURFACE_LOGICAL_NUM_SRCS];
+      srcs[SURFACE_LOGICAL_SRC_SURFACE] = get_nir_ssbo_intrinsic_index(ubld16, instr);
+      srcs[SURFACE_LOGICAL_SRC_ADDRESS] = address;
+
+      const unsigned total = instr->num_components * dispatch_width;
+      unsigned written = 0;
+
+      while (written < total) {
+         const unsigned block = choose_block_size_dwords(total - written);
+         /* Make sure that at least one full component is read.  See
+          * corresponding case in components_read().
+          */
+         const brw_reg_type block_type =
+            block == 8 ? BRW_REGISTER_TYPE_UW : BRW_REGISTER_TYPE_UD;
+
+         srcs[SURFACE_LOGICAL_SRC_IMM_ARG] = brw_imm_ud(block);
+         srcs[SURFACE_LOGICAL_SRC_DATA] =
+            retype(byte_offset(src, written * 4), block_type);
+
+         ubld16.emit(SHADER_OPCODE_OWORD_BLOCK_WRITE_LOGICAL,
+                     fs_reg(), srcs, SURFACE_LOGICAL_NUM_SRCS);
+
+         const unsigned block_bytes = block * 4;
+         ubld16.ADD(address, address, brw_imm_ud(block_bytes));
          written += block;
       }
       break;
