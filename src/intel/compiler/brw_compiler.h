@@ -843,6 +843,7 @@ struct brw_wm_prog_data {
    bool uses_kill;
    bool uses_src_depth;
    bool uses_src_w;
+   bool uses_depth_w_coefficients;
    bool uses_sample_mask;
    bool has_render_target_reads;
    bool has_side_effects;
@@ -855,11 +856,6 @@ struct brw_wm_prog_data {
     * Shader is ran at the coarse pixel shading dispatch rate (3DSTATE_CPS).
     */
    bool per_coarse_pixel_dispatch;
-
-   /**
-    * Shader reads the coarse pixel shading rate.
-    */
-   bool uses_rate_shading;
 
    /**
     * Mask of which interpolation modes are required by the fragment shader.
