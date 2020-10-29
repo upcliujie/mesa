@@ -990,7 +990,7 @@ v3dv_queue_family_properties = {
                  VK_QUEUE_COMPUTE_BIT |
                  VK_QUEUE_TRANSFER_BIT,
    .queueCount = 1,
-   .timestampValidBits = 0, /* FIXME */
+   .timestampValidBits = 64,
    .minImageTransferGranularity = { 1, 1, 1 },
 };
 
