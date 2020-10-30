@@ -932,7 +932,9 @@ opt_if_simplification(nir_builder *b, nir_if *nif)
 
 /**
  * This optimization tries to merge two break statements into a single break.
- * For this purpose, it checks if both branch legs end in a break.
+ * For this purpose, it checks if both branch legs end in a break or
+ * if one branch leg ends in a break, and the other one does so after the
+ * branch.
  *
  * This optimization turns
  *
@@ -959,6 +961,40 @@ opt_if_simplification(nir_builder *b, nir_if *nif)
  *        break;
  *     }
  *
+ * but also situations like
+ *
+ *     loop {
+ *        ...
+ *        if (cond1) {
+ *           if (cond2) {
+ *              do_work_1();
+ *              break;
+ *           } else {
+ *              do_work_2();
+ *           }
+ *           do_work_3();
+ *           break;
+ *        } else {
+ *           ...
+ *        }
+ *     }
+ *
+ *  into:
+ *
+ *     loop {
+ *        ...
+ *        if (cond1) {
+ *           if (cond2) {
+ *              do_work_1();
+ *           } else {
+ *              do_work_2();
+ *              do_work_3();
+ *           }
+ *           break;
+ *        } else {
+ *           ...
+ *        }
+ *     }
  */
 static bool
 opt_merge_breaks(nir_if *nif)
@@ -982,6 +1018,42 @@ opt_merge_breaks(nir_if *nif)
       nir_instr_insert(nir_after_block(after_if), jump);
       return true;
     }
+
+   /* we cannot have a continue on the other branch leg */
+   if ((then_break && nir_block_ends_in_jump(last_else)) ||
+       (else_break && nir_block_ends_in_jump (last_then)))
+      return false;
+
+   /* Single break: we try to merge with a break after the branch */
+   if (then_break || else_break) {
+      nir_cf_node *first = nir_cf_node_next(&nif->cf_node);
+      nir_cf_node *last = first;
+      while (!nir_cf_node_is_last(last)) {
+         if (contains_other_jump (last, NULL))
+            return false;
+         last = nir_cf_node_next(last);
+      }
+
+      assert(last->type == nir_cf_node_block);
+
+      if (!nir_block_ends_in_break(nir_cf_node_as_block(last)))
+         return false;
+
+      nir_opt_remove_phis_block(nir_cf_node_as_block(first));
+      nir_block *break_block = then_break ? last_then : last_else;
+      nir_lower_phis_to_regs_block(break_block->successors[0]);
+
+      nir_cf_list tmp;
+      nir_cf_extract(&tmp, nir_before_cf_node(first),
+                           nir_after_block_before_jump(nir_cf_node_as_block(last)));
+      if (then_break)
+         nir_cf_reinsert(&tmp, nir_after_block(last_else));
+      else
+         nir_cf_reinsert(&tmp, nir_after_block(last_then));
+
+      nir_instr_remove_v(nir_block_last_instr(break_block));
+      return true;
+   }
 
    return false;
 }
@@ -1551,7 +1623,6 @@ opt_peel_loop_initial_if_cf_list(struct exec_list *cf_list)
          nir_if *nif = nir_cf_node_as_if(cf_node);
          progress |= opt_peel_loop_initial_if_cf_list(&nif->then_list);
          progress |= opt_peel_loop_initial_if_cf_list(&nif->else_list);
-         progress |= opt_merge_breaks(nif);
          break;
       }
 
@@ -1608,6 +1679,38 @@ opt_if_safe_cf_list(nir_builder *b, struct exec_list *cf_list)
    return progress;
 }
 
+static bool
+opt_merge_breaks_cf_list(struct exec_list *cf_list)
+{
+   bool progress = false;
+   foreach_list_typed(nir_cf_node, cf_node, node, cf_list) {
+      switch (cf_node->type) {
+      case nir_cf_node_block:
+         break;
+
+      case nir_cf_node_if: {
+         nir_if *nif = nir_cf_node_as_if(cf_node);
+         progress |= opt_merge_breaks_cf_list(&nif->then_list);
+         progress |= opt_merge_breaks_cf_list(&nif->else_list);
+         progress |= opt_if_loop_terminator(nif);
+         progress |= opt_merge_breaks(nif);
+         break;
+      }
+
+      case nir_cf_node_loop: {
+         nir_loop *loop = nir_cf_node_as_loop(cf_node);
+         progress |= opt_merge_breaks_cf_list(&loop->body);
+         break;
+      }
+
+      case nir_cf_node_function:
+         unreachable("Invalid cf type");
+      }
+   }
+
+   return progress;
+}
+
 bool
 nir_opt_if(nir_shader *shader, bool aggressive_last_continue)
 {
@@ -1627,6 +1730,13 @@ nir_opt_if(nir_shader *shader, bool aggressive_last_continue)
                             nir_metadata_dominance);
 
       bool preserve = true;
+      if (opt_merge_breaks_cf_list(&function->impl->body)) {
+         preserve = false;
+         progress = true;
+
+         /* The merged break statements need the phis after the loop fixed */
+         nir_lower_regs_to_ssa_impl(function->impl);
+      }
 
       if (opt_if_cf_list(&b, &function->impl->body, aggressive_last_continue)) {
          preserve = false;
