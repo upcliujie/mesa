@@ -253,6 +253,16 @@ _foreach_aliasing(nir_deref_instr **deref, match_cb cb,
    }
 }
 
+static void
+foreach_node(match_cb cb, struct match_state *state)
+{
+   hash_table_foreach(state->var_nodes, entry)
+      _foreach_child(cb, entry->data, state);
+
+   hash_table_foreach(state->cast_nodes, entry)
+      _foreach_child(cb, entry->data, state);
+}
+
 /* Given a deref path, find all the leaf deref nodes that alias it. */
 
 static void
@@ -553,8 +563,16 @@ opt_find_array_copies_block(nir_builder *b, nir_block *block,
        * continue on because it won't affect local stores or read-only
        * variables.
        */
-      if (!nir_deref_mode_is(dst_deref, nir_var_function_temp))
+      if (!nir_deref_mode_may_be(dst_deref, nir_var_function_temp))
          continue;
+
+      if (!nir_deref_mode_must_be(dst_deref, nir_var_function_temp)) {
+         /* This only happens if we have something that might be a local store
+          * but we don't know.  In this case, clear everything.
+          */
+         foreach_node(clobber, state);
+         continue;
+      }
 
       /* If there are any known out-of-bounds writes, then we can just skip
        * this write as it's undefined and won't contribute to building up an
