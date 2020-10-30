@@ -765,6 +765,8 @@ XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
            case 1:       PROCESS1;
                          /* fallthrough */
            case 0:       return XXH32_avalanche(h32);
+           default:      XXH_ASSERT(0);
+                         return h32; /* reaching this point is impossible */
         }
         XXH_ASSERT(0);
         return h32;   /* reaching this point is deemed impossible */
@@ -1222,6 +1224,8 @@ XXH64_finalize(xxh_u64 h64, const xxh_u8* ptr, size_t len, XXH_alignment align)
            case  1: PROCESS1_64;
                          /* fallthrough */
            case  0: return XXH64_avalanche(h64);
+           default: XXH_ASSERT(0);
+                    return 0; /* reaching this point is impossible */
         }
     }
     /* impossible to reach */
