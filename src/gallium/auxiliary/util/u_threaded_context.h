@@ -286,6 +286,7 @@ struct threaded_resource {
    /* If positive, then a staging transfer is in progress.
     */
    int pending_staging_uploads;
+   struct threaded_transfer* ttrans[1];
 };
 
 struct threaded_transfer {
