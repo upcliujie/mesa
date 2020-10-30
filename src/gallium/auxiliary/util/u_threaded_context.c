@@ -375,6 +375,8 @@ threaded_resource_init(struct pipe_resource *res)
    tres->is_shared = false;
    tres->is_user_ptr = false;
    tres->pending_staging_uploads = 0;
+   tres->pending_staging_start = 0;
+   tres->pending_staging_end = 0;
 }
 
 void
@@ -1624,19 +1626,38 @@ tc_transfer_map(struct pipe_context *_pipe,
          ttrans->b.layer_stride = 0;
          *transfer = &ttrans->b;
 
+         if (tres->pending_staging_uploads == 0) {
+            tres->pending_staging_start = box->x;
+            tres->pending_staging_end = box->x + box->width;
+         } else {
+            tres->pending_staging_start = MIN2(box->x,
+                                               tres->pending_staging_start);
+            tres->pending_staging_end = MAX2(box->x + box->width,
+                                               tres->pending_staging_end);
+         }
          p_atomic_inc(&tres->pending_staging_uploads);
 
          return map + (box->x % tc->map_buffer_alignment);
       }
 
-      if (tres->pending_staging_uploads) {
-         /* Flush to make sure the mapping happens after the staging-copy is
-          * sent to the GPU.
-          * If usage includes PIPE_MAP_UNSYNCHRONIZED the staging-copy may
-          * not be finished before the buffer is mapped though.
+      if (tres->pending_staging_uploads && (usage & PIPE_MAP_UNSYNCHRONIZED)) {
+         bool intersects = MAX2(box->x, tres->pending_staging_start) <
+                           MIN2(box->x + box->width, tres->pending_staging_end);
+
+         /* Write conflict detected between a staging transfer and the direct mapping we're
+          * going to do. Resolve the conflict by:
+          *  - using tc_sync to start the execution of the staging transfer
+          *  - ignoring UNSYNCHRONIZED so the direct mapping will have to wait for the staging
+          *    transfer completion
+          * Note: The conflict detection is only based on the mapped range, not on the actual
+          * written range(s).
           */
-         tc_flush(_pipe, NULL, 0);
+         if (intersects) {
+            tc_sync_msg(tc, "staging / non-staging conflict");
+            usage &= ~PIPE_MAP_UNSYNCHRONIZED;
+         }
       }
+
    }
 
    /* Unsychronized buffer mappings don't have to synchronize the thread. */
