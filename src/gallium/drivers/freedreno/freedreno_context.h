@@ -345,6 +345,11 @@ struct fd_context {
 	bool cond_cond; /* inverted rendering condition */
 	uint cond_mode;
 
+	struct {
+		struct fd_bo *bo;
+		uint32_t per_fiber_size;
+	} pvtmem[2];
+
 	struct pipe_debug_callback debug;
 
 	/* Called on rebind_resource() for any per-gen cleanup required: */
