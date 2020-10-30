@@ -1007,6 +1007,23 @@ static inline type_t full_type(type_t type)
 	}
 }
 
+static inline bool type_is_half(type_t type)
+{
+	switch (type) {
+	case TYPE_F32:
+	case TYPE_U32:
+	case TYPE_S32:
+		return false;
+	case TYPE_F16:
+	case TYPE_U16:
+	case TYPE_S16:
+		return true;
+	default:
+		assert(0);
+		return ~0;
+	}
+}
+
 /* some cat2 instructions (ie. those which are not float) can embed an
  * immediate:
  */
