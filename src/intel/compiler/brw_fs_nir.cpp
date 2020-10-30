@@ -5417,14 +5417,18 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       break;
    }
 
+   case nir_intrinsic_load_shared_block_intel:
    case nir_intrinsic_load_ssbo_block_intel: {
       assert(nir_dest_bit_size(instr->dest) == 32);
 
+      const bool is_ssbo =
+         instr->intrinsic == nir_intrinsic_load_ssbo_block_intel;
       const fs_builder ubld16 = bld.exec_all().group(16, 0);
-      fs_reg address = bld.emit_uniformize(get_nir_src(instr->src[1]));
+      fs_reg address = bld.emit_uniformize(get_nir_src(instr->src[is_ssbo ? 1 : 0]));
 
       fs_reg srcs[SURFACE_LOGICAL_NUM_SRCS];
-      srcs[SURFACE_LOGICAL_SRC_SURFACE] = get_nir_ssbo_intrinsic_index(ubld16, instr);
+      srcs[SURFACE_LOGICAL_SRC_SURFACE] = is_ssbo ?
+         get_nir_ssbo_intrinsic_index(ubld16, instr) : fs_reg(brw_imm_ud(GEN7_BTI_SLM));
       srcs[SURFACE_LOGICAL_SRC_ADDRESS] = address;
 
       const unsigned total = instr->num_components * dispatch_width;
@@ -5446,15 +5450,20 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       break;
    }
 
+   case nir_intrinsic_store_shared_block_intel:
    case nir_intrinsic_store_ssbo_block_intel: {
       assert(nir_src_bit_size(instr->src[0]) == 32);
 
+      const bool is_ssbo =
+         instr->intrinsic == nir_intrinsic_store_ssbo_block_intel;
+
       const fs_builder ubld16 = bld.exec_all().group(16, 0);
-      fs_reg address = bld.emit_uniformize(get_nir_src(instr->src[2]));
+      fs_reg address = bld.emit_uniformize(get_nir_src(instr->src[is_ssbo ? 2 : 1]));
       fs_reg src = get_nir_src(instr->src[0]);
 
       fs_reg srcs[SURFACE_LOGICAL_NUM_SRCS];
-      srcs[SURFACE_LOGICAL_SRC_SURFACE] = get_nir_ssbo_intrinsic_index(ubld16, instr);
+      srcs[SURFACE_LOGICAL_SRC_SURFACE] = is_ssbo ?
+         get_nir_ssbo_intrinsic_index(ubld16, instr) : fs_reg(brw_imm_ud(GEN7_BTI_SLM));
       srcs[SURFACE_LOGICAL_SRC_ADDRESS] = address;
 
       const unsigned total = instr->num_components * dispatch_width;
