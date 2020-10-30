@@ -931,6 +931,44 @@ opt_if_simplification(nir_builder *b, nir_if *nif)
 }
 
 /**
+ * Remove loop cf_nodes which only consist of a single iteration. This may
+ * help backends to avoid unnecessary control flow setup code and can improve
+ * Basic-Block-Scheduling.
+ *
+ * This optimization turns:
+ *
+ *     loop {
+ *         do_work();
+ *         break;
+ *     }
+ *
+ * into:
+ *
+ *     do_work();
+ *
+ */
+static bool
+opt_loop_break(nir_loop *loop) {
+   nir_block *first = nir_loop_first_block(loop);
+   nir_block *last = nir_loop_last_block(loop);
+   nir_block *after = nir_block_cf_tree_next(last);
+
+   /* check if the loop has one single predecessor and only one successor */
+   if (first->predecessors->entries != 1)
+      return false;
+   if (after->predecessors->entries != 1)
+      return false;
+
+   assert(nir_block_ends_in_break(last));
+   nir_cf_list tmp;
+   nir_cf_extract(&tmp, nir_before_block(first),
+                  nir_after_block_before_jump(last));
+   nir_cf_reinsert(&tmp, nir_before_cf_node(&loop->cf_node));
+   nir_cf_node_remove(&loop->cf_node);
+   return true;
+}
+
+/**
  * This optimization simplifies potential loop terminators which then allows
  * other passes such as opt_if_simplification() and loop unrolling to progress
  * further:
@@ -1432,6 +1470,7 @@ opt_if_cf_list(nir_builder *b, struct exec_list *cf_list,
          progress |= opt_simplify_bcsel_of_phi(b, loop);
          progress |= opt_if_loop_last_continue(loop,
                                                aggressive_last_continue);
+         progress |= opt_loop_break(loop);
          break;
       }
 
