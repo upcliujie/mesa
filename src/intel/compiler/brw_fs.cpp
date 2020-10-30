@@ -8831,6 +8831,9 @@ brw_compile_fs(const struct brw_compiler *compiler, void *log_data,
                                "using SIMD8 when dual src blending.\n");
    }
 
+   if (devinfo->gen >= 9 && prog_data->computed_stencil)
+      v8->limit_dispatch_width(8, "Writting stencil is limited to SIMD8.\n");
+
    if (!has_spilled &&
        v8->max_dispatch_width >= 16 &&
        (!(INTEL_DEBUG & DEBUG_NO16) || use_rep_send)) {
