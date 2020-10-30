@@ -108,6 +108,9 @@ struct ir3_compiler {
 
 	/* Whether clip+cull distances are supported */
 	bool has_clip_cull;
+
+	/* Whether private memory is supported */
+	bool has_pvtmem;
 };
 
 void ir3_compiler_destroy(struct ir3_compiler *compiler);
