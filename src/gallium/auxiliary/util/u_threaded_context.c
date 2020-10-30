@@ -375,6 +375,7 @@ threaded_resource_init(struct pipe_resource *res)
    tres->is_shared = false;
    tres->is_user_ptr = false;
    tres->pending_staging_uploads = 0;
+   util_range_init(&tres->pending_staging_uploads_range);
 }
 
 void
@@ -385,6 +386,7 @@ threaded_resource_deinit(struct pipe_resource *res)
    if (tres->latest != &tres->b)
            pipe_resource_reference(&tres->latest, NULL);
    util_range_destroy(&tres->valid_buffer_range);
+   util_range_destroy(&tres->pending_staging_uploads_range);
 }
 
 struct pipe_context *
@@ -1621,17 +1623,25 @@ tc_transfer_map(struct pipe_context *_pipe,
          *transfer = &ttrans->b;
 
          p_atomic_inc(&tres->pending_staging_uploads);
+         util_range_add(resource, &tres->pending_staging_uploads_range,
+                        box->x, box->x + box->width);
 
          return map + (box->x % tc->map_buffer_alignment);
       }
 
-      if (p_atomic_read(&tres->pending_staging_uploads)) {
-         /* Flush to make sure the mapping happens after the staging-copy is
-          * sent to the GPU.
-          * If usage includes PIPE_MAP_UNSYNCHRONIZED the staging-copy may
-          * not be finished before the buffer is mapped though.
+      if (p_atomic_read(&tres->pending_staging_uploads) &&
+          util_ranges_intersect(&tres->pending_staging_uploads_range, box->x, box->x + box->width) &&
+          (usage & PIPE_MAP_UNSYNCHRONIZED)) {
+         /* Write conflict detected between a staging transfer and the direct mapping we're
+          * going to do. Resolve the conflict by:
+          *  - using tc_sync to start the execution of the staging transfer
+          *  - ignoring UNSYNCHRONIZED so the direct mapping will have to wait for the staging
+          *    transfer completion
+          * Note: The conflict detection is only based on the mapped range, not on the actual
+          * written range(s).
           */
          tc_sync_msg(tc, "staging / non-staging conflict");
+         usage &= ~PIPE_MAP_UNSYNCHRONIZED;
       }
    }
 
