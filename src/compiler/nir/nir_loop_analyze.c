@@ -1118,7 +1118,7 @@ force_unroll_array_access(loop_info_state *state, nir_deref_instr *deref)
                                         nir_var_function_temp))
          return true;
 
-      if (deref->mode & state->indirect_mask)
+      if (deref->modes & state->indirect_mask)
          return true;
    }
 
