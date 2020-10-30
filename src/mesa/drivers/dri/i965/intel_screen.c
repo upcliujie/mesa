@@ -2492,6 +2492,24 @@ set_max_gl_versions(struct intel_screen *screen)
    default:
       unreachable("unrecognized intel_screen::gen");
    }
+
+   /* Using the `allow_higher_compat_version` option during context creation
+    * means that an application that doesn't request a specific version can be
+    * given a version higher than 3.0.  However, an application still cannot
+    * request a higher version.  For that to work, max_gl_compat_version must
+    * be set.
+    */
+   if (dri_screen->max_gl_compat_version < dri_screen->max_gl_core_version) {
+      driOptionCache options = { NULL, NULL, 0 };
+
+      driParseConfigFiles(&options, &screen->optionCache, dri_screen->myNum,
+                          "i965", NULL, NULL, 0, NULL, 0);
+
+      if (driQueryOptionb(&options, "allow_higher_compat_version"))
+         dri_screen->max_gl_compat_version = dri_screen->max_gl_core_version;
+
+      driDestroyOptionCache(&options);
+   }
 }
 
 static void
