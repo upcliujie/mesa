@@ -96,19 +96,19 @@ struct PhysRegIterator {
    using pointer = const unsigned*;
    using iterator_category = std::bidirectional_iterator_tag;
 
-   unsigned reg;
+   PhysReg reg;
 
    PhysReg operator*() const {
       return PhysReg { reg };
    }
 
    PhysRegIterator& operator++() {
-      reg++;
+      reg.reg_b += 4;
       return *this;
    }
 
    PhysRegIterator& operator--() {
-      reg--;
+      reg.reg_b -= 4;
       return *this;
    }
 
@@ -140,11 +140,11 @@ struct PhysRegInterval {
    }
 
    PhysReg first_reg() const {
-      return PhysReg { lo() };
+      return lo();
    }
 
    PhysReg last_reg() const {
-      return PhysReg { hi() };
+      return hi();
    }
 
    [[deprecated]] PhysReg hi_excl() const {
@@ -177,7 +177,7 @@ struct PhysRegInterval {
    }
 
    PhysRegIterator end() const {
-      return { lo_ + size };
+      return { PhysReg { lo_ + size } };
    }
 };
 
