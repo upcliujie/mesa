@@ -27,6 +27,8 @@
 #include "zink_context.h"
 #include "zink_screen.h"
 
+#include "vulkan/wsi/wsi_common.h"
+
 #include "util/slab.h"
 #include "util/u_debug.h"
 #include "util/format/u_format.h"
@@ -246,11 +248,15 @@ resource_create(struct pipe_screen *pscreen,
    mai.allocationSize = reqs.size;
    mai.memoryTypeIndex = get_memory_type_index(screen, &reqs, flags);
 
+   VkBaseInStructure *last = (VkBaseInStructure*)&mai;
+
    VkExportMemoryAllocateInfo emai = {};
    if (templ->bind & PIPE_BIND_SHARED) {
       emai.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
       emai.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
-      mai.pNext = &emai;
+
+      last->pNext = (VkBaseInStructure*)&emai;
+      last = (VkBaseInStructure*)&emai;
    }
 
    VkImportMemoryFdInfoKHR imfi = {
@@ -263,7 +269,20 @@ resource_create(struct pipe_screen *pscreen,
       imfi.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
       imfi.fd = whandle->handle;
 
-      emai.pNext = &imfi;
+      last->pNext = (VkBaseInStructure*)&imfi;
+      last = (VkBaseInStructure*)&imfi;
+   }
+
+   struct wsi_memory_allocate_info memory_wsi_info = {
+      VK_STRUCTURE_TYPE_WSI_MEMORY_ALLOCATE_INFO_MESA,
+      NULL,
+   };
+
+   if (templ->bind & PIPE_BIND_SCANOUT) {
+      memory_wsi_info.implicit_sync = true,
+
+      last->pNext = (VkBaseInStructure*)&memory_wsi_info;
+      last = (VkBaseInStructure*)&memory_wsi_info;
    }
 
    if (vkAllocateMemory(screen->dev, &mai, NULL, &res->mem) != VK_SUCCESS)
