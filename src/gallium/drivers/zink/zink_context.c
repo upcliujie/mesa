@@ -117,6 +117,40 @@ calc_descriptor_state_hash_ssbo(struct zink_context *ctx, struct zink_shader *zs
    return hash;
 }
 
+static inline uint32_t
+get_sampler_view_hash(const struct zink_sampler_view *sampler_view)
+{
+   if (!sampler_view)
+      return 0;
+   return sampler_view->base.target == PIPE_BUFFER ?
+          sampler_view->buffer_view->hash : sampler_view->image_view->hash;
+}
+
+static inline uint32_t
+get_image_view_hash(const struct zink_image_view *image_view)
+{
+   if (!image_view || !image_view->base.resource)
+      return 0;
+   return image_view->base.resource->target == PIPE_BUFFER ?
+          image_view->buffer_view->hash : image_view->surface->hash;
+}
+
+uint32_t
+zink_get_sampler_view_hash(struct zink_context *ctx, struct zink_sampler_view *sampler_view, bool is_buffer)
+{
+   return get_sampler_view_hash(sampler_view) ? get_sampler_view_hash(sampler_view) :
+          (is_buffer ? zink_screen(ctx->base.screen)->null_descriptor_hashes.buffer_view :
+                       zink_screen(ctx->base.screen)->null_descriptor_hashes.image_view);
+}
+
+uint32_t
+zink_get_image_view_hash(struct zink_context *ctx, struct zink_image_view *image_view, bool is_buffer)
+{
+   return get_image_view_hash(image_view) ? get_image_view_hash(image_view) :
+          (is_buffer ? zink_screen(ctx->base.screen)->null_descriptor_hashes.buffer_view :
+                       zink_screen(ctx->base.screen)->null_descriptor_hashes.image_view);
+}
+
 static uint32_t
 calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
 {
@@ -124,15 +158,9 @@ calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader 
 
    for (unsigned k = 0; k < zs->bindings[ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW][i].size; k++) {
       struct zink_sampler_view *sampler_view = zink_sampler_view(ctx->sampler_views[shader][idx + k]);
-      if (!sampler_view) {
-         uint32_t val = zs->bindings[ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW][i].type == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER ?
-                        screen->null_descriptor_hashes.buffer_view :
-                        screen->null_descriptor_hashes.image_view;
-         hash = maybe_hash_u32(val, hash);
-         continue;
-      }
-      hash = maybe_hash_u32(get_sampler_view_hash(sampler_view), hash);
-      if (sampler_view->base.target == PIPE_BUFFER)
+      bool is_buffer = zink_shader_descriptor_is_buffer(zs, ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW, i);
+      hash = maybe_hash_u32(zink_get_sampler_view_hash(ctx, sampler_view, is_buffer), hash);
+      if (is_buffer)
          continue;
 
       struct zink_sampler_state *sampler_state = ctx->sampler_states[shader][idx + k];
@@ -157,15 +185,9 @@ static uint32_t
 calc_descriptor_state_hash_image(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
 {
    for (unsigned k = 0; k < zs->bindings[ZINK_DESCRIPTOR_TYPE_IMAGE][i].size; k++) {
-      if (!get_resource_for_descriptor(ctx, ZINK_DESCRIPTOR_TYPE_IMAGE, shader, idx + k)) {
-         struct zink_screen *screen = zink_screen(ctx->base.screen);
-         uint32_t val = zs->bindings[ZINK_DESCRIPTOR_TYPE_IMAGE][i].type == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER ?
-                        screen->null_descriptor_hashes.buffer_view :
-                        screen->null_descriptor_hashes.image_view;
-         hash = maybe_hash_u32(val, hash);
-         break;
-      }
-      hash = maybe_hash_u32(get_image_view_hash(&ctx->image_views[shader][idx + k]), hash);
+      hash = maybe_hash_u32(zink_get_image_view_hash(ctx, &ctx->image_views[shader][idx + k],
+                                                     zink_shader_descriptor_is_buffer(zs, ZINK_DESCRIPTOR_TYPE_IMAGE, i)),
+                            hash);
    }
    return hash;
 }
@@ -1021,8 +1043,9 @@ zink_set_sampler_views(struct pipe_context *pctx,
          res->bind_history |= BITFIELD64_BIT(ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW);
          res->bind_stages |= 1 << shader_type;
       }
-      uint32_t hash_a = get_sampler_view_hash(a);
-      uint32_t hash_b = get_sampler_view_hash(b);
+      bool is_buffer = zink_program_descriptor_is_buffer(ctx, shader_type, ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW, start_slot + i);
+      uint32_t hash_a = zink_get_sampler_view_hash(ctx, a, is_buffer);
+      uint32_t hash_b = zink_get_sampler_view_hash(ctx, b, is_buffer);
       if (usage & BITFIELD64_BIT(start_slot + i))
          update |= !!a != !!b || hash_a != hash_b;
       pipe_sampler_view_reference(&ctx->sampler_views[shader_type][start_slot + i], views[i]);
