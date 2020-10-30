@@ -1443,12 +1443,16 @@ typedef struct {
    /** The type of this deref instruction */
    nir_deref_type deref_type;
 
-   /** The mode of the underlying variable
+   /** Bitmask what modes the underlying variable might be
+    *
+    * For OpenCL-style generic pointers, we may not know exactly what mode it
+    * is at any given point in time in the compile process.  This bitfield
+    * contains the set of modes which it MAY be.
     *
     * Generally, this field should not be accessed directly.  Use one of the
     * nir_deref_mode_ helpers instead.
     */
-   nir_variable_mode mode;
+   nir_variable_mode modes;
 
    /** The dereferenced type of the resulting pointer value */
    const struct glsl_type *type;
@@ -1494,7 +1498,15 @@ static inline bool
 nir_deref_mode_is(const nir_deref_instr *deref, nir_variable_mode mode)
 {
    assert(util_bitcount(mode) == 1 && (mode & nir_var_all));
-   return deref->mode == mode;
+   assert(deref->modes != 0);
+
+   /* This is only for "simple" cases so, if modes might interact with this
+    * deref then the deref has to have a single mode.
+    */
+   if (deref->modes & mode)
+      assert(util_bitcount(deref->modes) == 1);
+
+   return deref->modes == mode;
 }
 
 /** Returns true if deref has one of the given modes
@@ -1509,7 +1521,15 @@ static inline bool
 nir_deref_mode_is_one_of(const nir_deref_instr *deref, unsigned modes)
 {
    assert(!(modes & ~nir_var_all));
-   return deref->mode & modes;
+   assert(deref->modes != 0);
+
+   /* This is only for "simple" cases so, if modes might interact with this
+    * deref then the deref has to have a single mode.
+    */
+   if (deref->modes & modes)
+      assert(util_bitcount(deref->modes) == 1);
+
+   return deref->modes & modes;
 }
 
 /** Returns true if deref might have one of the given modes
@@ -1525,7 +1545,8 @@ static inline bool
 nir_deref_mode_may_be(const nir_deref_instr *deref, unsigned modes)
 {
    assert(!(modes & ~nir_var_all));
-   return deref->mode & modes;
+   assert(deref->modes != 0);
+   return deref->modes & modes;
 }
 
 /** Returns true if deref must have one of the given modes
@@ -1542,7 +1563,8 @@ static inline bool
 nir_deref_mode_must_be(const nir_deref_instr *deref, unsigned modes)
 {
    assert(!(modes & ~nir_var_all));
-   return !(deref->mode & ~modes);
+   assert(deref->modes != 0);
+   return !(deref->modes & ~modes);
 }
 
 static inline nir_deref_instr *nir_src_as_deref(nir_src src);
