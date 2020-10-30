@@ -295,6 +295,11 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 
 	NIR_PASS_V(s, nir_lower_io_arrays_to_elements_no_indirects, false);
 
+	if (compiler->has_pvtmem) {
+		NIR_PASS_V(s, nir_lower_vars_to_scratch, nir_var_function_temp,
+				   16 * 16, glsl_get_natural_size_align_bytes);
+	}
+
 	NIR_PASS_V(s, nir_lower_amul, ir3_glsl_type_size);
 
 	OPT_V(s, nir_lower_regs_to_ssa);
