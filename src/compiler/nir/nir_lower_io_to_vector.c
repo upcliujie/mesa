@@ -442,10 +442,10 @@ nir_lower_io_to_vector_impl(nir_function_impl *impl, nir_variable_mode modes)
 
             const unsigned loc = get_slot(old_var);
             const unsigned old_frac = old_var->data.location_frac;
-            nir_variable *new_var =
-               nir_deref_mode_is(old_deref, nir_var_shader_in) ?
-               new_inputs[loc][old_frac] : new_outputs[loc][old_frac];
-            bool flat = nir_deref_mode_is(old_deref, nir_var_shader_in) ?
+            nir_variable *new_var = old_var->data.mode == nir_var_shader_in ?
+                                    new_inputs[loc][old_frac] :
+                                    new_outputs[loc][old_frac];
+            bool flat = old_var->data.mode == nir_var_shader_in ?
                         flat_inputs[loc] : flat_outputs[loc];
             if (!new_var)
                break;
