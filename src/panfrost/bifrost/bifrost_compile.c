@@ -1232,6 +1232,8 @@ bifrost_tex_format(enum glsl_sampler_dim dim)
                 return 3;
 
         case GLSL_SAMPLER_DIM_CUBE:
+                DBG("cubemaps todo\n");
+                assert(0);
                 return 0;
 
         default:
