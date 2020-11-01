@@ -28,7 +28,6 @@
 #define H_ETNAVIV_COMPILER
 
 #include "etnaviv_context.h"
-#include "etnaviv_internal.h"
 #include "etnaviv_shader.h"
 #include "pipe/p_compiler.h"
 #include "pipe/p_shader_tokens.h"
