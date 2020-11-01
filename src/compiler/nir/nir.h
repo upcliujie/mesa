@@ -1495,6 +1495,14 @@ static inline bool
 nir_deref_mode_is(const nir_deref_instr *deref, nir_variable_mode mode)
 {
    assert(util_bitcount(mode) == 1 && (mode & nir_var_all));
+   assert(deref->mode != 0);
+
+   /* This is only for "simple" cases so, if modes might interact with this
+    * deref then the deref has to have a single mode.
+    */
+   if (deref->mode & mode)
+      assert(util_bitcount(deref->mode) == 1);
+
    return deref->mode == mode;
 }
 
@@ -1509,6 +1517,37 @@ static inline bool
 nir_deref_mode_is_one_of(const nir_deref_instr *deref, nir_variable_mode modes)
 {
    assert(!(modes & ~nir_var_all));
+   assert(deref->mode != 0);
+
+   /* This is only for "simple" cases so, if modes might interact with this
+    * deref then the deref has to have a single mode.
+    */
+   if (deref->mode & modes)
+      assert(util_bitcount(deref->mode) == 1);
+
+   return deref->mode & modes;
+}
+
+/** Returns true if deref's possible modes lie in the given set of modes
+ *
+ * This returns true if the deref's modes lie in the given set of modes.  If
+ * the deref's modes overlap with the specified modes but are entirely
+ * contained in the specified set of modes, this will assert-fail.  In
+ * particular, if this is used in a generic pointers scenario, the specified
+ * modes has to contain all or none of the possible generic pointer modes.
+ *
+ * This is intended mostly for mass-lowering of derefs which might have
+ * generic pointers.
+ */
+static inline bool
+nir_deref_mode_is_in_set(const nir_deref_instr *deref, nir_variable_mode modes)
+{
+   assert(!(modes & ~nir_var_all));
+   assert(deref->mode != 0);
+
+   if (deref->mode & modes)
+      assert(!(deref->mode & ~modes));
+
    return deref->mode & modes;
 }
 
@@ -1523,6 +1562,7 @@ static inline bool
 nir_deref_mode_may_be(const nir_deref_instr *deref, nir_variable_mode modes)
 {
    assert(!(modes & ~nir_var_all));
+   assert(deref->mode != 0);
    return deref->mode & modes;
 }
 
@@ -1538,6 +1578,7 @@ static inline bool
 nir_deref_mode_must_be(const nir_deref_instr *deref, nir_variable_mode modes)
 {
    assert(!(modes & ~nir_var_all));
+   assert(deref->mode != 0);
    return !(deref->mode & ~modes);
 }
 
