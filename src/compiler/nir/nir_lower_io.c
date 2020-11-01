@@ -619,10 +619,7 @@ nir_lower_io_block(nir_block *block,
       }
 
       nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-
-      nir_variable_mode mode = deref->mode;
-      assert(util_is_power_of_two_nonzero(mode));
-      if ((state->modes & mode) == 0)
+      if (!nir_deref_mode_is_one_of(deref, state->modes))
          continue;
 
       nir_variable *var = nir_deref_instr_get_variable(deref);
@@ -1716,7 +1713,7 @@ nir_lower_explicit_io_impl(nir_function_impl *impl, nir_variable_mode modes,
          switch (instr->type) {
          case nir_instr_type_deref: {
             nir_deref_instr *deref = nir_instr_as_deref(instr);
-            if (deref->mode & modes) {
+            if (nir_deref_mode_must_be(deref, modes)) {
                lower_explicit_io_deref(&b, deref, addr_format);
                progress = true;
             }
@@ -1743,7 +1740,7 @@ nir_lower_explicit_io_impl(nir_function_impl *impl, nir_variable_mode modes,
             case nir_intrinsic_deref_atomic_fmax:
             case nir_intrinsic_deref_atomic_fcomp_swap: {
                nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-               if (deref->mode & modes) {
+               if (nir_deref_mode_must_be(deref, modes)) {
                   lower_explicit_io_access(&b, intrin, addr_format);
                   progress = true;
                }
@@ -1752,7 +1749,7 @@ nir_lower_explicit_io_impl(nir_function_impl *impl, nir_variable_mode modes,
 
             case nir_intrinsic_deref_buffer_array_length: {
                nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-               if (deref->mode & modes) {
+               if (nir_deref_mode_must_be(deref, modes)) {
                   lower_explicit_io_array_length(&b, intrin, addr_format);
                   progress = true;
                }
@@ -1831,8 +1828,16 @@ nir_lower_vars_to_explicit_types_impl(nir_function_impl *impl,
             continue;
 
          nir_deref_instr *deref = nir_instr_as_deref(instr);
-         if (!(deref->mode & modes))
+         if (!nir_deref_mode_may_be(deref, modes))
             continue;
+
+         /* If this deref might be one of the modes being lowered, then we
+          * must be lowering every mode that it can possibly be.  Otherwise,
+          * we might end up with inconsistencies in the types being applied.
+          * This effectively means that, in the presence of generic pointers,
+          * all generic pointer modes must be lowered simultaneously.
+          */
+         assert(nir_deref_mode_must_be(deref, modes));
 
          unsigned size, alignment;
          const struct glsl_type *new_type =
