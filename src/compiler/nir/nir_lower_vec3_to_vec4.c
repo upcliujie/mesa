@@ -47,10 +47,9 @@ lower_vec3_to_vec4_impl(nir_function_impl *impl, nir_variable_mode modes)
          switch (instr->type) {
          case nir_instr_type_deref: {
             nir_deref_instr *deref = nir_instr_as_deref(instr);
-            if (!(deref->mode & modes))
+            if (!nir_deref_mode_is_in_set(deref, modes))
                continue;
 
-            assert(!(deref->mode & ~modes));
             const struct glsl_type *vec4_type =
                glsl_type_replace_vec3_with_vec4(deref->type);
             if (deref->type != vec4_type) {
@@ -68,9 +67,10 @@ lower_vec3_to_vec4_impl(nir_function_impl *impl, nir_variable_mode modes)
                   break;
 
                nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-               if (!(deref->mode & modes))
+               if (!nir_deref_mode_may_be(deref, modes))
                   break;
 
+               assert(nir_deref_mode_must_be(deref, modes));
                assert(intrin->dest.is_ssa);
                intrin->num_components = 4;
                intrin->dest.ssa.num_components = 4;
@@ -89,9 +89,10 @@ lower_vec3_to_vec4_impl(nir_function_impl *impl, nir_variable_mode modes)
                   break;
 
                nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-               if (!(deref->mode & modes))
+               if (!nir_deref_mode_may_be(deref, modes))
                   break;
 
+               assert(nir_deref_mode_must_be(deref, modes));
                assert(intrin->src[1].is_ssa);
                nir_ssa_def *data = intrin->src[1].ssa;
 
@@ -107,12 +108,16 @@ lower_vec3_to_vec4_impl(nir_function_impl *impl, nir_variable_mode modes)
             }
 
             case nir_intrinsic_copy_deref: {
-               ASSERTED nir_deref_instr *dst = nir_src_as_deref(intrin->src[0]);
-               ASSERTED nir_deref_instr *src = nir_src_as_deref(intrin->src[0]);
+               nir_deref_instr *dst = nir_src_as_deref(intrin->src[0]);
+               nir_deref_instr *src = nir_src_as_deref(intrin->src[0]);
                /* If we convert once side of a copy and not the other, that
                 * would be very bad.
                 */
-               assert(!(src->mode & modes) == !(dst->mode & modes));
+               if (nir_deref_mode_may_be(dst, modes) ||
+                   nir_deref_mode_may_be(src, modes)) {
+                  assert(nir_deref_mode_must_be(dst, modes));
+                  assert(nir_deref_mode_must_be(src, modes));
+               }
                break;
             }
 
