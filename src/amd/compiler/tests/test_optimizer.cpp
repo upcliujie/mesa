@@ -80,3 +80,18 @@ BEGIN_TEST(optimize.neg)
       finish_opt_test();
    }
 END_TEST
+
+BEGIN_TEST(optimize.mad_u32_u16)
+   for (unsigned i = GFX9; i <= GFX10; i++) {
+      //>> v1: %a, v1: %b, v1: %c, s2: %_:exec = p_startpgm
+      if (!setup_cs("v1 v1 v1", (chip_class)i))
+         continue;
+
+      //! v1: %res0 = v_mad_u32_u16 %a, %b, %c
+      //! p_unit_test 0, %res0
+      Temp mul = bld.vop3(aco_opcode::v_mul_lo_u32, bld.def(v1), inputs[0], inputs[1]);
+      writeout(0, bld.vadd32(bld.def(v1), mul, inputs[2]));
+
+      finish_opt_test();
+   }
+END_TEST
