@@ -1933,9 +1933,13 @@ static void
 lower_explicit_io_mode_check(nir_builder *b, nir_intrinsic_instr *intrin,
                              nir_address_format addr_format)
 {
-   /* If the address format is always global, don't lower */
-   if (addr_format_is_global(addr_format, 0))
+   if (addr_format_is_global(addr_format, 0)) {
+      /* If the address format is always global, don't create a check, just
+       * whack the intrinsic to addr_is.
+       */
+      intrin->intrinsic = nir_intrinsic_addr_mode_is;
       return;
+   }
 
    assert(intrin->src[0].is_ssa);
    nir_ssa_def *addr = intrin->src[0].ssa;
