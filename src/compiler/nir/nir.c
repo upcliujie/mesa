@@ -1975,12 +1975,16 @@ nir_function_impl_index_vars(nir_function_impl *impl)
 }
 
 static nir_instr *
-cursor_next_instr(nir_cursor cursor)
+cursor_next_instr(nir_cursor cursor,
+                  nir_block_filter_cb block_filter,
+                  void *cb_data)
 {
    switch (cursor.option) {
    case nir_cursor_before_block:
       for (nir_block *block = cursor.block; block;
            block = nir_block_cf_tree_next(block)) {
+         if (block_filter && !block_filter(block, cb_data))
+            continue;
          nir_instr *instr = nir_block_first_instr(block);
          if (instr)
             return instr;
@@ -1993,7 +1997,7 @@ cursor_next_instr(nir_cursor cursor)
          return NULL;
 
       cursor.option = nir_cursor_before_block;
-      return cursor_next_instr(cursor);
+      return cursor_next_instr(cursor, block_filter, cb_data);
 
    case nir_cursor_before_instr:
       return cursor.instr;
@@ -2004,7 +2008,7 @@ cursor_next_instr(nir_cursor cursor)
 
       cursor.option = nir_cursor_after_block;
       cursor.block = cursor.instr->block;
-      return cursor_next_instr(cursor);
+      return cursor_next_instr(cursor, block_filter, cb_data);
    }
 
    unreachable("Inavlid cursor option");
@@ -2018,10 +2022,11 @@ dest_is_ssa(nir_dest *dest, void *_state)
 }
 
 bool
-nir_function_impl_lower_instructions(nir_function_impl *impl,
-                                     nir_instr_filter_cb filter,
-                                     nir_lower_instr_cb lower,
-                                     void *cb_data)
+nir_function_impl_filter_blocks_lower_instructions(nir_function_impl *impl,
+                                                   nir_block_filter_cb block_filter,
+                                                   nir_instr_filter_cb instr_filter,
+                                                   nir_lower_instr_cb lower,
+                                                   void *cb_data)
 {
    nir_builder b;
    nir_builder_init(&b, impl);
@@ -2032,8 +2037,8 @@ nir_function_impl_lower_instructions(nir_function_impl *impl,
    bool progress = false;
    nir_cursor iter = nir_before_cf_list(&impl->body);
    nir_instr *instr;
-   while ((instr = cursor_next_instr(iter)) != NULL) {
-      if (filter && !filter(instr, cb_data)) {
+   while ((instr = cursor_next_instr(iter, block_filter, cb_data)) != NULL) {
+      if (instr_filter && !instr_filter(instr, cb_data)) {
          iter = nir_after_instr(instr);
          continue;
       }
@@ -2105,21 +2110,47 @@ nir_function_impl_lower_instructions(nir_function_impl *impl,
 }
 
 bool
-nir_shader_lower_instructions(nir_shader *shader,
-                              nir_instr_filter_cb filter,
-                              nir_lower_instr_cb lower,
-                              void *cb_data)
+nir_shader_filter_blocks_lower_instructions(nir_shader *shader,
+                                            nir_block_filter_cb block_filter,
+                                            nir_instr_filter_cb instr_filter,
+                                            nir_lower_instr_cb lower,
+                                            void *cb_data)
 {
    bool progress = false;
 
    nir_foreach_function(function, shader) {
       if (function->impl &&
-          nir_function_impl_lower_instructions(function->impl,
-                                               filter, lower, cb_data))
+          nir_function_impl_filter_blocks_lower_instructions(function->impl,
+                                               block_filter,
+                                               instr_filter, lower, cb_data))
          progress = true;
    }
 
    return progress;
+}
+
+bool
+nir_function_impl_lower_instructions(nir_function_impl *impl,
+                                     nir_instr_filter_cb instr_filter,
+                                     nir_lower_instr_cb lower,
+                                     void *cb_data)
+{
+   return nir_function_impl_filter_blocks_lower_instructions(impl,
+                                                             NULL,
+                                                             instr_filter,
+                                                             lower,
+                                                             cb_data);
+}
+bool nir_shader_lower_instructions(nir_shader *shader,
+                                   nir_instr_filter_cb instr_filter,
+                                   nir_lower_instr_cb lower,
+                                   void *cb_data)
+{
+   return nir_shader_filter_blocks_lower_instructions(shader,
+                                                      NULL,
+                                                      instr_filter,
+                                                      lower,
+                                                      cb_data);
 }
 
 nir_intrinsic_op

@@ -4268,6 +4268,12 @@ static inline bool should_print_nir(nir_shader *shader) { return false; }
  */
 typedef bool (*nir_instr_filter_cb)(const nir_instr *, const void *);
 
+/** A block filtering callback
+ *
+ * Returns true if the block should be processed and false otherwise.
+ */
+typedef bool (*nir_block_filter_cb)(const nir_block *, const void *);
+
 /** A simple instruction lowering callback
  *
  * Many instruction lowering passes can be written as a simple function which
@@ -4313,6 +4319,20 @@ bool nir_shader_lower_instructions(nir_shader *shader,
                                    nir_instr_filter_cb filter,
                                    nir_lower_instr_cb lower,
                                    void *cb_data);
+
+/** Same as nir_function_impl_lower_instructions but also allows filtering blocks. */
+bool nir_function_impl_filter_blocks_lower_instructions(nir_function_impl *impl,
+                                                        nir_block_filter_cb block_filter,
+                                                        nir_instr_filter_cb instr_filter,
+                                                        nir_lower_instr_cb lower,
+                                                        void *cb_data);
+
+/** Same as nir_shader_lower_instructions but also allows filtering blocks. */
+bool nir_shader_filter_blocks_lower_instructions(nir_shader *shader,
+                                                 nir_block_filter_cb block_filter,
+                                                 nir_instr_filter_cb instr_filter,
+                                                 nir_lower_instr_cb lower,
+                                                 void *cb_data);
 
 void nir_calc_dominance_impl(nir_function_impl *impl);
 void nir_calc_dominance(nir_shader *shader);
