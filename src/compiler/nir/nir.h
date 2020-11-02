@@ -3147,6 +3147,12 @@ nir_if_last_else_block(nir_if *if_stmt)
    return nir_cf_node_as_block(exec_node_data(nir_cf_node, tail, node));
 }
 
+static inline bool
+nir_if_is_divergent(nir_if *if_stmt)
+{
+   return nir_src_is_divergent(if_stmt->condition);
+}
+
 static inline nir_block *
 nir_loop_first_block(nir_loop *loop)
 {
@@ -3159,6 +3165,38 @@ nir_loop_last_block(nir_loop *loop)
 {
    struct exec_node *tail = exec_list_get_tail(&loop->body);
    return nir_cf_node_as_block(exec_node_data(nir_cf_node, tail, node));
+}
+
+static inline bool
+nir_loop_is_divergent(nir_loop *loop)
+{
+   /* Get first block in the loop */
+   nir_block *first_block = nir_loop_first_block(loop);
+   nir_cf_node *preheader_cf_node = nir_cf_node_prev(&loop->cf_node);
+
+   /* Iterate over each predecessor of the first block */
+   set_foreach(first_block->predecessors, entry) {
+      nir_block *current_block = (nir_block *) entry->key;
+      nir_cf_node *current = &current_block->cf_node;
+
+      if (current == preheader_cf_node)
+         continue;
+
+      current = current->parent;
+
+      while (current->type != nir_cf_node_loop) {
+         assert(current->type == nir_cf_node_if);
+         nir_if *if_node = nir_cf_node_as_if(current);
+         if (nir_if_is_divergent(if_node))
+            return true;
+
+         current = current->parent;
+      }
+
+      assert(current == &loop->cf_node);
+   }
+
+   return false;
 }
 
 /**
