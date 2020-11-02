@@ -90,6 +90,7 @@ get_texture_target(struct gl_context *ctx, const unsigned unit)
    }
 }
 
+static mtx_t variant_mutex = _MTX_INITIALIZER_NP;
 
 /**
  * Update fragment program state/atom.  This involves translating the
@@ -160,7 +161,11 @@ st_update_fp( struct st_context *st )
 
       key.external = st_get_external_sampler_key(st, &stfp->Base);
 
+      mtx_lock(&variant_mutex);
+
       shader = st_get_fp_variant(st, stfp, &key)->base.driver_shader;
+
+      mtx_unlock(&variant_mutex);
    }
 
    st_reference_prog(st, &st->fp, stfp);
@@ -232,7 +237,11 @@ st_update_vp( struct st_context *st )
           !st->ctx->GeometryProgram._Current)
          key.lower_ucp = st->ctx->Transform.ClipPlanesEnabled;
 
+      mtx_lock(&variant_mutex);
+
       st->vp_variant = st_get_vp_variant(st, stvp, &key);
+
+      mtx_unlock(&variant_mutex);
    }
 
    st_reference_prog(st, &st->vp, stvp);
@@ -291,7 +300,13 @@ st_update_common_program(struct st_context *st, struct gl_program *prog,
          key.lower_ucp = st->ctx->Transform.ClipPlanesEnabled;
    }
 
-   return st_get_common_variant(st, stp, &key)->driver_shader;
+   mtx_lock(&variant_mutex);
+
+   void *result = st_get_common_variant(st, stp, &key)->driver_shader;
+
+   mtx_unlock(&variant_mutex);
+
+   return result;
 }
 
 
