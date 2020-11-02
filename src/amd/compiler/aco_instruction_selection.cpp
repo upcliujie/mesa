@@ -1667,6 +1667,14 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          uint32_t src1_ub = get_alu_src_ub(ctx, instr, 1);
 
          if (src0_ub <= 0xffff && src1_ub <= 0xffff &&
+             src0_ub * src1_ub <= 0xffff &&
+             (ctx->options->chip_class == GFX8 ||
+              ctx->options->chip_class == GFX9)) {
+            /* If the 16-bit multiplication can't overflow, emit v_mul_lo_u16
+             * but only on GFX8-9 because GFX10 doesn't zero the upper 16 bits.
+             */
+            emit_vop2_instruction(ctx, instr, aco_opcode::v_mul_lo_u16, dst, true);
+         } else if (src0_ub <= 0xffff && src1_ub <= 0xffff &&
              ctx->options->chip_class >= GFX9) {
             /* Initialize the accumulator to 0 to allow further combinations
              * in the optimizer.
