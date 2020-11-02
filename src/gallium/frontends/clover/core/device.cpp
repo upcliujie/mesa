@@ -362,3 +362,20 @@ device::numeric_version() const {
       ver = CL_MAKE_VERSION(3, 0, 0);
    return ver;
 }
+
+std::vector<cl_name_version>
+device::opencl_c_all_versions() const {
+   std::vector<cl_name_version> vec;
+   vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 0, 0), "OpenCL C" } );
+   vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 1, 0), "OpenCL C" } );
+
+   static const std::string device_clc_version =
+         debug_get_option("CLOVER_DEVICE_CLC_VERSION_OVERRIDE", "1.1");
+   if (device_clc_version[0] == '1' && device_clc_version[2] == '2')
+      vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 2, 0), "OpenCL C" } );
+   if (device_clc_version[0] == '3' && device_clc_version[2] == '0') {
+      vec.push_back( (cl_name_version){ CL_MAKE_VERSION(1, 2, 0), "OpenCL C" } );
+      vec.push_back( (cl_name_version){ CL_MAKE_VERSION(3, 0, 0), "OpenCL C" } );
+   }
+   return vec;
+}
