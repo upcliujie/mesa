@@ -732,7 +732,8 @@ void emit_sop2_instruction(isel_context *ctx, nir_alu_instr *instr, aco_opcode o
 }
 
 void emit_vop2_instruction(isel_context *ctx, nir_alu_instr *instr, aco_opcode op, Temp dst,
-                           bool commutative, bool swap_srcs=false, bool flush_denorms = false)
+                           bool commutative, bool swap_srcs=false,
+                           bool flush_denorms = false, bool nuw = false)
 {
    Builder bld(ctx->program, ctx->block);
    bld.is_precise = instr->exact;
@@ -754,7 +755,11 @@ void emit_vop2_instruction(isel_context *ctx, nir_alu_instr *instr, aco_opcode o
       Temp tmp = bld.vop2(op, bld.def(v1), src0, src1);
       bld.vop2(aco_opcode::v_mul_f32, Definition(dst), Operand(0x3f800000u), tmp);
    } else {
-      bld.vop2(op, Definition(dst), src0, src1);
+      if (nuw) {
+         bld.nuw().vop2(op, Definition(dst), src0, src1);
+      } else {
+         bld.vop2(op, Definition(dst), src0, src1);
+      }
    }
 }
 
@@ -1721,18 +1726,31 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       } else if (dst.bytes() <= 2 && ctx->program->chip_class >= GFX8) {
          emit_vop2_instruction(ctx, instr, aco_opcode::v_mul_lo_u16, dst, true);
       } else if (dst.type() == RegType::vgpr) {
+         Temp src0 = get_alu_src(ctx, instr->src[0]);
+         Temp src1 = get_alu_src(ctx, instr->src[1]);
          uint32_t src0_ub = get_alu_src_ub(ctx, instr, 0);
          uint32_t src1_ub = get_alu_src_ub(ctx, instr, 1);
 
          if (src0_ub <= 0xffff && src1_ub <= 0xffff &&
+             src0_ub * src1_ub <= 0xffff &&
+             (ctx->options->chip_class == GFX8 ||
+              ctx->options->chip_class == GFX9)) {
+            /* If the 16-bit multiplication can't overflow, emit v_mul_lo_u16
+             * but only on GFX8-9 because GFX10 doesn't zero the upper 16
+             * bits.
+             */
+            emit_vop2_instruction(ctx, instr, aco_opcode::v_mul_lo_u16, dst,
+                                  true /* commutative */, false, false,
+                                  true /* nuw */);
+         } else if (src0_ub <= 0xffff && src1_ub <= 0xffff &&
              ctx->options->chip_class >= GFX9) {
             /* Initialize the accumulator to 0 to allow further combinations
              * in the optimizer.
              */
             aco_ptr<VOP3A_instruction> mad{create_instruction<VOP3A_instruction>(aco_opcode::v_mad_u32_u16, Format::VOP3A, 3, 1)};
-            mad->operands[0] = Operand(get_alu_src(ctx, instr->src[0]));
+            mad->operands[0] = Operand(src0);
             mad->operands[0].set16bit(true);
-            mad->operands[1] = Operand(get_alu_src(ctx, instr->src[1]));
+            mad->operands[1] = Operand(src1);
             mad->operands[1].set16bit(true);
             mad->operands[2] = Operand(0u);
             mad->definitions[0] = Definition(dst);
