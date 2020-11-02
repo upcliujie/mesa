@@ -329,13 +329,14 @@ create_spirv_options(const device &dev, std::string &r_log)
       spirv_options.temp_addr_format = nir_address_format_32bit_offset;
       spirv_options.constant_addr_format = nir_address_format_32bit_global;
    } else {
-      spirv_options.shared_addr_format = nir_address_format_32bit_offset_as_64bit;
-      spirv_options.global_addr_format = nir_address_format_64bit_global;
-      spirv_options.temp_addr_format = nir_address_format_32bit_offset_as_64bit;
+      spirv_options.shared_addr_format = nir_address_format_62bit_generic;
+      spirv_options.global_addr_format = nir_address_format_62bit_generic;
+      spirv_options.temp_addr_format = nir_address_format_62bit_generic;
       spirv_options.constant_addr_format = nir_address_format_64bit_global;
    }
    spirv_options.caps.address = true;
    spirv_options.caps.float64 = true;
+   spirv_options.caps.generic_pointers = true;
    spirv_options.caps.int8 = true;
    spirv_options.caps.int16 = true;
    spirv_options.caps.int64 = true;
@@ -439,7 +440,7 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
 
       // copy propagate to prepare for lower_explicit_io
       NIR_PASS_V(nir, nir_split_var_copies);
-      NIR_PASS_V(nir, nir_opt_copy_prop_vars);
+//      NIR_PASS_V(nir, nir_opt_copy_prop_vars);
       NIR_PASS_V(nir, nir_lower_var_copies);
       NIR_PASS_V(nir, nir_lower_vars_to_ssa);
       NIR_PASS_V(nir, nir_opt_dce);
@@ -468,7 +469,7 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
                  nir_var_uniform, clover_arg_size_align);
       NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
                  nir_var_mem_shared | nir_var_mem_global |
-                 nir_var_function_temp,
+                 nir_var_shader_temp | nir_var_function_temp,
                  glsl_get_cl_type_size_align);
 
       NIR_PASS_V(nir, nir_opt_deref);
@@ -484,13 +485,10 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
 
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_constant,
                  spirv_options.constant_addr_format);
-      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_shared,
-                 spirv_options.shared_addr_format);
 
-      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_function_temp,
-                 spirv_options.temp_addr_format);
-
-      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_global,
+      NIR_PASS_V(nir, nir_lower_explicit_io,
+                 nir_var_mem_shared | nir_var_mem_global |
+                 nir_var_shader_temp | nir_var_function_temp,
                  spirv_options.global_addr_format);
 
       NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_all, NULL);
