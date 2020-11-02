@@ -115,6 +115,18 @@ BEGIN_TEST(optimize.mad_u32_u16)
       //! p_unit_test 4, %res4
       writeout(4, create_mad_u32_u16(Operand(42u), Operand(inputs[2]), Operand(0u)));
 
+      //~gfx9! v1: %res5 = v_mad_u32_u16 %a, %b, %b
+      //~gfx10! v1: %mul = v_mul_lo_u16_e64 %a, %b
+      //~gfx10! v1: %res5 = v_add_u32 %mul, %b
+      //! p_unit_test 5, %res5
+      Temp mul;
+      if (i >= GFX10) {
+         mul = bld.vop3(aco_opcode::v_mul_lo_u16_e64, bld.def(v1), inputs[0], inputs[1]);
+      } else {
+         mul = bld.vop2(aco_opcode::v_mul_lo_u16, bld.def(v1), inputs[0], inputs[1]);
+      }
+      writeout(5, bld.vadd32(bld.def(v1), mul, inputs[1]));
+
       finish_opt_test();
    }
 END_TEST
