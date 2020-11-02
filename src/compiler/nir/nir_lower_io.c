@@ -868,6 +868,7 @@ build_addr_for_var(nir_builder *b, nir_variable *var,
                    nir_address_format addr_format)
 {
    assert(var->data.mode & (nir_var_uniform | nir_var_mem_shared |
+                            nir_var_mem_global |
                             nir_var_shader_temp | nir_var_function_temp |
                             nir_var_mem_push_const | nir_var_mem_constant));
 
@@ -893,6 +894,10 @@ build_addr_for_var(nir_builder *b, nir_variable *var,
 
       case nir_var_mem_shared:
          base_addr = nir_load_shared_base_ptr(b, num_comps, bit_size);
+         break;
+
+      case nir_var_mem_global:
+         base_addr = nir_load_global_base_ptr(b, num_comps, bit_size);
          break;
 
       default:
@@ -921,6 +926,10 @@ build_addr_for_var(nir_builder *b, nir_variable *var,
       case nir_var_mem_shared:
          assert(var->data.driver_location <= UINT32_MAX);
          return nir_imm_intN_t(b, var->data.driver_location | 1ull << 62, 64);
+
+      case nir_var_mem_global:
+         return nir_iadd_imm(b, nir_load_global_base_ptr(b, num_comps, bit_size),
+                                var->data.driver_location);
 
       default:
          unreachable("Unsupported variable mode");
@@ -2156,6 +2165,9 @@ lower_vars_to_explicit(nir_shader *shader,
    case nir_var_mem_shared:
       offset = 0;
       break;
+   case nir_var_mem_global:
+      offset = shader->global_mem_size;
+      break;
    case nir_var_mem_constant:
       offset = shader->constant_data_size;
       break;
@@ -2192,6 +2204,9 @@ lower_vars_to_explicit(nir_shader *shader,
       shader->info.cs.shared_size = offset;
       shader->shared_size = offset;
       break;
+   case nir_var_mem_global:
+      shader->global_mem_size = offset;
+      break;
    case nir_var_mem_constant:
       shader->constant_data_size = offset;
       break;
@@ -2224,6 +2239,8 @@ nir_lower_vars_to_explicit_types(nir_shader *shader,
 
    if (modes & nir_var_uniform)
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_uniform, type_info);
+   if (modes & nir_var_mem_global)
+      progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_mem_global, type_info);
    if (modes & nir_var_mem_shared)
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_mem_shared, type_info);
    if (modes & nir_var_shader_temp)

@@ -3547,6 +3547,9 @@ typedef struct nir_shader {
     */
    unsigned num_inputs, num_uniforms, num_outputs;
 
+   /** Size in bytes of required implicitly bound global memory */
+   unsigned global_mem_size;
+
    /** Size in bytes of required shared memory */
    unsigned shared_size;
 
