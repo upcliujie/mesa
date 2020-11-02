@@ -1666,7 +1666,18 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          uint32_t src0_ub = get_alu_src_ub(ctx, instr, 0);
          uint32_t src1_ub = get_alu_src_ub(ctx, instr, 1);
 
-         if (src0_ub <= 0xffffff && src1_ub <= 0xffffff) {
+         if (src0_ub <= 0xffff && src1_ub <= 0xffff &&
+             ctx->options->chip_class >= GFX9) {
+            /* Initialize the accumulator to 0 to allow further combinations
+             * in the optimizer.
+             */
+            aco_ptr<VOP3A_instruction> mad{create_instruction<VOP3A_instruction>(aco_opcode::v_mad_u32_u16, Format::VOP3A, 3, 1)};
+            mad->operands[0] = Operand(get_alu_src(ctx, instr->src[0]));
+            mad->operands[1] = Operand(get_alu_src(ctx, instr->src[1]));
+            mad->operands[2] = Operand(0u);
+            mad->definitions[0] = Definition(dst);
+            ctx->block->instructions.emplace_back(std::move(mad));
+         } else if (src0_ub <= 0xffffff && src1_ub <= 0xffffff) {
             emit_vop2_instruction(ctx, instr, aco_opcode::v_mul_u32_u24, dst, true);
          } else {
             emit_vop3a_instruction(ctx, instr, aco_opcode::v_mul_lo_u32, dst);
