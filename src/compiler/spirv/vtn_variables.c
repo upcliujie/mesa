@@ -2371,8 +2371,9 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
 
       nir_deref_instr *src_deref = vtn_nir_deref(b, w[3]);
 
+      nir_variable_mode nir_mode;
       enum vtn_variable_mode mode =
-         vtn_storage_class_to_mode(b, storage_class, dst_type->deref, NULL);
+         vtn_storage_class_to_mode(b, storage_class, dst_type->deref, &nir_mode);
       nir_address_format addr_format = vtn_mode_to_address_format(b, mode);
 
       nir_ssa_def *null_value =
@@ -2380,24 +2381,10 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
                                nir_address_format_bit_size(addr_format),
                                nir_address_format_null_value(addr_format));
 
-      nir_intrinsic_op check_op;
-      switch (storage_class) {
-      case SpvStorageClassWorkgroup:
-         check_op = nir_intrinsic_deref_is_shared;
-         break;
-      case SpvStorageClassCrossWorkgroup:
-         check_op = nir_intrinsic_deref_is_global;
-         break;
-      case SpvStorageClassFunction:
-         check_op = nir_intrinsic_deref_is_temp;
-         break;
-      default:
-         unreachable("Invalid storage class");
-      }
-
       nir_intrinsic_instr *check =
-         nir_intrinsic_instr_create(b->shader, check_op);
+         nir_intrinsic_instr_create(b->shader, nir_intrinsic_deref_mode_is);
       check->src[0] = nir_src_for_ssa(&src_deref->dest.ssa);
+      nir_intrinsic_set_memory_modes(check, nir_mode);
       nir_ssa_dest_init(&check->instr, &check->dest, 1, 1, NULL);
       nir_builder_instr_insert(&b->nb, &check->instr);
 
