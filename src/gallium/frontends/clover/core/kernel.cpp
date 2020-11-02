@@ -586,6 +586,8 @@ kernel::local_argument::set(size_t size, const void *value) {
 void
 kernel::local_argument::bind(exec_context &ctx,
                              const module::argument &marg) {
+
+   ctx.mem_local = ALIGN(ctx.mem_local, marg.ptr_align);
    auto v = bytes(ctx.mem_local);
 
    extend(v, module::argument::zero_ext, marg.target_size);

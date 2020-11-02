@@ -353,11 +353,17 @@ namespace {
             if (opcode == SpvOpTypePointer)
                pointer_types[id] = get<SpvId>(inst, 3);
 
+            const auto ptr_type_id = pointer_types.find(id)->second;
+            module::size_t ptr_align = static_cast<module::size_t>(pointer_byte_size);
+            auto ptr_type = types.find(ptr_type_id);
+            if (ptr_type != types.end())
+               ptr_align = ptr_type->second.target_align;
+
             types[id] = { convert_storage_class(storage_class, err),
                           sizeof(cl_mem),
                           static_cast<module::size_t>(pointer_byte_size),
                           static_cast<module::size_t>(pointer_byte_size),
-                          static_cast<module::size_t>(pointer_byte_size),
+                          ptr_align,
                           module::argument::zero_ext };
             types[id].info.address_qualifier = convert_storage_class_to_cl(storage_class);
             break;
