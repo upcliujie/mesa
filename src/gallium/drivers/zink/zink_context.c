@@ -1331,6 +1331,8 @@ flush_batch(struct zink_context *ctx, enum zink_queue queue)
    incr_curr_batch(ctx);
 
    zink_start_batch(ctx, batch);
+   if (queue == ZINK_QUEUE_GFX && zink_screen(ctx->base.screen)->info.have_EXT_transform_feedback && ctx->num_so_targets)
+      ctx->dirty_so_targets = true;
 }
 
 struct zink_batch *
@@ -1771,9 +1773,6 @@ zink_flush(struct pipe_context *pctx,
                                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0, 0);
       }
       flush_batch(ctx, ZINK_QUEUE_GFX);
-
-      if (zink_screen(pctx->screen)->info.have_EXT_transform_feedback && ctx->num_so_targets)
-         ctx->dirty_so_targets = true;
    }
 
    if (!pfence)
