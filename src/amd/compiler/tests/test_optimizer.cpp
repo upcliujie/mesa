@@ -80,3 +80,41 @@ BEGIN_TEST(optimize.neg)
       finish_opt_test();
    }
 END_TEST
+
+Temp create_mad_u32_u16(Operand a, Operand b, Operand c)
+{
+   VOP3A_instruction *mad =
+      static_cast<VOP3A_instruction *>(bld.vop3(aco_opcode::v_mad_u32_u16,
+                                       bld.def(v1), a, b, c).instr);
+   return mad->definitions[0].getTemp();
+}
+
+BEGIN_TEST(optimize.mad_u32_u16)
+   for (unsigned i = GFX9; i <= GFX10; i++) {
+      //>> v1: %a, v1: %b, s1: %c, s2: %_:exec = p_startpgm
+      if (!setup_cs("v1 v1 s1", (chip_class)i))
+         continue;
+
+      //! v1: %res0 = v_mul_u32_u24 %a, %b
+      //! p_unit_test 0, %res0
+      writeout(0, create_mad_u32_u16(Operand(inputs[0]), Operand(inputs[1]), Operand(0u)));
+
+      //! v1: %res1 = v_mul_u32_u24 42, %a
+      //! p_unit_test 1, %res1
+      writeout(1, create_mad_u32_u16(Operand(42u), Operand(inputs[0]), Operand(0u)));
+
+      //! v1: %res2 = v_mul_u32_u24 42, %a
+      //! p_unit_test 2, %res2
+      writeout(2, create_mad_u32_u16(Operand(inputs[0]), Operand(42u), Operand(0u)));
+
+      //! v1: %res3 = v_mul_u32_u24 %c, %a
+      //! p_unit_test 3, %res3
+      writeout(3, create_mad_u32_u16(Operand(inputs[2]), Operand(inputs[0]), Operand(0u)));
+
+      //! v1: %res4 = v_mul_u32_u24 %c, 42
+      //! p_unit_test 4, %res4
+      writeout(4, create_mad_u32_u16(Operand(42u), Operand(inputs[2]), Operand(0u)));
+
+      finish_opt_test();
+   }
+END_TEST
