@@ -868,6 +868,7 @@ build_addr_for_var(nir_builder *b, nir_variable *var,
                    nir_address_format addr_format)
 {
    assert(var->data.mode & (nir_var_uniform | nir_var_mem_shared |
+                            nir_var_mem_global |
                             nir_var_shader_temp | nir_var_function_temp |
                             nir_var_mem_push_const | nir_var_mem_constant));
 
@@ -893,6 +894,10 @@ build_addr_for_var(nir_builder *b, nir_variable *var,
 
       case nir_var_mem_shared:
          base_addr = nir_load_shared_base_ptr(b, num_comps, bit_size);
+         break;
+
+      case nir_var_mem_global:
+         base_addr = nir_load_global_base_ptr(b, num_comps, bit_size);
          break;
 
       default:
@@ -921,6 +926,10 @@ build_addr_for_var(nir_builder *b, nir_variable *var,
       case nir_var_mem_shared:
          assert(var->data.driver_location <= UINT32_MAX);
          return nir_imm_intN_t(b, var->data.driver_location | 1ull << 62, 64);
+
+      case nir_var_mem_global:
+         return nir_iadd_imm(b, nir_load_global_base_ptr(b, num_comps, bit_size),
+                                var->data.driver_location);
 
       default:
          unreachable("Unsupported variable mode");

@@ -1529,6 +1529,7 @@ nir_validate_shader(nir_shader *shader, const char *when)
       nir_var_system_value |
       nir_var_mem_ssbo |
       nir_var_mem_shared |
+      nir_var_mem_global |
       nir_var_mem_push_const |
       nir_var_mem_constant;
 
