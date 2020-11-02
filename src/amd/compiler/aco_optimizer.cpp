@@ -3040,6 +3040,37 @@ void select_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
       return;
    }
 
+   if (instr->opcode == aco_opcode::v_mad_u32_u16) {
+      if (instr->operands[2].constantEquals(0)) {
+         /* v_mad_u32_u16 is created by isel with acc=0 to combine more
+          * v_add_u32+v_mad_u32_u16 together. When not possible, fallback to
+          * v_mul_u32_u24 which is VOP2.
+          */
+         bool swap = false, to_vop3 = false;
+
+         /* VOP2 instructions can only take constants/sgprs in operand 0. */
+         if ((instr->operands[1].isConstant() ||
+             (instr->operands[1].hasRegClass() &&
+              instr->operands[1].regClass().type() == RegType::sgpr))) {
+            swap = true;
+            if ((instr->operands[0].isConstant() ||
+                (instr->operands[0].hasRegClass() &&
+                 instr->operands[0].regClass().type() == RegType::sgpr))) {
+               /* VOP2 can't take both constants/sgprs, convert to VOP3. */
+               to_vop3 = true;
+            }
+         }
+
+         VOP2_instruction *new_instr = create_instruction<VOP2_instruction>(aco_opcode::v_mul_u32_u24, Format::VOP2, 2, 1);
+         new_instr->operands[0] = instr->operands[swap];
+         new_instr->operands[1] = instr->operands[!swap];
+         new_instr->definitions[0] = instr->definitions[0];
+         instr.reset(new_instr);
+         if (to_vop3)
+            to_VOP3(ctx, instr);
+      }
+   }
+
    if (instr->isSDWA() || instr->isDPP() || (instr->isVOP3() && ctx.program->chip_class < GFX10))
       return; /* some encodings can't ever take literals */
 
