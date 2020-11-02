@@ -50,6 +50,7 @@ struct lp_build_nir_context
    struct lp_build_context uint16_bld;
    struct lp_build_context int16_bld;
    struct lp_build_context dbl_bld;
+   struct lp_build_context half_bld;
    struct lp_build_context uint64_bld;
    struct lp_build_context int64_bld;
 
