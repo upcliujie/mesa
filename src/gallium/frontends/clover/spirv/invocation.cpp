@@ -257,7 +257,7 @@ namespace {
          case SpvOpTypeFloat: {
             const auto size = get<uint32_t>(inst, 2) / 8u;
             const auto id = get<SpvId>(inst, 1);
-            types[id] = { module::argument::scalar, size, size, size,
+            types[id] = { module::argument::scalar, size, size, size, size,
                           module::argument::zero_ext };
             types[id].info.address_qualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
             break;
@@ -281,6 +281,7 @@ namespace {
             const auto elem_nbs = constants_iter->second;
             const auto size = elem_size * elem_nbs;
             types[id] = { module::argument::scalar, size, size,
+                          types_iter->second.target_align,
                           types_iter->second.target_align,
                           module::argument::zero_ext };
             break;
@@ -311,7 +312,7 @@ namespace {
             }
             struct_size += (-struct_size) & (struct_align - 1u);
             types[id] = { module::argument::scalar, struct_size, struct_size,
-                          struct_align, module::argument::zero_ext };
+                          struct_align, struct_align, module::argument::zero_ext };
             break;
          }
 
@@ -334,7 +335,7 @@ namespace {
                elem_nbs = 4;
             const auto size = elem_size * elem_nbs;
             const auto align = elem_size * util_next_power_of_two(elem_nbs);
-            types[id] = { module::argument::scalar, size, size, align,
+            types[id] = { module::argument::scalar, size, size, align, align,
                           module::argument::zero_ext };
             types[id].info.address_qualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
             break;
@@ -356,6 +357,7 @@ namespace {
                           sizeof(cl_mem),
                           static_cast<module::size_t>(pointer_byte_size),
                           static_cast<module::size_t>(pointer_byte_size),
+                          static_cast<module::size_t>(pointer_byte_size),
                           module::argument::zero_ext };
             types[id].info.address_qualifier = convert_storage_class_to_cl(storage_class);
             break;
@@ -372,6 +374,7 @@ namespace {
             const auto access = get<SpvAccessQualifier>(inst, 9);
             types[id] = { convert_image_type(id, dim, access, err),
                           sizeof(cl_mem), sizeof(cl_mem), sizeof(cl_mem),
+                          sizeof(cl_mem),
                           module::argument::zero_ext };
             break;
          }

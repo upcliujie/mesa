@@ -175,17 +175,18 @@ namespace {
                f, arg, "kernel_arg_access_qual");
             args.emplace_back(get_image_type(type_name, access_qual),
                               target_size, target_size,
-                              target_align, module::argument::zero_ext);
+                              target_align, target_align, module::argument::zero_ext);
 
          } else if (type_name == "sampler_t") {
             args.emplace_back(module::argument::sampler, arg_api_size,
-                              target_size, target_align,
+                              target_size, target_align, target_align,
                               module::argument::zero_ext);
 
          } else if (type_name == "__llvm_image_size") {
             // Image size implicit argument.
             args.emplace_back(module::argument::scalar, sizeof(cl_uint),
                               dl.getTypeStoreSize(size_type),
+                              dl.getABITypeAlignment(size_type),
                               dl.getABITypeAlignment(size_type),
                               module::argument::zero_ext,
                               module::argument::image_size);
@@ -194,6 +195,7 @@ namespace {
             // Image format implicit argument.
             args.emplace_back(module::argument::scalar, sizeof(cl_uint),
                               dl.getTypeStoreSize(size_type),
+                              dl.getABITypeAlignment(size_type),
                               dl.getABITypeAlignment(size_type),
                               module::argument::zero_ext,
                               module::argument::image_format);
@@ -213,7 +215,7 @@ namespace {
                            static_cast<unsigned>(clang::LangAS::opencl_local);
                if (address_space == map[offset]) {
                   args.emplace_back(module::argument::local, arg_api_size,
-                                    target_size, target_align,
+                                    target_size, target_align, target_align,
                                     module::argument::zero_ext);
                } else {
                   // XXX: Correctly handle constant address space.  There is no
@@ -224,7 +226,7 @@ namespace {
                   // until we can come up with a way to create handles for
                   // constant buffers.
                   args.emplace_back(module::argument::global, arg_api_size,
-                                    target_size, target_align,
+                                    target_size, target_align, target_align,
                                     module::argument::zero_ext);
                }
 
@@ -233,7 +235,7 @@ namespace {
                   arg.getArgNo() + 1, ::llvm::Attribute::SExt);
 
                args.emplace_back(module::argument::scalar, arg_api_size,
-                                 target_size, target_align,
+                                 target_size, target_align, target_align,
                                  (needs_sign_ext ? module::argument::sign_ext :
                                   module::argument::zero_ext));
             }
@@ -256,11 +258,13 @@ namespace {
       args.emplace_back(module::argument::scalar, sizeof(cl_uint),
                         dl.getTypeStoreSize(size_type),
                         dl.getABITypeAlignment(size_type),
+                        dl.getABITypeAlignment(size_type),
                         module::argument::zero_ext,
                         module::argument::grid_dimension);
 
       args.emplace_back(module::argument::scalar, sizeof(cl_uint),
                         dl.getTypeStoreSize(size_type),
+                        dl.getABITypeAlignment(size_type),
                         dl.getABITypeAlignment(size_type),
                         module::argument::zero_ext,
                         module::argument::grid_offset);
@@ -269,6 +273,7 @@ namespace {
                         static_cast<unsigned>(clang::LangAS::opencl_global);
       args.emplace_back(module::argument::global, sizeof(size_t),
                         dl.getPointerSize(global_space),
+                        compat::getPointerABIAlignment(dl, global_space),
                         compat::getPointerABIAlignment(dl, global_space),
                         module::argument::zero_ext,
                         module::argument::printf_buffer);

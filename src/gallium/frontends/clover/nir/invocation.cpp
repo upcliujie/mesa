@@ -260,7 +260,7 @@ clover_lower_nir_instr(nir_builder *b, nir_instr *instr, void *_state)
       if (!state->printf_buffer) {
          unsigned location = state->args.size();
          state->args.emplace_back(module::argument::global, sizeof(size_t),
-                                  8, 8, module::argument::zero_ext,
+                                  8, 8, 8, module::argument::zero_ext,
                                   module::argument::printf_buffer);
 
          const glsl_type *type = glsl_uint64_t_type();
@@ -280,7 +280,7 @@ clover_lower_nir_instr(nir_builder *b, nir_instr *instr, void *_state)
           * three 32 bit values
          */
          unsigned location = state->args.size();
-         state->args.emplace_back(module::argument::scalar, 4, 4, 4,
+         state->args.emplace_back(module::argument::scalar, 4, 4, 4, 4,
                                   module::argument::zero_ext,
                                   module::argument::grid_offset);
 
@@ -324,6 +324,7 @@ clover_lower_nir(nir_shader *nir, std::vector<module::argument> &args,
 
       args.emplace_back(module::argument::global,
                         pointer_bit_size / 8, pointer_bit_size / 8, pointer_bit_size / 8,
+                        pointer_bit_size / 8,
                         module::argument::zero_ext,
                         module::argument::constant_buffer);
    }
