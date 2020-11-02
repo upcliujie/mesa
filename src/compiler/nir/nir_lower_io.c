@@ -2154,6 +2154,9 @@ lower_vars_to_explicit(nir_shader *shader,
    case nir_var_mem_shared:
       offset = 0;
       break;
+   case nir_var_mem_global:
+      offset = shader->global_mem_size;
+      break;
    case nir_var_mem_constant:
       offset = shader->constant_data_size;
       break;
@@ -2190,6 +2193,9 @@ lower_vars_to_explicit(nir_shader *shader,
       shader->info.cs.shared_size = offset;
       shader->shared_size = offset;
       break;
+   case nir_var_mem_global:
+      shader->global_mem_size = offset;
+      break;
    case nir_var_mem_constant:
       shader->constant_data_size = offset;
       break;
@@ -2219,6 +2225,8 @@ nir_lower_vars_to_explicit_types(nir_shader *shader,
 
    if (modes & nir_var_uniform)
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_uniform, type_info);
+   if (modes & nir_var_mem_global)
+      progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_mem_global, type_info);
    if (modes & nir_var_mem_shared)
       progress |= lower_vars_to_explicit(shader, &shader->variables, nir_var_mem_shared, type_info);
    if (modes & nir_var_shader_temp)
