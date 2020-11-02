@@ -53,14 +53,13 @@ vbo_exec_debug_verts(struct vbo_exec_context *exec)
           exec->vtx.vertex_size);
 
    for (i = 0 ; i < exec->vtx.prim_count ; i++) {
-      struct _mesa_prim *prim = &exec->vtx.prim[i];
       printf("   prim %d: %s %d..%d %s %s\n",
              i,
-             _mesa_lookup_prim_by_nr(prim->mode),
-             prim->start,
-             prim->start + prim->count,
-             prim->begin ? "BEGIN" : "(wrap)",
-             prim->end ? "END" : "(wrap)");
+             _mesa_lookup_prim_by_nr(exec->vtx.mode[i]),
+             exec->vtx.draw[i].start,
+             exec->vtx.draw[i].start + exec->vtx.draw[i].count,
+             exec->vtx.markers[i].begin ? "BEGIN" : "(wrap)",
+             exec->vtx.markers[i].end ? "END" : "(wrap)");
    }
 }
 
@@ -68,14 +67,17 @@ vbo_exec_debug_verts(struct vbo_exec_context *exec)
 static GLuint
 vbo_exec_copy_vertices(struct vbo_exec_context *exec)
 {
-   struct _mesa_prim *last_prim = &exec->vtx.prim[exec->vtx.prim_count - 1];
    const GLuint sz = exec->vtx.vertex_size;
    fi_type *dst = exec->vtx.copied.buffer;
-   const fi_type *src = exec->vtx.buffer_map + last_prim->start * sz;
+   unsigned last = exec->vtx.prim_count - 1;
+   unsigned start = exec->vtx.draw[last].start;
+   const fi_type *src = exec->vtx.buffer_map + start * sz;
 
    return vbo_copy_vertices(exec->ctx, exec->ctx->Driver.CurrentExecPrimitive,
-                            last_prim->start, &last_prim->count,
-                            last_prim->begin, sz, false, dst, src);
+                            start,
+                            &exec->vtx.draw[last].count,
+                            exec->vtx.markers[last].begin,
+                            sz, false, dst, src);
 }
 
 
@@ -325,8 +327,14 @@ vbo_exec_vtx_flush(struct vbo_exec_context *exec)
             printf("%s %d %d\n", __func__, exec->vtx.prim_count,
                    exec->vtx.vert_count);
 
-         ctx->Driver.Draw(ctx, exec->vtx.prim, exec->vtx.prim_count, NULL,
-                          true, false, 0, 0, exec->vtx.vert_count - 1, 1, 0);
+         exec->vtx.info.vertices_per_patch =
+            exec->ctx->TessCtrlProgram.patch_vertices;
+
+         ctx->Driver.DrawGalliumComplex(ctx, &exec->vtx.info,
+                                        exec->vtx.draw,
+                                        exec->vtx.mode,
+                                        NULL,
+                                        exec->vtx.prim_count);
 
          /* Get new storage -- unless asked not to. */
          if (!persistent_mapping)
