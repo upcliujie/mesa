@@ -589,7 +589,7 @@ clear_bufferfv(struct gl_context *ctx, GLenum buffer, GLint drawbuffer,
           * hook instead.
           */
          const GLclampd clearSave = ctx->Depth.Clear;
-         ctx->Depth.Clear = *value;
+         ctx->Depth.Clear = SATURATE(*value);
          ctx->Driver.Clear(ctx, BUFFER_BIT_DEPTH);
          ctx->Depth.Clear = clearSave;
       }
