@@ -50,11 +50,12 @@ namespace clover {
 
       static inline module
       link_program(const std::vector<module> &ms, const device &dev,
-                   const std::string &opts, std::string &log) {
+                   program &prog, const std::string &opts,
+                   std::string &log) {
          switch (dev.ir_format()) {
          case PIPE_SHADER_IR_NIR_SERIALIZED:
             return nir::spirv_to_nir(spirv::link_program(ms, dev, opts, log),
-                                     dev, log);
+                                     dev, prog, log);
          case PIPE_SHADER_IR_NATIVE:
             return llvm::link_program(ms, dev, opts, log);
          default:
