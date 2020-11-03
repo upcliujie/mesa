@@ -72,6 +72,8 @@ namespace {
          return module::argument::local;
       case SpvStorageClassCrossWorkgroup:
          return module::argument::global;
+      case SpvStorageClassGeneric:
+         return module::argument::global;
       default:
          err += "Invalid storage type " + std::to_string(storage_class) + "\n";
          throw build_error();
@@ -495,6 +497,7 @@ namespace {
          case SpvCapabilityKernel:
          case SpvCapabilityLinkage:
          case SpvCapabilityVector16:
+         case SpvCapabilityGenericPointer:
             break;
          // Optional capabilities
          case SpvCapabilityImageBasic:
