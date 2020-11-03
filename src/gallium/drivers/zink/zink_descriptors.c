@@ -302,7 +302,7 @@ zink_descriptor_set_get(struct zink_context *ctx,
       }
 
       if (pool->num_sets_allocated + pool->num_descriptors > ZINK_DEFAULT_MAX_DESCS) {
-         zink_wait_on_batch(ctx, batch->queue, batch->state->batch_id);
+         zink_wait_on_batch(ctx, batch->queue, batch->state->fence.batch_id);
          zink_batch_reference_program(batch, pg);
          return zink_descriptor_set_get(ctx, type, is_compute, cache_hit, need_resource_refs);
       }

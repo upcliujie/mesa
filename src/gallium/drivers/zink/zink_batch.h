@@ -78,9 +78,6 @@ struct zink_batch_state {
    struct hash_table *framebuffer_cache;
 
    VkDeviceSize resource_size;
-
-   uint32_t batch_id;
-   bool is_compute;
 };
 
 struct zink_batch {
