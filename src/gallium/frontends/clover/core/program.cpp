@@ -83,6 +83,24 @@ program::link(const ref_vector<device> &devs, const std::string &opts,
    }
 }
 
+void
+program::set_global_init_data(const void *data, size_t size)
+{
+   if (size == 0)
+      return;
+
+   if (_global_buffer) {
+      assert(size == _global_init_data.size());
+      assert(memcmp(_global_init_data.data(), data, size) == 0);
+   } else {
+      assert(_global_init_data.empty());
+      _global_init_data.append((char *)data, size);
+      _global_buffer.reset(new root_buffer(context, CL_MEM_READ_WRITE |
+                                                    CL_MEM_COPY_HOST_PTR,
+                                           size, const_cast<void *>(data)));
+   }
+}
+
 const std::string &
 program::source() const {
    return _source;
