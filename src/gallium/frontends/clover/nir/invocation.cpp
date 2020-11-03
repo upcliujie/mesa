@@ -379,7 +379,7 @@ nir_shader *clover::nir::load_libclc_nir(const device &dev, std::string &r_log)
 }
 
 module clover::nir::spirv_to_nir(const module &mod, const device &dev,
-                                 std::string &r_log)
+                                 program &prog, std::string &r_log)
 {
    spirv_to_nir_options spirv_options = create_spirv_options(dev, r_log);
    std::shared_ptr<nir_shader> nir = dev.clc_nir;
