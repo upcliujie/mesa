@@ -299,13 +299,14 @@ static bool
 clover_lower_nir(nir_shader *nir, std::vector<module::argument> &args,
                  uint32_t dims, uint32_t pointer_bit_size)
 {
-   nir_variable *constant_var = NULL;
+   clover_lower_nir_state state = { args, dims };
+
    if (nir->constant_data_size) {
       const glsl_type *type = pointer_bit_size == 64 ? glsl_uint64_t_type() : glsl_uint_type();
 
-      constant_var = nir_variable_create(nir, nir_var_uniform, type,
-                                         "constant_buffer_addr");
-      constant_var->data.location = args.size();
+      state.constant_var = nir_variable_create(nir, nir_var_uniform, type,
+                                               "constant_buffer_addr");
+      state.constant_var->data.location = args.size();
 
       args.emplace_back(module::argument::global,
                         pointer_bit_size / 8, pointer_bit_size / 8, pointer_bit_size / 8,
@@ -313,7 +314,6 @@ clover_lower_nir(nir_shader *nir, std::vector<module::argument> &args,
                         module::argument::constant_buffer);
    }
 
-   clover_lower_nir_state state = { args, dims, constant_var };
    return nir_shader_lower_instructions(nir,
       clover_lower_nir_filter, clover_lower_nir_instr, &state);
 }
