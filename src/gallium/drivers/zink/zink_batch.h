@@ -67,7 +67,6 @@ struct zink_batch_state {
    struct zink_framebuffer *fb;
    struct set *programs;
 
-   struct set *resources;
    struct set *samplers;
    struct set *surfaces;
    struct set *bufferviews;

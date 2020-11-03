@@ -20,26 +20,13 @@ batch_usage_unset(struct zink_batch_usage *u, enum zink_queue queue, uint32_t ba
 }
 
 void
-zink_batch_state_clear_resources(struct zink_screen *screen, struct zink_batch_state *bs)
-{
-   /* unref all used resources */
-   set_foreach(bs->resources, entry) {
-      struct zink_resource_object *obj = (struct zink_resource_object *)entry->key;
-      batch_usage_unset(&obj->reads, !!bs->fence.is_compute, bs->fence.batch_id);
-      batch_usage_unset(&obj->writes, !!bs->fence.is_compute, bs->fence.batch_id);
-      zink_resource_object_reference(screen, &obj, NULL);
-      _mesa_set_remove(bs->resources, entry);
-   }
-}
-
-void
 zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
 
    zink_render_pass_reference(screen, &bs->rp, NULL);
    zink_framebuffer_reference(screen, &bs->fb, NULL);
-   zink_batch_state_clear_resources(screen, bs);
+   zink_fence_clear_resources(screen, &bs->fence);
 
    set_foreach(bs->active_queries, entry) {
       struct zink_query *query = (void*)entry->key;
@@ -123,7 +110,7 @@ zink_batch_state_destroy(struct zink_screen *screen, struct zink_batch_state *bs
       }
    }
    _mesa_hash_table_destroy(bs->framebuffer_cache, NULL);
-   _mesa_set_destroy(bs->resources, NULL);
+   _mesa_set_destroy(bs->fence.resources, NULL);
    _mesa_set_destroy(bs->samplers, NULL);
    _mesa_set_destroy(bs->surfaces, NULL);
    _mesa_set_destroy(bs->bufferviews, NULL);
@@ -176,7 +163,8 @@ create_batch_state(struct zink_context *ctx, enum zink_queue queue)
    if (!ptr) \
       goto fail
 
-   SET_CREATE_OR_FAIL(bs->resources);
+   SET_CREATE_OR_FAIL(bs->fence.resources);
+   pipe_reference_init(&bs->fence.reference, 1);
    SET_CREATE_OR_FAIL(bs->samplers);
    SET_CREATE_OR_FAIL(bs->surfaces);
    SET_CREATE_OR_FAIL(bs->bufferviews);
@@ -221,10 +209,11 @@ init_batch_state(struct zink_context *ctx, struct zink_batch *batch)
       if (he) { //there may not be any entries available
          bs = he->data;
          _mesa_hash_table_remove(&ctx->batch_states[batch->queue], he);
-         zink_reset_batch_state(ctx, bs);
       }
    }
-   if (!bs) {
+   if (bs)
+      zink_reset_batch_state(ctx, bs);
+   else {
       if (!batch->state) {
          /* this is batch init, so create a few more states for later use */
          for (int i = 0; i < 3; i++) {
@@ -336,7 +325,7 @@ zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource 
    if (!zink_batch_usage_matches(&res->obj->reads, batch->queue, batch->state->fence.batch_id) &&
        !zink_batch_usage_matches(&res->obj->writes, batch->queue, batch->state->fence.batch_id)) {
       bool found = false;
-      _mesa_set_search_and_add(batch->state->resources, res->obj, &found);
+      _mesa_set_search_and_add(batch->state->fence.resources, res->obj, &found);
       if (!found) {
          pipe_reference(NULL, &res->obj->reference);
          if (!batch->last_batch_id || !zink_batch_usage_matches(&res->obj->reads, batch->queue, batch->last_batch_id))

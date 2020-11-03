@@ -31,6 +31,26 @@
 #include "util/set.h"
 #include "util/u_memory.h"
 
+
+static void
+batch_usage_unset(struct zink_batch_usage *u, enum zink_queue queue, uint32_t batch_id)
+{
+   p_atomic_cmpxchg(&u->usage[queue], batch_id, 0);
+}
+
+void
+zink_fence_clear_resources(struct zink_screen *screen, struct zink_fence *fence)
+{
+   /* unref all used resources */
+   set_foreach(fence->resources, entry) {
+      struct zink_resource_object *obj = (struct zink_resource_object *)entry->key;
+      batch_usage_unset(&obj->reads, !!fence->is_compute, fence->batch_id);
+      batch_usage_unset(&obj->writes, !!fence->is_compute, fence->batch_id);
+      zink_resource_object_reference(screen, &obj, NULL);
+      _mesa_set_remove(fence->resources, entry);
+   }
+}
+
 static void
 destroy_fence(struct zink_screen *screen, struct zink_fence *fence)
 {
@@ -109,8 +129,7 @@ zink_fence_finish(struct zink_screen *screen, struct pipe_context *pctx, struct 
       success = vkGetFenceStatus(screen->dev, fence->fence) == VK_SUCCESS;
 
    if (success) {
-      struct zink_batch_state *bs = zink_batch_state(fence);
-      zink_batch_state_clear_resources(screen, bs);
+      zink_fence_clear_resources(screen, fence);
       p_atomic_set(&fence->submitted, false);
    }
    return success;
