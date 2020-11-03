@@ -80,3 +80,26 @@ BEGIN_TEST(optimize.neg)
       finish_opt_test();
    }
 END_TEST
+
+BEGIN_TEST(optimize.cndmask)
+   for (unsigned i = GFX9; i < GFX10; i++) {
+      //>> v1: %a, s2: %_:exec = p_startpgm
+      if (!setup_cs("v1", (chip_class)i))
+         continue;
+
+      aco_ptr<VOP3A_instruction> sub{create_instruction<VOP3A_instruction>(aco_opcode::v_subbrev_co_u32, asVOP3(Format::VOP2), 3, 2)};
+      sub->operands[0] = Operand(0u);
+      sub->operands[1] = Operand(0u);
+      sub->operands[2].setFixed(vcc);
+      sub->definitions[0] = bld.def(v1);
+      sub->definitions[1] = bld.hint_vcc(bld.def(bld.lm));
+      Temp res = sub->definitions[0].getTemp();
+      bld.insert(std::move(sub));
+
+      //! v1: %res0 = v_cndmask 0, %a, vcc
+      //! p_unit_test 0, %res0
+      writeout(0, bld.vop2(aco_opcode::v_and_b32, bld.def(v1), inputs[0], res));
+
+      finish_opt_test();
+   }
+END_TEST
