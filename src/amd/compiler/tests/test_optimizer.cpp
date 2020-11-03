@@ -80,3 +80,64 @@ BEGIN_TEST(optimize.neg)
       finish_opt_test();
    }
 END_TEST
+
+Temp create_subbrev_co(Operand op0, Operand op1, Operand op2 = Operand(s2), bool use_vcc=true)
+{
+   Temp res;
+
+   aco_ptr<VOP3A_instruction> sub{create_instruction<VOP3A_instruction>(aco_opcode::v_subbrev_co_u32, asVOP3(Format::VOP2), 3, 2)};
+   sub->operands[0] = op0;
+   sub->operands[1] = op1;
+   if (use_vcc) {
+      sub->operands[2].setFixed(vcc);
+   } else {
+      sub->operands[2] = op2;
+   }
+   sub->definitions[0] = bld.def(v1);
+   sub->definitions[1] = bld.hint_vcc(bld.def(bld.lm));
+   res = sub->definitions[0].getTemp();
+   bld.insert(std::move(sub));
+   return res;
+}
+
+BEGIN_TEST(optimize.cndmask)
+   for (unsigned i = GFX9; i <= GFX10; i++) {
+      //>> v1: %a, s1: %b, s2: %c, s2: %_:exec = p_startpgm
+      if (!setup_cs("v1 s1 s2", (chip_class)i))
+         continue;
+
+      Temp subbrev;
+
+      //! v1: %res0 = v_cndmask_b32 0, %a, %_:vcc
+      //! p_unit_test 0, %res0
+      subbrev = create_subbrev_co(Operand(0u), Operand(0u));
+      writeout(0, bld.vop2(aco_opcode::v_and_b32, bld.def(v1), inputs[0], subbrev));
+
+      //! v1: %res1 = v_cndmask_b32 0, 42, %_:vcc
+      //! p_unit_test 1, %res1
+      subbrev = create_subbrev_co(Operand(0u), Operand(0u));
+      writeout(1, bld.vop2(aco_opcode::v_and_b32, bld.def(v1), Operand(42u), subbrev));
+
+      //! v1: %res2 = v_cndmask_b32 0, %b, %_:vcc
+      //! p_unit_test 2, %res2
+      subbrev = create_subbrev_co(Operand(0u), Operand(0u));
+      writeout(2, bld.vop2(aco_opcode::v_and_b32, bld.def(v1), inputs[1], subbrev));
+
+      //~gfx9! v1: %subbrev, s2: %_ = v_subbrev_co_u32 0, 0, %c
+      //~gfx9! v1: %res3 = v_and_b32 %b, %subbrev
+      //~gfx10! v1: %res3 = v_cndmask_b32 0, %b, %c
+      //! p_unit_test 3, %res3
+      subbrev = create_subbrev_co(Operand(0u), Operand(0u), Operand(inputs[2]), false);
+      writeout(3, bld.vop2(aco_opcode::v_and_b32, bld.def(v1), inputs[1], subbrev));
+
+      //! v1: %subbrev1, s2: %_ = v_subbrev_co_u32 0, 0, %_:vcc
+      //! v1: %xor = v_xor_b32 %a, %subbrev1
+      //! v1: %res4 = v_cndmask_b32 0, %xor, %_:vcc
+      //! p_unit_test 4, %res4
+      subbrev = create_subbrev_co(Operand(0u), Operand(0u));
+      Temp xor_a = bld.vop2(aco_opcode::v_xor_b32, bld.def(v1), inputs[0], subbrev);
+      writeout(4, bld.vop2(aco_opcode::v_and_b32, bld.def(v1), xor_a, subbrev));
+
+      finish_opt_test();
+   }
+END_TEST
