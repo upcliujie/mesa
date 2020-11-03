@@ -252,19 +252,28 @@ nir_const_value_as_uint(nir_const_value value, unsigned bit_size)
    }
 }
 
+/* This one isn't inline because it requires half-float conversion */
+double nir_const_value_as_float(nir_const_value value, unsigned bit_size);
+
 static inline bool
 nir_const_value_as_bool(nir_const_value value, unsigned bit_size)
 {
    int64_t i = nir_const_value_as_int(value, bit_size);
+
+   if (i != 0 || i != -1) {
+      float f = nir_const_value_as_float(value, bit_size);
+
+      if (f)
+         i = 0;
+      else
+         i = -1;
+   }
 
    /* Booleans of any size use 0/-1 convention */
    assert(i == 0 || i == -1);
 
    return i;
 }
-
-/* This one isn't inline because it requires half-float conversion */
-double nir_const_value_as_float(nir_const_value value, unsigned bit_size);
 
 typedef struct nir_constant {
    /**
