@@ -120,6 +120,7 @@ cache_or_free_mem(struct zink_screen *screen, struct zink_resource_object *obj)
 void
 zink_destroy_resource_object(struct zink_screen *screen, struct zink_resource_object *obj)
 {
+   assert(!obj->map_count);
    if (obj->is_buffer)
       vkDestroyBuffer(screen->dev, obj->buffer, NULL);
    else
@@ -615,7 +616,7 @@ buffer_transfer_map(struct zink_context *ctx, struct zink_resource *res, unsigne
                     const struct pipe_box *box, struct zink_transfer *trans)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   void *ptr;
+   void *ptr = NULL;
 
    if (!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
       if (usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE) {
@@ -644,10 +645,14 @@ buffer_transfer_map(struct zink_context *ctx, struct zink_resource *res, unsigne
       }
    }
 
+   if (!trans->staging_res && res->obj->map)
+      ptr = res->obj->map;
 
-   VkResult result = vkMapMemory(screen->dev, res->obj->mem, res->obj->offset, res->obj->size, 0, &ptr);
-   if (result != VK_SUCCESS)
-      return NULL;
+   if (!ptr) {
+      VkResult result = vkMapMemory(screen->dev, res->obj->mem, res->obj->offset, res->obj->size, 0, &ptr);
+      if (result != VK_SUCCESS)
+         return NULL;
+   }
 
 #if defined(__APPLE__)
       if (!(usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE)) {
@@ -670,7 +675,6 @@ buffer_transfer_map(struct zink_context *ctx, struct zink_resource *res, unsigne
 
    trans->base.stride = 0;
    trans->base.layer_stride = 0;
-   ptr = ((uint8_t *)ptr) + box->x;
    if (usage & PIPE_MAP_WRITE)
       util_range_add(&res->base, &res->valid_buffer_range, box->x, box->x + box->width);
    return ptr;
@@ -700,9 +704,10 @@ zink_transfer_map(struct pipe_context *pctx,
    trans->base.usage = usage;
    trans->base.box = *box;
 
-   void *ptr;
+   void *ptr, *base;
    if (pres->target == PIPE_BUFFER) {
-      ptr = buffer_transfer_map(ctx, res, usage, box, trans);
+      base = buffer_transfer_map(ctx, res, usage, box, trans);
+      ptr = ((uint8_t *)base) + box->x;
    } else {
       if (usage & PIPE_MAP_WRITE && !(usage & PIPE_MAP_READ))
          /* this is like a blit, so we can potentially dump some clears or maybe we have to  */
@@ -751,24 +756,29 @@ zink_transfer_map(struct pipe_context *pctx,
 
          VkResult result = vkMapMemory(screen->dev, staging_res->obj->mem,
                                        staging_res->obj->offset,
-                                       staging_res->obj->size, 0, &ptr);
+                                       staging_res->obj->size, 0, &base);
          if (result != VK_SUCCESS)
             return NULL;
+         ptr = base;
 
       } else {
          assert(!res->optimal_tiling);
-         /* special case compute reads since they aren't handled by zink_fence_wait() */
-         if (zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_READ, ZINK_QUEUE_COMPUTE))
-            resource_sync_reads_from_compute(ctx, res);
-         if (zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_RW, ZINK_QUEUE_ANY)) {
-            if (usage & PIPE_MAP_READ)
-               resource_sync_writes_from_batch_id(ctx, res);
-            else
-               zink_fence_wait(pctx);
+         if (res->obj->map)
+            base = res->obj->map;
+         else {
+            /* special case compute reads since they aren't handled by zink_fence_wait() */
+            if (zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_READ, ZINK_QUEUE_COMPUTE))
+               resource_sync_reads_from_compute(ctx, res);
+            if (zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_RW, ZINK_QUEUE_ANY)) {
+               if (usage & PIPE_MAP_READ)
+                  resource_sync_writes_from_batch_id(ctx, res);
+               else
+                  zink_fence_wait(pctx);
+            }
+            VkResult result = vkMapMemory(screen->dev, res->obj->mem, res->obj->offset, res->obj->size, 0, &base);
+            if (result != VK_SUCCESS)
+               return NULL;
          }
-         VkResult result = vkMapMemory(screen->dev, res->obj->mem, res->obj->offset, res->obj->size, 0, &ptr);
-         if (result != VK_SUCCESS)
-            return NULL;
          VkImageSubresource isr = {
             res->aspect,
             level,
@@ -783,12 +793,20 @@ zink_transfer_map(struct pipe_context *pctx,
                            box->z * srl.depthPitch +
                            (box->y / desc->block.height) * srl.rowPitch +
                            (box->x / desc->block.width) * (desc->block.bits / 8);
-         ptr = ((uint8_t *)ptr) + offset;
+         ptr = ((uint8_t *)base) + offset;
       }
    }
    if ((usage & PIPE_MAP_PERSISTENT) && !(usage & PIPE_MAP_COHERENT)) {
       res->persistent_maps++;
       ctx->num_persistent_maps++;
+   }
+
+   if (trans->staging_res) {
+      zink_resource(trans->staging_res)->obj->map = base;
+      p_atomic_inc(&zink_resource(trans->staging_res)->obj->map_count);
+   } else {
+      res->obj->map = base;
+      p_atomic_inc(&res->obj->map_count);
    }
 
    *transfer = &trans->base;
@@ -829,9 +847,14 @@ zink_transfer_unmap(struct pipe_context *pctx,
    struct zink_transfer *trans = (struct zink_transfer *)ptrans;
    if (trans->staging_res) {
       struct zink_resource *staging_res = zink_resource(trans->staging_res);
-      vkUnmapMemory(screen->dev, staging_res->obj->mem);
-   } else
+      if (p_atomic_dec_zero(&staging_res->obj->map_count)) {
+         vkUnmapMemory(screen->dev, staging_res->obj->mem);
+         staging_res->obj->map = NULL;
+      }
+   } else if (p_atomic_dec_zero(&res->obj->map_count)) {
       vkUnmapMemory(screen->dev, res->obj->mem);
+      res->obj->map = NULL;
+   }
    if ((trans->base.usage & PIPE_MAP_PERSISTENT) && !(trans->base.usage & PIPE_MAP_COHERENT)) {
       res->persistent_maps--;
       ctx->num_persistent_maps--;
