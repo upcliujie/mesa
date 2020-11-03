@@ -239,6 +239,7 @@ struct clover_lower_nir_state {
    std::vector<module::argument> &args;
    uint32_t global_dims;
    nir_variable *constant_var;
+   nir_variable *global_var;
    nir_variable *offset_vars[3];
 };
 
@@ -290,6 +291,10 @@ clover_lower_nir_instr(nir_builder *b, nir_instr *instr, void *_state)
       return nir_load_var(b, state->constant_var);
    }
 
+   case nir_intrinsic_load_global_base_ptr: {
+      return nir_load_var(b, state->global_var);
+   }
+
    default:
       return NULL;
    }
@@ -314,6 +319,19 @@ clover_lower_nir(nir_shader *nir, std::vector<module::argument> &args,
                         module::argument::constant_buffer);
    }
 
+   if (nir->global_mem_size) {
+      const glsl_type *type = pointer_bit_size == 64 ? glsl_uint64_t_type() : glsl_uint_type();
+
+      state.global_var = nir_variable_create(nir, nir_var_uniform, type,
+                                             "global_buffer_addr");
+      state.global_var->data.location = args.size();
+
+      args.emplace_back(module::argument::global,
+                        pointer_bit_size / 8, pointer_bit_size / 8, pointer_bit_size / 8,
+                        module::argument::zero_ext,
+                        module::argument::global_buffer);
+   }
+
    return nir_shader_lower_instructions(nir,
       clover_lower_nir_filter, clover_lower_nir_instr, &state);
 }
@@ -329,13 +347,14 @@ create_spirv_options(const device &dev, std::string &r_log)
       spirv_options.temp_addr_format = nir_address_format_32bit_offset;
       spirv_options.constant_addr_format = nir_address_format_32bit_global;
    } else {
-      spirv_options.shared_addr_format = nir_address_format_32bit_offset_as_64bit;
-      spirv_options.global_addr_format = nir_address_format_64bit_global;
-      spirv_options.temp_addr_format = nir_address_format_32bit_offset_as_64bit;
+      spirv_options.shared_addr_format = nir_address_format_62bit_generic;
+      spirv_options.global_addr_format = nir_address_format_62bit_generic;
+      spirv_options.temp_addr_format = nir_address_format_62bit_generic;
       spirv_options.constant_addr_format = nir_address_format_64bit_global;
    }
    spirv_options.caps.address = true;
    spirv_options.caps.float64 = true;
+   spirv_options.caps.generic_pointers = true;
    spirv_options.caps.int8 = true;
    spirv_options.caps.int16 = true;
    spirv_options.caps.int64 = true;
@@ -466,10 +485,24 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
       }
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_constant,
                  spirv_options.constant_addr_format);
+
+      /* Note: We specifically do NOT call dead_variables with mem_global
+       * before this point.  In order for globals to work properly, We need
+       * all globals from the entire SPIR-V module in our NIR shader at the
+       * time we compute global variable locations.
+       */
       NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
                  nir_var_mem_shared | nir_var_mem_global |
-                 nir_var_function_temp,
+                 nir_var_shader_temp | nir_var_function_temp,
                  glsl_get_cl_type_size_align);
+
+      void *global_init_data = NULL;
+      if (nir->global_mem_size > 0) {
+         global_init_data = rzalloc_size(nir, nir->global_mem_size);
+         nir_gather_explicit_io_initializers(nir, global_init_data,
+                                             nir->global_mem_size,
+                                             nir_var_mem_global);
+      }
 
       NIR_PASS_V(nir, nir_opt_deref);
       NIR_PASS_V(nir, nir_lower_cl_images_to_tex);
@@ -478,13 +511,10 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
 
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_constant,
                  spirv_options.constant_addr_format);
-      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_shared,
-                 spirv_options.shared_addr_format);
 
-      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_function_temp,
-                 spirv_options.temp_addr_format);
-
-      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_global,
+      NIR_PASS_V(nir, nir_lower_explicit_io,
+                 nir_var_mem_shared | nir_var_mem_global |
+                 nir_var_shader_temp | nir_var_function_temp,
                  spirv_options.global_addr_format);
 
       auto args = sym.args;
@@ -518,6 +548,9 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
          nir->constant_data_size = 0;
          m.secs.push_back(constants);
       }
+
+      if (global_init_data != NULL)
+         prog.set_global_init_data(global_init_data, nir->global_mem_size);
 
       struct blob blob;
       blob_init(&blob);
