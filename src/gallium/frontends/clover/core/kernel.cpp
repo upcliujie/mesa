@@ -251,6 +251,13 @@ kernel::exec_context::bind(intrusive_ptr<command_queue> _q,
          arg->bind(*this, marg);
          break;
       }
+      case module::argument::global_buffer: {
+         auto arg = argument::create(marg);
+         cl_mem buf = kern.program()._global_buffer.get();
+         arg->set(q->device().address_bits() / 8, &buf);
+         arg->bind(*this, marg);
+         break;
+      }
       }
    }
 

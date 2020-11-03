@@ -27,6 +27,7 @@
 
 #include "core/object.hpp"
 #include "core/context.hpp"
+#include "core/memory.hpp"
 #include "core/module.hpp"
 
 namespace clover {
@@ -52,6 +53,8 @@ namespace clover {
                    const header_map &headers = {});
       void link(const ref_vector<device> &devs, const std::string &opts,
                 const ref_vector<program> &progs);
+
+      void set_global_init_data(const void *data, size_t size);
 
       const bool has_source;
       const std::string &source() const;
@@ -84,6 +87,8 @@ namespace clover {
       std::vector<intrusive_ref<device>> _devices;
       std::map<const device *, struct build> _builds;
       std::string _source;
+      std::string _global_init_data;
+      std::unique_ptr<root_buffer> _global_buffer;
       ref_counter _kernel_ref_counter;
    };
 }
