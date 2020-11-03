@@ -24,6 +24,7 @@
 #define CLOVER_NIR_INVOCATION_HPP
 
 #include "core/module.hpp"
+#include "core/program.hpp"
 #include <util/disk_cache.h>
 
 struct nir_shader;
@@ -39,7 +40,8 @@ namespace clover {
       struct disk_cache *create_clc_disk_cache(void);
 
       // converts a given spirv module to nir
-      module spirv_to_nir(const module &mod, const device &dev, std::string &r_log);
+      module spirv_to_nir(const module &mod, const device &dev,
+                          program &prog, std::string &r_log);
    }
 }
 
