@@ -1354,7 +1354,14 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
    switch (opcode) {
    case SpvOpTypeVoid:
       val->type->base_type = vtn_base_type_void;
-      val->type->type = glsl_void_type();
+
+      /* Use a uint type here.  Nothing ever writes to OpTypeVoid except
+       * function calls and those always push an undef.  However, this allows
+       * void things to be read.  In particular, it lets people make phis and
+       * undefs of type void.  It's not entirely clear if this legal SPIR-V or
+       * if it's a good idea but it's easy enough for us to implement.
+       */
+      val->type->type = glsl_uint_type();
       break;
    case SpvOpTypeBool:
       val->type->base_type = vtn_base_type_scalar;
