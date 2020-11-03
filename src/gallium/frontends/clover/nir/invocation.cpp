@@ -466,13 +466,6 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
       }
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_constant,
                  spirv_options.constant_addr_format);
-
-      auto args = sym.args;
-      NIR_PASS_V(nir, clover_lower_nir, args, dev.max_block_size().size(),
-                 dev.address_bits());
-
-      NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
-                 nir_var_uniform, clover_arg_size_align);
       NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
                  nir_var_mem_shared | nir_var_mem_global |
                  nir_var_function_temp,
@@ -482,12 +475,6 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
       NIR_PASS_V(nir, nir_lower_cl_images_to_tex);
       NIR_PASS_V(nir, clover_nir_lower_images);
       NIR_PASS_V(nir, nir_lower_memcpy);
-
-      /* use offsets for kernel inputs (uniform) */
-      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_uniform,
-                 nir->info.cs.ptr_size == 64 ?
-                 nir_address_format_32bit_offset_as_64bit :
-                 nir_address_format_32bit_offset);
 
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_constant,
                  spirv_options.constant_addr_format);
@@ -499,6 +486,18 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
 
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_global,
                  spirv_options.global_addr_format);
+
+      auto args = sym.args;
+      NIR_PASS_V(nir, clover_lower_nir, args, dev.max_block_size().size(),
+                 dev.address_bits());
+
+      NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
+                 nir_var_uniform, clover_arg_size_align);
+      /* use offsets for kernel inputs (uniform) */
+      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_uniform,
+                 nir->info.cs.ptr_size == 64 ?
+                 nir_address_format_32bit_offset_as_64bit :
+                 nir_address_format_32bit_offset);
 
       NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_all, NULL);
 
