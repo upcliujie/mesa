@@ -458,7 +458,7 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
 
       // copy propagate to prepare for lower_explicit_io
       NIR_PASS_V(nir, nir_split_var_copies);
-      NIR_PASS_V(nir, nir_opt_copy_prop_vars);
+//      NIR_PASS_V(nir, nir_opt_copy_prop_vars);
       NIR_PASS_V(nir, nir_lower_var_copies);
       NIR_PASS_V(nir, nir_lower_vars_to_ssa);
       NIR_PASS_V(nir, nir_opt_dce);
