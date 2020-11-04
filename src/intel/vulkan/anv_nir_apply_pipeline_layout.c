@@ -564,14 +564,14 @@ lower_load_vulkan_descriptor(nir_intrinsic_instr *intrin,
       switch (desc_type) {
       case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
       case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
-         cast->cast.align_mul = ANV_UBO_ALIGNMENT;
-         cast->cast.align_offset = 0;
+         cast->align_mul = ANV_UBO_ALIGNMENT;
+         cast->align_offset = 0;
          break;
 
       case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
       case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
-         cast->cast.align_mul = ANV_SSBO_ALIGNMENT;
-         cast->cast.align_offset = 0;
+         cast->align_mul = ANV_SSBO_ALIGNMENT;
+         cast->align_offset = 0;
          break;
 
       default:

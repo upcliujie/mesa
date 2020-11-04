@@ -40,7 +40,7 @@ opt_memcpy_deref_cast(nir_intrinsic_instr *cpy, nir_src *deref_src)
       return false;
 
    /* If it has useful alignment information, we want to keep that */
-   if (cast->cast.align_mul > 0)
+   if (cast->align_mul > 0)
       return false;
 
    /* Casts to uint8 or int8 never do us any good; get rid of them */

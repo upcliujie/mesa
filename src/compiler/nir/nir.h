@@ -1460,6 +1460,19 @@ typedef struct {
     */
    nir_variable_mode modes;
 
+   /** Memory offset/address alignment of this deref
+    *
+    * The two parameters specify an alignment in terms of a multiplier and an
+    * offset.  The multiplier is always a power of two.  The offset or address
+    * parameter X of the intrinsic is guaranteed to satisfy the following:
+    *
+    *                (X - align_offset) % align_mul == 0
+    *
+    * If no alignment is known, align_mul will be 0.
+    */
+   uint16_t align_mul;
+   uint16_t align_offset;
+
    /** The dereferenced type of the resulting pointer value */
    const struct glsl_type *type;
 
@@ -1483,8 +1496,6 @@ typedef struct {
 
       struct {
          unsigned ptr_stride;
-         uint16_t align_mul;
-         uint16_t align_offset;
       } cast;
    };
 

@@ -847,7 +847,7 @@ static bool
 opt_remove_restricting_cast_alignments(nir_deref_instr *cast)
 {
    assert(cast->deref_type == nir_deref_type_cast);
-   if (cast->cast.align_mul == 0)
+   if (cast->align_mul == 0)
       return false;
 
    nir_deref_instr *parent = nir_src_as_deref(cast->parent);
@@ -871,7 +871,7 @@ opt_remove_restricting_cast_alignments(nir_deref_instr *cast)
     * memory operation which, in this case, is the cast and not its parent so
     * keeping the cast alignment is the right thing to do.
     */
-   if (parent_mul < cast->cast.align_mul)
+   if (parent_mul < cast->align_mul)
       return false;
 
    /* If we've gotten here, we have a parent deref with an align_mul at least
@@ -901,15 +901,15 @@ opt_remove_restricting_cast_alignments(nir_deref_instr *cast)
     * providing more information (or at least more valid information) and keep
     * it even if the align_mul from the parent is larger.
     */
-   assert(cast->cast.align_mul <= parent_mul);
-   if (parent_offset % cast->cast.align_mul != cast->cast.align_offset)
+   assert(cast->align_mul <= parent_mul);
+   if (parent_offset % cast->align_mul != cast->align_offset)
       return false;
 
    /* If we got here, the parent has better alignment information than the
     * child and we can get rid of the child alignment information.
     */
-   cast->cast.align_mul = 0;
-   cast->cast.align_offset = 0;
+   cast->align_mul = 0;
+   cast->align_offset = 0;
    return true;
 }
 
@@ -928,7 +928,7 @@ opt_remove_cast_cast(nir_deref_instr *cast)
       first_cast = parent;
 
       /* We don't want to throw away alignment information */
-      if (cast->cast.align_mul == 0 && first_cast->cast.align_mul > 0)
+      if (cast->align_mul == 0 && first_cast->align_mul > 0)
          break;
    }
    if (cast == first_cast)
@@ -1017,7 +1017,7 @@ opt_replace_struct_wrapper_cast(nir_builder *b, nir_deref_instr *cast)
    if (!parent)
       return false;
 
-   if (cast->cast.align_mul > 0)
+   if (cast->align_mul > 0)
       return false;
 
    if (!glsl_type_is_struct(parent->type))
@@ -1055,7 +1055,7 @@ opt_deref_cast(nir_builder *b, nir_deref_instr *cast)
    /* If this deref still contains useful alignment information, we don't want
     * to delete it.
     */
-   if (cast->cast.align_mul > 0)
+   if (cast->align_mul > 0)
       return progress;
 
    bool trivial_array_cast = is_trivial_array_deref_cast(cast);
@@ -1138,7 +1138,7 @@ is_vector_bitcast_deref(nir_deref_instr *cast,
       return false;
 
    /* Don't throw away useful alignment information */
-   if (cast->cast.align_mul > 0)
+   if (cast->align_mul > 0)
       return false;
 
    /* It has to be a cast of another deref */

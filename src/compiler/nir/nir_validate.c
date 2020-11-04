@@ -408,6 +408,16 @@ static void
 validate_deref_instr(nir_deref_instr *instr, validate_state *state)
 {
    if (instr->deref_type == nir_deref_type_var) {
+      validate_assert(state, instr->align_mul == 0);
+      validate_assert(state, instr->align_offset == 0);
+   } else if (instr->align_mul > 0) {
+      validate_assert(state, util_is_power_of_two_nonzero(instr->align_mul));
+      validate_assert(state, instr->align_offset < instr->align_mul);
+   } else {
+      validate_assert(state, instr->align_offset == 0);
+   }
+
+   if (instr->deref_type == nir_deref_type_var) {
       /* Variable dereferences are stupid simple. */
       validate_assert(state, instr->modes == instr->var->data.mode);
       validate_assert(state, instr->type == instr->var->type);
@@ -435,12 +445,6 @@ validate_deref_instr(nir_deref_instr *instr, validate_state *state)
 
       /* We just validate that the type is there */
       validate_assert(state, instr->type);
-      if (instr->cast.align_mul > 0) {
-         validate_assert(state, util_is_power_of_two_nonzero(instr->cast.align_mul));
-         validate_assert(state, instr->cast.align_offset < instr->cast.align_mul);
-      } else {
-         validate_assert(state, instr->cast.align_offset == 0);
-      }
    } else {
       /* We require the parent to be SSA.  This may be lifted in the future */
       validate_assert(state, instr->parent.is_ssa);

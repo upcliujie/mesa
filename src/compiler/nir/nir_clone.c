@@ -313,6 +313,8 @@ clone_deref_instr(clone_state *state, const nir_deref_instr *deref)
    __clone_dst(state, &nderef->instr, &nderef->dest, &deref->dest);
 
    nderef->modes = deref->modes;
+   nderef->align_mul = deref->align_mul;
+   nderef->align_offset = deref->align_offset;
    nderef->type = deref->type;
 
    if (deref->deref_type == nir_deref_type_var) {
@@ -339,8 +341,6 @@ clone_deref_instr(clone_state *state, const nir_deref_instr *deref)
 
    case nir_deref_type_cast:
       nderef->cast.ptr_stride = deref->cast.ptr_stride;
-      nderef->cast.align_mul = deref->cast.align_mul;
-      nderef->cast.align_offset = deref->cast.align_offset;
       break;
 
    default:

@@ -639,7 +639,8 @@ union packed_instr {
       unsigned cast_type_same_as_last:1;
       unsigned modes:12; /* deref_var redefines this */
       unsigned packed_src_ssa_16bit:1; /* deref_var redefines this */
-      unsigned _pad:3;  /* deref_var redefines this */
+      unsigned has_align:1;  /* deref_var redefines this */
+      unsigned _pad:2;  /* deref_var redefines this */
       unsigned dest:8;
    } deref;
    struct {
@@ -997,6 +998,9 @@ write_deref(write_ctx *ctx, const nir_deref_instr *deref)
       header.deref.cast_type_same_as_last = deref->type == ctx->last_type;
    }
 
+   if (deref->deref_type != nir_deref_type_var && deref->align_mul > 0)
+      header.deref.has_align = 1;
+
    unsigned var_idx = 0;
    if (deref->deref_type == nir_deref_type_var) {
       var_idx = write_lookup_object(ctx, deref->var);
@@ -1012,6 +1016,12 @@ write_deref(write_ctx *ctx, const nir_deref_instr *deref)
    }
 
    write_dest(ctx, &deref->dest, header, deref->instr.type);
+
+   if (deref->deref_type != nir_deref_type_var && header.deref.has_align) {
+      uint32_t packed_align = ((uint32_t)deref->align_mul << 16) |
+                              (uint32_t)deref->align_offset;
+      blob_write_uint32(ctx->blob, packed_align);
+   }
 
    switch (deref->deref_type) {
    case nir_deref_type_var:
@@ -1040,11 +1050,6 @@ write_deref(write_ctx *ctx, const nir_deref_instr *deref)
    case nir_deref_type_cast:
       write_src(ctx, &deref->parent);
       blob_write_uint32(ctx->blob, deref->cast.ptr_stride);
-      {
-         uint32_t packed_align = ((uint32_t)deref->cast.align_mul << 16) |
-                                 (uint32_t)deref->cast.align_offset;
-         blob_write_uint32(ctx->blob, packed_align);
-      }
       if (!header.deref.cast_type_same_as_last) {
          encode_type_to_blob(ctx->blob, deref->type);
          ctx->last_type = deref->type;
@@ -1067,6 +1072,12 @@ read_deref(read_ctx *ctx, union packed_instr header)
    nir_deref_instr *deref = nir_deref_instr_create(ctx->nir, deref_type);
 
    read_dest(ctx, &deref->dest, &deref->instr, header);
+
+   if (deref->deref_type != nir_deref_type_var && header.deref.has_align) {
+      uint32_t packed_align = blob_read_uint32(ctx->blob);
+      deref->align_mul = (uint16_t)(packed_align >> 16);
+      deref->align_offset = (uint16_t)packed_align;
+   }
 
    nir_deref_instr *parent;
 
@@ -1109,11 +1120,6 @@ read_deref(read_ctx *ctx, union packed_instr header)
    case nir_deref_type_cast:
       read_src(ctx, &deref->parent, &deref->instr);
       deref->cast.ptr_stride = blob_read_uint32(ctx->blob);
-      {
-         uint32_t packed_align = blob_read_uint32(ctx->blob);
-         deref->cast.align_mul = (uint16_t)(packed_align >> 16);
-         deref->cast.align_offset = (uint16_t)packed_align;
-      }
       if (header.deref.cast_type_same_as_last) {
          deref->type = ctx->last_type;
       } else {

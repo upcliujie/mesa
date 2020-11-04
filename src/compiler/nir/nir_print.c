@@ -740,11 +740,13 @@ print_deref_instr(nir_deref_instr *instr, print_state *state)
       fprintf(fp, " */");
    }
 
-   if (instr->deref_type == nir_deref_type_cast) {
-      fprintf(fp, " /* ptr_stride=%u, align=0x%x*N+0x%x */",
-              instr->cast.ptr_stride,
-              instr->cast.align_mul, instr->cast.align_offset);
+   if (instr->align_mul > 0) {
+      fprintf(fp, "/* align=0x%x*N+0x%x */",
+              instr->align_mul, instr->align_offset);
    }
+
+   if (instr->deref_type == nir_deref_type_cast)
+      fprintf(fp, " /* ptr_stride=%u */", instr->cast.ptr_stride);
 }
 
 static const char *

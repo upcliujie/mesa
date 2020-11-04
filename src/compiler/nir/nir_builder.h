@@ -1229,11 +1229,11 @@ nir_alignment_deref_cast(nir_builder *build, nir_deref_instr *parent,
       nir_deref_instr_create(build->shader, nir_deref_type_cast);
 
    deref->modes = parent->modes;
+   deref->align_mul = align_mul;
+   deref->align_offset = align_offset;
    deref->type = parent->type;
    deref->parent = nir_src_for_ssa(&parent->dest.ssa);
    deref->cast.ptr_stride = nir_deref_instr_array_stride(deref);
-   deref->cast.align_mul = align_mul;
-   deref->cast.align_offset = align_offset;
 
    nir_ssa_dest_init(&deref->instr, &deref->dest,
                      parent->dest.ssa.num_components,

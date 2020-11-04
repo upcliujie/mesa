@@ -1779,10 +1779,10 @@ nir_get_explicit_deref_align(nir_deref_instr *deref,
       return true;
    }
 
-   /* If we're a cast deref that has an alignment, use that. */
-   if (deref->deref_type == nir_deref_type_cast && deref->cast.align_mul > 0) {
-      *align_mul = deref->cast.align_mul;
-      *align_offset = deref->cast.align_offset;
+   /* If we're a deref that has an alignment, use that. */
+   if (deref->align_mul > 0) {
+      *align_mul = deref->align_mul;
+      *align_offset = deref->align_offset;
       return true;
    }
 
@@ -1848,7 +1848,7 @@ nir_get_explicit_deref_align(nir_deref_instr *deref,
 
    case nir_deref_type_cast:
       /* We handled the explicit alignment case above. */
-      assert(deref->cast.align_mul == 0);
+      assert(deref->align_mul == 0);
       *align_mul = parent_mul;
       *align_offset = parent_offset;
       return true;

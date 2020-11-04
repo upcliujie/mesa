@@ -216,8 +216,8 @@ lower_buffer_interface_derefs_impl(nir_function_impl *impl,
              * variable is always a constant, so we can use the maximum
              * align_mul.
              */
-            cast->cast.align_mul = NIR_ALIGN_MUL_MAX;
-            cast->cast.align_offset = offset % NIR_ALIGN_MUL_MAX;
+            cast->align_mul = NIR_ALIGN_MUL_MAX;
+            cast->align_offset = offset % NIR_ALIGN_MUL_MAX;
 
             nir_ssa_def_rewrite_uses(&deref->dest.ssa,
                                      nir_src_for_ssa(&cast->dest.ssa));
