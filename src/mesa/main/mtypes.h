@@ -4197,6 +4197,9 @@ struct gl_constants
    /** Whether out-of-order draw (Begin/End) optimizations are allowed. */
    bool AllowDrawOutOfOrder;
 
+   /** Whether primitive merging optimizations are allowed. */
+   bool AllowPrimMergingInDisplayList;
+
    /** Whether to allow the fast path for frequently updated VAOs. */
    bool AllowDynamicVAOFastPath;
 
