@@ -174,6 +174,11 @@ struct iris_batch {
 
    uint32_t last_aux_map_state;
    struct iris_measure_batch *measure;
+
+   /* State cache perf fix disabled is set to 1, the entire range of BTI is
+    * supported.
+    */
+   bool state_cache_perf_fix_disabled;
 };
 
 void iris_init_batch(struct iris_context *ice,
