@@ -211,7 +211,8 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
       assert(ctx->NewState == 0);
 
       if (node->vertex_count > 0) {
-         ctx->Driver.Draw(ctx, node->prims, node->prim_count, &node->ib, true,
+         ctx->Driver.Draw(ctx, node->prims, node->prim_count,
+                          node->ib.obj ? &node->ib : NULL, true,
                           false, 0, node->min_index, node->max_index, 1, 0);
       }
    }
