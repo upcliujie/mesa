@@ -600,7 +600,7 @@ compile_vertex_list(struct gl_context *ctx)
 
    /* Create an index buffer. */
    node->min_index = node->max_index = 0;
-   if (save->vert_count) {
+   if (save->vert_count && ctx->Const.AllowPrimMergingInDisplayList) {
       int end = node->prims[node->prim_count - 1].start +
                 node->prims[node->prim_count - 1].count;
       int total_vert_count = end - node->prims[0].start;
@@ -731,6 +731,11 @@ compile_vertex_list(struct gl_context *ctx)
       free(indices);
    } else {
       node->ib.obj = NULL;
+      if (node->vertex_count > 0) {
+         const struct _mesa_prim *last_prim = &node->prims[node->prim_count - 1];
+         node->min_index = node->prims[0].start;
+         node->max_index = last_prim->start + last_prim->count - 1;
+      }
    }
 
    /* Deal with GL_COMPILE_AND_EXECUTE:

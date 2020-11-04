@@ -203,6 +203,10 @@
    DRI_CONF_OPT_B(allow_draw_out_of_order, def, \
                   "Allow out-of-order draw optimizations. Set when Z fighting doesn't have to be accurate.")
 
+#define DRI_CONF_ALLOW_PRIM_MERGE_IN_DLIST(def) \
+   DRI_CONF_OPT_B(allow_prim_merging_in_display_list, def, \
+                  "Allow to merge consecutive primitives of the same type inside a display list.")
+
 #define DRI_CONF_FORCE_GL_VENDOR(def) \
    DRI_CONF_OPT_S(force_gl_vendor, def, "Override GPU vendor string.")
 

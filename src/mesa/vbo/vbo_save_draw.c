@@ -219,8 +219,8 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
             _mesa_update_derived_primitive_restart_state(ctx);
          }
 
-         ctx->Driver.Draw(ctx, node->prims, node->prim_count, &node->ib, GL_TRUE,
-                          node->min_index, node->max_index, 1, 0, NULL, 0);
+         ctx->Driver.Draw(ctx, node->prims, node->prim_count, node->ib.obj ? &node->ib : NULL,
+                          GL_TRUE, node->min_index, node->max_index, 1, 0, NULL, 0);
 
          if (was_on) {
             ctx->Array.PrimitiveRestart = true;
