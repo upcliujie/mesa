@@ -110,6 +110,7 @@
 
 #include "iris_genx_macros.h"
 #include "intel/common/gen_guardband.h"
+#include "intel/common/gen_gem.h"
 
 /**
  * Statically assert that PIPE_* enums match the hardware packets.
@@ -932,6 +933,104 @@ iris_init_common_context(struct iris_batch *batch)
 #endif
 }
 
+# if GEN_GEN >= 11
+static bool
+iris_write_and_validate_chicken3_reg(struct iris_batch *batch)
+{
+   struct iris_bo *results;
+   uint32_t reg_val;
+   bool success = false;
+   struct iris_batch batch_buf;
+
+   /* Create a zero'ed temporary buffer for reading out results. */
+   results = iris_bo_alloc(batch->screen->bufmgr, "registers", 4096,
+                           IRIS_MEMZONE_OTHER);
+   if (!results)
+      goto err;
+
+   /* Create a new batch buffer */
+   batch_buf.bo = iris_bo_alloc(batch->screen->bufmgr, "batchbuffer", 4096,
+                                IRIS_MEMZONE_OTHER);
+   if (!batch_buf.bo)
+      goto err_results;
+
+   batch_buf.bo->kflags |= EXEC_OBJECT_CAPTURE;
+   batch_buf.map = iris_bo_map(NULL, batch_buf.bo, MAP_WRITE);
+   if (!batch_buf.map)
+      goto err_batch;
+
+   batch_buf.map_next = batch_buf.map;
+
+   /* Bspec Register_ChickenbitforCommonSliceRegister3 section:
+    *
+    *    "If this bit is enabled, RCC uses BTP+BTI as address tag in its state
+    *    cache instead of BTI only."
+    *
+    * This helps to drop RT flush and PS Scoreboard stall due to new
+    * association of BTI.
+    */
+   iris_pack_state(GENX(COMMON_SLICE_CHICKEN3), &reg_val, reg) {
+      reg.StateCachePerfFixDisabled = true;
+      reg.StateCachePerfFixDisabledMask = true;
+   }
+   iris_emit_lri(&batch_buf, COMMON_SLICE_CHICKEN3, reg_val);
+
+   /* Save the register's value back to the buffer. */
+   iris_emit_cmd(&batch_buf, GENX(MI_STORE_REGISTER_MEM), srm) {
+      srm.RegisterAddress = GENX(COMMON_SLICE_CHICKEN3_num);
+   }
+
+   /* Emit MI_BATCH_BUFFER_END to prevent any further command to be
+    * executed.
+    */
+   uint32_t *map = batch_buf.map_next;
+   map[0] = (0xA << 23);
+   batch_buf.map_next += 4;
+
+   struct drm_i915_gem_exec_object2 exec_objs[2] = {
+      { .handle = results->gem_handle },
+      { .handle = batch_buf.bo->gem_handle }
+   };
+
+   uint32_t size =
+      ALIGN((char *) batch_buf.map_next - (char *) batch_buf.map, 8);
+   struct drm_i915_gem_execbuffer2 execbuf = {
+      .buffers_ptr = (uintptr_t) exec_objs,
+      .buffer_count = 2,
+      .batch_len = size,
+      .flags = I915_EXEC_RENDER,
+      .rsvd1 = batch->hw_ctx_id,
+   };
+
+   /* Don't bother with the error checking - if the execbuf fails, the value
+    * won't be written and we'll just report that there's no access.
+    */
+   gen_ioctl(batch->screen->fd, DRM_IOCTL_I915_GEM_EXECBUFFER2, &execbuf);
+
+   /* Wait to complete the batch */
+   batch_buf.bo->idle = false;
+   batch_buf.bo->index = -1;
+   iris_bo_wait_rendering(batch_buf.bo);
+
+   /* Check whether the value got written. */
+   void *results_map = iris_bo_map(NULL, results, MAP_READ);
+   if (results_map) {
+      /* Check if bit 13 is set or not instead of comparing expected value
+       * since KMD is setting bit 11 on Gen11 and bit 9 on Gen12 already for
+       * COMMON_SLICE_CHICKEN3.
+       */
+      success = *((uint32_t *) results_map) & (1 << 13);
+      iris_bo_unmap(results);
+   }
+
+err_batch:
+   iris_bo_unreference(batch_buf.bo);
+err_results:
+   iris_bo_unreference(results);
+err:
+   return success;
+}
+#endif
 /**
  * Upload the initial GPU state for a render context.
  *
@@ -1045,6 +1144,11 @@ iris_init_render_context(struct iris_batch *batch)
 
 #if GEN_GEN >= 12
    init_aux_map_state(batch);
+#endif
+
+#if GEN_GEN >= 11
+   batch->state_cache_perf_fix_disabled =
+      iris_write_and_validate_chicken3_reg(batch);
 #endif
 
    iris_batch_sync_region_end(batch);
