@@ -30,6 +30,7 @@ apt-get install -y --no-remove \
       libclang-cpp10-dev \
       liblua5.3-dev \
       libxml2-dev \
+      kmod \
       ocl-icd-opencl-dev \
       wine-development \
       wine32-development
