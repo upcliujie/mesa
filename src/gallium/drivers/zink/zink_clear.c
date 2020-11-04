@@ -223,7 +223,7 @@ zink_clear(struct pipe_context *pctx,
             struct zink_framebuffer_clear *fb_clear = &ctx->fb_clears[i];
             struct zink_framebuffer_clear_data *clear = get_clear_data(ctx, fb_clear, needs_rp ? scissor_state : NULL);
 
-            fb_clear->enabled = true;
+            ctx->clears_enabled |= PIPE_CLEAR_COLOR0 << i;
             clear->conditional = ctx->render_condition_active;
             clear->has_scissor = needs_rp;
             if (scissor_state && needs_rp)
@@ -238,7 +238,7 @@ zink_clear(struct pipe_context *pctx,
    if (buffers & PIPE_CLEAR_DEPTHSTENCIL && fb->zsbuf) {
       struct zink_framebuffer_clear *fb_clear = &ctx->fb_clears[PIPE_MAX_COLOR_BUFS];
       struct zink_framebuffer_clear_data *clear = get_clear_data(ctx, fb_clear, needs_rp ? scissor_state : NULL);
-      fb_clear->enabled = true;
+      ctx->clears_enabled |= PIPE_CLEAR_DEPTHSTENCIL;
       clear->conditional = ctx->render_condition_active;
       clear->has_scissor = needs_rp;
       if (scissor_state && needs_rp)
@@ -296,6 +296,7 @@ zink_clear_framebuffer(struct zink_context *ctx, unsigned clear_buffers)
          clear_buffers &= ~(PIPE_CLEAR_COLOR0 << i);
          to_clear |= (PIPE_CLEAR_COLOR0 << i);
       }
+      clear_buffers &= ~PIPE_CLEAR_COLOR;
       if (clear_buffers & PIPE_CLEAR_DEPTHSTENCIL) {
          struct zink_framebuffer_clear *fb_clear = &ctx->fb_clears[PIPE_MAX_COLOR_BUFS];
          if (color_clear) {
@@ -342,7 +343,7 @@ out:
       to_clear = 0;
    }
    for (int i = 0; i < ARRAY_SIZE(ctx->fb_clears); i++)
-       zink_fb_clear_reset(&ctx->fb_clears[i]);
+       zink_fb_clear_reset(ctx, i);
 }
 
 static struct pipe_surface *
@@ -434,7 +435,7 @@ fb_clears_apply_internal(struct zink_context *ctx, struct pipe_resource *pres, i
 {
    struct zink_framebuffer_clear *fb_clear = &ctx->fb_clears[i];
 
-   if (!fb_clear->enabled)
+   if (!zink_fb_clear_enabled(ctx, i))
       return;
    if (zink_resource(pres)->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
       assert(!zink_batch_g(ctx)->in_rp);
@@ -458,7 +459,7 @@ fb_clears_apply_internal(struct zink_context *ctx, struct pipe_resource *pres, i
                                 psurf->u.tex.level, psurf->u.tex.first_layer,
                                 psurf->u.tex.last_layer - psurf->u.tex.first_layer + 1);
       }
-      zink_fb_clear_reset(&ctx->fb_clears[i]);
+      zink_fb_clear_reset(ctx, i);
       return;
    } else {
       assert(!zink_batch_g(ctx)->in_rp);
@@ -478,7 +479,17 @@ fb_clears_apply_internal(struct zink_context *ctx, struct pipe_resource *pres, i
                              psurf->u.tex.last_layer - psurf->u.tex.first_layer + 1);
       }
    }
-   zink_fb_clear_reset(fb_clear);
+   zink_fb_clear_reset(ctx, i);
+}
+
+void
+zink_fb_clear_reset(struct zink_context *ctx, unsigned i)
+{
+   util_dynarray_fini(&ctx->fb_clears[i].clears);
+   if (i == PIPE_MAX_COLOR_BUFS)
+      ctx->clears_enabled &= ~PIPE_CLEAR_DEPTHSTENCIL;
+   else
+      ctx->clears_enabled &= ~(PIPE_CLEAR_COLOR0 << i);
 }
 
 void
@@ -504,16 +515,16 @@ zink_fb_clears_discard(struct zink_context *ctx, struct pipe_resource *pres)
    if (zink_resource(pres)->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
       for (int i = 0; i < ctx->fb_state.nr_cbufs; i++) {
          if (ctx->fb_state.cbufs[i] && ctx->fb_state.cbufs[i]->texture == pres) {
-            if (ctx->fb_clears[i].enabled) {
-               zink_fb_clear_reset(&ctx->fb_clears[i]);
+            if (zink_fb_clear_enabled(ctx, i)) {
+               zink_fb_clear_reset(ctx, i);
                return;
             }
          }
       }
    } else {
-      if (ctx->fb_clears[PIPE_MAX_COLOR_BUFS].enabled && ctx->fb_state.zsbuf && ctx->fb_state.zsbuf->texture == pres) {
+      if (zink_fb_clear_enabled(ctx, PIPE_MAX_COLOR_BUFS) && ctx->fb_state.zsbuf && ctx->fb_state.zsbuf->texture == pres) {
          int i = PIPE_MAX_COLOR_BUFS;
-         zink_fb_clear_reset(&ctx->fb_clears[i]);
+         zink_fb_clear_reset(ctx, i);
       }
    }
 }
@@ -523,7 +534,7 @@ zink_clear_apply_conditionals(struct zink_context *ctx)
 {
    for (int i = 0; i < ARRAY_SIZE(ctx->fb_clears); i++) {
       struct zink_framebuffer_clear *fb_clear = &ctx->fb_clears[i];
-      if (!fb_clear->enabled)
+      if (!zink_fb_clear_enabled(ctx, i))
          continue;
       for (int j = 0; j < zink_fb_clear_count(fb_clear); j++) {
          struct zink_framebuffer_clear_data *clear = zink_fb_clear_element(fb_clear, j);
@@ -536,7 +547,7 @@ zink_clear_apply_conditionals(struct zink_context *ctx)
             if (surf)
                fb_clears_apply_internal(ctx, surf->texture, i);
             else
-               zink_fb_clear_reset(&ctx->fb_clears[i]);
+               zink_fb_clear_reset(ctx, i);
             break;
          }
       }
@@ -547,7 +558,7 @@ static void
 fb_clears_apply_or_discard_internal(struct zink_context *ctx, struct pipe_resource *pres, struct u_rect region, bool discard_only, bool invert, int i)
 {
    struct zink_framebuffer_clear *fb_clear = &ctx->fb_clears[i];
-   if (fb_clear->enabled) {
+   if (zink_fb_clear_enabled(ctx, i)) {
       if (zink_blit_region_fills(region, pres->width0, pres->height0)) {
          if (invert)
             fb_clears_apply_internal(ctx, pres, i);
@@ -584,7 +595,7 @@ zink_fb_clears_apply_or_discard(struct zink_context *ctx, struct pipe_resource *
          }
       }
    }  else {
-      if (ctx->fb_clears[PIPE_MAX_COLOR_BUFS].enabled && ctx->fb_state.zsbuf && ctx->fb_state.zsbuf->texture == pres) {
+      if (zink_fb_clear_enabled(ctx, PIPE_MAX_COLOR_BUFS) && ctx->fb_state.zsbuf && ctx->fb_state.zsbuf->texture == pres) {
          fb_clears_apply_or_discard_internal(ctx, pres, region, discard_only, false, PIPE_MAX_COLOR_BUFS);
       }
    }
