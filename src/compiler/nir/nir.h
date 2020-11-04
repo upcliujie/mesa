@@ -1483,8 +1483,8 @@ typedef struct {
 
       struct {
          unsigned ptr_stride;
-         unsigned align_mul;
-         unsigned align_offset;
+         uint16_t align_mul;
+         uint16_t align_offset;
       } cast;
    };
 
@@ -1836,8 +1836,10 @@ typedef enum {
    /**
     * Alignment for offsets and addresses
     *
-    * These two parameters, specify an alignment in terms of a multiplier and
-    * an offset.  The multiplier is always a power of two.  The offset or
+    * This parameter is actually a pair of 16-bit parameters packed together
+    * with align_mul in the top 16 bits and align_offset in the bottom 16
+    * bits.  The two parameters specify an alignment in terms of a multiplier
+    * and an offset.  The multiplier is always a power of two.  The offset or
     * address parameter X of the intrinsic is guaranteed to satisfy the
     * following:
     *
@@ -1846,8 +1848,7 @@ typedef enum {
     * For constant offset values, align_mul will be NIR_ALIGN_MUL_MAX and the
     * align_offset will be modulo that.
     */
-   NIR_INTRINSIC_ALIGN_MUL,
-   NIR_INTRINSIC_ALIGN_OFFSET,
+   NIR_INTRINSIC_ALIGN_PAIR,
 
    /**
     * The Vulkan descriptor type for a vulkan_resource_[re]index intrinsic.
@@ -1919,9 +1920,9 @@ typedef enum {
 /**
  * Maximum valid value for a nir align_mul value (in intrinsics or derefs).
  *
- * Offsets can be signed, so this is the largest power of two in int32_t.
+ * Offsets can be signed, so this is the largest power of two in int16_t.
  */
-#define NIR_ALIGN_MUL_MAX 0x40000000
+#define NIR_ALIGN_MUL_MAX 0x4000
 
 typedef struct {
    unsigned location:7; /* gl_vert_attrib, gl_varying_slot, or gl_frag_result */
@@ -2067,8 +2068,7 @@ INTRINSIC_IDX_ACCESSORS(access, ACCESS, enum gl_access_qualifier)
 INTRINSIC_IDX_ACCESSORS(src_access, SRC_ACCESS, enum gl_access_qualifier)
 INTRINSIC_IDX_ACCESSORS(dst_access, DST_ACCESS, enum gl_access_qualifier)
 INTRINSIC_IDX_ACCESSORS(format, FORMAT, enum pipe_format)
-INTRINSIC_IDX_ACCESSORS(align_mul, ALIGN_MUL, unsigned)
-INTRINSIC_IDX_ACCESSORS(align_offset, ALIGN_OFFSET, unsigned)
+INTRINSIC_IDX_ACCESSORS(align_pair, ALIGN_PAIR, unsigned)
 INTRINSIC_IDX_ACCESSORS(desc_type, DESC_TYPE, unsigned)
 INTRINSIC_IDX_ACCESSORS(src_type, SRC_TYPE, nir_alu_type)
 INTRINSIC_IDX_ACCESSORS(dest_type, DEST_TYPE, nir_alu_type)
@@ -2083,12 +2083,25 @@ INTRINSIC_IDX_ACCESSORS(saturate, SATURATE, bool)
 
 static inline void
 nir_intrinsic_set_align(nir_intrinsic_instr *intrin,
-                        unsigned align_mul, unsigned align_offset)
+                        uint16_t align_mul, uint16_t align_offset)
 {
+   assert(align_mul <= NIR_ALIGN_MUL_MAX);
    assert(util_is_power_of_two_nonzero(align_mul));
    assert(align_offset < align_mul);
-   nir_intrinsic_set_align_mul(intrin, align_mul);
-   nir_intrinsic_set_align_offset(intrin, align_offset);
+   nir_intrinsic_set_align_pair(intrin, ((uint32_t)align_mul << 16) |
+                                        (uint32_t)align_offset);
+}
+
+static inline uint16_t
+nir_intrinsic_align_mul(const nir_intrinsic_instr *intrin)
+{
+   return (uint16_t)(nir_intrinsic_align_pair(intrin) >> 16);
+}
+
+static inline uint16_t
+nir_intrinsic_align_offset(const nir_intrinsic_instr *intrin)
+{
+   return (uint16_t)nir_intrinsic_align_pair(intrin);
 }
 
 /** Returns a simple alignment for a load/store intrinsic offset
@@ -2110,8 +2123,7 @@ nir_intrinsic_align(const nir_intrinsic_instr *intrin)
 static inline bool
 nir_intrinsic_has_align(const nir_intrinsic_instr *intrin)
 {
-   return nir_intrinsic_has_align_mul(intrin) &&
-          nir_intrinsic_has_align_offset(intrin);
+   return nir_intrinsic_has_align_pair(intrin);
 }
 
 static inline void

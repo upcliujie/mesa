@@ -548,7 +548,7 @@ calc_alignment(struct entry *entry)
    }
 
    entry->align_mul = 1u << (align_mul - 1);
-   if (!nir_intrinsic_has_align_mul(entry->intrin) ||
+   if (!nir_intrinsic_has_align(entry->intrin) ||
        entry->align_mul >= nir_intrinsic_align_mul(entry->intrin)) {
       entry->align_offset = entry->offset % entry->align_mul;
    } else {
@@ -1089,7 +1089,7 @@ try_vectorize(nir_function_impl *impl, struct vectorize_ctx *ctx,
 static bool
 update_align(struct entry *entry)
 {
-   if (nir_intrinsic_has_align_mul(entry->intrin) &&
+   if (nir_intrinsic_has_align(entry->intrin) &&
        (entry->align_mul != nir_intrinsic_align_mul(entry->intrin) ||
         entry->align_offset != nir_intrinsic_align_offset(entry->intrin))) {
       nir_intrinsic_set_align(entry->intrin, entry->align_mul, entry->align_offset);

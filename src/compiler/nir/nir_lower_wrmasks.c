@@ -128,8 +128,7 @@ split_wrmask(nir_builder *b, nir_intrinsic_instr *intr)
 
       const int offset_units = value->bit_size / 8;
 
-      if (nir_intrinsic_has_align_mul(intr)) {
-         assert(nir_intrinsic_has_align_offset(intr));
+      if (nir_intrinsic_has_align(intr)) {
          unsigned align_mul = nir_intrinsic_align_mul(intr);
          unsigned align_off = nir_intrinsic_align_offset(intr);
 

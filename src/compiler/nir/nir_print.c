@@ -839,8 +839,7 @@ print_intrinsic_instr(nir_intrinsic_instr *instr, print_state *state)
       [NIR_INTRINSIC_SRC_ACCESS] = "src-access",
       [NIR_INTRINSIC_DST_ACCESS] = "dst-access",
       [NIR_INTRINSIC_FORMAT] = "format",
-      [NIR_INTRINSIC_ALIGN_MUL] = "align_mul",
-      [NIR_INTRINSIC_ALIGN_OFFSET] = "align_offset",
+      [NIR_INTRINSIC_ALIGN_PAIR] = "align_pair",
       [NIR_INTRINSIC_DESC_TYPE] = "desc_type",
       [NIR_INTRINSIC_SRC_TYPE] = "src_type",
       [NIR_INTRINSIC_DEST_TYPE] = "dest_type",
@@ -897,6 +896,13 @@ print_intrinsic_instr(nir_intrinsic_instr *instr, print_state *state)
       case NIR_INTRINSIC_IMAGE_ARRAY: {
          bool array = nir_intrinsic_image_array(instr);
          fprintf(fp, " image_array=%s", array ? "true" : "false");
+         break;
+      }
+
+      case NIR_INTRINSIC_ALIGN_PAIR: {
+         fprintf(fp, " align=0x%x*N+0x%x",
+                 nir_intrinsic_align_mul(instr),
+                 nir_intrinsic_align_offset(instr));
          break;
       }
 

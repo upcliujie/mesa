@@ -120,8 +120,7 @@ SRC_ACCESS = "NIR_INTRINSIC_SRC_ACCESS"
 # Image format for image intrinsics
 FORMAT = "NIR_INTRINSIC_FORMAT"
 # Offset or address alignment
-ALIGN_MUL = "NIR_INTRINSIC_ALIGN_MUL"
-ALIGN_OFFSET = "NIR_INTRINSIC_ALIGN_OFFSET"
+ALIGN_PAIR = "NIR_INTRINSIC_ALIGN_PAIR"
 # The vulkan descriptor type for vulkan_resource_index
 DESC_TYPE = "NIR_INTRINSIC_DESC_TYPE"
 # The nir_alu_type of input data to a store or conversion
@@ -775,7 +774,7 @@ def load(name, src_comp, indices=[], flags=[]):
 # src[] = { offset }.
 load("uniform", [1], [BASE, RANGE, DEST_TYPE], [CAN_ELIMINATE, CAN_REORDER])
 # src[] = { buffer_index, offset }.
-load("ubo", [-1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET, RANGE_BASE, RANGE], flags=[CAN_ELIMINATE, CAN_REORDER])
+load("ubo", [-1, 1], [ACCESS, ALIGN_PAIR, RANGE_BASE, RANGE], flags=[CAN_ELIMINATE, CAN_REORDER])
 # src[] = { buffer_index, offset in vec4 units }
 load("ubo_vec4", [-1, 1], [ACCESS, COMPONENT], flags=[CAN_ELIMINATE, CAN_REORDER])
 # src[] = { offset }.
@@ -788,7 +787,7 @@ load("per_vertex_input", [1, 1], [BASE, COMPONENT, IO_SEMANTICS], [CAN_ELIMINATE
 load("interpolated_input", [2, 1], [BASE, COMPONENT, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER])
 
 # src[] = { buffer_index, offset }.
-load("ssbo", [-1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE])
+load("ssbo", [-1, 1], [ACCESS, ALIGN_PAIR], [CAN_ELIMINATE])
 # src[] = { buffer_index }
 load("ssbo_address", [1], [], [CAN_ELIMINATE, CAN_REORDER])
 # src[] = { offset }.
@@ -796,21 +795,21 @@ load("output", [1], [BASE, COMPONENT, IO_SEMANTICS], flags=[CAN_ELIMINATE])
 # src[] = { vertex, offset }.
 load("per_vertex_output", [1, 1], [BASE, COMPONENT, IO_SEMANTICS], [CAN_ELIMINATE])
 # src[] = { offset }.
-load("shared", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE])
+load("shared", [1], [BASE, ALIGN_PAIR], [CAN_ELIMINATE])
 # src[] = { offset }.
 load("push_constant", [1], [BASE, RANGE], [CAN_ELIMINATE, CAN_REORDER])
 # src[] = { offset }.
-load("constant", [1], [BASE, RANGE, ALIGN_MUL, ALIGN_OFFSET],
+load("constant", [1], [BASE, RANGE, ALIGN_PAIR],
      [CAN_ELIMINATE, CAN_REORDER])
 # src[] = { address }.
-load("global", [1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE])
+load("global", [1], [ACCESS, ALIGN_PAIR], [CAN_ELIMINATE])
 # src[] = { address }.
-load("global_constant", [1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET],
+load("global_constant", [1], [ACCESS, ALIGN_PAIR],
      [CAN_ELIMINATE, CAN_REORDER])
 # src[] = { address }.
-load("kernel_input", [1], [BASE, RANGE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE, CAN_REORDER])
+load("kernel_input", [1], [BASE, RANGE, ALIGN_PAIR], [CAN_ELIMINATE, CAN_REORDER])
 # src[] = { offset }.
-load("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE])
+load("scratch", [1], [ALIGN_PAIR], [CAN_ELIMINATE])
 
 # Stores work the same way as loads, except now the first source is the value
 # to store and the second (and possibly third) source specify where to store
@@ -825,13 +824,13 @@ store("output", [1], [BASE, WRMASK, COMPONENT, SRC_TYPE, IO_SEMANTICS])
 # src[] = { value, vertex, offset }.
 store("per_vertex_output", [1, 1], [BASE, WRMASK, COMPONENT, IO_SEMANTICS])
 # src[] = { value, block_index, offset }
-store("ssbo", [-1, 1], [WRMASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET])
+store("ssbo", [-1, 1], [WRMASK, ACCESS, ALIGN_PAIR])
 # src[] = { value, offset }.
-store("shared", [1], [BASE, WRMASK, ALIGN_MUL, ALIGN_OFFSET])
+store("shared", [1], [BASE, WRMASK, ALIGN_PAIR])
 # src[] = { value, address }.
-store("global", [1], [WRMASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET])
+store("global", [1], [WRMASK, ACCESS, ALIGN_PAIR])
 # src[] = { value, offset }.
-store("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET, WRMASK])
+store("scratch", [1], [ALIGN_PAIR, WRMASK])
 
 # IR3-specific version of most SSBO intrinsics. The only different
 # compare to the originals is that they add an extra source to hold
@@ -845,9 +844,9 @@ store("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET, WRMASK])
 # The float versions are not handled because those are not supported
 # by the backend.
 store("ssbo_ir3", [1, 1, 1],
-      indices=[WRMASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET])
+      indices=[WRMASK, ACCESS, ALIGN_PAIR])
 load("ssbo_ir3",  [1, 1, 1],
-     indices=[ACCESS, ALIGN_MUL, ALIGN_OFFSET], flags=[CAN_ELIMINATE])
+     indices=[ACCESS, ALIGN_PAIR], flags=[CAN_ELIMINATE])
 intrinsic("ssbo_atomic_add_ir3",        src_comp=[1, 1, 1, 1],    dest_comp=1, indices=[ACCESS])
 intrinsic("ssbo_atomic_imin_ir3",       src_comp=[1, 1, 1, 1],    dest_comp=1, indices=[ACCESS])
 intrinsic("ssbo_atomic_umin_ir3",       src_comp=[1, 1, 1, 1],    dest_comp=1, indices=[ACCESS])
@@ -883,9 +882,9 @@ intrinsic("end_patch_ir3")
 # between geometry stages - perhaps it's explicit access to the vertex cache.
 
 # src[] = { value, offset }.
-store("shared_ir3", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET])
+store("shared_ir3", [1], [BASE, ALIGN_PAIR])
 # src[] = { offset }.
-load("shared_ir3", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE])
+load("shared_ir3", [1], [BASE, ALIGN_PAIR], [CAN_ELIMINATE])
 
 # IR3-specific load/store global intrinsics. They take a 64-bit base address
 # and a 32-bit offset.  The hardware will add the base and the offset, which
@@ -893,10 +892,10 @@ load("shared_ir3", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE])
 
 # src[] = { value, address(vec2 of hi+lo uint32_t), offset }.
 # const_index[] = { write_mask, align_mul, align_offset }
-store("global_ir3", [2, 1], indices=[ACCESS, ALIGN_MUL, ALIGN_OFFSET])
+store("global_ir3", [2, 1], indices=[ACCESS, ALIGN_PAIR])
 # src[] = { address(vec2 of hi+lo uint32_t), offset }.
 # const_index[] = { access, align_mul, align_offset }
-load("global_ir3", [2, 1], indices=[ACCESS, ALIGN_MUL, ALIGN_OFFSET], flags=[CAN_ELIMINATE])
+load("global_ir3", [2, 1], indices=[ACCESS, ALIGN_PAIR], flags=[CAN_ELIMINATE])
 
 # IR3-specific bindless handle specifier. Similar to vulkan_resource_index, but
 # without the binding because the hardware expects a single flattened index
