@@ -216,7 +216,8 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
                              node->ib.obj ? &node->ib : NULL, true,
                              false, 0, node->min_index, node->max_index, 1, 0);
          } else {
-            bool draw_using_merged_prim = ctx->_AllowIncorrectPrimitiveId &&
+            bool draw_using_merged_prim = (ctx->Const.AllowIncorrectPrimitiveId ||
+                                           ctx->_AllowIncorrectPrimitiveId) &&
                                           node->merged_prims;
 
             if (!draw_using_merged_prim) {

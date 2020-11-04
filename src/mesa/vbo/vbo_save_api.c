@@ -779,6 +779,11 @@ compile_vertex_list(struct gl_context *ctx)
       free(indices);
    } else {
       node->ib.obj = NULL;
+      if (node->vertex_count > 0) {
+         const struct _mesa_prim *last_prim = &node->prims[node->prim_count - 1];
+         node->min_index = node->prims[0].start;
+         node->max_index = last_prim->start + last_prim->count - 1;
+      }
    }
 
    /* Deal with GL_COMPILE_AND_EXECUTE:

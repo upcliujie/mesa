@@ -63,8 +63,9 @@ _mesa_update_allow_draw_out_of_order(struct gl_context *ctx)
    if (ctx->API != API_OPENGL_COMPAT)
       return;
 
-   if (true) {
-      /* Update ctx->_AllowIncorrectPrimitiveId for display lists.
+   if (!ctx->Const.AllowIncorrectPrimitiveId) {
+      /* Update ctx->_AllowIncorrectPrimitiveId for display list if
+       * allow_incorrect_primitive_id isn't enabled.
        * We can use merged primitives (see vbo_save) for drawing unless
        * one program expects a correct primitive-ID value.
        */
