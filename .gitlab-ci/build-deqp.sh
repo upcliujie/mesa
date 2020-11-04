@@ -4,10 +4,9 @@ set -ex
 
 git config --global user.email "mesa@example.com"
 git config --global user.name "Mesa CI"
-git clone \
-    https://github.com/KhronosGroup/VK-GL-CTS.git \
-    -b vulkan-cts-1.2.3.2 \
-    /VK-GL-CTS
+DEQP_URL=https://github.com/KhronosGroup/VK-GL-CTS/archive/vulkan-cts-1.2.3.2.tar.gz
+mkdir /VK-GL-CTS
+wget -qO- $DEQP_URL | tar -xz --strip-components=1 -C /VK-GL-CTS
 pushd /VK-GL-CTS
 
 # cherry-pick fix for surfaceless config choosing:
