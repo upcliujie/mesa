@@ -237,6 +237,9 @@ optimizations.extend([
    # (a * #b) << #c
    # a * (#b << #c)
    (('ishl', ('imul', a, '#b'), '#c'), ('imul', a, ('ishl', b, c))),
+
+   # (a + #b) * #c
+   (('imul', ('iadd', a, '#b'), '#c'), ('iadd', ('imul', a, c), ('imul', b, c)))
 ])
 
 # Care must be taken here.  Shifts in NIR uses only the lower log2(bitsize)
