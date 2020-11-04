@@ -3479,10 +3479,16 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
                .AddressModifyEnable = true,
                .BufferPitch = stride,
                .BufferStartingAddress = anv_address_add(buffer->address, offset),
-               .NullVertexBuffer = offset >= buffer->size,
+               .NullVertexBuffer = offset >= size,
 
 #if GEN_GEN >= 8
-               .BufferSize = size - offset
+               /* From the Vulkan spec (vkCmdBindVertexBuffers2EXT):
+                *
+                * "If pname:pSizes is not `NULL` then pname:pSizes[i] specifies
+                * the bound size of the vertex buffer starting from the corresponding
+                * elements of pname:pBuffers[i] plus pname:pOffsets[i]."
+                */
+               .BufferSize = dynamic_size ? size : size - offset,
 #else
                .EndAddress = anv_address_add(buffer->address, size - 1),
 #endif
