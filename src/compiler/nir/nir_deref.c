@@ -926,6 +926,10 @@ opt_remove_cast_cast(nir_deref_instr *cast)
       if (parent == NULL || parent->deref_type != nir_deref_type_cast)
          break;
       first_cast = parent;
+
+      /* We don't want to throw away alignment information */
+      if (cast->cast.align_mul == 0 && first_cast->cast.align_mul > 0)
+         break;
    }
    if (cast == first_cast)
       return false;
