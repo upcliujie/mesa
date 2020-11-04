@@ -5383,6 +5383,37 @@ emit_predicate_on_sample_mask(const fs_builder &bld, fs_inst *inst)
 }
 
 static void
+setup_surface_descriptors(const fs_builder &bld, fs_inst *inst,
+                          const fs_reg &surface, const fs_reg &surface_handle)
+{
+   const gen_device_info *devinfo = bld.shader->devinfo;
+
+   assert((surface.file == BAD_FILE) != (surface_handle.file == BAD_FILE));
+
+   if (surface.file == IMM) {
+      inst->desc |= surface.ud & 0xff;
+      inst->src[0] = brw_imm_ud(0);
+      inst->src[1] = brw_imm_ud(0); /* ex_desc */
+   } else if (surface_handle.file != BAD_FILE) {
+      /* Bindless surface */
+      assert(devinfo->gen >= 9);
+      inst->desc |= GEN9_BTI_BINDLESS;
+      inst->src[0] = brw_imm_ud(0);
+
+      /* We assume that the driver provided the handle in the top 20 bits so
+       * we can use the surface handle directly as the extended descriptor.
+       */
+      inst->src[1] = retype(surface_handle, BRW_REGISTER_TYPE_UD);
+   } else {
+      const fs_builder ubld = bld.exec_all().group(1, 0);
+      fs_reg tmp = ubld.vgrf(BRW_REGISTER_TYPE_UD);
+      ubld.AND(tmp, surface, brw_imm_ud(0xff));
+      inst->src[0] = component(tmp, 0);
+      inst->src[1] = brw_imm_ud(0); /* ex_desc */
+   }
+}
+
+static void
 lower_surface_logical_send(const fs_builder &bld, fs_inst *inst)
 {
    const gen_device_info *devinfo = bld.shader->devinfo;
@@ -5624,27 +5655,7 @@ lower_surface_logical_send(const fs_builder &bld, fs_inst *inst)
    /* Set up SFID and descriptors */
    inst->sfid = sfid;
    inst->desc = desc;
-   if (surface.file == IMM) {
-      inst->desc |= surface.ud & 0xff;
-      inst->src[0] = brw_imm_ud(0);
-      inst->src[1] = brw_imm_ud(0); /* ex_desc */
-   } else if (surface_handle.file != BAD_FILE) {
-      /* Bindless surface */
-      assert(devinfo->gen >= 9);
-      inst->desc |= GEN9_BTI_BINDLESS;
-      inst->src[0] = brw_imm_ud(0);
-
-      /* We assume that the driver provided the handle in the top 20 bits so
-       * we can use the surface handle directly as the extended descriptor.
-       */
-      inst->src[1] = retype(surface_handle, BRW_REGISTER_TYPE_UD);
-   } else {
-      const fs_builder ubld = bld.exec_all().group(1, 0);
-      fs_reg tmp = ubld.vgrf(BRW_REGISTER_TYPE_UD);
-      ubld.AND(tmp, surface, brw_imm_ud(0xff));
-      inst->src[0] = component(tmp, 0);
-      inst->src[1] = brw_imm_ud(0); /* ex_desc */
-   }
+   setup_surface_descriptors(bld, inst, surface, surface_handle);
 
    /* Finally, the payload */
    inst->src[2] = payload;
@@ -5720,32 +5731,10 @@ lower_surface_block_logical_send(const fs_builder &bld, fs_inst *inst)
    inst->send_has_side_effects = has_side_effects;
    inst->send_is_volatile = !has_side_effects;
 
-   /* TODO: Factor out the surface/surface_handle logic into a helper. */
-
    /* Set up SFID and descriptors */
    inst->sfid = GEN7_SFID_DATAPORT_DATA_CACHE;
    inst->desc = desc;
-   if (surface.file == IMM) {
-      inst->desc |= surface.ud & 0xff;
-      inst->src[0] = brw_imm_ud(0);
-      inst->src[1] = brw_imm_ud(0); /* ex_desc */
-   } else if (surface_handle.file != BAD_FILE) {
-      /* Bindless surface */
-      assert(devinfo->gen >= 9);
-      inst->desc |= GEN9_BTI_BINDLESS;
-      inst->src[0] = brw_imm_ud(0);
-
-      /* We assume that the driver provided the handle in the top 20 bits so
-       * we can use the surface handle directly as the extended descriptor.
-       */
-      inst->src[1] = retype(surface_handle, BRW_REGISTER_TYPE_UD);
-   } else {
-      const fs_builder ubld = bld.exec_all().group(1, 0);
-      fs_reg tmp = ubld.vgrf(BRW_REGISTER_TYPE_UD);
-      ubld.AND(tmp, surface, brw_imm_ud(0xff));
-      inst->src[0] = component(tmp, 0);
-      inst->src[1] = brw_imm_ud(0); /* ex_desc */
-   }
+   setup_surface_descriptors(bld, inst, surface, surface_handle);
 
    /* Finally, the payload */
    inst->src[2] = payload;
