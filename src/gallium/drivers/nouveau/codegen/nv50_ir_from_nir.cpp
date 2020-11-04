@@ -2168,6 +2168,7 @@ Converter::visit(nir_intrinsic_instr *insn)
          }
       }
 
+      int sampler_src = -1;
       int lod_src = -1;
       bool bindless = false;
       switch (op) {
@@ -2186,6 +2187,7 @@ Converter::visit(nir_intrinsic_instr *insn)
          ty = getDType(insn);
          bindless = true;
          info_out->io.globalAccess |= 0x2;
+         sampler_src = 2;
          mask = 0x1;
          break;
       case nir_intrinsic_image_atomic_add:
@@ -2203,6 +2205,7 @@ Converter::visit(nir_intrinsic_instr *insn)
          ty = getDType(insn);
          bindless = false;
          info_out->io.globalAccess |= 0x2;
+         sampler_src = 2;
          mask = 0x1;
          break;
       case nir_intrinsic_bindless_image_load:
@@ -2210,6 +2213,7 @@ Converter::visit(nir_intrinsic_instr *insn)
          ty = TYPE_U32;
          bindless = op == nir_intrinsic_bindless_image_load;
          info_out->io.globalAccess |= 0x1;
+         sampler_src = 2;
          lod_src = 4;
          break;
       case nir_intrinsic_bindless_image_store:
@@ -2217,6 +2221,7 @@ Converter::visit(nir_intrinsic_instr *insn)
          ty = TYPE_U32;
          bindless = op == nir_intrinsic_bindless_image_store;
          info_out->io.globalAccess |= 0x2;
+         sampler_src = 2;
          lod_src = 5;
          mask = 0xf;
          break;
@@ -2233,6 +2238,7 @@ Converter::visit(nir_intrinsic_instr *insn)
          assert(nir_src_as_uint(insn->src[1]) == 0);
          ty = TYPE_U32;
          bindless = op == nir_intrinsic_bindless_image_size;
+         sampler_src = 1;
          break;
       default:
          unreachable("unhandled image opcode");
@@ -2245,13 +2251,13 @@ Converter::visit(nir_intrinsic_instr *insn)
          location = getIndirect(&insn->src[0], 0, indirect);
 
       // coords
-      if (opInfo.num_srcs >= 2)
+      if (sampler_src > 1 && opInfo.num_srcs >= 2)
          for (unsigned int i = 0u; i < argCount; ++i)
             srcs.push_back(getSrc(&insn->src[1], i));
 
       // the sampler is just another src added after coords
-      if (opInfo.num_srcs >= 3 && target.isMS())
-         srcs.push_back(getSrc(&insn->src[2], 0));
+      if (sampler_src != -1 && target.isMS())
+         srcs.push_back(getSrc(&insn->src[sampler_src], 0));
 
       if (opInfo.num_srcs >= 4 && lod_src != 4) {
          unsigned components = opInfo.src_components[3] ? opInfo.src_components[3] : insn->num_components;
