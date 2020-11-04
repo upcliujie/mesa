@@ -3462,10 +3462,17 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
 
          struct GENX(VERTEX_BUFFER_STATE) state;
          if (buffer) {
+            UNUSED const struct gen_device_info *devinfo = &cmd_buffer->device->info;
             uint32_t stride = dynamic_stride ?
                cmd_buffer->state.vertex_bindings[vb].stride : pipeline->vb[vb].stride;
-            uint32_t size = dynamic_size ?
-               cmd_buffer->state.vertex_bindings[vb].size : buffer->size;
+            /* From the Vulkan spec (vkCmdBindVertexBuffers2EXT):
+             *
+             * "If pname:pSizes is not NULL then pname:pSizes[i] specifies
+             * the bound size of the vertex buffer starting from the corresponding
+             * elements of pname:pBuffers[i] plus pname:pOffsets[i]."
+             */
+            uint32_t size = dynamic_size || devinfo->gen < 8 ?
+               cmd_buffer->state.vertex_bindings[vb].size : buffer->size - offset;
 
             state = (struct GENX(VERTEX_BUFFER_STATE)) {
                .VertexBufferIndex = vb,
@@ -3482,7 +3489,7 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
                .NullVertexBuffer = offset >= buffer->size,
 
 #if GEN_GEN >= 8
-               .BufferSize = size - offset
+               .BufferSize = size,
 #else
                .EndAddress = anv_address_add(buffer->address, size - 1),
 #endif
