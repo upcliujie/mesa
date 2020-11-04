@@ -1001,6 +1001,29 @@ opt_remove_sampler_cast(nir_deref_instr *cast)
    return true;
 }
 
+static bool
+opt_remove_alignment_cast(nir_builder *b, nir_deref_instr *cast)
+{
+   assert(cast->deref_type == nir_deref_type_cast);
+   if (cast->align_mul == 0 || !is_trivial_deref_cast(cast))
+      return false;
+
+   /* If we're a trivial cast deref with ptr_stride == 0, we can replace
+    * the cast with a copy of parent with the correct alignment.
+    */
+   nir_deref_instr *parent = nir_src_as_deref(cast->parent);
+   nir_deref_instr *clone =
+      nir_instr_as_deref(nir_instr_clone(b->shader, &parent->instr));
+   clone->align_mul = cast->align_mul;
+   clone->align_offset = cast->align_offset;
+   nir_instr_insert(nir_before_instr(&cast->instr), &clone->instr);
+
+   nir_ssa_def_rewrite_uses(&cast->dest.ssa, nir_src_for_ssa(&clone->dest.ssa));
+   nir_deref_instr_remove_if_unused(cast);
+
+   return true;
+}
+
 /**
  * Is this casting a struct to a contained struct.
  * struct a { struct b field0 };
@@ -1041,6 +1064,9 @@ opt_deref_cast(nir_builder *b, nir_deref_instr *cast)
    bool progress = false;
 
    progress |= opt_remove_restricting_cast_alignments(cast);
+
+   if (opt_remove_alignment_cast(b, cast))
+      return true;
 
    if (opt_replace_struct_wrapper_cast(b, cast))
       return true;
