@@ -849,10 +849,10 @@ restart_supported(enum pipe_prim_type mode)
 
 void
 zink_draw_vbo(struct pipe_context *pctx,
-              const struct pipe_draw_info *dinfo,
-              const struct pipe_draw_indirect_info *dindirect,
-              const struct pipe_draw_start_count *draws,
-              unsigned num_draws)
+                    const struct pipe_draw_info *dinfo,
+                    const struct pipe_draw_indirect_info *dindirect,
+                    const struct pipe_draw_start_count *draws,
+                    unsigned num_draws)
 {
    struct zink_context *ctx = zink_context(pctx);
    struct zink_screen *screen = zink_screen(pctx->screen);
@@ -877,11 +877,13 @@ zink_draw_vbo(struct pipe_context *pctx,
        dinfo->mode == PIPE_PRIM_POLYGON ||
        (dinfo->mode == PIPE_PRIM_TRIANGLE_FAN && !screen->have_triangle_fans) ||
        dinfo->mode == PIPE_PRIM_LINE_LOOP) {
-      if (!u_trim_pipe_prim(dinfo->mode, (unsigned *)&draws[0].count))
-         return;
-
       util_primconvert_save_rasterizer_state(ctx->primconvert, &rast_state->base);
-      util_primconvert_draw_vbo(ctx->primconvert, dinfo, &draws[0]);
+      for (unsigned i = 0; i < num_draws; i++) {
+         /* TODO: is there actually a way to correctly handle this? no other driver does... */
+         if (!u_trim_pipe_prim(dinfo->mode, (unsigned *)&draws[i].count))
+            continue;
+         util_primconvert_draw_vbo(ctx->primconvert, dinfo, &draws[i]);
+      }
       return;
    }
    if (ctx->gfx_pipeline_state.vertices_per_patch != dinfo->vertices_per_patch)
@@ -1101,6 +1103,7 @@ zink_draw_vbo(struct pipe_context *pctx,
       vkCmdBindIndexBuffer(batch->state->cmdbuf, res->obj->buffer, index_offset, index_type);
       zink_batch_reference_resource_rw(batch, res, false);
       if (dindirect && dindirect->buffer) {
+         assert(num_draws == 1);
          struct zink_resource *indirect = zink_resource(dindirect->buffer);
          zink_batch_reference_resource_rw(batch, indirect, false);
          if (dindirect->indirect_draw_count) {
@@ -1111,10 +1114,13 @@ zink_draw_vbo(struct pipe_context *pctx,
                                            dindirect->draw_count, dindirect->stride);
          } else
             vkCmdDrawIndexedIndirect(batch->state->cmdbuf, indirect->obj->buffer, dindirect->offset, dindirect->draw_count, dindirect->stride);
-      } else
-         vkCmdDrawIndexed(batch->state->cmdbuf,
-            draws[0].count, dinfo->instance_count,
-            need_index_buffer_unref ? 0 : draws[0].start, dinfo->index_bias, dinfo->start_instance);
+      } else {
+         for (unsigned i = 0; i < num_draws; i++) {
+            vkCmdDrawIndexed(batch->state->cmdbuf,
+               draws[i].count, dinfo->instance_count,
+               need_index_buffer_unref ? 0 : draws[i].start, dinfo->index_bias, dinfo->start_instance);
+         }
+      }
    } else {
       if (so_target && screen->info.tf_props.transformFeedbackDraw) {
          zink_batch_reference_resource_rw(batch, zink_resource(so_target->base.buffer), false);
@@ -1123,6 +1129,7 @@ zink_draw_vbo(struct pipe_context *pctx,
                                        zink_resource(so_target->counter_buffer)->obj->buffer, so_target->counter_buffer_offset, 0,
                                        MIN2(so_target->stride, screen->info.tf_props.maxTransformFeedbackBufferDataStride));
       } else if (dindirect && dindirect->buffer) {
+         assert(num_draws == 1);
          struct zink_resource *indirect = zink_resource(dindirect->buffer);
          zink_batch_reference_resource_rw(batch, indirect, false);
          if (dindirect->indirect_draw_count) {
@@ -1133,8 +1140,11 @@ zink_draw_vbo(struct pipe_context *pctx,
                                            dindirect->draw_count, dindirect->stride);
          } else
             vkCmdDrawIndirect(batch->state->cmdbuf, indirect->obj->buffer, dindirect->offset, dindirect->draw_count, dindirect->stride);
-      } else
-         vkCmdDraw(batch->state->cmdbuf, draws[0].count, dinfo->instance_count, draws[0].start, dinfo->start_instance);
+      } else {
+         for (unsigned i = 0; i < num_draws; i++) {
+            vkCmdDraw(batch->state->cmdbuf, draws[i].count, dinfo->instance_count, draws[i].start, dinfo->start_instance);
+         }
+      }
    }
 
    if (dinfo->index_size > 0 && (dinfo->has_user_indices || need_index_buffer_unref))
