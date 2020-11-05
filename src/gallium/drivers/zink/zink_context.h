@@ -69,6 +69,7 @@ enum zink_blit_flags {
 struct zink_buffer_view {
    struct pipe_reference reference;
    VkBufferView buffer_view;
+   uint32_t hash;
 };
 
 struct zink_sampler_view {
