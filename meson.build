@@ -182,7 +182,6 @@ with_dri_i915 = dri_drivers.contains('i915')
 with_dri_i965 = dri_drivers.contains('i965')
 with_dri_r100 = dri_drivers.contains('r100')
 with_dri_r200 = dri_drivers.contains('r200')
-with_dri_nouveau = dri_drivers.contains('nouveau')
 
 with_dri = dri_drivers.length() != 0
 
@@ -1434,7 +1433,7 @@ _libdrm_checks = [
   ['amdgpu', with_amd_vk or with_gallium_radeonsi],
   ['radeon', (with_gallium_radeonsi or with_dri_r100 or with_dri_r200 or
               with_gallium_r300 or with_gallium_r600)],
-  ['nouveau', (with_gallium_nouveau or with_dri_nouveau)],
+  ['nouveau', (with_gallium_nouveau)],
 ]
 
 # VC4 only needs core libdrm support of this version, not a libdrm_vc4
