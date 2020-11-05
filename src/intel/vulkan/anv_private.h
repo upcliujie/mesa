@@ -1428,6 +1428,7 @@ struct anv_device {
     struct gen_aux_map_context                  *aux_map_ctx;
 
     struct gen_debug_block_frame                *debug_frame_desc;
+    bool                                        state_cache_perf_fix_disabled;
 };
 
 static inline struct anv_instance *
