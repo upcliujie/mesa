@@ -2077,14 +2077,32 @@ emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr,
 
    bool success = true;
    uint32_t writemask = nir_intrinsic_write_mask(intr);
-   for (unsigned i = 0; i < nir_src_num_components(intr->src[1]) && success; ++i) {
-      if (writemask & (1 << i)) {
+   if (ctx->mod.shader_kind != DXIL_PIXEL_SHADER &&
+       (output->data.location == VARYING_SLOT_CLIP_DIST0 ||
+        output->data.location == VARYING_SLOT_CLIP_DIST1)) {
+      for (unsigned i = 0; i < 4 && success; ++i) {
          const struct dxil_value *col = dxil_module_get_int8_const(&ctx->mod, i);
-         const struct dxil_value *value = get_src(ctx, &intr->src[1], i, out_type);
+         const struct dxil_value *value;
+         if (writemask & (1 << i))
+            value = get_src(ctx, &intr->src[1], i, out_type);
+         else
+            value = dxil_module_get_float_const(&ctx->mod, 0.0f);
+
          const struct dxil_value *args[] = {
             opcode, output_id, row, col, value
          };
          success &= dxil_emit_call_void(&ctx->mod, func, args, ARRAY_SIZE(args));
+      }
+   } else {
+      for (unsigned i = 0; i < nir_src_num_components(intr->src[1]) && success; ++i) {
+         if (writemask & (1 << i)) {
+            const struct dxil_value *col = dxil_module_get_int8_const(&ctx->mod, i);
+            const struct dxil_value *value = get_src(ctx, &intr->src[1], i, out_type);
+            const struct dxil_value *args[] = {
+               opcode, output_id, row, col, value
+            };
+            success &= dxil_emit_call_void(&ctx->mod, func, args, ARRAY_SIZE(args));
+         }
       }
    }
    return success;
