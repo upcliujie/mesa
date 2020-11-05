@@ -124,7 +124,7 @@ lower_discard_if(nir_shader *shader)
    return progress;
 }
 
-static const struct nir_shader_compiler_options nir_options = {
+struct nir_shader_compiler_options nir_options = {
    .lower_all_io_to_temps = true,
    .lower_ffma16 = true,
    .lower_ffma32 = true,
@@ -138,6 +138,9 @@ static const struct nir_shader_compiler_options nir_options = {
    .lower_mul_high = true,
    .lower_rotate = true,
    .lower_uadd_carry = true,
+   .lower_to_scalar = true,
+   .lower_int64_options = ~0,
+   .lower_doubles_options = ~0 & ~nir_lower_fp64_full_software,
 };
 
 const void *
@@ -146,6 +149,9 @@ zink_get_compiler_options(struct pipe_screen *screen,
                           enum pipe_shader_type shader)
 {
    assert(ir == PIPE_SHADER_IR_NIR);
+   struct zink_screen *zscreen = zink_screen(screen);
+   if (!zscreen->info.feats.features.shaderFloat64)
+      nir_options.lower_doubles_options |= nir_lower_fp64_full_software;
    return &nir_options;
 }
 
