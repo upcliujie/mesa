@@ -421,6 +421,7 @@ zink_create_gfx_program(struct zink_context *ctx,
          zink_gfx_program_reference(screen, NULL, prog);
       }
    }
+   p_atomic_dec(&prog->reference.count);
 
    prog->dsl = create_desc_set_layout(screen->dev, stages,
                                       &prog->num_descriptors);
