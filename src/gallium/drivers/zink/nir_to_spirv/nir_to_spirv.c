@@ -1563,7 +1563,7 @@ emit_load_const(struct ntv_context *ctx, nir_load_const_instr *load_const)
       } else {
          for (int i = 0; i < num_components; i++)
             components[i] = emit_uint_const(ctx, bit_size,
-                                            load_const->value[i].u32);
+                                            bit_size == 64 ? load_const->value[i].u64 : load_const->value[i].u32);
 
       }
       constant = spirv_builder_const_composite(&ctx->builder, type,
@@ -1573,8 +1573,12 @@ emit_load_const(struct ntv_context *ctx, nir_load_const_instr *load_const)
       if (bit_size == 1)
          constant = spirv_builder_const_bool(&ctx->builder,
                                              load_const->value[0].b);
-      else
+      else if (bit_size == 32)
          constant = emit_uint_const(ctx, bit_size, load_const->value[0].u32);
+      else if (bit_size == 64)
+         constant = emit_uint_const(ctx, bit_size, load_const->value[0].u64);
+      else
+         unreachable("unhandled constant bit size!");
    }
 
    store_ssa_def(ctx, &load_const->def, constant);
@@ -1648,6 +1652,10 @@ emit_load_ubo(struct ntv_context *ctx, nir_intrinsic_instr *intr)
       constituents[i] = spirv_builder_emit_load(&ctx->builder, uint_type, ptr);
       /* increment to the next vec4 member index for the next load */
       vec_member_offset = emit_binop(ctx, SpvOpIAdd, uint_type, vec_member_offset, one);
+      if (i == 3 && num_components >= 4) {
+         vec_offset = emit_binop(ctx, SpvOpIAdd, uint_type, vec_offset, one);
+         vec_member_offset = emit_uint_const(ctx, 32, 0);
+      }
    }
 
    /* if loading more than 1 value, reassemble the results into the desired type,
