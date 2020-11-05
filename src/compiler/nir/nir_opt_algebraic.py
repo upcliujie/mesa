@@ -304,6 +304,7 @@ optimizations.extend([
 
    # (a + #b) * #c
    (('imul', ('iadd(is_used_once)', a, '#b'), '#c'), ('iadd', ('imul', a, c), ('imul', b, c))),
+   (('~fmul', ('fadd(is_used_once)', a, '#b'), '#c'), ('fadd', ('fmul', a, c), ('fmul', b, c))),
 
    # Comparison simplifications
    (('~inot', ('flt', a, b)), ('fge', a, b)),
