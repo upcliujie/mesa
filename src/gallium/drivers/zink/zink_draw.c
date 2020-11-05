@@ -31,14 +31,23 @@ desc_set_res_add(struct zink_descriptor_set *zds, struct zink_resource *res, uns
 }
 
 static void
-desc_set_sampler_add(struct zink_descriptor_set *zds, struct zink_sampler_view *sv, struct zink_sampler *sampler, unsigned int i, bool cache_hit)
+desc_set_sampler_add(struct zink_context *ctx, struct zink_descriptor_set *zds, struct zink_sampler_view *sv,
+                     struct zink_sampler *sampler, unsigned int i, bool is_buffer, bool cache_hit)
 {
    /* if we got a cache hit, we have to verify that the cached set is still valid;
     * we store the vk resource to the set here to avoid a more complex and costly mechanism of maintaining a
     * hash table on every resource with the associated descriptor sets that then needs to be iterated through
     * whenever a resource is destroyed
     */
-   assert(!cache_hit || get_sampler_view_hash(zds->sampler_views[i]) == get_sampler_view_hash(sv));
+#ifndef NDEBUG
+   uint32_t cur_hash = get_sampler_view_hash(zds->sampler_views[i]) ? get_sampler_view_hash(zds->sampler_views[i]) :
+                       (is_buffer ? zink_screen(ctx->base.screen)->null_descriptor_hashes.buffer_view :
+                                    zink_screen(ctx->base.screen)->null_descriptor_hashes.image_view);
+   uint32_t new_hash = get_sampler_view_hash(sv) ? get_sampler_view_hash(sv) :
+                       (is_buffer ? zink_screen(ctx->base.screen)->null_descriptor_hashes.buffer_view :
+                                    zink_screen(ctx->base.screen)->null_descriptor_hashes.image_view);
+#endif
+   assert(!cache_hit || cur_hash == new_hash);
    assert(!cache_hit || zds->samplers[i] == sampler);
    if (!cache_hit) {
       zink_sampler_view_desc_set_add(sv, zds, i);
@@ -47,14 +56,23 @@ desc_set_sampler_add(struct zink_descriptor_set *zds, struct zink_sampler_view *
 }
 
 static void
-desc_set_image_add(struct zink_descriptor_set *zds, struct zink_image_view *image_view, unsigned int i, bool cache_hit)
+desc_set_image_add(struct zink_context *ctx, struct zink_descriptor_set *zds, struct zink_image_view *image_view,
+                   unsigned int i, bool is_buffer, bool cache_hit)
 {
    /* if we got a cache hit, we have to verify that the cached set is still valid;
     * we store the vk resource to the set here to avoid a more complex and costly mechanism of maintaining a
     * hash table on every resource with the associated descriptor sets that then needs to be iterated through
     * whenever a resource is destroyed
     */
-   assert(!cache_hit || get_image_view_hash(zds->image_views[i]) == get_image_view_hash(image_view));
+#ifndef NDEBUG
+   uint32_t cur_hash = get_image_view_hash(zds->image_views[i]) ? get_image_view_hash(zds->image_views[i]) :
+                       (is_buffer ? zink_screen(ctx->base.screen)->null_descriptor_hashes.buffer_view :
+                                    zink_screen(ctx->base.screen)->null_descriptor_hashes.image_view);
+   uint32_t new_hash = get_image_view_hash(image_view) ? get_image_view_hash(image_view) :
+                       (is_buffer ? zink_screen(ctx->base.screen)->null_descriptor_hashes.buffer_view :
+                                    zink_screen(ctx->base.screen)->null_descriptor_hashes.image_view);
+#endif
+   assert(!cache_hit || cur_hash == new_hash);
    if (!cache_hit)
       zink_image_view_desc_set_add(image_view, zds, i);
 }
@@ -622,7 +640,9 @@ update_sampler_descriptors(struct zink_context *ctx, struct zink_descriptor_set 
                                     &wds[num_wds], layout, &num_image_info, &image_infos[num_image_info],
                                     &num_buffer_info, &buffer_views[num_buffer_info],
                                     sampler_state, imageview, bufferview, !k);
-            desc_set_sampler_add(zds, sampler_view, sampler, num_resources++, cache_hit);
+            desc_set_sampler_add(ctx, zds, sampler_view, sampler, num_resources++,
+                                 shader->bindings[zds->pool->type][j].type == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+                                 cache_hit);
             struct zink_batch *batch = is_compute ? &ctx->compute_batch : zink_curr_batch(ctx);
             if (sampler_view)
                zink_batch_reference_sampler_view(batch, sampler_view);
@@ -693,7 +713,9 @@ update_image_descriptors(struct zink_context *ctx, struct zink_descriptor_set *z
                layout = VK_IMAGE_LAYOUT_GENERAL;
             }
             assert(num_resources < num_bindings);
-            desc_set_image_add(zds, image_view, num_resources++, cache_hit);
+            desc_set_image_add(ctx, zds, image_view, num_resources++,
+                               shader->bindings[zds->pool->type][j].type == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+                               cache_hit);
             if (res) {
                VkAccessFlags flags = 0;
                if (image_view->base.access & PIPE_IMAGE_ACCESS_READ)
