@@ -558,9 +558,6 @@ tu_get_image_format_properties(
       unreachable("bad VkPhysicalDeviceImageFormatInfo2");
    }
 
-   if (format_feature_flags == 0)
-      return VK_ERROR_FORMAT_NOT_SUPPORTED;
-
    VkFormatFeatureFlags required =
       COND(info->usage & VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) |
       COND(info->usage & VK_IMAGE_USAGE_STORAGE_BIT, VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) |
@@ -569,7 +566,7 @@ tu_get_image_format_properties(
       COND(info->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
            VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
-   if ((format_feature_flags & required) != required)
+   if (!format_feature_flags || ((format_feature_flags & required) != required))
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    /* TODO: fix maxMipLevels/maxArrayLayers for ycbcr formats */
