@@ -110,6 +110,25 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    batch->resource_size = 0;
 }
 
+void
+zink_batch_destroy(struct zink_context* ctx, struct zink_batch *batch)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+
+   vkFreeCommandBuffers(screen->dev, batch->cmdpool, 1, &batch->cmdbuf);
+   vkDestroyCommandPool(screen->dev, batch->cmdpool, NULL);
+   zink_fence_reference(screen, &batch->fence, NULL);
+
+   for (struct hash_entry* entry = _mesa_hash_table_next_entry(batch->framebuffer_cache, NULL);
+        entry != NULL;
+        entry = _mesa_hash_table_next_entry(batch->framebuffer_cache, entry)) {
+      struct zink_framebuffer* fb = (struct zink_framebuffer*)entry->data;
+      zink_framebuffer_reference(screen, &fb, NULL);
+   }
+   _mesa_hash_table_destroy(batch->framebuffer_cache, NULL);
+
+}
+
 static uint32_t
 hash_framebuffer_state(const void *key)
 {
