@@ -40,6 +40,12 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    zink_framebuffer_reference(screen, &batch->fb, NULL);
    zink_batch_clear_resources(screen, batch);
 
+   set_foreach(batch->active_queries, entry) {
+      struct zink_query *query = (void*)entry->key;
+      zink_prune_query(screen, query);
+      _mesa_set_remove(batch->active_queries, entry);
+   }
+
    /* unref all used sampler-views */
    set_foreach(batch->sampler_views, entry) {
       struct pipe_sampler_view *pres = (struct pipe_sampler_view *)entry->key;
