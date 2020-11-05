@@ -90,30 +90,6 @@ calc_descriptor_state_hash_ssbo(struct zink_context *ctx, struct zink_shader *zs
 }
 
 static void
-calc_descriptor_hash_sampler_view(struct zink_context *ctx, struct zink_sampler_view *sampler_view)
-{
-   void *hash_data;
-   size_t data_size;
-
-   if (!sampler_view) {
-      sampler_view->hash = zink_screen(ctx->base.screen)->null_descriptor_hashes.sampler_view;
-      return;
-   }
-
-   uint32_t hash = _mesa_hash_pointer(sampler_view->base.texture);
-   if (sampler_view->base.target == PIPE_BUFFER) {
-      hash_data = &sampler_view->base.u.buf;
-      data_size = sizeof(sampler_view->base.u.buf);
-      sampler_view->hash = XXH32(hash_data, data_size, hash);
-      return;
-   }
-
-   hash_data = &sampler_view->image_view;
-   data_size = sizeof(VkImageView);
-   sampler_view->hash = XXH32(hash_data, data_size, hash);
-}
-
-static void
 calc_descriptor_hash_sampler_state(struct zink_sampler_state *sampler_state)
 {
    void *hash_data = &sampler_state->sampler;
@@ -132,7 +108,7 @@ calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader 
          hash = maybe_hash_u32(screen->null_descriptor_hashes.sampler_view, hash);
          continue;
       }
-      hash = maybe_hash_u32(sampler_view->hash, hash);
+      hash = maybe_hash_u32(get_sampler_view_hash(sampler_view), hash);
       if (sampler_view->base.target == PIPE_BUFFER)
          continue;
 
@@ -158,17 +134,7 @@ calc_descriptor_state_hash_image(struct zink_context *ctx, struct zink_shader *z
          hash = XXH32(hash_data, data_size, hash);
          break;
       }
-      struct zink_resource *res = zink_resource(ctx->image_views[shader][idx + k].base.resource);
-      if (res->base.target == PIPE_BUFFER) {
-         hash = XXH32(&ctx->image_views[shader][idx + k].base.resource, sizeof(void*), hash);
-         hash_data = &ctx->image_views[shader][idx + k].base.u.buf;
-         data_size = sizeof(ctx->image_views[shader][idx + k].base.u.buf);
-         hash = XXH32(hash_data, data_size, hash);
-      } else {
-         hash_data = &ctx->image_views[shader][idx + k].surface->image_view;
-         data_size = sizeof(VkImageView);
-         hash = XXH32(hash_data, data_size, hash);
-      }
+      hash = maybe_hash_u32(get_image_view_hash(&ctx->image_views[shader][idx + k]), hash);
    }
    return hash;
 }
@@ -643,7 +609,6 @@ zink_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *pres,
       return NULL;
    }
    util_dynarray_init(&sampler_view->desc_set_refs.refs, NULL);
-   calc_descriptor_hash_sampler_view(zink_context(pctx), sampler_view);
    return &sampler_view->base;
 }
 
@@ -954,7 +919,9 @@ zink_set_sampler_views(struct pipe_context *pctx,
       struct pipe_sampler_view *pview = views ? views[i] : NULL;
       struct zink_sampler_view *a = zink_sampler_view(ctx->sampler_views[shader_type][start_slot + i]);
       struct zink_sampler_view *b = zink_sampler_view(pview);
-      update |= !!a != !!b || (a && a->hash != b->hash);
+      uint32_t hash_a = get_sampler_view_hash(a);
+      uint32_t hash_b = get_sampler_view_hash(b);
+      update |= !!a != !!b || hash_a != hash_b;
       pipe_sampler_view_reference(&ctx->sampler_views[shader_type][start_slot + i], pview);
    }
    for (; i < num_views + unbind_num_trailing_slots; ++i) {
