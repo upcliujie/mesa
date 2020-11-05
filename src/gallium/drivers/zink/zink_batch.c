@@ -110,9 +110,66 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    batch->resource_size = 0;
 }
 
+static uint32_t
+hash_framebuffer_state(const void *key)
+{
+   struct zink_framebuffer_state* s = (struct zink_framebuffer_state*)key;
+   return _mesa_hash_data(key, offsetof(struct zink_framebuffer_state, attachments) + sizeof(s->attachments[0]) * s->num_attachments);
+}
+
+static bool
+equals_framebuffer_state(const void *a, const void *b)
+{
+   struct zink_framebuffer_state *s = (struct zink_framebuffer_state*)a;
+   return memcmp(a, b, offsetof(struct zink_framebuffer_state, attachments) + sizeof(s->attachments[0]) * s->num_attachments) == 0;
+}
+
+static void
+init_batch(struct zink_context *ctx, struct zink_batch *batch)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   VkCommandPoolCreateInfo cpci = {};
+   cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+   cpci.queueFamilyIndex = batch->batch_id == ZINK_COMPUTE_BATCH_ID ?
+                                  (screen->compute_queue != UINT_MAX ? screen->compute_queue : screen->gfx_queue) :
+                                  screen->gfx_queue;
+   cpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+   if (vkCreateCommandPool(screen->dev, &cpci, NULL, &batch->cmdpool) != VK_SUCCESS)
+      return;
+
+   VkCommandBufferAllocateInfo cbai = {};
+   cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+   cbai.commandPool = batch->cmdpool;
+   cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+   cbai.commandBufferCount = 1;
+
+   if (vkAllocateCommandBuffers(screen->dev, &cbai, &batch->cmdbuf) != VK_SUCCESS)
+      return;
+
+   batch->resources = _mesa_pointer_set_create(NULL);
+   batch->sampler_views = _mesa_pointer_set_create(NULL);
+   batch->samplers = _mesa_pointer_set_create(NULL);
+   batch->surfaces = _mesa_pointer_set_create(NULL);
+   batch->bufferviews = _mesa_pointer_set_create(NULL);
+   batch->programs = _mesa_pointer_set_create(NULL);
+   batch->desc_sets = _mesa_pointer_set_create(ctx);
+   batch->framebuffer_cache = _mesa_hash_table_create(NULL,
+                                                               hash_framebuffer_state,
+                                                               equals_framebuffer_state);
+
+   if (!batch->resources || !batch->sampler_views || !batch->samplers || !batch->desc_sets ||
+       !batch->programs || !batch->surfaces || !batch->bufferviews ||
+       !batch->framebuffer_cache)
+      return;
+
+   batch->fence = zink_create_fence(ctx->base.screen, batch);
+}
+
 void
 zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
 {
+   if (!batch->fence)
+      init_batch(ctx, batch);
    zink_reset_batch(ctx, batch);
 
    VkCommandBufferBeginInfo cbbi = {};

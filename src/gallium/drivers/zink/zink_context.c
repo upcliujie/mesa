@@ -1739,20 +1739,6 @@ equals_gfx_program(const void *a, const void *b)
    return true;
 }
 
-static uint32_t
-hash_framebuffer_state(const void *key)
-{
-   struct zink_framebuffer_state* s = (struct zink_framebuffer_state*)key;
-   return _mesa_hash_data(key, offsetof(struct zink_framebuffer_state, attachments) + sizeof(s->attachments[0]) * s->num_attachments);
-}
-
-static bool
-equals_framebuffer_state(const void *a, const void *b)
-{
-   struct zink_framebuffer_state *s = (struct zink_framebuffer_state*)a;
-   return memcmp(a, b, offsetof(struct zink_framebuffer_state, attachments) + sizeof(s->attachments[0]) * s->num_attachments) == 0;
-}
-
 static void
 zink_flush(struct pipe_context *pctx,
            struct pipe_fence_handle **pfence,
@@ -2293,48 +2279,9 @@ zink_resource_rebind(struct zink_context *ctx, struct zink_resource *res)
 static bool
 init_batch(struct zink_context *ctx, struct zink_batch *batch, unsigned idx)
 {
-   struct zink_screen *screen = zink_screen(ctx->base.screen);
-   VkCommandPoolCreateInfo cpci = {};
-   cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-   cpci.queueFamilyIndex = idx == ZINK_COMPUTE_BATCH_ID ?
-                                  (screen->compute_queue != UINT_MAX ? screen->compute_queue : screen->gfx_queue) :
-                                  screen->gfx_queue;
-   cpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-   if (vkCreateCommandPool(screen->dev, &cpci, NULL, &batch->cmdpool) != VK_SUCCESS)
-      return false;
-
-   VkCommandBufferAllocateInfo cbai = {};
-   cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-   cbai.commandPool = batch->cmdpool;
-   cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-   cbai.commandBufferCount = 1;
-
-   if (vkAllocateCommandBuffers(screen->dev, &cbai, &batch->cmdbuf) != VK_SUCCESS)
-      return false;
-
-   batch->resources = _mesa_pointer_set_create(NULL);
-   batch->sampler_views = _mesa_pointer_set_create(NULL);
-   batch->samplers = _mesa_pointer_set_create(NULL);
-   batch->surfaces = _mesa_pointer_set_create(NULL);
-   batch->bufferviews = _mesa_pointer_set_create(NULL);
-   batch->programs = _mesa_pointer_set_create(NULL);
-   batch->desc_sets = _mesa_pointer_set_create(ctx);
-   batch->framebuffer_cache = _mesa_hash_table_create(NULL,
-                                                               hash_framebuffer_state,
-                                                               equals_framebuffer_state);
-
-   if (!batch->resources || !batch->sampler_views || !batch->samplers || !batch->desc_sets ||
-       !batch->programs || !batch->surfaces || !batch->bufferviews ||
-       !batch->framebuffer_cache)
-      return false;
-
    batch->batch_id = idx;
-
-   batch->fence = zink_create_fence(ctx->base.screen, batch);
-   if (!batch->fence)
-      return false;
-
-   return true;
+   zink_start_batch(ctx, batch);
+   return !!batch->fence;
 }
 
 struct pipe_context *
@@ -2440,7 +2387,6 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
       if (!init_batch(ctx, &ctx->compute_batch, ZINK_COMPUTE_BATCH_ID))
          goto fail;
       vkGetDeviceQueue(screen->dev, screen->compute_queue, 0, &ctx->compute_queue);
-      zink_start_batch(ctx, &ctx->compute_batch);
    }
 
    vkGetDeviceQueue(screen->dev, screen->gfx_queue, 0, &ctx->queue);
@@ -2469,9 +2415,6 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
    if (!zink_descriptor_pool_init(ctx))
       goto fail;
-
-   /* start the first batch */
-   zink_start_batch(ctx, zink_curr_batch(ctx));
 
    return &ctx->base;
 
