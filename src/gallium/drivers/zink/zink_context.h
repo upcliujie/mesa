@@ -66,12 +66,17 @@ enum zink_blit_flags {
    ZINK_BLIT_SAVE_TEXTURES = 1 << 3,
 };
 
+struct zink_buffer_view {
+   struct pipe_reference reference;
+   VkBufferView buffer_view;
+};
+
 struct zink_sampler_view {
    struct pipe_sampler_view base;
    struct zink_descriptor_refs desc_set_refs;
    union {
       VkImageView image_view;
-      VkBufferView buffer_view;
+      struct zink_buffer_view *buffer_view;
    };
    uint32_t hash;
    uint32_t batch_uses;
@@ -82,7 +87,7 @@ struct zink_image_view {
    struct zink_descriptor_refs desc_set_refs;
    union {
       struct zink_surface *surface;
-      VkBufferView buffer_view;
+      struct zink_buffer_view *buffer_view;
    };
 };
 
@@ -345,6 +350,25 @@ zink_sampler_reference(struct zink_context *ctx,
    if (pipe_reference_described(old_dst ? &old_dst->reference : NULL, &src->reference,
                                 (debug_reference_descriptor)debug_describe_zink_sampler))
       zink_destroy_sampler(ctx, old_dst);
+   if (dst) *dst = src;
+}
+
+void
+zink_destroy_buffer_view(struct zink_context *ctx, struct zink_buffer_view *buffer_view);
+
+void
+debug_describe_zink_buffer_view(char *buf, const struct zink_buffer_view *ptr);
+
+static inline void
+zink_buffer_view_reference(struct zink_context *ctx,
+                             struct zink_buffer_view **dst,
+                             struct zink_buffer_view *src)
+{
+   struct zink_buffer_view *old_dst = dst ? *dst : NULL;
+
+   if (pipe_reference_described(old_dst ? &old_dst->reference : NULL, &src->reference,
+                                (debug_reference_descriptor)debug_describe_zink_buffer_view))
+      zink_destroy_buffer_view(ctx, old_dst);
    if (dst) *dst = src;
 }
 
