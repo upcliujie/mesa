@@ -296,6 +296,9 @@ namespace {
              any_of(greater(), block_size, q.device().max_block_size()))
             throw error(CL_INVALID_WORK_ITEM_SIZE);
 
+	 /* make conditional on non-uniform work group support */
+	 if (any_of(modulus(), grid_size, block_size))
+            throw error(CL_INVALID_WORK_GROUP_SIZE);
 
          if (fold(multiplies(), 1u, block_size) >
              q.device().max_threads_per_block())
