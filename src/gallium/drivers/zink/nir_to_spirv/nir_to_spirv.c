@@ -2456,7 +2456,7 @@ get_output_prim_type_mode(uint16_t type)
 
 struct spirv_shader *
 nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
-             unsigned char *shader_slot_map, unsigned char *shader_slots_reserved)
+             unsigned char *shader_slot_map, unsigned char *shader_slots_reserved, bool have_i64)
 {
    struct spirv_shader *ret = NULL;
 
@@ -2503,6 +2503,10 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityImageQuery);
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityDerivativeControl);
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilitySampleRateShading);
+   }
+   if (s->info.bit_sizes_int & 64) {
+      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityInt64);
+      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityFloat64);
    }
 
    ctx.stage = s->info.stage;
