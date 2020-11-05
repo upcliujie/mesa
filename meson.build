@@ -178,7 +178,6 @@ if dri_drivers.contains('auto')
   endif
 endif
 
-with_dri_i915 = dri_drivers.contains('i915')
 with_dri_i965 = dri_drivers.contains('i965')
 
 with_dri = dri_drivers.length() != 0
@@ -278,9 +277,6 @@ with_any_intel = with_dri_i965 or with_intel_vk or with_gallium_iris
 
 if with_swrast_vk and not with_gallium_softpipe
   error('swrast vulkan requires gallium swrast')
-endif
-if with_dri_i915 and with_gallium_i915
-  error('Only one i915 provider can be built')
 endif
 if with_gallium_kmsro and not (with_gallium_v3d or with_gallium_vc4 or with_gallium_etnaviv or with_gallium_freedreno or with_gallium_panfrost or with_gallium_lima)
   error('kmsro driver requires one or more renderonly drivers (vc4, etnaviv, freedreno, panfrost, lima)')
@@ -1427,7 +1423,7 @@ _drm_intel_ver = '2.4.75'
 _drm_ver = '2.4.81'
 
 _libdrm_checks = [
-  ['intel', with_dri_i915 or with_gallium_i915],
+  ['intel', with_gallium_i915],
   ['amdgpu', with_amd_vk or with_gallium_radeonsi],
   ['radeon', (with_gallium_radeonsi or with_gallium_r300 or with_gallium_r600)],
   ['nouveau', (with_gallium_nouveau)],
