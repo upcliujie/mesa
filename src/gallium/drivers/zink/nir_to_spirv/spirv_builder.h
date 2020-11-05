@@ -31,6 +31,28 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+union u64_32_t {
+   uint64_t i64;
+   struct {
+      uint32_t low;
+      uint32_t high;
+   };
+};
+
+static inline uint32_t
+u64_low(uint64_t i64)
+{
+   union u64_32_t u = { .i64 = i64 };
+   return u.low;
+}
+
+static inline uint32_t
+u64_high(uint64_t i64)
+{
+   union u64_32_t u = { .i64 = i64 };
+   return u.high;
+}
+
 struct hash_table;
 
 struct spirv_buffer {
@@ -334,13 +356,13 @@ SpvId
 spirv_builder_const_bool(struct spirv_builder *b, bool val);
 
 SpvId
-spirv_builder_const_int(struct spirv_builder *b, int width, int32_t val);
+spirv_builder_const_int(struct spirv_builder *b, int width, int64_t val);
 
 SpvId
-spirv_builder_const_uint(struct spirv_builder *b, int width, uint32_t val);
+spirv_builder_const_uint(struct spirv_builder *b, int width, uint64_t val);
 
 SpvId
-spirv_builder_const_float(struct spirv_builder *b, int width, float val);
+spirv_builder_const_float(struct spirv_builder *b, int width, double val);
 
 SpvId
 spirv_builder_const_composite(struct spirv_builder *b, SpvId result_type,

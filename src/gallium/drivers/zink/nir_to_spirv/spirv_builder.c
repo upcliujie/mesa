@@ -1116,30 +1116,27 @@ spirv_builder_const_bool(struct spirv_builder *b, bool val)
 }
 
 SpvId
-spirv_builder_const_int(struct spirv_builder *b, int width, int32_t val)
+spirv_builder_const_int(struct spirv_builder *b, int width, int64_t val)
 {
-   assert(width <= 32);
-   uint32_t args[] = { val };
+   uint32_t args[] = { u64_low(val), u64_high(val) };
    return get_const_def(b, SpvOpConstant, spirv_builder_type_int(b, width),
-                        args, ARRAY_SIZE(args));
+                        args, width == 64 ? 2 : 1);
 }
 
 SpvId
-spirv_builder_const_uint(struct spirv_builder *b, int width, uint32_t val)
+spirv_builder_const_uint(struct spirv_builder *b, int width, uint64_t val)
 {
-   assert(width <= 32);
-   uint32_t args[] = { val };
+   uint32_t args[] = { u64_low(val), u64_high(val) };
    return get_const_def(b, SpvOpConstant, spirv_builder_type_uint(b, width),
-                        args, ARRAY_SIZE(args));
+                        args, width == 64 ? 2 : 1);
 }
 
 SpvId
-spirv_builder_const_float(struct spirv_builder *b, int width, float val)
+spirv_builder_const_float(struct spirv_builder *b, int width, double val)
 {
-   assert(width <= 32);
-   uint32_t args[] = { u_bitcast_f2u(val) };
+   uint32_t args[] = { u_bitcast_f2u(u64_low(val)), u_bitcast_f2u(u64_high(val)) };
    return get_const_def(b, SpvOpConstant, spirv_builder_type_float(b, width),
-                        args, ARRAY_SIZE(args));
+                        args, width == 64 ? 2 : 1);
 }
 
 SpvId
