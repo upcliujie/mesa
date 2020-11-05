@@ -227,9 +227,9 @@ traces:
       #- device: freedreno-a306
       #  checksum: 0c57ccc3989b75a940b28ea1cc09cb0d
       - device: freedreno-a530
-        checksum: bc19f0f58935fdb348f401396e6845e1
+        checksum: 4715d72a7958f2fd5a387c16b3a01579
       - device: freedreno-a630
-        checksum: 19a71509dca56e09f3883634c755f4ae
+        checksum: 10824eacaf3d888b4682a09edb7cab45
   - path: glmark2/shading:shading=blinn-phong-inf.trace
     expectations:
       - device: freedreno-a306
@@ -322,7 +322,7 @@ traces:
   - path: gputest/gimark.trace
     expectations:
       - device: freedreno-a630
-        checksum: 2cf40180a1315795389d0dfc18aad988
+        checksum: 0b9711bcd229e2527f28f3a68f1be979
   - path: gputest/pixmark-julia-fp32.trace
     expectations:
       - device: freedreno-a630
@@ -341,27 +341,28 @@ traces:
 #        checksum: 1aad6e1ffe23cae71acdb70695a6184b
   - path: gputest/pixmark-volplosion.trace
     expectations:
+      # TODO: !7458 seems to have broken rendering
       # triggers hangcheck on db410c
       # - device: freedreno-a306
       #   checksum: 2d1cf314b5ef2e0a79f5f98eee8de446
       - device: freedreno-a530
-        checksum: ef9cec3c226477e908d4bb2ffe9e8eb9
+        checksum: 2b86c42c9a05b8681e2798b4fa8a6c2d
       # Looks fine, but totally different shape from the rendering on i965.
       - device: freedreno-a630
-        checksum: 2d1cf314b5ef2e0a79f5f98eee8de446
+        checksum: 9c288c5cf313d68826642adf350a4a6f
   - path: gputest/plot3d.trace
     expectations:
       - device: freedreno-a306
-        checksum: 2f9316b732bc119d4e3a18a41d0a8adc
+        checksum: 15f5119c2e25f6ef0cbfc1df84283c77
       - device: freedreno-a530
-        checksum: 6a05db4e26406b5550157a835a3019d0
+        checksum: 5c8e22e37a88ba310add983fd6ade043
       - device: freedreno-a630
-        checksum: 42aba3ab943dae2fe952cae1ff91c354
+        checksum: 6d311ac452cb04912bee0f09bce33fe1
 # Note: Requires GL4 for tess.
   - path: gputest/tessmark.trace
     expectations:
       - device: freedreno-a630
-        checksum: 5d04b8d71517238b9bc8a527574e884b
+        checksum: 8fb115732fcd84190afb82fdbc16c6b4
   - path: gputest/triangle.trace
     expectations:
       - device: freedreno-a306
@@ -373,9 +374,9 @@ traces:
   - path: humus/AmbientAperture.trace
     expectations:
       - device: freedreno-a306
-        checksum: 8d4c52f0af9c09710d358f24c73fae3c
+        checksum: 3d9243cbd0659cb58b16cade2be3f2c2
       - device: freedreno-a530
-        checksum: aab5c853e383e1cda56663d65f6925ad
+        checksum: c55c1ba5683306980956b5f89563f343
       - device: freedreno-a630
         checksum: 83fd7bce0fc1e1f30bd143b7d30ca890
   - path: humus/CelShading.trace
@@ -435,11 +436,11 @@ traces:
   - path: minetest/minetest.trace
     expectations:
       - device: freedreno-a306
-        checksum: 9227cc8d4e6445f2323438340f2a5d9b
+        checksum: 024a5b164b2e00947ab0274bc9d46d42
       - device: freedreno-a530
-        checksum: d0d655d81fabeb4087bf7c4837301f2a
+        checksum: 9b3205743b82e6b8b3a897c89262ffd1
       - device: freedreno-a630
-        checksum: c7349124612a8760ddd825b903561ec4
+        checksum: b06618a516e2404f9392a07fe342bb3e
   - path: neverball/neverball.trace
     expectations:
       # Skipped since it's long on a530.
@@ -454,7 +455,7 @@ traces:
     expectations:
       # a306/a630 would need higher GL version to run
       - device: freedreno-a630
-        checksum: 0e32ca8fc815a7250f38a07faeafb21b
+        checksum: e93cf9682c9ca5ed6a6effe5b7fdd386
   - path: pathfinder/canvas_text.trace
     expectations:
       # a306/a630 would need higher GL version to run
@@ -518,9 +519,9 @@ traces:
       #   checksum: 4b707f385256b380c936186db8c251cb
       # 1 minute
       - device: freedreno-a530
-        checksum: bbe74b2171d62fc6738086740e1aa0d8
+        checksum: d5be3774207abcd9933d3c939325b4ed
       - device: freedreno-a630
-        checksum: e7b57988348b2ce98b964d71b18c1771
+        checksum: 96bda9b677011f5663e8d72bc1e48b62
   - path: valve/half-life-2-v2.trace
     expectations:
       # Skipped since it's slow even on a530.

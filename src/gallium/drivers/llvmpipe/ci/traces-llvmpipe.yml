@@ -33,11 +33,11 @@ traces:
   - path: gputest/furmark.trace
     expectations:
       - device: gl-vmware-llvmpipe
-        checksum: 248ee9534a1f333b479e599646f56f63
+        checksum: 8dbcf49fcbcdd5992472e39502070952
   - path: gputest/pixmark-piano.trace
     expectations:
       - device: gl-vmware-llvmpipe
-        checksum: 3bb42312c7d7d694f7e186b480e16314
+        checksum: 3f2fc2c8f9bb376eaefc2a4f35a5fb2a
   - path: gputest/triangle.trace
     expectations:
       - device: gl-vmware-llvmpipe

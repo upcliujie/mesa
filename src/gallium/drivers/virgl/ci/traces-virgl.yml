@@ -17,11 +17,13 @@ traces:
   - path: gputest/furmark.trace
     expectations:
       - device: gl-virgl
-        checksum: 248ee9534a1f333b479e599646f56f63
+        # TODO: update hash
+        checksum: 292ebf725dcea23def48a807c4e2ea09
   - path: gputest/pixmark-piano.trace
     expectations:
       - device: gl-virgl
-        checksum: 3bb42312c7d7d694f7e186b480e16314
+        # TODO: update hash
+        checksum: 52a05afe422b32de0779fae3f5e1391a
   - path: gputest/triangle.trace
     expectations:
       - device: gl-virgl

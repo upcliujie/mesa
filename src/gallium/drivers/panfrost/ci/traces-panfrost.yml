@@ -5,7 +5,7 @@ traces:
   - path: behdad-glyphy/glyphy.trace
     expectations:
       - device: gl-panfrost-t860
-        checksum: 22bf5262745fd47c5c5eadb93d7cc420
+        checksum: b6cd8d92987530edcfc36a933c9b07f6
   - path: glmark2/desktop:windows=4:effect=blur:blur-radius=5:passes=1:separable=true.trace
     expectations:
       - device: gl-panfrost-t860
@@ -158,7 +158,7 @@ traces:
   - path: glmark2/refract.trace
     expectations:
       - device: gl-panfrost-t860
-        checksum: 6557deca1a47a7a77723658ea579ac63
+        checksum: e520a0071fd940be1401aea2bec97709
   - path: glmark2/shading:shading=blinn-phong-inf.trace
     expectations:
       - device: gl-panfrost-t860
@@ -209,11 +209,11 @@ traces:
   - path: gputest/plot3d.trace
     expectations:
       - device: gl-panfrost-t860
-        checksum: 991efbfd046f70e1fd965d3983bb2965
+        checksum: 3e287b59e0ae08dc2f0fca75b1a94a25
   - path: humus/AmbientAperture.trace
     expectations:
       - device: gl-panfrost-t860
-        checksum: 20492edd94ea94ba73013a4ee14285b7
+        checksum: 4186e15a6d179394e7d2dcc5723cb224
   - path: humus/CelShading.trace
     expectations:
       - device: gl-panfrost-t860
