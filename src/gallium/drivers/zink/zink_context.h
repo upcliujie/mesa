@@ -43,6 +43,7 @@
 #include "util/slab.h"
 #include "util/list.h"
 #include "util/u_dynarray.h"
+#include "util/simple_mtx.h"
 
 #include <vulkan/vulkan.h>
 
@@ -189,7 +190,9 @@ struct zink_context {
    struct pipe_vertex_buffer vertex_buffers[PIPE_MAX_ATTRIBS];
 
    struct hash_table surface_cache;
+   simple_mtx_t surface_mtx;
    struct hash_table bufferview_cache;
+   simple_mtx_t bufferview_mtx;
 
    struct zink_sampler_state *sampler_states[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
    unsigned num_samplers[PIPE_SHADER_TYPES];

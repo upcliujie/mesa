@@ -314,6 +314,9 @@ zink_context_destroy(struct pipe_context *pctx)
 
    zink_descriptor_pool_deinit(ctx);
 
+   simple_mtx_destroy(&ctx->surface_mtx);
+   simple_mtx_destroy(&ctx->bufferview_mtx);
+
    ralloc_free(ctx);
 }
 
@@ -628,7 +631,9 @@ get_buffer_view(struct zink_context *ctx, struct zink_resource *res, enum pipe_f
    bvci.range = range;
 
    uint32_t hash = hash_bufferview(&bvci);
+   simple_mtx_lock(&ctx->bufferview_mtx);
    struct hash_entry *he = _mesa_hash_table_search_pre_hashed(&ctx->bufferview_cache, hash, &bvci);
+   simple_mtx_unlock(&ctx->bufferview_mtx);
    if (he) {
       buffer_view = he->data;
       p_atomic_inc(&buffer_view->reference.count);
@@ -645,7 +650,9 @@ get_buffer_view(struct zink_context *ctx, struct zink_resource *res, enum pipe_f
       buffer_view->bvci = bvci;
       buffer_view->buffer_view = view;
       buffer_view->hash = hash;
+      simple_mtx_lock(&ctx->bufferview_mtx);
       _mesa_hash_table_insert_pre_hashed(&ctx->bufferview_cache, hash, &buffer_view->bvci, buffer_view);
+      simple_mtx_unlock(&ctx->bufferview_mtx);
    }
    return buffer_view;
 }
@@ -717,9 +724,11 @@ zink_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *pres,
 void
 zink_destroy_buffer_view(struct zink_context *ctx, struct zink_buffer_view *buffer_view)
 {
+   simple_mtx_lock(&ctx->bufferview_mtx);
    struct hash_entry *he = _mesa_hash_table_search_pre_hashed(&ctx->bufferview_cache, buffer_view->hash, &buffer_view->bvci);
    assert(he);
    _mesa_hash_table_remove(&ctx->bufferview_cache, he);
+   simple_mtx_unlock(&ctx->bufferview_mtx);
    vkDestroyBufferView(zink_screen(ctx->base.screen)->dev, buffer_view->buffer_view, NULL);
    FREE(buffer_view);
 }
@@ -2391,6 +2400,8 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
    _mesa_hash_table_init(&ctx->surface_cache, ctx, NULL, equals_ivci);
    _mesa_hash_table_init(&ctx->bufferview_cache, ctx, NULL, equals_bvci);
+   simple_mtx_init(&ctx->surface_mtx, mtx_plain);
+   simple_mtx_init(&ctx->bufferview_mtx, mtx_plain);
    for (unsigned i = 0; i < ZINK_QUEUE_ANY; i++) {
       util_dynarray_init(&ctx->free_batch_states[i], ctx);
       _mesa_hash_table_init(&ctx->batch_states[i], ctx, NULL, _mesa_key_pointer_equal);

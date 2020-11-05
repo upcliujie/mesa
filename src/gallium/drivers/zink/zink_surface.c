@@ -145,14 +145,18 @@ zink_get_surface(struct zink_context *ctx,
    struct zink_surface* surface = NULL;
    uint32_t hash = hash_ivci(ivci);
 
+   simple_mtx_lock(&ctx->surface_mtx);
    struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(&ctx->surface_cache, hash, ivci);
+   simple_mtx_unlock(&ctx->surface_mtx);
 
    if (!entry) {
       /* create a new surface */
       surface = create_surface(&ctx->base, pres, templ, ivci);
       surface->hash = hash;
       surface->ivci = *ivci;
+      simple_mtx_lock(&ctx->surface_mtx);
       entry = _mesa_hash_table_insert_pre_hashed(&ctx->surface_cache, hash, &surface->ivci, surface);
+      simple_mtx_unlock(&ctx->surface_mtx);
       if (!entry)
          return NULL;
 
@@ -184,9 +188,11 @@ zink_surface_destroy(struct pipe_context *pctx,
    struct zink_context *ctx = zink_context(pctx);
    struct zink_screen *screen = zink_screen(pctx->screen);
    struct zink_surface *surface = zink_surface(psurface);
+   simple_mtx_lock(&ctx->surface_mtx);
    struct hash_entry *he = _mesa_hash_table_search_pre_hashed(&ctx->surface_cache, surface->hash, &surface->ivci);
    assert(he);
    _mesa_hash_table_remove(&ctx->surface_cache, he);
+   simple_mtx_unlock(&ctx->surface_mtx);
    pipe_resource_reference(&psurface->texture, NULL);
    vkDestroyImageView(screen->dev, surface->image_view, NULL);
    FREE(surface);
