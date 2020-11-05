@@ -23,17 +23,38 @@
 #ifndef GEN_SAMPLE_POSITIONS_H
 #define GEN_SAMPLE_POSITIONS_H
 
+#include <util/macros.h>
+
 /*
  * This file defines the standard multisample positions used by both GL and
  * Vulkan.  These correspond to the Vulkan "standard sample locations".
  */
 
+extern const float gen_sample_positions_1x[];
+extern const float gen_sample_positions_2x[];
+extern const float gen_sample_positions_4x[];
+extern const float gen_sample_positions_8x[];
+extern const float gen_sample_positions_16x[];
+
+static inline const float *
+gen_get_sample_positions(int samples)
+{
+   switch (samples) {
+   case 1: return gen_sample_positions_1x;
+   case 2: return gen_sample_positions_2x;
+   case 4: return gen_sample_positions_4x;
+   case 8: return gen_sample_positions_8x;
+   case 16: return gen_sample_positions_16x;
+   default: unreachable("Invalid sample count");
+   }
+}
+
 /**
  * 1x MSAA has a single sample at the center: (0.5, 0.5) -> (0x8, 0x8).
  */
 #define GEN_SAMPLE_POS_1X(prefix) \
-prefix##0XOffset   = 0.5; \
-prefix##0YOffset   = 0.5;
+prefix##0XOffset   = gen_sample_positions_1x[0]; \
+prefix##0YOffset   = gen_sample_positions_1x[1];
 
 /**
  * 2x MSAA sample positions are (0.25, 0.25) and (0.75, 0.75):
@@ -42,10 +63,10 @@ prefix##0YOffset   = 0.5;
  * c   1
  */
 #define GEN_SAMPLE_POS_2X(prefix) \
-prefix##0XOffset   = 0.75; \
-prefix##0YOffset   = 0.75; \
-prefix##1XOffset   = 0.25; \
-prefix##1YOffset   = 0.25;
+prefix##0XOffset   = gen_sample_positions_2x[0]; \
+prefix##0YOffset   = gen_sample_positions_2x[1]; \
+prefix##1XOffset   = gen_sample_positions_2x[2]; \
+prefix##1YOffset   = gen_sample_positions_2x[3];
 
 /**
  * Sample positions:
@@ -56,14 +77,14 @@ prefix##1YOffset   = 0.25;
  * e     3
  */
 #define GEN_SAMPLE_POS_4X(prefix) \
-prefix##0XOffset   = 0.375; \
-prefix##0YOffset   = 0.125; \
-prefix##1XOffset   = 0.875; \
-prefix##1YOffset   = 0.375; \
-prefix##2XOffset   = 0.125; \
-prefix##2YOffset   = 0.625; \
-prefix##3XOffset   = 0.625; \
-prefix##3YOffset   = 0.875;
+prefix##0XOffset   = gen_sample_positions_4x[0]; \
+prefix##0YOffset   = gen_sample_positions_4x[1]; \
+prefix##1XOffset   = gen_sample_positions_4x[2]; \
+prefix##1YOffset   = gen_sample_positions_4x[3]; \
+prefix##2XOffset   = gen_sample_positions_4x[4]; \
+prefix##2YOffset   = gen_sample_positions_4x[5]; \
+prefix##3XOffset   = gen_sample_positions_4x[6]; \
+prefix##3YOffset   = gen_sample_positions_4x[7];
 
 /**
  * Sample positions:
@@ -88,22 +109,22 @@ prefix##3YOffset   = 0.875;
  * f           6
  */
 #define GEN_SAMPLE_POS_8X(prefix) \
-prefix##0XOffset   = 0.5625; \
-prefix##0YOffset   = 0.3125; \
-prefix##1XOffset   = 0.4375; \
-prefix##1YOffset   = 0.6875; \
-prefix##2XOffset   = 0.8125; \
-prefix##2YOffset   = 0.5625; \
-prefix##3XOffset   = 0.3125; \
-prefix##3YOffset   = 0.1875; \
-prefix##4XOffset   = 0.1875; \
-prefix##4YOffset   = 0.8125; \
-prefix##5XOffset   = 0.0625; \
-prefix##5YOffset   = 0.4375; \
-prefix##6XOffset   = 0.6875; \
-prefix##6YOffset   = 0.9375; \
-prefix##7XOffset   = 0.9375; \
-prefix##7YOffset   = 0.0625;
+prefix##0XOffset   = gen_sample_positions_8x[0]; \
+prefix##0YOffset   = gen_sample_positions_8x[1]; \
+prefix##1XOffset   = gen_sample_positions_8x[2]; \
+prefix##1YOffset   = gen_sample_positions_8x[3]; \
+prefix##2XOffset   = gen_sample_positions_8x[4]; \
+prefix##2YOffset   = gen_sample_positions_8x[5]; \
+prefix##3XOffset   = gen_sample_positions_8x[6]; \
+prefix##3YOffset   = gen_sample_positions_8x[7]; \
+prefix##4XOffset   = gen_sample_positions_8x[8]; \
+prefix##4YOffset   = gen_sample_positions_8x[9]; \
+prefix##5XOffset   = gen_sample_positions_8x[10]; \
+prefix##5YOffset   = gen_sample_positions_8x[11]; \
+prefix##6XOffset   = gen_sample_positions_8x[12]; \
+prefix##6YOffset   = gen_sample_positions_8x[13]; \
+prefix##7XOffset   = gen_sample_positions_8x[14]; \
+prefix##7YOffset   = gen_sample_positions_8x[15];
 
 /**
  * Sample positions:
@@ -127,38 +148,38 @@ prefix##7YOffset   = 0.0625;
  * f                             14
  */
 #define GEN_SAMPLE_POS_16X(prefix) \
-prefix##0XOffset   = 0.5625; \
-prefix##0YOffset   = 0.5625; \
-prefix##1XOffset   = 0.4375; \
-prefix##1YOffset   = 0.3125; \
-prefix##2XOffset   = 0.3125; \
-prefix##2YOffset   = 0.6250; \
-prefix##3XOffset   = 0.7500; \
-prefix##3YOffset   = 0.4375; \
-prefix##4XOffset   = 0.1875; \
-prefix##4YOffset   = 0.3750; \
-prefix##5XOffset   = 0.6250; \
-prefix##5YOffset   = 0.8125; \
-prefix##6XOffset   = 0.8125; \
-prefix##6YOffset   = 0.6875; \
-prefix##7XOffset   = 0.6875; \
-prefix##7YOffset   = 0.1875; \
-prefix##8XOffset   = 0.3750; \
-prefix##8YOffset   = 0.8750; \
-prefix##9XOffset   = 0.5000; \
-prefix##9YOffset   = 0.0625; \
-prefix##10XOffset  = 0.2500; \
-prefix##10YOffset  = 0.1250; \
-prefix##11XOffset  = 0.1250; \
-prefix##11YOffset  = 0.7500; \
-prefix##12XOffset  = 0.0000; \
-prefix##12YOffset  = 0.5000; \
-prefix##13XOffset  = 0.9375; \
-prefix##13YOffset  = 0.2500; \
-prefix##14XOffset  = 0.8750; \
-prefix##14YOffset  = 0.9375; \
-prefix##15XOffset  = 0.0625; \
-prefix##15YOffset  = 0.0000;
+prefix##0XOffset   = gen_sample_positions_16x[0]; \
+prefix##0YOffset   = gen_sample_positions_16x[1]; \
+prefix##1XOffset   = gen_sample_positions_16x[2]; \
+prefix##1YOffset   = gen_sample_positions_16x[3]; \
+prefix##2XOffset   = gen_sample_positions_16x[4]; \
+prefix##2YOffset   = gen_sample_positions_16x[5]; \
+prefix##3XOffset   = gen_sample_positions_16x[6]; \
+prefix##3YOffset   = gen_sample_positions_16x[7]; \
+prefix##4XOffset   = gen_sample_positions_16x[8]; \
+prefix##4YOffset   = gen_sample_positions_16x[9]; \
+prefix##5XOffset   = gen_sample_positions_16x[10]; \
+prefix##5YOffset   = gen_sample_positions_16x[11]; \
+prefix##6XOffset   = gen_sample_positions_16x[12]; \
+prefix##6YOffset   = gen_sample_positions_16x[13]; \
+prefix##7XOffset   = gen_sample_positions_16x[14]; \
+prefix##7YOffset   = gen_sample_positions_16x[15]; \
+prefix##8XOffset   = gen_sample_positions_16x[16]; \
+prefix##8YOffset   = gen_sample_positions_16x[17]; \
+prefix##9XOffset   = gen_sample_positions_16x[18]; \
+prefix##9YOffset   = gen_sample_positions_16x[19]; \
+prefix##10XOffset  = gen_sample_positions_16x[20]; \
+prefix##10YOffset  = gen_sample_positions_16x[21]; \
+prefix##11XOffset  = gen_sample_positions_16x[22]; \
+prefix##11YOffset  = gen_sample_positions_16x[23]; \
+prefix##12XOffset  = gen_sample_positions_16x[24]; \
+prefix##12YOffset  = gen_sample_positions_16x[25]; \
+prefix##13XOffset  = gen_sample_positions_16x[26]; \
+prefix##13YOffset  = gen_sample_positions_16x[27]; \
+prefix##14XOffset  = gen_sample_positions_16x[28]; \
+prefix##14YOffset  = gen_sample_positions_16x[29]; \
+prefix##15XOffset  = gen_sample_positions_16x[30]; \
+prefix##15YOffset  = gen_sample_positions_16x[31];
 
 /* Examples:
  * in case of GEN_GEN < 8:
