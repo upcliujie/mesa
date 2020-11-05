@@ -42,11 +42,6 @@ if with_dri_r200
   _dri_drivers += libr200
   _dri_link += 'r200_dri.so'
 endif
-if with_dri_nouveau
-  subdir('nouveau')
-  _dri_drivers += libnouveau_vieux
-  _dri_link += 'nouveau_vieux_dri.so'
-endif
 
 if _dri_drivers != []
   libmesa_dri_drivers = shared_library(
