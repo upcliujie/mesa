@@ -92,10 +92,11 @@ struct zink_descriptor_set {
    VkDescriptorSet desc_set;
    uint32_t hash;
    bool invalid;
+   bool punted;
    bool recycled;
    struct zink_descriptor_state_key key;
    struct util_dynarray barriers;
-   uint32_t batch_uses;
+   struct zink_batch_usage batch_uses;
 #ifndef NDEBUG
    /* for extra debug asserts */
    unsigned num_resources;
