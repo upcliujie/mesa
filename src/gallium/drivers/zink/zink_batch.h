@@ -41,6 +41,7 @@ struct zink_render_pass;
 struct zink_resource;
 struct zink_sampler;
 struct zink_sampler_view;
+struct zink_screen;
 struct zink_surface;
 
 struct zink_batch {
@@ -103,4 +104,7 @@ zink_batch_reference_image_view(struct zink_batch *batch,
 
 bool
 zink_batch_add_desc_set(struct zink_batch *batch, struct zink_descriptor_set *zds);
+
+void
+zink_batch_clear_resources(struct zink_screen *screen, struct zink_batch *batch);
 #endif

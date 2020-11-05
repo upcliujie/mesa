@@ -14,6 +14,17 @@
 #include "util/set.h"
 
 void
+zink_batch_clear_resources(struct zink_screen *screen, struct zink_batch *batch)
+{
+   /* unref all used resources */
+   set_foreach(batch->resources, entry) {
+      struct zink_resource_object *obj = (struct zink_resource_object *)entry->key;
+      zink_resource_object_reference(screen, &obj, NULL);
+      _mesa_set_remove(batch->resources, entry);
+   }
+}
+
+void
 zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
@@ -27,13 +38,7 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
 
    zink_render_pass_reference(screen, &batch->rp, NULL);
    zink_framebuffer_reference(screen, &batch->fb, NULL);
-
-   /* unref all used resources */
-   set_foreach(batch->resources, entry) {
-      struct zink_resource_object *obj = (struct zink_resource_object *)entry->key;
-      zink_resource_object_reference(screen, &obj, NULL);
-      _mesa_set_remove(batch->resources, entry);
-   }
+   zink_batch_clear_resources(screen, batch);
 
    /* unref all used sampler-views */
    set_foreach(batch->sampler_views, entry) {
