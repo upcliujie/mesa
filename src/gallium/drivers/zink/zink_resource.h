@@ -33,6 +33,7 @@ struct zink_context;
 #include "util/u_range.h"
 #include "util/u_dynarray.h"
 
+#include "zink_batch.h"
 #include "zink_descriptors.h"
 
 #include <vulkan/vulkan.h>
@@ -54,8 +55,8 @@ struct zink_resource_object {
    VkDeviceSize offset, size;
    struct zink_descriptor_refs desc_set_refs;
 
-   /* this has to be atomic for fence access, so we can't use a bitmask and make everything neat */
-   uint8_t batch_uses[5];
+   struct zink_batch_usage reads;
+   struct zink_batch_usage writes;
    bool is_buffer;
 };
 
@@ -110,9 +111,6 @@ zink_get_depth_stencil_resources(struct pipe_resource *res,
 
 void
 zink_resource_setup_transfer_layouts(struct zink_context *ctx, struct zink_resource *src, struct zink_resource *dst);
-
-int
-zink_get_resource_latest_batch_usage(struct zink_context *ctx, uint32_t batch_uses);
 
 bool
 zink_resource_has_usage(struct zink_resource *res, enum zink_resource_access usage, enum zink_queue queue);

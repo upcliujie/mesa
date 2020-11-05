@@ -37,7 +37,7 @@ struct zink_query {
    bool have_gs[NUM_QUERIES]; /* geometry shaders use GEOMETRY_SHADER_PRIMITIVES_BIT */
    bool have_xfb[NUM_QUERIES]; /* xfb was active during this query */
 
-   unsigned batch_id : 3; //batch that the query was started in
+   struct zink_batch_usage batch_id; //batch that the query was started in
 
    union pipe_query_result accumulated_result;
 };
@@ -128,10 +128,10 @@ static struct zink_batch *
 get_batch_for_query(struct zink_context *ctx, struct zink_query *query, bool no_rp)
 {
    if (query && is_cs_query(query))
-      return &ctx->compute_batch;
+      return zink_batch_c(ctx);
    if (no_rp)
       return zink_batch_no_rp(ctx);
-   return zink_curr_batch(ctx);
+   return zink_batch_g(ctx);
 }
 
 static struct pipe_query *
@@ -198,9 +198,9 @@ zink_create_query(struct pipe_context *pctx,
    }
    struct zink_batch *batch = get_batch_for_query(zink_context(pctx), query, true);
    batch->has_work = true;
-   vkCmdResetQueryPool(batch->cmdbuf, query->query_pool, 0, query->num_queries);
+   vkCmdResetQueryPool(batch->state->cmdbuf, query->query_pool, 0, query->num_queries);
    if (query->type == PIPE_QUERY_PRIMITIVES_GENERATED)
-      vkCmdResetQueryPool(batch->cmdbuf, query->xfb_query_pool[0], 0, query->num_queries);
+      vkCmdResetQueryPool(batch->state->cmdbuf, query->xfb_query_pool[0], 0, query->num_queries);
    if (query->type == PIPE_QUERY_TIMESTAMP)
       query->active = true;
    return (struct pipe_query *)query;
@@ -409,7 +409,7 @@ force_cpu_read(struct zink_context *ctx, struct pipe_query *pquery, bool wait, e
    unsigned result_size = result_type <= PIPE_QUERY_TYPE_U32 ? sizeof(uint32_t) : sizeof(uint64_t);
    struct zink_query *query = (struct zink_query*)pquery;
    union pipe_query_result result;
-   if (zink_curr_batch(ctx)->batch_id == query->batch_id)
+   if (zink_batch_usage_matches(&query->batch_id, ZINK_QUEUE_GFX, zink_batch_g(ctx)->state->batch_id))
       pctx->flush(pctx, NULL, PIPE_FLUSH_HINT_FINISH);
    else if (is_cs_query(query))
       zink_flush_compute(ctx);
@@ -459,7 +459,7 @@ copy_results_to_buffer(struct zink_context *ctx, struct zink_query *query, struc
    zink_batch_reference_resource_rw(batch, res, true);
    zink_resource_buffer_barrier(ctx, batch, res, VK_ACCESS_TRANSFER_WRITE_BIT, 0);
    util_range_add(&res->base, &res->valid_buffer_range, offset, offset + result_size);
-   vkCmdCopyQueryPoolResults(batch->cmdbuf, query->query_pool, query_id, num_results, res->obj->buffer,
+   vkCmdCopyQueryPoolResults(batch->state->cmdbuf, query->query_pool, query_id, num_results, res->obj->buffer,
                              offset, 0, flags);
    /* TODO: I don't really understand why, but we need to submit this cmdbuf or else the buffer isn't synced
     * for uniform reading later
@@ -482,12 +482,12 @@ reset_pool(struct zink_context *ctx, struct zink_batch *batch, struct zink_query
 
    if (q->type != PIPE_QUERY_TIMESTAMP)
       get_query_result(&ctx->base, (struct pipe_query*)q, false, &q->accumulated_result);
-   vkCmdResetQueryPool(batch->cmdbuf, q->query_pool, 0, q->num_queries);
+   vkCmdResetQueryPool(batch->state->cmdbuf, q->query_pool, 0, q->num_queries);
    if (q->type == PIPE_QUERY_PRIMITIVES_GENERATED)
-      vkCmdResetQueryPool(batch->cmdbuf, q->xfb_query_pool[0], 0, q->num_queries);
+      vkCmdResetQueryPool(batch->state->cmdbuf, q->xfb_query_pool[0], 0, q->num_queries);
    else if (q->type == PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE) {
       for (unsigned i = 0; i < ARRAY_SIZE(q->xfb_query_pool); i++)
-         vkCmdResetQueryPool(batch->cmdbuf, q->xfb_query_pool[i], 0, q->num_queries);
+         vkCmdResetQueryPool(batch->state->cmdbuf, q->xfb_query_pool[i], 0, q->num_queries);
    }
    memset(q->have_gs, 0, sizeof(q->have_gs));
    memset(q->have_xfb, 0, sizeof(q->have_xfb));
@@ -506,7 +506,7 @@ begin_query(struct zink_context *ctx, struct zink_batch *batch, struct zink_quer
    q->active = true;
    batch->has_work = true;
    if (q->type == PIPE_QUERY_TIME_ELAPSED)
-      vkCmdWriteTimestamp(batch->cmdbuf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, q->query_pool, q->curr_query++);
+      vkCmdWriteTimestamp(batch->state->cmdbuf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, q->query_pool, q->curr_query++);
    /* ignore the rest of begin_query for timestamps */
    if (is_time_query(q))
       return;
@@ -515,20 +515,20 @@ begin_query(struct zink_context *ctx, struct zink_batch *batch, struct zink_quer
    if (q->type == PIPE_QUERY_PRIMITIVES_EMITTED ||
        q->type == PIPE_QUERY_PRIMITIVES_GENERATED ||
        q->type == PIPE_QUERY_SO_OVERFLOW_PREDICATE) {
-      zink_screen(ctx->base.screen)->vk_CmdBeginQueryIndexedEXT(batch->cmdbuf,
+      zink_screen(ctx->base.screen)->vk_CmdBeginQueryIndexedEXT(batch->state->cmdbuf,
                                                                 q->xfb_query_pool[0] ? q->xfb_query_pool[0] : q->query_pool,
                                                                 q->curr_query,
                                                                 flags,
                                                                 q->index);
       q->xfb_running = true;
    } else if (q->type == PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE) {
-      zink_screen(ctx->base.screen)->vk_CmdBeginQueryIndexedEXT(batch->cmdbuf,
+      zink_screen(ctx->base.screen)->vk_CmdBeginQueryIndexedEXT(batch->state->cmdbuf,
                                                                 q->query_pool,
                                                                 q->curr_query,
                                                                 flags,
                                                                 0);
       for (unsigned i = 0; i < ARRAY_SIZE(q->xfb_query_pool); i++)
-         zink_screen(ctx->base.screen)->vk_CmdBeginQueryIndexedEXT(batch->cmdbuf,
+         zink_screen(ctx->base.screen)->vk_CmdBeginQueryIndexedEXT(batch->state->cmdbuf,
                                                                    q->xfb_query_pool[i],
                                                                    q->curr_query,
                                                                    flags,
@@ -536,15 +536,12 @@ begin_query(struct zink_context *ctx, struct zink_batch *batch, struct zink_quer
       q->xfb_running = true;
    }
    if (q->vkqtype != VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT)
-      vkCmdBeginQuery(batch->cmdbuf, q->query_pool, q->curr_query, flags);
-   if (!batch->active_queries)
-      batch->active_queries = _mesa_set_create(NULL, _mesa_hash_pointer, _mesa_key_pointer_equal);
-   assert(batch->active_queries);
+      vkCmdBeginQuery(batch->state->cmdbuf, q->query_pool, q->curr_query, flags);
    if (q->type == PIPE_QUERY_PRIMITIVES_GENERATED)
       list_addtail(&q->stats_list, &ctx->primitives_generated_queries);
    p_atomic_inc(&q->fences);
-   q->batch_id = batch->batch_id;
-   _mesa_set_add(batch->active_queries, q);
+   zink_batch_usage_set(&q->batch_id, batch->queue, batch->state->batch_id);
+   _mesa_set_add(batch->state->active_queries, q);
 }
 
 static bool
@@ -571,23 +568,23 @@ end_query(struct zink_context *ctx, struct zink_batch *batch, struct zink_query 
    batch->has_work = true;
    q->active = q->type == PIPE_QUERY_TIMESTAMP;
    if (is_time_query(q)) {
-      vkCmdWriteTimestamp(batch->cmdbuf, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+      vkCmdWriteTimestamp(batch->state->cmdbuf, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                           q->query_pool, q->curr_query);
-      q->batch_id = batch->batch_id;
+      zink_batch_usage_set(&q->batch_id, batch->queue, batch->state->batch_id);
    } else if (q->type == PIPE_QUERY_PRIMITIVES_EMITTED ||
             q->type == PIPE_QUERY_PRIMITIVES_GENERATED ||
             q->type == PIPE_QUERY_SO_OVERFLOW_PREDICATE)
-      screen->vk_CmdEndQueryIndexedEXT(batch->cmdbuf, q->xfb_query_pool[0] ? q->xfb_query_pool[0] :
-                                                                             q->query_pool,
+      screen->vk_CmdEndQueryIndexedEXT(batch->state->cmdbuf, q->xfb_query_pool[0] ? q->xfb_query_pool[0] :
+                                                                                    q->query_pool,
                                        q->curr_query, q->index);
 
    else if (q->type == PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE) {
-      screen->vk_CmdEndQueryIndexedEXT(batch->cmdbuf, q->query_pool, q->curr_query, 0);
+      screen->vk_CmdEndQueryIndexedEXT(batch->state->cmdbuf, q->query_pool, q->curr_query, 0);
       for (unsigned i = 0; i < ARRAY_SIZE(q->xfb_query_pool); i++)
-         screen->vk_CmdEndQueryIndexedEXT(batch->cmdbuf, q->xfb_query_pool[i], q->curr_query, i + 1);
+         screen->vk_CmdEndQueryIndexedEXT(batch->state->cmdbuf, q->xfb_query_pool[i], q->curr_query, i + 1);
    }
    if (q->vkqtype != VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT && !is_time_query(q))
-      vkCmdEndQuery(batch->cmdbuf, q->query_pool, q->curr_query);
+      vkCmdEndQuery(batch->state->cmdbuf, q->query_pool, q->curr_query);
    if (q->type == PIPE_QUERY_PRIMITIVES_GENERATED)
       list_delinit(&q->stats_list);
    if (++q->curr_query == q->num_queries) {
@@ -621,9 +618,10 @@ zink_get_query_result(struct pipe_context *pctx,
    struct zink_query *query = (void*)q;
    struct zink_context *ctx = zink_context(pctx);
    if (is_cs_query(query)) {
-      if (wait)
-         zink_wait_on_batch(ctx, ZINK_COMPUTE_BATCH_ID);
-      else {
+      if (wait) {
+         uint32_t batch_id = p_atomic_read(&query->batch_id.usage[ZINK_QUEUE_COMPUTE]);
+         zink_wait_on_batch(ctx, ZINK_QUEUE_COMPUTE, batch_id);
+      } else {
          zink_flush_compute(ctx);
       }
    } else {
@@ -638,9 +636,7 @@ zink_get_query_result(struct pipe_context *pctx,
 void
 zink_suspend_queries(struct zink_context *ctx, struct zink_batch *batch)
 {
-   if (!batch->active_queries)
-      return;
-   set_foreach(batch->active_queries, entry) {
+   set_foreach(batch->state->active_queries, entry) {
       struct zink_query *query = (void*)entry->key;
       /* if a query isn't active here then we don't need to reactivate it on the next batch */
       if (query->active) {
@@ -681,7 +677,7 @@ zink_set_active_query_state(struct pipe_context *pctx, bool enable)
    struct zink_context *ctx = zink_context(pctx);
    ctx->queries_disabled = !enable;
 
-   struct zink_batch *batch = zink_curr_batch(ctx);
+   struct zink_batch *batch = zink_batch_g(ctx);
    if (ctx->queries_disabled)
       zink_suspend_queries(ctx, batch);
    else
@@ -702,7 +698,7 @@ zink_render_condition(struct pipe_context *pctx,
 
    if (query == NULL) {
       zink_clear_apply_conditionals(ctx);
-      screen->vk_CmdEndConditionalRenderingEXT(batch->cmdbuf);
+      screen->vk_CmdEndConditionalRenderingEXT(batch->state->cmdbuf);
       ctx->render_condition_active = false;
       return;
    }
@@ -731,11 +727,11 @@ zink_render_condition(struct pipe_context *pctx,
    if (query->type != PIPE_QUERY_PRIMITIVES_GENERATED &&
        !is_so_overflow_query(query)) {
       copy_results_to_buffer(ctx, query, res, 0, num_results, flags);
-      batch = zink_curr_batch(ctx);
+      batch = zink_batch_g(ctx);
    } else {
       /* these need special handling */
       force_cpu_read(ctx, pquery, true, PIPE_QUERY_TYPE_U32, pres, 0);
-      batch = zink_curr_batch(ctx);
+      batch = zink_batch_g(ctx);
       zink_batch_reference_resource_rw(batch, res, false);
    }
 
@@ -746,7 +742,7 @@ zink_render_condition(struct pipe_context *pctx,
    begin_info.sType = VK_STRUCTURE_TYPE_CONDITIONAL_RENDERING_BEGIN_INFO_EXT;
    begin_info.buffer = res->obj->buffer;
    begin_info.flags = begin_flags;
-   screen->vk_CmdBeginConditionalRenderingEXT(batch->cmdbuf, &begin_info);
+   screen->vk_CmdBeginConditionalRenderingEXT(batch->state->cmdbuf, &begin_info);
    ctx->render_condition_active = true;
 
    pipe_resource_reference(&pres, NULL);

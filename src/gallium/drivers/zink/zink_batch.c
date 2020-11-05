@@ -13,121 +13,126 @@
 #include "util/u_debug.h"
 #include "util/set.h"
 
+static void
+batch_usage_unset(struct zink_batch_usage *u, enum zink_queue queue, uint32_t batch_id)
+{
+   p_atomic_cmpxchg(&u->usage[queue], batch_id, 0);
+}
+
 void
-zink_batch_clear_resources(struct zink_screen *screen, struct zink_batch *batch)
+zink_batch_state_clear_resources(struct zink_screen *screen, struct zink_batch_state *bs)
 {
    /* unref all used resources */
-   set_foreach(batch->resources, entry) {
+   set_foreach(bs->resources, entry) {
       struct zink_resource_object *obj = (struct zink_resource_object *)entry->key;
+      batch_usage_unset(&obj->reads, !!bs->is_compute, bs->batch_id);
+      batch_usage_unset(&obj->writes, !!bs->is_compute, bs->batch_id);
       zink_resource_object_reference(screen, &obj, NULL);
-      _mesa_set_remove(batch->resources, entry);
+      _mesa_set_remove(bs->resources, entry);
    }
 }
 
 void
-zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
+zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   batch->descs_used = 0;
 
-   // cmdbuf hasn't been submitted before
-   if (!batch->submitted)
-      return;
+   zink_render_pass_reference(screen, &bs->rp, NULL);
+   zink_framebuffer_reference(screen, &bs->fb, NULL);
+   zink_batch_state_clear_resources(screen, bs);
 
-   zink_fence_finish(screen, &ctx->base, batch->fence, PIPE_TIMEOUT_INFINITE);
-
-   zink_render_pass_reference(screen, &batch->rp, NULL);
-   zink_framebuffer_reference(screen, &batch->fb, NULL);
-   zink_batch_clear_resources(screen, batch);
-
-   set_foreach(batch->active_queries, entry) {
+   set_foreach(bs->active_queries, entry) {
       struct zink_query *query = (void*)entry->key;
       zink_prune_query(screen, query);
-      _mesa_set_remove(batch->active_queries, entry);
+      _mesa_set_remove(bs->active_queries, entry);
    }
 
-   /* unref all used sampler-views */
-   set_foreach(batch->sampler_views, entry) {
-      struct pipe_sampler_view *pres = (struct pipe_sampler_view *)entry->key;
-      struct zink_sampler_view *sampler_view = zink_sampler_view(pres);
-      sampler_view->batch_uses &= ~BITFIELD64_BIT(batch->batch_id);
-      if (sampler_view->base.target == PIPE_BUFFER) {
-         struct zink_buffer_view *buffer_view = sampler_view->buffer_view;
-         zink_buffer_view_reference(ctx, &buffer_view, NULL);
-      } else {
-         struct zink_surface *surface = sampler_view->image_view;
-         pipe_surface_reference((struct pipe_surface**)&surface, NULL);
-      }
-      pipe_sampler_view_reference(&pres, NULL);
-      _mesa_set_remove(batch->sampler_views, entry);
-   }
-
-   set_foreach(batch->samplers, entry) {
+   set_foreach(bs->samplers, entry) {
       struct zink_sampler *sampler = (struct zink_sampler*)entry->key;
-      sampler->batch_uses &= ~BITFIELD64_BIT(batch->batch_id);
+      batch_usage_unset(&sampler->batch_uses, !!bs->is_compute, bs->batch_id);
       zink_sampler_reference(ctx, &sampler, NULL);
-      _mesa_set_remove(batch->samplers, entry);
+      _mesa_set_remove(bs->samplers, entry);
    }
 
-   set_foreach(batch->surfaces, entry) {
+   set_foreach(bs->surfaces, entry) {
       struct zink_surface *surf = (struct zink_surface *)entry->key;
-      surf->batch_uses &= ~BITFIELD64_BIT(batch->batch_id);
+      batch_usage_unset(&surf->batch_uses, !!bs->is_compute, bs->batch_id);
       pipe_surface_reference((struct pipe_surface**)&surf, NULL);
-      _mesa_set_remove(batch->surfaces, entry);
+      _mesa_set_remove(bs->surfaces, entry);
    }
-   set_foreach(batch->bufferviews, entry) {
+   set_foreach(bs->bufferviews, entry) {
       struct zink_buffer_view *buffer_view = (struct zink_buffer_view *)entry->key;
-      buffer_view->batch_uses &= ~BITFIELD64_BIT(batch->batch_id);
+      batch_usage_unset(&buffer_view->batch_uses, !!bs->is_compute, bs->batch_id);
       zink_buffer_view_reference(ctx, &buffer_view, NULL);
-      _mesa_set_remove(batch->bufferviews, entry);
+      _mesa_set_remove(bs->bufferviews, entry);
    }
 
-   set_foreach(batch->desc_sets, entry) {
+   set_foreach(bs->desc_sets, entry) {
       struct zink_descriptor_set *zds = (void*)entry->key;
-      zds->batch_uses &= ~BITFIELD64_BIT(batch->batch_id);
-      /* reset descriptor pools when no batch is using this program to avoid
+      batch_usage_unset(&zds->batch_uses, !!bs->is_compute, bs->batch_id);
+      /* reset descriptor pools when no bs is using this program to avoid
        * having some inactive program hogging a billion descriptors
        */
       pipe_reference(&zds->reference, NULL);
       zink_descriptor_set_recycle(zds);
-      _mesa_set_remove(batch->desc_sets, entry);
+      _mesa_set_remove(bs->desc_sets, entry);
    }
 
-   set_foreach(batch->programs, entry) {
-      if (batch->batch_id == ZINK_COMPUTE_BATCH_ID) {
+   set_foreach(bs->programs, entry) {
+      if (bs->is_compute) {
          struct zink_compute_program *comp = (struct zink_compute_program*)entry->key;
          zink_compute_program_reference(screen, &comp, NULL);
       } else {
          struct zink_gfx_program *prog = (struct zink_gfx_program*)entry->key;
          zink_gfx_program_reference(screen, &prog, NULL);
       }
-      _mesa_set_remove(batch->programs, entry);
+      _mesa_set_remove(bs->programs, entry);
    }
 
-   if (vkResetCommandPool(screen->dev, batch->cmdpool, 0) != VK_SUCCESS)
-      fprintf(stderr, "vkResetCommandPool failed\n");
-   batch->submitted = batch->has_work = false;
-   batch->resource_size = 0;
+   bs->descs_used = 0;
+   ctx->resource_size[bs->is_compute] -= bs->resource_size;
+   bs->resource_size = 0;
 }
 
 void
-zink_batch_destroy(struct zink_context* ctx, struct zink_batch *batch)
+zink_batch_reset_all(struct zink_context *ctx, enum zink_queue queue)
 {
-   struct zink_screen *screen = zink_screen(ctx->base.screen);
-
-   vkFreeCommandBuffers(screen->dev, batch->cmdpool, 1, &batch->cmdbuf);
-   vkDestroyCommandPool(screen->dev, batch->cmdpool, NULL);
-   zink_fence_reference(screen, &batch->fence, NULL);
-
-   for (struct hash_entry* entry = _mesa_hash_table_next_entry(batch->framebuffer_cache, NULL);
-        entry != NULL;
-        entry = _mesa_hash_table_next_entry(batch->framebuffer_cache, entry)) {
-      struct zink_framebuffer* fb = (struct zink_framebuffer*)entry->data;
-      zink_framebuffer_reference(screen, &fb, NULL);
+   hash_table_foreach(&ctx->batch_states[queue], entry) {
+      struct zink_batch_state *bs = entry->data;
+      zink_reset_batch_state(ctx, bs);
+      _mesa_hash_table_remove(&ctx->batch_states[queue], entry);
+      util_dynarray_append(&ctx->free_batch_states[queue], struct zink_batch_state *, bs);
    }
-   _mesa_hash_table_destroy(batch->framebuffer_cache, NULL);
-
 }
+
+void
+zink_batch_state_destroy(struct zink_screen *screen, struct zink_batch_state *bs)
+{
+   if (!bs)
+      return;
+
+   if (bs->cmdbuf)
+      vkFreeCommandBuffers(screen->dev, bs->cmdpool, 1, &bs->cmdbuf);
+   if (bs->cmdpool)
+      vkDestroyCommandPool(screen->dev, bs->cmdpool, NULL);
+
+   if (bs->framebuffer_cache) {
+      hash_table_foreach(bs->framebuffer_cache, entry) {
+         struct zink_framebuffer* fb = (struct zink_framebuffer*)entry->data;
+         zink_framebuffer_reference(screen, &fb, NULL);
+      }
+   }
+   _mesa_hash_table_destroy(bs->framebuffer_cache, NULL);
+   _mesa_set_destroy(bs->resources, NULL);
+   _mesa_set_destroy(bs->samplers, NULL);
+   _mesa_set_destroy(bs->surfaces, NULL);
+   _mesa_set_destroy(bs->bufferviews, NULL);
+   _mesa_set_destroy(bs->programs, NULL);
+   _mesa_set_destroy(bs->desc_sets, NULL);
+   _mesa_set_destroy(bs->active_queries, NULL);
+   ralloc_free(bs);
+}
+
 
 static uint32_t
 hash_framebuffer_state(const void *key)
@@ -143,60 +148,127 @@ equals_framebuffer_state(const void *a, const void *b)
    return memcmp(a, b, offsetof(struct zink_framebuffer_state, attachments) + sizeof(s->attachments[0]) * s->num_attachments) == 0;
 }
 
-static void
-init_batch(struct zink_context *ctx, struct zink_batch *batch)
+static struct zink_batch_state *
+create_batch_state(struct zink_context *ctx, enum zink_queue queue)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
+   struct zink_batch_state *bs = rzalloc(NULL, struct zink_batch_state);
    VkCommandPoolCreateInfo cpci = {};
    cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-   cpci.queueFamilyIndex = batch->batch_id == ZINK_COMPUTE_BATCH_ID ?
+   cpci.queueFamilyIndex = queue == ZINK_QUEUE_COMPUTE ?
                                   (screen->compute_queue != UINT_MAX ? screen->compute_queue : screen->gfx_queue) :
                                   screen->gfx_queue;
    cpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-   if (vkCreateCommandPool(screen->dev, &cpci, NULL, &batch->cmdpool) != VK_SUCCESS)
-      return;
+   if (vkCreateCommandPool(screen->dev, &cpci, NULL, &bs->cmdpool) != VK_SUCCESS)
+      goto fail;
 
    VkCommandBufferAllocateInfo cbai = {};
    cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-   cbai.commandPool = batch->cmdpool;
+   cbai.commandPool = bs->cmdpool;
    cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
    cbai.commandBufferCount = 1;
 
-   if (vkAllocateCommandBuffers(screen->dev, &cbai, &batch->cmdbuf) != VK_SUCCESS)
-      return;
+   if (vkAllocateCommandBuffers(screen->dev, &cbai, &bs->cmdbuf) != VK_SUCCESS)
+      goto fail;
 
-   batch->resources = _mesa_pointer_set_create(NULL);
-   batch->sampler_views = _mesa_pointer_set_create(NULL);
-   batch->samplers = _mesa_pointer_set_create(NULL);
-   batch->surfaces = _mesa_pointer_set_create(NULL);
-   batch->bufferviews = _mesa_pointer_set_create(NULL);
-   batch->programs = _mesa_pointer_set_create(NULL);
-   batch->desc_sets = _mesa_pointer_set_create(ctx);
-   batch->framebuffer_cache = _mesa_hash_table_create(NULL,
-                                                               hash_framebuffer_state,
-                                                               equals_framebuffer_state);
+#define SET_CREATE_OR_FAIL(ptr) \
+   ptr = _mesa_pointer_set_create(bs); \
+   if (!ptr) \
+      goto fail
 
-   if (!batch->resources || !batch->sampler_views || !batch->samplers || !batch->desc_sets ||
-       !batch->programs || !batch->surfaces || !batch->bufferviews ||
-       !batch->framebuffer_cache)
-      return;
+   SET_CREATE_OR_FAIL(bs->resources);
+   SET_CREATE_OR_FAIL(bs->samplers);
+   SET_CREATE_OR_FAIL(bs->surfaces);
+   SET_CREATE_OR_FAIL(bs->bufferviews);
+   SET_CREATE_OR_FAIL(bs->programs);
+   SET_CREATE_OR_FAIL(bs->desc_sets);
+   SET_CREATE_OR_FAIL(bs->active_queries);
 
-   batch->fence = zink_create_fence(ctx->base.screen, batch);
+   bs->framebuffer_cache = _mesa_hash_table_create(bs, hash_framebuffer_state, equals_framebuffer_state);
+   if (!bs->framebuffer_cache)
+      goto fail;
+
+   if (!zink_create_fence(screen, bs))
+      /* this destroys the batch state on failure */
+      return NULL;
+
+   bs->is_compute = queue == ZINK_QUEUE_COMPUTE;
+
+   return bs;
+fail:
+   zink_batch_state_destroy(screen, bs);
+   return NULL;
+}
+
+static bool
+find_unused_state(struct hash_entry *entry)
+{
+   struct zink_fence *fence = entry->data;
+   /* we can't reset these from fence_finish because threads */
+   bool submitted = p_atomic_read(&fence->submitted);
+   return !submitted;
+}
+
+static void
+init_batch_state(struct zink_context *ctx, struct zink_batch *batch)
+{
+   struct zink_batch_state *bs = NULL;
+
+   if (util_dynarray_num_elements(&ctx->free_batch_states[batch->queue], struct zink_batch_state*))
+      bs = util_dynarray_pop(&ctx->free_batch_states[batch->queue], struct zink_batch_state*);
+   if (!bs) {
+      struct hash_entry *he = _mesa_hash_table_random_entry(&ctx->batch_states[batch->queue], find_unused_state);
+      if (he) { //there may not be any entries available
+         bs = he->data;
+         _mesa_hash_table_remove(&ctx->batch_states[batch->queue], he);
+         zink_reset_batch_state(ctx, bs);
+      }
+   }
+   if (!bs) {
+      if (!batch->state) {
+         /* this is batch init, so create a few more states for later use */
+         for (int i = 0; i < 3; i++) {
+            struct zink_batch_state *state = create_batch_state(ctx, batch->queue);
+            util_dynarray_append(&ctx->free_batch_states[batch->queue], struct zink_batch_state *, state);
+         }
+      }
+      bs = create_batch_state(ctx, batch->queue);
+   }
+   batch->state = bs;
+}
+
+void
+zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   bool fresh = !batch->state;
+
+   init_batch_state(ctx, batch);
+   assert(batch->state);
+
+   if (!fresh) {
+      if (vkResetCommandPool(screen->dev, batch->state->cmdpool, 0) != VK_SUCCESS)
+         fprintf(stderr, "vkResetCommandPool failed\n");
+   }
+   batch->has_work = false;
 }
 
 void
 zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
 {
-   if (!batch->fence)
-      init_batch(ctx, batch);
    zink_reset_batch(ctx, batch);
 
    VkCommandBufferBeginInfo cbbi = {};
    cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
    cbbi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-   if (vkBeginCommandBuffer(batch->cmdbuf, &cbbi) != VK_SUCCESS)
+   if (vkBeginCommandBuffer(batch->state->cmdbuf, &cbbi) != VK_SUCCESS)
       debug_printf("vkBeginCommandBuffer failed\n");
 
+   batch->state->batch_id = ctx->curr_batch;
+   if (ctx->last_fence[batch->queue]) {
+      struct zink_batch_state *last_state = zink_batch_state(ctx->last_fence[batch->queue]);
+      batch->last_batch_id = last_state->batch_id;
+   }
    if (!ctx->queries_disabled)
       zink_resume_queries(ctx, batch);
 }
@@ -207,13 +279,12 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
    if (!ctx->queries_disabled)
       zink_suspend_queries(ctx, batch);
 
-   if (vkEndCommandBuffer(batch->cmdbuf) != VK_SUCCESS) {
+   if (vkEndCommandBuffer(batch->state->cmdbuf) != VK_SUCCESS) {
       debug_printf("vkEndCommandBuffer failed\n");
       return;
    }
 
-   vkResetFences(zink_screen(ctx->base.screen)->dev, 1, &batch->fence->fence);
-   zink_fence_init(batch->fence, batch);
+   zink_fence_init(ctx, batch);
 
    VkSubmitInfo si = {};
    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -223,9 +294,9 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
    si.pSignalSemaphores = NULL;
    si.pWaitDstStageMask = NULL;
    si.commandBufferCount = 1;
-   si.pCommandBuffers = &batch->cmdbuf;
+   si.pCommandBuffers = &batch->state->cmdbuf;
 
-   if (vkQueueSubmit(batch->batch_id != ZINK_COMPUTE_BATCH_ID ? ctx->queue : ctx->compute_queue, 1, &si, batch->fence->fence) != VK_SUCCESS) {
+   if (vkQueueSubmit(ctx->queue[batch->queue], 1, &si, batch->state->fence.fence) != VK_SUCCESS) {
       debug_printf("ZINK: vkQueueSubmit() failed\n");
       ctx->is_device_lost = true;
 
@@ -233,13 +304,15 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
          ctx->reset.reset(ctx->reset.data, PIPE_GUILTY_CONTEXT_RESET);
       }
    }
-   batch->submitted = true;
+
+   ctx->last_fence[batch->queue] = &batch->state->fence;
+   _mesa_hash_table_insert_pre_hashed(&ctx->batch_states[batch->queue], batch->state->batch_id, (void*)(uintptr_t)batch->state->batch_id, batch->state);
+   ctx->resource_size[batch->queue] += batch->state->resource_size;
 }
 
 enum zink_queue
 zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource *res, bool write)
 {
-   unsigned mask = write ? ZINK_RESOURCE_ACCESS_WRITE : ZINK_RESOURCE_ACCESS_READ;
    enum zink_queue batch_to_flush = 0;
 
    /* u_transfer_helper unrefs the stencil buffer when the depth buffer is unrefed,
@@ -249,7 +322,7 @@ zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource 
 
    zink_get_depth_stencil_resources((struct pipe_resource*)res, NULL, &stencil);
 
-   if (batch->batch_id == ZINK_COMPUTE_BATCH_ID) {
+   if (batch->queue == ZINK_QUEUE_COMPUTE) {
       if ((write && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_RW, ZINK_QUEUE_GFX)) ||
           (!write && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_WRITE, ZINK_QUEUE_GFX)))
          batch_to_flush = ZINK_QUEUE_GFX;
@@ -260,46 +333,63 @@ zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource 
    }
 
    /* if the resource already has usage of any sort set for this batch, we can skip hashing */
-   if (!zink_resource_has_usage_for_id(res, batch->batch_id)) {
+   if (!zink_batch_usage_matches(&res->obj->reads, batch->queue, batch->state->batch_id) &&
+       !zink_batch_usage_matches(&res->obj->writes, batch->queue, batch->state->batch_id)) {
       bool found = false;
-      _mesa_set_search_and_add(batch->resources, res->obj, &found);
+      _mesa_set_search_and_add(batch->state->resources, res->obj, &found);
       if (!found) {
          pipe_reference(NULL, &res->obj->reference);
-         batch->resource_size += res->obj->size;
+         if (!batch->last_batch_id || !zink_batch_usage_matches(&res->obj->reads, batch->queue, batch->last_batch_id))
+            /* only add resource usage if it's "new" usage, though this only checks the most recent usage
+             * and not all pending usages
+             */
+            batch->state->resource_size += res->obj->size;
          if (stencil) {
             pipe_reference(NULL, &stencil->base.reference);
-            batch->resource_size += stencil->obj->size;
+            if (!batch->last_batch_id || !zink_batch_usage_matches(&stencil->obj->reads, batch->queue, batch->last_batch_id))
+               batch->state->resource_size += stencil->obj->size;
          }
       }
+       }
+   if (write) {
+      if (stencil)
+         zink_batch_usage_set(&stencil->obj->writes, batch->queue, batch->state->batch_id);
+      zink_batch_usage_set(&res->obj->writes, batch->queue, batch->state->batch_id);
+   } else {
+      if (stencil)
+         zink_batch_usage_set(&stencil->obj->reads, batch->queue, batch->state->batch_id);
+      zink_batch_usage_set(&res->obj->reads, batch->queue, batch->state->batch_id);
    }
-   /* the batch_uses value for this batch is guaranteed to not be in use now because
-    * zink_reset_batch() waits on the fence and removes access before resetting
-    */
-   res->obj->batch_uses[batch->batch_id] |= mask;
-
-   if (stencil)
-      stencil->obj->batch_uses[batch->batch_id] |= mask;
 
    batch->has_work = true;
    return batch_to_flush;
+}
+
+static bool
+ptr_add_usage(struct zink_batch *batch, struct set *s, void *ptr, struct zink_batch_usage *u)
+{
+   bool found = false;
+   if (zink_batch_usage_matches(u, batch->queue, batch->state->batch_id))
+      return false;
+   _mesa_set_search_and_add(s, ptr, &found);
+   assert(!found);
+   zink_batch_usage_set(u, batch->queue, batch->state->batch_id);
+   return true;
 }
 
 void
 zink_batch_reference_sampler_view(struct zink_batch *batch,
                                   struct zink_sampler_view *sv)
 {
-   bool found = false;
-   uint32_t bit = BITFIELD64_BIT(batch->batch_id);
-   if (sv->batch_uses & bit)
-      return;
-   _mesa_set_search_and_add(batch->sampler_views, sv, &found);
-   assert(!found);
-   sv->batch_uses |= bit;
-   pipe_reference(NULL, &sv->base.reference);
-   if (sv->base.target == PIPE_BUFFER)
+   if (sv->base.target == PIPE_BUFFER) {
+      if (!ptr_add_usage(batch, batch->state->bufferviews, sv->buffer_view, &sv->buffer_view->batch_uses))
+         return;
       pipe_reference(NULL, &sv->buffer_view->reference);
-   else
+   } else {
+      if (!ptr_add_usage(batch, batch->state->surfaces, sv->image_view, &sv->image_view->batch_uses))
+         return;
       pipe_reference(NULL, &sv->image_view->base.reference);
+   }
    batch->has_work = true;
 }
 
@@ -307,13 +397,8 @@ void
 zink_batch_reference_sampler(struct zink_batch *batch,
                              struct zink_sampler *sampler)
 {
-   bool found = false;
-   uint32_t bit = BITFIELD64_BIT(batch->batch_id);
-   if (sampler->batch_uses & bit)
+   if (!ptr_add_usage(batch, batch->state->samplers, sampler, &sampler->batch_uses))
       return;
-   _mesa_set_search_and_add(batch->samplers, sampler, &found);
-   assert(!found);
-   sampler->batch_uses |= bit;
    pipe_reference(NULL, &sampler->reference);
    batch->has_work = true;
 }
@@ -323,7 +408,7 @@ zink_batch_reference_program(struct zink_batch *batch,
                              struct zink_program *pg)
 {
    bool found = false;
-   _mesa_set_search_and_add(batch->programs, pg, &found);
+   _mesa_set_search_and_add(batch->state->programs, pg, &found);
    if (!found)
       pipe_reference(NULL, &pg->reference);
    batch->has_work = true;
@@ -332,37 +417,59 @@ zink_batch_reference_program(struct zink_batch *batch,
 bool
 zink_batch_add_desc_set(struct zink_batch *batch, struct zink_descriptor_set *zds)
 {
-   bool found = false;
-   uint32_t bit = BITFIELD64_BIT(batch->batch_id);
-   if (zds->batch_uses & bit)
+   if (!ptr_add_usage(batch, batch->state->desc_sets, zds, &zds->batch_uses))
       return false;
-   _mesa_set_search_and_add(batch->desc_sets, zds, &found);
-   assert(!found);
-   zds->batch_uses |= bit;
    pipe_reference(NULL, &zds->reference);
-   return !found;
+   return true;
 }
 
 void
 zink_batch_reference_image_view(struct zink_batch *batch,
                                 struct zink_image_view *image_view)
 {
-   bool found = false;
-   uint32_t bit = BITFIELD64_BIT(batch->batch_id);
    if (image_view->base.resource->target == PIPE_BUFFER) {
-      if (image_view->buffer_view->batch_uses & bit)
+      if (!ptr_add_usage(batch, batch->state->bufferviews, image_view->buffer_view, &image_view->buffer_view->batch_uses))
          return;
-      _mesa_set_search_and_add(batch->bufferviews, image_view->buffer_view, &found);
-      assert(!found);
-      image_view->buffer_view->batch_uses |= bit;
       pipe_reference(NULL, &image_view->buffer_view->reference);
    } else {
-      if (image_view->surface->batch_uses & bit)
+      if (!ptr_add_usage(batch, batch->state->surfaces, image_view->surface, &image_view->surface->batch_uses))
          return;
-      _mesa_set_search_and_add(batch->surfaces, image_view->surface, &found);
-      assert(!found);
-      image_view->surface->batch_uses |= bit;
       pipe_reference(NULL, &image_view->surface->base.reference);
    }
    batch->has_work = true;
+}
+
+void
+zink_batch_usage_set(struct zink_batch_usage *u, enum zink_queue queue, uint32_t batch_id)
+{
+   if (queue == ZINK_QUEUE_ANY) {
+      p_atomic_set(&u->usage[ZINK_QUEUE_GFX], batch_id);
+      p_atomic_set(&u->usage[ZINK_QUEUE_COMPUTE], batch_id);
+   } else
+      p_atomic_set(&u->usage[queue], batch_id);
+}
+
+bool
+zink_batch_usage_matches(struct zink_batch_usage *u, enum zink_queue queue, uint32_t batch_id)
+{
+   if (queue < ZINK_QUEUE_ANY) {
+      uint32_t usage = p_atomic_read(&u->usage[queue]);
+      return usage == batch_id;
+   }
+   for (unsigned i = 0; i < ZINK_QUEUE_ANY; i++) {
+      uint32_t usage = p_atomic_read(&u->usage[queue]);
+      if (usage == batch_id)
+         return true;
+   }
+   return false;
+}
+
+bool
+zink_batch_usage_exists(struct zink_batch_usage *u)
+{
+   uint32_t usage = p_atomic_read(&u->usage[ZINK_QUEUE_GFX]);
+   if (usage)
+      return true;
+   usage = p_atomic_read(&u->usage[ZINK_QUEUE_COMPUTE]);
+   return !!usage;
 }
