@@ -154,6 +154,24 @@ bi_emit_ld_vary(bi_context *ctx, nir_intrinsic_instr *instr)
         ins.dest_type = nir_type_float | nir_dest_bit_size(instr->dest);
         ins.format = ins.dest_type;
 
+        if (instr->intrinsic == nir_intrinsic_load_interpolated_input) {
+                nir_intrinsic_instr *parent = nir_src_as_intrinsic(instr->src[0]);
+                if (parent) {
+                        switch (parent->intrinsic) {
+                        case nir_intrinsic_load_barycentric_centroid:
+                                ins.load_vary.interp_mode = BIFROST_INTERP_CENTROID;
+                                break;
+                        case nir_intrinsic_load_barycentric_sample:
+                                ins.load_vary.interp_mode = BIFROST_INTERP_SAMPLE;
+                                break;
+                        case nir_intrinsic_load_barycentric_pixel:
+                        default:
+                                /* Default to BIFROST_INTERP_CENTER. */
+                                break;
+                        }
+                }
+        }
+
         if (nir_src_is_const(*nir_get_io_offset_src(instr))) {
                 /* Zero it out for direct */
                 ins.src[1] = BIR_INDEX_ZERO;
@@ -681,6 +699,8 @@ emit_intrinsic(bi_context *ctx, nir_intrinsic_instr *instr)
 
         switch (instr->intrinsic) {
         case nir_intrinsic_load_barycentric_pixel:
+        case nir_intrinsic_load_barycentric_centroid:
+        case nir_intrinsic_load_barycentric_sample:
                 /* stub */
                 break;
         case nir_intrinsic_load_interpolated_input:
