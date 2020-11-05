@@ -5659,9 +5659,11 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
     *     is set due to new association of BTI, PS Scoreboard Stall bit must
     *     be set in this packet."
     */
-   cmd_buffer->state.pending_pipe_bits |=
-      ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
-      ANV_PIPE_STALL_AT_SCOREBOARD_BIT;
+   if (!cmd_buffer->device->state_cache_perf_fix_disabled) {
+      cmd_buffer->state.pending_pipe_bits |=
+         ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
+         ANV_PIPE_STALL_AT_SCOREBOARD_BIT;
+   }
 #endif
 
 #if GEN_GEN == 12
