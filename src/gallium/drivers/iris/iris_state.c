@@ -5887,7 +5887,8 @@ iris_upload_dirty_render_state(struct iris_context *ice,
       }
    }
 
-   if (GEN_GEN >= 11 && (dirty & IRIS_DIRTY_RENDER_BUFFER)) {
+   if (GEN_GEN >= 11 && (dirty & IRIS_DIRTY_RENDER_BUFFER) &&
+       !batch->state_cache_perf_fix_disabled) {
       // XXX: we may want to flag IRIS_DIRTY_MULTISAMPLE (or SAMPLE_MASK?)
       // XXX: see commit 979fc1bc9bcc64027ff2cfafd285676f31b930a6
 
