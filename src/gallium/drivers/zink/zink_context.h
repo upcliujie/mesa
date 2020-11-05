@@ -36,6 +36,7 @@
 #include "zink_compiler.h"
 #include "zink_descriptors.h"
 #include "zink_helpers.h"
+#include "zink_surface.h"
 
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
@@ -56,7 +57,6 @@ struct zink_depth_stencil_alpha_state;
 struct zink_gfx_program;
 struct zink_rasterizer_state;
 struct zink_resource;
-struct zink_surface;
 struct zink_vertex_elements_state;
 
 enum zink_blit_flags {
@@ -75,7 +75,7 @@ struct zink_sampler_view {
    struct pipe_sampler_view base;
    struct zink_descriptor_refs desc_set_refs;
    union {
-      VkImageView image_view;
+      struct zink_surface *image_view;
       struct zink_buffer_view *buffer_view;
    };
    uint32_t hash;
