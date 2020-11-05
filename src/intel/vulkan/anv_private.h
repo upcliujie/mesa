@@ -1268,6 +1268,7 @@ struct anv_device {
     const struct intel_l3_config                *l3_config;
 
     struct intel_debug_block_frame              *debug_frame_desc;
+    bool                                        state_cache_perf_fix_disabled;
 };
 
 #if defined(GFX_VERx10) && GFX_VERx10 >= 90

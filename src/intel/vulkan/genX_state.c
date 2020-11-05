@@ -152,6 +152,104 @@ genX(emit_slice_hashing_state)(struct anv_device *device,
 #endif
 }
 
+#if GFX_VER >= 11
+static bool
+anv_write_and_validate_chicken3_reg(struct anv_device *device,
+                                    struct anv_queue *queue)
+{
+   struct anv_batch batch;
+   struct anv_bo *result_bo, *batch_bo;
+   VkResult result;
+   bool success = false;
+
+   uint32_t cmds[64];
+   batch.start = batch.next = cmds;
+   batch.end = (void *) cmds + sizeof(cmds);
+
+   uint32_t chicken3;
+   /* Bspec Register_ChickenbitforCommonSliceRegister3 section:
+    *
+    *    "If this bit is enabled, RCC uses BTP+BTI as address tag in its state
+    *    cache instead of BTI only."
+    *
+    * This helps to drop RT flush and PS Scoreboard stall due to new
+    * association of BTI.
+    */
+   anv_pack_struct(&chicken3,
+                   GENX(COMMON_SLICE_CHICKEN3),
+                   .StateCachePerfFixDisabled = true,
+                   .StateCachePerfFixDisabledMask = true);
+
+   anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
+      lri.RegisterOffset = GENX(COMMON_SLICE_CHICKEN3_num);
+      lri.DataDWord      = chicken3;
+   }
+
+   /* Create a zero'ed temporary buffer for reading out results. */
+   result = anv_device_alloc_bo(device, "chicken3-result", 4096,
+                                ANV_BO_ALLOC_MAPPED,
+                                0, /* explicit_address */
+                                &result_bo);
+   if (result != VK_SUCCESS)
+      return success;
+
+   /* Save the register's value back to the buffer. */
+   anv_batch_emit(&batch, GENX(MI_STORE_REGISTER_MEM), srm) {
+      srm.RegisterAddress = GENX(COMMON_SLICE_CHICKEN3_num);
+   }
+
+   /* Emit MI_BATCH_BUFFER_END to prevent any further command to be
+    * executed.
+    */
+   anv_batch_emit(&batch, GENX(MI_BATCH_BUFFER_END), bbe);
+   assert(batch.next <= batch.end);
+
+   uint32_t size = align_u32(batch.next - batch.start, 8);
+   result = anv_bo_pool_alloc(&device->batch_bo_pool, size, &batch_bo);
+   if (result != VK_SUCCESS) {
+      anv_device_release_bo(device, result_bo);
+      return success;
+   }
+   memcpy(batch_bo->map, batch.start, size);
+
+   struct drm_i915_gem_exec_object2 exec_objs[2] = {
+      { .handle = result_bo->gem_handle },
+      { .handle = batch_bo->gem_handle },
+   };
+
+   struct drm_i915_gem_execbuffer2 execbuf = {
+      .buffers_ptr = (uintptr_t) exec_objs,
+      .batch_start_offset = 0,
+      .buffer_count = 2,
+      .batch_len = size,
+      .flags = queue->exec_flags,
+      .rsvd1 = device->context_id,
+   };
+
+   /* Don't bother with the error checking - if the execbuf fails, the value
+    * won't be written and we'll just report that there's no access.
+    */
+   anv_gem_execbuffer(device, &execbuf);
+
+   /* wait for batch to complete */
+   anv_device_wait(device, batch_bo, anv_get_relative_timeout(INT64_MAX));
+
+   /* Check whether the value got written. */
+   if (result_bo->map) {
+      /* Check if bit 13 is set or not instead of comparing expected value
+       * since KMD is setting bit 11 on Gen11 and bit 9 on Gen12 already for
+       * COMMON_SLICE_CHICKEN3 register.
+       */
+      success = *((uint32_t *) result_bo->map) & (1 << 13);
+   }
+
+   anv_device_release_bo(device, result_bo);
+   anv_bo_pool_free(&device->batch_bo_pool, batch_bo);
+
+   return success;
+}
+#endif
+
 static VkResult
 init_render_queue_state(struct anv_queue *queue)
 {
@@ -270,6 +368,11 @@ init_render_queue_state(struct anv_queue *queue)
       c3.AALineQualityFix = true;
       c3.AALineQualityFixMask = true;
    }
+#endif
+
+#if GFX_VER >= 11
+   device->state_cache_perf_fix_disabled =
+      anv_write_and_validate_chicken3_reg(device, queue);
 #endif
 
 #if GFX_VER == 12
