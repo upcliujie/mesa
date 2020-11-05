@@ -67,6 +67,9 @@ struct vbo_save_vertex_list {
    struct _mesa_prim *prims;
    GLuint prim_count;
 
+   struct _mesa_prim *merged_prims;
+   GLuint merged_prim_count;
+
    struct _mesa_index_buffer ib;
    GLuint min_index, max_index;
 

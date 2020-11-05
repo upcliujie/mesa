@@ -566,6 +566,8 @@ compile_vertex_list(struct gl_context *ctx)
    node->vertex_count = save->vert_count;
    node->wrap_count = save->copied.nr;
    node->prims = save->prims;
+   node->merged_prims = NULL;
+   node->merged_prim_count = 0;
    node->prim_count = save->prim_count;
    node->prim_store = save->prim_store;
 
@@ -639,9 +641,13 @@ compile_vertex_list(struct gl_context *ctx)
    /* Create an index buffer. */
    node->min_index = node->max_index = 0;
    if (save->vert_count && ctx->Const.AllowPrimMergingInDisplayList) {
-      int end = node->prims[node->prim_count - 1].start +
-                node->prims[node->prim_count - 1].count;
-      int total_vert_count = end - node->prims[0].start;
+      /* We won't modify node->prims, so use a const alias to avoid unintended
+       * writes to it. */
+      const struct _mesa_prim *original_prims = node->prims;
+
+      int end = original_prims[node->prim_count - 1].start +
+                original_prims[node->prim_count - 1].count;
+      int total_vert_count = end - original_prims[0].start;
       /* Estimate for the worst case: all prims are line strips (the +1 is because
        * wrap_buffers may call use but the last primitive may not be complete) */
       int max_indices_count = MAX2(total_vert_count * 2 - (node->prim_count * 2) + 1,
@@ -655,10 +661,10 @@ compile_vertex_list(struct gl_context *ctx)
       int last_valid_prim = -1;
       /* Construct indices array. */
       for (unsigned i = 0; i < node->prim_count; i++) {
-         assert(node->prims[i].basevertex == 0);
-         GLubyte mode = node->prims[i].mode;
+         assert(original_prims[i].basevertex == 0);
+         GLubyte mode = original_prims[i].mode;
 
-         int vertex_count = node->prims[i].count;
+         int vertex_count = original_prims[i].count;
          if (!vertex_count) {
             continue;
          }
@@ -669,7 +675,7 @@ compile_vertex_list(struct gl_context *ctx)
 
          /* If 2 consecutive prims use the same mode => merge them. */
          bool merge_prims = last_valid_prim >= 0 &&
-                            mode == node->prims[last_valid_prim].mode &&
+                            mode == node->merged_prims[last_valid_prim].mode &&
                             mode != GL_LINE_LOOP && mode != GL_TRIANGLE_FAN &&
                             mode != GL_QUAD_STRIP && mode != GL_POLYGON &&
                             mode != GL_PATCHES;
@@ -680,18 +686,18 @@ compile_vertex_list(struct gl_context *ctx)
          if (merge_prims &&
              mode == GL_TRIANGLE_STRIP) {
             /* Insert a degenerate triangle */
-            assert(node->prims[last_valid_prim].mode == GL_TRIANGLE_STRIP);
-            unsigned tri_count = node->prims[last_valid_prim].count - 2;
+            assert(node->merged_prims[last_valid_prim].mode == GL_TRIANGLE_STRIP);
+            unsigned tri_count = node->merged_prims[last_valid_prim].count - 2;
 
             indices[idx] = indices[idx - 1];
-            indices[idx + 1] = node->prims[i].start;
+            indices[idx + 1] = original_prims[i].start;
             idx += 2;
-            node->prims[last_valid_prim].count += 2;
+            node->merged_prims[last_valid_prim].count += 2;
 
             if (tri_count % 2) {
                /* Add another index to preserve winding order */
-               indices[idx++] = node->prims[i].start;
-               node->prims[last_valid_prim].count++;
+               indices[idx++] = original_prims[i].start;
+               node->merged_prims[last_valid_prim].count++;
             }
          }
 
@@ -701,23 +707,21 @@ compile_vertex_list(struct gl_context *ctx)
           * prim mode is GL_LINES (so merge_prims is true) or if the next
           * primitive mode is GL_LINES or GL_LINE_LOOP.
           */
-         if (node->prims[i].mode == GL_LINE_STRIP &&
+         if (original_prims[i].mode == GL_LINE_STRIP &&
              (merge_prims ||
               (i < node->prim_count - 1 &&
-               (node->prims[i + 1].mode == GL_LINE_STRIP ||
-                node->prims[i + 1].mode == GL_LINES)))) {
+               (original_prims[i + 1].mode == GL_LINE_STRIP ||
+                original_prims[i + 1].mode == GL_LINES)))) {
             for (unsigned j = 0; j < vertex_count; j++) {
-               indices[idx++] = node->prims[i].start + j;
+               indices[idx++] = original_prims[i].start + j;
                /* Repeat all but the first/last indices. */
                if (j && j != vertex_count - 1) {
-                  indices[idx++] = node->prims[i].start + j;
-                  node->prims[i].count++;
+                  indices[idx++] = original_prims[i].start + j;
                }
             }
-            node->prims[i].mode = mode;
          } else {
             for (unsigned j = 0; j < vertex_count; j++) {
-               indices[idx++] = node->prims[i].start + j;
+               indices[idx++] = original_prims[i].start + j;
             }
          }
 
@@ -726,14 +730,17 @@ compile_vertex_list(struct gl_context *ctx)
 
          if (merge_prims) {
             /* Update vertex count. */
-            node->prims[last_valid_prim].count += idx - start;
+            node->merged_prims[last_valid_prim].count += idx - start;
          } else {
             /* Keep this primitive */
             last_valid_prim += 1;
             assert(last_valid_prim <= i);
-            node->prims[i].start = start;
-            node->prims[last_valid_prim] = node->prims[i];
+            node->merged_prims = realloc(node->merged_prims, (1 + last_valid_prim) * sizeof(struct _mesa_prim));
+            node->merged_prims[last_valid_prim] = original_prims[i];
+            node->merged_prims[last_valid_prim].start = start;
+            node->merged_prims[last_valid_prim].count = idx - start;
          }
+         node->merged_prims[last_valid_prim].mode = mode;
       }
 
       if (idx == 0)
@@ -741,7 +748,7 @@ compile_vertex_list(struct gl_context *ctx)
 
       assert(idx <= max_indices_count);
 
-      node->prim_count = last_valid_prim + 1;
+      node->merged_prim_count = last_valid_prim + 1;
       node->ib.ptr = NULL;
       node->ib.count = idx;
       node->ib.index_size_shift = (GL_UNSIGNED_INT - GL_UNSIGNED_BYTE) >> 1;
@@ -1907,6 +1914,8 @@ vbo_destroy_vertex_list(struct gl_context *ctx, void *data)
       free(node->prim_store->prims);
       free(node->prim_store);
    }
+
+   free(node->merged_prims);
 
    _mesa_reference_buffer_object(ctx, &node->ib.obj, NULL);
    free(node->current_data);
