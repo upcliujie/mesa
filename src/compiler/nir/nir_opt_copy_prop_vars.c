@@ -429,11 +429,65 @@ get_entry_and_kill_aliases(struct util_dynarray *copies,
    return entry;
 }
 
+static bool
+load_ignores_barrier(struct copy_prop_var_state *state,
+                     nir_deref_instr *deref)
+{
+   nir_shader *shader = state->impl->function->shader;
+
+   /* Only care about TCS */
+   if (shader->info.stage != MESA_SHADER_TESS_CTRL)
+      return false;
+
+   /* We only care about I/O loads here */
+   if (deref->type != nir_deref_type_var)
+      return false;
+   if (nir_deref_mode_is_one_of(deref, nir_var_shader_out | nir_var_shader_in))
+      return false;
+
+   nir_variable *var = nir_deref_instr_get_variable(deref);
+   const bool per_vertex = nir_is_per_vertex_io(var, shader->info.stage);
+
+   /* TODO:
+    * Allow patch output loads to ignore barriers in case of
+    * patch outputs that are defined in all invocations.
+    */
+
+   if (!per_vertex)
+      return false;
+
+   /* Walk through the deref path. */
+   nir_deref_path path;
+   nir_deref_path_init(&path, deref, NULL);
+   assert(path.path[0]->deref_type == nir_deref_type_var);
+   nir_deref_instr **p = &path.path[1];
+
+   /* Vertex index is the outermost array index. */
+   assert((*p)->deref_type == nir_deref_type_array);
+   nir_instr *vertex_index_instr = (*p)->arr.index.ssa->parent_instr;
+   bool cross_invocation =
+      vertex_index_instr->type != nir_instr_type_intrinsic ||
+      nir_instr_as_intrinsic(vertex_index_instr)->intrinsic !=
+         nir_intrinsic_load_invocation_id;
+
+   nir_deref_path_finish(&path);
+
+   /* Same-invocation loads can safely ignore barriers in TCS.
+    * Each invocation can only store its own output (there are no
+    * cross-invocation stores), so race conditions are not possible.
+    */
+   return !cross_invocation;
+}
+
 static void
-apply_barrier_for_modes(struct util_dynarray *copies,
+apply_barrier_for_modes(struct copy_prop_var_state *state,
+                        struct util_dynarray *copies,
                         nir_variable_mode modes)
 {
    util_dynarray_foreach_reverse(copies, struct copy_entry, iter) {
+      if (load_ignores_barrier(state, iter->dst))
+         continue;
+
       if (nir_deref_mode_may_be(iter->dst, modes) ||
           (!iter->src.is_ssa && nir_deref_mode_may_be(iter->src.deref, modes)))
          copy_entry_remove(copies, iter);
@@ -821,7 +875,8 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
 
       if (instr->type == nir_instr_type_call) {
          if (debug) dump_instr(instr);
-         apply_barrier_for_modes(copies, nir_var_shader_out |
+         apply_barrier_for_modes(state,
+                                 copies, nir_var_shader_out |
                                          nir_var_shader_temp |
                                          nir_var_function_temp |
                                          nir_var_mem_ssbo |
@@ -840,7 +895,8 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
       case nir_intrinsic_memory_barrier:
          if (debug) dump_instr(instr);
 
-         apply_barrier_for_modes(copies, nir_var_shader_out |
+         apply_barrier_for_modes(state,
+                                 copies, nir_var_shader_out |
                                          nir_var_mem_ssbo |
                                          nir_var_mem_shared |
                                          nir_var_mem_global);
@@ -849,38 +905,40 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
       case nir_intrinsic_memory_barrier_buffer:
          if (debug) dump_instr(instr);
 
-         apply_barrier_for_modes(copies, nir_var_mem_ssbo |
+         apply_barrier_for_modes(state,
+                                 copies, nir_var_shader_out |
                                          nir_var_mem_global);
          break;
 
       case nir_intrinsic_memory_barrier_shared:
          if (debug) dump_instr(instr);
 
-         apply_barrier_for_modes(copies, nir_var_mem_shared);
+         apply_barrier_for_modes(state, copies, nir_var_mem_shared);
          break;
 
       case nir_intrinsic_memory_barrier_tcs_patch:
          if (debug) dump_instr(instr);
 
-         apply_barrier_for_modes(copies, nir_var_shader_out);
+         apply_barrier_for_modes(state, copies, nir_var_shader_out);
          break;
 
       case nir_intrinsic_scoped_barrier:
          if (debug) dump_instr(instr);
 
          if (nir_intrinsic_memory_semantics(intrin) & NIR_MEMORY_ACQUIRE)
-            apply_barrier_for_modes(copies, nir_intrinsic_memory_modes(intrin));
+            apply_barrier_for_modes(state, copies, nir_intrinsic_memory_modes(intrin));
          break;
 
       case nir_intrinsic_emit_vertex:
       case nir_intrinsic_emit_vertex_with_counter:
          if (debug) dump_instr(instr);
 
-         apply_barrier_for_modes(copies, nir_var_shader_out);
+         apply_barrier_for_modes(state, copies, nir_var_shader_out);
          break;
 
       case nir_intrinsic_report_ray_intersection:
-         apply_barrier_for_modes(copies, nir_var_mem_ssbo |
+         apply_barrier_for_modes(state,
+                                 copies, nir_var_mem_ssbo |
                                          nir_var_mem_global |
                                          nir_var_shader_call_data |
                                          nir_var_ray_hit_attrib);
@@ -888,7 +946,8 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
 
       case nir_intrinsic_ignore_ray_intersection:
       case nir_intrinsic_terminate_ray:
-         apply_barrier_for_modes(copies, nir_var_mem_ssbo |
+         apply_barrier_for_modes(state,
+                                 copies, nir_var_mem_ssbo |
                                          nir_var_mem_global |
                                          nir_var_shader_call_data);
          break;
