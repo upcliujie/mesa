@@ -1013,20 +1013,57 @@ check_for_aliasing(struct vectorize_ctx *ctx, struct entry *first, struct entry 
    return false;
 }
 
-static bool
-check_for_robustness(struct vectorize_ctx *ctx, struct entry *low)
+static uint64_t
+calc_gcd(uint64_t a, uint64_t b)
 {
-   nir_variable_mode mode = get_variable_mode(low);
-   if (mode & ctx->options->robust_modes) {
-      unsigned low_bit_size = get_bit_size(low);
-      unsigned low_size = low->intrin->num_components * low_bit_size;
+   while (b != 0) {
+      int tmp_a = a;
+      a = b;
+      b = tmp_a % b;
+   }
+   return a;
+}
 
-      /* don't attempt to vectorize accesses if the offset can overflow. */
-      /* TODO: handle indirect accesses. */
-      return low->offset_signed < 0 && low->offset_signed + low_size >= 0;
+static uint64_t
+round_down(uint64_t a, uint64_t b)
+{
+   return a / b * b;
    }
 
+/* Return true if the addition of "low"'s offset and "high_offset" could wrap
+ * around.
+ *
+ * This is to prevent a situation where the hardware considers the high load
+ * out-of-bounds after vectorization if the low load is out-of-bounds, even if
+ * the wrap-around from the addition could make the high load in-bounds.
+ */
+static bool
+check_for_robustness(struct vectorize_ctx *ctx, struct entry *low, uint64_t high_offset)
+{
+   nir_variable_mode mode = get_variable_mode(low);
+   if (!(mode & ctx->options->robust_modes))
+      return false;
+
+   /* First, try to use alignment information in case the application
+    * provided some.
+    */
+   uint64_t max_low = round_down(UINT64_MAX, low->align_mul) + low->align_offset;
+   if (max_low + high_offset >= max_low)
    return false;
+
+   /* The advantage to calculating a stride instead of using alignment
+    * information is the align_mul must be a power-of-two.
+    */
+   uint64_t stride = 0;
+   for (unsigned i = 0; i < low->key->offset_def_count; i++)
+      stride = calc_gcd(low->key->offset_defs_mul[i], stride);
+
+   unsigned addition_bits = low->intrin->src[low->info->base_src].ssa->bit_size;
+   uint64_t mask = BITFIELD64_MASK(addition_bits);
+   max_low = low->offset;
+   if (stride)
+      max_low = (low->offset % stride) + round_down(mask, stride);
+   return ((max_low + high_offset) & mask) < (max_low & mask);
 }
 
 static bool
@@ -1053,7 +1090,8 @@ try_vectorize(nir_function_impl *impl, struct vectorize_ctx *ctx,
    if (check_for_aliasing(ctx, first, second))
       return false;
 
-   if (check_for_robustness(ctx, low))
+   uint64_t diff = high->offset_signed - low->offset_signed;
+   if (check_for_robustness(ctx, low, diff))
       return false;
 
    /* we can only vectorize non-volatile loads/stores of the same type and with
@@ -1071,7 +1109,6 @@ try_vectorize(nir_function_impl *impl, struct vectorize_ctx *ctx,
    }
 
    /* gather information */
-   uint64_t diff = high->offset_signed - low->offset_signed;
    unsigned low_bit_size = get_bit_size(low);
    unsigned high_bit_size = get_bit_size(high);
    unsigned low_size = low->intrin->num_components * low_bit_size;
