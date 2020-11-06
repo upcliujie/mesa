@@ -62,8 +62,12 @@ typedef enum {
    nir_derefs_b_contains_a_bit = (1 << 3),
 } nir_deref_compare_result;
 
-nir_deref_compare_result nir_compare_deref_paths(nir_deref_path *a_path, nir_deref_path *b_path);
-nir_deref_compare_result nir_compare_derefs(nir_deref_instr *a, nir_deref_instr *b);
+nir_deref_compare_result nir_compare_deref_paths(nir_shader *shader,
+                                                 nir_deref_path *a_path,
+                                                 nir_deref_path *b_path);
+nir_deref_compare_result nir_compare_derefs(nir_shader *shader,
+                                            nir_deref_instr *a,
+                                            nir_deref_instr *b);
 
 #ifdef __cplusplus
 } /* extern "C" */
