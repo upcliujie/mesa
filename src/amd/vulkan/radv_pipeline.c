@@ -451,20 +451,27 @@ static bool is_dual_src(VkBlendFactor factor)
 	}
 }
 
-static unsigned radv_choose_spi_color_format(VkFormat vk_format,
+static unsigned radv_choose_spi_color_format(const struct radv_pipeline *pipeline,
+					     VkFormat vk_format,
 					     bool blend_enable,
 					     bool blend_need_alpha)
 {
 	const struct vk_format_description *desc = vk_format_description(vk_format);
 	struct ac_spi_color_formats formats = {0};
 	unsigned format, ntype, swap;
+	bool use_rbplus = true;
+
+	if (pipeline &&
+	    !pipeline->device->physical_device->rad_info.rbplus_allowed)
+		use_rbplus = false;
 
 	format = radv_translate_colorformat(vk_format);
 	ntype = radv_translate_color_numformat(vk_format, desc,
 					       vk_format_get_first_non_void_channel(vk_format));
 	swap = radv_translate_colorswap(vk_format, false);
 
-	ac_choose_spi_color_formats(format, swap, ntype, false, &formats);
+	ac_choose_spi_color_formats(format, swap, ntype, false, use_rbplus,
+				    &formats);
 
 	if (blend_enable && blend_need_alpha)
 		return formats.blend_alpha;
@@ -521,7 +528,8 @@ radv_pipeline_compute_spi_color_formats(const struct radv_pipeline *pipeline,
 			bool blend_enable =
 				blend->blend_enable_4bit & (0xfu << (i * 4));
 
-			cf = radv_choose_spi_color_format(attachment->format,
+			cf = radv_choose_spi_color_format(pipeline,
+							  attachment->format,
 			                                  blend_enable,
 							  blend->need_src_alpha & (1 << i));
 
@@ -584,7 +592,7 @@ const VkFormat radv_fs_key_format_exemplars[NUM_META_FS_KEYS] = {
 
 unsigned radv_format_meta_fs_key(VkFormat format)
 {
-	unsigned col_format = radv_choose_spi_color_format(format, false, false);
+	unsigned col_format = radv_choose_spi_color_format(NULL, format, false, false);
 
 	assert(col_format != V_028714_SPI_SHADER_32_AR);
 	if (col_format >= V_028714_SPI_SHADER_32_AR)
