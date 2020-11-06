@@ -135,6 +135,19 @@ struct pipe_context {
     * back-to-back draws into a multi draw. It's done trivially by looking
     * ahead within a gallium command buffer and collapsing draws.
     *
+    * As an example in simplest terms of how this works, draw_vbo can be implemented
+    * as a wrapper of this method by doing:
+
+      void
+      draw_vbo(struct pipe_context *pctx,
+                    const struct pipe_draw_info *dinfo)
+      {
+         struct pipe_draw_start_count draw = {dinfo->start, dinfo->count};
+         multi_draw_vbo(pctx, dinfo, &draw, 1);
+      }
+
+    * For further reading, see commit 0ce68852 
+    *
     * \param pipe          context
     * \param info          draw info
     * \param draws         array of (start, count) pairs
