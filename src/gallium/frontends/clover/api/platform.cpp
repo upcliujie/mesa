@@ -84,6 +84,19 @@ clover::GetPlatformInfo(cl_platform_id d_platform, cl_platform_info param,
       buf.as_string() = "MESA";
       break;
 
+   case CL_PLATFORM_NUMERIC_VERSION: {
+      cl_version ver = CL_MAKE_VERSION(1, 1, 0);
+      static const std::string version_string =
+            debug_get_option("CLOVER_PLATFORM_VERSION_OVERRIDE", "1.1");
+
+      if (version_string[0] == '1' && version_string[2] == '2')
+         ver = CL_MAKE_VERSION(1, 2, 0);
+      else if (version_string[0] == '3')
+         ver = CL_MAKE_VERSION(3, 0, 0);
+      buf.as_scalar<cl_version>() = ver;
+      break;
+   }
+
    default:
       throw error(CL_INVALID_VALUE);
    }
