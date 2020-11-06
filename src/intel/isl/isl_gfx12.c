@@ -147,6 +147,8 @@ isl_gfx125_choose_image_alignment_el(const struct isl_device *dev,
        *    surfaces support only alignment of 8.
        */
       *image_align_el = isl_extent3d(16, 8, 1);
+   } else if (isl_surf_usage_is_cpb(info->usage)) {
+      *image_align_el = isl_extent3d(128, 8, 1);
    } else if (!isl_is_pow2(fmtl->bpb)) {
       /* From RENDER_SURFACE_STATE::SurfaceHorizontalAlignment,
        *
