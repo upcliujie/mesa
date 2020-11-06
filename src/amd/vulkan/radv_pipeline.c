@@ -3094,7 +3094,7 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			ballot_bit_size = key->compute_subgroup_size;
 		}
 
-		nir[i] = radv_shader_compile_to_nir(device, modules[i],
+		nir[i] = radv_shader_compile_to_nir(device, key, modules[i],
 						    stage ? stage->pName : "main", i,
 						    stage ? stage->pSpecializationInfo : NULL,
 						    flags, pipeline->layout,

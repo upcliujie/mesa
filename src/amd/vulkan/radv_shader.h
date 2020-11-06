@@ -426,6 +426,7 @@ radv_nir_lower_ycbcr_textures(nir_shader *shader,
 
 nir_shader *
 radv_shader_compile_to_nir(struct radv_device *device,
+			   const struct radv_pipeline_key *pipeline_key,
 			   struct radv_shader_module *module,
 			   const char *entrypoint_name,
 			   gl_shader_stage stage,

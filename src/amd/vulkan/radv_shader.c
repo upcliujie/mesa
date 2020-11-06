@@ -347,6 +347,7 @@ lower_load_vulkan_descriptor(nir_shader *nir)
 
 nir_shader *
 radv_shader_compile_to_nir(struct radv_device *device,
+			   const struct radv_pipeline_key *pipeline_key,
 			   struct radv_shader_module *module,
 			   const char *entrypoint_name,
 			   gl_shader_stage stage,
@@ -593,6 +594,30 @@ radv_shader_compile_to_nir(struct radv_device *device,
 	nir_lower_global_vars_to_local(nir);
 	nir_remove_dead_variables(nir, nir_var_function_temp, NULL);
 	bool gfx7minus = device->physical_device->rad_info.chip_class <= GFX7;
+	bool gfx9plus = device->physical_device->rad_info.chip_class >= GFX9;
+
+	if (nir->info.stage == MESA_SHADER_TESS_CTRL &&
+		nir->info.tess.tcs_vertices_out <= 32) {
+		bool merged_vs_tcs =
+			gfx9plus &&
+			nir->info.tess.tcs_vertices_out == pipeline_key->tess_input_vertices;
+
+		nir_cross_invocation_tcs_io_options options = {
+			.max_bit_size = 32,
+			.merged_vs_tcs = merged_vs_tcs,
+			.allow_quad_swizzle_amd = true,
+			.allow_const_quad_broadcast = true,
+			.allow_dynamic_quad_broadcast = !gfx7minus,
+
+			/* TODO: Allow if number of invocations is <= wave size.
+			 *       To know this, we need to take get_tcs_num_patches
+			 *       out of the compilers.
+			 */
+			.allow_shuffle = !gfx7minus && false,
+		};
+		NIR_PASS_V(nir, nir_lower_cross_invocation_tcs_io, options);
+	}
+
 	nir_lower_subgroups(nir, &(struct nir_lower_subgroups_options) {
 			.subgroup_size = subgroup_size,
 			.ballot_bit_size = ballot_bit_size,
