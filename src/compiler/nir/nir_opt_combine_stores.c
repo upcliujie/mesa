@@ -178,7 +178,7 @@ combine_stores_with_deref(struct combine_stores_state *state,
       return;
 
    list_for_each_entry_safe(struct combined_store, combo, &state->pending, link) {
-      if (nir_compare_derefs(combo->dst, deref) & nir_derefs_may_alias_bit) {
+      if (nir_compare_derefs(state->b.shader, combo->dst, deref) & nir_derefs_may_alias_bit) {
          combine_stores(state, combo);
          free_combined_store(state, combo);
       }
@@ -205,7 +205,7 @@ find_matching_combined_store(struct combine_stores_state *state,
                              nir_deref_instr *deref)
 {
    list_for_each_entry(struct combined_store, combo, &state->pending, link) {
-      if (nir_compare_derefs(combo->dst, deref) & nir_derefs_equal_bit)
+      if (nir_compare_derefs(state->b.shader, combo->dst, deref) & nir_derefs_equal_bit)
          return combo;
    }
    return NULL;

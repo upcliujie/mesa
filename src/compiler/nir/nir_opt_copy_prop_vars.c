@@ -91,6 +91,7 @@ struct copy_entry {
 };
 
 struct copy_prop_var_state {
+   nir_shader *shader;
    nir_function_impl *impl;
 
    void *mem_ctx;
@@ -353,7 +354,7 @@ lookup_entry_for_deref(struct copy_prop_var_state *state,
    struct copy_entry *entry = NULL;
    util_dynarray_foreach(copies, struct copy_entry, iter) {
       nir_deref_compare_result result =
-         nir_compare_derefs_and_paths(state->mem_ctx, &iter->dst, deref);
+         nir_compare_derefs_and_paths(state->mem_ctx, state->shader, &iter->dst, deref);
       if (result & allowed_comparisons) {
          entry = iter;
          if (result & nir_derefs_equal_bit) {
@@ -381,7 +382,7 @@ lookup_entry_and_kill_aliases(struct copy_prop_var_state *state,
       if (!iter->src.is_ssa) {
          /* If this write aliases the source of some entry, get rid of it */
          nir_deref_compare_result result =
-            nir_compare_derefs_and_paths(state->mem_ctx, &iter->src.deref, deref);
+            nir_compare_derefs_and_paths(state->mem_ctx, state->shader, &iter->src.deref, deref);
          if (result & nir_derefs_may_alias_bit) {
             copy_entry_remove(copies, iter);
             continue;
@@ -389,7 +390,7 @@ lookup_entry_and_kill_aliases(struct copy_prop_var_state *state,
       }
 
       nir_deref_compare_result comp =
-         nir_compare_derefs_and_paths(state->mem_ctx, &iter->dst, deref);
+         nir_compare_derefs_and_paths(state->mem_ctx, state->shader, &iter->dst, deref);
 
       if (comp & nir_derefs_equal_bit) {
          /* Removing entries invalidate previous iter pointers, so we'll
@@ -1081,7 +1082,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
          }
 
          nir_deref_compare_result comp =
-            nir_compare_derefs_and_paths(state->mem_ctx, &src, &dst);
+            nir_compare_derefs_and_paths(state->mem_ctx, state->shader, &src, &dst);
          if (comp & nir_derefs_equal_bit) {
             /* This is a no-op self-copy.  Get rid of it */
             nir_instr_remove(instr);
@@ -1107,7 +1108,8 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
                nir_store_deref(b, dst.instr, value.ssa.def[0], full_mask);
             } else {
                /* If this would be a no-op self-copy, don't bother. */
-               comp = nir_compare_derefs_and_paths(state->mem_ctx, &value.deref, &dst);
+               comp = nir_compare_derefs_and_paths(
+                  state->mem_ctx, state->shader, &value.deref, &dst);
                if (comp & nir_derefs_equal_bit)
                   continue;
 
@@ -1290,6 +1292,7 @@ nir_copy_prop_vars_impl(nir_function_impl *impl)
    }
 
    struct copy_prop_var_state state = {
+      .shader = impl->function->shader,
       .impl = impl,
       .mem_ctx = mem_ctx,
       .lin_ctx = linear_zalloc_parent(mem_ctx, 0),
