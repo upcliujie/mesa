@@ -1036,7 +1036,8 @@ static const struct intel_device_info intel_device_info_sg1 = {
 
 #define DG2_FEATURES                                            \
    XEHP_FEATURES,                                               \
-   .has_lsc = true
+   .has_lsc = true,                                             \
+   .has_coarse_pixel_primitive_and_cb = true
 
 static const struct intel_device_info intel_device_info_dg2_g10 = {
    DG2_FEATURES,
