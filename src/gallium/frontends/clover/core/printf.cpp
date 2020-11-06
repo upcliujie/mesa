@@ -224,6 +224,7 @@ printf_handler::printf_handler(const intrusive_ptr<command_queue> &q,
       uint32_t hdr_bytes = _header_fmt_llvm ? 2 : 1;
       data.append((char *)header, (char *)(header+hdr_bytes));
       _buffer = std::unique_ptr<root_buffer>(new root_buffer(_q->context,
+                                             std::vector<cl_mem_properties>(),
                                              CL_MEM_COPY_HOST_PTR,
                                              _size, (char*)data.data()));
    }
