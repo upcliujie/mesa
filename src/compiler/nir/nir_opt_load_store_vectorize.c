@@ -1017,17 +1017,37 @@ check_for_aliasing(struct vectorize_ctx *ctx, struct entry *first, struct entry 
    return false;
 }
 
+static uint64_t
+calc_gcd(uint64_t a, uint64_t b)
+{
+   if (b == 0)
+      return a;
+   else
+      return calc_gcd(b, a % b);
+}
+
 static bool
-check_for_robustness(struct vectorize_ctx *ctx, struct entry *low)
+check_for_robustness(struct vectorize_ctx *ctx, struct entry *low, uint64_t high_offset)
 {
    nir_variable_mode mode = get_variable_mode(low);
    if (mode & ctx->robust_modes) {
-      unsigned low_bit_size = get_bit_size(low);
-      unsigned low_size = low->intrin->num_components * low_bit_size;
-
       /* don't attempt to vectorize accesses if the offset can overflow. */
-      /* TODO: handle indirect accesses. */
-      return low->offset_signed < 0 && low->offset_signed + low_size >= 0;
+
+      /* First, try to use alignment information in case the application
+       * provided some.
+       */
+      uint64_t max_low = (UINT64_MAX / MAX2(low->align_mul, 1) * low->align_mul) + low->align_offset;
+      if (max_low + high_offset > max_low)
+         return false;
+
+      /* The advantage to calculating a stride instead of using alignment
+       * information is the align_mul must be a power-of-two.
+       */
+      uint64_t stride = 0;
+      for (unsigned i = 0; i < low->key->offset_def_count; i++)
+         stride = calc_gcd(low->key->offset_defs_mul[i], stride);
+      max_low = (UINT64_MAX / MAX2(stride, 1) * stride) + low->offset;
+      return max_low + high_offset < max_low;
    }
 
    return false;
@@ -1057,7 +1077,8 @@ try_vectorize(nir_function_impl *impl, struct vectorize_ctx *ctx,
    if (check_for_aliasing(ctx, first, second))
       return false;
 
-   if (check_for_robustness(ctx, low))
+   uint64_t diff = high->offset_signed - low->offset_signed;
+   if (check_for_robustness(ctx, low, diff))
       return false;
 
    /* we can only vectorize non-volatile loads/stores of the same type and with
@@ -1075,7 +1096,6 @@ try_vectorize(nir_function_impl *impl, struct vectorize_ctx *ctx,
    }
 
    /* gather information */
-   uint64_t diff = high->offset_signed - low->offset_signed;
    unsigned low_bit_size = get_bit_size(low);
    unsigned high_bit_size = get_bit_size(high);
    unsigned low_size = low->intrin->num_components * low_bit_size;
