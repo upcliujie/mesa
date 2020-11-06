@@ -2556,6 +2556,7 @@ typedef struct {
 } nir_binding;
 
 nir_binding nir_chase_binding(nir_src rsrc);
+bool nir_same_binding(nir_binding a, nir_binding b);
 nir_variable *nir_get_binding_variable(struct nir_shader *shader, nir_binding binding);
 
 
