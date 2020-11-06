@@ -72,8 +72,8 @@ pan_prepare_bifrost_props(struct panfrost_shader_state *state,
 
                 pan_prepare(&state->preload, PRELOAD);
                 state->preload.uniform_count = state->uniform_count;
-                state->preload.vertex.vertex_id = true;
-                state->preload.vertex.instance_id = true;
+                state->preload.vertex.vertex_id = state->reads_vertex_id;
+                state->preload.vertex.instance_id = state->reads_instance_id;
                 break;
         case MESA_SHADER_FRAGMENT:
                 pan_prepare(&state->properties, RENDERER_PROPERTIES);
@@ -274,8 +274,8 @@ panfrost_shader_compile(struct panfrost_context *ctx,
         state->sysval_count = program->sysval_count;
         memcpy(state->sysval, program->sysvals, sizeof(state->sysval[0]) * state->sysval_count);
 
-        bool vertex_id = s->info.system_values_read & (1 << SYSTEM_VALUE_VERTEX_ID);
-        bool instance_id = s->info.system_values_read & (1 << SYSTEM_VALUE_INSTANCE_ID);
+        state->reads_vertex_id = s->info.system_values_read & (1 << SYSTEM_VALUE_VERTEX_ID);
+        state->reads_instance_id = s->info.system_values_read & (1 << SYSTEM_VALUE_INSTANCE_ID);
 
         /* On Bifrost it's a sysval, on Midgard it's a varying */
         state->reads_frag_coord = s->info.system_values_read & (1 << SYSTEM_VALUE_FRAG_COORD);
@@ -287,10 +287,10 @@ panfrost_shader_compile(struct panfrost_context *ctx,
                 attribute_count = util_bitcount64(s->info.inputs_read);
                 varying_count = util_bitcount64(s->info.outputs_written);
 
-                if (vertex_id)
+                if (state->reads_vertex_id)
                         attribute_count = MAX2(attribute_count, PAN_VERTEX_ID + 1);
 
-                if (instance_id)
+                if (state->reads_instance_id)
                         attribute_count = MAX2(attribute_count, PAN_INSTANCE_ID + 1);
 
                 break;

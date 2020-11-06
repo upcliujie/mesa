@@ -212,6 +212,8 @@ struct panfrost_shader_state {
         bool reads_point_coord;
         bool reads_face;
         bool reads_frag_coord;
+        bool reads_vertex_id;
+        bool reads_instance_id;
         bool writes_global;
         unsigned stack_size;
         unsigned shared_size;
