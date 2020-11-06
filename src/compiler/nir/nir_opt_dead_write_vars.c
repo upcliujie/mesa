@@ -62,16 +62,17 @@ clear_unused_for_modes(struct util_dynarray *unused_writes, nir_variable_mode mo
 }
 
 static void
-clear_unused_for_read(struct util_dynarray *unused_writes, nir_deref_instr *src)
+clear_unused_for_read(nir_shader *shader, struct util_dynarray *unused_writes, nir_deref_instr *src)
 {
    util_dynarray_foreach_reverse(unused_writes, struct write_entry, entry) {
-      if (nir_compare_derefs(src, entry->dst) & nir_derefs_may_alias_bit)
+      if (nir_compare_derefs(shader, src, entry->dst) & nir_derefs_may_alias_bit)
          *entry = util_dynarray_pop(unused_writes, struct write_entry);
    }
 }
 
 static bool
-update_unused_writes(struct util_dynarray *unused_writes,
+update_unused_writes(nir_shader *shader,
+                     struct util_dynarray *unused_writes,
                      nir_intrinsic_instr *intrin,
                      nir_deref_instr *dst, nir_component_mask_t mask)
 {
@@ -85,7 +86,7 @@ update_unused_writes(struct util_dynarray *unused_writes,
 
    /* Find writes that are unused and can be removed. */
    util_dynarray_foreach_reverse(unused_writes, struct write_entry, entry) {
-      nir_deref_compare_result comp = nir_compare_derefs(dst, entry->dst);
+      nir_deref_compare_result comp = nir_compare_derefs(shader, dst, entry->dst);
       if (comp & nir_derefs_a_contains_b_bit) {
          entry->mask &= ~mask;
          if (entry->mask == 0) {
@@ -173,7 +174,7 @@ remove_dead_write_vars_local(void *mem_ctx, nir_shader *shader, nir_block *block
          nir_deref_instr *src = nir_src_as_deref(intrin->src[0]);
          if (nir_deref_mode_must_be(src, nir_var_read_only_modes))
             break;
-         clear_unused_for_read(&unused_writes, src);
+         clear_unused_for_read(shader, &unused_writes, src);
          break;
       }
 
@@ -188,12 +189,12 @@ remove_dead_write_vars_local(void *mem_ctx, nir_shader *shader, nir_block *block
              * predictable for the programmer than allowing two non-volatile
              * writes to be combined with a volatile write between them.
              */
-            clear_unused_for_read(&unused_writes, dst);
+            clear_unused_for_read(shader, &unused_writes, dst);
             break;
          }
 
          nir_component_mask_t mask = nir_intrinsic_write_mask(intrin);
-         progress |= update_unused_writes(&unused_writes, intrin, dst, mask);
+         progress |= update_unused_writes(shader, &unused_writes, intrin, dst, mask);
          break;
       }
 
@@ -202,21 +203,21 @@ remove_dead_write_vars_local(void *mem_ctx, nir_shader *shader, nir_block *block
          nir_deref_instr *dst = nir_src_as_deref(intrin->src[0]);
 
          if (nir_intrinsic_dst_access(intrin) & ACCESS_VOLATILE) {
-            clear_unused_for_read(&unused_writes, src);
-            clear_unused_for_read(&unused_writes, dst);
+            clear_unused_for_read(shader, &unused_writes, src);
+            clear_unused_for_read(shader, &unused_writes, dst);
             break;
          }
 
          /* Self-copy is removed. */
-         if (nir_compare_derefs(src, dst) & nir_derefs_equal_bit) {
+         if (nir_compare_derefs(shader, src, dst) & nir_derefs_equal_bit) {
             nir_instr_remove(instr);
             progress = true;
             break;
          }
 
-         clear_unused_for_read(&unused_writes, src);
+         clear_unused_for_read(shader, &unused_writes, src);
          nir_component_mask_t mask = (1 << glsl_get_vector_elements(dst->type)) - 1;
-         progress |= update_unused_writes(&unused_writes, intrin, dst, mask);
+         progress |= update_unused_writes(shader, &unused_writes, intrin, dst, mask);
          break;
       }
 
