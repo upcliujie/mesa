@@ -56,7 +56,7 @@ uint64_t anv_get_absolute_timeout(uint64_t timeout)
    return (current_time + timeout);
 }
 
-static int64_t anv_get_relative_timeout(uint64_t abs_timeout)
+int64_t anv_get_relative_timeout(uint64_t abs_timeout)
 {
    uint64_t now = anv_gettime_ns();
 
