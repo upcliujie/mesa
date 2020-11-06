@@ -26,6 +26,7 @@
  */
 
 #include "tu_private.h"
+#include "tu_cs.h"
 
 #include <fcntl.h>
 #include <poll.h>
@@ -1143,6 +1144,22 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
 
    mtx_init(&device->mutex, mtx_plain);
 
+   device->perfcntrs_pass_cs = calloc(32, sizeof(struct tu_cs));
+
+   /* Prepare command streams setting pass index to the PERF_CNTRS_REG
+    * from 0 to 31. One of these will be picked up at cmd submit time
+    * when the perf query is executed.
+    */
+   for (unsigned i = 0; i < 32; i++) {
+      struct tu_cs *cs = &device->perfcntrs_pass_cs[i];
+      tu_cs_init(cs, device, TU_CS_MODE_GROW, 4);
+
+      tu_cs_begin(cs);
+      tu_cs_emit_regs(cs, A6XX_CP_SCRATCH_REG(PERF_CNTRS_REG, 1 << i));
+      tu_cs_emit_pkt7(cs, CP_WAIT_FOR_ME, 0);
+      tu_cs_end(cs);
+   }
+
    *pDevice = tu_device_to_handle(device);
    return VK_SUCCESS;
 
@@ -1189,6 +1206,10 @@ tu_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
 
    VkPipelineCache pc = tu_pipeline_cache_to_handle(device->mem_cache);
    tu_DestroyPipelineCache(tu_device_to_handle(device), pc, NULL);
+
+   for (unsigned i = 0; i < 32; i++)
+      tu_cs_finish(&device->perfcntrs_pass_cs[i]);
+   free(device->perfcntrs_pass_cs);
 
    vk_free(&device->vk.alloc, device->bo_list);
    vk_free(&device->vk.alloc, device->bo_idx);
