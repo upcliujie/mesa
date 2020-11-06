@@ -5076,6 +5076,32 @@ bool nir_rematerialize_derefs_in_use_blocks_impl(nir_function_impl *impl);
 bool nir_lower_samplers(nir_shader *shader);
 bool nir_lower_ssbo(nir_shader *shader);
 
+typedef struct {
+   /* Use quad swizzle when vertex count == 2 and the vertex index is const. */
+   uint8_t allow_quad_swizzle_amd : 1;
+
+   /* Use quad broadcast when the vertex count == 4 and the vertex index is const. */
+   uint8_t allow_const_quad_broadcast : 1;
+
+   /* Use quad broadcast always, when the vertex count == 4. */
+   uint8_t allow_dynamic_quad_broadcast : 1;
+
+   /* If all the above can't be used, employ subgroup shuffle. */
+   uint8_t allow_shuffle : 1;
+
+   /* Should only be set if VS and TCS are "truly" merged,
+    * ie. the input and output vertex count of the TCS are the same.
+    */
+   uint8_t merged_vs_tcs : 1;
+
+   /* Maximum supported bitsize for subgroup operations in the backend */
+   uint8_t max_bit_size;
+
+} nir_cross_invocation_tcs_io_options;
+
+bool nir_lower_cross_invocation_tcs_io(nir_shader *shader,
+                                       nir_cross_invocation_tcs_io_options options);
+
 /* This is here for unit tests. */
 bool nir_opt_comparison_pre_impl(nir_function_impl *impl);
 
