@@ -440,11 +440,9 @@ modes_may_alias(nir_variable_mode a, nir_variable_mode b)
 }
 
 static bool
-deref_path_contains_coherent_decoration(nir_deref_path *path)
+deref_path_contains_coherent_decoration(nir_variable *var, nir_deref_path *path)
 {
-   assert(path->path[0]->deref_type == nir_deref_type_var);
-
-   if (path->path[0]->var->data.access & ACCESS_COHERENT)
+   if (var->data.access & ACCESS_COHERENT)
       return true;
 
    for (nir_deref_instr **p = &path->path[1]; *p; p++) {
@@ -462,7 +460,8 @@ deref_path_contains_coherent_decoration(nir_deref_path *path)
 }
 
 nir_deref_compare_result
-nir_compare_deref_paths(nir_deref_path *a_path,
+nir_compare_deref_paths(nir_shader *shader,
+                        nir_deref_path *a_path,
                         nir_deref_path *b_path)
 {
    if (!modes_may_alias(b_path->path[0]->modes, a_path->path[0]->modes))
@@ -471,8 +470,11 @@ nir_compare_deref_paths(nir_deref_path *a_path,
    if (a_path->path[0]->deref_type != b_path->path[0]->deref_type)
       return nir_derefs_may_alias_bit;
 
-   if (a_path->path[0]->deref_type == nir_deref_type_var) {
-      if (a_path->path[0]->var != b_path->path[0]->var) {
+   nir_binding a_binding = nir_chase_binding(nir_src_for_ssa(&a_path->path[0]->dest.ssa));
+   nir_binding b_binding = nir_chase_binding(nir_src_for_ssa(&b_path->path[0]->dest.ssa));
+
+   if (a_binding.success && b_binding.success) {
+      if (!nir_same_binding(a_binding, b_binding)) {
          /* Shader and function temporaries aren't backed by memory so two
           * distinct variables never alias.
           */
@@ -482,14 +484,17 @@ nir_compare_deref_paths(nir_deref_path *a_path,
              !(b_path->path[0]->modes & ~temp_var_modes))
             return nir_derefs_do_not_alias;
 
+         nir_variable *a_var = nir_get_binding_variable(shader, a_binding);
+         nir_variable *b_var = nir_get_binding_variable(shader, b_binding);
+
          /* If they are both declared coherent or have coherent somewhere in
           * their path (due to a member of an interface being declared
           * coherent), we have to assume we that we could have any kind of
           * aliasing.  Otherwise, they could still alias but the client didn't
           * tell us and that's their fault.
           */
-         if (deref_path_contains_coherent_decoration(a_path) &&
-             deref_path_contains_coherent_decoration(b_path))
+         if (deref_path_contains_coherent_decoration(a_var, a_path) &&
+             deref_path_contains_coherent_decoration(b_var, b_path))
             return nir_derefs_may_alias_bit;
 
          /* If we can chase the deref all the way back to the variable and
@@ -499,7 +504,6 @@ nir_compare_deref_paths(nir_deref_path *a_path,
          return nir_derefs_do_not_alias;
       }
    } else {
-      assert(a_path->path[0]->deref_type == nir_deref_type_cast);
       /* If they're not exactly the same cast, it's hard to compare them so we
        * just assume they alias.  Comparing casts is tricky as there are lots
        * of things such as mode, type, etc. to make sure work out; for now, we
@@ -618,7 +622,7 @@ nir_compare_deref_paths(nir_deref_path *a_path,
 }
 
 nir_deref_compare_result
-nir_compare_derefs(nir_deref_instr *a, nir_deref_instr *b)
+nir_compare_derefs(nir_shader *shader, nir_deref_instr *a, nir_deref_instr *b)
 {
    if (a == b) {
       return nir_derefs_equal_bit | nir_derefs_may_alias_bit |
@@ -633,7 +637,7 @@ nir_compare_derefs(nir_deref_instr *a, nir_deref_instr *b)
    assert(b_path.path[0]->deref_type == nir_deref_type_var ||
           b_path.path[0]->deref_type == nir_deref_type_cast);
 
-   nir_deref_compare_result result = nir_compare_deref_paths(&a_path, &b_path);
+   nir_deref_compare_result result = nir_compare_deref_paths(shader, &a_path, &b_path);
 
    nir_deref_path_finish(&a_path);
    nir_deref_path_finish(&b_path);
@@ -651,13 +655,15 @@ nir_deref_path *nir_get_deref_path(void *mem_ctx, nir_deref_and_path *deref)
 }
 
 nir_deref_compare_result nir_compare_derefs_and_paths(void *mem_ctx,
+                                                      nir_shader *shader,
                                                       nir_deref_and_path *a,
                                                       nir_deref_and_path *b)
 {
    if (a->instr == b->instr) /* nir_compare_derefs has a fast path if a == b */
-      return nir_compare_derefs(a->instr, b->instr);
+      return nir_compare_derefs(shader, a->instr, b->instr);
 
-   return nir_compare_deref_paths(nir_get_deref_path(mem_ctx, a),
+   return nir_compare_deref_paths(shader,
+                                  nir_get_deref_path(mem_ctx, a),
                                   nir_get_deref_path(mem_ctx, b));
 }
 
