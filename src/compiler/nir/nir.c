@@ -2607,6 +2607,31 @@ bool nir_all_binding_indices_const(nir_binding binding)
    return true;
 }
 
+bool nir_same_binding(nir_binding a, nir_binding b)
+{
+   if (!a.success || !b.success)
+      return false;
+
+   if (a.var != b.var ||
+       a.desc_set != b.desc_set ||
+       a.binding != b.binding)
+      return false;
+
+   assert(a.num_indices == b.num_indices);
+
+   for (unsigned i = 0; i < a.num_indices; i++) {
+      if (a.indices[i].ssa == b.indices[i].ssa)
+         continue;
+
+      if (!nir_src_is_const(a.indices[i]) ||
+          !nir_src_is_const(b.indices[i]) ||
+          nir_src_as_uint(a.indices[i]) != nir_src_as_uint(b.indices[i]))
+         return false;
+   }
+
+   return true;
+}
+
 nir_variable *nir_get_binding_variable(nir_shader *shader, nir_binding binding)
 {
    if (!binding.success)

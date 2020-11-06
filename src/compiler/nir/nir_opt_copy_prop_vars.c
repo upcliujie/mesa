@@ -340,13 +340,14 @@ is_array_deref_of_vector(nir_deref_instr *deref)
 }
 
 static struct copy_entry *
-lookup_entry_for_deref(struct util_dynarray *copies,
+lookup_entry_for_deref(nir_shader *shader,
+                       struct util_dynarray *copies,
                        nir_deref_instr *deref,
                        nir_deref_compare_result allowed_comparisons)
 {
    struct copy_entry *entry = NULL;
    util_dynarray_foreach(copies, struct copy_entry, iter) {
-      nir_deref_compare_result result = nir_compare_derefs(iter->dst, deref);
+      nir_deref_compare_result result = nir_compare_derefs(shader, iter->dst, deref);
       if (result & allowed_comparisons) {
          entry = iter;
          if (result & nir_derefs_equal_bit)
@@ -358,7 +359,8 @@ lookup_entry_for_deref(struct util_dynarray *copies,
 }
 
 static struct copy_entry *
-lookup_entry_and_kill_aliases(struct util_dynarray *copies,
+lookup_entry_and_kill_aliases(nir_shader *shader,
+                              struct util_dynarray *copies,
                               nir_deref_instr *deref,
                               unsigned write_mask)
 {
@@ -368,13 +370,13 @@ lookup_entry_and_kill_aliases(struct util_dynarray *copies,
    util_dynarray_foreach_reverse(copies, struct copy_entry, iter) {
       if (!iter->src.is_ssa) {
          /* If this write aliases the source of some entry, get rid of it */
-         if (nir_compare_derefs(iter->src.deref, deref) & nir_derefs_may_alias_bit) {
+         if (nir_compare_derefs(shader, iter->src.deref, deref) & nir_derefs_may_alias_bit) {
             copy_entry_remove(copies, iter);
             continue;
          }
       }
 
-      nir_deref_compare_result comp = nir_compare_derefs(iter->dst, deref);
+      nir_deref_compare_result comp = nir_compare_derefs(shader, iter->dst, deref);
 
       if (comp & nir_derefs_equal_bit) {
          /* Removing entries invalidate previous iter pointers, so we'll
@@ -401,27 +403,29 @@ lookup_entry_and_kill_aliases(struct util_dynarray *copies,
 }
 
 static void
-kill_aliases(struct util_dynarray *copies,
+kill_aliases(nir_shader *shader,
+             struct util_dynarray *copies,
              nir_deref_instr *deref,
              unsigned write_mask)
 {
    /* TODO: Take into account the write_mask. */
 
    struct copy_entry *entry =
-      lookup_entry_and_kill_aliases(copies, deref, write_mask);
+      lookup_entry_and_kill_aliases(shader, copies, deref, write_mask);
    if (entry)
       copy_entry_remove(copies, entry);
 }
 
 static struct copy_entry *
-get_entry_and_kill_aliases(struct util_dynarray *copies,
+get_entry_and_kill_aliases(nir_shader *shader,
+                           struct util_dynarray *copies,
                            nir_deref_instr *deref,
                            unsigned write_mask)
 {
    /* TODO: Take into account the write_mask. */
 
    struct copy_entry *entry =
-      lookup_entry_and_kill_aliases(copies, deref, write_mask);
+      lookup_entry_and_kill_aliases(shader, copies, deref, write_mask);
 
    if (entry == NULL)
       entry = copy_entry_create(copies, deref);
@@ -744,7 +748,7 @@ invalidate_copies_for_cf_node(struct copy_prop_var_state *state,
 
    hash_table_foreach (written->derefs, entry) {
       nir_deref_instr *deref_written = (nir_deref_instr *)entry->key;
-      kill_aliases(copies, deref_written, (uintptr_t)entry->data);
+      kill_aliases(state->impl->function->shader, copies, deref_written, (uintptr_t)entry->data);
    }
 }
 
@@ -922,7 +926,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
          }
 
          struct copy_entry *src_entry =
-            lookup_entry_for_deref(copies, src, nir_derefs_a_contains_b_bit);
+            lookup_entry_for_deref(b->shader, copies, src, nir_derefs_a_contains_b_bit);
          struct value value = {0};
          if (try_load_from_entry(state, src_entry, b, intrin, src, &value)) {
             if (value.is_ssa) {
@@ -965,7 +969,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
           * contains what we're looking for.
           */
          struct copy_entry *entry =
-            lookup_entry_for_deref(copies, vec_src, nir_derefs_equal_bit);
+            lookup_entry_for_deref(b->shader, copies, vec_src, nir_derefs_equal_bit);
          if (!entry)
             entry = copy_entry_create(copies, vec_src);
 
@@ -1004,12 +1008,12 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
 
          if (nir_intrinsic_access(intrin) & ACCESS_VOLATILE) {
             unsigned wrmask = nir_intrinsic_write_mask(intrin);
-            kill_aliases(copies, dst, wrmask);
+            kill_aliases(b->shader, copies, dst, wrmask);
             break;
          }
 
          struct copy_entry *entry =
-            lookup_entry_for_deref(copies, dst, nir_derefs_equal_bit);
+            lookup_entry_for_deref(b->shader, copies, dst, nir_derefs_equal_bit);
          if (entry && value_equals_store_src(&entry->src, intrin)) {
             /* If we are storing the value from a load of the same var the
              * store is redundant so remove it.
@@ -1022,7 +1026,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
                                      intrin->num_components);
             unsigned wrmask = nir_intrinsic_write_mask(intrin);
             struct copy_entry *entry =
-               get_entry_and_kill_aliases(copies, vec_dst, wrmask);
+               get_entry_and_kill_aliases(b->shader, copies, vec_dst, wrmask);
             value_set_from_value(&entry->src, &value, vec_index, wrmask);
          }
 
@@ -1043,11 +1047,11 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
 
          if ((nir_intrinsic_src_access(intrin) & ACCESS_VOLATILE) ||
              (nir_intrinsic_dst_access(intrin) & ACCESS_VOLATILE)) {
-            kill_aliases(copies, dst, full_mask);
+            kill_aliases(b->shader, copies, dst, full_mask);
             break;
          }
 
-         if (nir_compare_derefs(src, dst) & nir_derefs_equal_bit) {
+         if (nir_compare_derefs(b->shader, src, dst) & nir_derefs_equal_bit) {
             /* This is a no-op self-copy.  Get rid of it */
             nir_instr_remove(instr);
             state->progress = true;
@@ -1059,12 +1063,12 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
           */
          if ((is_array_deref_of_vector(src) && nir_src_is_const(src->arr.index)) ||
              (is_array_deref_of_vector(dst) && nir_src_is_const(dst->arr.index))) {
-            kill_aliases(copies, dst, full_mask);
+            kill_aliases(b->shader, copies, dst, full_mask);
             break;
          }
 
          struct copy_entry *src_entry =
-            lookup_entry_for_deref(copies, src, nir_derefs_a_contains_b_bit);
+            lookup_entry_for_deref(b->shader, copies, src, nir_derefs_a_contains_b_bit);
          struct value value;
          if (try_load_from_entry(state, src_entry, b, intrin, src, &value)) {
             /* If load works, intrin (the copy_deref) is removed. */
@@ -1072,7 +1076,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
                nir_store_deref(b, dst, value.ssa.def[0], full_mask);
             } else {
                /* If this would be a no-op self-copy, don't bother. */
-               if (nir_compare_derefs(value.deref, dst) & nir_derefs_equal_bit)
+               if (nir_compare_derefs(b->shader, value.deref, dst) & nir_derefs_equal_bit)
                   continue;
 
                /* Just turn it into a copy of a different deref */
@@ -1099,7 +1103,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
          }
 
          struct copy_entry *dst_entry =
-            get_entry_and_kill_aliases(copies, dst, full_mask);
+            get_entry_and_kill_aliases(b->shader, copies, dst, full_mask);
          value_set_from_value(&dst_entry->src, &value, 0, full_mask);
          break;
       }
@@ -1112,7 +1116,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
             nir_src_as_deref(*nir_get_shader_call_payload_src(intrin));
          nir_component_mask_t full_mask =
             BITFIELD_MASK(glsl_get_vector_elements(payload->type));
-         kill_aliases(copies, payload, full_mask);
+         kill_aliases(b->shader, copies, payload, full_mask);
          break;
       }
 
@@ -1132,7 +1136,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
          nir_deref_instr *dst = nir_src_as_deref(intrin->src[0]);
          unsigned num_components = glsl_get_vector_elements(dst->type);
          unsigned full_mask = (1 << num_components) - 1;
-         kill_aliases(copies, dst, full_mask);
+         kill_aliases(b->shader, copies, dst, full_mask);
          break;
 
       case nir_intrinsic_store_deref_block_intel: {
@@ -1149,7 +1153,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
 
          unsigned num_components = glsl_get_vector_elements(dst->type);
          unsigned full_mask = (1 << num_components) - 1;
-         kill_aliases(copies, dst, full_mask);
+         kill_aliases(b->shader, copies, dst, full_mask);
          break;
       }
 
