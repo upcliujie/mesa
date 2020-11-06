@@ -81,6 +81,12 @@ isl_gfx125_filter_tiling(const struct isl_device *dev,
    /* Tile64 is not defined for format sizes that are 24, 48, and 96 bpb. */
    if (isl_format_get_layout(info->format)->bpb % 3 == 0)
       *flags &= ~ISL_TILING_64_BIT;
+
+   /* BSpec 46962: 3DSTATE_CPSIZE_CONTROL_BUFFER::Tiled Mode : TILE4 & TILE64
+    * are the only 2 valid values.
+    */
+   if (info->usage & ISL_SURF_USAGE_CPB_BIT)
+      *flags &= (ISL_TILING_4_BIT | ISL_TILING_64_BIT);
 }
 
 void
@@ -150,6 +156,8 @@ isl_gfx125_choose_image_alignment_el(const struct isl_device *dev,
        *    surfaces support only alignment of 8.
        */
       *image_align_el = isl_extent3d(16, 8, 1);
+   } else if (isl_surf_usage_is_cpb(info->usage)) {
+      *image_align_el = isl_extent3d(128, 8, 1);
    } else if (!isl_is_pow2(fmtl->bpb)) {
       /* From RENDER_SURFACE_STATE::SurfaceHorizontalAlignment,
        *
