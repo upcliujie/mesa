@@ -350,3 +350,15 @@ const void *
 device::get_compiler_options(enum pipe_shader_ir ir) const {
    return pipe->get_compiler_options(pipe, ir, PIPE_SHADER_COMPUTE);
 }
+
+cl_version
+device::numeric_version() const {
+   cl_version ver = CL_MAKE_VERSION(1, 1, 0);
+   static const std::string device_clc_version =
+         debug_get_option("CLOVER_DEVICE_CLC_VERSION_OVERRIDE", "1.1");
+   if (device_clc_version[0] == '1' && device_clc_version[2] == '2')
+      ver = CL_MAKE_VERSION(1, 2, 0);
+   if (device_clc_version[0] == '3' && device_clc_version[2] == '0')
+      ver = CL_MAKE_VERSION(3, 0, 0);
+   return ver;
+}
