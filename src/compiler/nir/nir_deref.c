@@ -439,26 +439,6 @@ modes_may_alias(nir_variable_mode a, nir_variable_mode b)
    return a & b;
 }
 
-static bool
-deref_path_contains_coherent_decoration(nir_variable *var, nir_deref_path *path)
-{
-   if (var->data.access & ACCESS_COHERENT)
-      return true;
-
-   for (nir_deref_instr **p = &path->path[1]; *p; p++) {
-      if ((*p)->deref_type != nir_deref_type_struct)
-         continue;
-
-      const struct glsl_type *struct_type = (*(p - 1))->type;
-      const struct glsl_struct_field *field =
-         glsl_get_struct_field_data(struct_type, (*p)->strct.index);
-      if (field->memory_coherent)
-         return true;
-   }
-
-   return false;
-}
-
 nir_deref_compare_result
 nir_compare_deref_paths(nir_shader *shader,
                         nir_deref_path *a_path,
@@ -487,15 +467,16 @@ nir_compare_deref_paths(nir_shader *shader,
          nir_variable *a_var = nir_get_binding_variable(shader, a_binding);
          nir_variable *b_var = nir_get_binding_variable(shader, b_binding);
 
-         /* If they are both declared coherent or have coherent somewhere in
-          * their path (due to a member of an interface being declared
-          * coherent), we have to assume we that we could have any kind of
-          * aliasing.  Otherwise, they could still alias but the client didn't
-          * tell us and that's their fault.
+         /* If both are SSBOs and neither are declared restrict, we have to
+          * assume we that we could have any kind of aliasing. Otherwise, they
+          * could still alias but the client didn't tell us and that's their
+          * fault.
           */
-         if (deref_path_contains_coherent_decoration(a_var, a_path) &&
-             deref_path_contains_coherent_decoration(b_var, b_path))
+         if (a_path->path[0]->modes & nir_var_mem_ssbo &&
+             !(a_var->data.access & ACCESS_RESTRICT) &&
+             !(b_var->data.access & ACCESS_RESTRICT)) {
             return nir_derefs_may_alias_bit;
+         }
 
          /* Per SPV_KHR_workgroup_memory_explicit_layout and GL_EXT_shared_memory_block,
           * shared blocks alias each other.
@@ -510,8 +491,7 @@ nir_compare_deref_paths(nir_shader *shader,
          }
 
          /* If we can chase the deref all the way back to the variable and
-          * they're not the same variable and at least one is not declared
-          * coherent, we know they can't possibly alias.
+          * they're not the same variable, we know they can't possibly alias.
           */
          return nir_derefs_do_not_alias;
       }
