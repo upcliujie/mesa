@@ -242,6 +242,10 @@ nir_opt_collapse_if(nir_if *if_stmt, nir_shader *shader, unsigned limit,
    if (if_stmt->cf_node.parent->type != nir_cf_node_if)
       return false;
 
+   nir_if *parent_if = nir_cf_node_as_if(if_stmt->cf_node.parent);
+   if (parent_if->control == nir_selection_control_dont_flatten)
+      return false;
+
    /* check if the else block is empty */
    if (!nir_cf_list_is_empty_block(&if_stmt->else_list))
       return false;
@@ -252,7 +256,6 @@ nir_opt_collapse_if(nir_if *if_stmt, nir_shader *shader, unsigned limit,
 
    /* the nested if has to be the only cf_node:
     * i.e. <block> <if_stmt> <block> */
-   nir_if *parent_if = nir_cf_node_as_if(if_stmt->cf_node.parent);
    if (exec_list_length(&parent_if->then_list) != 3)
       return false;
 
@@ -267,21 +270,29 @@ nir_opt_collapse_if(nir_if *if_stmt, nir_shader *shader, unsigned limit,
       return false;
 
    /* check if all outer phis become trivial after merging the ifs */
-   nir_foreach_instr(instr, last) {
-      nir_phi_instr *phi = nir_instr_as_phi(instr);
-      nir_ssa_def *else_src = NULL;
-      nir_foreach_phi_src(phi_src, phi) {
-         if (phi_src->pred == nir_if_first_else_block(if_stmt))
-            else_src = phi_src->src.ssa;
-      }
-      nir_foreach_use (src, &phi->dest.ssa) {
-         assert(src->parent_instr->type == nir_instr_type_phi);
-         nir_foreach_phi_src(phi_src, nir_instr_as_phi(src->parent_instr)) {
-            if (phi_src->src.ssa != else_src &&
-                phi_src->src.ssa != &phi->dest.ssa)
-               return false;
+   if (parent_if->control != nir_selection_control_flatten) {
+      nir_foreach_instr(instr, last) {
+         nir_phi_instr *phi = nir_instr_as_phi(instr);
+         nir_ssa_def *else_src = NULL;
+         nir_foreach_phi_src(phi_src, phi) {
+            if (phi_src->pred == nir_if_first_else_block(if_stmt))
+               else_src = phi_src->src.ssa;
+         }
+         nir_foreach_use (src, &phi->dest.ssa) {
+            assert(src->parent_instr->type == nir_instr_type_phi);
+            nir_foreach_phi_src(phi_src, nir_instr_as_phi(src->parent_instr)) {
+               if (phi_src->src.ssa != else_src &&
+                   phi_src->src.ssa != &phi->dest.ssa)
+                  return false;
+            }
          }
       }
+   }
+
+   if (parent_if->control == nir_selection_control_flatten) {
+      /* Override driver defaults */
+      indirect_load_ok = true;
+      expensive_alu_ok = true;
    }
 
    /* check if the block before the nested if matches the requirements */
@@ -292,7 +303,7 @@ nir_opt_collapse_if(nir_if *if_stmt, nir_shader *shader, unsigned limit,
                                expensive_alu_ok))
       return false;
 
-   if (count > limit)
+   if (count > limit && parent_if->control != nir_selection_control_flatten)
       return false;
 
    /* trivialize succeeding phis */
@@ -306,7 +317,8 @@ nir_opt_collapse_if(nir_if *if_stmt, nir_shader *shader, unsigned limit,
       nir_foreach_use (src, &phi->dest.ssa) {
          nir_foreach_phi_src(phi_src, nir_instr_as_phi(src->parent_instr)) {
             if (phi_src->src.ssa == else_src) {
-               nir_instr_rewrite_src (src->parent_instr, &phi_src->src, nir_src_for_ssa(&phi->dest.ssa));
+               nir_instr_rewrite_src (src->parent_instr, &phi_src->src,
+                                      nir_src_for_ssa(&phi->dest.ssa));
                break;
             }
          }
