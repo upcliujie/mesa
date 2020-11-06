@@ -33,6 +33,7 @@
 #include <assert.h>
 #include <math.h>
 #include "util/u_math.h"
+#include "util/u_qsort.h"
 
 #include "main/menums.h" /* BITFIELD64_MASK */
 
@@ -258,6 +259,35 @@ nir_find_variable_with_driver_location(nir_shader *shader,
          return var;
    }
    return NULL;
+}
+
+static int
+var_sort_cmp(const void *_a, const void *_b, void *_cmp)
+{
+   const nir_variable *const *a = _a;
+   const nir_variable *const *b = _b;
+   int (*cmp)(const nir_variable *, const nir_variable *) = _cmp;
+   return cmp(*a, *b);
+}
+
+void
+nir_sort_variables(nir_shader *shader,
+                   int (*cmp)(const nir_variable *, const nir_variable *))
+{
+   const unsigned num_vars = exec_list_length(&shader->variables);
+   nir_variable **vars = ralloc_array(shader, nir_variable *, num_vars);
+   unsigned i = 0;
+   nir_foreach_variable_in_shader(var, shader)
+      vars[i++] = var;
+   assert(i == num_vars);
+
+   util_qsort_r(vars, num_vars, sizeof(*vars), var_sort_cmp, cmp);
+
+   exec_list_make_empty(&shader->variables);
+   for (i = 0; i < num_vars; i++)
+      exec_list_push_tail(&shader->variables, &vars[i]->node);
+
+   ralloc_free(vars);
 }
 
 nir_function *
