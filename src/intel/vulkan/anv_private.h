@@ -1605,6 +1605,7 @@ VkResult anv_queue_submit_simple_batch(struct anv_queue *queue,
 
 uint64_t anv_gettime_ns(void);
 uint64_t anv_get_absolute_timeout(uint64_t timeout);
+int64_t anv_get_relative_timeout(uint64_t abs_timeout);
 
 void* anv_gem_mmap(struct anv_device *device,
                    uint32_t gem_handle, uint64_t offset, uint64_t size, uint32_t flags);
