@@ -196,6 +196,7 @@ bi_special_op_name(enum bi_special_op op)
         case BI_SPECIAL_CUBEFACE2: return "cubeface2";
         case BI_SPECIAL_CUBE_SSEL: return "cube_ssel";
         case BI_SPECIAL_CUBE_TSEL: return "cube_tsel";
+        case BI_SPECIAL_CLPER: return "clper";
         default: return "invalid";
         }
 }
