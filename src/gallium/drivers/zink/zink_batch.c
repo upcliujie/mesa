@@ -82,6 +82,18 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 }
 
 void
+zink_clear_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   hash_table_foreach(bs->framebuffer_cache, entry) {
+      struct zink_framebuffer* fb = (struct zink_framebuffer*)entry->data;
+      zink_framebuffer_reference(screen, &fb, NULL);
+      _mesa_hash_table_remove(bs->framebuffer_cache, entry);
+   }
+   zink_reset_batch_state(ctx, bs);
+}
+
+void
 zink_batch_reset_all(struct zink_context *ctx, enum zink_queue queue)
 {
    hash_table_foreach(&ctx->batch_states[queue], entry) {
@@ -103,12 +115,6 @@ zink_batch_state_destroy(struct zink_screen *screen, struct zink_batch_state *bs
    if (bs->cmdpool)
       vkDestroyCommandPool(screen->dev, bs->cmdpool, NULL);
 
-   if (bs->framebuffer_cache) {
-      hash_table_foreach(bs->framebuffer_cache, entry) {
-         struct zink_framebuffer* fb = (struct zink_framebuffer*)entry->data;
-         zink_framebuffer_reference(screen, &fb, NULL);
-      }
-   }
    _mesa_hash_table_destroy(bs->framebuffer_cache, NULL);
    _mesa_set_destroy(bs->fence.resources, NULL);
    _mesa_set_destroy(bs->samplers, NULL);
