@@ -53,7 +53,7 @@ void v3dv_printflike(1, 2)
 void
 v3dv_loge_v(const char *format, va_list va)
 {
-   fprintf(stderr, "vk: error: ");
+   fprintf(stderr, "WARNING: ");
    vfprintf(stderr, format, va);
    fprintf(stderr, "\n");
 }
