@@ -258,7 +258,7 @@ x86_build:
   extends:
     - .use-x86_build-base
   variables:
-    MESA_IMAGE_TAG: &x86_build "2020-12-02"
+    MESA_IMAGE_TAG: &x86_build "2020-12-04-cmake"
 
 .use-x86_build:
   variables:
@@ -344,13 +344,13 @@ x86_test-base:
 x86_test-gl:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-gl "2020-11-06-deqp-version"
+    MESA_IMAGE_TAG: &x86_test-gl "2020-12-04-cmake"
 
 # Debian 10 based x86 test image for VK
 x86_test-vk:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-vk "2020-11-06-deqp-version"
+    MESA_IMAGE_TAG: &x86_test-vk "2020-12-04-cmake"
 
 # Debian 10 based ARM build image
 arm_build:
@@ -391,7 +391,7 @@ arm64_test:
   extends:
     - .use-arm_test-base
   variables:
-    MESA_IMAGE_TAG: &arm64_test "2020-12-03-expect"
+    MESA_IMAGE_TAG: &arm64_test "2020-12-04-cmake"
 
 .use-arm64_test:
   variables:
