@@ -3261,7 +3261,7 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			bool lower_pack = false;
 			nir_variable_mode robust_modes = (nir_variable_mode)0;
 
-			if (device->robust_buffer_access) {
+			if (device->robust_buffer_access2) {
 				robust_modes = nir_var_mem_ubo |
 					       nir_var_mem_ssbo |
 					       nir_var_mem_global |
