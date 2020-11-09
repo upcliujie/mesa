@@ -392,6 +392,10 @@ panfrost_prepare_bifrost_fs_state(struct panfrost_context *ctx,
                 state->properties = fs->properties;
                 state->properties.bifrost.allow_forward_pixel_to_kill =
                         !fs->can_discard && !fs->writes_depth && no_blend;
+                if (fs->writes_depth || fs->writes_stencil) {
+                        state->properties.bifrost.zs_update_operation = MALI_PIXEL_KILL_FORCE_LATE;
+                        state->properties.bifrost.pixel_kill_operation = MALI_PIXEL_KILL_FORCE_LATE;
+                }
                 state->shader = fs->shader;
                 state->preload = fs->preload;
         }
