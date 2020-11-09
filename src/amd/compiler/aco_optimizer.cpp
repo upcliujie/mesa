@@ -2260,9 +2260,16 @@ bool combine_add_sub_b2i(opt_ctx& ctx, aco_ptr<Instruction>& instr, aco_opcode n
          }
          ctx.uses[instr->operands[i].tempId()]--;
          new_instr->definitions[0] = instr->definitions[0];
-         new_instr->definitions[1] =
-            instr->definitions.size() == 2 ? instr->definitions[1] :
-            Definition(ctx.program->allocateTmp(ctx.program->lane_mask));
+         if (instr->definitions.size() == 2) {
+            new_instr->definitions[1] = instr->definitions[1];
+         } else {
+            new_instr->definitions[1] =
+               Definition(ctx.program->allocateTmp(ctx.program->lane_mask));
+            /* Resize the uses vector to avoid out of bounds access and to
+             * make sure the number of uses is properly initialized to 0.
+             */
+            ctx.uses.resize(ctx.uses.size() + 1);
+         }
          new_instr->definitions[1].setHint(vcc);
          new_instr->operands[0] = Operand(0u);
          new_instr->operands[1] = instr->operands[!i];
