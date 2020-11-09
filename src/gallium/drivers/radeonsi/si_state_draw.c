@@ -992,6 +992,27 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
                                          !(sctx->ngg_culling & SI_NGG_CULL_GS_FAST_LAUNCH_ALL)));
          }
       } else {
+         /* Set the index buffer for fast launch. The VS prolog will load the indices. */
+         if (sctx->ngg_culling & SI_NGG_CULL_GS_FAST_LAUNCH_INDEX_SIZE_PACKED(~0)) {
+            index_max_size = (indexbuf->width0 - index_offset) / original_index_size;
+
+            /* Skip draw calls with 0-sized index buffers.
+             * They cause a hang on some chips, like Navi10-14.
+             */
+            if (!index_max_size)
+               return;
+
+            radeon_add_to_buffer_list(sctx, sctx->gfx_cs, si_resource(indexbuf),
+                                      RADEON_USAGE_READ, RADEON_PRIO_INDEX_BUFFER);
+
+            uint64_t index_va = si_resource(indexbuf)->gpu_address + index_offset;
+            index_va += info->start * original_index_size;
+
+            radeon_set_sh_reg_seq(cs, R_00B208_SPI_SHADER_USER_DATA_ADDR_LO_GS, 2);
+            radeon_emit(cs, index_va);
+            radeon_emit(cs, index_va >> 32);
+         }
+
          for (unsigned i = 0; i < num_draws; i++) {
             if (i > 0) {
                if (info->increment_draw_id) {
@@ -2093,12 +2114,16 @@ static void si_draw_vbo(struct pipe_context *ctx,
       /* Use NGG fast launch for certain non-indexed primitive types.
        * A draw must have at least 1 full primitive.
        */
-      if (ngg_culling && !index_size && min_direct_count >= 3 && !sctx->tes_shader.cso &&
+      if (ngg_culling && min_direct_count >= 3 && !sctx->tes_shader.cso &&
           !sctx->gs_shader.cso) {
-         if (prim == PIPE_PRIM_TRIANGLES)
+         if (prim == PIPE_PRIM_TRIANGLES && !index_size) {
             ngg_culling |= SI_NGG_CULL_GS_FAST_LAUNCH_TRI_LIST;
-         else if (prim == PIPE_PRIM_TRIANGLE_STRIP)
-            ngg_culling |= SI_NGG_CULL_GS_FAST_LAUNCH_TRI_STRIP;
+         } else if (prim == PIPE_PRIM_TRIANGLE_STRIP && !primitive_restart) {
+            ngg_culling |= SI_NGG_CULL_GS_FAST_LAUNCH_TRI_STRIP |
+                           SI_NGG_CULL_GS_FAST_LAUNCH_INDEX_SIZE_PACKED(MIN2(index_size, 3));
+            /* The index buffer will be emulated. */
+            index_size = 0;
+         }
       }
 
       if (ngg_culling != old_ngg_culling) {
@@ -2133,6 +2158,15 @@ static void si_draw_vbo(struct pipe_context *ctx,
           !(old_ngg_culling & SI_NGG_CULL_GS_FAST_LAUNCH_ALL) &&
           ngg_culling & SI_NGG_CULL_GS_FAST_LAUNCH_ALL)
          sctx->flags |= SI_CONTEXT_VGT_FLUSH;
+
+      if (old_ngg_culling & SI_NGG_CULL_GS_FAST_LAUNCH_INDEX_SIZE_PACKED(~0) &&
+          !(ngg_culling & SI_NGG_CULL_GS_FAST_LAUNCH_INDEX_SIZE_PACKED(~0))) {
+         /* Need to re-set these, because we have bound an index buffer there. */
+         sctx->shader_pointers_dirty |=
+            (1u << si_const_and_shader_buffer_descriptors_idx(PIPE_SHADER_GEOMETRY)) |
+            (1u << si_sampler_and_image_descriptors_idx(PIPE_SHADER_GEOMETRY));
+         si_mark_atom_dirty(sctx, &sctx->atoms.s.shader_pointers);
+      }
 
       /* Set this to the correct value determined by si_update_shaders. */
       sctx->ngg_culling = ngg_culling;
