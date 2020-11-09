@@ -286,9 +286,17 @@ public:
       return false;
    }
 
+   /* Checks if all bytes of the given register slot are either empty or
+    * blocked. Subdword-addressed bytes before "start" are not checked */
    bool is_empty_or_blocked(PhysReg start) {
+      /* Empty is 0, blocked is 0xFFFFFFFF, so comparing the incremented
+       * value against 1 conveniently checks for if either are the case */
+
       if (regs[start] == 0xF0000000) {
-         return subdword_regs[start][start.byte()] + 1 <= 1;
+         for (unsigned i = start.byte(); i < 4; i++)
+            if (subdword_regs[start][i] + 1 > 1)
+               return false;
+         return true;
       }
       return regs[start] + 1 <= 1;
    }
