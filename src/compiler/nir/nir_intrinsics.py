@@ -228,9 +228,9 @@ intrinsic("get_ubo_size", src_comp=[-1], dest_comp=1,
 
 # Intrinsics which provide a run-time mode-check.  Unlike the compile-time
 # mode checks, a pointer can only have exactly one mode at runtime.
-intrinsic("deref_mode_is", src_comp=[-1], dest_comp=1,
+intrinsic("deref_test_mode", src_comp=[-1], dest_comp=1,
           indices=[MEMORY_MODES], flags=[CAN_ELIMINATE, CAN_REORDER])
-intrinsic("addr_mode_is", src_comp=[-1], dest_comp=1,
+intrinsic("addr_test_mode", src_comp=[-1], dest_comp=1,
           indices=[MEMORY_MODES], flags=[CAN_ELIMINATE, CAN_REORDER])
 
 # a barrier is an intrinsic with no inputs/outputs but which can't be moved
