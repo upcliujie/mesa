@@ -614,6 +614,13 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->extendedDynamicState = true;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT: {
+         VkPhysicalDeviceRobustness2FeaturesEXT *features = (void *)ext;
+         features->robustBufferAccess2 = true;
+         features->robustImageAccess2 = true;
+         features->nullDescriptor = true;
+         break;
+      }
       default:
          break;
       }
@@ -856,6 +863,14 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_PROPERTIES_EXT: {
          VkPhysicalDeviceCustomBorderColorPropertiesEXT *props = (void *)ext;
          props->maxCustomBorderColorSamplers = TU_BORDER_COLOR_COUNT;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT: {
+         VkPhysicalDeviceRobustness2PropertiesEXT *props = (void *)ext;
+         /* see write_buffer_descriptor() */
+         props->robustStorageBufferAccessSizeAlignment = 4;
+         /* see write_ubo_descriptor() */
+         props->robustUniformBufferAccessSizeAlignment = 16;
          break;
       }
       default:
