@@ -30,8 +30,10 @@ BAREMETAL_EPHEMERAL=" \
         libtinfo-dev:$arch \
         libegl1-mesa-dev:$arch \
         libvulkan-dev:$arch \
+        libwaffle-dev:$arch \
         libxcb-keysyms1-dev:$arch \
         libpython3-dev:$arch \
+        libxkbcommon-dev:$arch \
         python3-dev \
         qt5-default \
         qt5-qmake \
