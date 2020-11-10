@@ -50,7 +50,6 @@ apt-get -y install --no-install-recommends \
     python3-yaml \
     sntp \
     strace \
-    waffle-utils \
     wget \
     xz-utils
 
