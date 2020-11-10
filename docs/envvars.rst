@@ -677,8 +677,6 @@ radeonsi driver environment variables
    Disable MSAA compression
 ``nohyperz``
    Disable Hyper-Z
-``norbplus``
-   Disable RB+.
 ``no2d``
    Disable 2D tiling
 ``info``
