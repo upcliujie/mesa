@@ -59,15 +59,13 @@ struct amdgpu_winsys_bo {
    struct pb_buffer base;
    union {
       struct {
-         struct pb_cache_entry cache_entry;
-
+         struct pb_cache_entry *cache_entry;
          amdgpu_va_handle va_handle;
-         int map_count;
-         bool use_reusable_pool;
 #if DEBUG
          struct list_head global_list_item;
 #endif
          uint32_t kms_handle;
+         int map_count;
       } real;
       struct {
          struct pb_slab_entry entry;
