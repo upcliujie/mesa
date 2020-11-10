@@ -86,14 +86,15 @@ struct amdgpu_winsys_bo {
 
    struct amdgpu_winsys *ws;
    void *cpu_ptr; /* for user_ptr and permanent maps */
+   struct pipe_fence_handle **fences;
 
    amdgpu_bo_handle bo; /* NULL for slab entries and sparse buffers */
+   uint64_t va;
+   uint32_t unique_id;
+   enum radeon_bo_domain initial_domain: 5;
+   enum radeon_bo_flag flags: 10;
    bool sparse;
    bool is_user_ptr;
-   uint32_t unique_id;
-   uint64_t va;
-   enum radeon_bo_domain initial_domain;
-   enum radeon_bo_flag flags;
 
    /* how many command streams is this bo referenced in? */
    int num_cs_references;
@@ -110,7 +111,6 @@ struct amdgpu_winsys_bo {
    /* Fences for buffer synchronization. */
    unsigned num_fences;
    unsigned max_fences;
-   struct pipe_fence_handle **fences;
 
    simple_mtx_t lock;
 };
