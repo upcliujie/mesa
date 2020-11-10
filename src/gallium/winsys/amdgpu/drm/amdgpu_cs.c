@@ -1440,12 +1440,19 @@ static void amdgpu_cs_submit_ib(void *job, int thread_index)
          alloca(ws->num_buffers * sizeof(struct drm_amdgpu_bo_list_entry));
       struct amdgpu_winsys_bo *bo;
 
+      #define LIST_FOR_EACH_ENTRY_PTR(pos, head, member)           \
+         for (pos = NULL, pos = container_of((head)->next, pos, member);   \
+         pos->member != (head);                \
+         pos = container_of(pos->member->next, pos, member))
+
       simple_mtx_lock(&ws->global_bo_list_lock);
-      LIST_FOR_EACH_ENTRY(bo, &ws->global_bo_list, u.real.global_list_item) {
+      LIST_FOR_EACH_ENTRY_PTR(bo, &ws->global_bo_list, u.real.global_list_item) {
          list[num_handles].bo_handle = bo->u.real.kms_handle;
          list[num_handles].bo_priority = 0;
          ++num_handles;
       }
+
+      #undef LIST_FOR_EACH_ENTRY_PTR
 
       r = amdgpu_bo_list_create_raw(ws->dev, ws->num_buffers, list, &bo_list);
       simple_mtx_unlock(&ws->global_bo_list_lock);

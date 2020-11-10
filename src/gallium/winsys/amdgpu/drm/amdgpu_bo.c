@@ -178,9 +178,10 @@ void amdgpu_bo_destroy(struct pb_buffer *_buf)
 
    if (ws->debug_all_bos) {
       simple_mtx_lock(&ws->global_bo_list_lock);
-      list_del(&bo->u.real.global_list_item);
+      list_del(bo->u.real.global_list_item);
       ws->num_buffers--;
       simple_mtx_unlock(&ws->global_bo_list_lock);
+      free(bo->u.real.global_list_item);
    }
 
    /* Close all KMS handles retrieved for other DRM file descriptions */
@@ -436,8 +437,9 @@ static void amdgpu_add_buffer_to_global_list(struct amdgpu_winsys_bo *bo)
    assert(bo->bo);
 
    if (ws->debug_all_bos) {
+      bo->u.real.global_list_item = CALLOC_STRUCT(list_head);
       simple_mtx_lock(&ws->global_bo_list_lock);
-      list_addtail(&bo->u.real.global_list_item, &ws->global_bo_list);
+      list_addtail(bo->u.real.global_list_item, &ws->global_bo_list);
       ws->num_buffers++;
       simple_mtx_unlock(&ws->global_bo_list_lock);
    }
