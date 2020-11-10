@@ -640,6 +640,28 @@ nir_compare_derefs(nir_deref_instr *a, nir_deref_instr *b)
    return result;
 }
 
+nir_deref_path *nir_get_deref_path(void *mem_ctx, nir_deref_and_path *deref)
+{
+   if (!deref->_path) {
+      deref->_path = ralloc(mem_ctx, nir_deref_path);
+      nir_deref_path_init(deref->_path, deref->instr, mem_ctx);
+   }
+   return deref->_path;
+}
+
+nir_deref_compare_result nir_compare_derefs_and_paths(void *mem_ctx,
+                                                      nir_deref_and_path *a,
+                                                      nir_deref_and_path *b)
+{
+   if (a->instr == b->instr) {
+      return nir_derefs_equal_bit | nir_derefs_may_alias_bit |
+             nir_derefs_a_contains_b_bit | nir_derefs_b_contains_a_bit;
+   }
+
+   return nir_compare_deref_paths(nir_get_deref_path(mem_ctx, a),
+                                  nir_get_deref_path(mem_ctx, b));
+}
+
 struct rematerialize_deref_state {
    bool progress;
    nir_builder builder;
