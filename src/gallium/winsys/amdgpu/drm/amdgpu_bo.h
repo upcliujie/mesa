@@ -59,7 +59,7 @@ struct amdgpu_winsys_bo {
    struct pb_buffer base;
    union {
       struct {
-         struct pb_cache_entry cache_entry;
+         struct pb_cache_entry *cache_entry;
          amdgpu_va_handle va_handle;
          struct list_head *global_list_item;
          uint32_t kms_handle;

@@ -184,6 +184,8 @@ void amdgpu_bo_destroy(struct pb_buffer *_buf)
       free(bo->u.real.global_list_item);
    }
 
+   free(bo->u.real.cache_entry);
+
    /* Close all KMS handles retrieved for other DRM file descriptions */
    simple_mtx_lock(&ws->sws_list_lock);
    for (sws_iter = ws->sws_list; sws_iter; sws_iter = sws_iter->next) {
@@ -229,10 +231,13 @@ static void amdgpu_bo_destroy_or_cache(struct pb_buffer *_buf)
 
    assert(bo->bo); /* slab buffers have a separate vtbl */
 
-   if (bo->u.real.use_reusable_pool)
-      pb_cache_add_buffer(&bo->u.real.cache_entry);
-   else
+   if (bo->u.real.use_reusable_pool) {
+      assert(bo->u.real.cache_entry);
+      pb_cache_add_buffer(bo->u.real.cache_entry);
+   }
+   else {
       amdgpu_bo_destroy(_buf);
+   }
 }
 
 static void amdgpu_clean_up_buffer_managers(struct amdgpu_winsys *ws)
@@ -487,8 +492,9 @@ static struct amdgpu_winsys_bo *amdgpu_create_bo(struct amdgpu_winsys *ws,
       return NULL;
    }
 
-   if (heap >= 0) {
-      pb_cache_init_entry(&ws->bo_cache, &bo->u.real.cache_entry, &bo->base,
+   if (heap >= 0 && (flags & RADEON_FLAG_NO_INTERPROCESS_SHARING)) {
+      bo->u.real.cache_entry = CALLOC_STRUCT(pb_cache_entry);
+      pb_cache_init_entry(&ws->bo_cache, bo->u.real.cache_entry, &bo->base,
                           heap);
    }
    request.alloc_size = size;
@@ -1379,6 +1385,7 @@ no_slab:
          return NULL;
    }
 
+   assert (use_reusable_pool || !bo->u.real.cache_entry);
    bo->u.real.use_reusable_pool = use_reusable_pool;
    return &bo->base;
 }
