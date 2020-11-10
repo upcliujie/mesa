@@ -797,9 +797,7 @@ iris_resource_texture_aux_usage(struct iris_context *ice,
       return ISL_AUX_USAGE_NONE;
 
    case ISL_AUX_USAGE_HIZ_CCS_WT:
-      if (iris_sample_with_depth_aux(devinfo, res))
-         return ISL_AUX_USAGE_HIZ_CCS_WT;
-      break;
+      return ISL_AUX_USAGE_HIZ_CCS_WT;
 
    case ISL_AUX_USAGE_MCS:
    case ISL_AUX_USAGE_MCS_CCS:
