@@ -2013,10 +2013,10 @@ lower_explicit_io_mode_check(nir_builder *b, nir_intrinsic_instr *intrin,
    if (addr_format_is_global(addr_format, 0)) {
       /* If the address format is always global, then the driver can use
        * global addresses regardless of the mode.  In that case, don't create
-       * a check, just whack the intrinsic to addr_mode_is and delegate to the
+       * a check, just whack the intrinsic to addr_test_mode and delegate to the
        * driver lowering that.
        */
-      intrin->intrinsic = nir_intrinsic_addr_mode_is;
+      intrin->intrinsic = nir_intrinsic_addr_test_mode;
       return;
    }
 
@@ -2095,7 +2095,7 @@ nir_lower_explicit_io_impl(nir_function_impl *impl, nir_variable_mode modes,
                break;
             }
 
-            case nir_intrinsic_deref_mode_is: {
+            case nir_intrinsic_deref_test_mode: {
                nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
                if (nir_deref_mode_is_in_set(deref, modes)) {
                   lower_explicit_io_mode_check(&b, intrin, addr_format);
@@ -2150,11 +2150,11 @@ nir_lower_explicit_io_impl(nir_function_impl *impl, nir_variable_mode modes,
  *
  * This pass is also capable of handling OpenCL generic pointers.  If the
  * address mode is global, it will lowering any ambiguous (more than one mode)
- * access to global and passing through the deref_mode_is run-time checks as
- * addr_mode_is.  This assumes the driver has somehow mapped shared and
+ * access to global and passing through the deref_test_mode run-time checks as
+ * addr_test_mode.  This assumes the driver has somehow mapped shared and
  * scratch memory to the global address space.  For other modes such as
  * 62bit_generic, there is an enum embedded in the address and we lower
- * ambiguous access to an if-ladder and deref_mode_is to a check against the
+ * ambiguous access to an if-ladder and deref_test_mode to a check against the
  * embedded enum.  If nir_lower_explicit_io is called on any shader that
  * contains generic pointers, it must either be used on all of the generic
  * modes or none.
