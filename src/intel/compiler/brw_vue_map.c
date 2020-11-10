@@ -89,7 +89,7 @@ brw_compute_vue_map(const struct intel_device_info *devinfo,
    /* gl_Layer and gl_ViewportIndex don't get their own varying slots -- they
     * are stored in the first VUE slot (VARYING_SLOT_PSIZ).
     */
-   slots_valid &= ~(VARYING_BIT_LAYER | VARYING_BIT_VIEWPORT);
+   slots_valid &= ~(VARYING_BIT_LAYER | VARYING_BIT_VIEWPORT | VARYING_BIT_PRIMITIVE_SHADING_RATE);
 
    /* Make sure that the values we store in vue_map->varying_to_slot and
     * vue_map->slot_to_varying won't overflow the signed chars that are used
@@ -126,7 +126,7 @@ brw_compute_vue_map(const struct intel_device_info *devinfo,
       assign_vue_slot(vue_map, VARYING_SLOT_POS, slot++);
    } else {
       /* There are 8 or 16 DWs (D0-D15) in VUE header on Sandybridge:
-       * dword 0-3 of the header is indices, point width, clip flags.
+       * dword 0-3 of the header is shading rate, indices, point width, clip flags.
        * dword 4-7 is the 4D space position
        * dword 8-15 of the vertex header is the user clip distance if
        * enabled.
