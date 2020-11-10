@@ -2518,10 +2518,35 @@ non_uniform_decoration_cb(struct vtn_builder *b,
 }
 
 static void
+look_for_relaxed_precision_cb(struct vtn_builder *b,
+                          struct vtn_value *val, int member,
+                          const struct vtn_decoration *dec, void *void_ctx)
+{
+   bool *relaxed_precision = void_ctx;
+   switch (dec->decoration) {
+   case SpvDecorationRelaxedPrecision:
+      *relaxed_precision = true;
+      break;
+
+   default:
+      break;
+   }
+}
+
+static void
 vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
                    const uint32_t *w, unsigned count)
 {
    struct vtn_type *ret_type = vtn_get_type(b, w[1]);
+   struct vtn_value *result_val = vtn_untyped_value(b, w[1]);
+
+   /* FIXME: the foreach below is not working with my tests, it has the
+    * decoration list empty. Decoration list not initialized? Looking at the
+    * wrong place?
+    */
+   bool relaxed_precision = false;
+   vtn_foreach_decoration(b, result_val,
+                          look_for_relaxed_precision_cb, &relaxed_precision);
 
    if (opcode == SpvOpSampledImage) {
       struct vtn_sampled_image si = {
