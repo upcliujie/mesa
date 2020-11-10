@@ -50,7 +50,6 @@ apt-get -y install --no-install-recommends \
     python3-simplejson
     python3-yaml \
     sntp \
-    waffle-utils \
     wget \
     xz-utils
 
