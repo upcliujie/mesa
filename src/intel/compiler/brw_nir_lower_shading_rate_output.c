@@ -34,6 +34,9 @@
  * into a single dword composed of 2 fp16 to be stored in the dword 0 of the
  * VUE header.
  *
+ * When no horizontal/vertical bits are set, the size in pixel size in that
+ * dimension is assumed to be 1.
+ *
  * According to the specification, the shading rate output can be read &
  * written. A read after a write should report a different value if the
  * implemention decides on different primitive shading rate for some reason.
