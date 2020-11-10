@@ -90,6 +90,14 @@ glXCreateContextAttribsARB(Display *dpy, GLXFBConfig config,
 #endif
    }
 
+   if (!gc) {
+      /* This should arguably try to translate dummy_err, but this is the only
+       * reason indirect_create_context_attribs can fail at the moment.
+       */
+      __glXSendError(dpy, GLXBadFBConfig, None, 0, False);
+      return NULL;
+   }
+
    gc->xid = xcb_generate_id(c);
    gc->share_xid = (share != NULL) ? share->xid : 0;
 
