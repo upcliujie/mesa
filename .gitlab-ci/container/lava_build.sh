@@ -99,6 +99,7 @@ if [[ "$DEBIAN_ARCH" = "armhf" ]]; then
                        libpng-dev:armhf \
                        libpython3-dev:armhf \
                        libvulkan-dev:armhf \
+                       libwaffle-dev:armhf \
                        libxcb-keysyms1-dev:armhf \
                        libxkbcommon-dev:armhf \
                        libboost-dev:armhf \
