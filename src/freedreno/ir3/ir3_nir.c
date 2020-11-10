@@ -184,7 +184,7 @@ ir3_nir_should_vectorize_mem(unsigned align_mul, unsigned align_offset,
 #define OPT_V(nir, pass, ...) NIR_PASS_V(nir, pass, ##__VA_ARGS__)
 
 void
-ir3_optimize_loop(nir_shader *s)
+ir3_optimize_loop(struct ir3_compiler *compiler, nir_shader *s)
 {
 	bool progress;
 	unsigned lower_flrp =
@@ -219,7 +219,8 @@ ir3_optimize_loop(nir_shader *s)
 		progress |= OPT(s, nir_opt_constant_folding);
 
 		progress |= OPT(s, nir_opt_load_store_vectorize, nir_var_mem_ubo,
-				ir3_nir_should_vectorize_mem, 0);
+				ir3_nir_should_vectorize_mem,
+				compiler->robust_ubo_access ? nir_var_mem_ubo : 0);
 
 		if (lower_flrp != 0) {
 			if (OPT(s, nir_lower_flrp,
@@ -304,7 +305,7 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 	if (compiler->gpu_id < 500)
 		OPT_V(s, ir3_nir_lower_tg4_to_tex);
 
-	ir3_optimize_loop(s);
+	ir3_optimize_loop(compiler, s);
 
 	/* do idiv lowering after first opt loop to get a chance to propagate
 	 * constants for divide by immed power-of-two:
@@ -312,7 +313,7 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 	const bool idiv_progress = OPT(s, nir_lower_idiv, nir_lower_idiv_fast);
 
 	if (idiv_progress)
-		ir3_optimize_loop(s);
+		ir3_optimize_loop(compiler, s);
 
 	OPT_V(s, nir_remove_dead_variables, nir_var_function_temp, NULL);
 
@@ -355,7 +356,7 @@ ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
 	 */
 	OPT_V(s, ir3_nir_apply_trig_workarounds);
 
-	ir3_optimize_loop(s);
+	ir3_optimize_loop(compiler, s);
 }
 
 static bool
@@ -509,7 +510,7 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 	OPT_V(s, ir3_nir_lower_io_offsets, so->shader->compiler->gpu_id);
 
 	if (progress)
-		ir3_optimize_loop(s);
+		ir3_optimize_loop(so->shader->compiler, s);
 
 	/* Do late algebraic optimization to turn add(a, neg(b)) back into
 	* subs, then the mandatory cleanup after algebraic.  Note that it may

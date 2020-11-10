@@ -976,6 +976,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    VkResult result;
    struct tu_device *device;
    bool custom_border_colors = false;
+   bool robust_buffer_access2 = false;
 
    /* Check enabled features */
    if (pCreateInfo->pEnabledFeatures) {
@@ -998,6 +999,11 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT: {
          const VkPhysicalDeviceCustomBorderColorFeaturesEXT *border_color_features = (const void *)ext;
          custom_border_colors = border_color_features->customBorderColors;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT: {
+         VkPhysicalDeviceRobustness2FeaturesEXT *features = (void *)ext;
+         robust_buffer_access2 = features->robustBufferAccess2;
          break;
       }
       default:
@@ -1061,7 +1067,8 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
       }
    }
 
-   device->compiler = ir3_compiler_create(NULL, physical_device->gpu_id);
+   device->compiler = ir3_compiler_create(NULL, physical_device->gpu_id,
+                                          robust_buffer_access2);
    if (!device->compiler) {
       result = vk_startup_errorf(physical_device->instance,
                                  VK_ERROR_INITIALIZATION_FAILED,
