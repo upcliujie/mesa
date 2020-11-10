@@ -125,22 +125,19 @@ struct PhysRegIterator {
    }
 };
 
-/* Pair of register bounds that is used in "sliding window"-style for-loops */
+/* Half-open register interval used in "sliding window"-style for-loops */
 struct PhysRegInterval {
    PhysReg lo_;
    unsigned size;
 
-   PhysReg lo() const {
+   /* Inclusive lower bound */
+   PhysReg first_reg() const {
       return lo_;
    }
 
-   /* inclusive bound */
-   PhysReg hi() const {
-      return PhysReg { lo() + size - 1 };
-   }
-
-   [[deprecated]] PhysReg hi_excl() const {
-      return PhysReg { lo() + size };
+   /* Exclusive upper bound */
+   PhysReg end_reg() const {
+      return PhysReg { first_reg() + size };
    }
 
    PhysRegInterval& operator+=(uint32_t stride) {
@@ -152,16 +149,17 @@ struct PhysRegInterval {
       return lo_ != oth.lo_ || size != oth.size;
    }
 
-   static PhysRegInterval from_to(PhysReg first, PhysReg last) {
-      return { first, last - first + 1 };
+   /* Construct a half-open interval, excluding the end register */
+   static PhysRegInterval from_until(PhysReg first, PhysReg end) {
+      return { first, end - first };
    }
 
    bool contains(PhysReg reg) const {
-       return lo() <= reg && reg <= hi();
+       return first_reg() <= reg && reg < end_reg();
    }
 
    bool contains(const PhysRegInterval& needle) const {
-       return needle.lo() >= lo() && needle.hi() <= hi();
+       return needle.first_reg() >= first_reg() && needle.end_reg() <= end_reg();
    }
 
    PhysRegIterator begin() const {
@@ -174,8 +172,8 @@ struct PhysRegInterval {
 };
 
 bool intersects(const PhysRegInterval& a, const PhysRegInterval& b) {
-   return ((a.lo() >= b.lo() && a.lo() <= b.hi()) ||
-           (a.hi() >= b.lo() && a.hi() <= b.hi()));
+   return ((a.first_reg() >= b.first_reg() && a.first_reg() < b.end_reg()) ||
+           (a.end_reg() > b.first_reg() && a.end_reg() <= b.end_reg()));
 }
 
 /* Gets the stride for full (non-subdword) register */
@@ -749,12 +747,12 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
             next_nonfree_it = bounds.end();
          }
 
-         PhysRegInterval gap = PhysRegInterval::from_to(*reg_it, *std::prev(next_nonfree_it));
+         PhysRegInterval gap = PhysRegInterval::from_until(*reg_it, *next_nonfree_it);
 
          /* early return on exact matches */
          if (size == gap.size) {
-            adjust_max_used_regs(ctx, rc, gap.lo());
-            return {gap.lo(), true};
+            adjust_max_used_regs(ctx, rc, gap.first_reg());
+            return {gap.first_reg(), true};
          }
 
          /* check if it fits and the gap size is smaller */
@@ -772,25 +770,25 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
       /* find best position within gap by leaving a good stride for other variables*/
       unsigned buffer = best_gap.size - size;
       if (buffer > 1) {
-         if (((best_gap.lo() + size) % 8 != 0 && (best_gap.lo() + buffer) % 8 == 0) ||
-             ((best_gap.lo() + size) % 4 != 0 && (best_gap.lo() + buffer) % 4 == 0) ||
-             ((best_gap.lo() + size) % 2 != 0 && (best_gap.lo() + buffer) % 2 == 0))
-            best_gap = { PhysReg { best_gap.lo() + buffer }, best_gap.size - buffer };
+         if (((best_gap.first_reg() + size) % 8 != 0 && (best_gap.first_reg() + buffer) % 8 == 0) ||
+             ((best_gap.first_reg() + size) % 4 != 0 && (best_gap.first_reg() + buffer) % 4 == 0) ||
+             ((best_gap.first_reg() + size) % 2 != 0 && (best_gap.first_reg() + buffer) % 2 == 0))
+            best_gap = { PhysReg { best_gap.first_reg() + buffer }, best_gap.size - buffer };
       }
 
-      adjust_max_used_regs(ctx, rc, best_gap.lo());
-      return {best_gap.lo(), true};
+      adjust_max_used_regs(ctx, rc, best_gap.first_reg());
+      return {best_gap.first_reg(), true};
    }
 
-   for (PhysRegInterval reg_win = { bounds.lo(), size }; reg_win.hi_excl() <= bounds.hi_excl(); reg_win += stride) {
-      if (reg_file[reg_win.lo()] != 0) {
+   for (PhysRegInterval reg_win = { bounds.first_reg(), size }; reg_win.end_reg() <= bounds.end_reg(); reg_win += stride) {
+      if (reg_file[reg_win.first_reg()] != 0) {
          continue;
       }
 
       bool is_valid = std::all_of(std::next(reg_win.begin()), reg_win.end(), is_free);
       if (is_valid) {
-         adjust_max_used_regs(ctx, rc, reg_win.lo());
-         return {reg_win.lo(), true};
+         adjust_max_used_regs(ctx, rc, reg_win.first_reg());
+         return {reg_win.first_reg(), true};
       }
    }
 
@@ -885,7 +883,7 @@ bool get_regs_for_copies(ra_ctx& ctx,
       std::pair<PhysReg, bool> res;
       if (is_dead_operand) {
          if (instr->opcode == aco_opcode::p_create_vector) {
-            PhysReg reg(def_reg.lo());
+            PhysReg reg(def_reg.first_reg());
             for (unsigned i = 0; i < instr->operands.size(); i++) {
                if (instr->operands[i].isTemp() && instr->operands[i].tempId() == id) {
                   res = {reg, (!var.rc.is_subdword() || (reg.byte() % info.stride == 0)) && !reg_file.test(reg, var.rc.bytes())};
@@ -900,11 +898,12 @@ bool get_regs_for_copies(ra_ctx& ctx,
             res = get_reg_simple(ctx, reg_file, info);
          }
       } else {
-         info.bounds = { bounds.lo(), MIN2(def_reg.lo(), bounds.hi_excl()) - bounds.lo() };
+         /* Try to find space within the bounds but outside of the definition */
+         info.bounds = { bounds.first_reg(), MIN2(def_reg.first_reg() - bounds.first_reg(), bounds.size) };
          res = get_reg_simple(ctx, reg_file, info);
-         if (!res.second && def_reg.hi() < bounds.hi_excl()) {
-            unsigned lo = (def_reg.hi() + info.stride) & ~(info.stride - 1);
-            info.bounds = PhysRegInterval::from_to(PhysReg{lo}, bounds.hi());
+         if (!res.second && def_reg.end_reg() <= bounds.end_reg()) {
+            unsigned lo = (def_reg.end_reg() + info.stride - 1) & ~(info.stride - 1);
+            info.bounds = PhysRegInterval::from_until(PhysReg{lo}, bounds.end_reg());
             res = get_reg_simple(ctx, reg_file, info);
          }
       }
@@ -922,14 +921,14 @@ bool get_regs_for_copies(ra_ctx& ctx,
          continue;
       }
 
-      PhysReg best_pos = bounds.lo();
+      PhysReg best_pos = bounds.first_reg();
       unsigned num_moves = 0xFF;
       unsigned num_vars = 0;
 
       /* we use a sliding window to find potential positions */
-      PhysRegInterval reg_win { bounds.lo(), size };
+      PhysRegInterval reg_win { bounds.first_reg(), size };
       unsigned stride = var.rc.is_subdword() ? 1 : info.stride;
-      for (; reg_win.hi() < bounds.hi_excl(); reg_win += stride) {
+      for (; reg_win.end_reg() <= bounds.end_reg(); reg_win += stride) {
          if (!is_dead_operand && intersects(reg_win, def_reg))
             continue;
 
@@ -979,7 +978,7 @@ bool get_regs_for_copies(ra_ctx& ctx,
          }
 
          if (found) {
-            best_pos = reg_win.lo();
+            best_pos = reg_win.first_reg();
             num_moves = k;
             num_vars = n;
          }
@@ -995,18 +994,18 @@ bool get_regs_for_copies(ra_ctx& ctx,
       std::set<std::pair<unsigned, unsigned>> new_vars = collect_vars(ctx, reg_file, reg_win);
 
       /* mark the area as blocked */
-      reg_file.block(reg_win.lo(), var.rc);
+      reg_file.block(reg_win.first_reg(), var.rc);
 
       if (!get_regs_for_copies(ctx, reg_file, parallelcopies, new_vars, bounds, instr, def_reg))
          return false;
 
-      adjust_max_used_regs(ctx, var.rc, reg_win.lo());
+      adjust_max_used_regs(ctx, var.rc, reg_win.first_reg());
 
       /* create parallelcopy pair (without definition id) */
       Temp tmp = Temp(id, var.rc);
       Operand pc_op = Operand(tmp);
       pc_op.setFixed(var.reg);
-      Definition pc_def = Definition(reg_win.lo(), pc_op.regClass());
+      Definition pc_def = Definition(reg_win.first_reg(), pc_op.regClass());
       parallelcopies.emplace_back(pc_op, pc_def);
    }
 
@@ -1049,18 +1048,18 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
       op_moves = size - (regs_free - killed_ops);
 
    /* find the best position to place the definition */
-   PhysRegInterval best_win = { bounds.lo(), size };
+   PhysRegInterval best_win = { bounds.first_reg(), size };
    unsigned num_moves = 0xFF;
    unsigned num_vars = 0;
 
    /* we use a sliding window to check potential positions */
-   for (PhysRegInterval reg_win = { bounds.lo(), size }; reg_win.hi() < bounds.hi_excl(); reg_win += stride) {
+   for (PhysRegInterval reg_win = { bounds.first_reg(), size }; reg_win.end_reg() <= bounds.end_reg(); reg_win += stride) {
       /* first check the edges: this is what we have to fix to allow for num_moves > size */
-      if (reg_win.lo() > bounds.lo() && !reg_file.is_empty_or_blocked(reg_win.lo()) &&
-          reg_file.get_id(reg_win.lo()) == reg_file.get_id(reg_win.lo().advance(-1)))
+      if (reg_win.first_reg() > bounds.first_reg() && !reg_file.is_empty_or_blocked(reg_win.first_reg()) &&
+          reg_file.get_id(reg_win.first_reg()) == reg_file.get_id(reg_win.first_reg().advance(-1)))
          continue;
-      if (reg_win.hi() < bounds.hi() && !reg_file.is_empty_or_blocked(reg_win.hi().advance(3)) &&
-          reg_file.get_id(reg_win.hi().advance(3)) == reg_file.get_id(reg_win.hi().advance(4)))
+      if (reg_win.end_reg() < bounds.end_reg() && !reg_file.is_empty_or_blocked(reg_win.end_reg().advance(-1)) &&
+          reg_file.get_id(reg_win.end_reg().advance(-1)) == reg_file.get_id(reg_win.end_reg()))
          continue;
 
       /* second, check that we have at most k=num_moves elements in the window
@@ -1070,7 +1069,7 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
       unsigned remaining_op_moves = op_moves;
       unsigned last_var = 0;
       bool found = true;
-      bool aligned = rc == RegClass::v4 && reg_win.lo() % 4 == 0;
+      bool aligned = rc == RegClass::v4 && reg_win.first_reg() % 4 == 0;
       for (const PhysReg j : reg_win) {
          if (reg_file[j] == 0 || reg_file[j] == last_var)
             continue;
@@ -1142,14 +1141,14 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
    if (instr->opcode == aco_opcode::p_create_vector) {
       /* move killed operands which aren't yet at the correct position (GFX9+)
        * or which are in the definition space */
-      PhysReg reg = best_win.lo();
+      PhysReg reg = best_win.first_reg();
       for (Operand& op : instr->operands) {
          if (op.isTemp() && op.isFirstKillBeforeDef() &&
              op.getTemp().type() == rc.type()) {
             if (op.physReg() != reg &&
                 (ctx.program->chip_class >= GFX9 ||
-                 (op.physReg().advance(op.bytes()) > best_win.lo() &&
-                  op.physReg() < best_win.hi_excl()))) {
+                 (op.physReg().advance(op.bytes()) > best_win.first_reg() &&
+                  op.physReg() < best_win.end_reg()))) {
                vars.emplace(op.bytes(), op.tempId());
                reg_file.clear(op);
             } else {
@@ -1187,7 +1186,7 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
    parallelcopies.insert(parallelcopies.end(), pc.begin(), pc.end());
 
    /* we set the definition regs == 0. the actual caller is responsible for correct setting */
-   reg_file.clear(best_win.lo(), rc);
+   reg_file.clear(best_win.first_reg(), rc);
 
    update_renames(ctx, reg_file, parallelcopies, instr, instr->opcode != aco_opcode::p_create_vector);
 
@@ -1205,8 +1204,8 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
          reg_file.fill(def);
    }
 
-   adjust_max_used_regs(ctx, rc, best_win.lo());
-   return {best_win.lo(), true};
+   adjust_max_used_regs(ctx, rc, best_win.first_reg());
+   return {best_win.first_reg(), true};
 }
 
 bool get_reg_specified(ra_ctx& ctx,
@@ -1249,7 +1248,7 @@ bool get_reg_specified(ra_ctx& ctx,
          return false;
    }
 
-   adjust_max_used_regs(ctx, rc, reg_win.lo());
+   adjust_max_used_regs(ctx, rc, reg_win.first_reg());
    return true;
 }
 
@@ -1392,16 +1391,16 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
       unsigned k = 0;
 
       /* no need to check multiple times */
-      if (reg_win.lo() == best_pos)
+      if (reg_win.first_reg() == best_pos)
          continue;
 
       /* check borders */
       // TODO: this can be improved */
-      if (!bounds.contains(reg_win) || reg_win.lo() % stride != 0)
+      if (!bounds.contains(reg_win) || reg_win.first_reg() % stride != 0)
          continue;
-      if (reg_win.lo() > bounds.lo() && reg_file[reg_win.lo()] != 0 && reg_file.get_id(reg_win.lo()) == reg_file.get_id(reg_win.lo().advance(-1)))
+      if (reg_win.first_reg() > bounds.first_reg() && reg_file[reg_win.first_reg()] != 0 && reg_file.get_id(reg_win.first_reg()) == reg_file.get_id(reg_win.first_reg().advance(-1)))
          continue;
-      if (reg_win.hi() < bounds.hi() && reg_file[reg_win.hi()] != 0 && reg_file.get_id(reg_win.hi().advance(3)) == reg_file.get_id(reg_win.hi().advance(4)))
+      if (reg_win.end_reg() < bounds.end_reg() && reg_file[reg_win.end_reg().advance(-4)] != 0 && reg_file.get_id(reg_win.end_reg().advance(-1)) == reg_file.get_id(reg_win.end_reg()))
          continue;
 
       /* count variables to be moved and check war_hint */
@@ -1416,7 +1415,7 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
             if (reg_file[j] == 0xF0000000) {
                PhysReg reg;
                reg.reg_b = j * 4;
-               unsigned bytes_left = bytes - ((unsigned)j - reg_win.lo()) * 4;
+               unsigned bytes_left = bytes - ((unsigned)j - reg_win.first_reg()) * 4;
                for (unsigned byte_idx = 0; byte_idx < MIN2(bytes_left, 4); byte_idx++, reg.reg_b++)
                   k += reg_file.test(reg, 1);
             } else {
@@ -1437,14 +1436,14 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
              !instr->operands[j].isTemp() ||
              instr->operands[j].getTemp().type() != rc.type())
             continue;
-         if (instr->operands[j].physReg().reg_b != reg_win.lo() * 4 + offset2)
+         if (instr->operands[j].physReg().reg_b != reg_win.first_reg() * 4 + offset2)
             k += instr->operands[j].bytes();
       }
-      bool aligned = rc == RegClass::v4 && reg_win.lo() % 4 == 0;
+      bool aligned = rc == RegClass::v4 && reg_win.first_reg() % 4 == 0;
       if (k > num_moves || (!aligned && k == num_moves))
          continue;
 
-      best_pos = reg_win.lo();
+      best_pos = reg_win.first_reg();
       num_moves = k;
       best_war_hint = war_hint;
    }
