@@ -947,7 +947,9 @@ void * ir3_assemble(struct ir3_shader_variant *v)
 		unsigned sfu_delay = 0;
 
 		foreach_instr (instr, &block->instr_list) {
-			int ret = emit[opc_cat(instr->opc)](instr, dwords, info);
+			unsigned cat = opc_cat(instr->opc);
+			assert(cat <= 7);
+			int ret = emit[cat](instr, dwords, info);
 			if (ret)
 				goto fail;
 
@@ -961,7 +963,7 @@ void * ir3_assemble(struct ir3_shader_variant *v)
 				nops_count = 1 + instr->repeat;
 				info->instrs_per_cat[0] += nops_count;
 			} else {
-				info->instrs_per_cat[opc_cat(instr->opc)] += instrs_count;
+				info->instrs_per_cat[cat] += instrs_count;
 				info->instrs_per_cat[0] += nops_count;
 			}
 
