@@ -271,6 +271,7 @@ calc_nbins(struct gmem_key *key, struct fd_gmem_stateobj *gmem)
 
 static struct fd_gmem_stateobj *
 gmem_stateobj_init(struct fd_screen *screen, struct gmem_key *key)
+	requires_cap(fd_screen_lock_cap)
 {
 	struct fd_gmem_stateobj *gmem =
 			rzalloc(screen->gmem_cache.ht, struct fd_gmem_stateobj);
@@ -452,6 +453,7 @@ __fd_gmem_destroy(struct fd_gmem_stateobj *gmem)
 
 static struct gmem_key *
 gmem_key_init(struct fd_batch *batch, bool assume_zs, bool no_scis_opt)
+	requires_cap(fd_screen_lock_cap)
 {
 	struct fd_screen *screen = batch->ctx->screen;
 	struct pipe_framebuffer_state *pfb = &batch->framebuffer;

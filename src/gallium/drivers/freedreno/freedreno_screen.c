@@ -143,6 +143,7 @@ fd_screen_get_timestamp(struct pipe_screen *pscreen)
 
 static void
 fd_screen_destroy(struct pipe_screen *pscreen)
+	disable_thread_safety_analysis
 {
 	struct fd_screen *screen = fd_screen(pscreen);
 
@@ -844,6 +845,7 @@ fd_screen_get_driver_uuid(struct pipe_screen *pscreen, char *uuid)
 
 struct pipe_screen *
 fd_screen_create(struct fd_device *dev, struct renderonly *ro)
+	disable_thread_safety_analysis
 {
 	struct fd_screen *screen = CALLOC_STRUCT(fd_screen);
 	struct pipe_screen *pscreen;

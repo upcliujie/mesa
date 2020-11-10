@@ -167,6 +167,7 @@ main(int argc, char **argv)
 	 * to make gmem_stateobj_init() happy:
 	 */
 	struct fd_screen screen = {
+		.lock           = _SIMPLE_MTX_INITIALIZER_NP,
 		.gpu_id         = gpu_info->gpu_id,
 		.gmem_alignw    = gpu_info->gmem_alignw,
 		.gmem_alignh    = gpu_info->gmem_alignh,
@@ -174,7 +175,11 @@ main(int argc, char **argv)
 		.tile_alignh    = gpu_info->tile_alignh,
 		.num_vsc_pipes  = gpu_info->num_vsc_pipes,
 		.gmemsize_bytes = gpu_info->gmemsize_bytes,
+
 	};
+
+	/* Lock to keep static lock check happy */
+	fd_screen_lock(&screen);
 
 	/* And finally run thru all the GMEM keys: */
 	for (int i = 0; i < ARRAY_SIZE(keys); i++) {
@@ -188,6 +193,8 @@ main(int argc, char **argv)
 
 		ralloc_free(gmem);
 	}
+
+	fd_screen_unlock(&screen);
 
 	return 0;
 }

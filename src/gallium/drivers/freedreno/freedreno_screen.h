@@ -44,10 +44,12 @@
 
 struct fd_bo;
 
+extern lock_cap_t fd_screen_lock_cap;
+
 struct fd_screen {
 	struct pipe_screen base;
 
-	struct list_head context_list;
+	struct list_head context_list guarded_by(fd_screen_lock_cap);
 
 	simple_mtx_t lock;
 
@@ -61,7 +63,7 @@ struct fd_screen {
 	/* place for winsys to stash it's own stuff: */
 	void *winsys_priv;
 
-	struct slab_parent_pool transfer_pool;
+	struct slab_parent_pool transfer_pool guarded_by(fd_screen_lock_cap);
 
 	uint64_t gmem_base;
 	uint32_t gmemsize_bytes;
@@ -111,7 +113,7 @@ struct fd_screen {
 	int64_t cpu_gpu_time_delta;
 
 	struct fd_batch_cache batch_cache;
-	struct fd_gmem_cache gmem_cache;
+	struct fd_gmem_cache gmem_cache guarded_by(fd_screen_lock_cap);
 
 	bool reorder;
 
@@ -125,7 +127,7 @@ struct fd_screen {
 	/* when BATCH_DEBUG is enabled, tracking for fd_batch's which are not yet
 	 * freed:
 	 */
-	struct set *live_batches;
+	struct set *live_batches guarded_by(fd_screen_lock_cap);
 };
 
 static inline struct fd_screen *
@@ -136,18 +138,21 @@ fd_screen(struct pipe_screen *pscreen)
 
 static inline void
 fd_screen_lock(struct fd_screen *screen)
+	acquire_cap(fd_screen_lock_cap)
 {
 	simple_mtx_lock(&screen->lock);
 }
 
 static inline void
 fd_screen_unlock(struct fd_screen *screen)
+	release_cap(fd_screen_lock_cap)
 {
 	simple_mtx_unlock(&screen->lock);
 }
 
 static inline void
 fd_screen_assert_locked(struct fd_screen *screen)
+	assert_cap(fd_screen_lock_cap)
 {
 	simple_mtx_assert_locked(&screen->lock);
 }

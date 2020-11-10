@@ -115,6 +115,7 @@ batch_init(struct fd_batch *batch)
 
 struct fd_batch *
 fd_batch_create(struct fd_context *ctx, bool nondraw)
+	requires_cap(fd_screen_lock_cap)
 {
 	struct fd_batch *batch = CALLOC_STRUCT(fd_batch);
 
@@ -132,7 +133,6 @@ fd_batch_create(struct fd_context *ctx, bool nondraw)
 
 	batch_init(batch);
 
-	fd_screen_assert_locked(ctx->screen);
 	if (BATCH_DEBUG) {
 		_mesa_set_add(ctx->screen->live_batches, batch);
 	}
@@ -271,6 +271,7 @@ fd_batch_reset(struct fd_batch *batch)
 
 void
 __fd_batch_destroy(struct fd_batch *batch)
+	requires_cap(fd_screen_lock_cap)
 {
 	struct fd_context *ctx = batch->ctx;
 
@@ -405,6 +406,7 @@ fd_batch_add_dep(struct fd_batch *batch, struct fd_batch *dep)
 
 static void
 flush_write_batch(struct fd_resource *rsc)
+	requires_cap(fd_screen_lock_cap)
 {
 	struct fd_batch *b = NULL;
 	fd_batch_reference_locked(&b, rsc->write_batch);

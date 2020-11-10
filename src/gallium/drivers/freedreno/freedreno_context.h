@@ -440,18 +440,21 @@ fd_context(struct pipe_context *pctx)
 
 static inline void
 fd_context_assert_locked(struct fd_context *ctx)
+	assert_cap(fd_screen_lock_cap)
 {
 	fd_screen_assert_locked(ctx->screen);
 }
 
 static inline void
 fd_context_lock(struct fd_context *ctx)
+	acquire_cap(fd_screen_lock_cap)
 {
 	fd_screen_lock(ctx->screen);
 }
 
 static inline void
 fd_context_unlock(struct fd_context *ctx)
+	release_cap(fd_screen_lock_cap)
 {
 	fd_screen_unlock(ctx->screen);
 }
