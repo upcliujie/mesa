@@ -861,7 +861,7 @@ sparse_backing_alloc(struct amdgpu_winsys_bo *bo, uint32_t *pstart_page, uint32_
    best_num_pages = 0;
 
    /* This is a very simple and inefficient best-fit algorithm. */
-   list_for_each_entry(struct amdgpu_sparse_backing, backing, &bo->u.sparse.backing, list) {
+   list_for_each_entry(struct amdgpu_sparse_backing, backing, bo->u.sparse.backing, list) {
       for (unsigned idx = 0; idx < backing->num_chunks; ++idx) {
          uint32_t cur_num_pages = backing->chunks[idx].end - backing->chunks[idx].begin;
          if ((best_num_pages < *pnum_pages && cur_num_pages > best_num_pages) ||
@@ -915,7 +915,7 @@ sparse_backing_alloc(struct amdgpu_winsys_bo *bo, uint32_t *pstart_page, uint32_
       best_backing->chunks[0].begin = 0;
       best_backing->chunks[0].end = pages;
 
-      list_add(&best_backing->list, &bo->u.sparse.backing);
+      list_add(&best_backing->list, bo->u.sparse.backing);
       bo->u.sparse.num_backing_pages += pages;
 
       best_idx = 0;
@@ -1032,12 +1032,13 @@ static void amdgpu_bo_sparse_destroy(struct pb_buffer *_buf)
       fprintf(stderr, "amdgpu: clearing PRT VA region on destroy failed (%d)\n", r);
    }
 
-   while (!list_is_empty(&bo->u.sparse.backing)) {
+   while (!list_is_empty(bo->u.sparse.backing)) {
       struct amdgpu_sparse_backing *dummy = NULL;
       sparse_free_backing_buffer(bo,
-                                 container_of(bo->u.sparse.backing.next,
+                                 container_of(bo->u.sparse.backing->next,
                                               dummy, list));
    }
+   free(bo->u.sparse.backing);
 
    amdgpu_va_range_free(bo->u.sparse.va_handle);
    FREE(bo->u.sparse.commitments);
@@ -1088,7 +1089,8 @@ amdgpu_bo_sparse_create(struct amdgpu_winsys *ws, uint64_t size,
    if (!bo->u.sparse.commitments)
       goto error_alloc_commitments;
 
-   list_inithead(&bo->u.sparse.backing);
+   bo->u.sparse.backing = CALLOC_STRUCT(list_head);
+   list_inithead(bo->u.sparse.backing);
 
    /* For simplicity, we always map a multiple of the page size. */
    map_size = align64(size, RADEON_SPARSE_PAGE_SIZE);

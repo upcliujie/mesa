@@ -72,15 +72,15 @@ struct amdgpu_winsys_bo {
       } slab;
       struct {
          amdgpu_va_handle va_handle;
-         enum radeon_bo_flag flags;
+         /* Commitment information for each page of the virtual memory area. */
+         struct amdgpu_sparse_commitment *commitments;
+         struct list_head *backing;
 
+         enum radeon_bo_flag flags;
          uint32_t num_va_pages;
          uint32_t num_backing_pages;
 
-         struct list_head backing;
 
-         /* Commitment information for each page of the virtual memory area. */
-         struct amdgpu_sparse_commitment *commitments;
       } sparse;
    } u;
 
