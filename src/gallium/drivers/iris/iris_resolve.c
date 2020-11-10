@@ -458,39 +458,6 @@ iris_mcs_partial_resolve(struct iris_context *ice,
    iris_batch_sync_region_end(batch);
 }
 
-bool
-iris_sample_with_depth_aux(const struct gen_device_info *devinfo,
-                           const struct iris_resource *res)
-{
-   switch (res->aux.usage) {
-   case ISL_AUX_USAGE_HIZ:
-      if (devinfo->has_sample_with_hiz)
-         break;
-      return false;
-   case ISL_AUX_USAGE_HIZ_CCS:
-      return false;
-   case ISL_AUX_USAGE_HIZ_CCS_WT:
-      break;
-   default:
-      return false;
-   }
-
-   /* If compressed multisampling is enabled, then we use it for the auxiliary
-    * buffer instead.
-    *
-    * From the BDW PRM (Volume 2d: Command Reference: Structures
-    *                   RENDER_SURFACE_STATE.AuxiliarySurfaceMode):
-    *
-    *  "If this field is set to AUX_HIZ, Number of Multisamples must be
-    *   MULTISAMPLECOUNT_1, and Surface Type cannot be SURFTYPE_3D.
-    *
-    * There is no such blurb for 1D textures, but there is sufficient evidence
-    * that this is broken on SKL+.
-    */
-   // XXX: i965 disables this for arrays too, is that reasonable?
-   return res->surf.samples == 1 && res->surf.dim == ISL_SURF_DIM_2D;
-}
-
 /**
  * Perform a HiZ or depth resolve operation.
  *
@@ -788,12 +755,27 @@ iris_resource_texture_aux_usage(struct iris_context *ice,
 
    switch (res->aux.usage) {
    case ISL_AUX_USAGE_HIZ:
-      if (iris_sample_with_depth_aux(devinfo, res))
+      /* If compressed multisampling is enabled, then we use it for the
+       * auxiliary buffer instead.
+       *
+       * From the BDW PRM (Volume 2d: Command Reference: Structures
+       *                   RENDER_SURFACE_STATE.AuxiliarySurfaceMode):
+       *
+       *  "If this field is set to AUX_HIZ, Number of Multisamples must be
+       *   MULTISAMPLECOUNT_1, and Surface Type cannot be SURFTYPE_3D.
+       *
+       * There is no such blurb for 1D textures, but there is sufficient
+       * evidence that this is broken on SKL+.
+       *
+       * XXX: i965 disables this for arrays too...should we do the same?
+       */
+      if (devinfo->has_sample_with_hiz &&
+          res->surf.samples == 1 &&
+          res->surf.dim == ISL_SURF_DIM_2D)
          return ISL_AUX_USAGE_HIZ;
       break;
 
    case ISL_AUX_USAGE_HIZ_CCS:
-      assert(!iris_sample_with_depth_aux(devinfo, res));
       return ISL_AUX_USAGE_NONE;
 
    case ISL_AUX_USAGE_HIZ_CCS_WT:
