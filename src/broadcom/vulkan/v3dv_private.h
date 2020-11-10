@@ -1494,10 +1494,10 @@ struct v3dv_descriptor_map {
    int array_index[64];
    int array_size[64];
 
-   /* The following makes sense for textures, but this is the easier place to
-    * put it
+   /* NOTE: the following is only for sampler, but this is the easier place to
+    * put it.
     */
-   bool is_shadow[64];
+   uint8_t return_size[64];
 };
 
 struct v3dv_sampler {
