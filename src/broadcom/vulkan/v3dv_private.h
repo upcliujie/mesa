@@ -1494,10 +1494,11 @@ struct v3dv_descriptor_map {
    int array_index[64];
    int array_size[64];
 
-   /* The following makes sense for textures, but this is the easier place to
-    * put it
+   /* FIXME: the following two field only made sense for
+    * samplers. descriptor_map seems to need a rethinking.
     */
    bool is_shadow[64];
+   bool relaxed_precision[64];
 };
 
 struct v3dv_sampler {

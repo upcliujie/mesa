@@ -532,13 +532,17 @@ type_size_vec4(const struct glsl_type *type, bool bindless)
    return glsl_count_attribute_slots(type, false);
 }
 
+/*
+ * FIXME: the number of parameters for this add method keeps growing. Perhaps rethink.
+ */
 static unsigned
 descriptor_map_add(struct v3dv_descriptor_map *map,
                    int set,
                    int binding,
                    int array_index,
                    int array_size,
-                   bool is_shadow)
+                   bool is_shadow,
+                   bool relaxed_precision)
 {
    assert(array_index < array_size);
 
@@ -560,6 +564,7 @@ descriptor_map_add(struct v3dv_descriptor_map *map,
    map->array_index[map->num_desc] = array_index;
    map->array_size[map->num_desc] = array_size;
    map->is_shadow[map->num_desc] = is_shadow;
+   map->relaxed_precision[map->num_desc] = relaxed_precision;
    map->num_desc++;
 
    return index;
@@ -606,7 +611,8 @@ lower_vulkan_resource_index(nir_builder *b,
       index = descriptor_map_add(descriptor_map, set, binding,
                                  const_val->u32,
                                  binding_layout->array_size,
-                                 false /* is_shadow: Doesn't really matter in this case */);
+                                 false /* is_shadow: Doesn't really matter in this case */,
+                                 false /* relaxed_precision: ditto */);
 
       if (nir_intrinsic_desc_type(instr) == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
          /* skip index 0 which is used for push constants */
@@ -690,6 +696,13 @@ lower_tex_src_to_offset(nir_builder *b, nir_tex_instr *instr, unsigned src_idx,
 
    uint32_t set = deref->var->data.descriptor_set;
    uint32_t binding = deref->var->data.binding;
+   /* FIXME: this is a really simplified check for the precision to be used
+    * for the sampling. Right now we are ony checking for the variables used
+    * on the operation itself, but we could also to use where the result are
+    * stored.
+    */
+   bool relaxed_precision = deref->var->data.precision == GLSL_PRECISION_MEDIUM ||
+      deref->var->data.precision == GLSL_PRECISION_LOW;
    struct v3dv_descriptor_set_layout *set_layout = layout->set[set].layout;
    struct v3dv_descriptor_set_binding_layout *binding_layout =
       &set_layout->binding[binding];
@@ -708,7 +721,8 @@ lower_tex_src_to_offset(nir_builder *b, nir_tex_instr *instr, unsigned src_idx,
                          deref->var->data.binding,
                          array_index,
                          binding_layout->array_size,
-                         instr->is_shadow);
+                         instr->is_shadow,
+                         relaxed_precision);
 
    if (is_sampler)
       instr->sampler_index = desc_index;
@@ -801,7 +815,8 @@ lower_image_deref(nir_builder *b,
                          deref->var->data.binding,
                          array_index,
                          binding_layout->array_size,
-                         false /* is_shadow: Doesn't really matter in this case */);
+                         false, /* is_shadow: Doesn't really matter in this case */
+                         false /* relaxed_precision: ditto */);
 
    index = nir_imm_int(b, desc_index);
 
@@ -977,11 +992,14 @@ pipeline_populate_v3d_key(struct v3d_key *key,
 
    for (uint32_t sampler_idx = 0; sampler_idx < sampler_map->num_desc;
         sampler_idx++) {
-      /* FIXME: use RelaxedPrecision here */
-      key->sampler[sampler_idx].return_size =
-         sampler_map->is_shadow[sampler_idx] ? 16 : 32;
-      key->sampler[sampler_idx].return_channels =
-         key->sampler[sampler_idx].return_size == 32 ? 4 : 2;
+      uint8_t return_size = 32;
+      if (sampler_map->is_shadow[sampler_idx] ||
+          sampler_map->relaxed_precision[sampler_idx]) {
+         return_size = 16;
+      }
+
+      key->sampler[sampler_idx].return_size = return_size;
+      key->sampler[sampler_idx].return_channels = return_size == 32 ? 4 : 2;
    }
    key->num_samplers_used = sampler_map->num_desc;
 
@@ -1679,7 +1697,7 @@ pipeline_lower_nir(struct v3dv_pipeline *pipeline,
     */
    unsigned index =
       descriptor_map_add(&pipeline->sampler_map,
-                         -1, -1, -1, 0, false);
+                         -1, -1, -1, 0, false, false);
    assert(index == V3DV_NO_SAMPLER_IDX);
 
    /* Apply the actual pipeline layout to UBOs, SSBOs, and textures */
