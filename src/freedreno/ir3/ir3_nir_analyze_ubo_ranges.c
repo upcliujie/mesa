@@ -271,7 +271,7 @@ track_ubo_use(nir_intrinsic_instr *instr, nir_builder *b, int *num_ubos)
 static bool
 lower_ubo_load_to_uniform(nir_intrinsic_instr *instr, nir_builder *b,
 		const struct ir3_ubo_analysis_state *state,
-		int *num_ubos, uint32_t alignment)
+		int *num_ubos, uint32_t alignment, bool robust_ubo_access)
 {
 	b->cursor = nir_before_instr(&instr->instr);
 
@@ -293,6 +293,24 @@ lower_ubo_load_to_uniform(nir_intrinsic_instr *instr, nir_builder *b,
 
 	nir_ssa_def *ubo_offset = nir_ssa_for_src(b, instr->src[1], 1);
 	int const_offset = 0;
+
+	nir_ssa_def *load_oob = NULL;
+	if (robust_ubo_access) {
+		/* The CTS tests for VK_EXT_robustness2 currently test accesses out of
+		 * the shader-declared size of the array which also happen to be
+		 * outside the UBO range. This arguably isn't well-defined, but
+		 * bounds-check the access to keep the CTS happy.
+		 *
+		 * See https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/2649
+		 */
+		uint32_t base = nir_intrinsic_range_base(instr);
+		uint32_t range = nir_intrinsic_range(instr);
+		nir_ssa_def *offset = instr->src[1].ssa;
+		unsigned load_size = instr->dest.ssa.bit_size * instr->dest.ssa.num_components / 8;
+
+		load_oob = nir_ult(b, nir_imm_int(b, range - load_size),
+					       nir_iadd(b, offset, nir_imm_int(b, -base)));
+	}
 
 	handle_partial_const(b, &ubo_offset, &const_offset);
 
@@ -338,8 +356,16 @@ lower_ubo_load_to_uniform(nir_intrinsic_instr *instr, nir_builder *b,
 					  uniform->num_components, instr->dest.ssa.bit_size,
 					  instr->dest.ssa.name);
 	nir_builder_instr_insert(b, &uniform->instr);
-	nir_ssa_def_rewrite_uses(&instr->dest.ssa,
-							 nir_src_for_ssa(&uniform->dest.ssa));
+
+	nir_ssa_def *result = &uniform->dest.ssa;
+	if (robust_ubo_access) {
+		result = nir_bcsel(b, load_oob,
+						   nir_imm_zero(b, result->num_components,
+										result->bit_size),
+						   result);
+	}
+
+	nir_ssa_def_rewrite_uses(&instr->dest.ssa, nir_src_for_ssa(result));
 
 	nir_instr_remove(&instr->instr);
 
@@ -440,7 +466,8 @@ ir3_nir_lower_ubo_loads(nir_shader *nir, struct ir3_shader_variant *v)
 					progress |=
 						lower_ubo_load_to_uniform(nir_instr_as_intrinsic(instr),
 								&builder, state, &num_ubos,
-								compiler->const_upload_unit);
+								compiler->const_upload_unit,
+								compiler->robust_ubo_access);
 				}
 			}
 
