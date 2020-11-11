@@ -2491,6 +2491,14 @@ anv_pipe_flush_bits_for_access_flags(struct anv_device *device,
           */
          pipe_bits |= ANV_PIPE_FLUSH_BITS;
          break;
+      case VK_ACCESS_TRANSFORM_FEEDBACK_WRITE_BIT_EXT:
+      case VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT:
+         /* We're transitioning a buffer written either from VS stage or from
+          * the command streamer (see CmdEndTransformFeedbackEXT), we just
+          * need to stall the CS.
+          */
+         pipe_bits |= ANV_PIPE_CS_STALL_BIT;
+         break;
       default:
          break; /* Nothing to do */
       }
@@ -2566,10 +2574,12 @@ anv_pipe_invalidate_bits_for_access_flags(struct anv_device *device,
          pipe_bits |= ANV_PIPE_FLUSH_BITS;
          break;
       case VK_ACCESS_CONDITIONAL_RENDERING_READ_BIT_EXT:
-         /* Transitioning a buffer for conditional rendering. We'll load the
-          * content of this buffer into HW registers using the command
-          * streamer, so we need to stall the command streamer to make sure
-          * any in-flight flush operations have completed.
+      case VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT:
+         /* Transitioning a buffer for conditional rendering or transform
+          * feedback. We'll load the content of this buffer into HW registers
+          * using the command streamer, so we need to stall the command
+          * streamer to make sure any in-flight flush operations have
+          * completed.
           */
          pipe_bits |= ANV_PIPE_CS_STALL_BIT;
          break;
