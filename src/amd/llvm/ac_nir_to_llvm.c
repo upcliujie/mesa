@@ -3248,6 +3248,7 @@ static LLVMValueRef visit_load_deref_kernel_input(struct ac_nir_context *ctx,
       }
    }
    assert(0);
+   return NULL;
 }
 
 static LLVMValueRef visit_load(struct ac_nir_context *ctx, nir_intrinsic_instr *instr,
