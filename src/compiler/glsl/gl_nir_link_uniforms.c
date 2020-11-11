@@ -1787,6 +1787,33 @@ gl_nir_link_uniforms(struct gl_context *ctx,
             const struct gl_uniform_buffer_variable *const ubo_var =
                &block->Uniforms[location];
 
+            /*
+               ==5365== Invalid read of size 4 (ubo_var->Offset)
+               ==5365==    at 0x84FF27F: gl_nir_link_uniforms (gl_nir_link_uniforms.c:1790)
+               ==5365==    by 0x844FB48: gl_nir_link_glsl (gl_nir_linker.c:672)
+               ==5365==    by 0x8158420: st_link_nir (st_glsl_to_nir.cpp:739)
+               ==5365==    by 0x8190E81: _mesa_glsl_link_shader (ir_to_mesa.cpp:3122)
+               ==5365==    by 0x82B1808: link_program (shaderapi.c:1311)
+               ==5365==    by 0x82B1808: link_program_error (shaderapi.c:1419)
+               ==5365==    by 0x10BC8C: main._omp_fn.0 (run.c:843)
+               ==5365==    by 0x518296D: ??? (in /usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0)
+               ==5365==    by 0x53A26DA: start_thread (pthread_create.c:463)
+               ==5365==    by 0x56DB71E: clone (clone.S:95)
+               ==5365==  Address 0x3c58fcb8 is 24 bytes before a block of size 112 alloc'd
+               ==5365==    at 0x4C31B0F: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+               ==5365==    by 0x8512720: ralloc_size (ralloc.c:133)
+               ==5365==    by 0x85127F8: rzalloc_size (ralloc.c:166)
+               ==5365==    by 0x8465EC0: operator new (list.h:58)
+               ==5365==    by 0x8465EC0: ir_dereference_array::clone(void*, hash_table*) const (ir_clone.cpp:197)
+               ==5365==    by 0x8465C83: ir_swizzle::clone(void*, hash_table*) const (ir_clone.cpp:80)
+               ==5365==    by 0x84669F0: ir_expression::clone(void*, hash_table*) const (ir_clone.cpp:170)
+               ==5365==    by 0x8466019: ir_assignment::clone(void*, hash_table*) const (ir_clone.cpp:268)
+               ==5365==    by 0x846665D: ir_if::clone(void*, hash_table*) const (ir_clone.cpp:129)
+               ==5365==    by 0x846665D: ir_if::clone(void*, hash_table*) const (ir_clone.cpp:129)
+               ==5365==    by 0x84665FD: ir_if::clone(void*, hash_table*) const (ir_clone.cpp:125)
+               ==5365==    by 0x8466C1D: ir_function_signature::clone(void*, hash_table*) const (ir_clone.cpp:309)
+               ==5365==    by 0x8466334: ir_function::clone(void*, hash_table*) const (ir_clone.cpp:287)
+             */
             state.offset = ubo_var->Offset;
             var->data.location = location;
          }
