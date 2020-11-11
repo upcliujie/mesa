@@ -99,6 +99,11 @@ get_header(const void *ptr)
    return info;
 }
 
+static void
+put_header(ralloc_header *info)
+{
+}
+
 #define PTR_FROM_HEADER(info) (((char *) info) + sizeof(ralloc_header))
 
 static void
@@ -157,6 +162,8 @@ ralloc_size(const void *ctx, size_t size)
    info->canary = CANARY;
 #endif
 
+   put_header(parent);
+
    return PTR_FROM_HEADER(info);
 }
 
@@ -175,14 +182,14 @@ rzalloc_size(const void *ctx, size_t size)
 static void *
 resize(void *ptr, size_t size)
 {
-   ralloc_header *child, *old, *info;
-
-   old = get_header(ptr);
-   info = realloc(old, align64(size + sizeof(ralloc_header),
+   ralloc_header *const old = get_header(ptr);
+   ralloc_header *const info = realloc(old, align64(size + sizeof(ralloc_header),
                                alignof(ralloc_header)));
 
-   if (info == NULL)
+   if (info == NULL) {
+      put_header(old);
       return NULL;
+   }
 
    /* Update parent and sibling's links to the reallocated node. */
    if (info != old && info->parent != NULL) {
@@ -197,8 +204,10 @@ resize(void *ptr, size_t size)
    }
 
    /* Update child->parent links for all children */
-   for (child = info->child; child != NULL; child = child->next)
+   for (ralloc_header *child = info->child; child != NULL; child = child->next)
       child->parent = info;
+
+   put_header(info);
 
    return PTR_FROM_HEADER(info);
 }
@@ -268,14 +277,16 @@ rerzalloc_array_size(const void *ctx, void *ptr, size_t size,
 void
 ralloc_free(void *ptr)
 {
-   ralloc_header *info;
+   ralloc_header *info, *parent;
 
    if (ptr == NULL)
       return;
 
    info = get_header(ptr);
+   parent = info->parent;
    unlink_block(info);
    unsafe_free(info);
+   put_header(parent);
 }
 
 static void
@@ -318,33 +329,37 @@ unsafe_free(ralloc_header *info)
 void
 ralloc_steal(const void *new_ctx, void *ptr)
 {
-   ralloc_header *info, *parent;
+   ralloc_header *info, *parent, *old_parent;
 
    if (unlikely(ptr == NULL))
       return;
 
    info = get_header(ptr);
+   old_parent = info->parent;
    parent = new_ctx ? get_header(new_ctx) : NULL;
 
    unlink_block(info);
 
    add_child(parent, info);
+
+   put_header(old_parent);
+   put_header(info);
 }
 
 void
 ralloc_adopt(const void *new_ctx, void *old_ctx)
 {
-   ralloc_header *new_info, *old_info, *child;
+   ralloc_header *child;
 
    if (unlikely(old_ctx == NULL))
       return;
 
-   old_info = get_header(old_ctx);
-   new_info = get_header(new_ctx);
+   ralloc_header *const old_info = get_header(old_ctx);
+   ralloc_header *const new_info = get_header(new_ctx);
 
    /* If there are no children, bail. */
    if (unlikely(old_info->child == NULL))
-      return;
+      goto out;
 
    /* Set all the children's parent to new_ctx; get a pointer to the last child. */
    for (child = old_info->child; child->next != NULL; child = child->next) {
@@ -358,6 +373,10 @@ ralloc_adopt(const void *new_ctx, void *old_ctx)
       child->next->prev = child;
    new_info->child = old_info->child;
    old_info->child = NULL;
+
+out:
+   put_header(new_info);
+   put_header(old_info);
 }
 
 void *
@@ -369,7 +388,10 @@ ralloc_parent(const void *ptr)
       return NULL;
 
    info = get_header(ptr);
-   return info->parent ? PTR_FROM_HEADER(info->parent) : NULL;
+   void *ret = info->parent ? PTR_FROM_HEADER(info->parent) : NULL;
+   put_header(info);
+
+   return ret;
 }
 
 void
@@ -377,6 +399,7 @@ ralloc_set_destructor(const void *ptr, void(*destructor)(void *))
 {
    ralloc_header *info = get_header(ptr);
    info->destructor = destructor;
+   put_header(info);
 }
 
 char *
