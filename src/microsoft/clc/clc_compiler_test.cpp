@@ -86,9 +86,11 @@ TEST_F(ComputeTest, i64tof32)
    const char *kernel_source =
    "__kernel void main_test(__global long *out, __constant long *in)\n\
    {\n\
+       __local float tmp[12];\n\
        uint idx = get_global_id(0);\n\
-       float tmp = in[idx];\n\
-       out[idx] = tmp;\n\
+       tmp[idx] = in[idx];\n\
+       barrier(CLK_LOCAL_MEM_FENCE);\n\
+       out[idx] = tmp[idx + get_global_id(1)];\n\
    }\n";
    auto in = ShaderArg<int64_t>({ 0x100000000LL,
                                   -0x100000000LL,
