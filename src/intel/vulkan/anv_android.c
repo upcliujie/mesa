@@ -888,7 +888,7 @@ anv_QueueSignalReleaseImageANDROID(
    if (waitSemaphoreCount == 0)
       goto done;
 
-   result = anv_QueueSubmit(queue, 1,
+   result = vk_common_QueueSubmit(queue, 1,
       &(VkSubmitInfo) {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
             .waitSemaphoreCount = 1,
