@@ -392,7 +392,7 @@ arm64_test:
   extends:
     - .use-arm_test-base
   variables:
-    MESA_IMAGE_TAG: &arm64_test "2020-12-04-cmake"
+    MESA_IMAGE_TAG: &arm64_test "2020-12-05"
 
 .use-arm64_test:
   variables:
