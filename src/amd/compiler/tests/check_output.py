@@ -63,6 +63,12 @@ funcs.update({
 })
 for i in range(2, 14):
     funcs['v%d' % (i * 32)] = lambda name: vector_gpr('v', name, i, 1)
+
+def _match_func(name):
+   insert_code(f'funcs["{name}"] = lambda _: {name}')
+   return f'${name}'
+
+funcs['match_func'] = _match_func
 '''
 
 class Check:
