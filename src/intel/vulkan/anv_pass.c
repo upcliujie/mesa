@@ -31,22 +31,29 @@ anv_render_pass_add_subpass_dep(struct anv_device *device,
                                 struct anv_render_pass *pass,
                                 const VkSubpassDependency2KHR *dep)
 {
+   const VkMemoryBarrier2KHR *barrier =
+      vk_find_struct_const(dep->pNext, MEMORY_BARRIER_2_KHR);
+   VkAccessFlags2KHR src_access_mask =
+      barrier ? barrier->srcAccessMask : dep->srcAccessMask;
+   VkAccessFlags2KHR dst_access_mask =
+      barrier ? barrier->dstAccessMask : dep->dstAccessMask;
+
    if (dep->dstSubpass == VK_SUBPASS_EXTERNAL) {
       pass->subpass_flushes[pass->subpass_count] |=
-         anv_pipe_invalidate_bits_for_access_flags(device, dep->dstAccessMask);
+         anv_pipe_invalidate_bits_for_access_flags(device, dst_access_mask);
    } else {
       assert(dep->dstSubpass < pass->subpass_count);
       pass->subpass_flushes[dep->dstSubpass] |=
-         anv_pipe_invalidate_bits_for_access_flags(device, dep->dstAccessMask);
+         anv_pipe_invalidate_bits_for_access_flags(device, dst_access_mask);
    }
 
    if (dep->srcSubpass == VK_SUBPASS_EXTERNAL) {
       pass->subpass_flushes[0] |=
-         anv_pipe_flush_bits_for_access_flags(device, dep->srcAccessMask);
+         anv_pipe_flush_bits_for_access_flags(device, src_access_mask);
    } else {
       assert(dep->srcSubpass < pass->subpass_count);
       pass->subpass_flushes[dep->srcSubpass + 1] |=
-         anv_pipe_flush_bits_for_access_flags(device, dep->srcAccessMask);
+         anv_pipe_flush_bits_for_access_flags(device, src_access_mask);
    }
 }
 
