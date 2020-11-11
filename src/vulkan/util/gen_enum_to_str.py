@@ -129,6 +129,19 @@ H_TEMPLATE = Template(textwrap.dedent(u"""\
     #define _${ext.name}_number (${ext.number})
     % endfor
 
+    % for enum in bitmasks:
+    /* Redefine bitmask values of ${enum.name} */
+      % if enum.guard:
+#ifdef ${enum.guard}
+      % endif
+      % for v in enum.values.keys():
+    #define MESA_${enum.values[v]} (${v}ULL)
+      % endfor
+      % if enum.guard:
+#endif
+      % endif
+    % endfor
+
     % for enum in enums:
       % if enum.guard:
 #ifdef ${enum.guard}
@@ -226,6 +239,9 @@ class VkEnum(object):
         if 'value' in elem.attrib:
             self.add_value(elem.attrib['name'],
                            value=int(elem.attrib['value'], base=0))
+        elif 'bitpos' in elem.attrib:
+            self.add_value(elem.attrib['name'],
+                           value=(1 << int(elem.attrib['bitpos'], base=0)))
         elif 'alias' in elem.attrib:
             self.add_value(elem.attrib['name'], alias=elem.attrib['alias'])
         else:
@@ -241,15 +257,6 @@ class VkEnum(object):
 
     def set_guard(self, g):
         self.guard = g
-
-
-class VkCommand(object):
-    """Simple struct-like class representing a single Vulkan command"""
-
-    def __init__(self, name, device_entrypoint=False):
-        self.name = name
-        self.device_entrypoint = device_entrypoint
-        self.extension = None
 
 
 class VkChainStruct(object):
@@ -268,7 +275,7 @@ def struct_get_stype(xml_node):
     return None
 
 
-def parse_xml(enum_factory, ext_factory, struct_factory, filename):
+def parse_xml(enum_factory, ext_factory, struct_factory, bitmask_factory, filename):
     """Parse the XML file. Accumulate results into the factories.
 
     This parser is a memory efficient iterative XML parser that returns a list
@@ -282,10 +289,22 @@ def parse_xml(enum_factory, ext_factory, struct_factory, filename):
         for value in enum_type.findall('./enum'):
             enum.add_value_from_xml(value)
 
+    # For bitmask we only add the Enum selected for convenience.
+    for enum_type in xml.findall('./enums[@type="bitmask"]'):
+        enum = bitmask_factory.get(enum_type.attrib['name'])
+        if enum is not None:
+            for value in enum_type.findall('./enum'):
+                enum.add_value_from_xml(value)
+
     for value in xml.findall('./feature/require/enum[@extends]'):
-        enum = enum_factory.get(value.attrib['extends'])
+        extends = value.attrib['extends']
+        enum = enum_factory.get(extends)
         if enum is not None:
             enum.add_value_from_xml(value)
+        enum = bitmask_factory.get(extends)
+        if enum is not None:
+            for value in enum_type.findall('./enum'):
+                enum.add_value_from_xml(value)
 
     for struct_type in xml.findall('./types/type[@category="struct"]'):
         name = struct_type.attrib['name']
@@ -308,7 +327,11 @@ def parse_xml(enum_factory, ext_factory, struct_factory, filename):
                                 define=define)
 
         for value in ext_elem.findall('./require/enum[@extends]'):
-            enum = enum_factory.get(value.attrib['extends'])
+            extends = value.attrib['extends']
+            enum = enum_factory.get(extends)
+            if enum is not None:
+                enum.add_value_from_xml(value, extension)
+            enum = bitmask_factory.get(extends)
             if enum is not None:
                 enum.add_value_from_xml(value, extension)
         for t in ext_elem.findall('./require/type'):
@@ -338,11 +361,20 @@ def main():
     enum_factory = NamedFactory(VkEnum)
     ext_factory = NamedFactory(VkExtension)
     struct_factory = NamedFactory(VkChainStruct)
+
+    # Only treat this bitmask for now
+    bitmask_factory = NamedFactory(VkEnum)
+    bitmask_factory('VkAccessFlagBits2KHR')
+    bitmask_factory('VkPipelineStageFlagBits2KHR')
+
     for filename in args.xml_files:
-        parse_xml(enum_factory, ext_factory, struct_factory, filename)
+        parse_xml(enum_factory, ext_factory, struct_factory,
+                  bitmask_factory, filename)
     enums = sorted(enum_factory.registry.values(), key=lambda e: e.name)
     extensions = sorted(ext_factory.registry.values(), key=lambda e: e.name)
     structs = sorted(struct_factory.registry.values(), key=lambda e: e.name)
+    bitmasks = sorted(bitmask_factory.registry.values(), key=lambda e: e.name)
+
 
     for template, file_ in [(C_TEMPLATE, os.path.join(args.outdir, 'vk_enum_to_str.c')),
                             (H_TEMPLATE, os.path.join(args.outdir, 'vk_enum_to_str.h'))]:
@@ -352,6 +384,7 @@ def main():
                 enums=enums,
                 extensions=extensions,
                 structs=structs,
+                bitmasks=bitmasks,
                 copyright=COPYRIGHT))
 
 
