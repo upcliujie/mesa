@@ -415,7 +415,7 @@ arm64_test:
   extends:
     - .use-arm_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &arm64_test "2020-11-10-cmake"
+    FDO_DISTRIBUTION_TAG: &arm64_test "2020-11-16"
 
 .use-arm64_test:
   variables:
