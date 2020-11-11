@@ -2578,6 +2578,17 @@ typedef struct {
    nir_dest dest;
 } nir_phi_instr;
 
+static inline nir_phi_src *
+nir_phi_get_src(nir_phi_instr *phi, struct nir_block *block)
+{
+   nir_foreach_phi_src(phi_src, phi)
+   {
+      if (phi_src->pred == block)
+         return phi_src;
+   }
+   return NULL;
+}
+
 typedef struct {
    struct exec_node node;
    nir_src src;
