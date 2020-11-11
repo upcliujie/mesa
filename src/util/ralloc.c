@@ -28,6 +28,8 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "c11/threads.h"
+
 #include "util/macros.h"
 #include "util/u_math.h"
 
@@ -48,6 +50,11 @@ _CRTIMP int _vscprintf(const char *format, va_list argptr);
 #endif
 
 #define CANARY 0x5A1106
+
+#ifndef NDEBUG
+#  include "simple_mtx.h"
+static simple_mtx_t header_lock = _SIMPLE_MTX_INITIALIZER_NP;
+#endif
 
 /* Align the header's size so that ralloc() allocations will return with the
  * same alignment as a libc malloc would have (8 on 32-bit GLIBC, 16 on
@@ -71,6 +78,11 @@ __declspec(align(16))
 #ifndef NDEBUG
    /* A canary value used to determine whether a pointer is ralloc'd. */
    unsigned canary;
+   /* Current thread accessing the ralloc tree, only stored at root
+    * of tree:
+    */
+   thrd_t current;
+   int current_cnt;
 #endif
 
    struct ralloc_header *parent;
@@ -95,13 +107,40 @@ get_header(const void *ptr)
 {
    ralloc_header *info = (ralloc_header *) (((char *) ptr) -
 					    sizeof(ralloc_header));
+   /* NOTE: to enable detection of incorrect multi-threaded ralloc
+    * use on win32, we'd need to export get_thread_id() so we could
+    * re-use it here.  See comment in get_thread_id() for details.
+    */
+#if !defined(NDEBUG) && !defined(_WIN32)
    assert(info->canary == CANARY);
+   ralloc_header *root = info;
+   simple_mtx_lock(&header_lock);
+   while (root->parent)
+      root = root->parent;
+   if (root->current_cnt == 0)
+      root->current = thrd_current();
+   else
+      assert(root->current == thrd_current());
+   root->current_cnt++;
+   simple_mtx_unlock(&header_lock);
+#endif
    return info;
 }
 
 static void
 put_header(ralloc_header *info)
 {
+   if (!info)
+      return;
+#if !defined(NDEBUG) && !defined(_WIN32)
+   ralloc_header *root = info;
+   simple_mtx_lock(&header_lock);
+   while (root->parent)
+      root = root->parent;
+   assert(root->current_cnt > 0);
+   root->current_cnt--;
+   simple_mtx_unlock(&header_lock);
+#endif
 }
 
 #define PTR_FROM_HEADER(info) (((char *) info) + sizeof(ralloc_header))
@@ -160,6 +199,7 @@ ralloc_size(const void *ctx, size_t size)
 
 #ifndef NDEBUG
    info->canary = CANARY;
+   info->current_cnt = 0;
 #endif
 
    put_header(parent);
