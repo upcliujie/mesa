@@ -1,5 +1,5 @@
 variables:
-  DISTRIBUTION_TAG: "2020-12-04-cmake"
+  DISTRIBUTION_TAG: "2020-12-05-lava"
 
 .kernel+rootfs:
   stage: container-2
