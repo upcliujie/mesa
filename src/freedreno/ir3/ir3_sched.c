@@ -516,6 +516,17 @@ would_sync(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
 			return true;
 	}
 
+	/* Avoid scheduling too many texture or sfu instructions at once. This
+	 * both prevents stalls when the queue of texture/sfu instructions becomes
+	 * too large, and prevents unacceptably large increases in register
+	 * pressure from too many outstanding texture instructions.
+	 */
+	if (ctx->tex_index - ctx->first_outstanding_tex_index >= 8 && is_tex(instr))
+		return true;
+
+	if (ctx->sfu_index - ctx->first_outstanding_sfu_index >= 8 && is_sfu(instr))
+		return true;
+
 	return false;
 }
 
