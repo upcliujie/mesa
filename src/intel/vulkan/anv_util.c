@@ -29,6 +29,7 @@
 #include <assert.h>
 
 #include "anv_private.h"
+#include "vk_enum_defines.h"
 #include "vk_enum_to_str.h"
 
 /** Log an error message.  */
