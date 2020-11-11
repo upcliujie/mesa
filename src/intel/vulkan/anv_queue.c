@@ -1180,11 +1180,9 @@ anv_post_queue_fence_update(struct anv_device *device, VkFence _fence)
 static VkResult
 anv_queue_submit(struct anv_queue *queue,
                  struct anv_cmd_buffer *cmd_buffer,
-                 const VkSemaphore *in_semaphores,
-                 const uint64_t *in_values,
+                 const VkSemaphoreSubmitInfoKHR *in_semaphores,
                  uint32_t num_in_semaphores,
-                 const VkSemaphore *out_semaphores,
-                 const uint64_t *out_values,
+                 const VkSemaphoreSubmitInfoKHR *out_semaphores,
                  uint32_t num_out_semaphores,
                  struct anv_bo *wsi_signal_bo,
                  VkFence fence,
@@ -1201,16 +1199,16 @@ anv_queue_submit(struct anv_queue *queue,
    VkResult result = VK_SUCCESS;
    for (uint32_t i = 0; i < num_in_semaphores; i++) {
       result = anv_queue_submit_add_in_semaphore(submit, device,
-                                                 in_semaphores[i],
-                                                 in_values ? in_values[i] : 0);
+                                                 in_semaphores[i].semaphore,
+                                                 in_semaphores[i].value);
       if (result != VK_SUCCESS)
          goto error;
    }
 
    for (uint32_t i = 0; i < num_out_semaphores; i++) {
       result = anv_queue_submit_add_out_semaphore(submit, device,
-                                                  out_semaphores[i],
-                                                  out_values ? out_values[i] : 0);
+                                                  out_semaphores[i].semaphore,
+                                                  out_semaphores[i].value);
       if (result != VK_SUCCESS)
          goto error;
    }
@@ -1238,10 +1236,10 @@ anv_queue_submit(struct anv_queue *queue,
    return result;
 }
 
-VkResult anv_QueueSubmit(
+VkResult anv_QueueSubmit2KHR(
     VkQueue                                     _queue,
     uint32_t                                    submitCount,
-    const VkSubmitInfo*                         pSubmits,
+    const VkSubmitInfo2KHR*                     pSubmits,
     VkFence                                     fence)
 {
    ANV_FROM_HANDLE(anv_queue, queue, _queue);
@@ -1266,8 +1264,11 @@ VkResult anv_QueueSubmit(
        * come up with something more efficient but this shouldn't be a
        * common case.
        */
-      result = anv_queue_submit(queue, NULL, NULL, NULL, 0, NULL, NULL, 0,
-                                NULL, fence, -1);
+      result = anv_queue_submit(queue, NULL /* cmd_buffer */,
+                                NULL /* in_semaphores */, 0,
+                                NULL /* out_semaphores */, 0,
+                                NULL /* wsi_signal_bo */,
+                                fence, -1);
       goto out;
    }
 
@@ -1282,32 +1283,21 @@ VkResult anv_QueueSubmit(
          mem_signal_info && mem_signal_info->memory != VK_NULL_HANDLE ?
          anv_device_memory_from_handle(mem_signal_info->memory)->bo : NULL;
 
-      const VkTimelineSemaphoreSubmitInfoKHR *timeline_info =
-         vk_find_struct_const(pSubmits[i].pNext,
-                              TIMELINE_SEMAPHORE_SUBMIT_INFO_KHR);
       const VkPerformanceQuerySubmitInfoKHR *perf_info =
          vk_find_struct_const(pSubmits[i].pNext,
                               PERFORMANCE_QUERY_SUBMIT_INFO_KHR);
-      const uint64_t *wait_values =
-         timeline_info && timeline_info->waitSemaphoreValueCount ?
-         timeline_info->pWaitSemaphoreValues : NULL;
-      const uint64_t *signal_values =
-         timeline_info && timeline_info->signalSemaphoreValueCount ?
-         timeline_info->pSignalSemaphoreValues : NULL;
 
-      if (pSubmits[i].commandBufferCount == 0) {
+      if (pSubmits[i].commandBufferInfoCount == 0) {
          /* If we don't have any command buffers, we need to submit a dummy
           * batch to give GEM something to wait on.  We could, potentially,
           * come up with something more efficient but this shouldn't be a
           * common case.
           */
          result = anv_queue_submit(queue, NULL,
-                                   pSubmits[i].pWaitSemaphores,
-                                   wait_values,
-                                   pSubmits[i].waitSemaphoreCount,
-                                   pSubmits[i].pSignalSemaphores,
-                                   signal_values,
-                                   pSubmits[i].signalSemaphoreCount,
+                                   pSubmits[i].pWaitSemaphoreInfos,
+                                   pSubmits[i].waitSemaphoreInfoCount,
+                                   pSubmits[i].pSignalSemaphoreInfos,
+                                   pSubmits[i].signalSemaphoreInfoCount,
                                    wsi_signal_bo,
                                    submit_fence,
                                    -1);
@@ -1317,41 +1307,35 @@ VkResult anv_QueueSubmit(
          continue;
       }
 
-      for (uint32_t j = 0; j < pSubmits[i].commandBufferCount; j++) {
+      for (uint32_t j = 0; j < pSubmits[i].commandBufferInfoCount; j++) {
          ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer,
-                         pSubmits[i].pCommandBuffers[j]);
+                         pSubmits[i].pCommandBufferInfos[j].commandBuffer);
          assert(cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
          assert(!anv_batch_has_error(&cmd_buffer->batch));
-         anv_measure_submit(cmd_buffer);
 
          /* Fence for this execbuf.  NULL for all but the last one */
          VkFence execbuf_fence =
-            (j == pSubmits[i].commandBufferCount - 1) ?
+            (j == pSubmits[i].commandBufferInfoCount - 1) ?
             submit_fence : VK_NULL_HANDLE;
 
-         const VkSemaphore *in_semaphores = NULL, *out_semaphores = NULL;
-         const uint64_t *in_values = NULL, *out_values = NULL;
+         const VkSemaphoreSubmitInfoKHR *in_semaphores = NULL, *out_semaphores = NULL;
          uint32_t num_in_semaphores = 0, num_out_semaphores = 0;
          if (j == 0) {
             /* Only the first batch gets the in semaphores */
-            in_semaphores = pSubmits[i].pWaitSemaphores;
-            in_values = wait_values;
-            num_in_semaphores = pSubmits[i].waitSemaphoreCount;
+            in_semaphores = pSubmits[i].pWaitSemaphoreInfos;
+            num_in_semaphores = pSubmits[i].waitSemaphoreInfoCount;
          }
 
-         const bool is_last_cmd_buffer = j == pSubmits[i].commandBufferCount - 1;
-         if (is_last_cmd_buffer) {
+         if (j == pSubmits[i].commandBufferInfoCount - 1) {
             /* Only the last batch gets the out semaphores */
-            out_semaphores = pSubmits[i].pSignalSemaphores;
-            out_values = signal_values;
-            num_out_semaphores = pSubmits[i].signalSemaphoreCount;
+            out_semaphores = pSubmits[i].pSignalSemaphoreInfos;
+            num_out_semaphores = pSubmits[i].signalSemaphoreInfoCount;
          }
 
          result = anv_queue_submit(queue, cmd_buffer,
-                                   in_semaphores, in_values, num_in_semaphores,
-                                   out_semaphores, out_values, num_out_semaphores,
-                                   is_last_cmd_buffer ? wsi_signal_bo : NULL,
-                                   execbuf_fence,
+                                   in_semaphores, num_in_semaphores,
+                                   out_semaphores, num_out_semaphores,
+                                   wsi_signal_bo, execbuf_fence,
                                    perf_info ? perf_info->counterPassIndex : 0);
          if (result != VK_SUCCESS)
             goto out;
@@ -1376,7 +1360,7 @@ out:
        * anv_device_set_lost() would have been called already by a callee of
        * anv_queue_submit().
        */
-      result = anv_device_set_lost(queue->device, "vkQueueSubmit() failed");
+      result = anv_device_set_lost(queue->device, "vkQueueSubmit2KHR() failed");
    }
 
    return result;

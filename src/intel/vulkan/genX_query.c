@@ -1240,9 +1240,9 @@ void genX(CmdEndQueryIndexedEXT)(
 
 #define TIMESTAMP 0x2358
 
-void genX(CmdWriteTimestamp)(
+void genX(CmdWriteTimestamp2KHR)(
     VkCommandBuffer                             commandBuffer,
-    VkPipelineStageFlagBits                     pipelineStage,
+    VkPipelineStageFlags2KHR                    stage,
     VkQueryPool                                 queryPool,
     uint32_t                                    query)
 {
@@ -1255,13 +1255,10 @@ void genX(CmdWriteTimestamp)(
    struct gen_mi_builder b;
    gen_mi_builder_init(&b, &cmd_buffer->batch);
 
-   switch (pipelineStage) {
-   case VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT:
+   if (stage == VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT_KHR) {
       gen_mi_store(&b, gen_mi_mem64(anv_address_add(query_addr, 8)),
                        gen_mi_reg64(TIMESTAMP));
-      break;
-
-   default:
+   } else {
       /* Everything else is bottom-of-pipe */
       cmd_buffer->state.pending_pipe_bits |= ANV_PIPE_POST_SYNC_BIT;
       genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
@@ -1274,7 +1271,6 @@ void genX(CmdWriteTimestamp)(
          if (GEN_GEN == 9 && cmd_buffer->device->info.gt == 4)
             pc.CommandStreamerStallEnable = true;
       }
-      break;
    }
 
    emit_query_pc_availability(cmd_buffer, query_addr, true);

@@ -2440,11 +2440,11 @@ enum anv_pipe_bits {
 
 enum anv_pipe_bits
 anv_pipe_flush_bits_for_access_flags(struct anv_device *device,
-                                     VkAccessFlags flags);
+                                     VkAccessFlags2KHR flags);
 
 enum anv_pipe_bits
 anv_pipe_invalidate_bits_for_access_flags(struct anv_device *device,
-                                          VkAccessFlags flags);
+                                          VkAccessFlags2KHR flags);
 
 #define VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV (         \
    VK_IMAGE_ASPECT_COLOR_BIT | \
