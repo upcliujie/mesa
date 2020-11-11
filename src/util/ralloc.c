@@ -22,6 +22,7 @@
  */
 
 #include <assert.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -71,6 +72,11 @@ __declspec(align(16))
 #ifndef NDEBUG
    /* A canary value used to determine whether a pointer is ralloc'd. */
    unsigned canary;
+   /* Current thread accessing the ralloc tree, only stored at root
+    * of tree:
+    */
+   pthread_t current;
+   unsigned current_cnt;
 #endif
 
    struct ralloc_header *parent;
@@ -95,13 +101,32 @@ get_header(const void *ptr)
 {
    ralloc_header *info = (ralloc_header *) (((char *) ptr) -
 					    sizeof(ralloc_header));
+#ifndef NDEBUG
    assert(info->canary == CANARY);
+   ralloc_header *root = info;
+   while (root->parent)
+      root = root->parent;
+   if (root->current_cnt == 0)
+      root->current = pthread_self();
+   else
+      assert(root->current == pthread_self());
+   root->current_cnt++;
+#endif
    return info;
 }
 
 static void
 put_header(ralloc_header *info)
 {
+   if (!info)
+      return;
+#ifndef NDEBUG
+   ralloc_header *root = info;
+   while (root->parent)
+      root = root->parent;
+   assert(root->current_cnt > 0);
+   root->current_cnt--;
+#endif
 }
 
 #define PTR_FROM_HEADER(info) (((char *) info) + sizeof(ralloc_header))
@@ -160,6 +185,7 @@ ralloc_size(const void *ctx, size_t size)
 
 #ifndef NDEBUG
    info->canary = CANARY;
+   info->current_cnt = 0;
 #endif
 
    put_header(parent);
