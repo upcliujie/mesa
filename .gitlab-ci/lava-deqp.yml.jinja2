@@ -94,7 +94,6 @@ actions:
 
           - wget -S --progress=dot:giga -O- {{ mesa_url }} | tar -xz
 
-          - export DEQP_NO_SAVE_RESULTS=1
           - export DEQP_EXPECTED_FAILS=deqp-{{ gpu_version }}-fails.txt
           - export DEQP_SKIPS=deqp-{{ gpu_version }}-skips.txt
           - export DEQP_VER={{ deqp_version }}
@@ -105,6 +104,8 @@ actions:
              else
                   echo 'deqp: fail';
              fi"
+
+          - find /results/ -type f -size +0c -exec python3 /install/tracie/minio_uploads.py {} \;
         parse:
           pattern: '(?P<test_case_id>\S*):\s+(?P<result>(pass|fail))'
       from: inline
