@@ -973,6 +973,8 @@ meson-mingw32-x86_64:
     name: "mesa_${CI_JOB_NAME}"
     paths:
       - results/
+    reports:
+      junit: results/junit.xml
 
 .use-x86_test-gl:
   extends:
@@ -1029,8 +1031,6 @@ meson-mingw32-x86_64:
   artifacts:
     when: on_failure
     name: "mesa_${CI_JOB_NAME}"
-    reports:
-      junit: results/junit.xml
   variables:
     PIGLIT_PROFILES: replay
     PIGLIT_REPLAY_UPLOAD_TO_MINIO: 1
@@ -1147,9 +1147,6 @@ arm64-a630-traces:
     # missing.
     MESA_GLSL_VERSION_OVERRIDE: "460"
     MESA_GL_VERSION_OVERRIDE: "4.6"
-  artifacts:
-    reports:
-      junit: results/junit.xml
 
 radv-polaris10-traces:
   extends:
@@ -1180,9 +1177,6 @@ radv-raven-traces:
 .deqp-test:
   script:
     - ./install/deqp-runner.sh
-  artifacts:
-    reports:
-      junit: results/junit.xml
 
 .deqp-test-vk:
   extends:
@@ -1522,8 +1516,6 @@ arm64_a630_piglit_shader:
       - serial*.txt
     exclude:
       - results/*.shader_cache
-    reports:
-      junit: results/junit.xml
 
 .freedreno-test:
   extends:

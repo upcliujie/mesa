@@ -97,6 +97,8 @@ kernel+rootfs_armhf:
     when: always
     paths:
       - results/
+    reports:
+      junit: results/junit.xml
 
 .lava-test:armhf:
   variables:
