@@ -94,7 +94,6 @@ actions:
 
           - wget -S --progress=dot:giga -O- {{ mesa_url }} | tar -xz
 
-          - export DEQP_NO_SAVE_RESULTS=1
           - export GPU_VERSION={{ gpu_version }}
           - export DEQP_VER={{ deqp_version }}
           - export LIBGL_DRIVERS_PATH=`pwd`/install/lib/dri
@@ -104,6 +103,11 @@ actions:
              else
                   echo 'deqp: fail';
              fi"
+
+          - find /results/ -type f -size +0c -name \*.csv -exec python3 /install/minio_uploads.py {} \;
+          - find /results/ -type f -size +0c -name \*.xml -exec python3 /install/minio_uploads.py {} \;
+          - find /results/ -type f -size +0c -name \*.xsl -exec python3 /install/minio_uploads.py {} \;
+          - find /results/ -type f -size +0c -name \*.css -exec python3 /install/minio_uploads.py {} \;
         parse:
           pattern: '(?P<test_case_id>\S*):\s+(?P<result>(pass|fail))'
       from: inline
