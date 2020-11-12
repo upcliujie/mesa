@@ -306,7 +306,7 @@ add_candidate_immediate(struct table *table, fs_inst *inst, unsigned ip,
                         bool must_promote,
                         bool allow_one_constant,
                         bblock_t *block,
-                        ASSERTED const struct gen_device_info *devinfo,
+                        const struct gen_device_info *devinfo,
                         void *const_ctx)
 {
    struct value *v = new_value(table, const_ctx);
@@ -314,15 +314,20 @@ add_candidate_immediate(struct table *table, fs_inst *inst, unsigned ip,
    unsigned box_idx = box_instruction(table, const_ctx, inst, ip, block,
                                       must_promote);
 
-   /* Just for now... */
-   assert(inst->can_do_source_mods(devinfo));
-
    v->value.u64 = inst->src[i].d64;
    v->bit_size = 8 * type_sz(inst->src[i].type);
    v->instr = (struct abstract_instruction *)(uintptr_t) box_idx;
    v->src = i;
    v->allow_one_constant = allow_one_constant;
-   v->no_negations = false;
+
+   /* Right-shift instructions are special.  They can have source modifiers,
+    * but changing the type can change the semantic of the instruction.  Only
+    * allow negations on a right shift if the source type is already signed.
+    */
+   v->no_negations = !inst->can_do_source_mods(devinfo) ||
+                     ((inst->opcode == BRW_OPCODE_SHR ||
+                       inst->opcode == BRW_OPCODE_ASR) &&
+                      type_is_unsigned_int(inst->src[i].type));
 
    switch (inst->src[i].type) {
    case BRW_REGISTER_TYPE_DF:
@@ -395,8 +400,15 @@ fs_visitor::opt_combine_constants()
       ip++;
 
       switch (inst->opcode) {
+      case SHADER_OPCODE_INT_QUOTIENT:
+      case SHADER_OPCODE_INT_REMAINDER:
       case SHADER_OPCODE_POW:
-         assert(inst->src[0].file != IMM);
+         if (inst->src[0].file == IMM) {
+            assert(inst->opcode != SHADER_OPCODE_POW);
+
+            add_candidate_immediate(&table, inst, ip, 0, true, false, block,
+                                    devinfo, const_ctx);
+         }
 
          if (inst->src[1].file == IMM && devinfo->gen < 8) {
             add_candidate_immediate(&table, inst, ip, 1, true, false, block,
@@ -424,6 +436,8 @@ fs_visitor::opt_combine_constants()
          break;
       }
 
+      case BRW_OPCODE_BFE:
+      case BRW_OPCODE_BFI2:
       case BRW_OPCODE_LRP:
          for (int i = 0; i < inst->sources; i++) {
             if (inst->src[i].file != IMM)
@@ -455,6 +469,18 @@ fs_visitor::opt_combine_constants()
                add_candidate_immediate(&table, inst, ip, 0, true, false, block,
                                        devinfo, const_ctx);
             }
+         }
+         break;
+
+      case BRW_OPCODE_ASR:
+      case BRW_OPCODE_BFI1:
+      case BRW_OPCODE_ROL:
+      case BRW_OPCODE_ROR:
+      case BRW_OPCODE_SHL:
+      case BRW_OPCODE_SHR:
+         if (inst->src[0].file == IMM) {
+            add_candidate_immediate(&table, inst, ip, 0, true, false, block,
+                                    devinfo, const_ctx);
          }
          break;
 
@@ -663,6 +689,10 @@ fs_visitor::opt_combine_constants()
                   unreachable("Bad type size");
                }
             }
+         } else if ((link->inst->opcode == BRW_OPCODE_SHL ||
+                     link->inst->opcode == BRW_OPCODE_ASR) &&
+                    link->negate) {
+            reg->type = brw_int_type(type_sz(reg->type), true);
          }
 
 #ifdef DEBUG
@@ -706,6 +736,8 @@ fs_visitor::opt_combine_constants()
             break;
          }
 #endif
+
+         assert(link->inst->can_do_source_mods(devinfo) || !link->negate);
 
          reg->file = VGRF;
          reg->offset = table.imm[i].subreg_offset;
