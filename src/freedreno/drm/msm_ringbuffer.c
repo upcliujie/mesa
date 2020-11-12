@@ -466,7 +466,7 @@ finalize_current_cmd(struct fd_ringbuffer *ring)
 	msm_ring->cmd = NULL;
 }
 
-static void
+FD_VFUNC void
 msm_ringbuffer_grow(struct fd_ringbuffer *ring, uint32_t size)
 {
 	struct msm_ringbuffer *msm_ring = to_msm_ringbuffer(ring);
@@ -486,7 +486,7 @@ msm_ringbuffer_grow(struct fd_ringbuffer *ring, uint32_t size)
 	ring->size = size;
 }
 
-static void
+FD_VFUNC void
 msm_ringbuffer_emit_reloc(struct fd_ringbuffer *ring,
 		const struct fd_reloc *reloc)
 {
@@ -553,7 +553,7 @@ append_stateobj_rings(struct msm_submit *submit, struct fd_ringbuffer *target)
 	}
 }
 
-static uint32_t
+FD_VFUNC uint32_t
 msm_ringbuffer_emit_reloc_ring(struct fd_ringbuffer *ring,
 		struct fd_ringbuffer *target, uint32_t cmd_idx)
 {
@@ -596,7 +596,7 @@ msm_ringbuffer_emit_reloc_ring(struct fd_ringbuffer *ring,
 	return size;
 }
 
-static uint32_t
+FD_VFUNC uint32_t
 msm_ringbuffer_cmd_count(struct fd_ringbuffer *ring)
 {
 	if (ring->flags & FD_RINGBUFFER_GROWABLE)
@@ -604,7 +604,7 @@ msm_ringbuffer_cmd_count(struct fd_ringbuffer *ring)
 	return 1;
 }
 
-static void
+FD_VFUNC void
 msm_ringbuffer_destroy(struct fd_ringbuffer *ring)
 {
 	struct msm_ringbuffer *msm_ring = to_msm_ringbuffer(ring);

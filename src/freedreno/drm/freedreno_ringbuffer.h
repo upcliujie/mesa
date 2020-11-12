@@ -95,6 +95,35 @@ int fd_submit_flush(struct fd_submit *submit,
 struct fd_ringbuffer;
 struct fd_reloc;
 
+#ifdef FD_BACKEND
+#  define FD_VFUNC
+#  if FD_BACKEND == msm_sp
+#    define FD_VFUNC_CALL(x, name) msm_sp ## _ringbuffer_ ## name
+#  elif FD_BACKEND == msm
+#    define FD_VFUNC_CALL(x, name) msm_ ## _ringbuffer_ ## name
+#  else
+#    error 'Invalid backend'
+#  endif
+
+void msm_sp_ringbuffer_grow(struct fd_ringbuffer *ring, uint32_t size);
+void msm_sp_ringbuffer_emit_reloc(struct fd_ringbuffer *ring, const struct fd_reloc *reloc);
+uint32_t msm_sp_ringbuffer_emit_reloc_ring(struct fd_ringbuffer *ring,
+		struct fd_ringbuffer *target, uint32_t cmd_idx);
+uint32_t msm_sp_ringbuffer_cmd_count(struct fd_ringbuffer *ring);
+void msm_sp_ringbuffer_destroy(struct fd_ringbuffer *ring);
+
+void msm_ringbuffer_grow(struct fd_ringbuffer *ring, uint32_t size);
+void msm_ringbuffer_emit_reloc(struct fd_ringbuffer *ring, const struct fd_reloc *reloc);
+uint32_t msm_ringbuffer_emit_reloc_ring(struct fd_ringbuffer *ring,
+		struct fd_ringbuffer *target, uint32_t cmd_idx);
+uint32_t msm_ringbuffer_cmd_count(struct fd_ringbuffer *ring);
+void msm_ringbuffer_destroy(struct fd_ringbuffer *ring);
+
+#else
+#  define FD_VFUNC static
+#  define FD_VFUNC_CALL(x, name) (x)->funcs->name
+#endif
+
 struct fd_ringbuffer_funcs {
 	void (*grow)(struct fd_ringbuffer *ring, uint32_t size);
 	void (*emit_reloc)(struct fd_ringbuffer *ring,
@@ -131,7 +160,7 @@ fd_ringbuffer_del(struct fd_ringbuffer *ring)
 	if (!p_atomic_dec_zero(&ring->refcnt))
 		return;
 
-	ring->funcs->destroy(ring);
+	FD_VFUNC_CALL(ring, destroy)(ring);
 }
 
 static inline
@@ -149,7 +178,7 @@ fd_ringbuffer_grow(struct fd_ringbuffer *ring, uint32_t ndwords)
 	if (ring->size < 0x100000)
 		ring->size *= 2;
 
-	ring->funcs->grow(ring, ring->size);
+	FD_VFUNC_CALL(ring, grow)(ring, ring->size);
 }
 
 static inline void
@@ -186,20 +215,20 @@ static inline void
 fd_ringbuffer_reloc(struct fd_ringbuffer *ring,
 		const struct fd_reloc *reloc)
 {
-	ring->funcs->emit_reloc(ring, reloc);
+	FD_VFUNC_CALL(ring, emit_reloc)(ring, reloc);
 }
 
 static inline uint32_t
 fd_ringbuffer_cmd_count(struct fd_ringbuffer *ring)
 {
-	return ring->funcs->cmd_count(ring);
+	return FD_VFUNC_CALL(ring, cmd_count)(ring);
 }
 
 static inline uint32_t
 fd_ringbuffer_emit_reloc_ring_full(struct fd_ringbuffer *ring,
 		struct fd_ringbuffer *target, uint32_t cmd_idx)
 {
-	return ring->funcs->emit_reloc_ring(ring, target, cmd_idx);
+	return FD_VFUNC_CALL(ring, emit_reloc_ring)(ring, target, cmd_idx);
 }
 
 static inline uint32_t
