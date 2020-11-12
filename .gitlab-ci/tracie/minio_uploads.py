@@ -3,8 +3,10 @@ import datetime
 import json
 import hashlib
 import hmac
+import mimetypes
 import os
 import requests
+import sys
 import xml.etree.ElementTree as ET
 
 from email.utils import formatdate
@@ -78,3 +80,14 @@ def upload_artifact(file_name, key, content_type):
                                            os.environ['CI_JOB_ID'],
                                            key)
     upload_to_minio(file_name, resource, content_type)
+
+if __name__ == "__main__":
+    file_path = sys.argv[1]
+    file_name = os.path.basename(file_path)
+    mime_type = mimetypes.MimeTypes().guess_type(file_name)[0]
+
+    if mime_type is None:
+        mime_type = 'application/octet-stream'
+
+    upload_artifact(file_path, file_name, mime_type)
+
