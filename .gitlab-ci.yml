@@ -353,13 +353,13 @@ x86_test-base:
 x86_test-gl:
   extends: .use-x86_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_test-gl "2020-11-12-piglit-replayer"
+    FDO_DISTRIBUTION_TAG: &x86_test-gl "2020-11-14-build-piglit-cmake-2"
 
 # Debian 10 based x86 test image for VK
 x86_test-vk:
   extends: .use-x86_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_test-vk "2020-11-13-build-piglit"
+    FDO_DISTRIBUTION_TAG: &x86_test-vk "2020-11-14-build-piglit-cmake-2"
     PIGLIT_BUILD_TARGETS: "piglit_replayer"
 
 # Debian 9 based x86 build image (old LLVM)
@@ -416,7 +416,7 @@ arm64_test:
   extends:
     - .use-arm_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &arm64_test "2020-11-13-build-piglit"
+    FDO_DISTRIBUTION_TAG: &arm64_test "2020-11-14-build-piglit-cmake-2"
     INCLUDE_PIGLIT: 1
     PIGLIT_BUILD_TARGETS: "piglit_replayer"
 

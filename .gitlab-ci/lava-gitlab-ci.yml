@@ -1,5 +1,5 @@
 variables:
-  DISTRIBUTION_TAG: "2020-11-13-build-piglit"
+  DISTRIBUTION_TAG: "2020-11-14-build-piglit-cmake-2"
 
 .kernel+rootfs:
   stage: container-2
