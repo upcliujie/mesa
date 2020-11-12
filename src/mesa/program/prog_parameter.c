@@ -304,7 +304,7 @@ _mesa_add_parameter(struct gl_program_parameter_list *paramList,
          }
       }
    } else {
-      for (unsigned j = 0; j < 4; j++) {
+      for (unsigned j = 0; j < pad; j++) {
          paramList->ParameterValues[oldValNum + j].f = 0;
       }
    }
@@ -424,7 +424,7 @@ _mesa_add_sized_state_reference(struct gl_program_parameter_list *paramList,
  *    PARAM ambient = state.material.front.ambient;
  *
  * \param paramList  the parameter list
- * \param stateTokens  an array of 5 (STATE_LENGTH) state tokens
+ * \param stateTokens  an array of STATE_LENGTH state tokens
  * \return index of the new parameter.
  */
 GLint
