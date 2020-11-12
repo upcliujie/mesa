@@ -87,10 +87,10 @@ mir_add_dependency(midgard_instruction **instructions, unsigned self, unsigned p
 static void
 mir_add_dependencies(midgard_instruction **instructions,
                 unsigned *table, unsigned index, unsigned dep,
-                unsigned bytemask)
+                unsigned shortmask)
 {
         for (unsigned c = 0; c < 8; ++c) {
-                if (!(bytemask & (3 << (2*c))))
+                if (!(shortmask & (1 << c)))
                         continue;
 
                 unsigned dep_index = table[(dep * 8) + c];
@@ -118,7 +118,7 @@ mir_create_dependency_graph(midgard_instruction **instructions, unsigned count, 
         /* Iterate forward so last is correct */
         for (unsigned i = 0; i < count; ++i) {
                 unsigned dest = instructions[i]->dest;
-                uint16_t mask = mir_bytemask(instructions[i]);
+                uint8_t mask = mir_shortmask(instructions[i]);
 
                 if (dest < node_count) {
                         if (last_read[dest])
@@ -134,13 +134,13 @@ mir_create_dependency_graph(midgard_instruction **instructions, unsigned count, 
                         if (src >= node_count)
                                 continue;
 
-                        uint16_t readmask = mir_bytemask_of_read_components_index(instructions[i], s);
+                        uint16_t readmask = mir_shortmask_of_read_components_index(instructions[i], s);
                         mir_add_dependencies(instructions, last_write, i, src, readmask);
 
                         /* Update last_read now that it's done being used */
 
                         for (unsigned c = 0; c < 8; ++c) {
-                                if (readmask & (3 << (2*c)))
+                                if (readmask & (1 << c))
                                         last_read[src*8 + c] = i + 1;
                         }
                 }
@@ -149,7 +149,7 @@ mir_create_dependency_graph(midgard_instruction **instructions, unsigned count, 
 
                 if (dest < node_count) {
                         for (unsigned c = 0; c < 8; ++c) {
-                                if (mask & (3 << (2*c)))
+                                if (mask & (1 << c))
                                         last_write[dest*8 + c] = i + 1;
                         }
                 }
@@ -345,8 +345,8 @@ mir_adjust_constant(midgard_instruction *ins, unsigned src,
         unsigned type_size = nir_alu_type_get_type_size(ins->src_types[src]) / 8;
         unsigned type_shift = util_logbase2(type_size);
         unsigned max_comp = mir_components_for_type(ins->src_types[src]);
-        unsigned comp_mask = mir_from_bytemask(mir_round_bytemask_up(
-                                mir_bytemask_of_read_components_index(ins, src),
+        unsigned comp_mask = mir_from_shortmask(mir_round_shortmask_up(
+                                mir_shortmask_of_read_components_index(ins, src),
                                 type_size * 8),
                                                type_size * 8);
         unsigned type_mask = (1 << type_size) - 1;
@@ -470,19 +470,19 @@ mir_adjust_constants(midgard_instruction *ins,
 static unsigned
 mir_pipeline_count(midgard_instruction *ins)
 {
-        unsigned bytecount = 0;
+        unsigned shortcount = 0;
 
         mir_foreach_src(ins, i) {
                 /* Skip empty source  */
                 if (ins->src[i] == ~0) continue;
 
-                unsigned bytemask = mir_bytemask_of_read_components_index(ins, i);
+                unsigned shortmask = mir_shortmask_of_read_components_index(ins, i);
 
-                unsigned max = util_logbase2(bytemask) + 1;
-                bytecount += max;
+                unsigned max = util_logbase2(shortmask) + 1;
+                shortcount += max;
         }
 
-        return DIV_ROUND_UP(bytecount, 16);
+        return DIV_ROUND_UP(shortcount, 8);
 }
 
 /* Matches FADD x, x with modifiers compatible. Since x + x = x * 2, for
