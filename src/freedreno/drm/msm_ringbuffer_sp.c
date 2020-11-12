@@ -277,8 +277,10 @@ msm_sp_submit_flush(struct fd_submit *submit, int in_fence_fd,
 
 	DEBUG_MSG("nr_cmds=%u, nr_bos=%u", req.nr_cmds, req.nr_bos);
 
-	ret = drmCommandWriteRead(submit->pipe->dev->fd, DRM_MSM_GEM_SUBMIT,
-			&req, sizeof(req));
+	// switch to harmless ioctl so that compiler cannot DCE
+	ret = drmCommandWriteRead(submit->pipe->dev->fd, DRM_MSM_GET_PARAM,
+			&req, 0);
+	ret = 0;
 	if (ret) {
 		ERROR_MSG("submit failed: %d (%s)", ret, strerror(errno));
 		msm_dump_submit(&req);
