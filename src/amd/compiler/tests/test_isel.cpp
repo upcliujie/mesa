@@ -102,3 +102,27 @@ BEGIN_TEST(isel.ngg_gs.no_outputs)
    //! success
    fprintf(output, "success\n");
 END_TEST
+
+BEGIN_TEST(isel.ngg_gs.no_verts)
+   if (!set_variant(GFX10))
+      return;
+
+   QoShaderModuleCreateInfo vs = qoShaderModuleCreateInfoGLSL(VERTEX,
+      void main() {}
+   );
+
+   QoShaderModuleCreateInfo gs = qoShaderModuleCreateInfoGLSL(GEOMETRY,
+      layout(points) in;
+      layout(points, max_vertices = 0) out;
+
+      void main() {}
+   );
+
+   PipelineBuilder bld(get_vk_device(GFX10));
+   bld.add_stage(VK_SHADER_STAGE_VERTEX_BIT, vs);
+   bld.add_stage(VK_SHADER_STAGE_GEOMETRY_BIT, gs);
+   bld.create_pipeline();
+
+   //! success
+   fprintf(output, "success\n");
+END_TEST
