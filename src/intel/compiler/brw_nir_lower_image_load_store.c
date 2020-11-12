@@ -713,6 +713,7 @@ brw_nir_lower_image_load_store(nir_shader *shader,
                break;
 
             case nir_intrinsic_image_deref_atomic_add:
+            case nir_intrinsic_image_deref_atomic_fadd:
             case nir_intrinsic_image_deref_atomic_imin:
             case nir_intrinsic_image_deref_atomic_umin:
             case nir_intrinsic_image_deref_atomic_imax:

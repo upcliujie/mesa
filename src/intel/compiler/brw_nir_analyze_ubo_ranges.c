@@ -129,6 +129,7 @@ analyze_ubos_block(struct ubo_analysis_state *state, nir_block *block)
       case nir_intrinsic_image_deref_load:
       case nir_intrinsic_image_deref_store:
       case nir_intrinsic_image_deref_atomic_add:
+      case nir_intrinsic_image_deref_atomic_fadd:
       case nir_intrinsic_image_deref_atomic_imin:
       case nir_intrinsic_image_deref_atomic_umin:
       case nir_intrinsic_image_deref_atomic_imax:

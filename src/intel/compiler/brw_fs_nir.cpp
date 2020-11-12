@@ -3802,6 +3802,7 @@ fs_visitor::nir_emit_cs_intrinsic(const fs_builder &bld,
    case nir_intrinsic_shared_atomic_comp_swap:
       nir_emit_shared_atomic(bld, brw_aop_for_nir_intrinsic(instr), instr);
       break;
+   case nir_intrinsic_shared_atomic_fadd:
    case nir_intrinsic_shared_atomic_fmin:
    case nir_intrinsic_shared_atomic_fmax:
    case nir_intrinsic_shared_atomic_fcomp_swap:
@@ -4109,6 +4110,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
    case nir_intrinsic_image_load:
    case nir_intrinsic_image_store:
    case nir_intrinsic_image_atomic_add:
+   case nir_intrinsic_image_atomic_fadd:
    case nir_intrinsic_image_atomic_imin:
    case nir_intrinsic_image_atomic_umin:
    case nir_intrinsic_image_atomic_imax:
@@ -4121,6 +4123,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
    case nir_intrinsic_bindless_image_load:
    case nir_intrinsic_bindless_image_store:
    case nir_intrinsic_bindless_image_atomic_add:
+   case nir_intrinsic_bindless_image_atomic_fadd:
    case nir_intrinsic_bindless_image_atomic_imin:
    case nir_intrinsic_bindless_image_atomic_umin:
    case nir_intrinsic_bindless_image_atomic_imax:
@@ -4139,6 +4142,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       case nir_intrinsic_image_load:
       case nir_intrinsic_image_store:
       case nir_intrinsic_image_atomic_add:
+      case nir_intrinsic_image_atomic_fadd:
       case nir_intrinsic_image_atomic_imin:
       case nir_intrinsic_image_atomic_umin:
       case nir_intrinsic_image_atomic_imax:
@@ -4684,6 +4688,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
    case nir_intrinsic_global_atomic_comp_swap:
       nir_emit_global_atomic(bld, brw_aop_for_nir_intrinsic(instr), instr);
       break;
+   case nir_intrinsic_global_atomic_fadd:
    case nir_intrinsic_global_atomic_fmin:
    case nir_intrinsic_global_atomic_fmax:
    case nir_intrinsic_global_atomic_fcomp_swap:
@@ -4794,6 +4799,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
    case nir_intrinsic_ssbo_atomic_comp_swap:
       nir_emit_ssbo_atomic(bld, brw_aop_for_nir_intrinsic(instr), instr);
       break;
+   case nir_intrinsic_ssbo_atomic_fadd:
    case nir_intrinsic_ssbo_atomic_fmin:
    case nir_intrinsic_ssbo_atomic_fmax:
    case nir_intrinsic_ssbo_atomic_fcomp_swap:
