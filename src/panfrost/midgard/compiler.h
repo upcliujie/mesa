@@ -158,15 +158,15 @@ typedef struct midgard_instruction {
         /* Generic hint for intra-pass use */
         bool hint;
 
-        /* During scheduling, the backwards dependency graph
-         * (DAG). nr_dependencies is the number of unscheduled
-         * instructions that must still be scheduled after
-         * (before) this instruction. dependents are which
-         * instructions need to be scheduled before (after) this
-         * instruction. */
+        /* During scheduling, the dependency graph. dependencies is the
+         * adjacency list representation of the instructions' dependencies.
+         * nr_dependents is the count of parents. Allocate room for SRC_COUNT
+         * read-after-write dependencies, 1 write-after-write, and 1
+         * write-after-read, all times 8 for vectorization.
+         */
 
-        unsigned nr_dependencies;
-        BITSET_WORD *dependents;
+        unsigned nr_dependents, nr_dependencies;
+        unsigned dependencies[(MIR_SRC_COUNT + 1 + 1)*8];
 
         /* Use this in conjunction with `type` */
         unsigned op;
