@@ -58,116 +58,101 @@
  *
  */
 
-/* We create the dependency graph with per-byte granularity */
-
-#define BYTE_COUNT 16
+/* We handle 3 kinds of dependencies:
+ *
+ * - Read-after-write: readers depend on the _last_ writer in the block
+ * - Write-after-read: writers depend on the _last_ reader in the block
+ * - Write-after-write: writers depend on the _last_ writer in the block
+ *
+ * For scalar SSA, this is optimal. For vector / non-SSA this may not be
+ * optimal but it doesn't really matter for well-behaved code.
+ */
 
 static void
-add_dependency(struct util_dynarray *table, unsigned index, uint16_t mask, midgard_instruction **instructions, unsigned child)
+mir_add_dependency(midgard_instruction **instructions, unsigned self, unsigned parent)
 {
-        for (unsigned i = 0; i < BYTE_COUNT; ++i) {
-                if (!(mask & (1 << i)))
-                        continue;
+        midgard_instruction *ins = instructions[self];
 
-                struct util_dynarray *parents = &table[(BYTE_COUNT * index) + i];
-
-                util_dynarray_foreach(parents, unsigned, parent) {
-                        BITSET_WORD *dependents = instructions[*parent]->dependents;
-
-                        /* Already have the dependency */
-                        if (BITSET_TEST(dependents, child))
-                                continue;
-
-                        BITSET_SET(dependents, child);
-                        instructions[child]->nr_dependencies++;
-                }
+        /* Don't duplicate */
+        for (unsigned i = 0; i < ins->nr_dependencies; ++i) {
+                if (ins->dependencies[i] == parent)
+                        return;
         }
+
+        ins->dependencies[ins->nr_dependencies++] = parent;
+        assert(ins->nr_dependencies < ARRAY_SIZE(ins->dependencies));
+        instructions[parent]->nr_dependents++;
 }
 
 static void
-mark_access(struct util_dynarray *table, unsigned index, uint16_t mask, unsigned parent)
+mir_add_dependencies(midgard_instruction **instructions,
+                unsigned *table, unsigned index, unsigned dep,
+                unsigned bytemask)
 {
-        for (unsigned i = 0; i < BYTE_COUNT; ++i) {
-                if (!(mask & (1 << i)))
+        for (unsigned c = 0; c < 8; ++c) {
+                if (!(bytemask & (3 << (2*c))))
                         continue;
 
-                util_dynarray_append(&table[(BYTE_COUNT * index) + i], unsigned, parent);
+                unsigned dep_index = table[(dep * 8) + c];
+
+                if (dep_index)
+                        mir_add_dependency(instructions, index, dep_index - 1);
         }
 }
 
 static void
 mir_create_dependency_graph(midgard_instruction **instructions, unsigned count, unsigned node_count)
 {
-        size_t sz = node_count * BYTE_COUNT;
-
-        struct util_dynarray *last_read = calloc(sizeof(struct util_dynarray), sz);
-        struct util_dynarray *last_write = calloc(sizeof(struct util_dynarray), sz);
-
-        for (unsigned i = 0; i < sz; ++i) {
-                util_dynarray_init(&last_read[i], NULL);
-                util_dynarray_init(&last_write[i], NULL);
-        }
-
-        /* Initialize dependency graph */
+        /* Initialize */
         for (unsigned i = 0; i < count; ++i) {
-                instructions[i]->dependents =
-                        calloc(BITSET_WORDS(count), sizeof(BITSET_WORD));
-
                 instructions[i]->nr_dependencies = 0;
+                instructions[i]->nr_dependents = 0;
         }
 
-        /* Populate dependency graph */
-        for (signed i = count - 1; i >= 0; --i) {
-                if (instructions[i]->compact_branch)
-                        continue;
+        /* Indexed by node[component], for components at 16-bit granularity,
+         * 1-indexed instruction index to depend on (off-by-one from 0-indexed
+         * arrays!), or 0 for none */
+        unsigned *last_read = calloc(sizeof(unsigned), node_count * 8);
+        unsigned *last_write = calloc(sizeof(unsigned), node_count * 8);
 
+        /* Iterate forward so last is correct */
+        for (unsigned i = 0; i < count; ++i) {
                 unsigned dest = instructions[i]->dest;
-                unsigned mask = mir_bytemask(instructions[i]);
-
-                mir_foreach_src((*instructions), s) {
-                        unsigned src = instructions[i]->src[s];
-
-                        if (src < node_count) {
-                                unsigned readmask = mir_bytemask_of_read_components(instructions[i], src);
-                                add_dependency(last_write, src, readmask, instructions, i);
-                        }
-                }
+                uint16_t mask = mir_bytemask(instructions[i]);
 
                 if (dest < node_count) {
-                        add_dependency(last_read, dest, mask, instructions, i);
-                        add_dependency(last_write, dest, mask, instructions, i);
-                        mark_access(last_write, dest, mask, i);
+                        if (last_read[dest])
+                                mir_add_dependencies(instructions, last_read, i, dest, mask);
+
+                        if (last_write[dest])
+                                mir_add_dependencies(instructions, last_write, i, dest, mask);
                 }
 
                 mir_foreach_src((*instructions), s) {
                         unsigned src = instructions[i]->src[s];
 
-                        if (src < node_count) {
-                                unsigned readmask = mir_bytemask_of_read_components(instructions[i], src);
-                                mark_access(last_read, src, readmask, i);
-                        }
-                }
-        }
-
-        /* If there is a branch, all instructions depend on it, as interblock
-         * execution must be purely in-order */
-
-        if (instructions[count - 1]->compact_branch) {
-                BITSET_WORD *dependents = instructions[count - 1]->dependents;
-
-                for (signed i = count - 2; i >= 0; --i) {
-                        if (BITSET_TEST(dependents, i))
+                        if (src >= node_count)
                                 continue;
 
-                        BITSET_SET(dependents, i);
-                        instructions[i]->nr_dependencies++;
-                }
-        }
+                        uint16_t readmask = mir_bytemask_of_read_components_index(instructions[i], s);
+                        mir_add_dependencies(instructions, last_write, i, src, readmask);
 
-        /* Free the intermediate structures */
-        for (unsigned i = 0; i < sz; ++i) {
-                util_dynarray_fini(&last_read[i]);
-                util_dynarray_fini(&last_write[i]);
+                        /* Update last_read now that it's done being used */
+
+                        for (unsigned c = 0; c < 8; ++c) {
+                                if (readmask & (3 << (2*c)))
+                                        last_read[src*8 + c] = i + 1;
+                        }
+                }
+
+                /* Update last_write after everything */
+
+                if (dest < node_count) {
+                        for (unsigned c = 0; c < 8; ++c) {
+                                if (mask & (3 << (2*c)))
+                                        last_write[dest*8 + c] = i + 1;
+                        }
+                }
         }
 
         free(last_read);
@@ -257,19 +242,19 @@ flatten_mir(midgard_block *block, unsigned *len)
 }
 
 /* The worklist is the set of instructions that can be scheduled now; that is,
- * the set of instructions with no remaining dependencies */
+ * the set of instructions with no remaining dependents */
 
 static void
 mir_initialize_worklist(BITSET_WORD *worklist, midgard_instruction **instructions, unsigned count)
 {
         for (unsigned i = 0; i < count; ++i) {
-                if (instructions[i]->nr_dependencies == 0)
+                if (instructions[i]->nr_dependents == 0)
                         BITSET_SET(worklist, i);
         }
 }
 
 /* Update the worklist after an instruction terminates. Remove its edges from
- * the graph and if that causes any node to have no dependencies, add it to the
+ * the graph and if that causes any node to have no dependents, add it to the
  * worklist */
 
 static void
@@ -286,24 +271,18 @@ mir_update_worklist(
         if (!done)
                 return;
 
-        assert(done->nr_dependencies == 0);
+        assert(done->nr_dependents == 0);
 
-        if (!done->dependents)
-                return;
+        /* We have an instruction with dependencies. Iterate each dependency to
+         * remove one dependent, adding dependencies to the worklist where
+         * possible. */
 
-        /* We have an instruction with dependents. Iterate each dependent to
-         * remove one dependency (`done`), adding dependents to the worklist
-         * where possible. */
+        for (unsigned i = 0; i < done->nr_dependencies; ++i) {
+                unsigned dep = done->dependencies[i];
 
-        unsigned i;
-        BITSET_FOREACH_SET(i, done->dependents, count) {
-                assert(instructions[i]->nr_dependencies);
-
-                if (!(--instructions[i]->nr_dependencies))
-                        BITSET_SET(worklist, i);
+                if (!(--instructions[dep]->nr_dependents))
+                        BITSET_SET(worklist, dep);
         }
-
-        free(done->dependents);
 }
 
 /* While scheduling, we need to choose instructions satisfying certain
@@ -1364,9 +1343,17 @@ schedule_block(compiler_context *ctx, midgard_block *block)
 
         block->quadword_count = 0;
 
+        /* Branches act as scheduling barriers but are gauranteed to end the
+         * block, so we special case here instead of in the dep graph */
+        bool force_branch = instructions[len - 1]->compact_branch;
+
         for (;;) {
-                unsigned tag = mir_choose_bundle(instructions, liveness, worklist, len);
+                unsigned tag = force_branch ? TAG_ALU_4 :
+                        mir_choose_bundle(instructions, liveness, worklist, len);
+
                 midgard_bundle bundle;
+
+                force_branch = false;
 
                 if (tag == TAG_TEXTURE_4)
                         bundle = mir_schedule_texture(instructions, liveness, worklist, len, ctx->stage != MESA_SHADER_FRAGMENT);
