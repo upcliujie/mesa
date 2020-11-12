@@ -173,21 +173,21 @@ generate_junit() {
     echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
     echo "<testsuites>"
     echo "<testsuite name=\"$DEQP_VER-$CI_NODE_INDEX\">"
-    while read line; do
-        testcase=${line%,*}
-        result=${line#*,}
-        # avoid counting Skip's in the # of tests:
-        if [ "$result" = "Skip" ]; then
-            continue;
-        fi
+
+    # Avoid counting Skip's in the # of tests, don't include passing tests
+    # and limit to first 50 results so we don't overload gitlab-ci when parsing.
+    cat $results | grep -Ev ',Warn|,Skip|,Pass|,ExpectedFail|,Flake' | head -50 | while read line; do
+        testcase=`echo $line | cut -d , -f 1`
+        result=`echo $line | cut -d , -f 2`
         echo "<testcase name=\"$testcase\">"
-        if [ "$result" != "Pass" ]; then
-            echo "<failure type=\"$result\">"
-            echo "$result: See $CI_JOB_URL/artifacts/results/$testcase.xml"
-            echo "</failure>"
-        fi
+        echo "<failure type=\"$result\">"
+
+        # CI_PAGES_URL isn't defined here, so need to build it ourselves
+        echo "$result: See https://$CI_PROJECT_NAMESPACE.pages.freedesktop.org/-/$CI_PROJECT_NAME/-/jobs/$CI_JOB_ID/artifacts/results/$testcase.xml"
+
+        echo "</failure>"
         echo "</testcase>"
-    done < $results
+    done
     echo "</testsuite>"
     echo "</testsuites>"
 }
@@ -266,8 +266,7 @@ echo "# of CPU cores: $(cat /proc/cpuinfo | grep processor | wc -l)"
 # Remove the shader cache, no need to include in the artifacts.
 find $RESULTS -name \*.shader_cache | xargs rm -f
 
-# junit is disabled, because it overloads gitlab.freedesktop.org to parse it.
-# quiet generate_junit $RESULTS_CSV > $RESULTS/results.xml
+quiet generate_junit $RESULTS_CSV > $RESULTS/junit.xml
 
 # Turn up to the first 50 individual test QPA files from failures or flakes into
 # XML results you can view from the browser.
