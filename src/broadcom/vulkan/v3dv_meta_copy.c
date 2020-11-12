@@ -59,22 +59,22 @@ v3dv_meta_blit_finish(struct v3dv_device *device)
    for (uint32_t i = 0; i < 3; i++) {
       hash_table_foreach(device->meta.blit.cache[i], entry) {
          struct v3dv_meta_blit_pipeline *item = entry->data;
-         v3dv_DestroyPipeline(_device, item->pipeline, &device->alloc);
-         v3dv_DestroyRenderPass(_device, item->pass, &device->alloc);
-         v3dv_DestroyRenderPass(_device, item->pass_no_load, &device->alloc);
-         vk_free(&device->alloc, item);
+         v3dv_DestroyPipeline(_device, item->pipeline, &device->vk.alloc);
+         v3dv_DestroyRenderPass(_device, item->pass, &device->vk.alloc);
+         v3dv_DestroyRenderPass(_device, item->pass_no_load, &device->vk.alloc);
+         vk_free(&device->vk.alloc, item);
       }
       _mesa_hash_table_destroy(device->meta.blit.cache[i], NULL);
    }
 
    if (device->meta.blit.playout) {
       v3dv_DestroyPipelineLayout(_device, device->meta.blit.playout,
-                                 &device->alloc);
+                                 &device->vk.alloc);
    }
 
    if (device->meta.blit.dslayout) {
       v3dv_DestroyDescriptorSetLayout(_device, device->meta.blit.dslayout,
-                                      &device->alloc);
+                                      &device->vk.alloc);
    }
 }
 
@@ -959,7 +959,7 @@ copy_image_to_buffer_blit(struct v3dv_cmd_buffer *cmd_buffer,
          .queueFamilyIndexCount = 0,
          .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
       };
-      result = v3dv_CreateImage(_device, &uiview_info, &device->alloc, &uiview);
+      result = v3dv_CreateImage(_device, &uiview_info, &device->vk.alloc, &uiview);
       if (result != VK_SUCCESS)
          return handled;
 
@@ -996,7 +996,7 @@ copy_image_to_buffer_blit(struct v3dv_cmd_buffer *cmd_buffer,
 
       VkImage buffer_image;
       result =
-         v3dv_CreateImage(_device, &image_info, &device->alloc, &buffer_image);
+         v3dv_CreateImage(_device, &image_info, &device->vk.alloc, &buffer_image);
       if (result != VK_SUCCESS)
          return handled;
 
@@ -1379,7 +1379,7 @@ create_image_alias(struct v3dv_cmd_buffer *cmd_buffer,
 
     VkImage _image;
     VkResult result =
-      v3dv_CreateImage(_device, &info, &cmd_buffer->device->alloc, &_image);
+      v3dv_CreateImage(_device, &info, &cmd_buffer->device->vk.alloc, &_image);
     if (result != VK_SUCCESS) {
        v3dv_flag_oom(cmd_buffer, NULL);
        return NULL;
@@ -2682,7 +2682,7 @@ copy_buffer_to_image_blit(struct v3dv_cmd_buffer *cmd_buffer,
 
       VkImage buffer_image;
       VkResult result =
-         v3dv_CreateImage(_device, &image_info, &device->alloc, &buffer_image);
+         v3dv_CreateImage(_device, &image_info, &device->vk.alloc, &buffer_image);
       if (result != VK_SUCCESS)
          return handled;
 
@@ -2699,7 +2699,7 @@ copy_buffer_to_image_blit(struct v3dv_cmd_buffer *cmd_buffer,
          .allocationSize = reqs.size,
          .memoryTypeIndex = 0,
       };
-      result = v3dv_AllocateMemory(_device, &alloc_info, &device->alloc, &mem);
+      result = v3dv_AllocateMemory(_device, &alloc_info, &device->vk.alloc, &mem);
       if (result != VK_SUCCESS)
          return handled;
 
@@ -3165,7 +3165,7 @@ create_blit_pipeline_layout(struct v3dv_device *device,
       result =
          v3dv_CreateDescriptorSetLayout(v3dv_device_to_handle(device),
                                         &descriptor_set_layout_info,
-                                        &device->alloc,
+                                        &device->vk.alloc,
                                         descriptor_set_layout);
       if (result != VK_SUCCESS)
          return false;
@@ -3184,7 +3184,7 @@ create_blit_pipeline_layout(struct v3dv_device *device,
    result =
       v3dv_CreatePipelineLayout(v3dv_device_to_handle(device),
                                 &pipeline_layout_info,
-                                &device->alloc,
+                                &device->vk.alloc,
                                 pipeline_layout);
    return result == VK_SUCCESS;
 }
@@ -3236,13 +3236,13 @@ create_blit_render_pass(struct v3dv_device *device,
    VkResult result;
    att.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
    result = v3dv_CreateRenderPass(v3dv_device_to_handle(device),
-                                  &info, &device->alloc, pass_load);
+                                  &info, &device->vk.alloc, pass_load);
    if (result != VK_SUCCESS)
       return false;
 
    att.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
    result = v3dv_CreateRenderPass(v3dv_device_to_handle(device),
-                                  &info, &device->alloc, pass_no_load);
+                                  &info, &device->vk.alloc, pass_no_load);
    return result == VK_SUCCESS;
 }
 
@@ -3712,7 +3712,7 @@ create_pipeline(struct v3dv_device *device,
       v3dv_CreateGraphicsPipelines(v3dv_device_to_handle(device),
                                    VK_NULL_HANDLE,
                                    1, &info,
-                                   &device->alloc,
+                                   &device->vk.alloc,
                                    pipeline);
 
    ralloc_free(vs_nir);
@@ -3849,7 +3849,7 @@ get_blit_pipeline(struct v3dv_device *device,
       return true;
    }
 
-   *pipeline = vk_zalloc2(&device->alloc, NULL, sizeof(**pipeline), 8,
+   *pipeline = vk_zalloc2(&device->vk.alloc, NULL, sizeof(**pipeline), 8,
                           VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 
    if (*pipeline == NULL)
@@ -3890,12 +3890,12 @@ fail:
    VkDevice _device = v3dv_device_to_handle(device);
    if (*pipeline) {
       if ((*pipeline)->pass)
-         v3dv_DestroyRenderPass(_device, (*pipeline)->pass, &device->alloc);
+         v3dv_DestroyRenderPass(_device, (*pipeline)->pass, &device->vk.alloc);
       if ((*pipeline)->pass_no_load)
-         v3dv_DestroyRenderPass(_device, (*pipeline)->pass_no_load, &device->alloc);
+         v3dv_DestroyRenderPass(_device, (*pipeline)->pass_no_load, &device->vk.alloc);
       if ((*pipeline)->pipeline)
-         v3dv_DestroyPipeline(_device, (*pipeline)->pipeline, &device->alloc);
-      vk_free(&device->alloc, *pipeline);
+         v3dv_DestroyPipeline(_device, (*pipeline)->pipeline, &device->vk.alloc);
+      vk_free(&device->vk.alloc, *pipeline);
       *pipeline = NULL;
    }
 
@@ -3973,7 +3973,7 @@ create_blit_descriptor_pool(struct v3dv_cmd_buffer *cmd_buffer)
    VkResult result =
       v3dv_CreateDescriptorPool(v3dv_device_to_handle(cmd_buffer->device),
                                 &info,
-                                &cmd_buffer->device->alloc,
+                                &cmd_buffer->device->vk.alloc,
                                 &cmd_buffer->meta.blit.dspool);
 
    if (result == VK_SUCCESS) {
@@ -4249,7 +4249,7 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
       };
       VkImageView dst_image_view;
       result = v3dv_CreateImageView(_device, &dst_image_view_info,
-                                    &device->alloc, &dst_image_view);
+                                    &device->vk.alloc, &dst_image_view);
       if (result != VK_SUCCESS)
          goto fail;
 
@@ -4269,7 +4269,7 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
 
       VkFramebuffer fb;
       result = v3dv_CreateFramebuffer(_device, &fb_info,
-                                      &cmd_buffer->device->alloc, &fb);
+                                      &cmd_buffer->device->vk.alloc, &fb);
       if (result != VK_SUCCESS)
          goto fail;
 
@@ -4302,7 +4302,7 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
          .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
       };
       VkSampler sampler;
-      result = v3dv_CreateSampler(_device, &sampler_info, &device->alloc,
+      result = v3dv_CreateSampler(_device, &sampler_info, &device->vk.alloc,
                                   &sampler);
       if (result != VK_SUCCESS)
          goto fail;
@@ -4328,7 +4328,7 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
       };
       VkImageView src_image_view;
       result = v3dv_CreateImageView(_device, &src_image_view_info,
-                                    &device->alloc, &src_image_view);
+                                    &device->vk.alloc, &src_image_view);
       if (result != VK_SUCCESS)
          goto fail;
 
