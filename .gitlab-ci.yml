@@ -984,6 +984,8 @@ meson-mingw32-x86_64:
     name: "mesa_${CI_JOB_NAME}"
     paths:
       - results/
+    reports:
+      junit: results/junit.xml
 
 .use-x86_test-gl:
   extends:
@@ -1290,9 +1292,6 @@ arm64_a630_traces:
     # missing.
     MESA_GLSL_VERSION_OVERRIDE: "460"
     MESA_GL_VERSION_OVERRIDE: "4.6"
-  artifacts:
-    reports:
-      junit: results/junit.xml
 
 # Along with checking gmem path, check that we don't get obvious nir
 # validation failures (though it's too expensive to have it on for the
@@ -1516,9 +1515,6 @@ radv-fossils:
       - traces-db/
   variables:
     TRACIE_UPLOAD_TO_MINIO: 1
-  artifacts:
-    reports:
-      junit: results/junit.xml
 
 .traces-test-gl:
   extends:
