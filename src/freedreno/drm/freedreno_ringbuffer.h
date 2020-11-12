@@ -145,8 +145,6 @@ fd_ringbuffer_ref(struct fd_ringbuffer *ring)
 static inline void
 fd_ringbuffer_grow(struct fd_ringbuffer *ring, uint32_t ndwords)
 {
-	assert(ring->funcs->grow);     /* unsupported on kgsl */
-
 	/* there is an upper bound on IB size, which appears to be 0x100000 */
 	if (ring->size < 0x100000)
 		ring->size *= 2;
@@ -194,8 +192,6 @@ fd_ringbuffer_reloc(struct fd_ringbuffer *ring,
 static inline uint32_t
 fd_ringbuffer_cmd_count(struct fd_ringbuffer *ring)
 {
-	if (!ring->funcs->cmd_count)
-		return 1;
 	return ring->funcs->cmd_count(ring);
 }
 
