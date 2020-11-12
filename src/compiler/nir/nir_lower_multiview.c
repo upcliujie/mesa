@@ -65,6 +65,10 @@ shader_writes_to_memory(nir_shader *shader)
          case nir_intrinsic_deref_atomic_xor:
          case nir_intrinsic_deref_atomic_exchange:
          case nir_intrinsic_deref_atomic_comp_swap:
+         case nir_intrinsic_deref_atomic_fadd:
+         case nir_intrinsic_deref_atomic_fmin:
+         case nir_intrinsic_deref_atomic_fmax:
+         case nir_intrinsic_deref_atomic_fcomp_swap:
          case nir_intrinsic_store_ssbo:
          case nir_intrinsic_ssbo_atomic_add:
          case nir_intrinsic_ssbo_atomic_imin:
@@ -76,6 +80,10 @@ shader_writes_to_memory(nir_shader *shader)
          case nir_intrinsic_ssbo_atomic_xor:
          case nir_intrinsic_ssbo_atomic_exchange:
          case nir_intrinsic_ssbo_atomic_comp_swap:
+         case nir_intrinsic_ssbo_atomic_fadd:
+         case nir_intrinsic_ssbo_atomic_fcomp_swap:
+         case nir_intrinsic_ssbo_atomic_fmax:
+         case nir_intrinsic_ssbo_atomic_fmin:
          case nir_intrinsic_store_shared:
          case nir_intrinsic_shared_atomic_add:
          case nir_intrinsic_shared_atomic_imin:
@@ -87,6 +95,10 @@ shader_writes_to_memory(nir_shader *shader)
          case nir_intrinsic_shared_atomic_xor:
          case nir_intrinsic_shared_atomic_exchange:
          case nir_intrinsic_shared_atomic_comp_swap:
+         case nir_intrinsic_shared_atomic_fadd:
+         case nir_intrinsic_shared_atomic_fcomp_swap:
+         case nir_intrinsic_shared_atomic_fmax:
+         case nir_intrinsic_shared_atomic_fmin:
          case nir_intrinsic_image_deref_store:
          case nir_intrinsic_image_deref_atomic_add:
          case nir_intrinsic_image_deref_atomic_fadd:
