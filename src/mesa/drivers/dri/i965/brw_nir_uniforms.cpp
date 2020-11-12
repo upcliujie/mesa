@@ -333,6 +333,7 @@ brw_nir_lower_gl_images(nir_shader *shader,
          case nir_intrinsic_image_deref_load:
          case nir_intrinsic_image_deref_store:
          case nir_intrinsic_image_deref_atomic_add:
+         case nir_intrinsic_image_deref_atomic_fadd:
          case nir_intrinsic_image_deref_atomic_imin:
          case nir_intrinsic_image_deref_atomic_umin:
          case nir_intrinsic_image_deref_atomic_imax:
