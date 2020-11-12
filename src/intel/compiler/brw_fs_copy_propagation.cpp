@@ -738,12 +738,6 @@ fs_visitor::try_constant_propagate(fs_inst *inst, acp_entry *entry)
          progress = true;
          break;
 
-      case SHADER_OPCODE_INT_QUOTIENT:
-      case SHADER_OPCODE_INT_REMAINDER:
-         /* FINISHME: Promote non-float constants and remove this. */
-         if (devinfo->gen < 8)
-            break;
-         /* fallthrough */
       case SHADER_OPCODE_POW:
          /* Allow constant propagation into src1 (except on Gen 6 which
           * doesn't support scalar source math), and let constant combining
@@ -751,11 +745,37 @@ fs_visitor::try_constant_propagate(fs_inst *inst, acp_entry *entry)
           */
          if (devinfo->gen == 6)
             break;
+
+         if (i == 1) {
+            inst->src[i] = val;
+            progress = true;
+         }
+         break;
+
+      case SHADER_OPCODE_INT_QUOTIENT:
+      case SHADER_OPCODE_INT_REMAINDER:
+         /* Allow constant propagation into either source (except on Gen 6
+          * which doesn't support scalar source math). Constant combining
+          * promote the src1 constant on Gen < 8, and it will promote the src0
+          * constant on all platforms.
+          */
+         if (devinfo->gen == 6)
+            break;
+
          /* fallthrough */
-      case BRW_OPCODE_BFI1:
+
       case BRW_OPCODE_ASR:
+      case BRW_OPCODE_BFE:
+      case BRW_OPCODE_BFI1:
+      case BRW_OPCODE_BFI2:
+      case BRW_OPCODE_ROL:
+      case BRW_OPCODE_ROR:
       case BRW_OPCODE_SHL:
       case BRW_OPCODE_SHR:
+         inst->src[i] = val;
+         progress = true;
+         break;
+
       case BRW_OPCODE_SUBB:
          if (i == 1) {
             inst->src[i] = val;
