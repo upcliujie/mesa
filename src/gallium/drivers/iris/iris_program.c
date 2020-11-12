@@ -234,6 +234,7 @@ iris_lower_storage_image_derefs(nir_shader *nir)
          case nir_intrinsic_image_deref_load:
          case nir_intrinsic_image_deref_store:
          case nir_intrinsic_image_deref_atomic_add:
+         case nir_intrinsic_image_deref_atomic_fadd:
          case nir_intrinsic_image_deref_atomic_imin:
          case nir_intrinsic_image_deref_atomic_umin:
          case nir_intrinsic_image_deref_atomic_imax:
@@ -871,6 +872,7 @@ iris_setup_binding_table(const struct gen_device_info *devinfo,
          case nir_intrinsic_image_load:
          case nir_intrinsic_image_store:
          case nir_intrinsic_image_atomic_add:
+         case nir_intrinsic_image_atomic_fadd:
          case nir_intrinsic_image_atomic_imin:
          case nir_intrinsic_image_atomic_umin:
          case nir_intrinsic_image_atomic_imax:
@@ -904,6 +906,7 @@ iris_setup_binding_table(const struct gen_device_info *devinfo,
          case nir_intrinsic_ssbo_atomic_xor:
          case nir_intrinsic_ssbo_atomic_exchange:
          case nir_intrinsic_ssbo_atomic_comp_swap:
+         case nir_intrinsic_ssbo_atomic_fadd:
          case nir_intrinsic_ssbo_atomic_fmin:
          case nir_intrinsic_ssbo_atomic_fmax:
          case nir_intrinsic_ssbo_atomic_fcomp_swap:
@@ -966,6 +969,7 @@ iris_setup_binding_table(const struct gen_device_info *devinfo,
          case nir_intrinsic_image_load:
          case nir_intrinsic_image_store:
          case nir_intrinsic_image_atomic_add:
+         case nir_intrinsic_image_atomic_fadd:
          case nir_intrinsic_image_atomic_imin:
          case nir_intrinsic_image_atomic_umin:
          case nir_intrinsic_image_atomic_imax:
@@ -1009,6 +1013,7 @@ iris_setup_binding_table(const struct gen_device_info *devinfo,
          case nir_intrinsic_ssbo_atomic_xor:
          case nir_intrinsic_ssbo_atomic_exchange:
          case nir_intrinsic_ssbo_atomic_comp_swap:
+         case nir_intrinsic_ssbo_atomic_fadd:
          case nir_intrinsic_ssbo_atomic_fmin:
          case nir_intrinsic_ssbo_atomic_fmax:
          case nir_intrinsic_ssbo_atomic_fcomp_swap:
