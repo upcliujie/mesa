@@ -488,7 +488,7 @@ add_var_use_deref(nir_deref_instr *deref, struct hash_table *live,
    _mesa_hash_table_insert(live, deref->var->name, ainfo);
 }
 
-/* Iterate over the shader and collect infomation about uniform use */
+/* Iterate over the shader and collect information about uniform use */
 static void
 add_var_use_shader(nir_shader *shader, struct hash_table *live)
 {
@@ -520,10 +520,13 @@ add_var_use_shader(nir_shader *shader, struct hash_table *live)
                   case nir_intrinsic_image_deref_load:
                   case nir_intrinsic_image_deref_store:
                   case nir_intrinsic_image_deref_atomic_add:
+                  case nir_intrinsic_image_deref_atomic_fadd:
                   case nir_intrinsic_image_deref_atomic_umin:
                   case nir_intrinsic_image_deref_atomic_imin:
+                  case nir_intrinsic_image_deref_atomic_fmin:
                   case nir_intrinsic_image_deref_atomic_umax:
                   case nir_intrinsic_image_deref_atomic_imax:
+                  case nir_intrinsic_image_deref_atomic_fmax:
                   case nir_intrinsic_image_deref_atomic_and:
                   case nir_intrinsic_image_deref_atomic_or:
                   case nir_intrinsic_image_deref_atomic_xor:
