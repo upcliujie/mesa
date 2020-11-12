@@ -179,7 +179,7 @@ def run(filename, device_name):
 
     if os.environ.get('TRACIE_UPLOAD_TO_MINIO', '0') == '1':
         upload_artifact(os.path.join(RESULTS_PATH, 'results.yml'), 'traces/results.yml', 'text/yaml')
-        upload_artifact(junit_xml_path, 'traces/junit.xml', 'text/xml')
+        upload_artifact(junit_xml_path, 'junit.xml', 'text/xml')
 
     return all_ok
 
