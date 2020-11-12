@@ -1,5 +1,5 @@
 variables:
-  DISTRIBUTION_TAG: "2020-12-07-build-piglit"
+  DISTRIBUTION_TAG: "2020-12-09-piglit-replayer"
 
 .kernel+rootfs:
   stage: container-2
