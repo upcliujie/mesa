@@ -1000,6 +1000,9 @@ meson-mingw32-x86_64:
   needs:
     - x86_test-gl
     - meson-testing
+  artifacts:
+    reports:
+      junit: results/junit.xml
 
 .test-vk:
   extends:
@@ -1010,6 +1013,9 @@ meson-mingw32-x86_64:
   needs:
     - meson-testing
     - x86_test-vk
+  artifacts:
+    reports:
+      junit: results/junit.xml
 
 .test-cl:
   extends:
@@ -1378,6 +1384,8 @@ arm64_a630_vk_sysmem:
     paths:
       - results/
       - serial*.txt
+    reports:
+      junit: results/junit.xml
 
 arm64_a306_gles2:
   extends:
