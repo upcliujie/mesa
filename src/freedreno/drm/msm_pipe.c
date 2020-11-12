@@ -167,13 +167,13 @@ static void msm_pipe_destroy(struct fd_pipe *pipe)
 {
 	struct msm_pipe *msm_pipe = to_msm_pipe(pipe);
 	close_submitqueue(pipe, msm_pipe->queue_id);
-	msm_pipe_sp_ringpool_init(msm_pipe);
+	msm_sp_pipe_ringpool_init(msm_pipe);
 	free(msm_pipe);
 }
 
 static const struct fd_pipe_funcs sp_funcs = {
-		.ringbuffer_new_object = msm_ringbuffer_sp_new_object,
-		.submit_new = msm_submit_sp_new,
+		.ringbuffer_new_object = msm_sp_ringbuffer_new_object,
+		.submit_new = msm_sp_submit_new,
 		.get_param = msm_pipe_get_param,
 		.wait = msm_pipe_wait,
 		.destroy = msm_pipe_destroy,
@@ -245,7 +245,7 @@ struct fd_pipe * msm_pipe_new(struct fd_device *dev,
 	if (open_submitqueue(pipe, prio))
 		goto fail;
 
-	msm_pipe_sp_ringpool_init(msm_pipe);
+	msm_sp_pipe_ringpool_init(msm_pipe);
 
 	return pipe;
 fail:

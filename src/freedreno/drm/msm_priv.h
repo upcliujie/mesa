@@ -61,13 +61,13 @@ struct fd_pipe * msm_pipe_new(struct fd_device *dev,
 		enum fd_pipe_id id, uint32_t prio);
 
 struct fd_ringbuffer * msm_ringbuffer_new_object(struct fd_pipe *pipe, uint32_t size);
-struct fd_ringbuffer * msm_ringbuffer_sp_new_object(struct fd_pipe *pipe, uint32_t size);
+struct fd_ringbuffer * msm_sp_ringbuffer_new_object(struct fd_pipe *pipe, uint32_t size);
 
 struct fd_submit * msm_submit_new(struct fd_pipe *pipe);
-struct fd_submit * msm_submit_sp_new(struct fd_pipe *pipe);
+struct fd_submit * msm_sp_submit_new(struct fd_pipe *pipe);
 
-void msm_pipe_sp_ringpool_init(struct msm_pipe *msm_pipe);
-void msm_pipe_sp_ringpool_fini(struct msm_pipe *msm_pipe);
+void msm_sp_pipe_ringpool_init(struct msm_pipe *msm_pipe);
+void msm_sp_pipe_ringpool_fini(struct msm_pipe *msm_pipe);
 
 
 struct msm_bo {

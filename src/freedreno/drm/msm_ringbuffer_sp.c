@@ -42,7 +42,7 @@
 #define INIT_SIZE 0x1000
 
 
-struct msm_submit_sp {
+struct msm_sp_submit {
 	struct fd_submit base;
 
 	DECLARE_ARRAY(struct fd_bo *, bos);
@@ -62,18 +62,18 @@ struct msm_submit_sp {
 	 */
 	struct fd_ringbuffer *suballoc_ring;
 };
-FD_DEFINE_CAST(fd_submit, msm_submit_sp);
+FD_DEFINE_CAST(fd_submit, msm_sp_submit);
 
 /* for FD_RINGBUFFER_GROWABLE rb's, tracks the 'finalized' cmdstream buffers
  * and sizes.  Ie. a finalized buffer can have no more commands appended to
  * it.
  */
-struct msm_cmd_sp {
+struct msm_sp_cmd {
 	struct fd_bo *ring_bo;
 	unsigned size;
 };
 
-struct msm_ringbuffer_sp {
+struct msm_sp_ringbuffer {
 	struct fd_ringbuffer base;
 
 	/* for FD_RINGBUFFER_STREAMING rb's which are sub-allocated */
@@ -90,22 +90,22 @@ struct msm_ringbuffer_sp {
 		/* for other cases: */
 		struct {
 			struct fd_submit *submit;
-			DECLARE_ARRAY(struct msm_cmd_sp, cmds);
+			DECLARE_ARRAY(struct msm_sp_cmd, cmds);
 		};
 	} u;
 
 	struct fd_bo *ring_bo;
 };
-FD_DEFINE_CAST(fd_ringbuffer, msm_ringbuffer_sp);
+FD_DEFINE_CAST(fd_ringbuffer, msm_sp_ringbuffer);
 
 static void finalize_current_cmd(struct fd_ringbuffer *ring);
-static struct fd_ringbuffer * msm_ringbuffer_sp_init(
-		struct msm_ringbuffer_sp *msm_ring,
+static struct fd_ringbuffer * msm_sp_ringbuffer_init(
+		struct msm_sp_ringbuffer *msm_ring,
 		uint32_t size, enum fd_ringbuffer_flags flags);
 
 /* add (if needed) bo to submit and return index: */
 static uint32_t
-msm_submit_append_bo(struct msm_submit_sp *submit, struct fd_bo *bo)
+msm_submit_append_bo(struct msm_sp_submit *submit, struct fd_bo *bo)
 {
 	struct msm_bo *msm_bo = to_msm_bo(bo);
 	uint32_t idx;
@@ -139,15 +139,15 @@ msm_submit_append_bo(struct msm_submit_sp *submit, struct fd_bo *bo)
 
 static void
 msm_submit_suballoc_ring_bo(struct fd_submit *submit,
-		struct msm_ringbuffer_sp *msm_ring, uint32_t size)
+		struct msm_sp_ringbuffer *msm_ring, uint32_t size)
 {
-	struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
+	struct msm_sp_submit *msm_submit = to_msm_sp_submit(submit);
 	unsigned suballoc_offset = 0;
 	struct fd_bo *suballoc_bo = NULL;
 
 	if (msm_submit->suballoc_ring) {
-		struct msm_ringbuffer_sp *suballoc_ring =
-				to_msm_ringbuffer_sp(msm_submit->suballoc_ring);
+		struct msm_sp_ringbuffer *suballoc_ring =
+				to_msm_sp_ringbuffer(msm_submit->suballoc_ring);
 
 		suballoc_bo = suballoc_ring->ring_bo;
 		suballoc_offset = fd_ringbuffer_size(msm_submit->suballoc_ring) +
@@ -178,11 +178,11 @@ msm_submit_suballoc_ring_bo(struct fd_submit *submit,
 }
 
 static struct fd_ringbuffer *
-msm_submit_sp_new_ringbuffer(struct fd_submit *submit, uint32_t size,
+msm_sp_submit_new_ringbuffer(struct fd_submit *submit, uint32_t size,
 		enum fd_ringbuffer_flags flags)
 {
-	struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
-	struct msm_ringbuffer_sp *msm_ring;
+	struct msm_sp_submit *msm_submit = to_msm_sp_submit(submit);
+	struct msm_sp_ringbuffer *msm_ring;
 
 	msm_ring = slab_alloc(&msm_submit->ring_pool);
 
@@ -203,7 +203,7 @@ msm_submit_sp_new_ringbuffer(struct fd_submit *submit, uint32_t size,
 		msm_ring->ring_bo = fd_bo_new_ring(submit->pipe->dev, size);
 	}
 
-	if (!msm_ringbuffer_sp_init(msm_ring, size, flags))
+	if (!msm_sp_ringbuffer_init(msm_ring, size, flags))
 		return NULL;
 
 	if (flags & FD_RINGBUFFER_PRIMARY) {
@@ -215,10 +215,10 @@ msm_submit_sp_new_ringbuffer(struct fd_submit *submit, uint32_t size,
 }
 
 static int
-msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
+msm_sp_submit_flush(struct fd_submit *submit, int in_fence_fd,
 		int *out_fence_fd, uint32_t *out_fence)
 {
-	struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
+	struct msm_sp_submit *msm_submit = to_msm_sp_submit(submit);
 	struct msm_pipe *msm_pipe = to_msm_pipe(submit->pipe);
 	struct drm_msm_gem_submit req = {
 			.flags = msm_pipe->pipe,
@@ -229,7 +229,7 @@ msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
 	debug_assert(msm_submit->primary);
 	finalize_current_cmd(msm_submit->primary);
 
-	struct msm_ringbuffer_sp *primary = to_msm_ringbuffer_sp(msm_submit->primary);
+	struct msm_sp_ringbuffer *primary = to_msm_sp_ringbuffer(msm_submit->primary);
 	struct drm_msm_gem_submit_cmd cmds[primary->u.nr_cmds];
 
 	for (unsigned i = 0; i < primary->u.nr_cmds; i++) {
@@ -297,9 +297,9 @@ msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
 }
 
 static void
-msm_submit_sp_destroy(struct fd_submit *submit)
+msm_sp_submit_destroy(struct fd_submit *submit)
 {
-	struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
+	struct msm_sp_submit *msm_submit = to_msm_sp_submit(submit);
 
 	if (msm_submit->primary)
 		fd_ringbuffer_del(msm_submit->primary);
@@ -321,15 +321,15 @@ msm_submit_sp_destroy(struct fd_submit *submit)
 }
 
 static const struct fd_submit_funcs submit_funcs = {
-		.new_ringbuffer = msm_submit_sp_new_ringbuffer,
-		.flush = msm_submit_sp_flush,
-		.destroy = msm_submit_sp_destroy,
+		.new_ringbuffer = msm_sp_submit_new_ringbuffer,
+		.flush = msm_sp_submit_flush,
+		.destroy = msm_sp_submit_destroy,
 };
 
 struct fd_submit *
-msm_submit_sp_new(struct fd_pipe *pipe)
+msm_sp_submit_new(struct fd_pipe *pipe)
 {
-	struct msm_submit_sp *msm_submit = calloc(1, sizeof(*msm_submit));
+	struct msm_sp_submit *msm_submit = calloc(1, sizeof(*msm_submit));
 	struct fd_submit *submit;
 
 	msm_submit->bo_table = _mesa_hash_table_create(NULL,
@@ -345,14 +345,14 @@ msm_submit_sp_new(struct fd_pipe *pipe)
 }
 
 void
-msm_pipe_sp_ringpool_init(struct msm_pipe *msm_pipe)
+msm_sp_pipe_ringpool_init(struct msm_pipe *msm_pipe)
 {
 	// TODO tune size:
-	slab_create_parent(&msm_pipe->ring_pool, sizeof(struct msm_ringbuffer_sp), 16);
+	slab_create_parent(&msm_pipe->ring_pool, sizeof(struct msm_sp_ringbuffer), 16);
 }
 
 void
-msm_pipe_sp_ringpool_fini(struct msm_pipe *msm_pipe)
+msm_sp_pipe_ringpool_fini(struct msm_pipe *msm_pipe)
 {
 	if (msm_pipe->ring_pool.num_elements)
 		slab_destroy_parent(&msm_pipe->ring_pool);
@@ -363,17 +363,17 @@ finalize_current_cmd(struct fd_ringbuffer *ring)
 {
 	debug_assert(!(ring->flags & _FD_RINGBUFFER_OBJECT));
 
-	struct msm_ringbuffer_sp *msm_ring = to_msm_ringbuffer_sp(ring);
-	APPEND(&msm_ring->u, cmds, (struct msm_cmd_sp){
+	struct msm_sp_ringbuffer *msm_ring = to_msm_sp_ringbuffer(ring);
+	APPEND(&msm_ring->u, cmds, (struct msm_sp_cmd){
 		.ring_bo = fd_bo_ref(msm_ring->ring_bo),
 		.size = offset_bytes(ring->cur, ring->start),
 	});
 }
 
 static void
-msm_ringbuffer_sp_grow(struct fd_ringbuffer *ring, uint32_t size)
+msm_sp_ringbuffer_grow(struct fd_ringbuffer *ring, uint32_t size)
 {
-	struct msm_ringbuffer_sp *msm_ring = to_msm_ringbuffer_sp(ring);
+	struct msm_sp_ringbuffer *msm_ring = to_msm_sp_ringbuffer(ring);
 	struct fd_pipe *pipe = msm_ring->u.submit->pipe;
 
 	debug_assert(ring->flags & FD_RINGBUFFER_GROWABLE);
@@ -390,10 +390,10 @@ msm_ringbuffer_sp_grow(struct fd_ringbuffer *ring, uint32_t size)
 }
 
 static void
-msm_ringbuffer_sp_emit_reloc(struct fd_ringbuffer *ring,
+msm_sp_ringbuffer_emit_reloc(struct fd_ringbuffer *ring,
 		const struct fd_reloc *reloc)
 {
-	struct msm_ringbuffer_sp *msm_ring = to_msm_ringbuffer_sp(ring);
+	struct msm_sp_ringbuffer *msm_ring = to_msm_sp_ringbuffer(ring);
 	struct fd_pipe *pipe;
 
 	if (ring->flags & _FD_RINGBUFFER_OBJECT) {
@@ -416,8 +416,8 @@ msm_ringbuffer_sp_emit_reloc(struct fd_ringbuffer *ring,
 
 		pipe = msm_ring->u.pipe;
 	} else {
-		struct msm_submit_sp *msm_submit =
-				to_msm_submit_sp(msm_ring->u.submit);
+		struct msm_sp_submit *msm_submit =
+				to_msm_sp_submit(msm_ring->u.submit);
 
 		msm_submit_append_bo(msm_submit, reloc->bo);
 
@@ -443,10 +443,10 @@ msm_ringbuffer_sp_emit_reloc(struct fd_ringbuffer *ring,
 }
 
 static uint32_t
-msm_ringbuffer_sp_emit_reloc_ring(struct fd_ringbuffer *ring,
+msm_sp_ringbuffer_emit_reloc_ring(struct fd_ringbuffer *ring,
 		struct fd_ringbuffer *target, uint32_t cmd_idx)
 {
-	struct msm_ringbuffer_sp *msm_target = to_msm_ringbuffer_sp(target);
+	struct msm_sp_ringbuffer *msm_target = to_msm_sp_ringbuffer(target);
 	struct fd_bo *bo;
 	uint32_t size;
 
@@ -459,7 +459,7 @@ msm_ringbuffer_sp_emit_reloc_ring(struct fd_ringbuffer *ring,
 		size = offset_bytes(target->cur, target->start);
 	}
 
-	msm_ringbuffer_sp_emit_reloc(ring, &(struct fd_reloc){
+	msm_sp_ringbuffer_emit_reloc(ring, &(struct fd_reloc){
 		.bo     = bo,
 		.offset = msm_target->offset,
 	});
@@ -467,7 +467,7 @@ msm_ringbuffer_sp_emit_reloc_ring(struct fd_ringbuffer *ring,
 	if (!(target->flags & _FD_RINGBUFFER_OBJECT))
 		return size;
 
-	struct msm_ringbuffer_sp *msm_ring = to_msm_ringbuffer_sp(ring);
+	struct msm_sp_ringbuffer *msm_ring = to_msm_sp_ringbuffer(ring);
 
 	if (ring->flags & _FD_RINGBUFFER_OBJECT) {
 		for (unsigned i = 0; i < msm_target->u.nr_reloc_bos; i++) {
@@ -477,7 +477,7 @@ msm_ringbuffer_sp_emit_reloc_ring(struct fd_ringbuffer *ring,
 		// TODO it would be nice to know whether we have already
 		// seen this target before.  But hopefully we hit the
 		// append_bo() fast path enough for this to not matter:
-		struct msm_submit_sp *msm_submit = to_msm_submit_sp(msm_ring->u.submit);
+		struct msm_sp_submit *msm_submit = to_msm_sp_submit(msm_ring->u.submit);
 
 		for (unsigned i = 0; i < msm_target->u.nr_reloc_bos; i++) {
 			msm_submit_append_bo(msm_submit, msm_target->u.reloc_bos[i]);
@@ -488,17 +488,17 @@ msm_ringbuffer_sp_emit_reloc_ring(struct fd_ringbuffer *ring,
 }
 
 static uint32_t
-msm_ringbuffer_sp_cmd_count(struct fd_ringbuffer *ring)
+msm_sp_ringbuffer_cmd_count(struct fd_ringbuffer *ring)
 {
 	if (ring->flags & FD_RINGBUFFER_GROWABLE)
-		return to_msm_ringbuffer_sp(ring)->u.nr_cmds + 1;
+		return to_msm_sp_ringbuffer(ring)->u.nr_cmds + 1;
 	return 1;
 }
 
 static void
-msm_ringbuffer_sp_destroy(struct fd_ringbuffer *ring)
+msm_sp_ringbuffer_destroy(struct fd_ringbuffer *ring)
 {
-	struct msm_ringbuffer_sp *msm_ring = to_msm_ringbuffer_sp(ring);
+	struct msm_sp_ringbuffer *msm_ring = to_msm_sp_ringbuffer(ring);
 
 	fd_bo_del(msm_ring->ring_bo);
 
@@ -517,20 +517,20 @@ msm_ringbuffer_sp_destroy(struct fd_ringbuffer *ring)
 		}
 		free(msm_ring->u.cmds);
 
-		slab_free(&to_msm_submit_sp(submit)->ring_pool, msm_ring);
+		slab_free(&to_msm_sp_submit(submit)->ring_pool, msm_ring);
 	}
 }
 
 static const struct fd_ringbuffer_funcs ring_funcs = {
-		.grow = msm_ringbuffer_sp_grow,
-		.emit_reloc = msm_ringbuffer_sp_emit_reloc,
-		.emit_reloc_ring = msm_ringbuffer_sp_emit_reloc_ring,
-		.cmd_count = msm_ringbuffer_sp_cmd_count,
-		.destroy = msm_ringbuffer_sp_destroy,
+		.grow = msm_sp_ringbuffer_grow,
+		.emit_reloc = msm_sp_ringbuffer_emit_reloc,
+		.emit_reloc_ring = msm_sp_ringbuffer_emit_reloc_ring,
+		.cmd_count = msm_sp_ringbuffer_cmd_count,
+		.destroy = msm_sp_ringbuffer_destroy,
 };
 
 static inline struct fd_ringbuffer *
-msm_ringbuffer_sp_init(struct msm_ringbuffer_sp *msm_ring, uint32_t size,
+msm_sp_ringbuffer_init(struct msm_sp_ringbuffer *msm_ring, uint32_t size,
 		enum fd_ringbuffer_flags flags)
 {
 	struct fd_ringbuffer *ring = &msm_ring->base;
@@ -564,14 +564,14 @@ msm_ringbuffer_sp_init(struct msm_ringbuffer_sp *msm_ring, uint32_t size,
 }
 
 struct fd_ringbuffer *
-msm_ringbuffer_sp_new_object(struct fd_pipe *pipe, uint32_t size)
+msm_sp_ringbuffer_new_object(struct fd_pipe *pipe, uint32_t size)
 {
-	struct msm_ringbuffer_sp *msm_ring = malloc(sizeof(*msm_ring));
+	struct msm_sp_ringbuffer *msm_ring = malloc(sizeof(*msm_ring));
 
 	msm_ring->u.pipe = pipe;
 	msm_ring->offset = 0;
 	msm_ring->ring_bo = fd_bo_new_ring(pipe->dev, size);
 	msm_ring->base.refcnt = 1;
 
-	return msm_ringbuffer_sp_init(msm_ring, size, _FD_RINGBUFFER_OBJECT);
+	return msm_sp_ringbuffer_init(msm_ring, size, _FD_RINGBUFFER_OBJECT);
 }
