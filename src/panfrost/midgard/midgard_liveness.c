@@ -45,7 +45,7 @@ mir_free_liveness(compiler_context *ctx)
 }
 
 void
-mir_liveness_ins_update(uint16_t *live, midgard_instruction *ins, unsigned max)
+mir_liveness_ins_update(mir_mask *live, midgard_instruction *ins, unsigned max)
 {
         /* live_in[s] = GEN[s] + (live_out[s] - KILL[s]) */
 

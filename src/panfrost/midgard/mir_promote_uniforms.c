@@ -95,7 +95,7 @@ mir_estimate_pressure(compiler_context *ctx)
                 free(live);
         }
 
-        return DIV_ROUND_UP(max_live, 16);
+        return DIV_ROUND_UP(max_live, sizeof(mir_mask) * 8);
 }
 
 static unsigned

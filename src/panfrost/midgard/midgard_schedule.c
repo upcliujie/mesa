@@ -547,7 +547,7 @@ mir_has_unit(midgard_instruction *ins, unsigned unit)
  * ir3's scheduler. */
 
 static int
-mir_live_effect(uint16_t *liveness, midgard_instruction *ins, bool destructive)
+mir_live_effect(mir_mask *liveness, midgard_instruction *ins, bool destructive)
 {
         /* TODO: what if dest is used multiple times? */
         int free_live = 0;
@@ -592,7 +592,7 @@ mir_live_effect(uint16_t *liveness, midgard_instruction *ins, bool destructive)
 static midgard_instruction *
 mir_choose_instruction(
                 midgard_instruction **instructions,
-                uint16_t *liveness,
+                mir_mask *liveness,
                 BITSET_WORD *worklist, unsigned count,
                 struct midgard_predicate *predicate)
 {
@@ -722,7 +722,7 @@ mir_choose_instruction(
 static unsigned
 mir_choose_bundle(
                 midgard_instruction **instructions,
-                uint16_t *liveness,
+                mir_mask *liveness,
                 BITSET_WORD *worklist, unsigned count)
 {
         /* At the moment, our algorithm is very simple - use the bundle of the
@@ -747,7 +747,7 @@ mir_choose_bundle(
 static void
 mir_choose_alu(midgard_instruction **slot,
                 midgard_instruction **instructions,
-                uint16_t *liveness,
+                mir_mask *liveness,
                 BITSET_WORD *worklist, unsigned len,
                 struct midgard_predicate *predicate,
                 unsigned unit)
@@ -925,7 +925,7 @@ mir_schedule_condition(compiler_context *ctx,
 static midgard_bundle
 mir_schedule_texture(
                 midgard_instruction **instructions,
-                uint16_t *liveness,
+                mir_mask *liveness,
                 BITSET_WORD *worklist, unsigned len,
                 bool is_vertex)
 {
@@ -955,7 +955,7 @@ mir_schedule_texture(
 static midgard_bundle
 mir_schedule_ldst(
                 midgard_instruction **instructions,
-                uint16_t *liveness,
+                mir_mask *liveness,
                 BITSET_WORD *worklist, unsigned len)
 {
         struct midgard_predicate predicate = {
@@ -992,7 +992,7 @@ mir_schedule_zs_write(
                 compiler_context *ctx,
                 struct midgard_predicate *predicate,
                 midgard_instruction **instructions,
-                uint16_t *liveness,
+                mir_mask *liveness,
                 BITSET_WORD *worklist, unsigned len,
                 midgard_instruction *branch,
                 midgard_instruction **smul,
@@ -1059,7 +1059,7 @@ static midgard_bundle
 mir_schedule_alu(
                 compiler_context *ctx,
                 midgard_instruction **instructions,
-                uint16_t *liveness,
+                mir_mask *liveness,
                 BITSET_WORD *worklist, unsigned len)
 {
         struct midgard_bundle bundle = {};
@@ -1335,7 +1335,7 @@ schedule_block(compiler_context *ctx, midgard_block *block)
         /* Allocate the worklist */
         size_t sz = BITSET_WORDS(len) * sizeof(BITSET_WORD);
         BITSET_WORD *worklist = calloc(sz, 1);
-        uint16_t *liveness = calloc(node_count, 2);
+        mir_mask *liveness = calloc(node_count, sizeof(mir_mask));
         mir_initialize_worklist(worklist, instructions, len);
 
         struct util_dynarray bundles;

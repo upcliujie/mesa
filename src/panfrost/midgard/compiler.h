@@ -694,7 +694,7 @@ void midgard_schedule_program(compiler_context *ctx);
 void mir_ra(compiler_context *ctx);
 void mir_squeeze_index(compiler_context *ctx);
 void mir_lower_special_reads(compiler_context *ctx);
-void mir_liveness_ins_update(uint16_t *live, midgard_instruction *ins, unsigned max);
+void mir_liveness_ins_update(mir_mask *live, midgard_instruction *ins, unsigned max);
 void mir_compute_liveness(compiler_context *ctx);
 void mir_invalidate_liveness(compiler_context *ctx);
 bool mir_is_live_after(compiler_context *ctx, midgard_block *block, midgard_instruction *start, int src);
