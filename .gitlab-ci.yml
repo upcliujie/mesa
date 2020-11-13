@@ -539,7 +539,7 @@ check mr:
     - if test "x$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" != "x$CI_COMMIT_REF_NAME"; then exit 0; fi
     - ci-fairy check-merge-request --require-allow-collaboration --junit-xml=check-merge-request.xml
 
-.check commits:
+check commits:
   extends: .sanity-check
   rules:
     - if: *is-pre-merge
