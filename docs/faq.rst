@@ -131,7 +131,7 @@ has Mesa packages (like RPM or DEB) which you can easily install.
 2.2 I get undefined symbols such as bgnpolygon, v3f, etc...
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You're application is written in IRIS GL, not OpenGL. IRIS GL was the
+Your application is written in IRIS GL, not OpenGL. IRIS GL was the
 predecessor to OpenGL and is a different thing (almost) entirely. Mesa's
 not the solution.
 
@@ -207,7 +207,7 @@ Look for the ``OpenGL vendor`` and ``OpenGL renderer`` values. That will
 identify who's OpenGL library with which driver you're using and what
 sort of hardware it has detected.
 
-If you're using a hardware accelerated driver you want
+If you're using a hardware accelerated driver you'll see
 ``direct rendering: Yes``.
 
 If your DRI-based driver isn't working, go to the `DRI
@@ -223,7 +223,7 @@ Look
 for details.
 
 Mesa uses a 16-bit depth buffer by default which is smaller and faster
-to clear than a 32-bit buffer but not as accurate. If you need a deeper
+to clear than a 32-bit buffer but not as accurate. If you need a deeper one
 you can modify the parameters to ``glXChooseVisual`` in your code.
 
 3.3 Why Isn't depth buffering working at all?
