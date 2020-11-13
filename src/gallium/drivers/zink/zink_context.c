@@ -854,15 +854,19 @@ pipeline_src_stage(VkImageLayout layout)
    }
 }
 
-
 void
-zink_resource_barrier(VkCommandBuffer cmdbuf, struct zink_resource *res,
-                      VkImageAspectFlags aspect, VkImageLayout new_layout)
+zink_resource_barrier_range(VkCommandBuffer cmdbuf,
+                            struct zink_resource *res,
+                            VkImageAspectFlags aspect,
+                            VkImageLayout old_layout,
+                            VkImageLayout new_layout,
+                            uint32_t base_level, uint32_t level_count,
+                            uint32_t base_layer, uint32_t layer_count)
 {
    VkImageSubresourceRange isr = {
       aspect,
-      0, VK_REMAINING_MIP_LEVELS,
-      0, VK_REMAINING_ARRAY_LAYERS
+      base_level, level_count,
+      base_layer, layer_count
    };
 
    VkImageMemoryBarrier imb = {
@@ -879,14 +883,24 @@ zink_resource_barrier(VkCommandBuffer cmdbuf, struct zink_resource *res,
    };
    vkCmdPipelineBarrier(
       cmdbuf,
-      pipeline_src_stage(res->layout),
+      pipeline_src_stage(old_layout),
       pipeline_dst_stage(new_layout),
       0,
       0, NULL,
       0, NULL,
       1, &imb
    );
+}
 
+
+void
+zink_resource_barrier(VkCommandBuffer cmdbuf, struct zink_resource *res,
+                      VkImageAspectFlags aspect, VkImageLayout new_layout)
+{
+   zink_resource_barrier_range(cmdbuf, res, aspect,
+                               res->layout, new_layout,
+                               0, VK_REMAINING_MIP_LEVELS,
+                               0, VK_REMAINING_ARRAY_LAYERS);
    res->layout = new_layout;
 }
 
