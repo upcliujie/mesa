@@ -172,17 +172,31 @@ mir_components_for_type(nir_alu_type T)
         return mir_components_for_bits(sz);
 }
 
-uint16_t
-mir_from_bytemask(uint16_t bytemask, unsigned bits)
-{
-        unsigned value = 0;
-        unsigned count = bits / 8;
 
-        for (unsigned c = 0, d = 0; c < 16; c += count, ++d) {
-                bool a = (bytemask & (1 << c)) != 0;
+uint16_t
+mir_from_shortmask(mir_mask shortmask, unsigned bits)
+{
+        /* Expand for 8-bit */
+        if (bits == 8) {
+                unsigned out = 0;
+
+                for (unsigned i = 0; i < 8; ++i) {
+                        if (shortmask & (1 << i))
+                                out |= 3 << (2 * i);
+                }
+
+                return out;
+        }
+
+        /* Contract for anything else */
+        unsigned value = 0;
+        unsigned count = bits / 16;
+
+        for (unsigned c = 0, d = 0; c < 8; c += count, ++d) {
+                bool a = (shortmask & (1 << c)) != 0;
 
                 for (unsigned q = c; q < count; ++q)
-                        assert(((bytemask & (1 << q)) != 0) == a);
+                        assert(((shortmask & (1 << q)) != 0) == a);
 
                 value |= (a << d);
         }
@@ -270,10 +284,10 @@ mir_bytemask(midgard_instruction *ins)
 }
 
 void
-mir_set_bytemask(midgard_instruction *ins, uint16_t bytemask)
+mir_set_shortmask(midgard_instruction *ins, mir_mask shortmask)
 {
         unsigned type_size = nir_alu_type_get_type_size(ins->dest_type);
-        ins->mask = mir_from_bytemask(bytemask, type_size);
+        ins->mask = mir_from_shortmask(shortmask, type_size);
 }
 
 /* Checks if we should use an upper destination override, rather than the lower
