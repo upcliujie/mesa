@@ -105,6 +105,10 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
    }
 
    if (src == dst) {
+      assert(MAX2(src_base_layer, dst_base_layer) <
+             MIN2(src_base_layer + src_layer_count,
+                  dst_base_layer + dst_layer_count));
+
       /* The Vulkan 1.1 specification says the following about valid usage
        * of vkCmdBlitImage:
        *
@@ -116,14 +120,22 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
        * "dstImageLayout must be VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR,
        *  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL or VK_IMAGE_LAYOUT_GENERAL"
        *
-       * Since we cant have the same image in two states at the same time,
-       * we're effectively left with VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR or
-       * VK_IMAGE_LAYOUT_GENERAL. And since this isn't a present-related
-       * operation, VK_IMAGE_LAYOUT_GENERAL seems most appropriate.
+       * Since we only track a single layout per resource, we need to
+       * temporarily whack these into the right layout, and back again.
        */
-      if (src->layout != VK_IMAGE_LAYOUT_GENERAL)
-         zink_resource_barrier(batch->cmdbuf, src, src->aspect,
-                               VK_IMAGE_LAYOUT_GENERAL);
+
+      if (src->layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+         zink_resource_barrier_range(batch->cmdbuf, src, src->aspect,
+                                     src->layout,
+                                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                     info->src.level, 1,
+                                     src_base_layer, src_layer_count);
+      if (dst->layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+         zink_resource_barrier_range(batch->cmdbuf, dst, dst->aspect,
+                                     dst->layout,
+                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                     info->dst.level, 1,
+                                     dst_base_layer, dst_layer_count);
    } else
       zink_resource_setup_transfer_layouts(batch, src, dst);
 
@@ -166,6 +178,22 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
                   dst->image, dst->layout,
                   1, &region,
                   zink_filter(info->filter));
+
+   if (src == dst) {
+      /* restore the layouts back to their tracked state */
+      if (src->layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+         zink_resource_barrier_range(batch->cmdbuf, src, src->aspect,
+                                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                     src->layout,
+                                     info->src.level, 1,
+                                     src_base_layer, src_layer_count);
+      if (dst->layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+         zink_resource_barrier_range(batch->cmdbuf, dst, dst->aspect,
+                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                     dst->layout,
+                                     info->dst.level, 1,
+                                     dst_base_layer, dst_layer_count);
+   }
 
    return true;
 }
