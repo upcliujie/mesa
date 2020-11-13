@@ -181,7 +181,10 @@ generate_junit() {
         result=`echo $line | cut -d , -f 2`
         echo "<testcase name=\"$testcase\">"
         echo "<failure type=\"$result\">"
-        echo "$result: See $CI_PAGES_URL/-/jobs/$CI_JOB_ID/artifacts/results/$testcase.xml"
+
+        # CI_PAGES_URL isn't defined here, so need to build it ourselves
+        echo "$result: See https://$CI_PROJECT_NAMESPACE.pages.freedesktop.org/-/$CI_PROJECT_NAME/-/jobs/$CI_JOB_ID/artifacts/results/$testcase.xml"
+
         echo "</failure>"
         echo "</testcase>"
     done
