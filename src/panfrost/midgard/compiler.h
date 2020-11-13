@@ -39,7 +39,6 @@
 #include "compiler/nir_types.h"
 #include "compiler/nir/nir.h"
 #include "panfrost/util/pan_ir.h"
-#include "panfrost/util/lcra.h"
 
 /* Forward declare */
 struct midgard_block;
@@ -691,7 +690,7 @@ mir_has_arg(midgard_instruction *ins, unsigned arg)
 
 void midgard_schedule_program(compiler_context *ctx);
 
-void mir_ra(compiler_context *ctx);
+void mir_reg_alloc(compiler_context *ctx);
 void mir_squeeze_index(compiler_context *ctx);
 void mir_lower_special_reads(compiler_context *ctx);
 void mir_liveness_ins_update(mir_mask *live, midgard_instruction *ins, unsigned max);

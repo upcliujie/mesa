@@ -2850,7 +2850,7 @@ midgard_compile_shader_nir(void *mem_ctx, nir_shader *nir,
 
         /* Schedule! */
         midgard_schedule_program(ctx);
-        mir_ra(ctx);
+        mir_reg_alloc(ctx);
 
         /* Emit flat binary from the instruction arrays. Iterate each block in
          * sequence. Save instruction boundaries such that lookahead tags can

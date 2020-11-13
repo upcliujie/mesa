@@ -27,6 +27,7 @@
 #include "util/u_math.h"
 #include "util/u_memory.h"
 #include "midgard_quirks.h"
+#include "mir_ra.h"
 
 struct phys_reg {
         /* Physical register: 0-31 */
@@ -80,7 +81,7 @@ default_phys_reg(int reg, unsigned shift)
  * register corresponds to */
 
 static struct phys_reg
-index_to_reg(compiler_context *ctx, struct lcra_state *l, unsigned reg, unsigned shift)
+index_to_reg(compiler_context *ctx, struct mir_ra *l, unsigned reg, unsigned shift)
 {
         /* Check for special cases */
         if (reg == ~0)
@@ -314,7 +315,7 @@ mir_lower_special_reads(compiler_context *ctx)
 static void
 mir_compute_interference(
                 compiler_context *ctx,
-                struct lcra_state *l)
+                struct mir_ra *l)
 {
         /* First, we need liveness information to be computed per block */
         mir_compute_liveness(ctx);
@@ -337,7 +338,7 @@ mir_compute_interference(
 
                 mir_foreach_instr_global(ctx, ins) {
                         if (ins->dest < ctx->temp_count)
-                                lcra_add_node_interference(l, ins->dest, mir_bytemask(ins), r1w, 0xF);
+                                mir_ra_add_node_interference(l, ins->dest, mir_bytemask(ins), r1w, 0xF);
                 }
         }
 
@@ -359,7 +360,7 @@ mir_compute_interference(
                                 for (unsigned i = 0; i < ctx->temp_count; ++i)
                                         if (live[i]) {
                                                 unsigned mask = mir_shortmask(ins);
-                                                lcra_add_node_interference(l, dest, mir_smask_to_bmask(mask), i, mir_smask_to_bmask(live[i]));
+                                                mir_ra_add_node_interference(l, dest, mir_smask_to_bmask(mask), i, mir_smask_to_bmask(live[i]));
                                         }
                         }
 
@@ -388,7 +389,7 @@ mir_is_64(midgard_instruction *ins)
 /* This routine performs the actual register allocation. It should be succeeded
  * by install_registers */
 
-static struct lcra_state *
+static struct mir_ra *
 allocate_registers(compiler_context *ctx, bool *spilled)
 {
         /* The number of vec4 work registers available depends on when the
@@ -405,7 +406,7 @@ allocate_registers(compiler_context *ctx, bool *spilled)
         /* Initialize LCRA. Allocate an extra node at the end for a precoloured
          * r1 for interference */
 
-        struct lcra_state *l = lcra_alloc_equations(ctx->temp_count + 1, 5);
+        struct mir_ra *l = mir_ra_alloc_equations(ctx->temp_count + 1, 5);
         unsigned node_r1 = ctx->temp_count;
 
         /* Starts of classes, in bytes */
@@ -419,7 +420,7 @@ allocate_registers(compiler_context *ctx, bool *spilled)
         l->class_size[REG_CLASS_TEXR]  = 16 * 2;
         l->class_size[REG_CLASS_TEXW]  = 16 * 2;
 
-        lcra_set_disjoint_class(l, REG_CLASS_TEXR, REG_CLASS_TEXW);
+        mir_ra_set_disjoint_class(l, REG_CLASS_TEXR, REG_CLASS_TEXW);
 
         /* To save space on T*20, we don't have real texture registers.
          * Instead, tex inputs reuse the load/store pipeline registers, and
@@ -507,9 +508,9 @@ allocate_registers(compiler_context *ctx, bool *spilled)
         }
 
         for (unsigned i = 0; i < ctx->temp_count; ++i) {
-                lcra_set_alignment(l, i, min_alignment[i] ? min_alignment[i] : 2,
+                mir_ra_set_alignment(l, i, min_alignment[i] ? min_alignment[i] : 2,
                                 min_bound[i] ? min_bound[i] : 16);
-                lcra_restrict_range(l, i, found_class[i]);
+                mir_ra_restrict_range(l, i, found_class[i]);
         }
         
         free(found_class);
@@ -533,11 +534,11 @@ allocate_registers(compiler_context *ctx, bool *spilled)
                         set_class(l->class, ins->src[3], REG_CLASS_LDST);
 
                         if (OP_IS_VEC4_ONLY(ins->op)) {
-                                lcra_restrict_range(l, ins->dest, 16);
-                                lcra_restrict_range(l, ins->src[0], 16);
-                                lcra_restrict_range(l, ins->src[1], 16);
-                                lcra_restrict_range(l, ins->src[2], 16);
-                                lcra_restrict_range(l, ins->src[3], 16);
+                                mir_ra_restrict_range(l, ins->dest, 16);
+                                mir_ra_restrict_range(l, ins->src[0], 16);
+                                mir_ra_restrict_range(l, ins->src[1], 16);
+                                mir_ra_restrict_range(l, ins->src[2], 16);
+                                mir_ra_restrict_range(l, ins->src[3], 16);
                         }
                 } else if (ins->type == TAG_TEXTURE_4) {
                         set_class(l->class, ins->dest, REG_CLASS_TEXW);
@@ -619,7 +620,7 @@ allocate_registers(compiler_context *ctx, bool *spilled)
                                         used_as_r1 |= (s > 0) && (br->src[s] == ins->dest);
 
                                 if (!used_as_r1)
-                                        lcra_add_node_interference(l, ins->dest, mir_bytemask(ins), node_r1, 0xFFFF);
+                                        mir_ra_add_node_interference(l, ins->dest, mir_bytemask(ins), node_r1, 0xFFFF);
                         }
                 }
         }
@@ -645,7 +646,7 @@ allocate_registers(compiler_context *ctx, bool *spilled)
 
         mir_compute_interference(ctx, l);
 
-        *spilled = !lcra_solve(l);
+        *spilled = !mir_ra_solve(l);
         return l;
 }
 
@@ -657,7 +658,7 @@ allocate_registers(compiler_context *ctx, bool *spilled)
 static void
 install_registers_instr(
         compiler_context *ctx,
-        struct lcra_state *l,
+        struct mir_ra *l,
         midgard_instruction *ins)
 {
         unsigned src_shift[MIR_SRC_COUNT];
@@ -787,7 +788,7 @@ install_registers_instr(
 }
 
 static void
-install_registers(compiler_context *ctx, struct lcra_state *l)
+install_registers(compiler_context *ctx, struct mir_ra *l)
 {
         mir_foreach_instr_global(ctx, ins)
                 install_registers_instr(ctx, l, ins);
@@ -799,22 +800,22 @@ install_registers(compiler_context *ctx, struct lcra_state *l)
 static signed
 mir_choose_spill_node(
                 compiler_context *ctx,
-                struct lcra_state *l)
+                struct mir_ra *l)
 {
         /* We can't spill a previously spilled value or an unspill */
 
         mir_foreach_instr_global(ctx, ins) {
                 if (ins->no_spill & (1 << l->spill_class)) {
-                        lcra_set_node_spill_cost(l, ins->dest, -1);
+                        mir_ra_set_node_spill_cost(l, ins->dest, -1);
 
                         if (l->spill_class != REG_CLASS_WORK) {
                                 mir_foreach_src(ins, s)
-                                        lcra_set_node_spill_cost(l, ins->src[s], -1);
+                                        mir_ra_set_node_spill_cost(l, ins->src[s], -1);
                         }
                 }
         }
 
-        return lcra_get_best_spill_node(l);
+        return mir_ra_get_best_spill_node(l);
 }
 
 /* Once we've chosen a spill node, spill it */
@@ -958,9 +959,9 @@ mir_spill_register(
 /* Run register allocation in a loop, spilling until we succeed */
 
 void
-mir_ra(compiler_context *ctx)
+mir_reg_alloc(compiler_context *ctx)
 {
-        struct lcra_state *l = NULL;
+        struct mir_ra *l = NULL;
         bool spilled = false;
         int iter_count = 1000; /* max iterations */
 
@@ -976,7 +977,7 @@ mir_ra(compiler_context *ctx)
 
                         if (spill_node == -1) {
                                 fprintf(stderr, "ERROR: Failed to choose spill node\n");
-                                lcra_free(l);
+                                mir_ra_free(l);
                                 return;
                         }
 
@@ -987,7 +988,7 @@ mir_ra(compiler_context *ctx)
                 mir_invalidate_liveness(ctx);
 
                 if (l) {
-                        lcra_free(l);
+                        mir_ra_free(l);
                         l = NULL;
                 }
 
@@ -1006,5 +1007,5 @@ mir_ra(compiler_context *ctx)
 
         install_registers(ctx, l);
 
-        lcra_free(l);
+        mir_ra_free(l);
 }
