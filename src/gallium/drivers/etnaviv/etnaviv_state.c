@@ -150,6 +150,9 @@ etna_set_framebuffer_state(struct pipe_context *pctx,
       assert(res->layout & ETNA_LAYOUT_BIT_TILE); /* Cannot render to linear surfaces */
       etna_update_render_resource(pctx, etna_resource(cbuf->prsc));
 
+      if (!etna_resource(etna_surface(fb->cbufs[0])->prsc)->explicit_flush)
+         _mesa_set_add(ctx->flush_resources, etna_surface(fb->cbufs[0])->prsc);
+
       if (fmt >= PE_FORMAT_R16F)
           cs->PE_COLOR_FORMAT = VIVS_PE_COLOR_FORMAT_FORMAT_EXT(fmt) |
                                 VIVS_PE_COLOR_FORMAT_FORMAT_MASK;
