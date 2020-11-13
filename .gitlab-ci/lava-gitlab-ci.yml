@@ -84,7 +84,8 @@ kernel+rootfs_armhf:
     - '[[ "$result" == "pass" ]]'
   after_script:
     - mkdir -p artifacts
-    - wget -O "artifacts/junit.xml" "https://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/junit.xml"
+    - ci-fairy minio login $CI_JOB_JWT
+    - ci-fairy minio cp minio://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/* artifacts/
   artifacts:
     name: "mesa_${CI_JOB_NAME}"
     when: always
