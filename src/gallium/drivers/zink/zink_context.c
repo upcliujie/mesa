@@ -1113,6 +1113,13 @@ zink_resource_copy_region(struct pipe_context *pctx,
       zink_batch_reference_resource_rw(batch, dst, true);
 
       if (src == dst) {
+         assert(MAX2(region.srcSubresource.baseArrayLayer,
+                     region.dstSubresource.baseArrayLayer) <
+               MIN2(region.srcSubresource.baseArrayLayer +
+                     region.srcSubresource.layerCount,
+                     region.dstSubresource.baseArrayLayer +
+                     region.dstSubresource.layerCount));
+
          /* The Vulkan 1.1 specification says the following about valid usage
          * of vkCmdBlitImage:
          *
@@ -1124,20 +1131,50 @@ zink_resource_copy_region(struct pipe_context *pctx,
          * "dstImageLayout must be VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR,
          *  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL or VK_IMAGE_LAYOUT_GENERAL"
          *
-         * Since we cant have the same image in two states at the same time,
-         * we're effectively left with VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR or
-         * VK_IMAGE_LAYOUT_GENERAL. And since this isn't a present-related
-         * operation, VK_IMAGE_LAYOUT_GENERAL seems most appropriate.
+         * Since we only track a single layout per resource, we need to
+         * temporarily whack these into the right layout, and back again.
          */
-         if (src->layout != VK_IMAGE_LAYOUT_GENERAL)
-            zink_resource_barrier(batch->cmdbuf, src, src->aspect,
-                                 VK_IMAGE_LAYOUT_GENERAL);
+
+         if (src->layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+            zink_resource_barrier_range(batch->cmdbuf, src, src->aspect,
+                                       src->layout,
+                                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                       src_level, 1,
+                                       region.srcSubresource.baseArrayLayer,
+                                       region.srcSubresource.layerCount);
+
+         if (dst->layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+            zink_resource_barrier_range(batch->cmdbuf, dst, dst->aspect,
+                                       dst->layout,
+                                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                       dst_level, 1,
+                                       region.dstSubresource.baseArrayLayer,
+                                       region.dstSubresource.layerCount);
       } else
          zink_resource_setup_transfer_layouts(batch, src, dst);
 
       vkCmdCopyImage(batch->cmdbuf, src->image, src->layout,
                      dst->image, dst->layout,
                      1, &region);
+
+      if (src == dst) {
+         /* restore the layouts back to their tracked state */
+         if (src->layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+            zink_resource_barrier_range(batch->cmdbuf, src, src->aspect,
+                                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                       src->layout,
+                                       src_level, 1,
+                                       region.srcSubresource.baseArrayLayer,
+                                       region.srcSubresource.layerCount);
+         if (dst->layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+            zink_resource_barrier_range(batch->cmdbuf, dst, dst->aspect,
+                                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                       dst->layout,
+                                       dst_level, 1,
+                                       region.dstSubresource.baseArrayLayer,
+                                       region.dstSubresource.layerCount);
+      }
+
    } else if (dst->base.target == PIPE_BUFFER &&
               src->base.target == PIPE_BUFFER) {
       VkBufferCopy region;
