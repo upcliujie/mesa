@@ -1173,7 +1173,7 @@ gbm_dri_bo_create(struct gbm_device *gbm,
                                               width, height,
                                               dri_format,
                                               modifiers, count,
-                                              bo);
+                                              dri_use, bo);
 
       if (bo->image) {
          /* The client passed in a list of invalid modifiers */
