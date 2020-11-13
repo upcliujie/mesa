@@ -2693,7 +2693,16 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
    if (instr->isVALU()) {
       if (can_apply_sgprs(ctx, instr))
          apply_sgprs(ctx, instr);
-      while (apply_omod_clamp(ctx, block, instr)) ;
+
+      bool applied_omod_clamp = false;
+      while (apply_omod_clamp(ctx, block, instr))
+         applied_omod_clamp = true;
+
+      /* Label the instruction again to update def_info properly if omod/clamp
+       * modifiers have been applied to the instruction.
+       */
+      if (applied_omod_clamp)
+         label_instruction(ctx, block, instr);
    }
 
    if (ctx.info[instr->definitions[0].tempId()].is_vcc_hint()) {
