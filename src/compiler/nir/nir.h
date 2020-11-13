@@ -4580,6 +4580,12 @@ typedef struct nir_lower_tex_options {
    bool lower_rect;
 
    /**
+    * If true, lower rect textures to 2D, using load_texture_scaling
+    * intrinsic.
+    */
+   bool lower_rect_tex_scale;
+
+   /**
     * If true, convert yuv to rgb.
     */
    unsigned lower_y_uv_external;
