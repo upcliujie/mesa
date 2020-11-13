@@ -92,8 +92,8 @@ index_to_reg(compiler_context *ctx, struct mir_ra *l, unsigned reg, unsigned shi
                 return default_phys_reg(REGISTER_UNUSED, shift);
 
         struct phys_reg r = {
-                .reg = l->solutions[reg] / 16,
-                .offset = l->solutions[reg] & 0xF,
+                .reg = l->solutions[reg] / 8,
+                .offset = (l->solutions[reg] & 0x7) << 1,
                 .shift = shift
         };
 
@@ -338,7 +338,7 @@ mir_compute_interference(
 
                 mir_foreach_instr_global(ctx, ins) {
                         if (ins->dest < ctx->temp_count)
-                                mir_ra_add_node_interference(l, ins->dest, mir_bytemask(ins), r1w, 0xF);
+                                mir_ra_add_node_interference(l, ins->dest, mir_shortmask(ins), r1w, 0x3);
                 }
         }
 
@@ -360,7 +360,7 @@ mir_compute_interference(
                                 for (unsigned i = 0; i < ctx->temp_count; ++i)
                                         if (live[i]) {
                                                 unsigned mask = mir_shortmask(ins);
-                                                mir_ra_add_node_interference(l, dest, mir_smask_to_bmask(mask), i, mir_smask_to_bmask(live[i]));
+                                                mir_ra_add_node_interference(l, dest, mask, i, live[i]);
                                         }
                         }
 
@@ -409,16 +409,16 @@ allocate_registers(compiler_context *ctx, bool *spilled)
         struct mir_ra *l = mir_ra_alloc_equations(ctx->temp_count + 1, 5);
         unsigned node_r1 = ctx->temp_count;
 
-        /* Starts of classes, in bytes */
-        l->class_start[REG_CLASS_WORK]  = 16 * 0;
-        l->class_start[REG_CLASS_LDST]  = 16 * 26;
-        l->class_start[REG_CLASS_TEXR]  = 16 * 28;
-        l->class_start[REG_CLASS_TEXW]  = 16 * 28;
+        /* Starts of classes, in shorts */
+        l->class_start[REG_CLASS_WORK]  = (16 *  0) >> 1;
+        l->class_start[REG_CLASS_LDST]  = (16 * 26) >> 1;
+        l->class_start[REG_CLASS_TEXR]  = (16 * 28) >> 1;
+        l->class_start[REG_CLASS_TEXW]  = (16 * 28) >> 1;
 
-        l->class_size[REG_CLASS_WORK] = 16 * work_count;
-        l->class_size[REG_CLASS_LDST]  = 16 * 2;
-        l->class_size[REG_CLASS_TEXR]  = 16 * 2;
-        l->class_size[REG_CLASS_TEXW]  = 16 * 2;
+        l->class_size[REG_CLASS_WORK]  = (16 * work_count) >> 1;
+        l->class_size[REG_CLASS_LDST]  = (16 * 2) >> 1;
+        l->class_size[REG_CLASS_TEXR]  = (16 * 2) >> 1;
+        l->class_size[REG_CLASS_TEXW]  = (16 * 2) >> 1;
 
         mir_ra_set_disjoint_class(l, REG_CLASS_TEXR, REG_CLASS_TEXW);
 
@@ -481,10 +481,9 @@ allocate_registers(compiler_context *ctx, bool *spilled)
                 found_class[dest] = MAX2(found_class[dest], bytes);
 
                 min_alignment[dest] =
-                        (size == 16) ? 1 : /* (1 << 1) = 2-byte */
+                        (size <= 16) ? 1 : /* (1 << 1) = 2-byte */
                         (size == 32) ? 2 : /* (1 << 2) = 4-byte */
-                        (size == 64) ? 3 : /* (1 << 3) = 8-byte */
-                        3; /* 8-bit todo */
+                                       3;  /* (1 << 3) = 8-byte */
 
                 /* We can't cross xy/zw boundaries. TODO: vec8 can */
                 if (size == 16)
@@ -508,9 +507,9 @@ allocate_registers(compiler_context *ctx, bool *spilled)
         }
 
         for (unsigned i = 0; i < ctx->temp_count; ++i) {
-                mir_ra_set_alignment(l, i, min_alignment[i] ? min_alignment[i] : 2,
-                                min_bound[i] ? min_bound[i] : 16);
-                mir_ra_restrict_range(l, i, found_class[i]);
+                mir_ra_set_alignment(l, i, min_alignment[i] ? (min_alignment[i] - 1) : (2 - 1),
+                                (min_bound[i] >> 1) ? (min_bound[i] >> 1) : (16 >> 1));
+                mir_ra_restrict_range(l, i, found_class[i] >> 1);
         }
         
         free(found_class);
@@ -534,11 +533,11 @@ allocate_registers(compiler_context *ctx, bool *spilled)
                         set_class(l->class, ins->src[3], REG_CLASS_LDST);
 
                         if (OP_IS_VEC4_ONLY(ins->op)) {
-                                mir_ra_restrict_range(l, ins->dest, 16);
-                                mir_ra_restrict_range(l, ins->src[0], 16);
-                                mir_ra_restrict_range(l, ins->src[1], 16);
-                                mir_ra_restrict_range(l, ins->src[2], 16);
-                                mir_ra_restrict_range(l, ins->src[3], 16);
+                                mir_ra_restrict_range(l, ins->dest, 16 >> 1);
+                                mir_ra_restrict_range(l, ins->src[0], 16 >> 1);
+                                mir_ra_restrict_range(l, ins->src[1], 16 >> 1);
+                                mir_ra_restrict_range(l, ins->src[2], 16 >> 1);
+                                mir_ra_restrict_range(l, ins->src[3], 16 >> 1);
                         }
                 } else if (ins->type == TAG_TEXTURE_4) {
                         set_class(l->class, ins->dest, REG_CLASS_TEXW);
@@ -564,19 +563,19 @@ allocate_registers(compiler_context *ctx, bool *spilled)
                 if (!(ins->compact_branch && ins->writeout)) continue;
 
                 if (ins->src[0] < ctx->temp_count)
-                        l->solutions[ins->src[0]] = 0;
+                        l->solutions[ins->src[0]] = (0) >> 1;
 
                 if (ins->src[2] < ctx->temp_count)
-                        l->solutions[ins->src[2]] = (16 * 1) + COMPONENT_X * 4;
+                        l->solutions[ins->src[2]] = ((16 * 1) + COMPONENT_X * 4) >> 1;
 
                 if (ins->src[3] < ctx->temp_count)
-                        l->solutions[ins->src[3]] = (16 * 1) + COMPONENT_Y * 4;
+                        l->solutions[ins->src[3]] = ((16 * 1) + COMPONENT_Y * 4) >> 1;
 
                 if (ins->src[1] < ctx->temp_count)
-                        l->solutions[ins->src[1]] = (16 * 1) + COMPONENT_Z * 4;
+                        l->solutions[ins->src[1]] = ((16 * 1) + COMPONENT_Z * 4) >> 1;
 
                 if (ins->dest < ctx->temp_count)
-                        l->solutions[ins->dest] = (16 * 1) + COMPONENT_W * 4;
+                        l->solutions[ins->dest] = ((16 * 1) + COMPONENT_W * 4) >> 1;
         }
 
         /* Destinations of instructions in a writeout block cannot be assigned
@@ -592,7 +591,7 @@ allocate_registers(compiler_context *ctx, bool *spilled)
          * the following segment. We model this as interference.
          */
 
-        l->solutions[node_r1] = (16 * 1);
+        l->solutions[node_r1] = (16 * 1) >> 1;
 
         mir_foreach_block(ctx, _blk) {
                 midgard_block *blk = (midgard_block *) _blk;
@@ -620,7 +619,7 @@ allocate_registers(compiler_context *ctx, bool *spilled)
                                         used_as_r1 |= (s > 0) && (br->src[s] == ins->dest);
 
                                 if (!used_as_r1)
-                                        mir_ra_add_node_interference(l, ins->dest, mir_bytemask(ins), node_r1, 0xFFFF);
+                                        mir_ra_add_node_interference(l, ins->dest, mir_shortmask(ins), node_r1, 0xFF);
                         }
                 }
         }
@@ -632,7 +631,7 @@ allocate_registers(compiler_context *ctx, bool *spilled)
 
         if (ctx->blend_input != ~0) {
                 assert(ctx->blend_input < ctx->temp_count);
-                l->solutions[ctx->blend_input] = 0;
+                l->solutions[ctx->blend_input] = (0) >> 1;
         }
 
         /* Same for the dual-source blend input/output, except here we use r2,
@@ -640,7 +639,7 @@ allocate_registers(compiler_context *ctx, bool *spilled)
 
         if (ctx->blend_src1 != ~0) {
                 assert(ctx->blend_src1 < ctx->temp_count);
-                l->solutions[ctx->blend_src1] = (16 * 2);
+                l->solutions[ctx->blend_src1] = (16 * 2) >> 1;
                 ctx->work_registers = MAX2(ctx->work_registers, 2);
         }
 

@@ -33,7 +33,7 @@
 struct mir_ra {
         unsigned node_count;
 
-        /* Alignment for node in log2(bytes)+1. Since alignment must be
+        /* Alignment for node in log2(shorts)+1. Since alignment must be
          * non-negative power-of-two, the elements are strictly positive
          * integers. Zero is the sentinel for a missing node. In upper word,
          * bound. */
@@ -45,10 +45,10 @@ struct mir_ra {
          * Each element is itself a bit field denoting whether (c_j - c_i) bias
          * is present or not, including negative biases.
          *
-         * Note for Midgard, there are 16 components so the bias is in range
-         * [-15, 15] so encoded by 32-bit field. */
+         * Note for Midgard, there are 8 short components so the bias is in
+         * range [-7, 7] so encoded by 16-bit field. */
 
-        uint32_t *linear;
+        uint16_t *linear;
 
         /* Per node max modulus constraints */
         uint8_t *modulus;

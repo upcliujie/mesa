@@ -115,18 +115,18 @@ mir_ra_add_node_interference(struct mir_ra *l, unsigned i, unsigned cmask_i, uns
         if (l->class_disjoint[(l->class[i] * l->class_count) + l->class[j]])
                 return;
 
-        uint32_t constraint_fw = 0;
-        uint32_t constraint_bw = 0;
+        uint16_t constraint_fw = 0;
+        uint16_t constraint_bw = 0;
 
-        for (unsigned D = 0; D < 16; ++D) {
+        for (unsigned D = 0; D < 8; ++D) {
                 if (cmask_i & (cmask_j << D)) {
-                        constraint_bw |= (1 << (15 + D));
-                        constraint_fw |= (1 << (15 - D));
+                        constraint_bw |= (1 << (7 + D));
+                        constraint_fw |= (1 << (7 - D));
                 }
 
                 if (cmask_i & (cmask_j >> D)) {
-                        constraint_fw |= (1 << (15 + D));
-                        constraint_bw |= (1 << (15 - D));
+                        constraint_fw |= (1 << (7 + D));
+                        constraint_bw |= (1 << (7 - D));
                 }
         }
 
@@ -137,7 +137,7 @@ mir_ra_add_node_interference(struct mir_ra *l, unsigned i, unsigned cmask_i, uns
 static bool
 mir_ra_test_linear(struct mir_ra *l, unsigned *solutions, unsigned i)
 {
-        unsigned *row = &l->linear[i * l->node_count];
+        uint16_t *row = &l->linear[i * l->node_count];
         signed constant = solutions[i];
 
         for (unsigned j = 0; j < l->node_count; ++j) {
@@ -145,10 +145,10 @@ mir_ra_test_linear(struct mir_ra *l, unsigned *solutions, unsigned i)
 
                 signed lhs = solutions[j] - constant;
 
-                if (lhs < -15 || lhs > 15)
+                if (lhs < -7 || lhs > 7)
                         continue;
 
-                if (row[j] & (1 << (lhs + 15)))
+                if (row[j] & (1 << (lhs + 7)))
                         return false;
         }
 
@@ -213,7 +213,7 @@ static unsigned
 mir_ra_count_constraints(struct mir_ra *l, unsigned i)
 {
         unsigned count = 0;
-        unsigned *constraints = &l->linear[i * l->node_count];
+        uint16_t *constraints = &l->linear[i * l->node_count];
 
         for (unsigned j = 0; j < i; ++j)
                 count += util_bitcount(constraints[j]);
