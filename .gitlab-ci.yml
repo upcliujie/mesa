@@ -479,10 +479,10 @@ git_archive:
     # Other cases default to never
   variables:
     FDO_REPO_SUFFIX: &git-archive-suffix "alpine/git_archive"
-    FDO_DISTRIBUTION_EXEC: 'pip3 install git+http://gitlab.freedesktop.org/freedesktop/ci-templates@6f5af7e5574509726c79109e3c147cee95e81366'
+    FDO_DISTRIBUTION_EXEC: 'pip3 install git+http://gitlab.freedesktop.org/freedesktop/ci-templates@08d0abcd22369be192cae74f4d33b9197abc1a18'
     # no need to pull the whole repo to build the container image
     GIT_STRATEGY: none
-    FDO_DISTRIBUTION_TAG: &git-archive-tag "2020-07-07"
+    FDO_DISTRIBUTION_TAG: &git-archive-tag "2020-11-13"
     FDO_DISTRIBUTION_PACKAGES: git py3-pip
 
 .use-git_archive:
