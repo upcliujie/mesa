@@ -29,6 +29,10 @@
 
 #include "c11/threads.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if UTIL_FUTEX_SUPPORTED
 
 /* mtx_t - Fast, simple mutex
@@ -63,17 +67,43 @@ typedef struct {
 
 #define _SIMPLE_MTX_INVALID_VALUE 0xd0d0d0d0
 
+/* For helgrind locking annotations, to avoid pulling in dep_valgrind
+ * *everywhere* in the build system, the locking annotations are pulled
+ * out into a .c file.
+ *
+ * Unlike memory-tracking annotations used in various places, the
+ * locking annotations are only enabled for debug builds to avoid
+ * additional overhead in release builds.
+ */
+#if defined(HAVE_VALGRIND) && !defined(NDEBUG)
+void __simple_mtx_init_post(simple_mtx_t *mtx);
+void __simple_mtx_destroy_pre(simple_mtx_t *mtx);
+void __simple_mtx_lock_pre(simple_mtx_t *mtx);
+void __simple_mtx_lock_post(simple_mtx_t *mtx);
+void __simple_mtx_unlock_pre(simple_mtx_t *mtx);
+void __simple_mtx_unlock_post(simple_mtx_t *mtx);
+#else
+static inline void __simple_mtx_init_post(simple_mtx_t *mtx) {}
+static inline void __simple_mtx_destroy_pre(simple_mtx_t *mtx) {}
+static inline void __simple_mtx_lock_pre(simple_mtx_t *mtx) {}
+static inline void __simple_mtx_lock_post(simple_mtx_t *mtx) {}
+static inline void __simple_mtx_unlock_pre(simple_mtx_t *mtx) {}
+static inline void __simple_mtx_unlock_post(simple_mtx_t *mtx) {}
+#endif
+
 static inline void
 simple_mtx_init(simple_mtx_t *mtx, ASSERTED int type)
 {
    assert(type == mtx_plain);
 
    mtx->val = 0;
+   __simple_mtx_init_post(mtx);
 }
 
 static inline void
 simple_mtx_destroy(ASSERTED simple_mtx_t *mtx)
 {
+   __simple_mtx_destroy_pre(mtx);
 #ifndef NDEBUG
    mtx->val = _SIMPLE_MTX_INVALID_VALUE;
 #endif
@@ -83,6 +113,8 @@ static inline void
 simple_mtx_lock(simple_mtx_t *mtx)
 {
    uint32_t c;
+
+   __simple_mtx_lock_pre(mtx);
 
    c = __sync_val_compare_and_swap(&mtx->val, 0, 1);
 
@@ -96,12 +128,16 @@ simple_mtx_lock(simple_mtx_t *mtx)
          c = __sync_lock_test_and_set(&mtx->val, 2);
       }
    }
+
+   __simple_mtx_lock_post(mtx);
 }
 
 static inline void
 simple_mtx_unlock(simple_mtx_t *mtx)
 {
    uint32_t c;
+
+   __simple_mtx_unlock_pre(mtx);
 
    c = __sync_fetch_and_sub(&mtx->val, 1);
 
@@ -111,6 +147,8 @@ simple_mtx_unlock(simple_mtx_t *mtx)
       mtx->val = 0;
       futex_wake(&mtx->val, 1);
    }
+
+   __simple_mtx_unlock_post(mtx);
 }
 
 static inline void
@@ -165,6 +203,10 @@ simple_mtx_assert_locked(simple_mtx_t *mtx)
 #endif
 }
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

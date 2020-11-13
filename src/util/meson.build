@@ -91,6 +91,7 @@ files_mesa_util = files(
   'set.c',
   'set.h',
   'simple_list.h',
+  'simple_mtx.c',
   'simple_mtx.h',
   'slab.c',
   'slab.h',
