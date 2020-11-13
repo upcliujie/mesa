@@ -59,7 +59,6 @@ struct amdgpu_winsys_bo {
    struct pb_buffer base;
    union {
       struct {
-         struct pb_cache_entry *cache_entry;
          amdgpu_va_handle va_handle;
 #if DEBUG
          struct list_head global_list_item;
@@ -91,6 +90,7 @@ struct amdgpu_winsys_bo {
    amdgpu_bo_handle bo; /* NULL for slab entries and sparse buffers */
    bool sparse;
    bool is_user_ptr;
+   bool use_reusable_pool;
    uint32_t unique_id;
    uint64_t va;
    enum radeon_bo_domain initial_domain;
@@ -114,6 +114,7 @@ struct amdgpu_winsys_bo {
    struct pipe_fence_handle **fences;
 
    simple_mtx_t lock;
+   struct pb_cache_entry cache_entry[];
 };
 
 struct amdgpu_slab {
