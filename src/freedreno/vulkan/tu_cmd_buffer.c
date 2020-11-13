@@ -1254,12 +1254,25 @@ tu6_render_tile(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 }
 
 static void
+tu6_write_gras_lrz_cntl(struct tu_cmd_buffer *cmd, struct tu_cs *cs, uint32_t value)
+{
+   if (cmd->device->physical_device->gpu_id == 650) {
+      tu_cs_emit_pkt7(cs, CP_REG_WRITE, 3);
+      tu_cs_emit(cs, CP_REG_WRITE_0_TRACKER(TRACK_LRZ));
+      tu_cs_emit(cs, REG_A6XX_GRAS_LRZ_CNTL);
+      tu_cs_emit(cs, value);
+   } else {
+      tu_cs_emit_pkt4(cs, REG_A6XX_GRAS_LRZ_CNTL, 1);
+      tu_cs_emit(cs, value);
+   }
+}
+
+static void
 tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 {
    tu_cs_emit_call(cs, &cmd->draw_epilogue_cs);
 
-   tu_cs_emit_regs(cs,
-                   A6XX_GRAS_LRZ_CNTL(0));
+   tu6_write_gras_lrz_cntl(cmd, cs, 0);
 
    tu6_emit_event_write(cmd, cs, LRZ_FLUSH);
 
@@ -3189,7 +3202,7 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
 {
    const uint32_t a = cmd->state.subpass->depth_stencil_attachment.attachment;
    struct tu_cs lrz_cs;
-   struct tu_draw_state ds = tu_cs_draw_state(&cmd->sub_cs, &lrz_cs, 4);
+   tu_cs_begin_sub_stream(&cmd->sub_cs, 6, &lrz_cs);
 
    if (cmd->state.pipeline->lrz.invalidate) {
       /* LRZ is not valid for next draw commands, so don't use it until cleared */
@@ -3197,9 +3210,9 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
    }
 
    if (a == VK_ATTACHMENT_UNUSED || !cmd->state.lrz.valid) {
-      tu_cs_emit_regs(&lrz_cs, A6XX_GRAS_LRZ_CNTL(0));
+      tu6_write_gras_lrz_cntl(cmd, &lrz_cs, 0);
       tu_cs_emit_regs(&lrz_cs, A6XX_RB_LRZ_CNTL(0));
-      return ds;
+      return tu_cs_end_draw_state(&cmd->sub_cs, &lrz_cs);
    }
 
    /* Disable LRZ writes when blend is enabled, since the
@@ -3215,15 +3228,15 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
    if (cmd->state.pipeline->lrz.blend_disable_write)
       lrz_write = false;
 
-   tu_cs_emit_regs(&lrz_cs, A6XX_GRAS_LRZ_CNTL(
+   tu6_write_gras_lrz_cntl(cmd, &lrz_cs, A6XX_GRAS_LRZ_CNTL(
       .enable = cmd->state.pipeline->lrz.enable,
       .greater = cmd->state.pipeline->lrz.greater,
       .lrz_write = lrz_write,
       .z_test_enable = cmd->state.pipeline->lrz.z_test_enable,
-   ));
+   ).value);
 
    tu_cs_emit_regs(&lrz_cs, A6XX_RB_LRZ_CNTL(.enable = cmd->state.pipeline->lrz.enable));
-   return ds;
+   return tu_cs_end_draw_state(&cmd->cs, &lrz_cs);
 }
 
 static VkResult
