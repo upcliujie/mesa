@@ -92,6 +92,18 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
    zink_batch_reference_resource_rw(batch, src, false);
    zink_batch_reference_resource_rw(batch, dst, true);
 
+   int src_base_layer = 0, src_layer_count = 1;
+   if (src->base.array_size > 1) {
+      src_base_layer = info->src.box.z;
+      src_layer_count = info->src.box.depth;
+   }
+
+   int dst_base_layer = 0, dst_layer_count = 1;
+   if (dst->base.array_size > 1) {
+      dst_base_layer = info->dst.box.z;
+      dst_layer_count = info->dst.box.depth;
+   }
+
    if (src == dst) {
       /* The Vulkan 1.1 specification says the following about valid usage
        * of vkCmdBlitImage:
@@ -126,14 +138,12 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
    if (src->base.array_size > 1) {
       region.srcOffsets[0].z = 0;
       region.srcOffsets[1].z = 1;
-      region.srcSubresource.baseArrayLayer = info->src.box.z;
-      region.srcSubresource.layerCount = info->src.box.depth;
    } else {
       region.srcOffsets[0].z = info->src.box.z;
       region.srcOffsets[1].z = info->src.box.z + info->src.box.depth;
-      region.srcSubresource.baseArrayLayer = 0;
-      region.srcSubresource.layerCount = 1;
    }
+   region.srcSubresource.baseArrayLayer = src_base_layer;
+   region.srcSubresource.layerCount = src_layer_count;
 
    region.dstSubresource.aspectMask = dst->aspect;
    region.dstSubresource.mipLevel = info->dst.level;
