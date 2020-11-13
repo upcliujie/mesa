@@ -105,7 +105,10 @@ actions:
                   echo 'deqp: fail';
              fi"
 
-          - find /results/ -type f -size +0c -exec python3 /install/tracie/minio_uploads.py {} \;
+          - find /results/ -type f -size +0c -name \*.csv -exec python3 /install/tracie/minio_uploads.py {} \;
+          - find /results/ -type f -size +0c -name \*.xml -exec python3 /install/tracie/minio_uploads.py {} \;
+          - find /results/ -type f -size +0c -name \*.xsl -exec python3 /install/tracie/minio_uploads.py {} \;
+          - find /results/ -type f -size +0c -name \*.css -exec python3 /install/tracie/minio_uploads.py {} \;
         parse:
           pattern: '(?P<test_case_id>\S*):\s+(?P<result>(pass|fail))'
       from: inline
