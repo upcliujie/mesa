@@ -393,8 +393,10 @@ bi_emit_st_vary(bi_context *ctx, nir_intrinsic_instr *instr)
         address.dest_type = nir_type_uint32;
         address.vector_channels = 3;
 
-        unsigned nr = nir_intrinsic_src_components(instr, 0);
+        /* TODO: noncontiguous stores should be lowered somehow */
+        unsigned nr = util_bitcount(nir_intrinsic_write_mask(instr));
         assert(nir_intrinsic_write_mask(instr) == ((1 << nr) - 1));
+        assert(nr <= nir_intrinsic_src_components(instr, 0));
 
         bi_instruction st = {
                 .type = BI_STORE_VAR,
