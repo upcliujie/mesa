@@ -62,7 +62,7 @@ mir_pipeline_ins(
          * once it is not live, and that there's no need to go earlier. */
 
         unsigned node = ins->dest;
-        unsigned read_mask = 0;
+        uint8_t read_mask = 0;
 
         if (node >= SSA_FIXED_MINIMUM)
                 return false;
@@ -83,7 +83,7 @@ mir_pipeline_ins(
                         return false;
 
                 if (q->unit < UNIT_VADD) continue;
-                read_mask |= mir_bytemask_of_read_components(q, node);
+                read_mask |= mir_shortmask_of_read_components(q, node);
         }
 
         /* Now check what's written in the beginning stage  */
@@ -93,7 +93,7 @@ mir_pipeline_ins(
                 if (q->dest != node) continue;
 
                 /* Remove the written mask from the read requirements */
-                read_mask &= ~mir_bytemask(q);
+                read_mask &= ~mir_shortmask(q);
         }
 
         /* Check for leftovers */
