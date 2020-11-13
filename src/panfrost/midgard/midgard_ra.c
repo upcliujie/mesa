@@ -294,8 +294,8 @@ mir_lower_special_reads(compiler_context *ctx)
                                         idx = spill_idx++;
 
                                         midgard_instruction m = v_mov(i, idx);
-                                        m.mask = mir_from_bytemask(mir_round_bytemask_up(
-                                                                mir_bytemask_of_read_components(pre_use, i), 32), 32);
+                                        m.mask = mir_from_shortmask(mir_round_shortmask_up(
+                                                                mir_shortmask_of_read_components(pre_use, i), 32), 32);
                                         mir_insert_instruction_before(ctx, pre_use, m);
                                         mir_rewrite_index_src_single(pre_use, i, idx);
                                 }
@@ -682,7 +682,8 @@ install_registers_instr(
                 struct phys_reg src2 = index_to_reg(ctx, l, ins->src[1], src_shift[1]);
                 struct phys_reg dest = index_to_reg(ctx, l, ins->dest, dest_shift);
 
-                mir_set_bytemask(ins, mir_bytemask(ins) << dest.offset);
+                assert((dest.offset & 1) == 0);
+                mir_set_shortmask(ins, mir_shortmask(ins) << (dest.offset >> 1));
 
                 unsigned dest_offset =
                         GET_CHANNEL_COUNT(alu_opcode_props[ins->op].props) ? 0 :
@@ -718,7 +719,9 @@ install_registers_instr(
 
                         ins->dest = SSA_FIXED_REGISTER(dst.reg);
                         offset_swizzle(ins->swizzle[0], 0, 2, 2, dst.offset);
-                        mir_set_bytemask(ins, mir_bytemask(ins) << dst.offset);
+
+                        assert((dst.offset & 1) == 0);
+                        mir_set_shortmask(ins, mir_shortmask(ins) << (dst.offset >> 1));
                 }
 
                 /* We also follow up by actual arguments */
@@ -758,7 +761,9 @@ install_registers_instr(
                 offset_swizzle(ins->swizzle[0], 0, 2, dest.shift,
                                 dest_shift == 1 ? dest.offset % 8 :
                                 dest.offset);
-                mir_set_bytemask(ins, mir_bytemask(ins) << dest.offset);
+
+                assert((dest.offset & 1) == 0);
+                mir_set_shortmask(ins, mir_shortmask(ins) << (dest.offset >> 1));
 
                 /* If there is a register LOD/bias, use it */
                 if (ins->src[2] != ~0) {
@@ -879,11 +884,11 @@ mir_spill_register(
                 }
         }
 
-        /* For special reads, figure out how many bytes we need */
-        unsigned read_bytemask = 0;
+        /* For special reads, figure out how many shorts we need */
+        uint8_t read_shortmask = 0;
 
         mir_foreach_instr_global_safe(ctx, ins) {
-                read_bytemask |= mir_bytemask_of_read_components(ins, spill_node);
+                read_shortmask |= mir_shortmask_of_read_components(ins, spill_node);
         }
 
         /* Insert a load from TLS before the first consecutive
@@ -925,8 +930,8 @@ mir_spill_register(
                                 /* Mask the load based on the component count
                                  * actually needed to prevent RA loops */
 
-                                st.mask = mir_from_bytemask(mir_round_bytemask_up(
-                                                        read_bytemask, 32), 32);
+                                st.mask = mir_from_shortmask(mir_round_shortmask_up(
+                                                        read_shortmask, 32), 32);
 
                                 mir_insert_instruction_before_scheduled(ctx, block, before, st);
                         } else {
