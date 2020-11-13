@@ -23,27 +23,64 @@
  */
 
 #include "compiler.h"
+#include "util/u_memory.h"
+#include "util/list.h"
+#include "util/set.h"
 
 void
 mir_liveness_ins_update(uint16_t *live, midgard_instruction *ins, unsigned max)
 {
         /* live_in[s] = GEN[s] + (live_out[s] - KILL[s]) */
 
-        pan_liveness_kill(live, ins->dest, max, mir_bytemask(ins));
+        if (ins->dest < max)
+                live[ins->dest] &= ~(mir_bytemask(ins));
 
         mir_foreach_src(ins, src) {
                 unsigned node = ins->src[src];
                 unsigned bytemask = mir_bytemask_of_read_components(ins, node);
 
-                pan_liveness_gen(live, node, max, bytemask);
+                if (node < max)
+                        live[node] |= bytemask;
         }
 }
 
-static void
-mir_liveness_ins_update_wrap(uint16_t *live, void *ins, unsigned max)
+/* Liveness analysis is a backwards-may dataflow analysis pass. Within a block,
+ * we compute live_out from live_in. The intrablock pass is linear-time. It
+ * returns whether progress was made. */
+
+static bool
+mir_liveness_block_update(pan_block *blk, unsigned temp_count)
 {
-        mir_liveness_ins_update(live, (midgard_instruction *) ins, max);
+        bool progress = false;
+
+        /* live_out[s] = sum { p in succ[s] } ( live_in[p] ) */
+        pan_foreach_successor(blk, succ) {
+                for (unsigned i = 0; i < temp_count; ++i)
+                        blk->live_out[i] |= succ->live_in[i];
+        }
+
+        uint16_t *live = ralloc_array(blk, uint16_t, temp_count);
+        memcpy(live, blk->live_out, temp_count * sizeof(uint16_t));
+
+        pan_foreach_instr_in_block_rev(blk, ins)
+                mir_liveness_ins_update(live, (midgard_instruction *) ins, temp_count);
+
+        /* To figure out progress, diff live_in */
+
+        for (unsigned i = 0; (i < temp_count) && !progress; ++i)
+                progress |= (blk->live_in[i] != live[i]);
+
+        ralloc_free(blk->live_in);
+        blk->live_in = live;
+
+        return progress;
 }
+
+/* Globally, liveness analysis uses a fixed-point algorithm based on a
+ * worklist. We initialize a work list with the exit block. We iterate the work
+ * list to compute live_in from live_out for each block on the work list,
+ * adding the predecessors of the block to the work list if we made progress.
+ */
 
 void
 mir_compute_liveness(compiler_context *ctx)
@@ -53,9 +90,53 @@ mir_compute_liveness(compiler_context *ctx)
                 return;
 
         mir_compute_temp_count(ctx);
-        pan_compute_liveness(&ctx->blocks, ctx->temp_count, mir_liveness_ins_update_wrap);
+ 
+        /* Set of pan_block */
+        struct set *work_list = _mesa_set_create(NULL,
+                        _mesa_hash_pointer,
+                        _mesa_key_pointer_equal);
 
-        /* Liveness is now valid */
+        struct set *visited = _mesa_set_create(NULL,
+                        _mesa_hash_pointer,
+                        _mesa_key_pointer_equal);
+
+        /* Free any previous liveness, and allocate */
+
+        pan_free_liveness(&ctx->blocks);
+
+        list_for_each_entry(pan_block, block, &ctx->blocks, link) {
+                block->live_in = rzalloc_array(block, uint16_t, ctx->temp_count);
+                block->live_out = rzalloc_array(block, uint16_t, ctx->temp_count);
+        }
+
+        /* Initialize the work list with the exit block */
+        struct set_entry *cur;
+
+        cur = _mesa_set_add(work_list, pan_exit_block(&ctx->blocks));
+
+        /* Iterate the work list */
+
+        do {
+                /* Pop off a block */
+                pan_block *blk = (struct pan_block *) cur->key;
+                _mesa_set_remove(work_list, cur);
+
+                /* Update its liveness information */
+                bool progress = mir_liveness_block_update(blk, ctx->temp_count);
+
+                /* If we made progress, we need to process the predecessors */
+
+                if (progress || !_mesa_set_search(visited, blk)) {
+                        pan_foreach_predecessor(blk, pred)
+                                _mesa_set_add(work_list, pred);
+                }
+
+                _mesa_set_add(visited, blk);
+        } while((cur = _mesa_set_next_entry(work_list, NULL)) != NULL);
+
+        _mesa_set_destroy(visited, NULL);
+        _mesa_set_destroy(work_list, NULL);
+
         ctx->metadata |= MIDGARD_METADATA_LIVENESS;
 }
 
@@ -81,7 +162,7 @@ mir_is_live_after(compiler_context *ctx, midgard_block *block, midgard_instructi
 
         /* Check whether we're live in the successors */
 
-        if (pan_liveness_get(block->base.live_out, src, ctx->temp_count))
+        if (src < ctx->temp_count && block->base.live_out[src])
                 return true;
 
         /* Check the rest of the block for liveness */
