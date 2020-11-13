@@ -160,6 +160,19 @@ zink_batch_rp(struct zink_context *ctx);
 struct zink_batch *
 zink_batch_no_rp(struct zink_context *ctx);
 
+/*
+ * Transition a range of a resource, but without updating the state. Use
+ * with caution.
+ */
+void
+zink_resource_barrier_range(VkCommandBuffer cmdbuf,
+                            struct zink_resource *res,
+                            VkImageAspectFlags aspect,
+                            VkImageLayout old_layout,
+                            VkImageLayout new_layout,
+                            uint32_t base_level, uint32_t level_count,
+                            uint32_t base_layer, uint32_t layer_count);
+
 void
 zink_fence_wait(struct pipe_context *ctx);
 
