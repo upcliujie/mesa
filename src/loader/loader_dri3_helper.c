@@ -1407,6 +1407,9 @@ dri3_alloc_render_buffer(struct loader_dri3_drawable *draw, unsigned int format,
                                                                        format,
                                                                        modifiers,
                                                                        count,
+                                                                       __DRI_IMAGE_USE_SHARE |
+                                                                       __DRI_IMAGE_USE_SCANOUT |
+                                                                       __DRI_IMAGE_USE_BACKBUFFER,
                                                                        buffer);
          }
 

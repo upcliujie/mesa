@@ -1678,6 +1678,7 @@ struct __DRIimageExtensionRec {
                                            int width, int height, int format,
                                            const uint64_t *modifiers,
                                            const unsigned int modifier_count,
+                                           unsigned int use,
                                            void *loaderPrivate);
 
    /*
