@@ -185,8 +185,6 @@ void amdgpu_bo_destroy(struct pb_buffer *_buf)
    }
 #endif
 
-   free(bo->u.real.cache_entry);
-
    /* Close all KMS handles retrieved for other DRM file descriptions */
    simple_mtx_lock(&ws->sws_list_lock);
    for (sws_iter = ws->sws_list; sws_iter; sws_iter = sws_iter->next) {
@@ -478,6 +476,7 @@ static struct amdgpu_winsys_bo *amdgpu_create_bo(struct amdgpu_winsys *ws,
    struct amdgpu_winsys_bo *bo;
    amdgpu_va_handle va_handle = NULL;
    int r;
+   bool init_pb_cache;
 
    /* VRAM or GTT must be specified, but not both at the same time. */
    assert(util_bitcount(initial_domain & (RADEON_DOMAIN_VRAM_GTT |
@@ -486,13 +485,16 @@ static struct amdgpu_winsys_bo *amdgpu_create_bo(struct amdgpu_winsys *ws,
 
    alignment = amdgpu_get_optimal_alignment(ws, size, alignment);
 
-   bo = CALLOC_STRUCT(amdgpu_winsys_bo);
+   init_pb_cache = heap >= 0 && (flags & RADEON_FLAG_NO_INTERPROCESS_SHARING);
+
+   bo = CALLOC(1, sizeof(struct amdgpu_winsys_bo) +
+                  init_pb_cache * sizeof(struct pb_cache_entry));
    if (!bo) {
       return NULL;
    }
 
-   if (heap >= 0 && (flags & RADEON_FLAG_NO_INTERPROCESS_SHARING)) {
-      bo->u.real.cache_entry = CALLOC_STRUCT(pb_cache_entry);
+   if (init_pb_cache) {
+      bo->u.real.cache_entry = (void *) bo + 1;
       pb_cache_init_entry(&ws->bo_cache, bo->u.real.cache_entry, &bo->base,
                           heap);
    }
@@ -1539,10 +1541,8 @@ static bool amdgpu_bo_get_handle(struct radeon_winsys *rws,
    if (!bo->bo)
       return false;
 
-   if (bo->u.real.cache_entry) {
-      free(bo->u.real.cache_entry);
+   if (bo->u.real.cache_entry)
       bo->u.real.cache_entry = NULL;
-   }
 
    switch (whandle->type) {
    case WINSYS_HANDLE_TYPE_SHARED:
