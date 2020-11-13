@@ -269,6 +269,20 @@ fd6_gl2spacing(enum gl_tess_spacing spacing)
 	}
 }
 
+static inline void
+fd6_write_gras_lrz_cntl(struct fd_context *ctx, struct fd_ringbuffer *ring, uint32_t value)
+{
+	if (ctx->screen->gpu_id == 650) {
+		OUT_PKT7(ring, CP_REG_WRITE, 3);
+		OUT_RING(ring, CP_REG_WRITE_0_TRACKER(TRACK_LRZ));
+		OUT_RING(ring, REG_A6XX_GRAS_LRZ_CNTL);
+		OUT_RING(ring, value);
+	} else {
+		OUT_PKT4(ring, REG_A6XX_GRAS_LRZ_CNTL, 1);
+		OUT_RING(ring, value);
+	}
+}
+
 bool fd6_emit_textures(struct fd_pipe *pipe, struct fd_ringbuffer *ring,
 		enum pipe_shader_type type, struct fd_texture_stateobj *tex,
 		unsigned bcolor_offset,

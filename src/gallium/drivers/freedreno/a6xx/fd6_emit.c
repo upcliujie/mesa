@@ -700,12 +700,12 @@ build_lrz(struct fd6_emit *emit, bool binning_pass)
 	struct fd_ringbuffer *ring = fd_submit_new_ringbuffer(ctx->batch->submit,
 			8*4, FD_RINGBUFFER_STREAMING);
 
-	OUT_REG(ring, A6XX_GRAS_LRZ_CNTL(
+	fd6_write_gras_lrz_cntl(ctx, ring, A6XX_GRAS_LRZ_CNTL(
 			.enable        = lrz.enable,
 			.lrz_write     = lrz.write,
 			.greater       = lrz.direction == FD_LRZ_GREATER,
 			.z_test_enable = lrz.test,
-		));
+		).value);
 	OUT_REG(ring, A6XX_RB_LRZ_CNTL(
 			.enable = lrz.enable,
 		));
@@ -1261,8 +1261,7 @@ fd6_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring)
 	OUT_PKT4(ring, REG_A6XX_VPC_SO_STREAM_CNTL, 1);
 	OUT_RING(ring, 0x00000000);   /* VPC_SO_STREAM_CNTL */
 
-	OUT_PKT4(ring, REG_A6XX_GRAS_LRZ_CNTL, 1);
-	OUT_RING(ring, 0x00000000);
+	fd6_write_gras_lrz_cntl(batch->ctx, ring, 0);
 
 	OUT_PKT4(ring, REG_A6XX_RB_LRZ_CNTL, 1);
 	OUT_RING(ring, 0x00000000);

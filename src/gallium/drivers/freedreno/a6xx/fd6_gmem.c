@@ -1281,8 +1281,7 @@ fd6_emit_tile_fini(struct fd_batch *batch)
 {
 	struct fd_ringbuffer *ring = batch->gmem;
 
-	OUT_PKT4(ring, REG_A6XX_GRAS_LRZ_CNTL, 1);
-	OUT_RING(ring, A6XX_GRAS_LRZ_CNTL_ENABLE);
+	fd6_write_gras_lrz_cntl(batch->ctx, ring, A6XX_GRAS_LRZ_CNTL_ENABLE);
 
 	fd6_emit_lrz_flush(ring);
 
