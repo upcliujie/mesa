@@ -30,6 +30,7 @@
 #include <sys/mman.h>
 
 #include "msm_kgsl.h"
+#include "vk_util.h"
 
 struct tu_syncobj {
    struct vk_object_base base;
@@ -336,10 +337,16 @@ tu_QueueSubmit(VkQueue _queue,
    for (uint32_t i = 0; i < submitCount; ++i) {
       const VkSubmitInfo *submit = pSubmits + i;
 
+      const VkPerformanceQuerySubmitInfoKHR *perf_info =
+         vk_find_struct_const(pSubmits[i].pNext,
+                              PERFORMANCE_QUERY_SUBMIT_INFO_KHR);
+
       uint32_t entry_count = 0;
       for (uint32_t j = 0; j < submit->commandBufferCount; ++j) {
          TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, submit->pCommandBuffers[j]);
          entry_count += cmdbuf->cs.entry_count;
+         if (perf_info)
+            entry_count++;
       }
 
       max_entry_count = MAX2(max_entry_count, entry_count);
@@ -355,10 +362,28 @@ tu_QueueSubmit(VkQueue _queue,
    for (uint32_t i = 0; i < submitCount; ++i) {
       const VkSubmitInfo *submit = pSubmits + i;
       uint32_t entry_idx = 0;
+      const VkPerformanceQuerySubmitInfoKHR *perf_info =
+         vk_find_struct_const(pSubmits[i].pNext,
+                              PERFORMANCE_QUERY_SUBMIT_INFO_KHR);
+
 
       for (uint32_t j = 0; j < submit->commandBufferCount; j++) {
          TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, submit->pCommandBuffers[j]);
          struct tu_cs *cs = &cmdbuf->cs;
+
+         if (perf_info) {
+            struct tu_cs *perf_cs =
+                  &cmdbuf->device->perfcntrs_pass_cs[perf_info->counterPassIndex];
+
+            cmds[entry_idx++] = (struct kgsl_command_object) {
+               .offset = perf_cs->entries[0].offset,
+               .gpuaddr = perf_cs->entries[0].bo->iova,
+               .size = perf_cs->entries[0].size,
+               .flags = KGSL_CMDLIST_IB,
+               .id = perf_cs->entries[0].bo->gem_handle,
+            };
+         }
+
          for (unsigned k = 0; k < cs->entry_count; k++) {
             cmds[entry_idx++] = (struct kgsl_command_object) {
                .offset = cs->entries[k].offset,
