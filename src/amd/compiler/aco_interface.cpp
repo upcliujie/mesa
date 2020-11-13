@@ -92,6 +92,10 @@ void aco_compile_shader(unsigned shader_count,
       if (!args->options->disable_optimizations) {
          if (!(aco::debug_flags & aco::DEBUG_NO_VN))
             aco::value_numbering(program.get());
+
+       //  std::cerr << "Before optimize:\n";
+       //  aco_print_program(program.get(), stderr);
+
          if (!(aco::debug_flags & aco::DEBUG_NO_OPT))
             aco::optimize(program.get());
       }
