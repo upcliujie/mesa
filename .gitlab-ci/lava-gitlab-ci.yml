@@ -85,7 +85,7 @@ kernel+rootfs_armhf:
   after_script:
     - mkdir -p artifacts
     - ci-fairy minio login $CI_JOB_JWT
-    - ci-fairy minio cp minio://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/* artifacts/
+    - ci-fairy minio cp minio://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/ artifacts/
   artifacts:
     name: "mesa_${CI_JOB_NAME}"
     when: always
