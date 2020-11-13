@@ -580,9 +580,9 @@ void lvp_GetPhysicalDeviceProperties2(
 #endif
                  );
          driver_props->conformanceVersion.major = 1;
-         driver_props->conformanceVersion.minor = 0;
-         driver_props->conformanceVersion.subminor = 0;
-         driver_props->conformanceVersion.patch = 0;;
+         driver_props->conformanceVersion.minor = 2;
+         driver_props->conformanceVersion.subminor = 4;
+         driver_props->conformanceVersion.patch = 0;
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_POINT_CLIPPING_PROPERTIES: {
