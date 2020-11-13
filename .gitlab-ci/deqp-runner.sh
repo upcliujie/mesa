@@ -176,12 +176,12 @@ generate_junit() {
 
     # Avoid counting Skip's in the # of tests, don't include passing tests
     # and limit to first 50 results so we don't overload gitlab-ci when parsing.
-    cat $results | grep -Ev 'Warn|Skip|Pass|ExpectedFail|Flake' | head -50 | while read line; do
-        testcase=${line%,*}
-        result=${line#*,}
+    cat $results | grep -Ev ',Warn|,Skip|,Pass|,ExpectedFail|,Flake' | head -50 | while read line; do
+        testcase=`echo $line | cut -d , -f 1`
+        result=`echo $line | cut -d , -f 2`
         echo "<testcase name=\"$testcase\">"
         echo "<failure type=\"$result\">"
-        echo "$result: See $CI_JOB_URL/artifacts/results/$testcase.xml"
+        echo "$result: See $CI_PAGES_URL/-/jobs/$CI_JOB_ID/artifacts/results/$testcase.xml"
         echo "</failure>"
         echo "</testcase>"
     done
