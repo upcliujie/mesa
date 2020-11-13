@@ -210,6 +210,56 @@ mir_round_bytemask_up(uint16_t mask, unsigned bits)
         return mask;
 }
 
+/* Converts a per-component mask to a short mask */
+
+mir_mask
+mir_to_shortmask(unsigned bytes, unsigned mask)
+{
+        switch (bytes) {
+        case 0:
+                assert(mask == 0);
+                return 0;
+
+        case 8: {
+                uint8_t smask = 0;
+
+                for (unsigned c = 0; c < 8; ++c) {
+                        bool l = (mask & (1 << ((2 * c) + 0))) != 0;
+                        bool r = (mask & (1 << ((2 * c) + 1))) != 0;
+
+                        assert(l == r);
+
+                        if (l)
+                                smask |= 1 << c;
+                }
+
+                return smask;
+        }
+
+        case 16:
+                return mask;
+
+        case 32: {
+                unsigned space =
+                        (mask & 0x1) |
+                        ((mask & 0x2) << (2 - 1)) |
+                        ((mask & 0x4) << (4 - 2)) |
+                        ((mask & 0x8) << (6 - 3));
+
+                return space | (space << 1);
+        }
+
+        case 64: {
+                unsigned A = (mask & 0x1) ? 0xF : 0x0;
+                unsigned B = (mask & 0x2) ? 0xF : 0x0;
+                return A | (B << 4);
+        }
+
+        default:
+                unreachable("Invalid register mode");
+        }
+}
+
 /* Grabs the per-byte mask of an instruction (as opposed to per-component) */
 
 uint16_t

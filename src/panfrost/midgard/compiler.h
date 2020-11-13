@@ -519,6 +519,8 @@ unsigned mir_components_for_type(nir_alu_type T);
 unsigned max_bitsize_for_alu(midgard_instruction *ins);
 midgard_reg_mode reg_mode_for_bitsize(unsigned bitsize);
 
+mir_mask mir_to_shortmask(unsigned bytes, unsigned mask);
+
 static inline uint8_t
 mir_bmask_to_smask(uint16_t bmask)
 {
