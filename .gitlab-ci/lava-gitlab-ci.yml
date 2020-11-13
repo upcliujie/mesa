@@ -89,7 +89,7 @@ kernel+rootfs_armhf:
     - artifacts=`ci-fairy minio ls minio://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/`
     - echo $artifacts
     - >
-      for file in "$artifacts"; do
+      for file in $artifacts; do
           ci-fairy minio cp minio://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/$file artifacts/
       done
   artifacts:
