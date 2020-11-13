@@ -2767,35 +2767,49 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
       if (need_fma && mad32 && !ctx.program->has_fast_fma32)
          return;
 
-      uint32_t uses_src0 = UINT32_MAX;
-      uint32_t uses_src1 = UINT32_MAX;
+      uint32_t uses_src[2] = { UINT32_MAX, UINT32_MAX };
       Instruction* mul_instr = nullptr;
       unsigned add_op_idx;
       /* check if any of the operands is a multiplication */
-      ssa_info *op0_info = instr->operands[0].isTemp() ? &ctx.info[instr->operands[0].tempId()] : NULL;
-      ssa_info *op1_info = instr->operands[1].isTemp() ? &ctx.info[instr->operands[1].tempId()] : NULL;
-      if (op0_info && op0_info->is_mul() && (!need_fma || !op0_info->instr->definitions[0].isPrecise()))
-         uses_src0 = ctx.uses[instr->operands[0].tempId()];
-      if (op1_info && op1_info->is_mul() && (!need_fma || !op1_info->instr->definitions[0].isPrecise()))
-         uses_src1 = ctx.uses[instr->operands[1].tempId()];
+      ssa_info *op_info[2];
+      op_info[0] = instr->operands[0].isTemp() ? &ctx.info[instr->operands[0].tempId()] : NULL;
+      op_info[1] = instr->operands[1].isTemp() ? &ctx.info[instr->operands[1].tempId()] : NULL;
+      if (op_info[0] && op_info[0]->is_mul() && (!need_fma || !op_info[0]->instr->definitions[0].isPrecise()))
+         uses_src[0] = ctx.uses[instr->operands[0].tempId()];
+      if (op_info[1] && op_info[1]->is_mul() && (!need_fma || !op_info[1]->instr->definitions[0].isPrecise()))
+         uses_src[1] = ctx.uses[instr->operands[1].tempId()];
 
       /* find the 'best' mul instruction to combine with the add */
-      if (uses_src0 < uses_src1) {
-         mul_instr = op0_info->instr;
+      if (uses_src[0] < uses_src[1]) {
+         mul_instr = op_info[0]->instr;
          add_op_idx = 1;
-      } else if (uses_src1 < uses_src0) {
-         mul_instr = op1_info->instr;
+      } else if (uses_src[1] < uses_src[0]) {
+         mul_instr = op_info[1]->instr;
          add_op_idx = 0;
-      } else if (uses_src0 != UINT32_MAX) {
+      } else if (uses_src[0] != UINT32_MAX) {
          /* tiebreaker: quite random what to pick */
-         if (op0_info->instr->operands[0].isLiteral()) {
-            mul_instr = op1_info->instr;
+         if (op_info[0]->instr->operands[0].isLiteral()) {
+            mul_instr = op_info[1]->instr;
             add_op_idx = 0;
          } else {
-            mul_instr = op0_info->instr;
+            mul_instr = op_info[0]->instr;
             add_op_idx = 1;
          }
       }
+
+      if (mul_instr && mul_instr->isVOP3())  {
+         /* Give a chance to combine with the other operand if this one
+          * already uses omod/clamp.
+          */
+         VOP3A_instruction* vop3 = static_cast<VOP3A_instruction*>(mul_instr);
+         if (vop3->clamp || vop3->omod) {
+            if (uses_src[add_op_idx] != UINT32_MAX) {
+               mul_instr = op_info[add_op_idx]->instr;
+               add_op_idx = !add_op_idx;
+            }
+         }
+      }
+
       if (mul_instr) {
          Operand op[3] = {Operand(v1), Operand(v1), Operand(v1)};
          bool neg[3] = {false, false, false};
