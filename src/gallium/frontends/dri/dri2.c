@@ -1074,12 +1074,11 @@ static __DRIimage *
 dri2_create_image_with_modifiers(__DRIscreen *dri_screen,
                                  int width, int height, int format,
                                  const uint64_t *modifiers,
-                                 const unsigned count,
+                                 const unsigned count, unsigned int use,
                                  void *loaderPrivate)
 {
    return dri2_create_image_common(dri_screen, width, height, format,
-                                   __DRI_IMAGE_USE_SHARE, modifiers, count,
-                                   loaderPrivate);
+                                   use, modifiers, count, loaderPrivate);
 }
 
 static bool

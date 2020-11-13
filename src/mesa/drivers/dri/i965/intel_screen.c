@@ -893,7 +893,7 @@ static __DRIimage *
 intel_create_image_with_modifiers(__DRIscreen *dri_screen,
                                   int width, int height, int format,
                                   const uint64_t *modifiers,
-                                  const unsigned count,
+                                  const unsigned count, unsigned int use,
                                   void *loaderPrivate)
 {
    return intel_create_image_common(dri_screen, width, height, format, 0,

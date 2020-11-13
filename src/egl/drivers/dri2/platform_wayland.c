@@ -595,7 +595,7 @@ get_back_bo(struct dri2_egl_surface *dri2_surf)
                                                       dri2_surf->base.Height,
                                                       linear_dri_image_format,
                                                       &linear_mod,
-                                                      1,
+                                                      1, use_flags,
                                                       NULL);
       } else {
          dri2_surf->back->linear_copy =
@@ -624,7 +624,7 @@ get_back_bo(struct dri2_egl_surface *dri2_surf)
                                                      dri2_surf->base.Height,
                                                      dri_image_format,
                                                      modifiers,
-                                                     num_modifiers,
+                                                     num_modifiers, use_flags,
                                                      NULL);
       } else {
          dri2_surf->back->dri_image =
