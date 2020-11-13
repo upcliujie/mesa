@@ -347,7 +347,7 @@ mir_compute_interference(
 
         mir_foreach_block(ctx, _blk) {
                 midgard_block *blk = (midgard_block *) _blk;
-                uint16_t *live = mem_dup(_blk->live_out, ctx->temp_count * sizeof(uint16_t));
+                mir_mask *live = mem_dup(blk->live_out, ctx->temp_count * sizeof(mir_mask));
 
                 mir_foreach_instr_in_block_rev(blk, ins) {
                         /* Mark all registers live after the instruction as

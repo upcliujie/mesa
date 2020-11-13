@@ -185,8 +185,14 @@ typedef struct midgard_instruction {
         };
 } midgard_instruction;
 
+/* Mask indexing into a 128-bit register */
+typedef uint16_t mir_mask;
+
 typedef struct midgard_block {
         pan_block base;
+
+        mir_mask *live_in;
+        mir_mask *live_out;
 
         bool scheduled;
 

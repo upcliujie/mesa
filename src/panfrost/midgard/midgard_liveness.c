@@ -27,6 +27,23 @@
 #include "util/list.h"
 #include "util/set.h"
 
+static void
+mir_free_liveness(compiler_context *ctx)
+{
+        mir_foreach_block(ctx, _block) {
+                midgard_block *block = (midgard_block *) _block;
+
+                if (block->live_in)
+                        ralloc_free(block->live_in);
+
+                if (block->live_out)
+                        ralloc_free(block->live_out);
+
+                block->live_in = NULL;
+                block->live_out = NULL;
+        }
+}
+
 void
 mir_liveness_ins_update(uint16_t *live, midgard_instruction *ins, unsigned max)
 {
@@ -49,21 +66,22 @@ mir_liveness_ins_update(uint16_t *live, midgard_instruction *ins, unsigned max)
  * returns whether progress was made. */
 
 static bool
-mir_liveness_block_update(pan_block *blk, unsigned temp_count)
+mir_liveness_block_update(midgard_block *blk, unsigned temp_count)
 {
         bool progress = false;
 
         /* live_out[s] = sum { p in succ[s] } ( live_in[p] ) */
-        pan_foreach_successor(blk, succ) {
+        pan_foreach_successor((&blk->base), _succ) {
+                midgard_block *succ = (midgard_block *) _succ;
                 for (unsigned i = 0; i < temp_count; ++i)
                         blk->live_out[i] |= succ->live_in[i];
         }
 
-        uint16_t *live = ralloc_array(blk, uint16_t, temp_count);
-        memcpy(live, blk->live_out, temp_count * sizeof(uint16_t));
+        mir_mask *live = ralloc_array(blk, mir_mask, temp_count);
+        memcpy(live, blk->live_out, temp_count * sizeof(mir_mask));
 
-        pan_foreach_instr_in_block_rev(blk, ins)
-                mir_liveness_ins_update(live, (midgard_instruction *) ins, temp_count);
+        mir_foreach_instr_in_block_rev(blk, ins)
+                mir_liveness_ins_update(live, ins, temp_count);
 
         /* To figure out progress, diff live_in */
 
@@ -102,11 +120,12 @@ mir_compute_liveness(compiler_context *ctx)
 
         /* Free any previous liveness, and allocate */
 
-        pan_free_liveness(&ctx->blocks);
+        mir_free_liveness(ctx);
 
-        list_for_each_entry(pan_block, block, &ctx->blocks, link) {
-                block->live_in = rzalloc_array(block, uint16_t, ctx->temp_count);
-                block->live_out = rzalloc_array(block, uint16_t, ctx->temp_count);
+        mir_foreach_block(ctx, _block) {
+                midgard_block *block = (midgard_block *) _block;
+                block->live_in = rzalloc_array(block, mir_mask, ctx->temp_count);
+                block->live_out = rzalloc_array(block, mir_mask, ctx->temp_count);
         }
 
         /* Initialize the work list with the exit block */
@@ -122,7 +141,7 @@ mir_compute_liveness(compiler_context *ctx)
                 _mesa_set_remove(work_list, cur);
 
                 /* Update its liveness information */
-                bool progress = mir_liveness_block_update(blk, ctx->temp_count);
+                bool progress = mir_liveness_block_update((midgard_block *) blk, ctx->temp_count);
 
                 /* If we made progress, we need to process the predecessors */
 
@@ -149,9 +168,7 @@ mir_invalidate_liveness(compiler_context *ctx)
         if (!(ctx->metadata & MIDGARD_METADATA_LIVENESS))
                 return;
 
-        pan_free_liveness(&ctx->blocks);
-
-        /* It's now invalid regardless */
+        mir_free_liveness(ctx);
         ctx->metadata &= ~MIDGARD_METADATA_LIVENESS;
 }
 
@@ -162,7 +179,7 @@ mir_is_live_after(compiler_context *ctx, midgard_block *block, midgard_instructi
 
         /* Check whether we're live in the successors */
 
-        if (src < ctx->temp_count && block->base.live_out[src])
+        if (src < ctx->temp_count && block->live_out[src])
                 return true;
 
         /* Check the rest of the block for liveness */

@@ -71,7 +71,7 @@ midgard_opt_dead_code_eliminate_block(compiler_context *ctx, midgard_block *bloc
 {
         bool progress = false;
 
-        uint16_t *live = mem_dup(block->base.live_out, ctx->temp_count * sizeof(uint16_t));
+        mir_mask *live = mem_dup(block->live_out, ctx->temp_count * sizeof(mir_mask));
 
         mir_foreach_instr_in_block_rev(block, ins) {
                 if (can_cull_mask(ctx, ins)) {
