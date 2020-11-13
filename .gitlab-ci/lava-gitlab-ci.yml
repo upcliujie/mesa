@@ -83,11 +83,10 @@ kernel+rootfs_armhf:
     - echo $result
     - '[[ "$result" == "pass" ]]'
   after_script:
-    - >
-      mkdir -p artifacts
-      ci-fairy minio login $CI_JOB_JWT
-      ci-fairy minio ls minio://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/
-      artifacts=`ci-fairy minio ls minio://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/`
+    - mkdir -p artifacts
+    - ci-fairy minio login $CI_JOB_JWT
+    - ci-fairy minio ls minio://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/
+    - artifacts=`ci-fairy minio ls minio://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/`
     - echo $artifacts
     - >
       for file in "$artifacts"; do
