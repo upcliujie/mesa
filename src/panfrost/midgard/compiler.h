@@ -508,8 +508,8 @@ void mir_rewrite_index_src_single(midgard_instruction *ins, unsigned old, unsign
 void mir_rewrite_index_src_swizzle(compiler_context *ctx, unsigned old, unsigned new, unsigned *swizzle);
 bool mir_single_use(compiler_context *ctx, unsigned value);
 unsigned mir_use_count(compiler_context *ctx, unsigned value);
-uint16_t mir_bytemask_of_read_components(midgard_instruction *ins, unsigned node);
-uint16_t mir_bytemask_of_read_components_index(midgard_instruction *ins, unsigned i);
+mir_mask mir_shortmask_of_read_components(midgard_instruction *ins, unsigned node);
+mir_mask mir_shortmask_of_read_components_index(midgard_instruction *ins, unsigned i);
 uint16_t mir_from_shortmask(mir_mask shortmask, unsigned bits);
 uint16_t mir_bytemask(midgard_instruction *ins);
 uint16_t mir_round_bytemask_up(uint16_t mask, unsigned bits);
@@ -543,18 +543,6 @@ mir_smask_to_bmask(uint8_t smask)
         }
 
         return bmask;
-}
-
-static inline uint8_t
-mir_shortmask_of_read_components(midgard_instruction *ins, unsigned node)
-{
-        return mir_bmask_to_smask(mir_bytemask_of_read_components(ins, node));
-}
-
-static inline uint8_t
-mir_shortmask_of_read_components_index(midgard_instruction *ins, unsigned i)
-{
-        return mir_bmask_to_smask(mir_bytemask_of_read_components_index(ins, i));
 }
 
 static inline uint8_t

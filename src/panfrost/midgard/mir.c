@@ -324,8 +324,8 @@ mir_upper_override(midgard_instruction *ins, unsigned inst_size)
  * will return a mask of Z/Y for r2
  */
 
-static uint16_t
-mir_bytemask_of_read_components_single(unsigned *swizzle, unsigned inmask, unsigned bits)
+static mir_mask
+mir_shortmask_of_read_components_single(unsigned *swizzle, unsigned inmask, unsigned bits)
 {
         unsigned cmask = 0;
 
@@ -334,15 +334,15 @@ mir_bytemask_of_read_components_single(unsigned *swizzle, unsigned inmask, unsig
                 cmask |= (1 << swizzle[c]);
         }
 
-        return pan_to_bytemask(bits, cmask);
+        return mir_to_shortmask(bits, cmask);
 }
 
-uint16_t
-mir_bytemask_of_read_components_index(midgard_instruction *ins, unsigned i)
+mir_mask
+mir_shortmask_of_read_components_index(midgard_instruction *ins, unsigned i)
 {
-        /* Conditional branches read one 32-bit component = 4 bytes (TODO: multi branch??) */
+        /* Conditional branches read one 32-bit component = 2 shorts (TODO: multi branch??) */
         if (ins->compact_branch && ins->branch.conditional && (i == 0))
-                return 0xF;
+                return 0x3;
 
         /* ALU ops act componentwise so we need to pay attention to
          * their mask. Texture/ldst does not so we don't clamp source
@@ -361,21 +361,21 @@ mir_bytemask_of_read_components_index(midgard_instruction *ins, unsigned i)
                         qmask = ins->mask;
         }
 
-        return mir_bytemask_of_read_components_single(ins->swizzle[i], qmask,
+        return mir_shortmask_of_read_components_single(ins->swizzle[i], qmask,
                 nir_alu_type_get_type_size(ins->src_types[i]));
 }
 
-uint16_t
-mir_bytemask_of_read_components(midgard_instruction *ins, unsigned node)
+mir_mask
+mir_shortmask_of_read_components(midgard_instruction *ins, unsigned node)
 {
-        uint16_t mask = 0;
+        mir_mask mask = 0;
 
         if (node == ~0)
                 return 0;
 
         mir_foreach_src(ins, i) {
                 if (ins->src[i] != node) continue;
-                mask |= mir_bytemask_of_read_components_index(ins, i);
+                mask |= mir_shortmask_of_read_components_index(ins, i);
         }
 
         return mask;
