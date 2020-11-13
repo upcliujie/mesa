@@ -358,8 +358,8 @@ mir_compute_interference(
                         if (dest < ctx->temp_count) {
                                 for (unsigned i = 0; i < ctx->temp_count; ++i)
                                         if (live[i]) {
-                                                unsigned mask = mir_bytemask(ins);
-                                                lcra_add_node_interference(l, dest, mask, i, live[i]);
+                                                unsigned mask = mir_shortmask(ins);
+                                                lcra_add_node_interference(l, dest, mir_smask_to_bmask(mask), i, mir_smask_to_bmask(live[i]));
                                         }
                         }
 

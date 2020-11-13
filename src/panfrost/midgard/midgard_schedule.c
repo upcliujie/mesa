@@ -553,12 +553,12 @@ mir_live_effect(mir_mask *liveness, midgard_instruction *ins, bool destructive)
         int free_live = 0;
 
         if (ins->dest < SSA_FIXED_MINIMUM) {
-                unsigned bytemask = mir_bytemask(ins);
-                bytemask = util_next_power_of_two(bytemask + 1) - 1;
-                free_live += util_bitcount(liveness[ins->dest] & bytemask);
+                unsigned shortmask = mir_shortmask(ins);
+                shortmask = util_next_power_of_two(shortmask + 1) - 1;
+                free_live += util_bitcount(liveness[ins->dest] & shortmask);
 
                 if (destructive)
-                        liveness[ins->dest] &= ~bytemask;
+                        liveness[ins->dest] &= ~shortmask;
         }
 
         int new_live = 0;
@@ -575,14 +575,14 @@ mir_live_effect(mir_mask *liveness, midgard_instruction *ins, bool destructive)
                         continue;
 
                 if (S < SSA_FIXED_MINIMUM) {
-                        unsigned bytemask = mir_bytemask_of_read_components(ins, S);
-                        bytemask = util_next_power_of_two(bytemask + 1) - 1;
+                        unsigned shortmask = mir_shortmask_of_read_components(ins, S);
+                        shortmask = util_next_power_of_two(shortmask + 1) - 1;
 
                         /* Count only the new components */
-                        new_live += util_bitcount(bytemask & ~(liveness[S]));
+                        new_live += util_bitcount(shortmask & ~(liveness[S]));
 
                         if (destructive)
-                                liveness[S] |= bytemask;
+                                liveness[S] |= shortmask;
                 }
         }
 

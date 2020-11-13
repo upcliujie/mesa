@@ -83,8 +83,8 @@ midgard_opt_dead_code_eliminate_block(compiler_context *ctx, midgard_block *bloc
                         if (type_size == 16 && ins->type == TAG_LOAD_STORE_4)
                                 round_size = 32;
 
-                        unsigned rounded = mir_round_bytemask_up(live[ins->dest], round_size);
-                        unsigned cmask = mir_from_bytemask(rounded, type_size);
+                        mir_mask rounded = mir_round_shortmask_up(live[ins->dest], round_size);
+                        unsigned cmask = mir_from_shortmask(rounded, type_size);
 
                         ins->mask &= cmask;
                         progress |= (ins->mask != oldmask);

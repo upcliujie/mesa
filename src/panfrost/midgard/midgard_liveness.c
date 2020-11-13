@@ -50,14 +50,14 @@ mir_liveness_ins_update(mir_mask *live, midgard_instruction *ins, unsigned max)
         /* live_in[s] = GEN[s] + (live_out[s] - KILL[s]) */
 
         if (ins->dest < max)
-                live[ins->dest] &= ~(mir_bytemask(ins));
+                live[ins->dest] &= ~(mir_shortmask(ins));
 
         mir_foreach_src(ins, src) {
                 unsigned node = ins->src[src];
-                unsigned bytemask = mir_bytemask_of_read_components(ins, node);
+                unsigned shortmask = mir_shortmask_of_read_components(ins, node);
 
                 if (node < max)
-                        live[node] |= bytemask;
+                        live[node] |= shortmask;
         }
 }
 
