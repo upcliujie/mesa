@@ -951,6 +951,7 @@ tu_queue_init(struct tu_device *device,
 static void
 tu_queue_finish(struct tu_queue *queue)
 {
+   vk_object_base_finish(&queue->base);
    if (queue->fence >= 0)
       close(queue->fence);
    tu_drm_submitqueue_close(queue->device, queue->msm_queue_id);
