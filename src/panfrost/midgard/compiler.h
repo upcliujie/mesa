@@ -511,8 +511,8 @@ unsigned mir_use_count(compiler_context *ctx, unsigned value);
 mir_mask mir_shortmask_of_read_components(midgard_instruction *ins, unsigned node);
 mir_mask mir_shortmask_of_read_components_index(midgard_instruction *ins, unsigned i);
 uint16_t mir_from_shortmask(mir_mask shortmask, unsigned bits);
-uint16_t mir_bytemask(midgard_instruction *ins);
-uint16_t mir_round_bytemask_up(uint16_t mask, unsigned bits);
+mir_mask mir_shortmask(midgard_instruction *ins);
+mir_mask mir_round_shortmask_up(mir_mask mask, unsigned bits);
 void mir_set_shortmask(midgard_instruction *ins, mir_mask shortmask);
 signed mir_upper_override(midgard_instruction *ins, unsigned inst_size);
 unsigned mir_components_for_type(nir_alu_type T);
@@ -520,42 +520,6 @@ unsigned max_bitsize_for_alu(midgard_instruction *ins);
 midgard_reg_mode reg_mode_for_bitsize(unsigned bitsize);
 
 mir_mask mir_to_shortmask(unsigned bytes, unsigned mask);
-
-static inline uint8_t
-mir_bmask_to_smask(uint16_t bmask)
-{
-        uint8_t smask = 0;
-
-        for (unsigned c = 0; c < 8; ++c)
-                smask |= ((bmask >> (2 * c)) & 1) << c;
-
-        return smask;
-}
-
-static inline uint16_t
-mir_smask_to_bmask(uint8_t smask)
-{
-        uint16_t bmask = 0;
-
-        for (unsigned c = 0; c < 8; ++c) {
-                if (smask & (1 << c))
-                        bmask |= 0x3 << (2 * c);
-        }
-
-        return bmask;
-}
-
-static inline uint8_t
-mir_shortmask(midgard_instruction *ins)
-{
-        return mir_bmask_to_smask(mir_bytemask(ins));
-}
-
-static inline uint8_t
-mir_round_shortmask_up(uint8_t mask, unsigned bits)
-{
-        return mir_bmask_to_smask(mir_round_bytemask_up(mir_smask_to_bmask(mask), bits));
-}
 
 /* MIR printing */
 

@@ -204,18 +204,18 @@ mir_from_shortmask(mir_mask shortmask, unsigned bits)
         return value;
 }
 
-/* Rounds up a bytemask to fill a given component count. Iterate each
+/* Rounds up a shortmask to fill a given component count. Iterate each
  * component, and check if any bytes in the component are masked on */
 
-uint16_t
-mir_round_bytemask_up(uint16_t mask, unsigned bits)
+mir_mask
+mir_round_shortmask_up(mir_mask mask, unsigned bits)
 {
-        unsigned bytes = bits / 8;
-        unsigned maxmask = mask_of(bytes);
+        unsigned shorts = bits / 16;
+        unsigned maxmask = mask_of(shorts);
         unsigned channels = mir_components_for_bits(bits);
 
         for (unsigned c = 0; c < channels; ++c) {
-                unsigned submask = maxmask << (c * bytes);
+                unsigned submask = maxmask << (c * shorts);
 
                 if (mask & submask)
                         mask |= submask;
@@ -276,11 +276,11 @@ mir_to_shortmask(unsigned bytes, unsigned mask)
 
 /* Grabs the per-byte mask of an instruction (as opposed to per-component) */
 
-uint16_t
-mir_bytemask(midgard_instruction *ins)
+mir_mask
+mir_shortmask(midgard_instruction *ins)
 {
         unsigned type_size = nir_alu_type_get_type_size(ins->dest_type);
-        return pan_to_bytemask(type_size, ins->mask);
+        return mir_to_shortmask(type_size, ins->mask);
 }
 
 void
