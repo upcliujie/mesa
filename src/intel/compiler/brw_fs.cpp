@@ -2870,6 +2870,54 @@ fs_visitor::opt_algebraic()
          }
          break;
 
+      case BRW_OPCODE_SHR:
+         if (inst->src[0].file == IMM && inst->src[1].file == IMM) {
+            fs_reg result;
+
+            switch (type_sz(inst->src[0].type)) {
+            case 2:
+               result = brw_imm_uw((uint16_t)inst->src[0].ud >> (inst->src[1].ud & 0x0f));
+               break;
+            case 4:
+               result = brw_imm_ud(inst->src[0].ud >> (inst->src[1].ud & 0x1f));
+               break;
+            case 8:
+               result = brw_imm_uq(inst->src[0].u64 >> (inst->src[1].ud & 0x2f));
+               break;
+            }
+
+            inst->opcode = BRW_OPCODE_MOV;
+            inst->src[0] = retype(result, inst->dst.type);
+            inst->src[1] = reg_undef;
+
+            progress = true;
+         }
+         break;
+
+      case BRW_OPCODE_ASR:
+         if (inst->src[0].file == IMM && inst->src[1].file == IMM) {
+            fs_reg result;
+
+            switch (type_sz(inst->src[0].type)) {
+            case 2:
+               result = brw_imm_uw((int16_t)inst->src[0].ud >> (inst->src[1].ud & 0x0f));
+               break;
+            case 4:
+               result = brw_imm_ud(inst->src[0].d >> (inst->src[1].ud & 0x1f));
+               break;
+            case 8:
+               result = brw_imm_uq(inst->src[0].d64 >> (inst->src[1].ud & 0x2f));
+               break;
+            }
+
+            inst->opcode = BRW_OPCODE_MOV;
+            inst->src[0] = retype(result, inst->dst.type);
+            inst->src[1] = reg_undef;
+
+            progress = true;
+         }
+         break;
+
       case SHADER_OPCODE_BROADCAST:
          if (is_uniform(inst->src[0])) {
             inst->opcode = BRW_OPCODE_MOV;
