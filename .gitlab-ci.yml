@@ -1132,6 +1132,24 @@ virgl-piglit-traces:
     MESA_GLES_VERSION_OVERRIDE: "3.1"
     MESA_GLSL_VERSION_OVERRIDE: "310"
 
+arm64-a630-piglit-traces:
+  extends:
+    - .piglit-traces-test
+    - .arm64-a630-test
+  variables:
+    BARE_METAL_TEST_SCRIPT: "/install/piglit/run.sh"
+    EGL_PLATFORM: "surfaceless"
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/traces-freedreno.yml"
+    PIGLIT_REPLAY_DEVICE_NAME: "freedreno-a630"
+    PIGLIT_RESULTS: "freedreno-a630-replay"
+    # This lets us run several more traces which don't use any features we're
+    # missing.
+    MESA_GLSL_VERSION_OVERRIDE: "460"
+    MESA_GL_VERSION_OVERRIDE: "4.6"
+  artifacts:
+    reports:
+      junit: results/junit.xml
+
 radv-polaris10-piglit-traces:
   extends:
     - .piglit-traces-test
