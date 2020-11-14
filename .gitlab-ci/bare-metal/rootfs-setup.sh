@@ -45,6 +45,8 @@ for var in \
     DEQP_WIDTH \
     DEVICE_NAME \
     DRIVER_NAME \
+    EGL_PLATFORM \
+    FDO_UPSTREAM_REPO \
     FD_MESA_DEBUG \
     FLAKES_CHANNEL \
     IR3_SHADER_DEBUG \
