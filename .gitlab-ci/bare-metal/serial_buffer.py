@@ -44,6 +44,9 @@ class SerialBuffer:
         self.line_queue = queue.Queue()
         self.prefix = prefix
         self.sentinel = object()
+        self.timeout = None
+        self.timer = None
+        self.canceled = False
 
         if self.dev:
             self.read_thread = threading.Thread(
@@ -66,6 +69,9 @@ class SerialBuffer:
         while True:
             try:
                 self.byte_queue.put(self.serial.read())
+                if (self.canceled):
+                    self.byte_queue.put(self.sentinel)
+                    break
             except Exception as err:
                 print(self.prefix + str(err))
                 self.byte_queue.put(self.sentinel)
@@ -115,13 +121,33 @@ class SerialBuffer:
                     self.line_queue.put(line)
                     line = bytearray()
 
+    def cancel_read(self):
+        self.canceled = True
+        self.timer = None
+        self.serial.cancel_read()
+
+    def cancel_timer(self):
+        if self.timer:
+            self.timer.cancel()
+            self.timer = None
+
+    def restart_timeout(self):
+        if self.timeout:
+            self.canceled = False
+            self.timer = threading.Timer(self.timeout, self.cancel_read)
+            self.timer.start()
+
     def get_line(self):
+        self.restart_timeout()
         line = self.line_queue.get()
+        self.cancel_timer()
         if line == self.sentinel:
             self.lines_thread.join()
         return line
 
-    def lines(self):
+    def lines(self, timeout = None):
+        if self.serial:
+            self.timeout = timeout
         return iter(self.get_line, self.sentinel)
 
 
