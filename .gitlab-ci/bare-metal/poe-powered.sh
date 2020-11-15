@@ -95,11 +95,20 @@ rsync -a --delete $BM_BOOTFS/ /tftp/
 echo "$BM_CMDLINE" > /tftp/cmdline.txt
 
 set +e
-python3 $BM/poe_run.py \
-        --dev="$BM_SERIAL" \
-        --powerup="$BM_POWERUP" \
-        --powerdown="$BM_POWERDOWN"
-ret=$?
+ATTEMPTS=2
+while [ $((ATTEMPTS--)) -gt 0 ]; do
+  python3 $BM/poe_run.py \
+          --dev="$BM_SERIAL" \
+          --powerup="$BM_POWERUP" \
+          --powerdown="$BM_POWERDOWN"
+  ret=$?
+
+  if [ $ret -eq 2 ]; then
+    echo "Did not detect boot sequence, retrying..."
+  else
+    ATTEMPTS=0
+  fi
+done
 set -e
 
 # Bring artifacts back from the NFS dir to the build dir where gitlab-runner
