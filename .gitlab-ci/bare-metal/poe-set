@@ -29,6 +29,9 @@ if { "$POESTATUS" == "off" } {
    send "power inline never\r"
 } elseif { "$POESTATUS" == "on" } {
    send "power inline auto\r"
+} elseif { "$POESTATUS" == "reset" } {
+   send "power inline never\r"
+   send "power inline auto\r"
 }
 expect "(config-if)#"
 send "exit\r"
