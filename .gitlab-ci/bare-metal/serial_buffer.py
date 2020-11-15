@@ -36,7 +36,7 @@ class SerialBuffer:
 
         if dev:
             self.f = open(filename, "wb+")
-            self.serial = serial.Serial(dev, 115200, timeout=10)
+            self.serial = serial.Serial(dev, 115200, timeout=60)
         else:
             self.f = open(filename, "rb")
 
@@ -58,14 +58,19 @@ class SerialBuffer:
         self.lines_thread.start()
 
     # Thread that just reads the bytes from the serial device to try to keep from
-    # buffer overflowing it.
+    # buffer overflowing it. If nothing is received in 1 minute, it finalizes.
     def serial_read_thread_loop(self):
         greet = "Serial thread reading from %s\n" % self.dev
         self.byte_queue.put(greet.encode())
 
         while True:
             try:
-                self.byte_queue.put(self.serial.read())
+                b = self.serial.read()
+                if len(b) > 0:
+                    self.byte_queue.put(b)
+                else:
+                    self.byte_queue.put(self.sentinel)
+                    break
             except Exception as err:
                 print(self.prefix + str(err))
                 self.byte_queue.put(self.sentinel)
