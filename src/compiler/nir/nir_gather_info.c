@@ -313,7 +313,11 @@ gather_intrinsic_info(nir_intrinsic_instr *instr, nir_shader *shader,
    if (nir_intrinsic_infos[instr->intrinsic].index_map[NIR_INTRINSIC_IO_SEMANTICS] > 0) {
       nir_io_semantics semantics = nir_intrinsic_io_semantics(instr);
 
+      if (semantics.location >= VARYING_SLOT_PATCH0)
+         semantics.location -= VARYING_SLOT_PATCH0;
+
       slot_mask = BITFIELD64_RANGE(semantics.location, semantics.num_slots);
+      assert(util_bitcount64(slot_mask) == semantics.num_slots);
    }
 
    switch (instr->intrinsic) {
