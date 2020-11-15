@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ ! -d /sys/device/virtual/devcoredump ]; then
+  echo "No devcoredump; exiting"
+  exit 0;
+fi
+
 while true; do
   devcds=`find /sys/devices/virtual/devcoredump/ -name data 2>/dev/null`
   for i in $devcds; do
