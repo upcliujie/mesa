@@ -400,9 +400,6 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
       return 0;
 #endif
 
-   case PIPE_CAP_TEXTURE_SHADOW_MAP: /* Enables ARB_shadow */
-      return 1;
-
    case PIPE_CAP_FLATSHADE:
    case PIPE_CAP_ALPHA_TEST:
    case PIPE_CAP_POINT_SIZE_FIXED:

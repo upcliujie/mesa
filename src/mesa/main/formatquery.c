@@ -986,12 +986,6 @@ _mesa_GetInternalformativ(GLenum target, GLenum internalformat, GLenum pname,
 
       switch (pname) {
       case GL_INTERNALFORMAT_DEPTH_SIZE:
-         if (ctx->API != API_OPENGL_CORE &&
-             !_mesa_has_ARB_depth_texture(ctx) &&
-             target != GL_RENDERBUFFER &&
-             target != GL_TEXTURE_BUFFER)
-            goto end;
-         FALLTHROUGH;
       case GL_INTERNALFORMAT_RED_SIZE:
       case GL_INTERNALFORMAT_GREEN_SIZE:
       case GL_INTERNALFORMAT_BLUE_SIZE:

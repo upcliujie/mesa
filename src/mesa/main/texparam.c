@@ -432,8 +432,7 @@ set_tex_parameteri(struct gl_context *ctx,
       return GL_FALSE;
 
    case GL_TEXTURE_COMPARE_MODE_ARB:
-      if ((_mesa_is_desktop_gl(ctx) && ctx->Extensions.ARB_shadow)
-          || _mesa_is_gles3(ctx)) {
+      if (_mesa_is_desktop_gl(ctx) || _mesa_is_gles3(ctx)) {
 
          if (!_mesa_target_allows_setting_sampler_parameters(texObj->Target))
             goto invalid_dsa;
@@ -451,8 +450,7 @@ set_tex_parameteri(struct gl_context *ctx,
       goto invalid_pname;
 
    case GL_TEXTURE_COMPARE_FUNC_ARB:
-      if ((_mesa_is_desktop_gl(ctx) && ctx->Extensions.ARB_shadow)
-          || _mesa_is_gles3(ctx)) {
+      if (_mesa_is_desktop_gl(ctx) || _mesa_is_gles3(ctx)) {
 
          if (!_mesa_target_allows_setting_sampler_parameters(texObj->Target))
             goto invalid_dsa;
@@ -481,7 +479,7 @@ set_tex_parameteri(struct gl_context *ctx,
       /* GL_DEPTH_TEXTURE_MODE_ARB is removed in core-profile and it has never
        * existed in OpenGL ES.
        */
-      if (ctx->API == API_OPENGL_COMPAT && ctx->Extensions.ARB_depth_texture) {
+      if (ctx->API == API_OPENGL_COMPAT) {
          if (texObj->Attrib.DepthMode == params[0])
             return GL_FALSE;
          if (params[0] == GL_LUMINANCE ||
@@ -1664,8 +1662,6 @@ get_tex_level_parameter_image(struct gl_context *ctx,
          }
          break;
       case GL_TEXTURE_DEPTH_SIZE_ARB:
-         if (!ctx->Extensions.ARB_depth_texture)
-            goto invalid_pname;
          *params = _mesa_get_format_bits(texFormat, pname);
          break;
       case GL_TEXTURE_STENCIL_SIZE:
@@ -2217,14 +2213,12 @@ get_tex_parameterfv(struct gl_context *ctx,
 	 *params = (GLfloat) obj->Attrib.GenerateMipmap;
          break;
       case GL_TEXTURE_COMPARE_MODE_ARB:
-         if ((!_mesa_is_desktop_gl(ctx) || !ctx->Extensions.ARB_shadow)
-             && !_mesa_is_gles3(ctx))
+         if (!_mesa_is_desktop_gl(ctx) || !_mesa_is_gles3(ctx))
             goto invalid_pname;
          *params = (GLfloat) obj->Sampler.Attrib.CompareMode;
          break;
       case GL_TEXTURE_COMPARE_FUNC_ARB:
-         if ((!_mesa_is_desktop_gl(ctx) || !ctx->Extensions.ARB_shadow)
-             && !_mesa_is_gles3(ctx))
+         if (!_mesa_is_desktop_gl(ctx) || !_mesa_is_gles3(ctx))
             goto invalid_pname;
          *params = (GLfloat) obj->Sampler.Attrib.CompareFunc;
          break;
@@ -2232,7 +2226,7 @@ get_tex_parameterfv(struct gl_context *ctx,
          /* GL_DEPTH_TEXTURE_MODE_ARB is removed in core-profile and it has
           * never existed in OpenGL ES.
           */
-         if (ctx->API != API_OPENGL_COMPAT || !ctx->Extensions.ARB_depth_texture)
+         if (ctx->API != API_OPENGL_COMPAT)
             goto invalid_pname;
          *params = (GLfloat) obj->Attrib.DepthMode;
          break;
@@ -2481,19 +2475,17 @@ get_tex_parameteriv(struct gl_context *ctx,
 	 *params = (GLint) obj->Attrib.GenerateMipmap;
          break;
       case GL_TEXTURE_COMPARE_MODE_ARB:
-         if ((!_mesa_is_desktop_gl(ctx) || !ctx->Extensions.ARB_shadow)
-             && !_mesa_is_gles3(ctx))
+         if (!_mesa_is_desktop_gl(ctx) || !_mesa_is_gles3(ctx))
             goto invalid_pname;
          *params = (GLint) obj->Sampler.Attrib.CompareMode;
          break;
       case GL_TEXTURE_COMPARE_FUNC_ARB:
-         if ((!_mesa_is_desktop_gl(ctx) || !ctx->Extensions.ARB_shadow)
-             && !_mesa_is_gles3(ctx))
+         if (!_mesa_is_desktop_gl(ctx) || !_mesa_is_gles3(ctx))
             goto invalid_pname;
          *params = (GLint) obj->Sampler.Attrib.CompareFunc;
          break;
       case GL_DEPTH_TEXTURE_MODE_ARB:
-         if (ctx->API != API_OPENGL_COMPAT || !ctx->Extensions.ARB_depth_texture)
+         if (ctx->API != API_OPENGL_COMPAT)
             goto invalid_pname;
          *params = (GLint) obj->Attrib.DepthMode;
          break;

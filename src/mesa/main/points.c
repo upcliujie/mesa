@@ -117,14 +117,7 @@ _mesa_PointParameterfv( GLenum pname, const GLfloat *params)
     * If point parameters aren't supported, then this function shouldn't even
     * exist.
     */
-   assert(!ctx->Extensions.ARB_point_sprite ||
-          ctx->Extensions.EXT_point_parameters);
-
-   if (!ctx->Extensions.EXT_point_parameters) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "unsupported function called (unsupported extension)");
-      return;
-   }
+   assert(!ctx->Extensions.ARB_point_sprite);
 
    switch (pname) {
       case GL_DISTANCE_ATTENUATION_EXT:

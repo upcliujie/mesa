@@ -980,11 +980,8 @@ test_attachment_completeness(const struct gl_context *ctx, GLenum format,
          }
       }
       else if (format == GL_DEPTH) {
-         if (baseFormat == GL_DEPTH_COMPONENT) {
-            /* OK */
-         }
-         else if (ctx->Extensions.ARB_depth_texture &&
-                  baseFormat == GL_DEPTH_STENCIL) {
+         if (baseFormat == GL_DEPTH_COMPONENT ||
+             baseFormat == GL_DEPTH_STENCIL) {
             /* OK */
          }
          else {
@@ -995,8 +992,7 @@ test_attachment_completeness(const struct gl_context *ctx, GLenum format,
       }
       else {
          assert(format == GL_STENCIL);
-         if (ctx->Extensions.ARB_depth_texture &&
-             baseFormat == GL_DEPTH_STENCIL) {
+         if (baseFormat == GL_DEPTH_STENCIL) {
             /* OK */
          } else if (ctx->Extensions.ARB_texture_stencil8 &&
                     baseFormat == GL_STENCIL_INDEX) {

@@ -2341,20 +2341,17 @@ _mesa_base_tex_format(const struct gl_context *ctx, GLint internalFormat)
       }
    }
 
-   if (_mesa_has_ARB_depth_texture(ctx) || _mesa_has_OES_depth_texture(ctx) ||
-       ctx->API == API_OPENGL_CORE) {
-      switch (internalFormat) {
-      case GL_DEPTH_COMPONENT:
-      case GL_DEPTH_COMPONENT16:
-      case GL_DEPTH_COMPONENT24:
-      case GL_DEPTH_COMPONENT32:
-         return GL_DEPTH_COMPONENT;
-      case GL_DEPTH_STENCIL:
-      case GL_DEPTH24_STENCIL8:
-         return GL_DEPTH_STENCIL;
-      default:
-         ; /* fallthrough */
-      }
+   switch (internalFormat) {
+   case GL_DEPTH_COMPONENT:
+   case GL_DEPTH_COMPONENT16:
+   case GL_DEPTH_COMPONENT24:
+   case GL_DEPTH_COMPONENT32:
+      return GL_DEPTH_COMPONENT;
+   case GL_DEPTH_STENCIL:
+   case GL_DEPTH24_STENCIL8:
+      return GL_DEPTH_STENCIL;
+   default:
+      ; /* fallthrough */
    }
 
    if (_mesa_has_ARB_texture_stencil8(ctx) ||

@@ -726,13 +726,6 @@ static GLuint
 set_sampler_compare_mode(struct gl_context *ctx,
                          struct gl_sampler_object *samp, GLint param)
 {
-    /* If GL_ARB_shadow is not supported, don't report an error.  The
-     * sampler object extension spec isn't clear on this extension interaction.
-     * Silences errors with Wine on older GPUs such as R200.
-     */
-   if (!ctx->Extensions.ARB_shadow)
-      return GL_FALSE;
-
    if (samp->Attrib.CompareMode == param)
       return GL_FALSE;
 
@@ -751,13 +744,6 @@ static GLuint
 set_sampler_compare_func(struct gl_context *ctx,
                          struct gl_sampler_object *samp, GLint param)
 {
-    /* If GL_ARB_shadow is not supported, don't report an error.  The
-     * sampler object extension spec isn't clear on this extension interaction.
-     * Silences errors with Wine on older GPUs such as R200.
-     */
-   if (!ctx->Extensions.ARB_shadow)
-      return GL_FALSE;
-
    if (samp->Attrib.CompareFunc == param)
       return GL_FALSE;
 
@@ -1442,13 +1428,9 @@ _mesa_GetSamplerParameteriv(GLuint sampler, GLenum pname, GLint *params)
       *params = lroundf(sampObj->Attrib.LodBias);
       break;
    case GL_TEXTURE_COMPARE_MODE:
-      if (!ctx->Extensions.ARB_shadow)
-         goto invalid_pname;
       *params = sampObj->Attrib.CompareMode;
       break;
    case GL_TEXTURE_COMPARE_FUNC:
-      if (!ctx->Extensions.ARB_shadow)
-         goto invalid_pname;
       *params = sampObj->Attrib.CompareFunc;
       break;
    case GL_TEXTURE_MAX_ANISOTROPY_EXT:
