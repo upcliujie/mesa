@@ -132,36 +132,77 @@ struct DefInfo {
    }
 };
 
+/*
+ * Object to track which temporary is in a register. Can be cheaply copied as
+ * long as the original isn't modified before all copies are destroyed.
+ */
 class RegisterFile {
 public:
-   RegisterFile() {regs.fill(0);}
-
-   std::array<uint32_t, 512> regs;
-   std::map<uint32_t, std::array<uint32_t, 4>> subdword_regs;
-
-   const uint32_t& operator [] (unsigned index) const {
-      return regs[index];
+   RegisterFile() {
+      original = NULL;
+      BITSET_ONES(valid);
+      BITSET_ZERO(occupied);
+      regs.fill(0);
+      #ifndef NDEBUG
+      copy_count = 0;
+      #endif
    }
 
-   uint32_t& operator [] (unsigned index) {
-      return regs[index];
+   RegisterFile(RegisterFile& other) {
+      if (unlikely(other.original)) {
+         original = other.original;
+         unsigned i;
+         BITSET_FOREACH_SET(i, other.valid, sizeof(valid) * 8u)
+            regs[i] = other.regs[i];
+         BITSET_COPY(valid, other.valid);
+         subdword_regs = other.subdword_regs;
+      } else {
+         original = &other;
+         BITSET_ZERO(valid);
+      }
+      BITSET_COPY(occupied, other.occupied);
+      #ifndef NDEBUG
+      original->copy_count++;
+      #endif
+   }
+
+   RegisterFile& operator = (const RegisterFile&) = delete;
+   RegisterFile& operator = (RegisterFile&&) = delete;
+
+   ~RegisterFile() {
+      #ifndef NDEBUG
+      if (original)
+         original->copy_count--;
+      #endif
+   }
+
+   std::map<uint32_t, std::array<uint32_t, 4>> subdword_regs;
+
+   uint32_t operator [] (unsigned index) const {
+      return BITSET_TEST(valid, index) ? regs[index] : original->regs[index];
    }
 
    unsigned count_zero(PhysReg start, unsigned size) {
       unsigned res = 0;
       for (unsigned i = 0; i < size; i++)
-         res += !regs[start + i];
+         res += !BITSET_TEST(occupied, start + i);
       return res;
    }
 
    bool test(PhysReg start, unsigned num_bytes) {
       for (PhysReg i = start; i.reg_b < start.reg_b + num_bytes; i = PhysReg(i + 1)) {
-         if (regs[i] & 0x0FFFFFFF)
+         if (!BITSET_TEST(occupied, i))
+            continue;
+
+         if (start.byte() == 0 && num_bytes % 4 == 0)
             return true;
-         if (regs[i] == 0xF0000000) {
-            assert(subdword_regs.find(i) != subdword_regs.end());
+
+         uint32_t r = (*this)[i];
+         if (r & 0x0FFFFFFF)
+            return true;
+         if (r == 0xF0000000) {
             for (unsigned j = i.byte(); i * 4 + j < start.reg_b + num_bytes && j < 4; j++) {
-               if (subdword_regs[i][j])
+               if (get_subdword(i)[j])
                   return true;
             }
          }
@@ -173,39 +214,47 @@ public:
       if (rc.is_subdword())
          fill_subdword(start, rc.bytes(), 0xFFFFFFFF);
       else
-         fill(start, rc.size(), 0xFFFFFFFF);
+         fill<false>(start, rc.size(), 0xFFFFFFFF);
    }
 
    bool is_blocked(PhysReg start) {
-      if (regs[start] == 0xFFFFFFFF)
+      if (!BITSET_TEST(occupied, start))
+         return false;
+
+      uint32_t r = (*this)[start];
+      if (r == 0xFFFFFFFF)
          return true;
-      if (regs[start] == 0xF0000000) {
+      if (r == 0xF0000000) {
          for (unsigned i = start.byte(); i < 4; i++)
-            if (subdword_regs[start][i] == 0xFFFFFFFF)
+            if (get_subdword(start)[i] == 0xFFFFFFFF)
                return true;
       }
       return false;
    }
 
    bool is_empty_or_blocked(PhysReg start) {
-      if (regs[start] == 0xF0000000) {
-         return subdword_regs[start][start.byte()] + 1 <= 1;
+      if (!BITSET_TEST(occupied, start))
+         return true;
+
+      uint32_t r = (*this)[start];
+      if (r == 0xF0000000) {
+         return get_subdword(start)[start.byte()] + 1 <= 1;
       }
-      return regs[start] + 1 <= 1;
+      return r + 1 <= 1;
    }
 
    void clear(PhysReg start, RegClass rc) {
       if (rc.is_subdword())
          fill_subdword(start, rc.bytes(), 0);
       else
-         fill(start, rc.size(), 0);
+         fill<true>(start, rc.size(), 0);
    }
 
    void fill(Operand op) {
       if (op.regClass().is_subdword())
          fill_subdword(op.physReg(), op.bytes(), op.tempId());
       else
-         fill(op.physReg(), op.size(), op.tempId());
+         fill<false>(op.physReg(), op.size(), op.tempId());
    }
 
    void clear(Operand op) {
@@ -216,7 +265,7 @@ public:
       if (def.regClass().is_subdword())
          fill_subdword(def.physReg(), def.bytes(), def.tempId());
       else
-         fill(def.physReg(), def.size(), def.tempId());
+         fill<false>(def.physReg(), def.size(), def.tempId());
    }
 
    void clear(Definition def) {
@@ -224,27 +273,67 @@ public:
    }
 
    unsigned get_id(PhysReg reg) {
-      return regs[reg] == 0xF0000000 ? subdword_regs[reg][reg.byte()] : regs[reg];
+      if (!BITSET_TEST(occupied, reg))
+         return 0;
+
+      uint32_t r = (*this)[reg];
+      return r == 0xF0000000 ? get_subdword(reg)[reg.byte()] : r;
    }
 
 private:
+   RegisterFile *original = NULL;
+   BITSET_WORD valid[BITSET_WORDS(512)];
+   BITSET_WORD occupied[BITSET_WORDS(512)];
+   std::array<uint32_t, 512> regs;
+   #ifndef NDEBUG
+   unsigned copy_count;
+   #endif
+
+   const std::array<uint32_t, 4>& get_subdword(unsigned reg) const {
+      if (BITSET_TEST(valid, reg)) {
+         assert(subdword_regs.count(reg));
+         return subdword_regs.at(reg);
+      } else {
+         return original->get_subdword(reg);
+      }
+   }
+
+   template <bool is_zero>
    void fill(PhysReg start, unsigned size, uint32_t val) {
-      for (unsigned i = 0; i < size; i++)
+      assert((original || copy_count == 0) && "can't modify a RegisterFile with an active copy");
+      for (unsigned i = 0; i < size; i++) {
          regs[start + i] = val;
+         BITSET_SET(valid, start + i);
+         if (is_zero)
+            BITSET_CLEAR(occupied, start + i);
+         else
+            BITSET_SET(occupied, start + i);
+      }
    }
 
    void fill_subdword(PhysReg start, unsigned num_bytes, uint32_t val) {
-      fill(start, DIV_ROUND_UP(num_bytes, 4), 0xF0000000);
+      assert((original || copy_count == 0) && "can't modify a RegisterFile with an active copy");
       for (PhysReg i = start; i.reg_b < start.reg_b + num_bytes; i = PhysReg(i + 1)) {
          /* emplace or get */
-         std::array<uint32_t, 4>& sub = subdword_regs.emplace(i, std::array<uint32_t, 4>{0, 0, 0, 0}).first->second;
+         std::map<unsigned, std::array<uint32_t, 4>>::iterator it;
+         if (!BITSET_TEST(valid, i) && original->regs[i] == 0xF0000000)
+            it = subdword_regs.emplace(i, original->subdword_regs.at(i)).first;
+         else
+            it = subdword_regs.emplace(i, std::array<uint32_t, 4>{0, 0, 0, 0}).first;
+
+         std::array<uint32_t, 4>& sub = it->second;
          for (unsigned j = i.byte(); i * 4 + j < start.reg_b + num_bytes && j < 4; j++)
             sub[j] = val;
 
          if (sub == std::array<uint32_t, 4>{0, 0, 0, 0}) {
-            subdword_regs.erase(i);
+            subdword_regs.erase(it);
             regs[i] = 0;
+            BITSET_CLEAR(occupied, i);
+         } else {
+            regs[i] = 0xF0000000;
+            BITSET_SET(occupied, i);
          }
+         BITSET_SET(valid, i);
       }
    }
 };
@@ -2107,6 +2196,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                /* create parallelcopy pair to move blocking vars */
                std::set<std::pair<unsigned, unsigned>> vars = collect_vars(ctx, register_file, definition.physReg(), definition.size());
 
+               { /* scope to delete copy before update_renames() */
                RegisterFile tmp_file(register_file);
                /* re-enable the killed operands, so that we don't move the blocking vars there */
                for (const Operand& op : instr->operands) {
@@ -2121,6 +2211,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                                              definition.physReg(),
                                              definition.physReg() + definition.size() - 1);
                assert(success);
+               }
 
                update_renames(ctx, register_file, parallelcopy, instr, false);
             }
