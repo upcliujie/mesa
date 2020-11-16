@@ -40,7 +40,7 @@ test(
     [files_main_test, main_dispatch_h],
     include_directories : [inc_include, inc_src, inc_mapi, inc_mesa],
     dependencies : [idep_gtest, dep_clock, dep_dl, dep_thread, idep_mesautil],
-    link_with : [libmesa_classic, link_main_test],
+    link_with : [link_main_test],
   ),
   suite : ['mesa'],
 )
