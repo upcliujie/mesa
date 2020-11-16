@@ -2886,8 +2886,13 @@ static void handle_wait_events(struct vk_cmd_queue_entry *cmd,
 static void handle_pipeline_barrier(struct vk_cmd_queue_entry *cmd,
                                     struct rendering_state *state)
 {
+   struct pipe_fence_handle *handle = NULL;
    /* why hello nail, I'm a hammer. - TODO */
-   state->pctx->flush(state->pctx, NULL, 0);
+   state->pctx->flush(state->pctx, &handle, 0);
+
+   state->pctx->screen->fence_finish(state->pctx->screen,
+                                     NULL,
+                                     handle, PIPE_TIMEOUT_INFINITE);
 }
 
 static void handle_begin_query(struct vk_cmd_queue_entry *cmd,
