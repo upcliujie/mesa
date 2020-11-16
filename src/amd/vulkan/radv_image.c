@@ -1615,9 +1615,13 @@ radv_plane_from_aspect(VkImageAspectFlags mask)
 {
 	switch(mask) {
 	case VK_IMAGE_ASPECT_PLANE_1_BIT:
+	case VK_IMAGE_ASPECT_MEMORY_PLANE_1_BIT_EXT:
 		return 1;
 	case VK_IMAGE_ASPECT_PLANE_2_BIT:
+	case VK_IMAGE_ASPECT_MEMORY_PLANE_2_BIT_EXT:
 		return 2;
+	case VK_IMAGE_ASPECT_MEMORY_PLANE_3_BIT_EXT:
+		return 3;
 	default:
 		return 0;
 	}
@@ -1903,10 +1907,26 @@ void radv_GetImageSubresourceLayout(
 	int level = pSubresource->mipLevel;
 	int layer = pSubresource->arrayLayer;
 
-	unsigned plane_id = radv_plane_from_aspect(pSubresource->aspectMask);
+	unsigned plane_id = 0;
+	if (vk_format_get_plane_count(image->vk_format) > 1)
+		plane_id = radv_plane_from_aspect(pSubresource->aspectMask);
 
 	struct radv_image_plane *plane = &image->planes[plane_id];
 	struct radeon_surf *surface = &plane->surface;
+
+	if (!plane_id) {
+		unsigned mem_plane_id = radv_plane_from_aspect(pSubresource->aspectMask);
+
+		if (mem_plane_id) {
+			pLayout->offset = ac_surface_get_plane_offset(device->physical_device->rad_info.chip_class,
+			                                              surface, mem_plane_id, 0);
+			pLayout->rowPitch = ac_surface_get_plane_stride(device->physical_device->rad_info.chip_class,
+			                                                surface, mem_plane_id);
+			pLayout->arrayPitch = 0;
+			pLayout->depthPitch = 0;
+			pLayout->size = ac_surface_get_plane_size(surface, mem_plane_id);
+		}
+	}
 
 	if (device->physical_device->rad_info.chip_class >= GFX9) {
 		uint64_t level_offset = surface->is_linear ? surface->u.gfx9.offset[level] : 0;
@@ -1942,6 +1962,16 @@ void radv_GetImageSubresourceLayout(
 		if (image->type == VK_IMAGE_TYPE_3D)
 			pLayout->size *= u_minify(image->info.depth, level);
 	}
+}
+
+VkResult radv_GetImageDrmFormatModifierPropertiesEXT(VkDevice _device,
+                                                     VkImage  _image,
+                                                     VkImageDrmFormatModifierPropertiesEXT* pProperties)
+{
+	RADV_FROM_HANDLE(radv_image, image, _image);
+
+	pProperties->drmFormatModifier = image->planes[0].surface.modifier;
+	return VK_SUCCESS;
 }
 
 
