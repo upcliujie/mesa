@@ -205,8 +205,6 @@ etna_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
 
    /* Texturing. */
-   case PIPE_CAP_TEXTURE_SHADOW_MAP:
-      return DBG_ENABLED(ETNA_DBG_NIR) && screen->specs.halti >= 2;
    case PIPE_CAP_MAX_TEXTURE_2D_SIZE:
    case PIPE_CAP_MAX_TEXTURE_ARRAY_LAYERS: /* TODO: verify */
       return screen->specs.max_texture_size;
