@@ -1234,10 +1234,8 @@ PhysReg get_reg(ra_ctx& ctx,
    /* try to find space with live-range splits */
    res = get_reg_impl(ctx, reg_file, parallelcopies, info, instr);
 
-   if (res.second) {
-      update_renames(ctx, reg_file, parallelcopies, instr, instr->opcode != aco_opcode::p_create_vector);
+   if (res.second)
       return res.first;
-   }
 
    /* try using more registers */
 
@@ -1520,6 +1518,7 @@ void get_reg_for_operand(ra_ctx& ctx, RegisterFile& register_file,
 
          /* find free reg */
          PhysReg reg = get_reg(ctx, register_file, pc_op.getTemp(), parallelcopy, ctx.pseudo_dummy);
+         update_renames(ctx, register_file, parallelcopy, ctx.pseudo_dummy, true);
          Definition pc_def = Definition(PhysReg{reg}, pc_op.regClass());
          register_file.clear(pc_op);
          parallelcopy.emplace_back(pc_op, pc_def);
@@ -1528,6 +1527,7 @@ void get_reg_for_operand(ra_ctx& ctx, RegisterFile& register_file,
 
    } else {
       dst = get_reg(ctx, register_file, operand.getTemp(), parallelcopy, instr, operand_index);
+      update_renames(ctx, register_file, parallelcopy, instr, instr->opcode != aco_opcode::p_create_vector);
    }
 
    Operand pc_op = operand;
@@ -1887,8 +1887,10 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                   break;
                }
             }
-            if (!definition.isFixed())
+            if (!definition.isFixed()) {
                definition.setFixed(get_reg(ctx, register_file, definition.getTemp(), parallelcopy, phi));
+               update_renames(ctx, register_file, parallelcopy, phi, true);
+            }
 
             /* process parallelcopy */
             for (std::pair<Operand, Definition> pc : parallelcopy) {
@@ -2183,6 +2185,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                } else {
                   definition->setFixed(get_reg(ctx, register_file, tmp, parallelcopy, instr));
                }
+               update_renames(ctx, register_file, parallelcopy, instr, instr->opcode != aco_opcode::p_create_vector);
             }
 
             assert(definition->isFixed() && ((definition->getTemp().type() == RegType::vgpr && definition->physReg() >= 256) ||
@@ -2305,6 +2308,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                Temp tmp = program->allocateTmp(can_sgpr ? s1 : v1);
                ctx.assignments.emplace_back();
                PhysReg reg = get_reg(ctx, register_file, tmp, parallelcopy, instr);
+               update_renames(ctx, register_file, parallelcopy, instr, true);
 
                aco_ptr<Instruction> mov;
                if (can_sgpr)
