@@ -398,6 +398,7 @@ _is_target_supported(struct gl_context *ctx, GLenum target)
    case GL_TEXTURE_1D:
    case GL_TEXTURE_2D:
    case GL_TEXTURE_3D:
+   case GL_TEXTURE_CUBE_MAP:
       break;
 
    case GL_TEXTURE_1D_ARRAY:
@@ -407,11 +408,6 @@ _is_target_supported(struct gl_context *ctx, GLenum target)
 
    case GL_TEXTURE_2D_ARRAY:
       if (!_mesa_has_EXT_texture_array(ctx))
-         return false;
-      break;
-
-   case GL_TEXTURE_CUBE_MAP:
-      if (ctx->API != API_OPENGL_CORE && !_mesa_has_ARB_texture_cube_map(ctx))
          return false;
       break;
 

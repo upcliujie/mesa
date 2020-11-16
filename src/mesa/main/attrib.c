@@ -476,10 +476,8 @@ pop_enable_group(struct gl_context *ctx, const struct gl_enable_attrib_node *ena
             TEST_AND_UPDATE_BIT(old_enabled, enabled, TEXTURE_RECT_INDEX,
                                 GL_TEXTURE_RECTANGLE);
          }
-         if (ctx->Extensions.ARB_texture_cube_map) {
-            TEST_AND_UPDATE_BIT(old_enabled, enabled, TEXTURE_CUBE_INDEX,
-                                GL_TEXTURE_CUBE_MAP);
-         }
+         TEST_AND_UPDATE_BIT(old_enabled, enabled, TEXTURE_CUBE_INDEX,
+                             GL_TEXTURE_CUBE_MAP);
       }
 
       if (old_gen_enabled != gen_enabled) {
@@ -518,10 +516,8 @@ pop_texture_group(struct gl_context *ctx, struct gl_texture_attrib_node *texstat
          _mesa_set_enable(ctx, GL_TEXTURE_1D, !!(unit->Enabled & TEXTURE_1D_BIT));
          _mesa_set_enable(ctx, GL_TEXTURE_2D, !!(unit->Enabled & TEXTURE_2D_BIT));
          _mesa_set_enable(ctx, GL_TEXTURE_3D, !!(unit->Enabled & TEXTURE_3D_BIT));
-         if (ctx->Extensions.ARB_texture_cube_map) {
-            _mesa_set_enable(ctx, GL_TEXTURE_CUBE_MAP,
-                             !!(unit->Enabled & TEXTURE_CUBE_BIT));
-         }
+         _mesa_set_enable(ctx, GL_TEXTURE_CUBE_MAP,
+                          !!(unit->Enabled & TEXTURE_CUBE_BIT));
          if (ctx->Extensions.NV_texture_rectangle) {
             _mesa_set_enable(ctx, GL_TEXTURE_RECTANGLE_NV,
                              !!(unit->Enabled & TEXTURE_RECT_BIT));
