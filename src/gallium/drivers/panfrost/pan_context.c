@@ -949,11 +949,23 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
         assert(prsrc->bo);
 
         /* Format to access the stencil portion of a Z32_S8 texture */
-        if (format == PIPE_FORMAT_X32_S8X24_UINT) {
+        switch (format) {
+        case PIPE_FORMAT_X32_S8X24_UINT:
                 assert(prsrc->separate_stencil);
                 texture = &prsrc->separate_stencil->base;
                 prsrc = (struct panfrost_resource *)texture;
                 format = texture->format;
+                break;
+        case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+                /* FIXME: Right now we consider that sampler views asking for
+                 * Z32S8 only care about the depth component, which is wrong.
+                 * Should we patch the shader to sample the depth and stencil
+                 * separately?
+                 */
+                format = PIPE_FORMAT_Z32_FLOAT;
+                break;
+        default:
+                break;
         }
 
         const struct util_format_description *desc = util_format_description(format);
