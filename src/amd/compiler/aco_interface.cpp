@@ -29,6 +29,37 @@
 
 #include <iostream>
 
+#include <atomic>
+
+static std::atomic_uint_fast64_t timers[64];
+static const char *names[64] = {0};
+
+static uint64_t get_nanos()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    return ts.tv_sec*1000000000LL + ts.tv_nsec;
+}
+
+static void begin(const char *name, unsigned idx)
+{
+   names[idx] = name;
+   timers[idx] -= get_nanos();
+}
+
+static void end(const char *name, unsigned idx)
+{
+   timers[idx] += get_nanos();
+}
+
+__attribute__((destructor)) static void print_timers()
+{
+   for (unsigned i = 0; i < ARRAY_SIZE(timers); i++) {
+      if (names[i])
+         printf("%s: %.3f ms\n", names[i], timers[i] / 1000000.0);
+   }
+}
+
 static aco_compiler_statistic_info statistic_infos[] = {
    [aco::statistic_hash] = {"Hash", "CRC32 hash of code and constant data"},
    [aco::statistic_instructions] = {"Instructions", "Instruction count"},
@@ -132,7 +163,9 @@ void aco_compile_shader(unsigned shader_count,
       validate(program.get());
 
       /* Register Allocation */
+      begin("RA", 0);
       aco::register_allocation(program.get(), live_vars.live_out);
+      end("RA", 0);
       if (args->options->dump_shader) {
          std::cerr << "After RA:\n";
          aco_print_program(program.get(), stderr);
