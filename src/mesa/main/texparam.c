@@ -73,8 +73,7 @@ validate_texture_wrap_mode(struct gl_context * ctx, GLenum target, GLenum wrap)
       break;
 
    case GL_CLAMP_TO_BORDER:
-      supported = ctx->API != API_OPENGLES && e->ARB_texture_border_clamp
-         && (target != GL_TEXTURE_EXTERNAL_OES);
+      supported = ctx->API != API_OPENGLES && (target != GL_TEXTURE_EXTERNAL_OES);
       break;
 
    case GL_REPEAT:
@@ -743,12 +742,10 @@ set_tex_parameterf(struct gl_context *ctx,
        * OpenGL ES 2.0+, it only exists in when GL_OES_texture_border_clamp is
        * enabled.  It is never available in OpenGL ES 1.x.
        *
-       * FIXME: Every driver that supports GLES2 has this extension.  Elide
-       * the check?
+       * Every driver that supports GLES2 has this extension, so we only check
+       * whether this is a GLES1 context.
        */
-      if (ctx->API == API_OPENGLES ||
-          (ctx->API == API_OPENGLES2 &&
-           !ctx->Extensions.ARB_texture_border_clamp))
+      if (ctx->API == API_OPENGLES)
          goto invalid_pname;
 
       if (!_mesa_target_allows_setting_sampler_parameters(texObj->Target))
@@ -1488,16 +1485,15 @@ _mesa_legal_get_tex_level_parameter_target(struct gl_context *ctx, GLenum target
    switch (target) {
    case GL_TEXTURE_2D:
    case GL_TEXTURE_3D:
-      return GL_TRUE;
-   case GL_TEXTURE_2D_ARRAY_EXT:
-      return ctx->Extensions.EXT_texture_array;
    case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
    case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
    case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
    case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
    case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
    case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-      return ctx->Extensions.ARB_texture_cube_map;
+      return GL_TRUE;
+   case GL_TEXTURE_2D_ARRAY_EXT:
+      return ctx->Extensions.EXT_texture_array;
    case GL_TEXTURE_2D_MULTISAMPLE:
    case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
       return ctx->Extensions.ARB_texture_multisample;
@@ -1534,9 +1530,8 @@ _mesa_legal_get_tex_level_parameter_target(struct gl_context *ctx, GLenum target
    case GL_PROXY_TEXTURE_1D:
    case GL_PROXY_TEXTURE_2D:
    case GL_PROXY_TEXTURE_3D:
-      return GL_TRUE;
    case GL_PROXY_TEXTURE_CUBE_MAP:
-      return ctx->Extensions.ARB_texture_cube_map;
+      return GL_TRUE;
    case GL_PROXY_TEXTURE_CUBE_MAP_ARRAY:
       return ctx->Extensions.ARB_texture_cube_map_array;
    case GL_TEXTURE_RECTANGLE_NV:
@@ -2161,8 +2156,7 @@ get_tex_parameterfv(struct gl_context *ctx,
          *params = ENUM_TO_FLOAT(obj->Sampler.Attrib.WrapR);
          break;
       case GL_TEXTURE_BORDER_COLOR:
-         if (ctx->API == API_OPENGLES ||
-             !ctx->Extensions.ARB_texture_border_clamp)
+         if (ctx->API == API_OPENGLES)
             goto invalid_pname;
 
          if (_mesa_get_clamp_fragment_color(ctx, ctx->DrawBuffer)) {
@@ -2399,8 +2393,7 @@ get_tex_parameteriv(struct gl_context *ctx,
          *params = (GLint) obj->Sampler.Attrib.WrapR;
          break;
       case GL_TEXTURE_BORDER_COLOR:
-         if (ctx->API == API_OPENGLES ||
-             !ctx->Extensions.ARB_texture_border_clamp)
+         if (ctx->API == API_OPENGLES)
             goto invalid_pname;
 
          {

@@ -4356,17 +4356,13 @@ struct gl_extensions
    GLboolean ARB_spirv_extensions;
    GLboolean ARB_sync;
    GLboolean ARB_tessellation_shader;
-   GLboolean ARB_texture_border_clamp;
    GLboolean ARB_texture_buffer_object;
    GLboolean ARB_texture_buffer_object_rgb32;
    GLboolean ARB_texture_buffer_range;
    GLboolean ARB_texture_compression_bptc;
    GLboolean ARB_texture_compression_rgtc;
-   GLboolean ARB_texture_cube_map;
    GLboolean ARB_texture_cube_map_array;
-   GLboolean ARB_texture_env_combine;
    GLboolean ARB_texture_env_crossbar;
-   GLboolean ARB_texture_env_dot3;
    GLboolean ARB_texture_filter_anisotropic;
    GLboolean ARB_texture_float;
    GLboolean ARB_texture_gather;
