@@ -713,10 +713,10 @@ bi_pack_add_special(bi_clause *clause, bi_instruction *ins, bi_registers *regs)
 static unsigned
 bi_pack_add_ld_var(bi_clause *clause, bi_instruction *ins, bi_registers *regs)
 {
-        bool imm = ins->src[0] & BIR_INDEX_CONSTANT;
-
-        if (imm && bi_get_immediate(ins, 0) >= 20)
+        if (ins->load_vary.special)
                 return pan_pack_add_ld_var_special(clause, ins, regs);
+
+        bool imm = ins->src[0] & BIR_INDEX_CONSTANT;
 
         if (ins->load_vary.flat) {
                 return imm ?
