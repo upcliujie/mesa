@@ -29,7 +29,6 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
-#include <llvm/ADT/SmallVector.h>
 #include <llvm-c/Target.h>
 #ifdef HAVE_CLOVER_SPIRV
 #include <LLVMSPIRVLib/LLVMSPIRVLib.h>
@@ -39,15 +38,7 @@
 #include <clang/Lex/PreprocessorOptions.h>
 #include <clang/Frontend/TextDiagnosticBuffer.h>
 #include <clang/Frontend/TextDiagnosticPrinter.h>
-#include <clang/FrontendTool/Utils.h>
 #include <clang/Basic/TargetInfo.h>
-
-#include <clang/Driver/Compilation.h>
-#include <clang/Driver/Job.h>
-#include <clang/Driver/Driver.h>
-#include <clang/Driver/DriverDiagnostic.h>
-#include <clang/Driver/Options.h>
-#include <clang/Driver/Tool.h>
 
 // We need to include internal headers last, because the internal headers
 // include CL headers which have #define's like:
@@ -500,59 +491,13 @@ clover::llvm::compile_to_spirv(const std::string &source,
       debug::log(".cl", "// Options: " + opts + '\n' + source);
 
    auto ctx = create_context(r_log);
-   const std::string mtarget = dev.address_bits() == 32u ?
-      "--target=spir-unknown-unknown" :
-      "--target=spir64-unknown-unknown";
-
-   clang::TextDiagnosticBuffer *diag_buffer = new clang::TextDiagnosticBuffer;
-   clang::DiagnosticsEngine diag { new clang::DiagnosticIDs,
-      new clang::DiagnosticOptions, diag_buffer };
-
-   ::llvm::SmallVector<const char *, 128> Argv;
-   std::vector<std::string> opt_token = tokenize(opts);
-   Argv.push_back("");
-   for (auto &opt : opt_token)
-      Argv.push_back(opt.c_str());
-   Argv.push_back("-emit-llvm");
-   Argv.push_back("-I");
-   Argv.push_back(CLANG_RESOURCE_DIR);
-   Argv.push_back("-include");
-   Argv.push_back("opencl-c.h");
-   Argv.push_back(mtarget.c_str());
-   Argv.push_back("-O0");
-   Argv.push_back("input.cl");
-
-   clang::driver::Driver clover_driver("", "", diag);
-   clover_driver.setTitle("Clover");
-   clover_driver.setCheckInputsExist(false);
-
-   std::unique_ptr<clang::driver::Compilation> C(clover_driver.BuildCompilation(Argv));
-   if (!C)
-      throw error(CL_INVALID_VALUE);
-
-   std::unique_ptr<Module> mod;
-   for (auto &Job : C->getJobs()) {
-      auto Arguments = Job.getArguments();
-
-      std::unique_ptr<clang::CompilerInstance> c { new clang::CompilerInstance };
-
-      c->createDiagnostics(new clang::TextDiagnosticPrinter(
-                              *new raw_string_ostream(r_log),
-                              &c->getDiagnosticOpts(), true));
-
-      if (!compat::create_compiler_invocation_from_args(
-             c->getInvocation(), Arguments, diag))
-         throw invalid_build_options_error();
-
-      c->getFrontendOpts().DisableFree = false;
-      c->getPreprocessorOpts().addRemappedFile(
-         "input.cl", ::llvm::MemoryBuffer::getMemBuffer(source).release());
-      clang::EmitLLVMOnlyAction act(ctx.get());
-      if (!c->ExecuteAction(act))
-         throw build_error();
-
-      mod = act.takeModule();
-   }
+   const std::string target = dev.address_bits() == 32u ?
+      "-spir-unknown-unknown" :
+      "-spir64-unknown-unknown";
+   auto c = create_compiler_instance(dev, target,
+                                     tokenize(opts + " -O0 input.cl"), r_log);
+   auto mod = compile(*ctx, *c, "input.cl", source, headers, dev, opts, false,
+                      r_log);
 
    if (has_flag(debug::llvm))
       debug::log(".ll", print_module_bitcode(*mod));
