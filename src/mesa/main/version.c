@@ -248,10 +248,13 @@ compute_version(const struct gl_extensions *extensions,
 {
    GLuint major, minor, version;
 
-   const bool ver_1_3 = (extensions->ARB_texture_border_clamp &&
+   const bool ver_1_3 = true;
+#if 0
+                        (extensions->ARB_texture_border_clamp &&
                          extensions->ARB_texture_cube_map &&
                          extensions->ARB_texture_env_combine &&
                          extensions->ARB_texture_env_dot3);
+#endif
    const bool ver_1_4 = (ver_1_3 &&
                          extensions->ARB_depth_texture &&
                          extensions->ARB_shadow &&
@@ -487,8 +490,11 @@ static GLuint
 compute_version_es1(const struct gl_extensions *extensions)
 {
    /* OpenGL ES 1.0 is derived from OpenGL 1.3 */
-   const bool ver_1_0 = (extensions->ARB_texture_env_combine &&
+   const bool ver_1_0 = true;
+#if 0
+                        (extensions->ARB_texture_env_combine &&
                          extensions->ARB_texture_env_dot3);
+#endif
    /* OpenGL ES 1.1 is derived from OpenGL 1.5 */
    const bool ver_1_1 = (ver_1_0 &&
                          extensions->EXT_point_parameters);
@@ -507,7 +513,10 @@ compute_version_es2(const struct gl_extensions *extensions,
                     const struct gl_constants *consts)
 {
    /* OpenGL ES 2.0 is derived from OpenGL 2.0 */
-   const bool ver_2_0 = (extensions->ARB_texture_cube_map &&
+   const bool ver_2_0 = (
+#if 0
+                         extensions->ARB_texture_cube_map &&
+#endif
                          extensions->EXT_blend_color &&
                          extensions->EXT_blend_func_separate &&
                          extensions->EXT_blend_minmax &&
@@ -570,7 +579,9 @@ compute_version_es2(const struct gl_extensions *extensions,
                          extensions->OES_primitive_bounding_box &&
                          extensions->OES_sample_variables &&
                          extensions->ARB_tessellation_shader &&
+#if 0
                          extensions->ARB_texture_border_clamp &&
+#endif
                          extensions->OES_texture_buffer &&
                          extensions->OES_texture_cube_map_array &&
                          extensions->ARB_texture_stencil8);
