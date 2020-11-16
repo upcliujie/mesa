@@ -4296,7 +4296,6 @@ struct gl_extensions
    GLboolean EXT_color_buffer_half_float;
    GLboolean ARB_depth_buffer_float;
    GLboolean ARB_depth_clamp;
-   GLboolean ARB_depth_texture;
    GLboolean ARB_derivative_control;
    GLboolean ARB_draw_buffers_blend;
    GLboolean ARB_draw_elements_base_vertex;
@@ -4363,7 +4362,6 @@ struct gl_extensions
    GLboolean ARB_texture_compression_bptc;
    GLboolean ARB_texture_compression_rgtc;
    GLboolean ARB_texture_cube_map_array;
-   GLboolean ARB_texture_env_crossbar;
    GLboolean ARB_texture_filter_anisotropic;
    GLboolean ARB_texture_float;
    GLboolean ARB_texture_gather;
@@ -4388,10 +4386,7 @@ struct gl_extensions
    GLboolean ARB_vertex_type_10f_11f_11f_rev;
    GLboolean ARB_vertex_type_2_10_10_10_rev;
    GLboolean ARB_viewport_array;
-   GLboolean EXT_blend_color;
    GLboolean EXT_blend_equation_separate;
-   GLboolean EXT_blend_func_separate;
-   GLboolean EXT_blend_minmax;
    GLboolean EXT_demote_to_helper_invocation;
    GLboolean EXT_depth_bounds_test;
    GLboolean EXT_disjoint_timer_query;
@@ -4408,7 +4403,6 @@ struct gl_extensions
    GLboolean EXT_multisampled_render_to_texture;
    GLboolean EXT_packed_float;
    GLboolean EXT_pixel_buffer_object;
-   GLboolean EXT_point_parameters;
    GLboolean EXT_provoking_vertex;
    GLboolean EXT_render_snorm;
    GLboolean EXT_semaphore;

@@ -255,7 +255,9 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->ARB_texture_env_combine &&
                          extensions->ARB_texture_env_dot3);
 #endif
-   const bool ver_1_4 = (ver_1_3 &&
+   const bool ver_1_4 = true;
+#if 0
+                        (ver_1_3 &&
                          extensions->ARB_depth_texture &&
                          extensions->ARB_shadow &&
                          extensions->ARB_texture_env_crossbar &&
@@ -263,6 +265,7 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->EXT_blend_func_separate &&
                          extensions->EXT_blend_minmax &&
                          extensions->EXT_point_parameters);
+#endif
    const bool ver_1_5 = (ver_1_4 &&
                          extensions->ARB_occlusion_query);
    const bool ver_2_0 = (ver_1_5 &&
@@ -496,8 +499,10 @@ compute_version_es1(const struct gl_extensions *extensions)
                          extensions->ARB_texture_env_dot3);
 #endif
    /* OpenGL ES 1.1 is derived from OpenGL 1.5 */
-   const bool ver_1_1 = (ver_1_0 &&
-                         extensions->EXT_point_parameters);
+   const bool ver_1_1 = (ver_1_0);
+#if 0
+                         && extensions->EXT_point_parameters);
+#endif
 
    if (ver_1_1) {
       return 11;
@@ -516,10 +521,10 @@ compute_version_es2(const struct gl_extensions *extensions,
    const bool ver_2_0 = (
 #if 0
                          extensions->ARB_texture_cube_map &&
-#endif
                          extensions->EXT_blend_color &&
                          extensions->EXT_blend_func_separate &&
                          extensions->EXT_blend_minmax &&
+#endif
                          extensions->ARB_vertex_shader &&
                          extensions->ARB_fragment_shader &&
                          extensions->ARB_texture_non_power_of_two &&

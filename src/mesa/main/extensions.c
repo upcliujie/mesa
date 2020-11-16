@@ -122,7 +122,6 @@ void
 _mesa_enable_sw_extensions(struct gl_context *ctx)
 {
    ctx->Extensions.ARB_depth_clamp = GL_TRUE;
-   ctx->Extensions.ARB_depth_texture = GL_TRUE;
    ctx->Extensions.ARB_draw_elements_base_vertex = GL_TRUE;
    ctx->Extensions.ARB_draw_instanced = GL_TRUE;
    ctx->Extensions.ARB_explicit_attrib_location = GL_TRUE;
@@ -136,9 +135,7 @@ _mesa_enable_sw_extensions(struct gl_context *ctx)
    ctx->Extensions.ARB_occlusion_query = GL_TRUE;
    ctx->Extensions.ARB_occlusion_query2 = GL_TRUE;
    ctx->Extensions.ARB_point_sprite = GL_TRUE;
-   ctx->Extensions.ARB_shadow = GL_TRUE;
    ctx->Extensions.ARB_texture_compression_bptc = GL_TRUE;
-   ctx->Extensions.ARB_texture_env_crossbar = GL_TRUE;
    ctx->Extensions.ARB_texture_filter_anisotropic = GL_TRUE;
    ctx->Extensions.ARB_texture_float = GL_TRUE;
    ctx->Extensions.ARB_texture_mirror_clamp_to_edge = GL_TRUE;
@@ -153,14 +150,10 @@ _mesa_enable_sw_extensions(struct gl_context *ctx)
    ctx->Extensions.ATI_texture_compression_3dc = GL_TRUE;
    ctx->Extensions.ATI_texture_env_combine3 = GL_TRUE;
    ctx->Extensions.ATI_texture_mirror_once = GL_TRUE;
-   ctx->Extensions.EXT_blend_color = GL_TRUE;
    ctx->Extensions.EXT_blend_equation_separate = GL_TRUE;
-   ctx->Extensions.EXT_blend_func_separate = GL_TRUE;
-   ctx->Extensions.EXT_blend_minmax = GL_TRUE;
    ctx->Extensions.EXT_depth_bounds_test = GL_TRUE;
    ctx->Extensions.EXT_draw_buffers2 = GL_TRUE;
    ctx->Extensions.EXT_pixel_buffer_object = GL_TRUE;
-   ctx->Extensions.EXT_point_parameters = GL_TRUE;
    ctx->Extensions.EXT_provoking_vertex = GL_TRUE;
    ctx->Extensions.EXT_stencil_two_side = GL_TRUE;
    ctx->Extensions.EXT_texture_array = GL_TRUE;
