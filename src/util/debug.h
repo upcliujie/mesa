@@ -27,6 +27,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "util/simple_mtx.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -49,5 +51,29 @@ env_var_as_unsigned(const char *var_name, unsigned default_value);
 #ifdef __cplusplus
 } /* extern C */
 #endif
+
+#define get_once(__type, __expr) ({ \
+      static bool __once; \
+      static __type __val; \
+      static simple_mtx_t __lock; \
+      simple_mtx_lock(&__lock); \
+      if (!__once) { \
+         __val = __expr; \
+         __once = true; \
+      } \
+      simple_mtx_unlock(&__lock); \
+      __val; \
+   })
+
+#define do_once(__expr) ({ \
+      static bool __once; \
+      static simple_mtx_t __lock; \
+      simple_mtx_lock(&__lock); \
+      if (!__once) { \
+         __expr; \
+         __once = true; \
+      } \
+      simple_mtx_unlock(&__lock); \
+   })
 
 #endif /* _UTIL_DEBUG_H */
