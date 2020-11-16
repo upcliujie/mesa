@@ -50,4 +50,28 @@ env_var_as_unsigned(const char *var_name, unsigned default_value);
 } /* extern C */
 #endif
 
+#ifndef NDEBUG
+#  include "util/simple_mtx.h"
+#  define __decl_once_lock(__name)  static simple_mtx_t __name
+#  define __once_lock(__name)       simple_mtx_lock(&__name)
+#  define __once_unlock(__name)     simple_mtx_unlock(&__name)
+#else
+#  define __decl_once_lock(__name)
+#  define __once_lock(__name)
+#  define __once_unlock(__name)
+#endif
+
+#define get_once(__type, __expr) ({ \
+      static bool __once; \
+      static __type __val; \
+      __decl_once_lock(__lock); \
+      __once_lock(__lock); \
+      if (!__once) { \
+         __val = __expr; \
+         __once = true; \
+      } \
+      __once_unlock(__lock); \
+      __val; \
+   })
+
 #endif /* _UTIL_DEBUG_H */
