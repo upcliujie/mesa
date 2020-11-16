@@ -23,16 +23,19 @@
  */
 
 #include "radv_private.h"
+#include "radv_debug.h"
 
 #include "vk_format.h"
 #include "sid.h"
 
 #include "vk_util.h"
 
+#include "drm-uapi/drm_fourcc.h"
 #include "util/half_float.h"
 #include "util/format_srgb.h"
 #include "util/format_r11g11b10f.h"
 #include "util/format_rgb9e5.h"
+#include "vulkan/util/vk_format.h"
 
 uint32_t radv_translate_buffer_dataformat(const struct vk_format_description *desc,
 					  int first_non_void)
@@ -1119,12 +1122,138 @@ void radv_GetPhysicalDeviceFormatProperties(
 						   pFormatProperties);
 }
 
+static const struct ac_modifier_options radv_modifier_options = {
+	.dcc = false,
+	.dcc_retile = false,
+};
+
+static VkFormatFeatureFlags
+radv_get_modifier_flags(struct radv_physical_device *dev,
+                        VkFormat format, uint64_t modifier,
+                        const VkFormatProperties *props)
+{
+	VkFormatFeatureFlags features;
+
+	if (vk_format_is_compressed(format) || vk_format_is_depth_or_stencil(format))
+		return 0;
+
+	if (modifier == DRM_FORMAT_MOD_LINEAR)
+		features = props->linearTilingFeatures;
+	else
+		features = props->optimalTilingFeatures;
+
+	if (modifier != DRM_FORMAT_MOD_LINEAR && vk_format_get_plane_count(format) > 1)
+		return 0;
+
+	if (ac_modifier_has_dcc(modifier)) {
+		features &= ~VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
+
+		if (dev->instance->debug_flags & RADV_DEBUG_NO_DCC)
+			return 0;
+	}
+
+	return features;
+}
+
+static void radv_list_drm_format_modifiers(struct radv_physical_device *dev,
+                                           VkFormat format,
+                                           VkFormatProperties2 *pFormatProperties)
+{
+	VkDrmFormatModifierPropertiesListEXT *mod_list =
+		vk_find_struct(pFormatProperties, DRM_FORMAT_MODIFIER_PROPERTIES_LIST_EXT);
+	unsigned mod_count;
+
+	if (!mod_list)
+		return;
+
+	if (vk_format_is_compressed(format) || vk_format_is_depth_or_stencil(format)) {
+		mod_list->drmFormatModifierCount = 0;
+		return;
+	}
+
+	ac_get_supported_modifiers(&dev->rad_info, &radv_modifier_options,
+	                           vk_format_to_pipe_format(format), &mod_count, NULL);
+	if (!mod_list->pDrmFormatModifierProperties) {
+		mod_list->drmFormatModifierCount = mod_count;
+		return;
+	}
+
+	mod_count = MIN2(mod_count, mod_list->drmFormatModifierCount);
+
+	uint64_t *mods = malloc(mod_count * sizeof(uint64_t));
+	if (!mods) {
+		/* We can't return an error here ... */
+		mod_list->drmFormatModifierCount = 0;
+		return;
+	}
+	ac_get_supported_modifiers(&dev->rad_info, &radv_modifier_options,
+	                           vk_format_to_pipe_format(format), &mod_count, mods);
+
+	mod_list->drmFormatModifierCount = 0;
+	for (unsigned i = 0; i < mod_count; ++i) {
+		VkFormatFeatureFlags features =
+			radv_get_modifier_flags(dev, format, mods[i], &pFormatProperties->formatProperties);
+		unsigned planes = vk_format_get_plane_count(format);
+		if (planes == 1) {
+			if (ac_modifier_has_dcc_retile(mods[i]))
+				planes = 3;
+			else if (ac_modifier_has_dcc(mods[i]))
+				planes = 2;
+		}
+
+		if (!features)
+			continue;
+
+		mod_list->pDrmFormatModifierProperties[mod_list->drmFormatModifierCount].drmFormatModifier = mods[i];
+		mod_list->pDrmFormatModifierProperties[mod_list->drmFormatModifierCount].drmFormatModifierPlaneCount = planes;
+		mod_list->pDrmFormatModifierProperties[mod_list->drmFormatModifierCount].drmFormatModifierTilingFeatures = features;
+
+		++mod_list->drmFormatModifierCount;
+	}
+
+	mod_list->drmFormatModifierCount = mod_count;
+	free(mods);
+}
+
+
+static VkResult radv_check_modifier_support(struct radv_physical_device *dev,
+                                       const VkPhysicalDeviceImageFormatInfo2 *info,
+                                       VkImageFormatProperties *props,
+                                       VkFormat format,
+                                       uint64_t modifier)
+{
+	if (info->type != VK_IMAGE_TYPE_2D)
+		return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+	/* We did not add modifiers for sparse textures. */
+	if (info->flags & (VK_IMAGE_CREATE_SPARSE_BINDING_BIT |
+	                   VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT |
+	                   VK_IMAGE_CREATE_SPARSE_ALIASED_BIT))
+		return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+	if (ac_modifier_has_dcc(modifier) &&
+	    !radv_are_formats_dcc_compatible(dev, info->pNext, format, info->flags))
+		return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+	/* We can expand this as needed and implemented but there is not much demand
+	 * for more. */
+	if (ac_modifier_has_dcc(modifier)) {
+		props->maxMipLevels = 1;
+		props->maxArrayLayers = 1;
+	}
+	/* We don't support MSAA for modifiers */
+	props->sampleCounts &= VK_SAMPLE_COUNT_1_BIT;
+	return VK_SUCCESS;
+}
+
 void radv_GetPhysicalDeviceFormatProperties2(
 	VkPhysicalDevice                            physicalDevice,
 	VkFormat                                    format,
 	VkFormatProperties2*                        pFormatProperties)
 {
 	RADV_FROM_HANDLE(radv_physical_device, physical_device, physicalDevice);
+
+	radv_list_drm_format_modifiers(physical_device, format, pFormatProperties);
 
 	radv_physical_device_get_format_properties(physical_device,
 						   format,
@@ -1145,13 +1274,26 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 	VkSampleCountFlags sampleCounts = VK_SAMPLE_COUNT_1_BIT;
 	const struct vk_format_description *desc = vk_format_description(format);
 	enum chip_class chip_class = physical_device->rad_info.chip_class;
+	VkImageTiling tiling = info->tiling;
+	const VkPhysicalDeviceImageDrmFormatModifierInfoEXT *mod_info =
+		vk_find_struct_const(info->pNext, PHYSICAL_DEVICE_IMAGE_DRM_FORMAT_MODIFIER_INFO_EXT);
+	VkResult result = VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+	if (mod_info) {
+		tiling = mod_info->drmFormatModifier == DRM_FORMAT_MOD_LINEAR ?
+			VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL;
+	}
 
 	radv_physical_device_get_format_properties(physical_device, format,
 						   &format_props);
-	if (info->tiling == VK_IMAGE_TILING_LINEAR) {
+	if (tiling == VK_IMAGE_TILING_LINEAR) {
 		format_feature_flags = format_props.linearTilingFeatures;
-	} else if (info->tiling == VK_IMAGE_TILING_OPTIMAL) {
+	} else if (tiling == VK_IMAGE_TILING_OPTIMAL) {
 		format_feature_flags = format_props.optimalTilingFeatures;
+	} else if (tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
+		format_feature_flags = radv_get_modifier_flags(physical_device, format,
+		                                               mod_info->drmFormatModifier,
+		                                               &format_props);
 	} else {
 		unreachable("bad VkImageTiling");
 	}
@@ -1200,7 +1342,7 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 		maxArraySize = 1;
 	}
 
-	if (info->tiling == VK_IMAGE_TILING_OPTIMAL &&
+	if (tiling == VK_IMAGE_TILING_OPTIMAL &&
 	    info->type == VK_IMAGE_TYPE_2D &&
 	    (format_feature_flags & (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT |
 				     VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)) &&
@@ -1208,7 +1350,7 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 		sampleCounts |= VK_SAMPLE_COUNT_2_BIT | VK_SAMPLE_COUNT_4_BIT | VK_SAMPLE_COUNT_8_BIT;
 	}
 
-	if (info->tiling == VK_IMAGE_TILING_LINEAR &&
+	if (tiling == VK_IMAGE_TILING_LINEAR &&
 	    (format == VK_FORMAT_R32G32B32_SFLOAT ||
 	     format == VK_FORMAT_R32G32B32_SINT ||
 	     format == VK_FORMAT_R32G32B32_UINT)) {
@@ -1295,6 +1437,14 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 		.maxResourceSize = UINT32_MAX,
 	};
 
+	if (mod_info) {
+		result = radv_check_modifier_support(physical_device, info,
+		                                     pImageFormatProperties,
+		                                     format, mod_info->drmFormatModifier);
+		if (result != VK_SUCCESS)
+			goto unsupported;
+	}
+
 	return VK_SUCCESS;
 unsupported:
 	*pImageFormatProperties = (VkImageFormatProperties) {
@@ -1305,7 +1455,7 @@ unsupported:
 		.maxResourceSize = 0,
 	};
 
-	return VK_ERROR_FORMAT_NOT_SUPPORTED;
+	return result;
 }
 
 VkResult radv_GetPhysicalDeviceImageFormatProperties(
@@ -1348,8 +1498,12 @@ get_external_image_format_properties(struct radv_physical_device *physical_devic
 		return;
 
 	switch (handleType) {
-	case VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT:
 	case VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT:
+		if (pImageFormatInfo->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
+			break;
+
+		/* fallthrough */
+	case VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT:
 		switch (pImageFormatInfo->type) {
 		case VK_IMAGE_TYPE_2D:
 			flags = VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT|VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
