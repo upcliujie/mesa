@@ -27,6 +27,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "util/simple_mtx.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -49,5 +51,51 @@ env_var_as_unsigned(const char *var_name, unsigned default_value);
 #ifdef __cplusplus
 } /* extern C */
 #endif
+
+/**
+ * Helper for one-time debug value from env-var, and other similar cases,
+ * where the expression is expected to return the same value each time.
+ *
+ * This has additional locking, compared to open-coding the initialization,
+ * to make tools like helgrind happy.
+ */
+#define get_once(__type, __expr) ({ \
+      static bool __once; \
+      static __type __val; \
+      static simple_mtx_t __lock = _SIMPLE_MTX_INITIALIZER_NP; \
+      simple_mtx_lock(&__lock); \
+      if (!__once) { \
+         __val = __expr; \
+         __once = true; \
+      } \
+      simple_mtx_unlock(&__lock); \
+      __val; \
+   })
+
+/**
+ * Helper for arbitrary one-time initialization, with additional locking
+ * to ensure the initialization only happens once (and to make tools like
+ * helgrind happy).
+ */
+#define do_once for( \
+      struct __do_once_data *__d = ({ \
+         static struct __do_once_data __sd = { \
+               .lock = _SIMPLE_MTX_INITIALIZER_NP, \
+               .done = false, \
+         }; \
+         simple_mtx_lock(&__sd.lock); \
+         &__sd; \
+      }); \
+      ({ \
+         if (__d->done) \
+            simple_mtx_unlock(&__d->lock); \
+         !__d->done; \
+      }); \
+      __d->done = true)
+
+struct __do_once_data {
+   simple_mtx_t lock;
+   bool done;
+};
 
 #endif /* _UTIL_DEBUG_H */
