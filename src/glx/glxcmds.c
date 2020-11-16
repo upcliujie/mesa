@@ -1868,6 +1868,15 @@ glXSwapIntervalEXT(Display *dpy, GLXDrawable drawable, int interval)
 #endif
 }
 
+static GLXFBConfig
+root_window_fbconfig(Display *dpy, int screen)
+{
+   struct glx_screen *psc = GetGLXScreenConfigs(dpy, screen);
+   struct glx_config *config =
+      glx_config_find_visual(psc->configs, DefaultVisualOfScreen(dpy, screen));
+
+   return config ? config->fbconfigID : 0;
+}
 
 /*
 ** GLX_SGI_video_sync
@@ -1881,6 +1890,7 @@ glXGetVideoSyncSGI(unsigned int *count)
    struct glx_context *gc = __glXGetCurrentContext();
    struct glx_screen *psc;
    __GLXDRIdrawable *pdraw;
+   XID drawable = None;
 
    if (gc == &dummyContext)
       return GLX_BAD_CONTEXT;
@@ -1888,8 +1898,18 @@ glXGetVideoSyncSGI(unsigned int *count)
    if (!gc->isDirect)
       return GLX_BAD_CONTEXT;
 
+   /* goofy trick to handle context with no bound drawable */
+   if (!gc->currentDrawable) {
+      drawable = glXCreateWindow(gc->currentDpy,
+                                 root_window_fbconfig(gc->currentDpy, gc->screen),
+                                 RootWindow(gc->currentDpy, gc->screen),
+                                 NULL);
+   } else {
+      drawable = gc->currentDrawable;
+   }
+
    psc = GetGLXScreenConfigs(gc->currentDpy, gc->screen);
-   pdraw = GetGLXDRIDrawable(gc->currentDpy, gc->currentDrawable);
+   pdraw = GetGLXDRIDrawable(gc->currentDpy, drawable);
 
    /* FIXME: Looking at the GLX_SGI_video_sync spec in the extension registry,
     * FIXME: there should be a GLX encoding for this call.  I can find no
@@ -1898,8 +1918,12 @@ glXGetVideoSyncSGI(unsigned int *count)
    if (psc && psc->driScreen && psc->driScreen->getDrawableMSC) {
       ret = psc->driScreen->getDrawableMSC(psc, pdraw, &ust, &msc, &sbc);
       *count = (unsigned) msc;
-      return (ret == True) ? 0 : GLX_BAD_CONTEXT;
    }
+
+   if (!gc->currentDrawable)
+      glXDestroyWindow(gc->currentDpy, drawable);
+
+   return (ret == True) ? 0 : GLX_BAD_CONTEXT;
 #endif
 
    return GLX_BAD_CONTEXT;
@@ -1914,6 +1938,7 @@ glXWaitVideoSyncSGI(int divisor, int remainder, unsigned int *count)
    __GLXDRIdrawable *pdraw;
    int64_t ust, msc, sbc;
    int ret;
+   XID drawable = None;
 #endif
 
    if (divisor <= 0 || remainder < 0)
@@ -1926,6 +1951,16 @@ glXWaitVideoSyncSGI(int divisor, int remainder, unsigned int *count)
    if (!gc->isDirect)
       return GLX_BAD_CONTEXT;
 
+   /* goofy trick to handle context with no bound drawable */
+   if (!gc->currentDrawable) {
+      drawable = glXCreateWindow(gc->currentDpy,
+                                 root_window_fbconfig(gc->currentDpy, gc->screen),
+                                 RootWindow(gc->currentDpy, gc->screen),
+                                 NULL);
+   } else {
+      drawable = gc->currentDrawable;
+   }
+
    psc = GetGLXScreenConfigs( gc->currentDpy, gc->screen);
    pdraw = GetGLXDRIDrawable(gc->currentDpy, gc->currentDrawable);
 
@@ -1933,8 +1968,12 @@ glXWaitVideoSyncSGI(int divisor, int remainder, unsigned int *count)
       ret = psc->driScreen->waitForMSC(pdraw, 0, divisor, remainder, &ust, &msc,
 				       &sbc);
       *count = (unsigned) msc;
-      return (ret == True) ? 0 : GLX_BAD_CONTEXT;
    }
+
+   if (!gc->currentDrawable)
+      glXDestroyWindow(gc->currentDpy, drawable);
+
+   return (ret == True) ? 0 : GLX_BAD_CONTEXT;
 #endif
 
    return GLX_BAD_CONTEXT;
