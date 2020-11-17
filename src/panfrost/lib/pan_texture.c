@@ -476,6 +476,7 @@ panfrost_new_texture_bifrost(
                 cfg.levels = last_level - first_level;
                 cfg.array_size = array_size;
                 cfg.surfaces = payload->gpu;
+                cfg.sample_count = MAX2(nr_samples, 1);
 
                 /* We specify API-level LOD clamps in the sampler descriptor
                  * and use these clamps simply for bounds checking */
