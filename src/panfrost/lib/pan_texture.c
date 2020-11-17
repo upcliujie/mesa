@@ -356,7 +356,7 @@ panfrost_emit_texture_payload_v7(mali_ptr *payload,
                                                                           desc->block.width * desc->block.height,
                                                                           u_minify(width, l),
                                                                           u_minify(height, l), false);
-                                        unsigned layer_stride = 0; /* FIXME */
+                                        unsigned layer_stride = is_linear ? slices[l].stride * u_minify(height, l) : 0; /* FIXME */
                                         payload[idx++] = ((uint64_t)layer_stride << 32) | line_stride;
                                 }
                         }
