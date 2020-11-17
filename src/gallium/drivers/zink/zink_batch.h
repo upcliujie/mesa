@@ -56,6 +56,7 @@ struct zink_batch {
    struct util_dynarray zombie_samplers;
 
    struct set *active_queries; /* zink_query objects which were active at some point in this batch */
+   bool has_draw;
 };
 
 void
