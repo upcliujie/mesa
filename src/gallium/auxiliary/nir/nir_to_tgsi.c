@@ -500,6 +500,17 @@ ntt_store(struct ntt_compile *c, nir_dest *dest, struct ureg_src src)
 }
 
 static void
+ntt_free_ssa_temp_by_index(struct ntt_compile *c, int index)
+{
+   /* We do store CONST/IMM/INPUT/etc. in ssa_temp[] */
+   if (c->ssa_temp[index].File != TGSI_FILE_TEMPORARY)
+      return;
+
+   ureg_release_temporary(c->ureg, c->ssa_temp[index]);
+   memset(&c->ssa_temp[index], 0, sizeof(c->ssa_temp[index]));
+}
+
+static void
 ntt_emit_scalar(struct ntt_compile *c, unsigned tgsi_op,
                 struct ureg_dst dst,
                 struct ureg_src src0,
@@ -2047,6 +2058,15 @@ ntt_emit_if(struct ntt_compile *c, nir_if *if_stmt)
 {
    unsigned label;
    ureg_UIF(c->ureg, ntt_get_src(c, if_stmt->condition), &label);
+
+   if (if_stmt->condition.is_ssa) {
+      nir_ssa_def *def = if_stmt->condition.ssa;
+
+      /* nir_liveness sets an if uses's live interval to be the start of the "then" block. */
+      if (c->liveness->defs[def->index].end == nir_if_first_then_block(if_stmt)->start_ip)
+         ntt_free_ssa_temp_by_index(c, def->index);
+   }
+
    ntt_emit_cf_list(c, &if_stmt->then_list);
 
    if (!exec_list_is_empty(&if_stmt->else_list)) {
@@ -2076,17 +2096,6 @@ ntt_emit_loop(struct ntt_compile *c, nir_loop *loop)
    ureg_ENDLOOP(c->ureg, &end_label);
 
    c->loop_label = last_loop_label;
-}
-
-static void
-ntt_free_ssa_temp_by_index(struct ntt_compile *c, int index)
-{
-   /* We do store CONST/IMM/INPUT/etc. in ssa_temp[] */
-   if (c->ssa_temp[index].File != TGSI_FILE_TEMPORARY)
-      return;
-
-   ureg_release_temporary(c->ureg, c->ssa_temp[index]);
-   memset(&c->ssa_temp[index], 0, sizeof(c->ssa_temp[index]));
 }
 
 /* Releases any temporaries for SSA defs with a live interval ending at this

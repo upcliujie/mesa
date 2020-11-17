@@ -326,7 +326,6 @@ nir_live_ssa_defs_per_instr(nir_function_impl *impl)
    for (int i = 0; i < impl->ssa_alloc; i++)
       liveness->defs->start = ~0;
 
-   unsigned last_instr = 0;
    nir_foreach_block(block, impl) {
       unsigned index;
       BITSET_FOREACH_SET(index, block->live_in, impl->ssa_alloc) {
@@ -336,21 +335,19 @@ nir_live_ssa_defs_per_instr(nir_function_impl *impl)
 
       nir_foreach_instr(instr, block) {
          nir_foreach_ssa_def(instr, def_cb, liveness);
-
-         last_instr = instr->index;
       };
 
       /* track an if src's use.  We need to make sure that our value is live
        * across the if reference, where we don't have an instr->index
-       * representing the use.  Mark it as live through the next real
-       * instruction.
+       * representing the use.  Mark it as live through the start of the "then"
+       * block.
        */
       nir_if *nif = nir_block_get_following_if(block);
       if (nif) {
          if (nif->condition.is_ssa) {
             liveness->defs[nif->condition.ssa->index].end = MAX2(
                liveness->defs[nif->condition.ssa->index].end,
-               last_instr + 1);
+               nir_if_first_then_block(nif)->start_ip);
          }
       }
 
