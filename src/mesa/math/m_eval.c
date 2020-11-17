@@ -36,6 +36,7 @@
  * Thanks guys!
  */
 
+#include "c11/threads.h"
 
 #include "main/glheader.h"
 #include "main/config.h"
@@ -445,12 +446,10 @@ _math_de_casteljau_surf(GLfloat * cn, GLfloat * out, GLfloat * du,
 #undef CN
 }
 
+static once_flag init_once_flag = ONCE_FLAG_INIT;
 
-/*
- * Do one-time initialization for evaluators.
- */
-void
-_math_init_eval(void)
+static void
+init_once(void)
 {
    GLuint i;
 
@@ -458,4 +457,13 @@ _math_init_eval(void)
     */
    for (i = 1; i < MAX_EVAL_ORDER; i++)
       inv_tab[i] = 1.0F / i;
+}
+
+/*
+ * Do one-time initialization for evaluators.
+ */
+void
+_math_init_eval(void)
+{
+   call_once(&init_once_flag, init_once);
 }
