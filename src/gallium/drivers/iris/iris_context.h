@@ -890,28 +890,8 @@ uint32_t iris_group_index_to_bti(const struct iris_binding_table *bt,
 uint32_t iris_bti_to_group_index(const struct iris_binding_table *bt,
                                  enum iris_surface_group group,
                                  uint32_t bti);
-
-/* iris_disk_cache.c */
-
-void iris_disk_cache_store(struct disk_cache *cache,
-                           const struct iris_uncompiled_shader *ish,
-                           const struct iris_compiled_shader *shader,
-                           const void *prog_key,
-                           uint32_t prog_key_size);
-struct iris_compiled_shader *
-iris_disk_cache_retrieve(struct iris_context *ice,
-                         struct iris_uncompiled_shader *ish,
-                         const void *prog_key,
-                         uint32_t prog_key_size);
-
-/* iris_program_cache.c */
-
 void iris_init_program_cache(struct iris_context *ice);
 void iris_destroy_program_cache(struct iris_context *ice);
-struct iris_compiled_shader *iris_find_cached_shader(struct iris_context *ice,
-                                                     enum iris_program_cache_id,
-                                                     uint32_t key_size,
-                                                     const void *key);
 struct iris_compiled_shader *iris_upload_shader(struct iris_context *ice,
                                                 struct iris_uncompiled_shader *,
                                                 enum iris_program_cache_id,
@@ -939,6 +919,20 @@ bool iris_blorp_upload_shader(struct blorp_batch *blorp_batch, uint32_t stage,
                               uint32_t prog_data_size,
                               uint32_t *kernel_out,
                               void *prog_data_out);
+
+
+/* iris_disk_cache.c */
+
+void iris_disk_cache_store(struct disk_cache *cache,
+                           const struct iris_uncompiled_shader *ish,
+                           const struct iris_compiled_shader *shader,
+                           const void *prog_key,
+                           uint32_t prog_key_size);
+struct iris_compiled_shader *
+iris_disk_cache_retrieve(struct iris_context *ice,
+                         struct iris_uncompiled_shader *ish,
+                         const void *prog_key,
+                         uint32_t prog_key_size);
 
 /* iris_resolve.c */
 
