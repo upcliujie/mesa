@@ -485,6 +485,12 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
                   offset += def->num_components * comp_size;
                }
 
+               /* Mark this SSA def as available in the remat set so that, if
+                * some other SSA def we need is computed based on it, we can
+                * just re-compute instead of fetching from memory.
+                */
+               BITSET_SET(remat.set, i);
+
                /* For now, we just make a note of this new SSA def.  We'll
                 * fix things up with the phi builder as a second pass.
                 */
