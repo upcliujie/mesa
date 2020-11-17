@@ -3295,11 +3295,21 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
    }
 
    // TODO: only enable when needed
-   if (s->info.stage == MESA_SHADER_FRAGMENT) {
+   if (s->info.stage == MESA_SHADER_FRAGMENT || s->info.num_images) {
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilitySampled1D);
+      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityImage1D);
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityImageQuery);
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityDerivativeControl);
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilitySampleRateShading);
+      if (feats->shaderStorageImageExtendedFormats)
+         spirv_builder_emit_cap(&ctx.builder, SpvCapabilityStorageImageExtendedFormats);
+   }
+   if (s->info.num_images) {
+      /* what if these aren't available? */
+      if (feats->shaderStorageImageWriteWithoutFormat)
+         spirv_builder_emit_cap(&ctx.builder, SpvCapabilityStorageImageWriteWithoutFormat);
+      if (feats->shaderStorageImageReadWithoutFormat)
+         spirv_builder_emit_cap(&ctx.builder, SpvCapabilityStorageImageReadWithoutFormat);
    }
    if (s->info.bit_sizes_int & 64) {
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityInt64);
@@ -3317,7 +3327,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
    ctx.GLSL_std_450 = spirv_builder_import(&ctx.builder, "GLSL.std.450");
    spirv_builder_emit_source(&ctx.builder, SpvSourceLanguageGLSL, 450);
 
-   if (s->info.stage == MESA_SHADER_TESS_CTRL) {
+   if (s->info.stage == MESA_SHADER_TESS_CTRL || s->info.num_images) {
       spirv_builder_emit_extension(&ctx.builder, "SPV_KHR_vulkan_memory_model");
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityVulkanMemoryModel);
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityVulkanMemoryModelDeviceScope);
