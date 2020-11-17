@@ -482,9 +482,9 @@ etna_imm_vec4f(struct etna_compile *c, const float *vec4)
    return alloc_imm_vec4u(c, ETNA_IMMEDIATE_CONSTANT, val);
 }
 
-/* Pass -- check register file declarations and immediates */
+/* Pass -- parse immediates */
 static void
-etna_compile_parse_declarations(struct etna_compile *c)
+etna_compile_parse_immediates(struct etna_compile *c)
 {
    struct tgsi_parse_context ctx = { };
    ASSERTED unsigned status = tgsi_parse_init(&ctx, c->tokens);
@@ -2353,8 +2353,8 @@ etna_compile_shader(struct etna_shader_variant *v)
     * SAMP will map as-is for fragment shaders, there will be a +8 offset for
     * vertex shaders.
     */
-   /* Pass one -- check register file declarations and immediates */
-   etna_compile_parse_declarations(c);
+   /* Pass one -- parse immediates */
+   etna_compile_parse_immediates(c);
 
    etna_allocate_decls(c);
 
