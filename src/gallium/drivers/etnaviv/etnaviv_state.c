@@ -749,24 +749,18 @@ struct etna_state_updater {
 static const struct etna_state_updater etna_state_updates[] = {
    {
       etna_shader_update_vertex, ETNA_DIRTY_SHADER | ETNA_DIRTY_VERTEX_ELEMENTS,
-   },
-   {
+   }, {
       etna_shader_link, ETNA_DIRTY_SHADER,
-   },
-   {
+   }, {
       etna_update_blend, ETNA_DIRTY_BLEND | ETNA_DIRTY_FRAMEBUFFER
-   },
-   {
+   }, {
       etna_update_blend_color, ETNA_DIRTY_BLEND_COLOR | ETNA_DIRTY_FRAMEBUFFER,
-   },
-   {
+   }, {
       etna_update_ts_config, ETNA_DIRTY_DERIVE_TS,
-   },
-   {
+   }, {
       etna_update_clipping, ETNA_DIRTY_SCISSOR | ETNA_DIRTY_FRAMEBUFFER |
                             ETNA_DIRTY_RASTERIZER | ETNA_DIRTY_VIEWPORT,
-   },
-   {
+   }, {
       etna_update_zsa, ETNA_DIRTY_ZSA | ETNA_DIRTY_SHADER,
    }
 };
