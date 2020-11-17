@@ -191,3 +191,85 @@ zink_blit(struct pipe_context *pctx,
 
    util_blitter_blit(ctx->blitter, info);
 }
+
+void
+zink_resource_copy_region(struct pipe_context *pctx,
+                          struct pipe_resource *pdst,
+                          unsigned dst_level, unsigned dstx,
+                          unsigned dsty, unsigned dstz,
+                          struct pipe_resource *psrc,
+                          unsigned src_level,
+                          const struct pipe_box *src_box)
+{
+   struct zink_resource *dst = zink_resource(pdst);
+   struct zink_resource *src = zink_resource(psrc);
+   struct zink_context *ctx = zink_context(pctx);
+   if (dst->base.target != PIPE_BUFFER &&
+       src->base.target != PIPE_BUFFER) {
+      VkImageCopy region = {};
+      if (util_format_get_num_planes(src->base.format) == 1 &&
+          util_format_get_num_planes(dst->base.format) == 1) {
+      /* If neither the calling command’s srcImage nor the calling command’s dstImage
+       * has a multi-planar image format then the aspectMask member of srcSubresource
+       * and dstSubresource must match
+       *
+       * -VkImageCopy spec
+       */
+         assert(src->aspect == dst->aspect);
+      } else
+         unreachable("planar formats not yet handled");
+
+      region.srcSubresource.aspectMask = src->aspect;
+      region.srcSubresource.mipLevel = src_level;
+      region.srcSubresource.layerCount = 1;
+      if (src->base.array_size > 1) {
+         region.srcSubresource.baseArrayLayer = src_box->z;
+         region.srcSubresource.layerCount = src_box->depth;
+         region.extent.depth = 1;
+      } else {
+         region.srcOffset.z = src_box->z;
+         region.srcSubresource.layerCount = 1;
+         region.extent.depth = src_box->depth;
+      }
+
+      region.srcOffset.x = src_box->x;
+      region.srcOffset.y = src_box->y;
+
+      region.dstSubresource.aspectMask = dst->aspect;
+      region.dstSubresource.mipLevel = dst_level;
+      if (dst->base.array_size > 1) {
+         region.dstSubresource.baseArrayLayer = dstz;
+         region.dstSubresource.layerCount = src_box->depth;
+      } else {
+         region.dstOffset.z = dstz;
+         region.dstSubresource.layerCount = 1;
+      }
+
+      region.dstOffset.x = dstx;
+      region.dstOffset.y = dsty;
+      region.extent.width = src_box->width;
+      region.extent.height = src_box->height;
+
+      struct zink_batch *batch = zink_batch_no_rp(ctx);
+      zink_batch_reference_resource_rw(batch, src, false);
+      zink_batch_reference_resource_rw(batch, dst, true);
+
+      zink_resource_setup_transfer_layouts(batch, src, dst);
+      vkCmdCopyImage(batch->cmdbuf, src->image, src->layout,
+                     dst->image, dst->layout,
+                     1, &region);
+   } else if (dst->base.target == PIPE_BUFFER &&
+              src->base.target == PIPE_BUFFER) {
+      VkBufferCopy region;
+      region.srcOffset = src_box->x;
+      region.dstOffset = dstx;
+      region.size = src_box->width;
+
+      struct zink_batch *batch = zink_batch_no_rp(ctx);
+      zink_batch_reference_resource_rw(batch, src, false);
+      zink_batch_reference_resource_rw(batch, dst, true);
+
+      vkCmdCopyBuffer(batch->cmdbuf, src->buffer, dst->buffer, 1, &region);
+   } else
+      debug_printf("zink: TODO resource copy\n");
+}

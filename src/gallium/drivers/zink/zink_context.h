@@ -199,6 +199,15 @@ zink_blit(struct pipe_context *pctx,
           const struct pipe_blit_info *info);
 
 void
+zink_resource_copy_region(struct pipe_context *pctx,
+                          struct pipe_resource *pdst,
+                          unsigned dst_level, unsigned dstx,
+                          unsigned dsty, unsigned dstz,
+                          struct pipe_resource *psrc,
+                          unsigned src_level,
+                          const struct pipe_box *src_box);
+
+void
 zink_draw_vbo(struct pipe_context *pctx,
               const struct pipe_draw_info *dinfo);
 
