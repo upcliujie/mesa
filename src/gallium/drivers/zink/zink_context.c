@@ -767,8 +767,10 @@ access_src_flags(VkImageLayout layout)
 {
    switch (layout) {
    case VK_IMAGE_LAYOUT_UNDEFINED:
-   case VK_IMAGE_LAYOUT_GENERAL:
       return 0;
+
+   case VK_IMAGE_LAYOUT_GENERAL:
+      return VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
 
    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
       return VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
@@ -797,8 +799,10 @@ access_dst_flags(VkImageLayout layout)
 {
    switch (layout) {
    case VK_IMAGE_LAYOUT_UNDEFINED:
-   case VK_IMAGE_LAYOUT_GENERAL:
       return 0;
+
+   case VK_IMAGE_LAYOUT_GENERAL:
+      return VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
 
    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
       return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
