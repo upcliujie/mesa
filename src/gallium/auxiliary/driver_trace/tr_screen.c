@@ -25,6 +25,8 @@
  *
  **************************************************************************/
 
+#include "c11/threads.h"
+
 #include "util/format/u_format.h"
 #include "util/u_memory.h"
 #include "util/simple_list.h"
@@ -667,19 +669,21 @@ trace_screen_destroy(struct pipe_screen *_screen)
    FREE(tr_scr);
 }
 
-bool
-trace_enabled(void)
+static once_flag init_once_flag = ONCE_FLAG_INIT;
+
+static void
+init_once(void)
 {
-   static bool firstrun = true;
-
-   if (!firstrun)
-      return trace;
-   firstrun = false;
-
    if(trace_dump_trace_begin()) {
       trace_dumping_start();
       trace = true;
    }
+}
+
+bool
+trace_enabled(void)
+{
+   call_once(&init_once_flag, init_once);
 
    return trace;
 }
