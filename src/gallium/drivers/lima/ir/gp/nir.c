@@ -508,7 +508,7 @@ bool gpir_compile_nir(struct lima_vs_shader_state *prog, struct nir_shader *nir,
             prog->num_varyings++;
       }
 
-      v->components += glsl_get_components(var->type);
+      v->components = glsl_get_components(var->type);
    }
 
    gpir_print_shader_db(nir, comp, debug);

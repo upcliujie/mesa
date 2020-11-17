@@ -353,10 +353,43 @@ lima_delete_fs_state(struct pipe_context *pctx, void *hwcso)
    ralloc_free(so);
 }
 
+static bool
+lima_vs_compile_shader(struct lima_context *ctx,
+                       struct lima_vs_shader_state *vs)
+{
+   nir_shader *nir = nir_shader_clone(vs, vs->base.ir.nir);
+
+   lima_program_optimize_vs_nir(nir);
+
+   if (lima_debug & LIMA_DEBUG_GP)
+      nir_print_shader(nir, stdout);
+
+   if (!gpir_compile_nir(vs, nir, &ctx->debug)) {
+      ralloc_free(nir);
+      return false;
+   }
+
+   ralloc_free(nir);
+   return true;
+}
+
+
 bool
 lima_update_vs_state(struct lima_context *ctx)
 {
    struct lima_vs_shader_state *vs = ctx->vs;
+   bool needs_recompile = false;
+
+   if (needs_recompile) {
+      if (vs->bo) {
+         lima_bo_unreference(vs->bo);
+         vs->bo = NULL;
+      }
+
+      if (!lima_vs_compile_shader(ctx, vs))
+         return false;
+   }
+
    if (!vs->bo) {
       struct lima_screen *screen = lima_screen(ctx->base.screen);
       vs->bo = lima_bo_create(screen, vs->shader_size, 0);
@@ -456,6 +489,9 @@ lima_create_vs_state(struct pipe_context *pctx,
 
    nir_shader *nir;
    if (cso->type == PIPE_SHADER_IR_NIR)
+      /* The backend takes ownership of the NIR shader on state
+       * creation.
+       */
       nir = cso->ir.nir;
    else {
       assert(cso->type == PIPE_SHADER_IR_TGSI);
@@ -463,17 +499,13 @@ lima_create_vs_state(struct pipe_context *pctx,
       nir = tgsi_to_nir(cso->tokens, pctx->screen, false);
    }
 
-   lima_program_optimize_vs_nir(nir);
+   so->base.type = PIPE_SHADER_IR_NIR;
+   so->base.ir.nir = nir;
 
-   if (lima_debug & LIMA_DEBUG_GP)
-      nir_print_shader(nir, stdout);
-
-   if (!gpir_compile_nir(so, nir, &ctx->debug)) {
+   if (!lima_vs_compile_shader(ctx, so)) {
       ralloc_free(so);
       return NULL;
    }
-
-   ralloc_free(nir);
 
    return so;
 }
@@ -495,6 +527,7 @@ lima_delete_vs_state(struct pipe_context *pctx, void *hwcso)
    if (so->bo)
       lima_bo_unreference(so->bo);
 
+   ralloc_free(so->base.ir.nir);
    ralloc_free(so);
 }
 

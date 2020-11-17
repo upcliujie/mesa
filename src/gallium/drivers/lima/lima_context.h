@@ -62,6 +62,7 @@ struct lima_varying_info {
 };
 
 struct lima_vs_shader_state {
+   struct pipe_shader_state base;
    void *shader;
    int shader_size;
    int prefetch;
