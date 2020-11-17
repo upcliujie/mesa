@@ -44,12 +44,21 @@ struct zink_depth_stencil_alpha_state;
 struct zink_gfx_program;
 struct zink_rasterizer_state;
 struct zink_resource;
+struct zink_surface;
 struct zink_vertex_elements_state;
 
 struct zink_sampler_view {
    struct pipe_sampler_view base;
    union {
       VkImageView image_view;
+      VkBufferView buffer_view;
+   };
+};
+
+struct zink_image_view {
+   struct pipe_image_view base;
+   union {
+      struct zink_surface *surface;
       VkBufferView buffer_view;
    };
 };
@@ -93,6 +102,7 @@ struct zink_context {
    struct pipe_constant_buffer ubos[PIPE_SHADER_TYPES][PIPE_MAX_CONSTANT_BUFFERS];
    struct pipe_shader_buffer ssbos[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
    uint32_t writable_ssbos;
+   struct zink_image_view image_views[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
    struct pipe_framebuffer_state fb_state;
 
    struct zink_vertex_elements_state *element_state;
