@@ -84,11 +84,6 @@ if with_dri_platform == 'drm' and dep_libdrm.found()
     'dri2_glx.c',
     'dri2.h',
     'dri2_priv.h',
-    'dri_glx.c',
-    'dri_sarea.h',
-    'XF86dri.c',
-    'xf86dri.h',
-    'xf86dristr.h',
   )
 endif
 
