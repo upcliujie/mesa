@@ -718,6 +718,15 @@ util_max_layer(const struct pipe_resource *r, unsigned level)
    }
 }
 
+static inline bool
+util_test_intersection(unsigned a_start, unsigned a_end,
+                       unsigned b_start, unsigned b_end)
+{
+   assert(a_end >= a_start);
+   assert(b_end >= b_start);
+   return a_start < b_end && b_start < a_end;
+}
+
 static inline unsigned
 util_num_layers(const struct pipe_resource *r, unsigned level)
 {
