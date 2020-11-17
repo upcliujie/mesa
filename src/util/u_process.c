@@ -46,6 +46,10 @@
 
 #if defined(__linux__) && defined(HAVE_PROGRAM_INVOCATION_NAME)
 
+#include "c11/threads.h"
+
+static once_flag init_once_flag = ONCE_FLAG_INIT;
+
 static char *path = NULL;
 
 static void __freeProgramPath()
@@ -54,22 +58,28 @@ static void __freeProgramPath()
    path = NULL;
 }
 
+static void
+__getProgramPath(void)
+{
+   /* If the / character was found this is likely a linux path or
+    * an invocation path for a 64-bit wine program.
+    *
+    * However, some programs pass command line arguments into argv[0].
+    * Strip these arguments out by using the realpath only if it was
+    * a prefix of the invocation name.
+    */
+   if (!path) {
+      path = realpath("/proc/self/exe", NULL);
+      atexit(__freeProgramPath);
+   }
+}
+
 static const char *
 __getProgramName()
 {
    char * arg = strrchr(program_invocation_name, '/');
    if (arg) {
-      /* If the / character was found this is likely a linux path or
-       * an invocation path for a 64-bit wine program.
-       *
-       * However, some programs pass command line arguments into argv[0].
-       * Strip these arguments out by using the realpath only if it was
-       * a prefix of the invocation name.
-       */
-      if (!path) {
-         path = realpath("/proc/self/exe", NULL);
-         atexit(__freeProgramPath);
-      }
+      call_once(&init_once_flag, __getProgramPath);
 
       if (path && strncmp(path, program_invocation_name, strlen(path)) == 0) {
          /* This shouldn't be null because path is a a prefix,
