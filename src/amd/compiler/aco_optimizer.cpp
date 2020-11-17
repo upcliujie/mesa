@@ -2106,8 +2106,8 @@ bool combine_minmax(opt_ctx& ctx, aco_ptr<Instruction>& instr, aco_opcode opposi
    if (combine_three_valu_op(ctx, instr, instr->opcode, minmax3, "012", 1 | 2))
       return true;
 
-   /* min(-max(a, b), c) -> min3(-a, -b, c) *
-    * max(-min(a, b), c) -> max3(-a, -b, c) */
+   /* min(-max(a, b), c) -> min3(c, -a, -b) *
+    * max(-min(a, b), c) -> max3(c, -a, -b) */
    for (unsigned swap = 0; swap < 2; swap++) {
       Operand operands[3];
       bool neg[3], abs[3], clamp, precise;
@@ -2118,6 +2118,14 @@ bool combine_minmax(opt_ctx& ctx, aco_ptr<Instruction>& instr, aco_opcode opposi
                              operands, neg, abs, &opsel,
                              &clamp, &omod, &inbetween_neg, NULL, NULL, &precise) &&
           inbetween_neg) {
+
+         if (operands[1].constantEquals(0) || operands[2].constantEquals(0)) {
+            /* Do not combine if a or b is equal to zero because when the neg
+             * modifier is set, it's treated as 0x80000000 by the hw.
+             */
+            return false;
+         }
+
          ctx.uses[instr->operands[swap].tempId()]--;
          neg[1] = true;
          neg[2] = true;
