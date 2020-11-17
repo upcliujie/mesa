@@ -25,6 +25,8 @@
  * 
  **************************************************************************/
 
+#include "c11/threads.h"
+
 #include "util/u_debug.h"
 #include "util/u_memory.h"
 #include "tgsi_info.h"
@@ -50,21 +52,24 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
 #undef OPCODE
 #undef OPCODE_GAP
 
+static once_flag init_once_flag = ONCE_FLAG_INIT;
+
+static void
+init_once(void)
+{
+   unsigned i;
+   for (i = 0; i < ARRAY_SIZE(opcode_info); i++)
+      assert(opcode_info[i].opcode == i);
+}
+
 const struct tgsi_opcode_info *
 tgsi_get_opcode_info(enum tgsi_opcode opcode)
 {
-   static boolean firsttime = 1;
-
    ASSERT_BITFIELD_SIZE(struct tgsi_opcode_info, opcode, TGSI_OPCODE_LAST - 1);
    ASSERT_BITFIELD_SIZE(struct tgsi_opcode_info, output_mode,
                         TGSI_OUTPUT_OTHER);
 
-   if (firsttime) {
-      unsigned i;
-      firsttime = 0;
-      for (i = 0; i < ARRAY_SIZE(opcode_info); i++)
-         assert(opcode_info[i].opcode == i);
-   }
+   call_once(&init_once_flag, init_once);
    
    if (opcode < TGSI_OPCODE_LAST)
       return &opcode_info[opcode];
