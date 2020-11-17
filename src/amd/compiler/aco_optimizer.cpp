@@ -99,6 +99,7 @@ enum Label {
    label_omod4 = 1 << 9,
    label_omod5 = 1 << 10,
    label_clamp = 1 << 12,
+   label_vgpr_use = 1 << 13,
    label_undefined = 1 << 14,
    label_vcc = 1 << 15,
    label_b2f = 1 << 16,
@@ -119,7 +120,7 @@ enum Label {
 
 static constexpr uint64_t instr_usedef_labels = label_vec | label_mul | label_mad | label_add_sub |
                                                 label_bitwise | label_uniform_bitwise | label_minmax | label_vopc | label_usedef;
-static constexpr uint64_t instr_mod_labels = label_omod2 | label_omod4 | label_omod5 | label_clamp;
+static constexpr uint64_t instr_mod_labels = label_omod2 | label_omod4 | label_omod5 | label_clamp | label_vgpr_use;
 
 static constexpr uint64_t instr_labels = instr_usedef_labels | instr_mod_labels;
 static constexpr uint64_t temp_labels = label_abs | label_neg | label_temp | label_vcc | label_b2f | label_uniform_bool |
@@ -366,6 +367,17 @@ struct ssa_info {
    bool is_clamp()
    {
       return label & label_clamp;
+   }
+
+   void set_vgpr_use(Instruction *use)
+   {
+      add_label(label_vgpr_use);
+      instr = use;
+   }
+
+   bool is_vgpr_use()
+   {
+      return label & label_vgpr_use;
    }
 
    void set_undefined()
@@ -1160,6 +1172,11 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
          }
       }
       ctx.info[instr->definitions[0].tempId()].set_vec(instr.get());
+      for (Operand& op : instr->operands) {
+         /* check if this becomes a VGPR <- SGPR move. */
+         if (op.isTemp() && op.regClass().type() != instr->definitions[0].regClass().type())
+            ctx.info[op.tempId()].set_vgpr_use(instr.get());
+      }
       break;
    }
    case aco_opcode::p_split_vector: {
@@ -1259,9 +1276,16 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
             if (op.isTemp() && ctx.info[op.tempId()].is_temp() &&
                 ctx.info[op.tempId()].temp.type() == instr->definitions[0].regClass().type())
                op.setTemp(ctx.info[op.tempId()].temp);
+
+            if (op.isTemp() && op.regClass().type() != instr->definitions[0].regClass().type())
+               ctx.info[op.tempId()].set_vgpr_use(instr.get());
          }
          ctx.info[instr->definitions[0].tempId()].set_vec(instr.get());
          break;
+      }
+      if (instr->operands[0].isTemp() &&
+          instr->operands[0].regClass() != instr->definitions[0].regClass()) {
+         ctx.info[instr->operands[0].tempId()].set_vgpr_use(instr.get());
       }
       /* fallthrough */
    case aco_opcode::p_as_uniform:
@@ -2574,6 +2598,122 @@ void apply_sgprs(opt_ctx &ctx, aco_ptr<Instruction>& instr)
    }
 }
 
+aco_opcode match_valu_for_salu(chip_class cc, aco_opcode op, bool *swap)
+{
+   switch (op) {
+   case aco_opcode::s_add_i32:
+   case aco_opcode::s_add_u32:
+      if (cc <= GFX8)
+         return aco_opcode::v_add_co_u32;
+      else
+         return aco_opcode::v_add_u32;
+   case aco_opcode::s_sub_i32:
+   case aco_opcode::s_sub_u32:
+      if (cc <= GFX8)
+         return aco_opcode::v_sub_co_u32;
+      else
+         return aco_opcode::v_sub_u32;
+   case aco_opcode::s_min_i32:
+      return aco_opcode::v_min_i32;
+   case aco_opcode::s_min_u32:
+      return aco_opcode::v_min_u32;
+   case aco_opcode::s_max_i32:
+      return aco_opcode::v_max_i32;
+   case aco_opcode::s_max_u32:
+      return aco_opcode::v_max_u32;
+   case aco_opcode::s_and_b32:
+      return aco_opcode::v_and_b32;
+   case aco_opcode::s_or_b32:
+      return aco_opcode::v_or_b32;
+   case aco_opcode::s_xor_b32:
+      return aco_opcode::v_xor_b32;
+   case aco_opcode::s_not_b32:
+      return aco_opcode::v_not_b32;
+   case aco_opcode::s_lshl_b32:
+      *swap = true;
+      return aco_opcode::v_lshlrev_b32;
+   case aco_opcode::s_lshr_b32:
+      *swap = true;
+      return aco_opcode::v_lshrrev_b32;
+   case aco_opcode::s_ashr_i32:
+      *swap = true;
+      return aco_opcode::v_ashrrev_i32;
+   default:
+      return aco_opcode::num_opcodes;
+   }
+}
+
+bool convert_to_VALU(opt_ctx &ctx, aco_ptr<Instruction>& instr)
+{
+   if (instr->definitions.empty() || ctx.uses[instr->definitions[0].tempId()] != 1)
+      return false;
+
+   ssa_info& def_info = ctx.info[instr->definitions[0].tempId()];
+   if (!def_info.is_vgpr_use())
+      return false;
+
+   for (unsigned i = 1; i < instr->definitions.size(); i++) {
+      if (ctx.uses[instr->definitions[i].tempId()])
+         return false;
+   }
+   if (ctx.uses[def_info.instr->definitions[0].tempId()] == 0)
+      return false;
+
+   bool swap = false;
+   aco_opcode new_op = match_valu_for_salu(ctx.program->chip_class,
+                                           instr->opcode, &swap);
+   if (new_op == aco_opcode::num_opcodes)
+      return false;
+
+   std::vector<Operand> ops;
+   for (Operand& op : instr->operands) {
+      /* propagate SGPR <- VGPR moves */
+      if (op.isTemp() && ctx.info[op.tempId()].is_temp())
+         ops.emplace_back(Operand(ctx.info[op.tempId()].temp));
+      else
+         ops.emplace_back(op);
+   }
+   if (!check_vop3_operands(ctx, ops.size(), ops.data()))
+      return false;
+
+   bool must_use_vop3 = false;
+   if (ops.size() == 2) {
+      if (swap || !ops[1].isTemp() || ops[1].regClass() != v1)
+         std::swap(ops[0], ops[1]);
+      if (!ops[1].isTemp() || ops[1].regClass() != v1)
+         must_use_vop3 = true;
+   }
+
+   ctx.program->temp_rc[instr->definitions[0].tempId()] = v1;
+   Temp tmp = Temp(instr->definitions[0].tempId(), v1);
+   if (new_op == aco_opcode::v_add_co_u32 || new_op == aco_opcode::v_sub_co_u32) {
+      instr.reset(create_instruction<VOP1_instruction>(new_op, Format::VOP1, 2, 2));
+      instr->definitions[1] = Definition(ctx.program->allocateTmp(ctx.program->lane_mask));
+      ctx.uses.push_back(0);
+   } else if (ops.size() == 1) {
+      instr.reset(create_instruction<VOP1_instruction>(new_op, Format::VOP1, 1, 1));
+   } else {
+      instr.reset(create_instruction<VOP2_instruction>(new_op, Format::VOP2, 2, 1));
+   }
+
+   instr->definitions[0] = Definition(tmp);
+   std::copy(ops.cbegin(), ops.cend(), instr->operands.begin());
+
+   if (must_use_vop3)
+      to_VOP3(ctx, instr);
+
+   /* replace the operand at the user */
+   for (Operand& op : def_info.instr->operands) {
+      if (op.isTemp() && op.tempId() == tmp.id())
+         op.setTemp(tmp);
+   }
+   /* update potential temp info */
+   if (ctx.info[def_info.instr->definitions[0].tempId()].is_temp())
+      ctx.info[def_info.instr->definitions[0].tempId()].set_temp(tmp);
+
+   return true;
+}
+
 template <typename T>
 bool apply_omod_clamp_helper(opt_ctx &ctx, T *instr, ssa_info& def_info)
 {
@@ -2689,6 +2829,11 @@ void combine_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr
 {
    if (instr->definitions.empty() || is_dead(ctx.uses, instr.get()))
       return;
+
+   if (instr->isSALU()) {
+      if (convert_to_VALU(ctx, instr))
+         label_instruction(ctx, block, instr);
+   }
 
    if (instr->isVALU()) {
       if (can_apply_sgprs(ctx, instr))
