@@ -552,6 +552,14 @@ void update_renames(ra_ctx& ctx, RegisterFile& reg_file,
                     std::vector<std::pair<Operand, Definition>>& parallelcopies,
                     aco_ptr<Instruction>& instr, bool rename_not_killed_ops)
 {
+   /* clear operands */
+   for (std::pair<Operand, Definition>& copy : parallelcopies) {
+      /* the definitions with id are not from this function and already handled */
+      if (copy.second.isTemp())
+         continue;
+      reg_file.clear(copy.first);
+   }
+
    /* allocate id's and rename operands: this is done transparently here */
    for (std::pair<Operand, Definition>& copy : parallelcopies) {
       /* the definitions with id are not from this function and already handled */
