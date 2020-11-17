@@ -1341,6 +1341,7 @@ radv_image_reset_layout(struct radv_image *image)
 VkResult
 radv_image_create_layout(struct radv_device *device,
                          struct radv_image_create_info create_info,
+                         const struct VkImageDrmFormatModifierExplicitCreateInfoEXT *mod_info,
                          struct radv_image *image)
 {
 	/* Clear the pCreateInfo pointer so we catch issues in the delayed case when we test in the
@@ -1352,11 +1353,15 @@ radv_image_create_layout(struct radv_device *device,
 	if (result != VK_SUCCESS)
 		return result;
 
+	if (mod_info && mod_info->drmFormatModifierPlaneCount < image->plane_count)
+		return VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT;
+
 	radv_image_reset_layout(image);
 
 	for (unsigned plane = 0; plane < image->plane_count; ++plane) {
 		struct ac_surf_info info = image_info;
 		uint64_t offset;
+		unsigned stride;
 
 		if (plane) {
 			const struct vk_format_description *desc = vk_format_description(image->vk_format);
@@ -1375,15 +1380,42 @@ radv_image_create_layout(struct radv_device *device,
 
 		device->ws->surface_init(device->ws, &info, &image->planes[plane].surface);
 
-		if (!create_info.no_metadata_planes && image->plane_count == 1)
+		if (!create_info.no_metadata_planes && image->plane_count == 1 &&
+		    !mod_info)
 			radv_image_alloc_single_sample_cmask(device, image, &image->planes[plane].surface);
 
-		offset = align(image->size, image->planes[plane].surface.alignment);
-		ac_surface_override_offset_stride(&device->physical_device->rad_info,
-		                                  &image->planes[plane].surface,
-		                                  image->info.levels,
-		                                  offset,
-		                                  0);
+		if (mod_info) {
+			if (mod_info->pPlaneLayouts[plane].rowPitch % image->planes[plane].surface.bpe ||
+			    !mod_info->pPlaneLayouts[plane].rowPitch)
+				return VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT;
+
+			offset = mod_info->pPlaneLayouts[plane].offset;
+			stride  = mod_info->pPlaneLayouts[plane].rowPitch / image->planes[plane].surface.bpe;
+		} else {
+			offset = align(image->size, image->planes[plane].surface.alignment);
+			stride = 0;  /* 0 means no override */
+		}
+
+		if (!ac_surface_override_offset_stride(&device->physical_device->rad_info,
+		                                      &image->planes[plane].surface,
+		                                      image->info.levels,
+		                                      offset,
+		                                      stride))
+			return VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT;
+
+		/* Validate DCC offsets in modifier layout. */
+		if (image->plane_count == 1 && mod_info) {
+			unsigned mem_planes = ac_surface_get_nplanes(&image->planes[plane].surface);
+			if (mod_info->drmFormatModifierPlaneCount != mem_planes)
+				return VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT;
+
+			for (unsigned i = 1; i < mem_planes; ++i) {
+				if (ac_surface_get_plane_offset(device->physical_device->rad_info.chip_class,
+				                                &image->planes[plane].surface, i, 0) !=
+				    mod_info->pPlaneLayouts[i].offset)
+					return VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT;
+			}
+		}
 
 		image->size = MAX2(image->size, offset + image->planes[plane].surface.total_size);
 		image->alignment = MAX2(image->alignment, image->planes[plane].surface.alignment);
@@ -1458,6 +1490,10 @@ radv_image_create(VkDevice _device,
 	struct radv_image *image = NULL;
 	VkFormat format = radv_select_android_external_format(pCreateInfo->pNext,
 	                                                      pCreateInfo->format);
+	const struct VkImageDrmFormatModifierListCreateInfoEXT *mod_list =
+		vk_find_struct_const(pCreateInfo->pNext, IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT);
+	const struct VkImageDrmFormatModifierExplicitCreateInfoEXT *explicit_mod =
+		vk_find_struct_const(pCreateInfo->pNext, IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT);
 	assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
 
 	const unsigned plane_count = vk_format_get_plane_count(format);
@@ -1515,7 +1551,12 @@ radv_image_create(VkDevice _device,
 	for (unsigned plane = 0; plane < image->plane_count; ++plane) {
 		image->planes[plane].surface.flags =
 			radv_get_surface_flags(device, image, plane, pCreateInfo, format);
-		image->planes[plane].surface.modifier = DRM_FORMAT_MOD_INVALID;
+		if (mod_list)
+			image->planes[plane].surface.modifier = mod_list->pDrmFormatModifiers[0];
+		else if(explicit_mod)
+			image->planes[plane].surface.modifier = explicit_mod->drmFormatModifier;
+		else
+			image->planes[plane].surface.modifier = DRM_FORMAT_MOD_INVALID;
 	}
 
 	bool delay_layout = external_info &&
@@ -1527,7 +1568,7 @@ radv_image_create(VkDevice _device,
 		return VK_SUCCESS;
 	}
 
-	ASSERTED VkResult result = radv_image_create_layout(device, *create_info, image);
+	ASSERTED VkResult result = radv_image_create_layout(device, *create_info, explicit_mod, image);
 	assert(result == VK_SUCCESS);
 
 	if (image->flags & VK_IMAGE_CREATE_SPARSE_BINDING_BIT) {
