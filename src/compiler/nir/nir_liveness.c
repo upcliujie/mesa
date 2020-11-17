@@ -331,7 +331,7 @@ nir_live_ssa_defs_per_instr(nir_function_impl *impl)
       unsigned index;
       BITSET_FOREACH_SET(index, block->live_in, impl->ssa_alloc) {
          liveness->defs[index].start = MIN2(liveness->defs[index].start,
-                                            last_instr);
+                                            block->start_ip);
       }
 
       nir_foreach_instr(instr, block) {
@@ -355,7 +355,8 @@ nir_live_ssa_defs_per_instr(nir_function_impl *impl)
       }
 
       BITSET_FOREACH_SET(index, block->live_out, impl->ssa_alloc) {
-         liveness->defs[index].end = MAX2(liveness->defs[index].end, last_instr);
+         liveness->defs[index].end = MAX2(liveness->defs[index].end,
+                                          block->end_ip);
       }
    }
 
