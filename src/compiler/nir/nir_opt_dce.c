@@ -59,17 +59,18 @@ struct loop_state {
    nir_block *preheader;
 };
 
-static void
-mark_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
+static bool
+dce_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
 {
+   bool progress = false;
    bool phis_changed = false;
-   nir_foreach_instr_reverse(instr, block) {
-      instr->pass_flags = 0;
+   nir_foreach_instr_reverse_safe(instr, block) {
+      bool live = false;
       switch (instr->type) {
       case nir_instr_type_alu: {
          nir_alu_instr *alu = nir_instr_as_alu(instr);
          if (is_dest_live(&alu->dest.dest, defs_live)) {
-            instr->pass_flags = 1;
+            live = true;
 
             for (unsigned i = 0; i < nir_op_infos[alu->op].num_inputs; i++)
                mark_src_live(&alu->src[i].src, defs_live);
@@ -81,7 +82,7 @@ mark_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
       case nir_instr_type_deref: {
          nir_deref_instr *deref = nir_instr_as_deref(instr);
          if (is_dest_live(&deref->dest, defs_live)) {
-            instr->pass_flags = 1;
+            live = true;
 
             if (deref->deref_type != nir_deref_type_var)
                mark_src_live(&deref->parent, defs_live);
@@ -96,7 +97,7 @@ mark_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
       }
       case nir_instr_type_call: {
          nir_call_instr *call = nir_instr_as_call(instr);
-         instr->pass_flags = 1;
+         live = true;
 
          for (unsigned i = 0; i < call->num_params; i++)
             mark_src_live(&call->params[i], defs_live);
@@ -105,7 +106,7 @@ mark_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
       case nir_instr_type_tex: {
          nir_tex_instr *tex = nir_instr_as_tex(instr);
          if (is_dest_live(&tex->dest, defs_live)) {
-            instr->pass_flags = 1;
+            live = true;
 
             for (unsigned i = 0; i < tex->num_srcs; i++)
                mark_src_live(&tex->src[i].src, defs_live);
@@ -119,7 +120,7 @@ mark_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
          const nir_intrinsic_info *info = &nir_intrinsic_infos[intrin->intrinsic];
          if (!(info->flags & NIR_INTRINSIC_CAN_ELIMINATE) ||
              (info->has_dest && is_dest_live(&intrin->dest, defs_live))) {
-            instr->pass_flags = 1;
+            live = true;
 
             for (unsigned i = 0; i < info->num_srcs; i++)
                mark_src_live(&intrin->src[i], defs_live);
@@ -131,12 +132,12 @@ mark_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
       }
       case nir_instr_type_load_const: {
          nir_load_const_instr *lc = nir_instr_as_load_const(instr);
-         instr->pass_flags = BITSET_TEST(defs_live, lc->def.index);
+         live = BITSET_TEST(defs_live, lc->def.index);
          break;
       }
       case nir_instr_type_jump: {
          nir_jump_instr *jump = nir_instr_as_jump(instr);
-         instr->pass_flags = 1;
+         live = true;
 
          if (jump->type == nir_jump_goto_if)
             mark_src_live(&jump->condition, defs_live);
@@ -144,13 +145,13 @@ mark_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
       }
       case nir_instr_type_ssa_undef: {
          nir_ssa_undef_instr *undef = nir_instr_as_ssa_undef(instr);
-         instr->pass_flags = BITSET_TEST(defs_live, undef->def.index);
+         live = BITSET_TEST(defs_live, undef->def.index);
          break;
       }
       case nir_instr_type_phi: {
          nir_phi_instr *phi = nir_instr_as_phi(instr);
          if (is_dest_live(&phi->dest, defs_live)) {
-            instr->pass_flags = 1;
+            live = true;
 
             nir_foreach_phi_src(src, phi) {
                phis_changed |= mark_src_live(&src->src, defs_live) &&
@@ -163,7 +164,6 @@ mark_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
       }
       case nir_instr_type_parallel_copy: {
          nir_parallel_copy_instr *pc = nir_instr_as_parallel_copy(instr);
-         bool live = false;
          nir_foreach_parallel_copy_entry(entry, pc) {
             if (is_dest_live(&entry->dest, defs_live)) {
                live = true;
@@ -171,7 +171,6 @@ mark_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
             }
          }
          if (live) {
-            instr->pass_flags = 1;
             nir_foreach_parallel_copy_entry(entry, pc) {
                mark_src_live(&entry->src, defs_live);
                mark_indirect_live(&entry->dest, defs_live);
@@ -180,44 +179,81 @@ mark_block(nir_block *block, BITSET_WORD *defs_live, struct loop_state *loop)
          break;
       }
       }
+
+      /* If we're not in a loop, remove it now if it's dead. If we are in a
+       * loop, leave instructions to be removed later if they're still dead.
+       */
+      if (!loop->preheader && !live) {
+         nir_instr_remove(instr);
+         progress = true;
+      } else if (loop->preheader) {
+         instr->pass_flags = live;
+      }
    }
+
    loop->phis_changed = phis_changed;
+   return progress;
 }
 
-static void
-mark_cf_list(struct exec_list *cf_list, BITSET_WORD *defs_live,
-             struct loop_state *parent_loop)
+static bool
+dce_cf_list(struct exec_list *cf_list, BITSET_WORD *defs_live,
+            struct loop_state *parent_loop)
 {
+   bool progress = false;
    foreach_list_typed_reverse(nir_cf_node, cf_node, node, cf_list) {
       switch (cf_node->type) {
       case nir_cf_node_block: {
          nir_block *block = nir_cf_node_as_block(cf_node);
-         mark_block(block, defs_live, parent_loop);
+         progress |= dce_block(block, defs_live, parent_loop);
          break;
       }
       case nir_cf_node_if: {
          nir_if *nif = nir_cf_node_as_if(cf_node);
          mark_src_live(&nif->condition, defs_live);
-         mark_cf_list(&nif->else_list, defs_live, parent_loop);
-         mark_cf_list(&nif->then_list, defs_live, parent_loop);
+         progress |= dce_cf_list(&nif->else_list, defs_live, parent_loop);
+         progress |= dce_cf_list(&nif->then_list, defs_live, parent_loop);
          break;
       }
       case nir_cf_node_loop: {
          nir_loop *loop = nir_cf_node_as_loop(cf_node);
+
+         /* Fast path if the loop has no continues: we can remove instructions
+          * as we mark the others live.
+          */
+         if (nir_loop_first_block(loop)->predecessors->entries == 1) {
+            progress |= dce_cf_list(&loop->body, defs_live, parent_loop);
+            break;
+         }
 
          /* Mark instructions as live until there is no more progress. */
          struct loop_state inner_state;
          inner_state.preheader = nir_cf_node_as_block(nir_cf_node_prev(cf_node));
          inner_state.phis_changed = false;
          do {
-            mark_cf_list(&loop->body, defs_live, &inner_state);
+            dce_cf_list(&loop->body, defs_live, &inner_state);
          } while (inner_state.phis_changed);
+
+         /* We don't know how many times mark_cf_list() will repeat, so
+          * remove instructions separately.
+          */
+         if (!parent_loop->preheader) {
+            nir_foreach_block_in_cf_node(block, cf_node) {
+               nir_foreach_instr_safe(instr, block) {
+                  if (!instr->pass_flags) {
+                     nir_instr_remove(instr);
+                     progress = true;
+                  }
+               }
+            }
+         }
          break;
       }
       case nir_cf_node_function:
          unreachable("Invalid cf type");
       }
    }
+
+   return progress;
 }
 
 static bool
@@ -230,18 +266,7 @@ nir_opt_dce_impl(nir_function_impl *impl)
 
    struct loop_state loop;
    loop.preheader = NULL;
-   mark_cf_list(&impl->body, defs_live, &loop);
-
-   bool progress = false;
-
-   nir_foreach_block(block, impl) {
-      nir_foreach_instr_safe(instr, block) {
-         if (!instr->pass_flags) {
-            nir_instr_remove(instr);
-            progress = true;
-         }
-      }
-   }
+   bool progress = dce_cf_list(&impl->body, defs_live, &loop);
 
    ralloc_free(defs_live);
 
