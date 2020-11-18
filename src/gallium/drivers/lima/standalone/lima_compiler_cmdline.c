@@ -220,7 +220,7 @@ main(int argc, char **argv)
 
    switch (stage) {
    case MESA_SHADER_VERTEX:
-      lima_program_optimize_vs_nir(nir);
+      lima_program_optimize_vs_nir(nir, 0);
 
       nir_print_shader(nir, stdout);
 
@@ -228,7 +228,7 @@ main(int argc, char **argv)
       gpir_compile_nir(vs, nir, NULL);
       break;
    case MESA_SHADER_FRAGMENT:
-      lima_program_optimize_fs_nir(nir, &tex_options);
+      lima_program_optimize_fs_nir(nir, &tex_options, 0);
 
       nir_print_shader(nir, stdout);
 

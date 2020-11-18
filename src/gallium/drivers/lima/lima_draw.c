@@ -281,7 +281,7 @@ lima_pack_vs_cmd(struct lima_context *ctx, const struct pipe_draw_info *info,
    }
    int uniform_size = MIN2(vs->uniform_size, ccb->size);
 
-   int size = uniform_size + vs->constant_size + 32;
+   int size = uniform_size + vs->constant_size + 32 + PIPE_MAX_CLIP_PLANES * 16;
    VS_CMD_UNIFORMS_ADDRESS(
       lima_ctx_buff_va(ctx, lima_ctx_buff_gp_uniform),
       align(size, 16));
@@ -845,7 +845,7 @@ lima_update_gp_uniform(struct lima_context *ctx)
    struct lima_vs_shader_state *vs = ctx->vs;
    int uniform_size = MIN2(vs->uniform_size, ccb->size);
 
-   int size = uniform_size + vs->constant_size + 32;
+   int size = uniform_size + vs->constant_size + 32 + PIPE_MAX_CLIP_PLANES * 16;
    void *vs_const_buff =
       lima_ctx_buff_alloc(ctx, lima_ctx_buff_gp_uniform, size);
 
@@ -859,8 +859,13 @@ lima_update_gp_uniform(struct lima_context *ctx)
           ctx->viewport.transform.translate,
           sizeof(ctx->viewport.transform.translate));
 
+   for (int i = 0; i < PIPE_MAX_CLIP_PLANES; i++) {
+      memcpy(vs_const_buff + uniform_size + 32 + i * 16,
+             ctx->clip.ucp[i], sizeof(ctx->clip.ucp[0]));
+   }
+
    if (vs->constant)
-      memcpy(vs_const_buff + uniform_size + 32,
+      memcpy(vs_const_buff + uniform_size + 32 + PIPE_MAX_CLIP_PLANES * 16,
              vs->constant, vs->constant_size);
 
    struct lima_job *job = lima_job_get(ctx);

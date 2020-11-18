@@ -388,7 +388,15 @@ struct lima_vs_shader_state;
 
 #define GPIR_VECTOR_SSA_VIEWPORT_SCALE  0
 #define GPIR_VECTOR_SSA_VIEWPORT_OFFSET 1
-#define GPIR_VECTOR_SSA_NUM 2
+#define GPIR_VECTOR_SSA_CLIP_PLANE0     2
+#define GPIR_VECTOR_SSA_CLIP_PLANE1     3
+#define GPIR_VECTOR_SSA_CLIP_PLANE2     4
+#define GPIR_VECTOR_SSA_CLIP_PLANE3     5
+#define GPIR_VECTOR_SSA_CLIP_PLANE4     6
+#define GPIR_VECTOR_SSA_CLIP_PLANE5     7
+#define GPIR_VECTOR_SSA_CLIP_PLANE6     8
+#define GPIR_VECTOR_SSA_CLIP_PLANE7     9
+#define GPIR_VECTOR_SSA_NUM            10
 
 typedef struct gpir_compiler {
    struct list_head block_list;
