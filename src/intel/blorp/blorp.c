@@ -96,9 +96,14 @@ brw_blorp_surface_info_init(struct blorp_context *blorp,
    info->addr = surf->addr;
 
    info->aux_usage = surf->aux_usage;
-   if (info->aux_usage != ISL_AUX_USAGE_NONE) {
+   if (surf->aux_surf) {
       info->aux_surf = *surf->aux_surf;
       info->aux_addr = surf->aux_addr;
+   } else if (info->aux_usage != ISL_AUX_USAGE_NONE) {
+      /* CCS on Gen12+ doesn't require a surface */
+      assert(ISL_DEV_GEN(blorp->isl_dev) >= 12);
+      assert(surf->aux_usage == ISL_AUX_USAGE_GEN12_CCS_E ||
+             surf->aux_usage == ISL_AUX_USAGE_STC_CCS);
    }
 
    info->clear_color = surf->clear_color;
