@@ -97,9 +97,20 @@ type_size(const struct glsl_type *type, bool bindless)
 }
 
 void
-lima_program_optimize_vs_nir(struct nir_shader *s)
+lima_program_optimize_vs_nir(struct nir_shader *s, uint8_t ucp_enables)
 {
    bool progress;
+
+   /* ucp must be lowered before nir_lower_viewport_transform,
+    * it needs to work with the untransformed position. */
+   if (ucp_enables) {
+      NIR_PASS_V(s, nir_lower_io_to_temporaries, nir_shader_get_entrypoint(s), true, true);
+      NIR_PASS_V(s, nir_lower_clip_vs, ucp_enables, true, false, NULL);
+      NIR_PASS_V(s, nir_lower_io_to_temporaries, nir_shader_get_entrypoint(s), true, true);
+      NIR_PASS_V(s, nir_lower_global_vars_to_local);
+      NIR_PASS_V(s, nir_split_var_copies);
+      NIR_PASS_V(s, nir_lower_var_copies);
+   }
 
    NIR_PASS_V(s, nir_lower_viewport_transform);
    NIR_PASS_V(s, nir_lower_point_size, 1.0f, 100.0f);
@@ -202,11 +213,15 @@ lima_vec_to_movs_filter_cb(const nir_instr *instr, unsigned writemask,
 
 void
 lima_program_optimize_fs_nir(struct nir_shader *s,
-                             struct nir_lower_tex_options *tex_options)
+                             struct nir_lower_tex_options *tex_options,
+                             uint8_t ucp_enables)
 {
    bool progress;
 
    NIR_PASS_V(s, nir_lower_fragcoord_wtrans);
+   if (ucp_enables)
+      NIR_PASS_V(s, nir_lower_clip_fs, ucp_enables, false);
+
    NIR_PASS_V(s, nir_lower_io,
 	      nir_var_shader_in | nir_var_shader_out, type_size, 0);
    NIR_PASS_V(s, nir_lower_regs_to_ssa);
@@ -294,7 +309,7 @@ lima_fs_compile_shader(struct lima_context *ctx,
          tex_options.swizzle_result |= (1 << i);
    }
 
-   lima_program_optimize_fs_nir(nir, &tex_options);
+   lima_program_optimize_fs_nir(nir, &tex_options, key->ucp_enables);
 
    if (lima_debug & LIMA_DEBUG_PP)
       nir_print_shader(nir, stdout);
@@ -383,7 +398,7 @@ lima_vs_compile_shader(struct lima_context *ctx,
 {
    nir_shader *nir = nir_shader_clone(vs, key->shader_state->base.ir.nir);
 
-   lima_program_optimize_vs_nir(nir);
+   lima_program_optimize_vs_nir(nir, key->ucp_enables);
 
    if (lima_debug & LIMA_DEBUG_GP)
       nir_print_shader(nir, stdout);
@@ -430,7 +445,9 @@ lima_get_compiled_vs(struct lima_context *ctx,
 bool
 lima_update_vs_state(struct lima_context *ctx)
 {
-   if (!(ctx->dirty & LIMA_CONTEXT_DIRTY_UNCOMPILED_VS)) {
+   if (!(ctx->dirty & (LIMA_CONTEXT_DIRTY_UNCOMPILED_VS |
+                       LIMA_CONTEXT_DIRTY_RASTERIZER |
+                       LIMA_CONTEXT_DIRTY_CLIP))) {
       return true;
    }
 
@@ -438,6 +455,12 @@ lima_update_vs_state(struct lima_context *ctx)
    struct lima_vs_key *key = &local_key;
    memset(key, 0, sizeof(*key));
    key->shader_state = ctx->bind_vs;
+
+   /* user clip planes */
+   if (ctx->dirty & (LIMA_CONTEXT_DIRTY_RASTERIZER | LIMA_CONTEXT_DIRTY_CLIP) &&
+       ctx->rasterizer) {
+      key->ucp_enables = ctx->rasterizer->base.clip_plane_enable;
+   }
 
    struct lima_vs_shader_state *old_vs = ctx->vs;
 
@@ -500,6 +523,8 @@ bool
 lima_update_fs_state(struct lima_context *ctx)
 {
    if (!(ctx->dirty & (LIMA_CONTEXT_DIRTY_UNCOMPILED_FS |
+                       LIMA_CONTEXT_DIRTY_RASTERIZER |
+                       LIMA_CONTEXT_DIRTY_CLIP |
                        LIMA_CONTEXT_DIRTY_TEXTURES))) {
       return true;
    }
@@ -509,6 +534,12 @@ lima_update_fs_state(struct lima_context *ctx)
    struct lima_fs_key *key = &local_key;
    memset(key, 0, sizeof(*key));
    key->shader_state = ctx->bind_fs;
+
+   /* user clip planes */
+   if (ctx->dirty & (LIMA_CONTEXT_DIRTY_RASTERIZER | LIMA_CONTEXT_DIRTY_CLIP) &&
+       ctx->rasterizer) {
+      key->ucp_enables = ctx->rasterizer->base.clip_plane_enable;
+   }
 
    if (((ctx->dirty & LIMA_CONTEXT_DIRTY_TEXTURES) &&
        lima_tex->num_samplers &&
