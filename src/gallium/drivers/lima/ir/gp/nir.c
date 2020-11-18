@@ -274,6 +274,8 @@ static bool gpir_emit_intrinsic(gpir_block *block, nir_instr *ni)
       return gpir_create_vector_load(block, &instr->dest, GPIR_VECTOR_SSA_VIEWPORT_SCALE);
    case nir_intrinsic_load_viewport_offset:
       return gpir_create_vector_load(block, &instr->dest, GPIR_VECTOR_SSA_VIEWPORT_OFFSET);
+   case nir_intrinsic_load_user_clip_plane:
+      return gpir_create_vector_load(block, &instr->dest, GPIR_VECTOR_SSA_CLIP_PLANE0 + nir_intrinsic_ucp_id(instr));
    case nir_intrinsic_store_output:
    {
       gpir_store_node *store = gpir_node_create(block, gpir_op_store_varying);
