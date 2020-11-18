@@ -85,6 +85,7 @@ lower_printf_impl(nir_builder *b, nir_intrinsic_instr *instr, const nir_lower_pr
    nir_deref_instr *format_string_write_deref =
       nir_build_deref_cast(b, &as_offset_byte_array->dest.ssa, nir_var_mem_global,
                            get_format_string_id_type(instr->src[0].ssa->bit_size), format_string_id_size);
+   format_string_write_deref->cast.align_mul = sizeof(int);
    nir_store_deref(b, format_string_write_deref, instr->src[0].ssa, ~0);
 
    /* Write the format args */
@@ -110,6 +111,8 @@ lower_printf_impl(nir_builder *b, nir_intrinsic_instr *instr, const nir_lower_pr
       as_offset_byte_array = nir_build_deref_ptr_as_array(b, as_byte_array, field_offset);
       nir_deref_instr *field_write_deref =
          nir_build_deref_cast(b, &as_offset_byte_array->dest.ssa, nir_var_mem_global, field_type, glsl_get_cl_size(field_type));
+      field_write_deref->cast.align_mul = sizeof(int);
+      field_write_deref->cast.align_offset = glsl_get_struct_field_offset(struct_type, i) % sizeof(int);
 
       nir_store_deref(b, field_write_deref, field_value, ~0);
    }
