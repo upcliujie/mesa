@@ -58,6 +58,7 @@ struct lima_fs_bind_state {
 struct lima_fs_key {
    struct lima_fs_bind_state *shader_state;
    uint8_t swizzles[PIPE_MAX_SAMPLERS][4];
+   uint8_t ucp_enables;
 };
 
 #define LIMA_MAX_VARYING_NUM 13
@@ -93,6 +94,7 @@ struct lima_vs_bind_state {
 
 struct lima_vs_key {
    struct lima_vs_bind_state *shader_state;
+   uint8_t ucp_enables;
 };
 
 struct lima_rasterizer_state {
