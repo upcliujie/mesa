@@ -1454,7 +1454,7 @@ blorp_emit_surface_state(struct blorp_batch *batch,
    blorp_surface_reloc(batch, state_offset + isl_dev->ss.addr_offset,
                        surface->addr, 0);
 
-   if (aux_usage != ISL_AUX_USAGE_NONE) {
+   if (surface->aux_addr.buffer != NULL) {
       /* On gen7 and prior, the bottom 12 bits of the MCS base address are
        * used to store other information.  This should be ok, however, because
        * surface buffer addresses are always 4K page alinged.
