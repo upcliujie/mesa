@@ -453,12 +453,6 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
 
       NIR_PASS_V(nir, nir_lower_variable_initializers, ~nir_var_function_temp);
 
-      struct nir_lower_printf_options printf_options;
-      printf_options.treat_doubles_as_floats = false;
-      printf_options.max_buffer_size = dev.max_printf_buffer_size();
-
-      NIR_PASS_V(nir, nir_lower_printf, &printf_options);
-
       // copy propagate to prepare for lower_explicit_io
       NIR_PASS_V(nir, nir_split_var_copies);
       NIR_PASS_V(nir, nir_opt_copy_prop_vars);
@@ -489,16 +483,22 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_constant,
                  spirv_options.constant_addr_format);
 
-      auto args = sym.args;
-      NIR_PASS_V(nir, clover_lower_nir, args, dev.max_block_size().size(),
-                 dev.address_bits());
-
       NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
                  nir_var_uniform, clover_arg_size_align);
       NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
                  nir_var_mem_shared | nir_var_mem_global |
                  nir_var_function_temp,
                  glsl_get_cl_type_size_align);
+
+      struct nir_lower_printf_options printf_options;
+      printf_options.treat_doubles_as_floats = false;
+      printf_options.max_buffer_size = dev.max_printf_buffer_size();
+
+      NIR_PASS_V(nir, nir_lower_printf, &printf_options);
+
+      auto args = sym.args;
+      NIR_PASS_V(nir, clover_lower_nir, args, dev.max_block_size().size(),
+                 dev.address_bits());
 
       NIR_PASS_V(nir, nir_opt_deref);
       NIR_PASS_V(nir, nir_lower_cl_images_to_tex);
