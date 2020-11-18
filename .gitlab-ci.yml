@@ -519,7 +519,6 @@ make git archive:
   extends: .use-git_archive
   stage: sanity
   artifacts:
-    when: on_failure
     reports:
       junit: check-*.xml
 
