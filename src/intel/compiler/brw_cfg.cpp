@@ -114,7 +114,8 @@ ends_block(const backend_instruction *inst)
           op == BRW_OPCODE_CONTINUE ||
           op == BRW_OPCODE_BREAK ||
           op == BRW_OPCODE_DO ||
-          op == BRW_OPCODE_WHILE;
+          op == BRW_OPCODE_WHILE ||
+          op == BRW_OPCODE_HALT;
 }
 
 static bool
@@ -184,6 +185,7 @@ cfg_t::cfg_t(const backend_shader *s, exec_list *instructions) :
    bblock_t *cur_endif = NULL; /**< BB starting with ENDIF. */
    bblock_t *cur_do = NULL;    /**< BB starting with DO. */
    bblock_t *cur_while = NULL; /**< BB immediately following WHILE. */
+   bblock_t *halt_target = NULL;
    exec_list if_stack, else_stack, do_stack, while_stack;
    bblock_t *next;
 
@@ -396,14 +398,35 @@ cfg_t::cfg_t(const backend_shader *s, exec_list *instructions) :
 	 cur_while = pop_stack(&while_stack);
 	 break;
 
+      case BRW_OPCODE_HALT:
+         cur->instructions.push_tail(inst);
+
+         /* Set up the halt target if one does not already exist.  Don't know
+          * when exactly it will start, yet.
+	  */
+         if (halt_target == NULL)
+	    halt_target = new_block();
+
+         cur->add_successor(mem_ctx, halt_target, bblock_link_logical);
+
+	 next = new_block();
+	 if (inst->predicate)
+            cur->add_successor(mem_ctx, next, bblock_link_logical);
+
+	 set_next_block(&cur, next, ip);
+	 break;
+
       case SHADER_OPCODE_HALT_TARGET:
-         /* When only used as the target of DISCARD_JUMP, we want to start a
-          * new block but DISCARD_JUMP isn't considered control-flow so
-          * nothing jumps to it except the previous block.
-          */
-         next = new_block();
-         cur->add_successor(mem_ctx, next, bblock_link_logical);
-         set_next_block(&cur, next, ip - 1);
+         if (halt_target == NULL) {
+            /* When only used as the target of DISCARD_JUMP, we want to start
+             * a new block but DISCARD_JUMP isn't considered control-flow so
+             * nothing jumps to it except the previous block.
+             */
+            halt_target = new_block();
+         }
+
+         cur->add_successor(mem_ctx, halt_target, bblock_link_logical);
+         set_next_block(&cur, halt_target, ip - 1);
          cur->instructions.push_tail(inst);
          break;
 
