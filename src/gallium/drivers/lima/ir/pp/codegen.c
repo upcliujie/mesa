@@ -89,6 +89,7 @@ static void ppir_codegen_encode_varying(ppir_node *node, void *code)
          case ppir_op_load_frontface:
             f->imm.source_type = 3;
             f->imm.perspective = 1;
+            f->imm.alignment = 0;
             break;
          case ppir_op_load_coords:
             /* num_components == 3 implies cubemap as we don't support 3D textures */

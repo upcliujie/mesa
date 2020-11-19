@@ -711,7 +711,12 @@ lima_pack_render_state(struct lima_context *ctx, const struct pipe_draw_info *in
    render->textures_address = 0x00000000;
 
    render->aux0 = (ctx->vs->varying_stride >> 3);
-   render->aux1 = 0x00001000;
+
+   render->aux1 = 0x00000000;
+
+   if (ctx->rasterizer->base.front_ccw)
+      render->aux1 = 0x00001000;
+
    if (ctx->blend->base.dither)
       render->aux1 |= 0x00002000;
 
