@@ -8527,9 +8527,6 @@ fs_visitor::run_fs(bool allow_spilling, bool do_rep_send)
       if (failed)
 	 return false;
 
-      if (wm_prog_data->uses_kill)
-         bld.emit(SHADER_OPCODE_HALT_TARGET);
-
       if (wm_key->alpha_test_func)
          emit_alpha_test();
 
