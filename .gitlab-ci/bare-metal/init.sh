@@ -46,6 +46,17 @@ if [ -n "$BM_START_XORG" ]; then
   export DISPLAY=:0
 fi
 
+# Disable GPU frequency scaling
+DEVFREQ_GOVERNOR=`find /sys/devices -name governor | grep gpu || true`
+echo performance > $DEVFREQ_GOVERNOR || true
+
+# Disable CPU frequency scaling
+echo performance | tee -a /sys/devices/system/cpu/cpufreq/policy*/scaling_governor || true
+
+# Disable GPU runtime PM
+GPU_AUTOSUSPEND=`find /sys/devices -name autosuspend_delay_ms | grep gpu | head -1`
+echo -1 > $GPU_AUTOSUSPEND || true
+
 if sh $BARE_METAL_TEST_SCRIPT; then
   OK=1
 else
