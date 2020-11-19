@@ -1208,6 +1208,141 @@ simple_merge_if(nir_if *dest_if, nir_if *src_if, bool dest_if_then,
    nir_cf_reinsert(&if_cf_list, nir_after_block(dest_blk));
 }
 
+struct phi_visited {
+   struct phi_visited *prev;
+   nir_ssa_def *ssa;
+};
+
+static bool
+phi_is_circular(nir_phi_instr *phi, struct phi_visited *prev_visited)
+{
+   /* return early if the phi is used by anything but other phis. */
+   /* In theory, we could do better if we check that the _used_ phi_src
+    * doesn't depend on the current one */
+   if (!list_is_empty(&phi->dest.ssa.if_uses))
+      return false;
+
+   nir_foreach_use(use, &phi->dest.ssa) {
+      if (use->parent_instr->type != nir_instr_type_phi)
+         return false;
+   }
+
+   /* if we already visited this phi, it's circular */
+   struct phi_visited *current = prev_visited;
+   while (current != NULL) {
+      if (&phi->dest.ssa == current->ssa)
+         return true;
+      current = current->prev;
+   }
+
+   struct phi_visited next = { prev_visited, &phi->dest.ssa };
+   nir_foreach_use(use, &phi->dest.ssa) {
+      assert(use->parent_instr->type == nir_instr_type_phi);
+      if (!phi_is_circular(nir_instr_as_phi(use->parent_instr), &next))
+         return false;
+   }
+   return true;
+}
+
+static bool
+opt_phi_src_unused(nir_builder *b, nir_phi_instr *phi,
+                   nir_if *prev_if, nir_if *next_if)
+{
+   /* return early, if either of the sources is already undef */
+   nir_foreach_phi_src(phi_src, phi) {
+      if (phi_src->src.ssa->parent_instr->type == nir_instr_type_ssa_undef)
+         return false;
+   }
+
+   nir_block *first_then = nir_if_first_then_block(next_if);
+   nir_block *first_else = nir_if_first_else_block(next_if);
+   bool then_used = false;
+   bool else_used = false;
+
+   nir_foreach_if_use(if_use, &phi->dest.ssa) {
+      /* check weather the if_use is on the then- or else- side */
+      if (nir_block_dominates(first_then, if_use->parent_instr->block))
+         then_used = true;
+      else if (nir_block_dominates(first_else, if_use->parent_instr->block))
+         else_used = true;
+      else
+         return false;
+      if (then_used && else_used)
+         return false;
+   }
+
+   nir_foreach_use(use, &phi->dest.ssa) {
+      /* check weather the use is on the then- or else- side */
+      if (nir_block_dominates(first_then, use->parent_instr->block))
+         then_used = true;
+      else if (nir_block_dominates(first_else, use->parent_instr->block))
+         else_used = true;
+      else if (use->parent_instr->type != nir_instr_type_phi)
+         return false;
+      if (then_used && else_used)
+         return false;
+   }
+
+   nir_block *unused_blk = then_used ? nir_if_last_else_block(prev_if) :
+                                   nir_if_last_then_block(prev_if);
+   nir_src *unused_src = &nir_phi_get_src_from_block(phi, unused_blk)->src;
+
+   /* check for remaining phi uses if these are circular */
+   nir_foreach_use(use, &phi->dest.ssa) {
+      if (use->parent_instr->type != nir_instr_type_phi ||
+          nir_block_dominates(first_then, use->parent_instr->block) ||
+          nir_block_dominates(first_else, use->parent_instr->block))
+         continue;
+
+      /* we know that one phi src is unused except for other phis:
+       * -> check if these phis have no other users except
+       *    circular phis or this src
+       */
+      struct phi_visited next = { NULL, unused_src->ssa };
+      if (!phi_is_circular(nir_instr_as_phi(use->parent_instr), &next))
+         return false;
+   }
+
+   /* create undef and replace src */
+   b->cursor = nir_before_cf_node(&prev_if->cf_node);
+   nir_ssa_def *undef = nir_ssa_undef(b, phi->dest.ssa.num_components,
+                                      phi->dest.ssa.bit_size);
+   nir_instr_rewrite_src(&phi->instr, unused_src, nir_src_for_ssa(undef));
+
+   return true;
+}
+
+/* This small optimization targets phis between two IF statements with
+ * the same condition. If the phi dst is only used on one branch leg,
+ * the 'unused' phi source gets replaced with undef.
+ *
+ * It's not the most efficient function, but rarely used.
+ */
+static bool
+opt_if_phi_src_unused(nir_builder *b, nir_if *nif)
+{
+   bool progress = false;
+
+   nir_block *next_blk = nir_cf_node_cf_tree_next(&nif->cf_node);
+   if (!next_blk || !nif->condition.is_ssa)
+      return false;
+
+   nir_if *next_if = nir_block_get_following_if(next_blk);
+   if (!next_if || !next_if->condition.is_ssa)
+      return false;
+
+   if (nif->condition.ssa != next_if->condition.ssa)
+      return false;
+
+   nir_foreach_instr(instr, next_blk) {
+      if (instr->type != nir_instr_type_phi)
+         break;
+      progress |= opt_phi_src_unused(b, nir_instr_as_phi(instr), nif, next_if);
+   }
+
+   return progress;
+}
+
 static bool
 opt_if_merge(nir_if *nif)
 {
@@ -1219,6 +1354,9 @@ opt_if_merge(nir_if *nif)
 
    nir_if *next_if = nir_block_get_following_if(next_blk);
    if (!next_if || !next_if->condition.is_ssa)
+      return false;
+
+   if (nif->condition.ssa != next_if->condition.ssa)
       return false;
 
    /* Here we merge two consecutive ifs that have the same condition e.g:
@@ -1239,8 +1377,7 @@ opt_if_merge(nir_if *nif)
     * them is because this can result in increased register pressure. For
     * example when merging if ladders created by indirect indexing.
     */
-   if (nif->condition.ssa == next_if->condition.ssa &&
-       exec_list_is_empty(&next_blk->instr_list)) {
+   if (exec_list_is_empty(&next_blk->instr_list)) {
 
       /* This optimization isn't made to work in this case and
        * opt_if_evaluate_condition_use will optimize it later.
@@ -1378,6 +1515,7 @@ opt_if_safe_cf_list(nir_builder *b, struct exec_list *cf_list)
          progress |= opt_if_safe_cf_list(b, &nif->then_list);
          progress |= opt_if_safe_cf_list(b, &nif->else_list);
          progress |= opt_if_evaluate_condition_use(b, nif);
+         progress |= opt_if_phi_src_unused(b, nif);
          break;
       }
 
