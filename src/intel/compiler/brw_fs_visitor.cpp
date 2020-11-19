@@ -955,6 +955,7 @@ fs_visitor::init()
    memset(&this->payload, 0, sizeof(this->payload));
    this->source_depth_to_render_target = false;
    this->runtime_check_aads_emit = false;
+   this->needs_halt_target = false;
    this->first_non_payload_grf = 0;
    this->max_grf = devinfo->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF;
 
