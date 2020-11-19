@@ -360,6 +360,7 @@ try_setup_point( struct lp_setup_context *setup,
    unsigned viewport_index = 0;
    unsigned layer = 0;
    int fixed_width;
+   int64_t planes_c[4];
 
    if (setup->viewport_index_slot > 0) {
       unsigned *udata = (unsigned*)v0[setup->viewport_index_slot];
@@ -397,6 +398,12 @@ try_setup_point( struct lp_setup_context *setup,
        */
       bbox.x1--;
       bbox.y1--;
+
+      planes_c[0] = (1-bbox.x0) << 8;
+      planes_c[1] = (bbox.x1+1) << 8;
+      planes_c[2] = (1-bbox.y0) << 8;
+      planes_c[3] = (bbox.y1+1) << 8;
+
    } else {
       /*
        * OpenGL legacy rasterization rules for non-sprite points.
@@ -439,6 +446,10 @@ try_setup_point( struct lp_setup_context *setup,
          bbox.x1 = bbox.x0 + int_width - 1;
          bbox.y1 = bbox.y0 + int_width - 1;
       }
+      planes_c[0] = (1-bbox.x0) << 8;
+      planes_c[1] = (bbox.x1+1) << 8;
+      planes_c[2] = (1-bbox.y0) << 8;
+      planes_c[3] = (bbox.y1+1) << 8;
    }
 
    if (0) {
@@ -505,22 +516,22 @@ try_setup_point( struct lp_setup_context *setup,
 
       plane[0].dcdx = ~0U << 8;
       plane[0].dcdy = 0;
-      plane[0].c = (1-bbox.x0) << 8;
+      plane[0].c = planes_c[0];
       plane[0].eo = 1 << 8;
 
       plane[1].dcdx = 1 << 8;
       plane[1].dcdy = 0;
-      plane[1].c = (bbox.x1+1) << 8;
+      plane[1].c = planes_c[1];
       plane[1].eo = 0;
 
       plane[2].dcdx = 0;
       plane[2].dcdy = 1 << 8;
-      plane[2].c = (1-bbox.y0) << 8;
+      plane[2].c = planes_c[2];
       plane[2].eo = 1 << 8;
 
       plane[3].dcdx = 0;
       plane[3].dcdy = ~0U << 8;
-      plane[3].c = (bbox.y1+1) << 8;
+      plane[3].c = planes_c[3];
       plane[3].eo = 0;
    }
 
