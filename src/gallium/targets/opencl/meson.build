@@ -85,19 +85,31 @@ if not (dep_clang.found() and dep_clang_usable)
   endif
 endif
 
+if host_machine.system() == 'windows'
+  libpipe_loader = libpipe_loader_static
+  target_files = ['target.c']
+else
+  libpipe_loader = libpipe_loader_dynamic
+  target_files = []
+endif
+
 ocldef = files(opencl_libname + '.def')[0]
 
 libopencl = shared_library(
   opencl_libname,
-  [],
+  target_files,
+  include_directories : [
+    inc_include, inc_util, inc_src, inc_gallium, inc_gallium_winsys, inc_gallium_drivers, inc_gallium_aux
+  ],
   vs_module_defs : ocldef,
   link_args : [ld_args_gc_sections, opencl_link_args],
   link_depends : opencl_link_deps,
   link_whole : libclover,
-  link_with : [libpipe_loader_dynamic, libgallium],
+  link_with : [libpipe_loader, libgallium, libws_null, libwsw],
   dependencies : [
     idep_mesautil,
-    dep_clock, dep_dl, dep_unwind, dep_elf, dep_clang, dep_version
+    dep_clock, dep_dl, dep_unwind, dep_elf, dep_clang, dep_version,
+    driver_swrast
   ],
   version : '@0@.0.0'.format(opencl_version),
   install : true,
