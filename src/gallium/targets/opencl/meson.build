@@ -91,9 +91,12 @@ else
   dep_version = null_dep
 endif
 
+ocldef = files('../../frontends/clover/' + opencl_libname + '.def')[0]
+
 libopencl = shared_library(
   opencl_libname,
   [],
+  vs_module_defs : ocldef,
   link_args : [ld_args_gc_sections, opencl_link_args],
   link_depends : opencl_link_deps,
   link_whole : libclover,
