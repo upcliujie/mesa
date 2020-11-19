@@ -7948,8 +7948,7 @@ fs_visitor::fixup_3src_null_dest()
 static const fs_inst *
 find_halt_control_flow_region_start(const fs_visitor *v)
 {
-   if (v->stage == MESA_SHADER_FRAGMENT &&
-       brw_wm_prog_data(v->prog_data)->uses_kill) {
+   if (v->has_halt) {
       foreach_block_and_inst(block, fs_inst, inst, v->cfg) {
          if (inst->opcode == BRW_OPCODE_HALT ||
              inst->opcode == SHADER_OPCODE_HALT_TARGET)
@@ -8526,9 +8525,6 @@ fs_visitor::run_fs(bool allow_spilling, bool do_rep_send)
 
       if (failed)
 	 return false;
-
-      if (wm_prog_data->uses_kill)
-         bld.emit(SHADER_OPCODE_HALT_TARGET);
 
       if (wm_key->alpha_test_func)
          emit_alpha_test();

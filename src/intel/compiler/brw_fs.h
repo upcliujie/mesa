@@ -405,6 +405,7 @@ public:
 
    bool source_depth_to_render_target;
    bool runtime_check_aads_emit;
+   bool has_halt;
 
    fs_reg pixel_x;
    fs_reg pixel_y;
