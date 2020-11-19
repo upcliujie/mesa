@@ -123,7 +123,8 @@ starts_block(const backend_instruction *inst)
    enum opcode op = inst->opcode;
 
    return op == BRW_OPCODE_DO ||
-          op == BRW_OPCODE_ENDIF;
+          op == BRW_OPCODE_ENDIF ||
+          op == SHADER_OPCODE_HALT_TARGET;
 }
 
 bool
@@ -394,6 +395,26 @@ cfg_t::cfg_t(const backend_shader *s, exec_list *instructions) :
 	 cur_do = pop_stack(&do_stack);
 	 cur_while = pop_stack(&while_stack);
 	 break;
+
+      case SHADER_OPCODE_HALT_TARGET:
+         if (cur->instructions.is_empty()) {
+            /* New block was just created; use it. */
+            next = cur;
+         } else {
+            next = new_block();
+
+            cur->add_successor(mem_ctx, next, bblock_link_logical);
+
+            set_next_block(&cur, next, ip - 1);
+         }
+
+         /* When only used as the target of DISCARD_JUMP, we still start a new
+          * block but DISCARD_JUMP isn't considered control-flow so nothing
+          * jumps to it except the previous block.
+          */
+
+         cur->instructions.push_tail(inst);
+         break;
 
       default:
          cur->instructions.push_tail(inst);
