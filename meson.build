@@ -1574,7 +1574,7 @@ if with_llvm
     # The CMake finder will return 'ON', the llvm-config will return 'YES'
     _rtti = ['ON', 'YES'].contains(dep_llvm.get_variable(cmake : 'LLVM_ENABLE_RTTI', configtool: 'has-rtti'))
   endif
-  if not _rtti
+  if not _rtti and (host_machine.system() != 'windows')
     if with_gallium_nouveau
       error('The Nouveau driver requires rtti. You either need to turn off nouveau or use an LLVM built with LLVM_ENABLE_RTTI.')
     elif with_gallium_opencl
