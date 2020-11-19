@@ -114,7 +114,8 @@ ends_block(const backend_instruction *inst)
           op == BRW_OPCODE_CONTINUE ||
           op == BRW_OPCODE_BREAK ||
           op == BRW_OPCODE_DO ||
-          op == BRW_OPCODE_WHILE;
+          op == BRW_OPCODE_WHILE ||
+          op == BRW_OPCODE_HALT;
 }
 
 static bool
@@ -184,7 +185,7 @@ cfg_t::cfg_t(const backend_shader *s, exec_list *instructions) :
    bblock_t *cur_endif = NULL; /**< BB starting with ENDIF. */
    bblock_t *cur_do = NULL;    /**< BB starting with DO. */
    bblock_t *cur_while = NULL; /**< BB immediately following WHILE. */
-   exec_list if_stack, else_stack, do_stack, while_stack;
+   exec_list if_stack, else_stack, do_stack, while_stack, halts;
    bblock_t *next;
 
    set_next_block(&cur, entry, ip);
@@ -396,6 +397,18 @@ cfg_t::cfg_t(const backend_shader *s, exec_list *instructions) :
 	 cur_while = pop_stack(&while_stack);
 	 break;
 
+      case BRW_OPCODE_HALT:
+         cur->instructions.push_tail(inst);
+
+         halts.push_tail(link(mem_ctx, cur, bblock_link_logical));
+
+         next = new_block();
+         if (inst->predicate)
+            cur->add_successor(mem_ctx, next, bblock_link_logical);
+
+         set_next_block(&cur, next, ip);
+         break;
+
       case SHADER_OPCODE_HALT_TARGET:
          if (cur->instructions.is_empty()) {
             /* New block was just created; use it. */
@@ -410,8 +423,12 @@ cfg_t::cfg_t(const backend_shader *s, exec_list *instructions) :
 
          /* When only used as the target of DISCARD_JUMP, we still start a new
           * block but DISCARD_JUMP isn't considered control-flow so nothing
-          * jumps to it except the previous block.
+          * jumps to it except the previous block.  If we have real HALT
+          * instructions, we have to add the HALT_TARGET as a successor of
+          * those blocks.
           */
+         foreach_list_typed_safe (bblock_link, halt, link, &halts)
+            halt->block->add_successor(mem_ctx, next, bblock_link_logical);
 
          cur->instructions.push_tail(inst);
          break;

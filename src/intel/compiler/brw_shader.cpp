@@ -928,6 +928,7 @@ backend_instruction::is_control_flow() const
    case BRW_OPCODE_ENDIF:
    case BRW_OPCODE_BREAK:
    case BRW_OPCODE_CONTINUE:
+   case BRW_OPCODE_HALT:
    case SHADER_OPCODE_HALT_TARGET:
       return true;
    default:
