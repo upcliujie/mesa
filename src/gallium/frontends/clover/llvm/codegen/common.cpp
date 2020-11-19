@@ -30,6 +30,8 @@
 /// understood by pipe drivers.
 ///
 
+#include <llvm/Support/Allocator.h>
+
 #include "llvm/codegen.hpp"
 #include "llvm/metadata.hpp"
 
@@ -40,7 +42,8 @@
 
 #include <clang/Basic/TargetInfo.h>
 
-using namespace clover;
+using clover::module;
+using clover::detokenize;
 using namespace clover::llvm;
 
 using ::llvm::Module;
