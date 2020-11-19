@@ -347,10 +347,10 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 		struct fd6_program_state *state, const struct ir3_shader_key *key,
 		bool binning_pass)
 {
-	uint32_t pos_regid, psize_regid, color_regid[8], posz_regid;
+	uint32_t pos_regid, psize_regid, color_regid[8];
 	uint32_t clip0_regid, clip1_regid;
 	uint32_t face_regid, coord_regid, zwcoord_regid, samp_id_regid;
-	uint32_t smask_in_regid, smask_regid;
+	uint32_t smask_in_regid;
 	uint32_t vertex_regid, instance_regid, layer_regid, primitive_regid;
 	uint32_t hs_invocation_regid;
 	uint32_t tess_coord_x_regid, tess_coord_y_regid, hs_patch_regid, ds_patch_regid;
@@ -438,8 +438,6 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 	face_regid      = ir3_find_sysval_regid(fs, SYSTEM_VALUE_FRONT_FACE);
 	coord_regid     = ir3_find_sysval_regid(fs, SYSTEM_VALUE_FRAG_COORD);
 	zwcoord_regid   = next_regid(coord_regid, 2);
-	posz_regid      = ir3_find_output_regid(fs, FRAG_RESULT_DEPTH);
-	smask_regid     = ir3_find_output_regid(fs, FRAG_RESULT_SAMPLE_MASK);
 	for (unsigned i = 0; i < ARRAY_SIZE(ij_regid); i++)
 		ij_regid[i] = ir3_find_sysval_regid(fs, SYSTEM_VALUE_BARYCENTRIC_PERSP_PIXEL + i);
 
@@ -451,12 +449,6 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 		/* also, it seems like ij_pix is *required* to be r0.x */
 		assert(ij_regid[IJ_PERSP_PIXEL] == regid(0, 0));
 	}
-
-	/* we can't write gl_SampleMask for !msaa..  if b0 is zero then we
-	 * end up masking the single sample!!
-	 */
-	if (!key->msaa)
-		smask_regid = regid(63, 0);
 
 	/* we could probably divide this up into things that need to be
 	 * emitted if frag-prog is dirty vs if vert-prog is dirty..
@@ -482,11 +474,6 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 
 	OUT_PKT4(ring, REG_A6XX_SP_MODE_CONTROL, 1);
 	OUT_RING(ring, A6XX_SP_MODE_CONTROL_CONSTANT_DEMOTION_ENABLE | 4);
-
-	OUT_PKT4(ring, REG_A6XX_SP_FS_OUTPUT_CNTL0, 1);
-	OUT_RING(ring, A6XX_SP_FS_OUTPUT_CNTL0_DEPTH_REGID(posz_regid) |
-			 A6XX_SP_FS_OUTPUT_CNTL0_SAMPMASK_REGID(smask_regid) |
-			 0xfc000000);
 
 	enum a3xx_threadsize vssz;
 	if (ds || hs) {
