@@ -1013,8 +1013,6 @@ void anv_CmdClearColorImage(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_image, image, _image);
 
-   static const bool color_write_disable[4] = { false, false, false, false };
-
    struct blorp_batch batch;
    blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
 
@@ -1057,7 +1055,7 @@ void anv_CmdClearColorImage(
                      src_format.isl_format, src_format.swizzle,
                      level, base_layer, layer_count,
                      0, 0, level_width, level_height,
-                     vk_to_isl_color(*pColor), color_write_disable);
+                     vk_to_isl_color(*pColor), NULL);
       }
    }
 
