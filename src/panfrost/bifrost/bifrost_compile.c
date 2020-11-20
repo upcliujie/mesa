@@ -1363,22 +1363,35 @@ emit_alu(bi_context *ctx, nir_alu_instr *instr)
                 alu.roundmode = BIFROST_RTZ;
                 break;
 
-        case nir_op_f2f16:
+        case nir_op_i2i8:
         case nir_op_i2i16:
-        case nir_op_u2u16: {
-                if (nir_src_bit_size(instr->src[0].src) != 32)
-                        break;
-
-                /* Should have been const folded */
-                assert(!nir_src_is_const(instr->src[0].src));
-
-                alu.src_types[1] = alu.src_types[0];
-                alu.src[1] = alu.src[0];
-
+        case nir_op_i2i32:
+        case nir_op_u2u8:
+        case nir_op_u2u16:
+        case nir_op_u2u32:
+        case nir_op_f2f16: {
+                unsigned src_bits = nir_src_bit_size(instr->src[0].src);
                 unsigned last = nir_dest_num_components(instr->dest.dest) - 1;
-                assert(last <= 1);
+                nir_alu_type src_type = nir_op_infos[instr->op].input_types[0];
+                nir_alu_type dst_type = nir_op_infos[instr->op].output_type;
 
-                alu.swizzle[1][0] = instr->src[0].swizzle[last];
+                if (src_type != nir_type_float && dst_type != nir_type_float &&
+                    src_bits > dest_bits) {
+                        alu.type = BI_COMBINE;
+                        for (unsigned i = last + 1; i < 32 / dest_bits; i++) {
+                                alu.src[i] = alu.src[0];
+                                alu.src_types[i] = alu.src_types[0];
+                                alu.swizzle[i][0] = alu.swizzle[0][0];
+                        }
+                } else if (src_bits == 32) {
+                        /* Should have been const folded */
+                        assert(!nir_src_is_const(instr->src[0].src));
+
+                        assert(last <= 1);
+                        alu.src_types[1] = alu.src_types[0];
+                        alu.src[1] = alu.src[0];
+                        alu.swizzle[1][0] = instr->src[0].swizzle[last];
+                }
                 break;
         }
 
