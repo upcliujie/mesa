@@ -97,6 +97,7 @@ static bool
 try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
                    bool invert_y,
                    GLint x, GLint y, GLsizei width, GLsizei height,
+                   GLenum gl_format,
                    enum pipe_format src_format, enum pipe_format dst_format,
                    const struct gl_pixelstore_attrib *pack, void *pixels)
 {
@@ -110,6 +111,17 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
    struct pipe_framebuffer_state fb;
    enum pipe_texture_target view_target;
    bool success = false;
+
+   switch (gl_format) {
+   case GL_STENCIL_INDEX:
+      src_format = util_format_stencil_only(src_format);
+      break;
+   case GL_DEPTH_COMPONENT:
+      src_format = util_format_get_depth_only(src_format);
+      break;
+   default:
+      break;
+   }
 
    if (texture->nr_samples > 1)
       return false;
@@ -474,7 +486,7 @@ st_ReadPixels(struct gl_context *ctx, GLint x, GLint y,
       if (try_pbo_readpixels(st, strb,
                              st_fb_orientation(ctx->ReadBuffer) == Y_0_TOP,
                              x, y, width, height,
-                             src_format, dst_format,
+                             format, src_format, dst_format,
                              pack, pixels))
          return;
    }
