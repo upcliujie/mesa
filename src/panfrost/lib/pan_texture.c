@@ -239,7 +239,7 @@ panfrost_nonlinear_stride(uint64_t modifier,
         unsigned tile_h = panfrost_block_dim(modifier, false, plane);
 
         if (util_format_is_compressed(desc->format)) {
-                tile_w /= 4;
+//                tile_w /= 4;
                 tile_h /= 4;
         }
 

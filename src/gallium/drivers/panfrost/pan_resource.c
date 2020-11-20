@@ -335,7 +335,7 @@ panfrost_setup_slices(struct panfrost_device *dev,
 
         if (util_format_is_compressed(pres->internal_format)) {
                 tile_h /= 4;
-                tile_w /= 4;
+        //        tile_w /= 4;
         }
 
         for (unsigned l = 0; l <= res->last_level; ++l) {
