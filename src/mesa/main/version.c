@@ -266,8 +266,11 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->EXT_blend_minmax &&
                          extensions->EXT_point_parameters);
 #endif
-   const bool ver_1_5 = (ver_1_4 &&
+   const bool ver_1_5 = true;
+#if 0
+                        (ver_1_4 &&
                          extensions->ARB_occlusion_query);
+#endif
    const bool ver_2_0 = (ver_1_5 &&
                          extensions->ARB_point_sprite &&
                          extensions->ARB_vertex_shader &&

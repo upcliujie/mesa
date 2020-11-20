@@ -99,7 +99,7 @@ EXT(ARB_multi_bind                          , dummy_true                        
 EXT(ARB_multi_draw_indirect                 , ARB_draw_indirect                      , GLL, GLC,  x ,  x , 2012)
 EXT(ARB_multisample                         , dummy_true                             , GLL,  x ,  x ,  x , 1994)
 EXT(ARB_multitexture                        , dummy_true                             , GLL,  x ,  x ,  x , 1998)
-EXT(ARB_occlusion_query                     , ARB_occlusion_query                    , GLL,  x ,  x ,  x , 2001)
+EXT(ARB_occlusion_query                     , dummy_true                             , GLL,  x ,  x ,  x , 2001)
 EXT(ARB_occlusion_query2                    , ARB_occlusion_query2                   , GLL, GLC,  x ,  x , 2003)
 EXT(ARB_parallel_shader_compile             , dummy_true                             , GLL, GLC,  x ,  x , 2015)
 EXT(ARB_pipeline_statistics_query           , ARB_pipeline_statistics_query          , GLL, GLC,  x ,  x , 2014)
