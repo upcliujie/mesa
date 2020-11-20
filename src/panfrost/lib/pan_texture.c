@@ -230,25 +230,26 @@ panfrost_block_dim(uint64_t modifier, bool width, unsigned plane)
 
 static unsigned
 panfrost_nonlinear_stride(uint64_t modifier,
-                unsigned bytes_per_block,
-                unsigned pixels_per_block,
-                unsigned width,
-                unsigned height,
-                bool plane)
+                          const struct util_format_description *desc,
+                          unsigned width,
+                          unsigned height,
+                          bool plane)
 {
-        unsigned block_w = panfrost_block_dim(modifier, true, plane);
-        unsigned block_h = panfrost_block_dim(modifier, false, plane);
+        unsigned tile_w = panfrost_block_dim(modifier, true, plane);
+        unsigned tile_h = panfrost_block_dim(modifier, false, plane);
 
-        /* Calculate block size. Ensure the division happens only at the end to
-         * avoid rounding errors if bytes per block < pixels per block */
+        if (util_format_is_compressed(desc->format)) {
+                tile_w /= 4;
+                tile_h /= 4;
+        }
 
-        unsigned block_size = (block_w * block_h * bytes_per_block)
-                / pixels_per_block;
-
-        if (height <= block_h)
+        if (height <= tile_h * desc->block.height)
                 return 0;
-        else
-                return DIV_ROUND_UP(width, block_w) * block_size;
+
+        unsigned tile_size = tile_w * tile_h * DIV_ROUND_UP(desc->block.bits, 8);
+        unsigned w_in_tiles = DIV_ROUND_UP(width, tile_w * desc->block.width);
+
+        return w_in_tiles * tile_size;
 }
 
 static uint64_t
@@ -265,9 +266,7 @@ panfrost_get_surface_strides(struct panfrost_slice *slices,
         unsigned line_stride =
                  is_linear ?
                  slices[l].stride :
-                 panfrost_nonlinear_stride(modifier,
-                                           MAX2(desc->block.bits / 8, 1),
-                                           desc->block.width * desc->block.height,
+                 panfrost_nonlinear_stride(modifier, desc,
                                            u_minify(width, l),
                                            u_minify(height, l),
                                            false);
