@@ -2515,6 +2515,68 @@ bi_optimize_nir(nir_shader *nir)
         NIR_PASS(progress, nir, nir_convert_from_ssa, true);
 }
 
+static bool
+bifrost_nir_lower_i8_fragout_impl(nir_function_impl *impl)
+{
+        bool progress = false;
+
+        nir_foreach_block(block, impl) {
+                nir_foreach_instr_reverse_safe(instr, block) {
+                        if (instr->type != nir_instr_type_intrinsic)
+                                continue;
+
+                        nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+                        if (intr->intrinsic != nir_intrinsic_store_output)
+                                continue;
+
+                        if (nir_src_bit_size(intr->src[0]) != 8)
+                                break;
+
+                        nir_builder b;
+                        nir_builder_init(&b, impl);
+                        b.cursor = nir_before_instr(instr);
+
+                        nir_alu_type type =
+                                nir_alu_type_get_base_type(nir_intrinsic_src_type(intr));
+
+                        assert(type == nir_type_int || nir_type_uint);
+                        nir_ssa_def *cast = type == nir_type_int ?
+                                            nir_i2i(&b, intr->src[0].ssa, 16) :
+                                            nir_u2u(&b, intr->src[0].ssa, 16);
+
+                        nir_intrinsic_set_src_type(intr, type | 16);
+                        nir_instr_rewrite_src(&intr->instr, &intr->src[0],
+                                              nir_src_for_ssa(cast));
+                        progress = true;
+                }
+        }
+
+        if (progress)
+                nir_metadata_preserve(impl,
+                                      nir_metadata_block_index |
+                                      nir_metadata_dominance);
+
+        return progress;
+}
+
+static bool
+bifrost_nir_lower_i8_fragout(nir_shader *shader)
+{
+        if (shader->info.stage != MESA_SHADER_FRAGMENT)
+                return false;
+
+        bool progress = false;
+
+        nir_foreach_function(function, shader) {
+                if (!function->impl)
+                        continue;
+
+                progress |= bifrost_nir_lower_i8_fragout_impl(function->impl);
+        }
+
+        return progress;
+}
+
 panfrost_program *
 bifrost_compile_shader_nir(void *mem_ctx, nir_shader *nir,
                            const struct panfrost_compile_inputs *inputs)
@@ -2552,6 +2614,7 @@ bifrost_compile_shader_nir(void *mem_ctx, nir_shader *nir,
                         glsl_type_size, 0);
         NIR_PASS_V(nir, nir_lower_ssbo);
         NIR_PASS_V(nir, pan_nir_lower_zs_store);
+        NIR_PASS_V(nir, bifrost_nir_lower_i8_fragout);
         // TODO: re-enable when fp16 is flipped on
         // NIR_PASS_V(nir, nir_lower_mediump_outputs);
 
