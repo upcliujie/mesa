@@ -44,6 +44,8 @@
  *  state[0] = GL_FRONT state.
  *  state[1] = OpenGL 2.0 / GL_ATI_separate_stencil GL_BACK state.
  *  state[2] = GL_EXT_stencil_two_side GL_BACK state.
+ *
+ *  XXX clean me up too
  */
 
 
@@ -416,11 +418,6 @@ _mesa_ActiveStencilFaceEXT(GLenum face)
 
    if (MESA_VERBOSE & VERBOSE_API)
       _mesa_debug(ctx, "glActiveStencilFaceEXT()\n");
-
-   if (!ctx->Extensions.EXT_stencil_two_side) {
-      _mesa_error(ctx, GL_INVALID_OPERATION, "glActiveStencilFaceEXT");
-      return;
-   }
 
    if (face == GL_FRONT || face == GL_BACK) {
       ctx->Stencil.ActiveFace = (face == GL_FRONT) ? 0 : 2;

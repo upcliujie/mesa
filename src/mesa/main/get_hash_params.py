@@ -247,7 +247,7 @@ descriptor=[
   [ "TEXTURE_COORD_ARRAY_BUFFER_BINDING_ARB", "LOC_CUSTOM, TYPE_INT, NO_OFFSET, NO_EXTRA" ],
 
 # GL_OES_point_sprite
-  [ "POINT_SPRITE", "CONTEXT_BOOL(Point.PointSprite), extra_ARB_point_sprite" ],
+  [ "POINT_SPRITE", "CONTEXT_BOOL(Point.PointSprite), NO_EXTRA" ],
 ]},
 
 
@@ -306,8 +306,8 @@ descriptor=[
 # GL_ARB_fragment_program
 # == GL_MAX_TEXTURE_IMAGE_UNITS_NV
   [ "MAX_TEXTURE_IMAGE_UNITS_ARB", "CONTEXT_INT(Const.Program[MESA_SHADER_FRAGMENT].MaxTextureImageUnits), extra_ARB_fragment_program" ],
-  [ "MAX_VERTEX_TEXTURE_IMAGE_UNITS_ARB", "CONTEXT_INT(Const.Program[MESA_SHADER_VERTEX].MaxTextureImageUnits), extra_ARB_vertex_shader" ],
-  [ "MAX_COMBINED_TEXTURE_IMAGE_UNITS_ARB", "CONTEXT_INT(Const.MaxCombinedTextureImageUnits), extra_ARB_vertex_shader" ],
+  [ "MAX_VERTEX_TEXTURE_IMAGE_UNITS_ARB", "CONTEXT_INT(Const.Program[MESA_SHADER_VERTEX].MaxTextureImageUnits), NO_EXTRA" ],
+  [ "MAX_COMBINED_TEXTURE_IMAGE_UNITS_ARB", "CONTEXT_INT(Const.MaxCombinedTextureImageUnits), NO_EXTRA" ],
 
 # GL_ARB_shader_objects
 # Actually, this token isn't part of GL_ARB_shader_objects, but is
@@ -329,7 +329,7 @@ descriptor=[
   [ "MAX_3D_TEXTURE_SIZE", "LOC_CUSTOM, TYPE_INT, offsetof(struct gl_context, Const.Max3DTextureLevels), NO_EXTRA" ],
 
 # GL_ARB_fragment_program/OES_standard_derivatives
-  [ "FRAGMENT_SHADER_DERIVATIVE_HINT", "CONTEXT_ENUM16(Hint.FragmentShaderDerivative), extra_ARB_fragment_shader" ],
+  [ "FRAGMENT_SHADER_DERIVATIVE_HINT", "CONTEXT_ENUM16(Hint.FragmentShaderDerivative), NO_EXTRA" ],
 
 # GL_NV_read_buffer
   [ "READ_BUFFER", "LOC_CUSTOM, TYPE_ENUM16, NO_OFFSET, extra_NV_read_buffer_api_gl" ],
@@ -412,7 +412,7 @@ descriptor=[
   [ "PRIMITIVE_RESTART_FIXED_INDEX", "CONTEXT_BOOL(Array.PrimitiveRestartFixedIndex), extra_ARB_ES3_compatibility_api_es3" ],
 
 # GL_ARB_fragment_shader
-  [ "MAX_FRAGMENT_UNIFORM_COMPONENTS_ARB", "CONTEXT_INT(Const.Program[MESA_SHADER_FRAGMENT].MaxUniformComponents), extra_ARB_fragment_shader" ],
+  [ "MAX_FRAGMENT_UNIFORM_COMPONENTS_ARB", "CONTEXT_INT(Const.Program[MESA_SHADER_FRAGMENT].MaxUniformComponents), NO_EXTRA" ],
 
 # GL_ARB_framebuffer_object
   [ "MAX_SAMPLES", "CONTEXT_INT(Const.MaxSamples), extra_ARB_framebuffer_object_EXT_framebuffer_multisample" ],
@@ -443,8 +443,8 @@ descriptor=[
   [ "UNIFORM_BUFFER_BINDING", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_uniform_buffer_object" ],
 
 # GL_ARB_vertex_shader
-  [ "MAX_VERTEX_UNIFORM_COMPONENTS_ARB", "CONTEXT_INT(Const.Program[MESA_SHADER_VERTEX].MaxUniformComponents), extra_ARB_vertex_shader" ],
-  [ "MAX_VARYING_FLOATS_ARB", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_vertex_shader" ],
+  [ "MAX_VERTEX_UNIFORM_COMPONENTS_ARB", "CONTEXT_INT(Const.Program[MESA_SHADER_VERTEX].MaxUniformComponents), NO_EXTRA" ],
+  [ "MAX_VARYING_FLOATS_ARB", "LOC_CUSTOM, TYPE_INT, 0, NO_EXTRA" ],
 
 # GL_EXT_framebuffer_blit
 # NOTE: GL_DRAW_FRAMEBUFFER_BINDING_EXT == GL_FRAMEBUFFER_BINDING_EXT
@@ -868,7 +868,7 @@ descriptor=[
   [ "RASTER_POSITION_UNCLIPPED_IBM", "CONTEXT_BOOL(Transform.RasterPositionUnclipped), NO_EXTRA" ],
 
 # GL_ARB_point_sprite
-  [ "POINT_SPRITE_COORD_ORIGIN", "CONTEXT_ENUM16(Point.SpriteOrigin), extra_ARB_point_sprite" ],
+  [ "POINT_SPRITE_COORD_ORIGIN", "CONTEXT_ENUM16(Point.SpriteOrigin), NO_EXTRA" ],
 
 # GL_NV_texture_rectangle
   [ "TEXTURE_RECTANGLE_NV", "LOC_CUSTOM, TYPE_BOOLEAN, 0, extra_NV_texture_rectangle" ],
@@ -876,7 +876,7 @@ descriptor=[
   [ "MAX_RECTANGLE_TEXTURE_SIZE_NV", "CONTEXT_INT(Const.MaxTextureRectSize), extra_NV_texture_rectangle" ],
 
 # GL_EXT_stencil_two_side
-  [ "STENCIL_TEST_TWO_SIDE_EXT", "CONTEXT_BOOL(Stencil.TestTwoSide), extra_EXT_stencil_two_side" ],
+  [ "STENCIL_TEST_TWO_SIDE_EXT", "CONTEXT_BOOL(Stencil.TestTwoSide), NO_EXTRA" ],
   [ "ACTIVE_STENCIL_FACE_EXT", "LOC_CUSTOM, TYPE_ENUM16, NO_OFFSET, NO_EXTRA" ],
 
 # GL_NV_light_max_exponent

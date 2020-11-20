@@ -975,10 +975,6 @@ _mesa_legal_texture_dimensions(struct gl_context *ctx, GLenum target,
       maxSize = ctx->Const.MaxTextureSize >> level;
       if (width < 2 * border || width > 2 * border + maxSize)
          return GL_FALSE;
-      if (!ctx->Extensions.ARB_texture_non_power_of_two) {
-         if (width > 0 && !util_is_power_of_two_nonzero(width - 2 * border))
-            return GL_FALSE;
-      }
       return GL_TRUE;
 
    case GL_TEXTURE_2D:
@@ -990,12 +986,6 @@ _mesa_legal_texture_dimensions(struct gl_context *ctx, GLenum target,
          return GL_FALSE;
       if (height < 2 * border || height > 2 * border + maxSize)
          return GL_FALSE;
-      if (!ctx->Extensions.ARB_texture_non_power_of_two) {
-         if (width > 0 && !util_is_power_of_two_nonzero(width - 2 * border))
-            return GL_FALSE;
-         if (height > 0 && !util_is_power_of_two_nonzero(height - 2 * border))
-            return GL_FALSE;
-      }
       return GL_TRUE;
 
    case GL_TEXTURE_3D:
@@ -1008,14 +998,6 @@ _mesa_legal_texture_dimensions(struct gl_context *ctx, GLenum target,
          return GL_FALSE;
       if (depth < 2 * border || depth > 2 * border + maxSize)
          return GL_FALSE;
-      if (!ctx->Extensions.ARB_texture_non_power_of_two) {
-         if (width > 0 && !util_is_power_of_two_nonzero(width - 2 * border))
-            return GL_FALSE;
-         if (height > 0 && !util_is_power_of_two_nonzero(height - 2 * border))
-            return GL_FALSE;
-         if (depth > 0 && !util_is_power_of_two_nonzero(depth - 2 * border))
-            return GL_FALSE;
-      }
       return GL_TRUE;
 
    case GL_TEXTURE_RECTANGLE_NV:
@@ -1045,12 +1027,6 @@ _mesa_legal_texture_dimensions(struct gl_context *ctx, GLenum target,
          return GL_FALSE;
       if (height < 2 * border || height > 2 * border + maxSize)
          return GL_FALSE;
-      if (!ctx->Extensions.ARB_texture_non_power_of_two) {
-         if (width > 0 && !util_is_power_of_two_nonzero(width - 2 * border))
-            return GL_FALSE;
-         if (height > 0 && !util_is_power_of_two_nonzero(height - 2 * border))
-            return GL_FALSE;
-      }
       return GL_TRUE;
 
    case GL_TEXTURE_1D_ARRAY_EXT:
@@ -1060,10 +1036,6 @@ _mesa_legal_texture_dimensions(struct gl_context *ctx, GLenum target,
          return GL_FALSE;
       if (height < 0 || height > ctx->Const.MaxArrayTextureLayers)
          return GL_FALSE;
-      if (!ctx->Extensions.ARB_texture_non_power_of_two) {
-         if (width > 0 && !util_is_power_of_two_nonzero(width - 2 * border))
-            return GL_FALSE;
-      }
       return GL_TRUE;
 
    case GL_TEXTURE_2D_ARRAY_EXT:
@@ -1077,12 +1049,6 @@ _mesa_legal_texture_dimensions(struct gl_context *ctx, GLenum target,
          return GL_FALSE;
       if (depth < 0 || depth > ctx->Const.MaxArrayTextureLayers)
          return GL_FALSE;
-      if (!ctx->Extensions.ARB_texture_non_power_of_two) {
-         if (width > 0 && !util_is_power_of_two_nonzero(width - 2 * border))
-            return GL_FALSE;
-         if (height > 0 && !util_is_power_of_two_nonzero(height - 2 * border))
-            return GL_FALSE;
-      }
       return GL_TRUE;
 
    case GL_TEXTURE_CUBE_MAP_ARRAY:
@@ -1098,12 +1064,6 @@ _mesa_legal_texture_dimensions(struct gl_context *ctx, GLenum target,
          return GL_FALSE;
       if (level >= ctx->Const.MaxCubeTextureLevels)
          return GL_FALSE;
-      if (!ctx->Extensions.ARB_texture_non_power_of_two) {
-         if (width > 0 && !util_is_power_of_two_nonzero(width - 2 * border))
-            return GL_FALSE;
-         if (height > 0 && !util_is_power_of_two_nonzero(height - 2 * border))
-            return GL_FALSE;
-      }
       return GL_TRUE;
    default:
       _mesa_problem(ctx, "Invalid target in _mesa_legal_texture_dimensions()");

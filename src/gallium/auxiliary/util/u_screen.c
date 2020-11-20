@@ -37,10 +37,8 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
 {
    /* Let's keep these sorted by position in p_defines.h. */
    switch (param) {
-   case PIPE_CAP_NPOT_TEXTURES:
    case PIPE_CAP_MAX_DUAL_SOURCE_RENDER_TARGETS:
    case PIPE_CAP_ANISOTROPIC_FILTER:
-   case PIPE_CAP_POINT_SPRITE:
       return 0;
 
    case PIPE_CAP_GRAPHICS:
@@ -58,7 +56,6 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
       unreachable("driver must implement these.");
 
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP:
-   case PIPE_CAP_BLEND_EQUATION_SEPARATE:
    case PIPE_CAP_FRAGMENT_SHADER_TEXTURE_LOD:
    case PIPE_CAP_FRAGMENT_SHADER_DERIVATIVES:
    case PIPE_CAP_VERTEX_SHADER_SATURATE:

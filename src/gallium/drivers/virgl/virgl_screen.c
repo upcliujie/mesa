@@ -69,15 +69,11 @@ virgl_get_param(struct pipe_screen *screen, enum pipe_cap param)
 {
    struct virgl_screen *vscreen = virgl_screen(screen);
    switch (param) {
-   case PIPE_CAP_NPOT_TEXTURES:
-      return 1;
    case PIPE_CAP_FRAGMENT_SHADER_TEXTURE_LOD:
    case PIPE_CAP_FRAGMENT_SHADER_DERIVATIVES:
    case PIPE_CAP_VERTEX_SHADER_SATURATE:
       return 1;
    case PIPE_CAP_ANISOTROPIC_FILTER:
-      return 1;
-   case PIPE_CAP_POINT_SPRITE:
       return 1;
    case PIPE_CAP_MAX_RENDER_TARGETS:
       return vscreen->caps.caps.v1.max_render_targets;
@@ -102,8 +98,6 @@ virgl_get_param(struct pipe_screen *screen, enum pipe_cap param)
       if (vscreen->caps.caps.v2.max_texture_cube_size)
          return 1 + util_logbase2(vscreen->caps.caps.v2.max_texture_cube_size);
       return 13; /* 4K x 4K */
-   case PIPE_CAP_BLEND_EQUATION_SEPARATE:
-      return 1;
    case PIPE_CAP_INDEP_BLEND_ENABLE:
       return vscreen->caps.caps.v1.bset.indep_blend_enable;
    case PIPE_CAP_INDEP_BLEND_FUNC:
