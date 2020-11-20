@@ -289,6 +289,9 @@ panfrost_setup_slices(struct panfrost_device *dev,
         unsigned height = res->height0;
         unsigned depth = res->depth0;
         unsigned bytes_per_pixel = util_format_get_blocksize(pres->internal_format);
+        unsigned block_w = util_format_get_blockwidth(pres->internal_format);
+        unsigned block_h = util_format_get_blockheight(pres->internal_format);
+        unsigned block_d = util_format_get_blockdepth(pres->internal_format);
 
         /* MSAA is implemented as a 3D texture with z corresponding to the
          * sample #, horrifyingly enough */
@@ -328,17 +331,23 @@ panfrost_setup_slices(struct panfrost_device *dev,
 
         unsigned offset = 0;
         unsigned size_2d = 0;
+        unsigned tile_h = 16, tile_w = 16;
+
+        if (util_format_is_compressed(pres->internal_format)) {
+                tile_h /= 4;
+                tile_w /= 4;
+        }
 
         for (unsigned l = 0; l <= res->last_level; ++l) {
                 struct panfrost_slice *slice = &pres->slices[l];
 
-                unsigned effective_width = width;
-                unsigned effective_height = height;
-                unsigned effective_depth = depth;
+                unsigned effective_width = DIV_ROUND_UP(width, block_w);
+                unsigned effective_height = DIV_ROUND_UP(height, block_h);
+                unsigned effective_depth = DIV_ROUND_UP(depth, block_d);
 
                 if (should_align) {
-                        effective_width = ALIGN_POT(effective_width, 16);
-                        effective_height = ALIGN_POT(effective_height, 16);
+                        effective_width = ALIGN_POT(effective_width, tile_w);
+                        effective_height = ALIGN_POT(effective_height, tile_h);
 
                         /* We don't need to align depth */
                 }
@@ -352,9 +361,6 @@ panfrost_setup_slices(struct panfrost_device *dev,
 
                 /* Compute the would-be stride */
                 unsigned stride = bytes_per_pixel * effective_width;
-
-                if (util_format_is_compressed(pres->internal_format))
-                        stride /= 4;
 
                 /* ..but cache-line align it for performance */
                 if (can_align_stride && linear)
