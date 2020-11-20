@@ -5811,6 +5811,17 @@ memory_sync_info get_memory_sync_info(nir_intrinsic_instr *instr, storage_class 
    return memory_sync_info(storage, semantics);
 }
 
+void add_tfe_init(Builder& bld, Instruction *instr)
+{
+   aco_ptr<Pseudo_instruction> vec{create_instruction<Pseudo_instruction>(
+      aco_opcode::p_create_vector, Format::PSEUDO, instr->definitions[0].size(), 1)};
+   for (unsigned i = 0; i < instr->definitions[0].size(); i++)
+      vec->operands[i] = Operand(0u);
+   vec->definitions[0] = bld.def(instr->definitions[0].regClass());
+   instr->operands[3] = Operand(vec->definitions[0].getTemp());
+   bld.insert(std::move(vec));
+}
+
 void visit_image_load(isel_context *ctx, nir_intrinsic_instr *instr)
 {
    Builder bld(ctx->program, ctx->block);
@@ -8897,27 +8908,37 @@ void visit_tex(isel_context *ctx, nir_tex_instr *instr)
    }
 
    /* Build tex instruction */
-   unsigned dmask = nir_ssa_def_components_read(&instr->dest.ssa);
-   unsigned dim = ctx->options->chip_class >= GFX10 && instr->sampler_dim != GLSL_SAMPLER_DIM_BUF
-                  ? ac_get_sampler_dim(ctx->options->chip_class, instr->sampler_dim, instr->is_array)
-                  : 0;
    Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
    Temp tmp_dst = dst;
 
-   /* gather4 selects the component by dmask and always returns vec4 */
+   unsigned dmask, expand_mask = 0, res_size;
+   /* gather4 selects the component by dmask and always returns vec4 (vec5 if sparse) */
    if (instr->op == nir_texop_tg4) {
-      assert(instr->dest.ssa.num_components == 4);
-      if (instr->is_shadow)
-         dmask = 1;
-      else
-         dmask = 1 << instr->component;
-      if (tg4_integer_cube_workaround || dst.type() == RegType::sgpr)
-         tmp_dst = bld.tmp(v4);
+      dmask = instr->is_shadow ? 1 : 1 << instr->component;
+      res_size = 4;
+      expand_mask = 0xf;
    } else if (instr->op == nir_texop_samples_identical) {
-      tmp_dst = bld.tmp(v1);
-   } else if (util_bitcount(dmask) != instr->dest.ssa.num_components || dst.type() == RegType::sgpr) {
-      tmp_dst = bld.tmp(RegClass(RegType::vgpr, util_bitcount(dmask)));
+      dmask = 1;
+      res_size = 1;
+   } else {
+      dmask = nir_ssa_def_components_read(&instr->dest.ssa);
+      dmask = MAX2(dmask & u_bit_consecutive(0, nir_tex_instr_result_size(instr)), 1u);
+      res_size = util_bitcount(dmask);
+      if (instr->sampler_dim == GLSL_SAMPLER_DIM_BUF)
+         res_size = util_last_bit(dmask);
+      expand_mask = dmask;
    }
+   unsigned dst_size = res_size;
+   if (instr->is_sparse) {
+      dst_size++;
+      expand_mask |= 1 << nir_tex_instr_result_size(instr);
+   }
+   if (tg4_integer_cube_workaround || dst.type() == RegType::sgpr || dst.size() != dst_size)
+      tmp_dst = bld.tmp(RegClass(RegType::vgpr, dst_size));
+
+   unsigned dim = ctx->options->chip_class >= GFX10 && instr->sampler_dim != GLSL_SAMPLER_DIM_BUF
+                  ? ac_get_sampler_dim(ctx->options->chip_class, instr->sampler_dim, instr->is_array)
+                  : 0;
 
    aco_ptr<MIMG_instruction> tex;
    if (instr->op == nir_texop_txs || instr->op == nir_texop_query_levels) {
@@ -9054,9 +9075,8 @@ void visit_tex(isel_context *ctx, nir_tex_instr *instr)
       //FIXME: if (ctx->abi->gfx9_stride_size_workaround) return ac_build_buffer_load_format_gfx9_safe()
 
       assert(coords.size() == 1);
-      unsigned last_bit = util_last_bit(nir_ssa_def_components_read(&instr->dest.ssa));
       aco_opcode op;
-      switch (last_bit) {
+      switch (res_size) {
       case 1:
          op = aco_opcode::buffer_load_format_x; break;
       case 2:
@@ -9069,21 +9089,19 @@ void visit_tex(isel_context *ctx, nir_tex_instr *instr)
          unreachable("Tex instruction loads more than 4 components.");
       }
 
-      /* if the instruction return value matches exactly the nir dest ssa, we can use it directly */
-      if (last_bit == instr->dest.ssa.num_components && dst.type() == RegType::vgpr)
-         tmp_dst = dst;
-      else
-         tmp_dst = bld.tmp(RegType::vgpr, last_bit);
-
-      aco_ptr<MUBUF_instruction> mubuf{create_instruction<MUBUF_instruction>(op, Format::MUBUF, 3, 1)};
+      aco_ptr<MUBUF_instruction> mubuf{create_instruction<MUBUF_instruction>(
+         op, Format::MUBUF, 3 + instr->is_sparse, 1)};
       mubuf->operands[0] = Operand(resource);
       mubuf->operands[1] = Operand(coords[0]);
       mubuf->operands[2] = Operand((uint32_t) 0);
       mubuf->definitions[0] = Definition(tmp_dst);
       mubuf->idxen = true;
+      mubuf->tfe = instr->is_sparse;
+      if (mubuf->tfe)
+         add_tfe_init(bld, mubuf.get());
       ctx->block->instructions.emplace_back(std::move(mubuf));
 
-      expand_vector(ctx, tmp_dst, dst, instr->dest.ssa.num_components, (1 << last_bit) - 1);
+      expand_vector(ctx, tmp_dst, dst, instr->dest.ssa.num_components, expand_mask);
       return;
    }
 
@@ -9128,7 +9146,10 @@ void visit_tex(isel_context *ctx, nir_tex_instr *instr)
       tex->dmask = dmask;
       tex->unrm = true;
       tex->da = da;
+      tex->tfe = instr->is_sparse;
       tex->definitions[0] = Definition(tmp_dst);
+      if (tex->tfe)
+         add_tfe_init(bld, tex.get());
       ctx->block->instructions.emplace_back(std::move(tex));
 
       if (instr->op == nir_texop_samples_identical) {
@@ -9137,7 +9158,7 @@ void visit_tex(isel_context *ctx, nir_tex_instr *instr)
 
          bld.vopc(aco_opcode::v_cmp_eq_u32, Definition(dst), Operand(0u), tmp_dst).def(0).setHint(vcc);
       } else {
-         expand_vector(ctx, tmp_dst, dst, instr->dest.ssa.num_components, dmask);
+         expand_vector(ctx, tmp_dst, dst, instr->dest.ssa.num_components, expand_mask);
       }
       return;
    }
@@ -9261,23 +9282,28 @@ void visit_tex(isel_context *ctx, nir_tex_instr *instr)
        instr->sampler_dim != GLSL_SAMPLER_DIM_SUBPASS_MS)
       arg = emit_wqm(ctx, arg, bld.tmp(arg.regClass()), true);
 
-   tex.reset(create_instruction<MIMG_instruction>(opcode, Format::MIMG, 3, 1));
+   tex.reset(create_instruction<MIMG_instruction>(opcode, Format::MIMG, 3 + instr->is_sparse, 1));
    tex->operands[0] = Operand(resource);
    tex->operands[1] = Operand(sampler);
    tex->operands[2] = Operand(arg);
    tex->dim = dim;
    tex->dmask = dmask;
    tex->da = da;
+   tex->tfe = instr->is_sparse;
    tex->definitions[0] = Definition(tmp_dst);
+   if (tex->tfe)
+      add_tfe_init(bld, tex.get());
    ctx->block->instructions.emplace_back(std::move(tex));
 
    if (tg4_integer_cube_workaround) {
       assert(tmp_dst.id() != dst.id());
-      assert(tmp_dst.size() == dst.size() && dst.size() == 4);
+      assert(tmp_dst.size() == dst.size() && dst.size() == (4u + instr->is_sparse));
+
+      Temp tmp = dst.regClass() == tmp_dst.regClass() ? dst : bld.tmp(tmp_dst.regClass());
 
       emit_split_vector(ctx, tmp_dst, tmp_dst.size());
       Temp val[4];
-      for (unsigned i = 0; i < dst.size(); i++) {
+      for (unsigned i = 0; i < 4; i++) {
          val[i] = emit_extract_vector(ctx, tmp_dst, i, v1);
          Temp cvt_val;
          if (stype == GLSL_TYPE_UINT)
@@ -9286,12 +9312,16 @@ void visit_tex(isel_context *ctx, nir_tex_instr *instr)
             cvt_val = bld.vop1(aco_opcode::v_cvt_i32_f32, bld.def(v1), val[i]);
          val[i] = bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1), val[i], cvt_val, tg4_compare_cube_wa64);
       }
-      Temp tmp = dst.regClass() == v4 ? dst : bld.tmp(v4);
-      tmp_dst = bld.pseudo(aco_opcode::p_create_vector, Definition(tmp),
-                           val[0], val[1], val[2], val[3]);
+
+      if (instr->is_sparse)
+         tmp_dst = bld.pseudo(aco_opcode::p_create_vector, Definition(tmp),
+                              val[0], val[1], val[2], val[3],
+                              emit_extract_vector(ctx, tmp_dst, 4, v1));
+      else
+         tmp_dst = bld.pseudo(aco_opcode::p_create_vector, Definition(tmp),
+                              val[0], val[1], val[2], val[3]);
    }
-   unsigned mask = instr->op == nir_texop_tg4 ? 0xF : dmask;
-   expand_vector(ctx, tmp_dst, dst, instr->dest.ssa.num_components, mask);
+   expand_vector(ctx, tmp_dst, dst, instr->dest.ssa.num_components, expand_mask);
 
 }
 
