@@ -899,7 +899,7 @@ bool get_regs_for_copies(ra_ctx& ctx,
          }
       } else {
          /* Try to find space within the bounds but outside of the definition */
-         info.bounds = { bounds.lower(), MIN2(def_reg.lower() - bounds.lower(), bounds.size) };
+         info.bounds = PhysRegInterval::from_until(bounds.lower(), MIN2(def_reg.lower(), bounds.upper()));
          res = get_reg_simple(ctx, reg_file, info);
          if (!res.second && def_reg.upper() <= bounds.upper()) {
             unsigned lo = (def_reg.upper() + info.stride - 1) & ~(info.stride - 1);
