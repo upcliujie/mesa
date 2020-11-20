@@ -139,6 +139,11 @@ u_transfer_helper_deinterleave_transfer_map(struct pipe_context *pctx,
 void
 u_transfer_helper_deinterleave_transfer_unmap(struct pipe_context *pctx,
                                               struct pipe_transfer *ptrans);
+
+bool
+u_transfer_helper_uses_separate_depth_stencil(struct pipe_context *pctx,
+                                              enum pipe_format format);
+
 #ifdef __cplusplus
 } // extern "C" {
 #endif

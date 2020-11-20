@@ -667,3 +667,15 @@ u_transfer_helper_deinterleave_transfer_unmap(struct pipe_context *pctx,
       helper->vtbl->transfer_unmap(pctx, ptrans);
    }
 }
+
+bool
+u_transfer_helper_uses_separate_depth_stencil(struct pipe_context *pctx,
+                                              enum pipe_format format)
+{
+   struct u_transfer_helper *helper = pctx->screen->transfer_helper;
+   if ((helper->separate_stencil && util_format_is_depth_and_stencil(format)) ||
+       (format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT && helper->separate_z32s8))
+      return true;
+
+   return false;
+}
