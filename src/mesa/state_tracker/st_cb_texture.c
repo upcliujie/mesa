@@ -1639,14 +1639,6 @@ st_TexSubImage(struct gl_context *ctx, GLuint dims,
                                    &src_templ.width0, &src_templ.height0,
                                    &src_templ.depth0, &src_templ.array_size);
 
-   /* Check for NPOT texture support. */
-   if (!screen->get_param(screen, PIPE_CAP_NPOT_TEXTURES) &&
-       (!util_is_power_of_two_or_zero(src_templ.width0) ||
-        !util_is_power_of_two_or_zero(src_templ.height0) ||
-        !util_is_power_of_two_or_zero(src_templ.depth0))) {
-      goto fallback;
-   }
-
    util_throttle_memory_usage(pipe, &st->throttle,
                               (uint64_t) width * height * depth *
                               util_format_get_blocksize(src_templ.format));

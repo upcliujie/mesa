@@ -306,10 +306,7 @@ wrapper_sw_winsys_wrap_pipe_screen(struct pipe_screen *screen)
    if (!wsw->pipe)
       goto err_free;
 
-   if(screen->get_param(screen, PIPE_CAP_NPOT_TEXTURES))
-      wsw->target = PIPE_TEXTURE_2D;
-   else
-      wsw->target = PIPE_TEXTURE_RECT;
+   wsw->target = PIPE_TEXTURE_2D;
 
    return &wsw->base;
 

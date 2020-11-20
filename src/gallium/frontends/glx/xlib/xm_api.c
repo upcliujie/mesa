@@ -1163,28 +1163,7 @@ XMesaCreatePixmapTextureBuffer(XMesaVisual v, Pixmap p,
    xmesa_get_window_size(v->display, b, &b->width, &b->height);
 
    if (target == 0) {
-      /* examine dims */
-      if (ctx->Extensions.ARB_texture_non_power_of_two) {
-         target = GLX_TEXTURE_2D_EXT;
-      }
-      else if (   util_bitcount(b->width)  == 1
-               && util_bitcount(b->height) == 1) {
-         /* power of two size */
-         if (b->height == 1) {
-            target = GLX_TEXTURE_1D_EXT;
-         }
-         else {
-            target = GLX_TEXTURE_2D_EXT;
-         }
-      }
-      else if (ctx->Extensions.NV_texture_rectangle) {
-         target = GLX_TEXTURE_RECTANGLE_EXT;
-      }
-      else {
-         /* non power of two textures not supported */
-         XMesaDestroyBuffer(b);
-         return 0;
-      }
+      target = GLX_TEXTURE_2D_EXT;
    }
 
    b->TextureTarget = target;

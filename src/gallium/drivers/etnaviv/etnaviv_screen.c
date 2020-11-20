@@ -138,8 +138,6 @@ etna_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    switch (param) {
    /* Supported features (boolean caps). */
-   case PIPE_CAP_POINT_SPRITE:
-   case PIPE_CAP_BLEND_EQUATION_SEPARATE:
    case PIPE_CAP_TGSI_FS_COORD_ORIGIN_UPPER_LEFT:
    case PIPE_CAP_TGSI_FS_COORD_PIXEL_CENTER_HALF_INTEGER:
    case PIPE_CAP_FRAGMENT_SHADER_TEXTURE_LOD:
@@ -170,10 +168,6 @@ etna_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return 256;
    case PIPE_CAP_MIN_MAP_BUFFER_ALIGNMENT:
       return 4; /* XXX could easily be supported */
-
-   case PIPE_CAP_NPOT_TEXTURES:
-      return true; /* VIV_FEATURE(priv->dev, chipMinorFeatures1,
-                      NON_POWER_OF_TWO); */
 
    case PIPE_CAP_ANISOTROPIC_FILTER:
    case PIPE_CAP_TEXTURE_SWIZZLE:

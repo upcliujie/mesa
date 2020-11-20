@@ -242,10 +242,7 @@ hgl_create_st_framebuffer(struct hgl_context* context)
 	buffer->visual = context->stVisual;
 	buffer->screen = context->screen;
 
-	if (context->screen->get_param(buffer->screen, PIPE_CAP_NPOT_TEXTURES))
-		buffer->target = PIPE_TEXTURE_2D;
-	else
-		buffer->target = PIPE_TEXTURE_RECT;
+        buffer->target = PIPE_TEXTURE_2D;
 
 	// Prepare our frontend interface
 	buffer->stfbi->flush_front = hgl_st_framebuffer_flush_front;
