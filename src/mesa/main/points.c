@@ -113,12 +113,6 @@ _mesa_PointParameterfv( GLenum pname, const GLfloat *params)
 {
    GET_CURRENT_CONTEXT(ctx);
 
-   /* Drivers that support point sprites must also support point parameters.
-    * If point parameters aren't supported, then this function shouldn't even
-    * exist.
-    */
-   assert(!ctx->Extensions.ARB_point_sprite);
-
    switch (pname) {
       case GL_DISTANCE_ATTENUATION_EXT:
          if (TEST_EQ_3V(ctx->Point.Params, params))

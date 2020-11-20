@@ -276,13 +276,6 @@ blit_to_staging(struct st_context *st, struct st_renderbuffer *strb,
    struct pipe_resource *dst;
    struct pipe_blit_info blit;
 
-   /* We are creating a texture of the size of the region being read back.
-    * Need to check for NPOT texture support. */
-   if (!screen->get_param(screen, PIPE_CAP_NPOT_TEXTURES) &&
-       (!util_is_power_of_two_or_zero(width) ||
-        !util_is_power_of_two_or_zero(height)))
-      return NULL;
-
    /* create the destination texture */
    memset(&dst_templ, 0, sizeof(dst_templ));
    dst_templ.target = PIPE_TEXTURE_2D;

@@ -636,12 +636,6 @@ blend_equation_separate(struct gl_context *ctx, GLenum modeRGB, GLenum modeA,
       return;
 
    if (!no_error) {
-      if ((modeRGB != modeA) && !ctx->Extensions.EXT_blend_equation_separate) {
-         _mesa_error(ctx, GL_INVALID_OPERATION,
-                     "glBlendEquationSeparateEXT not supported by driver");
-         return;
-      }
-
       /* Only allow simple blending equations.
        * The GL_KHR_blend_equation_advanced spec says:
        *

@@ -101,7 +101,6 @@ softpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
 {
    struct softpipe_screen *sp_screen = softpipe_screen(screen);
    switch (param) {
-   case PIPE_CAP_NPOT_TEXTURES:
    case PIPE_CAP_MIXED_FRAMEBUFFER_SIZES:
    case PIPE_CAP_MIXED_COLOR_DEPTH_BITS:
       return 1;
@@ -110,8 +109,6 @@ softpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
    case PIPE_CAP_VERTEX_SHADER_SATURATE:
       return 1;
    case PIPE_CAP_ANISOTROPIC_FILTER:
-      return 1;
-   case PIPE_CAP_POINT_SPRITE:
       return 1;
    case PIPE_CAP_MAX_RENDER_TARGETS:
       return PIPE_MAX_COLOR_BUFS;
@@ -134,8 +131,6 @@ softpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
       return SP_MAX_TEXTURE_3D_LEVELS;
    case PIPE_CAP_MAX_TEXTURE_CUBE_LEVELS:
       return SP_MAX_TEXTURE_CUBE_LEVELS;
-   case PIPE_CAP_BLEND_EQUATION_SEPARATE:
-      return 1;
    case PIPE_CAP_INDEP_BLEND_ENABLE:
       return 1;
    case PIPE_CAP_INDEP_BLEND_FUNC:

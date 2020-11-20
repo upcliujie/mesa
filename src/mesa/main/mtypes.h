@@ -842,6 +842,8 @@ struct gl_scissor_attrib
  *
  * The derived value \c _TestTwoSide is set when the front-face and back-face
  * stencil state are different.
+ *
+ * XXX probably this can be simplified now?
  */
 struct gl_stencil_attrib
 {
@@ -4304,7 +4306,6 @@ struct gl_extensions
    GLboolean ARB_fragment_layer_viewport;
    GLboolean ARB_fragment_program;
    GLboolean ARB_fragment_program_shadow;
-   GLboolean ARB_fragment_shader;
    GLboolean ARB_framebuffer_no_attachments;
    GLboolean ARB_framebuffer_object;
    GLboolean ARB_fragment_shader_interlock;
@@ -4323,7 +4324,6 @@ struct gl_extensions
    GLboolean ARB_map_buffer_range;
    GLboolean ARB_occlusion_query2;
    GLboolean ARB_pipeline_statistics_query;
-   GLboolean ARB_point_sprite;
    GLboolean ARB_polygon_offset_clamp;
    GLboolean ARB_post_depth_coverage;
    GLboolean ARB_query_buffer_object;
@@ -4365,7 +4365,6 @@ struct gl_extensions
    GLboolean ARB_texture_gather;
    GLboolean ARB_texture_mirror_clamp_to_edge;
    GLboolean ARB_texture_multisample;
-   GLboolean ARB_texture_non_power_of_two;
    GLboolean ARB_texture_stencil8;
    GLboolean ARB_texture_query_levels;
    GLboolean ARB_texture_query_lod;
@@ -4380,11 +4379,9 @@ struct gl_extensions
    GLboolean ARB_uniform_buffer_object;
    GLboolean ARB_vertex_attrib_64bit;
    GLboolean ARB_vertex_program;
-   GLboolean ARB_vertex_shader;
    GLboolean ARB_vertex_type_10f_11f_11f_rev;
    GLboolean ARB_vertex_type_2_10_10_10_rev;
    GLboolean ARB_viewport_array;
-   GLboolean EXT_blend_equation_separate;
    GLboolean EXT_demote_to_helper_invocation;
    GLboolean EXT_depth_bounds_test;
    GLboolean EXT_disjoint_timer_query;
@@ -4410,7 +4407,6 @@ struct gl_extensions
    GLboolean EXT_shader_integer_mix;
    GLboolean EXT_shader_samples_identical;
    GLboolean EXT_sRGB;
-   GLboolean EXT_stencil_two_side;
    GLboolean EXT_texture_array;
    GLboolean EXT_texture_buffer_object;
    GLboolean EXT_texture_compression_latc;

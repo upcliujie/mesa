@@ -114,7 +114,6 @@ static int
 llvmpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
 {
    switch (param) {
-   case PIPE_CAP_NPOT_TEXTURES:
    case PIPE_CAP_MIXED_FRAMEBUFFER_SIZES:
    case PIPE_CAP_MIXED_COLOR_DEPTH_BITS:
       return 1;
@@ -126,8 +125,6 @@ llvmpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
       return 1;
    case PIPE_CAP_MAX_STREAM_OUTPUT_BUFFERS:
       return PIPE_MAX_SO_BUFFERS;
-   case PIPE_CAP_POINT_SPRITE:
-      return 1;
    case PIPE_CAP_MAX_RENDER_TARGETS:
       return PIPE_MAX_COLOR_BUFS;
    case PIPE_CAP_OCCLUSION_QUERY:
@@ -149,8 +146,6 @@ llvmpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
       return LP_MAX_TEXTURE_CUBE_LEVELS;
    case PIPE_CAP_MAX_TEXTURE_ARRAY_LAYERS:
       return LP_MAX_TEXTURE_ARRAY_LAYERS;
-   case PIPE_CAP_BLEND_EQUATION_SEPARATE:
-      return 1;
    case PIPE_CAP_INDEP_BLEND_ENABLE:
       return 1;
    case PIPE_CAP_INDEP_BLEND_FUNC:

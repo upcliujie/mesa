@@ -217,9 +217,8 @@ _mesa_validate_shader_target(const struct gl_context *ctx, GLenum type)
 
    switch (type) {
    case GL_FRAGMENT_SHADER:
-      return ctx == NULL || ctx->Extensions.ARB_fragment_shader;
    case GL_VERTEX_SHADER:
-      return ctx == NULL || ctx->Extensions.ARB_vertex_shader;
+      return true;
    case GL_GEOMETRY_SHADER_ARB:
       return ctx == NULL || _mesa_has_geometry_shaders(ctx);
    case GL_TESS_CONTROL_SHADER:

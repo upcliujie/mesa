@@ -619,11 +619,7 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
    st_init_clear(st);
    st_init_pbo_helpers(st);
 
-   /* Choose texture target for glDrawPixels, glBitmap, renderbuffers */
-   if (screen->get_param(screen, PIPE_CAP_NPOT_TEXTURES))
-      st->internal_target = PIPE_TEXTURE_2D;
-   else
-      st->internal_target = PIPE_TEXTURE_RECT;
+   st->internal_target = PIPE_TEXTURE_2D;
 
    /* Setup vertex element info for 'struct st_util_vertex'.
     */

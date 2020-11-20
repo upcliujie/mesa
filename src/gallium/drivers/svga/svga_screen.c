@@ -191,7 +191,6 @@ svga_get_param(struct pipe_screen *screen, enum pipe_cap param)
    SVGA3dDevCapResult result;
 
    switch (param) {
-   case PIPE_CAP_NPOT_TEXTURES:
    case PIPE_CAP_MIXED_FRAMEBUFFER_SIZES:
    case PIPE_CAP_MIXED_COLOR_DEPTH_BITS:
       return 1;
@@ -203,8 +202,6 @@ svga_get_param(struct pipe_screen *screen, enum pipe_cap param)
        */
       return sws->have_vgpu10 ? 1 : 0;
    case PIPE_CAP_ANISOTROPIC_FILTER:
-      return 1;
-   case PIPE_CAP_POINT_SPRITE:
       return 1;
    case PIPE_CAP_MAX_RENDER_TARGETS:
       return svgascreen->max_color_buffers;
@@ -247,9 +244,6 @@ svga_get_param(struct pipe_screen *screen, enum pipe_cap param)
    case PIPE_CAP_MAX_TEXTURE_ARRAY_LAYERS:
       return sws->have_sm5 ? SVGA3D_SM5_MAX_SURFACE_ARRAYSIZE :
              (sws->have_vgpu10 ? SVGA3D_SM4_MAX_SURFACE_ARRAYSIZE : 0);
-
-   case PIPE_CAP_BLEND_EQUATION_SEPARATE: /* req. for GL 1.5 */
-      return 1;
 
    case PIPE_CAP_TGSI_FS_COORD_ORIGIN_UPPER_LEFT:
       return 1;

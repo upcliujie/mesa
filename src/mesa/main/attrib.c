@@ -388,10 +388,8 @@ pop_enable_group(struct gl_context *ctx, const struct gl_enable_attrib_node *ena
                    GL_RASTER_POSITION_UNCLIPPED_IBM);
    TEST_AND_UPDATE(ctx->Point.SmoothFlag, enable->PointSmooth,
                    GL_POINT_SMOOTH);
-   if (ctx->Extensions.ARB_point_sprite) {
-      TEST_AND_UPDATE(ctx->Point.PointSprite, enable->PointSprite,
-                      GL_POINT_SPRITE);
-   }
+   TEST_AND_UPDATE(ctx->Point.PointSprite, enable->PointSprite,
+                   GL_POINT_SPRITE);
    TEST_AND_UPDATE(ctx->Polygon.OffsetPoint, enable->PolygonOffsetPoint,
                    GL_POLYGON_OFFSET_POINT);
    TEST_AND_UPDATE(ctx->Polygon.OffsetLine, enable->PolygonOffsetLine,
@@ -411,10 +409,7 @@ pop_enable_group(struct gl_context *ctx, const struct gl_enable_attrib_node *ena
       }
    }
    TEST_AND_UPDATE(ctx->Stencil.Enabled, enable->Stencil, GL_STENCIL_TEST);
-   if (ctx->Extensions.EXT_stencil_two_side) {
-      TEST_AND_UPDATE(ctx->Stencil.TestTwoSide, enable->StencilTwoSide,
-                      GL_STENCIL_TEST_TWO_SIDE_EXT);
-   }
+   TEST_AND_UPDATE(ctx->Stencil.TestTwoSide, enable->StencilTwoSide, GL_STENCIL_TEST_TWO_SIDE_EXT);
    TEST_AND_UPDATE(ctx->Multisample.Enabled, enable->MultisampleEnabled,
                    GL_MULTISAMPLE_ARB);
    TEST_AND_UPDATE(ctx->Multisample.SampleAlphaToCoverage,
@@ -969,30 +964,28 @@ _mesa_PopAttrib(void)
       TEST_AND_CALL1_SEL(Point.MinSize, PointParameterf, GL_POINT_SIZE_MIN_EXT);
       TEST_AND_CALL1_SEL(Point.MaxSize, PointParameterf, GL_POINT_SIZE_MAX_EXT);
       TEST_AND_CALL1_SEL(Point.Threshold, PointParameterf, GL_POINT_FADE_THRESHOLD_SIZE_EXT);
-      if (ctx->Extensions.ARB_point_sprite) {
-         if (ctx->Point.CoordReplace != attr->Point.CoordReplace) {
-            ctx->NewState |= _NEW_POINT;
-            ctx->Point.CoordReplace = attr->Point.CoordReplace;
+      if (ctx->Point.CoordReplace != attr->Point.CoordReplace) {
+         ctx->NewState |= _NEW_POINT;
+         ctx->Point.CoordReplace = attr->Point.CoordReplace;
 
-            if (ctx->Driver.TexEnv) {
-               unsigned active_texture = ctx->Texture.CurrentUnit;
+         if (ctx->Driver.TexEnv) {
+            unsigned active_texture = ctx->Texture.CurrentUnit;
 
-               for (unsigned i = 0; i < ctx->Const.MaxTextureUnits; i++) {
-                  float param = !!(ctx->Point.CoordReplace & (1 << i));
-                  ctx->Texture.CurrentUnit = i;
-                  ctx->Driver.TexEnv(ctx, GL_POINT_SPRITE, GL_COORD_REPLACE,
-                                     &param);
-               }
-               ctx->Texture.CurrentUnit = active_texture;
+            for (unsigned i = 0; i < ctx->Const.MaxTextureUnits; i++) {
+               float param = !!(ctx->Point.CoordReplace & (1 << i));
+               ctx->Texture.CurrentUnit = i;
+               ctx->Driver.TexEnv(ctx, GL_POINT_SPRITE, GL_COORD_REPLACE,
+                                  &param);
             }
+            ctx->Texture.CurrentUnit = active_texture;
          }
-         TEST_AND_UPDATE(ctx->Point.PointSprite, attr->Point.PointSprite,
-                         GL_POINT_SPRITE);
-
-         if ((ctx->API == API_OPENGL_COMPAT && ctx->Version >= 20)
-             || ctx->API == API_OPENGL_CORE)
-            TEST_AND_CALL1_SEL(Point.SpriteOrigin, PointParameterf, GL_POINT_SPRITE_COORD_ORIGIN);
       }
+      TEST_AND_UPDATE(ctx->Point.PointSprite, attr->Point.PointSprite,
+                      GL_POINT_SPRITE);
+
+      if ((ctx->API == API_OPENGL_COMPAT && ctx->Version >= 20)
+          || ctx->API == API_OPENGL_CORE)
+         TEST_AND_CALL1_SEL(Point.SpriteOrigin, PointParameterf, GL_POINT_SPRITE_COORD_ORIGIN);
    }
 
    if (mask & GL_POLYGON_BIT) {
@@ -1052,12 +1045,10 @@ _mesa_PopAttrib(void)
       TEST_AND_UPDATE(ctx->Stencil.Enabled, attr->Stencil.Enabled,
                       GL_STENCIL_TEST);
       TEST_AND_CALL1(Stencil.Clear, ClearStencil);
-      if (ctx->Extensions.EXT_stencil_two_side) {
-         TEST_AND_UPDATE(ctx->Stencil.TestTwoSide, attr->Stencil.TestTwoSide,
-                         GL_STENCIL_TEST_TWO_SIDE_EXT);
-         _mesa_ActiveStencilFaceEXT(attr->Stencil.ActiveFace
-                                    ? GL_BACK : GL_FRONT);
-      }
+      TEST_AND_UPDATE(ctx->Stencil.TestTwoSide, attr->Stencil.TestTwoSide,
+                      GL_STENCIL_TEST_TWO_SIDE_EXT);
+      _mesa_ActiveStencilFaceEXT(attr->Stencil.ActiveFace
+                                 ? GL_BACK : GL_FRONT);
       /* front state */
       _mesa_StencilFuncSeparate(GL_FRONT,
                                 attr->Stencil.Function[0],

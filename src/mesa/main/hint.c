@@ -112,7 +112,7 @@ _mesa_Hint( GLenum target, GLenum mode )
 
       /* GL_ARB_fragment_shader */
       case GL_FRAGMENT_SHADER_DERIVATIVE_HINT_ARB:
-         if (ctx->API == API_OPENGLES || !ctx->Extensions.ARB_fragment_shader)
+         if (ctx->API == API_OPENGLES)
             goto invalid_target;
          if (ctx->Hint.FragmentShaderDerivative == mode)
             return;

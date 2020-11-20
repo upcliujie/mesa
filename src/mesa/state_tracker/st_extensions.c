@@ -743,7 +743,6 @@ void st_init_extensions(struct pipe_screen *screen,
       { o(ARB_occlusion_query2),             PIPE_CAP_OCCLUSION_QUERY                  },
       { o(ARB_pipeline_statistics_query),    PIPE_CAP_QUERY_PIPELINE_STATISTICS        },
       { o(ARB_pipeline_statistics_query),    PIPE_CAP_QUERY_PIPELINE_STATISTICS_SINGLE },
-      { o(ARB_point_sprite),                 PIPE_CAP_POINT_SPRITE                     },
       { o(ARB_polygon_offset_clamp),         PIPE_CAP_POLYGON_OFFSET_CLAMP             },
       { o(ARB_post_depth_coverage),          PIPE_CAP_POST_DEPTH_COVERAGE              },
       { o(ARB_query_buffer_object),          PIPE_CAP_QUERY_BUFFER_OBJECT              },
@@ -767,7 +766,6 @@ void st_init_extensions(struct pipe_screen *screen,
       { o(ARB_texture_gather),               PIPE_CAP_MAX_TEXTURE_GATHER_COMPONENTS    },
       { o(ARB_texture_mirror_clamp_to_edge), PIPE_CAP_TEXTURE_MIRROR_CLAMP_TO_EDGE     },
       { o(ARB_texture_multisample),          PIPE_CAP_TEXTURE_MULTISAMPLE              },
-      { o(ARB_texture_non_power_of_two),     PIPE_CAP_NPOT_TEXTURES                    },
       { o(ARB_texture_query_lod),            PIPE_CAP_TEXTURE_QUERY_LOD                },
       { o(ARB_texture_view),                 PIPE_CAP_SAMPLER_VIEW_TARGET              },
       { o(ARB_timer_query),                  PIPE_CAP_QUERY_TIMESTAMP                  },
@@ -776,7 +774,6 @@ void st_init_extensions(struct pipe_screen *screen,
       { o(ARB_transform_feedback_overflow_query), PIPE_CAP_QUERY_SO_OVERFLOW           },
       { o(ARB_fragment_shader_interlock),    PIPE_CAP_FRAGMENT_SHADER_INTERLOCK        },
 
-      { o(EXT_blend_equation_separate),      PIPE_CAP_BLEND_EQUATION_SEPARATE          },
       { o(EXT_demote_to_helper_invocation),  PIPE_CAP_DEMOTE_TO_HELPER_INVOCATION      },
       { o(EXT_depth_bounds_test),            PIPE_CAP_DEPTH_BOUNDS_TEST                },
       { o(EXT_disjoint_timer_query),         PIPE_CAP_QUERY_TIMESTAMP                  },
@@ -1045,20 +1042,17 @@ void st_init_extensions(struct pipe_screen *screen,
    extensions->ARB_fragment_coord_conventions = GL_TRUE;
    extensions->ARB_fragment_program = GL_TRUE;
    extensions->ARB_fragment_program_shadow = GL_TRUE;
-   extensions->ARB_fragment_shader = GL_TRUE;
    extensions->ARB_half_float_vertex = GL_TRUE;
    extensions->ARB_internalformat_query = GL_TRUE;
    extensions->ARB_internalformat_query2 = GL_TRUE;
    extensions->ARB_map_buffer_range = GL_TRUE;
    extensions->ARB_sync = GL_TRUE;
    extensions->ARB_vertex_program = GL_TRUE;
-   extensions->ARB_vertex_shader = GL_TRUE;
 
    extensions->EXT_EGL_image_storage = GL_TRUE;
    extensions->EXT_gpu_program_parameters = GL_TRUE;
    extensions->EXT_pixel_buffer_object = GL_TRUE;
    extensions->EXT_provoking_vertex = GL_TRUE;
-   extensions->EXT_stencil_two_side = GL_TRUE;
    extensions->EXT_texture_env_dot3 = GL_TRUE;
 
    extensions->ATI_fragment_shader = GL_TRUE;

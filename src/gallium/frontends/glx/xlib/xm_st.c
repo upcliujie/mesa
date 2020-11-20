@@ -297,10 +297,7 @@ xmesa_create_st_framebuffer(XMesaDisplay xmdpy, XMesaBuffer b)
    xstfb->buffer = b;
    xstfb->screen = xmdpy->screen;
    xstfb->stvis = b->xm_visual->stvis;
-   if (xstfb->screen->get_param(xstfb->screen, PIPE_CAP_NPOT_TEXTURES))
-      xstfb->target = PIPE_TEXTURE_2D;
-   else
-      xstfb->target = PIPE_TEXTURE_RECT;
+   xstfb->target = PIPE_TEXTURE_2D;
 
    stfbi->visual = &xstfb->stvis;
    stfbi->flush_front = xmesa_st_framebuffer_flush_front;

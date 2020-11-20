@@ -99,7 +99,6 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    struct zink_screen *screen = zink_screen(pscreen);
 
    switch (param) {
-   case PIPE_CAP_NPOT_TEXTURES:
    case PIPE_CAP_TGSI_TEXCOORD:
    case PIPE_CAP_DRAW_INDIRECT:
    case PIPE_CAP_TEXTURE_QUERY_LOD:
@@ -131,9 +130,6 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
          return 0;
       return screen->info.props.limits.maxFragmentDualSrcAttachments;
 
-   case PIPE_CAP_POINT_SPRITE:
-      return 1;
-
    case PIPE_CAP_MAX_RENDER_TARGETS:
       return screen->info.props.limits.maxColorAttachments;
 
@@ -157,7 +153,6 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_MAX_TEXTURE_CUBE_LEVELS:
       return 1 + util_logbase2(screen->info.props.limits.maxImageDimensionCube);
 
-   case PIPE_CAP_BLEND_EQUATION_SEPARATE:
    case PIPE_CAP_FRAGMENT_SHADER_TEXTURE_LOD:
    case PIPE_CAP_FRAGMENT_SHADER_DERIVATIVES:
    case PIPE_CAP_VERTEX_SHADER_SATURATE:

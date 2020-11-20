@@ -24,12 +24,9 @@ The integer capabilities:
 
 * ``PIPE_CAP_GRAPHICS``: Whether graphics is supported. If not, contexts can
   only be created with PIPE_CONTEXT_COMPUTE_ONLY.
-* ``PIPE_CAP_NPOT_TEXTURES``: Whether :term:`NPOT` textures may have repeat modes,
-  normalized coordinates, and mipmaps.
 * ``PIPE_CAP_MAX_DUAL_SOURCE_RENDER_TARGETS``: How many dual-source blend RTs are support.
   :ref:`Blend` for more information.
 * ``PIPE_CAP_ANISOTROPIC_FILTER``: Whether textures can be filtered anisotropically.
-* ``PIPE_CAP_POINT_SPRITE``: Whether point sprites are available.
 * ``PIPE_CAP_MAX_RENDER_TARGETS``: The maximum number of render targets that may be
   bound.
 * ``PIPE_CAP_OCCLUSION_QUERY``: Whether occlusion queries are available.
@@ -48,8 +45,6 @@ The integer capabilities:
   supported with the clamp-to-edge wrap mode.
 * ``PIPE_CAP_TEXTURE_MIRROR_CLAMP``: Whether mirrored texture coordinates are supported
   with clamp or clamp-to-border wrap modes.
-* ``PIPE_CAP_BLEND_EQUATION_SEPARATE``: Whether alpha blend equations may be different
-  from color blend equations, in :ref:`Blend` state.
 * ``PIPE_CAP_MAX_STREAM_OUTPUT_BUFFERS``: The maximum number of stream buffers.
 * ``PIPE_CAP_PRIMITIVE_RESTART``: Whether primitive restart is supported.
 * ``PIPE_CAP_PRIMITIVE_RESTART_FIXED_INDEX``: Subset of

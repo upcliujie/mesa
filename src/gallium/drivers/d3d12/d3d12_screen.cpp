@@ -110,9 +110,6 @@ d3d12_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    struct d3d12_screen *screen = d3d12_screen(pscreen);
 
    switch (param) {
-   case PIPE_CAP_NPOT_TEXTURES:
-      return 1;
-
    case PIPE_CAP_MAX_DUAL_SOURCE_RENDER_TARGETS:
       /* D3D12 only supports dual-source blending for a single
        * render-target. From the D3D11 functional spec (which also defines
@@ -293,10 +290,8 @@ d3d12_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_TGSI_INSTANCEID:
    case PIPE_CAP_TGSI_TEX_TXF_LZ:
    case PIPE_CAP_OCCLUSION_QUERY:
-   case PIPE_CAP_POINT_SPRITE:
    case PIPE_CAP_VIEWPORT_TRANSFORM_LOWERED:
    case PIPE_CAP_PSIZ_CLAMPED:
-   case PIPE_CAP_BLEND_EQUATION_SEPARATE:
    case PIPE_CAP_CONDITIONAL_RENDER:
    case PIPE_CAP_QUERY_TIMESTAMP:
    case PIPE_CAP_VERTEX_ELEMENT_INSTANCE_DIVISOR:
