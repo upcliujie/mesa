@@ -599,6 +599,8 @@ RADV driver environment variables
       display info at startup
    ``syncshaders``
       synchronize shaders after all draws/dispatches
+   ``umr``
+      enable UMR dumps during GPU hang detection (only with RADV_DEBUG=hang)
    ``vmfaults``
       check for VM memory faults via dmesg
    ``zerovram``
