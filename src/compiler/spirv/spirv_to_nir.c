@@ -2521,8 +2521,6 @@ static void
 vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
                    const uint32_t *w, unsigned count)
 {
-   struct vtn_type *ret_type = vtn_get_type(b, w[1]);
-
    if (opcode == SpvOpSampledImage) {
       struct vtn_sampled_image si = {
          .image = vtn_get_image(b, w[3], NULL),
@@ -2566,20 +2564,25 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    nir_texop texop;
    switch (opcode) {
    case SpvOpImageSampleImplicitLod:
+   case SpvOpImageSparseSampleImplicitLod:
    case SpvOpImageSampleDrefImplicitLod:
+   case SpvOpImageSparseSampleDrefImplicitLod:
    case SpvOpImageSampleProjImplicitLod:
    case SpvOpImageSampleProjDrefImplicitLod:
       texop = nir_texop_tex;
       break;
 
    case SpvOpImageSampleExplicitLod:
+   case SpvOpImageSparseSampleExplicitLod:
    case SpvOpImageSampleDrefExplicitLod:
+   case SpvOpImageSparseSampleDrefExplicitLod:
    case SpvOpImageSampleProjExplicitLod:
    case SpvOpImageSampleProjDrefExplicitLod:
       texop = nir_texop_txl;
       break;
 
    case SpvOpImageFetch:
+   case SpvOpImageSparseFetch:
       if (sampler_dim == GLSL_SAMPLER_DIM_MS) {
          texop = nir_texop_txf_ms;
       } else {
@@ -2588,7 +2591,9 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
       break;
 
    case SpvOpImageGather:
+   case SpvOpImageSparseGather:
    case SpvOpImageDrefGather:
+   case SpvOpImageSparseDrefGather:
       texop = nir_texop_tg4;
       break;
 
@@ -2672,16 +2677,23 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    unsigned coord_components;
    switch (opcode) {
    case SpvOpImageSampleImplicitLod:
+   case SpvOpImageSparseSampleImplicitLod:
    case SpvOpImageSampleExplicitLod:
+   case SpvOpImageSparseSampleExplicitLod:
    case SpvOpImageSampleDrefImplicitLod:
+   case SpvOpImageSparseSampleDrefImplicitLod:
    case SpvOpImageSampleDrefExplicitLod:
+   case SpvOpImageSparseSampleDrefExplicitLod:
    case SpvOpImageSampleProjImplicitLod:
    case SpvOpImageSampleProjExplicitLod:
    case SpvOpImageSampleProjDrefImplicitLod:
    case SpvOpImageSampleProjDrefExplicitLod:
    case SpvOpImageFetch:
+   case SpvOpImageSparseFetch:
    case SpvOpImageGather:
+   case SpvOpImageSparseGather:
    case SpvOpImageDrefGather:
+   case SpvOpImageSparseDrefGather:
    case SpvOpImageQueryLod:
    case SpvOpFragmentFetchAMD:
    case SpvOpFragmentMaskFetchAMD: {
@@ -2738,20 +2750,39 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    unsigned gather_component = 0;
    switch (opcode) {
    case SpvOpImageSampleDrefImplicitLod:
+   case SpvOpImageSparseSampleDrefImplicitLod:
    case SpvOpImageSampleDrefExplicitLod:
+   case SpvOpImageSparseSampleDrefExplicitLod:
    case SpvOpImageSampleProjDrefImplicitLod:
    case SpvOpImageSampleProjDrefExplicitLod:
    case SpvOpImageDrefGather:
+   case SpvOpImageSparseDrefGather:
       /* These all have an explicit depth value as their next source */
       is_shadow = true;
       (*p++) = vtn_tex_src(b, w[idx++], nir_tex_src_comparator);
       break;
 
    case SpvOpImageGather:
+   case SpvOpImageSparseGather:
       /* This has a component as its next source */
       gather_component = vtn_constant_uint(b, w[idx++]);
       break;
 
+   default:
+      break;
+   }
+
+   bool is_sparse = false;
+   switch (opcode) {
+   case SpvOpImageSparseSampleImplicitLod:
+   case SpvOpImageSparseSampleExplicitLod:
+   case SpvOpImageSparseSampleDrefImplicitLod:
+   case SpvOpImageSparseSampleDrefExplicitLod:
+   case SpvOpImageSparseFetch:
+   case SpvOpImageSparseGather:
+   case SpvOpImageSparseDrefGather:
+      is_sparse = true;
+      break;
    default:
       break;
    }
@@ -2839,6 +2870,14 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
       }
    }
 
+   struct vtn_type *ret_type = vtn_get_type(b, w[1]);
+   struct vtn_type *struct_type = NULL;
+   if (is_sparse) {
+      vtn_assert(glsl_type_is_struct_or_ifc(ret_type->type));
+      struct_type = ret_type;
+      ret_type = struct_type->members[1];
+   }
+
    nir_tex_instr *instr = nir_tex_instr_create(b->shader, p - srcs);
    instr->op = texop;
 
@@ -2848,6 +2887,7 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    instr->sampler_dim = sampler_dim;
    instr->is_array = is_array;
    instr->is_shadow = is_shadow;
+   instr->is_sparse = is_sparse;
    instr->is_new_style_shadow =
       is_shadow && glsl_get_components(ret_type->type) == 1;
    instr->component = gather_component;
@@ -2904,7 +2944,7 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
                      nir_tex_instr_dest_size(instr), 32, NULL);
 
    vtn_assert(glsl_get_vector_elements(ret_type->type) ==
-              nir_tex_instr_dest_size(instr));
+              nir_tex_instr_result_size(instr));
 
    if (gather_offsets) {
       vtn_fail_if(gather_offsets->type->base_type != vtn_base_type_array ||
@@ -2938,7 +2978,16 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
 
    nir_builder_instr_insert(&b->nb, &instr->instr);
 
-   vtn_push_nir_ssa(b, w[2], &instr->dest.ssa);
+   if (is_sparse) {
+      struct vtn_ssa_value *dest = vtn_create_ssa_value(b, struct_type->type);
+      unsigned result_size = glsl_get_vector_elements(ret_type->type);
+      dest->elems[0]->def = nir_channel(&b->nb, &instr->dest.ssa, result_size);
+      dest->elems[1]->def = nir_channels(&b->nb, &instr->dest.ssa,
+                                         BITFIELD_MASK(result_size));
+      vtn_push_ssa_value(b, w[2], dest);
+   } else {
+      vtn_push_nir_ssa(b, w[2], &instr->dest.ssa);
+   }
 }
 
 static void
@@ -5216,16 +5265,23 @@ vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
    case SpvOpSampledImage:
    case SpvOpImage:
    case SpvOpImageSampleImplicitLod:
+   case SpvOpImageSparseSampleImplicitLod:
    case SpvOpImageSampleExplicitLod:
+   case SpvOpImageSparseSampleExplicitLod:
    case SpvOpImageSampleDrefImplicitLod:
+   case SpvOpImageSparseSampleDrefImplicitLod:
    case SpvOpImageSampleDrefExplicitLod:
+   case SpvOpImageSparseSampleDrefExplicitLod:
    case SpvOpImageSampleProjImplicitLod:
    case SpvOpImageSampleProjExplicitLod:
    case SpvOpImageSampleProjDrefImplicitLod:
    case SpvOpImageSampleProjDrefExplicitLod:
    case SpvOpImageFetch:
+   case SpvOpImageSparseFetch:
    case SpvOpImageGather:
+   case SpvOpImageSparseGather:
    case SpvOpImageDrefGather:
+   case SpvOpImageSparseDrefGather:
    case SpvOpImageQueryLod:
    case SpvOpImageQueryLevels:
    case SpvOpImageQuerySamples:
