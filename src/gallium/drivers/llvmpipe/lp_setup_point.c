@@ -380,7 +380,7 @@ try_setup_point( struct lp_setup_context *setup,
       /*
        * Rasterize points as quads.
        */
-      int x0, y0;
+      int x0, y0, x1, y1;
       /* Point size as fixed point integer, remove rounding errors
        * and gives minimum width for very small points.
        */
@@ -389,20 +389,33 @@ try_setup_point( struct lp_setup_context *setup,
       x0 = subpixel_snap(v0[0][0] - pixel_offset) - fixed_width/2;
       y0 = subpixel_snap(v0[0][1] - pixel_offset) - fixed_width/2;
 
+      y0 += adj;
+
+      x1 = x0 + fixed_width;
+      y1 = y0 + fixed_width;
+
       bbox.x0 = (x0 + (FIXED_ONE-1)) >> FIXED_ORDER;
-      bbox.x1 = (x0 + fixed_width + (FIXED_ONE-1)) >> FIXED_ORDER;
-      bbox.y0 = (y0 + (FIXED_ONE-1) + adj) >> FIXED_ORDER;
-      bbox.y1 = (y0 + fixed_width + (FIXED_ONE-1) + adj) >> FIXED_ORDER;
+      bbox.x1 = (x1 + (FIXED_ONE-1)) >> FIXED_ORDER;
+      bbox.y0 = (y0 + (FIXED_ONE-1)) >> FIXED_ORDER;
+      bbox.y1 = (y1 + (FIXED_ONE-1)) >> FIXED_ORDER;
+
+      planes_c[0] = -x0;
+      planes_c[1] = x1;
+      planes_c[2] = -y0;
+      planes_c[3] = y1;
+
+      if (!setup->multisample) {
+         /* round to pixel edges */
+         planes_c[0] = (planes_c[0] + FIXED_ONE) & ~0xff;
+         planes_c[1] = (planes_c[1] + (FIXED_ONE - 1)) & ~0xff;
+         planes_c[2] = (planes_c[2] + FIXED_ONE) & ~0xff;
+         planes_c[3] = (planes_c[3] + (FIXED_ONE - 1)) & ~0xff;
+      }
 
       /* Inclusive coordinates:
        */
       bbox.x1--;
       bbox.y1--;
-
-      planes_c[0] = (1-bbox.x0) << 8;
-      planes_c[1] = (bbox.x1+1) << 8;
-      planes_c[2] = (1-bbox.y0) << 8;
-      planes_c[3] = (bbox.y1+1) << 8;
 
    } else {
       /*
