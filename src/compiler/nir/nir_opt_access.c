@@ -202,6 +202,7 @@ process_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
 {
    switch (instr->intrinsic) {
    case nir_intrinsic_bindless_image_load:
+   case nir_intrinsic_bindless_image_sparse_load:
       if (nir_intrinsic_access(instr) & ACCESS_CAN_REORDER)
          return false;
 
@@ -234,7 +235,8 @@ process_intrinsic(struct access_state *state, nir_intrinsic_instr *instr)
       return progress;
 
    case nir_intrinsic_load_deref:
-   case nir_intrinsic_image_deref_load: {
+   case nir_intrinsic_image_deref_load:
+   case nir_intrinsic_image_deref_sparse_load: {
       nir_variable *var = nir_intrinsic_get_var(instr, 0);
 
       if (instr->intrinsic == nir_intrinsic_load_deref &&
