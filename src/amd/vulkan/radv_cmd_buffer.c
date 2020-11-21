@@ -1090,6 +1090,7 @@ radv_emit_rbplus_state(struct radv_cmd_buffer *cmd_buffer)
 
 		int idx = subpass->color_attachments[i].attachment;
 		struct radv_color_buffer_info *cb = &cmd_buffer->state.attachments[idx].cb;
+		VkFormat vk_format = cmd_buffer->state.attachments[idx].iview->vk_format;
 
 		unsigned format = G_028C70_FORMAT(cb->cb_color_info);
 		unsigned swap = G_028C70_COMP_SWAP(cb->cb_color_info);
@@ -1118,6 +1119,11 @@ radv_emit_rbplus_state(struct radv_cmd_buffer *cmd_buffer)
 			has_rgb = false;
 			has_alpha = false;
 		}
+
+		/* The HW doesn't quite blend correctly with rgb9e5 if we disable the alpha
+		 * optimization, even though it has no alpha. */
+		if (has_rgb && vk_format != VK_FORMAT_E5B9G9R9_UFLOAT_PACK32)
+			has_alpha = true;
 
 		/* Disable value checking for disabled channels. */
 		if (!has_rgb)
