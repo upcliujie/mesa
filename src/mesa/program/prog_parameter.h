@@ -148,6 +148,8 @@ struct gl_program_parameter_list
    int UniformBytes;
    int LastUniformIndex;
    int FirstStateVarIndex;
+
+   bool DisallowRealloc;
 };
 
 
@@ -164,6 +166,9 @@ extern void
 _mesa_reserve_parameter_storage(struct gl_program_parameter_list *paramList,
                                 unsigned reserve_params,
                                 unsigned reserve_values);
+
+extern void
+_mesa_disallow_parameter_storage_realloc(struct gl_program_parameter_list *paramList);
 
 extern GLint
 _mesa_add_parameter(struct gl_program_parameter_list *paramList,
