@@ -84,6 +84,76 @@ bi_combine_sel16(bi_context *ctx, bi_instruction *parent, unsigned comp, unsigne
         bi_emit_before(ctx, parent, sel);
 }
 
+static void
+bi_combine_sel8(bi_context *ctx, bi_instruction *parent, unsigned comp, unsigned R)
+{
+        bi_instruction sel = {
+                .type = BI_SELECT,
+                .dest = R,
+                .dest_type = nir_type_uint32,
+                .dest_offset = comp >> 1,
+                .src_types = {
+                        nir_type_uint8, nir_type_uint8,
+                        nir_type_uint8, nir_type_uint8
+                },
+        };
+
+        unsigned num_reg_slots = 0;
+        for (unsigned i = 0; i < 4 - comp; i++) {
+                if (!parent->src[comp + i]) {
+                        sel.src[i] = BIR_INDEX_ZERO;
+                        continue;
+                }
+
+                sel.src[i] = parent->src[comp + i];
+                sel.swizzle[i][0] = parent->swizzle[comp + i][0];
+                assert(!(sel.swizzle[i][0] & 1));
+
+                unsigned j = 0;
+                for (j = 0; j < i; j++) {
+                        if (sel.src[j] == sel.src[i])
+                                break;
+                }
+
+                if (j == i)
+                        num_reg_slots++;
+        }
+
+        if (num_reg_slots <= 3) {
+                bi_emit_before(ctx, parent, sel);
+                return;
+        }
+
+        bi_instruction sel2 = {
+                .type = BI_SELECT,
+                .dest = bi_make_temp(ctx),
+                .dest_type = nir_type_uint32,
+                .src_types = {
+                        nir_type_uint8, nir_type_uint8,
+                        nir_type_uint8, nir_type_uint8
+                },
+                .src = { sel.src[2], sel.src[3], BIR_INDEX_ZERO, BIR_INDEX_ZERO },
+        };
+
+        sel.dest = bi_make_temp(ctx);
+        sel.src[2] = BIR_INDEX_ZERO;
+        sel.src[3] = BIR_INDEX_ZERO;
+
+        bi_instruction sel3 = {
+                .type = BI_SELECT,
+                .dest = R,
+                .dest_type = nir_type_uint32,
+                .src_types = {
+                        nir_type_uint16, nir_type_uint16,
+                },
+                .src = { sel.dest, sel2.dest },
+        };
+
+        bi_emit_before(ctx, parent, sel);
+        bi_emit_before(ctx, parent, sel2);
+        bi_emit_before(ctx, parent, sel3);
+}
+
 /* Copies result of combine from the temp R to the instruction destination,
  * given a bitsize sz */
 
@@ -143,12 +213,19 @@ bi_lower_combine(bi_context *ctx, bi_block *block)
                         if (!ins->src[s])
                                 continue;
 
-                        if (sz == 32)
+                        switch (sz) {
+                        case 32:
                                 bi_combine_mov32(ctx, ins, s, R);
-                        else if (sz == 16) {
+                                break;
+                        case 16:
                                 bi_combine_sel16(ctx, ins, s, R);
                                 s++;
-                        } else {
+                                break;
+                        case 8:
+                                bi_combine_sel8(ctx, ins, s, R);
+                                s += 3;
+                                break;
+                        default:
                                 unreachable("Unknown COMBINE size");
                         }
                 }
