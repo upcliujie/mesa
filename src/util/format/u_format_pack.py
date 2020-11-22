@@ -439,7 +439,13 @@ def generate_unpack_kernel(format, dst_channel, dst_native_type):
 
     def unpack_from_bitmask(channels, swizzles):
         depth = format.block_size()
+        print('#if UTIL_ARCH_BIG_ENDIAN')
+        print('         uint%u_t value = 0;' % depth)
+        print('         for (int b = 0; b < %u; b++)' % (depth / 8))
+        print('            value |= (uint%u_t)src[b] << b * 8;' % depth)
+        print('#else')
         print('         uint%u_t value = *(const uint%u_t *)src;' % (depth, depth)) 
+        print('#endif')
 
         # Declare the intermediate variables
         for i in range(format.nr_channels()):
@@ -574,7 +580,12 @@ def generate_pack_kernel(format, src_channel, src_native_type):
                 if value is not None:
                     print('         value |= %s;' % (value))
                 
+        print('#if UTIL_ARCH_BIG_ENDIAN')
+        print('         for (int b = 0; b < %u; b++)' % (depth / 8))
+        print('            dst[b] = (value >> b * 8) & 0xff;')
+        print('#else')
         print('         *(uint%u_t *)dst = value;' % depth) 
+        print('#endif')
 
     def pack_into_struct(channels, swizzles):
         inv_swizzle = inv_swizzles(swizzles)
