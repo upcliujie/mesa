@@ -2097,12 +2097,12 @@ emit_texc(bi_context *ctx, nir_tex_instr *instr)
         unsigned dreg_index = 0;
 
         for (unsigned i = 0; i < ARRAY_SIZE(dregs); ++i) {
-                assert(dreg_index < 4);
+                if (!dregs[i])
+                        continue;
 
-                if (dregs[i]) {
-                        combine.swizzle[dreg_index][0] = dregs_swiz[i];
-                        combine.src[dreg_index++] = dregs[i];
-                }
+                assert(dreg_index < 4);
+                combine.swizzle[dreg_index][0] = dregs_swiz[i];
+                combine.src[dreg_index++] = dregs[i];
         }
 
         if (dreg_index >= 1) {
