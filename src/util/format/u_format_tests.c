@@ -44,15 +44,29 @@
 #define PACKED_4x8(x, y, z, w) {x, y, z, w, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define PACKED_8x8(a, b, c, d, e, f, g, h) {a, b, c, d, e, f, g, h, 0, 0, 0, 0, 0, 0, 0, 0}
 
+#if UTIL_ARCH_BIG_ENDIAN
+#define PACKED_1x16(x)          {(x) >> 8, (x) & 0xff,          0,        0,          0,        0,          0,        0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define PACKED_2x16(x, y)       {(x) >> 8, (x) & 0xff, (y) >> 8, (y) & 0xff,          0,        0,          0,        0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define PACKED_3x16(x, y, z)    {(x) >> 8, (x) & 0xff, (y) >> 8, (y) & 0xff, (z) >> 8, (z) & 0xff,          0,        0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define PACKED_4x16(x, y, z, w) {(x) >> 8, (x) & 0xff, (y) >> 8, (y) & 0xff, (z) >> 8, (z) & 0xff, (w) >> 8, (w) & 0xff, 0, 0, 0, 0, 0, 0, 0, 0}
+#else
 #define PACKED_1x16(x)          {(x) & 0xff, (x) >> 8,          0,        0,          0,        0,          0,        0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define PACKED_2x16(x, y)       {(x) & 0xff, (x) >> 8, (y) & 0xff, (y) >> 8,          0,        0,          0,        0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define PACKED_3x16(x, y, z)    {(x) & 0xff, (x) >> 8, (y) & 0xff, (y) >> 8, (z) & 0xff, (z) >> 8,          0,        0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define PACKED_4x16(x, y, z, w) {(x) & 0xff, (x) >> 8, (y) & 0xff, (y) >> 8, (z) & 0xff, (z) >> 8, (w) & 0xff, (w) >> 8, 0, 0, 0, 0, 0, 0, 0, 0}
+#endif
 
+#if UTIL_ARCH_BIG_ENDIAN
+#define PACKED_1x32(x)          {(x) >> 24, ((x) >> 16) & 0xff, ((x) >> 8) & 0xff, (x) & 0xff,          0,                 0,                  0,         0,          0,                 0,                  0,         0,          0,                 0,                  0,         0}
+#define PACKED_2x32(x, y)       {(x) >> 24, ((x) >> 16) & 0xff, ((x) >> 8) & 0xff, (x) & 0xff, (y) >> 24, ((y) >> 16) & 0xff, ((y) >> 8) & 0xff, (y) & 0xff,          0,                 0,                  0,         0,          0,                 0,                  0,         0}
+#define PACKED_3x32(x, y, z)    {(x) >> 24, ((x) >> 16) & 0xff, ((x) >> 8) & 0xff, (x) & 0xff, (y) >> 24, ((y) >> 16) & 0xff, ((y) >> 8) & 0xff, (y) & 0xff, (z) >> 24, ((z) >> 16) & 0xff, ((z) >> 8) & 0xff, (z) & 0xff,          0,                 0,                  0,         0}
+#define PACKED_4x32(x, y, z, w) {(x) >> 24, ((x) >> 16) & 0xff, ((x) >> 8) & 0xff, (x) & 0xff, (y) >> 24, ((y) >> 16) & 0xff, ((y) >> 8) & 0xff, (y) & 0xff, (z) >> 24, ((z) >> 16) & 0xff, ((z) >> 8) & 0xff, (z) & 0xff, (w) >> 24, ((w) >> 16) & 0xff, ((w) >> 8) & 0xff, (w) & 0xff}
+#else
 #define PACKED_1x32(x)          {(x) & 0xff, ((x) >> 8) & 0xff, ((x) >> 16) & 0xff, (x) >> 24,          0,                 0,                  0,         0,          0,                 0,                  0,         0,          0,                 0,                  0,         0}
 #define PACKED_2x32(x, y)       {(x) & 0xff, ((x) >> 8) & 0xff, ((x) >> 16) & 0xff, (x) >> 24, (y) & 0xff, ((y) >> 8) & 0xff, ((y) >> 16) & 0xff, (y) >> 24,          0,                 0,                  0,         0,          0,                 0,                  0,         0}
 #define PACKED_3x32(x, y, z)    {(x) & 0xff, ((x) >> 8) & 0xff, ((x) >> 16) & 0xff, (x) >> 24, (y) & 0xff, ((y) >> 8) & 0xff, ((y) >> 16) & 0xff, (y) >> 24, (z) & 0xff, ((z) >> 8) & 0xff, ((z) >> 16) & 0xff, (z) >> 24,          0,                 0,                  0,         0}
 #define PACKED_4x32(x, y, z, w) {(x) & 0xff, ((x) >> 8) & 0xff, ((x) >> 16) & 0xff, (x) >> 24, (y) & 0xff, ((y) >> 8) & 0xff, ((y) >> 16) & 0xff, (y) >> 24, (z) & 0xff, ((z) >> 8) & 0xff, ((z) >> 16) & 0xff, (z) >> 24, (w) & 0xff, ((w) >> 8) & 0xff, ((w) >> 16) & 0xff, (w) >> 24}
+#endif
 
 #define UNPACKED_1x1(r, g, b, a) \
       {{{r, g, b, a}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}, \
