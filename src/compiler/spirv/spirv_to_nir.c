@@ -2906,9 +2906,6 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    nir_ssa_dest_init(&instr->instr, &instr->dest,
                      nir_tex_instr_dest_size(instr), 32, NULL);
 
-   vtn_assert(glsl_get_vector_elements(ret_type->type) ==
-              nir_tex_instr_dest_size(instr));
-
    if (gather_offsets) {
       vtn_fail_if(gather_offsets->type->base_type != vtn_base_type_array ||
                   gather_offsets->type->length != 4,
@@ -2941,7 +2938,16 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
 
    nir_builder_instr_insert(&b->nb, &instr->instr);
 
-   vtn_push_nir_ssa(b, w[2], &instr->dest.ssa);
+   nir_ssa_def *result = &instr->dest.ssa;
+
+   unsigned ret_type_size = glsl_get_vector_elements(ret_type->type);
+   if (ret_type_size != result->num_components) {
+      vtn_assert(ret_type_size <= result->num_components);
+      vtn_warn("Unexpected number of components in result type.");
+      result = nir_channels(&b->nb, result, u_bit_consecutive(0, ret_type_size));
+   }
+
+   vtn_push_nir_ssa(b, w[2], result);
 }
 
 static void
