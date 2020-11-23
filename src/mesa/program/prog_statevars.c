@@ -1290,6 +1290,9 @@ _mesa_optimize_state_parameters(struct gl_program_parameter_list *list)
       case STATE_PROGRAM_MATRIX_INVERSE:
       case STATE_PROGRAM_MATRIX_TRANSPOSE:
       case STATE_PROGRAM_MATRIX_INVTRANS:
+#ifdef __arm__
+         break;
+#endif
          /* Skip unaligned state vars. */
          if (list->Parameters[first_param].Size % 4)
             break;
