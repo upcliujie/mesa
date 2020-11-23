@@ -158,6 +158,7 @@ public:
       return res;
    }
 
+   /* Returns true if any of the bytes in the given range are allocated or blocked */
    bool test(PhysReg start, unsigned num_bytes) {
       for (PhysReg i = start; i.reg_b < start.reg_b + num_bytes; i = PhysReg(i + 1)) {
          if (regs[i] & 0x0FFFFFFF)
@@ -953,6 +954,7 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
 
    /* mark and count killed operands */
    unsigned killed_ops = 0;
+   std::bitset<256 * 4> is_killed_operand; /* per-register byte */
    for (unsigned j = 0; !is_phi(instr) && j < instr->operands.size(); j++) {
       if (instr->operands[j].isTemp() &&
           instr->operands[j].isFirstKillBeforeDef() &&
@@ -960,9 +962,22 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
           instr->operands[j].physReg() < ub &&
           !reg_file.test(instr->operands[j].physReg(), instr->operands[j].bytes())) {
          assert(instr->operands[j].isFixed());
-         reg_file.block(instr->operands[j].physReg(), instr->operands[j].regClass());
+         for (unsigned k = 0; k < instr->operands[j].regClass().bytes(); ++k) {
+            is_killed_operand[instr->operands[j].physReg().reg_b + k] = true;
+         }
          killed_ops += instr->operands[j].getTemp().size();
       }
+   }
+
+   /* Compress the per-byte bitset into a per-register one */
+   for (unsigned i = 0; i < is_killed_operand.size() / 4; ++i) {
+      bool is_available = is_killed_operand[4 * i];
+      for (unsigned j = 1; j < 4; ++j) {
+         if (!is_killed_operand[4 * i + j] && !reg_file.count_zero(PhysReg{i}.advance(j), 1)) {
+            is_available = false;
+         }
+      }
+      is_killed_operand[i] = is_available;
    }
 
    assert(regs_free >= size);
@@ -1004,7 +1019,7 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
             continue;
 
          /* dead operands effectively reduce the number of estimated moves */
-         if (reg_file.is_blocked(PhysReg{j})) {
+         if (is_killed_operand[j]) {
             if (remaining_op_moves) {
                k--;
                remaining_op_moves--;
