@@ -722,10 +722,13 @@ vtn_types_compatible(struct vtn_builder *b,
       return false;
 
    switch (t1->base_type) {
-   case vtn_base_type_void:
+   case vtn_base_type_matrix:
    case vtn_base_type_scalar:
    case vtn_base_type_vector:
-   case vtn_base_type_matrix:
+      return glsl_get_explicit_stride(t1->type) == glsl_get_explicit_stride(t2->type) &&
+             glsl_get_bit_size(t1->type) == glsl_get_bit_size(t2->type) &&
+             glsl_get_components(t1->type) == glsl_get_components(t2->type);
+   case vtn_base_type_void:
    case vtn_base_type_image:
    case vtn_base_type_sampler:
    case vtn_base_type_sampled_image:
