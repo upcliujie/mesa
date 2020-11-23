@@ -200,21 +200,6 @@ public:
       return regs[start] + 1 <= 1;
    }
 
-   /* Checks if any of the bytes of the given PhysReg are assigned (i.e. neither empty nor blocked) */
-   bool has_subdword_allocated_bytes(PhysReg reg) {
-      assert((reg.reg_b % 4) == 0);
-
-      if (regs[reg] == 0xF0000000) {
-         for (unsigned i = 0; i < 4; i++) {
-            if (!is_empty_or_blocked(reg.advance(i))) {
-               return true;
-            }
-         }
-         return false;
-      }
-      return regs[reg] + 1 > 1;
-   }
-
    void clear(PhysReg start, RegClass rc) {
       if (rc.is_subdword())
          fill_subdword(start, rc.bytes(), 0);
@@ -1019,7 +1004,7 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
             continue;
 
          /* dead operands effectively reduce the number of estimated moves */
-         if (reg_file.is_blocked(PhysReg{j}) && !reg_file.has_subdword_allocated_bytes(PhysReg{j})) {
+         if (reg_file.is_blocked(PhysReg{j})) {
             if (remaining_op_moves) {
                k--;
                remaining_op_moves--;
