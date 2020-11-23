@@ -2662,7 +2662,7 @@ radv_device_init_border_color(struct radv_device *device)
    result = device->ws->buffer_create(
       device->ws, RADV_BORDER_COLOR_BUFFER_SIZE, 4096, RADEON_DOMAIN_VRAM,
       RADEON_FLAG_CPU_ACCESS | RADEON_FLAG_READ_ONLY | RADEON_FLAG_NO_INTERPROCESS_SHARING,
-      RADV_BO_PRIORITY_SHADER, &device->border_color_data.bo);
+      RADV_BO_PRIORITY_SHADER, 0, &device->border_color_data.bo);
 
    if (result != VK_SUCCESS)
       return vk_error(device->physical_device->instance, result);
@@ -3727,7 +3727,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    if (scratch_size > queue_scratch_size) {
       result =
          queue->device->ws->buffer_create(queue->device->ws, scratch_size, 4096, RADEON_DOMAIN_VRAM,
-                                          ring_bo_flags, RADV_BO_PRIORITY_SCRATCH, &scratch_bo);
+                                          ring_bo_flags, RADV_BO_PRIORITY_SCRATCH, 0, &scratch_bo);
       if (result != VK_SUCCESS)
          goto fail;
    } else
@@ -3739,7 +3739,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    if (compute_scratch_size > compute_queue_scratch_size) {
       result = queue->device->ws->buffer_create(queue->device->ws, compute_scratch_size, 4096,
                                                 RADEON_DOMAIN_VRAM, ring_bo_flags,
-                                                RADV_BO_PRIORITY_SCRATCH, &compute_scratch_bo);
+                                                RADV_BO_PRIORITY_SCRATCH, 0, &compute_scratch_bo);
       if (result != VK_SUCCESS)
          goto fail;
 
@@ -3749,7 +3749,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    if (esgs_ring_size > queue->esgs_ring_size) {
       result = queue->device->ws->buffer_create(queue->device->ws, esgs_ring_size, 4096,
                                                 RADEON_DOMAIN_VRAM, ring_bo_flags,
-                                                RADV_BO_PRIORITY_SCRATCH, &esgs_ring_bo);
+                                                RADV_BO_PRIORITY_SCRATCH, 0, &esgs_ring_bo);
       if (result != VK_SUCCESS)
          goto fail;
    } else {
@@ -3760,7 +3760,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    if (gsvs_ring_size > queue->gsvs_ring_size) {
       result = queue->device->ws->buffer_create(queue->device->ws, gsvs_ring_size, 4096,
                                                 RADEON_DOMAIN_VRAM, ring_bo_flags,
-                                                RADV_BO_PRIORITY_SCRATCH, &gsvs_ring_bo);
+                                                RADV_BO_PRIORITY_SCRATCH, 0, &gsvs_ring_bo);
       if (result != VK_SUCCESS)
          goto fail;
    } else {
@@ -3771,7 +3771,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    if (add_tess_rings) {
       result = queue->device->ws->buffer_create(
          queue->device->ws, tess_offchip_ring_offset + tess_offchip_ring_size, 256,
-         RADEON_DOMAIN_VRAM, ring_bo_flags, RADV_BO_PRIORITY_SCRATCH, &tess_rings_bo);
+         RADEON_DOMAIN_VRAM, ring_bo_flags, RADV_BO_PRIORITY_SCRATCH, 0, &tess_rings_bo);
       if (result != VK_SUCCESS)
          goto fail;
    } else {
@@ -3784,8 +3784,9 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
       /* 4 streamout GDS counters.
        * We need 256B (64 dw) of GDS, otherwise streamout hangs.
        */
-      result = queue->device->ws->buffer_create(queue->device->ws, 256, 4, RADEON_DOMAIN_GDS,
-                                                ring_bo_flags, RADV_BO_PRIORITY_SCRATCH, &gds_bo);
+      result =
+         queue->device->ws->buffer_create(queue->device->ws, 256, 4, RADEON_DOMAIN_GDS,
+                                          ring_bo_flags, RADV_BO_PRIORITY_SCRATCH, 0, &gds_bo);
       if (result != VK_SUCCESS)
          goto fail;
    } else {
@@ -3797,7 +3798,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
 
       result =
          queue->device->ws->buffer_create(queue->device->ws, 4, 1, RADEON_DOMAIN_OA, ring_bo_flags,
-                                          RADV_BO_PRIORITY_SCRATCH, &gds_oa_bo);
+                                          RADV_BO_PRIORITY_SCRATCH, 0, &gds_oa_bo);
       if (result != VK_SUCCESS)
          goto fail;
    } else {
@@ -3818,7 +3819,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
       result = queue->device->ws->buffer_create(
          queue->device->ws, size, 4096, RADEON_DOMAIN_VRAM,
          RADEON_FLAG_CPU_ACCESS | RADEON_FLAG_NO_INTERPROCESS_SHARING | RADEON_FLAG_READ_ONLY,
-         RADV_BO_PRIORITY_DESCRIPTOR, &descriptor_bo);
+         RADV_BO_PRIORITY_DESCRIPTOR, 0, &descriptor_bo);
       if (result != VK_SUCCESS)
          goto fail;
    } else
@@ -5275,7 +5276,7 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
 
       result = device->ws->buffer_create(device->ws, alloc_size,
                                          device->physical_device->rad_info.max_alignment, domain,
-                                         flags, priority, &mem->bo);
+                                         flags, priority, 0, &mem->bo);
 
       if (result != VK_SUCCESS) {
          if (device->overallocation_disallowed) {
@@ -6148,7 +6149,7 @@ radv_CreateEvent(VkDevice _device, const VkEventCreateInfo *pCreateInfo,
    VkResult result = device->ws->buffer_create(
       device->ws, 8, 8, RADEON_DOMAIN_GTT,
       RADEON_FLAG_VA_UNCACHED | RADEON_FLAG_CPU_ACCESS | RADEON_FLAG_NO_INTERPROCESS_SHARING,
-      RADV_BO_PRIORITY_FENCE, &event->bo);
+      RADV_BO_PRIORITY_FENCE, 0, &event->bo);
    if (result != VK_SUCCESS) {
       radv_destroy_event(device, pAllocator, event);
       return vk_error(device->instance, result);
@@ -6251,7 +6252,7 @@ radv_CreateBuffer(VkDevice _device, const VkBufferCreateInfo *pCreateInfo,
    if (pCreateInfo->flags & VK_BUFFER_CREATE_SPARSE_BINDING_BIT) {
       VkResult result =
          device->ws->buffer_create(device->ws, align64(buffer->size, 4096), 4096, 0,
-                                   RADEON_FLAG_VIRTUAL, RADV_BO_PRIORITY_VIRTUAL, &buffer->bo);
+                                   RADEON_FLAG_VIRTUAL, RADV_BO_PRIORITY_VIRTUAL, 0, &buffer->bo);
       if (result != VK_SUCCESS) {
          radv_destroy_buffer(device, pAllocator, buffer);
          return vk_error(device->instance, result);
