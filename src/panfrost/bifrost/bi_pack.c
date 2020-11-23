@@ -78,7 +78,7 @@ bi_lookup_constant(bi_clause *clause, uint32_t cons, bool *hi)
                 /* Try to apply to top or to bottom */
                 uint64_t top = clause->constants[i];
 
-                if (cons == ((uint32_t) top | (cons & 0xF)))
+                if (cons == (uint32_t) top)
                         return i;
 
                 if (cons == (top >> 32ul)) {
