@@ -216,26 +216,33 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
                              node->ib.obj ? &node->ib : NULL, true,
                              false, 0, node->min_index, node->max_index, 1, 0);
          } else {
-            struct gl_program *progs[4] = {
-               ctx->TessCtrlProgram._Current,
-               ctx->TessEvalProgram._Current,
-               ctx->GeometryProgram._Current,
-               ctx->FragmentProgram._Current
-            };
-            bool uses_prim_id = false;
-            /* TODO: it may be possible to relax the restriction in some cases. If the current
-             * geometry shader doesn't read gl_PrimitiveIDIn but does write gl_PrimitiveID,
-             * then the restriction on fragment shaders reading gl_PrimitiveID can be lifted.
-             */
-            for (int i = 0; !uses_prim_id && i < ARRAY_SIZE(progs); i++) {
-               if (!progs[i])
-                  continue;
-               uses_prim_id =
-                  progs[i]->info.system_values_read & BITFIELD64_BIT(SYSTEM_VALUE_PRIMITIVE_ID) ||
-                  progs[i]->info.inputs_read & VARYING_BIT_PRIMITIVE_ID;
-           }
+            bool draw_using_merged_prim = ctx->Const.ForcePrimMergingInDisplayList;
 
-           if (uses_prim_id || !node->merged_prims) {
+            if (!draw_using_merged_prim && node->merged_prims) {
+               struct gl_program *progs[4] = {
+                  ctx->TessCtrlProgram._Current,
+                  ctx->TessEvalProgram._Current,
+                  ctx->GeometryProgram._Current,
+                  ctx->FragmentProgram._Current
+               };
+
+               /* We can use merged primitives for drawing unless one program expects a
+                * correct primitive-ID value */
+
+               /* TODO: it may be possible to relax the restriction in some cases. If the current
+                * geometry shader doesn't read gl_PrimitiveIDIn but does write gl_PrimitiveID,
+                * then the restriction on fragment shaders reading gl_PrimitiveID can be lifted.
+                */
+               for (int i = 0; draw_using_merged_prim && i < ARRAY_SIZE(progs); i++) {
+                  if (!progs[i])
+                     continue;
+                  draw_using_merged_prim = !(
+                     progs[i]->info.system_values_read & BITFIELD64_BIT(SYSTEM_VALUE_PRIMITIVE_ID) ||
+                     progs[i]->info.inputs_read & VARYING_BIT_PRIMITIVE_ID);
+               }
+            }
+
+           if (!draw_using_merged_prim || !node->merged_prims) {
              /* Draw primitives one-by-one because gl_PrimitiveID is used */
               for (int i = 0; i < node->prim_count; i++) {
                  ctx->Driver.Draw(ctx, &node->prims[i], 1, NULL, true,

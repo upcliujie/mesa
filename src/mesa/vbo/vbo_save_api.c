@@ -641,7 +641,7 @@ compile_vertex_list(struct gl_context *ctx)
 
    /* Create an index buffer. */
    node->min_index = node->max_index = 0;
-   if (save->vert_count && ctx->Const.AllowPrimMergingInDisplayList) {
+   if (save->vert_count) {
       /* We won't modify node->prims, so use a const alias to avoid unintended
        * writes to it. */
       const struct _mesa_prim *original_prims = node->prims;
