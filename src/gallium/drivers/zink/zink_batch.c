@@ -70,11 +70,17 @@ zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
 
    if (!ctx->queries_disabled)
       zink_resume_queries(ctx, batch);
+
+   if (ctx->condition.query)
+      zink_resume_conditional_render(ctx, batch);
 }
 
 void
 zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
 {
+   if (ctx->condition.query)
+      zink_suspend_conditional_render(ctx, batch);
+
    if (!ctx->queries_disabled)
       zink_suspend_queries(ctx, batch);
 

@@ -18,7 +18,7 @@ blit_resolve(struct zink_context *ctx, const struct pipe_blit_info *info)
       return false;
 
    if (info->render_condition_enable &&
-       ctx->render_condition_active)
+       ctx->condition.query)
       return false;
 
    struct zink_resource *src = zink_resource(info->src.resource);
@@ -90,7 +90,7 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
       return false;
 
    if (info->render_condition_enable &&
-       ctx->render_condition_active)
+       ctx->condition.query)
       return false;
 
    if (util_format_is_depth_or_stencil(info->dst.format) &&

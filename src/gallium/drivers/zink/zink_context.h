@@ -130,7 +130,11 @@ struct zink_context {
 
    struct list_head suspended_queries;
    struct list_head primitives_generated_queries;
-   bool queries_disabled, render_condition_active;
+   bool queries_disabled;
+   struct {
+      struct zink_query *query;
+      bool inverted;
+   } condition;
 
    struct pipe_resource *dummy_buffer;
    struct pipe_resource *null_buffers[5]; /* used to create zink_framebuffer->null_surface, one buffer per samplecount */

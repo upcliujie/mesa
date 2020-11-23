@@ -538,9 +538,26 @@ set_predicate_for_result(struct zink_context *ctx,
    begin_info.buffer = query->cond_buf->buffer;
    begin_info.flags = begin_flags;
    screen->vk_CmdBeginConditionalRenderingEXT(batch->cmdbuf, &begin_info);
-   ctx->render_condition_active = true;
 
    zink_batch_reference_resource_rw(batch, query->cond_buf, true);
+}
+
+void
+zink_suspend_conditional_render(struct zink_context *ctx,
+                                struct zink_batch *batch)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   screen->vk_CmdEndConditionalRenderingEXT(batch->cmdbuf);
+}
+
+void
+zink_resume_conditional_render(struct zink_context *ctx,
+                               struct zink_batch *batch)
+{
+   assert(ctx->condition.query);
+   set_predicate_for_result(ctx, batch,
+                            ctx->condition.query,
+                            ctx->condition.inverted);
 }
 
 static void
@@ -552,11 +569,15 @@ zink_render_condition(struct pipe_context *pctx,
    struct zink_context *ctx = zink_context(pctx);
    struct zink_screen *screen = zink_screen(pctx->screen);
    struct zink_query *query = (struct zink_query *)pquery;
-   struct zink_batch *batch = zink_batch_no_rp(ctx);
 
-   if (query == NULL)
+   ctx->condition.query = query;
+   ctx->condition.inverted = condition;
+
+   if (query == NULL) {
+      struct zink_batch *batch = zink_curr_batch(ctx);
       screen->vk_CmdEndConditionalRenderingEXT(batch->cmdbuf);
-   else {
+   } else {
+      struct zink_batch *batch = zink_batch_no_rp(ctx);
       bool wait = mode == PIPE_RENDER_COND_WAIT ||
                   mode == PIPE_RENDER_COND_BY_REGION_WAIT;
       if (!copy_query_result(ctx, batch, query, wait))
