@@ -61,6 +61,13 @@ void _vtn_warn(struct vtn_builder *b, const char *file, unsigned line,
                const char *fmt, ...) PRINTFLIKE(4, 5);
 #define vtn_warn(...) _vtn_warn(b, __FILE__, __LINE__, __VA_ARGS__)
 
+/** Warn if the given expression evaluates to true */
+#define vtn_warn_if(expr, ...) \
+   do { \
+      if (unlikely(expr)) \
+         vtn_warn(__VA_ARGS__); \
+   } while (0)
+
 void _vtn_err(struct vtn_builder *b, const char *file, unsigned line,
                const char *fmt, ...) PRINTFLIKE(4, 5);
 #define vtn_err(...) _vtn_err(b, __FILE__, __LINE__, __VA_ARGS__)

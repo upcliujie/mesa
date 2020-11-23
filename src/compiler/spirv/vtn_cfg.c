@@ -697,7 +697,7 @@ vtn_process_block(struct vtn_builder *b,
 
    case SpvOpBranchConditional: {
       struct vtn_value *cond_val = vtn_untyped_value(b, block->branch[1]);
-      vtn_fail_if(!cond_val->type ||
+      vtn_warn_if(!cond_val->type ||
                   cond_val->type->base_type != vtn_base_type_scalar ||
                   cond_val->type->type != glsl_bool_type(),
                   "Condition must be a Boolean type scalar");
@@ -1082,8 +1082,12 @@ vtn_emit_cf_list_structured(struct vtn_builder *b, struct list_head *cf_list,
          struct vtn_if *vtn_if = vtn_cf_node_as_if(node);
          bool sw_break = false;
 
+         nir_ssa_def *cond = vtn_get_nir_ssa(b, vtn_if->condition);
+         /* likely https://github.com/KhronosGroup/glslang/issues/170 */
+         if (cond->bit_size == 32)
+            cond = nir_i2b(&b->nb, cond);
          nir_if *nif =
-            nir_push_if(&b->nb, vtn_get_nir_ssa(b, vtn_if->condition));
+            nir_push_if(&b->nb, cond);
 
          nif->control = vtn_selection_control(b, vtn_if);
 
