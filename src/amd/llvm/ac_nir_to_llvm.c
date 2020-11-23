@@ -2274,7 +2274,9 @@ static void get_image_coords(struct ac_nir_context *ctx, const nir_intrinsic_ins
    count = image_type_to_components_count(dim, is_array);
 
    if (is_ms && (instr->intrinsic == nir_intrinsic_image_deref_load ||
-                 instr->intrinsic == nir_intrinsic_bindless_image_load)) {
+                 instr->intrinsic == nir_intrinsic_bindless_image_load ||
+                 instr->intrinsic == nir_intrinsic_image_deref_sparse_load ||
+                 instr->intrinsic == nir_intrinsic_bindless_image_sparse_load)) {
       LLVMValueRef fmask_load_address[3];
 
       fmask_load_address[0] = LLVMBuildExtractElement(ctx->ac.builder, src0, masks[0], "");
@@ -2396,6 +2398,7 @@ static LLVMValueRef visit_image_load(struct ac_nir_context *ctx, const nir_intri
    struct ac_image_args args = {0};
 
    args.cache_policy = get_cache_policy(ctx, access, false, false);
+   args.tfe = instr->intrinsic == nir_intrinsic_image_deref_sparse_load;
 
    if (dim == GLSL_SAMPLER_DIM_BUF) {
       unsigned num_channels = util_last_bit(nir_ssa_def_components_read(&instr->dest.ssa));
@@ -2416,6 +2419,7 @@ static LLVMValueRef visit_image_load(struct ac_nir_context *ctx, const nir_intri
 
       res = ac_trim_vector(&ctx->ac, res, instr->dest.ssa.num_components);
       res = ac_to_integer(&ctx->ac, res);
+      //TODO: tfe
    } else {
       bool level_zero = nir_src_is_const(instr->src[3]) && nir_src_as_uint(instr->src[3]) == 0;
 
@@ -2434,13 +2438,27 @@ static LLVMValueRef visit_image_load(struct ac_nir_context *ctx, const nir_intri
       res = ac_build_image_opcode(&ctx->ac, &args);
    }
 
+   LLVMValueRef code = NULL;
+   if (args.tfe) {
+      code = LLVMBuildExtractValue(ctx->ac.builder, res, 1, "");
+      res = LLVMBuildExtractValue(ctx->ac.builder, res, 0, "");
+   }
+
    if (instr->dest.ssa.bit_size == 64) {
       res = LLVMBuildBitCast(ctx->ac.builder, res, LLVMVectorType(ctx->ac.i64, 2), "");
       LLVMValueRef x = LLVMBuildExtractElement(ctx->ac.builder, res, ctx->ac.i32_0, "");
       LLVMValueRef w = LLVMBuildExtractElement(ctx->ac.builder, res, ctx->ac.i32_1, "");
 
-      LLVMValueRef values[4] = {x, ctx->ac.i64_0, ctx->ac.i64_0, w};
-      res = ac_build_gather_values(&ctx->ac, values, 4);
+      if (code)
+         code = LLVMBuildZExt(ctx->ac.builder, code, ctx->ac.i64, "");
+      LLVMValueRef values[5] = {x, ctx->ac.i64_0, ctx->ac.i64_0, w, code};
+      res = ac_build_gather_values(&ctx->ac, values, 4 + args.tfe);
+   } else if (code) {
+      LLVMValueRef values[5];;
+      for (unsigned i = 0; i < 4; i++)
+         values[i] = LLVMBuildExtractElement(ctx->ac.builder, res, LLVMConstInt(ctx->ac.i32, i, 0), "");
+      values[4] = code;
+      res = ac_build_gather_values(&ctx->ac, values, 5);
    }
 
    return exit_waterfall(ctx, &wctx, res);
@@ -3506,6 +3524,7 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       result = visit_image_load(ctx, instr, true);
       break;
    case nir_intrinsic_image_deref_load:
+   case nir_intrinsic_image_deref_sparse_load:
       result = visit_image_load(ctx, instr, false);
       break;
    case nir_intrinsic_bindless_image_store:

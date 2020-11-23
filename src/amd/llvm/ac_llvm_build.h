@@ -90,9 +90,12 @@ struct ac_llvm_context {
    LLVMTypeRef v2f32;
    LLVMTypeRef v3f32;
    LLVMTypeRef v4f32;
+   LLVMTypeRef v5f32;
    LLVMTypeRef v8i32;
    LLVMTypeRef iN_wavemask;
    LLVMTypeRef iN_ballotmask;
+   LLVMTypeRef v4f16_i32_type;
+   LLVMTypeRef v4f32_i32_type;
 
    LLVMValueRef i8_0;
    LLVMValueRef i8_1;
@@ -399,6 +402,7 @@ struct ac_image_args {
    bool unorm : 1;
    bool level_zero : 1;
    bool d16 : 1;        /* data and return values are 16-bit, requires GFX8+ */
+   bool tfe : 1;
    unsigned attributes; /* additional call-site specific AC_FUNC_ATTRs */
 
    LLVMValueRef resource;

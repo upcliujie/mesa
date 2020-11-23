@@ -95,6 +95,10 @@ void ac_llvm_context_init(struct ac_llvm_context *ctx, struct ac_llvm_compiler *
    ctx->v8i32 = LLVMVectorType(ctx->i32, 8);
    ctx->iN_wavemask = LLVMIntTypeInContext(ctx->context, ctx->wave_size);
    ctx->iN_ballotmask = LLVMIntTypeInContext(ctx->context, ballot_mask_bits);
+   ctx->v4f16_i32_type = LLVMStructTypeInContext(
+      ctx->context, (LLVMTypeRef[]){ctx->v4f16, ctx->i32}, 2, false);
+   ctx->v4f32_i32_type = LLVMStructTypeInContext(
+      ctx->context, (LLVMTypeRef[]){ctx->v4f32, ctx->i32}, 2, false);
 
    ctx->i8_0 = LLVMConstInt(ctx->i8, 0, false);
    ctx->i8_1 = LLVMConstInt(ctx->i8, 1, false);
@@ -2170,7 +2174,7 @@ LLVMValueRef ac_build_image_opcode(struct ac_llvm_context *ctx, struct ac_image_
       args[num_args++] = LLVMConstInt(ctx->i1, a->unorm, false);
    }
 
-   args[num_args++] = ctx->i32_0; /* texfailctrl */
+   args[num_args++] = a->tfe ? ctx->i32_1 : ctx->i32_0; /* texfailctrl */
    args[num_args++] = LLVMConstInt(
       ctx->i32, load ? get_load_cache_policy(ctx, a->cache_policy) : a->cache_policy, false);
 
@@ -2261,11 +2265,13 @@ LLVMValueRef ac_build_image_opcode(struct ac_llvm_context *ctx, struct ac_image_
       retty = data_type;
    else if (a->opcode == ac_image_store || a->opcode == ac_image_store_mip)
       retty = ctx->voidt;
+   else if (a->tfe)
+      retty = a->d16 ? ctx->v4f16_i32_type : ctx->v4f32_i32_type;
    else
       retty = a->d16 ? ctx->v4f16 : ctx->v4f32;
 
    LLVMValueRef result = ac_build_intrinsic(ctx, intr_name, retty, args, num_args, a->attributes);
-   if (!sample && !atomic && retty != ctx->voidt)
+   if (!sample && !atomic && retty != ctx->voidt && !a->tfe)
       result = ac_to_integer(ctx, result);
 
    return result;
