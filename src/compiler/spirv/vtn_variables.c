@@ -2385,6 +2385,11 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
       struct vtn_pointer *dest = dest_val->pointer;
       struct vtn_value *src_val = vtn_untyped_value(b, w[2]);
 
+      if (dest->mode == vtn_variable_mode_input && b->wa_glslang_ignore_input_store) {
+         vtn_warn("OpStore to an input variable. Assuming it's a no-op and ignoring.");
+         break;
+      }
+
       /* OpStore requires us to actually have a storage type */
       vtn_fail_if(dest->type->type == NULL,
                   "Invalid destination type for OpStore");

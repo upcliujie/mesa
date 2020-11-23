@@ -692,6 +692,9 @@ struct vtn_builder {
    /* True if we need to fix up CS OpControlBarrier */
    bool wa_glslang_cs_barrier;
 
+   /* True if we should ignore OpStore to Input variables */
+   bool wa_glslang_ignore_input_store;
+
    /* Workaround discard bugs in HLSL -> SPIR-V compilers */
    bool uses_demote_to_helper_invocation;
    bool convert_discard_to_demote;

@@ -5642,6 +5642,10 @@ vtn_create_builder(const uint32_t *words, size_t word_count,
       (b->generator_id == vtn_generator_glslang_reference_front_end &&
        generator_version < 3);
 
+   b->wa_glslang_ignore_input_store =
+      (b->generator_id == vtn_generator_glslang_reference_front_end &&
+       generator_version == 1);
+
    /* words[2] == generator magic */
    unsigned value_id_bound = words[3];
    if (words[4] != 0) {
