@@ -849,7 +849,19 @@ iris_render_condition(struct pipe_context *ctx,
          perf_debug(&ice->dbg, "Conditional rendering demoted from "
                     "\"no wait\" to \"wait\".");
       }
-      set_predicate_for_result(ice, q, condition);
+
+      if ((INTEL_DEBUG &
+          (DEBUG_NO_HIZ | DEBUG_NO_RBC | DEBUG_NO_FAST_CLEAR)) !=
+          (DEBUG_NO_HIZ | DEBUG_NO_RBC | DEBUG_NO_FAST_CLEAR)) {
+         perf_debug(&ice->dbg, "Async conditional rendering support of "
+                    "\"wait\" needs INTEL_DEBUG=nohiz,norbc,nofc\n");
+
+         union pipe_query_result result;
+         iris_get_query_result(ctx, query, true, &result);
+         set_predicate_enable(ice, (q->result != 0) ^ condition);
+       } else {
+         set_predicate_for_result(ice, q, condition);
+       }
    }
 }
 
