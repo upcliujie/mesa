@@ -230,7 +230,7 @@ coeffs_init_simple(struct lp_build_interp_soa_context *bld,
 
       switch (interp) {
       case LP_INTERP_PERSPECTIVE:
-         /* fall-through */
+         __attribute__((fallthrough));
 
       case LP_INTERP_LINEAR:
          ptr = LLVMBuildGEP(builder, dadx_ptr, &index, 1, "");
