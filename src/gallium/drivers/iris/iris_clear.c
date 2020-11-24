@@ -202,8 +202,7 @@ fast_clear_color(struct iris_context *ice,
                  unsigned level,
                  const struct pipe_box *box,
                  enum isl_format format,
-                 union isl_color_value color,
-                 enum blorp_batch_flags blorp_flags)
+                 union isl_color_value color)
 {
    struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
    struct pipe_resource *p_res = (void *) res;
@@ -292,6 +291,7 @@ fast_clear_color(struct iris_context *ice,
    /* If we reach this point, we need to fast clear to change the state to
     * ISL_AUX_STATE_CLEAR, or to update the fast clear color (or both).
     */
+   enum blorp_batch_flags blorp_flags = 0;
    blorp_flags |= color_changed ? 0 : BLORP_BATCH_NO_UPDATE_CLEAR_COLOR;
 
    struct blorp_batch blorp_batch;
@@ -350,8 +350,7 @@ clear_color(struct iris_context *ice,
    bool can_fast_clear = can_fast_clear_color(ice, p_res, level, box,
                                               format, color);
    if (can_fast_clear) {
-      fast_clear_color(ice, res, level, box, format, color,
-                       blorp_flags);
+      fast_clear_color(ice, res, level, box, format, color);
       return;
    }
 
