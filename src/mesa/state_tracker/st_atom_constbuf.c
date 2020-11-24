@@ -109,13 +109,6 @@ st_upload_constants(struct st_context *st, struct gl_program *prog)
       cb.buffer_offset = 0;
       cb.buffer_size = paramBytes;
 
-      if (ST_DEBUG & DEBUG_CONSTANTS) {
-         debug_printf("%s(shader=%d, numParams=%d, stateFlags=0x%x)\n",
-                      __func__, shader_type, params->NumParameters,
-                      params->StateFlags);
-         _mesa_print_parameter_list(params);
-      }
-
       cso_set_constant_buffer(st->cso_context, shader_type, 0, &cb);
       pipe_resource_reference(&cb.buffer, NULL);
 
