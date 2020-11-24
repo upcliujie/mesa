@@ -56,6 +56,7 @@
 #  define LOG_TAG "MESA"
 #  include <unistd.h>
 #  include <log/log.h>
+#  include <cutils/properties.h>
 #elif DETECT_OS_LINUX || DETECT_OS_CYGWIN || DETECT_OS_SOLARIS || DETECT_OS_HURD
 #  include <unistd.h>
 #elif DETECT_OS_OPENBSD || DETECT_OS_FREEBSD
@@ -121,15 +122,89 @@ os_log_message(const char *message)
 #endif
 }
 
+#if DETECT_OS_ANDROID
+#  include <ctype.h>
+#  include "hash_table.h"
+#  include "ralloc.h"
+#  include "set.h"
+#  include "simple_mtx.h"
+
+static struct set *strings_tbl;
+static simple_mtx_t strings_tbl_lock = _SIMPLE_MTX_INITIALIZER_NP;
+
+static void
+strings_tbl_fini(void)
+{
+   _mesa_set_destroy(strings_tbl, NULL);
+}
+
+/**
+ * This is painful and sad, but for options coming from property_get(),
+ * we have three options:
+ *  1) use a 'static char value[PROPERTY_VALUE_MAX]`, and not be thread
+ *     safe, and not work properly in cases where the caller expects to
+ *     hold on to the value
+ *  2) leak memory
+ *  3) this horror show
+ */
+static const char *
+unique_str(const char *str)
+{
+   const char *unq = NULL;
+
+   simple_mtx_lock(&strings_tbl_lock);
+
+   if (!strings_tbl) {
+      strings_tbl = _mesa_set_create(NULL, _mesa_hash_string,
+            _mesa_key_string_equal);
+      atexit(strings_tbl_fini);
+   }
+
+   struct set_entry *entry = _mesa_set_search(strings_tbl, str);
+   if (entry) {
+      unq = entry->key;
+   } else {
+      unq = ralloc_strdup(strings_tbl, str);
+      _mesa_set_add(strings_tbl, unq);
+   }
+
+   simple_mtx_unlock(&strings_tbl_lock);
+
+   return unq;
+}
+#endif
+
 
 #if !defined(EMBEDDED_DEVICE)
 const char *
 os_get_option(const char *name)
 {
-   return getenv(name);
+   const char *opt = getenv(name);
+#if DETECT_OS_ANDROID
+   if (!opt) {
+      char value[PROPERTY_VALUE_MAX];
+      char key[PROPERTY_KEY_MAX];
+      char *p = key, *end = key + PROPERTY_KEY_MAX;
+      /* add "mesa." prefix if necessary: */
+      if (strstr(name, "MESA_") != name)
+         p += strlcpy(p, "mesa.", end - p);
+      p += strlcpy(p, name, end - p);
+      for (int i = 0; key[i]; i++) {
+         if (key[i] == '_') {
+            key[i] = '.';
+         } else {
+            key[i] = tolower(key[i]);
+         }
+      }
+      int len = property_get(key, value, NULL);
+      if (len > 1) {
+         opt = unique_str(value);
+      }
+   }
+#endif
+   return opt;
 }
 #endif /* !EMBEDDED_DEVICE */
-
 
 /**
  * Return the size of the total physical memory.
