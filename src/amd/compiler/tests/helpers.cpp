@@ -167,6 +167,13 @@ void finish_opt_test()
    aco_print_program(program.get(), output);
 }
 
+void finish_optimizer_postRA_test()
+{
+   finish_program(program.get());
+   aco::optimize_postRA(program.get());
+   aco_print_program(program.get(), output);
+}
+
 void finish_to_hw_instr_test()
 {
    finish_program(program.get());
