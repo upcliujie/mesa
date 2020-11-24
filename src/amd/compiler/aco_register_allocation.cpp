@@ -550,7 +550,8 @@ void adjust_max_used_regs(ra_ctx& ctx, RegClass rc, unsigned reg)
 
 void update_renames(ra_ctx& ctx, RegisterFile& reg_file,
                     std::vector<std::pair<Operand, Definition>>& parallelcopies,
-                    aco_ptr<Instruction>& instr, bool rename_not_killed_ops)
+                    aco_ptr<Instruction>& instr, bool rename_not_killed_ops,
+                    bool keep_killed_operands_clear=true)
 {
    /* clear operands */
    for (std::pair<Operand, Definition>& copy : parallelcopies) {
@@ -579,10 +580,10 @@ void update_renames(ra_ctx& ctx, RegisterFile& reg_file,
       copy.second.setTemp(ctx.program->allocateTmp(copy.second.regClass()));
       ctx.assignments.emplace_back(copy.second.physReg(), copy.second.regClass());
       assert(ctx.assignments.size() == ctx.program->peekAllocationId());
-      reg_file.fill(copy.second);
 
       /* check if we moved an operand */
       bool first = true;
+      bool fill = true;
       for (unsigned i = 0; i < instr->operands.size(); i++) {
          Operand& op = instr->operands[i];
          if (!op.isTemp())
@@ -605,8 +606,13 @@ void update_renames(ra_ctx& ctx, RegisterFile& reg_file,
             }
             op.setTemp(copy.second.getTemp());
             op.setFixed(copy.second.physReg());
+
+            fill = !op.isKillBeforeDef() || !keep_killed_operands_clear;
          }
       }
+
+      if (fill)
+         reg_file.fill(copy.second);
    }
 }
 
@@ -1575,7 +1581,9 @@ void get_reg_for_operand(ra_ctx& ctx, RegisterFile& register_file,
    pc_op.setFixed(ctx.assignments[operand.tempId()].reg);
    Definition pc_def = Definition(dst, pc_op.regClass());
    parallelcopy.emplace_back(pc_op, pc_def);
-   update_renames(ctx, register_file, parallelcopy, instr, true);
+   update_renames(ctx, register_file, parallelcopy, instr, true, false);
+   if (operand.isKillBeforeDef())
+      register_file.fill(pc_def);
 }
 
 Temp read_variable(ra_ctx& ctx, Temp val, unsigned block_idx)
