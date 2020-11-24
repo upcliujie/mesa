@@ -64,7 +64,6 @@ libpanfrost = static_library(
   dependencies: [
     dep_thread,
     dep_libdrm,
-    idep_mesautil,
     idep_nir,
     idep_midgard_pack
   ],
