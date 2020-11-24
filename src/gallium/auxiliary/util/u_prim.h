@@ -277,7 +277,7 @@ u_reduced_prims_for_vertices(enum pipe_prim_type primitive, int vertices)
       return u_decomposed_prims_for_vertices(primitive, vertices) * 2;
    case PIPE_PRIM_POLYGON:
       primitive = PIPE_PRIM_TRIANGLE_FAN;
-      /* fall through */
+      __attribute__((fallthrough));
    default:
       return u_decomposed_prims_for_vertices(primitive, vertices);
    }

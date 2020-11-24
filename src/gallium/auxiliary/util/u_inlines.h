@@ -708,7 +708,7 @@ util_max_layer(const struct pipe_resource *r, unsigned level)
       return u_minify(r->depth0, level) - 1;
    case PIPE_TEXTURE_CUBE:
       assert(r->array_size == 6);
-      /* fall-through */
+      __attribute__((fallthrough));
    case PIPE_TEXTURE_1D_ARRAY:
    case PIPE_TEXTURE_2D_ARRAY:
    case PIPE_TEXTURE_CUBE_ARRAY:
