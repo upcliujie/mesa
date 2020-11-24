@@ -4181,7 +4181,7 @@ void nir_metadata_check_validation_flag(nir_shader *shader);
 static inline bool
 should_skip_nir(const char *name)
 {
-   const char *list = get_once(getenv("NIR_SKIP"));
+   const char *list = get_once(const char *, getenv("NIR_SKIP"));
 
    if (!list || !list[0])
       return false;
@@ -4192,19 +4192,19 @@ should_skip_nir(const char *name)
 static inline bool
 should_clone_nir(void)
 {
-   return get_once(env_var_as_boolean("NIR_TEST_CLONE", false));
+   return get_once(bool, env_var_as_boolean("NIR_TEST_CLONE", false));
 }
 
 static inline bool
 should_serialize_deserialize_nir(void)
 {
-   return get_once(env_var_as_boolean("NIR_TEST_SERIALIZE", false));
+   return get_once(bool, env_var_as_boolean("NIR_TEST_SERIALIZE", false));
 }
 
 static inline bool
 should_print_nir(nir_shader *shader)
 {
-   int should_print = get_once(env_var_as_unsigned("NIR_PRINT", 0));
+   int should_print = get_once(int, env_var_as_unsigned("NIR_PRINT", 0));
 
    if (should_print == 1)
       return !shader->info.internal;

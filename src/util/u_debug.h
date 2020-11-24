@@ -408,28 +408,28 @@ debug_get_flags_option(const char *name,
 static const char * \
 debug_get_option_ ## suffix (void) \
 { \
-   return get_once_nolock(debug_get_option(name, dfault)); \
+   return get_once_nolock(const char *, debug_get_option(name, dfault)); \
 }
 
 #define DEBUG_GET_ONCE_BOOL_OPTION(sufix, name, dfault) \
 static bool \
 debug_get_option_ ## sufix (void) \
 { \
-   return get_once_nolock(debug_get_bool_option(name, dfault)); \
+   return get_once_nolock(bool, debug_get_bool_option(name, dfault)); \
 }
 
 #define DEBUG_GET_ONCE_NUM_OPTION(sufix, name, dfault) \
 static long \
 debug_get_option_ ## sufix (void) \
 { \
-   return get_once_nolock(debug_get_num_option(name, dfault)); \
+   return get_once_nolock(long, debug_get_num_option(name, dfault)); \
 }
 
 #define DEBUG_GET_ONCE_FLAGS_OPTION(sufix, name, flags, dfault) \
 static unsigned long \
 debug_get_option_ ## sufix (void) \
 { \
-   return get_once_nolock(debug_get_flags_option(name, flags, dfault)); \
+   return get_once_nolock(unsigned long, debug_get_flags_option(name, flags, dfault)); \
 }
 
 

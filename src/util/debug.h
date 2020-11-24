@@ -85,8 +85,8 @@ struct __do_once_data {
  * This has additional locking, compared to open-coding the initialization,
  * to make tools like helgrind happy.
  */
-#define get_once(__expr) ({                           \
-      static __typeof__(__expr) __val;                \
+#define get_once(__type, __expr) ({                   \
+      static __type __val;                            \
       do_once {                                       \
          __val = __expr;                              \
       }                                               \
@@ -98,9 +98,9 @@ struct __do_once_data {
  * suitable for hot-paths.
  */
 #ifndef NDEBUG
-#define get_once_nolock(__expr) ({                    \
+#define get_once_nolock(__type, __expr) ({            \
       static bool __once;                             \
-      static __typeof__(__expr) __val;                \
+      static __type __val;                            \
       if (!__once) {                                  \
          __val = __expr;                              \
          __once = true;                               \

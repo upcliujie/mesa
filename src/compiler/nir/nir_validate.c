@@ -1531,7 +1531,7 @@ validate_function_impl(nir_function_impl *impl, validate_state *state)
    validate_assert(state, state->ssa_srcs->entries == 0);
    _mesa_set_clear(state->ssa_srcs, NULL);
 
-   if (get_once(env_var_as_boolean("NIR_VALIDATE_SSA_DOMINANCE", false)))
+   if (get_once(bool, env_var_as_boolean("NIR_VALIDATE_SSA_DOMINANCE", false)))
       validate_ssa_dominance(impl, state);
 }
 
@@ -1605,7 +1605,7 @@ dump_errors(validate_state *state, const char *when)
 void
 nir_validate_shader(nir_shader *shader, const char *when)
 {
-   if (!get_once(env_var_as_boolean("NIR_VALIDATE", true)))
+   if (!get_once(bool, env_var_as_boolean("NIR_VALIDATE", true)))
       return;
 
    validate_state state;
