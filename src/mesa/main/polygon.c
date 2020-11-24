@@ -171,7 +171,7 @@ polygon_mode(struct gl_context *ctx, GLenum face, GLenum mode, bool no_error)
       case GL_FILL_RECTANGLE_NV:
          if (ctx->Extensions.NV_fill_rectangle)
             break;
-         /* fall-through */
+         __attribute__((fallthrough));
       default:
          _mesa_error(ctx, GL_INVALID_ENUM, "glPolygonMode(mode)");
          return;
