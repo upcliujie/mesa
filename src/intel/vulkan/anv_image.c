@@ -531,6 +531,11 @@ add_aux_surface_if_supported(struct anv_device *device,
       add_aux_state_tracking_buffer(image, plane, device);
    } else if ((aspect & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) && image->samples > 1) {
       assert(!(image->usage & VK_IMAGE_USAGE_STORAGE_BIT));
+
+      /* MCS is initialized with fast clears. */
+      if (INTEL_DEBUG & DEBUG_NO_FAST_CLEAR)
+         return VK_SUCCESS;
+
       ok = isl_surf_get_mcs_surf(&device->isl_dev,
                                  &image->planes[plane].surface.isl,
                                  &image->planes[plane].aux_surface.isl);

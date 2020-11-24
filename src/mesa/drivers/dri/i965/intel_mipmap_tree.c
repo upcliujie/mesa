@@ -168,7 +168,9 @@ intel_miptree_choose_aux_usage(struct brw_context *brw,
    assert(mt->aux_usage == ISL_AUX_USAGE_NONE);
 
    if (_mesa_is_format_color_format(mt->format)) {
-      if (mt->surf.samples > 1) {
+      if (!(INTEL_DEBUG & DEBUG_NO_FAST_CLEAR) &&
+          mt->surf.samples > 1) {
+         /* MCS is initialized with fast clears. */
          mt->aux_usage = ISL_AUX_USAGE_MCS;
       } else if (!(INTEL_DEBUG & DEBUG_NO_RBC) &&
                  format_supports_ccs_e(brw, mt->format)) {

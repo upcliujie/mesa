@@ -630,7 +630,9 @@ iris_resource_configure_aux(struct iris_screen *screen,
           res->mod_info->aux_usage == ISL_AUX_USAGE_GEN12_CCS_E ||
           res->mod_info->aux_usage == ISL_AUX_USAGE_MC);
 
-   const bool has_mcs = !res->mod_info &&
+   /* MCS is initialized with fast clears. */
+   const bool has_mcs =
+      !res->mod_info && !(INTEL_DEBUG & DEBUG_NO_FAST_CLEAR) &&
       isl_surf_get_mcs_surf(&screen->isl_dev, &res->surf, &res->aux.surf);
 
    const bool has_hiz = !res->mod_info && !(INTEL_DEBUG & DEBUG_NO_HIZ) &&
