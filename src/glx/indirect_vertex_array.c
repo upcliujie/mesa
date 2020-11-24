@@ -1749,7 +1749,7 @@ __indirect_glVertexAttribPointerNV(GLuint index, GLint size,
          return;
       }
       normalized = GL_TRUE;
-      /* fallthrough */
+      __attribute__((fallthrough));
    case GL_SHORT:
    case GL_FLOAT:
    case GL_DOUBLE:
