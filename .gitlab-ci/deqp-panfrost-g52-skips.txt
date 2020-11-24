@@ -9,3 +9,38 @@ dEQP-GLES[0-9]*.stress.*
 # These are really slow on tiling architectures (including llvmpipe).
 dEQP-GLES[0-9]*.functional.flush_finish.*
 
+# MRT not supported yet (crashes)
+dEQP-GLES3.functional.fragment_out.array.*
+dEQP-GLES3.functional.fragment_out.random.*
+dEQP-GLES3.functional.shaders.builtin_functions.common.modf.*
+dEQP-GLES3.functional.shaders.builtin_functions.precision.*
+dEQP-GLES3.functional.shaders.fragdata.draw_buffers
+dEQP-GLES3.functional.shaders.fragdata.valid_dynamic_index
+dEQP-GLES3.functional.shaders.fragdata.valid_uniform_index
+
+# Z32_S8X24 formats are buggy (page faults or job timeouts)
+dEQP-GLES3.functional.fbo.blit.depth_stencil.depth32f_stencil8.*
+dEQP-GLES3.functional.fbo.render.stencil_clear.tex2d_rgba8_stencil_rbo_depth32f_stencil8
+dEQP-GLES3.functional.fbo.render.shared_depth_stencil.tex2d_rgba8_depth_stencil_tex2d_depth32f_stencil8
+dEQP-GLES3.functional.fbo.render.shared_depth_stencil.tex2d_rgba8_depth_stencil_rbo_depth32f_stencil8
+dEQP-GLES3.functional.fbo.render.resize.tex2d_rgba16f_depth_stencil_tex2d_depth32f_stencil8
+dEQP-GLES3.functional.fbo.render.resize.tex2d_rgba16f_depth_stencil_rbo_depth32f_stencil8
+dEQP-GLES3.functional.fbo.render.resize.tex2d_rgba8_depth_stencil_tex2d_depth32f_stencil8
+dEQP-GLES3.functional.fbo.render.resize.tex2d_rgba8_depth_stencil_rbo_depth32f_stencil8
+dEQP-GLES3.functional.fbo.render.recreate_depth_stencil.tex2d_rgba8_depth_stencil_tex2d_depth32f_stencil8
+dEQP-GLES3.functional.fbo.render.recreate_depth_stencil.tex2d_rgba8_depth_stencil_rbo_depth32f_stencil8
+dEQP-GLES3.functional.fbo.depth.basic.depth32f_stencil8
+dEQP-GLES3.functional.fbo.depth.depth_write_clamp.depth32f_stencil8
+dEQP-GLES3.functional.fbo.depth.depth_test_clamp.depth32f_stencil8
+dEQP-GLES3.functional.fbo.stencil.basic.depth32f_stencil8.*
+dEQP-GLES3.functional.fbo.blit.depth_stencil.depth32f_stencil8.*
+dEQP-GLES3.functional.fbo.msaa.2_samples.depth.*
+dEQP-GLES3.functional.fbo.msaa.4_samples.depth.*
+dEQP-GLES3.functional.fbo.invalidate.format.depth32f_stencil8
+
+# INVALID_ENC faults on some XFB tests
+dEQP-GLES3.functional.transform_feedback.array_element.*
+
+# Flakes
+dEQP-GLES3.functional.clipping.triangle_vertex.clip_three.clip_neg_x_and_pos_x_pos_y_pos_z_and_pos_x_neg_y_neg_z
+dEQP-GLES3.functional.shaders.matrix.matrixcompmult.dynamic.lowp_mat2x3_mat2x3_vertex
