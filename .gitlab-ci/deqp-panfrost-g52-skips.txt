@@ -9,3 +9,19 @@ dEQP-GLES[0-9]*.stress.*
 # These are really slow on tiling architectures (including llvmpipe).
 dEQP-GLES[0-9]*.functional.flush_finish.*
 
+# MRT not supported yet (crashes)
+dEQP-GLES3.functional.fragment_out.array.*
+dEQP-GLES3.functional.fragment_out.random.*
+dEQP-GLES3.functional.shaders.builtin_functions.common.modf.*
+dEQP-GLES3.functional.shaders.builtin_functions.precision.*
+dEQP-GLES3.functional.shaders.fragdata.draw_buffers
+dEQP-GLES3.functional.shaders.fragdata.valid_dynamic_index
+dEQP-GLES3.functional.shaders.fragdata.valid_uniform_index
+
+# RA failures (crashes)
+dEQP-GLES3.functional.texture.units.all_units.only_2d.8
+dEQP-GLES3.functional.texture.units.all_units.only_cube.*
+
+# Flakes
+dEQP-GLES3.functional.clipping.triangle_vertex.clip_three.clip_neg_x_and_pos_x_pos_y_pos_z_and_pos_x_neg_y_neg_z
+dEQP-GLES3.functional.shaders.matrix.matrixcompmult.dynamic.lowp_mat2x3_mat2x3_vertex
