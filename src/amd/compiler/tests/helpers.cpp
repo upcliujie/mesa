@@ -181,6 +181,12 @@ void finish_ra_test(ra_test_policy policy)
       fail_test("Validation after register allocation failed");
       return;
    }
+}
+
+void finish_optimizer_postRA_test()
+{
+   finish_program(program.get());
+   aco::optimize_postRA(program.get());
    aco_print_program(program.get(), output);
 }
 
