@@ -1873,6 +1873,7 @@ brw_disassemble_inst(FILE *file, const struct gen_device_info *devinfo,
       if (!has_imm_desc) {
          format(file, " indirect");
       } else {
+         bool unsupported = false;
          switch (sfid) {
          case BRW_SFID_MATH:
             err |= control(file, "math function", math_function,
@@ -2037,9 +2038,10 @@ brw_disassemble_inst(FILE *file, const struct gen_device_info *devinfo,
                          brw_dp_desc_msg_control(devinfo, imm_desc));
                }
                format(file, ")");
-               break;
+            } else {
+               unsupported = true;
             }
-            /* FALLTHROUGH */
+            break;
 
          case HSW_SFID_DATAPORT_DATA_CACHE_1: {
             if (devinfo->gen >= 7) {
@@ -2087,10 +2089,11 @@ brw_disassemble_inst(FILE *file, const struct gen_device_info *devinfo,
                   format(file, "0x%x", msg_ctrl);
                }
                format(file, ")");
-               break;
+            } else {
+               unsupported = true;
             }
+            break;
          }
-         /* FALLTHROUGH */
 
          case GEN7_SFID_PIXEL_INTERPOLATOR:
             if (devinfo->gen >= 7) {
@@ -2098,14 +2101,18 @@ brw_disassemble_inst(FILE *file, const struct gen_device_info *devinfo,
                       brw_inst_pi_nopersp(devinfo, inst) ? "linear" : "persp",
                       pixel_interpolator_msg_types[brw_inst_pi_message_type(devinfo, inst)],
                       brw_inst_pi_message_data(devinfo, inst));
-               break;
+            } else {
+               unsupported = true;
             }
-            /* FALLTHROUGH */
+            break;
 
          default:
-            format(file, "unsupported shared function ID %d", sfid);
+            unsupported = true;
             break;
          }
+
+         if (unsupported)
+            format(file, "unsupported shared function ID %d", sfid);
 
          if (space)
             string(file, " ");
