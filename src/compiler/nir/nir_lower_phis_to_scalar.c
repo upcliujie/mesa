@@ -110,7 +110,7 @@ is_phi_src_scalarizable(nir_phi_src *src,
          break;
       }
    }
-   /* fallthrough */
+   __attribute__((fallthrough));
 
    default:
       /* We can't scalarize this type of instruction */

@@ -288,7 +288,7 @@ add_shader_variable(const struct gl_context *ctx,
          return true;
       }
    }
-   /* fallthrough */
+   __attribute__((fallthrough));
 
    default: {
       /* The ARB_program_interface_query spec says:
