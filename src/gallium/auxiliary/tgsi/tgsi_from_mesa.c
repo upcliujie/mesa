@@ -157,7 +157,7 @@ tgsi_get_gl_varying_semantic(gl_varying_slot attr,
          *semantic_index = attr - VARYING_SLOT_TEX0;
          break;
       }
-      /* fall through */
+      __attribute__((fallthrough));
    case VARYING_SLOT_VAR0:
    default:
       assert(attr >= VARYING_SLOT_VAR0 ||
