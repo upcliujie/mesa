@@ -724,6 +724,12 @@ iris_resource_configure_aux(struct iris_screen *screen,
        * 1's, so we simply memset it to 0xff.
        */
       initial_state = ISL_AUX_STATE_CLEAR;
+
+      if (INTEL_DEBUG & DEBUG_NO_FAST_CLEAR) {
+         iris_resource_disable_aux(res);
+         return true;
+      }
+
       break;
    case ISL_AUX_USAGE_CCS_D:
    case ISL_AUX_USAGE_CCS_E:
