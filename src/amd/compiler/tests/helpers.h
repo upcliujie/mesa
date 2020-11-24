@@ -76,6 +76,7 @@ bool setup_cs(const char *input_spec, enum chip_class chip_class,
 void finish_program(aco::Program *program);
 void finish_validator_test();
 void finish_opt_test();
+void finish_optimizer_postRA_test();
 void finish_to_hw_instr_test();
 void finish_assembler_test();
 
