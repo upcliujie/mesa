@@ -2172,7 +2172,7 @@ lp_build_sample_common(struct lp_build_sample_context *bld,
             break;
          case PIPE_TEX_MIPFILTER_NEAREST:
              *lod_fpart = lp_build_round(&bld->lodf_bld, *lod_fpart);
-             /* fallthrough */
+             __attribute__((fallthrough));
          case PIPE_TEX_MIPFILTER_LINEAR:
             *lod_fpart = lp_build_clamp(&bld->lodf_bld, *lod_fpart,
                                         bld->lodf_bld.zero, last_level);

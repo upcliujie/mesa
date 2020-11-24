@@ -458,6 +458,7 @@ analyse_instruction(struct analysis_context *ctx,
       /* XXX: Are there more cases? */
       memset(&ctx->temp, 0, sizeof ctx->temp);
       memset(&info->output, 0, sizeof info->output);
+      __attribute__((fallthrough));
    default:
       break;
    }
