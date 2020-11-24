@@ -72,5 +72,14 @@
 
 #define IEEE_ONE 0x3f800000
 
+#ifndef __has_attribute
+#  define __has_attribute(x) 0
+#endif
+
+#if __has_attribute(fallthrough)
+#define FALLTHROUGH __attribute__((fallthrough))
+#else
+#define FALLTHROUGH do { } while(0)
+#endif
 
 #endif /* COMPILER_H */
