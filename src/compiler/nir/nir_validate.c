@@ -720,7 +720,8 @@ validate_intrinsic_instr(nir_intrinsic_instr *instr, validate_state *state)
    case nir_intrinsic_bindless_image_atomic_xor:
    case nir_intrinsic_bindless_image_atomic_comp_swap: {
       enum pipe_format format = image_intrin_format(instr);
-      if (format != PIPE_FORMAT_COUNT) {
+      if (format != PIPE_FORMAT_NONE &&
+          format != PIPE_FORMAT_COUNT) {
          validate_assert(state, format == PIPE_FORMAT_R32_UINT ||
                                 format == PIPE_FORMAT_R32_SINT ||
                                 format == PIPE_FORMAT_R64_UINT ||
