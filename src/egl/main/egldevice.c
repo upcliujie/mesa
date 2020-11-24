@@ -240,7 +240,7 @@ _eglQueryDeviceStringEXT(_EGLDevice *dev, EGLint name)
       if (_eglDeviceSupports(dev, _EGL_DEVICE_DRM))
          return dev->device->nodes[DRM_NODE_PRIMARY];
 #endif
-      /* fall through */
+      __attribute__((fallthrough));
    default:
       _eglError(EGL_BAD_PARAMETER, "eglQueryDeviceStringEXT");
       return NULL;
