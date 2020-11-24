@@ -931,7 +931,8 @@ get_output_type(struct ntv_context *ctx, unsigned register_index, unsigned num_c
 /* for streamout create new outputs, as streamout can be done on individual components,
    from complete outputs, so we just can't use the created packed outputs */
 static void
-emit_so_info(struct ntv_context *ctx, const struct zink_so_info *so_info)
+emit_so_info(struct ntv_context *ctx, const struct zink_so_info *so_info,
+             uint64_t outputs_written)
 {
    for (unsigned i = 0; i < so_info->so_info.num_outputs; i++) {
       struct pipe_stream_output so_output = so_info->so_info.output[i];
@@ -954,7 +955,7 @@ emit_so_info(struct ntv_context *ctx, const struct zink_so_info *so_info)
        * so we need to ensure that the new xfb location slot doesn't conflict with any previously-emitted
        * outputs.
        */
-      uint32_t location = reserve_slot(ctx);
+      uint32_t location = ctx->shader_slots_reserved + i;
       assert(location < VARYING_SLOT_VAR0);
       spirv_builder_emit_location(&ctx->builder, var_id, location);
 
@@ -2812,7 +2813,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
 
 
    if (so_info)
-      emit_so_info(&ctx, so_info);
+      emit_so_info(&ctx, so_info, s->info.outputs_written);
    /* we have to reverse iterate to match what's done in zink_compiler.c */
    foreach_list_typed_reverse(nir_variable, var, node, &s->variables)
       if (_nir_shader_variable_has_mode(var, nir_var_uniform |
