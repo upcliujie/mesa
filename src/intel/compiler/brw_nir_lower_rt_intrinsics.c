@@ -205,13 +205,15 @@ lower_rt_intrinsics_impl(nir_function_impl *impl,
             break;
          }
 
-         case nir_intrinsic_load_ray_hit_kind:
+         case nir_intrinsic_load_ray_hit_kind: {
+            nir_ssa_def *tri_hit_kind =
+               nir_bcsel(b, hit_in.front_face,
+                            nir_imm_int(b, BRW_RT_HIT_KIND_FRONT_FACE),
+                            nir_imm_int(b, BRW_RT_HIT_KIND_BACK_FACE));
             sysval = nir_bcsel(b, build_leaf_is_procedural(b, &hit_in),
-                                  hit_in.aabb_hit_kind,
-                                  nir_bcsel(b, hit_in.front_face,
-                                               nir_imm_int(b, 0xfe),
-                                               nir_imm_int(b, 0xff)));
+                                  hit_in.aabb_hit_kind, tri_hit_kind);
             break;
+         }
 
          case nir_intrinsic_load_ray_flags:
             sysval = nir_u2u32(b, world_ray_in.ray_flags);
