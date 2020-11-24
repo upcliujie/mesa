@@ -691,6 +691,7 @@ static bool apply_relocs(const struct ac_rtld_upload_info *u, unsigned part_idx,
       switch (r_type) {
       case R_AMDGPU_ABS32:
          assert((uint32_t)abs == abs);
+         __attribute__((fallthrough));
       case R_AMDGPU_ABS32_LO:
          *(uint32_t *)dst_ptr = util_cpu_to_le32(abs);
          break;
@@ -702,6 +703,7 @@ static bool apply_relocs(const struct ac_rtld_upload_info *u, unsigned part_idx,
          break;
       case R_AMDGPU_REL32:
          assert((int64_t)(int32_t)(abs - va) == (int64_t)(abs - va));
+         __attribute__((fallthrough));
       case R_AMDGPU_REL32_LO:
          *(uint32_t *)dst_ptr = util_cpu_to_le32(abs - va);
          break;

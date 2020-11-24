@@ -511,7 +511,7 @@ static void ac_do_parse_ib(FILE *f, struct ac_ib_parser *ib)
             fprintf(f, COLOR_GREEN "NOP (type 2)" COLOR_RESET "\n");
             break;
          }
-         /* fall through */
+         __attribute__((fallthrough));
       default:
          fprintf(f, "Unknown packet type %i\n", type);
          break;
