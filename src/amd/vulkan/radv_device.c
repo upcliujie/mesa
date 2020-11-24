@@ -1001,6 +1001,9 @@ void radv_GetPhysicalDeviceFeatures(
 		.shaderInt64                              = true,
 		.shaderInt16                              = true,
 		.sparseBinding                            = true,
+		.sparseResidencyBuffer                    = pdevice->rad_info.chip_class >= GFX8,
+		.sparseResidencyImage2D                   = pdevice->rad_info.chip_class >= GFX8,
+		.sparseResidencyAliased                   = pdevice->rad_info.chip_class >= GFX8,
 		.variableMultisampleRate                  = true,
 		.shaderResourceMinLod                     = true,
 		.inheritedQueries                         = true,
@@ -1628,7 +1631,10 @@ void radv_GetPhysicalDeviceProperties(
 		.deviceID = pdevice->rad_info.pci_id,
 		.deviceType = pdevice->rad_info.has_dedicated_vram ? VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU : VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
 		.limits = limits,
-		.sparseProperties = {0},
+		.sparseProperties = {
+			.residencyNonResidentStrict = pdevice->rad_info.chip_class >= GFX8,
+			.residencyStandard2DBlockShape = pdevice->rad_info.chip_class >= GFX8,
+		},
 	};
 
 	strcpy(pProperties->deviceName, pdevice->name);
