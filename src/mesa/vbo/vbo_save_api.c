@@ -748,13 +748,13 @@ copy_from_current(struct gl_context *ctx)
       switch (save->attrsz[i]) {
       case 4:
          save->attrptr[i][3] = save->current[i][3];
-         /* fallthrough */
+         __attribute__((fallthrough));
       case 3:
          save->attrptr[i][2] = save->current[i][2];
-         /* fallthrough */
+         __attribute__((fallthrough));
       case 2:
          save->attrptr[i][1] = save->current[i][1];
-         /* fallthrough */
+         __attribute__((fallthrough));
       case 1:
          save->attrptr[i][0] = save->current[i][0];
          break;
