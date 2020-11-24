@@ -26,13 +26,9 @@
 #include <stdio.h>
 #include "context.h"
 
-#include "util/simple_mtx.h"
-
 #include "mtypes.h"
 #include "version.h"
 #include "git_sha1.h"
-
-static simple_mtx_t override_lock = _SIMPLE_MTX_INITIALIZER_NP;
 
 /**
  * Scans 'string' to see if it ends with 'ending'.
@@ -76,8 +72,6 @@ get_gl_override(gl_api api, int *version, bool *fwd_context,
 
    STATIC_ASSERT(ARRAY_SIZE(override) == API_OPENGL_LAST + 1);
 
-   simple_mtx_lock(&override_lock);
-
    if (api == API_OPENGLES)
       goto exit;
 
@@ -114,8 +108,6 @@ exit:
    *version = override[api].version;
    *fwd_context = override[api].fc_suffix;
    *compat_context = override[api].compat_suffix;
-
-   simple_mtx_unlock(&override_lock);
 }
 
 /**
