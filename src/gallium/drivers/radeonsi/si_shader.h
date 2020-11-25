@@ -366,6 +366,7 @@ struct si_shader_info {
    bool uses_interp_at_sample;
    bool uses_instanceid;
    bool uses_base_vertex;
+   bool uses_base_instance;
    bool uses_drawid;
    bool uses_primid;
    bool uses_frontface;

@@ -973,6 +973,10 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
       /* Base vertex and start instance. */
       base_vertex = original_index_size ? info->index_bias : draws[0].start;
 
+      struct si_shader_selector *vs = sctx->vs_shader.cso;
+      bool uses_draw_id = vs->info.uses_drawid;
+      bool uses_base_instance = vs->info.uses_base_instance;
+
       if (sctx->num_vs_blit_sgprs) {
          /* Re-emit draw constants after we leave u_blitter. */
          si_invalidate_draw_sh_constants(sctx);
@@ -982,16 +986,28 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
          radeon_emit_array(cs, sctx->vs_blit_sh_data, sctx->num_vs_blit_sgprs);
       } else if (base_vertex != sctx->last_base_vertex ||
                  sctx->last_base_vertex == SI_BASE_VERTEX_UNKNOWN ||
-                 info->start_instance != sctx->last_start_instance ||
-                 info->drawid != sctx->last_drawid || sh_base_reg != sctx->last_sh_base_reg) {
-         radeon_set_sh_reg_seq(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, 3);
-         radeon_emit(cs, base_vertex);
-         radeon_emit(cs, info->drawid);
-         radeon_emit(cs, info->start_instance);
+                 (uses_base_instance && info->start_instance != sctx->last_start_instance) ||
+                 (uses_draw_id && info->drawid != sctx->last_drawid) ||
+                 sh_base_reg != sctx->last_sh_base_reg) {
+         if (uses_base_instance) {
+            radeon_set_sh_reg_seq(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, 3);
+            radeon_emit(cs, base_vertex);
+            radeon_emit(cs, info->drawid);
+            radeon_emit(cs, info->start_instance);
+
+            sctx->last_start_instance = info->start_instance;
+            sctx->last_drawid = info->drawid;
+         } else if (uses_draw_id) {
+            radeon_set_sh_reg_seq(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, 2);
+            radeon_emit(cs, base_vertex);
+            radeon_emit(cs, info->drawid);
+
+            sctx->last_drawid = info->drawid;
+         } else {
+            radeon_set_sh_reg(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, base_vertex);
+         }
 
          sctx->last_base_vertex = base_vertex;
-         sctx->last_start_instance = info->start_instance;
-         sctx->last_drawid = info->drawid;
          sctx->last_sh_base_reg = sh_base_reg;
       }
 
@@ -1010,7 +1026,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
          for (unsigned i = 0; i < num_draws; i++) {
             uint64_t va = index_va + draws[i].start * index_size;
 
-            if (i > 0 && info->increment_draw_id) {
+            if (i > 0 && info->increment_draw_id && uses_draw_id) {
                unsigned draw_id = info->drawid + i;
 
                radeon_set_sh_reg(cs, sh_base_reg + SI_SGPR_DRAWID * 4, draw_id);
@@ -1035,7 +1051,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
       } else {
          for (unsigned i = 0; i < num_draws; i++) {
             if (i > 0) {
-               if (info->increment_draw_id) {
+               if (info->increment_draw_id && uses_draw_id) {
                   unsigned draw_id = info->drawid + i;
 
                   radeon_set_sh_reg_seq(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, 2);
