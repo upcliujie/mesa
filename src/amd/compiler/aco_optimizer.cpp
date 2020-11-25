@@ -1461,6 +1461,13 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
       /* fallthrough */
    case aco_opcode::s_or_b32:
    case aco_opcode::s_or_b64:
+      if (instr->operands[0].isTemp() && instr->operands[1].isTemp() &&
+          instr->operands[0].tempId() == instr->operands[1].tempId()) {
+         /* s_and / s_or has the same temp for its two operands */
+         ctx.info[instr->definitions[0].tempId()].set_temp(instr->operands[0].getTemp());
+         break;
+      }
+      /* fallthrough */
    case aco_opcode::s_xor_b32:
    case aco_opcode::s_xor_b64:
       if (std::all_of(instr->operands.begin(), instr->operands.end(), [&ctx](const Operand& op) {
