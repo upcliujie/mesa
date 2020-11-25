@@ -2546,6 +2546,10 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
 
       vtn_push_image(b, w[2], si.image, access & ACCESS_NON_UNIFORM);
       return;
+   } else if (opcode == SpvOpImageSparseTexelsResident) {
+      nir_ssa_def *code = vtn_get_nir_ssa(b, w[3]);
+      vtn_push_nir_ssa(b, w[2], nir_is_sparse_texels_resident(&b->nb, 1, code));
+      return;
    }
 
    nir_deref_instr *image = NULL, *sampler = NULL;
@@ -5272,6 +5276,7 @@ vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
 
    case SpvOpSampledImage:
    case SpvOpImage:
+   case SpvOpImageSparseTexelsResident:
    case SpvOpImageSampleImplicitLod:
    case SpvOpImageSparseSampleImplicitLod:
    case SpvOpImageSampleExplicitLod:
