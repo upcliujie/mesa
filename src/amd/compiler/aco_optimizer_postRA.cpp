@@ -37,6 +37,7 @@ namespace {
 
 enum pr_opt_label
 {
+   label_vcc_to_scc,
    num_labels,
 };
 
@@ -62,6 +63,7 @@ struct pr_opt_ctx
 {
    Program *program;
    Block *current_block;
+   uint32_t last_vcc_def;
    int current_instr_idx;
    std::vector<uint16_t> uses;
    std::vector<pr_opt_ssa_info> info;
@@ -84,6 +86,40 @@ void set_label(pr_opt_ctx &ctx, uint32_t tempId, pr_opt_label label)
 void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 {
    ctx.current_instr_idx++;
+
+   /* Mark when an instruction converts VCC into SCC */
+   if ((instr->opcode == aco_opcode::s_and_b64 || /* wave64 */
+        instr->opcode == aco_opcode::s_and_b32) && /* wave32 */
+       !instr->operands[0].isConstant() &&
+       instr->operands[0].physReg() == vcc &&
+       !instr->operands[1].isConstant() &&
+       instr->operands[1].physReg() == exec) {
+      set_label(ctx, instr->definitions[1].tempId(), label_vcc_to_scc);
+   }
+
+
+   /* Check if we have a branch that uses SCC */
+   if (instr->format == Format::PSEUDO_BRANCH &&
+       instr->operands.size() &&
+       instr->operands[0].physReg() == scc) {
+      auto &op0_info = ctx.info[instr->operands[0].tempId()];
+
+      /* When consuming an SCC which was converted from VCC in the same block, use VCC directly */
+      if (op0_info.labels.test(label_vcc_to_scc) &&
+          op0_info.block == ctx.current_block &&
+          op0_info.has_instr() &&
+          op0_info.instr()->operands[0].tempId() == ctx.last_vcc_def) {
+         auto &vcc2scc = ctx.info[instr->operands[0].tempId()].instr();
+         ctx.uses[instr->operands[0].tempId()]--;
+         instr->operands[0] = vcc2scc->operands[0];
+      }
+   }
+
+   for (auto &def : instr->definitions) {
+      if (def.physReg() == vcc) {
+         ctx.last_vcc_def = def.tempId();
+      }
+   }
 }
 
 } /* End of empty namespace */
@@ -102,6 +138,7 @@ void optimize_postRA(Program* program)
    for (auto &block : program->blocks) {
       ctx.current_block = &block;
       ctx.current_instr_idx = -1;
+      ctx.last_vcc_def = 0;
       for (aco_ptr<Instruction> &instr : block.instructions)
          process_instruction(ctx, instr);
    }
