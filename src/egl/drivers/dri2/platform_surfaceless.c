@@ -206,10 +206,29 @@ static const __DRIimageLoaderExtension image_loader_extension = {
    .getCapability    = surfaceless_get_capability,
 };
 
+static void
+surfaceless_set_background_context(void *loaderPrivate)
+{
+}
+
+static GLboolean
+surfaceless_is_thread_safe(void *loaderPrivate)
+{
+   return true;
+}
+
+static const __DRIbackgroundCallableExtension background_callable = {
+   .base = { __DRI_BACKGROUND_CALLABLE, 2 },
+
+   .setBackgroundContext = surfaceless_set_background_context,
+   .isThreadSafe         = surfaceless_is_thread_safe,
+};
+
 static const __DRIextension *image_loader_extensions[] = {
    &image_loader_extension.base,
    &image_lookup_extension.base,
    &use_invalidate.base,
+   &background_callable.base,
    NULL,
 };
 
