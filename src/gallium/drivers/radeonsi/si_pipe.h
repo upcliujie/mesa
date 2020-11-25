@@ -1045,6 +1045,8 @@ struct si_context {
    bool do_update_shaders;
    bool compute_shaderbuf_sgprs_dirty;
    bool compute_image_sgprs_dirty;
+   bool vs_uses_base_instance;
+   bool vs_uses_draw_id;
 
    /* shader descriptors */
    struct si_descriptors descriptors[SI_NUM_DESCS];
