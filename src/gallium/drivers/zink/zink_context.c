@@ -278,27 +278,24 @@ zink_context_destroy(struct pipe_context *pctx)
 {
    struct zink_context *ctx = zink_context(pctx);
 
-   for (int i = 0; i < ZINK_QUEUE_ANY; i++)
-   if (ctx->queue[i] && vkQueueWaitIdle(ctx->queue[i]) != VK_SUCCESS)
+   if (ctx->queue && vkQueueWaitIdle(ctx->queue) != VK_SUCCESS)
       debug_printf("vkQueueWaitIdle failed\n");
 
    for (unsigned i = 0; i < ARRAY_SIZE(ctx->null_buffers); i++)
       pipe_resource_reference(&ctx->null_buffers[i], NULL);
 
-   for (unsigned i = 0; i < ZINK_QUEUE_ANY; i++) {
-      struct zink_fence *fence = zink_fence(&ctx->batches[i].state);
-      zink_clear_batch_state(ctx, ctx->batches[i].state);
+   struct zink_fence *fence = zink_fence(&ctx->batch.state);
+   zink_clear_batch_state(ctx, ctx->batch.state);
+   zink_fence_reference(zink_screen(pctx->screen), &fence, NULL);
+   hash_table_foreach(&ctx->batch_states, entry) {
+      fence = entry->data;
+      zink_clear_batch_state(ctx, entry->data);
       zink_fence_reference(zink_screen(pctx->screen), &fence, NULL);
-      hash_table_foreach(&ctx->batch_states[i], entry) {
-         fence = entry->data;
-         zink_clear_batch_state(ctx, entry->data);
-         zink_fence_reference(zink_screen(pctx->screen), &fence, NULL);
-      }
-      util_dynarray_foreach(&ctx->free_batch_states[i], struct zink_batch_state*, bs) {
-         fence = zink_fence(*bs);
-         zink_clear_batch_state(ctx, *bs);
-         zink_fence_reference(zink_screen(pctx->screen), &fence, NULL);
-      }
+   }
+   util_dynarray_foreach(&ctx->free_batch_states, struct zink_batch_state*, bs) {
+      fence = zink_fence(*bs);
+      zink_clear_batch_state(ctx, *bs);
+      zink_fence_reference(zink_screen(pctx->screen), &fence, NULL);
    }
 
    hash_table_foreach(&ctx->surface_cache, entry) {
@@ -1240,7 +1237,6 @@ void
 zink_begin_render_pass(struct zink_context *ctx, struct zink_batch *batch)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   assert(batch == zink_batch_g(ctx));
 
    setup_framebuffer(ctx);
    assert(ctx->gfx_pipeline_state.render_pass);
@@ -1330,24 +1326,23 @@ zink_end_render_pass(struct zink_context *ctx, struct zink_batch *batch)
 }
 
 static void
-flush_batch(struct zink_context *ctx, enum zink_queue queue)
+flush_batch(struct zink_context *ctx)
 {
-   struct zink_batch *batch = zink_batch_queue(ctx, queue);
-   if (queue == ZINK_QUEUE_GFX)
-      zink_end_render_pass(ctx, batch);
+   struct zink_batch *batch = &ctx->batch;
+   zink_end_render_pass(ctx, batch);
    zink_end_batch(ctx, batch);
 
    incr_curr_batch(ctx);
 
    zink_start_batch(ctx, batch);
-   if (queue == ZINK_QUEUE_GFX && zink_screen(ctx->base.screen)->info.have_EXT_transform_feedback && ctx->num_so_targets)
+   if (zink_screen(ctx->base.screen)->info.have_EXT_transform_feedback && ctx->num_so_targets)
       ctx->dirty_so_targets = true;
 }
 
 struct zink_batch *
 zink_batch_rp(struct zink_context *ctx)
 {
-   struct zink_batch *batch = zink_batch_g(ctx);
+   struct zink_batch *batch = &ctx->batch;
    if (!batch->in_rp) {
       zink_begin_render_pass(ctx, batch);
       assert(batch->state->rp);
@@ -1358,16 +1353,16 @@ zink_batch_rp(struct zink_context *ctx)
 struct zink_batch *
 zink_batch_no_rp(struct zink_context *ctx)
 {
-   struct zink_batch *batch = zink_batch_g(ctx);
+   struct zink_batch *batch = &ctx->batch;
    zink_end_render_pass(ctx, batch);
    assert(!batch->in_rp);
    return batch;
 }
 
 void
-zink_flush_queue(struct zink_context *ctx, enum zink_queue queue)
+zink_flush_queue(struct zink_context *ctx)
 {
-   flush_batch(ctx, queue);
+   flush_batch(ctx);
 }
 
 static void
@@ -1572,10 +1567,7 @@ zink_resource_image_barrier(struct zink_context *ctx, struct zink_batch *batch, 
       return;
    /* only barrier if we're changing layout or doing something besides read -> read */
    if (!batch) {
-      if (pipeline == VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)
-         batch = zink_batch_c(ctx);
-      else
-         batch = zink_batch_no_rp(ctx);
+      batch = zink_batch_no_rp(ctx);
    }
    assert(!batch->in_rp);
    VkImageSubresourceRange isr = {
@@ -1672,10 +1664,7 @@ zink_resource_buffer_barrier(struct zink_context *ctx, struct zink_batch *batch,
       return;
    /* only barrier if we're changing layout or doing something besides read -> read */
    if (!batch) {
-      if (pipeline == VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)
-         batch = zink_batch_c(ctx);
-      else
-         batch = zink_batch_no_rp(ctx);
+      batch = zink_batch_no_rp(ctx);
    }
    assert(!batch->in_rp);
    VkBufferMemoryBarrier bmb = {
@@ -1767,7 +1756,7 @@ zink_flush(struct pipe_context *pctx,
 {
    struct zink_context *ctx = zink_context(pctx);
    bool deferred = flags & PIPE_FLUSH_DEFERRED;
-   struct zink_batch *batch = zink_batch_g(ctx);
+   struct zink_batch *batch = &ctx->batch;
    struct zink_fence *fence = &batch->state->fence;
 
    if (!deferred && ctx->clears_enabled) {
@@ -1786,13 +1775,13 @@ zink_flush(struct pipe_context *pctx,
                                         ctx->fb_state.cbufs[i] ? zink_resource(ctx->fb_state.cbufs[i]->texture) : NULL,
                                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0, 0);
       }
-      flush_batch(ctx, ZINK_QUEUE_GFX);
+      flush_batch(ctx);
    }
 
    if (!pfence)
       return;
    if (deferred && !batch->has_work) {
-      fence = ctx->last_fence[ZINK_QUEUE_GFX];
+      fence = ctx->last_fence;
    }
    zink_fence_reference(zink_screen(pctx->screen),
                         (struct zink_fence **)pfence,
@@ -1805,16 +1794,16 @@ zink_flush(struct pipe_context *pctx,
 }
 
 void
-zink_maybe_flush_or_stall(struct zink_context *ctx, enum zink_queue queue)
+zink_maybe_flush_or_stall(struct zink_context *ctx)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    /* flush anytime our total batch memory usage is potentially >= 1/10 of total system memory */
-   if (zink_batch_queue(ctx, queue)->state->resource_size >= screen->total_mem / 10)
-      flush_batch(ctx, queue);
+   if (ctx->batch.state->resource_size >= screen->total_mem / 10)
+      flush_batch(ctx);
 
-   if (ctx->resource_size[queue] >= screen->total_mem / 10) {
-      zink_fence_finish(zink_screen(ctx->base.screen), &ctx->base, ctx->last_fence[queue], PIPE_TIMEOUT_INFINITE);
-      zink_batch_reset_all(ctx, queue);
+   if (ctx->resource_size >= screen->total_mem / 10) {
+      zink_fence_finish(zink_screen(ctx->base.screen), &ctx->base, ctx->last_fence, PIPE_TIMEOUT_INFINITE);
+      zink_batch_reset_all(ctx);
    }
 }
 
@@ -1823,30 +1812,30 @@ zink_fence_wait(struct pipe_context *pctx)
 {
    struct zink_context *ctx = zink_context(pctx);
 
-   if (zink_batch_g(ctx)->has_work)
+   if (ctx->batch.has_work)
       pctx->flush(pctx, NULL, PIPE_FLUSH_HINT_FINISH);
-   if (ctx->last_fence[ZINK_QUEUE_GFX])
-      zink_fence_finish(zink_screen(pctx->screen), pctx, ctx->last_fence[ZINK_QUEUE_GFX], PIPE_TIMEOUT_INFINITE);
+   if (ctx->last_fence)
+      zink_fence_finish(zink_screen(pctx->screen), pctx, ctx->last_fence, PIPE_TIMEOUT_INFINITE);
 }
 
 void
-zink_wait_on_batch(struct zink_context *ctx, enum zink_queue queue, uint32_t batch_id)
+zink_wait_on_batch(struct zink_context *ctx, uint32_t batch_id)
 {
-   struct zink_batch_state *bs = zink_batch_queue(ctx, queue)->state;
+   struct zink_batch_state *bs = ctx->batch.state;
    assert(bs);
    if (!batch_id || bs->fence.batch_id == batch_id)
       /* not submitted yet */
-      flush_batch(ctx, queue);
+      flush_batch(ctx);
 
    struct zink_fence *fence;
 
-   assert(batch_id || ctx->last_fence[queue]);
-   if (ctx->last_fence[queue] && (!batch_id || batch_id == zink_batch_state(ctx->last_fence[queue])->fence.batch_id))
-      fence = ctx->last_fence[queue];
+   assert(batch_id || ctx->last_fence);
+   if (ctx->last_fence && (!batch_id || batch_id == zink_batch_state(ctx->last_fence)->fence.batch_id))
+      fence = ctx->last_fence;
    else {
-      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(&ctx->batch_states[queue], batch_id, (void*)(uintptr_t)batch_id);
+      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(&ctx->batch_states, batch_id, (void*)(uintptr_t)batch_id);
       if (!he) {
-        util_dynarray_foreach(&ctx->free_batch_states[queue], struct zink_batch_state*, bs) {
+        util_dynarray_foreach(&ctx->free_batch_states, struct zink_batch_state*, bs) {
            if ((*bs)->fence.batch_id == batch_id)
               return;
         }
@@ -1863,9 +1852,9 @@ zink_texture_barrier(struct pipe_context *pctx, unsigned flags)
 {
    struct zink_context *ctx = zink_context(pctx);
    /* TODO: if we ever start using fully parallelized batches, this probably needs a stall */
-   if (zink_batch_g(ctx)->has_work)
+   if (ctx->batch.has_work)
       pctx->flush(pctx, NULL, 0);
-   zink_flush_queue(ctx, ZINK_QUEUE_COMPUTE);
+   zink_flush_queue(ctx);
 }
 
 static void
@@ -1981,7 +1970,7 @@ zink_memory_barrier(struct pipe_context *pctx, unsigned flags)
    b.srcAccessMask = sflags;
    b.dstAccessMask = dflags;
 
-   struct zink_batch *batch = zink_batch_g(ctx);
+   struct zink_batch *batch = &ctx->batch;
    if (batch->has_work) {
       /* TODO: figure out self-referencing renderpass dependency and remove this
        * 
@@ -1993,22 +1982,10 @@ zink_memory_barrier(struct pipe_context *pctx, unsigned flags)
       /* this should be the only call needed */
       vkCmdPipelineBarrier(batch->state->cmdbuf, src, dst, 0, 0, &b, 0, NULL, 0, NULL);
       zink_end_batch(ctx, batch);
-      if (batch->in_rp)
-         ctx->base.screen->fence_finish(ctx->base.screen, NULL, (void*)&batch->state->fence,
-                                    PIPE_TIMEOUT_INFINITE);
-
-      incr_curr_batch(ctx);
-
-      zink_start_batch(ctx, zink_batch_g(ctx));
-   }
-   batch = zink_batch_c(ctx);
-   if (batch->has_work) {
-      /* this should be the only call needed */
-      vkCmdPipelineBarrier(batch->state->cmdbuf, src, dst, 0, 0, &b, 0, NULL, 0, NULL);
-      zink_end_batch(ctx, batch);
-      incr_curr_batch(ctx);
       ctx->base.screen->fence_finish(ctx->base.screen, NULL, (void*)&batch->state->fence,
                                  PIPE_TIMEOUT_INFINITE);
+      incr_curr_batch(ctx);
+
       zink_start_batch(ctx, batch);
    }
 }
@@ -2324,14 +2301,6 @@ zink_resource_rebind(struct zink_context *ctx, struct zink_resource *res)
    }
 }
 
-static void
-init_batch(struct zink_context *ctx, enum zink_queue queue)
-{
-   struct zink_batch *batch = zink_batch_queue(ctx, queue);
-   batch->queue = queue;
-   zink_start_batch(ctx, batch);
-}
-
 struct pipe_context *
 zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 {
@@ -2402,10 +2371,8 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    _mesa_hash_table_init(&ctx->bufferview_cache, ctx, NULL, equals_bvci);
    simple_mtx_init(&ctx->surface_mtx, mtx_plain);
    simple_mtx_init(&ctx->bufferview_mtx, mtx_plain);
-   for (unsigned i = 0; i < ZINK_QUEUE_ANY; i++) {
-      util_dynarray_init(&ctx->free_batch_states[i], ctx);
-      _mesa_hash_table_init(&ctx->batch_states[i], ctx, NULL, _mesa_key_pointer_equal);
-   }
+   util_dynarray_init(&ctx->free_batch_states, ctx);
+   _mesa_hash_table_init(&ctx->batch_states, ctx, NULL, _mesa_key_pointer_equal);
 
    ctx->gfx_pipeline_state.have_EXT_extended_dynamic_state = screen->info.have_EXT_extended_dynamic_state;
 
@@ -2433,18 +2400,11 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
       goto fail;
 
    incr_curr_batch(ctx);
-   init_batch(ctx, ZINK_QUEUE_GFX);
-   if (!zink_batch_g(ctx)->state)
+   zink_start_batch(ctx, &ctx->batch);
+   if (!ctx->batch.state)
       goto fail;
 
-   if (screen->compute_queue != UINT_MAX) {
-      init_batch(ctx, ZINK_QUEUE_COMPUTE);
-      if (!zink_batch_c(ctx)->state)
-         goto fail;
-      vkGetDeviceQueue(screen->dev, screen->compute_queue, 0, &ctx->queue[1]);
-   }
-
-   vkGetDeviceQueue(screen->dev, screen->gfx_queue, 0, &ctx->queue[0]);
+   vkGetDeviceQueue(screen->dev, screen->gfx_queue, 0, &ctx->queue);
 
    ctx->program_cache = _mesa_hash_table_create(NULL,
                                                 hash_gfx_program,
