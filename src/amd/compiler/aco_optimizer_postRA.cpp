@@ -37,6 +37,7 @@ namespace {
 
 enum pr_opt_label
 {
+   label_vcc_to_scc,
    num_labels,
 };
 
@@ -71,6 +72,27 @@ void set_label(pr_opt_ctx &ctx, uint32_t tempId, pr_opt_label label, aco_ptr<Ins
 
 void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 {
+   /* Mark when an instruction converts VCC into SCC */
+   if ((instr->opcode == aco_opcode::s_and_b64 || /* wave64 */
+        instr->opcode == aco_opcode::s_and_b32) && /* wave32 */
+       !instr->operands[0].isConstant() &&
+       instr->operands[0].physReg() == vcc &&
+       !instr->operands[1].isConstant() &&
+       instr->operands[1].physReg() == exec) {
+      set_label(ctx, instr->definitions[1].tempId(), label_vcc_to_scc, instr, ctx.current_block);
+   }
+
+   /* When consuming an SCC which was converted from VCC in the same block, use VCC directly */
+   if (instr->format == Format::PSEUDO_BRANCH &&
+       instr->operands.size() == 1 &&
+       !instr->operands[0].isConstant() &&
+       instr->operands[0].physReg() == scc &&
+       ctx.info[instr->operands[0].tempId()].labels.test(label_vcc_to_scc) &&
+       ctx.info[instr->operands[0].tempId()].block == ctx.current_block) {
+      Instruction *vcc2scc = ctx.info[instr->operands[0].tempId()].instr;
+      ctx.uses[instr->operands[0].tempId()]--;
+      instr->operands[0] = vcc2scc->operands[0];
+   }
 }
 
 } /* End of empty namespace */
