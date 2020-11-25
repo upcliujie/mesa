@@ -1795,8 +1795,10 @@ radv_llvm_export_vs(struct radv_shader_context *ctx,
 
 	if (outinfo->writes_pointsize ||
 	    outinfo->writes_layer ||
-	    outinfo->writes_viewport_index) {
+	    outinfo->writes_viewport_index ||
+	    ctx->args->options->force_vrs2x2) {
 		pos_args[1].enabled_channels = ((outinfo->writes_pointsize == true ? 1 : 0) |
+						(ctx->args->options->force_vrs2x2 == true ? 2 : 0) |
 						(outinfo->writes_layer == true ? 4 : 0));
 		pos_args[1].valid_mask = 0;
 		pos_args[1].done = 0;
@@ -1830,6 +1832,18 @@ radv_llvm_export_vs(struct radv_shader_context *ctx,
 				pos_args[1].out[3] = viewport_value;
 				pos_args[1].enabled_channels |= 1 << 3;
 			}
+		}
+
+		if (ctx->args->options->force_vrs2x2) {
+			LLVMValueRef rates = LLVMConstInt(ctx->ac.i32, (1 << 2) | (1 << 4), 0);
+			rates = LLVMBuildSelect(ctx->ac.builder,
+						LLVMBuildFCmp(ctx->ac.builder, LLVMRealUNE,
+							      pos_args[0].out[3], ctx->ac.f32_1, ""),
+						rates, ctx->ac.i32_0, "");
+
+			LLVMValueRef v = ac_to_integer(&ctx->ac, pos_args[1].out[1]);
+			v = LLVMBuildOr(ctx->ac.builder, v, rates, "");
+			pos_args[1].out[1] = ac_to_float(&ctx->ac, v);
 		}
 	}
 

@@ -71,6 +71,7 @@ enum {
 	RADV_PERFTEST_PS_WAVE_32      = 1 << 5,
 	RADV_PERFTEST_GE_WAVE_32      = 1 << 6,
 	RADV_PERFTEST_DFSM            = 1 << 7,
+	RADV_PERFTEST_VRS_2x2         = 1 << 8,
 };
 
 bool

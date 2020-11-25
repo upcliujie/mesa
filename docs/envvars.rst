@@ -635,6 +635,8 @@ RADV driver environment variables
       enable wave32 for pixel shaders (GFX10+)
    ``tccompatcmask``
       enable TC-compat cmask for MSAA images
+   ``vrs2x2``
+      enable Variable Rate Shading 2x2 coarse shading (GFX10.3+)
 
 ``RADV_TEX_ANISO``
    force anisotropy filter (up to 16)

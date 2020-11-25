@@ -478,9 +478,20 @@ si_emit_graphics(struct radv_device *device,
 
 		if (physical_device->rad_info.chip_class >= GFX10_3) {
 			radeon_set_context_reg(cs, R_028750_SX_PS_DOWNCONVERT_CONTROL, 0xff);
+			/* The rate combiners have no effect if they are disabled like this:
+			 *   VERTEX_RATE:    BYPASS_VTX_RATE_COMBINER = 1
+			 *   PRIMITIVE_RATE: BYPASS_PRIM_RATE_COMBINER = 1
+			 *   HTILE_RATE:     VRS_HTILE_ENCODING = 0
+			 *   SAMPLE_ITER:    PS_ITER_SAMPLE = 0
+			 *
+			 * Use OVERRIDE, which will ignore results from
+			 * previous combiners. (e.g. enabled sample shading
+			 * overrides the vertex rate)
+			 */
                         /* This allows sample shading. */
 			radeon_set_context_reg(cs, R_028848_PA_CL_VRS_CNTL,
-                                               S_028848_SAMPLE_ITER_COMBINER_MODE(1));
+                                               S_028848_SAMPLE_ITER_COMBINER_MODE(V_028848_VRS_COMB_MODE_OVERRIDE) |
+                                               S_028848_VERTEX_RATE_COMBINER_MODE(V_028848_VRS_COMB_MODE_OVERRIDE));
 		}
 
 		if (physical_device->rad_info.chip_class == GFX10) {
