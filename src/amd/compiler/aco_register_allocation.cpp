@@ -954,30 +954,22 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
 
    /* mark and count killed operands */
    unsigned killed_ops = 0;
-   std::bitset<256 * 4> is_killed_operand; /* per-register byte */
+   std::bitset<512> is_killed_operand; /* per-register */
    for (unsigned j = 0; !is_phi(instr) && j < instr->operands.size(); j++) {
-      if (instr->operands[j].isTemp() &&
-          instr->operands[j].isFirstKillBeforeDef() &&
-          instr->operands[j].physReg() >= lb &&
-          instr->operands[j].physReg() < ub &&
-          !reg_file.test(instr->operands[j].physReg(), instr->operands[j].bytes())) {
-         assert(instr->operands[j].isFixed());
-         for (unsigned k = 0; k < instr->operands[j].regClass().bytes(); ++k) {
-            is_killed_operand[instr->operands[j].physReg().reg_b + k] = true;
+      Operand& op = instr->operands[j];
+      if (op.isTemp() &&
+          op.isFirstKillBeforeDef() &&
+          op.physReg() >= lb &&
+          op.physReg() < ub &&
+          !reg_file.test(op.physReg(), op.bytes())) {
+         assert(op.isFixed());
+         for (PhysReg k = op.physReg();
+              k <= op.physReg().advance(op.regClass().bytes() - 1);
+              k = k.advance(4)) {
+            is_killed_operand[k] = reg_file.count_zero(k, 1);
          }
-         killed_ops += instr->operands[j].getTemp().size();
+         killed_ops += op.getTemp().size();
       }
-   }
-
-   /* Compress the per-byte bitset into a per-register one */
-   for (unsigned i = 0; i < is_killed_operand.size() / 4; ++i) {
-      bool is_available = is_killed_operand[4 * i];
-      for (unsigned j = 1; j < 4; ++j) {
-         if (!is_killed_operand[4 * i + j] && !reg_file.count_zero(PhysReg{i}.advance(j), 1)) {
-            is_available = false;
-         }
-      }
-      is_killed_operand[i] = is_available;
    }
 
    assert(regs_free >= size);
@@ -1015,9 +1007,6 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
       bool found = true;
       bool aligned = rc == RegClass::v4 && reg_lo % 4 == 0;
       for (unsigned j = reg_lo; found && j <= reg_hi; j++) {
-         if (reg_file[j] == 0 || reg_file[j] == last_var)
-            continue;
-
          /* dead operands effectively reduce the number of estimated moves */
          if (is_killed_operand[j]) {
             if (remaining_op_moves) {
@@ -1026,6 +1015,9 @@ std::pair<PhysReg, bool> get_reg_impl(ra_ctx& ctx,
             }
             continue;
          }
+
+         if (reg_file[j] == 0 || reg_file[j] == last_var)
+            continue;
 
          if (reg_file[j] == 0xF0000000) {
             k += 1;
