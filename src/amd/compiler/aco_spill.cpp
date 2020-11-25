@@ -384,18 +384,17 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
       }
       unsigned loop_end = i;
 
-      /* keep live-through spilled */
-      for (std::pair<Temp, std::pair<uint32_t, uint32_t>> pair : ctx.next_use_distances_end[block_idx - 1]) {
-         if (pair.second.first < loop_end)
+      for (auto spilled : ctx.spills_exit[block_idx - 1]) {
+         /* variable is not even live at the predecessor: probably from a phi */
+         if (ctx.next_use_distances_end[block_idx - 1].find(spilled.first) == ctx.next_use_distances_end[block_idx - 1].end())
             continue;
 
-         Temp to_spill = pair.first;
-         auto it = ctx.spills_exit[block_idx - 1].find(to_spill);
-         if (it == ctx.spills_exit[block_idx - 1].end())
-            continue;
-
-         ctx.spills_entry[block_idx][to_spill] = it->second;
-         spilled_registers += to_spill;
+         /* keep constants and live-through variables spilled */
+         if (ctx.next_use_distances_end[block_idx - 1][spilled.first].first >= loop_end ||
+            ctx.remat.count(spilled.first)) {
+            ctx.spills_entry[block_idx][spilled.first] = spilled.second;
+            spilled_registers += spilled.first;
+         }
       }
 
       /* select live-through vgpr variables */
