@@ -440,8 +440,7 @@ u_vbuf_translate_buffers(struct u_vbuf *mgr, struct translate_key *key,
          unsigned size = vb->stride ? num_vertices * vb->stride
                                     : sizeof(double)*4;
 
-         if (!vb->buffer.resource)
-            continue;
+         assert(vb->buffer.resource);
 
          if (offset + size > vb->buffer.resource->width0) {
             /* Don't try to map past end of buffer.  This often happens when
@@ -857,7 +856,7 @@ u_vbuf_create_vertex_elements(struct u_vbuf *mgr, unsigned count,
    }
 
    /* Only create driver CSO if no incompatible elements */
-   if (!ve->incompatible_elem_mask) {
+   if (!(ve->incompatible_elem_mask & mgr->enabled_vb_mask)) {
       ve->driver_cso =
          pipe->create_vertex_elements_state(pipe, count, driver_attribs);
    }
@@ -1518,7 +1517,7 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
    /* Translate vertices with non-native layouts or formats. */
    if (unroll_indices ||
        incompatible_vb_mask ||
-       mgr->ve->incompatible_elem_mask) {
+       mgr->ve->incompatible_elem_mask & mgr->enabled_vb_mask) {
       if (!u_vbuf_translate_begin(mgr, &new_info, &new_draw,
                                   start_vertex, num_vertices,
                                   min_index, unroll_indices)) {
