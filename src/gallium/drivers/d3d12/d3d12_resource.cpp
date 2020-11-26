@@ -874,7 +874,7 @@ d3d12_transfer_map(struct pipe_context *pctx,
    D3D12_RANGE range;
    range.Begin = 0;
 
-   void *ptr;
+   void *ptr = nullptr;
    if (can_map_directly(&res->base)) {
       if (pres->target == PIPE_BUFFER) {
          ptrans->stride = 0;
