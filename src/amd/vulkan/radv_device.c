@@ -1466,6 +1466,14 @@ void radv_GetPhysicalDeviceFeatures2(
 			features->mutableDescriptorType = true;
 			break;
 		}
+		case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR: {
+			VkPhysicalDeviceFragmentShadingRateFeaturesKHR *features =
+				(VkPhysicalDeviceFragmentShadingRateFeaturesKHR *)ext;
+			features->pipelineFragmentShadingRate = true;
+			features->primitiveFragmentShadingRate = true;
+			features->attachmentFragmentShadingRate = false; /* TODO */
+			break;
+		}
 		default:
 			break;
 		}
@@ -2117,6 +2125,32 @@ void radv_GetPhysicalDeviceProperties2(
 			VkPhysicalDeviceCustomBorderColorPropertiesEXT *props =
 				(VkPhysicalDeviceCustomBorderColorPropertiesEXT *)ext;
 			props->maxCustomBorderColorSamplers = RADV_BORDER_COLOR_COUNT;
+			break;
+		}
+		case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR: {
+			VkPhysicalDeviceFragmentShadingRatePropertiesKHR *props =
+				(VkPhysicalDeviceFragmentShadingRatePropertiesKHR *)ext;
+			props->minFragmentShadingRateAttachmentTexelSize = (VkExtent2D) { 0, 0 };
+			props->maxFragmentShadingRateAttachmentTexelSize = (VkExtent2D) { 0, 0 };
+			props->maxFragmentShadingRateAttachmentTexelSizeAspectRatio = 0;
+			props->primitiveFragmentShadingRateWithMultipleViewports = true;
+			props->layeredShadingRateAttachments = false;
+			props->fragmentShadingRateNonTrivialCombinerOps = true;
+			props->maxFragmentSize = (VkExtent2D) { 2, 2 };
+			props->maxFragmentSizeAspectRatio = 1;
+			props->maxFragmentShadingRateCoverageSamples = 1;
+			props->maxFragmentShadingRateRasterizationSamples =
+				VK_SAMPLE_COUNT_1_BIT |
+				VK_SAMPLE_COUNT_2_BIT |
+				VK_SAMPLE_COUNT_4_BIT |
+				VK_SAMPLE_COUNT_8_BIT;
+			props->fragmentShadingRateWithShaderDepthStencilWrites = false;
+			props->fragmentShadingRateWithSampleMask = true;
+			props->fragmentShadingRateWithShaderSampleMask = false;
+			props->fragmentShadingRateWithConservativeRasterization = true;
+			props->fragmentShadingRateWithFragmentShaderInterlock = false;
+			props->fragmentShadingRateWithCustomSampleLocations = false;
+			props->fragmentShadingRateStrictMultiplyCombiner = true;
 			break;
 		}
 		default:
@@ -8118,6 +8152,36 @@ void radv_GetPhysicalDeviceMultisamplePropertiesEXT(
 	} else {
 		pMultisampleProperties->maxSampleLocationGridSize = (VkExtent2D){ 0, 0 };
 	}
+}
+
+VkResult radv_GetPhysicalDeviceFragmentShadingRatesKHR(
+	VkPhysicalDevice                            physicalDevice,
+	uint32_t*                                   pFragmentShadingRateCount,
+	VkPhysicalDeviceFragmentShadingRateKHR*     pFragmentShadingRates)
+{
+	VK_OUTARRAY_MAKE(out, pFragmentShadingRates, pFragmentShadingRateCount);
+
+#define append_rate(w, h, s) {									\
+	VkPhysicalDeviceFragmentShadingRateKHR rate = {						\
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR,\
+		.sampleCounts = s,								\
+		.fragmentSize = { .width = w, .height = h },					\
+	};											\
+	vk_outarray_append(&out, r) *r = rate;							\
+}
+
+	VkSampleCountFlagBits sample_counts = VK_SAMPLE_COUNT_1_BIT |
+					      VK_SAMPLE_COUNT_2_BIT |
+					      VK_SAMPLE_COUNT_4_BIT |
+					      VK_SAMPLE_COUNT_8_BIT;
+
+	/* Only expose the VRS rates required by the Vulkan spec. */
+	append_rate(2, 2, sample_counts);
+	append_rate(2, 1, sample_counts);
+	append_rate(1, 1, sample_counts);
+#undef append_rate
+
+	return vk_outarray_status(&out);
 }
 
 VkResult radv_CreatePrivateDataSlotEXT(
