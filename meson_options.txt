@@ -430,3 +430,10 @@ option(
   value : true,
   description : 'use msse2 flag for mingw. Default: true',
 )
+option(
+   'zlib',
+   type : 'feature',
+   value : 'enabled',
+   description : 'Use ZLIB to build driver. Default: enabled'
+)
+
