@@ -957,14 +957,8 @@ void split_copy(lower_context *ctx, unsigned offset, Definition *def, Operand *o
    *def = Definition(src.def.tempId(), def_reg, def_cls);
    if (src.op.isConstant()) {
       assert(bytes >= 1 && bytes <= 8);
-      if (bytes == 8)
-         *op = Operand(src.op.constantValue64() >> (offset * 8u));
-      else if (bytes == 4)
-         *op = Operand(uint32_t(src.op.constantValue64() >> (offset * 8u)));
-      else if (bytes == 2)
-         *op = Operand(uint16_t(src.op.constantValue64() >> (offset * 8u)));
-      else if (bytes == 1)
-         *op = Operand(uint8_t(src.op.constantValue64() >> (offset * 8u)));
+      uint64_t val = src.op.constantValue64() >> (offset * 8u);
+      *op = Operand::get_const(ctx->program->chip_class, val, bytes);
    } else {
       RegClass op_cls = bytes % 4 == 0 ? RegClass(src.op.regClass().type(), bytes / 4u) :
                         RegClass(src.op.regClass().type(), bytes).as_subdword();
@@ -1330,6 +1324,45 @@ void do_pack_2x16(lower_context *ctx, Builder& bld, Definition def, Operand lo, 
    bld.vop3(aco_opcode::v_alignbyte_b32, def, hi, lo, Operand(2u));
 }
 
+void try_coalesce_copies(lower_context *ctx,
+                         std::map<PhysReg, copy_operation>& copy_map,
+                         copy_operation& copy)
+{
+   // TODO try more relaxed alignment for subdword copies
+   unsigned next_def_align = util_next_power_of_two(copy.bytes + 1);
+   unsigned next_op_align = next_def_align;
+   if (copy.def.regClass().type() == RegType::vgpr)
+      next_def_align = MIN2(next_def_align, 4);
+   if (copy.op.regClass().type() == RegType::vgpr)
+      next_op_align = MIN2(next_op_align, 4);
+
+   if (copy.bytes >= 8 || copy.def.physReg().reg_b % next_def_align ||
+       (!copy.op.isConstant() && copy.op.physReg().reg_b % next_op_align))
+      return;
+
+   auto other = copy_map.find(copy.def.physReg().advance(copy.bytes));
+   if (other == copy_map.end() || copy.bytes + other->second.bytes > 8 ||
+       copy.op.isConstant() != other->second.op.isConstant())
+      return;
+
+   unsigned new_size = copy.bytes + other->second.bytes;
+   if (copy.op.isConstant()) {
+      uint64_t val = copy.op.constantValue64() |
+                     (other->second.op.constantValue64() << (copy.bytes * 8u));
+      if (!Operand::is_constant_representable(val, copy.bytes + other->second.bytes))
+         return;
+      copy.op = Operand::get_const(ctx->program->chip_class, val, new_size);
+   } else {
+      if (other->second.op.physReg() != copy.op.physReg().advance(copy.bytes))
+         return;
+      copy.op = Operand(copy.op.physReg(), RegClass::get(copy.op.regClass().type(), new_size));
+   }
+
+   copy.bytes = new_size;
+   copy.def = Definition(copy.def.physReg(), RegClass::get(copy.def.regClass().type(), copy.bytes));
+   copy_map.erase(other);
+}
+
 void handle_operands(std::map<PhysReg, copy_operation>& copy_map, lower_context* ctx, chip_class chip_class, Pseudo_instruction *pi)
 {
    Builder bld(ctx->program, &ctx->instructions);
@@ -1367,32 +1400,7 @@ void handle_operands(std::map<PhysReg, copy_operation>& copy_map, lower_context*
          it->second.bytes = 8;
       }
 
-      /* try to coalesce copies */
-      unsigned next_def_align = util_next_power_of_two(it->second.bytes + 1);
-      unsigned next_op_align = next_def_align;
-      if (it->second.def.regClass().type() == RegType::vgpr)
-         next_def_align = MIN2(next_def_align, 4);
-      if (it->second.op.regClass().type() == RegType::vgpr)
-         next_op_align = MIN2(next_op_align, 4);
-
-      if (it->second.bytes < 8 && !it->second.op.isConstant() &&
-          it->first.reg_b % next_def_align == 0 &&
-          it->second.op.physReg().reg_b % next_op_align == 0) {
-         // TODO try more relaxed alignment for subdword copies
-         PhysReg other_def_reg = it->first;
-         other_def_reg.reg_b += it->second.bytes;
-         PhysReg other_op_reg = it->second.op.physReg();
-         other_op_reg.reg_b += it->second.bytes;
-         std::map<PhysReg, copy_operation>::iterator other = copy_map.find(other_def_reg);
-         if (other != copy_map.end() &&
-             other->second.op.physReg() == other_op_reg &&
-             it->second.bytes + other->second.bytes <= 8) {
-            it->second.bytes += other->second.bytes;
-            it->second.def = Definition(it->first, RegClass::get(it->second.def.regClass().type(), it->second.bytes));
-            it->second.op = Operand(it->second.op.physReg(), RegClass::get(it->second.op.regClass().type(), it->second.bytes));
-            copy_map.erase(other);
-         }
-      }
+      try_coalesce_copies(ctx, copy_map, it->second);
 
       /* check if the definition reg is used by another copy operation */
       for (std::pair<const PhysReg, copy_operation>& copy : copy_map) {
