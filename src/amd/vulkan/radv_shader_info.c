@@ -499,6 +499,9 @@ gather_info_output_decl(const nir_shader *nir, const nir_variable *var,
 		case VARYING_SLOT_LAYER:
 			vs_info->writes_layer = true;
 			break;
+		case VARYING_SLOT_PRIMITIVE_SHADING_RATE:
+			vs_info->writes_primitive_shading_rate = true;
+			break;
 		default:
 			break;
 		}
