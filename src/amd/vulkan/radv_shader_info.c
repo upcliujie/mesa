@@ -168,6 +168,9 @@ gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
 	case nir_intrinsic_load_sample_pos:
 		info->ps.force_persample = true;
 		break;
+	case nir_intrinsic_load_sample_mask_in:
+		info->ps.reads_sample_mask_in = true;
+		break;
 	case nir_intrinsic_load_view_index:
 		info->needs_multiview_view_index = true;
 		if (nir->info.stage == MESA_SHADER_FRAGMENT)
@@ -498,6 +501,9 @@ gather_info_output_decl(const nir_shader *nir, const nir_variable *var,
 			break;
 		case VARYING_SLOT_LAYER:
 			vs_info->writes_layer = true;
+			break;
+		case VARYING_SLOT_PRIMITIVE_SHADING_RATE:
+			vs_info->writes_primitive_shading_rate = true;
 			break;
 		default:
 			break;
