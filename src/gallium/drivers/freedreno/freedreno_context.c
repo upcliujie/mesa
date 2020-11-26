@@ -344,6 +344,8 @@ fd_context_destroy(struct pipe_context *pctx)
 
 	simple_mtx_destroy(&ctx->gmem_lock);
 
+	u_trace_context_fini(&ctx->trace_context);
+
 	if (fd_mesa_debug & (FD_DBG_BSTAT | FD_DBG_MSGS)) {
 		printf("batch_total=%u, batch_sysmem=%u, batch_gmem=%u, batch_nondraw=%u, batch_restore=%u\n",
 			(uint32_t)ctx->stats.batch_total, (uint32_t)ctx->stats.batch_sysmem,
@@ -395,6 +397,37 @@ fd_get_device_reset_status(struct pipe_context *pctx)
 	ctx->global_reset_count = global_faults;
 
 	return status;
+}
+
+// XXX hack, list.h has a conflicting container_of() :-/
+#ifdef container_of
+#  undef container_of
+#endif
+#define container_of(ptr, type, field) \
+   (type*)((char*)ptr - offsetof(type, field))
+
+static void
+fd_record_timestamp(struct u_trace *ut, struct pipe_resource *timestamps,
+		unsigned ts_offset)
+{
+	struct fd_batch *batch = container_of(ut, struct fd_batch, trace);
+	struct fd_ringbuffer *ring = batch->gmem;
+
+	if (ring->cur == batch->last_timestamp_cmd) {
+		uint64_t *ts = fd_bo_map(fd_resource(timestamps)->bo);
+		ts[ts_offset / sizeof(uint64_t)] = U_TRACE_NO_TIMESTAMP;
+		return;
+	}
+
+	batch->ctx->record_timestamp(ring, fd_resource(timestamps)->bo, ts_offset);
+	batch->last_timestamp_cmd = ring->cur;
+}
+
+static uint64_t
+fd_translate_timestamp(struct u_trace_context *utctx, uint64_t raw)
+{
+	struct fd_context *ctx = container_of(utctx, struct fd_context, trace_context);
+	return ctx->ts_to_ns(raw);
 }
 
 /* TODO we could combine a few of these small buffers (solid_vbuf,
@@ -560,6 +593,9 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
 	ctx->current_scissor = &ctx->disabled_scissor;
 
 	ctx->log_out = stdout;
+
+	u_trace_context_init(&ctx->trace_context, pctx,
+			fd_record_timestamp, fd_translate_timestamp);
 
 	if ((fd_mesa_debug & FD_DBG_LOG) &&
 			!(ctx->record_timestamp && ctx->ts_to_ns)) {
