@@ -424,3 +424,9 @@ option(
   value : 'auto',
   description : 'Use ZSTD instead of ZLIB in some cases.'
 )
+option(
+  'zlib-required',
+  type : 'boolean',
+  value : true,
+  description : 'Use of ZLIB. Default: true'
+)

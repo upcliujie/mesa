@@ -1363,8 +1363,11 @@ else
 endif
 
 # TODO: some of these may be conditional
-dep_zlib = dependency('zlib', version : '>= 1.2.3', fallback : ['zlib', 'zlib_dep'])
-pre_args += '-DHAVE_ZLIB'
+with_zlib = get_option('zlib-required')
+dep_zlib = dependency('zlib', version : '>= 1.2.3', fallback : ['zlib', 'zlib_dep'], required : with_zlib)
+if with_zlib
+    pre_args += '-DHAVE_ZLIB'
+endif
 
 _zstd = get_option('zstd')
 if _zstd == 'true'
