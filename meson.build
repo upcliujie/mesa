@@ -1121,6 +1121,20 @@ if host_machine.system() == 'windows'
   endif
 endif
 
+if host_machine.system() == 'windows' and host_machine.cpu_family() == 'x86' and cc.get_id() == 'gcc'
+  # NOTE: We need to ensure stack is realigned given that we
+  # produce shared objects, and have no control over the stack
+  # alignment policy of the application. Therefore we need
+  # -mstackrealign or -mincoming-stack-boundary=2.
+  #
+  # XXX: We could have SSE without -mstackrealign if we always used
+  # __attribute__((force_align_arg_pointer)), but that's not
+  # always the case.
+  foreach a : ['-msse', '-msse2', '-mfpmath=sse']
+    c_args += a
+  endforeach
+endif
+
 if host_machine.cpu_family().startswith('x86') and cc.get_id() != 'msvc'
   pre_args += '-DUSE_SSE41'
   with_sse41 = true
