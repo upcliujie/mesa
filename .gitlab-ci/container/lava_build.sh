@@ -65,7 +65,9 @@ apt-get install -y automake \
                    debootstrap \
                    git \
                    libboost-dev \
+                   libcap-dev \
                    libegl1-mesa-dev \
+                   libfdt-dev \
                    libgbm-dev \
                    libgles2-mesa-dev \
                    libpcre3-dev \
@@ -95,6 +97,16 @@ if [[ "$DEBIAN_ARCH" = "armhf" ]]; then
                        libxcb-keysyms1-dev:armhf \
                        libboost-dev:armhf \
                        qtbase5-dev:armhf
+fi
+
+############### Build Crosvm
+
+if [[ "$DEBIAN_ARCH" = "amd64" ]]; then
+    EXTRA_MESON_ARGS=-Dprefix=/usr/ . .gitlab-ci/build-virglrenderer.sh
+    . .gitlab-ci/build-crosvm.sh
+    mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin
+    mv /usr/local/bin/crosvm /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/.
+    rm -rf /platform/crosvm
 fi
 
 ############### Build dEQP runner
