@@ -1993,7 +1993,7 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
    }
 }
 
-const struct dxil_value *
+static const struct dxil_value *
 load_ubo(struct ntd_context *ctx, const struct dxil_value *handle,
          const struct dxil_value *offset, enum overload_type overload)
 {
