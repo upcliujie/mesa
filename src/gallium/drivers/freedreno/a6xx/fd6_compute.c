@@ -29,6 +29,7 @@
 
 #include "freedreno_log.h"
 #include "freedreno_resource.h"
+#include "freedreno_tracepoints.h"
 
 #include "fd6_compute.h"
 #include "fd6_const.h"
@@ -192,6 +193,10 @@ fd6_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info)
 	OUT_RING(ring, 1);            /* HLSQ_CS_KERNEL_GROUP_Y */
 	OUT_RING(ring, 1);            /* HLSQ_CS_KERNEL_GROUP_Z */
 
+	trace_start_compute(&ctx->batch->trace, work_dim,
+			local_size[0], local_size[1], local_size[2],
+			num_groups[0], num_groups[1], num_groups[2]);
+
 	fd_log(ctx->batch, "COMPUTE: START");
 	fd_log_stream(ctx->batch, stream, util_dump_grid_info(stream, info));
 
@@ -211,6 +216,8 @@ fd6_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info)
 		OUT_RING(ring, CP_EXEC_CS_2_NGROUPS_Y(info->grid[1]));
 		OUT_RING(ring, CP_EXEC_CS_3_NGROUPS_Z(info->grid[2]));
 	}
+
+	trace_end_compute(&ctx->batch->trace);
 
 	fd_log(ctx->batch, "COMPUTE: END");
 	OUT_WFI5(ring);
