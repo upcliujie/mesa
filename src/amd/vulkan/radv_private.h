@@ -1006,7 +1006,8 @@ enum radv_dynamic_state_bits {
 	RADV_DYNAMIC_STENCIL_TEST_ENABLE		= 1 << 19,
 	RADV_DYNAMIC_STENCIL_OP				= 1 << 20,
 	RADV_DYNAMIC_VERTEX_INPUT_BINDING_STRIDE        = 1 << 21,
-	RADV_DYNAMIC_ALL				= (1 << 22) - 1,
+	RADV_DYNAMIC_FRAGMENT_SHADING_RATE              = 1 << 22,
+	RADV_DYNAMIC_ALL				= (1 << 23) - 1,
 };
 
 enum radv_cmd_dirty_bits {
@@ -1034,12 +1035,13 @@ enum radv_cmd_dirty_bits {
 	RADV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE		= 1 << 19,
 	RADV_CMD_DIRTY_DYNAMIC_STENCIL_OP			= 1 << 20,
 	RADV_CMD_DIRTY_DYNAMIC_VERTEX_INPUT_BINDING_STRIDE      = 1 << 21,
-	RADV_CMD_DIRTY_DYNAMIC_ALL				= (1 << 22) - 1,
-	RADV_CMD_DIRTY_PIPELINE					= 1 << 22,
-	RADV_CMD_DIRTY_INDEX_BUFFER				= 1 << 23,
-	RADV_CMD_DIRTY_FRAMEBUFFER				= 1 << 24,
-	RADV_CMD_DIRTY_VERTEX_BUFFER				= 1 << 25,
-	RADV_CMD_DIRTY_STREAMOUT_BUFFER				= 1 << 26,
+	RADV_CMD_DIRTY_DYNAMIC_FRAGMENT_SHADING_RATE            = 1 << 22,
+	RADV_CMD_DIRTY_DYNAMIC_ALL				= (1 << 23) - 1,
+	RADV_CMD_DIRTY_PIPELINE					= 1 << 23,
+	RADV_CMD_DIRTY_INDEX_BUFFER				= 1 << 24,
+	RADV_CMD_DIRTY_FRAMEBUFFER				= 1 << 25,
+	RADV_CMD_DIRTY_VERTEX_BUFFER				= 1 << 26,
+	RADV_CMD_DIRTY_STREAMOUT_BUFFER				= 1 << 27,
 };
 
 enum radv_cmd_flush_bits {
@@ -1204,6 +1206,11 @@ struct radv_dynamic_state {
 	VkCompareOp depth_compare_op;
 	bool depth_bounds_test_enable;
 	bool stencil_test_enable;
+
+	struct {
+		VkExtent2D size;
+		VkFragmentShadingRateCombinerOpKHR combiner_ops[2];
+	} fragment_shading_rate;
 };
 
 extern const struct radv_dynamic_state default_dynamic_state;
@@ -1689,6 +1696,10 @@ struct radv_multisample_state {
 	unsigned num_samples;
 };
 
+struct radv_vrs_state {
+	uint32_t pa_cl_vrs_cntl;
+};
+
 struct radv_prim_vertex_count {
 	uint8_t min;
 	uint8_t incr;
@@ -1733,6 +1744,7 @@ struct radv_pipeline {
 		struct {
 			struct radv_multisample_state ms;
 			struct radv_binning_state binning;
+			struct radv_vrs_state vrs;
 			uint32_t spi_baryc_cntl;
 			bool prim_restart_enable;
 			unsigned esgs_ring_size;
