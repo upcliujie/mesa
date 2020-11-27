@@ -1947,38 +1947,100 @@ void lower_to_hw_instr(Program* program)
             Pseudo_branch_instruction* branch = static_cast<Pseudo_branch_instruction*>(instr.get());
             uint32_t target = branch->target[0];
 
-            /* check if all blocks from current to target are empty */
-            /* In case there are <= 4 SALU and <= 2 VALU instructions, remove the branch */
-            bool can_remove = block->index < target;
+            /* Check if all blocks from current to target are empty
+             * In case there are <= 4 SALU and <= 2 VALU instructions, remove the branch
+             * In case there are <= 8 VALU/VMEM instructions, use vskip */
+            bool use_vskip = block->index < target;
             unsigned num_scalar = 0;
             unsigned num_vector = 0;
-            for (unsigned i = block->index + 1; can_remove && i < branch->target[0]; i++) {
+            unsigned num_memory = 0;
+            bool has_sopp = false;
+            for (unsigned i = block->index + 1; use_vskip && i < branch->target[0]; i++) {
                /* uniform conditional branches must not be ignored if they
                 * are about to jump over actual instructions */
-               if (program->blocks[i].instructions.size() &&
-                   (branch->opcode == aco_opcode::p_branch ||
+               if (!program->blocks[i].instructions.empty() &&
+                   (branch->opcode != aco_opcode::p_cbranch_z ||
                     branch->operands[0].physReg() != exec)) {
-                  can_remove = false;
+                  use_vskip = false;
                   break;
                }
 
                for (aco_ptr<Instruction>& inst : program->blocks[i].instructions) {
-                  if (inst->isSALU()) {
+                  if (inst->format == Format::SOPP) {
+                     /* we allow at most one branch, and only if we remove
+                      * the current branch and don't rely on setting vskip*/
+                     if (has_sopp ||
+                         inst->opcode == aco_opcode::s_endpgm ||
+                         inst->opcode == aco_opcode::s_sendmsg ||
+                         inst->opcode == aco_opcode::s_sendmsghalt ||
+                         inst->opcode == aco_opcode::s_trap)
+                        use_vskip = false;
+                     has_sopp = true;
+                  } else if (inst->isSALU()) {
                      num_scalar++;
                   } else if (inst->isVALU()) {
                      num_vector++;
+                     if (ctx.program->chip_class >= GFX10) {
+                        for (Definition& def : inst->definitions) {
+                           if (def.regClass().type() == RegType::sgpr)
+                              num_vector += 3;
+                        }
+                     }
+                  } else if (inst->isVMEM() || inst->isFlatOrGlobal()) {
+                     num_memory++;
+                  } else if (inst->format == Format::DS) {
+                     num_memory++;
+                     if (inst->opcode == aco_opcode::ds_ordered_count ||
+                         inst->opcode == aco_opcode::ds_gws_init ||
+                         inst->opcode == aco_opcode::ds_gws_barrier)
+                        use_vskip = false;
+                  } else if (inst->format == Format::EXP) {
+                     num_memory++;
+                     /* Exports with empty exec mask cause hangs on GFX10 */
+                     if (ctx.program->chip_class >= GFX10)
+                        use_vskip = false;
                   } else {
-                     can_remove = false;
-                     break;
+                     /* SMEM are at least as expensive as branches */
+                     use_vskip = false;
                   }
-               }
 
-               if (num_scalar > 4 || num_vector > 2)
-                  can_remove = false;
+                  /* under these conditions, we shouldn't remove the branch */
+                  if (ctx.program->chip_class >= GFX10) {
+                     /* GFX10 cannot entirely skip VMEM instructions. */
+                     if (num_scalar * 2 + num_vector + num_memory * 4 > 8)
+                        use_vskip = false;
+                  } else {
+                     if (num_scalar * 2 + num_vector + num_memory > 8 ||
+                         (has_sopp && (num_vector > 2 || num_memory > 0)))
+                        use_vskip = false;
+                  }
+
+                  if (!use_vskip)
+                     break;
+               }
             }
 
-            if (can_remove)
+            if (use_vskip) {
+               /* GFX10+ automatically skips vector instructions if exec == 0 */
+               if (ctx.program->chip_class >= GFX10)
+                  continue;
+
+               /* remove the branch entirely if executing
+                * the instructions is cheaper than skipping them */
+               if (num_scalar <= 4 && num_vector <= 2 && num_memory == 0)
+                  continue;
+
+               assert(branch->opcode != aco_opcode::p_branch && branch->operands[0].physReg() == exec);
+               if (branch->opcode == aco_opcode::p_cbranch_z)
+                  bld.sopc(aco_opcode::s_setvskip, Operand(2u), Operand(execz, s1));
+               else
+                  bld.sopc(aco_opcode::s_setvskip, Operand(1u), Operand(execz, s1));
+
+               /* disable vskip before target */
+               bld.reset(&program->blocks[target - 1]);
+               bld.sopc(aco_opcode::s_setvskip, Operand(0u), Operand(0u));
                continue;
+            }
 
             switch (instr->opcode) {
                case aco_opcode::p_branch:
