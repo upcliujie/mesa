@@ -52,6 +52,8 @@ COPYRIGHT = """/*
 
 import xml.etree.ElementTree as ET
 import copy
+import itertools
+from collections import OrderedDict
 
 def parse_cond(cond, aliased = False):
     if cond.tag == 'reserved':
@@ -83,10 +85,13 @@ def parse_derived(obj):
 
     return out
 
-def parse_modifiers(obj):
+def parse_modifiers(obj, include_pseudo):
     out = []
 
     for mod in obj.findall('mod'):
+        if mod.attrib.get('pseudo', False) and not include_pseudo:
+            continue
+
         name = mod.attrib['name']
         start = mod.attrib.get('start', None)
         size = int(mod.attrib['size'])
@@ -125,17 +130,11 @@ def parse_instruction(ins, include_pseudo):
             'swaps': [],
             'derived': [],
             'staging': ins.attrib.get('staging', '').split('=')[0],
-            'staging_count': None,
+            'staging_count': ins.attrib.get('staging', '=0').split('=')[1],
             'unused': ins.attrib.get('unused', False),
             'pseudo': ins.attrib.get('pseudo', False),
+            'message': ins.attrib.get('message', 'none'),
     }
-
-    if 'staging' in ins.attrib:
-        parts = ins.attrib['staging'].split('=')
-
-        if len(parts) > 1:
-            assert(len(parts) == 2)
-            common['staging_count'] = int(parts[1])
 
     if 'exact' in ins.attrib:
         common['exact'] = parse_exact(ins)
@@ -152,7 +151,7 @@ def parse_instruction(ins, include_pseudo):
         common['immediates'].append([imm.attrib['name'], start, int(imm.attrib['size'])])
 
     common['derived'] = parse_derived(ins)
-    common['modifiers'] = parse_modifiers(ins)
+    common['modifiers'] = parse_modifiers(ins, include_pseudo)
 
     for swap in ins.findall('swap'):
         lr = [int(swap.get('left')), int(swap.get('right'))]
@@ -229,3 +228,92 @@ def expand_states(instructions):
             out[name] = (ins, test if test is not None else [], desc)
 
     return out
+
+# Drop keys used for packing to simplify IR representation, so we can check for
+# equivalence easier
+
+def simplify_to_ir(ins):
+    return {
+            'staging': ins['staging'],
+            'srcs': len(ins['srcs']),
+            'modifiers': [[m[0][0], m[2]] for m in ins['modifiers']],
+            'immediates': [m[0] for m in ins['immediates']]
+        }
+
+
+def combine_ir_variants(instructions, v):
+    variants = sum([[simplify_to_ir(Q[1]) for Q in instructions[x]] for x in v], [])
+
+    # Accumulate modifiers across variants
+    modifiers = {}
+
+    for s in variants:
+        # Check consistency
+        assert(s['srcs'] == variants[0]['srcs'])
+        assert(s['immediates'] == variants[0]['immediates'])
+        assert(s['staging'] == variants[0]['staging'])
+
+        for name, opts in s['modifiers']:
+            if name not in modifiers:
+                modifiers[name] = copy.deepcopy(opts)
+            else:
+                modifiers[name] += opts
+
+    # Great, we've checked srcs/immediates are consistent and we've summed over
+    # modifiers
+    return {
+            'srcs': variants[0]['srcs'],
+            'staging': variants[0]['staging'],
+            'immediates': sorted(variants[0]['immediates']),
+            'modifiers': { k: modifiers[k] for k in modifiers }
+        }
+
+# Partition instructions to mnemonics, considering units and variants
+# equivalent.
+
+def partition_mnemonics(instructions):
+    partitions = itertools.groupby(instructions, lambda x: x[1:])
+    return { k: combine_ir_variants(instructions, v) for (k, v) in partitions }
+
+# Generate modifier lists, by accumulating all the possible modifiers, and
+# deduplicating thus assigning canonical enum values. We don't try _too_ hard
+# to be clever, but by preserving as much of the original orderings as
+# possible, later instruction encoding is simplified a bit.  Probably a micro
+# optimization but we have to pick _some_ ordering, might as well choose the
+# most convenient.
+#
+# THIS MUST BE DETERMINISTIC
+
+def order_modifiers(ir_instructions):
+    out = {}
+
+    # modifier name -> (list of option strings)
+    modifier_lists = {}
+
+    for ins in sorted(ir_instructions):
+        modifiers = ir_instructions[ins]["modifiers"]
+
+        for name in modifiers:
+            name_ = name[0:-1] if name[-1] in "0123" else name
+
+            if name_ not in modifier_lists:
+                modifier_lists[name_] = copy.deepcopy(modifiers[name])
+            else:
+                modifier_lists[name_] += modifiers[name]
+
+    for mod in modifier_lists:
+        lst = list(OrderedDict.fromkeys(modifier_lists[mod]))
+
+        # Ensure none is false for booleans so the builder makes sense
+        if len(lst) == 2 and lst[1] == "none":
+            lst.reverse()
+
+        out[mod] = lst
+
+    return out
+
+# Count sources for a simplified (IR) instruction, including a source for a
+# staging register if necessary
+def src_count(op):
+    staging = 1 if (op["staging"] in ["r", "rw"]) else 0
+    return op["srcs"] + staging
