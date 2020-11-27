@@ -1720,12 +1720,14 @@ pipeline_lower_nir(struct v3dv_pipeline *pipeline,
    unsigned index =
       descriptor_map_add(&pipeline->sampler_map,
                          -1, -1, -1, 0, 16);
-   assert(index == V3DV_NO_SAMPLER_16BIT_IDX);
+   if (unlikely(index != V3DV_NO_SAMPLER_16BIT_IDX))
+      assert(0);
 
    index =
       descriptor_map_add(&pipeline->sampler_map,
                          -2, -2, -2, 0, 32);
-   assert(index == V3DV_NO_SAMPLER_32BIT_IDX);
+   if (unlikely(index != V3DV_NO_SAMPLER_32BIT_IDX))
+      assert(0);
 
    /* Apply the actual pipeline layout to UBOs, SSBOs, and textures */
    NIR_PASS_V(p_stage->nir, lower_pipeline_layout_info, pipeline, layout);
