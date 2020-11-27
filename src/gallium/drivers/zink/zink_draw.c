@@ -523,11 +523,6 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
       dsl = ctx->curr_program->dsl;
    }
 
-   if (is_compute)
-      zink_batch_reference_program(batch, (struct zink_program*)ctx->curr_compute);
-   else
-      zink_batch_reference_program(batch, (struct zink_program*)ctx->curr_program);
-
    if (batch->descs_used + num_descriptors >= batch->max_descs) {
       batch->descs_used += num_descriptors;
       if (is_compute)
@@ -537,6 +532,11 @@ update_descriptors(struct zink_context *ctx, struct zink_screen *screen, bool is
          batch = zink_batch_rp(ctx);
       }
    }
+   if (is_compute)
+      zink_batch_reference_program(batch, (struct zink_program*)ctx->curr_compute);
+   else
+      zink_batch_reference_program(batch, (struct zink_program*)ctx->curr_program);
+
    VkDescriptorSet desc_set = allocate_descriptor_set(screen, batch,
                                                       dsl, num_descriptors);
    /* probably oom, so we need to stall until we free up some descriptors */
