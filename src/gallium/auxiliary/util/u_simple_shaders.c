@@ -530,6 +530,7 @@ util_make_fs_blit_msaa_gen(struct pipe_context *pipe,
                            const char *samp_type,
                            const char *output_semantic,
                            const char *output_mask,
+                           const char *swizzle,
                            const char *conversion_decl,
                            const char *conversion)
 {
@@ -545,7 +546,7 @@ util_make_fs_blit_msaa_gen(struct pipe_context *pipe,
          "F2U TEMP[0], IN[0]\n"
          "TXF TEMP[0], TEMP[0], SAMP[0], %s\n"
          "%s"
-         "MOV OUT[0]%s, TEMP[0]\n"
+         "MOV OUT[0]%s, TEMP[0]%s\n"
          "END\n";
 
    const char *type = tgsi_texture_names[tgsi_tex];
@@ -557,7 +558,7 @@ util_make_fs_blit_msaa_gen(struct pipe_context *pipe,
           tgsi_tex == TGSI_TEXTURE_2D_ARRAY_MSAA);
 
    snprintf(text, sizeof(text), shader_templ, type, samp_type,
-            output_semantic, conversion_decl, type, conversion, output_mask);
+            output_semantic, conversion_decl, type, conversion, output_mask, swizzle);
 
    if (!tgsi_text_translate(text, tokens, ARRAY_SIZE(tokens))) {
       puts(text);
@@ -608,7 +609,7 @@ util_make_fs_blit_msaa_color(struct pipe_context *pipe,
    }
 
    return util_make_fs_blit_msaa_gen(pipe, tgsi_tex, samp_type,
-                                     "COLOR[0]", "", conversion_decl,
+                                     "COLOR[0]", "", "", conversion_decl,
                                      conversion);
 }
 
@@ -623,7 +624,7 @@ util_make_fs_blit_msaa_depth(struct pipe_context *pipe,
                              enum tgsi_texture_type tgsi_tex)
 {
    return util_make_fs_blit_msaa_gen(pipe, tgsi_tex, "FLOAT",
-                                     "POSITION", ".z", "", "");
+                                     "POSITION", ".z", ".xxxx", "", "");
 }
 
 
@@ -637,7 +638,7 @@ util_make_fs_blit_msaa_stencil(struct pipe_context *pipe,
                                enum tgsi_texture_type tgsi_tex)
 {
    return util_make_fs_blit_msaa_gen(pipe, tgsi_tex, "UINT",
-                                     "STENCIL", ".y", "", "");
+                                     "STENCIL", ".y", "", "", "");
 }
 
 
@@ -660,10 +661,11 @@ util_make_fs_blit_msaa_depthstencil(struct pipe_context *pipe,
          "DCL SVIEW[1], %s, UINT\n"
          "DCL OUT[0], POSITION\n"
          "DCL OUT[1], STENCIL\n"
-         "DCL TEMP[0]\n"
+         "DCL TEMP[0..1]\n"
 
          "F2U TEMP[0], IN[0]\n"
-         "TXF OUT[0].z, TEMP[0], SAMP[0], %s\n"
+         "TXF TEMP[1], TEMP[0], SAMP[0], %s\n"
+         "MOV OUT[0].z, TEMP[1].xxxx\n"
          "TXF OUT[1].y, TEMP[0], SAMP[1], %s\n"
          "END\n";
 
