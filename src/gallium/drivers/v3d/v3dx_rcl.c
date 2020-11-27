@@ -114,7 +114,8 @@ static void
 store_general(struct v3d_job *job,
               struct v3d_cl *cl, struct pipe_surface *psurf,
               int layer, int buffer, int pipe_bit,
-              uint32_t *stores_pending, bool general_color_clear)
+              uint32_t *stores_pending, bool general_color_clear,
+              bool is_resolve)
 {
         struct v3d_surface *surf = v3d_surface(psurf);
         bool separate_stencil = surf->separate_stencil && buffer == STENCIL;
@@ -160,6 +161,8 @@ store_general(struct v3d_job *job,
 
                 if (psurf->texture->nr_samples > 1)
                         store.decimate_mode = V3D_DECIMATE_MODE_ALL_SAMPLES;
+                else if (is_resolve && job->rbuf->texture->nr_samples > 1)
+                        store.decimate_mode = V3D_DECIMATE_MODE_4X;
                 else
                         store.decimate_mode = V3D_DECIMATE_MODE_SAMPLE_0;
 
@@ -213,6 +216,14 @@ static void
 v3d_rcl_emit_loads(struct v3d_job *job, struct v3d_cl *cl, int layer)
 {
         uint32_t loads_pending = job->load;
+        uint32_t resolves_pending = job->resolve;
+
+        assert (!resolves_pending || job->rbuf);
+
+        if (resolves_pending &&
+            V3D_VERSION < 40 &&
+            job->rbuf->texture->nr_samples <= 1)
+                resolves_pending = 0;
 
         for (int i = 0; i < V3D_MAX_DRAW_BUFFERS; i++) {
                 uint32_t bit = PIPE_CLEAR_COLOR0 << i;
@@ -225,8 +236,17 @@ v3d_rcl_emit_loads(struct v3d_job *job, struct v3d_cl *cl, int layer)
                         continue;
                 }
 
-                load_general(cl, psurf, RENDER_TARGET_0 + i, layer,
-                             bit, &loads_pending);
+                load_general(cl, psurf, RENDER_TARGET_0 + i, layer, bit,
+                             &loads_pending);
+        }
+
+        for (int i = 0; i < V3D_MAX_DRAW_BUFFERS; i++) {
+                uint32_t bit = PIPE_CLEAR_COLOR0 << i;
+                if (!(resolves_pending & bit))
+                        continue;
+
+                load_general(cl, job->rbuf, RENDER_TARGET_0 + i, layer, bit,
+                             &resolves_pending);
         }
 
         if ((loads_pending & PIPE_CLEAR_DEPTHSTENCIL) &&
@@ -325,7 +345,7 @@ v3d_rcl_emit_stores(struct v3d_job *job, struct v3d_cl *cl, int layer)
                 }
 
                 store_general(job, cl, psurf, layer, RENDER_TARGET_0 + i, bit,
-                              &stores_pending, general_color_clear);
+                              &stores_pending, general_color_clear, job->resolve & bit);
         }
 
         if (job->store & PIPE_CLEAR_DEPTHSTENCIL && job->zsbuf &&
@@ -336,20 +356,23 @@ v3d_rcl_emit_stores(struct v3d_job *job, struct v3d_cl *cl, int layer)
                                 store_general(job, cl, job->zsbuf, layer,
                                               Z, PIPE_CLEAR_DEPTH,
                                               &stores_pending,
-                                              general_color_clear);
+                                              general_color_clear,
+                                              false);
                         }
 
                         if (job->store & PIPE_CLEAR_STENCIL) {
                                 store_general(job, cl, job->zsbuf, layer,
                                               STENCIL, PIPE_CLEAR_STENCIL,
                                               &stores_pending,
-                                              general_color_clear);
+                                              general_color_clear,
+                                              false);
                         }
                 } else {
                         store_general(job, cl, job->zsbuf, layer,
                                       zs_buffer_from_pipe_bits(job->store),
                                       job->store & PIPE_CLEAR_DEPTHSTENCIL,
-                                      &stores_pending, general_color_clear);
+                                      &stores_pending, general_color_clear,
+                                      false);
                 }
         }
 
@@ -473,6 +496,10 @@ v3d_setup_render_target(struct v3d_job *job, int cbuf,
 
         struct v3d_surface *surf = v3d_surface(job->cbufs[cbuf]);
         *rt_bpp = surf->internal_bpp;
+        if (job->rbuf) {
+           struct v3d_surface *rsurf = v3d_surface(job->rbuf);
+           *rt_bpp = MAX2(*rt_bpp, rsurf->internal_bpp);
+        }
         *rt_type = surf->internal_type;
         *rt_clamp = V3D_RENDER_TARGET_CLAMP_NONE;
 }

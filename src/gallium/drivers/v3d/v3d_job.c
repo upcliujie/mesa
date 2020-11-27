@@ -72,6 +72,9 @@ v3d_job_free(struct v3d_context *v3d, struct v3d_job *job)
                                             job->zsbuf->texture);
                 pipe_surface_reference(&job->zsbuf, NULL);
         }
+        if (job->rbuf){
+                pipe_surface_reference(&job->rbuf, NULL);
+        }
 
         if (v3d->job == job)
                 v3d->job = NULL;
@@ -300,6 +303,12 @@ v3d_job_set_tile_buffer_size(struct v3d_job *job)
                         max_bpp = MAX2(max_bpp, surf->internal_bpp);
                 }
         }
+
+        if (job->rbuf) {
+                struct v3d_surface *rsurf = v3d_surface(job->rbuf);
+                max_bpp = MAX2(max_bpp, rsurf->internal_bpp);
+        }
+
         job->internal_bpp = max_bpp;
         STATIC_ASSERT(RENDER_TARGET_MAXIMUM_32BPP == 0);
         tile_size_index += max_bpp;
@@ -319,7 +328,9 @@ v3d_job_set_tile_buffer_size(struct v3d_job *job)
  */
 struct v3d_job *
 v3d_get_job(struct v3d_context *v3d,
-            struct pipe_surface **cbufs, struct pipe_surface *zsbuf)
+            struct pipe_surface **cbufs,
+            struct pipe_surface *zsbuf,
+            struct pipe_surface *rbuf)
 {
         /* Return the existing job for this FBO if we have one */
         struct v3d_job_key local_key = {
@@ -360,7 +371,11 @@ v3d_get_job(struct v3d_context *v3d,
                 if (zsbuf->texture->nr_samples > 1)
                         job->msaa = true;
         }
-
+        if (rbuf) {
+                pipe_surface_reference(&job->rbuf, rbuf);
+                if (rbuf->texture->nr_samples > 1)
+                        job->msaa = true;
+        }
         for (int i = 0; i < V3D_MAX_DRAW_BUFFERS; i++) {
                 if (cbufs[i])
                         _mesa_hash_table_insert(v3d->write_jobs,
@@ -395,7 +410,7 @@ v3d_get_job_for_fbo(struct v3d_context *v3d)
 
         struct pipe_surface **cbufs = v3d->framebuffer.cbufs;
         struct pipe_surface *zsbuf = v3d->framebuffer.zsbuf;
-        struct v3d_job *job = v3d_get_job(v3d, cbufs, zsbuf);
+        struct v3d_job *job = v3d_get_job(v3d, cbufs, zsbuf, NULL);
 
         if (v3d->framebuffer.samples >= 1)
                 job->msaa = true;

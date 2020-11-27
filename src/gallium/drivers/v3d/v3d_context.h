@@ -336,9 +336,12 @@ struct v3d_job {
         /* Size of the submit.bo_handles array. */
         uint32_t bo_handles_size;
 
-        /** @{ Surfaces to submit rendering for. */
+        /** @{
+         * Surfaces to submit rendering for.
+         * rbuf is the surface to read when doing a resolve operation. */
         struct pipe_surface *cbufs[4];
         struct pipe_surface *zsbuf;
+        struct pipe_surface *rbuf;
         /** @} */
         /** @{
          * Bounding box of the scissor across all queued drawing.
@@ -387,7 +390,10 @@ struct v3d_job {
         uint32_t clear_color[4][4];
         float clear_z;
         uint8_t clear_s;
-
+        /* Bitmask of PIPE_CLEAR_* of buffers that will be resolved to from the
+         * rbuf.
+         */
+        uint32_t resolve;
         /**
          * Set if some drawing (triangles, blits, or just a glClear()) has
          * been done to the FBO, meaning that we need to
@@ -646,7 +652,8 @@ struct v3d_job *v3d_job_create(struct v3d_context *v3d);
 void v3d_job_free(struct v3d_context *v3d, struct v3d_job *job);
 struct v3d_job *v3d_get_job(struct v3d_context *v3d,
                             struct pipe_surface **cbufs,
-                            struct pipe_surface *zsbuf);
+                            struct pipe_surface *zsbuf,
+                            struct pipe_surface *rbuf);
 struct v3d_job *v3d_get_job_for_fbo(struct v3d_context *v3d);
 void v3d_job_set_tile_buffer_size(struct v3d_job *job);
 void v3d_job_add_bo(struct v3d_job *job, struct v3d_bo *bo);
