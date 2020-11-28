@@ -879,7 +879,6 @@ int r600_shader_from_nir(struct r600_context *rctx,
    NIR_PASS_V(sel->nir, nir_opt_constant_folding);
    NIR_PASS_V(sel->nir, nir_io_add_const_offset_to_base, io_modes);
 
-   NIR_PASS_V(sel->nir, nir_lower_ubo_vec4);
    if (lower_64bit)
       NIR_PASS_V(sel->nir, r600::r600_nir_split_64bit_io);
    NIR_PASS_V(sel->nir, nir_lower_alu_to_scalar, r600_lower_to_scalar_instr_filter, NULL);
