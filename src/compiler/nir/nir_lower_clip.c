@@ -110,6 +110,7 @@ store_clipdist_output(nir_builder *b, nir_variable *out, nir_ssa_def **val)
    store->src[0].ssa = nir_vec4(b, val[0], val[1], val[2], val[3]);
    store->src[0].is_ssa = true;
    store->src[1] = nir_src_for_ssa(nir_imm_int(b, 0));
+   nir_intrinsic_set_src_type(store, nir_type_float32);
    nir_builder_instr_insert(b, &store->instr);
 }
 
@@ -131,6 +132,7 @@ load_clipdist_input(nir_builder *b, nir_variable *in, int location_offset,
 
    load->src[0] = nir_src_for_ssa(nir_imm_int(b, 0));
    nir_ssa_dest_init(&load->instr, &load->dest, 4, 32, NULL);
+   nir_intrinsic_set_dest_type(load, nir_type_float32);
    nir_builder_instr_insert(b, &load->instr);
 
    val[0] = nir_channel(b, &load->dest.ssa, 0);
