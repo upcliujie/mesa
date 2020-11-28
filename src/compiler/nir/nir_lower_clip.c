@@ -99,10 +99,12 @@ store_clipdist_output(nir_builder *b, nir_variable *out, nir_ssa_def **val)
       .num_slots = 1,
    };
 
-   nir_store_output(b, nir_vec4(b, val[0], val[1], val[2], val[3]), nir_imm_int(b, 0),
-                    .base = out->data.driver_location,
-                    .write_mask = 0xf,
-                    .io_semantics = semantics);
+   nir_intrinsic_instr *intrin =
+      nir_store_output(b, nir_vec4(b, val[0], val[1], val[2], val[3]), nir_imm_int(b, 0),
+                       .base = out->data.driver_location,
+                       .write_mask = 0xf,
+                       .io_semantics = semantics);
+   nir_intrinsic_set_src_type(intrin, nir_type_float32);
 }
 
 static void
@@ -118,6 +120,8 @@ load_clipdist_input(nir_builder *b, nir_variable *in, int location_offset,
       nir_load_input(b, 4, 32, nir_imm_int(b, 0),
                      .base = in->data.driver_location + location_offset,
                      .io_semantics = semantics);
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(load->parent_instr);
+   nir_intrinsic_set_dest_type(intrin, nir_type_float32);
 
    val[0] = nir_channel(b, load, 0);
    val[1] = nir_channel(b, load, 1);
