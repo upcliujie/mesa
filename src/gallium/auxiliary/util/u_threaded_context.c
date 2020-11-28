@@ -2296,6 +2296,9 @@ tc_call_draw_multi(struct pipe_context *pipe, union tc_payload *payload)
       pipe_resource_reference(&info->info.index.resource, NULL);
 }
 
+#define DRAW_INFO_SIZE_WITHOUT_INDEXBUF_AND_MIN_MAX_INDEX \
+   offsetof(struct pipe_draw_info, index)
+
 static void
 tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
             const struct pipe_draw_indirect_info *indirect,
@@ -2348,7 +2351,7 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
 
          struct tc_draw_single *p =
             tc_add_struct_typed_call(tc, TC_CALL_draw_single, tc_draw_single);
-         memcpy(&p->info, info, DRAW_INFO_SIZE_WITHOUT_MIN_MAX_INDEX);
+         memcpy(&p->info, info, DRAW_INFO_SIZE_WITHOUT_INDEXBUF_AND_MIN_MAX_INDEX);
          p->info.index.resource = buffer;
          /* u_threaded_context stores start/count in min/max_index for single draws. */
          p->info.min_index = offset >> util_logbase2(index_size);
@@ -2395,7 +2398,7 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
       struct tc_draw_multi *p =
          tc_add_slot_based_call(tc, TC_CALL_draw_multi, tc_draw_multi,
                                 num_draws);
-      memcpy(&p->info, info, DRAW_INFO_SIZE_WITHOUT_MIN_MAX_INDEX);
+      memcpy(&p->info, info, DRAW_INFO_SIZE_WITHOUT_INDEXBUF_AND_MIN_MAX_INDEX);
       p->info.index.resource = buffer;
       p->num_draws = num_draws;
 
