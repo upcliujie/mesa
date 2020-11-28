@@ -967,8 +967,9 @@ bool ShaderFromNirProcessor::load_uniform(nir_intrinsic_instr* instr)
 
    if (literal) {
       AluInstruction *ir = nullptr;
+      int is64bitfactor = nir_dest_bit_size(instr->dest) == 64 ? 2 : 1;
 
-      for (int i = 0; i < instr->num_components ; ++i) {
+      for (unsigned i = 0; i < nir_dest_num_components(instr->dest) * is64bitfactor; ++i) {
          PValue u = PValue(new UniformValue(512 + literal->u32 + base, i));
          sfn_log << SfnLog::io << "uniform "
                  << instr->dest.ssa.index << " const["<< i << "]: "<< instr->const_index[i] << "\n";
