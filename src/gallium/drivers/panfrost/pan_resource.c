@@ -1044,6 +1044,11 @@ panfrost_ptr_unmap(struct pipe_context *pctx,
                                 assert(transfer->box.depth == 1);
 
                                 if (panfrost_should_linear_convert(prsrc, transfer)) {
+                                        size_t ASSERTED bo_size;
+
+                                        panfrost_resource_setup(dev, prsrc, &bo_size, DRM_FORMAT_MOD_LINEAR);
+                                        assert(bo_size <= bo->size);
+
                                         util_copy_rect(
                                                 bo->ptr.cpu + prsrc->slices[0].offset,
                                                 prsrc->base.format,
@@ -1054,8 +1059,6 @@ panfrost_ptr_unmap(struct pipe_context *pctx,
                                                 trans->map,
                                                 transfer->stride,
                                                 0, 0);
-
-                                        panfrost_resource_setup(dev, prsrc, NULL, DRM_FORMAT_MOD_LINEAR);
                                 } else {
                                         panfrost_store_tiled_image(
                                                 bo->ptr.cpu + prsrc->slices[transfer->level].offset,
