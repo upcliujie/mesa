@@ -81,7 +81,7 @@ static void radeon_enc_task_info(struct radeon_encoder *enc, bool need_feedback)
       enc->enc_pic.task_info.allowed_max_num_feedbacks = 0;
 
    RADEON_ENC_BEGIN(enc->cmd.task_info);
-   enc->p_task_size = &enc->cs->current.buf[enc->cs->current.cdw++];
+   enc->p_task_size = &enc->cs.current.buf[enc->cs.current.cdw++];
    RADEON_ENC_CS(enc->enc_pic.task_info.task_id);
    RADEON_ENC_CS(enc->enc_pic.task_info.allowed_max_num_feedbacks);
    RADEON_ENC_END();
@@ -282,7 +282,7 @@ static void radeon_enc_nalu_sps(struct radeon_encoder *enc)
 {
    RADEON_ENC_BEGIN(enc->cmd.nalu);
    RADEON_ENC_CS(RENCODE_DIRECT_OUTPUT_NALU_TYPE_SPS);
-   uint32_t *size_in_bytes = &enc->cs->current.buf[enc->cs->current.cdw++];
+   uint32_t *size_in_bytes = &enc->cs.current.buf[enc->cs.current.cdw++];
    radeon_enc_reset(enc);
    radeon_enc_set_emulation_prevention(enc, false);
    radeon_enc_code_fixed_bits(enc, 0x00000001, 32);
@@ -364,7 +364,7 @@ static void radeon_enc_nalu_sps_hevc(struct radeon_encoder *enc)
 {
    RADEON_ENC_BEGIN(enc->cmd.nalu);
    RADEON_ENC_CS(RENCODE_DIRECT_OUTPUT_NALU_TYPE_SPS);
-   uint32_t *size_in_bytes = &enc->cs->current.buf[enc->cs->current.cdw++];
+   uint32_t *size_in_bytes = &enc->cs.current.buf[enc->cs.current.cdw++];
    int i;
 
    radeon_enc_reset(enc);
@@ -455,7 +455,7 @@ static void radeon_enc_nalu_pps(struct radeon_encoder *enc)
 {
    RADEON_ENC_BEGIN(enc->cmd.nalu);
    RADEON_ENC_CS(RENCODE_DIRECT_OUTPUT_NALU_TYPE_PPS);
-   uint32_t *size_in_bytes = &enc->cs->current.buf[enc->cs->current.cdw++];
+   uint32_t *size_in_bytes = &enc->cs.current.buf[enc->cs.current.cdw++];
    radeon_enc_reset(enc);
    radeon_enc_set_emulation_prevention(enc, false);
    radeon_enc_code_fixed_bits(enc, 0x00000001, 32);
@@ -490,7 +490,7 @@ static void radeon_enc_nalu_pps_hevc(struct radeon_encoder *enc)
 {
    RADEON_ENC_BEGIN(enc->cmd.nalu);
    RADEON_ENC_CS(RENCODE_DIRECT_OUTPUT_NALU_TYPE_PPS);
-   uint32_t *size_in_bytes = &enc->cs->current.buf[enc->cs->current.cdw++];
+   uint32_t *size_in_bytes = &enc->cs.current.buf[enc->cs.current.cdw++];
    radeon_enc_reset(enc);
    radeon_enc_set_emulation_prevention(enc, false);
    radeon_enc_code_fixed_bits(enc, 0x00000001, 32);
@@ -548,7 +548,7 @@ static void radeon_enc_nalu_vps(struct radeon_encoder *enc)
 {
    RADEON_ENC_BEGIN(enc->cmd.nalu);
    RADEON_ENC_CS(RENCODE_DIRECT_OUTPUT_NALU_TYPE_VPS);
-   uint32_t *size_in_bytes = &enc->cs->current.buf[enc->cs->current.cdw++];
+   uint32_t *size_in_bytes = &enc->cs.current.buf[enc->cs.current.cdw++];
    int i;
 
    radeon_enc_reset(enc);
@@ -602,7 +602,7 @@ static void radeon_enc_nalu_aud_hevc(struct radeon_encoder *enc)
 {
    RADEON_ENC_BEGIN(enc->cmd.nalu);
    RADEON_ENC_CS(RENCODE_DIRECT_OUTPUT_NALU_TYPE_AUD);
-   uint32_t *size_in_bytes = &enc->cs->current.buf[enc->cs->current.cdw++];
+   uint32_t *size_in_bytes = &enc->cs.current.buf[enc->cs.current.cdw++];
    radeon_enc_reset(enc);
    radeon_enc_set_emulation_prevention(enc, false);
    radeon_enc_code_fixed_bits(enc, 0x00000001, 32);
