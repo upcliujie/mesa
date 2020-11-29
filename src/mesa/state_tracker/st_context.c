@@ -815,6 +815,9 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
          !st->lower_ucp;
    st->shader_has_one_variant[MESA_SHADER_COMPUTE] = st->has_shareable_shaders;
 
+   st->pin_threads_to_L3 = util_cpu_caps.cores_per_L3 != util_cpu_caps.nr_cpus &&
+                           st->pipe->set_context_param;
+
    st->bitmap.cache.empty = true;
 
    if (ctx->Const.ForceGLNamesReuse && ctx->Shared->RefCount == 1) {
