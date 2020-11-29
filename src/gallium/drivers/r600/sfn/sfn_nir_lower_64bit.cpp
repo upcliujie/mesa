@@ -214,6 +214,34 @@ r600_nir_split_double_load_uniform(nir_builder *b, nir_intrinsic_instr *intr)
 }
 
 static nir_ssa_def *
+r600_nir_split_double_load_ssbo(nir_builder *b, nir_intrinsic_instr *intr)
+{
+   unsigned second_components = nir_dest_num_components(intr->dest) - 2;
+   nir_intrinsic_instr *load2 = nir_instr_as_intrinsic(nir_instr_clone(b->shader, &intr->instr));
+
+   auto new_src0 = nir_src_for_ssa(nir_iadd_imm(b, intr->src[0].ssa, 1));
+   nir_instr_rewrite_src(&load2->instr, &load2->src[0], new_src0);
+   load2->num_components = second_components;
+   nir_ssa_dest_init(&load2->instr, &load2->dest, second_components, 64, nullptr);
+
+   nir_intrinsic_set_dest_type(load2, nir_intrinsic_dest_type(intr));
+   nir_builder_instr_insert(b, &load2->instr);
+
+   intr->dest.ssa.num_components = intr->num_components = 2;
+
+   if (second_components == 1)
+      return nir_vec3(b, nir_channel(b, &intr->dest.ssa, 0),
+                      nir_channel(b, &intr->dest.ssa, 1),
+                      nir_channel(b, &load2->dest.ssa, 0));
+   else
+      return nir_vec4(b, nir_channel(b, &intr->dest.ssa, 0),
+                      nir_channel(b, &intr->dest.ssa, 1),
+                      nir_channel(b, &load2->dest.ssa, 0),
+                      nir_channel(b, &load2->dest.ssa, 1));
+}
+
+
+static nir_ssa_def *
 r600_nir_split_double_load_ubo(nir_builder *b, nir_intrinsic_instr *intr)
 {
    unsigned second_components = nir_dest_num_components(intr->dest) - 2;
@@ -296,8 +324,8 @@ r600_nir_split_64bit_io_impl(nir_builder *b, nir_instr *instr, void *_options)
          return r600_nir_split_double_load_uniform(b, intr);
       case nir_intrinsic_load_ubo:
          return r600_nir_split_double_load_ubo(b, intr);
-      /*case nir_intrinsic_load_ssbo:
-         return r600_nir_split_double_load_ssbo(b, intr);*/
+      case nir_intrinsic_load_ssbo:
+         return r600_nir_split_double_load_ssbo(b, intr);
       case nir_intrinsic_load_input:
          return r600_nir_split_double_load(b, intr);
       case nir_intrinsic_store_output:
@@ -365,6 +393,7 @@ r600_nir_64_to_vec2_filter(const nir_instr *instr, const void *_options)
       case nir_intrinsic_load_uniform:
       case nir_intrinsic_load_ubo:
       case nir_intrinsic_load_ubo_vec4:
+      case nir_intrinsic_load_ssbo:
          return nir_dest_bit_size(intr->dest) == 64;
       case nir_intrinsic_store_output:
          return nir_src_bit_size(intr->src[0]) == 64;
@@ -426,6 +455,16 @@ r600_nir_load_64_to_vec2(nir_builder *b, nir_intrinsic_instr *intr)
    nir_intrinsic_set_component(intr, nir_intrinsic_component(intr) * 2);
    return NIR_LOWER_INSTR_PROGRESS;
 }
+
+static nir_ssa_def *
+r600_nir_load_ssbo_64_to_vec2(nir_builder *b, nir_intrinsic_instr *intr)
+{
+   intr->num_components *= 2;
+   intr->dest.ssa.bit_size = 32;
+   intr->dest.ssa.num_components *= 2;
+   return NIR_LOWER_INSTR_PROGRESS;
+}
+
 
 static nir_ssa_def *
 r600_nir_store_64_to_vec2(nir_builder *b, nir_intrinsic_instr *intr)
