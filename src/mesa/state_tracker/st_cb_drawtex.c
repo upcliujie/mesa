@@ -212,7 +212,7 @@ st_DrawTex(struct gl_context *ctx, GLfloat x, GLfloat y, GLfloat z,
       GLfloat *vbuf = NULL;
       GLuint tex_attr;
 
-      u_upload_alloc(pipe->stream_uploader, 0,
+      u_upload_alloc(&pipe->stream_uploader, 0,
                      numAttribs * 4 * 4 * sizeof(GLfloat), 4,
                      &offset, &vbuffer, (void **) &vbuf);
       if (!vbuffer) {
@@ -284,7 +284,7 @@ st_DrawTex(struct gl_context *ctx, GLfloat x, GLfloat y, GLfloat z,
          }
       }
 
-      u_upload_unmap(pipe->stream_uploader);
+      u_upload_unmap(&pipe->stream_uploader);
 
 #undef SET_ATTRIB
    }

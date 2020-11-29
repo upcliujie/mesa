@@ -135,7 +135,7 @@ blorp_alloc_dynamic_state(struct blorp_batch *blorp_batch,
    struct iris_context *ice = blorp_batch->blorp->driver_ctx;
    struct iris_batch *batch = blorp_batch->driver_batch;
 
-   return stream_state(batch, ice->state.dynamic_uploader,
+   return stream_state(batch, &ice->state.dynamic_uploader,
                        size, alignment, offset, NULL);
 }
 
@@ -156,7 +156,7 @@ blorp_alloc_binding_table(struct blorp_batch *blorp_batch,
    uint32_t *bt_map = binder->map + *bt_offset;
 
    for (unsigned i = 0; i < num_entries; i++) {
-      surface_maps[i] = stream_state(batch, ice->state.surface_uploader,
+      surface_maps[i] = stream_state(batch, &ice->state.surface_uploader,
                                      state_size, state_alignment,
                                      &surface_offsets[i], NULL);
       bt_map[i] = surface_offsets[i] - (uint32_t) binder->bo->gtt_offset;
@@ -177,7 +177,7 @@ blorp_alloc_vertex_buffer(struct blorp_batch *blorp_batch,
    struct iris_bo *bo;
    uint32_t offset;
 
-   void *map = stream_state(batch, ice->ctx.stream_uploader, size, 64,
+   void *map = stream_state(batch, &ice->ctx.stream_uploader, size, 64,
                             &offset, &bo);
 
    *addr = (struct blorp_address) {

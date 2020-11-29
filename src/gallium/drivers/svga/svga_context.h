@@ -473,8 +473,8 @@ struct svga_context
    struct pipe_context pipe;
    struct svga_winsys_context *swc;
    struct blitter_context *blitter;
-   struct u_upload_mgr *const0_upload;
-   struct u_upload_mgr *tex_upload;
+   struct u_upload_mgr const0_upload;
+   struct u_upload_mgr tex_upload;
 
    struct {
       boolean no_swtnl;

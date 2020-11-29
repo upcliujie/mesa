@@ -266,7 +266,7 @@ fd6_emit_ubos(struct fd_context *ctx, const struct ir3_shader_variant *v,
 		 */
 		if (cb->user_buffer) {
 			struct pipe_context *pctx = &ctx->base;
-			u_upload_data(pctx->stream_uploader, 0,
+			u_upload_data(&pctx->stream_uploader, 0,
 					cb->buffer_size,
 					64,
 					cb->user_buffer,

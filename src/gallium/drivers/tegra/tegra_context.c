@@ -37,8 +37,8 @@ tegra_destroy(struct pipe_context *pcontext)
 {
    struct tegra_context *context = to_tegra_context(pcontext);
 
-   if (context->base.stream_uploader)
-      u_upload_destroy(context->base.stream_uploader);
+   u_upload_destroy(&context->base.stream_uploader);
+   u_upload_destroy(&context->base.const_uploader);
 
    context->gpu->destroy(context->gpu);
    free(context);
@@ -1239,9 +1239,8 @@ tegra_screen_context_create(struct pipe_screen *pscreen, void *priv,
     * since it is never used, no buffers will every be allocated and the only
     * memory wasted is that occupied by the nouveau uploader itself.
     */
-   context->base.stream_uploader = u_upload_create_default(&context->base);
-   if (!context->base.stream_uploader)
-      goto destroy;
+   u_upload_init_default(&context->base.stream_uploader, &context->base);
+   u_upload_init_default(&context->base.const_uploader, &context->base);
 
    context->base.const_uploader = context->base.stream_uploader;
 
@@ -1383,8 +1382,6 @@ tegra_screen_context_create(struct pipe_screen *pscreen, void *priv,
 
    return &context->base;
 
-destroy:
-   context->gpu->destroy(context->gpu);
 free:
    free(context);
    return NULL;

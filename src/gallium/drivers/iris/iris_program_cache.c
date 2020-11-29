@@ -224,7 +224,7 @@ iris_upload_shader(struct iris_context *ice,
       shader->map = existing->map;
    } else {
       shader->assembly.res = NULL;
-      u_upload_alloc(ice->shaders.uploader, 0, prog_data->program_size, 64,
+      u_upload_alloc(&ice->shaders.uploader, 0, prog_data->program_size, 64,
                      &shader->assembly.offset, &shader->assembly.res,
                      &shader->map);
       memcpy(shader->map, assembly, prog_data->program_size);
@@ -336,9 +336,8 @@ iris_init_program_cache(struct iris_context *ice)
    ice->shaders.cache =
       _mesa_hash_table_create(ice, keybox_hash, keybox_equals);
 
-   ice->shaders.uploader =
-      u_upload_create(&ice->ctx, 16384, PIPE_BIND_CUSTOM, PIPE_USAGE_IMMUTABLE,
-                      IRIS_RESOURCE_FLAG_SHADER_MEMZONE);
+   u_upload_init(&ice->shaders.uploader, &ice->ctx, 16384, PIPE_BIND_CUSTOM,
+                 PIPE_USAGE_IMMUTABLE, IRIS_RESOURCE_FLAG_SHADER_MEMZONE);
 
    for (int i = 0; i < MESA_SHADER_STAGES; i++)
       list_inithead(&ice->shaders.deleted_variants[i]);
@@ -361,7 +360,7 @@ iris_destroy_program_cache(struct iris_context *ice)
       pipe_resource_reference(&shader->assembly.res, NULL);
    }
 
-   u_upload_destroy(ice->shaders.uploader);
+   u_upload_destroy(&ice->shaders.uploader);
 
    ralloc_free(ice->shaders.cache);
 }

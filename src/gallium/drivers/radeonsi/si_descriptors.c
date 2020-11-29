@@ -153,7 +153,7 @@ static bool si_upload_descriptors(struct si_context *sctx, struct si_descriptors
 
    uint32_t *ptr;
    unsigned buffer_offset;
-   u_upload_alloc(sctx->b.const_uploader, first_slot_offset, upload_size,
+   u_upload_alloc(&sctx->b.const_uploader, first_slot_offset, upload_size,
                   si_optimal_tcc_alignment(sctx, upload_size), &buffer_offset,
                   (struct pipe_resource **)&desc->buffer, (void **)&ptr);
    if (!desc->buffer) {
@@ -1086,7 +1086,7 @@ void si_upload_const_buffer(struct si_context *sctx, struct si_resource **buf, c
 {
    void *tmp;
 
-   u_upload_alloc(sctx->b.const_uploader, 0, size, si_optimal_tcc_alignment(sctx, size),
+   u_upload_alloc(&sctx->b.const_uploader, 0, size, si_optimal_tcc_alignment(sctx, size),
                   const_offset, (struct pipe_resource **)buf, &tmp);
    if (*buf)
       util_memcpy_cpu_to_le32(tmp, ptr, size);

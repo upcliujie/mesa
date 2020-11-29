@@ -473,16 +473,11 @@ struct v3d_context {
         /** Sync object that our RCL or TFU job will update as its out_sync. */
         uint32_t out_sync;
 
-        /* Stream uploader used by gallium internals.  This could also be used
-         * by driver internals, but we tend to use the v3d_cl.h interfaces
-         * instead.
-         */
-        struct u_upload_mgr *uploader;
         /* State uploader used inside the driver.  This is for packing bits of
          * long-term state inside buffers, since the kernel interfaces
          * allocate a page at a time.
          */
-        struct u_upload_mgr *state_uploader;
+        struct u_upload_mgr state_uploader;
 
         /** @{ Current pipeline state objects */
         struct pipe_scissor_state scissor;

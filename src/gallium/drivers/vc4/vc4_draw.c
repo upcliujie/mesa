@@ -382,7 +382,7 @@ vc4_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
                 } else {
                         if (info->has_user_indices) {
                                 prsc = NULL;
-                                u_upload_data(vc4->uploader, 0,
+                                u_upload_data(&vc4->base.stream_uploader, 0,
                                               draws[0].count * index_size, 4,
                                               info->index.user,
                                               &offset, &prsc);

@@ -85,10 +85,10 @@ hud_draw_colored_prims(struct hud_context *hud, unsigned prim,
    hud->constants.scale[1] = yscale * hud_scale;
    cso_set_constant_buffer(cso, PIPE_SHADER_VERTEX, 0, &hud->constbuf);
 
-   u_upload_data(hud->pipe->stream_uploader, 0,
+   u_upload_data(&hud->pipe->stream_uploader, 0,
                  num_vertices * 2 * sizeof(float), 16, buffer,
                  &vbuffer.buffer_offset, &vbuffer.buffer.resource);
-   u_upload_unmap(hud->pipe->stream_uploader);
+   u_upload_unmap(&hud->pipe->stream_uploader);
    vbuffer.stride = 2 * sizeof(float);
 
    cso_set_vertex_buffers(cso, 0, 1, &vbuffer);
@@ -646,7 +646,7 @@ hud_stop_queries(struct hud_context *hud, struct pipe_context *pipe)
    /* Allocate everything once and divide the storage into 3 portions
     * manually, because u_upload_alloc can unmap memory from previous calls.
     */
-   u_upload_alloc(pipe->stream_uploader, 0,
+   u_upload_alloc(&pipe->stream_uploader, 0,
                   hud->bg.buffer_size +
                   hud->whitelines.buffer_size +
                   hud->text.buffer_size,
@@ -700,7 +700,7 @@ hud_stop_queries(struct hud_context *hud, struct pipe_context *pipe)
    }
 
    /* unmap the uploader's vertex buffer before drawing */
-   u_upload_unmap(pipe->stream_uploader);
+   u_upload_unmap(&pipe->stream_uploader);
 }
 
 /**

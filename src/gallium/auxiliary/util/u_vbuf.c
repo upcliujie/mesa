@@ -480,7 +480,7 @@ u_vbuf_translate_buffers(struct u_vbuf *mgr, struct translate_key *key,
       uint8_t *map;
 
       /* Create and map the output buffer. */
-      u_upload_alloc(mgr->pipe->stream_uploader, 0,
+      u_upload_alloc(&mgr->pipe->stream_uploader, 0,
                      key->output_stride * draw->count, 4,
                      &out_offset, &out_buffer,
                      (void**)&out_map);
@@ -512,7 +512,7 @@ u_vbuf_translate_buffers(struct u_vbuf *mgr, struct translate_key *key,
       }
    } else {
       /* Create and map the output buffer. */
-      u_upload_alloc(mgr->pipe->stream_uploader,
+      u_upload_alloc(&mgr->pipe->stream_uploader,
                      mgr->has_signed_vb_offset ?
                         0 : key->output_stride * start_vertex,
                      key->output_stride * num_vertices, 4,
@@ -1033,7 +1033,7 @@ u_vbuf_upload_buffers(struct u_vbuf *mgr,
          struct pipe_vertex_buffer *real_vb = &mgr->real_vertex_buffer[index];
          const uint8_t *ptr = mgr->vertex_buffer[index].buffer.user;
 
-         u_upload_data(mgr->pipe->stream_uploader,
+         u_upload_data(&mgr->pipe->stream_uploader,
                        mgr->has_signed_vb_offset ? 0 : offset,
                        size, 4, ptr + offset, &real_vb->buffer_offset,
                        &real_vb->buffer.resource);
@@ -1093,7 +1093,7 @@ u_vbuf_upload_buffers(struct u_vbuf *mgr,
       real_vb = &mgr->real_vertex_buffer[i];
       ptr = mgr->vertex_buffer[i].buffer.user;
 
-      u_upload_data(mgr->pipe->stream_uploader,
+      u_upload_data(&mgr->pipe->stream_uploader,
                     mgr->has_signed_vb_offset ? 0 : start,
                     end - start, 4,
                     ptr + start, &real_vb->buffer_offset, &real_vb->buffer.resource);
@@ -1571,7 +1571,7 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
    }
    */
 
-   u_upload_unmap(pipe->stream_uploader);
+   u_upload_unmap(&pipe->stream_uploader);
    u_vbuf_set_driver_vertex_buffers(mgr);
 
    pipe->draw_vbo(pipe, &new_info, indirect, &draw, 1);

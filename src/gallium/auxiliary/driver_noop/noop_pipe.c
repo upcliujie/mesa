@@ -316,9 +316,8 @@ static void noop_flush(struct pipe_context *ctx,
 
 static void noop_destroy_context(struct pipe_context *ctx)
 {
-   if (ctx->stream_uploader)
-      u_upload_destroy(ctx->stream_uploader);
-
+   u_upload_destroy(&ctx->stream_uploader);
+   u_upload_destroy(&ctx->const_uploader);
    FREE(ctx);
 }
 
@@ -359,12 +358,8 @@ static struct pipe_context *noop_create_context(struct pipe_screen *screen,
    ctx->screen = screen;
    ctx->priv = priv;
 
-   ctx->stream_uploader = u_upload_create_default(ctx);
-   if (!ctx->stream_uploader) {
-      FREE(ctx);
-      return NULL;
-   }
-   ctx->const_uploader = ctx->stream_uploader;
+   u_upload_init_default(&ctx->stream_uploader, ctx);
+   u_upload_init_default(&ctx->const_uploader, ctx);
 
    ctx->destroy = noop_destroy_context;
    ctx->flush = noop_flush;

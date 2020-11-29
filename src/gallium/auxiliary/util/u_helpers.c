@@ -149,11 +149,11 @@ util_upload_index_buffer(struct pipe_context *pipe,
 {
    unsigned start_offset = draw->start * info->index_size;
 
-   u_upload_data(pipe->stream_uploader, start_offset,
+   u_upload_data(&pipe->stream_uploader, start_offset,
                  draw->count * info->index_size, alignment,
                  (char*)info->index.user + start_offset,
                  out_offset, out_buffer);
-   u_upload_unmap(pipe->stream_uploader);
+   u_upload_unmap(&pipe->stream_uploader);
    *out_offset -= start_offset;
    return *out_buffer != NULL;
 }

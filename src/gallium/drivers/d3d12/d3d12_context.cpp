@@ -78,10 +78,8 @@ d3d12_context_destroy(struct pipe_context *pctx)
 
    u_suballocator_destroy(ctx->query_allocator);
 
-   if (pctx->stream_uploader)
-      u_upload_destroy(pctx->stream_uploader);
-   if (pctx->const_uploader)
-      u_upload_destroy(pctx->const_uploader);
+   u_upload_destroy(&pctx->stream_uploader);
+   u_upload_destroy(&pctx->const_uploader);
 
    delete ctx->resource_state_manager;
 
@@ -1199,7 +1197,7 @@ d3d12_set_constant_buffer(struct pipe_context *pctx,
       struct pipe_resource *buffer = buf->buffer;
       unsigned offset = buf->buffer_offset;
       if (buf->user_buffer) {
-         u_upload_data(pctx->const_uploader, 0, buf->buffer_size,
+         u_upload_data(&pctx->const_uploader, 0, buf->buffer_size,
                        D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
                        buf->user_buffer, &offset, &ctx->cbufs[shader][index].buffer);
 
@@ -1911,8 +1909,8 @@ d3d12_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
    slab_create_child(&ctx->transfer_pool, &d3d12_screen(pscreen)->transfer_pool);
 
-   ctx->base.stream_uploader = u_upload_create_default(&ctx->base);
-   ctx->base.const_uploader = u_upload_create_default(&ctx->base);
+   u_upload_init_default(&ctx->base.stream_uploader, &ctx->base);
+   u_upload_init_default(&ctx->base.const_uploader, &ctx->base);
    ctx->so_allocator = u_suballocator_create(&ctx->base, 4096, 0,
                                              PIPE_USAGE_DEFAULT,
                                              0, true);

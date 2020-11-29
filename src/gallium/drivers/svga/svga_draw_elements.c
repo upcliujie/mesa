@@ -129,7 +129,7 @@ translate_indices(struct svga_hwtnl *hwtnl,
          goto fail;
    } else {
       /* Allocate upload buffer space. Align to the index size. */
-      u_upload_alloc(pipe->stream_uploader, 0, size, gen_size,
+      u_upload_alloc(&pipe->stream_uploader, 0, size, gen_size,
                      out_offset, &dst, &dst_map);
       if (!dst)
          goto fail;
@@ -145,7 +145,7 @@ translate_indices(struct svga_hwtnl *hwtnl,
    if (dst_transfer)
       pipe_buffer_unmap(pipe, dst_transfer);
    else
-      u_upload_unmap(pipe->stream_uploader);
+      u_upload_unmap(&pipe->stream_uploader);
 
    *out_buf = dst;
 
@@ -170,7 +170,7 @@ translate_indices(struct svga_hwtnl *hwtnl,
    if (dst_transfer)
       pipe_buffer_unmap(pipe, dst_transfer);
    else if (dst_map)
-      u_upload_unmap(pipe->stream_uploader);
+      u_upload_unmap(&pipe->stream_uploader);
 
    if (dst)
       pipe_resource_reference(&dst, NULL);
@@ -264,10 +264,10 @@ svga_hwtnl_draw_range_elements(struct svga_hwtnl *hwtnl,
       unsigned index_offset;
 
       if (info->has_user_indices) {
-         u_upload_data(pipe->stream_uploader, 0, count * info->index_size,
+         u_upload_data(&pipe->stream_uploader, 0, count * info->index_size,
                        info->index_size, (char *) info->index.user + start_offset,
                        &index_offset, &index_buffer);
-         u_upload_unmap(pipe->stream_uploader);
+         u_upload_unmap(&pipe->stream_uploader);
          index_offset /= info->index_size;
       } else {
          pipe_resource_reference(&index_buffer, info->index.resource);

@@ -785,9 +785,9 @@ tc_set_constant_buffer(struct pipe_context *_pipe,
     * set_constant_buffer to the driver if it was done afterwards.
     */
    if (cb && cb->user_buffer) {
-      u_upload_data(tc->base.const_uploader, 0, cb->buffer_size, tc->ubo_alignment,
+      u_upload_data(&tc->base.const_uploader, 0, cb->buffer_size, tc->ubo_alignment,
                     cb->user_buffer, &offset, &buffer);
-      u_upload_unmap(tc->base.const_uploader);
+      u_upload_unmap(&tc->base.const_uploader);
    }
 
    struct tc_constant_buffer *p =
@@ -1606,7 +1606,7 @@ tc_transfer_map(struct pipe_context *_pipe,
 
          ttrans->staging = NULL;
 
-         u_upload_alloc(tc->base.stream_uploader, 0,
+         u_upload_alloc(&tc->base.stream_uploader, 0,
                         box->width + (box->x % tc->map_buffer_alignment),
                         tc->map_buffer_alignment, &ttrans->offset,
                         &ttrans->staging, (void**)&map);
@@ -2377,7 +2377,7 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
           * e.g. transfer_unmap and flush partially-uninitialized draw_vbo
           * to the driver if it was done afterwards.
           */
-         u_upload_data(tc->base.stream_uploader, 0, size, 4,
+         u_upload_data(&tc->base.stream_uploader, 0, size, 4,
                        (uint8_t*)info->index.user + draws[0].start * index_size,
                        &offset, &buffer);
          if (unlikely(!buffer))
@@ -2424,7 +2424,7 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
        * e.g. transfer_unmap and flush partially-uninitialized draw_vbo
        * to the driver if it was done afterwards.
        */
-      u_upload_alloc(tc->base.stream_uploader, 0,
+      u_upload_alloc(&tc->base.stream_uploader, 0,
                      total_count << index_size_shift, 4,
                      &buffer_offset, &buffer, (void**)&ptr);
       if (unlikely(!buffer))
@@ -2860,12 +2860,8 @@ tc_destroy(struct pipe_context *_pipe)
    struct threaded_context *tc = threaded_context(_pipe);
    struct pipe_context *pipe = tc->pipe;
 
-   if (tc->base.const_uploader &&
-       tc->base.stream_uploader != tc->base.const_uploader)
-      u_upload_destroy(tc->base.const_uploader);
-
-   if (tc->base.stream_uploader)
-      u_upload_destroy(tc->base.stream_uploader);
+   u_upload_destroy(&tc->base.stream_uploader);
+   u_upload_destroy(&tc->base.const_uploader);
 
    tc_sync(tc);
 
@@ -2951,14 +2947,8 @@ threaded_context_create(struct pipe_context *pipe,
    tc->base.destroy = tc_destroy;
    tc->base.callback = tc_callback;
 
-   tc->base.stream_uploader = u_upload_clone(&tc->base, pipe->stream_uploader);
-   if (pipe->stream_uploader == pipe->const_uploader)
-      tc->base.const_uploader = tc->base.stream_uploader;
-   else
-      tc->base.const_uploader = u_upload_clone(&tc->base, pipe->const_uploader);
-
-   if (!tc->base.stream_uploader || !tc->base.const_uploader)
-      goto fail;
+   u_upload_clone(&tc->base, &pipe->stream_uploader, &tc->base.stream_uploader);
+   u_upload_clone(&tc->base, &pipe->const_uploader, &tc->base.const_uploader);
 
    tc->use_forced_staging_uploads = true;
 

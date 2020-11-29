@@ -556,7 +556,7 @@ struct iris_context {
 
    struct iris_batch batches[IRIS_BATCH_COUNT];
 
-   struct u_upload_mgr *query_buffer_uploader;
+   struct u_upload_mgr query_buffer_uploader;
 
    struct {
       struct {
@@ -612,7 +612,7 @@ struct iris_context {
       /** List of shader variants whose deletion has been deferred for now */
       struct list_head deleted_variants[MESA_SHADER_STAGES];
 
-      struct u_upload_mgr *uploader;
+      struct u_upload_mgr uploader;
       struct hash_table *cache;
 
       /** Is a GS or TES outputting points or lines? */
@@ -739,8 +739,8 @@ struct iris_context {
       /** The SURFACE_STATE for a framebuffer-sized null surface. */
       struct iris_state_ref null_fb;
 
-      struct u_upload_mgr *surface_uploader;
-      struct u_upload_mgr *dynamic_uploader;
+      struct u_upload_mgr surface_uploader;
+      struct u_upload_mgr dynamic_uploader;
 
       struct iris_binder binder;
 

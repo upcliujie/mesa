@@ -69,7 +69,8 @@ zink_context_destroy(struct pipe_context *pctx)
    vkDestroyCommandPool(screen->dev, ctx->cmdpool, NULL);
 
    util_primconvert_destroy(ctx->primconvert);
-   u_upload_destroy(pctx->stream_uploader);
+   u_upload_destroy(&pctx->stream_uploader);
+   u_upload_destroy(&pctx->const_uploader);
    slab_destroy_child(&ctx->transfer_pool);
    util_blitter_destroy(ctx->blitter);
    FREE(ctx);
@@ -538,7 +539,7 @@ zink_set_constant_buffer(struct pipe_context *pctx,
       unsigned offset = cb->buffer_offset;
       if (cb->user_buffer) {
          struct zink_screen *screen = zink_screen(pctx->screen);
-         u_upload_data(ctx->base.const_uploader, 0, cb->buffer_size,
+         u_upload_data(&ctx->base.const_uploader, 0, cb->buffer_size,
                        screen->info.props.limits.minUniformBufferOffsetAlignment,
                        cb->user_buffer, &offset, &buffer);
       }
@@ -1286,8 +1287,8 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
    slab_create_child(&ctx->transfer_pool, &screen->transfer_pool);
 
-   ctx->base.stream_uploader = u_upload_create_default(&ctx->base);
-   ctx->base.const_uploader = ctx->base.stream_uploader;
+   u_upload_init_default(&ctx->base.stream_uploader, &ctx->base);
+   u_upload_init_default(&ctx->base.const_uploader, &ctx->base);
 
    int prim_hwsupport = 1 << PIPE_PRIM_POINTS |
                         1 << PIPE_PRIM_LINES |

@@ -353,8 +353,6 @@ struct vc4_context {
         /** Seqno of the last CL flush's job. */
         uint64_t last_emit_seqno;
 
-        struct u_upload_mgr *uploader;
-
         struct pipe_shader_state *yuv_linear_blit_vs;
         struct pipe_shader_state *yuv_linear_blit_fs_8bit;
         struct pipe_shader_state *yuv_linear_blit_fs_16bit;

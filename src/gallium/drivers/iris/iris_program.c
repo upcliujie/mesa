@@ -160,7 +160,7 @@ iris_upload_ubo_ssbo_surf_state(struct iris_context *ice,
    bool ssbo = usage & ISL_SURF_USAGE_STORAGE_BIT;
 
    void *map =
-      upload_state(ice->state.surface_uploader, surf_state,
+      upload_state(&ice->state.surface_uploader, surf_state,
                    screen->isl_dev.ss.size, 64);
    if (!unlikely(map)) {
       surf_state->res = NULL;

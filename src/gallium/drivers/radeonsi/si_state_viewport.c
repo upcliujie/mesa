@@ -463,7 +463,7 @@ static void si_emit_viewports(struct si_context *ctx)
          unsigned offset = 0;
 
          /* Align to 256, because the address is shifted by 8 bits. */
-         u_upload_data(ctx->b.const_uploader, 0, sizeof(info), 256, &info, &offset,
+         u_upload_data(&ctx->b.const_uploader, 0, sizeof(info), 256, &info, &offset,
                        (struct pipe_resource **)&ctx->small_prim_cull_info_buf);
 
          ctx->small_prim_cull_info_address = ctx->small_prim_cull_info_buf->gpu_address + offset;

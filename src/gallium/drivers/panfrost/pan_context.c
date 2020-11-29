@@ -1292,8 +1292,9 @@ panfrost_destroy(struct pipe_context *pipe)
                 util_blitter_destroy(panfrost->blitter);
 
         util_unreference_framebuffer_state(&panfrost->pipe_framebuffer);
-        u_upload_destroy(pipe->stream_uploader);
-        u_upload_destroy(panfrost->state_uploader);
+        u_upload_destroy(&pipe->stream_uploader);
+        u_upload_destroy(&pipe->const_uploader);
+        u_upload_destroy(&panfrost->state_uploader);
 
         ralloc_free(pipe);
 }
@@ -1580,11 +1581,11 @@ panfrost_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
         panfrost_blend_context_init(gallium);
         panfrost_compute_context_init(gallium);
 
-        gallium->stream_uploader = u_upload_create_default(gallium);
-        gallium->const_uploader = gallium->stream_uploader;
+        u_upload_init_default(&gallium->stream_uploader, gallium);
+        u_upload_init_default(&gallium->const_uploader, gallium);
 
-        ctx->state_uploader = u_upload_create(gallium, 4096,
-                        PIPE_BIND_CONSTANT_BUFFER, PIPE_USAGE_DYNAMIC, 0);
+        u_upload_init(&ctx->state_uploader, gallium, 4096,
+                      PIPE_BIND_CONSTANT_BUFFER, PIPE_USAGE_DYNAMIC, 0);
 
         /* All of our GPUs support ES mode. Midgard supports additionally
          * QUADS/QUAD_STRIPS/POLYGON. Bifrost supports just QUADS. */

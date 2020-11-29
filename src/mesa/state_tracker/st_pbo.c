@@ -230,7 +230,7 @@ st_pbo_draw(struct st_context *st, const struct st_pbo_addresses *addr,
 
       vbo.stride = 2 * sizeof(float);
 
-      u_upload_alloc(st->pipe->stream_uploader, 0, 8 * sizeof(float), 4,
+      u_upload_alloc(&st->pipe->stream_uploader, 0, 8 * sizeof(float), 4,
                      &vbo.buffer_offset, &vbo.buffer.resource, (void **) &verts);
       if (!verts)
          return false;
@@ -244,7 +244,7 @@ st_pbo_draw(struct st_context *st, const struct st_pbo_addresses *addr,
       verts[6] = x1;
       verts[7] = y1;
 
-      u_upload_unmap(st->pipe->stream_uploader);
+      u_upload_unmap(&st->pipe->stream_uploader);
 
       velem.count = 1;
       velem.velems[0].src_offset = 0;

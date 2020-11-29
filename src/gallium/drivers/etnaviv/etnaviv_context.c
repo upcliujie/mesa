@@ -144,8 +144,8 @@ etna_context_destroy(struct pipe_context *pctx)
    if (ctx->blitter)
       util_blitter_destroy(ctx->blitter);
 
-   if (pctx->stream_uploader)
-      u_upload_destroy(pctx->stream_uploader);
+   u_upload_destroy(&pctx->stream_uploader);
+   u_upload_destroy(&pctx->const_uploader);
 
    if (ctx->stream)
       etna_cmd_stream_del(ctx->stream);
@@ -563,10 +563,8 @@ etna_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    pctx = &ctx->base;
    pctx->priv = ctx;
    pctx->screen = pscreen;
-   pctx->stream_uploader = u_upload_create_default(pctx);
-   if (!pctx->stream_uploader)
-      goto fail;
-   pctx->const_uploader = pctx->stream_uploader;
+   u_upload_init_default(&pctx->stream_uploader, pctx);
+   u_upload_init_default(&pctx->const_uploader, pctx);
 
    screen = etna_screen(pscreen);
    ctx->stream = etna_cmd_stream_new(screen->pipe, 0x2000,

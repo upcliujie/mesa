@@ -1311,12 +1311,11 @@ svga_texture_generate_mipmap(struct pipe_context *pipe,
 boolean
 svga_texture_transfer_map_upload_create(struct svga_context *svga)
 {
-   svga->tex_upload = u_upload_create(&svga->pipe, TEX_UPLOAD_DEFAULT_SIZE,
-                                      PIPE_BIND_CUSTOM, PIPE_USAGE_STAGING, 0);
-   if (svga->tex_upload)
-      u_upload_disable_persistent(svga->tex_upload);
+   u_upload_init(&svga->tex_upload, &svga->pipe, TEX_UPLOAD_DEFAULT_SIZE,
+                 PIPE_BIND_CUSTOM, PIPE_USAGE_STAGING, 0);
+   u_upload_disable_persistent(&svga->tex_upload);
 
-   return svga->tex_upload != NULL;
+   return true;
 }
 
 
@@ -1326,7 +1325,7 @@ svga_texture_transfer_map_upload_create(struct svga_context *svga)
 void
 svga_texture_transfer_map_upload_destroy(struct svga_context *svga)
 {
-   u_upload_destroy(svga->tex_upload);
+   u_upload_destroy(&svga->tex_upload);
 }
 
 
@@ -1372,8 +1371,6 @@ svga_texture_transfer_map_upload(struct svga_context *svga,
    unsigned nblocksx, nblocksy;
    unsigned offset;
    unsigned upload_size;
-
-   assert(svga->tex_upload);
 
    st->upload.box.x = st->base.box.x;
    st->upload.box.y = st->base.box.y;
@@ -1435,7 +1432,7 @@ svga_texture_transfer_map_upload(struct svga_context *svga,
     * upload buffer manager code will try to allocate a new buffer
     * with the new buffer size.
     */
-   u_upload_alloc(svga->tex_upload, 0, upload_size, 16,
+   u_upload_alloc(&svga->tex_upload, 0, upload_size, 16,
                   &offset, &tex_buffer, &tex_map);
 
    if (!tex_map) {
@@ -1466,11 +1463,10 @@ svga_texture_transfer_unmap_upload(struct svga_context *svga,
    unsigned i, layer;
    unsigned offset = st->upload.offset;
 
-   assert(svga->tex_upload);
    assert(st->upload.buf);
 
    /* unmap the texture upload buffer */
-   u_upload_unmap(svga->tex_upload);
+   u_upload_unmap(&svga->tex_upload);
 
    srcsurf = svga_buffer_handle(svga, st->upload.buf, 0);
    dstsurf = svga_texture(texture)->handle;

@@ -611,7 +611,7 @@ static void si_setup_user_sgprs_co_v2(struct si_context *sctx, const amd_kernel_
 
       dispatch.kernarg_address = util_cpu_to_le64(kernel_args_va);
 
-      u_upload_data(sctx->b.const_uploader, 0, sizeof(dispatch), 256, &dispatch, &dispatch_offset,
+      u_upload_data(&sctx->b.const_uploader, 0, sizeof(dispatch), 256, &dispatch, &dispatch_offset,
                     (struct pipe_resource **)&dispatch_buf);
 
       if (!dispatch_buf) {
@@ -658,7 +658,7 @@ static bool si_upload_compute_input(struct si_context *sctx, const amd_kernel_co
    void *kernel_args_ptr;
    uint64_t kernel_args_va;
 
-   u_upload_alloc(sctx->b.const_uploader, 0, program->input_size,
+   u_upload_alloc(&sctx->b.const_uploader, 0, program->input_size,
                   sctx->screen->info.tcc_cache_line_size, &kernel_args_offset,
                   (struct pipe_resource **)&input_buffer, &kernel_args_ptr);
 

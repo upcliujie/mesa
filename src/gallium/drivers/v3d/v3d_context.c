@@ -239,10 +239,9 @@ v3d_context_destroy(struct pipe_context *pctx)
         if (v3d->primconvert)
                 util_primconvert_destroy(v3d->primconvert);
 
-        if (v3d->uploader)
-                u_upload_destroy(v3d->uploader);
-        if (v3d->state_uploader)
-                u_upload_destroy(v3d->state_uploader);
+        u_upload_destroy(&v3d->base.stream_uploader);
+        u_upload_destroy(&v3d->base.const_uploader);
+        u_upload_destroy(&v3d->state_uploader);
 
         if (v3d->prim_counts)
                 pipe_resource_reference(&v3d->prim_counts, NULL);
@@ -328,13 +327,11 @@ v3d_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
         slab_create_child(&v3d->transfer_pool, &screen->transfer_pool);
 
-        v3d->uploader = u_upload_create_default(&v3d->base);
-        v3d->base.stream_uploader = v3d->uploader;
-        v3d->base.const_uploader = v3d->uploader;
-        v3d->state_uploader = u_upload_create(&v3d->base,
-                                              4096,
-                                              PIPE_BIND_CONSTANT_BUFFER,
-                                              PIPE_USAGE_STREAM, 0);
+        u_upload_init_default(&v3d->base.stream_uploader, &v3d->base);
+        u_upload_init_default(&v3d->base.const_uploader, &v3d->base);
+        u_upload_init(&v3d->state_uploader, &v3d->base,
+                      4096, PIPE_BIND_CONSTANT_BUFFER,
+                      PIPE_USAGE_STREAM, 0);
 
         v3d->blitter = util_blitter_create(pctx);
         if (!v3d->blitter)

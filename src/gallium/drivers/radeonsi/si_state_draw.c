@@ -1597,7 +1597,7 @@ static bool si_upload_vertex_buffer_descriptors(struct si_context *sctx)
        * directly through a staging buffer and don't go through
        * the fine-grained upload path.
        */
-      u_upload_alloc(sctx->b.const_uploader, 0, alloc_size,
+      u_upload_alloc(&sctx->b.const_uploader, 0, alloc_size,
                      si_optimal_tcc_alignment(sctx, alloc_size), &sctx->vb_descriptors_offset,
                      (struct pipe_resource **)&sctx->vb_descriptors_buffer, (void **)&ptr);
       if (!sctx->vb_descriptors_buffer) {
@@ -2020,7 +2020,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
          size = count * 2;
 
          indexbuf = NULL;
-         u_upload_alloc(ctx->stream_uploader, start_offset, size,
+         u_upload_alloc(&ctx->stream_uploader, start_offset, size,
                         si_optimal_tcc_alignment(sctx, size), &offset, &indexbuf, &ptr);
          if (unlikely(!indexbuf))
             return;
@@ -2038,7 +2038,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
          start_offset = draws[0].start * index_size;
 
          indexbuf = NULL;
-         u_upload_data(ctx->stream_uploader, start_offset, draws[0].count * index_size,
+         u_upload_data(&ctx->stream_uploader, start_offset, draws[0].count * index_size,
                        sctx->screen->info.tcc_cache_line_size,
                        (char *)info->index.user + start_offset, &index_offset, &indexbuf);
          if (unlikely(!indexbuf))

@@ -485,7 +485,7 @@ prepare_vs_constants_userbuf(struct NineDevice9 *device)
      * to have efficient WC. Thus for this case we really want
      * that intermediate buffer. */
 
-    u_upload_alloc(context->pipe->const_uploader,
+    u_upload_alloc(&context->pipe->const_uploader,
                   0,
                   cb.buffer_size,
                   256, /* Be conservative about alignment */
@@ -509,7 +509,7 @@ prepare_vs_constants_userbuf(struct NineDevice9 *device)
         }
     }
 
-    u_upload_unmap(context->pipe->const_uploader);
+    u_upload_unmap(&context->pipe->const_uploader);
     cb.user_buffer = NULL;
 
     /* Free previous resource */
@@ -573,7 +573,7 @@ prepare_ps_constants_userbuf(struct NineDevice9 *device)
     if (!cb.buffer_size)
         return;
 
-    u_upload_alloc(context->pipe->const_uploader,
+    u_upload_alloc(&context->pipe->const_uploader,
                   0,
                   cb.buffer_size,
                   256, /* Be conservative about alignment */
@@ -597,7 +597,7 @@ prepare_ps_constants_userbuf(struct NineDevice9 *device)
         }
     }
 
-    u_upload_unmap(context->pipe->const_uploader);
+    u_upload_unmap(&context->pipe->const_uploader);
     cb.user_buffer = NULL;
 
     /* Free previous resource */
@@ -3090,14 +3090,14 @@ update_vertex_buffers_sw(struct NineDevice9 *device, int start_vertice, int num_
                 if (!device->driver_caps.user_sw_vbufs) {
                     vtxbuf.buffer.resource = NULL;
                     vtxbuf.is_user_buffer = false;
-                    u_upload_data(device->pipe_sw->stream_uploader,
+                    u_upload_data(&device->pipe_sw->stream_uploader,
                                   0,
                                   box.width,
                                   16,
                                   userbuf,
                                   &(vtxbuf.buffer_offset),
                                   &(vtxbuf.buffer.resource));
-                    u_upload_unmap(device->pipe_sw->stream_uploader);
+                    u_upload_unmap(&device->pipe_sw->stream_uploader);
                 }
                 pipe_sw->set_vertex_buffers(pipe_sw, i, 1, &vtxbuf);
                 pipe_vertex_buffer_unreference(&vtxbuf);
@@ -3196,14 +3196,14 @@ update_vs_constants_sw(struct NineDevice9 *device)
         cb.user_buffer = viewport_data;
 
         {
-            u_upload_data(device->pipe_sw->const_uploader,
+            u_upload_data(&device->pipe_sw->const_uploader,
                           0,
                           cb.buffer_size,
                           16,
                           cb.user_buffer,
                           &(cb.buffer_offset),
                           &(cb.buffer));
-            u_upload_unmap(device->pipe_sw->const_uploader);
+            u_upload_unmap(&device->pipe_sw->const_uploader);
             cb.user_buffer = NULL;
         }
 

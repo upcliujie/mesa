@@ -317,7 +317,7 @@ emit_border_color(struct fd_context *ctx, struct fd_ringbuffer *ring)
 
 	STATIC_ASSERT(sizeof(struct bcolor_entry) == FD5_BORDER_COLOR_SIZE);
 
-	u_upload_alloc(fd5_ctx->border_color_uploader,
+	u_upload_alloc(&fd5_ctx->border_color_uploader,
 			0, FD5_BORDER_COLOR_UPLOAD_SIZE,
 			FD5_BORDER_COLOR_UPLOAD_SIZE, &off,
 			&fd5_ctx->border_color_buf,
@@ -332,7 +332,7 @@ emit_border_color(struct fd_context *ctx, struct fd_ringbuffer *ring)
 	OUT_PKT4(ring, REG_A5XX_TPL1_TP_BORDER_COLOR_BASE_ADDR_LO, 2);
 	OUT_RELOC(ring, fd_resource(fd5_ctx->border_color_buf)->bo, off, 0, 0);
 
-	u_upload_unmap(fd5_ctx->border_color_uploader);
+	u_upload_unmap(&fd5_ctx->border_color_uploader);
 }
 
 static bool

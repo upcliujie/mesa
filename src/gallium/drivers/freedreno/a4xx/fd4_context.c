@@ -42,7 +42,7 @@ fd4_context_destroy(struct pipe_context *pctx)
 {
 	struct fd4_context *fd4_ctx = fd4_context(fd_context(pctx));
 
-	u_upload_destroy(fd4_ctx->border_color_uploader);
+	u_upload_destroy(&fd4_ctx->border_color_uploader);
 	pipe_resource_reference(&fd4_ctx->border_color_buf, NULL);
 
 	fd_context_destroy(pctx);
@@ -115,8 +115,8 @@ fd4_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
 	fd4_query_context_init(pctx);
 
-	fd4_ctx->border_color_uploader = u_upload_create(pctx, 4096, 0,
-                                                         PIPE_USAGE_STREAM, 0);
+	u_upload_init(&fd4_ctx->border_color_uploader, pctx, 4096, 0,
+                      PIPE_USAGE_STREAM, 0);
 
 	return pctx;
 }

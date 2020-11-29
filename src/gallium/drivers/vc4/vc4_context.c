@@ -127,8 +127,8 @@ vc4_context_destroy(struct pipe_context *pctx)
         if (vc4->primconvert)
                 util_primconvert_destroy(vc4->primconvert);
 
-        if (vc4->uploader)
-                u_upload_destroy(vc4->uploader);
+        u_upload_destroy(&vc4->base.stream_uploader);
+        u_upload_destroy(&vc4->base.const_uploader);
 
         slab_destroy_child(&vc4->transfer_pool);
 
@@ -198,9 +198,8 @@ vc4_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
         slab_create_child(&vc4->transfer_pool, &screen->transfer_pool);
 
-	vc4->uploader = u_upload_create_default(&vc4->base);
-	vc4->base.stream_uploader = vc4->uploader;
-	vc4->base.const_uploader = vc4->uploader;
+	u_upload_init_default(&vc4->base.stream_uploader, &vc4->base);
+        u_upload_init_default(&vc4->base.const_uploader, &vc4->base);
 
 	vc4->blitter = util_blitter_create(pctx);
         if (!vc4->blitter)

@@ -180,7 +180,6 @@ struct lima_context {
       LIMA_CONTEXT_DIRTY_CLIP         = (1 << 15),
    } dirty;
 
-   struct u_upload_mgr *uploader;
    struct blitter_context *blitter;
 
    struct slab_child_pool transfer_pool;

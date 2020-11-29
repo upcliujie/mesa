@@ -75,7 +75,7 @@ lima_ctx_buff_alloc(struct lima_context *ctx, enum lima_ctx_buff buff,
 
    cbs->size = align(size, 0x40);
 
-   u_upload_alloc(ctx->uploader, 0, cbs->size, 0x40, &cbs->offset,
+   u_upload_alloc(&ctx->base.stream_uploader, 0, cbs->size, 0x40, &cbs->offset,
                   &cbs->res, &ret);
 
    return ret;
@@ -148,8 +148,8 @@ lima_context_destroy(struct pipe_context *pctx)
    if (ctx->blitter)
       util_blitter_destroy(ctx->blitter);
 
-   if (ctx->uploader)
-      u_upload_destroy(ctx->uploader);
+   u_upload_destroy(&ctx->base.stream_uploader);
+   u_upload_destroy(&ctx->base.const_uploader);
 
    slab_destroy_child(&ctx->transfer_pool);
 
@@ -232,11 +232,8 @@ lima_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    if (!ctx->blitter)
       goto err_out;
 
-   ctx->uploader = u_upload_create_default(&ctx->base);
-   if (!ctx->uploader)
-      goto err_out;
-   ctx->base.stream_uploader = ctx->uploader;
-   ctx->base.const_uploader = ctx->uploader;
+   u_upload_init_default(&ctx->base.stream_uploader, &ctx->base);
+   u_upload_init_default(&ctx->base.const_uploader, &ctx->base);
 
    ctx->plb_size = screen->plb_max_blk * LIMA_CTX_PLB_BLK_SIZE;
    ctx->plb_gp_size = screen->plb_max_blk * 4;

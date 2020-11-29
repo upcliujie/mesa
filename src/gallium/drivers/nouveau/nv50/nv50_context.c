@@ -172,8 +172,8 @@ nv50_destroy(struct pipe_context *pipe)
       nv50->screen->save_state = nv50->state;
    }
 
-   if (nv50->base.pipe.stream_uploader)
-      u_upload_destroy(nv50->base.pipe.stream_uploader);
+   u_upload_destroy(&nv50->base.pipe.stream_uploader);
+   u_upload_destroy(&nv50->base.pipe.const_uploader);
 
    nouveau_pushbuf_bufctx(nv50->base.pushbuf, NULL);
    nouveau_pushbuf_kick(nv50->base.pushbuf, nv50->base.pushbuf->channel);
@@ -306,10 +306,9 @@ nv50_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    nv50->screen = screen;
    pipe->screen = pscreen;
    pipe->priv = priv;
-   pipe->stream_uploader = u_upload_create_default(pipe);
-   if (!pipe->stream_uploader)
-      goto out_err;
-   pipe->const_uploader = pipe->stream_uploader;
+
+   u_upload_init_default(&pipe->stream_uploader, pipe);
+   u_upload_init_default(&pipe->const_uploader, pipe);
 
    pipe->destroy = nv50_destroy;
 
@@ -391,8 +390,8 @@ nv50_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    return pipe;
 
 out_err:
-   if (pipe->stream_uploader)
-      u_upload_destroy(pipe->stream_uploader);
+   u_upload_destroy(&pipe->stream_uploader);
+   u_upload_destroy(&pipe->const_uploader);
    if (nv50->bufctx_3d)
       nouveau_bufctx_del(&nv50->bufctx_3d);
    if (nv50->bufctx_cp)

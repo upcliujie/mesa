@@ -107,7 +107,7 @@ struct panfrost_context {
         /* Upload manager for small resident GPU-internal data structures, like
          * sampler descriptors. We use an upload manager since the minimum BO
          * size from the kernel is 4kb */
-        struct u_upload_mgr *state_uploader;
+        struct u_upload_mgr state_uploader;
 
         /* Bound job batch and map of panfrost_batch_key to job batches */
         struct panfrost_batch *batch;

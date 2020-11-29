@@ -37,34 +37,12 @@
 
 #include "u_upload_mgr.h"
 
-
-struct u_upload_mgr {
-   struct pipe_context *pipe;
-
-   unsigned default_size;  /* Minimum size of the upload buffer, in bytes. */
-   unsigned bind;          /* Bitmask of PIPE_BIND_* flags. */
-   enum pipe_resource_usage usage;
-   unsigned flags;
-   unsigned map_flags;     /* Bitmask of PIPE_MAP_* flags. */
-   boolean map_persistent; /* If persistent mappings are supported. */
-
-   struct pipe_resource *buffer;   /* Upload buffer. */
-   struct pipe_transfer *transfer; /* Transfer object for the upload buffer. */
-   uint8_t *map;    /* Pointer to the mapped upload buffer. */
-   unsigned buffer_size; /* Same as buffer->width0. */
-   unsigned offset; /* Aligned offset to the upload buffer, pointing
-                     * at the first unused byte. */
-   unsigned flushed_size; /* Size we have flushed by transfer_flush_region. */
-};
-
-
-struct u_upload_mgr *
-u_upload_create(struct pipe_context *pipe, unsigned default_size,
-                unsigned bind, enum pipe_resource_usage usage, unsigned flags)
+void
+u_upload_init(struct u_upload_mgr *upload, struct pipe_context *pipe,
+              unsigned default_size, unsigned bind,
+              enum pipe_resource_usage usage, unsigned flags)
 {
-   struct u_upload_mgr *upload = CALLOC_STRUCT(u_upload_mgr);
-   if (!upload)
-      return NULL;
+   memset(upload, 0, sizeof(*upload));
 
    upload->pipe = pipe;
    upload->default_size = default_size;
@@ -87,33 +65,30 @@ u_upload_create(struct pipe_context *pipe, unsigned default_size,
                           PIPE_MAP_UNSYNCHRONIZED |
                           PIPE_MAP_FLUSH_EXPLICIT;
    }
-
-   return upload;
 }
 
-struct u_upload_mgr *
-u_upload_create_default(struct pipe_context *pipe)
+void
+u_upload_init_default(struct u_upload_mgr *upload, struct pipe_context *pipe)
 {
-   return u_upload_create(pipe, 1024 * 1024,
-                          PIPE_BIND_VERTEX_BUFFER |
-                          PIPE_BIND_INDEX_BUFFER |
-                          PIPE_BIND_CONSTANT_BUFFER,
-                          PIPE_USAGE_STREAM, 0);
+   u_upload_init(upload, pipe, 1024 * 1024,
+                 PIPE_BIND_VERTEX_BUFFER |
+                 PIPE_BIND_INDEX_BUFFER |
+                 PIPE_BIND_CONSTANT_BUFFER,
+                 PIPE_USAGE_STREAM, 0);
 }
 
-struct u_upload_mgr *
-u_upload_clone(struct pipe_context *pipe, struct u_upload_mgr *upload)
+void
+u_upload_clone(struct pipe_context *pipe, struct u_upload_mgr *src,
+               struct u_upload_mgr *dst)
 {
-   struct u_upload_mgr *result = u_upload_create(pipe, upload->default_size,
-                                                 upload->bind, upload->usage,
-                                                 upload->flags);
-   if (!upload->map_persistent && result->map_persistent)
-      u_upload_disable_persistent(result);
-   else if (upload->map_persistent &&
-            upload->map_flags & PIPE_MAP_FLUSH_EXPLICIT)
-      u_upload_enable_flush_explicit(result);
+   u_upload_init(dst, pipe, src->default_size, src->bind, src->usage,
+                 src->flags);
 
-   return result;
+   if (!src->map_persistent && dst->map_persistent)
+      u_upload_disable_persistent(dst);
+   else if (src->map_persistent &&
+            src->map_flags & PIPE_MAP_FLUSH_EXPLICIT)
+      u_upload_enable_flush_explicit(dst);
 }
 
 void
@@ -180,7 +155,6 @@ void
 u_upload_destroy(struct u_upload_mgr *upload)
 {
    u_upload_release_buffer(upload);
-   FREE(upload);
 }
 
 /* Return the allocated buffer size or 0 if it failed. */

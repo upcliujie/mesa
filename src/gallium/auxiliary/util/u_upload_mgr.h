@@ -42,32 +42,54 @@ struct pipe_resource;
 extern "C" {
 #endif
 
+struct u_upload_mgr {
+   struct pipe_context *pipe;
+
+   unsigned default_size;  /* Minimum size of the upload buffer, in bytes. */
+   unsigned bind;          /* Bitmask of PIPE_BIND_* flags. */
+   enum pipe_resource_usage usage;
+   unsigned flags;
+   unsigned map_flags;     /* Bitmask of PIPE_MAP_* flags. */
+   boolean map_persistent; /* If persistent mappings are supported. */
+
+   struct pipe_resource *buffer;   /* Upload buffer. */
+   struct pipe_transfer *transfer; /* Transfer object for the upload buffer. */
+   uint8_t *map;    /* Pointer to the mapped upload buffer. */
+   unsigned buffer_size; /* Same as buffer->width0. */
+   unsigned offset; /* Aligned offset to the upload buffer, pointing
+                     * at the first unused byte. */
+   unsigned flushed_size; /* Size we have flushed by transfer_flush_region. */
+};
+
 /**
- * Create the upload manager.
+ * Initialize the upload manager.
  *
+ * \param upload        The upload manager to initialize.
  * \param pipe          Pipe driver.
  * \param default_size  Minimum size of the upload buffer, in bytes.
  * \param bind          Bitmask of PIPE_BIND_* flags.
  * \param usage         PIPE_USAGE_*
  * \param flags         bitmask of PIPE_RESOURCE_FLAG_* flags.
  */
-struct u_upload_mgr *
-u_upload_create(struct pipe_context *pipe, unsigned default_size,
-                unsigned bind, enum pipe_resource_usage usage, unsigned flags);
+void
+u_upload_init(struct u_upload_mgr *upload, struct pipe_context *pipe,
+              unsigned default_size, unsigned bind,
+              enum pipe_resource_usage usage, unsigned flags);
 
 /**
- * Create the default uploader for pipe_context. Only pipe_context::screen
+ * Initialize the default uploader for pipe_context. Only pipe_context::screen
  * needs to be set for this to succeed.
  */
-struct u_upload_mgr *
-u_upload_create_default(struct pipe_context *pipe);
+void
+u_upload_init_default(struct u_upload_mgr *upload, struct pipe_context *pipe);
 
 /**
- * Create an uploader with identical parameters as another one, but using
+ * Initialize an uploader with identical parameters as another one, but using
  * the given pipe_context instead.
  */
-struct u_upload_mgr *
-u_upload_clone(struct pipe_context *pipe, struct u_upload_mgr *upload);
+void
+u_upload_clone(struct pipe_context *pipe, struct u_upload_mgr *src,
+               struct u_upload_mgr *dst);
 
 /** Whether to use FLUSH_EXPLICIT with persistent mappings. */
 void
@@ -80,7 +102,7 @@ u_upload_disable_persistent(struct u_upload_mgr *upload);
 /**
  * Destroy the upload manager.
  */
-void u_upload_destroy( struct u_upload_mgr *upload );
+void u_upload_destroy(struct u_upload_mgr *upload);
 
 /**
  * Unmap upload buffer

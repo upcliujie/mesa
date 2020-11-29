@@ -469,9 +469,9 @@ static void *si_buffer_transfer_map(struct pipe_context *ctx, struct pipe_resour
           * local to the calling thread.
           */
          if (usage & TC_TRANSFER_MAP_THREADED_UNSYNC)
-            uploader = sctx->tc->base.stream_uploader;
+            uploader = &sctx->tc->base.stream_uploader;
          else
-            uploader = sctx->b.stream_uploader;
+            uploader = &sctx->b.stream_uploader;
 
          u_upload_alloc(uploader, 0, box->width + (box->x % SI_MAP_BUFFER_ALIGNMENT),
                         sctx->screen->info.tcc_cache_line_size, &offset,

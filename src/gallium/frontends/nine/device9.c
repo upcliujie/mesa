@@ -2963,14 +2963,14 @@ NineDevice9_DrawPrimitiveUP( struct NineDevice9 *This,
     if (!This->driver_caps.user_vbufs) {
         vtxbuf.is_user_buffer = false;
         vtxbuf.buffer.resource = NULL;
-        u_upload_data(This->vertex_uploader,
+        u_upload_data(&This->vertex_uploader,
                       0,
                       (prim_count_to_vertex_count(PrimitiveType, PrimitiveCount)) * VertexStreamZeroStride, /* XXX */
                       4,
                       pVertexStreamZeroData,
                       &vtxbuf.buffer_offset,
                       &vtxbuf.buffer.resource);
-        u_upload_unmap(This->vertex_uploader);
+        u_upload_unmap(&This->vertex_uploader);
     }
 
     NineBeforeDraw(This);
@@ -3024,28 +3024,28 @@ NineDevice9_DrawIndexedPrimitiveUP( struct NineDevice9 *This,
         const unsigned base = MinVertexIndex * VertexStreamZeroStride;
         vbuf.is_user_buffer = false;
         vbuf.buffer.resource = NULL;
-        u_upload_data(This->vertex_uploader,
+        u_upload_data(&This->vertex_uploader,
                       base,
                       NumVertices * VertexStreamZeroStride, /* XXX */
                       4,
                       (const uint8_t *)pVertexStreamZeroData + base,
                       &vbuf.buffer_offset,
                       &vbuf.buffer.resource);
-        u_upload_unmap(This->vertex_uploader);
+        u_upload_unmap(&This->vertex_uploader);
         /* Won't be used: */
         vbuf.buffer_offset -= base;
     }
 
     unsigned index_offset = 0;
     if (This->csmt_active) {
-        u_upload_data(This->pipe_secondary->stream_uploader,
+        u_upload_data(&This->pipe_secondary->stream_uploader,
                       0,
                       (prim_count_to_vertex_count(PrimitiveType, PrimitiveCount)) * index_size,
                       4,
                       pIndexData,
                       &index_offset,
                       &ibuf);
-        u_upload_unmap(This->pipe_secondary->stream_uploader);
+        u_upload_unmap(&This->pipe_secondary->stream_uploader);
     }
 
     NineBeforeDraw(This);

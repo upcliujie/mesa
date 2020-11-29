@@ -875,7 +875,7 @@ static void virgl_draw_vbo(struct pipe_context *ctx,
            ib.offset = draws[0].start * ib.index_size;
 
            if (ib.user_buffer) {
-                   u_upload_data(vctx->uploader, 0, draws[0].count * ib.index_size, 4,
+                   u_upload_data(&vctx->base.stream_uploader, 0, draws[0].count * ib.index_size, 4,
                                  ib.user_buffer, &ib.offset, &ib.buffer);
                    ib.user_buffer = NULL;
            }
@@ -923,7 +923,7 @@ static void virgl_flush_eq(struct virgl_context *ctx, void *closure,
       return;
 
    if (ctx->num_draws)
-      u_upload_unmap(ctx->uploader);
+      u_upload_unmap(&ctx->base.stream_uploader);
 
    /* send the buffer to the remote side for decoding */
    ctx->num_draws = ctx->num_compute = 0;
@@ -1397,8 +1397,8 @@ virgl_context_destroy( struct pipe_context *ctx )
    }
 
    rs->vws->cmd_buf_destroy(vctx->cbuf);
-   if (vctx->uploader)
-      u_upload_destroy(vctx->uploader);
+   u_upload_destroy(&vctx->base.stream_uploader);
+   u_upload_destroy(&vctx->base.const_uploader);
    if (vctx->supports_staging)
       virgl_staging_destroy(&vctx->staging);
    util_primconvert_destroy(vctx->primconvert);
@@ -1569,12 +1569,10 @@ struct pipe_context *virgl_context_create(struct pipe_screen *pscreen,
       vctx->cbuf->cdw = VIRGL_MAX_TBUF_DWORDS;
 
    vctx->primconvert = util_primconvert_create(&vctx->base, rs->caps.caps.v1.prim_mask);
-   vctx->uploader = u_upload_create(&vctx->base, 1024 * 1024,
-                                     PIPE_BIND_INDEX_BUFFER, PIPE_USAGE_STREAM, 0);
-   if (!vctx->uploader)
-           goto fail;
-   vctx->base.stream_uploader = vctx->uploader;
-   vctx->base.const_uploader = vctx->uploader;
+   u_upload_init(&vctx->base.stream_uploader, &vctx->base, 1024 * 1024,
+                 PIPE_BIND_INDEX_BUFFER, PIPE_USAGE_STREAM, 0);
+   u_upload_init(&vctx->base.const_uploader, &vctx->base, 1024 * 1024,
+                 PIPE_BIND_CONSTANT_BUFFER, PIPE_USAGE_STREAM, 0);
 
    /* We use a special staging buffer as the source of copy transfers. */
    if ((rs->caps.caps.v2.capability_bits & VIRGL_CAP_COPY_TRANSFER) &&
@@ -1598,7 +1596,4 @@ struct pipe_context *virgl_context_create(struct pipe_screen *pscreen,
       virgl_send_tweaks(vctx, rs);
 
    return &vctx->base;
-fail:
-   virgl_context_destroy(&vctx->base);
-   return NULL;
 }

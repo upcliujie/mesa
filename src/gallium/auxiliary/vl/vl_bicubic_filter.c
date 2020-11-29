@@ -426,7 +426,7 @@ vl_bicubic_filter_render(struct vl_bicubic_filter *filter,
    struct pipe_constant_buffer cb = {0};
    float *ptr = NULL;
 
-   u_upload_alloc(filter->pipe->const_uploader, 0, 2 * sizeof(float), 256,
+   u_upload_alloc(&filter->pipe->const_uploader, 0, 2 * sizeof(float), 256,
                   &cb.buffer_offset, &cb.buffer, (void**)&ptr);
    cb.buffer_size = 2 * sizeof(float);
 
@@ -434,7 +434,7 @@ vl_bicubic_filter_render(struct vl_bicubic_filter *filter,
       ptr[0] = 0.5f/viewport.scale[0];
       ptr[1] = 0.5f/viewport.scale[1];
    }
-   u_upload_unmap(filter->pipe->const_uploader);
+   u_upload_unmap(&filter->pipe->const_uploader);
 
    memset(&fb_state, 0, sizeof(fb_state));
    fb_state.width = dst->width;

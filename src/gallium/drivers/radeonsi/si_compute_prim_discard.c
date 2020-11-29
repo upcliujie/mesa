@@ -1261,7 +1261,7 @@ void si_dispatch_prim_discard_cs_and_draw(struct si_context *sctx,
    unsigned desc_size = 12 * 4;
    uint32_t *desc;
 
-   u_upload_alloc(sctx->b.const_uploader, 0, desc_size, si_optimal_tcc_alignment(sctx, desc_size),
+   u_upload_alloc(&sctx->b.const_uploader, 0, desc_size, si_optimal_tcc_alignment(sctx, desc_size),
                   &indexbuf_desc_offset, (struct pipe_resource **)&indexbuf_desc, (void **)&desc);
    radeon_add_to_buffer_list(sctx, gfx_cs, indexbuf_desc, RADEON_USAGE_READ,
                              RADEON_PRIO_DESCRIPTORS);

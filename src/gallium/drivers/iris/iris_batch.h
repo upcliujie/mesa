@@ -109,7 +109,7 @@ struct iris_batch {
 
    struct {
       /** Uploader to use for sequence numbers */
-      struct u_upload_mgr *uploader;
+      struct u_upload_mgr uploader;
 
       /** GPU buffer and CPU map where our seqno's will be written. */
       struct iris_state_ref ref;

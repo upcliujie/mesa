@@ -237,17 +237,17 @@ iris_destroy_context(struct pipe_context *ctx)
    struct iris_context *ice = (struct iris_context *)ctx;
    struct iris_screen *screen = (struct iris_screen *)ctx->screen;
 
-   if (ctx->stream_uploader)
-      u_upload_destroy(ctx->stream_uploader);
+   u_upload_destroy(&ctx->stream_uploader);
+   u_upload_destroy(&ctx->const_uploader);
 
    clear_dirty_dmabuf_set(ice);
 
    screen->vtbl.destroy_state(ice);
    iris_destroy_program_cache(ice);
    iris_destroy_border_color_pool(ice);
-   u_upload_destroy(ice->state.surface_uploader);
-   u_upload_destroy(ice->state.dynamic_uploader);
-   u_upload_destroy(ice->query_buffer_uploader);
+   u_upload_destroy(&ice->state.surface_uploader);
+   u_upload_destroy(&ice->state.dynamic_uploader);
+   u_upload_destroy(&ice->query_buffer_uploader);
 
    iris_batch_free(&ice->batches[IRIS_BATCH_RENDER]);
    iris_batch_free(&ice->batches[IRIS_BATCH_COMPUTE]);
@@ -300,12 +300,8 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ctx->screen = pscreen;
    ctx->priv = priv;
 
-   ctx->stream_uploader = u_upload_create_default(ctx);
-   if (!ctx->stream_uploader) {
-      free(ctx);
-      return NULL;
-   }
-   ctx->const_uploader = ctx->stream_uploader;
+   u_upload_init_default(&ctx->stream_uploader, ctx);
+   u_upload_init_default(&ctx->const_uploader, ctx);
 
    if (!create_dirty_dmabuf_set(ice)) {
       ralloc_free(ice);
@@ -332,16 +328,14 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
    slab_create_child(&ice->transfer_pool, &screen->transfer_pool);
 
-   ice->state.surface_uploader =
-      u_upload_create(ctx, 16384, PIPE_BIND_CUSTOM, PIPE_USAGE_IMMUTABLE,
-                      IRIS_RESOURCE_FLAG_SURFACE_MEMZONE);
-   ice->state.dynamic_uploader =
-      u_upload_create(ctx, 16384, PIPE_BIND_CUSTOM, PIPE_USAGE_IMMUTABLE,
-                      IRIS_RESOURCE_FLAG_DYNAMIC_MEMZONE);
+   u_upload_init(&ice->state.surface_uploader, ctx, 16384, PIPE_BIND_CUSTOM,
+                 PIPE_USAGE_IMMUTABLE, IRIS_RESOURCE_FLAG_SURFACE_MEMZONE);
 
-   ice->query_buffer_uploader =
-      u_upload_create(ctx, 4096, PIPE_BIND_CUSTOM, PIPE_USAGE_STAGING,
-                      0);
+   u_upload_init(&ice->state.dynamic_uploader, ctx, 16384, PIPE_BIND_CUSTOM,
+                 PIPE_USAGE_IMMUTABLE, IRIS_RESOURCE_FLAG_DYNAMIC_MEMZONE);
+
+   u_upload_init(&ice->query_buffer_uploader, ctx, 4096, PIPE_BIND_CUSTOM,
+                 PIPE_USAGE_STAGING, 0);
 
    genX_call(devinfo, init_state, ice);
    genX_call(devinfo, init_blorp, ice);

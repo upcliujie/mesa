@@ -44,6 +44,7 @@ struct NineSwapChain9;
 struct NineStateBlock9;
 
 #include "util/list.h"
+#include "util/u_upload_mgr.h"
 
 struct NineDevice9
 {
@@ -142,7 +143,7 @@ struct NineDevice9
         boolean dynamic_texture_workaround;
     } workarounds;
 
-    struct u_upload_mgr *vertex_uploader;
+    struct u_upload_mgr vertex_uploader;
 
     struct nine_range_pool range_pool;
 

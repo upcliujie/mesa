@@ -32,6 +32,7 @@
 #include "p_format.h"
 #include "p_video_enums.h"
 #include "p_defines.h"
+#include "util/u_upload_mgr.h"
 #include <stdio.h>
 
 #ifdef __cplusplus
@@ -99,8 +100,8 @@ struct pipe_context {
     * Use u_upload_alloc or u_upload_data as many times as you want.
     * Once you are done, use u_upload_unmap.
     */
-   struct u_upload_mgr *stream_uploader; /* everything but shader constants */
-   struct u_upload_mgr *const_uploader;  /* shader constants only */
+   struct u_upload_mgr stream_uploader; /* everything but shader constants */
+   struct u_upload_mgr const_uploader;  /* shader constants only */
 
    void (*destroy)( struct pipe_context * );
 

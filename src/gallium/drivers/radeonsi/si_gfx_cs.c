@@ -128,7 +128,7 @@ void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_h
    assert(!radeon_emitted(ctx->sdma_cs, 0) || fence == NULL);
 
    /* Update the sdma_uploads list by flushing the uploader. */
-   u_upload_unmap(ctx->b.const_uploader);
+   u_upload_unmap(&ctx->b.const_uploader);
 
    /* Execute SDMA uploads. */
    ctx->sdma_uploads_in_progress = true;

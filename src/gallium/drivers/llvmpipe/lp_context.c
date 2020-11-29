@@ -67,8 +67,8 @@ static void llvmpipe_destroy( struct pipe_context *pipe )
       util_blitter_destroy(llvmpipe->blitter);
    }
 
-   if (llvmpipe->pipe.stream_uploader)
-      u_upload_destroy(llvmpipe->pipe.stream_uploader);
+   u_upload_destroy(&llvmpipe->pipe.stream_uploader);
+   u_upload_destroy(&llvmpipe->pipe.const_uploader);
 
    /* This will also destroy llvmpipe->setup:
     */
@@ -243,10 +243,9 @@ llvmpipe_create_context(struct pipe_screen *screen, void *priv,
    llvmpipe->csctx = lp_csctx_create( &llvmpipe->pipe );
    if (!llvmpipe->csctx)
       goto fail;
-   llvmpipe->pipe.stream_uploader = u_upload_create_default(&llvmpipe->pipe);
-   if (!llvmpipe->pipe.stream_uploader)
-      goto fail;
-   llvmpipe->pipe.const_uploader = llvmpipe->pipe.stream_uploader;
+
+   u_upload_init_default(&llvmpipe->pipe.stream_uploader, &llvmpipe->pipe);
+   u_upload_init_default(&llvmpipe->pipe.const_uploader, &llvmpipe->pipe);
 
    llvmpipe->blitter = util_blitter_create(&llvmpipe->pipe);
    if (!llvmpipe->blitter) {

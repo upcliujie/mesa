@@ -149,8 +149,8 @@ static void i915_destroy(struct pipe_context *pipe)
 
    draw_destroy(i915->draw);
 
-   if (i915->base.stream_uploader)
-      u_upload_destroy(i915->base.stream_uploader);
+   u_upload_destroy(&i915->base.stream_uploader);
+   u_upload_destroy(&i915->base.const_uploader);
 
    if(i915->batch)
       i915->iws->batchbuffer_destroy(i915->batch);
@@ -181,8 +181,8 @@ i915_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
    i915->iws = i915_screen(screen)->iws;
    i915->base.screen = screen;
    i915->base.priv = priv;
-   i915->base.stream_uploader = u_upload_create_default(&i915->base);
-   i915->base.const_uploader = i915->base.stream_uploader;
+   u_upload_init_default(&i915->base.stream_uploader, &i915->base);
+   u_upload_init_default(&i915->base.const_uploader, &i915->base);
 
    i915->base.destroy = i915_destroy;
 

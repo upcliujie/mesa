@@ -399,7 +399,7 @@ v3d_get_compiled_shader(struct v3d_context *v3d,
         v3d_set_shader_uniform_dirty_flags(shader);
 
         if (shader_size) {
-                u_upload_data(v3d->state_uploader, 0, shader_size, 8,
+                u_upload_data(&v3d->state_uploader, 0, shader_size, 8,
                               qpu_insts, &shader->offset, &shader->resource);
         }
 

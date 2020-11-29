@@ -407,7 +407,7 @@ v3d_vertex_state_create(struct pipe_context *pctx, unsigned num_elements,
          * elements use them.
          */
         uint32_t *attrs;
-        u_upload_alloc(v3d->state_uploader, 0,
+        u_upload_alloc(&v3d->state_uploader, 0,
                        V3D_MAX_VS_INPUTS * sizeof(float), 16,
                        &so->defaults_offset, &so->defaults, (void **)&attrs);
 
@@ -423,7 +423,7 @@ v3d_vertex_state_create(struct pipe_context *pctx, unsigned num_elements,
                 }
         }
 
-        u_upload_unmap(v3d->state_uploader);
+        u_upload_unmap(&v3d->state_uploader);
         return so;
 }
 
@@ -741,7 +741,7 @@ v3d_create_sampler_state(struct pipe_context *pctx,
         int sampler_align = so->border_color_variants ? 32 : 8;
         int sampler_size = align(cl_packet_length(SAMPLER_STATE), sampler_align);
         int num_variants = (so->border_color_variants ? ARRAY_SIZE(so->sampler_state_offset) : 1);
-        u_upload_alloc(v3d->state_uploader, 0,
+        u_upload_alloc(&v3d->state_uploader, 0,
                        sampler_size * num_variants,
                        sampler_align,
                        &so->sampler_state_offset[0],
@@ -1243,7 +1243,7 @@ v3d_set_stream_output_targets(struct pipe_context *pctx,
         if (num_targets > 0 && !ctx->prim_counts) {
                 /* Init all 7 counters and 1 padding to 0 */
                 uint32_t zeroes[8] = { 0 };
-                u_upload_data(ctx->uploader,
+                u_upload_data(&ctx->base.stream_uploader,
                               0, sizeof(zeroes), 32, zeroes,
                               &ctx->prim_counts_offset,
                               &ctx->prim_counts);
@@ -1309,7 +1309,7 @@ v3d_create_image_view_texture_shader_state(struct v3d_context *v3d,
         struct v3d_image_view *iview = &so->si[img];
 
         void *map;
-        u_upload_alloc(v3d->uploader, 0, cl_packet_length(TEXTURE_SHADER_STATE),
+        u_upload_alloc(&v3d->base.stream_uploader, 0, cl_packet_length(TEXTURE_SHADER_STATE),
                        32,
                        &iview->tex_state_offset,
                        &iview->tex_state,

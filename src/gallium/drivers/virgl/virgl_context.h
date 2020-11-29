@@ -81,7 +81,6 @@ struct virgl_context {
 
    struct slab_child_pool transfer_pool;
    struct virgl_transfer_queue queue;
-   struct u_upload_mgr *uploader;
    struct virgl_staging_mgr staging;
    bool encoded_transfers;
    bool supports_staging;

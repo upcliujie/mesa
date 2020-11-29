@@ -295,12 +295,9 @@ static void si_destroy_context(struct pipe_context *context)
       _mesa_hash_table_destroy(sctx->dirty_implicit_resources,
                                decref_implicit_resource);
 
-   if (sctx->b.stream_uploader)
-      u_upload_destroy(sctx->b.stream_uploader);
-   if (sctx->b.const_uploader)
-      u_upload_destroy(sctx->b.const_uploader);
-   if (sctx->cached_gtt_allocator)
-      u_upload_destroy(sctx->cached_gtt_allocator);
+   u_upload_destroy(&sctx->b.stream_uploader);
+   u_upload_destroy(&sctx->b.const_uploader);
+   u_upload_destroy(&sctx->cached_gtt_allocator);
 
    slab_destroy_child(&sctx->pool_transfers);
    slab_destroy_child(&sctx->pool_transfers_unsync);
@@ -494,14 +491,11 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
    if (!sctx->allocator_zeroed_memory)
       goto fail;
 
-   sctx->b.stream_uploader =
-      u_upload_create(&sctx->b, 1024 * 1024, 0, PIPE_USAGE_STREAM, SI_RESOURCE_FLAG_READ_ONLY);
-   if (!sctx->b.stream_uploader)
-      goto fail;
+   u_upload_init(&sctx->b.stream_uploader, &sctx->b, 1024 * 1024, 0,
+                 PIPE_USAGE_STREAM, SI_RESOURCE_FLAG_READ_ONLY);
 
-   sctx->cached_gtt_allocator = u_upload_create(&sctx->b, 16 * 1024, 0, PIPE_USAGE_STAGING, 0);
-   if (!sctx->cached_gtt_allocator)
-      goto fail;
+   u_upload_init(&sctx->cached_gtt_allocator, &sctx->b, 16 * 1024, 0,
+                 PIPE_USAGE_STAGING, 0);
 
    sctx->ctx = sctx->ws->ctx_create(sctx->ws);
    if (!sctx->ctx)
@@ -528,15 +522,12 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
    }
 
    bool use_sdma_upload = sscreen->info.has_dedicated_vram && sctx->sdma_cs;
-   sctx->b.const_uploader =
-      u_upload_create(&sctx->b, 256 * 1024, 0, PIPE_USAGE_DEFAULT,
-                      SI_RESOURCE_FLAG_32BIT |
-                         (use_sdma_upload ? SI_RESOURCE_FLAG_UPLOAD_FLUSH_EXPLICIT_VIA_SDMA : 0));
-   if (!sctx->b.const_uploader)
-      goto fail;
+   u_upload_init(&sctx->b.const_uploader, &sctx->b, 256 * 1024, 0, PIPE_USAGE_DEFAULT,
+                 SI_RESOURCE_FLAG_32BIT |
+                 (use_sdma_upload ? SI_RESOURCE_FLAG_UPLOAD_FLUSH_EXPLICIT_VIA_SDMA : 0));
 
    if (use_sdma_upload)
-      u_upload_enable_flush_explicit(sctx->b.const_uploader);
+      u_upload_enable_flush_explicit(&sctx->b.const_uploader);
 
    sctx->gfx_cs = ws->cs_create(sctx->ctx, sctx->has_graphics ? RING_GFX : RING_COMPUTE,
                                 (void *)si_flush_gfx_cs, sctx, stop_exec_on_failure);

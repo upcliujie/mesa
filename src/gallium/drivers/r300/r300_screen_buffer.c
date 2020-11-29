@@ -41,7 +41,7 @@ void r300_upload_index_buffer(struct r300_context *r300,
 
     *index_buffer = NULL;
 
-    u_upload_data(r300->uploader,
+    u_upload_data(&r300->context.stream_uploader,
                   0, count * index_size, 4,
                   ptr + (*start * index_size),
                   &index_offset,

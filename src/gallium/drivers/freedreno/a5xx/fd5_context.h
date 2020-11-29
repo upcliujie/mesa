@@ -48,7 +48,7 @@ struct fd5_context {
 	 */
 	struct fd_bo *blit_mem;
 
-	struct u_upload_mgr *border_color_uploader;
+	struct u_upload_mgr border_color_uploader;
 	struct pipe_resource *border_color_buf;
 
 	/* if *any* of bits are set in {v,f}saturate_{s,t,r} */

@@ -249,7 +249,7 @@ emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
 		unsigned off;
 		void *ptr;
 
-		u_upload_alloc(fd4_ctx->border_color_uploader,
+		u_upload_alloc(&fd4_ctx->border_color_uploader,
 				0, BORDER_COLOR_UPLOAD_SIZE,
 				BORDER_COLOR_UPLOAD_SIZE, &off,
 				&fd4_ctx->border_color_buf,
@@ -259,7 +259,7 @@ emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
 		OUT_PKT0(ring, bcolor_reg[sb], 1);
 		OUT_RELOC(ring, fd_resource(fd4_ctx->border_color_buf)->bo, off, 0, 0);
 
-		u_upload_unmap(fd4_ctx->border_color_uploader);
+		u_upload_unmap(&fd4_ctx->border_color_uploader);
 	}
 }
 

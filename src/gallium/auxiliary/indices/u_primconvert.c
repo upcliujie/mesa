@@ -150,7 +150,7 @@ util_primconvert_draw_vbo(struct primconvert_context *pc,
       new_info.index_size = index_size;
    }
 
-   u_upload_alloc(pc->pipe->stream_uploader, 0, new_info.index_size * new_draw.count, 4,
+   u_upload_alloc(&pc->pipe->stream_uploader, 0, new_info.index_size * new_draw.count, 4,
                   &ib_offset, &new_info.index.resource, &dst);
    new_draw.start = ib_offset / new_info.index_size;
 
@@ -172,7 +172,7 @@ util_primconvert_draw_vbo(struct primconvert_context *pc,
    if (src_transfer)
       pipe_buffer_unmap(pc->pipe, src_transfer);
 
-   u_upload_unmap(pc->pipe->stream_uploader);
+   u_upload_unmap(&pc->pipe->stream_uploader);
 
    /* to the translated draw: */
    pc->pipe->draw_vbo(pc->pipe, &new_info, NULL, &new_draw, 1);

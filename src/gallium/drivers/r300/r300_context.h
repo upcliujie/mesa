@@ -593,7 +593,6 @@ struct r300_context {
 
     struct pipe_vertex_buffer vertex_buffer[PIPE_MAX_ATTRIBS];
     unsigned nr_vertex_buffers;
-    struct u_upload_mgr *uploader;
 
     struct slab_child_pool pool_transfers;
 
