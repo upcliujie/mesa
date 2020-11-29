@@ -46,6 +46,7 @@ r600_nir_split_64bit_io_filter(const nir_instr *instr, const void *_options)
       case nir_intrinsic_load_uniform:
       case nir_intrinsic_load_input:
       case nir_intrinsic_load_ubo:
+      case nir_intrinsic_load_ssbo:
          if (nir_dest_bit_size(intr->dest) != 64)
             return false;
          return nir_dest_num_components(intr->dest) >= 3;
@@ -216,7 +217,7 @@ static nir_ssa_def *
 r600_nir_split_double_load_ubo(nir_builder *b, nir_intrinsic_instr *intr)
 {
    unsigned second_components = nir_dest_num_components(intr->dest) - 2;
-   nir_intrinsic_instr *load2 = nir_intrinsic_instr_create(b->shader, nir_intrinsic_load_ubo);
+   nir_intrinsic_instr *load2 = nir_instr_as_intrinsic(nir_instr_clone(b->shader, &intr->instr));
    load2->src[0] = intr->src[0];
    load2->src[1] = nir_src_for_ssa(nir_iadd_imm(b, intr->src[1].ssa, 16));
    nir_intrinsic_set_range_base(load2, nir_intrinsic_range_base(intr) + 16);
@@ -295,6 +296,8 @@ r600_nir_split_64bit_io_impl(nir_builder *b, nir_instr *instr, void *_options)
          return r600_nir_split_double_load_uniform(b, intr);
       case nir_intrinsic_load_ubo:
          return r600_nir_split_double_load_ubo(b, intr);
+      /*case nir_intrinsic_load_ssbo:
+         return r600_nir_split_double_load_ssbo(b, intr);*/
       case nir_intrinsic_load_input:
          return r600_nir_split_double_load(b, intr);
       case nir_intrinsic_store_output:
@@ -649,39 +652,37 @@ bool StoreMerger::combine()
 
 void StoreMerger::combine_one_slot(vector<nir_intrinsic_instr*>& stores)
 {
-   /* We assume that we lower_io_to_vector did most of the hard work, and we have
-    * to deal only with wiredness from the double lowering here, hence we combine
-    * two vec 2 writes */
-   assert(stores.size() == 2);
-
-   auto store1 = stores[0];
-   auto store2 = stores[1];
-
-   if (nir_intrinsic_component(store1) != 0)
-      std::swap(store1, store2);
-
-   assert(nir_intrinsic_component(store1) == 0);
-   assert(nir_intrinsic_component(store2) == 2);
-   assert(nir_intrinsic_write_mask(store1) == 3);
-   assert(nir_intrinsic_write_mask(store2) == 3);
-
-   nir_intrinsic_set_component(stores[1], 0);
-   nir_intrinsic_set_write_mask(stores[1], 0xf);
+   nir_ssa_def *srcs[4] = {nullptr};
 
    nir_builder b;
    nir_builder_init(&b, nir_shader_get_entrypoint(sh));
-   b.cursor = nir_before_instr(&stores[1]->instr);
+   auto last_store = *stores.rbegin();
 
-   auto x = nir_channel(&b, store1->src[0].ssa, 0);
-   auto y = nir_channel(&b, store1->src[0].ssa, 1);
-   auto z = nir_channel(&b, store2->src[0].ssa, 0);
-   auto w = nir_channel(&b, store2->src[0].ssa, 1);
+   b.cursor = nir_before_instr(&last_store->instr);
 
-   auto new_src = nir_vec4(&b, x,y,z,w);
+   unsigned comps = 0;
+   unsigned writemask = 0;
+   unsigned first_comp = 4;
+   for (auto&& store : stores) {
+      int cmp = nir_intrinsic_component(store);
+      for (unsigned i = 0; i < nir_src_num_components(store->src[0]); ++i, ++comps) {
+         unsigned out_comp = i + cmp;
+         srcs[out_comp] = nir_channel(&b, store->src[0].ssa, i);
+         writemask |= 1 << out_comp;
+         if (first_comp > out_comp)
+            first_comp = out_comp;
+      }
+   }
 
-   nir_instr_rewrite_src(&stores[1]->instr, &stores[1]->src[0], nir_src_for_ssa(new_src));
-   stores[1]->num_components = 4;
-   nir_instr_remove(&stores[0]->instr);
+   auto new_src = nir_vec(&b, srcs, comps);
+
+   nir_instr_rewrite_src(&last_store->instr, &last_store->src[0], nir_src_for_ssa(new_src));
+   last_store->num_components = comps;
+   nir_intrinsic_set_component(last_store, first_comp);
+   nir_intrinsic_set_write_mask(last_store, writemask);
+
+   for (auto i = stores.begin(); i != stores.end() - 1; ++i)
+      nir_instr_remove(&(*i)->instr);
 }
 
 bool r600_merge_vec2_stores(nir_shader *shader)
