@@ -559,7 +559,16 @@ enum opcode {
     */
    SHADER_OPCODE_HALT_TARGET,
 
-   /** A HALT which the scheduler can move around */
+   /** A HALT which the scheduler can move around
+    *
+    * Unlike HALT, this instruction is not treated as control-flow by the
+    * scheduler.  This allows the scheduler to move discards around in a
+    * latency-sensitive way.  In particular, we can sometimes move texture
+    * instructions below a discard and save memory bandwidth in cases where
+    * an entire subgroup or quad is discarded.
+    *
+    * This instruction is lowered to HALT by lower_discard_to_halt.
+    */
    FS_OPCODE_DISCARD_JUMP,
 
    VEC4_OPCODE_MOV_BYTES,

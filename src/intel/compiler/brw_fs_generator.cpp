@@ -2376,7 +2376,6 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          break;
 
       case BRW_OPCODE_HALT:
-      case FS_OPCODE_DISCARD_JUMP:
          generate_halt(inst);
          break;
 
