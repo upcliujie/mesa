@@ -30,7 +30,7 @@
 #include "etnaviv_priv.h"
 #include "etnaviv_drmif.h"
 
-static pthread_mutex_t etna_drm_table_lock = PTHREAD_MUTEX_INITIALIZER;
+static simple_mtx_t etna_drm_table_lock = _SIMPLE_MTX_INITIALIZER_NP;
 
 struct etna_device *etna_device_new(int fd)
 {
@@ -111,9 +111,9 @@ void etna_device_del(struct etna_device *dev)
 	if (!p_atomic_dec_zero(&dev->refcnt))
 		return;
 
-	pthread_mutex_lock(&etna_drm_table_lock);
+	simple_mtx_lock(&etna_drm_table_lock);
 	etna_device_del_impl(dev);
-	pthread_mutex_unlock(&etna_drm_table_lock);
+	simple_mtx_unlock(&etna_drm_table_lock);
 }
 
 int etna_device_fd(struct etna_device *dev)
