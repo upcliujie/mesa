@@ -331,7 +331,7 @@ write_descriptors(struct zink_context *ctx, struct zink_descriptor_set *zds, uns
       struct zink_descriptor_barrier *barrier = util_dynarray_element(&zds->barriers, struct zink_descriptor_barrier, i);
       if (barrier->res->persistent_maps)
          _mesa_set_add(persistent, barrier->res);
-      if (need_resource_refs || (ctx->curr_compute && ctx->curr_program))
+      if (need_resource_refs)
          zink_batch_reference_resource_rw(batch, barrier->res, zink_resource_access_is_write(barrier->access));
       zink_resource_barrier(ctx, NULL, barrier->res,
                             barrier->layout, barrier->access, barrier->stage);
