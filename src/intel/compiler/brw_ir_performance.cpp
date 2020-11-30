@@ -589,7 +589,7 @@ namespace {
       case BRW_OPCODE_WHILE:
       case BRW_OPCODE_BREAK:
       case BRW_OPCODE_CONTINUE:
-      case FS_OPCODE_DISCARD_JUMP:
+      case BRW_OPCODE_HALT:
          if (devinfo->gen >= 8)
             return calculate_desc(info, unit_null, 8, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0);
@@ -1561,7 +1561,7 @@ namespace {
                st.weight *= loop_weight;
             else if (inst->opcode == BRW_OPCODE_WHILE)
                st.weight /= loop_weight;
-            else if (inst->opcode == FS_OPCODE_DISCARD_JUMP && !discard_count++)
+            else if (inst->opcode == BRW_OPCODE_HALT && !discard_count++)
                st.weight *= discard_weight;
          }
 

@@ -536,7 +536,7 @@ private:
                                struct brw_reg src0,
                                struct brw_reg src1);
 
-   void generate_discard_jump(fs_inst *inst);
+   void generate_halt(fs_inst *inst);
 
    void generate_pack_half_2x16_split(fs_inst *inst,
                                       struct brw_reg dst,
