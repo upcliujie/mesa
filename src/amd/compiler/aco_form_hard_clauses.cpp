@@ -73,20 +73,17 @@ void form_hard_clauses(Program *program)
       for (unsigned i = 0; i < block.instructions.size(); i++) {
          aco_ptr<Instruction>& instr = block.instructions[i];
 
-         unsigned resource = 0;
          clause_type type = clause_other;
-         if (instr->isVMEM() && !instr->operands.empty()) {
-            resource = instr->operands[0].tempId();
+         if (instr->isVMEM() && !instr->operands.empty())
             type = clause_vmem;
-         } else if (instr->isScratch() || instr->isGlobal()) {
+         else if (instr->isScratch() || instr->isGlobal())
             type = clause_vmem;
-         } else if (instr->isFlat()) {
+         else if (instr->isFlat())
             type = clause_flat;
-         } else if (instr->isSMEM() && !instr->operands.empty()) {
+         else if (instr->isSMEM() && !instr->operands.empty())
             type = clause_smem;
-            if (instr->operands[0].bytes() == 16)
-               resource = instr->operands[0].tempId();
-         }
+
+         uint32_t resource = type != clause_other ? get_resource_for_memory_clause(instr.get()) : 0;
 
          if (type != current_type || resource != current_resource || num_instrs == 64) {
             emit_clause(bld, num_instrs, current_instrs);
