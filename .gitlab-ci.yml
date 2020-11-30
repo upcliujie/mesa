@@ -237,7 +237,7 @@ x86_build-base:
     - .fdo.container-build@debian
     - .container
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_build-base "2020-12-02"
+    FDO_DISTRIBUTION_TAG: &x86_build-base "2020-12-02-sanitizers"
 
 .use-x86_build-base:
   extends:
@@ -255,7 +255,7 @@ x86_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_build "2020-12-02"
+    FDO_DISTRIBUTION_TAG: &x86_build "2020-12-02-sanitizers"
 
 .use-x86_build:
   variables:
@@ -269,7 +269,7 @@ i386_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &i386_build "2020-12-02"
+    FDO_DISTRIBUTION_TAG: &i386_build "2020-12-02-sanitizers"
 
 .use-i386_build:
   variables:
@@ -283,7 +283,7 @@ ppc64el_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &ppc64el_build "2020-12-02"
+    FDO_DISTRIBUTION_TAG: &ppc64el_build "2020-12-02-sanitizers"
 
 .use-ppc64el_build:
   variables:
@@ -297,7 +297,7 @@ s390x_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &s390x_build "2020-12-02"
+    FDO_DISTRIBUTION_TAG: &s390x_build "2020-12-02-sanitizers"
 
 .use-s390x_build:
   variables:
@@ -311,7 +311,7 @@ android_build:
   extends:
     - .use-x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &android_build "2020-12-02"
+    FDO_DISTRIBUTION_TAG: &android_build "2020-12-02-sanitizers"
 
 .use-android_build:
   variables:
@@ -324,7 +324,7 @@ android_build:
 x86_test-base:
   extends: x86_build-base
   variables:
-    FDO_DISTRIBUTION_TAG: &x86_test-base "2020-12-02"
+    FDO_DISTRIBUTION_TAG: &x86_test-base "2020-12-02-sanitizers"
 
 .use-x86_test-base:
   extends:
@@ -593,6 +593,13 @@ meson-testing:
   script:
     - .gitlab-ci/meson-build.sh
     - .gitlab-ci/prepare-artifacts.sh
+
+meson-testing-asan:
+  extends:
+    - meson-testing
+  variables:
+    EXTRA_OPTION: >
+      -D b_sanitize=address
 
 meson-clover-testing:
   extends:
