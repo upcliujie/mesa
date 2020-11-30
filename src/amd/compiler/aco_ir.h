@@ -420,7 +420,7 @@ public:
    constexpr Operand()
       : reg_(PhysReg{128}), isTemp_(false), isFixed_(true), isConstant_(false),
         isKill_(false), isUndef_(true), isFirstKill_(false), constSize(0),
-        isLateKill_(false), is16bit_(false), is24bit_(false) {}
+        isLateKill_(false), is16bit_(false), is24bit_(false), literal64Sign(false) {}
 
    explicit Operand(Temp r) noexcept
    {
@@ -537,8 +537,10 @@ public:
          data_.i = 0xc0800000;
          setFixed(PhysReg{247});
       } else { /* Literal Constant: we don't know if it is a long or double.*/
-         isConstant_ = 0;
-         assert(false && "attempt to create a 64-bit literal constant");
+         literal64Sign = v >> 63;
+         data_.i = v & 0xffffffffu;
+         setFixed(PhysReg{255});
+         assert(constantValue64() == v);
       }
    };
    explicit Operand(RegClass type) noexcept
@@ -672,7 +674,7 @@ public:
       } else if (constSize == 0) {
          return (signext && (data_.i & 0x80u) ? 0xffffffffffffff00ull : 0ull) | data_.i;
       }
-      return (signext && (data_.i & 0x80000000u) ? 0xffffffff00000000ull : 0ull) | data_.i;
+      return ((signext || literal64Sign) && (data_.i & 0x80000000u) ? 0xffffffff00000000ull : 0ull) | data_.i;
    }
 
    constexpr bool isOfType(RegType type) const noexcept
@@ -786,6 +788,7 @@ private:
          uint8_t isLateKill_:1;
          uint8_t is16bit_:1;
          uint8_t is24bit_:1;
+         uint8_t literal64Sign:1;
       };
       /* can't initialize bit-fields in c++11, so work around using a union */
       uint16_t control_ = 0;
