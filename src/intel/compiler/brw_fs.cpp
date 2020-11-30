@@ -8085,6 +8085,28 @@ fs_visitor::fixup_nomask_control_flow()
    return progress;
 }
 
+bool
+fs_visitor::lower_discard_to_halt()
+{
+   bool found_discard = false;
+
+   foreach_block_and_inst(block, fs_inst, inst, cfg) {
+      if (inst->opcode == FS_OPCODE_DISCARD_JUMP) {
+         inst->opcode = BRW_OPCODE_HALT;
+         found_discard = true;
+      }
+   }
+
+   if (found_discard) {
+      invalidate_analysis(DEPENDENCY_INSTRUCTION_DATA_FLOW |
+                          DEPENDENCY_INSTRUCTION_DETAIL);
+      this->cfg = NULL;
+      calculate_cfg();
+   }
+
+   return found_discard;
+}
+
 void
 fs_visitor::allocate_registers(bool allow_spilling)
 {
@@ -8205,6 +8227,12 @@ fs_visitor::allocate_registers(bool allow_spilling)
        */
       assert(prog_data->total_scratch < max_scratch_size);
    }
+
+   /* Lower DISCARD_JUMP to HALT before we do software score-boarding so that
+    * we get correct data-flow analysis where HALT is properly treated as
+    * control-flow.
+    */
+   lower_discard_to_halt();
 
    lower_scoreboard();
 }
