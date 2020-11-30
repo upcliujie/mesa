@@ -30,8 +30,6 @@
 #include "etnaviv_priv.h"
 #include "etnaviv_drmif.h"
 
-static simple_mtx_t etna_drm_table_lock = _SIMPLE_MTX_INITIALIZER_NP;
-
 struct etna_device *etna_device_new(int fd)
 {
 	struct etna_device *dev = calloc(sizeof(*dev), 1);
@@ -100,6 +98,8 @@ static void etna_device_del_impl(struct etna_device *dev)
 
 void etna_device_del_locked(struct etna_device *dev)
 {
+	simple_mtx_assert_locked(&etna_drm_table_lock);
+
 	if (!p_atomic_dec_zero(&dev->refcnt))
 		return;
 

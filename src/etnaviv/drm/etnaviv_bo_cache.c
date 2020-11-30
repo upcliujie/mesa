@@ -28,7 +28,6 @@
 #include "etnaviv_drmif.h"
 
 void _etna_bo_del(struct etna_bo *bo);
-extern simple_mtx_t etna_drm_table_lock;
 
 static void add_bucket(struct etna_bo_cache *cache, int size)
 {
@@ -182,7 +181,11 @@ struct etna_bo *etna_bo_cache_alloc(struct etna_bo_cache *cache, uint32_t *size,
 
 int etna_bo_cache_free(struct etna_bo_cache *cache, struct etna_bo *bo)
 {
-	struct etna_bo_bucket *bucket = get_bucket(cache, bo->size);
+	struct etna_bo_bucket *bucket;
+
+	simple_mtx_assert_locked(&etna_drm_table_lock);
+
+	bucket = get_bucket(cache, bo->size);
 
 	/* see if we can be green and recycle: */
 	if (bucket) {
