@@ -112,6 +112,13 @@ bi_assign_fau_idx_single(bi_registers *regs,
         if (!ins)
                 return assigned;
 
+        if (ins->type == BI_ATEST) {
+                /* ATEST FAU index must point to the ATEST parameter datum slot */
+                assert(!assigned);
+                regs->fau_idx = BIR_FAU_ATEST_PARAM;
+                return true;
+        }
+
         if (ins->type == BI_BRANCH && clause->branch_constant) {
                 /* By convention branch constant is last */
                 unsigned idx = clause->constant_count - 1;
