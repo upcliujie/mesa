@@ -4933,13 +4933,15 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
          }
 
          if (use_mubuf) {
-            bld.mubuf(opcode,
-                      Definition(fetch_dst), list, fetch_index, soffset,
-                      fetch_offset, false, false, true).instr;
+            Instruction *mubuf = bld.mubuf(
+               opcode, Definition(fetch_dst), list, fetch_index, soffset,
+               fetch_offset, false, false, true).instr;
+            static_cast<MUBUF_instruction *>(mubuf)->vtx_binding = attrib_binding + 1;
          } else {
-            bld.mtbuf(opcode,
-                      Definition(fetch_dst), list, fetch_index, soffset,
-                      fetch_dfmt, nfmt, fetch_offset, false, true).instr;
+            Instruction *mtbuf = bld.mtbuf(
+               opcode, Definition(fetch_dst), list, fetch_index, soffset,
+               fetch_dfmt, nfmt, fetch_offset, false, true).instr;
+            static_cast<MTBUF_instruction *>(mtbuf)->vtx_binding = attrib_binding + 1;
          }
 
          emit_split_vector(ctx, fetch_dst, fetch_dst.size());
