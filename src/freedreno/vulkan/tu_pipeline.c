@@ -1816,11 +1816,21 @@ tu6_emit_sample_locations(struct tu_cs *cs, const VkSampleLocationsInfoEXT *samp
 }
 
 static uint32_t
-tu6_gras_su_cntl(const VkPipelineRasterizationStateCreateInfo *rast_info,
-                 VkSampleCountFlagBits samples,
+tu6_gras_su_cntl(struct tu_pipeline *pipeline,
+                 const VkPipelineRasterizationStateCreateInfo *rast_info,
                  bool multiview)
 {
    uint32_t gras_su_cntl = 0;
+
+   const VkPipelineRasterizationLineStateCreateInfoEXT *rast_line_state =
+      vk_find_struct_const(rast_info->pNext,
+                           PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT);
+   bool bresenham = false;
+
+   if (rast_line_state && rast_line_state->lineRasterizationMode ==
+             VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT) {
+      bresenham = true;
+   }
 
    if (rast_info->cullMode & VK_CULL_MODE_FRONT_BIT)
       gras_su_cntl |= A6XX_GRAS_SU_CNTL_CULL_FRONT;
@@ -1836,8 +1846,9 @@ tu6_gras_su_cntl(const VkPipelineRasterizationStateCreateInfo *rast_info,
    if (rast_info->depthBiasEnable)
       gras_su_cntl |= A6XX_GRAS_SU_CNTL_POLY_OFFSET;
 
-   if (samples > VK_SAMPLE_COUNT_1_BIT)
-      gras_su_cntl |= A6XX_GRAS_SU_CNTL_MSAA_ENABLE;
+   /* Bresenham-style is for non-antialiased lines */
+   if (!bresenham)
+      gras_su_cntl |= A6XX_GRAS_SU_CNTL_LINE_ANTIALIASED;
 
    if (multiview) {
       gras_su_cntl |=
@@ -2530,7 +2541,7 @@ tu_pipeline_builder_parse_rasterization(struct tu_pipeline_builder *builder,
                    A6XX_VPC_UNKNOWN_9107(.raster_discard = rast_info->rasterizerDiscardEnable));
 
    pipeline->gras_su_cntl =
-      tu6_gras_su_cntl(rast_info, builder->samples, builder->multiview_mask != 0);
+      tu6_gras_su_cntl(pipeline, rast_info, builder->multiview_mask != 0);
 
    if (tu_pipeline_static_state(pipeline, &cs, TU_DYNAMIC_STATE_GRAS_SU_CNTL, 2))
       tu_cs_emit_regs(&cs, A6XX_GRAS_SU_CNTL(.dword = pipeline->gras_su_cntl));
