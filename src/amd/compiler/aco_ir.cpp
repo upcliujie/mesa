@@ -542,4 +542,30 @@ bool wait_imm::empty() const
           lgkm == unset_counter && vs == unset_counter;
 }
 
+bool should_form_clause(const Instruction *a, const Instruction *b)
+{
+   /* Assume loads which don't use descriptors might load from similar addresses. */
+   if (a->isFlatLike() && b->isFlatLike())
+      return true;
+   if ((a->format == Format::SMEM && a->operands[0].bytes() == 8) &&
+       (b->format == Format::SMEM && b->operands[0].bytes() == 8))
+      return true;
+
+   /* Vertex attribute loads from the same binding likely load from similar addresses */
+   unsigned a_vtx_binding = a->isMUBUF() ? a->mubuf().vtx_binding : (a->isMTBUF() ? a->mtbuf().vtx_binding : 0);
+   unsigned b_vtx_binding = b->isMUBUF() ? b->mubuf().vtx_binding : (b->isMTBUF() ? b->mtbuf().vtx_binding : 0);
+   if (a_vtx_binding && a_vtx_binding == b_vtx_binding)
+      return true;
+
+   /* If they load from the same descriptor, assume they might load from similar
+    * addresses.
+    */
+   if (a->isVMEM() && b->isVMEM())
+      return a->operands[0].tempId() == b->operands[0].tempId();
+   if (a->isSMEM() && b->isSMEM())
+      return a->operands[0].tempId() == b->operands[0].tempId();
+
+   return false;
+}
+
 }
