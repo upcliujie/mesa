@@ -1565,11 +1565,6 @@ zink_resource_image_barrier(struct zink_context *ctx, struct zink_batch *batch, 
       flags = access_dst_flags(new_layout);
    if (!zink_resource_image_needs_barrier(res, new_layout, flags, pipeline))
       return;
-   /* only barrier if we're changing layout or doing something besides read -> read */
-   if (!batch) {
-      batch = zink_batch_no_rp(ctx);
-   }
-   assert(!batch->in_rp);
    VkImageSubresourceRange isr = {
       res->aspect,
       0, VK_REMAINING_MIP_LEVELS,
@@ -1588,6 +1583,11 @@ zink_resource_image_barrier(struct zink_context *ctx, struct zink_batch *batch, 
       res->obj->image,
       isr
    };
+   /* only barrier if we're changing layout or doing something besides read -> read */
+   if (!batch) {
+      batch = zink_batch_no_rp(ctx);
+   }
+   assert(!batch->in_rp);
    vkCmdPipelineBarrier(
       batch->state->cmdbuf,
       res->access_stage ? res->access_stage : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -1662,11 +1662,6 @@ zink_resource_buffer_barrier(struct zink_context *ctx, struct zink_batch *batch,
       pipeline = pipeline_access_stage(flags);
    if (!zink_resource_buffer_needs_barrier(res, flags, pipeline))
       return;
-   /* only barrier if we're changing layout or doing something besides read -> read */
-   if (!batch) {
-      batch = zink_batch_no_rp(ctx);
-   }
-   assert(!batch->in_rp);
    VkBufferMemoryBarrier bmb = {
       VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
       NULL,
@@ -1678,7 +1673,11 @@ zink_resource_buffer_barrier(struct zink_context *ctx, struct zink_batch *batch,
       res->obj->offset,
       res->base.width0
    };
-
+   /* only barrier if we're changing layout or doing something besides read -> read */
+   if (!batch) {
+      batch = zink_batch_no_rp(ctx);
+   }
+   assert(!batch->in_rp);
    vkCmdPipelineBarrier(
       batch->state->cmdbuf,
       res->access_stage ? res->access_stage : pipeline_access_stage(res->access),
