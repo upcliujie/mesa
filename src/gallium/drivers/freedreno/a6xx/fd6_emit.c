@@ -1149,7 +1149,9 @@ fd6_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring)
 {
 	//struct fd_context *ctx = batch->ctx;
 
-	fd_log(batch, "START RESTORE");
+	if (!batch->nondraw) {
+		fd_log(batch, "START RESTORE");
+	}
 
 	fd6_cache_inv(batch, ring);
 
@@ -1265,7 +1267,9 @@ fd6_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring)
 	OUT_PKT4(ring, REG_A6XX_RB_LRZ_CNTL, 1);
 	OUT_RING(ring, 0x00000000);
 
-	fd_log(batch, "END RESTORE");
+	if (!batch->nondraw) {
+		fd_log(batch, "END RESTORE");
+	}
 }
 
 static void
