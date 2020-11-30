@@ -936,6 +936,9 @@ replace_constant_input(nir_shader *shader, nir_intrinsic_instr *store_intr)
          if (!does_varying_match(out_var, in_var))
             continue;
 
+         if (in_var->data.sample)
+            continue;
+
          b.cursor = nir_before_instr(instr);
 
          nir_load_const_instr *out_const =
