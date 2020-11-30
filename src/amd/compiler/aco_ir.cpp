@@ -481,4 +481,33 @@ bool needs_exec_mask(const Instruction* instr) {
    return true;
 }
 
+uint32_t get_resource_for_memory_clause(const Instruction *instr)
+{
+   /* Vertex attribute loads can have different descriptors but similar addresses. */
+   int vtx_binding = 0;
+   if (instr->format == Format::MUBUF)
+      vtx_binding = static_cast<const MUBUF_instruction *>(instr)->vtx_binding;
+   else if (instr->format == Format::MTBUF)
+      vtx_binding = static_cast<const MTBUF_instruction *>(instr)->vtx_binding;
+
+   if (vtx_binding > 0)
+      return (0 << 24) | vtx_binding;
+
+   /* If they load from the same descriptor, assume they might load from similar
+    * addresses.
+    */
+   if (instr->isVMEM())
+      return (1 << 24) | instr->operands[0].tempId();
+   if (instr->format == Format::SMEM && instr->operands[0].bytes() == 16)
+      return (2 << 24) | instr->operands[0].tempId();
+
+   /* Assume loads which don't use descriptors might load from similar addresses. */
+   if (instr->isFlatLike())
+      return (3 << 24);
+   if (instr->format == Format::SMEM && instr->operands[0].bytes() == 8)
+      return (4 << 24);
+
+   return (5 << 24);
+}
+
 }

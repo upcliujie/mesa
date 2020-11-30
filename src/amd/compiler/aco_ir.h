@@ -1347,7 +1347,8 @@ struct MUBUF_instruction : public Instruction {
    uint16_t offset : 12; /* Unsigned byte offset - 12 bit */
    uint16_t swizzled : 1;
    uint16_t padding0 : 2;
-   uint16_t padding1;
+   uint16_t vtx_binding : 6; /* 0 if this is not a vertex attribute load */
+   uint16_t padding1 : 10;
 };
 static_assert(sizeof(MUBUF_instruction) == sizeof(Instruction) + 8, "Unexpected padding");
 
@@ -1370,7 +1371,8 @@ struct MTBUF_instruction : public Instruction {
    uint16_t slc : 1; /* system level coherent */
    uint16_t tfe : 1; /* texture fail enable */
    uint16_t disable_wqm : 1; /* Require an exec mask without helper invocations */
-   uint16_t padding : 10;
+   uint16_t vtx_binding : 6; /* 0 if this is not a vertex attribute load */
+   uint16_t padding : 4;
    uint16_t offset; /* Unsigned byte offset - 12 bit */
 };
 static_assert(sizeof(MTBUF_instruction) == sizeof(Instruction) + 8, "Unexpected padding");
@@ -1570,6 +1572,8 @@ aco_ptr<Instruction> convert_to_SDWA(chip_class chip, aco_ptr<Instruction>& inst
 bool needs_exec_mask(const Instruction* instr);
 
 uint32_t get_reduction_identity(ReduceOp op, unsigned idx);
+
+uint32_t get_resource_for_memory_clause(const Instruction *instr);
 
 enum block_kind {
    /* uniform indicates that leaving this block,
