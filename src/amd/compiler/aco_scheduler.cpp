@@ -692,9 +692,8 @@ void schedule_VMEM(sched_ctx& ctx, Block* block,
 
       bool part_of_clause = false;
       if (current->isVMEM() == candidate->isVMEM()) {
-         bool same_resource = true;
-         if (current->isVMEM())
-            same_resource = candidate->operands[0].tempId() == current->operands[0].tempId();
+         bool same_resource = get_resource_for_memory_clause(current) ==
+                              get_resource_for_memory_clause(candidate.get());
          int grab_dist = ctx.mv.insert_idx_clause - candidate_idx;
          /* We can't easily tell how much this will decrease the def-to-use
           * distances, so just use how far it will be moved as a heuristic. */

@@ -40,8 +40,8 @@ void collect_presched_stats(Program *program)
 void collect_preasm_stats(Program *program)
 {
    for (Block& block : program->blocks) {
-      std::set<Temp> vmem_clause_res;
-      std::set<Temp> smem_clause_res;
+      std::set<uint32_t> vmem_clause_res;
+      std::set<uint32_t> smem_clause_res;
 
       program->statistics[statistic_instructions] += block.instructions.size();
 
@@ -53,17 +53,14 @@ void collect_preasm_stats(Program *program)
             program->statistics[statistic_instructions] += 2;
 
          if (instr->isVMEM() && !instr->operands.empty()) {
-            vmem_clause_res.insert(instr->operands[0].getTemp());
+            vmem_clause_res.insert(get_resource_for_memory_clause(instr.get()));
          } else {
             program->statistics[statistic_vmem_clauses] += vmem_clause_res.size();
             vmem_clause_res.clear();
          }
 
          if (instr->isSMEM() && !instr->operands.empty()) {
-            if (instr->operands[0].size() == 2)
-               smem_clause_res.insert(Temp(0, s2));
-            else
-               smem_clause_res.insert(instr->operands[0].getTemp());
+            smem_clause_res.insert(get_resource_for_memory_clause(instr.get()));
          } else {
             program->statistics[statistic_smem_clauses] += smem_clause_res.size();
             smem_clause_res.clear();
