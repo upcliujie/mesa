@@ -196,7 +196,7 @@ _libmesa_util = static_library(
 
 idep_mesautil = declare_dependency(
   link_with : _libmesa_util,
-  include_directories : inc_util,
+  include_directories : [inc_util, inc_src],
   dependencies : [dep_zlib, dep_clock, dep_thread, dep_atomic, dep_m, dep_valgrind],
 )
 
