@@ -2802,18 +2802,12 @@ get_buffer_parameter(struct gl_context *ctx,
       *params = _mesa_bufferobj_mapped(bufObj, MAP_USER);
       break;
    case GL_BUFFER_ACCESS_FLAGS:
-      if (!ctx->Extensions.ARB_map_buffer_range)
-         goto invalid_pname;
       *params = bufObj->Mappings[MAP_USER].AccessFlags;
       break;
    case GL_BUFFER_MAP_OFFSET:
-      if (!ctx->Extensions.ARB_map_buffer_range)
-         goto invalid_pname;
       *params = bufObj->Mappings[MAP_USER].Offset;
       break;
    case GL_BUFFER_MAP_LENGTH:
-      if (!ctx->Extensions.ARB_map_buffer_range)
-         goto invalid_pname;
       *params = bufObj->Mappings[MAP_USER].Length;
       break;
    case GL_BUFFER_IMMUTABLE_STORAGE:
@@ -3434,12 +3428,6 @@ _mesa_MapBufferRange(GLenum target, GLintptr offset, GLsizeiptr length,
    GET_CURRENT_CONTEXT(ctx);
    struct gl_buffer_object *bufObj;
 
-   if (!ctx->Extensions.ARB_map_buffer_range) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "glMapBufferRange(ARB_map_buffer_range not supported)");
-      return NULL;
-   }
-
    bufObj = get_buffer(ctx, "glMapBufferRange", target, GL_INVALID_OPERATION);
    if (!bufObj)
       return NULL;
@@ -3469,12 +3457,6 @@ map_named_buffer_range(GLuint buffer, GLintptr offset, GLsizeiptr length,
 {
    GET_CURRENT_CONTEXT(ctx);
    struct gl_buffer_object *bufObj = NULL;
-
-   if (!ctx->Extensions.ARB_map_buffer_range) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "%s(ARB_map_buffer_range not supported)", func);
-      return NULL;
-   }
 
    if (dsa_ext) {
       bufObj = _mesa_lookup_bufferobj(ctx, buffer);
@@ -3652,12 +3634,6 @@ flush_mapped_buffer_range(struct gl_context *ctx,
                           GLintptr offset, GLsizeiptr length,
                           const char *func)
 {
-   if (!ctx->Extensions.ARB_map_buffer_range) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "%s(ARB_map_buffer_range not supported)", func);
-      return;
-   }
-
    if (offset < 0) {
       _mesa_error(ctx, GL_INVALID_VALUE,
                   "%s(offset %ld < 0)", func, (long) offset);
