@@ -527,7 +527,6 @@ EXTRA_EXT(ARB_shader_image_load_store);
 EXTRA_EXT(ARB_query_buffer_object);
 EXTRA_EXT2(ARB_transform_feedback3, ARB_gpu_shader5);
 EXTRA_EXT(INTEL_performance_query);
-EXTRA_EXT(ARB_explicit_uniform_location);
 EXTRA_EXT(ARB_clip_control);
 EXTRA_EXT(ARB_polygon_offset_clamp);
 EXTRA_EXT(ARB_framebuffer_no_attachments);
