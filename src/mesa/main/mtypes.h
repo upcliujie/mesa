@@ -4435,7 +4435,6 @@ struct gl_extensions
    GLboolean ATI_texture_compression_3dc;
    GLboolean ATI_texture_mirror_once;
    GLboolean ATI_texture_env_combine3;
-   GLboolean ATI_fragment_shader;
    GLboolean GREMEDY_string_marker;
    GLboolean INTEL_blackhole_render;
    GLboolean INTEL_conservative_rasterization;
