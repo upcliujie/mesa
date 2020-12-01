@@ -63,14 +63,12 @@ set_env_mode(struct gl_context *ctx,
    case GL_REPLACE:
    case GL_ADD:
    case GL_COMBINE:
+   case GL_COMBINE4_NV:
       legal = GL_TRUE;
       break;
    case GL_REPLACE_EXT:
       mode = GL_REPLACE; /* GL_REPLACE_EXT != GL_REPLACE */
       legal = GL_TRUE;
-      break;
-   case GL_COMBINE4_NV:
-      legal = ctx->Extensions.NV_texture_env_combine4;
       break;
    default:
       legal = GL_FALSE;
@@ -200,8 +198,7 @@ set_combiner_source(struct gl_context *ctx,
       return false;
    }
 
-   if ((term == 3) && (ctx->API != API_OPENGL_COMPAT
-                       || !ctx->Extensions.NV_texture_env_combine4)) {
+   if ((term == 3) && (ctx->API != API_OPENGL_COMPAT)) {
       TE_ERROR(GL_INVALID_ENUM, "glTexEnv(pname=%s)", pname);
       return false;
    }
@@ -285,8 +282,7 @@ set_combiner_operand(struct gl_context *ctx,
       return false;
    }
 
-   if ((term == 3) && (ctx->API != API_OPENGL_COMPAT
-                       || !ctx->Extensions.NV_texture_env_combine4)) {
+   if ((term == 3) && (ctx->API != API_OPENGL_COMPAT)) {
       TE_ERROR(GL_INVALID_ENUM, "glTexEnv(pname=%s)", pname);
       return false;
    }
@@ -634,7 +630,7 @@ get_texenvi(struct gl_context *ctx,
       return texUnit->Combine.SourceRGB[rgb_idx];
    }
    case GL_SOURCE3_RGB_NV:
-      if (ctx->API == API_OPENGL_COMPAT && ctx->Extensions.NV_texture_env_combine4) {
+      if (ctx->API == API_OPENGL_COMPAT) {
          return texUnit->Combine.SourceRGB[3];
       }
       else {
@@ -648,7 +644,7 @@ get_texenvi(struct gl_context *ctx,
       return texUnit->Combine.SourceA[alpha_idx];
    }
    case GL_SOURCE3_ALPHA_NV:
-      if (ctx->API == API_OPENGL_COMPAT && ctx->Extensions.NV_texture_env_combine4) {
+      if (ctx->API == API_OPENGL_COMPAT) {
          return texUnit->Combine.SourceA[3];
       }
       else {
@@ -662,7 +658,7 @@ get_texenvi(struct gl_context *ctx,
       return texUnit->Combine.OperandRGB[op_rgb];
    }
    case GL_OPERAND3_RGB_NV:
-      if (ctx->API == API_OPENGL_COMPAT && ctx->Extensions.NV_texture_env_combine4) {
+      if (ctx->API == API_OPENGL_COMPAT) {
          return texUnit->Combine.OperandRGB[3];
       }
       else {
@@ -676,7 +672,7 @@ get_texenvi(struct gl_context *ctx,
       return texUnit->Combine.OperandA[op_alpha];
    }
    case GL_OPERAND3_ALPHA_NV:
-      if (ctx->API == API_OPENGL_COMPAT && ctx->Extensions.NV_texture_env_combine4) {
+      if (ctx->API == API_OPENGL_COMPAT) {
          return texUnit->Combine.OperandA[3];
       }
       else {
