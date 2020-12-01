@@ -3538,9 +3538,6 @@ check_explicit_uniform_locations(struct gl_context *ctx,
 {
    prog->NumExplicitUniformLocations = 0;
 
-   if (!ctx->Extensions.ARB_explicit_uniform_location)
-      return;
-
    /* This map is used to detect if overlapping explicit locations
     * occur with the same uniform (from different stage) or a different one.
     */
