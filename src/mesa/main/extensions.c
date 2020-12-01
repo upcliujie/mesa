@@ -131,7 +131,6 @@ _mesa_enable_sw_extensions(struct gl_context *ctx)
    ctx->Extensions.ARB_texture_mirror_clamp_to_edge = GL_TRUE;
    ctx->Extensions.ARB_texture_rg = GL_TRUE;
    ctx->Extensions.ARB_texture_compression_rgtc = GL_TRUE;
-   ctx->Extensions.ARB_vertex_program = GL_TRUE;
    ctx->Extensions.APPLE_object_purgeable = GL_TRUE;
    ctx->Extensions.ATI_fragment_shader = GL_TRUE;
    ctx->Extensions.ATI_texture_compression_3dc = GL_TRUE;

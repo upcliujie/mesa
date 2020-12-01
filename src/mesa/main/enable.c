@@ -1057,8 +1057,6 @@ _mesa_set_enable(struct gl_context *ctx, GLenum cap, GLboolean state)
          break;
 
       case GL_VERTEX_PROGRAM_ARB:
-         if (!_mesa_has_ARB_vertex_program(ctx))
-            goto invalid_enum_error;
          if (ctx->VertexProgram.Enabled == state)
             return;
          FLUSH_VERTICES(ctx, _NEW_PROGRAM);
@@ -1066,20 +1064,12 @@ _mesa_set_enable(struct gl_context *ctx, GLenum cap, GLboolean state)
          _mesa_update_vertex_processing_mode(ctx);
          break;
       case GL_VERTEX_PROGRAM_POINT_SIZE_ARB:
-         /* This was added with ARB_vertex_program, but it is also used with
-          * GLSL vertex shaders on desktop.
-          */
-         if (!_mesa_has_ARB_vertex_program(ctx) &&
-             ctx->API != API_OPENGL_CORE)
-            goto invalid_enum_error;
          if (ctx->VertexProgram.PointSizeEnabled == state)
             return;
          FLUSH_VERTICES(ctx, _NEW_PROGRAM);
          ctx->VertexProgram.PointSizeEnabled = state;
          break;
       case GL_VERTEX_PROGRAM_TWO_SIDE_ARB:
-         if (!_mesa_has_ARB_vertex_program(ctx))
-            goto invalid_enum_error;
          if (ctx->VertexProgram.TwoSideEnabled == state)
             return;
          FLUSH_VERTICES(ctx, _NEW_PROGRAM);
@@ -1826,20 +1816,10 @@ _mesa_IsEnabled( GLenum cap )
          return ctx->Point.PointSprite;
 
       case GL_VERTEX_PROGRAM_ARB:
-         if (!_mesa_has_ARB_vertex_program(ctx))
-            goto invalid_enum_error;
          return ctx->VertexProgram.Enabled;
       case GL_VERTEX_PROGRAM_POINT_SIZE_ARB:
-         /* This was added with ARB_vertex_program, but it is also used with
-          * GLSL vertex shaders on desktop.
-          */
-         if (!_mesa_has_ARB_vertex_program(ctx) &&
-             ctx->API != API_OPENGL_CORE)
-            goto invalid_enum_error;
          return ctx->VertexProgram.PointSizeEnabled;
       case GL_VERTEX_PROGRAM_TWO_SIDE_ARB:
-         if (!_mesa_has_ARB_vertex_program(ctx))
-            goto invalid_enum_error;
          return ctx->VertexProgram.TwoSideEnabled;
 
       /* GL_NV_texture_rectangle */
