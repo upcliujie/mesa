@@ -51,17 +51,17 @@ void cso_destroy_context( struct cso_context *cso );
 struct pipe_context *cso_get_pipe_context(struct cso_context *cso);
 
 
-enum pipe_error cso_set_blend( struct cso_context *cso,
-                               const struct pipe_blend_state *blend );
+void cso_set_blend(struct cso_context *cso,
+                   const struct pipe_blend_state *blend);
 
 
-enum pipe_error cso_set_depth_stencil_alpha( struct cso_context *cso,
-                                             const struct pipe_depth_stencil_alpha_state *dsa );
+void cso_set_depth_stencil_alpha(struct cso_context *cso,
+                                 const struct pipe_depth_stencil_alpha_state *dsa);
 
 
 
-enum pipe_error cso_set_rasterizer( struct cso_context *cso,
-                                    const struct pipe_rasterizer_state *rasterizer );
+void cso_set_rasterizer(struct cso_context *cso,
+                        const struct pipe_rasterizer_state *rasterizer);
 
 
 void
@@ -83,8 +83,8 @@ cso_single_sampler_done(struct cso_context *cso,
                         enum pipe_shader_type shader_stage);
 
 
-enum pipe_error cso_set_vertex_elements(struct cso_context *ctx,
-                                        const struct cso_velems_state *velems);
+void cso_set_vertex_elements(struct cso_context *ctx,
+                             const struct cso_velems_state *velems);
 
 void cso_set_vertex_buffers(struct cso_context *ctx,
                             unsigned start_slot, unsigned count,
