@@ -45,8 +45,12 @@ gather_intrinsic_load_input_info(const nir_shader *nir,
 
 		info->vs.input_usage_mask[idx] |= mask << component;
 		if (idx >= VERT_ATTRIB_GENERIC0 && idx < VERT_ATTRIB_GENERIC0 + MAX_VERTEX_ATTRIBS) {
-			unsigned binding = key->vs.vertex_attribute_bindings[idx - VERT_ATTRIB_GENERIC0];
-			info->vs.binding_usage_mask |= 1u << binding;
+			unsigned location = idx - VERT_ATTRIB_GENERIC0;
+			unsigned binding = key->vs.vertex_attribute_bindings[location];
+			if (info->vs.use_per_attribute_vb_descs)
+				info->vs.vb_desc_usage_mask |= 1u << location;
+			else
+				info->vs.vb_desc_usage_mask |= 1u << binding;
 		}
 		break;
 	}
@@ -548,7 +552,8 @@ radv_nir_shader_info_init(struct radv_shader_info *info)
 }
 
 void
-radv_nir_shader_info_pass(const struct nir_shader *nir,
+radv_nir_shader_info_pass(struct radv_device *device,
+			  const struct nir_shader *nir,
 			  const struct radv_pipeline_layout *layout,
 			  const struct radv_shader_variant_key *key,
 			  struct radv_shader_info *info)
@@ -560,6 +565,13 @@ radv_nir_shader_info_pass(const struct nir_shader *nir,
 	    (layout->dynamic_shader_stages & mesa_to_vk_shader_stage(nir->info.stage))) {
 		info->loads_push_constants = true;
 		info->loads_dynamic_offsets = true;
+	}
+
+	if (nir->info.stage == MESA_SHADER_VERTEX) {
+		/* Use per-attribute vertex descriptors to prevent faults and
+		 * for correct bounds checking.
+		 */
+		info->vs.use_per_attribute_vb_descs = device->robust_buffer_access;
 	}
 
 	nir_foreach_shader_in_variable(variable, nir)
