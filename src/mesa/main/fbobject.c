@@ -1609,8 +1609,6 @@ framebuffer_parameteri(struct gl_context *ctx, struct gl_framebuffer *fb,
          goto invalid_pname_enum;
       break;
    case GL_FRAMEBUFFER_FLIP_Y_MESA:
-      if (!ctx->Extensions.MESA_framebuffer_flip_y)
-         goto invalid_pname_enum;
       cannot_be_winsys_fbo = true;
       break;
    default:
@@ -1693,24 +1691,11 @@ validate_framebuffer_parameter_extensions(GLenum pname, const char *func)
 {
    GET_CURRENT_CONTEXT(ctx);
 
-   if (!ctx->Extensions.ARB_framebuffer_no_attachments &&
-       !ctx->Extensions.ARB_sample_locations &&
-       !ctx->Extensions.MESA_framebuffer_flip_y) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "%s not supported "
-                  "(none of ARB_framebuffer_no_attachments,"
-                  " ARB_sample_locations, or"
-                  " MESA_framebuffer_flip_y extensions are available)",
-                  func);
-      return false;
-   }
-
    /*
     * If only the MESA_framebuffer_flip_y extension is enabled
     * pname can only be GL_FRAMEBUFFER_FLIP_Y_MESA
     */
-   if (ctx->Extensions.MESA_framebuffer_flip_y &&
-       pname != GL_FRAMEBUFFER_FLIP_Y_MESA &&
+   if (pname != GL_FRAMEBUFFER_FLIP_Y_MESA &&
        !(ctx->Extensions.ARB_framebuffer_no_attachments ||
          ctx->Extensions.ARB_sample_locations)) {
       _mesa_error(ctx, GL_INVALID_ENUM, "%s(pname=0x%x)", func, pname);
@@ -1795,10 +1780,6 @@ validate_get_framebuffer_parameteriv_pname(struct gl_context *ctx,
       cannot_be_winsys_fbo = false;
       break;
    case GL_FRAMEBUFFER_FLIP_Y_MESA:
-      if (!ctx->Extensions.MESA_framebuffer_flip_y) {
-         _mesa_error(ctx, GL_INVALID_ENUM, "%s(pname=0x%x)", func, pname);
-         return false;
-      }
       break;
    default:
       goto invalid_pname_enum;
