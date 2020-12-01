@@ -1035,7 +1035,6 @@ void st_init_extensions(struct pipe_screen *screen,
    /*
     * Extensions that are supported by all Gallium drivers:
     */
-   extensions->EXT_provoking_vertex = GL_TRUE;
    extensions->EXT_texture_env_dot3 = GL_TRUE;
 
    extensions->ATI_fragment_shader = GL_TRUE;
