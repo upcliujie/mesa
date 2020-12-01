@@ -122,7 +122,6 @@ void
 _mesa_enable_sw_extensions(struct gl_context *ctx)
 {
    ctx->Extensions.ARB_depth_clamp = GL_TRUE;
-   ctx->Extensions.ARB_draw_elements_base_vertex = GL_TRUE;
    ctx->Extensions.ARB_draw_instanced = GL_TRUE;
    ctx->Extensions.ARB_explicit_attrib_location = GL_TRUE;
    ctx->Extensions.ARB_fragment_coord_conventions = GL_TRUE;

@@ -316,7 +316,7 @@ compute_version(const struct gl_extensions *extensions,
    const bool ver_3_2 = (ver_3_1 &&
                          consts->GLSLVersion >= 150 &&
                          extensions->ARB_depth_clamp &&
-                         extensions->ARB_draw_elements_base_vertex &&
+                         /* extensions->ARB_draw_elements_base_vertex && */
                          extensions->ARB_fragment_coord_conventions &&
                          extensions->EXT_provoking_vertex &&
                          extensions->ARB_seamless_cube_map &&
@@ -585,7 +585,7 @@ compute_version_es2(const struct gl_extensions *extensions,
                          extensions->KHR_texture_compression_astc_ldr &&
                          extensions->OES_copy_image &&
                          extensions->ARB_draw_buffers_blend &&
-                         extensions->ARB_draw_elements_base_vertex &&
+                         /* extensions->ARB_draw_elements_base_vertex && */
                          extensions->OES_geometry_shader &&
                          extensions->OES_primitive_bounding_box &&
                          extensions->OES_sample_variables &&
