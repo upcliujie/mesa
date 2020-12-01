@@ -1035,7 +1035,6 @@ void st_init_extensions(struct pipe_screen *screen,
    /*
     * Extensions that are supported by all Gallium drivers:
     */
-   extensions->ARB_fragment_coord_conventions = GL_TRUE;
    extensions->ARB_fragment_program = GL_TRUE;
    extensions->ARB_fragment_program_shadow = GL_TRUE;
    extensions->ARB_half_float_vertex = GL_TRUE;
