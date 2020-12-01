@@ -32,11 +32,6 @@ static void
 draw_texture(struct gl_context *ctx, GLfloat x, GLfloat y, GLfloat z,
              GLfloat width, GLfloat height)
 {
-   if (!ctx->Extensions.OES_draw_texture) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "glDrawTex(unsupported)");
-      return;
-   }
    if (width <= 0.0f || height <= 0.0f) {
       _mesa_error(ctx, GL_INVALID_VALUE, "glDrawTex(width or height <= 0)");
       return;
