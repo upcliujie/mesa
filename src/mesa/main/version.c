@@ -353,7 +353,7 @@ compute_version(const struct gl_extensions *extensions,
                          consts->GLSLVersion >= 410 &&
                          consts->MaxTextureSize >= 16384 &&
                          consts->MaxRenderbufferSize >= 16384 &&
-                         extensions->ARB_ES2_compatibility &&
+                         /* extensions->ARB_ES2_compatibility && */
                          extensions->ARB_shader_precision &&
                          extensions->ARB_vertex_attrib_64bit &&
                          extensions->ARB_viewport_array);
@@ -769,7 +769,7 @@ _mesa_get_shading_language_version(const struct gl_context *ctx,
       GLSL_VERSION("310 es");
    if (_mesa_is_gles3(ctx) || ctx->Extensions.ARB_ES3_compatibility)
       GLSL_VERSION("300 es");
-   if (ctx->API == API_OPENGLES2 || ctx->Extensions.ARB_ES2_compatibility)
+   if (ctx->API == API_OPENGLES2)
       GLSL_VERSION("100");
 
 #undef GLSL_VERSION
