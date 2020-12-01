@@ -268,7 +268,7 @@ descriptor=[
 
 { "apis": ["GL", "GL_CORE", "GLES2"], "params": [
 # == GL_MAX_TEXTURE_COORDS_NV
-  [ "MAX_TEXTURE_COORDS_ARB", "CONTEXT_INT(Const.MaxTextureCoordUnits), extra_ARB_fragment_program" ],
+  [ "MAX_TEXTURE_COORDS_ARB", "CONTEXT_INT(Const.MaxTextureCoordUnits), NO_EXTRA" ],
   [ "PACK_IMAGE_HEIGHT", "CONTEXT_INT(Pack.ImageHeight), NO_EXTRA" ],
   [ "PACK_ROW_LENGTH", "CONTEXT_INT(Pack.RowLength), NO_EXTRA" ],
   [ "PACK_SKIP_PIXELS", "CONTEXT_INT(Pack.SkipPixels), NO_EXTRA" ],
@@ -305,7 +305,7 @@ descriptor=[
 
 # GL_ARB_fragment_program
 # == GL_MAX_TEXTURE_IMAGE_UNITS_NV
-  [ "MAX_TEXTURE_IMAGE_UNITS_ARB", "CONTEXT_INT(Const.Program[MESA_SHADER_FRAGMENT].MaxTextureImageUnits), extra_ARB_fragment_program" ],
+  [ "MAX_TEXTURE_IMAGE_UNITS_ARB", "CONTEXT_INT(Const.Program[MESA_SHADER_FRAGMENT].MaxTextureImageUnits), NO_EXTRA" ],
   [ "MAX_VERTEX_TEXTURE_IMAGE_UNITS_ARB", "CONTEXT_INT(Const.Program[MESA_SHADER_VERTEX].MaxTextureImageUnits), NO_EXTRA" ],
   [ "MAX_COMBINED_TEXTURE_IMAGE_UNITS_ARB", "CONTEXT_INT(Const.MaxCombinedTextureImageUnits), NO_EXTRA" ],
 
@@ -901,20 +901,20 @@ descriptor=[
 # == GL_VERTEX_PROGRAM_TWO_SIDE_NV
   [ "VERTEX_PROGRAM_TWO_SIDE_ARB", "CONTEXT_BOOL(VertexProgram.TwoSideEnabled), extra_ARB_vertex_program" ],
 # == GL_MAX_TRACK_MATRIX_STACK_DEPTH_NV
-  [ "MAX_PROGRAM_MATRIX_STACK_DEPTH_ARB", "CONTEXT_INT(Const.MaxProgramMatrixStackDepth), extra_ARB_vertex_program_ARB_fragment_program" ],
+  [ "MAX_PROGRAM_MATRIX_STACK_DEPTH_ARB", "CONTEXT_INT(Const.MaxProgramMatrixStackDepth), extra_ARB_vertex_program" ],
 # == GL_MAX_TRACK_MATRICES_NV
-  [ "MAX_PROGRAM_MATRICES_ARB", "CONTEXT_INT(Const.MaxProgramMatrices), extra_ARB_vertex_program_ARB_fragment_program" ],
+  [ "MAX_PROGRAM_MATRICES_ARB", "CONTEXT_INT(Const.MaxProgramMatrices), extra_ARB_vertex_program" ],
 # == GL_CURRENT_MATRIX_STACK_DEPTH_NV
-  [ "CURRENT_MATRIX_STACK_DEPTH_ARB", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_vertex_program_ARB_fragment_program" ],
+  [ "CURRENT_MATRIX_STACK_DEPTH_ARB", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_vertex_program" ],
 # == GL_CURRENT_MATRIX_NV
-  [ "CURRENT_MATRIX_ARB", "LOC_CUSTOM, TYPE_MATRIX, 0, extra_ARB_vertex_program_ARB_fragment_program" ],
+  [ "CURRENT_MATRIX_ARB", "LOC_CUSTOM, TYPE_MATRIX, 0, extra_ARB_vertex_program" ],
 # == GL_CURRENT_MATRIX_NV
-  [ "TRANSPOSE_CURRENT_MATRIX_ARB", "LOC_CUSTOM, TYPE_MATRIX_T, 0, extra_ARB_vertex_program_ARB_fragment_program" ],
+  [ "TRANSPOSE_CURRENT_MATRIX_ARB", "LOC_CUSTOM, TYPE_MATRIX_T, 0, extra_ARB_vertex_program" ],
 # == GL_PROGRAM_ERROR_POSITION_NV
-  [ "PROGRAM_ERROR_POSITION_ARB", "CONTEXT_INT(Program.ErrorPos), extra_ARB_vertex_program_ARB_fragment_program" ],
+  [ "PROGRAM_ERROR_POSITION_ARB", "CONTEXT_INT(Program.ErrorPos), extra_ARB_vertex_program" ],
 
 # GL_ARB_fragment_program
-  [ "FRAGMENT_PROGRAM_ARB", "CONTEXT_BOOL(FragmentProgram.Enabled), extra_ARB_fragment_program" ],
+  [ "FRAGMENT_PROGRAM_ARB", "CONTEXT_BOOL(FragmentProgram.Enabled), NO_EXTRA" ],
 
 # GL_EXT_packed_float
   [ "RGBA_SIGNED_COMPONENTS_EXT", "LOC_CUSTOM, TYPE_INT_4, 0, extra_EXT_packed_float" ],
