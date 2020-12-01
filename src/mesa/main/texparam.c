@@ -1529,12 +1529,11 @@ _mesa_legal_get_tex_level_parameter_target(struct gl_context *ctx, GLenum target
    case GL_PROXY_TEXTURE_2D:
    case GL_PROXY_TEXTURE_3D:
    case GL_PROXY_TEXTURE_CUBE_MAP:
+   case GL_TEXTURE_RECTANGLE_NV:
+   case GL_PROXY_TEXTURE_RECTANGLE_NV:
       return GL_TRUE;
    case GL_PROXY_TEXTURE_CUBE_MAP_ARRAY:
       return ctx->Extensions.ARB_texture_cube_map_array;
-   case GL_TEXTURE_RECTANGLE_NV:
-   case GL_PROXY_TEXTURE_RECTANGLE_NV:
-      return ctx->Extensions.NV_texture_rectangle;
    case GL_TEXTURE_1D_ARRAY_EXT:
    case GL_PROXY_TEXTURE_1D_ARRAY_EXT:
    case GL_PROXY_TEXTURE_2D_ARRAY_EXT:

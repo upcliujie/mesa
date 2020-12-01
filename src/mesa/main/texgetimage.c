@@ -852,9 +852,8 @@ legal_getteximage_target(struct gl_context *ctx, GLenum target, bool dsa)
    case GL_TEXTURE_1D:
    case GL_TEXTURE_2D:
    case GL_TEXTURE_3D:
-      return GL_TRUE;
    case GL_TEXTURE_RECTANGLE_NV:
-      return ctx->Extensions.NV_texture_rectangle;
+      return GL_TRUE;
    case GL_TEXTURE_1D_ARRAY_EXT:
    case GL_TEXTURE_2D_ARRAY_EXT:
       return ctx->Extensions.EXT_texture_array;

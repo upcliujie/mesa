@@ -222,8 +222,6 @@ void initialize_context_to_defaults(struct gl_context *ctx, gl_api api)
 
    ctx->Extensions.MESA_shader_integer_functions = true;
 
-   ctx->Extensions.NV_texture_rectangle = true;
-
    ctx->Const.GLSLVersion = 120;
 
    /* 1.20 minimums. */
