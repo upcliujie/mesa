@@ -67,7 +67,7 @@ struct ntv_context {
    size_t num_regs;
 
    struct hash_table *vars; /* nir_variable -> SpvId */
-   struct hash_table *image_vars; /* SpvId -> nir_variable */
+   struct hash_table *spv_vars; /* SpvId -> nir_variable */
    struct hash_table *so_outputs; /* pipe_stream_output -> SpvId */
    unsigned outputs[VARYING_SLOT_MAX * 4];
    const struct glsl_type *so_output_gl_types[VARYING_SLOT_MAX * 4];
@@ -859,7 +859,7 @@ emit_image(struct ntv_context *ctx, struct nir_variable *var)
       _mesa_hash_table_insert(ctx->vars, var, (void *)(intptr_t)var_id);
       uint32_t *key = ralloc_size(ctx->mem_ctx, sizeof(uint32_t));
       *key = var_id;
-      _mesa_hash_table_insert(ctx->image_vars, key, var);
+      _mesa_hash_table_insert(ctx->spv_vars, key, var);
       emit_access_decorations(ctx, var, var_id);
    }
 
@@ -2518,7 +2518,7 @@ emit_shared_atomic_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
 static inline nir_variable *
 get_var_from_image(struct ntv_context *ctx, SpvId var_id)
 {
-   struct hash_entry *he = _mesa_hash_table_search(ctx->image_vars, &var_id);
+   struct hash_entry *he = _mesa_hash_table_search(ctx->spv_vars, &var_id);
    assert(he);
    return he->data;
 }
@@ -3387,7 +3387,7 @@ emit_deref_array(struct ntv_context *ctx, nir_deref_instr *deref)
    if (glsl_type_is_image(glsl_without_array(var->type))) {
       uint32_t *key = ralloc_size(ctx->mem_ctx, sizeof(uint32_t));
       *key = result;
-      _mesa_hash_table_insert(ctx->image_vars, key, var);
+      _mesa_hash_table_insert(ctx->spv_vars, key, var);
    }
 }
 
@@ -3813,7 +3813,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
    ctx.vars = _mesa_hash_table_create(ctx.mem_ctx, _mesa_hash_pointer,
                                       _mesa_key_pointer_equal);
 
-   ctx.image_vars = _mesa_hash_table_create(ctx.mem_ctx, _mesa_hash_u32,
+   ctx.spv_vars = _mesa_hash_table_create(ctx.mem_ctx, _mesa_hash_u32,
                                       _mesa_key_u32_equal);
 
    ctx.so_outputs = _mesa_hash_table_create(ctx.mem_ctx, _mesa_hash_u32,
