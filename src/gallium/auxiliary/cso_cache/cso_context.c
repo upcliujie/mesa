@@ -406,8 +406,9 @@ void cso_destroy_context( struct cso_context *ctx )
  * the data member of the cso to be the template itself.
  */
 
-enum pipe_error cso_set_blend(struct cso_context *ctx,
-                              const struct pipe_blend_state *templ)
+void
+cso_set_blend(struct cso_context *ctx,
+              const struct pipe_blend_state *templ)
 {
    unsigned key_size, hash_key;
    struct cso_hash_iter iter;
@@ -423,7 +424,7 @@ enum pipe_error cso_set_blend(struct cso_context *ctx,
    if (cso_hash_iter_is_null(iter)) {
       struct cso_blend *cso = MALLOC(sizeof(struct cso_blend));
       if (!cso)
-         return PIPE_ERROR_OUT_OF_MEMORY;
+         return;
 
       memset(&cso->state, 0, sizeof cso->state);
       memcpy(&cso->state, templ, key_size);
@@ -432,7 +433,7 @@ enum pipe_error cso_set_blend(struct cso_context *ctx,
       iter = cso_insert_state(&ctx->cache, hash_key, CSO_BLEND, cso);
       if (cso_hash_iter_is_null(iter)) {
          FREE(cso);
-         return PIPE_ERROR_OUT_OF_MEMORY;
+         return;
       }
 
       handle = cso->data;
@@ -445,7 +446,6 @@ enum pipe_error cso_set_blend(struct cso_context *ctx,
       ctx->blend = handle;
       ctx->pipe->bind_blend_state(ctx->pipe, handle);
    }
-   return PIPE_OK;
 }
 
 static void
@@ -467,7 +467,7 @@ cso_restore_blend(struct cso_context *ctx)
 
 
 
-enum pipe_error
+void
 cso_set_depth_stencil_alpha(struct cso_context *ctx,
                             const struct pipe_depth_stencil_alpha_state *templ)
 {
@@ -483,7 +483,7 @@ cso_set_depth_stencil_alpha(struct cso_context *ctx,
       struct cso_depth_stencil_alpha *cso =
          MALLOC(sizeof(struct cso_depth_stencil_alpha));
       if (!cso)
-         return PIPE_ERROR_OUT_OF_MEMORY;
+         return;
 
       memcpy(&cso->state, templ, sizeof(*templ));
       cso->data = ctx->pipe->create_depth_stencil_alpha_state(ctx->pipe,
@@ -493,7 +493,7 @@ cso_set_depth_stencil_alpha(struct cso_context *ctx,
                               CSO_DEPTH_STENCIL_ALPHA, cso);
       if (cso_hash_iter_is_null(iter)) {
          FREE(cso);
-         return PIPE_ERROR_OUT_OF_MEMORY;
+         return;
       }
 
       handle = cso->data;
@@ -507,7 +507,6 @@ cso_set_depth_stencil_alpha(struct cso_context *ctx,
       ctx->depth_stencil = handle;
       ctx->pipe->bind_depth_stencil_alpha_state(ctx->pipe, handle);
    }
-   return PIPE_OK;
 }
 
 static void
@@ -530,8 +529,9 @@ cso_restore_depth_stencil_alpha(struct cso_context *ctx)
 
 
 
-enum pipe_error cso_set_rasterizer(struct cso_context *ctx,
-                                   const struct pipe_rasterizer_state *templ)
+void
+cso_set_rasterizer(struct cso_context *ctx,
+                   const struct pipe_rasterizer_state *templ)
 {
    unsigned key_size = sizeof(struct pipe_rasterizer_state);
    unsigned hash_key = cso_construct_key((void*)templ, key_size);
@@ -549,7 +549,7 @@ enum pipe_error cso_set_rasterizer(struct cso_context *ctx,
    if (cso_hash_iter_is_null(iter)) {
       struct cso_rasterizer *cso = MALLOC(sizeof(struct cso_rasterizer));
       if (!cso)
-         return PIPE_ERROR_OUT_OF_MEMORY;
+         return;
 
       memcpy(&cso->state, templ, sizeof(*templ));
       cso->data = ctx->pipe->create_rasterizer_state(ctx->pipe, &cso->state);
@@ -557,7 +557,7 @@ enum pipe_error cso_set_rasterizer(struct cso_context *ctx,
       iter = cso_insert_state(&ctx->cache, hash_key, CSO_RASTERIZER, cso);
       if (cso_hash_iter_is_null(iter)) {
          FREE(cso);
-         return PIPE_ERROR_OUT_OF_MEMORY;
+         return;
       }
 
       handle = cso->data;
@@ -570,7 +570,6 @@ enum pipe_error cso_set_rasterizer(struct cso_context *ctx,
       ctx->rasterizer = handle;
       ctx->pipe->bind_rasterizer_state(ctx->pipe, handle);
    }
-   return PIPE_OK;
 }
 
 static void
@@ -977,19 +976,16 @@ cso_set_vertex_elements_direct(struct cso_context *ctx,
    }
 }
 
-enum pipe_error
+void
 cso_set_vertex_elements(struct cso_context *ctx,
                         const struct cso_velems_state *velems)
 {
    struct u_vbuf *vbuf = ctx->vbuf_current;
 
-   if (vbuf) {
+   if (vbuf)
       u_vbuf_set_vertex_elements(vbuf, velems);
-      return PIPE_OK;
-   }
-
-   cso_set_vertex_elements_direct(ctx, velems);
-   return PIPE_OK;
+   else
+      cso_set_vertex_elements_direct(ctx, velems);
 }
 
 static void
