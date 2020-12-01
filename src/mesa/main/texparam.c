@@ -509,7 +509,7 @@ set_tex_parameteri(struct gl_context *ctx,
       goto invalid_pname;
 
    case GL_TEXTURE_CROP_RECT_OES:
-      if (ctx->API != API_OPENGLES || !ctx->Extensions.OES_draw_texture)
+      if (ctx->API != API_OPENGLES)
          goto invalid_pname;
 
       texObj->CropRect[0] = params[0];
@@ -2242,7 +2242,7 @@ get_tex_parameterfv(struct gl_context *ctx,
          *params = obj->Sampler.Attrib.LodBias;
          break;
       case GL_TEXTURE_CROP_RECT_OES:
-         if (ctx->API != API_OPENGLES || !ctx->Extensions.OES_draw_texture)
+         if (ctx->API != API_OPENGLES)
             goto invalid_pname;
 
          params[0] = (GLfloat) obj->CropRect[0];
@@ -2511,7 +2511,7 @@ get_tex_parameteriv(struct gl_context *ctx,
          *params = CLAMP(lroundf(obj->Sampler.Attrib.LodBias), INT_MIN, INT_MAX);
          break;
       case GL_TEXTURE_CROP_RECT_OES:
-         if (ctx->API != API_OPENGLES || !ctx->Extensions.OES_draw_texture)
+         if (ctx->API != API_OPENGLES)
             goto invalid_pname;
 
          params[0] = obj->CropRect[0];
