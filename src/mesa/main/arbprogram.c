@@ -110,8 +110,7 @@ _mesa_BindProgramARB(GLenum target, GLuint id)
    if (target == GL_VERTEX_PROGRAM_ARB && ctx->Extensions.ARB_vertex_program) {
       curProg = ctx->VertexProgram.Current;
    }
-   else if (target == GL_FRAGMENT_PROGRAM_ARB
-            && ctx->Extensions.ARB_fragment_program) {
+   else if (target == GL_FRAGMENT_PROGRAM_ARB) {
       curProg = ctx->FragmentProgram.Current;
    }
    else {
@@ -273,8 +272,7 @@ get_current_program(struct gl_context* ctx, GLenum target, const char* caller)
        && ctx->Extensions.ARB_vertex_program) {
       return ctx->VertexProgram.Current;
    }
-   else if (target == GL_FRAGMENT_PROGRAM_ARB
-            && ctx->Extensions.ARB_fragment_program) {
+   else if (target == GL_FRAGMENT_PROGRAM_ARB) {
       return ctx->FragmentProgram.Current;
    }
    else {
@@ -318,8 +316,7 @@ static GLboolean
 get_env_param_pointer(struct gl_context *ctx, const char *func,
 		      GLenum target, GLuint index, GLfloat **param)
 {
-   if (target == GL_FRAGMENT_PROGRAM_ARB
-       && ctx->Extensions.ARB_fragment_program) {
+   if (target == GL_FRAGMENT_PROGRAM_ARB) {
       if (index >= ctx->Const.Program[MESA_SHADER_FRAGMENT].MaxEnvParams) {
          _mesa_error(ctx, GL_INVALID_VALUE, "%s(index)", func);
          return GL_FALSE;
@@ -350,12 +347,6 @@ set_program_string(struct gl_program *prog, GLenum target, GLenum format, GLsize
 
    FLUSH_VERTICES(ctx, _NEW_PROGRAM);
 
-   if (!ctx->Extensions.ARB_vertex_program
-       && !ctx->Extensions.ARB_fragment_program) {
-      _mesa_error(ctx, GL_INVALID_OPERATION, "glProgramStringARB()");
-      return;
-   }
-
    if (format != GL_PROGRAM_FORMAT_ASCII_ARB) {
       _mesa_error(ctx, GL_INVALID_ENUM, "glProgramStringARB(format)");
       return;
@@ -379,8 +370,7 @@ set_program_string(struct gl_program *prog, GLenum target, GLenum format, GLsize
    if (target == GL_VERTEX_PROGRAM_ARB && ctx->Extensions.ARB_vertex_program) {
       _mesa_parse_arb_vertex_program(ctx, target, string, len, prog);
    }
-   else if (target == GL_FRAGMENT_PROGRAM_ARB
-            && ctx->Extensions.ARB_fragment_program) {
+   else if (target == GL_FRAGMENT_PROGRAM_ARB) {
       _mesa_parse_arb_fragment_program(ctx, target, string, len, prog);
    }
    else {
@@ -452,8 +442,7 @@ _mesa_ProgramStringARB(GLenum target, GLenum format, GLsizei len,
    if (target == GL_VERTEX_PROGRAM_ARB && ctx->Extensions.ARB_vertex_program) {
       set_program_string(ctx->VertexProgram.Current, target, format, len, string);
    }
-   else if (target == GL_FRAGMENT_PROGRAM_ARB
-            && ctx->Extensions.ARB_fragment_program) {
+   else if (target == GL_FRAGMENT_PROGRAM_ARB) {
       set_program_string(ctx->FragmentProgram.Current, target, format, len, string);
    }
    else {
@@ -558,8 +547,7 @@ _mesa_ProgramEnvParameters4fvEXT(GLenum target, GLuint index, GLsizei count,
       _mesa_error(ctx, GL_INVALID_VALUE, "glProgramEnvParameters4fv(count)");
    }
 
-   if (target == GL_FRAGMENT_PROGRAM_ARB
-       && ctx->Extensions.ARB_fragment_program) {
+   if (target == GL_FRAGMENT_PROGRAM_ARB) {
       if ((index + count) > ctx->Const.Program[MESA_SHADER_FRAGMENT].MaxEnvParams) {
          _mesa_error(ctx, GL_INVALID_VALUE, "glProgramEnvParameters4fv(index + count)");
          return;
