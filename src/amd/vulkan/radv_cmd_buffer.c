@@ -2845,8 +2845,9 @@ radv_flush_vertex_descriptors(struct radv_cmd_buffer *cmd_buffer,
 		struct radv_pipeline *pipeline = cmd_buffer->state.pipeline;
 		unsigned vb_offset;
 		void *vb_ptr;
+		unsigned desc_index = 0;
 		uint32_t mask = pipeline->vb_desc_usage_mask;
-		uint32_t count = util_last_bit(mask);
+		uint32_t count = util_bitcount(mask);
 		uint64_t va;
 
 		/* allocate some descriptor state for vertex buffers */
@@ -2856,7 +2857,7 @@ radv_flush_vertex_descriptors(struct radv_cmd_buffer *cmd_buffer,
 
 		while (mask) {
 			unsigned i = u_bit_scan(&mask);
-			uint32_t *desc = &((uint32_t *)vb_ptr)[i * 4];
+			uint32_t *desc = &((uint32_t *)vb_ptr)[desc_index++ * 4];
 			uint32_t offset;
 			unsigned binding = pipeline->use_per_attribute_vb_descs ?
 					   pipeline->attrib_bindings[i] : i;
