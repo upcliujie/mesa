@@ -122,7 +122,6 @@ set_combiner_mode(struct gl_context *ctx,
    case GL_DOT3_RGB_EXT:
    case GL_DOT3_RGBA_EXT:
       legal = (ctx->API == API_OPENGL_COMPAT &&
-               ctx->Extensions.EXT_texture_env_dot3 &&
                pname == GL_COMBINE_RGB);
       break;
    case GL_DOT3_RGB:
