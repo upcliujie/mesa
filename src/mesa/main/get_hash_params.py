@@ -488,8 +488,8 @@ descriptor=[
 # supporting sample shading.
   [ "FRAGMENT_SHADER_DISCARDS_SAMPLES_EXT", "CONTEXT_BOOL(Extensions.EXT_shader_framebuffer_fetch), extra_EXT_shader_framebuffer_fetch" ],
 # GL_OES_EGL_image_external
-  [ "TEXTURE_BINDING_EXTERNAL_OES", "LOC_CUSTOM, TYPE_INT, TEXTURE_EXTERNAL_INDEX, extra_OES_EGL_image_external" ],
-  [ "TEXTURE_EXTERNAL_OES", "LOC_CUSTOM, TYPE_BOOLEAN, 0, extra_OES_EGL_image_external" ],
+  [ "TEXTURE_BINDING_EXTERNAL_OES", "LOC_CUSTOM, TYPE_INT, TEXTURE_EXTERNAL_INDEX, NO_EXTRA" ],
+  [ "TEXTURE_EXTERNAL_OES", "LOC_CUSTOM, TYPE_BOOLEAN, 0, NO_EXTRA" ],
 ]},
 
 # Enums in OpenGL and ES 3.1

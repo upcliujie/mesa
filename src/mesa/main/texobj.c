@@ -196,8 +196,7 @@ _mesa_get_current_tex_object(struct gl_context *ctx, GLenum target)
                  _mesa_has_OES_texture_buffer(ctx)) ?
                 texUnit->CurrentTex[TEXTURE_BUFFER_INDEX] : NULL;
       case GL_TEXTURE_EXTERNAL_OES:
-         return _mesa_is_gles(ctx) && ctx->Extensions.OES_EGL_image_external
-            ? texUnit->CurrentTex[TEXTURE_EXTERNAL_INDEX] : NULL;
+         return _mesa_is_gles(ctx) ? texUnit->CurrentTex[TEXTURE_EXTERNAL_INDEX] : NULL;
       case GL_TEXTURE_2D_MULTISAMPLE:
          return ctx->Extensions.ARB_texture_multisample
             ? texUnit->CurrentTex[TEXTURE_2D_MULTISAMPLE_INDEX] : NULL;
@@ -1568,8 +1567,7 @@ _mesa_tex_target_to_index(const struct gl_context *ctx, GLenum target)
               _mesa_has_OES_texture_buffer(ctx)) ?
              TEXTURE_BUFFER_INDEX : -1;
    case GL_TEXTURE_EXTERNAL_OES:
-      return _mesa_is_gles(ctx) && ctx->Extensions.OES_EGL_image_external
-         ? TEXTURE_EXTERNAL_INDEX : -1;
+      return _mesa_is_gles(ctx) ? TEXTURE_EXTERNAL_INDEX : -1;
    case GL_TEXTURE_CUBE_MAP_ARRAY:
       return _mesa_has_texture_cube_map_array(ctx)
          ? TEXTURE_CUBE_ARRAY_INDEX : -1;

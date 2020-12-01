@@ -2319,7 +2319,7 @@ get_tex_parameterfv(struct gl_context *ctx,
          break;
 
       case GL_REQUIRED_TEXTURE_IMAGE_UNITS_OES:
-         if (!_mesa_is_gles(ctx) || !ctx->Extensions.OES_EGL_image_external)
+         if (!_mesa_is_gles(ctx))
             goto invalid_pname;
          *params = (GLfloat) obj->RequiredTextureImageUnits;
          break;
@@ -2582,7 +2582,7 @@ get_tex_parameteriv(struct gl_context *ctx,
          break;
 
       case GL_REQUIRED_TEXTURE_IMAGE_UNITS_OES:
-         if (!_mesa_is_gles(ctx) || !ctx->Extensions.OES_EGL_image_external)
+         if (!_mesa_is_gles(ctx))
             goto invalid_pname;
          *params = obj->RequiredTextureImageUnits;
          break;
