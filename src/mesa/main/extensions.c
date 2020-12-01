@@ -148,7 +148,6 @@ _mesa_enable_sw_extensions(struct gl_context *ctx)
    ctx->Extensions.EXT_vertex_array_bgra = GL_TRUE;
    ctx->Extensions.MESA_ycbcr_texture = GL_TRUE;
    ctx->Extensions.NV_conditional_render = GL_TRUE;
-   ctx->Extensions.NV_texture_env_combine4 = GL_TRUE;
    ctx->Extensions.NV_texture_rectangle = GL_TRUE;
    ctx->Extensions.OES_standard_derivatives = GL_TRUE;
    ctx->Extensions.TDFX_texture_compression_FXT1 = GL_TRUE;
