@@ -305,8 +305,7 @@ gpu_shader4_array_integer(const _mesa_glsl_parse_state *state)
 static bool
 gpu_shader4_rect(const _mesa_glsl_parse_state *state)
 {
-   return state->EXT_gpu_shader4_enable &&
-          state->ctx->Extensions.NV_texture_rectangle;
+   return state->EXT_gpu_shader4_enable;
 }
 
 static bool
