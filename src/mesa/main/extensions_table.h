@@ -70,7 +70,7 @@ EXT(ARB_draw_indirect                       , ARB_draw_indirect                 
 EXT(ARB_draw_instanced                      , ARB_draw_instanced                     , GLL, GLC,  x ,  x , 2008)
 EXT(ARB_enhanced_layouts                    , ARB_enhanced_layouts                   , GLL, GLC,  x ,  x , 2013)
 EXT(ARB_explicit_attrib_location            , dummy_true                             , GLL, GLC,  x ,  x , 2009)
-EXT(ARB_explicit_uniform_location           , ARB_explicit_uniform_location          , GLL, GLC,  x ,  x , 2012)
+EXT(ARB_explicit_uniform_location           , dummy_true                             , GLL, GLC,  x ,  x , 2012)
 EXT(ARB_fragment_coord_conventions          , ARB_fragment_coord_conventions         , GLL, GLC,  x ,  x , 2009)
 EXT(ARB_fragment_layer_viewport             , ARB_fragment_layer_viewport            , GLL, GLC,  x ,  x , 2012)
 EXT(ARB_fragment_program                    , ARB_fragment_program                   , GLL,  x ,  x ,  x , 2002)

@@ -375,7 +375,7 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->ARB_arrays_of_arrays &&
                          extensions->ARB_compute_shader &&
                          extensions->ARB_copy_image &&
-                         extensions->ARB_explicit_uniform_location &&
+                         /* extensions->ARB_explicit_uniform_location && */
                          extensions->ARB_fragment_layer_viewport &&
                          extensions->ARB_framebuffer_no_attachments &&
                          extensions->ARB_internalformat_query2 &&
@@ -566,7 +566,7 @@ compute_version_es2(const struct gl_extensions *extensions,
                          extensions->ARB_arrays_of_arrays &&
                          es31_compute_shader &&
                          extensions->ARB_draw_indirect &&
-                         extensions->ARB_explicit_uniform_location &&
+                         /* extensions->ARB_explicit_uniform_location && */
                          extensions->ARB_framebuffer_no_attachments &&
                          extensions->ARB_shader_atomic_counters &&
                          extensions->ARB_shader_image_load_store &&
