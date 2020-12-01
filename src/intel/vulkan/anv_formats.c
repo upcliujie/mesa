@@ -1371,6 +1371,11 @@ VkResult anv_GetPhysicalDeviceImageFormatProperties2(
        */
       switch (external_info->handleType) {
       case VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT:
+
+         /* Disable stencil export, there are issues. */
+         if (vk_format_aspects(base_info->format) & VK_IMAGE_ASPECT_STENCIL_BIT)
+            goto fail;
+
          if (external_props) {
             if (tiling_has_explicit_layout) {
                /* With an explicit memory layout, we don't care which type of fd
