@@ -3548,8 +3548,7 @@ check_textarget(struct gl_context *ctx, int dims, GLenum target,
             (_mesa_is_gles(ctx) && ctx->Version < 31);
       break;
    case GL_TEXTURE_RECTANGLE:
-      err = dims != 2 || _mesa_is_gles(ctx) ||
-            !ctx->Extensions.NV_texture_rectangle;
+      err = dims != 2 || _mesa_is_gles(ctx);
       break;
    case GL_TEXTURE_CUBE_MAP:
    case GL_TEXTURE_CUBE_MAP_ARRAY:

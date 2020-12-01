@@ -311,7 +311,7 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->ARB_uniform_buffer_object &&
                          extensions->EXT_texture_snorm &&
                          extensions->NV_primitive_restart &&
-                         extensions->NV_texture_rectangle &&
+                         /* extensions->NV_texture_rectangle && */
                          consts->Program[MESA_SHADER_VERTEX].MaxTextureImageUnits >= 16);
    const bool ver_3_2 = (ver_3_1 &&
                          consts->GLSLVersion >= 150 &&

@@ -309,8 +309,7 @@ language: ARBvp_10
 	   }
 	   state->mode = ARB_fragment;
 
-	   state->option.TexRect =
-	      (state->ctx->Extensions.NV_texture_rectangle != GL_FALSE);
+	   state->option.TexRect = GL_TRUE;
 	}
 	;
 

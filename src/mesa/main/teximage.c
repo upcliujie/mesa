@@ -507,7 +507,7 @@ _mesa_max_texture_levels(const struct gl_context *ctx, GLenum target)
       return ctx->Const.MaxCubeTextureLevels;
    case GL_TEXTURE_RECTANGLE_NV:
    case GL_PROXY_TEXTURE_RECTANGLE_NV:
-      return ctx->Extensions.NV_texture_rectangle ? 1 : 0;
+      return 1;
    case GL_TEXTURE_1D_ARRAY_EXT:
    case GL_PROXY_TEXTURE_1D_ARRAY_EXT:
    case GL_TEXTURE_2D_ARRAY_EXT:
@@ -1491,8 +1491,7 @@ legal_teximage_target(struct gl_context *ctx, GLuint dims, GLenum target)
          return GL_TRUE;
       case GL_TEXTURE_RECTANGLE_NV:
       case GL_PROXY_TEXTURE_RECTANGLE_NV:
-         return _mesa_is_desktop_gl(ctx)
-            && ctx->Extensions.NV_texture_rectangle;
+         return _mesa_is_desktop_gl(ctx);
       case GL_TEXTURE_1D_ARRAY_EXT:
       case GL_PROXY_TEXTURE_1D_ARRAY_EXT:
          return _mesa_is_desktop_gl(ctx) && ctx->Extensions.EXT_texture_array;
@@ -1547,8 +1546,7 @@ legal_texsubimage_target(struct gl_context *ctx, GLuint dims, GLenum target,
       case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
          return GL_TRUE;
       case GL_TEXTURE_RECTANGLE_NV:
-         return _mesa_is_desktop_gl(ctx)
-            && ctx->Extensions.NV_texture_rectangle;
+         return _mesa_is_desktop_gl(ctx);
       case GL_TEXTURE_1D_ARRAY_EXT:
          return _mesa_is_desktop_gl(ctx) && ctx->Extensions.EXT_texture_array;
       default:

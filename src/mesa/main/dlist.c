@@ -911,7 +911,6 @@ build_bitmap_atlas(struct gl_context *ctx, struct gl_bitmap_atlas *atlas,
    assert(atlas->numBitmaps > 0);
 
    /* We use a rectangle texture (non-normalized coords) for the atlas */
-   assert(ctx->Extensions.NV_texture_rectangle);
    assert(ctx->Const.MaxTextureRectSize >= 1024);
 
    atlas->texWidth = 1024;

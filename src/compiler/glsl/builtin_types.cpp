@@ -354,10 +354,9 @@ _mesa_glsl_initialize_types(struct _mesa_glsl_parse_state *state)
          add_type(symbols, glsl_type::usampler3D_type);
          add_type(symbols, glsl_type::usamplerCube_type);
 
-         if (state->ctx->Extensions.NV_texture_rectangle) {
-            add_type(symbols, glsl_type::isampler2DRect_type);
-            add_type(symbols, glsl_type::usampler2DRect_type);
-         }
+         add_type(symbols, glsl_type::isampler2DRect_type);
+         add_type(symbols, glsl_type::usampler2DRect_type);
+
          if (state->ctx->Extensions.EXT_texture_array) {
             add_type(symbols, glsl_type::isampler1DArray_type);
             add_type(symbols, glsl_type::isampler2DArray_type);
