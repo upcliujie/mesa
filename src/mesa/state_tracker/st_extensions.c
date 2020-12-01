@@ -1032,11 +1032,6 @@ void st_init_extensions(struct pipe_screen *screen,
         } },
    };
 
-   /*
-    * Extensions that are supported by all Gallium drivers:
-    */
-   extensions->OES_draw_texture = GL_TRUE;
-
    /* Expose the extensions which directly correspond to gallium caps. */
    for (i = 0; i < ARRAY_SIZE(cap_mapping); i++) {
       if (screen->get_param(screen, cap_mapping[i].cap)) {

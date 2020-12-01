@@ -428,7 +428,7 @@ EXT(OES_depth_texture                       , dummy_true                        
 EXT(OES_depth_texture_cube_map              , OES_depth_texture_cube_map             ,  x ,  x ,  x , ES2, 2012)
 EXT(OES_draw_buffers_indexed                , ARB_draw_buffers_blend                 ,  x ,  x ,  x ,  30, 2014)
 EXT(OES_draw_elements_base_vertex           , dummy_true                             ,  x ,  x ,  x , ES2, 2014)
-EXT(OES_draw_texture                        , OES_draw_texture                       ,  x ,  x , ES1,  x , 2004)
+EXT(OES_draw_texture                        , dummy_true                             ,  x ,  x , ES1,  x , 2004)
 EXT(OES_element_index_uint                  , dummy_true                             ,  x ,  x , ES1, ES2, 2005)
 EXT(OES_fbo_render_mipmap                   , dummy_true                             ,  x ,  x , ES1, ES2, 2005)
 EXT(OES_fixed_point                         , dummy_true                             ,  x ,  x , ES1,  x , 2002)
