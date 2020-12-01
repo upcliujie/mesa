@@ -3356,8 +3356,7 @@ egl_image_target_texture(struct gl_context *ctx,
 
    switch (target) {
    case GL_TEXTURE_2D:
-      valid_target = _mesa_has_OES_EGL_image(ctx) ||
-                     (tex_storage && _mesa_has_EXT_EGL_image_storage(ctx));
+      valid_target = _mesa_has_OES_EGL_image(ctx) || tex_storage;
       break;
    case GL_TEXTURE_EXTERNAL_OES:
       valid_target =
