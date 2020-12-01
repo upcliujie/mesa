@@ -1035,7 +1035,6 @@ void st_init_extensions(struct pipe_screen *screen,
    /*
     * Extensions that are supported by all Gallium drivers:
     */
-   extensions->ARB_explicit_attrib_location = GL_TRUE;
    extensions->ARB_explicit_uniform_location = GL_TRUE;
    extensions->ARB_fragment_coord_conventions = GL_TRUE;
    extensions->ARB_fragment_program = GL_TRUE;
