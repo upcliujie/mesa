@@ -63,8 +63,6 @@ _legal_parameters(struct gl_context *ctx, GLenum target, GLenum internalformat,
                   GLenum pname, GLsizei bufSize, GLint *params)
 
 {
-   bool query2 = _mesa_has_ARB_internalformat_query2(ctx);
-
    /* The ARB_internalformat_query2 spec says:
     *
     *    "The INVALID_ENUM error is generated if the <target> parameter to
@@ -80,19 +78,6 @@ _legal_parameters(struct gl_context *ctx, GLenum target, GLenum internalformat,
    case GL_TEXTURE_CUBE_MAP_ARRAY:
    case GL_TEXTURE_RECTANGLE:
    case GL_TEXTURE_BUFFER:
-      if (!query2) {
-         /* The ARB_internalformat_query spec says:
-          *
-          *     "If the <target> parameter to GetInternalformativ is not one of
-          *      TEXTURE_2D_MULTISAMPLE, TEXTURE_2D_MULTISAMPLE_ARRAY
-          *      or RENDERBUFFER then an INVALID_ENUM error is generated.
-          */
-         _mesa_error(ctx, GL_INVALID_ENUM,
-                     "glGetInternalformativ(target=%s)",
-                     _mesa_enum_to_string(target));
-
-         return false;
-      }
       break;
 
    case GL_RENDERBUFFER:
@@ -100,17 +85,6 @@ _legal_parameters(struct gl_context *ctx, GLenum target, GLenum internalformat,
 
    case GL_TEXTURE_2D_MULTISAMPLE:
    case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
-      /* The non-existence of ARB_texture_multisample is treated in
-       * ARB_internalformat_query implementation like an error.
-       */
-      if (!query2 &&
-          !(_mesa_has_ARB_texture_multisample(ctx) || _mesa_is_gles31(ctx))) {
-         _mesa_error(ctx, GL_INVALID_ENUM,
-                     "glGetInternalformativ(target=%s)",
-                     _mesa_enum_to_string(target));
-
-         return false;
-      }
       break;
 
    default:
@@ -218,18 +192,6 @@ _legal_parameters(struct gl_context *ctx, GLenum target, GLenum internalformat,
    case GL_VIEW_COMPATIBILITY_CLASS:
    case GL_NUM_TILING_TYPES_EXT:
    case GL_TILING_TYPES_EXT:
-      /* The ARB_internalformat_query spec says:
-       *
-       *     "If the <pname> parameter to GetInternalformativ is not SAMPLES
-       *     or NUM_SAMPLE_COUNTS, then an INVALID_ENUM error is generated."
-       */
-      if (!query2) {
-         _mesa_error(ctx, GL_INVALID_ENUM,
-                     "glGetInternalformativ(pname=%s)",
-                     _mesa_enum_to_string(pname));
-
-         return false;
-      }
       break;
 
    default:
@@ -250,19 +212,6 @@ _legal_parameters(struct gl_context *ctx, GLenum target, GLenum internalformat,
       _mesa_error(ctx, GL_INVALID_VALUE,
                   "glGetInternalformativ(target=%s)",
                   _mesa_enum_to_string(target));
-      return false;
-   }
-
-   /* The ARB_internalformat_query spec says:
-    *
-    *     "If the <internalformat> parameter to GetInternalformativ is not
-    *     color-, depth- or stencil-renderable, then an INVALID_ENUM error is
-    *     generated."
-    */
-   if (!query2 && !_is_renderable(ctx, internalformat)) {
-      _mesa_error(ctx, GL_INVALID_ENUM,
-                  "glGetInternalformativ(internalformat=%s)",
-                  _mesa_enum_to_string(internalformat));
       return false;
    }
 
@@ -612,8 +561,7 @@ _mesa_generic_type_for_internal_format(GLenum internalFormat)
       return GL_FLOAT;
 }
 
-/* default implementation of QueryInternalFormat driverfunc, for
- * drivers not implementing ARB_internalformat_query2.
+/* default implementation of QueryInternalFormat driverfunc
  */
 void
 _mesa_query_internal_format_default(struct gl_context *ctx, GLenum target,
@@ -1571,11 +1519,6 @@ _mesa_GetInternalformati64v(GLenum target, GLenum internalformat,
    GET_CURRENT_CONTEXT(ctx);
 
    ASSERT_OUTSIDE_BEGIN_END(ctx);
-
-   if (!_mesa_has_ARB_internalformat_query2(ctx)) {
-      _mesa_error(ctx, GL_INVALID_OPERATION, "glGetInternalformati64v");
-      return;
-   }
 
    /* For SAMPLES there are cases where params needs to remain unmodified. As
     * no pname can return a negative value, we fill params32 with negative
