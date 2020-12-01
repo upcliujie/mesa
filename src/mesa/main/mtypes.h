@@ -4311,7 +4311,6 @@ struct gl_extensions
    GLboolean ARB_gpu_shader_int64;
    GLboolean ARB_indirect_parameters;
    GLboolean ARB_instanced_arrays;
-   GLboolean ARB_internalformat_query;
    GLboolean ARB_internalformat_query2;
    GLboolean ARB_map_buffer_range;
    GLboolean ARB_occlusion_query2;
