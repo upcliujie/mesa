@@ -33,7 +33,8 @@ mark_sampler_desc(const nir_variable *var, struct radv_shader_info *info)
 
 static void
 gather_intrinsic_load_input_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
-                                 struct radv_shader_info *info)
+                                 struct radv_shader_info *info,
+                                 const struct radv_shader_variant_key *key)
 {
    switch (nir->info.stage) {
    case MESA_SHADER_VERTEX: {
@@ -42,6 +43,14 @@ gather_intrinsic_load_input_info(const nir_shader *nir, const nir_intrinsic_inst
       unsigned mask = nir_ssa_def_components_read(&instr->dest.ssa);
 
       info->vs.input_usage_mask[idx] |= mask << component;
+      if (idx >= VERT_ATTRIB_GENERIC0 && idx < VERT_ATTRIB_GENERIC0 + MAX_VERTEX_ATTRIBS) {
+         unsigned location = idx - VERT_ATTRIB_GENERIC0;
+         unsigned binding = key->vs.vertex_attribute_bindings[location];
+         if (info->vs.use_per_attribute_vb_descs)
+            info->vs.vb_desc_usage_mask |= 1u << location;
+         else
+            info->vs.vb_desc_usage_mask |= 1u << binding;
+      }
       break;
    }
    default:
@@ -123,7 +132,7 @@ gather_push_constant_info(const nir_shader *nir, const nir_intrinsic_instr *inst
 
 static void
 gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
-                      struct radv_shader_info *info)
+                      struct radv_shader_info *info, const struct radv_shader_variant_key *key)
 {
    switch (instr->intrinsic) {
    case nir_intrinsic_load_barycentric_sample:
@@ -261,7 +270,7 @@ gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
       set_writes_memory(nir, info);
       break;
    case nir_intrinsic_load_input:
-      gather_intrinsic_load_input_info(nir, instr, info);
+      gather_intrinsic_load_input_info(nir, instr, info, key);
       break;
    case nir_intrinsic_store_output:
       gather_intrinsic_store_output_info(nir, instr, info);
@@ -289,12 +298,13 @@ gather_tex_info(const nir_shader *nir, const nir_tex_instr *instr, struct radv_s
 }
 
 static void
-gather_info_block(const nir_shader *nir, const nir_block *block, struct radv_shader_info *info)
+gather_info_block(const nir_shader *nir, const nir_block *block, struct radv_shader_info *info,
+                  const struct radv_shader_variant_key *key)
 {
    nir_foreach_instr (instr, block) {
       switch (instr->type) {
       case nir_instr_type_intrinsic:
-         gather_intrinsic_info(nir, nir_instr_as_intrinsic(instr), info);
+         gather_intrinsic_info(nir, nir_instr_as_intrinsic(instr), info, key);
          break;
       case nir_instr_type_tex:
          gather_tex_info(nir, nir_instr_as_tex(instr), info);
@@ -310,10 +320,6 @@ gather_info_input_decl_vs(const nir_shader *nir, const nir_variable *var,
                           struct radv_shader_info *info, const struct radv_shader_variant_key *key)
 {
    unsigned attrib_count = glsl_count_attribute_slots(var->type, true);
-   int idx = var->data.location;
-
-   if (idx >= VERT_ATTRIB_GENERIC0 && idx < VERT_ATTRIB_GENERIC0 + MAX_VERTEX_ATTRIBS)
-      info->vs.has_vertex_buffers = true;
 
    for (unsigned i = 0; i < attrib_count; ++i) {
       unsigned attrib_index = var->data.location + i - VERT_ATTRIB_GENERIC0;
@@ -539,7 +545,8 @@ radv_nir_shader_info_init(struct radv_shader_info *info)
 }
 
 void
-radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeline_layout *layout,
+radv_nir_shader_info_pass(struct radv_device *device, const struct nir_shader *nir,
+                          const struct radv_pipeline_layout *layout,
                           const struct radv_shader_variant_key *key, struct radv_shader_info *info)
 {
    struct nir_function *func = (struct nir_function *)exec_list_get_head_const(&nir->functions);
@@ -550,11 +557,18 @@ radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeli
       info->loads_dynamic_offsets = true;
    }
 
+   if (nir->info.stage == MESA_SHADER_VERTEX) {
+      /* Use per-attribute vertex descriptors to prevent faults and
+       * for correct bounds checking.
+       */
+      info->vs.use_per_attribute_vb_descs = device->robust_buffer_access;
+   }
+
    nir_foreach_shader_in_variable (variable, nir)
       gather_info_input_decl(nir, variable, info, key);
 
    nir_foreach_block (block, func->impl) {
-      gather_info_block(nir, block, info);
+      gather_info_block(nir, block, info, key);
    }
 
    nir_foreach_shader_out_variable(variable, nir) gather_info_output_decl(nir, variable, info, key);
