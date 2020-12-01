@@ -495,7 +495,6 @@ static const int extra_INTEL_conservative_rasterization[] = {
 
 EXTRA_EXT(EXT_texture_array);
 EXTRA_EXT(EXT_texture_filter_anisotropic);
-EXTRA_EXT(NV_texture_rectangle);
 EXTRA_EXT(EXT_depth_bounds_test);
 EXTRA_EXT(ARB_depth_clamp);
 EXTRA_EXT(AMD_depth_clamp_separate);
@@ -2409,8 +2408,7 @@ tex_binding_to_index(const struct gl_context *ctx, GLenum binding)
    case GL_TEXTURE_BINDING_CUBE_MAP:
       return TEXTURE_CUBE_INDEX;
    case GL_TEXTURE_BINDING_RECTANGLE:
-      return _mesa_is_desktop_gl(ctx) && ctx->Extensions.NV_texture_rectangle
-         ? TEXTURE_RECT_INDEX : -1;
+      return _mesa_is_desktop_gl(ctx) ? TEXTURE_RECT_INDEX : -1;
    case GL_TEXTURE_BINDING_1D_ARRAY:
       return _mesa_is_desktop_gl(ctx) && ctx->Extensions.EXT_texture_array
          ? TEXTURE_1D_ARRAY_INDEX : -1;

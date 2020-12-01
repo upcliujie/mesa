@@ -128,11 +128,6 @@ register_surface(struct gl_context *ctx, GLboolean isOutput,
       return (GLintptr)NULL;
    }
 
-   if (target == GL_TEXTURE_RECTANGLE && !ctx->Extensions.NV_texture_rectangle) {
-      _mesa_error(ctx, GL_INVALID_ENUM, "VDPAURegisterSurfaceNV");
-      return (GLintptr)NULL;
-   }
-
    surf = CALLOC_STRUCT( vdp_surface );
    if (surf == NULL) {
       _mesa_error_no_memory("VDPAURegisterSurfaceNV");

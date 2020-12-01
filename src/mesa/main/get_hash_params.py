@@ -871,9 +871,9 @@ descriptor=[
   [ "POINT_SPRITE_COORD_ORIGIN", "CONTEXT_ENUM16(Point.SpriteOrigin), NO_EXTRA" ],
 
 # GL_NV_texture_rectangle
-  [ "TEXTURE_RECTANGLE_NV", "LOC_CUSTOM, TYPE_BOOLEAN, 0, extra_NV_texture_rectangle" ],
-  [ "TEXTURE_BINDING_RECTANGLE_NV", "LOC_CUSTOM, TYPE_INT, TEXTURE_RECT_INDEX, extra_NV_texture_rectangle" ],
-  [ "MAX_RECTANGLE_TEXTURE_SIZE_NV", "CONTEXT_INT(Const.MaxTextureRectSize), extra_NV_texture_rectangle" ],
+  [ "TEXTURE_RECTANGLE_NV", "LOC_CUSTOM, TYPE_BOOLEAN, 0, NO_EXTRA" ],
+  [ "TEXTURE_BINDING_RECTANGLE_NV", "LOC_CUSTOM, TYPE_INT, TEXTURE_RECT_INDEX, NO_EXTRA" ],
+  [ "MAX_RECTANGLE_TEXTURE_SIZE_NV", "CONTEXT_INT(Const.MaxTextureRectSize), NO_EXTRA" ],
 
 # GL_EXT_stencil_two_side
   [ "STENCIL_TEST_TWO_SIDE_EXT", "CONTEXT_BOOL(Stencil.TestTwoSide), NO_EXTRA" ],

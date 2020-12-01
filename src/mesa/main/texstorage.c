@@ -92,10 +92,9 @@ legal_texobj_target(const struct gl_context *ctx, GLuint dims, GLenum target)
       switch (target) {
       case GL_PROXY_TEXTURE_2D:
       case GL_PROXY_TEXTURE_CUBE_MAP:
-         return true;
       case GL_TEXTURE_RECTANGLE:
       case GL_PROXY_TEXTURE_RECTANGLE:
-         return ctx->Extensions.NV_texture_rectangle;
+         return true;
       case GL_TEXTURE_1D_ARRAY:
       case GL_PROXY_TEXTURE_1D_ARRAY:
          return ctx->Extensions.EXT_texture_array;

@@ -716,8 +716,8 @@ filter		KEYWORD(130, 300, 0, 0, FILTER);
 row_major	KEYWORD_WITH_ALT(130, 0, 140, 0, yyextra->ARB_uniform_buffer_object_enable && !yyextra->es_shader, ROW_MAJOR);
 
     /* Additional reserved words in GLSL 1.40 */
-isampler2DRect	TYPE_WITH_ALT(140, 300, 140, 0, yyextra->EXT_gpu_shader4_enable && yyextra->ctx->Extensions.NV_texture_rectangle && yyextra->ctx->Extensions.EXT_texture_integer, glsl_type::isampler2DRect_type);
-usampler2DRect	TYPE_WITH_ALT(140, 300, 140, 0, yyextra->EXT_gpu_shader4_enable && yyextra->ctx->Extensions.NV_texture_rectangle && yyextra->ctx->Extensions.EXT_texture_integer, glsl_type::usampler2DRect_type);
+isampler2DRect	TYPE_WITH_ALT(140, 300, 140, 0, yyextra->EXT_gpu_shader4_enable && yyextra->ctx->Extensions.EXT_texture_integer, glsl_type::isampler2DRect_type);
+usampler2DRect	TYPE_WITH_ALT(140, 300, 140, 0, yyextra->EXT_gpu_shader4_enable && yyextra->ctx->Extensions.EXT_texture_integer, glsl_type::usampler2DRect_type);
 isamplerBuffer	TYPE_WITH_ALT(140, 300, 140, 320, yyextra->EXT_texture_buffer_enable || yyextra->OES_texture_buffer_enable || (yyextra->EXT_gpu_shader4_enable && yyextra->ctx->Extensions.EXT_texture_buffer_object && yyextra->ctx->Extensions.EXT_texture_integer), glsl_type::isamplerBuffer_type);
 usamplerBuffer	TYPE_WITH_ALT(140, 300, 140, 320, yyextra->EXT_texture_buffer_enable || yyextra->OES_texture_buffer_enable || (yyextra->EXT_gpu_shader4_enable && yyextra->ctx->Extensions.EXT_texture_buffer_object && yyextra->ctx->Extensions.EXT_texture_integer), glsl_type::usamplerBuffer_type);
 
