@@ -361,7 +361,7 @@ compute_version(const struct gl_extensions *extensions,
                          consts->GLSLVersion >= 420 &&
                          extensions->ARB_base_instance &&
                          extensions->ARB_conservative_depth &&
-                         extensions->ARB_internalformat_query &&
+                         /* extensions->ARB_internalformat_query && */
                          extensions->ARB_shader_atomic_counters &&
                          extensions->ARB_shader_image_load_store &&
                          extensions->ARB_shading_language_420pack &&
@@ -537,7 +537,7 @@ compute_version_es2(const struct gl_extensions *extensions,
 #endif
    /* FINISHME: This list isn't quite right. */
    const bool ver_3_0 = (/* extensions->ARB_half_float_vertex && */
-                         extensions->ARB_internalformat_query &&
+                         /* extensions->ARB_internalformat_query && */
                          extensions->ARB_map_buffer_range &&
                          extensions->ARB_shader_texture_lod &&
                          extensions->OES_texture_float &&

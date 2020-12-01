@@ -852,13 +852,6 @@ _mesa_GetInternalformativ(GLenum target, GLenum internalformat, GLenum pname,
 
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
-   /* ARB_internalformat_query is also mandatory for ARB_internalformat_query2 */
-   if (!(_mesa_has_ARB_internalformat_query(ctx) ||
-         _mesa_is_gles3(ctx))) {
-      _mesa_error(ctx, GL_INVALID_OPERATION, "glGetInternalformativ");
-      return;
-   }
-
    assert(ctx->Driver.QueryInternalFormat != NULL);
 
    if (!_legal_parameters(ctx, target, internalformat, pname, bufSize, params))
