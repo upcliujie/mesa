@@ -191,7 +191,6 @@ void initialize_context_to_defaults(struct gl_context *ctx, gl_api api)
    ctx->Extensions.ARB_conservative_depth = true;
    ctx->Extensions.ARB_draw_instanced = true;
    ctx->Extensions.ARB_ES3_compatibility = true;
-   ctx->Extensions.ARB_fragment_coord_conventions = true;
    ctx->Extensions.ARB_fragment_layer_viewport = true;
    ctx->Extensions.ARB_gpu_shader5 = true;
    ctx->Extensions.ARB_gpu_shader_fp64 = true;
