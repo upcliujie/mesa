@@ -102,9 +102,13 @@ files_etnaviv = files(
   'etnaviv_zsa.h',
 )
 
+etnaviv_c_args = [no_override_init_args]
+etnaviv_c_args += cc.get_supported_arguments(['-Wimplicit-fallthrough'])
+
 libetnaviv = static_library(
   'etnaviv',
   files_etnaviv,
+  c_args : [etnaviv_c_args],
   gnu_symbol_visibility : 'hidden',
   include_directories : [
     inc_include, inc_src, inc_gallium, inc_gallium_aux, inc_etnaviv,
