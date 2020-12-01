@@ -469,7 +469,14 @@ panfrost_is_format_supported( struct pipe_screen *screen,
                               unsigned bind)
 {
         struct panfrost_device *dev = pan_device(screen);
+        bool is_deqp = dev->debug & PAN_DBG_DEQP;
         const struct util_format_description *format_desc;
+
+        /* Needed for NO_ATTACHMENT */
+        if (is_deqp &&
+            format == PIPE_FORMAT_NONE &&
+            bind == PIPE_BIND_RENDER_TARGET)
+                return true;
 
         assert(target == PIPE_BUFFER ||
                target == PIPE_TEXTURE_1D ||
@@ -650,7 +657,7 @@ panfrost_get_compute_param(struct pipe_screen *pscreen, enum pipe_shader_ir ir_t
 		RET(((uint64_t []) { 1024, 1024, 64 }));
 
 	case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-		RET((uint64_t []) { 1024 });
+		RET((uint64_t []) { 2048 });
 
 	case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
 		RET((uint64_t []) { 1024*1024*512 /* Maybe get memory */ });
