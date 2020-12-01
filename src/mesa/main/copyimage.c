@@ -784,12 +784,6 @@ _mesa_CopyImageSubDataNV(GLuint srcName, GLenum srcTarget, GLint srcLevel,
                   dstX, dstY, dstZ,
                   srcWidth, srcHeight, srcDepth);
 
-   if (!ctx->Extensions.NV_copy_image) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "glCopyImageSubDataNV(extension not available)");
-      return;
-   }
-
    if (!prepare_target_err(ctx, srcName, srcTarget, srcLevel, srcZ, srcDepth,
                            &srcTexImage, &srcRenderbuffer, &srcFormat,
                            &srcIntFormat, &src_w, &src_h, &src_num_samples,
