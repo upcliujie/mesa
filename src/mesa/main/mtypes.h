@@ -4341,7 +4341,6 @@ struct gl_extensions
    GLboolean ARB_sparse_buffer;
    GLboolean ARB_stencil_texturing;
    GLboolean ARB_spirv_extensions;
-   GLboolean ARB_sync;
    GLboolean ARB_tessellation_shader;
    GLboolean ARB_texture_buffer_object;
    GLboolean ARB_texture_buffer_object_rgb32;

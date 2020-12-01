@@ -1035,7 +1035,6 @@ void st_init_extensions(struct pipe_screen *screen,
    /*
     * Extensions that are supported by all Gallium drivers:
     */
-   extensions->ARB_sync = GL_TRUE;
    extensions->ARB_vertex_program = GL_TRUE;
 
    extensions->EXT_EGL_image_storage = GL_TRUE;
