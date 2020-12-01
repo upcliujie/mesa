@@ -4460,7 +4460,6 @@ struct gl_extensions
    GLboolean NV_shader_atomic_float;
    GLboolean NV_shader_atomic_int64;
    GLboolean NV_texture_barrier;
-   GLboolean NV_texture_env_combine4;
    GLboolean NV_texture_rectangle;
    GLboolean NV_vdpau_interop;
    GLboolean NV_conservative_raster;

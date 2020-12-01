@@ -528,7 +528,6 @@ pop_texture_group(struct gl_context *ctx, struct gl_texture_attrib_node *texstat
          _mesa_TexGenfv(GL_Q, GL_OBJECT_PLANE, unit->GenQ.ObjectPlane);
          /* Eye plane done differently to avoid re-transformation */
          {
-
             COPY_4FV(destUnit->GenS.EyePlane, unit->GenS.EyePlane);
             COPY_4FV(destUnit->GenT.EyePlane, unit->GenT.EyePlane);
             COPY_4FV(destUnit->GenR.EyePlane, unit->GenR.EyePlane);
@@ -554,9 +553,8 @@ pop_texture_group(struct gl_context *ctx, struct gl_texture_attrib_node *texstat
          _mesa_TexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA,
                        unit->Combine.ModeA);
          {
-            const GLuint n = ctx->Extensions.NV_texture_env_combine4 ? 4 : 3;
             GLuint i;
-            for (i = 0; i < n; i++) {
+            for (i = 0; i < MAX_COMBINER_TERMS; i++) {
                _mesa_TexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB + i,
                              unit->Combine.SourceRGB[i]);
                _mesa_TexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA + i,
