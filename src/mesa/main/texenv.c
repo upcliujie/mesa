@@ -131,8 +131,7 @@ set_combiner_mode(struct gl_context *ctx,
    case GL_MODULATE_ADD_ATI:
    case GL_MODULATE_SIGNED_ADD_ATI:
    case GL_MODULATE_SUBTRACT_ATI:
-      legal = (ctx->API == API_OPENGL_COMPAT &&
-               ctx->Extensions.ATI_texture_env_combine3);
+      legal = (ctx->API == API_OPENGL_COMPAT);
       break;
    default:
       legal = GL_FALSE;
@@ -230,13 +229,10 @@ set_combiner_source(struct gl_context *ctx,
       legal = (param - GL_TEXTURE0 < ctx->Const.MaxTextureUnits);
       break;
    case GL_ZERO:
-      legal = (ctx->API == API_OPENGL_COMPAT &&
-               (ctx->Extensions.ATI_texture_env_combine3 ||
-                ctx->Extensions.NV_texture_env_combine4));
+      legal = (ctx->API == API_OPENGL_COMPAT);
       break;
    case GL_ONE:
-      legal = (ctx->API == API_OPENGL_COMPAT &&
-               ctx->Extensions.ATI_texture_env_combine3);
+      legal = (ctx->API == API_OPENGL_COMPAT);
       break;
    default:
       legal = GL_FALSE;
