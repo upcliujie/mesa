@@ -123,7 +123,6 @@ _mesa_enable_sw_extensions(struct gl_context *ctx)
 {
    ctx->Extensions.ARB_depth_clamp = GL_TRUE;
    ctx->Extensions.ARB_draw_instanced = GL_TRUE;
-   ctx->Extensions.ARB_fragment_coord_conventions = GL_TRUE;
    ctx->Extensions.ARB_fragment_program = GL_TRUE;
    ctx->Extensions.ARB_fragment_program_shadow = GL_TRUE;
    ctx->Extensions.ARB_framebuffer_object = GL_TRUE;
