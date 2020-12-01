@@ -4471,7 +4471,6 @@ struct gl_extensions
    GLboolean TDFX_texture_compression_FXT1;
    GLboolean OES_draw_texture;
    GLboolean OES_depth_texture_cube_map;
-   GLboolean OES_EGL_image_external;
    GLboolean OES_texture_float;
    GLboolean OES_texture_float_linear;
    GLboolean OES_texture_half_float;
