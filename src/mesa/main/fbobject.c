@@ -1077,7 +1077,6 @@ _mesa_test_framebuffer_completeness(struct gl_context *ctx,
    GLint numDepthSamples = -1;
    GLint fixedSampleLocations = -1;
    GLint i;
-   GLuint j;
    /* Covers max_layer_count, is_layered, and layer_tex_target */
    bool layer_info_valid = false;
    GLuint max_layer_count = 0, att_layer_count;
@@ -1440,34 +1439,6 @@ _mesa_test_framebuffer_completeness(struct gl_context *ctx,
          fb->_Status = GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT;
          fbo_incomplete(ctx, "no attachments and default width or height is 0", -1);
          return;
-      }
-   }
-
-   if (_mesa_is_desktop_gl(ctx) && !ctx->Extensions.ARB_ES2_compatibility) {
-      /* Check that all DrawBuffers are present */
-      for (j = 0; j < ctx->Const.MaxDrawBuffers; j++) {
-         if (fb->ColorDrawBuffer[j] != GL_NONE) {
-            const struct gl_renderbuffer_attachment *att
-               = get_attachment(ctx, fb, fb->ColorDrawBuffer[j], NULL);
-            assert(att);
-            if (att->Type == GL_NONE) {
-               fb->_Status = GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT;
-               fbo_incomplete(ctx, "missing drawbuffer", j);
-               return;
-            }
-         }
-      }
-
-      /* Check that the ReadBuffer is present */
-      if (fb->ColorReadBuffer != GL_NONE) {
-         const struct gl_renderbuffer_attachment *att
-            = get_attachment(ctx, fb, fb->ColorReadBuffer, NULL);
-         assert(att);
-         if (att->Type == GL_NONE) {
-            fb->_Status = GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT;
-            fbo_incomplete(ctx, "missing readbuffer", -1);
-            return;
-         }
       }
    }
 
@@ -2434,8 +2405,8 @@ _mesa_base_fbo_format(const struct gl_context *ctx, GLenum internalFormat)
          || _mesa_is_gles3(ctx) ? GL_RGBA : 0;
 
    case GL_RGB565:
-      return _mesa_is_gles(ctx) || ctx->Extensions.ARB_ES2_compatibility
-         ? GL_RGB : 0;
+      return GL_RGB;
+
    default:
       return 0;
    }

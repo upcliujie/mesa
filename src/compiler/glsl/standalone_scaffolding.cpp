@@ -190,7 +190,6 @@ void initialize_context_to_defaults(struct gl_context *ctx, gl_api api)
    ctx->Extensions.ARB_compute_variable_group_size = true;
    ctx->Extensions.ARB_conservative_depth = true;
    ctx->Extensions.ARB_draw_instanced = true;
-   ctx->Extensions.ARB_ES2_compatibility = true;
    ctx->Extensions.ARB_ES3_compatibility = true;
    ctx->Extensions.ARB_explicit_attrib_location = true;
    ctx->Extensions.ARB_fragment_coord_conventions = true;

@@ -373,7 +373,6 @@ static const int extra_ARB_uniform_buffer_object_and_geometry_shader[] = {
 };
 
 static const int extra_ARB_ES2_compatibility_api_es2[] = {
-   EXT(ARB_ES2_compatibility),
    EXTRA_API_ES2,
    EXTRA_END
 };
