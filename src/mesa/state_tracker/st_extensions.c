@@ -1035,7 +1035,6 @@ void st_init_extensions(struct pipe_screen *screen,
    /*
     * Extensions that are supported by all Gallium drivers:
     */
-   extensions->NV_copy_image = GL_TRUE;
    extensions->NV_fog_distance = GL_TRUE;
    extensions->NV_texture_env_combine4 = GL_TRUE;
    extensions->NV_texture_rectangle = GL_TRUE;
