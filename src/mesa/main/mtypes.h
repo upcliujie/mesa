@@ -4301,7 +4301,6 @@ struct gl_extensions
    GLboolean ARB_draw_indirect;
    GLboolean ARB_draw_instanced;
    GLboolean ARB_fragment_layer_viewport;
-   GLboolean ARB_fragment_program_shadow;
    GLboolean ARB_framebuffer_no_attachments;
    GLboolean ARB_framebuffer_object;
    GLboolean ARB_fragment_shader_interlock;
