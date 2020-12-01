@@ -167,7 +167,7 @@ _mesa_Fogfv( GLenum pname, const GLfloat *params )
       }
       case GL_FOG_DISTANCE_MODE_NV: {
 	 GLenum p = (GLenum) (GLint) *params;
-         if (ctx->API != API_OPENGL_COMPAT || !ctx->Extensions.NV_fog_distance ||
+         if (ctx->API != API_OPENGL_COMPAT ||
              (p != GL_EYE_RADIAL_NV && p != GL_EYE_PLANE && p != GL_EYE_PLANE_ABSOLUTE_NV)) {
 	    _mesa_error(ctx, GL_INVALID_ENUM, "glFog");
 	    return;

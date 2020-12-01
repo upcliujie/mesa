@@ -4456,7 +4456,6 @@ struct gl_extensions
    GLboolean NV_conditional_render;
    GLboolean NV_copy_depth_to_color;
    GLboolean NV_fill_rectangle;
-   GLboolean NV_fog_distance;
    GLboolean NV_primitive_restart;
    GLboolean NV_shader_atomic_float;
    GLboolean NV_shader_atomic_int64;
