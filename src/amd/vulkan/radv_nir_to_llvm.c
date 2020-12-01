@@ -1180,7 +1180,9 @@ handle_vs_input_decl(struct radv_shader_context *ctx,
 			num_channels = MAX2(num_channels, 3);
 		}
 
-		t_offset = LLVMConstInt(ctx->ac.i32, attrib_binding, false);
+		unsigned desc_index = util_bitcount(ctx->args->shader_info->vs.binding_usage_mask &
+						    u_bit_consecutive(0, attrib_binding));
+		t_offset = LLVMConstInt(ctx->ac.i32, desc_index, false);
 		t_list = ac_build_load_to_sgpr(&ctx->ac, t_list_ptr, t_offset);
 
 		/* Perform per-channel vertex fetch operations if unaligned

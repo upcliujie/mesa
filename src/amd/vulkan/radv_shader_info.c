@@ -33,8 +33,9 @@ static void mark_sampler_desc(const nir_variable *var,
 
 static void
 gather_intrinsic_load_input_info(const nir_shader *nir,
-			       const nir_intrinsic_instr *instr,
-			       struct radv_shader_info *info)
+				 const nir_intrinsic_instr *instr,
+				 struct radv_shader_info *info,
+				 const struct radv_shader_variant_key *key)
 {
 	switch (nir->info.stage) {
 	case MESA_SHADER_VERTEX: {
@@ -43,6 +44,10 @@ gather_intrinsic_load_input_info(const nir_shader *nir,
 		unsigned mask = nir_ssa_def_components_read(&instr->dest.ssa);
 
 		info->vs.input_usage_mask[idx] |= mask << component;
+		if (idx >= VERT_ATTRIB_GENERIC0 && idx < VERT_ATTRIB_GENERIC0 + MAX_VERTEX_ATTRIBS) {
+			unsigned binding = key->vs.vertex_attribute_bindings[idx - VERT_ATTRIB_GENERIC0];
+			info->vs.binding_usage_mask |= 1u << binding;
+		}
 		break;
 	}
 	default:
@@ -129,7 +134,8 @@ gather_push_constant_info(const nir_shader *nir,
 
 static void
 gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
-		      struct radv_shader_info *info)
+		      struct radv_shader_info *info,
+		      const struct radv_shader_variant_key *key)
 {
 	switch (instr->intrinsic) {
 	case nir_intrinsic_load_barycentric_at_sample:
@@ -242,7 +248,7 @@ gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
 		set_writes_memory(nir, info);
 		break;
 	case nir_intrinsic_load_input:
-		gather_intrinsic_load_input_info(nir, instr, info);
+		gather_intrinsic_load_input_info(nir, instr, info, key);
 		break;
 	case nir_intrinsic_store_output:
 		gather_intrinsic_store_output_info(nir, instr, info);
@@ -272,12 +278,13 @@ gather_tex_info(const nir_shader *nir, const nir_tex_instr *instr,
 
 static void
 gather_info_block(const nir_shader *nir, const nir_block *block,
-		  struct radv_shader_info *info)
+		  struct radv_shader_info *info,
+		  const struct radv_shader_variant_key *key)
 {
 	nir_foreach_instr(instr, block) {
 		switch (instr->type) {
 		case nir_instr_type_intrinsic:
-			gather_intrinsic_info(nir, nir_instr_as_intrinsic(instr), info);
+			gather_intrinsic_info(nir, nir_instr_as_intrinsic(instr), info, key);
 			break;
 		case nir_instr_type_tex:
 			gather_tex_info(nir, nir_instr_as_tex(instr), info);
@@ -559,7 +566,7 @@ radv_nir_shader_info_pass(const struct nir_shader *nir,
 		gather_info_input_decl(nir, variable, info, key);
 
 	nir_foreach_block(block, func->impl) {
-		gather_info_block(nir, block, info);
+		gather_info_block(nir, block, info, key);
 	}
 
 	nir_foreach_shader_out_variable(variable, nir)

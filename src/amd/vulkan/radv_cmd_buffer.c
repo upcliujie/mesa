@@ -2819,10 +2819,13 @@ radv_flush_vertex_descriptors(struct radv_cmd_buffer *cmd_buffer,
 	    (cmd_buffer->state.dirty & RADV_CMD_DIRTY_VERTEX_BUFFER)) &&
 	    cmd_buffer->state.pipeline->num_vertex_bindings &&
 	    radv_get_shader(cmd_buffer->state.pipeline, MESA_SHADER_VERTEX)->info.vs.has_vertex_buffers) {
+		const struct radv_shader_info *info =
+			&radv_get_shader(cmd_buffer->state.pipeline, MESA_SHADER_VERTEX)->info;
 		unsigned vb_offset;
 		void *vb_ptr;
-		uint32_t i = 0;
-		uint32_t count = cmd_buffer->state.pipeline->num_vertex_bindings;
+		unsigned desc_index = 0;
+		unsigned mask = info->vs.binding_usage_mask;
+		uint32_t count = util_bitcount(mask);
 		uint64_t va;
 
 		/* allocate some descriptor state for vertex buffers */
@@ -2830,8 +2833,9 @@ radv_flush_vertex_descriptors(struct radv_cmd_buffer *cmd_buffer,
 						  &vb_offset, &vb_ptr))
 			return;
 
-		for (i = 0; i < count; i++) {
-			uint32_t *desc = &((uint32_t *)vb_ptr)[i * 4];
+		while (mask) {
+			unsigned i = u_bit_scan(&mask);
+			uint32_t *desc = &((uint32_t *)vb_ptr)[desc_index++ * 4];
 			uint32_t offset;
 			struct radv_buffer *buffer = cmd_buffer->vertex_bindings[i].buffer;
 			unsigned num_records;
