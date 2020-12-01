@@ -326,7 +326,7 @@ compute_version(const struct gl_extensions *extensions,
    const bool ver_3_3 = (ver_3_2 &&
                          consts->GLSLVersion >= 330 &&
                          extensions->ARB_blend_func_extended &&
-                         extensions->ARB_explicit_attrib_location &&
+                         /* extensions->ARB_explicit_attrib_location && */
                          extensions->ARB_instanced_arrays &&
                          extensions->ARB_occlusion_query2 &&
                          extensions->ARB_shader_bit_encoding &&
