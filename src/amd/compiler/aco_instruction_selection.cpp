@@ -4784,9 +4784,11 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
       if (post_shuffle)
          num_channels = MAX2(num_channels, 3);
 
-      unsigned desc_count = util_bitcount(ctx->program->info->vs.binding_usage_mask);
-      unsigned desc_index = util_bitcount(ctx->program->info->vs.binding_usage_mask &
-                                          u_bit_consecutive(0, attrib_binding));
+      unsigned desc_count = util_bitcount(ctx->program->info->vs.vb_desc_usage_mask);
+      unsigned desc_index = ctx->program->info->vs.use_per_attribute_vb_descs ?
+                            location : attrib_binding;
+      desc_index = util_bitcount(ctx->program->info->vs.vb_desc_usage_mask &
+                                 u_bit_consecutive(0, desc_index));
       unsigned desc_index_base = desc_index & ~0x3;
 
       Temp list;

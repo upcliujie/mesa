@@ -2822,7 +2822,8 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 
 	if (nir[MESA_SHADER_FRAGMENT]) {
 		radv_nir_shader_info_init(&infos[MESA_SHADER_FRAGMENT]);
-		radv_nir_shader_info_pass(nir[MESA_SHADER_FRAGMENT],
+		radv_nir_shader_info_pass(pipeline->device,
+					  nir[MESA_SHADER_FRAGMENT],
 					  pipeline->layout,
 					  &keys[MESA_SHADER_FRAGMENT],
 					  &infos[MESA_SHADER_FRAGMENT]);
@@ -2874,7 +2875,8 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 		radv_nir_shader_info_init(&infos[MESA_SHADER_TESS_CTRL]);
 
 		for (int i = 0; i < 2; i++) {
-			radv_nir_shader_info_pass(combined_nir[i],
+			radv_nir_shader_info_pass(pipeline->device,
+						  combined_nir[i],
 						  pipeline->layout, &key,
 						  &infos[MESA_SHADER_TESS_CTRL]);
 		}
@@ -2894,7 +2896,8 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 		radv_nir_shader_info_init(&infos[MESA_SHADER_GEOMETRY]);
 
 		for (int i = 0; i < 2; i++) {
-			radv_nir_shader_info_pass(combined_nir[i],
+			radv_nir_shader_info_pass(pipeline->device,
+						  combined_nir[i],
 						  pipeline->layout,
 						  &keys[pre_stage],
 						  &infos[MESA_SHADER_GEOMETRY]);
@@ -2914,8 +2917,8 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 		}
 
 		radv_nir_shader_info_init(&infos[i]);
-		radv_nir_shader_info_pass(nir[i], pipeline->layout,
-					  &keys[i], &infos[i]);
+		radv_nir_shader_info_pass(pipeline->device, nir[i],
+					  pipeline->layout, &keys[i], &infos[i]);
 	}
 
 	for (int i = 0; i < MESA_SHADER_STAGES; i++) {
@@ -3385,7 +3388,7 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			key.has_multiview_view_index =
 				keys[MESA_SHADER_GEOMETRY].has_multiview_view_index;
 
-			radv_nir_shader_info_pass(nir[MESA_SHADER_GEOMETRY],
+			radv_nir_shader_info_pass(device, nir[MESA_SHADER_GEOMETRY],
 						  pipeline->layout, &key,
 						  &info);
 			info.wave_size = 64; /* Wave32 not supported. */
@@ -5214,6 +5217,14 @@ radv_pipeline_init_vertex_input_state(struct radv_pipeline *pipeline,
 		pipeline->binding_stride[desc->binding] = desc->stride;
 		pipeline->num_vertex_bindings =
 			MAX2(pipeline->num_vertex_bindings, desc->binding + 1);
+	}
+
+	for (uint32_t i = 0; i < vi_info->vertexAttributeDescriptionCount; i++) {
+		const VkVertexInputAttributeDescription *desc =
+			&vi_info->pVertexAttributeDescriptions[i];
+
+		pipeline->attrib_ends[i] = desc->offset + vk_format_get_blocksize(desc->format);
+		pipeline->attrib_bindings[i] = desc->binding;
 	}
 }
 
