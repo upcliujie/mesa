@@ -74,7 +74,7 @@ EXT(ARB_explicit_uniform_location           , dummy_true                        
 EXT(ARB_fragment_coord_conventions          , dummy_true                             , GLL, GLC,  x ,  x , 2009)
 EXT(ARB_fragment_layer_viewport             , ARB_fragment_layer_viewport            , GLL, GLC,  x ,  x , 2012)
 EXT(ARB_fragment_program                    , dummy_true                             , GLL,  x ,  x ,  x , 2002)
-EXT(ARB_fragment_program_shadow             , ARB_fragment_program_shadow            , GLL,  x ,  x ,  x , 2003)
+EXT(ARB_fragment_program_shadow             , dummy_true                             , GLL,  x ,  x ,  x , 2003)
 EXT(ARB_fragment_shader                     , dummy_true                             , GLL, GLC,  x ,  x , 2002)
 EXT(ARB_fragment_shader_interlock           , ARB_fragment_shader_interlock          , GLL, GLC,  x ,  x , 2015)
 EXT(ARB_framebuffer_no_attachments          , ARB_framebuffer_no_attachments         , GLL, GLC,  x ,  x , 2012)
