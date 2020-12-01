@@ -276,7 +276,8 @@ struct radv_shader_info {
 		bool as_ls;
 		bool export_prim_id;
 		uint8_t num_linked_outputs;
-		uint32_t binding_usage_mask;
+		bool use_per_attribute_vb_descs;
+		uint32_t vb_desc_usage_mask;
 	} vs;
 	struct {
 		uint8_t output_usage_mask[VARYING_SLOT_VAR31 + 1];
