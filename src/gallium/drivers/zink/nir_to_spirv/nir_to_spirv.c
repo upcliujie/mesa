@@ -113,6 +113,15 @@ static SpvId
 emit_binop(struct ntv_context *ctx, SpvOp op, SpvId type,
            SpvId src0, SpvId src1);
 
+
+static inline nir_variable *
+get_var_from_spvid(struct ntv_context *ctx, SpvId var_id)
+{
+   struct hash_entry *he = _mesa_hash_table_search(ctx->spv_vars, &var_id);
+   assert(he);
+   return he->data;
+}
+
 static SpvId
 emit_triop(struct ntv_context *ctx, SpvOp op, SpvId type,
            SpvId src0, SpvId src1, SpvId src2);
@@ -2515,14 +2524,6 @@ emit_shared_atomic_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
    handle_atomic_op(ctx, intr, ptr, param, param2);
 }
 
-static inline nir_variable *
-get_var_from_image(struct ntv_context *ctx, SpvId var_id)
-{
-   struct hash_entry *he = _mesa_hash_table_search(ctx->spv_vars, &var_id);
-   assert(he);
-   return he->data;
-}
-
 static SpvId
 get_coords(struct ntv_context *ctx, const struct glsl_type *type, nir_src *src)
 {
@@ -2549,7 +2550,7 @@ emit_image_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
    SpvId img_var = get_src(ctx, &intr->src[0]);
    SpvId sample = get_src(ctx, &intr->src[2]);
    SpvId param = get_src(ctx, &intr->src[3]);
-   nir_variable *var = get_var_from_image(ctx, img_var);
+   nir_variable *var = get_var_from_spvid(ctx, img_var);
    const struct glsl_type *type = glsl_without_array(var->type);
    SpvId coord = get_coords(ctx, type, &intr->src[1]);
    SpvId base_type = get_glsl_basetype(ctx, glsl_get_sampler_result_type(type));
@@ -2860,7 +2861,7 @@ emit_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
 
    case nir_intrinsic_image_deref_store: {
       SpvId img_var = get_src(ctx, &intr->src[0]);
-      nir_variable *var = get_var_from_image(ctx, img_var);
+      nir_variable *var = get_var_from_spvid(ctx, img_var);
       SpvId img_type = ctx->image_types[var->data.binding];
       const struct glsl_type *type = glsl_without_array(var->type);
       SpvId base_type = get_glsl_basetype(ctx, glsl_get_sampler_result_type(type));
@@ -2876,7 +2877,7 @@ emit_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
    }
    case nir_intrinsic_image_deref_load: {
       SpvId img_var = get_src(ctx, &intr->src[0]);
-      nir_variable *var = get_var_from_image(ctx, img_var);
+      nir_variable *var = get_var_from_spvid(ctx, img_var);
       SpvId img_type = ctx->image_types[var->data.binding];
       const struct glsl_type *type = glsl_without_array(var->type);
       SpvId base_type = get_glsl_basetype(ctx, glsl_get_sampler_result_type(type));
@@ -2890,7 +2891,7 @@ emit_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
    }
    case nir_intrinsic_image_deref_size: {
       SpvId img_var = get_src(ctx, &intr->src[0]);
-      nir_variable *var = get_var_from_image(ctx, img_var);
+      nir_variable *var = get_var_from_spvid(ctx, img_var);
       SpvId img_type = ctx->image_types[var->data.binding];
       const struct glsl_type *type = glsl_without_array(var->type);
       SpvId img = spirv_builder_emit_load(&ctx->builder, img_type, img_var);
