@@ -4469,7 +4469,6 @@ struct gl_extensions
    GLboolean NV_viewport_swizzle;
    GLboolean NVX_gpu_memory_info;
    GLboolean TDFX_texture_compression_FXT1;
-   GLboolean OES_EGL_image;
    GLboolean OES_draw_texture;
    GLboolean OES_depth_texture_cube_map;
    GLboolean OES_EGL_image_external;
