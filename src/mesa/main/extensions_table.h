@@ -248,7 +248,7 @@ EXT(EXT_framebuffer_object                  , dummy_true                        
 EXT(EXT_framebuffer_sRGB                    , EXT_framebuffer_sRGB                   , GLL, GLC,  x ,  x , 1998)
 EXT(EXT_geometry_point_size                 , OES_geometry_shader                    ,  x ,  x ,  x ,  31, 2015)
 EXT(EXT_geometry_shader                     , OES_geometry_shader                    ,  x ,  x ,  x ,  31, 2015)
-EXT(EXT_gpu_program_parameters              , EXT_gpu_program_parameters             , GLL,  x ,  x ,  x , 2006)
+EXT(EXT_gpu_program_parameters              , dummy_true                             , GLL,  x ,  x ,  x , 2006)
 /* Since all of EXT_gpu_shader4 features were rolled into GLSL 1.40, it shouldn't be exposed in a core context.
  * Additionally, EXT_gpu_shader4 would reintroduce functions that were removed in GLSL 1.40. */
 EXT(EXT_gpu_shader4                         , EXT_gpu_shader4                        , GLL,  x ,  x ,  x , 2006)
