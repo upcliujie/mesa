@@ -500,7 +500,6 @@ EXTRA_EXT(NV_texture_rectangle);
 EXTRA_EXT(EXT_depth_bounds_test);
 EXTRA_EXT(ARB_depth_clamp);
 EXTRA_EXT(AMD_depth_clamp_separate);
-EXTRA_EXT(ATI_fragment_shader);
 EXTRA_EXT2(ARB_framebuffer_object, EXT_framebuffer_multisample);
 EXTRA_EXT(ARB_seamless_cube_map);
 EXTRA_EXT(EXT_transform_feedback);
