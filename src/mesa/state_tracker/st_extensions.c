@@ -1035,7 +1035,6 @@ void st_init_extensions(struct pipe_screen *screen,
    /*
     * Extensions that are supported by all Gallium drivers:
     */
-   extensions->ARB_draw_elements_base_vertex = GL_TRUE;
    extensions->ARB_explicit_attrib_location = GL_TRUE;
    extensions->ARB_explicit_uniform_location = GL_TRUE;
    extensions->ARB_fragment_coord_conventions = GL_TRUE;
@@ -1680,7 +1679,6 @@ void st_init_extensions(struct pipe_screen *screen,
       extensions->KHR_robustness &&
       extensions->ARB_copy_image &&
       extensions->ARB_draw_buffers_blend &&
-      extensions->ARB_draw_elements_base_vertex &&
       extensions->OES_geometry_shader &&
       extensions->ARB_gpu_shader5 &&
       extensions->ARB_sample_shading &&

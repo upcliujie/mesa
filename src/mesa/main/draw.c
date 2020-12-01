@@ -2161,8 +2161,7 @@ _mesa_initialize_exec_dispatch(const struct gl_context *ctx,
       SET_Rectsv(exec, _mesa_exec_Rectsv);
    }
 
-   if (ctx->API != API_OPENGLES &&
-       ctx->Extensions.ARB_draw_elements_base_vertex) {
+   if (ctx->API != API_OPENGLES) {
       SET_DrawElementsBaseVertex(exec, _mesa_DrawElementsBaseVertex);
       SET_MultiDrawElementsBaseVertex(exec,
                                       _mesa_MultiDrawElementsBaseVertex);
