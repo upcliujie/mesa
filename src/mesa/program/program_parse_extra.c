@@ -151,10 +151,8 @@ _mesa_ARBfp_parse_option(struct asm_parser_state *state, const char *option)
 	 state->option.DrawBuffers = 1;
 	 return 1;
       } else if (strcmp(option, "fragment_program_shadow") == 0) {
-	 if (state->ctx->Extensions.ARB_fragment_program_shadow) {
-	    state->option.Shadow = 1;
-	    return 1;
-	 }
+         state->option.Shadow = 1;
+         return 1;
       } else if (strncmp(option, "fragment_coord_", 15) == 0) {
          option += 15;
          if (strcmp(option, "origin_upper_left") == 0) {
