@@ -310,7 +310,7 @@ EXT(EXT_texture_cube_map_array              , OES_texture_cube_map_array        
 EXT(EXT_texture_edge_clamp                  , dummy_true                             , GLL,  x ,  x ,  x , 1997)
 EXT(EXT_texture_env_add                     , dummy_true                             , GLL,  x ,  x ,  x , 1999)
 EXT(EXT_texture_env_combine                 , dummy_true                             , GLL,  x ,  x ,  x , 2000)
-EXT(EXT_texture_env_dot3                    , EXT_texture_env_dot3                   , GLL,  x ,  x ,  x , 2000)
+EXT(EXT_texture_env_dot3                    , dummy_true                             , GLL,  x ,  x ,  x , 2000)
 EXT(EXT_texture_filter_anisotropic          , EXT_texture_filter_anisotropic         , GLL, GLC, ES1, ES2, 1999)
 EXT(EXT_texture_format_BGRA8888             , dummy_true                             ,  x ,  x , ES1, ES2, 2005)
 EXT(EXT_texture_integer                     , EXT_texture_integer                    , GLL, GLC,  x ,  x , 2006)
