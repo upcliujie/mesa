@@ -927,15 +927,15 @@ descriptor=[
   [ "DEPTH_CLAMP", "LOC_CUSTOM, TYPE_BOOLEAN, 0, extra_ARB_depth_clamp" ],
 
 # GL_ATI_fragment_shader
-  [ "FRAGMENT_SHADER_ATI", "CONTEXT_BOOL(ATIFragmentShader.Enabled), extra_ATI_fragment_shader" ],
-  [ "NUM_FRAGMENT_REGISTERS_ATI", "CONST(6), extra_ATI_fragment_shader" ],
-  [ "NUM_FRAGMENT_CONSTANTS_ATI", "CONST(8), extra_ATI_fragment_shader" ],
-  [ "NUM_PASSES_ATI", "CONST(2), extra_ATI_fragment_shader" ],
-  [ "NUM_INSTRUCTIONS_PER_PASS_ATI", "CONST(8), extra_ATI_fragment_shader" ],
-  [ "NUM_INSTRUCTIONS_TOTAL_ATI", "CONST(16), extra_ATI_fragment_shader" ],
-  [ "COLOR_ALPHA_PAIRING_ATI", "CONST(GL_TRUE), extra_ATI_fragment_shader" ],
-  [ "NUM_LOOPBACK_COMPONENTS_ATI", "CONST(3), extra_ATI_fragment_shader" ],
-  [ "NUM_INPUT_INTERPOLATOR_COMPONENTS_ATI", "CONST(3), extra_ATI_fragment_shader" ],
+  [ "FRAGMENT_SHADER_ATI", "CONTEXT_BOOL(ATIFragmentShader.Enabled), NO_EXTRA" ],
+  [ "NUM_FRAGMENT_REGISTERS_ATI", "CONST(6), NO_EXTRA" ],
+  [ "NUM_FRAGMENT_CONSTANTS_ATI", "CONST(8), NO_EXTRA" ],
+  [ "NUM_PASSES_ATI", "CONST(2), NO_EXTRA" ],
+  [ "NUM_INSTRUCTIONS_PER_PASS_ATI", "CONST(8), NO_EXTRA" ],
+  [ "NUM_INSTRUCTIONS_TOTAL_ATI", "CONST(16), NO_EXTRA" ],
+  [ "COLOR_ALPHA_PAIRING_ATI", "CONST(GL_TRUE), NO_EXTRA" ],
+  [ "NUM_LOOPBACK_COMPONENTS_ATI", "CONST(3), NO_EXTRA" ],
+  [ "NUM_INPUT_INTERPOLATOR_COMPONENTS_ATI", "CONST(3), NO_EXTRA" ],
 
 # GL_EXT_provoking_vertex
   [ "PROVOKING_VERTEX_EXT", "CONTEXT_ENUM16(Light.ProvokingVertex), NO_EXTRA" ],
