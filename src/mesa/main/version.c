@@ -318,7 +318,7 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->ARB_depth_clamp &&
                          /* extensions->ARB_draw_elements_base_vertex && */
                          /* extensions->ARB_fragment_coord_conventions && */
-                         extensions->EXT_provoking_vertex &&
+                         /* extensions->EXT_provoking_vertex && */
                          extensions->ARB_seamless_cube_map &&
                          /* extensions->ARB_sync && */
                          extensions->ARB_texture_multisample &&

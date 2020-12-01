@@ -938,8 +938,8 @@ descriptor=[
   [ "NUM_INPUT_INTERPOLATOR_COMPONENTS_ATI", "CONST(3), extra_ATI_fragment_shader" ],
 
 # GL_EXT_provoking_vertex
-  [ "PROVOKING_VERTEX_EXT", "CONTEXT_ENUM16(Light.ProvokingVertex), extra_EXT_provoking_vertex" ],
-  [ "QUADS_FOLLOW_PROVOKING_VERTEX_CONVENTION_EXT", "CONTEXT_BOOL(Const.QuadsFollowProvokingVertexConvention), extra_EXT_provoking_vertex_32" ],
+  [ "PROVOKING_VERTEX_EXT", "CONTEXT_ENUM16(Light.ProvokingVertex), NO_EXTRA" ],
+  [ "QUADS_FOLLOW_PROVOKING_VERTEX_CONVENTION_EXT", "CONTEXT_BOOL(Const.QuadsFollowProvokingVertexConvention), NO_EXTRA" ],
 
 # GL_ARB_seamless_cube_map
   [ "TEXTURE_CUBE_MAP_SEAMLESS", "CONTEXT_BOOL(Texture.CubeMapSeamless), extra_ARB_seamless_cube_map" ],
