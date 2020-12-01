@@ -4903,12 +4903,29 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
       if (post_shuffle)
          num_channels = MAX2(num_channels, 3);
 
+      unsigned desc_count = util_bitcount(ctx->program->info->vs.vb_desc_usage_mask);
       unsigned desc_index = ctx->program->info->vs.use_per_attribute_vb_descs ?
                             location : attrib_binding;
       desc_index = util_bitcount(ctx->program->info->vs.vb_desc_usage_mask &
                                  u_bit_consecutive(0, desc_index));
-      Operand off = bld.copy(bld.def(s1), Operand(desc_index * 16u));
-      Temp list = bld.smem(aco_opcode::s_load_dwordx4, bld.def(s4), vertex_buffers, off);
+      unsigned desc_index_base = desc_index & ~0x3;
+
+      Temp list;
+      Operand off = bld.copy(bld.def(s1), Operand(desc_index_base * 16u));
+      if (desc_count - desc_index_base > 2) {
+         list = bld.smem(aco_opcode::s_load_dwordx16, bld.def(s16), vertex_buffers, off);
+         Temp lists[4] = {bld.tmp(s4), bld.tmp(s4), bld.tmp(s4), bld.tmp(s4)};
+         bld.pseudo(aco_opcode::p_split_vector, Definition(lists[0]), Definition(lists[1]),
+                    Definition(lists[2]), Definition(lists[3]), list);
+         list = lists[desc_index - desc_index_base];
+      } else if (desc_count - desc_index_base > 1) {
+         list = bld.smem(aco_opcode::s_load_dwordx8, bld.def(s8), vertex_buffers, off);
+         Temp lists[4] = {bld.tmp(s4), bld.tmp(s4)};
+         bld.pseudo(aco_opcode::p_split_vector, Definition(lists[0]), Definition(lists[1]), list);
+         list = lists[desc_index - desc_index_base];
+      } else {
+         list = bld.smem(aco_opcode::s_load_dwordx4, bld.def(s4), vertex_buffers, off);
+      }
 
       Temp index;
       if (ctx->options->key.vs.instance_rate_inputs & (1u << location)) {
