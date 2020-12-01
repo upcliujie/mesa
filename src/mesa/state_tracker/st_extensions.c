@@ -1035,7 +1035,6 @@ void st_init_extensions(struct pipe_screen *screen,
    /*
     * Extensions that are supported by all Gallium drivers:
     */
-   extensions->EXT_EGL_image_storage = GL_TRUE;
    extensions->EXT_gpu_program_parameters = GL_TRUE;
    extensions->EXT_pixel_buffer_object = GL_TRUE;
    extensions->EXT_provoking_vertex = GL_TRUE;
