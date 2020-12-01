@@ -579,9 +579,6 @@ get_legal_types_mask(const struct gl_context *ctx)
    else {
       legalTypesMask &= ~FIXED_ES_BIT;
 
-      if (!ctx->Extensions.ARB_ES2_compatibility)
-         legalTypesMask &= ~FIXED_GL_BIT;
-
       if (!ctx->Extensions.ARB_vertex_type_2_10_10_10_rev)
          legalTypesMask &= ~(UNSIGNED_INT_2_10_10_10_REV_BIT |
                              INT_2_10_10_10_REV_BIT);

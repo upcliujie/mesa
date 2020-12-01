@@ -238,12 +238,10 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(struct gl_context *_ctx,
          }
       }
    }
-   if (ctx->API == API_OPENGLES2 || ctx->Extensions.ARB_ES2_compatibility) {
-      this->supported_versions[this->num_supported_versions].ver = 100;
-      this->supported_versions[this->num_supported_versions].gl_ver = 20;
-      this->supported_versions[this->num_supported_versions].es = true;
-      this->num_supported_versions++;
-   }
+   this->supported_versions[this->num_supported_versions].ver = 100;
+   this->supported_versions[this->num_supported_versions].gl_ver = 20;
+   this->supported_versions[this->num_supported_versions].es = true;
+   this->num_supported_versions++;
    if (_mesa_is_gles3(ctx) || ctx->Extensions.ARB_ES3_compatibility) {
       this->supported_versions[this->num_supported_versions].ver = 300;
       this->supported_versions[this->num_supported_versions].gl_ver = 30;
