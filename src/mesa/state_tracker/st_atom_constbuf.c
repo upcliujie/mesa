@@ -91,7 +91,6 @@ st_upload_constants(struct st_context *st, struct gl_program *prog)
 
    /* update constants */
    if (params && params->NumParameters) {
-      struct pipe_constant_buffer cb;
       const uint paramBytes = params->NumParameterValues * sizeof(GLfloat);
 
       _mesa_shader_write_subroutine_indices(st->ctx, stage);
@@ -103,13 +102,14 @@ st_upload_constants(struct st_context *st, struct gl_program *prog)
          _mesa_print_parameter_list(params);
       }
 
-      cb.buffer = NULL;
-      cb.user_buffer = NULL;
-      cb.buffer_offset = 0;
-      cb.buffer_size = paramBytes;
-
       if (st->prefer_real_buffer_in_constbuf0) {
+         struct pipe_constant_buffer cb;
          uint32_t *ptr;
+
+         cb.buffer = NULL;
+         cb.buffer_size = paramBytes;
+         cb.user_buffer = NULL;
+
          /* fetch_state always stores 4 components (16 bytes) per matrix row,
           * but matrix rows are sometimes allocated partially, so add 12
           * to compensate for the fetch_state defect.
@@ -159,6 +159,11 @@ st_upload_constants(struct st_context *st, struct gl_program *prog)
                                           values);
          }
       } else {
+         struct pipe_constant_buffer cb;
+
+         cb.buffer = NULL;
+         cb.buffer_offset = 0;
+         cb.buffer_size = paramBytes;
          cb.user_buffer = params->ParameterValues;
 
          /* Update the constants which come from fixed-function state, such as
