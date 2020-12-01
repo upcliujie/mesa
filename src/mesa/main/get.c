@@ -504,7 +504,6 @@ EXTRA_EXT(ATI_fragment_shader);
 EXTRA_EXT(EXT_provoking_vertex);
 EXTRA_EXT2(ARB_framebuffer_object, EXT_framebuffer_multisample);
 EXTRA_EXT(ARB_seamless_cube_map);
-EXTRA_EXT(ARB_sync);
 EXTRA_EXT(EXT_transform_feedback);
 EXTRA_EXT(ARB_transform_feedback3);
 EXTRA_EXT(EXT_pixel_buffer_object);

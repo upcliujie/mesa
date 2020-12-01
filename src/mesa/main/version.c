@@ -320,7 +320,7 @@ compute_version(const struct gl_extensions *extensions,
                          /* extensions->ARB_fragment_coord_conventions && */
                          extensions->EXT_provoking_vertex &&
                          extensions->ARB_seamless_cube_map &&
-                         extensions->ARB_sync &&
+                         /* extensions->ARB_sync && */
                          extensions->ARB_texture_multisample &&
                          extensions->EXT_vertex_array_bgra);
    const bool ver_3_3 = (ver_3_2 &&

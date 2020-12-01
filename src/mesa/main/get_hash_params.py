@@ -424,7 +424,7 @@ descriptor=[
   [ "NUM_SPIR_V_EXTENSIONS", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_spirv_extensions" ],
 
 # GL_ARB_sync
-  [ "MAX_SERVER_WAIT_TIMEOUT", "CONTEXT_INT64(Const.MaxServerWaitTimeout), extra_ARB_sync" ],
+  [ "MAX_SERVER_WAIT_TIMEOUT", "CONTEXT_INT64(Const.MaxServerWaitTimeout), NO_EXTRA" ],
 
 # GL_ARB_transform_feedback2
   [ "TRANSFORM_FEEDBACK_BUFFER_PAUSED", "LOC_CUSTOM, TYPE_BOOLEAN, 0, extra_ARB_transform_feedback2_api_es3" ],
