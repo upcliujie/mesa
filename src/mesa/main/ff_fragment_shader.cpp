@@ -1084,7 +1084,7 @@ create_new_program(struct gl_context *ctx, struct state_key *key)
    state->language_version = 120;
 
    state->es_shader = false;
-   if (_mesa_is_gles(ctx) && ctx->Extensions.OES_EGL_image_external)
+   if (_mesa_is_gles(ctx))
       state->OES_EGL_image_external_enable = true;
    _mesa_glsl_initialize_types(state);
    _mesa_glsl_initialize_variables(p.instructions, state);
