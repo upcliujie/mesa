@@ -1443,34 +1443,6 @@ _mesa_test_framebuffer_completeness(struct gl_context *ctx,
       }
    }
 
-   if (_mesa_is_desktop_gl(ctx) && !ctx->Extensions.ARB_ES2_compatibility) {
-      /* Check that all DrawBuffers are present */
-      for (j = 0; j < ctx->Const.MaxDrawBuffers; j++) {
-         if (fb->ColorDrawBuffer[j] != GL_NONE) {
-            const struct gl_renderbuffer_attachment *att
-               = get_attachment(ctx, fb, fb->ColorDrawBuffer[j], NULL);
-            assert(att);
-            if (att->Type == GL_NONE) {
-               fb->_Status = GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT;
-               fbo_incomplete(ctx, "missing drawbuffer", j);
-               return;
-            }
-         }
-      }
-
-      /* Check that the ReadBuffer is present */
-      if (fb->ColorReadBuffer != GL_NONE) {
-         const struct gl_renderbuffer_attachment *att
-            = get_attachment(ctx, fb, fb->ColorReadBuffer, NULL);
-         assert(att);
-         if (att->Type == GL_NONE) {
-            fb->_Status = GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT;
-            fbo_incomplete(ctx, "missing readbuffer", -1);
-            return;
-         }
-      }
-   }
-
    /* The OpenGL ES3 spec, in chapter 9.4. FRAMEBUFFER COMPLETENESS, says:
     *
     *    "Depth and stencil attachments, if present, are the same image."
@@ -2434,8 +2406,8 @@ _mesa_base_fbo_format(const struct gl_context *ctx, GLenum internalFormat)
          || _mesa_is_gles3(ctx) ? GL_RGBA : 0;
 
    case GL_RGB565:
-      return _mesa_is_gles(ctx) || ctx->Extensions.ARB_ES2_compatibility
-         ? GL_RGB : 0;
+      return GL_RGB;
+
    default:
       return 0;
    }
