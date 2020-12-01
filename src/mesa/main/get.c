@@ -501,7 +501,6 @@ EXTRA_EXT(EXT_depth_bounds_test);
 EXTRA_EXT(ARB_depth_clamp);
 EXTRA_EXT(AMD_depth_clamp_separate);
 EXTRA_EXT(ATI_fragment_shader);
-EXTRA_EXT(EXT_provoking_vertex);
 EXTRA_EXT2(ARB_framebuffer_object, EXT_framebuffer_multisample);
 EXTRA_EXT(ARB_seamless_cube_map);
 EXTRA_EXT(EXT_transform_feedback);
@@ -613,11 +612,6 @@ static const int extra_EXT_shader_framebuffer_fetch[] = {
    EXTRA_API_ES2,
    EXTRA_API_ES3,
    EXT(EXT_shader_framebuffer_fetch),
-   EXTRA_END
-};
-
-static const int extra_EXT_provoking_vertex_32[] = {
-   EXTRA_EXT_PROVOKING_VERTEX_32,
    EXTRA_END
 };
 
@@ -1487,7 +1481,7 @@ check_extra(struct gl_context *ctx, const char *func, const struct value_desc *d
       case EXTRA_EXT_PROVOKING_VERTEX_32:
          api_check = GL_TRUE;
          if (ctx->API == API_OPENGL_COMPAT || version == 32)
-            api_found = ctx->Extensions.EXT_provoking_vertex;
+            api_found = GL_TRUE;
          break;
       case EXTRA_END:
          break;
