@@ -862,7 +862,7 @@ descriptor=[
   [ "FOG_COORDINATE_SOURCE", "CONTEXT_ENUM16(Fog.FogCoordinateSource), NO_EXTRA" ],
 
 # GL_NV_fog_distance
-  [ "FOG_DISTANCE_MODE_NV", "CONTEXT_ENUM16(Fog.FogDistanceMode), extra_NV_fog_distance" ],
+  [ "FOG_DISTANCE_MODE_NV", "CONTEXT_ENUM16(Fog.FogDistanceMode), NO_EXTRA" ],
 
 # GL_IBM_rasterpos_clip
   [ "RASTER_POSITION_UNCLIPPED_IBM", "CONTEXT_BOOL(Transform.RasterPositionUnclipped), NO_EXTRA" ],

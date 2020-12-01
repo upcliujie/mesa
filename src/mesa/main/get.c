@@ -494,7 +494,6 @@ static const int extra_INTEL_conservative_rasterization[] = {
 };
 
 EXTRA_EXT(EXT_texture_array);
-EXTRA_EXT(NV_fog_distance);
 EXTRA_EXT(EXT_texture_filter_anisotropic);
 EXTRA_EXT(NV_texture_rectangle);
 EXTRA_EXT(EXT_depth_bounds_test);
