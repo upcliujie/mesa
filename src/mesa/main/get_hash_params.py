@@ -557,7 +557,7 @@ descriptor=[
   [ "MAX_FRAMEBUFFER_LAYERS", "CONTEXT_INT(Const.MaxFramebufferLayers), extra_ARB_framebuffer_no_attachments_and_geometry_shader" ],
 
 # GL_ARB_explicit_uniform_location / GLES 3.1
-  [ "MAX_UNIFORM_LOCATIONS", "CONTEXT_INT(Const.MaxUserAssignableUniformLocations), extra_ARB_explicit_uniform_location" ],
+  [ "MAX_UNIFORM_LOCATIONS", "CONTEXT_INT(Const.MaxUserAssignableUniformLocations), NO_EXTRA" ],
 
 # GL_ARB_separate_shader_objects / GLES 3.1
   [ "PROGRAM_PIPELINE_BINDING", "LOC_CUSTOM, TYPE_INT, GL_PROGRAM_PIPELINE_BINDING, NO_EXTRA" ],

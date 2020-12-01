@@ -4308,7 +4308,6 @@ struct gl_extensions
    GLboolean ARB_framebuffer_object;
    GLboolean ARB_fragment_shader_interlock;
    GLboolean ARB_enhanced_layouts;
-   GLboolean ARB_explicit_uniform_location;
    GLboolean ARB_gl_spirv;
    GLboolean ARB_gpu_shader5;
    GLboolean ARB_gpu_shader_fp64;
