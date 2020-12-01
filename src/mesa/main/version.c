@@ -282,7 +282,7 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->EXT_stencil_two_side);
 #endif
    const bool ver_2_1 = (ver_2_0 &&
-                         extensions->EXT_pixel_buffer_object &&
+                         /* extensions->EXT_pixel_buffer_object && */
                          extensions->EXT_texture_sRGB);
    const bool ver_3_0 = (ver_2_1 &&
                          consts->GLSLVersion >= 130 &&
