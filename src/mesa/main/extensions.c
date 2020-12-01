@@ -133,7 +133,6 @@ _mesa_enable_sw_extensions(struct gl_context *ctx)
    ctx->Extensions.ARB_texture_compression_rgtc = GL_TRUE;
    ctx->Extensions.APPLE_object_purgeable = GL_TRUE;
    ctx->Extensions.ATI_texture_compression_3dc = GL_TRUE;
-   ctx->Extensions.ATI_texture_env_combine3 = GL_TRUE;
    ctx->Extensions.ATI_texture_mirror_once = GL_TRUE;
    ctx->Extensions.EXT_depth_bounds_test = GL_TRUE;
    ctx->Extensions.EXT_draw_buffers2 = GL_TRUE;
