@@ -130,6 +130,23 @@ on what sort of addressing should be used, but it says that it
 "is equivalent to an `S_CBRANCH` with extra math", so the subvector loop handling
 in ACO is done according to the `s_cbranch` doc.
 
+## RDNA `s_endpgm`
+
+The documentation says:
+
+> The hardware implicitly executes S_WAITCNT 0 and S_WAITCNT_VSCNT 0
+> before executing this instruction.
+
+What the doc doesn't say is that in case of NGG (and legacy VS) when there
+are no param exports (`NO_PC_EXPORT=1`) the hardware will start clipping and
+rasterization as soon as it encounters a position export with `done=1`,
+without waiting for the current stage to finish.
+Even PS waves can start before VS finishes.
+
+This means that in this edge case, any store performed by the VS is not
+guaranteed to be complete, so we need to manually make sure to insert
+wait instructions before the position exports.
+
 # Hardware Bugs
 
 ## SMEM corrupts VCCZ on SI/CI
