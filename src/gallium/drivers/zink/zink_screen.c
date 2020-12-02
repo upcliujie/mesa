@@ -1088,6 +1088,20 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
 
    zink_debug = debug_get_option_zink_debug();
 
+   /**
+    * HACK: Temorarily unset $GALLIUM_DRIVER to prevent Lavapipe from
+    * recursively trying to use zink as the gallium driver.
+    *
+    * This is not thread-safe, so if an application creates another
+    * context in another thread at the same time, well, we're out of
+    * luck!
+    */
+   char *gallium_driver = getenv("GALLIUM_DRIVER");
+   if (gallium_driver && !strcmp(gallium_driver, "zink"))
+      unsetenv("GALLIUM_DRIVER");
+   else
+      gallium_driver = NULL;
+
    screen->instance = create_instance(screen);
    if (!screen->instance)
       goto fail;
@@ -1100,6 +1114,12 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
 
    screen->pdev = choose_pdev(screen->instance);
    update_queue_props(screen);
+
+   /* Restore $GALLIUM_DRIVER to make future loads */
+   if (gallium_driver) {
+      setenv("GALLIUM_DRIVER", gallium_driver, 1);
+      gallium_driver = NULL;
+   }
 
    screen->have_X8_D24_UNORM_PACK32 = zink_is_depth_format_supported(screen,
                                               VK_FORMAT_X8_D24_UNORM_PACK32);
@@ -1181,6 +1201,10 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
    return &screen->base;
 
 fail:
+   /* Restore $GALLIUM_DRIVER to make future loads */
+   if (gallium_driver)
+      setenv("GALLIUM_DRIVER", gallium_driver, 1);
+
    FREE(screen);
    return NULL;
 }
