@@ -363,6 +363,35 @@ gbm_bo_get_handle_for_plane(struct gbm_bo *bo, int plane)
    return bo->gbm->bo_get_handle(bo, plane);
 }
 
+/** Get a file descriptor for the specified plane of the buffer object
+ *
+ * This function gets a file descriptor for any plane associated with the BO. When
+ * dealing with multi-planar formats, or formats which might have implicit
+ * planes based on different underlying hardware it is necessary for the client
+ * to be able to get this information to pass to the DRM.
+ *
+ * \param bo The buffer object
+ * \param plane the plane to get a file descriptor for
+ *
+ * \sa gbm_bo_get_fd()
+ * \sa gbm_bo_get_handle_for_plane()
+ */
+GBM_EXPORT int
+gbm_bo_get_fd_for_plane(struct gbm_bo *bo, int plane)
+{
+	int fd;
+	assert(plane < bo->num_planes);
+
+	if (drmPrimeHandleToFD(
+			gbm_device_get_fd(bo->gbm),
+			gbm_bo_get_handle_for_plane(bo, plane).u32,
+			DRM_CLOEXEC,
+			&fd))
+		return -1;
+	else
+		return fd;
+}
+
 /**
  * Get the chosen modifier for the buffer object
  *
