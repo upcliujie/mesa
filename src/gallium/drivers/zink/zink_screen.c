@@ -924,8 +924,8 @@ check_device_needs_mesa_wsi(struct zink_screen *screen)
    }
 }
 
-static struct pipe_screen *
-zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_screen_config *config)
+static struct zink_screen *
+zink_internal_create_screen(const struct pipe_screen_config *config)
 {
    struct zink_screen *screen = CALLOC_STRUCT(zink_screen);
    if (!screen)
@@ -965,11 +965,6 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
    zink_internal_setup_moltenvk(screen);
 #endif
 
-   if (fd >= 0 && !screen->info.have_KHR_external_memory_fd) {
-      debug_printf("ZINK: KHR_external_memory_fd required!\n");
-      goto fail;
-   }
-   
    VkDeviceQueueCreateInfo qci = {};
    float dummy = 0.0f;
    qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -999,8 +994,6 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
    if (!load_device_extensions(screen))
       goto fail;
 
-   screen->winsys = winsys;
-
    screen->base.get_name = zink_get_name;
    screen->base.get_vendor = zink_get_vendor;
    screen->base.get_device_vendor = zink_get_device_vendor;
@@ -1018,7 +1011,7 @@ zink_internal_create_screen(struct sw_winsys *winsys, int fd, const struct pipe_
 
    slab_create_parent(&screen->transfer_pool, sizeof(struct zink_transfer), 16);
 
-   return &screen->base;
+   return screen;
 
 fail:
    FREE(screen);
@@ -1028,11 +1021,24 @@ fail:
 struct pipe_screen *
 zink_create_screen(struct sw_winsys *winsys)
 {
-   return zink_internal_create_screen(winsys, -1, NULL);
+   struct zink_screen *ret = zink_internal_create_screen(NULL);
+
+   if (ret)
+      ret->winsys = winsys;
+
+   return &ret->base;
 }
 
 struct pipe_screen *
 zink_drm_create_screen(int fd, const struct pipe_screen_config *config)
 {
-   return zink_internal_create_screen(NULL, fd, config);
+   struct zink_screen *ret = zink_internal_create_screen(config);
+
+   if (ret && !ret->info.have_KHR_external_memory_fd) {
+      debug_printf("ZINK: KHR_external_memory_fd required!\n");
+      free(ret);
+      return NULL;
+   }
+
+   return &ret->base;
 }
