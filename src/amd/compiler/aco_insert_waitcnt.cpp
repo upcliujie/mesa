@@ -28,6 +28,7 @@
 #include <math.h>
 
 #include "aco_ir.h"
+#include "sid.h"
 
 namespace aco {
 
@@ -272,6 +273,7 @@ struct wait_ctx {
    bool pending_flat_lgkm = false;
    bool pending_flat_vm = false;
    bool pending_s_buffer_store = false; /* GFX10 workaround */
+   bool pending_coherent_store = false;
 
    wait_imm barrier_imm[storage_count];
    uint16_t barrier_events[storage_count] = {}; /* use wait_event notion */
@@ -312,6 +314,7 @@ struct wait_ctx {
       pending_flat_lgkm |= other->pending_flat_lgkm;
       pending_flat_vm |= other->pending_flat_vm;
       pending_s_buffer_store |= other->pending_s_buffer_store;
+      pending_coherent_store |= other->pending_coherent_store;
 
       for (const auto& entry : other->gpr_map)
       {
@@ -596,6 +599,8 @@ wait_imm kill(Instruction* instr, wait_ctx& ctx, memory_sync_info sync_info)
       ctx.pending_flat_lgkm = false;
       ctx.pending_s_buffer_store = false;
    }
+   if (imm.vs == 0)
+      ctx.pending_coherent_store = false;
 
    return imm;
 }
@@ -823,6 +828,14 @@ void gen(Instruction* instr, wait_ctx& ctx)
       if (!instr->definitions.empty())
          insert_wait_entry(ctx, instr->definitions[0], ev, has_sampler);
 
+      if (ev == event_vmem_store)
+         ctx.pending_coherent_store =
+            ctx.pending_coherent_store ||
+            (instr->format == Format::MUBUF && static_cast<MUBUF_instruction *>(instr)->glc) ||
+            (instr->format == Format::MTBUF && static_cast<MTBUF_instruction *>(instr)->glc) ||
+            (instr->format == Format::MIMG && static_cast<MIMG_instruction *>(instr)->glc) ||
+            (instr->format == Format::GLOBAL && static_cast<FLAT_instruction *>(instr)->glc);
+
       if (ctx.chip_class == GFX6 &&
           instr->format != Format::MIMG &&
           instr->operands.size() == 4) {
@@ -881,6 +894,28 @@ void handle_block(Program *program, Block& block, wait_ctx& ctx)
 
       ctx.gen_instr = instr.get();
       gen(instr.get(), ctx);
+
+      if (ctx.pending_coherent_store &&
+          program->stage.hw == HWStage::NGG &&
+          instr->opcode == aco_opcode::exp) {
+         Export_instruction *exp = static_cast<Export_instruction *>(instr.get());
+         const radv_vs_output_info *outinfo = program->stage.has(SWStage::TES)
+                                              ? &program->info->tes.outinfo
+                                              : &program->info->vs.outinfo;
+
+         if (exp->dest != V_008DFC_SQ_EXP_PRIM && outinfo->param_exports == 0 && ctx.vs_cnt > 0) {
+            /* No param exports means NO_PC_EXPORT=1 which means PS waves can launch before NGG finishes.
+             * We need to wait for all coherent stores here, to make sure PS can
+             * correctly read what this shader stores.
+             */
+            wait_imm wait;
+            wait.vs = 0;
+            emit_waitcnt(ctx, new_instructions, wait);
+
+            ctx.vs_cnt = 0;
+            ctx.pending_coherent_store = false;
+         }
+      }
 
       if (instr->format != Format::PSEUDO_BARRIER && !is_wait) {
          if (!queued_imm.empty()) {
