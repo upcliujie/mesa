@@ -28,6 +28,7 @@
 #include <math.h>
 
 #include "aco_ir.h"
+#include "sid.h"
 
 namespace aco {
 
@@ -881,6 +882,41 @@ void handle_block(Program *program, Block& block, wait_ctx& ctx)
 
       ctx.gen_instr = instr.get();
       gen(instr.get(), ctx);
+
+      if (program->chip_class >= GFX10 &&
+          instr->opcode == aco_opcode::exp &&
+          (program->stage.hw == HWStage::VS || program->stage.hw == HWStage::NGG)) {
+
+         Export_instruction *exp = static_cast<Export_instruction *>(instr.get());
+         const radv_vs_output_info *outinfo = program->stage.has(SWStage::TES)
+                                              ? &program->info->tes.outinfo
+                                              : &program->info->vs.outinfo;
+
+         if (exp->dest != V_008DFC_SQ_EXP_PRIM && outinfo->param_exports == 0) {
+            /* GFX10+ NGG or VS with no param exports:
+             * NO_PC_EXPORT=1 is set which means the HW will start clipping and rasterization
+             * as soon as it receives a pos export with done=1, so PS waves can launch
+             * before the NGG (or legacy VS) stage is finished.
+             */
+
+            wait_imm wait;
+
+            /* Wait for all stores (and atomics) to complete, so PS can read them. */
+            if (ctx.vs_cnt > 0)
+               wait.vs = 0;
+            if (ctx.vm_cnt > 0)
+               wait.vm = 0;
+
+            if (!wait.empty()) {
+               emit_waitcnt(ctx, new_instructions, wait);
+
+               if (ctx.vs_cnt > 0)
+                  ctx.vs_cnt = 0;
+               if (ctx.vm_cnt > 0)
+                  ctx.vm_cnt = 0;
+            }
+         }
+      }
 
       if (instr->format != Format::PSEUDO_BARRIER && !is_wait) {
          if (!queued_imm.empty()) {
