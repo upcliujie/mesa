@@ -447,6 +447,11 @@ gather_intrinsic_info(nir_intrinsic_instr *instr, nir_shader *shader,
          BITFIELD64_BIT(VARYING_SLOT_COL0 <<
                         (instr->intrinsic == nir_intrinsic_load_color1));
       FALLTHROUGH;
+   case nir_intrinsic_load_sample_id:
+   case nir_intrinsic_load_sample_pos:
+      if (shader->info.stage == MESA_SHADER_FRAGMENT)
+         shader->info.fs.uses_sample_shading = true;
+      FALLTHROUGH;
    case nir_intrinsic_load_subgroup_size:
    case nir_intrinsic_load_subgroup_invocation:
    case nir_intrinsic_load_subgroup_eq_mask:
@@ -470,8 +475,6 @@ gather_intrinsic_info(nir_intrinsic_instr *instr, nir_shader *shader,
    case nir_intrinsic_load_point_coord:
    case nir_intrinsic_load_line_coord:
    case nir_intrinsic_load_front_face:
-   case nir_intrinsic_load_sample_id:
-   case nir_intrinsic_load_sample_pos:
    case nir_intrinsic_load_sample_mask_in:
    case nir_intrinsic_load_helper_invocation:
    case nir_intrinsic_load_tess_coord:
@@ -859,4 +862,9 @@ nir_shader_gather_info(nir_shader *shader, nir_function_impl *entrypoint)
       gather_info_block(block, shader, dead_ctx);
    }
    ralloc_free(dead_ctx);
+
+   if (shader->info.stage == MESA_SHADER_FRAGMENT &&
+       shader->info.fs.uses_sample_qualifier) {
+      shader->info.fs.uses_sample_shading = true;
+   }
 }
