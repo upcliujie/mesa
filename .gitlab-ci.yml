@@ -589,7 +589,7 @@ meson-testing:
       -D platforms=x11
     GALLIUM_ST: >
       -D dri3=enabled
-    GALLIUM_DRIVERS: "swrast,virgl,radeonsi"
+    GALLIUM_DRIVERS: "swrast,virgl,radeonsi,zink"
     VULKAN_DRIVERS: "swrast,amd"
     BUILDTYPE: "debugoptimized"
     EXTRA_OPTION: >
@@ -1116,6 +1116,30 @@ llvmpipe-traces:
     PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-llvmpipe.yml"
     PIGLIT_REPLAY_DEVICE_NAME: "gl-vmware-llvmpipe"
     PIGLIT_RESULTS: "llvmpipe-replay"
+
+.zink-test:
+  extends:
+    - .zink-rules
+  variables:
+    LIBGL_ALWAYS_SOFTWARE: "true"
+    ZINK_USE_LAVAPIPE: "true"
+    GALLIUM_DRIVER: "zink"
+
+zink-piglit-quick_gl:
+  extends:
+    - .test-gl
+    - .piglit-test
+    - .zink-test
+  variables:
+    LP_NUM_THREADS: 0
+    PIGLIT_OPTIONS: >
+      --process-isolation false
+      -x arb_map_buffer_alignment@arb_map_buffer_alignment-map-invalidate-range
+      -x ext_timer_query@time-elapsed
+      -x max-texture-size
+      -x maxsize
+    PIGLIT_PROFILES: quick_gl
+    PIGLIT_RESULTS: "zink-quick_gl"
 
 .virgl-test:
   extends:
