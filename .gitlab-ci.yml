@@ -25,10 +25,9 @@ stages:
   - software-renderer
   - freedreno
   - panfrost
-  - radv
   - lima
   - virgl
-  - radeonsi
+  - amd
   - d3d12
   - success
 
@@ -1383,7 +1382,7 @@ arm64_a530_gles31:
 # RADV CI
 .test-radv:
   extends: .radv-rules
-  stage: radv
+  stage: amd
   variables:
     VK_DRIVER: radeon
     ACO_DEBUG: validateir,validatera
