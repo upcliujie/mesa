@@ -1003,7 +1003,7 @@ meson-mingw32-x86_64:
   script:
     - install/piglit/run.sh
 
-piglit-cl:
+llvmpipe-piglit-cl:
   extends:
     - .piglit-test
     - .test-cl
@@ -1017,7 +1017,7 @@ piglit-cl:
   script:
     - install/piglit/run_cl.sh
 
-piglit-quick_gl:
+llvmpipe-piglit-quick_gl:
   extends: .piglit-test
   variables:
     LP_NUM_THREADS: 0
@@ -1032,13 +1032,13 @@ piglit-quick_gl:
       -x maxsize
     PIGLIT_PROFILES: quick_gl
 
-piglit-glslparser:
+llvmpipe-piglit-glslparser:
   extends: .piglit-test
   variables:
     LP_NUM_THREADS: 0
     PIGLIT_PROFILES: glslparser
 
-piglit-quick_shader:
+llvmpipe-piglit-quick_shader:
   extends: .piglit-test
   variables:
     LP_NUM_THREADS: 1
