@@ -22,8 +22,7 @@ stages:
   - deploy
   - meson-x86_64
   - build-misc
-  - llvmpipe
-  - softpipe
+  - software-renderer
   - freedreno
   - panfrost
   - radv
