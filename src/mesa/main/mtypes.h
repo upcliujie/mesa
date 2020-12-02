@@ -5387,7 +5387,7 @@ struct gl_context
    GLboolean ViewportInitialized;  /**< has viewport size been initialized? */
    GLboolean _AllowDrawOutOfOrder;
    /* Is gl_PrimitiveID unused by the current shaders? */
-   GLboolean _PrimitiveIDIsUnused;
+   bool _PrimitiveIDIsUnused;
 
    GLbitfield varying_vp_inputs;  /**< mask of VERT_BIT_* flags */
 
