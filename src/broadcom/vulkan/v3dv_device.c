@@ -402,10 +402,15 @@ v3dv_drm_handle_device(void *data, struct wl_drm *drm, const char *device)
    struct v3dv_wayland_info *info = data;
    info->fd = open(device, O_RDWR | O_CLOEXEC);
    info->is_set = info->fd != -1;
+   if (!info->is_set)
+      return;
 
    drm_magic_t magic;
    if (drmGetMagic(info->fd, &magic)) {
       fprintf(stderr, "drmGetMagic failed.");
+      close(info->fd);
+      info->fd = -1;
+      info->is_set = false;
       return;
    }
    wl_drm_authenticate(info->wl_drm, magic);
