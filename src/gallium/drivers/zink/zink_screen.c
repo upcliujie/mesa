@@ -1188,7 +1188,30 @@ fail:
 struct pipe_screen *
 zink_create_screen(struct sw_winsys *winsys)
 {
-   return zink_internal_create_screen(winsys, -1, NULL);
+#ifdef ZINK_WITH_SWRAST_VK
+   char *use_lavapipe = getenv("ZINK_USE_LAVAPIPE"), *gallium_driver = NULL;
+   if (use_lavapipe) {
+      /**
+      * HACK: Temorarily unset $GALLIUM_DRIVER to prevent Lavapipe from
+      * recursively trying to use zink as the gallium driver.
+      *
+      * This is not thread-safe, so if an application creates another
+      * context in another thread at the same time, well, we're out of
+      * luck!
+      */
+      gallium_driver = getenv("GALLIUM_DRIVER");
+      unsetenv("GALLIUM_DRIVER");
+   }
+#endif
+
+   struct pipe_screen *ret = zink_internal_create_screen(winsys, -1, NULL);
+
+#ifdef ZINK_WITH_SWRAST_VK
+   if (gallium_driver)
+      setenv("GALLIUM_DRIVER", gallium_driver, 1);
+#endif
+
+   return ret;
 }
 
 struct pipe_screen *
