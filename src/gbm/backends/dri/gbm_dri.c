@@ -56,6 +56,8 @@
 #include "wayland-drm.h"
 #endif
 
+static int get_number_planes(struct gbm_dri_device *dri, __DRIimage *image);
+
 static __DRIimage *
 dri_lookup_egl_image(__DRIscreen *screen, void *image, void *data)
 {
@@ -666,17 +668,31 @@ gbm_dri_bo_write(struct gbm_bo *_bo, const void *buf, size_t count)
 }
 
 static int
-gbm_dri_bo_get_fd(struct gbm_bo *_bo)
+gbm_dri_bo_get_fd(struct gbm_bo *_bo, int plane)
 {
    struct gbm_dri_device *dri = gbm_dri_device(_bo->gbm);
    struct gbm_dri_bo *bo = gbm_dri_bo(_bo);
+   __DRIimage *image;
    int fd;
 
    if (bo->image == NULL)
       return -1;
 
-   if (!dri->image->queryImage(bo->image, __DRI_IMAGE_ATTRIB_FD, &fd))
+   if (plane >= get_number_planes(dri, bo->image)) {
+      errno = EINVAL;
       return -1;
+   }
+
+   image = dri->image->fromPlanar(bo->image, plane, NULL);
+   if (image) {
+      if (!dri->image->queryImage(image, __DRI_IMAGE_ATTRIB_FD, &fd))
+         fd = -1;
+      dri->image->destroyImage(image);
+   } else {
+      assert(plane == 0);
+      if (!dri->image->queryImage(bo->image, __DRI_IMAGE_ATTRIB_FD, &fd))
+         fd = -1;
+   }
 
    return fd;
 }

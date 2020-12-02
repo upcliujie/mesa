@@ -331,7 +331,7 @@ gbm_bo_get_handle(struct gbm_bo *bo)
 GBM_EXPORT int
 gbm_bo_get_fd(struct gbm_bo *bo)
 {
-   return bo->gbm->bo_get_fd(bo);
+   return bo->gbm->bo_get_fd(bo, 0);
 }
 
 /** Get the number of planes for the given bo.
@@ -361,6 +361,30 @@ GBM_EXPORT union gbm_bo_handle
 gbm_bo_get_handle_for_plane(struct gbm_bo *bo, int plane)
 {
    return bo->gbm->bo_get_handle(bo, plane);
+}
+
+/** Get a DMA-BUF file descriptor for the specified plane of the buffer object
+ *
+ * This function creates a DMA-BUF (also known as PRIME) file descriptor
+ * handle for any plane associated with the buffer object. When dealing with
+ * multi-planar formats, or formats which might have implicit planes based on
+ * different underlying hardware it is necessary for the client to be able to
+ * get this information to pass to the DRM. Each call to gbm_bo_get_fd()
+ * returns a new file descriptor and the caller is responsible for closing the
+ * file descriptor.
+ *
+ * \param bo The buffer object
+ * \param plane the plane to get a file descriptor for
+ * \return Returns a file descriptor referring to the specified plane
+ * associated with the specified buffer or -1 if an error occurs.
+ *
+ * \sa gbm_bo_get_fd()
+ * \sa gbm_bo_get_handle_for_plane()
+ */
+GBM_EXPORT int
+gbm_bo_get_fd_for_plane(struct gbm_bo *bo, int plane)
+{
+   return bo->gbm->bo_get_fd(bo, plane);
 }
 
 /**
