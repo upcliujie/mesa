@@ -28,6 +28,7 @@
 #include <math.h>
 
 #include "aco_ir.h"
+#include "sid.h"
 
 namespace aco {
 
@@ -527,6 +528,34 @@ wait_imm kill(Instruction* instr, wait_ctx& ctx, memory_sync_info sync_info)
           !smem->definitions.empty() &&
           !smem->sync.can_reorder()) {
          imm.lgkm = 0;
+      }
+   }
+
+   if (ctx.chip_class >= GFX10 &&
+      instr->opcode == aco_opcode::exp &&
+      (ctx.program->stage.hw == HWStage::VS || ctx.program->stage.hw == HWStage::NGG)) {
+
+      Export_instruction *exp = static_cast<Export_instruction *>(instr);
+      const radv_vs_output_info *outinfo = ctx.program->stage.has(SWStage::TES)
+                                           ? &ctx.program->info->tes.outinfo
+                                           : &ctx.program->info->vs.outinfo;
+
+      if (outinfo->param_exports == 0 &&
+          exp->done &&
+          exp->dest >= V_008DFC_SQ_EXP_POS &&
+          exp->dest < V_008DFC_SQ_EXP_PRIM) {
+
+         /* GFX10+ NGG or VS with no param exports:
+          * NO_PC_EXPORT=1 is set which means the HW will start clipping and rasterization
+          * as soon as it receives a pos export with done=1, so PS waves can launch
+          * before the NGG (or legacy VS) stage is finished.
+          */
+
+         /* Wait for all stores (and atomics) to complete, so PS can read them. */
+         if (ctx.vs_cnt > 0)
+            imm.vs = 0;
+         if (ctx.vm_cnt > 0)
+            imm.vm = 0;
       }
    }
 
