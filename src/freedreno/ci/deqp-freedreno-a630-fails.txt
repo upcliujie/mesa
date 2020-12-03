@@ -145,5 +145,6 @@ dEQP-VK.spirv_assembly.instruction.graphics.float16.opvectorshuffle.444_geom,Cra
 dEQP-VK.spirv_assembly.instruction.graphics.float16.opvectorshuffle.244_tessc,Crash
 dEQP-VK.spirv_assembly.instruction.graphics.float16.opvectorshuffle.344_frag,Crash
 dEQP-VK.spirv_assembly.instruction.compute.float16.opvectorshuffle.344,Crash
+dEQP-VK.spirv_assembly.instruction.spirv1p4.opcopylogical.nested_arrays_different_inner_stride,Fail
 dEQP-VK.texture.filtering.cube.formats.d24_unorm_s8_uint_stencil.nearest,Fail
 dEQP-VK.wsi.display_control.register_device_event,Crash
