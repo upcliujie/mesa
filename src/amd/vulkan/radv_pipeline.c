@@ -2589,11 +2589,14 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
 
 	const VkPipelineMultisampleStateCreateInfo *vkms =
 		radv_pipeline_get_multisample_state(pCreateInfo);
-	if (vkms && vkms->rasterizationSamples > 1) {
-		uint32_t num_samples = vkms->rasterizationSamples;
-		uint32_t ps_iter_samples = radv_pipeline_get_ps_iter_samples(pCreateInfo);
-		key.num_samples = num_samples;
-		key.log2_ps_iter_samples = util_logbase2(ps_iter_samples);
+	if (vkms) {
+		key.alpha_to_one = vkms->alphaToOneEnable;
+		if (vkms->rasterizationSamples > 1) {
+			uint32_t num_samples = vkms->rasterizationSamples;
+			uint32_t ps_iter_samples = radv_pipeline_get_ps_iter_samples(pCreateInfo);
+			key.num_samples = num_samples;
+			key.log2_ps_iter_samples = util_logbase2(ps_iter_samples);
+		 }
 	}
 
 	key.col_format = blend->spi_shader_col_format;
@@ -2713,6 +2716,7 @@ radv_fill_shader_keys(struct radv_device *device,
 	keys[MESA_SHADER_FRAGMENT].fs.log2_ps_iter_samples = key->log2_ps_iter_samples;
 	keys[MESA_SHADER_FRAGMENT].fs.num_samples = key->num_samples;
 	keys[MESA_SHADER_FRAGMENT].fs.is_dual_src = key->is_dual_src;
+	keys[MESA_SHADER_FRAGMENT].fs.alpha_to_one = key->alpha_to_one;
 
 	if (nir[MESA_SHADER_COMPUTE]) {
 		keys[MESA_SHADER_COMPUTE].cs.subgroup_size = key->compute_subgroup_size;

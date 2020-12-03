@@ -1397,6 +1397,10 @@ si_llvm_init_export_args(struct radv_shader_context *ctx,
 		LLVMValueRef (*packi)(struct ac_llvm_context *ctx, LLVMValueRef args[2],
 				      unsigned bits, bool hi) = NULL;
 
+		/* Alpha to one */
+		if (ctx->args->options->key.fs.alpha_to_one)
+			values[3] = LLVMConstReal(LLVMTypeOf(values[0]), 1);
+
 		switch(col_format) {
 		case V_028714_SPI_SHADER_ZERO:
 			args->enabled_channels = 0; /* writemask */
