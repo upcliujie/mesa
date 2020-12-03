@@ -401,6 +401,7 @@ struct radv_pipeline_key {
 	uint8_t log2_ps_iter_samples;
 	uint8_t num_samples;
 	bool is_dual_src;
+	bool alpha_to_one;
 	uint32_t has_multiview_view_index : 1;
 	uint32_t optimisations_disabled : 1;
 	uint8_t topology;

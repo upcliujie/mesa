@@ -10380,6 +10380,22 @@ static bool export_fs_mrt_color(isel_context *ctx, int slot)
    bool is_int10 = (ctx->options->key.fs.is_int10 >> slot) & 1;
    bool is_16bit = values[0].regClass() == v2b;
 
+   /* From the Vulkan specification 1.2.163:
+    *
+    * "alphaToOneEnable controls whether the alpha component of the fragment’s
+    *  first color output is replaced with one..."
+    */
+   if (ctx->options->key.fs.alpha_to_one && slot == 0) {
+      if (is_16bit) {
+         values[3] = bld.copy(bld.def(v2b), Operand((uint16_t)0x3c00u));
+      } else {
+         values[3] = bld.copy(bld.def(v1), Operand(0x3f800000u));
+      }
+
+      /* Update the writemask in case the alpha channel isn't written. */
+      write_mask |= 1 << 3;
+   }
+
    /* Replace NaN by zero (only 32-bit) to fix game bugs if requested. */
    if (ctx->options->enable_mrt_output_nan_fixup &&
        !is_16bit &&
