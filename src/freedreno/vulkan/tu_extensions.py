@@ -102,6 +102,8 @@ EXTENSIONS = [
     Extension('VK_KHR_image_format_list',                 1, True),
     Extension('VK_KHR_depth_stencil_resolve',             1, True),
     Extension('VK_KHR_performance_query',                 1, 'device->instance->debug_flags & TU_DEBUG_PERFC'),
+    Extension('VK_EXT_scalar_block_layout',               1, True),
+    Extension('VK_KHR_spirv_1_4',                         1, True),
 ]
 
 MAX_API_VERSION = VkVersion(MAX_API_VERSION)
