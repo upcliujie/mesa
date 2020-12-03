@@ -1244,6 +1244,17 @@ v3dv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
           * never provide this extension.
           */
          break;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES: {
+         VkPhysicalDeviceMaintenance3Properties *props =
+            (VkPhysicalDeviceMaintenance3Properties *)ext;
+         /* This value doesn't matter for us today as our per-stage
+          * descriptors are the real limit.
+          */
+         props->maxPerSetDescriptors = 1024;
+         props->maxMemoryAllocationSize = MAX_MEMORY_ALLOCATION_SIZE;
+         break;
+      }
+
       default:
          v3dv_debug_ignored_stype(ext->sType);
          break;

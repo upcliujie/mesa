@@ -436,7 +436,7 @@ Vulkan 1.1 -- all DONE: anv, radv
   VK_KHR_get_physical_device_properties2                DONE (anv, radv, v3dv)
   VK_KHR_maintenance1                                   DONE (anv, radv, v3dv)
   VK_KHR_maintenance2                                   DONE (anv, radv)
-  VK_KHR_maintenance3                                   DONE (anv, radv)
+  VK_KHR_maintenance3                                   DONE (anv, radv, v3dv)
   VK_KHR_multiview                                      DONE (anv, radv)
   VK_KHR_relaxed_block_layout                           DONE (anv, radv)
   VK_KHR_sampler_ycbcr_conversion                       DONE (anv, radv)

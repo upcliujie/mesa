@@ -1133,3 +1133,31 @@ v3dv_UpdateDescriptorSets(VkDevice  _device,
       }
    }
 }
+
+void v3dv_GetDescriptorSetLayoutSupport(
+   VkDevice                                    _device,
+   const VkDescriptorSetLayoutCreateInfo*      pCreateInfo,
+   VkDescriptorSetLayoutSupport*               pSupport)
+{
+
+   /*
+    * Right now we are not aware of any limitation of what fist on the
+    * descriptor set, so we just return true.
+    *
+    * Note that this doesn't mean that we are supporting any layout, from spec:
+    *
+    *   "This command does not consider other limits such as
+    *   maxPerStageDescriptor*, and so a descriptor set layout that is
+    *   supported according to this command must still satisfy the pipeline
+    *   layout limits such as maxPerStageDescriptor* in order to be used in a
+    *   pipeline layout."
+    *
+    * So returning true here basically means that we are relying on the
+    * maxDescriptorSet* limits.
+    *
+    * FIXME: further investigation to confirm if we can define such limitation
+    * here.
+    *
+    */
+   pSupport->supported = true;
+}

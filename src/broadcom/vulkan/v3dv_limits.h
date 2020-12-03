@@ -44,6 +44,12 @@
 #define MAX_DYNAMIC_BUFFERS                                                  \
    (MAX_DYNAMIC_UNIFORM_BUFFERS + MAX_DYNAMIC_STORAGE_BUFFERS)
 
+/*
+ * Setting 2GB, as a reasonable MAX value.
+ *
+ * FIXME: would be good to look for a more justified value.
+ */
+#define MAX_MEMORY_ALLOCATION_SIZE (1ull << 31)
 
 /* These are tunable parameters in the HW design, but all the V3D
  * implementations agree.
