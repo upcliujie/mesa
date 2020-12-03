@@ -10380,6 +10380,15 @@ static bool export_fs_mrt_color(isel_context *ctx, int slot)
    bool is_int10 = (ctx->options->key.fs.is_int10 >> slot) & 1;
    bool is_16bit = values[0].regClass() == v2b;
 
+   /* Alpha to one */
+   if (ctx->options->key.fs.alpha_to_one) {
+      if (is_16bit) {
+         values[3] = bld.copy(bld.def(v2b), Operand(0x3c00u));
+      } else {
+         values[3] = bld.copy(bld.def(v1), Operand(0x3f800000u));
+      }
+   }
+
    /* Replace NaN by zero (only 32-bit) to fix game bugs if requested. */
    if (ctx->options->enable_mrt_output_nan_fixup &&
        !is_16bit &&
