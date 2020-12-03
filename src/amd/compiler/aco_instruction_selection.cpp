@@ -8455,6 +8455,22 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
       /* unused in the legacy pipeline, the HW keeps track of this for us */
       break;
    }
+   case nir_intrinsic_is_sparse_texels_resident: {
+      Temp src = get_ssa_temp(ctx, instr->src[0].ssa);
+      Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
+      bld.vopc(aco_opcode::v_cmp_eq_u32, bld.hint_vcc(Definition(dst)), Operand(0u), as_vgpr(ctx, src));
+      break;
+   }
+   case nir_intrinsic_sparse_residency_code_and: {
+      Temp src0 = get_ssa_temp(ctx, instr->src[0].ssa);
+      Temp src1 = get_ssa_temp(ctx, instr->src[1].ssa);
+      Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
+      if (dst.regClass() == v1)
+         bld.vop2(aco_opcode::v_or_b32, Definition(dst), src0, as_vgpr(ctx, src1));
+      else
+         bld.sop2(aco_opcode::s_or_b32, Definition(dst), bld.def(s1, scc), src0, src1);
+      break;
+   }
    default:
       isel_err(&instr->instr, "Unimplemented intrinsic instr");
       abort();
