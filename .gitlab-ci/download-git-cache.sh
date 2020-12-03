@@ -7,6 +7,12 @@ set -o xtrace
 # we got meaningful variables
 CI_PROJECT_DIR=${CI_PROJECT_DIR:-$(mktemp -d)/mesa}
 
+if [[ "x$GIT_STRATEGY" = "xnone" ]]
+then
+    echo "GIT_STRATEGY is 'none', skip cache download"
+    exit
+fi
+
 if [[ -e $CI_PROJECT_DIR/.git ]]
 then
     echo "Repository already present, skip cache download"
