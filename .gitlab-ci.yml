@@ -661,7 +661,7 @@ meson-release:
     GALLIUM_DRIVERS: "nouveau,kmsro,freedreno,r300,svga,v3d,vc4,virgl,etnaviv,panfrost,lima,zink"
     BUILDTYPE: "release"
     EXTRA_OPTION: >
-      -D osmesa=false
+      -D osmesa=true
       -D tools=all
       -D werror=true
   script:
