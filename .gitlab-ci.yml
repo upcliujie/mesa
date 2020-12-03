@@ -1187,6 +1187,9 @@ virgl-gl32-on-gl:
         *all_paths
       when: manual
     - when: never
+  variables:
+    CI_PRE_CLONE_SCRIPT: ""
+    GIT_STRATEGY: none
 
 virgl-gles2-on-gles:
   variables:
