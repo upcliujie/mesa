@@ -1828,6 +1828,9 @@ glsl_type::std140_base_alignment(bool row_major) const
       }
    }
 
+   if (this->is_atomic_uint())
+      return this->atomic_size();
+
    /* (4) If the member is an array of scalars or vectors, the base alignment
     *     and array stride are set to match the base alignment of a single
     *     array element, according to rules (1), (2), and (3), and rounded up
@@ -2161,6 +2164,9 @@ glsl_type::std430_base_alignment(bool row_major) const
          return 4 * N;
       }
    }
+
+   if (this->is_atomic_uint())
+      return this->atomic_size();
 
    /* OpenGL 4.30 spec, section 7.6.2.2 "Standard Uniform Block Layout":
     *
