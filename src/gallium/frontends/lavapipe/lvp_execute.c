@@ -227,7 +227,7 @@ static void emit_state(struct rendering_state *state)
    }
 
    if (state->stencil_ref_dirty) {
-      state->pctx->set_stencil_ref(state->pctx, &state->stencil_ref);
+      state->pctx->set_stencil_ref(state->pctx, state->stencil_ref);
       state->stencil_ref_dirty = false;
    }
 
