@@ -159,6 +159,7 @@ success:
     - if: *is-pre-merge
       when: on_success
   variables:
+    CI_PRE_CLONE_SCRIPT: ""
     GIT_STRATEGY: none
   script:
     - echo "Dummy job to make sure every merge request pipeline runs at least one job"
@@ -228,6 +229,7 @@ success:
     FDO_REPO_SUFFIX: "debian/$CI_JOB_NAME"
     FDO_DISTRIBUTION_EXEC: 'env FDO_CI_CONCURRENT=${FDO_CI_CONCURRENT} bash .gitlab-ci/container/${CI_JOB_NAME}.sh'
     # no need to pull the whole repo to build the container image
+    CI_PRE_CLONE_SCRIPT: ""
     GIT_STRATEGY: none
 
 # Debian 10 based x86 build image base
@@ -434,6 +436,7 @@ windows_build_vs2019:
     - .windows-docker-vs2019
   stage: container
   variables:
+    CI_PRE_CLONE_SCRIPT: ""
     GIT_STRATEGY: fetch # we do actually need the full repository though
   timeout: 2h # LLVM + piglit takes ages
   tags:
@@ -819,6 +822,7 @@ test-d3d12-windows:
   needs:
     - meson-windows-vs2019
   variables:
+    CI_PRE_CLONE_SCRIPT: ""
     GIT_STRATEGY: none # testing doesn't build anything from source
     GALLIUM_DRIVER: d3d12
     PIGLIT_PROFILE: quick_gl
@@ -946,6 +950,7 @@ meson-mingw32-x86_64:
   # Cancel job if a newer commit is pushed to the same branch
   interruptible: true
   variables:
+    CI_PRE_CLONE_SCRIPT: ""
     GIT_STRATEGY: none # testing doesn't build anything from source
   before_script:
     # Note: Build dir (and thus install) may be dirty due to GIT_STRATEGY
@@ -1210,6 +1215,7 @@ arm64_a630_gles2:
   variables:
     BM_KERNEL: /lava-files/cheza-kernel
     BM_CMDLINE: "ip=dhcp console=ttyMSM0,115200n8 root=/dev/nfs rw nfsrootdebug nfsroot=,tcp,nfsvers=4.2 init=/init"
+    CI_PRE_CLONE_SCRIPT: ""
     DEQP_EXPECTED_FAILS: deqp-freedreno-a630-fails.txt
     DEQP_FLAKES: deqp-freedreno-a630-flakes.txt
     DEQP_SKIPS: deqp-freedreno-a630-skips.txt
