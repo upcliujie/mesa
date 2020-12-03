@@ -952,14 +952,8 @@ void split_copy(unsigned offset, Definition *def, Operand *op, const copy_operat
    *def = Definition(src.def.tempId(), def_reg, def_cls);
    if (src.op.isConstant()) {
       assert(bytes >= 1 && bytes <= 8);
-      if (bytes == 8)
-         *op = Operand(src.op.constantValue64() >> (offset * 8u));
-      else if (bytes == 4)
-         *op = Operand(uint32_t(src.op.constantValue64() >> (offset * 8u)));
-      else if (bytes == 2)
-         *op = Operand(uint16_t(src.op.constantValue64() >> (offset * 8u)));
-      else if (bytes == 1)
-         *op = Operand(uint8_t(src.op.constantValue64() >> (offset * 8u)));
+      uint64_t val = src.op.constantValue64() >> (offset * 8u);
+      *op = Operand::get_const(ctx->program->chip_class, val, bytes);
    } else {
       RegClass op_cls = bytes % 4 == 0 ? RegClass(src.op.regClass().type(), bytes / 4u) :
                         RegClass(src.op.regClass().type(), bytes).as_subdword();
