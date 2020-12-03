@@ -104,6 +104,7 @@ struct radv_fs_variant_key {
 	uint32_t is_int8;
 	uint32_t is_int10;
 	bool is_dual_src;
+	bool alpha_to_one;
 };
 
 struct radv_cs_variant_key {
