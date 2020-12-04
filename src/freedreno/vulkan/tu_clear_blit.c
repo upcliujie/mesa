@@ -475,7 +475,7 @@ r3d_common(struct tu_cmd_buffer *cmd, struct tu_cs *cs, bool blit, uint32_t num_
                       .vp_xform_disable = 1,
                       .vp_clip_code_ignore = 1,
                       .clip_disable = 1));
-   tu_cs_emit_regs(cs, A6XX_GRAS_SU_CNTL()); // XXX msaa enable?
+   tu_cs_emit_regs(cs, A6XX_GRAS_SU_CNTL(.msaa_enable = true));
 
    tu_cs_emit_regs(cs, A6XX_PC_RASTER_CNTL());
    tu_cs_emit_regs(cs, A6XX_VPC_UNKNOWN_9107());
@@ -1953,6 +1953,19 @@ tu_clear_sysmem_attachments(struct tu_cmd_buffer *cmd,
       tu_cs_emit_regs(cs, A6XX_RB_LRZ_CNTL(0));
    }
 
+   tu_cs_emit_regs(cs,
+                   A6XX_GRAS_RAS_MSAA_CNTL(tu_msaa_samples(max_samples)),
+                   A6XX_GRAS_DEST_MSAA_CNTL(.samples = tu_msaa_samples(max_samples),
+                                            .msaa_disable = max_samples == 1));
+   tu_cs_emit_regs(cs,
+                   A6XX_SP_TP_RAS_MSAA_CNTL(tu_msaa_samples(max_samples)),
+                   A6XX_SP_TP_DEST_MSAA_CNTL(.samples = tu_msaa_samples(max_samples),
+                                            .msaa_disable = max_samples == 1));
+   tu_cs_emit_regs(cs,
+                   A6XX_RB_RAS_MSAA_CNTL(tu_msaa_samples(max_samples)),
+                   A6XX_RB_DEST_MSAA_CNTL(.samples = tu_msaa_samples(max_samples),
+                                            .msaa_disable = max_samples == 1));
+
    tu_cs_emit_regs(cs, A6XX_RB_DEPTH_PLANE_CNTL());
    tu_cs_emit_regs(cs, A6XX_RB_DEPTH_CNTL(
          .z_enable = z_clear,
@@ -2083,15 +2096,16 @@ clear_gmem_attachment(struct tu_cmd_buffer *cmd,
                       VkFormat format,
                       uint8_t clear_mask,
                       uint32_t gmem_offset,
-                      const VkClearValue *value)
+                      const VkClearValue *value,
+                      uint32_t samples)
 {
    tu_cs_emit_pkt4(cs, REG_A6XX_RB_BLIT_DST_INFO, 1);
    tu_cs_emit(cs, A6XX_RB_BLIT_DST_INFO_COLOR_FORMAT(tu6_base_format(format)));
 
    tu_cs_emit_regs(cs, A6XX_RB_BLIT_INFO(.gmem = 1, .clear_mask = clear_mask));
 
-   tu_cs_emit_pkt4(cs, REG_A6XX_RB_BLIT_BASE_GMEM, 1);
-   tu_cs_emit(cs, gmem_offset);
+   tu_cs_emit_regs(cs, A6XX_RB_MSAA_CNTL(.samples = tu_msaa_samples(samples)),
+                       A6XX_RB_BLIT_BASE_GMEM(gmem_offset));
 
    tu_cs_emit_pkt4(cs, REG_A6XX_RB_UNKNOWN_88D0, 1);
    tu_cs_emit(cs, 0);
@@ -2117,13 +2131,16 @@ tu_emit_clear_gmem_attachment(struct tu_cmd_buffer *cmd,
 
    if (att->format == VK_FORMAT_D32_SFLOAT_S8_UINT) {
       if (mask & VK_IMAGE_ASPECT_DEPTH_BIT)
-         clear_gmem_attachment(cmd, cs, VK_FORMAT_D32_SFLOAT, 0xf, att->gmem_offset, value);
+         clear_gmem_attachment(cmd, cs, VK_FORMAT_D32_SFLOAT, 0xf,
+                               att->gmem_offset, value, att->samples);
       if (mask & VK_IMAGE_ASPECT_STENCIL_BIT)
-         clear_gmem_attachment(cmd, cs, VK_FORMAT_S8_UINT, 0xf, att->gmem_offset_stencil, value);
+         clear_gmem_attachment(cmd, cs, VK_FORMAT_S8_UINT, 0xf,
+                               att->gmem_offset_stencil, value, att->samples);
       return;
    }
 
-   clear_gmem_attachment(cmd, cs, att->format, aspect_write_mask(att->format, mask), att->gmem_offset, value);
+   clear_gmem_attachment(cmd, cs, att->format, aspect_write_mask(att->format, mask),
+                         att->gmem_offset, value, att->samples);
 }
 
 static void
@@ -2303,8 +2320,6 @@ tu_clear_gmem_attachment(struct tu_cmd_buffer *cmd,
 
    if (!attachment->clear_mask)
       return;
-
-   tu_cs_emit_regs(cs, A6XX_RB_MSAA_CNTL(tu_msaa_samples(attachment->samples)));
 
    tu_emit_clear_gmem_attachment(cmd, cs, a, attachment->clear_mask,
                                  &info->pClearValues[a]);
