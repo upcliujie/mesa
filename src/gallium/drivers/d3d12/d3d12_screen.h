@@ -28,11 +28,28 @@
 
 #include "util/slab.h"
 
+#ifndef _WIN32
+#include <wsl/winadapter.h>
+#endif
+
 #define D3D12_IGNORE_SDK_LAYERS
 #include <directx/d3d12.h>
 #include <directx/dxcore.h>
 
+#ifdef _WIN32
 #include <dxgi1_4.h>
+#define D3D12_DLL "d3d12.dll"
+#define DXCORE_DLL "dxcore.dll"
+#else
+#include <dlfcn.h>
+typedef void *HMODULE;
+inline HMODULE LoadLibrary(const char *name) { return dlopen(name, RTLD_NOW); }
+inline void *GetProcAddress(HMODULE h, const char *name) { return dlsym(h, name); }
+inline void FreeLibrary(HMODULE h) { dlclose(h); }
+#define D3D12_DLL "libd3d12.so"
+#define DXCORE_DLL "libdxcore.so"
+#endif
+
 
 struct pb_manager;
 
@@ -40,8 +57,10 @@ struct d3d12_screen {
    struct pipe_screen base;
    struct sw_winsys *winsys;
 
+#ifdef _WIN32
    IDXGIFactory4 *dxgi_factory;
    IDXGIAdapter1 *dxgi_adapter;
+#endif
    IDXCoreAdapterFactory *dxcore_factory;
    IDXCoreAdapter *dxcore_adapter;
    ID3D12Device *dev;
