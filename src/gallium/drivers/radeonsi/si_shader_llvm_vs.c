@@ -52,7 +52,7 @@ static void load_input_vs(struct si_shader_context *ctx, unsigned input_index, L
        */
       LLVMValueRef sel_y1 = LLVMBuildICmp(ctx->ac.builder, LLVMIntNE, vertex_id, ctx->ac.i32_1, "");
 
-      unsigned param_vs_blit_inputs = ctx->vs_blit_inputs.arg_index;
+      unsigned param_vs_blit_inputs = ctx->args.vs_blit_inputs.arg_index;
       if (input_index == 0) {
          /* Position: */
          LLVMValueRef x1y1 = LLVMGetParam(ctx->main_fn, param_vs_blit_inputs);
@@ -102,14 +102,14 @@ static void load_input_vs(struct si_shader_context *ctx, unsigned input_index, L
    LLVMValueRef tmp;
 
    if (input_index < num_vbos_in_user_sgprs) {
-      vb_desc = ac_get_arg(&ctx->ac, ctx->vb_descriptors[input_index]);
+      vb_desc = ac_get_arg(&ctx->ac, ctx->args.vb_descriptors[input_index]);
    } else {
       unsigned index = input_index - num_vbos_in_user_sgprs;
-      vb_desc = ac_build_load_to_sgpr(&ctx->ac, ac_get_arg(&ctx->ac, ctx->vertex_buffers),
+      vb_desc = ac_build_load_to_sgpr(&ctx->ac, ac_get_arg(&ctx->ac, ctx->args.vertex_buffers),
                                       LLVMConstInt(ctx->ac.i32, index, 0));
    }
 
-   vertex_index = LLVMGetParam(ctx->main_fn, ctx->vertex_index0.arg_index + input_index);
+   vertex_index = LLVMGetParam(ctx->main_fn, ctx->args.vertex_index0.arg_index + input_index);
 
    /* Use the open-coded implementation for all loads of doubles and
     * of dword-sized data that needs fixups. We need to insert conversion
@@ -301,7 +301,7 @@ void si_llvm_emit_streamout(struct si_shader_context *ctx, struct si_shader_outp
    int i;
 
    /* Get bits [22:16], i.e. (so_param >> 16) & 127; */
-   LLVMValueRef so_vtx_count = si_unpack_param(ctx, ctx->streamout_config, 16, 7);
+   LLVMValueRef so_vtx_count = si_unpack_param(ctx, ctx->args.streamout_config, 16, 7);
 
    LLVMValueRef tid = ac_get_thread_id(&ctx->ac);
 
@@ -319,7 +319,7 @@ void si_llvm_emit_streamout(struct si_shader_context *ctx, struct si_shader_outp
        *                attrib_offset
        */
 
-      LLVMValueRef so_write_index = ac_get_arg(&ctx->ac, ctx->streamout_write_index);
+      LLVMValueRef so_write_index = ac_get_arg(&ctx->ac, ctx->args.streamout_write_index);
 
       /* Compute (streamout_write_index + thread_id). */
       so_write_index = LLVMBuildAdd(builder, so_write_index, tid, "");
@@ -328,7 +328,7 @@ void si_llvm_emit_streamout(struct si_shader_context *ctx, struct si_shader_outp
        * enabled buffer. */
       LLVMValueRef so_write_offset[4] = {};
       LLVMValueRef so_buffers[4];
-      LLVMValueRef buf_ptr = ac_get_arg(&ctx->ac, ctx->rw_buffers);
+      LLVMValueRef buf_ptr = ac_get_arg(&ctx->ac, ctx->args.rw_buffers);
 
       for (i = 0; i < 4; i++) {
          if (!so->stride[i])
@@ -338,7 +338,7 @@ void si_llvm_emit_streamout(struct si_shader_context *ctx, struct si_shader_outp
 
          so_buffers[i] = ac_build_load_to_sgpr(&ctx->ac, buf_ptr, offset);
 
-         LLVMValueRef so_offset = ac_get_arg(&ctx->ac, ctx->streamout_offset[i]);
+         LLVMValueRef so_offset = ac_get_arg(&ctx->ac, ctx->args.streamout_offset[i]);
          so_offset = LLVMBuildMul(builder, so_offset, LLVMConstInt(ctx->ac.i32, 4, 0), "");
 
          so_write_offset[i] = ac_build_imad(
@@ -369,7 +369,7 @@ static void si_llvm_emit_clipvertex(struct si_shader_context *ctx, struct ac_exp
    unsigned chan;
    unsigned const_chan;
    LLVMValueRef base_elt;
-   LLVMValueRef ptr = ac_get_arg(&ctx->ac, ctx->rw_buffers);
+   LLVMValueRef ptr = ac_get_arg(&ctx->ac, ctx->args.rw_buffers);
    LLVMValueRef constbuf_index = LLVMConstInt(ctx->ac.i32, SI_VS_CONST_CLIP_PLANES, 0);
    LLVMValueRef const_resource = ac_build_load_to_sgpr(&ctx->ac, ptr, constbuf_index);
    unsigned clipdist_mask = ctx->shader->selector->clipdist_mask &
@@ -505,7 +505,7 @@ static void si_vertex_color_clamping(struct si_shader_context *ctx,
       return;
 
    /* The state is in the first bit of the user SGPR. */
-   LLVMValueRef cond = ac_get_arg(&ctx->ac, ctx->vs_state_bits);
+   LLVMValueRef cond = ac_get_arg(&ctx->ac, ctx->args.vs_state_bits);
    cond = LLVMBuildTrunc(ctx->ac.builder, cond, ctx->ac.i1, "");
 
    ac_build_ifcc(&ctx->ac, cond, 6502);
@@ -1066,7 +1066,7 @@ static LLVMValueRef get_base_vertex(struct ac_shader_abi *abi, bool non_indexed_
     * (for direct draws) or the CP (for indirect draws) is the
     * first vertex ID, but GLSL expects 0 to be returned.
     */
-   LLVMValueRef indexed = si_unpack_param(ctx, ctx->vs_state_bits, 1, 1);
+   LLVMValueRef indexed = si_unpack_param(ctx, ctx->args.vs_state_bits, 1, 1);
    indexed = LLVMBuildTrunc(ctx->ac.builder, indexed, ctx->ac.i1, "");
 
    return LLVMBuildSelect(ctx->ac.builder, indexed, ac_get_arg(&ctx->ac, ctx->args.base_vertex),

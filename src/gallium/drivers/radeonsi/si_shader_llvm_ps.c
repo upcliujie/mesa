@@ -40,7 +40,7 @@ static LLVMValueRef load_sample_mask_in(struct ac_shader_abi *abi)
 static LLVMValueRef load_sample_position(struct ac_shader_abi *abi, LLVMValueRef sample_id)
 {
    struct si_shader_context *ctx = si_shader_context_from_abi(abi);
-   LLVMValueRef desc = ac_get_arg(&ctx->ac, ctx->rw_buffers);
+   LLVMValueRef desc = ac_get_arg(&ctx->ac, ctx->args.rw_buffers);
    LLVMValueRef buf_index = LLVMConstInt(ctx->ac.i32, SI_PS_CONST_SAMPLE_POSITIONS, 0);
    LLVMValueRef resource = ac_build_load_to_sgpr(&ctx->ac, desc, buf_index);
 
@@ -69,7 +69,7 @@ static LLVMValueRef si_nir_emit_fbfetch(struct ac_shader_abi *abi)
 
    /* Load the image descriptor. */
    STATIC_ASSERT(SI_PS_IMAGE_COLORBUF0 % 2 == 0);
-   ptr = ac_get_arg(&ctx->ac, ctx->rw_buffers);
+   ptr = ac_get_arg(&ctx->ac, ctx->args.rw_buffers);
    ptr =
       LLVMBuildPointerCast(ctx->ac.builder, ptr, ac_array_in_const32_addr_space(ctx->ac.v8i32), "");
    image =
@@ -77,10 +77,10 @@ static LLVMValueRef si_nir_emit_fbfetch(struct ac_shader_abi *abi)
 
    unsigned chan = 0;
 
-   args.coords[chan++] = si_unpack_param(ctx, ctx->pos_fixed_pt, 0, 16);
+   args.coords[chan++] = si_unpack_param(ctx, ctx->args.pos_fixed_pt, 0, 16);
 
    if (!ctx->shader->key.mono.u.ps.fbfetch_is_1D)
-      args.coords[chan++] = si_unpack_param(ctx, ctx->pos_fixed_pt, 16, 16);
+      args.coords[chan++] = si_unpack_param(ctx, ctx->args.pos_fixed_pt, 16, 16);
 
    /* Get the current render target layer index. */
    if (ctx->shader->key.mono.u.ps.fbfetch_layered)
@@ -876,10 +876,10 @@ void si_llvm_build_ps_epilog(struct si_shader_context *ctx, union si_shader_part
    memset(&ctx->args, 0, sizeof(ctx->args));
 
    /* Declare input SGPRs. */
-   ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->rw_buffers);
-   ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->bindless_samplers_and_images);
-   ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->const_and_shader_buffers);
-   ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->samplers_and_images);
+   ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->args.rw_buffers);
+   ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->args.bindless_samplers_and_images);
+   ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->args.const_and_shader_buffers);
+   ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->args.samplers_and_images);
    si_add_arg_checked(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_FLOAT, NULL, SI_PARAM_ALPHA_REF);
 
    /* Declare input VGPRs. */

@@ -393,7 +393,7 @@ LLVMValueRef si_get_primitive_id(struct si_shader_context *ctx, unsigned swizzle
 
    switch (ctx->stage) {
    case MESA_SHADER_VERTEX:
-      return ac_get_arg(&ctx->ac, ctx->vs_prim_id);
+      return ac_get_arg(&ctx->ac, ctx->args.vs_prim_id);
    case MESA_SHADER_TESS_CTRL:
       return ac_get_arg(&ctx->ac, ctx->args.tcs_patch_id);
    case MESA_SHADER_TESS_EVAL:
@@ -411,7 +411,7 @@ static LLVMValueRef si_llvm_get_block_size(struct ac_shader_abi *abi)
    struct si_shader_context *ctx = si_shader_context_from_abi(abi);
 
    assert(ctx->shader->selector->info.base.cs.local_size_variable);
-   return ac_get_arg(&ctx->ac, ctx->block_size);
+   return ac_get_arg(&ctx->ac, ctx->args.block_size);
 }
 
 static void si_llvm_declare_compute_memory(struct si_shader_context *ctx)
@@ -473,7 +473,7 @@ static bool si_nir_build_llvm(struct si_shader_context *ctx, struct nir_shader *
 
    } else if (nir->info.stage == MESA_SHADER_COMPUTE) {
       if (nir->info.cs.user_data_components_amd) {
-         ctx->abi.user_data = ac_get_arg(&ctx->ac, ctx->cs_user_data);
+         ctx->abi.user_data = ac_get_arg(&ctx->ac, ctx->args.cs_user_data);
          ctx->abi.user_data = ac_build_expand_to_vec4(&ctx->ac, ctx->abi.user_data,
                                                       nir->info.cs.user_data_components_amd);
       }
@@ -930,7 +930,7 @@ bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shader *shad
           (ctx->stage == MESA_SHADER_TESS_EVAL ||
            (ctx->stage == MESA_SHADER_VERTEX &&
             !si_vs_needs_prolog(sel, &shader->key.part.vs.prolog, &shader->key, ngg_cull_shader)))) {
-         si_init_exec_from_input(ctx, ctx->merged_wave_info, 0);
+         si_init_exec_from_input(ctx, ctx->args.merged_wave_info, 0);
       } else if (ctx->stage == MESA_SHADER_TESS_CTRL || ctx->stage == MESA_SHADER_GEOMETRY ||
                  (shader->key.as_ngg && !shader->key.as_es)) {
          LLVMValueRef thread_enabled = NULL;
