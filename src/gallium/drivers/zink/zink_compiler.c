@@ -507,6 +507,25 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
 
 bool nir_lower_dynamic_bo_access(nir_shader *shader);
 
+static bool
+fixup_counter_locations(nir_shader *shader)
+{
+   unsigned last_binding = 0;
+   unsigned last_location = 0;
+   if (!shader->info.num_abos)
+      return false;
+   nir_foreach_variable_with_modes(var, shader, nir_var_uniform) {
+      if (!type_is_counter(var->type))
+         continue;
+      if (var->data.binding != last_binding) {
+         last_binding = var->data.binding;
+         last_location = 0;
+      }
+      var->data.location = last_location++;
+   }
+   return true;
+}
+
 struct zink_shader *
 zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
                    const struct pipe_stream_output_info *so_info)
@@ -538,6 +557,7 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
    NIR_PASS_V(nir, lower_64bit_vertex_attribs);
    if (nir->info.num_ubos || nir->info.num_ssbos)
       NIR_PASS_V(nir, nir_lower_dynamic_bo_access);
+   NIR_PASS_V(nir, fixup_counter_locations);
    NIR_PASS_V(nir, nir_convert_from_ssa, true);
 
    if (zink_debug & ZINK_DEBUG_NIR) {
