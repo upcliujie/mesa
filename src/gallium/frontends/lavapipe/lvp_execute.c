@@ -40,6 +40,8 @@
 #include "util/u_inlines.h"
 #include "util/format/u_format_zs.h"
 
+#include "vk_util.h"
+
 struct rendering_state {
    struct pipe_context *pctx;
 
@@ -584,6 +586,19 @@ static void handle_graphics_pipeline(struct lvp_cmd_buffer_entry *cmd,
          if ((int)location > max_location)
             max_location = location;
       }
+
+      const VkPipelineVertexInputDivisorStateCreateInfoEXT *div_state =
+         vk_find_struct_const(vi->pNext,
+                              PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO_EXT);
+      if (div_state) {
+         for (i = 0; i < div_state->vertexBindingDivisorCount; i++) {
+            const VkVertexInputBindingDivisorDescriptionEXT *desc =
+               &div_state->pVertexBindingDivisors[i];
+
+            state->ve[desc->binding].instance_divisor = desc->divisor;
+         }
+      }
+
       state->num_ve = max_location + 1;
       state->vb_dirty = true;
       state->ve_dirty = true;
