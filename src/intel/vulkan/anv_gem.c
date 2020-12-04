@@ -40,19 +40,43 @@
  * Return gem handle, or 0 on failure. Gem handles are never 0.
  */
 uint32_t
-anv_gem_create(struct anv_device *device, uint64_t size)
+anv_gem_create(struct anv_device *device, uint64_t size, bool protected)
 {
-   struct drm_i915_gem_create gem_create = {
-      .size = size,
-   };
+   if (protected) {
+      struct drm_i915_gem_create_ext gem_create = {
+         .size = size,
+      };
+      struct drm_i915_gem_create_ext_setparam protected_param = {
+         .param = {
+            .param = I915_OBJECT_PARAM | I915_PARAM_PROTECTED_CONTENT,
+            .data = protected,
+         },
+      };
 
-   int ret = gen_ioctl(device->fd, DRM_IOCTL_I915_GEM_CREATE, &gem_create);
-   if (ret != 0) {
-      /* FIXME: What do we do if this fails? */
-      return 0;
+      gen_gem_add_ext(&gem_create.extensions,
+                      I915_GEM_CREATE_EXT_SETPARAM,
+                      &protected_param.base);
+
+      int ret = gen_ioctl(device->fd, DRM_IOCTL_I915_GEM_CREATE_EXT, &gem_create);
+      if (ret != 0) {
+         /* FIXME: What do we do if this fails? */
+         return 0;
+      }
+
+      return gem_create.handle;
+   } else {
+      struct drm_i915_gem_create gem_create = {
+         .size = size,
+      };
+
+      int ret = gen_ioctl(device->fd, DRM_IOCTL_I915_GEM_CREATE, &gem_create);
+      if (ret != 0) {
+         /* FIXME: What do we do if this fails? */
+         return 0;
+      }
+
+      return gem_create.handle;
    }
-
-   return gem_create.handle;
 }
 
 void
