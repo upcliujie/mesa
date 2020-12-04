@@ -909,13 +909,15 @@ get_bo_array_type(struct ntv_context *ctx, struct nir_variable *var)
 {
    SpvId array_type;
    SpvId uint_type = get_uvec_type(ctx, 32, 1);
-   if (glsl_type_is_unsized_array(var->type))
+   if (type_is_counter(var->type))
+      array_type = get_glsl_type(ctx, var->type);
+   else if (glsl_type_is_unsized_array(var->type)) {
       array_type = spirv_builder_type_runtime_array(&ctx->builder, uint_type);
-   else {
+      spirv_builder_emit_array_stride(&ctx->builder, array_type, 4);
+   } else {
       uint32_t array_size = glsl_count_attribute_slots(var->interface_type, false);
       array_type = get_sized_uint_array_type(ctx, array_size * 4);
    }
-   spirv_builder_emit_array_stride(&ctx->builder, array_type, 4);
    return array_type;
 }
 
@@ -937,8 +939,21 @@ get_bo_struct_type(struct ntv_context *ctx, struct nir_variable *var)
           }
       }
    }
-   SpvId types[] = {array_type, runtime_array};
-   SpvId struct_type = spirv_builder_type_struct(&ctx->builder, types, 1 + !!runtime_array);
+   SpvId struct_type;
+   if (type_is_counter(var->type)) {
+      SpvId padding = var->data.offset ? get_sized_uint_array_type(ctx, var->data.offset / 4) : 0;
+      SpvId types[2];
+      if (padding)
+         types[0] = padding, types[1] = array_type;
+      else
+         types[0] = array_type;
+      struct_type = spirv_builder_type_struct(&ctx->builder, types, 1 + !!padding);
+      if (padding)
+         spirv_builder_emit_member_offset(&ctx->builder, struct_type, 1, var->data.offset);
+   } else {
+      SpvId types[] = {array_type, runtime_array};
+      struct_type = spirv_builder_type_struct(&ctx->builder, types, 1 + !!runtime_array);
+   }
    if (var->name) {
       char struct_name[100];
       snprintf(struct_name, sizeof(struct_name), "struct_%s", var->name);
@@ -955,18 +970,20 @@ get_bo_struct_type(struct ntv_context *ctx, struct nir_variable *var)
    }
 
    return spirv_builder_type_pointer(&ctx->builder,
-                                                   ssbo ? SpvStorageClassStorageBuffer : SpvStorageClassUniform,
+                                                   ssbo || type_is_counter(var->type) ? SpvStorageClassStorageBuffer : SpvStorageClassUniform,
                                                    struct_type);
 }
 
 static void
 emit_bo(struct ntv_context *ctx, struct nir_variable *var)
 {
-   bool is_ubo_array = glsl_type_is_array(var->type) && glsl_type_is_interface(glsl_without_array(var->type));
+   const struct glsl_type *bare_type = glsl_without_array(var->type);
+   bool is_ubo_array = glsl_type_is_array(var->type) && glsl_type_is_interface(bare_type);
+   bool is_counter = type_is_counter(bare_type);
    /* variables accessed inside a uniform block will get merged into a big
     * memory blob and accessed by offset
     */
-   if (var->data.location && !is_ubo_array && var->type != var->interface_type)
+   if (var->data.location && !is_ubo_array && var->type != var->interface_type && !is_counter)
       return;
    bool ssbo = var->data.mode == nir_var_mem_ssbo;
 
@@ -984,7 +1001,7 @@ emit_bo(struct ntv_context *ctx, struct nir_variable *var)
    int base = -1;
    for (unsigned i = 0; i < size; i++) {
       SpvId var_id = spirv_builder_emit_var(&ctx->builder, pointer_type,
-                                            ssbo ? SpvStorageClassStorageBuffer : SpvStorageClassUniform);
+                                            ssbo || is_counter ? SpvStorageClassStorageBuffer : SpvStorageClassUniform);
       if (var->name) {
          char struct_name[100];
          snprintf(struct_name, sizeof(struct_name), "%s[%u]", var->name, i);
@@ -1024,25 +1041,28 @@ emit_bo(struct ntv_context *ctx, struct nir_variable *var)
          ctx->ssbos[ssbo_idx] = var_id;
          ctx->ssbo_mask |= 1 << ssbo_idx;
          ctx->ssbo_vars[ssbo_idx] = var;
-      } else {
+      } else if (!is_counter) {
          assert(ctx->num_ubos < ARRAY_SIZE(ctx->ubos));
          ctx->ubos[ctx->num_ubos++] = var_id;
       }
 
-      spirv_builder_emit_descriptor_set(&ctx->builder, var_id, ssbo ? ZINK_DESCRIPTOR_TYPE_SSBO : ZINK_DESCRIPTOR_TYPE_UBO);
+      spirv_builder_emit_descriptor_set(&ctx->builder, var_id, ssbo || is_counter ? ZINK_DESCRIPTOR_TYPE_SSBO : ZINK_DESCRIPTOR_TYPE_UBO);
       int binding = zink_binding(ctx->stage,
-                                 ssbo ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER :
+                                 ssbo || is_counter ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER :
                                         /* only make the first ubo dynamic to stay within driver limits */
                                         (ctx->num_ubos == 1) ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                                  var->data.binding + i);
       spirv_builder_emit_binding(&ctx->builder, var_id, binding);
+      if (is_counter)
+         _mesa_hash_table_insert(ctx->vars, var, (void *)(intptr_t)var_id);
    }
 }
 
 static void
 emit_uniform(struct ntv_context *ctx, struct nir_variable *var)
 {
-   if (var->data.mode == nir_var_mem_ubo || var->data.mode == nir_var_mem_ssbo)
+   if (var->data.mode == nir_var_mem_ubo || var->data.mode == nir_var_mem_ssbo ||
+       type_is_counter(var->type))
       emit_bo(ctx, var);
    else {
       assert(var->data.mode == nir_var_uniform);
@@ -2604,6 +2624,110 @@ emit_vote(struct ntv_context *ctx, nir_intrinsic_instr *intr)
    store_dest_raw(ctx, &intr->dest, result);
 }
 
+
+static nir_intrinsic_op
+counter_op_to_atomic(nir_intrinsic_op op)
+{
+   /* from nir_lower_atomics_to_ssbo */
+   switch (op) {
+   case nir_intrinsic_memory_barrier_atomic_counter:
+      /* Atomic counters are now SSBOs so memoryBarrierAtomicCounter() is now
+       * memoryBarrierBuffer().
+       */
+      return nir_intrinsic_memory_barrier_buffer;
+      return true;
+
+   case nir_intrinsic_atomic_counter_inc_deref:
+   case nir_intrinsic_atomic_counter_add_deref:
+   case nir_intrinsic_atomic_counter_pre_dec_deref:
+   case nir_intrinsic_atomic_counter_post_dec_deref:
+      /* inc and dec get remapped to add_deref: */
+      return nir_intrinsic_ssbo_atomic_add;
+      break;
+   case nir_intrinsic_atomic_counter_read_deref:
+      return nir_intrinsic_load_ssbo;
+      break;
+   case nir_intrinsic_atomic_counter_min_deref:
+      return nir_intrinsic_ssbo_atomic_umin;
+      break;
+   case nir_intrinsic_atomic_counter_max_deref:
+      return nir_intrinsic_ssbo_atomic_umax;
+      break;
+   case nir_intrinsic_atomic_counter_and_deref:
+      return nir_intrinsic_ssbo_atomic_and;
+      break;
+   case nir_intrinsic_atomic_counter_or_deref:
+      return nir_intrinsic_ssbo_atomic_or;
+      break;
+   case nir_intrinsic_atomic_counter_xor_deref:
+      return nir_intrinsic_ssbo_atomic_xor;
+      break;
+   case nir_intrinsic_atomic_counter_exchange_deref:
+      return nir_intrinsic_ssbo_atomic_exchange;
+      break;
+   case nir_intrinsic_atomic_counter_comp_swap_deref:
+      return nir_intrinsic_ssbo_atomic_comp_swap;
+      break;
+   default:
+      break;
+   }
+   return 0;
+}
+
+static void
+handle_counter_op(struct ntv_context *ctx, nir_intrinsic_instr *intr)
+{
+   SpvId dest_type = get_dest_uvec_type(ctx, &intr->dest);
+   SpvId srcs[3] = {};
+   for (int i = 0; i < nir_intrinsic_infos[intr->intrinsic].num_srcs; i++)
+      srcs[i] = get_src(ctx, &intr->src[i]);
+
+   SpvOp op;
+   nir_intrinsic_op atomic_op = counter_op_to_atomic(intr->intrinsic);
+   if (atomic_op != nir_intrinsic_load_ssbo)
+      op = get_atomic_op(atomic_op);
+
+   SpvId result = 0;
+   switch (intr->intrinsic) {
+   case nir_intrinsic_atomic_counter_comp_swap_deref:
+   case nir_intrinsic_atomic_counter_add_deref:
+   case nir_intrinsic_atomic_counter_and_deref:
+   case nir_intrinsic_atomic_counter_exchange_deref:
+   case nir_intrinsic_atomic_counter_inc_deref:
+   case nir_intrinsic_atomic_counter_max_deref:
+   case nir_intrinsic_atomic_counter_min_deref:
+   case nir_intrinsic_atomic_counter_or_deref:
+   case nir_intrinsic_atomic_counter_xor_deref:
+      result = emit_atomic(ctx, op, dest_type,
+                         srcs[0],
+                         srcs[1] ? srcs[1] : emit_uint_const(ctx, nir_dest_bit_size(intr->dest), 1),
+                         srcs[2]);
+      break;
+   case nir_intrinsic_atomic_counter_post_dec_deref:
+      result = emit_atomic(ctx, op, dest_type, srcs[0],
+                                      emit_uint_const(ctx, nir_dest_bit_size(intr->dest), -1),
+                                      0);
+      break;
+   case nir_intrinsic_atomic_counter_pre_dec_deref:
+      result = emit_atomic(ctx, op, dest_type, srcs[0],
+                                      emit_uint_const(ctx, nir_dest_bit_size(intr->dest), -1),
+                                      0);
+      /* this intrinsic returns the decremented value, so the decrement is done
+       * manually here to avoid coherency issues related to performing an atomic load
+       * without using a barrier
+       */
+      result = emit_binop(ctx, SpvOpIAdd, dest_type, result, emit_uint_const(ctx, nir_dest_bit_size(intr->dest), -1));
+      break;
+   case nir_intrinsic_atomic_counter_read_deref:
+      result = emit_atomic(ctx, SpvOpAtomicLoad, dest_type, srcs[0], 0, 0);
+      break;
+   default:
+      unreachable("unhandled counter op");
+   }
+   assert(result);
+   store_dest(ctx, &intr->dest, result, nir_type_uint);
+}
+
 static void
 emit_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
 {
@@ -2828,6 +2952,21 @@ emit_intrinsic(struct ntv_context *ctx, nir_intrinsic_instr *intr)
    case nir_intrinsic_ssbo_atomic_exchange:
    case nir_intrinsic_ssbo_atomic_comp_swap:
       emit_ssbo_atomic_intrinsic(ctx, intr);
+      break;
+
+   case nir_intrinsic_atomic_counter_add_deref:
+   case nir_intrinsic_atomic_counter_and_deref:
+   case nir_intrinsic_atomic_counter_comp_swap_deref:
+   case nir_intrinsic_atomic_counter_exchange_deref:
+   case nir_intrinsic_atomic_counter_inc_deref:
+   case nir_intrinsic_atomic_counter_max_deref:
+   case nir_intrinsic_atomic_counter_min_deref:
+   case nir_intrinsic_atomic_counter_or_deref:
+   case nir_intrinsic_atomic_counter_post_dec_deref:
+   case nir_intrinsic_atomic_counter_pre_dec_deref:
+   case nir_intrinsic_atomic_counter_read_deref:
+   case nir_intrinsic_atomic_counter_xor_deref:
+      handle_counter_op(ctx, intr);
       break;
 
    case nir_intrinsic_shared_atomic_add:
@@ -3341,6 +3480,18 @@ emit_deref_var(struct ntv_context *ctx, nir_deref_instr *deref)
    struct hash_entry *he = _mesa_hash_table_search(ctx->vars, deref->var);
    assert(he);
    SpvId result = (SpvId)(intptr_t)he->data;
+   if (type_is_counter(deref->var->type)) {
+      SpvId dest_type = glsl_type_is_array(deref->var->type) ?
+                        get_glsl_type(ctx, deref->var->type) :
+                        get_dest_uvec_type(ctx, &deref->dest);
+      SpvId ptr_type = spirv_builder_type_pointer(&ctx->builder,
+                                                  SpvStorageClassStorageBuffer,
+                                                  dest_type);
+      SpvId idx[] = {
+         emit_uint_const(ctx, 32, !!deref->var->data.offset),
+      };
+      result = spirv_builder_emit_access_chain(&ctx->builder, ptr_type, result, idx, ARRAY_SIZE(idx));
+   }
    store_dest_raw(ctx, &deref->dest, result);
 }
 
@@ -3367,11 +3518,17 @@ emit_deref_array(struct ntv_context *ctx, nir_deref_instr *deref)
       break;
 
    case nir_var_uniform:
-      storage_class = SpvStorageClassUniformConstant;
-      struct hash_entry *he = _mesa_hash_table_search(ctx->vars, var);
-      assert(he);
-      base = (SpvId)(intptr_t)he->data;
-      type = ctx->image_types[var->data.binding];
+      if (type_is_counter(var->type)) {
+         storage_class = SpvStorageClassStorageBuffer;
+         type = get_glsl_type(ctx, deref->type);
+         base = get_src(ctx, &deref->parent);
+      } else {
+         type = ctx->image_types[var->data.binding];
+         storage_class = SpvStorageClassUniformConstant;
+         struct hash_entry *he = _mesa_hash_table_search(ctx->vars, var);
+         assert(he);
+         base = (SpvId)(intptr_t)he->data;
+      }
       break;
 
    default:
@@ -3721,7 +3878,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
       unreachable("invalid stage");
    }
 
-   if (s->info.num_ssbos)
+   if (s->info.num_ssbos || s->info.num_abos)
       spirv_builder_emit_extension(&ctx.builder, "SPV_KHR_storage_buffer_storage_class");
 
    if (s->info.outputs_written & BITFIELD64_BIT(VARYING_SLOT_VIEWPORT)) {

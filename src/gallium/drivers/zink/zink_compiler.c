@@ -517,6 +517,7 @@ fixup_counter_locations(nir_shader *shader)
    nir_foreach_variable_with_modes(var, shader, nir_var_uniform) {
       if (!type_is_counter(var->type))
          continue;
+      var->data.binding += shader->info.num_ssbos;
       if (var->data.binding != last_binding) {
          last_binding = var->data.binding;
          last_location = 0;
@@ -575,12 +576,14 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
     * the "first" UBO, which is at the end of the list
     */
    int ssbo_array_index = 0;
+   int abo_array_index = nir->info.num_ssbos;
    foreach_list_typed_reverse(nir_variable, var, node, &nir->variables) {
       if (_nir_shader_variable_has_mode(var, nir_var_uniform |
                                         nir_var_mem_ubo |
                                         nir_var_mem_ssbo)) {
          enum zink_descriptor_type ztype;
          const struct glsl_type *type = glsl_without_array(var->type);
+         bool is_counter = type_is_counter(type);
          if (var->data.mode == nir_var_mem_ubo) {
             /* ignore variables being accessed if they aren't the base of the UBO */
             bool ubo_array = glsl_type_is_array(var->type) && glsl_type_is_interface(type);
@@ -608,23 +611,23 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
                ret->ubos_used |= (1 << ret->bindings[ztype][ret->num_bindings[ztype]].index);
                ret->num_bindings[ztype]++;
             }
-         } else if (var->data.mode == nir_var_mem_ssbo) {
+         } else if (var->data.mode == nir_var_mem_ssbo || is_counter) {
             /* same-ish mechanics as ubos */
             bool bo_array = glsl_type_is_array(var->type) && glsl_type_is_interface(type);
             if (var->data.location && !bo_array)
                continue;
             if (!var->data.explicit_binding) {
-               var->data.binding = ssbo_array_index;
+               var->data.binding = is_counter ? abo_array_index : ssbo_array_index;
             }
             ztype = ZINK_DESCRIPTOR_TYPE_SSBO;
             for (unsigned i = 0; i < (bo_array ? glsl_get_aoa_size(var->type) : 1); i++) {
                int binding = zink_binding(nir->info.stage,
                                           VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                                           var->data.binding + i);
-               if (strcmp(glsl_get_type_name(var->interface_type), "counters"))
+               if (!is_counter)
                   ret->bindings[ztype][ret->num_bindings[ztype]].index = ssbo_array_index++;
                else
-                  ret->bindings[ztype][ret->num_bindings[ztype]].index = var->data.binding;
+                  ret->bindings[ztype][ret->num_bindings[ztype]].index = var->data.explicit_binding ? var->data.binding : abo_array_index++ ;
                ret->ssbos_used |= (1 << ret->bindings[ztype][ret->num_bindings[ztype]].index);
                ret->bindings[ztype][ret->num_bindings[ztype]].binding = binding;
                ret->bindings[ztype][ret->num_bindings[ztype]].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;

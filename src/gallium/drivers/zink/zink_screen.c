@@ -224,6 +224,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_TEXTURE_HALF_FLOAT_LINEAR:
    case PIPE_CAP_CLEAR_SCISSORED:
    case PIPE_CAP_INVALIDATE_BUFFER:
+   case PIPE_CAP_NIR_ATOMICS_AS_DEREF:
       return 1;
 
    case PIPE_CAP_VERTEX_ELEMENT_INSTANCE_DIVISOR:
