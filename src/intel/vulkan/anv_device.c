@@ -412,6 +412,8 @@ anv_physical_device_try_create(struct anv_instance *instance,
 
    device->has_context_priority = anv_gem_has_context_priority(fd);
 
+   device->has_protected_contexts = gen_gem_supports_protected_context(fd);
+
    result = anv_physical_device_init_heaps(device, fd);
    if (result != VK_SUCCESS)
       goto fail_alloc;
