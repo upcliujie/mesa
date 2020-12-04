@@ -87,7 +87,7 @@ d3d12_wgl_framebuffer_resize(stw_winsys_framebuffer *fb,
 
    if (!framebuffer->swapchain) {
       ComPtr<IDXGISwapChain1> swapchain1;
-      if (FAILED(screen->factory->CreateSwapChainForHwnd(
+      if (FAILED(screen->dxgi_factory->CreateSwapChainForHwnd(
          screen->cmdqueue,
          framebuffer->window,
          &desc,
@@ -100,7 +100,7 @@ d3d12_wgl_framebuffer_resize(stw_winsys_framebuffer *fb,
 
       swapchain1.As(&framebuffer->swapchain);
 
-      screen->factory->MakeWindowAssociation(framebuffer->window,
+      screen->dxgi_factory->MakeWindowAssociation(framebuffer->window,
                                              DXGI_MWA_NO_WINDOW_CHANGES | DXGI_MWA_NO_ALT_ENTER | DXGI_MWA_NO_PRINT_SCREEN);
    }
    else {
