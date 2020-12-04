@@ -464,6 +464,8 @@ make git archive:
   tags:
     - packet.net
   script:
+    # Compactify the .git directory
+    - git gc
     # compress the current folder
     - tar -cvzf ../$CI_PROJECT_NAME.tar.gz .
 
