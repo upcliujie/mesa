@@ -26,13 +26,14 @@
 
 struct pipe_screen;
 struct sw_winsys;
+struct LUID;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct pipe_screen *
-d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid);
+d3d12_create_screen(struct sw_winsys *winsys, struct LUID *adapter_luid);
 
 #ifdef __cplusplus
 }
