@@ -373,7 +373,6 @@ void lvp_GetPhysicalDeviceFeatures2(
          features->privateData = true;
          break;
       }
-
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT: {
          VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT *features =
             (VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT *)ext;
@@ -386,6 +385,13 @@ void lvp_GetPhysicalDeviceFeatures2(
          break;
       }
 
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT: {
+         VkPhysicalDeviceConditionalRenderingFeaturesEXT *features =
+            (VkPhysicalDeviceConditionalRenderingFeaturesEXT*)ext;
+         features->conditionalRendering = true;
+         features->inheritedConditionalRendering = false;
+         break;
+      }
       default:
          break;
       }
