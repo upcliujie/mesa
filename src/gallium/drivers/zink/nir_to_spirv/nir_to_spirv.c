@@ -895,17 +895,25 @@ emit_image(struct ntv_context *ctx, struct nir_variable *var)
 }
 
 static SpvId
+get_sized_uint_array_type(struct ntv_context *ctx, unsigned array_size)
+{
+   SpvId array_length = emit_uint_const(ctx, 32, array_size);
+   SpvId array_type = spirv_builder_type_array(&ctx->builder, get_uvec_type(ctx, 32, 1),
+                                            array_length);
+   spirv_builder_emit_array_stride(&ctx->builder, array_type, 4);
+   return array_type;
+}
+
+static SpvId
 get_bo_array_type(struct ntv_context *ctx, struct nir_variable *var)
 {
    SpvId array_type;
    SpvId uint_type = get_uvec_type(ctx, 32, 1);
-   uint32_t array_size = glsl_count_attribute_slots(var->interface_type, false);
    if (glsl_type_is_unsized_array(var->type))
       array_type = spirv_builder_type_runtime_array(&ctx->builder, uint_type);
    else {
-      SpvId array_length = emit_uint_const(ctx, 32, array_size * 4);
-      array_type = spirv_builder_type_array(&ctx->builder, uint_type,
-                                               array_length);
+      uint32_t array_size = glsl_count_attribute_slots(var->interface_type, false);
+      array_type = get_sized_uint_array_type(ctx, array_size * 4);
    }
    spirv_builder_emit_array_stride(&ctx->builder, array_type, 4);
    return array_type;
