@@ -382,7 +382,7 @@ get_glsl_type_element(struct ntv_context *ctx, const struct glsl_type *type, Spv
       return ret;
    }
 
-   if (glsl_type_is_struct(type)) {
+   if (glsl_type_is_struct(type) || glsl_type_is_interface(type)) {
       static unsigned recursion;
       recursion++;
       SpvId types[glsl_get_length(type)];
