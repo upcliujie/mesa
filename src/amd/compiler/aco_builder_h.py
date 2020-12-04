@@ -363,6 +363,11 @@ public:
        return op;
    }
 
+   Operand setFixed(Operand op, PhysReg r) {
+       op.setFixed(r);
+       return op;
+   }
+
    /* hand-written helpers */
    Temp as_uniform(Op op)
    {
