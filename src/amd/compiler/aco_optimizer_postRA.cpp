@@ -115,6 +115,18 @@ bool process_shortcircuit_uniform_bool(pr_opt_ctx &ctx, aco_ptr<Instruction> &in
          /* Flip the opcode so that it has the same meaning with the constant in the 2nd operand */
          aco_opcode op = aco_opcode::num_opcodes;
          switch (op1_scc->opcode) {
+         case aco_opcode::s_cmp_lt_u32:
+            op = aco_opcode::s_cmp_gt_u32;
+            break;
+         case aco_opcode::s_cmp_lt_i32:
+            op = aco_opcode::s_cmp_gt_i32;
+            break;
+         case aco_opcode::s_cmp_ge_u32:
+            op = aco_opcode::s_cmp_le_u32;
+            break;
+         case aco_opcode::s_cmp_ge_i32:
+            op = aco_opcode::s_cmp_le_i32;
+            break;
          case aco_opcode::s_cmp_eq_u32:
          case aco_opcode::s_cmp_eq_i32:
          case aco_opcode::s_cmp_lg_u32:
@@ -163,6 +175,52 @@ bool process_shortcircuit_uniform_bool(pr_opt_ctx &ctx, aco_ptr<Instruction> &in
       csel_op1 = instr->opcode == aco_opcode::s_or_b32
                ? op1_scc->operands[0]
                : op1_scc->operands[1];
+   } else if (op1_scc->opcode == aco_opcode::s_cmp_lt_u32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_gt_u32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_lt_i32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_gt_i32) {
+      /* a && (b < c) => (a ? b : c) < c
+       * a && (b > c) => (a ? b : c) > c
+       * a || (b < c) => (a ? MIN : b) < c (only when c is constant)
+       * a || (b > c) => (a ? MAX : b) > c (only when c is constant)
+       */
+      uint32_t const_op = op1_scc->opcode == aco_opcode::s_cmp_lt_u32 ? 0u : -1u;
+      if (op1_scc->opcode ==aco_opcode::s_cmp_lt_i32 ||
+          op1_scc->opcode ==aco_opcode::s_cmp_gt_i32)
+         const_op = op1_scc->opcode == aco_opcode::s_cmp_lt_i32 ? (uint32_t) INT32_MIN : (uint32_t) INT32_MAX;
+      if (!(instr->opcode == aco_opcode::s_and_b32 ||
+            !op1_scc->operands[1].constantEquals(const_op)))
+         return false;
+
+      csel_op0 = instr->opcode == aco_opcode::s_or_b32
+               ? Operand(const_op)
+               : op1_scc->operands[0];
+      csel_op1 = instr->opcode == aco_opcode::s_or_b32
+               ? op1_scc->operands[0]
+               : op1_scc->operands[1];
+   } else if (op1_scc->opcode == aco_opcode::s_cmp_ge_u32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_le_u32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_ge_i32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_le_i32) {
+      /* a && (b >= c) => (a ? b : MIN) >= c (only when c is constant)
+       * a && (b <= c) => (a ? b : MAX) <= c (only when c is constant)
+       * a || (b >= c) => (a ? c : b) >= c
+       * a || (b <= c) => (a ? c : b) <= c
+       */
+      uint32_t const_op = op1_scc->opcode == aco_opcode::s_cmp_ge_u32 ? 0u : -1u;
+      if (op1_scc->opcode ==aco_opcode::s_cmp_ge_i32 ||
+          op1_scc->opcode ==aco_opcode::s_cmp_le_i32)
+         const_op = op1_scc->opcode == aco_opcode::s_cmp_ge_i32 ? (uint32_t) INT32_MIN : (uint32_t) INT32_MAX;
+      if (!(instr->opcode == aco_opcode::s_or_b32 ||
+            !op1_scc->operands[1].constantEquals(const_op)))
+         return false;
+
+      csel_op0 = instr->opcode == aco_opcode::s_or_b32
+               ? op1_scc->operands[1]
+               : op1_scc->operands[0];
+      csel_op1 = instr->opcode == aco_opcode::s_or_b32
+               ? op1_scc->operands[0]
+               : Operand(const_op);
    } else {
       return false;
    }
