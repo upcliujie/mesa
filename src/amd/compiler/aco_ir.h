@@ -433,6 +433,17 @@ public:
          setFixed(PhysReg{128});
       }
    };
+   explicit Operand(Temp r, PhysReg reg) noexcept
+   {
+      data_.temp = r;
+      if (r.id()) {
+         isTemp_ = true;
+         setFixed(reg);
+      } else {
+         isUndef_ = true;
+         setFixed(PhysReg{128});
+      }
+   };
    explicit Operand(uint8_t v) noexcept
    {
       /* 8-bit constants are only used for copies and copies from any 8-bit
