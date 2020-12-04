@@ -210,6 +210,13 @@ anv_physical_device_init_heaps(struct anv_physical_device *device, int fd)
             .heapIndex = heap,
          };
       }
+      if (device->has_protected_contexts) {
+         device->memory.types[type_count++] = (struct anv_memory_type) {
+            .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                             VK_MEMORY_PROPERTY_PROTECTED_BIT,
+            .heapIndex = heap,
+         };
+      }
    }
    device->memory.type_count = type_count;
 
@@ -3544,6 +3551,9 @@ VkResult anv_AllocateMemory(
    if (vk_flags & VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR)
       alloc_flags |= ANV_BO_ALLOC_CLIENT_VISIBLE_ADDRESS;
 
+   if (mem_type->propertyFlags & VK_MEMORY_PROPERTY_PROTECTED_BIT)
+      alloc_flags |= ANV_BO_ALLOC_PROTECTED;
+
    if ((export_info && export_info->handleTypes) ||
        (fd_info && fd_info->handleType) ||
        (host_ptr_info && host_ptr_info->handleType)) {
@@ -3960,7 +3970,18 @@ void anv_GetBufferMemoryRequirements(
     *    only if the memory type `i` in the VkPhysicalDeviceMemoryProperties
     *    structure for the physical device is supported.
     */
-   uint32_t memory_types = (1ull << device->physical->memory.type_count) - 1;
+   VkMemoryPropertyFlags required_flags = 0;
+   if (buffer->create_flags & VK_BUFFER_CREATE_PROTECTED_BIT)
+      required_flags |= VK_MEMORY_PROPERTY_PROTECTED_BIT;
+
+   uint32_t memory_types = 0;
+   for (uint32_t i = 0; i < device->physical->memory.type_count; i++) {
+      /* Skip memories not matching requirements. */
+      if ((device->physical->memory.types[i].propertyFlags & required_flags) != required_flags)
+         continue;
+
+      memory_types |= 1ull << i;
+   }
 
    /* Base alignment requirement of a cache line */
    uint32_t alignment = 16;
@@ -4022,10 +4043,19 @@ void anv_GetImageMemoryRequirements(
     *    supported memory type for the resource. The bit `1<<i` is set if and
     *    only if the memory type `i` in the VkPhysicalDeviceMemoryProperties
     *    structure for the physical device is supported.
-    *
-    * All types are currently supported for images.
     */
-   uint32_t memory_types = (1ull << device->physical->memory.type_count) - 1;
+   VkMemoryPropertyFlags required_flags = 0;
+   if (image->create_flags & VK_IMAGE_CREATE_PROTECTED_BIT)
+      required_flags |= VK_MEMORY_PROPERTY_PROTECTED_BIT;
+
+   uint32_t memory_types = 0;
+   for (uint32_t i = 0; i < device->physical->memory.type_count; i++) {
+      /* Skip memories not matching requirements. */
+      if ((device->physical->memory.types[i].propertyFlags & required_flags) != required_flags)
+         continue;
+
+      memory_types |= 1ull << i;
+   }
 
    pMemoryRequirements->size = image->size;
    pMemoryRequirements->alignment = image->alignment;
