@@ -735,6 +735,9 @@ struct anv_bo {
 
    /** True if this BO has implicit CCS data attached to it */
    bool has_implicit_ccs:1;
+
+   /** See also ANV_BO_ALLOC_PROTECTED */
+   bool is_protected:1;
 };
 
 static inline struct anv_bo *
@@ -1466,6 +1469,9 @@ anv_mocs(const struct anv_device *device,
          const struct anv_bo *bo,
          isl_surf_usage_flags_t usage)
 {
+   if (bo && bo->is_protected)
+      usage |= ISL_SURF_USAGE_PROTECTED_BIT;
+
    return isl_mocs(&device->isl_dev, usage, bo && bo->is_external);
 }
 
@@ -1542,6 +1548,9 @@ enum anv_bo_alloc_flags {
 
    /** This buffer has implicit CCS data attached to it */
    ANV_BO_ALLOC_IMPLICIT_CCS = (1 << 9),
+
+   /** Protected buffer */
+   ANV_BO_ALLOC_PROTECTED = (1 << 10),
 };
 
 VkResult anv_device_alloc_bo(struct anv_device *device, uint64_t size,
@@ -1585,7 +1594,7 @@ uint64_t anv_get_absolute_timeout(uint64_t timeout);
 void* anv_gem_mmap(struct anv_device *device,
                    uint32_t gem_handle, uint64_t offset, uint64_t size, uint32_t flags);
 void anv_gem_munmap(struct anv_device *device, void *p, uint64_t size);
-uint32_t anv_gem_create(struct anv_device *device, uint64_t size);
+uint32_t anv_gem_create(struct anv_device *device, uint64_t size, bool protected);
 void anv_gem_close(struct anv_device *device, uint32_t gem_handle);
 uint32_t anv_gem_userptr(struct anv_device *device, void *mem, size_t size);
 int anv_gem_busy(struct anv_device *device, uint32_t gem_handle);
