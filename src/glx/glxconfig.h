@@ -30,6 +30,10 @@
 #ifndef GLCONTEXTMODES_H
 #define GLCONTEXTMODES_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct glx_config {
     struct glx_config * next;
 
@@ -127,6 +131,10 @@ extern struct glx_config *
 glx_config_find_visual(struct glx_config *configs, int vid);
 extern struct glx_config *
 glx_config_find_fbconfig(struct glx_config *configs, int fbid);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GLCONTEXTMODES_H */
 
