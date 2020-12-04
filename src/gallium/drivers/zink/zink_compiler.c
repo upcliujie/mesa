@@ -587,7 +587,7 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
          if (var->data.mode == nir_var_mem_ubo) {
             /* ignore variables being accessed if they aren't the base of the UBO */
             bool ubo_array = glsl_type_is_array(var->type) && glsl_type_is_interface(type);
-            if (var->data.location && !ubo_array && var->type != var->interface_type)
+            if (var->data.location > 0 && !ubo_array && var->type != var->interface_type)
                continue;
             var->data.binding = cur_ubo;
             ztype = ZINK_DESCRIPTOR_TYPE_UBO;
@@ -614,7 +614,7 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
          } else if (var->data.mode == nir_var_mem_ssbo || is_counter) {
             /* same-ish mechanics as ubos */
             bool bo_array = glsl_type_is_array(var->type) && glsl_type_is_interface(type);
-            if (var->data.location && !bo_array)
+            if (var->data.location > 0 && !bo_array)
                continue;
             if (!var->data.explicit_binding) {
                var->data.binding = is_counter ? abo_array_index : ssbo_array_index;
