@@ -154,6 +154,17 @@ struct pipe_context {
                              enum pipe_render_cond_flag mode );
 
    /**
+    * Vulkan speciifc.
+    * Predicate subsequent rendering on occlusion query result
+    * \param buffer The buffer to query for the value
+    * \param offset Offset in the buffer to query 32-bit
+    * \param condition whether to skip on FALSE or TRUE query results
+    */
+   void (*vk_render_condition)( struct pipe_context *pipe,
+                                struct pipe_resource *buffer,
+                                uint32_t offset,
+                                bool condition );
+   /**
     * Query objects
     */
    /*@{*/
