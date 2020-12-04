@@ -42,10 +42,14 @@
 #include "nir.h"
 #include "frontend/sw_winsys.h"
 
+#ifdef _WIN32
 #include <dxgi1_4.h>
+#endif
 
 #include <directx/d3d12sdklayers.h>
 #include <directx/dxcore.h>
+
+#include <dxguids/dxguids.h>
 
 static const struct debug_named_value
 debug_options[] = {
@@ -103,12 +107,15 @@ d3d12_get_name(struct pipe_screen *pscreen)
    struct d3d12_screen* screen = d3d12_screen(pscreen);
    static char buf[1000];
 
+#ifdef _WIN32
    if (screen->dxgi_adapter) {
       if (screen->adapter_desc.description.wide[0] == '\0')
          return "D3D12 (Unknown)";
 
       snprintf(buf, sizeof(buf), "D3D12 (%S)", screen->adapter_desc.description.wide);
-   } else {
+   } else
+#endif
+   {
       if (screen->adapter_desc.description.narrow[0] == '\0')
          return "D3D12 (Unknown)";
 
@@ -657,10 +664,12 @@ d3d12_flush_frontbuffer(struct pipe_screen * pscreen,
       winsys->displaytarget_unmap(winsys, res->dt);
    }
 
+#ifdef _WIN32
    ID3D12SharingContract *sharing_contract;
    if (SUCCEEDED(screen->cmdqueue->QueryInterface(__uuidof(sharing_contract),
                                                   (void **)&sharing_contract)))
       sharing_contract->Present(d3d12_res, 0, WindowFromDC((HDC)winsys_drawable_handle));
+#endif
 
    winsys->displaytarget_display(winsys, res->dt, winsys_drawable_handle, sub_box);
 }
@@ -684,7 +693,7 @@ get_debug_interface()
    }
 
    ID3D12Debug *debug;
-   if (FAILED(D3D12GetDebugInterface(__uuidof(ID3D12Debug), (void **)&debug))) {
+   if (FAILED(D3D12GetDebugInterface(__uuidof(debug), (void **)&debug))) {
       debug_printf("D3D12: D3D12GetDebugInterface failed\n");
       return NULL;
    }
@@ -710,6 +719,7 @@ enable_gpu_validation()
       debug3->SetEnableGPUBasedValidation(true);
 }
 
+#ifdef _WIN32
 static IDXGIFactory4 *
 get_dxgi_factory()
 {
@@ -742,6 +752,7 @@ get_dxgi_factory()
 
    return factory;
 }
+#endif
 
 static IDXCoreAdapterFactory *
 get_dxcore_factory(void **libdxcore_out)
@@ -749,7 +760,7 @@ get_dxcore_factory(void **libdxcore_out)
    typedef HRESULT(WINAPI *PFN_CREATE_DXCORE_ADAPTER_FACTORY)(REFIID riid, void **ppFactory);
    PFN_CREATE_DXCORE_ADAPTER_FACTORY DXCoreCreateAdapterFactory;
 
-   HMODULE hDXCoreMod = LoadLibrary("DXCore.DLL");
+   HMODULE hDXCoreMod = LoadLibrary(DXCORE_DLL);
    if (!hDXCoreMod) {
       debug_printf("D3D12: failed to load DXCore.DLL\n");
       return NULL;
@@ -773,13 +784,14 @@ get_dxcore_factory(void **libdxcore_out)
    return factory;
 }
 
+#ifdef _WIN32
 static IDXGIAdapter1 *
 choose_dxgi_adapter(IDXGIFactory4 *factory, LUID *adapter)
 {
    IDXGIAdapter1 *ret;
    if (adapter) {
       if (SUCCEEDED(factory->EnumAdapterByLuid(*adapter,
-                                               __uuidof(IDXGIAdapter1),
+                                               __uuidof(ret),
                                                (void**)&ret)))
          return ret;
       debug_printf("D3D12: requested adapter missing, falling back to auto-detection...\n");
@@ -787,7 +799,7 @@ choose_dxgi_adapter(IDXGIFactory4 *factory, LUID *adapter)
 
    bool want_warp = env_var_as_boolean("LIBGL_ALWAYS_SOFTWARE", false);
    if (want_warp) {
-      if (SUCCEEDED(factory->EnumWarpAdapter(__uuidof(IDXGIAdapter1),
+      if (SUCCEEDED(factory->EnumWarpAdapter(__uuidof(ret),
                                              (void**)&ret)))
          return ret;
       debug_printf("D3D12: failed to enum warp adapter\n");
@@ -800,6 +812,7 @@ choose_dxgi_adapter(IDXGIFactory4 *factory, LUID *adapter)
 
    return NULL;
 }
+#endif
 
 static IDXCoreAdapter *
 choose_dxcore_adapter(IDXCoreAdapterFactory *factory, LUID *adapter)
@@ -829,7 +842,7 @@ create_device(IUnknown *adapter)
    PFN_D3D12CREATEDEVICE D3D12CreateDevice;
    PFN_D3D12ENABLEEXPERIMENTALFEATURES D3D12EnableExperimentalFeatures;
 
-   HMODULE hD3D12Mod = LoadLibrary("D3D12.DLL");
+   HMODULE hD3D12Mod = LoadLibrary(D3D12_DLL);
    if (!hD3D12Mod) {
       debug_printf("D3D12: failed to load D3D12.DLL\n");
       return NULL;
@@ -848,7 +861,7 @@ create_device(IUnknown *adapter)
 
    ID3D12Device *dev;
    if (SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0,
-                 __uuidof(ID3D12Device), (void **)&dev)))
+                 __uuidof(dev), (void **)&dev)))
       return dev;
 
    debug_printf("D3D12: D3D12CreateDevice failed\n");
@@ -897,6 +910,7 @@ d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
    if (d3d12_debug & D3D12_DEBUG_GPU_VALIDATOR)
       enable_gpu_validation();
 
+#ifdef _WIN32
    screen->dxgi_factory = get_dxgi_factory();
    if (screen->dxgi_factory) {
       screen->dxgi_adapter = choose_dxgi_adapter(screen->dxgi_factory, adapter_luid);
@@ -918,7 +932,9 @@ d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
       wcsncpy(screen->adapter_desc.description.wide, adapter_desc.Description, ARRAY_SIZE(screen->adapter_desc.description.wide));
 
       screen->dev = create_device(screen->dxgi_adapter);
-   } else {
+   } else
+#endif
+   {
       screen->dxcore_factory = get_dxcore_factory(nullptr);
       if (!screen->dxcore_factory) {
          debug_printf("D3D12: failed to retrieve DXGI and DXCore factories\n");

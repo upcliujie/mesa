@@ -42,8 +42,10 @@
 #include "util/u_simple_shaders.h"
 
 #include <directx/d3d12.h>
+#include <dxguids/dxguids.h>
+
 #include <dxcapi.h>
-#include <wrl.h>
+#include <wrl/client.h>
 
 extern "C" {
 #include "tgsi/tgsi_parse.h"
@@ -1134,12 +1136,18 @@ d3d12_shader_free(struct d3d12_shader_selector *sel)
    ralloc_free(sel);
 }
 
+#ifdef _WIN32
 // Used to get path to self
 extern "C" extern IMAGE_DOS_HEADER __ImageBase;
+#define DXIL_DLL "dxil.dll"
+#else
+#define DXIL_DLL "libdxil.so"
+#endif
 
 void d3d12_validation_tools::load_dxil_dll()
 {
-   if (!dxil_module.load("dxil.dll")) {
+   if (!dxil_module.load(DXIL_DLL)) {
+#ifdef _WIN32
       char selfPath[MAX_PATH] = "";
       uint32_t pathSize = GetModuleFileNameA((HINSTANCE)&__ImageBase, selfPath, sizeof(selfPath));
       if (pathSize == 0 || pathSize == sizeof(selfPath)) {
@@ -1160,6 +1168,7 @@ void d3d12_validation_tools::load_dxil_dll()
       }
 
       dxil_module.load(selfPath);
+#endif
    }
 }
 

@@ -45,6 +45,8 @@
 
 #include "D3D12ResourceState.h"
 
+#include <dxguids/dxguids.h>
+
 extern "C" {
 #include "indices/u_primconvert.h"
 }
@@ -1934,7 +1936,7 @@ d3d12_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    d3d12_root_signature_cache_init(ctx);
    d3d12_gs_variant_cache_init(ctx);
 
-   HMODULE hD3D12Mod = LoadLibrary("D3D12.DLL");
+   HMODULE hD3D12Mod = LoadLibrary(D3D12_DLL);
    if (!hD3D12Mod) {
       debug_printf("D3D12: failed to load D3D12.DLL\n");
       return NULL;
