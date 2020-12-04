@@ -2189,10 +2189,15 @@ void anv_GetPhysicalDeviceQueueFamilyProperties(
     uint32_t*                                   pCount,
     VkQueueFamilyProperties*                    pQueueFamilyProperties)
 {
+   ANV_FROM_HANDLE(anv_physical_device, pdevice, physicalDevice);
+   VkQueueFamilyProperties properties = anv_queue_family_properties;
    VK_OUTARRAY_MAKE(out, pQueueFamilyProperties, pCount);
 
+   if (pdevice->has_protected_contexts)
+      properties.queueFlags |= VK_QUEUE_PROTECTED_BIT;
+
    vk_outarray_append(&out, p) {
-      *p = anv_queue_family_properties;
+      *p = properties;
    }
 }
 
@@ -2201,11 +2206,15 @@ void anv_GetPhysicalDeviceQueueFamilyProperties2(
     uint32_t*                                   pQueueFamilyPropertyCount,
     VkQueueFamilyProperties2*                   pQueueFamilyProperties)
 {
-
+   ANV_FROM_HANDLE(anv_physical_device, pdevice, physicalDevice);
+   VkQueueFamilyProperties properties = anv_queue_family_properties;
    VK_OUTARRAY_MAKE(out, pQueueFamilyProperties, pQueueFamilyPropertyCount);
 
+   if (pdevice->has_protected_contexts)
+      properties.queueFlags |= VK_QUEUE_PROTECTED_BIT;
+
    vk_outarray_append(&out, p) {
-      p->queueFamilyProperties = anv_queue_family_properties;
+      p->queueFamilyProperties = properties;
 
       vk_foreach_struct(s, p->pNext) {
          anv_debug_ignored_stype(s->sType);
@@ -2774,7 +2783,7 @@ VkResult anv_CreateDevice(
     */
    assert(pCreateInfo->queueCreateInfoCount > 0);
    for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
-      if (pCreateInfo->pQueueCreateInfos[i].flags != 0)
+      if (pCreateInfo->pQueueCreateInfos[i].flags & ~VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT)
          return vk_error(VK_ERROR_INITIALIZATION_FAILED);
    }
 
@@ -3210,10 +3219,11 @@ void anv_GetDeviceQueue(
     uint32_t                                    queueIndex,
     VkQueue*                                    pQueue)
 {
+   ANV_FROM_HANDLE(anv_device, device, _device);
    const VkDeviceQueueInfo2 info = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
       .pNext = NULL,
-      .flags = 0,
+      .flags = device->queue.flags,
       .queueFamilyIndex = queueNodeIndex,
       .queueIndex = queueIndex,
    };
