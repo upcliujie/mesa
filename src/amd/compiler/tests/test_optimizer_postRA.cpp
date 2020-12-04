@@ -126,19 +126,18 @@ BEGIN_TEST(optimizer_postRA.shortcircuit_and_eq)
     //; del d, e
 
     {
-        /* When s_cmp_eq has a const 0 operand, and definition 0 is used, we can't optimize this sequence */
+        /* When s_cmp_eq has a const 0 operand, and definition 0 is used, optimize */
 
-        //! s1: %d:s[2] = p_parallelcopy %a:scc
-        //! s1: %e:scc = s_cmp_eq_u32 %b:s[0], 0
-        //! s1: %f:s[3], s1: %g:scc = s_and_b32 %d:s[2], %e:scc
-        //! p_unit_test 3, %f:s[3]
+        //! s1: %d:s[2] = s_cselect_b32 %b:s[0], 1, %a:scc
+        //! s1: %e:scc = s_cmp_eq_u32 %d:s[2], 0
+        //! p_unit_test 3, %e:scc
         auto smov = bld.pseudo(aco_opcode::p_parallelcopy, bld.def(s1, reg_s2), bld.scc(in_0));
         auto scmp = bld.sopc(aco_opcode::s_cmp_eq_u32, bld.def(s1, scc), op_in_1, Operand(0u));
         auto sand = bld.sop2(aco_opcode::s_and_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
         writeout(3, bld.setFixed(Operand(sand.def(0).getTemp()), reg_s3));
     }
 
-    //; del d, e, f, g
+    //; del d, e
 
     {
         /* When s_cmp_eq has a const non-zero operand, and definition 1 (SCC) is used, optimize */
@@ -150,6 +149,23 @@ BEGIN_TEST(optimizer_postRA.shortcircuit_and_eq)
         auto scmp = bld.sopc(aco_opcode::s_cmp_eq_u32, bld.def(s1, scc), op_in_1, Operand(0x123u));
         auto sand = bld.sop2(aco_opcode::s_and_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
         writeout(4, bld.scc(sand.def(1).getTemp()));
+    }
+
+    //; del d, e
+
+    {
+        /* When s_cmp_eq has a const 0 operand, and definition 0 is used, and SCC is clobbered, we can't optimize this sequence */
+
+        //! s1: %d:s[2] = p_parallelcopy %a:scc
+        //! s1: %e:scc = s_cmp_eq_u32 %b:s[0], 0
+        //! s1: %f:s[3], s1: %_:scc = s_and_b32 %d:s[2], %e:scc
+        //! s1: %h:s[2], s1: %_:scc = s_xor_b32 %b:s[0], %c:s[1]
+        //! p_unit_test 5, %f:s[3], %h:s[2]
+        auto smov = bld.pseudo(aco_opcode::p_parallelcopy, bld.def(s1, reg_s2), bld.scc(in_0));
+        auto scmp = bld.sopc(aco_opcode::s_cmp_eq_u32, bld.def(s1, scc), op_in_1, Operand(0u));
+        auto sand = bld.sop2(aco_opcode::s_and_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
+        auto sxor = bld.sop2(aco_opcode::s_xor_b32, bld.def(s1, reg_s2), bld.def(s1, scc), op_in_1, op_in_2);
+        writeout(5, bld.setFixed(Operand(sand.def(0).getTemp()), reg_s3), bld.setFixed(Operand(sxor.def(0).getTemp()), reg_s2));
     }
 
     finish_optimizer_postRA_test();
@@ -176,17 +192,16 @@ BEGIN_TEST(optimizer_postRA.shortcircuit_and_lg)
     {
         /* When s_cmp_lg has two temp operands, and definition 0 is used, we can't optimize this sequence */
 
-        //! s1: %d:s[2] = p_parallelcopy %a:scc
-        //! s1: %e:scc = s_cmp_lg_u32 %b:s[0], %c:s[1]
-        //! s1: %f:s[3], s1: %g:scc = s_and_b32 %d:s[2], %e:scc
-        //! p_unit_test 0, %f
+        //! s1: %d:s[2] = s_cselect_b32 %b:s[0], %c:s[1], %a:scc
+        //! s1: %e:scc = s_cmp_lg_u32 %d:s[2], %c:s[1]
+        //! p_unit_test 0, %e:scc
         auto smov = bld.pseudo(aco_opcode::p_parallelcopy, bld.def(s1, reg_s2), bld.scc(in_0));
         auto scmp = bld.sopc(aco_opcode::s_cmp_lg_u32, bld.def(s1, scc), op_in_1, op_in_2);
         auto sand = bld.sop2(aco_opcode::s_and_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
         writeout(0, sand.def(0).getTemp());
     }
 
-    //; del d, e, f, g
+    //; del d, e
 
     {
         /* When s_cmp_lg has two temp operands, and definition 1 (SCC) is used, optimize */
@@ -217,19 +232,18 @@ BEGIN_TEST(optimizer_postRA.shortcircuit_and_lg)
     //; del d, e
 
     {
-        /* When s_cmp_lg has a const 0 operand, and definition 0 is used, we can't optimize this sequence */
+        /* When s_cmp_lg has a const 0 operand, and definition 0 is used, optimize */
 
-        //! s1: %d:s[2] = p_parallelcopy %a:scc
-        //! s1: %e:scc = s_cmp_lg_u32 %b:s[0], 0
-        //! s1: %f:s[3], s1: %g:scc = s_and_b32 %d:s[2], %e:scc
-        //! p_unit_test 3, %f:s[3]
+        //! s1: %d:s[2] = s_cselect_b32 %b:s[0], 0, %a:scc
+        //! s1: %e:scc = s_cmp_lg_u32 %d:s[2], 0
+        //! p_unit_test 3, %e:scc
         auto smov = bld.pseudo(aco_opcode::p_parallelcopy, bld.def(s1, reg_s2), bld.scc(in_0));
         auto scmp = bld.sopc(aco_opcode::s_cmp_lg_u32, bld.def(s1, scc), op_in_1, Operand(0u));
         auto sand = bld.sop2(aco_opcode::s_and_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
         writeout(3, bld.setFixed(Operand(sand.def(0).getTemp()), reg_s3));
     }
 
-    //; del d, e, f, g
+    //; del d, e
 
     {
         /* When s_cmp_lg has a const non-zero operand, and definition 1 (SCC) is used, optimize */
@@ -241,6 +255,23 @@ BEGIN_TEST(optimizer_postRA.shortcircuit_and_lg)
         auto scmp = bld.sopc(aco_opcode::s_cmp_lg_u32, bld.def(s1, scc), op_in_1, Operand(0x123u));
         auto sand = bld.sop2(aco_opcode::s_and_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
         writeout(4, bld.scc(sand.def(1).getTemp()));
+    }
+
+    //; del d, e
+
+    {
+        /* When s_cmp_lg has a const 0 operand, and definition 0 is used, and SCC is clobbered, we can't optimize this sequence */
+
+        //! s1: %d:s[2] = p_parallelcopy %a:scc
+        //! s1: %e:scc = s_cmp_lg_u32 %b:s[0], 0
+        //! s1: %f:s[3], s1: %_:scc = s_and_b32 %d:s[2], %e:scc
+        //! s1: %h:s[2], s1: %_:scc = s_xor_b32 %b:s[0], %c:s[1]
+        //! p_unit_test 5, %f:s[3], %h:s[2]
+        auto smov = bld.pseudo(aco_opcode::p_parallelcopy, bld.def(s1, reg_s2), bld.scc(in_0));
+        auto scmp = bld.sopc(aco_opcode::s_cmp_lg_u32, bld.def(s1, scc), op_in_1, Operand(0u));
+        auto sand = bld.sop2(aco_opcode::s_and_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
+        auto sxor = bld.sop2(aco_opcode::s_xor_b32, bld.def(s1, reg_s2), bld.def(s1, scc), op_in_1, op_in_2);
+        writeout(5, bld.setFixed(Operand(sand.def(0).getTemp()), reg_s3), bld.setFixed(Operand(sxor.def(0).getTemp()), reg_s2));
     }
 
     finish_optimizer_postRA_test();
@@ -265,19 +296,18 @@ BEGIN_TEST(optimizer_postRA.shortcircuit_or_eq)
     op_in_2.setFixed(reg_s1);
 
     {
-        /* When s_cmp_eq has two temp operands, and definition 0 is used, we can't optimize this sequence */
+        /* When s_cmp_eq has two temp operands, and definition 0 is used, optimize */
 
-        //! s1: %d:s[2] = p_parallelcopy %a:scc
-        //! s1: %e:scc = s_cmp_eq_u32 %b:s[0], %c:s[1]
-        //! s1: %f:s[3], s1: %g:scc = s_or_b32 %d:s[2], %e:scc
-        //! p_unit_test 0, %f
+        //! s1: %d:s[2] = s_cselect_b32 %c:s[1], %b:s[0], %a:scc
+        //! s1: %e:scc = s_cmp_eq_u32 %d:s[2], %c:s[1]
+        //! p_unit_test 0, %e:scc
         auto smov = bld.pseudo(aco_opcode::p_parallelcopy, bld.def(s1, reg_s2), bld.scc(in_0));
         auto scmp = bld.sopc(aco_opcode::s_cmp_eq_u32, bld.def(s1, scc), op_in_1, op_in_2);
         auto sand = bld.sop2(aco_opcode::s_or_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
         writeout(0, sand.def(0).getTemp());
     }
 
-    //; del d, e, f, g
+    //; del d, e
 
     {
         /* When s_cmp_eq has two temp operands, and definition 1 (SCC) is used, optimize */
@@ -308,19 +338,18 @@ BEGIN_TEST(optimizer_postRA.shortcircuit_or_eq)
     //; del d, e
 
     {
-        /* When s_cmp_eq has a const 0 operand, and definition 0 is used, we can't optimize this sequence */
+        /* When s_cmp_eq has a const 0 operand, and definition 0 is used, optimize */
 
-        //! s1: %d:s[2] = p_parallelcopy %a:scc
-        //! s1: %e:scc = s_cmp_eq_u32 %b:s[0], 0
-        //! s1: %f:s[3], s1: %g:scc = s_or_b32 %d:s[2], %e:scc
-        //! p_unit_test 3, %f:s[3]
+        //! s1: %d:s[2] = s_cselect_b32 0, %b:s[0], %a:scc
+        //! s1: %e:scc = s_cmp_eq_u32 %d:s[2], 0
+        //! p_unit_test 3, %e:scc
         auto smov = bld.pseudo(aco_opcode::p_parallelcopy, bld.def(s1, reg_s2), bld.scc(in_0));
         auto scmp = bld.sopc(aco_opcode::s_cmp_eq_u32, bld.def(s1, scc), op_in_1, Operand(0u));
         auto sand = bld.sop2(aco_opcode::s_or_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
         writeout(3, bld.setFixed(Operand(sand.def(0).getTemp()), reg_s3));
     }
 
-    //; del d, e, f, g
+    //; del d, e
 
     {
         /* When s_cmp_eq has a const non-zero operand, and definition 1 (SCC) is used, optimize */
@@ -332,6 +361,23 @@ BEGIN_TEST(optimizer_postRA.shortcircuit_or_eq)
         auto scmp = bld.sopc(aco_opcode::s_cmp_eq_u32, bld.def(s1, scc), op_in_1, Operand(0x123u));
         auto sand = bld.sop2(aco_opcode::s_or_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
         writeout(4, bld.scc(sand.def(1).getTemp()));
+    }
+
+    //; del d, e
+
+    {
+        /* When s_cmp_eq has a const 0 operand, and definition 0 is used, and SCC is clobbered, we can't optimize this sequence */
+
+        //! s1: %d:s[2] = p_parallelcopy %a:scc
+        //! s1: %e:scc = s_cmp_eq_u32 %b:s[0], 0
+        //! s1: %f:s[3], s1: %_:scc = s_or_b32 %d:s[2], %e:scc
+        //! s1: %h:s[2], s1: %_:scc = s_xor_b32 %b:s[0], %c:s[1]
+        //! p_unit_test 5, %f:s[3], %h:s[2]
+        auto smov = bld.pseudo(aco_opcode::p_parallelcopy, bld.def(s1, reg_s2), bld.scc(in_0));
+        auto scmp = bld.sopc(aco_opcode::s_cmp_eq_u32, bld.def(s1, scc), op_in_1, Operand(0u));
+        auto sand = bld.sop2(aco_opcode::s_or_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
+        auto sxor = bld.sop2(aco_opcode::s_xor_b32, bld.def(s1, reg_s2), bld.def(s1, scc), op_in_1, op_in_2);
+        writeout(5, bld.setFixed(Operand(sand.def(0).getTemp()), reg_s3), bld.setFixed(Operand(sxor.def(0).getTemp()), reg_s2));
     }
 
     finish_optimizer_postRA_test();
@@ -400,19 +446,18 @@ BEGIN_TEST(optimizer_postRA.shortcircuit_or_lg)
     //; del d, e
 
     {
-        /* When s_cmp_lg has a const 0 operand, and definition 0 is used, we can't optimize this sequence */
+        /* When s_cmp_lg has a const 0 operand, and definition 0 is used, optimize */
 
-        //! s1: %d:s[2] = p_parallelcopy %a:scc
-        //! s1: %e:scc = s_cmp_lg_u32 %b:s[0], 0
-        //! s1: %f:s[3], s1: %g:scc = s_or_b32 %d:s[2], %e:scc
-        //! p_unit_test 3, %f:s[3]
+        //! s1: %d:s[2] = s_cselect_b32 1, %b:s[0], %a:scc
+        //! s1: %e:scc = s_cmp_lg_u32 %d:s[2], 0
+        //! p_unit_test 3, %e:scc
         auto smov = bld.pseudo(aco_opcode::p_parallelcopy, bld.def(s1, reg_s2), bld.scc(in_0));
         auto scmp = bld.sopc(aco_opcode::s_cmp_lg_u32, bld.def(s1, scc), op_in_1, Operand(0u));
         auto sand = bld.sop2(aco_opcode::s_or_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
         writeout(3, bld.setFixed(Operand(sand.def(0).getTemp()), reg_s3));
     }
 
-    //; del d, e, f, g
+    //; del d, e
 
     {
         /* When s_cmp_lg has a const non-zero operand, and definition 1 (SCC) is used, optimize */
@@ -424,6 +469,23 @@ BEGIN_TEST(optimizer_postRA.shortcircuit_or_lg)
         auto scmp = bld.sopc(aco_opcode::s_cmp_lg_u32, bld.def(s1, scc), op_in_1, Operand(0x123u));
         auto sand = bld.sop2(aco_opcode::s_or_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
         writeout(4, bld.scc(sand.def(1).getTemp()));
+    }
+
+    //; del d, e
+
+    {
+        /* When s_cmp_eq has a const 0 operand, and definition 0 is used, and SCC is clobbered, we can't optimize this sequence */
+
+        //! s1: %d:s[2] = p_parallelcopy %a:scc
+        //! s1: %e:scc = s_cmp_lg_u32 %b:s[0], 0
+        //! s1: %f:s[3], s1: %_:scc = s_or_b32 %d:s[2], %e:scc
+        //! s1: %h:s[2], s1: %_:scc = s_xor_b32 %b:s[0], %c:s[1]
+        //! p_unit_test 5, %f:s[3], %h:s[2]
+        auto smov = bld.pseudo(aco_opcode::p_parallelcopy, bld.def(s1, reg_s2), bld.scc(in_0));
+        auto scmp = bld.sopc(aco_opcode::s_cmp_lg_u32, bld.def(s1, scc), op_in_1, Operand(0u));
+        auto sand = bld.sop2(aco_opcode::s_or_b32, bld.def(s1, reg_s3), bld.def(s1, scc), bld.setFixed(smov, reg_s2), bld.scc(scmp));
+        auto sxor = bld.sop2(aco_opcode::s_xor_b32, bld.def(s1, reg_s2), bld.def(s1, scc), op_in_1, op_in_2);
+        writeout(5, bld.setFixed(Operand(sand.def(0).getTemp()), reg_s3), bld.setFixed(Operand(sxor.def(0).getTemp()), reg_s2));
     }
 
     finish_optimizer_postRA_test();
