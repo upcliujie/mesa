@@ -1639,7 +1639,8 @@ anv_device_alloc_bo(struct anv_device *device,
       ccs_size = align_u64(DIV_ROUND_UP(size, GEN_AUX_MAP_GEN12_CCS_SCALE), 4096);
    }
 
-   uint32_t gem_handle = anv_gem_create(device, size + ccs_size);
+   uint32_t gem_handle = anv_gem_create(device, size + ccs_size,
+                                        alloc_flags & ANV_BO_ALLOC_PROTECTED);
    if (gem_handle == 0)
       return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
 
@@ -1654,9 +1655,12 @@ anv_device_alloc_bo(struct anv_device *device,
       .has_client_visible_address =
          (alloc_flags & ANV_BO_ALLOC_CLIENT_VISIBLE_ADDRESS) != 0,
       .has_implicit_ccs = ccs_size > 0,
+      .is_protected = (alloc_flags & ANV_BO_ALLOC_PROTECTED),
    };
 
    if (alloc_flags & ANV_BO_ALLOC_MAPPED) {
+      /* Can't map/snoop protected BOs */
+      assert(!(alloc_flags & ANV_BO_ALLOC_PROTECTED));
       new_bo.map = anv_gem_mmap(device, new_bo.gem_handle, 0, size, 0);
       if (new_bo.map == MAP_FAILED) {
          anv_gem_close(device, new_bo.gem_handle);
@@ -1670,6 +1674,8 @@ anv_device_alloc_bo(struct anv_device *device,
        * with another process.
        */
       assert(!(alloc_flags & ANV_BO_ALLOC_EXTERNAL));
+      /* Can't map/snoop protected BOs */
+      assert(!(alloc_flags & ANV_BO_ALLOC_PROTECTED));
 
       /* Regular objects are created I915_CACHING_CACHED on LLC platforms and
        * I915_CACHING_NONE on non-LLC platforms.  For many internal state
@@ -1731,7 +1737,8 @@ anv_device_import_bo_from_host_ptr(struct anv_device *device,
 {
    assert(!(alloc_flags & (ANV_BO_ALLOC_MAPPED |
                            ANV_BO_ALLOC_SNOOPED |
-                           ANV_BO_ALLOC_FIXED_ADDRESS)));
+                           ANV_BO_ALLOC_FIXED_ADDRESS |
+                           ANV_BO_ALLOC_PROTECTED)));
 
    /* We can't do implicit CCS with an aux table on shared memory */
    if (!device->physical->has_implicit_ccs || device->info.has_aux_map)
