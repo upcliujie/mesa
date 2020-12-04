@@ -457,6 +457,13 @@ fs_inst::can_do_source_mods(const struct gen_device_info *devinfo) const
          return false;
    }
 
+   /* Negation can only be applied to signed types.  Signed types are not
+    * allowed for SHR, and they have a different semantic for ASR.
+    */
+   if ((opcode == BRW_OPCODE_SHR || opcode == BRW_OPCODE_ASR) &&
+       type_is_unsigned_int(src[0].type))
+      return false;
+
    if (!backend_instruction::can_do_source_mods())
       return false;
 
