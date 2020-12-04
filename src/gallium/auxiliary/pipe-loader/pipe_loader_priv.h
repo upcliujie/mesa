@@ -30,6 +30,10 @@
 
 #include "pipe_loader.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct pipe_loader_ops {
    struct pipe_screen *(*create_screen)(struct pipe_loader_device *dev,
                                         const struct pipe_screen_config *config);
@@ -57,5 +61,9 @@ pipe_loader_find_module(const char *driver_name,
  */
 void
 pipe_loader_base_release(struct pipe_loader_device **dev);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* PIPE_LOADER_PRIV_H */
