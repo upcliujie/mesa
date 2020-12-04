@@ -28,7 +28,7 @@
 #include "anv_private.h"
 
 uint32_t
-anv_gem_create(struct anv_device *device, uint64_t size)
+anv_gem_create(struct anv_device *device, uint64_t size, bool protected)
 {
    int fd = os_create_anonymous_file(size, "fake bo");
    if (fd == -1)
