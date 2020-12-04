@@ -154,6 +154,8 @@ extern const struct __DriverAPIRec galliumdrm_driver_api;
 extern const __DRIextension *galliumdrm_driver_extensions[];
 extern const struct __DriverAPIRec galliumsw_driver_api;
 extern const __DRIextension *galliumsw_driver_extensions[];
+extern const struct __DriverAPIRec gallium_dxg_driver_api;
+extern const __DRIextension *gallium_dxg_driver_extensions[];
 extern const __DRIconfigOptionsExtension gallium_config_options;
 
 #endif

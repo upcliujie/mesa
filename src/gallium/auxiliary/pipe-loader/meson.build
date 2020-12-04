@@ -42,18 +42,22 @@ endif
 if not (with_gallium_st_nine or with_gallium_opencl)
   libpipe_loader_defines += '-DDROP_PIPE_LOADER_MISC'
 endif
+if with_gallium_d3d12
+  files_pipe_loader += files('pipe_loader_dxg.cpp')
+  libpipe_loader_defines += '-DHAVE_PIPE_LOADER_DXG'
+endif
 
 libpipe_loader_static = static_library(
   'pipe_loader_static',
   files_pipe_loader,
   include_directories : [
     inc_util, inc_loader, inc_gallium, inc_include, inc_src, inc_gallium_aux,
-    inc_gallium_winsys,
+    inc_gallium_winsys, inc_gallium_drivers,
   ],
   c_args : [libpipe_loader_defines, '-DGALLIUM_STATIC_TARGETS=1'],
   gnu_symbol_visibility : 'hidden',
   link_with : [libpipe_loader_links],
-  dependencies : [dep_libdrm, idep_xmlconfig, idep_mesautil],
+  dependencies : [dep_libdrm, idep_xmlconfig, idep_mesautil, dep_dxheaders],
   build_by_default : false,
 )
 

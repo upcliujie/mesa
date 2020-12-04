@@ -46,12 +46,16 @@ if with_gallium_softpipe
   libdri_c_args += '-DGALLIUM_SOFTPIPE'
 endif
 
+if with_gallium_d3d12
+  files_libdri += files('dxg.c')
+endif
+
 libdri = static_library(
   'dri',
   files_libdri,
   include_directories : [
     inc_include, inc_util, inc_mesa, inc_mapi, inc_src, inc_gallium,
-    inc_gallium_aux, inc_dri_common,
+    inc_gallium_aux, inc_dri_common, inc_gallium_drivers,
   ],
   c_args : [libdri_c_args],
   gnu_symbol_visibility : 'hidden',

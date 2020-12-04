@@ -89,6 +89,7 @@ typedef struct __DRI2bufferDamageExtensionRec   __DRI2bufferDamageExtension;
 
 typedef struct __DRIimageLoaderExtensionRec     __DRIimageLoaderExtension;
 typedef struct __DRIimageDriverExtensionRec     __DRIimageDriverExtension;
+typedef struct __DRIdxgExtensionRec __DRIdxgExtension;
 
 /*@}*/
 
@@ -2241,6 +2242,30 @@ struct __DRImutableRenderBufferLoaderExtensionRec {
     */
    void (*displaySharedBuffer)(__DRIdrawable *drawable, int fence_fd,
                                void *loaderPrivate);
+};
+
+/**
+ * This extension is used to support layering GL atop D3D for use in WSL.
+ * Instead of using DRI device nodes, it uses /dev/dxg and libdxcore for
+ * initialization and enumeration.
+ */
+#define __DRI_DXG "DRI_DXG"
+#define __DRI_DXG_VERSION 1
+
+struct __DRIdxgExtensionRec {
+   __DRIextension base;
+
+   void *(*createDXCoreFactory)(void **libdxcore);
+   __DRIscreen *(*createD3DScreen)(void *dxcore_adapter,
+                                   const __DRIextension **loader_extensions,
+                                   const __DRIextension **driver_extensions,
+                                   const __DRIconfig ***driver_configs,
+                                   void *loaderPrivate);
+
+   /* Common DRI functions, shared with DRI2 */
+   __DRIcreateNewDrawableFunc           createNewDrawable;
+   __DRIcreateContextAttribsFunc        createNewContext;
+   __DRIgetAPIMaskFunc                  getAPIMask;
 };
 
 #endif

@@ -121,3 +121,13 @@ DEFINE_LOADER_DRM_ENTRYPOINT(lima)
 #if defined(GALLIUM_ZINK)
 DEFINE_LOADER_DRM_ENTRYPOINT(zink);
 #endif
+
+#if defined(GALLIUM_D3D12)
+const __DRIextension **__driDriverGetExtensions_dxg(void);
+
+PUBLIC const __DRIextension **__driDriverGetExtensions_dxg(void)
+{
+   globalDriverAPI = &gallium_dxg_driver_api;
+   return gallium_dxg_driver_extensions;
+}
+#endif

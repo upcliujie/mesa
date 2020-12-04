@@ -48,6 +48,9 @@ static int (*backends[])(struct pipe_loader_device **, int) = {
 #ifdef HAVE_LIBDRM
    &pipe_loader_drm_probe,
 #endif
+#ifdef HAVE_PIPE_LOADER_DXG
+   &pipe_loader_dxg_probe,
+#endif
    &pipe_loader_sw_probe
 };
 

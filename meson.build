@@ -855,6 +855,9 @@ if with_platform_x11
     elif with_dri_platform == 'windows'
       pre_args += '-DGLX_USE_WINDOWSGL'
     endif
+    if with_gallium_d3d12
+      pre_args += '-DGLX_USE_DXG'
+    endif
   endif
 else
   pre_args += '-DEGL_NO_X11'

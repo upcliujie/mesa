@@ -48,6 +48,7 @@ enum pipe_loader_device_type {
    PIPE_LOADER_DEVICE_SOFTWARE,
    PIPE_LOADER_DEVICE_PCI,
    PIPE_LOADER_DEVICE_PLATFORM,
+   PIPE_LOADER_DEVICE_DXG,
    NUM_PIPE_LOADER_DEVICE_TYPES
 };
 
@@ -197,6 +198,26 @@ pipe_loader_drm_probe(struct pipe_loader_device **devs, int ndev);
  */
 bool
 pipe_loader_drm_probe_fd(struct pipe_loader_device **dev, int fd);
+
+/**
+ * Get a list of known WDDM native or paravirtualized devices.
+ * 
+ * This function is platform-specific.
+ * 
+ * \sa pipe_loader_probe
+ */
+int
+pipe_loader_dxg_probe(struct pipe_loader_device **devs, int ndev);
+
+/**
+ * Initialize a WDDM device.
+ * 
+ * This function is platform-specific.
+ * 
+ * \sa pipe_loader_probe
+ */
+bool
+pipe_loader_dxg_probe_one(struct pipe_loader_device **dev, void *dxcore_adapter);
 
 /**
  * Get the dri options used for the DRM driver of the given name, if any.
