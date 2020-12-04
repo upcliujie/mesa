@@ -115,11 +115,11 @@ const struct __DriverAPIRec *globalDriverAPI = &driDriverAPI;
  * It's used to create global state for the driver across contexts on the same
  * Display.
  */
-static __DRIscreen *
-driCreateNewScreen2(int scrn, int fd,
-                    const __DRIextension **extensions,
-                    const __DRIextension **driver_extensions,
-                    const __DRIconfig ***driver_configs, void *data)
+__DRIscreen *
+driCreateNewScreenPrologue(int scrn, int fd,
+                           const __DRIextension **extensions,
+                           const __DRIextension **driver_extensions,
+                           void *data)
 {
     static const __DRIextension *emptyExtensionList[] = { NULL };
     __DRIscreen *psp;
@@ -157,12 +157,12 @@ driCreateNewScreen2(int scrn, int fd,
     driParseConfigFiles(&psp->optionCache, &psp->optionInfo, psp->myNum,
                         "dri2", NULL, NULL, 0, NULL, 0);
 
-    *driver_configs = psp->driver->InitScreen(psp);
-    if (*driver_configs == NULL) {
-	free(psp);
-	return NULL;
-    }
+    return psp;
+}
 
+void
+driCreateNewScreenEpilogue(__DRIscreen *psp)
+{
     struct gl_constants consts = { 0 };
     gl_api api;
     unsigned version;
@@ -189,7 +189,28 @@ driCreateNewScreen2(int scrn, int fd,
        psp->api_mask |= (1 << __DRI_API_GLES2);
     if (psp->max_gl_es2_version >= 30)
        psp->api_mask |= (1 << __DRI_API_GLES3);
+}
 
+
+static __DRIscreen *
+driCreateNewScreen2(int scrn, int fd,
+                    const __DRIextension **extensions,
+                    const __DRIextension **driver_extensions,
+                    const __DRIconfig ***driver_configs, void *data)
+{
+    __DRIscreen *psp = driCreateNewScreenPrologue(scrn, fd, extensions,
+                                                  driver_extensions, data);
+
+    if (!psp)
+	    return NULL;
+
+    *driver_configs = psp->driver->InitScreen(psp);
+    if (*driver_configs == NULL) {
+       free(psp);
+       return NULL;
+    }
+
+    driCreateNewScreenEpilogue(psp);
     return psp;
 }
 
@@ -296,7 +317,7 @@ validate_context_version(__DRIscreen *screen,
 /*****************************************************************/
 /*@{*/
 
-static __DRIcontext *
+__DRIcontext *
 driCreateContextAttribs(__DRIscreen *screen, int api,
                         const __DRIconfig *config,
                         __DRIcontext *shared,
@@ -671,7 +692,7 @@ static void dri_put_drawable(__DRIdrawable *pdp)
     }
 }
 
-static __DRIdrawable *
+__DRIdrawable *
 driCreateNewDrawable(__DRIscreen *screen,
                      const __DRIconfig *config,
                      void *data)

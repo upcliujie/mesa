@@ -335,6 +335,29 @@ driUpdateFramebufferSize(struct gl_context *ctx, const __DRIdrawable *dPriv);
 extern void
 driContextSetFlags(struct gl_context *ctx, uint32_t flags);
 
+extern __DRIscreen *
+driCreateNewScreenPrologue(int scrn, int fd,
+                           const __DRIextension **extensions,
+                           const __DRIextension **driver_extensions,
+                           void *data);
+extern void
+driCreateNewScreenEpilogue(__DRIscreen *psp);
+
+
+extern __DRIcontext *
+driCreateContextAttribs(__DRIscreen *screen, int api,
+                        const __DRIconfig *config,
+                        __DRIcontext *shared,
+                        unsigned num_attribs,
+                        const uint32_t *attribs,
+                        unsigned *error,
+                        void *data);
+
+extern __DRIdrawable *
+driCreateNewDrawable(__DRIscreen *screen,
+                     const __DRIconfig *config,
+                     void *data);
+
 extern const __DRIimageDriverExtension driImageDriverExtension;
 
 extern const __DRInoErrorExtension dri2NoErrorExtension;
