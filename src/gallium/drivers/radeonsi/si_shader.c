@@ -32,6 +32,10 @@
 #include "tgsi/tgsi_from_mesa.h"
 #include "tgsi/tgsi_strings.h"
 #include "util/u_memory.h"
+#include "amd/compiler/aco_interface.h"
+#include "amd/vulkan/radv_descriptor_set.h"
+#include "amd/vulkan/radv_shader_args.h"
+#include "amd/vulkan/radv_shader.h"
 
 static const char scratch_rsrc_dword0_symbol[] = "SCRATCH_RSRC_DWORD0";
 
@@ -1447,6 +1451,37 @@ bool si_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *compi
     * with PS and NGG VS), but monolithic shaders should be compiled
     * by LLVM due to more complicated compilation.
     */
+   if (debug_get_bool_option("ACO", false) && nir->info.stage == MESA_SHADER_VERTEX) {
+      struct radv_shader_binary binary = {};
+      struct radv_shader_binary *pbinary = &binary;
+      struct radv_shader_args args = {};
+      struct radv_shader_info info = {};
+      struct radv_nir_compiler_options options = {};
+      struct radv_pipeline_layout layout = {};
+
+      si_init_shader_args(shader, &args.ac, false);
+
+      options.chip_class = sscreen->info.chip_class;
+      options.family = sscreen->info.family;
+      options.address32_hi = sscreen->info.address32_hi;
+      options.layout = &layout;
+
+      options.key.vs.out.as_es = shader->key.as_es;
+      options.key.vs.out.as_ls = shader->key.as_ls;
+      info.is_ngg = options.key.vs.out.as_ngg = shader->key.as_ngg;
+      info.is_ngg_passthrough = options.key.vs.out.as_ngg_passthrough = info.is_ngg;
+
+      info.ngg_info.hw_max_esverts = 128;
+      info.ngg_info.max_gsprims = 128;
+
+      info.wave_size = si_get_shader_wave_size(shader);
+
+      args.shader_info = &info;
+      args.options = &options;
+
+      aco_compile_shader(1, &nir, &pbinary, &args);
+   }
+
    if (!si_llvm_compile_shader(sscreen, compiler, shader, debug, nir, free_nir))
       return false;
 

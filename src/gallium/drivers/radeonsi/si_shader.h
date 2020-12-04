@@ -713,7 +713,7 @@ struct si_shader_binary {
    char *llvm_ir_string;
 };
 
-struct gfx9_gs_info {
+struct si_gfx9_gs_info {
    unsigned es_verts_per_subgroup;
    unsigned gs_prims_per_subgroup;
    unsigned gs_inst_prims_in_subgroup;
@@ -770,7 +770,7 @@ struct si_shader {
    char *shader_log;
    size_t shader_log_size;
 
-   struct gfx9_gs_info gs_info;
+   struct si_gfx9_gs_info gs_info;
 
    /* For save precompute context registers values. */
    union {
@@ -872,7 +872,7 @@ void si_finalize_nir(struct pipe_screen *screen, void *nirptr, bool optimize);
 
 /* si_state_shaders.c */
 void gfx9_get_gs_info(struct si_shader_selector *es, struct si_shader_selector *gs,
-                      struct gfx9_gs_info *out);
+                      struct si_gfx9_gs_info *out);
 
 /* Inline helpers. */
 

@@ -634,7 +634,7 @@ static void si_shader_es(struct si_screen *sscreen, struct si_shader *shader)
 }
 
 void gfx9_get_gs_info(struct si_shader_selector *es, struct si_shader_selector *gs,
-                      struct gfx9_gs_info *out)
+                      struct si_gfx9_gs_info *out)
 {
    unsigned gs_num_invocations = MAX2(gs->info.base.gs.invocations, 1);
    unsigned input_prim = gs->info.base.gs.input_primitive;

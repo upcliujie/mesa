@@ -31,6 +31,8 @@ extern "C" {
 #endif
 
 struct ac_shader_config;
+struct radv_shader_binary;
+struct radv_shader_args;
 
 struct aco_compiler_statistic_info {
    char name[32];

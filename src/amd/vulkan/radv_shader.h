@@ -34,11 +34,11 @@
 #include "amd_family.h"
 #include "radv_constants.h"
 
-#include "nir/nir.h"
+#include "nir.h"
 #include "vulkan/vulkan.h"
 #include "vulkan/util/vk_object.h"
 
-#include "aco_interface.h"
+#include "amd/compiler/aco_interface.h"
 
 #define RADV_VERT_ATTRIB_MAX MAX2(VERT_ATTRIB_MAX, VERT_ATTRIB_GENERIC0 + MAX_VERTEX_ATTRIBS)
 
