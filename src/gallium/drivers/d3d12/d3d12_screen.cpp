@@ -882,8 +882,8 @@ can_attribute_at_vertex(struct d3d12_screen *screen)
    }
 }
 
-struct pipe_screen *
-d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
+static struct pipe_screen *
+d3d12_create_screen_impl(struct sw_winsys *winsys, LUID *adapter_luid, void *adapter)
 {
    struct d3d12_screen *screen = CALLOC_STRUCT(d3d12_screen);
    if (!screen)
@@ -913,15 +913,24 @@ d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
    if (d3d12_debug & D3D12_DEBUG_GPU_VALIDATOR)
       enable_gpu_validation();
 
+   if (adapter) {
+      IUnknown *adapter_unk = static_cast<IUnknown*>(adapter);
+      (void)adapter_unk->QueryInterface(&screen->dxcore_adapter);
+#ifdef _WIN32
+      (void)adapter_unk->QueryInterface(&screen->dxgi_adapter);
+#endif
+   }
+
 #ifdef _WIN32
    screen->dxgi_factory = get_dxgi_factory();
-   if (screen->dxgi_factory) {
+   if (screen->dxgi_factory && !screen->dxgi_adapter && !screen->dxcore_adapter) {
       screen->dxgi_adapter = choose_dxgi_adapter(screen->dxgi_factory, adapter_luid);
       if (!screen->dxgi_adapter) {
          debug_printf("D3D12: no suitable adapter\n");
          return NULL;
       }
-
+   }
+   if (screen->dxgi_adapter) {
       DXGI_ADAPTER_DESC1 adapter_desc = {};
       if (FAILED(screen->dxgi_adapter->GetDesc1(&adapter_desc))) {
          debug_printf("D3D12: failed to retrieve adapter description\n");
@@ -938,16 +947,18 @@ d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
    } else
 #endif
    {
-      screen->dxcore_factory = get_dxcore_factory(nullptr);
-      if (!screen->dxcore_factory) {
-         debug_printf("D3D12: failed to retrieve DXGI and DXCore factories\n");
-         return NULL;
-      }
-
-      screen->dxcore_adapter = choose_dxcore_adapter(screen->dxcore_factory, adapter_luid);
       if (!screen->dxcore_adapter) {
-         debug_printf("D3D12: no suitable adapter\n");
-         return NULL;
+         screen->dxcore_factory = get_dxcore_factory(nullptr);
+         if (!screen->dxcore_factory) {
+            debug_printf("D3D12: failed to retrieve DXGI and DXCore factories\n");
+            return NULL;
+         }
+
+         screen->dxcore_adapter = choose_dxcore_adapter(screen->dxcore_factory, adapter_luid);
+         if (!screen->dxcore_adapter) {
+            debug_printf("D3D12: no suitable adapter\n");
+            return NULL;
+         }
       }
 
       DXCoreHardwareID hardware_ids = {};
@@ -1076,4 +1087,22 @@ d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
 failed:
    FREE(screen);
    return NULL;
+}
+
+struct pipe_screen *
+d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
+{
+   return d3d12_create_screen_impl(winsys, adapter_luid, nullptr);
+}
+
+struct pipe_screen *
+d3d12_create_screen_from_adapter(struct sw_winsys *winsys, void *adapter)
+{
+   return d3d12_create_screen_impl(winsys, nullptr, adapter);
+}
+
+void *
+d3d12_create_dxcore_factory(void **libdxcore)
+{
+   return get_dxcore_factory(libdxcore);
 }
