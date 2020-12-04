@@ -210,6 +210,13 @@ anv_physical_device_init_heaps(struct anv_physical_device *device, int fd)
             .heapIndex = heap,
          };
       }
+      if (device->has_protected_contexts) {
+         device->memory.types[type_count++] = (struct anv_memory_type) {
+            .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                             VK_MEMORY_PROPERTY_PROTECTED_BIT,
+            .heapIndex = heap,
+         };
+      }
    }
    device->memory.type_count = type_count;
 
@@ -3543,6 +3550,9 @@ VkResult anv_AllocateMemory(
 
    if (vk_flags & VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR)
       alloc_flags |= ANV_BO_ALLOC_CLIENT_VISIBLE_ADDRESS;
+
+   if (mem_type->propertyFlags & VK_MEMORY_PROPERTY_PROTECTED_BIT)
+      alloc_flags |= ANV_BO_ALLOC_PROTECTED;
 
    if ((export_info && export_info->handleTypes) ||
        (fd_info && fd_info->handleType) ||
