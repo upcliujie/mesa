@@ -1225,10 +1225,19 @@ void anv_GetImageMemoryRequirements2(
     *    supported memory type for the resource. The bit `1<<i` is set if and
     *    only if the memory type `i` in the VkPhysicalDeviceMemoryProperties
     *    structure for the physical device is supported.
-    *
-    * All types are currently supported for images.
     */
-   uint32_t memory_types = (1ull << device->physical->memory.type_count) - 1;
+   VkMemoryPropertyFlags required_flags = 0;
+   if (image->create_flags & VK_IMAGE_CREATE_PROTECTED_BIT)
+      required_flags |= VK_MEMORY_PROPERTY_PROTECTED_BIT;
+
+   uint32_t memory_types = 0;
+   for (uint32_t i = 0; i < device->physical->memory.type_count; i++) {
+      /* Skip memories not matching requirements. */
+      if ((device->physical->memory.types[i].propertyFlags & required_flags) != required_flags)
+         continue;
+
+      memory_types |= 1ull << i;
+   }
 
    vk_foreach_struct_const(ext, pInfo->pNext) {
       switch (ext->sType) {
