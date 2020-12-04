@@ -345,7 +345,8 @@ get_glsl_type_element(struct ntv_context *ctx, const struct glsl_type *type, Spv
 
    if (glsl_type_is_array(type)) {
       SpvId ret;
-      SpvId element_type = get_glsl_type_element(ctx, glsl_get_array_element(type), element);
+      const struct glsl_type *element_gtype = glsl_get_array_element(type);
+      SpvId element_type = get_glsl_type_element(ctx, element_gtype, element);
       if (glsl_type_is_unsized_array(type))
          ret = spirv_builder_type_runtime_array(&ctx->builder, element_type);
       else
@@ -353,24 +354,29 @@ get_glsl_type_element(struct ntv_context *ctx, const struct glsl_type *type, Spv
                                         element_type,
                                         emit_uint_const(ctx, 32, glsl_get_length(type)));
       uint32_t stride = glsl_get_explicit_stride(type);
-      if (!stride && glsl_type_is_scalar(glsl_get_array_element(type))) {
-         switch (glsl_get_bit_size(glsl_get_array_element(type))) {
-         case 1:
-         case 8:
-            stride = sizeof(uint8_t);
-            break;
-         case 16:
-            stride = sizeof(uint16_t);
-            break;
-         case 32:
-            stride = sizeof(uint32_t);
-            break;
-         case 64:
-            stride = sizeof(uint64_t);
-            break;
-         default:
-            unreachable("unknown array element size");
-         }
+      if (!stride) {
+         if (glsl_type_is_scalar(element_gtype)) {
+            switch (glsl_get_bit_size(element_gtype)) {
+            case 1:
+            case 8:
+               stride = sizeof(uint8_t);
+               break;
+            case 16:
+               stride = sizeof(uint16_t);
+               break;
+            case 32:
+               stride = sizeof(uint32_t);
+               break;
+            case 64:
+               stride = sizeof(uint64_t);
+               break;
+            default:
+               unreachable("unknown array element size");
+            }
+         } else if (glsl_type_is_array(element_gtype))
+            stride = glsl_get_std430_size(element_gtype, false);
+         else if (type_is_counter(element_gtype))
+            stride = glsl_atomic_size(element_gtype);
       }
       if (stride)
          spirv_builder_emit_array_stride(&ctx->builder, ret, stride);
@@ -402,6 +408,9 @@ get_glsl_type_element(struct ntv_context *ctx, const struct glsl_type *type, Spv
                                                                  get_glsl_basetype(ctx, glsl_get_base_type(type)),
                                                                  glsl_get_vector_elements(type)),
                                        glsl_get_matrix_columns(type));
+
+   if (type_is_counter(type))
+      return spirv_builder_type_uint(&ctx->builder, 32);
 
    unreachable("we shouldn't get here, I think...");
 }
