@@ -28,7 +28,7 @@
 #include "anv_private.h"
 
 uint32_t
-anv_gem_create(struct anv_device *device, uint64_t size)
+anv_gem_create(struct anv_device *device, uint64_t size, bool protected)
 {
    int fd = os_create_anonymous_file(size, "fake bo");
    if (fd == -1)
@@ -48,7 +48,8 @@ anv_gem_close(struct anv_device *device, uint32_t gem_handle)
 uint32_t
 anv_gem_create_regions(struct anv_device *device, uint64_t anv_bo_size,
                        uint32_t num_regions,
-                       struct drm_i915_gem_memory_class_instance *regions)
+                       struct drm_i915_gem_memory_class_instance *regions,
+                       bool protected)
 {
    return 0;
 }

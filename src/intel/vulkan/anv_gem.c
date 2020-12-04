@@ -40,19 +40,40 @@
  * Return gem handle, or 0 on failure. Gem handles are never 0.
  */
 uint32_t
-anv_gem_create(struct anv_device *device, uint64_t size)
+anv_gem_create(struct anv_device *device, uint64_t size, bool protected)
 {
-   struct drm_i915_gem_create gem_create = {
-      .size = size,
-   };
+   if (protected) {
+      struct drm_i915_gem_create_ext gem_create = {
+         .size = size,
+      };
+      struct drm_i915_gem_create_ext_protected_content protected_param = {
+         .flags = 0,
+      };
 
-   int ret = intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_CREATE, &gem_create);
-   if (ret != 0) {
-      /* FIXME: What do we do if this fails? */
-      return 0;
+      intel_gem_add_ext(&gem_create.extensions,
+                        I915_GEM_CREATE_EXT_PROTECTED_CONTENT,
+                        &protected_param.base);
+
+      int ret = intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_CREATE_EXT, &gem_create);
+      if (ret != 0) {
+         /* FIXME: What do we do if this fails? */
+         return 0;
+      }
+
+      return gem_create.handle;
+   } else {
+      struct drm_i915_gem_create gem_create = {
+         .size = size,
+      };
+
+      int ret = intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_CREATE, &gem_create);
+      if (ret != 0) {
+         /* FIXME: What do we do if this fails? */
+         return 0;
+      }
+
+      return gem_create.handle;
    }
-
-   return gem_create.handle;
 }
 
 void
@@ -68,18 +89,30 @@ anv_gem_close(struct anv_device *device, uint32_t gem_handle)
 uint32_t
 anv_gem_create_regions(struct anv_device *device, uint64_t anv_bo_size,
                        uint32_t num_regions,
-                       struct drm_i915_gem_memory_class_instance *regions)
+                       struct drm_i915_gem_memory_class_instance *regions,
+                       bool protected)
 {
    struct drm_i915_gem_create_ext_memory_regions ext_regions = {
-      .base = { .name = I915_GEM_CREATE_EXT_MEMORY_REGIONS },
       .num_regions = num_regions,
       .regions = (uintptr_t)regions,
    };
-
+   struct drm_i915_gem_create_ext_protected_content protected_param = {
+      .flags = 0,
+   };
+   
    struct drm_i915_gem_create_ext gem_create = {
       .size = anv_bo_size,
       .extensions = (uintptr_t) &ext_regions,
    };
+
+   intel_gem_add_ext(&gem_create.extensions,
+                     I915_GEM_CREATE_EXT_MEMORY_REGIONS,
+                     &ext_regions.base);
+   if (protected) {
+      intel_gem_add_ext(&gem_create.extensions,
+                        I915_GEM_CREATE_EXT_PROTECTED_CONTENT,
+                        &protected_param.base);
+   }
 
    int ret = intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_CREATE_EXT,
                          &gem_create);

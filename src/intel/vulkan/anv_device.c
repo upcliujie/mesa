@@ -439,6 +439,14 @@ anv_physical_device_init_heaps(struct anv_physical_device *device, int fd)
                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
          .heapIndex = 0,
       };
+      if (device->has_protected_contexts) {
+         device->memory.types[device->memory.type_count++] =
+            (struct anv_memory_type) {
+            .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                             VK_MEMORY_PROPERTY_PROTECTED_BIT,
+            .heapIndex = 0,
+         };
+      }
    } else if (device->info.has_llc) {
       device->memory.heap_count = 1;
       device->memory.heaps[0] = (struct anv_memory_heap) {
@@ -458,6 +466,14 @@ anv_physical_device_init_heaps(struct anv_physical_device *device, int fd)
                           VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
          .heapIndex = 0,
       };
+      if (device->has_protected_contexts) {
+         device->memory.types[device->memory.type_count++] =
+            (struct anv_memory_type) {
+            .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                             VK_MEMORY_PROPERTY_PROTECTED_BIT,
+            .heapIndex = 0,
+         };
+      }
    } else {
       device->memory.heap_count = 1;
       device->memory.heaps[0] = (struct anv_memory_heap) {
@@ -484,6 +500,14 @@ anv_physical_device_init_heaps(struct anv_physical_device *device, int fd)
                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
          .heapIndex = 0,
       };
+      if (device->has_protected_contexts) {
+         device->memory.types[device->memory.type_count++] =
+            (struct anv_memory_type) {
+            .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                             VK_MEMORY_PROPERTY_PROTECTED_BIT,
+            .heapIndex = 0,
+         };
+      }
    }
 
    device->memory.need_clflush = false;
@@ -3955,6 +3979,9 @@ VkResult anv_AllocateMemory(
    if (vk_flags & VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR)
       alloc_flags |= ANV_BO_ALLOC_CLIENT_VISIBLE_ADDRESS;
 
+   if (mem_type->propertyFlags & VK_MEMORY_PROPERTY_PROTECTED_BIT)
+      alloc_flags |= ANV_BO_ALLOC_PROTECTED;
+
    if ((export_info && export_info->handleTypes) ||
        (fd_info && fd_info->handleType) ||
        (host_ptr_info && host_ptr_info->handleType)) {
@@ -4235,6 +4262,8 @@ VkResult anv_MapMemory(
       return VK_SUCCESS;
    }
 
+   assert(mem->type->propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
    if (mem->host_ptr) {
       *ppData = mem->host_ptr + offset;
       return VK_SUCCESS;
@@ -4375,7 +4404,18 @@ void anv_GetBufferMemoryRequirements2(
     *    only if the memory type `i` in the VkPhysicalDeviceMemoryProperties
     *    structure for the physical device is supported.
     */
-   uint32_t memory_types = (1ull << device->physical->memory.type_count) - 1;
+   VkMemoryPropertyFlags required_flags = 0;
+   if (buffer->create_flags & VK_BUFFER_CREATE_PROTECTED_BIT)
+      required_flags |= VK_MEMORY_PROPERTY_PROTECTED_BIT;
+
+   uint32_t memory_types = 0;
+   for (uint32_t i = 0; i < device->physical->memory.type_count; i++) {
+      /* Skip memories not matching requirements. */
+      if ((device->physical->memory.types[i].propertyFlags & required_flags) != required_flags)
+         continue;
+
+      memory_types |= 1ull << i;
+   }
 
    /* Base alignment requirement of a cache line */
    uint32_t alignment = 16;
