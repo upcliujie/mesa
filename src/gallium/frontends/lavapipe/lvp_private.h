@@ -660,6 +660,8 @@ enum lvp_cmds {
    LVP_CMD_DRAW_INDIRECT_COUNT,
    LVP_CMD_DRAW_INDEXED_INDIRECT_COUNT,
    LVP_CMD_PUSH_DESCRIPTOR_SET,
+   LVP_CMD_BEGIN_CONDITIONAL_RENDERING,
+   LVP_CMD_END_CONDITIONAL_RENDERING,
 };
 
 struct lvp_cmd_bind_pipeline {
@@ -949,6 +951,12 @@ struct lvp_cmd_push_descriptor_set {
    union lvp_descriptor_info *infos;
 };
 
+struct lvp_cmd_begin_conditional_rendering {
+   struct lvp_buffer *buffer;
+   VkDeviceSize offset;
+   bool inverted;
+};
+
 struct lvp_cmd_buffer_entry {
    struct list_head cmd_link;
    uint32_t cmd_type;
@@ -991,6 +999,7 @@ struct lvp_cmd_buffer_entry {
       struct lvp_cmd_execute_commands execute_commands;
       struct lvp_cmd_draw_indirect_count draw_indirect_count;
       struct lvp_cmd_push_descriptor_set push_descriptor_set;
+      struct lvp_cmd_begin_conditional_rendering begin_conditional_rendering;
    } u;
 };
 
