@@ -40,6 +40,7 @@ enum pr_opt_label
    label_vcc_to_scc,
    label_scc,
    label_scc_to_sgpr,
+   label_try_late_shortcircuit,
    num_labels,
 };
 
@@ -63,6 +64,7 @@ struct pr_opt_ctx
    Program *program;
    Block *current_block;
    uint32_t last_vcc_def;
+   uint32_t last_scc_def;
    int current_instr_idx;
    std::vector<uint16_t> uses;
    std::vector<pr_opt_ssa_info> info;
@@ -102,7 +104,9 @@ bool process_shortcircuit_uniform_bool(pr_opt_ctx &ctx, aco_ptr<Instruction> &in
     * - When the transformation is not doable, try to reorder the s_cmp_xxx with the source of the p_parallelcopy
     */
 
-   assert(ctx.uses[instr->definitions[0].tempId()] == 0);
+   assert(ctx.uses[instr->definitions[0].tempId()] == 0 ||
+          (ctx.uses[instr->definitions[0].tempId()] == 1 &&
+           ctx.uses[instr->definitions[1].tempId()] == 0));
 
    /* Operand 0 is: s_mov sN, scc */
    Instruction *op0_scc2sgpr = ctx.info[instr->operands[0].tempId()].instr();
@@ -254,6 +258,39 @@ void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
             /* Only the SCC def is used, try the optimization */
             if (process_shortcircuit_uniform_bool(ctx, instr))
                return;
+         } else if (ctx.uses[instr->definitions[0].tempId()] == 1 &&
+                    ctx.uses[instr->definitions[1].tempId()] == 0) {
+            /* Only the s1 def is used once, mark the definition to try the optimization later */
+            set_label(ctx, instr->definitions[0].tempId(), label_try_late_shortcircuit);
+         }
+      }
+   }
+
+   for (auto &op : instr->operands) {
+      if (op.isConstant())
+         continue;
+
+      auto &op_info = ctx.info[op.tempId()];
+
+      /* See if we can still squeeze out the short-circuit optimization */
+      if (op_info.labels.test(label_try_late_shortcircuit) &&
+          op_info.block->index == ctx.current_block->index) {
+         aco_ptr<Instruction> &shortcircuit_instr = ctx.current_block->instructions[op_info.instr_idx];
+         assert(op_info.instr() == shortcircuit_instr.get());
+
+         /* If anything clobbers SCC between the short-circuitable boolean instr and its user, give up */
+         if (ctx.last_scc_def != shortcircuit_instr->definitions[1].tempId())
+            continue;
+
+         Temp sccdef = shortcircuit_instr->definitions[1].getTemp();
+
+         /* Now it's safe to try the optimization */
+         if (process_shortcircuit_uniform_bool(ctx, shortcircuit_instr)) {
+            /* Use SCC instead of the SGPR */
+            ctx.uses[op.tempId()]--;
+            ctx.uses[ctx.last_scc_def]++;
+            op = Operand(sccdef, scc);
+            return;
          }
       }
    }
@@ -261,6 +298,9 @@ void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
    for (auto &def : instr->definitions) {
       if (def.physReg() == vcc) {
          ctx.last_vcc_def = def.tempId();
+      }
+      else if (def.physReg() == scc) {
+         ctx.last_scc_def = def.tempId();
       }
    }
 }
@@ -282,6 +322,7 @@ void optimize_postRA(Program* program)
       ctx.current_block = &block;
       ctx.current_instr_idx = -1;
       ctx.last_vcc_def = 0;
+      ctx.last_scc_def = 0;
       for (aco_ptr<Instruction> &instr : block.instructions)
          process_instruction(ctx, instr);
    }
