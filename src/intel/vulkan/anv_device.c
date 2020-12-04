@@ -2445,6 +2445,19 @@ anv_queue_family_properties_template = {
    .minImageTransferGranularity = { 1, 1, 1 },
 };
 
+static VkQueueFamilyProperties
+anv_device_physical_get_queue_properties(const struct anv_physical_device *device,
+                                         uint32_t family_index)
+{
+   const struct anv_queue_family *family = &pdevice->queue.families[i];
+   VkQueueFamilyProperties properties = anv_queue_family_properties_template;
+   properties.queueFlags = family->queueFlags;
+   properties.queueCount = family->queueCount;
+   if (device->has_protected_contexts)
+      properties.queueFlags |= VK_QUEUE_PROTECTED_BIT;
+   return properties;
+}
+
 void anv_GetPhysicalDeviceQueueFamilyProperties(
     VkPhysicalDevice                            physicalDevice,
     uint32_t*                                   pCount,
@@ -2454,12 +2467,8 @@ void anv_GetPhysicalDeviceQueueFamilyProperties(
    VK_OUTARRAY_MAKE(out, pQueueFamilyProperties, pCount);
 
    for (uint32_t i = 0; i < pdevice->queue.family_count; i++) {
-      struct anv_queue_family *queue_family = &pdevice->queue.families[i];
-      vk_outarray_append(&out, p) {
-         *p = anv_queue_family_properties_template;
-         p->queueFlags = queue_family->queueFlags;
-         p->queueCount = queue_family->queueCount;
-      }
+      vk_outarray_append(&out, p)
+         *p = anv_device_physical_get_queue_properties(pdevice, i);
    }
 }
 
@@ -2472,11 +2481,9 @@ void anv_GetPhysicalDeviceQueueFamilyProperties2(
    VK_OUTARRAY_MAKE(out, pQueueFamilyProperties, pQueueFamilyPropertyCount);
 
    for (uint32_t i = 0; i < pdevice->queue.family_count; i++) {
-      struct anv_queue_family *queue_family = &pdevice->queue.families[i];
       vk_outarray_append(&out, p) {
-         p->queueFamilyProperties = anv_queue_family_properties_template;
-         p->queueFamilyProperties.queueFlags = queue_family->queueFlags;
-         p->queueFamilyProperties.queueCount = queue_family->queueCount;
+         p->queueFamilyProperties =
+            anv_device_physical_get_queue_properties(pdevice, i);
 
          vk_foreach_struct(s, p->pNext) {
             anv_debug_ignored_stype(s->sType);
@@ -2909,7 +2916,7 @@ VkResult anv_CreateDevice(
     */
    assert(pCreateInfo->queueCreateInfoCount > 0);
    for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
-      if (pCreateInfo->pQueueCreateInfos[i].flags != 0)
+      if (pCreateInfo->pQueueCreateInfos[i].flags & ~VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT)
          return vk_error(VK_ERROR_INITIALIZATION_FAILED);
    }
 
