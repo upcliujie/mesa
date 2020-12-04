@@ -848,7 +848,10 @@ create_device(IUnknown *adapter)
       return NULL;
    }
 
-   if (d3d12_debug & D3D12_DEBUG_EXPERIMENTAL) {
+#ifdef _WIN32
+   if (d3d12_debug & D3D12_DEBUG_EXPERIMENTAL)
+#endif
+   {
       D3D12EnableExperimentalFeatures = (PFN_D3D12ENABLEEXPERIMENTALFEATURES)GetProcAddress(hD3D12Mod, "D3D12EnableExperimentalFeatures");
       D3D12EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModels, NULL, NULL);
    }
