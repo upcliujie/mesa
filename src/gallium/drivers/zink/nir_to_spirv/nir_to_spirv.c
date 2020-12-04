@@ -49,7 +49,6 @@ struct ntv_context {
 
    SpvId ssbos[PIPE_MAX_SHADER_BUFFERS];
    nir_variable *ssbo_vars[PIPE_MAX_SHADER_BUFFERS];
-   uint32_t ssbo_mask;
    uint32_t num_ssbos;
    SpvId image_types[PIPE_MAX_SAMPLERS];
    SpvId images[PIPE_MAX_SAMPLERS];
@@ -998,7 +997,6 @@ emit_bo(struct ntv_context *ctx, struct nir_variable *var)
       (also it's just easier)
     */
    unsigned size = is_ubo_array ? glsl_get_aoa_size(var->type) : 1;
-   int base = -1;
    for (unsigned i = 0; i < size; i++) {
       SpvId var_id = spirv_builder_emit_var(&ctx->builder, pointer_type,
                                             ssbo || is_counter ? SpvStorageClassStorageBuffer : SpvStorageClassUniform);
@@ -1009,38 +1007,10 @@ emit_bo(struct ntv_context *ctx, struct nir_variable *var)
       }
 
       if (ssbo) {
-         unsigned ssbo_idx;
-         if (!is_ubo_array && var->data.explicit_binding &&
-             (glsl_type_is_unsized_array(var->type) || glsl_get_length(var->interface_type) == 1)) {
-             /* - block ssbos get their binding broken in gl_nir_lower_buffers,
-              *   but also they're totally indistinguishable from lowered counter buffers which have valid bindings
-              *
-              * hopefully this is a counter or some other non-block variable, but if not then we're probably fucked
-              */
-             ssbo_idx = var->data.binding;
-         } else if (base >= 0)
-            /* we're indexing into a ssbo array and already have the base index */
-            ssbo_idx = base + i;
-         else {
-            if (ctx->ssbo_mask & 1) {
-               /* 0 index is used, iterate through the used blocks until we find the first unused one */
-               for (unsigned j = 1; j < ctx->num_ssbos; j++)
-                  if (!(ctx->ssbo_mask & (1 << j))) {
-                     /* we're iterating forward through the blocks, so the first available one should be
-                      * what we're looking for
-                      */
-                     base = ssbo_idx = j;
-                     break;
-                  }
-            } else
-               /* we're iterating forward through the ssbos, so always assign 0 first */
-               base = ssbo_idx = 0;
-            assert(ssbo_idx < ctx->num_ssbos);
-         }
-         assert(!ctx->ssbos[ssbo_idx]);
-         ctx->ssbos[ssbo_idx] = var_id;
-         ctx->ssbo_mask |= 1 << ssbo_idx;
-         ctx->ssbo_vars[ssbo_idx] = var;
+         assert(!ctx->ssbos[ctx->num_ssbos]);
+         ctx->ssbos[ctx->num_ssbos] = var_id;
+         ctx->ssbo_vars[ctx->num_ssbos] = var;
+         ctx->num_ssbos++;
       } else if (!is_counter) {
          assert(ctx->num_ubos < ARRAY_SIZE(ctx->ubos));
          ctx->ubos[ctx->num_ubos++] = var_id;
@@ -3916,7 +3886,6 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
    ctx.stage = s->info.stage;
    ctx.so_info = so_info;
    ctx.feats = feats;
-   ctx.num_ssbos = s->info.num_ssbos;
    if (shader_slot_map) {
       /* COMPUTE doesn't have this */
       ctx.shader_slot_map = shader_slot_map;
