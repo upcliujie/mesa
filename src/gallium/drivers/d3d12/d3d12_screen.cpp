@@ -43,7 +43,9 @@
 #include "frontend/sw_winsys.h"
 
 #include <dxgi1_4.h>
+
 #include <directx/d3d12sdklayers.h>
+#include <directx/dxcore.h>
 
 static const struct debug_named_value
 debug_options[] = {
@@ -81,7 +83,7 @@ d3d12_get_device_vendor(struct pipe_screen *pscreen)
 {
    struct d3d12_screen* screen = d3d12_screen(pscreen);
 
-   switch (screen->adapter_desc.VendorId) {
+   switch (screen->adapter_desc.vendor_id) {
    case HW_VENDOR_MICROSOFT:
       return "Microsoft";
    case HW_VENDOR_AMD:
@@ -99,12 +101,19 @@ static const char *
 d3d12_get_name(struct pipe_screen *pscreen)
 {
    struct d3d12_screen* screen = d3d12_screen(pscreen);
-
-   if (screen->adapter_desc.Description[0] == '\0')
-      return "D3D12 (Unknown)";
-
    static char buf[1000];
-   snprintf(buf, sizeof(buf), "D3D12 (%S)", screen->adapter_desc.Description);
+
+   if (screen->dxgi_adapter) {
+      if (screen->adapter_desc.description.wide[0] == '\0')
+         return "D3D12 (Unknown)";
+
+      snprintf(buf, sizeof(buf), "D3D12 (%S)", screen->adapter_desc.description.wide);
+   } else {
+      if (screen->adapter_desc.description.narrow[0] == '\0')
+         return "D3D12 (Unknown)";
+
+      snprintf(buf, sizeof(buf), "D3D12 (%s)", screen->adapter_desc.description.narrow);
+   }
    return buf;
 }
 
@@ -115,9 +124,9 @@ d3d12_get_video_mem(struct pipe_screen *pscreen)
 
    // Note: memory sizes in bytes, but stored in size_t, so may be capped at 4GB.
    // In that case, adding before conversion to MB can easily overflow.
-   return (screen->adapter_desc.DedicatedVideoMemory >> 20) +
-          (screen->adapter_desc.DedicatedSystemMemory >> 20) +
-          (screen->adapter_desc.SharedSystemMemory >> 20);
+   return (int)(screen->adapter_desc.dedicated_video_memory >> 20) +
+               (screen->adapter_desc.dedicated_system_memory >> 20) +
+               (screen->adapter_desc.shared_system_memory >> 20);
 }
 
 static int
@@ -734,8 +743,38 @@ get_dxgi_factory()
    return factory;
 }
 
+static IDXCoreAdapterFactory *
+get_dxcore_factory(void **libdxcore_out)
+{
+   typedef HRESULT(WINAPI *PFN_CREATE_DXCORE_ADAPTER_FACTORY)(REFIID riid, void **ppFactory);
+   PFN_CREATE_DXCORE_ADAPTER_FACTORY DXCoreCreateAdapterFactory;
+
+   HMODULE hDXCoreMod = LoadLibrary("DXCore.DLL");
+   if (!hDXCoreMod) {
+      debug_printf("D3D12: failed to load DXCore.DLL\n");
+      return NULL;
+   }
+
+   DXCoreCreateAdapterFactory = (PFN_CREATE_DXCORE_ADAPTER_FACTORY)GetProcAddress(hDXCoreMod, "DXCoreCreateAdapterFactory");
+   if (!DXCoreCreateAdapterFactory) {
+      debug_printf("D3D12: failed to load DXCoreCreateAdapterFactory from DXCore.DLL\n");
+      return NULL;
+   }
+
+   IDXCoreAdapterFactory *factory = NULL;
+   HRESULT hr = DXCoreCreateAdapterFactory(IID_IDXCoreAdapterFactory, (void **)&factory);
+   if (FAILED(hr)) {
+      debug_printf("D3D12: DXCoreCreateAdapterFactory failed: %08x\n", hr);
+      return NULL;
+   }
+
+   if (libdxcore_out)
+      *libdxcore_out = hDXCoreMod;
+   return factory;
+}
+
 static IDXGIAdapter1 *
-choose_adapter(IDXGIFactory4 *factory, LUID *adapter)
+choose_dxgi_adapter(IDXGIFactory4 *factory, LUID *adapter)
 {
    IDXGIAdapter1 *ret;
    if (adapter) {
@@ -762,8 +801,28 @@ choose_adapter(IDXGIFactory4 *factory, LUID *adapter)
    return NULL;
 }
 
+static IDXCoreAdapter *
+choose_dxcore_adapter(IDXCoreAdapterFactory *factory, LUID *adapter)
+{
+   IDXCoreAdapter *ret;
+   if (adapter) {
+      if (SUCCEEDED(factory->GetAdapterByLuid(*adapter, &ret)))
+         return ret;
+      debug_printf("D3D12: requested adapter missing, falling back to auto-detection...\n");
+   }
+
+   // The first adapter is the default
+   IDXCoreAdapterList *list = nullptr;
+   if (SUCCEEDED(factory->CreateAdapterList(1, &DXCORE_ADAPTER_ATTRIBUTE_D3D12_GRAPHICS, &list))) {
+      if (list->GetAdapterCount() > 0 && SUCCEEDED(list->GetAdapter(0, &ret)))
+         return ret;
+   }
+
+   return NULL;
+}
+
 static ID3D12Device *
-create_device(IDXGIAdapter1 *adapter)
+create_device(IUnknown *adapter)
 {
    typedef HRESULT(WINAPI *PFN_D3D12CREATEDEVICE)(IUnknown*, D3D_FEATURE_LEVEL, REFIID, void**);
    typedef HRESULT(WINAPI *PFN_D3D12ENABLEEXPERIMENTALFEATURES)(UINT, const IID*, void*, UINT*);
@@ -799,7 +858,7 @@ create_device(IDXGIAdapter1 *adapter)
 static bool
 can_attribute_at_vertex(struct d3d12_screen *screen)
 {
-   switch (screen->adapter_desc.VendorId)  {
+   switch (screen->adapter_desc.vendor_id)  {
    case HW_VENDOR_MICROSOFT:
       return true;
    default:
@@ -838,24 +897,55 @@ d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
    if (d3d12_debug & D3D12_DEBUG_GPU_VALIDATOR)
       enable_gpu_validation();
 
-   screen->factory = get_dxgi_factory();
-   if (!screen->factory) {
-      debug_printf("D3D12: failed to create DXGI factory\n");
-      goto failed;
+   screen->dxgi_factory = get_dxgi_factory();
+   if (screen->dxgi_factory) {
+      screen->dxgi_adapter = choose_dxgi_adapter(screen->dxgi_factory, adapter_luid);
+      if (!screen->dxgi_adapter) {
+         debug_printf("D3D12: no suitable adapter\n");
+         return NULL;
+      }
+
+      DXGI_ADAPTER_DESC1 adapter_desc = {};
+      if (FAILED(screen->dxgi_adapter->GetDesc1(&adapter_desc))) {
+         debug_printf("D3D12: failed to retrieve adapter description\n");
+         return NULL;
+      }
+
+      screen->adapter_desc.vendor_id = adapter_desc.VendorId;
+      screen->adapter_desc.dedicated_video_memory = adapter_desc.DedicatedVideoMemory;
+      screen->adapter_desc.dedicated_system_memory = adapter_desc.DedicatedSystemMemory;
+      screen->adapter_desc.shared_system_memory = adapter_desc.SharedSystemMemory;
+      wcsncpy(screen->adapter_desc.description.wide, adapter_desc.Description, ARRAY_SIZE(screen->adapter_desc.description.wide));
+
+      screen->dev = create_device(screen->dxgi_adapter);
+   } else {
+      screen->dxcore_factory = get_dxcore_factory(nullptr);
+      if (!screen->dxcore_factory) {
+         debug_printf("D3D12: failed to retrieve DXGI and DXCore factories\n");
+         return NULL;
+      }
+
+      screen->dxcore_adapter = choose_dxcore_adapter(screen->dxcore_factory, adapter_luid);
+      if (!screen->dxcore_adapter) {
+         debug_printf("D3D12: no suitable adapter\n");
+         return NULL;
+      }
+
+      DXCoreHardwareID hardware_ids = {};
+      if (FAILED(screen->dxcore_adapter->GetProperty(DXCoreAdapterProperty::HardwareID, &hardware_ids)) ||
+          FAILED(screen->dxcore_adapter->GetProperty(DXCoreAdapterProperty::DedicatedAdapterMemory, &screen->adapter_desc.dedicated_video_memory)) ||
+          FAILED(screen->dxcore_adapter->GetProperty(DXCoreAdapterProperty::DedicatedSystemMemory, &screen->adapter_desc.dedicated_system_memory)) ||
+          FAILED(screen->dxcore_adapter->GetProperty(DXCoreAdapterProperty::SharedSystemMemory, &screen->adapter_desc.shared_system_memory)) ||
+          FAILED(screen->dxcore_adapter->GetProperty(DXCoreAdapterProperty::DriverDescription,
+                                                     sizeof(screen->adapter_desc.description.narrow),
+                                                     screen->adapter_desc.description.narrow))) {
+         debug_printf("D3D12: failed to retrieve adapter description\n");
+         return NULL;
+      }
+
+      screen->dev = create_device(screen->dxcore_adapter);
    }
 
-   screen->adapter = choose_adapter(screen->factory, adapter_luid);
-   if (!screen->adapter) {
-      debug_printf("D3D12: no suitable adapter\n");
-      return NULL;
-   }
-
-   if (FAILED(screen->adapter->GetDesc1(&screen->adapter_desc))) {
-      debug_printf("D3D12: failed to retrieve adapter description\n");
-      return NULL;
-   }
-
-   screen->dev = create_device(screen->adapter);
    if (!screen->dev) {
       debug_printf("D3D12: failed to create device\n");
       goto failed;
