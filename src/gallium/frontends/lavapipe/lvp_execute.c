@@ -2421,6 +2421,21 @@ static void handle_push_descriptor_set(struct lvp_cmd_buffer_entry *cmd,
    }
 }
 
+static void handle_begin_conditional_rendering(struct lvp_cmd_buffer_entry *cmd,
+                                               struct rendering_state *state)
+{
+   struct lvp_cmd_begin_conditional_rendering *bcr = &cmd->u.begin_conditional_rendering;
+   state->pctx->vk_render_condition(state->pctx,
+                                    bcr->buffer->bo,
+                                    bcr->buffer->offset + bcr->offset,
+                                    bcr->inverted);
+}
+
+static void handle_end_conditional_rendering(struct rendering_state *state)
+{
+   state->pctx->vk_render_condition(state->pctx, NULL, 0, false);
+}
+
 static void lvp_execute_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer,
                                    struct rendering_state *state)
 {
@@ -2574,6 +2589,12 @@ static void lvp_execute_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer,
          break;
       case LVP_CMD_PUSH_DESCRIPTOR_SET:
          handle_push_descriptor_set(cmd, state);
+         break;
+      case LVP_CMD_BEGIN_CONDITIONAL_RENDERING:
+         handle_begin_conditional_rendering(cmd, state);
+         break;
+      case LVP_CMD_END_CONDITIONAL_RENDERING:
+         handle_end_conditional_rendering(state);
          break;
       }
    }
