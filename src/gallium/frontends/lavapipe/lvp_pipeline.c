@@ -22,7 +22,7 @@
  */
 
 #include "lvp_private.h"
-
+#include "vk_util.h"
 #include "glsl_types.h"
 #include "spirv/nir_spirv.h"
 #include "nir/nir_builder.h"
@@ -167,6 +167,29 @@ deep_copy_vertex_input_state(void *mem_ctx,
       memcpy(&dst_attrib_descriptions[i], &src->pVertexAttributeDescriptions[i], sizeof(VkVertexInputAttributeDescription));
    }
    dst->pVertexAttributeDescriptions = dst_attrib_descriptions;
+
+   if (src->pNext) {
+      vk_foreach_struct(ext, src->pNext) {
+         switch (ext->sType) {
+         case VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO_EXT: {
+            VkPipelineVertexInputDivisorStateCreateInfoEXT *ext_src = (VkPipelineVertexInputDivisorStateCreateInfoEXT *)ext;;
+            VkPipelineVertexInputDivisorStateCreateInfoEXT *ext_dst = ralloc(mem_ctx, VkPipelineVertexInputDivisorStateCreateInfoEXT);
+            VkVertexInputBindingDivisorDescriptionEXT *dst_bind;
+            ext_dst->sType = ext_src->sType;
+            ext_dst->vertexBindingDivisorCount = ext_src->vertexBindingDivisorCount;
+            dst_bind = ralloc_array(mem_ctx, VkVertexInputBindingDivisorDescriptionEXT, ext_src->vertexBindingDivisorCount);
+
+            memcpy(dst_bind, ext_src->pVertexBindingDivisors, ext_src->vertexBindingDivisorCount * sizeof(VkVertexInputBindingDivisorDescriptionEXT));
+            ext_dst->pVertexBindingDivisors = dst_bind;
+            dst->pNext = ext_dst;
+            break;
+         }
+         default:
+            assert(0);
+            break;
+         }
+      }
+   }
    return VK_SUCCESS;
 }
 
