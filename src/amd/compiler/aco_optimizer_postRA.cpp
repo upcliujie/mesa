@@ -118,7 +118,20 @@ bool process_shortcircuit_uniform_bool(pr_opt_ctx &ctx, aco_ptr<Instruction> &in
       if (op1_scc->operands[0].isConstant()) {
          /* Flip the opcode so that it has the same meaning with the constant in the 2nd operand */
          aco_opcode op = aco_opcode::num_opcodes;
+         /* NOTE: s_cmp_le and s_cmp_gt are not used in this manner, so those are not covered here */
          switch (op1_scc->opcode) {
+         case aco_opcode::s_cmp_lt_u32:
+            op = aco_opcode::s_cmp_gt_u32;
+            break;
+         case aco_opcode::s_cmp_lt_i32:
+            op = aco_opcode::s_cmp_gt_i32;
+            break;
+         case aco_opcode::s_cmp_ge_u32:
+            op = aco_opcode::s_cmp_le_u32;
+            break;
+         case aco_opcode::s_cmp_ge_i32:
+            op = aco_opcode::s_cmp_le_i32;
+            break;
          case aco_opcode::s_cmp_eq_u32:
          case aco_opcode::s_cmp_eq_i32:
          case aco_opcode::s_cmp_lg_u32:
@@ -167,6 +180,72 @@ bool process_shortcircuit_uniform_bool(pr_opt_ctx &ctx, aco_ptr<Instruction> &in
       csel_op1 = instr->opcode == aco_opcode::s_or_b32
                ? op1_scc->operands[0]
                : op1_scc->operands[1];
+   } else if (op1_scc->opcode == aco_opcode::s_cmp_lt_u32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_gt_u32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_lt_i32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_gt_i32) {
+      /* a && (b < c) => (a ? b : c) < c
+       * a && (b > c) => (a ? b : c) > c
+       * a || (b < c) => (a ? MIN : b) < c (only when c is constant and c != min)
+       * a || (b > c) => (a ? MAX : b) > c (only when c is constant and c != max)
+       */
+
+      uint32_t const_op;
+      if (op1_scc->opcode == aco_opcode::s_cmp_lt_u32)
+         const_op = 0u;
+      else if (op1_scc->opcode == aco_opcode::s_cmp_lt_i32)
+         const_op = (uint32_t) INT32_MIN;
+      else if (op1_scc->opcode == aco_opcode::s_cmp_gt_u32)
+         const_op = UINT32_MAX;
+      else if (op1_scc->opcode == aco_opcode::s_cmp_gt_i32)
+         const_op = INT32_MAX;
+      else
+         unreachable("unsupported s_cmp opcode");
+
+      if (instr->opcode != aco_opcode::s_and_b32 &&
+          (!op1_scc->operands[1].isConstant() ||
+           op1_scc->operands[1].constantEquals(const_op)))
+         return false;
+
+      csel_op0 = instr->opcode == aco_opcode::s_or_b32
+               ? Operand(const_op)
+               : op1_scc->operands[0];
+      csel_op1 = instr->opcode == aco_opcode::s_or_b32
+               ? op1_scc->operands[0]
+               : op1_scc->operands[1];
+   } else if (op1_scc->opcode == aco_opcode::s_cmp_ge_u32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_le_u32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_ge_i32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_le_i32) {
+      /* a && (b >= c) => (a ? b : MIN) >= c (only when c is constant and c != min)
+       * a && (b <= c) => (a ? b : MAX) <= c (only when c is constant and c != max)
+       * a || (b >= c) => (a ? c : b) >= c
+       * a || (b <= c) => (a ? c : b) <= c
+       */
+
+      uint32_t const_op;
+      if (op1_scc->opcode == aco_opcode::s_cmp_ge_u32)
+         const_op = 0u;
+      else if (op1_scc->opcode == aco_opcode::s_cmp_ge_i32)
+         const_op = (uint32_t) INT32_MIN;
+      else if (op1_scc->opcode == aco_opcode::s_cmp_le_u32)
+         const_op = UINT32_MAX;
+      else if (op1_scc->opcode == aco_opcode::s_cmp_le_i32)
+         const_op = INT32_MAX;
+      else
+         unreachable("unsupported s_cmp opcode");
+
+      if (instr->opcode != aco_opcode::s_or_b32 &&
+          (!op1_scc->operands[1].isConstant() ||
+           op1_scc->operands[1].constantEquals(const_op)))
+         return false;
+
+      csel_op0 = instr->opcode == aco_opcode::s_or_b32
+               ? op1_scc->operands[1]
+               : op1_scc->operands[0];
+      csel_op1 = instr->opcode == aco_opcode::s_or_b32
+               ? op1_scc->operands[0]
+               : Operand(const_op);
    } else {
       return false;
    }
