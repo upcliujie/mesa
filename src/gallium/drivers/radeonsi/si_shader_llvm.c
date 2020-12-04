@@ -198,7 +198,7 @@ void si_llvm_create_main_func(struct si_shader_context *ctx, bool ngg_cull_shade
    LLVMTypeRef returns[AC_MAX_ARGS];
    unsigned i;
 
-   si_init_shader_args(ctx, ngg_cull_shader);
+   si_init_shader_args(shader, &ctx->args, ngg_cull_shader);
 
    for (i = 0; i < ctx->args.num_sgprs_returned; i++)
       returns[i] = ctx->ac.i32; /* SGPR */
