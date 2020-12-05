@@ -191,8 +191,7 @@ struct si_shader_context {
 
 static inline struct si_shader_context *si_shader_context_from_abi(struct ac_shader_abi *abi)
 {
-   struct si_shader_context *ctx = NULL;
-   return container_of(abi, ctx, abi);
+   return container_of(abi, struct si_shader_context, abi);
 }
 
 bool si_is_multi_part_shader(struct si_shader *shader);
