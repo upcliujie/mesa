@@ -1253,6 +1253,17 @@ struct anv_queue {
 
    VkDeviceQueueCreateFlags                  flags;
 
+   /* This syncobj is used to synchronize protected & non-protected GEM
+    * contexts, unused otherwise.
+    */
+   uint32_t                                  protected_syncobj;
+
+   /* Whether there is a DMA fence within protected_syncobj. */
+   bool                                      protected_syncobj_not_empty;
+
+   /* Track the GEM context used for the last submission. */
+   bool                                      last_submit_protected;
+
    /* Set once from the device api calls. */
    bool                                      lost_signaled;
 
@@ -1363,6 +1374,7 @@ struct anv_device {
     struct gen_device_info                      info;
     struct isl_device                           isl_dev;
     int                                         context_id;
+    int                                         protected_context_id;
     int                                         fd;
     bool                                        can_chain_batches;
     bool                                        robust_buffer_access;
@@ -1589,7 +1601,8 @@ void anv_queue_finish(struct anv_queue *queue);
 
 VkResult anv_queue_execbuf_locked(struct anv_queue *queue, struct anv_queue_submit *submit);
 VkResult anv_queue_submit_simple_batch(struct anv_queue *queue,
-                                       struct anv_batch *batch);
+                                       struct anv_batch *batch,
+                                       bool protected);
 
 uint64_t anv_gettime_ns(void);
 uint64_t anv_get_absolute_timeout(uint64_t timeout);
@@ -1606,7 +1619,7 @@ int anv_gem_execbuffer(struct anv_device *device,
                        struct drm_i915_gem_execbuffer2 *execbuf);
 int anv_gem_set_tiling(struct anv_device *device, uint32_t gem_handle,
                        uint32_t stride, uint32_t tiling);
-int anv_gem_create_context(struct anv_device *device);
+int anv_gem_create_context(struct anv_device *device, bool protected);
 bool anv_gem_has_context_priority(int fd);
 int anv_gem_destroy_context(struct anv_device *device, int context);
 int anv_gem_set_context_param(int fd, int context, uint32_t param,

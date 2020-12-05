@@ -494,15 +494,26 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
    queue->flags = flags;
    queue->lost = false;
    queue->quit = false;
+   queue->protected_syncobj = 0;
+   queue->protected_syncobj_not_empty = false;
+   queue->last_submit_protected = false;
 
    list_inithead(&queue->queued_submits);
+
+   if (flags & VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT) {
+      queue->protected_syncobj = anv_gem_syncobj_create(device, 0);
+      if (!queue->protected_syncobj)
+         return vk_error(VK_ERROR_INITIALIZATION_FAILED);
+   }
 
    /* We only need those additional thread/mutex when using a thread for
     * submission.
     */
    if (device->has_thread_submit) {
-      if (pthread_mutex_init(&queue->mutex, NULL) != 0)
-         return vk_error(VK_ERROR_INITIALIZATION_FAILED);
+      if (pthread_mutex_init(&queue->mutex, NULL) != 0) {
+         result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
+         goto fail_syncobj;
+      }
 
       if (pthread_cond_init(&queue->cond, NULL) != 0) {
          result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
@@ -522,6 +533,9 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
    pthread_cond_destroy(&queue->cond);
  fail_mutex:
    pthread_mutex_destroy(&queue->mutex);
+ fail_syncobj:
+   if (queue->protected_syncobj)
+      anv_gem_syncobj_destroy(device, queue->protected_syncobj);
 
    return result;
 }
@@ -530,6 +544,9 @@ void
 anv_queue_finish(struct anv_queue *queue)
 {
    vk_object_base_finish(&queue->base);
+
+   if (queue->protected_syncobj)
+      anv_gem_syncobj_destroy(queue->device, queue->protected_syncobj);
 
    if (!queue->device->has_thread_submit)
       return;
@@ -766,15 +783,17 @@ anv_queue_submit_alloc(struct anv_device *device,
 
 VkResult
 anv_queue_submit_simple_batch(struct anv_queue *queue,
-                              struct anv_batch *batch)
+                              struct anv_batch *batch,
+                              bool protected)
 {
-   if (queue->device->no_hw)
-      return VK_SUCCESS;
-
    struct anv_device *device = queue->device;
-   struct anv_queue_submit *submit = anv_queue_submit_alloc(device, -1, false);
+   assert(!protected || device->protected_context_id != -1);
+
+   struct anv_queue_submit *submit = anv_queue_submit_alloc(device, -1, protected);
    if (!submit)
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   submit->protected = protected;
 
    bool has_syncobj_wait = device->physical->has_syncobj_wait;
    VkResult result;
@@ -839,6 +858,12 @@ anv_queue_submit_simple_batch(struct anv_queue *queue,
 
    if (submit)
       anv_queue_submit_free(device, submit);
+
+   /* Take this opportunity to reset this syncobj. */
+   if (queue->protected_syncobj) {
+      anv_gem_syncobj_reset(device, queue->protected_syncobj);
+      queue->protected_syncobj_not_empty = false;
+   }
 
    return result;
 
@@ -1083,6 +1108,30 @@ anv_queue_submit(struct anv_queue *queue,
       }
    }
 
+   /* If this is a queue that handles protected submissions, we might need to
+    * synchronize between the protected & unprotected GEM contexts.
+    */
+   if (queue->protected_syncobj) {
+      /* Only wait on the last fence if we use a different queue. */
+      if (queue->protected_syncobj_not_empty &&
+          protected != queue->last_submit_protected) {
+         result = anv_queue_submit_add_syncobj(submit, device,
+                                               queue->protected_syncobj,
+                                               I915_EXEC_FENCE_WAIT, 0);
+         if (result != VK_SUCCESS)
+            goto error;
+      }
+
+      /* Always signal the syncobj so we can use it in the next submit if
+       * needed.
+       */
+      result = anv_queue_submit_add_syncobj(submit, device,
+                                            queue->protected_syncobj,
+                                            I915_EXEC_FENCE_SIGNAL, 0);
+      if (result != VK_SUCCESS)
+         goto error;
+   }
+
    if (wsi_signal_bo) {
       result = anv_queue_submit_add_fence_bo(submit, wsi_signal_bo, true /* signal */);
       if (result != VK_SUCCESS)
@@ -1137,6 +1186,11 @@ anv_queue_submit(struct anv_queue *queue,
    result = _anv_queue_submit(queue, &submit, false);
    if (result != VK_SUCCESS)
       goto error;
+
+   if (queue->protected_syncobj) {
+      queue->last_submit_protected = protected;
+      queue->protected_syncobj_not_empty = true;
+   }
 
    if (fence && fence->permanent.type == ANV_FENCE_TYPE_BO) {
       assert(!device->has_thread_submit);
@@ -1328,7 +1382,13 @@ VkResult anv_QueueWaitIdle(
    if (anv_device_is_lost(queue->device))
       return VK_ERROR_DEVICE_LOST;
 
-   return anv_queue_submit_simple_batch(queue, NULL);
+   if (queue->device->protected_context_id != -1) {
+      VkResult result = anv_queue_submit_simple_batch(queue, NULL, true);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   return anv_queue_submit_simple_batch(queue, NULL, false);
 }
 
 VkResult anv_CreateFence(

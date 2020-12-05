@@ -109,8 +109,8 @@ genX(emit_slice_hashing_state)(struct anv_device *device,
 #endif
 }
 
-VkResult
-genX(init_device_state)(struct anv_device *device)
+static VkResult
+init_device_state(struct anv_device *device, bool protected)
 {
    struct anv_batch batch;
 
@@ -317,7 +317,19 @@ genX(init_device_state)(struct anv_device *device)
 
    assert(batch.next <= batch.end);
 
-   return anv_queue_submit_simple_batch(&device->queue, &batch);
+   return anv_queue_submit_simple_batch(&device->queue, &batch, protected);
+}
+
+VkResult
+genX(init_device_state)(struct anv_device *device)
+{
+   if (device->protected_context_id != -1) {
+      VkResult result = init_device_state(device, true);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   return init_device_state(device, false);
 }
 
 static uint32_t

@@ -387,15 +387,35 @@ anv_gem_has_context_priority(int fd)
 }
 
 int
-anv_gem_create_context(struct anv_device *device)
+anv_gem_create_context(struct anv_device *device, bool protected)
 {
-   struct drm_i915_gem_context_create create = { 0 };
+   if (protected) {
+      struct drm_i915_gem_create_ext_setparam protected_param = {
+         .param = {
+            .param = I915_CONTEXT_PARAM_PROTECTED_CONTENT,
+            .data = true,
+         },
+      };
+      struct drm_i915_gem_context_create_ext create = { 0 };
 
-   int ret = gen_ioctl(device->fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE, &create);
-   if (ret == -1)
-      return -1;
+      gen_gem_add_ext(&create.extensions,
+                      I915_CONTEXT_CREATE_EXT_SETPARAM,
+                      &protected_param.base);
 
-   return create.ctx_id;
+      int ret = gen_ioctl(device->fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE_EXT, &create);
+      if (ret != 0)
+         return -1;
+
+      return create.ctx_id;
+   } else {
+      struct drm_i915_gem_context_create create = { 0 };
+
+      int ret = gen_ioctl(device->fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE, &create);
+      if (ret == -1)
+         return -1;
+
+      return create.ctx_id;
+   }
 }
 
 int
