@@ -182,35 +182,32 @@ fetch_state(struct gl_context *ctx, const gl_state_index16 state[],
          /* state[1] is the texture unit */
          const GLuint unit = (GLuint) state[1];
          /* state[2] is the texgen attribute */
-         switch (state[2]) {
-         case STATE_TEXGEN_EYE_S:
-            COPY_4V(value, ctx->Texture.FixedFuncUnit[unit].GenS.EyePlane);
-            return;
-         case STATE_TEXGEN_EYE_T:
-            COPY_4V(value, ctx->Texture.FixedFuncUnit[unit].GenT.EyePlane);
-            return;
-         case STATE_TEXGEN_EYE_R:
-            COPY_4V(value, ctx->Texture.FixedFuncUnit[unit].GenR.EyePlane);
-            return;
-         case STATE_TEXGEN_EYE_Q:
-            COPY_4V(value, ctx->Texture.FixedFuncUnit[unit].GenQ.EyePlane);
-            return;
-         case STATE_TEXGEN_OBJECT_S:
-            COPY_4V(value, ctx->Texture.FixedFuncUnit[unit].GenS.ObjectPlane);
-            return;
-         case STATE_TEXGEN_OBJECT_T:
-            COPY_4V(value, ctx->Texture.FixedFuncUnit[unit].GenT.ObjectPlane);
-            return;
-         case STATE_TEXGEN_OBJECT_R:
-            COPY_4V(value, ctx->Texture.FixedFuncUnit[unit].GenR.ObjectPlane);
-            return;
-         case STATE_TEXGEN_OBJECT_Q:
-            COPY_4V(value, ctx->Texture.FixedFuncUnit[unit].GenQ.ObjectPlane);
-            return;
-         default:
-            unreachable("Invalid texgen state in fetch_state");
-            return;
-         }
+         /* Assertions for the expected memory layout. */
+         STATIC_ASSERT(offsetof(struct gl_fixedfunc_texture_unit, EyePlane[GEN_S]) +
+                       (STATE_TEXGEN_EYE_T - STATE_TEXGEN_EYE_S) * 16 ==
+                       offsetof(struct gl_fixedfunc_texture_unit, EyePlane[GEN_T]));
+         STATIC_ASSERT(offsetof(struct gl_fixedfunc_texture_unit, EyePlane[GEN_S]) +
+                       (STATE_TEXGEN_EYE_R - STATE_TEXGEN_EYE_S) * 16 ==
+                       offsetof(struct gl_fixedfunc_texture_unit, EyePlane[GEN_R]));
+         STATIC_ASSERT(offsetof(struct gl_fixedfunc_texture_unit, EyePlane[GEN_S]) +
+                       (STATE_TEXGEN_EYE_Q - STATE_TEXGEN_EYE_S) * 16 ==
+                       offsetof(struct gl_fixedfunc_texture_unit, EyePlane[GEN_Q]));
+         STATIC_ASSERT(offsetof(struct gl_fixedfunc_texture_unit, EyePlane[GEN_S]) +
+                       (STATE_TEXGEN_OBJECT_S - STATE_TEXGEN_EYE_S) * 16 ==
+                       offsetof(struct gl_fixedfunc_texture_unit, ObjectPlane[GEN_S]));
+         STATIC_ASSERT(offsetof(struct gl_fixedfunc_texture_unit, EyePlane[GEN_S]) +
+                       (STATE_TEXGEN_OBJECT_T - STATE_TEXGEN_EYE_S) * 16 ==
+                       offsetof(struct gl_fixedfunc_texture_unit, ObjectPlane[GEN_T]));
+         STATIC_ASSERT(offsetof(struct gl_fixedfunc_texture_unit, EyePlane[GEN_S]) +
+                       (STATE_TEXGEN_OBJECT_R - STATE_TEXGEN_EYE_S) * 16 ==
+                       offsetof(struct gl_fixedfunc_texture_unit, ObjectPlane[GEN_R]));
+         STATIC_ASSERT(offsetof(struct gl_fixedfunc_texture_unit, EyePlane[GEN_S]) +
+                       (STATE_TEXGEN_OBJECT_Q - STATE_TEXGEN_EYE_S) * 16 ==
+                       offsetof(struct gl_fixedfunc_texture_unit, ObjectPlane[GEN_Q]));
+         const float *attr = (float*)ctx->Texture.FixedFuncUnit[unit].EyePlane +
+                             (state[2] - STATE_TEXGEN_EYE_S) * 4;
+         COPY_4V(value, attr);
+         return;
       }
    case STATE_TEXENV_COLOR:
       {
