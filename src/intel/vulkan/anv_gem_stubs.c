@@ -142,7 +142,7 @@ anv_gem_get_bit6_swizzle(int fd, uint32_t tiling)
 }
 
 int
-anv_gem_create_context(struct anv_device *device)
+anv_gem_create_context(struct anv_device *device, bool protected)
 {
    unreachable("Unused");
 }
