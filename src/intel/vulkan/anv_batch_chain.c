@@ -1454,9 +1454,17 @@ relocate_cmd_buffer(struct anv_cmd_buffer *cmd_buffer,
    return true;
 }
 
+static uint32_t
+anv_device_gem_context_for_submit(struct anv_device *device,
+                                  bool protected)
+{
+   return protected ? device->protected_context_id : device->context_id;
+}
+
 static VkResult
 setup_execbuf_for_cmd_buffer(struct anv_execbuf *execbuf,
-                             struct anv_cmd_buffer *cmd_buffer)
+                             struct anv_cmd_buffer *cmd_buffer,
+                             bool protected)
 {
    struct anv_batch *batch = &cmd_buffer->batch;
    struct anv_state_pool *ss_pool =
@@ -1600,7 +1608,8 @@ setup_execbuf_for_cmd_buffer(struct anv_execbuf *execbuf,
       .DR1 = 0,
       .DR4 = 0,
       .flags = I915_EXEC_HANDLE_LUT | I915_EXEC_RENDER,
-      .rsvd1 = cmd_buffer->device->context_id,
+      .rsvd1 = anv_device_gem_context_for_submit(cmd_buffer->device,
+                                                 protected),
       .rsvd2 = 0,
    };
 
@@ -1648,7 +1657,7 @@ setup_execbuf_for_cmd_buffer(struct anv_execbuf *execbuf,
 }
 
 static VkResult
-setup_empty_execbuf(struct anv_execbuf *execbuf, struct anv_device *device)
+setup_empty_execbuf(struct anv_execbuf *execbuf, struct anv_device *device, bool protected)
 {
    VkResult result = anv_execbuf_add_bo(device, execbuf,
                                         device->trivial_batch_bo,
@@ -1662,7 +1671,7 @@ setup_empty_execbuf(struct anv_execbuf *execbuf, struct anv_device *device)
       .batch_start_offset = 0,
       .batch_len = 8, /* GEN7_MI_BATCH_BUFFER_END and NOOP */
       .flags = I915_EXEC_HANDLE_LUT | I915_EXEC_RENDER | I915_EXEC_NO_RELOC,
-      .rsvd1 = device->context_id,
+      .rsvd1 = anv_device_gem_context_for_submit(device, protected),
       .rsvd2 = 0,
    };
 
@@ -1723,7 +1732,9 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
    }
 
    if (submit->cmd_buffer) {
-      result = setup_execbuf_for_cmd_buffer(&execbuf, submit->cmd_buffer);
+      result = setup_execbuf_for_cmd_buffer(&execbuf,
+                                            submit->cmd_buffer,
+                                            submit->protected);
    } else if (submit->simple_bo) {
       result = anv_execbuf_add_bo(device, &execbuf, submit->simple_bo, NULL, 0);
       if (result != VK_SUCCESS)
@@ -1735,11 +1746,11 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
          .batch_start_offset = 0,
          .batch_len = submit->simple_bo_size,
          .flags = I915_EXEC_HANDLE_LUT | I915_EXEC_RENDER | I915_EXEC_NO_RELOC,
-         .rsvd1 = device->context_id,
+         .rsvd1 = anv_device_gem_context_for_submit(device, submit->protected),
          .rsvd2 = 0,
       };
    } else {
-      result = setup_empty_execbuf(&execbuf, queue->device);
+      result = setup_empty_execbuf(&execbuf, queue->device, false);
    }
 
    if (result != VK_SUCCESS)

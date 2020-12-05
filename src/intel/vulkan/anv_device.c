@@ -2835,12 +2835,31 @@ VkResult anv_CreateDevice(
       goto fail_fd;
    }
 
+   if (pCreateInfo->pQueueCreateInfos[0].flags & VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT) {
+      device->protected_context_id = anv_gem_create_context(device);
+      if (device->context_id == -1) {
+         result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
+         goto fail_context_id;
+      }
+
+      int err = anv_gem_set_context_param(device->fd,
+                                          device->protected_context_id,
+                                          I915_CONTEXT_PARAM_PROTECTED_CONTENT,
+                                          true);
+      if (err != 0) {
+         result = vk_error(VK_ERROR_NOT_PERMITTED_EXT);
+         goto fail_protected_context_id;
+      }
+   } else {
+      device->protected_context_id = -1;
+   }
+
    device->has_thread_submit = physical_device->has_thread_submit;
 
    result = anv_queue_init(device, &device->queue,
                            pCreateInfo->pQueueCreateInfos[0].flags);
    if (result != VK_SUCCESS)
-      goto fail_context_id;
+      goto fail_protected_context_id;
 
    if (physical_device->use_softpin) {
       if (pthread_mutex_init(&device->vma_mutex, NULL) != 0) {
@@ -2878,6 +2897,17 @@ VkResult anv_CreateDevice(
       if (err != 0 && priority > VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT) {
          result = vk_error(VK_ERROR_NOT_PERMITTED_EXT);
          goto fail_vmas;
+      }
+
+      if (device->protected_context_id != -1) {
+         int err = anv_gem_set_context_param(device->fd,
+                                             device->protected_context_id,
+                                             I915_CONTEXT_PARAM_PRIORITY,
+                                             vk_priority_to_gen(priority));
+         if (err != 0 && priority > VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT) {
+            result = vk_error(VK_ERROR_NOT_PERMITTED_EXT);
+            goto fail_vmas;
+         }
       }
    }
 
@@ -3109,6 +3139,9 @@ VkResult anv_CreateDevice(
    }
  fail_queue:
    anv_queue_finish(&device->queue);
+ fail_protected_context_id:
+   if (device->protected_context_id != -1)
+      anv_gem_destroy_context(device, device->protected_context_id);
  fail_context_id:
    anv_gem_destroy_context(device, device->context_id);
  fail_fd:
@@ -3175,6 +3208,8 @@ void anv_DestroyDevice(
    pthread_cond_destroy(&device->queue_submit);
    pthread_mutex_destroy(&device->mutex);
 
+   if (device->protected_context_id != -1)
+      anv_gem_destroy_context(device, device->protected_context_id);
    anv_gem_destroy_context(device, device->context_id);
 
    if (INTEL_DEBUG & DEBUG_BATCH)
@@ -3315,18 +3350,12 @@ _anv_queue_set_lost(struct anv_queue *queue,
    return VK_ERROR_DEVICE_LOST;
 }
 
-VkResult
-anv_device_query_status(struct anv_device *device)
+static VkResult
+anv_device_query_context_status(struct anv_device *device,
+                                int context)
 {
-   /* This isn't likely as most of the callers of this function already check
-    * for it.  However, it doesn't hurt to check and it potentially lets us
-    * avoid an ioctl.
-    */
-   if (anv_device_is_lost(device))
-      return VK_ERROR_DEVICE_LOST;
-
    uint32_t active, pending;
-   int ret = anv_gem_context_get_reset_stats(device->fd, device->context_id,
+   int ret = anv_gem_context_get_reset_stats(device->fd, context,
                                              &active, &pending);
    if (ret == -1) {
       /* We don't know the real error. */
@@ -3340,6 +3369,26 @@ anv_device_query_status(struct anv_device *device)
    }
 
    return VK_SUCCESS;
+}
+
+VkResult
+anv_device_query_status(struct anv_device *device)
+{
+   /* This isn't likely as most of the callers of this function already check
+    * for it.  However, it doesn't hurt to check and it potentially lets us
+    * avoid an ioctl.
+    */
+   if (anv_device_is_lost(device))
+      return VK_ERROR_DEVICE_LOST;
+
+   if (device->protected_context_id != -1) {
+      VkResult result = anv_device_query_context_status(device,
+                                                        device->protected_context_id);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   return anv_device_query_context_status(device, device->context_id);
 }
 
 VkResult
@@ -3391,10 +3440,29 @@ VkResult anv_DeviceWaitIdle(
 {
    ANV_FROM_HANDLE(anv_device, device, _device);
 
+   /* Always check the protected context as we can loose following a
+    * powergating event on the PAVP HW.
+    */
+   if (device->protected_context_id != -1) {
+      uint32_t active, pending;
+      int ret = anv_gem_context_get_reset_stats(device->fd, device->context_id,
+                                                &active, &pending);
+      if (ret == -1) {
+         /* We don't know the real error. */
+         anv_device_set_lost(device, "Protected context lost: %m");
+      }
+
+      if (active) {
+         anv_device_set_lost(device, "GPU hung on one of our command buffers");
+      } else if (pending) {
+         anv_device_set_lost(device, "GPU hung with commands in-flight");
+      }
+   }
+
    if (anv_device_is_lost(device))
       return VK_ERROR_DEVICE_LOST;
 
-   return anv_queue_submit_simple_batch(&device->queue, NULL);
+   return anv_QueueWaitIdle(anv_queue_to_handle(&device->queue));
 }
 
 uint64_t
