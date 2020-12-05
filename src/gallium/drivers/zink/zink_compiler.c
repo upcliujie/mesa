@@ -776,15 +776,15 @@ zink_shader_tcs_create(struct zink_context *ctx, struct zink_shader *vs)
    /* hacks so we can size these right for now */
    struct glsl_struct_field *fields = ralloc_size(nir, 3 * sizeof(struct glsl_struct_field));
    /* just use a single blob for padding here because it's easier */
-   fields[0].type = glsl_array_type(glsl_uint_type(), offsetof(struct zink_push_constant, default_inner_level) / 4, 0);
+   fields[0].type = glsl_array_type(glsl_uint_type(), offsetof(struct zink_gfx_push_constant, default_inner_level) / 4, 0);
    fields[0].name = ralloc_asprintf(nir, "padding");
    fields[0].offset = 0;
    fields[1].type = glsl_array_type(glsl_uint_type(), 2, 0);
    fields[1].name = ralloc_asprintf(nir, "gl_TessLevelInner");
-   fields[1].offset = offsetof(struct zink_push_constant, default_inner_level);
+   fields[1].offset = offsetof(struct zink_gfx_push_constant, default_inner_level);
    fields[2].type = glsl_array_type(glsl_uint_type(), 4, 0);
    fields[2].name = ralloc_asprintf(nir, "gl_TessLevelOuter");
-   fields[2].offset = offsetof(struct zink_push_constant, default_outer_level);
+   fields[2].offset = offsetof(struct zink_gfx_push_constant, default_outer_level);
    nir_variable *pushconst = nir_variable_create(nir, nir_var_shader_in,
                                                  glsl_struct_type(fields, 3, "struct", false), "pushconst");
    pushconst->data.location = VARYING_SLOT_VAR0;

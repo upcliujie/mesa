@@ -457,18 +457,18 @@ zink_draw_vbo(struct pipe_context *pctx,
    if (ctx->gfx_stages[PIPE_SHADER_VERTEX]->nir->info.system_values_read & (1ull << SYSTEM_VALUE_BASE_VERTEX)) {
       unsigned draw_mode_is_indexed = dinfo->index_size > 0;
       vkCmdPushConstants(batch->state->cmdbuf, gfx_program->layout, VK_SHADER_STAGE_VERTEX_BIT,
-                         offsetof(struct zink_push_constant, draw_mode_is_indexed), sizeof(unsigned),
+                         offsetof(struct zink_gfx_push_constant, draw_mode_is_indexed), sizeof(unsigned),
                          &draw_mode_is_indexed);
    }
    if (ctx->gfx_stages[PIPE_SHADER_VERTEX]->nir->info.system_values_read & (1ull << SYSTEM_VALUE_DRAW_ID)) {
       unsigned draw_id = dinfo->drawid;
       vkCmdPushConstants(batch->state->cmdbuf, gfx_program->layout, VK_SHADER_STAGE_VERTEX_BIT,
-                         offsetof(struct zink_push_constant, draw_id), sizeof(unsigned),
+                         offsetof(struct zink_gfx_push_constant, draw_id), sizeof(unsigned),
                          &draw_id);
    }
    if (gfx_program->shaders[PIPE_SHADER_TESS_CTRL] && gfx_program->shaders[PIPE_SHADER_TESS_CTRL]->is_generated)
       vkCmdPushConstants(batch->state->cmdbuf, gfx_program->layout, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,
-                         offsetof(struct zink_push_constant, default_inner_level), sizeof(float) * 6,
+                         offsetof(struct zink_gfx_push_constant, default_inner_level), sizeof(float) * 6,
                          &ctx->default_inner_level[0]);
 
    zink_query_update_gs_states(ctx);
