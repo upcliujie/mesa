@@ -1249,6 +1249,17 @@ struct anv_queue {
 
    VkDeviceQueueCreateFlags                  flags;
 
+   /* This syncobj is used to synchronize protected & non-protected GEM
+    * contexts, unused otherwise.
+    */
+   uint32_t                                  protected_syncobj;
+
+   /* Whether there is a DMA fence within protected_syncobj. */
+   bool                                      protected_syncobj_not_empty;
+
+   /* Track the GEM context used for the last submission. */
+   bool                                      last_submit_protected;
+
    /* Set once from the device api calls. */
    bool                                      lost_signaled;
 
@@ -1359,6 +1370,7 @@ struct anv_device {
     struct gen_device_info                      info;
     struct isl_device                           isl_dev;
     int                                         context_id;
+    int                                         protected_context_id;
     int                                         fd;
     bool                                        can_chain_batches;
     bool                                        robust_buffer_access;
