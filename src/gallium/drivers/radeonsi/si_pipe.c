@@ -484,23 +484,13 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
          goto fail;
    }
 
-   /* Initialize context allocators. */
-   u_suballocator_init(&sctx->allocator_zeroed_memory, &sctx->b, 128 * 1024, 0,
-                       PIPE_USAGE_DEFAULT,
-                       SI_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_CLEAR, false);
-
-   sctx->b.stream_uploader =
-      u_upload_create(&sctx->b, 1024 * 1024, 0, PIPE_USAGE_STREAM, SI_RESOURCE_FLAG_READ_ONLY);
-   if (!sctx->b.stream_uploader)
-      goto fail;
-
-   sctx->cached_gtt_allocator = u_upload_create(&sctx->b, 16 * 1024, 0, PIPE_USAGE_STAGING, 0);
-   if (!sctx->cached_gtt_allocator)
-      goto fail;
-
+   /* Initialize the context handle and command streams. */
    sctx->ctx = sctx->ws->ctx_create(sctx->ws);
    if (!sctx->ctx)
       goto fail;
+
+   ws->cs_create(&sctx->gfx_cs, sctx->ctx, sctx->has_graphics ? RING_GFX : RING_COMPUTE,
+                 (void *)si_flush_gfx_cs, sctx, stop_exec_on_failure);
 
    /* SDMA causes corruption on: :
     *    - RX 580: https://gitlab.freedesktop.org/mesa/mesa/-/issues/1399, 1889
@@ -522,6 +512,21 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
                           sctx, stop_exec_on_failure);
    }
 
+   /* Initialize private allocators. */
+   u_suballocator_init(&sctx->allocator_zeroed_memory, &sctx->b, 128 * 1024, 0,
+                       PIPE_USAGE_DEFAULT,
+                       SI_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_CLEAR, false);
+
+   sctx->cached_gtt_allocator = u_upload_create(&sctx->b, 16 * 1024, 0, PIPE_USAGE_STAGING, 0);
+   if (!sctx->cached_gtt_allocator)
+      goto fail;
+
+   /* Initialize public allocators. */
+   sctx->b.stream_uploader =
+      u_upload_create(&sctx->b, 1024 * 1024, 0, PIPE_USAGE_STREAM, SI_RESOURCE_FLAG_READ_ONLY);
+   if (!sctx->b.stream_uploader)
+      goto fail;
+
    bool use_sdma_upload = sscreen->info.has_dedicated_vram && sctx->sdma_cs.priv;
    sctx->b.const_uploader =
       u_upload_create(&sctx->b, 256 * 1024, 0, PIPE_USAGE_DEFAULT,
@@ -533,8 +538,6 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
    if (use_sdma_upload)
       u_upload_enable_flush_explicit(sctx->b.const_uploader);
 
-   ws->cs_create(&sctx->gfx_cs, sctx->ctx, sctx->has_graphics ? RING_GFX : RING_COMPUTE,
-                 (void *)si_flush_gfx_cs, sctx, stop_exec_on_failure);
 
    /* Border colors. */
    sctx->border_color_table = malloc(SI_MAX_BORDER_COLORS * sizeof(*sctx->border_color_table));
