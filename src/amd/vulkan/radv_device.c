@@ -422,6 +422,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .KHR_maintenance3 = true,
       .KHR_multiview = true,
       .KHR_pipeline_executable_properties = true,
+      .KHR_present_id = true,
       .KHR_push_descriptor = true,
       .KHR_relaxed_block_layout = true,
       .KHR_sampler_mirror_clamp_to_edge = true,
@@ -1690,6 +1691,12 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->shaderSharedFloat64AtomicMinMax = true;
          features->shaderImageFloat32AtomicMinMax = has_shader_float_minmax;
          features->sparseImageFloat32AtomicMinMax = has_shader_float_minmax;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR: {
+         VkPhysicalDevicePresentIdFeaturesKHR *features =
+            (VkPhysicalDevicePresentIdFeaturesKHR *) ext;
+         features->presentId = true;
          break;
       }
       default:
