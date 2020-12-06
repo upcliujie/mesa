@@ -329,8 +329,6 @@ static void si_destroy_context(struct pipe_context *context)
    util_dynarray_fini(&sctx->resident_tex_needs_color_decompress);
    util_dynarray_fini(&sctx->resident_img_needs_color_decompress);
    util_dynarray_fini(&sctx->resident_tex_needs_depth_decompress);
-   si_unref_sdma_uploads(sctx);
-   free(sctx->sdma_uploads);
    FREE(sctx);
 }
 
@@ -527,17 +525,11 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
    if (!sctx->b.stream_uploader)
       goto fail;
 
-   bool use_sdma_upload = sscreen->info.has_dedicated_vram && sctx->sdma_cs.priv;
    sctx->b.const_uploader =
       u_upload_create(&sctx->b, 256 * 1024, 0, PIPE_USAGE_DEFAULT,
-                      SI_RESOURCE_FLAG_32BIT |
-                         (use_sdma_upload ? SI_RESOURCE_FLAG_UPLOAD_FLUSH_EXPLICIT_VIA_SDMA : 0));
+                      SI_RESOURCE_FLAG_32BIT);
    if (!sctx->b.const_uploader)
       goto fail;
-
-   if (use_sdma_upload)
-      u_upload_enable_flush_explicit(sctx->b.const_uploader);
-
 
    /* Border colors. */
    sctx->border_color_table = malloc(SI_MAX_BORDER_COLORS * sizeof(*sctx->border_color_table));
