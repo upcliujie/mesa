@@ -7,6 +7,7 @@ libvulkan_lvp = shared_library(
   gnu_symbol_visibility : 'hidden',
   link_args : [ld_args_bsymbolic, ld_args_gc_sections],
   dependencies : driver_swrast,
+  name_prefix : '',
   install : true,
 )
 
@@ -24,7 +25,7 @@ lvp_icd = custom_target(
     prog_python, '@INPUT@',
     '--lib-path', module_dir,
     '--out', '@OUTPUT@',
-    '--suffix', libvulkan_lvp.full_path().split('.')[-1],
+    '--full-path', libvulkan_lvp.full_path(),
   ],
   depend_files : files('../../frontends/lavapipe/lvp_extensions.py'),
   build_by_default : true,
