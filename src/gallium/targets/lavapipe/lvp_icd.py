@@ -29,10 +29,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--out', help='Output json file.', required=True)
     parser.add_argument('--lib-path', help='Path to libvulkan_lvp.*')
-    parser.add_argument('--suffix', help='Extension of libvulkan_lvp.*')
+    parser.add_argument('--full-path', help='libvulkan_lvp built target path')
     args = parser.parse_args()
 
-    path = 'libvulkan_lvp.' + args.suffix
+    path = os.path.basename(args.full_path)
     if args.lib_path:
         path = os.path.join(args.lib_path, path)
 
