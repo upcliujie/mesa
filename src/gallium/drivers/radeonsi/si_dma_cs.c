@@ -227,7 +227,7 @@ void si_need_dma_space(struct si_context *ctx, unsigned num_dw, struct si_resour
    }
 
    /* Flush the GFX IB if DMA depends on it. */
-   if (!ctx->sdma_uploads_in_progress && radeon_emitted(&ctx->gfx_cs, ctx->initial_gfx_cs_size) &&
+   if (radeon_emitted(&ctx->gfx_cs, ctx->initial_gfx_cs_size) &&
        ((dst && ws->cs_is_buffer_referenced(&ctx->gfx_cs, dst->buf, RADEON_USAGE_READWRITE)) ||
         (src && ws->cs_is_buffer_referenced(&ctx->gfx_cs, src->buf, RADEON_USAGE_WRITE))))
       si_flush_gfx_cs(ctx, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW, NULL);
@@ -255,11 +255,10 @@ void si_need_dma_space(struct si_context *ctx, unsigned num_dw, struct si_resour
     * engine busy while uploads are being submitted.
     */
    num_dw++; /* for emit_wait_idle below */
-   if (!ctx->sdma_uploads_in_progress &&
-       (use_secure_cmd != ctx->ws->cs_is_secure(&ctx->sdma_cs) ||
-        !ws->cs_check_space(&ctx->sdma_cs, num_dw, false) ||
-        ctx->sdma_cs.used_vram + ctx->sdma_cs.used_gart > 64 * 1024 * 1024 ||
-        !radeon_cs_memory_below_limit(ctx->screen, &ctx->sdma_cs, vram, gtt))) {
+   if (use_secure_cmd != ctx->ws->cs_is_secure(&ctx->sdma_cs) ||
+       !ws->cs_check_space(&ctx->sdma_cs, num_dw, false) ||
+       ctx->sdma_cs.used_vram + ctx->sdma_cs.used_gart > 64 * 1024 * 1024 ||
+       !radeon_cs_memory_below_limit(ctx->screen, &ctx->sdma_cs, vram, gtt)) {
       si_flush_dma_cs(ctx, PIPE_FLUSH_ASYNC | RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION, NULL);
       assert(ctx->ws->cs_is_secure(&ctx->sdma_cs) == use_secure_cmd);
       assert((num_dw + ctx->sdma_cs.current.cdw) <= ctx->sdma_cs.current.max_dw);
@@ -272,7 +271,7 @@ void si_need_dma_space(struct si_context *ctx, unsigned num_dw, struct si_resour
        (src && ws->cs_is_buffer_referenced(&ctx->sdma_cs, src->buf, RADEON_USAGE_WRITE)))
       si_dma_emit_wait_idle(ctx);
 
-   unsigned sync = ctx->sdma_uploads_in_progress ? 0 : RADEON_USAGE_SYNCHRONIZED;
+   unsigned sync = RADEON_USAGE_SYNCHRONIZED;
    if (dst) {
       ws->cs_add_buffer(&ctx->sdma_cs, dst->buf, RADEON_USAGE_WRITE | sync, dst->domains, 0);
    }

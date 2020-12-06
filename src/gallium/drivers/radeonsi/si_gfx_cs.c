@@ -59,15 +59,6 @@ void si_need_gfx_cs_space(struct si_context *ctx, unsigned num_draws)
       si_flush_gfx_cs(ctx, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW, NULL);
 }
 
-void si_unref_sdma_uploads(struct si_context *sctx)
-{
-   for (unsigned i = 0; i < sctx->num_sdma_uploads; i++) {
-      si_resource_reference(&sctx->sdma_uploads[i].dst, NULL);
-      si_resource_reference(&sctx->sdma_uploads[i].src, NULL);
-   }
-   sctx->num_sdma_uploads = 0;
-}
-
 void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_handle **fence)
 {
    struct radeon_cmdbuf *cs = &ctx->gfx_cs;
@@ -126,22 +117,6 @@ void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_h
     * for a fence handle.
     */
    assert(!radeon_emitted(&ctx->sdma_cs, 0) || fence == NULL);
-
-   /* Update the sdma_uploads list by flushing the uploader. */
-   u_upload_unmap(ctx->b.const_uploader);
-
-   /* Execute SDMA uploads. */
-   ctx->sdma_uploads_in_progress = true;
-   for (unsigned i = 0; i < ctx->num_sdma_uploads; i++) {
-      struct si_sdma_upload *up = &ctx->sdma_uploads[i];
-
-      assert(up->src_offset % 4 == 0 && up->dst_offset % 4 == 0 && up->size % 4 == 0);
-
-      si_sdma_copy_buffer(ctx, &up->dst->b.b, &up->src->b.b, up->dst_offset, up->src_offset,
-                          up->size);
-   }
-   ctx->sdma_uploads_in_progress = false;
-   si_unref_sdma_uploads(ctx);
 
    /* Flush SDMA (preamble IB). */
    if (radeon_emitted(&ctx->sdma_cs, 0))

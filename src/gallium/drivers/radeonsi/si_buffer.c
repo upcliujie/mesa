@@ -442,13 +442,6 @@ static void *si_buffer_transfer_map(struct pipe_context *ctx, struct pipe_resour
       }
    }
 
-   if (usage & PIPE_MAP_FLUSH_EXPLICIT &&
-       buf->b.b.flags & SI_RESOURCE_FLAG_UPLOAD_FLUSH_EXPLICIT_VIA_SDMA) {
-      usage &= ~(PIPE_MAP_UNSYNCHRONIZED | PIPE_MAP_PERSISTENT);
-      usage |= PIPE_MAP_DISCARD_RANGE;
-      force_discard_range = true;
-   }
-
    if (usage & PIPE_MAP_DISCARD_RANGE &&
        ((!(usage & (PIPE_MAP_UNSYNCHRONIZED | PIPE_MAP_PERSISTENT))) ||
         (buf->flags & RADEON_FLAG_SPARSE))) {
@@ -537,45 +530,6 @@ static void si_buffer_do_flush_region(struct pipe_context *ctx, struct pipe_tran
    if (stransfer->staging) {
       unsigned src_offset =
          stransfer->offset + transfer->box.x % SI_MAP_BUFFER_ALIGNMENT + (box->x - transfer->box.x);
-
-      if (buf->b.b.flags & SI_RESOURCE_FLAG_UPLOAD_FLUSH_EXPLICIT_VIA_SDMA) {
-         /* This should be true for all uploaders. */
-         assert(transfer->box.x == 0);
-
-         /* Find a previous upload and extend its range. The last
-          * upload is likely to be at the end of the list.
-          */
-         for (int i = sctx->num_sdma_uploads - 1; i >= 0; i--) {
-            struct si_sdma_upload *up = &sctx->sdma_uploads[i];
-
-            if (up->dst != buf)
-               continue;
-
-            assert(up->src == stransfer->staging);
-            assert(box->x > up->dst_offset);
-            up->size = box->x + box->width - up->dst_offset;
-            return;
-         }
-
-         /* Enlarge the array if it's full. */
-         if (sctx->num_sdma_uploads == sctx->max_sdma_uploads) {
-            unsigned size;
-
-            sctx->max_sdma_uploads += 4;
-            size = sctx->max_sdma_uploads * sizeof(sctx->sdma_uploads[0]);
-            sctx->sdma_uploads = realloc(sctx->sdma_uploads, size);
-         }
-
-         /* Add a new upload. */
-         struct si_sdma_upload *up = &sctx->sdma_uploads[sctx->num_sdma_uploads++];
-         up->dst = up->src = NULL;
-         si_resource_reference(&up->dst, buf);
-         si_resource_reference(&up->src, stransfer->staging);
-         up->dst_offset = box->x;
-         up->src_offset = src_offset;
-         up->size = box->width;
-         return;
-      }
 
       /* Copy the staging buffer into the original one. */
       si_copy_buffer(sctx, transfer->resource, &stransfer->staging->b.b, box->x, src_offset,

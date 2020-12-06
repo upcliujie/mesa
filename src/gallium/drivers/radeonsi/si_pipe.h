@@ -116,8 +116,7 @@
 #define SI_RESOURCE_FLAG_READ_ONLY         (PIPE_RESOURCE_FLAG_DRV_PRIV << 5)
 #define SI_RESOURCE_FLAG_32BIT             (PIPE_RESOURCE_FLAG_DRV_PRIV << 6)
 #define SI_RESOURCE_FLAG_CLEAR             (PIPE_RESOURCE_FLAG_DRV_PRIV << 7)
-/* For const_uploader, upload data via GTT and copy to VRAM on context flush via SDMA. */
-#define SI_RESOURCE_FLAG_UPLOAD_FLUSH_EXPLICIT_VIA_SDMA (PIPE_RESOURCE_FLAG_DRV_PRIV << 8)
+/* gap */
 /* Set a micro tile mode: */
 #define SI_RESOURCE_FLAG_FORCE_MICRO_TILE_MODE (PIPE_RESOURCE_FLAG_DRV_PRIV << 9)
 #define SI_RESOURCE_FLAG_MICRO_TILE_MODE_SHIFT (util_logbase2(PIPE_RESOURCE_FLAG_DRV_PRIV) + 10)
@@ -882,14 +881,6 @@ struct si_saved_cs {
    int64_t time_flush;
 };
 
-struct si_sdma_upload {
-   struct si_resource *dst;
-   struct si_resource *src;
-   unsigned src_offset;
-   unsigned dst_offset;
-   unsigned size;
-};
-
 struct si_small_prim_cull_info {
    float scale[2], translate[2];
 };
@@ -1251,12 +1242,6 @@ struct si_context {
    bool render_cond_invert;
    bool render_cond_force_off; /* for u_blitter */
 
-   /* For uploading data via GTT and copy to VRAM on context flush via SDMA. */
-   bool sdma_uploads_in_progress;
-   struct si_sdma_upload *sdma_uploads;
-   unsigned num_sdma_uploads;
-   unsigned max_sdma_uploads;
-
    /* Shader-based queries. */
    struct list_head shader_query_buffers;
    unsigned num_active_shader_queries;
@@ -1452,7 +1437,6 @@ void si_allocate_gds(struct si_context *ctx);
 void si_set_tracked_regs_to_clear_state(struct si_context *ctx);
 void si_begin_new_gfx_cs(struct si_context *ctx, bool first_cs);
 void si_need_gfx_cs_space(struct si_context *ctx, unsigned num_draws);
-void si_unref_sdma_uploads(struct si_context *sctx);
 
 /* si_gpu_load.c */
 void si_gpu_load_kill_thread(struct si_screen *sscreen);
