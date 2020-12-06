@@ -649,33 +649,37 @@ BEGIN_TEST(optimize.const_comparison_ordering)
    //! s2: %tmp6_1 = v_cmp_neq_f32 %a, %a
    //! s2: %res6, s1: %_:scc = s_and_b64 %tmp6_1, %tmp6_0
    //! p_unit_test 6, %res6
-   writeout(6, bld.sop2(aco_opcode::s_and_b64, bld.def(bld.lm), bld.def(s1, scc),
-                        bld.vopc(aco_opcode::v_cmp_neq_f32, bld.def(bld.lm), inputs[0], inputs[0]),
-                        bld.vopc(aco_opcode::v_cmp_lt_f32, bld.def(bld.lm), Operand(0x40800000u), inputs[0])));
+   Temp src0 = bld.vopc(aco_opcode::v_cmp_lt_f32, bld.def(bld.lm), Operand(0x40800000u), inputs[0]);
+   Temp src1 = bld.vopc(aco_opcode::v_cmp_neq_f32, bld.def(bld.lm), inputs[0], inputs[0]);
+   writeout(6, bld.sop2(aco_opcode::s_and_b64, bld.def(bld.lm), bld.def(s1, scc), src1, src0));
 
    //! s2: %tmp7_0 = v_cmp_nge_f32 4.0, %a
    //! s2: %tmp7_1 = v_cmp_eq_f32 %a, %a
    //! s2: %res7, s1: %_:scc = s_or_b64 %tmp7_1, %tmp7_0
    //! p_unit_test 7, %res7
+   src0 = bld.vopc(aco_opcode::v_cmp_nge_f32, bld.def(bld.lm), Operand(0x40800000u), inputs[0]);
+   src1 = bld.vopc(aco_opcode::v_cmp_eq_f32, bld.def(bld.lm), inputs[0], inputs[0]);
    writeout(7, bld.sop2(aco_opcode::s_or_b64, bld.def(bld.lm), bld.def(s1, scc),
-                        bld.vopc(aco_opcode::v_cmp_eq_f32, bld.def(bld.lm), inputs[0], inputs[0]),
-                        bld.vopc(aco_opcode::v_cmp_nge_f32, bld.def(bld.lm), Operand(0x40800000u), inputs[0])));
+                        src1,
+                        src0));
 
    //! s2: %tmp8_0 = v_cmp_lt_f32 4.0, %d
    //! s2: %tmp8_1 = v_cmp_neq_f32 %a, %a
    //! s2: %res8, s1: %_:scc = s_or_b64 %tmp8_1, %tmp8_0
    //! p_unit_test 8, %res8
-   writeout(8, bld.sop2(aco_opcode::s_or_b64, bld.def(bld.lm), bld.def(s1, scc),
-                        bld.vopc(aco_opcode::v_cmp_neq_f32, bld.def(bld.lm), inputs[0], inputs[0]),
-                        bld.vopc(aco_opcode::v_cmp_lt_f32, bld.def(bld.lm), Operand(0x40800000u), inputs[3])));
+   src0 = bld.vopc(aco_opcode::v_cmp_lt_f32, bld.def(bld.lm), Operand(0x40800000u), inputs[3]);
+   src1 = bld.vopc(aco_opcode::v_cmp_neq_f32, bld.def(bld.lm), inputs[0], inputs[0]);
+   writeout(8, bld.sop2(aco_opcode::s_or_b64, bld.def(bld.lm), bld.def(s1, scc), src1, src0));
 
    //! s2: %tmp9_0 = v_cmp_lt_f32 4.0, %a
    //! s2: %tmp9_1 = v_cmp_neq_f32 %a, %d
    //! s2: %res9, s1: %_:scc = s_or_b64 %tmp9_1, %tmp9_0
    //! p_unit_test 9, %res9
+   src0 = bld.vopc(aco_opcode::v_cmp_lt_f32, bld.def(bld.lm), Operand(0x40800000u), inputs[0]);
+   src1 = bld.vopc(aco_opcode::v_cmp_neq_f32, bld.def(bld.lm), inputs[0], inputs[3]);
    writeout(9, bld.sop2(aco_opcode::s_or_b64, bld.def(bld.lm), bld.def(s1, scc),
-                        bld.vopc(aco_opcode::v_cmp_neq_f32, bld.def(bld.lm), inputs[0], inputs[3]),
-                        bld.vopc(aco_opcode::v_cmp_lt_f32, bld.def(bld.lm), Operand(0x40800000u), inputs[0])));
+                        src1,
+                        src0));
 
    /* bit sizes */
    //! v2b: %b16 = p_extract_vector %b, 0
