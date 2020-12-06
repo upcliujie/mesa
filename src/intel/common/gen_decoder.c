@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
+#include <errno.h>
 #include <expat.h>
 #include <inttypes.h>
 #include <zlib.h>
@@ -697,7 +698,7 @@ gen_spec_load_filename(const char *filename)
       buf = XML_GetBuffer(ctx.parser, XML_BUFFER_SIZE);
       len = fread(buf, 1, XML_BUFFER_SIZE, input);
       if (ferror(input)) {
-         fprintf(stderr, "fread: %m\n");
+         fprintf(stderr, "fread: %s\n", strerror(errno));
          gen_spec_destroy(ctx.spec);
          ctx.spec = NULL;
          goto end;

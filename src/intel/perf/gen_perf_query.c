@@ -329,7 +329,7 @@ dec_n_users(struct gen_perf_context *perf_ctx)
    if (perf_ctx->n_oa_users == 0 &&
        gen_ioctl(perf_ctx->oa_stream_fd, I915_PERF_IOCTL_DISABLE, 0) < 0)
    {
-      DBG("WARNING: Error disabling gen perf stream: %m\n");
+      DBG("WARNING: Error disabling gen perf stream: %s\n", strerror(errno));
    }
 }
 
@@ -384,7 +384,7 @@ gen_perf_open(struct gen_perf_context *perf_ctx,
    };
    int fd = gen_ioctl(drm_fd, DRM_IOCTL_I915_PERF_OPEN, &param);
    if (fd == -1) {
-      DBG("Error opening gen perf OA stream: %m\n");
+      DBG("Error opening gen perf OA stream: %s\n", strerror(errno));
       return false;
    }
 
@@ -779,7 +779,7 @@ gen_perf_begin_query(struct gen_perf_context *perf_ctx,
       }
 
       if (!inc_n_users(perf_ctx)) {
-         DBG("WARNING: Error enabling i915 perf stream: %m\n");
+         DBG("WARNING: Error enabling i915 perf stream: %s\n", strerror(errno));
          return false;
       }
 
@@ -944,7 +944,7 @@ read_oa_samples_until(struct gen_perf_context *perf_ctx,
          }
 
          if (errno != EAGAIN) {
-            DBG("Error reading i915 perf samples: %m\n");
+            DBG("Error reading i915 perf samples: %s\n", strerror(errno));
             return OA_READ_STATUS_ERROR;
          }
 

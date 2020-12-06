@@ -106,7 +106,7 @@ get_sysfs_dev_dir(struct gen_perf_config *perf, int fd)
 
    drmdir = opendir(perf->sysfs_dev_dir);
    if (!drmdir) {
-      DBG("Failed to open %s: %m\n", perf->sysfs_dev_dir);
+      DBG("Failed to open %s: %s\n", perf->sysfs_dev_dir, strerror(errno));
       return false;
    }
 
@@ -206,7 +206,7 @@ enumerate_sysfs_metrics(struct gen_perf_config *perf,
 
    metricsdir = opendir(buf);
    if (!metricsdir) {
-      DBG("Failed to open %s: %m\n", buf);
+      DBG("Failed to open %s: %s\n", buf, strerror(errno));
       return;
    }
 
@@ -222,7 +222,7 @@ enumerate_sysfs_metrics(struct gen_perf_config *perf,
       if (entry) {
          uint64_t id;
          if (!gen_perf_load_metric_id(perf, metric_entry->d_name, &id)) {
-            DBG("Failed to read metric set id from %s: %m", buf);
+            DBG("Failed to read metric set id from %s: %s", buf, strerror(errno));
             continue;
          }
 
