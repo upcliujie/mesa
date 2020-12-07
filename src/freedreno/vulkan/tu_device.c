@@ -614,6 +614,17 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->extendedDynamicState = true;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT: {
+         VkPhysicalDeviceLineRasterizationFeaturesEXT *features =
+            (VkPhysicalDeviceLineRasterizationFeaturesEXT *)ext;
+         features->rectangularLines = true;
+         features->bresenhamLines = true;
+         features->smoothLines = false;
+         features->stippledRectangularLines = false;
+         features->stippledBresenhamLines = false;
+         features->stippledSmoothLines = false;
+         break;
+      }
       default:
          break;
       }
@@ -865,6 +876,12 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          props->independentResolveNone = false;
          props->supportedDepthResolveModes = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
          props->supportedStencilResolveModes = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT: {
+         VkPhysicalDeviceLineRasterizationPropertiesEXT *props =
+            (VkPhysicalDeviceLineRasterizationPropertiesEXT *)ext;
+         props->lineSubPixelPrecisionBits = 4;
          break;
       }
       default:
