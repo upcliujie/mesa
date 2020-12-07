@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright © 2020 Google, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ -->
+
+<isa>
+
+<!--
+	Cat1 Instruction(s):
+	It is really all a single mov instruction with a bunch of mnemonics
+ -->
+
+<bitset name="#cat1-src" size="32">
+	<doc>
+		A mov src is partially defined by the bit-pattern (relative-gpr and
+		relative-const cases) and partially a function of fields in the
+		toplevel instruction.  But defining it as a bitset decouples the
+		different permultations of src type from the different permutations
+		of instruction mnemonics
+
+		The const/immed cases, which are controlled by fields outside of the
+		src bitset are handled via conditional bitsets
+	</doc>
+</bitset>
+
+<expr name="#cat1-src-is-const">
+	<var name="SRC_C"/>
+</expr>
+
+<bitset name="#cat1-src-const" extends="#cat1-src" expr="#cat1-src-is-const">
+	<display>
+		{HALF}c{CONST}.{SWIZ}
+	</display>
+<!--
+	<derived name="HALF" expr="#multisrc-half" type="bool" display="h"/>
+ -->
+	<field name="SWIZ" low="0" high="1" type="#swiz"/>
+	<field name="CONST" low="2" high="11" type="uint"/>
+	<pattern low="12" high="31">xxxxxxxxxxxxxxxxxxxx</pattern>
+</bitset>
+
+<expr name="#cat1-src-is-immed">
+	<var name="SRC_IM"/>
+</expr>
+
+<!--
+TODO how to handle float/uint/int types??  Maybe just with overrides?
+ -->
+<bitset name="#cat1-src-immed" extends="#cat1-src" expr="#cat1-src-is-immed">
+	<display>
+		#{IMMED}
+	</display>
+	<field name="IMMED" low="0" high="31" type="uint"/>
+</bitset>
+
+<expr name="#cat1-src-is-not-immed-const">
+	<var name="SRC_IM"/>
+	<var name="SRC_C"/>
+	<or/>
+	<not/>
+</expr>
+
+<bitset name="#cat1-src-gpr" extends="#cat1-src" expr="#cat1-src-is-not-immed-const">
+	<display>
+		{HALF}r{GPR}.{SWIZ}
+	</display>
+	<field name="SWIZ" low="0" high="1" type="#swiz"/>
+	<field name="GPR" low="2"  high="10" type="uint"/>
+	<pattern pos="11">0</pattern>
+	<pattern low="12" high="31">xxxxxxxxxxxxxxxxxxxx</pattern>
+</bitset>
+
+<!--
+	Whether the src/dst is half-precision is a function of the src/dst types
+
+	TODO some syntactic sugar to be able to use enum value strings would be
+	nice here
+ -->
+<expr name="#cat1-src-half">
+	<var name="SRC_TYPE"/>
+	<dup/>
+	<literal val="0"/>  <!-- f16 -->
+	<eq/>
+	<retif/>
+	<dup/>
+	<literal val="2"/>  <!-- u16 -->
+	<eq/>
+	<retif/>
+	<dup/>
+	<literal val="4"/>  <!-- s16 -->
+	<eq/>
+	<retif/>
+	<dup/>
+	<literal val="6"/>  <!-- u8 -->
+	<eq/>
+	<retif/>
+	<literal val="7"/>  <!-- s8 -->
+	<eq/>
+</expr>
+
+<expr name="#cat1-dest-half">
+	<var name="DST_TYPE"/>
+	<dup/>
+	<literal val="0"/>  <!-- f16 -->
+	<eq/>
+	<retif/>
+	<dup/>
+	<literal val="2"/>  <!-- u16 -->
+	<eq/>
+	<retif/>
+	<dup/>
+	<literal val="4"/>  <!-- s16 -->
+	<eq/>
+	<retif/>
+	<dup/>
+	<literal val="6"/>  <!-- u8 -->
+	<eq/>
+	<retif/>
+	<literal val="7"/>  <!-- s8 -->
+	<eq/>
+</expr>
+
+<expr name="#cat1-mova">
+	<var name="DST"/>
+	<literal val="61"/>
+	<eq/>
+</expr>
+
+<expr name="#cat1-cov">
+	<var name="SRC_TYPE"/>
+	<var name="DST_TYPE"/>
+	<ne/>
+</expr>
+
+<bitset name="mov" extends="#instruction">
+	<override expr="#cat1-mova">
+		<display>
+			{SY}{SS}{JP}{REPEAT}{UL}mova {EVEN}{POS_INF}a0.{DST_SWIZ}, {SRC_R}{SRC}
+		</display>
+	</override>
+	<override expr="#cat1-cov">
+		<display>
+			{SY}{SS}{JP}{REPEAT}{UL}cov.{SRC_TYPE}{DST_TYPE} {EVEN}{POS_INF}{DST_HALF}r{DST}.{DST_SWIZ}, {SRC_R}{SRC}
+		</display>
+	</override>
+	<display>
+		{SY}{SS}{JP}{REPEAT}{UL}mov.{SRC_TYPE}{DST_TYPE} {EVEN}{POS_INF}{DST_HALF}r{DST}.{DST_SWIZ}, {SRC_R}{SRC}
+	</display>
+	<field name="SRC" low="0" high="31" type="#cat1-src"/>
+	<field name="DST_SWIZ" low="32" high="33" type="#swiz"/>
+	<field name="DST" low="34" high="39" type="uint"/>
+	<field name="REPEAT" low="40" high="42" type="#rptN"/>
+	<field name="SRC_R" pos="43" type="bool" display="(r)"/>
+	<field name="SS" pos="44" type="bool" display="(ss)"/>
+	<field name="UL" pos="45" type="bool" display="(ul)"/>
+	<field name="DST_TYPE" low="46" high="48" type="#type"/>
+	<field name="DST_REL" pos="49" type="bool"/>
+	<field name="SRC_TYPE" low="50" high="52" type="#type"/>
+	<field name="SRC_C" pos="53" type="bool"/>
+	<field name="SRC_IM" pos="54" type="bool"/>
+	<field name="EVEN" pos="55" type="bool" display="(even)"/>
+	<field name="POS_INF" pos="56" type="bool" display="(pos_infinity)"/>
+	<pattern low="57" high="58">00</pattern>
+	<field name="JP" pos="59" type="bool" display="(jp)"/>
+	<field name="SY" pos="60" type="bool" display="(sy)"/>
+	<pattern low="61" high="63">001</pattern>  <!-- cat1 -->
+	<derived name="HALF" expr="#cat1-src-half" type="bool" display="h"/>
+	<derived name="DST_HALF" expr="#cat1-dest-half" type="bool" display="h"/>
+</bitset>
+
+</isa>
