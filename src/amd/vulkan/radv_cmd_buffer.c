@@ -474,13 +474,17 @@ radv_cmd_buffer_resize_upload_buf(struct radv_cmd_buffer *cmd_buffer,
 	struct radeon_winsys_bo *bo;
 	struct radv_cmd_buffer_upload *upload;
 	struct radv_device *device = cmd_buffer->device;
+	enum radeon_bo_domain domain =
+		device->physical_device->rad_info.all_vram_visible &&
+		!device->physical_device->rad_info.has_dedicated_vram ?
+			RADEON_DOMAIN_VRAM : RADEON_DOMAIN_GTT;
 
 	new_size = MAX2(min_needed, 16 * 1024);
 	new_size = MAX2(new_size, 2 * cmd_buffer->upload.size);
 
 	bo = device->ws->buffer_create(device->ws,
 				       new_size, 4096,
-				       RADEON_DOMAIN_GTT,
+				       domain,
 				       RADEON_FLAG_CPU_ACCESS|
 				       RADEON_FLAG_NO_INTERPROCESS_SHARING |
 				       RADEON_FLAG_32BIT |
