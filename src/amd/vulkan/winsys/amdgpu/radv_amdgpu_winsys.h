@@ -45,6 +45,7 @@ struct radv_amdgpu_winsys {
 
 	bool debug_all_bos;
 	bool use_ib_bos;
+	enum radeon_bo_domain cs_bo_domain;
 	bool zero_all_vram_allocs;
 	bool use_local_bos;
 	bool use_llvm;
