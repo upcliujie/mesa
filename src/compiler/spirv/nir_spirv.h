@@ -86,6 +86,9 @@ struct spirv_to_nir_options {
    nir_address_format temp_addr_format;
    nir_address_format constant_addr_format;
 
+   /* True if deref_buffer_array_length should be used instead of get_ssbo_size */
+   bool use_deref_buffer_array_length;
+
    const nir_shader *clc_shader;
 
    struct {
