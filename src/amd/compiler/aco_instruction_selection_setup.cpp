@@ -772,7 +772,6 @@ void init_context(isel_context *ctx, nir_shader *shader)
                   case nir_intrinsic_load_num_subgroups:
                   case nir_intrinsic_load_first_vertex:
                   case nir_intrinsic_load_base_instance:
-                  case nir_intrinsic_get_ssbo_size:
                   case nir_intrinsic_vote_all:
                   case nir_intrinsic_vote_any:
                   case nir_intrinsic_read_first_invocation:
@@ -780,6 +779,10 @@ void init_context(isel_context *ctx, nir_shader *shader)
                   case nir_intrinsic_first_invocation:
                   case nir_intrinsic_ballot:
                      type = RegType::sgpr;
+                     break;
+                  case nir_intrinsic_get_ssbo_size:
+                     type = (nir_intrinsic_access(intrinsic) & ACCESS_NON_UNIFORM) ?
+                            regclasses[intrinsic->src[0].ssa->index].type() : RegType::sgpr;
                      break;
                   case nir_intrinsic_load_sample_id:
                   case nir_intrinsic_load_sample_mask_in:
