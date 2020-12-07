@@ -1,4 +1,4 @@
-# Copyright © 2019 Google, Inc
+# Copyright © 2020 Google, Inc
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,37 +18,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-xml_files = [
-  'adreno.xml',
-  'freedreno_copyright.xml',
-  'rules-ng.xsd',
+decode_c = custom_target(
+  'decode.c',
+  input: ['decode.py', 'ir3.xml'],
+  output: 'decode.c',
+  command: [
+    prog_python, '@INPUT0@', '@INPUT1@', '@OUTPUT@'
+  ],
+)
+
+disasm_files = [
+  'disasm.c',
+  'isa.h',
+  decode_c,
 ]
 
-gen_header_py = files('gen_header.py')
-
-freedreno_xml_header_files = []
-
-foreach f : xml_files
-  _name = f + '.h'
-  freedreno_xml_header_files += custom_target(
-    _name,
-    input: [gen_header_py, f],
-    output: _name,
-    command: [prog_python, '@INPUT0@', rnn_src_path, '@INPUT1@'],
-    capture: true,
-  )
-  _gzname = f + '.gz'
-  custom_target(
-    _gzname,
-    input: f,
-    output: _gzname,
-    command: [prog_gzip, '-kc', '@INPUT@'],
-    capture: true,
-    install_dir: rnn_install_path,
-    install: install_fd_decode_tools,
-    build_by_default: install_fd_decode_tools,
-  )
-endforeach
-
-subdir('adreno')
-subdir('isa')
+disasm = executable(
+  'disasm',
+  disasm_files,
+  build_by_default: with_tools.contains('freedreno'),
+  install: false,
+)

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright © 2020 Google, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ -->
+
+<isa>
+
+<!--
+Source Register encoding, used most places where a src can be either
+gpr/const/relative
+ -->
+
+<bitset name="#multisrc" size="16">
+	<doc>
+		Encoding for instruction source which can be GPR/CONST/IMMED
+		or relative GPR/CONST.
+	</doc>
+</bitset>
+
+<bitset name="#mulitsrc-immed" extends="#multisrc">
+	<doc>
+		Immediate src.  For integer instructions, encodes an int
+		value.  For float instructions, the following mapping
+		table defines the float value encoded by integer value:
+
+			0  -> 0.0
+			1  -> 0.5
+			2  -> 1.0
+			3  -> 2.0
+			4  -> e
+			5  -> pi
+			6  -> 1/pi
+			7  -> 1/log2(e)
+			8  -> log2(e)
+			9  -> 1/log2(10)
+			10 -> log2(10)
+			11 -> 4.0
+
+	</doc>
+	<display>
+		{IMMED}
+	</display>
+	<field name="IMMED" low="0"  high="10" type="int"/>
+	<pattern low="11" high="15">00100</pattern>
+	<!-- TODO can we abs/neg an immed? -->
+</bitset>
+
+<bitset name="#multisrc-gpr" extends="#multisrc">
+	<display>
+		{ABS}{NEG}{GPR}
+	</display>
+	<field name="GPR" low="0"  high="10" type="reg_gpr"/>
+	<pattern low="11" high="13">000</pattern>
+	<!--
+	TODO how to handle the (absneg) case?  Maybe NEG/ABS
+	should be an enum instead?
+	 -->
+	<field name="NEG" pos="14" type="bool" display="(neg)"/>
+	<field name="ABS" pos="15" type="bool" display="(abs)"/>
+</bitset>
+
+<bitset name="#multisrc-const" extends="#multisrc">
+	<display>
+		{CONST}
+	</display>
+	<field name="CONST" low="0" high="11" type="reg_const"/>
+	<pattern low="12" high="15">xxx1</pattern>
+</bitset>
+
+<bitset name="#multisrc-relative" extends="#multisrc">
+	<pattern low="11" high="15">10xxx</pattern>
+</bitset>
+
+<bitset name="#multisrc-relative-gpr" extends="#multisrc-relative">
+	<field name="RELGPR" low="0" high="9" type="reg_rel_gpr"/>
+	<pattern pos="10">0</pattern>
+</bitset>
+
+<bitset name="#multisrc-relative-gpr" extends="#multisrc-relative">
+	<field name="RELCONST" low="0" high="9" type="reg_rel_const"/>
+	<pattern pos="10">1</pattern>
+</bitset>
+
+
+<!--
+Enums used in various places:
+ -->
+
+<enum name="#rptN">
+	<value val="0" display=""/>
+	<value val="1" display="(rpt1)"/>
+	<value val="2" display="(rpt2)"/>
+	<value val="3" display="(rpt3)"/>
+	<value val="4" display="(rpt4)"/>
+	<value val="5" display="(rpt5)"/>
+</enum>
+
+<enum name="#cond">
+	<value val="0" display="lt"/>
+	<value val="1" display="le"/>
+	<value val="2" display="gt"/>
+	<value val="3" display="ge"/>
+	<value val="4" display="eq"/>
+	<value val="5" display="ne"/>
+</enum>
+
+</isa>
