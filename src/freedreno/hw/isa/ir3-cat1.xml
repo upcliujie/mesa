@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright © 2020 Google, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ -->
+
+<isa>
+
+<!--
+	Cat1 Instruction(s):
+	It is really all a single mov instruction with a bunch of mnemonics
+ -->
+
+<bitset name="#instruction-cat1" extends="#instruction">
+	<override>
+		<expr name="#cat1-mova">
+			<!--
+				It would be nice to be able to instead do: <var name="DST.GPR"/>
+			 -->
+			<literal val="2"/>
+			<var name="DST"/>
+			<rsh/>
+			<literal val="61"/>  <!-- a0.* -->
+			<eq/>
+		
+			<literal val="4"/>  <!-- s16 -->
+			<var name="SRC_TYPE"/>
+			<eq/>
+			<and/>
+		
+			<literal val="4"/>  <!-- s16 -->
+			<var name="DST_TYPE"/>
+			<eq/>
+			<and/>
+		</expr>
+		<display>
+			{SY}{SS}{JP}{REPEAT}{UL}mova {EVEN}{POS_INF}{DST}, {SRC}
+		</display>
+	</override>
+	<override>
+		<expr>
+			<var name="SRC_TYPE"/>
+			<var name="DST_TYPE"/>
+			<ne/>
+		</expr>
+		<display>
+			{SY}{SS}{JP}{REPEAT}{UL}cov.{SRC_TYPE}{DST_TYPE} {EVEN}{POS_INF}{DST_HALF}{DST}, {SRC}
+		</display>
+	</override>
+	<display>
+		{SY}{SS}{JP}{REPEAT}{UL}mov.{SRC_TYPE}{DST_TYPE} {EVEN}{POS_INF}{DST_HALF}{DST}, {SRC}
+	</display>
+	<field name="DST" low="32" high="39" type="#reg-gpr"/>
+	<field name="REPEAT" low="40" high="42" type="#rptN"/>
+	<field name="SS" pos="44" type="bool" display="(ss)"/>
+	<field name="UL" pos="45" type="bool" display="(ul)"/>
+	<field name="DST_TYPE" low="46" high="48" type="#type"/>
+	<field name="DST_REL" pos="49" type="bool"/>
+	<field name="SRC_TYPE" low="50" high="52" type="#type"/>
+	<field name="EVEN" pos="55" type="bool" display="(even)"/>
+	<field name="POS_INF" pos="56" type="bool" display="(pos_infinity)"/>
+	<pattern low="57" high="58">00</pattern>
+	<field name="JP" pos="59" type="bool" display="(jp)"/>
+	<field name="SY" pos="60" type="bool" display="(sy)"/>
+	<pattern low="61" high="63">001</pattern>  <!-- cat1 -->
+	<derived name="HALF" type="bool" display="h">
+		<expr>
+			<var name="SRC_TYPE"/>
+			<jmp/>
+			<retlit val="1"/>  <!-- f16 -->
+			<retlit val="0"/>  <!-- f32 -->
+			<retlit val="1"/>  <!-- u16 -->
+			<retlit val="0"/>  <!-- u32 -->
+			<retlit val="1"/>  <!-- s16 -->
+			<retlit val="0"/>  <!-- u32 -->
+			<retlit val="1"/>  <!-- u8 -->
+			<retlit val="1"/>  <!-- s8 -->
+		</expr>
+	</derived>
+	<derived name="DST_HALF" type="bool" display="h">
+		<expr>
+			<var name="DST_TYPE"/>
+			<jmp/>
+			<retlit val="1"/>  <!-- f16 -->
+			<retlit val="0"/>  <!-- f32 -->
+			<retlit val="1"/>  <!-- u16 -->
+			<retlit val="0"/>  <!-- u32 -->
+			<retlit val="1"/>  <!-- s16 -->
+			<retlit val="0"/>  <!-- u32 -->
+			<retlit val="1"/>  <!-- u8 -->
+			<retlit val="1"/>  <!-- s8 -->
+		</expr>
+	</derived>
+</bitset>
+
+<!--
+	Helpers for displaying cat1 source forms.. split out so the toplevel
+	instruction can just refer to {SRC}.  This decouples the cov/mov/mova
+	permultations from the different src type permutations
+ -->
+
+<bitset name="#cat1-immed-src" size="32">
+	<display>
+		#{IMMED}
+	</display>
+	<field name="IMMED" low="0" high="31" type="uint"/>
+</bitset>
+
+<bitset name="#cat1-const-src" size="11">
+	<display>
+		{SRC_R}{HALF}{CONST}
+	</display>
+	<field name="CONST" low="0" high="10" type="#reg-const"/>
+</bitset>
+
+<bitset name="#cat1-gpr-src" size="8">
+	<display>
+		{SRC_R}{HALF}{SRC}
+	</display>
+	<field name="SRC" low="0" high="7" type="#reg-gpr"/>
+</bitset>
+
+<bitset name="#cat1-relative-gpr-src" size="10">
+	<display>
+		{SRC_R}{HALF}{SRC}
+	</display>
+	<field name="SRC" low="0" high="9" type="#reg-relative-gpr"/>
+</bitset>
+
+<bitset name="#cat1-relative-const-src" size="10">
+	<display>
+		{SRC_R}{HALF}{SRC}
+	</display>
+	<field name="SRC" low="0" high="9" type="#reg-relative-const"/>
+</bitset>
+
+<!--
+	cov/mov/mova permultations based on src type:
+ -->
+
+<bitset name="mov-immed" extends="#instruction-cat1">
+	<field name="SRC" low="0" high="31" type="#cat1-immed-src"/>
+	<pattern low="53" high="54">10</pattern>
+	<pattern pos="43">0</pattern>   <!-- SRC1_R -->
+</bitset>
+
+<bitset name="mov-const" extends="#instruction-cat1">
+	<field name="SRC" low="0" high="10" type="#cat1-const-src"/>
+	<pattern low="11" high="31">000000000000000000000</pattern>
+	<pattern low="53" high="54">01</pattern>
+	<field name="SRC_R" pos="43" type="bool" display="(r)"/>
+</bitset>
+
+<bitset name="mov-gpr" extends="#instruction-cat1">
+	<field name="SRC" low="0" high="7" type="#cat1-gpr-src"/>
+	<pattern low="8" high="31">000000000000000000000000</pattern>
+	<pattern low="53" high="54">00</pattern>
+	<field name="SRC_R" pos="43" type="bool" display="(r)"/>
+</bitset>
+
+<bitset name="#instruction-cat1-relative" extends="#instruction-cat1">
+	<pattern pos="11">1</pattern>
+	<pattern low="12" high="31">00000000000000000000</pattern>
+	<field name="SRC_R" pos="43" type="bool" display="(r)"/>
+	<pattern low="53" high="54">00</pattern>
+</bitset>
+
+<bitset name="mov-relative-gpr" extends="#instruction-cat1-relative">
+	<field name="SRC" low="0" high="9" type="#cat1-relative-gpr-src"/>
+	<pattern pos="10">0</pattern>
+</bitset>
+
+<bitset name="mov-relative-const" extends="#instruction-cat1-relative">
+	<field name="SRC" low="0" high="9" type="#cat1-relative-const-src"/>
+	<pattern pos="10">1</pattern>
+</bitset>
+
+</isa>
