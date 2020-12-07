@@ -509,10 +509,17 @@ fs_visitor::try_copy_propagate(fs_inst *inst, int arg, acp_entry *entry)
 
    bool has_source_modifiers = entry->src.abs || entry->src.negate;
 
-   if ((has_source_modifiers || entry->src.file == UNIFORM ||
-        !entry->src.is_contiguous()) &&
-       !inst->can_do_source_mods(devinfo))
+   if (has_source_modifiers && !inst->can_do_source_mods(devinfo))
       return false;
+
+   if ((entry->src.file == UNIFORM || !entry->src.is_contiguous()) &&
+       ((devinfo->gen == 6 && inst->is_math()) ||
+        inst->is_send_from_grf() ||
+        inst->opcode == SHADER_OPCODE_BROADCAST ||
+        inst->opcode == SHADER_OPCODE_CLUSTER_BROADCAST ||
+        inst->opcode == SHADER_OPCODE_MOV_INDIRECT)) {
+      return false;
+   }
 
    if (has_source_modifiers &&
        inst->opcode == SHADER_OPCODE_GEN4_SCRATCH_WRITE)
