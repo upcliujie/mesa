@@ -239,6 +239,7 @@ drisw_swap_buffers(__DRIdrawable *dPriv)
    struct dri_context *ctx = dri_get_current(dPriv->driScreenPriv);
    struct dri_drawable *drawable = dri_drawable(dPriv);
    struct pipe_resource *ptex;
+   struct pipe_fence_handle *fence = NULL;
 
    if (!ctx)
       return;
@@ -252,7 +253,7 @@ drisw_swap_buffers(__DRIdrawable *dPriv)
       if (ctx->hud)
          hud_run(ctx->hud, ctx->st->cso_context, ptex);
 
-      ctx->st->flush(ctx->st, ST_FLUSH_FRONT, NULL, NULL, NULL);
+      ctx->st->flush(ctx->st, ST_FLUSH_FRONT | ST_FLUSH_END_OF_FRAME | ST_FLUSH_WAIT, &fence, NULL, NULL);
 
       if (drawable->stvis.samples > 1) {
          /* Resolve the back buffer. */
@@ -273,6 +274,7 @@ drisw_copy_sub_buffer(__DRIdrawable *dPriv, int x, int y,
    struct dri_drawable *drawable = dri_drawable(dPriv);
    struct pipe_resource *ptex;
    struct pipe_box box;
+   struct pipe_fence_handle *fence = NULL;
    if (!ctx)
       return;
 
@@ -282,7 +284,7 @@ drisw_copy_sub_buffer(__DRIdrawable *dPriv, int x, int y,
       if (ctx->pp && drawable->textures[ST_ATTACHMENT_DEPTH_STENCIL])
          pp_run(ctx->pp, ptex, ptex, drawable->textures[ST_ATTACHMENT_DEPTH_STENCIL]);
 
-      ctx->st->flush(ctx->st, ST_FLUSH_FRONT, NULL, NULL, NULL);
+      ctx->st->flush(ctx->st, ST_FLUSH_FRONT | ST_FLUSH_END_OF_FRAME | ST_FLUSH_WAIT, &fence, NULL, NULL);
 
       u_box_2d(x, dPriv->h - y - h, w, h, &box);
       drisw_present_texture(dPriv, ptex, &box);
