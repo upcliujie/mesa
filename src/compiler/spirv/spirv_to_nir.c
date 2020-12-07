@@ -2538,6 +2538,28 @@ non_uniform_decoration_cb(struct vtn_builder *b,
    }
 }
 
+/* Apply SignExtend/ZeroExtend operands to get the actual result type for
+ * image read/sample operations.
+ */
+static nir_alu_type
+get_image_dest_type(struct vtn_builder *b, nir_alu_type type, unsigned operands)
+{
+   unsigned extend_operands =
+      operands & (SpvImageOperandsSignExtendMask | SpvImageOperandsZeroExtendMask);
+   vtn_fail_if(nir_alu_type_get_base_type(type) == nir_type_float && extend_operands,
+               "SignExtend/ZeroExtend used on floating-point texel type");
+   vtn_fail_if(extend_operands ==
+               (SpvImageOperandsSignExtendMask | SpvImageOperandsZeroExtendMask),
+               "SignExtend and ZeroExtend both specified");
+
+   if (operands & SpvImageOperandsSignExtendMask)
+      return nir_type_int | nir_alu_type_get_type_size(type);
+   if (operands & SpvImageOperandsZeroExtendMask)
+      return nir_type_uint | nir_alu_type_get_type_size(type);
+
+   return type;
+}
+
 static void
 vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
                    const uint32_t *w, unsigned count)
@@ -2822,8 +2844,9 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
 
    /* Now we need to handle some number of optional arguments */
    struct vtn_value *gather_offsets = NULL;
+   uint32_t operands = SpvImageOperandsMaskNone;
    if (idx < count) {
-      uint32_t operands = w[idx];
+      operands = w[idx];
 
       if (operands & SpvImageOperandsBiasMask) {
          vtn_assert(texop == nir_texop_tex ||
@@ -2954,6 +2977,7 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
                   "SPIR-V return type mismatches image type. This is only valid "
                   "for untyped images (OpenCL).");
       dest_type = nir_get_nir_type_for_glsl_base_type(ret_base);
+      dest_type = get_image_dest_type(b, dest_type, operands);
    }
 
    instr->dest_type = dest_type;
@@ -3438,8 +3462,14 @@ vtn_handle_image(struct vtn_builder *b, SpvOp opcode,
          vtn_push_nir_ssa(b, w[2], result);
       }
 
-      if (opcode == SpvOpImageRead || opcode == SpvOpImageSparseRead)
-         nir_intrinsic_set_dest_type(intrin, nir_get_nir_type_for_glsl_type(type->type));
+      if (opcode == SpvOpImageRead || opcode == SpvOpImageSparseRead) {
+         const SpvImageOperandsMask operands =
+            count > 5 ? w[5] : SpvImageOperandsMaskNone;
+
+         nir_alu_type dest_type =
+            get_image_dest_type(b, nir_get_nir_type_for_glsl_type(type->type), operands);
+         nir_intrinsic_set_dest_type(intrin, dest_type);
+      }
    } else {
       nir_builder_instr_insert(&b->nb, &intrin->instr);
    }
