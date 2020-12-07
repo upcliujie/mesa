@@ -2449,29 +2449,44 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
                   "OpArrayLength must reference the last memeber of the "
                   "structure and that must be an array");
 
-      const uint32_t offset = ptr->type->offsets[field];
-      const uint32_t stride = ptr->type->members[field]->stride;
-
-      if (!ptr->block_index) {
+      nir_ssa_def *array_length;
+      if (b->options->use_deref_buffer_array_length) {
          struct vtn_access_chain chain = {
-            .length = 0,
+            .length = 1,
+            .link = {
+               { .mode = vtn_access_mode_literal, .id = field, },
+            }
          };
          ptr = vtn_pointer_dereference(b, ptr, &chain);
-         vtn_assert(ptr->block_index);
+
+         nir_ssa_def *deref = &vtn_pointer_to_deref(b, ptr)->dest.ssa;
+         array_length = nir_deref_buffer_array_length(
+            &b->nb, deref, .access=ptr->access | ptr->type->access);
+      } else {
+         const uint32_t offset = ptr->type->offsets[field];
+         const uint32_t stride = ptr->type->members[field]->stride;
+
+         if (!ptr->block_index) {
+            struct vtn_access_chain chain = {
+               .length = 0,
+            };
+            ptr = vtn_pointer_dereference(b, ptr, &chain);
+            vtn_assert(ptr->block_index);
+         }
+
+         nir_ssa_def *buf_size = nir_get_ssbo_size(&b->nb, ptr->block_index,
+                                                   .access=ptr->access | ptr->type->access);
+
+         /* array_length = max(buffer_size - offset, 0) / stride */
+         array_length =
+            nir_idiv(&b->nb,
+                     nir_imax(&b->nb,
+                              nir_isub(&b->nb,
+                                       buf_size,
+                                       nir_imm_int(&b->nb, offset)),
+                              nir_imm_int(&b->nb, 0u)),
+                     nir_imm_int(&b->nb, stride));
       }
-
-      nir_ssa_def *buf_size = nir_get_ssbo_size(&b->nb, ptr->block_index,
-                                                .access=ptr->access | ptr->type->access);
-
-      /* array_length = max(buffer_size - offset, 0) / stride */
-      nir_ssa_def *array_length =
-         nir_idiv(&b->nb,
-                  nir_imax(&b->nb,
-                           nir_isub(&b->nb,
-                                    buf_size,
-                                    nir_imm_int(&b->nb, offset)),
-                           nir_imm_int(&b->nb, 0u)),
-                  nir_imm_int(&b->nb, stride));
 
       vtn_push_nir_ssa(b, w[2], array_length);
       break;
