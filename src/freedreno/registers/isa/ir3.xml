@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright © 2020 Google, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ -->
+
+<!--
+The basic idea is to define a hierarchy of encodings, where various
+ranges of bits can be either:
+
+* patterns to match to select a sub-encoding (0, 1, x (dontcare))
+* instruction parameters (ie. dst register, type, etc)
+* range of bits that delegates to another hierarchy (ie. src reg
+  encoding which has multiple sub-encodings depending on gpr/const/
+  relative)
+
+The root of the encoding hierarchy defines the size.  By the concrete
+leaf nodes of an encoding hierarchy all bits should be accounted for
+(ie. either defined as 0/1/x).
+
+TODO:
+* encoding/decoding rules.. can we generate a disassembler directly
+  from this which matches existing syntax?  Or should this just be
+  used to go between binary <-> ir3 IR?  One useful thing this can
+  tell us for disasm is whether we see any DONTCARE bits set, which
+  might be a hint about new instruction encodings (or might just be
+  garbage that hw ignores)
+* add optional min/max gen fields for cases where same binary maps
+  to different instructions and/or encodings on later gens
+* schema
+* push more fields that only apply to certain instructions further
+  down the inheritance hierarchy
+* probably split things up into .xml per instruction category?
+* possibly nice if we can define the behavior of instructions in
+  some form that could be used to generate an emulator
+  - incl delayslot info
+  - and which "pipeline" the instruction runs on, ie. ALU/TEX/MEM?
+* rename src/freedreno/registers -> src/freedreno/hw
+ -->
+
+
+<!--
+Source Register encoding, used most places where a src can be either
+gpr/const/relative
+ -->
+<isa>
+
+<bitset name="#multisrc" size="16">
+	<doc>
+		Encoding for instruction source which can be GPR/CONST/IMMED
+		or relative GPR/CONST.
+	</doc>
+</bitset>
+
+<bitset name="#mulitsrc-immed" extends="#multisrc">
+	<doc>
+		Immediate src.  For integer instructions, encodes an int
+		value.  For float instructions, the following mapping
+		table defines the float value encoded by integer value:
+
+			0  -> 0.0
+			1  -> 0.5
+			2  -> 1.0
+			3  -> 2.0
+			4  -> e
+			5  -> pi
+			6  -> 1/pi
+			7  -> 1/log2(e)
+			8  -> log2(e)
+			9  -> 1/log2(10)
+			10 -> log2(10)
+			11 -> 4.0
+
+	</doc>
+	<display>
+		{IMMED}
+	</display>
+	<field name="IMMED" low="0"  high="10" type="int"/>
+	<pattern low="11" high="15">00100</pattern>
+	<!-- TODO can we abs/neg an immed? -->
+</bitset>
+
+<bitset name="#multisrc-gpr" extends="#multisrc">
+	<display>
+		{ABS}{NEG}{GPR}
+	</display>
+	<field name="GPR" low="0"  high="10" type="reg_gpr"/>
+	<pattern low="11" high="13">000</pattern>
+	<!--
+	TODO how to handle the (absneg) case?  Maybe NEG/ABS
+	should be an enum instead?
+	 -->
+	<field name="NEG" pos="14" type="bool" display="(neg)"/>
+	<field name="ABS" pos="15" type="bool" display="(abs)"/>
+</bitset>
+
+<bitset name="#multisrc-const" extends="#multisrc">
+	<display>
+		{CONST}
+	</display>
+	<field name="CONST" low="0" high="11" type="reg_const"/>
+	<pattern low="12" high="15">xxx1</pattern>
+</bitset>
+
+<bitset name="#multisrc-relative" extends="#multisrc">
+	<pattern low="11" high="15">10xxx</pattern>
+</bitset>
+
+<bitset name="#multisrc-relative-gpr" extends="#multisrc-relative">
+	<field name="RELGPR" low="0" high="9" type="reg_rel_gpr"/>
+	<pattern pos="10">0</pattern>
+</bitset>
+
+<bitset name="#multisrc-relative-gpr" extends="#multisrc-relative">
+	<field name="RELCONST" low="0" high="9" type="reg_rel_const"/>
+	<pattern pos="10">1</pattern>
+</bitset>
+
+<!--
+Enums used in various places:
+ -->
+<enum name="#rptN">
+	<value val="0" display=""/>
+	<value val="1" display="(rpt1)"/>
+	<value val="2" display="(rpt2)"/>
+	<value val="3" display="(rpt3)"/>
+	<value val="4" display="(rpt4)"/>
+	<value val="5" display="(rpt5)"/>
+</enum>
+
+<enum name="#cond">
+	<value val="0" display="lt"/>
+	<value val="1" display="le"/>
+	<value val="2" display="gt"/>
+	<value val="3" display="ge"/>
+	<value val="4" display="eq"/>
+	<value val="5" display="ne"/>
+</enum>
+
+<!--
+Instruction encodings
+ -->
+
+<bitset name="#instruction" size="64">
+	<doc>
+		Encoding of an ir3 instruction.  All instructions are 64b.
+	</doc>
+</bitset>
+
+<!--
+Cat0 Instructions:
+ -->
+
+<bitset name="#instruction-cat0" extends="#instruction">
+	<!--
+	TODO immed size is 16b for a3xx, 20b for a4xx, 32b for a5xx+.. should we
+	try to express this?  Also, not all cat0 take an immed, so maybe push
+	this further down the hierarchy?
+	 -->
+	<field name="IMMED" low="0" high="31" type="int"/>
+
+	<field name="REPEAT" low="40" high="42" type="#rptN"/>
+	<pattern pos="43">x</pattern>
+	<field name="SS" pos="44" type="bool" display="(ss)"/>
+	<field name="EQ" pos="48" type="bool" display="(eq)"/>
+	<field name="JP" pos="59" type="bool" display="(jp)"/>
+	<field name="SY" pos="60" type="bool" display="(sy)"/>
+	<pattern low="61" high="63">000</pattern>  <!-- cat0 -->
+</bitset>
+
+<bitset name="#instruction-cat0-0src" extends="#instruction-cat0">
+	<display>
+		{SY}{SS}{EQ}{JP}{REPEAT}{NAME}
+	</display>
+	<pattern low="32" high="36">00000</pattern>
+	<pattern low="37" high="39">000</pattern>  <!-- BRTYPE -->
+	<pattern low="45" high="47">000</pattern>  <!-- src1 -->
+	<pattern low="52" high="54">000</pattern>  <!-- src0 -->
+</bitset>
+
+<bitset name="nop" extends="#instruction-cat0-0src">
+	<pattern low="49" high="51">0xx</pattern>  <!-- OPC_HI -->
+	<pattern low="55" high="58">0000</pattern> <!-- OPC -->
+</bitset>
+
+<bitset name="end" extends="#instruction-cat0-0src">
+	<pattern low="49" high="51">0xx</pattern>  <!-- OPC_HI -->
+	<pattern low="55" high="58">0110</pattern> <!-- OPC -->
+</bitset>
+
+<bitset name="#instruction-cat0-branch" extends="#instruction-cat0">
+	<pattern low="49" high="51">0xx</pattern>  <!-- OPC_HI -->
+	<pattern low="55" high="58">0001</pattern> <!-- OPC -->
+</bitset>
+
+<bitset name="brac" extends="#instruction-cat0-branch">
+	<field name="INDEX" low="32" high="36" type="uint"/>
+	<pattern low="37" high="39">011</pattern>  <!-- BRTYPE -->
+	<pattern low="45" high="47">xxx</pattern>  <!-- src1 -->
+	<pattern low="52" high="54">xxx</pattern>  <!-- src0 -->
+</bitset>
+
+<bitset name="brax" extends="#instruction-cat0-branch">
+	<pattern low="32" high="36">xxxxx</pattern>
+	<pattern low="37" high="39">110</pattern>  <!-- BRTYPE -->
+	<pattern low="45" high="47">xxx</pattern>  <!-- src1 -->
+	<pattern low="52" high="54">xxx</pattern>  <!-- src0 -->
+</bitset>
+
+<bitset name="#instruction-cat0-branch-1src" extends="#instruction-cat0-branch">
+	<pattern low="32" high="36">xxxxx</pattern>
+	<pattern low="45" high="47">xxx</pattern>  <!-- src1 -->
+	<field name="INV" pos="52" type="bool" display="!">
+		<doc>Invert source condition</doc>
+	</field>
+	<field name="COMP" low="53" high="54" type="uint">
+		<doc>Predicate register (p0.c) component for source</doc>
+	</field>
+</bitset>
+
+<bitset name="br" extends="#instruction-cat0-branch-1src">
+	<pattern low="37" high="39">000</pattern>  <!-- BRTYPE -->
+</bitset>
+
+<bitset name="bany" extends="#instruction-cat0-branch-1src">
+	<pattern low="37" high="39">100</pattern>  <!-- BRTYPE -->
+</bitset>
+
+<bitset name="ball" extends="#instruction-cat0-branch-1src">
+	<pattern low="37" high="39">101</pattern>  <!-- BRTYPE -->
+</bitset>
+
+<bitset name="#instruction-cat0-branch-2src" extends="#instruction-cat0-branch">
+	<pattern low="32" high="36">xxxxx</pattern>
+	<!-- src1: -->
+	<field name="INV0" pos="45" type="bool" display="!">
+		<doc>Invert source 1 condition</doc>
+	</field>
+	<field name="COMP0" low="46" high="47" type="uint">
+		<doc>Predicate register (p0.c) component for source 1</doc>
+	</field>
+	<!-- src0: -->
+	<field name="INV0" pos="52" type="bool" display="!">
+		<doc>Invert source 0 condition</doc>
+	</field>
+	<field name="COMP0" low="53" high="54" type="uint">
+		<doc>Predicate register (p0.c) component for source 0</doc>
+	</field>
+</bitset>
+
+<bitset name="brao" extends="#instruction-cat0-branch-2src">
+	<pattern low="37" high="39">001</pattern>  <!-- BRTYPE -->
+</bitset>
+
+<bitset name="braa" extends="#instruction-cat0-branch-2src">
+	<pattern low="37" high="39">010</pattern>  <!-- BRTYPE -->
+</bitset>
+
+<!-- TODO rest of cat0 -->
+
+<!-- TODO cat1 -->
+
+<!--
+Cat2 Instructions:
+ -->
+
+<bitset name="#instruction-cat2" extends="#instruction">
+	<field name="DST" low="32" high="39" type="reg_gpr"/>
+	<field name="REPEAT" low="40" high="41" type="#rptN"/>
+	<field name="SAT" pos="42" type="bool" display="(sat)"/>
+	<field name="SS" pos="44" type="bool" display="(ss)"/>
+	<field name="UL" pos="45" type="bool" display="(ul)"/>
+	<field name="DST_HALF" pos="46" type="bool"/> <!-- TODO better name.. widen/narrow -->
+	<field name="EI" pos="47" type="bool" display="(ei)"/>
+	<field name="FULL" pos="52" type="bool"/>
+	<field name="JP" pos="59" type="bool" display="(jp)"/>
+	<field name="SY" pos="60" type="bool" display="(sy)"/>
+	<pattern low="61" high="63">010</pattern>  <!-- cat2 -->
+</bitset>
+
+<bitset name="#instruction-cat2-1src" extends="#instruction-cat2">
+	<display>
+		{SY}{SS}{JP}{SAT}{REPEAT}{UL}{NAME} {DST}, {SRC_R}{SRC}
+	</display>
+	<field name="SRC" low="0" high="15" type="#multisrc"/>
+	<pattern low="16" high="31">xxxxxxxxxxxxxxxx</pattern>
+	<field name="SRC_R" pos="43" type="bool" display="(r)"/>
+	<pattern low="48" high="51">xxxx</pattern>  <!-- COND + SRC1_R -->
+</bitset>
+
+<bitset name="absneg.f" extends="#instruction-cat2-1src">
+	<pattern low="53" high="58">000110</pattern>
+</bitset>
+
+<bitset name="absneg.s" extends="#instruction-cat2-1src">
+	<pattern low="53" high="58">011010</pattern>
+</bitset>
+
+<!-- TODO rest of cat2-1src -->
+
+<bitset name="#instruction-cat2-2src" extends="#instruction-cat2">
+	<display>
+		{SY}{SS}{JP}{SAT}{REPEAT}{UL}{NAME} {DST}, {SRC0_R}{SRC0}, {SRC1_R}{SRC1}
+	</display>
+	<field name="SRC0" low="0"  high="15" type="#multisrc"/>
+	<field name="SRC1" low="16" high="31" type="#multisrc"/>
+	<field name="SRC0_R" pos="43" type="bool" display="(r)"/>
+	<pattern low="48" high="50">xxx</pattern>  <!-- COND -->
+	<field name="SRC1_R" pos="51" type="bool" display="(r)"/>
+</bitset>
+
+<bitset name="add.f" extends="#instruction-cat2-2src">
+	<pattern low="53" high="58">000000</pattern>
+</bitset>
+
+<bitset name="min.f" extends="#instruction-cat2-2src">
+	<pattern low="53" high="58">000001</pattern>
+</bitset>
+
+<!-- TODO rest of cat2-2src -->
+
+<!-- The cmp*.* instructions additionally have a condition code: -->
+
+<bitset name="#instruction-cat2-2src-cond" extends="#instruction-cat2">
+	<!-- TODO how to handle (nopN) which is derived from other fields? -->
+	<display>
+		{SY}{SS}{JP}{SAT}{REPEAT}{UL}{NAME}.{COND} {DST}, {SRC0_R}{SRC0}, {SRC1_R}{SRC1}
+	</display>
+	<field name="SRC0" low="0"  high="15" type="#multisrc"/>
+	<field name="SRC1" low="16" high="31" type="#multisrc"/>
+	<field name="SRC0_R" pos="43" type="bool" display="(r)"/>
+	<field name="COND" low="48" high="50" type="#cond"/>
+	<field name="SRC1_R" pos="51" type="bool" display="(r)"/>
+</bitset>
+
+<bitset name="cmps.f" extends="#instruction-cat2-2src-cond">
+	<pattern low="53" high="58">000101</pattern>
+</bitset>
+
+<bitset name="cmps.u" extends="#instruction-cat2-2src-cond">
+	<pattern low="53" high="58">010100</pattern>
+</bitset>
+
+<!-- TODO rest of cat2-2src-cond -->
+
+</isa>
