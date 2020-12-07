@@ -118,6 +118,7 @@ deep_copy_shader_stage(void *mem_ctx,
 {
    dst->sType = src->sType;
    dst->pNext = NULL;
+   assert(src->pNext);
    dst->flags = src->flags;
    dst->stage = src->stage;
    dst->module = src->module;
@@ -174,8 +175,8 @@ deep_copy_viewport_state(void *mem_ctx,
                          const VkPipelineViewportStateCreateInfo *src)
 {
    dst->sType = src->sType;
-   dst->pNext = src->pNext;
-
+   dst->pNext = NULL;
+   assert(src->pNext);
    dst->flags = src->flags;
 
    if (src->pViewports) {
@@ -205,7 +206,8 @@ deep_copy_color_blend_state(void *mem_ctx,
                             const VkPipelineColorBlendStateCreateInfo *src)
 {
    dst->sType = src->sType;
-   dst->pNext = src->pNext;
+   dst->pNext = NULL;
+   assert(src->pNext);
    dst->flags = src->flags;
    dst->logicOpEnable = src->logicOpEnable;
    dst->logicOp = src->logicOp;
@@ -227,7 +229,8 @@ deep_copy_dynamic_state(void *mem_ctx,
                         const VkPipelineDynamicStateCreateInfo *src)
 {
    dst->sType = src->sType;
-   dst->pNext = src->pNext;
+   dst->pNext = NULL;
+   assert(src->pNext);
    dst->flags = src->flags;
 
    LVP_PIPELINE_DUP(dst->pDynamicStates,
@@ -250,6 +253,7 @@ deep_copy_graphics_create_info(void *mem_ctx,
 
    dst->sType = src->sType;
    dst->pNext = NULL;
+   assert(src->pNext);
    dst->flags = src->flags;
    dst->layout = src->layout;
    dst->renderPass = src->renderPass;
@@ -367,6 +371,7 @@ deep_copy_compute_create_info(void *mem_ctx,
    VkResult result;
    dst->sType = src->sType;
    dst->pNext = NULL;
+   assert(src->pNext);
    dst->flags = src->flags;
    dst->layout = src->layout;
    dst->basePipelineHandle = src->basePipelineHandle;
