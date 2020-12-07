@@ -144,7 +144,11 @@ public:
       Operand op;
       Op(Temp tmp) : op(tmp) {}
       Op(Operand op_) : op(op_) {}
-      Op(Result res) : op((Temp)res) {}
+   };
+
+   struct OpOrResult : Op {
+       OpOrResult(Result res) : Op((Temp)res) {}
+       OpOrResult(Op op_) : Op(op_) {}
    };
 
    enum WaveSpecificOpcode {
@@ -433,11 +437,19 @@ public:
       return pseudo(aco_opcode::p_parallelcopy, dst, op);
    }
 
+   Result vadd32(Definition dst, OpOrResult a, Op b, bool carry_out=false, Op carry_in=Op(Operand(s2)), bool post_ra=false) {
+       return vadd32(dst, (Op)a, b, carry_out, carry_in, post_ra);
+   }
+
+   Result vadd32(Definition dst, Op a, OpOrResult b, bool carry_out=false, Op carry_in=Op(Operand(s2)), bool post_ra=false) {
+       return vadd32(dst, a, (Op)b, carry_out, carry_in, post_ra);
+   }
+
    Result vadd32(Definition dst, Op a, Op b, bool carry_out=false, Op carry_in=Op(Operand(s2)), bool post_ra=false) {
       if (!b.op.isTemp() || b.op.regClass().type() != RegType::vgpr)
          std::swap(a, b);
       if (!post_ra && (!b.op.hasRegClass() || b.op.regClass().type() == RegType::sgpr))
-         b = copy(def(v1), b);
+         b = OpOrResult(copy(def(v1), b)); // TODO: Cleanup
 
       if (!carry_in.op.isUndefined())
          return vop2(aco_opcode::v_addc_co_u32, Definition(dst), hint_vcc(def(lm)), a, b, carry_in);
@@ -449,6 +461,14 @@ public:
          return vop2(aco_opcode::v_add_u32, Definition(dst), a, b);
    }
 
+   Result vsub32(Definition dst, OpOrResult a, Op b, bool carry_out=false, Op borrow=Op(Operand(s2))) {
+      return vsub32(dst, (Op)a, b, carry_out, borrow);
+   }
+
+   Result vsub32(Definition dst, Op a, OpOrResult b, bool carry_out=false, Op borrow=Op(Operand(s2))) {
+      return vsub32(dst, a, (Op)b, carry_out, borrow);
+   }
+
    Result vsub32(Definition dst, Op a, Op b, bool carry_out=false, Op borrow=Op(Operand(s2)))
    {
       if (!borrow.op.isUndefined() || program->chip_class < GFX9)
@@ -458,7 +478,7 @@ public:
       if (reverse)
          std::swap(a, b);
       if (!b.op.hasRegClass() || b.op.regClass().type() == RegType::sgpr)
-         b = copy(def(v1), b);
+         b = OpOrResult(copy(def(v1), b)); // TODO: Cleanup
 
       aco_opcode op;
       Temp carry;
@@ -499,12 +519,27 @@ public:
       return insert(std::move(sub));
    }
 
+   Result readlane(Definition dst, OpOrResult vsrc, Op lane) {
+      return readlane(dst, (Op)vsrc, lane);
+   }
+   Result readlane(Definition dst, Op vsrc, OpOrResult lane) {
+      return readlane(dst, vsrc, (Op)lane);
+   }
    Result readlane(Definition dst, Op vsrc, Op lane)
    {
       if (program->chip_class >= GFX8)
          return vop3(aco_opcode::v_readlane_b32_e64, dst, vsrc, lane);
       else
          return vop2(aco_opcode::v_readlane_b32, dst, vsrc, lane);
+   }
+   Result writelane(Definition dst, OpOrResult val, Op lane, Op vsrc) {
+      return writelane(dst, (Op)val, lane, vsrc);
+   }
+   Result writelane(Definition dst, Op val, OpOrResult lane, Op vsrc) {
+      return writelane(dst, val, (Op)lane, vsrc);
+   }
+   Result writelane(Definition dst, Op val, Op lane, OpOrResult vsrc) {
+      return writelane(dst, val, lane, (Op)vsrc);
    }
    Result writelane(Definition dst, Op val, Op lane, Op vsrc) {
       if (program->chip_class >= GFX8)
@@ -550,13 +585,42 @@ formats = [(f if len(f) == 5 else f + ('',)) for f in formats]
     % for num_definitions, num_operands in shapes:
         <%
         args = ['aco_opcode opcode']
+        has_op_arg = false
         for i in range(num_definitions):
             args.append('Definition def%d' % i)
         for i in range(num_operands):
+            has_op_arg = true
             args.append('Op op%d' % i)
         for f in formats:
             args += f.get_builder_field_decls()
         %>\\
+
+   % for opidx in range(num_operands):
+      % if has_op_arg == true:
+         <%
+         args2 = []
+         args3 = []
+         op = 0
+         for i in range(len(args)):
+            isop = (args[i].startswith("Op ", 0))
+
+            if op == opidx and isop:
+               args2.append('OpOrResult op%d' % opidx)
+               args3.append('(Op)op%d' % opidx)
+            else:
+               args2.append(args[i])
+               args3.append(' '.join(args2[i].split(' ')[1:]).split('=')[0])
+
+            if (isop):
+               op = op + 1
+         %>\\
+
+         Result ${name}(${', '.join(args2)})
+         {
+            return ${name}(${', '.join(args3)});
+         }
+      %endif
+   % endfor
 
    Result ${name}(${', '.join(args)})
    {
@@ -589,7 +653,34 @@ formats = [(f if len(f) == 5 else f + ('',)) for f in formats]
             params.append('op%d' % i)
         %>\\
 
-   inline Result ${name}(${', '.join(args)})
+        % for opidx in range(num_operands):
+           % if has_op_arg == true:
+              <%
+              args2 = []
+              args3 = []
+              op = 0
+              for i in range(len(args)):
+                 isop = (args[i].startswith("Op ", 0))
+
+                 if op == opidx and isop:
+                    args2.append('OpOrResult op%d' % opidx)
+                    args3.append('(Op)op%d' % opidx)
+                 else:
+                    args2.append(args[i])
+                    args3.append(' '.join(args2[i].split(' ')[1:]).split('=')[0])
+
+                 if (isop):
+                    op = op + 1
+              %>\\
+
+              Result ${name}(${', '.join(args2)})
+              {
+                 return ${name}(${', '.join(args3)});
+              }
+           %endif
+        % endfor
+
+        inline Result ${name}(${', '.join(args)})
    {
        return ${name}(w64or32(opcode), ${', '.join(params)});
    }

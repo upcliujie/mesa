@@ -2101,7 +2101,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
             Temp tmp0 = bld.vopc_e64(aco_opcode::v_cmp_gt_f64, bld.def(bld.lm), src0, Operand(0u));
             Temp tmp1 = bld.vopc(aco_opcode::v_cmp_lg_f64, bld.hint_vcc(bld.def(bld.lm)), src0, trunc);
             Temp cond = bld.sop2(aco_opcode::s_and_b64, bld.hint_vcc(bld.def(s2)), bld.def(s1, scc), tmp0, tmp1);
-            Temp add = bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1), bld.copy(bld.def(v1), Operand(0u)), bld.copy(bld.def(v1), Operand(0x3ff00000u)), cond);
+            Temp add = bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1), Operand(0u), bld.copy(bld.def(v1), Operand(0x3ff00000u)), cond);
             add = bld.pseudo(aco_opcode::p_create_vector, bld.def(v2), bld.copy(bld.def(v1), Operand(0u)), add);
             bld.vop3(aco_opcode::v_add_f64, Definition(dst), trunc, add);
          }
@@ -8622,12 +8622,12 @@ void prepare_cube_coords(isel_context *ctx, std::vector<Temp>& coords, Temp* ddx
 
          deriv_ma = bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), deriv_ma, invma);
 
-         Temp x = bld.vop2(aco_opcode::v_sub_f32, bld.def(v1),
-                               bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), deriv_sc, invma),
-                               bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), deriv_ma, sc));
-         Temp y = bld.vop2(aco_opcode::v_sub_f32, bld.def(v1),
-                               bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), deriv_tc, invma),
-                               bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), deriv_ma, tc));
+         Temp x = bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), deriv_sc, invma);
+         x = bld.vop2(aco_opcode::v_sub_f32, bld.def(v1),
+                        x, bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), deriv_ma, sc));
+         Temp y = bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), deriv_tc, invma);
+         y = bld.vop2(aco_opcode::v_sub_f32, bld.def(v1),
+                        y, bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), deriv_ma, tc));
          *(i ? ddy : ddx) = bld.pseudo(aco_opcode::p_create_vector, bld.def(v2), x, y);
       }
 
