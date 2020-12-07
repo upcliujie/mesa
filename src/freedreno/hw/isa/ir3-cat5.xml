@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright © 2020 Google, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ -->
+
+<isa>
+
+<!--
+	Cat5 Instructions: texture instructions
+
+	The instruction encoding is simpler than the display (ie. in some
+	cases the # of src args differs based on flags like .o, which gets
+	combined the various bindless/non-bindless cases.  To handle this
+	src's are broken out into their own bitsets with empty display
+	overrides where needed.
+ -->
+
+<bitset name="#instruction-cat5" extends="#instruction">
+	<display>
+		{SY}{JP}{NAME}{3D}{A}{O}{P}{S} {TYPE}({WRMASK}){DST_HALF}{DST}{SRC1}{SRC2}{SAMP}{TEX}
+	</display>
+	<derived name="DST_HALF" expr="#cat5-dest-half" type="bool" display="h"/>
+	<field name="FULL" pos="0" type="bool"/>
+	<field name="SRC1" low="1" high="8" type="#cat5-src1"/>
+	<field name="SRC2" low="9" high="16" type="#cat5-src2"/>
+
+	<!--
+		TODO remainder of first 32b differ depending on s2en/bindless..
+		possibly use overrides?  Need to sort-out how to display..
+	 -->
+	<pattern low="17" high="20">0000</pattern>
+	<field name="SAMP" low="21" high="24" type="#cat5-samp"/>
+	<field name="TEX" low="25" high="31" type="#cat5-tex"/>
+
+	<field name="DST" low="32" high="39" type="#reg-gpr"/>
+	<field name="WRMASK" low="40" high="43" type="#wrmask"/>
+	<field name="TYPE" low="44" high="46" type="#cat5-type"/>
+	<!-- BASE_LO -->
+<pattern pos="47">0</pattern>  <!-- HACK -->
+	<field name="3D" pos="48" type="bool" display=".3d"/>
+	<field name="A" pos="49" type="bool" display=".a"/>
+	<field name="S" pos="50" type="bool" display=".s"/>
+	<!-- S2EN / BINDLESS -->
+<pattern pos="51">0</pattern>  <!-- HACK -->
+	<field name="O" pos="52" type="bool" display=".o"/>
+	<field name="P" pos="53" type="bool" display=".p"/>
+	<!-- OPC -->
+	<field name="JP" pos="59" type="bool" display="(jp)"/>
+	<field name="SY" pos="60" type="bool" display="(sy)"/>
+	<pattern low="61" high="63">101</pattern>  <!-- cat5 -->
+</bitset>
+
+<bitset name="isam" extends="#instruction-cat5">
+	<pattern low="54" high="58">00000</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="isaml" extends="#instruction-cat5">
+	<pattern low="54" high="58">00001</pattern>
+	<derived name="NUM_SRC" expr="#two" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="isamm" extends="#instruction-cat5">
+	<pattern low="54" high="58">00010</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="sam" extends="#instruction-cat5">
+	<pattern low="54" high="58">00011</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="samb" extends="#instruction-cat5">
+	<pattern low="54" high="58">00100</pattern>
+	<derived name="NUM_SRC" expr="#two" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="saml" extends="#instruction-cat5">
+	<pattern low="54" high="58">00101</pattern>
+	<derived name="NUM_SRC" expr="#two" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="samgq" extends="#instruction-cat5">
+	<pattern low="54" high="58">00110</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="getlod" extends="#instruction-cat5">
+	<pattern low="54" high="58">00111</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="conv" extends="#instruction-cat5">
+	<pattern low="54" high="58">01000</pattern>
+	<derived name="NUM_SRC" expr="#two" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="convm" extends="#instruction-cat5">
+	<pattern low="54" high="58">01001</pattern>
+	<derived name="NUM_SRC" expr="#two" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="getsize" extends="#instruction-cat5">
+	<pattern low="54" high="58">01010</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#false" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="getbuf" extends="#instruction-cat5">
+	<pattern low="54" high="58">01011</pattern>
+	<derived name="NUM_SRC" expr="#zero" type="uint"/>
+	<derived name="HAS_SAMP" expr="#false" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="getpos" extends="#instruction-cat5">
+	<pattern low="54" high="58">01100</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#false" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="getinfo" extends="#instruction-cat5">
+	<pattern low="54" high="58">01101</pattern>
+	<derived name="NUM_SRC" expr="#zero" type="uint"/>
+	<derived name="HAS_SAMP" expr="#false" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="dsx" extends="#instruction-cat5">
+	<pattern low="54" high="58">01110</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#false" type="bool"/>
+	<derived name="HAS_TEX" expr="#false" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="dsy" extends="#instruction-cat5">
+	<pattern low="54" high="58">01111</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#false" type="bool"/>
+	<derived name="HAS_TEX" expr="#false" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="gather4r" extends="#instruction-cat5">
+	<pattern low="54" high="58">10000</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="gather4g" extends="#instruction-cat5">
+	<pattern low="54" high="58">10001</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="gather4b" extends="#instruction-cat5">
+	<pattern low="54" high="58">10010</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="gather4a" extends="#instruction-cat5">
+	<pattern low="54" high="58">10011</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="samgp0" extends="#instruction-cat5">
+	<pattern low="54" high="58">10100</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="samgp1" extends="#instruction-cat5">
+	<pattern low="54" high="58">10101</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="samgp2" extends="#instruction-cat5">
+	<pattern low="54" high="58">10110</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="samgp3" extends="#instruction-cat5">
+	<pattern low="54" high="58">10111</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#true" type="bool"/>
+	<derived name="HAS_TEX" expr="#true" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="dsxpp.1" extends="#instruction-cat5">
+	<pattern low="54" high="58">11000</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#false" type="bool"/>
+	<derived name="HAS_TEX" expr="#false" type="bool"/>
+	<derived name="HAS_TYPE" expr="#false" type="bool"/>
+</bitset>
+
+<bitset name="dsypp.1" extends="#instruction-cat5">
+	<pattern low="54" high="58">11001</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#false" type="bool"/>
+	<derived name="HAS_TEX" expr="#false" type="bool"/>
+	<derived name="HAS_TYPE" expr="#false" type="bool"/>
+</bitset>
+
+<bitset name="rgetpos" extends="#instruction-cat5">
+	<pattern low="54" high="58">11010</pattern>
+	<derived name="NUM_SRC" expr="#one" type="uint"/>
+	<derived name="HAS_SAMP" expr="#false" type="bool"/>
+	<derived name="HAS_TEX" expr="#false" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+<bitset name="rgetinfo" extends="#instruction-cat5">
+	<pattern low="54" high="58">11011</pattern>
+	<derived name="NUM_SRC" expr="#zero" type="uint"/>
+	<derived name="HAS_SAMP" expr="#false" type="bool"/>
+	<derived name="HAS_TEX" expr="#false" type="bool"/>
+	<derived name="HAS_TYPE" expr="#true" type="bool"/>
+</bitset>
+
+
+<!--
+	Various helpers
+ -->
+<!--
+	Whether the src/dst is half-precision is a function of the src/dst types
+ -->
+
+<expr name="#cat5-dest-half">
+	<doc>Destination precision is a function of the type field</doc>
+	<var name="TYPE"/>
+	<jmp/>
+	<retlit val="1"/>  <!-- f16 -->
+	<retlit val="0"/>  <!-- f32 -->
+	<retlit val="1"/>  <!-- u16 -->
+	<retlit val="0"/>  <!-- u32 -->
+	<retlit val="1"/>  <!-- s16 -->
+	<retlit val="0"/>  <!-- u32 -->
+	<retlit val="1"/>  <!-- u8 -->
+	<retlit val="1"/>  <!-- s8 -->
+</expr>
+
+<expr name="#cat5-has-src1">
+	<literal val="0"/>
+	<var name="NUM_SRC"/>
+	<gt/>
+</expr>
+
+<expr name="#cat5-has-src2">
+	<var name="O"/>
+	<retif/>
+	<literal val="1"/>
+	<var name="NUM_SRC"/>
+	<gt/>
+</expr>
+
+<expr name="#cat5-has-samp">
+	<var name="HAS_SAMP"/>
+</expr>
+
+<expr name="#cat5-has-tex">
+	<var name="HAS_TEX"/>
+</expr>
+
+<expr name="#cat5-has-type">
+	<var name="HAS_TYPE"/>
+</expr>
+
+<!--
+	All the magic for conditionally displaying various srcs, etc
+ -->
+
+<bitset name="#cat5-src1" size="8">
+	<display/>
+	<override expr="#cat5-has-src1">
+		<display>
+			, {SRC}
+		</display>
+	</override>
+	<field name="SRC" low="0" high="7" type="#reg-gpr"/>
+</bitset>
+
+<bitset name="#cat5-src2" size="8">
+	<display/>
+	<override expr="#cat5-has-src2">
+		<display>
+			, {SRC}
+		</display>
+	</override>
+	<field name="SRC" low="0" high="7" type="#reg-gpr"/>
+</bitset>
+
+<bitset name="#cat5-samp" size="4">
+	<display/>
+	<override expr="#cat5-has-samp">
+		<display>
+			, s#{SAMP}
+		</display>
+	</override>
+	<field name="SAMP" low="0" high="3" type="uint"/>
+</bitset>
+
+<bitset name="#cat5-tex" size="7">
+	<display/>
+	<override expr="#cat5-has-tex">
+		<display>
+			, t#{TEX}
+		</display>
+	</override>
+	<field name="TEX" low="0" high="6" type="uint"/>
+</bitset>
+
+<bitset name="#cat5-type" size="3">
+	<display/>
+	<override expr="#cat5-has-type">
+		<display>
+			({TYPE})
+		</display>
+	</override>
+	<field name="TYPE" low="0" high="2" type="#type"/>
+</bitset>
+
+</isa>
