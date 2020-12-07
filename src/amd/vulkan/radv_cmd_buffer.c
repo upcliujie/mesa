@@ -495,7 +495,7 @@ radv_cmd_buffer_resize_upload_buf(struct radv_cmd_buffer *cmd_buffer,
 
 	bo = device->ws->buffer_create(device->ws,
 				       new_size, 4096,
-				       RADEON_DOMAIN_GTT,
+				       radv_cmdbuffer_domain(device->physical_device),
 				       RADEON_FLAG_CPU_ACCESS|
 				       RADEON_FLAG_NO_INTERPROCESS_SHARING |
 				       RADEON_FLAG_32BIT |

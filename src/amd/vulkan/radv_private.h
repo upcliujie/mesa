@@ -2704,6 +2704,13 @@ radv_use_llvm_for_stage(struct radv_device *device, UNUSED gl_shader_stage stage
 	return device->physical_device->use_llvm;
 }
 
+static inline enum radeon_bo_domain
+radv_cmdbuffer_domain(const struct radv_physical_device *pdevice)
+{
+	return pdevice->rad_info.all_vram_visible &&
+	       pdevice->rad_info.has_dedicated_vram;
+}
+
 #define RADV_DEFINE_HANDLE_CASTS(__radv_type, __VkType)		\
 								\
 	static inline struct __radv_type *			\
