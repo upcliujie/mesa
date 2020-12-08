@@ -1166,9 +1166,8 @@ void si_prim_discard_signal_next_compute_ib_start(struct si_context *sctx)
    *sctx->last_pkt3_write_data = PKT3(PKT3_NOP, 3, 0);
 }
 
-void gfx10_emit_cache_flush(struct si_context *ctx)
+void gfx10_emit_cache_flush(struct si_context *ctx, struct radeon_cmdbuf *cs)
 {
-   struct radeon_cmdbuf *cs = &ctx->gfx_cs;
    uint32_t gcr_cntl = 0;
    unsigned cb_db_event = 0;
    unsigned flags = ctx->flags;
@@ -1345,9 +1344,8 @@ void gfx10_emit_cache_flush(struct si_context *ctx)
    ctx->flags = 0;
 }
 
-void si_emit_cache_flush(struct si_context *sctx)
+void si_emit_cache_flush(struct si_context *sctx, struct radeon_cmdbuf *cs)
 {
-   struct radeon_cmdbuf *cs = &sctx->gfx_cs;
    uint32_t flags = sctx->flags;
 
    if (!sctx->has_graphics) {
@@ -2315,7 +2313,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
       /* Emit all states except possibly render condition. */
       si_emit_all_states(sctx, info, indirect, prim, instance_count, min_direct_count,
                          primitive_restart, masked_atoms);
-      sctx->emit_cache_flush(sctx);
+      sctx->emit_cache_flush(sctx, &sctx->gfx_cs);
       /* <-- CUs are idle here. */
 
       if (si_is_atom_dirty(sctx, &sctx->atoms.s.render_cond)) {
@@ -2345,7 +2343,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
        * states, and draw at the end.
        */
       if (sctx->flags)
-         sctx->emit_cache_flush(sctx);
+         sctx->emit_cache_flush(sctx, &sctx->gfx_cs);
 
       /* Only prefetch the API VS and VBO descriptors. */
       if (sctx->chip_class >= GFX7 && sctx->prefetch_L2_mask)
