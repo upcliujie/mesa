@@ -73,6 +73,12 @@ struct d3d12_dxgi_screen : public d3d12_screen {
    wchar_t description[128];
 };
 
+struct d3d12_dxcore_screen : public d3d12_screen {
+   struct IDXCoreAdapterFactory *factory;
+   struct IDXCoreAdapter *adapter;
+   char description[256];
+};
+
 static inline struct d3d12_screen *
 d3d12_screen(struct pipe_screen *pipe)
 {
@@ -81,5 +87,8 @@ d3d12_screen(struct pipe_screen *pipe)
 
 extern struct d3d12_screen *
 d3d12_create_dxgi_screen(LUID *adapter_luid);
+
+extern struct d3d12_screen *
+d3d12_create_dxcore_screen(LUID *adapter_luid);
 
 #endif
