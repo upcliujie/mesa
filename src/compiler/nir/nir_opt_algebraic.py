@@ -774,6 +774,10 @@ for s in [8, 16, 32, 64]:
        (('ishl', 'a@{}'.format(s), ('iand', s - 1, b)), ('ishl', a, b)),
        (('ishr', 'a@{}'.format(s), ('iand', s - 1, b)), ('ishr', a, b)),
        (('ushr', 'a@{}'.format(s), ('iand', s - 1, b)), ('ushr', a, b)),
+
+       (('ishl', 'a@{}'.format(s), ('iadd', s, ('ineg', b))), ('ishl', a, ('ineg', b))),
+       (('ishr', 'a@{}'.format(s), ('iadd', s, ('ineg', b))), ('ishr', a, ('ineg', b))),
+       (('ushr', 'a@{}'.format(s), ('iadd', s, ('ineg', b))), ('ushr', a, ('ineg', b))),
     ])
 
 optimizations.extend([
