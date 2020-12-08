@@ -1819,13 +1819,29 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       unreachable("not reached: should have been lowered");
 
    case nir_op_ishl:
-      bld.SHL(result, op[0], op[1]);
+      /* Both nir_op_ishl and SHL only use the low bits of the shift count
+       * matching the size of the thing being shifted (i.e., 5-bit shift count
+       * for 32-bit shifted value).
+       */
+      bld.SHL(result, op[0],
+              retype(op[1], brw_int_type(type_sz(op[1].type), true)));
       break;
    case nir_op_ishr:
-      bld.ASR(result, op[0], op[1]);
+      /* Both nir_op_ishr and ASR only use the low bits of the shift count
+       * matching the size of the thing being shifted (i.e., 5-bit shift count
+       * for 32-bit shifted value).
+       */
+      bld.ASR(result, op[0],
+              retype(op[1], brw_int_type(type_sz(op[1].type), true)));
       break;
    case nir_op_ushr:
-      bld.SHR(result, op[0], op[1]);
+      /* Both nir_op_ushr and SHR only use the low bits of the shift count
+       * matching the size of the thing being shifted (i.e., 5-bit shift count
+       * for 32-bit shifted value).
+       */
+      bld.SHR(result,
+              retype(op[0], brw_int_type(type_sz(op[0].type), false)),
+              retype(op[1], brw_int_type(type_sz(op[1].type), true)));
       break;
 
    case nir_op_urol:
