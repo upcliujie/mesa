@@ -36,7 +36,10 @@
 #include <directx/d3d12.h>
 #include <directx/dxcore.h>
 
+#ifdef _WIN32
 #include <dxgi1_4.h>
+#endif
+
 
 struct pb_manager;
 
@@ -44,8 +47,10 @@ struct d3d12_screen {
    struct pipe_screen base;
    struct sw_winsys *winsys;
 
+#ifdef _WIN32
    IDXGIFactory4 *dxgi_factory;
    IDXGIAdapter1 *dxgi_adapter;
+#endif
    IDXCoreAdapterFactory *dxcore_factory;
    IDXCoreAdapter *dxcore_adapter;
    ID3D12Device *dev;
