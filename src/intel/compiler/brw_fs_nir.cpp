@@ -1818,13 +1818,17 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       unreachable("not reached: should have been lowered");
 
    case nir_op_ishl:
-      bld.SHL(result, op[0], op[1]);
+      bld.SHL(result, op[0],
+              retype(op[1], brw_int_type(type_sz(op[1].type), true)));
       break;
    case nir_op_ishr:
-      bld.ASR(result, op[0], op[1]);
+      bld.ASR(result, op[0],
+              retype(op[1], brw_int_type(type_sz(op[1].type), true)));
       break;
    case nir_op_ushr:
-      bld.SHR(result, op[0], op[1]);
+      bld.SHR(result,
+              retype(op[0], brw_int_type(type_sz(op[0].type), false)),
+              retype(op[1], brw_int_type(type_sz(op[1].type), true)));
       break;
 
    case nir_op_urol:
