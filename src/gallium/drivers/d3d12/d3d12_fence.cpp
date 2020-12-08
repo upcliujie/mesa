@@ -28,11 +28,21 @@
 
 #include "util/u_memory.h"
 
+#ifndef _WIN32
+#include <sys/eventfd.h>
+#include <poll.h>
+#endif
+
 static void
 destroy_fence(struct d3d12_fence *fence)
 {
+#ifdef _WIN32
    if (fence->event)
       CloseHandle(fence->event);
+#else
+   if (fence->event_fd)
+      close(fence->event_fd);
+#endif
    FREE(fence);
 }
 
@@ -47,8 +57,13 @@ d3d12_create_fence(struct d3d12_screen *screen, struct d3d12_context *ctx)
 
    ret->cmdqueue_fence = ctx->cmdqueue_fence;
    ret->value = ++ctx->fence_value;
+#ifdef _WIN32
    ret->event = CreateEvent(NULL, FALSE, FALSE, NULL);
    if (FAILED(ctx->cmdqueue_fence->SetEventOnCompletion(ret->value, ret->event)))
+#else
+   ret->event_fd = eventfd(0, 0);
+   if (FAILED(ctx->cmdqueue_fence->SetEventOnCompletion(ret->value, (HANDLE)(size_t)ret->event_fd)))
+#endif
       goto fail;
    if (FAILED(screen->cmdqueue->Signal(ctx->cmdqueue_fence, ret->value)))
       goto fail;
@@ -86,8 +101,18 @@ d3d12_fence_finish(struct d3d12_fence *fence, uint64_t timeout_ns)
    
    bool complete = fence->cmdqueue_fence->GetCompletedValue() >= fence->value;
    if (!complete && timeout_ns) {
-      DWORD timeout_ms = (timeout_ns == PIPE_TIMEOUT_INFINITE) ? INFINITE : timeout_ns * 1000;
+#ifdef _WIN32
+      DWORD timeout_ms = (timeout_ns == PIPE_TIMEOUT_INFINITE) ? INFINITE : timeout_ns / 1000;
       complete = WaitForSingleObject(fence->event, timeout_ms) == WAIT_OBJECT_0;
+#else
+      if (timeout_ns != PIPE_TIMEOUT_INFINITE) {
+         pollfd fds = { fence->event_fd, POLLIN, 0 };
+         complete = poll(&fds, 1, timeout_ns / 1000) && (fds.revents & POLLIN);
+      } else {
+         uint64_t val = 0;
+         complete = read(fence->event_fd, &val, sizeof(val)) == sizeof(val) && val > 0;
+      }
+#endif
    }
 
    fence->signaled = complete;

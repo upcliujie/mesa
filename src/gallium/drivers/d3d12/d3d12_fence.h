@@ -38,7 +38,11 @@ struct d3d12_screen;
 struct d3d12_fence {
    struct pipe_reference reference;
    ID3D12Fence *cmdqueue_fence;
+#ifdef _WIN32
    HANDLE event;
+#else
+   int event_fd;
+#endif
    uint64_t value;
    bool signaled;
 };
