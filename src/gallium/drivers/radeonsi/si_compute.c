@@ -902,6 +902,11 @@ static void si_launch_grid(struct pipe_context *ctx, const struct pipe_grid_info
 
    si_emit_dispatch_packets(sctx, info);
 
+   if (unlikely(sctx->screen->thread_trace_enabled)) {
+      radeon_emit(&sctx->gfx_cs, PKT3(PKT3_EVENT_WRITE, 0, 0));
+      radeon_emit(&sctx->gfx_cs, EVENT_TYPE(V_028A90_THREAD_TRACE_MARKER) | EVENT_INDEX(0));
+   }
+
    if (unlikely(sctx->current_saved_cs)) {
       si_trace_emit(sctx);
       si_log_compute_state(sctx, sctx->log);

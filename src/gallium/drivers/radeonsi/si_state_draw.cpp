@@ -23,6 +23,7 @@
  */
 
 #include "ac_debug.h"
+#include "ac_sqtt.h"
 #include "si_build_pm4.h"
 #include "sid.h"
 #include "util/u_index_modify.h"
@@ -830,6 +831,11 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
    uint32_t index_max_size = 0;
    uint32_t use_opaque = 0;
    uint64_t index_va = 0;
+
+   if (unlikely(sctx->screen->thread_trace_enabled)) {
+      si_sqtt_write_event_marker(sctx, &sctx->gfx_cs, EventCmdDraw,
+                                 UINT_MAX, UINT_MAX, UINT_MAX);
+   }
 
    if (indirect && indirect->count_from_stream_output) {
       struct si_streamout_target *t = (struct si_streamout_target *)indirect->count_from_stream_output;
@@ -2432,6 +2438,11 @@ static void si_draw_vbo(struct pipe_context *ctx,
          sctx->num_prim_restart_calls++;
       if (G_0286E8_WAVESIZE(sctx->spi_tmpring_size))
          sctx->num_spill_draw_calls++;
+   }
+
+   if (unlikely(sctx->screen->thread_trace_enabled)) {
+      radeon_emit(&sctx->gfx_cs, PKT3(PKT3_EVENT_WRITE, 0, 0));
+      radeon_emit(&sctx->gfx_cs, EVENT_TYPE(V_028A90_THREAD_TRACE_MARKER) | EVENT_INDEX(0));
    }
 
    DRAW_CLEANUP;
