@@ -662,6 +662,10 @@ enum lvp_cmds {
    LVP_CMD_PUSH_DESCRIPTOR_SET,
    LVP_CMD_BEGIN_CONDITIONAL_RENDERING,
    LVP_CMD_END_CONDITIONAL_RENDERING,
+   LVP_CMD_BIND_TRANSFORM_FEEDBACK_BUFFERS,
+   LVP_CMD_BEGIN_TRANSFORM_FEEDBACK,
+   LVP_CMD_END_TRANSFORM_FEEDBACK,
+   LVP_CMD_DRAW_INDIRECT_BYTE_COUNT,
 };
 
 struct lvp_cmd_bind_pipeline {
@@ -957,6 +961,37 @@ struct lvp_cmd_begin_conditional_rendering {
    bool inverted;
 };
 
+struct lvp_cmd_bind_transform_feedback_buffers {
+   uint32_t first_binding;
+   uint32_t binding_count;
+   struct lvp_buffer **buffers;
+   VkDeviceSize *offsets;
+   VkDeviceSize *sizes;
+};
+
+struct lvp_cmd_begin_transform_feedback {
+   uint32_t first_counter_buffer;
+   uint32_t counter_buffer_count;
+   struct lvp_buffer **counter_buffers;
+   VkDeviceSize *counter_buffer_offsets;
+};
+
+struct lvp_cmd_end_transform_feedback {
+   uint32_t first_counter_buffer;
+   uint32_t counter_buffer_count;
+   struct lvp_buffer **counter_buffers;
+   VkDeviceSize *counter_buffer_offsets;
+};
+
+struct lvp_cmd_draw_indirect_byte_count {
+   uint32_t instance_count;
+   uint32_t first_instance;
+   struct lvp_buffer *counter_buffer;
+   VkDeviceSize counter_buffer_offset;
+   uint32_t counter_offset;
+   uint32_t vertex_stride;
+};
+
 struct lvp_cmd_buffer_entry {
    struct list_head cmd_link;
    uint32_t cmd_type;
@@ -1000,6 +1035,10 @@ struct lvp_cmd_buffer_entry {
       struct lvp_cmd_draw_indirect_count draw_indirect_count;
       struct lvp_cmd_push_descriptor_set push_descriptor_set;
       struct lvp_cmd_begin_conditional_rendering begin_conditional_rendering;
+      struct lvp_cmd_bind_transform_feedback_buffers bind_transform_feedback_buffers;
+      struct lvp_cmd_begin_transform_feedback begin_transform_feedback;
+      struct lvp_cmd_end_transform_feedback end_transform_feedback;
+      struct lvp_cmd_draw_indirect_byte_count draw_indirect_byte_count;
    } u;
 };
 
