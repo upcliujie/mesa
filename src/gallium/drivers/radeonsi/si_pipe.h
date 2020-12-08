@@ -32,6 +32,8 @@
 #include "util/u_suballoc.h"
 #include "util/u_threaded_context.h"
 
+#include "ac_sqtt.h"
+
 #if UTIL_ARCH_BIG_ENDIAN
 #define SI_BIG_ENDIAN 1
 #else
@@ -209,6 +211,7 @@ enum
    DBG_NO_FMASK,
 
    DBG_TMZ,
+   DBG_SQTT,
 
    DBG_COUNT
 };
@@ -634,6 +637,11 @@ struct si_screen {
    unsigned compute_wave_size;
    unsigned ps_wave_size;
    unsigned ge_wave_size;
+
+   /* SQTT */
+   struct ac_thread_trace_data *thread_trace;
+   struct pipe_fence_handle *last_sqtt_fence;
+   bool thread_trace_enabled;
 };
 
 struct si_blend_color {
@@ -1525,6 +1533,16 @@ void vi_separate_dcc_process_and_reset_stats(struct pipe_context *ctx, struct si
 bool si_texture_disable_dcc(struct si_context *sctx, struct si_texture *tex);
 void si_init_screen_texture_functions(struct si_screen *sscreen);
 void si_init_context_texture_functions(struct si_context *sctx);
+
+/* si_sqtt.c */
+void si_sqtt_write_event_marker(struct si_context* sctx, struct radeon_cmdbuf *rcs,
+                                enum rgp_sqtt_marker_event_type api_type,
+                                uint32_t vertex_offset_user_data,
+                                uint32_t instance_offset_user_data,
+                                uint32_t draw_index_user_data);
+bool si_init_thread_trace(struct si_screen *sscreen);
+void si_destroy_thread_trace(struct si_screen *sscreen);
+void si_handle_thread_trace(struct si_context *sctx, struct radeon_cmdbuf *rcs);
 
 /*
  * common helpers
