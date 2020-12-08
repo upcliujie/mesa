@@ -410,7 +410,7 @@ armhf_test:
   extends:
     - .use-arm_test-base
   variables:
-    FDO_DISTRIBUTION_TAG: &armhf_test "2020-12-03-expect"
+    MESA_IMAGE_TAG: &armhf_test "2020-12-03-expect"
 
 .use-armhf_test:
   variables:
