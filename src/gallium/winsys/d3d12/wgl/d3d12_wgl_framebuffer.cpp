@@ -71,7 +71,7 @@ d3d12_wgl_framebuffer_resize(stw_winsys_framebuffer *fb,
                              pipe_resource *templ)
 {
    struct d3d12_wgl_framebuffer *framebuffer = d3d12_wgl_framebuffer(fb);
-   struct d3d12_screen *screen = framebuffer->screen;
+   d3d12_dxgi_screen *screen = static_cast<d3d12_dxgi_screen *>(framebuffer->screen);
 
    DXGI_SWAP_CHAIN_DESC1 desc = {};
    desc.BufferCount = 2;
