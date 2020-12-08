@@ -1639,13 +1639,10 @@ bi_emit_tex(bi_builder *b, nir_tex_instr *instr)
                 unreachable("Invalid texture operation");
         }
 
-        nir_alu_type base = nir_alu_type_get_base_type(instr->dest_type);
-        unsigned sz = nir_dest_bit_size(instr->dest);
-
         bool is_simple = bi_is_simple_tex(instr);
         bool is_2d = instr->sampler_dim == GLSL_SAMPLER_DIM_2D ||
                 instr->sampler_dim == GLSL_SAMPLER_DIM_EXTERNAL;
-        bool is_f = base == nir_type_float && (sz == 16 || sz == 32);
+        bool is_f = nir_alu_type_get_base_type(instr->dest_type) == nir_type_float;
 
         if (is_simple && is_2d && is_f && !instr->is_shadow && !instr->is_array)
                 bi_emit_texs(b, instr);
