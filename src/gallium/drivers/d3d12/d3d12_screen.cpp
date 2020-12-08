@@ -644,9 +644,11 @@ d3d12_flush_frontbuffer(struct pipe_screen * pscreen,
       winsys->displaytarget_unmap(winsys, res->dt);
    }
 
+#ifdef _WIN32
    ID3D12SharingContract *sharing_contract;
    if (SUCCEEDED(screen->cmdqueue->QueryInterface(IID_PPV_ARGS(&sharing_contract))))
       sharing_contract->Present(d3d12_res, 0, WindowFromDC((HDC)winsys_drawable_handle));
+#endif
 
    winsys->displaytarget_display(winsys, res->dt, winsys_drawable_handle, sub_box);
 }
@@ -746,8 +748,11 @@ d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
 {
    d3d12_debug = debug_get_option_d3d12_debug();
 
-   struct d3d12_screen *screen = d3d12_create_dxgi_screen(adapter_luid);
+   struct d3d12_screen *screen;
+#ifdef _WIN32
+   screen = d3d12_create_dxgi_screen(adapter_luid);
    if (!screen)
+#endif
       screen = d3d12_create_dxcore_screen(adapter_luid);
 
    if (!screen) {
