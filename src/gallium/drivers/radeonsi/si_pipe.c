@@ -117,6 +117,7 @@ static const struct debug_named_value debug_options[] = {
    {"nofmask", DBG(NO_FMASK), "Disable MSAA compression"},
 
    {"tmz", DBG(TMZ), "Force allocation of scanout/depth/stencil buffer as encrypted"},
+   {"sqtt", DBG(SQTT), "Enable SQTT"},
 
    DEBUG_NAMED_VALUE_END /* must be last */
 };
@@ -825,6 +826,10 @@ static void si_destroy_screen(struct pipe_screen *pscreen)
       FREE(aux_log);
    }
 
+   if (sscreen->thread_trace) {
+      si_destroy_thread_trace(sscreen);
+   }
+
    sscreen->aux_context->destroy(sscreen->aux_context);
 
    util_queue_destroy(&sscreen->shader_compiler_queue);
@@ -1334,6 +1339,13 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
       struct u_log_context *log = CALLOC_STRUCT(u_log_context);
       u_log_context_init(log);
       sscreen->aux_context->set_log_context(sscreen->aux_context, log);
+   }
+
+   if (sscreen->debug_flags & DBG(SQTT) && !sscreen->thread_trace) {
+      if (!si_init_thread_trace(sscreen)) {
+         FREE(sscreen);
+         return NULL;
+      }
    }
 
    if (test_flags & DBG(TEST_DMA))
