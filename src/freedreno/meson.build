@@ -18,11 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-inc_freedreno = include_directories(['.', './registers', './registers/adreno', './common'])
+inc_freedreno = include_directories(['.', './hw', './hw/adreno', './common'])
 inc_freedreno_rnn = include_directories('rnn')
 
-rnn_src_path = meson.source_root() + '/src/freedreno/registers'
-rnn_install_path = get_option('datadir') + '/freedreno/registers'
+rnn_src_path = meson.source_root() + '/src/freedreno/hw'
+rnn_install_path = get_option('datadir') + '/freedreno/hw'
 rnn_path = rnn_src_path + ':' + get_option('prefix') + '/' + rnn_install_path
 
 dep_lua = dependency('lua53', required: false)
@@ -41,7 +41,7 @@ install_fd_decode_tools = dep_libxml2.found() and prog_gzip.found() and \
   with_tools.contains('freedreno')
 
 subdir('common')
-subdir('registers')
+subdir('hw')
 subdir('drm')
 subdir('ir2')
 subdir('ir3')
