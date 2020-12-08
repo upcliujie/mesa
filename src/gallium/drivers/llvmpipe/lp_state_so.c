@@ -61,6 +61,14 @@ llvmpipe_so_target_destroy(struct pipe_context *pipe,
 }
 
 static void
+llvmpipe_so_offsets(struct pipe_stream_output_target *so_target,
+                    unsigned *offset)
+{
+   struct draw_so_target *target = (struct draw_so_target *)so_target;
+   *offset = target->internal_offset;
+}
+
+static void
 llvmpipe_set_so_targets(struct pipe_context *pipe,
                         unsigned num_targets,
                         struct pipe_stream_output_target **targets,
@@ -107,4 +115,5 @@ llvmpipe_init_so_funcs(struct llvmpipe_context *pipe)
    pipe->pipe.create_stream_output_target = llvmpipe_create_so_target;
    pipe->pipe.stream_output_target_destroy = llvmpipe_so_target_destroy;
    pipe->pipe.set_stream_output_targets = llvmpipe_set_so_targets;
+   pipe->pipe.stream_output_target_offset = llvmpipe_so_offsets;
 }
