@@ -76,6 +76,15 @@ struct d3d12_dxgi_screen : public d3d12_screen {
    IUnknown *get_adapter() override;
 };
 
+struct d3d12_dxcore_screen : public d3d12_screen {
+   struct IDXCoreAdapterFactory *factory;
+   struct IDXCoreAdapter *adapter;
+   char description[256];
+
+   const char *get_name() override;
+   IUnknown *get_adapter() override;
+};
+
 static inline struct d3d12_screen *
 d3d12_screen(struct pipe_screen *pipe)
 {
@@ -84,5 +93,8 @@ d3d12_screen(struct pipe_screen *pipe)
 
 extern struct d3d12_screen *
 d3d12_create_dxgi_screen(LUID *adapter_luid);
+
+extern struct d3d12_screen *
+d3d12_create_dxcore_screen(LUID *adapter_luid);
 
 #endif

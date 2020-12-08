@@ -745,8 +745,11 @@ d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
    d3d12_debug = debug_get_option_d3d12_debug();
 
    struct d3d12_screen *screen = d3d12_create_dxgi_screen(adapter_luid);
+   if (!screen)
+      screen = d3d12_create_dxcore_screen(adapter_luid);
+
    if (!screen) {
-      debug_printf("D3D12: failed to retrieve DXGI factory\n");
+      debug_printf("D3D12: failed to retrieve DXGI and DXCore factories\n");
       return NULL;
    }
 
