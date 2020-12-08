@@ -47,6 +47,8 @@
 #include <directx/d3d12sdklayers.h>
 #include <directx/dxcore.h>
 
+#include <dxguids/dxguids.h>
+
 static const struct debug_named_value
 debug_options[] = {
    { "verbose",      D3D12_DEBUG_VERBOSE,       NULL },
