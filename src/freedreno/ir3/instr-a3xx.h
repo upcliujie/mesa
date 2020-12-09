@@ -457,7 +457,7 @@ typedef struct PACKED {
 	union PACKED {
 		struct PACKED {
 			uint32_t src1         : 11;
-			uint32_t must_be_zero1: 2;
+			uint32_t must_be_zero1: 2;   // low bit set when int->float LUT used
 			uint32_t src1_im      : 1;   /* immediate */
 			uint32_t src1_neg     : 1;   /* negate */
 			uint32_t src1_abs     : 1;   /* absolute value */
@@ -522,7 +522,7 @@ typedef struct PACKED {
 		struct PACKED {
 			uint32_t src1         : 11;
 			uint32_t must_be_zero1: 2;
-			uint32_t src2_c       : 1;
+			uint32_t src2_c       : 1;  // never set, must_be_zero?
 			uint32_t src1_neg     : 1;
 			uint32_t src2_r       : 1;  /* doubles as nop1 if repeat==0 */
 		};
@@ -705,7 +705,7 @@ typedef struct PACKED {
 			uint32_t src2         : 8;
 			uint32_t dummy1       : 2;
 			uint32_t base_hi      : 2;
-			uint32_t src3         : 8;
+			uint32_t src3         : 8;  // low bits are samp
 			uint32_t desc_mode    : 3;
 		} s2en_bindless;
 		/* same in either case: */
