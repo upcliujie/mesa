@@ -36,6 +36,7 @@
 #include "compiler.h"
 #include "bi_quirks.h"
 #include "bi_print.h"
+#include "bi_builder.h"
 
 static const struct debug_named_value debug_options[] = {
         {"msgs",      BIFROST_DBG_MSGS,		"Print debug messages"},
