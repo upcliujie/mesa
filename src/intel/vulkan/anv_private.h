@@ -1182,7 +1182,9 @@ bool anv_physical_device_extension_supported(struct anv_physical_device *dev,
                                              const char *name);
 
 struct anv_queue_submit {
-   struct anv_cmd_buffer *                   cmd_buffer;
+   struct anv_cmd_buffer **                  cmd_buffers;
+   uint32_t                                  cmd_buffer_count;
+   uint32_t                                  cmd_buffer_array_length;
 
    uint32_t                                  fence_count;
    uint32_t                                  fence_array_length;
@@ -1224,6 +1226,7 @@ struct anv_queue_submit {
    uintptr_t *                               fence_bos;
 
    int                                       perf_query_pass;
+   struct anv_query_pool *                   perf_query_pool;
 
    const VkAllocationCallbacks *             alloc;
    VkSystemAllocationScope                   alloc_scope;
