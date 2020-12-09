@@ -363,7 +363,7 @@ dri3_create_drawable(struct glx_screen *base, XID xDrawable,
    bool has_multibuffer = false;
 #ifdef HAVE_DRI3_MODIFIERS
    const struct dri3_display *const pdp = (struct dri3_display *)
-      base->display->dri3Display;
+      base->display->driDisplay;
 #endif
 
    pdraw = calloc(1, sizeof(*pdraw));
@@ -836,7 +836,7 @@ dri3_create_screen(int screen, struct glx_display * priv)
    const __DRIconfig **driver_configs;
    const __DRIextension **extensions;
    const struct dri3_display *const pdp = (struct dri3_display *)
-      priv->dri3Display;
+      priv->driDisplay;
    struct dri3_screen *psc;
    __GLXDRIscreen *psp;
    struct glx_config *configs = NULL, *visuals = NULL;

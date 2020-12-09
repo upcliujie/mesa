@@ -157,7 +157,7 @@ dri2_bind_context(struct glx_context *context, struct glx_context *old,
    /* If the server doesn't send invalidate events, we may miss a
     * resize before the rendering starts.  Invalidate the buffers now
     * so the driver will recheck before rendering starts. */
-   pdp = (struct dri2_display *) dpyPriv->dri2Display;
+   pdp = (struct dri2_display *) dpyPriv->driDisplay;
    if (!pdp->invalidateAvailable && pdraw) {
       dri2InvalidateBuffers(psc->base.dpy, pdraw->base.xDrawable);
       if (pread != pdraw && pread)
@@ -306,7 +306,7 @@ dri2DestroyDrawable(__GLXDRIdrawable *base)
    struct dri2_screen *psc = (struct dri2_screen *) base->psc;
    struct dri2_drawable *pdraw = (struct dri2_drawable *) base;
    struct glx_display *dpyPriv = psc->base.display;
-   struct dri2_display *pdp = (struct dri2_display *)dpyPriv->dri2Display;
+   struct dri2_display *pdp = (struct dri2_display *)dpyPriv->driDisplay;
 
    __glxHashDelete(pdp->dri2Hash, pdraw->base.xDrawable);
    (*psc->core->destroyDrawable) (pdraw->driDrawable);
@@ -368,7 +368,7 @@ dri2CreateDrawable(struct glx_screen *base, XID xDrawable,
    }
 
    DRI2CreateDrawable(psc->base.dpy, xDrawable);
-   pdp = (struct dri2_display *)dpyPriv->dri2Display;
+   pdp = (struct dri2_display *)dpyPriv->driDisplay;
    /* Create a new drawable */
    pdraw->driDrawable =
       (*psc->dri2->createNewDrawable) (psc->driScreen,
@@ -651,7 +651,7 @@ dri2FlushFrontBuffer(__DRIdrawable *driDrawable, void *loaderPrivate)
    if (priv == NULL)
        return;
 
-   pdp = (struct dri2_display *) priv->dri2Display;
+   pdp = (struct dri2_display *) priv->driDisplay;
    gc = __glXGetCurrentContext();
 
    dri2Throttle(psc, pdraw, __DRI2_THROTTLE_FLUSHFRONT);
@@ -796,7 +796,7 @@ dri2SwapBuffers(__GLXDRIdrawable *pdraw, int64_t target_msc, int64_t divisor,
     struct glx_display *dpyPriv = __glXInitialize(priv->base.psc->dpy);
     struct dri2_screen *psc = (struct dri2_screen *) priv->base.psc;
     struct dri2_display *pdp =
-	(struct dri2_display *)dpyPriv->dri2Display;
+	(struct dri2_display *)dpyPriv->driDisplay;
     int64_t ret = 0;
 
     /* Check we have the right attachments */
@@ -995,7 +995,7 @@ dri2_bind_tex_image(Display * dpy,
    if (dpyPriv == NULL)
        return;
 
-   pdp = (struct dri2_display *) dpyPriv->dri2Display;
+   pdp = (struct dri2_display *) dpyPriv->driDisplay;
 
    if (pdraw != NULL) {
       psc = (struct dri2_screen *) base->psc;
@@ -1060,7 +1060,7 @@ dri2BindExtensions(struct dri2_screen *psc, struct glx_display * priv,
                    const char *driverName)
 {
    const struct dri2_display *const pdp = (struct dri2_display *)
-      priv->dri2Display;
+      priv->driDisplay;
    const __DRIextension **extensions;
    int i;
 
@@ -1181,7 +1181,7 @@ dri2CreateScreen(int screen, struct glx_display * priv)
    const __DRIconfig **driver_configs;
    const __DRIextension **extensions;
    const struct dri2_display *const pdp = (struct dri2_display *)
-      priv->dri2Display;
+      priv->driDisplay;
    struct dri2_screen *psc;
    __GLXDRIscreen *psp;
    struct glx_config *configs = NULL, *visuals = NULL;
@@ -1376,7 +1376,7 @@ _X_HIDDEN __GLXDRIdrawable *
 dri2GetGlxDrawableFromXDrawableId(Display *dpy, XID id)
 {
    struct glx_display *d = __glXInitialize(dpy);
-   struct dri2_display *pdp = (struct dri2_display *) d->dri2Display;
+   struct dri2_display *pdp = (struct dri2_display *) d->driDisplay;
    __GLXDRIdrawable *pdraw;
 
    if (__glxHashLookup(pdp->dri2Hash, id, (void *) &pdraw) == 0)

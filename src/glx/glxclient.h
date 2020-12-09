@@ -602,16 +602,12 @@ struct glx_display
 
 #if defined(GLX_DIRECT_RENDERING) && !defined(GLX_USE_APPLEGL)
    __glxHashTable *drawHash;
-
+#endif
+#if defined(GLX_DIRECT_RENDERING) || defined(GLX_USE_WINDOWSGL)
     /**
      * Per display direct rendering interface functions and data.
      */
-   __GLXDRIdisplay *driswDisplay;
-   __GLXDRIdisplay *dri2Display;
-   __GLXDRIdisplay *dri3Display;
-#endif
-#ifdef GLX_USE_WINDOWSGL
-   __GLXDRIdisplay *windowsdriDisplay;
+   __GLXDRIdisplay *driDisplay;
 #endif
 };
 
