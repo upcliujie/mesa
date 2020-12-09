@@ -193,6 +193,8 @@ tc_batch_execute(void *job, UNUSED int thread_index)
                   pipe_resource_reference(&next_info->info.index.resource, NULL);
             }
 
+            first_info->info.has_user_indices = false;
+
             pipe->draw_vbo(pipe, &first_info->info, NULL, multi, num_draws);
             if (first_info->info.index_size)
                pipe_resource_reference(&first_info->info.index.resource, NULL);
