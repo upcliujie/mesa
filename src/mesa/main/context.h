@@ -355,15 +355,23 @@ _mesa_has_integer_textures(const struct gl_context *ctx)
 static inline bool
 _mesa_has_half_float_textures(const struct gl_context *ctx)
 {
+   /*
+    * ctx->Extensions.OES_texture_half_float is checked directly since
+    * _mesa_has_OES_texture_half_float would discard it for non-GLES contexts
+    */
    return _mesa_has_ARB_texture_float(ctx) ||
-          _mesa_has_OES_texture_half_float(ctx) || _mesa_is_gles3(ctx);
+          ctx->Extensions.OES_texture_half_float || _mesa_is_gles3(ctx);
 }
 
 static inline bool
 _mesa_has_float_textures(const struct gl_context *ctx)
 {
+   /*
+    * ctx->Extensions.OES_texture_float is checked directly since
+    * _mesa_has_OES_texture_float would discard it for non-GLES contexts
+    */
    return _mesa_has_ARB_texture_float(ctx) ||
-          _mesa_has_OES_texture_float(ctx) || _mesa_is_gles3(ctx);
+          ctx->Extensions.OES_texture_float || _mesa_is_gles3(ctx);
  }
 
 static inline bool
