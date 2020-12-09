@@ -256,26 +256,9 @@ glx_display_free(struct glx_display *priv)
    __glxHashDestroy(priv->drawHash);
 
    /* Free the direct rendering per display data */
-   if (priv->driswDisplay)
-      (*priv->driswDisplay->destroyDisplay) (priv->driswDisplay);
-   priv->driswDisplay = NULL;
-
-#if defined (GLX_USE_DRM)
-   if (priv->dri2Display)
-      (*priv->dri2Display->destroyDisplay) (priv->dri2Display);
-   priv->dri2Display = NULL;
-
-   if (priv->dri3Display)
-      (*priv->dri3Display->destroyDisplay) (priv->dri3Display);
-   priv->dri3Display = NULL;
-#endif /* GLX_USE_DRM */
-
-#if defined(GLX_USE_WINDOWSGL)
-   if (priv->windowsdriDisplay)
-      (*priv->windowsdriDisplay->destroyDisplay) (priv->windowsdriDisplay);
-   priv->windowsdriDisplay = NULL;
-#endif /* GLX_USE_WINDOWSGL */
-
+   if (priv->driDisplay)
+      priv->driDisplay->destroyDisplay(priv->driDisplay);
+   priv->driDisplay = NULL;
 #endif /* GLX_DIRECT_RENDERING && !GLX_USE_APPLEGL */
 
    free((char *) priv);
@@ -808,22 +791,8 @@ AllocAndFetchScreenConfigs(Display * dpy, struct glx_display * priv)
    for (i = 0; i < screens; i++, psc++) {
       psc = NULL;
 #if defined(GLX_DIRECT_RENDERING) && !defined(GLX_USE_APPLEGL)
-#if defined(GLX_USE_DRM)
-#if defined(HAVE_DRI3)
-      if (priv->dri3Display)
-         psc = (*priv->dri3Display->createScreen) (i, priv);
-#endif /* HAVE_DRI3 */
-      if (psc == NULL && priv->dri2Display)
-	 psc = (*priv->dri2Display->createScreen) (i, priv);
-#endif /* GLX_USE_DRM */
-
-#ifdef GLX_USE_WINDOWSGL
-      if (psc == NULL && priv->windowsdriDisplay)
-	 psc = (*priv->windowsdriDisplay->createScreen) (i, priv);
-#endif
-
-      if (psc == NULL && priv->driswDisplay)
-	 psc = (*priv->driswDisplay->createScreen) (i, priv);
+      if (priv->driDisplay)
+         psc = priv->driDisplay->createScreen(i, priv);
 #endif /* GLX_DIRECT_RENDERING && !GLX_USE_APPLEGL */
 
 #if defined(GLX_USE_APPLEGL)
@@ -918,14 +887,14 @@ __glXInitialize(Display * dpy)
    if (glx_direct && glx_accel) {
 #if defined(HAVE_DRI3)
       if (!env_var_as_boolean("LIBGL_DRI3_DISABLE", false))
-         dpyPriv->dri3Display = dri3_create_display(dpy);
+         dpyPriv->driDisplay = dri3_create_display(dpy);
 #endif /* HAVE_DRI3 */
       if (!env_var_as_boolean("LIBGL_DRI2_DISABLE", false))
-         dpyPriv->dri2Display = dri2CreateDisplay(dpy);
+         dpyPriv->driDisplay = dri2CreateDisplay(dpy);
    }
 #endif /* GLX_USE_DRM */
-   if (glx_direct)
-      dpyPriv->driswDisplay = driswCreateDisplay(dpy);
+   if (glx_direct && !dpyPriv->driDisplay)
+      dpyPriv->driDisplay = driswCreateDisplay(dpy);
 #endif /* GLX_DIRECT_RENDERING && !GLX_USE_APPLEGL */
 
 #ifdef GLX_USE_APPLEGL
@@ -936,8 +905,8 @@ __glXInitialize(Display * dpy)
 #endif
 
 #ifdef GLX_USE_WINDOWSGL
-   if (glx_direct && glx_accel)
-      dpyPriv->windowsdriDisplay = driwindowsCreateDisplay(dpy);
+   if (glx_direct && glx_accel && !dpyPriv->driDisplay)
+      dpyPriv->driDisplay = driwindowsCreateDisplay(dpy);
 #endif
 
    if (!AllocAndFetchScreenConfigs(dpy, dpyPriv)) {
