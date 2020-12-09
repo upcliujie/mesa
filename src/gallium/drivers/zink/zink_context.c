@@ -803,19 +803,21 @@ get_framebuffer(struct zink_context *ctx)
 {
    struct zink_batch *batch = zink_batch_no_rp(ctx);
    struct zink_screen *screen = zink_screen(ctx->base.screen);
+   struct pipe_surface *attachments[PIPE_MAX_COLOR_BUFS + 1] = {};
 
    struct zink_framebuffer_state state = {};
    state.rp = get_render_pass(ctx);
    for (int i = 0; i < ctx->fb_state.nr_cbufs; i++) {
       struct pipe_surface *psurf = ctx->fb_state.cbufs[i];
-      state.attachments[i] = zink_surface(psurf);
-      state.has_null_attachments |= !state.attachments[i];
+      state.attachments[i] = psurf ? zink_surface(psurf)->image_view : VK_NULL_HANDLE;
+      attachments[i] = psurf;
    }
 
    state.num_attachments = ctx->fb_state.nr_cbufs;
    if (ctx->fb_state.zsbuf) {
       struct pipe_surface *psurf = ctx->fb_state.zsbuf;
-      state.attachments[state.num_attachments++] = zink_surface(psurf);
+      state.attachments[state.num_attachments] = psurf ? zink_surface(psurf)->image_view : VK_NULL_HANDLE;;
+      attachments[state.num_attachments++] = psurf;
    }
 
    state.width = MAX2(ctx->fb_state.width, 1);
@@ -826,8 +828,8 @@ get_framebuffer(struct zink_context *ctx)
    struct hash_entry *entry = _mesa_hash_table_search(batch->framebuffer_cache, &state);
 
    if (!entry) {
-      struct zink_framebuffer *fb = zink_create_framebuffer(ctx, screen, &state);
-      entry = _mesa_hash_table_insert(batch->framebuffer_cache, &state, fb);
+      struct zink_framebuffer *fb = zink_create_framebuffer(ctx, screen, &state, &attachments[0]);
+      entry = _mesa_hash_table_insert(batch->framebuffer_cache, &fb->state, fb);
       if (!entry)
          return NULL;
    }
@@ -1307,14 +1309,14 @@ static uint32_t
 hash_framebuffer_state(const void *key)
 {
    struct zink_framebuffer_state* s = (struct zink_framebuffer_state*)key;
-   return _mesa_hash_data(key, sizeof(struct zink_framebuffer_state) + sizeof(s->attachments) * s->num_attachments);
+   return _mesa_hash_data(key, offsetof(struct zink_framebuffer_state, attachments) + sizeof(s->attachments[0]) * s->num_attachments);
 }
 
 static bool
 equals_framebuffer_state(const void *a, const void *b)
 {
    struct zink_framebuffer_state *s = (struct zink_framebuffer_state*)a;
-   return memcmp(a, b, sizeof(struct zink_framebuffer_state) + sizeof(s->attachments) * s->num_attachments) == 0;
+   return memcmp(a, b, offsetof(struct zink_framebuffer_state, attachments) + sizeof(s->attachments[0]) * s->num_attachments) == 0;
 }
 
 static void
