@@ -40,6 +40,195 @@
 #define INSTR_5XX(i, d) { .gpu_id = 540, .instr = #i, .expected = d }
 #define INSTR_6XX(i, d) { .gpu_id = 630, .instr = #i, .expected = d }
 
+/*
+NOTES:
+
+It is possible that *some* of these are garbage instructions..  stc and movmsk
+look legit, they show up a lot.
+
+blob:
+1441[3e000000_3e800000] (sy)(jp)movmsk.w32 hr0.x
+  46[3f800000_3f000000] (sy)(jp)movmsk.w32 (neg_infinity)hr0.x
+  47[3f800000_3f800000] (sy)(jp)movmsk.w32 (neg_infinity)hr0.x
+ 251[3f800000_00000000] (sy)(jp)movmsk.w32 (neg_infinity)hr0.x
+vs
+1441[3e000000_3e800000] (sy)(jp)mov.f16f16 hr0.x, hr0.x
+  46[3f800000_3f000000] (sy)(jp)mov.f16f16 (even)(pos_infinity)hr0.x, hr0.x
+  47[3f800000_3f800000] (sy)(jp)mov.f16f16 (even)(pos_infinity)hr0.x, hr0.x
+ 251[3f800000_00000000] (sy)(jp)mov.f16f16 (even)(pos_infinity)hr0.x, hr0.x
+note:        ^^^
+
+138[c7060020_01800004] stc c[32], r0.z, 1
+vs
+138[c7060020_01800004] stgb.untyped.1d.u32.1 g[0], r0.z, 1, r8.x
+
+
+807[4007e000_3d4cc000] (ul)add.f (shr)r0.x, (absneg)hr0.x,  851.x
+808[3dccc000_c083e000] (sy)(jp)swz.u32u32 (neg_infinity)r0.x, r32.w, (0x0), (0xe0)
+809[bf800000_3f800000] (sy)(jp)img.hof (f16)hr0.x, hr0.x, wt#0, s#12, t#31
+vs
+807[4007e000_3d4cc000] (ul)add.f (ei)r0.x, (absneg)hr0.x, -692
+808[3dccc000_c083e000] (sy)(jp)mov.u32u32 (even)(pos_infinity)r0.x, 0xc083e000
+809[bf800000_3f800000] (sy)(jp)unknown(5,30) (f16)()hr0.x
+
+
+3045[be99999a_3e4ccccd] (sy)(jp)rgetpos.o.3D.s2en.mode1.base3.clp (f32)(xOOw)r38.z
+3058[be99a000_3e4cc000] (sy)(jp)rgetpos.o.3D.s2en.mode1.base3.clp (u16)hr0.x
+vs
+3045[be99999a_3e4ccccd] (sy)(jp)rgetpos.3d.o.s2en.uniform.base3 (f32)(xw)r38.z, r25.z, r25.z, r60.z, a1.x
+3058[be99a000_3e4cc000] (sy)(jp)rgetpos.3d.o.s2en.uniform.base3 (u16)()hr0.x, hr0.x, hr24.x, r60.z, a1.x
+
+3478[3e4ccccd_3dcccccd] (sy)(jp)movmsk.w32 (sat)sr51.y
+3479[3f666666_3e99999a] (sy)(jp)(ul)movmsk.w96 (pos_infinity)(sat)r<a0.x + 102>
+3480[bf8ccccd_be4ccccd] (sy)(jp)img.s.s2en.mode0.pcmn.clp (s16)(OOzw)hr51.y, r25.z, hr60.z
+3481[bdcccccd_3f4ccccd] (sy)(jp)samgp3.s.s2en.mode1.base3.clp (s16)(OOzw)hr51.y, r25.z, p062.z
+3482[3ecccccd_3f99999a] (sy)(jp)movmsk.w32 (even)(sat)sr51.y
+5256[3dccc000_3f4cc000] (sy)(jp)swz.u32u32 (neg_infinity)r0.x, r19.x, (0x0), (0xc0)
+vs
+3478[3e4ccccd_3dcccccd] (sy)(jp)(rpt4)mov.u32u32 r51.y, 0x3dcccccd
+3479[3f666666_3e99999a] (sy)(jp)(rpt6)(ul)mov.f32f32 (pos_infinity)r<a0.x + 102>, (0.300000)
+3480[bf8ccccd_be4ccccd] (sy)(jp)unknown(5,30).s.s2en.uniform.base3 (s16)(zw)hr51.y, r60.z
+3481[bdcccccd_3f4ccccd] (sy)(jp)samgp3.s.s2en.uniform.base3 (s16)(zw)hr51.y, r25.z, p0.z, a1.x
+3482[3ecccccd_3f99999a] (sy)(jp)(rpt4)mov.u32u32 (even)r51.y, 0x3f99999a
+5256[3dccc000_3f4cc000] (sy)(jp)mov.u32u32 (even)(pos_infinity)r0.x, 0x3f4cc000
+
+6286[3d981626_bc996e30] (sy)(ss)(jp)sct.s8_16f16 (neg_infinity)(sat)hr9.z, hr27.z, hr38.y, hr47.x, hr12.x
+6287[3fc90da4_be593484] (sy)(jp)movmsk.w64 (neg_infinity)(sat)hr41.x
+6288[3fc90fdb_2a800000] (sy)(jp)movmsk.w128 (neg_infinity)(sat)sr54.w
+vs
+6286[3d981626_bc996e30] (sy)(ss)(jp)(rpt6)cov.u8f16 (even)(pos_infinity)hr9.z, hc<a0.x - 464>
+6287[3fc90da4_be593484] (sy)(jp)(rpt5)cov.u16s16 (even)(pos_infinity)hr41.x, 0xbe593484
+6288[3fc90fdb_2a800000] (sy)(jp)(rpt7)cov.u16s16 (even)(pos_infinity)hr54.w, 0x2a800000
+
+6568[bf400000_be800000] (sy)(jp)rbi (f16)hr0.x, hr0.x, hr0.x, t#95
+6569[c0200000_bfb00000] ldx.f16 hr0.x, g[r0.x], (nSH)7
+6570[bf800000_c0500000] (sy)(jp)img.sad (f16)hr0.x, hr0.x, wt#0, s#2, t#96
+vs
+6568[bf400000_be800000] (sy)(jp)unknown(5,29) (f16)()hr0.x
+6569[c0200000_bfb00000] ldg.f16 hr0.x, g[r0.x], 191
+6570[bf800000_c0500000] (sy)(jp)unknown(5,30) (f16)()hr0.x
+
+
+7021[bf580000_3fa00000] (sy)(jp)rbi.o.s2en.mode1.base0 (f16)hr0.x, hr0.x, hr0.x, r63.y
+vs
+7021[bf580000_3fa00000] (sy)(jp)unknown(5,29).o.s2en.uniform.base0 (f16)()hr0.x, hr0.x, r63.y, a1.x
+
+ 7061[bfa00000_bf400000] (sy)(jp)img (f16)hr0.x, hr0.x, wt#0, s#10, t#95
+24341[bf800000_3fffffff] (sy)(jp)img.clp.s34.ssd (f16)hr0.x, r63.w, wt#255, s#15, t#31
+vs
+ 7061[bfa00000_bf400000] (sy)(jp)unknown(5,30).p (f16)()hr0.x
+24341[bf800000_3fffffff] (sy)(jp)unknown(5,30) (f16)()hr0.x
+
+
+
+8770[c0d8a3d7_41026666] stthr.a.s16 g[r20.y+(((sr53.w<<2)+3)<<1)], hr12.w, hr16.y
+vs
+8770[c0d8a3d7_41026666] stg.s16 g[hr20.y+r53.w], hr12.w, hr16.y
+
+Do we need to sign-extend relative offsets??
+8771[400eb852_c09a8f5c] (ss)(ul)(nop3) add.f (shr)hr20.z, (abs)hc<a0.x-164>, (absneg)hr38.z
+vs
+8771[400eb852_c09a8f5c] (ss)(nop3) (ul)add.f (ei)hr20.z, (abs)hc<a0.x + 860>, (absneg)hr38.z
+
+9090[3d4ccccd_beeb851f] (sy)(jp)swz.u32u32 (pos_infinity)(sat)sr51.y, .w, (0x1f), (0x85)
+9102[3d4cc000_3f0f4000] (sy)(jp)swz.u32u32 (pos_infinity)r0.x, r3.w, (0x0), (0x40)
+vs
+9090[3d4ccccd_beeb851f] (sy)(jp)(rpt4)mov.u32u32 (pos_infinity)r51.y, 0xbeeb851f
+9102[3d4cc000_3f0f4000] (sy)(jp)mov.u32u32 (pos_infinity)r0.x, 0x3f0f4000
+
+22402[47340000_00002003] flat.b r0.x, 3
+22403[47340001_00002004] flat.b r0.y, 4
+22404[47348006_00002002] flat.b (ei)r1.z, 2
+22508[47340002_00002001] flat.b r0.z, 1
+22509[47348003_00002000] flat.b (ei)r0.w, 0
+22543[47340002_00002005] flat.b r0.z, 5
+22546[47348008_00002001] flat.b (ei)r2.x, 1
+vs
+22402[47340000_00002003] bary.f r0.x, 3, r0.x
+22403[47340001_00002004] bary.f r0.y, 4, r0.x
+22404[47348006_00002002] bary.f (ei)r1.z, 2, r0.x
+22508[47340002_00002001] bary.f r0.z, 1, r0.x
+22509[47348003_00002000] bary.f (ei)r0.w, 0, r0.x
+22543[47340002_00002005] bary.f r0.z, 5, r0.x
+22546[47348008_00002001] bary.f (ei)r2.x, 1, r0.x
+
+
+I guess this isn't too surprising.. but maybe we should double check that we take advantage
+of this in ir3_cp?
+22531[43900801_40020001] (nop1) and.b r0.y, r0.y, (not)r0.z
+vs
+22531[43900801_40020001] (nop1) and.b r0.y, r0.y, (neg)r0.z
+
+
+23221[47981803_00000002] (ss)(nop3) ctz.b r0.w, r0.z
+23223[57980806_00000005] (sy)(nop3) ctz.b r1.z, r1.y
+vs
+23221[47981803_00000002] (ss)(nop3) setrm r0.w, r0.z
+23223[57980806_00000005] (sy)(nop3) setrm r1.z, r1.y
+
+
+
+ 26868[c002000b_04c1800b] ldg.a.f32 r2.w, g[r1.z+(r1.y<<2)], 4
+ 26869[c002000f_04c18011] ldg.a.f32 r3.w, g[r1.z+(r2.x<<2)], 4
+ 26870[c0020013_04c18013] ldg.a.f32 r4.w, g[r1.z+(r2.y<<2)], 4
+ 26871[c0020005_01c18015] ldg.a.f32 r1.y, g[r1.z+(r2.z<<2)], 1
+102237[c0d2050a_0180000c] stg.a.f32 g[r0.z+(r2.z<<2)], r1.z, 1
+102238[c0d2050b_0180000e] stg.a.f32 g[r0.z+(r2.w<<2)], r1.w, 1
+102239[c0d2050c_01800012] stg.a.f32 g[r0.z+(r3.x<<2)], r2.y, 1
+vs
+ 26868[c002000b_04c1800b] ldg.f32 r2.w, g[r1.z+r1.y], 4
+ 26869[c002000f_04c18011] ldg.f32 r3.w, g[r1.z+r2.x], 4
+ 26870[c0020013_04c18013] ldg.f32 r4.w, g[r1.z+r2.y], 4
+ 26871[c0020005_01c18015] ldg.f32 r1.y, g[r1.z+r2.z], 1
+102237[c0d2050a_0180000c] stg.f32 g[r0.z+r2.z], r1.z, 1
+102238[c0d2050b_0180000e] stg.f32 g[r0.z+r2.w], r1.w, 1
+102239[c0d2050c_01800012] stg.f32 g[r0.z+r3.x], r2.y, 1
+
+
+34170[c0220002_7e618001] ldib.untyped.f32.1d.1.mode0.base0 r0.z, (nSH)r31.z, 0
+34171[c0220001_7f618001] ldib.untyped.f32.1d.1.mode0.base0 r0.y, (nSH)r31.w, 0
+34172[c0220002_81618001] ldib.untyped.f32.1d.1.mode0.base0 r0.z, r32.y, 0
+34173[c0220001_82618001] ldib.untyped.f32.1d.1.mode0.base0 r0.y, r32.z, 0
+93037[c0260232_5d675100] stib.untyped.u32.1d.2.mode4.base0 r12.z, r23.y, 1
+93038[c0260234_5e675100] stib.untyped.u32.1d.2.mode4.base0 r13.x, r23.z, 1
+93039[c0260200_60675100] stib.untyped.u32.1d.2.mode4.base0 r0.x, (nSH)r24.x, 1
+93040[c0260236_61675100] stib.untyped.u32.1d.2.mode4.base0 r13.z, (nSH)r24.y, 1
+vs
+34170[c0220002_7e618001] ldib.untyped.1d.f32.1.imm r0.z, r31.z, 0
+34171[c0220001_7f618001] ldib.untyped.1d.f32.1.imm r0.y, r31.w, 0
+34172[c0220002_81618001] ldib.untyped.1d.f32.1.imm r0.z, r32.y, 0
+34173[c0220001_82618001] ldib.untyped.1d.f32.1.imm r0.y, r32.z, 0
+93037[c0260232_5d675100] stib.untyped.1d.u32.2.imm.base0 r12.z, r23.y, 1
+93038[c0260234_5e675100] stib.untyped.1d.u32.2.imm.base0 r13.x, r23.z, 1
+93039[c0260200_60675100] stib.untyped.1d.u32.2.imm.base0 r0.x, r24.x, 1
+93040[c0260236_61675100] stib.untyped.1d.u32.2.imm.base0 r13.z, r24.y, 1
+
+106563[204890f5_000000b0] (ss)mova1 a1.y, 176
+vs
+106563[204890f5_000000b0] (ss)mov.u16u16 a1.x, 0x000000b0
+
+108191[c0260004_25c7a100] ldc.3.mode4.base0 r1.x, (nSH)5, 0
+108192[c0260004_2bc7a100] ldc.3.mode4.base0 r1.x, (nSH)3, 0
+vs
+108191[c0260004_25c7a100] ldc.offset0.3.imm.base0 r1.x, r9.y, 0
+108192[c0260004_2bc7a100] ldc.offset0.3.imm.base0 r1.x, r10.w, 0
+
+
+109157[64000407_10073005] shrm.b32 r1.w, 5, r0.x, 7
+109158[64008408_100f3004] shrm.b32 r2.x, 4, r0.y, 15
+109159[64008409_10013007] shrm.b32 r2.y, 7, r0.y, 1
+109160[64008401_101f3003] shrm.b32 r0.y, 3, r0.y, 31
+109161[64000400_100f3004] shrm.b32 r0.x, 4, r0.x, 15
+vs
+109157[64000407_10073005] (sat)sel.b16 hr1.w, hc1.y, hc0.x, hc1.w
+109158[64008408_100f3004] (sat)sel.b16 hr2.x, hc1.x, hc0.y, hc3.w
+109159[64008409_10013007] (sat)sel.b16 hr2.y, hc1.w, hc0.y, hc0.y
+109160[64008401_101f3003] (sat)sel.b16 hr0.y, hc0.w, hc0.y, hc7.w
+109161[64000400_100f3004] (sat)sel.b16 hr0.x, hc1.x, hc0.x, hc3.w
+
+
+ */
+
 static const struct test {
 	int gpu_id;
 	const char *instr;
