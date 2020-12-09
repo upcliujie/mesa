@@ -230,7 +230,7 @@ update_access(struct access_state *state, nir_intrinsic_instr *instr, bool is_im
 
    if (is_memory_readonly)
       access |= ACCESS_NON_WRITEABLE;
-   if (is_memory_writeonly)
+   if (state->infer_non_readable && is_memory_writeonly)
       access |= ACCESS_NON_READABLE;
    if (!(access & ACCESS_VOLATILE) && is_memory_readonly)
       access |= ACCESS_CAN_REORDER;
