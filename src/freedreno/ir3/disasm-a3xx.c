@@ -831,30 +831,30 @@ static void print_instr_cat5(struct disasm_ctx *ctx, instr_t *instr)
 		struct reginfo src = { .reg = (reg_t)(cat5->src2), .full = cat5->full };
 		print_src(ctx, &src);
 	}
+
+// XXX
 	if (cat5->is_s2en_bindless) {
 		if (!desc_indirect) {
 			if (info[cat5->opc].samp) {
 				if (use_a1)
 					fprintf(ctx->out, ", s#%d", cat5->s2en_bindless.src3);
 				else
-					fprintf(ctx->out, ", s#%d", cat5->s2en_bindless.src3 & 0xf);
+					fprintf(ctx->out, ", s#%d", cat5->s2en_bindless.src3 & 0xf);  // same as !s2en case
 			}
 
 			if (info[cat5->opc].tex && !use_a1) {
 				fprintf(ctx->out, ", t#%d", cat5->s2en_bindless.src3 >> 4);
 			}
+		} else {
+			fprintf(ctx->out, ", ");
+			struct reginfo src = { .reg = (reg_t)(cat5->s2en_bindless.src3), .full = bindless };
+			print_src(ctx, &src);
 		}
 	} else {
 		if (info[cat5->opc].samp)
 			fprintf(ctx->out, ", s#%d", cat5->norm.samp);
 		if (info[cat5->opc].tex)
 			fprintf(ctx->out, ", t#%d", cat5->norm.tex);
-	}
-
-	if (desc_indirect) {
-		fprintf(ctx->out, ", ");
-		struct reginfo src = { .reg = (reg_t)(cat5->s2en_bindless.src3), .full = bindless };
-		print_src(ctx, &src);
 	}
 
 	if (use_a1)
