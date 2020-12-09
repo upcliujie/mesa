@@ -536,7 +536,7 @@ bi_print_block(bi_block *block, FILE *fp)
                         bi_print_clause(clause, fp);
         } else {
                 bi_foreach_instr_in_block(block, ins)
-                        bi_print_instruction(ins, fp);
+                        bi_print_instr((bi_instr *) ins, fp);
         }
 
         fprintf(fp, "}");
