@@ -241,6 +241,22 @@ main(int argc, char **argv)
 			retval = 1;
 			continue;
 		}
+
+		// HACK wire up new xml decoder.. this doesn't trigger
+		// fails (yet), just a way to exercise the new disasm
+		void isa_decode(void *bin, int sz, FILE *out);
+
+		rewind(fdisasm);
+		memset(disasm_output, 0, output_size);
+		isa_decode(code, 8, fdisasm);
+		fflush(fdisasm);
+		trim(disasm_output);
+
+		if (strcmp(disasm_output, test->expected) != 0) {
+			printf("  Expected: \"%s\"\n", test->expected);
+			printf("  Got:      \"%s\"\n", disasm_output);
+			continue;
+		}
 	}
 
 	fclose(fdisasm);
