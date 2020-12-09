@@ -54,6 +54,7 @@
 #include "vk_alloc.h"
 #include "vk_debug_report.h"
 #include "vk_object.h"
+#include "vk_format.h"
 
 #include "radv_radeon_winsys.h"
 #include "ac_binary.h"
@@ -2003,6 +2004,22 @@ static inline bool
 radv_image_is_tc_compat_htile(const struct radv_image *image)
 {
 	return radv_image_has_htile(image) && image->tc_compatible_htile;
+}
+
+/**
+ * Return whether the entire HTILE buffer can be used for depth in order to
+ * improve HiZ Z-Range precision.
+ */
+static inline bool
+radv_image_tile_stencil_disabled(const struct radv_device *device,
+				 const struct radv_image *image)
+{
+	if (device->physical_device->rad_info.chip_class >= GFX9) {
+		return !vk_format_is_stencil(image->vk_format);
+	} else {
+		return !vk_format_is_stencil(image->vk_format) &&
+		       !radv_image_is_tc_compat_htile(image);
+	}
 }
 
 static inline uint64_t
