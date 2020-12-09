@@ -102,6 +102,7 @@ simplify_draw_info(struct pipe_draw_info *info)
    info->_pad = 0;
 
    /* This shouldn't be set when merging single draws. */
+   info->has_user_indices = false;
    info->increment_draw_id = false;
 
    if (info->index_size) {
