@@ -31,10 +31,153 @@
 
 #include "isa.h"
 
+#define ARRAY_SIZE(a) (sizeof (a) / sizeof *(a))
+
 extern const struct isa_bitset *__instruction[];
 
-static void decode(const struct isa_bitset *bitset, uint64_t val, FILE *out);
+/**
+ * Current decode state
+ *
+ * TODO maybe we end up wanting something similar(ish) for encode?
+ */
+struct decode_state {
+	FILE *out;
 
+	/**
+	 * We allow a limited amount of expression evaluation recursion, but
+	 * not recursive evaluation of any given expression, to prevent infinite
+	 * recursion.
+	 */
+	const struct isa_expr *expr_stack[4];
+	int expr_sp;
+
+	/**
+	 * Conditionals in nested bitset decoding can refer back out to a higher
+	 * level to resolve fields (symbols) used in conditionals, we we have a
+	 * stack of value+bitset
+	 */
+	struct {
+		uint64_t val;
+		const struct isa_bitset *bitset;
+	} stack[4];
+
+	int sp;
+};
+
+static void display(struct decode_state *state);
+static uint64_t decode_field(struct decode_state *state, const char *field_name, int up);
+
+static bool
+push_expr(struct decode_state *state, const struct isa_expr *expr)
+{
+	for (int i = state->expr_sp - 1; i > 0; i--) {
+		if (state->expr_stack[i] == expr) {
+			return false;
+		}
+	}
+	state->expr_stack[state->expr_sp++] = expr;
+	return true;
+}
+
+static void
+pop_expr(struct decode_state *state)
+{
+	assert(state->expr_sp > 0);
+	state->expr_sp--;
+}
+
+static void
+push_bitset(struct decode_state *state, const struct isa_bitset *bitset, uint64_t val)
+{
+	state->stack[state->sp].bitset = bitset;
+	state->stack[state->sp].val = val;
+	state->sp++;
+}
+
+static void
+pop_bitset(struct decode_state *state)
+{
+	assert(state->sp > 0);
+	state->sp--;
+}
+
+static const struct isa_bitset *
+current_bitset(struct decode_state *state, int up)
+{
+	int idx = state->sp - up;
+	assert(idx > 0);
+	return state->stack[idx - 1].bitset;
+}
+
+static const uint64_t
+current_val(struct decode_state *state, int up)
+{
+	int idx = state->sp - up;
+	assert(idx > 0);
+	return state->stack[idx - 1].val;
+}
+
+/**
+ * Evaluate an expression, returning it's resulting value
+ */
+static uint64_t
+evaluate_expr(struct decode_state *state, const struct isa_expr *expr)
+{
+	int64_t stack[8];
+	int sp = 0;
+#define eval_dbg(...)
+	//printf(__VA_ARGS__)
+#define push(v) do { \
+			assert(sp < ARRAY_SIZE(stack)); \
+			eval_dbg("EVAL: %s", #v); \
+			stack[sp++] = (v); \
+			eval_dbg(" -> %"PRId64"\n", stack[sp-1]); \
+		} while (0)
+#define pop() ({ \
+			assert(sp > 0); \
+			stack[--sp]; \
+		})
+
+	if (!push_expr(state, expr))
+		return 0;
+
+	eval_dbg("EVAL: %p (%u)\n", expr, expr->num_instructions);
+	for (unsigned pc = 0; pc < expr->num_instructions; pc++) {
+		switch (expr->instructions[pc].opc) {
+		case ISA_INSTR_LITERAL:
+			push(expr->instructions[pc].literal);
+			break;
+		case ISA_INSTR_VAR:
+			eval_dbg("EVAL: variable=%s\n", expr->instructions[pc].variable);
+			push(decode_field(state, expr->instructions[pc].variable, 0));
+			break;
+		case ISA_INSTR_NE:
+			push(pop() != pop());
+			break;
+		case ISA_INSTR_EQ:
+			push(pop() == pop());
+			break;
+		case ISA_INSTR_OR:
+			push(pop() | pop());
+			break;
+		case ISA_INSTR_AND:
+			push(pop() & pop());
+			break;
+		case ISA_INSTR_LSH:
+			push(pop() << pop());
+			break;
+		case ISA_INSTR_NOT:
+			push(!pop());
+			break;
+		}
+	}
+
+	pop_expr(state);
+
+	return pop();
+#undef pop
+#undef push
+}
 
 /**
  * Find the bitset in NULL terminated bitset hiearchy root table which
@@ -68,29 +211,46 @@ find_bitset(const struct isa_bitset **bitsets, uint64_t val)
 }
 
 static const struct isa_field *
-find_field(const struct isa_bitset *bitset, const char *name)
+find_field(struct decode_state *state, const struct isa_bitset *bitset,
+		const char *name)
 {
-	for (int i = 0; i < bitset->num_fields; i++) {
-		if (!strcmp(name, bitset->fields[i].name)) {
-			return &bitset->fields[i];
+	for (unsigned i = 0; i < bitset->num_cases; i++) {
+		const struct isa_case *c = bitset->cases[i];
+		if (c->expr && !evaluate_expr(state, c->expr))
+			continue;
+		for (unsigned i = 0; i < c->num_fields; i++) {
+			if (!strcmp(name, c->fields[i].name)) {
+				return &c->fields[i];
+			}
 		}
 	}
 
 	if (bitset->parent) {
-		return find_field(bitset->parent, name);
+		const struct isa_field *f = find_field(state, bitset->parent, name);
+		if (f) {
+			return f;
+		}
 	}
 
 	return NULL;
 }
 
 static const char *
-get_display(const struct isa_bitset *bitset)
+get_display(struct decode_state *state, const struct isa_bitset *bitset)
 {
-	while (bitset) {
-		if (bitset->display)
-			return bitset->display;
-		bitset = bitset->parent;
+	for (unsigned i = 0; i < bitset->num_cases; i++) {
+		const struct isa_case *c = bitset->cases[i];
+		if (!c->display)
+			continue;
+		if (c->expr && !evaluate_expr(state, c->expr))
+			continue;
+		return c->display;
 	}
+
+	if (bitset->parent) {
+		return get_display(state, bitset->parent);
+	}
+
 	return NULL;
 }
 
@@ -98,84 +258,126 @@ get_display(const struct isa_bitset *bitset)
  * Decode a field that is itself another bitset type
  */
 static void
-decode_bitset_field(const struct isa_field *field, uint64_t val, FILE *out)
+display_bitset_field(struct decode_state *state, const struct isa_field *field, uint64_t val)
 {
 	const struct isa_bitset *b = find_bitset(field->bitsets, val);
 	if (!b) {
 		printf("no match: BITSET: '%s': 0x%"PRIx64"\n", field->name, val);
 		return;
 	}
-	decode(b, val, out);
+	push_bitset(state, b, val);
+	display(state);
+	pop_bitset(state);
 }
 
 static void
-decode_enum_field(const struct isa_field *field, uint64_t val, FILE *out)
+display_enum_field(struct decode_state *state, const struct isa_field *field, uint64_t val)
 {
 	const struct isa_enum *e = field->enums;
 	for (unsigned i = 0; i < e->num_values; i++) {
 		if (e->values[i].val == val) {
-			fprintf(out, "%s", e->values[i].display);
+			fprintf(state->out, "%s", e->values[i].display);
 			return;
 		}
 	}
 
-	fprintf(out, "%u", (unsigned)val);
+	fprintf(state->out, "%u", (unsigned)val);
+}
+
+static uint64_t
+decode_field(struct decode_state *state, const char *field_name, int up)
+{
+	if (up >= state->sp) {
+		printf("no field '%s'\n", field_name);
+		return 0;
+	}
+
+	const struct isa_bitset *bitset = current_bitset(state, up);
+	const struct isa_field *field = find_field(state, bitset, field_name);
+
+	if (!field) {
+		return decode_field(state, field_name, up+1);
+	}
+
+	/* extract out raw field value: */
+	uint64_t val;
+	if (field->expr) {
+		val = evaluate_expr(state, field->expr);
+	} else {
+		val = current_val(state, up);
+		val = (val >> field->low) & ((1ul << (1 + field->high - field->low)) - 1);
+	}
+
+	return val;
 }
 
 static void
-decode_field(const struct isa_bitset *bitset, const char *field_name,
-		uint64_t val, FILE *out)
+display_field(struct decode_state *state, const char *field_name, int up)
 {
-	/* Special case 'NAME' maps to instruction/bitset name: */
-	if (!strcmp("NAME", field_name)) {
-		fprintf(out, "%s", bitset->name);
-		return;
-	}
-
-	const struct isa_field *field = find_field(bitset, field_name);
-
-	if (!field) {
+	if (up >= state->sp) {
 		printf("no field '%s'\n", field_name);
 		return;
 	}
 
+	const struct isa_bitset *bitset = current_bitset(state, up);
+
+	/* Special case 'NAME' maps to instruction/bitset name: */
+	if (!strcmp("NAME", field_name)) {
+		fprintf(state->out, "%s", bitset->name);
+		return;
+	}
+
+	const struct isa_field *field = find_field(state, bitset, field_name);
+
+	if (!field) {
+		display_field(state, field_name, up+1);
+		return;
+	}
+
 	/* extract out raw field value: */
-	val = (val >> field->low) & ((1ul << (1 + field->high - field->low)) - 1);
+	uint64_t val;
+	if (field->expr) {
+		val = evaluate_expr(state, field->expr);
+	} else {
+		val = current_val(state, 0);
+		val = (val >> field->low) & ((1ul << (1 + field->high - field->low)) - 1);
+	}
 
 	//printf("%s: %"PRIu64"\n", field->name, val);
 	switch (field->type) {
 	/* Basic types: */
 	case TYPE_INT:
 		// TODO sign extension:
-		fprintf(out, "%d", (int)val);
+		fprintf(state->out, "%d", (int)val);
 		break;
 	case TYPE_UINT:
-		fprintf(out, "%u", (unsigned)val);
+		fprintf(state->out, "%u", (unsigned)val);
 		break;
 	case TYPE_BOOL:
 		if (field->display) {
 			if (val) {
-				fprintf(out, "%s", field->display);
+				fprintf(state->out, "%s", field->display);
 			}
 		} else {
-			fprintf(out, "%u", (unsigned)val);
+			fprintf(state->out, "%u", (unsigned)val);
 		}
 		break;
 	case TYPE_ENUM:
-		decode_enum_field(field, val, out);
+		display_enum_field(state, field, val);
 		break;
 
 	/* For fields that are decoded with another bitset hierarchy: */
 	case TYPE_BITSET:
-		decode_bitset_field(field, val, out);
+		display_bitset_field(state, field, val);
 		break;
 	}
 }
 
 static void
-decode(const struct isa_bitset *bitset, uint64_t val, FILE *out)
+display(struct decode_state *state)
 {
-	const char *display = get_display(bitset);
+	const struct isa_bitset *bitset = current_bitset(state, 0);
+	const char *display = get_display(state, bitset);
 
 	if (!display) {
 		printf("%s: no display", bitset->name);
@@ -194,12 +396,12 @@ decode(const struct isa_bitset *bitset, uint64_t val, FILE *out)
 			}
 
 			char *field_name = strndup(p, e-p);
-			decode_field(bitset, field_name, val, out);
+			display_field(state, field_name, 0);
 			free(field_name);
 
 			p = e;
 		} else {
-			fputc(*p, out);
+			fputc(*p, state->out);
 		}
 		p++;
 	}
@@ -208,6 +410,9 @@ decode(const struct isa_bitset *bitset, uint64_t val, FILE *out)
 void
 isa_decode(void *bin, int sz, FILE *out)
 {
+	struct decode_state state = {
+			.out = out,
+	};
 	int num_instr = sz / 8;
 	uint64_t *instrs = bin;
 
@@ -217,9 +422,14 @@ isa_decode(void *bin, int sz, FILE *out)
 			printf("no match: %016"PRIx64"\n", instrs[i]);
 			continue;
 		}
+
+		push_bitset(&state, b, instrs[i]);
+
 		//fprintf(out, "%016"PRIx64": ", instrs[i]);
-		decode(b, instrs[i], out);
+		display(&state);
 		fprintf(out, "\n");
+
+		pop_bitset(&state);
 	}
 
 }

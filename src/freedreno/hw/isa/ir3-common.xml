@@ -71,10 +71,17 @@ SOFTWARE.
 	<field name="ABSNEG" low="14" high="15" type="#absneg"/>
 </bitset>
 
+<expr name="#multisrc-half">
+	<doc>!FULL</doc>
+	<var name="FULL"/>
+	<not/>
+</expr>
+
 <bitset name="#multisrc-gpr" extends="#multisrc">
 	<display>
-		{ABSNEG}r{GPR}.{SWIZ}
+		{ABSNEG}{HALF}r{GPR}.{SWIZ}
 	</display>
+	<derived name="HALF" expr="#multisrc-half" type="bool" display="h"/>
 	<field name="SWIZ" low="0" high="1" type="#swiz"/>
 	<field name="GPR" low="2"  high="10" type="uint"/>
 	<pattern low="11" high="13">000</pattern>
@@ -83,33 +90,51 @@ SOFTWARE.
 
 <bitset name="#multisrc-const" extends="#multisrc">
 	<display>
-		c{CONST}.{SWIZ}
+		{HALF}c{CONST}.{SWIZ}
 	</display>
+	<derived name="HALF" expr="#multisrc-half" type="bool" display="h"/>
 	<field name="SWIZ" low="0" high="1" type="#swiz"/>
 	<field name="CONST" low="2" high="11" type="uint"/>
 	<pattern low="12" high="15">xxx1</pattern>
 </bitset>
 
 <bitset name="#multisrc-relative" extends="#multisrc">
-	<pattern low="11" high="15">xxx01</pattern>
+	<pattern low="11" high="15">xx001</pattern>
 </bitset>
 
 <bitset name="#multisrc-relative-gpr" extends="#multisrc-relative">
 	<display>
-		r&lt;a0.x + {OFFSET}&gt;
+		{HALF}r&lt;a0.x + {OFFSET}&gt;
 	</display>
+	<derived name="HALF" expr="#multisrc-half" type="bool" display="h"/>
 	<field name="OFFSET" low="0" high="9" type="int"/>
 	<pattern pos="10">0</pattern>
 </bitset>
 
-<bitset name="#multisrc-relative-gpr" extends="#multisrc-relative">
+<bitset name="#multisrc-relative-const" extends="#multisrc-relative">
 	<display>
-		c&lt;a0.x + {OFFSET}&gt;
+		{HALF}c&lt;a0.x + {OFFSET}&gt;
 	</display>
+	<derived name="HALF" expr="#multisrc-half" type="bool" display="h"/>
 	<field name="OFFSET" low="0" high="9" type="int"/>
 	<pattern pos="10">1</pattern>
 </bitset>
 
+<!-- For cat2/cat4, the dst reg is full precision if {FULL} == {DEST_CONV} -->
+<expr name="#dest-half">
+	<doc>FULL == DST_CONV</doc>
+	<var name="DST_CONV"/>
+	<var name="FULL"/>
+	<eq/>
+</expr>
+
+<expr name="#true">
+	<literal val="1"/>
+</expr>
+
+<expr name="#false">
+	<literal val="0"/>
+</expr>
 
 <!--
 	Enums used in various places:

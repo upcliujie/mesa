@@ -66,6 +66,28 @@ static const struct isa_enum ${enum.get_c_name()} = {
 %endfor
 
 /*
+ * expression tables, can be linked from bitset tables, so also dump
+ * them up front
+ */
+
+%for name, expr in isa.expressions.items():
+static const struct isa_expr ${expr.get_c_name()} = {
+    .num_instructions = ${len(expr.instructions)},
+    .instructions = {
+%   for instr in expr.instructions:
+        { .opc = ISA_INSTR_${instr[0]},
+%      if instr[0] == 'LITERAL':
+          .literal = ${instr[1]},
+%      elif instr[0] == 'VAR':
+          .variable = "${instr[1]}",
+%      endif
+        },
+%endfor
+    },
+};
+%endfor
+
+/*
  * Forward-declarations (so we don't have to figure out which order to
  * emit various tables when they have pointers to each other)
  */
@@ -83,22 +105,21 @@ const struct isa_bitset *${root.get_c_name()}[];
  */
 
 %for name, bitset in isa.bitsets.items():
-static const struct isa_bitset bitset_${bitset.get_c_name()} = {
-<% pattern = bitset.get_pattern() %>
-%   if bitset.extends is not None:
-       .parent   = &bitset_${isa.bitsets[bitset.extends].get_c_name()},
+%   for case in bitset.cases:
+static const struct isa_case ${case.get_c_name()} = {
+%   if case.expr is not None:
+       .expr     = &${isa.expressions[case.expr].get_c_name()},
 %   endif
-       .name     = "${name}",
-%   if bitset.display is not None:
-       .display  = "${bitset.display}",
+%   if case.display is not None:
+       .display  = "${case.display}",
 %   endif
-       .match    = ${hex(pattern.match)},
-       .dontcare = ${hex(pattern.dontcare)},
-       .mask     = ${hex(pattern.mask)},
-       .num_fields = ${len(bitset.fields)},
+       .num_fields = ${len(case.fields)},
        .fields   = {
-%   for field_name, field in bitset.fields.items():
+%   for field_name, field in case.fields.items():
           { .name = "${field_name}", .low = ${field.low}, .high = ${field.high},
+%      if field.expr is not None:
+            .expr = &${isa.expressions[field.expr].get_c_name()},
+%      endif
 %      if field.display is not None:
             .display = "${field.display}",
 %      endif
@@ -110,6 +131,23 @@ static const struct isa_bitset bitset_${bitset.get_c_name()} = {
             .enums = &${isa.enums[field.type].get_c_name()},
 %      endif
           },
+%   endfor
+       },
+};
+%   endfor
+static const struct isa_bitset bitset_${bitset.get_c_name()} = {
+<% pattern = bitset.get_pattern() %>
+%   if bitset.extends is not None:
+       .parent   = &bitset_${isa.bitsets[bitset.extends].get_c_name()},
+%   endif
+       .name     = "${name}",
+       .match    = ${hex(pattern.match)},
+       .dontcare = ${hex(pattern.dontcare)},
+       .mask     = ${hex(pattern.mask)},
+       .num_cases = ${len(bitset.cases)},
+       .cases    = {
+%   for case in bitset.cases:
+            &${case.get_c_name()},
 %   endfor
        },
 };

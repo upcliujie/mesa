@@ -42,6 +42,7 @@ SOFTWARE.
 			visa versa.
 		</doc>
 	</field>
+	<derived name="DST_HALF" expr="#dest-half" type="bool" display="h"/>
 	<field name="EI" pos="47" type="bool" display="(ei)"/>
 	<field name="FULL" pos="52" type="bool">
 		<doc>Full precision source registers</doc>
@@ -49,16 +50,90 @@ SOFTWARE.
 	<field name="JP" pos="59" type="bool" display="(jp)"/>
 	<field name="SY" pos="60" type="bool" display="(sy)"/>
 	<pattern low="61" high="63">010</pattern>  <!-- cat2 -->
+	<field name="SRC1" low="0" high="15" type="#multisrc"/>
+	<!--
+		NOTE, both SRC1_R and SRC2_R are defined at this level because
+		SRC2_R is still a valid bit for (nopN) (REPEAT==0) for cat2
+		instructions with only a single src
+	 -->
+	<field name="SRC1_R" pos="43" type="bool" display="(r)"/>
+	<field name="SRC2_R" pos="51" type="bool" display="(r)"/>
 </bitset>
 
+<!--
+	An expr(ession) is a simple RPN "program" which can be evaluated
+	either for a conditional <override/> (ie. for cases where an
+	instruction should be displayed specially) or to construct the
+	value for <derived/> fields.  They can either be declared at the
+	toplevel and named (and referred to in one or more places) or
+	declared inline within an <override/> or <derived/>
+ -->
+
+<expr name="#cat2-nop-encoding">
+	<doc>((SRC1_R != 0) || (SRC2_R != 0)) &amp;&amp; (REPEAT == 0)</doc>
+	<literal val="0"/>
+	<var name="SRC1_R"/>
+	<ne/>
+	<literal val="0"/>
+	<var name="SRC2_R"/>
+	<ne/>
+	<or/>
+	<literal val="0"/>
+	<var name="REPEAT"/>
+	<eq/>
+	<and/>
+</expr>
+
+<!--
+	The cmps.* instructions can also write to predicate register, so
+	they have some extra override cases
+ -->
+<expr name="#cat2-nop-encoding-dst-p0">
+	<doc>((SRC1_R != 0) || (SRC2_R != 0)) &amp;&amp; (REPEAT == 0) &amp;&amp; (DST == 62)</doc>
+	<literal val="0"/>
+	<var name="SRC1_R"/>
+	<ne/>
+	<literal val="0"/>
+	<var name="SRC2_R"/>
+	<ne/>
+	<or/>
+	<literal val="0"/>
+	<var name="REPEAT"/>
+	<eq/>
+	<and/>
+	<literal val="62"/>
+	<var name="DST"/>
+	<eq/>
+	<and/>
+</expr>
+
+<expr name="#cat2-dst-p0">
+	<literal val="62"/>
+	<var name="DST"/>
+	<eq/>
+</expr>
+
+<expr name="#cat2-nop-value">
+	<doc>SRC1_R | (SRC2_R &lt;&lt; 1)</doc>
+	<var name="SRC1_R"/>
+	<literal val="1"/>
+	<var name="SRC2_R"/>
+	<lsh/>
+	<or/>
+</expr>
+
 <bitset name="#instruction-cat2-1src" extends="#instruction-cat2">
+	<override expr="#cat2-nop-encoding">
+		<display>
+			{SY}{SS}{JP}{SAT}(nop{NOP}) {UL}{NAME} {EI}{DST_HALF}r{DST}.{DST_SWIZ}, {SRC1}
+		</display>
+		<derived name="NOP" expr="#cat2-nop-value" type="uint"/>
+	</override>
 	<display>
-		{SY}{SS}{JP}{SAT}{REPEAT}{UL}{NAME} {EI}r{DST}.{DST_SWIZ}, {SRC_R}{SRC}
+		{SY}{SS}{JP}{SAT}{REPEAT}{UL}{NAME} {EI}{DST_HALF}r{DST}.{DST_SWIZ}, {SRC1_R}{SRC1}
 	</display>
-	<field name="SRC" low="0" high="15" type="#multisrc"/>
 	<pattern low="16" high="31">xxxxxxxxxxxxxxxx</pattern>
-	<field name="SRC_R" pos="43" type="bool" display="(r)"/>
-	<pattern low="48" high="51">xxxx</pattern>  <!-- COND + SRC2_R -->
+	<pattern low="48" high="50">xxx</pattern>  <!-- COND -->
 </bitset>
 
 <bitset name="absneg.f" extends="#instruction-cat2-1src">
@@ -72,14 +147,17 @@ SOFTWARE.
 <!-- TODO rest of cat2-1src -->
 
 <bitset name="#instruction-cat2-2src" extends="#instruction-cat2">
+	<override expr="#cat2-nop-encoding">
+		<display>
+			{SY}{SS}{JP}{SAT}(nop{NOP}) {UL}{NAME} {EI}{DST_HALF}r{DST}.{DST_SWIZ}, {SRC1}, {SRC2}
+		</display>
+		<derived name="NOP" expr="#cat2-nop-value" type="uint"/>
+	</override>
 	<display>
-		{SY}{SS}{JP}{SAT}{REPEAT}{UL}{NAME} {EI}r{DST}.{DST_SWIZ}, {SRC1_R}{SRC1}, {SRC2_R}{SRC2}
+		{SY}{SS}{JP}{SAT}{REPEAT}{UL}{NAME} {EI}{DST_HALF}r{DST}.{DST_SWIZ}, {SRC1_R}{SRC1}, {SRC2_R}{SRC2}
 	</display>
-	<field name="SRC1" low="0"  high="15" type="#multisrc"/>
 	<field name="SRC2" low="16" high="31" type="#multisrc"/>
-	<field name="SRC1_R" pos="43" type="bool" display="(r)"/>
 	<pattern low="48" high="50">xxx</pattern>  <!-- COND -->
-	<field name="SRC2_R" pos="51" type="bool" display="(r)"/>
 </bitset>
 
 <bitset name="add.f" extends="#instruction-cat2-2src">
@@ -99,15 +177,28 @@ SOFTWARE.
 <!-- The cmp*.* instructions additionally have a condition code: -->
 
 <bitset name="#instruction-cat2-2src-cond" extends="#instruction-cat2">
-	<!-- TODO how to handle (nopN) which is derived from other fields? -->
+	<override expr="#cat2-nop-encoding-dst-p0">
+		<display>
+			{SY}{SS}{JP}{SAT}(nop{NOP}) {UL}{NAME}.{COND} {EI}{DST_HALF}p0.{DST_SWIZ}, {SRC1}, {SRC2}
+		</display>
+		<derived name="NOP" expr="#cat2-nop-value" type="uint"/>
+	</override>
+	<override expr="#cat2-nop-encoding">
+		<display>
+			{SY}{SS}{JP}{SAT}(nop{NOP}) {UL}{NAME}.{COND} {EI}{DST_HALF}r{DST}.{DST_SWIZ}, {SRC1}, {SRC2}
+		</display>
+		<derived name="NOP" expr="#cat2-nop-value" type="uint"/>
+	</override>
+	<override expr="#cat2-dst-p0">
+		<display>
+			{SY}{SS}{JP}{SAT}{REPEAT}{UL}{NAME}.{COND} {EI}{DST_HALF}p0.{DST_SWIZ}, {SRC1_R}{SRC1}, {SRC2_R}{SRC2}
+		</display>
+	</override>
 	<display>
-		{SY}{SS}{JP}{SAT}{REPEAT}{UL}{NAME}.{COND} {EI}r{DST}.{DST_SWIZ}, {SRC1_R}{SRC1}, {SRC2_R}{SRC2}
+		{SY}{SS}{JP}{SAT}{REPEAT}{UL}{NAME}.{COND} {EI}{DST_HALF}r{DST}.{DST_SWIZ}, {SRC1_R}{SRC1}, {SRC2_R}{SRC2}
 	</display>
-	<field name="SRC1" low="0"  high="15" type="#multisrc"/>
 	<field name="SRC2" low="16" high="31" type="#multisrc"/>
-	<field name="SRC1_R" pos="43" type="bool" display="(r)"/>
 	<field name="COND" low="48" high="50" type="#cond"/>
-	<field name="SRC2_R" pos="51" type="bool" display="(r)"/>
 </bitset>
 
 <bitset name="cmps.f" extends="#instruction-cat2-2src-cond">
@@ -116,6 +207,10 @@ SOFTWARE.
 
 <bitset name="cmps.u" extends="#instruction-cat2-2src-cond">
 	<pattern low="53" high="58">010100</pattern>
+</bitset>
+
+<bitset name="cmps.s" extends="#instruction-cat2-2src-cond">
+	<pattern low="53" high="58">010101</pattern>
 </bitset>
 
 <!-- TODO rest of cat2-2src-cond -->

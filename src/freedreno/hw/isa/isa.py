@@ -71,10 +71,10 @@ class BitSetField(object):
     """
     def __init__(self, isa, xml):
         self.isa = isa
-        self.xml = xml
         self.low, self.high = get_bitrange(xml)
         self.name = xml.attrib['name']
         self.type = xml.attrib['type']
+        self.expr = None
         self.display = None
         if 'display' in xml.attrib:
             self.display = xml.attrib['display'].strip()
@@ -85,6 +85,54 @@ class BitSetField(object):
         if self.type in self.isa.bitsets:
             return 'TYPE_BITSET'
         return 'TYPE_' + self.type.upper()
+
+class BitSetDerivedField(BitSetField):
+    """Similar to BitSetField, but for derived fields
+    """
+    def __init__(self, isa, xml):
+        self.isa = isa
+        self.low = 0
+        self.high = 0
+        self.name = xml.attrib['name']
+        self.type = xml.attrib['type']
+        self.expr = xml.attrib['expr']
+        self.display = None
+        if 'display' in xml.attrib:
+            self.display = xml.attrib['display'].strip()
+
+class BitSetCase(object):
+    """Class that encapsulates a single bitset case
+    """
+    def __init__(self, bitset, xml, expr=None):
+        self.bitset = bitset
+        self.name = bitset.name + '#case' + str(len(bitset.cases))
+        self.expr = expr
+        self.field_mask = 0
+        self.fields = {}
+
+        for derived in xml.findall('derived'):
+            f = BitSetDerivedField(bitset.isa, derived)
+            self.fields[f.name] = f
+
+        for field in xml.findall('field'):
+            print("{}.{}".format(self.name, field.attrib['name']))
+            f = BitSetField(bitset.isa, field)
+
+            m = ((1 << (1 + f.high - f.low)) - 1) << f.low
+
+            print("field: {}.{} => {:016x}".format(self.name, f.name, m))
+
+            self.field_mask |= m
+
+            self.fields[f.name] = f
+
+        self.display = None
+        for d in xml.findall('display'):
+            self.display = d.text.strip()
+            print("found display: '{}'".format(self.display))
+
+    def get_c_name(self):
+        return get_c_name(self.name)
 
 class BitSet(object):
     """Class that encapsulates a single bitset rule
@@ -102,31 +150,26 @@ class BitSet(object):
             self.extends = xml.attrib['extends']
 
         # Collect up the match/dontcare/mask bitmasks for
-        # this bitset:
+        # this bitset case:
         self.match = 0
         self.dontcare = 0
         self.mask = 0
         self.field_mask = 0
 
-        self.fields = {}
+        self.cases = []
+
+        for override in xml.findall('override'):
+            c = BitSetCase(self, override, override.attrib['expr'])
+            self.field_mask |= c.field_mask
+            self.cases.append(c)
+
+        dflt = BitSetCase(self, xml)
+        self.field_mask |= dflt.field_mask
+        self.cases.append(dflt)
 
         # Helper to check for redefined bits:
         def is_defined_bits(m):
             return ((self.field_mask | self.mask | self.dontcare | self.match) & m) != 0
-
-        for field in xml.findall('field'):
-            print("{}.{}".format(self.name, field.attrib['name']))
-            f = BitSetField(isa, field)
-
-            m = ((1 << (1 + f.high - f.low)) - 1) << f.low
-
-            print("field: {}.{} => {:016x}".format(self.name, f.name, m))
-
-            assert not is_defined_bits(m), "Redefined bits in field {} in {}: {}..{}".format(f.name, self.name, l, h);
-
-            self.field_mask |= m
-
-            self.fields[f.name] = f
 
         for pattern in xml.findall('pattern'):
             l, h = get_bitrange(pattern)
@@ -155,11 +198,6 @@ class BitSet(object):
             self.mask     |= m
 
             print("pattern: {}.{} => {:016x} / {:016x} / {:016x}".format(self.name, patstr, match << l, dontcare << l, m))
-
-        self.display = None
-        for d in xml.findall('display'):
-            self.display = d.text.strip()
-            print("found display: '{}'".format(self.display))
 
     def get_pattern(self):
         if self.extends is not None:
@@ -203,11 +241,54 @@ class BitSetEnum(object):
     def get_c_name(self):
         return 'enum_' + get_c_name(self.name)
 
+class BitSetExpression(object):
+    """Class that encapsulates an <expr> declaration
+    """
+    def __init__(self, isa, xml):
+        self.isa = isa
+        if 'name' in xml.attrib:
+            self.name = xml.attrib['name']
+        else:
+            self.name = 'anon_' + isa.anon_expression_count
+            isa.anon_expression_count = isa.anon_expression_count + 1
+        self.instructions = []
+        for child in xml:
+            if child.tag == 'var':
+                self.instructions.append(['VAR', child.attrib['name']])
+            elif child.tag == 'literal':
+                self.instructions.append(['LITERAL', child.attrib['val']])
+            elif child.tag == 'ne':
+                self.instructions.append(['NE'])
+            elif child.tag == 'eq':
+                self.instructions.append(['EQ'])
+            elif child.tag == 'or':
+                self.instructions.append(['OR'])
+            elif child.tag == 'and':
+                self.instructions.append(['AND'])
+            elif child.tag == 'lsh':
+                self.instructions.append(['LSH'])
+            elif child.tag == 'not':
+                self.instructions.append(['NOT'])
+            else:
+                # ignore <doc> elements, anything else unknown is an error:
+                assert child.tag == 'doc', "{}: unknown expression element: {}".format(self.name, child.tag)
+
+        print("XXX {} - {}".format(self.name, str(self.instructions)))
+
+    def get_c_name(self):
+        return 'expr_' + get_c_name(self.name)
+
 class ISA(object):
     """Class that encapsulates all the parsed bitset rules
     """
     def __init__(self, xmlpath):
         self.base_path = os.path.dirname(xmlpath)
+
+        # Counter used to name inline (anonymous) expressions:
+        self.anon_expression_count = 0
+
+        # Table of (globally defined) expressions:
+        self.expressions = {}
 
         # Table of enums:
         self.enums = {}
@@ -230,6 +311,11 @@ class ISA(object):
         for imprt in root.findall('import'):
             p = os.path.join(self.base_path, imprt.attrib['file'])
             self.parse_file(ElementTree.parse(p))
+
+        # Extract expressions:
+        for expr in root.findall('expr'):
+            e = BitSetExpression(self, expr)
+            self.expressions[e.name] = e
 
         # Extract enums:
         for enum in root.findall('enum'):
