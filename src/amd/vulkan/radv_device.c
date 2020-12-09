@@ -7056,9 +7056,10 @@ radv_initialise_ds_surface(struct radv_device *device,
 				}
 			}
 
-			if (!surf->has_stencil)
-				/* Use all of the htile_buffer for depth if there's no stencil. */
+			if (radv_image_tile_stencil_disabled(device, iview->image)) {
 				ds->db_stencil_info |= S_02803C_TILE_STENCIL_DISABLE(1);
+			}
+
 			va = radv_buffer_get_va(iview->bo) + iview->image->offset +
 				surf->htile_offset;
 			ds->db_htile_data_base = va >> 8;
@@ -7122,10 +7123,9 @@ radv_initialise_ds_surface(struct radv_device *device,
 		if (radv_htile_enabled(iview->image, level)) {
 			ds->db_z_info |= S_028040_TILE_SURFACE_ENABLE(1);
 
-			if (!surf->has_stencil &&
-			    !radv_image_is_tc_compat_htile(iview->image))
-				/* Use all of the htile_buffer for depth if there's no stencil. */
+			if (radv_image_tile_stencil_disabled(device, iview->image)) {
 				ds->db_stencil_info |= S_028044_TILE_STENCIL_DISABLE(1);
+			}
 
 			va = radv_buffer_get_va(iview->bo) + iview->image->offset +
 				surf->htile_offset;
