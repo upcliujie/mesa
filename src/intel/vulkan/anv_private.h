@@ -1594,6 +1594,14 @@ struct anv_batch_bo {
    /* Bytes actually consumed in this batch BO */
    uint32_t                                     length;
 
+   /* When this batch BO is used as part of a primary batch buffer, this
+    * tracked whether it is chained to another primary batch buffer.
+    *
+    * If this is the case, the relocation list's last entry points the
+    * location of the MI_BATCH_BUFFER_START chaining to the next batch.
+    */
+   bool                                         chained;
+
    struct anv_reloc_list                        relocs;
 };
 
@@ -3024,6 +3032,19 @@ struct anv_cmd_buffer {
     */
    uint32_t                                      perf_reloc_idx;
 };
+
+/* Determine whether we can chain a given cmd_buffer to another one. We need
+ * softpin and we also need to make sure that we can edit the end of the batch
+ * to point to next one, which requires the command buffer to not be used
+ * simultaneously.
+ */
+static inline bool
+anv_cmd_buffer_is_chainable(struct anv_cmd_buffer *cmd_buffer)
+{
+   return cmd_buffer->device->info.gen >= 8 &&
+      cmd_buffer->device->physical->use_softpin &&
+      !(cmd_buffer->usage_flags & VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT);
+}
 
 VkResult anv_cmd_buffer_init_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer);
 void anv_cmd_buffer_fini_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer);
