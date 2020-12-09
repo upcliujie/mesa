@@ -1285,15 +1285,18 @@ PhysReg get_reg(ra_ctx& ctx,
 
    if (ctx.vectors.find(temp.id()) != ctx.vectors.end()) {
       Instruction* vec = ctx.vectors[temp.id()];
+      unsigned first_operand = vec->format == Format::MIMG ? 3 : 0;
       unsigned byte_offset = 0;
-      for (const Operand& op : vec->operands) {
+      for (unsigned i = first_operand; i < vec->operands.size(); i++) {
+         Operand& op = vec->operands[i];
          if (op.isTemp() && op.tempId() == temp.id())
             break;
          else
             byte_offset += op.bytes();
       }
       unsigned k = 0;
-      for (const Operand& op : vec->operands) {
+      for (unsigned i = first_operand; i < vec->operands.size(); i++) {
+         Operand& op = vec->operands[i];
          if (op.isTemp() &&
              op.tempId() != temp.id() &&
              op.getTemp().type() == temp.type() &&
@@ -1306,7 +1309,8 @@ PhysReg get_reg(ra_ctx& ctx,
          k += op.bytes();
       }
 
-      DefInfo info(ctx, ctx.pseudo_dummy, vec->definitions[0].regClass(), -1);
+      RegClass vec_rc = RegClass::get(temp.type(), k);
+      DefInfo info(ctx, ctx.pseudo_dummy, vec_rc, -1);
       std::pair<PhysReg, bool> res = get_reg_simple(ctx, reg_file, info);
       PhysReg reg = res.first;
       if (res.second) {
@@ -1831,6 +1835,9 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                   if (op.isTemp() && op.isFirstKill() && op.getTemp().type() == instr->definitions[0].getTemp().type())
                      ctx.vectors[op.tempId()] = instr.get();
                }
+            } else if (instr->format == Format::MIMG && instr->operands.size() > 4) {
+               for (unsigned i = 3; i < instr->operands.size(); i++)
+                  ctx.vectors[instr->operands[i].tempId()] = instr.get();
             }
 
             if (instr->opcode == aco_opcode::p_split_vector && instr->operands[0].isFirstKillBeforeDef())
