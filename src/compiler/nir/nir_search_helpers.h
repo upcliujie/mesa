@@ -116,6 +116,21 @@ MULTIPLE(16)
 MULTIPLE(32)
 MULTIPLE(64)
 
+/* Tests if given exponent is too big for ldexp. */
+static inline bool
+too_big_exp(UNUSED struct hash_table *ht, nir_alu_instr *instr, unsigned src,
+            unsigned num_components,
+            const uint8_t *swizzle)
+{
+   /* only constant srcs: */
+   if (!nir_src_is_const(instr->src[src].src))
+      return false;
+
+   unsigned val = nir_src_comp_as_uint(instr->src[src].src, swizzle[0]);
+
+   return val > 128;
+}
+
 static inline bool
 is_zero_to_one(UNUSED struct hash_table *ht, nir_alu_instr *instr, unsigned src,
                unsigned num_components,
