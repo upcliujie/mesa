@@ -30,7 +30,6 @@
 
 #include "st_nir.h"
 #include "st_shader_cache.h"
-#include "st_glsl_to_tgsi.h"
 #include "st_program.h"
 
 #include "tgsi/tgsi_from_mesa.h"
@@ -40,8 +39,6 @@ extern "C" {
 /**
  * Link a shader.
  * Called via ctx->Driver.LinkShader()
- * This is a shared function that branches off to either GLSL IR -> TGSI or
- * GLSL IR -> NIR
  */
 GLboolean
 st_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
@@ -170,12 +167,9 @@ st_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
       validate_ir_tree(ir);
    }
 
-   build_program_resource_list(&ctx->Const, prog, use_nir);
+   build_program_resource_list(&ctx->Const, prog, true);
 
-   if (use_nir)
-      ret = st_link_nir(ctx, prog);
-   else
-      ret = st_link_tgsi(ctx, prog);
+   ret = st_link_nir(ctx, prog);
 
    if (pctx->link_shader) {
       void *driver_handles[PIPE_SHADER_TYPES];
