@@ -1836,6 +1836,8 @@ def ldexp(f, exp, bits):
    return ('fmul', ('fmul', f, pow2_1), pow2_2)
 
 optimizations += [
+   (('ldexp', 'x', 'b(too_big_exp)'), 0.0, 'options->lower_ldexp'),
+
    (('ldexp@16', 'x', 'exp'), ldexp('x', 'exp', 16), 'options->lower_ldexp'),
    (('ldexp@32', 'x', 'exp'), ldexp('x', 'exp', 32), 'options->lower_ldexp'),
    (('ldexp@64', 'x', 'exp'), ldexp('x', 'exp', 64), 'options->lower_ldexp'),
