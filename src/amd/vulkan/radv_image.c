@@ -1774,7 +1774,8 @@ radv_image_view_init(struct radv_image_view *iview,
 	}
 }
 
-bool radv_layout_is_htile_compressed(const struct radv_image *image,
+bool radv_layout_is_htile_compressed(const struct radv_device *device,
+				     const struct radv_image *image,
                                      VkImageLayout layout,
 				     bool in_render_loop,
                                      unsigned queue_mask)
@@ -1811,7 +1812,10 @@ bool radv_layout_is_htile_compressed(const struct radv_image *image,
 		  layout == VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL ||
 		  layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL ||
 		  layout == VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL ||
-		  layout == VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL));
+		  layout == VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL ||
+		  /* GFX10+ supports compressed writes to HTILE. */
+		  (layout == VK_IMAGE_LAYOUT_GENERAL &&
+		   device->physical_device->rad_info.chip_class >= GFX10)));
 }
 
 bool radv_layout_can_fast_clear(const struct radv_image *image,
