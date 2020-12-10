@@ -375,7 +375,7 @@ add_aux_surface_if_supported(struct anv_device *device,
    bool ok;
 
    /* The aux surface must not be already added. */
-   assert(image->planes[plane].aux_surface.isl.size_B == 0);
+   assert(!anv_surface_is_valid(&image->planes[plane].aux_surface));
 
    if ((isl_extra_usage_flags & ISL_SURF_USAGE_DISABLE_AUX_BIT))
       return VK_SUCCESS;
@@ -519,7 +519,7 @@ add_aux_surface_if_supported(struct anv_device *device,
          anv_perf_warn(device, &image->base,
                        "The CCS_D aux mode is not yet handled on "
                        "Gen12+. Not allocating a CCS buffer.");
-         image->planes[plane].aux_surface.isl.size_B = 0;
+         anv_surface_invalidate(&image->planes[plane].aux_surface);
          return VK_SUCCESS;
       } else {
          image->planes[plane].aux_usage = ISL_AUX_USAGE_CCS_D;
@@ -639,7 +639,7 @@ check_surfaces(const struct anv_image *image,
    const struct anv_surface *primary_surface = &plane->primary_surface;
    const struct anv_surface *aux_surface = &plane->aux_surface;
    uintmax_t last_surface_offset = MAX2(primary_surface->offset, aux_surface->offset);
-   uintmax_t last_surface_size = aux_surface->isl.size_B > 0
+   uintmax_t last_surface_size = anv_surface_is_valid(aux_surface)
                                ? aux_surface->isl.size_B
                                : primary_surface->isl.size_B;
    uintmax_t last_surface_end = last_surface_offset + last_surface_size;
@@ -1860,7 +1860,7 @@ anv_image_fill_surface_state(struct anv_device *device,
     * the primary surface.  The shadow surface will be tiled, unlike the main
     * surface, so it should get significantly better performance.
     */
-   if (image->planes[plane].shadow_surface.isl.size_B > 0 &&
+   if (anv_surface_is_valid(&image->planes[plane].shadow_surface) &&
        isl_format_is_compressed(view.format) &&
        (flags & ANV_IMAGE_VIEW_STATE_TEXTURE_OPTIMAL)) {
       assert(isl_format_is_compressed(surface->isl.format));
@@ -1872,7 +1872,7 @@ anv_image_fill_surface_state(struct anv_device *device,
    /* For texturing from stencil on gen7, we have to sample from a shadow
     * surface because we don't support W-tiling in the sampler.
     */
-   if (image->planes[plane].shadow_surface.isl.size_B > 0 &&
+   if (anv_surface_is_valid(&image->planes[plane].shadow_surface) &&
        aspect == VK_IMAGE_ASPECT_STENCIL_BIT) {
       assert(device->info.gen == 7);
       assert(view_usage & ISL_SURF_USAGE_TEXTURE_BIT);
