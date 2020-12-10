@@ -41,7 +41,6 @@
 #include "tgsi/tgsi_from_mesa.h"
 #include "st_context.h"
 #include "st_texture.h"
-#include "st_glsl_to_tgsi.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -263,7 +262,6 @@ struct st_program
 {
    struct gl_program Base;
    struct pipe_shader_state state;
-   struct glsl_to_tgsi_visitor* glsl_to_tgsi;
    struct ati_fragment_shader *ati_fs;
    uint64_t affected_states; /**< ST_NEW_* flags to mark dirty when binding */
 
@@ -354,7 +352,7 @@ extern void
 st_finalize_nir_before_variants(struct nir_shader *nir);
 
 extern void
-st_prepare_vertex_program(struct st_program *stvp, uint8_t *attrib_to_index);
+st_prepare_vertex_program(struct st_program *stvp);
 
 extern void
 st_translate_stream_output_info(struct gl_program *prog);
