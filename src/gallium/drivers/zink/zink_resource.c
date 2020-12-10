@@ -378,6 +378,10 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
 
    if (templ->flags & PIPE_RESOURCE_FLAG_MAP_COHERENT)
       flags |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+   else if (!(flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) &&
+            !screen->winsys &&
+            !(templ->bind & (PIPE_BIND_SCANOUT|PIPE_BIND_DISPLAY_TARGET|PIPE_BIND_SHARED)))
+      flags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
 
    VkMemoryAllocateInfo mai = {};
    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -744,26 +748,29 @@ buffer_transfer_map(struct zink_context *ctx, struct zink_resource *res, unsigne
       if (result != VK_SUCCESS)
          return NULL;
    }
+   if (!(res->base.b.flags & PIPE_RESOURCE_FLAG_MAP_COHERENT)
+#if defined(MVK_VERSION)
+      // Work around for MoltenVk limitation specifically on coherent memory
+      // MoltenVk returns blank memory ranges when there should be data present
+      // This is a known limitation of MoltenVK.
+      // See https://github.com/KhronosGroup/MoltenVK/blob/master/Docs/MoltenVK_Runtime_UserGuide.md#known-moltenvk-limitations
 
-#if defined(__APPLE__)
-      if (!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
-         // Work around for MoltenVk limitation
-         // MoltenVk returns blank memory ranges when there should be data present
-         // This is a known limitation of MoltenVK.
-         // See https://github.com/KhronosGroup/MoltenVK/blob/master/Docs/MoltenVK_Runtime_UserGuide.md#known-moltenvk-limitations
-         VkMappedMemoryRange range = {
-            VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-            NULL,
-            res->mem,
-            res->offset,
-            res->size
-         };
-         result = vkFlushMappedMemoryRanges(screen->dev, 1, &range);
-         if (result != VK_SUCCESS)
-            return NULL;
-      }
+       || screen->have_moltenvk
 #endif
-
+      ) {
+      VkMappedMemoryRange range = {
+         VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+         NULL,
+         res->obj->mem,
+         res->obj->offset + trans->offset + box->x,
+         MIN2(align(box->width, screen->info.props.limits.nonCoherentAtomSize),
+              res->obj->size - res->obj->offset + trans->offset + box->x)
+      };
+      if (vkInvalidateMappedMemoryRanges(screen->dev, 1, &range) != VK_SUCCESS) {
+         vkUnmapMemory(screen->dev, res->obj->mem);
+         return NULL;
+      }
+   }
    trans->base.b.stride = 0;
    trans->base.b.layer_stride = 0;
    trans->base.b.usage = usage;
@@ -882,6 +889,8 @@ zink_transfer_map(struct pipe_context *pctx,
          vkGetImageSubresourceLayout(screen->dev, res->obj->image, &isr, &srl);
          trans->base.b.stride = srl.rowPitch;
          trans->base.b.layer_stride = srl.arrayPitch;
+         trans->offset = srl.offset;
+         trans->depthPitch = srl.depthPitch;
          const struct util_format_description *desc = util_format_description(res->base.b.format);
          unsigned offset = srl.offset +
                            box->z * srl.depthPitch +
@@ -917,6 +926,31 @@ zink_transfer_flush_region(struct pipe_context *pctx,
    struct zink_transfer *trans = (struct zink_transfer *)ptrans;
 
    if (trans->base.b.usage & PIPE_MAP_WRITE) {
+      struct zink_screen *screen = zink_screen(pctx->screen);
+      struct zink_resource *m = trans->staging_res ? zink_resource(trans->staging_res) :
+                                                     res;
+      unsigned size, offset;
+      if (res->obj->is_buffer) {
+         size = box->width;
+         offset = m->obj->offset + trans->offset + box->x;
+      } else {
+         const struct util_format_description *desc = util_format_description(res->base.b.format);
+         size = box->width * box->height * desc->block.bits / 8;
+         offset = trans->offset +
+                  box->z * trans->depthPitch +
+                  (box->y / desc->block.height) * trans->base.b.stride +
+                  (box->x / desc->block.width) * (desc->block.bits / 8);
+      }
+      VkMappedMemoryRange range = {
+         VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+         NULL,
+         m->obj->mem,
+         offset,
+         MIN2(align(size, screen->info.props.limits.nonCoherentAtomSize),
+              m->obj->size - m->obj->offset + offset)
+      };
+      if (!(res->base.b.flags & PIPE_RESOURCE_FLAG_MAP_COHERENT))
+         vkFlushMappedMemoryRanges(screen->dev, 1, &range);
       if (trans->staging_res) {
          struct zink_resource *staging_res = zink_resource(trans->staging_res);
 
@@ -936,6 +970,11 @@ zink_transfer_unmap(struct pipe_context *pctx,
    struct zink_screen *screen = zink_screen(pctx->screen);
    struct zink_resource *res = zink_resource(ptrans->resource);
    struct zink_transfer *trans = (struct zink_transfer *)ptrans;
+
+   if (!(trans->base.b.usage & (PIPE_MAP_FLUSH_EXPLICIT | PIPE_MAP_COHERENT))) {
+      zink_transfer_flush_region(pctx, ptrans, &ptrans->box);
+   }
+
    if (trans->staging_res) {
       struct zink_resource *staging_res = zink_resource(trans->staging_res);
       if (p_atomic_dec_zero(&staging_res->obj->map_count)) {
@@ -949,9 +988,6 @@ zink_transfer_unmap(struct pipe_context *pctx,
    if ((trans->base.b.usage & PIPE_MAP_PERSISTENT) && !(trans->base.b.usage & PIPE_MAP_COHERENT)) {
       res->persistent_maps--;
       ctx->num_persistent_maps--;
-   }
-   if (!(trans->base.b.usage & (PIPE_MAP_FLUSH_EXPLICIT | PIPE_MAP_COHERENT))) {
-      zink_transfer_flush_region(pctx, ptrans, &ptrans->box);
    }
 
    if (trans->staging_res)
