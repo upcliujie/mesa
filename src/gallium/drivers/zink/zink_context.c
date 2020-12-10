@@ -1996,10 +1996,20 @@ static void
 zink_texture_barrier(struct pipe_context *pctx, unsigned flags)
 {
    struct zink_context *ctx = zink_context(pctx);
-   /* TODO: if we ever start using fully parallelized batches, this probably needs a stall */
-   if (ctx->batch.has_work)
-      pctx->flush(pctx, NULL, 0);
-   zink_flush_queue(ctx);
+   for (unsigned i = 0; i < ctx->framebuffer->state.num_attachments; i++) {
+      struct zink_surface *surf = zink_surface(ctx->framebuffer->surfaces[i]);
+      if (!surf)
+         continue;
+      struct zink_resource *res = zink_resource(surf->base.texture);
+      if (res->aspect == VK_IMAGE_ASPECT_COLOR_BIT)
+         zink_resource_image_barrier(ctx, NULL, res, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                     VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+                                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+      else
+         zink_resource_image_barrier(ctx, NULL, res, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                     VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+                                     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
+   }
 }
 
 static inline void
