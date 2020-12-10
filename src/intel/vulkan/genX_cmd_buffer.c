@@ -1593,6 +1593,22 @@ genX(BeginCommandBuffer)(
    if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
       cmd_buffer->usage_flags &= ~VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
 
+#if GEN_GEN >= 12
+   if (cmd_buffer->pool->flags & VK_COMMAND_POOL_CREATE_PROTECTED_BIT) {
+      anv_batch_emit(&cmd_buffer->batch, GENX(MI_SET_APPID), appid) {
+         /* Default value for single session. */
+         appid.ProtectedMemoryApplicationID = 0x7f;
+         appid.ProtectedMemoryApplicationIDType = TRANSCODE_APP;
+      }
+      anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
+         /* We've been told we need a PIPE_CONTROL, no documentation. This
+          * is probably the only thing that makes sense.
+          */
+         pc.CommandStreamerStallEnable = true;
+      }
+   }
+#endif
+
    genX(cmd_buffer_emit_state_base_address)(cmd_buffer);
 
    /* We sometimes store vertex data in the dynamic state buffer for blorp
