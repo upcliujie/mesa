@@ -31,6 +31,7 @@
 #include <unordered_set>
 #include <bitset>
 #include <memory>
+#include <deque>
 
 #include "nir.h"
 #include "ac_binary.h"
@@ -128,6 +129,7 @@ enum class instr_class : uint8_t {
    vmem = 17,
    waitcnt = 18,
    other = 19,
+   count,
 };
 
 enum storage_class : uint8_t {
@@ -1882,7 +1884,8 @@ enum statistic {
    statistic_instructions,
    statistic_copies,
    statistic_branches,
-   statistic_cycles,
+   statistic_latency,
+   statistic_inv_throughput,
    statistic_vmem_clauses,
    statistic_smem_clauses,
    statistic_vmem_score,
@@ -2010,6 +2013,44 @@ struct live {
 struct ra_test_policy {
    /* Force RA to always use its pessimistic fallback algorithm */
    bool skip_optimistic_path = false;
+};
+
+class BlockCycleEstimator {
+public:
+   enum resource {
+      null = 0,
+      scalar,
+      branch_sendmsg,
+      valu,
+      valu_complex,
+      lds,
+      export_gds,
+      vmem,
+      resource_count,
+   };
+
+   BlockCycleEstimator(Program *program_) : program(program_) {}
+
+   Program *program;
+
+   int32_t cur_cycle = 0;
+   int32_t res_available[(int)BlockCycleEstimator::resource_count] = {0};
+   unsigned res_usage[(int)BlockCycleEstimator::resource_count] = {0};
+   int32_t reg_available[512] = {0};
+   std::deque<int32_t> lgkm;
+   std::deque<int32_t> exp;
+   std::deque<int32_t> vm;
+   std::deque<int32_t> vs;
+
+   unsigned predict_cost(aco_ptr<Instruction>& instr);
+   void add(aco_ptr<Instruction>& instr);
+   void join(const BlockCycleEstimator& other);
+private:
+   unsigned get_waitcnt_cost(wait_imm imm);
+   unsigned get_dependency_cost(aco_ptr<Instruction>& instr);
+
+   void use_resources(aco_ptr<Instruction>& instr);
+   int32_t cycles_until_res_available(aco_ptr<Instruction>& instr);
 };
 
 void init();
