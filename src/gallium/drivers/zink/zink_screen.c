@@ -393,6 +393,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return screen->info.props.limits.maxVertexInputBindingStride;
 
    case PIPE_CAP_SAMPLER_VIEW_TARGET:
+   case PIPE_CAP_EMULATE_ARGB:
       return 1;
 
    case PIPE_CAP_TGSI_VS_LAYER_VIEWPORT:
@@ -758,9 +759,13 @@ zink_is_format_supported(struct pipe_screen *pscreen,
           !(props.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT))
          return false;
 
-      if (bind & PIPE_BIND_SAMPLER_VIEW &&
-         !(props.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT))
+      if (bind & PIPE_BIND_SAMPLER_VIEW) {
+         if (!(props.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT))
             return false;
+         /* we can't swizzle these, so we can't sample from them either */
+         if (util_format_is_argb(format) || util_format_is_abgr(format))
+            return false;
+      }
 
       if (bind & PIPE_BIND_SHADER_IMAGE &&
           !(props.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT))
