@@ -909,6 +909,15 @@ void init_context(isel_context *ctx, nir_shader *shader)
                            spi_ps_inputs |= S_0286CC_POS_X_FLOAT_ENA(1) << i;
 
                      }
+
+                     if (ctx->options->vrs_enabled &&
+                         intrinsic->intrinsic == nir_intrinsic_load_frag_coord &&
+                         G_0286CC_POS_Z_FLOAT_ENA(spi_ps_inputs)) {
+                        /* Enable ancillary for adjusting gl_FragCoord.z for
+                         * VRS due to a hw bug on GFX10.3.
+                         */
+                        spi_ps_inputs |= S_0286CC_ANCILLARY_ENA(1);
+                     }
                      break;
                   }
                   case nir_intrinsic_load_sample_id:
