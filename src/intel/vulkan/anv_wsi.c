@@ -91,11 +91,12 @@ anv_init_wsi(struct anv_physical_device *physical_device)
    if (result != VK_SUCCESS)
       return result;
 
-   physical_device->wsi_device.supports_modifiers = true;
-   physical_device->wsi_device.signal_semaphore_for_memory =
-      anv_wsi_signal_semaphore_for_memory;
-   physical_device->wsi_device.signal_fence_for_memory =
-      anv_wsi_signal_fence_for_memory;
+   struct wsi_device *wsi_device = &physical_device->wsi_device;
+   for (uint32_t i = 0; i < ARRAY_SIZE(wsi_device->supports_protected); i++)
+      wsi_device->supports_protected[i] = i == VK_ICD_WSI_PLATFORM_DISPLAY ? true : false;
+   wsi_device->supports_modifiers = true;
+   wsi_device->signal_semaphore_for_memory = anv_wsi_signal_semaphore_for_memory;
+   wsi_device->signal_fence_for_memory = anv_wsi_signal_fence_for_memory;
 
    return VK_SUCCESS;
 }
