@@ -819,8 +819,6 @@ ntt_emit_alu(struct ntt_compile *c, nir_alu_instr *instr)
          break;
       }
 
-         /* XXX: carry */
-
       case nir_op_fmod:
          unreachable("should be handled by .lower_fmod = true");
          break;
