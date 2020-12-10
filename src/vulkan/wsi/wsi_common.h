@@ -91,6 +91,8 @@ struct wsi_device {
 
    VkPhysicalDevicePCIBusInfoPropertiesEXT pci_bus_info;
 
+   bool supports_protected[VK_ICD_WSI_PLATFORM_MAX];
+
    bool supports_modifiers;
    uint32_t maxImageDimension2D;
    VkPresentModeKHR override_present_mode;
