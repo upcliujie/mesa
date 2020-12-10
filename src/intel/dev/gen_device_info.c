@@ -1465,7 +1465,10 @@ gen_get_device_info_from_fd(int fd, struct gen_device_info *devinfo)
    gen_get_aperture_size(fd, &devinfo->aperture_bytes);
    devinfo->has_tiling_uapi = gen_has_get_tiling(fd);
 
-   devinfo->no_compression = INTEL_DEBUG & DEBUG_NO_RBC;
+   devinfo->no_compression =
+      (INTEL_DEBUG & DEBUG_NO_RBC) ||
+      /* GEN:BUG:22011186057 ADL-P A0 work-around */
+      (devinfo->is_alderlake && devinfo->gt == 2 && devinfo->revision == 0);
 
    return true;
 }

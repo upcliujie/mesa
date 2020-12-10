@@ -277,7 +277,8 @@ struct gen_device_info
    bool no_hw;
 
    /**
-    * no_compression is true when overridden by INTEL_DEBUG=norbc
+    * no_compression is true when overridden by INTEL_DEBUG=norbc or if
+    * required for the graphics device
     */
    bool no_compression;
    /** @} */
