@@ -1564,8 +1564,15 @@ isl_calc_row_pitch(const struct isl_device *dev,
          return false;
    }
 
-   const uint32_t row_pitch_B =
+   uint32_t row_pitch_B =
       surf_info->row_pitch_B != 0 ? surf_info->row_pitch_B : min_row_pitch_B;
+
+   const bool align_pot =
+      tile_info->tiling != ISL_TILING_LINEAR && dev->info->is_alderlake &&
+      dev->info->gt > 1;
+
+   if (align_pot)
+      row_pitch_B = isl_round_up_to_power_of_two(row_pitch_B);
 
    const uint32_t row_pitch_tl = row_pitch_B / tile_info->phys_extent_B.width;
 
