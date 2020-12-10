@@ -187,6 +187,54 @@ bi_back_to_back(bi_block *block)
 /* Insert a clause wrapping a single instruction */
 
 bi_clause *
+bi_singleton(void *memctx, bi_instr *ins,
+                bi_block *block,
+                unsigned scoreboard_id,
+                unsigned dependencies,
+                bool osrb)
+{
+        bi_clause *u = rzalloc(memctx, bi_clause);
+        u->bundle_count = 1;
+
+        ASSERTED bool can_fma = bi_opcode_props[ins->op].fma;
+        bool can_add = bi_opcode_props[ins->op].add;
+        bi_print_instr(ins, stdout);
+        assert(can_fma || can_add);
+
+        if (can_add)
+                u->bundles[0].add = (bi_instruction *) ins;
+        else
+                u->bundles[0].fma = (bi_instruction *) ins;
+
+        u->scoreboard_id = scoreboard_id;
+        u->staging_barrier = osrb;
+        u->dependencies = dependencies;
+
+        if (ins->op == BI_OPCODE_ATEST)
+                u->dependencies |= (1 << 6);
+
+        if (ins->op == BI_OPCODE_BLEND)
+                u->dependencies |= (1 << 6) | (1 << 7);
+
+        /* Let's be optimistic, we'll fix up later */
+        u->flow_control = BIFROST_FLOW_NBTB;
+
+        u->constant_count = 1;
+        u->constants[0] = ins->constant.u64;
+
+        if (ins->branch_target)
+                u->branch_constant = true;
+
+        u->next_clause_prefetch = (ins->op != BI_OPCODE_JUMP);
+        u->message_type = bi_message_type_for_instr(ins);
+        u->block = block;
+
+        return u;
+}
+
+/* Insert a clause wrapping a single instruction */
+
+bi_clause *
 bi_make_singleton(void *memctx, bi_instruction *ins,
                 bi_block *block,
                 unsigned scoreboard_id,
