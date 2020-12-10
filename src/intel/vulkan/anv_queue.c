@@ -743,7 +743,9 @@ anv_queue_submit_add_timeline_signal(struct anv_queue_submit* submit,
 }
 
 static struct anv_queue_submit *
-anv_queue_submit_alloc(struct anv_device *device, int perf_query_pass)
+anv_queue_submit_alloc(struct anv_device *device,
+                       int perf_query_pass,
+                       bool protected)
 {
    const VkAllocationCallbacks *alloc = &device->vk.alloc;
    VkSystemAllocationScope alloc_scope = VK_SYSTEM_ALLOCATION_SCOPE_DEVICE;
@@ -757,6 +759,7 @@ anv_queue_submit_alloc(struct anv_device *device, int perf_query_pass)
    submit->in_fence = -1;
    submit->out_fence = -1;
    submit->perf_query_pass = perf_query_pass;
+   submit->protected = protected;
 
    return submit;
 }
@@ -769,7 +772,7 @@ anv_queue_submit_simple_batch(struct anv_queue *queue,
       return VK_SUCCESS;
 
    struct anv_device *device = queue->device;
-   struct anv_queue_submit *submit = anv_queue_submit_alloc(device, -1);
+   struct anv_queue_submit *submit = anv_queue_submit_alloc(device, -1, false);
    if (!submit)
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -921,12 +924,14 @@ anv_queue_submit(struct anv_queue *queue,
                  uint32_t num_out_semaphores,
                  struct anv_bo *wsi_signal_bo,
                  VkFence _fence,
-                 int perf_query_pass)
+                 int perf_query_pass,
+                 bool protected)
 {
    ANV_FROM_HANDLE(anv_fence, fence, _fence);
    struct anv_device *device = queue->device;
    UNUSED struct anv_physical_device *pdevice = device->physical;
-   struct anv_queue_submit *submit = anv_queue_submit_alloc(device, perf_query_pass);
+   struct anv_queue_submit *submit =
+      anv_queue_submit_alloc(device, perf_query_pass, protected);
    if (!submit)
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -1196,7 +1201,7 @@ VkResult anv_QueueSubmit(
        * common case.
        */
       result = anv_queue_submit(queue, NULL, NULL, NULL, 0, NULL, NULL, 0,
-                                NULL, fence, -1);
+                                NULL, fence, -1, false);
       goto out;
    }
 
@@ -1217,6 +1222,11 @@ VkResult anv_QueueSubmit(
       const VkPerformanceQuerySubmitInfoKHR *perf_info =
          vk_find_struct_const(pSubmits[i].pNext,
                               PERFORMANCE_QUERY_SUBMIT_INFO_KHR);
+      const VkProtectedSubmitInfo *protected_info =
+         vk_find_struct_const(pSubmits[i].pNext,
+                              PROTECTED_SUBMIT_INFO);
+      const bool protected_submit =
+         protected_info && protected_info->protectedSubmit;
       const uint64_t *wait_values =
          timeline_info && timeline_info->waitSemaphoreValueCount ?
          timeline_info->pWaitSemaphoreValues : NULL;
@@ -1239,7 +1249,8 @@ VkResult anv_QueueSubmit(
                                    pSubmits[i].signalSemaphoreCount,
                                    wsi_signal_bo,
                                    submit_fence,
-                                   -1);
+                                   -1,
+                                   protected_submit);
          if (result != VK_SUCCESS)
             goto out;
 
@@ -1278,7 +1289,8 @@ VkResult anv_QueueSubmit(
                                    in_semaphores, in_values, num_in_semaphores,
                                    out_semaphores, out_values, num_out_semaphores,
                                    wsi_signal_bo, execbuf_fence,
-                                   perf_info ? perf_info->counterPassIndex : 0);
+                                   perf_info ? perf_info->counterPassIndex : 0,
+                                   protected_submit);
          if (result != VK_SUCCESS)
             goto out;
       }
