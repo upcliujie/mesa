@@ -76,7 +76,8 @@ radv_use_tc_compat_htile_for_image(struct radv_device *device,
 	if (device->physical_device->rad_info.chip_class < GFX8)
 		return false;
 
-	if ((pCreateInfo->usage & VK_IMAGE_USAGE_STORAGE_BIT))
+	if ((pCreateInfo->usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
+	    device->physical_device->rad_info.chip_class < GFX10)
 		return false;
 
 	if (pCreateInfo->tiling == VK_IMAGE_TILING_LINEAR)
