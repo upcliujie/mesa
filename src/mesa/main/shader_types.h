@@ -567,7 +567,6 @@ struct gl_program
    GLubyte SamplerUnits[MAX_SAMPLERS];
 
    struct pipe_shader_state state;
-   struct glsl_to_tgsi_visitor* glsl_to_tgsi;
    struct ati_fragment_shader *ati_fs;
    uint64_t affected_states; /**< ST_NEW_* flags to mark dirty when binding */
 
