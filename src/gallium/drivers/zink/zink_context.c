@@ -307,6 +307,7 @@ zink_context_destroy(struct pipe_context *pctx)
 
    util_primconvert_destroy(ctx->primconvert);
    u_upload_destroy(pctx->stream_uploader);
+   u_upload_destroy(pctx->const_uploader);
    slab_destroy_child(&ctx->transfer_pool);
    slab_destroy_child(&ctx->transfer_pool_unsync);
    util_blitter_destroy(ctx->blitter);
@@ -2545,7 +2546,7 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    slab_create_child(&ctx->transfer_pool_unsync, &screen->transfer_pool);
 
    ctx->base.stream_uploader = u_upload_create_default(&ctx->base);
-   ctx->base.const_uploader = ctx->base.stream_uploader;
+   ctx->base.const_uploader = u_upload_create_default(&ctx->base);
    for (int i = 0; i < ARRAY_SIZE(ctx->fb_clears); i++)
       util_dynarray_init(&ctx->fb_clears[i].clears, ctx);
 
