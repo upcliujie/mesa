@@ -98,6 +98,9 @@ __isl_finishme(const char *file, int line, const char *fmt, ...)
 static void
 isl_device_setup_mocs(struct isl_device *dev)
 {
+   /* Not supported on most platforms. */
+   dev->mocs.protected_content = UINT32_MAX;
+
    if (dev->info->gen >= 12) {
       if (dev->info->is_dg1) {
          /* L3CC=WB */
@@ -116,6 +119,7 @@ isl_device_setup_mocs(struct isl_device *dev)
          /* L1 - HDC:L1 + L3 + LLC */
          dev->mocs.l1_hdc_l3_llc = 48 << 1;
       }
+      dev->mocs.protected_content = 0; /* TODO */
    } else if (dev->info->gen >= 9) {
       /* TC=LLC/eLLC, LeCC=PTE, LRUM=3, L3CC=WB */
       dev->mocs.external = 1 << 1;
