@@ -83,9 +83,6 @@ st_delete_program(struct gl_context *ctx, struct gl_program *prog)
 
    st_release_variants(st, stp);
 
-   if (stp->glsl_to_tgsi)
-      free_glsl_to_tgsi_visitor(stp->glsl_to_tgsi);
-
    free(stp->serialized_nir);
 
    /* delete base class */
@@ -123,9 +120,6 @@ st_program_string_notify( struct gl_context *ctx,
          return false;
    } else if (target == GL_VERTEX_PROGRAM_ARB) {
       if (!st_translate_vertex_program(st, stp))
-         return false;
-   } else {
-      if (!st_translate_common_program(st, stp))
          return false;
    }
 

@@ -350,8 +350,7 @@ st_nir_preprocess(struct st_context *st, struct gl_program *prog,
 {
    struct pipe_screen *screen = st->screen;
    const nir_shader_compiler_options *options =
-      st->ctx->Const.ShaderCompilerOptions[prog->info.stage].NirOptions;
-   assert(options);
+       st_get_nir_compiler_options(st, prog->info.stage);
    nir_shader *nir = prog->nir;
 
    /* Set the next shader stage hint for VS and TES. */
@@ -709,7 +708,7 @@ st_link_nir(struct gl_context *ctx,
    for (unsigned i = 0; i < num_shaders; i++) {
       struct gl_linked_shader *shader = linked_shader[i];
       const nir_shader_compiler_options *options =
-         st->ctx->Const.ShaderCompilerOptions[shader->Stage].NirOptions;
+         st_get_nir_compiler_options(st, shader->Stage);
       struct gl_program *prog = shader->Program;
       struct st_program *stp = (struct st_program *)prog;
 
@@ -800,6 +799,8 @@ st_link_nir(struct gl_context *ctx,
 
    for (unsigned i = 0; i < num_shaders; i++) {
       struct gl_linked_shader *shader = linked_shader[i];
+      const nir_shader_compiler_options *options =
+         st_get_nir_compiler_options(st, shader->Stage);
       nir_shader *nir = shader->Program->nir;
 
       /* don't infer ACCESS_NON_READABLE so that Program->sh.ImageAccess is
@@ -854,7 +855,7 @@ st_link_nir(struct gl_context *ctx,
             nir_compact_varyings(prev_shader->nir,
                                  nir, ctx->API != API_OPENGL_COMPAT);
 
-         if (ctx->Const.ShaderCompilerOptions[shader->Stage].NirOptions->vectorize_io)
+         if (options->vectorize_io)
             st_nir_vectorize_io(prev_shader->nir, nir);
       }
    }
@@ -864,11 +865,12 @@ st_link_nir(struct gl_context *ctx,
    for (unsigned i = 0; i < num_shaders; i++) {
       struct gl_linked_shader *shader = linked_shader[i];
       struct shader_info *info = &shader->Program->nir->info;
+      const nir_shader_compiler_options *options =
+         st_get_nir_compiler_options(st, shader->Stage);
 
       st_glsl_to_nir_post_opts(st, shader->Program, shader_program);
 
-      if (prev_info &&
-          ctx->Const.ShaderCompilerOptions[shader->Stage].NirOptions->unify_interfaces) {
+      if (prev_info && options->unify_interfaces) {
          prev_info->outputs_written |= info->inputs_read &
             ~(VARYING_BIT_TESS_LEVEL_INNER | VARYING_BIT_TESS_LEVEL_OUTER);
          info->inputs_read |= prev_info->outputs_written &
