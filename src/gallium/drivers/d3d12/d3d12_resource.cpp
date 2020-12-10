@@ -197,9 +197,17 @@ init_texture(struct d3d12_screen *screen,
    }
 
    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+   
+   /* XXX
+    * The DRI frontend uses PIPE_BIND_LINEAR, but it isn't strictly needed.
+    * There's currently no place where we need row-major textures, so don't
+    * respect the LINEAR flag for now
+    */
+#if 0
    if (templ->bind & (PIPE_BIND_SCANOUT |
                       PIPE_BIND_SHARED | PIPE_BIND_LINEAR))
       desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+#endif
 
    D3D12_HEAP_TYPE heap_type = D3D12_HEAP_TYPE_DEFAULT;
 
