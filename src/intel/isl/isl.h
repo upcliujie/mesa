@@ -925,6 +925,7 @@ typedef uint64_t isl_surf_usage_flags_t;
 #define ISL_SURF_USAGE_INDEX_BUFFER_BIT        (1u << 17)
 #define ISL_SURF_USAGE_CONSTANT_BUFFER_BIT     (1u << 18)
 #define ISL_SURF_USAGE_STAGING_BIT             (1u << 19)
+#define ISL_SURF_USAGE_PROTECTED_BIT           (1u << 20)
 /** @} */
 
 /**
@@ -1081,6 +1082,8 @@ struct isl_device {
       uint32_t internal;
       uint32_t external;
       uint32_t l1_hdc_l3_llc;
+      /* Protected is an additional bit on top of the existing entry index. */
+      uint32_t protected_mask;
    } mocs;
 };
 
