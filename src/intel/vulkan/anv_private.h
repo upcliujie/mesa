@@ -1237,6 +1237,8 @@ struct anv_queue_submit {
    struct anv_bo *                           simple_bo;
    uint32_t                                  simple_bo_size;
 
+   bool                                      protected;
+
    struct list_head                          link;
 };
 
