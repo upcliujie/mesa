@@ -104,6 +104,11 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
        info->dst.format != info->src.format)
       return false;
 
+   if (util_format_is_argb(info->src.format) || util_format_is_abgr(info->src.format))
+      return false;
+   if (util_format_is_argb(info->dst.format) || util_format_is_abgr(info->dst.format))
+      return false;
+
    /* vkCmdBlitImage must not be used for multisampled source or destination images. */
    if (info->src.resource->nr_samples > 1 || info->dst.resource->nr_samples > 1)
       return false;

@@ -398,6 +398,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return screen->info.props.limits.maxVertexInputBindingStride;
 
    case PIPE_CAP_SAMPLER_VIEW_TARGET:
+   case PIPE_CAP_EMULATE_ARGB:
       return 1;
 
    case PIPE_CAP_TEXTURE_FLOAT_LINEAR:
@@ -766,6 +767,14 @@ zink_is_format_supported(struct pipe_screen *pscreen,
       if (bind & PIPE_BIND_VERTEX_BUFFER &&
           !(props.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT))
          return false;
+
+      if (bind & PIPE_BIND_SAMPLER_VIEW) {
+         if (!(props.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT))
+            return false;
+         /* we can't swizzle these, so we can't sample from them either */
+         if (util_format_is_argb(format) || util_format_is_abgr(format))
+            return false;
+      }
    } else {
       /* all other targets are texture-targets */
       if (bind & PIPE_BIND_RENDER_TARGET &&
@@ -935,7 +944,7 @@ zink_is_depth_format_supported(struct zink_screen *screen, VkFormat format)
 }
 
 static enum pipe_format
-emulate_x8(enum pipe_format format)
+emulate_format(enum pipe_format format)
 {
    /* convert missing X8 variants to A8 */
    switch (format) {
@@ -945,6 +954,25 @@ emulate_x8(enum pipe_format format)
    case PIPE_FORMAT_B8G8R8X8_SRGB:
       return PIPE_FORMAT_B8G8R8A8_SRGB;
 
+   case PIPE_FORMAT_A8R8G8B8_UNORM:
+      return PIPE_FORMAT_R8G8B8A8_UNORM;
+   case PIPE_FORMAT_A8R8G8B8_UINT:
+      return PIPE_FORMAT_R8G8B8A8_UINT;
+   case PIPE_FORMAT_A8R8G8B8_SRGB:
+      return PIPE_FORMAT_R8G8B8A8_SRGB;
+   case PIPE_FORMAT_A8B8G8R8_UNORM:
+      return PIPE_FORMAT_B8G8R8A8_UNORM;
+   case PIPE_FORMAT_A8B8G8R8_UINT:
+      return PIPE_FORMAT_B8G8R8A8_UINT;
+   case PIPE_FORMAT_A8B8G8R8_SRGB:
+      return PIPE_FORMAT_B8G8R8A8_SRGB;
+   case PIPE_FORMAT_A8B8G8R8_SINT:
+      return PIPE_FORMAT_B8G8R8A8_SINT;
+   case PIPE_FORMAT_A8B8G8R8_SSCALED:
+      return PIPE_FORMAT_B8G8R8A8_SSCALED;
+   case PIPE_FORMAT_A8B8G8R8_USCALED:
+      return PIPE_FORMAT_B8G8R8A8_USCALED;
+
    default:
       return format;
    }
@@ -953,7 +981,7 @@ emulate_x8(enum pipe_format format)
 VkFormat
 zink_get_format(struct zink_screen *screen, enum pipe_format format)
 {
-   VkFormat ret = zink_pipe_format_to_vk_format(emulate_x8(format));
+   VkFormat ret = zink_pipe_format_to_vk_format(emulate_format(format));
 
    if (format == PIPE_FORMAT_X24S8_UINT)
       /* valid when using aspects to extract stencil,
