@@ -1793,20 +1793,25 @@ bool radv_layout_is_htile_compressed(const struct radv_image *image,
 			 */
 			return true;
 		}
-
-		if (layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
-		    (queue_mask == (1u << RADV_QUEUE_COMPUTE)))
-			return false;
-
-		return layout != VK_IMAGE_LAYOUT_GENERAL;
 	}
 
-	return radv_image_has_htile(image) &&
-	       (layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
-	        layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR ||
-		layout == VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL_KHR ||
-	        (layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
-	         queue_mask == (1u << RADV_QUEUE_GENERAL)));
+	return (radv_image_has_htile(image) &&
+		/* DB rendering usages. */
+	        (layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+	         layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR ||
+		 layout == VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL_KHR ||
+		 /* Dst transfer commands only on graphics queue. */
+	         (layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+	          queue_mask == (1u << RADV_QUEUE_GENERAL)))) ||
+		(radv_image_is_tc_compat_htile(image) &&
+		 /* Shader read usages. */
+		 (layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL ||
+		  layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL ||
+		  layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ||
+		  layout == VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL ||
+		  layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL ||
+		  layout == VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL ||
+		  layout == VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL));
 }
 
 bool radv_layout_can_fast_clear(const struct radv_image *image,
