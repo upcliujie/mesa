@@ -162,22 +162,13 @@ void st_init_limits(struct pipe_screen *screen,
    }
 
    for (sh = 0; sh < PIPE_SHADER_TYPES; ++sh) {
-      struct gl_shader_compiler_options *options;
-      struct gl_program_constants *pc;
-      const nir_shader_compiler_options *nir_options = NULL;
-
-      bool prefer_nir = PIPE_SHADER_IR_NIR ==
-         screen->get_shader_param(screen, sh, PIPE_SHADER_CAP_PREFERRED_IR);
-
-      if (screen->get_compiler_options && prefer_nir) {
-         nir_options = (const nir_shader_compiler_options *)
-            screen->get_compiler_options(screen, PIPE_SHADER_IR_NIR, sh);
-      }
-
       const gl_shader_stage stage = tgsi_processor_to_shader_stage(sh);
-      pc = &c->Program[stage];
-      options = &c->ShaderCompilerOptions[stage];
-      c->ShaderCompilerOptions[stage].NirOptions = nir_options;
+      struct gl_shader_compiler_options *options =
+         &c->ShaderCompilerOptions[stage];
+      struct gl_program_constants *pc = &c->Program[stage];
+
+      options->NirOptions = (const nir_shader_compiler_options *)
+         screen->get_compiler_options(screen, PIPE_SHADER_IR_NIR, sh);
 
       if (sh == PIPE_SHADER_COMPUTE) {
          if (!screen->get_param(screen, PIPE_CAP_COMPUTE))
@@ -329,11 +320,6 @@ void st_init_limits(struct pipe_screen *screen,
 
       if (!screen->get_param(screen, PIPE_CAP_NIR_COMPACT_ARRAYS))
          options->LowerCombinedClipCullDistance = true;
-
-      /* NIR can do the lowering on our behalf and we'll get better results
-       * because it can actually optimize SSBO access.
-       */
-      options->LowerBufferInterfaceBlocks = !prefer_nir;
 
       if (sh == PIPE_SHADER_VERTEX || sh == PIPE_SHADER_GEOMETRY) {
          if (screen->get_param(screen, PIPE_CAP_VIEWPORT_TRANSFORM_LOWERED))
