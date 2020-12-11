@@ -371,18 +371,35 @@ mir_compute_interference(
         }
 }
 
-static bool
-mir_is_64(midgard_instruction *ins)
+static void
+align_alu_srcs(compiler_context *ctx,
+               midgard_instruction *ins,
+               unsigned *min_alignment)
 {
-        if (nir_alu_type_get_type_size(ins->dest_type) == 64)
-                return true;
+        assert(ins->type == TAG_ALU_4);
+        unsigned dst_bits = nir_alu_type_get_type_size(ins->dest_type);
 
         mir_foreach_src(ins, v) {
-                if (nir_alu_type_get_type_size(ins->src_types[v]) == 64)
-                        return true;
-        }
+                unsigned s = ins->src[v];
 
-        return false;
+                if (s >= ctx->temp_count)
+                        continue;
+
+                switch (nir_alu_type_get_type_size(ins->src_types[v])) {
+                case 32:
+                        /* Swizzles of 32-bit sources on 64-bit instructions need to be
+                         * aligned to either bottom (xy) or top (zw). More general
+                         * swizzle lowering should happen prior to scheduling (TODO),
+                         * but once we get RA we shouldn't disrupt this further. Align
+                         * sources of 64-bit instructions. */
+                        if (dst_bits == 64)
+                                min_alignment[s] = MAX2(min_alignment[s], 3);
+                        break;
+
+                default:
+                        break;
+                }
+        }
 }
 
 /* This routine performs the actual register allocation. It should be succeeded
@@ -436,20 +453,9 @@ allocate_registers(compiler_context *ctx, bool *spilled)
         unsigned *min_bound = calloc(sizeof(unsigned), ctx->temp_count);
 
         mir_foreach_instr_global(ctx, ins) {
-                /* Swizzles of 32-bit sources on 64-bit instructions need to be
-                 * aligned to either bottom (xy) or top (zw). More general
-                 * swizzle lowering should happen prior to scheduling (TODO),
-                 * but once we get RA we shouldn't disrupt this further. Align
-                 * sources of 64-bit instructions. */
 
-                if (ins->type == TAG_ALU_4 && mir_is_64(ins)) {
-                        mir_foreach_src(ins, v) {
-                                unsigned s = ins->src[v];
-
-                                if (s < ctx->temp_count)
-                                        min_alignment[s] = 3;
-                        }
-                }
+                if (ins->type == TAG_ALU_4)
+                        align_alu_srcs(ctx, ins, min_alignment);
 
                 if (ins->type == TAG_LOAD_STORE_4 && OP_HAS_ADDRESS(ins->op)) {
                         mir_foreach_src(ins, v) {
