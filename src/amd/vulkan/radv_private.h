@@ -825,6 +825,9 @@ struct radv_device {
 	/* Whether the app has enabled the robustBufferAccess feature. */
 	bool robust_buffer_access;
 
+	/* Whether VRS is enabled (GFX10.3+). */
+	bool vrs_enabled;
+
 	/* Whether the driver uses a global BO list. */
 	bool use_global_bo_list;
 
