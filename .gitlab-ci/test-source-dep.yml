@@ -233,3 +233,29 @@
       - src/amd/registers/**/*
       when: on_success
     - when: never
+
+.windows-build-rules:
+  rules:
+    - changes: 
+        *mesa_core_file_list
+      when: on_success
+    - changes:
+        *gallium_core_file_list
+      when: on_success
+    - changes: 
+      - src/gallium/drivers/d3d12/**/*
+      - src/microsoft/**/*
+      when: on_success
+    - when: never
+
+# Since we want to ignore scheduled pipelines for tests (rather than builds),
+# we would ideally want to have the .windows-build-rules +
+# ignore_scheduled_pipelines here, however YAML does not allow us to
+# concatenate two arrays together, so we'd have to open-code the rules.
+# Instead, we take advantage of `needs`; since windows-test requires
+# windows-build; we effectively get rules chaining for free, as long as it's
+# more restrictive. So this is 'everything in windows-build, but not scheduled'.
+.windows-test-rules:
+  rules:
+    - *ignore_scheduled_pipelines
+    - when: on_success
