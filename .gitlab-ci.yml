@@ -1001,7 +1001,6 @@ meson-mingw32-x86_64:
 .piglit-test:
   extends:
     - .test-gl
-    - .llvmpipe-rules
   artifacts:
     when: on_failure
     name: "mesa_${CI_JOB_NAME}"
@@ -1017,6 +1016,7 @@ meson-mingw32-x86_64:
 llvmpipe-piglit-cl:
   extends:
     - .piglit-test
+    - .llvmpipe-rules
     - .test-cl
     - .llvmpipe-cl-rules
   variables:
@@ -1029,7 +1029,9 @@ llvmpipe-piglit-cl:
     - install/piglit/run_cl.sh
 
 llvmpipe-piglit-quick_gl:
-  extends: .piglit-test
+  extends:
+    - .piglit-test
+    - .llvmpipe-rules
   variables:
     LP_NUM_THREADS: 0
     PIGLIT_OPTIONS: >
@@ -1044,13 +1046,17 @@ llvmpipe-piglit-quick_gl:
     PIGLIT_PROFILES: quick_gl
 
 llvmpipe-piglit-glslparser:
-  extends: .piglit-test
+  extends:
+    - .piglit-test
+    - .llvmpipe-rules
   variables:
     LP_NUM_THREADS: 0
     PIGLIT_PROFILES: glslparser
 
 llvmpipe-piglit-quick_shader:
-  extends: .piglit-test
+  extends:
+    - .piglit-test
+    - .llvmpipe-rules
   variables:
     LP_NUM_THREADS: 1
     PIGLIT_PROFILES: quick_shader
@@ -1117,6 +1123,40 @@ softpipe-gles31:
   variables:
     DEQP_VER: gles31
   extends: softpipe-gles2
+
+softpipe-piglit-quick:
+  extends:
+    - .piglit-test
+    - .softpipe-rules
+  variables:
+    GALLIUM_DRIVER: softpipe
+    PIGLIT_OPTIONS: >
+      --process-isolation false
+      -x egl_ext_device_
+      -x egl_ext_platform_device
+      -x ext_timer_query@time-elapsed
+      -x glx-multithread-clearbuffer
+      -x glx-multithread-shader-compile
+      -x max-texture-size
+      -x maxsize
+      -x fs-execution-ordering
+      -x local-id-explosion
+      -x arb_pipeline_statistics_query-comp
+      -x fs-packhalf2x16
+      -x streaming-texture-leak
+      -x longprim
+      -x shader-mem-barrier
+      -x arb_tessellation_shader
+      -x glsl-4.00
+      -x glsl-4.10
+      -x glsl-4.20
+      -x glsl-4.30
+      -x glsl-4.40
+      -x glsl-4.50
+      -x gpu_shader4
+      -x gpu_shader5
+    PIGLIT_PROFILES: quick
+    PIGLIT_RESULTS: softpipe-quick
 
 # Note that KHR-GL3* test sets include all tests from the previous
 # version, so we only need to run one test list (unlike dEQP-GLES,
