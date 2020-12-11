@@ -1518,7 +1518,7 @@ spirv_builder_get_words(struct spirv_builder *b, uint32_t *words,
 
    size_t written  = 0;
    words[written++] = SpvMagicNumber;
-   words[written++] = 0x00010000;
+   words[written++] = 0x00010500;
    words[written++] = 0;
    words[written++] = b->prev_id + 1;
    words[written++] = 0;
