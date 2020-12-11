@@ -222,7 +222,7 @@ brw_upload_constant_buffer(struct brw_context *brw)
 
    /* fragment shader constants */
    if (brw->curbe.wm_size) {
-      _mesa_load_state_parameters(ctx, fp->Parameters);
+      _mesa_load_state_parameters_slow(ctx, fp->Parameters);
 
       /* BRW_NEW_PUSH_CONSTANT_ALLOCATION */
       GLuint offset = brw->curbe.wm_start * 16;
@@ -264,7 +264,7 @@ brw_upload_constant_buffer(struct brw_context *brw)
 
    /* vertex shader constants */
    if (brw->curbe.vs_size) {
-      _mesa_load_state_parameters(ctx, vp->Parameters);
+      _mesa_load_state_parameters_slow(ctx, vp->Parameters);
 
       GLuint offset = brw->curbe.vs_start * 16;
 

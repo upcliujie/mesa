@@ -894,7 +894,7 @@ _mesa_fprint_program_parameters(FILE *f,
    }
    fprintf(f, "]\n");
 
-   _mesa_load_state_parameters(ctx, prog->Parameters);
+   _mesa_load_state_parameters_slow(ctx, prog->Parameters);
 
 #if 0
    fprintf(f, "Local Params:\n");

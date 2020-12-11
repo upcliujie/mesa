@@ -157,6 +157,10 @@ typedef enum gl_state_index_ {
 
 
 extern void
+_mesa_load_state_parameters_slow(struct gl_context *ctx,
+                                 struct gl_program_parameter_list *paramList);
+
+extern void
 _mesa_load_state_parameters(struct gl_context *ctx,
                             struct gl_program_parameter_list *paramList);
 

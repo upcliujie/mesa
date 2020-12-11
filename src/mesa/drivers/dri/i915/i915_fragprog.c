@@ -1109,7 +1109,7 @@ track_params(struct i915_fragment_program *p)
    GLint i;
 
    if (p->nr_params)
-      _mesa_load_state_parameters(p->ctx, p->FragProg.Parameters);
+      _mesa_load_state_parameters_slow(p->ctx, p->FragProg.Parameters);
 
    for (i = 0; i < p->nr_params; i++) {
       GLint reg = p->param[i].reg;

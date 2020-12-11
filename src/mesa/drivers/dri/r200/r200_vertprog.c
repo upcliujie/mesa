@@ -113,7 +113,7 @@ static GLboolean r200VertexProgUpdateParams(struct gl_context *ctx, struct r200_
    R200_STATECHANGE( rmesa, vpp[0] );
    R200_STATECHANGE( rmesa, vpp[1] );
    assert(mesa_vp->Parameters);
-   _mesa_load_state_parameters(ctx, mesa_vp->Parameters);
+   _mesa_load_state_parameters_slow(ctx, mesa_vp->Parameters);
    paramList = mesa_vp->Parameters;
 
    if(paramList->NumParameters > R200_VSF_MAX_PARAM){

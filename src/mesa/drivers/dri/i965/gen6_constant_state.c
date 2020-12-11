@@ -151,7 +151,7 @@ gen6_upload_push_constants(struct brw_context *brw,
        */
       /* XXX: Should this happen somewhere before to get our state flag set? */
       if (prog)
-         _mesa_load_state_parameters(ctx, prog->Parameters);
+         _mesa_load_state_parameters_slow(ctx, prog->Parameters);
 
       int i;
       const int size = prog_data->nr_params * sizeof(gl_constant_value);
@@ -249,7 +249,7 @@ brw_upload_pull_constants(struct brw_context *brw,
    /* Updates the ParamaterValues[i] pointers for all parameters of the
     * basic type of PROGRAM_STATE_VAR.
     */
-   _mesa_load_state_parameters(&brw->ctx, prog->Parameters);
+   _mesa_load_state_parameters_slow(&brw->ctx, prog->Parameters);
 
    /* BRW_NEW_*_PROG_DATA | _NEW_PROGRAM_CONSTANTS */
    uint32_t size = prog_data->nr_pull_params * 4;
@@ -306,7 +306,7 @@ brw_upload_cs_push_constants(struct brw_context *brw,
     * basic type of PROGRAM_STATE_VAR.
     */
    /* XXX: Should this happen somewhere before to get our state flag set? */
-   _mesa_load_state_parameters(ctx, prog->Parameters);
+   _mesa_load_state_parameters_slow(ctx, prog->Parameters);
 
    const struct brw_cs_parameters cs_params = brw_cs_get_parameters(brw);
    const unsigned push_const_size =

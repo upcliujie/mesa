@@ -1217,6 +1217,33 @@ _mesa_program_state_string(const gl_state_index16 state[STATE_LENGTH])
  * Other parameter types never change or are explicitly set by the user
  * with glUniform() or glProgramParameter(), etc.
  * This would be called at glBegin time.
+ *
+ * This is a slower way of loading state parameters when they can be
+ * intertwined or followed by other parameter types. This is needed by
+ * ir_to_mesa because it inserts PROGRAM_CONSTANTs at the end.
+ */
+void
+_mesa_load_state_parameters_slow(struct gl_context *ctx,
+                                 struct gl_program_parameter_list *paramList)
+{
+   if (!paramList)
+      return;
+
+   int num = paramList->NumParameters;
+
+   for (int i = paramList->FirstStateVarIndex; i < num; i++) {
+      if (paramList->Parameters[i].Type != PROGRAM_STATE_VAR)
+         continue;
+
+      unsigned pvo = paramList->Parameters[i].ValueOffset;
+      fetch_state(ctx, paramList->Parameters[i].StateIndexes,
+                  paramList->ParameterValues + pvo);
+   }
+}
+
+/**
+ * The faster way of loading state parameters when it's known that
+ * all state parameters are last and not intertwined with other types.
  */
 void
 _mesa_load_state_parameters(struct gl_context *ctx,
