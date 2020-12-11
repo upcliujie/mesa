@@ -203,15 +203,19 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
          bci.usage |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
 
       /* apparently gallium thinks this is the jack-of-all-trades bind type */
-      if (templ->bind & (PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_QUERY_BUFFER))
+      if (templ->bind & (PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_QUERY_BUFFER)) {
          bci.usage |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
-                      VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT |
-                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
                       VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
                       VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
                       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                       VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
+         VkFormatProperties props = screen->format_props[templ->format];
+         if (props.bufferFeatures & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+            bci.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+         if (props.bufferFeatures & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT)
+            bci.usage |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+      }
 
       if (templ->bind & PIPE_BIND_VERTEX_BUFFER)
          bci.usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
