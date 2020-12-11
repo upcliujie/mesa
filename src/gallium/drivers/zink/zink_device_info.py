@@ -302,6 +302,25 @@ zink_get_physical_device_info(struct zink_screen *screen)
 </%helpers:guard>
 %endfor
 
+   // enable the extensions if they match the conditions given by ext.enable_conds 
+   if (screen->vk_GetPhysicalDeviceProperties2) {
+        %for ext in extensions:
+<%helpers:guard ext="${ext}">
+<%
+    conditions = ""
+    if ext.enable_conds:
+        for cond in ext.enable_conds:
+            cond = cond.replace("$feats", "info->" + ext.field("feats"))
+            cond = cond.replace("$props", "info->" + ext.field("props"))
+            conditions += "&& (" + cond + ")\\n"
+    conditions = conditions.strip()
+%>\
+      info->have_${ext.name_with_vendor()} = support_${ext.name_with_vendor()}
+         ${conditions};
+</%helpers:guard>
+        %endfor
+   }
+
    // check for device properties
    if (screen->vk_GetPhysicalDeviceProperties2) {
       VkPhysicalDeviceProperties2 props = {};
@@ -329,25 +348,6 @@ zink_get_physical_device_info(struct zink_screen *screen)
 
       // note: setting up local VkPhysicalDeviceProperties2.
       screen->vk_GetPhysicalDeviceProperties2(screen->pdev, &props);
-   }
-
-   // enable the extensions if they match the conditions given by ext.enable_conds 
-   if (screen->vk_GetPhysicalDeviceProperties2) {
-        %for ext in extensions:
-<%helpers:guard ext="${ext}">
-<%
-    conditions = ""
-    if ext.enable_conds:
-        for cond in ext.enable_conds:
-            cond = cond.replace("$feats", "info->" + ext.field("feats"))
-            cond = cond.replace("$props", "info->" + ext.field("props"))
-            conditions += "&& (" + cond + ")\\n"
-    conditions = conditions.strip()
-%>\
-      info->have_${ext.name_with_vendor()} = support_${ext.name_with_vendor()}
-         ${conditions};
-</%helpers:guard>
-        %endfor
    }
 
    // generate extension list
