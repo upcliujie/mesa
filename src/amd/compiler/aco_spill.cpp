@@ -1103,7 +1103,7 @@ void process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
             if (ctx.renames[block_idx].find(op.getTemp()) != ctx.renames[block_idx].end())
                op.setTemp(ctx.renames[block_idx][op.getTemp()]);
             /* prevent it's definining instruction from being DCE'd if it could be rematerialized */
-            if (ctx.remat.count(op.getTemp()))
+            else if (ctx.remat.count(op.getTemp()))
                ctx.remat_used[ctx.remat[op.getTemp()].instr] = true;
             continue;
          }
