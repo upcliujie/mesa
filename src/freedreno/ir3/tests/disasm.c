@@ -209,6 +209,7 @@ int
 main(int argc, char **argv)
 {
 	int retval = 0;
+	int fails = 0, total = 0;
 	const int output_size = 4096;
 	char *disasm_output = malloc(output_size);
 	FILE *fdisasm = fmemopen(disasm_output, output_size, "w+");
@@ -241,7 +242,28 @@ main(int argc, char **argv)
 			retval = 1;
 			continue;
 		}
+
+		// HACK wire up new xml decoder.. this doesn't trigger
+		// fails (yet), just a way to exercise the new disasm
+		void isa_decode(void *bin, int sz, FILE *out);
+
+		rewind(fdisasm);
+		memset(disasm_output, 0, output_size);
+		isa_decode(code, 8, fdisasm);
+		fflush(fdisasm);
+		trim(disasm_output);
+
+		total++;
+		if (strcmp(disasm_output, test->expected) != 0) {
+			printf("  Expected: \"%s\"\n", test->expected);
+			printf("  Got:      \"%s\"\n", disasm_output);
+			fails++;
+			continue;
+		}
 	}
+
+	if (fails)
+		printf("%d/%d fails\n", fails, total);
 
 	fclose(fdisasm);
 	free(disasm_output);
