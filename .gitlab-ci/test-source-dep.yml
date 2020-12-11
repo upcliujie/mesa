@@ -233,3 +233,34 @@
       - src/amd/registers/**/*
       when: on_success
     - when: never
+
+# Unfortunately YAML doesn't let us concatenate arrays, so we have to do the
+# rules duplication manually
+.windows-build-rules:
+  rules:
+    - changes: 
+        *mesa_core_file_list
+      when: on_success
+    - changes:
+        *gallium_core_file_list
+      when: on_success
+    - changes: 
+      - src/gallium/drivers/d3d12/**/*
+      - src/microsoft/**/*
+      when: on_success
+    - when: never
+
+.windows-test-rules:
+  rules:
+    - *ignore_scheduled_pipelines
+    - changes: 
+        *mesa_core_file_list
+      when: on_success
+    - changes:
+        *gallium_core_file_list
+      when: on_success
+    - changes: 
+      - src/gallium/drivers/d3d12/**/*
+      - src/microsoft/**/*
+      when: on_success
+    - when: never
