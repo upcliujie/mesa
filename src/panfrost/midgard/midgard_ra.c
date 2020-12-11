@@ -372,6 +372,47 @@ mir_compute_interference(
 }
 
 static void
+align_16b_alu_src(compiler_context *ctx,
+                  midgard_instruction *ins, unsigned src_idx,
+                  unsigned *min_alignment)
+{
+        unsigned s = ins->src[src_idx];
+
+        assert(s < ctx->temp_count);
+
+        for (unsigned c = 0; c < MIR_VEC_COMPONENTS; c += 4) {
+                unsigned src_mask = 0;
+
+                for (unsigned o = 0; o < 4; o++) {
+                        if ((1 << (c + o)) & ins->mask)
+                                src_mask |= 1 << ins->swizzle[src_idx][c + o];
+                }
+
+                if (!src_mask)
+                        continue;
+
+                unsigned nibble = (ffs(src_mask) - 1) / 4;
+
+                /* Make sure all sources are part of the same nibble */
+                assert(((util_last_bit(src_mask) - 1) / 4) == nibble);
+
+                /* Now consider the vec4(16b) nibble */
+                src_mask = (src_mask >> (nibble * 4)) & 0xf;
+
+                /* Both half of the nibble are used, align on the nibble size,
+                 * AKA 64-bit, if only half of the nibble is used and this half
+                 * uses 2 components we need to align on 32-bit to make sure we
+                 * never cross a nibble boundary, otherwise the native
+                 * alignment (16-bit is fine)
+                 */
+                if ((src_mask & 0xc) && (src_mask & 0x3))
+                        min_alignment[s] = MAX2(min_alignment[s], 3);
+                else if (util_bitcount(src_mask) > 1)
+                        min_alignment[s] = MAX2(min_alignment[s], 2);
+        }
+}
+
+static void
 align_alu_srcs(compiler_context *ctx,
                midgard_instruction *ins,
                unsigned *min_alignment)
@@ -394,6 +435,10 @@ align_alu_srcs(compiler_context *ctx,
                          * sources of 64-bit instructions. */
                         if (dst_bits == 64)
                                 min_alignment[s] = MAX2(min_alignment[s], 3);
+                        break;
+
+                case 16:
+                        align_16b_alu_src(ctx, ins, v, min_alignment);
                         break;
 
                 default:
