@@ -840,19 +840,25 @@ void add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
             ctx.add_interference(def_spill_id, pair.second);
          }
 
-         /* check if variable is already spilled at predecessor */
-         std::map<Temp, uint32_t>::iterator spilled = ctx.spills_exit[pred_idx].find(var);
-         if (spilled != ctx.spills_exit[pred_idx].end()) {
-            if (spilled->second != def_spill_id)
-               ctx.add_affinity(def_spill_id, spilled->second);
-            continue;
-         }
-
          /* rename if necessary */
+         Temp old_var = var;
          std::map<Temp, Temp>::iterator rename_it = ctx.renames[pred_idx].find(var);
          if (rename_it != ctx.renames[pred_idx].end()) {
             var = rename_it->second;
             ctx.renames[pred_idx].erase(rename_it);
+         }
+
+         /* make sure the phi operand is not DCE'd */
+         if (ctx.remat.count(var))
+            ctx.remat_used[ctx.remat[var].instr] = true;
+
+         /* check if variable is already spilled at predecessor */
+         std::map<Temp, uint32_t>::iterator spilled = ctx.spills_exit[pred_idx].find(old_var);
+         if (spilled != ctx.spills_exit[pred_idx].end()) {
+            if (spilled->second != def_spill_id)
+               ctx.add_affinity(def_spill_id, spilled->second);
+            ctx.is_reloaded[spilled->second] = true;
+            continue;
          }
 
          uint32_t spill_id = ctx.allocate_spill_id(phi->definitions[0].regClass());
