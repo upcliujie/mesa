@@ -3847,6 +3847,16 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
       unreachable("invalid stage");
    }
 
+   if (s->info.stage != MESA_SHADER_GEOMETRY) {
+      /* TODO: check vk features for this */
+      if (s->info.outputs_written & BITFIELD64_BIT(VARYING_SLOT_LAYER) ||
+          s->info.inputs_read & BITFIELD64_BIT(VARYING_SLOT_LAYER)) {
+         spirv_builder_emit_extension(&ctx.builder, "SPV_EXT_shader_viewport_index_layer");
+         spirv_builder_emit_cap(&ctx.builder, SpvCapabilityShaderViewportIndexLayerEXT);
+         spirv_builder_emit_cap(&ctx.builder, SpvCapabilityShaderLayer);
+      }
+   }
+
    if (s->info.num_ssbos || s->info.num_abos)
       spirv_builder_emit_extension(&ctx.builder, "SPV_KHR_storage_buffer_storage_class");
 
