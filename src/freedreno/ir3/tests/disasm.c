@@ -221,6 +221,7 @@ int
 main(int argc, char **argv)
 {
 	int retval = 0;
+	int fails = 0, total = 0;
 	const int output_size = 4096;
 	char *disasm_output = malloc(output_size);
 	FILE *fdisasm = fmemopen(disasm_output, output_size, "w+");
@@ -231,8 +232,6 @@ main(int argc, char **argv)
 
 	for (int i = 0; i < ARRAY_SIZE(tests); i++) {
 		const struct test *test = &tests[i];
-		printf("Testing a%d %s: \"%s\"...\n",
-				test->gpu_id, test->instr, test->expected);
 
 		rewind(fdisasm);
 		memset(disasm_output, 0, output_size);
@@ -241,6 +240,11 @@ main(int argc, char **argv)
 			strtoll(&test->instr[9], NULL, 16),
 			strtoll(&test->instr[0], NULL, 16),
 		};
+		unsigned cat = (code[1] >> 29) & 0x7;
+		if (cat > 5)
+			continue;
+		printf("Testing a%d %s: \"%s\"...\n",
+				test->gpu_id, test->instr, test->expected);
 		disasm_a3xx(code, ARRAY_SIZE(code), 0, fdisasm, test->gpu_id);
 		fflush(fdisasm);
 
@@ -253,7 +257,29 @@ main(int argc, char **argv)
 			retval = 1;
 			continue;
 		}
+
+		// HACK wire up new xml decoder.. this doesn't trigger
+		// fails (yet), just a way to exercise the new disasm
+		void isa_decode(void *bin, int sz, FILE *out, bool raw);
+
+		rewind(fdisasm);
+		memset(disasm_output, 0, output_size);
+		isa_decode(code, 8, fdisasm, false);
+		fflush(fdisasm);
+		trim(disasm_output);
+
+		total++;
+		if (strcmp(disasm_output, test->expected) != 0) {
+			printf("  Expected:  \"%s\"\n", test->expected);
+			printf("  Got (new): \"%s\"\n", disasm_output);
+			fails++;
+			continue;
+		}
 	}
+
+	if (fails)
+		printf("%d/%d fails\n", fails, total);
+	printf("%d/%d passes\n", total - fails, total);
 
 	fclose(fdisasm);
 	free(disasm_output);
