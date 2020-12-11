@@ -880,6 +880,8 @@ emit_image(struct ntv_context *ctx, struct nir_variable *var)
       _mesa_hash_table_insert(ctx->spv_vars, key, var);
       emit_access_decorations(ctx, var, var_id);
    }
+   assert(ctx->num_entry_ifaces < ARRAY_SIZE(ctx->entry_ifaces));
+   ctx->entry_ifaces[ctx->num_entry_ifaces++] = var_id;
 
    spirv_builder_emit_descriptor_set(&ctx->builder, var_id, is_sampler ? ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW : ZINK_DESCRIPTOR_TYPE_IMAGE);
    int binding = zink_binding(ctx->stage,
@@ -1010,6 +1012,8 @@ emit_bo(struct ntv_context *ctx, struct nir_variable *var)
          assert(ctx->num_ubos < ARRAY_SIZE(ctx->ubos));
          ctx->ubos[ctx->num_ubos++] = var_id;
       }
+      assert(ctx->num_entry_ifaces < ARRAY_SIZE(ctx->entry_ifaces));
+      ctx->entry_ifaces[ctx->num_entry_ifaces++] = var_id;
 
       spirv_builder_emit_descriptor_set(&ctx->builder, var_id, ssbo || is_counter ? ZINK_DESCRIPTOR_TYPE_SSBO : ZINK_DESCRIPTOR_TYPE_UBO);
       int binding = zink_binding(ctx->stage,
