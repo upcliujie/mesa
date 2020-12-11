@@ -303,7 +303,7 @@ run_vp( struct gl_context *ctx, struct tnl_pipeline_stage *stage )
       return GL_TRUE;
 
    /* ARB program or vertex shader */
-   _mesa_load_state_parameters(ctx, program->Parameters);
+   _mesa_load_state_parameters_slow(ctx, program->Parameters);
 
    /* make list of outputs to save some time below */
    numOutputs = 0;

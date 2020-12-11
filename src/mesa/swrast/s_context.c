@@ -265,8 +265,8 @@ _swrast_update_fragment_program(struct gl_context *ctx, GLbitfield newState)
    if (!_swrast_use_fragment_program(ctx))
       return;
 
-   _mesa_load_state_parameters(ctx,
-                               ctx->FragmentProgram._Current->Parameters);
+   _mesa_load_state_parameters_slow(ctx,
+                                    ctx->FragmentProgram._Current->Parameters);
 }
 
 
