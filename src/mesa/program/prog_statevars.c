@@ -1293,10 +1293,12 @@ _mesa_optimize_state_parameters(struct gl_program_parameter_list *list)
             free((char*)list->Parameters[i].Name);
 
          /* Remove the merged state vars. */
-         memmove(&list->Parameters[first_param + 1],
-                 &list->Parameters[last_param + 1],
-                 sizeof(list->Parameters[0]) *
-                 (list->NumParameters - last_param - 1));
+         if (last_param + 1 < list->NumParameters) {
+            memmove(&list->Parameters[first_param + 1],
+                    &list->Parameters[last_param + 1],
+                    sizeof(list->Parameters[0]) *
+                    (list->NumParameters - last_param - 1));
+         }
          list->NumParameters -= param_diff;
       }
    }
