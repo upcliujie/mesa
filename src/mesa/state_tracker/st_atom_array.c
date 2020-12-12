@@ -229,7 +229,7 @@ st_setup_arrays(struct st_context *st,
  * Return the index of the vertex buffer where current attribs have been
  * uploaded.
  */
-static int ALWAYS_INLINE
+static void ALWAYS_INLINE
 st_setup_current(struct st_context *st,
                  const struct st_vertex_program *vp,
                  const struct st_common_variant *vp_variant,
@@ -267,7 +267,6 @@ st_setup_current(struct st_context *st,
       } while (curmask);
 
       vbuffer[bufidx].is_user_buffer = false;
-      vbuffer[bufidx].buffer.resource = NULL;
       /* vbuffer[bufidx].buffer_offset is set below */
       vbuffer[bufidx].stride = 0;
 
@@ -280,15 +279,13 @@ st_setup_current(struct st_context *st,
       struct u_upload_mgr *uploader = st->can_bind_const_buffer_as_vertex ?
                                       st->pipe->const_uploader :
                                       st->pipe->stream_uploader;
-      u_upload_data(uploader,
-                    0, cursor - data, max_alignment, data,
-                    &vbuffer[bufidx].buffer_offset,
-                    &vbuffer[bufidx].buffer.resource);
+      u_upload_data_no_ref(uploader,
+                           0, cursor - data, max_alignment, data,
+                           &vbuffer[bufidx].buffer_offset,
+                           &vbuffer[bufidx].buffer.resource);
       /* Always unmap. The uploader might use explicit flushes. */
       u_upload_unmap(uploader);
-      return bufidx;
    }
-   return -1;
 }
 
 void
@@ -341,8 +338,7 @@ st_update_array(struct st_context *st)
 
    /* _NEW_CURRENT_ATTRIB */
    /* Setup zero-stride attribs. */
-   int current_attrib_buffer =
-      st_setup_current(st, vp, vp_variant, &velements, vbuffer, &num_vbuffers);
+   st_setup_current(st, vp, vp_variant, &velements, vbuffer, &num_vbuffers);
 
    velements.count = vp->num_inputs + vp_variant->key.passthrough_edgeflags;
 
@@ -356,8 +352,4 @@ st_update_array(struct st_context *st)
                                        unbind_trailing_vbuffers,
                                        vbuffer, uses_user_vertex_buffers);
    st->last_num_vbuffers = num_vbuffers;
-
-   /* Unreference uploaded current attrib buffer. */
-   if (current_attrib_buffer >= 0)
-      pipe_resource_reference(&vbuffer[current_attrib_buffer].buffer.resource, NULL);
 }
