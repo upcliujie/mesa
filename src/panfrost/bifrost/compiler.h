@@ -1220,4 +1220,7 @@ bi_builder_insert(bi_cursor *cursor, bi_instr *I)
     unreachable("Invalid cursor option");
 }
 
+bi_instr * bi_load_to(bi_builder *b, bi_index dest, bi_index s0, bi_index s1, unsigned bits, enum bi_seg seg);
+bi_instr * bi_store(bi_builder *b, bi_index s0, bi_index s1, bi_index s2, unsigned bits, enum bi_seg seg);
+
 #endif
