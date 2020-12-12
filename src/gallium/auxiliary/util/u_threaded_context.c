@@ -802,29 +802,20 @@ tc_set_constant_buffer(struct pipe_context *_pipe,
       return;
    }
 
-   if (cb->user_buffer) {
-      struct pipe_resource *buffer = NULL;
-      unsigned offset;
+   struct pipe_resource *buffer;
+   unsigned offset;
 
+   if (cb->user_buffer) {
       /* This must be done before adding set_constant_buffer, because it could
        * generate e.g. transfer_unmap and flush partially-uninitialized
        * set_constant_buffer to the driver if it was done afterwards.
        */
-      u_upload_data(tc->base.const_uploader, 0, cb->buffer_size, tc->ubo_alignment,
-                    cb->user_buffer, &offset, &buffer);
+      u_upload_data_no_ref(tc->base.const_uploader, 0, cb->buffer_size,
+                           tc->ubo_alignment, cb->user_buffer, &offset, &buffer);
       u_upload_unmap(tc->base.const_uploader);
-
-      struct tc_constant_buffer *p =
-         tc_add_struct_typed_call(tc, TC_CALL_set_constant_buffer,
-                                  tc_constant_buffer);
-      p->info.shader = shader;
-      p->info.index = index;
-      p->info.is_null = false;
-      p->cb.buffer_size = cb->buffer_size;
-      p->cb.user_buffer = NULL;
-      p->cb.buffer_offset = offset;
-      p->cb.buffer = buffer;
-      return;
+   } else {
+      buffer = cb->buffer;
+      offset = cb->buffer_offset;
    }
 
    struct tc_constant_buffer *p =
@@ -833,9 +824,9 @@ tc_set_constant_buffer(struct pipe_context *_pipe,
    p->info.shader = shader;
    p->info.index = index;
    p->info.is_null = false;
-   tc_set_resource_reference(&p->cb.buffer, cb->buffer);
+   tc_set_resource_reference(&p->cb.buffer, buffer);
    p->cb.user_buffer = NULL;
-   p->cb.buffer_offset = cb->buffer_offset;
+   p->cb.buffer_offset = offset;
    p->cb.buffer_size = cb->buffer_size;
 }
 
