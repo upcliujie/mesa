@@ -322,15 +322,14 @@ st_pbo_create_vs(struct st_context *st)
          nir_store_var(&b, out_pos,
                        nir_swizzle(&b, nir_i2f32(&b, nir_load_var(&b, instance_id)), swiz_x, 4),
                        (1 << 2));
-      } else {
-         nir_variable *out_layer = nir_variable_create(b.shader,
-                                                     nir_var_shader_out,
-                                                     glsl_int_type(),
-                                                     "out_layer");
-         out_layer->data.location = VARYING_SLOT_LAYER;
-         out_layer->data.interpolation = INTERP_MODE_NONE;
-         nir_copy_var(&b, out_layer, instance_id);
       }
+      nir_variable *out_layer = nir_variable_create(b.shader,
+                                                  nir_var_shader_out,
+                                                  glsl_int_type(),
+                                                  "out_layer");
+      out_layer->data.location = VARYING_SLOT_LAYER;
+      out_layer->data.interpolation = INTERP_MODE_NONE;
+      nir_copy_var(&b, out_layer, instance_id);
    }
 
    return st_nir_finish_builtin_shader(st, b.shader);
