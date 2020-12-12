@@ -147,7 +147,7 @@ if gallium_drivers.contains('auto')
       ]
     elif ['mips', 'mips64', 'riscv32', 'riscv64'].contains(host_machine.cpu_family())
       gallium_drivers = [
-        'r300', 'r600', 'radeonsi', 'nouveau', 'virgl', 'swrast'
+        'r300', 'r600', 'radeonsi', 'nouveau', 'virgl', 'kmsro', 'etnaviv', 'swrast'
       ]
     else
       error('Unknown architecture @0@. Please pass -Dgallium-drivers to set driver options. Patches gladly accepted to fix this.'.format(
