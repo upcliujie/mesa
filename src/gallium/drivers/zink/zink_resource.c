@@ -122,10 +122,15 @@ void
 zink_destroy_resource_object(struct zink_screen *screen, struct zink_resource_object *obj)
 {
    assert(!obj->map_count);
-   if (obj->is_buffer)
+   if (obj->is_buffer) {
+      if (obj->sbuffer)
+         vkDestroyBuffer(screen->dev, obj->sbuffer, NULL);
       vkDestroyBuffer(screen->dev, obj->buffer, NULL);
-   else
+   } else {
+      if (obj->simage)
+         vkDestroyImage(screen->dev, obj->simage, NULL);
       vkDestroyImage(screen->dev, obj->image, NULL);
+   }
 
    zink_descriptor_set_refs_clear(&obj->desc_set_refs, obj);
    cache_or_free_mem(screen, obj);
@@ -203,8 +208,6 @@ create_bci(struct zink_screen *screen, const struct pipe_resource *templ, unsign
       VkFormatProperties props = screen->format_props[templ->format];
       if (props.bufferFeatures & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
          bci.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-      if (props.bufferFeatures & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT)
-         bci.usage |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
    }
 
    if (bind & PIPE_BIND_VERTEX_BUFFER)
@@ -222,6 +225,9 @@ create_bci(struct zink_screen *screen, const struct pipe_resource *templ, unsign
 
    if (bind & PIPE_BIND_SHADER_BUFFER)
       bci.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+   if (bind & PIPE_BIND_SHADER_IMAGE)
+      bci.usage |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
 
    if (bind & PIPE_BIND_COMMAND_ARGS_BUFFER)
       bci.usage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
@@ -295,12 +301,8 @@ create_ici(struct zink_screen *screen, const struct pipe_resource *templ, unsign
                VK_IMAGE_USAGE_SAMPLED_BIT;
 
    if ((templ->nr_samples < 2 || screen->info.feats.features.shaderStorageImageMultisample) &&
-       (bind & PIPE_BIND_SHADER_IMAGE ||
-       (bind & PIPE_BIND_SAMPLER_VIEW && templ->flags & PIPE_RESOURCE_FLAG_TEXTURING_MORE_LIKELY))) {
+       (bind & PIPE_BIND_SHADER_IMAGE)) {
       VkFormatProperties props = screen->format_props[templ->format];
-      /* gallium doesn't provide any way to actually know whether this will be used as a shader image,
-       * so we have to just assume and set the bit if it's available
-       */
       if ((ici.tiling == VK_IMAGE_TILING_LINEAR && props.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ||
           (ici.tiling == VK_IMAGE_TILING_OPTIMAL && props.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT))
          ici.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -983,6 +985,30 @@ zink_resource_get_separate_stencil(struct pipe_resource *pres)
 
    return NULL;
 
+}
+
+bool
+zink_resource_object_init_storage(struct zink_screen *screen, struct zink_resource *res)
+{
+   /* base resource already has the cap */
+   if (res->base.b.bind & PIPE_BIND_SHADER_IMAGE)
+      return true;
+   if (res->obj->is_buffer) {
+      if (res->obj->sbuffer)
+         return true;
+      VkBufferCreateInfo bci = create_bci(screen, &res->base.b, PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_SHADER_IMAGE);
+      if (vkCreateBuffer(screen->dev, &bci, NULL, &res->obj->sbuffer) != VK_SUCCESS)
+         return false;
+      vkBindBufferMemory(screen->dev, res->obj->sbuffer, res->obj->mem, res->obj->offset);
+   } else {
+      if (res->obj->simage)
+         return true;
+      VkImageCreateInfo ici = create_ici(screen, &res->base.b, PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_SHADER_IMAGE);
+      if (vkCreateImage(screen->dev, &ici, NULL, &res->obj->simage) != VK_SUCCESS)
+         return false;
+      vkBindImageMemory(screen->dev, res->obj->simage, res->obj->mem, res->obj->offset);
+   }
+   return true;
 }
 
 void

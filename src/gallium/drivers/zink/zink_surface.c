@@ -37,7 +37,10 @@ create_ivci(struct zink_screen *screen,
 {
    VkImageViewCreateInfo ivci = {};
    ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-   ivci.image = res->obj->image;
+   if (res->bind_history & BITFIELD64_BIT(ZINK_DESCRIPTOR_TYPE_IMAGE))
+      ivci.image = res->obj->simage;
+   if (!ivci.image)
+      ivci.image = res->obj->image;
 
    switch (res->base.b.target) {
    case PIPE_TEXTURE_1D:

@@ -623,7 +623,10 @@ get_buffer_view(struct zink_context *ctx, struct zink_resource *res, enum pipe_f
    struct zink_buffer_view *buffer_view;
    VkBufferViewCreateInfo bvci = {};
    bvci.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
-   bvci.buffer = res->obj->buffer;
+   if (res->bind_history & BITFIELD64_BIT(ZINK_DESCRIPTOR_TYPE_IMAGE))
+      bvci.buffer = res->obj->sbuffer;
+   if (!bvci.buffer)
+      bvci.buffer = res->obj->buffer;
    bvci.format = zink_get_format(screen, format);
    assert(bvci.format);
    bvci.offset = offset;
@@ -976,6 +979,10 @@ zink_set_shader_images(struct pipe_context *pctx,
       if (images && images[i].resource) {
          util_dynarray_init(&image_view->desc_set_refs.refs, NULL);
          struct zink_resource *res = (void *) images[i].resource;
+         if (!zink_resource_object_init_storage(zink_screen(pctx->screen), res)) {
+            debug_printf("couldn't create storage image!");
+            continue;
+         }
          res->bind_history |= BITFIELD64_BIT(ZINK_DESCRIPTOR_TYPE_IMAGE);
          res->bind_stages |= 1 << p_stage;
          util_copy_image_view(&image_view->base, images + i);
@@ -1604,8 +1611,9 @@ void
 zink_resource_image_barrier(struct zink_context *ctx, struct zink_batch *batch, struct zink_resource *res,
                       VkImageLayout new_layout, VkAccessFlags flags, VkPipelineStageFlags pipeline)
 {
-   VkImageMemoryBarrier imb;
-   if (!zink_resource_image_barrier_init(&imb, res, new_layout, flags, pipeline))
+   VkImageMemoryBarrier imb[2];
+   unsigned num_barriers = 1;
+   if (!zink_resource_image_barrier_init(&imb[0], res, new_layout, flags, pipeline))
       return;
    if (!pipeline)
       pipeline = pipeline_dst_stage(new_layout);
@@ -1614,6 +1622,15 @@ zink_resource_image_barrier(struct zink_context *ctx, struct zink_batch *batch, 
       batch = zink_batch_no_rp(ctx);
    }
    assert(!batch->in_rp);
+   if (flags & (VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT) &&
+       new_layout == VK_IMAGE_LAYOUT_GENERAL && res->obj->simage) {
+      imb[1] = imb[0];
+      imb[1].image = res->obj->simage;
+      imb[1].oldLayout = res->obj->storage_init ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_GENERAL;
+      imb[1].newLayout = VK_IMAGE_LAYOUT_GENERAL;
+      num_barriers++;
+      res->obj->storage_init = true;
+   }
    vkCmdPipelineBarrier(
       batch->state->cmdbuf,
       res->access_stage ? res->access_stage : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -1621,12 +1638,12 @@ zink_resource_image_barrier(struct zink_context *ctx, struct zink_batch *batch, 
       0,
       0, NULL,
       0, NULL,
-      1, &imb
+      num_barriers, imb
    );
 
    res->layout = new_layout;
    res->access_stage = pipeline;
-   res->access = imb.dstAccessMask;
+   res->access = imb[0].dstAccessMask;
 }
 
 
@@ -1703,8 +1720,9 @@ zink_resource_buffer_barrier_init(VkBufferMemoryBarrier *bmb, struct zink_resour
 void
 zink_resource_buffer_barrier(struct zink_context *ctx, struct zink_batch *batch, struct zink_resource *res, VkAccessFlags flags, VkPipelineStageFlags pipeline)
 {
-   VkBufferMemoryBarrier bmb;
-   if (!zink_resource_buffer_barrier_init(&bmb, res, flags, pipeline))
+   VkBufferMemoryBarrier bmb[2];
+   unsigned num_barriers = 1;
+   if (!zink_resource_buffer_barrier_init(&bmb[0], res, flags, pipeline))
       return;
    if (!pipeline)
       pipeline = pipeline_access_stage(flags);
@@ -1713,16 +1731,21 @@ zink_resource_buffer_barrier(struct zink_context *ctx, struct zink_batch *batch,
       batch = zink_batch_no_rp(ctx);
    }
    assert(!batch->in_rp);
+   if (flags & (VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT) && res->obj->sbuffer) {
+      bmb[1] = bmb[0];
+      bmb[1].buffer = res->obj->sbuffer;
+      num_barriers++;
+   }
    vkCmdPipelineBarrier(
       batch->state->cmdbuf,
       res->access_stage ? res->access_stage : pipeline_access_stage(res->access),
       pipeline,
       0,
       0, NULL,
-      1, &bmb,
+      num_barriers, bmb,
       0, NULL
    );
-   res->access = bmb.dstAccessMask;
+   res->access = bmb[0].dstAccessMask;
    res->access_stage = pipeline;
 }
 
@@ -2396,6 +2419,10 @@ zink_resource_rebind(struct zink_context *ctx, struct zink_resource *res)
                struct zink_image_view *image_view = &ctx->image_views[shader][i];
                zink_descriptor_set_refs_clear(&image_view->desc_set_refs, image_view);
                zink_buffer_view_reference(ctx, &image_view->buffer_view, NULL);
+               if (!zink_resource_object_init_storage(zink_screen(ctx->base.screen), res)) {
+                  debug_printf("couldn't create storage image!");
+                  continue;
+               }
                image_view->buffer_view = get_buffer_view(ctx, res, image_view->base.format,
                                                          image_view->base.u.buf.offset, image_view->base.u.buf.size);
                assert(image_view->buffer_view);

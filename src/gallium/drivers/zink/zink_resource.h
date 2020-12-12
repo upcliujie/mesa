@@ -50,6 +50,13 @@ struct zink_resource_object {
       VkBuffer buffer;
       VkImage image;
    };
+
+   union {
+      VkBuffer sbuffer;
+      VkImage simage;
+   };
+   bool storage_init; //layout was set for image
+
    VkDeviceMemory mem;
    uint32_t mem_hash;
    VkDeviceSize offset, size;
@@ -144,4 +151,6 @@ zink_resource_object_reference(struct zink_screen *screen,
    if (dst) *dst = src;
 }
 
+bool
+zink_resource_object_init_storage(struct zink_screen *screen, struct zink_resource *res);
 #endif
