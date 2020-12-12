@@ -107,8 +107,9 @@ st_upload_constants(struct st_context *st, struct gl_program *prog)
           * but matrix rows are sometimes allocated partially, so add 12
           * to compensate for the fetch_state defect.
           */
-         u_upload_alloc(st->pipe->const_uploader, 0, paramBytes + 12, 64,
-                        &cb.buffer_offset, &cb.buffer, (void**)&ptr);
+         u_upload_alloc_no_ref(st->pipe->const_uploader, 0, paramBytes + 12,
+                               64, &cb.buffer_offset, &cb.buffer,
+                               (void**)&ptr);
 
          int uniform_bytes = params->UniformBytes;
          if (uniform_bytes)
@@ -122,7 +123,6 @@ st_upload_constants(struct st_context *st, struct gl_program *prog)
 
          u_upload_unmap(st->pipe->const_uploader);
          cso_set_constant_buffer(st->cso_context, shader_type, 0, &cb);
-         pipe_resource_reference(&cb.buffer, NULL);
 
          /* Set inlinable constants. This is more involved because state
           * parameters are uploaded directly above instead of being loaded
