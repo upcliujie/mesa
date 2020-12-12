@@ -472,6 +472,23 @@ bi_passthrough(enum bifrost_packed_src value)
         };
 }
 
+static inline bool
+bi_index_null(bi_index idx)
+{
+        return idx.type == BI_INDEX_NULL;
+}
+
+/* Compares equality as references. Does not compare offsets, swizzles, or
+ * modifiers. */
+
+static inline bool
+bi_index_equal(bi_index left, bi_index right)
+{
+        return (left.type == right.type) &&
+                (left.reg == right.reg) &&
+                (left.value == right.value);
+}
+
 /* Represents the assignment of slots for a given bi_bundle */
 
 typedef struct {
