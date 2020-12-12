@@ -1242,9 +1242,9 @@ _mesa_load_state_parameters(struct gl_context *ctx,
    if (!paramList)
       return;
 
-   int num = paramList->NumParameters;
+   int last = paramList->LastStateVarIndex;
 
-   for (int i = paramList->FirstStateVarIndex; i < num; i++) {
+   for (int i = paramList->FirstStateVarIndex; i <= last; i++) {
       unsigned pvo = paramList->Parameters[i].ValueOffset;
       fetch_state(ctx, paramList->Parameters[i].StateIndexes,
                   paramList->ParameterValues + pvo);
@@ -1256,9 +1256,9 @@ _mesa_upload_state_parameters(struct gl_context *ctx,
                               struct gl_program_parameter_list *paramList,
                               uint32_t *dst)
 {
-   int num = paramList->NumParameters;
+   int last = paramList->LastStateVarIndex;
 
-   for (int i = paramList->FirstStateVarIndex; i < num; i++) {
+   for (int i = paramList->FirstStateVarIndex; i <= last; i++) {
       unsigned pvo = paramList->Parameters[i].ValueOffset;
       fetch_state(ctx, paramList->Parameters[i].StateIndexes,
                   (gl_constant_value*)(dst + pvo));
@@ -1438,4 +1438,6 @@ _mesa_optimize_state_parameters(struct gl_program_parameter_list *list)
          list->NumParameters -= param_diff;
       }
    }
+
+   _mesa_recompute_parameter_bounds(list);
 }
