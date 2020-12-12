@@ -124,6 +124,36 @@ void u_upload_data(struct u_upload_mgr *upload,
                    unsigned *out_offset,
                    struct pipe_resource **outbuf);
 
+/**
+ * Same as u_upload_alloc, but don't increment the reference counter of
+ * \p outbuf knowing that the caller would have to decrement it anyway.
+ * The only limitation is that the caller must increment the reference
+ * counter before any u_upload_mgr is used again.
+ */
+void
+u_upload_alloc_no_ref(struct u_upload_mgr *upload,
+                      unsigned min_out_offset,
+                      unsigned size,
+                      unsigned alignment,
+                      unsigned *out_offset,
+                      struct pipe_resource **outbuf,
+                      void **ptr);
+
+/**
+ * Same as u_upload_data, but don't increment the reference counter of
+ * \p outbuf knowing that the caller would have to decrement it anyway.
+ * The only limitation is that the caller must increment the reference
+ * counter before any u_upload_mgr is used again.
+ */
+void
+u_upload_data_no_ref(struct u_upload_mgr *upload,
+                     unsigned min_out_offset,
+                     unsigned size,
+                     unsigned alignment,
+                     const void *data,
+                     unsigned *out_offset,
+                     struct pipe_resource **outbuf);
+
 #ifdef __cplusplus
 } // extern "C" {
 #endif

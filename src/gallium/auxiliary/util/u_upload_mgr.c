@@ -215,13 +215,13 @@ u_upload_alloc_buffer(struct u_upload_mgr *upload, unsigned min_size)
 }
 
 void
-u_upload_alloc(struct u_upload_mgr *upload,
-               unsigned min_out_offset,
-               unsigned size,
-               unsigned alignment,
-               unsigned *out_offset,
-               struct pipe_resource **outbuf,
-               void **ptr)
+u_upload_alloc_no_ref(struct u_upload_mgr *upload,
+                      unsigned min_out_offset,
+                      unsigned size,
+                      unsigned alignment,
+                      unsigned *out_offset,
+                      struct pipe_resource **outbuf,
+                      void **ptr)
 {
    unsigned buffer_size = upload->buffer_size;
    unsigned offset = MAX2(min_out_offset, upload->offset);
@@ -238,7 +238,7 @@ u_upload_alloc(struct u_upload_mgr *upload,
 
       if (unlikely(!buffer_size)) {
          *out_offset = ~0;
-         pipe_resource_reference(outbuf, NULL);
+         *outbuf = NULL;
          *ptr = NULL;
          return;
       }
@@ -253,7 +253,7 @@ u_upload_alloc(struct u_upload_mgr *upload,
       if (unlikely(!upload->map)) {
          upload->transfer = NULL;
          *out_offset = ~0;
-         pipe_resource_reference(outbuf, NULL);
+         *outbuf = NULL;
          *ptr = NULL;
          return;
       }
@@ -267,10 +267,26 @@ u_upload_alloc(struct u_upload_mgr *upload,
 
    /* Emit the return values: */
    *ptr = upload->map + offset;
-   pipe_resource_reference(outbuf, upload->buffer);
+   *outbuf = upload->buffer;
    *out_offset = offset;
 
    upload->offset = offset + size;
+}
+
+void
+u_upload_alloc(struct u_upload_mgr *upload,
+               unsigned min_out_offset,
+               unsigned size,
+               unsigned alignment,
+               unsigned *out_offset,
+               struct pipe_resource **outbuf,
+               void **ptr)
+{
+   struct pipe_resource *buf;
+
+   u_upload_alloc_no_ref(upload, min_out_offset, size, alignment, out_offset,
+                         &buf, ptr);
+   pipe_resource_reference(outbuf, buf);
 }
 
 void
@@ -282,11 +298,30 @@ u_upload_data(struct u_upload_mgr *upload,
               unsigned *out_offset,
               struct pipe_resource **outbuf)
 {
+   struct pipe_resource *buf;
    uint8_t *ptr;
 
-   u_upload_alloc(upload, min_out_offset, size, alignment,
-                  out_offset, outbuf,
-                  (void**)&ptr);
+   u_upload_alloc_no_ref(upload, min_out_offset, size, alignment,
+                         out_offset, &buf, (void**)&ptr);
+   pipe_resource_reference(outbuf, buf);
+   if (ptr)
+      memcpy(ptr, data, size);
+}
+
+void
+u_upload_data_no_ref(struct u_upload_mgr *upload,
+                     unsigned min_out_offset,
+                     unsigned size,
+                     unsigned alignment,
+                     const void *data,
+                     unsigned *out_offset,
+                     struct pipe_resource **outbuf)
+{
+   uint8_t *ptr;
+
+   u_upload_alloc_no_ref(upload, min_out_offset, size, alignment,
+                         out_offset, outbuf,
+                         (void**)&ptr);
    if (ptr)
       memcpy(ptr, data, size);
 }
