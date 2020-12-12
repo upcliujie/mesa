@@ -115,7 +115,7 @@ fetch_state(struct gl_context *ctx, const gl_state_index16 state[],
             value[0] = ctx->Light.LightSource[ln].SpotCutoff;
          return;
       }
-   case STATE_LIGHT_ATTRIBS:
+   case STATE_LIGHT_ARRAY:
       /* state[1] is the index of the first value */
       /* state[2] is the number of values */
       assert(state[1] + state[2] <= ARRAY_SIZE(ctx->Light.LightSourceData));
@@ -648,7 +648,7 @@ _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH])
       return _NEW_LIGHT | _NEW_CURRENT_ATTRIB;
 
    case STATE_LIGHT:
-   case STATE_LIGHT_ATTRIBS:
+   case STATE_LIGHT_ARRAY:
    case STATE_LIGHTMODEL_AMBIENT:
       return _NEW_LIGHT;
 
@@ -786,8 +786,8 @@ append_token(char *dst, gl_state_index k)
    case STATE_LIGHT:
       append(dst, "light");
       break;
-   case STATE_LIGHT_ATTRIBS:
-      append(dst, "light.attribs");
+   case STATE_LIGHT_ARRAY:
+      append(dst, "light.array");
       break;
    case STATE_LIGHTMODEL_AMBIENT:
       append(dst, "lightmodel.ambient");
@@ -1042,7 +1042,7 @@ _mesa_program_state_string(const gl_state_index16 state[STATE_LENGTH])
       append_index(str, state[1], true); /* light number [i]. */
       append_token(str, state[2]); /* coefficients */
       break;
-   case STATE_LIGHT_ATTRIBS:
+   case STATE_LIGHT_ARRAY:
       sprintf(tmp, "[%d..%d]", state[1], state[1] + state[2] - 1);
       append(str, tmp);
       break;
@@ -1306,7 +1306,7 @@ _mesa_optimize_state_parameters(struct gl_program_parameter_list *list)
          }
          if (last_param > first_param) {
             /* Convert the state var to STATE_LIGHT_ATTRIBS. */
-            list->Parameters[first_param].StateIndexes[0] = STATE_LIGHT_ATTRIBS;
+            list->Parameters[first_param].StateIndexes[0] = STATE_LIGHT_ARRAY;
             /* Set the offset in floats. */
             list->Parameters[first_param].StateIndexes[1] =
                list->Parameters[first_param].StateIndexes[1] * /* light index */
