@@ -25,6 +25,7 @@
  */
 
 #include "compiler.h"
+#include "bi_builder.h"
 
 /* Does an instruction respect clamps and source mods? Depend
  * on the types involved */
@@ -301,4 +302,38 @@ bi_rewrite_uses(bi_context *ctx,
         }
 }
 
+bi_instr *
+bi_load_to(bi_builder *b, bi_index dest, bi_index s0, bi_index s1,
+                unsigned bits, enum bi_seg seg)
+{
+        switch (bits) {
+        case 32:
+                return bi_load_i32_to(b, dest, s0, s1, seg);
+        case 64:
+                return bi_load_i64_to(b, dest, s0, s1, seg);
+        case 96:
+                return bi_load_i96_to(b, dest, s0, s1, seg);
+        case 128:
+                return bi_load_i128_to(b, dest, s0, s1, seg);
+        default:
+                unreachable("Invalid bit size");
+        }
+}
 
+bi_instr *
+bi_store(bi_builder *b, bi_index s0, bi_index s1, bi_index s2,
+                unsigned bits, enum bi_seg seg)
+{
+        switch (bits) {
+        case 32:
+                return bi_store_i32_to(b, bi_null(), s0, s1, s2, seg);
+        case 64:
+                return bi_store_i64_to(b, bi_null(), s0, s1, s2, seg);
+        case 96:
+                return bi_store_i96_to(b, bi_null(), s0, s1, s2, seg);
+        case 128:
+                return bi_store_i128_to(b, bi_null(), s0, s1, s2, seg);
+        default:
+                unreachable("Invalid bit size");
+        }
+}
