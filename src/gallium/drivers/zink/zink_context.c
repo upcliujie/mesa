@@ -689,8 +689,21 @@ zink_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *pres,
       if (ivci.subresourceRange.aspectMask == VK_IMAGE_ASPECT_STENCIL_BIT) {
          ivci.format = VK_FORMAT_S8_UINT;
          ivci.components.g = VK_COMPONENT_SWIZZLE_R;
-      } else
+      } else {
          ivci.format = zink_get_format(screen, state->format);
+         /* if we have e.g., R8G8B8X8, then we have to ignore alpha since we're just emulating
+          * these formats
+          */
+         const struct util_format_description *desc = util_format_description(state->format);
+         if (ivci.subresourceRange.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT &&
+             desc->layout == UTIL_FORMAT_LAYOUT_PLAIN) {
+            VkComponentSwizzle *swizz = &ivci.components.r;
+            for (unsigned i = 0; i < desc->nr_channels; i++) {
+               if (desc->channel[i].type == UTIL_FORMAT_TYPE_VOID)
+                  swizz[i] = VK_COMPONENT_SWIZZLE_ONE;
+            }
+         }
+      }
       assert(ivci.format);
 
       ivci.subresourceRange.baseMipLevel = state->u.tex.first_level;

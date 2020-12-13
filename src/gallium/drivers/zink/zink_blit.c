@@ -182,13 +182,20 @@ zink_blit(struct pipe_context *pctx,
           const struct pipe_blit_info *info)
 {
    struct zink_context *ctx = zink_context(pctx);
-   if (info->src.resource->nr_samples > 1 &&
-       info->dst.resource->nr_samples <= 1) {
-      if (blit_resolve(ctx, info))
-         return;
-   } else {
-      if (blit_native(ctx, info))
-         return;
+   const struct util_format_description *desc = util_format_description(info->src.format);
+   if (desc->nr_channels != 4 || desc->layout != UTIL_FORMAT_LAYOUT_PLAIN ||
+       (desc->nr_channels == 4 && desc->channel[3].type != UTIL_FORMAT_TYPE_VOID)) {
+      /* we can't blit RGBX formats directly since they're emulated
+       * so we have to use sampler views
+       */
+      if (info->src.resource->nr_samples > 1 &&
+          info->dst.resource->nr_samples <= 1) {
+         if (blit_resolve(ctx, info))
+            return;
+      } else {
+         if (blit_native(ctx, info))
+            return;
+      }
    }
 
    struct zink_resource *src = zink_resource(info->src.resource);
