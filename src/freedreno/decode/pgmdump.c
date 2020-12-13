@@ -247,7 +247,7 @@ struct state {
 static const char *infile;
 static int full_dump = 1;
 static int dump_shaders = 0;
-static int gpu_id;
+static int gpu_id = 618;
 
 static char *find_sect_end(char *buf, int sz)
 {
@@ -993,12 +993,13 @@ int main(int argc, char **argv)
 		} else if (check_extension(infile, ".vo3")) {
 		} else if (check_extension(infile, ".fo3")) {
 		} else if (check_extension(infile, ".co3")) {
+		} else if (check_extension(infile, ".bin")) {
 		} else {
 			fprintf(stderr, "invalid input file: %s\n", infile);
 			return -1;
 		}
-		buf = calloc(1, 100 * 1024);
-		ret = io_readn(io, buf, 100 * 1024);
+		buf = calloc(1, 1024 * 1024);
+		ret = io_readn(io, buf, 1024 * 1024);
 		if (ret < 0) {
 			fprintf(stderr, "error: %m");
 			return -1;
