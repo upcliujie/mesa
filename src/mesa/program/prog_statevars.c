@@ -658,6 +658,10 @@ _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH])
    case STATE_LIGHT:
    case STATE_LIGHT_ARRAY:
    case STATE_LIGHTMODEL_AMBIENT:
+   case STATE_LIGHT_SPOT_DIR_NORMALIZED:
+   case STATE_LIGHT_POSITION:
+   case STATE_LIGHT_POSITION_NORMALIZED:
+   case STATE_LIGHT_HALF_VECTOR:
       return _NEW_LIGHT;
 
    case STATE_TEXGEN:
@@ -668,6 +672,7 @@ _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH])
    case STATE_FOG_COLOR:
       return _NEW_FOG | _NEW_BUFFERS | _NEW_FRAG_CLAMP;
    case STATE_FOG_PARAMS:
+   case STATE_FOG_PARAMS_OPTIMIZED:
       return _NEW_FOG;
 
    case STATE_CLIPPLANE:
@@ -681,7 +686,10 @@ _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH])
    case STATE_MODELVIEW_MATRIX_INVERSE:
    case STATE_MODELVIEW_MATRIX_TRANSPOSE:
    case STATE_MODELVIEW_MATRIX_INVTRANS:
+   case STATE_NORMAL_SCALE_EYESPACE:
+   case STATE_NORMAL_SCALE:
       return _NEW_MODELVIEW;
+
    case STATE_PROJECTION_MATRIX:
    case STATE_PROJECTION_MATRIX_INVERSE:
    case STATE_PROJECTION_MATRIX_TRANSPOSE:
@@ -704,6 +712,8 @@ _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH])
       return _NEW_TRACK_MATRIX;
 
    case STATE_NUM_SAMPLES:
+   case STATE_FB_SIZE:
+   case STATE_FB_WPOS_Y_TRANSFORM:
       return _NEW_BUFFERS;
 
    case STATE_DEPTH_RANGE:
@@ -719,38 +729,19 @@ _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH])
    case STATE_VERTEX_PROGRAM_LOCAL_ARRAY:
       return _NEW_PROGRAM;
 
-   case STATE_NORMAL_SCALE_EYESPACE:
-      return _NEW_MODELVIEW;
-
    case STATE_CURRENT_ATTRIB:
       return _NEW_CURRENT_ATTRIB;
    case STATE_CURRENT_ATTRIB_MAYBE_VP_CLAMPED:
       return _NEW_CURRENT_ATTRIB | _NEW_LIGHT | _NEW_BUFFERS;
 
-   case STATE_NORMAL_SCALE:
-      return _NEW_MODELVIEW;
-
-   case STATE_FOG_PARAMS_OPTIMIZED:
-      return _NEW_FOG;
    case STATE_POINT_SIZE_CLAMPED:
       return _NEW_POINT | _NEW_MULTISAMPLE;
-   case STATE_LIGHT_SPOT_DIR_NORMALIZED:
-   case STATE_LIGHT_POSITION:
-   case STATE_LIGHT_POSITION_NORMALIZED:
-   case STATE_LIGHT_HALF_VECTOR:
-      return _NEW_LIGHT;
 
    case STATE_PT_SCALE:
    case STATE_PT_BIAS:
       return _NEW_PIXEL;
 
-   case STATE_FB_SIZE:
-   case STATE_FB_WPOS_Y_TRANSFORM:
-      return _NEW_BUFFERS;
-
    case STATE_ADVANCED_BLENDING_MODE:
-      return _NEW_COLOR;
-
    case STATE_ALPHA_REF:
       return _NEW_COLOR;
 
@@ -1043,16 +1034,9 @@ _mesa_program_state_string(const gl_state_index16 state[STATE_LENGTH])
    append_token(str, state[0]);
 
    switch (state[0]) {
-   case STATE_MATERIAL:
-      append_index(str, state[1], false);
-      break;
    case STATE_LIGHT:
       append_index(str, state[1], true); /* light number [i]. */
       append_token(str, state[2]); /* coefficients */
-      break;
-   case STATE_LIGHT_ARRAY:
-      sprintf(tmp, "[%d..%d]", state[1], state[1] + state[2] - 1);
-      append(str, tmp);
       break;
    case STATE_LIGHTMODEL_AMBIENT:
       break;
@@ -1120,25 +1104,7 @@ _mesa_program_state_string(const gl_state_index16 state[STATE_LENGTH])
          append(str, tmp);
       }
       break;
-   case STATE_POINT_SIZE:
-      break;
-   case STATE_POINT_ATTENUATION:
-      break;
-   case STATE_FOG_PARAMS:
-      break;
-   case STATE_FOG_COLOR:
-      break;
-   case STATE_NUM_SAMPLES:
-      break;
-   case STATE_DEPTH_RANGE:
-      break;
-   case STATE_FRAGMENT_PROGRAM_ENV:
-   case STATE_FRAGMENT_PROGRAM_LOCAL:
-   case STATE_VERTEX_PROGRAM_ENV:
-   case STATE_VERTEX_PROGRAM_LOCAL:
-      /* state[1] = parameter index          */
-      append_index(str, state[1], false);
-      break;
+   case STATE_LIGHT_ARRAY:
    case STATE_FRAGMENT_PROGRAM_ENV_ARRAY:
    case STATE_FRAGMENT_PROGRAM_LOCAL_ARRAY:
    case STATE_VERTEX_PROGRAM_ENV_ARRAY:
@@ -1146,8 +1112,11 @@ _mesa_program_state_string(const gl_state_index16 state[STATE_LENGTH])
       sprintf(tmp, "[%d..%d]", state[1], state[1] + state[2] - 1);
       append(str, tmp);
       break;
-   case STATE_NORMAL_SCALE_EYESPACE:
-      break;
+   case STATE_MATERIAL:
+   case STATE_FRAGMENT_PROGRAM_ENV:
+   case STATE_FRAGMENT_PROGRAM_LOCAL:
+   case STATE_VERTEX_PROGRAM_ENV:
+   case STATE_VERTEX_PROGRAM_LOCAL:
    case STATE_CURRENT_ATTRIB:
    case STATE_CURRENT_ATTRIB_MAYBE_VP_CLAMPED:
    case STATE_LIGHT_SPOT_DIR_NORMALIZED:
@@ -1157,6 +1126,13 @@ _mesa_program_state_string(const gl_state_index16 state[STATE_LENGTH])
    case STATE_CLIP_INTERNAL:
       append_index(str, state[1], false);
       break;
+   case STATE_POINT_SIZE:
+   case STATE_POINT_ATTENUATION:
+   case STATE_FOG_PARAMS:
+   case STATE_FOG_COLOR:
+   case STATE_NUM_SAMPLES:
+   case STATE_DEPTH_RANGE:
+   case STATE_NORMAL_SCALE_EYESPACE:
    case STATE_NORMAL_SCALE:
    case STATE_FOG_PARAMS_OPTIMIZED:
    case STATE_POINT_SIZE_CLAMPED:
