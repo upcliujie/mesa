@@ -348,6 +348,8 @@ struct tc_batch {
    unsigned num_total_call_slots;
    struct tc_unflushed_batch_token *token;
    struct util_queue_fence fence;
+   struct pipe_resource *last_const_buffer;
+   bool *last_const_buffer_unref_flag;
    struct tc_call call[TC_CALLS_PER_BATCH];
 };
 

@@ -151,6 +151,12 @@ tc_batch_execute(void *job, UNUSED int thread_index)
 
    assert(!batch->token);
 
+   if (batch->last_const_buffer_unref_flag) {
+      *batch->last_const_buffer_unref_flag = true;
+      batch->last_const_buffer_unref_flag = NULL;
+      batch->last_const_buffer = NULL;
+   }
+
    for (struct tc_call *iter = batch->call; iter != last;) {
       tc_assert(iter->sentinel == TC_SENTINEL);
 
@@ -764,6 +770,7 @@ tc_set_tess_state(struct pipe_context *_pipe,
 struct tc_constant_buffer_info {
    ubyte shader, index;
    bool is_null;
+   bool unref;
 };
 
 struct tc_constant_buffer {
@@ -782,7 +789,8 @@ tc_call_set_constant_buffer(struct pipe_context *pipe, union tc_payload *payload
    }
 
    pipe->set_constant_buffer(pipe, p->info.shader, p->info.index, &p->cb);
-   pipe_resource_reference(&p->cb.buffer, NULL);
+   if (p->info.unref)
+      pipe_resource_reference(&p->cb.buffer, NULL);
 }
 
 static void
@@ -824,10 +832,56 @@ tc_set_constant_buffer(struct pipe_context *_pipe,
    p->info.shader = shader;
    p->info.index = index;
    p->info.is_null = false;
-   tc_set_resource_reference(&p->cb.buffer, buffer);
    p->cb.user_buffer = NULL;
    p->cb.buffer_offset = offset;
    p->cb.buffer_size = cb->buffer_size;
+
+   if (index == 0) {
+      struct tc_batch *batch = &tc->batch_slots[tc->next];
+
+      p->info.unref = false;
+      p->cb.buffer = buffer;
+
+      /* Atomic operations are very slow on AMD Zen. Luckily, st/mesa binds
+       * the same constant buffer in 99% of cases thanks to u_upload_mgr.
+       * The following mechanism takes advantage of that and skips
+       * atomic_inc if the buffer doesn't change from one call to the next.
+       * This decreases CPU overhead by 3% in viewperf/catia13.
+       *
+       * The first occurence of a buffer will increment the reference count
+       * here. The last occurence of that buffer will decrement the reference
+       * count in the driver thread.
+       *
+       * Every call starts with unref = false and buffer without reference
+       * counting.
+       *
+       * The first call for a new buffer does:
+       * - if unref_flag != NULL, *unref_flag = true
+       * - increments the refcount
+       * - sets unref_flag = &unref
+       * - sets last_const_buffer = buffer
+       *
+       * The next call does if it's the same buffer:
+       * - doesn't increment the refcount
+       * - sets unref_flag = &unref
+       *
+       * If the batch ends, tc_batch_execute does:
+       * - set *unref_flag = true
+       */
+      if (batch->last_const_buffer != buffer) {
+         if (batch->last_const_buffer_unref_flag)
+            *batch->last_const_buffer_unref_flag = true;
+
+         p_atomic_inc(&buffer->reference.count);
+         batch->last_const_buffer_unref_flag = &p->info.unref;
+         batch->last_const_buffer = buffer;
+      } else {
+         batch->last_const_buffer_unref_flag = &p->info.unref;
+      }
+   } else {
+      p->info.unref = true;
+      tc_set_resource_reference(&p->cb.buffer, buffer);
+   }
 }
 
 struct tc_inlinable_constants {
