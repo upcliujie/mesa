@@ -1021,7 +1021,7 @@ static inline bool is_cat6_legacy(instr_t *instr, unsigned gpu_id)
 	 */
 	if ((cat6->pad3 & 0x4) && (cat6->pad5 & 0x2)) {
 		ir3_assert(gpu_id >= 600);
-		ir3_assert(instr->cat6.opc == 0);
+		//ir3_assert(instr->cat6.opc == 0);
 		return false;
 	}
 

@@ -142,7 +142,7 @@ static const struct option opts[] = {
 
 int main(int argc, char **argv)
 {
-	enum debug_t debug = PRINT_RAW | PRINT_STATS;
+	enum debug_t debug = PRINT_RAW | PRINT_STATS | COLLECT_UNIQUE;
 	int ret = -1;
 	int start = 0, end = 0x7ffffff, draw = -1;
 	int c;
