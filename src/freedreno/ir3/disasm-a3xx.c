@@ -36,7 +36,7 @@
 #include "instr-a3xx.h"
 #include "regmask.h"
 
-static enum debug_t debug;
+static enum debug_t debug = COLLECT_UNIQUE;
 
 #define printf debug_printf
 
@@ -176,18 +176,30 @@ static void print_reg(struct disasm_ctx *ctx, reg_t reg, bool full,
 
 static void regmask_set(regmask_t *regmask, unsigned num, bool full)
 {
+	if (num >= MAX_REG) {
+		printf("%s: %u > MAX_REG (full=%d)\n", __func__, num, full);
+		return;
+	}
 	ir3_assert(num < MAX_REG);
 	__regmask_set(regmask, !full, num);
 }
 
 static void regmask_clear(regmask_t *regmask, unsigned num, bool full)
 {
+	if (num >= MAX_REG) {
+		printf("%s: %u > MAX_REG (full=%d)\n", __func__, num, full);
+		return;
+	}
 	ir3_assert(num < MAX_REG);
 	__regmask_clear(regmask, !full, num);
 }
 
 static unsigned regmask_get(regmask_t *regmask, unsigned num, bool full)
 {
+	if (num >= MAX_REG) {
+		printf("%s: %u > MAX_REG (full=%d)\n", __func__, num, full);
+		return 0;
+	}
 	ir3_assert(num < MAX_REG);
 	return __regmask_get(regmask, !full, num);
 }
@@ -1580,8 +1592,7 @@ static bool print_instr(struct disasm_ctx *ctx, uint32_t *dwords, int n)
 	unsigned cycles = ctx->stats->instructions;
 
 	if (debug & PRINT_RAW) {
-		fprintf(ctx->out, "%s:%d:%04d:%04d[%08xx_%08xx] ", levels[ctx->level],
-				instr->opc_cat, n, cycles++, dwords[1], dwords[0]);
+		fprintf(ctx->out, "%3d[%08xx_%08xx] ", n, dwords[1], dwords[0]);
 	}
 
 	if (opc == OPC_BARY_F)
@@ -1673,6 +1684,10 @@ static bool print_instr(struct disasm_ctx *ctx, uint32_t *dwords, int n)
 int disasm_a3xx_stat(uint32_t *dwords, int sizedwords, int level, FILE *out,
 		unsigned gpu_id, struct shader_stats *stats)
 {
+	static struct hash_table_u64 *unique_instructions[10];
+	static FILE *unique_file[10];
+	int gen = gpu_id / 100;
+
 	struct disasm_ctx ctx;
 	int i;
 	int nop_count = 0;
@@ -1692,7 +1707,32 @@ int disasm_a3xx_stat(uint32_t *dwords, int sizedwords, int level, FILE *out,
 	}
 	memset(ctx.stats, 0, sizeof(*ctx.stats));
 
+	if (debug & COLLECT_UNIQUE) {
+		if (!unique_instructions[gen]) {
+			unique_instructions[gen] = _mesa_hash_table_u64_create(NULL);
+			char *path;
+			asprintf(&path, "unique-a%dxx.bin", gen);
+			unique_file[gen] = fopen(path, "a+");
+
+			rewind(unique_file[gen]);
+
+			/* Read back the existing set of unique instructions: */
+			uint64_t instr;
+			while (0 != fread(&instr, sizeof(instr), 1, unique_file[gen])) {
+				/* hash-table value does not matter: */
+				_mesa_hash_table_u64_insert(unique_instructions[gen], instr, &instr);
+			}
+		}
+	}
+
 	for (i = 0; i < sizedwords; i += 2) {
+		if (debug & COLLECT_UNIQUE) {
+			uint64_t instr = *(uint64_t *)&dwords[i];
+			if (!_mesa_hash_table_u64_search(unique_instructions[gen], instr)) {
+				_mesa_hash_table_u64_insert(unique_instructions[gen], instr, &instr);
+				fwrite(&instr, sizeof(instr), 1, unique_file[gen]);
+			}
+		}
 		has_end |= print_instr(&ctx, &dwords[i], i/2);
 		if (!has_end)
 			continue;
@@ -1706,6 +1746,10 @@ int disasm_a3xx_stat(uint32_t *dwords, int sizedwords, int level, FILE *out,
 
 	if (debug & PRINT_STATS)
 		print_reg_stats(&ctx);
+
+	if (debug & COLLECT_UNIQUE) {
+		fflush(unique_file[gen]);
+	}
 
 	return 0;
 }
