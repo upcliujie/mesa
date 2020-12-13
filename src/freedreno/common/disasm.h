@@ -36,6 +36,7 @@ enum debug_t {
 	PRINT_VERBOSE  = 0x2,
 	PRINT_STATS    = 0x4,
 	EXPAND_REPEAT  = 0x8,
+	COLLECT_UNIQUE = 0x10,
 };
 
 struct shader_stats {

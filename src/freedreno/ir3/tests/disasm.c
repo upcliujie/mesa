@@ -48,12 +48,10 @@ look legit, they show up a lot.
 
 blob:
 1441[3e000000_3e800000] (sy)(jp)movmsk.w32 hr0.x
-  46[3f800000_3f000000] (sy)(jp)movmsk.w32 (neg_infinity)hr0.x
   47[3f800000_3f800000] (sy)(jp)movmsk.w32 (neg_infinity)hr0.x
  251[3f800000_00000000] (sy)(jp)movmsk.w32 (neg_infinity)hr0.x
 vs
 1441[3e000000_3e800000] (sy)(jp)mov.f16f16 hr0.x, hr0.x
-  46[3f800000_3f000000] (sy)(jp)mov.f16f16 (even)(pos_infinity)hr0.x, hr0.x
   47[3f800000_3f800000] (sy)(jp)mov.f16f16 (even)(pos_infinity)hr0.x, hr0.x
  251[3f800000_00000000] (sy)(jp)mov.f16f16 (even)(pos_infinity)hr0.x, hr0.x
 note:        ^^^
