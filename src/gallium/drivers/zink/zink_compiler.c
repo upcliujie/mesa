@@ -734,7 +734,9 @@ zink_shader_free(struct zink_context *ctx, struct zink_shader *shader)
          struct zink_compute_program *comp = (void*)entry->key;
          _mesa_hash_table_remove_key(ctx->compute_program_cache, &comp->shader->shader_id);
          comp->shader = NULL;
-         zink_compute_program_reference(screen, &comp, NULL);
+         bool in_use = comp == ctx->curr_compute;
+         if (zink_compute_program_reference(screen, &comp, NULL) && in_use)
+            ctx->curr_compute = NULL;
       } else {
          struct zink_gfx_program *prog = (void*)entry->key;
          _mesa_hash_table_remove_key(ctx->program_cache, prog->shaders);
@@ -742,7 +744,9 @@ zink_shader_free(struct zink_context *ctx, struct zink_shader *shader)
          if (shader->nir->info.stage == MESA_SHADER_TESS_EVAL && shader->generated)
             /* automatically destroy generated tcs shaders when tes is destroyed */
             zink_shader_free(ctx, shader->generated);
-         zink_gfx_program_reference(screen, &prog, NULL);
+         bool in_use = prog == ctx->curr_program;
+         if (zink_gfx_program_reference(screen, &prog, NULL) && in_use)
+            ctx->curr_program = NULL;
       }
    }
    _mesa_set_destroy(shader->programs, NULL);
