@@ -611,6 +611,7 @@ The integer capabilities:
 * ``PIPE_CAP_DEVICE_PROTECTED_CONTENT``: Whether the device support protected / encrypted content.
 * ``PIPE_CAP_PREFER_REAL_BUFFER_IN_CONSTBUF0``: The state tracker is encouraged to upload constants into a real buffer and bind it into constant buffer 0 instead of binding a user pointer. This may enable a faster codepath in a gallium frontend for drivers that really prefer a real buffer.
 * ``PIPE_CAP_GL_CLAMP``: Driver natively supports GL_CLAMP.  Required for non-NIR drivers with the GL frontend.  NIR drivers with the cap unavailable will have GL_CLAMP lowered to txd/txl with a saturate on the coordinates.
+* ``PIPE_CAP_EMULATE_ARGB``: Driver doesn't support ARGB/ABGR natively and requires format swizzles from RGBA/BGRA. Driver must return unsupported for all PBO sampler view usage of these formats.
 
 .. _pipe_capf:
 

@@ -1307,6 +1307,8 @@ try_pbo_upload_common(struct gl_context *ctx,
       templ.swizzle_g = PIPE_SWIZZLE_Y;
       templ.swizzle_b = PIPE_SWIZZLE_Z;
       templ.swizzle_a = PIPE_SWIZZLE_W;
+      if (st->emulate_argb)
+         u_sampler_view_swizzle_argb(&templ, surface->format);
 
       sampler_view = pipe->create_sampler_view(pipe, addr->buffer, &templ);
       if (sampler_view == NULL)

@@ -51,6 +51,7 @@
 #include "cso_cache/cso_context.h"
 
 #include "util/format/u_format.h"
+#include "util/u_sampler.h"
 
 
 /**
@@ -190,14 +191,36 @@ st_convert_sampler(const struct st_context *st,
       if (texobj->StencilSampling)
          texBaseFormat = GL_STENCIL_INDEX;
 
+      const struct st_texture_object *stobj = st_texture_object_const(texobj);
+      /* XXX: clean that up to not use the sampler view at all */
+      const struct st_sampler_view *sv = NULL;
+      union pipe_color_union tmp;
+      bool is_argb = false;
+      bool is_abgr = false;
+
+      if (st->emulate_argb) {
+         sv = st_texture_get_current_sampler_view(st, stobj);
+         if (sv) {
+            is_argb = util_format_is_argb(sv->view->format);
+            is_abgr = util_format_is_abgr(sv->view->format);
+            if (is_argb || is_abgr) {
+               st_translate_color(&msamp->Attrib.BorderColor, &tmp,
+                         texBaseFormat, is_integer);
+               if (is_argb)
+                  u_sampler_format_swizzle_color_argb(&tmp, is_integer);
+               else if (is_abgr)
+                  u_sampler_format_swizzle_color_abgr(&tmp, is_integer);
+            }
+         }
+      }
+
       if (st->apply_texture_swizzle_to_border_color) {
-         const struct st_texture_object *stobj = st_texture_object_const(texobj);
          /* XXX: clean that up to not use the sampler view at all */
-         const struct st_sampler_view *sv = st_texture_get_current_sampler_view(st, stobj);
+         if (!sv)
+            sv = st_texture_get_current_sampler_view(st, stobj);
 
          if (sv) {
             struct pipe_sampler_view *view = sv->view;
-            union pipe_color_union tmp;
             const unsigned char swz[4] =
             {
                view->swizzle_r,
@@ -206,8 +229,10 @@ st_convert_sampler(const struct st_context *st,
                view->swizzle_a,
             };
 
-            st_translate_color(&msamp->Attrib.BorderColor, &tmp,
-                               texBaseFormat, is_integer);
+            /* this only needs to be translated if it hasn't already been translated above */
+            if (!is_argb && !is_abgr)
+               st_translate_color(&msamp->Attrib.BorderColor, &tmp,
+                                  texBaseFormat, is_integer);
 
             util_format_apply_color_swizzle(&sampler->border_color,
                                             &tmp, swz, is_integer);

@@ -151,6 +151,7 @@ struct blitter_context_priv
    bool has_txf;
    bool cube_as_2darray;
    bool cached_all_shaders;
+   bool emulate_argb;
 
    /* The Draw module overrides these functions.
     * Always create the blitter before Draw. */
@@ -206,6 +207,10 @@ struct blitter_context *util_blitter_create(struct pipe_context *pipe)
    ctx->has_stencil_export =
          pipe->screen->get_param(pipe->screen,
                                  PIPE_CAP_SHADER_STENCIL_EXPORT);
+
+   ctx->emulate_argb =
+         pipe->screen->get_param(pipe->screen,
+                                 PIPE_CAP_EMULATE_ARGB);
 
    ctx->has_texture_multisample =
       pipe->screen->get_param(pipe->screen, PIPE_CAP_TEXTURE_MULTISAMPLE);
@@ -1720,6 +1725,8 @@ void util_blitter_copy_texture(struct blitter_context *blitter,
 
    /* Initialize the sampler view. */
    util_blitter_default_src_texture(blitter, &src_templ, src, src_level);
+   if (ctx->emulate_argb)
+      u_sampler_view_swizzle_argb(&src_templ, dst->format);
    src_view = pipe->create_sampler_view(pipe, src, &src_templ);
 
    /* Copy. */
@@ -2148,6 +2155,8 @@ util_blitter_blit(struct blitter_context *blitter,
    /* Initialize the sampler view. */
    util_blitter_default_src_texture(blitter, &src_templ, src, info->src.level);
    src_templ.format = info->src.format;
+   if (ctx->emulate_argb)
+      u_sampler_view_swizzle_argb(&src_templ, info->dst.format);
    src_view = pipe->create_sampler_view(pipe, src, &src_templ);
 
    /* Copy. */
