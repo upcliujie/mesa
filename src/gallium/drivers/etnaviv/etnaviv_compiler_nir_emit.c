@@ -130,7 +130,8 @@ etna_emit_alu(struct etna_compile *c, nir_op op, struct etna_inst_dst dst,
    unsigned swiz_scalar = INST_SWIZ_BROADCAST(ffs(dst.write_mask) - 1);
 
    if (ei.opcode == 0xff)
-      compile_error(c, "Unhandled ALU op: %s\n", nir_op_infos[op].name);
+      //compile_error(c, "Unhandled ALU op: %s\n", nir_op_infos[op].name);
+      return;
 
    struct etna_inst inst = {
       .opcode = ei.opcode,
