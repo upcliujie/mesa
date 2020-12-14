@@ -50,9 +50,11 @@ struct panfrost_slice {
 
         /* If checksumming is enabled following the slice, what
          * is its offset/stride? */
-        unsigned checksum_offset;
-        unsigned checksum_stride;
-        struct panfrost_bo *checksum_bo;
+        struct {
+                unsigned offset;
+                unsigned stride;
+                struct panfrost_bo *bo;
+        } crc;
 
         /* Has anything been written to this slice? */
         bool initialized;
