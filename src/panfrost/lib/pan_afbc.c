@@ -95,9 +95,6 @@ panfrost_format_supports_afbc(const struct panfrost_device *dev,
         if (desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB)
                 return false;
 
-        if (util_format_is_rgba8_variant(desc))
-                return true;
-
         switch (format) {
         case PIPE_FORMAT_R8G8B8_UNORM:
         case PIPE_FORMAT_B8G8R8_UNORM:
@@ -106,7 +103,31 @@ panfrost_format_supports_afbc(const struct panfrost_device *dev,
         case PIPE_FORMAT_Z24_UNORM_S8_UINT:
         case PIPE_FORMAT_Z24X8_UNORM:
         case PIPE_FORMAT_Z16_UNORM:
+                break;
+
+        default:
+                if (!util_format_is_rgba8_variant(desc))
+                        return false;
+
+                break;
+        }
+
+        if (!(dev->quirks & IS_BIFROST))
                 return true;
+
+        enum mali_rgb_component_order swizzle = dev->formats[format].hw & 0xfff;
+
+        switch (swizzle) {
+        case MALI_RGB_COMPONENT_ORDER_RGBA:
+        case MALI_RGB_COMPONENT_ORDER_RGB1:
+        case MALI_RGB_COMPONENT_ORDER_RRRR:
+        case MALI_RGB_COMPONENT_ORDER_RRR1:
+        case MALI_RGB_COMPONENT_ORDER_RRRA:
+        case MALI_RGB_COMPONENT_ORDER_000A:
+        case MALI_RGB_COMPONENT_ORDER_0001:
+        case MALI_RGB_COMPONENT_ORDER_0000:
+                return true;
+
         default:
                 return false;
         }
