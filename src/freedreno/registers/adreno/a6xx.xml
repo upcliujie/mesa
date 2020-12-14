@@ -3220,7 +3220,11 @@ to upconvert to 32b float internally?
 	<reg32 offset="0xa825" name="SP_VS_PVT_MEM_HW_STACK_OFFSET" low="0" high="18" shr="11"/>
 
 	<reg32 offset="0xa830" name="SP_HS_CTRL_REG0" type="a6xx_sp_xs_ctrl_reg0"/>
-	<reg32 offset="0xa831" name="SP_HS_UNKNOWN_A831"/>
+	<!--
+	Total size of local storage in dwords divided by the wave size.
+	The maximum value is 64.
+	-->
+	<reg32 offset="0xa831" name="SP_HS_WAVE_INPUT_SIZE"/>
 
 	<reg32 offset="0xa833" name="SP_HS_OBJ_FIRST_EXEC_OFFSET" type="uint"/>
 	<reg32 offset="0xa834" name="SP_HS_OBJ_START_LO"/>
