@@ -357,6 +357,14 @@ emit_intrinsic_image_size(struct ir3_context *ctx, nir_intrinsic_instr *intr,
 	ir3_handle_bindless_cat6(resinfo, intr->src[0]);
 
 	ir3_split_dest(b, dst, resinfo, 0, intr->num_components);
+
+	if (intr->num_components == 3 && nir_intrinsic_image_dim(intr) == GLSL_SAMPLER_DIM_CUBE) {
+		struct ir3_instruction *nr_faces = create_immed_typed(b, 0x40C00000, TYPE_F32); // 6.0f
+		struct ir3_instruction *rcp_cube_faces = ir3_RCP(b, nr_faces, 0);
+		struct ir3_instruction *z_size = ir3_COV(b, dst[2], TYPE_U32, TYPE_F32);
+		z_size = ir3_MUL_F(b, z_size, 0, rcp_cube_faces, 0);
+		dst[2] = ir3_COV(b, z_size, TYPE_F32, TYPE_U32);
+	}
 }
 
 const struct ir3_context_funcs ir3_a6xx_funcs = {
