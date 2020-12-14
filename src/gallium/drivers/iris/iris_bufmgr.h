@@ -241,11 +241,17 @@ struct iris_bo {
     * Boolean of whether this was allocated from local memory
     */
    bool local;
+
+   /**
+    * Boolean of whether this buffer is protected (HW encryption)
+    */
+   bool protected;
 };
 
 #define BO_ALLOC_ZEROED     (1<<0)
 #define BO_ALLOC_COHERENT   (1<<1)
 #define BO_ALLOC_SMEM       (1<<2)
+#define BO_ALLOC_PROTECTED  (1<<3)
 
 /**
  * Allocate a buffer object.

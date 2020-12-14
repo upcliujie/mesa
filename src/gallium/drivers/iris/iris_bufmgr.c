@@ -436,7 +436,8 @@ alloc_bo_from_cache(struct iris_bufmgr *bufmgr,
                     unsigned flags,
                     bool match_zone)
 {
-   if (!bucket)
+   /* Don't put anything protected in the BO cache. */
+   if (!bucket || (flags & BO_ALLOC_PROTECTED))
       return NULL;
 
    struct iris_bo *bo = NULL;
@@ -514,39 +515,53 @@ alloc_bo_from_cache(struct iris_bufmgr *bufmgr,
 }
 
 static struct iris_bo *
-alloc_fresh_bo(struct iris_bufmgr *bufmgr, uint64_t bo_size, bool local)
+alloc_fresh_bo(struct iris_bufmgr *bufmgr, uint64_t bo_size,
+               bool local, bool protected)
 {
    struct iris_bo *bo = bo_calloc();
    if (!bo)
       return NULL;
 
-   /* If we have vram size, we have multiple memory regions and should choose
-    * one of them.
+   /* Memory region param.
+    *
+    * All new BOs we get from the kernel are zeroed, so we don't need to
+    * worry about that here.
     */
-   if (bufmgr->vram.size > 0) {
-      /* All new BOs we get from the kernel are zeroed, so we don't need to
-       * worry about that here.
-       */
-      struct drm_i915_gem_memory_class_instance regions[2];
-      uint32_t nregions = 0;
-      if (local) {
-         /* For vram allocations, still use system memory as a fallback. */
-         regions[nregions++] = bufmgr->vram.region;
-         regions[nregions++] = bufmgr->sys.region;
-      } else {
-         regions[nregions++] = bufmgr->sys.region;
-      }
+   struct drm_i915_gem_memory_class_instance regions[2];
+   uint32_t nregions = 0;
+   if (local) {
+      /* For vram allocations, still use system memory as a fallback. */
+      regions[nregions++] = bufmgr->vram.region;
+      regions[nregions++] = bufmgr->sys.region;
+   } else {
+      regions[nregions++] = bufmgr->sys.region;
+   }
 
-      struct drm_i915_gem_create_ext_memory_regions ext_regions = {
-         .base = { .name = I915_GEM_CREATE_EXT_MEMORY_REGIONS },
-         .num_regions = nregions,
-         .regions = (uintptr_t)regions,
-      };
+   struct drm_i915_gem_create_ext_memory_regions ext_regions = {
+      .num_regions = nregions,
+      .regions = (uintptr_t)regions,
+   };
 
+   /* Protected param */
+   struct drm_i915_gem_create_ext_protected_content protected_param = {
+      .flags = 0,
+   };
+
+   if (bufmgr->vram.size > 0 || protected) {
       struct drm_i915_gem_create_ext create = {
          .size = bo_size,
-         .extensions = (uintptr_t)&ext_regions,
       };
+
+      if (bufmgr->vram.size > 0) {
+         intel_gem_add_ext(&create.extensions,
+                           I915_GEM_CREATE_EXT_MEMORY_REGIONS,
+                           &ext_regions.base);
+      }
+      if (protected) {
+         intel_gem_add_ext(&create.extensions,
+                           I915_GEM_CREATE_EXT_PROTECTED_CONTENT,
+                           &protected_param.base);
+      }
 
       /* It should be safe to use GEM_CREATE_EXT without checking, since we are
        * in the side of the branch where discrete memory is available. So we
@@ -605,6 +620,7 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
    unsigned int page_size = getpagesize();
    bool local = bufmgr->vram.size > 0 &&
       !(flags & BO_ALLOC_COHERENT || flags & BO_ALLOC_SMEM);
+   bool protected = flags & BO_ALLOC_PROTECTED;
    struct bo_cache_bucket *bucket = bucket_for_size(bufmgr, size, local);
 
    /* Round the size up to the bucket size, or if we don't have caching
@@ -634,7 +650,7 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
    simple_mtx_unlock(&bufmgr->lock);
 
    if (!bo) {
-      bo = alloc_fresh_bo(bufmgr, bo_size, local);
+      bo = alloc_fresh_bo(bufmgr, bo_size, local, protected);
       if (!bo)
          return NULL;
    }
@@ -651,6 +667,7 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
    bo->name = name;
    p_atomic_set(&bo->refcount, 1);
    bo->reusable = bucket && bufmgr->bo_reuse;
+   bo->protected = flags & BO_ALLOC_PROTECTED;
    bo->index = -1;
    bo->kflags = EXEC_OBJECT_SUPPORTS_48B_ADDRESS | EXEC_OBJECT_PINNED;
 

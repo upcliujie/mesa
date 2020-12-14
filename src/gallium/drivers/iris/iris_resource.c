@@ -432,6 +432,9 @@ iris_resource_alloc_flags(const struct iris_screen *screen,
                        PIPE_RESOURCE_FLAG_MAP_PERSISTENT))
       flags |= BO_ALLOC_SMEM;
 
+   if (templ->bind & PIPE_BIND_PROTECTED)
+      flags |= BO_ALLOC_PROTECTED;
+
    return flags;
 }
 
@@ -991,6 +994,8 @@ iris_resource_create_for_buffer(struct pipe_screen *pscreen,
    }
 
    unsigned flags = iris_resource_alloc_flags(screen, templ);
+   if (templ->bind & PIPE_BIND_PROTECTED)
+      flags |= BO_ALLOC_PROTECTED;
 
    res->bo =
       iris_bo_alloc(screen->bufmgr, name, templ->width0, 1, memzone, flags);
@@ -1561,7 +1566,8 @@ iris_invalidate_resource(struct pipe_context *ctx,
    struct iris_bo *old_bo = res->bo;
    struct iris_bo *new_bo =
       iris_bo_alloc(screen->bufmgr, res->bo->name, resource->width0, 1,
-                    iris_memzone_for_address(old_bo->gtt_offset), 0);
+                    iris_memzone_for_address(old_bo->gtt_offset),
+                    old_bo->protected ? BO_ALLOC_PROTECTED : 0);
    if (!new_bo)
       return;
 
