@@ -237,10 +237,19 @@ struct iris_bo {
     * Boolean of whether this buffer points into user memory
     */
    bool userptr;
+
+   /**
+    * Boolean of whether this buffer is protected by HW encryption.
+    *
+    * A special GEM context as well as a particular MOCS should be used to
+    * access this buffer.
+    */
+   bool protected;
 };
 
 #define BO_ALLOC_ZEROED     (1<<0)
 #define BO_ALLOC_COHERENT   (1<<1)
+#define BO_ALLOC_PROTECTED  (1<<2)
 
 /**
  * Allocate a buffer object.
