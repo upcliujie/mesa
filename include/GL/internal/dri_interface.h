@@ -1225,6 +1225,12 @@ struct __DRIdri2LoaderExtensionRec {
 #define __DRI_CTX_FLAG_NO_ERROR			0x00000008
 
 /**
+ * \requires __DRI2_RENDERER_HAS_PROTECTED_CONTENT.
+ *
+ */
+#define __DRI_CTX_FLAG_PROTECTED		0x00000010
+
+/**
  * \name Context reset strategies.
  */
 /*@{*/

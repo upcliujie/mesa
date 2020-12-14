@@ -407,6 +407,15 @@ _eglParseContextAttribList(_EGLContext *ctx, _EGLDisplay *disp,
          }
          break;
 
+      case EGL_PROTECTED_CONTENT_EXT:
+         if (!(api == EGL_OPENGL_ES_API &&
+               disp->Extensions.EXT_protected_content)) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         ctx->Protected = val == EGL_TRUE;
+         break;
+
       default:
          err = EGL_BAD_ATTRIBUTE;
          break;
@@ -698,6 +707,9 @@ _eglQueryContext(_EGLContext *c, EGLint attribute, EGLint *value)
       break;
    case EGL_CONTEXT_PRIORITY_LEVEL_IMG:
       *value = c->ContextPriority;
+      break;
+   case EGL_PROTECTED_CONTENT_EXT:
+      *value = c->Protected;
       break;
    default:
       return _eglError(EGL_BAD_ATTRIBUTE, "eglQueryContext");

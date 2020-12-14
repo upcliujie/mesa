@@ -65,6 +65,7 @@ struct _egl_context
    EGLint ContextPriority;
    EGLBoolean NoError;
    EGLint ReleaseBehavior;
+   EGLBoolean Protected;
 };
 
 

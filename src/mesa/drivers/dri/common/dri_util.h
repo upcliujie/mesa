@@ -101,11 +101,15 @@ struct __DriverContextConfig {
 
     /* Only valid if __DRIVER_CONTEXT_ATTRIB_RELEASE_BEHAVIOR is set */
     int release_behavior;
+
+    /* Only valid if __DRIVER_CONTEXT_ATTRIB_PROTECTED is set */
+    int protected_context;
 };
 
 #define __DRIVER_CONTEXT_ATTRIB_RESET_STRATEGY   (1 << 0)
 #define __DRIVER_CONTEXT_ATTRIB_PRIORITY         (1 << 1)
 #define __DRIVER_CONTEXT_ATTRIB_RELEASE_BEHAVIOR (1 << 2)
+#define __DRIVER_CONTEXT_ATTRIB_PROTECTED        (1 << 3)
 
 /**
  * Driver callback functions.
