@@ -395,6 +395,9 @@ iris_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_INTEGER_MULTIPLY_32X16:
       return true;
 
+   case PIPE_CAP_DEVICE_PROTECTED_CONTENT:
+      return screen->kernel_features & KERNEL_HAS_PROTECTED_CONTEXT;
+
    default:
       return u_pipe_screen_get_param_defaults(pscreen, param);
    }
@@ -728,6 +731,8 @@ iris_detect_kernel_features(struct iris_screen *screen)
    /* Kernel 5.2+ */
    if (gen_gem_supports_syncobj_wait(screen->fd))
       screen->kernel_features |= KERNEL_HAS_WAIT_FOR_SUBMIT;
+   if (gen_gem_supports_protected_context(screen->fd))
+      screen->kernel_features |= KERNEL_HAS_PROTECTED_CONTEXT;
 }
 
 static bool
