@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright © 2020 Google, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ -->
+
+<isa>
+
+<!--
+	Cat6 Instructions:  load/store/atomic instructions
+ -->
+
+<bitset name="#instruction-cat6" extends="#instruction">
+	<field   pos="59"          name="JP" type="bool" display="(jp)"/>
+	<field   pos="60"          name="SY" type="bool" display="(sy)"/>
+	<pattern low="61" high="63">110</pattern>  <!-- cat6 -->
+</bitset>
+
+<bitset name="#instruction-cat6-a3xx" extends="#instruction-cat6">
+	<field name="TYPE" low="49" high="51" type="#type"/>
+</bitset>
+
+<bitset name="ldp" extends="#instruction-cat6-a3xx">
+	<doc>
+		LoaD Private
+	</doc>
+	<display>
+		{SY}{JP}{NAME}.{TYPE} {DST}, p[{SRC}{OFF}], {SIZE}
+	</display>
+
+	<pattern pos="0"          >1</pattern>  <!-- SRC_OFF -->
+	<field   low="1"  high="13" name="OFF" type="offset"/>
+	<field   low="14" high="21" name="SRC" type="#reg-gpr"/>
+	<pattern pos="22"          >x</pattern>
+	<pattern pos="23"          >1</pattern>
+	<field   low="24" high="31" name="SIZE" type="uint"/>
+	<field   low="32" high="39" name="DST" type="#reg-gpr"/>
+	<pattern low="40" high="48">xxxxxxxxx</pattern>
+	<pattern low="52" high="53">xx</pattern>
+	<pattern low="54" high="58">00010</pattern>
+</bitset>
+
+<bitset name="stp" extends="#instruction-cat6-a3xx">
+	<doc>
+		STore Private
+	</doc>
+	<display>
+		{SY}{JP}{NAME}.{TYPE} p[{DST}{OFF}], {SRC}, {SIZE}
+	</display>
+
+	<derived name="OFF" type="offset" width="13">
+		<expr>
+			<literal val="8"/>
+			<var name="OFF_HI"/>
+			<lsh/>
+			<var name="OFF_LO"/>
+			<or/>
+		</expr>
+	</derived>
+
+	<pattern pos="0"           >0</pattern>  <!-- SRC_OFF -->
+	<field   low="1"  high="8" name="SRC" type="#reg-gpr"/>
+	<field   low="9"  high="13" name="OFF_HI" type="uint"/>
+	<pattern low="14" high="22">xxxxxxxxx</pattern>
+	<pattern pos="23"          >1</pattern>
+	<field   low="24" high="31" name="SIZE" type="uint"/>
+	<field   low="32" high="39" name="OFF_LO" type="int"/>
+	<pattern pos="40"          >1</pattern>
+	<field   low="41" high="48" name="DST" type="#reg-gpr"/>
+	<pattern low="52" high="53">xx</pattern>
+	<pattern low="54" high="58">00101</pattern>
+</bitset>
+
+<bitset name="stc" extends="#instruction-cat6-a3xx">
+	<doc>
+		STore Const - used for shader prolog (between shps and shpe)
+		to store "uniform folded" values into CONST file
+
+		NOTE: TYPE field actually seems to be set to different
+		values (ie f32 vs u32), but I *think* it does not matter.
+		(There is SP_MODE_CONTROL.CONSTANT_DEMOTION_ENABLE, but
+		I think float results are already converted to 32b)
+
+		NOTE: this could be the "old" encoding, although it
+		would conflict with stgb from earlier gens
+	</doc>
+	<display>
+		{SY}{JP}{NAME} c[{DST}], {SRC}, {SIZE}
+	</display>
+	<gen min="600"/>
+	<pattern pos="0"           >x</pattern>
+	<field   low="1"  high="8" name="SRC" type="#reg-gpr"/>
+	<pattern low="9"  high="22">xxxxxxxxxxxxxx</pattern>
+	<pattern pos="23"          >1</pattern>
+	<field   low="24" high="26" name="SIZE" type="uint"/>
+	<pattern low="27" high="31">xxxxx</pattern>
+	<field   low="32" high="39" name="DST" type="uint"/>
+	<pattern low="40" high="48">xxxxxxxxx</pattern>
+	<pattern low="52" high="53">xx</pattern>
+	<pattern low="54" high="58">11100</pattern>
+</bitset>
+
+<bitset name="#instruction-cat6-a6xx" extends="#instruction-cat6">
+	<doc>
+		Base for new instruction encoding that started being used
+		with a6xx for instructions supporting bindless mode.
+	</doc>
+	<gen min="600"/>
+
+	<derived name="D" type="uint">
+		<expr>
+			<var name="D_MINUS_ONE"/>
+			<literal val="1"/>
+			<add/>
+		</expr>
+	</derived>
+	<derived name="TYPE_SIZE" type="uint">
+		<expr>
+			<var name="TYPE_SIZE_MINUS_ONE"/>
+			<literal val="1"/>
+			<add/>
+		</expr>
+	</derived>
+
+	<field   low="1"  high="3"  name="BASE" type="#cat6-base"/>
+	<pattern low="4"  high="5"  >00</pattern>
+	<field   low="6"  high="7"  name="MODE" type="#cat6-src-mode"/>
+	<field   pos="8"            name="BINDLESS" type="bool"/>
+	<field   low="9"  high="10" name="D_MINUS_ONE" type="uint"/>
+	<field   pos="11"           name="TYPED" type="#cat6-typed"/>
+	<field   low="12" high="13" name="TYPE_SIZE_MINUS_ONE" type="uint"/>
+	<field   low="24" high="31" name="SRC2" type="#reg-gpr"/>
+	<field   low="32" high="39" name="SRC1" type="#reg-gpr"/>
+	<pattern pos="40"          >0</pattern>
+	<field   low="49" high="51" name="TYPE" type="#type"/>
+	<pattern low="54" high="58">00000</pattern>
+</bitset>
+
+<bitset name="stib" extends="#instruction-cat6-a6xx">
+	<display>
+		{SY}{JP}{NAME}.{TYPED}.{D}d.{TYPE}.{TYPE_SIZE}.{MODE}{BASE} {SRC1}, {SRC2}, {SSBO}
+	</display>
+	<override expr="#cat6-indirect">
+		<field   low="41" high="48" name="SSBO" type="#reg-gpr"/>   <!-- SSBO/image binding point -->
+	</override>
+
+	<pattern pos="0"           >0</pattern>
+	<pattern low="14" high="19">011101</pattern>   <!-- OPC -->
+	<pattern low="20" high="23">0110</pattern>
+	<field   low="41" high="48" name="SSBO" type="uint"/>   <!-- SSBO/image binding point -->
+	<pattern low="52" high="53">10</pattern>
+</bitset>
+
+
+
+<bitset name="#cat6-typed" size="1">
+	<override>
+		<expr>
+			<var name="TYPED"/>
+		</expr>
+		<display>
+			typed
+		</display>
+	</override>
+	<display>
+		untyped
+	</display>
+	<field name="TYPED" pos="0" type="bool"/>
+</bitset>
+
+<bitset name="#cat6-base" size="3">
+	<override>
+		<expr>
+			<var name="BINDLESS"/>
+		</expr>
+		<display>
+			.base{BASE}
+		</display>
+	</override>
+	<display/>
+	<field name="BASE" low="0" high="2" type="uint"/>
+</bitset>
+
+<expr name="#cat6-indirect">
+	<var name="MODE"/>
+</expr>
+
+<enum name="#cat6-src-mode">
+	<doc>
+		Source mode for "new" a6xx+ instruction encodings
+	</doc>
+	<value val="0" display="imm">
+		<doc>
+			Immediate index.
+		</doc>
+	</value>
+	<value val="1" display="uniform">
+		<doc>
+			Index from a uniform register (ie. does not depend on flow control)
+		</doc>
+	</value>
+	<value val="2" display="nonuniform">
+		<doc>
+			Index from a non-uniform register (ie. potentially depends on flow control)
+		</doc>
+	</value>
+</enum>
+
+</isa>
