@@ -192,11 +192,13 @@ create_bci(struct zink_screen *screen, const struct pipe_resource *templ, unsign
    bci.size = templ->width0;
 
    bci.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-               VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
    if (templ->usage != PIPE_USAGE_STAGING)
       bci.usage |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
 
+   VkFormatProperties props = screen->format_props[templ->format];
    /* apparently gallium thinks this is the jack-of-all-trades bind type */
    if (bind & (PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_QUERY_BUFFER)) {
       bci.usage |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
@@ -205,9 +207,6 @@ create_bci(struct zink_screen *screen, const struct pipe_resource *templ, unsign
                    VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                    VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
-      VkFormatProperties props = screen->format_props[templ->format];
-      if (props.bufferFeatures & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-         bci.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
    }
 
    if (bind & PIPE_BIND_VERTEX_BUFFER)
@@ -223,10 +222,7 @@ create_bci(struct zink_screen *screen, const struct pipe_resource *templ, unsign
    if (bind & PIPE_BIND_CONSTANT_BUFFER)
       bci.usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-   if (bind & PIPE_BIND_SHADER_BUFFER)
-      bci.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-
-   if (bind & PIPE_BIND_SHADER_IMAGE)
+   if (bind & PIPE_BIND_SHADER_IMAGE && props.bufferFeatures & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT)
       bci.usage |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
 
    if (bind & PIPE_BIND_COMMAND_ARGS_BUFFER)
