@@ -186,7 +186,7 @@ iris_init_batch(struct iris_context *ice,
                       PIPE_USAGE_STAGING, 0);
    iris_fine_fence_init(batch);
 
-   batch->hw_ctx_id = iris_create_hw_context(screen->bufmgr);
+   batch->hw_ctx_id = iris_create_hw_context(screen->bufmgr, ice->protected);
    assert(batch->hw_ctx_id);
 
    iris_hw_context_set_priority(screen->bufmgr, batch->hw_ctx_id, priority);

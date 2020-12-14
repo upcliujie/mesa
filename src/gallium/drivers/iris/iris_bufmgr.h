@@ -389,7 +389,7 @@ void* iris_bufmgr_get_aux_map_context(struct iris_bufmgr *bufmgr);
 
 int iris_bo_wait(struct iris_bo *bo, int64_t timeout_ns);
 
-uint32_t iris_create_hw_context(struct iris_bufmgr *bufmgr);
+uint32_t iris_create_hw_context(struct iris_bufmgr *bufmgr, bool protected);
 uint32_t iris_clone_hw_context(struct iris_bufmgr *bufmgr, uint32_t ctx_id);
 
 #define IRIS_CONTEXT_LOW_PRIORITY    ((I915_CONTEXT_MIN_USER_PRIORITY-1)/2)

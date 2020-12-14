@@ -1672,13 +1672,39 @@ init_cache_buckets(struct iris_bufmgr *bufmgr)
 }
 
 uint32_t
-iris_create_hw_context(struct iris_bufmgr *bufmgr)
+iris_create_hw_context(struct iris_bufmgr *bufmgr, bool protected)
 {
-   struct drm_i915_gem_context_create create = { };
-   int ret = gen_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE, &create);
-   if (ret != 0) {
-      DBG("DRM_IOCTL_I915_GEM_CONTEXT_CREATE failed: %s\n", strerror(errno));
-      return 0;
+   uint32_t ctx_id;
+
+   if (protected) {
+      struct drm_i915_gem_create_ext_setparam protected_param = {
+         .param = {
+            .param = I915_CONTEXT_PARAM_PROTECTED_CONTENT,
+            .data = true,
+         },
+      };
+      struct drm_i915_gem_context_create_ext create = { 0 };
+
+      gen_gem_add_ext(&create.extensions,
+                      I915_CONTEXT_CREATE_EXT_SETPARAM,
+                      &protected_param.base);
+
+      int ret = gen_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE_EXT, &create);
+      if (ret == -1) {
+         DBG("DRM_IOCTL_I915_GEM_CONTEXT_CREATE_EXT failed: %s\n", strerror(errno));
+         return 0;
+      }
+
+      ctx_id = create.ctx_id;
+   } else {
+      struct drm_i915_gem_context_create create = { };
+      int ret = gen_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE, &create);
+      if (ret != 0) {
+         DBG("DRM_IOCTL_I915_GEM_CONTEXT_CREATE failed: %s\n", strerror(errno));
+         return 0;
+      }
+
+      ctx_id = create.ctx_id;
    }
 
    /* Upon declaring a GPU hang, the kernel will zap the guilty context
@@ -1697,13 +1723,13 @@ iris_create_hw_context(struct iris_bufmgr *bufmgr)
     * we'll have two lost batches instead of a continual stream of hangs.
     */
    struct drm_i915_gem_context_param p = {
-      .ctx_id = create.ctx_id,
+      .ctx_id = ctx_id,
       .param = I915_CONTEXT_PARAM_RECOVERABLE,
       .value = false,
    };
    drmIoctl(bufmgr->fd, DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM, &p);
 
-   return create.ctx_id;
+   return ctx_id;
 }
 
 static int
@@ -1736,10 +1762,23 @@ iris_hw_context_set_priority(struct iris_bufmgr *bufmgr,
    return err;
 }
 
+static bool
+iris_hw_context_get_protected(struct iris_bufmgr *bufmgr, uint32_t ctx_id)
+{
+   struct drm_i915_gem_context_param p = {
+      .ctx_id = ctx_id,
+      .param = I915_CONTEXT_PARAM_PROTECTED_CONTENT,
+   };
+   drmIoctl(bufmgr->fd, DRM_IOCTL_I915_GEM_CONTEXT_GETPARAM, &p);
+   return p.value; /* on error, return 0 i.e. default priority */
+}
+
 uint32_t
 iris_clone_hw_context(struct iris_bufmgr *bufmgr, uint32_t ctx_id)
 {
-   uint32_t new_ctx = iris_create_hw_context(bufmgr);
+   uint32_t new_ctx =
+      iris_create_hw_context(bufmgr,
+                             iris_hw_context_get_protected(bufmgr, ctx_id));
 
    if (new_ctx) {
       int priority = iris_hw_context_get_priority(bufmgr, ctx_id);
