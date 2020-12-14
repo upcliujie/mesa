@@ -1019,6 +1019,9 @@ dri2_setup_screen(_EGLDisplay *disp)
    disp->Extensions.EXT_protected_surface =
       dri2_renderer_query_integer(dri2_dpy,
                                   __DRI2_RENDERER_HAS_PROTECTED_CONTENT);
+   disp->Extensions.EXT_protected_content =
+      dri2_renderer_query_integer(dri2_dpy,
+                                  __DRI2_RENDERER_HAS_PROTECTED_CONTEXT);
 }
 
 void
@@ -1465,6 +1468,11 @@ dri2_fill_context_attribs(struct dri2_egl_context *dri2_ctx,
    if (dri2_ctx->base.ReleaseBehavior == EGL_CONTEXT_RELEASE_BEHAVIOR_NONE_KHR) {
       ctx_attribs[pos++] = __DRI_CTX_ATTRIB_RELEASE_BEHAVIOR;
       ctx_attribs[pos++] = __DRI_CTX_RELEASE_BEHAVIOR_NONE;
+   }
+
+   if (dri2_ctx->base.Protected) {
+      ctx_attribs[pos++] = __DRI_CTX_ATTRIB_PROTECTED;
+      ctx_attribs[pos++] = true;
    }
 
    *num_attribs = pos;
