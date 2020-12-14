@@ -181,14 +181,17 @@ st_BlitFramebuffer(struct gl_context *ctx,
 
       if (srcAtt->Type == GL_TEXTURE) {
          struct st_texture_object *srcObj = st_texture_object(srcAtt->Texture);
+         struct gl_texture_image *srcImg =
+            srcAtt->Texture->Image[srcAtt->CubeMapFace][srcAtt->TextureLevel];
+         struct st_texture_image *stImg = st_texture_image(srcImg);
 
          if (!srcObj || !srcObj->pt) {
             return;
          }
 
-         blit.src.resource = srcObj->pt;
+         blit.src.resource = stImg->pt;
          blit.src.level = srcAtt->TextureLevel;
-         blit.src.box.z = srcAtt->Zoffset + srcAtt->CubeMapFace;
+         blit.src.box.z = srcAtt->Zoffset;
          blit.src.format = srcObj->pt->format;
 
          if (!ctx->Color.sRGBEnabled)
