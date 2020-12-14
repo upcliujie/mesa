@@ -437,6 +437,38 @@ util_format_short_name(enum pipe_format format)
    return desc->short_name;
 }
 
+
+static inline bool
+util_format_is_argb(enum pipe_format format)
+{
+   switch (format) {
+      case PIPE_FORMAT_A8R8G8B8_UNORM:
+      case PIPE_FORMAT_A8R8G8B8_UINT:
+      case PIPE_FORMAT_A8R8G8B8_SRGB:
+         return true;
+      default:
+         break;
+   }
+   return false;
+}
+
+static inline bool
+util_format_is_abgr(enum pipe_format format)
+{
+   switch (format) {
+      case PIPE_FORMAT_A8B8G8R8_UNORM:
+      case PIPE_FORMAT_A8B8G8R8_UINT:
+      case PIPE_FORMAT_A8B8G8R8_SRGB:
+      case PIPE_FORMAT_A8B8G8R8_SINT:
+      case PIPE_FORMAT_A8B8G8R8_SSCALED:
+      case PIPE_FORMAT_A8B8G8R8_USCALED:
+         return true;
+      default:
+         break;
+   }
+   return false;
+}
+
 /**
  * Whether this format is plain, see UTIL_FORMAT_LAYOUT_PLAIN for more info.
  */
