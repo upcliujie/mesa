@@ -189,6 +189,8 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
          addr.constants.layer_offset = surface->u.tex.first_layer;
       }
 
+      if (screen->get_param(screen, PIPE_CAP_EMULATE_ARGB))
+         u_sampler_view_swizzle_argb(&templ, dst_format);
       sampler_view = pipe->create_sampler_view(pipe, texture, &templ);
       if (sampler_view == NULL)
          goto fail;

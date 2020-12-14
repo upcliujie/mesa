@@ -1384,6 +1384,11 @@ st_DrawPixels(struct gl_context *ctx, GLint x, GLint y,
       u_sampler_view_default_template(&templ, pt, pt->format);
       /* Set up the sampler view's swizzle */
       setup_sampler_swizzle(&templ, format, type);
+      if (st->screen->get_param(st->screen, PIPE_CAP_EMULATE_ARGB))
+         u_sampler_view_swizzle_argb(&templ,
+                                     format == GL_RGBA ?
+                                     PIPE_FORMAT_R8G8B8A8_UNORM :
+                                     PIPE_FORMAT_B8G8R8A8_UNORM);
 
       sv[0] = st->pipe->create_sampler_view(st->pipe, pt, &templ);
    }

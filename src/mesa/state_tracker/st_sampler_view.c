@@ -559,6 +559,10 @@ st_create_texture_sampler_view_from_stobj(struct st_context *st,
    templ.swizzle_b = GET_SWZ(swizzle, 2);
    templ.swizzle_a = GET_SWZ(swizzle, 3);
 
+   /* TODO: this is broken for ARGB/ABGR -> ARGB/ABGR, but we don't have the dst format yet... */
+   if (st->screen->get_param(st->screen, PIPE_CAP_EMULATE_ARGB))
+      u_sampler_view_swizzle_argb(&templ, 0);
+
    return st->pipe->create_sampler_view(st->pipe, stObj->pt, &templ);
 }
 

@@ -108,3 +108,67 @@ u_sampler_view_default_dx9_template(struct pipe_sampler_view *view,
                     format,
                     PIPE_SWIZZLE_1);
 }
+
+void
+u_sampler_view_swizzle_argb(struct pipe_sampler_view *view,
+                            enum pipe_format dst_format)
+{
+   bool src_is_argb = util_format_is_argb(view->format);
+   bool src_is_abgr = util_format_is_abgr(view->format);
+   bool dst_is_argb = util_format_is_argb(dst_format);
+   bool dst_is_abgr = util_format_is_abgr(dst_format);
+
+   if (src_is_argb == dst_is_argb && src_is_abgr == dst_is_abgr)
+      return;
+
+   unsigned char view_swiz[4] = {
+      view->swizzle_r,
+      view->swizzle_g,
+      view->swizzle_b,
+      view->swizzle_a,
+   };
+   unsigned char dst_swiz[4];
+
+   if (src_is_argb) {
+      unsigned char reverse_alpha[] = {
+         PIPE_SWIZZLE_Y,
+         PIPE_SWIZZLE_Z,
+         PIPE_SWIZZLE_W,
+         PIPE_SWIZZLE_X,
+      };
+      /* compose swizzle with alpha at the end */
+      util_format_compose_swizzles(view_swiz, reverse_alpha, dst_swiz);
+   } else if (dst_is_argb) {
+      unsigned char reverse_alpha[] = {
+         PIPE_SWIZZLE_W,
+         PIPE_SWIZZLE_X,
+         PIPE_SWIZZLE_Y,
+         PIPE_SWIZZLE_Z,
+      };
+      /* compose swizzle with alpha at the start */
+      util_format_compose_swizzles(view_swiz, reverse_alpha, dst_swiz);
+   } else if (src_is_abgr) {
+      /* I don't understand why this swizzle is correct when doing abgr -> rgba? */
+      unsigned char reverse_alpha[] = {
+         PIPE_SWIZZLE_W,
+         PIPE_SWIZZLE_X,
+         PIPE_SWIZZLE_Y,
+         PIPE_SWIZZLE_Z,
+      };
+      util_format_compose_swizzles(view_swiz, reverse_alpha, dst_swiz);
+   } else if (dst_is_abgr) {
+      /* I don't understand why this swizzle is correct when doing abgr -> rgba? */
+      unsigned char reverse_alpha[] = {
+         PIPE_SWIZZLE_Y,
+         PIPE_SWIZZLE_Z,
+         PIPE_SWIZZLE_W,
+         PIPE_SWIZZLE_X,
+      };
+      util_format_compose_swizzles(view_swiz, reverse_alpha, dst_swiz);
+   }
+   view->swizzle_r = dst_swiz[PIPE_SWIZZLE_X];
+   view->swizzle_g = dst_swiz[PIPE_SWIZZLE_Y];
+   view->swizzle_b = dst_swiz[PIPE_SWIZZLE_Z];
+   view->swizzle_a = dst_swiz[PIPE_SWIZZLE_W];
+
+}
