@@ -1,0 +1,172 @@
+/*
+ * Copyright © 2020 Google, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#ifndef _ISA_H_
+#define _ISA_H_
+
+#include <stdbool.h>
+#include <stdint.h>
+
+/* TODO we could maybe make this a uint8_t array, with some helpers, to
+ * support arbitrary sized patterns.. or add AND/OR/SHIFT support to
+ * util/bitset.h?
+ */
+typedef uint64_t bitmask_t;
+
+struct isa_bitset;
+
+/**
+ * Table of enum values
+ */
+struct isa_enum {
+	unsigned num_values;
+	struct {
+		unsigned val;
+		const char *display;
+	} values[];
+};
+
+/**
+ * An RPN[1] expression used for conditional overrides and derived fields.
+ * RPN is used because it makes for a simple expression evaluator.
+ *
+ * [1] https://en.wikipedia.org/wiki/Reverse_Polish_notation
+ */
+struct isa_expr {
+	unsigned num_instructions;
+	struct {
+		enum {
+			/** push literal value to stack */
+			ISA_INSTR_LITERAL,
+			/** lookup field value and push to stack */
+			ISA_INSTR_VAR,
+			/** push(peek()) */
+			ISA_INSTR_DUP,
+			/** pc += pop() */
+			ISA_INSTR_JMP,
+			/** return pop() */
+			ISA_INSTR_RET,
+			/** push literal value to stack and return (combine with jmp to implement LUT) */
+			ISA_INSTR_RETLIT,
+			/** if ((v=pop())) return v; (which allows early return from if/else ladder) */
+			ISA_INSTR_RETIF,
+			/** push(pop() != pop()) */
+			ISA_INSTR_NE,
+			/** push(pop() == pop()) */
+			ISA_INSTR_EQ,
+			/** push(pop() > pop()) */
+			ISA_INSTR_GT,
+			/** push(!pop()) */
+			ISA_INSTR_NOT,
+			/** push(pop() | pop()) */
+			ISA_INSTR_OR,
+			/** push(pop() & pop()) */
+			ISA_INSTR_AND,
+			/** push(pop() << pop()) */
+			ISA_INSTR_LSH,
+			/** push(pop() >> pop()) */
+			ISA_INSTR_RSH,
+			/** push(pop() + pop()) */
+			ISA_INSTR_ADD,
+
+			// TODO add more opcodes as needed
+		} opc;
+		/* optional opcode operands: */
+		union {
+			int64_t literal;
+			const char *variable;
+		};
+	} instructions[];
+};
+
+/**
+ * Description of a single field within a bitset case.
+ */
+struct isa_field {
+	const char *name;
+	const struct isa_expr *expr;       /* for virtual "derived" fields */
+	unsigned low;
+	unsigned high;
+	enum {
+		/* Basic types: */
+		TYPE_INT,
+		TYPE_UINT,
+		TYPE_FLOAT,
+		TYPE_BOOL,
+		TYPE_ENUM,
+
+		/* To assert a certain value in a given range of bits.. not
+		 * used for pattern matching, but allows an override to specify
+		 * that a certain bitpattern in some "unused" bits is expected
+		 */
+		TYPE_ASSERT,
+
+		/* For fields that are decoded with another bitset hierarchy: */
+		TYPE_BITSET,
+	} type;
+	union {
+		const struct isa_bitset **bitsets;  /* if type==BITSET */
+		uint64_t val;                       /* if type==ASSERT */
+		const struct isa_enum *enums;       /* if type==ENUM */
+		const char *display;                /* if type==BOOL */
+	};
+};
+
+/**
+ * A bitset consists of N "cases", with the last one (with case->expr==NULL)
+ * being the default.
+ *
+ * When resolving a field, display template string, etc, all the cases with
+ * an expression that evaluates to non-zero are consider, falling back to
+ * the last (default) case.
+ */
+struct isa_case {
+	const struct isa_expr *expr;
+	const char *display;
+	unsigned num_fields;
+	struct isa_field fields[];
+};
+
+/**
+ * An individual bitset, the leaves of a bitset inheritance hiearchy will
+ * have the match and mask to match a single instruction (or arbitrary
+ * bit-pattern) against.
+ */
+struct isa_bitset {
+	const struct isa_bitset *parent;
+	const char *name;
+	bitmask_t match;
+	bitmask_t dontcare;
+	bitmask_t mask;
+	unsigned num_cases;
+	const struct isa_case *cases[];
+};
+
+/* TODO move decoder entrypoint declaration.. somewhere.. also, we
+ * might want to pass the table of bitset rules to start decoding
+ * from, to make this a bit more decoupled from the isa definition?
+ */
+#include <stdio.h>
+void isa_decode(void *bin, int sz, FILE *out, bool raw);
+
+#endif /* _ISA_H_ */
