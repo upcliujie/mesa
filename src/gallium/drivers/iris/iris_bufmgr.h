@@ -398,6 +398,8 @@ uint32_t iris_clone_hw_context(struct iris_bufmgr *bufmgr, uint32_t ctx_id);
 
 int iris_hw_context_set_priority(struct iris_bufmgr *bufmgr,
                                  uint32_t ctx_id, int priority);
+int iris_hw_context_set_protected(struct iris_bufmgr *bufmgr,
+                                  uint32_t ctx_id, bool protected);
 
 void iris_destroy_hw_context(struct iris_bufmgr *bufmgr, uint32_t ctx_id);
 
