@@ -670,6 +670,74 @@ tu_lower_io(nir_shader *shader, struct tu_shader *tu_shader,
    return progress;
 }
 
+static bool
+lower_image_size(nir_builder *b, nir_intrinsic_instr *instr)
+{
+   if (instr->num_components != 3 || nir_intrinsic_image_dim(instr) != GLSL_SAMPLER_DIM_CUBE)
+      return false;
+
+   /* imageSize() expects the last component of the return value to be the
+    * number of layers in the texture array. In the case of cube map array,
+    * it will return a ivec3, with the third component being the number of
+    * layer-faces. Therefore, we need to divide it by 6 (# faces of the
+    * cube map).
+    */
+   b->cursor = nir_after_instr(&instr->instr);
+   nir_ssa_def *channels[NIR_MAX_VEC_COMPONENTS];
+   for (unsigned i = 0; i < instr->num_components; i++) {
+      channels[i] = nir_vector_extract(b, &instr->dest.ssa, nir_imm_int(b, i));
+   }
+
+   channels[2] = nir_idiv(b, channels[2], nir_imm_int(b, 6u));
+   nir_ssa_def *result = nir_vec(b, channels, instr->num_components);
+   nir_ssa_def_rewrite_uses_after(&instr->dest.ssa, nir_src_for_ssa(result), result->parent_instr);
+
+   return true;
+}
+
+static bool
+lower_image_size_impl(nir_function_impl *impl)
+{
+   nir_builder b;
+   nir_builder_init(&b, impl);
+   bool progress = false;
+
+   nir_foreach_block(block, impl) {
+      nir_foreach_instr_safe(instr, block) {
+         b.cursor = nir_before_instr(instr);
+         switch (instr->type) {
+         case nir_instr_type_intrinsic: {
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            if (intrin->intrinsic == nir_intrinsic_bindless_image_size)
+               progress |= lower_image_size(&b, intrin);
+            break;
+         }
+         default:
+            break;
+         }
+      }
+   }
+
+   if (progress)
+      nir_metadata_preserve(impl, nir_metadata_none);
+   else
+      nir_metadata_preserve(impl, nir_metadata_all);
+
+   return progress;
+}
+
+static bool
+tu_lower_image_size(nir_shader *shader)
+{
+   bool progress = false;
+
+   nir_foreach_function(function, shader) {
+      if (function->impl)
+         progress |= lower_image_size_impl(function->impl);
+   }
+   return progress;
+}
+
 static void
 shared_type_info(const struct glsl_type *type, unsigned *size, unsigned *align)
 {
@@ -792,6 +860,8 @@ tu_shader_create(struct tu_device *dev,
    nir_assign_io_var_locations(nir, nir_var_shader_out, &nir->num_outputs, nir->info.stage);
 
    NIR_PASS_V(nir, tu_lower_io, shader, layout);
+
+   NIR_PASS_V(nir, tu_lower_image_size);
 
    nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
 
