@@ -551,6 +551,7 @@ static const struct debug_control radv_debug_options[] = {
 	{"hang", RADV_DEBUG_HANG},
 	{"img", RADV_DEBUG_IMG},
 	{"noumr", RADV_DEBUG_NO_UMR},
+	{"invariantpos", RADV_DEBUG_INVARIANT_POS},
 	{NULL, 0}
 };
 

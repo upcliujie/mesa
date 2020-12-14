@@ -311,6 +311,18 @@ static void radv_compiler_debug(void *private_data,
 			0, 0, "radv", message);
 }
 
+static void
+mark_position_invariant(nir_shader *nir)
+{
+	nir_foreach_shader_out_variable(var, nir) {
+		if (var->data.location != VARYING_SLOT_POS)
+			continue;
+
+		var->data.invariant = true;
+		break;
+	}
+}
+
 static bool
 lower_load_vulkan_descriptor(nir_shader *nir)
 {
@@ -527,6 +539,11 @@ radv_shader_compile_to_nir(struct radv_device *device,
 		NIR_PASS_V(nir, nir_remove_dead_variables,
 		           nir_var_shader_in | nir_var_shader_out | nir_var_system_value | nir_var_mem_shared,
 			   NULL);
+
+		if (device->instance->debug_flags & RADV_DEBUG_INVARIANT_POS &&
+		    stage != MESA_SHADER_FRAGMENT) {
+			mark_position_invariant(nir);
+		}
 
 		NIR_PASS_V(nir, nir_propagate_invariant);
 
