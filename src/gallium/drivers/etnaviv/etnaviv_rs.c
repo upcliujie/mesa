@@ -286,7 +286,8 @@ etna_rs_gen_clear_surface(struct etna_context *ctx, struct etna_surface *surf,
       format = RS_FORMAT_64BPP_CLEAR;
       break;
    default:
-      unreachable("bpp not supported for clear by RS");
+      //unreachable("bpp not supported for clear by RS");
+      format = RS_FORMAT_A4R4G4B4;
       break;
    }
 
