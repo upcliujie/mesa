@@ -83,7 +83,8 @@ panfrost_compute_checksum_size(
 /* AFBC */
 
 bool
-panfrost_format_supports_afbc(enum pipe_format format);
+panfrost_format_supports_afbc(const struct panfrost_device *dev,
+                              enum pipe_format format);
 
 unsigned
 panfrost_afbc_header_size(unsigned width, unsigned height);

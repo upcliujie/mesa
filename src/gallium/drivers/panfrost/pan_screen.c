@@ -513,12 +513,9 @@ panfrost_walk_dmabuf_modifiers(struct pipe_screen *screen,
                 int *external_only, int *out_count, uint64_t test_modifier)
 {
         /* Query AFBC status */
-        bool afbc = panfrost_format_supports_afbc(format);
-        bool ytr = panfrost_afbc_can_ytr(format);
-
-        /* Don't advertise AFBC before T760 */
         struct panfrost_device *dev = pan_device(screen);
-        afbc &= !(dev->quirks & MIDGARD_NO_AFBC);
+        bool afbc = panfrost_format_supports_afbc(dev, format);
+        bool ytr = panfrost_afbc_can_ytr(format);
 
         /* XXX: AFBC scanout is broken on mainline RK3399 with older kernels */
         afbc &= (dev->debug & PAN_DBG_AFBC);
