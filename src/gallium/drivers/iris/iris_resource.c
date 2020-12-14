@@ -919,7 +919,11 @@ iris_resource_create_for_buffer(struct pipe_screen *pscreen,
       name = "dynamic state";
    }
 
-   res->bo = iris_bo_alloc(screen->bufmgr, name, templ->width0, memzone, 0);
+   unsigned flags = 0;
+   if (templ->bind & PIPE_BIND_PROTECTED)
+      flags |= BO_ALLOC_PROTECTED;
+
+   res->bo = iris_bo_alloc(screen->bufmgr, name, templ->width0, memzone, flags);
    if (!res->bo) {
       iris_resource_destroy(pscreen, &res->base);
       return NULL;
@@ -962,6 +966,9 @@ iris_resource_create_with_modifiers(struct pipe_screen *pscreen,
    unsigned int flags = 0;
    if (templ->usage == PIPE_USAGE_STAGING)
       flags |= BO_ALLOC_COHERENT;
+
+   if (templ->bind & PIPE_BIND_PROTECTED)
+      flags |= BO_ALLOC_PROTECTED;
 
    /* These are for u_upload_mgr buffers only */
    assert(!(templ->flags & (IRIS_RESOURCE_FLAG_SHADER_MEMZONE |
@@ -1374,7 +1381,8 @@ iris_invalidate_resource(struct pipe_context *ctx,
    struct iris_bo *old_bo = res->bo;
    struct iris_bo *new_bo =
       iris_bo_alloc(screen->bufmgr, res->bo->name, resource->width0,
-                    iris_memzone_for_address(old_bo->gtt_offset), 0);
+                    iris_memzone_for_address(old_bo->gtt_offset),
+                    old_bo->protected ? BO_ALLOC_PROTECTED : 0);
    if (!new_bo)
       return;
 
