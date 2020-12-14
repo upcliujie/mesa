@@ -434,6 +434,9 @@ enum pipe_flush_flags
 /** Stop execution if the device is reset. */
 #define PIPE_CONTEXT_LOSE_CONTEXT_ON_RESET (1 << 6)
 
+/** Create a protected to access protected content (surfaces, textures, ...) */
+#define PIPE_CONTEXT_PROTECTED         (1 << 7)
+
 /**
  * Flags for pipe_context::memory_barrier.
  */
