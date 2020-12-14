@@ -191,6 +191,9 @@ iris_init_batch(struct iris_context *ice,
 
    iris_hw_context_set_priority(screen->bufmgr, batch->hw_ctx_id, priority);
 
+   if (ice->protected)
+      iris_hw_context_set_protected(screen->bufmgr, batch->hw_ctx_id, true);
+
    util_dynarray_init(&batch->exec_fences, ralloc_context(NULL));
    util_dynarray_init(&batch->syncobjs, ralloc_context(NULL));
 
