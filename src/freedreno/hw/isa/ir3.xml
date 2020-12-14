@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright © 2020 Google, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ -->
+
+<!--
+The basic idea is to define a hierarchy of encodings, where various
+ranges of bits can be either:
+
+* patterns to match to select a sub-encoding (0, 1, x (dontcare))
+* instruction parameters (ie. dst register, type, etc)
+* range of bits that delegates to another hierarchy (ie. src reg
+  encoding which has multiple sub-encodings depending on gpr/const/
+  relative)
+
+The root of the encoding hierarchy defines the size.  By the concrete
+leaf nodes of an encoding hierarchy all bits should be accounted for
+(ie. either defined fields or as 0/1/x).
+
+TODO:
+* add optional min/max gen fields for cases where same binary maps
+  to different instructions and/or encodings on later gens
+* schema
+ -->
+
+
+<isa>
+
+<import file="ir3-common.xml"/>
+
+<bitset name="#instruction" size="64">
+	<doc>
+		Encoding of an ir3 instruction.  All instructions are 64b.
+	</doc>
+	<gen min="300"/>
+</bitset>
+
+<import file="ir3-cat0.xml"/>
+<import file="ir3-cat1.xml"/>
+<import file="ir3-cat2.xml"/>
+<import file="ir3-cat3.xml"/>
+<import file="ir3-cat4.xml"/>
+<import file="ir3-cat5.xml"/>
+<import file="ir3-cat6.xml"/>
+<import file="ir3-cat7.xml"/>
+
+</isa>

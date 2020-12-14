@@ -1,4 +1,4 @@
-# Copyright © 2019 Google, Inc
+# Copyright © 2020 Google, Inc
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,37 +18,50 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-xml_files = [
-  'adreno.xml',
-  'freedreno_copyright.xml',
-  'rules-ng.xsd',
+isa_c = custom_target(
+  'isa.c',
+  input: ['decode.py', 'ir3.xml'],
+  output: 'isa.c',
+  command: [
+    prog_python, '@INPUT0@', '@INPUT1@', '@OUTPUT@'
+  ],
+  depend_files: [
+    'ir3-common.xml',
+    'ir3-cat0.xml',
+    'ir3-cat1.xml',
+    'ir3-cat2.xml',
+    'ir3-cat3.xml',
+    'ir3-cat4.xml',
+    'ir3-cat5.xml',
+    'ir3-cat6.xml',
+    'ir3-cat7.xml',
+    'isa.py',
+  ]
+)
+
+decode_files = [
+  isa_c,
+  'isa.h',
+  'decode.c'
 ]
 
-gen_header_py = files('gen_header.py')
+libdecode = static_library(
+  'decode',
+  decode_files,
+  dependencies: idep_mesautil,
+  include_directories: [
+    inc_include,
+    inc_src,
+    # Hack for src/util/half_float.h indirect dependency on
+    # gallium headers:
+    inc_gallium,
+  ],
+)
 
-freedreno_xml_header_files = []
-
-foreach f : xml_files
-  _name = f + '.h'
-  freedreno_xml_header_files += custom_target(
-    _name,
-    input: [gen_header_py, f],
-    output: _name,
-    command: [prog_python, '@INPUT0@', rnn_src_path, '@INPUT1@'],
-    capture: true,
-  )
-  _gzname = f + '.gz'
-  custom_target(
-    _gzname,
-    input: f,
-    output: _gzname,
-    command: [prog_gzip, '-kc', '@INPUT@'],
-    capture: true,
-    install_dir: rnn_install_path,
-    install: install_fd_decode_tools,
-    build_by_default: install_fd_decode_tools,
-  )
-endforeach
-
-subdir('adreno')
-subdir('isa')
+disasm = executable(
+  'disasm',
+  ['disasm.c'],
+  link_with: libdecode,
+  build_by_default: with_tools.contains('freedreno'),
+  install: false,
+)
