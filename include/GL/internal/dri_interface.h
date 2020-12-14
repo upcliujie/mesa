@@ -1225,6 +1225,12 @@ struct __DRIdri2LoaderExtensionRec {
 #define __DRI_CTX_FLAG_NO_ERROR			0x00000008
 
 /**
+ * \requires __DRI2_RENDERER_HAS_PROTECTED_CONTEXT.
+ *
+ */
+#define __DRI_CTX_FLAG_PROTECTED		0x00000010
+
+/**
  * \name Context reset strategies.
  */
 /*@{*/
@@ -1968,6 +1974,8 @@ typedef struct __DRIDriverVtableExtensionRec {
 #define   __DRI2_RENDERER_HAS_CONTEXT_PRIORITY_HIGH           (1 << 2)
 
 #define __DRI2_RENDERER_HAS_PROTECTED_CONTENT                 0x000e
+
+#define __DRI2_RENDERER_HAS_PROTECTED_CONTEXT                 0x000f
 
 typedef struct __DRI2rendererQueryExtensionRec __DRI2rendererQueryExtension;
 struct __DRI2rendererQueryExtensionRec {
