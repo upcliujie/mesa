@@ -50,5 +50,6 @@ dEQP-GLES3.functional.transform_feedback.basic_types.separate.points.lowp_mat4x2
 dEQP-GLES3.functional.transform_feedback.basic_types.separate.triangles.lowp_mat3,Fail
 dEQP-GLES3.functional.transform_feedback.interpolation.smooth.highp_vec4_triangles_separate,Fail
 dEQP-GLES3.functional.transform_feedback.position.lines_separate,Fail
+dEQP-GLES3.functional.transform_feedback.random_full_array_capture.separate.triangles.3,Fail
 dEQP-GLES3.functional.transform_feedback.random.interleaved.lines.3,Fail
 dEQP-GLES3.functional.transform_feedback.random.separate.points.3,Fail

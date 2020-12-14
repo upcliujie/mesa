@@ -457,6 +457,8 @@ dEQP-GLES3.functional.transform_feedback.interpolation.centroid.mediump_vec4_lin
 dEQP-GLES3.functional.transform_feedback.interpolation.centroid.mediump_vec4_lines_separate,Fail
 dEQP-GLES3.functional.transform_feedback.interpolation.centroid.mediump_vec4_triangles_interleaved,Fail
 dEQP-GLES3.functional.transform_feedback.interpolation.centroid.mediump_vec4_triangles_separate,Fail
+dEQP-GLES3.functional.transform_feedback.random_full_array_capture.interleaved.lines.8,Fail
+dEQP-GLES3.functional.transform_feedback.random_full_array_capture.separate.triangles.3,Fail
 dEQP-GLES3.functional.transform_feedback.random.interleaved.lines.10,Fail
 dEQP-GLES3.functional.transform_feedback.random.interleaved.lines.4,Fail
 dEQP-GLES3.functional.transform_feedback.random.interleaved.lines.8,Fail
