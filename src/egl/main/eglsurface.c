@@ -304,7 +304,8 @@ _eglParseSurfaceAttribList(_EGLSurface *surf, const EGLint *attrib_list)
          surf->MipmapTexture = !!val;
          break;
       case EGL_PROTECTED_CONTENT_EXT:
-         if (!disp->Extensions.EXT_protected_surface) {
+         if (!disp->Extensions.EXT_protected_content &&
+             !disp->Extensions.EXT_protected_surface) {
             err = EGL_BAD_ATTRIBUTE;
             break;
          }
@@ -591,7 +592,8 @@ _eglQuerySurface(_EGLDisplay *disp, _EGLSurface *surface,
       *value = surface->HdrMetadata.max_fall;
       break;
    case EGL_PROTECTED_CONTENT_EXT:
-      if (!disp->Extensions.EXT_protected_surface)
+      if (!disp->Extensions.EXT_protected_content &&
+          !disp->Extensions.EXT_protected_surface)
          return _eglError(EGL_BAD_ATTRIBUTE, "eglQuerySurface");
       *value = surface->ProtectedContent;
       break;
