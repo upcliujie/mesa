@@ -639,14 +639,24 @@ d3d12_flush_frontbuffer(struct pipe_screen * pscreen,
    struct d3d12_resource *res = d3d12_resource(pres);
    ID3D12Resource *d3d12_res = d3d12_resource_resource(res);
 
-   if (!winsys)
+   if (!winsys || !pctx)
      return;
 
    assert(res->dt);
    void *map = winsys->displaytarget_map(winsys, res->dt, 0);
 
    if (map) {
-      d3d12_res->ReadFromSubresource(map, res->dt_stride, 0, 0, NULL);
+      pipe_transfer *transfer = nullptr;
+      void *res_map = pipe_transfer_map(pctx, pres, level, layer, PIPE_MAP_READ, 0, 0,
+                                        u_minify(pres->width0, level),
+                                        u_minify(pres->height0, level),
+                                        &transfer);
+      if (res_map) {
+         util_copy_rect((ubyte*)map, pres->format, res->dt_stride, 0, 0,
+                        transfer->box.width, transfer->box.height,
+                        (const ubyte*)res_map, transfer->stride, 0, 0);
+         pipe_transfer_unmap(pctx, transfer);
+      }
       winsys->displaytarget_unmap(winsys, res->dt);
    }
 
