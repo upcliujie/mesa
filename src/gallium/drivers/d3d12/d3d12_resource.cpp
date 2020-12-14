@@ -567,6 +567,43 @@ transfer_image_to_buf(struct d3d12_context *ctx,
    return true;
 }
 
+static const unsigned
+buffer_map_alignment = 64;
+
+static void
+transfer_buf_to_buf(struct d3d12_context *ctx,
+                    struct d3d12_resource *res,
+                    struct d3d12_resource *staging_res,
+                    struct d3d12_transfer *trans,
+                    bool readback)
+{
+   auto batch = d3d12_current_batch(ctx);
+
+   d3d12_batch_reference_resource(batch, res);
+   d3d12_batch_reference_resource(batch, staging_res);
+
+   auto src = readback ? res : staging_res;
+   auto dst = readback ? staging_res : res;
+   uint64_t src_offset = 0;
+   uint64_t dst_offset = 0;
+   auto src_d3d12 = d3d12_resource_underlying(src, &src_offset);
+   auto dst_d3d12 = d3d12_resource_underlying(dst, &dst_offset);
+   if (readback) {
+      src_offset += trans->base.box.x;
+      dst_offset += trans->base.box.x % buffer_map_alignment;
+   } else {
+      src_offset += trans->base.box.x % buffer_map_alignment;
+      dst_offset += trans->base.box.x;
+   }
+
+   d3d12_transition_resource_state(ctx, src, D3D12_RESOURCE_STATE_COPY_SOURCE);
+   d3d12_transition_resource_state(ctx, dst, D3D12_RESOURCE_STATE_COPY_DEST);
+   d3d12_apply_resource_states(ctx);
+   ctx->cmdlist->CopyBufferRegion(dst_d3d12, dst_offset,
+                                  src_d3d12, src_offset,
+                                  trans->base.box.width);
+}
+
 static unsigned
 linear_offset(int x, int y, int z, unsigned stride, unsigned layer_stride)
 {
@@ -911,23 +948,36 @@ d3d12_transfer_map(struct pipe_context *pctx,
          ptrans->layer_stride = align(ptrans->layer_stride,
                                       D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 
+      unsigned staging_res_size = ptrans->layer_stride * box->depth;
+      if (res->base.target == PIPE_BUFFER) {
+         /* To properly support ARB_map_buffer_alignment, we need to return a pointer
+          * that's appropriately offset from a 64-byte-aligned base address.
+          */
+         staging_res_size = align(box->width + box->x % buffer_map_alignment,
+                                  D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+         range.Begin = box->x % buffer_map_alignment;
+      }
+
       trans->staging_res = pipe_buffer_create(pctx->screen, 0,
                                               PIPE_USAGE_STAGING,
-                                              ptrans->layer_stride * box->depth);
+                                              staging_res_size);
       if (!trans->staging_res)
          return NULL;
 
       struct d3d12_resource *staging_res = d3d12_resource(trans->staging_res);
 
       if (usage & PIPE_MAP_READ) {
-         bool ret = transfer_image_to_buf(ctx, res, staging_res, trans, 0);
-         if (ret == false)
+         bool ret = true;
+         if (pres->target == PIPE_BUFFER) {
+            transfer_buf_to_buf(ctx, res, staging_res, trans, true);
+         } else
+            ret = transfer_image_to_buf(ctx, res, staging_res, trans, 0);
+         if (!ret)
             return NULL;
          d3d12_flush_cmdlist_and_wait(ctx);
       }
 
-      range.Begin = 0;
-      range.End = ptrans->layer_stride * box->depth;
+      range.End = staging_res_size - range.Begin;
 
       ptr = d3d12_bo_map(staging_res->bo, &range);
    }
@@ -952,14 +1002,18 @@ d3d12_transfer_unmap(struct pipe_context *pctx,
       struct d3d12_resource *staging_res = d3d12_resource(trans->staging_res);
 
       if (trans->base.usage & PIPE_MAP_WRITE) {
-         range.Begin = 0;
-         range.End = ptrans->layer_stride * ptrans->box.depth;
+         range.Begin = res->base.target == PIPE_BUFFER ?
+            ptrans->box.x % buffer_map_alignment : 0;
+         range.End = staging_res->base.width0 - range.Begin;
       }
       d3d12_bo_unmap(staging_res->bo, &range);
 
       if (trans->base.usage & PIPE_MAP_WRITE) {
          struct d3d12_context *ctx = d3d12_context(pctx);
-         transfer_buf_to_image(ctx, res, staging_res, trans, 0);
+         if (res->base.target == PIPE_BUFFER)
+            transfer_buf_to_buf(ctx, res, staging_res, trans, false);
+         else
+            transfer_buf_to_image(ctx, res, staging_res, trans, 0);
       }
 
       pipe_resource_reference(&trans->staging_res, NULL);
