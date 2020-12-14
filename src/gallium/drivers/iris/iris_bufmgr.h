@@ -237,10 +237,16 @@ struct iris_bo {
     * Boolean of whether this buffer points into user memory
     */
    bool userptr;
+
+   /**
+    *
+    */
+   bool protected;
 };
 
 #define BO_ALLOC_ZEROED     (1<<0)
 #define BO_ALLOC_COHERENT   (1<<1)
+#define BO_ALLOC_PROTECTED  (1<<2)
 
 /**
  * Allocate a buffer object.

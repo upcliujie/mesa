@@ -388,7 +388,8 @@ alloc_bo_from_cache(struct iris_bufmgr *bufmgr,
                     unsigned flags,
                     bool match_zone)
 {
-   if (!bucket)
+   /* Don't put anything protected in the BO cache. */
+   if (!bucket || (flags & BO_ALLOC_PROTECTED))
       return NULL;
 
    struct iris_bo *bo = NULL;
@@ -460,23 +461,45 @@ alloc_bo_from_cache(struct iris_bufmgr *bufmgr,
 }
 
 static struct iris_bo *
-alloc_fresh_bo(struct iris_bufmgr *bufmgr, uint64_t bo_size)
+alloc_fresh_bo(struct iris_bufmgr *bufmgr, uint64_t bo_size, unsigned flags)
 {
    struct iris_bo *bo = bo_calloc();
    if (!bo)
       return NULL;
 
-   struct drm_i915_gem_create create = { .size = bo_size };
-
-   /* All new BOs we get from the kernel are zeroed, so we don't need to
-    * worry about that here.
+   /* All new BOs we get from the kernel are zeroed, so we don't need to worry
+    * about that here.
     */
-   if (gen_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_CREATE, &create) != 0) {
-      free(bo);
-      return NULL;
+   uint32_t handle;
+   if (flags & BO_ALLOC_PROTECTED) {
+      struct drm_i915_gem_create_ext create = { .size = bo_size, };
+      struct drm_i915_gem_create_ext_setparam protected_param = {
+         .param = {
+            .param = I915_OBJECT_PARAM | I915_PARAM_PROTECTED_CONTENT,
+            .data = (flags & BO_ALLOC_PROTECTED) != 0,
+         },
+      };
+
+      gen_gem_add_ext(&create.extensions,
+                      I915_GEM_CREATE_EXT_SETPARAM,
+                      &protected_param.base);
+
+      if (gen_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_CREATE_EXT, &create) != 0) {
+         free(bo);
+         return NULL;
+      }
+      handle = create.handle;
+   } else {
+      struct drm_i915_gem_create create = { .size = bo_size };
+
+      if (gen_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_CREATE, &create) != 0) {
+         free(bo);
+         return NULL;
+      }
+      handle = create.handle;
    }
 
-   bo->gem_handle = create.handle;
+   bo->gem_handle = handle;
    bo->bufmgr = bufmgr;
    bo->size = bo_size;
    bo->idle = true;
@@ -537,7 +560,7 @@ bo_alloc_internal(struct iris_bufmgr *bufmgr,
    mtx_unlock(&bufmgr->lock);
 
    if (!bo) {
-      bo = alloc_fresh_bo(bufmgr, bo_size);
+      bo = alloc_fresh_bo(bufmgr, bo_size, flags);
       if (!bo)
          return NULL;
    }
@@ -556,7 +579,8 @@ bo_alloc_internal(struct iris_bufmgr *bufmgr,
 
    bo->name = name;
    p_atomic_set(&bo->refcount, 1);
-   bo->reusable = bucket && bufmgr->bo_reuse;
+   bo->protected = flags & BO_ALLOC_PROTECTED;
+   bo->reusable = bucket && bufmgr->bo_reuse && !bo->protected;
    bo->cache_coherent = bufmgr->has_llc;
    bo->index = -1;
    bo->kflags = EXEC_OBJECT_SUPPORTS_48B_ADDRESS | EXEC_OBJECT_PINNED;
