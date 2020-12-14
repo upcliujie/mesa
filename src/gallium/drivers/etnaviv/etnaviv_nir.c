@@ -100,6 +100,10 @@ etna_lower_io(nir_shader *shader, struct etna_shader_variant *v)
                   nir_builder_instr_insert(&b, &load_ubo->instr);
                   nir_ssa_def_rewrite_uses(&intr->dest.ssa,
                                              nir_src_for_ssa(&load_ubo->dest.ssa));
+
+                  nir_intrinsic_set_range_base(load_ubo, nir_intrinsic_base(intr) * 16);
+                  nir_intrinsic_set_range(load_ubo, nir_intrinsic_range(intr) * 16);
+
                   nir_instr_remove(&intr->instr);
                } break;
                case nir_intrinsic_load_ubo: {
