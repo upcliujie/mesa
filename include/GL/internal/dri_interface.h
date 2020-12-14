@@ -1155,7 +1155,13 @@ struct __DRIdri2LoaderExtensionRec {
 #define __DRI_CTX_RELEASE_BEHAVIOR_NONE         0
 #define __DRI_CTX_RELEASE_BEHAVIOR_FLUSH        1
 
-#define __DRI_CTX_NUM_ATTRIBS                   6
+/**
+ * \requires __DRI2_RENDER_HAS_PROTECTED_CONTEXT.
+ *
+ */
+#define __DRI_CTX_ATTRIB_PROTECTED              6
+
+#define __DRI_CTX_NUM_ATTRIBS                   7
 
 /**
  * \name Reasons that __DRIdri2Extension::createContextAttribs might fail
@@ -1941,6 +1947,8 @@ typedef struct __DRIDriverVtableExtensionRec {
 
 #define __DRI2_RENDERER_HAS_PROTECTED_SURFACE                 0x000e
 #define __DRI2_RENDERER_PREFER_BACK_BUFFER_REUSE              0x000f
+
+#define __DRI2_RENDERER_HAS_PROTECTED_CONTEXT                 0x0010
 
 typedef struct __DRI2rendererQueryExtensionRec __DRI2rendererQueryExtension;
 struct __DRI2rendererQueryExtensionRec {
