@@ -434,6 +434,9 @@ enum pipe_flush_flags
 /** Stop execution if the device is reset. */
 #define PIPE_CONTEXT_LOSE_CONTEXT_ON_RESET (1 << 6)
 
+/** Create a protected to access protected content (surfaces, textures, ...) */
+#define PIPE_CONTEXT_PROTECTED         (1 << 7)
+
 /**
  * Flags for pipe_context::memory_barrier.
  */
@@ -976,8 +979,11 @@ enum pipe_cap
    PIPE_CAP_NO_CLIP_ON_COPY_TEX,
    PIPE_CAP_MAX_TEXTURE_MB,
    PIPE_CAP_SHADER_ATOMIC_INT64,
+   /** For EGL_EXT_protected_surface */
    PIPE_CAP_DEVICE_PROTECTED_CONTENT,
    PIPE_CAP_PREFER_REAL_BUFFER_IN_CONSTBUF0,
+   /** For EGL_EXT_protected_content */
+   PIPE_CAP_DEVICE_PROTECTED_CONTEXT,
 };
 
 /**
