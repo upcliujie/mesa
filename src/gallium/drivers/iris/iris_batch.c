@@ -250,7 +250,7 @@ iris_init_non_engine_contexts(struct iris_context *ice, int priority)
 
    for (int i = 0; i < IRIS_BATCH_COUNT; i++) {
       struct iris_batch *batch = &ice->batches[i];
-      batch->ctx_id = iris_create_hw_context(screen->bufmgr);
+      batch->ctx_id = iris_create_hw_context(screen->bufmgr, ice->protected);
       batch->exec_flags = I915_EXEC_RENDER;
       batch->has_engines_context = false;
       assert(batch->ctx_id);
