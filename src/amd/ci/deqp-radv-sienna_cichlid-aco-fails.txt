@@ -130,3 +130,13 @@ dEQP-VK.fragment_shading_rate.fragstencil.dynamic.noattachment.shaderrate.keep.k
 dEQP-VK.fragment_shading_rate.fragstencil.dynamic.noattachment.shaderrate.keep.keep.256x256.samples8.vs,Fail
 dEQP-VK.fragment_shading_rate.fragstencil.dynamic.noattachment.shaderrate.replace.keep.151x431.samples8.vs,Fail
 dEQP-VK.fragment_shading_rate.fragstencil.dynamic.noattachment.shaderrate.replace.keep.256x256.samples8.vs,Fail
+dEQP-VK.fragment_shading_rate.fragstencil.dynamic.attachment.noshaderrate.keep.keep.151x431.samples8.vs,Fail
+dEQP-VK.fragment_shading_rate.fragstencil.dynamic.attachment.noshaderrate.keep.keep.256x256.samples8.vs,Fail
+dEQP-VK.fragment_shading_rate.fragstencil.dynamic.attachment.noshaderrate.replace.keep.151x431.samples8.vs,Fail
+dEQP-VK.fragment_shading_rate.fragstencil.dynamic.attachment.noshaderrate.replace.keep.256x256.samples8.vs,Fail
+dEQP-VK.fragment_shading_rate.fragstencil.dynamic.attachment.shaderrate.keep.keep.151x431.samples8.vs,Fail
+dEQP-VK.fragment_shading_rate.fragstencil.dynamic.attachment.shaderrate.keep.keep.256x256.samples8.vs,Fail
+dEQP-VK.fragment_shading_rate.fragstencil.dynamic.attachment.shaderrate.replace.keep.151x431.samples8.vs,Fail
+dEQP-VK.fragment_shading_rate.fragstencil.dynamic.attachment.shaderrate.replace.keep.256x256.samples8.vs,Fail
+
+# Fixed by CTS f510effc5 ("Fix fragment shading rate validation errors")
