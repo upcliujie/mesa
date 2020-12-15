@@ -39,6 +39,7 @@ void collect_presched_stats(Program *program)
 /* instructions/branches/vmem_clauses/smem_clauses/cycles */
 void collect_preasm_stats(Program *program)
 {
+   double cycles = 0.0;
    for (Block& block : program->blocks) {
       std::set<Temp> vmem_clause_res;
       std::set<Temp> smem_clause_res;
@@ -70,15 +71,27 @@ void collect_preasm_stats(Program *program)
           }
 
          /* TODO: this incorrectly assumes instructions always take 4 cycles */
-         /* assume loops execute 4 times (TODO: it would be nice to be able to consider loop unrolling) */
-         unsigned iter = 1 << (block.loop_nest_depth * 2);
-         unsigned cycles = instr->opcode == aco_opcode::v_mul_lo_u32 ? 16 : 4;
-         program->statistics[statistic_cycles] += cycles * iter;
+         /* TODO: it would be nice to be able to consider estimated loop trip counts */
+         /* assume loops execute 4 times, uniform branches are taken 50% the time,
+          * and all lanes take a side of a divergent branch 25% of the time. */
+         double loop_trip_count = 4.0;
+         double uniform_if_taken = 0.5;
+         double divergent_if_all_taken = 0.25;
+
+         double iter = pow(loop_trip_count, block.loop_nest_depth);
+         iter *= pow(uniform_if_taken, block.uniform_if_depth);
+         iter *= pow(1.0 - divergent_if_all_taken, block.divergent_if_logical_depth);
+         iter *= pow(divergent_if_all_taken, block.divergent_if_linear_depth);
+
+         unsigned instr_cycles = instr->opcode == aco_opcode::v_mul_lo_u32 ? 16 : 4;
+         cycles += instr_cycles * iter;
       }
 
       program->statistics[statistic_vmem_clauses] += vmem_clause_res.size();
       program->statistics[statistic_smem_clauses] += smem_clause_res.size();
    }
+
+   program->statistics[statistic_cycles] = cycles;
 }
 
 void collect_postasm_stats(Program *program, const std::vector<uint32_t>& code)
