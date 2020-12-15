@@ -1123,12 +1123,31 @@ void anv_GetImageMemoryRequirements2(
    ANV_FROM_HANDLE(anv_device, device, _device);
    ANV_FROM_HANDLE(anv_image, image, pInfo->image);
 
-   anv_GetImageMemoryRequirements(_device, pInfo->image,
-                                  &pMemoryRequirements->memoryRequirements);
+   if (image->disjoint) {
+      /* The memory requirements must be calculated for a single plane, which is
+       * done when handling VkImagePlaneMemoryRequirementsInfo below. Valid
+       * usage ensures that the struct is present.
+       *
+       * The Vulkan 1.2.167 spec says:
+       *
+       *    If image was created with a multi-planar format and the
+       *    VK_IMAGE_CREATE_DISJOINT_BIT flag, there must be
+       *    a VkImagePlaneMemoryRequirementsInfo included in the pNext chain of
+       *    the VkImageMemoryRequirementsInfo2 structure.
+       */
+   } else {
+      /* Exactly one set of memory requirements exists for the image, not one
+       * set per plane.
+       */
+      anv_GetImageMemoryRequirements(_device, pInfo->image,
+                                     &pMemoryRequirements->memoryRequirements);
+   }
 
    vk_foreach_struct_const(ext, pInfo->pNext) {
       switch (ext->sType) {
       case VK_STRUCTURE_TYPE_IMAGE_PLANE_MEMORY_REQUIREMENTS_INFO: {
+         assert(image->disjoint);
+
          const VkImagePlaneMemoryRequirementsInfo *plane_reqs =
             (const VkImagePlaneMemoryRequirementsInfo *) ext;
          uint32_t plane = anv_image_aspect_to_plane(image->aspects,
