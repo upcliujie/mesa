@@ -221,7 +221,7 @@ get_blorp_surf_for_anv_image(const struct anv_device *device,
 
    const struct anv_surface *surface = &image->planes[plane].primary_surface;
    const struct anv_address address =
-      anv_image_address(image, plane, surface->offset);
+      anv_image_address(image, &surface->memory_range);
 
    *blorp_surf = (struct blorp_surf) {
       .surf = &surface->isl,
@@ -235,7 +235,7 @@ get_blorp_surf_for_anv_image(const struct anv_device *device,
    if (aux_usage != ISL_AUX_USAGE_NONE) {
       const struct anv_surface *aux_surface = &image->planes[plane].aux_surface;
       const struct anv_address aux_address =
-         anv_image_address(image, plane, aux_surface->offset);
+         anv_image_address(image, &aux_surface->memory_range);
 
       blorp_surf->aux_surf = &aux_surface->isl,
       blorp_surf->aux_addr = (struct blorp_address) {
@@ -289,7 +289,7 @@ get_blorp_surf_for_anv_shadow_image(const struct anv_device *device,
 
    const struct anv_surface *surface = &image->planes[plane].shadow_surface;
    const struct anv_address address =
-      anv_image_address(image, plane, surface->offset);
+      anv_image_address(image, &surface->memory_range);
 
    *blorp_surf = (struct blorp_surf) {
       .surf = &surface->isl,
