@@ -1,6 +1,6 @@
 variables:
   FDO_UPSTREAM_REPO: mesa/mesa
-  MESA_TEMPLATES_COMMIT: &ci-templates-commit 43ac932d5b8ebf43040d302de3c6e734df178384
+  MESA_TEMPLATES_COMMIT: &ci-templates-commit 52dd4a94044449c8481d18dcdc221a3c636366d2
   CI_PRE_CLONE_SCRIPT: |-
           set -o xtrace
           /usr/bin/wget -q -O- ${CI_PROJECT_URL}/-/raw/${CI_COMMIT_SHA}/.gitlab-ci/download-git-cache.sh | sh -
@@ -8,11 +8,11 @@ variables:
 
 include:
   - project: 'freedesktop/ci-templates'
-    ref: *ci-templates-commit
+    ref: 43ac932d5b8ebf43040d302de3c6e734df178384
     file:
       - '/templates/ci-fairy.yml'
   - project: 'freedesktop/ci-templates'
-    ref: 52dd4a94044449c8481d18dcdc221a3c636366d2
+    ref: *ci-templates-commit
     file:
       - '/templates/debian.yml'
   - local: '.gitlab-ci/lava-gitlab-ci.yml'
