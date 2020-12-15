@@ -289,6 +289,8 @@ static const struct test {
 	INSTR_6XX(42480000_48801086, "(nop2) sub.u hr0.x, hc33.z, (neg)hr<a0.x + 128>"),
 	INSTR_6XX(46b00001_00001020, "clz.b r0.y, c8.x"),
 	INSTR_6XX(46700009_00000009, "bfrev.b r2.y, r2.y"),
+	/* TODO did setrm/ctz.bchange in a6xx or was opc never correct? */
+	INSTR_6XX(47800002_00000000, "setrm hr0.z, hr0.x"), /* ctz.b hr0.z, hr0.x */
 
 	/* cat3 */
 	INSTR_6XX(66000000_10421041, "sel.f16 hr0.x, hc16.y, hr0.x, hc16.z"),
