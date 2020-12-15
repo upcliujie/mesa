@@ -660,7 +660,6 @@ static void print_instr_cat3(struct disasm_ctx *ctx, instr_t *instr)
 		.reg = (reg_t)cat3->src2,
 		.full = full,
 		.r = cat3->repeat ? cat3->src2_r : 0,
-		.c = cat3->src2_c,
 		.neg = cat3->src2_neg,
 	};
 	print_src(ctx, &src2);
