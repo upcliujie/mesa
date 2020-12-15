@@ -466,7 +466,7 @@ anv_image_init_aux_tt(struct anv_cmd_buffer *cmd_buffer,
    const struct anv_surface *surface = &image->planes[plane].primary_surface;
    uint64_t base_address =
       anv_address_physical(anv_address_add(image->planes[plane].address,
-                                           surface->offset));
+                                           surface->memory_range.offset));
 
    const struct isl_surf *isl_surf = &image->planes[plane].primary_surface.isl;
    uint64_t format_bits = gen_aux_map_format_bits_for_isl_surf(isl_surf);
@@ -5221,7 +5221,7 @@ cmd_buffer_emit_depth_stencil(struct anv_cmd_buffer *cmd_buffer)
                               dw + device->isl_dev.ds.depth_offset / 4,
                               image->planes[depth_plane].address.bo,
                               image->planes[depth_plane].address.offset +
-                              surface->offset);
+                              surface->memory_range.offset);
       info.mocs =
          anv_mocs(device, image->planes[depth_plane].address.bo,
                   ISL_SURF_USAGE_DEPTH_BIT);
@@ -5238,7 +5238,7 @@ cmd_buffer_emit_depth_stencil(struct anv_cmd_buffer *cmd_buffer)
                                  dw + device->isl_dev.ds.hiz_offset / 4,
                                  image->planes[depth_plane].address.bo,
                                  image->planes[depth_plane].address.offset +
-                                 image->planes[depth_plane].aux_surface.offset);
+                                 image->planes[depth_plane].aux_surface.memory_range.offset);
 
          info.depth_clear_value = ANV_HZ_FC_VAL;
       }
@@ -5257,7 +5257,7 @@ cmd_buffer_emit_depth_stencil(struct anv_cmd_buffer *cmd_buffer)
                               dw + device->isl_dev.ds.stencil_offset / 4,
                               image->planes[stencil_plane].address.bo,
                               image->planes[stencil_plane].address.offset +
-                              surface->offset);
+                              surface->memory_range.offset);
       info.mocs =
          anv_mocs(device, image->planes[stencil_plane].address.bo,
                   ISL_SURF_USAGE_STENCIL_BIT);
