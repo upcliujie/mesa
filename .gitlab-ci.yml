@@ -506,8 +506,10 @@ sanity:
       when: on_success
     # Other cases default to never
   script:
-    - ci-fairy check-commits --junit-xml=check-commits.xml
-    - ci-fairy check-merge-request --require-allow-collaboration --junit-xml=check-merge-request.xml
+    - EXIT=0
+    - ci-fairy check-commits --junit-xml=check-commits.xml || EXIT=1
+    - ci-fairy check-merge-request --require-allow-collaboration --junit-xml=check-merge-request.xml || EXIT=1
+    - exit $EXIT
   artifacts:
     when: on_failure
     reports:
