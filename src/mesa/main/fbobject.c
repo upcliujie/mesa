@@ -1318,15 +1318,22 @@ _mesa_test_framebuffer_completeness(struct gl_context *ctx,
             att_layer_count = att->Renderbuffer->Height;
          else
             att_layer_count = att->Renderbuffer->Depth;
+
+         /* All populated color attachments must be from textures of the same
+          * target. Set the checked layer target with first color attachment.
+          */
+         if (i == 0)
+            layer_tex_target = att_tex_target;
+
       } else {
          att_layer_count = 0;
       }
       if (!layer_info_valid) {
          is_layered = att->Layered;
          max_layer_count = att_layer_count;
-         layer_tex_target = att_tex_target;
          layer_info_valid = true;
-      } else if (max_layer_count > 0 && layer_tex_target != att_tex_target) {
+      } else if (max_layer_count > 0 && layer_tex_target &&
+                 layer_tex_target != att_tex_target) {
          fb->_Status = GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS;
          fbo_incomplete(ctx, "layered framebuffer has mismatched targets", i);
          return;
