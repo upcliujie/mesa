@@ -5088,7 +5088,7 @@ cmd_buffer_emit_depth_stencil(struct anv_cmd_buffer *cmd_buffer)
                               dw + device->isl_dev.ds.depth_offset / 4,
                               image->planes[depth_plane].address.bo,
                               image->planes[depth_plane].address.offset +
-                              surface->offset);
+                              surface->mem_range.offset);
       info.mocs =
          anv_mocs(device, image->planes[depth_plane].address.bo,
                   ISL_SURF_USAGE_DEPTH_BIT);
@@ -5105,7 +5105,7 @@ cmd_buffer_emit_depth_stencil(struct anv_cmd_buffer *cmd_buffer)
                                  dw + device->isl_dev.ds.hiz_offset / 4,
                                  image->planes[depth_plane].address.bo,
                                  image->planes[depth_plane].address.offset +
-                                 image->planes[depth_plane].aux_surface.offset);
+                                 image->planes[depth_plane].aux_surface.mem_range.offset);
 
          info.depth_clear_value = ANV_HZ_FC_VAL;
       }
@@ -5124,7 +5124,7 @@ cmd_buffer_emit_depth_stencil(struct anv_cmd_buffer *cmd_buffer)
                               dw + device->isl_dev.ds.stencil_offset / 4,
                               image->planes[stencil_plane].address.bo,
                               image->planes[stencil_plane].address.offset +
-                              surface->offset);
+                              surface->mem_range.offset);
       info.mocs =
          anv_mocs(device, image->planes[stencil_plane].address.bo,
                   ISL_SURF_USAGE_STENCIL_BIT);
