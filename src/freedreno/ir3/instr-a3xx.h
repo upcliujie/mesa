@@ -523,7 +523,7 @@ typedef struct PACKED {
 		struct PACKED {
 			uint32_t src1         : 11;
 			uint32_t must_be_zero1: 2;
-			uint32_t src2_c       : 1;  // never set, must_be_zero?
+			uint32_t opc_hi       : 1;
 			uint32_t src1_neg     : 1;
 			uint32_t src2_r       : 1;  /* doubles as nop1 if repeat==0 */
 		};
@@ -1034,7 +1034,7 @@ static inline uint32_t instr_opc(instr_t *instr, unsigned gpu_id)
 	case 0:  return instr->cat0.opc | instr->cat0.opc_hi << 4;
 	case 1:  return instr->cat1.opc;
 	case 2:  return instr->cat2.opc;
-	case 3:  return instr->cat3.opc;
+	case 3:  return instr->cat3.opc | instr->cat3.opc_hi << 4;
 	case 4:  return instr->cat4.opc;
 	case 5:  return instr->cat5.opc;
 	case 6:
