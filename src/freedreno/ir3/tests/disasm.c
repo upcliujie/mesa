@@ -300,6 +300,9 @@ static const struct test {
 	INSTR_6XX(63820005_10315030, "mad.f32 r1.y, (neg)c12.x, r1.x, c12.y"),
 	INSTR_6XX(62050009_00091000, "mad.u24 r2.y, c0.x, r2.z, r2.y"),
 	INSTR_6XX(61828008_00081033, "madsh.m16 r2.x, c12.w, r1.y, r2.x"),
+	/* TODO I think b13 became OPC_HI ?
+	INSTR_6XX(658c0818_1000b008, "(nop3) shlg.b16 hr6.x, (r)8, (r)hr6.x, 0"),
+	 */
 
 	/* cat4 */
 	INSTR_6XX(8010000a_00000003, "rcp r2.z, r0.w"),
