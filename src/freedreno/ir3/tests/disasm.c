@@ -54,6 +54,9 @@ static const struct test {
 	INSTR_6XX(03820000_00000015, "shps #21"), /* emit */
 	INSTR_6XX(04021000_00000000, "(ss)shpe"), /* cut */
 	INSTR_6XX(02820000_00000014, "getone #20"), /* kill p0.x */
+	INSTR_6XX(00906020_00000007, "brao !p0.x, !p0.y, #7"),
+	INSTR_6XX(00804040_00000003, "braa p0.x, p0.y, #3"),
+	INSTR_6XX(07820000_00000000, "prede"),
 
 	/* cat1 */
 	INSTR_6XX(20244000_00000020, "mov.f32f32 r0.x, c8.x"),
@@ -62,6 +65,9 @@ static const struct test {
 	INSTR_6XX(20156004_00000c11, "(ul)mov.s32s32 r1.x, c<a0.x + 17>"),
 	INSTR_6XX(201100f4_00000000, "mova a0.x, hr0.x"),
 	INSTR_6XX(20244905_00000410, "(rpt1)mov.f32f32 r1.y, (r)c260.x"),
+	INSTR_6XX(20174004_00000008, "mov.s32s32 r<a0.x + 4>, r2.x"),
+	INSTR_6XX(20130000_00000005, "mov.s16s16 hr<a0.x>, hr1.y"),
+	INSTR_6XX(20110004_00000800, "mov.s16s16 hr1.x, hr<a0.x>"),
 	/* dEQP-VK.subgroups.ballot.compute.compute */
 	INSTR_6XX(260cc3c0_00000000, "movmsk.w128 r48.x"), /* movmsk.w128 sr48.x */
 
@@ -77,6 +83,14 @@ static const struct test {
 	INSTR_6XX(43480801_00008001, "(nop3) absneg.s hr0.y, (abs)hr0.y"),
 	INSTR_6XX(50600004_2c010004, "(sy)mul.f hr1.x, hr1.x, h(0.5)"),
 	INSTR_6XX(42280807_27ff0000, "(nop3) add.s hr1.w, hr0.x, h(-1)"),
+	INSTR_6XX(40a500f8_2c000004, "cmps.f.ne p0.x, hr1.x, h(0.0)"),
+	INSTR_6XX(438000f8_20010009, "and.b p0.x, hr2.y, h(1)"),
+	INSTR_6XX(438000f9_00020001, "and.b p0.y, hr0.y, hr0.z"),
+	INSTR_6XX(40080902_50200006, "(rpt1)add.f hr0.z, (r)hr1.z, (neg)(r)hc8.x"),
+	INSTR_6XX(489b0701_00000000, "(jp)(sat)(rpt3)sign.f r0.y, r0.x"),
+	INSTR_6XX(42480000_48801086, "(nop2) sub.u hr0.x, hc33.z, (neg)hr<a0.x + 128>"),
+	INSTR_6XX(46b00001_00001020, "clz.b r0.y, c8.x"),
+	INSTR_6XX(46700009_00000009, "bfrev.b r2.y, r2.y"),
 
 	/* cat3 */
 	INSTR_6XX(66000000_10421041, "sel.f16 hr0.x, hc16.y, hr0.x, hc16.z"),
@@ -85,6 +99,7 @@ static const struct test {
 	INSTR_6XX(64818902_20041032, "(rpt1)sel.b32 r0.z, (r)c12.z, r0.w, (r)r1.x"),
 	INSTR_6XX(63820005_10315030, "mad.f32 r1.y, (neg)c12.x, r1.x, c12.y"),
 	INSTR_6XX(62050009_00091000, "mad.u24 r2.y, c0.x, r2.z, r2.y"),
+	INSTR_6XX(61828008_00081033, "madsh.m16 r2.x, c12.w, r1.y, r2.x"),
 
 	/* cat4 */
 	INSTR_6XX(8010000a_00000003, "rcp r2.z, r0.w"),
@@ -99,6 +114,11 @@ static const struct test {
 	INSTR_6XX(a6201105_00000001, "dsxpp.1.p (x)r1.y, r0.x"), /* dsxpp.1 (xOOO)r1.y, r0.x */
 
 	INSTR_6XX(a2802f00_00000001, "getsize (u16)(xyzw)hr0.x, r0.x, t#0"),
+	INSTR_6XX(a0c89f04_c4600005, "sam.base1 (f32)(xyzw)r1.x, r0.z, s#3, t#2"),  /* sam.s2en.mode6.base1 (f32)(xyzw)r1.x, r0.z, 35 */
+	INSTR_6XX(a1c85f00_c0200005, "getlod.base0 (s32)(xyzw)r0.x, r0.z, s#1, t#0"),  /* getlod.s2en.mode6.base0 (s32)(xyzw)r0.x, r0.z, 1 */
+	INSTR_6XX(a1000f00_00000004, "samb (f16)(xyzw)hr0.x, hr0.z, hr0.x, s#0, t#0"),
+	INSTR_6XX(a1000f00_00000003, "samb (f16)(xyzw)hr0.x, r0.y, r0.x, s#0, t#0"),
+	INSTR_6XX(a0c00f00_04400002, "sam (f16)(xyzw)hr0.x, hr0.y, s#2, t#2"),
 
 	/* cat6 */
 
