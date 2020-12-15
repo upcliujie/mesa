@@ -88,6 +88,12 @@ struct zink_descriptor_pool {
    unsigned num_sets_allocated;
 };
 
+struct zink_descriptor_state_key {
+   /* this is a pointer here to avoid an extra memcpy during lookup */
+   struct zink_descriptor_state *descriptor_states;
+   enum zink_descriptor_type type;
+};
+
 struct zink_descriptor_set {
    struct zink_descriptor_pool *pool;
    struct pipe_reference reference; //incremented for batch usage
@@ -97,6 +103,8 @@ struct zink_descriptor_set {
    bool recycled;
    struct util_dynarray barriers;
    struct zink_batch_usage batch_uses;
+   struct zink_descriptor_state_key key;
+   struct zink_descriptor_state descriptor_states[ZINK_SHADER_COUNT]; //key for hash
 #ifndef NDEBUG
    /* for extra debug asserts */
    unsigned num_resources;

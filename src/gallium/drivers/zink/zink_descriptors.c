@@ -45,6 +45,34 @@ debug_describe_zink_descriptor_pool(char *buf, const struct zink_descriptor_pool
    sprintf(buf, "zink_descriptor_pool");
 }
 
+static bool
+desc_state_equal(const void *a, const void *b)
+{
+   const struct zink_descriptor_state_key *a_k = (void*)a;
+   const struct zink_descriptor_state_key *b_k = (void*)b;
+
+   if (a_k->type != b_k->type)
+      return false;
+
+   for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++) {
+      if (a_k->descriptor_states[i].state[a_k->type] != b_k->descriptor_states[i].state[b_k->type])
+         return false;
+   }
+   return true;
+}
+
+static uint32_t
+desc_state_hash(const void *key)
+{
+   const struct zink_descriptor_state_key *d_key = (void*)key;
+   uint32_t hash = 0;
+   for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++) {
+      if (d_key->descriptor_states[i].state[d_key->type])
+         hash = maybe_hash_u32(d_key->descriptor_states[i].state[d_key->type], hash);
+   }
+   return hash;
+}
+
 static struct zink_descriptor_pool *
 descriptor_pool_create(struct zink_screen *screen, enum zink_descriptor_type type, VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, VkDescriptorPoolSize *sizes, unsigned num_type_sizes)
 {
@@ -57,11 +85,11 @@ descriptor_pool_create(struct zink_screen *screen, enum zink_descriptor_type typ
    for (unsigned i = 0; i < num_bindings; i++) {
        pool->num_resources += bindings[i].descriptorCount;
    }
-   pool->desc_sets = _mesa_hash_table_create(NULL, NULL, _mesa_key_pointer_equal);
+   pool->desc_sets = _mesa_hash_table_create(NULL, desc_state_hash, desc_state_equal);
    if (!pool->desc_sets)
       goto fail;
 
-   pool->free_desc_sets = _mesa_hash_table_create(NULL, NULL, _mesa_key_pointer_equal);
+   pool->free_desc_sets = _mesa_hash_table_create(NULL, desc_state_hash, desc_state_equal);
    if (!pool->free_desc_sets)
       goto fail;
 
@@ -206,7 +234,7 @@ static void
 punt_invalid_set(struct zink_descriptor_set *zds)
 {
   /* this is no longer usable, so we punt it for now until it gets recycled */
-   struct hash_entry *he = _mesa_hash_table_search_pre_hashed(zds->pool->desc_sets, zds->hash, (void*)(uintptr_t)zds->hash);
+   struct hash_entry *he = _mesa_hash_table_search_pre_hashed(zds->pool->desc_sets, zds->hash, &zds->key);
    if (he)
       _mesa_hash_table_remove(zds->pool->desc_sets, he);
    //printf("%u PUNT %u\n", zds->pool->type, zds->hash);
@@ -229,12 +257,18 @@ zink_descriptor_set_get(struct zink_context *ctx,
    assert(type < ZINK_DESCRIPTOR_TYPES);
    uint32_t hash = pool->num_descriptors ? ctx->descriptor_states[is_compute].state[type] : 0;
    assert(hash || !pool->num_descriptors);
+
+   struct zink_descriptor_state cs_state[ZINK_SHADER_COUNT] = {};
+   cs_state[0] = ctx->descriptor_states[is_compute];
+   struct zink_descriptor_state *states = is_compute ? cs_state : ctx->gfx_descriptor_states;
+   struct zink_descriptor_state_key key = { states, type };
+
    if (pg->last_set[type] && pg->last_set[type]->hash == hash) {
       zds = pg->last_set[type];
       *cache_hit = !zds->invalid;
       if (hash) {
          if (zds->recycled) {
-            struct hash_entry *he = _mesa_hash_table_search_pre_hashed(pool->free_desc_sets, hash, (void*)(uintptr_t)hash);
+            struct hash_entry *he = _mesa_hash_table_search_pre_hashed(pool->free_desc_sets, hash, &key);
             if (he)
                _mesa_hash_table_remove(pool->free_desc_sets, he);
          } else if (zds->invalid && zink_batch_usage_exists(&zds->batch_uses)) {
@@ -249,7 +283,7 @@ zink_descriptor_set_get(struct zink_context *ctx,
    }
 
    if (hash) {
-      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(pool->desc_sets, hash, (void*)(uintptr_t)hash);
+      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(pool->desc_sets, hash, &key);
       bool recycled = false, punted = false;
       if (he) {
           zds = (void*)he->data;
@@ -260,7 +294,7 @@ zink_descriptor_set_get(struct zink_context *ctx,
           }
       }
       if (!he) {
-         he = _mesa_hash_table_search_pre_hashed(pool->free_desc_sets, hash, (void*)(uintptr_t)hash);
+         he = _mesa_hash_table_search_pre_hashed(pool->free_desc_sets, hash, &key);
          recycled = true;
       }
       if (he && !punted) {
@@ -322,8 +356,12 @@ zink_descriptor_set_get(struct zink_context *ctx,
 out:
    zds->hash = hash;
    zds->recycled = false;
+   for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++)
+      zds->descriptor_states[i].state[type] = states[i].state[type];
+   zds->key.type = type;
+   zds->key.descriptor_states = zds->descriptor_states;
    if (hash)
-      _mesa_hash_table_insert_pre_hashed(pool->desc_sets, hash, (void*)(uintptr_t)hash, zds);
+      _mesa_hash_table_insert_pre_hashed(pool->desc_sets, hash, &zds->key, zds);
    else {
       /* we can safely apply the null set to all the slots which will need it here */
       for (unsigned i = 0; i < ZINK_DESCRIPTOR_TYPES; i++) {
@@ -358,7 +396,7 @@ zink_descriptor_set_recycle(struct zink_descriptor_set *zds)
 
    if (zds->hash) {
       /* if we've previously punted this set, then it won't have a hash or be in either of the tables */
-      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(pool->desc_sets, zds->hash, (void*)(uintptr_t)zds->hash);
+      struct hash_entry *he = _mesa_hash_table_search_pre_hashed(pool->desc_sets, zds->hash, &zds->key);
       if (!he)
          /* desc sets can be used multiple times in the same batch */
          return;
@@ -370,7 +408,7 @@ zink_descriptor_set_recycle(struct zink_descriptor_set *zds)
       util_dynarray_append(&pool->alloc_desc_sets, struct zink_descriptor_set *, zds);
    } else {
       zds->recycled = true;
-      _mesa_hash_table_insert_pre_hashed(pool->free_desc_sets, zds->hash, (void*)(uintptr_t)zds->hash, zds);
+      _mesa_hash_table_insert_pre_hashed(pool->free_desc_sets, zds->hash, &zds->key, zds);
    }
 }
 
