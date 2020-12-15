@@ -402,8 +402,7 @@ static int emit_cat3(struct ir3_instruction *instr, void *ptr,
 	cat3->src1_neg = !!(src1->flags & (IR3_REG_FNEG | IR3_REG_SNEG | IR3_REG_BNOT));
 
 	cat3->src2     = reg(src2, info, instr->repeat,
-			IR3_REG_CONST | IR3_REG_R | IR3_REG_HALF | IR3_REG_SHARED | absneg);
-	cat3->src2_c   = !!(src2->flags & IR3_REG_CONST);
+			IR3_REG_R | IR3_REG_HALF | IR3_REG_SHARED | absneg);
 	cat3->src2_neg = !!(src2->flags & (IR3_REG_FNEG | IR3_REG_SNEG | IR3_REG_BNOT));
 
 	if (src3->flags & IR3_REG_RELATIV) {
@@ -433,6 +432,7 @@ static int emit_cat3(struct ir3_instruction *instr, void *ptr,
 	cat3->ss       = !!(instr->flags & IR3_INSTR_SS);
 	cat3->ul       = !!(instr->flags & IR3_INSTR_UL);
 	cat3->dst_half = !!((src_flags ^ dst->flags) & IR3_REG_HALF);
+	cat3->opc_hi   = 0;
 	cat3->opc      = instr->opc;
 	cat3->jmp_tgt  = !!(instr->flags & IR3_INSTR_JP);
 	cat3->sync     = !!(instr->flags & IR3_INSTR_SY);
