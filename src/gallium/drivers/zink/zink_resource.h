@@ -32,6 +32,7 @@ struct zink_context;
 #include "util/u_transfer.h"
 #include "util/u_range.h"
 #include "util/u_dynarray.h"
+#include "util/u_threaded_context.h"
 
 #include "zink_batch.h"
 #include "zink_descriptors.h"

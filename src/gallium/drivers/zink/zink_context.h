@@ -131,12 +131,6 @@ struct zink_viewport_state {
    uint8_t num_viewports;
 };
 
-
-/* hashes of all the named types in a given state */
-struct zink_descriptor_state {
-   uint32_t state[ZINK_DESCRIPTOR_TYPES];
-};
-
 struct zink_context {
    struct pipe_context base;
    struct threaded_context *tc;
