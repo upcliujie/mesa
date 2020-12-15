@@ -30,6 +30,7 @@
 #include <string.h>
 
 #include "util/half_float.h"
+#include "util/hash_table.h"
 #include "util/ralloc.h"
 #include "util/u_debug.h"
 
@@ -88,6 +89,21 @@ struct decode_scope {
 	 * Pointer back to decode state, for convenience.
 	 */
 	struct decode_state *state;
+
+	/**
+	 * Cache expression evaluation results.  Expressions for overrides can
+	 * be repeatedly evaluated for each field being resolved.  And each
+	 * field reference to a derived field (potentially from another expr)
+	 * would require re-evaluation.  But for a given scope, each evaluation
+	 * of an expression gives the same result.  So we can cache to speed
+	 * things up.
+	 *
+	 * TODO we could maybe be clever and assign a unique idx to each expr
+	 * and use a direct lookup table?  Would be a bit more clever if it was
+	 * smart enough to allow unrelated expressions that are never involved
+	 * in a given scope to have overlapping cache lookup idx's.
+	 */
+	struct hash_table *cache;
 };
 
 /**
@@ -219,6 +235,15 @@ evaluate_expr(struct decode_scope *scope, const struct isa_expr *expr)
 			stack[sp]; \
 		})
 
+	if (scope->cache) {
+		struct hash_entry *entry = _mesa_hash_table_search(scope->cache, expr);
+		if (entry) {
+			return *(uint64_t *)entry->data;
+		}
+	} else {
+		scope->cache = _mesa_pointer_hash_table_create(scope);
+	}
+
 	if (!push_expr(scope->state, expr))
 		return 0;
 
@@ -284,7 +309,13 @@ evaluate_expr(struct decode_scope *scope, const struct isa_expr *expr)
 out:
 	pop_expr(scope->state);
 
-	return pop();
+	uint64_t ret = pop();
+
+	uint64_t *retp = ralloc_size(scope->cache, sizeof(*retp));
+	*retp = ret;
+	_mesa_hash_table_insert(scope->cache, expr, retp);
+
+	return ret;
 #undef pop
 #undef peek
 #undef push
