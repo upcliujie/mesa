@@ -1211,6 +1211,30 @@ emit_alu(struct ntv_context *ctx, nir_alu_instr *alu)
    UNOP(nir_op_bitfield_reverse, SpvOpBitReverse)
 #undef UNOP
 
+   case nir_op_unpack_64_2x32_split_x:
+   case nir_op_unpack_64_2x32_split_y: {
+      assert(nir_op_infos[alu->op].num_inputs == 1);
+      assert(nir_src_bit_size(alu->src[0].src) == 64);
+      unsigned member = alu->op == nir_op_unpack_64_2x32_split_y;
+      src[0] = emit_bitcast(ctx, get_uvec_type(ctx, 32, num_components * 2), src[0]);
+      if (num_components > 1) {
+         uint32_t constituents[num_components];
+         for (unsigned i = 0; i < num_components; i++)
+            constituents[i] = i * 2 + member;
+         result = spirv_builder_emit_vector_shuffle(&ctx->builder, get_uvec_type(ctx, 32, num_components), src[0], src[0], constituents, num_components);
+      } else
+         result = spirv_builder_emit_vector_extract(&ctx->builder, get_uvec_type(ctx, 32, 1), src[0], member);
+      result = emit_bitcast(ctx, dest_type, result);
+      break;
+   }
+   case nir_op_pack_64_2x32_split:
+      assert(nir_src_bit_size(alu->src[0].src) == 32);
+      assert(nir_src_bit_size(alu->src[1].src) == 32);
+      assert(nir_op_infos[alu->op].num_inputs == 2);
+      result = spirv_builder_emit_composite_construct(&ctx->builder, get_uvec_type(ctx, 32, num_components * 2), src, 2);
+      result = emit_bitcast(ctx, dest_type, result);
+      break;
+
    case nir_op_inot:
       if (bit_size == 1)
          result = emit_unop(ctx, SpvOpLogicalNot, dest_type, src[0]);
