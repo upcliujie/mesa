@@ -62,7 +62,7 @@ incr_curr_batch(struct zink_context *ctx)
       ctx->curr_batch = 1;
 }
 
-static inline uint32_t
+uint32_t
 maybe_hash_u32(uint32_t val, uint32_t hash)
 {
    if (!hash)

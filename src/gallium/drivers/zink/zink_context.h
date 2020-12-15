@@ -391,4 +391,7 @@ zink_get_sampler_view_hash(struct zink_context *ctx, struct zink_sampler_view *s
 uint32_t
 zink_get_image_view_hash(struct zink_context *ctx, struct zink_image_view *image_view, bool is_buffer);
 
+
+uint32_t
+maybe_hash_u32(uint32_t val, uint32_t hash);
 #endif
