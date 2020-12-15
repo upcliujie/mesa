@@ -1597,6 +1597,8 @@ static bool print_instr(struct disasm_ctx *ctx, uint32_t *dwords, int n)
 	unsigned cycles = ctx->stats->instructions;
 
 	if (debug & PRINT_RAW) {
+		if (instr->opc_cat > 5)
+			return false;
 		fprintf(ctx->out, "%3d[%08x_%08x] ", n, dwords[1], dwords[0]);
 	}
 
