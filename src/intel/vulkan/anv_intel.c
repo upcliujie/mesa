@@ -79,7 +79,10 @@ VkResult anv_CreateDmaBufImageINTEL(
    if (result != VK_SUCCESS)
       goto fail_import;
 
-   VkDeviceSize aligned_image_size = align_u64(image->size, 4096);
+   VkMemoryRequirements mem_reqs;
+   anv_GetImageMemoryRequirements(_device, image_h, &mem_reqs);
+
+   VkDeviceSize aligned_image_size = align_u64(mem_reqs.size, mem_reqs.alignment);
 
    if (mem->bo->size < aligned_image_size) {
       result = vk_errorf(device, device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
