@@ -3667,15 +3667,54 @@ void
 anv_pipeline_setup_l3_config(struct anv_pipeline *pipeline, bool needs_slm);
 
 /**
+ * Describes how each part of anv_image will be bound to memory.
+ */
+struct anv_image_memory_range {
+   /**
+    * Describes which bind point or binding method is used for a memory range.
+    *
+    * Binding images to memory can be complicated and invold binding different
+    * portions of the image to different memory objects or regions.  For most
+    * images, everything lives in the MAIN binding and gets bound to the
+    * specified memory object by vkBindImageMemory.  For disjoint planar images,
+    * we have one binding per plane and vkBindImageMemory2 must be used with
+    * a VkBindImagePlaneMemoryInfo struct.  There may also be bits of memory
+    * which are implicit or driver-managed and live in special-case bindings.
+    */
+   enum anv_image_memory_binding {
+      /**
+       * Used if and only if image is not disjoint. Bound by vkBindImageMemory2
+       * without VkBindImagePlaneMemoryInfo.
+       */
+      ANV_IMAGE_MEMORY_BINDING_MAIN,
+
+      /**
+       * Used if and only if image is disjoint.  Bound by
+       * vkBindImageMemory2 with VkBindImagePlaneMemoryInfo.
+       */
+      ANV_IMAGE_MEMORY_BINDING_PLANE_0,
+      ANV_IMAGE_MEMORY_BINDING_PLANE_1,
+      ANV_IMAGE_MEMORY_BINDING_PLANE_2,
+
+      ANV_IMAGE_MEMORY_BINDING_MAX = ANV_IMAGE_MEMORY_BINDING_PLANE_2,
+   } binding;
+
+   /**
+    * Offset is relative to the start of the binding created by
+    * vkBindImageMemory, not to the start of the bo.
+    */
+   uint64_t offset;
+
+   uint64_t size;
+   uint32_t alignment;
+};
+
+/**
  * Subsurface of an anv_image.
  */
 struct anv_surface {
    struct isl_surf isl;
-
-   /**
-    * Offset from VkImage's base address, as bound by vkBindImageMemory().
-    */
-   uint32_t offset;
+   struct anv_image_memory_range memory_range;
 };
 
 static inline bool MUST_CHECK
@@ -3719,9 +3758,6 @@ struct anv_image {
     * VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT.
     */
    uint64_t drm_format_mod;
-
-   VkDeviceSize size;
-   uint32_t alignment;
 
    /**
     * Image has multi-planar format and was created with
@@ -3775,15 +3811,6 @@ struct anv_image {
     * -----------------------
     */
    struct anv_image_plane {
-      /**
-       * Offset of the entire plane (whenever the image is disjoint this is
-       * set to 0).
-       */
-      uint32_t offset;
-
-      VkDeviceSize size;
-      uint32_t alignment;
-
       struct anv_surface primary_surface;
 
       /**
@@ -3802,11 +3829,8 @@ struct anv_image {
 
       struct anv_surface aux_surface;
 
-      /**
-       * Offset of the fast clear state (used to compute the
-       * fast_clear_state_offset of the following planes).
-       */
-      uint32_t fast_clear_state_offset;
+      /** Location of the fast clear state.  */
+      struct anv_image_memory_range fast_clear_memory_range;
 
       /**
        * BO associated with this plane, set when bound.
@@ -3865,9 +3889,15 @@ anv_image_get_clear_color_addr(UNUSED const struct anv_device *device,
 {
    assert(image->aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV);
 
-   uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
-   return anv_address_add(image->planes[plane].address,
-                          image->planes[plane].fast_clear_state_offset);
+   uint32_t p = anv_image_aspect_to_plane(image->aspects, aspect);
+   const struct anv_image_plane *plane = &image->planes[p];
+
+   assert(plane->fast_clear_memory_range.size > 0);
+   assert(plane->fast_clear_memory_range.binding ==
+          plane->primary_surface.memory_range.binding);
+
+   return anv_address_add(plane->address,
+                          plane->fast_clear_memory_range.offset);
 }
 
 static inline struct anv_address
@@ -3909,7 +3939,7 @@ anv_image_get_compression_state_addr(const struct anv_device *device,
 
    offset += array_layer * 4;
 
-   assert(offset < image->planes[plane].offset + image->planes[plane].size);
+   assert(offset < image->planes[plane].fast_clear_memory_range.size);
 
    return anv_address_add(
       anv_image_get_fast_clear_type_addr(device, image, aspect),
