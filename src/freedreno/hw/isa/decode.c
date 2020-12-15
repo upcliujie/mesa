@@ -598,7 +598,7 @@ isa_decode(void *bin, int sz, FILE *out, bool raw)
 	for (int i = 0; i < num_instr; i++) {
 		if (raw) {
 			uint32_t *dwords = (uint32_t *)&instrs[i];
-			fprintf(state->out, "%3d[%08xx_%08xx] ", i, dwords[1], dwords[0]);
+			fprintf(state->out, "%3d[%08x_%08x] ", i, dwords[1], dwords[0]);
 		}
 
 		const struct isa_bitset *b =
