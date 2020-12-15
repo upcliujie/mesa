@@ -1,5 +1,5 @@
 variables:
-  MESA_LAVA_TAG: "2021-02-11-vkglcts-1.2.5.1"
+  MESA_LAVA_TAG: "2021-02-15-asan"
 
 .kernel+rootfs:
   stage: container-2
