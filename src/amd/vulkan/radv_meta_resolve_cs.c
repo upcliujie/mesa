@@ -981,7 +981,7 @@ radv_depth_stencil_resolve_subpass_cs(struct radv_cmd_buffer *cmd_buffer,
 	cmd_buffer->state.flush_bits |= RADV_CMD_FLAG_CS_PARTIAL_FLUSH |
 	                                RADV_CMD_FLAG_INV_VCACHE;
 
-	if (radv_image_has_htile(dst_image)) {
+	if (radv_htile_enabled(dst_image, dst_iview->base_mip)) {
 		if (aspects == VK_IMAGE_ASPECT_DEPTH_BIT) {
 			VkImageSubresourceRange range = {0};
 			range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;

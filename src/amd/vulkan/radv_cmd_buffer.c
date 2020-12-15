@@ -2046,7 +2046,7 @@ radv_update_ds_clear_metadata(struct radv_cmd_buffer *cmd_buffer,
 	};
 	struct radv_image *image = iview->image;
 
-	assert(radv_image_has_htile(image));
+	assert(radv_htile_enabled(image, range.baseMipLevel));
 
 	radv_set_ds_clear_metadata(cmd_buffer, iview->image, &range,
 				   ds_clear_value, aspects);
@@ -2074,7 +2074,7 @@ radv_load_ds_clear_metadata(struct radv_cmd_buffer *cmd_buffer,
 	uint64_t va = radv_get_ds_clear_value_va(image, iview->base_mip);
 	unsigned reg_offset = 0, reg_count = 0;
 
-	if (!radv_image_has_htile(image))
+	if (!radv_htile_enabled(image, iview->base_mip))
 		return;
 
 	if (aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
@@ -6028,7 +6028,7 @@ static void radv_handle_depth_image_transition(struct radv_cmd_buffer *cmd_buffe
 					       const VkImageSubresourceRange *range,
 					       struct radv_sample_locations_state *sample_locs)
 {
-	if (!radv_image_has_htile(image))
+	if (!radv_htile_enabled(image, range->baseMipLevel))
 		return;
 
 	if (src_layout == VK_IMAGE_LAYOUT_UNDEFINED) {
