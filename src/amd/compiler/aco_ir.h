@@ -1680,7 +1680,6 @@ struct Block {
    bool scc_live_out = false;
    PhysReg scratch_sgpr = PhysReg(); /* only needs to be valid if scc_live_out != false */
 
-   Block(unsigned idx) : index(idx) {}
    Block() : index(0) {}
 };
 
@@ -1813,7 +1812,6 @@ struct DeviceInfo {
 
 class Program final {
 public:
-   float_mode next_fp_mode;
    std::vector<Block> blocks;
    std::vector<RegClass> temp_rc = {s1};
    RegisterDemand max_reg_demand = RegisterDemand();
@@ -1847,6 +1845,9 @@ public:
    bool collect_statistics = false;
    uint32_t statistics[num_statistics];
 
+   float_mode next_fp_mode;
+   unsigned next_loop_depth = 0;
+
    struct {
       void (*func)(void *private_data,
                    enum radv_compiler_debug_level level,
@@ -1879,14 +1880,14 @@ public:
    }
 
    Block* create_and_insert_block() {
-      blocks.emplace_back(blocks.size());
-      blocks.back().fp_mode = next_fp_mode;
-      return &blocks.back();
+      Block block;
+      return insert_block(std::move(block));
    }
 
    Block* insert_block(Block&& block) {
       block.index = blocks.size();
       block.fp_mode = next_fp_mode;
+      block.loop_nest_depth = next_loop_depth;
       blocks.emplace_back(std::move(block));
       return &blocks.back();
    }

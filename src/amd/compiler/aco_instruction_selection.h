@@ -63,7 +63,6 @@ struct isel_context {
    bool has_gfx10_wave64_bpermute = false;
    struct {
       bool has_branch;
-      uint16_t loop_nest_depth = 0;
       struct {
          unsigned header_idx;
          Block* exit;
