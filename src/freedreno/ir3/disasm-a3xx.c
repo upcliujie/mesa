@@ -1603,7 +1603,7 @@ static bool print_instr(struct disasm_ctx *ctx, uint32_t *dwords, int n)
 	unsigned cycles = ctx->stats->instructions;
 
 	if (debug & PRINT_RAW) {
-		fprintf(ctx->out, "%3d[%08xx_%08xx] ", n, dwords[1], dwords[0]);
+		fprintf(ctx->out, "%3d[%08x_%08x] ", n, dwords[1], dwords[0]);
 	}
 
 	if (opc == OPC_BARY_F)
