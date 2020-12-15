@@ -8,7 +8,7 @@ variables:
 
 include:
   - project: 'freedesktop/ci-templates'
-    ref: 43ac932d5b8ebf43040d302de3c6e734df178384
+    ref: 0f1abc24c043e63894085a6bd12f14263e8b29eb
     file:
       - '/templates/ci-fairy.yml'
   - project: 'freedesktop/ci-templates'
@@ -503,10 +503,8 @@ sanity:
     - if: *is-pre-merge
       when: on_success
     # Other cases default to never
-  variables:
-    GIT_STRATEGY: none
   script:
-    # ci-fairy check-commits --junit-xml=check-commits.xml
+    - ci-fairy check-commits --junit-xml=check-commits.xml
     - ci-fairy check-merge-request --require-allow-collaboration --junit-xml=check-merge-request.xml
   artifacts:
     when: on_failure
