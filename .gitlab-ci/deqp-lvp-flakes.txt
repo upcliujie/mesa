@@ -1,1 +1,2 @@
 dEQP-VK.tessellation.invariance.outer_edge_division.quads_fractional_odd_spacing
+dEQP-VK.texture.filtering.3d.sizes.3x7x5.linear_mipmap_linear
