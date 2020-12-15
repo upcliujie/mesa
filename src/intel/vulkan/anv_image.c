@@ -1101,12 +1101,16 @@ void anv_GetImageMemoryRequirements2(
    ANV_FROM_HANDLE(anv_device, device, _device);
    ANV_FROM_HANDLE(anv_image, image, pInfo->image);
 
-   anv_GetImageMemoryRequirements(_device, pInfo->image,
-                                  &pMemoryRequirements->memoryRequirements);
+   if (!image->disjoint) {
+      anv_GetImageMemoryRequirements(_device, pInfo->image,
+                                     &pMemoryRequirements->memoryRequirements);
+   }
 
    vk_foreach_struct_const(ext, pInfo->pNext) {
       switch (ext->sType) {
       case VK_STRUCTURE_TYPE_IMAGE_PLANE_MEMORY_REQUIREMENTS_INFO: {
+         assert(image->disjoint);
+
          const VkImagePlaneMemoryRequirementsInfo *plane_reqs =
             (const VkImagePlaneMemoryRequirementsInfo *) ext;
          uint32_t plane = anv_image_aspect_to_plane(image->aspects,
