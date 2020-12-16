@@ -37,11 +37,10 @@ bi_compute_interference(bi_context *ctx, struct lcra_state *l)
                 bi_block *blk = (bi_block *) _blk;
                 uint16_t *live = mem_dup(_blk->live_out, l->node_count * sizeof(uint16_t));
 
-                bi_foreach_instr_in_block_rev(blk, _ins) {
+                bi_foreach_instr_in_block_rev(blk, ins) {
                         /* Mark all registers live after the instruction as
                          * interfering with the destination */
 
-                        bi_instr *ins = (bi_instr *) _ins;
                         for (unsigned d = 0; d < ARRAY_SIZE(ins->dest); ++d) {
                                 if (bi_get_node(ins->dest[d]) >= l->node_count)
                                         continue;
@@ -82,8 +81,7 @@ bi_allocate_registers(bi_context *ctx, bool *success)
                 l->class_size[BI_REG_CLASS_WORK] = 59 * 4;
         }
 
-        bi_foreach_instr_global(ctx, _ins) {
-                bi_instr *ins = (bi_instr *) _ins;
+        bi_foreach_instr_global(ctx, ins) {
                 unsigned dest = bi_get_node(ins->dest[0]);
 
                 /* Blend shaders expect the src colour to be in r0-r3 */
@@ -146,8 +144,7 @@ bi_reg_from_index(struct lcra_state *l, bi_index index)
 static void
 bi_install_registers(bi_context *ctx, struct lcra_state *l)
 {
-        bi_foreach_instr_global(ctx, _ins) {
-                bi_instr *ins = (bi_instr *) _ins;
+        bi_foreach_instr_global(ctx, ins) {
                 ins->dest[0] = bi_reg_from_index(l, ins->dest[0]);
 
                 bi_foreach_src(ins, s)
@@ -244,7 +241,7 @@ bi_fill_src(bi_builder *b, bi_index index, uint32_t offset, bi_clause *clause,
         list_addtail(&singleton->link, &clause->link);
 
         /* Rewrite to use */
-        bi_rewrite_index_src_single((bi_instr *) ins, index, temp);
+        bi_rewrite_index_src_single(ins, index, temp);
         b->shader->fills++;
 }
 
@@ -264,7 +261,7 @@ bi_spill_register(bi_context *ctx, bi_index index, uint32_t offset)
         bi_foreach_block(ctx, _block) {
                 bi_block *block = (bi_block *) _block;
                 bi_foreach_clause_in_block_safe(block, clause) {
-                        bi_instr *ins = (bi_instr *) bi_unwrap_singleton(clause);
+                        bi_instr *ins = bi_unwrap_singleton(clause);
                         if (bi_index_equal(ins->dest[0], index)) {
                                 bi_spill_dest(&_b, index, offset, clause,
                                                 block, ins, &channels);
