@@ -328,6 +328,7 @@ panfrost_setup_slices(struct panfrost_device *dev,
         bool tiled = pres->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED;
         bool linear = pres->modifier == DRM_FORMAT_MOD_LINEAR;
         bool should_align = renderable || tiled || afbc;
+        bool is_3d = res->target == PIPE_TEXTURE_3D;
 
         unsigned offset = 0;
         unsigned size_2d = 0;
@@ -375,6 +376,28 @@ panfrost_setup_slices(struct panfrost_device *dev,
                 slice->row_stride = stride * (tile_h >> tile_shift);
 
                 unsigned slice_one_size = slice->line_stride * effective_height;
+
+                /* Compute AFBC sizes if necessary */
+                if (afbc) {
+                        slice->afbc.header_size =
+                                panfrost_afbc_header_size(width, height);
+
+                        if (is_3d) {
+                                /* 3D AFBC resources have their headers
+                                 * grouped together, and the surface stride
+                                 * encodes the limit between headers and body
+                                 */
+                                slice->afbc.header_size *= effective_depth;
+                        } else {
+                                /* 2DArray AFBC have their headers split and
+                                 * the surface stride encodes the stride
+                                 * between AFBC headers of two consecutive
+                                 * layers.
+                                 */
+                                slice_one_size += slice->afbc.header_size;
+                        }
+                }
+
                 unsigned slice_full_size =
                         slice_one_size * effective_depth * nr_samples;
 
@@ -386,12 +409,6 @@ panfrost_setup_slices(struct panfrost_device *dev,
                         size_2d = slice_one_size;
 
                 /* Compute AFBC sizes if necessary */
-                if (afbc) {
-                        slice->afbc.header_size =
-                                panfrost_afbc_header_size(width, height);
-
-                        offset += slice->afbc.header_size;
-                }
 
                 offset += slice_full_size;
 
