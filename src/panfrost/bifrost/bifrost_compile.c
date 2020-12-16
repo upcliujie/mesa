@@ -2606,6 +2606,33 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
  * space-efficient and with simpler RA/scheduling requirements*/
 
 static void
+bi_emit_texs(bi_builder *b, nir_tex_instr *instr)
+{
+        int coord_idx = nir_tex_instr_src_index(instr, nir_tex_src_coord);
+        assert(coord_idx >= 0);
+
+        /* Coordinates passed as a vector, swizzle X and Y separately  */
+        bi_index coord_x = bi_src_index(&instr->src[coord_idx].src);
+        bi_index coord_y = coord_x;
+        coord_y.offset++;
+
+        bool zero_lod = instr->op != nir_texop_tex;
+
+        unsigned sz = nir_dest_bit_size(instr->dest);
+        assert(sz == 16 || sz == 32);
+
+        if (sz == 16) {
+                bi_texs_2d_f16_to(b, bi_dest_index(&instr->dest),
+                                coord_x, coord_y, zero_lod, false,
+                                instr->sampler_index, instr->texture_index);
+        } else {
+                bi_texs_2d_f32_to(b, bi_dest_index(&instr->dest),
+                                coord_x, coord_y, zero_lod, false,
+                                instr->sampler_index, instr->texture_index);
+        }
+}
+
+static void
 emit_texs(bi_context *ctx, nir_tex_instr *instr)
 {
         bi_instruction tex = {
