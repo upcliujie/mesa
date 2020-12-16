@@ -106,8 +106,19 @@ panfrost_resource_from_handle(struct pipe_screen *pscreen,
         }
 
         if (drm_is_afbc(whandle->modifier)) {
+                unsigned tile_w =
+                        panfrost_block_dim(whandle->modifier, true, 0);
+                unsigned tile_h =
+                        panfrost_block_dim(rsc->modifier, false, 0);
+
+                rsc->slices[0].afbc.body_size =
+                        rsc->slices[0].row_stride *
+                        DIV_ROUND_UP(templat->height0, tile_h);
                 rsc->slices[0].afbc.header_size =
                         panfrost_afbc_header_size(templat->width0, templat->height0);
+                rsc->slices[0].afbc.row_stride =
+                        DIV_ROUND_UP(templat->width0, tile_w) *
+                        AFBC_HEADER_BYTES_PER_TILE;
         }
 
         if (dev->ro) {
@@ -382,12 +393,24 @@ panfrost_setup_slices(struct panfrost_device *dev,
                         slice->afbc.header_size =
                                 panfrost_afbc_header_size(width, height);
 
+                        /* Stride between two rows of AFBC headers */
+                        slice->afbc.row_stride =
+                                (effective_width / tile_w) *
+                                AFBC_HEADER_BYTES_PER_TILE;
+
+                        /* AFBC body size */
+                        slice->afbc.body_size = slice_one_size;
+
                         if (is_3d) {
                                 /* 3D AFBC resources have their headers
                                  * grouped together, and the surface stride
                                  * encodes the limit between headers and body
                                  */
+                                slice->afbc.body_size *= effective_depth;
                                 slice->afbc.header_size *= effective_depth;
+                                slice->afbc.surface_stride =
+                                        slice->afbc.header_size;
+                                offset += slice->afbc.header_size;
                         } else {
                                 /* 2DArray AFBC have their headers split and
                                  * the surface stride encodes the stride
@@ -395,6 +418,7 @@ panfrost_setup_slices(struct panfrost_device *dev,
                                  * layers.
                                  */
                                 slice_one_size += slice->afbc.header_size;
+                                slice->afbc.surface_stride = slice_one_size;
                         }
                 }
 

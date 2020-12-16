@@ -47,6 +47,20 @@ struct panfrost_slice {
         struct {
                 /* Size of the AFBC header preceding each slice */
                 unsigned header_size;
+
+                /* Size of the AFBC body */
+                unsigned body_size;
+
+                /* Stride between two rows of AFBC headers */
+                unsigned row_stride;
+
+                /* Stride between AFBC headers of two consecutive surfaces.
+                 * For 3D textures, this must be set to header size since
+                 * AFBC headers are allocated together, for 2D arrays this
+                 * should be set to size0, since AFBC headers are placed at
+                 * the beginning of each layer
+                 */
+                unsigned surface_stride;
         } afbc;
 
         /* If checksumming is enabled following the slice, what
