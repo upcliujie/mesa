@@ -58,6 +58,15 @@ int bifrost_debug = 0;
 			fprintf(stderr, "%s:%d: "fmt, \
 				__FUNCTION__, __LINE__, ##__VA_ARGS__); } while (0)
 
+static inline bi_builder
+bi_init_builder(bi_context *ctx)
+{
+        return (bi_builder) {
+                .shader = ctx,
+                .cursor = bi_after_block(ctx->current_block)
+        };
+}
+
 static bi_block *emit_cf_list(bi_context *ctx, struct exec_list *list);
 static bi_instruction *bi_emit_branch(bi_context *ctx);
 
