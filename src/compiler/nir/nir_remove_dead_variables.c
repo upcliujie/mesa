@@ -73,8 +73,14 @@ add_var_use_deref(nir_deref_instr *deref, struct set *live)
    if (!(deref->var->data.mode & (nir_var_function_temp |
                                   nir_var_shader_temp |
                                   nir_var_mem_shared)) ||
-       deref_used_for_not_store(deref))
-      _mesa_set_add(live, deref->var);
+       deref_used_for_not_store(deref)) {
+      nir_variable *var = deref->var;
+      do {
+         _mesa_set_add(live, var);
+         /* Also mark the chain of variables used to initialize it. */
+         var = var->pointer_initializer;
+      } while (var);
+   }
 }
 
 static void
