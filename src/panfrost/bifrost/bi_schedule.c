@@ -88,9 +88,9 @@ bi_singleton(void *memctx, bi_instr *ins,
         assert(can_fma || can_add);
 
         if (can_add)
-                u->bundles[0].add = (bi_instruction *) ins;
+                u->bundles[0].add = (bi_instr *) ins;
         else
-                u->bundles[0].fma = (bi_instruction *) ins;
+                u->bundles[0].fma = (bi_instr *) ins;
 
         u->scoreboard_id = scoreboard_id;
         u->staging_barrier = osrb;

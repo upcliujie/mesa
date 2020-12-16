@@ -425,7 +425,7 @@ bi_lower_cubeface2(bi_context *ctx, bi_bundle *bundle)
 
         /* Emit the instruction */
         list_addtail(&new->link, &old->link);
-        bundle->fma = (bi_instruction *) new;
+        bundle->fma = new;
 
         /* Now replace the sources of the CUBEFACE2 with a single passthrough
          * from the CUBEFACE1 (and a side-channel) */

@@ -174,14 +174,13 @@ bi_rewrite_index_src_single(bi_instr *ins, bi_index old, bi_index new)
  * that bridge when we get to it. For now, just grab the one and only
  * instruction in the clause */
 
-static bi_instruction *
+static bi_instr *
 bi_unwrap_singleton(bi_clause *clause)
 {
        assert(clause->bundle_count == 1);
        assert((clause->bundles[0].fma != NULL) ^ (clause->bundles[0].add != NULL));
 
-       return clause->bundles[0].fma ? clause->bundles[0].fma
-               : clause->bundles[0].add;
+       return clause->bundles[0].fma ?: clause->bundles[0].add;
 }
 
 /* If register allocation fails, find the best spill node */
@@ -191,9 +190,8 @@ bi_choose_spill_node(bi_context *ctx, struct lcra_state *l)
 {
         /* Pick a node satisfying bi_spill_register's preconditions */
 
-        bi_foreach_instr_global(ctx, _ins) {
-                bi_instr *ins = (bi_instr *) _ins;
-                if (ins->no_spill) {
+        bi_foreach_instr_global(ctx, ins) {
+                if (ins->no_spill || ins->dest[0].offset || !bi_index_null(ins->dest[1])) {
                         for (unsigned d = 0; d < ARRAY_SIZE(ins->dest); ++d)
                                 lcra_set_node_spill_cost(l, bi_get_node(ins->dest[0]), -1);
                 }
