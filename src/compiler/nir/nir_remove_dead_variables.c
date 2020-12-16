@@ -172,25 +172,54 @@ bool
 nir_remove_dead_variables(nir_shader *shader, nir_variable_mode modes,
                           bool (*can_remove_var)(nir_variable *var))
 {
-   bool progress = false;
+   bool global_progress = false;
    struct set *live = _mesa_pointer_set_create(NULL);
 
-   add_var_use_shader(shader, live, modes);
+   /* Variables can refer to other variables, so the removal of a variable can
+    * cause other variables to be dead.  Loop until there's no possibility of
+    * a new variable to be removed.
+    *
+    * When there's no pointer initializers, only one iteration will happen.
+    */
 
-   if (modes & ~nir_var_function_temp) {
-      progress = remove_dead_vars(&shader->variables, modes,
-                                  live, can_remove_var) || progress;
-   }
+   while (true) {
+      bool progress = false;
 
-   if (modes & nir_var_function_temp) {
-      nir_foreach_function(function, shader) {
-         if (function->impl) {
-            if (remove_dead_vars(&function->impl->locals,
-                                 nir_var_function_temp,
-                                 live, can_remove_var))
-               progress = true;
+      bool has_pointer_initializers = false;
+      nir_foreach_variable_in_shader(var, shader) {
+         if (var->pointer_initializer) {
+            _mesa_set_add(live, var->pointer_initializer);
+            has_pointer_initializers = true;
          }
       }
+
+      add_var_use_shader(shader, live, modes);
+
+      if (modes & ~nir_var_function_temp) {
+         progress = remove_dead_vars(&shader->variables, modes,
+                                     live, can_remove_var) || progress;
+      }
+
+      if (modes & nir_var_function_temp) {
+         nir_foreach_function(function, shader) {
+            if (function->impl) {
+               if (remove_dead_vars(&function->impl->locals,
+                                    nir_var_function_temp,
+                                    live, can_remove_var))
+                  progress = true;
+            }
+         }
+      }
+
+      if (!progress)
+         break;
+
+      global_progress = true;
+
+      if (!has_pointer_initializers)
+         break;
+
+      _mesa_set_clear(live, NULL);
    }
 
    _mesa_set_destroy(live, NULL);
@@ -199,7 +228,7 @@ nir_remove_dead_variables(nir_shader *shader, nir_variable_mode modes,
       if (!function->impl)
          continue;
 
-      if (progress) {
+      if (global_progress) {
          remove_dead_var_writes(shader);
          nir_metadata_preserve(function->impl, nir_metadata_block_index |
                                                nir_metadata_dominance);
@@ -208,5 +237,5 @@ nir_remove_dead_variables(nir_shader *shader, nir_variable_mode modes,
       }
    }
 
-   return progress;
+   return global_progress;
 }
