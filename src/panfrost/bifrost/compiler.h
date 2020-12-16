@@ -926,6 +926,18 @@ bi_get_node(bi_index index)
                 return (index.value << 1) | index.reg;
 }
 
+static inline bi_index
+bi_node_to_index(unsigned node, unsigned node_count)
+{
+        assert(node < node_count);
+        assert(node_count < ~0);
+
+        if (node & PAN_IS_REG)
+                return bi_get_index(node >> 1, true, 0);
+        else
+                return bi_get_index((node >> 1) - 1, false, 0);
+}
+
 /* Iterators for Bifrost IR */
 
 #define bi_foreach_block(ctx, v) \
