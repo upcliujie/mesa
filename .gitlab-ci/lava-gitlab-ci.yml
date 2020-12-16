@@ -1,11 +1,12 @@
 variables:
-  DISTRIBUTION_TAG: "2020-11-09-deqp-uprev-3"
+  MESA_LAVA_TAG: "2020-11-09-deqp-uprev-3"
 
 .kernel+rootfs:
   stage: container-2
   extends:
     - .ci-run-policy
   variables:
+    DISTRIBUTION_TAG: &distribution-tag "${MESA_LAVA_TAG}--${FDO_DISTRIBUTION_TAG}"
     GIT_STRATEGY: fetch
     KERNEL_URL: "https://gitlab.freedesktop.org/tomeu/linux/-/archive/v5.10-rc2-for-mesa-ci/linux-v5.10-rc2-for-mesa-ci.tar.gz"
     UPLOAD_FOR_LAVA: 1
@@ -20,6 +21,7 @@ kernel+rootfs_amd64:
   image: "$FDO_BASE_IMAGE"
   variables:
     DEBIAN_ARCH: "amd64"
+    DISTRIBUTION_TAG: "${MESA_LAVA_TAG}--${MESA_BASE_TAG}-${MESA_TEMPLATES_COMMIT}"
 
 kernel+rootfs_arm64:
   extends:
@@ -42,6 +44,7 @@ kernel+rootfs_armhf:
   # Cancel job if a newer commit is pushed to the same branch
   interruptible: true
   variables:
+    DISTRIBUTION_TAG: *distribution-tag
     GIT_STRATEGY: none # testing doesn't build anything from source
     ENV_VARS: "DEQP_PARALLEL=6"
     FIXED_ENV_VARS: "CI_PIPELINE_ID=${CI_PIPELINE_ID} CI_JOB_ID=${CI_JOB_ID} CI_PROJECT_PATH=${CI_PROJECT_PATH} CI_JOB_JWT=${CI_JOB_JWT} TRACIE_NO_UNIT_TESTS=1 TRACIE_UPLOAD_TO_MINIO=1 DRIVER_NAME=${DRIVER_NAME}"
