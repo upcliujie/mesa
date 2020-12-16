@@ -40,19 +40,32 @@ void _anv_measure_snapshot(struct anv_cmd_buffer *cmd_buffer,
                            uint32_t count);
 
 /* ends snapshots before command buffer submission */
-void anv_measure_endcommandbuffer(struct anv_cmd_buffer *cmd_buffer);
+void _anv_measure_endcommandbuffer(struct anv_cmd_buffer *cmd_buffer);
 
 /* when measuring render passes, inserts a timestamp */
-void anv_measure_beginrenderpass(struct anv_cmd_buffer *cmd_buffer);
+void _anv_measure_beginrenderpass(struct anv_cmd_buffer *cmd_buffer);
 
 /* tracks frame progression */
 void anv_measure_acquire(struct anv_device *device);
 
 /* should be combined with endcommandbuffer */
-void anv_measure_submit(struct anv_cmd_buffer *cmd_buffer);
+void _anv_measure_submit(struct anv_cmd_buffer *cmd_buffer);
 
 #define anv_measure_snapshot(cmd_buffer, type, event_name, count) \
-   if (unlikely(cmd_buffer->device->physical->measure_device.config)) \
+   if (unlikely(cmd_buffer->measure)) \
       _anv_measure_snapshot(cmd_buffer, type, event_name, count)
+
+#define anv_measure_endcommandbuffer(cmd_buffer) \
+   if (unlikely(cmd_buffer->measure)) \
+      _anv_measure_endcommandbuffer(cmd_buffer)
+
+#define anv_measure_beginrenderpass(cmd_buffer) \
+   if (unlikely(cmd_buffer->measure)) \
+      _anv_measure_beginrenderpass(cmd_buffer)
+
+#define anv_measure_submit(cmd_buffer) \
+   if (unlikely(cmd_buffer->measure)) \
+      _anv_measure_submit(cmd_buffer)
+
 
 #endif   /* ANV_MEASURE_H */

@@ -104,10 +104,7 @@ anv_measure_init(struct anv_cmd_buffer *cmd_buffer)
    struct anv_device *device = cmd_buffer->device;
    struct anv_physical_device *physical_device = device->physical;
 
-   if (!config)
-      return;
-
-   if (!config->enabled) {
+   if (!config || !config->enabled) {
       cmd_buffer->measure = NULL;
       return;
    }
@@ -458,7 +455,7 @@ anv_measure_device_destroy(struct anv_physical_device *device)
  *  Hook for command buffer submission.
  */
 void
-anv_measure_submit(struct anv_cmd_buffer *cmd_buffer)
+_anv_measure_submit(struct anv_cmd_buffer *cmd_buffer)
 {
    struct intel_measure_config *config = config_from_command_buffer(cmd_buffer);
    struct anv_measure_batch *measure = cmd_buffer->measure;
@@ -514,7 +511,7 @@ anv_measure_acquire(struct anv_device *device)
 }
 
 void
-anv_measure_endcommandbuffer(struct anv_cmd_buffer *cmd_buffer)
+_anv_measure_endcommandbuffer(struct anv_cmd_buffer *cmd_buffer)
 {
    struct intel_measure_config *config = config_from_command_buffer(cmd_buffer);
    struct anv_measure_batch *measure = cmd_buffer->measure;
@@ -531,7 +528,7 @@ anv_measure_endcommandbuffer(struct anv_cmd_buffer *cmd_buffer)
 }
 
 void
-anv_measure_beginrenderpass(struct anv_cmd_buffer *cmd_buffer)
+_anv_measure_beginrenderpass(struct anv_cmd_buffer *cmd_buffer)
 {
    struct intel_measure_config *config = config_from_command_buffer(cmd_buffer);
    struct anv_measure_batch *measure = cmd_buffer->measure;
