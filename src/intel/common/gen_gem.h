@@ -30,6 +30,8 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
+#include "drm-uapi/i915_drm.h"
+
 static inline uint64_t
 gen_canonical_address(uint64_t v)
 {
@@ -73,5 +75,22 @@ gen_ioctl(int fd, unsigned long request, void *arg)
 }
 
 bool gen_gem_supports_syncobj_wait(int fd);
+
+bool gen_gem_supports_protected_context(int fd);
+
+static inline void
+gen_gem_add_ext(__u64 *ptr, uint32_t ext_name,
+                struct i915_user_extension *ext)
+{
+   __u64 *iter = ptr;
+
+   while (*iter != 0) {
+      iter = (__u64 *) &((struct i915_user_extension *)(uintptr_t)*iter)->next_extension;
+   }
+
+   ext->name = ext_name;
+
+   *iter = (uintptr_t) ext;
+}
 
 #endif /* GEN_GEM_H */
