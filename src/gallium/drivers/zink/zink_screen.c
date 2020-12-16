@@ -835,7 +835,10 @@ static bool
 load_instance_extensions(struct zink_screen *screen)
 {
    if (zink_debug & ZINK_DEBUG_VALIDATION) {
-      printf("zink: Loader %d.%d.%d \n", VK_VERSION_MAJOR(screen->loader_version), VK_VERSION_MINOR(screen->loader_version), VK_VERSION_PATCH(screen->loader_version));
+      printf("zink: Loader %d.%d.%d \n",
+             VK_VERSION_MAJOR(screen->instance_info.loader_version),
+             VK_VERSION_MINOR(screen->instance_info.loader_version),
+             VK_VERSION_PATCH(screen->instance_info.loader_version));
    }
 
    if (screen->instance_info.have_KHR_get_physical_device_properties2) {
@@ -844,7 +847,7 @@ load_instance_extensions(struct zink_screen *screen)
       GET_PROC_ADDR_INSTANCE_LOCAL(screen->instance, GetPhysicalDeviceProperties2KHR);
       screen->vk_GetPhysicalDeviceFeatures2 = vk_GetPhysicalDeviceFeatures2KHR;
       screen->vk_GetPhysicalDeviceProperties2 = vk_GetPhysicalDeviceProperties2KHR;
-   } else if (VK_MAKE_VERSION(1,1,0) <= screen->loader_version) {
+   } else if (VK_MAKE_VERSION(1,1,0) <= screen->instance_info.loader_version) {
       // Get Vk 1.1+ Instance functions
       GET_PROC_ADDR_INSTANCE(GetPhysicalDeviceFeatures2);
       GET_PROC_ADDR_INSTANCE(GetPhysicalDeviceProperties2);
@@ -1091,8 +1094,9 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
 
    zink_debug = debug_get_option_zink_debug();
 
-   screen->loader_version = zink_get_loader_version();
-   screen->instance = zink_create_instance(screen);
+   screen->instance_info.loader_version = zink_get_loader_version();
+   screen->instance = zink_create_instance(&screen->instance_info);
+
    if (!screen->instance)
       goto fail;
 
