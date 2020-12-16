@@ -719,6 +719,13 @@ anv_physical_device_try_create(struct anv_instance *instance,
 
    device->has_context_priority = anv_gem_has_context_priority(fd);
 
+   /* We currently only have the right bits for instructions in Gen12+. If the
+    * kernel ever starts supporting that feature on previous generations,
+    * we'll need to edit genxml prior to enabling here.
+    */
+   device->has_protected_contexts = device->info.gen >= 12 &&
+      gen_gem_supports_protected_context(fd);
+
    result = anv_physical_device_init_heaps(device, fd);
    if (result != VK_SUCCESS)
       goto fail_base;
