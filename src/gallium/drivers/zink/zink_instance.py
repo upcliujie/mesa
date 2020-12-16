@@ -80,6 +80,8 @@ header_code = """
 struct zink_screen;
 
 struct zink_instance_info {
+   uint32_t loader_version;
+
 %for ext in extensions:
    bool have_${ext.name_with_vendor()};
 %endfor
@@ -90,7 +92,7 @@ struct zink_instance_info {
 };
 
 VkInstance
-zink_create_instance(struct zink_screen *screen);
+zink_create_instance(struct zink_instance_info *instance_info);
 
 bool
 zink_load_instance_extensions(struct zink_screen *screen);
@@ -103,7 +105,7 @@ impl_code = """
 #include "zink_screen.h"
 
 VkInstance
-zink_create_instance(struct zink_screen *screen)
+zink_create_instance(struct zink_instance_info *instance_info)
 {
    /* reserve one slot for MoltenVK */
    const char *layers[${len(extensions) + 1}] = { 0 };
@@ -138,7 +140,7 @@ zink_create_instance(struct zink_screen *screen)
                     extensions[num_extensions++] = ${ext.extension_name_literal()};
                 }
             %else:
-                if (screen->loader_version < ${ext.core_since.version()}) {
+                if (instance_info->loader_version < ${ext.core_since.version()}) {
                    if (!strcmp(extension_props[i].extensionName, ${ext.extension_name_literal()})) {
                         have_${ext.name_with_vendor()} = true;
                         extensions[num_extensions++] = ${ext.extension_name_literal()};
@@ -185,7 +187,7 @@ zink_create_instance(struct zink_screen *screen)
     }
 
 %for ext in extensions:
-   screen->instance_info.have_${ext.name_with_vendor()} = have_${ext.name_with_vendor()};
+   instance_info->have_${ext.name_with_vendor()} = have_${ext.name_with_vendor()};
 %endfor
 
 %for layer in layers:
@@ -198,7 +200,7 @@ zink_create_instance(struct zink_screen *screen)
 %>\
    if (have_layer_${layer.pure_name()} ${conditions}) {
       layers[num_layers++] = ${layer.extension_name_literal()};
-      screen->instance_info.have_layer_${layer.pure_name()} = true;
+      instance_info->have_layer_${layer.pure_name()} = true;
    }
 %endfor
 
@@ -212,7 +214,7 @@ zink_create_instance(struct zink_screen *screen)
       ai.pApplicationName = "unknown";
 
    ai.pEngineName = "mesa zink";
-   ai.apiVersion = screen->loader_version;
+   ai.apiVersion = instance_info->loader_version;
 
    VkInstanceCreateInfo ici = {};
    ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
