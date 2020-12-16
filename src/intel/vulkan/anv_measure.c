@@ -36,54 +36,42 @@ struct anv_measure_batch {
    struct intel_measure_batch base;
 };
 
-static void (*cmd_emit_timestamp)(struct anv_batch *batch,
-                                  struct anv_bo *bo,
-                                  uint32_t offset) = NULL;
-
 void
-anv_measure_device_init(struct anv_device *device)
+anv_measure_device_init(struct anv_physical_device *device)
 {
    static bool once = false;
-   if (unlikely(!once)) {
-      once = true;
+   assert(!once);
+   once = true;
 
-      switch (device->info.gen) {
-      case 12:
-         cmd_emit_timestamp = &gen12_cmd_emit_timestamp;
-         break;
-      case 11:
-         cmd_emit_timestamp = &gen11_cmd_emit_timestamp;
-         break;
-      case 9:
-         cmd_emit_timestamp = &gen9_cmd_emit_timestamp;
-         break;
-      case 8:
-         cmd_emit_timestamp = &gen8_cmd_emit_timestamp;
-         break;
-      case 75:
-         cmd_emit_timestamp = &gen75_cmd_emit_timestamp;
-         break;
-      case 7:
-         cmd_emit_timestamp = &gen7_cmd_emit_timestamp;
-         break;
-      default:
-         assert(false);
-      }
+   switch (device->info.gen) {
+   case 12:
+      device->cmd_emit_timestamp = &gen12_cmd_emit_timestamp;
+      break;
+   case 11:
+      device->cmd_emit_timestamp = &gen11_cmd_emit_timestamp;
+      break;
+   case 9:
+      device->cmd_emit_timestamp = &gen9_cmd_emit_timestamp;
+      break;
+   case 8:
+      device->cmd_emit_timestamp = &gen8_cmd_emit_timestamp;
+      break;
+   case 75:
+      device->cmd_emit_timestamp = &gen75_cmd_emit_timestamp;
+      break;
+   case 7:
+      device->cmd_emit_timestamp = &gen7_cmd_emit_timestamp;
+      break;
+   default:
+      assert(false);
    }
 
-   struct intel_measure_device * measure_device =
-      vk_alloc2(&device->physical->instance->alloc,
-                &device->vk.alloc,
-                sizeof(struct intel_measure_device), 8,
-                VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
-   memset(measure_device, 0, sizeof(*measure_device));
-
    /* initialise list of measure structures that await rendering */
+   struct intel_measure_device *measure_device = &device->measure_device;
    pthread_mutex_init(&measure_device->mutex, NULL);
    list_inithead(&measure_device->queued_snapshots);
 
    measure_device->frame = 0;
-   device->physical->measure_device = measure_device;
 
    intel_measure_init(measure_device);
    struct intel_measure_config *config = measure_device->config;
@@ -97,18 +85,16 @@ anv_measure_device_init(struct anv_device *device)
    const size_t rb_bytes = sizeof(struct intel_measure_ringbuffer) +
       config->buffer_size * sizeof(struct intel_measure_buffered_result);
    struct intel_measure_ringbuffer * rb =
-      vk_alloc2(&device->physical->instance->alloc,
-                &device->vk.alloc,
+      vk_zalloc(&device->instance->alloc,
                 rb_bytes, 8,
                 VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
-   memset(rb, 0, sizeof(rb_bytes));
    measure_device->ringbuffer = rb;
 }
 
 static struct intel_measure_config*
 config_from_command_buffer(struct anv_cmd_buffer *cmd_buffer)
 {
-   return cmd_buffer->device->physical->measure_device->config;
+   return cmd_buffer->device->physical->measure_device.config;
 }
 
 void
@@ -164,7 +150,7 @@ anv_measure_ready(struct anv_device *device,
 static void
 anv_measure_gather(struct anv_device *device)
 {
-   struct intel_measure_device *measure_device = device->physical->measure_device;
+   struct intel_measure_device *measure_device = &device->physical->measure_device;
 
    pthread_mutex_lock(&measure_device->mutex);
 
@@ -218,8 +204,8 @@ anv_measure_start_snapshot(struct anv_cmd_buffer *cmd_buffer,
 {
    struct anv_batch *batch = &cmd_buffer->batch;
    struct anv_measure_batch *measure = cmd_buffer->measure;
-   struct intel_measure_device *measure_device =
-      cmd_buffer->device->physical->measure_device;
+   struct anv_physical_device *device = cmd_buffer->device->physical;
+   struct intel_measure_device *measure_device = &device->measure_device;
 
    const unsigned device_frame = measure_device->frame;
 
@@ -238,7 +224,7 @@ anv_measure_start_snapshot(struct anv_cmd_buffer *cmd_buffer,
 
    unsigned index = measure->base.index++;
 
-   (*cmd_emit_timestamp)(batch, measure->bo, index * sizeof(uint64_t));
+   (*device->cmd_emit_timestamp)(batch, measure->bo, index * sizeof(uint64_t));
 
    if (event_name == NULL)
       event_name = intel_measure_snapshot_string(type);
@@ -270,11 +256,12 @@ anv_measure_end_snapshot(struct anv_cmd_buffer *cmd_buffer,
 {
    struct anv_batch *batch = &cmd_buffer->batch;
    struct anv_measure_batch *measure = cmd_buffer->measure;
+   struct anv_physical_device *device = cmd_buffer->device->physical;
 
    unsigned index = measure->base.index++;
    assert(index % 2 == 1);
 
-   (*cmd_emit_timestamp)(batch, measure->bo, index * sizeof(uint64_t));
+   (*device->cmd_emit_timestamp)(batch, measure->bo, index * sizeof(uint64_t));
 
    struct intel_measure_snapshot *snapshot = &(measure->base.snapshots[index]);
    memset(snapshot, 0, sizeof(*snapshot));
@@ -445,28 +432,26 @@ anv_measure_destroy(struct anv_cmd_buffer *cmd_buffer)
 static struct intel_measure_config*
 config_from_device(struct anv_device *device)
 {
-   return device->physical->measure_device->config;
+   return device->physical->measure_device.config;
 }
 
 void
-anv_measure_device_destroy(struct anv_device *device)
+anv_measure_device_destroy(struct anv_physical_device *device)
 {
-   struct intel_measure_config *config = config_from_device(device);
-   struct intel_measure_device *measure_device = device->physical->measure_device;
+   static bool once = false;
+   assert(!once);
+   once = true;
+   struct intel_measure_device *measure_device = &device->measure_device;
+   struct intel_measure_config *config = measure_device->config;
 
    if (!config)
       return;
-   if (measure_device == NULL)
-      return;
-   VkAllocationCallbacks *alloc = &device->vk.alloc;
+   VkAllocationCallbacks *alloc = &device->instance->alloc;
 
    if (measure_device->ringbuffer != NULL) {
       vk_free2(alloc, alloc, measure_device->ringbuffer);
       measure_device->ringbuffer = NULL;
    }
-
-   vk_free2(alloc, alloc, measure_device);
-   device->physical->measure_device = NULL;
 }
 
 /**
@@ -477,8 +462,7 @@ anv_measure_submit(struct anv_cmd_buffer *cmd_buffer)
 {
    struct intel_measure_config *config = config_from_command_buffer(cmd_buffer);
    struct anv_measure_batch *measure = cmd_buffer->measure;
-   struct intel_measure_device *measure_device =
-      cmd_buffer->device->physical->measure_device;
+   struct intel_measure_device *measure_device = &cmd_buffer->device->physical->measure_device;
 
    if (!config)
       return;
@@ -516,7 +500,7 @@ void
 anv_measure_acquire(struct anv_device *device)
 {
    struct intel_measure_config *config = config_from_device(device);
-   struct intel_measure_device *measure_device = device->physical->measure_device;
+   struct intel_measure_device *measure_device = &device->physical->measure_device;
 
    if (!config)
       return;

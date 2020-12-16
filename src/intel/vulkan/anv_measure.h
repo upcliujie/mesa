@@ -27,8 +27,8 @@
 #include "anv_private.h"
 #include "common/intel_measure.h"
 
-void anv_measure_device_init(struct anv_device *device);
-void anv_measure_device_destroy(struct anv_device *device);
+void anv_measure_device_init(struct anv_physical_device *device);
+void anv_measure_device_destroy(struct anv_physical_device *device);
 
 void anv_measure_init(struct anv_cmd_buffer *cmd_buffer);
 void anv_measure_destroy(struct anv_cmd_buffer *cmd_buffer);
@@ -52,7 +52,7 @@ void anv_measure_acquire(struct anv_device *device);
 void anv_measure_submit(struct anv_cmd_buffer *cmd_buffer);
 
 #define anv_measure_snapshot(cmd_buffer, type, event_name, count) \
-   if (unlikely(cmd_buffer->device->physical->measure_device->config)) \
+   if (unlikely(cmd_buffer->device->physical->measure_device.config)) \
       _anv_measure_snapshot(cmd_buffer, type, event_name, count)
 
 #endif   /* ANV_MEASURE_H */
