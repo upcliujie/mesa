@@ -877,6 +877,13 @@ anv_physical_device_try_create(struct anv_instance *instance,
    memset(&device->vram, 0, sizeof(device->vram));
    memset(&device->sys, 0, sizeof(device->sys));
 
+   /* We currently only have the right bits for instructions in Gen12+. If the
+    * kernel ever starts supporting that feature on previous generations,
+    * we'll need to edit genxml prior to enabling here.
+    */
+   device->has_protected_contexts = device->info.ver >= 12 &&
+      intel_gem_supports_protected_context(fd);
+
    result = anv_physical_device_init_heaps(device, fd);
    if (result != VK_SUCCESS)
       goto fail_base;

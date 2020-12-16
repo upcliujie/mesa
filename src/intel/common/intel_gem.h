@@ -34,6 +34,8 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
+#include "drm-uapi/i915_drm.h"
+
 static inline uint64_t
 intel_canonical_address(uint64_t v)
 {
@@ -164,5 +166,22 @@ int intel_gem_count_engines(const struct drm_i915_query_engine_info *info,
 int intel_gem_create_context_engines(int fd,
                                      const struct drm_i915_query_engine_info *info,
                                      int num_engines, uint16_t *engine_classes);
+
+bool intel_gem_supports_protected_context(int fd);
+
+static inline void
+intel_gem_add_ext(__u64 *ptr, uint32_t ext_name,
+                  struct i915_user_extension *ext)
+{
+   __u64 *iter = ptr;
+
+   while (*iter != 0) {
+      iter = (__u64 *) &((struct i915_user_extension *)(uintptr_t)*iter)->next_extension;
+   }
+
+   ext->name = ext_name;
+
+   *iter = (uintptr_t) ext;
+}
 
 #endif /* INTEL_GEM_H */

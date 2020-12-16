@@ -989,6 +989,9 @@ struct anv_physical_device {
      */
     bool                                        has_implicit_ccs;
 
+    /** True if we can create protected contexts. */
+    bool                                        has_protected_contexts;
+
     bool                                        always_flush_cache;
 
     struct {
