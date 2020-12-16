@@ -269,18 +269,29 @@ panfrost_block_dim(uint64_t modifier, bool width, unsigned plane)
 }
 
 static uint64_t
-panfrost_get_surface_strides(struct panfrost_slice *slices,
+panfrost_get_surface_strides(const struct panfrost_device *dev,
+                             struct panfrost_slice *slices,
                              const struct util_format_description *desc,
                              enum mali_texture_dimension dim,
                              uint64_t modifier,
                              unsigned width, unsigned height,
                              unsigned l, unsigned cube_stride)
 {
-        bool is_3d = dim == MALI_TEXTURE_DIMENSION_3D;
+        unsigned line_stride;
+        unsigned layer_stride;
 
-        unsigned line_stride = slices[l].row_stride;
-        unsigned layer_stride =
-                panfrost_get_layer_stride(slices, is_3d, cube_stride, l);
+        if (drm_is_afbc(modifier)) {
+                /* Pre v7 don't have a row stride field. This field is
+                 * repurposed as a Y offset which we don't use */
+                line_stride = dev->arch < 7 ? 0 : slices[l].afbc.row_stride;
+                layer_stride = slices[l].afbc.surface_stride;
+        } else {
+                bool is_3d = dim == MALI_TEXTURE_DIMENSION_3D;
+
+                line_stride = slices[l].row_stride;
+                layer_stride =
+                        panfrost_get_layer_stride(slices, is_3d, cube_stride, l);
+        }
 
         return ((uint64_t)layer_stride << 32) | line_stride;
 }
@@ -400,7 +411,7 @@ panfrost_emit_texture_payload(const struct panfrost_device *dev,
                         continue;
 
                 payload[idx++] =
-                        panfrost_get_surface_strides(slices, desc, dim,
+                        panfrost_get_surface_strides(dev, slices, desc, dim,
                                                      modifier, width, height,
                                                      iter.level, cube_stride);
         }
