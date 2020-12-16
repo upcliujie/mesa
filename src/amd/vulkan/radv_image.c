@@ -117,8 +117,14 @@ radv_use_tc_compat_htile_for_image(struct radv_device *device,
 				vk_find_struct_const(pCreateInfo->pNext,
 						     IMAGE_FORMAT_LIST_CREATE_INFO);
 
-		/* We have to ignore the existence of the list if viewFormatCount = 0 */
-		if (format_list && format_list->viewFormatCount) {
+		/* From the Vulkan spec 1.2.165:
+		 *
+		 * "If viewFormatCount is zero, pViewFormats is ignored and
+		 *  the image is created as if the VkImageFormatListCreateInfo
+		 *  structure were not included in the pNext list of
+		 *  VkImageCreateInfo."
+		 */
+		if (format_list && format_list->viewFormatCount > 0) {
 			/* compatibility is transitive, so we only need to check
 			 * one format with everything else.
 			 */
@@ -129,8 +135,6 @@ radv_use_tc_compat_htile_for_image(struct radv_device *device,
 				if (format != format_list->pViewFormats[i])
 					return false;
 			}
-		} else {
-			return false;
 		}
 	}
 
@@ -232,8 +236,14 @@ radv_use_dcc_for_image(struct radv_device *device,
 				vk_find_struct_const(pCreateInfo->pNext,
 						     IMAGE_FORMAT_LIST_CREATE_INFO);
 
-		/* We have to ignore the existence of the list if viewFormatCount = 0 */
-		if (format_list && format_list->viewFormatCount) {
+		/* From the Vulkan spec 1.2.165:
+		 *
+		 * "If viewFormatCount is zero, pViewFormats is ignored and
+		 *  the image is created as if the VkImageFormatListCreateInfo
+		 *  structure were not included in the pNext list of
+		 *  VkImageCreateInfo."
+		 */
+		if (format_list && format_list->viewFormatCount > 0) {
 			/* compatibility is transitive, so we only need to check
 			 * one format with everything else. */
 			for (unsigned i = 0; i < format_list->viewFormatCount; ++i) {
@@ -244,8 +254,6 @@ radv_use_dcc_for_image(struct radv_device *device,
 				                                 format_list->pViewFormats[i]))
 					dcc_compatible_formats = false;
 			}
-		} else {
-			dcc_compatible_formats = false;
 		}
 	}
 
