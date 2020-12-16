@@ -75,6 +75,7 @@ gen_ioctl(int fd, unsigned long request, void *arg)
 }
 
 bool gen_gem_supports_syncobj_wait(int fd);
+bool gen_gem_supports_protected_context(int fd);
 
 static inline void
 gen_gem_add_ext(__u64 *ptr, uint32_t ext_name,
