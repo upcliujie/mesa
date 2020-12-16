@@ -55,3 +55,38 @@ gen_gem_supports_syncobj_wait(int fd)
     */
    return ret == -1 && errno == ETIME;
 }
+
+static int
+gen_gem_set_context_param(int fd, int context, uint32_t param, uint64_t value)
+{
+   struct drm_i915_gem_context_param p = {
+      .ctx_id = context,
+      .param = param,
+      .value = value,
+   };
+   int err = 0;
+
+   if (gen_ioctl(fd, DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM, &p))
+      err = -errno;
+   return err;
+}
+
+bool gen_gem_supports_protected_context(int fd)
+{
+   struct drm_i915_gem_context_create create = { 0 };
+
+   int ret = gen_ioctl(fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE, &create);
+   if (ret == -1)
+      return false;
+
+   ret = gen_gem_set_context_param(fd, create.ctx_id,
+                                   I915_CONTEXT_PARAM_PROTECTED_CONTENT,
+                                   true);
+
+   struct drm_i915_gem_context_destroy destroy = {
+      .ctx_id = create.ctx_id,
+   };
+   gen_ioctl(fd, DRM_IOCTL_I915_GEM_CONTEXT_DESTROY, &destroy);
+
+   return ret == 0;
+}
