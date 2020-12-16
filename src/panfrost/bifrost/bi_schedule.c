@@ -198,7 +198,6 @@ bi_singleton(void *memctx, bi_instr *ins,
 
         ASSERTED bool can_fma = bi_opcode_props[ins->op].fma;
         bool can_add = bi_opcode_props[ins->op].add;
-        bi_print_instr(ins, stdout);
         assert(can_fma || can_add);
 
         if (can_add)
@@ -219,11 +218,44 @@ bi_singleton(void *memctx, bi_instr *ins,
         /* Let's be optimistic, we'll fix up later */
         u->flow_control = BIFROST_FLOW_NBTB;
 
-        u->constant_count = 1;
-        u->constants[0] = ins->constant.u64;
+        /* Build up a combined constant, count in 32-bit words */
+        uint64_t combined_constant = 0;
+        unsigned constant_count = 0;
+
+        bi_foreach_src(ins, s) {
+                if (ins->src[s].type != BI_INDEX_CONSTANT) continue;
+                unsigned value = ins->src[s].value;
+
+                /* Allow fast zero */
+                if (value == 0 && u->bundles[0].fma) continue;
+
+                if (constant_count == 0) {
+                        combined_constant = ins->src[s].value;
+                } else if (constant_count == 1) {
+                        /* Allow reuse */
+                        if (combined_constant == value)
+                                continue;
+
+                        combined_constant |= ((uint64_t) value) << 32ull;
+                } else {
+                        /* No more room! */
+                        assert((combined_constant & 0xffffffff) == value ||
+                                        (combined_constant >> 32ull) == value);
+                }
+
+                constant_count++;
+        }
 
         if (ins->branch_target)
                 u->branch_constant = true;
+
+        /* XXX: HACK always force constants to avoid sporadic INSTR_INVALID_ENC
+         * faults, likely related to a prefetch bug? TODO FIXME */
+        if (constant_count || u->branch_constant || true) {
+                /* Clause in 64-bit, above in 32-bit */
+                u->constant_count = 1;
+                u->constants[0] = combined_constant;
+        }
 
         u->next_clause_prefetch = (ins->op != BI_OPCODE_JUMP);
         u->message_type = bi_message_type_for_instr(ins);
@@ -310,9 +342,9 @@ bi_schedule(bi_context *ctx)
 
                 bi_foreach_instr_in_block(bblock, ins) {
                         /* Convenient time to lower */
-                        bi_lower_fmov(ins);
+//                        bi_lower_fmov(ins);
 
-                        bi_clause *u = bi_make_singleton(ctx, ins,
+                        bi_clause *u = bi_singleton(ctx, (bi_instr *) ins,
                                         bblock, 0, (1 << 0),
                                         !is_first);
 

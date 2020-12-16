@@ -480,7 +480,7 @@ bi_print_bundle(bi_bundle *bundle, FILE *fp)
 
         for (unsigned i = 0; i < 2; ++i) {
                 if (ins[i])
-                        bi_print_instruction(ins[i], fp);
+                        bi_print_instr((bi_instr *) ins[i], fp);
                 else
                         fprintf(fp, "nop\n");
         }
