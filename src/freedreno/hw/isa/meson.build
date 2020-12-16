@@ -68,3 +68,10 @@ disasm = executable(
   ],
   install: false,
 )
+
+split = executable(
+  'split',
+  ['split.c'],
+  build_by_default: with_tools.contains('freedreno'),
+  install: false,
+)
