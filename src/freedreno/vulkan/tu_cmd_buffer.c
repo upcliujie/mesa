@@ -1918,6 +1918,8 @@ tu_CmdBeginTransformFeedbackEXT(VkCommandBuffer commandBuffer,
    for (uint32_t i = 0; i < IR3_MAX_SO_BUFFERS; i++)
       tu_cs_emit_regs(cs, A6XX_VPC_SO_BUFFER_OFFSET(i, cmd->state.streamout_offset[i]));
 
+   counterBufferCount = pCounterBuffers ? counterBufferCount : 0;
+
    for (uint32_t i = 0; i < counterBufferCount; i++) {
       uint32_t idx = firstCounterBuffer + i;
       uint32_t offset = cmd->state.streamout_offset[idx];
@@ -1966,6 +1968,8 @@ void tu_CmdEndTransformFeedbackEXT(VkCommandBuffer commandBuffer,
       tu_cs_emit_qw(cs, global_iova(cmd, flush_base[i]));
       tu6_emit_event_write(cmd, cs, FLUSH_SO_0 + i);
    }
+
+   counterBufferCount = pCounterBuffers ? counterBufferCount : 0;
 
    for (uint32_t i = 0; i < counterBufferCount; i++) {
       uint32_t idx = firstCounterBuffer + i;
