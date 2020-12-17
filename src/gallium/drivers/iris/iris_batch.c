@@ -533,7 +533,11 @@ finish_seqno(struct iris_batch *batch)
 static void
 iris_finish_batch(struct iris_batch *batch)
 {
+   struct iris_screen *screen = batch->screen;
+
    add_aux_map_bos_to_batch(batch);
+
+   screen->vtbl.end_batch(batch);
 
    finish_seqno(batch);
 
