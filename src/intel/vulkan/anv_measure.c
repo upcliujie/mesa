@@ -31,10 +31,25 @@
 #include "util/debug.h"
 
 struct anv_measure_batch {
-   struct anv_bo *bo;
    struct list_head link;
    struct intel_measure_batch base;
 };
+
+static uint64_t *
+measure_mmap(void *_measure_batch) {
+   struct intel_measure_batch *measure_batch = _measure_batch;
+   struct anv_device *device = measure_batch->device;
+   struct anv_bo *bo = (struct anv_bo *)measure_batch->bo;
+   return anv_gem_mmap(device, bo->gem_handle, 0,
+                       measure_batch->index * sizeof(uint64_t), 0);
+}
+
+static void
+measure_munmap(void *_measure_batch, void *bo_mem) {
+   struct intel_measure_batch *measure = _measure_batch;
+   struct anv_device *device = measure->device;
+   anv_gem_munmap(device, bo_mem, measure->index * sizeof(uint64_t));
+}
 
 void
 anv_measure_device_init(struct anv_physical_device *device)
@@ -80,6 +95,9 @@ anv_measure_device_init(struct anv_physical_device *device)
    struct intel_measure_config *config = measure_device->config;
    if (config == NULL)
       return;
+
+   config->mmap_fn = measure_mmap;
+   config->munmap_fn = measure_munmap;
 
    /* the final member of intel_measure_ringbuffer is a zero-length array of
     * intel_measure_buffered_result objects.  Allocate additional space for
@@ -128,8 +146,12 @@ anv_measure_init(struct anv_cmd_buffer *cmd_buffer)
                           config->batch_size * sizeof(uint64_t),
                           ANV_BO_ALLOC_MAPPED,
                           0,
-                          &measure->bo);
+                          (struct anv_bo**)&measure->base.bo);
+   measure->base.device = device;
    assert(result == VK_SUCCESS);
+
+   list_inithead(&measure->link);
+
    cmd_buffer->measure = measure;
 }
 
@@ -138,7 +160,7 @@ anv_measure_ready(struct anv_device *device,
                   struct anv_measure_batch *measure)
 {
    /* anv_device_bo_busy returns VK_NOT_READY if the bo is busy */
-    return(VK_SUCCESS == anv_device_bo_busy(device, measure->bo));
+    return(VK_SUCCESS == anv_device_bo_busy(device, measure->base.bo));
 }
 
 /**
@@ -165,25 +187,16 @@ anv_measure_gather(struct anv_device *device)
          break;
       }
 
-      uint64_t *map = anv_gem_mmap(device, measure->bo->gem_handle, 0,
-                                   measure->base.index * sizeof(uint64_t), 0);
-
-      if (map[0] == 0) {
-         /* The first timestamp is still zero.  The Command buffer has not
-          * begun execution on the gpu.  It was recently submitted, perhaps by
-          * another thread.
-          */
-         anv_gem_munmap(device, map, measure->base.index * sizeof(uint64_t));
+      if (VK_SUCCESS != anv_device_wait(device, measure->base.bo, 0))
+         /* rendering not yet submitted */
          break;
-      }
 
       list_del(&measure->link);
-      assert(measure->bo);
+      assert(measure->base.bo);
       assert(measure->base.index % 2 == 0);
 
-      intel_measure_push_result(measure_device, &measure->base, map);
+      intel_measure_push_result(measure_device, &measure->base);
 
-      anv_gem_munmap(device, map, measure->base.index * sizeof(uint64_t));
       measure->base.index = 0;
       measure->base.frame = 0;
    }
@@ -213,6 +226,11 @@ anv_measure_start_snapshot(struct anv_cmd_buffer *cmd_buffer,
 
    uintptr_t framebuffer = (uintptr_t)cmd_buffer->state.framebuffer;
 
+   if (!measure->base.framebuffer &&
+       cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_SECONDARY)
+      /* secondary command buffer inherited the framebuffer from the primary */
+      measure->base.framebuffer = framebuffer;
+
    /* verify framebuffer has been properly tracked */
    assert(type == INTEL_SNAPSHOT_END ||
           framebuffer == measure->base.framebuffer ||
@@ -220,7 +238,7 @@ anv_measure_start_snapshot(struct anv_cmd_buffer *cmd_buffer,
 
    unsigned index = measure->base.index++;
 
-   (*device->cmd_emit_timestamp)(batch, measure->bo, index * sizeof(uint64_t));
+   (*device->cmd_emit_timestamp)(batch, measure->base.bo, index * sizeof(uint64_t));
 
    if (event_name == NULL)
       event_name = intel_measure_snapshot_string(type);
@@ -257,7 +275,7 @@ anv_measure_end_snapshot(struct anv_cmd_buffer *cmd_buffer,
    unsigned index = measure->base.index++;
    assert(index % 2 == 1);
 
-   (*device->cmd_emit_timestamp)(batch, measure->bo, index * sizeof(uint64_t));
+   (*device->cmd_emit_timestamp)(batch, measure->base.bo, index * sizeof(uint64_t));
 
    struct intel_measure_snapshot *snapshot = &(measure->base.snapshots[index]);
    memset(snapshot, 0, sizeof(*snapshot));
@@ -270,6 +288,11 @@ state_changed(struct anv_cmd_buffer *cmd_buffer,
               enum intel_measure_snapshot_type type)
 {
    uintptr_t vs=0, tcs=0, tes=0, gs=0, fs=0, cs=0;
+
+   if (cmd_buffer->usage_flags & VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT)
+      /* can't record timestamps in this mode */
+      return false;
+
    if (type == INTEL_SNAPSHOT_COMPUTE) {
       const struct anv_compute_pipeline *cs_pipe =
          cmd_buffer->state.compute.pipeline;
@@ -379,14 +402,16 @@ anv_measure_reset(struct anv_cmd_buffer *cmd_buffer)
    measure->base.framebuffer = 0;
    measure->base.frame = 0;
    measure->base.event_count = 0;
+   list_inithead(&measure->link);
 
-   anv_device_release_bo(device, measure->bo);
+   anv_device_release_bo(device, measure->base.bo);
    VkResult result =
       anv_device_alloc_bo(device,
                           config->batch_size * sizeof(uint64_t),
                           ANV_BO_ALLOC_MAPPED,
                           0,
-                          &measure->bo);
+                          (struct anv_bo**)&measure->base.bo);
+   measure->base.bo = measure->base.bo;
    assert(result == VK_SUCCESS);
 }
 
@@ -407,7 +432,7 @@ anv_measure_destroy(struct anv_cmd_buffer *cmd_buffer)
     */
    anv_measure_gather(device);
 
-   anv_device_release_bo(device, measure->bo);
+   anv_device_release_bo(device, measure->base.bo);
    vk_free(&cmd_buffer->pool->alloc, measure);
    cmd_buffer->measure = NULL;
 }
@@ -532,4 +557,37 @@ _anv_measure_beginrenderpass(struct anv_cmd_buffer *cmd_buffer)
    }
 
    measure->base.framebuffer = (uintptr_t) cmd_buffer->state.framebuffer;
+}
+
+void
+_anv_measure_add_secondary(struct anv_cmd_buffer *primary,
+                           struct anv_cmd_buffer *secondary)
+{
+   struct intel_measure_config *config = config_from_command_buffer(primary);
+   struct anv_measure_batch *measure = primary->measure;
+   if (!config)
+      return;
+   if (measure == NULL)
+      return;
+   if (config->flags & (INTEL_MEASURE_BATCH | INTEL_MEASURE_FRAME))
+      /* secondary timing will be contained within the primary */
+      return;
+   if (secondary->usage_flags & VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT) {
+         static bool warned = false;
+         if (unlikely(!warned)) {
+            fprintf(config->file,
+                    "WARNING: INTEL_MEASURE cannot capture timings of commands "
+                    "in secondary command buffers with "
+                    "VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT set.\n");
+         }
+      return;
+   }
+
+   if (measure->base.index % 2 == 1)
+      anv_measure_end_snapshot(primary, measure->base.event_count);
+
+   struct intel_measure_snapshot *snapshot = &(measure->base.snapshots[measure->base.index]);
+   _anv_measure_snapshot(primary, INTEL_SNAPSHOT_SECONDARY_BATCH, NULL, 0);
+
+   snapshot->secondary = &secondary->measure->base;
 }

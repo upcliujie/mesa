@@ -301,7 +301,7 @@ iris_use_pinned_bo(struct iris_batch *batch,
    }
 
    if (bo != batch->bo &&
-       (!batch->measure || bo != batch->measure->bo)) {
+       (!batch->measure || bo != batch->measure->base.bo)) {
       /* This is the first time our batch has seen this BO.  Before we use it,
        * we may need to flush and synchronize with other batches.
        */

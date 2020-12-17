@@ -31,6 +31,21 @@
 #include "iris_context.h"
 #include "iris_defines.h"
 
+static uint64_t *
+measure_mmap(void *_measure_batch)
+{
+   struct intel_measure_batch *measure_batch = _measure_batch;
+   struct iris_bo *bo = measure_batch->bo;
+   return iris_bo_map(NULL, bo, MAP_READ);
+}
+
+static void
+measure_unmap(void *_measure_batch, void *bo_mem)
+{
+   struct intel_measure_batch *measure_batch = _measure_batch;
+   iris_bo_unmap(measure_batch->bo);
+}
+
 void
 iris_init_screen_measure(struct iris_screen *screen)
 {
@@ -44,6 +59,9 @@ iris_init_screen_measure(struct iris_screen *screen)
 
    list_inithead(&measure_device->queued_snapshots);
    pthread_mutex_init(&measure_device->mutex, NULL);
+
+   config->mmap_fn = measure_mmap;
+   config->munmap_fn = measure_unmap;
 
    /* the final member of intel_measure_ringbuffer is a zero-length array of
     * intel_measure_buffered_result objects.  Allocate additional space for
@@ -106,7 +124,7 @@ iris_init_batch_measure(struct iris_context *ice, struct iris_batch *batch)
    memset(batch->measure, 0, batch_bytes);
    struct iris_measure_batch *measure = batch->measure;
 
-   measure->bo =
+   measure->base.bo =
       iris_bo_alloc_tiled(bufmgr, "measure",
                           config->batch_size * sizeof(uint64_t),
                           1,  /* alignment */
@@ -123,7 +141,7 @@ iris_init_batch_measure(struct iris_context *ice, struct iris_batch *batch)
 static bool
 iris_measure_ready(struct iris_measure_batch *measure)
 {
-   return !iris_bo_busy(measure->bo);
+   return !iris_bo_busy(measure->base.bo);
 }
 
 void
@@ -132,8 +150,8 @@ iris_destroy_batch_measure(struct iris_measure_batch *batch)
    if (!batch)
       return;
 
-   iris_bo_unreference(batch->bo);
-   batch->bo = NULL;
+   iris_bo_unreference(batch->base.bo);
+   batch->base.bo = NULL;
    free(batch);
 }
 
@@ -178,7 +196,7 @@ measure_start_snapshot(struct iris_context *ice,
    iris_emit_pipe_control_write(batch, "measurement snapshot",
                                 PIPE_CONTROL_WRITE_TIMESTAMP |
                                 PIPE_CONTROL_CS_STALL,
-                                batch->measure->bo, index * sizeof(uint64_t), 0ull);
+                                batch->measure->base.bo, index * sizeof(uint64_t), 0ull);
    if (event_name == NULL)
       event_name = intel_measure_snapshot_string(type);
 
@@ -213,7 +231,7 @@ measure_end_snapshot(struct iris_batch *batch,
    iris_emit_pipe_control_write(batch, "measurement snapshot",
                                 PIPE_CONTROL_WRITE_TIMESTAMP |
                                 PIPE_CONTROL_CS_STALL,
-                                batch->measure->bo,
+                                batch->measure->base.bo,
                                 index * sizeof(uint64_t), 0ull);
 
    struct intel_measure_snapshot *snapshot = &(measure_batch->snapshots[index]);
@@ -359,20 +377,21 @@ iris_measure_gather(struct iris_context *ice)
        * not started execution.  The first timestamp will be non-zero if the
        * buffer object is ready.
        */
-      uint64_t *map = iris_bo_map(NULL, measure->bo, MAP_READ);
-      if (map[0] == 0) {
+      uint64_t *map = iris_bo_map(NULL, measure->base.bo, MAP_READ);
+      const uint64_t first_ts = *map;
+      iris_bo_unmap(measure->base.bo);
+      if (first_ts == 0) {
          /* The command buffer has not begun execution on the gpu. */
-         iris_bo_unmap(measure->bo);
          break;
       }
 
       list_del(&measure->link);
-      assert(measure->bo);
+      assert(measure->base.bo);
       assert(measure->base.index % 2 == 0);
 
-      intel_measure_push_result(measure_device, &measure->base, map);
+      intel_measure_push_result(measure_device, &measure->base);
 
-      iris_bo_unmap(measure->bo);
+      /* iris_bo_unmap(measure->bo); */
       measure->base.index = 0;
       measure->base.frame = 0;
       iris_destroy_batch_measure(measure);
