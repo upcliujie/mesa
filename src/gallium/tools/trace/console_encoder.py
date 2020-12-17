@@ -167,9 +167,9 @@ class WindowsConsoleFormatter(Formatter):
 
 
 def DefaultFormatter(stream):
-    if sys.platform in ('linux2', 'cygwin'):
+    if sys.platform.startswith('linux') or sys.platform == 'cygwin':
         return AnsiFormatter(stream)
-    elif sys.platform in ('win32',):
+    elif sys.platform == 'win32':
         return WindowsConsoleFormatter(stream)
     else:
         return Formatter(stream)
