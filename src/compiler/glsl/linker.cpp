@@ -4552,14 +4552,6 @@ link_varyings_and_uniforms(unsigned first, unsigned last,
       if (prog->_LinkedShaders[i] == NULL)
          continue;
 
-      const struct gl_shader_compiler_options *options =
-         &ctx->Const.ShaderCompilerOptions[i];
-
-      if (options->LowerBufferInterfaceBlocks)
-         lower_ubo_reference(prog->_LinkedShaders[i],
-                             options->ClampBlockIndicesToArrayBounds,
-                             ctx->Const.UseSTD430AsDefaultPacking);
-
       if (i == MESA_SHADER_COMPUTE)
          lower_shared_reference(ctx, prog, prog->_LinkedShaders[i]);
 
