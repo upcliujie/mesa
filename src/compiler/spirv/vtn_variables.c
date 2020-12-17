@@ -2449,6 +2449,23 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
                   "OpArrayLength must reference the last memeber of the "
                   "structure and that must be an array");
 
+      if (b->options->environment == NIR_SPIRV_OPENGL) {
+         struct vtn_access_chain chain = {
+            .length = 1,
+            .link = {
+               { .mode = vtn_access_mode_literal, .id = field },
+            }
+         };
+         struct vtn_pointer *array = vtn_pointer_dereference(b, ptr, &chain);
+
+         nir_ssa_def *array_length =
+            nir_build_deref_buffer_array_length(&b->nb, 32,
+                                                vtn_pointer_to_ssa(b, array));
+
+         vtn_push_nir_ssa(b, w[2], array_length);
+         break;
+      }
+
       const uint32_t offset = ptr->type->offsets[field];
       const uint32_t stride = ptr->type->members[field]->stride;
 
