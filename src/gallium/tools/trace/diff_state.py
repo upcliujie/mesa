@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+# encoding=utf-8
 ##########################################################################
 #
 # Copyright 2011 Jose Fonseca
@@ -277,7 +278,7 @@ class Differ(Visitor):
 
     def isMultilineString(self, value):
         return isinstance(value, basestring) and '\n' in value
-    
+
     def replaceMultilineString(self, a, b):
         self.dumper.visit(a)
         self.dumper._write(' -> ')

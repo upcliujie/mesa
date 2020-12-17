@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+# encoding=utf-8
 ##########################################################################
 #
 # Copyright 2008 VMware, Inc.
@@ -95,7 +96,7 @@ class AnsiFormatter(Formatter):
 
 
 class WindowsConsoleFormatter(Formatter):
-    '''Formatter for the Windows Console. See 
+    '''Formatter for the Windows Console. See
     http://code.activestate.com/recipes/496901/ for more information.
     '''
 
