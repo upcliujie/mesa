@@ -3,8 +3,8 @@
 ##########################################################################
 #
 # Copyright 2008 VMware, Inc.
-# Copyright © 2020 Intel Corporation
 # All Rights Reserved.
+# Copyright © 2020 Intel Corporation
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the
@@ -31,6 +31,7 @@
 
 '''Trace data model.'''
 
+from __future__ import unicode_literals
 import binascii
 
 from io import StringIO

@@ -4,6 +4,7 @@
 #
 # Copyright 2008 VMware, Inc.
 # All Rights Reserved.
+# Copyright © 2020 Intel Corporation
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the
@@ -27,7 +28,7 @@
 #
 ##########################################################################
 
-
+from __future__ import unicode_literals
 import sys
 import xml.parsers.expat
 import optparse

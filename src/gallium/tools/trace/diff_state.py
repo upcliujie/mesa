@@ -4,6 +4,7 @@
 #
 # Copyright 2011 Jose Fonseca
 # All Rights Reserved.
+# Copyright © 2020 Intel Corporation
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +27,7 @@
 ##########################################################################/
 
 
+from __future__ import unicode_literals
 import json
 import optparse
 import re
