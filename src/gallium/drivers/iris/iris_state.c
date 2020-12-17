@@ -932,6 +932,42 @@ iris_init_common_context(struct iris_batch *batch)
 #endif
 }
 
+static void
+toggle_protected(struct iris_batch *batch)
+{
+   struct iris_context *ice;
+
+   if (batch->name == IRIS_BATCH_RENDER)
+      ice =container_of(batch, struct iris_context, batches[IRIS_BATCH_RENDER]);
+   else if (batch->name == IRIS_BATCH_COMPUTE)
+      ice = container_of(batch, struct iris_context, batches[IRIS_BATCH_COMPUTE]);
+   else
+      unreachable("unhandled batch");
+
+   if (!ice->protected)
+      return;
+
+#if GEN_GEN >= 12
+   iris_emit_cmd(batch, GENX(PIPE_CONTROL), pc) {
+      pc.CommandStreamerStallEnable = true;
+      pc.RenderTargetCacheFlushEnable = true;
+      pc.ProtectedMemoryEnable = true;
+   }
+   iris_emit_cmd(batch, GENX(MI_SET_APPID), appid) {
+      /* Default value for single session. */
+      appid.ProtectedMemoryApplicationID = 0x7f;
+      appid.ProtectedMemoryApplicationIDType = TRANSCODE_APP;
+   }
+   iris_emit_cmd(batch, GENX(PIPE_CONTROL), pc) {
+      pc.CommandStreamerStallEnable = true;
+      pc.RenderTargetCacheFlushEnable = true;
+      pc.ProtectedMemoryEnable = true;
+   }
+#else
+   unreachable("Not supported");
+#endif
+}
+
 /**
  * Upload the initial GPU state for a render context.
  *
@@ -947,6 +983,8 @@ iris_init_render_context(struct iris_batch *batch)
    iris_batch_sync_region_start(batch);
 
    emit_pipeline_select(batch, _3D);
+
+   toggle_protected(batch);
 
    iris_emit_l3_config(batch, batch->screen->l3_config_3d);
 
@@ -1066,6 +1104,8 @@ iris_init_compute_context(struct iris_batch *batch)
 #else
    emit_pipeline_select(batch, GPGPU);
 #endif
+
+   toggle_protected(batch);
 
    iris_emit_l3_config(batch, batch->screen->l3_config_cs);
 
