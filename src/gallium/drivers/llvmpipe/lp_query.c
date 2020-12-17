@@ -215,7 +215,8 @@ llvmpipe_get_query_result_resource(struct pipe_context *pipe,
    }
 
 
-   uint64_t value = 0;
+   uint64_t value = 0, value2 = 0;
+   bool needs_value2 = false;
    if (index == -1)
       if (unsignalled)
          value = 0;
@@ -258,6 +259,11 @@ llvmpipe_get_query_result_resource(struct pipe_context *pipe,
                value = pq->end[i];
             }
          }
+         break;
+      case PIPE_QUERY_SO_STATISTICS:
+         value = pq->num_primitives_written[0];
+         value2 = pq->num_primitives_generated[0];
+         needs_value2 = true;
          break;
       case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
          value = 0;
@@ -315,6 +321,7 @@ llvmpipe_get_query_result_resource(struct pipe_context *pipe,
    }
 
    void *dst = (uint8_t *)lpr->data + offset;
+write_value2:
    switch (result_type) {
    case PIPE_QUERY_TYPE_I32: {
       int32_t *iptr = (int32_t *)dst;
@@ -342,6 +349,13 @@ llvmpipe_get_query_result_resource(struct pipe_context *pipe,
       *uptr = (uint64_t)value;
       break;
    }
+   }
+   if (needs_value2) {
+      value = value2;
+      needs_value2 = false;
+      dst = (char *)dst + ((result_type == PIPE_QUERY_TYPE_I64 ||
+                            result_type == PIPE_QUERY_TYPE_U64) ? 8 : 4);
+      goto write_value2;
    }
 }
 
