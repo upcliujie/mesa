@@ -38,7 +38,7 @@ try:
 except ImportError:
     from StringIO import StringIO
 
-import format
+import console_encoder
 
 
 class Node:
@@ -48,7 +48,7 @@ class Node:
 
     def __str__(self):
         stream = StringIO()
-        formatter = format.DefaultFormatter(stream)
+        formatter = console_encoder.DefaultFormatter(stream)
         pretty_printer = PrettyPrinter(formatter)
         self.visit(pretty_printer)
         return stream.getvalue()
