@@ -33,10 +33,14 @@
 
 from __future__ import unicode_literals
 import binascii
+import sys
 
 from io import StringIO
 
 import console_encoder
+
+if int(sys.version[0]) < 3:
+    str = unicode
 
 
 class Node:
@@ -174,7 +178,7 @@ class PrettyPrinter:
             self.formatter.literal('NULL')
             return
 
-        if isinstance(node.value, basestring):
+        if isinstance(node.value, str):
             self.formatter.literal('"' + node.value + '"')
             return
 

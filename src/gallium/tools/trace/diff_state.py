@@ -34,6 +34,9 @@ import re
 import difflib
 import sys
 
+if int(sys.version[0]) < 3:
+    str = unicode
+
 
 def strip_object_hook(obj):
     if '__class__' in obj:
@@ -250,7 +253,7 @@ class Differ(Visitor):
             self.replace(a, b)
 
     def replace(self, a, b):
-        if isinstance(a, basestring) and isinstance(b, basestring):
+        if isinstance(a, str) and isinstance(b, str):
             if '\n' in a or '\n' in b:
                 a = a.splitlines()
                 b = b.splitlines()
@@ -279,7 +282,7 @@ class Differ(Visitor):
         self.dumper.visit(b)
 
     def isMultilineString(self, value):
-        return isinstance(value, basestring) and '\n' in value
+        return isinstance(value, str) and '\n' in value
 
     def replaceMultilineString(self, a, b):
         self.dumper.visit(a)
