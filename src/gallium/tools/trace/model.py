@@ -3,6 +3,7 @@
 ##########################################################################
 #
 # Copyright 2008 VMware, Inc.
+# Copyright © 2020 Intel Corporation
 # All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -30,9 +31,6 @@
 
 '''Trace data model.'''
 
-
-import sys
-import string
 import binascii
 
 try:
