@@ -67,6 +67,7 @@ freedreno_dev_info_init(struct freedreno_dev_info *info, uint32_t gpu_id)
 			info->a6xx.magic.RB_UNKNOWN_8E04_blit = 0x01000000;
 			info->a6xx.magic.PC_UNKNOWN_9805 = 1;
 			info->a6xx.magic.SP_UNKNOWN_A0F8 = 1;
+			info->a6xx.limited_z24s8 = true;
 			break;
 		case 640:
 			info->num_sp_cores = 2;

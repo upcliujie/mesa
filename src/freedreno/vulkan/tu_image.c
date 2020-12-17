@@ -595,7 +595,7 @@ tu_CreateImage(VkDevice _device,
    }
 
    if (!ubwc_possible(image->vk_format, pCreateInfo->imageType, pCreateInfo->usage,
-                      device->physical_device->limited_z24s8))
+                      device->physical_device->info.a6xx.limited_z24s8))
       ubwc_enabled = false;
 
    /* expect UBWC enabled if we asked for it */
@@ -791,7 +791,7 @@ tu_CreateImageView(VkDevice _device,
    if (view == NULL)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   tu_image_view_init(view, pCreateInfo, device->physical_device->limited_z24s8);
+   tu_image_view_init(view, pCreateInfo, device->physical_device->info.a6xx.limited_z24s8);
 
    *pView = tu_image_view_to_handle(view);
 
