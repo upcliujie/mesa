@@ -2437,6 +2437,12 @@ tu_pipeline_builder_parse_tessellation(struct tu_pipeline_builder *builder,
    if (!tess_info)
       return;
 
+   const struct ir3_shader_variant *hs = builder->variants[MESA_SHADER_TESS_CTRL];
+   const struct ir3_shader_variant *ds = builder->variants[MESA_SHADER_TESS_EVAL];
+
+   if (!hs || !ds)
+      return;
+
    assert(!(pipeline->dynamic_state_mask & BIT(TU_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY)));
 
    assert(pipeline->ia.primtype == DI_PT_PATCHES0);
@@ -2446,8 +2452,6 @@ tu_pipeline_builder_parse_tessellation(struct tu_pipeline_builder *builder,
          vk_find_struct_const(tess_info->pNext, PIPELINE_TESSELLATION_DOMAIN_ORIGIN_STATE_CREATE_INFO);
    pipeline->tess.upper_left_domain_origin = !domain_info ||
          domain_info->domainOrigin == VK_TESSELLATION_DOMAIN_ORIGIN_UPPER_LEFT;
-   const struct ir3_shader_variant *hs = builder->variants[MESA_SHADER_TESS_CTRL];
-   const struct ir3_shader_variant *ds = builder->variants[MESA_SHADER_TESS_EVAL];
    pipeline->tess.param_stride = hs->output_size * 4;
    pipeline->tess.hs_bo_regid = hs->const_state->offsets.primitive_param + 1;
    pipeline->tess.ds_bo_regid = ds->const_state->offsets.primitive_param + 1;
