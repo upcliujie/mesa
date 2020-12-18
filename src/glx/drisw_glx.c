@@ -873,14 +873,15 @@ driswCreateScreen(int screen, struct glx_display *priv)
    configs = driConvertConfigs(psc->core, psc->base.configs, driver_configs);
    visuals = driConvertConfigs(psc->core, psc->base.visuals, driver_configs);
 
-   if (configs && visuals) {
-       glx_config_destroy_list(psc->base.configs);
-       psc->base.configs = configs;
-       glx_config_destroy_list(psc->base.visuals);
-       psc->base.visuals = visuals;
-   } else if (psc->base.configs && psc->base.visuals) {
-       ErrorMessageF("Falling back to server's fbconfigs, things may be broken\n");
+   if (!configs || !visuals) {
+       ErrorMessageF("No matching fbConfigs or visuals found\n");
+       goto handle_error;
    }
+
+   glx_config_destroy_list(psc->base.configs);
+   psc->base.configs = configs;
+   glx_config_destroy_list(psc->base.visuals);
+   psc->base.visuals = visuals;
 
    psc->driver_configs = driver_configs;
 
@@ -897,6 +898,10 @@ driswCreateScreen(int screen, struct glx_display *priv)
    return &psc->base;
 
  handle_error:
+   if (configs)
+       glx_config_destroy_list(configs);
+   if (visuals)
+       glx_config_destroy_list(visuals);
    if (psc->driScreen)
        psc->core->destroyScreen(psc->driScreen);
    psc->driScreen = NULL;
