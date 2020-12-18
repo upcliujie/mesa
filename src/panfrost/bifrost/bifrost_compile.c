@@ -3176,12 +3176,12 @@ bi_lower_bit_size(const nir_instr *instr, UNUSED void *data)
  * (8-bit in Bifrost, 32-bit in NIR TODO - workaround!). Some conversions need
  * to be scalarized due to type size. */
 
-static bool
-bi_vectorize_filter(const nir_instr *instr, void *data)
+static uint8_t
+bi_vectorize_filter(const nir_instr *instr, const void *data)
 {
         /* Defaults work for everything else */
         if (instr->type != nir_instr_type_alu)
-                return true;
+                return 0;
 
         const nir_alu_instr *alu = nir_instr_as_alu(instr);
 
@@ -3195,10 +3195,17 @@ bi_vectorize_filter(const nir_instr *instr, void *data)
         case nir_op_f2u16:
         case nir_op_i2f16:
         case nir_op_u2f16:
-                return false;
+                return 1;
         default:
-                return true;
+                break;
         }
+
+        int src_bit_size = nir_src_bit_size(alu->src[0].src);
+        int dst_bit_size = nir_dest_bit_size(alu->dest.dest);
+        if (src_bit_size == 16 || dst_bit_size == 16)
+                return 2;
+
+        return 1;
 }
 
 /* XXX: This is a kludge to workaround NIR's lack of divergence metadata. If we
