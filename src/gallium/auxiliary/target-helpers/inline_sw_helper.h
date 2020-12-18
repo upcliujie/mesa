@@ -69,7 +69,7 @@ sw_screen_create_named(struct sw_winsys *winsys, const char *driver)
       screen = d3d12_create_dxcore_screen(winsys, NULL);
 #endif
 
-   return screen;
+   return screen ? debug_screen_wrap(screen) : NULL;
 }
 
 
