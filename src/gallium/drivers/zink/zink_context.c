@@ -589,6 +589,14 @@ zink_set_clip_state(struct pipe_context *pctx,
 {
 }
 
+static void
+zink_set_tess_state(struct pipe_context *pctx,
+                    const float default_outer_level[4],
+                    const float default_inner_level[2])
+{
+   /* TODO: generate a TCS with these values if no TCS present */
+}
+
 static struct zink_render_pass *
 get_render_pass(struct zink_context *ctx)
 {
@@ -1279,6 +1287,7 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ctx->base.set_stencil_ref = zink_set_stencil_ref;
    ctx->base.set_clip_state = zink_set_clip_state;
    ctx->base.set_blend_color = zink_set_blend_color;
+   ctx->base.set_tess_state = zink_set_tess_state;
 
    ctx->base.set_sample_mask = zink_set_sample_mask;
 
