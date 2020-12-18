@@ -759,7 +759,7 @@ panfrost_load_surface(struct panfrost_batch *batch, struct pipe_surface *surf, u
         struct panfrost_resource *rsrc = pan_resource(surf->texture);
         unsigned level = surf->u.tex.level;
 
-        if (!rsrc->layout.slices[level].initialized)
+        if (!panfrost_surface_is_initialized(surf))
                 return;
 
         if (!rsrc->damage.inverted_len)

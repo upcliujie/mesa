@@ -55,6 +55,7 @@ struct panfrost_resource {
         /* Description of the resource layout */
         struct pan_image_layout layout;
 
+        BITSET_WORD *initialized;
         /* Whether the modifier can be changed */
         bool modifier_constant;
 
@@ -78,6 +79,12 @@ pan_resource(struct pipe_resource *p)
 {
         return (struct panfrost_resource *)p;
 }
+
+bool
+panfrost_surface_is_initialized(const struct pipe_surface *surf);
+
+void
+panfrost_surface_set_initialized(const struct pipe_surface *surf);
 
 struct panfrost_transfer {
         struct pipe_transfer base;

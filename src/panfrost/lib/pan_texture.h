@@ -69,9 +69,6 @@ struct panfrost_slice {
                 unsigned offset;
                 unsigned stride;
         } crc;
-
-        /* Has anything been written to this slice? */
-        bool initialized;
 };
 
 struct pan_image_layout {
