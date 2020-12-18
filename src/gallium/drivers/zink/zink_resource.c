@@ -148,6 +148,7 @@ resource_create(struct pipe_screen *pscreen,
 
       if (vkCreateBuffer(screen->dev, &bci, NULL, &res->buffer) !=
           VK_SUCCESS) {
+         debug_printf("vkCreateBuffer failed\n");
          FREE(res);
          return NULL;
       }
@@ -246,6 +247,7 @@ resource_create(struct pipe_screen *pscreen,
 
       VkResult result = vkCreateImage(screen->dev, &ici, NULL, &res->image);
       if (result != VK_SUCCESS) {
+         debug_printf("vkCreateImage failed\n");
          FREE(res);
          return NULL;
       }
@@ -300,8 +302,10 @@ resource_create(struct pipe_screen *pscreen,
       mai.pNext = &memory_wsi_info;
    }
 
-   if (vkAllocateMemory(screen->dev, &mai, NULL, &res->mem) != VK_SUCCESS)
+   if (vkAllocateMemory(screen->dev, &mai, NULL, &res->mem) != VK_SUCCESS) {
+      debug_printf("vkAllocateMemory failed\n");
       goto fail;
+   }
 
    res->offset = 0;
    res->size = reqs.size;
