@@ -122,50 +122,50 @@ static const struct
    unsigned int attrib, offset;
 } attribMap[] = {
    __ATTRIB(__DRI_ATTRIB_BUFFER_SIZE, rgbBits),
-      __ATTRIB(__DRI_ATTRIB_LEVEL, level),
-      __ATTRIB(__DRI_ATTRIB_RED_SIZE, redBits),
-      __ATTRIB(__DRI_ATTRIB_GREEN_SIZE, greenBits),
-      __ATTRIB(__DRI_ATTRIB_BLUE_SIZE, blueBits),
-      __ATTRIB(__DRI_ATTRIB_ALPHA_SIZE, alphaBits),
-      __ATTRIB(__DRI_ATTRIB_DEPTH_SIZE, depthBits),
-      __ATTRIB(__DRI_ATTRIB_STENCIL_SIZE, stencilBits),
-      __ATTRIB(__DRI_ATTRIB_ACCUM_RED_SIZE, accumRedBits),
-      __ATTRIB(__DRI_ATTRIB_ACCUM_GREEN_SIZE, accumGreenBits),
-      __ATTRIB(__DRI_ATTRIB_ACCUM_BLUE_SIZE, accumBlueBits),
-      __ATTRIB(__DRI_ATTRIB_ACCUM_ALPHA_SIZE, accumAlphaBits),
-      __ATTRIB(__DRI_ATTRIB_SAMPLE_BUFFERS, sampleBuffers),
-      __ATTRIB(__DRI_ATTRIB_SAMPLES, samples),
-      __ATTRIB(__DRI_ATTRIB_DOUBLE_BUFFER, doubleBufferMode),
-      __ATTRIB(__DRI_ATTRIB_STEREO, stereoMode),
-      __ATTRIB(__DRI_ATTRIB_AUX_BUFFERS, numAuxBuffers),
+   __ATTRIB(__DRI_ATTRIB_LEVEL, level),
+   __ATTRIB(__DRI_ATTRIB_RED_SIZE, redBits),
+   __ATTRIB(__DRI_ATTRIB_GREEN_SIZE, greenBits),
+   __ATTRIB(__DRI_ATTRIB_BLUE_SIZE, blueBits),
+   __ATTRIB(__DRI_ATTRIB_ALPHA_SIZE, alphaBits),
+   __ATTRIB(__DRI_ATTRIB_DEPTH_SIZE, depthBits),
+   __ATTRIB(__DRI_ATTRIB_STENCIL_SIZE, stencilBits),
+   __ATTRIB(__DRI_ATTRIB_ACCUM_RED_SIZE, accumRedBits),
+   __ATTRIB(__DRI_ATTRIB_ACCUM_GREEN_SIZE, accumGreenBits),
+   __ATTRIB(__DRI_ATTRIB_ACCUM_BLUE_SIZE, accumBlueBits),
+   __ATTRIB(__DRI_ATTRIB_ACCUM_ALPHA_SIZE, accumAlphaBits),
+   __ATTRIB(__DRI_ATTRIB_SAMPLE_BUFFERS, sampleBuffers),
+   __ATTRIB(__DRI_ATTRIB_SAMPLES, samples),
+   __ATTRIB(__DRI_ATTRIB_DOUBLE_BUFFER, doubleBufferMode),
+   __ATTRIB(__DRI_ATTRIB_STEREO, stereoMode),
+   // __ATTRIB(__DRI_ATTRIB_AUX_BUFFERS, numAuxBuffers),
 #if 0
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_TYPE, transparentPixel),
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_INDEX_VALUE, transparentIndex),
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_RED_VALUE, transparentRed),
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_GREEN_VALUE, transparentGreen),
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_BLUE_VALUE, transparentBlue),
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_ALPHA_VALUE, transparentAlpha),
-      __ATTRIB(__DRI_ATTRIB_RED_MASK, redMask),
-      __ATTRIB(__DRI_ATTRIB_GREEN_MASK, greenMask),
-      __ATTRIB(__DRI_ATTRIB_BLUE_MASK, blueMask),
-      __ATTRIB(__DRI_ATTRIB_ALPHA_MASK, alphaMask),
-      __ATTRIB(__DRI_ATTRIB_RED_SHIFT, redShift),
-      __ATTRIB(__DRI_ATTRIB_GREEN_SHIFT, greenShift),
-      __ATTRIB(__DRI_ATTRIB_BLUE_SHIFT, blueShift),
-      __ATTRIB(__DRI_ATTRIB_ALPHA_SHIFT, alphaShift),
+   __ATTRIB(__DRI_ATTRIB_TRANSPARENT_TYPE, transparentPixel),
+   __ATTRIB(__DRI_ATTRIB_TRANSPARENT_INDEX_VALUE, transparentIndex),
+   __ATTRIB(__DRI_ATTRIB_TRANSPARENT_RED_VALUE, transparentRed),
+   __ATTRIB(__DRI_ATTRIB_TRANSPARENT_GREEN_VALUE, transparentGreen),
+   __ATTRIB(__DRI_ATTRIB_TRANSPARENT_BLUE_VALUE, transparentBlue),
+   __ATTRIB(__DRI_ATTRIB_TRANSPARENT_ALPHA_VALUE, transparentAlpha),
+   __ATTRIB(__DRI_ATTRIB_RED_MASK, redMask),
+   __ATTRIB(__DRI_ATTRIB_GREEN_MASK, greenMask),
+   __ATTRIB(__DRI_ATTRIB_BLUE_MASK, blueMask),
+   __ATTRIB(__DRI_ATTRIB_ALPHA_MASK, alphaMask),
+   __ATTRIB(__DRI_ATTRIB_RED_SHIFT, redShift),
+   __ATTRIB(__DRI_ATTRIB_GREEN_SHIFT, greenShift),
+   __ATTRIB(__DRI_ATTRIB_BLUE_SHIFT, blueShift),
+   __ATTRIB(__DRI_ATTRIB_ALPHA_SHIFT, alphaShift),
+   __ATTRIB(__DRI_ATTRIB_MAX_PBUFFER_WIDTH, maxPbufferWidth),
+   __ATTRIB(__DRI_ATTRIB_MAX_PBUFFER_HEIGHT, maxPbufferHeight),
+   __ATTRIB(__DRI_ATTRIB_MAX_PBUFFER_PIXELS, maxPbufferPixels),
+   __ATTRIB(__DRI_ATTRIB_OPTIMAL_PBUFFER_WIDTH, optimalPbufferWidth),
+   __ATTRIB(__DRI_ATTRIB_OPTIMAL_PBUFFER_HEIGHT, optimalPbufferHeight),
+   __ATTRIB(__DRI_ATTRIB_SWAP_METHOD, swapMethod),
+   __ATTRIB(__DRI_ATTRIB_BIND_TO_TEXTURE_RGB, bindToTextureRgb),
+   __ATTRIB(__DRI_ATTRIB_BIND_TO_TEXTURE_RGBA, bindToTextureRgba),
+   __ATTRIB(__DRI_ATTRIB_BIND_TO_MIPMAP_TEXTURE,
+                  bindToMipmapTexture),
+   __ATTRIB(__DRI_ATTRIB_YINVERTED, yInverted),
+   __ATTRIB(__DRI_ATTRIB_FRAMEBUFFER_SRGB_CAPABLE, sRGBCapable),
 #endif
-      __ATTRIB(__DRI_ATTRIB_MAX_PBUFFER_WIDTH, maxPbufferWidth),
-      __ATTRIB(__DRI_ATTRIB_MAX_PBUFFER_HEIGHT, maxPbufferHeight),
-      __ATTRIB(__DRI_ATTRIB_MAX_PBUFFER_PIXELS, maxPbufferPixels),
-      __ATTRIB(__DRI_ATTRIB_OPTIMAL_PBUFFER_WIDTH, optimalPbufferWidth),
-      __ATTRIB(__DRI_ATTRIB_OPTIMAL_PBUFFER_HEIGHT, optimalPbufferHeight),
-      __ATTRIB(__DRI_ATTRIB_SWAP_METHOD, swapMethod),
-      __ATTRIB(__DRI_ATTRIB_BIND_TO_TEXTURE_RGB, bindToTextureRgb),
-      __ATTRIB(__DRI_ATTRIB_BIND_TO_TEXTURE_RGBA, bindToTextureRgba),
-      __ATTRIB(__DRI_ATTRIB_BIND_TO_MIPMAP_TEXTURE,
-                     bindToMipmapTexture),
-      __ATTRIB(__DRI_ATTRIB_YINVERTED, yInverted),
-      __ATTRIB(__DRI_ATTRIB_FRAMEBUFFER_SRGB_CAPABLE, sRGBCapable)
 };
 
 static int
@@ -210,6 +210,7 @@ driConfigEqual(const __DRIcoreExtension *core,
             return GL_FALSE;
          break;
 
+#if 0
       case __DRI_ATTRIB_CONFIG_CAVEAT:
          if (value & __DRI_ATTRIB_NON_CONFORMANT_CONFIG)
             glxValue = GLX_NON_CONFORMANT_CONFIG;
@@ -220,6 +221,7 @@ driConfigEqual(const __DRIcoreExtension *core,
          if (glxValue != config->visualRating)
             return GL_FALSE;
          break;
+#endif
 
       case __DRI_ATTRIB_BIND_TO_TEXTURE_TARGETS:
          glxValue = 0;
