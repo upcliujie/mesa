@@ -2559,6 +2559,9 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
    if (s->info.bit_sizes_float & 64)
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityFloat64);
 
+   if (feats->shaderImageGatherExtended)
+      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityImageGatherExtended);
+
    ctx.stage = s->info.stage;
    ctx.so_info = so_info;
    ctx.feats = feats;
