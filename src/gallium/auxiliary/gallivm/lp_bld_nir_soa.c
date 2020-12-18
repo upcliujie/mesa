@@ -997,6 +997,11 @@ static void emit_load_ubo(struct lp_build_nir_context *bld_base,
       LLVMValueRef num_consts = lp_build_array_get(gallivm, bld->const_sizes_ptr, index);
 
       num_consts = lp_build_broadcast_scalar(uint_bld, num_consts);
+      if (bit_size == 64)
+         num_consts = lp_build_shr_imm(uint_bld, num_consts, 1);
+      else if (bit_size == 16)
+         num_consts = lp_build_shl_imm(uint_bld, num_consts, 1);
+
       for (unsigned c = 0; c < nc; c++) {
          LLVMValueRef this_offset = lp_build_add(uint_bld, offset, lp_build_const_int_vec(gallivm, uint_bld->type, c));
          overflow_mask = lp_build_compare(gallivm, uint_bld->type, PIPE_FUNC_GEQUAL,
