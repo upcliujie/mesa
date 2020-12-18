@@ -189,7 +189,8 @@ PValue Value::one_i(new InlineConstValue(ALU_SRC_1_INT, 0));
 PValue Value::zero_dot_5(new InlineConstValue(ALU_SRC_0_5, 0));
 
 InlineConstValue::InlineConstValue(int value, int chan):
-   SpecialValue(Value::cinline, value, chan)
+   SpecialValue(Value::cinline, value, chan),
+   m_value(ALU_SRC_UNKNOWN)
 {
 }
 
