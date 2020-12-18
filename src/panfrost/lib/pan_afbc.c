@@ -140,3 +140,49 @@ panfrost_afbc_can_ytr(enum pipe_format format)
         /* The fourth channel if it exists doesn't matter */
         return desc->colorspace == UTIL_FORMAT_COLORSPACE_RGB;
 }
+
+enum pipe_format
+panfrost_afbc_format_fixup(const struct panfrost_device *dev,
+                           enum pipe_format format,
+                           const unsigned char user_swizzle[4],
+                           unsigned *swizzle)
+{
+        if (dev->arch < 7) {
+                *swizzle = panfrost_translate_swizzle_4(user_swizzle);
+                return format;
+        }
+
+        const struct util_format_description *desc =
+                util_format_description(format);
+
+        bool identity_swizzle = true;
+        for (unsigned c = 0; c < desc->nr_channels; c++) {
+                if (desc->swizzle[c] != c) {
+                        identity_swizzle = false;
+                        break;
+                }
+        }
+
+        if (identity_swizzle ||
+            desc->colorspace == UTIL_FORMAT_COLORSPACE_ZS) {
+                *swizzle = panfrost_translate_swizzle_4(user_swizzle);
+                return format;
+        }
+
+        unsigned char final_swizzle[4];
+
+        util_format_compose_swizzles(user_swizzle, desc->swizzle, final_swizzle);
+        *swizzle = panfrost_translate_swizzle_4(final_swizzle);
+
+        switch (format) {
+        case PIPE_FORMAT_B8G8R8_UNORM:
+                return PIPE_FORMAT_R8G8B8_UNORM;
+        case PIPE_FORMAT_B5G6R5_UNORM:
+                return PIPE_FORMAT_R5G6B5_UNORM;
+        default:
+                if (util_format_is_rgba8_variant(desc))
+                        return PIPE_FORMAT_R8G8B8A8_UNORM;
+
+                unreachable("Invalid format");
+        }
+}

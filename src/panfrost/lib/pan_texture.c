@@ -413,7 +413,15 @@ panfrost_new_texture(const struct panfrost_device *dev,
                      mali_ptr base,
                      const struct panfrost_ptr *payload)
 {
-        unsigned swizzle = panfrost_translate_swizzle_4(user_swizzle);
+        unsigned swizzle;
+
+        if (drm_is_afbc(layout->modifier)) {
+                format = panfrost_afbc_format_fixup(dev, format, user_swizzle,
+                                                    &swizzle);
+        } else {
+                swizzle = panfrost_translate_swizzle_4(user_swizzle);
+        }
+
         const struct util_format_description *desc =
                 util_format_description(format);
 
