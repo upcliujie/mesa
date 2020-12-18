@@ -71,6 +71,127 @@ pan_render_condition_check(struct pipe_context *pctx)
 	return true;
 }
 
+static void
+panfrost_resource_alloc_initialized(struct panfrost_resource *pres,
+                                    bool init_val)
+{
+        unsigned nbits = (pres->base.last_level + 1) * pres->base.array_size *
+                         pres->base.depth0;
+
+        if (!init_val) {
+                pres->initialized = rzalloc_array(pres, BITSET_WORD,
+                                                  BITSET_WORDS(nbits));
+        } else {
+                pres->initialized = ralloc_array(pres, BITSET_WORD,
+                                                 BITSET_WORDS(nbits));
+                memset(pres->initialized, 0xff, DIV_ROUND_UP(nbits, 8));
+        }
+}
+
+static unsigned
+panfrost_resource_layer_bitpos(struct panfrost_resource *pres, unsigned level,
+                               unsigned layer)
+{
+        unsigned surf_per_array_entry = pres->base.depth0;
+        unsigned surf_per_level = surf_per_array_entry * pres->base.array_size;
+        unsigned array_idx = pres->base.target != PIPE_TEXTURE_3D ? layer : 0;
+        unsigned surface_idx = pres->base.target == PIPE_TEXTURE_3D ? layer : 0;
+
+        return (surf_per_level * level) +
+               (surf_per_array_entry * array_idx) +
+               surface_idx;
+}
+
+bool
+panfrost_surface_is_initialized(const struct pipe_surface *surf,
+                                unsigned *first_layer, unsigned *last_layer)
+{
+        struct panfrost_resource *pres = pan_resource(surf->texture);
+        unsigned start =
+                panfrost_resource_layer_bitpos(pres, surf->u.tex.level,
+                                               surf->u.tex.first_layer);
+        unsigned end =
+                panfrost_resource_layer_bitpos(pres, surf->u.tex.level,
+                                               surf->u.tex.last_layer);
+        bool initialized = false;
+
+        *first_layer = surf->u.tex.last_layer;
+        *last_layer = surf->u.tex.first_layer;
+        for (unsigned i = start; i <= end; i++) {
+                if (BITSET_TEST(pres->initialized, i)) {
+                        *first_layer = MIN2(i, *first_layer);
+                        *last_layer = MAX2(i, *last_layer);
+                        initialized = true;
+                }
+        }
+
+        return initialized;
+}
+
+void
+panfrost_surface_set_initialized(const struct pipe_surface *surf)
+{
+        struct panfrost_resource *pres = pan_resource(surf->texture);
+        unsigned start =
+                panfrost_resource_layer_bitpos(pres, surf->u.tex.level,
+                                               surf->u.tex.first_layer);
+        unsigned end =
+                panfrost_resource_layer_bitpos(pres, surf->u.tex.level,
+                                               surf->u.tex.last_layer);
+
+        for (unsigned i = start; i <= end; i++)
+                BITSET_SET(pres->initialized, i);
+}
+
+static bool
+panfrost_level_is_initialized(struct panfrost_resource *pres,
+                              unsigned level)
+{
+        unsigned nr_layers = pres->base.target == PIPE_TEXTURE_3D ?
+                             u_minify(pres->base.depth0, level) :
+                             pres->base.array_size;
+        unsigned start = panfrost_resource_layer_bitpos(pres, level, 0);
+        unsigned end = panfrost_resource_layer_bitpos(pres, level,
+                                                      nr_layers - 1);
+
+        for (unsigned i = start; i <= end; i++) {
+                if (BITSET_TEST(pres->initialized, i))
+                        return true;
+        }
+
+        return false;
+}
+
+static void
+panfrost_level_set_initialized(struct panfrost_resource *pres,
+                               unsigned level)
+{
+        unsigned nr_layers = pres->base.target == PIPE_TEXTURE_3D ?
+                             u_minify(pres->base.depth0, level) :
+                             pres->base.array_size;
+        unsigned start = panfrost_resource_layer_bitpos(pres, level, 0);
+        unsigned end = panfrost_resource_layer_bitpos(pres, level,
+                                                      nr_layers - 1);
+
+        for (unsigned i = start; i <= end; i++)
+                BITSET_SET(pres->initialized, i);
+}
+
+static void
+panfrost_level_clear_initialized(struct panfrost_resource *pres,
+                                 unsigned level)
+{
+        unsigned nr_layers = pres->base.target == PIPE_TEXTURE_3D ?
+                             u_minify(pres->base.depth0, level) :
+                             pres->base.array_size;
+        unsigned start = panfrost_resource_layer_bitpos(pres, level, 0);
+        unsigned end = panfrost_resource_layer_bitpos(pres, level,
+                                                      nr_layers - 1);
+
+        for (unsigned i = start; i <= end; i++)
+                BITSET_CLEAR(pres->initialized, i);
+}
+
 static struct pipe_resource *
 panfrost_resource_from_handle(struct pipe_screen *pscreen,
                               const struct pipe_resource *templat,
@@ -99,6 +220,7 @@ panfrost_resource_from_handle(struct pipe_screen *pscreen,
         rsc->layout.modifier = (whandle->modifier == DRM_FORMAT_MOD_INVALID) ?
                                DRM_FORMAT_MOD_LINEAR : whandle->modifier;
         rsc->layout.dim = panfrost_translate_texture_dimension(templat->target);
+        panfrost_resource_alloc_initialized(rsc, true);
         rsc->modifier_constant = true;
         rsc->layout.slices[0].line_stride = whandle->stride;
         rsc->layout.slices[0].row_stride = whandle->stride;
@@ -114,7 +236,6 @@ panfrost_resource_from_handle(struct pipe_screen *pscreen,
         }
 
         rsc->layout.slices[0].offset = whandle->offset;
-        rsc->layout.slices[0].initialized = true;
         panfrost_resource_set_damage_region(NULL, &rsc->base, 0, NULL);
 
         if (dev->quirks & IS_BIFROST &&
@@ -732,6 +853,7 @@ panfrost_resource_create_with_modifier(struct pipe_screen *screen,
         so->base.screen = screen;
         so->internal_format = template->format;
         so->layout.dim = panfrost_translate_texture_dimension(template->target);
+        panfrost_resource_alloc_initialized(so, false);
 
         pipe_reference_init(&so->base.reference, 1);
 
@@ -940,7 +1062,8 @@ panfrost_ptr_map(struct pipe_context *pctx,
                  * from a pending batch XXX */
                 panfrost_flush_batches_accessing_bo(ctx, rsrc->bo, true);
 
-                if ((usage & PIPE_MAP_READ) && rsrc->layout.slices[level].initialized) {
+                if ((usage & PIPE_MAP_READ) &&
+                    panfrost_level_is_initialized(rsrc, level)) {
                         pan_blit_to_staging(pctx, transfer);
                         panfrost_flush_batches_accessing_bo(ctx, staging->bo, true);
                         panfrost_bo_wait(staging->bo, INT64_MAX, false);
@@ -1037,7 +1160,8 @@ panfrost_ptr_map(struct pipe_context *pctx,
                 transfer->map = ralloc_size(transfer, transfer->base.layer_stride * box->depth);
                 assert(box->depth == 1);
 
-                if ((usage & PIPE_MAP_READ) && rsrc->layout.slices[level].initialized) {
+                if ((usage & PIPE_MAP_READ) &&
+                    panfrost_level_is_initialized(rsrc, level)) {
                         panfrost_load_tiled_image(
                                         transfer->map,
                                         bo->ptr.cpu + rsrc->layout.slices[level].offset,
@@ -1068,7 +1192,7 @@ panfrost_ptr_map(struct pipe_context *pctx,
                  * initialized (maybe), so be conservative */
 
                 if (usage & PIPE_MAP_WRITE) {
-                        rsrc->layout.slices[level].initialized = true;
+                        panfrost_level_set_initialized(rsrc, level);
                         panfrost_minmax_cache_invalidate(rsrc->index_cache, &transfer->base);
                 }
 
@@ -1153,7 +1277,7 @@ panfrost_ptr_unmap(struct pipe_context *pctx,
                 struct panfrost_bo *bo = prsrc->bo;
 
                 if (transfer->usage & PIPE_MAP_WRITE) {
-                        prsrc->layout.slices[transfer->level].initialized = true;
+                        panfrost_level_set_initialized(prsrc, transfer->level);
 
                         if (prsrc->layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
                                 assert(transfer->box.depth == 1);
@@ -1218,8 +1342,7 @@ panfrost_ptr_flush_region(struct pipe_context *pctx,
                                transfer->box.x + box->x,
                                transfer->box.x + box->x + box->width);
         } else {
-                unsigned level = transfer->level;
-                rsc->layout.slices[level].initialized = true;
+                panfrost_level_set_initialized(rsc, transfer->level);
         }
 }
 
@@ -1254,7 +1377,7 @@ panfrost_generate_mipmap(
 
         assert(rsrc->bo);
         for (unsigned l = base_level + 1; l <= last_level; ++l)
-                rsrc->layout.slices[l].initialized = false;
+                panfrost_level_clear_initialized(rsrc, l);
 
         /* Beyond that, we just delegate the hard stuff. */
 

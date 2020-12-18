@@ -758,8 +758,9 @@ panfrost_load_surface(struct panfrost_batch *batch, struct pipe_surface *surf, u
 
         struct panfrost_resource *rsrc = pan_resource(surf->texture);
         unsigned level = surf->u.tex.level;
+        unsigned first_layer, last_layer;
 
-        if (!rsrc->layout.slices[level].initialized)
+        if (!panfrost_surface_is_initialized(surf, &first_layer, &last_layer))
                 return;
 
         if (!rsrc->damage.inverted_len)
@@ -811,8 +812,8 @@ panfrost_load_surface(struct panfrost_batch *batch, struct pipe_surface *surf, u
                 .array_size = rsrc->base.array_size,
                 .first_level = level,
                 .last_level = level,
-                .first_layer = surf->u.tex.first_layer,
-                .last_layer = surf->u.tex.last_layer,
+                .first_layer = first_layer,
+                .last_layer = last_layer,
                 .nr_samples = rsrc->base.nr_samples,
                 .bo = rsrc->bo,
                 .layout = &rsrc->layout,
