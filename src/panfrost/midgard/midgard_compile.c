@@ -282,44 +282,39 @@ midgard_nir_lower_global_load(nir_shader *shader)
                                             NULL);
 }
 
-static bool
+static uint8_t
 mdg_should_scalarize(const nir_instr *instr, const void *_unused)
 {
         const nir_alu_instr *alu = nir_instr_as_alu(instr);
 
         if (nir_dest_bit_size(alu->dest.dest) == 64)
-                return true;
+                return 1;
 
         switch (alu->op) {
         case nir_op_fdot2:
         case nir_op_umul_high:
         case nir_op_imul_high:
-                return true;
+                return 1;
         default:
-                return false;
+                return 0;
         }
 }
 
 /* Only vectorize int64 up to vec2 */
-static bool
-midgard_vectorize_filter(const nir_instr *instr, void *data)
+static uint8_t
+midgard_vectorize_filter(const nir_instr *instr, const void *data)
 {
         if (instr->type != nir_instr_type_alu)
-                return true;
+                return 0;
 
         const nir_alu_instr *alu = nir_instr_as_alu(instr);
-
-        unsigned num_components = alu->dest.dest.ssa.num_components;
-
         int src_bit_size = nir_src_bit_size(alu->src[0].src);
         int dst_bit_size = nir_dest_bit_size(alu->dest.dest);
 
-        if (src_bit_size == 64 || dst_bit_size == 64) {
-                if (num_components > 1)
-                        return false;
-        }
+        if (src_bit_size == 64 || dst_bit_size == 64)
+                return 2;
 
-        return true;
+        return 4;
 }
 
 static void

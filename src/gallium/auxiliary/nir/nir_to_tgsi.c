@@ -2971,11 +2971,11 @@ type_size(const struct glsl_type *type, bool bindless)
 /* Allow vectorizing of ALU instructions, but avoid vectorizing past what we
  * can handle for 64-bit values in TGSI.
  */
-static bool
-ntt_should_vectorize_instr(const nir_instr *instr, void *data)
+static uint8_t
+ntt_should_vectorize_instr(const nir_instr *instr, const void *data)
 {
    if (instr->type != nir_instr_type_alu)
-      return false;
+      return 0;
 
    nir_alu_instr *alu = nir_instr_as_alu(instr);
 
@@ -2989,7 +2989,7 @@ ntt_should_vectorize_instr(const nir_instr *instr, void *data)
        *
        * https://gitlab.freedesktop.org/virgl/virglrenderer/-/issues/195
        */
-      return false;
+      return 1;
 
    default:
       break;
@@ -3006,10 +3006,10 @@ ntt_should_vectorize_instr(const nir_instr *instr, void *data)
        * 64-bit instrs in the first place, I don't see much reason to care about
        * this.
        */
-      return false;
+      return 1;
    }
 
-   return true;
+   return 4;
 }
 
 static bool
@@ -3121,13 +3121,16 @@ ntt_optimize_nir(struct nir_shader *s, struct pipe_screen *screen)
 /* Scalarizes all 64-bit ALU ops.  Note that we only actually need to
  * scalarize vec3/vec4s, should probably fix that.
  */
-static bool
+static uint8_t
 scalarize_64bit(const nir_instr *instr, const void *data)
 {
    const nir_alu_instr *alu = nir_instr_as_alu(instr);
 
-   return (nir_dest_bit_size(alu->dest.dest) == 64 ||
-           nir_src_bit_size(alu->src[0].src) == 64);
+   if (nir_dest_bit_size(alu->dest.dest) == 64 ||
+       nir_src_bit_size(alu->src[0].src) == 64)
+      return 1;
+
+   return 0;
 }
 
 static bool

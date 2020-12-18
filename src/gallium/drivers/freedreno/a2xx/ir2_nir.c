@@ -1068,11 +1068,11 @@ cleanup_binning(struct ir2_context *ctx)
    ir2_optimize_nir(ctx->nir, false);
 }
 
-static bool
+static uint8_t
 ir2_alu_to_scalar_filter_cb(const nir_instr *instr, const void *data)
 {
    if (instr->type != nir_instr_type_alu)
-      return false;
+      return 0;
 
    nir_alu_instr *alu = nir_instr_as_alu(instr);
    switch (alu->op) {
@@ -1083,12 +1083,12 @@ ir2_alu_to_scalar_filter_cb(const nir_instr *instr, const void *data)
    case nir_op_fsqrt:
    case nir_op_fcos:
    case nir_op_fsin:
-      return true;
+      return 1;
    default:
       break;
    }
 
-   return false;
+   return 0;
 }
 
 void
