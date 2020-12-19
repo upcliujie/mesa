@@ -126,7 +126,7 @@ texgenfv( GLuint texunitIndex, GLenum coord, GLenum pname,
             return;
          }
 
-         FLUSH_VERTICES(ctx, _NEW_TEXTURE_STATE);
+         FLUSH_VERTICES(ctx, _NEW_TEXTURE_STATE, GL_TEXTURE_BIT);
          texgen->Mode = mode;
          texgen->_ModeBit = bit;
       }
@@ -140,7 +140,7 @@ texgenfv( GLuint texunitIndex, GLenum coord, GLenum pname,
          }
          if (TEST_EQ_4V(texgen->ObjectPlane, params))
             return;
-         FLUSH_VERTICES(ctx, _NEW_TEXTURE_STATE);
+         FLUSH_VERTICES(ctx, _NEW_TEXTURE_STATE, GL_TEXTURE_BIT);
          COPY_4FV(texgen->ObjectPlane, params);
       }
       break;
@@ -162,7 +162,7 @@ texgenfv( GLuint texunitIndex, GLenum coord, GLenum pname,
                                 ctx->ModelviewMatrixStack.Top->inv);
          if (TEST_EQ_4V(texgen->EyePlane, tmp))
             return;
-         FLUSH_VERTICES(ctx, _NEW_TEXTURE_STATE);
+         FLUSH_VERTICES(ctx, _NEW_TEXTURE_STATE, GL_TEXTURE_BIT);
          COPY_4FV(texgen->EyePlane, tmp);
       }
       break;

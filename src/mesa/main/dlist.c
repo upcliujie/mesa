@@ -13622,7 +13622,7 @@ GLboolean GLAPIENTRY
 _mesa_IsList(GLuint list)
 {
    GET_CURRENT_CONTEXT(ctx);
-   FLUSH_VERTICES(ctx, 0);      /* must be called before assert */
+   FLUSH_VERTICES(ctx, 0, 0);      /* must be called before assert */
    ASSERT_OUTSIDE_BEGIN_END_WITH_RETVAL(ctx, GL_FALSE);
    return islist(ctx, list, NULL);
 }
@@ -13636,7 +13636,7 @@ _mesa_DeleteLists(GLuint list, GLsizei range)
 {
    GET_CURRENT_CONTEXT(ctx);
    GLuint i;
-   FLUSH_VERTICES(ctx, 0);      /* must be called before assert */
+   FLUSH_VERTICES(ctx, 0, 0);      /* must be called before assert */
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (range < 0) {
@@ -13670,7 +13670,7 @@ _mesa_GenLists(GLsizei range)
 {
    GET_CURRENT_CONTEXT(ctx);
    GLuint base;
-   FLUSH_VERTICES(ctx, 0);      /* must be called before assert */
+   FLUSH_VERTICES(ctx, 0, 0);      /* must be called before assert */
    ASSERT_OUTSIDE_BEGIN_END_WITH_RETVAL(ctx, 0);
 
    if (range < 0) {
@@ -13780,7 +13780,7 @@ _mesa_EndList(void)
 {
    GET_CURRENT_CONTEXT(ctx);
    SAVE_FLUSH_VERTICES(ctx);
-   FLUSH_VERTICES(ctx, 0);
+   FLUSH_VERTICES(ctx, 0, 0);
 
    if (MESA_VERBOSE & VERBOSE_API)
       _mesa_debug(ctx, "glEndList\n");
@@ -14004,7 +14004,7 @@ void GLAPIENTRY
 _mesa_ListBase(GLuint base)
 {
    GET_CURRENT_CONTEXT(ctx);
-   FLUSH_VERTICES(ctx, 0);      /* must be called before assert */
+   FLUSH_VERTICES(ctx, 0, GL_LIST_BIT);   /* must be called before assert */
    ASSERT_OUTSIDE_BEGIN_END(ctx);
    ctx->List.ListBase = base;
 }
