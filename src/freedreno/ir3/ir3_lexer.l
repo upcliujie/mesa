@@ -339,6 +339,7 @@ static int parse_w(const char *str)
 "s"                               return 's';
 "base"[0-9]+                      ir3_yylval.num = strtol(yytext+4, NULL, 10); return T_BASE;
 
+"h("                              return TOKEN(T_HP);
 "="                               return '=';
 "("                               return '(';
 ")"                               return ')';

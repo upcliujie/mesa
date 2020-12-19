@@ -36,6 +36,7 @@ struct ir3 * ir3_parse(struct ir3_shader_variant *v,
 #include <string.h>
 #include <math.h>
 
+#include "util/half_float.h"
 #include "util/u_math.h"
 
 #include "ir3/ir3.h"
@@ -266,6 +267,7 @@ static void print_token(FILE *file, int type, YYSTYPE value)
 
 %token <tok> T_HR
 %token <tok> T_HC
+%token <tok> T_HP
 
 /* dst register flags */
 %token <tok> T_EVEN
@@ -959,6 +961,8 @@ relative:          relative_gpr
 immediate:         integer             { new_reg(0, IR3_REG_IMMED)->iim_val = $1; }
 |                  '(' integer ')'     { new_reg(0, IR3_REG_IMMED)->fim_val = $2; }
 |                  '(' float ')'       { new_reg(0, IR3_REG_IMMED)->fim_val = $2; }
+|                  T_HP integer ')'    { new_reg(0, IR3_REG_IMMED | IR3_REG_HALF)->iim_val = $2; }
+|                  T_HP float ')'      { new_reg(0, IR3_REG_IMMED | IR3_REG_HALF)->uim_val = _mesa_float_to_half($2); }
 |                  '(' T_NAN ')'       { new_reg(0, IR3_REG_IMMED)->fim_val = NAN; }
 |                  '(' T_INF ')'       { new_reg(0, IR3_REG_IMMED)->fim_val = INFINITY; }
 
