@@ -362,13 +362,13 @@ x86_test-base:
 x86_test-gl:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-gl "2020-12-18-piglit-replayer"
+    MESA_IMAGE_TAG: &x86_test-gl "2020-12-22-runner"
 
 # Debian 10 based x86 test image for VK
 x86_test-vk:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-vk "2020-12-19-build-piglit"
+    MESA_IMAGE_TAG: &x86_test-vk "2020-12-22-runner"
 
 # Debian 10 based ARM build image
 arm_build:
@@ -408,7 +408,7 @@ arm64_test:
   extends:
     - .use-arm_test-base
   variables:
-    MESA_IMAGE_TAG: &arm64_test "2020-12-19-build-piglit"
+    MESA_IMAGE_TAG: &arm64_test "2020-12-22-runner"
 
 .use-arm64_test:
   variables:
@@ -422,7 +422,7 @@ armhf_test:
   extends:
     - .use-arm_test-base
   variables:
-    MESA_IMAGE_TAG: &armhf_test "2020-12-19-build-piglit"
+    MESA_IMAGE_TAG: &armhf_test "2020-12-22-runner"
 
 .use-armhf_test:
   variables:
@@ -1101,16 +1101,12 @@ llvmpipe-piglit-quick_shader:
     PIGLIT_PROFILES: quick_shader
     PIGLIT_RESULTS: "llvmpipe-quick_shader"
 
-llvmpipe-traces:
-  extends:
-    - .test-gl
-    - .piglit-traces-test
-    - .llvmpipe-test
-  variables:
-    EGL_PLATFORM: "surfaceless"
-    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-llvmpipe.yml"
-    PIGLIT_REPLAY_DEVICE_NAME: "gl-vmware-llvmpipe"
-    PIGLIT_RESULTS: "llvmpipe-replay"
+.deqp-test:
+  script:
+    - ./install/deqp-runner.sh
+  artifacts:
+    reports:
+      junit: results/junit.xml
 
 .virgl-test:
   extends:
@@ -1412,6 +1408,8 @@ arm64_a630_vk_sysmem:
       - serial*.txt
     exclude:
       - results/*.shader_cache
+    reports:
+      junit: results/junit.xml
 
 .freedreno-test:
   extends:
