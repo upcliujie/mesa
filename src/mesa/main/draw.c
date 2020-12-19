@@ -1979,8 +1979,6 @@ _mesa_MultiModeDrawArraysIBM( const GLenum * mode, const GLint * first,
    GET_CURRENT_CONTEXT(ctx);
    GLint i;
 
-   FLUSH_VERTICES(ctx, 0);
-
    for ( i = 0 ; i < primcount ; i++ ) {
       if ( count[i] > 0 ) {
          GLenum m = *((GLenum *) ((GLubyte *) mode + i * modestride));
@@ -1998,10 +1996,6 @@ _mesa_MultiModeDrawElementsIBM( const GLenum * mode, const GLsizei * count,
 {
    GET_CURRENT_CONTEXT(ctx);
    GLint i;
-
-   FLUSH_VERTICES(ctx, 0);
-
-   /* XXX not sure about ARB_vertex_buffer_object handling here */
 
    for ( i = 0 ; i < primcount ; i++ ) {
       if ( count[i] > 0 ) {
