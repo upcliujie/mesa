@@ -37,6 +37,10 @@
 #include "util/macros.h"
 #include "disasm.h"
 
+#include "ir3.h"
+#include "ir3_assembler.h"
+#include "ir3_shader.h"
+
 #define INSTR_5XX(i, d) { .gpu_id = 540, .instr = #i, .expected = d }
 #define INSTR_6XX(i, d) { .gpu_id = 630, .instr = #i, .expected = d }
 
@@ -250,6 +254,8 @@ main(int argc, char **argv)
 		return 1;
 	}
 
+	struct ir3_compiler *compilers[10] = {};
+
 	for (int i = 0; i < ARRAY_SIZE(tests); i++) {
 		const struct test *test = &tests[i];
 		printf("Testing a%d %s: \"%s\"...\n",
@@ -257,6 +263,10 @@ main(int argc, char **argv)
 
 		rewind(fdisasm);
 		memset(disasm_output, 0, output_size);
+
+		/*
+		 * Test disassembly:
+		 */
 
 		uint32_t code[2] = {
 			strtoll(&test->instr[9], NULL, 16),
@@ -268,9 +278,40 @@ main(int argc, char **argv)
 		trim(disasm_output);
 
 		if (strcmp(disasm_output, test->expected) != 0) {
-			printf("FAIL\n");
+			printf("FAIL: disasm\n");
 			printf("  Expected: \"%s\"\n", test->expected);
 			printf("  Got:      \"%s\"\n", disasm_output);
+			retval = 1;
+			continue;
+		}
+
+		/*
+		 * Test assembly, which should result in the identical binary:
+		 */
+
+		unsigned gen = test->gpu_id / 100;
+		if (!compilers[gen]) {
+			compilers[gen] = ir3_compiler_create(NULL, test->gpu_id);
+		}
+
+		FILE *fasm = fmemopen((void *)test->expected, strlen(test->expected), "r");
+
+		struct ir3_kernel_info info = {};
+		struct ir3_shader *shader = ir3_parse_asm(compilers[gen], &info, fasm);
+		fclose(fasm);
+		if (!shader) {
+			printf("FAIL: assembler failed\n");
+			/* Until the assembler is more complete, don't count this as
+			 * a failure, but skip checking that assembled binary matches.
+			 */
+			continue;
+		}
+
+		struct ir3_shader_variant *v = shader->variants;
+		if (memcmp(v->bin, code, sizeof(code))) {
+			printf("FAIL: assembler\n");
+			printf("  Expected: %08x_%08x\n", code[0], code[1]);
+			printf("  Got:      %08x_%08x\n", v->bin[0], v->bin[1]);
 			retval = 1;
 			continue;
 		}
