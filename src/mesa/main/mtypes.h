@@ -5063,6 +5063,7 @@ struct gl_texture_attrib_node
 struct gl_attrib_node
 {
    GLbitfield Mask;
+   GLbitfield OldPopAttribStateMask;
    struct gl_accum_attrib Accum;
    struct gl_colorbuffer_attrib Color;
    struct gl_current_attrib Current;
