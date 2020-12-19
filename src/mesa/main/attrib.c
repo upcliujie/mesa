@@ -809,6 +809,8 @@ _mesa_PopAttrib(void)
       FLUSH_CURRENT(ctx, 0);
       memcpy(&ctx->Current, &attr->Current,
              sizeof(struct gl_current_attrib));
+      /* Set _NEW_LIGHT because current attribs may reference materials. */
+      ctx->NewState |= _NEW_CURRENT_ATTRIB | _NEW_LIGHT;
    }
 
    if (mask & GL_DEPTH_BUFFER_BIT) {
@@ -831,6 +833,7 @@ _mesa_PopAttrib(void)
                              ctx->DriverFlags.NewClipPlaneEnable |
                              ctx->DriverFlags.NewDepth |
                              ctx->DriverFlags.NewDepthClamp |
+                             ctx->DriverFlags.NewFragClamp |
                              ctx->DriverFlags.NewFramebufferSRGB |
                              ctx->DriverFlags.NewLineState |
                              ctx->DriverFlags.NewLogicOp |
@@ -838,9 +841,11 @@ _mesa_PopAttrib(void)
                              ctx->DriverFlags.NewPolygonState |
                              ctx->DriverFlags.NewSampleAlphaToXEnable |
                              ctx->DriverFlags.NewSampleMask |
+                             ctx->DriverFlags.NewSampleShading |
                              ctx->DriverFlags.NewScissorTest |
                              ctx->DriverFlags.NewStencil |
-                             ctx->DriverFlags.NewNvConservativeRasterization;
+                             ctx->DriverFlags.NewNvConservativeRasterization |
+                             ctx->DriverFlags.NewTileRasterOrder;
    }
 
    if (mask & GL_EVAL_BIT) {
@@ -940,7 +945,8 @@ _mesa_PopAttrib(void)
                      ColorMaterial);
       TEST_AND_UPDATE(ctx->Light.ColorMaterialEnabled,
                       attr->Light.ColorMaterialEnabled, GL_COLOR_MATERIAL);
-      /* materials */
+      /* Materials - they might be used by current attribs. */
+      ctx->NewState |= _NEW_CURRENT_ATTRIB;
       memcpy(&ctx->Light.Material, &attr->Light.Material,
              sizeof(struct gl_material));
       if (ctx->Extensions.ARB_color_buffer_float) {
