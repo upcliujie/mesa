@@ -5042,6 +5042,9 @@ struct gl_texture_attrib_node
    struct gl_fixedfunc_texture_unit FixedFuncUnit[MAX_TEXTURE_COORD_UNITS];
    GLfloat LodBias[MAX_TEXTURE_UNITS];
 
+   /** Saved default texture object state. */
+   struct gl_texture_object SavedDefaultObj[NUM_TEXTURE_TARGETS];
+
    /** to save per texture object state (wrap modes, filters, etc): */
    struct gl_texture_object SavedObj[MAX_TEXTURE_UNITS][NUM_TEXTURE_TARGETS];
 };
