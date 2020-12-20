@@ -103,6 +103,7 @@ update_textures(struct st_context *st,
                 const struct gl_program *prog,
                 struct pipe_sampler_view **sampler_views)
 {
+   struct pipe_context *pipe = st->pipe;
    const GLuint old_max = st->state.num_sampler_views[shader_stage];
    GLbitfield samplers_used = prog->SamplersUsed;
    GLbitfield texel_fetch_samplers = prog->info.textures_used_by_txf;
@@ -244,10 +245,7 @@ update_textures(struct st_context *st,
       num_textures = MAX2(num_textures, extra + 1);
    }
 
-   cso_set_sampler_views(st->cso_context,
-                         shader_stage,
-                         num_textures,
-                         sampler_views);
+   pipe->set_sampler_views(pipe, shader_stage, 0, num_textures, sampler_views);
    st->state.num_sampler_views[shader_stage] = num_textures;
 }
 
