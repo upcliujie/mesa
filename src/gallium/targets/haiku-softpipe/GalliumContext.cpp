@@ -204,7 +204,7 @@ GalliumContext::CreateContext(Bitmap *bitmap)
 	// Init Gallium3D Post Processing
 	// TODO: no pp filters are enabled yet through postProcessEnable
 	context->postProcess = pp_init(stContext->pipe, context->postProcessEnable,
-		stContext->cso_context);
+		stContext->cso_context, &stContext->iface);
 
 	context_id contextNext = -1;
 	Lock();
