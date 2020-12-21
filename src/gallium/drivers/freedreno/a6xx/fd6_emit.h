@@ -93,6 +93,7 @@ struct fd6_emit {
 
 	uint32_t sprite_coord_enable;  /* bitmask */
 	bool sprite_origin_upper_left;
+	bool fb_inverted;
 	bool rasterflat;
 	bool no_decode_srgb;
 	bool primitive_restart;

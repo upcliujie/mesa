@@ -182,6 +182,7 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 		.sprite_coord_enable = ctx->rasterizer->sprite_coord_enable,
 		.sprite_origin_upper_left =
 			ctx->rasterizer->sprite_coord_mode == PIPE_SPRITE_COORD_UPPER_LEFT,
+		.fb_inverted = ctx->viewport.scale[1] < 0,
 		.primitive_restart = info->primitive_restart && info->index_size,
 	};
 

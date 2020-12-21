@@ -970,14 +970,14 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 }
 
 static void emit_interp_state(struct fd_ringbuffer *ring, struct ir3_shader_variant *fs,
-		bool rasterflat, bool sprite_coord_mode, uint32_t sprite_coord_enable);
+		bool rasterflat, bool fb_inverted, bool sprite_coord_mode, uint32_t sprite_coord_enable);
 
 static struct fd_ringbuffer *
 create_interp_stateobj(struct fd_context *ctx, struct fd6_program_state *state)
 {
 	struct fd_ringbuffer *ring = fd_ringbuffer_new_object(ctx->pipe, 18 * 4);
 
-	emit_interp_state(ring, state->fs, false, false, 0);
+	emit_interp_state(ring, state->fs, false, false, false, 0);
 
 	return ring;
 }
@@ -1000,7 +1000,7 @@ fd6_program_interp_state(struct fd6_emit *emit)
 				emit->ctx->batch->submit, 18 * 4, FD_RINGBUFFER_STREAMING);
 
 		emit_interp_state(ring, state->fs, emit->rasterflat,
-				emit->sprite_origin_upper_left, emit->sprite_coord_enable);
+				emit->sprite_origin_upper_left, emit->fb_inverted, emit->sprite_coord_enable);
 
 		return ring;
 	}
@@ -1008,7 +1008,8 @@ fd6_program_interp_state(struct fd6_emit *emit)
 
 static void
 emit_interp_state(struct fd_ringbuffer *ring, struct ir3_shader_variant *fs,
-		bool rasterflat, bool sprite_origin_upper_left, uint32_t sprite_coord_enable)
+		bool rasterflat, bool sprite_origin_upper_left, bool fb_inverted,
+		uint32_t sprite_coord_enable)
 {
 	uint32_t vinterp[8], vpsrepl[8];
 
@@ -1038,12 +1039,15 @@ emit_interp_state(struct fd_ringbuffer *ring, struct ir3_shader_variant *fs,
 		}
 
 		if (util_varying_is_point_coord(fs->inputs[j].slot, sprite_coord_enable)) {
+			bool upper_left = fs->inputs[j].slot == VARYING_SLOT_PNTC ?
+				(sprite_origin_upper_left ^ fb_inverted) : sprite_origin_upper_left;
+
 			/* mask is two 2-bit fields, where:
 			 *   '01' -> S
 			 *   '10' -> T
 			 *   '11' -> 1 - T  (flip mode)
 			 */
-			unsigned mask = sprite_origin_upper_left ? 0b1001 : 0b1101;
+			unsigned mask = upper_left ? 0b1001 : 0b1101;
 			uint32_t loc = inloc;
 			if (compmask & 0x1) {
 				vpsrepl[loc / 16] |= ((mask >> 0) & 0x3) << ((loc % 16) * 2);
