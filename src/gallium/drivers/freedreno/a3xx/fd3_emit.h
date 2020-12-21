@@ -53,7 +53,7 @@ struct fd3_emit {
 	enum fd_dirty_3d_state dirty;
 
 	uint32_t sprite_coord_enable;
-	bool sprite_coord_mode;
+	bool sprite_origin_upper_left;
 	bool rasterflat;
 
 	/* cached to avoid repeated lookups of same variants: */

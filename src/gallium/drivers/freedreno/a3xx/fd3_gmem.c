@@ -541,6 +541,7 @@ fd3_emit_tile_mem2gmem(struct fd_batch *batch, const struct fd_tile *tile)
 			.debug = &ctx->debug,
 			.vtx = &ctx->blit_vbuf_state,
 			.sprite_coord_enable = 1,
+			.sprite_origin_upper_left = true,
 			/* NOTE: They all use the same VP, this is for vtx bufs. */
 			.prog = &ctx->blit_prog[0],
 	};
