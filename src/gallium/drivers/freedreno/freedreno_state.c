@@ -403,8 +403,25 @@ static void
 fd_rasterizer_state_bind(struct pipe_context *pctx, void *hwcso)
 {
 	struct fd_context *ctx = fd_context(pctx);
+	struct pipe_rasterizer_state *cso = hwcso;
 	struct pipe_scissor_state *old_scissor = fd_context_get_scissor(ctx);
 	bool discard = ctx->rasterizer && ctx->rasterizer->rasterizer_discard;
+
+	if (is_ir3(fd_screen(pctx->screen))) {
+		uint16_t old_sprite_coord_enable = ctx->rasterizer ?
+			ctx->rasterizer->sprite_coord_enable : 0;
+		uint16_t new_sprite_coord_enable = cso ?
+			cso->sprite_coord_enable : 0;
+
+		unsigned old_sprite_coord_mode = ctx->rasterizer ?
+			ctx->rasterizer->sprite_coord_mode : 0;
+		unsigned new_sprite_coord_mode = cso ?
+			cso->sprite_coord_mode : 0;
+
+		if (old_sprite_coord_enable != new_sprite_coord_enable ||
+				old_sprite_coord_mode != new_sprite_coord_mode)
+			ctx->dirty |= FD_DIRTY_PROG;
+	}
 
 	ctx->rasterizer = hwcso;
 	ctx->dirty |= FD_DIRTY_RASTERIZER;
