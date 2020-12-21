@@ -938,7 +938,7 @@ tc_set_window_rectangles(struct pipe_context *_pipe, bool include,
 }
 
 struct tc_sampler_views {
-   ubyte shader, start, count;
+   ubyte shader, start, count, unbind_num_trailing_slots;
    struct pipe_sampler_view *slot[0]; /* more will be allocated if needed */
 };
 
@@ -948,7 +948,8 @@ tc_call_set_sampler_views(struct pipe_context *pipe, union tc_payload *payload)
    struct tc_sampler_views *p = (struct tc_sampler_views *)payload;
    unsigned count = p->count;
 
-   pipe->set_sampler_views(pipe, p->shader, p->start, p->count, p->slot);
+   pipe->set_sampler_views(pipe, p->shader, p->start, p->count,
+                           p->unbind_num_trailing_slots, p->slot);
    for (unsigned i = 0; i < count; i++)
       pipe_sampler_view_reference(&p->slot[i], NULL);
 }
@@ -957,9 +958,10 @@ static void
 tc_set_sampler_views(struct pipe_context *_pipe,
                      enum pipe_shader_type shader,
                      ubyte start, ubyte count,
+                     ubyte unbind_num_trailing_slots,
                      struct pipe_sampler_view **views)
 {
-   if (!count)
+   if (!count && !unbind_num_trailing_slots)
       return;
 
    struct threaded_context *tc = threaded_context(_pipe);
@@ -969,6 +971,7 @@ tc_set_sampler_views(struct pipe_context *_pipe,
    p->shader = shader;
    p->start = start;
    p->count = count;
+   p->unbind_num_trailing_slots = unbind_num_trailing_slots;
 
    if (views) {
       for (unsigned i = 0; i < count; i++) {

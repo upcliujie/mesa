@@ -189,7 +189,8 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
       if (sampler_view == NULL)
          goto fail;
 
-      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, 1, &sampler_view);
+      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, 1, 0,
+                              &sampler_view);
 
       pipe_sampler_view_reference(&sampler_view, NULL);
 

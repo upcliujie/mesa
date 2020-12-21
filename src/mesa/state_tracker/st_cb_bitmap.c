@@ -247,7 +247,8 @@ setup_render_state(struct gl_context *ctx,
       memcpy(sampler_views, st->state.frag_sampler_views,
              sizeof(sampler_views));
       sampler_views[fpv->bitmap_sampler] = sv;
-      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, num, sampler_views);
+      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, num, 0,
+                              sampler_views);
    }
 
    /* viewport state: viewport matching window dims */

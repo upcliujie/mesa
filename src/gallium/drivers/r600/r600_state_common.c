@@ -630,7 +630,7 @@ void r600_sampler_views_dirty(struct r600_context *rctx,
 
 static void r600_set_sampler_views(struct pipe_context *pipe,
 				   enum pipe_shader_type shader,
-				   ubyte start, ubyte count,
+				   ubyte start, ubyte count, ubyte unbind_num_trailing_slots,
 				   struct pipe_sampler_view **views)
 {
 	struct r600_context *rctx = (struct r600_context *) pipe;

@@ -368,7 +368,7 @@ lima_sampler_view_destroy(struct pipe_context *pctx,
 static void
 lima_set_sampler_views(struct pipe_context *pctx,
                       enum pipe_shader_type shader,
-                      ubyte start, ubyte nr,
+                      ubyte start, ubyte nr, ubyte unbind_num_trailing_slots,
                       struct pipe_sampler_view **views)
 {
    struct lima_context *ctx = lima_context(pctx);

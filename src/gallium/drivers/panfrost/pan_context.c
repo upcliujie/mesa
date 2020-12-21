@@ -1123,6 +1123,7 @@ panfrost_set_sampler_views(
         struct pipe_context *pctx,
         enum pipe_shader_type shader,
         ubyte start_slot, ubyte num_views,
+        ubyte unbind_num_trailing_slots,
         struct pipe_sampler_view **views)
 {
         struct panfrost_context *ctx = pan_context(pctx);
