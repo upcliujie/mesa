@@ -461,6 +461,7 @@ zink_set_polygon_stipple(struct pipe_context *pctx,
 static void
 zink_set_vertex_buffers(struct pipe_context *pctx,
                         ubyte start_slot, ubyte num_buffers,
+                        ubyte unbind_num_trailing_slots,
                         const struct pipe_vertex_buffer *buffers)
 {
    struct zink_context *ctx = zink_context(pctx);
@@ -483,7 +484,8 @@ zink_set_vertex_buffers(struct pipe_context *pctx,
    }
 
    util_set_vertex_buffers_mask(ctx->buffers, &ctx->buffers_enabled_mask,
-                                buffers, start_slot, num_buffers);
+                                buffers, start_slot, num_buffers,
+                                unbind_num_trailing_slots);
 }
 
 static void

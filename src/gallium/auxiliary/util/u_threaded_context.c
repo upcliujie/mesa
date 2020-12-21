@@ -1109,7 +1109,8 @@ tc_set_shader_buffers(struct pipe_context *_pipe,
 
 struct tc_vertex_buffers {
    ubyte start, count;
-   bool unbind;
+   ubyte unbind_num_trailing_slots;
+   bool unbind_all;
    struct pipe_vertex_buffer slot[0]; /* more will be allocated if needed */
 };
 
@@ -1119,15 +1120,16 @@ tc_call_set_vertex_buffers(struct pipe_context *pipe, union tc_payload *payload)
    struct tc_vertex_buffers *p = (struct tc_vertex_buffers *)payload;
    unsigned count = p->count;
 
-   if (p->unbind) {
-      pipe->set_vertex_buffers(pipe, p->start, count, NULL);
+   if (p->unbind_all) {
+      pipe->set_vertex_buffers(pipe, p->start, count, 0, NULL);
       return;
    }
 
    for (unsigned i = 0; i < count; i++)
       tc_assert(!p->slot[i].is_user_buffer);
 
-   pipe->set_vertex_buffers(pipe, p->start, count, p->slot);
+   pipe->set_vertex_buffers(pipe, p->start, count,
+                            p->unbind_num_trailing_slots, p->slot);
    for (unsigned i = 0; i < count; i++)
       pipe_resource_reference(&p->slot[i].buffer.resource, NULL);
 }
@@ -1135,11 +1137,12 @@ tc_call_set_vertex_buffers(struct pipe_context *pipe, union tc_payload *payload)
 static void
 tc_set_vertex_buffers(struct pipe_context *_pipe,
                       ubyte start, ubyte count,
+                      ubyte unbind_num_trailing_slots,
                       const struct pipe_vertex_buffer *buffers)
 {
    struct threaded_context *tc = threaded_context(_pipe);
 
-   if (!count)
+   if (!count && !unbind_num_trailing_slots)
       return;
 
    if (buffers) {
@@ -1147,7 +1150,8 @@ tc_set_vertex_buffers(struct pipe_context *_pipe,
          tc_add_slot_based_call(tc, TC_CALL_set_vertex_buffers, tc_vertex_buffers, count);
       p->start = start;
       p->count = count;
-      p->unbind = false;
+      p->unbind_num_trailing_slots = unbind_num_trailing_slots;
+      p->unbind_all = false;
 
       for (unsigned i = 0; i < count; i++) {
          struct pipe_vertex_buffer *dst = &p->slot[i];
@@ -1164,8 +1168,8 @@ tc_set_vertex_buffers(struct pipe_context *_pipe,
       struct tc_vertex_buffers *p =
          tc_add_slot_based_call(tc, TC_CALL_set_vertex_buffers, tc_vertex_buffers, 0);
       p->start = start;
-      p->count = count;
-      p->unbind = true;
+      p->count = count + unbind_num_trailing_slots;
+      p->unbind_all = true;
    }
 }
 
