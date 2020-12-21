@@ -1096,10 +1096,12 @@ static void handle_descriptor_sets(struct lvp_cmd_buffer_entry *cmd,
    }
 }
 
-static void add_img_view_surface(struct rendering_state *state,
-                                 struct lvp_image_view *imgv, VkFormat format, int width, int height)
+static struct pipe_surface *create_img_surface(struct rendering_state *state,
+                                               struct lvp_image_view *imgv,
+                                               VkFormat format, int width,
+                                               int height,
+                                               int base_layer, int layer_count)
 {
-   if (!imgv->surface) {
       struct pipe_surface template;
 
       memset(&template, 0, sizeof(struct pipe_surface));
@@ -1107,14 +1109,23 @@ static void add_img_view_surface(struct rendering_state *state,
       template.format = vk_format_to_pipe(format);
       template.width = width;
       template.height = height;
-      template.u.tex.first_layer = imgv->subresourceRange.baseArrayLayer;
-      template.u.tex.last_layer = imgv->subresourceRange.baseArrayLayer + lvp_get_layerCount(imgv->image, &imgv->subresourceRange) - 1;
+      template.u.tex.first_layer = imgv->subresourceRange.baseArrayLayer + base_layer;
+      template.u.tex.last_layer = imgv->subresourceRange.baseArrayLayer + layer_count;
       template.u.tex.level = imgv->subresourceRange.baseMipLevel;
 
       if (template.format == PIPE_FORMAT_NONE)
-         return;
-      imgv->surface = state->pctx->create_surface(state->pctx,
-                                                  imgv->image->bo, &template);
+         return NULL;
+      return state->pctx->create_surface(state->pctx,
+                                         imgv->image->bo, &template);
+
+}
+static void add_img_view_surface(struct rendering_state *state,
+                                 struct lvp_image_view *imgv, VkFormat format, int width, int height)
+{
+   if (!imgv->surface) {
+      imgv->surface = create_img_surface(state, imgv, format,
+                                         width, height,
+                                         0, lvp_get_layerCount(imgv->image, &imgv->subresourceRange) - 1);
    }
 }
 
