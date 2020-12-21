@@ -71,6 +71,22 @@ bi_back_to_back(bi_block *block)
         return (count == 1);
 }
 
+/* Scheduler predicates */
+
+static bool
+bi_can_fma(bi_instr *ins)
+{
+        /* TODO: some additional fp16 constraints */
+        return bi_opcode_props[ins->op].fma;
+}
+
+static bool
+bi_can_add(bi_instr *ins)
+{
+        /* TODO: some additional fp16 constraints */
+        return bi_opcode_props[ins->op].add;
+}
+
 /* Insert a clause wrapping a single instruction */
 
 bi_clause *
