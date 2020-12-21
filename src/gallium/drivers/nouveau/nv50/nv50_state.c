@@ -643,8 +643,8 @@ nv50_gp_sampler_states_bind(struct pipe_context *pipe, unsigned nr, void **s)
 
 static void
 nv50_bind_sampler_states(struct pipe_context *pipe,
-                         enum pipe_shader_type shader, unsigned start,
-                         unsigned num_samplers, void **samplers)
+                         enum pipe_shader_type shader, ubyte start,
+                         ubyte num_samplers, void **samplers)
 {
    assert(start == 0);
    switch (shader) {
@@ -724,7 +724,7 @@ nv50_stage_set_sampler_views(struct nv50_context *nv50, int s,
 
 static void
 nv50_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
-                       unsigned start, unsigned nr,
+                       ubyte start, ubyte nr,
                        struct pipe_sampler_view **views)
 {
    assert(start == 0);
@@ -889,7 +889,7 @@ nv50_cp_state_bind(struct pipe_context *pipe, void *hwcso)
 
 static void
 nv50_set_constant_buffer(struct pipe_context *pipe,
-                         enum pipe_shader_type shader, uint index,
+                         enum pipe_shader_type shader, ubyte index,
                          const struct pipe_constant_buffer *cb)
 {
    struct nv50_context *nv50 = nv50_context(pipe);
@@ -1013,8 +1013,7 @@ nv50_set_polygon_stipple(struct pipe_context *pipe,
 
 static void
 nv50_set_scissor_states(struct pipe_context *pipe,
-                        unsigned start_slot,
-                        unsigned num_scissors,
+                        ubyte start_slot, ubyte num_scissors,
                         const struct pipe_scissor_state *scissor)
 {
    struct nv50_context *nv50 = nv50_context(pipe);
@@ -1032,8 +1031,7 @@ nv50_set_scissor_states(struct pipe_context *pipe,
 
 static void
 nv50_set_viewport_states(struct pipe_context *pipe,
-                         unsigned start_slot,
-                         unsigned num_viewports,
+                         ubyte start_slot, ubyte num_viewports,
                          const struct pipe_viewport_state *vpt)
 {
    struct nv50_context *nv50 = nv50_context(pipe);
@@ -1052,7 +1050,7 @@ nv50_set_viewport_states(struct pipe_context *pipe,
 static void
 nv50_set_window_rectangles(struct pipe_context *pipe,
                            bool include,
-                           unsigned num_rectangles,
+                           ubyte num_rectangles,
                            const struct pipe_scissor_state *rectangles)
 {
    struct nv50_context *nv50 = nv50_context(pipe);
@@ -1067,7 +1065,7 @@ nv50_set_window_rectangles(struct pipe_context *pipe,
 
 static void
 nv50_set_vertex_buffers(struct pipe_context *pipe,
-                        unsigned start_slot, unsigned count,
+                        ubyte start_slot, ubyte count,
                         const struct pipe_vertex_buffer *vb)
 {
    struct nv50_context *nv50 = nv50_context(pipe);

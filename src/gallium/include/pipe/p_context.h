@@ -282,7 +282,7 @@ struct pipe_context {
                                   const struct pipe_sampler_state *);
    void   (*bind_sampler_states)(struct pipe_context *,
                                  enum pipe_shader_type shader,
-                                 unsigned start_slot, unsigned num_samplers,
+                                 ubyte start_slot, ubyte num_samplers,
                                  void **samplers);
    void   (*delete_sampler_state)(struct pipe_context *, void *);
 
@@ -349,7 +349,7 @@ struct pipe_context {
                             const struct pipe_clip_state * );
 
    void (*set_constant_buffer)( struct pipe_context *,
-                                enum pipe_shader_type shader, uint index,
+                                enum pipe_shader_type shader, ubyte index,
                                 const struct pipe_constant_buffer *buf );
 
    /**
@@ -400,29 +400,29 @@ struct pipe_context {
     * size can be queried with get_sample_pixel_grid().
     */
    void (*set_sample_locations)( struct pipe_context *,
-                                 size_t size, const uint8_t *locations );
+                                 unsigned size, const uint8_t *locations );
 
    void (*set_polygon_stipple)( struct pipe_context *,
                                 const struct pipe_poly_stipple * );
 
    void (*set_scissor_states)( struct pipe_context *,
-                               unsigned start_slot,
-                               unsigned num_scissors,
+                               ubyte start_slot,
+                               ubyte num_scissors,
                                const struct pipe_scissor_state * );
 
    void (*set_window_rectangles)( struct pipe_context *,
                                   bool include,
-                                  unsigned num_rectangles,
+                                  ubyte num_rectangles,
                                   const struct pipe_scissor_state * );
 
    void (*set_viewport_states)( struct pipe_context *,
-                                unsigned start_slot,
-                                unsigned num_viewports,
+                                ubyte start_slot,
+                                ubyte num_viewports,
                                 const struct pipe_viewport_state *);
 
    void (*set_sampler_views)(struct pipe_context *,
                              enum pipe_shader_type shader,
-                             unsigned start_slot, unsigned num_views,
+                             ubyte start_slot, ubyte num_views,
                              struct pipe_sampler_view **views);
 
    void (*set_tess_state)(struct pipe_context *,
@@ -453,7 +453,7 @@ struct pipe_context {
     */
    void (*set_shader_buffers)(struct pipe_context *,
                               enum pipe_shader_type shader,
-                              unsigned start_slot, unsigned count,
+                              ubyte start_slot, ubyte count,
                               const struct pipe_shader_buffer *buffers,
                               unsigned writable_bitmask);
 
@@ -470,7 +470,7 @@ struct pipe_context {
     *                   be bound.
     */
    void (*set_hw_atomic_buffers)(struct pipe_context *,
-                                 unsigned start_slot, unsigned count,
+                                 ubyte start_slot, ubyte count,
                                  const struct pipe_shader_buffer *buffers);
 
    /**
@@ -488,12 +488,12 @@ struct pipe_context {
     */
    void (*set_shader_images)(struct pipe_context *,
                              enum pipe_shader_type shader,
-                             unsigned start_slot, unsigned count,
+                             ubyte start_slot, ubyte count,
                              const struct pipe_image_view *images);
 
    void (*set_vertex_buffers)( struct pipe_context *,
-                               unsigned start_slot,
-                               unsigned num_buffers,
+                               ubyte start_slot,
+                               ubyte num_buffers,
                                const struct pipe_vertex_buffer * );
 
    /*@}*/

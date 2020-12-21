@@ -251,8 +251,7 @@ swr_create_sampler_state(struct pipe_context *pipe,
 static void
 swr_bind_sampler_states(struct pipe_context *pipe,
                         enum pipe_shader_type shader,
-                        unsigned start,
-                        unsigned num,
+                        ubyte start, ubyte num,
                         void **samplers)
 {
    struct swr_context *ctx = swr_context(pipe);
@@ -298,8 +297,7 @@ swr_create_sampler_view(struct pipe_context *pipe,
 static void
 swr_set_sampler_views(struct pipe_context *pipe,
                       enum pipe_shader_type shader,
-                      unsigned start,
-                      unsigned num,
+                      ubyte start, ubyte num,
                       struct pipe_sampler_view **views)
 {
    struct swr_context *ctx = swr_context(pipe);
@@ -546,7 +544,7 @@ swr_delete_tes_state(struct pipe_context *pipe, void *tes)
 static void
 swr_set_constant_buffer(struct pipe_context *pipe,
                         enum pipe_shader_type shader,
-                        uint index,
+                        ubyte index,
                         const struct pipe_constant_buffer *cb)
 {
    struct swr_context *ctx = swr_context(pipe);
@@ -662,8 +660,7 @@ swr_delete_vertex_elements_state(struct pipe_context *pipe, void *velems)
 
 static void
 swr_set_vertex_buffers(struct pipe_context *pipe,
-                       unsigned start_slot,
-                       unsigned num_elements,
+                       ubyte start_slot, ubyte num_elements,
                        const struct pipe_vertex_buffer *buffers)
 {
    struct swr_context *ctx = swr_context(pipe);
@@ -705,8 +702,7 @@ swr_set_clip_state(struct pipe_context *pipe,
 
 static void
 swr_set_scissor_states(struct pipe_context *pipe,
-                       unsigned start_slot,
-                       unsigned num_scissors,
+                       ubyte start_slot, ubyte num_scissors,
                        const struct pipe_scissor_state *scissors)
 {
    struct swr_context *ctx = swr_context(pipe);
@@ -726,8 +722,7 @@ swr_set_scissor_states(struct pipe_context *pipe,
 
 static void
 swr_set_viewport_states(struct pipe_context *pipe,
-                        unsigned start_slot,
-                        unsigned num_viewports,
+                        ubyte start_slot, ubyte num_viewports,
                         const struct pipe_viewport_state *vpt)
 {
    struct swr_context *ctx = swr_context(pipe);

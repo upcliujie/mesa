@@ -445,8 +445,7 @@ void r600_sampler_states_dirty(struct r600_context *rctx,
 
 static void r600_bind_sampler_states(struct pipe_context *pipe,
 			       enum pipe_shader_type shader,
-			       unsigned start,
-			       unsigned count, void **states)
+			       ubyte start, ubyte count, void **states)
 {
 	struct r600_context *rctx = (struct r600_context *)pipe;
 	struct r600_textures_info *dst = &rctx->samplers[shader];
@@ -565,7 +564,7 @@ void r600_vertex_buffers_dirty(struct r600_context *rctx)
 }
 
 static void r600_set_vertex_buffers(struct pipe_context *ctx,
-				    unsigned start_slot, unsigned count,
+				    ubyte start_slot, ubyte count,
 				    const struct pipe_vertex_buffer *input)
 {
 	struct r600_context *rctx = (struct r600_context *)ctx;
@@ -625,7 +624,7 @@ void r600_sampler_views_dirty(struct r600_context *rctx,
 
 static void r600_set_sampler_views(struct pipe_context *pipe,
 				   enum pipe_shader_type shader,
-				   unsigned start, unsigned count,
+				   ubyte start, ubyte count,
 				   struct pipe_sampler_view **views)
 {
 	struct r600_context *rctx = (struct r600_context *) pipe;
@@ -1185,7 +1184,7 @@ void r600_constant_buffers_dirty(struct r600_context *rctx, struct r600_constbuf
 }
 
 static void r600_set_constant_buffer(struct pipe_context *ctx,
-				     enum pipe_shader_type shader, uint index,
+				     enum pipe_shader_type shader, ubyte index,
 				     const struct pipe_constant_buffer *input)
 {
 	struct r600_context *rctx = (struct r600_context *)ctx;

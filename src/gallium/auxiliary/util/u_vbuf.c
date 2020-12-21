@@ -876,7 +876,7 @@ static void u_vbuf_delete_vertex_elements(void *ctx, void *state,
 }
 
 void u_vbuf_set_vertex_buffers(struct u_vbuf *mgr,
-                               unsigned start_slot, unsigned count,
+                               ubyte start_slot, ubyte count,
                                const struct pipe_vertex_buffer *bufs)
 {
    unsigned i;

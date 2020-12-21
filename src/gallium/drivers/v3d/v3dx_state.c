@@ -266,8 +266,7 @@ v3d_set_polygon_stipple(struct pipe_context *pctx,
 
 static void
 v3d_set_scissor_states(struct pipe_context *pctx,
-                       unsigned start_slot,
-                       unsigned num_scissors,
+                       ubyte start_slot, ubyte num_scissors,
                        const struct pipe_scissor_state *scissor)
 {
         struct v3d_context *v3d = v3d_context(pctx);
@@ -278,8 +277,7 @@ v3d_set_scissor_states(struct pipe_context *pctx,
 
 static void
 v3d_set_viewport_states(struct pipe_context *pctx,
-                        unsigned start_slot,
-                        unsigned num_viewports,
+                        ubyte start_slot, ubyte num_viewports,
                         const struct pipe_viewport_state *viewport)
 {
         struct v3d_context *v3d = v3d_context(pctx);
@@ -289,7 +287,7 @@ v3d_set_viewport_states(struct pipe_context *pctx,
 
 static void
 v3d_set_vertex_buffers(struct pipe_context *pctx,
-                       unsigned start_slot, unsigned count,
+                       ubyte start_slot, ubyte count,
                        const struct pipe_vertex_buffer *vb)
 {
         struct v3d_context *v3d = v3d_context(pctx);
@@ -445,7 +443,7 @@ v3d_vertex_state_bind(struct pipe_context *pctx, void *hwcso)
 }
 
 static void
-v3d_set_constant_buffer(struct pipe_context *pctx, uint shader, uint index,
+v3d_set_constant_buffer(struct pipe_context *pctx, uint shader, ubyte index,
                         const struct pipe_constant_buffer *cb)
 {
         struct v3d_context *v3d = v3d_context(pctx);
@@ -772,8 +770,8 @@ v3d_create_sampler_state(struct pipe_context *pctx,
 
 static void
 v3d_sampler_states_bind(struct pipe_context *pctx,
-                        enum pipe_shader_type shader, unsigned start,
-                        unsigned nr, void **hwcso)
+                        enum pipe_shader_type shader, ubyte start,
+                        ubyte nr, void **hwcso)
 {
         struct v3d_context *v3d = v3d_context(pctx);
         struct v3d_texture_stateobj *stage_tex = &v3d->tex[shader];
@@ -1152,7 +1150,7 @@ v3d_sampler_view_destroy(struct pipe_context *pctx,
 static void
 v3d_set_sampler_views(struct pipe_context *pctx,
                       enum pipe_shader_type shader,
-                      unsigned start, unsigned nr,
+                      ubyte start, ubyte nr,
                       struct pipe_sampler_view **views)
 {
         struct v3d_context *v3d = v3d_context(pctx);
@@ -1255,7 +1253,7 @@ v3d_set_stream_output_targets(struct pipe_context *pctx,
 static void
 v3d_set_shader_buffers(struct pipe_context *pctx,
                        enum pipe_shader_type shader,
-                       unsigned start, unsigned count,
+                       ubyte start, ubyte count,
                        const struct pipe_shader_buffer *buffers,
                        unsigned writable_bitmask)
 {
@@ -1343,7 +1341,7 @@ v3d_create_image_view_texture_shader_state(struct v3d_context *v3d,
 static void
 v3d_set_shader_images(struct pipe_context *pctx,
                       enum pipe_shader_type shader,
-                      unsigned start, unsigned count,
+                      ubyte start, ubyte count,
                       const struct pipe_image_view *images)
 {
         struct v3d_context *v3d = v3d_context(pctx);

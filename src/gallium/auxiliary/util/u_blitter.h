@@ -585,7 +585,7 @@ util_blitter_save_render_condition(struct blitter_context *blitter,
 static inline void
 util_blitter_save_window_rectangles(struct blitter_context *blitter,
                                     boolean include,
-                                    unsigned num_rectangles,
+                                    ubyte num_rectangles,
                                     const struct pipe_scissor_state *rects)
 {
    blitter->saved_window_rectangles_include = include;

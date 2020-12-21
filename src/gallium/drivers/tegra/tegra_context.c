@@ -211,7 +211,7 @@ tegra_create_sampler_state(struct pipe_context *pcontext,
 
 static void
 tegra_bind_sampler_states(struct pipe_context *pcontext, unsigned shader,
-                          unsigned start_slot, unsigned num_samplers,
+                          ubyte start_slot, ubyte num_samplers,
                           void **samplers)
 {
    struct tegra_context *context = to_tegra_context(pcontext);
@@ -476,7 +476,7 @@ tegra_set_clip_state(struct pipe_context *pcontext,
 
 static void
 tegra_set_constant_buffer(struct pipe_context *pcontext, unsigned int shader,
-                          unsigned int index,
+                          ubyte index,
                           const struct pipe_constant_buffer *buf)
 {
    struct tegra_context *context = to_tegra_context(pcontext);
@@ -526,8 +526,8 @@ tegra_set_polygon_stipple(struct pipe_context *pcontext,
 }
 
 static void
-tegra_set_scissor_states(struct pipe_context *pcontext, unsigned start_slot,
-                         unsigned num_scissors,
+tegra_set_scissor_states(struct pipe_context *pcontext, ubyte start_slot,
+                         ubyte num_scissors,
                          const struct pipe_scissor_state *scissors)
 {
    struct tegra_context *context = to_tegra_context(pcontext);
@@ -538,7 +538,7 @@ tegra_set_scissor_states(struct pipe_context *pcontext, unsigned start_slot,
 
 static void
 tegra_set_window_rectangles(struct pipe_context *pcontext, bool include,
-                            unsigned int num_rectangles,
+                            ubyte num_rectangles,
                             const struct pipe_scissor_state *rectangles)
 {
    struct tegra_context *context = to_tegra_context(pcontext);
@@ -548,8 +548,8 @@ tegra_set_window_rectangles(struct pipe_context *pcontext, bool include,
 }
 
 static void
-tegra_set_viewport_states(struct pipe_context *pcontext, unsigned start_slot,
-                          unsigned num_viewports,
+tegra_set_viewport_states(struct pipe_context *pcontext, ubyte start_slot,
+                          ubyte num_viewports,
                           const struct pipe_viewport_state *viewports)
 {
    struct tegra_context *context = to_tegra_context(pcontext);
@@ -560,7 +560,7 @@ tegra_set_viewport_states(struct pipe_context *pcontext, unsigned start_slot,
 
 static void
 tegra_set_sampler_views(struct pipe_context *pcontext, unsigned shader,
-                        unsigned start_slot, unsigned num_views,
+                        ubyte start_slot, ubyte num_views,
                         struct pipe_sampler_view **pviews)
 {
    struct pipe_sampler_view *views[PIPE_MAX_SHADER_SAMPLER_VIEWS];
@@ -596,7 +596,7 @@ tegra_set_debug_callback(struct pipe_context *pcontext,
 
 static void
 tegra_set_shader_buffers(struct pipe_context *pcontext, unsigned int shader,
-                         unsigned start, unsigned count,
+                         ubyte start, ubyte count,
                          const struct pipe_shader_buffer *buffers,
                          unsigned writable_bitmask)
 {
@@ -608,7 +608,7 @@ tegra_set_shader_buffers(struct pipe_context *pcontext, unsigned int shader,
 
 static void
 tegra_set_shader_images(struct pipe_context *pcontext, unsigned int shader,
-                        unsigned start, unsigned count,
+                        ubyte start, ubyte count,
                         const struct pipe_image_view *images)
 {
    struct tegra_context *context = to_tegra_context(pcontext);
@@ -618,8 +618,8 @@ tegra_set_shader_images(struct pipe_context *pcontext, unsigned int shader,
 }
 
 static void
-tegra_set_vertex_buffers(struct pipe_context *pcontext, unsigned start_slot,
-                         unsigned num_buffers,
+tegra_set_vertex_buffers(struct pipe_context *pcontext, ubyte start_slot,
+                         ubyte num_buffers,
                          const struct pipe_vertex_buffer *buffers)
 {
    struct tegra_context *context = to_tegra_context(pcontext);

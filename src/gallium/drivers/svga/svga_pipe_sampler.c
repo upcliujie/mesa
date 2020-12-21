@@ -296,8 +296,7 @@ svga_create_sampler_state(struct pipe_context *pipe,
 static void
 svga_bind_sampler_states(struct pipe_context *pipe,
                          enum pipe_shader_type shader,
-                         unsigned start,
-                         unsigned num,
+                         ubyte start, ubyte num,
                          void **samplers)
 {
    struct svga_context *svga = svga_context(pipe);
@@ -412,8 +411,7 @@ svga_sampler_view_destroy(struct pipe_context *pipe,
 static void
 svga_set_sampler_views(struct pipe_context *pipe,
                        enum pipe_shader_type shader,
-                       unsigned start,
-                       unsigned num,
+                       ubyte start, ubyte num,
                        struct pipe_sampler_view **views)
 {
    struct svga_context *svga = svga_context(pipe);

@@ -96,7 +96,7 @@ fd_set_min_samples(struct pipe_context *pctx, unsigned min_samples)
  */
 static void
 fd_set_constant_buffer(struct pipe_context *pctx,
-		enum pipe_shader_type shader, uint index,
+		enum pipe_shader_type shader, ubyte index,
 		const struct pipe_constant_buffer *cb)
 {
 	struct fd_context *ctx = fd_context(pctx);
@@ -122,7 +122,7 @@ fd_set_constant_buffer(struct pipe_context *pctx,
 static void
 fd_set_shader_buffers(struct pipe_context *pctx,
 		enum pipe_shader_type shader,
-		unsigned start, unsigned count,
+		ubyte start, ubyte count,
 		const struct pipe_shader_buffer *buffers,
 		unsigned writable_bitmask)
 {
@@ -163,7 +163,7 @@ fd_set_shader_buffers(struct pipe_context *pctx,
 void
 fd_set_shader_images(struct pipe_context *pctx,
 		enum pipe_shader_type shader,
-		unsigned start, unsigned count,
+		ubyte start, ubyte count,
 		const struct pipe_image_view *images)
 {
 	struct fd_context *ctx = fd_context(pctx);
@@ -286,8 +286,7 @@ fd_set_polygon_stipple(struct pipe_context *pctx,
 
 static void
 fd_set_scissor_states(struct pipe_context *pctx,
-		unsigned start_slot,
-		unsigned num_scissors,
+		ubyte start_slot, ubyte num_scissors,
 		const struct pipe_scissor_state *scissor)
 {
 	struct fd_context *ctx = fd_context(pctx);
@@ -298,8 +297,7 @@ fd_set_scissor_states(struct pipe_context *pctx,
 
 static void
 fd_set_viewport_states(struct pipe_context *pctx,
-		unsigned start_slot,
-		unsigned num_viewports,
+		ubyte start_slot, ubyte num_viewports,
 		const struct pipe_viewport_state *viewport)
 {
 	struct fd_context *ctx = fd_context(pctx);
@@ -338,7 +336,7 @@ fd_set_viewport_states(struct pipe_context *pctx,
 
 static void
 fd_set_vertex_buffers(struct pipe_context *pctx,
-		unsigned start_slot, unsigned count,
+		ubyte start_slot, ubyte count,
 		const struct pipe_vertex_buffer *vb)
 {
 	struct fd_context *ctx = fd_context(pctx);

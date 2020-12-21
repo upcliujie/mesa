@@ -45,7 +45,7 @@
 void util_set_vertex_buffers_mask(struct pipe_vertex_buffer *dst,
                                   uint32_t *enabled_buffers,
                                   const struct pipe_vertex_buffer *src,
-                                  unsigned start_slot, unsigned count)
+                                  ubyte start_slot, ubyte count)
 {
    unsigned i;
    uint32_t bitmask = 0;
@@ -84,7 +84,7 @@ void util_set_vertex_buffers_mask(struct pipe_vertex_buffer *dst,
 void util_set_vertex_buffers_count(struct pipe_vertex_buffer *dst,
                                    unsigned *dst_count,
                                    const struct pipe_vertex_buffer *src,
-                                   unsigned start_slot, unsigned count)
+                                   ubyte start_slot, ubyte count)
 {
    unsigned i;
    uint32_t enabled_buffers = 0;
@@ -109,7 +109,7 @@ void util_set_vertex_buffers_count(struct pipe_vertex_buffer *dst,
 void util_set_shader_buffers_mask(struct pipe_shader_buffer *dst,
                                   uint32_t *enabled_buffers,
                                   const struct pipe_shader_buffer *src,
-                                  unsigned start_slot, unsigned count)
+                                  ubyte start_slot, ubyte count)
 {
    unsigned i;
 

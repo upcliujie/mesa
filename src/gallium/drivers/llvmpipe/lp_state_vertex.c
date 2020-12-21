@@ -76,7 +76,7 @@ llvmpipe_delete_vertex_elements_state(struct pipe_context *pipe, void *velems)
 
 static void
 llvmpipe_set_vertex_buffers(struct pipe_context *pipe,
-                            unsigned start_slot, unsigned count,
+                            ubyte start_slot, ubyte count,
                             const struct pipe_vertex_buffer *buffers)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);

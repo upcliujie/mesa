@@ -81,7 +81,7 @@ etna_set_sample_mask(struct pipe_context *pctx, unsigned sample_mask)
 
 static void
 etna_set_constant_buffer(struct pipe_context *pctx,
-      enum pipe_shader_type shader, uint index,
+      enum pipe_shader_type shader, ubyte index,
       const struct pipe_constant_buffer *cb)
 {
    struct etna_context *ctx = etna_context(pctx);
@@ -372,8 +372,8 @@ etna_set_polygon_stipple(struct pipe_context *pctx,
 }
 
 static void
-etna_set_scissor_states(struct pipe_context *pctx, unsigned start_slot,
-      unsigned num_scissors, const struct pipe_scissor_state *ss)
+etna_set_scissor_states(struct pipe_context *pctx, ubyte start_slot,
+      ubyte num_scissors, const struct pipe_scissor_state *ss)
 {
    struct etna_context *ctx = etna_context(pctx);
    assert(ss->minx <= ss->maxx);
@@ -384,8 +384,8 @@ etna_set_scissor_states(struct pipe_context *pctx, unsigned start_slot,
 }
 
 static void
-etna_set_viewport_states(struct pipe_context *pctx, unsigned start_slot,
-      unsigned num_scissors, const struct pipe_viewport_state *vs)
+etna_set_viewport_states(struct pipe_context *pctx, ubyte start_slot,
+      ubyte num_scissors, const struct pipe_viewport_state *vs)
 {
    struct etna_context *ctx = etna_context(pctx);
    struct compiled_viewport_state *cs = &ctx->viewport;
@@ -425,8 +425,8 @@ etna_set_viewport_states(struct pipe_context *pctx, unsigned start_slot,
 }
 
 static void
-etna_set_vertex_buffers(struct pipe_context *pctx, unsigned start_slot,
-      unsigned num_buffers, const struct pipe_vertex_buffer *vb)
+etna_set_vertex_buffers(struct pipe_context *pctx, ubyte start_slot,
+      ubyte num_buffers, const struct pipe_vertex_buffer *vb)
 {
    struct etna_context *ctx = etna_context(pctx);
    struct etna_vertexbuf_state *so = &ctx->vertex_buffer;

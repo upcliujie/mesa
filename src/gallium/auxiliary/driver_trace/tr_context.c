@@ -355,8 +355,7 @@ trace_context_create_sampler_state(struct pipe_context *_pipe,
 static void
 trace_context_bind_sampler_states(struct pipe_context *_pipe,
                                   enum pipe_shader_type shader,
-                                  unsigned start,
-                                  unsigned num_states,
+                                  ubyte start, ubyte num_states,
                                   void **states)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
@@ -748,7 +747,7 @@ trace_context_set_sample_mask(struct pipe_context *_pipe,
 
 static void
 trace_context_set_constant_buffer(struct pipe_context *_pipe,
-                                  enum pipe_shader_type shader, uint index,
+                                  enum pipe_shader_type shader, ubyte index,
                                   const struct pipe_constant_buffer *constant_buffer)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
@@ -817,8 +816,7 @@ trace_context_set_polygon_stipple(struct pipe_context *_pipe,
 
 static void
 trace_context_set_scissor_states(struct pipe_context *_pipe,
-                                 unsigned start_slot,
-                                 unsigned num_scissors,
+                                 ubyte start_slot, ubyte num_scissors,
                                  const struct pipe_scissor_state *states)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
@@ -839,8 +837,7 @@ trace_context_set_scissor_states(struct pipe_context *_pipe,
 
 static void
 trace_context_set_viewport_states(struct pipe_context *_pipe,
-                                  unsigned start_slot,
-                                  unsigned num_viewports,
+                                  ubyte start_slot, ubyte num_viewports,
                                   const struct pipe_viewport_state *states)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
@@ -983,8 +980,7 @@ trace_context_surface_destroy(struct pipe_context *_pipe,
 static void
 trace_context_set_sampler_views(struct pipe_context *_pipe,
                                 enum pipe_shader_type shader,
-                                unsigned start,
-                                unsigned num,
+                                ubyte start, ubyte num,
                                 struct pipe_sampler_view **views)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
@@ -1018,7 +1014,7 @@ trace_context_set_sampler_views(struct pipe_context *_pipe,
 
 static void
 trace_context_set_vertex_buffers(struct pipe_context *_pipe,
-                                 unsigned start_slot, unsigned num_buffers,
+                                 ubyte start_slot, ubyte num_buffers,
                                  const struct pipe_vertex_buffer *buffers)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
@@ -1743,7 +1739,7 @@ trace_context_set_tess_state(struct pipe_context *_context,
 
 static void trace_context_set_shader_buffers(struct pipe_context *_context,
                                              enum pipe_shader_type shader,
-                                             unsigned start, unsigned nr,
+                                             ubyte start, ubyte nr,
                                              const struct pipe_shader_buffer *buffers,
                                              unsigned writable_bitmask)
 {
@@ -1766,7 +1762,7 @@ static void trace_context_set_shader_buffers(struct pipe_context *_context,
 
 static void trace_context_set_shader_images(struct pipe_context *_context,
                                             enum pipe_shader_type shader,
-                                            unsigned start, unsigned nr,
+                                            ubyte start, ubyte nr,
                                             const struct pipe_image_view *images)
 {
    struct trace_context *tr_context = trace_context(_context);

@@ -2007,7 +2007,7 @@ iris_create_sampler_state(struct pipe_context *ctx,
 static void
 iris_bind_sampler_states(struct pipe_context *ctx,
                          enum pipe_shader_type p_stage,
-                         unsigned start, unsigned count,
+                         ubyte start, ubyte count,
                          void **states)
 {
    struct iris_context *ice = (struct iris_context *) ctx;
@@ -2733,7 +2733,7 @@ fill_buffer_image_param(struct brw_image_param *param,
 static void
 iris_set_shader_images(struct pipe_context *ctx,
                        enum pipe_shader_type p_stage,
-                       unsigned start_slot, unsigned count,
+                       ubyte start_slot, ubyte count,
                        const struct pipe_image_view *p_images)
 {
    struct iris_context *ice = (struct iris_context *) ctx;
@@ -2843,7 +2843,7 @@ iris_set_shader_images(struct pipe_context *ctx,
 static void
 iris_set_sampler_views(struct pipe_context *ctx,
                        enum pipe_shader_type p_stage,
-                       unsigned start, unsigned count,
+                       ubyte start, ubyte count,
                        struct pipe_sampler_view **views)
 {
    struct iris_context *ice = (struct iris_context *) ctx;
@@ -2884,7 +2884,7 @@ iris_set_compute_resources(struct pipe_context *ctx,
 
 static void
 iris_set_global_binding(struct pipe_context *ctx,
-                        unsigned start_slot, unsigned count,
+                         unsigned start_slot, unsigned count,
                         struct pipe_resource **resources,
                         uint32_t **handles)
 {
@@ -2990,8 +2990,7 @@ iris_set_sample_mask(struct pipe_context *ctx, unsigned sample_mask)
  */
 static void
 iris_set_scissor_states(struct pipe_context *ctx,
-                        unsigned start_slot,
-                        unsigned num_scissors,
+                        ubyte start_slot, ubyte num_scissors,
                         const struct pipe_scissor_state *rects)
 {
    struct iris_context *ice = (struct iris_context *) ctx;
@@ -3052,8 +3051,7 @@ viewport_extent(const struct pipe_viewport_state *state, int axis, float sign)
  */
 static void
 iris_set_viewport_states(struct pipe_context *ctx,
-                         unsigned start_slot,
-                         unsigned count,
+                         ubyte start_slot, ubyte count,
                          const struct pipe_viewport_state *states)
 {
    struct iris_context *ice = (struct iris_context *) ctx;
@@ -3199,7 +3197,7 @@ iris_set_framebuffer_state(struct pipe_context *ctx,
  */
 static void
 iris_set_constant_buffer(struct pipe_context *ctx,
-                         enum pipe_shader_type p_stage, unsigned index,
+                         enum pipe_shader_type p_stage, ubyte index,
                          const struct pipe_constant_buffer *input)
 {
    struct iris_context *ice = (struct iris_context *) ctx;
@@ -3349,7 +3347,7 @@ upload_sysvals(struct iris_context *ice,
 static void
 iris_set_shader_buffers(struct pipe_context *ctx,
                         enum pipe_shader_type p_stage,
-                        unsigned start_slot, unsigned count,
+                        ubyte start_slot, ubyte count,
                         const struct pipe_shader_buffer *buffers,
                         unsigned writable_bitmask)
 {
@@ -3408,7 +3406,7 @@ iris_delete_state(struct pipe_context *ctx, void *state)
  */
 static void
 iris_set_vertex_buffers(struct pipe_context *ctx,
-                        unsigned start_slot, unsigned count,
+                        ubyte start_slot, ubyte count,
                         const struct pipe_vertex_buffer *buffers)
 {
    struct iris_context *ice = (struct iris_context *) ctx;

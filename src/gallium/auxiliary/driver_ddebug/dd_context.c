@@ -216,7 +216,7 @@ DD_CSO_DELETE(sampler)
 static void
 dd_context_bind_sampler_states(struct pipe_context *_pipe,
                                enum pipe_shader_type shader,
-                               unsigned start, unsigned count, void **states)
+                               ubyte start, ubyte count, void **states)
 {
    struct dd_context *dctx = dd_context(_pipe);
    struct pipe_context *pipe = dctx->pipe;
@@ -359,7 +359,7 @@ DD_IMM_STATE(polygon_stipple, const struct pipe_poly_stipple, *state, state)
 
 static void
 dd_context_set_constant_buffer(struct pipe_context *_pipe,
-                               enum pipe_shader_type shader, uint index,
+                               enum pipe_shader_type shader, ubyte index,
                                const struct pipe_constant_buffer *constant_buffer)
 {
    struct dd_context *dctx = dd_context(_pipe);
@@ -372,7 +372,7 @@ dd_context_set_constant_buffer(struct pipe_context *_pipe,
 
 static void
 dd_context_set_scissor_states(struct pipe_context *_pipe,
-                              unsigned start_slot, unsigned num_scissors,
+                              ubyte start_slot, ubyte num_scissors,
                               const struct pipe_scissor_state *states)
 {
    struct dd_context *dctx = dd_context(_pipe);
@@ -385,7 +385,7 @@ dd_context_set_scissor_states(struct pipe_context *_pipe,
 
 static void
 dd_context_set_viewport_states(struct pipe_context *_pipe,
-                               unsigned start_slot, unsigned num_viewports,
+                               ubyte start_slot, ubyte num_viewports,
                                const struct pipe_viewport_state *states)
 {
    struct dd_context *dctx = dd_context(_pipe);
@@ -412,7 +412,7 @@ static void dd_context_set_tess_state(struct pipe_context *_pipe,
 
 static void dd_context_set_window_rectangles(struct pipe_context *_pipe,
                                              bool include,
-                                             unsigned num_rectangles,
+                                             ubyte num_rectangles,
                                              const struct pipe_scissor_state *rects)
 {
    struct dd_context *dctx = dd_context(_pipe);
@@ -508,7 +508,7 @@ dd_context_stream_output_target_destroy(struct pipe_context *_pipe,
 static void
 dd_context_set_sampler_views(struct pipe_context *_pipe,
                              enum pipe_shader_type shader,
-                             unsigned start, unsigned num,
+                             ubyte start, ubyte num,
                              struct pipe_sampler_view **views)
 {
    struct dd_context *dctx = dd_context(_pipe);
@@ -522,7 +522,7 @@ dd_context_set_sampler_views(struct pipe_context *_pipe,
 static void
 dd_context_set_shader_images(struct pipe_context *_pipe,
                              enum pipe_shader_type shader,
-                             unsigned start, unsigned num,
+                             ubyte start, ubyte num,
                              const struct pipe_image_view *views)
 {
    struct dd_context *dctx = dd_context(_pipe);
@@ -536,7 +536,7 @@ dd_context_set_shader_images(struct pipe_context *_pipe,
 static void
 dd_context_set_shader_buffers(struct pipe_context *_pipe,
                               enum pipe_shader_type shader,
-                              unsigned start, unsigned num_buffers,
+                              ubyte start, ubyte num_buffers,
                               const struct pipe_shader_buffer *buffers,
                               unsigned writable_bitmask)
 {
@@ -551,7 +551,7 @@ dd_context_set_shader_buffers(struct pipe_context *_pipe,
 
 static void
 dd_context_set_vertex_buffers(struct pipe_context *_pipe,
-                              unsigned start, unsigned num_buffers,
+                              ubyte start, ubyte num_buffers,
                               const struct pipe_vertex_buffer *buffers)
 {
    struct dd_context *dctx = dd_context(_pipe);

@@ -573,7 +573,7 @@ static void si_update_shader_needs_decompress_mask(struct si_context *sctx, unsi
 }
 
 static void si_set_sampler_views(struct pipe_context *ctx, enum pipe_shader_type shader,
-                                 unsigned start, unsigned count, struct pipe_sampler_view **views)
+                                 ubyte start, ubyte count, struct pipe_sampler_view **views)
 {
    struct si_context *sctx = (struct si_context *)ctx;
    int i;
@@ -802,7 +802,7 @@ static void si_set_shader_image(struct si_context *ctx, unsigned shader, unsigne
 }
 
 static void si_set_shader_images(struct pipe_context *pipe, enum pipe_shader_type shader,
-                                 unsigned start_slot, unsigned count,
+                                 ubyte start_slot, ubyte count,
                                  const struct pipe_image_view *views)
 {
    struct si_context *ctx = (struct si_context *)pipe;
@@ -922,7 +922,7 @@ void si_update_ps_colorbuf0_slot(struct si_context *sctx)
 /* SAMPLER STATES */
 
 static void si_bind_sampler_states(struct pipe_context *ctx, enum pipe_shader_type shader,
-                                   unsigned start, unsigned count, void **states)
+                                   ubyte start, ubyte count, void **states)
 {
    struct si_context *sctx = (struct si_context *)ctx;
    struct si_samplers *samplers = &sctx->samplers[shader];
@@ -1157,7 +1157,7 @@ static void si_set_constant_buffer(struct si_context *sctx, struct si_buffer_res
 }
 
 static void si_pipe_set_constant_buffer(struct pipe_context *ctx, enum pipe_shader_type shader,
-                                        uint slot, const struct pipe_constant_buffer *input)
+                                        ubyte slot, const struct pipe_constant_buffer *input)
 {
    struct si_context *sctx = (struct si_context *)ctx;
 
@@ -1258,7 +1258,7 @@ static void si_set_shader_buffer(struct si_context *sctx, struct si_buffer_resou
 }
 
 static void si_set_shader_buffers(struct pipe_context *ctx, enum pipe_shader_type shader,
-                                  unsigned start_slot, unsigned count,
+                                  ubyte start_slot, ubyte count,
                                   const struct pipe_shader_buffer *sbuffers,
                                   unsigned writable_bitmask)
 {

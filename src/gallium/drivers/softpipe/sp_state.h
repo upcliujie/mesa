@@ -173,8 +173,7 @@ softpipe_update_derived(struct softpipe_context *softpipe, unsigned prim);
 void
 softpipe_set_sampler_views(struct pipe_context *pipe,
                            enum pipe_shader_type shader,
-                           unsigned start,
-                           unsigned num,
+                           ubyte start, ubyte num,
                            struct pipe_sampler_view **views);
 
 

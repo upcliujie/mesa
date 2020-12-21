@@ -327,7 +327,7 @@ nv30_set_sample_mask(struct pipe_context *pipe, unsigned sample_mask)
 
 static void
 nv30_set_constant_buffer(struct pipe_context *pipe,
-                         enum pipe_shader_type shader, uint index,
+                         enum pipe_shader_type shader, ubyte index,
                          const struct pipe_constant_buffer *cb)
 {
    struct nv30_context *nv30 = nv30_context(pipe);
@@ -401,8 +401,7 @@ nv30_set_polygon_stipple(struct pipe_context *pipe,
 
 static void
 nv30_set_scissor_states(struct pipe_context *pipe,
-                        unsigned start_slot,
-                        unsigned num_viewports,
+                        ubyte start_slot, ubyte num_viewports,
                         const struct pipe_scissor_state *scissor)
 {
     struct nv30_context *nv30 = nv30_context(pipe);
@@ -413,8 +412,7 @@ nv30_set_scissor_states(struct pipe_context *pipe,
 
 static void
 nv30_set_viewport_states(struct pipe_context *pipe,
-                         unsigned start_slot,
-                         unsigned num_viewports,
+                         ubyte start_slot, ubyte num_viewports,
                          const struct pipe_viewport_state *vpt)
 {
     struct nv30_context *nv30 = nv30_context(pipe);
@@ -425,7 +423,7 @@ nv30_set_viewport_states(struct pipe_context *pipe,
 
 static void
 nv30_set_vertex_buffers(struct pipe_context *pipe,
-                        unsigned start_slot, unsigned count,
+                        ubyte start_slot, ubyte count,
                         const struct pipe_vertex_buffer *vb)
 {
     struct nv30_context *nv30 = nv30_context(pipe);

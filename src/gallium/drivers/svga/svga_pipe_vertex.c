@@ -42,7 +42,7 @@
 
 static void
 svga_set_vertex_buffers(struct pipe_context *pipe,
-                        unsigned start_slot, unsigned count,
+                        ubyte start_slot, ubyte count,
                         const struct pipe_vertex_buffer *buffers)
 {
    struct svga_context *svga = svga_context(pipe);

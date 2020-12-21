@@ -247,8 +247,7 @@ zink_create_sampler_state(struct pipe_context *pctx,
 static void
 zink_bind_sampler_states(struct pipe_context *pctx,
                          enum pipe_shader_type shader,
-                         unsigned start_slot,
-                         unsigned num_samplers,
+                         ubyte start_slot, ubyte num_samplers,
                          void **samplers)
 {
    struct zink_context *ctx = zink_context(pctx);
@@ -471,8 +470,7 @@ zink_set_polygon_stipple(struct pipe_context *pctx,
 
 static void
 zink_set_vertex_buffers(struct pipe_context *pctx,
-                        unsigned start_slot,
-                        unsigned num_buffers,
+                        ubyte start_slot, ubyte num_buffers,
                         const struct pipe_vertex_buffer *buffers)
 {
    struct zink_context *ctx = zink_context(pctx);
@@ -500,8 +498,7 @@ zink_set_vertex_buffers(struct pipe_context *pctx,
 
 static void
 zink_set_viewport_states(struct pipe_context *pctx,
-                         unsigned start_slot,
-                         unsigned num_viewports,
+                         ubyte start_slot, ubyte num_viewports,
                          const struct pipe_viewport_state *state)
 {
    struct zink_context *ctx = zink_context(pctx);
@@ -525,7 +522,7 @@ zink_set_viewport_states(struct pipe_context *pctx,
 
 static void
 zink_set_scissor_states(struct pipe_context *pctx,
-                        unsigned start_slot, unsigned num_scissors,
+                        ubyte start_slot, ubyte num_scissors,
                         const struct pipe_scissor_state *states)
 {
    struct zink_context *ctx = zink_context(pctx);
@@ -544,7 +541,7 @@ zink_set_scissor_states(struct pipe_context *pctx,
 
 static void
 zink_set_constant_buffer(struct pipe_context *pctx,
-                         enum pipe_shader_type shader, uint index,
+                         enum pipe_shader_type shader, ubyte index,
                          const struct pipe_constant_buffer *cb)
 {
    struct zink_context *ctx = zink_context(pctx);
@@ -577,8 +574,7 @@ zink_set_constant_buffer(struct pipe_context *pctx,
 static void
 zink_set_sampler_views(struct pipe_context *pctx,
                        enum pipe_shader_type shader_type,
-                       unsigned start_slot,
-                       unsigned num_views,
+                       ubyte start_slot, ubyte num_views,
                        struct pipe_sampler_view **views)
 {
    struct zink_context *ctx = zink_context(pctx);

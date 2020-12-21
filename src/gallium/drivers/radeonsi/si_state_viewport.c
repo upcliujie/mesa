@@ -122,8 +122,8 @@ static void si_emit_cull_state(struct si_context *sctx)
    sctx->current_vs_state |= S_VS_STATE_SMALL_PRIM_PRECISION(fui(info.small_prim_precision) >> 23);
 }
 
-static void si_set_scissor_states(struct pipe_context *pctx, unsigned start_slot,
-                                  unsigned num_scissors, const struct pipe_scissor_state *state)
+static void si_set_scissor_states(struct pipe_context *pctx, ubyte start_slot,
+                                  ubyte num_scissors, const struct pipe_scissor_state *state)
 {
    struct si_context *ctx = (struct si_context *)pctx;
    int i;
@@ -391,8 +391,8 @@ static void si_emit_scissors(struct si_context *ctx)
    }
 }
 
-static void si_set_viewport_states(struct pipe_context *pctx, unsigned start_slot,
-                                   unsigned num_viewports, const struct pipe_viewport_state *state)
+static void si_set_viewport_states(struct pipe_context *pctx, ubyte start_slot,
+                                   ubyte num_viewports, const struct pipe_viewport_state *state)
 {
    struct si_context *ctx = (struct si_context *)pctx;
    int i;
@@ -644,7 +644,7 @@ static void si_emit_window_rectangles(struct si_context *sctx)
 }
 
 static void si_set_window_rectangles(struct pipe_context *ctx, bool include,
-                                     unsigned num_rectangles,
+                                     ubyte num_rectangles,
                                      const struct pipe_scissor_state *rects)
 {
    struct si_context *sctx = (struct si_context *)ctx;

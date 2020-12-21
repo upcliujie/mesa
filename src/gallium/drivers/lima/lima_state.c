@@ -183,7 +183,7 @@ lima_delete_vertex_elements_state(struct pipe_context *pctx, void *hwcso)
 
 static void
 lima_set_vertex_buffers(struct pipe_context *pctx,
-                        unsigned start_slot, unsigned count,
+                        ubyte start_slot, ubyte count,
                         const struct pipe_vertex_buffer *vb)
 {
    struct lima_context *ctx = lima_context(pctx);
@@ -198,8 +198,7 @@ lima_set_vertex_buffers(struct pipe_context *pctx,
 
 static void
 lima_set_viewport_states(struct pipe_context *pctx,
-                         unsigned start_slot,
-                         unsigned num_viewports,
+                         ubyte start_slot, ubyte num_viewports,
                          const struct pipe_viewport_state *viewport)
 {
    struct lima_context *ctx = lima_context(pctx);
@@ -224,8 +223,7 @@ lima_set_viewport_states(struct pipe_context *pctx,
 
 static void
 lima_set_scissor_states(struct pipe_context *pctx,
-                        unsigned start_slot,
-                        unsigned num_scissors,
+                        ubyte start_slot, ubyte num_scissors,
                         const struct pipe_scissor_state *scissor)
 {
    struct lima_context *ctx = lima_context(pctx);
@@ -266,7 +264,7 @@ lima_set_clip_state(struct pipe_context *pctx,
 
 static void
 lima_set_constant_buffer(struct pipe_context *pctx,
-                         enum pipe_shader_type shader, uint index,
+                         enum pipe_shader_type shader, ubyte index,
                          const struct pipe_constant_buffer *cb)
 {
    struct lima_context *ctx = lima_context(pctx);
@@ -310,8 +308,8 @@ lima_sampler_state_delete(struct pipe_context *pctx, void *sstate)
 
 static void
 lima_sampler_states_bind(struct pipe_context *pctx,
-                        enum pipe_shader_type shader, unsigned start,
-                        unsigned nr, void **hwcso)
+                        enum pipe_shader_type shader, ubyte start,
+                        ubyte nr, void **hwcso)
 {
    struct lima_context *ctx = lima_context(pctx);
    struct lima_texture_stateobj *lima_tex = &ctx->tex_stateobj;
@@ -367,7 +365,7 @@ lima_sampler_view_destroy(struct pipe_context *pctx,
 static void
 lima_set_sampler_views(struct pipe_context *pctx,
                       enum pipe_shader_type shader,
-                      unsigned start, unsigned nr,
+                      ubyte start, ubyte nr,
                       struct pipe_sampler_view **views)
 {
    struct lima_context *ctx = lima_context(pctx);

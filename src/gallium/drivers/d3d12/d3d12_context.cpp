@@ -688,8 +688,8 @@ d3d12_create_sampler_state(struct pipe_context *pctx,
 static void
 d3d12_bind_sampler_states(struct pipe_context *pctx,
                           enum pipe_shader_type shader,
-                          unsigned start_slot,
-                          unsigned num_samplers,
+                          ubyte start_slot,
+                          ubyte num_samplers,
                           void **samplers)
 {
    struct d3d12_context *ctx = d3d12_context(pctx);
@@ -922,8 +922,8 @@ d3d12_create_sampler_view(struct pipe_context *pctx,
 static void
 d3d12_set_sampler_views(struct pipe_context *pctx,
                         enum pipe_shader_type shader_type,
-                        unsigned start_slot,
-                        unsigned num_views,
+                        ubyte start_slot,
+                        ubyte num_views,
                         struct pipe_sampler_view **views)
 {
    struct d3d12_context *ctx = d3d12_context(pctx);
@@ -1116,8 +1116,8 @@ d3d12_set_polygon_stipple(struct pipe_context *pctx,
 
 static void
 d3d12_set_vertex_buffers(struct pipe_context *pctx,
-                         unsigned start_slot,
-                         unsigned num_buffers,
+                         ubyte start_slot,
+                         ubyte num_buffers,
                          const struct pipe_vertex_buffer *buffers)
 {
    struct d3d12_context *ctx = d3d12_context(pctx);
@@ -1138,8 +1138,8 @@ d3d12_set_vertex_buffers(struct pipe_context *pctx,
 
 static void
 d3d12_set_viewport_states(struct pipe_context *pctx,
-                          unsigned start_slot,
-                          unsigned num_viewports,
+                          ubyte start_slot,
+                          ubyte num_viewports,
                           const struct pipe_viewport_state *state)
 {
    struct d3d12_context *ctx = d3d12_context(pctx);
@@ -1177,7 +1177,7 @@ d3d12_set_viewport_states(struct pipe_context *pctx,
 
 static void
 d3d12_set_scissor_states(struct pipe_context *pctx,
-                         unsigned start_slot, unsigned num_scissors,
+                         ubyte start_slot, ubyte num_scissors,
                          const struct pipe_scissor_state *states)
 {
    struct d3d12_context *ctx = d3d12_context(pctx);
@@ -1194,7 +1194,7 @@ d3d12_set_scissor_states(struct pipe_context *pctx,
 
 static void
 d3d12_set_constant_buffer(struct pipe_context *pctx,
-                          enum pipe_shader_type shader, uint index,
+                          enum pipe_shader_type shader, ubyte index,
                           const struct pipe_constant_buffer *buf)
 {
    struct d3d12_context *ctx = d3d12_context(pctx);
