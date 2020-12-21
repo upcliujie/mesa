@@ -922,8 +922,8 @@ d3d12_create_sampler_view(struct pipe_context *pctx,
 static void
 d3d12_set_sampler_views(struct pipe_context *pctx,
                         enum pipe_shader_type shader_type,
-                        ubyte start_slot,
-                        ubyte num_views,
+                        ubyte start_slot, ubyte num_views,
+                        ubyte unbind_num_trailing_slots,
                         struct pipe_sampler_view **views)
 {
    struct d3d12_context *ctx = d3d12_context(pctx);
@@ -964,6 +964,11 @@ d3d12_set_sampler_views(struct pipe_context *pctx,
          swizzle_state.swizzle_a = ss->swizzle_override_a;
       }
    }
+
+   for (unsigned i = 0; i < unbind_num_trailing_slots; i++)
+      pipe_sampler_view_reference(
+         &ctx->sampler_views[shader_type][start_slot + num_views + i], NULL);
+
    ctx->num_sampler_views[shader_type] = start_slot + num_views;
    ctx->shader_dirty[shader_type] |= D3D12_SHADER_DIRTY_SAMPLER_VIEWS;
 }

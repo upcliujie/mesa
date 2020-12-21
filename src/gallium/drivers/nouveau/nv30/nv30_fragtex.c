@@ -197,7 +197,7 @@ nv30_fragtex_set_sampler_views(struct pipe_context *pipe, unsigned nr,
 
 static void
 nv30_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
-                       ubyte start, ubyte nr,
+                       ubyte start, ubyte nr, ubyte unbind_num_trailing_slots,
                        struct pipe_sampler_view **views)
 {
    assert(start == 0);

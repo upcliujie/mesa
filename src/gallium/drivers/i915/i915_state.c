@@ -795,7 +795,7 @@ i915_set_vertex_sampler_views(struct pipe_context *pipe,
 
 static void
 i915_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
-                       ubyte start, ubyte num,
+                       ubyte start, ubyte num, ubyte unbind_num_trailing_slots,
                        struct pipe_sampler_view **views)
 {
    assert(start == 0);

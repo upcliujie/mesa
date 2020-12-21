@@ -433,6 +433,7 @@ struct pipe_context {
    void (*set_sampler_views)(struct pipe_context *,
                              enum pipe_shader_type shader,
                              ubyte start_slot, ubyte num_views,
+                             ubyte unbind_num_trailing_slots,
                              struct pipe_sampler_view **views);
 
    void (*set_tess_state)(struct pipe_context *,

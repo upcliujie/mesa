@@ -881,10 +881,10 @@ draw_textured_quad(struct gl_context *ctx, GLint x, GLint y, GLfloat z,
       sampler_views[fpv->drawpix_sampler] = sv[0];
       if (sv[1])
          sampler_views[fpv->pixelmap_sampler] = sv[1];
-      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, num, sampler_views);
+      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, num, 0, sampler_views);
    } else {
       /* drawing a depth/stencil image */
-      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, num_sampler_view, sv);
+      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, num_sampler_view, 0, sv);
    }
 
    /* viewport state: viewport matching window dims */
