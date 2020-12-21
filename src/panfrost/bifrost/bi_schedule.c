@@ -88,6 +88,12 @@ bi_can_add(bi_instr *ins)
         return bi_opcode_props[ins->op].add;
 }
 
+static bool
+bi_must_last(bi_instr *ins)
+{
+        return bi_opcode_props[ins->op].last;
+}
+
 /* Insert a clause wrapping a single instruction */
 
 bi_clause *
