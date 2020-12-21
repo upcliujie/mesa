@@ -771,6 +771,7 @@ rbug_set_sampler_views(struct pipe_context *_pipe,
 static void
 rbug_set_vertex_buffers(struct pipe_context *_pipe,
                         ubyte start_slot, ubyte num_buffers,
+                        ubyte unbind_num_trailing_slots,
                         const struct pipe_vertex_buffer *_buffers)
 {
    struct rbug_context *rb_pipe = rbug_context(_pipe);
@@ -792,7 +793,7 @@ rbug_set_vertex_buffers(struct pipe_context *_pipe,
    }
 
    pipe->set_vertex_buffers(pipe, start_slot,
-                            num_buffers,
+                            num_buffers, unbind_num_trailing_slots,
                             buffers);
 
    mtx_unlock(&rb_pipe->call_mutex);

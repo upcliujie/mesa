@@ -661,6 +661,7 @@ swr_delete_vertex_elements_state(struct pipe_context *pipe, void *velems)
 static void
 swr_set_vertex_buffers(struct pipe_context *pipe,
                        ubyte start_slot, ubyte num_elements,
+                       ubyte unbind_num_trailing_slots,
                        const struct pipe_vertex_buffer *buffers)
 {
    struct swr_context *ctx = swr_context(pipe);
@@ -671,7 +672,8 @@ swr_set_vertex_buffers(struct pipe_context *pipe,
                                  &ctx->num_vertex_buffers,
                                  buffers,
                                  start_slot,
-                                 num_elements);
+                                 num_elements,
+                                 unbind_num_trailing_slots);
 
    ctx->dirty |= SWR_NEW_VERTEX;
 }

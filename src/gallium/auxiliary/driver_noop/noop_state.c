@@ -201,6 +201,7 @@ static void noop_delete_state(struct pipe_context *ctx, void *state)
 
 static void noop_set_vertex_buffers(struct pipe_context *ctx,
                                     ubyte start_slot, ubyte count,
+                                    ubyte unbind_num_trailing_slots,
                                     const struct pipe_vertex_buffer *buffers)
 {
 }

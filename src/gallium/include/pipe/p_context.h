@@ -502,8 +502,8 @@ struct pipe_context {
                              const struct pipe_image_view *images);
 
    void (*set_vertex_buffers)( struct pipe_context *,
-                               ubyte start_slot,
-                               ubyte num_buffers,
+                               ubyte start_slot, ubyte num_buffers,
+                               ubyte unbind_num_trailing_slots,
                                const struct pipe_vertex_buffer * );
 
    /*@}*/
