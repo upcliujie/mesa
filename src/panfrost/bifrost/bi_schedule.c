@@ -94,7 +94,14 @@ bi_must_last(bi_instr *ins)
         return bi_opcode_props[ins->op].last;
 }
 
+static bool
+bi_must_message(bi_instr *ins)
+{
+        return bi_opcode_props[ins->op].message != BIFROST_MESSAGE_NONE;
+}
+
 /* Insert a clause wrapping a single instruction */
+
 
 bi_clause *
 bi_singleton(void *memctx, bi_instr *ins,
