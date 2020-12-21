@@ -45,8 +45,7 @@ llvmpipe_set_clip_state(struct pipe_context *pipe,
 
 static void
 llvmpipe_set_viewport_states(struct pipe_context *pipe,
-                             unsigned start_slot,
-                             unsigned num_viewports,
+                             ubyte start_slot, ubyte num_viewports,
                              const struct pipe_viewport_state *viewports)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
@@ -63,8 +62,7 @@ llvmpipe_set_viewport_states(struct pipe_context *pipe,
 
 static void
 llvmpipe_set_scissor_states(struct pipe_context *pipe,
-                            unsigned start_slot,
-                            unsigned num_scissors,
+                            ubyte start_slot, ubyte num_scissors,
                             const struct pipe_scissor_state *scissors)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);

@@ -179,8 +179,8 @@ fd6_sampler_state_delete(struct pipe_context *pctx, void *hwcso)
 
 static void
 fd6_sampler_states_bind(struct pipe_context *pctx,
-		enum pipe_shader_type shader, unsigned start,
-		unsigned nr, void **hwcso)
+		enum pipe_shader_type shader, ubyte start,
+		ubyte nr, void **hwcso)
 {
 	struct fd_context *ctx = fd_context(pctx);
 	struct fd6_context *fd6_ctx = fd6_context(ctx);

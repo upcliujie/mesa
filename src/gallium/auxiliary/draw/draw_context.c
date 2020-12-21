@@ -410,7 +410,7 @@ void draw_set_viewport_states( struct draw_context *draw,
 
 void
 draw_set_vertex_buffers(struct draw_context *draw,
-                        unsigned start_slot, unsigned count,
+                        ubyte start_slot, ubyte count,
                         const struct pipe_vertex_buffer *buffers)
 {
    assert(start_slot + count <= PIPE_MAX_ATTRIBS);

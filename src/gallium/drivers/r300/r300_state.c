@@ -1463,7 +1463,7 @@ static void*
 
 static void r300_bind_sampler_states(struct pipe_context* pipe,
                                      enum pipe_shader_type shader,
-                                     unsigned start, unsigned count,
+                                     ubyte start, ubyte count,
                                      void** states)
 {
     struct r300_context* r300 = r300_context(pipe);
@@ -1517,7 +1517,7 @@ static uint32_t r300_assign_texture_cache_region(unsigned index, unsigned num)
 
 static void r300_set_sampler_views(struct pipe_context* pipe,
                                    enum pipe_shader_type shader,
-                                   unsigned start, unsigned count,
+                                   ubyte start, ubyte count,
                                    struct pipe_sampler_view** views)
 {
     struct r300_context* r300 = r300_context(pipe);
@@ -1666,8 +1666,7 @@ static void r300_set_sample_mask(struct pipe_context *pipe,
 }
 
 static void r300_set_scissor_states(struct pipe_context* pipe,
-                                    unsigned start_slot,
-                                    unsigned num_scissors,
+                                    ubyte start_slot, ubyte num_scissors,
                                     const struct pipe_scissor_state* state)
 {
     struct r300_context* r300 = r300_context(pipe);
@@ -1679,8 +1678,7 @@ static void r300_set_scissor_states(struct pipe_context* pipe,
 }
 
 static void r300_set_viewport_states(struct pipe_context* pipe,
-                                     unsigned start_slot,
-                                     unsigned num_viewports,
+                                     ubyte start_slot, ubyte num_viewports,
                                      const struct pipe_viewport_state* state)
 {
     struct r300_context* r300 = r300_context(pipe);
@@ -1731,7 +1729,7 @@ static void r300_set_viewport_states(struct pipe_context* pipe,
 }
 
 static void r300_set_vertex_buffers_hwtcl(struct pipe_context* pipe,
-                                    unsigned start_slot, unsigned count,
+                                    ubyte start_slot, ubyte count,
                                     const struct pipe_vertex_buffer* buffers)
 {
     struct r300_context* r300 = r300_context(pipe);
@@ -1751,7 +1749,7 @@ static void r300_set_vertex_buffers_hwtcl(struct pipe_context* pipe,
 }
 
 static void r300_set_vertex_buffers_swtcl(struct pipe_context* pipe,
-                                    unsigned start_slot, unsigned count,
+                                    ubyte start_slot, ubyte count,
                                     const struct pipe_vertex_buffer* buffers)
 {
     struct r300_context* r300 = r300_context(pipe);
@@ -1965,7 +1963,7 @@ static void r300_delete_vs_state(struct pipe_context* pipe, void* shader)
 }
 
 static void r300_set_constant_buffer(struct pipe_context *pipe,
-                                     enum pipe_shader_type shader, uint index,
+                                     enum pipe_shader_type shader, ubyte index,
                                      const struct pipe_constant_buffer *cb)
 {
     struct r300_context* r300 = r300_context(pipe);

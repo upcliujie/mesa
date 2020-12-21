@@ -504,8 +504,7 @@ static void virgl_set_framebuffer_state(struct pipe_context *ctx,
 }
 
 static void virgl_set_viewport_states(struct pipe_context *ctx,
-                                     unsigned start_slot,
-                                     unsigned num_viewports,
+                                     ubyte start_slot, ubyte num_viewports,
                                      const struct pipe_viewport_state *state)
 {
    struct virgl_context *vctx = virgl_context(ctx);
@@ -567,8 +566,7 @@ static void virgl_bind_vertex_elements_state(struct pipe_context *ctx,
 }
 
 static void virgl_set_vertex_buffers(struct pipe_context *ctx,
-                                    unsigned start_slot,
-                                    unsigned num_buffers,
+                                    ubyte start_slot, ubyte num_buffers,
                                     const struct pipe_vertex_buffer *buffers)
 {
    struct virgl_context *vctx = virgl_context(ctx);
@@ -631,7 +629,7 @@ static void virgl_hw_set_index_buffer(struct virgl_context *vctx,
 }
 
 static void virgl_set_constant_buffer(struct pipe_context *ctx,
-                                     enum pipe_shader_type shader, uint index,
+                                     enum pipe_shader_type shader, ubyte index,
                                      const struct pipe_constant_buffer *buf)
 {
    struct virgl_context *vctx = virgl_context(ctx);
@@ -987,8 +985,7 @@ static struct pipe_sampler_view *virgl_create_sampler_view(struct pipe_context *
 
 static void virgl_set_sampler_views(struct pipe_context *ctx,
                                    enum pipe_shader_type shader_type,
-                                   unsigned start_slot,
-                                   unsigned num_views,
+                                   ubyte start_slot, ubyte num_views,
                                    struct pipe_sampler_view **views)
 {
    struct virgl_context *vctx = virgl_context(ctx);
@@ -1060,8 +1057,7 @@ static void virgl_delete_sampler_state(struct pipe_context *ctx,
 
 static void virgl_bind_sampler_states(struct pipe_context *ctx,
                                      enum pipe_shader_type shader,
-                                     unsigned start_slot,
-                                     unsigned num_samplers,
+                                     ubyte start_slot, ubyte num_samplers,
                                      void **samplers)
 {
    struct virgl_context *vctx = virgl_context(ctx);
@@ -1081,8 +1077,7 @@ static void virgl_set_polygon_stipple(struct pipe_context *ctx,
 }
 
 static void virgl_set_scissor_states(struct pipe_context *ctx,
-                                    unsigned start_slot,
-                                    unsigned num_scissor,
+                                    ubyte start_slot, ubyte num_scissor,
                                    const struct pipe_scissor_state *ss)
 {
    struct virgl_context *vctx = virgl_context(ctx);
@@ -1172,8 +1167,7 @@ static void virgl_blit(struct pipe_context *ctx,
 }
 
 static void virgl_set_hw_atomic_buffers(struct pipe_context *ctx,
-                                        unsigned start_slot,
-                                        unsigned count,
+                                        ubyte start_slot, ubyte count,
                                         const struct pipe_shader_buffer *buffers)
 {
    struct virgl_context *vctx = virgl_context(ctx);
@@ -1199,7 +1193,7 @@ static void virgl_set_hw_atomic_buffers(struct pipe_context *ctx,
 
 static void virgl_set_shader_buffers(struct pipe_context *ctx,
                                      enum pipe_shader_type shader,
-                                     unsigned start_slot, unsigned count,
+                                     ubyte start_slot, ubyte count,
                                      const struct pipe_shader_buffer *buffers,
                                      unsigned writable_bitmask)
 {
@@ -1255,7 +1249,7 @@ static void virgl_fence_server_sync(struct pipe_context *ctx,
 
 static void virgl_set_shader_images(struct pipe_context *ctx,
                                     enum pipe_shader_type shader,
-                                    unsigned start_slot, unsigned count,
+                                    ubyte start_slot, ubyte count,
                                     const struct pipe_image_view *images)
 {
    struct virgl_context *vctx = virgl_context(ctx);

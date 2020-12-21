@@ -1254,7 +1254,7 @@ int virgl_encode_set_tess_state(struct virgl_context *ctx,
 
 int virgl_encode_set_shader_buffers(struct virgl_context *ctx,
                                     enum pipe_shader_type shader,
-                                    unsigned start_slot, unsigned count,
+                                    ubyte start_slot, ubyte count,
                                     const struct pipe_shader_buffer *buffers)
 {
    int i;
@@ -1282,7 +1282,7 @@ int virgl_encode_set_shader_buffers(struct virgl_context *ctx,
 }
 
 int virgl_encode_set_hw_atomic_buffers(struct virgl_context *ctx,
-                                       unsigned start_slot, unsigned count,
+                                       ubyte start_slot, ubyte count,
                                        const struct pipe_shader_buffer *buffers)
 {
    int i;
@@ -1310,7 +1310,7 @@ int virgl_encode_set_hw_atomic_buffers(struct virgl_context *ctx,
 
 int virgl_encode_set_shader_images(struct virgl_context *ctx,
                                    enum pipe_shader_type shader,
-                                   unsigned start_slot, unsigned count,
+                                   ubyte start_slot, ubyte count,
                                    const struct pipe_image_view *images)
 {
    int i;

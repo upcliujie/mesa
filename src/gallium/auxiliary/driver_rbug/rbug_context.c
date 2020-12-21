@@ -294,7 +294,7 @@ rbug_create_sampler_state(struct pipe_context *_pipe,
 static void
 rbug_bind_sampler_states(struct pipe_context *_pipe,
                          enum pipe_shader_type shader,
-                         unsigned start, unsigned count,
+                         ubyte start, ubyte count,
                          void **samplers)
 {
    struct rbug_context *rb_pipe = rbug_context(_pipe);
@@ -632,7 +632,7 @@ rbug_set_clip_state(struct pipe_context *_pipe,
 static void
 rbug_set_constant_buffer(struct pipe_context *_pipe,
                          enum pipe_shader_type shader,
-                         uint index,
+                         ubyte index,
                          const struct pipe_constant_buffer *_cb)
 {
    struct rbug_context *rb_pipe = rbug_context(_pipe);
@@ -707,8 +707,7 @@ rbug_set_polygon_stipple(struct pipe_context *_pipe,
 
 static void
 rbug_set_scissor_states(struct pipe_context *_pipe,
-                        unsigned start_slot,
-                        unsigned num_scissors,
+                        ubyte start_slot, ubyte num_scissors,
                         const struct pipe_scissor_state *scissor)
 {
    struct rbug_context *rb_pipe = rbug_context(_pipe);
@@ -721,8 +720,7 @@ rbug_set_scissor_states(struct pipe_context *_pipe,
 
 static void
 rbug_set_viewport_states(struct pipe_context *_pipe,
-                         unsigned start_slot,
-                         unsigned num_viewports,
+                         ubyte start_slot, ubyte num_viewports,
                          const struct pipe_viewport_state *viewport)
 {
    struct rbug_context *rb_pipe = rbug_context(_pipe);
@@ -736,8 +734,7 @@ rbug_set_viewport_states(struct pipe_context *_pipe,
 static void
 rbug_set_sampler_views(struct pipe_context *_pipe,
                        enum pipe_shader_type shader,
-                       unsigned start,
-                       unsigned num,
+                       ubyte start, ubyte num,
                        struct pipe_sampler_view **_views)
 {
    struct rbug_context *rb_pipe = rbug_context(_pipe);
@@ -773,7 +770,7 @@ rbug_set_sampler_views(struct pipe_context *_pipe,
 
 static void
 rbug_set_vertex_buffers(struct pipe_context *_pipe,
-                        unsigned start_slot, unsigned num_buffers,
+                        ubyte start_slot, ubyte num_buffers,
                         const struct pipe_vertex_buffer *_buffers)
 {
    struct rbug_context *rb_pipe = rbug_context(_pipe);

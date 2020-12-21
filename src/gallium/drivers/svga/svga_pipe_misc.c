@@ -36,8 +36,7 @@
 
 static void
 svga_set_scissor_states(struct pipe_context *pipe,
-                        unsigned start_slot,
-                        unsigned num_scissors,
+                        ubyte start_slot, ubyte num_scissors,
                         const struct pipe_scissor_state *scissors)
 {
    ASSERTED struct svga_screen *svgascreen = svga_screen(pipe->screen);
@@ -201,8 +200,7 @@ svga_set_clip_state(struct pipe_context *pipe,
 
 static void
 svga_set_viewport_states(struct pipe_context *pipe,
-                         unsigned start_slot,
-                         unsigned num_viewports,
+                         ubyte start_slot, ubyte num_viewports,
                          const struct pipe_viewport_state *viewports)
 {
    struct svga_context *svga = svga_context(pipe);

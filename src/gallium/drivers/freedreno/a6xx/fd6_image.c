@@ -318,7 +318,7 @@ fd6_build_ibo_state(struct fd_context *ctx, const struct ir3_shader_variant *v,
 
 static void fd6_set_shader_images(struct pipe_context *pctx,
 		enum pipe_shader_type shader,
-		unsigned start, unsigned count,
+		ubyte start, ubyte count,
 		const struct pipe_image_view *images)
 {
 	struct fd_context *ctx = fd_context(pctx);

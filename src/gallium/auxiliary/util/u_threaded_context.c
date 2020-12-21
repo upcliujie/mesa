@@ -684,7 +684,7 @@ tc_call_bind_sampler_states(struct pipe_context *pipe, union tc_payload *payload
 static void
 tc_bind_sampler_states(struct pipe_context *_pipe,
                        enum pipe_shader_type shader,
-                       unsigned start, unsigned count, void **states)
+                       ubyte start, ubyte count, void **states)
 {
    if (!count)
       return;
@@ -780,7 +780,7 @@ tc_call_set_constant_buffer(struct pipe_context *pipe, union tc_payload *payload
 
 static void
 tc_set_constant_buffer(struct pipe_context *_pipe,
-                       enum pipe_shader_type shader, uint index,
+                       enum pipe_shader_type shader, ubyte index,
                        const struct pipe_constant_buffer *cb)
 {
    struct threaded_context *tc = threaded_context(_pipe);
@@ -867,7 +867,7 @@ tc_call_set_scissor_states(struct pipe_context *pipe, union tc_payload *payload)
 
 static void
 tc_set_scissor_states(struct pipe_context *_pipe,
-                      unsigned start, unsigned count,
+                      ubyte start, ubyte count,
                       const struct pipe_scissor_state *states)
 {
    struct threaded_context *tc = threaded_context(_pipe);
@@ -893,7 +893,7 @@ tc_call_set_viewport_states(struct pipe_context *pipe, union tc_payload *payload
 
 static void
 tc_set_viewport_states(struct pipe_context *_pipe,
-                       unsigned start, unsigned count,
+                       ubyte start, ubyte count,
                        const struct pipe_viewport_state *states)
 {
    if (!count)
@@ -924,7 +924,7 @@ tc_call_set_window_rectangles(struct pipe_context *pipe,
 
 static void
 tc_set_window_rectangles(struct pipe_context *_pipe, bool include,
-                         unsigned count,
+                         ubyte count,
                          const struct pipe_scissor_state *rects)
 {
    struct threaded_context *tc = threaded_context(_pipe);
@@ -955,7 +955,7 @@ tc_call_set_sampler_views(struct pipe_context *pipe, union tc_payload *payload)
 static void
 tc_set_sampler_views(struct pipe_context *_pipe,
                      enum pipe_shader_type shader,
-                     unsigned start, unsigned count,
+                     ubyte start, ubyte count,
                      struct pipe_sampler_view **views)
 {
    if (!count)
@@ -1005,7 +1005,7 @@ tc_call_set_shader_images(struct pipe_context *pipe, union tc_payload *payload)
 static void
 tc_set_shader_images(struct pipe_context *_pipe,
                      enum pipe_shader_type shader,
-                     unsigned start, unsigned count,
+                     ubyte start, ubyte count,
                      const struct pipe_image_view *images)
 {
    if (!count)
@@ -1068,7 +1068,7 @@ tc_call_set_shader_buffers(struct pipe_context *pipe, union tc_payload *payload)
 static void
 tc_set_shader_buffers(struct pipe_context *_pipe,
                       enum pipe_shader_type shader,
-                      unsigned start, unsigned count,
+                      ubyte start, ubyte count,
                       const struct pipe_shader_buffer *buffers,
                       unsigned writable_bitmask)
 {
@@ -1133,7 +1133,7 @@ tc_call_set_vertex_buffers(struct pipe_context *pipe, union tc_payload *payload)
 
 static void
 tc_set_vertex_buffers(struct pipe_context *_pipe,
-                      unsigned start, unsigned count,
+                      ubyte start, ubyte count,
                       const struct pipe_vertex_buffer *buffers)
 {
    struct threaded_context *tc = threaded_context(_pipe);

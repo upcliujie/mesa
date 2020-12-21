@@ -488,7 +488,7 @@ nvc0_stage_sampler_states_bind(struct nvc0_context *nvc0,
 static void
 nvc0_bind_sampler_states(struct pipe_context *pipe,
                          enum pipe_shader_type shader,
-                         unsigned start, unsigned nr, void **samplers)
+                         ubyte start, ubyte nr, void **samplers)
 {
    const unsigned s = nvc0_shader_stage(shader);
 
@@ -568,7 +568,7 @@ nvc0_stage_set_sampler_views(struct nvc0_context *nvc0, int s,
 
 static void
 nvc0_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
-                       unsigned start, unsigned nr,
+                       ubyte start, ubyte nr,
                        struct pipe_sampler_view **views)
 {
    const unsigned s = nvc0_shader_stage(shader);
@@ -773,7 +773,7 @@ nvc0_cp_state_bind(struct pipe_context *pipe, void *hwcso)
 
 static void
 nvc0_set_constant_buffer(struct pipe_context *pipe,
-                         enum pipe_shader_type shader, uint index,
+                         enum pipe_shader_type shader, ubyte index,
                          const struct pipe_constant_buffer *cb)
 {
    struct nvc0_context *nvc0 = nvc0_context(pipe);
@@ -897,7 +897,7 @@ nvc0_set_framebuffer_state(struct pipe_context *pipe,
 
 static void
 nvc0_set_sample_locations(struct pipe_context *pipe,
-                          size_t size, const uint8_t *locations)
+                          unsigned size, const uint8_t *locations)
 {
     struct nvc0_context *nvc0 = nvc0_context(pipe);
 
@@ -921,8 +921,7 @@ nvc0_set_polygon_stipple(struct pipe_context *pipe,
 
 static void
 nvc0_set_scissor_states(struct pipe_context *pipe,
-                        unsigned start_slot,
-                        unsigned num_scissors,
+                        ubyte start_slot, ubyte num_scissors,
                         const struct pipe_scissor_state *scissor)
 {
    struct nvc0_context *nvc0 = nvc0_context(pipe);
@@ -940,8 +939,7 @@ nvc0_set_scissor_states(struct pipe_context *pipe,
 
 static void
 nvc0_set_viewport_states(struct pipe_context *pipe,
-                         unsigned start_slot,
-                         unsigned num_viewports,
+                         ubyte start_slot, ubyte num_viewports,
                          const struct pipe_viewport_state *vpt)
 {
    struct nvc0_context *nvc0 = nvc0_context(pipe);
@@ -961,7 +959,7 @@ nvc0_set_viewport_states(struct pipe_context *pipe,
 static void
 nvc0_set_window_rectangles(struct pipe_context *pipe,
                            bool include,
-                           unsigned num_rectangles,
+                           ubyte num_rectangles,
                            const struct pipe_scissor_state *rectangles)
 {
    struct nvc0_context *nvc0 = nvc0_context(pipe);
@@ -988,7 +986,7 @@ nvc0_set_tess_state(struct pipe_context *pipe,
 
 static void
 nvc0_set_vertex_buffers(struct pipe_context *pipe,
-                        unsigned start_slot, unsigned count,
+                        ubyte start_slot, ubyte count,
                         const struct pipe_vertex_buffer *vb)
 {
     struct nvc0_context *nvc0 = nvc0_context(pipe);
@@ -1273,7 +1271,7 @@ nvc0_bind_images_range(struct nvc0_context *nvc0, const unsigned s,
 static void
 nvc0_set_shader_images(struct pipe_context *pipe,
                        enum pipe_shader_type shader,
-                       unsigned start, unsigned nr,
+                       ubyte start, ubyte nr,
                        const struct pipe_image_view *images)
 {
    const unsigned s = nvc0_shader_stage(shader);
@@ -1338,7 +1336,7 @@ nvc0_bind_buffers_range(struct nvc0_context *nvc0, const unsigned t,
 static void
 nvc0_set_shader_buffers(struct pipe_context *pipe,
                         enum pipe_shader_type shader,
-                        unsigned start, unsigned nr,
+                        ubyte start, ubyte nr,
                         const struct pipe_shader_buffer *buffers,
                         unsigned writable_bitmask)
 {

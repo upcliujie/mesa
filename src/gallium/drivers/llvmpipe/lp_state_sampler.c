@@ -68,8 +68,7 @@ llvmpipe_create_sampler_state(struct pipe_context *pipe,
 static void
 llvmpipe_bind_sampler_states(struct pipe_context *pipe,
                              enum pipe_shader_type shader,
-                             unsigned start,
-                             unsigned num,
+                             ubyte start, ubyte num,
                              void **samplers)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
@@ -117,8 +116,7 @@ llvmpipe_bind_sampler_states(struct pipe_context *pipe,
 static void
 llvmpipe_set_sampler_views(struct pipe_context *pipe,
                            enum pipe_shader_type shader,
-                           unsigned start,
-                           unsigned num,
+                           ubyte start, ubyte num,
                            struct pipe_sampler_view **views)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);

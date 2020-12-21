@@ -103,11 +103,11 @@ struct pstip_stage
 
    void (*driver_bind_sampler_states)(struct pipe_context *,
                                       enum pipe_shader_type,
-                                      unsigned, unsigned, void **);
+                                      ubyte, ubyte, void **);
 
    void (*driver_set_sampler_views)(struct pipe_context *,
                                     enum pipe_shader_type shader,
-                                    unsigned start, unsigned count,
+                                    ubyte start, ubyte count,
                                     struct pipe_sampler_view **);
 
    void (*driver_set_polygon_stipple)(struct pipe_context *,
@@ -393,7 +393,7 @@ pstip_delete_fs_state(struct pipe_context *pipe, void *fs)
 static void
 pstip_bind_sampler_states(struct pipe_context *pipe,
                           enum pipe_shader_type shader,
-                          unsigned start, unsigned num, void **sampler)
+                          ubyte start, ubyte num, void **sampler)
 {
    struct pstip_stage *pstip = pstip_stage_from_pipe(pipe);
    uint i;
@@ -417,7 +417,7 @@ pstip_bind_sampler_states(struct pipe_context *pipe,
 static void
 pstip_set_sampler_views(struct pipe_context *pipe,
                         enum pipe_shader_type shader,
-                        unsigned start, unsigned num,
+                        ubyte start, ubyte num,
                         struct pipe_sampler_view **views)
 {
    struct pstip_stage *pstip = pstip_stage_from_pipe(pipe);

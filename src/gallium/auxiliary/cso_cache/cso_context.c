@@ -1012,7 +1012,7 @@ cso_restore_vertex_elements(struct cso_context *ctx)
 /* vertex buffers */
 
 void cso_set_vertex_buffers(struct cso_context *ctx,
-                            unsigned start_slot, unsigned count,
+                            ubyte start_slot, ubyte count,
                             const struct pipe_vertex_buffer *buffers)
 {
    struct u_vbuf *vbuf = ctx->vbuf_current;

@@ -51,8 +51,7 @@
 #define GET_MAX_SCISSOR(rctx) (rctx->chip_class >= EVERGREEN ? 16384 : 8192)
 
 static void r600_set_scissor_states(struct pipe_context *ctx,
-				    unsigned start_slot,
-				    unsigned num_scissors,
+				    ubyte start_slot, ubyte num_scissors,
 				    const struct pipe_scissor_state *state)
 {
 	struct r600_common_context *rctx = (struct r600_common_context *)ctx;
@@ -279,8 +278,7 @@ static void r600_emit_scissors(struct r600_common_context *rctx, struct r600_ato
 }
 
 static void r600_set_viewport_states(struct pipe_context *ctx,
-				     unsigned start_slot,
-				     unsigned num_viewports,
+				     ubyte start_slot, ubyte num_viewports,
 				     const struct pipe_viewport_state *state)
 {
 	struct r600_common_context *rctx = (struct r600_common_context *)ctx;

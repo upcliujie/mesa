@@ -87,7 +87,7 @@ enum pipe_error cso_set_vertex_elements(struct cso_context *ctx,
                                         const struct cso_velems_state *velems);
 
 void cso_set_vertex_buffers(struct cso_context *ctx,
-                            unsigned start_slot, unsigned count,
+                            ubyte start_slot, ubyte count,
                             const struct pipe_vertex_buffer *buffers);
 
 void cso_set_stream_outputs(struct cso_context *ctx,

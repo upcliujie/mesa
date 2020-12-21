@@ -360,7 +360,7 @@ static void i915_bind_fragment_sampler_states(struct pipe_context *pipe,
 static void
 i915_bind_sampler_states(struct pipe_context *pipe,
                          enum pipe_shader_type shader,
-                         unsigned start, unsigned num_samplers,
+                         ubyte start, ubyte num_samplers,
                          void **samplers)
 {
    switch (shader) {
@@ -568,8 +568,8 @@ static void i915_delete_depth_stencil_state(struct pipe_context *pipe,
 
 
 static void i915_set_scissor_states( struct pipe_context *pipe,
-                                     unsigned start_slot,
-                                     unsigned num_scissors,
+                                     ubyte start_slot,
+                                     ubyte num_scissors,
                                  const struct pipe_scissor_state *scissor )
 {
    struct i915_context *i915 = i915_context(pipe);
@@ -675,7 +675,7 @@ static void i915_delete_vs_state(struct pipe_context *pipe, void *shader)
 }
 
 static void i915_set_constant_buffer(struct pipe_context *pipe,
-                                     enum pipe_shader_type shader, uint index,
+                                     enum pipe_shader_type shader, ubyte index,
                                      const struct pipe_constant_buffer *cb)
 {
    struct i915_context *i915 = i915_context(pipe);
@@ -789,7 +789,7 @@ i915_set_vertex_sampler_views(struct pipe_context *pipe,
 
 static void
 i915_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
-                       unsigned start, unsigned num,
+                       ubyte start, ubyte num,
                        struct pipe_sampler_view **views)
 {
    assert(start == 0);
@@ -892,8 +892,8 @@ static void i915_set_clip_state( struct pipe_context *pipe,
  * matrix:
  */
 static void i915_set_viewport_states( struct pipe_context *pipe,
-                                      unsigned start_slot,
-                                      unsigned num_viewports,
+                                      ubyte start_slot,
+                                      ubyte num_viewports,
 				     const struct pipe_viewport_state *viewport )
 {
    struct i915_context *i915 = i915_context(pipe);
@@ -1000,7 +1000,7 @@ static void i915_delete_rasterizer_state(struct pipe_context *pipe,
 }
 
 static void i915_set_vertex_buffers(struct pipe_context *pipe,
-                                    unsigned start_slot, unsigned count,
+                                    ubyte start_slot, ubyte count,
                                     const struct pipe_vertex_buffer *buffers)
 {
    struct i915_context *i915 = i915_context(pipe);

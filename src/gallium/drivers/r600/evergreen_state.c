@@ -4019,8 +4019,7 @@ static void evergreen_setup_immed_buffer(struct r600_context *rctx,
 }
 
 static void evergreen_set_hw_atomic_buffers(struct pipe_context *ctx,
-					    unsigned start_slot,
-					    unsigned count,
+					    ubyte start_slot, ubyte count,
 					    const struct pipe_shader_buffer *buffers)
 {
 	struct r600_context *rctx = (struct r600_context *)ctx;
@@ -4049,8 +4048,8 @@ static void evergreen_set_hw_atomic_buffers(struct pipe_context *ctx,
 }
 
 static void evergreen_set_shader_buffers(struct pipe_context *ctx,
-					 enum pipe_shader_type shader, unsigned start_slot,
-					 unsigned count,
+					 enum pipe_shader_type shader, ubyte start_slot,
+					 ubyte count,
 					 const struct pipe_shader_buffer *buffers,
 					 unsigned writable_bitmask)
 {
@@ -4149,8 +4148,8 @@ static void evergreen_set_shader_buffers(struct pipe_context *ctx,
 }
 
 static void evergreen_set_shader_images(struct pipe_context *ctx,
-					enum pipe_shader_type shader, unsigned start_slot,
-					unsigned count,
+					enum pipe_shader_type shader, ubyte start_slot,
+					ubyte count,
 					const struct pipe_image_view *images)
 {
 	struct r600_context *rctx = (struct r600_context *)ctx;

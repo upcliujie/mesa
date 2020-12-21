@@ -725,7 +725,7 @@ static void
 panfrost_bind_sampler_states(
         struct pipe_context *pctx,
         enum pipe_shader_type shader,
-        unsigned start_slot, unsigned num_sampler,
+        ubyte start_slot, ubyte num_sampler,
         void **sampler)
 {
         assert(start_slot == 0);
@@ -938,8 +938,7 @@ panfrost_bind_fs_state(struct pipe_context *pctx, void *hwcso)
 static void
 panfrost_set_vertex_buffers(
         struct pipe_context *pctx,
-        unsigned start_slot,
-        unsigned num_buffers,
+        ubyte start_slot, ubyte num_buffers,
         const struct pipe_vertex_buffer *buffers)
 {
         struct panfrost_context *ctx = pan_context(pctx);
@@ -950,7 +949,7 @@ panfrost_set_vertex_buffers(
 static void
 panfrost_set_constant_buffer(
         struct pipe_context *pctx,
-        enum pipe_shader_type shader, uint index,
+        enum pipe_shader_type shader, ubyte index,
         const struct pipe_constant_buffer *buf)
 {
         struct panfrost_context *ctx = pan_context(pctx);
@@ -1121,7 +1120,7 @@ static void
 panfrost_set_sampler_views(
         struct pipe_context *pctx,
         enum pipe_shader_type shader,
-        unsigned start_slot, unsigned num_views,
+        ubyte start_slot, ubyte num_views,
         struct pipe_sampler_view **views)
 {
         struct panfrost_context *ctx = pan_context(pctx);
@@ -1163,7 +1162,7 @@ static void
 panfrost_set_shader_buffers(
         struct pipe_context *pctx,
         enum pipe_shader_type shader,
-        unsigned start, unsigned count,
+        ubyte start, ubyte count,
         const struct pipe_shader_buffer *buffers,
         unsigned writable_bitmask)
 {
@@ -1284,8 +1283,7 @@ panfrost_set_clip_state(struct pipe_context *pipe,
 
 static void
 panfrost_set_viewport_states(struct pipe_context *pipe,
-                             unsigned start_slot,
-                             unsigned num_viewports,
+                             ubyte start_slot, ubyte num_viewports,
                              const struct pipe_viewport_state *viewports)
 {
         struct panfrost_context *ctx = pan_context(pipe);
@@ -1298,8 +1296,7 @@ panfrost_set_viewport_states(struct pipe_context *pipe,
 
 static void
 panfrost_set_scissor_states(struct pipe_context *pipe,
-                            unsigned start_slot,
-                            unsigned num_scissors,
+                            ubyte start_slot, ubyte num_scissors,
                             const struct pipe_scissor_state *scissors)
 {
         struct panfrost_context *ctx = pan_context(pipe);

@@ -148,8 +148,8 @@ fd3_sampler_state_create(struct pipe_context *pctx,
 
 static void
 fd3_sampler_states_bind(struct pipe_context *pctx,
-		enum pipe_shader_type shader, unsigned start,
-		unsigned nr, void **hwcso)
+		enum pipe_shader_type shader, ubyte start,
+		ubyte nr, void **hwcso)
 {
 	struct fd_context *ctx = fd_context(pctx);
 	struct fd3_context *fd3_ctx = fd3_context(ctx);
