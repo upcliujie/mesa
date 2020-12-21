@@ -35,6 +35,7 @@ SOFTWARE.
 		3rd src register (dropping (abs), immed encoding, and moving
 		a few other bits elsewhere)
 	</doc>
+	<encode type="struct ir3_register *" case-prefix="REG_"/>
 </bitset>
 
 <bitset name="#cat3-src-gpr" extends="#cat3-src">
@@ -43,6 +44,9 @@ SOFTWARE.
 	</display>
 	<field name="SRC" low="0" high="7" type="#reg-gpr"/>
 	<pattern low="8" high="12">00000</pattern>
+	<encode>
+		<map name="SRC">src</map>
+	</encode>
 </bitset>
 
 <bitset name="#cat3-src-const" extends="#cat3-src">
@@ -52,10 +56,17 @@ SOFTWARE.
 	<field name="SWIZ" low="0" high="1" type="#swiz"/>
 	<field name="CONST" low="2" high="10" type="uint"/>
 	<pattern low="11" high="12">10</pattern>
+	<encode>
+		<map name="CONST">src->num >> 2</map>
+		<map name="SWIZ">src->num &amp; 0x3</map>
+	</encode>
 </bitset>
 
 <bitset name="#cat3-src-relative" extends="#cat3-src">
 	<pattern low="11" high="12">01</pattern>
+	<encode>
+		<map name="OFFSET">src->array.offset</map>
+	</encode>
 </bitset>
 
 <bitset name="#cat3-src-relative-gpr" extends="#cat3-src-relative">
@@ -116,6 +127,19 @@ SOFTWARE.
 	<pattern low="61" high="63">011</pattern>  <!-- cat3 -->
 	<derived name="HALF" expr="#multisrc-half" type="bool" display="h"/>
 	<derived name="DST_HALF" expr="#dest-half" type="bool" display="h"/>
+	<encode>
+		<map name="SRC1_NEG">!!(src->regs[1]->flags &amp; (IR3_REG_FNEG | IR3_REG_SNEG | IR3_REG_BNOT))</map>
+		<map name="SRC1_R">extract_SRC1_R(src)</map>
+		<map name="SRC2_R">extract_SRC2_R(src)</map>
+		<map name="SRC3_R">!!(src->regs[3]->flags &amp; IR3_REG_R)</map>
+		<map name="SRC2_NEG">!!(src->regs[2]->flags &amp; (IR3_REG_FNEG | IR3_REG_SNEG | IR3_REG_BNOT))</map>
+		<map name="SRC3_NEG">!!(src->regs[3]->flags &amp; (IR3_REG_FNEG | IR3_REG_SNEG | IR3_REG_BNOT))</map>
+		<map name="SRC1">src->regs[1]</map>
+		<map name="DST_CONV">
+			((src->regs[0]->num >> 2) == 62) ? 0 :
+			!!((src->regs[1]->flags ^ src->regs[0]->flags) &amp; IR3_REG_HALF)
+		</map>
+	</encode>
 </bitset>
 
 <bitset name="mad.u16" extends="#instruction-cat3">
