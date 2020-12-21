@@ -67,7 +67,7 @@ def extract_pattern(xml, name, is_defined_bits=None):
     low, high = get_bitrange(xml)
     mask = ((1 << (1 + high - low)) - 1) << low
 
-    patstr = xml.text
+    patstr = xml.text.strip()
 
     assert (len(patstr) == (1 + high - low)), "Invalid {} length in {}: {}..{}".format(xml.tag, name, low, high)
     if is_defined_bits is not None:
@@ -208,6 +208,30 @@ class BitSetCase(object):
     def get_c_name(self):
         return get_c_name(self.name)
 
+class BitSetEncode(object):
+    """Additional data that may be associated with a root bitset node
+       to provide additional information needed to generate helpers
+       to encode the bitset, such as source data type and "opcode"
+       case prefix (ie. how to choose/enumerate which leaf node bitset
+       to use to encode the source data
+    """
+    def __init__(self, xml):
+        self.type = None
+        if 'type' in xml.attrib:
+            self.type = xml.attrib['type']
+        self.case_prefix = None
+        if 'case-prefix' in xml.attrib:
+            self.case_prefix = xml.attrib['case-prefix']
+        # The encode element may also contain mappings from encode src
+        # to individual field names:
+        self.maps = {}
+        self.forced = {}
+        for map in xml.findall('map'):
+            name = map.attrib['name']
+            self.maps[name] = map.text.strip()
+            if 'force' in map.attrib and map.attrib['force']  == 'true':
+                self.forced[name] = 'true'
+
 class BitSet(object):
     """Class that encapsulates a single bitset rule
     """
@@ -215,6 +239,7 @@ class BitSet(object):
         self.isa = isa
         self.xml = xml
         self.name = xml.attrib['name']
+
         if 'size' in xml.attrib:
             assert('extends' not in xml.attrib)
             self.size = int(xml.attrib['size'])
@@ -222,6 +247,10 @@ class BitSet(object):
         else:
             self.size = None
             self.extends = xml.attrib['extends']
+
+        self.encode = None
+        if xml.find('encode') is not None:
+            self.encode = BitSetEncode(xml.find('encode'))
 
         # Collect up the match/dontcare/mask bitmasks for
         # this bitset case:
