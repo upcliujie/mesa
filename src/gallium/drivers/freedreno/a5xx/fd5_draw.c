@@ -126,7 +126,8 @@ fd5_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 		},
 		.rasterflat = ctx->rasterizer->flatshade,
 		.sprite_coord_enable = ctx->rasterizer->sprite_coord_enable,
-		.sprite_coord_mode = ctx->rasterizer->sprite_coord_mode,
+		.sprite_origin_upper_left =
+			ctx->rasterizer->sprite_coord_mode == PIPE_SPRITE_COORD_UPPER_LEFT,
 	};
 
 	fixup_shader_state(ctx, &emit.key);

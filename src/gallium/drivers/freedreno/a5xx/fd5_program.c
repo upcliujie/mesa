@@ -27,6 +27,7 @@
 #include "pipe/p_state.h"
 #include "util/u_string.h"
 #include "util/u_memory.h"
+#include "util/u_helpers.h"
 #include "util/u_inlines.h"
 #include "util/format/u_format.h"
 #include "util/bitset.h"
@@ -624,14 +625,13 @@ fd5_program_emit(struct fd_context *ctx, struct fd_ringbuffer *ring,
 				}
 			}
 
-			bool coord_mode = emit->sprite_coord_mode;
-			if (ir3_point_sprite(s[FS].v, j, emit->sprite_coord_enable, &coord_mode)) {
+			if (util_varying_is_point_coord(s[FS].v->inputs[j].slot, emit->sprite_coord_enable)) {
 				/* mask is two 2-bit fields, where:
 				 *   '01' -> S
 				 *   '10' -> T
 				 *   '11' -> 1 - T  (flip mode)
 				 */
-				unsigned mask = coord_mode ? 0b1101 : 0b1001;
+				unsigned mask = emit->sprite_origin_upper_left ? 0b1001 : 0b1101;
 				uint32_t loc = inloc;
 				if (compmask & 0x1) {
 					vpsrepl[loc / 16] |= ((mask >> 0) & 0x3) << ((loc % 16) * 2);
