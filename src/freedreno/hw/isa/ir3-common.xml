@@ -75,17 +75,23 @@ SOFTWARE.
 		<display>
 			a0.{SWIZ}
 		</display>
+		<assert low="2" high="7">111101</assert>
 	</override>
 	<override expr="#reg-gpr-p0">
 		<display>
 			p0.{SWIZ}
 		</display>
+		<assert low="2" high="7">111110</assert>
 	</override>
 	<display>
 		r{GPR}.{SWIZ}
 	</display>
 	<field name="SWIZ" low="0" high="1" type="#swiz"/>
 	<field name="GPR" low="2"  high="7" type="uint"/>
+	<encode type="struct ir3_register *">
+		<map name="GPR">src->num >> 2</map>
+		<map name="SWIZ">src->num &amp; 0x3</map>
+	</encode>
 </bitset>
 
 <bitset name="#reg-const" size="11">
@@ -94,6 +100,10 @@ SOFTWARE.
 	</display>
 	<field name="SWIZ" low="0" high="1" type="#swiz"/>
 	<field name="CONST" low="2" high="10" type="uint"/>
+	<encode type="struct ir3_register *">
+		<map name="CONST">src->num >> 2</map>
+		<map name="SWIZ">src->num &amp; 0x3</map>
+	</encode>
 </bitset>
 
 <expr name="#offset-zero">
@@ -112,6 +122,9 @@ SOFTWARE.
 		r&lt;a0.x + {OFFSET}&gt;
 	</display>
 	<field name="OFFSET" low="0" high="9" type="int"/>
+	<encode type="struct ir3_register *">
+		<map name="OFFSET">src->array.offset</map>
+	</encode>
 </bitset>
 
 <bitset name="#reg-relative-const" size="10">
@@ -124,6 +137,9 @@ SOFTWARE.
 		c&lt;a0.x + {OFFSET}&gt;
 	</display>
 	<field name="OFFSET" low="0" high="9" type="int"/>
+	<encode type="struct ir3_register *">
+		<map name="OFFSET">src->array.offset</map>
+	</encode>
 </bitset>
 
 <!--
@@ -136,6 +152,10 @@ SOFTWARE.
 		Encoding for instruction source which can be GPR/CONST/IMMED
 		or relative GPR/CONST.
 	</doc>
+	<encode type="struct ir3_register *" case-prefix="REG_">
+		<map name="ABSNEG">extract_ABSNEG(src)</map>
+		<map name="SRC">src</map>
+	</encode>
 </bitset>
 
 <bitset name="#mulitsrc-immed" extends="#multisrc">
@@ -150,6 +170,9 @@ SOFTWARE.
 	<field name="IMMED" low="0"  high="10" type="int"/>
 	<pattern low="11" high="13">100</pattern>
 	<field name="ABSNEG" low="14" high="15" type="#absneg"/>
+	<encode>
+		<map name="IMMED">src->uim_val</map>
+	</encode>
 </bitset>
 
 <bitset name="#mulitsrc-immed-flut" extends="#multisrc">
@@ -170,24 +193,24 @@ SOFTWARE.
 			11 -> 4.0
 
 	</doc>
-	<display>
-		{ABSNEG}{SRC_R}{FLUT}
-	</display>
-	<field name="FLUT" low="0"  high="9" type="#flut"/>
+	<field name="IMMED" low="0"  high="9" type="#flut"/>
 	<pattern low="11" high="13">101</pattern>
 	<field name="ABSNEG" low="14" high="15" type="#absneg"/>
+	<encode>
+		<map name="IMMED">src->uim_val</map>
+	</encode>
 </bitset>
 
 <bitset name="#multisrc-immed-flut-full" extends="#mulitsrc-immed-flut">
 	<display>
-		{ABSNEG}{SRC_R}{FLUT}
+		{ABSNEG}{SRC_R}{IMMED}
 	</display>
 	<pattern pos="10">0</pattern>
 </bitset>
 
 <bitset name="#multisrc-immed-flut-half" extends="#mulitsrc-immed-flut">
 	<display>
-		{ABSNEG}{SRC_R}h{FLUT}
+		{ABSNEG}{SRC_R}h{IMMED}
 	</display>
 	<pattern pos="10">1</pattern>
 </bitset>
@@ -210,10 +233,10 @@ SOFTWARE.
 
 <bitset name="#multisrc-const" extends="#multisrc">
 	<display>
-		{ABSNEG}{SRC_R}{HALF}{CONST}
+		{ABSNEG}{SRC_R}{HALF}{SRC}
 	</display>
 	<derived name="HALF" expr="#multisrc-half" type="bool" display="h"/>
-	<field name="CONST" low="0" high="10" type="#reg-const"/>
+	<field name="SRC" low="0" high="10" type="#reg-const"/>
 	<pattern low="11" high="13">x10</pattern>
 	<field name="ABSNEG" low="14" high="15" type="#absneg"/>
 </bitset>

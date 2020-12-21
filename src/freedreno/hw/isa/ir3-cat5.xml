@@ -54,6 +54,9 @@ SOFTWARE.
 			<or/>
 		</expr>
 	</derived>
+	<encode type="struct ir3_instruction *">
+		<map name="BASE_LO">src->cat5.tex_base &amp; 0x1</map>
+	</encode>
 </bitset>
 
 <bitset name="#instruction-cat5" extends="#instruction">
@@ -68,9 +71,17 @@ SOFTWARE.
 			{SY}{JP}{NAME}{3D}{A}{O}{P}{S}{S2EN}{UNIFORM}{BASE} {TYPE}({WRMASK}){DST_HALF}{DST}{SRC1}{SRC2}{SRC3}{A1}
 		</display>
 		<field name="BASE_HI" low="19" high="20" type="uint"/>
-		<field name="SRC3" low="21" high="28" type="#cat5-src3"/>
+		<field name="SRC3" low="21" high="28" type="#cat5-src3">
+			<remap from="BINDLESS" to="BINDLESS"/>
+			<remap from="DESC_MODE" to="DESC_MODE"/>
+			<remap from="HAS_SAMP" to="HAS_SAMP"/>
+			<remap from="HAS_TEX" to="HAS_TEX"/>
+		</field>
 		<field name="DESC_MODE" low="29" high="31" type="#cat5-s2en-bindless-desc-mode"/>
-		<field name="BASE" pos="47" type="#cat5-s2en-bindless-base"/>
+		<field name="BASE" pos="47" type="#cat5-s2en-bindless-base">
+			<remap from="BINDLESS" to="BINDLESS"/>
+			<remap from="BASE_HI" to="BASE_HI"/>
+		</field>
 		<derived name="BINDLESS" expr="#cat5-s2enb-is-bindless" type="bool"/>
 		<derived name="S2EN" expr="#cat5-s2enb-is-indirect" type="bool" display=".s2en"/>
 		<derived name="UNIFORM" expr="#cat5-s2enb-is-uniform" type="bool" display=".uniform"/>
@@ -100,9 +111,15 @@ SOFTWARE.
 	</derived>
 	<field name="FULL" pos="0" type="bool"/>
 	<derived name="HALF" expr="#multisrc-half" type="bool" display="h"/>
-	<field name="SRC1" low="1" high="8" type="#cat5-src1"/>
-	<field name="SRC2" low="9" high="16" type="#cat5-src2"/>
-
+	<field name="SRC1" low="1" high="8" type="#cat5-src1">
+		<remap from="NUM_SRC" to="NUM_SRC"/>
+		<remap from="HALF" to="HALF"/>
+	</field>
+	<field name="SRC2" low="9" high="16" type="#cat5-src2">
+		<remap from="NUM_SRC" to="NUM_SRC"/>
+		<remap from="HALF" to="HALF"/>
+		<remap from="O" to="O"/>
+	</field>
 	<!--
 		TODO remainder of first 32b differ depending on s2en/bindless..
 		possibly use overrides?  Need to sort-out how to display..
@@ -112,12 +129,18 @@ SOFTWARE.
 	 -->
 	<pattern low="17" high="18">0x</pattern>
 	<assert low="19" high="20">00</assert>   <!-- BASE_HI -->
-	<field name="SAMP" low="21" high="24" type="#cat5-samp"/>
-	<field name="TEX" low="25" high="31" type="#cat5-tex"/>
+	<field name="SAMP" low="21" high="24" type="#cat5-samp">
+		<remap from="HAS_SAMP" to="HAS_SAMP"/>
+	</field>
+	<field name="TEX" low="25" high="31" type="#cat5-tex">
+		<remap from="HAS_TEX" to="HAS_TEX"/>
+	</field>
 
 	<field name="DST" low="32" high="39" type="#reg-gpr"/>
 	<field name="WRMASK" low="40" high="43" type="#wrmask"/>
-	<field name="TYPE" low="44" high="46" type="#cat5-type"/>
+	<field name="TYPE" low="44" high="46" type="#cat5-type">
+		<remap from="HAS_TYPE" to="HAS_TYPE"/>
+	</field>
 	<assert pos="47">0</assert>    <!-- BASE_LO -->
 	<field name="3D" pos="48" type="bool" display=".3d"/>
 	<field name="A" pos="49" type="bool" display=".a"/>
@@ -129,6 +152,27 @@ SOFTWARE.
 	<field name="JP" pos="59" type="bool" display="(jp)"/>
 	<field name="SY" pos="60" type="bool" display="(sy)"/>
 	<pattern low="61" high="63">101</pattern>  <!-- cat5 -->
+	<encode>
+		<map name="FULL">!(src->regs[src->regs_count-1]->flags &amp; IR3_REG_HALF)</map>
+		<map name="TEX">src</map>
+		<map name="SAMP">src</map>
+		<map name="WRMASK">src->regs[0]->wrmask</map>
+		<map name="BASE">src</map>
+		<map name="TYPE">src</map>
+		<map name="BASE_HI">src->cat5.tex_base >> 1</map>
+		<map name="3D">!!(src->flags &amp; IR3_INSTR_3D)</map>
+		<map name="A">!!(src->flags &amp; IR3_INSTR_A)</map>
+		<map name="S">!!(src->flags &amp; IR3_INSTR_S)</map>
+		<map name="S2EN_BINDLESS">!!(src->flags &amp; (IR3_INSTR_S2EN | IR3_INSTR_B))</map>
+		<map name="O">!!(src->flags &amp; IR3_INSTR_O)</map>
+		<map name="P">!!(src->flags &amp; IR3_INSTR_P)</map>
+		<map name="DESC_MODE">extract_cat5_DESC_MODE(src)</map>
+		<!--
+			TODO the src order is currently a bit messy due to ir3 using regs[1]
+			for s2en src in the s2en case
+		 -->
+		<map name="SRC3">src->regs[1]</map>
+	</encode>
 </bitset>
 
 <bitset name="isam" extends="#instruction-cat5">
@@ -376,6 +420,9 @@ SOFTWARE.
 	</override>
 	<display/>
 	<assert low="0" high="7">00000000</assert>
+	<encode type="struct ir3_register *">
+		<map name="SRC">src</map>
+	</encode>
 </bitset>
 
 <bitset name="#cat5-src2" size="8">
@@ -394,6 +441,9 @@ SOFTWARE.
 	</override>
 	<display/>
 	<assert low="0" high="7">00000000</assert>
+	<encode type="struct ir3_register *">
+		<map name="SRC">src</map>
+	</encode>
 </bitset>
 
 <bitset name="#cat5-samp" size="4">
@@ -408,6 +458,9 @@ SOFTWARE.
 	</override>
 	<display/>
 	<assert low="0" high="3">0000</assert>
+	<encode type="struct ir3_instruction *">
+		<map name="SAMP">src->cat5.samp</map>
+	</encode>
 </bitset>
 
 <bitset name="#cat5-samp-s2en-bindless-a1" size="8">
@@ -423,6 +476,9 @@ SOFTWARE.
 	</override>
 	<display/>
 	<assert low="0" high="7">00000000</assert>
+	<encode type="struct ir3_instruction *">
+		<map name="SAMP">src->cat5.samp</map>
+	</encode>
 </bitset>
 
 <bitset name="#cat5-tex" size="7">
@@ -437,6 +493,9 @@ SOFTWARE.
 	</override>
 	<display/>
 	<assert low="0" high="6">0000000</assert>
+	<encode type="struct ir3_instruction *">
+		<map name="TEX">src->cat5.tex</map>
+	</encode>
 </bitset>
 
 <bitset name="#cat5-tex-s2en-bindless" size="4">
@@ -452,6 +511,14 @@ SOFTWARE.
 	</override>
 	<display/>
 	<assert low="0" high="3">0000</assert>
+	<encode type="struct ir3_instruction *">
+		<!--
+			TODO properly decouple the encoding from ir3 IR in this
+			case.. the IR has no business knowing how this gets
+			encoded into "SRC3"..
+		 -->
+		<map name="TEX">src->cat5.samp >> 4</map>
+	</encode>
 </bitset>
 
 <bitset name="#cat5-type" size="3">
@@ -465,6 +532,14 @@ SOFTWARE.
 		</display>
 	</override>
 	<field name="TYPE" low="0" high="2" type="#type"/>
+	<encode type="struct ir3_instruction *">
+		<!--
+			Normally we only encode fields that have visible impact on
+			the decoded disasm, but the type field is one of those
+			special exceptions
+		 -->
+		<map name="TYPE" force="true">src->cat5.type</map>
+	</encode>
 </bitset>
 
 <!--
@@ -616,8 +691,17 @@ SOFTWARE.
 	<display>
 		{SAMP}{TEX}
 	</display>
-	<field name="SAMP" low="0" high="3" type="#cat5-samp"/>
-	<field name="TEX" low="4" high="7" type="#cat5-tex-s2en-bindless"/>
+	<field name="SAMP" low="0" high="3" type="#cat5-samp">
+		<remap from="HAS_SAMP" to="HAS_SAMP"/>
+	</field>
+	<field name="TEX" low="4" high="7" type="#cat5-tex-s2en-bindless">
+		<remap from="HAS_TEX" to="HAS_TEX"/>
+	</field>
+	<encode type="struct ir3_register *">
+		<map name="SAMP">s->instr</map>
+		<map name="TEX">s->instr</map>
+		<map name="SRC">src</map>
+	</encode>
 </bitset>
 
 </isa>
