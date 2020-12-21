@@ -100,6 +100,76 @@ bi_must_message(bi_instr *ins)
         return bi_opcode_props[ins->op].message != BIFROST_MESSAGE_NONE;
 }
 
+static bool
+bi_fma_atomic(enum bi_opcode op)
+{
+        switch (op) {
+        case BI_OPCODE_ATOM_C_I32:
+        case BI_OPCODE_ATOM_C_I64:
+        case BI_OPCODE_ATOM_C1_I32:
+        case BI_OPCODE_ATOM_C1_I64:
+        case BI_OPCODE_ATOM_C1_RETURN_I32:
+        case BI_OPCODE_ATOM_C1_RETURN_I64:
+        case BI_OPCODE_ATOM_C_RETURN_I32:
+        case BI_OPCODE_ATOM_C_RETURN_I64:
+        case BI_OPCODE_ATOM_POST_I32:
+        case BI_OPCODE_ATOM_POST_I64:
+        case BI_OPCODE_ATOM_PRE_I64:
+                return true;
+        default:
+                return false;
+        }
+}
+
+static bool
+bi_reads_zero(bi_instr *ins)
+{
+        return !(bi_fma_atomic(ins->op) || ins->op == BI_OPCODE_IMULD);
+}
+
+static bool
+bi_reads_temps(bi_instr *ins, unsigned src)
+{
+        switch (ins->op) {
+        /* Cannot permute a temporary */
+        case BI_OPCODE_CLPER_V6_I32:
+        case BI_OPCODE_CLPER_V7_I32:
+                return src != 0;
+        case BI_OPCODE_IMULD:
+                return false;
+        default:
+                return true;
+        }
+}
+
+static bool
+bi_reads_t(bi_instr *ins, unsigned src)
+{
+        /* Branch offset cannot come from passthrough */
+        if (bi_opcode_props[ins->op].branch)
+                return src != 2;
+
+        /* Table can never read passthrough */
+        if (bi_opcode_props[ins->op].table)
+                return false;
+
+        /* Descriptor must not come from a passthrough */
+        switch (ins->op) {
+        case BI_OPCODE_LD_CVT:
+        case BI_OPCODE_LD_TILE:
+        case BI_OPCODE_ST_CVT:
+        case BI_OPCODE_ST_TILE:
+        case BI_OPCODE_TEXC:
+                return src != 2;
+        case BI_OPCODE_BLEND:
+                return src != 2 && src != 3;
+
+        /* Else, just check if we can read any temps */
+        default:
+                return bi_reads_temps(ins, src);
+        }
+}
+
 /* Insert a clause wrapping a single instruction */
 
 
