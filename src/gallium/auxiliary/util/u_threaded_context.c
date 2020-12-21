@@ -982,7 +982,7 @@ tc_set_sampler_views(struct pipe_context *_pipe,
 
 struct tc_shader_images {
    ubyte shader, start, count;
-   bool unbind;
+   ubyte unbind_num_trailing_slots;
    struct pipe_image_view slot[0]; /* more will be allocated if needed */
 };
 
@@ -992,12 +992,14 @@ tc_call_set_shader_images(struct pipe_context *pipe, union tc_payload *payload)
    struct tc_shader_images *p = (struct tc_shader_images *)payload;
    unsigned count = p->count;
 
-   if (p->unbind) {
-      pipe->set_shader_images(pipe, p->shader, p->start, p->count, NULL);
+   if (!p->count) {
+      pipe->set_shader_images(pipe, p->shader, p->start, 0,
+                              p->unbind_num_trailing_slots, NULL);
       return;
    }
 
-   pipe->set_shader_images(pipe, p->shader, p->start, p->count, p->slot);
+   pipe->set_shader_images(pipe, p->shader, p->start, p->count,
+                           p->unbind_num_trailing_slots, p->slot);
 
    for (unsigned i = 0; i < count; i++)
       pipe_resource_reference(&p->slot[i].resource, NULL);
@@ -1007,9 +1009,10 @@ static void
 tc_set_shader_images(struct pipe_context *_pipe,
                      enum pipe_shader_type shader,
                      ubyte start, ubyte count,
+                     ubyte unbind_num_trailing_slots,
                      const struct pipe_image_view *images)
 {
-   if (!count)
+   if (!count && !unbind_num_trailing_slots)
       return;
 
    struct threaded_context *tc = threaded_context(_pipe);
@@ -1019,10 +1022,11 @@ tc_set_shader_images(struct pipe_context *_pipe,
 
    p->shader = shader;
    p->start = start;
-   p->count = count;
-   p->unbind = images == NULL;
 
    if (images) {
+      p->count = count;
+      p->unbind_num_trailing_slots = unbind_num_trailing_slots;
+
       for (unsigned i = 0; i < count; i++) {
          tc_set_resource_reference(&p->slot[i].resource, images[i].resource);
 
@@ -1038,6 +1042,9 @@ tc_set_shader_images(struct pipe_context *_pipe,
          }
       }
       memcpy(p->slot, images, count * sizeof(images[0]));
+   } else {
+      p->count = 0;
+      p->unbind_num_trailing_slots = count + unbind_num_trailing_slots;
    }
 }
 

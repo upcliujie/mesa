@@ -1345,6 +1345,7 @@ static void
 v3d_set_shader_images(struct pipe_context *pctx,
                       enum pipe_shader_type shader,
                       ubyte start, ubyte count,
+                      ubyte unbind_num_trailing_slots,
                       const struct pipe_image_view *images)
 {
         struct v3d_context *v3d = v3d_context(pctx);
@@ -1390,6 +1391,11 @@ v3d_set_shader_images(struct pipe_context *pctx,
         }
 
         v3d->dirty |= VC5_DIRTY_SHADER_IMAGE;
+
+        if (unbind_num_trailing_slots) {
+                v3d_set_shader_images(pctx, shader, start + count,
+                                      unbind_num_trailing_slots, 0, NULL);
+        }
 }
 
 void
