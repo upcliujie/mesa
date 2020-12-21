@@ -28,6 +28,7 @@
 #include "pipe/p_state.h"
 #include "util/u_string.h"
 #include "util/u_memory.h"
+#include "util/u_helpers.h"
 #include "util/u_inlines.h"
 #include "util/format/u_format.h"
 #include "util/bitset.h"
@@ -990,7 +991,8 @@ fd6_program_interp_state(struct fd6_emit *emit)
 {
 	const struct fd6_program_state *state = fd6_emit_get_prog(emit);
 
-	if (!unlikely(emit->rasterflat || emit->sprite_coord_enable)) {
+	if (!unlikely(emit->rasterflat || emit->sprite_coord_enable ||
+			emit->sprite_origin_upper_left)) {
 		/* fastpath: */
 		return fd_ringbuffer_ref(state->interp_stateobj);
 	} else {
@@ -998,7 +1000,7 @@ fd6_program_interp_state(struct fd6_emit *emit)
 				emit->ctx->batch->submit, 18 * 4, FD_RINGBUFFER_STREAMING);
 
 		emit_interp_state(ring, state->fs, emit->rasterflat,
-				emit->sprite_coord_mode, emit->sprite_coord_enable);
+				emit->sprite_origin_upper_left, emit->sprite_coord_enable);
 
 		return ring;
 	}
@@ -1006,7 +1008,7 @@ fd6_program_interp_state(struct fd6_emit *emit)
 
 static void
 emit_interp_state(struct fd_ringbuffer *ring, struct ir3_shader_variant *fs,
-		bool rasterflat, bool sprite_coord_mode, uint32_t sprite_coord_enable)
+		bool rasterflat, bool sprite_origin_upper_left, uint32_t sprite_coord_enable)
 {
 	uint32_t vinterp[8], vpsrepl[8];
 
@@ -1035,14 +1037,13 @@ emit_interp_state(struct fd_ringbuffer *ring, struct ir3_shader_variant *fs,
 			}
 		}
 
-		bool coord_mode = sprite_coord_mode;
-		if (ir3_point_sprite(fs, j, sprite_coord_enable, &coord_mode)) {
+		if (util_varying_is_point_coord(fs->inputs[j].slot, sprite_coord_enable)) {
 			/* mask is two 2-bit fields, where:
 			 *   '01' -> S
 			 *   '10' -> T
 			 *   '11' -> 1 - T  (flip mode)
 			 */
-			unsigned mask = coord_mode ? 0b1101 : 0b1001;
+			unsigned mask = sprite_origin_upper_left ? 0b1001 : 0b1101;
 			uint32_t loc = inloc;
 			if (compmask & 0x1) {
 				vpsrepl[loc / 16] |= ((mask >> 0) & 0x3) << ((loc % 16) * 2);

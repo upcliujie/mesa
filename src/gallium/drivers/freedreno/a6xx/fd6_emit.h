@@ -92,7 +92,7 @@ struct fd6_emit {
 	enum fd_dirty_3d_state dirty;
 
 	uint32_t sprite_coord_enable;  /* bitmask */
-	bool sprite_coord_mode;
+	bool sprite_origin_upper_left;
 	bool rasterflat;
 	bool no_decode_srgb;
 	bool primitive_restart;
