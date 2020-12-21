@@ -18,6 +18,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+isa_depend_files = [
+  'ir3-common.xml',
+  'ir3-cat0.xml',
+  'ir3-cat1.xml',
+  'ir3-cat2.xml',
+  'ir3-cat3.xml',
+  'ir3-cat4.xml',
+  'ir3-cat5.xml',
+  'ir3-cat6.xml',
+  'ir3-cat7.xml',
+  'isa.py',
+]
+
 isa_c = custom_target(
   'isa.c',
   input: ['decode.py', 'ir3.xml'],
@@ -25,18 +38,7 @@ isa_c = custom_target(
   command: [
     prog_python, '@INPUT0@', '@INPUT1@', '@OUTPUT@'
   ],
-  depend_files: [
-    'ir3-common.xml',
-    'ir3-cat0.xml',
-    'ir3-cat1.xml',
-    'ir3-cat2.xml',
-    'ir3-cat3.xml',
-    'ir3-cat4.xml',
-    'ir3-cat5.xml',
-    'ir3-cat6.xml',
-    'ir3-cat7.xml',
-    'isa.py',
-  ]
+  depend_files: isa_depend_files,
 )
 
 decode_files = [
@@ -67,4 +69,31 @@ disasm = executable(
     inc_src,
   ],
   install: false,
+)
+
+encode_h = custom_target(
+  'encode.h',
+  input: ['encode.py', 'ir3.xml'],
+  output: 'encode.h',
+  command: [
+    prog_python, '@INPUT0@', '@INPUT1@', '@OUTPUT@'
+  ],
+  depend_files: isa_depend_files,
+)
+
+encode_files = [
+  encode_h,
+  'encode.c',
+]
+
+libencode = static_library(
+  'encode',
+  encode_files,
+  dependencies: [idep_mesautil, idep_nir],
+  include_directories: [
+    inc_src,
+    inc_include,
+    inc_freedreno,
+    inc_gallium,
+  ],
 )

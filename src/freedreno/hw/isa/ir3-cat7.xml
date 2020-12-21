@@ -44,6 +44,12 @@ SOFTWARE.
 	<field   pos="59"          name="JP" type="bool" display="(jp)"/>
 	<field   pos="60"          name="SY" type="bool" display="(sy)"/>
 	<pattern low="61" high="63">111</pattern>  <!-- cat7 -->
+	<encode>
+		<map name="W">src->cat7.w</map>
+		<map name="R">src->cat7.r</map>
+		<map name="L">src->cat7.l</map>
+		<map name="G">src->cat7.g</map>
+	</encode>
 </bitset>
 
 <bitset name="bar" extends="#instruction-cat7">
