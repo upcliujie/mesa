@@ -174,10 +174,10 @@ bi_rewrite_index_src_single(bi_instr *ins, bi_index old, bi_index new)
 static bi_instr *
 bi_unwrap_singleton(bi_clause *clause)
 {
-       assert(clause->bundle_count == 1);
-       assert((clause->bundles[0].fma != NULL) ^ (clause->bundles[0].add != NULL));
+       assert(clause->tuple_count == 1);
+       assert((clause->tuples[0].fma != NULL) ^ (clause->tuples[0].add != NULL));
 
-       return clause->bundles[0].fma ?: clause->bundles[0].add;
+       return clause->tuples[0].fma ?: clause->tuples[0].add;
 }
 
 /* If register allocation fails, find the best spill node */
