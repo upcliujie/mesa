@@ -262,8 +262,18 @@ panfrost_shader_compile(struct panfrost_context *ctx,
         int size = program->compiled.size;
 
         if (size) {
-                state->bo = panfrost_bo_create(dev, size, PAN_BO_EXECUTE);
+                unsigned padded_size = size;
+
+                /* I think there's an erratum */
+                if (dev->quirks & IS_BIFROST)
+                        padded_size += 4096;
+
+                state->bo = panfrost_bo_create(dev, padded_size, PAN_BO_EXECUTE);
                 memcpy(state->bo->ptr.cpu, program->compiled.data, size);
+
+                if (padded_size > size)
+                        memset(state->bo->ptr.cpu + size, 0, padded_size - size);
+
                 shader = state->bo->ptr.gpu;
         }
 
