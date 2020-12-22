@@ -1588,8 +1588,6 @@ pan_emit_general_varying(struct mali_attribute_packed *out,
                 enum mali_format format,
                 unsigned present,
                 unsigned quirks,
-                unsigned *gen_offsets,
-                enum mali_format *gen_formats,
                 unsigned *gen_stride,
                 unsigned idx,
                 bool should_alloc)
@@ -1609,29 +1607,21 @@ pan_emit_general_varying(struct mali_attribute_packed *out,
                 return;
         }
 
-        unsigned offset = gen_offsets[other_idx];
+        unsigned size = pan_varying_size(format);
 
-        if (should_alloc) {
-                unsigned size = pan_varying_size(format);
+        /* If a varying is marked for XFB but not actually captured, we
+         * should match the format to the format that would otherwise
+         * be used for XFB, since dEQP checks for invariance here. It's
+         * unclear if this is required by the spec. */
 
-                /* If a varying is marked for XFB but not actually captured, we
-                 * should match the format to the format that would otherwise
-                 * be used for XFB, since dEQP checks for invariance here. It's
-                 * unclear if this is required by the spec. */
-
-                if (xfb->so_mask & (1ull << loc)) {
-                        struct pipe_stream_output *o = pan_get_so(&xfb->stream_output, loc);
-                        format = pan_xfb_format(format, o->num_components);
-                        size = pan_varying_size(format);
-                }
-
-                gen_offsets[idx] = *gen_stride;
-                gen_formats[other_idx] = format;
-                offset = *gen_stride;
-                *gen_stride += size;
+        if (xfb->so_mask & (1ull << loc)) {
+                struct pipe_stream_output *o = pan_get_so(&xfb->stream_output, loc);
+                format = pan_xfb_format(format, o->num_components);
+                size = pan_varying_size(format);
         }
 
-        pan_emit_vary(out, present, PAN_VARY_GENERAL, quirks, format, offset);
+        pan_emit_vary(out, present, PAN_VARY_GENERAL, quirks, format, *gen_stride);
+        *gen_stride += size;
 }
 
 /* Higher-level wrapper around all of the above, classifying a varying into one
@@ -1648,8 +1638,6 @@ panfrost_emit_varying(
                 unsigned max_xfb,
                 unsigned *streamout_offsets,
                 unsigned quirks,
-                unsigned *gen_offsets,
-                enum mali_format *gen_formats,
                 unsigned *gen_stride,
                 unsigned idx,
                 bool should_alloc,
@@ -1657,10 +1645,6 @@ panfrost_emit_varying(
 {
         gl_varying_slot loc = stage->varyings_loc[idx];
         enum mali_format format = stage->varyings[idx];
-
-        /* Override format to match linkage */
-        if (!should_alloc && gen_formats[idx])
-                format = gen_formats[idx];
 
         if (util_varying_is_point_coord(loc, point_sprite_mask)) {
                 pan_emit_vary_special(out, present, PAN_VARY_PNTCOORD, quirks);
@@ -1680,8 +1664,8 @@ panfrost_emit_varying(
                 pan_emit_vary_special(out, present, PAN_VARY_FACE, quirks);
         } else {
                 pan_emit_general_varying(out, other, xfb, loc, format, present,
-                                quirks, gen_offsets, gen_formats, gen_stride,
-                                idx, should_alloc);
+                                quirks, gen_stride, idx,
+                                should_alloc);
         }
 }
 
@@ -1734,21 +1718,7 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
                 point_coord_mask =  0;
 
         unsigned present = pan_varying_present(vs, fs, dev->quirks, point_coord_mask);
-
-        /* Check if this varying is linked by us. This is the case for
-         * general-purpose, non-captured varyings. If it is, link it. If it's
-         * not, use the provided stream out information to determine the
-         * offset, since it was already linked for us. */
-
-        unsigned gen_offsets[32];
-        enum mali_format gen_formats[32];
-        memset(gen_offsets, 0, sizeof(gen_offsets));
-        memset(gen_formats, 0, sizeof(gen_formats));
-
-        unsigned gen_stride = 0;
-        assert(vs->varying_count < ARRAY_SIZE(gen_offsets));
-        assert(fs->varying_count < ARRAY_SIZE(gen_offsets));
-
+        unsigned gen_stride = 0, fs_stride = 0;
         unsigned streamout_offsets[32];
 
         for (unsigned i = 0; i < ctx->streamout.num_targets; ++i) {
@@ -1764,14 +1734,14 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
                 panfrost_emit_varying(ovs + i, vs, fs, vs, present, 0,
                                 ctx->streamout.num_targets, streamout_offsets,
                                 dev->quirks,
-                                gen_offsets, gen_formats, &gen_stride, i, true, false);
+                                &gen_stride, i, true, false);
         }
 
         for (unsigned i = 0; i < fs->varying_count; i++) {
                 panfrost_emit_varying(ofs + i, fs, vs, vs, present, point_coord_mask,
                                 ctx->streamout.num_targets, streamout_offsets,
                                 dev->quirks,
-                                gen_offsets, gen_formats, &gen_stride, i, false, true);
+                                &fs_stride, i, false, true);
         }
 
         unsigned xfb_base = pan_xfb_base(present);
