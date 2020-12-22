@@ -558,6 +558,20 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
                 bi_emit_load_ubo(b, instr);
                 break;
 
+        case nir_intrinsic_load_scratch:
+                bi_load_to(b, bi_dest_index(&instr->dest),
+                        bi_src_index(&instr->src[0]), bi_zero(),
+                        instr->num_components * nir_dest_bit_size(instr->dest),
+                        BI_SEG_TL);
+                break;
+
+        case nir_intrinsic_store_scratch:
+                bi_store(b, bi_src_index(&instr->src[0]),
+                        bi_src_index(&instr->src[1]), bi_zero(),
+                        instr->num_components * nir_src_bit_size(instr->src[0]),
+                        BI_SEG_TL);
+                break;
+
         case nir_intrinsic_load_frag_coord:
                 bi_emit_load_frag_coord(b, instr);
                 break;
