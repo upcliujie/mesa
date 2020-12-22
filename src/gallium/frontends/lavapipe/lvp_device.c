@@ -424,6 +424,26 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures(
    };
 }
 
+static void
+lvp_get_physical_device_features_1_1(struct lvp_physical_device *pdevice,
+                                     VkPhysicalDeviceVulkan11Features *f)
+{
+   assert(f->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES);
+
+   f->storageBuffer16BitAccess            = true;
+   f->uniformAndStorageBuffer16BitAccess  = true;
+   f->storagePushConstant16               = true;
+   f->storageInputOutput16                = false;
+   f->multiview                           = true;
+   f->multiviewGeometryShader             = true;
+   f->multiviewTessellationShader         = true;
+   f->variablePointersStorageBuffer       = true;
+   f->variablePointers                    = false;
+   f->protectedMemory                     = false;
+   f->samplerYcbcrConversion              = false;
+   f->shaderDrawParameters                = true;
+}
+
 VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures2(
    VkPhysicalDevice                            physicalDevice,
    VkPhysicalDeviceFeatures2                  *pFeatures)
@@ -431,21 +451,54 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures2(
    LVP_FROM_HANDLE(lvp_physical_device, pdevice, physicalDevice);
    lvp_GetPhysicalDeviceFeatures(physicalDevice, &pFeatures->features);
 
+   VkPhysicalDeviceVulkan11Features core_1_1 = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+   };
+   lvp_get_physical_device_features_1_1(pdevice, &core_1_1);
+
+#define CORE_FEATURE(major, minor, feature) \
+   features->feature = core_##major##_##minor.feature
+
    vk_foreach_struct(ext, pFeatures->pNext) {
       switch (ext->sType) {
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTERS_FEATURES: {
          VkPhysicalDeviceVariablePointersFeatures *features = (void *)ext;
-         features->variablePointers = false;
-         features->variablePointersStorageBuffer = true;
+         CORE_FEATURE(1, 1, variablePointersStorageBuffer);
+         CORE_FEATURE(1, 1, variablePointers);
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES: {
+         VkPhysicalDeviceMultiviewFeatures *features = (VkPhysicalDeviceMultiviewFeatures*)ext;
+         CORE_FEATURE(1, 1, multiview);
+         CORE_FEATURE(1, 1, multiviewGeometryShader);
+         CORE_FEATURE(1, 1, multiviewTessellationShader);
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES: {
+         VkPhysicalDeviceShaderDrawParametersFeatures *features =
+            (VkPhysicalDeviceShaderDrawParametersFeatures*)ext;
+         CORE_FEATURE(1, 1, shaderDrawParameters);
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES: {
+         VkPhysicalDeviceProtectedMemoryFeatures *features =
+            (VkPhysicalDeviceProtectedMemoryFeatures*)ext;
+         CORE_FEATURE(1, 1, protectedMemory);
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES: {
          VkPhysicalDevice16BitStorageFeatures *features =
             (VkPhysicalDevice16BitStorageFeatures*)ext;
-         features->storageBuffer16BitAccess = true;
-         features->uniformAndStorageBuffer16BitAccess = true;
-         features->storagePushConstant16 = true;
-         features->storageInputOutput16 = false;
+         CORE_FEATURE(1, 1, storageBuffer16BitAccess);
+         CORE_FEATURE(1, 1, uniformAndStorageBuffer16BitAccess);
+         CORE_FEATURE(1, 1, storagePushConstant16);
+         CORE_FEATURE(1, 1, storageInputOutput16);
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES: {
+         VkPhysicalDeviceSamplerYcbcrConversionFeatures *features =
+            (VkPhysicalDeviceSamplerYcbcrConversionFeatures*)ext;
+         CORE_FEATURE(1, 1, samplerYcbcrConversion);
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES_EXT: {
@@ -480,12 +533,8 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures2(
          features->geometryStreams = true;
          break;
       }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES: {
-         VkPhysicalDeviceMultiviewFeatures *features =
-            (VkPhysicalDeviceMultiviewFeatures*)ext;
-         features->multiview = true;
-         features->multiviewGeometryShader = true;
-         features->multiviewTessellationShader = true;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES: {
+         lvp_get_physical_device_features_1_1(pdevice, (void *)ext);
          break;
       }
       default:
