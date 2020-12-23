@@ -472,16 +472,17 @@ bi_passthrough(enum bifrost_packed_src value)
 }
 
 static inline bool
-bi_index_null(bi_index idx)
+bi_is_null(bi_index idx)
 {
         return idx.type == BI_INDEX_NULL;
 }
 
-/* Compares equality as references. Does not compare offsets, swizzles, or
- * modifiers. */
+/* Compares equivalence as references. Does not compare offsets, swizzles, or
+ * modifiers. In other words, this forms bi_index equivalence classes by
+ * partitioning memory. E.g. -abs(foo[1].yx) == foo.xy but foo != bar */
 
 static inline bool
-bi_index_equal(bi_index left, bi_index right)
+bi_is_equiv(bi_index left, bi_index right)
 {
         return (left.type == right.type) &&
                 (left.reg == right.reg) &&
