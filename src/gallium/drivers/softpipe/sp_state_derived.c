@@ -483,5 +483,14 @@ softpipe_update_derived(struct softpipe_context *softpipe, unsigned prim)
                           SP_NEW_FS))
       sp_build_quad_pipeline(softpipe);
 
+   if (softpipe->dirty & SP_NEW_RASTERIZER) {
+      boolean discard =
+         ((softpipe->sample_mask & 1) == 0) ||
+         (softpipe->rasterizer ? softpipe->rasterizer->rasterizer_discard : FALSE);
+
+      if (softpipe->rasterizer)
+         softpipe->rasterizer->rasterizer_discard = discard;
+   }
+
    softpipe->dirty = 0;
 }

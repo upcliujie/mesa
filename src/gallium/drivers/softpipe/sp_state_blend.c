@@ -128,12 +128,35 @@ static void
 softpipe_set_sample_mask(struct pipe_context *pipe,
                          unsigned sample_mask)
 {
+   struct softpipe_context *softpipe = softpipe_context(pipe);
+
+   if (sample_mask != softpipe->sample_mask) {
+      softpipe->sample_mask = sample_mask;
+
+      softpipe->dirty |= SP_NEW_RASTERIZER;
+   }
+}
+
+
+static void
+softpipe_set_min_samples(struct pipe_context *pipe,
+                         unsigned min_samples)
+{
+   struct softpipe_context *softpipe = softpipe_context(pipe);
+
+   if (min_samples != softpipe->min_samples) {
+      softpipe->min_samples = min_samples;
+
+      softpipe->dirty |= SP_NEW_FS;
+   }
 }
 
 
 void
 softpipe_init_blend_funcs(struct pipe_context *pipe)
 {
+   struct softpipe_context *softpipe = softpipe_context(pipe);
+
    pipe->create_blend_state = softpipe_create_blend_state;
    pipe->bind_blend_state   = softpipe_bind_blend_state;
    pipe->delete_blend_state = softpipe_delete_blend_state;
@@ -147,4 +170,7 @@ softpipe_init_blend_funcs(struct pipe_context *pipe)
    pipe->set_stencil_ref = softpipe_set_stencil_ref;
 
    pipe->set_sample_mask = softpipe_set_sample_mask;
+   pipe->set_min_samples = softpipe_set_min_samples;
+
+   softpipe->sample_mask = ~0;
 }

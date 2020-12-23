@@ -225,6 +225,7 @@ softpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
       return 4;
    case PIPE_CAP_TEXTURE_GATHER_SM5:
    case PIPE_CAP_TEXTURE_QUERY_LOD:
+   case PIPE_CAP_SAMPLE_SHADING:
       return 1;
    case PIPE_CAP_TGSI_VS_WINDOW_SPACE_POSITION:
       return 1;

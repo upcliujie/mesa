@@ -74,6 +74,8 @@ struct softpipe_context {
    struct sp_compute_shader *cs;
 
    /** Other rendering state */
+   unsigned sample_mask;
+   unsigned min_samples;
    struct pipe_blend_color blend_color;
    struct pipe_blend_color blend_color_clamped;
    struct pipe_stencil_ref stencil_ref;
