@@ -29,7 +29,7 @@
 #include <vulkan/vulkan.h>
 #include "util/u_dynarray.h"
 #include "util/u_inlines.h"
-#include "util/u_dynarray.h"
+#include "util/simple_mtx.h"
 
 enum zink_descriptor_type {
    ZINK_DESCRIPTOR_TYPE_UBO,
@@ -84,6 +84,7 @@ struct zink_descriptor_pool {
    struct zink_descriptor_pool_key key;
    unsigned num_resources;
    unsigned num_sets_allocated;
+   simple_mtx_t mtx;
 };
 
 struct zink_descriptor_set {
