@@ -324,9 +324,6 @@ fd_set_viewport_states(struct pipe_context *pctx,
 		swap(miny, maxy);
 	}
 
-	debug_assert(miny >= 0);
-	debug_assert(maxy >= 0);
-
 	/* Convert to integer and round up the max bounds. */
 	scissor->minx = minx;
 	scissor->miny = miny;
