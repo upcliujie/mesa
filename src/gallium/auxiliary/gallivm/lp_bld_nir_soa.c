@@ -1474,6 +1474,7 @@ static void emit_sysval_intrin(struct lp_build_nir_context *bld_base,
       result[0] = lp_build_broadcast_scalar(&bld_base->uint_bld, bld->system_values.base_instance);
       break;
    case nir_intrinsic_load_base_vertex:
+   case nir_intrinsic_load_first_vertex:
       result[0] = bld->system_values.basevertex;
       break;
    case nir_intrinsic_load_vertex_id:
