@@ -68,8 +68,7 @@ bir_passthrough_name(unsigned idx)
             "s0", "s1", "s2", "t", "fau.x", "fau.y", "t0", "t1"
     };
 
-    assert(idx < ARRAY_SIZE(names));
-    return names[idx];
+    return names[idx & 7];
 }
 
 static void

@@ -168,6 +168,10 @@ bi_assign_fau_idx_single(bi_registers *regs,
                         regs->fau_idx = ins->src[s].value;
                         ins->src[s] = bi_passthrough(hi ? BIFROST_SRC_FAU_HI :
                                         BIFROST_SRC_FAU_LO);
+
+                        /* Keep original value in a side channel for blend
+                         * return address collection */
+                        ins->src[s].value |= (regs->fau_idx) << 8;
                         assigned = true;
                 }
         }
@@ -464,7 +468,7 @@ bi_get_src_new(bi_instr *ins, bi_registers *regs, unsigned s)
         if (src.type == BI_INDEX_REGISTER)
                 return bi_get_src_slot(regs, src.value);
         else if (src.type == BI_INDEX_PASS)
-                return src.value;
+                return src.value & 7;
         else if (bi_index_null(src) && ins->op == BI_OPCODE_ZS_EMIT && s < 2)
                 return BIFROST_SRC_STAGE;
         else {
@@ -686,20 +690,13 @@ bi_collect_blend_ret_addr(bi_context *ctx, struct util_dynarray *emission,
         if (!ins || ins->op != BI_OPCODE_BLEND)
                 return;
 
-        /* We don't support non-terminal blend instructions yet.
-         * That would requires fixing blend shaders to restore the registers
-         * they use before jumping back to the fragment shader, which is
-         * currently not supported.
-         */
-        assert(0);
-
-#if 0
-        assert(ins->blend_location < ARRAY_SIZE(ctx->blend_ret_offsets));
-        assert(!ctx->blend_ret_offsets[ins->blend_location]);
-        ctx->blend_ret_offsets[ins->blend_location] =
+        /* XXX: Restore registers in blend shaders so MRT can be advertised */
+        unsigned loc = (ins->src[2].value >> 8) - BIR_FAU_BLEND_0;
+        assert(loc < ARRAY_SIZE(ctx->blend_ret_offsets));
+        assert(!ctx->blend_ret_offsets[loc]);
+        ctx->blend_ret_offsets[loc] =
                 util_dynarray_num_elements(emission, uint8_t);
-        assert(!(ctx->blend_ret_offsets[ins->blend_location] & 0x7));
-#endif
+        assert(!(ctx->blend_ret_offsets[loc] & 0x7));
 }
 
 void
