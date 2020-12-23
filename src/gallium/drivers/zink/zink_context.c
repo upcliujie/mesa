@@ -45,7 +45,6 @@
 #include "util/u_framebuffer.h"
 #include "util/u_helpers.h"
 #include "util/u_inlines.h"
-
 #include "nir.h"
 
 #include "util/u_memory.h"
@@ -1619,6 +1618,8 @@ zink_flush(struct pipe_context *pctx,
                                      ctx->flush_res,
                                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0, 0);
       }
+      if (ctx->flush_res && zink_screen(pctx->screen)->needs_mesa_flush_wsi)
+         batch->flush_res = ctx->flush_res;
       ctx->flush_res = NULL;
       flush_batch(ctx);
 
