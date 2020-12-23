@@ -48,6 +48,9 @@ struct zink_batch {
    VkCommandBuffer cmdbuf;
    VkDescriptorPool descpool;
    unsigned short max_descs; //set if the device gives oom when allocating a new desc set
+
+   struct zink_resource *flush_res;
+
    unsigned short descs_used; //number of descriptors currently allocated
    struct zink_fence *fence;
 
