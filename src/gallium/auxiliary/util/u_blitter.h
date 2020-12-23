@@ -261,6 +261,14 @@ void util_blitter_copy_texture(struct blitter_context *blitter,
  *
  * The mask is a combination of the PIPE_MASK_* flags.
  * Set to PIPE_MASK_RGBAZS if unsure.
+ *
+ * By default, when resolving a MS surface to a non-MS one, the result is an
+ * average of the samples. no_nearest_avg disables it (for nearest filter), so
+ * the output is a single sample from the input surface. This can be used when
+ * using this function to blit a stencil buffer by re-interpreting it as a
+ * color buffer. According to OpenGL's BlitFramebuffer spec, "if the source
+ * formats are integer types or stencil values, a single sample’s value is
+ * selected for each pixel".
  */
 void util_blitter_blit_generic(struct blitter_context *blitter,
                                struct pipe_surface *dst,
@@ -270,7 +278,8 @@ void util_blitter_blit_generic(struct blitter_context *blitter,
                                unsigned src_width0, unsigned src_height0,
                                unsigned mask, unsigned filter,
                                const struct pipe_scissor_state *scissor,
-                               bool alpha_blend);
+                               bool alpha_blend,
+                               bool no_nearest_avg);
 
 void util_blitter_blit(struct blitter_context *blitter,
 		       const struct pipe_blit_info *info);

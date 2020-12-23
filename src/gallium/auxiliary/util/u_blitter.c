@@ -934,7 +934,8 @@ static void *blitter_get_fs_texfetch_col(struct blitter_context_priv *ctx,
                                          unsigned src_nr_samples,
                                          unsigned dst_nr_samples,
                                          unsigned filter,
-                                         bool use_txf)
+                                         bool use_txf,
+                                         bool no_nearest_avg)
 {
    struct pipe_context *pipe = ctx->base.pipe;
    enum tgsi_texture_type tgsi_tex =
@@ -997,7 +998,7 @@ static void *blitter_get_fs_texfetch_col(struct blitter_context_priv *ctx,
             }
             else {
                *shader = util_make_fs_msaa_resolve(pipe, tgsi_tex,
-                                                   src_nr_samples,
+                                                   no_nearest_avg ? 1 : src_nr_samples,
                                                    stype);
             }
          }
@@ -1251,19 +1252,19 @@ void util_blitter_cache_all_shaders(struct blitter_context *blitter)
              */
             blitter_get_fs_texfetch_col(ctx, PIPE_FORMAT_R32_FLOAT,
                                         PIPE_FORMAT_R32_FLOAT, target,
-                                        samples, samples, 0, use_txf);
+                                        samples, samples, 0, use_txf, false);
             blitter_get_fs_texfetch_col(ctx, PIPE_FORMAT_R32_UINT,
                                         PIPE_FORMAT_R32_UINT, target,
-                                        samples, samples, 0, use_txf);
+                                        samples, samples, 0, use_txf, false);
             blitter_get_fs_texfetch_col(ctx, PIPE_FORMAT_R32_UINT,
                                         PIPE_FORMAT_R32_SINT, target,
-                                        samples, samples, 0, use_txf);
+                                        samples, samples, 0, use_txf, false);
             blitter_get_fs_texfetch_col(ctx, PIPE_FORMAT_R32_SINT,
                                         PIPE_FORMAT_R32_SINT, target,
-                                        samples, samples, 0, use_txf);
+                                        samples, samples, 0, use_txf, false);
             blitter_get_fs_texfetch_col(ctx, PIPE_FORMAT_R32_SINT,
                                         PIPE_FORMAT_R32_UINT, target,
-                                        samples, samples, 0, use_txf);
+                                        samples, samples, 0, use_txf, false);
             blitter_get_fs_texfetch_depth(ctx, target, samples, use_txf);
             if (ctx->has_stencil_export) {
                blitter_get_fs_texfetch_depthstencil(ctx, target, samples, use_txf);
@@ -1287,13 +1288,13 @@ void util_blitter_cache_all_shaders(struct blitter_context *blitter)
 
                   blitter_get_fs_texfetch_col(ctx, PIPE_FORMAT_R32_FLOAT,
                                               PIPE_FORMAT_R32_FLOAT, target,
-                                              j, 1, f, use_txf);
+                                              j, 1, f, use_txf, false);
                   blitter_get_fs_texfetch_col(ctx, PIPE_FORMAT_R32_UINT,
                                               PIPE_FORMAT_R32_UINT, target,
-                                              j, 1, f, use_txf);
+                                              j, 1, f, use_txf, false);
                   blitter_get_fs_texfetch_col(ctx, PIPE_FORMAT_R32_SINT,
                                               PIPE_FORMAT_R32_SINT, target,
-                                              j, 1, f, use_txf);
+                                              j, 1, f, use_txf, false);
                }
             }
          }
@@ -1726,7 +1727,7 @@ void util_blitter_copy_texture(struct blitter_context *blitter,
    util_blitter_blit_generic(blitter, dst_view, &dstbox,
                              src_view, srcbox, src->width0, src->height0,
                              PIPE_MASK_RGBAZS, PIPE_TEX_FILTER_NEAREST, NULL,
-                             false);
+                             false, false);
 
    pipe_surface_reference(&dst_view, NULL);
    pipe_sampler_view_reference(&src_view, NULL);
@@ -1910,7 +1911,8 @@ void util_blitter_blit_generic(struct blitter_context *blitter,
                                unsigned src_width0, unsigned src_height0,
                                unsigned mask, unsigned filter,
                                const struct pipe_scissor_state *scissor,
-                               bool alpha_blend)
+                               bool alpha_blend,
+                               bool no_nearest_avg)
 {
    struct blitter_context_priv *ctx = (struct blitter_context_priv*)blitter;
    struct pipe_context *pipe = ctx->base.pipe;
@@ -2048,7 +2050,7 @@ void util_blitter_blit_generic(struct blitter_context *blitter,
          ctx->bind_fs_state(pipe,
             blitter_get_fs_texfetch_col(ctx, src->format, dst->format, src_target,
                                         src_samples, dst_samples, filter,
-                                        use_txf));
+                                        use_txf, no_nearest_avg));
       }
    }
 
@@ -2155,7 +2157,7 @@ util_blitter_blit(struct blitter_context *blitter,
                              src_view, &info->src.box, src->width0, src->height0,
                              info->mask, info->filter,
                              info->scissor_enable ? &info->scissor : NULL,
-                             info->alpha_blend);
+                             info->alpha_blend, false);
 
    pipe_surface_reference(&dst_view, NULL);
    pipe_sampler_view_reference(&src_view, NULL);
@@ -2208,7 +2210,7 @@ void util_blitter_generate_mipmap(struct blitter_context *blitter,
       pipe->bind_depth_stencil_alpha_state(pipe, ctx->dsa_keep_depth_stencil);
       ctx->bind_fs_state(pipe,
             blitter_get_fs_texfetch_col(ctx, tex->format, tex->format, target,
-                                        1, 1, PIPE_TEX_FILTER_LINEAR, false));
+                                        1, 1, PIPE_TEX_FILTER_LINEAR, false, false));
    }
 
    if (target == PIPE_TEXTURE_RECT) {

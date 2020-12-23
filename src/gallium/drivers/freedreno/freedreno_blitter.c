@@ -158,7 +158,8 @@ fd_blitter_blit(struct fd_context *ctx, const struct pipe_blit_info *info)
 			src_view, &info->src.box, src->width0, src->height0,
 			info->mask, info->filter,
 			info->scissor_enable ? &info->scissor : NULL,
-			info->alpha_blend);
+			info->alpha_blend,
+			false);
 
 	pipe_surface_reference(&dst_view, NULL);
 	pipe_sampler_view_reference(&src_view, NULL);
