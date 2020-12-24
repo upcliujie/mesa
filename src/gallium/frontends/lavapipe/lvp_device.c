@@ -354,7 +354,7 @@ void lvp_GetPhysicalDeviceFeatures2(
       switch (ext->sType) {
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTERS_FEATURES: {
          VkPhysicalDeviceVariablePointersFeatures *features = (void *)ext;
-         features->variablePointers = true;
+         features->variablePointers = false;
          features->variablePointersStorageBuffer = true;
          break;
       }

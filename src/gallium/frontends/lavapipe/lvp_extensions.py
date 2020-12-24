@@ -99,7 +99,7 @@ EXTENSIONS = [
     Extension('VK_KHR_surface_protected_capabilities',    1, 'LVP_HAS_SURFACE'),
     Extension('VK_KHR_swapchain',                        68, 'LVP_HAS_SURFACE'),
     Extension('VK_KHR_uniform_buffer_standard_layout',    1, False),
-    Extension('VK_KHR_variable_pointers',                 1, False),
+    Extension('VK_KHR_variable_pointers',                 1, True),
     Extension('VK_KHR_wayland_surface',                   6, 'VK_USE_PLATFORM_WAYLAND_KHR'),
     Extension('VK_KHR_xcb_surface',                       6, 'VK_USE_PLATFORM_XCB_KHR'),
     Extension('VK_KHR_xlib_surface',                      6, 'VK_USE_PLATFORM_XLIB_KHR'),
