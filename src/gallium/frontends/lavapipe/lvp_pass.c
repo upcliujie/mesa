@@ -270,10 +270,14 @@ VkResult lvp_CreateRenderPass(
 static unsigned
 lvp_num_subpass_attachments2(const VkSubpassDescription2 *desc)
 {
+   const VkSubpassDescriptionDepthStencilResolve *ds_resolve =
+      vk_find_struct_const(desc->pNext,
+                           SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE);
    return desc->inputAttachmentCount +
       desc->colorAttachmentCount +
       (desc->pResolveAttachments ? desc->colorAttachmentCount : 0) +
-      (desc->pDepthStencilAttachment != NULL));
+      (desc->pDepthStencilAttachment != NULL) +
+      (ds_resolve && ds_resolve->pDepthStencilResolveAttachment);
 }
 
 VkResult lvp_CreateRenderPass2(
@@ -388,6 +392,29 @@ VkResult lvp_CreateRenderPass2(
             .attachment = desc->pDepthStencilAttachment->attachment,
             .layout = desc->pDepthStencilAttachment->layout,
          };
+      }
+
+      const VkSubpassDescriptionDepthStencilResolve *ds_resolve =
+         vk_find_struct_const(desc->pNext,
+                              SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE);
+
+      if (ds_resolve && ds_resolve->pDepthStencilResolveAttachment) {
+         subpass->ds_resolve_attachment = p++;
+
+//         const VkAttachmentReferenceStencilLayoutKHR *stencil_resolve_attachment =
+         //           vk_find_struct_const(ds_resolve->pDepthStencilResolveAttachment->pNext,
+//                                 ATTACHMENT_REFERENCE_STENCIL_LAYOUT_KHR);
+
+         *subpass->ds_resolve_attachment = (struct lvp_subpass_attachment) {
+            .attachment = ds_resolve->pDepthStencilResolveAttachment->attachment,
+            .layout =      ds_resolve->pDepthStencilResolveAttachment->layout,
+//            .stencil_layout = (stencil_resolve_attachment ?
+//                               stencil_resolve_attachment->stencilLayout :
+//                               ds_resolve->pDepthStencilResolveAttachment->layout),
+         };
+
+         subpass->depth_resolve_mode = ds_resolve->depthResolveMode;
+         subpass->stencil_resolve_mode = ds_resolve->stencilResolveMode;
       }
    }
 

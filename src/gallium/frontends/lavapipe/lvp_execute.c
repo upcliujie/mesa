@@ -1232,6 +1232,35 @@ static void render_subpass_clear(struct rendering_state *state)
 static void render_pass_resolve(struct rendering_state *state)
 {
    const struct lvp_subpass *subpass = &state->pass->subpasses[state->subpass];
+
+   if (subpass->depth_stencil_attachment && subpass->ds_resolve_attachment) {
+      struct lvp_subpass_attachment src_att = *subpass->depth_stencil_attachment;
+      struct lvp_subpass_attachment dst_att = *subpass->ds_resolve_attachment;
+      if (dst_att.attachment != VK_ATTACHMENT_UNUSED) {
+         struct lvp_image_view *src_imgv = state->vk_framebuffer->attachments[src_att.attachment];
+         struct lvp_image_view *dst_imgv = state->vk_framebuffer->attachments[dst_att.attachment];
+
+         struct pipe_blit_info info;
+         memset(&info, 0, sizeof(info));
+
+         info.src.resource = src_imgv->image->bo;
+         info.dst.resource = dst_imgv->image->bo;
+         info.src.format = src_imgv->pformat;
+         info.dst.format = dst_imgv->pformat;
+         info.filter = PIPE_TEX_FILTER_NEAREST;
+         info.mask = PIPE_MASK_ZS;
+         info.src.box.x = state->render_area.offset.x;
+         info.src.box.y = state->render_area.offset.y;
+         info.src.box.width = state->render_area.extent.width;
+         info.src.box.height = state->render_area.extent.height;
+         info.src.box.depth = state->vk_framebuffer->layers;
+
+         info.dst.box = info.src.box;
+
+         state->pctx->blit(state->pctx, &info);
+      }
+
+   }
    if (!subpass->has_color_resolve)
       return;
    for (uint32_t i = 0; i < subpass->color_count; i++) {

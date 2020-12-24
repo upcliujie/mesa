@@ -748,6 +748,16 @@ void lvp_GetPhysicalDeviceProperties2(
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES:
          lvp_get_physical_device_properties_1_1(pdevice, (void *)ext);
          break;
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES: {
+         VkPhysicalDeviceDepthStencilResolveProperties *properties =
+            (VkPhysicalDeviceDepthStencilResolveProperties *)ext;
+         properties->supportedDepthResolveModes = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT | VK_RESOLVE_MODE_AVERAGE_BIT;
+         properties->supportedStencilResolveModes = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT | VK_RESOLVE_MODE_AVERAGE_BIT;
+         properties->independentResolveNone = false;
+         properties->independentResolve = false;
+         break;
+      }
       default:
          break;
       }
