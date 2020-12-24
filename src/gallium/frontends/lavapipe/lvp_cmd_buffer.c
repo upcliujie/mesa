@@ -349,6 +349,15 @@ void lvp_CmdBeginRenderPass(
    cmd_buf_queue(cmd_buffer, cmd);
 }
 
+void lvp_CmdBeginRenderPass2(
+    VkCommandBuffer                             commandBuffer,
+    const VkRenderPassBeginInfo*                pRenderPassBeginInfo,
+    const VkSubpassBeginInfo*                   pSubpassBeginInfo)
+{
+   lvp_CmdBeginRenderPass(commandBuffer, pRenderPassBeginInfo,
+                          pSubpassBeginInfo->contents);
+}
+
 void lvp_CmdNextSubpass(
    VkCommandBuffer                             commandBuffer,
    VkSubpassContents                           contents)
@@ -363,6 +372,14 @@ void lvp_CmdNextSubpass(
    cmd->u.next_subpass.contents = contents;
 
    cmd_buf_queue(cmd_buffer, cmd);
+}
+
+void lvp_CmdNextSubpass2(
+    VkCommandBuffer                             commandBuffer,
+    const VkSubpassBeginInfo*                   pSubpassBeginInfo,
+    const VkSubpassEndInfo*                     pSubpassEndInfo)
+{
+   lvp_CmdNextSubpass(commandBuffer, pSubpassBeginInfo->contents);
 }
 
 void lvp_CmdBindVertexBuffers(
@@ -492,6 +509,13 @@ void lvp_CmdEndRenderPass(
       return;
 
    cmd_buf_queue(cmd_buffer, cmd);
+}
+
+void lvp_CmdEndRenderPass2(
+   VkCommandBuffer                             commandBuffer,
+   const VkSubpassEndInfo*                     pSubpassEndInfo)
+{
+   lvp_CmdEndRenderPass(commandBuffer);
 }
 
 void lvp_CmdSetViewport(
