@@ -42,6 +42,7 @@ struct ac_nir_context {
 
    gl_shader_stage stage;
    shader_info *info;
+   const struct nir_shader_compiler_options *options;
 
    LLVMValueRef *ssa_defs;
 
@@ -667,6 +668,14 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
    case nir_op_fmul:
       src[0] = ac_to_float(&ctx->ac, src[0]);
       src[1] = ac_to_float(&ctx->ac, src[1]);
+      if (ctx->options->fmul32_x_times_zero_is_zero &&
+          instr->dest.dest.ssa.bit_size == 32 &&
+          LLVM_VERSION_MAJOR >= 12) {
+         result = ac_build_intrinsic(&ctx->ac, "llvm.amdgcn.fmul.legacy", ctx->ac.f32,
+                                     (LLVMValueRef[]){src[0], src[1]}, 2,
+                                     AC_FUNC_ATTR_READNONE);
+         break;
+      }
       result = LLVMBuildFMul(ctx->ac.builder, src[0], src[1], "");
       break;
    case nir_op_frcp:
@@ -864,6 +873,16 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
    case nir_op_ffma:
       /* FMA is slow on gfx6-8, so it shouldn't be used. */
       assert(instr->dest.dest.ssa.bit_size != 32 || ctx->ac.chip_class >= GFX9);
+      if (ctx->options->fmul32_x_times_zero_is_zero &&
+          instr->dest.dest.ssa.bit_size == 32 &&
+          LLVM_VERSION_MAJOR >= 12) {
+         /* This instrinsic only exists on gfx10.3. */
+         assert(ctx->ac.chip_class >= GFX10_3);
+         result = ac_build_intrinsic(&ctx->ac, "llvm.amdgcn.fma.legacy", ctx->ac.f32,
+                                     (LLVMValueRef[]){src[0], src[1], src[2]}, 3,
+                                     AC_FUNC_ATTR_READNONE);
+         break;
+      }
       result = emit_intrin_3f_param(&ctx->ac, "llvm.fma", ac_to_float_type(&ctx->ac, def_type),
                                     src[0], src[1], src[2]);
       break;
@@ -4928,6 +4947,7 @@ void ac_nir_translate(struct ac_llvm_context *ac, struct ac_shader_abi *abi,
 
    ctx.stage = nir->info.stage;
    ctx.info = &nir->info;
+   ctx.options = nir->options;
 
    ctx.main_function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(ctx.ac.builder));
 
