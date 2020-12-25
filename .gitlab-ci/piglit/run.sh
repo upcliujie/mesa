@@ -199,5 +199,5 @@ if [ ${PIGLIT_HTML_SUMMARY:-1} -eq 1 ]; then
 fi
 
 printf "%s\n" "Unexpected change in results:"
-diff -u ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE
+diff -U0 ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE
 exit 1
