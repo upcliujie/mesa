@@ -686,7 +686,9 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
          result = emit_intrin_1f_param_scalar(&ctx->ac, "llvm.amdgcn.rcp",
                                               ac_to_float_type(&ctx->ac, def_type), src[0]);
       }
-      if (ctx->abi->clamp_div_by_zero)
+      if (ctx->options->fmul32_x_times_zero_is_zero &&
+          instr->dest.dest.ssa.bit_size == 32 &&
+          LLVM_VERSION_MAJOR < 12)
          result = ac_build_fmin(&ctx->ac, result,
                                 LLVMConstReal(ac_to_float_type(&ctx->ac, def_type), FLT_MAX));
       break;
@@ -836,7 +838,9 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
    case nir_op_frsq:
       result = emit_intrin_1f_param_scalar(&ctx->ac, "llvm.amdgcn.rsq",
                                            ac_to_float_type(&ctx->ac, def_type), src[0]);
-      if (ctx->abi->clamp_div_by_zero)
+      if (ctx->options->fmul32_x_times_zero_is_zero &&
+          instr->dest.dest.ssa.bit_size == 32 &&
+          LLVM_VERSION_MAJOR < 12)
          result = ac_build_fmin(&ctx->ac, result,
                                 LLVMConstReal(ac_to_float_type(&ctx->ac, def_type), FLT_MAX));
       break;

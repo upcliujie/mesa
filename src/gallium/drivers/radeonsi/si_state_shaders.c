@@ -85,7 +85,7 @@ void si_get_ir_cache_key(struct si_shader_selector *sel, bool ngg, bool es,
    }
    if (sel->screen->options.no_infinite_interp)
       shader_variant_flags |= 1 << 7;
-   if (sel->screen->options.clamp_div_by_zero)
+   if (sel->screen->options.fmul_legacy)
       shader_variant_flags |= 1 << 8;
    if (sel->screen->debug_flags & DBG(GISEL))
       shader_variant_flags |= 1 << 9;

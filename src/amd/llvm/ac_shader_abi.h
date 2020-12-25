@@ -163,9 +163,6 @@ struct ac_shader_abi {
    /* Whether undef values must be converted to zero */
    bool convert_undef_to_zero;
 
-   /* Clamp div by 0 (so it won't produce NaN) */
-   bool clamp_div_by_zero;
-
    /* Whether gl_FragCoord.z should be adjusted for VRS due to a hw bug on
     * some GFX10.3 chips.
     */
