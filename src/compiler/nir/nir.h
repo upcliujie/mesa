@@ -3152,6 +3152,8 @@ typedef struct nir_shader_compiler_options {
     */
    bool fdot_replicates;
 
+   bool fmul32_x_times_zero_is_zero;
+
    /** lowers ffloor to fsub+ffract: */
    bool lower_ffloor;
 
