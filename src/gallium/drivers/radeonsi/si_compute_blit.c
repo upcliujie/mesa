@@ -143,7 +143,7 @@ static void si_compute_clear_12bytes_buffer(struct si_context *sctx, struct pipe
    struct pipe_constant_buffer cb = {};
    cb.buffer_size = sizeof(data);
    cb.user_buffer = data;
-   ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, &cb);
+   ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, false, &cb);
 
    struct pipe_shader_buffer sb = {0};
    sb.buffer = dst;
@@ -168,10 +168,9 @@ static void si_compute_clear_12bytes_buffer(struct si_context *sctx, struct pipe
    si_launch_grid_internal(sctx, &info, saved_cs, SI_CS_WAIT_FOR_IDLE);
 
    ctx->set_shader_buffers(ctx, PIPE_SHADER_COMPUTE, 0, 1, &saved_sb, saved_writable_mask);
-   ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, &saved_cb);
+   ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, true, &saved_cb);
 
    pipe_resource_reference(&saved_sb.buffer, NULL);
-   pipe_resource_reference(&saved_cb.buffer, NULL);
 }
 
 static void si_compute_do_clear_or_copy(struct si_context *sctx, struct pipe_resource *dst,
@@ -508,7 +507,7 @@ void si_compute_copy_image(struct si_context *sctx, struct pipe_resource *dst, u
       struct pipe_constant_buffer cb = {};
       cb.buffer_size = sizeof(data);
       cb.user_buffer = data;
-      ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, &cb);
+      ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, false, &cb);
    }
 
    struct pipe_image_view image[2] = {0};
@@ -610,8 +609,7 @@ void si_compute_copy_image(struct si_context *sctx, struct pipe_resource *dst, u
    for (int i = 0; i < 2; i++)
       pipe_resource_reference(&saved_image[i].resource, NULL);
    if (!is_dcc_decompress) {
-      ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, &saved_cb);
-      pipe_resource_reference(&saved_cb.buffer, NULL);
+      ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, true, &saved_cb);
    }
 }
 
@@ -813,7 +811,7 @@ void si_compute_clear_render_target(struct pipe_context *ctx, struct pipe_surfac
    struct pipe_constant_buffer cb = {};
    cb.buffer_size = sizeof(data);
    cb.user_buffer = data;
-   ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, &cb);
+   ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, false, &cb);
 
    struct pipe_image_view image = {0};
    image.resource = dstsurf->texture;
@@ -857,7 +855,6 @@ void si_compute_clear_render_target(struct pipe_context *ctx, struct pipe_surfac
                            (render_condition_enabled ? SI_CS_RENDER_COND_ENABLE : 0));
 
    ctx->set_shader_images(ctx, PIPE_SHADER_COMPUTE, 0, 1, &saved_image);
-   ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, &saved_cb);
+   ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, true, &saved_cb);
    pipe_resource_reference(&saved_image.resource, NULL);
-   pipe_resource_reference(&saved_cb.buffer, NULL);
 }
