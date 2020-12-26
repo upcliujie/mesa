@@ -465,7 +465,7 @@ tegra_set_clip_state(struct pipe_context *pcontext,
 
 static void
 tegra_set_constant_buffer(struct pipe_context *pcontext, unsigned int shader,
-                          ubyte index,
+                          ubyte index, bool pass_reference,
                           const struct pipe_constant_buffer *buf)
 {
    struct tegra_context *context = to_tegra_context(pcontext);
@@ -477,7 +477,7 @@ tegra_set_constant_buffer(struct pipe_context *pcontext, unsigned int shader,
       buf = &buffer;
    }
 
-   context->gpu->set_constant_buffer(context->gpu, shader, index, buf);
+   context->gpu->set_constant_buffer(context->gpu, shader, index, pass_reference, buf);
 }
 
 static void

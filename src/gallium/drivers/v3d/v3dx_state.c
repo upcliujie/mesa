@@ -444,12 +444,13 @@ v3d_vertex_state_bind(struct pipe_context *pctx, void *hwcso)
 
 static void
 v3d_set_constant_buffer(struct pipe_context *pctx, uint shader, ubyte index,
+                        bool pass_reference,
                         const struct pipe_constant_buffer *cb)
 {
         struct v3d_context *v3d = v3d_context(pctx);
         struct v3d_constbuf_stateobj *so = &v3d->constbuf[shader];
 
-        util_copy_constant_buffer(&so->cb[index], cb);
+        util_copy_constant_buffer(&so->cb[index], cb, pass_reference);
 
         /* Note that the gallium frontend can unbind constant buffers by
          * passing NULL here.

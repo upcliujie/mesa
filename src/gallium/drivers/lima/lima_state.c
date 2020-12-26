@@ -265,6 +265,7 @@ lima_set_clip_state(struct pipe_context *pctx,
 static void
 lima_set_constant_buffer(struct pipe_context *pctx,
                          enum pipe_shader_type shader, ubyte index,
+                         bool pass_reference,
                          const struct pipe_constant_buffer *cb)
 {
    struct lima_context *ctx = lima_context(pctx);

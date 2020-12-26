@@ -532,6 +532,7 @@ zink_set_scissor_states(struct pipe_context *pctx,
 static void
 zink_set_constant_buffer(struct pipe_context *pctx,
                          enum pipe_shader_type shader, ubyte index,
+                         bool pass_reference,
                          const struct pipe_constant_buffer *cb)
 {
    struct zink_context *ctx = zink_context(pctx);
@@ -546,7 +547,12 @@ zink_set_constant_buffer(struct pipe_context *pctx,
                        cb->user_buffer, &offset, &buffer);
       }
 
-      pipe_resource_reference(&ctx->ubos[shader][index].buffer, buffer);
+      if (pass_reference) {
+         pipe_resource_reference(&ctx->ubos[shader][index].buffer, NULL);
+         ctx->ubos[shader][index].buffer = buffer;
+      } else {
+         pipe_resource_reference(&ctx->ubos[shader][index].buffer, buffer);
+      }
       ctx->ubos[shader][index].buffer_offset = offset;
       ctx->ubos[shader][index].buffer_size = cb->buffer_size;
       ctx->ubos[shader][index].user_buffer = NULL;

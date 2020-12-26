@@ -949,13 +949,13 @@ panfrost_set_vertex_buffers(
 static void
 panfrost_set_constant_buffer(
         struct pipe_context *pctx,
-        enum pipe_shader_type shader, ubyte index,
+        enum pipe_shader_type shader, ubyte index, bool pass_reference,
         const struct pipe_constant_buffer *buf)
 {
         struct panfrost_context *ctx = pan_context(pctx);
         struct panfrost_constant_buffer *pbuf = &ctx->constant_buffer[shader];
 
-        util_copy_constant_buffer(&pbuf->cb[index], buf);
+        util_copy_constant_buffer(&pbuf->cb[index], buf, pass_reference);
 
         unsigned mask = (1 << index);
 

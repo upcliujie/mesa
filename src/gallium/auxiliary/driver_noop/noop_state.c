@@ -163,6 +163,7 @@ static void noop_set_framebuffer_state(struct pipe_context *ctx,
 
 static void noop_set_constant_buffer(struct pipe_context *ctx,
                                      enum pipe_shader_type shader, ubyte index,
+                                     bool pass_reference,
                                      const struct pipe_constant_buffer *cb)
 {
 }
