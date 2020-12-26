@@ -1123,12 +1123,14 @@ static void
 d3d12_set_vertex_buffers(struct pipe_context *pctx,
                          ubyte start_slot, ubyte num_buffers,
                          ubyte unbind_num_trailing_slots,
+                         bool take_ownership,
                          const struct pipe_vertex_buffer *buffers)
 {
    struct d3d12_context *ctx = d3d12_context(pctx);
    util_set_vertex_buffers_count(ctx->vbs, &ctx->num_vbs,
                                  buffers, start_slot, num_buffers,
-                                 unbind_num_trailing_slots);
+                                 unbind_num_trailing_slots,
+                                 take_ownership);
 
    for (unsigned i = 0; i < ctx->num_vbs; ++i) {
       const struct pipe_vertex_buffer* buf = ctx->vbs + i;
