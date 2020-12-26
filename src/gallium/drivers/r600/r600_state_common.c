@@ -566,6 +566,7 @@ void r600_vertex_buffers_dirty(struct r600_context *rctx)
 static void r600_set_vertex_buffers(struct pipe_context *ctx,
 				    ubyte start_slot, ubyte count,
 				    ubyte unbind_num_trailing_slots,
+				    bool pass_references,
 				    const struct pipe_vertex_buffer *input)
 {
 	struct r600_context *rctx = (struct r600_context *)ctx;
@@ -586,7 +587,13 @@ static void r600_set_vertex_buffers(struct pipe_context *ctx,
 				if (input[i].buffer.resource) {
 					vb[i].stride = input[i].stride;
 					vb[i].buffer_offset = input[i].buffer_offset;
-					pipe_resource_reference(&vb[i].buffer.resource, input[i].buffer.resource);
+					if (pass_references) {
+						pipe_resource_reference(&vb[i].buffer.resource, NULL);
+						vb[i].buffer.resource = input[i].buffer.resource;
+					} else {
+						pipe_resource_reference(&vb[i].buffer.resource,
+									input[i].buffer.resource);
+					}
 					new_buffer_mask |= 1 << i;
 					r600_context_add_resource_size(ctx, input[i].buffer.resource);
 				} else {

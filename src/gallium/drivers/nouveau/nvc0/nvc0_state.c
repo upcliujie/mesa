@@ -995,6 +995,7 @@ static void
 nvc0_set_vertex_buffers(struct pipe_context *pipe,
                         ubyte start_slot, ubyte count,
                         ubyte unbind_num_trailing_slots,
+                        bool pass_references,
                         const struct pipe_vertex_buffer *vb)
 {
     struct nvc0_context *nvc0 = nvc0_context(pipe);
@@ -1005,7 +1006,8 @@ nvc0_set_vertex_buffers(struct pipe_context *pipe,
 
     util_set_vertex_buffers_count(nvc0->vtxbuf, &nvc0->num_vtxbufs, vb,
                                   start_slot, count,
-                                  unbind_num_trailing_slots);
+                                  unbind_num_trailing_slots,
+                                  pass_references);
 
     if (!vb) {
        nvc0->vbo_user &= ~(((1ull << count) - 1) << start_slot);

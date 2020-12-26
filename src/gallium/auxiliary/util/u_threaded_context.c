@@ -1131,7 +1131,7 @@ tc_call_set_vertex_buffers(struct pipe_context *pipe, union tc_payload *payload)
    unsigned count = p->count;
 
    if (p->unbind_all) {
-      pipe->set_vertex_buffers(pipe, p->start, count, 0, NULL);
+      pipe->set_vertex_buffers(pipe, p->start, count, 0, false, NULL);
       return;
    }
 
@@ -1139,15 +1139,14 @@ tc_call_set_vertex_buffers(struct pipe_context *pipe, union tc_payload *payload)
       tc_assert(!p->slot[i].is_user_buffer);
 
    pipe->set_vertex_buffers(pipe, p->start, count,
-                            p->unbind_num_trailing_slots, p->slot);
-   for (unsigned i = 0; i < count; i++)
-      pipe_resource_reference(&p->slot[i].buffer.resource, NULL);
+                            p->unbind_num_trailing_slots, true, p->slot);
 }
 
 static void
 tc_set_vertex_buffers(struct pipe_context *_pipe,
                       ubyte start, ubyte count,
                       ubyte unbind_num_trailing_slots,
+                      bool pass_references,
                       const struct pipe_vertex_buffer *buffers)
 {
    struct threaded_context *tc = threaded_context(_pipe);
@@ -1163,15 +1162,19 @@ tc_set_vertex_buffers(struct pipe_context *_pipe,
       p->unbind_num_trailing_slots = unbind_num_trailing_slots;
       p->unbind_all = false;
 
-      for (unsigned i = 0; i < count; i++) {
-         struct pipe_vertex_buffer *dst = &p->slot[i];
-         const struct pipe_vertex_buffer *src = buffers + i;
+      if (pass_references) {
+         memcpy(p->slot, buffers, count * sizeof(struct pipe_vertex_buffer));
+      } else {
+         for (unsigned i = 0; i < count; i++) {
+            struct pipe_vertex_buffer *dst = &p->slot[i];
+            const struct pipe_vertex_buffer *src = buffers + i;
 
-         tc_assert(!src->is_user_buffer);
-         dst->stride = src->stride;
-         tc_set_resource_reference(&dst->buffer.resource,
-                                   src->buffer.resource);
-         dst->buffer_offset = src->buffer_offset;
+            tc_assert(!src->is_user_buffer);
+            dst->stride = src->stride;
+            tc_set_resource_reference(&dst->buffer.resource,
+                                      src->buffer.resource);
+            dst->buffer_offset = src->buffer_offset;
+         }
       }
    } else {
       struct tc_vertex_buffers *p =

@@ -312,6 +312,7 @@ static void
 vc4_set_vertex_buffers(struct pipe_context *pctx,
                        ubyte start_slot, ubyte count,
                        ubyte unbind_num_trailing_slots,
+                       bool pass_references,
                        const struct pipe_vertex_buffer *vb)
 {
         struct vc4_context *vc4 = vc4_context(pctx);
@@ -319,7 +320,8 @@ vc4_set_vertex_buffers(struct pipe_context *pctx,
 
         util_set_vertex_buffers_mask(so->vb, &so->enabled_mask, vb,
                                      start_slot, count,
-                                     unbind_num_trailing_slots);
+                                     unbind_num_trailing_slots,
+                                     pass_references);
         so->count = util_last_bit(so->enabled_mask);
 
         vc4->dirty |= VC4_DIRTY_VTXBUF;

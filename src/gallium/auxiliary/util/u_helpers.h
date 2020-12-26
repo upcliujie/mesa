@@ -41,13 +41,15 @@ void util_set_vertex_buffers_mask(struct pipe_vertex_buffer *dst,
                                   uint32_t *enabled_buffers,
                                   const struct pipe_vertex_buffer *src,
                                   ubyte start_slot, ubyte count,
-                                  ubyte unbind_num_trailing_slots);
+                                  ubyte unbind_num_trailing_slots,
+                                  bool pass_references);
 
 void util_set_vertex_buffers_count(struct pipe_vertex_buffer *dst,
                                    unsigned *dst_count,
                                    const struct pipe_vertex_buffer *src,
                                    ubyte start_slot, ubyte count,
-                                   ubyte unbind_num_trailing_slots);
+                                   ubyte unbind_num_trailing_slots,
+                                   bool pass_references);
 
 void util_set_shader_buffers_mask(struct pipe_shader_buffer *dst,
                                   uint32_t *enabled_buffers,
