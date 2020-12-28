@@ -117,6 +117,14 @@ cd shader-db
 make
 popd
 
+git clone https://github.com/microsoft/DirectX-Headers --depth 1
+pushd DirectX-Headers
+mkdir build
+cd build
+meson .. --backend=ninja --buildtype=release -Dbuild-test=false
+ninja
+ninja install
+popd
 
 ############### Uninstall the build software
 
