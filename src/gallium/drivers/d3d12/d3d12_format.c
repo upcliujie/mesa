@@ -180,7 +180,7 @@ d3d12_get_resource_srv_format(enum pipe_format f, enum pipe_texture_target targe
    case PIPE_FORMAT_A8_UNORM:
       if (target == PIPE_BUFFER)
          return DXGI_FORMAT_R8_UNORM; /* A8_UNORM is not supported for buffer SRV */
-      /* passthrough */
+      /* fallthrough */
    default:
       return d3d12_get_format(f);
    }
