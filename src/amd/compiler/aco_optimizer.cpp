@@ -824,7 +824,8 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
       if (info.is_undefined() && is_phi(instr))
          instr->operands[i] = Operand(instr->operands[i].regClass());
       /* propagate reg->reg of same type */
-      if (info.is_temp() && info.temp.regClass() == instr->operands[i].getTemp().regClass()) {
+      if (info.is_temp() && info.temp.regClass().type() == instr->operands[i].getTemp().regClass().type()) {
+         assert(info.temp.regClass().size() == instr->operands[i].getTemp().regClass().size());
          instr->operands[i].setTemp(ctx.info[instr->operands[i].tempId()].temp);
          info = ctx.info[info.temp.id()];
       }
