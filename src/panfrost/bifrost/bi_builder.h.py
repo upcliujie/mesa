@@ -81,14 +81,14 @@ bi_index bi_${opcode.replace('.', '_').lower()}(${signature(ops[opcode], 0, modi
     last = opcode == variants[-1]
 %>
 % if homogenous and len(variants) > 1 and last:
-% for (suffix, temp, dests) in (('_to', False, 1), ('', True, 0)):
+% for (suffix, temp, dests, ret) in (('_to', False, 1, 'instr *'), ('', True, 0, 'index')):
 % if not temp or common_op not in ["JUMP", "BRANCHZ", "BRANCH"]:
 static inline
-bi_index bi_${common_op.replace('.', '_').lower()}${suffix}(${signature(ops[opcode], dests, modifiers, sized=True)})
+bi_${ret} bi_${common_op.replace('.', '_').lower()}${suffix}(${signature(ops[opcode], dests, modifiers, sized=True)})
 {
 % for i, (variant, size) in enumerate(zip(variants, sizes)):
     ${"else " if i > 0 else ""} if (bitsize == ${size})
-        return (bi_${variant.replace('.', '_').lower()}_to(${arguments(ops[opcode], 1, temp_dest = temp)}))->dest[0];
+        return (bi_${variant.replace('.', '_').lower()}_to(${arguments(ops[opcode], 1, temp_dest = temp)}))${"->dest[0]" if temp else ""};
 % endfor
     else
         unreachable("Invalid bitsize for ${common_op}");
