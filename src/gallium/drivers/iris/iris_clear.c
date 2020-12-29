@@ -533,6 +533,10 @@ fast_clear_depth(struct iris_context *ice,
    iris_resource_set_aux_state(ice, res, level, box->z, box->depth,
                                ISL_AUX_STATE_CLEAR);
    ice->state.dirty |= IRIS_DIRTY_DEPTH_BUFFER;
+
+   ice->state.dirty |= IRIS_DIRTY_RENDER_RESOLVES_AND_FLUSHES |
+                       IRIS_DIRTY_COMPUTE_RESOLVES_AND_FLUSHES;
+
    ice->state.stage_dirty |= IRIS_ALL_STAGE_DIRTY_BINDINGS;
 }
 
