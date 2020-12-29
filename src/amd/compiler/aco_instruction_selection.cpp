@@ -10368,6 +10368,14 @@ static void create_vs_exports(isel_context *ctx)
    if (ctx->num_clip_distances + ctx->num_cull_distances > 4)
       export_vs_varying(ctx, VARYING_SLOT_CLIP_DIST1, true, &next_pos);
 
+   /* Last instruction must be the last pos export. */
+   assert(ctx->block->instructions.back()->format == Format::EXP);
+   Export_instruction *last_pos_export = static_cast<Export_instruction *>(ctx->block->instructions.back().get());
+   assert(last_pos_export->dest >= V_008DFC_SQ_EXP_POS && last_pos_export->dest < V_008DFC_SQ_EXP_PRIM);
+
+   /* Set done bit on last pos export. */
+   last_pos_export->done = true;
+
    if (ctx->export_clip_dists) {
       if (ctx->num_clip_distances + ctx->num_cull_distances > 0)
          export_vs_varying(ctx, VARYING_SLOT_CLIP_DIST0, false, &next_pos);
