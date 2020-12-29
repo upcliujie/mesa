@@ -10356,7 +10356,10 @@ static void create_vs_exports(isel_context *ctx)
     */
    ctx->outputs.mask[VARYING_SLOT_POS] = 0xf;
 
-   /* the order these position exports are created is important */
+   /* The order these position exports are created is important,
+    * because next_pos determines which output is exported.
+    * However, after creation the instructions can be reordered later.
+    */
    int next_pos = 0;
    export_vs_varying(ctx, VARYING_SLOT_POS, true, &next_pos);
    if (outinfo->writes_pointsize || outinfo->writes_layer || outinfo->writes_viewport_index ||
@@ -10367,6 +10370,19 @@ static void create_vs_exports(isel_context *ctx)
       export_vs_varying(ctx, VARYING_SLOT_CLIP_DIST0, true, &next_pos);
    if (ctx->num_clip_distances + ctx->num_cull_distances > 4)
       export_vs_varying(ctx, VARYING_SLOT_CLIP_DIST1, true, &next_pos);
+
+   /* Reverse-sort pos exports by their number of undefined operands.
+    * This allows scheduling those with many undefined operands higher up.
+    */
+   std::sort(
+      std::prev(ctx->block->instructions.end(), next_pos) /* Start at 1st pos export */,
+      ctx->block->instructions.end(),
+      [](const aco_ptr<Instruction> &inst1, const aco_ptr<Instruction> &inst2) {
+         assert(inst1->format == Format::EXP);
+         int inst1_undef_ops = std::count(inst1->operands.begin(), inst1->operands.end(), Operand(v1));
+         int inst2_undef_ops = std::count(inst2->operands.begin(), inst2->operands.end(), Operand(v1));
+         return inst1_undef_ops > inst2_undef_ops;
+      });
 
    /* Last instruction must be the last pos export. */
    assert(ctx->block->instructions.back()->format == Format::EXP);
