@@ -263,7 +263,6 @@ spec/!opengl 1.4/copy-pixels samples=6: skip
 spec/!opengl 1.4/copy-pixels samples=8: skip
 spec/!opengl 1.4/gl-1.4-polygon-offset: fail
 spec/!opengl 1.4/gl-1.4-rgba-mipmap-texture-with-rgb-visual: skip
-spec/!opengl 1.4/triangle-rasterization-overdraw: fail
 spec/!opengl 2.0/vertex-program-two-side back back2/tcs-out, tes and fs: skip
 spec/!opengl 2.0/vertex-program-two-side back back2/tes-out and fs: skip
 spec/!opengl 2.0/vertex-program-two-side back back2/vs, tcs, tes and fs: skip
@@ -3031,8 +3030,8 @@ wgl/wgl-sanity: skip
 summary:
        name:  results
        ----  --------
-       pass:    24961
-       fail:      378
+       pass:    24959
+       fail:      377
       crash:       40
        skip:     2583
     timeout:        0
@@ -3043,4 +3042,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:    27991
+      total:    27990
