@@ -58,6 +58,7 @@ libdecode = static_library(
     # gallium headers:
     inc_gallium,
   ],
+  gnu_symbol_visibility: 'hidden',
 )
 
 disasm = executable(
@@ -96,4 +97,5 @@ libencode = static_library(
     inc_freedreno,
     inc_gallium,
   ],
+  gnu_symbol_visibility: 'hidden',
 )
