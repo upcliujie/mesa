@@ -3094,6 +3094,16 @@ void select_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
       unsigned idx = 0;
       unsigned split_offset = 0;
       for (unsigned i = 0, offset = 0; i < instr->definitions.size(); offset += instr->definitions[i++].bytes()) {
+         /* This might happen due to copy-propagation of subdword VGPRs */
+         if (offset == instr->operands[0].bytes()) {
+            while (instr->definitions.size() > i) {
+               assert(ctx.uses[instr->definitions.back().tempId()] == 0);
+               instr->definitions.pop_back();
+            }
+            break;
+         }
+
+         assert(offset < instr->operands[0].bytes());
          if (ctx.uses[instr->definitions[i].tempId()]) {
             num_used++;
             idx = i;
