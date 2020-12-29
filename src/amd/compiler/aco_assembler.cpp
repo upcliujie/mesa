@@ -734,8 +734,8 @@ void fix_exports(asm_context& ctx, std::vector<uint32_t>& out, Program* program)
             Export_instruction* exp = static_cast<Export_instruction*>((*it).get());
             if (program->stage.hw == HWStage::VS || program->stage.hw == HWStage::NGG) {
                if (exp->dest >= V_008DFC_SQ_EXP_POS && exp->dest <= (V_008DFC_SQ_EXP_POS + 3)) {
-                  exp->done = true;
-                  exported = true;
+                  /* The DONE bit is set in instruction selection, but we still verify its presence here. */
+                  exported = exp->done;
                   break;
                }
             } else {
