@@ -473,9 +473,6 @@ main(int argc, char **argv)
 			strtoll(&test->instr[9], NULL, 16),
 			strtoll(&test->instr[0], NULL, 16),
 		};
-		unsigned cat = (code[1] >> 29) & 0x7;
-		if (cat > 5)
-			continue;
 		printf("Testing a%d %s: \"%s\"...\n",
 				test->gpu_id, test->instr, test->expected);
 		disasm_a3xx(code, ARRAY_SIZE(code), 0, fdisasm, test->gpu_id);
@@ -537,6 +534,17 @@ main(int argc, char **argv)
 			printf("  Expected:  \"%s\"\n", test->expected);
 			printf("  Got (new): \"%s\"\n", disasm_output);
 			decode_fails++;
+		}
+
+		// HACK wire up new xml based encoder:
+		void * isa_assemble(struct ir3_shader_variant *v);
+		uint32_t *bin = isa_assemble(v);
+		if (memcmp(bin, code, sizeof(code))) {
+			printf("FAIL: assembler\n");
+			printf("  Expected:  %08x_%08x\n", code[1], code[0]);
+			printf("  Got (new): %08x_%08x\n", bin[1], bin[0]);
+			retval = 1;
+			encode_fails++;
 		}
 
 		ir3_shader_destroy(shader);
