@@ -144,7 +144,13 @@ void * ir3_shader_assemble(struct ir3_shader_variant *v)
 	 */
 	info->size = align(info->size, compiler->instr_align * sizeof(instr_t));
 
-	bin = ir3_assemble(v);
+	if (compiler->gpu_id >= 600) {
+		void * isa_assemble(struct ir3_shader_variant *v);
+		bin = isa_assemble(v);
+	} else {
+		bin = ir3_assemble(v);
+	}
+
 	if (!bin)
 		return NULL;
 
