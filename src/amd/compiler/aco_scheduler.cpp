@@ -83,10 +83,12 @@ private:
 };
 
 struct sched_ctx {
+   Program *program;
    int16_t num_waves;
    int16_t last_SMEM_stall;
    int last_SMEM_dep_idx;
    MoveState mv;
+   bool early_rast; /* true if rasterization can start as soon as the 1st pos export with DONE */
 };
 
 /* This scheduler is a simple bottom-up pass based on ideas from
@@ -445,7 +447,7 @@ enum HazardResult {
    hazard_fail_unreorderable,
 };
 
-HazardResult perform_hazard_query(hazard_query *query, Instruction *instr, bool upwards)
+HazardResult perform_hazard_query(sched_ctx &ctx, hazard_query *query, Instruction *instr, bool upwards)
 {
    /* don't schedule discards downwards */
    if (!upwards && instr->opcode == aco_opcode::p_exit_early_if)
@@ -458,9 +460,20 @@ HazardResult perform_hazard_query(hazard_query *query, Instruction *instr, bool 
       }
    }
 
-   /* don't move exports so that they stay closer together */
-   if (instr->format == Format::EXP)
-      return hazard_fail_export;
+   /* Try to move position exports upwards when we can */
+   if (instr->format == Format::EXP) {
+      Export_instruction *exp = static_cast<Export_instruction*>(instr);
+
+      /* Don't schedule downwards, also don't schedule non-position exports */
+      if (!upwards || exp->dest < V_008DFC_SQ_EXP_POS || exp->dest >= V_008DFC_SQ_EXP_PRIM)
+         return hazard_fail_export;
+
+      /* Don't schedule the pos export with DONE when early rasterization is possible */
+      if (ctx.early_rast && exp->done)
+         return hazard_fail_export;
+
+      return hazard_success;
+   }
 
    /* don't move non-reorderable instructions */
    if (instr->opcode == aco_opcode::s_memtime ||
@@ -566,7 +579,7 @@ void schedule_SMEM(sched_ctx& ctx, Block* block,
 
       bool can_move_down = true;
 
-      HazardResult haz = perform_hazard_query(&hq, candidate.get(), false);
+      HazardResult haz = perform_hazard_query(ctx, &hq, candidate.get(), false);
       if (haz == hazard_fail_reorder_ds || haz == hazard_fail_spill || haz == hazard_fail_reorder_sendmsg || haz == hazard_fail_barrier || haz == hazard_fail_export)
          can_move_down = false;
       else if (haz != hazard_success)
@@ -614,7 +627,7 @@ void schedule_SMEM(sched_ctx& ctx, Block* block,
          break;
 
       if (found_dependency) {
-         HazardResult haz = perform_hazard_query(&hq, candidate.get(), true);
+         HazardResult haz = perform_hazard_query(ctx, &hq, candidate.get(), true);
          if (haz == hazard_fail_reorder_ds || haz == hazard_fail_spill ||
              haz == hazard_fail_reorder_sendmsg || haz == hazard_fail_barrier ||
              haz == hazard_fail_export)
@@ -706,7 +719,7 @@ void schedule_VMEM(sched_ctx& ctx, Block* block,
       /* if current depends on candidate, add additional dependencies and continue */
       bool can_move_down = !is_vmem || part_of_clause;
 
-      HazardResult haz = perform_hazard_query(part_of_clause ? &clause_hq : &indep_hq, candidate.get(), false);
+      HazardResult haz = perform_hazard_query(ctx, part_of_clause ? &clause_hq : &indep_hq, candidate.get(), false);
       if (haz == hazard_fail_reorder_ds || haz == hazard_fail_spill ||
           haz == hazard_fail_reorder_sendmsg || haz == hazard_fail_barrier ||
           haz == hazard_fail_export)
@@ -756,7 +769,7 @@ void schedule_VMEM(sched_ctx& ctx, Block* block,
       /* check if candidate depends on current */
       bool is_dependency = false;
       if (found_dependency) {
-         HazardResult haz = perform_hazard_query(&indep_hq, candidate.get(), true);
+         HazardResult haz = perform_hazard_query(ctx, &indep_hq, candidate.get(), true);
          if (haz == hazard_fail_reorder_ds || haz == hazard_fail_spill ||
              haz == hazard_fail_reorder_vmem_smem || haz == hazard_fail_reorder_sendmsg ||
              haz == hazard_fail_barrier || haz == hazard_fail_export)
@@ -825,7 +838,7 @@ void schedule_position_export(sched_ctx& ctx, Block* block,
       if (candidate->isVMEM() || candidate->format == Format::SMEM || candidate->isFlatOrGlobal())
          break;
 
-      HazardResult haz = perform_hazard_query(&hq, candidate.get(), false);
+      HazardResult haz = perform_hazard_query(ctx, &hq, candidate.get(), false);
       if (haz == hazard_fail_exec || haz == hazard_fail_unreorderable)
          break;
 
@@ -896,6 +909,7 @@ void schedule_program(Program *program, live& live_vars)
       demand.update(block.register_demand);
 
    sched_ctx ctx;
+   ctx.program = program;
    ctx.mv.depends_on.resize(program->peekAllocationId());
    ctx.mv.RAR_dependencies.resize(program->peekAllocationId());
    ctx.mv.RAR_dependencies_clause.resize(program->peekAllocationId());
@@ -916,6 +930,16 @@ void schedule_program(Program *program, live& live_vars)
    assert(ctx.num_waves > 0);
    ctx.mv.max_registers = { int16_t(get_addr_vgpr_from_waves(program, ctx.num_waves) - 2),
                             int16_t(get_addr_sgpr_from_waves(program, ctx.num_waves))};
+
+   if (program->chip_class >= GFX10) {
+      const radv_vs_output_info *outinfo = ctx.program->stage.has(SWStage::TES)
+                                 ? &ctx.program->info->tes.outinfo
+                                 : &ctx.program->info->vs.outinfo;
+
+      ctx.early_rast = outinfo->param_exports == 0;
+   } else {
+      ctx.early_rast = false;
+   }
 
    for (Block& block : program->blocks)
       schedule_block(ctx, program, &block, live_vars);
