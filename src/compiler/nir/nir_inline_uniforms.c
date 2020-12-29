@@ -72,17 +72,16 @@ src_only_uses_uniforms(const nir_src *src, struct set **uni_offsets)
           nir_src_as_uint(intr->src[0]) == 0 &&
           nir_src_is_const(intr->src[1]) &&
           nir_src_as_uint(intr->src[1]) <= MAX_OFFSET &&
-          /* TODO: Can't handle vectors and other bit sizes for now. */
-          /* UBO loads should be scalarized. */
-          intr->dest.ssa.num_components == 1 &&
+          /* TODO: Can't handle other bit sizes for now. */
           intr->dest.ssa.bit_size == 32) {
          /* Record the uniform offset. */
          if (!*uni_offsets)
             *uni_offsets = _mesa_set_create_u32_keys(NULL);
 
          /* Add 1 because the set doesn't allow NULL keys. */
-         _mesa_set_add(*uni_offsets,
-                       (void*)(uintptr_t)(nir_src_as_uint(intr->src[1]) + 1));
+         for (int i = 0; i < nir_dest_num_components(intr->dest); i++)
+            _mesa_set_add(*uni_offsets,
+                          (void*)(uintptr_t)(nir_src_as_uint(intr->src[1]) + (i * sizeof(uint32_t)) + 1));
          return true;
       }
       return false;
@@ -176,16 +175,26 @@ nir_inline_uniforms(nir_shader *shader, unsigned num_uniforms,
                    nir_src_is_const(intr->src[0]) &&
                    nir_src_as_uint(intr->src[0]) == 0 &&
                    nir_src_is_const(intr->src[1]) &&
-                   /* TODO: Can't handle vectors and other bit sizes for now. */
-                   /* UBO loads should be scalarized. */
-                   intr->dest.ssa.num_components == 1 &&
+                   /* TODO: Can't handle other bit sizes for now. */
                    intr->dest.ssa.bit_size == 32) {
-                  uint64_t offset = nir_src_as_uint(intr->src[1]);
+                  uint64_t offset = nir_src_as_uint(intr->src[1]) / 4;
+                  uint32_t num_components = nir_dest_num_components(intr->dest);
+                  nir_ssa_def *components[NIR_MAX_VEC_COMPONENTS];
+                  unsigned found_components = 0;
 
                   for (unsigned i = 0; i < num_uniforms; i++) {
-                     if (offset == uniform_dw_offsets[i] * 4) {
-                        b.cursor = nir_before_instr(&intr->instr);
-                        nir_ssa_def *def = nir_imm_int(&b, uniform_values[i]);
+                     b.cursor = nir_before_instr(&intr->instr);
+                     if (uniform_dw_offsets[i] >= offset &&
+                         uniform_dw_offsets[i] < offset + num_components) {
+                        /* this is an offset inside the load */
+                        components[uniform_dw_offsets[i] - offset] = nir_imm_int(&b, uniform_values[i]);
+                        if (++found_components != num_components)
+                           continue;
+                        nir_ssa_def *def;
+                        if (num_components == 1)
+                           def = components[0];
+                        else
+                           def = nir_vec(&b, components, num_components);
                         nir_ssa_def_rewrite_uses(&intr->dest.ssa, nir_src_for_ssa(def));
                         nir_instr_remove(&intr->instr);
                         break;
