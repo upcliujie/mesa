@@ -331,6 +331,10 @@ fast_clear_color(struct iris_context *ice,
    iris_resource_set_aux_state(ice, res, level, box->z,
                                box->depth, ISL_AUX_STATE_CLEAR);
    ice->state.dirty |= IRIS_DIRTY_RENDER_BUFFER;
+   /* Prior to gen12, CCS_E isn't supported for images. When fast-clearing set
+    * the compute resolve flag to ensure decompression before compute dispatch.
+    */
+   ice->state.dirty |= IRIS_DIRTY_COMPUTE_RESOLVES_AND_FLUSHES;
    ice->state.stage_dirty |= IRIS_ALL_STAGE_DIRTY_BINDINGS;
    return;
 }
@@ -533,6 +537,10 @@ fast_clear_depth(struct iris_context *ice,
    iris_resource_set_aux_state(ice, res, level, box->z, box->depth,
                                ISL_AUX_STATE_CLEAR);
    ice->state.dirty |= IRIS_DIRTY_DEPTH_BUFFER;
+   /* When fast-clearing depth set the compute resolve flag to ensure
+    * resolving depth textures before compute dispatch.
+    */
+   ice->state.dirty |= IRIS_DIRTY_COMPUTE_RESOLVES_AND_FLUSHES;
    ice->state.stage_dirty |= IRIS_ALL_STAGE_DIRTY_BINDINGS;
 }
 
