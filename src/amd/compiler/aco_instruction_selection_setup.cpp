@@ -269,6 +269,9 @@ void apply_nuw_to_ssa(isel_context *ctx, nir_ssa_def *ssa)
       src1 = tmp;
    }
 
+   if (!nir_ssa_scalar_is_alu(src0))
+      return;
+
    uint32_t src1_ub = nir_unsigned_upper_bound(ctx->shader, ctx->range_ht,
                                                src1, &ctx->ub_config);
    add->no_unsigned_wrap =
