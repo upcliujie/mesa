@@ -3030,7 +3030,7 @@ wgl/wgl-sanity: skip
 summary:
        name:  results
        ----  --------
-       pass:    24959
+       pass:    24958
        fail:      377
       crash:       40
        skip:     2583

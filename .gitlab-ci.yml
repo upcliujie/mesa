@@ -1240,13 +1240,15 @@ softpipe-piglit-quick:
   variables:
     GALLIUM_DRIVER: softpipe
     # rasterpos skipped due to flakes from use-after-free of the draw vs.
-    # glsl-1.50 removed due to GS flakes and triangle-rasterization due
-    # to flakes thanks to it using a time-based random seed.
+    # glsl-1.50 removed due to GS flakes, triangle-rasterization due to
+    # flakes thanks to it using a time-based random seed, and also
+    # glx-multithread-texture.
     PIGLIT_OPTIONS: >
       --process-isolation false
       -x rasterpos
       -x glsl-1.50
       -x triangle-rasterization
+      -x glx-multithread-texture
       -x egl_ext_device_
       -x egl_ext_platform_device
       -x ext_timer_query@time-elapsed
