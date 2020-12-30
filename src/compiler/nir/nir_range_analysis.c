@@ -1458,6 +1458,9 @@ nir_addition_might_overflow(nir_shader *shader, struct hash_table *range_ht,
                             nir_ssa_scalar ssa, unsigned const_val,
                             const nir_unsigned_upper_bound_config *config)
 {
+   if (!nir_ssa_scalar_is_alu(ssa))
+      return true;
+
    nir_op alu_op = nir_ssa_scalar_alu_op(ssa);
 
    /* iadd(imul(a, #b), #c) */
