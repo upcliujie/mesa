@@ -894,7 +894,7 @@ blit_replicate_stencil(struct d3d12_context *ctx,
                                  info->src.resource,
                                  info->src.level,
                                  &info->src.box,
-                                 info->scissor_enable ? &info->scissor : NULL);
+                                 info->scissor_enable ? &info->scissor : NULL, false);
 }
 
 void
