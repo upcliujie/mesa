@@ -127,6 +127,9 @@ static const struct test {
 	INSTR_6XX(a1000f00_00000004, "samb (f16)(xyzw)hr0.x, hr0.z, hr0.x, s#0, t#0"),
 	INSTR_6XX(a1000f00_00000003, "samb (f16)(xyzw)hr0.x, r0.y, r0.x, s#0, t#0"),
 	INSTR_6XX(a0c00f00_04400002, "sam (f16)(xyzw)hr0.x, hr0.y, s#2, t#2"),
+	INSTR_6XX(a6c02f00_00000000, "rgetinfo (u16)(xyzw)hr0.x"),
+	INSTR_6XX(a3482f08_c0000000, "getinfo.base0 (u16)(xyzw)hr2.x, t#0"),
+
 
 	/* cat6 */
 
