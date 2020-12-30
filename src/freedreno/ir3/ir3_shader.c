@@ -36,6 +36,8 @@
 #include "ir3_compiler.h"
 #include "ir3_nir.h"
 
+#include "isa/isa.h"
+
 #include "disasm.h"
 
 int
@@ -144,7 +146,7 @@ void * ir3_shader_assemble(struct ir3_shader_variant *v)
 	 */
 	info->size = align(info->size, compiler->instr_align * sizeof(instr_t));
 
-	bin = ir3_assemble(v);
+	bin = isa_assemble(v);
 	if (!bin)
 		return NULL;
 
