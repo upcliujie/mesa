@@ -43,6 +43,35 @@
 #define MAX_OFFSET (UINT16_MAX * 4)
 
 static bool
+src_comes_from_intrinsic(const nir_src *src)
+{
+   if (!src->is_ssa)
+      return false;
+
+   nir_instr *instr = src->ssa->parent_instr;
+
+   switch (instr->type) {
+   case nir_instr_type_alu: {
+      /* Return true if all sources return true. */
+      /* TODO: Swizzles are ignored, so vectors can prevent inlining. */
+      nir_alu_instr *alu = nir_instr_as_alu(instr);
+      for (unsigned i = 0; i < nir_op_infos[alu->op].num_inputs; i++) {
+         if (!src_comes_from_intrinsic(&alu->src[i].src))
+             return false;
+      }
+      return true;
+   }
+
+   case nir_instr_type_intrinsic:
+      /* TODO: maybe only check for intensive intrinsics? */
+      return true;
+
+   default:
+      return false;
+   }
+}
+
+static bool
 src_only_uses_uniforms(const nir_src *src, struct set **uni_offsets)
 {
    if (!src->is_ssa)
@@ -97,6 +126,26 @@ src_only_uses_uniforms(const nir_src *src, struct set **uni_offsets)
    }
 }
 
+static struct set *
+generate_offsets(const nir_src *src, struct set *uni_offsets)
+{
+   struct set *found_offsets = NULL;
+
+   if (src_only_uses_uniforms(src, &found_offsets) &&
+       found_offsets) {
+      /* All uniforms are lowerable. Save uniform offsets. */
+      set_foreach(found_offsets, entry) {
+         if (!uni_offsets)
+            uni_offsets = _mesa_set_create_u32_keys(NULL);
+
+         _mesa_set_add(uni_offsets, entry->key);
+      }
+   }
+   if (found_offsets)
+      _mesa_set_destroy(found_offsets, NULL);
+   return uni_offsets;
+}
+
 void
 nir_find_inlinable_uniforms(nir_shader *shader)
 {
@@ -108,26 +157,33 @@ nir_find_inlinable_uniforms(nir_shader *shader)
             switch (node->type) {
             case nir_cf_node_if: {
                const nir_src *cond = &nir_cf_node_as_if(node)->condition;
-               struct set *found_offsets = NULL;
-
-               if (src_only_uses_uniforms(cond, &found_offsets) &&
-                   found_offsets) {
-                  /* All uniforms are lowerable. Save uniform offsets. */
-                  set_foreach(found_offsets, entry) {
-                     if (!uni_offsets)
-                        uni_offsets = _mesa_set_create_u32_keys(NULL);
-
-                     _mesa_set_add(uni_offsets, entry->key);
-                  }
-               }
-               if (found_offsets)
-                  _mesa_set_destroy(found_offsets, NULL);
+               uni_offsets = generate_offsets(cond, uni_offsets);
                break;
             }
 
             case nir_cf_node_loop:
                /* TODO: handle loops if we want to unroll them at draw time */
                break;
+
+            case nir_cf_node_block: {
+               nir_block *block = nir_cf_node_as_block(node);
+               nir_foreach_instr_safe(instr, block) {
+                  switch (instr->type) {
+                  case nir_instr_type_alu: {
+                     nir_alu_instr *alu = nir_instr_as_alu(instr);
+                     if (alu->op != nir_op_bcsel &&
+                         alu->op != nir_op_fcsel)
+                        break;
+                     if (src_comes_from_intrinsic(&alu->src[1].src) ||
+                         src_comes_from_intrinsic(&alu->src[2].src))
+                        uni_offsets = generate_offsets(&alu->src[0].src, uni_offsets);
+                  }
+                  default:
+                     break;
+                  }
+               }
+               break;
+            }
 
             default:
                break;
