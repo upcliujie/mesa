@@ -792,10 +792,12 @@ static char * readfile(const char *path, int *sz)
 		if (ret < 0) {
 			free(buf);
 			*sz = 0;
+			close(fd);
 			return NULL;
 		} else if (ret < CHUNKSIZE) {
 			n += ret;
 			*sz = n;
+			close(fd);
 			return buf;
 		} else {
 			n += CHUNKSIZE;
