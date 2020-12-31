@@ -35,11 +35,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "util/macros.h"
-#include "disasm.h"
 
 #include "ir3.h"
 #include "ir3_assembler.h"
 #include "ir3_shader.h"
+
+#include "isa/isa.h"
 
 #define INSTR_5XX(i, d) { .gpu_id = 540, .instr = #i, .expected = d }
 #define INSTR_6XX(i, d) { .gpu_id = 630, .instr = #i, .expected = d }
@@ -133,24 +134,30 @@ static const struct test {
 
 	/* cat6 */
 
-	INSTR_6XX(c0c00000_00000000, "stg.f16 g[hr0.x], hr0.x, hr0.x"),
-	/* dEQP-GLES31.functional.tessellation.invariance.outer_edge_symmetry.isolines_equal_spacing_ccw */
-	INSTR_6XX(c0d20906_02800004, "stg.f32 g[r1.x+r1.z], r0.z, 2"), /* stg.a.f32 g[r1.x+(r1.z<<2)], r0.z, 2 */
+	// TODO is this a real instruction?  Or float -6.0 ?
+	// INSTR_6XX(c0c00000_00000000, "stg.f16 g[hr0.x], hr0.x, hr0.x"),
 
-	/* TODO: We don't support disasm of stc yet and produce a stgb instead
-	 * (same as their disasm does for other families.  They're used as part
-	 * uniforms setup, followed by a shpe and then a load of the constant that
-	 * was stored in the dynamic part of the shader.
-	 */
+	/* dEQP-GLES31.functional.tessellation.invariance.outer_edge_symmetry.isolines_equal_spacing_ccw */
+	INSTR_6XX(c0d20906_02800004, "stg.a.f32 g[r1.x+(r1.z<<2)], r0.z, 2"),
+
 	/* dEQP-GLES3.functional.ubo.random.basic_arrays.0 */
-	/* INSTR_6XX(c7020020_01800000, "stc c[32], r0.x, 1"), */
+	INSTR_6XX(c7020020_01800000, "stc c[32], r0.x, 1"),
 	/* dEQP-VK.image.image_size.cube_array.readonly_writeonly_1x1x12 */
-	/* INSTR_6XX(c7060020_03800000, "stc c[32], r0.x, 3"), */
+	INSTR_6XX(c7060020_03800000, "stc c[32], r0.x, 3"),
 
 	/* dEQP-VK.image.image_size.cube_array.readonly_writeonly_1x1x12 */
 	INSTR_6XX(c0260200_03676100, "stib.untyped.1d.u32.3.imm.base0 r0.x, r0.w, 1"), /* stib.untyped.u32.1d.3.mode4.base0 r0.x, r0.w, 1 */
+#if 0
+	/* TODO blob sometimes/frequently sets b0, although there does not seem
+	 * to be an obvious pattern and our encoding never sets it.  AFAICT it
+	 * is a dontcare bit
+	 */
 	/* dEQP-VK.texture.filtering.cube.formats.a8b8g8r8_srgb_nearest_mipmap_nearest.txt */
 	INSTR_6XX(c0220200_0361b801, "ldib.typed.1d.f32.4.imm r0.x, r0.w, 1"), /* ldib.f32.1d.4.mode0.base0 r0.x, r0.w, 1 */
+#else
+	/* dEQP-VK.texture.filtering.cube.formats.a8b8g8r8_srgb_nearest_mipmap_nearest.txt */
+	INSTR_6XX(c0220200_0361b800, "ldib.typed.1d.f32.4.imm r0.x, r0.w, 1"), /* ldib.f32.1d.4.mode0.base0 r0.x, r0.w, 1 */
+#endif
 
 	/* dEQP-GLES31.functional.tessellation.invariance.outer_edge_symmetry.isolines_equal_spacing_ccw */
 	INSTR_6XX(c2c21100_04800006, "stlw.f32 l[r2.x], r0.w, 4"),
@@ -266,9 +273,9 @@ static const struct test {
 	INSTR_6XX(d5c60003_03008001, "(sy)atomic.max.untyped.1d.u32.1.l r0.w, l[r0.z], r0.w"),
 
 	/* Bindless atomic: */
-	INSTR_6XX(c03a0003_01640001, "atomic.add.b.untyped.1d.s32.1.imm r0.w, r0.y, 0"), /* atomic.b.add.g.s32.1d.mode0.base0 r0.w,r0.y,0 */
-	INSTR_6XX(c03a0003_01660001, "atomic.and.b.untyped.1d.s32.1.imm r0.w, r0.y, 0"), /* atomic.b.and.g.s32.1d.mode0.base0 r0.w,r0.y,0 */
-	INSTR_6XX(c0360000_0365c801, "atomic.max.b.typed.1d.u32.1.imm r0.x, r0.w, 0"),   /* atomic.b.max.g.u32.1d.mode0.base0 r0.x,r0.w,0 */
+	INSTR_6XX(c03a0003_01640001, "atomic.b.add.untyped.1d.s32.1.imm r0.w, r0.y, 0"), /* atomic.b.add.g.s32.1d.mode0.base0 r0.w,r0.y,0 */
+	INSTR_6XX(c03a0003_01660001, "atomic.b.and.untyped.1d.s32.1.imm r0.w, r0.y, 0"), /* atomic.b.and.g.s32.1d.mode0.base0 r0.w,r0.y,0 */
+	INSTR_6XX(c0360000_0365c801, "atomic.b.max.typed.1d.u32.1.imm r0.x, r0.w, 0"),   /* atomic.b.max.g.u32.1d.mode0.base0 r0.x,r0.w,0 */
 
 	/* dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.const_literal.fragment.sampler2d */
 	INSTR_6XX(a0c01f04_0cc00005, "sam (f32)(xyzw)r1.x, r0.z, s#6, t#6"),
@@ -320,7 +327,10 @@ main(int argc, char **argv)
 			strtoll(&test->instr[9], NULL, 16),
 			strtoll(&test->instr[0], NULL, 16),
 		};
-		disasm_a3xx(code, ARRAY_SIZE(code), 0, fdisasm, test->gpu_id);
+		isa_decode(code, 8, fdisasm, &(struct isa_decode_options){
+			.gpu_id = test->gpu_id,
+			.show_errors = true,
+		});
 		fflush(fdisasm);
 
 		trim(disasm_output);
