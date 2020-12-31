@@ -328,6 +328,7 @@ bool pan_has_dest_mod(nir_dest **dest, nir_op op);
 
 bool pan_nir_reorder_writeout(nir_shader *nir);
 bool pan_nir_lower_zs_store(nir_shader *nir);
+bool nir_fuse_io_16(nir_shader *shader);
 
 bool pan_nir_lower_64bit_intrin(nir_shader *shader);
 

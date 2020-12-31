@@ -40,7 +40,6 @@ libpanfrost_midgard_files = files(
   'midgard_opt_dce.c',
   'midgard_opt_perspective.c',
   'midgard_errata_lod.c',
-  'nir_fuse_io_16.c',
 )
 
 midgard_nir_algebraic_c = custom_target(
