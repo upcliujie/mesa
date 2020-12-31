@@ -1137,14 +1137,8 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
 
         case nir_intrinsic_discard_if: {
                 bi_index src = bi_src_index(&instr->src[0]);
-
-                unsigned sz = nir_src_bit_size(instr->src[0]);
-                assert(sz == 16 || sz == 32);
-
-                if (sz == 16)
-                        src = bi_half(src, false);
-
-                bi_discard_f32(b, src, bi_zero(), BI_CMPF_NE);
+                assert(nir_src_bit_size(instr->src[0]) == 1);
+                bi_discard_f32(b, bi_half(src, false), bi_imm_u16(0), BI_CMPF_NE);
                 break;
         }
 
@@ -1222,7 +1216,7 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
 	case nir_intrinsic_load_front_face:
                 /* r58 == 0 means primitive is front facing */
                 bi_icmp_i32_to(b, dst, bi_register(58), bi_zero(), BI_CMPF_EQ,
-                                BI_RESULT_TYPE_M1);
+                                BI_RESULT_TYPE_I1);
                 break;
 
         case nir_intrinsic_load_point_coord:
@@ -1292,6 +1286,10 @@ bi_alu_src_index(nir_alu_src src, unsigned comps)
 
         unsigned bitsize = nir_src_bit_size(src.src);
 
+        /* TODO: Do we need to do something more clever with 1-bit bools? */
+        if (bitsize == 1)
+                bitsize = 16;
+
         /* the bi_index carries the 32-bit (word) offset separate from the
          * subword swizzle, first handle the offset */
 
@@ -1347,22 +1345,22 @@ static enum bi_cmpf
 bi_cmpf_nir(nir_op op)
 {
         switch (op) {
-        case nir_op_flt32:
-        case nir_op_ilt32:
-        case nir_op_ult32:
+        case nir_op_flt:
+        case nir_op_ilt:
+        case nir_op_ult:
                 return BI_CMPF_LT;
 
-        case nir_op_fge32:
-        case nir_op_ige32:
-        case nir_op_uge32:
+        case nir_op_fge:
+        case nir_op_ige:
+        case nir_op_uge:
                 return BI_CMPF_GE;
 
-        case nir_op_feq32:
-        case nir_op_ieq32:
+        case nir_op_feq:
+        case nir_op_ieq:
                 return BI_CMPF_EQ;
 
-        case nir_op_fneu32:
-        case nir_op_ine32:
+        case nir_op_fneu:
+        case nir_op_ine:
                 return BI_CMPF_NE;
 
         default:
@@ -1531,6 +1529,10 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         unsigned srcs = nir_op_infos[instr->op].num_inputs;
         unsigned comps = nir_dest_num_components(instr->dest.dest);
 
+        /* TODO: Do we need to do something more clever with bools? */
+        if (sz == 1)
+                sz = 16;
+
         if (!instr->dest.dest.is_ssa) {
                 for (unsigned i = 0; i < comps; ++i)
                         assert(instr->dest.write_mask);
@@ -1688,9 +1690,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 break;
         }
 
-        case nir_op_b8csel:
-        case nir_op_b16csel:
-        case nir_op_b32csel:
+        case nir_op_bcsel:
                 if (sz == 8)
                         bi_mux_v4i8_to(b, dst, s2, s1, s0, BI_MUX_INT_ZERO);
                 else
@@ -1708,53 +1708,53 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 bi_arshift_to(b, sz, dst, s0, bi_null(), bi_byte(s1, 0));
                 break;
 
-        case nir_op_flt32:
-        case nir_op_fge32:
-        case nir_op_feq32:
-        case nir_op_fneu32:
-                bi_fcmp_to(b, sz, dst, s0, s1, bi_cmpf_nir(instr->op),
-                                BI_RESULT_TYPE_M1);
+        case nir_op_flt:
+        case nir_op_fge:
+        case nir_op_feq:
+        case nir_op_fneu:
+                bi_fcmp_to(b, src_sz, dst, s0, s1, bi_cmpf_nir(instr->op),
+                                BI_RESULT_TYPE_I1);
                 break;
 
-        case nir_op_ieq32:
-        case nir_op_ine32:
-                if (sz == 32) {
+        case nir_op_ieq:
+        case nir_op_ine:
+                if (src_sz == 32) {
                         bi_icmp_i32_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
-                                        BI_RESULT_TYPE_M1);
-                } else if (sz == 16) {
+                                        BI_RESULT_TYPE_I1);
+                } else if (src_sz == 16 || src_sz == 1) {
                         bi_icmp_v2i16_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
-                                        BI_RESULT_TYPE_M1);
+                                        BI_RESULT_TYPE_I1);
                 } else {
                         bi_icmp_v4i8_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
-                                        BI_RESULT_TYPE_M1);
+                                        BI_RESULT_TYPE_I1);
                 }
                 break;
 
-        case nir_op_ilt32:
-        case nir_op_ige32:
-                if (sz == 32) {
+        case nir_op_ilt:
+        case nir_op_ige:
+                if (src_sz == 32) {
                         bi_icmp_s32_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
-                                        BI_RESULT_TYPE_M1);
-                } else if (sz == 16) {
+                                        BI_RESULT_TYPE_I1);
+                } else if (src_sz == 16) {
                         bi_icmp_v2s16_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
-                                        BI_RESULT_TYPE_M1);
+                                        BI_RESULT_TYPE_I1);
                 } else {
                         bi_icmp_v4s8_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
-                                        BI_RESULT_TYPE_M1);
+                                        BI_RESULT_TYPE_I1);
                 }
                 break;
 
-        case nir_op_ult32:
-        case nir_op_uge32:
-                if (sz == 32) {
+        case nir_op_ult:
+        case nir_op_uge:
+                if (src_sz == 32) {
                         bi_icmp_u32_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
-                                        BI_RESULT_TYPE_M1);
-                } else if (sz == 16) {
+                                        BI_RESULT_TYPE_I1);
+                } else if (src_sz == 16) {
                         bi_icmp_v2u16_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
-                                        BI_RESULT_TYPE_M1);
+                                        BI_RESULT_TYPE_I1);
                 } else {
                         bi_icmp_v4u8_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
-                                        BI_RESULT_TYPE_M1);
+                                        BI_RESULT_TYPE_I1);
                 }
                 break;
 
@@ -1794,6 +1794,25 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
 
         case nir_op_f2f32:
                 bi_f16_to_f32_to(b, dst, s0);
+                break;
+
+        case nir_op_b2i8:
+        case nir_op_b2i16:
+                bi_mov_i32_to(b, dst, s0);
+                break;
+
+        case nir_op_b2i32:
+                bi_u16_to_u32_to(b, dst, s0);
+                break;
+
+        case nir_op_b2b1:
+                bi_icmp_i32_to(b, dst, s0, bi_zero(), BI_CMPF_NE,
+                                BI_RESULT_TYPE_I1);
+                break;
+
+        case nir_op_b2b32:
+                bi_icmp_i32_to(b, dst, s0, bi_zero(), BI_CMPF_NE,
+                                BI_RESULT_TYPE_M1);
                 break;
 
         case nir_op_f2i32:
@@ -1968,7 +1987,11 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 break;
 
         case nir_op_inot:
-                bi_lshift_or_to(b, sz, dst, bi_zero(), bi_not(s0), bi_imm_u8(0));
+                if (nir_dest_bit_size(instr->dest.dest) == 1)
+                        bi_lshift_xor_to(b, sz, dst, s0, bi_imm_u16(1), bi_imm_u8(0));
+                else
+                        bi_lshift_or_to(b, sz, dst, bi_zero(), bi_not(s0), bi_imm_u8(0));
+
                 break;
 
         case nir_op_frsq:
@@ -2905,7 +2928,6 @@ bi_optimize_nir(nir_shader *nir)
                 NIR_PASS(progress, nir, nir_opt_cse);
         }
 
-        NIR_PASS(progress, nir, nir_lower_bool_to_int32);
         NIR_PASS(progress, nir, bifrost_nir_lower_algebraic_late);
         NIR_PASS(progress, nir, nir_lower_alu_to_scalar, NULL, NULL);
 
