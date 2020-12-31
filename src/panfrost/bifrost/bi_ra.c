@@ -178,22 +178,6 @@ bi_rewrite_index_src_single(bi_instr *ins, bi_index old, bi_index new)
         }
 }
 
-/* Get the single instruction in a singleton clause. Precondition: clause
- * contains exactly 1 instruction.
- *
- * More complex scheduling implies tougher constraints on spilling. We'll cross
- * that bridge when we get to it. For now, just grab the one and only
- * instruction in the clause */
-
-static bi_instr *
-bi_unwrap_singleton(bi_clause *clause)
-{
-       assert(clause->bundle_count == 1);
-       assert((clause->bundles[0].fma != NULL) ^ (clause->bundles[0].add != NULL));
-
-       return clause->bundles[0].fma ?: clause->bundles[0].add;
-}
-
 /* If register allocation fails, find the best spill node */
 
 static signed
