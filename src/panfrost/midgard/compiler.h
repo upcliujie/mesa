@@ -649,8 +649,6 @@ void emit_binary_bundle(
         struct util_dynarray *emission,
         int next_tag);
 
-bool nir_fuse_io_16(nir_shader *shader);
-
 bool midgard_nir_lod_errata(nir_shader *shader);
 
 unsigned midgard_get_first_tag_from_block(compiler_context *ctx, unsigned block_idx);

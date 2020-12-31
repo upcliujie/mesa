@@ -41,7 +41,7 @@ nir_src_is_f2fmp(nir_src *use)
       return false;
 
    nir_alu_instr *alu = nir_instr_as_alu(parent);
-   return (alu->op == nir_op_f2fmp);
+   return alu->op == nir_op_f2fmp || alu->op == nir_op_f2f16;
 }
 
 bool
@@ -61,7 +61,10 @@ nir_fuse_io_16(nir_shader *shader)
 
             nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
 
-            if (intr->intrinsic != nir_intrinsic_load_interpolated_input)
+            if (intr->intrinsic != nir_intrinsic_load_interpolated_input &&
+                !(intr->intrinsic == nir_intrinsic_load_input &&
+                        shader->info.stage != MESA_SHADER_FRAGMENT &&
+                        nir_intrinsic_dest_type(intr) == nir_type_float32))
                     continue;
 
             if (nir_dest_bit_size(intr->dest) != 32)
@@ -87,6 +90,9 @@ nir_fuse_io_16(nir_shader *shader)
                continue;
 
             intr->dest.ssa.bit_size = 16;
+
+            if (intr->intrinsic == nir_intrinsic_load_input)
+                    nir_intrinsic_set_dest_type(intr, nir_type_float16);
 
             nir_builder b;
             nir_builder_init(&b, function->impl);
