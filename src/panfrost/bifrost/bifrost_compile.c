@@ -1525,9 +1525,9 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
 {
         bi_index dst = bi_dest_index(&instr->dest.dest);
         unsigned sz = nir_dest_bit_size(instr->dest.dest);
-
         unsigned srcs = nir_op_infos[instr->op].num_inputs;
         unsigned comps = nir_dest_num_components(instr->dest.dest);
+        unsigned src_sz = srcs > 0 ? nir_src_bit_size(instr->src[0].src) : 0;
 
         /* TODO: Do we need to do something more clever with bools? */
         if (sz == 1)
@@ -1605,6 +1605,16 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 return;
         }
 
+        case nir_op_f2f16:
+                assert(src_sz == 32);
+                bi_index idx = bi_src_index(&instr->src[0].src);
+                bi_index s0 = bi_word(idx, instr->src[0].swizzle[0]);
+                bi_index s1 = comps > 1 ?
+                        bi_word(idx, instr->src[0].swizzle[1]) : s0;
+
+                bi_v2f32_to_v2f16_to(b, dst, s0, s1, BI_ROUND_NONE);
+                return;
+
         default:
                 break;
         }
@@ -1612,8 +1622,6 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         bi_index s0 = srcs > 0 ? bi_alu_src_index(instr->src[0], comps) : bi_null();
         bi_index s1 = srcs > 1 ? bi_alu_src_index(instr->src[1], comps) : bi_null();
         bi_index s2 = srcs > 2 ? bi_alu_src_index(instr->src[2], comps) : bi_null();
-
-        unsigned src_sz = srcs > 0 ? nir_src_bit_size(instr->src[0].src) : 0;
 
         switch (instr->op) {
         case nir_op_ffma:
@@ -1787,10 +1795,6 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 bi_fadd_to(b, sz, dst, right, bi_neg(left), BI_ROUND_NONE);
                 break;
         }
-
-        case nir_op_f2f16:
-                bi_v2f32_to_v2f16_to(b, dst, s0, s0, BI_ROUND_NONE);
-                break;
 
         case nir_op_f2f32:
                 bi_f16_to_f32_to(b, dst, s0);
