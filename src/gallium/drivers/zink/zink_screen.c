@@ -1014,9 +1014,13 @@ zink_internal_setup_moltenvk(struct zink_screen *screen)
 static void
 check_device_needs_mesa_wsi(struct zink_screen *screen)
 {
-   /* Raspberry Pi 4 V3DV driver */
-   if (screen->info.props.vendorID == 0x14E4 &&
-       screen->info.props.deviceID == 42) {
+   if (
+       /* Raspberry Pi 4 V3DV driver */
+       (screen->info.props.vendorID == 0x14E4 &&
+        screen->info.props.deviceID == 42) ||
+       /* RADV */
+       screen->info.props.vendorID == 0x1002
+      ) {
       screen->needs_mesa_wsi = true;
    }
 }
