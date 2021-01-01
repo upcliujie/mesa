@@ -1769,16 +1769,20 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 break;
 
         case nir_op_f2u16:
-                if (src_sz == 32)
-                        unreachable("should've been lowered");
-                else
+                if (src_sz == 32) {
+                        bi_mkvec_v2i16_to(b, dst,
+                                        bi_f32_to_u32(b, s0, BI_ROUND_RTZ),
+                                        bi_imm_u16(0));
+                } else
                         bi_v2f16_to_v2u16_to(b, dst, s0, BI_ROUND_RTZ);
                 break;
 
         case nir_op_f2i16:
-                if (src_sz == 32)
-                        unreachable("should've been lowered");
-                else
+                if (src_sz == 32) {
+                        bi_mkvec_v2i16_to(b, dst,
+                                        bi_f32_to_s32(b, s0, BI_ROUND_RTZ),
+                                        bi_imm_u16(0));
+                } else
                         bi_v2f16_to_v2s16_to(b, dst, s0, BI_ROUND_RTZ);
                 break;
 
@@ -1791,7 +1795,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
 
         case nir_op_u2f16:
                 if (src_sz == 32)
-                        unreachable("should've been lowered");
+                        bi_v2u16_to_v2f16_to(b, dst, bi_half(s0, false), BI_ROUND_RTZ);
                 else if (src_sz == 16)
                         bi_v2u16_to_v2f16_to(b, dst, s0, BI_ROUND_RTZ);
                 else if (src_sz == 8)
@@ -1809,9 +1813,11 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
 
         case nir_op_i2f16:
                 if (src_sz == 32)
-                        unreachable("should've been lowered");
-                else
+                        bi_v2s16_to_v2f16_to(b, dst, bi_half(s0, false), BI_ROUND_RTZ);
+                else if (src_sz == 16)
                         bi_v2s16_to_v2f16_to(b, dst, s0, BI_ROUND_RTZ);
+                else if (src_sz == 8)
+                        bi_v2s8_to_v2f16_to(b, dst, s0);
                 break;
 
         case nir_op_i2f32:
@@ -1835,14 +1841,13 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                         bi_u8_to_u32_to(b, dst, s0);
                 break;
 
-        /* todo optimize out downcasts */
         case nir_op_i2i16:
                 assert(src_sz == 8 || src_sz == 32);
 
                 if (src_sz == 8)
                         bi_v2s8_to_v2s16_to(b, dst, s0);
                 else
-                        bi_mkvec_v2i16_to(b, dst, bi_half(s0, false), bi_imm_u16(0));
+                        bi_mov_i32_to(b, dst, s0);
                 break;
 
         case nir_op_u2u16:
@@ -1851,7 +1856,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 if (src_sz == 8)
                         bi_v2u8_to_v2u16_to(b, dst, s0);
                 else
-                        bi_mkvec_v2i16_to(b, dst, bi_half(s0, false), bi_imm_u16(0));
+                        bi_mov_i32_to(b, dst, s0);
                 break;
 
         case nir_op_i2i8:
