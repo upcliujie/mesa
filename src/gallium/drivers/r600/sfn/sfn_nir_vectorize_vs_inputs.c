@@ -197,7 +197,7 @@ r600_vec_instr_stack_pop(nir_builder *b, struct util_dynarray *stack,
    unsigned old_num_comps =
          glsl_get_vector_elements(glsl_without_array(var->type));
 
-   /* Don't bother walking the stack if this component can't be vectorised. */
+   /* Don't bother walking the stack if this component can't be vectorized. */
    if (old_num_comps > 3) {
       return false;
    }
