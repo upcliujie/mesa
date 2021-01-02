@@ -1278,6 +1278,9 @@ u_vbuf_split_indexed_multidraw(struct u_vbuf *mgr, struct pipe_draw_info *info,
                                unsigned *indirect_data, unsigned stride,
                                unsigned draw_count)
 {
+   bool take_index_buffer_ownership = info->take_index_buffer_ownership;
+   info->take_index_buffer_ownership = false;
+
    assert(info->index_size);
 
    for (unsigned i = 0; i < draw_count; i++) {
@@ -1286,13 +1289,13 @@ u_vbuf_split_indexed_multidraw(struct u_vbuf *mgr, struct pipe_draw_info *info,
 
       draw.count = indirect_data[offset + 0];
       info->instance_count = indirect_data[offset + 1];
-
-      if (!draw.count || !info->instance_count)
-         continue;
-
       draw.start = indirect_data[offset + 2];
       info->index_bias = indirect_data[offset + 3];
       info->start_instance = indirect_data[offset + 4];
+
+      /* We can pass the index buffer reference only once. */
+      if (take_index_buffer_ownership && i == draw_count - 1)
+         info->take_index_buffer_ownership = true;
 
       u_vbuf_draw_vbo(mgr, info, NULL, draw);
    }
@@ -1344,14 +1347,24 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
          draw_count = indirect->draw_count;
       }
 
-      if (!draw_count)
+      if (!draw_count) {
+         if (info->take_index_buffer_ownership) {
+            struct pipe_resource *indexbuf = info->index.resource;
+            pipe_resource_reference(&indexbuf, NULL);
+         }
          return;
+      }
 
       unsigned data_size = (draw_count - 1) * indirect->stride +
                            (new_info.index_size ? 20 : 16);
       unsigned *data = malloc(data_size);
-      if (!data)
+      if (!data) {
+         if (info->take_index_buffer_ownership) {
+            struct pipe_resource *indexbuf = info->index.resource;
+            pipe_resource_reference(&indexbuf, NULL);
+         }
          return; /* report an error? */
+      }
 
       /* Read the used buffer range only once, because the read can be
        * uncached.
@@ -1448,8 +1461,13 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
          /* Set the final instance count. */
          new_info.instance_count = end_instance - new_info.start_instance;
 
-         if (new_info.start_instance == ~0u || !new_info.instance_count)
+         if (new_info.start_instance == ~0u || !new_info.instance_count) {
+            if (info->take_index_buffer_ownership) {
+               struct pipe_resource *indexbuf = info->index.resource;
+               pipe_resource_reference(&indexbuf, NULL);
+            }
             return;
+         }
       } else {
          /* Non-indexed multidraw.
           *
@@ -1485,8 +1503,13 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
          new_draw.count = end_vertex - new_draw.start;
          new_info.instance_count = end_instance - new_info.start_instance;
 
-         if (new_draw.start == ~0u || !new_draw.count || !new_info.instance_count)
+         if (new_draw.start == ~0u || !new_draw.count || !new_info.instance_count) {
+            if (info->take_index_buffer_ownership) {
+               struct pipe_resource *indexbuf = info->index.resource;
+               pipe_resource_reference(&indexbuf, NULL);
+            }
             return;
+         }
       }
    }
 
@@ -1540,6 +1563,11 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
                                   start_vertex, num_vertices,
                                   min_index, unroll_indices)) {
          debug_warn_once("u_vbuf_translate_begin() failed");
+
+         if (info->take_index_buffer_ownership) {
+            struct pipe_resource *indexbuf = info->index.resource;
+            pipe_resource_reference(&indexbuf, NULL);
+         }
          return;
       }
 
@@ -1562,6 +1590,11 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
                                 new_info.start_instance,
                                 new_info.instance_count) != PIPE_OK) {
          debug_warn_once("u_vbuf_upload_buffers() failed");
+
+         if (info->take_index_buffer_ownership) {
+            struct pipe_resource *indexbuf = info->index.resource;
+            pipe_resource_reference(&indexbuf, NULL);
+         }
          return;
       }
 
