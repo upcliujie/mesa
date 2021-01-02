@@ -1008,8 +1008,23 @@ st_nir_lower_uniforms(struct st_context *st, nir_shader *nir)
                  (nir_lower_io_options)0);
    }
 
-   if (nir->options->lower_uniforms_to_ubo)
+   if (nir->options->lower_uniforms_to_ubo) {
       NIR_PASS_V(nir, nir_lower_uniforms_to_ubo, multiplier);
+
+      /* Remove dead derefs, so that nir_validate doesn't fail. */
+      NIR_PASS_V(nir, nir_opt_dce);
+
+      /* Remove all uniform variables because they shouldn't be needed
+       * after they are lowered to UBO. This is also required to prevent
+       * conflicts between state parameter merging and shader variant
+       * generation.
+       */
+      nir_foreach_uniform_variable_safe(var, nir) {
+         if (!glsl_type_get_image_count(var->type) &&
+             !glsl_type_get_sampler_count(var->type))
+            exec_node_remove(&var->node);
+      }
+   }
 }
 
 /* Last third of preparing nir from glsl, which happens after shader
