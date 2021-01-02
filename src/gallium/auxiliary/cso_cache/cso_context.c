@@ -1021,7 +1021,7 @@ void cso_set_vertex_buffers(struct cso_context *ctx,
       return;
 
    if (vbuf) {
-      u_vbuf_set_vertex_buffers(vbuf, start_slot, count, 0, buffers);
+      u_vbuf_set_vertex_buffers(vbuf, start_slot, count, 0, false, buffers);
       return;
    }
 
@@ -1046,6 +1046,7 @@ cso_set_vertex_buffers_and_elements(struct cso_context *ctx,
                                     const struct cso_velems_state *velems,
                                     ubyte vb_count,
                                     ubyte unbind_trailing_vb_count,
+                                    bool pass_references,
                                     bool uses_user_vertex_buffers,
                                     const struct pipe_vertex_buffer *vbuffers)
 {
@@ -1067,7 +1068,8 @@ cso_set_vertex_buffers_and_elements(struct cso_context *ctx,
 
       if (vb_count || unbind_trailing_vb_count) {
          u_vbuf_set_vertex_buffers(vbuf, 0, vb_count,
-                                   unbind_trailing_vb_count, vbuffers);
+                                   unbind_trailing_vb_count,
+                                   pass_references, vbuffers);
       }
       u_vbuf_set_vertex_elements(vbuf, velems);
       return;
@@ -1077,7 +1079,7 @@ cso_set_vertex_buffers_and_elements(struct cso_context *ctx,
       /* Unbind all buffers in u_vbuf, because we'll use cso_context. */
       unsigned unbind_vb_count = vb_count + unbind_trailing_vb_count;
       if (unbind_vb_count)
-         u_vbuf_set_vertex_buffers(vbuf, 0, unbind_vb_count, 0, NULL);
+         u_vbuf_set_vertex_buffers(vbuf, 0, unbind_vb_count, 0, false, NULL);
 
       /* Unset this to make sure the CSO is re-bound on the next use. */
       u_vbuf_unset_vertex_elements(vbuf);
@@ -1087,7 +1089,7 @@ cso_set_vertex_buffers_and_elements(struct cso_context *ctx,
 
    if (vb_count) {
       pipe->set_vertex_buffers(pipe, 0, vb_count, unbind_trailing_vb_count,
-                               false, vbuffers);
+                               pass_references, vbuffers);
    }
    cso_set_vertex_elements_direct(ctx, velems);
 }
