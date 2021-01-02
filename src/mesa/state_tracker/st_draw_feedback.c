@@ -124,6 +124,7 @@ st_feedback_draw_vbo(struct gl_context *ctx,
 
    /* Initialize pipe_draw_info. */
    info.primitive_restart = false;
+   info.pass_index_buffer_reference = false;
    info.vertices_per_patch = ctx->TessCtrlProgram.patch_vertices;
    info.restart_index = 0;
 

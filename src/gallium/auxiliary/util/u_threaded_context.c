@@ -100,6 +100,7 @@ simplify_draw_info(struct pipe_draw_info *info)
     */
    info->has_user_indices = false;
    info->index_bounds_valid = false;
+   info->pass_index_buffer_reference = false;
    info->_pad = 0;
 
    /* This shouldn't be set when merging single draws. */
@@ -2332,6 +2333,7 @@ tc_call_draw_single(struct pipe_context *pipe, union tc_payload *payload)
 
    info->info.index_bounds_valid = false;
    info->info.has_user_indices = false;
+   info->info.pass_index_buffer_reference = false;
 
    pipe->draw_vbo(pipe, &info->info, NULL, draw, 1);
    if (info->info.index_size)
@@ -2350,6 +2352,7 @@ tc_call_draw_indirect(struct pipe_context *pipe, union tc_payload *payload)
    struct tc_draw_indirect *info = (struct tc_draw_indirect*)payload;
 
    info->info.index_bounds_valid = false;
+   info->info.pass_index_buffer_reference = false;
 
    pipe->draw_vbo(pipe, &info->info, &info->indirect, &info->draw, 1);
    if (info->info.index_size)
@@ -2373,6 +2376,7 @@ tc_call_draw_multi(struct pipe_context *pipe, union tc_payload *payload)
 
    info->info.has_user_indices = false;
    info->info.index_bounds_valid = false;
+   info->info.pass_index_buffer_reference = false;
 
    pipe->draw_vbo(pipe, &info->info, NULL, info->slot, info->num_draws);
    if (info->info.index_size)
@@ -2402,8 +2406,12 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
       struct tc_draw_indirect *p =
          tc_add_struct_typed_call(tc, TC_CALL_draw_indirect, tc_draw_indirect);
       if (index_size) {
-         tc_set_resource_reference(&p->info.index.resource,
-                                   info->index.resource);
+         if (info->pass_index_buffer_reference) {
+            p->info.index.resource = info->index.resource;
+         } else {
+            tc_set_resource_reference(&p->info.index.resource,
+                                      info->index.resource);
+         }
       }
       memcpy(&p->info, info, DRAW_INFO_SIZE_WITHOUT_MIN_MAX_INDEX);
 
@@ -2447,8 +2455,12 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
          struct tc_draw_single *p =
             tc_add_struct_typed_call(tc, TC_CALL_draw_single, tc_draw_single);
          if (index_size) {
-            tc_set_resource_reference(&p->info.index.resource,
-                                      info->index.resource);
+            if (info->pass_index_buffer_reference) {
+               p->info.index.resource = info->index.resource;
+            } else {
+               tc_set_resource_reference(&p->info.index.resource,
+                                         info->index.resource);
+            }
          }
          memcpy(&p->info, info, DRAW_INFO_SIZE_WITHOUT_MIN_MAX_INDEX);
          /* u_threaded_context stores start/count in min/max_index for single draws. */
@@ -2512,8 +2524,12 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
          tc_add_slot_based_call(tc, TC_CALL_draw_multi, tc_draw_multi,
                                 num_draws);
       if (index_size) {
-         tc_set_resource_reference(&p->info.index.resource,
-                                   info->index.resource);
+         if (info->pass_index_buffer_reference) {
+            p->info.index.resource = info->index.resource;
+         } else {
+            tc_set_resource_reference(&p->info.index.resource,
+                                      info->index.resource);
+         }
       }
       memcpy(&p->info, info, DRAW_INFO_SIZE_WITHOUT_MIN_MAX_INDEX);
       p->num_draws = num_draws;

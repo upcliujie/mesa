@@ -159,6 +159,7 @@ st_draw_vbo(struct gl_context *ctx,
    info.restart_index = 0;
    info.start_instance = base_instance;
    info.instance_count = num_instances;
+   info.pass_index_buffer_reference = false;
    info._pad = 0;
 
    if (ib) {
