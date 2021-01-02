@@ -65,6 +65,7 @@
 #include "util/u_prim.h"
 #include "util/u_draw.h"
 #include "util/u_upload_mgr.h"
+#include "util/u_threaded_context.h"
 #include "draw/draw_context.h"
 #include "cso_cache/cso_context.h"
 
@@ -225,6 +226,44 @@ st_draw_vbo(struct gl_context *ctx,
 
       /* Don't call u_trim_pipe_prim. Drivers should do it if they need it. */
       cso_draw_vbo(st->cso_context, &info, NULL, draw);
+   }
+}
+
+static void ALWAYS_INLINE
+prepare_indexed_draw(/* pass both st and ctx to reduce dereferences */
+                     struct st_context *st,
+                     struct gl_context *ctx,
+                     struct pipe_draw_info *info,
+                     const struct pipe_draw_start_count *draws,
+                     unsigned num_draws)
+{
+   if (info->index_size) {
+      /* Get index bounds for user buffers. */
+      if (!info->index_bounds_valid &&
+          st->draw_needs_minmax_index) {
+         vbo_get_minmax_indices_gallium(ctx, info, draws, num_draws);
+         info->index_bounds_valid = true;
+      }
+
+      if (!info->has_user_indices) {
+         if (st->pipe->draw_vbo == tc_draw_vbo) {
+            /* Fast path for u_threaded_context. This eliminates the atomic
+             * increment for the index buffer refcount when adding it into
+             * the threaded batch buffer.
+             */
+            info->index.resource =
+               st_get_buffer_reference(ctx, info->index.gl_bo);
+            info->pass_index_buffer_reference = true;
+         } else {
+            info->index.resource = st_buffer_object(info->index.gl_bo)->buffer;
+         }
+
+         /* Return if the bound element array buffer doesn't have any backing
+          * storage. (nothing to do)
+          */
+         if (!info->index.resource)
+            return;
+      }
    }
 }
 
