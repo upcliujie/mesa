@@ -340,7 +340,7 @@ bool NirLowerIOToVector::vec_instr_stack_pop(nir_builder *b, InstrSubSet &ir_set
    unsigned num_comps = glsl_get_vector_elements(glsl_without_array(new_var->type));
    unsigned old_num_comps = glsl_get_vector_elements(glsl_without_array(var->type));
 
-   /* Don't bother walking the stack if this component can't be vectorised. */
+   /* Don't bother walking the stack if this component can't be vectorized. */
    if (old_num_comps > 3) {
       return false;
    }
