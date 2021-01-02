@@ -1435,6 +1435,9 @@ cso_multi_draw(struct cso_context *cso,
 
          if (info->increment_draw_id)
             info->drawid++;
+
+         /* We can pass the reference only once. */
+         info->take_index_buffer_ownership = false;
       }
    } else {
       struct pipe_context *pipe = cso->pipe;

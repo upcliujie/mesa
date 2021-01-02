@@ -1295,6 +1295,9 @@ u_vbuf_split_indexed_multidraw(struct u_vbuf *mgr, struct pipe_draw_info *info,
       info->start_instance = indirect_data[offset + 4];
 
       u_vbuf_draw_vbo(mgr, info, NULL, draw);
+
+      /* We can pass the reference only once. */
+      info->take_index_buffer_ownership = false;
    }
 }
 

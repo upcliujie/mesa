@@ -750,7 +750,8 @@ struct pipe_draw_info
    bool index_bounds_valid:1; /**< whether min_index and max_index are valid;
                                    they're always invalid if index_size == 0 */
    bool increment_draw_id:1;  /**< whether drawid increments for direct draws */
-   char _pad:4;               /**< padding for memcmp */
+   bool take_index_buffer_ownership:1; /**< callee should unreference indexbuf */
+   char _pad:3;               /**< padding for memcmp */
 
    unsigned start_instance; /**< first instance id */
    unsigned instance_count; /**< number of instances */

@@ -540,6 +540,7 @@ _mesa_draw_arrays(struct gl_context *ctx, GLenum mode, GLint start,
    info.has_user_indices = false;
    info.index_bounds_valid = true;
    info.increment_draw_id = false;
+   info.take_index_buffer_ownership = false;
    info._pad = 0;
    /* Packed section end. */
    info.start_instance = baseInstance;
@@ -891,6 +892,7 @@ _mesa_exec_MultiDrawArrays(GLenum mode, const GLint *first,
    info.has_user_indices = false;
    info.index_bounds_valid = false;
    info.increment_draw_id = primcount > 1;
+   info.take_index_buffer_ownership = false;
    info._pad = 0;
    /* Packed section end. */
    info.start_instance = 0;
@@ -1026,6 +1028,7 @@ _mesa_validated_drawrangeelements(struct gl_context *ctx, GLenum mode,
    info.has_user_indices = index_bo == NULL;
    info.index_bounds_valid = index_bounds_valid;
    info.increment_draw_id = false;
+   info.take_index_buffer_ownership = false;
    info._pad = 0;
    /* Packed section end. */
    info.start_instance = baseInstance;
@@ -1483,6 +1486,7 @@ _mesa_validated_multidrawelements(struct gl_context *ctx, GLenum mode,
    info.has_user_indices = index_bo == NULL;
    info.index_bounds_valid = false;
    info.increment_draw_id = primcount > 1;
+   info.take_index_buffer_ownership = false;
    info._pad = 0;
    /* Packed section end. */
    info.start_instance = 0;
