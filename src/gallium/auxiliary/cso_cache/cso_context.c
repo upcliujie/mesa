@@ -1429,9 +1429,15 @@ cso_multi_draw(struct cso_context *cso,
    struct u_vbuf *vbuf = cso->vbuf_current;
 
    if (vbuf) {
+      bool take_index_buffer_ownership = info->take_index_buffer_ownership;
+      info->take_index_buffer_ownership = false;
+
       for (unsigned i = 0; i < num_draws; i++) {
-         if (draws[i].count)
-            u_vbuf_draw_vbo(vbuf, info, NULL, draws[i]);
+         /* We can pass the index buffer reference only once. */
+         if (take_index_buffer_ownership && i == num_draws - 1)
+            info->take_index_buffer_ownership = true;
+
+         u_vbuf_draw_vbo(vbuf, info, NULL, draws[i]);
 
          if (info->increment_draw_id)
             info->drawid++;

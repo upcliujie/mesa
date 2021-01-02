@@ -158,6 +158,7 @@ st_draw_vbo(struct gl_context *ctx,
    info.restart_index = 0;
    info.start_instance = base_instance;
    info.instance_count = num_instances;
+   info.take_index_buffer_ownership = false;
    info._pad = 0;
 
    if (ib) {
@@ -296,6 +297,12 @@ st_draw_gallium_complex(struct gl_context *ctx,
    unsigned mask = (mode ? MODE : 0) | (base_vertex ? BASE_VERTEX : 0);
    unsigned i, first;
    struct cso_context *cso = st->cso_context;
+   bool take_index_buffer_ownership = false;
+
+   if (info->take_index_buffer_ownership) {
+      take_index_buffer_ownership = true;
+      info->take_index_buffer_ownership = false;
+   }
 
    /* Find consecutive draws where mode and base_vertex don't vary. */
    switch (mask) {
@@ -303,6 +310,11 @@ st_draw_gallium_complex(struct gl_context *ctx,
       for (i = 0, first = 0; i <= num_draws; i++) {
          if (i == num_draws || mode[i] != mode[first]) {
             info->mode = mode[first];
+
+            /* We can pass the index buffer reference only once. */
+            if (take_index_buffer_ownership && i == num_draws)
+               info->take_index_buffer_ownership = true;
+
             cso_multi_draw(cso, info, &draws[first], i - first);
             first = i;
          }
@@ -313,6 +325,11 @@ st_draw_gallium_complex(struct gl_context *ctx,
       for (i = 0, first = 0; i <= num_draws; i++) {
          if (i == num_draws || base_vertex[i] != base_vertex[first]) {
             info->index_bias = base_vertex[first];
+
+            /* We can pass the index buffer reference only once. */
+            if (take_index_buffer_ownership && i == num_draws)
+               info->take_index_buffer_ownership = true;
+
             cso_multi_draw(cso, info, &draws[first], i - first);
             first = i;
          }
@@ -326,6 +343,11 @@ st_draw_gallium_complex(struct gl_context *ctx,
              base_vertex[i] != base_vertex[first]) {
             info->mode = mode[first];
             info->index_bias = base_vertex[first];
+
+            /* We can pass the index buffer reference only once. */
+            if (take_index_buffer_ownership && i == num_draws)
+               info->take_index_buffer_ownership = true;
+
             cso_multi_draw(cso, info, &draws[first], i - first);
             first = i;
          }
