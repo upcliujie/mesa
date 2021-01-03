@@ -485,4 +485,17 @@ if with_tests
     ),
     suite : ['compiler', 'nir'],
   )
+
+  test(
+    'nir_opt_peephole_select',
+    executable(
+      'nir_opt_peephole_select_test',
+      files('tests/opt_peephole_select.cpp'),
+      cpp_args : [cpp_msvc_compat_args],
+      gnu_symbol_visibility : 'hidden',
+      include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
+      dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
+    ),
+    suite : ['compiler', 'nir'],
+  )
 endif
