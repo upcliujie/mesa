@@ -92,6 +92,18 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
          }
 
          case nir_intrinsic_load_uniform:
+            if (!indirect_load_ok && !nir_src_is_const(intrin->src[0]))
+               return false;
+
+            break;
+
+         case nir_intrinsic_load_ubo:
+         case nir_intrinsic_load_ubo_vec4:
+            if (!indirect_load_ok && !nir_src_is_const(intrin->src[1]))
+               return false;
+
+            break;
+
          case nir_intrinsic_load_helper_invocation:
          case nir_intrinsic_is_helper_invocation:
          case nir_intrinsic_load_front_face:
