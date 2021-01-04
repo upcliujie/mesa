@@ -1467,8 +1467,17 @@ anv_layout_to_aux_state(const struct gen_device_info * const devinfo,
    const VkImageUsageFlags image_aspect_usage =
       aspect == VK_IMAGE_ASPECT_STENCIL_BIT ? image->stencil_usage :
                                               image->usage;
-   const VkImageUsageFlags usage =
-      vk_image_layout_to_usage_flags(layout, aspect) & image_aspect_usage;
+   VkImageUsageFlags usage =
+      vk_image_layout_to_usage_flags(layout, aspect);
+
+   /* If we're trying to resolve a multisampled image, genX_cmd_buffer.c will
+    * call this function with layout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL. But
+    * this image might not have been created with transfer layout usage. So
+    * only AND the usages if there is some overlap, otherwise rely on the
+    * requested layout.
+    */
+   if (usage & image_aspect_usage)
+      usage &= image_aspect_usage;
 
    bool aux_supported = true;
 
