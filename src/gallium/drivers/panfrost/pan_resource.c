@@ -606,6 +606,32 @@ panfrost_resource_setup(struct panfrost_device *dev, struct panfrost_resource *p
         panfrost_setup_layout(dev, pres, bo_size);
 }
 
+static void
+panfrost_resource_init_afbc_headers(struct panfrost_resource *pres)
+{
+        if (!drm_is_afbc(pres->layout.modifier))
+                return;
+
+        panfrost_bo_mmap(pres->bo);
+
+        unsigned nr_samples = MAX2(pres->base.nr_samples, 1);
+
+        for (unsigned i = 0; i < pres->base.array_size; ++i) {
+                for (unsigned l = 0; l <= pres->base.last_level; ++l) {
+                        struct panfrost_slice *slice = &pres->layout.slices[l];
+
+                        for (unsigned s = 0; s < nr_samples; ++s) {
+                                void *ptr = pres->bo->ptr.cpu +
+                                            (i * pres->layout.array_stride) +
+                                            slice->offset +
+                                            (s * slice->afbc.surface_stride);
+
+                                memset(ptr, 0, slice->afbc.header_size);
+                        }
+                }
+        }
+}
+
 void
 panfrost_resource_set_damage_region(struct pipe_screen *screen,
                                     struct pipe_resource *res,
@@ -695,6 +721,7 @@ panfrost_resource_create_with_modifier(struct pipe_screen *screen,
         /* We create a BO immediately but don't bother mapping, since we don't
          * care to map e.g. FBOs which the CPU probably won't touch */
         so->bo = panfrost_bo_create(dev, bo_size, PAN_BO_DELAY_MMAP);
+        panfrost_resource_init_afbc_headers(so);
 
         panfrost_resource_set_damage_region(NULL, &so->base, 0, NULL);
 
@@ -955,6 +982,10 @@ panfrost_ptr_map(struct pipe_context *pctx,
 
                                 panfrost_bo_unreference(bo);
                                 rsrc->bo = newbo;
+
+	                        if (!copy_resource)
+                                        panfrost_resource_init_afbc_headers(rsrc);
+
                                 bo = newbo;
                         } else {
                                 /* Allocation failed or was impossible, let's
