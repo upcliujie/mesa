@@ -58,6 +58,8 @@ kernel+rootfs_armhf:
       else
         ARTIFACTS_URL="${ARTIFACTS_PREFIX}/${CI_PROJECT_PATH}/${DISTRIBUTION_TAG}/${ARCH}"
       fi
+    - echo ${DISTRIBUTION_TAG}
+    - echo ${ARTIFACTS_URL}
     - >
       artifacts/generate_lava.py \
         --template artifacts/lava-${TEST_SUITE}.yml.jinja2 \
