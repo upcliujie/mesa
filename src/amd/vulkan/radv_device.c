@@ -2688,7 +2688,6 @@ VkResult radv_CreateDevice(
 
 	bool keep_shader_info = false;
 	bool robust_buffer_access = false;
-	bool robust_buffer_access2 = false;
 	bool overallocation_disallowed = false;
 	bool custom_border_colors = false;
 	bool vrs_enabled = false;
@@ -2735,12 +2734,6 @@ VkResult radv_CreateDevice(
 				      vrs->attachmentFragmentShadingRate;
 			break;
 		}
-		case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT: {
-			const VkPhysicalDeviceRobustness2FeaturesEXT *features = (const void *)ext;
-			if (features->robustBufferAccess2)
-				robust_buffer_access2 = true;
-			break;
-		}
 		default:
 			break;
 		}
@@ -2784,8 +2777,7 @@ VkResult radv_CreateDevice(
 		device->enabled_extensions.EXT_buffer_device_address ||
 		device->enabled_extensions.KHR_buffer_device_address;
 
-	device->robust_buffer_access = robust_buffer_access || robust_buffer_access2;
-	device->robust_buffer_access2 = robust_buffer_access2;
+	device->robust_buffer_access = robust_buffer_access;
 
 	device->adjust_frag_coord_z = (vrs_enabled ||
 				       device->enabled_extensions.KHR_fragment_shading_rate) &&
