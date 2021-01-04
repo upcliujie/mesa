@@ -1519,6 +1519,12 @@ anv_layout_to_aux_state(const struct gen_device_info * const devinfo,
       }
    }
 
+   /* Independent of usage we come up with, make sure we do not attempt to
+    * utilize hiz with samples > 1.
+    */
+   if (image->samples != 1 && aux_usage == ISL_AUX_USAGE_HIZ)
+      aux_supported = false;
+
    switch (aux_usage) {
    case ISL_AUX_USAGE_HIZ:
    case ISL_AUX_USAGE_HIZ_CCS:
