@@ -40,6 +40,8 @@
 #include <signal.h>
 #include <errno.h>
 
+#include "isa/isa.h"
+
 #include "redump.h"
 #include "disasm.h"
 #include "script.h"
@@ -427,6 +429,14 @@ disasm_gpuaddr(const char *name, uint64_t gpuaddr, int level)
 
 		dump_hex(buf, min(64, sizedwords), level+1);
 		try_disasm_a3xx(buf, sizedwords, level+2, stdout, options->gpu_id);
+		// TODO need a better way to figure out size..
+//		isa_decode(buf, sizedwords * 4, stdout, &(struct isa_decode_options){
+//			.gpu_id = options->gpu_id,
+//			.level  = level + 2,
+//			.show_raw = true,
+//			.show_errors = true,
+//			.branch_labels = true,
+//		});
 
 		/* this is a bit ugly way, but oh well.. */
 		if (strstr(name, "SP_VS_OBJ")) {
@@ -1492,8 +1502,16 @@ cp_load_state(uint32_t *dwords, uint32_t sizedwords, int level)
 			ext = "fo3";
 		}
 
-		if (contents)
-			try_disasm_a3xx(contents, num_unit * 2, level+2, stdout, options->gpu_id);
+		if (contents) {
+			isa_decode(contents, num_unit * 2 * 4, stdout,
+					&(struct isa_decode_options){
+						.gpu_id = options->gpu_id,
+						.level  = level + 2,
+						.show_raw = true,
+						.show_errors = true,
+						.branch_labels = true,
+					});
+		}
 
 		/* dump raw shader: */
 		if (ext)
