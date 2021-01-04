@@ -447,6 +447,7 @@ etna_shader_variant(struct etna_shader *shader, struct etna_shader_key key,
       v->next = shader->variants;
       shader->variants = v;
       dump_shader_info(v, debug);
+      etna_dump_shader(v);
    }
 
    return v;
