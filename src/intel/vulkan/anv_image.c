@@ -1464,9 +1464,27 @@ anv_layout_to_aux_state(const struct gen_device_info * const devinfo,
 
    const bool read_only = vk_image_layout_is_read_only(layout, aspect);
 
-   const VkImageUsageFlags image_aspect_usage =
+   VkImageUsageFlags image_aspect_usage =
       aspect == VK_IMAGE_ASPECT_STENCIL_BIT ? image->stencil_usage :
                                               image->usage;
+   /* In the one particular case where we're dealing with a DEPTH_STENCIL
+    * attachment which we need to resolve to another attachment, we have to
+    * add the TRANSFER_SRC usage to the image because it will affect whether
+    * or not we can use the AUX surface. This is because HIZ is the only AUX
+    * format where we can't always sample from (in Blorp) (see
+    * anv_can_sample_with_hiz).
+    *
+    * In this particular case, layout=VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    * aspect=VK_IMAGE_ASPECT_DEPTH_BIT, which generates a
+    * VK_IMAGE_USAGE_TRANSFER_SRC_BIT usage which the image->usage might not
+    * have. Leading the logical AND below to return 0 and skipping the
+    * anv_can_sample_with_hiz() further down.
+    */
+   if (image->samples > 1 &&
+       (image_aspect_usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
+       image_aspect_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+   }
+
    const VkImageUsageFlags usage =
       vk_image_layout_to_usage_flags(layout, aspect) & image_aspect_usage;
 
