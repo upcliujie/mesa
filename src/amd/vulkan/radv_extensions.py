@@ -123,7 +123,8 @@ EXTENSIONS = [
     Extension('VK_EXT_calibrated_timestamps',             1, True),
     Extension('VK_EXT_conditional_rendering',             2, True),
     Extension('VK_EXT_conservative_rasterization',        1, 'device->rad_info.chip_class >= GFX9'),
-    Extension('VK_EXT_custom_border_color',               12, True),
+    # We need to support swizzling of the border colors
+    Extension('VK_EXT_custom_border_color',               12, False),
     Extension('VK_EXT_debug_report',                      9, True),
     Extension('VK_EXT_depth_clip_enable',                 1, True),
     Extension('VK_EXT_depth_range_unrestricted',          1, True),
