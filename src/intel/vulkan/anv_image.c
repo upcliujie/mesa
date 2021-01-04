@@ -1464,9 +1464,21 @@ anv_layout_to_aux_state(const struct gen_device_info * const devinfo,
 
    const bool read_only = vk_image_layout_is_read_only(layout, aspect);
 
-   const VkImageUsageFlags image_aspect_usage =
+   VkImageUsageFlags image_aspect_usage =
       aspect == VK_IMAGE_ASPECT_STENCIL_BIT ? image->stencil_usage :
                                               image->usage;
+   /* A color or depth stencil attachment image might need to be resolved at
+    * the end of the render passes. Our resolve operation being implemented
+    * with blorp, we need to consider that transfer usage on those image to
+    * compute the aux state correctly. Even if the image was not meant to be
+    * used for transfer operations by the application.
+    */
+   if (image_aspect_usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
+       image_aspect_usage |= (VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                              VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+   }
+
    const VkImageUsageFlags usage =
       vk_image_layout_to_usage_flags(layout, aspect) & image_aspect_usage;
 
