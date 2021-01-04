@@ -267,7 +267,7 @@ def combine_ir_variants(instructions, v):
             'srcs': variants[0]['srcs'],
             'staging': variants[0]['staging'],
             'immediates': sorted(variants[0]['immediates']),
-            'modifiers': { k: modifiers[k] for k in modifiers }
+            'modifiers': modifiers
         }
 
 # Partition instructions to mnemonics, considering units and variants
