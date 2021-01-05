@@ -261,7 +261,7 @@ panfrost_bo_cache_put(struct panfrost_bo *bo)
 {
         struct panfrost_device *dev = bo->dev;
 
-        if (bo->flags & PAN_BO_SHARED)
+        if (bo->flags & (PAN_BO_SHARED | PAN_BO_EXECUTE))
                 return false;
 
         pthread_mutex_lock(&dev->bo_cache.lock);
