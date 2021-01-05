@@ -77,7 +77,8 @@ protected:
 
    PValue from_nir_with_fetch_constant(const nir_src& src, unsigned component, int channel = -1);
    GPRVector vec_from_nir_with_fetch_constant(const nir_src& src, unsigned mask,
-                                              const GPRVector::Swizzle& swizzle, bool match = false);
+                                              const GPRVector::Swizzle& swizzle, bool match = false,
+                                              bool can_inline_const = false);
 
    const nir_variable *get_deref_location(const nir_src& v) const;
 

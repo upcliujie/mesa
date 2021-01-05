@@ -104,9 +104,9 @@ PValue EmitInstruction::from_nir_with_fetch_constant(const nir_src& src, unsigne
 }
 
 GPRVector EmitInstruction::vec_from_nir_with_fetch_constant(const nir_src& src, unsigned mask,
-                                                            const GPRVector::Swizzle& swizzle, bool match)
+                                                            const GPRVector::Swizzle& swizzle, bool match, bool can_inline_const)
 {
-   return m_proc.vec_from_nir_with_fetch_constant(src, mask, swizzle, match);
+   return m_proc.vec_from_nir_with_fetch_constant(src, mask, swizzle, match, can_inline_const);
 }
 
 int EmitInstruction::lookup_register_index(const nir_src& src) const
