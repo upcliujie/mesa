@@ -742,6 +742,7 @@ lower_tex_src_to_offset(nir_builder *b, nir_tex_instr *instr, unsigned src_idx,
 static bool
 lower_sampler(nir_builder *b, nir_tex_instr *instr,
               struct v3dv_pipeline *pipeline,
+              struct v3dv_pipeline_stage *stage,
               const struct v3dv_pipeline_layout *layout)
 {
    uint8_t return_size;
@@ -768,6 +769,8 @@ lower_sampler(nir_builder *b, nir_tex_instr *instr,
       instr->sampler_index = return_size == 16 ?
          V3DV_NO_SAMPLER_16BIT_IDX : V3DV_NO_SAMPLER_32BIT_IDX;
    }
+
+   pipeline->has_descriptors[stage->stage] = true;
 
    return true;
 }
@@ -847,6 +850,7 @@ lower_image_deref(nir_builder *b,
 static bool
 lower_intrinsic(nir_builder *b, nir_intrinsic_instr *instr,
                 struct v3dv_pipeline *pipeline,
+                struct v3dv_pipeline_stage *stage,
                 const struct v3dv_pipeline_layout *layout)
 {
    switch (instr->intrinsic) {
@@ -866,6 +870,7 @@ lower_intrinsic(nir_builder *b, nir_intrinsic_instr *instr,
 
    case nir_intrinsic_vulkan_resource_index:
       lower_vulkan_resource_index(b, instr, pipeline, layout);
+      pipeline->has_descriptors[stage->stage] = true;
       return true;
 
    case nir_intrinsic_load_vulkan_descriptor: {
@@ -876,6 +881,7 @@ lower_intrinsic(nir_builder *b, nir_intrinsic_instr *instr,
       nir_ssa_def *desc = nir_vec2(b, instr->src[0].ssa, nir_imm_int(b, 0));
       nir_ssa_def_rewrite_uses(&instr->dest.ssa, nir_src_for_ssa(desc));
       nir_instr_remove(&instr->instr);
+      pipeline->has_descriptors[stage->stage] = true;
       return true;
    }
 
@@ -894,6 +900,7 @@ lower_intrinsic(nir_builder *b, nir_intrinsic_instr *instr,
    case nir_intrinsic_image_deref_size:
    case nir_intrinsic_image_deref_samples:
       lower_image_deref(b, instr, pipeline, layout);
+      pipeline->has_descriptors[stage->stage] = true;
       return true;
 
    default:
@@ -904,6 +911,7 @@ lower_intrinsic(nir_builder *b, nir_intrinsic_instr *instr,
 static bool
 lower_impl(nir_function_impl *impl,
            struct v3dv_pipeline *pipeline,
+           struct v3dv_pipeline_stage *stage,
            const struct v3dv_pipeline_layout *layout)
 {
    nir_builder b;
@@ -916,11 +924,11 @@ lower_impl(nir_function_impl *impl,
          switch (instr->type) {
          case nir_instr_type_tex:
             progress |=
-               lower_sampler(&b, nir_instr_as_tex(instr), pipeline, layout);
+               lower_sampler(&b, nir_instr_as_tex(instr), pipeline, stage, layout);
             break;
          case nir_instr_type_intrinsic:
             progress |=
-               lower_intrinsic(&b, nir_instr_as_intrinsic(instr), pipeline, layout);
+               lower_intrinsic(&b, nir_instr_as_intrinsic(instr), pipeline, stage, layout);
             break;
          default:
             break;
@@ -934,13 +942,16 @@ lower_impl(nir_function_impl *impl,
 static bool
 lower_pipeline_layout_info(nir_shader *shader,
                            struct v3dv_pipeline *pipeline,
+                           struct v3dv_pipeline_stage *stage,
                            const struct v3dv_pipeline_layout *layout)
 {
    bool progress = false;
 
    nir_foreach_function(function, shader) {
-      if (function->impl)
-         progress |= lower_impl(function->impl, pipeline, layout);
+      if (function->impl) {
+         progress |=
+            lower_impl(function->impl, pipeline, stage, layout);
+      }
    }
 
    return progress;
@@ -1728,7 +1739,8 @@ pipeline_lower_nir(struct v3dv_pipeline *pipeline,
    assert(index == V3DV_NO_SAMPLER_32BIT_IDX);
 
    /* Apply the actual pipeline layout to UBOs, SSBOs, and textures */
-   NIR_PASS_V(p_stage->nir, lower_pipeline_layout_info, pipeline, layout);
+   NIR_PASS_V(p_stage->nir, lower_pipeline_layout_info,
+              pipeline, p_stage, layout);
 }
 
 /**

@@ -1698,6 +1698,9 @@ struct v3dv_pipeline {
    /* If the pipeline is using push constants */
    bool use_push_constants;
 
+   /* Tracks which shader stages in the pipeline have descriptor sets */
+   bool has_descriptors[MESA_SHADER_STAGES];
+
    /* Blend state */
    struct {
       /* Per-RT bit mask with blend enables */
