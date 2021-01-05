@@ -6254,7 +6254,11 @@ static void radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffe
 		                                      src_render_loop, src_queue_mask) &&
 		           !radv_layout_can_fast_clear(cmd_buffer->device, image, dst_layout,
 		                                       dst_render_loop, dst_queue_mask)) {
-			radv_fast_clear_flush_image_inplace(cmd_buffer, image, range);
+			if (radv_image_has_fmask(image)) {
+				radv_fmask_decompress(cmd_buffer, image, range);
+			} else {
+				radv_fast_clear_eliminate(cmd_buffer, image, range);
+			}
 		}
 	} else if (radv_image_has_cmask(image) || radv_image_has_fmask(image)) {
 		bool fce_eliminate = false, fmask_expand = false;
@@ -6278,8 +6282,13 @@ static void radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffe
 			}
 		}
 
-		if (fce_eliminate || fmask_expand)
-			radv_fast_clear_flush_image_inplace(cmd_buffer, image, range);
+		if (fce_eliminate || fmask_expand) {
+			if (radv_image_has_fmask(image)) {
+				radv_fmask_decompress(cmd_buffer, image, range);
+			} else {
+				radv_fast_clear_eliminate(cmd_buffer, image, range);
+			}
+		}
 
 		if (fmask_expand) {
 			struct radv_barrier_data barrier = {0};

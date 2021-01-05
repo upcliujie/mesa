@@ -652,20 +652,13 @@ static void
 radv_process_color_image(struct radv_cmd_buffer *cmd_buffer,
 			 struct radv_image *image,
 			 const VkImageSubresourceRange *subresourceRange,
-			 bool decompress_dcc)
+			 VkPipeline *pipeline,
+			 uint64_t pred_offset, bool decompress_dcc)
 {
 	struct radv_device *device = cmd_buffer->device;
 	struct radv_meta_saved_state saved_state;
+	bool old_predicating = false;
 	bool flush_cb = false;
-	VkPipeline *pipeline;
-
-	if (decompress_dcc && radv_dcc_enabled(image, subresourceRange->baseMipLevel)) {
-		pipeline = &device->meta_state.fast_clear_flush.dcc_decompress_pipeline;
-	} else if (radv_image_has_fmask(image) && !image->tc_compatible_cmask) {
-		pipeline = &device->meta_state.fast_clear_flush.fmask_decompress_pipeline;
-	} else {
-		pipeline = &device->meta_state.fast_clear_flush.cmask_eliminate_pipeline;
-	}
 
 	if (!*pipeline) {
 		VkResult ret;
@@ -688,6 +681,16 @@ radv_process_color_image(struct radv_cmd_buffer *cmd_buffer,
 	radv_meta_save(&saved_state, cmd_buffer,
 		       RADV_META_SAVE_GRAPHICS_PIPELINE |
 		       RADV_META_SAVE_PASS);
+
+	/* Enable predication. */
+	if (pred_offset != 0)  {
+		pred_offset += 8 * subresourceRange->baseMipLevel;
+
+		old_predicating = cmd_buffer->state.predicating;
+
+		radv_emit_set_predication_state_from_image(cmd_buffer, image, pred_offset, true);
+		cmd_buffer->state.predicating = true;
+	}
 
 	radv_CmdBindPipeline(radv_cmd_buffer_to_handle(cmd_buffer),
 			     VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
@@ -731,38 +734,8 @@ radv_process_color_image(struct radv_cmd_buffer *cmd_buffer,
 	cmd_buffer->state.flush_bits |= RADV_CMD_FLAG_FLUSH_AND_INV_CB |
 					RADV_CMD_FLAG_FLUSH_AND_INV_CB_META;
 
-	radv_meta_restore(&saved_state, cmd_buffer);
-}
-
-static void
-radv_emit_color_decompress(struct radv_cmd_buffer *cmd_buffer,
-                           struct radv_image *image,
-                           const VkImageSubresourceRange *subresourceRange,
-                           bool decompress_dcc)
-{
-	bool old_predicating = false;
-
-	assert(cmd_buffer->queue_family_index == RADV_QUEUE_GENERAL);
-
-	if ((decompress_dcc && radv_dcc_enabled(image, subresourceRange->baseMipLevel)) ||
-	    (!(radv_image_has_fmask(image) && !image->tc_compatible_cmask) && image->fce_pred_offset != 0)) {
-		uint64_t pred_offset = decompress_dcc ? image->dcc_pred_offset :
-							image->fce_pred_offset;
-		pred_offset += 8 * subresourceRange->baseMipLevel;
-
-		old_predicating = cmd_buffer->state.predicating;
-
-		radv_emit_set_predication_state_from_image(cmd_buffer, image, pred_offset, true);
-		cmd_buffer->state.predicating = true;
-	}
-
-	radv_process_color_image(cmd_buffer, image, subresourceRange,
-				 decompress_dcc);
-
-	if ((decompress_dcc && radv_dcc_enabled(image, subresourceRange->baseMipLevel)) ||
-	    (!(radv_image_has_fmask(image) && !image->tc_compatible_cmask) && image->fce_pred_offset != 0)) {
-		uint64_t pred_offset = decompress_dcc ? image->dcc_pred_offset :
-							image->fce_pred_offset;
+	/* Disable predication. */
+	if (pred_offset != 0) {
 		pred_offset += 8 * subresourceRange->baseMipLevel;
 
 		cmd_buffer->state.predicating = old_predicating;
@@ -778,35 +751,7 @@ radv_emit_color_decompress(struct radv_cmd_buffer *cmd_buffer,
 		}
 	}
 
-	if (image->fce_pred_offset != 0) {
-		/* Clear the image's fast-clear eliminate predicate because
-		 * FMASK and DCC also imply a fast-clear eliminate.
-		 */
-		radv_update_fce_metadata(cmd_buffer, image, subresourceRange, false);
-	}
-
-	if (radv_dcc_enabled(image, subresourceRange->baseMipLevel)) {
-		/* Mark the image as being decompressed. */
-		if (decompress_dcc)
-			radv_update_dcc_metadata(cmd_buffer, image, subresourceRange, false);
-	}
-}
-
-void
-radv_fast_clear_flush_image_inplace(struct radv_cmd_buffer *cmd_buffer,
-                                    struct radv_image *image,
-                                    const VkImageSubresourceRange *subresourceRange)
-{
-	struct radv_barrier_data barrier = {0};
-
-	if (radv_image_has_fmask(image)) {
-		barrier.layout_transitions.fmask_decompress = 1;
-	} else {
-		barrier.layout_transitions.fast_clear_eliminate = 1;
-	}
-	radv_describe_layout_transition(cmd_buffer, &barrier);
-
-	radv_emit_color_decompress(cmd_buffer, image, subresourceRange, false);
+	radv_meta_restore(&saved_state, cmd_buffer);
 }
 
 static void
@@ -814,7 +759,21 @@ radv_decompress_dcc_gfx(struct radv_cmd_buffer *cmd_buffer,
                         struct radv_image *image,
                         const VkImageSubresourceRange *subresourceRange)
 {
-	radv_emit_color_decompress(cmd_buffer, image, subresourceRange, true);
+	struct radv_meta_state *state = &cmd_buffer->device->meta_state;
+	VkPipeline *pipeline = &state->fast_clear_flush.dcc_decompress_pipeline;
+
+	radv_process_color_image(cmd_buffer, image, subresourceRange,
+				 pipeline, image->dcc_pred_offset, true);
+
+	if (image->fce_pred_offset != 0) {
+		/* Clear the FCE predicate because DCC_DECOMPRESS implies a
+		 * fast-clear eliminate.
+		 */
+		radv_update_fce_metadata(cmd_buffer, image, subresourceRange, false);
+	}
+
+	/* Mark the image as being decompressed. */
+	radv_update_dcc_metadata(cmd_buffer, image, subresourceRange, false);
 }
 
 static void
@@ -960,4 +919,50 @@ radv_decompress_dcc(struct radv_cmd_buffer *cmd_buffer,
 		radv_decompress_dcc_gfx(cmd_buffer, image, subresourceRange);
 	else
 		radv_decompress_dcc_compute(cmd_buffer, image, subresourceRange);
+}
+
+void
+radv_fmask_decompress(struct radv_cmd_buffer *cmd_buffer,
+		      struct radv_image *image,
+		      const VkImageSubresourceRange *subresourceRange)
+{
+	struct radv_meta_state *state = &cmd_buffer->device->meta_state;
+	VkPipeline *pipeline = &state->fast_clear_flush.fmask_decompress_pipeline;
+	struct radv_barrier_data barrier = {0};
+
+	barrier.layout_transitions.fmask_decompress = 1;
+	radv_describe_layout_transition(cmd_buffer, &barrier);
+
+	radv_process_color_image(cmd_buffer, image, subresourceRange,
+				 pipeline, 0, false);
+
+	if (image->fce_pred_offset != 0) {
+		/* Clear the FCE predicate because FMASK_DECOMPRESS implies a
+		 * fast-clear eliminate.
+		 */
+		radv_update_fce_metadata(cmd_buffer, image, subresourceRange, false);
+	}
+}
+
+void
+radv_fast_clear_eliminate(struct radv_cmd_buffer *cmd_buffer,
+		          struct radv_image *image,
+		          const VkImageSubresourceRange *subresourceRange)
+{
+	struct radv_meta_state *state = &cmd_buffer->device->meta_state;
+	VkPipeline *pipeline = &state->fast_clear_flush.cmask_eliminate_pipeline;
+	struct radv_barrier_data barrier = {0};
+
+	barrier.layout_transitions.fast_clear_eliminate = 1;
+	radv_describe_layout_transition(cmd_buffer, &barrier);
+
+	radv_process_color_image(cmd_buffer, image, subresourceRange,
+				 pipeline, image->fce_pred_offset, false);
+
+	if (image->fce_pred_offset != 0) {
+		/* Clear the FCE predicate because the image has been
+		 * fast-clear eliminated.
+		 */
+		radv_update_fce_metadata(cmd_buffer, image, subresourceRange, false);
+	}
 }
