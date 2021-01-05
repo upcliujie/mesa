@@ -409,6 +409,148 @@ r600_nir_lower_cube_to_2darray(nir_shader *shader)
                                         r600_nir_lower_cube_to_2darray_impl, nullptr);
 }
 
+static bool
+r600_nir_lower_tx_filter(const nir_instr *instr, const void *_options)
+{
+   if (instr->type != nir_instr_type_tex)
+      return false;
+
+   auto tex = nir_instr_as_tex(instr);
+   switch (tex->op) {
+   case nir_texop_tex:
+   case nir_texop_tg4:
+   case nir_texop_txd:
+      if (!tex->is_shadow && !tex->is_array)
+         return false;
+      /* fallthrough */
+   case nir_texop_txb:
+   case nir_texop_txf:
+   case nir_texop_txf_ms:
+   case nir_texop_txl: {
+      return tex->coord_components < 4;
+   }
+   default:
+      return false;
+   }
+}
+
+static nir_ssa_def *
+r600_nir_lower_tx_impl(nir_builder *b, nir_instr *instr, void *_options)
+{
+   b->cursor = nir_before_instr(instr);
+
+   auto tex = nir_instr_as_tex(instr);
+   int coord_idx = nir_tex_instr_src_index(tex, nir_tex_src_coord);
+   assert(coord_idx >= 0);
+
+   nir_ssa_def *undef = nir_imm_int(b, 0);
+
+   nir_ssa_def *coord = tex->src[coord_idx].src.ssa;
+
+   bool needs_round = tex->op != nir_texop_txf && tex->op != nir_texop_txf_ms;
+   if (tex->is_array) {
+      int src_idx = tex->sampler_dim == GLSL_SAMPLER_DIM_1D ? 1 : 2;
+
+      coord = nir_vec4(b, nir_channel(b, coord, 0),
+                       nir_channel(b, coord, 1),
+                       needs_round ?
+                       nir_fround_even(b, nir_channel(b, coord, src_idx)) :
+                          nir_channel(b, coord, src_idx), undef);
+   } else if (tex->coord_components < 4) {
+      coord = tex->coord_components == 1 ?
+                 nir_vec4(b, nir_channel(b, coord, 0),
+                          undef,
+                          undef,
+                          undef):
+                 nir_vec4(b, nir_channel(b, coord, 0),
+                          nir_channel(b, coord, 1),
+                          tex->coord_components == 3 ? nir_channel(b, coord, 2) : undef,
+                          undef);
+   }
+
+   nir_ssa_def *comperator = nir_channel(b, coord, 2);
+   if (tex->is_shadow) {
+      int shadow_idx = nir_tex_instr_src_index(tex, nir_tex_src_comparator);
+      comperator = tex->src[shadow_idx].src.ssa;
+   }
+
+   switch (tex->op) {
+   case nir_texop_txd:
+   case nir_texop_tg4:
+   case nir_texop_tex: {
+      coord = nir_vec4(b, nir_channel(b, coord, 0), nir_channel(b, coord, 1),
+                       nir_channel(b, coord, 2),
+                       comperator);
+      break;
+   }
+   case nir_texop_txf:
+   case nir_texop_txl:  {
+      int lod_idx = nir_tex_instr_src_index(tex, nir_tex_src_lod);
+      auto lod = tex->src[lod_idx].src.ssa;
+      coord = nir_vec4(b, nir_channel(b, coord, 0), nir_channel(b, coord, 1),
+                       comperator, lod);
+      break;
+   }
+   case nir_texop_txb:  {
+      int bias_idx = nir_tex_instr_src_index(tex, nir_tex_src_bias);
+      auto bias = tex->src[bias_idx].src.ssa;
+      coord = nir_vec4(b, nir_channel(b, coord, 0), nir_channel(b, coord, 1),
+                       comperator, bias);
+      break;
+   }
+   case nir_texop_txf_ms: {
+      int ms_index_idx = nir_tex_instr_src_index(tex, nir_tex_src_ms_index);
+      assert(ms_index_idx >= 0);
+
+      auto ms_index = tex->src[ms_index_idx].src.ssa;
+
+      auto new_coord = nir_vec4(b, nir_channel(b, coord, 0), nir_channel(b, coord, 1),
+                                comperator, ms_index);
+      auto sample_lookup = nir_instr_clone(b->shader, &tex->instr);
+      nir_instr_insert(b->cursor, sample_lookup);
+      b->cursor = nir_after_instr(sample_lookup);
+
+      auto sl_tex = nir_instr_as_tex(sample_lookup);
+      sl_tex->coord_components = 4;
+      nir_print_instr(sample_lookup, stderr);
+      fprintf(stderr, "\n");
+
+      sl_tex->op = nir_texop_txf_ms_mcs;
+      nir_instr_rewrite_src(sample_lookup, &sl_tex->src[coord_idx].src,
+                            nir_src_for_ssa(new_coord));
+
+
+      auto id = nir_channel(b, &sl_tex->dest.ssa, 0);
+
+      auto sample = nir_iand(b,
+                             nir_ishr(b, id,
+                                      nir_ishl(b, ms_index, nir_imm_int(b, 2))),
+                             nir_imm_int(b, 15));
+
+      coord = nir_vec4(b, nir_channel(b, new_coord, 0),
+                           nir_channel(b, new_coord, 1),
+                           nir_channel(b, new_coord, 2),
+                           sample);
+      break;
+   }
+   default:
+      unreachable("Unsipported tex instruction filtered");
+   }
+   tex->coord_components = 4;
+   nir_instr_rewrite_src(&tex->instr, &tex->src[coord_idx].src,
+                         nir_src_for_ssa(coord));
+
+   return NIR_LOWER_INSTR_PROGRESS;
+}
+
+bool
+r600_nir_lower_tx(nir_shader *shader)
+{
+   return nir_shader_lower_instructions(shader,
+                                        r600_nir_lower_tx_filter,
+                                        r600_nir_lower_tx_impl, nullptr);
+}
+
 
 
 }

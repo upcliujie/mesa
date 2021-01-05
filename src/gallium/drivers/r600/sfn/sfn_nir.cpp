@@ -689,6 +689,7 @@ using r600::r600_nir_lower_pack_unpack_2x16;
 using r600::r600_lower_scratch_addresses;
 using r600::r600_lower_fs_out_to_vector;
 using r600::r600_lower_ubo_to_align16;
+using r600::r600_nir_lower_tx;
 
 int
 r600_glsl_type_size(const struct glsl_type *type, bool is_bindless)
@@ -1029,7 +1030,18 @@ int r600_shader_from_nir(struct r600_context *rctx,
    auto sh = nir_shader_clone(sel->nir, sel->nir);
    NIR_PASS_V(sh, nir_lower_bool_to_int32);
    NIR_PASS_V(sh, r600_nir_lower_int_tg4);
-   NIR_PASS_V(sh, nir_opt_algebraic_late);
+   NIR_PASS_V(sh, r600_nir_lower_tx);
+
+   bool progress;
+   do {
+      progress = false;
+      NIR_PASS(progress, sh, nir_opt_algebraic_late);
+      NIR_PASS(progress, sh, nir_copy_prop);
+      NIR_PASS(progress, sh, nir_opt_dce);
+      NIR_PASS(progress, sh, nir_opt_constant_folding);
+      NIR_PASS(progress, sh, nir_opt_peephole_select, 200, true, true);
+      NIR_PASS(progress, sh, nir_opt_undef);
+   } while (progress);
 
    if (sel->nir->info.stage == MESA_SHADER_FRAGMENT)
       r600::sort_fsoutput(sh);

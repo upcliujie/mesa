@@ -71,6 +71,7 @@ bool EmitTexInstruction::do_emit(nir_instr* instr)
       case nir_texop_tg4:
          return emit_tex_tg4(ir, src);
       case nir_texop_txf_ms:
+      case nir_texop_txf_ms_mcs:
          return emit_tex_txf_ms(ir, src);
       case nir_texop_query_levels:
          return emit_tex_txs(ir, src, {3,7,7,7});
@@ -107,17 +108,14 @@ bool EmitTexInstruction::emit_tex_tex(nir_tex_instr* instr, TexInputs& src)
    auto sampler = get_samplerr_id(instr->sampler_index, src.sampler_deref);
    assert(!sampler.indirect);
 
-   if (instr->is_shadow)  {
-      emit_instruction(new AluInstruction(op1_mov, src.coord.reg_i(3), src.comperator,
-                       {alu_last_instr, alu_write}));
+   if (instr->is_shadow)
       tex_op = TexInstruction::sample_c;
-   }
 
    auto dst = make_dest(*instr);
    auto irt = new TexInstruction(tex_op, dst, src.coord, sampler.id,
                                  sampler.id + R600_MAX_CONST_BUFFERS, src.sampler_offset);
    if (instr->is_array)
-      handle_array_index(*instr, src.coord, irt);
+      irt->set_flag(TexInstruction::z_unnormalized);
 
    set_rect_coordinate_flags(instr, irt);
    set_offsets(irt, src.offset);
@@ -177,20 +175,8 @@ bool EmitTexInstruction::emit_tex_txf(nir_tex_instr* instr, TexInputs& src)
 
    auto dst = make_dest(*instr);
 
-   if (*src.coord.reg_i(3) != *src.lod) {
-      if (src.coord.sel() != src.lod->sel())
-         emit_instruction(new AluInstruction(op1_mov, src.coord.reg_i(3), src.lod, {alu_write, alu_last_instr}));
-      else
-         src.coord.set_reg_i(3, src.lod);
-   }
-
    auto sampler = get_samplerr_id(instr->sampler_index, src.sampler_deref);
    assert(!sampler.indirect);
-
-   /* txf doesn't need rounding for the array index, but 1D has the array index
-    * in the z component */
-   if (instr->is_array && instr->sampler_dim == GLSL_SAMPLER_DIM_1D)
-      src.coord.set_reg_i(2, src.coord.reg_i(1));
 
    auto tex_ir = new TexInstruction(TexInstruction::ld, dst, src.coord,
                                     sampler.id,
@@ -236,18 +222,8 @@ bool EmitTexInstruction::emit_tex_txl(nir_tex_instr* instr, TexInputs& src)
                  << "' (" << __func__ << ")\n";
 
    auto tex_op = TexInstruction::sample_l;
-   if (instr->is_shadow)  {
-      if (src.coord.sel() != src.comperator->sel())
-         emit_instruction(new AluInstruction(op1_mov, src.coord.reg_i(2), src.comperator, {alu_write}));
-      else
-         src.coord.set_reg_i(2, src.comperator);
+   if (instr->is_shadow)
       tex_op = TexInstruction::sample_c_l;
-   }
-
-   if (src.coord.sel() != src.lod->sel())
-      emit_instruction(new AluInstruction(op1_mov, src.coord.reg_i(3), src.lod, {last_write}));
-   else
-      src.coord.set_reg_i(3, src.lod);
 
    auto sampler = get_samplerr_id(instr->sampler_index, src.sampler_deref);
    assert(!sampler.indirect && "Indirect sampler selection not yet supported");
@@ -257,7 +233,7 @@ bool EmitTexInstruction::emit_tex_txl(nir_tex_instr* instr, TexInputs& src)
                                  sampler.id + R600_MAX_CONST_BUFFERS, src.sampler_offset);
 
    if (instr->is_array)
-      handle_array_index(*instr, src.coord, irt);
+      irt->set_flag(TexInstruction::z_unnormalized);
 
    set_rect_coordinate_flags(instr, irt);
    set_offsets(irt, src.offset);
@@ -272,18 +248,8 @@ bool EmitTexInstruction::emit_tex_txb(nir_tex_instr* instr, TexInputs& src)
 
    std::array<uint8_t, 4> in_swizzle = {0,1,2,3};
 
-   if (instr->is_shadow) {
-      if (src.coord.sel() != src.comperator->sel())
-         emit_instruction(new AluInstruction(op1_mov, src.coord.reg_i(2), src.comperator, {alu_write}));
-      else
-         src.coord.set_reg_i(2, src.comperator);
+   if (instr->is_shadow)
       tex_op = TexInstruction::sample_c_lb;
-   }
-
-   if (src.coord.sel() != src.bias->sel())
-      emit_instruction(new AluInstruction(op1_mov, src.coord.reg_i(3), src.bias, {last_write}));
-   else
-      src.coord.set_reg_i(3, src.bias);
 
    GPRVector tex_src(src.coord, in_swizzle);
 
@@ -294,7 +260,7 @@ bool EmitTexInstruction::emit_tex_txb(nir_tex_instr* instr, TexInputs& src)
    auto irt = new TexInstruction(tex_op, dst, tex_src, sampler.id,
                                  sampler.id + R600_MAX_CONST_BUFFERS, src.sampler_offset);
    if (instr->is_array)
-      handle_array_index(*instr, tex_src, irt);
+      irt->set_flag(TexInstruction::z_unnormalized);
 
    set_rect_coordinate_flags(instr, irt);
    set_offsets(irt, src.offset);
@@ -364,11 +330,8 @@ bool EmitTexInstruction::emit_tex_tg4(nir_tex_instr* instr, TexInputs& src)
 
    auto tex_op = TexInstruction::gather4;
 
-   if (instr->is_shadow)  {
-      emit_instruction(new AluInstruction(op1_mov, src.coord.reg_i(3), src.comperator,
-                       {alu_last_instr, alu_write}));
+   if (instr->is_shadow)
       tex_op = TexInstruction::gather4_c;
-   }
 
    auto sampler = get_samplerr_id(instr->sampler_index, src.sampler_deref);
    assert(!sampler.indirect && "Indirect sampler selection not yet supported");
@@ -385,7 +348,7 @@ bool EmitTexInstruction::emit_tex_tg4(nir_tex_instr* instr, TexInputs& src)
          for (unsigned i = 0; i < instr->coord_components; ++i)
             swizzle[i] = i;
 
-         int noffsets = instr->coord_components;
+         int noffsets = nir_src_num_components(*src.offset);
          if (instr->is_array)
             --noffsets;
 
@@ -413,7 +376,7 @@ bool EmitTexInstruction::emit_tex_tg4(nir_tex_instr* instr, TexInputs& src)
    irt->set_gather_comp(instr->component);
 
    if (instr->is_array)
-      handle_array_index(*instr, src.coord, irt);
+      irt->set_flag(TexInstruction::z_unnormalized);
 
    if (literal_offset) {
       r600::sfn_log << SfnLog::tex << "emit literal offsets\n";
@@ -440,66 +403,21 @@ bool EmitTexInstruction::emit_tex_txf_ms(nir_tex_instr* instr, TexInputs& src)
    auto sampler = get_samplerr_id(instr->sampler_index, src.sampler_deref);
    assert(!sampler.indirect && "Indirect sampler selection not yet supported");
 
-   int sample_id = allocate_temp_register();
-
-   GPRVector sample_id_dest(sample_id, {0,7,7,7});
-   PValue help(new GPRValue(sample_id, 1));
-
-   /* FIXME: Texture destination registers must be handled differently,
-    * because the swizzle identfies which source componnet has to be written
-    * at a certain position, and the target register is actually different.
-    * At this point we just add a helper register, but for later work (scheduling
-    * and optimization on the r600 IR level, this needs to be implemented
-    * differently */
-
-
-   emit_instruction(new AluInstruction(op1_mov, src.coord.reg_i(3),
-                                       src.ms_index,
-                                       {alu_write, alu_last_instr}));
-
-   auto tex_sample_id_ir = new TexInstruction(TexInstruction::ld, sample_id_dest, src.coord,
-                                              sampler.id,
-                                              sampler.id + R600_MAX_CONST_BUFFERS, src.sampler_offset);
-   tex_sample_id_ir->set_flag(TexInstruction::x_unnormalized);
-   tex_sample_id_ir->set_flag(TexInstruction::y_unnormalized);
-   tex_sample_id_ir->set_flag(TexInstruction::z_unnormalized);
-   tex_sample_id_ir->set_flag(TexInstruction::w_unnormalized);
-   tex_sample_id_ir->set_inst_mode(1);
-
-   emit_instruction(tex_sample_id_ir);
-
-
-   if (src.ms_index->type() != Value::literal ||
-       static_cast<const LiteralValue&>(*src.ms_index).value() != 0) {
-      emit_instruction(new AluInstruction(op2_lshl_int, help,
-                                          src.ms_index, literal(2),
-      {alu_write, alu_last_instr}));
-
-      emit_instruction(new AluInstruction(op2_lshr_int, sample_id_dest.reg_i(0),
-                                          {sample_id_dest.reg_i(0), help},
-                                          {alu_write, alu_last_instr}));
-   }
-
-   emit_instruction(new AluInstruction(op2_and_int, src.coord.reg_i(3),
-                                       {sample_id_dest.reg_i(0), PValue(new LiteralValue(15))},
-                                       {alu_write, alu_last_instr}));
-
    auto dst = make_dest(*instr);
 
-   /* txf doesn't need rounding for the array index, but 1D has the array index
-    * in the z component */
-   if (instr->is_array && instr->sampler_dim == GLSL_SAMPLER_DIM_1D)
-      src.coord.set_reg_i(2, src.coord.reg_i(1));
-
-   auto tex_ir = new TexInstruction(TexInstruction::ld, dst, src.coord,
-                                    sampler.id,
-                                    sampler.id + R600_MAX_CONST_BUFFERS, src.sampler_offset);
-
+   auto tex_ir  = new TexInstruction(TexInstruction::ld, dst, src.coord,
+                                     sampler.id,
+                                     sampler.id + R600_MAX_CONST_BUFFERS, src.sampler_offset);
+   tex_ir ->set_flag(TexInstruction::x_unnormalized);
+   tex_ir ->set_flag(TexInstruction::y_unnormalized);
+   tex_ir ->set_flag(TexInstruction::z_unnormalized);
+   tex_ir ->set_flag(TexInstruction::w_unnormalized);
+   tex_ir ->set_inst_mode(instr->op == nir_texop_txf_ms_mcs);
 
    if (src.offset) {
       assert(src.offset->is_ssa);
       AluInstruction *ir = nullptr;
-      for (unsigned i = 0; i < src.offset->ssa->num_components; ++i) {
+      for (unsigned i = 0; i < nir_src_num_components(*src.offset); ++i) {
          ir = new AluInstruction(op2_add_int, src.coord.reg_i(i),
                   {src.coord.reg_i(i), from_nir(*src.offset, i, i)}, {alu_write});
          emit_instruction(ir);
@@ -516,14 +434,13 @@ bool EmitTexInstruction::get_inputs(const nir_tex_instr& instr, TexInputs &src)
 {
    sfn_log << SfnLog::tex << "Get Inputs with " << instr.coord_components << " components\n";
 
-   unsigned grad_components = instr.coord_components;
-   if (instr.is_array && !instr.array_is_lowered_cube)
-      --grad_components;
 
 
    src.offset = nullptr;
    bool retval = true;
    for (unsigned i = 0; i < instr.num_srcs; ++i) {
+      unsigned components = nir_tex_instr_src_size(&instr, i);
+
       switch (instr.src[i].src_type) {
       case nir_tex_src_bias:
          src.bias = from_nir(instr.src[i], 0);
@@ -531,8 +448,9 @@ bool EmitTexInstruction::get_inputs(const nir_tex_instr& instr, TexInputs &src)
 
       case nir_tex_src_coord: {
          src.coord = vec_from_nir_with_fetch_constant(instr.src[i].src,
-                                                      (1 << instr.coord_components) - 1,
-         {0,1,2,3});
+                                                      (1 << components) - 1,
+         swizzle_from_comps(components), false);
+
       } break;
       case nir_tex_src_comparator:
          src.comperator = from_nir(instr.src[i], 0);
@@ -540,15 +458,15 @@ bool EmitTexInstruction::get_inputs(const nir_tex_instr& instr, TexInputs &src)
       case nir_tex_src_ddx: {
          sfn_log << SfnLog::tex << "Get DDX ";
          src.ddx = vec_from_nir_with_fetch_constant(instr.src[i].src,
-                                                    (1 << grad_components) - 1,
-                                                    swizzle_from_comps(grad_components));
+                                                    (1 << components) - 1,
+                                                    swizzle_from_comps(components));
          sfn_log << SfnLog::tex << src.ddx << "\n";
       } break;
       case nir_tex_src_ddy:{
          sfn_log << SfnLog::tex << "Get DDY ";
          src.ddy = vec_from_nir_with_fetch_constant(instr.src[i].src,
-                                                    (1 << grad_components) - 1,
-                                                    swizzle_from_comps(grad_components));
+                                                    (1 << components) - 1,
+                                                    swizzle_from_comps(components));
          sfn_log << SfnLog::tex << src.ddy << "\n";
       }  break;
       case nir_tex_src_lod:
