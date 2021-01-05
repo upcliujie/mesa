@@ -264,6 +264,12 @@ panfrost_bo_cache_put(struct panfrost_bo *bo)
         if (bo->flags & PAN_BO_SHARED)
                 return false;
 
+        /* An issue (erratum? kernel bug?) on Bifrost requires explicit cache
+         * maintenance to avoid reading stale shader binaries */
+
+        if ((dev->arch >= 6 && dev->arch <= 7) && bo->flags & PAN_BO_EXECUTE)
+                return false;
+
         pthread_mutex_lock(&dev->bo_cache.lock);
         struct list_head *bucket = pan_bucket(dev, MAX2(bo->size, 4096));
         struct drm_panfrost_madvise madv;
