@@ -1667,4 +1667,32 @@ nir_f2fN(nir_builder *b, nir_ssa_def *src, unsigned bit_size)
    return nir_convert_to_bit_size(b, src, nir_type_float, bit_size);
 }
 
+static inline nir_ssa_def *
+nir_i2fN(nir_builder *b, nir_ssa_def *src, unsigned bit_size)
+{
+   return nir_type_convert_to_bit_size(b, src, nir_type_int, nir_type_float,
+         bit_size);
+}
+
+static inline nir_ssa_def *
+nir_u2fN(nir_builder *b, nir_ssa_def *src, unsigned bit_size)
+{
+   return nir_type_convert_to_bit_size(b, src, nir_type_uint, nir_type_float,
+         bit_size);
+}
+
+static inline nir_ssa_def *
+nir_f2uN(nir_builder *b, nir_ssa_def *src, unsigned bit_size)
+{
+   return nir_type_convert_to_bit_size(b, src, nir_type_float, nir_type_uint,
+         bit_size);
+}
+
+static inline nir_ssa_def *
+nir_f2iN(nir_builder *b, nir_ssa_def *src, unsigned bit_size)
+{
+   return nir_type_convert_to_bit_size(b, src, nir_type_float, nir_type_int,
+         bit_size);
+}
+
 #endif /* NIR_BUILDER_H */
