@@ -199,6 +199,54 @@ convert_instr_precise(nir_builder *bld, nir_op op,
 }
 
 static nir_ssa_def *
+convert_instr_small(nir_builder *b, nir_op op,
+      nir_ssa_def *numer, nir_ssa_def *denom)
+{
+   unsigned sz = numer->bit_size;
+   unsigned fp_sz = sz * 2;
+   bool is_signed =
+      (op == nir_op_idiv || op == nir_op_imod || op == nir_op_irem);
+
+   nir_ssa_def *p = is_signed ? nir_i2fN(b, numer, fp_sz)
+      : nir_u2fN(b, numer, fp_sz);
+
+   nir_ssa_def *q = is_signed ?  nir_i2fN(b, denom, fp_sz)
+      : nir_u2fN(b, denom, fp_sz);
+
+   /* Take 1/q but offset mantissa by 1 to correct for rounding. This is
+    * needed for correct results and has been checked exhaustively for
+    * all pairs of 16-bit integers */
+   nir_ssa_def *rcp = nir_iadd(b, nir_frcp(b, q), nir_imm_int(b, 1));
+
+   /* Divide by multiplying by adjusted reciprocal */
+   nir_ssa_def *res = nir_fmul(b, p, rcp);
+
+   /* Convert back to integer space with appropriate rounding */
+   if (op == nir_op_umod)
+      res = nir_ffloor(b, res);
+   else if (op == nir_op_imod || op == nir_op_irem)
+      res = nir_ftrunc(b, res);
+
+   res = is_signed ? nir_f2iN(b, res, sz) : nir_f2uN(b, res, sz);
+
+   /* Get remainder given the quotient */
+   if (op == nir_op_umod || op == nir_op_imod)
+      res = nir_isub(b, numer, nir_imul(b, denom, res));
+
+   /* Adjust for sign, see constant folding definition */
+   nir_ssa_def *zero = nir_imm_zero(b, 1, sz);
+   if (op == nir_op_imod) {
+      nir_ssa_def *diff_sign = 
+               nir_ine(b, nir_ige(b, numer, zero), nir_ige(b, denom, zero));
+
+      nir_ssa_def *adjust = nir_iand(b, diff_sign, nir_ine(b, res, zero));
+      res = nir_iadd(b, res, nir_bcsel(b, adjust, denom, zero));
+   }
+
+   return res;
+}
+
+static nir_ssa_def *
 lower_idiv(nir_builder *b, nir_instr *instr, void *_data)
 {
    enum nir_lower_idiv_path *path = _data;
@@ -207,7 +255,9 @@ lower_idiv(nir_builder *b, nir_instr *instr, void *_data)
    nir_ssa_def *numer = nir_ssa_for_alu_src(b, alu, 0);
    nir_ssa_def *denom = nir_ssa_for_alu_src(b, alu, 1);
 
-   if (*path == nir_lower_idiv_precise)
+   if (numer->bit_size < 32)
+      return convert_instr_small(b, alu->op, numer, denom);
+   else if (*path == nir_lower_idiv_precise)
       return convert_instr_precise(b, alu->op, numer, denom);
    else
       return convert_instr(b, alu->op, numer, denom);
@@ -221,7 +271,7 @@ inst_is_idiv(const nir_instr *instr, UNUSED const void *_state)
 
    nir_alu_instr *alu = nir_instr_as_alu(instr);
 
-   if (alu->dest.dest.ssa.bit_size != 32)
+   if (alu->dest.dest.ssa.bit_size > 32)
       return false;
 
    switch (alu->op) {
