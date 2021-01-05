@@ -3036,9 +3036,9 @@ emit_tex(struct ntv_context *ctx, nir_tex_instr *tex)
        tex->op == nir_texop_tg4) {
       SpvId image = spirv_builder_emit_image(&ctx->builder, image_type, load);
 
+      if (offset || (const_offset && tex->op == nir_texop_tg4))
+         spirv_builder_emit_cap(&ctx->builder, SpvCapabilityImageGatherExtended);
       if (tex->op == nir_texop_tg4) {
-         if (const_offset)
-            spirv_builder_emit_cap(&ctx->builder, SpvCapabilityImageGatherExtended);
          result = spirv_builder_emit_image_gather(&ctx->builder, dest_type,
                                                  load, coord, emit_uint_const(ctx, 32, tex->component),
                                                  lod, sample, const_offset, offset, dref);
