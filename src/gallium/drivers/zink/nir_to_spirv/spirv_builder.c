@@ -745,6 +745,7 @@ spirv_builder_emit_image_gather(struct spirv_builder *b,
                                SpvId lod,
                                SpvId sample,
                                SpvId const_offset,
+                               SpvId offset,
                                SpvId dref)
 {
    SpvId result = spirv_builder_new_id(b);
@@ -761,9 +762,13 @@ spirv_builder_emit_image_gather(struct spirv_builder *b,
       extra_operands[++num_extra_operands] = sample;
       operand_mask |= SpvImageOperandsSampleMask;
    }
+   assert(!(const_offset && offset));
    if (const_offset) {
       extra_operands[++num_extra_operands] = const_offset;
       operand_mask |= SpvImageOperandsConstOffsetMask;
+   } else if (offset) {
+      extra_operands[++num_extra_operands] = offset;
+      operand_mask |= SpvImageOperandsOffsetMask;
    }
    if (dref)
       op = SpvOpImageDrefGather;
@@ -796,7 +801,8 @@ spirv_builder_emit_image_fetch(struct spirv_builder *b,
                                SpvId coordinate,
                                SpvId lod,
                                SpvId sample,
-                               SpvId const_offset)
+                               SpvId const_offset,
+                               SpvId offset)
 {
    SpvId result = spirv_builder_new_id(b);
 
@@ -811,9 +817,13 @@ spirv_builder_emit_image_fetch(struct spirv_builder *b,
       extra_operands[++num_extra_operands] = sample;
       operand_mask |= SpvImageOperandsSampleMask;
    }
+   assert(!(const_offset && offset));
    if (const_offset) {
       extra_operands[++num_extra_operands] = const_offset;
       operand_mask |= SpvImageOperandsConstOffsetMask;
+   } else if (offset) {
+      extra_operands[++num_extra_operands] = offset;
+      operand_mask |= SpvImageOperandsOffsetMask;
    }
 
    /* finalize num_extra_operands / extra_operands */
