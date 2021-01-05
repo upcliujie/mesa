@@ -199,6 +199,42 @@ convert_instr_precise(nir_builder *bld, nir_op op,
 }
 
 static nir_ssa_def *
+instr_float_op(nir_builder *b, nir_op op, nir_ssa_def *p, nir_ssa_def *q)
+{
+   switch (op) {
+   case nir_op_idiv:
+   case nir_op_udiv:
+      return nir_fdiv(b, p, q);
+   case nir_op_imod:
+   case nir_op_umod:
+      return nir_fmod(b, p, q);
+   case nir_op_irem:
+      return nir_frem(b, p, q);
+   default:
+      unreachable("Invalid op");
+   }
+}
+
+static nir_ssa_def *
+convert_instr_small(nir_builder *b, nir_op op,
+      nir_ssa_def *numer, nir_ssa_def *denom)
+{
+   unsigned sz = numer->bit_size;
+   unsigned fp_sz = sz * 2;
+   bool is_signed =
+      (op == nir_op_idiv || op == nir_op_imod || op == nir_op_irem);
+
+   nir_ssa_def *p = is_signed ? nir_i2fN(b, numer, fp_sz)
+      : nir_u2fN(b, numer, fp_sz);
+
+   nir_ssa_def *q = is_signed ?  nir_i2fN(b, denom, fp_sz)
+      : nir_u2fN(b, denom, fp_sz);
+
+   nir_ssa_def *res = instr_float_op(b, op, p, q);
+   return is_signed ? nir_f2iN(b, res, sz) : nir_f2uN(b, res, sz);
+}
+
+static nir_ssa_def *
 lower_idiv(nir_builder *b, nir_instr *instr, void *_data)
 {
    enum nir_lower_idiv_path *path = _data;
@@ -207,21 +243,23 @@ lower_idiv(nir_builder *b, nir_instr *instr, void *_data)
    nir_ssa_def *numer = nir_ssa_for_alu_src(b, alu, 0);
    nir_ssa_def *denom = nir_ssa_for_alu_src(b, alu, 1);
 
-   if (*path == nir_lower_idiv_precise)
-         return convert_instr_precise(b, alu->op, numer, denom);
+   if (numer->bit_size < 32)
+      return convert_instr_small(b, alu->op, numer, denom);
+   else if (*path == nir_lower_idiv_precise)
+      return convert_instr_precise(b, alu->op, numer, denom);
    else
-         return convert_instr(b, alu->op, numer, denom);
+      return convert_instr(b, alu->op, numer, denom);
 }
 
 static bool
-inst_is_idiv32(const nir_instr *instr, UNUSED const void *_state)
+inst_is_idiv(const nir_instr *instr, UNUSED const void *_state)
 {
    if (instr->type != nir_instr_type_alu)
       return false;
 
    nir_alu_instr *alu = nir_instr_as_alu(instr);
 
-   if (alu->dest.dest.ssa.bit_size != 32)
+   if (alu->dest.dest.ssa.bit_size > 32)
       return false;
 
    switch (alu->op) {
@@ -240,7 +278,7 @@ bool
 nir_lower_idiv(nir_shader *shader, enum nir_lower_idiv_path path)
 {
    return nir_shader_lower_instructions(shader,
-         inst_is_idiv32,
+         inst_is_idiv,
          lower_idiv,
          &path);
 }
