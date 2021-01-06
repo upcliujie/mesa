@@ -428,6 +428,86 @@ bi_schedule(bi_context *ctx)
         }
 }
 
+/* Updates the FAU assignment for a tuple. A valid FAU assignment must be
+ * possible (as a precondition); this is gauranteed per-instruction by
+ * bi_lower_fau and per-tuple by bi_instr_schedulable */
+
+static bool
+bi_update_fau(struct bi_clause_state *clause,
+                struct bi_tuple_state *tuple,
+                bi_instr *instr, bool fma, bool destructive)
+{
+        /* Maintain our own constants, for nondestructive mode */
+        uint32_t copied_constants[2], copied_count;
+        unsigned *constant_count = &tuple->constant_count;
+        uint32_t *constants = tuple->constants;
+
+        if (!destructive) {
+                memcpy(copied_constants, tuple->constants,
+                                (*constant_count) * sizeof(constants[0]));
+                copied_count = tuple->constant_count;
+
+                constant_count = &copied_count;
+                constants = copied_constants;
+        }
+
+        bi_foreach_src(instr, s) {
+                bi_index src = instr->src[s];
+
+                if (src.type == BI_INDEX_FAU) {
+                        bool no_constants = *constant_count == 0;
+                        bool no_other_fau = (tuple->fau == src.value) || !tuple->fau;
+                        bool mergable = no_constants && no_other_fau;
+
+                        if (destructive) {
+                                assert(mergable);
+                                tuple->fau = src.value;
+                        } else if (!mergable) {
+                                return false;
+                        }
+                } else if (src.type == BI_INDEX_CONSTANT) {
+                        /* No need to reserve space if we have a fast 0 */
+                        if (src.value == 0 && fma && bi_reads_zero(instr))
+                                continue;
+
+                        bool found = false;
+
+                        for (unsigned i = 0; i < *constant_count; ++i)
+                                found |= (constants[i] == src.value);
+
+                        if (found)
+                                continue;
+
+                        bool no_fau = (*constant_count > 0) || !tuple->fau;
+                        bool mergable = no_fau && ((*constant_count) < 2);
+
+                        if (destructive)
+                                assert(mergable);
+                        else if (!mergable)
+                                return false;
+
+                        constants[(*constant_count)++] = src.value;
+                }
+        }
+
+        /* We also need to check that there is room for the clause for more
+         * constants, if applicable */
+        bool new_constants = (*constant_count > 0); /* TODO: Merge, swap to fit */
+        unsigned nconstants = clause->constant_count + (new_constants ? 1 : 0);
+        bool room_for_constants = nconstants <= 1; /* TODO: should be 8, workaround pack */
+
+        /* XXX: fix constant packing, affecting e.g. dEQP-GLES3.functional.shaders.loops.while_constant_iterations.nested_tricky_dataflow_1_fragment */
+        if (!destructive)
+                room_for_constants &= (tuple->constant_count == 0);
+
+        if (destructive)
+                assert(room_for_constants);
+        else if (!room_for_constants)
+                return false;
+
+        return true;
+}
+
 #ifndef NDEBUG
 
 static bi_builder *
