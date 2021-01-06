@@ -574,6 +574,23 @@ bi_count_succ_reads(bi_index t0, bi_index t1,
         return reads;
 }
 
+/* Not all instructions can read from the staging passthrough (as determined by
+ * reads_t), check if a given pair of instructions has such a restriction */
+
+static bool
+bi_has_staging_passthrough_hazard(bi_instr *fma, bi_instr *add)
+{
+        bi_foreach_src(add, s) {
+                if (!bi_is_word_equiv(fma->dest[0], add->src[s]))
+                        continue;
+
+                if (!bi_reads_t(add, s))
+                        return true;
+        }
+
+        return false;
+}
+
 #ifndef NDEBUG
 
 static bi_builder *
