@@ -1,0 +1,50 @@
+.admonition {
+  padding: .75rem 1.25rem;
+  margin-bottom: 1rem;
+  border-radius: .25rem;
+}
+
+.admonition.note {
+  color: #0c5460;
+  background-color: #d1ecf1;
+}
+
+.admonition-title {
+  margin-bottom: .5rem;
+  font-weight: 500;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+code {
+  color: inherit;
+}
+
+.highlight {
+  border-radius: 3px;
+  padding: 0.25rem;
+}
+
+table,
+td, th,
+thead th {
+  border: 1px solid #ddd;
+}
+
+tbody tr:nth-child(odd) {
+  background: #f8f8f8;
+}
+
+table .align-default {
+	text-align: center;
+}
+
+thead {
+  white-space: nowrap;
+  border-bottom: 2px solid #aaa;
+}
+
+th, td {
+  vertical-align: initial;
+  padding: 0.3rem;
+}
