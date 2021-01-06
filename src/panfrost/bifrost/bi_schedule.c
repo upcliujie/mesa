@@ -1044,6 +1044,49 @@ bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st)
         return clause;
 }
 
+static void
+bi_schedule_block(bi_context *ctx, bi_block *block)
+{
+        list_inithead(&block->clauses);
+
+        /* Copy list to dynamic array */
+        struct bi_worklist st = bi_initialize_worklist(block);
+
+        if (!st.count) {
+                bi_free_worklist(st);
+                return;
+        }
+
+        /* Schedule as many clauses as needed to fill the block */
+        bi_clause *u = NULL;
+        while((u = bi_schedule_clause(ctx, block, st)))
+                list_add(&u->link, &block->clauses);
+
+        /* Back-to-back bit affects only the last clause of a block,
+         * the rest are implicitly true */
+        if (!list_is_empty(&block->clauses)) {
+                bi_clause *last_clause = list_last_entry(&block->clauses, bi_clause, link);
+                if (!bi_back_to_back(block))
+                        last_clause->flow_control = BIFROST_FLOW_NBTB_UNCONDITIONAL;
+        }
+
+        block->scheduled = true;
+
+#ifndef NDEBUG
+        unsigned i;
+        bool incomplete = false;
+
+        BITSET_FOREACH_SET(i, st.worklist, st.count) {
+                bi_print_instr(st.instructions[i], stderr);
+                incomplete = true;
+        }
+
+        if (incomplete)
+                unreachable("The above instructions failed to schedule.");
+#endif
+
+        bi_free_worklist(st);
+}
 
 #ifndef NDEBUG
 
