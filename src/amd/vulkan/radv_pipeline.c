@@ -35,6 +35,7 @@
 #include "nir/nir.h"
 #include "nir/nir_builder.h"
 #include "nir/nir_xfb_info.h"
+#include "nir/nir_deref.h"
 #include "spirv/nir_spirv.h"
 #include "vk_util.h"
 
@@ -2305,6 +2306,75 @@ static const struct radv_vs_output_info *get_vs_output_info(const struct radv_pi
 }
 
 static void
+tess_factor_size_align(const struct glsl_type *type, unsigned *size, unsigned *align)
+{
+	/* We expect only derefs indexing compact scalar arrays. */
+	*size = 1;
+	*align = 1;
+}
+
+/* Make the tess factor variables vectors instead of compact arrays, so access
+ * can be vectorized.
+ */
+static void
+vectorize_tess_factor(nir_shader *shader)
+{
+	nir_foreach_shader_out_variable(var, shader) {
+		if (var->data.location == VARYING_SLOT_TESS_LEVEL_OUTER ||
+		    var->data.location == VARYING_SLOT_TESS_LEVEL_INNER) {
+			var->type = glsl_vector_type(GLSL_TYPE_FLOAT, glsl_get_length(var->type));
+			var->data.compact = false;
+		}
+	}
+
+	nir_builder b;
+	nir_builder_init(&b, nir_shader_get_entrypoint(shader));
+
+	nir_foreach_block(block, nir_shader_get_entrypoint(shader)) {
+		nir_foreach_instr(instr, block) {
+			if (instr->type != nir_instr_type_intrinsic)
+				continue;
+
+			nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+			if (intrin->intrinsic != nir_intrinsic_load_deref &&
+			    intrin->intrinsic != nir_intrinsic_store_deref)
+				continue;
+
+			nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+			if (!nir_deref_mode_is(deref, nir_var_shader_out))
+				continue;
+
+			nir_variable *var = nir_deref_instr_get_variable(deref);
+			if (var->data.location != VARYING_SLOT_TESS_LEVEL_OUTER &&
+			    var->data.location != VARYING_SLOT_TESS_LEVEL_INNER)
+				continue;
+
+			unsigned index = nir_deref_instr_get_const_offset(deref, &tess_factor_size_align);
+
+			b.cursor = nir_before_instr(instr);
+			nir_ssa_def *new_deref = &nir_build_deref_var(&b, var)->dest.ssa;
+			nir_instr_rewrite_src(instr, &intrin->src[0], nir_src_for_ssa(new_deref));
+
+			nir_deref_instr_remove_if_unused(deref);
+
+			intrin->num_components = glsl_get_vector_elements(var->type);
+
+			if (intrin->intrinsic == nir_intrinsic_store_deref) {
+				nir_intrinsic_set_write_mask(intrin, 1 << index);
+				nir_ssa_def *new_val = nir_ssa_undef(&b, intrin->num_components, 32);
+				new_val = nir_vector_insert_imm(&b, new_val, intrin->src[1].ssa, index);
+				nir_instr_rewrite_src(instr, &intrin->src[1], nir_src_for_ssa(new_val));
+			} else {
+				b.cursor = nir_after_instr(instr);
+				nir_ssa_def *val = &intrin->dest.ssa;
+				nir_ssa_def *comp = nir_channel(&b, val, index);
+				nir_ssa_def_rewrite_uses_after(val, nir_src_for_ssa(comp), comp->parent_instr);
+			}
+		}
+	}
+}
+
+static void
 radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
 		  bool optimize_conservatively)
 {
@@ -2410,6 +2480,8 @@ radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
 		    (ordered_shaders[i]->info.stage == MESA_SHADER_VERTEX && has_geom_tess) ||
 		    (ordered_shaders[i]->info.stage == MESA_SHADER_TESS_EVAL && merged_gs)) {
 			nir_lower_io_to_vector(ordered_shaders[i], nir_var_shader_out);
+			if (ordered_shaders[i]->info.stage == MESA_SHADER_TESS_CTRL)
+				vectorize_tess_factor(ordered_shaders[i]);
 			nir_opt_combine_stores(ordered_shaders[i], nir_var_shader_out);
 		}
 		if (ordered_shaders[i - 1]->info.stage == MESA_SHADER_GEOMETRY ||
