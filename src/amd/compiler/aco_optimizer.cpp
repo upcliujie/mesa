@@ -2738,8 +2738,7 @@ void combine_vop3p(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
 
    /* apply clamp */
    if (instr->opcode == aco_opcode::v_pk_mul_f16 &&
-       instr->operands[1].isFixed() &&
-       instr->operands[1].physReg() == 242 &&
+       instr->operands[1].constantEquals(0x3C00) &&
        vop3p->clamp &&
        vop3p->opsel_lo == 0x0 &&
        vop3p->opsel_hi == 0x1 &&
