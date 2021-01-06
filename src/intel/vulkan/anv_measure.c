@@ -45,7 +45,10 @@ anv_measure_device_init(struct anv_physical_device *device)
 
    switch (device->info.gen) {
    case 12:
-      device->cmd_emit_timestamp = &gen12_cmd_emit_timestamp;
+      if (gen_device_info_is_12hp(&device->info))
+         device->cmd_emit_timestamp = &gen125_cmd_emit_timestamp;
+      else
+         device->cmd_emit_timestamp = &gen12_cmd_emit_timestamp;
       break;
    case 11:
       device->cmd_emit_timestamp = &gen11_cmd_emit_timestamp;
