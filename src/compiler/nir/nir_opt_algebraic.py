@@ -984,7 +984,8 @@ optimizations.extend([
    (('bcsel', ('flt', a, 0.0), 0.0, ('fsqrt', a)), ('fsqrt', ('fmax', a, 0.0))),
    (('~fmul', ('fsqrt', a), ('fsqrt', a)), ('fabs',a)),
    # Division and reciprocal
-   (('~fdiv', 1.0, a), ('frcp', a)),
+   (('frcp', a), ('fdiv', 1.0, a), 'options->lower_frcp'),
+   (('~fdiv', 1.0, a), ('frcp', a), '!options->lower_frcp'),
    (('fdiv', a, b), ('fmul', a, ('frcp', b)), 'options->lower_fdiv'),
    (('~frcp', ('frcp', a)), a),
    (('~frcp', ('fsqrt', a)), ('frsq', a)),
