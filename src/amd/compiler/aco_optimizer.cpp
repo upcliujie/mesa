@@ -2772,8 +2772,7 @@ void combine_vop3p(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
 
          ssa_info& info = ctx.info[op.tempId()];
          if (info.is_vop3p() && info.instr->opcode == aco_opcode::v_pk_mul_f16 &&
-             info.instr->operands[1].isFixed() &&
-             info.instr->operands[1].physReg() == 243) {
+             info.instr->operands[1].constantEquals(0xBC00)) {
             Operand op[2] = {instr->operands[!i], info.instr->operands[0]};
             if (!check_vop3_operands(ctx, 2, op))
                continue;
