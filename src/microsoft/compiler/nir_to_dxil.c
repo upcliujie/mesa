@@ -70,6 +70,7 @@ DEBUG_GET_ONCE_FLAGS_OPTION(debug_dxil, "DXIL_DEBUG", dxil_debug_options, 0)
 
 static const nir_shader_compiler_options
 nir_options = {
+   .lower_frcp = true,
    .lower_negate = true,
    .lower_ffma16 = true,
    .lower_ffma32 = true,
@@ -1941,10 +1942,6 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
    case nir_op_fddy_fine: return emit_unary_intin(ctx, alu, DXIL_INTR_DDY_FINE, src[0]);
 
    case nir_op_fround_even: return emit_unary_intin(ctx, alu, DXIL_INTR_ROUND_NE, src[0]);
-   case nir_op_frcp: {
-         const struct dxil_value *one = dxil_module_get_float_const(&ctx->mod, 1.0f);
-         return emit_binop(ctx, alu, DXIL_BINOP_SDIV, one, src[0]);
-      }
    case nir_op_fsat: return emit_unary_intin(ctx, alu, DXIL_INTR_SATURATE, src[0]);
    case nir_op_bit_count: return emit_unary_intin(ctx, alu, DXIL_INTR_COUNTBITS, src[0]);
    case nir_op_ufind_msb: return emit_ufind_msb(ctx, alu, src[0]);
