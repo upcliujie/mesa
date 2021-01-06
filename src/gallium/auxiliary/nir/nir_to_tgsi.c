@@ -2603,9 +2603,15 @@ nir_to_tgsi(struct nir_shader *s,
       NIR_PASS_V(s, nir_lower_bool_to_float);
    }
 
-   NIR_PASS_V(s, nir_lower_to_source_mods,
-              nir_lower_float_source_mods |
-              nir_lower_int_source_mods); /* no doubles */
+   /* Lower 32-bit neg/abs to source modifiers to keep the TGSI compact. Disable
+    * int lowering on virgl, as virglrenderer interprets them incorrectly
+    * (applying abs/neg before doing the floatBitsToInt for int/uint arguments).
+    */
+   nir_lower_to_source_mods_flags source_mods = nir_lower_float_source_mods;
+   if (strcmp(screen->get_name(screen), "virgl") != 0)
+      source_mods |= nir_lower_int_source_mods;
+   NIR_PASS_V(s, nir_lower_to_source_mods, source_mods);
+
    NIR_PASS_V(s, nir_convert_from_ssa, true);
    NIR_PASS_V(s, nir_lower_vec_to_movs);
 
