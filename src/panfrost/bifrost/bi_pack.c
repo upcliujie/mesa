@@ -802,9 +802,6 @@ bi_pack_clause(bi_context *ctx, bi_clause *clause,
                 struct util_dynarray *emission, gl_shader_stage stage,
                 bool tdd)
 {
-        /* TODO After the deadline lowering */
-        bi_lower_cubeface2(ctx, &clause->tuples[0]);
-
         struct bi_packed_tuple ins[8] = { 0 };
 
         for (unsigned i = 0; i < clause->tuple_count; ++i) {

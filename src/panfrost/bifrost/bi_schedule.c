@@ -405,44 +405,6 @@ bi_reads_t(bi_instr *ins, unsigned src)
         }
 }
 
-/* Eventually, we'll need a proper scheduling, grouping instructions
- * into clauses and ordering/assigning grouped instructions to the
- * appropriate FMA/ADD slots. Right now we do the dumbest possible
- * thing just to have the scheduler stubbed out so we can focus on
- * codegen */
-
-void
-bi_schedule(bi_context *ctx)
-{
-        bool is_first = true;
-
-        bi_foreach_block(ctx, block) {
-                bi_block *bblock = (bi_block *) block;
-
-                list_inithead(&bblock->clauses);
-
-                bi_foreach_instr_in_block(bblock, ins) {
-                        bi_clause *u = bi_singleton(ctx, ins,
-                                        bblock, 0, (1 << 0),
-                                        !is_first);
-
-                        is_first = false;
-                        list_addtail(&u->link, &bblock->clauses);
-                }
-
-                /* Back-to-back bit affects only the last clause of a block,
-                 * the rest are implicitly true */
-
-                if (!list_is_empty(&bblock->clauses)) {
-                        bi_clause *last_clause = list_last_entry(&bblock->clauses, bi_clause, link);
-                        if (!bi_back_to_back(bblock))
-                                last_clause->flow_control = BIFROST_FLOW_NBTB_UNCONDITIONAL;
-                }
-
-                bblock->scheduled = true;
-        }
-}
-
 /* Updates the FAU assignment for a tuple. A valid FAU assignment must be
  * possible (as a precondition); this is gauranteed per-instruction by
  * bi_lower_fau and per-tuple by bi_instr_schedulable */
@@ -1021,6 +983,16 @@ bi_schedule_block(bi_context *ctx, bi_block *block)
 #endif
 
         bi_free_worklist(st);
+}
+
+void
+bi_schedule(bi_context *ctx)
+{
+        bi_foreach_block(ctx, block) {
+                bi_block *bblock = (bi_block *) block;
+                bi_schedule_block(ctx, bblock);
+                bi_opt_dead_code_eliminate(ctx, bblock, true);
+        }
 }
 
 #ifndef NDEBUG
