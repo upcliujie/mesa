@@ -2798,7 +2798,8 @@ void combine_vop3p(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
                vop3p->opsel_hi = vop3p->opsel_hi | ((fneg->opsel_lo & 1) << i);
                vop3p->neg_hi[i] = true ^ fneg->neg_lo[0];
             }
-            ctx.uses[fneg->definitions[0].tempId()]--;
+            if (--ctx.uses[fneg->definitions[0].tempId()])
+               ctx.uses[fneg->operands[0].tempId()]++;
          }
       }
    }
