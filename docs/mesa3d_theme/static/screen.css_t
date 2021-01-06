@@ -1,0 +1,15 @@
+@import url("menu.css");
+@import url("rst.css");
+@import url("basic.css");
+
+html  {
+  height: 100%;
+}
+
+.navbar {
+  flex: none;
+}
+
+footer {
+  flex: 1;
+}
