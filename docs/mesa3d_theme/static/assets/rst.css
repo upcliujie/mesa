@@ -1,0 +1,13 @@
+#rst a.headerlink {
+  font-size: 50%;
+  vertical-align: middle;
+  visibility: hidden;
+  text-decoration: none;
+  user-select: none;
+}
+
+#rst :hover > a.headerlink,
+#rst :active > a.headerlink {
+  visibility: visible;
+  text-decoration: none;
+}
