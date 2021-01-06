@@ -147,6 +147,7 @@ bi_singleton(void *memctx, bi_instr *ins,
 
         u->next_clause_prefetch = (ins->op != BI_OPCODE_JUMP);
         u->message_type = bi_message_type_for_instr(ins);
+        u->message = u->message_type ? ins : NULL;
         u->block = block;
 
         return u;

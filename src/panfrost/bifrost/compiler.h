@@ -460,6 +460,7 @@ typedef struct {
 
         /* Unique in a clause */
         enum bifrost_message_type message_type;
+        bi_instr *message;
 } bi_clause;
 
 typedef struct bi_block {
@@ -725,6 +726,7 @@ void bi_register_allocate(bi_context *ctx);
 /* Test suite */
 int bi_test_scheduler(void);
 int bi_test_packing(void);
+int bi_test_packing_formats(void);
 
 bi_clause *
 bi_singleton(void *memctx, bi_instr *ins,
