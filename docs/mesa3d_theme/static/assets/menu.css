@@ -1,0 +1,8 @@
+#menu li {
+  font-weight: normal;
+}
+
+#menu .caption,
+#menu li.current {
+  font-weight: bold;
+}

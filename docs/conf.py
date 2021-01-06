@@ -58,7 +58,7 @@ copyright = '1995-2018, Brian Paul'
 author = 'Brian Paul'
 html_show_copyright = False
 
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+html_theme_path = ['.']
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -97,26 +97,9 @@ highlight_language = "none"
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'mesa3d_theme'
 
 html_favicon = "favicon.ico"
-
-# Theme options are theme-specific and customize the look and feel of a theme
-# further.  For a list of options available for each theme, see the
-# documentation.
-#
-html_theme_options = {
-  'display_version': False,
-}
-
-html_context = {
-  'display_gitlab': True,
-  'gitlab_host': 'gitlab.freedesktop.org',
-  'gitlab_user': 'mesa',
-  'gitlab_repo': 'mesa',
-  'gitlab_version': 'master',
-  'conf_py_path': '/docs/',
-}
 
 html_copy_source = False
 
