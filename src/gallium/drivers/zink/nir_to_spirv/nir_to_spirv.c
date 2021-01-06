@@ -1331,13 +1331,6 @@ emit_alu(struct ntv_context *ctx, nir_alu_instr *alu)
    BUILTIN_UNOP(nir_op_ifind_msb, GLSLstd450FindSMsb)
 #undef BUILTIN_UNOP
 
-   case nir_op_frcp:
-      assert(nir_op_infos[alu->op].num_inputs == 1);
-      result = emit_binop(ctx, SpvOpFDiv, dest_type,
-                          get_fvec_constant(ctx, bit_size, num_components, 1),
-                          src[0]);
-      break;
-
    case nir_op_f2b1:
       assert(nir_op_infos[alu->op].num_inputs == 1);
       result = emit_binop(ctx, SpvOpFOrdNotEqual, dest_type, src[0],
