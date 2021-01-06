@@ -803,7 +803,7 @@ bi_pack_clause(bi_context *ctx, bi_clause *clause,
                 bool tdd)
 {
         /* TODO After the deadline lowering */
-        bi_lower_cubeface2(ctx, &clause->tuples[0]);
+        // bi_lower_cubeface2(ctx, &clause->tuples[0]);
 
         struct bi_packed_tuple ins[8] = { 0 };
 
