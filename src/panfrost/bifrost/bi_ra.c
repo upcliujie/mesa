@@ -30,6 +30,30 @@
 #include "util/u_memory.h"
 
 static void
+bi_mark_interference(bi_block *block, bi_clause *clause, struct lcra_state *l, uint16_t *live)
+{
+        bi_foreach_instr_in_clause_rev(block, clause, ins) {
+                /* Mark all registers live after the instruction as
+                 * interfering with the destination */
+
+                bi_foreach_dest(ins, d) {
+                        if (bi_get_node(ins->dest[d]) >= l->node_count)
+                                continue;
+
+                        for (unsigned i = 1; i < l->node_count; ++i) {
+                                if (live[i]) {
+                                        lcra_add_node_interference(l, bi_get_node(ins->dest[d]),
+                                                        bi_writemask(ins), i, live[i]);
+                                }
+                        }
+                }
+
+                /* Update live_in */
+                bi_liveness_ins_update(live, ins, l->node_count);
+        }
+}
+
+static void
 bi_compute_interference(bi_context *ctx, struct lcra_state *l)
 {
         bi_compute_liveness(ctx);
@@ -38,22 +62,8 @@ bi_compute_interference(bi_context *ctx, struct lcra_state *l)
                 bi_block *blk = (bi_block *) _blk;
                 uint16_t *live = mem_dup(_blk->live_out, l->node_count * sizeof(uint16_t));
 
-                bi_foreach_instr_in_block_rev(blk, ins) {
-                        /* Mark all registers live after the instruction as
-                         * interfering with the destination */
-
-                        bi_foreach_dest(ins, d) {
-                                if (bi_get_node(ins->dest[d]) >= l->node_count)
-                                        continue;
-
-                                for (unsigned i = 1; i < l->node_count; ++i) {
-                                        if (live[i])
-                                                lcra_add_node_interference(l, bi_get_node(ins->dest[d]), bi_writemask(ins), i, live[i]);
-                                }
-                        }
-
-                        /* Update live_in */
-                        bi_liveness_ins_update(live, ins, l->node_count);
+                bi_foreach_clause_in_block_rev(blk, clause) {
+                        bi_mark_interference(blk, clause, l, live);
                 }
 
                 free(live);
