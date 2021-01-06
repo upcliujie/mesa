@@ -1,0 +1,21 @@
+#menu .caption {
+  margin-bottom: 0;
+}
+
+#menu .caption-text,
+#menu li.current {
+  font-weight: bold;
+}
+
+#menu li.current li {
+  font-weight: initial;
+}
+
+#menu ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+#menu ul ul {
+  padding-left: 1rem;
+}

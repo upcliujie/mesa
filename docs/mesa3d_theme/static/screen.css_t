@@ -1,0 +1,20 @@
+@import url("menu.css");
+@import url("rst.css");
+@import url("basic.css");
+
+div.body {
+	max-width: initial !important;
+	min-width: initial !important;
+}
+
+html {
+  height: 100%;
+}
+
+.navbar {
+  flex: none;
+}
+
+footer {
+  flex: 1;
+}
