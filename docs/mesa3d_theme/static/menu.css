@@ -1,0 +1,57 @@
+#menu {
+  height: max-content;
+}
+
+#menu .caption {
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+#menu a {
+  color: #6c757d;
+}
+
+#menu .caption-text,
+#menu li.current {
+  font-weight: bold;
+}
+
+#menu li.current li {
+  font-weight: initial;
+}
+
+#menu ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin-bottom: 0;
+}
+
+#menu ul ul {
+  padding-left: 1rem;
+}
+
+#menu p.caption::after {
+  display: block;
+  content: '';
+  clear: both;
+}
+
+#menu p.caption.collapsed + ul {
+  display: none;
+}
+
+#menu p.caption .caption-text:after {
+  content: ' ';
+  float: right;
+  display: block;
+  background-image: url('chevron-up.svg');
+  background-size: 1.5em 1.5em;
+  opacity: 0.25;
+  width: 1.5em;
+  height: 1.5em;
+  transition: all 0.2s;
+}
+
+#menu p.caption.collapsed .caption-text:after {
+  transform: rotate(180deg);
+}

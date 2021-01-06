@@ -1,0 +1,90 @@
+.headerlink,
+.headerlink:hover {
+  color: transparent;
+  display: inline-block;
+  vertical-align: middle;
+  background-image: url('link.svg');
+  background-size: 1ex 1ex;
+  margin-left: 0.25rem;
+  opacity: 0.25;
+  width: 1ex;
+  height: 1ex;
+}
+
+.headerlink:hover {
+  opacity: 0.5;
+}
+
+.admonition {
+  padding: .75rem 1.25rem;
+  margin-bottom: 1rem;
+  border-radius: .25rem;
+}
+
+.admonition.note {
+  color: #0c5460;
+  background-color: #d1ecf1;
+}
+
+.admonition-title {
+  margin-bottom: .5rem;
+  font-weight: 500;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+code {
+  color: inherit;
+}
+
+.highlight {
+  border-radius: .25rem;
+  padding: .25rem;
+}
+
+table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+}
+
+table,
+td, th,
+thead th {
+  border: 1px solid #ddd;
+}
+
+tbody tr:nth-child(odd) {
+  background: #f8f8f8;
+}
+
+table .align-default {
+	text-align: center;
+}
+
+thead {
+  white-space: nowrap;
+  border-bottom: 2px solid #aaa;
+}
+
+th, td {
+  vertical-align: initial;
+  padding: .25rem;
+}
+
+ol li > p:only-child,
+ol li > p:only-child:last-child,
+ul li > p:only-child,
+ul li > p:only-child:last-child,
+ol li > p,
+ul li > p {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+ol ol > li:first-child > :first-child,
+ol ul > li:first-child > :first-child,
+ul ol > li:first-child > :first-child,
+ul ul > li:first-child > :first-child {
+	margin-top: 0;
+}
