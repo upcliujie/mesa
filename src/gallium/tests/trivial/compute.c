@@ -647,7 +647,8 @@ static void test_input_global(struct context *ctx)
                 "       UMUL TEMP[0], SV[0], IMM[0]\n"
                 "       LOAD TEMP[1].xy, RINPUT, TEMP[0]\n"
                 "       LOAD TEMP[0].x, RGLOBAL, TEMP[1].yyyy\n"
-                "       UADD TEMP[1].x, TEMP[0], -TEMP[1]\n"
+                "       INEG TEMP[1].x\n"
+                "       UADD TEMP[1].x, TEMP[0], TEMP[1]\n"
                 "       STORE RGLOBAL.x, TEMP[1].yyyy, TEMP[1]\n"
                 "       RET\n"
                 "    ENDSUB\n";

@@ -72,7 +72,8 @@ const char *compute_shader_video_buffer =
 
       "UIF TEMP[1].xxxx\n"
          /* Translate */
-         "UADD TEMP[2].xy, TEMP[0].xyyy, -CONST[5].xyxy\n"
+         "INEG TEMP[2].xy CONST[5].xyxy\n"
+         "UADD TEMP[2].xy, TEMP[0].xyyy, TEMP[2].xyxy\n"
          "U2F TEMP[2].xy, TEMP[2].xyyy\n"
          "MUL TEMP[3].xy, TEMP[2].xyyy, CONST[6].xyyy\n"
 
@@ -134,9 +135,9 @@ const char *compute_shader_weave =
       "AND TEMP[1].x, TEMP[1].xxxx, TEMP[1].wwww\n"
 
       "UIF TEMP[1].xxxx\n"
-         "MOV TEMP[2].xy, TEMP[0].xyyy\n"
          /* Translate */
-         "UADD TEMP[2].xy, TEMP[2].xyyy, -CONST[5].xyxy\n"
+         "INEG TEMP[2].xy CONST[5].xyxy\n"
+         "UADD TEMP[2].xy, TEMP[0], TEMP[2].xyxy\n"
 
          /* Top Y */
          "U2F TEMP[2].xy, TEMP[2].xyyy\n"
@@ -250,7 +251,8 @@ const char *compute_shader_rgba =
 
       "UIF TEMP[1].xxxx\n"
          /* Translate */
-         "UADD TEMP[2].xy, TEMP[0].xyyy, -CONST[5].xyxy\n"
+         "INEG TEMP[2].xy CONST[5].xyxy\n"
+         "UADD TEMP[2].xy, TEMP[0].xyyy, TEMP[2].xy\n"
          "U2F TEMP[2].xy, TEMP[2].xyyy\n"
 
          /* Scale */
@@ -297,7 +299,8 @@ static const char *compute_shader_yuv_weave_y =
       "UIF TEMP[1]\n"
          "MOV TEMP[2], TEMP[0]\n"
          /* Translate */
-         "UADD TEMP[2].xy, TEMP[2], -CONST[5].xyxy\n"
+         "INEG TEMP[2].xy CONST[5].xyxy\n"
+         "UADD TEMP[2].xy, TEMP[0], TEMP[2].xyxy\n"
 
          /* Top Y */
          "U2F TEMP[2], TEMP[2]\n"
@@ -403,7 +406,8 @@ static const char *compute_shader_yuv_weave_uv =
       "UIF TEMP[1]\n"
          "MOV TEMP[2], TEMP[0]\n"
          /* Translate */
-         "UADD TEMP[2].xy, TEMP[2], -CONST[5].xyxy\n"
+         "INEG TEMP[2].xy CONST[5].xyxy\n"
+         "UADD TEMP[2].xy, TEMP[0], TEMP[2].xyxy\n"
 
          /* Top Y */
          "U2F TEMP[2], TEMP[2]\n"
@@ -508,7 +512,8 @@ static const char *compute_shader_yuv_bob_y =
 
       "UIF TEMP[1]\n"
          /* Translate */
-         "UADD TEMP[2].xy, TEMP[0], -CONST[5].xyxy\n"
+         "INEG TEMP[2].xy CONST[5].xyxy\n"
+         "UADD TEMP[2].xy, TEMP[0], TEMP[2].xyxy\n"
          "U2F TEMP[2], TEMP[2]\n"
          "DIV TEMP[3], TEMP[2], IMM[1].yyyy\n"
 
@@ -560,7 +565,8 @@ static const char *compute_shader_yuv_bob_uv =
 
       "UIF TEMP[1]\n"
          /* Translate */
-         "UADD TEMP[2].xy, TEMP[0], -CONST[5].xyxy\n"
+         "INEG TEMP[2].xy CONST[5].xyxy\n"
+         "UADD TEMP[2].xy, TEMP[0], TEMP[2].xyxy\n"
          "U2F TEMP[2], TEMP[2]\n"
          "DIV TEMP[3], TEMP[2], IMM[1].yyyy\n"
 

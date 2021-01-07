@@ -1718,11 +1718,8 @@ fetch_source(const struct tgsi_exec_machine *mach,
    }
 
    if (reg->Register.Negate) {
-      if (src_datatype == TGSI_EXEC_DATA_FLOAT) {
-         micro_neg(chan, chan);
-      } else {
-         micro_ineg(chan, chan);
-      }
+      assert(src_datatype == TGSI_EXEC_DATA_FLOAT);
+      micro_neg(chan, chan);
    }
 }
 
