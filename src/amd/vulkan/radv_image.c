@@ -178,8 +178,12 @@ radv_use_dcc_for_image(struct radv_device *device,
 	if (!radv_image_use_fast_clear_for_image(device, image))
 		return false;
 
+	/* TODO: Enable DCC for layers. */
+	if (pCreateInfo->arrayLayers > 1)
+		return false;
+
 	/* TODO: Enable DCC for mipmaps on GFX9+. */
-	if ((pCreateInfo->arrayLayers > 1 || pCreateInfo->mipLevels > 1) &&
+	if (pCreateInfo->mipLevels > 1 &&
 	    device->physical_device->rad_info.chip_class >= GFX9)
 		return false;
 
