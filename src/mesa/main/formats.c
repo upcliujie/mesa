@@ -483,7 +483,7 @@ format_array_format_table_init(void)
       if (_mesa_is_format_srgb(f))
          continue;
 
-#if UTIL_ARCH_LITTLE_ENDIAN
+#if UTIL_ARCH_LITTLE_ENDIAN || UTIL_ARCH_BIG_ENDIAN
          array_format = info->ArrayFormat;
 #else
          array_format = _mesa_array_format_flip_channels(info->ArrayFormat);
