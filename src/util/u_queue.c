@@ -305,11 +305,11 @@ util_queue_thread_func(void *input)
 
       queue->num_queued--;
       cnd_signal(&queue->has_space_cond);
-      if (job.job)
+      if (job.execute)
          queue->total_jobs_size -= job.job_size;
       mtx_unlock(&queue->lock);
 
-      if (job.job) {
+      if (job.execute) {
          job.execute(job.job, thread_index);
          util_queue_fence_signal(job.fence);
          if (job.cleanup)
@@ -322,9 +322,9 @@ util_queue_thread_func(void *input)
    if (queue->num_threads == 0) {
       for (unsigned i = queue->read_idx; i != queue->write_idx;
            i = (i + 1) % queue->max_jobs) {
-         if (queue->jobs[i].job) {
+         if (queue->jobs[i].execute) {
             util_queue_fence_signal(queue->jobs[i].fence);
-            queue->jobs[i].job = NULL;
+            queue->jobs[i].execute = NULL;
          }
       }
       queue->read_idx = queue->write_idx;
@@ -592,7 +592,7 @@ util_queue_add_job(struct util_queue *queue,
    }
 
    ptr = &queue->jobs[queue->write_idx];
-   assert(ptr->job == NULL);
+   assert(ptr->execute == NULL);
    ptr->job = job;
    ptr->fence = fence;
    ptr->execute = execute;
