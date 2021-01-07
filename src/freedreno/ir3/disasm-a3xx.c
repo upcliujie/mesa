@@ -36,7 +36,7 @@
 #include "instr-a3xx.h"
 #include "regmask.h"
 
-static enum debug_t debug;
+static enum debug_t debug = PRINT_RAW;
 
 #define printf debug_printf
 

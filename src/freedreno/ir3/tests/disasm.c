@@ -362,7 +362,7 @@ main(int argc, char **argv)
 			printf("  Got:      \"%s\"\n", disasm_output);
 			retval = 1;
 			decode_fails++;
-			continue;
+//			continue;
 		}
 
 		/*
@@ -403,6 +403,7 @@ main(int argc, char **argv)
 			printf("  Got:      %08x_%08x\n", v->bin[1], v->bin[0]);
 			retval = 1;
 			encode_fails++;
+isa_decode(v->bin, 8, stdout, NULL);
 		}
 
 		ir3_shader_destroy(shader);

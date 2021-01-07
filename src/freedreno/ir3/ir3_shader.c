@@ -616,6 +616,12 @@ ir3_shader_disasm(struct ir3_shader_variant *so, uint32_t *bin, FILE *out)
 	}
 
 	disasm_a3xx(bin, so->info.sizedwords, 0, out, ir->compiler->gpu_id);
+//	isa_decode(bin, so->info.sizedwords * 4, out, &(struct isa_decode_options){
+//		.gpu_id = ir->compiler->gpu_id,
+//		.show_raw = true,
+//		.show_errors = true,
+//		.branch_labels = true,
+//	});
 
 	fprintf(out, "; %s: outputs:", type);
 	for (i = 0; i < so->outputs_count; i++) {
