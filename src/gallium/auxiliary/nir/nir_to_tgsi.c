@@ -273,7 +273,9 @@ ntt_setup_uniforms(struct ntt_compile *c)
    }
 
    nir_foreach_variable_with_modes(var, c->s, nir_var_mem_ubo) {
-      ureg_DECL_constant2D(c->ureg, 0, 0, var->data.driver_location);
+      ureg_DECL_constant2D(c->ureg, 0,
+                           DIV_ROUND_UP(glsl_get_explicit_size(var->type, false), 16),
+                           var->data.driver_location);
    }
 
    nir_foreach_variable_with_modes(var, c->s, nir_var_mem_ssbo) {
