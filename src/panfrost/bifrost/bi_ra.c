@@ -304,9 +304,17 @@ bi_spill_register(bi_context *ctx, bi_index index, uint32_t offset)
                                                 clause, block, channels);
                         }
 
-                        if (bi_clause_mark_fill(ctx, block, clause, index, &tmp)) {
-                                bi_fill_src(&_b, index, tmp, offset,
-                                                clause, block, channels);
+                        /* For SSA form, if we write/spill, there was no prior
+                         * contents to fill, so don't waste time reading
+                         * garbage */
+
+                        bool should_fill = !local_channels || index.reg;
+                        should_fill &= bi_clause_mark_fill(ctx, block, clause,
+                                        index, &tmp);
+
+                        if (should_fill) {
+                                bi_fill_src(&_b, index, tmp, offset, clause,
+                                                block, channels);
                         }
                 }
         }
