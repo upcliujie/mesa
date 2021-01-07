@@ -902,10 +902,8 @@ ttn_get_src(struct ttn_compile *c, struct tgsi_full_src_register *tgsi_fsrc,
    }
 
    if (tgsi_src->Negate) {
-      if (src_is_float)
-         def = nir_fneg(b, def);
-      else
-         def = nir_ineg(b, def);
+      assert(src_is_float);
+      def = nir_fneg(b, def);
    }
 
    return def;

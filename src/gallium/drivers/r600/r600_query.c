@@ -1479,7 +1479,8 @@ static void r600_create_query_result_shader(struct r600_common_context *rctx)
 					"UADD TEMP[5].y, TEMP[5].xxxx, CONST[0][0].xxxx\n"
 					"LOAD TEMP[3].xy, BUFFER[0], TEMP[5].yyyy\n"
 
-					"U64ADD TEMP[4].xy, TEMP[3], -TEMP[2]\n"
+					"I64NEG TEMP[2], TEMP[2]\n"
+					"U64ADD TEMP[4].xy, TEMP[3], TEMP[2]\n"
 
 					"AND TEMP[5].z, CONST[0][0].wwww, IMM[4].xxxx\n"
 					"UIF TEMP[5].zzzz\n"
@@ -1490,8 +1491,10 @@ static void r600_create_query_result_shader(struct r600_common_context *rctx)
 						"LOAD TEMP[2].xy, BUFFER[0], TEMP[5].xxxx\n"
 						"LOAD TEMP[3].xy, BUFFER[0], TEMP[5].yyyy\n"
 
-						"U64ADD TEMP[3].xy, TEMP[3], -TEMP[2]\n"
-						"U64ADD TEMP[4].xy, TEMP[4], -TEMP[3]\n"
+						"I64NEG TEMP[2], TEMP[2]\n"
+						"I64NEG TEMP[2], TEMP[3]\n"
+						"U64ADD TEMP[3].xy, TEMP[3], TEMP[2]\n"
+						"U64ADD TEMP[4].xy, TEMP[4], TEMP[3]\n"
 					"ENDIF\n"
 
 					"U64ADD TEMP[0].xy, TEMP[0], TEMP[4]\n"
