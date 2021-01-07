@@ -150,8 +150,12 @@ TEST(MesaFormatsTest, IntensityToRed)
 static mesa_format fffat_wrap(GLenum format, GLenum type)
 {
    uint32_t f = _mesa_format_from_format_and_type(format, type);
+   if (!f)
+      fprintf(stderr, "AAA mfffat failed!\n");
    if (_mesa_format_is_mesa_array_format(f))
       f = _mesa_format_from_array_format((mesa_array_format)f);
+   if (!f)
+      fprintf(stderr, "BBB mfffat failed!\n");
    return (mesa_format)f;
 }
 
