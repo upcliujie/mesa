@@ -54,10 +54,7 @@ SOFTWARE.
 		<display>
 			{SY}{JP}{NAME}.{TYPE} {DST}, g[{SRC1}{OFF}], {SIZE}
 		</display>
-		<expr>
-			<var name="SRC2_REG"/>
-			<not/>
-		</expr>
+		<expr>!{SRC2_REG}</expr>
 		<field low="1" high="13" name="OFF" type="offset"/>
 	</override>
 
@@ -92,18 +89,9 @@ SOFTWARE.
 		<display>
 			{SY}{JP}{NAME}.{TYPE} g[{SRC1}{OFF}], {SRC3}, {SIZE}
 		</display>
-		<expr>
-			<var name="G"/>
-			<not/>
-		</expr>
+		<expr>!{G}</expr>
 		<derived name="OFF" width="" type="offset">
-			<expr>
-				<literal val="8"/>
-				<var name="OFF_HI"/>
-				<lsh/>
-				<var name="OFF_LO"/>
-				<or/>
-			</expr>
+			<expr>({OFF_HI} &lt;&lt; 8) | {OFF_LO}</expr>
 		</derived>
 		<field   low="9"  high="13" name="OFF_HI" type="uint"/>
 		<field   low="32" high="39" name="OFF_LO" type="uint"/>
@@ -204,13 +192,7 @@ SOFTWARE.
 
 <bitset name="#instruction-cat6-a3xx-st" extends="#instruction-cat6-a3xx">
 	<derived name="OFF" width="13" type="offset">
-		<expr>
-			<literal val="8"/>
-			<var name="OFF_HI"/>
-			<lsh/>
-			<var name="OFF_LO"/>
-			<or/>
-		</expr>
+		<expr>({OFF_HI} &lt;&lt; 8) | {OFF_LO}</expr>
 	</derived>
 
 	<field   low="1"  high="8" name="SRC" type="#reg-gpr"/>
@@ -577,9 +559,7 @@ SOFTWARE.
 	</doc>
 	<override>
 		<!-- TODO.. wtf? -->
-		<expr>
-			<var name="K"/>
-		</expr>
+		<expr>{K}</expr>
 		<display>
 			{SY}{JP}{NAME}.{TYPE_SIZE}.k.{MODE}{BASE} c[a1.x], {SRC1}, {SRC2}
 		</display>
@@ -799,27 +779,21 @@ SOFTWARE.
 
 
 <expr name="#cat6-d">
-	<var name="D_MINUS_ONE"/>
-	<literal val="1"/>
-	<add/>
+	{D_MINUS_ONE} + 1
 </expr>
 
 <expr name="#cat6-type-size">
-	<var name="TYPE_SIZE_MINUS_ONE"/>
-	<literal val="1"/>
-	<add/>
+	{TYPE_SIZE_MINUS_ONE} + 1
 </expr>
 
+<!-- Image/SSBO (ie. not local) -->
 <expr name="#cat6-global">
-	<doc>Image/SSBO (ie. not local)</doc>
-	<var name="G"/>
+	{G}
 </expr>
 
 <bitset name="#cat6-typed" size="1">
 	<override>
-		<expr>
-			<var name="TYPED"/>
-		</expr>
+		<expr>{TYPED}</expr>
 		<display>
 			typed
 		</display>
@@ -835,9 +809,7 @@ SOFTWARE.
 
 <bitset name="#cat6-base" size="3">
 	<override>
-		<expr>
-			<var name="BINDLESS"/>
-		</expr>
+		<expr>{BINDLESS}</expr>
 		<display>
 			.base{BASE}
 		</display>
@@ -854,9 +826,7 @@ SOFTWARE.
 		Source value that can be either immed or gpr
 	</doc>
 	<override>
-		<expr>
-			<var name="SRC_IM"/>
-		</expr>
+		<expr>{SRC_IM}</expr>
 		<display>
 			{IMMED}
 		</display>
@@ -875,9 +845,7 @@ SOFTWARE.
 </bitset>
 
 <expr name="#cat6-direct">
-	<var name="MODE"/>
-	<literal val="0"/>
-	<eq/>
+	{MODE} == 0
 </expr>
 
 <enum name="#cat6-src-mode">

@@ -30,27 +30,11 @@ SOFTWARE.
  -->
 
 <expr name="#cat2-cat3-nop-encoding">
-	<doc>((SRC1_R != 0) || (SRC2_R != 0)) &amp;&amp; (REPEAT == 0)</doc>
-	<literal val="0"/>
-	<var name="SRC1_R"/>
-	<ne/>
-	<literal val="0"/>
-	<var name="SRC2_R"/>
-	<ne/>
-	<or/>
-	<literal val="0"/>
-	<var name="REPEAT"/>
-	<eq/>
-	<and/>
+	(({SRC1_R} != 0) || ({SRC2_R} != 0)) &amp;&amp; ({REPEAT} == 0)
 </expr>
 
 <expr name="#cat2-cat3-nop-value">
-	<doc>SRC1_R | (SRC2_R &lt;&lt; 1)</doc>
-	<var name="SRC1_R"/>
-	<literal val="1"/>
-	<var name="SRC2_R"/>
-	<lsh/>
-	<or/>
+	{SRC1_R} | ({SRC2_R} &lt;&lt; 1)
 </expr>
 
 <!--
@@ -59,15 +43,11 @@ SOFTWARE.
  -->
 
 <expr name="#reg-gpr-a0">
-	<var name="GPR"/>
-	<literal val="61"/>  <!-- a0.* -->
-	<eq/>
+	{GPR} == 61 /* a0.* */
 </expr>
 
 <expr name="#reg-gpr-p0">
-	<var name="GPR"/>
-	<literal val="62"/>  <!-- p0.* -->
-	<eq/>
+	{GPR} == 62 /* p0.x */
 </expr>
 
 <bitset name="#reg-gpr" size="8">
@@ -107,9 +87,7 @@ SOFTWARE.
 </bitset>
 
 <expr name="#offset-zero">
-	<var name="OFFSET"/>
-	<literal val="0"/>
-	<eq/>
+	{OFFSET} == 0
 </expr>
 
 <bitset name="#reg-relative-gpr" size="10">
@@ -216,9 +194,7 @@ SOFTWARE.
 </bitset>
 
 <expr name="#multisrc-half">
-	<doc>!FULL</doc>
-	<var name="FULL"/>
-	<not/>
+	!{FULL}
 </expr>
 
 <bitset name="#multisrc-gpr" extends="#multisrc">
@@ -270,33 +246,26 @@ SOFTWARE.
 	xor.b, etc), p0.x is never half (DEST_CONV is ignored)
  -->
 <expr name="#dest-half">
-	<doc>(FULL == DST_CONV) &amp;&amp; (DST != p0.x)</doc>
-	<var name="DST_CONV"/>
-	<var name="FULL"/>
-	<eq/>
-	<var name="DST"/>
-	<literal val="0xf7"/>   <!-- p0.x+ -->
-	<gt/>
-	<and/>
+	({FULL} == {DST_CONV}) &amp;&amp; ({DST} &lt;= 0xf7 /* p0.x */)
 </expr>
 
 <expr name="#true">
-	<literal val="1"/>
+	1
 </expr>
 
 <expr name="#false">
-	<literal val="0"/>
+	0
 </expr>
 
 <!-- These make #true/#false a bit redundant, but I guess keep them for clarity -->
 <expr name="#zero">
-	<literal val="0"/>
+	0
 </expr>
 <expr name="#one">
-	<literal val="1"/>
+	1
 </expr>
 <expr name="#two">
-	<literal val="2"/>
+	2
 </expr>
 
 <!--

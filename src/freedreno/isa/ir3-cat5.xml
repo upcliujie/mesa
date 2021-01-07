@@ -36,9 +36,7 @@ SOFTWARE.
 		bitset.  We just arbitrarily map this to BASE_LO
 	</doc>
 	<override>
-		<expr>
-			<var name="BINDLESS"/>
-		</expr>
+		<expr>{BINDLESS}</expr>
 		<display>
 			.base{BASE}
 		</display>
@@ -46,13 +44,7 @@ SOFTWARE.
 	<display/>
 	<field name="BASE_LO" pos="0" type="uint"/>
 	<derived name="BASE" type="uint">
-		<expr>
-			<literal val="1"/>
-			<var name="BASE_HI"/>
-			<lsh/>
-			<var name="BASE_LO"/>
-			<or/>
-		</expr>
+		<expr>({BASE_HI} * 2) | {BASE_LO}</expr>
 	</derived>
 	<encode type="struct ir3_instruction *">
 		<map name="BASE_LO">src->cat5.tex_base &amp; 0x1</map>
@@ -61,9 +53,7 @@ SOFTWARE.
 
 <bitset name="#instruction-cat5" extends="#instruction">
 	<override>
-		<expr>
-			<var name="S2EN_BINDLESS"/>
-		</expr>
+		<expr>{S2EN_BINDLESS}</expr>
 		<doc>
 			The s2en (indirect) or bindless case
 		</doc>
@@ -96,17 +86,11 @@ SOFTWARE.
 	</display>
 	<derived name="DST_HALF" type="bool" display="h">
 		<expr>
-			<doc>Destination precision is a function of the type field</doc>
-			<var name="TYPE"/>
-			<jmp/>
-			<retlit val="1"/>  <!-- f16 -->
-			<retlit val="0"/>  <!-- f32 -->
-			<retlit val="1"/>  <!-- u16 -->
-			<retlit val="0"/>  <!-- u32 -->
-			<retlit val="1"/>  <!-- s16 -->
-			<retlit val="0"/>  <!-- u32 -->
-			<retlit val="1"/>  <!-- u8 -->
-			<retlit val="1"/>  <!-- s8 -->
+			({TYPE} == 0) /* f16 */ ||
+			({TYPE} == 2) /* u16 */ ||
+			({TYPE} == 4) /* s16 */ ||
+			({TYPE} == 6) /* u8 */  ||
+			({TYPE} == 7) /* s8 */
 		</expr>
 	</derived>
 	<field name="FULL" pos="0" type="bool"/>
@@ -410,11 +394,7 @@ SOFTWARE.
 
 <bitset name="#cat5-src1" size="8">
 	<override>
-		<expr>
-			<literal val="0"/>
-			<var name="NUM_SRC"/>
-			<gt/>
-		</expr>
+		<expr>{NUM_SRC} > 0</expr>
 		<display>
 			, {HALF}{SRC}
 		</display>
@@ -429,13 +409,7 @@ SOFTWARE.
 
 <bitset name="#cat5-src2" size="8">
 	<override>
-		<expr>
-			<var name="O"/>
-			<retif/>
-			<literal val="1"/>
-			<var name="NUM_SRC"/>
-			<gt/>
-		</expr>
+		<expr>{O} || ({NUM_SRC} > 1)</expr>
 		<display>
 			, {HALF}{SRC}
 		</display>
@@ -450,9 +424,7 @@ SOFTWARE.
 
 <bitset name="#cat5-samp" size="4">
 	<override>
-		<expr>
-			<var name="HAS_SAMP"/>
-		</expr>
+		<expr>{HAS_SAMP}</expr>
 		<display>
 			, s#{SAMP}
 		</display>
@@ -468,9 +440,7 @@ SOFTWARE.
 <bitset name="#cat5-samp-s2en-bindless-a1" size="8">
 	<doc>s2en (indirect) / bindless case with a1.x has 8b samp</doc>
 	<override>
-		<expr>
-			<var name="HAS_SAMP"/>
-		</expr>
+		<expr>{HAS_SAMP}</expr>
 		<display>
 			, s#{SAMP}
 		</display>
@@ -485,9 +455,7 @@ SOFTWARE.
 
 <bitset name="#cat5-tex" size="7">
 	<override>
-		<expr>
-			<var name="HAS_TEX"/>
-		</expr>
+		<expr>{HAS_TEX}</expr>
 		<display>
 			, t#{TEX}
 		</display>
@@ -503,9 +471,7 @@ SOFTWARE.
 <bitset name="#cat5-tex-s2en-bindless" size="4">
 	<doc>s2en (indirect) / bindless case only has 4b tex</doc>
 	<override>
-		<expr>
-			<var name="HAS_TEX"/>
-		</expr>
+		<expr>{HAS_TEX}</expr>
 		<display>
 			, t#{TEX}
 		</display>
@@ -526,9 +492,7 @@ SOFTWARE.
 <bitset name="#cat5-type" size="3">
 	<display/>
 	<override>
-		<expr>
-			<var name="HAS_TYPE"/>
-		</expr>
+		<expr>{HAS_TYPE}</expr>
 		<display>
 			({TYPE})
 		</display>
@@ -611,60 +575,33 @@ SOFTWARE.
 	</value>
 </enum>
 
+<!-- Helper to map s2en/bindless DESC_MODE to whether it is an indirect mode -->
 <expr name="#cat5-s2enb-is-indirect">
-	<doc>Helper to map s2en/bindless DESC_MODE to whether it is an indirect mode</doc>
-	<var name="DESC_MODE"/>
-	<jmp/>
-	<retlit val="1"/>  <!-- CAT5_NONUNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_A1_UNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_NONUNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_A1_NONUNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_UNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_UNIFORM -->
-	<retlit val="0"/>  <!-- CAT5_BINDLESS_IMM -->
-	<retlit val="0"/>  <!-- CAT5_BINDLESS_A1_IMM -->
+	{DESC_MODE} &lt; 6  /* CAT5_BINDLESS_IMM */
 </expr>
 
+<!-- Helper to map s2en/bindless DESC_MODE to whether it is a bindless mode -->
 <expr name="#cat5-s2enb-is-bindless">
-	<doc>Helper to map s2en/bindless DESC_MODE to whether it is a bindless mode</doc>
-	<var name="DESC_MODE"/>
-	<jmp/>
-	<retlit val="0"/>  <!-- CAT5_NONUNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_A1_UNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_NONUNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_A1_NONUNIFORM -->
-	<retlit val="0"/>  <!-- CAT5_UNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_UNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_IMM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_A1_IMM -->
+	({DESC_MODE} == 1) /* CAT5_BINDLESS_A1_UNIFORM */ ||
+	({DESC_MODE} == 2) /* CAT5_BINDLESS_NONUNIFORM */ ||
+	({DESC_MODE} == 3) /* CAT5_BINDLESS_A1_NONUNIFORM */ ||
+	({DESC_MODE} == 5) /* CAT5_BINDLESS_UNIFORM */ ||
+	({DESC_MODE} == 6) /* CAT5_BINDLESS_IMM */ ||
+	({DESC_MODE} == 7) /* CAT5_BINDLESS_A1_IMM */
 </expr>
 
+<!-- Helper to map s2en/bindless DESC_MODE to whether it uses a1.x -->
 <expr name="#cat5-s2enb-uses_a1">
-	<doc>Helper to map s2en/bindless DESC_MODE to whether it uses a1.x</doc>
-	<var name="DESC_MODE"/>
-	<jmp/>
-	<retlit val="0"/>  <!-- CAT5_NONUNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_A1_UNIFORM -->
-	<retlit val="0"/>  <!-- CAT5_BINDLESS_NONUNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_A1_NONUNIFORM -->
-	<retlit val="0"/>  <!-- CAT5_UNIFORM -->
-	<retlit val="0"/>  <!-- CAT5_BINDLESS_UNIFORM -->
-	<retlit val="0"/>  <!-- CAT5_BINDLESS_IMM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_A1_IMM -->
+	({DESC_MODE} == 1) /* CAT5_BINDLESS_A1_UNIFORM */ ||
+	({DESC_MODE} == 3) /* CAT5_BINDLESS_A1_NONUNIFORM */ ||
+	({DESC_MODE} == 7) /* CAT5_BINDLESS_A1_IMM */
 </expr>
 
+<!-- Helper to map s2en/bindless DESC_MODE to whether it is uniform (flow control) mode -->
 <expr name="#cat5-s2enb-is-uniform">
-	<doc>Helper to map s2en/bindless DESC_MODE to whether it is uniform (flow control) mode</doc>
-	<var name="DESC_MODE"/>
-	<jmp/>
-	<retlit val="0"/>  <!-- CAT5_NONUNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_A1_UNIFORM -->
-	<retlit val="0"/>  <!-- CAT5_BINDLESS_NONUNIFORM -->
-	<retlit val="0"/>  <!-- CAT5_BINDLESS_A1_NONUNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_UNIFORM -->
-	<retlit val="1"/>  <!-- CAT5_BINDLESS_UNIFORM -->
-	<retlit val="0"/>  <!-- CAT5_BINDLESS_IMM -->
-	<retlit val="0"/>  <!-- CAT5_BINDLESS_A1_IMM -->
+	({DESC_MODE} == 1) /* CAT5_BINDLESS_A1_UNIFORM */ ||
+	({DESC_MODE} == 4) /* CAT5_UNIFORM */ ||
+	({DESC_MODE} == 5) /* CAT5_BINDLESS_UNIFORM */
 </expr>
 
 <bitset name="#cat5-src3" size="8">
@@ -675,10 +612,7 @@ SOFTWARE.
 		</display>
 		<field name="SRC" low="0" high="7" type="#reg-gpr"/>
 		<derived name="SRC_HALF" type="bool" display="h">
-			<expr>
-				<var name="BINDLESS"/>
-				<not/>
-			</expr>
+			<expr>!{BINDLESS}</expr>
 		</derived>
 	</override>
 	<override expr="#cat5-s2enb-uses_a1">

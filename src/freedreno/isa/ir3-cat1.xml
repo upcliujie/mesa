@@ -34,11 +34,7 @@ SOFTWARE.
 	</doc>
 	<override>
 		<expr>
-			<var name="DST_REL"/>
-			<var name="OFFSET"/>
-			<literal val="0"/>
-			<eq/>
-			<and/>
+			({OFFSET} == 0) &amp;&amp; {DST_REL}
 		</expr>
 		<display>
 			r&lt;a0.x&gt;
@@ -47,7 +43,7 @@ SOFTWARE.
 	</override>
 	<override>
 		<expr>
-			<var name="DST_REL"/>
+			{DST_REL}
 		</expr>
 		<display>
 			r&lt;a0.x + {OFFSET}&gt;
@@ -92,20 +88,7 @@ SOFTWARE.
 <bitset name="#instruction-cat1-mov" extends="#instruction-cat1">
 	<override>
 		<expr>
-			<literal val="2"/>
-			<var name="DST"/>
-			<literal val="0xf4"/>  <!-- a0.x -->
-			<eq/>
-		
-			<literal val="4"/>  <!-- s16 -->
-			<var name="SRC_TYPE"/>
-			<eq/>
-			<and/>
-		
-			<literal val="4"/>  <!-- s16 -->
-			<var name="DST_TYPE"/>
-			<eq/>
-			<and/>
+			({DST} == 0xf4 /* a0.x */) &amp;&amp; ({SRC_TYPE} == 4 /* s16 */) &amp;&amp; ({DST_TYPE} == 4)
 		</expr>
 		<display>
 			{SY}{SS}{JP}{REPEAT}{UL}mova {EVEN}{POS_INF}a0.x, {SRC}
@@ -116,20 +99,7 @@ SOFTWARE.
 	</override>
 	<override>
 		<expr>
-			<literal val="2"/>
-			<var name="DST"/>
-			<literal val="0xf5"/>  <!-- a0.y -->
-			<eq/>
-		
-			<literal val="2"/>  <!-- u16 -->
-			<var name="SRC_TYPE"/>
-			<eq/>
-			<and/>
-		
-			<literal val="2"/>  <!-- u16 -->
-			<var name="DST_TYPE"/>
-			<eq/>
-			<and/>
+			({DST} == 0xf5 /* a0.y */) &amp;&amp; ({SRC_TYPE} == 2 /* u16 */) &amp;&amp; ({DST_TYPE} == 2)
 		</expr>
 		<display>
 			{SY}{SS}{JP}{REPEAT}{UL}mova1 {EVEN}{POS_INF}a1.x, {SRC}
@@ -140,9 +110,7 @@ SOFTWARE.
 	</override>
 	<override>
 		<expr>
-			<var name="SRC_TYPE"/>
-			<var name="DST_TYPE"/>
-			<ne/>
+			{SRC_TYPE} != {DST_TYPE}
 		</expr>
 		<display>
 			{SY}{SS}{JP}{REPEAT}{UL}cov.{SRC_TYPE}{DST_TYPE} {EVEN}{POS_INF}{DST_HALF}{DST}, {SRC}
@@ -154,30 +122,20 @@ SOFTWARE.
 	<pattern low="57" high="58">00</pattern>  <!-- OPC -->
 	<derived name="HALF" type="bool" display="h">
 		<expr>
-			<var name="SRC_TYPE"/>
-			<jmp/>
-			<retlit val="1"/>  <!-- f16 -->
-			<retlit val="0"/>  <!-- f32 -->
-			<retlit val="1"/>  <!-- u16 -->
-			<retlit val="0"/>  <!-- u32 -->
-			<retlit val="1"/>  <!-- s16 -->
-			<retlit val="0"/>  <!-- s32 -->
-			<retlit val="1"/>  <!-- u8 -->
-			<retlit val="1"/>  <!-- s8 -->
+			({SRC_TYPE} == 0) /* f16 */ ||
+			({SRC_TYPE} == 2) /* u16 */ ||
+			({SRC_TYPE} == 4) /* s16 */ ||
+			({SRC_TYPE} == 6) /* u8 */  ||
+			({SRC_TYPE} == 7) /* s8 */
 		</expr>
 	</derived>
 	<derived name="DST_HALF" type="bool" display="h">
 		<expr>
-			<var name="DST_TYPE"/>
-			<jmp/>
-			<retlit val="1"/>  <!-- f16 -->
-			<retlit val="0"/>  <!-- f32 -->
-			<retlit val="1"/>  <!-- u16 -->
-			<retlit val="0"/>  <!-- u32 -->
-			<retlit val="1"/>  <!-- s16 -->
-			<retlit val="0"/>  <!-- s32 -->
-			<retlit val="1"/>  <!-- u8 -->
-			<retlit val="1"/>  <!-- s8 -->
+			({DST_TYPE} == 0) /* f16 */ ||
+			({DST_TYPE} == 2) /* u16 */ ||
+			({DST_TYPE} == 4) /* s16 */ ||
+			({DST_TYPE} == 6) /* u8 */  ||
+			({DST_TYPE} == 7) /* s8 */
 		</expr>
 	</derived>
 	<field name="DST_TYPE" low="46" high="48" type="#type"/>
@@ -193,10 +151,7 @@ SOFTWARE.
 <bitset name="#cat1-immed-src" size="32">
 	<override>
 		<expr>
-			<doc>Is SRC_TYPE f16?</doc>
-			<var name="SRC_TYPE"/>
-			<literal val="0"/> <!-- f16 -->
-			<eq/>
+			{SRC_TYPE} == 0 /* f16 */
 		</expr>
 		<display>
 			h({IMMED})
@@ -205,10 +160,7 @@ SOFTWARE.
 	</override>
 	<override>
 		<expr>
-			<doc>Is SRC_TYPE f32?</doc>
-			<var name="SRC_TYPE"/>
-			<literal val="1"/> <!-- f32 -->
-			<eq/>
+			{SRC_TYPE} == 1 /* f32 */
 		</expr>
 		<display>
 			({IMMED})
@@ -217,10 +169,7 @@ SOFTWARE.
 	</override>
 	<override>
 		<expr>
-			<doc>Is SRC_TYPE s16?</doc>
-			<var name="SRC_TYPE"/>
-			<literal val="4"/> <!-- s16 -->
-			<eq/>
+			{SRC_TYPE} == 4 /* s16 */
 		</expr>
 		<display>
 			{IMMED}
@@ -230,10 +179,7 @@ SOFTWARE.
 
 	<override>
 		<expr>
-			<doc>Is SRC_TYPE s32?</doc>
-			<var name="SRC_TYPE"/>
-			<literal val="5"/> <!-- s32 -->
-			<eq/>
+			{SRC_TYPE} == 5 /* s32 */
 		</expr>
 		<display>
 			{IMMED}
@@ -354,11 +300,7 @@ SOFTWARE.
 	</display>
 	<derived name="W" type="uint">
 		<expr>
-			<literal val="5"/>
-			<var name="REPEAT"/>
-			<literal val="1"/>
-			<add/>
-			<lsh/>
+			({REPEAT} + 1) * 32
 		</expr>
 	</derived>
 	<pattern low="0" high="31">00000000000000000000000000000000</pattern>
