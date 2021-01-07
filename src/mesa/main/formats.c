@@ -483,10 +483,13 @@ format_array_format_table_init(void)
       if (_mesa_is_format_srgb(f))
          continue;
 
+      array_format = _mesa_format_to_array_format(info->ArrayFormat);
+#if 0
 #if UTIL_ARCH_LITTLE_ENDIAN
          array_format = info->ArrayFormat;
 #else
          array_format = _mesa_array_format_flip_channels(info->ArrayFormat);
+#endif
 #endif
 
       _mesa_hash_table_insert_pre_hashed(format_array_format_table,
