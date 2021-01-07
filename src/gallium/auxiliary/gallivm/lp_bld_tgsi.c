@@ -402,17 +402,10 @@ lp_build_emit_fetch_src(
          res = lp_build_negate( &bld_base->base, res );
          break;
       case TGSI_TYPE_DOUBLE:
-         /* no double build context */
-         assert(0);
-         break;
       case TGSI_TYPE_SIGNED:
       case TGSI_TYPE_UNSIGNED:
-         res = lp_build_negate( &bld_base->int_bld, res );
-         break;
       case TGSI_TYPE_SIGNED64:
       case TGSI_TYPE_UNSIGNED64:
-         res = lp_build_negate( &bld_base->int64_bld, res );
-         break;
       case TGSI_TYPE_VOID:
       default:
          assert(0);
