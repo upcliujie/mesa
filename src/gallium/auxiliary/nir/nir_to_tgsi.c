@@ -2619,9 +2619,7 @@ nir_to_tgsi(struct nir_shader *s,
       NIR_PASS_V(s, nir_lower_bool_to_float);
    }
 
-   NIR_PASS_V(s, nir_lower_to_source_mods,
-              nir_lower_float_source_mods |
-              nir_lower_int_source_mods); /* no doubles */
+   NIR_PASS_V(s, nir_lower_to_source_mods, nir_lower_float_source_mods); /* only 32b floats */
    NIR_PASS_V(s, nir_convert_from_ssa, true);
    NIR_PASS_V(s, nir_lower_vec_to_movs);
 
