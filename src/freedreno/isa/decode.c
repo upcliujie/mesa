@@ -139,7 +139,7 @@ struct decode_state {
 	 * recursion.
 	 */
 	int expr_sp;
-	const struct isa_expr *expr_stack[8];
+	isa_expr_t expr_stack[8];
 
 	/**
 	 * Current topmost/innermost level of scope used for decoding fields,
@@ -157,7 +157,6 @@ struct decode_state {
 };
 
 static void display(struct decode_scope *scope);
-static uint64_t decode_field(struct decode_scope *scope, const char *field_name);
 static void decode_error(struct decode_state *state, const char *fmt, ...) _util_printf_format(2,3);
 
 static void
@@ -192,7 +191,7 @@ flush_errors(struct decode_state *state)
 
 
 static bool
-push_expr(struct decode_state *state, const struct isa_expr *expr)
+push_expr(struct decode_state *state, isa_expr_t expr)
 {
 	for (int i = state->expr_sp - 1; i > 0; i--) {
 		if (state->expr_stack[i] == expr) {
@@ -238,28 +237,8 @@ pop_scope(struct decode_scope *scope)
  * Evaluate an expression, returning it's resulting value
  */
 static uint64_t
-evaluate_expr(struct decode_scope *scope, const struct isa_expr *expr)
+evaluate_expr(struct decode_scope *scope, isa_expr_t expr)
 {
-	int64_t stack[8], tmp;
-	int sp = 0;
-#define eval_dbg(...)  do { if (0) printf(__VA_ARGS__); } while (0)
-#define push(v) do { \
-			assert(sp < ARRAY_SIZE(stack)); \
-			eval_dbg("EVAL: %s", #v); \
-			stack[sp] = (v); \
-			sp++; \
-			eval_dbg(" -> %"PRId64"\n", stack[sp-1]); \
-		} while (0)
-#define peek() ({ \
-			assert(sp < ARRAY_SIZE(stack)); \
-			stack[sp - 1]; \
-		})
-#define pop() ({ \
-			assert(sp > 0); \
-			--sp; \
-			stack[sp]; \
-		})
-
 	if (scope->cache) {
 		struct hash_entry *entry = _mesa_hash_table_search(scope->cache, expr);
 		if (entry) {
@@ -272,78 +251,15 @@ evaluate_expr(struct decode_scope *scope, const struct isa_expr *expr)
 	if (!push_expr(scope->state, expr))
 		return 0;
 
-	eval_dbg("EVAL: %p (%u)\n", expr, expr->num_instructions);
-	for (int pc = 0; pc < expr->num_instructions; pc++) {
-		switch (expr->instructions[pc].opc) {
-		case ISA_INSTR_LITERAL:
-			push(expr->instructions[pc].literal);
-			break;
-		case ISA_INSTR_VAR:
-			eval_dbg("EVAL: variable=%s\n", expr->instructions[pc].variable);
-			push(decode_field(scope, expr->instructions[pc].variable));
-			break;
-		case ISA_INSTR_DUP:
-			push(peek());
-			break;
-		case ISA_INSTR_JMP:
-			pc += pop();
-			assert(pc > 0);
-			break;
-		case ISA_INSTR_RET:
-			goto out;
-		case ISA_INSTR_RETLIT:
-			push(expr->instructions[pc].literal);
-			goto out;
-		case ISA_INSTR_RETIF:
-			tmp = pop();
-			if (tmp) {
-				push(tmp);
-				goto out;
-			}
-			break;
-		case ISA_INSTR_NE:
-			push(pop() != pop());
-			break;
-		case ISA_INSTR_EQ:
-			push(pop() == pop());
-			break;
-		case ISA_INSTR_GT:
-			push(pop() > pop());
-			break;
-		case ISA_INSTR_NOT:
-			push(!pop());
-			break;
-		case ISA_INSTR_OR:
-			push(pop() | pop());
-			break;
-		case ISA_INSTR_AND:
-			push(pop() & pop());
-			break;
-		case ISA_INSTR_LSH:
-			push(pop() << pop());
-			break;
-		case ISA_INSTR_RSH:
-			push(pop() >> pop());
-			break;
-		case ISA_INSTR_ADD:
-			push(pop() + pop());
-			break;
-		}
-	}
+	uint64_t ret = expr(scope);
 
-out:
 	pop_expr(scope->state);
-
-	uint64_t ret = pop();
 
 	uint64_t *retp = ralloc_size(scope->cache, sizeof(*retp));
 	*retp = ret;
 	_mesa_hash_table_insert(scope->cache, expr, retp);
 
 	return ret;
-#undef pop
-#undef peek
-#undef push
 }
 
 /**
@@ -404,7 +320,7 @@ find_field(struct decode_scope *scope, const struct isa_bitset *bitset,
 			 * This allows <override/>'s to speculatively refer to
 			 * fields defined within the override:
 			 */
-			const struct isa_expr *cur_expr = NULL;
+			isa_expr_t cur_expr = NULL;
 			if (state->expr_sp > 0)
 				cur_expr = state->expr_stack[state->expr_sp - 1];
 			if ((cur_expr != c->expr) && !evaluate_expr(scope, c->expr))
@@ -547,8 +463,9 @@ resolve_field(struct decode_scope *scope, const char *field_name, uint64_t *valp
 	return field;
 }
 
-static uint64_t
-decode_field(struct decode_scope *scope, const char *field_name)
+/* This is also used from generated expr functions */
+uint64_t
+isa_decode_field(struct decode_scope *scope, const char *field_name)
 {
 	uint64_t val;
 	const struct isa_field *field = resolve_field(scope, field_name, &val);

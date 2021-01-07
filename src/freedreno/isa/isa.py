@@ -22,6 +22,7 @@
 
 from xml.etree import ElementTree
 import os
+import re
 
 def dbg(str):
     if False:
@@ -367,28 +368,10 @@ class BitSetExpression(object):
         else:
             self.name = 'anon_' + str(isa.anon_expression_count)
             isa.anon_expression_count = isa.anon_expression_count + 1
-        self.instructions = []
-        # Instructions with no additional operand:
-        simple_instructions = [
-            'dup',
-            'jmp', 'ret', 'retif',
-            'ne',  'eq',  'gt',
-            'not', 'or',  'and',
-            'lsh', 'rsh',
-            'add',
-        ]
-        for child in xml:
-            if child.tag == 'literal':
-                self.instructions.append(['LITERAL', child.attrib['val']])
-            elif child.tag == 'var':
-                self.instructions.append(['VAR', child.attrib['name']])
-            elif child.tag == 'retlit':
-                self.instructions.append(['RETLIT', child.attrib['val']])
-            elif child.tag in simple_instructions:
-                self.instructions.append([child.tag.upper()])
-            else:
-                # ignore <doc> elements, anything else unknown is an error:
-                assert child.tag == 'doc', "{}: unknown expression element: {}".format(self.name, child.tag)
+        expr = xml.text.strip()
+        self.fieldnames = list(set(re.findall(r"{([a-zA-Z0-9_]+)}", expr)))
+        self.expr = re.sub(r"{([a-zA-Z0-9_]+)}", r"\1", expr)
+        dbg("'{}' -> '{}'".format(expr, self.expr))
 
     def get_c_name(self):
         return 'expr_' + get_c_name(self.name)

@@ -31,6 +31,8 @@
  * Defines the tables which are generated from xml for disassembly
  */
 
+struct decode_scope;
+
 /* TODO we could maybe make this a uint8_t array, with some helpers, to
  * support arbitrary sized patterns.. or add AND/OR/SHIFT support to
  * util/bitset.h?
@@ -51,57 +53,14 @@ struct isa_enum {
 };
 
 /**
- * An RPN[1] expression used for conditional overrides and derived fields.
- * RPN is used because it makes for a simple expression evaluator.
- *
- * [1] https://en.wikipedia.org/wiki/Reverse_Polish_notation
+ * An expression used to for conditional overrides, derived fields, etc
  */
-struct isa_expr {
-	unsigned num_instructions;
-	struct {
-		enum {
-			/** push literal value to stack */
-			ISA_INSTR_LITERAL,
-			/** lookup field value and push to stack */
-			ISA_INSTR_VAR,
-			/** push(peek()) */
-			ISA_INSTR_DUP,
-			/** pc += pop() */
-			ISA_INSTR_JMP,
-			/** return pop() */
-			ISA_INSTR_RET,
-			/** push literal value to stack and return (combine with jmp to implement LUT) */
-			ISA_INSTR_RETLIT,
-			/** if ((v=pop())) return v; (which allows early return from if/else ladder) */
-			ISA_INSTR_RETIF,
-			/** push(pop() != pop()) */
-			ISA_INSTR_NE,
-			/** push(pop() == pop()) */
-			ISA_INSTR_EQ,
-			/** push(pop() > pop()) */
-			ISA_INSTR_GT,
-			/** push(!pop()) */
-			ISA_INSTR_NOT,
-			/** push(pop() | pop()) */
-			ISA_INSTR_OR,
-			/** push(pop() & pop()) */
-			ISA_INSTR_AND,
-			/** push(pop() << pop()) */
-			ISA_INSTR_LSH,
-			/** push(pop() >> pop()) */
-			ISA_INSTR_RSH,
-			/** push(pop() + pop()) */
-			ISA_INSTR_ADD,
+typedef uint64_t (*isa_expr_t)(struct decode_scope *scope);
 
-			// TODO add more opcodes as needed
-		} opc;
-		/* optional opcode operands: */
-		union {
-			int64_t literal;
-			const char *variable;
-		};
-	} instructions[];
-};
+/**
+ * Used by generated expr functions
+ */
+uint64_t isa_decode_field(struct decode_scope *scope, const char *field_name);
 
 /**
  * For bitset fields, there are some cases where we want to "remap" field
@@ -121,7 +80,7 @@ struct isa_field_params {
  */
 struct isa_field {
 	const char *name;
-	const struct isa_expr *expr;       /* for virtual "derived" fields */
+	isa_expr_t expr;       /* for virtual "derived" fields */
 	unsigned low;
 	unsigned high;
 	enum {
@@ -166,7 +125,7 @@ struct isa_field {
  * the last (default) case.
  */
 struct isa_case {
-	const struct isa_expr *expr;
+	isa_expr_t expr;
 	const char *display;
 	unsigned num_fields;
 	struct isa_field fields[];

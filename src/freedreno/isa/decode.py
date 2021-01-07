@@ -66,25 +66,19 @@ static const struct isa_enum ${enum.get_c_name()} = {
 %endfor
 
 /*
- * expression tables, can be linked from bitset tables, so also dump
- * them up front
+ * generated expression functions, can be linked from bitset tables, so
+ * also dump them up front
  */
 
 %for name, expr in isa.expressions.items():
-static const struct isa_expr ${expr.get_c_name()} = {
-    .num_instructions = ${len(expr.instructions)},
-    .instructions = {
-%   for instr in expr.instructions:
-        { .opc = ISA_INSTR_${instr[0]},
-%      if instr[0] == 'LITERAL' or instr[0] == 'RETLIT':
-          .literal = ${instr[1]},
-%      elif instr[0] == 'VAR':
-          .variable = "${instr[1]}",
-%      endif
-        },
-%endfor
-    },
-};
+static uint64_t
+${expr.get_c_name()}(struct decode_scope *scope)
+{
+%   for fieldname in expr.fieldnames:
+    int64_t ${fieldname} = isa_decode_field(scope, "${fieldname}");
+%   endfor
+    return ${expr.expr};
+}
 %endfor
 
 /*

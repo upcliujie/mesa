@@ -148,9 +148,8 @@ class Case(object):
             self.fieldnames.append(fieldname)
 
     def append_expr_fields(self, expr):
-        for instr in expr.instructions:
-            if instr[0] == 'VAR':
-                self.append_field(instr[1])
+        for fieldname in expr.fieldnames:
+            self.append_field(fieldname)
 
     def display_fields(self):
         for fieldname in self.fieldnames:
@@ -392,73 +391,20 @@ struct bitset_params {
 static inline int64_t
 ${s.expr_name(leaf.get_root(), expr)}(struct encode_state *s, struct bitset_params *p, ${leaf.get_root().encode.type} src)
 {
-   int64_t stack[8], tmp;
-   int sp = 0;
-   (void)tmp;
-<% idx=0 %>
-%if s.has_jmp(expr.instructions):
-   int pc = 0;
-start:
-%endif
-%for instr in expr.instructions:
-%   if s.has_jmp(expr.instructions):
-    if (pc == ${idx}) {
-%   endif
-%   if instr[0] == 'DUP':
-       push(peek());
-%   elif instr[0] == 'JMP':
-       pc += pop();
-       pc++;
-       goto start;
-    }
-    <% idx = idx + 1 %><% continue %>
-%   elif instr[0] == 'RET':
-       return pop();
-%   elif instr[0] == 'RETLIT':
-       return ${instr[1]};
-%   elif instr[0] == 'RETIF':
-       tmp = pop();
-       if (tmp)
-          return tmp;
-%   elif instr[0] == 'NE':
-       push(pop() != pop());
-%   elif instr[0] == 'EQ':
-       push(pop() == pop());
-%   elif instr[0] == 'GT':
-       push(pop() > pop());
-%   elif instr[0] == 'NOT':
-       push(!pop());
-%   elif instr[0] == 'OR':
-       push(pop() | pop());
-%   elif instr[0] == 'AND':
-       push(pop() & pop());
-%   elif instr[0] == 'LSH':
-       push(pop() << pop());
-%   elif instr[0] == 'RSH':
-       push(pop() >> pop());
-%   elif instr[0] == 'ADD':
-       push(pop() + pop());
-%   elif instr[0] == 'LITERAL':
-       push(${instr[1]});
-%   elif instr[0] == 'VAR':
-<% field = s.resolve_simple_field(leaf, instr[1]) %>
+%   for fieldname in expr.fieldnames:
+    int64_t ${fieldname};
+%   endfor
+%   for fieldname in expr.fieldnames:
+<% field = s.resolve_simple_field(leaf, fieldname) %>
 %      if field is not None and field.get_c_typename() == 'TYPE_BITSET':
           { ${encode_params(leaf, field)}
-          push(${s.expr_extractor(leaf, instr[1], '&bp')});  /* ${instr[1]} */
+          ${fieldname} = ${s.expr_extractor(leaf, fieldname, '&bp')};
           }
 %      else:
-          push(${s.expr_extractor(leaf, instr[1], 'p')});  /* ${instr[1]} */
+          ${fieldname} = ${s.expr_extractor(leaf, fieldname, 'p')};
 %      endif
-%   else:
-# error ${'unhandled instruction: ' + instr[0]}
-%   endif
-%   if s.has_jmp(expr.instructions):
-    pc++;
-    <% idx = idx + 1 %>
-    }
-%   endif
-%endfor
-   return pop();
+%   endfor
+    return ${expr.expr};
 }
 </%def>
 
