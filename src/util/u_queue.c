@@ -309,7 +309,7 @@ util_queue_thread_func(void *input)
          queue->total_jobs_size -= job.job_size;
       mtx_unlock(&queue->lock);
 
-      if (job.job) {
+      if (job.execute) {
          job.execute(job.job, thread_index);
          util_queue_fence_signal(job.fence);
          if (job.cleanup)
