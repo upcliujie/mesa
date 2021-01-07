@@ -810,10 +810,14 @@ ntt_emit_alu(struct ntt_compile *c, nir_alu_instr *instr)
          ureg_ADD(c->ureg, dst, src[0], ureg_negate(src[1]));
          break;
 
-      case nir_op_isub:
+      case nir_op_isub: {
          assert(!dst_64);
-         ureg_UADD(c->ureg, dst, src[0], ureg_negate(src[1]));
+         struct ureg_dst temp = ureg_DECL_temporary(c->ureg);
+         ureg_INEG(c->ureg, temp, src[1]);
+         ureg_UADD(c->ureg, dst, src[0], ureg_src(temp));
+         ureg_release_temporary(c->ureg, temp);
          break;
+      }
 
          /* XXX: carry */
 
