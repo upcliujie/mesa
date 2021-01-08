@@ -40,6 +40,10 @@
 #include <signal.h>
 #include <errno.h>
 
+#include "util/macros.h"
+
+#include "isa/isa.h"
+
 #include "redump.h"
 #include "disasm.h"
 #include "script.h"
@@ -410,6 +414,277 @@ dump_shader(const char *ext, void *buf, int bufsz)
 	}
 }
 
+struct decode_data {
+	struct isa_decode_options *options;
+	unsigned level;
+	unsigned extra_cycles;
+
+	/**
+	 * nop_count/has_end used to detect the real end of shader.  Since
+	 * in some cases there can be a epilogue following an `end` we look
+	 * for a sequence of `nop`s following the `end`
+	 */
+	int nop_count;      /* number of nop's since non-nop instruction: */
+	bool has_end;       /* have we seen end instruction */
+
+	int cur_n;          /* current instr # */
+	int cur_opc_cat;    /* current opc_cat */
+
+	int sfu_delay;
+
+	/**
+	 * State accumulated decoding fields of the current instruction,
+	 * handled after decoding is complete (ie. at start of next instr)
+	 */
+	struct {
+		bool ss;
+		uint8_t nop;
+		uint8_t repeat;
+	} last;
+
+	/**
+	 * State accumulated decoding fields of src or dst register
+	 */
+	struct {
+		bool half;
+		bool r;
+		enum {
+			FILE_GPR = 1,
+			FILE_CONST = 2,
+		} file;
+		unsigned num;
+	} reg;
+
+	struct {
+		int nops;
+		int ss, sy;
+		int constlen;
+		int halfreg;
+		int fullreg;
+		uint16_t sstall;
+		uint16_t mov_count;
+		uint16_t cov_count;
+		uint16_t last_baryf;
+		uint16_t instrs_per_cat[8];
+	} stat;
+};
+
+static void
+disasm_field_cb(void *d, const char *field_name, struct isa_decode_value *val)
+{
+	struct decode_data *data = d;
+
+	if (!strcmp(field_name, "NAME")) {
+		if (!strcmp("nop", val->str)) {
+			if (data->has_end) {
+				data->nop_count++;
+				if (data->nop_count > 3) {
+					data->options->stop = true;
+				}
+			}
+			data->stat.nops += 1 + data->last.repeat;
+		} else {
+			data->nop_count = 0;
+		}
+
+		if (!strcmp("end", val->str)) {
+			data->has_end = true;
+			data->nop_count = 0;
+		} else if (!strcmp("chsh", val->str)) {
+			data->options->stop = true;
+		} else if (!strcmp("bary.f", val->str)) {
+			data->stat.last_baryf = data->cur_n;
+		}
+	} else if (!strcmp(field_name, "REPEAT")) {
+		data->extra_cycles += val->num;
+		data->stat.instrs_per_cat[data->cur_opc_cat] += val->num;
+		data->last.repeat = val->num;
+	} else if (!strcmp(field_name, "NOP")) {
+		data->extra_cycles += val->num;
+		data->stat.instrs_per_cat[0] += val->num;
+		data->stat.nops += val->num;
+		data->last.nop = val->num;
+	} else if (!strcmp(field_name, "SY")) {
+		data->stat.sy += val->num;
+	} else if (!strcmp(field_name, "SS")) {
+		data->stat.ss += val->num;
+		data->last.ss = !!val->num;
+	} else if (!strcmp(field_name, "CONST")) {
+		data->reg.num = val->num;
+		data->reg.file = FILE_CONST;
+	} else if (!strcmp(field_name, "GPR")) {
+		/* don't count GPR regs r48.x (shared) or higher: */
+		if (val->num < 48) {
+			data->reg.num = val->num;
+			data->reg.file = FILE_GPR;
+		}
+	} else if (!strcmp(field_name, "SRC_R") ||
+			!strcmp(field_name, "SRC1_R") ||
+			!strcmp(field_name, "SRC2_R") ||
+			!strcmp(field_name, "SRC3_R")) {
+		data->reg.r = val->num;
+	} else if (!strcmp(field_name, "DST")) {
+		/* Dest register is always repeated
+		 *
+		 * Note that this doesn't really properly handle instructions
+		 * that write multiple components.. the old disasm didn't handle
+		 * that case either.
+		 */
+		data->reg.r = true;
+	} else if (strstr(field_name, "HALF")) {
+		data->reg.half = val->num;
+	} else if (!strcmp(field_name, "SWIZ")) {
+		unsigned num = (data->reg.num << 2) | val->num;
+		if (data->reg.r)
+			num += data->last.repeat;
+
+		if (data->reg.file == FILE_CONST) {
+			data->stat.constlen = max(data->stat.constlen, num);
+		} else if (data->reg.file == FILE_GPR) {
+			if (data->reg.half) {
+				data->stat.halfreg = max(data->stat.halfreg, num);
+			} else {
+				data->stat.fullreg = max(data->stat.fullreg, num);
+			}
+		}
+
+		memset(&data->reg, 0, sizeof(data->reg));
+	}
+}
+
+/**
+ * Handle stat updates dealt with at the end of instruction decoding,
+ * ie. before beginning of next instruction
+ */
+static void
+disasm_handle_last(struct decode_data *data)
+{
+	if (data->last.ss) {
+		data->stat.sstall += data->sfu_delay;
+		data->sfu_delay = 0;
+	}
+
+	if (data->cur_opc_cat == 4) {
+		data->sfu_delay = 10;
+	} else {
+		int n = min(data->sfu_delay, 1 + data->last.repeat + data->last.nop);
+		data->sfu_delay -= n;
+	}
+
+	memset(&data->last, 0, sizeof(data->last));
+}
+
+static void
+disasm_instr_cb(void *d, unsigned n, uint64_t instr)
+{
+	struct decode_data *data = d;
+	uint32_t *dwords = (uint32_t *)&instr;
+	unsigned opc_cat = instr >> 61;
+
+	/* There are some cases where we can get instr_cb called multiple
+	 * times per instruction (like when we need an extra line for branch
+	 * target labels), don't update stats in these cases:
+	 */
+	if (n != data->cur_n) {
+		if (n > 0) {
+			disasm_handle_last(data);
+		}
+		data->stat.instrs_per_cat[opc_cat]++;
+		data->cur_n = n;
+
+		/* mov vs cov stats are a bit harder to fish out of the field
+		 * names, because current ir3-cat1.xml doesn't use {NAME} for
+		 * this distinction.  So for now just handle this case with
+		 * some hand-coded parsing:
+		 */
+		if (opc_cat == 1) {
+			unsigned opc      = (instr >> 57) & 0x3;
+			unsigned src_type = (instr >> 50) & 0x7;
+			unsigned dst_type = (instr >> 46) & 0x7;
+
+			if (opc == 0) {
+				if (src_type == dst_type) {
+					data->stat.mov_count++;
+				} else {
+					data->stat.cov_count++;
+				}
+			}
+		}
+	}
+
+	data->cur_opc_cat = opc_cat;
+
+	printf("%s:%d:%04d:%04d[%08xx_%08xx] ", levels[data->level], opc_cat, n,
+			data->extra_cycles + n, dwords[1], dwords[0]);
+}
+
+static void
+a3xx_disasm(void *buf, unsigned sizedwords, int level)
+{
+	struct isa_decode_options decode_options = {
+		.gpu_id = options->gpu_id,
+		.show_errors = true,
+		.branch_labels = true,
+		.field_cb = disasm_field_cb,
+		.instr_cb = disasm_instr_cb,
+	};
+	struct decode_data data = {
+		.level = level,
+		.options = &decode_options,
+		.cur_n = -1,
+	};
+	decode_options.cbdata = &data;
+	isa_decode(buf, sizedwords * 4, stdout, &decode_options);
+
+	disasm_handle_last(&data);
+
+	if (options->gpu_id >= 600) {
+		/* handle MERGEREGS case.. this isn't *entirely* accurate, as
+		 * you can have shader stages not using merged register file,
+		 * but it is good enough for a guestimate:
+		 */
+		unsigned n = (data.stat.halfreg + 1) / 2;
+
+		data.stat.halfreg = 0;
+		data.stat.fullreg = max(data.stat.fullreg, n);
+	}
+
+	unsigned instructions = data.cur_n + data.extra_cycles + 1;
+
+	// TODO rename 'Register Stats' -> 'Stats'
+	printf("%sStats:\n", levels[level]);
+	printf("%s- shaderdb: %u instr, %u nops, %u non-nops, %u mov, %u cov\n",
+			levels[level],
+			instructions,
+			data.stat.nops,
+			instructions - data.stat.nops,
+			data.stat.mov_count, data.stat.cov_count);
+
+	printf("%s- shaderdb: %u last-baryf, %d half, %d full, %u constlen\n",
+			levels[level],
+			data.stat.last_baryf,
+			DIV_ROUND_UP(data.stat.halfreg, 4),
+			DIV_ROUND_UP(data.stat.fullreg, 4),
+			DIV_ROUND_UP(data.stat.constlen, 4));
+
+	printf("%s- shaderdb: %u cat0, %u cat1, %u cat2, %u cat3, %u cat4, %u cat5, %u cat6, %u cat7\n",
+			levels[level],
+			data.stat.instrs_per_cat[0],
+			data.stat.instrs_per_cat[1],
+			data.stat.instrs_per_cat[2],
+			data.stat.instrs_per_cat[3],
+			data.stat.instrs_per_cat[4],
+			data.stat.instrs_per_cat[5],
+			data.stat.instrs_per_cat[6],
+			data.stat.instrs_per_cat[7]);
+
+	printf("%s- shaderdb: %u sstall, %u (ss), %u (sy)\n",
+			levels[level],
+			data.stat.sstall,
+			data.stat.ss,
+			data.stat.sy);
+}
+
 static void
 disasm_gpuaddr(const char *name, uint64_t gpuaddr, int level)
 {
@@ -426,7 +701,7 @@ disasm_gpuaddr(const char *name, uint64_t gpuaddr, int level)
 		const char *ext;
 
 		dump_hex(buf, min(64, sizedwords), level+1);
-		try_disasm_a3xx(buf, sizedwords, level+2, stdout, options->gpu_id);
+		a3xx_disasm(buf, sizedwords, level+1);
 
 		/* this is a bit ugly way, but oh well.. */
 		if (strstr(name, "SP_VS_OBJ")) {
@@ -1492,8 +1767,9 @@ cp_load_state(uint32_t *dwords, uint32_t sizedwords, int level)
 			ext = "fo3";
 		}
 
-		if (contents)
-			try_disasm_a3xx(contents, num_unit * 2, level+2, stdout, options->gpu_id);
+		if (contents) {
+			a3xx_disasm(contents, num_unit * 2, level+1);
+		}
 
 		/* dump raw shader: */
 		if (ext)
