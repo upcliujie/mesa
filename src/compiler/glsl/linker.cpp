@@ -2570,6 +2570,7 @@ link_intrastage_shaders(void *mem_ctx,
    ralloc_steal(linked, ubo_blocks);
    for (unsigned i = 0; i < num_ubo_blocks; i++) {
       linked->Program->sh.UniformBlocks[i] = &ubo_blocks[i];
+      linked->Program->info.ubo_sizes[i] = ubo_blocks[i].UniformBufferSize;
    }
    linked->Program->sh.NumUniformBlocks = num_ubo_blocks;
    linked->Program->info.num_ubos = num_ubo_blocks;

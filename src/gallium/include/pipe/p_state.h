@@ -44,6 +44,8 @@
 #ifndef PIPE_STATE_H
 #define PIPE_STATE_H
 
+#include "compiler/shader_enums.h"
+
 #include "p_compiler.h"
 #include "p_defines.h"
 #include "p_format.h"
@@ -61,7 +63,7 @@ struct gl_buffer_object;
 #define PIPE_MAX_ATTRIBS          32
 #define PIPE_MAX_CLIP_PLANES       8
 #define PIPE_MAX_COLOR_BUFS        8
-#define PIPE_MAX_CONSTANT_BUFFERS 32
+#define PIPE_MAX_CONSTANT_BUFFERS MAX_CONSTANT_BUFFERS
 #define PIPE_MAX_SAMPLERS         32
 #define PIPE_MAX_SHADER_INPUTS    80 /* 32 GENERIC + 32 PATCH + 16 others */
 #define PIPE_MAX_SHADER_OUTPUTS   80 /* 32 GENERIC + 32 PATCH + 16 others */
