@@ -3250,7 +3250,6 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			NIR_PASS_V(nir[i], nir_lower_memory_model);
 
 			bool lower_to_scalar = false;
-			bool lower_pack = false;
 			nir_variable_mode robust_modes = (nir_variable_mode)0;
 
 			if (device->robust_buffer_access) {
@@ -3266,7 +3265,6 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 							 nir_var_mem_global,
 							 mem_vectorize_callback, robust_modes)) {
 				lower_to_scalar = true;
-				lower_pack = true;
 			}
 
 			/* do this again since information such as outputs_read can be out-of-date */
@@ -3278,8 +3276,6 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 
 			if (lower_to_scalar)
 				nir_lower_alu_to_scalar(nir[i], NULL, NULL);
-			if (lower_pack)
-				nir_lower_pack(nir[i]);
 
 			/* lower ALU operations */
 			/* TODO: Some 64-bit tests crash inside LLVM. */
