@@ -2729,8 +2729,8 @@ void propagate_swizzles(VOP3P_instruction* instr, uint8_t opsel_lo, uint8_t opse
 {
    /* propagate swizzles which apply to a result down to the instruction's operands:
     * result = a.xy + b.xx -> result.yx = a.yx + b.xx */
-   assert(opsel_lo & 1 == opsel_lo);
-   assert(opsel_hi & 1 == opsel_hi);
+   assert((opsel_lo & 1) == opsel_lo);
+   assert((opsel_hi & 1) == opsel_hi);
    uint8_t tmp_lo = instr->opsel_lo;
    uint8_t tmp_hi = instr->opsel_hi;
    instr->opsel_lo = opsel_lo ? tmp_hi : tmp_lo;
