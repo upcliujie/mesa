@@ -80,13 +80,13 @@ stages:
   - apk --no-cache add graphviz
   - pip3 install sphinx sphinx_rtd_theme
   - sphinx-build -b html docs public
+  artifacts:
+    paths:
+    - public
 
 pages:
   extends: .docs-base
   stage: deploy
-  artifacts:
-    paths:
-    - public
   needs: []
   rules:
     - *ignore_scheduled_pipelines
