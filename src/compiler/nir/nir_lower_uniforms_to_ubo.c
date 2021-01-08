@@ -128,6 +128,10 @@ nir_lower_uniforms_to_ubo(nir_shader *shader, int multiplier)
 
    if (progress) {
       if (!shader->info.first_ubo_is_default_ubo) {
+         memmove(&shader->info.ubo_sizes[1],
+                 &shader->info.ubo_sizes[0],
+                 sizeof(shader->info.ubo_sizes) - sizeof(shader->info.ubo_sizes[0]));
+
          nir_foreach_variable_with_modes(var, shader, nir_var_mem_ubo) {
             var->data.binding++;
             /* only increment location for ubo arrays */

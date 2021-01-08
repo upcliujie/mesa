@@ -187,6 +187,9 @@ typedef struct shader_info {
    /* The size of the gl_CullDistance[] array, if declared. */
    uint8_t cull_distance_array_size:4;
 
+   /* Sizes of uniform blocks after linking in GL. */
+   uint32_t ubo_sizes[MAX_CONSTANT_BUFFERS];
+
    /* Whether or not this shader ever uses textureGather() */
    bool uses_texture_gather:1;
 
