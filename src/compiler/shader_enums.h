@@ -30,6 +30,7 @@
 
 /* Project-wide (GL and Vulkan) maximum. */
 #define MAX_DRAW_BUFFERS 8
+#define MAX_CONSTANT_BUFFERS 32
 
 #ifdef __cplusplus
 extern "C" {
