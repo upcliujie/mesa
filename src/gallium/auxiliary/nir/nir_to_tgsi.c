@@ -191,6 +191,7 @@ ntt_store_output_decl(struct ntt_compile *c, nir_intrinsic_instr *instr, uint32_
    int base = nir_intrinsic_base(instr);
    *frac = nir_intrinsic_component(instr);
    bool is_64 = nir_src_bit_size(instr->src[0]) == 64;
+   unsigned write_mask = nir_intrinsic_write_mask(instr);
 
    struct ureg_dst out;
    if (c->s->info.stage == MESA_SHADER_FRAGMENT) {
@@ -237,6 +238,14 @@ ntt_store_output_decl(struct ntt_compile *c, nir_intrinsic_instr *instr, uint32_
        */
       bool invariant = false;
 
+      /* glsl_to_tgsi didn't restrict the usage mask on clip distances, and
+       * virglrenderer requires that the whole reg get written at once.
+       */
+      if (semantic_name == TGSI_SEMANTIC_CLIPDIST) {
+         write_mask = 0xf;
+         usage_mask = 0xf;
+      }
+
       out = ureg_DECL_output_layout(c->ureg,
                                     semantic_name, semantic_index,
                                     gs_streams,
@@ -246,8 +255,6 @@ ntt_store_output_decl(struct ntt_compile *c, nir_intrinsic_instr *instr, uint32_
                                     semantics.num_slots,
                                     invariant);
    }
-
-   unsigned write_mask = nir_intrinsic_write_mask(instr);
 
    if (is_64) {
       write_mask = ntt_64bit_write_mask(write_mask);
