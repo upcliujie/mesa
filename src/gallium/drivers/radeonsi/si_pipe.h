@@ -1687,6 +1687,18 @@ static inline struct si_shader_ctx_state *si_get_vs(struct si_context *sctx)
    return &sctx->vs_shader;
 }
 
+/* This should be evaluated at compile time if all parameters except sctx are constants. */
+static ALWAYS_INLINE struct si_shader_ctx_state *
+si_get_vs_inline(struct si_context *sctx, enum si_has_tess has_tess, enum si_has_gs has_gs)
+{
+   if (has_gs)
+      return &sctx->gs_shader;
+   if (has_tess)
+      return &sctx->tes_shader;
+
+   return &sctx->vs_shader;
+}
+
 static inline struct si_shader_info *si_get_vs_info(struct si_context *sctx)
 {
    struct si_shader_ctx_state *vs = si_get_vs(sctx);
