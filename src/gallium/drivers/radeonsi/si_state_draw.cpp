@@ -103,9 +103,9 @@ static void si_emit_prefetch_L2(struct si_context *sctx)
             return;
          }
 
-         if (mask & SI_PREFETCH_GS)
+         if ((HAS_GS || NGG) && mask & SI_PREFETCH_GS)
             si_prefetch_shader_async(sctx, sctx->queued.named.gs);
-         if (mask & SI_PREFETCH_VS)
+         if (!NGG && mask & SI_PREFETCH_VS)
             si_prefetch_shader_async(sctx, sctx->queued.named.vs);
       } else if (HAS_GS || NGG) {
          if (mask & SI_PREFETCH_GS)
@@ -118,7 +118,7 @@ static void si_emit_prefetch_L2(struct si_context *sctx)
             return;
          }
 
-         if (mask & SI_PREFETCH_VS)
+         if (!NGG && mask & SI_PREFETCH_VS)
             si_prefetch_shader_async(sctx, sctx->queued.named.vs);
       } else {
          if (mask & SI_PREFETCH_VS)
