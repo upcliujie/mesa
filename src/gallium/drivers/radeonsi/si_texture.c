@@ -2475,7 +2475,14 @@ void si_init_screen_texture_functions(struct si_screen *sscreen)
    sscreen->b.resource_get_param = si_resource_get_param;
    sscreen->b.resource_get_info = si_texture_get_info;
    sscreen->b.resource_from_memobj = si_resource_from_memobj;
-   sscreen->b.resource_create_with_modifiers = si_texture_create_with_modifiers;
+
+   /* By not setting it the frontend will fall back to non-modifier create,
+    * which works around some applications using modifiers that are not
+    * allowed in combination with lack of error reporting in
+    * gbm_dri_surface_create */
+   if (sscreen->info.chip_class >= GFX9)
+      sscreen->b.resource_create_with_modifiers = si_texture_create_with_modifiers;
+
    sscreen->b.memobj_create_from_handle = si_memobj_from_handle;
    sscreen->b.memobj_destroy = si_memobj_destroy;
    sscreen->b.check_resource_capability = si_check_resource_capability;
