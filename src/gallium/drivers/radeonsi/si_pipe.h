@@ -986,6 +986,7 @@ struct si_context {
    unsigned last_compressed_colortex_counter;
    unsigned last_num_draw_calls;
    unsigned flags; /* flush flags */
+   bool blitter_running;
    /* Current unaccounted memory usage. */
    uint32_t vram_kb;
    uint32_t gtt_kb;
