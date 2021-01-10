@@ -199,7 +199,6 @@ struct radeon_cmdbuf {
    struct radeon_cmdbuf_chunk current;
    struct radeon_cmdbuf_chunk *prev;
    unsigned num_prev; /* Number of previous chunks. */
-   unsigned max_prev; /* Space in array pointed to by prev. */
    unsigned prev_dw;  /* Total number of dwords in previous chunks. */
 
    /* Memory usage of the buffer list. These are always 0 for preamble IBs. */
