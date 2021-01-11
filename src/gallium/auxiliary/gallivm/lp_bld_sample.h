@@ -201,6 +201,7 @@ struct lp_static_sampler_state
    unsigned apply_min_lod:1;  /**< min_lod > 0 ? */
    unsigned apply_max_lod:1;  /**< max_lod < last_level ? */
    unsigned seamless_cube_map:1;
+   unsigned aniso:1;
 
    /* Hacks */
    unsigned force_nearest_s:1;
@@ -328,6 +329,13 @@ struct lp_sampler_dynamic_state
                    struct gallivm_state *gallivm,
                    LLVMValueRef context_ptr,
                    unsigned sampler_unit);
+
+   /** Obtain maximum anisotropy */
+   LLVMValueRef
+   (*max_aniso)(const struct lp_sampler_dynamic_state *state,
+               struct gallivm_state *gallivm,
+               LLVMValueRef context_ptr,
+               unsigned sampler_unit);
 
    /** 
     * Obtain texture cache (returns ptr to lp_build_format_cache).
