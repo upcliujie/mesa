@@ -2555,6 +2555,13 @@ ntt_fix_nir_options(struct nir_shader *s)
    }
 }
 
+/**
+ * Translates the NIR shader to TGSI.
+ *
+ * This requires some lowering of the NIR shader to prepare it for translation.
+ * We take ownership of the NIR shader passed, returning a reference to the new
+ * TGSI tokens instead.  If you need to keep the NIR, then pass us a clone.
+ */
 const void *
 nir_to_tgsi(struct nir_shader *s,
             struct pipe_screen *screen)
@@ -2687,6 +2694,7 @@ nir_to_tgsi(struct nir_shader *s,
 
    ureg_destroy(c->ureg);
 
+   ralloc_free(s);
    ralloc_free(c);
 
    if (s->options != original_options) {
