@@ -26,6 +26,7 @@
 #include "compiler/nir/nir_builder.h"
 #include "compiler/glsl/gl_nir.h"
 #include "nir/nir_to_tgsi.h"
+#include "tgsi/tgsi_parse.h"
 
 struct pipe_shader_state *
 st_nir_finish_builtin_shader(struct st_context *st,
@@ -96,6 +97,9 @@ st_nir_finish_builtin_shader(struct st_context *st,
       unreachable("unsupported shader stage");
       return NULL;
    }
+
+   if (state.type == PIPE_SHADER_IR_TGSI)
+      tgsi_free_tokens(state.tokens);
 }
 
 /**
