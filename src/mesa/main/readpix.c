@@ -918,6 +918,16 @@ read_pixels_es3_error_check(struct gl_context *ctx, GLenum format, GLenum type,
    }
 
    switch (format) {
+   case GL_RGB:
+      if (type == GL_UNSIGNED_BYTE ||
+          type == GL_UNSIGNED_SHORT_5_6_5 ||
+          type == GL_FLOAT ||
+          type == GL_HALF_FLOAT_OES) {
+         /* Allow reading from buffers with BGRX visual. */
+         if (rb->Format == PIPE_FORMAT_B8G8R8X8_UNORM)
+	    return GL_NO_ERROR;
+      }
+      break;
    case GL_RGBA:
       if (type == GL_FLOAT && data_type == GL_FLOAT)
          return GL_NO_ERROR; /* EXT_color_buffer_float */
