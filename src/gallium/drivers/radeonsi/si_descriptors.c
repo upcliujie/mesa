@@ -1537,7 +1537,8 @@ void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf)
             continue;
 
          if (sctx->vertex_buffer[vb].buffer.resource == buf) {
-            sctx->vertex_buffers_dirty = true;
+            if (num_elems)
+               sctx->vertex_buffers_dirty = true;
             break;
          }
       }
@@ -1856,7 +1857,9 @@ static void si_mark_shader_pointers_dirty(struct si_context *sctx, unsigned shad
       u_bit_consecutive(SI_DESCS_FIRST_SHADER + shader * SI_NUM_SHADER_DESCS, SI_NUM_SHADER_DESCS);
 
    if (shader == PIPE_SHADER_VERTEX) {
-      sctx->vertex_buffer_pointer_dirty = sctx->vb_descriptors_buffer != NULL;
+      sctx->vertex_buffer_pointer_dirty = sctx->vb_descriptors_buffer != NULL &&
+                                          sctx->num_vertex_elements >
+                                          sctx->screen->num_vbos_in_user_sgprs;
       sctx->vertex_buffer_user_sgprs_dirty =
          sctx->num_vertex_elements > 0 && sctx->screen->num_vbos_in_user_sgprs;
    }
@@ -1867,7 +1870,9 @@ static void si_mark_shader_pointers_dirty(struct si_context *sctx, unsigned shad
 void si_shader_pointers_mark_dirty(struct si_context *sctx)
 {
    sctx->shader_pointers_dirty = u_bit_consecutive(0, SI_NUM_DESCS);
-   sctx->vertex_buffer_pointer_dirty = sctx->vb_descriptors_buffer != NULL;
+   sctx->vertex_buffer_pointer_dirty = sctx->vb_descriptors_buffer != NULL &&
+                                       sctx->num_vertex_elements >
+                                       sctx->screen->num_vbos_in_user_sgprs;
    sctx->vertex_buffer_user_sgprs_dirty =
       sctx->num_vertex_elements > 0 && sctx->screen->num_vbos_in_user_sgprs;
    si_mark_atom_dirty(sctx, &sctx->atoms.s.shader_pointers);
