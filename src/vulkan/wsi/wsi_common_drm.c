@@ -116,13 +116,15 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
    for (int i = 0; i < ARRAY_SIZE(image->fds); i++)
       image->fds[i] = -1;
 
+   const bool protected =
+      (pCreateInfo->flags & VK_SWAPCHAIN_CREATE_PROTECTED_BIT_KHR) != 0;
    struct wsi_image_create_info image_wsi_info = {
       .sType = VK_STRUCTURE_TYPE_WSI_IMAGE_CREATE_INFO_MESA,
    };
    VkImageCreateInfo image_info = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
       .pNext = &image_wsi_info,
-      .flags = 0,
+      .flags = protected ? VK_IMAGE_CREATE_PROTECTED_BIT : 0,
       .imageType = VK_IMAGE_TYPE_2D,
       .format = pCreateInfo->imageFormat,
       .extent = {
@@ -447,6 +449,8 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
    uint32_t linear_size = linear_stride * pCreateInfo->imageExtent.height;
    linear_size = align_u32(linear_size, 4096);
 
+   const bool protected =
+      (pCreateInfo->flags & VK_SWAPCHAIN_CREATE_PROTECTED_BIT_KHR) != 0;
    const VkExternalMemoryBufferCreateInfo prime_buffer_external_info = {
       .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
       .pNext = NULL,
@@ -458,6 +462,7 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
       .size = linear_size,
       .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      .flags = protected ? VK_BUFFER_CREATE_PROTECTED_BIT : 0,
    };
    result = wsi->CreateBuffer(chain->device, &prime_buffer_info,
                               &chain->alloc, &image->prime.buffer);
@@ -507,7 +512,7 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
    const VkImageCreateInfo image_info = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
       .pNext = &image_wsi_info,
-      .flags = 0,
+      .flags = protected ? VK_IMAGE_CREATE_PROTECTED_BIT : 0,
       .imageType = VK_IMAGE_TYPE_2D,
       .format = pCreateInfo->imageFormat,
       .extent = {
