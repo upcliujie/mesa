@@ -366,6 +366,8 @@ setup_vs_output_info(isel_context *ctx, nir_shader *nir,
       pos_written |= 1 << 3;
 
    outinfo->pos_exports = util_bitcount(pos_written);
+   ctx->program->early_rast = ctx->program->chip_class >= GFX10 &&
+                              outinfo->param_exports == 0;
 }
 
 void
