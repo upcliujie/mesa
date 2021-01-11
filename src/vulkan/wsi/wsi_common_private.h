@@ -147,6 +147,8 @@ struct wsi_swapchain {
 
    const struct wsi_device *wsi;
 
+   VkSwapchainCreateFlagsKHR create_flags;
+
    VkDevice device;
    VkAllocationCallbacks alloc;
    VkFence* fences;
