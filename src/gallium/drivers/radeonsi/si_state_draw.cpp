@@ -66,21 +66,12 @@ static void si_prefetch_shader_async(struct si_context *sctx, struct si_pm4_stat
    si_cp_dma_prefetch(sctx, bo, 0, bo->width0);
 }
 
-static void si_prefetch_VBO_descriptors(struct si_context *sctx)
-{
-   if (!sctx->vertex_elements->vb_desc_list_alloc_size)
-      return;
-
-   si_cp_dma_prefetch(sctx, &sctx->vb_descriptors_buffer->b.b, sctx->vb_descriptors_offset,
-                            sctx->vertex_elements->vb_desc_list_alloc_size);
-}
-
 /**
- * Prefetch shaders and VBO descriptors.
+ * Prefetch shaders.
  */
 template<chip_class GFX_VERSION, si_has_tess HAS_TESS, si_has_gs HAS_GS, si_has_ngg NGG,
          bool BEFORE_DRAW, bool AFTER_DRAW>
-static void si_emit_prefetch_L2(struct si_context *sctx)
+static void si_prefetch_shaders(struct si_context *sctx)
 {
    STATIC_ASSERT(BEFORE_DRAW || AFTER_DRAW);
    unsigned mask = sctx->prefetch_L2_mask;
@@ -96,8 +87,6 @@ static void si_emit_prefetch_L2(struct si_context *sctx)
          if (BEFORE_DRAW) {
             if (mask & SI_PREFETCH_HS)
                si_prefetch_shader_async(sctx, sctx->queued.named.hs);
-            if (mask & SI_PREFETCH_VBO_DESCRIPTORS)
-               si_prefetch_VBO_descriptors(sctx);
 
             if (!AFTER_DRAW)
                return;
@@ -111,8 +100,6 @@ static void si_emit_prefetch_L2(struct si_context *sctx)
          if (BEFORE_DRAW) {
             if (mask & SI_PREFETCH_GS)
                si_prefetch_shader_async(sctx, sctx->queued.named.gs);
-            if (mask & SI_PREFETCH_VBO_DESCRIPTORS)
-               si_prefetch_VBO_descriptors(sctx);
 
             if (!AFTER_DRAW)
                return;
@@ -124,8 +111,6 @@ static void si_emit_prefetch_L2(struct si_context *sctx)
          if (BEFORE_DRAW) {
             if (mask & SI_PREFETCH_VS)
                si_prefetch_shader_async(sctx, sctx->queued.named.vs);
-            if (mask & SI_PREFETCH_VBO_DESCRIPTORS)
-               si_prefetch_VBO_descriptors(sctx);
 
             if (!AFTER_DRAW)
                return;
@@ -138,8 +123,6 @@ static void si_emit_prefetch_L2(struct si_context *sctx)
          if (BEFORE_DRAW) {
             if (mask & SI_PREFETCH_LS)
                si_prefetch_shader_async(sctx, sctx->queued.named.ls);
-            if (mask & SI_PREFETCH_VBO_DESCRIPTORS)
-               si_prefetch_VBO_descriptors(sctx);
 
             if (!AFTER_DRAW)
                return;
@@ -157,8 +140,6 @@ static void si_emit_prefetch_L2(struct si_context *sctx)
          if (BEFORE_DRAW) {
             if (mask & SI_PREFETCH_ES)
                si_prefetch_shader_async(sctx, sctx->queued.named.es);
-            if (mask & SI_PREFETCH_VBO_DESCRIPTORS)
-               si_prefetch_VBO_descriptors(sctx);
 
             if (!AFTER_DRAW)
                return;
@@ -172,8 +153,6 @@ static void si_emit_prefetch_L2(struct si_context *sctx)
          if (BEFORE_DRAW) {
             if (mask & SI_PREFETCH_VS)
                si_prefetch_shader_async(sctx, sctx->queued.named.vs);
-            if (mask & SI_PREFETCH_VBO_DESCRIPTORS)
-               si_prefetch_VBO_descriptors(sctx);
 
             if (!AFTER_DRAW)
                return;
@@ -1326,7 +1305,7 @@ void si_prim_discard_signal_next_compute_ib_start(struct si_context *sctx)
 }
 
 template <chip_class GFX_VERSION, si_has_tess HAS_TESS, si_has_gs HAS_GS, si_has_ngg NGG> ALWAYS_INLINE
-static bool si_upload_vertex_buffer_descriptors(struct si_context *sctx)
+static bool si_upload_and_prefetch_VB_descriptors(struct si_context *sctx)
 {
    unsigned count = sctx->num_vertex_elements;
    bool pointer_dirty, user_sgprs_dirty;
@@ -1357,10 +1336,10 @@ static bool si_upload_vertex_buffer_descriptors(struct si_context *sctx)
          sctx->vb_descriptors_gpu_list = ptr;
          radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, sctx->vb_descriptors_buffer,
                                    RADEON_USAGE_READ, RADEON_PRIO_DESCRIPTORS);
-         sctx->prefetch_L2_mask |= SI_PREFETCH_VBO_DESCRIPTORS;
+         si_cp_dma_prefetch(sctx, &sctx->vb_descriptors_buffer->b.b, sctx->vb_descriptors_offset,
+                            alloc_size);
       } else {
          si_resource_reference(&sctx->vb_descriptors_buffer, NULL);
-         sctx->prefetch_L2_mask &= ~SI_PREFETCH_VBO_DESCRIPTORS;
       }
 
       unsigned first_vb_use_mask = velems->first_vb_use_mask;
@@ -2132,8 +2111,10 @@ static void si_draw_vbo(struct pipe_context *ctx,
       sctx->emit_cache_flush(sctx, &sctx->gfx_cs);
       /* <-- CUs are idle here. */
 
-      /* This uploads VBO descriptors and sets user SGPRs. */
-      if (unlikely((!si_upload_vertex_buffer_descriptors<GFX_VERSION, HAS_TESS, HAS_GS, NGG>(sctx)))) {
+      /* This uploads VBO descriptors, sets user SGPRs, and executes the L2 prefetch.
+       * It should done after cache flushing.
+       */
+      if (unlikely((!si_upload_and_prefetch_VB_descriptors<GFX_VERSION, HAS_TESS, HAS_GS, NGG>(sctx)))) {
          DRAW_CLEANUP;
          return;
       }
@@ -2159,7 +2140,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
       /* Start prefetches after the draw has been started. Both will run
        * in parallel, but starting the draw first is more important.
        */
-      si_emit_prefetch_L2<GFX_VERSION, HAS_TESS, HAS_GS, NGG, true, true>(sctx);
+      si_prefetch_shaders<GFX_VERSION, HAS_TESS, HAS_GS, NGG, true, true>(sctx);
    } else {
       /* If we don't wait for idle, start prefetches first, then set
        * states, and draw at the end.
@@ -2168,10 +2149,12 @@ static void si_draw_vbo(struct pipe_context *ctx,
          sctx->emit_cache_flush(sctx, &sctx->gfx_cs);
 
       /* Only prefetch the API VS and VBO descriptors. */
-      si_emit_prefetch_L2<GFX_VERSION, HAS_TESS, HAS_GS, NGG, true, false>(sctx);
+      si_prefetch_shaders<GFX_VERSION, HAS_TESS, HAS_GS, NGG, true, false>(sctx);
 
-      /* This uploads VBO descriptors and sets user SGPRs. */
-      if (unlikely((!si_upload_vertex_buffer_descriptors<GFX_VERSION, HAS_TESS, HAS_GS, NGG>(sctx)))) {
+      /* This uploads VBO descriptors, sets user SGPRs, and executes the L2 prefetch.
+       * It should done after cache flushing and after the VS prefetch.
+       */
+      if (unlikely((!si_upload_and_prefetch_VB_descriptors<GFX_VERSION, HAS_TESS, HAS_GS, NGG>(sctx)))) {
          DRAW_CLEANUP;
          return;
       }
@@ -2194,7 +2177,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
 
       /* Prefetch the remaining shaders after the draw has been
        * started. */
-      si_emit_prefetch_L2<GFX_VERSION, HAS_TESS, HAS_GS, NGG, false, true>(sctx);
+      si_prefetch_shaders<GFX_VERSION, HAS_TESS, HAS_GS, NGG, false, true>(sctx);
    }
 
    /* Clear the context roll flag after the draw call.
