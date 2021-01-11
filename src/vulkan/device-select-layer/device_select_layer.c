@@ -162,6 +162,13 @@ static VkResult device_select_CreateInstance(const VkInstanceCreateInfo *pCreate
 #endif
    }
 
+   /*
+    * The loader is currently not able to handle GetPhysicalDeviceProperties2KHR calls in
+    * EnumeratePhysicalDevices when there are other layers present. To avoid mysterious crashes
+    * for users just disable this for now.
+    */
+   info->has_props2 = false;
+
    info->GetPhysicalDeviceProcAddr = (PFN_GetPhysicalDeviceProcAddr)info->GetInstanceProcAddr(*pInstance, "vk_layerGetPhysicalDeviceProcAddr");
 #define DEVSEL_GET_CB(func) info->func = (PFN_vk##func)info->GetInstanceProcAddr(*pInstance, "vk" #func)
    DEVSEL_GET_CB(DestroyInstance);
