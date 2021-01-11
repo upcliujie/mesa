@@ -101,9 +101,11 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
    for (int i = 0; i < ARRAY_SIZE(image->fds); i++)
       image->fds[i] = -1;
 
+   const bool protected =
+      (pCreateInfo->flags & VK_SWAPCHAIN_CREATE_PROTECTED_BIT_KHR) != 0;
    VkImageCreateInfo image_info = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-      .flags = 0,
+      .flags = protected ? VK_IMAGE_CREATE_PROTECTED_BIT : 0,
       .imageType = VK_IMAGE_TYPE_2D,
       .format = pCreateInfo->imageFormat,
       .extent = {
@@ -303,7 +305,9 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
       .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
       .pNext = &memory_dedicated_info,
       .allocationSize = reqs.size,
-      .memoryTypeIndex = select_memory_type(wsi, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      .memoryTypeIndex = select_memory_type(wsi,
+                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                                            (protected ? VK_MEMORY_PROPERTY_PROTECTED_BIT : 0),
                                             reqs.memoryTypeBits),
    };
    result = wsi->AllocateMemory(chain->device, &memory_info,
@@ -434,6 +438,8 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
    uint32_t linear_size = linear_stride * pCreateInfo->imageExtent.height;
    linear_size = align_u32(linear_size, 4096);
 
+   const bool protected =
+      (pCreateInfo->flags & VK_SWAPCHAIN_CREATE_PROTECTED_BIT_KHR) != 0;
    const VkExternalMemoryBufferCreateInfo prime_buffer_external_info = {
       .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
       .pNext = NULL,
@@ -445,6 +451,7 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
       .size = linear_size,
       .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      .flags = protected ? VK_BUFFER_CREATE_PROTECTED_BIT : 0,
    };
    result = wsi->CreateBuffer(chain->device, &prime_buffer_info,
                               &chain->alloc, &image->prime.buffer);
@@ -475,7 +482,9 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
       .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
       .pNext = &prime_memory_dedicated_info,
       .allocationSize = linear_size,
-      .memoryTypeIndex = select_memory_type(wsi, 0, reqs.memoryTypeBits),
+      .memoryTypeIndex = select_memory_type(wsi,
+                                            (protected ? VK_MEMORY_PROPERTY_PROTECTED_BIT : 0),
+                                            reqs.memoryTypeBits),
    };
    result = wsi->AllocateMemory(chain->device, &prime_memory_info,
                                 &chain->alloc, &image->prime.memory);
@@ -490,7 +499,7 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
    const VkImageCreateInfo image_info = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
       .pNext = NULL,
-      .flags = 0,
+      .flags = protected ? VK_IMAGE_CREATE_PROTECTED_BIT : 0,
       .imageType = VK_IMAGE_TYPE_2D,
       .format = pCreateInfo->imageFormat,
       .extent = {
@@ -525,7 +534,9 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
       .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
       .pNext = &memory_dedicated_info,
       .allocationSize = reqs.size,
-      .memoryTypeIndex = select_memory_type(wsi, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      .memoryTypeIndex = select_memory_type(wsi,
+                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                                            (protected ? VK_MEMORY_PROPERTY_PROTECTED_BIT : 0),
                                             reqs.memoryTypeBits),
    };
    result = wsi->AllocateMemory(chain->device, &memory_info,

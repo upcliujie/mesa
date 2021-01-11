@@ -198,11 +198,13 @@ wsi_swapchain_init(const struct wsi_device *wsi,
    if (!chain->cmd_pools)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
+   const bool protected =
+      (pCreateInfo->flags & VK_SWAPCHAIN_CREATE_PROTECTED_BIT_KHR) != 0;
    for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
       const VkCommandPoolCreateInfo cmd_pool_info = {
          .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
          .pNext = NULL,
-         .flags = 0,
+         .flags = protected ? VK_COMMAND_POOL_CREATE_PROTECTED_BIT : 0,
          .queueFamilyIndex = i,
       };
       result = wsi->CreateCommandPool(device, &cmd_pool_info, &chain->alloc,
