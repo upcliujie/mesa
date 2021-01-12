@@ -2212,9 +2212,18 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
    case SpvOpVariable: {
       struct vtn_type *ptr_type = vtn_get_type(b, w[1]);
 
+      SpvStorageClass storage_class = w[3];
+
+      /* Skip I/O variables that are not used by the entry point (or any entry
+       * point in case of a library).
+       */
+      if ((storage_class == SpvStorageClassInput ||
+           storage_class == SpvStorageClassOutput) &&
+          !bsearch(&w[2], b->interface_ids, b->interface_ids_count, 4, cmp_uint32_t))
+         break;
+
       struct vtn_value *val = vtn_push_value(b, w[2], vtn_value_type_pointer);
 
-      SpvStorageClass storage_class = w[3];
       nir_constant *const_initializer = NULL;
       nir_variable *var_initializer = NULL;
       if (count > 4) {

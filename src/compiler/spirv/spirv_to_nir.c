@@ -4180,12 +4180,27 @@ vtn_handle_entry_point(struct vtn_builder *b, const uint32_t *w,
    unsigned name_words;
    entry_point->name = vtn_string_literal(b, &w[3], count - 3, &name_words);
 
-   if (strcmp(entry_point->name, b->entry_point_name) != 0 ||
-       stage_for_execution_model(b, w[1]) != b->entry_point_stage)
-      return;
+   if (!strcmp(entry_point->name, b->entry_point_name) &&
+       stage_for_execution_model(b, w[1]) == b->entry_point_stage) {
+      vtn_assert(b->entry_point == NULL);
+      b->entry_point = entry_point;
+   }
 
-   vtn_assert(b->entry_point == NULL);
-   b->entry_point = entry_point;
+   /* Entry points enumerate which I/O variables are used.  Collect
+    * information from all of them if creating a library.
+    */
+   if (b->entry_point == entry_point || b->options->create_library) {
+      size_t start = 3 + name_words;
+      size_t ids_count = count - start;
+      if (ids_count > 0) {
+         b->interface_ids_count += ids_count;
+         b->interface_ids = reralloc(b, b->interface_ids, uint32_t,
+                                     b->interface_ids_count);
+         memcpy(b->interface_ids + (b->interface_ids_count - ids_count),
+                &w[start], ids_count * 4);
+         qsort(b->interface_ids, b->interface_ids_count, 4, cmp_uint32_t);
+      }
+   }
 }
 
 static bool
@@ -5938,22 +5953,21 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
    nir_lower_goto_ifs(b->shader);
 
    /* A SPIR-V module can have multiple shaders stages and also multiple
-    * shaders of the same stage.  Global variables are declared per-module, so
-    * they are all collected when parsing a single shader.  These dead
-    * variables can result in invalid NIR, e.g.
+    * shaders of the same stage.  Global variables are declared per-module.
     *
-    * - TCS outputs must be per-vertex arrays (or decorated 'patch'), while VS
-    *   output variables wouldn't be;
-    * - Two vertex shaders have two different typed blocks associated to the
-    *   same Binding.
-    *
-    * Before cleaning the dead variables, we must lower any constant
-    * initializers on outputs so nir_remove_dead_variables sees that they're
-    * written to.
+    * For I/O storage classes, OpEntryPoint will list the variables used, so
+    * only valid ones are created.  Remove dead variables to clean up the
+    * remaining ones.
     */
+   const unsigned modes_to_cleanup = ~(nir_var_function_temp |
+                                       nir_var_shader_out |
+                                       nir_var_shader_in |
+                                       nir_var_system_value);
+
+   nir_remove_dead_variables(b->shader, modes_to_cleanup, NULL);
+
    nir_lower_variable_initializers(b->shader, nir_var_shader_out |
                                               nir_var_system_value);
-   nir_remove_dead_variables(b->shader, ~nir_var_function_temp, NULL);
 
    /* We sometimes generate bogus derefs that, while never used, give the
     * validator a bit of heartburn.  Run dead code to get rid of them.
