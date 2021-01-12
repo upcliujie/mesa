@@ -363,7 +363,7 @@ panfrost_emit_texture_payload(const struct panfrost_device *dev,
                               bool manual_stride,
                               mali_ptr base)
 {
-        base |= panfrost_compression_tag(dev, desc, dim, layout->modifier);
+        base |= panfrost_compression_tag(dev, desc, layout->dim, layout->modifier);
 
         /* Inject the addresses in, interleaving array indices, mip levels,
          * cube faces, and strides in that order */
