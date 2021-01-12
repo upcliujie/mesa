@@ -484,9 +484,9 @@ zink_get_shader_param(struct pipe_screen *pscreen,
       case PIPE_SHADER_GEOMETRY:
       case PIPE_SHADER_TESS_CTRL:
       case PIPE_SHADER_TESS_EVAL:
-         /* this might be a bit simplistic... */
-         return MIN2(screen->info.props.limits.maxPerStageDescriptorSamplers,
-                     PIPE_MAX_SAMPLERS);
+      return MIN2(MIN2(screen->info.props.limits.maxPerStageDescriptorSamplers,
+                  screen->info.props.limits.maxPerStageDescriptorSampledImages),
+                  PIPE_MAX_SAMPLERS);
       default:
          return 0; /* unsupported stage */
       }
@@ -525,8 +525,9 @@ zink_get_shader_param(struct pipe_screen *pscreen,
       return 0; /* not implemented */
 
    case PIPE_SHADER_CAP_MAX_SAMPLER_VIEWS:
-      return MIN2(screen->info.props.limits.maxPerStageDescriptorSampledImages,
-                  PIPE_MAX_SHADER_SAMPLER_VIEWS);
+      return MIN2(MIN2(screen->info.props.limits.maxPerStageDescriptorSamplers,
+                  screen->info.props.limits.maxPerStageDescriptorSampledImages),
+                  PIPE_MAX_SAMPLERS);
 
    case PIPE_SHADER_CAP_TGSI_DROUND_SUPPORTED:
    case PIPE_SHADER_CAP_TGSI_DFRACEXP_DLDEXP_SUPPORTED:
