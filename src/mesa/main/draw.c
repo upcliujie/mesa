@@ -576,15 +576,13 @@ _mesa_draw_arrays(struct gl_context *ctx, GLenum mode, GLint start,
    /* Packed section begin. */
    info.primitive_restart = false;
    info.has_user_indices = false;
-   info.index_bounds_valid = true;
+   info.index_bounds_valid = false;
    info.increment_draw_id = false;
    info._pad = 0;
    /* Packed section end. */
    info.start_instance = baseInstance;
    info.instance_count = numInstances;
    info.drawid = 0;
-   info.min_index = start;
-   info.max_index = start + count - 1;
 
    draw.start = start;
    draw.count = count;
