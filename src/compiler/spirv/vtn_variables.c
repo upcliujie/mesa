@@ -300,11 +300,22 @@ vtn_descriptor_load(struct vtn_builder *b, enum vtn_variable_mode mode,
    return &desc_load->dest.ssa;
 }
 
+static void
+vtn_mark_var_as_used(struct vtn_builder *b, nir_variable *var)
+{
+   _mesa_set_add(b->used_variables, var);
+}
+
 static struct vtn_pointer *
 vtn_pointer_dereference(struct vtn_builder *b,
                         struct vtn_pointer *base,
                         struct vtn_access_chain *deref_chain)
 {
+   if (base->var) {
+      vtn_assert(base->var->var);
+      vtn_mark_var_as_used(b, base->var->var);
+   }
+
    struct vtn_type *type = base->type;
    enum gl_access_qualifier access = base->access | deref_chain->access;
    unsigned idx = 0;
@@ -1977,8 +1988,10 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
       var->var->constant_initializer =
          nir_constant_clone(const_initializer, var->var);
    }
-   if (var_initializer)
+   if (var_initializer) {
       var->var->pointer_initializer = var_initializer;
+      vtn_mark_var_as_used(b, var_initializer);
+   }
 
    if (var->mode == vtn_variable_mode_uniform ||
        var->mode == vtn_variable_mode_ssbo) {
