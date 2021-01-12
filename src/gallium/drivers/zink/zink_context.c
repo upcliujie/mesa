@@ -640,6 +640,7 @@ get_render_pass(struct zink_context *ctx)
          state.rts[i].format = zink_get_format(screen, surf->format);
          state.rts[i].samples = surf->texture->nr_samples > 0 ? surf->texture->nr_samples :
                                                        VK_SAMPLE_COUNT_1_BIT;
+         state.rts[i].swapchain = surf->texture->bind & PIPE_BIND_SCANOUT;
       } else {
          state.rts[i].format = VK_FORMAT_R8_UINT;
          state.rts[i].samples = MAX2(fb->samples, 1);
