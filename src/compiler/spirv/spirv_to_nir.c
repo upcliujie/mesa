@@ -4187,7 +4187,7 @@ vtn_handle_entry_point(struct vtn_builder *b, const uint32_t *w,
    vtn_assert(b->entry_point == NULL);
    b->entry_point = entry_point;
 
-   /* Entry points enumerate which I/O variables are used. */
+   /* Entry points enumerate which global variables are used. */
    size_t start = 3 + name_words;
    b->interface_ids_count = count - start;
    b->interface_ids = ralloc_array(b, uint32_t, b->interface_ids_count);
@@ -5949,11 +5949,12 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
    /* A SPIR-V module can have multiple shaders stages and also multiple
     * shaders of the same stage.  Global variables are declared per-module.
     *
-    * For I/O storage classes, OpEntryPoint will list the variables used, so
-    * only valid ones are created.  Remove dead variables to clean up the
-    * remaining ones.
+    * Starting in SPIR-V 1.4 the list of global variables is part of
+    * OpEntryPoint, so only valid ones will be created.  Previous versions
+    * only have Input and Output variables listed, so remove dead variables to
+    * clean up the remaining ones.
     */
-   if (!options->create_library) {
+   if (!options->create_library && b->version < 0x10400) {
       /* This may remove variables which the access was lowered into
        * vulkan_descriptor intrinsics (e.g. SSBOs).  However the nir_variable
        * presence is not required by the Vulkan drivers.
