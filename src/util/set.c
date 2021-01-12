@@ -314,6 +314,12 @@ set_rehash(struct set *ht, unsigned new_size_index)
    struct set old_ht;
    struct set_entry *table;
 
+   if (ht->size_index == new_size_index && ht->deleted_entries == ht->max_entries) {
+      memset(ht->table, 0, sizeof(struct set_entry) * hash_sizes[ht->size_index].size);
+      ht->deleted_entries = 0;
+      return;
+   }
+
    if (new_size_index >= ARRAY_SIZE(hash_sizes))
       return;
 
