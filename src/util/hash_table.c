@@ -362,6 +362,12 @@ _mesa_hash_table_rehash(struct hash_table *ht, unsigned new_size_index)
    struct hash_table old_ht;
    struct hash_entry *table;
 
+   if (ht->size_index == new_size_index && ht->deleted_entries == ht->max_entries) {
+      memset(ht->table, 0, sizeof(struct hash_entry) * hash_sizes[ht->size_index].size);
+      ht->deleted_entries = 0;
+      return;
+   }
+
    if (new_size_index >= ARRAY_SIZE(hash_sizes))
       return;
 
