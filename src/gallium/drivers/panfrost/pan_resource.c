@@ -931,7 +931,7 @@ panfrost_ptr_map(struct pipe_context *pctx,
                 struct panfrost_resource *staging = pan_alloc_staging(ctx, rsrc, level, box);
                 transfer->base.stride = staging->layout.slices[0].line_stride;
                 transfer->base.layer_stride =
-                        panfrost_get_layer_stride(&staging->layout, level);
+                        panfrost_get_layer_stride(&staging->layout, 0);
 
                 transfer->staging.rsrc = &staging->base;
 
