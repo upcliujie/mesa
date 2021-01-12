@@ -2623,20 +2623,17 @@ static bool si_upload_shader_descriptors(struct si_context *sctx, unsigned mask)
 {
    unsigned dirty = sctx->descriptors_dirty & mask;
 
-   /* Assume nothing will go wrong: */
-   sctx->shader_pointers_dirty |= dirty;
+   if (dirty) {
+      sctx->descriptors_dirty &= ~dirty;
+      sctx->shader_pointers_dirty |= dirty;
 
-   while (dirty) {
-      unsigned i = u_bit_scan(&dirty);
-
-      if (!si_upload_descriptors(sctx, &sctx->descriptors[i]))
-         return false;
+      do {
+         if (!si_upload_descriptors(sctx, &sctx->descriptors[u_bit_scan(&dirty)]))
+            return false;
+      } while (dirty);
    }
 
-   sctx->descriptors_dirty &= ~mask;
-
    si_upload_bindless_descriptors(sctx);
-
    return true;
 }
 
