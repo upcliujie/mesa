@@ -332,6 +332,9 @@ vbo_exec_vtx_flush(struct vbo_exec_context *exec)
 
          exec->vtx.info.vertices_per_patch =
             ctx->TessCtrlProgram.patch_vertices;
+         exec->vtx.info.min_index = 0;
+         exec->vtx.info.max_index = exec->vtx.vert_count - 1;
+         exec->vtx.info.index_bounds_valid = true;
 
          ctx->Driver.DrawGalliumComplex(ctx, &exec->vtx.info,
                                         exec->vtx.draw,
