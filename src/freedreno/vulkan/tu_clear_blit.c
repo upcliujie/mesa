@@ -2382,6 +2382,7 @@ tu_emit_blit(struct tu_cmd_buffer *cmd,
              struct tu_cs *cs,
              const struct tu_image_view *iview,
              const struct tu_render_pass_attachment *attachment,
+             VkFormat dst_format,
              bool resolve,
              bool separate_stencil)
 {
@@ -2392,7 +2393,8 @@ tu_emit_blit(struct tu_cmd_buffer *cmd,
       .unk0 = !resolve,
       .gmem = !resolve,
       /* "integer" bit disables msaa resolve averaging */
-      .integer = vk_format_is_int(attachment->format)));
+      .integer = vk_format_is_int(attachment->format) |
+         vk_format_is_int(dst_format)));
 
    tu_cs_emit_pkt4(cs, REG_A6XX_RB_BLIT_DST_INFO, 4);
    if (separate_stencil) {
@@ -2463,10 +2465,10 @@ tu_load_gmem_attachment(struct tu_cmd_buffer *cmd,
       &cmd->state.pass->attachments[a];
 
    if (attachment->load || force_load)
-      tu_emit_blit(cmd, cs, iview, attachment, false, false);
+      tu_emit_blit(cmd, cs, iview, attachment, attachment->format, false, false);
 
    if (attachment->load_stencil || (attachment->format == VK_FORMAT_D32_SFLOAT_S8_UINT && force_load))
-      tu_emit_blit(cmd, cs, iview, attachment, false, true);
+      tu_emit_blit(cmd, cs, iview, attachment, attachment->format, false, true);
 }
 
 static void
@@ -2553,9 +2555,9 @@ tu_store_gmem_attachment(struct tu_cmd_buffer *cmd,
    /* use fast path when render area is aligned, except for unsupported resolve cases */
    if (!unaligned && (a == gmem_a || blit_can_resolve(dst->format))) {
       if (dst->store)
-         tu_emit_blit(cmd, cs, iview, src, true, false);
+         tu_emit_blit(cmd, cs, iview, src, dst->format, true, false);
       if (dst->store_stencil)
-         tu_emit_blit(cmd, cs, iview, src, true, true);
+         tu_emit_blit(cmd, cs, iview, src, dst->format, true, true);
       return;
    }
 
