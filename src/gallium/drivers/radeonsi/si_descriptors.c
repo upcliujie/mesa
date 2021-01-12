@@ -1541,6 +1541,8 @@ void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf)
 
          if (sctx->vertex_buffer[vb].buffer.resource == buf) {
             sctx->vertex_buffers_dirty = true;
+            sctx->vertex_buffer_user_sgprs_dirty =
+               sctx->num_vertex_elements > 0 && sctx->screen->num_vbos_in_user_sgprs;
             break;
          }
       }
