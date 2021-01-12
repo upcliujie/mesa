@@ -700,6 +700,9 @@ struct vtn_builder {
    uint32_t *interface_ids;
    size_t interface_ids_count;
 
+   /* Global nir_variables used by the emitted functions. */
+   struct set *used_variables;
+
    struct vtn_function *func;
    struct list_head functions;
 

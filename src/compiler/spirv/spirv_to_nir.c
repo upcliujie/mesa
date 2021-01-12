@@ -5743,6 +5743,8 @@ vtn_create_builder(const uint32_t *words, size_t word_count,
    b->value_id_bound = value_id_bound;
    b->values = rzalloc_array(b, struct vtn_value, value_id_bound);
 
+   b->used_variables = _mesa_pointer_set_create(b);
+
    return b;
  fail:
    ralloc_free(b);
@@ -5956,15 +5958,17 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
     * shaders of the same stage.  Global variables are declared per-module.
     *
     * For I/O storage classes, OpEntryPoint will list the variables used, so
-    * only valid ones are created.  Remove dead variables to clean up the
-    * remaining ones.
+    * only valid ones are created.  Use the tracking information during
+    * parsing to remove the remaining ones.
     */
    const unsigned modes_to_cleanup = ~(nir_var_function_temp |
                                        nir_var_shader_out |
                                        nir_var_shader_in |
                                        nir_var_system_value);
-
-   nir_remove_dead_variables(b->shader, modes_to_cleanup, NULL);
+   nir_foreach_variable_with_modes_safe(var, b->shader, modes_to_cleanup) {
+      if (!_mesa_set_search(b->used_variables, var))
+         exec_node_remove(&var->node);
+   }
 
    nir_lower_variable_initializers(b->shader, nir_var_shader_out |
                                               nir_var_system_value);

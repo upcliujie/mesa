@@ -305,6 +305,11 @@ vtn_pointer_dereference(struct vtn_builder *b,
                         struct vtn_pointer *base,
                         struct vtn_access_chain *deref_chain)
 {
+   if (base->var) {
+      vtn_assert(base->var->var);
+      _mesa_set_add(b->used_variables, base->var->var);
+   }
+
    struct vtn_type *type = base->type;
    enum gl_access_qualifier access = base->access | deref_chain->access;
    unsigned idx = 0;
