@@ -795,6 +795,10 @@ descriptor_set_create(struct v3dv_device *device,
    uint32_t index = pool->entry_count;
 
    if (layout->bo_size) {
+      if (!pool->bo) {
+         vk_object_free(&device->vk, NULL, set);
+         return out_of_pool_memory(device, pool);
+      }
       if (!pool->host_memory_base && pool->entry_count == pool->max_entry_count) {
          vk_object_free(&device->vk, NULL, set);
          return out_of_pool_memory(device, pool);
