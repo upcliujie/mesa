@@ -305,6 +305,11 @@ vtn_pointer_dereference(struct vtn_builder *b,
                         struct vtn_pointer *base,
                         struct vtn_access_chain *deref_chain)
 {
+   if (b->used_variables && base->var) {
+      vtn_assert(base->var->var);
+      _mesa_set_add(b->used_variables, base->var->var);
+   }
+
    struct vtn_type *type = base->type;
    enum gl_access_qualifier access = base->access | deref_chain->access;
    unsigned idx = 0;
@@ -1762,7 +1767,6 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
    case vtn_variable_mode_ubo:
       /* There's no other way to get vtn_variable_mode_ubo */
       vtn_assert(without_array->block);
-      b->shader->info.num_ubos++;
       break;
    case vtn_variable_mode_ssbo:
       if (storage_class == SpvStorageClassStorageBuffer &&
@@ -1780,19 +1784,6 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
                      "have a struct type with the Block decoration");
          }
       }
-      b->shader->info.num_ssbos++;
-      break;
-   case vtn_variable_mode_uniform:
-      if (without_array->base_type == vtn_base_type_image) {
-         if (glsl_type_is_image(without_array->glsl_image))
-            b->shader->info.num_images++;
-         else if (glsl_type_is_sampler(without_array->glsl_image))
-            b->shader->info.num_textures++;
-      }
-      break;
-   case vtn_variable_mode_push_constant:
-      b->shader->num_uniforms =
-         glsl_get_explicit_size(without_array->type, false);
       break;
 
    case vtn_variable_mode_generic:
@@ -2220,9 +2211,23 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
    case SpvOpVariable: {
       struct vtn_type *ptr_type = vtn_get_type(b, w[1]);
 
+      SpvStorageClass storage_class = w[3];
+
+      const bool is_global = storage_class != SpvStorageClassFunction;
+      const bool is_io = storage_class == SpvStorageClassInput ||
+                         storage_class == SpvStorageClassOutput;
+
+      /* Skip global variables that are not used by the entrypoint being
+       * built.  Before SPIR-V 1.4 the interface is only used for I/O
+       * variables, so extra variables will still need to be removed later.
+       */
+      if (is_io || (b->version >= 0x10400 && is_global)) {
+         if (!bsearch(&w[2], b->interface_ids, b->interface_ids_count, 4, cmp_uint32_t))
+            break;
+      }
+
       struct vtn_value *val = vtn_push_value(b, w[2], vtn_value_type_pointer);
 
-      SpvStorageClass storage_class = w[3];
       nir_constant *const_initializer = NULL;
       nir_variable *var_initializer = NULL;
       if (count > 4) {
