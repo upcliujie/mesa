@@ -2877,7 +2877,7 @@ void combine_vop3p(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
       fma->neg_hi[1] = fma->neg_hi[1] ^ vop3p->neg_hi[1 - add_op_idx];
       fma->definitions[0] = instr->definitions[0];
       instr.reset(fma.release());
-      ctx.info[instr->definitions[0].tempId()].set_vop3p(fma.get());
+      ctx.info[instr->definitions[0].tempId()].set_vop3p(instr.get());
       return;
    }
 }
