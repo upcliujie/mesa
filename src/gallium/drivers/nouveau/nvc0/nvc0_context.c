@@ -236,6 +236,7 @@ nvc0_default_kick_notify(struct nouveau_pushbuf *push)
    struct nvc0_screen *screen = pushbuf_data(push)->priv;
 
    if (screen) {
+      assert(mtx_trylock(&pushbuf_data(push)->push_lock) == thrd_busy);
       nouveau_fence_next(&screen->base);
       nouveau_fence_update(&screen->base, true);
       if (screen->cur_ctx)

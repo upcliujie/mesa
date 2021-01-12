@@ -40,24 +40,33 @@ nouveau_buffer_allocate(struct nouveau_screen *screen,
 {
    uint32_t size = align(buf->base.width0, 0x100);
 
+   PUSH_ACQ(screen->pushbuf);
    if (domain == NOUVEAU_BO_VRAM) {
       buf->mm = nouveau_mm_allocate(screen->mm_VRAM, size,
                                     &buf->bo, &buf->offset);
-      if (!buf->bo)
+      if (!buf->bo) {
+         PUSH_DONE(screen->pushbuf);
          return nouveau_buffer_allocate(screen, buf, NOUVEAU_BO_GART);
+      }
       NOUVEAU_DRV_STAT(screen, buf_obj_current_bytes_vid, buf->base.width0);
    } else
    if (domain == NOUVEAU_BO_GART) {
       buf->mm = nouveau_mm_allocate(screen->mm_GART, size,
                                     &buf->bo, &buf->offset);
-      if (!buf->bo)
+      if (!buf->bo) {
+         PUSH_DONE(screen->pushbuf);
          return false;
+      }
       NOUVEAU_DRV_STAT(screen, buf_obj_current_bytes_sys, buf->base.width0);
    } else {
       assert(domain == 0);
-      if (!nouveau_buffer_malloc(buf))
+      if (!nouveau_buffer_malloc(buf)) {
+         PUSH_DONE(screen->pushbuf);
          return false;
+      }
    }
+   PUSH_DONE(screen->pushbuf);
+
    buf->domain = domain;
    if (buf->bo)
       buf->address = buf->bo->offset + buf->offset;
@@ -102,6 +111,7 @@ static inline bool
 nouveau_buffer_reallocate(struct nouveau_screen *screen,
                           struct nv04_resource *buf, unsigned domain)
 {
+   PUSH_ACQ(screen->pushbuf);
    nouveau_buffer_release_gpu_storage(buf);
 
    nouveau_fence_ref(NULL, &buf->fence);
@@ -109,7 +119,9 @@ nouveau_buffer_reallocate(struct nouveau_screen *screen,
 
    buf->status &= NOUVEAU_BUFFER_STATUS_REALLOC_MASK;
 
-   return nouveau_buffer_allocate(screen, buf, domain);
+   int ret = nouveau_buffer_allocate(screen, buf, domain);
+   PUSH_DONE(screen->pushbuf);
+   return ret;
 }
 
 static void
@@ -117,7 +129,9 @@ nouveau_buffer_destroy(struct pipe_screen *pscreen,
                        struct pipe_resource *presource)
 {
    struct nv04_resource *res = nv04_resource(presource);
+   struct nouveau_screen *screen = nouveau_screen(pscreen);
 
+   PUSH_ACQ(screen->pushbuf);
    nouveau_buffer_release_gpu_storage(res);
 
    if (res->data && !(res->status & NOUVEAU_BUFFER_STATUS_USER_MEMORY))
@@ -125,6 +139,7 @@ nouveau_buffer_destroy(struct pipe_screen *pscreen,
 
    nouveau_fence_ref(NULL, &res->fence);
    nouveau_fence_ref(NULL, &res->fence_wr);
+   PUSH_DONE(screen->pushbuf);
 
    util_range_destroy(&res->valid_buffer_range);
 

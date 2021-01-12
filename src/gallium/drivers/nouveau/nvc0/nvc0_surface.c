@@ -547,9 +547,10 @@ nvc0_clear_buffer(struct pipe_context *pipe,
 
    assert(size % data_size == 0);
 
+   PUSH_ACQ(push);
    if (data_size == 12) {
       nvc0_clear_buffer_push(pipe, res, offset, size, data, data_size);
-      return;
+      goto out;
    }
 
    if (offset & 0xff) {
@@ -559,7 +560,7 @@ nvc0_clear_buffer(struct pipe_context *pipe,
       offset += fixup_size;
       size -= fixup_size;
       if (!size)
-         return;
+         goto out;
    }
 
    elements = size / data_size;
@@ -570,7 +571,7 @@ nvc0_clear_buffer(struct pipe_context *pipe,
    assert(width > 0);
 
    if (!PUSH_SPACE(push, 40))
-      return;
+      goto out;
 
    PUSH_REFN (push, buf->bo, buf->domain | NOUVEAU_BO_WR);
 
@@ -615,6 +616,8 @@ nvc0_clear_buffer(struct pipe_context *pipe,
    }
 
    nvc0->dirty_3d |= NVC0_NEW_3D_FRAMEBUFFER;
+out:
+   PUSH_DONE(push);
 }
 
 static void

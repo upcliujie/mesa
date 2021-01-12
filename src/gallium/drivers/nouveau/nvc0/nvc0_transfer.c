@@ -385,9 +385,11 @@ nvc0_miptree_transfer_map(struct pipe_context *pctx,
    unsigned flags = 0;
 
    if (nvc0_mt_transfer_can_map_directly(mt)) {
+      PUSH_ACQ(nvc0->base.pushbuf);
       ret = !nvc0_mt_sync(nvc0, mt, usage);
       if (!ret)
          ret = nouveau_bo_map(mt->base.bo, 0, NULL);
+      PUSH_DONE(nvc0->base.pushbuf);
       if (ret &&
           (usage & PIPE_MAP_DIRECTLY))
          return NULL;
@@ -455,6 +457,8 @@ nvc0_miptree_transfer_map(struct pipe_context *pctx,
       unsigned base = tx->rect[0].base;
       unsigned z = tx->rect[0].z;
       unsigned i;
+
+      PUSH_ACQ(nvc0->base.pushbuf);
       for (i = 0; i < tx->nlayers; ++i) {
          nvc0->m2mf_copy_rect(nvc0, &tx->rect[1], &tx->rect[0],
                               tx->nblocksx, tx->nblocksy);
@@ -464,6 +468,8 @@ nvc0_miptree_transfer_map(struct pipe_context *pctx,
             tx->rect[0].base += mt->layer_stride;
          tx->rect[1].base += size;
       }
+      PUSH_DONE(nvc0->base.pushbuf);
+
       tx->rect[0].z = z;
       tx->rect[0].base = base;
       tx->rect[1].base = 0;
