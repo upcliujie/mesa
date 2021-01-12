@@ -303,7 +303,8 @@ vtn_descriptor_load(struct vtn_builder *b, enum vtn_variable_mode mode,
 static void
 vtn_mark_var_as_used(struct vtn_builder *b, nir_variable *var)
 {
-   _mesa_set_add(b->used_variables, var);
+   if (b->used_variables)
+      _mesa_set_add(b->used_variables, var);
 }
 
 static struct vtn_pointer *
@@ -2221,13 +2222,19 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
 
       SpvStorageClass storage_class = w[3];
 
-      /* Skip I/O variables that are not used by the entry point.
+      const bool is_global = storage_class != SpvStorageClassFunction;
+      const bool is_io = storage_class == SpvStorageClassInput ||
+                         storage_class == SpvStorageClassOutput;
+
+      /* Skip global variables that are not used by the entrypoint being
+       * built.  Before SPIR-V 1.4 the interface is only used for I/O
+       * variables, so extra variables will still need to be removed later.
        */
       if (!b->options->create_library &&
-          (storage_class == SpvStorageClassInput ||
-           storage_class == SpvStorageClassOutput) &&
-          !bsearch(&w[2], b->interface_ids, b->interface_ids_count, 4, cmp_uint32_t))
-         break;
+          (is_io || (b->version >= 0x10400 && is_global))) {
+         if (!bsearch(&w[2], b->interface_ids, b->interface_ids_count, 4, cmp_uint32_t))
+            break;
+      }
 
       struct vtn_value *val = vtn_push_value(b, w[2], vtn_value_type_pointer);
 
