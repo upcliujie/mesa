@@ -4186,6 +4186,19 @@ vtn_handle_entry_point(struct vtn_builder *b, const uint32_t *w,
 
    vtn_assert(b->entry_point == NULL);
    b->entry_point = entry_point;
+
+   /* Entry points specify which global variables are used. */
+   size_t start = 3 + name_words;
+   b->interface_ids_count = count - start;
+   b->interface_ids = ralloc_array(b, uint32_t, b->interface_ids_count);
+   memcpy(b->interface_ids, &w[start], b->interface_ids_count * 4);
+   qsort(b->interface_ids, b->interface_ids_count, 4, cmp_uint32_t);
+
+   /* For SPIR-V before 1.4, the interface contains only Input and Output
+    * storage classes, so create a set to keep track of other used variables.
+    */
+   if (b->version < 0x10400)
+      b->used_variables = _mesa_pointer_set_create(b);
 }
 
 static bool
@@ -5701,8 +5714,10 @@ vtn_create_builder(const uint32_t *words, size_t word_count,
       vtn_err("words[0] was 0x%x, want 0x%x", words[0], SpvMagicNumber);
       goto fail;
    }
-   if (words[1] < 0x10000) {
-      vtn_err("words[1] was 0x%x, want >= 0x10000", words[1]);
+
+   b->version = words[1];
+   if (b->version < 0x10000) {
+      vtn_err("version was 0x%x, want >= 0x10000", b->version);
       goto fail;
    }
 
@@ -5938,22 +5953,43 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
    nir_lower_goto_ifs(b->shader);
 
    /* A SPIR-V module can have multiple shaders stages and also multiple
-    * shaders of the same stage.  Global variables are declared per-module, so
-    * they are all collected when parsing a single shader.  These dead
-    * variables can result in invalid NIR, e.g.
+    * shaders of the same stage.  Global variables are declared per-module.
     *
-    * - TCS outputs must be per-vertex arrays (or decorated 'patch'), while VS
-    *   output variables wouldn't be;
-    * - Two vertex shaders have two different typed blocks associated to the
-    *   same Binding.
-    *
-    * Before cleaning the dead variables, we must lower any constant
-    * initializers on outputs so nir_remove_dead_variables sees that they're
-    * written to.
+    * For newer SPIR-V the list of global variables is part of OpEntryPoint,
+    * but for versions before 1.4 only Input and Output variables are listed,
+    * so in that case other variables used are tracked so the list of variables
+    * can be cleaned up here.
     */
+   if (b->version < 0x10400) {
+      vtn_assert(b->used_variables);
+      const unsigned modes_to_cleanup = ~(nir_var_function_temp |
+                                          nir_var_shader_out |
+                                          nir_var_shader_in |
+                                          nir_var_system_value);
+      nir_foreach_variable_with_modes_safe(var, b->shader, modes_to_cleanup) {
+         if (!_mesa_set_search(b->used_variables, var))
+            exec_node_remove(&var->node);
+      }
+   }
+
    nir_lower_variable_initializers(b->shader, nir_var_shader_out |
                                               nir_var_system_value);
-   nir_remove_dead_variables(b->shader, ~nir_var_function_temp, NULL);
+
+   nir_foreach_variable_in_shader(var, b->shader) {
+      switch (var->data.mode) {
+      case nir_var_mem_ubo:
+         b->shader->info.num_ubos++;
+         break;
+      case nir_var_mem_ssbo:
+         b->shader->info.num_ssbos++;
+         break;
+      case nir_var_mem_push_const:
+         vtn_assert(b->shader->num_uniforms == 0);
+         b->shader->num_uniforms =
+            glsl_get_explicit_size(glsl_without_array(var->type), false);
+         break;
+      }
+   }
 
    /* We sometimes generate bogus derefs that, while never used, give the
     * validator a bit of heartburn.  Run dead code to get rid of them.
