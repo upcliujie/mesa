@@ -4187,7 +4187,7 @@ vtn_handle_entry_point(struct vtn_builder *b, const uint32_t *w,
    vtn_assert(b->entry_point == NULL);
    b->entry_point = entry_point;
 
-   /* Entry points enumerate which I/O variables are used. */
+   /* Entry points enumerate which global variables are used. */
    size_t start = 3 + name_words;
    b->interface_ids_count = count - start;
    b->interface_ids = ralloc_array(b, uint32_t, b->interface_ids_count);
@@ -5737,7 +5737,13 @@ vtn_create_builder(const uint32_t *words, size_t word_count,
    b->value_id_bound = value_id_bound;
    b->values = rzalloc_array(b, struct vtn_value, value_id_bound);
 
-   b->used_variables = _mesa_pointer_set_create(b);
+   /* For SPIR-V before 1.4, the interface contains only Input and Output
+    * storage classes, so create a set to keep track of other used variables.
+    *
+    * Library doesn't have entrypoints, so set is also required.
+    */
+   if (b->version < 0x10400 || b->options->create_library)
+      b->used_variables = _mesa_pointer_set_create(b);
 
    return b;
  fail:
@@ -5951,23 +5957,27 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
    /* A SPIR-V module can have multiple shaders stages and also multiple
     * shaders of the same stage.  Global variables are declared per-module.
     *
-    * For I/O storage classes, OpEntryPoint will list the variables used, so
-    * only valid ones are created.  Use the tracking information during
-    * parsing to remove the remaining ones.
+    * For newer SPIR-V the list of global variables is part of OpEntryPoint,
+    * but for versions before 1.4 only Input and Output variables are listed,
+    * so in that case other variables used are tracked so the list of variables
+    * can be cleaned up here.
     */
-   unsigned modes_to_cleanup;
-   if (options->create_library) {
-      modes_to_cleanup = ~nir_var_function_temp;
-   } else {
-      modes_to_cleanup = ~(nir_var_function_temp |
-                           nir_var_shader_out |
-                           nir_var_shader_in |
-                           nir_var_system_value);
-   }
+   if (b->used_variables) {
+      unsigned modes_to_cleanup;
+      if (options->create_library) {
+         modes_to_cleanup = ~nir_var_function_temp;
+      } else {
+         vtn_assert(b->version < 0x10400);
+         modes_to_cleanup = ~(nir_var_function_temp |
+                              nir_var_shader_out |
+                              nir_var_shader_in |
+                              nir_var_system_value);
+      }
 
-   nir_foreach_variable_with_modes_safe(var, b->shader, modes_to_cleanup) {
-      if (!_mesa_set_search(b->used_variables, var))
-         exec_node_remove(&var->node);
+      nir_foreach_variable_with_modes_safe(var, b->shader, modes_to_cleanup) {
+         if (!_mesa_set_search(b->used_variables, var))
+            exec_node_remove(&var->node);
+      }
    }
 
    nir_foreach_variable_in_shader(var, b->shader) {

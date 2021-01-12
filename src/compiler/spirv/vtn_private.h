@@ -701,7 +701,9 @@ struct vtn_builder {
    uint32_t *interface_ids;
    size_t interface_ids_count;
 
-   /* Global nir_variables used by the emitted functions. */
+   /* Global nir_variables used by the emitted functions.  Ignored in
+    * SPIR-V 1.4 or later, which has this information in OpEntryPoint.
+    */
    struct set *used_variables;
 
    struct vtn_function *func;
