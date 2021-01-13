@@ -156,7 +156,7 @@ bi_is_intr_immediate(nir_intrinsic_instr *instr, unsigned *immediate, unsigned m
         if (!nir_src_is_const(*offset))
                 return false;
 
-        *immediate = nir_intrinsic_base(instr) + nir_src_as_uint(*offset);
+        *immediate = nir_src_as_uint(*offset);
         return (*immediate) < max;
 }
 
@@ -165,10 +165,7 @@ bi_emit_load_attr(bi_builder *b, nir_intrinsic_instr *instr)
 {
         nir_alu_type T = nir_intrinsic_dest_type(instr);
         enum bi_register_format regfmt = bi_reg_fmt_for_nir(T);
-        nir_src *offset = nir_get_io_offset_src(instr);
         unsigned imm_index = 0;
-        unsigned base = nir_intrinsic_base(instr);
-        bool constant = nir_src_is_const(*offset);
         bool immediate = bi_is_intr_immediate(instr, &imm_index, 16);
 
         if (immediate) {
@@ -177,17 +174,11 @@ bi_emit_load_attr(bi_builder *b, nir_intrinsic_instr *instr)
                                 bi_register(62), /* TODO RA */
                                 regfmt, instr->num_components - 1, imm_index);
         } else {
-                bi_index idx = bi_src_index(&instr->src[0]);
-
-                if (constant)
-                        idx = bi_imm_u32(imm_index);
-                else if (base != 0)
-                        idx = bi_iadd_u32(b, idx, bi_imm_u32(base), false);
-
                 bi_ld_attr_to(b, bi_dest_index(&instr->dest),
                                 bi_register(61), /* TODO RA */
                                 bi_register(62), /* TODO RA */
-                                idx, regfmt, instr->num_components - 1);
+                                bi_src_index(&instr->src[0]),
+                                regfmt, instr->num_components - 1);
         }
 }
 
@@ -228,10 +219,6 @@ bi_emit_load_vary(bi_builder *b, nir_intrinsic_instr *instr)
                                 BI_FUNCTION_NONE, regfmt, vecsize, imm_index);
         } else {
                 bi_index idx = bi_src_index(offset);
-                unsigned base = nir_intrinsic_base(instr);
-
-                if (base != 0)
-                        idx = bi_iadd_u32(b, idx, bi_imm_u32(base), false);
 
                 if (smooth) {
                         bi_ld_var_to(b, bi_dest_index(&instr->dest),
@@ -359,9 +346,16 @@ bi_emit_fragment_out(bi_builder *b, nir_intrinsic_instr *instr)
         bool emit_blend = writeout & (PAN_WRITEOUT_C);
         bool emit_zs = writeout & (PAN_WRITEOUT_Z | PAN_WRITEOUT_S);
 
+        /* nir_intrinsic_store_output instructions have been patched to add the
+         * base offset to the offset source and the base field has been reset
+         * (see nir_io_add_base_to_offset()).
+         */
+        unsigned drv_loc = combined ?
+                           nir_intrinsic_base(instr) :
+                           nir_src_as_uint(instr->src[1]);
         const nir_variable *var =
                 nir_find_variable_with_driver_location(b->shader->nir,
-                                nir_var_shader_out, nir_intrinsic_base(instr));
+                                nir_var_shader_out, drv_loc);
         assert(var);
 
         /* Dual-source blending is implemented by putting the color in
@@ -455,15 +449,11 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
                                           bi_register(62), /* TODO RA */
                                           regfmt, imm_index);
         } else {
-                bi_index idx =
-                        bi_iadd_u32(b,
-                                    bi_src_index(nir_get_io_offset_src(instr)),
-                                    bi_imm_u32(nir_intrinsic_base(instr)),
-                                    false);
                 address = bi_lea_attr(b,
                                       bi_register(61), /* TODO RA */
                                       bi_register(62), /* TODO RA */
-                                      idx, regfmt);
+                                      bi_src_index(nir_get_io_offset_src(instr)),
+                                      regfmt);
         }
 
         /* Only look at the total components needed. In effect, we fill in all
@@ -2195,6 +2185,8 @@ bifrost_compile_shader_nir(void *mem_ctx, nir_shader *nir,
         NIR_PASS_V(nir, nir_lower_vars_to_ssa);
         NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
                         glsl_type_size, 0);
+        NIR_PASS_V(nir, nir_io_add_base_to_offset,
+                        nir_var_shader_in | nir_var_shader_out);
         NIR_PASS_V(nir, nir_lower_ssbo);
         NIR_PASS_V(nir, pan_nir_lower_zs_store);
         NIR_PASS_V(nir, bifrost_nir_lower_i8_fragout);
