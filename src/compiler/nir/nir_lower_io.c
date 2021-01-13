@@ -2683,3 +2683,51 @@ nir_io_add_const_offset_to_base(nir_shader *nir, nir_variable_mode modes)
    return progress;
 }
 
+static bool
+add_base_to_offset_block(nir_block *block, nir_builder *b,
+                         nir_variable_mode modes)
+{
+   bool progress = false;
+   nir_foreach_instr_safe(instr, block) {
+      if (instr->type != nir_instr_type_intrinsic)
+         continue;
+
+      nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+      if ((((modes & nir_var_shader_in) && is_input(intrin)) ||
+           ((modes & nir_var_shader_out) && is_output(intrin))) &&
+          nir_intrinsic_base(intrin) != 0) {
+         b->cursor = nir_before_instr(&intrin->instr);
+
+         nir_src *offset = nir_get_io_offset_src(intrin);
+         nir_ssa_def *new_offset =
+            nir_iadd_imm(b, nir_ssa_for_src(b, *offset, 1),
+                         nir_intrinsic_base(intrin));
+
+         nir_instr_rewrite_src(&intrin->instr, offset,
+                               nir_src_for_ssa(new_offset));
+         nir_intrinsic_set_base(intrin, 0);
+         progress = true;
+      }
+   }
+
+   return progress;
+}
+
+bool
+nir_io_add_base_to_offset(nir_shader *nir, nir_variable_mode modes)
+{
+   bool progress = false;
+
+   nir_foreach_function(f, nir) {
+      if (f->impl) {
+         nir_builder b;
+         nir_builder_init(&b, f->impl);
+         nir_foreach_block(block, f->impl) {
+            progress |= add_base_to_offset_block(block, &b, modes);
+         }
+      }
+   }
+
+   return progress;
+}

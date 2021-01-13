@@ -4290,6 +4290,8 @@ bool nir_lower_io(nir_shader *shader,
 
 bool nir_io_add_const_offset_to_base(nir_shader *nir, nir_variable_mode modes);
 
+bool nir_io_add_base_to_offset(nir_shader *nir, nir_variable_mode modes);
+
 bool
 nir_lower_vars_to_explicit_types(nir_shader *shader,
                                  nir_variable_mode modes,
