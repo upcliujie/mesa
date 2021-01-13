@@ -549,8 +549,8 @@ glsl_to_tgsi_visitor::emit_asm(ir_instruction *ir, enum tgsi_opcode op,
 
    assert(num_reladdr == 0);
 
-   /* inst->op has only 8 bits. */
-   STATIC_ASSERT(TGSI_OPCODE_LAST <= 255);
+   /* inst->op has only 9 bits. */
+   STATIC_ASSERT(TGSI_OPCODE_LAST <= 511);
 
    inst->op = op;
    inst->precise = this->precise;
