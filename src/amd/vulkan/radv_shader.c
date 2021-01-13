@@ -586,8 +586,7 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
       NIR_PASS_V(nir, nir_lower_global_vars_to_local);
       NIR_PASS_V(nir, nir_lower_vars_to_ssa);
 
-      NIR_PASS_V(nir, nir_propagate_invariant,
-                 device->instance->debug_flags & RADV_DEBUG_INVARIANT_GEOM);
+      NIR_PASS_V(nir, nir_propagate_invariant, true);
 
       NIR_PASS_V(nir, nir_lower_system_values);
       NIR_PASS_V(nir, nir_lower_compute_system_values, NULL);
