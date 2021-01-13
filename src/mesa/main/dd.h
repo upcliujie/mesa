@@ -36,6 +36,10 @@
 #include "menums.h"
 #include "compiler/shader_enums.h"
 
+#if defined(_WIN32) && !defined(_M_IX86)
+#undef MemoryBarrier
+#endif
+
 struct gl_bitmap_atlas;
 struct gl_buffer_object;
 struct gl_context;
