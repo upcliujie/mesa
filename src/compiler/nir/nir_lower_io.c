@@ -2683,3 +2683,40 @@ nir_io_add_const_offset_to_base(nir_shader *nir, nir_variable_mode modes)
    return progress;
 }
 
+static bool
+add_base_to_offset_block(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+         return false;
+
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+   nir_variable_mode modes = (uintptr_t)data;
+
+   if ((((modes & nir_var_shader_in) && is_input(intrin)) ||
+        ((modes & nir_var_shader_out) && is_output(intrin))) &&
+       nir_intrinsic_base(intrin) != 0) {
+      b->cursor = nir_before_instr(&intrin->instr);
+
+      nir_src *offset = nir_get_io_offset_src(intrin);
+      nir_ssa_def *new_offset =
+         nir_iadd_imm(b, nir_ssa_for_src(b, *offset, 1),
+                      nir_intrinsic_base(intrin));
+
+      nir_instr_rewrite_src(&intrin->instr, offset,
+                            nir_src_for_ssa(new_offset));
+      nir_intrinsic_set_base(intrin, 0);
+      return true;
+   }
+
+   return false;
+}
+
+bool
+nir_io_add_base_to_offset(nir_shader *nir, nir_variable_mode modes)
+{
+   return nir_shader_instructions_pass(nir, add_base_to_offset_block,
+                                       nir_metadata_block_index |
+                                       nir_metadata_dominance |
+                                       nir_metadata_loop_analysis,
+                                       (void *)(uintptr_t)modes);
+}
