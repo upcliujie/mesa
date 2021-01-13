@@ -40,6 +40,8 @@ if dep_dxheaders.found()
     dependencies : [idep_gtest, idep_mesautil, idep_libdxil_compiler, dep_dxheaders,
                     dep_spirv_tools],
     include_directories : [inc_include, inc_src, inc_compiler, inc_spirv])
+    protocol : gtest_test_protocol,
+  )
 
-  test('clc_compiler_test', clc_compiler_test, timeout: 180)
+  test('clc_compiler_test', clc_compiler_test, timeout: 180, protocol : gtest_test_protocol)
 endif
