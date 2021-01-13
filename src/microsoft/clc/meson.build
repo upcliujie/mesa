@@ -64,7 +64,9 @@ if dep_dxheaders.found()
     ['clc_compiler_test.cpp', 'compute_test.cpp'],
     link_with : [libclc_compiler],
     dependencies : [idep_gtest, idep_mesautil, idep_libdxil_compiler, dep_dxheaders],
-    include_directories : [inc_include, inc_src])
+    include_directories : [inc_include, inc_src],
+    protocol : gtest_test_protocol,
+  )
 
-  test('clc_compiler_test', clc_compiler_test, timeout: 180)
+  test('clc_compiler_test', clc_compiler_test, timeout: 180, protocol : gtest_test_protocol)
 endif

@@ -72,6 +72,7 @@ if with_tests
       test_wgl,
       suite : ['wgl'],
       depends : [libopengl32],
+      protocol : gtest_test_protocol,
     )
   endif
 endif
