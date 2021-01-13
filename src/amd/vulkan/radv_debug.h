@@ -59,7 +59,6 @@ enum {
 	RADV_DEBUG_HANG              = 1ull << 28,
 	RADV_DEBUG_IMG               = 1ull << 29,
 	RADV_DEBUG_NO_UMR            = 1ull << 30,
-	RADV_DEBUG_INVARIANT_GEOM    = 1ull << 31,
 };
 
 enum {
