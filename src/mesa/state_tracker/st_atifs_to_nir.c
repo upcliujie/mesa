@@ -263,15 +263,15 @@ emit_arith_inst(struct st_translate *t,
    case GL_DOT2_ADD_ATI:
       return nir_channel_vec4(t->b,
                               nir_fadd(t->b,
-                                       nir_fdot2(t->b, src[0], src[1]),
+                                       nir_fdot(t->b, src[0], src[1]),
                                        nir_channel(t->b, src[1], 2)),
                               0);
 
    case GL_DOT3_ATI:
-      return nir_channel_vec4(t->b, nir_fdot3(t->b,src[0], src[1]), 0);
+      return nir_channel_vec4(t->b, nir_fdot(t->b,src[0], src[1]), 0);
 
    case GL_DOT4_ATI:
-      return nir_channel_vec4(t->b, nir_fdot4(t->b,src[0], src[1]), 0);
+      return nir_channel_vec4(t->b, nir_fdot(t->b,src[0], src[1]), 0);
 
    default:
       unreachable("Unknown ATI_fs opcode");
