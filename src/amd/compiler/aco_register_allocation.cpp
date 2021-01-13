@@ -2268,12 +2268,15 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
              instr->operands[2].isTemp() &&
              instr->operands[2].isKillBeforeDef() &&
              instr->operands[2].getTemp().type() == RegType::vgpr &&
-             instr->operands[1].isTemp() &&
-             instr->operands[1].getTemp().type() == RegType::vgpr &&
+             ((instr->operands[0].isTemp() && instr->operands[0].getTemp().type() == RegType::vgpr) ||
+              (instr->operands[1].isTemp() && instr->operands[1].getTemp().type() == RegType::vgpr)) &&
              !instr->usesModifiers() &&
              instr->operands[0].physReg().byte() == 0 &&
              instr->operands[1].physReg().byte() == 0 &&
              instr->operands[2].physReg().byte() == 0) {
+            if (!instr->operands[1].isTemp() || instr->operands[1].getTemp().type() != RegType::vgpr)
+               std::swap(instr->operands[0], instr->operands[1]);
+
             unsigned def_id = instr->definitions[0].tempId();
             auto it = ctx.affinities.find(def_id);
             if (it == ctx.affinities.end() || !ctx.assignments[it->second].assigned ||
