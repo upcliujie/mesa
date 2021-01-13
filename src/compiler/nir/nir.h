@@ -2268,22 +2268,34 @@ nir_tex_instr_src_size(const nir_tex_instr *instr, unsigned src)
 
    if (instr->src[src].src_type == nir_tex_src_ddx ||
        instr->src[src].src_type == nir_tex_src_ddy) {
-      if (instr->is_array)
-         return instr->coord_components - 1;
-      else
-         return instr->coord_components;
+      switch (instr->sampler_dim) {
+      case GLSL_SAMPLER_DIM_BUF:
+      case GLSL_SAMPLER_DIM_1D:
+         return 1;
+      case GLSL_SAMPLER_DIM_CUBE:
+      case GLSL_SAMPLER_DIM_3D:
+         return 3;
+      case GLSL_SAMPLER_DIM_2D:
+      default:
+         return 2;
+      }
    }
 
    /* Usual APIs don't allow cube + offset, but we allow it, with 2 coords for
     * the offset, since a cube maps to a single face.
     */
-   if (instr->src[src].src_type == nir_tex_src_offset) {
-      if (instr->sampler_dim == GLSL_SAMPLER_DIM_CUBE)
+   if (instr->src[src].src_type == nir_tex_src_ddx ||
+       instr->src[src].src_type == nir_tex_src_ddy ||
+       instr->src[src].src_type == nir_tex_src_offset) {
+      switch (instr->sampler_dim) {
+      case GLSL_SAMPLER_DIM_BUF:
+      case GLSL_SAMPLER_DIM_1D:
+         return 1;
+      case GLSL_SAMPLER_DIM_3D:
+         return 3;
+      default:
          return 2;
-      else if (instr->is_array)
-         return instr->coord_components - 1;
-      else
-         return instr->coord_components;
+      }
    }
 
    return 1;
