@@ -39,7 +39,30 @@ if dep_llvm.version().version_compare('>=10.0.0')
   polly_isl_dep = cpp.find_library('PollyISL', dirs : llvm_libdir, required : false)
 endif
 
-dep_clang = cpp.find_library('clang-cpp', dirs : llvm_libdir, required : false)
+dep_clang = dependency(
+  'Clang',
+  method : 'cmake',
+  required : false,
+  modules : [
+    'clangCodeGen',
+    'clangFrontendTool',
+    'clangFrontend',
+    'clangDriver',
+    'clangSerialization',
+    'clangParse',
+    'clangSema',
+    'clangAnalysis',
+    'clangAST',
+    'clangASTMatchers',
+    'clangEdit',
+    'clangLex',
+    'clangBasic',
+  ],
+)
+
+if not dep_clang.found()
+  dep_clang = cpp.find_library('clang-cpp', dirs : llvm_libdir, required : false)
+endif
 
 # meson will return clang-cpp from system dirs if it's not found in llvm_libdir
 linker_rpath_arg = '-Wl,--rpath=@0@'.format(llvm_libdir)
