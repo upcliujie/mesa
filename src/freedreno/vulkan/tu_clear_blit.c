@@ -2386,6 +2386,15 @@ tu_emit_blit(struct tu_cmd_buffer *cmd,
              bool resolve,
              bool separate_stencil)
 {
+   /* D32_SFLOAT_S8_UINT is quite special format: it has two planes,
+    * one for depth and other for stencil. When resolving a MSAA
+    * D32_SFLOAT_S8_UINT to S8_UINT, we need to take that into account.
+    */
+   bool resolve_msaa_d32s8_s8 = resolve &&
+      attachment->format == VK_FORMAT_D32_SFLOAT_S8_UINT &&
+      dst_format == VK_FORMAT_S8_UINT &&
+      attachment->samples > 1;
+
    tu_cs_emit_regs(cs,
                    A6XX_RB_MSAA_CNTL(tu_msaa_samples(attachment->samples)));
 
@@ -2397,7 +2406,7 @@ tu_emit_blit(struct tu_cmd_buffer *cmd,
          vk_format_is_int(dst_format)));
 
    tu_cs_emit_pkt4(cs, REG_A6XX_RB_BLIT_DST_INFO, 4);
-   if (separate_stencil) {
+   if (separate_stencil || resolve_msaa_d32s8_s8) {
       tu_cs_emit(cs, tu_image_view_stencil(iview, RB_BLIT_DST_INFO) & ~A6XX_RB_BLIT_DST_INFO_FLAGS);
       tu_cs_emit_qw(cs, iview->stencil_base_addr);
       tu_cs_emit(cs, iview->stencil_PITCH);
