@@ -799,7 +799,6 @@ static const struct debug_control radv_debug_options[] = {
    {"hang", RADV_DEBUG_HANG},
    {"img", RADV_DEBUG_IMG},
    {"noumr", RADV_DEBUG_NO_UMR},
-   {"invariantgeom", RADV_DEBUG_INVARIANT_GEOM},
    {"nodisplaydcc", RADV_DEBUG_NO_DISPLAY_DCC},
    {"notccompatcmask", RADV_DEBUG_NO_TC_COMPAT_CMASK},
    {"novrsflatshading", RADV_DEBUG_NO_VRS_FLAT_SHADING},
