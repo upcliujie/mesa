@@ -946,6 +946,29 @@ tu_GetPhysicalDeviceMemoryProperties2(VkPhysicalDevice pdev,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
    props->memoryTypes[0].heapIndex = 0;
+
+   vk_foreach_struct(ext, props2->pNext)
+   {
+      switch (ext->sType) {
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT: {
+         VkPhysicalDeviceMemoryBudgetPropertiesEXT *memory_budget_props =
+            (VkPhysicalDeviceMemoryBudgetPropertiesEXT *) ext;
+         memory_budget_props->heapBudget[0] = physical_device->heap.size;
+         memory_budget_props->heapUsage[0] = physical_device->heap.used;
+
+         /* The heapBudget and heapUsage values must be zero for array elements
+          * greater than or equal to VkPhysicalDeviceMemoryProperties::memoryHeapCount
+          */
+         for (unsigned i = 1; i < VK_MAX_MEMORY_HEAPS; i++) {
+            memory_budget_props->heapBudget[i] = 0u;
+            memory_budget_props->heapUsage[i] = 0u;
+         }
+         break;
+      }
+      default:
+         break;
+      }
+   }
 }
 
 static VkResult
