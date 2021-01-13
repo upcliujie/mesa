@@ -319,7 +319,7 @@ ntt_setup_uniforms(struct ntt_compile *c)
        * counters
        */
       bool atomic = false;
-      ureg_DECL_buffer(c->ureg, var->data.binding, atomic);
+      ureg_DECL_buffer(c->ureg, var->data.location, atomic);
    }
 
    for (int i = 0; i < PIPE_MAX_SAMPLERS; i++) {
