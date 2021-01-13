@@ -1168,6 +1168,29 @@ iris_flush_resource(struct pipe_context *ctx, struct pipe_resource *resource)
 }
 
 static void
+iris_make_resource_shareable(struct pipe_context *ctx,
+                             struct pipe_resource *resource)
+{
+   struct iris_context *ice = (struct iris_context *)ctx;
+   struct iris_resource *res = (struct iris_resource *)resource;
+
+   if (res->mod_info)
+      return;
+
+   iris_resource_prepare_access(ice, res,
+                                0, INTEL_REMAINING_LEVELS,
+                                0, INTEL_REMAINING_LAYERS,
+                                ISL_AUX_USAGE_NONE, false);
+
+   for (int i = 0; i < IRIS_BATCH_COUNT; i++) {
+      if (iris_batch_references(&ice->batches[i], res->bo))
+         iris_batch_flush(&ice->batches[i]);
+   }
+
+   iris_resource_disable_aux(res);
+}
+
+static void
 iris_resource_disable_aux_on_first_query(struct pipe_resource *resource,
                                          unsigned usage)
 {
@@ -2239,6 +2262,7 @@ void
 iris_init_resource_functions(struct pipe_context *ctx)
 {
    ctx->flush_resource = iris_flush_resource;
+   ctx->make_resource_shareable = iris_make_resource_shareable;
    ctx->invalidate_resource = iris_invalidate_resource;
    ctx->transfer_map = u_transfer_helper_transfer_map;
    ctx->transfer_flush_region = u_transfer_helper_transfer_flush_region;
