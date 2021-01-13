@@ -179,6 +179,23 @@ tu_lookup_entrypoint_checked(
    const struct tu_instance_extension_table *instance,
    const struct tu_device_extension_table *device);
 
+struct tu_memory_heap {
+   /* Standard bits passed on to the client */
+   VkDeviceSize      size;
+   VkMemoryHeapFlags flags;
+
+   /** Copied from ANV:
+    *
+    * Driver-internal book-keeping.
+    *
+    * Align it to 64 bits to make atomic operations faster on 32 bit platforms.
+    */
+   VkDeviceSize      used __attribute__ ((aligned (8)));
+};
+
+uint64_t
+tu_get_system_heap_size(void);
+
 struct tu_physical_device
 {
    struct vk_object_base base;
@@ -210,6 +227,8 @@ struct tu_physical_device
    struct disk_cache *disk_cache;
 
    struct tu_device_extension_table supported_extensions;
+
+   struct tu_memory_heap heap;
 };
 
 enum tu_debug_flags
