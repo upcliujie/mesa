@@ -1079,21 +1079,9 @@ ttn_sgt(nir_builder *b, nir_op op, nir_alu_dest dest, nir_ssa_def **src)
 }
 
 static void
-ttn_dp2(nir_builder *b, nir_op op, nir_alu_dest dest, nir_ssa_def **src)
+ttn_dp(nir_builder *b, nir_op op, nir_alu_dest dest, nir_ssa_def **src)
 {
-   ttn_move_dest(b, dest, nir_fdot2(b, src[0], src[1]));
-}
-
-static void
-ttn_dp3(nir_builder *b, nir_op op, nir_alu_dest dest, nir_ssa_def **src)
-{
-   ttn_move_dest(b, dest, nir_fdot3(b, src[0], src[1]));
-}
-
-static void
-ttn_dp4(nir_builder *b, nir_op op, nir_alu_dest dest, nir_ssa_def **src)
-{
-   ttn_move_dest(b, dest, nir_fdot4(b, src[0], src[1]));
+   ttn_move_dest(b, dest, nir_fdot(b, src[0], src[1]));
 }
 
 static void
@@ -2063,15 +2051,9 @@ ttn_emit_instruction(struct ttn_compile *c)
       break;
 
    case TGSI_OPCODE_DP2:
-      ttn_dp2(b, op_trans[tgsi_op], dest, src);
-      break;
-
    case TGSI_OPCODE_DP3:
-      ttn_dp3(b, op_trans[tgsi_op], dest, src);
-      break;
-
    case TGSI_OPCODE_DP4:
-      ttn_dp4(b, op_trans[tgsi_op], dest, src);
+      ttn_dp(b, op_trans[tgsi_op], dest, src);
       break;
 
    case TGSI_OPCODE_UMAD:
