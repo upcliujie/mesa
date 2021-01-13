@@ -29,6 +29,13 @@ project(
   default_options : ['buildtype=debugoptimized', 'b_ndebug=if-release', 'c_std=c99', 'cpp_std=c++14']
 )
 
+# For meson >= 0.55.0, meson can inject some extra arguments to get richer
+# results from gtest based tests.
+gtest_test_protocol = 'exitcode'
+if meson.version().version_compare('>= 0.55.0')
+  gtest_test_protocol = 'gtest'
+endif
+
 cc = meson.get_compiler('c')
 cpp = meson.get_compiler('cpp')
 
@@ -573,7 +580,7 @@ endif
 if with_gallium_d3d12 or with_microsoft_clc
   dep_dxheaders = dependency('DirectX-Headers', fallback : ['DirectX-Headers', 'dep_dxheaders'],
     required : with_gallium_d3d12
-  ) 
+  )
 endif
 
 if with_vulkan_overlay_layer or with_aco_tests
@@ -938,7 +945,7 @@ if _shader_cache != 'disabled'
   endif
 endif
 
-if with_shader_cache 
+if with_shader_cache
   shader_cache_max_size = get_option('shader-cache-max-size')
   if shader_cache_max_size != ''
     pre_args += '-DMESA_GLSL_CACHE_MAX_SIZE="@0@"'.format(shader_cache_max_size)

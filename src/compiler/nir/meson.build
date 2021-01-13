@@ -369,6 +369,7 @@ if with_tests
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
     ),
     suite : ['compiler', 'nir'],
+    protocol : gtest_test_protocol,
   )
 
   test(
@@ -382,6 +383,7 @@ if with_tests
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
     ),
     suite : ['compiler', 'nir'],
+    protocol : gtest_test_protocol,
   )
 
   test(
@@ -395,6 +397,7 @@ if with_tests
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
     ),
     suite : ['compiler', 'nir'],
+    protocol : gtest_test_protocol,
   )
 
   test(
@@ -417,6 +420,7 @@ if with_tests
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
     ),
     suite : ['compiler', 'nir'],
+    protocol : gtest_test_protocol,
   )
 
   test(
@@ -430,6 +434,7 @@ if with_tests
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
     ),
     suite : ['compiler', 'nir'],
+    protocol : gtest_test_protocol,
   )
 
   test(
@@ -444,6 +449,7 @@ if with_tests
     ),
     suite : ['compiler', 'nir'],
     should_fail : meson.get_cross_property('xfail', '').contains('load_store_vectorizer'),
+    protocol : gtest_test_protocol,
   )
 
   test(
@@ -457,6 +463,7 @@ if with_tests
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
     ),
     suite : ['compiler', 'nir'],
+    protocol : gtest_test_protocol,
   )
 
   test(
@@ -470,6 +477,7 @@ if with_tests
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
     ),
     suite : ['compiler', 'nir'],
+    protocol : gtest_test_protocol,
   )
 
   test(
@@ -483,5 +491,6 @@ if with_tests
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
     ),
     suite : ['compiler', 'nir'],
+    protocol : gtest_test_protocol,
   )
 endif

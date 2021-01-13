@@ -80,6 +80,7 @@ if with_tests
       link_with: libosmesa,
       dependencies : [idep_gtest],
     ),
-    suite: 'gallium'
+    suite: 'gallium',
+    protocol : gtest_test_protocol,
   )
 endif

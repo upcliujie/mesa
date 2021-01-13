@@ -157,22 +157,39 @@ libintel_compiler = static_library(
 )
 
 if with_tests
+  _test_inc = [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel]
+  _test_link = [libintel_compiler, libintel_common, libintel_dev, libisl]
+  _test_deps = [idep_nir, idep_mesautil]
   # The last two tests are not C++ or gtest, pre comment in autotools make
   foreach t : ['fs_cmod_propagation', 'fs_copy_propagation',
                'fs_saturate_propagation', 'vf_float_conversions',
                'vec4_register_coalesce', 'vec4_copy_propagation',
                'vec4_cmod_propagation', 'vec4_dead_code_eliminate',
-               'eu_compact', 'eu_validate', 'fs_scoreboard']
+               'eu_validate', 'fs_scoreboard']
     test(
       t,
       executable(
         [t, ir_expression_operation_h],
         'test_@0@.cpp'.format(t),
-        include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel],
-        link_with : [
-          libintel_compiler, libintel_common, libintel_dev, libisl,
-        ],
-        dependencies : [idep_gtest, idep_nir, idep_mesautil],
+        include_directories : _test_inc,
+        link_with : _test_link,
+        dependencies : [idep_gtest, _test_deps],
+      ),
+      suite : ['intel'],
+      protocol : gtest_test_protocol,
+    )
+  endforeach
+
+  # Tests that don't use gtest, and can't have `protocol : 'gtest'`
+  foreach t : ['eu_compact']
+    test(
+      t,
+      executable(
+        [t, ir_expression_operation_h],
+        'test_@0@.cpp'.format(t),
+        include_directories : _test_inc,
+        link_with : _test_link,
+        dependencies : _test_deps,
       ),
       suite : ['intel'],
     )

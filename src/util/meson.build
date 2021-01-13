@@ -252,8 +252,9 @@ if with_tests
       env: ['HOME=' + join_paths(meson.current_source_dir(),
                                  'tests', 'drirc_home'),
             'DRIRC_CONFIGDIR=' + join_paths(meson.current_source_dir(),
-                                            'tests', 'drirc_configdir')]
-        )
+                                            'tests', 'drirc_configdir')],
+      protocol : gtest_test_protocol,
+    )
   endif
 
   test(
@@ -327,8 +328,9 @@ if with_tests
        files('bitset_test.cpp'),
        include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
        dependencies : [idep_mesautil, idep_gtest],
-     ),
-     suite : ['util'],
+    ),
+    suite : ['util'],
+    protocol : gtest_test_protocol,
   )
 
   test(
@@ -340,7 +342,8 @@ if with_tests
       dependencies : [idep_mesautil, idep_gtest],
       c_args : [c_msvc_compat_args],
     ),
-     suite : ['util'],
+    suite : ['util'],
+    protocol : gtest_test_protocol,
   )
 
   process_test_exe = executable(
