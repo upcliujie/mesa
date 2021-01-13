@@ -30,5 +30,6 @@ if with_shader_cache
       dependencies : [dep_clock, dep_thread, idep_gtest, idep_mesautil],
     ),
     suite : ['util'],
+    protocol : gtest_test_protocol,
   )
 endif
