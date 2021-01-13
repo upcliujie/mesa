@@ -32,13 +32,6 @@ endif
 llvm_libdir = dep_llvm.get_variable(cmake : 'LLVM_LIBRARY_DIR', configtool: 'libdir')
 opencl_libname = with_opencl_icd ? 'MesaOpenCL' : 'OpenCL'
 
-polly_dep = null_dep
-polly_isl_dep = null_dep
-if dep_llvm.version().version_compare('>=10.0.0')
-  polly_dep = cpp.find_library('Polly', dirs : llvm_libdir, required : false)
-  polly_isl_dep = cpp.find_library('PollyISL', dirs : llvm_libdir, required : false)
-endif
-
 dep_clang = dependency(
   'Clang',
   method : 'cmake',
@@ -96,7 +89,8 @@ if not (dep_clang.found() and dep_clang_usable)
     cpp.find_library('clangEdit', dirs : llvm_libdir),
     cpp.find_library('clangLex', dirs : llvm_libdir),
     cpp.find_library('clangBasic', dirs : llvm_libdir),
-    polly_dep, polly_isl_dep,
+    cpp.find_library('Polly', dirs : llvm_libdir, required : false),
+    cpp.find_library('PollyISL', dirs : llvm_libdir, required : false),
   ]
   # check clang once more
   if can_check_clang
