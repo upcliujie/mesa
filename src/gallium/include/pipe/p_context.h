@@ -904,6 +904,12 @@ struct pipe_context {
                           struct pipe_resource *resource);
 
    /**
+    * Do any internal driver preparation to make the resource useable by
+    * external clients.
+    */
+   void (*make_resource_shareable)(struct pipe_context *ctx,
+                                   struct pipe_resource *resource);
+   /**
     * Invalidate the contents of the resource. This is used to
     *
     * (1) implement EGL's semantic of undefined depth/stencil

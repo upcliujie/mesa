@@ -258,7 +258,9 @@ dri2_create_image_from_renderbuffer2(__DRIcontext *context,
 				     int renderbuffer, void *loaderPrivate,
                                      unsigned *error)
 {
-   struct gl_context *ctx = ((struct st_context *)dri_context(context)->st)->ctx;
+   struct st_context *st_ctx = (struct st_context *)dri_context(context)->st;
+   struct gl_context *ctx = st_ctx->ctx;
+   struct pipe_context *p_ctx = st_ctx->pipe;
    struct gl_renderbuffer *rb;
    struct pipe_resource *tex;
    __DRIimage *img;
@@ -297,6 +299,9 @@ dri2_create_image_from_renderbuffer2(__DRIcontext *context,
    img->dri_format = driGLFormatToImageFormat(rb->Format);
    img->loader_private = loaderPrivate;
    img->sPriv = context->driScreenPriv;
+
+   if (p_ctx->make_resource_shareable)
+      p_ctx->make_resource_shareable(p_ctx, tex);
 
    pipe_resource_reference(&img->texture, tex);
 
@@ -338,7 +343,9 @@ dri2_create_from_texture(__DRIcontext *context, int target, unsigned texture,
                          void *loaderPrivate)
 {
    __DRIimage *img;
-   struct gl_context *ctx = ((struct st_context *)dri_context(context)->st)->ctx;
+   struct st_context *st_ctx = (struct st_context *)dri_context(context)->st;
+   struct gl_context *ctx = st_ctx->ctx;
+   struct pipe_context *p_ctx = st_ctx->pipe;
    struct gl_texture_object *obj;
    struct pipe_resource *tex;
    GLuint face = 0;
@@ -386,6 +393,9 @@ dri2_create_from_texture(__DRIcontext *context, int target, unsigned texture,
 
    img->loader_private = loaderPrivate;
    img->sPriv = context->driScreenPriv;
+
+   if (p_ctx->make_resource_shareable)
+      p_ctx->make_resource_shareable(p_ctx, tex);
 
    pipe_resource_reference(&img->texture, tex);
 
