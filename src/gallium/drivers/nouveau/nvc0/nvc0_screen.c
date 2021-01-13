@@ -299,6 +299,7 @@ nvc0_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_CLIP_PLANES:
    case PIPE_CAP_TEXTURE_SHADOW_LOD:
    case PIPE_CAP_PACKED_STREAM_OUTPUT:
+   case PIPE_CAP_SHADER_ATOMIC_INT64:
       return 1;
    case PIPE_CAP_PREFER_BLIT_BASED_TEXTURE_TRANSFER:
       return nouveau_screen(pscreen)->vram_domain & NOUVEAU_BO_VRAM ? 1 : 0;
@@ -405,7 +406,6 @@ nvc0_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_PREFER_REAL_BUFFER_IN_CONSTBUF0:
    case PIPE_CAP_MAP_UNSYNCHRONIZED_THREAD_SAFE: /* when we fix MT stuff */
    case PIPE_CAP_ALPHA_TO_COVERAGE_DITHER_CONTROL: /* TODO */
-   case PIPE_CAP_SHADER_ATOMIC_INT64: /* TODO */
    case PIPE_CAP_GLSL_ZERO_INIT:
    case PIPE_CAP_BLEND_EQUATION_ADVANCED:
    case PIPE_CAP_NO_CLIP_ON_COPY_TEX:

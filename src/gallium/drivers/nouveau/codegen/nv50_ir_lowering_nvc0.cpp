@@ -1680,12 +1680,12 @@ NVC0LoweringPass::handleATOM(Instruction *atom)
       atom->setPredicate(CC_NOT_P, pred);
       if (atom->defExists(0)) {
          Value *zero, *dst = atom->getDef(0);
-         atom->setDef(0, bld.getSSA());
+         atom->setDef(0, bld.getSSA(typeSizeof(atom->dType)));
 
          bld.setPosition(atom, true);
-         bld.mkMov((zero = bld.getSSA()), bld.mkImm(0))
+         bld.mkMov((zero = bld.getSSA(typeSizeof(atom->dType))), bld.mkImm(0))
             ->setPredicate(CC_P, pred);
-         bld.mkOp2(OP_UNION, TYPE_U32, dst, atom->getDef(0), zero);
+         bld.mkOp2(OP_UNION, atom->dType, dst, atom->getDef(0), zero);
       }
 
       return true;
