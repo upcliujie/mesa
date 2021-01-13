@@ -416,21 +416,9 @@ ptn_xpd(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src)
 }
 
 static void
-ptn_dp2(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src)
+ptn_dp(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src)
 {
-   ptn_move_dest(b, dest, nir_fdot2(b, src[0], src[1]));
-}
-
-static void
-ptn_dp3(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src)
-{
-   ptn_move_dest(b, dest, nir_fdot3(b, src[0], src[1]));
-}
-
-static void
-ptn_dp4(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src)
-{
-   ptn_move_dest(b, dest, nir_fdot4(b, src[0], src[1]));
+   ptn_move_dest(b, dest, nir_fdot(b, src[0], src[1]));
 }
 
 static void
@@ -753,15 +741,9 @@ ptn_emit_instruction(struct ptn_compile *c, struct prog_instruction *prog_inst)
       break;
 
    case OPCODE_DP2:
-      ptn_dp2(b, dest, src);
-      break;
-
    case OPCODE_DP3:
-      ptn_dp3(b, dest, src);
-      break;
-
    case OPCODE_DP4:
-      ptn_dp4(b, dest, src);
+      ptn_dp(b, dest, src);
       break;
 
    case OPCODE_DPH:
