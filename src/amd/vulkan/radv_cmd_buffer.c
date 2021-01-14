@@ -453,8 +453,7 @@ radv_reset_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
 		cmd_buffer->descriptors[i].push_dirty = false;
 	}
 
-	if (cmd_buffer->device->physical_device->rad_info.chip_class >= GFX9 &&
-	    cmd_buffer->queue_family_index == RADV_QUEUE_GENERAL) {
+	if (cmd_buffer->device->physical_device->rad_info.chip_class >= GFX9) {
 		unsigned num_db = cmd_buffer->device->physical_device->rad_info.max_render_backends;
 		unsigned fence_offset, eop_bug_offset;
 		void *fence_ptr;
@@ -467,7 +466,8 @@ radv_reset_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
 			radv_buffer_get_va(cmd_buffer->upload.upload_bo);
 		cmd_buffer->gfx9_fence_va += fence_offset;
 
-		if (cmd_buffer->device->physical_device->rad_info.chip_class == GFX9) {
+		if (cmd_buffer->device->physical_device->rad_info.chip_class == GFX9 &&
+		    cmd_buffer->queue_family_index == RADV_QUEUE_GENERAL) {
 			/* Allocate a buffer for the EOP bug on GFX9. */
 			radv_cmd_buffer_upload_alloc(cmd_buffer, 16 * num_db, 8,
 						     &eop_bug_offset, &fence_ptr);

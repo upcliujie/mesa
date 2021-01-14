@@ -1406,7 +1406,7 @@ si_cs_emit_cache_flush(struct radeon_cmdbuf *cs,
 		assert(flush_cnt);
 		(*flush_cnt)++;
 
-		si_cs_emit_write_event_eop(cs, chip_class, false, cb_db_event, tc_flags,
+		si_cs_emit_write_event_eop(cs, chip_class, is_mec, cb_db_event, tc_flags,
 					   EOP_DST_SEL_MEM,
 					   EOP_DATA_SEL_VALUE_32BIT,
 					   flush_va, *flush_cnt,
