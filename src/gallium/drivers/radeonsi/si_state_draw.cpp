@@ -1991,13 +1991,17 @@ static void si_draw_vbo(struct pipe_context *ctx,
              hw_vs->ngg_cull_nonindexed_fast_launch_vert_threshold < UINT32_MAX) {
             if (prim == PIPE_PRIM_TRIANGLES && !index_size) {
                ngg_culling |= SI_NGG_CULL_GS_FAST_LAUNCH_TRI_LIST;
+            } else if (prim == PIPE_PRIM_TRIANGLE_STRIP) {
+               if (!index_size) {
+                  ngg_culling |= SI_NGG_CULL_GS_FAST_LAUNCH_TRI_STRIP;
+               } else if (!primitive_restart) {
 #if 0 /* It's disabled because this hangs: AMD_DEBUG=nggc torcs */
-            } else if (prim == PIPE_PRIM_TRIANGLE_STRIP && !primitive_restart) {
-               ngg_culling |= SI_NGG_CULL_GS_FAST_LAUNCH_TRI_STRIP |
-                              SI_NGG_CULL_GS_FAST_LAUNCH_INDEX_SIZE_PACKED(MIN2(index_size, 3));
-               /* The index buffer will be emulated. */
-               index_size = 0;
+                  ngg_culling |= SI_NGG_CULL_GS_FAST_LAUNCH_TRI_STRIP |
+                                 SI_NGG_CULL_GS_FAST_LAUNCH_INDEX_SIZE_PACKED(MIN2(index_size, 3));
+                  /* The index buffer will be emulated. */
+                  index_size = 0;
 #endif
+               }
             }
          }
 
