@@ -204,21 +204,10 @@ panfrost_bo_cache_fetch(struct panfrost_device *dev,
                                       PAN_BO_ACCESS_RW))
                         continue;
 
-                struct drm_panfrost_madvise madv = {
-                        .handle = entry->gem_handle,
-                        .madv = PANFROST_MADV_WILLNEED,
-                };
-                int ret;
-
                 /* This one works, splice it out of the cache */
                 list_del(&entry->bucket_link);
                 list_del(&entry->lru_link);
 
-                ret = drmIoctl(dev->fd, DRM_IOCTL_PANFROST_MADVISE, &madv);
-                if (!ret && !madv.retained) {
-                        panfrost_bo_free(entry);
-                        continue;
-                }
                 /* Let's go! */
                 bo = entry;
                 break;
@@ -266,14 +255,7 @@ panfrost_bo_cache_put(struct panfrost_bo *bo)
 
         pthread_mutex_lock(&dev->bo_cache.lock);
         struct list_head *bucket = pan_bucket(dev, MAX2(bo->size, 4096));
-        struct drm_panfrost_madvise madv;
         struct timespec time;
-
-        madv.handle = bo->gem_handle;
-        madv.madv = PANFROST_MADV_DONTNEED;
-	madv.retained = 0;
-
-        drmIoctl(dev->fd, DRM_IOCTL_PANFROST_MADVISE, &madv);
 
         /* Add us to the bucket */
         list_addtail(&bo->bucket_link, bucket);
