@@ -284,6 +284,8 @@ x86_build-base:
     - .container
   variables:
     MESA_IMAGE_TAG: &x86_build-base "2021-02-08-container-reorg"
+  rules:
+    - when: always
 
 .use-x86_build-base:
   extends:
@@ -385,6 +387,8 @@ x86_test-base:
   extends: x86_build-base
   variables:
     MESA_IMAGE_TAG: &x86_test-base "2021-02-17-gfxreconstruct-master"
+  rules:
+    - when: always
 
 .use-x86_test-base:
   extends:
@@ -1203,18 +1207,6 @@ zink-piglit-quick_gl:
     LIBGL_ALWAYS_SOFTWARE: "true"
     GALLIUM_DRIVER: "virpipe"
 
-virgl-traces:
-  extends:
-    - .virgl-test
-    - .piglit-traces-test
-  variables:
-    EGL_PLATFORM: "surfaceless"
-    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-virgl.yml"
-    PIGLIT_REPLAY_DEVICE_NAME: "gl-virgl"
-    PIGLIT_RESULTS: "virgl-replay"
-    MESA_GLES_VERSION_OVERRIDE: "3.1"
-    MESA_GLSL_VERSION_OVERRIDE: "310"
-
 arm64-a630-traces:
   extends:
     - .piglit-traces-test
@@ -1376,48 +1368,6 @@ softpipe-gl:
   extends:
     - softpipe-gles2
 
-virgl-gles2-on-gl:
-  variables:
-    DEQP_VER: gles2
-    DEQP_NO_SAVE_RESULTS: 1
-    GPU_VERSION: virgl-gl
-    # Don't use threads inside llvmpipe, we've already got all cores
-    # busy at the deqp-runner level.
-    LP_NUM_THREADS: 0
-    DEQP_OPTIONS: "--deqp-log-images=disable"
-    DEQP_EXPECTED_RENDERER: virgl
-  extends:
-    - .deqp-test
-    - .virgl-test
-
-virgl-gles3-on-gl:
-  variables:
-    DEQP_VER: gles3
-    DEQP_RUNNER_OPTIONS: "--timeout 180"
-  extends: virgl-gles2-on-gl
-
-virgl-gles31-on-gl:
-  parallel: 2
-  variables:
-    DEQP_VER: gles31
-    MESA_EXTENSION_OVERRIDE: "-GL_OES_tessellation_shader"
-  extends: virgl-gles3-on-gl
-
-virgl-gl30-on-gl:
-  variables:
-    DEQP_VER: gl30
-  extends: virgl-gles2-on-gl
-
-virgl-gl31-on-gl:
-  variables:
-    DEQP_VER: gl31
-  extends: virgl-gles2-on-gl
-
-virgl-gl32-on-gl:
-  variables:
-    DEQP_VER: gl32
-  extends: virgl-gles2-on-gl
-
 # Rules for tests that should not be present in MRs or the main
 # project's pipeline (don't block marge or report red on
 # mesa/mesamaster) but should be present on pipelines in personal
@@ -1433,30 +1383,6 @@ virgl-gl32-on-gl:
     - when: never
   variables:
     GIT_STRATEGY: none
-
-virgl-gles2-on-gles:
-  variables:
-    VIRGL_HOST_API: GLES
-    GPU_VERSION: virgl-gles
-  extends:
-    - virgl-gles2-on-gl
-    - .test-manual
-
-virgl-gles3-on-gles:
-  variables:
-    VIRGL_HOST_API: GLES
-    GPU_VERSION: virgl-gles
-  extends:
-    - virgl-gles3-on-gl
-    - .test-manual
-
-virgl-gles31-on-gles:
-  variables:
-    VIRGL_HOST_API: GLES
-    GPU_VERSION: virgl-gles
-  extends:
-    - virgl-gles31-on-gl
-    - .test-manual
 
 .arm64-a630-test:
   extends:
