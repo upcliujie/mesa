@@ -373,6 +373,7 @@ spec/!opengl 2.0/vertex-program-two-side front/vs, tcs, tes and fs: skip
 spec/!opengl 2.0/vertex-program-two-side/tcs-out, tes and fs: skip
 spec/!opengl 2.0/vertex-program-two-side/tes-out and fs: skip
 spec/!opengl 2.0/vertex-program-two-side/vs, tcs, tes and fs: skip
+spec/!opengl 3.0/clearbuffer-depth-cs-probe: fail
 spec/!opengl 3.0/gl30basic: fail
 spec/!opengl 3.0/minmax: fail
 spec/!opengl 3.1/minmax: fail
@@ -696,6 +697,7 @@ spec/arb_gl_spirv/execution/ssbo/two-ssbo: skip
 spec/arb_gl_spirv/execution/ssbo/two-ssbo-different-layouts: skip
 spec/arb_gl_spirv/execution/ssbo/two-stages: skip
 spec/arb_gl_spirv/execution/ssbo/unsized-array: skip
+spec/arb_gl_spirv/execution/ssbo/unsized-array-length: skip
 spec/arb_gl_spirv/execution/ubo/aoa: skip
 spec/arb_gl_spirv/execution/ubo/aoa-2: skip
 spec/arb_gl_spirv/execution/ubo/array: skip
@@ -3083,10 +3085,10 @@ wgl/wgl-sanity: skip
 summary:
        name:  results
        ----  --------
-       pass:    26801
-       fail:      399
+       pass:    26834
+       fail:      400
       crash:       42
-       skip:     2612
+       skip:     2613
     timeout:        0
        warn:        4
  incomplete:        0
@@ -3095,4 +3097,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:    29883
+      total:    29918

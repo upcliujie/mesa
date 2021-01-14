@@ -372,6 +372,7 @@ spec/arb_gl_spirv/execution/ssbo/two-ssbo: skip
 spec/arb_gl_spirv/execution/ssbo/two-ssbo-different-layouts: skip
 spec/arb_gl_spirv/execution/ssbo/two-stages: skip
 spec/arb_gl_spirv/execution/ssbo/unsized-array: skip
+spec/arb_gl_spirv/execution/ssbo/unsized-array-length: skip
 spec/arb_gl_spirv/execution/ubo/aoa: skip
 spec/arb_gl_spirv/execution/ubo/aoa-2: skip
 spec/arb_gl_spirv/execution/ubo/array: skip
@@ -1205,7 +1206,7 @@ summary:
        pass:     5342
        fail:       71
       crash:       39
-       skip:     1089
+       skip:     1090
     timeout:        0
        warn:        2
  incomplete:        0
@@ -1214,4 +1215,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:     6543
+      total:     6544

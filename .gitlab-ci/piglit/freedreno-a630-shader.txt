@@ -35,6 +35,7 @@ spec/amd_shader_trinary_minmax/execution/built-in-functions/cs-min3-vec2-vec2-ve
 spec/amd_shader_trinary_minmax/execution/built-in-functions/cs-min3-vec3-vec3-vec3: skip
 spec/amd_shader_trinary_minmax/execution/built-in-functions/cs-min3-vec4-vec4-vec4: skip
 spec/amd_shader_trinary_minmax/execution/built-in-functions/fs-max3-uint-uint-uint: skip
+spec/amd_shader_trinary_minmax/execution/built-in-functions/fs-mid3-float-float-float: fail
 spec/amd_shader_trinary_minmax/execution/built-in-functions/fs-mid3-ivec2-ivec2-ivec2: skip
 spec/amd_shader_trinary_minmax/execution/built-in-functions/fs-min3-uvec2-uvec2-uvec2: skip
 spec/amd_shader_trinary_minmax/execution/built-in-functions/fs-min3-vec2-vec2-vec2: skip
@@ -44,6 +45,7 @@ spec/amd_shader_trinary_minmax/execution/built-in-functions/gs-max3-uvec3-uvec3-
 spec/amd_shader_trinary_minmax/execution/built-in-functions/gs-mid3-ivec2-ivec2-ivec2: skip
 spec/amd_shader_trinary_minmax/execution/built-in-functions/gs-min3-vec3-vec3-vec3: skip
 spec/amd_shader_trinary_minmax/execution/built-in-functions/gs-min3-vec4-vec4-vec4: skip
+spec/amd_shader_trinary_minmax/execution/built-in-functions/tcs-max3-ivec3-ivec3-ivec3: fail
 spec/amd_shader_trinary_minmax/execution/built-in-functions/tcs-max3-uvec4-uvec4-uvec4: skip
 spec/amd_shader_trinary_minmax/execution/built-in-functions/tcs-mid3-float-float-float: skip
 spec/amd_shader_trinary_minmax/execution/built-in-functions/tcs-min3-uvec3-uvec3-uvec3: skip
@@ -106,7 +108,6 @@ spec/arb_bindless_texture/linker/global_bindless_sampler_and_bound_image: skip
 spec/arb_bindless_texture/linker/global_bindless_sampler_and_bound_sampler: skip
 spec/arb_bindless_texture/linker/global_bound_sampler_and_bound_image: skip
 spec/arb_compute_shader/execution/border-color: fail
-spec/arb_compute_shader/execution/simple-barrier-atomics: fail
 spec/arb_derivative_control/execution/dfdx-coarse: skip
 spec/arb_derivative_control/execution/dfdx-dfdy: skip
 spec/arb_derivative_control/execution/dfdx-fine: skip
@@ -226,6 +227,7 @@ spec/arb_gl_spirv/execution/ssbo/two-ssbo: skip
 spec/arb_gl_spirv/execution/ssbo/two-ssbo-different-layouts: skip
 spec/arb_gl_spirv/execution/ssbo/two-stages: skip
 spec/arb_gl_spirv/execution/ssbo/unsized-array: skip
+spec/arb_gl_spirv/execution/ssbo/unsized-array-length: skip
 spec/arb_gl_spirv/execution/ubo/aoa: skip
 spec/arb_gl_spirv/execution/ubo/aoa-2: skip
 spec/arb_gl_spirv/execution/ubo/array: skip
@@ -478,6 +480,12 @@ spec/arb_shader_ballot/execution/fs-readfirstinvocation-uint-loop: skip
 spec/arb_shader_ballot/execution/fs-readfirstinvocation-uint-uniform: skip
 spec/arb_shader_ballot/execution/fs-readinvocation-uint: skip
 spec/arb_shader_ballot/execution/fs-readinvocation-uint-uniform: skip
+spec/arb_shader_bit_encoding/execution/built-in-functions/fs-floatbitstoint: fail
+spec/arb_shader_bit_encoding/execution/built-in-functions/fs-floatbitstouint: fail
+spec/arb_shader_bit_encoding/execution/built-in-functions/fs-floatbitstouint-abs: fail
+spec/arb_shader_bit_encoding/execution/built-in-functions/fs-floatbitstouint-neg: fail
+spec/arb_shader_bit_encoding/execution/built-in-functions/fs-intbitstofloat: fail
+spec/arb_shader_bit_encoding/execution/built-in-functions/vs-floatbitstoint: fail
 spec/arb_shader_clock/execution/clock: skip
 spec/arb_shader_clock/execution/clock2x32: skip
 spec/arb_shader_group_vote/cs-all: skip
@@ -811,9 +819,8 @@ spec/arb_shader_precision/vs-sqrt-float: skip
 spec/arb_shader_precision/vs-sqrt-vec2: skip
 spec/arb_shader_precision/vs-sqrt-vec3: skip
 spec/arb_shader_precision/vs-sqrt-vec4: skip
-spec/arb_shader_storage_buffer_object/execution/indirect: fail
+spec/arb_shader_storage_buffer_object/execution/indirect: skip
 spec/arb_shader_storage_buffer_object/execution/ssbo-atomiccompswap-int: skip
-spec/arb_shader_storage_buffer_object/execution/ssbo-atomicmax-int: fail
 spec/arb_shader_storage_buffer_object/linker/instance-matching-shader-storage-blocks-array-size-mismatch: skip
 spec/arb_shader_storage_buffer_object/linker/instance-matching-shader-storage-blocks-binding-qualifier-mismatch: skip
 spec/arb_shader_storage_buffer_object/linker/instance-matching-shader-storage-blocks-member-array-size-mismatch: fail
@@ -1478,14 +1485,54 @@ spec/glsl-1.10/execution/fs-dfdx-accuracy: warn
 spec/glsl-1.10/execution/fs-dfdy-accuracy: warn
 spec/glsl-1.10/execution/glsl-fs-inline-explosion: crash
 spec/glsl-1.10/execution/glsl-vs-inline-explosion: crash
+spec/glsl-1.10/execution/interpolation/interpolation-none-gl_backcolor-flat-none: fail
+spec/glsl-1.10/execution/interpolation/interpolation-none-gl_backcolor-flat-vertex: fail
+spec/glsl-1.10/execution/interpolation/interpolation-none-gl_backcolor-smooth-fixed: fail
+spec/glsl-1.10/execution/interpolation/interpolation-none-gl_backsecondarycolor-flat-vertex: fail
+spec/glsl-1.10/execution/interpolation/interpolation-none-gl_frontcolor-flat-fixed: fail
+spec/glsl-1.10/execution/interpolation/interpolation-none-gl_frontcolor-flat-none: fail
+spec/glsl-1.10/execution/interpolation/interpolation-none-other-flat-fixed: fail
+spec/glsl-1.10/execution/interpolation/interpolation-none-other-flat-vertex: fail
 spec/glsl-1.10/execution/loops/glsl-fs-unroll-explosion: crash
 spec/glsl-1.10/execution/loops/glsl-vs-unroll-explosion: crash
+spec/glsl-1.10/execution/variable-indexing/fs-temp-array-mat3-index-row-rd: fail
+spec/glsl-1.10/execution/variable-indexing/fs-temp-mat4-col-row-rd: fail
 spec/glsl-1.10/execution/vsfs-unused-array-member: crash
 spec/glsl-1.10/preprocessor/extension-defined-test: skip
 spec/glsl-1.10/preprocessor/extension-if-1: skip
 spec/glsl-1.10/preprocessor/if-eq: skip
+spec/glsl-1.20/execution/built-in-functions/fs-matrixcompmult-mat4x3-mat4x3: fail
+spec/glsl-1.20/execution/built-in-functions/fs-op-add-float-mat3x2: fail
+spec/glsl-1.20/execution/built-in-functions/fs-op-assign-mult-mat3x4-float: fail
+spec/glsl-1.20/execution/built-in-functions/fs-op-assign-sub-mat4x2-float: fail
+spec/glsl-1.20/execution/built-in-functions/fs-outerproduct-vec3-vec4: fail
+spec/glsl-1.20/execution/built-in-functions/fs-transpose-mat2: fail
+spec/glsl-1.20/execution/built-in-functions/glsl-const-builtin-notequal-05: fail
+spec/glsl-1.20/execution/built-in-functions/glsl-const-builtin-notequal-07: fail
+spec/glsl-1.20/execution/built-in-functions/vs-op-add-float-mat3x2: fail
+spec/glsl-1.20/execution/built-in-functions/vs-op-add-mat3x4-mat3x4: fail
+spec/glsl-1.20/execution/built-in-functions/vs-op-assign-div-mat2x3-mat2x3: fail
+spec/glsl-1.20/execution/built-in-functions/vs-op-assign-mult-mat4x2-mat4: fail
+spec/glsl-1.20/execution/built-in-functions/vs-op-assign-sub-mat3x4-float: fail
+spec/glsl-1.20/execution/built-in-functions/vs-op-sub-float-mat2x3: fail
 spec/glsl-1.20/execution/clipping/fixed-clip-enables: fail
 spec/glsl-1.20/execution/clipping/vs-clip-vertex-enables: fail
+spec/glsl-1.20/execution/variable-indexing/fs-temp-array-mat2-index-wr: fail
+spec/glsl-1.20/execution/variable-indexing/fs-temp-mat4-wr: fail
+spec/glsl-1.20/execution/variable-indexing/vs-temp-array-mat2-index-col-rd: fail
+spec/glsl-1.20/execution/variable-indexing/vs-temp-array-mat2-row-rd: fail
+spec/glsl-1.20/execution/variable-indexing/vs-temp-array-mat3-index-row-wr: fail
+spec/glsl-1.20/execution/variable-indexing/vs-temp-array-mat4-col-row-rd: fail
+spec/glsl-1.20/execution/variable-indexing/vs-temp-array-mat4-index-col-rd: fail
+spec/glsl-1.20/execution/variable-indexing/vs-temp-mat3-col-rd: fail
+spec/glsl-1.20/execution/variable-indexing/vs-varying-array-mat4-index-row-rd: fail
+spec/glsl-1.20/execution/variable-indexing/vs-varying-mat3-row-rd: fail
+spec/glsl-1.30/execution/built-in-functions/vs-min-uvec3-uvec3: fail
+spec/glsl-1.30/execution/built-in-functions/vs-op-assign-lshift-uvec2-ivec2: fail
+spec/glsl-1.30/execution/built-in-functions/vs-op-bitand-int-int: fail
+spec/glsl-1.30/execution/built-in-functions/vs-op-bitor-not-abs-int-int: fail
+spec/glsl-1.30/execution/built-in-functions/vs-op-bitxor-not-abs-int-int: fail
+spec/glsl-1.30/execution/built-in-functions/vs-op-ne-uvec3-uvec3: fail
 spec/glsl-1.30/execution/clipping/vs-clip-distance-deadcode: crash
 spec/glsl-1.30/execution/clipping/vs-clip-distance-enables: fail
 spec/glsl-1.30/execution/fs-large-local-array-vec2: crash
@@ -1524,6 +1571,12 @@ spec/glsl-1.30/execution/interpolation/interpolation-flat-gl_frontsecondarycolor
 spec/glsl-1.30/execution/interpolation/interpolation-flat-gl_frontsecondarycolor-smooth-none: crash
 spec/glsl-1.30/execution/interpolation/interpolation-flat-gl_frontsecondarycolor-smooth-vertex: crash
 spec/glsl-1.40-compat/execution/built-in-constants: skip
+spec/glsl-1.40/execution/built-in-functions/fs-inverse-mat2: fail
+spec/glsl-1.40/execution/built-in-functions/fs-inverse-mat3: fail
+spec/glsl-1.40/execution/built-in-functions/fs-inverse-mat4: fail
+spec/glsl-1.40/execution/built-in-functions/vs-inverse-mat2: fail
+spec/glsl-1.40/execution/built-in-functions/vs-inverse-mat3: fail
+spec/glsl-1.40/execution/built-in-functions/vs-inverse-mat4: fail
 spec/glsl-1.50/execution/compatibility/clipping/gs-clip-vertex-const-accept: crash
 spec/glsl-1.50/execution/compatibility/clipping/gs-clip-vertex-const-reject: crash
 spec/glsl-1.50/execution/compatibility/clipping/gs-clip-vertex-different-from-position: crash
@@ -1552,11 +1605,21 @@ spec/glsl-1.50/execution/variable-indexing/gs-input-array-float-index-rd: fail
 spec/glsl-1.50/execution/variable-indexing/gs-input-array-vec2-index-rd: fail
 spec/glsl-1.50/execution/variable-indexing/gs-input-array-vec3-index-rd: crash
 spec/glsl-1.50/execution/variable-indexing/gs-input-array-vec4-index-rd: fail
+spec/glsl-1.50/execution/variable-indexing/gs-output-array-float-index-wr: fail
 spec/glsl-1.50/execution/variable-indexing/gs-output-array-vec3-index-wr: fail
 spec/glsl-1.50/execution/variable-indexing/gs-output-array-vec4-index-wr: crash
 spec/glsl-1.50/execution/variable-indexing/vs-output-array-vec2-index-wr-before-gs: fail
 spec/glsl-1.50/execution/variable-indexing/vs-output-array-vec3-index-wr-before-gs: fail
 spec/glsl-1.50/execution/variable-indexing/vs-output-array-vec4-index-wr-before-gs: fail
+spec/glsl-3.30/execution/built-in-functions/fs-floatbitstoint-abs: fail
+spec/glsl-3.30/execution/built-in-functions/fs-floatbitstouint-neg_abs: fail
+spec/glsl-3.30/execution/built-in-functions/fs-intbitstofloat-neg: fail
+spec/glsl-3.30/execution/built-in-functions/fs-intbitstofloat-neg_abs: fail
+spec/glsl-3.30/execution/built-in-functions/fs-uintbitstofloat: fail
+spec/glsl-3.30/execution/built-in-functions/vs-floatbitstouint: fail
+spec/glsl-3.30/execution/built-in-functions/vs-floatbitstouint-abs: fail
+spec/glsl-3.30/execution/built-in-functions/vs-floatbitstouint-neg_abs: fail
+spec/glsl-3.30/execution/built-in-functions/vs-intbitstofloat-neg_abs: fail
 spec/glsl-es-3.10/execution/cs-image-atomic-if-else-2: fail
 spec/glsl-es-3.10/execution/vs-simple-atomic-counter-inc-dec-read: skip
 spec/intel_shader_atomic_float_minmax/execution/shared-atomiccompswap-float: skip
@@ -1681,10 +1744,10 @@ spec/oes_viewport_array/viewport-gs-writes-out-of-range: skip
 summary:
        name:  results
        ----  --------
-       pass:     8346
-       fail:       36
+       pass:     8284
+       fail:       97
       crash:       93
-       skip:     1549
+       skip:     1551
     timeout:        0
        warn:        2
  incomplete:        0
@@ -1693,4 +1756,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:    10026
+      total:    10027
