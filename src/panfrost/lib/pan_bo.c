@@ -90,6 +90,9 @@ panfrost_bo_alloc(struct panfrost_device *dev, size_t size,
 static void
 panfrost_bo_free(struct panfrost_bo *bo)
 {
+        if (bo->ptr.cpu)
+                os_munmap((void *) (uintptr_t)bo->ptr.cpu, bo->size);
+
         struct drm_gem_close gem_close = { .handle = bo->gem_handle };
         int ret;
 
@@ -321,20 +324,6 @@ panfrost_bo_mmap(struct panfrost_bo *bo)
         }
 }
 
-static void
-panfrost_bo_munmap(struct panfrost_bo *bo)
-{
-        if (!bo->ptr.cpu)
-                return;
-
-        if (os_munmap((void *) (uintptr_t)bo->ptr.cpu, bo->size)) {
-                perror("munmap");
-                abort();
-        }
-
-        bo->ptr.cpu = NULL;
-}
-
 struct panfrost_bo *
 panfrost_bo_create(struct panfrost_device *dev, size_t size,
                    uint32_t flags)
@@ -415,9 +404,6 @@ panfrost_bo_unreference(struct panfrost_bo *bo)
          * lock, let's make sure it's still not referenced before freeing it.
          */
         if (p_atomic_read(&bo->refcnt) == 0) {
-                /* When the reference count goes to zero, we need to cleanup */
-                panfrost_bo_munmap(bo);
-
                 /* Rather than freeing the BO now, we'll cache the BO for later
                  * allocations if we're allowed to.
                  */
