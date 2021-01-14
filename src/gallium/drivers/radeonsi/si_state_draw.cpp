@@ -1974,12 +1974,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
           /* Tessellation sets ngg_cull_vert_threshold to UINT_MAX if the prim type
            * is not triangles, so this check is only needed without tessellation. */
           (HAS_TESS || sctx->current_rast_prim == PIPE_PRIM_TRIANGLES) &&
-          (total_direct_count > hw_vs->ngg_cull_vert_threshold ||
-           /* Fast launch only works without tessellation. */
-           (!HAS_TESS && !index_size &&
-            total_direct_count > hw_vs->ngg_cull_nonindexed_fast_launch_vert_threshold &&
-            prim & ((1 << PIPE_PRIM_TRIANGLES) |
-                    (1 << PIPE_PRIM_TRIANGLE_STRIP))))) {
+          total_direct_count > hw_vs->ngg_cull_vert_threshold) {
          uint8_t ngg_culling = sctx->viewport0_y_inverted ? rs->ngg_cull_flags_y_inverted :
                                                             rs->ngg_cull_flags;
 
@@ -1987,8 +1982,8 @@ static void si_draw_vbo(struct pipe_context *ctx,
           * A draw must have at least 1 full primitive.
           * The fast launch doesn't work with tessellation.
           */
-         if (!HAS_TESS && ngg_culling && min_direct_count >= 3
-             hw_vs->ngg_cull_nonindexed_fast_launch_vert_threshold < UINT32_MAX) {
+         if (!HAS_TESS && ngg_culling && min_direct_count >= 3 &&
+             !(sctx->screen->debug_flags & DBG(NO_FAST_LAUNCH))) {
             if (prim == PIPE_PRIM_TRIANGLES && !index_size) {
                ngg_culling |= SI_NGG_CULL_GS_FAST_LAUNCH_TRI_LIST;
             } else if (prim == PIPE_PRIM_TRIANGLE_STRIP) {

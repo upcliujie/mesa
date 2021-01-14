@@ -2798,16 +2798,9 @@ static void *si_create_shader_selector(struct pipe_context *ctx,
         !sel->info.base.vs.window_space_position));
 
    sel->ngg_cull_vert_threshold = UINT_MAX; /* disabled (changed below) */
-   sel->ngg_cull_nonindexed_fast_launch_vert_threshold = UINT_MAX;
 
    if (ngg_culling_allowed) {
       if (sel->info.stage == MESA_SHADER_VERTEX) {
-         /* 1000 non-indexed vertices (roughly 8 primgroups) are needed
-          * per draw call (no TES/GS) to enable NGG culling by default.
-          */
-         if (!(sscreen->debug_flags & DBG(NO_FAST_LAUNCH)))
-            sel->ngg_cull_nonindexed_fast_launch_vert_threshold = 1000;
-
          if (sscreen->debug_flags & DBG(ALWAYS_NGG_CULLING_ALL))
             sel->ngg_cull_vert_threshold = 0; /* always enabled */
          else if (sscreen->options.shader_culling ||
