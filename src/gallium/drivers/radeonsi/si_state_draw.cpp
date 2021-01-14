@@ -1969,7 +1969,8 @@ static void si_draw_vbo(struct pipe_context *ctx,
    uint8_t old_ngg_culling = sctx->ngg_culling;
    if (GFX_VERSION >= GFX10) {
       struct si_shader_selector *hw_vs;
-      if (NGG && !dispatch_prim_discard_cs && sctx->current_rast_prim == PIPE_PRIM_TRIANGLES &&
+      if (NGG && !HAS_GS && !dispatch_prim_discard_cs &&
+          sctx->current_rast_prim == PIPE_PRIM_TRIANGLES &&
           (hw_vs = si_get_vs_inline(sctx, HAS_TESS, HAS_GS)->cso) &&
           (total_direct_count > hw_vs->ngg_cull_vert_threshold ||
            (!index_size &&
@@ -1981,10 +1982,10 @@ static void si_draw_vbo(struct pipe_context *ctx,
 
          /* Use NGG fast launch for certain primitive types.
           * A draw must have at least 1 full primitive.
+          * The fast launch doesn't work with tessellation.
           */
-         if (ngg_culling &&
-             hw_vs->ngg_cull_nonindexed_fast_launch_vert_threshold < UINT32_MAX &&
-             min_direct_count >= 3 && !HAS_TESS && !HAS_GS) {
+         if (!HAS_TESS && ngg_culling && min_direct_count >= 3
+             hw_vs->ngg_cull_nonindexed_fast_launch_vert_threshold < UINT32_MAX) {
             if (prim == PIPE_PRIM_TRIANGLES && !index_size) {
                ngg_culling |= SI_NGG_CULL_GS_FAST_LAUNCH_TRI_LIST;
 #if 0 /* It's disabled because this hangs: AMD_DEBUG=nggc torcs */
