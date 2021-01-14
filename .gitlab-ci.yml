@@ -2086,6 +2086,24 @@ lavapipe-vk:
     VK_DRIVER: lvp
     DEQP_FRACTION: 10
 
+lavapipe-vk-asan:
+  stage: software-renderer
+  extends:
+    - .test-vk
+    - .llvmpipe-rules
+    - .deqp-test-vk
+  variables:
+    GPU_VERSION: lvp-asan
+    VK_DRIVER: lvp
+    DEQP_FRACTION: 50
+    TEST_LD_PRELOAD: libasan.so.5
+    # Disable the leak checks, since the library gets dlclose()d and thus get
+    # totally useless leak reports.  We can still catch buffer overflows.
+    ASAN_OPTIONS: "detect_leaks=0"
+  needs:
+    - x86_test-vk
+    - meson-testing-asan
+
 # RADV CI
 .test-radv:
   extends:
