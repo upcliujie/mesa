@@ -175,7 +175,14 @@ descriptor_has_bti(nir_intrinsic_instr *intrin,
 
    uint32_t set = nir_intrinsic_desc_set(intrin);
    uint32_t binding = nir_intrinsic_binding(intrin);
-   uint32_t surface_index = state->set[set].surface_offsets[binding];
+   const struct anv_descriptor_set_binding_layout *bind_layout =
+      &state->layout->set[set].layout->binding[binding];
+
+   uint32_t surface_index;
+   if (bind_layout->data & ANV_DESCRIPTOR_INLINE_UNIFORM)
+      surface_index = state->set[set].desc_offset;
+   else
+      surface_index = state->set[set].surface_offsets[binding];
 
    /* Only lower to a BTI message if we have a valid binding table index. */
    return surface_index < MAX_BINDING_TABLE_SIZE;
@@ -244,16 +251,23 @@ build_index_offset_for_res_reindex(nir_intrinsic_instr *intrin,
    const struct anv_descriptor_set_binding_layout *bind_layout =
       &state->layout->set[set].layout->binding[binding];
 
-   uint32_t surface_index = state->set[set].surface_offsets[binding];
-   uint32_t array_size = bind_layout->array_size;
-
    b->cursor = nir_before_instr(&intrin->instr);
-   if (nir_src_is_const(nir_src_for_ssa(array_index)) ||
-       state->add_bounds_checks)
-      array_index = nir_umin(b, array_index, nir_imm_int(b, array_size - 1));
 
-   return nir_vec2(b, nir_iadd_imm(b, array_index, surface_index),
-                      nir_imm_int(b, 0));
+   if (bind_layout->data & ANV_DESCRIPTOR_INLINE_UNIFORM) {
+      assert(nir_src_as_uint(nir_src_for_ssa(array_index)) == 0);
+      return nir_imm_ivec2(b, state->set[set].desc_offset,
+                              bind_layout->descriptor_offset);
+   } else {
+      uint32_t surface_index = state->set[set].surface_offsets[binding];
+      uint32_t array_size = bind_layout->array_size;
+
+      if (nir_src_is_const(nir_src_for_ssa(array_index)) ||
+          state->add_bounds_checks)
+         array_index = nir_umin(b, array_index, nir_imm_int(b, array_size - 1));
+
+      return nir_vec2(b, nir_iadd_imm(b, array_index, surface_index),
+                         nir_imm_int(b, 0));
+   }
 }
 
 static nir_ssa_def *
@@ -285,7 +299,7 @@ try_lower_direct_buffer_intrinsic(nir_intrinsic_instr *intrin, bool is_atomic,
    nir_builder *b = &state->builder;
 
    nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-   if (!nir_deref_mode_is(deref, nir_var_mem_ssbo))
+   if (!nir_deref_mode_is_one_of(deref, nir_var_mem_ubo | nir_var_mem_ssbo))
       return false;
 
    /* 64-bit atomics only support A64 messages so we can't lower them to the
