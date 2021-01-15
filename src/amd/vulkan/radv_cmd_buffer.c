@@ -3319,7 +3319,7 @@ radv_src_access_flush(struct radv_cmd_buffer *cmd_buffer,
 				}
 			}
 			if (!image_is_coherent)
-				flush_bits |= RADV_CMD_FLAG_WB_L2;
+				flush_bits |= RADV_CMD_FLAG_INV_L2;
 			break;
 		case VK_ACCESS_TRANSFORM_FEEDBACK_WRITE_BIT_EXT:
 		case VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT:
