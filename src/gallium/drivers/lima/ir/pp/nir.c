@@ -197,6 +197,13 @@ static bool ppir_emit_alu(ppir_block *block, nir_instr *ni)
       nir_alu_src *ns = instr->src + i;
       ppir_src *ps = node->src + i;
       memcpy(ps->swizzle, ns->swizzle, sizeof(ps->swizzle));
+
+      /* avoid introducing unused swizzle values by making
+       * dontcare elements point to the first valid swizzle */
+      unsigned dontcare_mask = 0x0f & ~src_mask;
+      while (dontcare_mask)
+         ps->swizzle[u_bit_scan(&dontcare_mask)] = ns->swizzle[0];
+
       ppir_node_add_src(block->comp, &node->node, ps, &ns->src, src_mask);
 
       ps->absolute = ns->abs;
