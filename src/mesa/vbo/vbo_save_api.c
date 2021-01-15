@@ -688,10 +688,6 @@ compile_vertex_list(struct gl_context *ctx)
             continue;
          }
 
-         /* Line strips get converted to lines */
-         if (mode == GL_LINE_STRIP)
-            mode = GL_LINES;
-
          /* If 2 consecutive prims use the same mode => merge them. */
          bool merge_prims = last_valid_prim >= 0 &&
                             mode == node->merged.prims[last_valid_prim].mode &&
@@ -731,6 +727,10 @@ compile_vertex_list(struct gl_context *ctx)
               (i < node->prim_count - 1 &&
                (original_prims[i + 1].mode == GL_LINE_STRIP ||
                 original_prims[i + 1].mode == GL_LINES)))) {
+
+            /* Line strips get converted to lines */
+            mode = GL_LINES;
+
             for (unsigned j = 0; j < vertex_count; j++) {
                indices[idx++] = original_prims[i].start + j;
                /* Repeat all but the first/last indices. */
