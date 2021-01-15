@@ -927,7 +927,7 @@ bindings_different_restrict(nir_shader *shader, struct entry *a, struct entry *b
    unsigned b_access = b->access | (b_var ? b_var->data.access : 0);
 
    return different_bindings &&
-          ((a_access & b_access) & ACCESS_RESTRICT);
+          ((a_access | b_access) & ACCESS_RESTRICT);
 }
 
 static int64_t
