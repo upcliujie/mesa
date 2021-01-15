@@ -129,6 +129,14 @@ bi_imm_f32(float imm)
 }
 
 static inline bi_index
+bi_imm_i32(int32_t imm)
+{
+        uint32_t punned = 0;
+        memcpy(&punned, &imm, sizeof(punned));
+        return bi_imm_u32(punned);
+}
+
+static inline bi_index
 bi_null()
 {
         return (bi_index) { .type = BI_INDEX_NULL };
