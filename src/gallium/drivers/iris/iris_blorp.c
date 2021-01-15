@@ -316,7 +316,6 @@ iris_blorp_exec(struct blorp_batch *blorp_batch,
                          IRIS_DIRTY_SO_BUFFERS |
                          IRIS_DIRTY_SO_DECL_LIST |
                          IRIS_DIRTY_LINE_STIPPLE |
-                         IRIS_ALL_DIRTY_FOR_COMPUTE |
                          IRIS_DIRTY_SCISSOR_RECT |
                          IRIS_DIRTY_VF |
                          IRIS_DIRTY_SF_CL_VIEWPORT);
