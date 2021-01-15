@@ -110,16 +110,13 @@ enum {
 #define IRIS_DIRTY_VF                             (1ull << 23)
 #define IRIS_DIRTY_VF_TOPOLOGY                    (1ull << 24)
 #define IRIS_DIRTY_RENDER_RESOLVES_AND_FLUSHES    (1ull << 25)
-#define IRIS_DIRTY_COMPUTE_RESOLVES_AND_FLUSHES   (1ull << 26)
-#define IRIS_DIRTY_VF_STATISTICS                  (1ull << 27)
-#define IRIS_DIRTY_PMA_FIX                        (1ull << 28)
-#define IRIS_DIRTY_DEPTH_BOUNDS                   (1ull << 29)
-#define IRIS_DIRTY_RENDER_BUFFER                  (1ull << 30)
-#define IRIS_DIRTY_STENCIL_REF                    (1ull << 31)
+#define IRIS_DIRTY_VF_STATISTICS                  (1ull << 26)
+#define IRIS_DIRTY_PMA_FIX                        (1ull << 27)
+#define IRIS_DIRTY_DEPTH_BOUNDS                   (1ull << 28)
+#define IRIS_DIRTY_RENDER_BUFFER                  (1ull << 29)
+#define IRIS_DIRTY_STENCIL_REF                    (1ull << 30)
 
-#define IRIS_ALL_DIRTY_FOR_COMPUTE (IRIS_DIRTY_COMPUTE_RESOLVES_AND_FLUSHES)
-
-#define IRIS_ALL_DIRTY_FOR_RENDER (~IRIS_ALL_DIRTY_FOR_COMPUTE)
+#define IRIS_ALL_DIRTY_FOR_RENDER (~0)
 
 /**
  * Per-stage dirty flags.  When state changes, we flag some combination of

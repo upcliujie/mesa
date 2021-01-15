@@ -2830,10 +2830,10 @@ iris_set_shader_images(struct pipe_context *ctx,
       }
    }
 
-   ice->state.stage_dirty |= IRIS_STAGE_DIRTY_BINDINGS_VS << stage;
-   ice->state.dirty |=
-      stage == MESA_SHADER_COMPUTE ? IRIS_DIRTY_COMPUTE_RESOLVES_AND_FLUSHES
-                                   : IRIS_DIRTY_RENDER_RESOLVES_AND_FLUSHES;
+   if (stage != MESA_SHADER_COMPUTE) {
+      ice->state.stage_dirty |= IRIS_STAGE_DIRTY_BINDINGS_VS << stage;
+      ice->state.dirty |= IRIS_DIRTY_RENDER_RESOLVES_AND_FLUSHES;
+   }
 
    /* Broadwell also needs brw_image_params re-uploaded */
    if (GEN_GEN < 9) {
@@ -2874,10 +2874,10 @@ iris_set_sampler_views(struct pipe_context *ctx,
       }
    }
 
-   ice->state.stage_dirty |= (IRIS_STAGE_DIRTY_BINDINGS_VS << stage);
-   ice->state.dirty |=
-      stage == MESA_SHADER_COMPUTE ? IRIS_DIRTY_COMPUTE_RESOLVES_AND_FLUSHES
-                                   : IRIS_DIRTY_RENDER_RESOLVES_AND_FLUSHES;
+   if (stage != MESA_SHADER_COMPUTE) {
+      ice->state.stage_dirty |= (IRIS_STAGE_DIRTY_BINDINGS_VS << stage);
+      ice->state.dirty |= IRIS_DIRTY_RENDER_RESOLVES_AND_FLUSHES;
+   }
 }
 
 static void
@@ -7869,7 +7869,6 @@ iris_set_frontend_noop(struct pipe_context *ctx, bool enable)
    }
 
    if (iris_batch_prepare_noop(&ice->batches[IRIS_BATCH_COMPUTE], enable)) {
-      ice->state.dirty |= IRIS_ALL_DIRTY_FOR_COMPUTE;
       ice->state.stage_dirty |= IRIS_ALL_STAGE_DIRTY_FOR_COMPUTE;
    }
 }
