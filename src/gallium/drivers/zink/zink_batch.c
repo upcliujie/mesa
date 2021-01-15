@@ -96,6 +96,7 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
     * before the state is reused
     */
    bs->fence.submitted = false;
+   bs->has_barriers = false;
    zink_screen_update_last_finished(screen, bs->fence.batch_id);
    bs->fence.batch_id = 0;
 }
@@ -134,6 +135,8 @@ zink_batch_state_destroy(struct zink_screen *screen, struct zink_batch_state *bs
 
    if (bs->cmdbuf)
       vkFreeCommandBuffers(screen->dev, bs->cmdpool, 1, &bs->cmdbuf);
+   if (bs->barrier_cmdbuf)
+      vkFreeCommandBuffers(screen->dev, bs->cmdpool, 1, &bs->barrier_cmdbuf);
    if (bs->cmdpool)
       vkDestroyCommandPool(screen->dev, bs->cmdpool, NULL);
 
@@ -168,6 +171,9 @@ create_batch_state(struct zink_context *ctx)
    cbai.commandBufferCount = 1;
 
    if (vkAllocateCommandBuffers(screen->dev, &cbai, &bs->cmdbuf) != VK_SUCCESS)
+      goto fail;
+
+   if (vkAllocateCommandBuffers(screen->dev, &cbai, &bs->barrier_cmdbuf) != VK_SUCCESS)
       goto fail;
 
 #define SET_CREATE_OR_FAIL(ptr) \
@@ -278,6 +284,8 @@ zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
    cbbi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
    if (vkBeginCommandBuffer(batch->state->cmdbuf, &cbbi) != VK_SUCCESS)
       debug_printf("vkBeginCommandBuffer failed\n");
+   if (vkBeginCommandBuffer(batch->state->barrier_cmdbuf, &cbbi) != VK_SUCCESS)
+      debug_printf("vkBeginCommandBuffer failed\n");
 
    batch->state->fence.batch_id = ctx->curr_batch;
    batch->state->fence.completed = false;
@@ -316,8 +324,12 @@ submit_queue(void *data, int thread_index)
    si.signalSemaphoreCount = 0;
    si.pSignalSemaphores = NULL;
    si.pWaitDstStageMask = NULL;
-   si.commandBufferCount = 1;
-   si.pCommandBuffers = &bs->cmdbuf;
+   si.commandBufferCount = bs->has_barriers ? 2 : 1;
+   VkCommandBuffer cmdbufs[2] = {
+      bs->barrier_cmdbuf,
+      bs->cmdbuf,
+   };
+   si.pCommandBuffers = bs->has_barriers ? cmdbufs : &cmdbufs[1];
 
    VkTimelineSemaphoreSubmitInfo tsi = {};
    if (bs->have_timelines) {
@@ -481,6 +493,10 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
       zink_suspend_queries(ctx, batch);
 
    if (vkEndCommandBuffer(batch->state->cmdbuf) != VK_SUCCESS) {
+      debug_printf("vkEndCommandBuffer failed\n");
+      return;
+   }
+   if (vkEndCommandBuffer(batch->state->barrier_cmdbuf) != VK_SUCCESS) {
       debug_printf("vkEndCommandBuffer failed\n");
       return;
    }
