@@ -334,6 +334,8 @@ template = """\
 isa = s.isa
 %>
 
+#pragma GCC optimize "-Os"
+
 /**
  * Opaque type from the PoV of generated code, but allows state to be passed
  * thru to the hand written helpers used by the generated code.
