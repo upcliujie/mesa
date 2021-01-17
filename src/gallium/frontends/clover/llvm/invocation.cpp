@@ -249,7 +249,11 @@ namespace {
 
       c->getInvocation().setLangDefaults(c->getLangOpts(),
                                 compat::ik_opencl, ::llvm::Triple(target.triple),
+#if LLVM_VERSION_MAJOR >= 12
+                                c->getPreprocessorOpts().Includes,
+#else
                                 c->getPreprocessorOpts(),
+#endif
                                 get_language_version(opts, device_clc_version));
 
       c->createDiagnostics(new clang::TextDiagnosticPrinter(
