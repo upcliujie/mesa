@@ -953,8 +953,9 @@ nvfx_vertprog_prepare(struct nvfx_vpc *vpc)
 
 DEBUG_GET_ONCE_BOOL_OPTION(nvfx_dump_vp, "NVFX_DUMP_VP", false)
 
-bool
-_nvfx_vertprog_translate(uint16_t oclass, struct nv30_vertprog *vp)
+void
+_nvfx_vertprog_translate(uint16_t oclass, struct nv30_vertprog *vp,
+                         struct pipe_debug_callback *debug)
 {
    struct tgsi_parse_context parse;
    struct nvfx_vpc *vpc = NULL;
@@ -968,7 +969,7 @@ _nvfx_vertprog_translate(uint16_t oclass, struct nv30_vertprog *vp)
 
    vpc = CALLOC_STRUCT(nvfx_vpc);
    if (!vpc)
-      return false;
+      return;
    vpc->is_nv4x = (oclass >= NV40_3D_CLASS) ? ~0 : 0;
    vpc->vp   = vp;
    vpc->pipe = vp->pipe;
@@ -977,7 +978,7 @@ _nvfx_vertprog_translate(uint16_t oclass, struct nv30_vertprog *vp)
 
    if (!nvfx_vertprog_prepare(vpc)) {
       FREE(vpc);
-      return false;
+      return;
    }
 
    /* Redirect post-transform vertex position to a temp if user clip
@@ -1097,6 +1098,9 @@ _nvfx_vertprog_translate(uint16_t oclass, struct nv30_vertprog *vp)
 
    vp->translated = true;
 
+   pipe_debug_message(debug, SHADER_INFO, "type: %d, inst: %d",
+                      PIPE_SHADER_VERTEX, vp->nr_insns);
+
 out:
    tgsi_parse_free(&parse);
    if (vpc) {
@@ -1108,6 +1112,4 @@ out:
       FREE(vpc->imm);
       FREE(vpc);
    }
-
-   return vp->translated;
 }

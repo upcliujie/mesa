@@ -1061,7 +1061,8 @@ out_err:
 DEBUG_GET_ONCE_BOOL_OPTION(nvfx_dump_fp, "NVFX_DUMP_FP", false)
 
 void
-_nvfx_fragprog_translate(uint16_t oclass, struct nv30_fragprog *fp)
+_nvfx_fragprog_translate(uint16_t oclass, struct nv30_fragprog *fp,
+                         struct pipe_debug_callback *debug)
 {
    struct tgsi_parse_context parse;
    struct nvfx_fpc *fpc = NULL;
@@ -1150,6 +1151,9 @@ _nvfx_fragprog_translate(uint16_t oclass, struct nv30_fragprog *fp)
    }
 
    fp->translated = true;
+
+   pipe_debug_message(debug, SHADER_INFO, "type: %d, gpr: %d, inst: %d",
+                      PIPE_SHADER_FRAGMENT, fpc->num_regs, fp->insn_len);
 
 out:
    tgsi_parse_free(&parse);

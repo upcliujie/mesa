@@ -72,7 +72,7 @@ nv30_fragprog_validate(struct nv30_context *nv30)
    int i;
 
    if (!fp->translated) {
-      _nvfx_fragprog_translate(eng3d->oclass, fp);
+      _nvfx_fragprog_translate(eng3d->oclass, fp, &nv30->base.debug);
       if (!fp->translated)
          return;
 
@@ -136,12 +136,15 @@ static void *
 nv30_fp_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso)
 {
+   struct nv30_context *nv30 = nv30_context(pipe);
+   struct nouveau_object *eng3d = nv30->screen->eng3d;
    struct nv30_fragprog *fp = CALLOC_STRUCT(nv30_fragprog);
    if (!fp)
       return NULL;
 
    fp->pipe.tokens = tgsi_dup_tokens(cso->tokens);
    tgsi_scan_shader(fp->pipe.tokens, &fp->info);
+   _nvfx_fragprog_translate(eng3d->oclass, fp, &nv30->base.debug);
    return fp;
 }
 
