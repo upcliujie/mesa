@@ -77,7 +77,7 @@ nv30_vertprog_validate(struct nv30_context *nv30)
    }
 
    if (!vp->translated) {
-      vp->translated = _nvfx_vertprog_translate(eng3d->oclass, vp);
+      _nvfx_vertprog_translate(eng3d->oclass, vp, &nv30->base.debug);
       if (!vp->translated) {
          nv30->draw_flags |= NV30_NEW_VERTPROG;
          return;
@@ -222,12 +222,18 @@ static void *
 nv30_vp_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso)
 {
+   struct nv30_context *nv30 = nv30_context(pipe);
+   struct nouveau_object *eng3d = nv30->screen->eng3d;
    struct nv30_vertprog *vp = CALLOC_STRUCT(nv30_vertprog);
    if (!vp)
       return NULL;
 
+   if (nv30->rast)
+      vp->enabled_ucps = nv30->rast->pipe.clip_plane_enable;
+
    vp->pipe.tokens = tgsi_dup_tokens(cso->tokens);
    tgsi_scan_shader(vp->pipe.tokens, &vp->info);
+   _nvfx_vertprog_translate(eng3d->oclass, vp, &nv30->base.debug);
    return vp;
 }
 

@@ -41,7 +41,7 @@ nv30_fp(int chipset, struct tgsi_token tokens[],
    memset(&fp, 0, sizeof(fp));
    fp.pipe.tokens = tokens;
    tgsi_scan_shader(fp.pipe.tokens, &fp.info);
-   _nvfx_fragprog_translate(chipset >= 0x40 ? 0x4097 : 0x3097, &fp);
+   _nvfx_fragprog_translate(chipset >= 0x40 ? 0x4097 : 0x3097, &fp, NULL);
    *size = fp.insn_len * 4;
    *code = fp.insn;
    return !fp.translated;
@@ -55,7 +55,7 @@ nv30_vp(int chipset, struct tgsi_token tokens[],
 
    vp.pipe.tokens = tokens;
    tgsi_scan_shader(vp.pipe.tokens, &vp.info);
-   _nvfx_vertprog_translate(chipset >= 0x40 ? 0x4097 : 0x3097, &vp);
+   _nvfx_vertprog_translate(chipset >= 0x40 ? 0x4097 : 0x3097, &vp, NULL);
    *size = vp.nr_insns * 16;
    *code = (unsigned *)vp.insns;
    return !vp.translated;
