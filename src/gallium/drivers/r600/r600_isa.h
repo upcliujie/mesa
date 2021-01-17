@@ -107,6 +107,10 @@ enum alu_op_flags
 
 	/* condition codes - 3 bits */
 	AF_CC_SHIFT = 29,
+        AF_2SLOT_XY = 30,
+        AF_2SLOT_ZW = 31,
+        AF_XY = AF_V | AF_2SLOT_XY,
+        AF_ZW = AF_V | AF_2SLOT_ZW,
 	AF_CC_MASK	= (7U << AF_CC_SHIFT),
 	AF_CC_E		= (0U << AF_CC_SHIFT),
 	AF_CC_GT	= (1U << AF_CC_SHIFT),
