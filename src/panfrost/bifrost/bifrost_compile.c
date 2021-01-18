@@ -1204,14 +1204,14 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 if (src_sz == 16)
                         bi_s16_to_s32_to(b, dst, s0);
                 else
-                        bi_s8_to_s32_to(b, dst, s0);
+                        bi_s8_to_s32_to(b, dst, bi_byte(s0, 0));
                 break;
 
         case nir_op_u2u32:
                 if (src_sz == 16)
                         bi_u16_to_u32_to(b, dst, s0);
                 else
-                        bi_u8_to_u32_to(b, dst, s0);
+                        bi_u8_to_u32_to(b, dst, bi_byte(s0, 0));
                 break;
 
         /* todo optimize out downcasts */
