@@ -35,19 +35,19 @@
 #include "midgard/disassemble.h"
 #include "bifrost/disassemble.h"
 
-#define DUMP_UNPACKED(T, var, ...) { \
-        pandecode_log(__VA_ARGS__); \
+#define DUMP_UNPACKED(T, var, str) { \
+        pandecode_log(str); \
         pan_print(pandecode_dump_stream, T, var, (pandecode_indent + 1) * 2); \
 }
 
-#define DUMP_CL(T, cl, ...) {\
+#define DUMP_CL(T, cl, str) {\
         pan_unpack(cl, T, temp); \
-        DUMP_UNPACKED(T, temp, __VA_ARGS__); \
+        DUMP_UNPACKED(T, temp, str); \
 }
 
-#define DUMP_SECTION(A, S, cl, ...) { \
+#define DUMP_SECTION(A, S, cl, str) { \
         pan_section_unpack(cl, A, S, temp); \
-        pandecode_log(__VA_ARGS__); \
+        pandecode_log(str); \
         pan_section_print(pandecode_dump_stream, A, S, temp, (pandecode_indent + 1) * 2); \
 }
 
@@ -58,62 +58,17 @@
                 cl = pandecode_fetch_gpu_mem(mapped_mem, addr, MALI_ ## T ## _LENGTH); \
         }
 
-#define DUMP_ADDR(T, addr, ...) {\
+#define DUMP_ADDR(T, addr, str) {\
         MAP_ADDR(T, addr, cl) \
-        DUMP_CL(T, cl, __VA_ARGS__); \
+        DUMP_CL(T, cl, str); \
 }
 
 FILE *pandecode_dump_stream;
 
-/* Semantic logging type.
- *
- * Raw: for raw messages to be printed as is.
- * Message: for helpful information to be commented out in replays.
- *
- * Use one of pandecode_log or pandecode_msg as syntax sugar.
- */
-
-enum pandecode_log_type {
-        PANDECODE_RAW,
-        PANDECODE_MESSAGE,
-};
-
-#define pandecode_log(...)  pandecode_log_typed(PANDECODE_RAW,      __VA_ARGS__)
-#define pandecode_msg(...)  pandecode_log_typed(PANDECODE_MESSAGE,  __VA_ARGS__)
+#define pandecode_log(str) fputs(str, pandecode_dump_stream)
+#define pandecode_msg(str) fprintf(pandecode_dump_stream, "// %s", str)
 
 unsigned pandecode_indent = 0;
-
-static void
-pandecode_make_indent(void)
-{
-        for (unsigned i = 0; i < pandecode_indent; ++i)
-                fprintf(pandecode_dump_stream, "  ");
-}
-
-static void PRINTFLIKE(2, 3)
-pandecode_log_typed(enum pandecode_log_type type, const char *format, ...)
-{
-        va_list ap;
-
-        pandecode_make_indent();
-
-        if (type == PANDECODE_MESSAGE)
-                fprintf(pandecode_dump_stream, "// ");
-
-        va_start(ap, format);
-        vfprintf(pandecode_dump_stream, format, ap);
-        va_end(ap);
-}
-
-static void
-pandecode_log_cont(const char *format, ...)
-{
-        va_list ap;
-
-        va_start(ap, format);
-        vfprintf(pandecode_dump_stream, format, ap);
-        va_end(ap);
-}
 
 /* To check for memory safety issues, validates that the given pointer in GPU
  * memory is valid, containing at least sz bytes. The goal is to eliminate
@@ -145,7 +100,7 @@ pandecode_validate_buffer(mali_ptr addr, size_t sz)
         unsigned total = offset + sz;
 
         if (total > bo->length) {
-                pandecode_msg("XXX: buffer overrun. "
+                fprintf(pandecode_dump_stream, "// XXX: buffer overrun. "
                                 "Chunk of size %zu at offset %d in buffer of size %zu. "
                                 "Overrun by %zu bytes. \n",
                                 sz, offset, bo->length, total - bo->length);
@@ -246,7 +201,7 @@ pandecode_render_target(uint64_t gpu_va, unsigned job_no, bool is_bifrost, unsig
                 struct pandecode_mapped_memory *mem =
                         pandecode_find_mapped_gpu_mem_containing(rt_va);
                 const struct mali_render_target_packed *PANDECODE_PTR_VAR(rtp, mem, (mali_ptr) rt_va);
-                DUMP_CL(RENDER_TARGET, rtp, "Color Render Target %d:\n", i);
+                DUMP_CL(RENDER_TARGET, rtp, "Color Render Target:\n");
         }
 
         pandecode_indent--;
@@ -274,14 +229,9 @@ pandecode_mfbd_bifrost_deps(const void *fb, int job_no)
 
         const u16 *PANDECODE_PTR_VAR(samples, smem, params.sample_locations);
 
-        pandecode_log("uint16_t sample_locations_%d[] = {\n", job_no);
-        pandecode_indent++;
-        for (int i = 0; i < 32 + 16; i++) {
-                pandecode_log("%d, %d,\n", samples[2 * i], samples[2 * i + 1]);
-        }
-
-        pandecode_indent--;
-        pandecode_log("};\n");
+        pandecode_log("Sample locations:\n");
+        for (int i = 0; i < 32 + 16; i++)
+                fprintf(pandecode_dump_stream, "  %d, %d,\n", samples[2 * i], samples[2 * i + 1]);
 }
 
 static struct pandecode_fbd
@@ -354,19 +304,17 @@ pandecode_attributes(const struct pandecode_mapped_memory *mem,
                             mali_ptr addr, int job_no, char *suffix,
                             int count, bool varying, enum mali_job_type job_type)
 {
-        char *prefix = varying ? "Varying" : "Attribute";
+        char *prefix = varying ? "Varying:\n" : "Attribute:\n";
         assert(addr);
 
-        if (!count) {
-                pandecode_msg("warn: No %s records\n", prefix);
+        if (!count)
                 return;
-        }
 
         MAP_ADDR(ATTRIBUTE_BUFFER, addr, cl);
 
         for (int i = 0; i < count; ++i) {
                 pan_unpack(cl + i * MALI_ATTRIBUTE_BUFFER_LENGTH, ATTRIBUTE_BUFFER, temp);
-                DUMP_UNPACKED(ATTRIBUTE_BUFFER, temp, "%s:\n", prefix);
+                DUMP_UNPACKED(ATTRIBUTE_BUFFER, temp, prefix);
 
                 switch (temp.type) {
                 case MALI_ATTRIBUTE_TYPE_1D_NPOT_DIVISOR_WRITE_REDUCTION:
@@ -400,7 +348,7 @@ static mali_ptr
 pandecode_bifrost_blend(void *descs, int job_no, int rt_no, mali_ptr frag_shader)
 {
         pan_unpack(descs + (rt_no * MALI_BLEND_LENGTH), BLEND, b);
-        DUMP_UNPACKED(BLEND, b, "Blend RT %d:\n", rt_no);
+        DUMP_UNPACKED(BLEND, b, "Blend RT:\n");
         if (b.bifrost.internal.mode != MALI_BIFROST_BLEND_MODE_SHADER)
                 return 0;
 
@@ -411,7 +359,7 @@ static mali_ptr
 pandecode_midgard_blend_mrt(void *descs, int job_no, int rt_no)
 {
         pan_unpack(descs + (rt_no * MALI_BLEND_LENGTH), BLEND, b);
-        DUMP_UNPACKED(BLEND, b, "Blend RT %d:\n", rt_no);
+        DUMP_UNPACKED(BLEND, b, "Blend RT:\n");
         return b.midgard.blend_shader ? (b.midgard.shader_pc & ~0xf) : 0;
 }
 
@@ -424,7 +372,7 @@ static int
 pandecode_attribute_meta(int count, mali_ptr attribute, bool varying, char *suffix)
 {
         for (int i = 0; i < count; ++i, attribute += MALI_ATTRIBUTE_LENGTH)
-                DUMP_ADDR(ATTRIBUTE, attribute, "%s:\n", varying ? "Varying" : "Attribute");
+                DUMP_ADDR(ATTRIBUTE, attribute, varying ? "Varying:\n" : "Attribute:\n");
 
         pandecode_log("\n");
         return count;
@@ -456,7 +404,7 @@ pandecode_invocation(const void *i)
         unsigned groups_y = bits(invocation.invocations, invocation.workgroups_y_shift, invocation.workgroups_z_shift) + 1;
         unsigned groups_z = bits(invocation.invocations, invocation.workgroups_z_shift, 32) + 1;
 
-        pandecode_log("Invocation (%d, %d, %d) x (%d, %d, %d)\n",
+        fprintf(pandecode_dump_stream, "Invocation (%d, %d, %d) x (%d, %d, %d)\n",
                       size_x, size_y, size_z,
                       groups_x, groups_y, groups_z);
 
@@ -502,7 +450,7 @@ pandecode_uniform_buffers(mali_ptr pubufs, int ubufs_count, int job_no)
                 pandecode_validate_buffer(addr, size);
 
                 char *ptr = pointer_as_memory_reference(addr);
-                pandecode_log("ubuf_%d[%u] = %s;\n", i, size, ptr);
+                fprintf(pandecode_dump_stream, "ubuf_%d[%u] = %s\n", i, size, ptr);
                 free(ptr);
         }
 
@@ -515,7 +463,7 @@ pandecode_uniforms(mali_ptr uniforms, unsigned uniform_count)
         pandecode_validate_buffer(uniforms, uniform_count * 16);
 
         char *ptr = pointer_as_memory_reference(uniforms);
-        pandecode_log("vec4 uniforms[%u] = %s;\n", uniform_count, ptr);
+        fprintf(pandecode_dump_stream, "vec4 uniforms[%u] = %s\n", uniform_count, ptr);
         free(ptr);
         pandecode_log("\n");
 }
@@ -546,7 +494,7 @@ pandecode_shader_disassemble(mali_ptr shader_ptr, int shader_no, int type,
         /* Print some boilerplate to clearly denote the assembly (which doesn't
          * obey indentation rules), and actually do the disassembly! */
 
-        pandecode_log_cont("\n\n");
+        pandecode_log("\n\n");
 
         struct midgard_disasm_stats stats;
 
@@ -576,7 +524,7 @@ pandecode_shader_disassemble(mali_ptr shader_ptr, int shader_no, int type,
                 (stats.work_count <= 8) ? 2 :
                 1;
 
-        pandecode_log_cont("shader%d - MESA_SHADER_%s shader: "
+        fprintf(pandecode_dump_stream, "shader%d - MESA_SHADER_%s shader: "
                 "%u inst, %u bundles, %u quadwords, "
                 "%u registers, %u threads, 0 loops, 0:0 spills:fills\n\n\n",
                 shader_id++,
@@ -597,8 +545,7 @@ pandecode_texture_payload(mali_ptr payload,
                           uint16_t array_size,
                           struct pandecode_mapped_memory *tmem)
 {
-        pandecode_log(".payload = {\n");
-        pandecode_indent++;
+        pandecode_log("Payload:\n");
 
         /* A bunch of bitmap pointers follow.
          * We work out the correct number,
@@ -632,17 +579,14 @@ pandecode_texture_payload(mali_ptr payload,
                         uint64_t stride_set = pointers_and_strides[i];
                         int32_t line_stride = stride_set;
                         int32_t surface_stride = stride_set >> 32;
-                        pandecode_log("(mali_ptr) %d /* surface stride */ %d /* line stride */, \n",
+                        fprintf(pandecode_dump_stream, "  Surface stride %d, line stride: %d,\n",
                                       surface_stride, line_stride);
                 } else {
                         char *a = pointer_as_memory_reference(pointers_and_strides[i]);
-                        pandecode_log("%s, \n", a);
+                        fprintf(pandecode_dump_stream, "  %s,\n", a);
                         free(a);
                 }
         }
-
-        pandecode_indent--;
-        pandecode_log("},\n");
 }
 
 static void
@@ -715,9 +659,6 @@ pandecode_textures(mali_ptr textures, unsigned texture_count, int job_no, bool i
         if (!mmem)
                 return;
 
-        pandecode_log("Textures %"PRIx64"_%d:\n", textures, job_no);
-        pandecode_indent++;
-
         if (is_bifrost) {
                 const void *cl = pandecode_fetch_gpu_mem(mmem,
                                 textures, MALI_BIFROST_TEXTURE_LENGTH *
@@ -734,7 +675,7 @@ pandecode_textures(mali_ptr textures, unsigned texture_count, int job_no, bool i
                 for (int tex = 0; tex < texture_count; ++tex) {
                         mali_ptr *PANDECODE_PTR_VAR(u, mmem, textures + tex * sizeof(mali_ptr));
                         char *a = pointer_as_memory_reference(*u);
-                        pandecode_log("%s,\n", a);
+                        fprintf(pandecode_dump_stream, "%s,\n", a);
                         free(a);
                 }
 
@@ -746,26 +687,18 @@ pandecode_textures(mali_ptr textures, unsigned texture_count, int job_no, bool i
                                 pandecode_texture(*u, tmem, job_no, tex);
                 }
         }
-        pandecode_indent--;
-        pandecode_log("\n");
 }
 
 static void
 pandecode_samplers(mali_ptr samplers, unsigned sampler_count, int job_no, bool is_bifrost)
 {
-        pandecode_log("Samplers %"PRIx64"_%d:\n", samplers, job_no);
-        pandecode_indent++;
-
         for (int i = 0; i < sampler_count; ++i) {
                 if (is_bifrost) {
-                        DUMP_ADDR(BIFROST_SAMPLER, samplers + (MALI_BIFROST_SAMPLER_LENGTH * i), "Sampler %d:\n", i);
+                        DUMP_ADDR(BIFROST_SAMPLER, samplers + (MALI_BIFROST_SAMPLER_LENGTH * i), "Sampler:\n");
                 } else {
-                        DUMP_ADDR(MIDGARD_SAMPLER, samplers + (MALI_MIDGARD_SAMPLER_LENGTH * i), "Sampler %d:\n", i);
+                        DUMP_ADDR(MIDGARD_SAMPLER, samplers + (MALI_MIDGARD_SAMPLER_LENGTH * i), "Sampler:\n");
                 }
         }
-
-        pandecode_indent--;
-        pandecode_log("\n");
 }
 
 static void
@@ -1050,7 +983,7 @@ pandecode_fragment_job(const struct pandecode_mapped_memory *mem,
         unsigned tag = (s.framebuffer & MALI_FBD_TAG_MASK);
 
         if (tag != expected_tag)
-                pandecode_msg("XXX: expected FBD tag %X but got %X\n", expected_tag, tag);
+                fprintf(pandecode_dump_stream, "// XXX: expected FBD tag %X but got %X\n", expected_tag, tag);
 
         pandecode_log("\n");
 }
