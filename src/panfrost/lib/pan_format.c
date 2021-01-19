@@ -684,6 +684,15 @@ unsigned
 panfrost_format_to_bifrost_blend(const struct panfrost_device *dev,
                                  const struct util_format_description *desc, bool dither)
 {
+        /* Fast path for common formats */
+        if (desc->format == PIPE_FORMAT_B8G8R8A8_UNORM ||
+            desc->format == PIPE_FORMAT_B8G8R8X8_UNORM ||
+            desc->format == PIPE_FORMAT_R8G8B8A8_UNORM ||
+            desc->format == PIPE_FORMAT_R8G8B8X8_UNORM)
+                return (MALI_RGBA8_TB << 12) |
+                        (dev->quirks & HAS_SWIZZLES ?
+                         panfrost_get_default_swizzle(4) : 0);
+
         struct pan_blendable_format fmt = panfrost_blend_format(desc->format);
 
         /* Formats requiring blend shaders are stored raw in the tilebuffer */
