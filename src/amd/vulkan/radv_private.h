@@ -736,6 +736,14 @@ struct radv_device_border_color_data {
 	mtx_t                    mutex;
 };
 
+enum radv_force_vrs
+{
+	RADV_FORCE_VRS_NONE = 0,
+	RADV_FORCE_VRS_2x2,
+	RADV_FORCE_VRS_2x1,
+	RADV_FORCE_VRS_1x2,
+};
+
 struct radv_device {
 	struct vk_device vk;
 
@@ -830,6 +838,9 @@ struct radv_device {
 
 	/* Track the number of device loss occurs. */
 	int lost;
+
+	/* Whether the user forced VRS rates on GFX10.3+. */
+	enum radv_force_vrs force_vrs;
 };
 
 VkResult _radv_device_set_lost(struct radv_device *device,
@@ -1649,6 +1660,9 @@ struct radv_shader_module;
 #define RADV_HASH_SHADER_DISCARD_TO_DEMOTE   (1 << 5)
 #define RADV_HASH_SHADER_MRT_NAN_FIXUP       (1 << 6)
 #define RADV_HASH_SHADER_INVARIANT_GEOM      (1 << 7)
+#define RADV_HASH_SHADER_FORCE_VRS_2x2       (1 << 8)
+#define RADV_HASH_SHADER_FORCE_VRS_2x1       (1 << 9)
+#define RADV_HASH_SHADER_FORCE_VRS_1x2       (1 << 10)
 
 void
 radv_hash_shaders(unsigned char *hash,
