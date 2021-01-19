@@ -490,7 +490,7 @@ si_emit_graphics(struct radv_device *device,
 			radeon_set_context_reg(cs, R_028750_SX_PS_DOWNCONVERT_CONTROL, 0xff);
                         /* This allows sample shading. */
 			radeon_set_context_reg(cs, R_028848_PA_CL_VRS_CNTL,
-                                               S_028848_SAMPLE_ITER_COMBINER_MODE(1));
+					       S_028848_SAMPLE_ITER_COMBINER_MODE(V_028848_VRS_COMB_MODE_OVERRIDE));
 
 			/* This is the main VRS register and also the last
 			 * combiner, set it to passthrough mode because other
