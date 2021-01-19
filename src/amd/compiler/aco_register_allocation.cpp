@@ -611,7 +611,9 @@ void add_subdword_definition(Program *program, aco_ptr<Instruction>& instr, unsi
    if (instr->format == Format::PSEUDO) {
       return;
    } else if (can_use_SDWA(chip, instr)) {
-      if (reg.byte() || (is_partial && chip < GFX10))
+      unsigned def_size = instr_info.definition_size[(int)instr->opcode];
+      bool can_partial_write = chip >= GFX10 && def_size <= rc.bytes() * 8u;
+      if (reg.byte() || (is_partial && !can_partial_write))
          convert_to_SDWA(chip, instr);
       return;
    } else if (reg.byte() && rc.bytes() == 2 && can_use_opsel(chip, instr->opcode, -1, reg.byte() / 2)) {
