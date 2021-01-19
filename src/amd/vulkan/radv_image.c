@@ -283,6 +283,9 @@ radv_use_tc_compat_cmask_for_image(struct radv_device *device,
 	if (image->usage & VK_IMAGE_USAGE_STORAGE_BIT)
 		return false;
 
+	if (image->tiling == VK_IMAGE_TILING_LINEAR)
+		return false;
+
 	if (radv_image_has_dcc(image))
 		return false;
 
