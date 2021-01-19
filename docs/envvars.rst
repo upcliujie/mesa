@@ -619,6 +619,11 @@ RADV driver environment variables
 ``RADV_FORCE_FAMILY``
    create a null device to compile shaders without a AMD GPU (e.g.
    gfx900)
+
+``RADV_FORCE_VRS``
+   allow to force primitive VRS rates on GFX10.3+ for non GUI elements.
+   The supported values are 2x2, 1x2 and 2x1. Only for testing purposes.
+
 ``RADV_PERFTEST``
    a comma-separated list of named flags, which do various things:
 
