@@ -820,15 +820,26 @@ struct tu_cache_state {
    enum tu_cmd_flush_bits flush_bits;
 };
 
+enum tu_lrz_force_disable_mask {
+   TU_LRZ_FORCE_DISABLE_LRZ = 1 << 0,
+   TU_LRZ_FORCE_DISABLE_WRITE = 1 << 1,
+   TU_LRZ_FORCE_DISABLE_Z_TEST = 1 << 2
+};
+
+struct tu_lrz_depth_stencil_state
+{
+   bool depth_write : 1;
+   bool depth_test_enable : 1;
+   bool stencil_test_enable : 1;
+
+   VkCompareOp depth_compare_op;
+};
+
 struct tu_lrz_pipeline
 {
-   bool write : 1;
-   bool invalidate : 1;
+   struct tu_lrz_depth_stencil_state ds_state;
 
-   bool enable : 1;
-   bool greater : 1;
-   bool z_test_enable : 1;
-   bool blend_disable_write : 1;
+   uint32_t force_disable_mask;
 };
 
 struct tu_lrz_state
