@@ -830,6 +830,7 @@ struct tu_lrz_depth_stencil_state
 {
    bool depth_write : 1;
    bool depth_test_enable : 1;
+   bool depth_bounds_test_enable : 1;
    bool stencil_test_enable : 1;
 
    VkCompareOp depth_compare_op;
