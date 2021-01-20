@@ -755,7 +755,7 @@ void aco_print_instr(const Instruction *instr, FILE *output)
          if (abs[i])
             fprintf(output, "|");
 
-         if (instr->format == Format::VOP3P) {
+         if (instr->isVOP3P()) {
             const VOP3P_instruction* vop3 = instr->vop3p();
             if ((vop3->opsel_lo & (1 << i)) || !(vop3->opsel_hi & (1 << i))) {
                fprintf(output, ".%c%c",
