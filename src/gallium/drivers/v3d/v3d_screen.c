@@ -261,6 +261,7 @@ v3d_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
         case PIPE_CAP_ALPHA_TEST:
         case PIPE_CAP_CLIP_PLANES:
+        case PIPE_CAP_TWO_SIDED_COLOR:
                 return 0;
 
         /* Geometry shaders */
