@@ -1299,14 +1299,14 @@ Converter::parseNIR()
    case Program::TYPE_FRAGMENT:
       info_out->prop.fp.earlyFragTests = nir->info.fs.early_fragment_tests;
       prog->persampleInvocation =
-         (nir->info.system_values_read & SYSTEM_BIT_SAMPLE_ID) ||
-         (nir->info.system_values_read & SYSTEM_BIT_SAMPLE_POS);
+         (nir->info.system_values_read & SYSTEM_VALUE_SAMPLE_ID) ||
+         (nir->info.system_values_read & SYSTEM_VALUE_SAMPLE_POS);
       info_out->prop.fp.postDepthCoverage = nir->info.fs.post_depth_coverage;
       info_out->prop.fp.readsSampleLocations =
-         (nir->info.system_values_read & SYSTEM_BIT_SAMPLE_POS);
+         (nir->info.system_values_read & SYSTEM_VALUE_SAMPLE_POS);
       info_out->prop.fp.usesDiscard = nir->info.fs.uses_discard || nir->info.fs.uses_demote;
       info_out->prop.fp.usesSampleMaskIn =
-         !!(nir->info.system_values_read & SYSTEM_BIT_SAMPLE_MASK_IN);
+         !!(nir->info.system_values_read & SYSTEM_VALUE_SAMPLE_MASK_IN);
       break;
    case Program::TYPE_GEOMETRY:
       info_out->prop.gp.instanceCount = nir->info.gs.invocations;
