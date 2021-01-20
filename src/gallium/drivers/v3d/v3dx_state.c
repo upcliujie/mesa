@@ -70,9 +70,6 @@ static void
 v3d_set_clip_state(struct pipe_context *pctx,
                    const struct pipe_clip_state *clip)
 {
-        struct v3d_context *v3d = v3d_context(pctx);
-        v3d->clip = *clip;
-        v3d->dirty |= VC5_DIRTY_CLIP;
 }
 
 static void
