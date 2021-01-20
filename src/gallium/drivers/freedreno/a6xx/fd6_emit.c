@@ -809,6 +809,9 @@ fd6_emit_state(struct fd_ringbuffer *ring, struct fd6_emit *emit)
 
 	emit_marker6(ring, 5);
 
+	if (!dirty)
+		return;
+
 	/* NOTE: we track fb_read differently than _BLEND_ENABLED since
 	 * we might at some point decide to do sysmem in some cases when
 	 * blend is enabled:
