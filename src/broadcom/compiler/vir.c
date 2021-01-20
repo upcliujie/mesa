@@ -940,26 +940,14 @@ v3d_nir_lower_fs_early(struct v3d_compile *c)
 }
 
 static void
-v3d_nir_lower_gs_late(struct v3d_compile *c)
+v3d_nir_lower_vsgs_late(struct v3d_compile *c)
 {
-        NIR_PASS_V(c->s, nir_lower_io_to_scalar, nir_var_shader_out);
-}
-
-static void
-v3d_nir_lower_vs_late(struct v3d_compile *c)
-{
-        if (c->vs_key->clamp_color)
-                NIR_PASS_V(c->s, nir_lower_clamp_color_outputs);
-
         NIR_PASS_V(c->s, nir_lower_io_to_scalar, nir_var_shader_out);
 }
 
 static void
 v3d_nir_lower_fs_late(struct v3d_compile *c)
 {
-        if (c->fs_key->clamp_color)
-                NIR_PASS_V(c->s, nir_lower_clamp_color_outputs);
-
         /* In OpenGL the fragment shader can't read gl_ClipDistance[], but
          * Vulkan allows it, in which case the SPIR-V compiler will declare
          * VARING_SLOT_CLIP_DIST0 as compact array variable. Pass true as
@@ -1088,10 +1076,8 @@ v3d_attempt_compile(struct v3d_compile *c)
 
         switch (c->s->info.stage) {
         case MESA_SHADER_VERTEX:
-                v3d_nir_lower_vs_late(c);
-                break;
         case MESA_SHADER_GEOMETRY:
-                v3d_nir_lower_gs_late(c);
+                v3d_nir_lower_vsgs_late(c);
                 break;
         case MESA_SHADER_FRAGMENT:
                 v3d_nir_lower_fs_late(c);
