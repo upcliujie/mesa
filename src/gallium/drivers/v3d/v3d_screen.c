@@ -109,7 +109,6 @@ v3d_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
         switch (param) {
                 /* Supported features (boolean caps). */
-        case PIPE_CAP_VERTEX_COLOR_CLAMPED:
         case PIPE_CAP_VERTEX_COLOR_UNCLAMPED:
         case PIPE_CAP_FRAGMENT_COLOR_CLAMPED:
         case PIPE_CAP_BUFFER_MAP_PERSISTENT_COHERENT:
@@ -262,6 +261,7 @@ v3d_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
         case PIPE_CAP_ALPHA_TEST:
         case PIPE_CAP_CLIP_PLANES:
         case PIPE_CAP_TWO_SIDED_COLOR:
+        case PIPE_CAP_VERTEX_COLOR_CLAMPED:
                 return 0;
 
         /* Geometry shaders */
