@@ -816,6 +816,9 @@ fd6_emit_state(struct fd_ringbuffer *ring, struct fd6_emit *emit)
 	if (fs->fb_read)
 		ctx->batch->gmem_reason |= FD_GMEM_FB_READ;
 
+	if (!dirty)
+		return;
+
 	if (emit->dirty & FD_DIRTY_VTXSTATE) {
 		struct fd6_vertex_stateobj *vtx = fd6_vertex_stateobj(ctx->vtx.vtx);
 
