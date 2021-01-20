@@ -576,7 +576,11 @@ The integer capabilities:
 * ``PIPE_CAP_POINT_SIZE_FIXED``: Driver supports point-sizes that are fixed,
   as opposed to writing gl_PointSize for every point.
 * ``PIPE_CAP_TWO_SIDED_COLOR``: Driver supports two-sided coloring.
-* ``PIPE_CAP_CLIP_PLANES``: Driver supports user-defined clip-planes.
+* ``PIPE_CAP_CLIP_PLANES``: Driver supports user-defined clip-planes.  Must be 1
+    for non-NIR drivers or gallium nine.  When unset,
+    ``pipe_rasterizer_state->clip_plane_enable`` is always 0 and
+    ``set_clip_state()`` will never be called.  Instead, user clip planes are
+    lowered to clip distance writes
 * ``PIPE_CAP_MAX_VERTEX_BUFFERS``: Number of supported vertex buffers.
 * ``PIPE_CAP_OPENCL_INTEGER_FUNCTIONS``: Driver supports extended OpenCL-style integer functions.  This includes averge, saturating additiong, saturating subtraction, absolute difference, count leading zeros, and count trailing zeros.
 * ``PIPE_CAP_INTEGER_MULTIPLY_32X16``: Driver supports integer multiplication between a 32-bit integer and a 16-bit integer.  If the second operand is 32-bits, the upper 16-bits are ignored, and the low 16-bits are possibly sign extended as necessary.
