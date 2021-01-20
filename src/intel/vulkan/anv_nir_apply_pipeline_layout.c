@@ -433,6 +433,7 @@ lower_res_index_intrinsic(nir_intrinsic_instr *intrin,
    nir_address_format addr_format = desc_addr_format(desc_type, state);
    switch (addr_format) {
    case nir_address_format_64bit_global:
+   case nir_address_format_64bit_global_32bit_offset:
    case nir_address_format_64bit_bounded_global: {
       /* We store the descriptor offset as 16.8.8 where the top 16 bits are
        * the offset into the descriptor set, the next 8 are the binding table
@@ -453,6 +454,7 @@ lower_res_index_intrinsic(nir_intrinsic_instr *intrin,
          dynamic_offset_index;
 
       switch (addr_format) {
+      case nir_address_format_64bit_global_32bit_offset:
       case nir_address_format_64bit_bounded_global:
          assert(intrin->dest.ssa.num_components == 4);
          assert(intrin->dest.ssa.bit_size == 32);
@@ -521,6 +523,7 @@ lower_res_reindex_intrinsic(nir_intrinsic_instr *intrin,
 
    nir_ssa_def *new_index;
    switch (desc_addr_format(desc_type, state)) {
+   case nir_address_format_64bit_global_32bit_offset:
    case nir_address_format_64bit_bounded_global:
       /* See also lower_res_index_intrinsic() */
       assert(intrin->dest.ssa.num_components == 4);
@@ -567,6 +570,7 @@ build_ssbo_descriptor_load(const VkDescriptorType desc_type,
 
    nir_ssa_def *desc_offset, *array_index;
    switch (desc_addr_format(desc_type, state)) {
+   case nir_address_format_64bit_global_32bit_offset:
    case nir_address_format_64bit_bounded_global:
       /* See also lower_res_index_intrinsic() */
       desc_offset = nir_channel(b, index, 0);
@@ -648,6 +652,7 @@ lower_load_vulkan_descriptor(nir_intrinsic_instr *intrin,
    nir_address_format addr_format = desc_addr_format(desc_type, state);
    switch (addr_format) {
    case nir_address_format_64bit_global:
+   case nir_address_format_64bit_global_32bit_offset:
    case nir_address_format_64bit_bounded_global: {
       desc = build_ssbo_descriptor_load(desc_type, index, state);
 
@@ -661,6 +666,7 @@ lower_load_vulkan_descriptor(nir_intrinsic_instr *intrin,
           */
          nir_ssa_def *desc_offset, *array_index;
          switch (addr_format) {
+         case nir_address_format_64bit_global_32bit_offset:
          case nir_address_format_64bit_bounded_global:
             /* See also lower_res_index_intrinsic() */
             desc_offset = nir_channel(b, index, 0);
@@ -697,6 +703,7 @@ lower_load_vulkan_descriptor(nir_intrinsic_instr *intrin,
                          nir_imm_int(b, 0), dyn_load);
 
          switch (addr_format) {
+         case nir_address_format_64bit_global_32bit_offset:
          case nir_address_format_64bit_bounded_global: {
             /* The dynamic offset gets added to the base pointer so that we
              * have a sliding window range.
