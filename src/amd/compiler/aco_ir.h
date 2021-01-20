@@ -105,6 +105,8 @@ enum class Format : std::uint16_t {
    VINTRP = 1 << 12,
    DPP = 1 << 13,
    SDWA = 1 << 14,
+
+   FIRST_MASK = VOP1,
 };
 
 enum storage_class : uint8_t {
@@ -985,6 +987,31 @@ private:
 };
 
 struct Block;
+struct Instruction;
+struct Pseudo_instruction;
+struct SOP1_instruction;
+struct SOP2_instruction;
+struct SOPK_instruction;
+struct SOPP_instruction;
+struct SOPC_instruction;
+struct SMEM_instruction;
+struct DS_instruction;
+struct MTBUF_instruction;
+struct MUBUF_instruction;
+struct MIMG_instruction;
+struct Export_instruction;
+struct FLAT_instruction;
+struct Pseudo_branch_instruction;
+struct Pseudo_barrier_instruction;
+struct Pseudo_reduction_instruction;
+struct VOP3P_instruction;
+struct VOP1_instruction;
+struct VOP2_instruction;
+struct VOPC_instruction;
+struct VOP3A_instruction;
+struct Interp_instruction;
+struct DPP_instruction;
+struct SDWA_instruction;
 
 struct Instruction {
    aco_opcode opcode;
@@ -1019,21 +1046,6 @@ struct Instruction {
              format == Format::MIMG;
    }
 
-   constexpr bool isDPP() const noexcept
-   {
-      return (uint16_t) format & (uint16_t) Format::DPP;
-   }
-
-   constexpr bool isVOP3() const noexcept
-   {
-      return (uint16_t) format & (uint16_t) Format::VOP3A;
-   }
-
-   constexpr bool isSDWA() const noexcept
-   {
-      return (uint16_t) format & (uint16_t) Format::SDWA;
-   }
-
    constexpr bool isFlatOrGlobal() const noexcept
    {
       return format == Format::FLAT || format == Format::GLOBAL;
@@ -1048,6 +1060,60 @@ struct Instruction {
             return true;
       }
       return false;
+   }
+
+   #define CASTS(lowercase, camel, enum, type) \
+   type##_instruction *lowercase() { \
+      return (type##_instruction *)this; \
+   } \
+   const type##_instruction *lowercase() const { \
+      return (const type##_instruction *)this; \
+   } \
+   constexpr const bool is##camel() const { \
+      return (uint16_t)Format::enum >= (uint16_t)Format::FIRST_MASK ? \
+             (uint16_t)format & (uint16_t)Format::enum : \
+             format == Format::enum; \
+   }
+
+   CASTS(pseudo, Pseudo, PSEUDO, Pseudo)
+   CASTS(sop1, SOP1, SOP1, SOP1)
+   CASTS(sop2, SOP2, SOP2, SOP2)
+   CASTS(sopk, SOPK, SOPK, SOPK)
+   CASTS(sopp, SOPP, SOPP, SOPP)
+   CASTS(sopc, SOPC, SOPC, SOPC)
+   CASTS(smem, SMEM, SMEM, SMEM)
+   CASTS(ds, DS, DS, DS)
+   CASTS(mtbuf, MTBUF, MTBUF, MTBUF)
+   CASTS(mubuf, MUBUF, MUBUF, MUBUF)
+   CASTS(mimg, MIMG, MIMG, MIMG)
+   CASTS(exp, EXP, EXP, Export)
+   CASTS(flat, Flat, FLAT, FLAT)
+   CASTS(global, Global, GLOBAL, FLAT)
+   CASTS(scratch, Scratch, SCRATCH, FLAT)
+   CASTS(branch, Branch, PSEUDO_BRANCH, Pseudo_branch)
+   CASTS(barrier, Barrier, PSEUDO_BARRIER, Pseudo_barrier)
+   CASTS(reduction, Reduction, PSEUDO_REDUCTION, Pseudo_reduction)
+   CASTS(vop3p, VOP3P, VOP3P, VOP3P)
+   CASTS(vop1, VOP1, VOP1, VOP1)
+   CASTS(vop2, VOP2, VOP2, VOP2)
+   CASTS(vopc, VOPC, VOPC, VOPC)
+   CASTS(vop3, VOP3, VOP3A, VOP3A)
+   CASTS(vintrp, VINTRP, VINTRP, Interp)
+   CASTS(dpp, DPP, DPP, DPP)
+   CASTS(sdwa, SDWA, SDWA, SDWA)
+
+   #undef CASTS
+
+   FLAT_instruction *flatlike() {
+      return (FLAT_instruction *)this;
+   }
+
+   const FLAT_instruction *flatlike() const {
+      return (FLAT_instruction *)this;
+   }
+
+   bool isFlatLike() const {
+      return isFlat() || isGlobal() || isScratch();
    }
 };
 static_assert(sizeof(Instruction) == 16, "Unexpected padding");
