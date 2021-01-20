@@ -985,6 +985,31 @@ private:
 };
 
 struct Block;
+struct Instruction;
+struct Pseudo_instruction;
+struct SOP1_instruction;
+struct SOP2_instruction;
+struct SOPK_instruction;
+struct SOPP_instruction;
+struct SOPC_instruction;
+struct SMEM_instruction;
+struct DS_instruction;
+struct MTBUF_instruction;
+struct MUBUF_instruction;
+struct MIMG_instruction;
+struct Export_instruction;
+struct FLAT_instruction;
+struct Pseudo_branch_instruction;
+struct Pseudo_barrier_instruction;
+struct Pseudo_reduction_instruction;
+struct VOP3P_instruction;
+struct VOP1_instruction;
+struct VOP2_instruction;
+struct VOPC_instruction;
+struct VOP3_instruction;
+struct Interp_instruction;
+struct DPP_instruction;
+struct SDWA_instruction;
 
 struct Instruction {
    aco_opcode opcode;
@@ -993,6 +1018,74 @@ struct Instruction {
 
    aco::span<Operand> operands;
    aco::span<Definition> definitions;
+
+   constexpr bool usesModifiers() const noexcept;
+
+   constexpr bool reads_exec() const noexcept
+   {
+      for (const Operand& op : operands) {
+         if (op.isFixed() && op.physReg() == exec)
+            return true;
+      }
+      return false;
+   }
+
+   #define CASTS(is_mask, lowercase, camel, enum, type) \
+   type##_instruction *lowercase() noexcept { \
+      return (type##_instruction *)this; \
+   } \
+   const type##_instruction *lowercase() const noexcept { \
+      return (const type##_instruction *)this; \
+   } \
+   constexpr const bool is##camel() const noexcept { \
+      return is_mask ? \
+             (uint16_t)format & (uint16_t)Format::enum : \
+             format == Format::enum; \
+   }
+
+   CASTS(false, pseudo, Pseudo, PSEUDO, Pseudo)
+   CASTS(false, sop1, SOP1, SOP1, SOP1)
+   CASTS(false, sop2, SOP2, SOP2, SOP2)
+   CASTS(false, sopk, SOPK, SOPK, SOPK)
+   CASTS(false, sopp, SOPP, SOPP, SOPP)
+   CASTS(false, sopc, SOPC, SOPC, SOPC)
+   CASTS(false, smem, SMEM, SMEM, SMEM)
+   CASTS(false, ds, DS, DS, DS)
+   CASTS(false, mtbuf, MTBUF, MTBUF, MTBUF)
+   CASTS(false, mubuf, MUBUF, MUBUF, MUBUF)
+   CASTS(false, mimg, MIMG, MIMG, MIMG)
+   CASTS(false, exp, EXP, EXP, Export)
+   CASTS(false, flat, Flat, FLAT, FLAT)
+   CASTS(false, global, Global, GLOBAL, FLAT)
+   CASTS(false, scratch, Scratch, SCRATCH, FLAT)
+   CASTS(false, branch, Branch, PSEUDO_BRANCH, Pseudo_branch)
+   CASTS(false, barrier, Barrier, PSEUDO_BARRIER, Pseudo_barrier)
+   CASTS(false, reduction, Reduction, PSEUDO_REDUCTION, Pseudo_reduction)
+   CASTS(false, vop3p, VOP3P, VOP3P, VOP3P)
+   CASTS(true, vop1, VOP1, VOP1, VOP1)
+   CASTS(true, vop2, VOP2, VOP2, VOP2)
+   CASTS(true, vopc, VOPC, VOPC, VOPC)
+   CASTS(true, vop3, VOP3, VOP3, VOP3)
+   CASTS(true, vintrp, VINTRP, VINTRP, Interp)
+   CASTS(true, dpp, DPP, DPP, DPP)
+   CASTS(true, sdwa, SDWA, SDWA, SDWA)
+
+   #undef CASTS
+
+   FLAT_instruction *flatlike()
+   {
+      return (FLAT_instruction *)this;
+   }
+
+   const FLAT_instruction *flatlike() const
+   {
+      return (FLAT_instruction *)this;
+   }
+
+   constexpr bool isFlatLike() const noexcept
+   {
+      return isFlat() || isGlobal() || isScratch();
+   }
 
    constexpr bool isVALU() const noexcept
    {
@@ -1019,35 +1112,9 @@ struct Instruction {
              format == Format::MIMG;
    }
 
-   constexpr bool isDPP() const noexcept
-   {
-      return (uint16_t) format & (uint16_t) Format::DPP;
-   }
-
-   constexpr bool isVOP3() const noexcept
-   {
-      return (uint16_t) format & (uint16_t) Format::VOP3;
-   }
-
-   constexpr bool isSDWA() const noexcept
-   {
-      return (uint16_t) format & (uint16_t) Format::SDWA;
-   }
-
    constexpr bool isFlatOrGlobal() const noexcept
    {
       return format == Format::FLAT || format == Format::GLOBAL;
-   }
-
-   constexpr bool usesModifiers() const noexcept;
-
-   constexpr bool reads_exec() const noexcept
-   {
-      for (const Operand& op : operands) {
-         if (op.isFixed() && op.physReg() == exec)
-            return true;
-      }
-      return false;
    }
 };
 static_assert(sizeof(Instruction) == 16, "Unexpected padding");
