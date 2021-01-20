@@ -1069,7 +1069,7 @@ void copy_constant(lower_context *ctx, Builder& bld, Definition dst, Operand op)
          if (val != mask)
             bld.vop2(aco_opcode::v_and_b32, dst, Operand(~mask), def_op);
          if (val != 0)
-            bld.vop2(aco_opcode::v_or_b32, dst, Operand(op.constantValue() << offset), def_op);
+            bld.vop2(aco_opcode::v_or_b32, dst, Operand(val), def_op);
       }
    }
 }
