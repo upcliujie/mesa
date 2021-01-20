@@ -77,7 +77,7 @@ void v3d_job_add_bo(struct v3d_job *job, struct v3d_bo *bo);
 #define VC5_DIRTY_SCISSOR             (1ull << 19)
 #define VC5_DIRTY_FLAT_SHADE_FLAGS    (1ull << 20)
 #define VC5_DIRTY_PRIM_MODE           (1ull << 21)
-#define VC5_DIRTY_CLIP                (1ull << 22)
+
 #define VC5_DIRTY_UNCOMPILED_CS       (1ull << 23)
 #define VC5_DIRTY_UNCOMPILED_VS       (1ull << 24)
 #define VC5_DIRTY_UNCOMPILED_GS       (1ull << 25)
@@ -538,7 +538,6 @@ struct v3d_context {
         uint32_t prims_generated;
 
         struct pipe_poly_stipple stipple;
-        struct pipe_clip_state clip;
         struct pipe_viewport_state viewport;
         struct v3d_ssbo_stateobj ssbo[PIPE_SHADER_TYPES];
         struct v3d_shaderimg_stateobj shaderimg[PIPE_SHADER_TYPES];
