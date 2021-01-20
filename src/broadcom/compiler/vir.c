@@ -948,26 +948,12 @@ v3d_nir_lower_fs_early(struct v3d_compile *c)
 static void
 v3d_nir_lower_gs_late(struct v3d_compile *c)
 {
-        if (c->key->ucp_enables) {
-                NIR_PASS_V(c->s, nir_lower_clip_gs, c->key->ucp_enables,
-                           false, NULL);
-        }
-
-        /* Note: GS output scalarizing must happen after nir_lower_clip_gs. */
         NIR_PASS_V(c->s, nir_lower_io_to_scalar, nir_var_shader_out);
 }
 
 static void
 v3d_nir_lower_vs_late(struct v3d_compile *c)
 {
-        if (c->key->ucp_enables) {
-                NIR_PASS_V(c->s, nir_lower_clip_vs, c->key->ucp_enables,
-                           false, false, NULL);
-                NIR_PASS_V(c->s, nir_lower_io_to_scalar,
-                           nir_var_shader_out);
-        }
-
-        /* Note: VS output scalarizing must happen after nir_lower_clip_vs. */
         NIR_PASS_V(c->s, nir_lower_io_to_scalar, nir_var_shader_out);
 }
 
