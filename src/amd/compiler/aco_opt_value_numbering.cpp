@@ -45,7 +45,7 @@ uint32_t murmur_32_scramble(uint32_t h, uint32_t k) {
 }
 
 template<typename T>
-uint32_t hash_murmur_32(Instruction* instr)
+uint32_t hash_murmur_32(Instruction *instr)
 {
    uint32_t hash = uint32_t(instr->format) << 16 | uint32_t(instr->opcode);
 
@@ -78,7 +78,7 @@ struct InstrHash {
     * In order to calculate the expression set, only the right-hand-side of an
     * instruction is used for the hash, i.e. everything except the definitions.
     */
-   std::size_t operator()(Instruction* instr) const
+   std::size_t operator()(Instruction *instr) const
    {
       if (instr->isVOP3())
          return hash_murmur_32<VOP3A_instruction>(instr);
@@ -121,7 +121,7 @@ struct InstrHash {
 };
 
 struct InstrPred {
-   bool operator()(Instruction* a, Instruction* b) const
+   bool operator()(Instruction *a, Instruction *b) const
    {
       if (a->format != b->format)
          return false;
@@ -178,8 +178,8 @@ struct InstrPred {
          return false;
 
       if (a->isVOP3()) {
-         VOP3A_instruction* a3 = a->vop3();
-         VOP3A_instruction* b3 = b->vop3();
+         VOP3A_instruction *a3 = a->vop3();
+         VOP3A_instruction *b3 = b->vop3();
          for (unsigned i = 0; i < 3; i++) {
             if (a3->abs[i] != b3->abs[i] ||
                 a3->neg[i] != b3->neg[i])
@@ -190,8 +190,8 @@ struct InstrPred {
                 a3->opsel == b3->opsel;
       }
       if (a->isDPP()) {
-         DPP_instruction* aDPP = a->dpp();
-         DPP_instruction* bDPP = b->dpp();
+         DPP_instruction *aDPP = a->dpp();
+         DPP_instruction *bDPP = b->dpp();
          return aDPP->pass_flags == bDPP->pass_flags &&
                 aDPP->dpp_ctrl == bDPP->dpp_ctrl &&
                 aDPP->bank_mask == bDPP->bank_mask &&
@@ -203,8 +203,8 @@ struct InstrPred {
                 aDPP->neg[1] == bDPP->neg[1];
       }
       if (a->isSDWA()) {
-         SDWA_instruction* aSDWA = a->sdwa();
-         SDWA_instruction* bSDWA = b->sdwa();
+         SDWA_instruction *aSDWA = a->sdwa();
+         SDWA_instruction *bSDWA = b->sdwa();
          return aSDWA->sel[0] == bSDWA->sel[0] &&
                 aSDWA->sel[1] == bSDWA->sel[1] &&
                 aSDWA->dst_sel == bSDWA->dst_sel &&
@@ -221,13 +221,13 @@ struct InstrPred {
          case Format::SOPK: {
             if (a->opcode == aco_opcode::s_getreg_b32)
                return false;
-            SOPK_instruction* aK = a->sopk();
-            SOPK_instruction* bK = b->sopk();
+            SOPK_instruction *aK = a->sopk();
+            SOPK_instruction *bK = b->sopk();
             return aK->imm == bK->imm;
          }
          case Format::SMEM: {
-            SMEM_instruction* aS = a->smem();
-            SMEM_instruction* bS = b->smem();
+            SMEM_instruction *aS = a->smem();
+            SMEM_instruction *bS = b->smem();
             /* isel shouldn't be creating situations where this assertion fails */
             assert(aS->prevent_overflow == bS->prevent_overflow);
             return aS->sync.can_reorder() && bS->sync.can_reorder() &&
@@ -236,8 +236,8 @@ struct InstrPred {
                    aS->prevent_overflow == bS->prevent_overflow;
          }
          case Format::VINTRP: {
-            Interp_instruction* aI = a->vintrp();
-            Interp_instruction* bI = b->vintrp();
+            Interp_instruction *aI = a->vintrp();
+            Interp_instruction *bI = b->vintrp();
             if (aI->attribute != bI->attribute)
                return false;
             if (aI->component != bI->component)
@@ -245,8 +245,8 @@ struct InstrPred {
             return true;
          }
          case Format::VOP3P: {
-            VOP3P_instruction* a3P = a->vop3p();
-            VOP3P_instruction* b3P = b->vop3p();
+            VOP3P_instruction *a3P = a->vop3p();
+            VOP3P_instruction *b3P = b->vop3p();
             for (unsigned i = 0; i < 3; i++) {
                if (a3P->neg_lo[i] != b3P->neg_lo[i] ||
                    a3P->neg_hi[i] != b3P->neg_hi[i])
@@ -264,8 +264,8 @@ struct InstrPred {
                    aR->cluster_size == bR->cluster_size;
          }
          case Format::MTBUF: {
-            MTBUF_instruction* aM = a->mtbuf();
-            MTBUF_instruction* bM = b->mtbuf();
+            MTBUF_instruction *aM = a->mtbuf();
+            MTBUF_instruction *bM = b->mtbuf();
             return aM->sync.can_reorder() && bM->sync.can_reorder() &&
                    aM->sync == bM->sync &&
                    aM->dfmt == bM->dfmt &&
@@ -280,8 +280,8 @@ struct InstrPred {
                    aM->disable_wqm == bM->disable_wqm;
          }
          case Format::MUBUF: {
-            MUBUF_instruction* aM = a->mubuf();
-            MUBUF_instruction* bM = b->mubuf();
+            MUBUF_instruction *aM = a->mubuf();
+            MUBUF_instruction *bM = b->mubuf();
             return aM->sync.can_reorder() && bM->sync.can_reorder() &&
                    aM->sync == bM->sync &&
                    aM->offset == bM->offset &&
@@ -308,8 +308,8 @@ struct InstrPred {
                 a->opcode != aco_opcode::ds_permute_b32 &&
                 a->opcode != aco_opcode::ds_swizzle_b32)
                return false;
-            DS_instruction* aD = a->ds();
-            DS_instruction* bD = b->ds();
+            DS_instruction *aD = a->ds();
+            DS_instruction *bD = b->ds();
             return aD->sync.can_reorder() && bD->sync.can_reorder() &&
                    aD->sync == bD->sync &&
                    aD->pass_flags == bD->pass_flags &&
@@ -318,8 +318,8 @@ struct InstrPred {
                    aD->offset1 == bD->offset1;
          }
          case Format::MIMG: {
-            MIMG_instruction* aM = a->mimg();
-            MIMG_instruction* bM = b->mimg();
+            MIMG_instruction *aM = a->mimg();
+            MIMG_instruction *bM = b->mimg();
             return aM->sync.can_reorder() && bM->sync.can_reorder() &&
                    aM->sync == bM->sync &&
                    aM->dmask == bM->dmask &&
@@ -343,7 +343,7 @@ struct InstrPred {
 using expr_set = std::unordered_map<Instruction*, uint32_t, InstrHash, InstrPred>;
 
 struct vn_ctx {
-   Program* program;
+   Program *program;
    expr_set expr_values;
    std::map<uint32_t, Temp> renames;
 
@@ -354,7 +354,7 @@ struct vn_ctx {
     */
    uint32_t exec_id = 1;
 
-   vn_ctx(Program* program_) : program(program_) {
+   vn_ctx(Program *program_) : program(program_) {
       static_assert(sizeof(Temp) == 4, "Temp must fit in 32bits");
       unsigned size = 0;
       for (Block& block : program->blocks)
@@ -414,7 +414,7 @@ void process_block(vn_ctx& ctx, Block& block)
 
       /* if there was already an expression with the same value number */
       if (!res.second) {
-         Instruction* orig_instr = res.first->first;
+         Instruction *orig_instr = res.first->first;
          assert(instr->definitions.size() == orig_instr->definitions.size());
          /* check if the original instruction dominates the current one */
          if (dominates(ctx, res.first->second, block.index) &&
@@ -463,7 +463,7 @@ void rename_phi_operands(Block& block, std::map<uint32_t, Temp>& renames)
 } /* end namespace */
 
 
-void value_numbering(Program* program)
+void value_numbering(Program *program)
 {
    vn_ctx ctx(program);
    std::vector<unsigned> loop_headers;

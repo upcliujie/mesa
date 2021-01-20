@@ -74,7 +74,7 @@ struct ra_test_policy;
 void create_program(enum chip_class chip_class, aco::Stage stage,
                     unsigned wave_size=64, enum radeon_family family=CHIP_UNKNOWN);
 bool setup_cs(const char *input_spec, enum chip_class chip_class,
-              enum radeon_family family=CHIP_UNKNOWN, const char* subvariant = "",
+              enum radeon_family family=CHIP_UNKNOWN, const char *subvariant = "",
               unsigned wave_size=64);
 
 void finish_program(aco::Program *program);

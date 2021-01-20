@@ -73,7 +73,7 @@ void _aco_err(Program *program, const char *file, unsigned line,
    va_end(args);
 }
 
-bool validate_ir(Program* program)
+bool validate_ir(Program *program)
 {
    bool is_valid = true;
    auto check = [&program, &is_valid](bool success, const char * msg, aco::Instruction * instr) -> void {

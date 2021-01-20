@@ -39,7 +39,7 @@ struct dce_ctx {
    std::vector<uint16_t> uses;
    std::vector<std::vector<bool>> live;
 
-   dce_ctx(Program* program) : current_block(program->blocks.size() - 1), uses(program->peekAllocationId())
+   dce_ctx(Program *program) : current_block(program->blocks.size() - 1), uses(program->peekAllocationId())
    {
       live.reserve(program->blocks.size());
       for (Block& block : program->blocks)

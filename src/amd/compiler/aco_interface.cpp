@@ -211,7 +211,7 @@ void aco_compile_shader(unsigned shader_count,
     * directly for the disk cache. Uninitialized data can appear because of
     * padding in the struct or because legacy_binary->data can be at an offset
     * from the start less than sizeof(radv_shader_binary_legacy). */
-   radv_shader_binary_legacy* legacy_binary = (radv_shader_binary_legacy*) calloc(size, 1);
+   radv_shader_binary_legacy *legacy_binary = (radv_shader_binary_legacy*) calloc(size, 1);
 
    legacy_binary->base.type = RADV_BINARY_TYPE_LEGACY;
    legacy_binary->base.stage = shaders[shader_count-1]->info.stage;

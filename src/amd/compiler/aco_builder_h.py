@@ -238,7 +238,7 @@ public:
       return Result(instr_ptr);
    }
 
-   Result insert(Instruction* instr) {
+   Result insert(Instruction *instr) {
       if (instructions) {
          if (use_iterator) {
             it = instructions->emplace(it, aco_ptr<Instruction>(instr));

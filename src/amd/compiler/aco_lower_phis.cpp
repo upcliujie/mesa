@@ -237,7 +237,7 @@ void lower_divergent_bool_phi(Program *program, ssa_state *state, Block *block, 
 
    unsigned num_preds = block->linear_preds.size();
    if (phi->operands.size() != num_preds) {
-      Pseudo_instruction* new_phi{create_instruction<Pseudo_instruction>(aco_opcode::p_linear_phi, Format::PSEUDO, num_preds, 1)};
+      Pseudo_instruction *new_phi{create_instruction<Pseudo_instruction>(aco_opcode::p_linear_phi, Format::PSEUDO, num_preds, 1)};
       new_phi->definitions[0] = phi->definitions[0];
       phi.reset(new_phi);
    } else {
@@ -275,7 +275,7 @@ void lower_subdword_phis(Program *program, Block *block, aco_ptr<Instruction>& p
    return;
 }
 
-void lower_phis(Program* program)
+void lower_phis(Program *program)
 {
    ssa_state state;
 

@@ -953,7 +953,7 @@ void init_context(isel_context *ctx, nir_shader *shader)
                break;
             }
             case nir_instr_type_tex: {
-               nir_tex_instr* tex = nir_instr_as_tex(instr);
+               nir_tex_instr *tex = nir_instr_as_tex(instr);
                RegType type = nir_dest_is_divergent(tex->dest) ? RegType::vgpr : RegType::sgpr;
 
                if (tex->op == nir_texop_texture_samples) {
@@ -979,7 +979,7 @@ void init_context(isel_context *ctx, nir_shader *shader)
                break;
             }
             case nir_instr_type_phi: {
-               nir_phi_instr* phi = nir_instr_as_phi(instr);
+               nir_phi_instr *phi = nir_instr_as_phi(instr);
                RegType type;
                unsigned size = phi->dest.ssa.num_components;
 
@@ -1050,10 +1050,10 @@ void cleanup_context(isel_context *ctx)
 }
 
 isel_context
-setup_isel_context(Program* program,
+setup_isel_context(Program *program,
                    unsigned shader_count,
                    struct nir_shader *const *shaders,
-                   ac_shader_config* config,
+                   ac_shader_config *config,
                    struct radv_shader_args *args,
                    bool is_gs_copy_shader)
 {

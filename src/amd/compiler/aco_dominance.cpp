@@ -41,7 +41,7 @@
 
 namespace aco {
 
-void dominator_tree(Program* program)
+void dominator_tree(Program *program)
 {
    program->blocks[0].logical_idom = 0;
    program->blocks[0].linear_idom = 0;

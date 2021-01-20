@@ -136,7 +136,7 @@ void init_program(Program *program, Stage stage, struct radv_shader_info *info,
    program->next_fp_mode.round32 = fp_round_ne;
 }
 
-memory_sync_info get_sync_info(const Instruction* instr)
+memory_sync_info get_sync_info(const Instruction *instr)
 {
    switch (instr->format) {
    case Format::SMEM:
@@ -408,7 +408,7 @@ uint32_t get_reduction_identity(ReduceOp op, unsigned idx)
    return 0;
 }
 
-bool needs_exec_mask(const Instruction* instr) {
+bool needs_exec_mask(const Instruction *instr) {
    if (instr->isSALU())
       return instr->reads_exec();
    if (instr->isSMEM() || instr->isSALU())

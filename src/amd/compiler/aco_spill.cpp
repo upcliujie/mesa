@@ -47,7 +47,7 @@ struct remat_info {
 
 struct spill_ctx {
    RegisterDemand target_pressure;
-   Program* program;
+   Program *program;
    std::vector<std::vector<RegisterDemand>> register_demand;
    std::vector<std::map<Temp, Temp>> renames;
    std::vector<std::map<Temp, uint32_t>> spills_entry;
@@ -63,7 +63,7 @@ struct spill_ctx {
    std::map<Instruction *, bool> remat_used;
    unsigned wave_size;
 
-   spill_ctx(const RegisterDemand target_pressure_, Program* program_,
+   spill_ctx(const RegisterDemand target_pressure_, Program *program_,
              std::vector<std::vector<RegisterDemand>> register_demand_)
       : target_pressure(target_pressure_), program(program_),
         register_demand(std::move(register_demand_)), renames(program->blocks.size()),
@@ -118,7 +118,7 @@ struct spill_ctx {
    uint32_t next_spill_id = 0;
 };
 
-int32_t get_dominator(int idx_a, int idx_b, Program* program, bool is_linear)
+int32_t get_dominator(int idx_a, int idx_b, Program *program, bool is_linear)
 {
 
    if (idx_a == -1)
@@ -146,7 +146,7 @@ int32_t get_dominator(int idx_a, int idx_b, Program* program, bool is_linear)
 
 void next_uses_per_block(spill_ctx& ctx, unsigned block_idx, std::set<uint32_t>& worklist)
 {
-   Block* block = &ctx.program->blocks[block_idx];
+   Block *block = &ctx.program->blocks[block_idx];
    std::map<Temp, std::pair<uint32_t, uint32_t>> next_uses = ctx.next_use_distances_end[block_idx];
 
    /* to compute the next use distance at the beginning of the block, we have to add the block's size */
@@ -325,7 +325,7 @@ void get_rematerialize_info(spill_ctx& ctx)
    }
 }
 
-std::vector<std::map<Temp, uint32_t>> local_next_uses(spill_ctx& ctx, Block* block)
+std::vector<std::map<Temp, uint32_t>> local_next_uses(spill_ctx& ctx, Block *block)
 {
    std::vector<std::map<Temp, uint32_t>> local_next_uses(block->instructions.size());
 
@@ -358,7 +358,7 @@ std::vector<std::map<Temp, uint32_t>> local_next_uses(spill_ctx& ctx, Block* blo
 }
 
 
-RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_idx)
+RegisterDemand init_live_in_vars(spill_ctx& ctx, Block *block, unsigned block_idx)
 {
    RegisterDemand spilled_registers;
 
@@ -722,7 +722,7 @@ RegisterDemand get_demand_before(spill_ctx& ctx, unsigned block_idx, unsigned id
    }
 }
 
-void add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
+void add_coupling_code(spill_ctx& ctx, Block *block, unsigned block_idx)
 {
    /* no coupling code necessary */
    if (block->linear_preds.size() == 0)
@@ -1078,7 +1078,7 @@ void add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
    block->instructions = std::move(instructions);
 }
 
-void process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
+void process_block(spill_ctx& ctx, unsigned block_idx, Block *block,
                    std::map<Temp, uint32_t> &current_spills, RegisterDemand spilled_registers)
 {
    assert(!ctx.processed[block_idx]);
@@ -1204,7 +1204,7 @@ void process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
 
 void spill_block(spill_ctx& ctx, unsigned block_idx)
 {
-   Block* block = &ctx.program->blocks[block_idx];
+   Block *block = &ctx.program->blocks[block_idx];
 
    /* determine set of variables which are spilled at the beginning of the block */
    RegisterDemand spilled_registers = init_live_in_vars(ctx, block, block_idx);
@@ -1244,7 +1244,7 @@ void spill_block(spill_ctx& ctx, unsigned block_idx)
    if (block->loop_nest_depth == 0 || ctx.program->blocks[block_idx + 1].loop_nest_depth >= block->loop_nest_depth)
       return;
 
-   Block* loop_header = ctx.loop_header.top();
+   Block *loop_header = ctx.loop_header.top();
 
    /* preserve original renames at end of loop header block */
    std::map<Temp, Temp> renames = std::move(ctx.renames[loop_header->index]);
@@ -1582,7 +1582,7 @@ void assign_spill_slots(spill_ctx& ctx, unsigned spills_to_vgpr) {
                Temp temp = (*it)->operands[0].getTemp();
                assert(temp.type() == RegType::vgpr && !temp.is_linear());
                if (temp.size() > 1) {
-                  Instruction* split{create_instruction<Pseudo_instruction>(aco_opcode::p_split_vector, Format::PSEUDO, 1, temp.size())};
+                  Instruction *split{create_instruction<Pseudo_instruction>(aco_opcode::p_split_vector, Format::PSEUDO, 1, temp.size())};
                   split->operands[0] = Operand(temp);
                   for (unsigned i = 0; i < temp.size(); i++)
                      split->definitions[i] = bld.def(v1);
@@ -1619,7 +1619,7 @@ void assign_spill_slots(spill_ctx& ctx, unsigned spills_to_vgpr) {
                }
 
                /* spill sgpr: just add the vgpr temp to operands */
-               Pseudo_instruction* spill = create_instruction<Pseudo_instruction>(aco_opcode::p_spill, Format::PSEUDO, 3, 0);
+               Pseudo_instruction *spill = create_instruction<Pseudo_instruction>(aco_opcode::p_spill, Format::PSEUDO, 3, 0);
                spill->operands[0] = Operand(vgpr_spill_temps[spill_slot / ctx.wave_size]);
                spill->operands[1] = Operand(spill_slot % ctx.wave_size);
                spill->operands[2] = (*it)->operands[0];
@@ -1652,7 +1652,7 @@ void assign_spill_slots(spill_ctx& ctx, unsigned spills_to_vgpr) {
                aco_opcode opcode = aco_opcode::buffer_load_dword;
                Definition def = (*it)->definitions[0];
                if (def.size() > 1) {
-                  Instruction* vec{create_instruction<Pseudo_instruction>(aco_opcode::p_create_vector, Format::PSEUDO, def.size(), 1)};
+                  Instruction *vec{create_instruction<Pseudo_instruction>(aco_opcode::p_create_vector, Format::PSEUDO, def.size(), 1)};
                   vec->definitions[0] = def;
                   for (unsigned i = 0; i < def.size(); i++) {
                      Temp tmp = bld.tmp(v1);
@@ -1688,7 +1688,7 @@ void assign_spill_slots(spill_ctx& ctx, unsigned spills_to_vgpr) {
                }
 
                /* reload sgpr: just add the vgpr temp to operands */
-               Pseudo_instruction* reload = create_instruction<Pseudo_instruction>(aco_opcode::p_reload, Format::PSEUDO, 2, 1);
+               Pseudo_instruction *reload = create_instruction<Pseudo_instruction>(aco_opcode::p_reload, Format::PSEUDO, 2, 1);
                reload->operands[0] = Operand(vgpr_spill_temps[spill_slot / ctx.wave_size]);
                reload->operands[1] = Operand(spill_slot % ctx.wave_size);
                reload->definitions[0] = (*it)->definitions[0];
@@ -1760,7 +1760,7 @@ void assign_spill_slots(spill_ctx& ctx, unsigned spills_to_vgpr) {
 } /* end namespace */
 
 
-void spill(Program* program, live& live_vars)
+void spill(Program *program, live& live_vars)
 {
    program->config->spilled_vgprs = 0;
    program->config->spilled_sgprs = 0;

@@ -93,7 +93,7 @@ void create_program(enum chip_class chip_class, Stage stage, unsigned wave_size,
 }
 
 bool setup_cs(const char *input_spec, enum chip_class chip_class,
-              enum radeon_family family, const char* subvariant,
+              enum radeon_family family, const char *subvariant,
               unsigned wave_size)
 {
    if (!set_variant(chip_class, subvariant))

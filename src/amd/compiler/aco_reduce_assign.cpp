@@ -34,7 +34,7 @@
 
 namespace aco {
 
-void setup_reduce_temp(Program* program)
+void setup_reduce_temp(Program *program)
 {
    unsigned last_top_level_block_idx = 0;
    unsigned maxSize = 0;

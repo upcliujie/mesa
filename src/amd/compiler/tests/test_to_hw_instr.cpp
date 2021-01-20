@@ -193,7 +193,7 @@ BEGIN_TEST(to_hw_instr.swap_subdword)
       //~gfx[67]! s1: %0:m0 = s_mov_b32 0x1000001
       //~gfx[67]! v1: %0:v[0] = v_mul_lo_u32 %0:m0, %0:v[0][0:8]
       bld.pseudo(aco_opcode::p_unit_test, Operand(13u));
-      Instruction* pseudo = bld.pseudo(aco_opcode::p_create_vector,
+      Instruction *pseudo = bld.pseudo(aco_opcode::p_create_vector,
                                        Definition(v0_lo, v1),
                                        Operand(v0_lo, v1b), Operand(v0_lo, v1b),
                                        Operand(v0_lo, v1b), Operand(v0_lo, v1b));

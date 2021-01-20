@@ -1454,7 +1454,7 @@ struct Pseudo_reduction_instruction : public Instruction {
 static_assert(sizeof(Pseudo_reduction_instruction) == sizeof(Instruction) + 4, "Unexpected padding");
 
 struct instr_deleter_functor {
-   void operator()(void* p) {
+   void operator()(void *p) {
       free(p);
    }
 };
@@ -1463,11 +1463,11 @@ template<typename T>
 using aco_ptr = std::unique_ptr<T, instr_deleter_functor>;
 
 template<typename T>
-T* create_instruction(aco_opcode opcode, Format format, uint32_t num_operands, uint32_t num_definitions)
+T *create_instruction(aco_opcode opcode, Format format, uint32_t num_operands, uint32_t num_definitions)
 {
    std::size_t size = sizeof(T) + num_operands * sizeof(Operand) + num_definitions * sizeof(Definition);
    char *data = (char*) calloc(1, size);
-   T* inst = (T*) data;
+   T *inst = (T*) data;
 
    inst->opcode = opcode;
    inst->format = format;
@@ -1507,7 +1507,7 @@ constexpr bool Instruction::usesModifiers() const noexcept
    return false;
 }
 
-constexpr bool is_phi(Instruction* instr)
+constexpr bool is_phi(Instruction *instr)
 {
    return instr->opcode == aco_opcode::p_phi || instr->opcode == aco_opcode::p_linear_phi;
 }
@@ -1517,7 +1517,7 @@ static inline bool is_phi(aco_ptr<Instruction>& instr)
    return is_phi(instr.get());
 }
 
-memory_sync_info get_sync_info(const Instruction* instr);
+memory_sync_info get_sync_info(const Instruction *instr);
 
 bool is_dead(const std::vector<uint16_t>& uses, Instruction *instr);
 
@@ -1525,7 +1525,7 @@ bool can_use_opsel(chip_class chip, aco_opcode op, int idx, bool high);
 bool can_use_SDWA(chip_class chip, const aco_ptr<Instruction>& instr);
 /* updates "instr" and returns the old instruction (or NULL if no update was needed) */
 aco_ptr<Instruction> convert_to_SDWA(chip_class chip, aco_ptr<Instruction>& instr);
-bool needs_exec_mask(const Instruction* instr);
+bool needs_exec_mask(const Instruction *instr);
 
 uint32_t get_reduction_identity(ReduceOp op, unsigned idx);
 
@@ -1761,7 +1761,7 @@ public:
    RegisterDemand max_reg_demand = RegisterDemand();
    uint16_t num_waves = 0;
    uint16_t max_waves = 0; /* maximum number of waves, regardless of register usage */
-   ac_shader_config* config;
+   ac_shader_config *config;
    struct radv_shader_info *info;
    enum chip_class chip_class;
    enum radeon_family family;
@@ -1829,13 +1829,13 @@ public:
       return allocationID;
    }
 
-   Block* create_and_insert_block() {
+   Block *create_and_insert_block() {
       blocks.emplace_back(blocks.size());
       blocks.back().fp_mode = next_fp_mode;
       return &blocks.back();
    }
 
-   Block* insert_block(Block&& block) {
+   Block *insert_block(Block&& block) {
       block.index = blocks.size();
       block.fp_mode = next_fp_mode;
       blocks.emplace_back(std::move(block));
@@ -1867,40 +1867,40 @@ void init_program(Program *program, Stage stage, struct radv_shader_info *info,
 void select_program(Program *program,
                     unsigned shader_count,
                     struct nir_shader *const *shaders,
-                    ac_shader_config* config,
+                    ac_shader_config *config,
                     struct radv_shader_args *args);
 void select_gs_copy_shader(Program *program, struct nir_shader *gs_shader,
-                           ac_shader_config* config,
+                           ac_shader_config *config,
                            struct radv_shader_args *args);
 void select_trap_handler_shader(Program *program, struct nir_shader *shader,
-                                ac_shader_config* config,
+                                ac_shader_config *config,
                                 struct radv_shader_args *args);
 
-void lower_phis(Program* program);
-void calc_min_waves(Program* program);
-void update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand);
-live live_var_analysis(Program* program);
+void lower_phis(Program *program);
+void calc_min_waves(Program *program);
+void update_vgpr_sgpr_demand(Program *program, const RegisterDemand new_demand);
+live live_var_analysis(Program *program);
 std::vector<uint16_t> dead_code_analysis(Program *program);
-void dominator_tree(Program* program);
+void dominator_tree(Program *program);
 void insert_exec_mask(Program *program);
-void value_numbering(Program* program);
-void optimize(Program* program);
-void setup_reduce_temp(Program* program);
-void lower_to_cssa(Program* program, live& live_vars);
+void value_numbering(Program *program);
+void optimize(Program *program);
+void setup_reduce_temp(Program *program);
+void lower_to_cssa(Program *program, live& live_vars);
 void register_allocation(Program *program, std::vector<IDSet>& live_out_per_block,
                          ra_test_policy = {});
-void ssa_elimination(Program* program);
-void lower_to_hw_instr(Program* program);
-void schedule_program(Program* program, live& live_vars);
-void spill(Program* program, live& live_vars);
-void insert_wait_states(Program* program);
-void insert_NOPs(Program* program);
+void ssa_elimination(Program *program);
+void lower_to_hw_instr(Program *program);
+void schedule_program(Program *program, live& live_vars);
+void spill(Program *program, live& live_vars);
+void insert_wait_states(Program *program);
+void insert_NOPs(Program *program);
 void form_hard_clauses(Program *program);
-unsigned emit_program(Program* program, std::vector<uint32_t>& code);
+unsigned emit_program(Program *program, std::vector<uint32_t>& code);
 bool print_asm(Program *program, std::vector<uint32_t>& binary,
                unsigned exec_size, FILE *output);
-bool validate_ir(Program* program);
-bool validate_ra(Program* program);
+bool validate_ir(Program *program);
+bool validate_ra(Program *program);
 #ifndef NDEBUG
 void perfwarn(Program *program, bool cond, const char *msg, Instruction *instr=NULL);
 #else

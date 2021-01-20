@@ -37,9 +37,9 @@ struct ssa_elimination_ctx {
    phi_info logical_phi_info;
    phi_info linear_phi_info;
    std::vector<bool> empty_blocks;
-   Program* program;
+   Program *program;
 
-   ssa_elimination_ctx(Program* program_) : empty_blocks(program_->blocks.size(), true), program(program_) {}
+   ssa_elimination_ctx(Program *program_) : empty_blocks(program_->blocks.size(), true), program(program_) {}
 };
 
 void collect_phi_info(ssa_elimination_ctx& ctx)
@@ -111,7 +111,7 @@ void insert_parallelcopies(ssa_elimination_ctx& ctx)
    }
 }
 
-bool is_empty_block(Block* block, bool ignore_exec_writes)
+bool is_empty_block(Block *block, bool ignore_exec_writes)
 {
    /* check if this block is empty and the exec mask is not needed */
    for (aco_ptr<Instruction>& instr : block->instructions) {
@@ -142,7 +142,7 @@ bool is_empty_block(Block* block, bool ignore_exec_writes)
    return true;
 }
 
-void try_remove_merge_block(ssa_elimination_ctx& ctx, Block* block)
+void try_remove_merge_block(ssa_elimination_ctx& ctx, Block *block)
 {
    /* check if the successor is another merge block which restores exec */
    // TODO: divergent loops also restore exec
@@ -160,7 +160,7 @@ void try_remove_merge_block(ssa_elimination_ctx& ctx, Block* block)
    block->instructions.emplace_back(std::move(branch));
 }
 
-void try_remove_invert_block(ssa_elimination_ctx& ctx, Block* block)
+void try_remove_invert_block(ssa_elimination_ctx& ctx, Block *block)
 {
    assert(block->linear_succs.size() == 2);
    /* only remove this block if the successor got removed as well */
@@ -189,14 +189,14 @@ void try_remove_invert_block(ssa_elimination_ctx& ctx, Block* block)
    block->linear_succs.clear();
 }
 
-void try_remove_simple_block(ssa_elimination_ctx& ctx, Block* block)
+void try_remove_simple_block(ssa_elimination_ctx& ctx, Block *block)
 {
    if (!is_empty_block(block, false))
       return;
 
    Block& pred = ctx.program->blocks[block->linear_preds[0]];
    Block& succ = ctx.program->blocks[block->linear_succs[0]];
-   Pseudo_branch_instruction* branch = pred.instructions.back()->branch();
+   Pseudo_branch_instruction *branch = pred.instructions.back()->branch();
    if (branch->opcode == aco_opcode::p_branch) {
       branch->target[0] = succ.index;
       branch->target[1] = succ.index;
@@ -261,7 +261,7 @@ void try_remove_simple_block(ssa_elimination_ctx& ctx, Block* block)
 void jump_threading(ssa_elimination_ctx& ctx)
 {
    for (int i = ctx.program->blocks.size() - 1; i >= 0; i--) {
-      Block* block = &ctx.program->blocks[i];
+      Block *block = &ctx.program->blocks[i];
 
       if (!ctx.empty_blocks[i])
          continue;
@@ -286,7 +286,7 @@ void jump_threading(ssa_elimination_ctx& ctx)
 } /* end namespace */
 
 
-void ssa_elimination(Program* program)
+void ssa_elimination(Program *program)
 {
    ssa_elimination_ctx ctx(program);
 
