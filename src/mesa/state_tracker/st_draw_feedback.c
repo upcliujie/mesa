@@ -155,7 +155,8 @@ st_feedback_draw_vbo(struct gl_context *ctx,
     */
    assert(draw);
    draw_set_viewport_states(draw, 0, 1, &st->state.viewport[0]);
-   draw_set_clip_state(draw, &st->state.clip);
+   if (!st->lower_ucp)
+      draw_set_clip_state(draw, &st->state.clip);
    draw_set_rasterizer_state(draw, &st->state.rasterizer, NULL);
    draw_bind_vertex_shader(draw, vp_variant->base.driver_shader);
    set_feedback_vertex_format(ctx);

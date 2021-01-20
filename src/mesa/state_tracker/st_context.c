@@ -231,6 +231,7 @@ st_invalidate_state(struct gl_context *ctx)
       st->dirty |= ST_NEW_FS_STATE;
 
    if (new_state & _NEW_PROJECTION &&
+       !st->lower_ucp &&
        st_user_clip_planes_enabled(ctx))
       st->dirty |= ST_NEW_CLIP_STATE;
 
@@ -540,7 +541,8 @@ st_init_driver_flags(struct st_context *st)
    }
 
    f->NewClipControl = ST_NEW_VIEWPORT | ST_NEW_RASTERIZER;
-   f->NewClipPlane = ST_NEW_CLIP_STATE;
+   if (!st->lower_ucp)
+      f->NewClipPlane = ST_NEW_CLIP_STATE;
 
    if (st->clamp_frag_color_in_shader) {
       f->NewFragClamp = ST_NEW_FS_STATE;
@@ -589,6 +591,8 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
    st->screen = screen;
    st->pipe = pipe;
    st->dirty = ST_ALL_STATES_MASK;
+   if (st->lower_ucp)
+      st->dirty &= ~ST_NEW_CLIP_STATE;
 
    st->can_bind_const_buffer_as_vertex =
       screen->get_param(screen, PIPE_CAP_CAN_BIND_CONST_BUFFER_AS_VERTEX);
