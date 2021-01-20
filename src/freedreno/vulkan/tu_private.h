@@ -224,6 +224,7 @@ enum tu_debug_flags
    TU_DEBUG_NOMULTIPOS = 1 << 7,
    TU_DEBUG_NOLRZ = 1 << 8,
    TU_DEBUG_PERFC = 1 << 9,
+   TU_DEBUG_MEM_CACHE = 1 << 9,
 };
 
 struct tu_instance
@@ -237,6 +238,7 @@ struct tu_instance
    struct tu_physical_device physical_devices[TU_MAX_DRM_DEVICES];
 
    enum tu_debug_flags debug_flags;
+   bool pipeline_cache_enabled;
 
    struct vk_debug_report_instance debug_report_callbacks;
 

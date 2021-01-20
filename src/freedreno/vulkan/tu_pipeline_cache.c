@@ -90,8 +90,12 @@ tu_pipeline_cache_init(struct tu_pipeline_cache *cache,
    cache->device = device;
    pthread_mutex_init(&cache->mutex, NULL);
 
-   cache->nir_cache = _mesa_hash_table_create(NULL, sha1_hash, sha1_compare);
-   cache->variant_cache = _mesa_hash_table_create(NULL, sha1_hash, sha1_compare);
+   if (device->instance->pipeline_cache_enabled) {
+      cache->nir_cache =
+            _mesa_hash_table_create(NULL, sha1_hash, sha1_compare);
+      cache->variant_cache =
+            _mesa_hash_table_create(NULL, sha1_hash, sha1_compare);
+   }
 }
 
 static void
@@ -304,7 +308,7 @@ tu_CreatePipelineCache(VkDevice _device,
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO);
    assert(pCreateInfo->flags == 0);
 
-   cache = vk_object_alloc(&device->vk, pAllocator, sizeof(*cache),
+   cache = vk_object_zalloc(&device->vk, pAllocator, sizeof(*cache),
                            VK_OBJECT_TYPE_PIPELINE_CACHE);
    if (cache == NULL)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);

@@ -185,6 +185,7 @@ static const struct debug_control tu_debug_options[] = {
    { "nomultipos", TU_DEBUG_NOMULTIPOS },
    { "nolrz", TU_DEBUG_NOLRZ },
    { "perfc", TU_DEBUG_PERFC },
+   { "memcache", TU_DEBUG_MEM_CACHE },
    { NULL, 0 }
 };
 
@@ -252,6 +253,9 @@ tu_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
 
    if (instance->debug_flags & TU_DEBUG_STARTUP)
       mesa_logi("Created an instance");
+
+   if (instance->debug_flags & TU_DEBUG_MEM_CACHE)
+      instance->pipeline_cache_enabled = true;
 
    for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
       const char *ext_name = pCreateInfo->ppEnabledExtensionNames[i];
