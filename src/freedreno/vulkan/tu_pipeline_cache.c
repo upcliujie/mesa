@@ -28,21 +28,60 @@
 #include "util/mesa-sha1.h"
 #include "util/u_atomic.h"
 #include "vulkan/util/vk_util.h"
+#include "nir/nir_serialize.h"
 
-struct cache_entry_variant_info
+struct tu_serialized_nir
 {
+   struct nir_shader_compiler_options nir_options;
+   size_t size;
+   char data[0];
 };
 
-struct cache_entry
+struct tu_pipeline_cached_variant
 {
-   union {
-      unsigned char sha1[20];
-      uint32_t sha1_dw[5];
-   };
-   uint32_t code_sizes[MESA_SHADER_STAGES];
-   struct tu_shader_variant *variants[MESA_SHADER_STAGES];
-   char code[0];
+   /* Needs reference counting for MergePipelineCache */
+   uint32_t ref_cnt;
+
+   struct tu_pipeline_key key;
+   struct ir3_shader_variant *variant;
 };
+
+static uint32_t
+sha1_hash(const void *sha1)
+{
+   return _mesa_hash_data(sha1, 20);
+}
+
+static bool
+sha1_compare(const void *sha1_a, const void *sha1_b)
+{
+   return memcmp(sha1_a, sha1_b, 20) == 0;
+}
+
+static void
+tu_pipeline_cached_variant_destory(struct tu_pipeline_cache *cache,
+                                   struct tu_pipeline_cached_variant *cv)
+{
+   if (cv->variant)
+      ralloc_free(cv->variant);
+   vk_free(&cache->alloc, cv);
+}
+
+static inline void
+tu_pipeline_cached_variant_ref(struct tu_pipeline_cached_variant *cv)
+{
+   assert(cv && cv->ref_cnt >= 1);
+   p_atomic_inc(&cv->ref_cnt);
+}
+
+static inline void
+tu_pipeline_cached_variant_unref(struct tu_pipeline_cache *cache,
+                                 struct tu_pipeline_cached_variant *cv)
+{
+   assert(cv && cv->ref_cnt >= 1);
+   if (p_atomic_dec_zero(&cv->ref_cnt))
+      tu_pipeline_cached_variant_destory(cache, cv);
+}
 
 static void
 tu_pipeline_cache_init(struct tu_pipeline_cache *cache,
@@ -51,150 +90,163 @@ tu_pipeline_cache_init(struct tu_pipeline_cache *cache,
    cache->device = device;
    pthread_mutex_init(&cache->mutex, NULL);
 
-   cache->modified = false;
-   cache->kernel_count = 0;
-   cache->total_size = 0;
-   cache->table_size = 1024;
-   const size_t byte_size = cache->table_size * sizeof(cache->hash_table[0]);
-   cache->hash_table = malloc(byte_size);
-
-   /* We don't consider allocation failure fatal, we just start with a 0-sized
-    * cache. Disable caching when we want to keep shader debug info, since
-    * we don't get the debug info on cached shaders. */
-   if (cache->hash_table == NULL)
-      cache->table_size = 0;
-   else
-      memset(cache->hash_table, 0, byte_size);
+   cache->nir_cache = _mesa_hash_table_create(NULL, sha1_hash, sha1_compare);
+   cache->variant_cache = _mesa_hash_table_create(NULL, sha1_hash, sha1_compare);
 }
 
 static void
 tu_pipeline_cache_finish(struct tu_pipeline_cache *cache)
 {
-   for (unsigned i = 0; i < cache->table_size; ++i)
-      if (cache->hash_table[i]) {
-         vk_free(&cache->alloc, cache->hash_table[i]);
+   if (cache->nir_cache) {
+      hash_table_foreach(cache->nir_cache, entry) {
+         struct tu_serialized_nir *snir = entry->data;
+         if (snir)
+            vk_free(&cache->alloc, snir);
       }
-   pthread_mutex_destroy(&cache->mutex);
-   free(cache->hash_table);
-}
-
-static uint32_t
-entry_size(struct cache_entry *entry)
-{
-   size_t ret = sizeof(*entry);
-   for (int i = 0; i < MESA_SHADER_STAGES; ++i)
-      if (entry->code_sizes[i])
-         ret +=
-            sizeof(struct cache_entry_variant_info) + entry->code_sizes[i];
-   return ret;
-}
-
-static struct cache_entry *
-tu_pipeline_cache_search_unlocked(struct tu_pipeline_cache *cache,
-                                  const unsigned char *sha1)
-{
-   const uint32_t mask = cache->table_size - 1;
-   const uint32_t start = (*(uint32_t *) sha1);
-
-   if (cache->table_size == 0)
-      return NULL;
-
-   for (uint32_t i = 0; i < cache->table_size; i++) {
-      const uint32_t index = (start + i) & mask;
-      struct cache_entry *entry = cache->hash_table[index];
-
-      if (!entry)
-         return NULL;
-
-      if (memcmp(entry->sha1, sha1, sizeof(entry->sha1)) == 0) {
-         return entry;
-      }
+      _mesa_hash_table_destroy(cache->nir_cache, NULL);
    }
 
-   unreachable("hash table should never be full");
+   if (cache->variant_cache) {
+      hash_table_foreach(cache->variant_cache, entry) {
+         struct tu_pipeline_cached_variant *cv = entry->data;
+         tu_pipeline_cached_variant_unref(cache, cv);
+      }
+      _mesa_hash_table_destroy(cache->variant_cache, NULL);
+   }
+
+   pthread_mutex_destroy(&cache->mutex);
 }
 
-static struct cache_entry *
+static struct hash_entry *
 tu_pipeline_cache_search(struct tu_pipeline_cache *cache,
-                         const unsigned char *sha1)
+                         const unsigned char *sha1_key,
+                         enum tu_pipeline_cache_type type)
 {
-   struct cache_entry *entry;
+   struct hash_entry *entry = NULL;
 
    pthread_mutex_lock(&cache->mutex);
 
-   entry = tu_pipeline_cache_search_unlocked(cache, sha1);
+   if (type == TU_CACHE_NIR) {
+      if (cache->nir_cache)
+         entry = _mesa_hash_table_search(cache->nir_cache, sha1_key);
+   } else {
+      if (cache->variant_cache)
+         entry = _mesa_hash_table_search(cache->variant_cache, sha1_key);
+   }
 
    pthread_mutex_unlock(&cache->mutex);
 
    return entry;
 }
 
-static void
-tu_pipeline_cache_set_entry(struct tu_pipeline_cache *cache,
-                            struct cache_entry *entry)
+void
+tu_pipeline_cache_nir_insert(struct tu_pipeline_cache *cache,
+                             struct tu_pipeline_key *key,
+                             struct nir_shader *nir)
 {
-   const uint32_t mask = cache->table_size - 1;
-   const uint32_t start = entry->sha1_dw[0];
+   if (!cache || !cache->nir_cache)
+      return;
 
-   /* We'll always be able to insert when we get here. */
-   assert(cache->kernel_count < cache->table_size / 2);
+   struct blob blob;
+   blob_init(&blob);
 
-   for (uint32_t i = 0; i < cache->table_size; i++) {
-      const uint32_t index = (start + i) & mask;
-      if (!cache->hash_table[index]) {
-         cache->hash_table[index] = entry;
-         break;
-      }
+   nir_serialize(&blob, nir, false);
+   if (blob.out_of_memory) {
+      blob_finish(&blob);
+      return;
    }
 
-   cache->total_size += entry_size(entry);
-   cache->kernel_count++;
+   pthread_mutex_lock(&cache->mutex);
+
+   struct tu_serialized_nir *snir =
+         vk_zalloc(&cache->alloc, sizeof(*snir) + blob.size,
+                   8, VK_SYSTEM_ALLOCATION_SCOPE_CACHE);
+   snir->size = blob.size;
+   snir->nir_options = *nir->options;
+   memcpy(snir->data, blob.data, blob.size);
+
+   blob_finish(&blob);
+
+   _mesa_hash_table_insert(cache->nir_cache, key->sha1, snir);
+
+   pthread_mutex_unlock(&cache->mutex);
 }
 
-static VkResult
-tu_pipeline_cache_grow(struct tu_pipeline_cache *cache)
+void
+tu_pipeline_cache_variant_insert(struct tu_pipeline_cache *cache,
+                                 struct tu_pipeline_key *key,
+                                 struct ir3_shader_variant *variant)
 {
-   const uint32_t table_size = cache->table_size * 2;
-   const uint32_t old_table_size = cache->table_size;
-   const size_t byte_size = table_size * sizeof(cache->hash_table[0]);
-   struct cache_entry **table;
-   struct cache_entry **old_table = cache->hash_table;
+   if (!cache || !cache->variant_cache)
+      return;
 
-   table = malloc(byte_size);
-   if (table == NULL)
-      return vk_error(cache->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+   struct tu_pipeline_cached_variant *cv =
+         vk_zalloc(&cache->alloc, sizeof(*cv), 8,
+                   VK_SYSTEM_ALLOCATION_SCOPE_CACHE);
 
-   cache->hash_table = table;
-   cache->table_size = table_size;
-   cache->kernel_count = 0;
-   cache->total_size = 0;
+   pthread_mutex_lock(&cache->mutex);
 
-   memset(cache->hash_table, 0, byte_size);
-   for (uint32_t i = 0; i < old_table_size; i++) {
-      struct cache_entry *entry = old_table[i];
-      if (!entry)
-         continue;
+   cv->ref_cnt = 1;
+   cv->key = *key;
+   cv->variant = variant;
+   /* Unparent the variant so the ownership of the variant
+    * could move to the cache */
+   ralloc_steal(NULL, variant);
 
-      tu_pipeline_cache_set_entry(cache, entry);
+   _mesa_hash_table_insert(cache->variant_cache, key->sha1, cv);
+   pthread_mutex_unlock(&cache->mutex);
+}
+
+static struct tu_pipeline_cached_variant *
+pipeline_cached_variant_from_blob(struct tu_pipeline_cache *cache,
+                                struct blob_reader *blob)
+{
+   struct tu_pipeline_cached_variant *cv =
+         vk_zalloc(&cache->alloc, sizeof(*cv), 8,
+                   VK_SYSTEM_ALLOCATION_SCOPE_CACHE);
+
+   cv->ref_cnt = 1;
+   blob_copy_bytes(blob, cv->key.sha1, 20);
+
+   struct ir3_shader_variant *v = rzalloc_size(NULL, sizeof(*v));
+
+   blob_copy_bytes(blob, v, sizeof(*v));
+   v->bin = rzalloc_size(v, v->info.size);
+   blob_copy_bytes(blob, v->bin, v->info.size);
+
+   if (!v->binning_pass) {
+      v->const_state = rzalloc_size(v, sizeof(*v->const_state));
+      blob_copy_bytes(blob, v->const_state, sizeof(*v->const_state));
+
+      uint32_t immeds_size = v->const_state->immediates_size *
+            sizeof(v->const_state->immediates[0]);
+      v->const_state->immediates = ralloc_size(v->const_state, immeds_size);
+      blob_copy_bytes(blob, v->const_state->immediates, immeds_size);
    }
 
-   free(old_table);
+   cv->variant = v;
 
-   return VK_SUCCESS;
+   return cv;
 }
 
-static void
-tu_pipeline_cache_add_entry(struct tu_pipeline_cache *cache,
-                            struct cache_entry *entry)
+static bool
+pipeline_cached_variant_to_blob(const struct tu_pipeline_cached_variant *cv,
+                             struct blob *blob)
 {
-   if (cache->kernel_count == cache->table_size / 2)
-      tu_pipeline_cache_grow(cache);
+   struct ir3_shader_variant *v = cv->variant;
 
-   /* Failing to grow that hash table isn't fatal, but may mean we don't
-    * have enough space to add this new kernel. Only add it if there's room.
-    */
-   if (cache->kernel_count < cache->table_size / 2)
-      tu_pipeline_cache_set_entry(cache, entry);
+   blob_write_bytes(blob, cv->key.sha1, 20);
+   blob_write_bytes(blob, v, sizeof(*v));
+   blob_write_bytes(blob, v->bin, v->info.size);
+
+   if (!v->binning_pass) {
+      blob_write_bytes(blob, v->const_state, sizeof(*v->const_state));
+      uint32_t immeds_size = v->const_state->immediates_size *
+            sizeof(v->const_state->immediates[0]);
+      blob_write_bytes(blob, v->const_state->immediates, immeds_size);
+   }
+
+   return !blob->out_of_memory;
 }
 
 static void
@@ -208,37 +260,35 @@ tu_pipeline_cache_load(struct tu_pipeline_cache *cache,
    if (size < sizeof(header))
       return;
    memcpy(&header, data, sizeof(header));
+
    if (header.header_size < sizeof(header))
       return;
    if (header.header_version != VK_PIPELINE_CACHE_HEADER_VERSION_ONE)
       return;
-   if (header.vendor_id != 0 /* TODO */)
+   if (header.vendor_id < 0 /* TODO */)
       return;
-   if (header.device_id != 0 /* TODO */)
+   if (header.device_id < 0 /* TODO */)
       return;
    if (memcmp(header.uuid, device->physical_device->cache_uuid,
               VK_UUID_SIZE) != 0)
       return;
 
-   char *end = (void *) data + size;
-   char *p = (void *) data + header.header_size;
+   struct blob_reader blob;
 
-   while (end - p >= sizeof(struct cache_entry)) {
-      struct cache_entry *entry = (struct cache_entry *) p;
-      struct cache_entry *dest_entry;
-      size_t size = entry_size(entry);
-      if (end - p < size)
+   blob_reader_init(&blob, data, size);
+   blob_copy_bytes(&blob, &header, sizeof(header));
+
+   /* TODO. Handle the nir cache too.*/
+   uint32_t count = blob_read_uint32(&blob);
+   if (blob.overrun)
+      return;
+
+   for (uint32_t i = 0; i < count; i++) {
+      struct tu_pipeline_cached_variant *cv =
+         pipeline_cached_variant_from_blob(cache, &blob);
+      if (!cv)
          break;
-
-      dest_entry =
-         vk_alloc(&cache->alloc, size, 8, VK_SYSTEM_ALLOCATION_SCOPE_CACHE);
-      if (dest_entry) {
-         memcpy(dest_entry, entry, size);
-         for (int i = 0; i < MESA_SHADER_STAGES; ++i)
-            dest_entry->variants[i] = NULL;
-         tu_pipeline_cache_add_entry(cache, dest_entry);
-      }
-      p += size;
+      _mesa_hash_table_insert(cache->variant_cache, cv->key.sha1, cv);
    }
 }
 
@@ -299,48 +349,57 @@ tu_GetPipelineCacheData(VkDevice _device,
 {
    TU_FROM_HANDLE(tu_device, device, _device);
    TU_FROM_HANDLE(tu_pipeline_cache, cache, _cache);
-   struct vk_pipeline_cache_header *header;
+   struct vk_pipeline_cache_header header = {
+      .header_size = sizeof(header),
+      .header_version = VK_PIPELINE_CACHE_HEADER_VERSION_ONE,
+      .vendor_id = 0,
+      .device_id = 0,
+   };
+
    VkResult result = VK_SUCCESS;
 
    pthread_mutex_lock(&cache->mutex);
 
-   const size_t size = sizeof(*header) + cache->total_size;
-   if (pData == NULL) {
-      pthread_mutex_unlock(&cache->mutex);
-      *pDataSize = size;
-      return VK_SUCCESS;
+   struct blob blob;
+   if (pData) {
+      blob_init_fixed(&blob, pData, *pDataSize);
+   } else {
+      blob_init_fixed(&blob, NULL, SIZE_MAX);
    }
-   if (*pDataSize < sizeof(*header)) {
-      pthread_mutex_unlock(&cache->mutex);
+
+   memcpy(header.uuid, device->physical_device->cache_uuid, VK_UUID_SIZE);
+   blob_write_bytes(&blob, &header, sizeof(header));
+
+   /* TODO. Handle the nir cache too.*/
+   uint32_t count = 0;
+   intptr_t count_offset = blob_reserve_uint32(&blob);
+   if (count_offset < 0) {
       *pDataSize = 0;
+      blob_finish(&blob);
+      pthread_mutex_unlock(&cache->mutex);
       return VK_INCOMPLETE;
    }
-   void *p = pData, *end = pData + *pDataSize;
-   header = p;
-   header->header_size = sizeof(*header);
-   header->header_version = VK_PIPELINE_CACHE_HEADER_VERSION_ONE;
-   header->vendor_id = 0 /* TODO */;
-   header->device_id = 0 /* TODO */;
-   memcpy(header->uuid, device->physical_device->cache_uuid, VK_UUID_SIZE);
-   p += header->header_size;
 
-   struct cache_entry *entry;
-   for (uint32_t i = 0; i < cache->table_size; i++) {
-      if (!cache->hash_table[i])
-         continue;
-      entry = cache->hash_table[i];
-      const uint32_t size = entry_size(entry);
-      if (end < p + size) {
-         result = VK_INCOMPLETE;
-         break;
+   if (cache->variant_cache) {
+      hash_table_foreach(cache->variant_cache, entry) {
+         struct tu_pipeline_cached_variant *cv = entry->data;
+
+         size_t save_size = blob.size;
+         if (!pipeline_cached_variant_to_blob(cv, &blob)) {
+            /* If it fails reset to the previous size and bail */
+            blob.size = save_size;
+            pthread_mutex_unlock(&cache->mutex);
+            result = VK_INCOMPLETE;
+            break;
+         }
+
+         count++;
       }
-
-      memcpy(p, entry, size);
-      for (int j = 0; j < MESA_SHADER_STAGES; ++j)
-         ((struct cache_entry *) p)->variants[j] = NULL;
-      p += size;
    }
-   *pDataSize = p - pData;
+   blob_overwrite_uint32(&blob, count_offset, count);
+
+   *pDataSize = blob.size;
+   blob_finish(&blob);
 
    pthread_mutex_unlock(&cache->mutex);
    return result;
@@ -350,14 +409,14 @@ static void
 tu_pipeline_cache_merge(struct tu_pipeline_cache *dst,
                         struct tu_pipeline_cache *src)
 {
-   for (uint32_t i = 0; i < src->table_size; i++) {
-      struct cache_entry *entry = src->hash_table[i];
-      if (!entry || tu_pipeline_cache_search(dst, entry->sha1))
+   hash_table_foreach(src->variant_cache, entry) {
+      struct tu_pipeline_cached_variant *cv = entry->data;
+
+      if (_mesa_hash_table_search(dst->variant_cache, cv->key.sha1))
          continue;
 
-      tu_pipeline_cache_add_entry(dst, entry);
-
-      src->hash_table[i] = NULL;
+      tu_pipeline_cached_variant_ref(cv);
+      _mesa_hash_table_insert(dst->variant_cache, cv->key.sha1, cv);
    }
 }
 
@@ -369,11 +428,80 @@ tu_MergePipelineCaches(VkDevice _device,
 {
    TU_FROM_HANDLE(tu_pipeline_cache, dst, destCache);
 
+   /* TODO. Handle the nir cache too.*/
+   if (!dst->variant_cache)
+      return VK_SUCCESS;
+
    for (uint32_t i = 0; i < srcCacheCount; i++) {
       TU_FROM_HANDLE(tu_pipeline_cache, src, pSrcCaches[i]);
+
+      if (!src->variant_cache)
+         continue;
 
       tu_pipeline_cache_merge(dst, src);
    }
 
    return VK_SUCCESS;
+}
+
+void
+tu_pipeline_hash_shader_module(struct tu_pipeline_key *key)
+{
+   unsigned char sha1[20];
+
+   /* Need more to be hashed for the cache key? */
+   _mesa_sha1_compute(key->module->code, key->module->code_size, sha1);
+
+   memcpy(key->sha1, sha1, sizeof(key->sha1));
+}
+
+void
+tu_pipeline_hash_variant(struct tu_pipeline_key *key)
+{
+   struct mesa_sha1 ctx;
+   unsigned char sha1[20];
+   const struct tu_shader *shader = key->shader;
+
+   _mesa_sha1_init(&ctx);
+   _mesa_sha1_update(&ctx, &key->key, sizeof(key->key));
+   /* Simply we can use the existed shader disk-cache key. */
+   _mesa_sha1_update(&ctx, &shader->ir3_shader->cache_key, sizeof(cache_key));
+   _mesa_sha1_update(&ctx, &key->binning_pass, sizeof(key->binning_pass));
+
+   _mesa_sha1_final(&ctx, sha1);
+
+   memcpy(key->sha1, sha1, sizeof(key->sha1));
+}
+
+void *
+tu_pipeline_cache_lookup(struct tu_pipeline_cache *cache,
+                         struct tu_pipeline_key *key,
+                         enum tu_pipeline_cache_type type)
+{
+   struct hash_entry *entry;
+
+   if (!cache)
+      return NULL;
+
+   if ((entry = tu_pipeline_cache_search(cache, key->sha1, type))) {
+      if (type == TU_CACHE_NIR) {
+         struct tu_serialized_nir *snir = entry->data;
+
+         struct blob_reader blob;
+         blob_reader_init(&blob, snir->data, snir->size);
+
+         nir_shader *nir = nir_deserialize(NULL, &snir->nir_options, &blob);
+         if (blob.overrun) {
+            ralloc_free(nir);
+            nir = NULL;
+         }
+
+         return nir;
+      } else {
+         struct tu_pipeline_cached_variant *cv = entry->data;
+         return cv->variant;
+      }
+   }
+
+   return NULL;
 }

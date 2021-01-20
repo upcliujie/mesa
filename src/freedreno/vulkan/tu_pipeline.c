@@ -2039,6 +2039,33 @@ tu_pipeline_shader_key_init(struct ir3_shader_key *key,
    key->tessellation = IR3_TESS_NONE;
 }
 
+static struct ir3_shader_variant *
+tu_pipeline_shader_get_variant(struct tu_shader *shader,
+                               struct tu_pipeline_cache *cache,
+                               struct tu_pipeline_key *key,
+                               bool binning,
+                               bool *created)
+{
+   struct ir3_shader_variant *v;
+
+   key->shader = shader;
+   tu_pipeline_hash_variant(key);
+
+   v = tu_pipeline_cache_lookup(cache, key, TU_CACHE_VARIANT);
+
+   if (v) {
+      /* Link new ir3_shader to the cached variant */
+      v->shader = shader->ir3_shader;
+      return v;
+   } else {
+      v = ir3_shader_get_variant(shader->ir3_shader, &key->key, binning, created);
+      if (v)
+         tu_pipeline_cache_variant_insert(cache, key, v);
+
+      return v;
+   }
+}
+
 static uint32_t
 tu6_get_tessmode(struct tu_shader* shader)
 {
@@ -2076,6 +2103,31 @@ tu_upload_variant(struct tu_pipeline *pipeline,
    return memory.iova;
 }
 
+static struct nir_shader *
+tu_pipeline_get_nir(struct tu_device *dev,
+                    struct tu_pipeline_cache *cache,
+                    struct tu_pipeline_key *key,
+                    const VkPipelineShaderStageCreateInfo *stage_info,
+                    gl_shader_stage stage)
+{
+   struct nir_shader *nir;
+
+   key->module = tu_shader_module_from_handle(stage_info->module);
+   tu_pipeline_hash_shader_module(key);
+
+   nir = tu_pipeline_cache_lookup(cache, key, TU_CACHE_NIR);
+
+   if (nir) {
+      return nir;
+   } else {
+      nir = tu_spirv_to_nir(dev, stage_info, stage);
+      if (nir)
+         tu_pipeline_cache_nir_insert(cache, key, nir);
+
+      return nir;
+   }
+}
+
 static VkResult
 tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
                                     struct tu_pipeline *pipeline)
@@ -2090,8 +2142,8 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
       stage_infos[stage] = &builder->create_info->pStages[i];
    }
 
-   struct ir3_shader_key key = {};
-   tu_pipeline_shader_key_init(&key, builder->create_info);
+   struct tu_pipeline_key cache_key = {};
+   tu_pipeline_shader_key_init(&cache_key.key, builder->create_info);
 
    nir_shader *nir[ARRAY_SIZE(builder->shaders)] = { NULL };
 
@@ -2101,7 +2153,8 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
       if (!stage_info)
          continue;
 
-      nir[stage] = tu_spirv_to_nir(builder->device, stage_info, stage);
+      nir[stage] = tu_pipeline_get_nir(builder->device, builder->cache,
+                                       &cache_key, stage_info, stage);
       if (!nir[stage])
          return VK_ERROR_OUT_OF_HOST_MEMORY;
    }
@@ -2133,8 +2186,8 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
        * tessellation evaluation shader, but in SPIR-V generated from HLSL,
        * the mode is specified in the tessellation control shader. */
       if ((stage == MESA_SHADER_TESS_EVAL || stage == MESA_SHADER_TESS_CTRL) &&
-          key.tessellation == IR3_TESS_NONE) {
-         key.tessellation = tu6_get_tessmode(shader);
+          cache_key.key.tessellation == IR3_TESS_NONE) {
+         cache_key.key.tessellation = tu6_get_tessmode(shader);
       }
 
       builder->shaders[stage] = shader;
@@ -2148,28 +2201,29 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
 
    uint64_t outputs_written = last_shader->ir3_shader->nir->info.outputs_written;
 
-   key.layer_zero = !(outputs_written & VARYING_BIT_LAYER);
-   key.view_zero = !(outputs_written & VARYING_BIT_VIEWPORT);
-   key.ucp_enables = MASK(last_shader->ir3_shader->nir->info.clip_distance_array_size);
+   cache_key.key.layer_zero = !(outputs_written & VARYING_BIT_LAYER);
+   cache_key.key.view_zero = !(outputs_written & VARYING_BIT_VIEWPORT);
+   cache_key.key.ucp_enables = MASK(last_shader->ir3_shader->nir->info.clip_distance_array_size);
 
-   pipeline->tess.patch_type = key.tessellation;
+   pipeline->tess.patch_type = cache_key.key.tessellation;
 
    for (gl_shader_stage stage = MESA_SHADER_VERTEX;
         stage < ARRAY_SIZE(builder->shaders); stage++) {
       if (!builder->shaders[stage])
          continue;
-      
+
       bool created;
       builder->variants[stage] =
-         ir3_shader_get_variant(builder->shaders[stage]->ir3_shader,
-                                &key, false, &created);
+         tu_pipeline_shader_get_variant(builder->shaders[stage],
+                                        builder->cache,
+                                        &cache_key, false, &created);
       if (!builder->variants[stage])
          return VK_ERROR_OUT_OF_HOST_MEMORY;
    }
 
    uint32_t safe_constlens = ir3_trim_constlen(builder->variants, compiler);
 
-   key.safe_constlen = true;
+   cache_key.key.safe_constlen = true;
 
    for (gl_shader_stage stage = MESA_SHADER_VERTEX;
         stage < ARRAY_SIZE(builder->shaders); stage++) {
@@ -2178,9 +2232,11 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
 
       if (safe_constlens & (1 << stage)) {
          bool created;
+         cache_key.shader = builder->shaders[stage];
          builder->variants[stage] =
-            ir3_shader_get_variant(builder->shaders[stage]->ir3_shader,
-                                   &key, false, &created);
+            tu_pipeline_shader_get_variant(builder->shaders[stage],
+                                           builder->cache,
+                                           &cache_key, false, &created);
          if (!builder->variants[stage])
             return VK_ERROR_OUT_OF_HOST_MEMORY;
       }
@@ -2190,13 +2246,16 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
    struct ir3_shader_variant *variant;
 
    if (vs->ir3_shader->stream_output.num_outputs ||
-       !ir3_has_binning_vs(&key)) {
+       !ir3_has_binning_vs(&cache_key.key)) {
       variant = builder->variants[MESA_SHADER_VERTEX];
    } else {
       bool created;
-      key.safe_constlen = !!(safe_constlens & (1 << MESA_SHADER_VERTEX));
-      variant = ir3_shader_get_variant(vs->ir3_shader, &key,
-                                       true, &created);
+      cache_key.key.safe_constlen = !!(safe_constlens & (1 << MESA_SHADER_VERTEX));
+      cache_key.binning_pass = true;
+
+      variant = tu_pipeline_shader_get_variant((struct tu_shader *) vs,
+                                               builder->cache,
+                                               &cache_key, true, &created);
       if (!variant)
          return VK_ERROR_OUT_OF_HOST_MEMORY;
    }
@@ -2645,8 +2704,8 @@ tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
       pipeline->lrz.invalidate = true;
    }
 
-   if (builder->shaders[MESA_SHADER_FRAGMENT]) {
-      const struct ir3_shader_variant *fs = &builder->shaders[MESA_SHADER_FRAGMENT]->ir3_shader->variants[0];
+   if (builder->variants[MESA_SHADER_FRAGMENT]) {
+      const struct ir3_shader_variant *fs = builder->variants[MESA_SHADER_FRAGMENT];
       if (fs->has_kill || fs->no_earlyz || fs->writes_pos) {
          pipeline->lrz.write = false;
       }
@@ -2947,6 +3006,7 @@ tu_compute_pipeline_create(VkDevice device,
                            VkPipeline *pPipeline)
 {
    TU_FROM_HANDLE(tu_device, dev, device);
+   TU_FROM_HANDLE(tu_pipeline_cache, cache, _cache);
    TU_FROM_HANDLE(tu_pipeline_layout, layout, pCreateInfo->layout);
    const VkPipelineShaderStageCreateInfo *stage_info = &pCreateInfo->stage;
    VkResult result;
@@ -2962,9 +3022,9 @@ tu_compute_pipeline_create(VkDevice device,
 
    pipeline->layout = layout;
 
-   struct ir3_shader_key key = {};
-
-   nir_shader *nir = tu_spirv_to_nir(dev, stage_info, MESA_SHADER_COMPUTE);
+   struct tu_pipeline_key cache_key = {};
+   nir_shader *nir =
+      tu_pipeline_get_nir(dev, cache, &cache_key, stage_info, MESA_SHADER_COMPUTE);
 
    struct tu_shader *shader =
       tu_shader_create(dev, nir, 0, layout, pAllocator);
@@ -2977,7 +3037,7 @@ tu_compute_pipeline_create(VkDevice device,
 
    bool created;
    struct ir3_shader_variant *v =
-      ir3_shader_get_variant(shader->ir3_shader, &key, false, &created);
+      tu_pipeline_shader_get_variant(shader, cache, &cache_key, false, &created);
    if (!v) {
       result = VK_ERROR_OUT_OF_HOST_MEMORY;
       goto fail;
