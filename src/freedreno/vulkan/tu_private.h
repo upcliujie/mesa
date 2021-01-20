@@ -256,7 +256,10 @@ bool
 tu_physical_device_extension_supported(struct tu_physical_device *dev,
                                        const char *name);
 
-struct cache_entry;
+enum tu_pipeline_cache_type {
+   TU_CACHE_NIR,
+   TU_CACHE_VARIANT,
+};
 
 struct tu_pipeline_cache
 {
@@ -264,20 +267,45 @@ struct tu_pipeline_cache
 
    struct tu_device *device;
    pthread_mutex_t mutex;
-
-   uint32_t total_size;
-   uint32_t table_size;
-   uint32_t kernel_count;
-   struct cache_entry **hash_table;
-   bool modified;
-
    VkAllocationCallbacks alloc;
+
+   struct hash_table *nir_cache;
+   struct hash_table *variant_cache;
 };
 
 struct tu_pipeline_key
 {
+   unsigned char sha1[20];
+
+   /* Required for variants cache. */
+   struct tu_shader *shader;
+   struct ir3_shader_key key;
+   bool binning_pass;
+
+   /* Required for NIRs cache */
+   struct tu_shader_module *module;
 };
 
+void
+tu_pipeline_hash_shader_module(struct tu_pipeline_key *key);
+
+void
+tu_pipeline_hash_variant(struct tu_pipeline_key *key);
+
+void
+tu_pipeline_cache_nir_insert(struct tu_pipeline_cache *cache,
+                             struct tu_pipeline_key *key,
+                             struct nir_shader *nir);
+
+void
+tu_pipeline_cache_variant_insert(struct tu_pipeline_cache *cache,
+                                 struct tu_pipeline_key *key,
+                                 struct ir3_shader_variant *variant);
+
+void *
+tu_pipeline_cache_lookup(struct tu_pipeline_cache *cache,
+                         struct tu_pipeline_key *key,
+                         enum tu_pipeline_cache_type type);
 
 /* queue types */
 #define TU_QUEUE_GENERAL 0
