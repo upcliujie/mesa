@@ -571,11 +571,20 @@ The integer capabilities:
 * ``PIPE_CAP_GL_SPIRV_VARIABLE_POINTERS``: True if the driver supports Variable Pointers in SPIR-V shaders.
 * ``PIPE_CAP_DEMOTE_TO_HELPER_INVOCATION``: True if driver supports demote keyword in GLSL programs.
 * ``PIPE_CAP_TGSI_TG4_COMPONENT_IN_SWIZZLE``: True if driver wants the TG4 component encoded in sampler swizzle rather than as a separate source.
-* ``PIPE_CAP_FLATSHADE``: Driver supports pipe_rasterizer_state::flatshade.
-* ``PIPE_CAP_ALPHA_TEST``: Driver supports alpha-testing.
+* ``PIPE_CAP_FLATSHADE``: Driver supports pipe_rasterizer_state::flatshade.  Must be 1
+    for non-NIR drivers or gallium nine.
+* ``PIPE_CAP_ALPHA_TEST``: Driver supports alpha-testing.  Must be 1
+    for non-NIR drivers or gallium nine.  If set, frontend may set
+    ``pipe_depth_stencil_alpha_state->alpha_enabled`` and ``alpha_func``.
+    Otherwise, alpha test will be lowered to a comparison and discard_if in the
+    fragment shader.
 * ``PIPE_CAP_POINT_SIZE_FIXED``: Driver supports point-sizes that are fixed,
   as opposed to writing gl_PointSize for every point.
-* ``PIPE_CAP_TWO_SIDED_COLOR``: Driver supports two-sided coloring.
+* ``PIPE_CAP_TWO_SIDED_COLOR``: Driver supports two-sided coloring.  Must be 1
+    for non-NIR drivers.  If set, pipe_rasterizer_state may be set to indicate
+    that backfacing primitives should use the back-side color as the FS input
+    color.  If unset, mesa/st will lower it to gl_FrontFacing reads in the
+    fragment shader.
 * ``PIPE_CAP_CLIP_PLANES``: Driver supports user-defined clip-planes.  Must be 1
     for non-NIR drivers or gallium nine.  When unset,
     ``pipe_rasterizer_state->clip_plane_enable`` is always 0 and
