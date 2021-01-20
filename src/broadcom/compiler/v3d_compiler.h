@@ -191,8 +191,6 @@ enum quniform_contents {
         QUNIFORM_VIEWPORT_Z_OFFSET,
         QUNIFORM_VIEWPORT_Z_SCALE,
 
-        QUNIFORM_USER_CLIP_PLANE,
-
         /**
          * A reference to a V3D 3.x texture config parameter 0 uniform.
          *

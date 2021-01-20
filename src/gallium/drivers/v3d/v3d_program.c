@@ -539,6 +539,7 @@ v3d_update_compiled_fs(struct v3d_context *v3d, uint8_t prim_mode)
                             VC5_DIRTY_RASTERIZER |
                             VC5_DIRTY_SAMPLE_STATE |
                             VC5_DIRTY_FRAGTEX |
+                            VC5_DIRTY_UNCOMPILED_VS |
                             VC5_DIRTY_UNCOMPILED_FS))) {
                 return;
         }
@@ -546,7 +547,8 @@ v3d_update_compiled_fs(struct v3d_context *v3d, uint8_t prim_mode)
         memset(key, 0, sizeof(*key));
         v3d_setup_shared_key(v3d, &key->base, &v3d->tex[PIPE_SHADER_FRAGMENT]);
         key->base.shader_state = v3d->prog.bind_fs;
-        key->base.ucp_enables = v3d->rasterizer->base.clip_plane_enable;
+        nir_shader *vs = v3d->prog.bind_vs->base.ir.nir;
+        key->base.ucp_enables = BITSET_MASK(vs->info.clip_distance_array_size);
         key->is_points = (prim_mode == PIPE_PRIM_POINTS);
         key->is_lines = (prim_mode >= PIPE_PRIM_LINES &&
                          prim_mode <= PIPE_PRIM_LINE_STRIP);
@@ -667,7 +669,6 @@ v3d_update_compiled_gs(struct v3d_context *v3d, uint8_t prim_mode)
         memset(key, 0, sizeof(*key));
         v3d_setup_shared_key(v3d, &key->base, &v3d->tex[PIPE_SHADER_GEOMETRY]);
         key->base.shader_state = v3d->prog.bind_gs;
-        key->base.ucp_enables = v3d->rasterizer->base.clip_plane_enable;
         key->base.is_last_geometry_stage = true;
         key->num_used_outputs = v3d->prog.fs->prog_data.fs->num_inputs;
         STATIC_ASSERT(sizeof(key->used_outputs) ==
@@ -737,7 +738,6 @@ v3d_update_compiled_vs(struct v3d_context *v3d, uint8_t prim_mode)
         memset(key, 0, sizeof(*key));
         v3d_setup_shared_key(v3d, &key->base, &v3d->tex[PIPE_SHADER_VERTEX]);
         key->base.shader_state = v3d->prog.bind_vs;
-        key->base.ucp_enables = v3d->rasterizer->base.clip_plane_enable;
         key->base.is_last_geometry_stage = !v3d->prog.bind_gs;
 
         if (!v3d->prog.bind_gs) {
