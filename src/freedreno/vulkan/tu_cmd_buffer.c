@@ -3296,7 +3296,13 @@ tu6_calculate_lrz_state(struct tu_cmd_buffer *cmd,
       tu6_lrz_depth_mode(&gras_lrz_cntl, depth_compare_op, &invalidate_lrz);
    }
 
+   if (pipeline->rb_depth_cntl_mask & A6XX_RB_DEPTH_CNTL_Z_BOUNDS_ENABLE)
+      gras_lrz_cntl.z_bounds_enable = pipeline->lrz.ds_state.depth_bounds_test_enable;
+   else
+      gras_lrz_cntl.z_bounds_enable = cmd->state.rb_depth_cntl & A6XX_RB_DEPTH_CNTL_Z_BOUNDS_ENABLE;
+
    bool force_disable_write = pipeline->lrz.force_disable_mask & TU_LRZ_FORCE_DISABLE_WRITE;
+
 
    /* Invalidate LRZ and disable write if stencil test is enabled, either in the pipeline
     * or in the extended dynamic state setting.
@@ -3345,7 +3351,8 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
       .enable = gras_lrz_cntl.enable,
       .greater = gras_lrz_cntl.greater,
       .lrz_write = gras_lrz_cntl.lrz_write,
-      .z_test_enable = gras_lrz_cntl.z_test_enable));
+      .z_test_enable = gras_lrz_cntl.z_test_enable,
+      .z_bounds_enable = gras_lrz_cntl.z_bounds_enable));
    tu_cs_emit_regs(&lrz_cs, A6XX_RB_LRZ_CNTL(.enable = gras_lrz_cntl.enable));
 
    return ds;
