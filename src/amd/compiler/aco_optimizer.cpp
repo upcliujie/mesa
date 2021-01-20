@@ -2330,7 +2330,7 @@ bool combine_add_bcnt(opt_ctx& ctx, aco_ptr<Instruction>& instr)
           op_instr->operands[0].isTemp() &&
           op_instr->operands[0].getTemp().type() == RegType::vgpr &&
           op_instr->operands[1].constantEquals(0)) {
-         aco_ptr<Instruction> new_instr{create_instruction<VOP3A_instruction>(aco_opcode::v_bcnt_u32_b32, Format::VOP3, 2, 1)};
+         aco_ptr<Instruction> new_instr{create_instruction<VOP3A_instruction>(aco_opcode::v_bcnt_u32_b32, Format::VOP3A, 2, 1)};
          ctx.uses[instr->operands[i].tempId()]--;
          new_instr->operands[0] = op_instr->operands[0];
          new_instr->operands[1] = instr->operands[!i];

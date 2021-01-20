@@ -54,7 +54,6 @@ class Format(Enum):
    VOP2 = 1 << 9
    VOPC = 1 << 10
    VOP3A = 1 << 11
-   VOP3B = 1 << 11
    VINTRP = 1 << 12
    DPP = 1 << 13
    SDWA = 1 << 14

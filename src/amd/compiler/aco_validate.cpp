@@ -123,7 +123,7 @@ bool validate_ir(Program* program)
                /* v_interp_*_fp16 are considered VINTRP by the compiler but
                 * they are emitted as VOP3.
                 */
-               base_format = Format::VOP3;
+               base_format = Format::VOP3A;
             } else {
                base_format = Format::VINTRP;
             }
@@ -131,7 +131,7 @@ bool validate_ir(Program* program)
          check(base_format == instr_info.format[(int)instr->opcode], "Wrong base format for instruction", instr.get());
 
          /* check VOP3 modifiers */
-         if (((uint32_t)instr->format & (uint32_t)Format::VOP3) && instr->format != Format::VOP3) {
+         if (((uint32_t)instr->format & (uint32_t)Format::VOP3A) && instr->format != Format::VOP3A) {
             check(base_format == Format::VOP2 ||
                   base_format == Format::VOP1 ||
                   base_format == Format::VOPC ||

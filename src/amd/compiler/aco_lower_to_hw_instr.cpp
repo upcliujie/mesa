@@ -184,7 +184,7 @@ bool is_vop3_reduce_opcode(aco_opcode opcode)
    if (opcode == aco_opcode::num_opcodes)
       return true;
 
-   return instr_info.format[(int)opcode] == Format::VOP3;
+   return instr_info.format[(int)opcode] == Format::VOP3A;
 }
 
 void emit_vadd32(Builder& bld, Definition def, Operand src0, Operand src1)

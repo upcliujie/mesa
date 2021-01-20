@@ -484,7 +484,7 @@ public:
       int num_defs = carry_out ? 2 : 1;
       aco_ptr<Instruction> sub;
       if (vop3)
-        sub.reset(create_instruction<VOP3A_instruction>(op, Format::VOP3B, num_ops, num_defs));
+        sub.reset(create_instruction<VOP3A_instruction>(op, Format::VOP3A, num_ops, num_defs));
       else
         sub.reset(create_instruction<VOP2_instruction>(op, Format::VOP2, num_ops, num_defs));
       sub->operands[0] = a.op;

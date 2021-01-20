@@ -100,9 +100,7 @@ enum class Format : std::uint16_t {
    VOP1 = 1 << 8,
    VOP2 = 1 << 9,
    VOPC = 1 << 10,
-   VOP3 = 1 << 11,
    VOP3A = 1 << 11,
-   VOP3B = 1 << 11,
    /* Vector Parameter Interpolation Format */
    VINTRP = 1 << 12,
    DPP = 1 << 13,
@@ -236,7 +234,7 @@ struct float_mode {
 };
 
 constexpr Format asVOP3(Format format) {
-   return (Format) ((uint32_t) Format::VOP3 | (uint32_t) format);
+   return (Format) ((uint32_t) Format::VOP3A | (uint32_t) format);
 };
 
 constexpr Format asSDWA(Format format) {
@@ -1002,7 +1000,6 @@ struct Instruction {
           || ((uint16_t) format & (uint16_t) Format::VOP2) == (uint16_t) Format::VOP2
           || ((uint16_t) format & (uint16_t) Format::VOPC) == (uint16_t) Format::VOPC
           || ((uint16_t) format & (uint16_t) Format::VOP3A) == (uint16_t) Format::VOP3A
-          || ((uint16_t) format & (uint16_t) Format::VOP3B) == (uint16_t) Format::VOP3B
           || format == Format::VOP3P;
    }
 
@@ -1029,8 +1026,7 @@ struct Instruction {
 
    constexpr bool isVOP3() const noexcept
    {
-      return ((uint16_t) format & (uint16_t) Format::VOP3A) ||
-             ((uint16_t) format & (uint16_t) Format::VOP3B);
+      return (uint16_t) format & (uint16_t) Format::VOP3A;
    }
 
    constexpr bool isSDWA() const noexcept
