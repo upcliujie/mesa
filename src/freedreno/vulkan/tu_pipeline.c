@@ -2595,6 +2595,7 @@ tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
    pipeline->lrz.ds_state.depth_write = ds_info->depthWriteEnable;
    pipeline->lrz.ds_state.depth_test_enable = ds_info->depthTestEnable;
    pipeline->lrz.ds_state.depth_compare_op = ds_info->depthCompareOp;
+   pipeline->lrz.ds_state.depth_bounds_test_enable = ds_info->depthBoundsTestEnable;
    pipeline->lrz.ds_state.stencil_test_enable = ds_info->stencilTestEnable;
 
    if (builder->shaders[MESA_SHADER_FRAGMENT]) {
