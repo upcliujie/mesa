@@ -15,10 +15,10 @@ struct asm_context {
    enum chip_class chip_class;
    std::vector<std::pair<int, SOPP_instruction*>> branches;
    std::vector<unsigned> constaddrs;
-   const int16_t* opcode;
+   const int16_t *opcode;
    // TODO: keep track of branch instructions referring blocks
    // and, when emitting the block, correct the offset in instr
-   asm_context(Program* program_) : program(program_), chip_class(program->chip_class) {
+   asm_context(Program *program_) : program(program_), chip_class(program->chip_class) {
       if (chip_class <= GFX7)
          opcode = &instr_info.opcode_gfx7[0];
       else if (chip_class <= GFX9)
@@ -42,7 +42,7 @@ static uint32_t get_sdwa_sel(unsigned sel, PhysReg reg)
    return sel & sdwa_asuint;
 }
 
-void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction* instr)
+void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction *instr)
 {
    /* lower remaining pseudo-instructions */
    if (instr->opcode == aco_opcode::p_constaddr) {
@@ -157,7 +157,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
       break;
    }
    case Format::SOPP: {
-      SOPP_instruction* sopp = instr->sopp();
+      SOPP_instruction *sopp = instr->sopp();
       uint32_t encoding = (0b101111111 << 23);
       encoding |= opcode << 16;
       encoding |= (uint16_t) sopp->imm;
@@ -169,7 +169,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
       break;
    }
    case Format::SMEM: {
-      SMEM_instruction* smem = instr->smem();
+      SMEM_instruction *smem = instr->smem();
       bool soe = instr->operands.size() >= (!instr->definitions.empty() ? 3 : 4);
       bool is_load = !instr->definitions.empty();
       uint32_t encoding = 0;
@@ -284,7 +284,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
       break;
    }
    case Format::VINTRP: {
-      Interp_instruction* interp = instr->vintrp();
+      Interp_instruction *interp = instr->vintrp();
       uint32_t encoding = 0;
 
       if (instr->opcode == aco_opcode::v_interp_p1ll_f16 ||
@@ -334,7 +334,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
       break;
    }
    case Format::DS: {
-      DS_instruction* ds = instr->ds();
+      DS_instruction *ds = instr->ds();
       uint32_t encoding = (0b110110 << 26);
       if (ctx.chip_class == GFX8 || ctx.chip_class == GFX9) {
          encoding |= opcode << 17;
@@ -358,7 +358,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
       break;
    }
    case Format::MUBUF: {
-      MUBUF_instruction* mubuf = instr->mubuf();
+      MUBUF_instruction *mubuf = instr->mubuf();
       uint32_t encoding = (0b111000 << 26);
       encoding |= opcode << 18;
       encoding |= (mubuf->lds ? 1 : 0) << 16;
@@ -390,7 +390,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
       break;
    }
    case Format::MTBUF: {
-      MTBUF_instruction* mtbuf = instr->mtbuf();
+      MTBUF_instruction *mtbuf = instr->mtbuf();
 
       uint32_t img_format = ac_get_tbuffer_format(ctx.chip_class, mtbuf->dfmt, mtbuf->nfmt);
       uint32_t encoding = (0b111010 << 26);
@@ -437,7 +437,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
       assert(!use_nsa || ctx.chip_class >= GFX10);
       unsigned nsa_dwords = use_nsa ? DIV_ROUND_UP(addr_dwords - 1, 4) : 0;
 
-      MIMG_instruction* mimg = instr->mimg();
+      MIMG_instruction *mimg = instr->mimg();
       uint32_t encoding = (0b111100 << 26);
       encoding |= mimg->slc ? 1 << 25 : 0;
       encoding |= opcode << 18;
@@ -536,7 +536,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
       break;
    }
    case Format::EXP: {
-      Export_instruction* exp = instr->exp();
+      Export_instruction *exp = instr->exp();
       uint32_t encoding;
       if (ctx.chip_class == GFX8 || ctx.chip_class == GFX9) {
          encoding = (0b110001 << 26);
@@ -564,7 +564,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
       break;
    default:
       if (instr->isVOP3()) {
-         VOP3_instruction* vop3 = instr->vop3();
+         VOP3_instruction *vop3 = instr->vop3();
 
          if (instr->isVOP2()) {
             opcode = opcode + 0x100;
@@ -615,7 +615,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
          out.push_back(encoding);
 
       } else if (instr->isVOP3P()) {
-         VOP3P_instruction* vop3 = instr->vop3p();
+         VOP3P_instruction *vop3 = instr->vop3p();
 
          uint32_t encoding;
          if (ctx.chip_class == GFX9) {
@@ -649,7 +649,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
          instr->operands[0] = Operand(PhysReg{250}, v1);
          instr->format = (Format) ((uint16_t) instr->format & ~(uint16_t)Format::DPP);
          emit_instruction(ctx, out, instr);
-         DPP_instruction* dpp = instr->dpp();
+         DPP_instruction *dpp = instr->dpp();
          uint32_t encoding = (0xF & dpp->row_mask) << 28;
          encoding |= (0xF & dpp->bank_mask) << 24;
          encoding |= dpp->abs[1] << 23;
@@ -670,7 +670,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
          instr->format = (Format) ((uint16_t) instr->format & ~(uint16_t)Format::SDWA);
          emit_instruction(ctx, out, instr);
 
-         SDWA_instruction* sdwa = instr->sdwa();
+         SDWA_instruction *sdwa = instr->sdwa();
          uint32_t encoding = 0;
 
          if (instr->isVOPC()) {
@@ -738,7 +738,7 @@ void emit_block(asm_context& ctx, std::vector<uint32_t>& out, Block& block)
    }
 }
 
-void fix_exports(asm_context& ctx, std::vector<uint32_t>& out, Program* program)
+void fix_exports(asm_context& ctx, std::vector<uint32_t>& out, Program *program)
 {
    bool exported = false;
    for (Block& block : program->blocks) {
@@ -748,7 +748,7 @@ void fix_exports(asm_context& ctx, std::vector<uint32_t>& out, Program* program)
       while ( it != block.instructions.rend())
       {
          if ((*it)->isEXP()) {
-            Export_instruction* exp = (*it)->exp();
+            Export_instruction *exp = (*it)->exp();
             if (program->stage.hw == HWStage::VS || program->stage.hw == HWStage::NGG) {
                if (exp->dest >= V_008DFC_SQ_EXP_POS && exp->dest <= (V_008DFC_SQ_EXP_POS + 3)) {
                   exp->done = true;
@@ -930,7 +930,7 @@ void fix_constaddrs(asm_context& ctx, std::vector<uint32_t>& out)
       out[addr] += (out.size() - addr + 1u) * 4u;
 }
 
-unsigned emit_program(Program* program,
+unsigned emit_program(Program *program,
                       std::vector<uint32_t>& code)
 {
    asm_context ctx(program);

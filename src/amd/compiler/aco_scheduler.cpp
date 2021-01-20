@@ -334,7 +334,7 @@ bool is_done_sendmsg(const Instruction *instr)
    return false;
 }
 
-memory_sync_info get_sync_info_with_hack(const Instruction* instr)
+memory_sync_info get_sync_info_with_hack(const Instruction *instr)
 {
    memory_sync_info sync = get_sync_info(instr);
    if (instr->isSMEM() && !instr->operands.empty() && instr->operands[0].bytes() == 16) {
@@ -526,9 +526,9 @@ HazardResult perform_hazard_query(hazard_query *query, Instruction *instr, bool 
    return hazard_success;
 }
 
-void schedule_SMEM(sched_ctx& ctx, Block* block,
+void schedule_SMEM(sched_ctx& ctx, Block *block,
                    std::vector<RegisterDemand>& register_demand,
-                   Instruction* current, int idx)
+                   Instruction *current, int idx)
 {
    assert(idx != 0);
    int window_size = SMEM_WINDOW_SIZE;
@@ -656,9 +656,9 @@ void schedule_SMEM(sched_ctx& ctx, Block* block,
    ctx.last_SMEM_stall = 10 - ctx.num_waves - k;
 }
 
-void schedule_VMEM(sched_ctx& ctx, Block* block,
+void schedule_VMEM(sched_ctx& ctx, Block *block,
                    std::vector<RegisterDemand>& register_demand,
-                   Instruction* current, int idx)
+                   Instruction *current, int idx)
 {
    assert(idx != 0);
    int window_size = VMEM_WINDOW_SIZE;
@@ -799,9 +799,9 @@ void schedule_VMEM(sched_ctx& ctx, Block* block,
    }
 }
 
-void schedule_position_export(sched_ctx& ctx, Block* block,
+void schedule_position_export(sched_ctx& ctx, Block *block,
                               std::vector<RegisterDemand>& register_demand,
-                              Instruction* current, int idx)
+                              Instruction *current, int idx)
 {
    assert(idx != 0);
    int window_size = POS_EXP_WINDOW_SIZE;
@@ -845,7 +845,7 @@ void schedule_position_export(sched_ctx& ctx, Block* block,
    }
 }
 
-void schedule_block(sched_ctx& ctx, Program *program, Block* block, live& live_vars)
+void schedule_block(sched_ctx& ctx, Program *program, Block *block, live& live_vars)
 {
    ctx.last_SMEM_dep_idx = 0;
    ctx.last_SMEM_stall = INT16_MIN;
@@ -854,7 +854,7 @@ void schedule_block(sched_ctx& ctx, Program *program, Block* block, live& live_v
 
    /* go through all instructions and find memory loads */
    for (unsigned idx = 0; idx < block->instructions.size(); idx++) {
-      Instruction* current = block->instructions[idx].get();
+      Instruction *current = block->instructions[idx].get();
 
       if (block->kind & block_kind_export_end && current->isEXP()) {
          unsigned target = current->exp()->dest;

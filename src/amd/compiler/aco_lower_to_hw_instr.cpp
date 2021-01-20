@@ -1056,12 +1056,12 @@ void copy_constant(lower_context *ctx, Builder& bld, Definition dst, Operand op)
          bld.vop2(aco_opcode::v_or_b32, dst, Operand(op.constantValue() << offset), def_op);
       } else if (dst.physReg().byte() == 2) {
          Operand def_lo(dst.physReg().advance(-2), v2b);
-         Instruction* instr = bld.vop3(aco_opcode::v_pack_b32_f16, dst, def_lo, op);
+         Instruction *instr = bld.vop3(aco_opcode::v_pack_b32_f16, dst, def_lo, op);
          instr->vop3()->opsel = 0;
       } else {
          assert(dst.physReg().byte() == 0);
          Operand def_hi(dst.physReg().advance(2), v2b);
-         Instruction* instr = bld.vop3(aco_opcode::v_pack_b32_f16, dst, op, def_hi);
+         Instruction *instr = bld.vop3(aco_opcode::v_pack_b32_f16, dst, op, def_hi);
          instr->vop3()->opsel = 2;
       }
    } else {
@@ -1069,7 +1069,7 @@ void copy_constant(lower_context *ctx, Builder& bld, Definition dst, Operand op)
    }
 }
 
-bool do_copy(lower_context* ctx, Builder& bld, const copy_operation& copy, bool *preserve_scc, PhysReg scratch_sgpr)
+bool do_copy(lower_context *ctx, Builder& bld, const copy_operation& copy, bool *preserve_scc, PhysReg scratch_sgpr)
 {
    bool did_copy = false;
    for (unsigned offset = 0; offset < copy.bytes;) {
@@ -1245,7 +1245,7 @@ void do_pack_2x16(lower_context *ctx, Builder& bld, Definition def, Operand lo, 
                          !lo.isLiteral() && !hi.isLiteral()));
 
    if (can_use_pack) {
-      Instruction* instr = bld.vop3(aco_opcode::v_pack_b32_f16, def, lo, hi);
+      Instruction *instr = bld.vop3(aco_opcode::v_pack_b32_f16, def, lo, hi);
       /* opsel: 0 = select low half, 1 = select high half. [0] = src0, [1] = src1 */
       instr->vop3()->opsel = hi.physReg().byte() | (lo.physReg().byte() >> 1);
       return;
@@ -1376,7 +1376,7 @@ void try_coalesce_copies(lower_context *ctx,
    copy_map.erase(other);
 }
 
-void handle_operands(std::map<PhysReg, copy_operation>& copy_map, lower_context* ctx, chip_class chip_class, Pseudo_instruction *pi)
+void handle_operands(std::map<PhysReg, copy_operation>& copy_map, lower_context *ctx, chip_class chip_class, Pseudo_instruction *pi)
 {
    Builder bld(ctx->program, &ctx->instructions);
    unsigned num_instructions_before = ctx->instructions.size();
@@ -1767,7 +1767,7 @@ void emit_set_mode(Builder& bld, float_mode new_mode, bool set_round, bool set_d
    }
 }
 
-void emit_set_mode_from_block(Builder& bld, Program& program, Block* block, bool always_set)
+void emit_set_mode_from_block(Builder& bld, Program& program, Block *block, bool always_set)
 {
    float_mode config_mode;
    config_mode.val = program.config->float_mode;
@@ -1788,7 +1788,7 @@ void emit_set_mode_from_block(Builder& bld, Program& program, Block* block, bool
    emit_set_mode(bld, block->fp_mode, set_round, set_denorm);
 }
 
-void lower_to_hw_instr(Program* program)
+void lower_to_hw_instr(Program *program)
 {
    Block *discard_block = NULL;
 
@@ -1979,7 +1979,7 @@ void lower_to_hw_instr(Program* program)
                break;
             }
          } else if (instr->isBranch()) {
-            Pseudo_branch_instruction* branch = instr->branch();
+            Pseudo_branch_instruction *branch = instr->branch();
             uint32_t target = branch->target[0];
 
             /* check if all blocks from current to target are empty */
@@ -2051,7 +2051,7 @@ void lower_to_hw_instr(Program* program)
             }
 
          } else if (instr->isReduction()) {
-            Pseudo_reduction_instruction* reduce = instr->reduction();
+            Pseudo_reduction_instruction *reduce = instr->reduction();
             emit_reduction(&ctx, reduce->opcode, reduce->reduce_op, reduce->cluster_size,
                            reduce->operands[1].physReg(), // tmp
                            reduce->definitions[1].physReg(), // stmp
@@ -2059,7 +2059,7 @@ void lower_to_hw_instr(Program* program)
                            reduce->definitions[2].physReg(), // sitmp
                            reduce->operands[0], reduce->definitions[0]);
          } else if (instr->isBarrier()) {
-            Pseudo_barrier_instruction* barrier = instr->barrier();
+            Pseudo_barrier_instruction *barrier = instr->barrier();
 
             /* Anything larger than a workgroup isn't possible. Anything
              * smaller requires no instructions and this pseudo instruction

@@ -44,7 +44,7 @@ namespace {
 typedef std::map<uint32_t, std::vector<std::pair<Definition, Operand>>> phi_info;
 
 struct cssa_ctx {
-   Program* program;
+   Program *program;
    live& live_vars;
    phi_info logical_phi_info {};
    phi_info linear_phi_info {};
@@ -192,7 +192,7 @@ void insert_parallelcopies(cssa_ctx& ctx)
 } /* end namespace */
 
 
-void lower_to_cssa(Program* program, live& live_vars)
+void lower_to_cssa(Program *program, live& live_vars)
 {
    cssa_ctx ctx = {program, live_vars};
    /* collect information about all interfering phi operands */

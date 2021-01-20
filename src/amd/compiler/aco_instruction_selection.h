@@ -66,7 +66,7 @@ struct isel_context {
       uint16_t loop_nest_depth = 0;
       struct {
          unsigned header_idx;
-         Block* exit;
+         Block *exit;
          bool has_divergent_continue = false;
          bool has_divergent_branch = false;
       } parent_loop;
@@ -188,10 +188,10 @@ void init_context(isel_context *ctx, nir_shader *shader);
 void cleanup_context(isel_context *ctx);
 
 isel_context
-setup_isel_context(Program* program,
+setup_isel_context(Program *program,
                    unsigned shader_count,
                    struct nir_shader *const *shaders,
-                   ac_shader_config* config,
+                   ac_shader_config *config,
                    struct radv_shader_args *args,
                    bool is_gs_copy_shader);
 

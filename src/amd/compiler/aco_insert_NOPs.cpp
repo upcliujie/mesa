@@ -799,7 +799,7 @@ void mitigate_hazards(Program *program)
 
 } /* end namespace */
 
-void insert_NOPs(Program* program)
+void insert_NOPs(Program *program)
 {
    if (program->chip_class >= GFX10_3)
       ; /* no hazards/bugs to mitigate */

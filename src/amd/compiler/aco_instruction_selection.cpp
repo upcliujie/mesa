@@ -85,7 +85,7 @@ struct loop_context {
    Block loop_exit;
 
    unsigned header_idx_old;
-   Block* exit_old;
+   Block *exit_old;
    bool divergent_cont_old;
    bool divergent_branch_old;
    bool divergent_if_old;
@@ -307,14 +307,14 @@ void emit_v_div_u32(isel_context *ctx, Temp dst, Temp a, uint32_t b)
    }
 }
 
-void emit_extract_vector(isel_context* ctx, Temp src, uint32_t idx, Temp dst)
+void emit_extract_vector(isel_context *ctx, Temp src, uint32_t idx, Temp dst)
 {
    Builder bld(ctx->program, ctx->block);
    bld.pseudo(aco_opcode::p_extract_vector, Definition(dst), src, Operand(idx));
 }
 
 
-Temp emit_extract_vector(isel_context* ctx, Temp src, uint32_t idx, RegClass dst_rc)
+Temp emit_extract_vector(isel_context *ctx, Temp src, uint32_t idx, RegClass dst_rc)
 {
    /* no need to extract the whole vector */
    if (src.regClass() == dst_rc) {
@@ -348,7 +348,7 @@ Temp emit_extract_vector(isel_context* ctx, Temp src, uint32_t idx, RegClass dst
    }
 }
 
-void emit_split_vector(isel_context* ctx, Temp vec_src, unsigned num_components)
+void emit_split_vector(isel_context *ctx, Temp vec_src, unsigned num_components)
 {
    if (num_components == 1)
       return;
@@ -379,7 +379,7 @@ void emit_split_vector(isel_context* ctx, Temp vec_src, unsigned num_components)
 
 /* This vector expansion uses a mask to determine which elements in the new vector
  * come from the original vector. The other elements are undefined. */
-void expand_vector(isel_context* ctx, Temp vec_src, Temp dst, unsigned num_components, unsigned mask)
+void expand_vector(isel_context *ctx, Temp vec_src, Temp dst, unsigned num_components, unsigned mask)
 {
    emit_split_vector(ctx, vec_src, util_bitcount(mask));
 
@@ -1223,7 +1223,7 @@ Temp emit_floor_f64(isel_context *ctx, Builder& bld, Definition dst, Temp val)
 
    Temp v = bld.pseudo(aco_opcode::p_create_vector, bld.def(v2), dst0, dst1);
 
-   Instruction* add = bld.vop3(aco_opcode::v_add_f64, Definition(dst), src0, v);
+   Instruction *add = bld.vop3(aco_opcode::v_add_f64, Definition(dst), src0, v);
    add->vop3()->neg[1] = true;
 
    return add->definitions[0].getTemp();
@@ -1943,8 +1943,8 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    }
    case nir_op_fsub: {
       if (dst.regClass() == v1 && instr->dest.dest.ssa.bit_size == 16) {
-         Instruction* add = emit_vop3p_instruction(ctx, instr, aco_opcode::v_pk_add_f16, dst);
-         VOP3P_instruction* sub = add->vop3p();
+         Instruction *add = emit_vop3p_instruction(ctx, instr, aco_opcode::v_pk_add_f16, dst);
+         VOP3P_instruction *sub = add->vop3p();
          sub->neg_lo[1] = true;
          sub->neg_hi[1] = true;
          break;
@@ -1963,7 +1963,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          else
             emit_vop2_instruction(ctx, instr, aco_opcode::v_subrev_f32, dst, true);
       } else if (dst.regClass() == v2) {
-         Instruction* add = bld.vop3(aco_opcode::v_add_f64, Definition(dst),
+         Instruction *add = bld.vop3(aco_opcode::v_add_f64, Definition(dst),
                                      as_vgpr(ctx, src0), as_vgpr(ctx, src1));
          add->vop3()->neg[1] = true;
       } else {
@@ -2099,7 +2099,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_fsat: {
       if (dst.regClass() == v1 && instr->dest.dest.ssa.bit_size == 16) {
          Temp src = get_alu_src_vop3p(ctx, instr->src[0]);
-         Instruction* vop3p = bld.vop3p(aco_opcode::v_pk_mul_f16, Definition(dst), src, Operand(uint16_t(0x3C00)),
+         Instruction *vop3p = bld.vop3p(aco_opcode::v_pk_mul_f16, Definition(dst), src, Operand(uint16_t(0x3C00)),
                                         instr->src[0].swizzle[0] & 1, instr->src[0].swizzle[1] & 1);
          vop3p->vop3p()->clamp = true;
          emit_split_vector(ctx, dst, 2);
@@ -2113,7 +2113,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          /* apparently, it is not necessary to flush denorms if this instruction is used with these operands */
          // TODO: confirm that this holds under any circumstances
       } else if (dst.regClass() == v2) {
-         Instruction* add = bld.vop3(aco_opcode::v_add_f64, Definition(dst), src, Operand(0u));
+         Instruction *add = bld.vop3(aco_opcode::v_add_f64, Definition(dst), src, Operand(0u));
          add->vop3()->clamp = true;
       } else {
          isel_err(&instr->instr, "Unimplemented NIR instr bit size");
@@ -2257,7 +2257,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
             tmp = sub->definitions[0].getTemp();
 
             Temp v = bld.pseudo(aco_opcode::p_create_vector, bld.def(v2), Operand(-1u), Operand(0x432fffffu));
-            Instruction* vop3 = bld.vopc_e64(aco_opcode::v_cmp_gt_f64, bld.hint_vcc(bld.def(bld.lm)), src0, v);
+            Instruction *vop3 = bld.vopc_e64(aco_opcode::v_cmp_gt_f64, bld.hint_vcc(bld.def(bld.lm)), src0, v);
             vop3->vop3()->abs[0] = true;
             Temp cond = vop3->definitions[0].getTemp();
 
@@ -2861,7 +2861,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    }
    case nir_op_pack_half_2x16_split: {
       if (dst.regClass() == v1) {
-         nir_const_value* val = nir_src_as_const_value(instr->src[1].src);
+         nir_const_value *val = nir_src_as_const_value(instr->src[1].src);
          if (val && val->u32 == 0 && ctx->program->chip_class <= GFX9) {
             /* upper bits zero on GFX6-GFX9 */
             bld.vop1(aco_opcode::v_cvt_f16_f32, Definition(dst), get_alu_src(ctx, instr->src[0]));
@@ -2923,7 +2923,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
           */
          f32 = bld.vop1(aco_opcode::v_cvt_f32_f16, bld.def(v1), f16);
          Temp smallest = bld.copy(bld.def(s1), Operand(0x38800000u));
-         Instruction* vop3 = bld.vopc_e64(aco_opcode::v_cmp_nlt_f32, bld.hint_vcc(bld.def(bld.lm)), f32, smallest);
+         Instruction *vop3 = bld.vopc_e64(aco_opcode::v_cmp_nlt_f32, bld.hint_vcc(bld.def(bld.lm)), f32, smallest);
          vop3->vop3()->abs[0] = true;
          cmp_res = vop3->definitions[0].getTemp();
       }
@@ -2957,8 +2957,8 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          Temp insert = get_alu_src(ctx, instr->src[1]);
          Temp base = get_alu_src(ctx, instr->src[2]);
          aco_ptr<Instruction> sop2;
-         nir_const_value* const_bitmask = nir_src_as_const_value(instr->src[0].src);
-         nir_const_value* const_insert = nir_src_as_const_value(instr->src[1].src);
+         nir_const_value *const_bitmask = nir_src_as_const_value(instr->src[0].src);
+         nir_const_value *const_insert = nir_src_as_const_value(instr->src[1].src);
          Operand lhs;
          if (const_insert && const_bitmask) {
             lhs = Operand(const_insert->u32 & const_bitmask->u32);
@@ -2968,7 +2968,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          }
 
          Operand rhs;
-         nir_const_value* const_base = nir_src_as_const_value(instr->src[2].src);
+         nir_const_value *const_base = nir_src_as_const_value(instr->src[2].src);
          if (const_base && const_bitmask) {
             rhs = Operand(const_base->u32 & ~const_bitmask->u32);
          } else {
@@ -2993,8 +2993,8 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       if (dst.type() == RegType::sgpr) {
          Temp base = get_alu_src(ctx, instr->src[0]);
 
-         nir_const_value* const_offset = nir_src_as_const_value(instr->src[1].src);
-         nir_const_value* const_bits = nir_src_as_const_value(instr->src[2].src);
+         nir_const_value *const_offset = nir_src_as_const_value(instr->src[1].src);
+         nir_const_value *const_bits = nir_src_as_const_value(instr->src[2].src);
          if (const_offset && const_bits) {
             uint32_t extract = (const_bits->u32 << 16) | (const_offset->u32 & 0x1f);
             aco_opcode opcode = instr->op == nir_op_ubfe ? aco_opcode::s_bfe_u32 : aco_opcode::s_bfe_i32;
@@ -5095,7 +5095,7 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
       unsigned vertex_id = 2; /* P0 */
 
       if (instr->intrinsic == nir_intrinsic_load_input_vertex) {
-         nir_const_value* src0 = nir_src_as_const_value(instr->src[0]);
+         nir_const_value *src0 = nir_src_as_const_value(instr->src[0]);
          switch (src0->u32) {
          case 0:
             vertex_id = 2; /* P0 */
@@ -5324,7 +5324,7 @@ void visit_load_resource(isel_context *ctx, nir_intrinsic_instr *instr)
       stride = layout->binding[binding].size;
    }
 
-   nir_const_value* nir_const_index = nir_src_as_const_value(instr->src[0]);
+   nir_const_value *nir_const_index = nir_src_as_const_value(instr->src[0]);
    unsigned const_index = nir_const_index ? nir_const_index->u32 : 0;
    if (stride != 1) {
       if (nir_const_index) {
@@ -5571,7 +5571,7 @@ void visit_discard_if(isel_context *ctx, nir_intrinsic_instr *instr)
    return;
 }
 
-void visit_discard(isel_context* ctx, nir_intrinsic_instr *instr)
+void visit_discard(isel_context *ctx, nir_intrinsic_instr *instr)
 {
    Builder bld(ctx->program, ctx->block);
 
@@ -7834,7 +7834,7 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
       }
       Temp sample_pos;
       Temp addr = get_ssa_temp(ctx, instr->src[0].ssa);
-      nir_const_value* const_addr = nir_src_as_const_value(instr->src[0]);
+      nir_const_value *const_addr = nir_src_as_const_value(instr->src[0]);
       Temp private_segment_buffer = ctx->program->private_segment_buffer;
       //TODO: bounds checking?
       if (addr.type() == RegType::sgpr) {
@@ -8822,7 +8822,7 @@ void build_cube_select(isel_context *ctx, Temp ma, Temp id, Temp deriv,
    *out_ma = bld.vop2(aco_opcode::v_mul_f32, bld.def(v1), two, tmp);
 }
 
-void prepare_cube_coords(isel_context *ctx, std::vector<Temp>& coords, Temp* ddx, Temp* ddy, bool is_deriv, bool is_array)
+void prepare_cube_coords(isel_context *ctx, std::vector<Temp>& coords, Temp *ddx, Temp *ddy, bool is_deriv, bool is_array)
 {
    Builder bld(ctx->program, ctx->block);
    Temp ma, tc, sc, id;
@@ -9611,7 +9611,7 @@ void visit_phi(isel_context *ctx, nir_phi_instr *instr)
 
       unsigned then_block = invert->linear_preds[0];
 
-      Block* insert_block = NULL;
+      Block *insert_block = NULL;
       for (unsigned i = 0; i < num_operands; i++) {
          Operand op = operands[i];
          if (op.isUndefined())
@@ -9850,7 +9850,7 @@ void emit_loop_jump(isel_context *ctx, bool is_break)
 
    /* remove critical edges from linear CFG */
    bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
-   Block* break_block = ctx->program->create_and_insert_block();
+   Block *break_block = ctx->program->create_and_insert_block();
    break_block->loop_nest_depth = ctx->cf_info.loop_nest_depth;
    break_block->kind |= block_kind_uniform;
    add_linear_edge(idx, break_block);
@@ -9861,7 +9861,7 @@ void emit_loop_jump(isel_context *ctx, bool is_break)
    bld.reset(break_block);
    bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
 
-   Block* continue_block = ctx->program->create_and_insert_block();
+   Block *continue_block = ctx->program->create_and_insert_block();
    continue_block->loop_nest_depth = ctx->cf_info.loop_nest_depth;
    add_linear_edge(idx, continue_block);
    append_logical_start(continue_block);
@@ -10065,7 +10065,7 @@ static void begin_divergent_if_then(isel_context *ctx, if_context *ic, Temp cond
    ctx->cf_info.exec_potentially_empty_break_depth = UINT16_MAX;
 
    /** emit logical then block */
-   Block* BB_then_logical = ctx->program->create_and_insert_block();
+   Block *BB_then_logical = ctx->program->create_and_insert_block();
    BB_then_logical->loop_nest_depth = ctx->cf_info.loop_nest_depth;
    add_edge(ic->BB_if_idx, BB_then_logical);
    ctx->block = BB_then_logical;
@@ -10091,7 +10091,7 @@ static void begin_divergent_if_else(isel_context *ctx, if_context *ic)
    ctx->cf_info.parent_loop.has_divergent_branch = false;
 
    /** emit linear then block */
-   Block* BB_then_linear = ctx->program->create_and_insert_block();
+   Block *BB_then_linear = ctx->program->create_and_insert_block();
    BB_then_linear->loop_nest_depth = ctx->cf_info.loop_nest_depth;
    BB_then_linear->kind |= block_kind_uniform;
    add_linear_edge(ic->BB_if_idx, BB_then_linear);
@@ -10123,7 +10123,7 @@ static void begin_divergent_if_else(isel_context *ctx, if_context *ic)
    ctx->cf_info.exec_potentially_empty_break_depth = UINT16_MAX;
 
    /** emit logical else block */
-   Block* BB_else_logical = ctx->program->create_and_insert_block();
+   Block *BB_else_logical = ctx->program->create_and_insert_block();
    BB_else_logical->loop_nest_depth = ctx->cf_info.loop_nest_depth;
    add_logical_edge(ic->BB_if_idx, BB_else_logical);
    add_linear_edge(ic->invert_idx, BB_else_logical);
@@ -10152,7 +10152,7 @@ static void end_divergent_if(isel_context *ctx, if_context *ic)
 
 
    /** emit linear else block */
-   Block* BB_else_linear = ctx->program->create_and_insert_block();
+   Block *BB_else_linear = ctx->program->create_and_insert_block();
    BB_else_linear->loop_nest_depth = ctx->cf_info.loop_nest_depth;
    BB_else_linear->kind |= block_kind_uniform;
    add_linear_edge(ic->invert_idx, BB_else_linear);
@@ -10213,7 +10213,7 @@ static void begin_uniform_if_then(isel_context *ctx, if_context *ic, Temp cond)
    ctx->cf_info.parent_loop.has_divergent_branch = false;
 
    /** emit then block */
-   Block* BB_then = ctx->program->create_and_insert_block();
+   Block *BB_then = ctx->program->create_and_insert_block();
    BB_then->loop_nest_depth = ctx->cf_info.loop_nest_depth;
    add_edge(ic->BB_if_idx, BB_then);
    append_logical_start(BB_then);
@@ -10245,7 +10245,7 @@ static void begin_uniform_if_else(isel_context *ctx, if_context *ic)
    ctx->cf_info.parent_loop.has_divergent_branch = false;
 
    /** emit else block */
-   Block* BB_else = ctx->program->create_and_insert_block();
+   Block *BB_else = ctx->program->create_and_insert_block();
    BB_else->loop_nest_depth = ctx->cf_info.loop_nest_depth;
    add_edge(ic->BB_if_idx, BB_else);
    append_logical_start(BB_else);
@@ -12004,7 +12004,7 @@ void ngg_gs_finale(isel_context *ctx)
 void select_program(Program *program,
                     unsigned shader_count,
                     struct nir_shader *const *shaders,
-                    ac_shader_config* config,
+                    ac_shader_config *config,
                     struct radv_shader_args *args)
 {
    isel_context ctx = setup_isel_context(program, shader_count, shaders, config, args, false);
@@ -12129,7 +12129,7 @@ void select_program(Program *program,
 }
 
 void select_gs_copy_shader(Program *program, struct nir_shader *gs_shader,
-                           ac_shader_config* config,
+                           ac_shader_config *config,
                            struct radv_shader_args *args)
 {
    isel_context ctx = setup_isel_context(program, 1, &gs_shader, config, args, true);
@@ -12224,7 +12224,7 @@ void select_gs_copy_shader(Program *program, struct nir_shader *gs_shader,
 }
 
 void select_trap_handler_shader(Program *program, struct nir_shader *shader,
-                                ac_shader_config* config,
+                                ac_shader_config *config,
                                 struct radv_shader_args *args)
 {
    assert(args->options->chip_class == GFX8);

@@ -37,7 +37,7 @@ BEGIN_TEST(regalloc.subdword_alloc.reuse_16bit_operands)
 
    for (chip_class cc = GFX8; cc < NUM_GFX_VERSIONS; cc = (chip_class)((unsigned)cc + 1)) {
       for (bool pessimistic : { false, true }) {
-         const char* subvariant = pessimistic ? "/pessimistic" : "/optimistic";
+         const char *subvariant = pessimistic ? "/pessimistic" : "/optimistic";
 
          //>> v1: %_:v[#a], s2: %_:exec = p_startpgm
          if (!setup_cs("v1", (chip_class)cc, CHIP_UNKNOWN, subvariant))
