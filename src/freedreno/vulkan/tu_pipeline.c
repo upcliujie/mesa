@@ -2272,6 +2272,7 @@ tu_pipeline_builder_parse_dynamic(struct tu_pipeline_builder *builder,
          pipeline->rb_depth_cntl_mask &=
             ~(A6XX_RB_DEPTH_CNTL_Z_BOUNDS_ENABLE | A6XX_RB_DEPTH_CNTL_Z_TEST_ENABLE);
          pipeline->dynamic_state_mask |= BIT(TU_DYNAMIC_STATE_RB_DEPTH_CNTL);
+         pipeline->lrz.dynamic_state_mask |= TU_LRZ_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE;
          break;
       case VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT:
          pipeline->rb_stencil_cntl_mask &= ~(A6XX_RB_STENCIL_CONTROL_STENCIL_ENABLE |
@@ -2611,6 +2612,7 @@ tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
    pipeline->lrz.ds_state.depth_write = ds_info->depthWriteEnable;
    pipeline->lrz.ds_state.depth_test_enable = ds_info->depthTestEnable;
    pipeline->lrz.ds_state.depth_compare_op = ds_info->depthCompareOp;
+   pipeline->lrz.ds_state.depth_bounds_test_enable = ds_info->depthBoundsTestEnable;
    pipeline->lrz.ds_state.stencil_test_enable = ds_info->stencilTestEnable;
 
    if (builder->shaders[MESA_SHADER_FRAGMENT]) {

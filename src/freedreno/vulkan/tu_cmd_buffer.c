@@ -2420,7 +2420,9 @@ tu_CmdSetDepthBoundsTestEnableEXT(VkCommandBuffer commandBuffer,
    if (depthBoundsTestEnable)
       cmd->state.rb_depth_cntl |= A6XX_RB_DEPTH_CNTL_Z_BOUNDS_ENABLE;
 
-   cmd->state.dirty |= TU_CMD_DIRTY_RB_DEPTH_CNTL;
+   cmd->state.lrz.dynamic_ds_state.depth_bounds_test_enable = depthBoundsTestEnable;
+
+   cmd->state.dirty |= TU_CMD_DIRTY_RB_DEPTH_CNTL | TU_CMD_DIRTY_LRZ;
 }
 
 void
@@ -3296,6 +3298,11 @@ tu6_calculate_lrz_state(struct tu_cmd_buffer *cmd,
    else
       gras_lrz_cntl.z_test_enable = pipeline->ds_state.depth_test_enable;
 
+   if (pipeline->dynamic_state_mask & TU_LRZ_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE)
+      gras_lrz_cntl.z_bounds_enable = cmd->state.lrz.dynamic_ds_state.depth_bounds_test_enable;
+   else
+      gras_lrz_cntl.z_bounds_enable = pipeline->ds_state.depth_bounds_test_enable;
+
    if (pipeline->dynamic_state_mask & TU_LRZ_DYNAMIC_STATE_DEPTH_COMPARE_OP)
       tu6_lrz_depth_mode(&gras_lrz_cntl, cmd->state.lrz.dynamic_ds_state.depth_compare_op, &invalidate_lrz);
    else
@@ -3348,7 +3355,8 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
       .enable = gras_lrz_cntl.enable,
       .greater = gras_lrz_cntl.greater,
       .lrz_write = gras_lrz_cntl.lrz_write,
-      .z_test_enable = gras_lrz_cntl.z_test_enable));
+      .z_test_enable = gras_lrz_cntl.z_test_enable,
+      .z_bounds_enable = gras_lrz_cntl.z_bounds_enable));
    tu_cs_emit_regs(&lrz_cs, A6XX_RB_LRZ_CNTL(.enable = gras_lrz_cntl.enable));
 
    return ds;
