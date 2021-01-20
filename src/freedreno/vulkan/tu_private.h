@@ -845,13 +845,15 @@ enum tu_lrz_dynamic_state_mask {
    TU_LRZ_DYNAMIC_STATE_DEPTH_WRITE = 1 << 0,
    TU_LRZ_DYNAMIC_STATE_DEPTH_TEST_ENABLE = 1 << 1,
    TU_LRZ_DYNAMIC_STATE_DEPTH_COMPARE_OP = 1 << 2,
-   TU_LRZ_DYNAMIC_STATE_STENCIL_TEST_ENABLE = 1 << 3,
+   TU_LRZ_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE = 1 << 3,
+   TU_LRZ_DYNAMIC_STATE_STENCIL_TEST_ENABLE = 1 << 4,
 };
 
 struct tu_lrz_depth_stencil_state
 {
    bool depth_write : 1;
    bool depth_test_enable : 1;
+   bool depth_bounds_test_enable : 1;
    bool stencil_test_enable : 1;
 
    VkCompareOp depth_compare_op;
