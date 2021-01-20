@@ -2053,6 +2053,7 @@ anv_device_release_bo(struct anv_device *device,
     * any data they may write in this BO.
     */
    memset(bo, 0, sizeof(*bo));
+   __asm__ volatile("" ::: "memory");
 
    anv_gem_close(device, gem_handle);
 
