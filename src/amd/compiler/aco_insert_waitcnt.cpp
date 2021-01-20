@@ -297,7 +297,7 @@ struct wait_ctx {
              unordered_events(event_smem | (program_->chip_class < GFX10 ? event_flat : 0)),
              collect_statistics(program_->collect_statistics) {}
 
-   bool join(const wait_ctx* other, bool logical)
+   bool join(const wait_ctx *other, bool logical)
    {
       bool changed = other->exp_cnt > exp_cnt ||
                      other->vm_cnt > vm_cnt ||
@@ -386,7 +386,7 @@ struct wait_ctx {
    }
 };
 
-wait_imm check_instr(Instruction* instr, wait_ctx& ctx)
+wait_imm check_instr(Instruction *instr, wait_ctx& ctx)
 {
    wait_imm wait;
 
@@ -488,7 +488,7 @@ void force_waitcnt(wait_ctx& ctx, wait_imm& imm)
    }
 }
 
-wait_imm kill(Instruction* instr, wait_ctx& ctx, memory_sync_info sync_info)
+wait_imm kill(Instruction *instr, wait_ctx& ctx, memory_sync_info sync_info)
 {
    wait_imm imm;
 
@@ -756,11 +756,11 @@ void insert_wait_entry(wait_ctx& ctx, Definition def, wait_event event, bool has
    insert_wait_entry(ctx, def.physReg(), def.regClass(), event, true, has_sampler);
 }
 
-void gen(Instruction* instr, wait_ctx& ctx)
+void gen(Instruction *instr, wait_ctx& ctx)
 {
    switch (instr->format) {
    case Format::EXP: {
-      Export_instruction* exp_instr = instr->exp();
+      Export_instruction *exp_instr = instr->exp();
 
       wait_event ev;
       if (exp_instr->dest <= 9)
@@ -865,14 +865,14 @@ void emit_waitcnt(wait_ctx& ctx, std::vector<aco_ptr<Instruction>>& instructions
 {
    if (imm.vs != wait_imm::unset_counter) {
       assert(ctx.chip_class >= GFX10);
-      SOPK_instruction* waitcnt_vs = create_instruction<SOPK_instruction>(aco_opcode::s_waitcnt_vscnt, Format::SOPK, 0, 1);
+      SOPK_instruction *waitcnt_vs = create_instruction<SOPK_instruction>(aco_opcode::s_waitcnt_vscnt, Format::SOPK, 0, 1);
       waitcnt_vs->definitions[0] = Definition(sgpr_null, s1);
       waitcnt_vs->imm = imm.vs;
       instructions.emplace_back(waitcnt_vs);
       imm.vs = wait_imm::unset_counter;
    }
    if (!imm.empty()) {
-      SOPP_instruction* waitcnt = create_instruction<SOPP_instruction>(aco_opcode::s_waitcnt, Format::SOPP, 0, 0);
+      SOPP_instruction *waitcnt = create_instruction<SOPP_instruction>(aco_opcode::s_waitcnt, Format::SOPP, 0, 0);
       waitcnt->imm = imm.pack(ctx.chip_class);
       waitcnt->block = -1;
       instructions.emplace_back(waitcnt);
@@ -961,7 +961,7 @@ static uint32_t calculate_score(std::vector<wait_ctx> &ctx_vec, uint32_t event_m
    return round(pow(result / num_waits, 10.0) * 10.0);
 }
 
-void insert_wait_states(Program* program)
+void insert_wait_states(Program *program)
 {
    /* per BB ctx */
    std::vector<bool> done(program->blocks.size());

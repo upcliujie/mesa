@@ -47,7 +47,7 @@ enum mask_type : uint8_t {
 };
 
 struct wqm_ctx {
-   Program* program;
+   Program *program;
    /* state for WQM propagation */
    std::set<unsigned> worklist;
    std::vector<uint16_t> defined_in;
@@ -55,7 +55,7 @@ struct wqm_ctx {
    std::vector<bool> branch_wqm; /* true if the branch condition in this block should be in wqm */
    bool loop;
    bool wqm;
-   wqm_ctx(Program* program_) : program(program_),
+   wqm_ctx(Program *program_) : program(program_),
                                defined_in(program->peekAllocationId(), 0xFFFF),
                                needs_wqm(program->peekAllocationId()),
                                branch_wqm(program->blocks.size()),
@@ -68,13 +68,13 @@ struct wqm_ctx {
 };
 
 struct loop_info {
-   Block* loop_header;
+   Block *loop_header;
    uint16_t num_exec_masks;
    uint8_t needs;
    bool has_divergent_break;
    bool has_divergent_continue;
    bool has_discard; /* has a discard or demote */
-   loop_info(Block* b, uint16_t num, uint8_t needs_, bool breaks, bool cont, bool discard) :
+   loop_info(Block *b, uint16_t num, uint8_t needs_, bool breaks, bool cont, bool discard) :
              loop_header(b), num_exec_masks(num), needs(needs_), has_divergent_break(breaks),
              has_divergent_continue(cont), has_discard(discard) {}
 };
@@ -138,7 +138,7 @@ void mark_block_wqm(wqm_ctx &ctx, unsigned block_idx)
       mark_block_wqm(ctx, pred_idx);
 }
 
-void get_block_needs(wqm_ctx &ctx, exec_ctx &exec_ctx, Block* block)
+void get_block_needs(wqm_ctx &ctx, exec_ctx &exec_ctx, Block *block)
 {
    block_info& info = exec_ctx.info[block->index];
 
@@ -320,7 +320,7 @@ void transition_to_Exact(exec_ctx& ctx, Builder bld, unsigned idx)
    ctx.info[idx].exec.emplace_back(exact, mask_type_exact);
 }
 
-unsigned add_coupling_code(exec_ctx& ctx, Block* block,
+unsigned add_coupling_code(exec_ctx& ctx, Block *block,
                            std::vector<aco_ptr<Instruction>>& instructions)
 {
    unsigned idx = block->index;
@@ -422,7 +422,7 @@ unsigned add_coupling_code(exec_ctx& ctx, Block* block,
 
    /* loop exit block */
    if (block->kind & block_kind_loop_exit) {
-      Block* header = ctx.loop.back().loop_header;
+      Block *header = ctx.loop.back().loop_header;
       loop_info& info = ctx.loop.back();
 
       for (ASSERTED unsigned pred : preds)
@@ -606,7 +606,7 @@ unsigned add_coupling_code(exec_ctx& ctx, Block* block,
    return i;
 }
 
-void process_instructions(exec_ctx& ctx, Block* block,
+void process_instructions(exec_ctx& ctx, Block *block,
                           std::vector<aco_ptr<Instruction>>& instructions,
                           unsigned idx)
 {
@@ -758,7 +758,7 @@ void process_instructions(exec_ctx& ctx, Block* block,
    }
 }
 
-void add_branch_code(exec_ctx& ctx, Block* block)
+void add_branch_code(exec_ctx& ctx, Block *block)
 {
    unsigned idx = block->index;
    Builder bld(ctx.program, block);
@@ -908,7 +908,7 @@ void add_branch_code(exec_ctx& ctx, Block* block)
    }
 
    if (block->kind & block_kind_uniform) {
-      Pseudo_branch_instruction* branch = block->instructions.back()->branch();
+      Pseudo_branch_instruction *branch = block->instructions.back()->branch();
       if (branch->opcode == aco_opcode::p_branch) {
          branch->target[0] = block->linear_succs[0];
       } else {
@@ -1030,7 +1030,7 @@ void add_branch_code(exec_ctx& ctx, Block* block)
    }
 }
 
-void process_block(exec_ctx& ctx, Block* block)
+void process_block(exec_ctx& ctx, Block *block)
 {
    std::vector<aco_ptr<Instruction>> instructions;
    instructions.reserve(block->instructions.size());

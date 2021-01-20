@@ -54,14 +54,14 @@ struct assignment {
 };
 
 struct phi_info {
-   Instruction* phi;
+   Instruction *phi;
    unsigned block_idx;
    std::set<Instruction*> uses;
 };
 
 struct ra_ctx {
    std::bitset<512> war_hint;
-   Program* program;
+   Program *program;
    std::vector<assignment> assignments;
    std::vector<std::unordered_map<unsigned, Temp>> renames;
    std::vector<std::vector<Instruction*>> incomplete_phis;
@@ -79,7 +79,7 @@ struct ra_ctx {
 
    ra_test_policy policy;
 
-   ra_ctx(Program* program_, ra_test_policy policy_)
+   ra_ctx(Program *program_, ra_test_policy policy_)
       : program(program_),
         assignments(program->peekAllocationId()),
         renames(program->blocks.size()),
@@ -506,7 +506,7 @@ void add_subdword_operand(ra_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx
       instr->vop3()->opsel |= (byte / 2) << idx;
       return;
    } else if (instr->isVOP3P() && byte == 2) {
-      VOP3P_instruction* vop3p = instr->vop3p();
+      VOP3P_instruction *vop3p = instr->vop3p();
       assert(!(vop3p->opsel_lo & (1 << idx)));
       vop3p->opsel_lo |= 1 << idx;
       vop3p->opsel_hi |= 1 << idx;
@@ -1311,7 +1311,7 @@ PhysReg get_reg(ra_ctx& ctx,
    }
 
    if (ctx.vectors.find(temp.id()) != ctx.vectors.end()) {
-      Instruction* vec = ctx.vectors[temp.id()];
+      Instruction *vec = ctx.vectors[temp.id()];
       unsigned first_operand = vec->format == Format::MIMG ? 3 : 0;
       unsigned byte_offset = 0;
       for (unsigned i = first_operand; i < vec->operands.size(); i++) {
@@ -1527,7 +1527,7 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
 
 void handle_pseudo(ra_ctx& ctx,
                    const RegisterFile& reg_file,
-                   Instruction* instr)
+                   Instruction *instr)
 {
    if (instr->format != Format::PSEUDO)
       return;
@@ -1681,7 +1681,7 @@ Temp read_variable(ra_ctx& ctx, Temp val, unsigned block_idx)
       return it->second;
 }
 
-Temp handle_live_in(ra_ctx& ctx, Temp val, Block* block)
+Temp handle_live_in(ra_ctx& ctx, Temp val, Block *block)
 {
    std::vector<unsigned>& preds = val.is_linear() ? block->linear_preds : block->logical_preds;
    if (preds.size() == 0 || val.regClass() == val.regClass().as_linear())
@@ -1765,7 +1765,7 @@ void try_remove_trivial_phi(ra_ctx& ctx, Temp temp)
       return;
 
    assert(info->second.block_idx != 0);
-   Instruction* phi = info->second.phi;
+   Instruction *phi = info->second.phi;
    Temp same = Temp();
    Definition def = phi->definitions[0];
 
@@ -1786,7 +1786,7 @@ void try_remove_trivial_phi(ra_ctx& ctx, Temp temp)
    /* reroute all uses to same and remove phi */
    std::vector<Temp> phi_users;
    std::unordered_map<unsigned, phi_info>::iterator same_phi_info = ctx.phi_map.find(same.id());
-   for (Instruction* instr : info->second.uses) {
+   for (Instruction *instr : info->second.uses) {
       assert(phi != instr);
       /* recursively try to remove trivial phis */
       if (is_phi(instr)) {
@@ -2503,7 +2503,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
             ctx.sealed[succ_idx] = true;
 
             /* finish incomplete phis and check if they became trivial */
-            for (Instruction* phi : ctx.incomplete_phis[succ_idx]) {
+            for (Instruction *phi : ctx.incomplete_phis[succ_idx]) {
                std::vector<unsigned> preds = phi->definitions[0].getTemp().is_linear() ? succ.linear_preds : succ.logical_preds;
                for (unsigned i = 0; i < phi->operands.size(); i++) {
                   phi->operands[i].setTemp(read_variable(ctx, phi->operands[i].getTemp(), preds[i]));

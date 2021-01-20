@@ -81,7 +81,7 @@ RegisterDemand get_demand_before(RegisterDemand demand, aco_ptr<Instruction>& in
 }
 
 namespace {
-void process_live_temps_per_block(Program *program, live& lives, Block* block,
+void process_live_temps_per_block(Program *program, live& lives, Block *block,
                                   std::set<unsigned>& worklist, std::vector<uint16_t>& phi_sgpr_ops)
 {
    std::vector<RegisterDemand>& register_demand = lives.register_demand[block->index];
@@ -318,7 +318,7 @@ uint16_t get_addr_vgpr_from_waves(Program *program, uint16_t max_waves)
     return std::min(vgprs, program->vgpr_limit);
 }
 
-void calc_min_waves(Program* program)
+void calc_min_waves(Program *program)
 {
    unsigned waves_per_workgroup = calc_waves_per_workgroup(program);
    /* currently min_waves is in wave64 waves */
@@ -332,7 +332,7 @@ void calc_min_waves(Program* program)
    program->min_waves = DIV_ROUND_UP(waves_per_workgroup, simd_per_cu_wgp);
 }
 
-void update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand)
+void update_vgpr_sgpr_demand(Program *program, const RegisterDemand new_demand)
 {
    unsigned max_waves_per_simd = program->chip_class == GFX10 ? 20 : 10;
    if (program->chip_class >= GFX10_3)
@@ -376,7 +376,7 @@ void update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand)
    }
 }
 
-live live_var_analysis(Program* program)
+live live_var_analysis(Program *program)
 {
    live result;
    result.live_out.resize(program->blocks.size());
