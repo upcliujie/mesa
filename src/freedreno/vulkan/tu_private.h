@@ -862,6 +862,10 @@ struct tu_lrz_pipeline
    struct tu_lrz_depth_stencil_state ds_state;
 
    uint32_t force_disable_mask;
+   /* Mask to know that these parameters are going to be set by application
+    * at command buffer recording time as part of VK_EXT_extended_dynamic_state.
+    */
+   uint32_t dynamic_state_mask;
 };
 
 struct tu_lrz_state
@@ -870,6 +874,11 @@ struct tu_lrz_state
    struct tu_image *image;
    bool valid : 1;
    struct tu_draw_state state;
+
+   /* If the application sets these values on command buffer recording time,
+    * then we will use these values instead.
+    */
+   struct tu_lrz_depth_stencil_state dynamic_ds_state;
 };
 
 struct tu_cmd_state
