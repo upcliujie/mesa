@@ -782,6 +782,7 @@ OSMesaMakeCurrent(OSMesaContext osmesa, void *buffer, GLenum type,
         osmesa->current_buffer->visual.depth_stencil_format != osmesa->depth_stencil_format ||
         osmesa->current_buffer->visual.accum_format != osmesa->accum_format)) {
       osmesa_destroy_buffer(osmesa->current_buffer);
+      osmesa->current_buffer = NULL;
    }
 
    if (!osmesa->current_buffer) {
