@@ -5937,23 +5937,19 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
    /* structurize the CFG */
    nir_lower_goto_ifs(b->shader);
 
-   /* A SPIR-V module can have multiple shaders stages and also multiple
-    * shaders of the same stage.  Global variables are declared per-module, so
-    * they are all collected when parsing a single shader.  These dead
-    * variables can result in invalid NIR, e.g.
+   /* When multiple shader stages exist in the same SPIR-V module, we
+    * generate input and output variables for every stage, in the same
+    * NIR program.  These dead variables can be invalid NIR.  For example,
+    * TCS outputs must be per-vertex arrays (or decorated 'patch'), while
+    * VS output variables wouldn't be.
     *
-    * - TCS outputs must be per-vertex arrays (or decorated 'patch'), while VS
-    *   output variables wouldn't be;
-    * - Two vertex shaders have two different typed blocks associated to the
-    *   same Binding.
-    *
-    * Before cleaning the dead variables, we must lower any constant
-    * initializers on outputs so nir_remove_dead_variables sees that they're
-    * written to.
+    * To ensure we have valid NIR, we eliminate any dead inputs and outputs
+    * right away.  In order to do so, we must lower any constant initializers
+    * on outputs so nir_remove_dead_variables sees that they're written to.
     */
-   nir_lower_variable_initializers(b->shader, nir_var_shader_out |
-                                              nir_var_system_value);
-   nir_remove_dead_variables(b->shader, ~nir_var_function_temp, NULL);
+   nir_lower_variable_initializers(b->shader, nir_var_shader_out);
+   nir_remove_dead_variables(b->shader,
+                             nir_var_shader_in | nir_var_shader_out, NULL);
 
    /* We sometimes generate bogus derefs that, while never used, give the
     * validator a bit of heartburn.  Run dead code to get rid of them.
