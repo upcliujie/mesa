@@ -3275,29 +3275,49 @@ static struct A6XX_GRAS_LRZ_CNTL
 tu6_calculate_lrz_state(struct tu_cmd_buffer *cmd,
                         const uint32_t a)
 {
-   struct tu_lrz_pipeline *pipeline = &cmd->state.pipeline->lrz;
+   struct tu_pipeline *pipeline = cmd->state.pipeline;
    struct A6XX_GRAS_LRZ_CNTL gras_lrz_cntl = { 0 };
    bool invalidate_lrz = false;
 
-   gras_lrz_cntl.lrz_write = pipeline->ds_state.depth_write;
-   gras_lrz_cntl.z_test_enable = pipeline->ds_state.depth_test_enable;
-   tu6_lrz_depth_mode(&gras_lrz_cntl, pipeline->ds_state.depth_compare_op, &invalidate_lrz);
+   if (pipeline->rb_depth_cntl_mask & A6XX_RB_DEPTH_CNTL_Z_WRITE_ENABLE)
+      gras_lrz_cntl.lrz_write = pipeline->lrz.ds_state.depth_write;
+   else
+      gras_lrz_cntl.lrz_write = cmd->state.rb_depth_cntl & A6XX_RB_DEPTH_CNTL_Z_WRITE_ENABLE;
 
-   bool force_disable_write = pipeline->force_disable_mask & TU_LRZ_FORCE_DISABLE_WRITE;
+   if (pipeline->rb_depth_cntl_mask & A6XX_RB_DEPTH_CNTL_Z_ENABLE)
+      gras_lrz_cntl.z_test_enable = pipeline->lrz.ds_state.depth_test_enable;
+   else
+      gras_lrz_cntl.z_test_enable = cmd->state.rb_depth_cntl & A6XX_RB_DEPTH_CNTL_Z_ENABLE;
 
-   /* Invalidate LRZ and disable write if stencil test is enabled */
-   if (pipeline->ds_state.stencil_test_enable) {
-         force_disable_write = true;
-         invalidate_lrz = true;
+   if (pipeline->rb_depth_cntl_mask & A6XX_RB_DEPTH_CNTL_ZFUNC__MASK) {
+      tu6_lrz_depth_mode(&gras_lrz_cntl, pipeline->lrz.ds_state.depth_compare_op, &invalidate_lrz);
+   } else {
+      VkCompareOp depth_compare_op = (cmd->state.rb_depth_cntl & A6XX_RB_DEPTH_CNTL_ZFUNC__MASK) >> A6XX_RB_DEPTH_CNTL_ZFUNC__SHIFT;
+      tu6_lrz_depth_mode(&gras_lrz_cntl, depth_compare_op, &invalidate_lrz);
    }
 
-   if (pipeline->force_disable_mask & TU_LRZ_FORCE_DISABLE_LRZ)
+   bool force_disable_write = pipeline->lrz.force_disable_mask & TU_LRZ_FORCE_DISABLE_WRITE;
+
+   /* Invalidate LRZ and disable write if stencil test is enabled, either in the pipeline
+    * or in the extended dynamic state setting.
+    */
+   bool stencil_test_enable =
+      (pipeline->rb_stencil_cntl_mask & A6XX_RB_STENCIL_CONTROL_STENCIL_ENABLE) ?
+      pipeline->lrz.ds_state.stencil_test_enable :
+      (cmd->state.rb_stencil_cntl & A6XX_RB_STENCIL_CONTROL_STENCIL_ENABLE);
+
+   if (stencil_test_enable) {
+      force_disable_write = true;
+      invalidate_lrz = true;
+   }
+
+   if (pipeline->lrz.force_disable_mask & TU_LRZ_FORCE_DISABLE_LRZ)
       gras_lrz_cntl.enable = false;
 
    if (force_disable_write)
       gras_lrz_cntl.lrz_write = false;
 
-   if (pipeline->force_disable_mask & TU_LRZ_FORCE_DISABLE_Z_TEST)
+   if (pipeline->lrz.force_disable_mask & TU_LRZ_FORCE_DISABLE_Z_TEST)
       gras_lrz_cntl.z_test_enable = false;
 
    if (invalidate_lrz) {
@@ -3346,7 +3366,7 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
 
    tu_emit_cache_flush_renderpass(cmd, cs);
 
-   if (cmd->state.dirty & TU_CMD_DIRTY_LRZ)
+   if (cmd->state.dirty & (TU_CMD_DIRTY_LRZ | TU_CMD_DIRTY_RB_DEPTH_CNTL | TU_CMD_DIRTY_RB_STENCIL_CNTL))
       cmd->state.lrz.state = tu6_build_lrz(cmd);
 
    tu_cs_emit_regs(cs, A6XX_PC_PRIMITIVE_CNTL_0(
