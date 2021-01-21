@@ -1980,10 +1980,12 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
    /* We can only have one type of initializer */
    assert(!(const_initializer && var_initializer));
    if (const_initializer) {
+      vtn_mark_var_as_used(b, var->var);
       var->var->constant_initializer =
          nir_constant_clone(const_initializer, var->var);
    }
    if (var_initializer) {
+      vtn_mark_var_as_used(b, var->var);
       var->var->pointer_initializer = var_initializer;
       vtn_mark_var_as_used(b, var_initializer);
    }
