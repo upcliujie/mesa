@@ -2256,14 +2256,17 @@ tu_pipeline_builder_parse_dynamic(struct tu_pipeline_builder *builder,
          pipeline->rb_depth_cntl_mask &=
             ~(A6XX_RB_DEPTH_CNTL_Z_ENABLE | A6XX_RB_DEPTH_CNTL_Z_TEST_ENABLE);
          pipeline->dynamic_state_mask |= BIT(TU_DYNAMIC_STATE_RB_DEPTH_CNTL);
+         pipeline->lrz.dynamic_state_mask |= TU_LRZ_DYNAMIC_STATE_DEPTH_TEST_ENABLE;
          break;
       case VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE_EXT:
          pipeline->rb_depth_cntl_mask &= ~A6XX_RB_DEPTH_CNTL_Z_WRITE_ENABLE;
          pipeline->dynamic_state_mask |= BIT(TU_DYNAMIC_STATE_RB_DEPTH_CNTL);
+         pipeline->lrz.dynamic_state_mask |= TU_LRZ_DYNAMIC_STATE_DEPTH_WRITE;
          break;
       case VK_DYNAMIC_STATE_DEPTH_COMPARE_OP_EXT:
          pipeline->rb_depth_cntl_mask &= ~A6XX_RB_DEPTH_CNTL_ZFUNC__MASK;
          pipeline->dynamic_state_mask |= BIT(TU_DYNAMIC_STATE_RB_DEPTH_CNTL);
+         pipeline->lrz.dynamic_state_mask |= TU_LRZ_DYNAMIC_STATE_DEPTH_COMPARE_OP;
          break;
       case VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT:
          pipeline->rb_depth_cntl_mask &=
@@ -2275,6 +2278,7 @@ tu_pipeline_builder_parse_dynamic(struct tu_pipeline_builder *builder,
                                              A6XX_RB_STENCIL_CONTROL_STENCIL_ENABLE_BF |
                                              A6XX_RB_STENCIL_CONTROL_STENCIL_READ);
          pipeline->dynamic_state_mask |= BIT(TU_DYNAMIC_STATE_RB_STENCIL_CNTL);
+         pipeline->lrz.dynamic_state_mask |= TU_LRZ_DYNAMIC_STATE_STENCIL_TEST_ENABLE;
          break;
       case VK_DYNAMIC_STATE_STENCIL_OP_EXT:
          pipeline->rb_stencil_cntl_mask &= A6XX_RB_STENCIL_CONTROL_STENCIL_ENABLE |

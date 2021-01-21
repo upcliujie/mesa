@@ -2372,7 +2372,9 @@ tu_CmdSetDepthTestEnableEXT(VkCommandBuffer commandBuffer,
    if (depthTestEnable)
       cmd->state.rb_depth_cntl |= A6XX_RB_DEPTH_CNTL_Z_ENABLE;
 
-   cmd->state.dirty |= TU_CMD_DIRTY_RB_DEPTH_CNTL;
+   cmd->state.lrz.dynamic_ds_state.depth_test_enable = depthTestEnable;
+
+   cmd->state.dirty |= TU_CMD_DIRTY_RB_DEPTH_CNTL | TU_CMD_DIRTY_LRZ;
 }
 
 void
@@ -2386,7 +2388,9 @@ tu_CmdSetDepthWriteEnableEXT(VkCommandBuffer commandBuffer,
    if (depthWriteEnable)
       cmd->state.rb_depth_cntl |= A6XX_RB_DEPTH_CNTL_Z_WRITE_ENABLE;
 
-   cmd->state.dirty |= TU_CMD_DIRTY_RB_DEPTH_CNTL;
+   cmd->state.lrz.dynamic_ds_state.depth_write = depthWriteEnable;
+
+   cmd->state.dirty |= TU_CMD_DIRTY_RB_DEPTH_CNTL | TU_CMD_DIRTY_LRZ;
 }
 
 void
@@ -2400,7 +2404,9 @@ tu_CmdSetDepthCompareOpEXT(VkCommandBuffer commandBuffer,
    cmd->state.rb_depth_cntl |=
       A6XX_RB_DEPTH_CNTL_ZFUNC(tu6_compare_func(depthCompareOp));
 
-   cmd->state.dirty |= TU_CMD_DIRTY_RB_DEPTH_CNTL;
+   cmd->state.lrz.dynamic_ds_state.depth_compare_op = depthCompareOp;
+
+   cmd->state.dirty |= TU_CMD_DIRTY_RB_DEPTH_CNTL | TU_CMD_DIRTY_LRZ;
 }
 
 void
@@ -2435,7 +2441,9 @@ tu_CmdSetStencilTestEnableEXT(VkCommandBuffer commandBuffer,
          A6XX_RB_STENCIL_CONTROL_STENCIL_READ;
    }
 
-   cmd->state.dirty |= TU_CMD_DIRTY_RB_STENCIL_CNTL;
+   cmd->state.lrz.dynamic_ds_state.stencil_test_enable = stencilTestEnable;
+
+   cmd->state.dirty |= TU_CMD_DIRTY_RB_STENCIL_CNTL | TU_CMD_DIRTY_LRZ;
 }
 
 void
@@ -3278,14 +3286,30 @@ tu6_calculate_lrz_state(struct tu_cmd_buffer *cmd,
    struct A6XX_GRAS_LRZ_CNTL gras_lrz_cntl = { 0 };
    bool invalidate_lrz = false;
 
-   gras_lrz_cntl.lrz_write = pipeline->ds_state.depth_write;
-   gras_lrz_cntl.z_test_enable = pipeline->ds_state.depth_test_enable;
-   tu6_lrz_depth_mode(&gras_lrz_cntl, pipeline->ds_state.depth_compare_op, &invalidate_lrz);
+   if (pipeline->dynamic_state_mask & TU_LRZ_DYNAMIC_STATE_DEPTH_TEST_ENABLE)
+      gras_lrz_cntl.lrz_write = cmd->state.lrz.dynamic_ds_state.depth_write;
+   else
+      gras_lrz_cntl.lrz_write = pipeline->ds_state.depth_write;
+
+   if (pipeline->dynamic_state_mask & TU_LRZ_DYNAMIC_STATE_DEPTH_TEST_ENABLE)
+      gras_lrz_cntl.z_test_enable = cmd->state.lrz.dynamic_ds_state.depth_test_enable;
+   else
+      gras_lrz_cntl.z_test_enable = pipeline->ds_state.depth_test_enable;
+
+   if (pipeline->dynamic_state_mask & TU_LRZ_DYNAMIC_STATE_DEPTH_COMPARE_OP)
+      tu6_lrz_depth_mode(&gras_lrz_cntl, cmd->state.lrz.dynamic_ds_state.depth_compare_op, &invalidate_lrz);
+   else
+      tu6_lrz_depth_mode(&gras_lrz_cntl, pipeline->ds_state.depth_compare_op, &invalidate_lrz);
 
    bool force_disable_write = pipeline->force_disable_mask & TU_LRZ_FORCE_DISABLE_WRITE;
 
-   /* Invalidate LRZ and disable write if stencil test is enabled */
-   if (pipeline->ds_state.stencil_test_enable) {
+   /* Invalidate LRZ and disable write if stencil test is enabled, either in the pipeline
+    * or in the extended dynamic state setting.
+    */
+   if ((!(pipeline->dynamic_state_mask & TU_LRZ_DYNAMIC_STATE_STENCIL_TEST_ENABLE) &&
+          pipeline->ds_state.stencil_test_enable) ||
+      ((pipeline->dynamic_state_mask & TU_LRZ_DYNAMIC_STATE_STENCIL_TEST_ENABLE) &&
+       cmd->state.lrz.dynamic_ds_state.stencil_test_enable)) {
          force_disable_write = true;
          invalidate_lrz = true;
    }
