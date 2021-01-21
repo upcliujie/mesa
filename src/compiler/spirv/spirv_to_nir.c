@@ -5965,7 +5965,8 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
    if (b->used_variables) {
       unsigned modes_to_cleanup;
       if (options->create_library) {
-         modes_to_cleanup = ~nir_var_function_temp;
+         modes_to_cleanup = ~(nir_var_function_temp |
+                              nir_var_mem_global);
       } else {
          vtn_assert(b->version < 0x10400);
          modes_to_cleanup = ~(nir_var_function_temp |
