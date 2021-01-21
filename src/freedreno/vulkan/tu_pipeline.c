@@ -2597,6 +2597,10 @@ tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
    pipeline->lrz.ds_state.depth_compare_op = ds_info->depthCompareOp;
    pipeline->lrz.ds_state.depth_bounds_test_enable = ds_info->depthBoundsTestEnable;
    pipeline->lrz.ds_state.stencil_test_enable = ds_info->stencilTestEnable;
+   pipeline->lrz.ds_state.front.compare_op = ds_info->front.compareOp;
+   pipeline->lrz.ds_state.back.compare_op = ds_info->back.compareOp;
+   pipeline->lrz.ds_state.front.writemask = ds_info->front.writeMask;
+   pipeline->lrz.ds_state.back.writemask = ds_info->back.writeMask;
 
    if (builder->shaders[MESA_SHADER_FRAGMENT]) {
       const struct ir3_shader_variant *fs = &builder->shaders[MESA_SHADER_FRAGMENT]->ir3_shader->variants[0];

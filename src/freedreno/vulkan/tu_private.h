@@ -834,6 +834,12 @@ enum tu_lrz_direction {
    TU_LRZ_GREATER,
 };
 
+struct tu_lrz_stencil_state
+{
+   VkCompareOp    compare_op;
+   uint32_t       writemask;
+};
+
 struct tu_lrz_depth_stencil_state
 {
    bool depth_write : 1;
@@ -842,6 +848,8 @@ struct tu_lrz_depth_stencil_state
    bool stencil_test_enable : 1;
 
    VkCompareOp depth_compare_op;
+   struct tu_lrz_stencil_state front;
+   struct tu_lrz_stencil_state back;
 };
 
 struct tu_lrz_pipeline
