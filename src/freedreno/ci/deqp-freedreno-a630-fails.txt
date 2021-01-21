@@ -51,12 +51,6 @@ dEQP-VK.memory_model.message_passing.core11.u32.coherent.fence_fence.atomicwrite
 dEQP-VK.memory_model.message_passing.core11.u32.coherent.fence_fence.atomicwrite.device.payload_nonlocal.workgroup.guard_local.image.comp,Fail
 dEQP-VK.memory.requirements.dedicated_allocation.buffer.regular,Fail
 dEQP-VK.memory.requirements.dedicated_allocation.image.transient_tiling_optimal,Fail
-dEQP-VK.pipeline.extended_dynamic_state.after_pipelines.depth_compare_greater_equal_greater,Fail
-dEQP-VK.pipeline.extended_dynamic_state.before_draw.depth_compare_always_greater,Fail
-dEQP-VK.pipeline.extended_dynamic_state.before_draw.depth_compare_greater_equal_greater_then_equal,Fail
-dEQP-VK.pipeline.extended_dynamic_state.cmd_buffer_start.depth_compare_greater,Fail
-dEQP-VK.pipeline.extended_dynamic_state.two_draws_dynamic.depth_compare_always_greater,Fail
-dEQP-VK.pipeline.extended_dynamic_state.two_draws_dynamic.depth_compare_greater_equal_greater_then_equal,Fail
 dEQP-VK.pipeline.framebuffer_attachment.diff_attachments_2d_19x27_32x32_ms,Fail
 dEQP-VK.pipeline.multisample.alpha_to_coverage_no_color_attachment.samples_2.alpha_opaque,Fail
 dEQP-VK.pipeline.push_descriptor.compute.binding3_numcalls2_combined_image_sampler,Crash
