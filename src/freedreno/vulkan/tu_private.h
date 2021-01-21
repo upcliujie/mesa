@@ -1086,6 +1086,7 @@ struct tu_pipeline
    uint32_t gras_su_cntl, gras_su_cntl_mask;
    uint32_t rb_depth_cntl, rb_depth_cntl_mask;
    uint32_t rb_stencil_cntl, rb_stencil_cntl_mask;
+   uint32_t stencil_wrmask;
 
    bool rb_depth_cntl_disable;
 
@@ -1624,5 +1625,8 @@ TU_DEFINE_NONDISP_HANDLE_CASTS(tu_shader_module, VkShaderModule)
 
 /* for TU_FROM_HANDLE with both VkFence and VkSemaphore: */
 #define tu_syncobj_from_handle(x) ((struct tu_syncobj*) (uintptr_t) (x))
+
+void
+update_stencil_mask(uint32_t *value, VkStencilFaceFlags face, uint32_t mask);
 
 #endif /* TU_PRIVATE_H */
