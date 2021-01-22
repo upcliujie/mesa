@@ -37,8 +37,7 @@
 #include "vk_util.h"
 
 static void
-genX(emit_slice_hashing_state)(struct anv_device *device,
-                               struct anv_batch *batch)
+init_slice_hashing_state(struct anv_device *device)
 {
    device->slice_hash = (struct anv_state) { 0 };
 
@@ -97,21 +96,13 @@ genX(emit_slice_hashing_state)(struct anv_device *device,
    const struct GENX(SLICE_HASH_TABLE) *table =
       subslices_delta < 0 ? &table0 : &table1;
    GENX(SLICE_HASH_TABLE_pack)(NULL, device->slice_hash.map, table);
-
-   anv_batch_emit(batch, GENX(3DSTATE_SLICE_TABLE_STATE_POINTERS), ptr) {
-      ptr.SliceHashStatePointerValid = true;
-      ptr.SliceHashTableStatePointer = device->slice_hash.offset;
-   }
-
-   anv_batch_emit(batch, GENX(3DSTATE_3D_MODE), mode) {
-      mode.SliceHashingTableEnable = true;
-   }
 #endif
 }
 
-VkResult
-genX(init_device_state)(struct anv_device *device)
+static VkResult
+init_queue_context(struct anv_queue *queue)
 {
+   struct anv_device *device = queue->device;
    struct anv_batch batch;
 
    uint32_t cmds[64];
@@ -222,7 +213,19 @@ genX(init_device_state)(struct anv_device *device)
    }
 
 #endif
-   genX(emit_slice_hashing_state)(device, &batch);
+
+#if GEN_GEN == 11
+   if (device->slice_hash.alloc_size > 0) {
+      anv_batch_emit(&batch, GENX(3DSTATE_SLICE_TABLE_STATE_POINTERS), ptr) {
+         ptr.SliceHashStatePointerValid = true;
+         ptr.SliceHashTableStatePointer = device->slice_hash.offset;
+      }
+
+      anv_batch_emit(&batch, GENX(3DSTATE_3D_MODE), mode) {
+         mode.SliceHashingTableEnable = true;
+      }
+   }
+#endif
 
 #if GEN_GEN >= 11
    /* hardware specification recommends disabling repacking for
@@ -317,7 +320,14 @@ genX(init_device_state)(struct anv_device *device)
 
    assert(batch.next <= batch.end);
 
-   return anv_queue_submit_simple_batch(&device->queue, &batch);
+   return anv_queue_submit_simple_batch(queue, &batch);
+}
+
+VkResult
+genX(init_device_state)(struct anv_device *device)
+{
+   init_slice_hashing_state(device);
+   return init_queue_context(&device->queue);
 }
 
 static uint32_t
