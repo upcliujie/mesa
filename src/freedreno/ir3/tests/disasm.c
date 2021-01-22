@@ -293,6 +293,9 @@ static const struct test {
 #endif
 	INSTR_6XX(d5c60003_03008001, "(sy)atomic.max.untyped.1d.u32.1.l r0.w, l[r0.z], r0.w"),
 
+	/* dEQP-VK.glsl.atomic_operations.add_unsigned_compute_reference */
+	INSTR_6XX(c4160002_02000001, "atomic.add.untyped.1d.u32.1.g r0.z, g[r0.x], r0.x, r0.z, r0.x"),
+
 	/* Bindless atomic: */
 	INSTR_6XX(c03a0003_01640001, "atomic.b.add.untyped.1d.s32.1.imm r0.w, r0.y, 0"), /* atomic.b.add.g.s32.1d.mode0.base0 r0.w,r0.y,0 */
 	INSTR_6XX(c03a0003_01660001, "atomic.b.and.untyped.1d.s32.1.imm r0.w, r0.y, 0"), /* atomic.b.and.g.s32.1d.mode0.base0 r0.w,r0.y,0 */
