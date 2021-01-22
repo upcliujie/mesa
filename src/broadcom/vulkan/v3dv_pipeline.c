@@ -332,7 +332,7 @@ nir_optimize(nir_shader *nir,
       OPT(nir_lower_pack);
    } while (progress);
 
-   OPT(nir_remove_dead_variables, nir_var_function_temp, NULL);
+   OPT(nir_remove_dead_variables, nir_var_function_temp);
 }
 
 static void
@@ -373,8 +373,7 @@ preprocess_nir(nir_shader *nir,
               nir_address_format_32bit_index_offset);
 
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_shader_in |
-              nir_var_shader_out | nir_var_system_value | nir_var_mem_shared,
-              NULL);
+              nir_var_shader_out | nir_var_system_value | nir_var_mem_shared);
 
    NIR_PASS_V(nir, nir_propagate_invariant);
    NIR_PASS_V(nir, nir_lower_io_to_temporaries,
@@ -955,7 +954,7 @@ lower_fs_io(nir_shader *nir)
 {
    /* Our backend doesn't handle array fragment shader outputs */
    NIR_PASS_V(nir, nir_lower_io_arrays_to_elements_no_indirects, false);
-   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_shader_out, NULL);
+   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_shader_out);
 
    nir_assign_io_var_locations(nir, nir_var_shader_in, &nir->num_inputs,
                                MESA_SHADER_FRAGMENT);
@@ -1634,8 +1633,7 @@ st_nir_opts(nir_shader *nir)
       NIR_PASS(progress, nir, nir_remove_dead_variables,
                (nir_variable_mode)(nir_var_function_temp |
                                    nir_var_shader_temp |
-                                   nir_var_mem_shared),
-               NULL);
+                                   nir_var_mem_shared));
 
       NIR_PASS(progress, nir, nir_opt_copy_prop_vars);
       NIR_PASS(progress, nir, nir_opt_dead_write_vars);
@@ -1687,8 +1685,8 @@ link_shaders(nir_shader *producer, nir_shader *consumer)
    if (nir_link_opt_varyings(producer, consumer))
       st_nir_opts(consumer);
 
-   NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out, NULL);
-   NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in, NULL);
+   NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out);
+   NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in);
 
    if (nir_remove_unused_varyings(producer, consumer)) {
       NIR_PASS_V(producer, nir_lower_global_vars_to_local);
@@ -1701,8 +1699,8 @@ link_shaders(nir_shader *producer, nir_shader *consumer)
        * nir_compact_varyings() depends on all dead varyings being removed so
        * we need to call nir_remove_dead_variables() again here.
        */
-      NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out, NULL);
-      NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in, NULL);
+      NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out);
+      NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in);
    }
 }
 

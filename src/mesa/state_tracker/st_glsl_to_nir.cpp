@@ -265,8 +265,7 @@ st_nir_opts(nir_shader *nir)
        */
       NIR_PASS(progress, nir, nir_remove_dead_variables,
                nir_var_function_temp | nir_var_shader_temp |
-               nir_var_mem_shared,
-               NULL);
+               nir_var_mem_shared);
 
       NIR_PASS(progress, nir, nir_opt_copy_prop_vars);
       NIR_PASS(progress, nir, nir_opt_dead_write_vars);
@@ -382,7 +381,7 @@ st_nir_preprocess(struct st_context *st, struct gl_program *prog,
     */
    if (!_mesa_is_gles(st->ctx) || !nir->info.separate_shader) {
       nir_variable_mode mask = nir_var_shader_in | nir_var_shader_out;
-      nir_remove_dead_variables(nir, mask, NULL);
+      nir_remove_dead_variables(nir, mask);
    }
 
    if (options->lower_all_io_to_temps ||
@@ -557,7 +556,7 @@ st_glsl_to_nir_post_opts(struct st_context *st, struct gl_program *prog,
 
    nir_variable_mode mask =
       nir_var_shader_in | nir_var_shader_out | nir_var_function_temp;
-   nir_remove_dead_variables(nir, mask, NULL);
+   nir_remove_dead_variables(nir, mask);
 
    if (!st->has_hw_atomics && !screen->get_param(screen, PIPE_CAP_NIR_ATOMICS_AS_DEREF))
       NIR_PASS_V(nir, nir_lower_atomics_to_ssbo);
@@ -615,8 +614,8 @@ st_nir_link_shaders(nir_shader *producer, nir_shader *consumer)
    if (nir_link_opt_varyings(producer, consumer))
       st_nir_opts(consumer);
 
-   NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out, NULL);
-   NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in, NULL);
+   NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out);
+   NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in);
 
    if (nir_remove_unused_varyings(producer, consumer)) {
       NIR_PASS_V(producer, nir_lower_global_vars_to_local);
@@ -629,10 +628,8 @@ st_nir_link_shaders(nir_shader *producer, nir_shader *consumer)
        * nir_compact_varyings() depends on all dead varyings being removed so
        * we need to call nir_remove_dead_variables() again here.
        */
-      NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out,
-                 NULL);
-      NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in,
-                 NULL);
+      NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out);
+      NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in);
    }
 }
 

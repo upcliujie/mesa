@@ -546,7 +546,7 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
    NIR_PASS_V(nir, nir_split_per_member_structs);
 
    NIR_PASS_V(nir, nir_remove_dead_variables,
-              nir_var_shader_in | nir_var_shader_out | nir_var_system_value, NULL);
+              nir_var_shader_in | nir_var_shader_out | nir_var_system_value);
 
    if (stage == MESA_SHADER_FRAGMENT)
       lvp_lower_input_attachments(nir, false);
@@ -554,7 +554,7 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
    NIR_PASS_V(nir, nir_lower_compute_system_values, NULL);
 
    NIR_PASS_V(nir, nir_lower_clip_cull_distance_arrays);
-   nir_remove_dead_variables(nir, nir_var_uniform, NULL);
+   nir_remove_dead_variables(nir, nir_var_uniform);
 
    lvp_lower_pipeline_layout(pipeline->device, pipeline->layout, nir);
 
@@ -574,7 +574,7 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_shared, nir_address_format_32bit_offset);
    }
 
-   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_shader_temp, NULL);
+   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_shader_temp);
 
    if (nir->info.stage == MESA_SHADER_VERTEX ||
        nir->info.stage == MESA_SHADER_GEOMETRY) {
@@ -605,7 +605,7 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
    } while (progress);
 
    nir_lower_var_copies(nir);
-   nir_remove_dead_variables(nir, nir_var_function_temp, NULL);
+   nir_remove_dead_variables(nir, nir_var_function_temp);
 
    nir_validate_shader(nir, NULL);
    nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));

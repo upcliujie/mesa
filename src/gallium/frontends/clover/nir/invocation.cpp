@@ -459,7 +459,7 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
 
       NIR_PASS_V(nir, nir_lower_printf, &printf_options);
 
-      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
+      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp);
 
       // copy propagate to prepare for lower_explicit_io
       NIR_PASS_V(nir, nir_split_var_copies);
@@ -477,7 +477,7 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
       // constant fold before lowering mem constants
       NIR_PASS_V(nir, nir_opt_constant_folding);
 
-      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_mem_constant, NULL);
+      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_mem_constant);
       NIR_PASS_V(nir, nir_lower_vars_to_explicit_types, nir_var_mem_constant,
                  glsl_get_cl_type_size_align);
       if (nir->constant_data_size > 0) {
@@ -523,7 +523,7 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_global,
                  spirv_options.global_addr_format);
 
-      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_all, NULL);
+      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_all);
 
       if (compiler_options->lower_int64_options)
          NIR_PASS_V(nir, nir_lower_int64);

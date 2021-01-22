@@ -604,10 +604,10 @@ gl_nir_link_spirv(struct gl_context *ctx, struct gl_shader_program *prog,
       struct gl_linked_shader *shader = prog->_LinkedShaders[i];
       if (shader) {
          const nir_remove_dead_variables_options opts = {
+            .modes = nir_var_uniform,
             .can_remove_var = can_remove_uniform,
          };
-         nir_remove_dead_variables(shader->Program->nir, nir_var_uniform,
-                                   &opts);
+         nir_remove_dead_variables_with_options(shader->Program->nir, &opts);
       }
    }
 
@@ -668,10 +668,10 @@ gl_nir_link_glsl(struct gl_context *ctx, struct gl_shader_program *prog)
       struct gl_linked_shader *shader = prog->_LinkedShaders[i];
       if (shader) {
          const nir_remove_dead_variables_options opts = {
+            .modes = nir_var_uniform,
             .can_remove_var = can_remove_uniform,
          };
-         nir_remove_dead_variables(shader->Program->nir, nir_var_uniform,
-                                   &opts);
+         nir_remove_dead_variables_with_options(shader->Program->nir, &opts);
       }
    }
 

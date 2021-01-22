@@ -5966,14 +5966,14 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
     */
    if (!options->create_library && b->version < 0x10400) {
       const nir_remove_dead_variables_options dead_opts = {
-         .can_remove_var = can_remove,
+         .modes = ~(nir_var_function_temp |
+                    nir_var_shader_out |
+                    nir_var_shader_in |
+                    nir_var_system_value),
+         .can_remove_var = b->vars_used_indirectly ? can_remove : NULL,
          .can_remove_var_data = b->vars_used_indirectly,
       };
-      nir_remove_dead_variables(b->shader, ~(nir_var_function_temp |
-                                             nir_var_shader_out |
-                                             nir_var_shader_in |
-                                             nir_var_system_value),
-                                b->vars_used_indirectly ? &dead_opts : NULL);
+      nir_remove_dead_variables_with_options(b->shader, &dead_opts);
    }
 
    nir_foreach_variable_in_shader(var, b->shader) {

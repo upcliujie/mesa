@@ -201,8 +201,7 @@ radv_optimize_nir(struct nir_shader *shader, bool optimize_conservatively,
 		NIR_PASS(progress, shader, nir_opt_copy_prop_vars);
 		NIR_PASS(progress, shader, nir_opt_dead_write_vars);
 		NIR_PASS(progress, shader, nir_remove_dead_variables,
-			 nir_var_function_temp | nir_var_shader_in | nir_var_shader_out,
-			 NULL);
+			 nir_var_function_temp | nir_var_shader_in | nir_var_shader_out);
 
                 NIR_PASS_V(shader, nir_lower_alu_to_scalar, NULL, NULL);
                 NIR_PASS_V(shader, nir_lower_phis_to_scalar);
@@ -560,8 +559,7 @@ radv_shader_compile_to_nir(struct radv_device *device,
 				   });
 
 		NIR_PASS_V(nir, nir_remove_dead_variables,
-		           nir_var_shader_in | nir_var_shader_out | nir_var_system_value | nir_var_mem_shared,
-			   NULL);
+		           nir_var_shader_in | nir_var_shader_out | nir_var_system_value | nir_var_mem_shared);
 
 		if (device->instance->debug_flags & RADV_DEBUG_INVARIANT_GEOM &&
 		    stage != MESA_SHADER_FRAGMENT) {
@@ -632,7 +630,7 @@ radv_shader_compile_to_nir(struct radv_device *device,
 	nir_split_var_copies(nir);
 
 	nir_lower_global_vars_to_local(nir);
-	nir_remove_dead_variables(nir, nir_var_function_temp, NULL);
+	nir_remove_dead_variables(nir, nir_var_function_temp);
 	bool gfx7minus = device->physical_device->rad_info.chip_class <= GFX7;
 	nir_lower_subgroups(nir, &(struct nir_lower_subgroups_options) {
 			.subgroup_size = subgroup_size,

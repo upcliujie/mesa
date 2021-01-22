@@ -1206,7 +1206,7 @@ clc_to_dxil(struct clc_context *ctx,
 
    // Before removing dead uniforms, dedupe constant samplers to make more dead uniforms
    NIR_PASS_V(nir, clc_nir_dedupe_const_samplers);
-   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_uniform | nir_var_mem_ubo | nir_var_mem_constant | nir_var_function_temp, NULL);
+   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_uniform | nir_var_mem_ubo | nir_var_mem_constant | nir_var_function_temp);
 
    NIR_PASS_V(nir, scale_fdiv);
 
@@ -1276,7 +1276,7 @@ clc_to_dxil(struct clc_context *ctx,
    NIR_PASS_V(nir, dxil_lower_sample_to_txf_for_integer_tex,
               int_sampler_states, NULL, 14.0f);
 
-   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_mem_shared | nir_var_function_temp, NULL);
+   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_mem_shared | nir_var_function_temp);
 
    nir->scratch_size = 0;
    NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,

@@ -148,8 +148,7 @@ tu_spirv_to_nir(struct tu_device *dev,
    NIR_PASS_V(nir, nir_split_per_member_structs);
 
    NIR_PASS_V(nir, nir_remove_dead_variables,
-              nir_var_shader_in | nir_var_shader_out | nir_var_system_value | nir_var_mem_shared,
-              NULL);
+              nir_var_shader_in | nir_var_shader_out | nir_var_system_value | nir_var_mem_shared);
 
    NIR_PASS_V(nir, nir_propagate_invariant);
 
@@ -643,8 +642,7 @@ tu_lower_io(nir_shader *shader, struct tu_shader *tu_shader,
 
    progress |=
       nir_remove_dead_variables(shader,
-                                nir_var_uniform | nir_var_mem_ubo | nir_var_mem_ssbo,
-                                NULL);
+                                nir_var_uniform | nir_var_mem_ubo | nir_var_mem_ssbo);
 
    return progress;
 }

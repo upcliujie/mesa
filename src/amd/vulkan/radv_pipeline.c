@@ -2385,7 +2385,7 @@ radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
 
 				nir_opt_dce(ordered_shaders[i]);
 				nir_remove_dead_variables(ordered_shaders[i],
-							  nir_var_function_temp | nir_var_shader_in | nir_var_shader_out, NULL);
+							  nir_var_function_temp | nir_var_shader_in | nir_var_shader_out);
 			}
 		}
 	}
@@ -2398,9 +2398,9 @@ radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
 		}
 
 		nir_remove_dead_variables(ordered_shaders[i],
-					  nir_var_shader_out, NULL);
+					  nir_var_shader_out);
 		nir_remove_dead_variables(ordered_shaders[i - 1],
-					  nir_var_shader_in, NULL);
+					  nir_var_shader_in);
 
 		bool progress = nir_remove_unused_varyings(ordered_shaders[i],
 							   ordered_shaders[i - 1]);

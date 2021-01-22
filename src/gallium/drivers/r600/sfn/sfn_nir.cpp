@@ -1019,8 +1019,8 @@ int r600_shader_from_nir(struct r600_context *rctx,
 
    NIR_PASS_V(sh, r600::r600_merge_vec2_stores);
 
-   NIR_PASS_V(sh, nir_remove_dead_variables, nir_var_shader_in, NULL);
-   NIR_PASS_V(sh, nir_remove_dead_variables,  nir_var_shader_out, NULL);
+   NIR_PASS_V(sh, nir_remove_dead_variables, nir_var_shader_in);
+   NIR_PASS_V(sh, nir_remove_dead_variables,  nir_var_shader_out);
 
 
    NIR_PASS_V(sh, nir_lower_vars_to_scratch,

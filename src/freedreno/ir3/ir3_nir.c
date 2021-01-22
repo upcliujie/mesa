@@ -324,7 +324,7 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 	if (idiv_progress)
 		ir3_optimize_loop(s);
 
-	OPT_V(s, nir_remove_dead_variables, nir_var_function_temp, NULL);
+	OPT_V(s, nir_remove_dead_variables, nir_var_function_temp);
 
 	if (ir3_shader_debug & IR3_DBG_DISASM) {
 		debug_printf("----------------------\n");

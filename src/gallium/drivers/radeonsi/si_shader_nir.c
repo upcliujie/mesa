@@ -757,7 +757,7 @@ static void si_lower_nir(struct si_screen *sscreen, struct nir_shader *nir)
    bool changed = false;
    if (!nir->constant_data) {
       /* The pass crashes if there are dead temps of lowered IO interface types. */
-      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
+      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp);
       NIR_PASS(changed, nir, nir_opt_large_constants, glsl_get_natural_size_align_bytes, 16);
    }
 
@@ -776,7 +776,7 @@ static void si_lower_nir(struct si_screen *sscreen, struct nir_shader *nir)
       NIR_PASS_V(nir, nir_opt_cse);
    }
 
-   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
+   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp);
 
    NIR_PASS_V(nir, nir_lower_discard_or_demote,
               sscreen->debug_flags & DBG(FS_CORRECT_DERIVS_AFTER_KILL));

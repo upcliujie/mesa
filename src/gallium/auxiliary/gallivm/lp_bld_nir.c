@@ -2228,7 +2228,7 @@ bool lp_build_nir_llvm(
    nir_convert_from_ssa(nir, true);
    nir_lower_locals_to_regs(nir);
    nir_remove_dead_derefs(nir);
-   nir_remove_dead_variables(nir, nir_var_function_temp, NULL);
+   nir_remove_dead_variables(nir, nir_var_function_temp);
 
    nir_foreach_shader_out_variable(variable, nir)
       handle_shader_output_decl(bld_base, nir, variable);

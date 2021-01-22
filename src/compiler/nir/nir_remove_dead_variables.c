@@ -177,20 +177,29 @@ remove_dead_vars(struct exec_list *var_list, nir_variable_mode modes,
 }
 
 bool
-nir_remove_dead_variables(nir_shader *shader, nir_variable_mode modes,
-                          const nir_remove_dead_variables_options *opts)
+nir_remove_dead_variables(nir_shader *shader, nir_variable_mode modes)
+{
+   const nir_remove_dead_variables_options opts = {
+      .modes = modes,
+   };
+   return nir_remove_dead_variables_with_options(shader, &opts);
+}
+
+bool
+nir_remove_dead_variables_with_options(nir_shader *shader,
+                                       const nir_remove_dead_variables_options *opts)
 {
    bool progress = false;
    struct set *live = _mesa_pointer_set_create(NULL);
 
-   add_var_use_shader(shader, live, modes);
+   add_var_use_shader(shader, live, opts->modes);
 
-   if (modes & ~nir_var_function_temp) {
-      progress = remove_dead_vars(&shader->variables, modes,
+   if (opts->modes & ~nir_var_function_temp) {
+      progress = remove_dead_vars(&shader->variables, opts->modes,
                                   live, opts) || progress;
    }
 
-   if (modes & nir_var_function_temp) {
+   if (opts->modes & nir_var_function_temp) {
       nir_foreach_function(function, shader) {
          if (function->impl) {
             if (remove_dead_vars(&function->impl->locals,

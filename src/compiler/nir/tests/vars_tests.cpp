@@ -2197,7 +2197,7 @@ TEST_F(nir_remove_dead_variables_test, pointer_initializer_used)
 
    nir_copy_var(b, out, y);
 
-   bool progress = nir_remove_dead_variables(b->shader, nir_var_all, NULL);
+   bool progress = nir_remove_dead_variables(b->shader, nir_var_all);
    EXPECT_FALSE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2219,7 +2219,7 @@ TEST_F(nir_remove_dead_variables_test, pointer_initializer_dead)
 
    nir_validate_shader(b->shader, NULL);
 
-   bool progress = nir_remove_dead_variables(b->shader, nir_var_all, NULL);
+   bool progress = nir_remove_dead_variables(b->shader, nir_var_all);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
