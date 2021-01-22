@@ -3309,30 +3309,40 @@ _anv_queue_set_lost(struct anv_queue *queue,
 }
 
 VkResult
-anv_device_query_status(struct anv_device *device)
+anv_queue_query_status(struct anv_queue *queue)
 {
    /* This isn't likely as most of the callers of this function already check
     * for it.  However, it doesn't hurt to check and it potentially lets us
     * avoid an ioctl.
     */
-   if (anv_device_is_lost(device))
+   if (anv_queue_is_lost(queue))
       return VK_ERROR_DEVICE_LOST;
 
    uint32_t active, pending;
-   int ret = anv_gem_context_get_reset_stats(device->fd, device->context_id,
+   int ret = anv_gem_context_get_reset_stats(queue->device->fd,
+                                             queue->device->context_id,
                                              &active, &pending);
    if (ret == -1) {
       /* We don't know the real error. */
-      return anv_device_set_lost(device, "get_reset_stats failed: %m");
+      return anv_queue_set_lost(queue, "get_reset_stats failed: %m");
    }
 
    if (active) {
-      return anv_device_set_lost(device, "GPU hung on one of our command buffers");
+      return anv_queue_set_lost(queue, "GPU hung on one of our command buffers");
    } else if (pending) {
-      return anv_device_set_lost(device, "GPU hung with commands in-flight");
+      return anv_queue_set_lost(queue, "GPU hung with commands in-flight");
    }
 
    return VK_SUCCESS;
+}
+
+VkResult
+anv_device_query_status(struct anv_device *device)
+{
+   if (anv_device_is_lost(device))
+      return VK_ERROR_DEVICE_LOST;
+
+   return anv_queue_query_status(&device->queue);
 }
 
 VkResult
