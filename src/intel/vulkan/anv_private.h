@@ -1491,6 +1491,12 @@ VkResult _anv_queue_set_lost(struct anv_queue *queue,
    _anv_device_set_lost(queue->device, __FILE__, __LINE__, __VA_ARGS__)
 
 static inline bool
+anv_queue_is_lost(struct anv_queue *queue)
+{
+   return queue->lost;
+}
+
+static inline bool
 anv_device_is_lost(struct anv_device *device)
 {
    int lost = p_atomic_read(&device->_lost);
@@ -1500,6 +1506,7 @@ anv_device_is_lost(struct anv_device *device)
 }
 
 VkResult anv_device_query_status(struct anv_device *device);
+VkResult anv_queue_query_status(struct anv_queue *queue);
 
 
 enum anv_bo_alloc_flags {
