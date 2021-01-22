@@ -118,6 +118,9 @@ fd6_validate_format(struct fd_context *ctx, struct fd_resource *rsc,
 	if (ok_ubwc_format(rsc->base.screen, format))
 		return;
 
+	perf_warn_ctx(ctx, "%"PRSC_FMT": demoted to linear due to use as %s",
+		PRSC_ARGS(&rsc->base), util_format_short_name(format));
+
 	fd_resource_uncompress(ctx, rsc);
 }
 
@@ -203,7 +206,16 @@ fd6_layout_resource_for_modifier(struct fd_resource *rsc, uint64_t modifier)
 	case DRM_FORMAT_MOD_QCOM_COMPRESSED:
 		return fill_ubwc_buffer_sizes(rsc);
 	case DRM_FORMAT_MOD_LINEAR:
+		if (can_do_ubwc(&rsc->base)) {
+			perf_warn("%"PRSC_FMT": not UBWC: imported with MOD_LINEAR modifier!",
+					PRSC_ARGS(&rsc->base));
+		}
+		return 0;
 	case DRM_FORMAT_MOD_INVALID:
+		if (can_do_ubwc(&rsc->base)) {
+			perf_warn("%"PRSC_FMT": not UBWC: imported with MOD_INVALID modifier!",
+					PRSC_ARGS(&rsc->base));
+		}
 		return 0;
 	default:
 		return -1;
