@@ -113,6 +113,8 @@ EXTENSIONS = [
     Extension('VK_KHR_shader_float_controls',             1, True),
     Extension('VK_KHR_shader_float16_int8',               1, True),
     Extension('VK_KHR_16bit_storage',                     1, 'device->gpu_id >= 650'),
+    Extension('VK_KHR_buffer_device_address',             1, True),
+    Extension('VK_EXT_buffer_device_address',             2, True),
 ]
 
 MAX_API_VERSION = VkVersion(MAX_API_VERSION)

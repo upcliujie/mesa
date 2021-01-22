@@ -76,6 +76,7 @@ tu_spirv_to_nir(struct tu_device *dev,
          .float_controls = true,
          .float16 = true,
          .storage_16bit = dev->physical_device->gpu_id >= 650,
+         .physical_storage_buffer_address = true,
       },
    };
 
@@ -832,6 +833,12 @@ tu_shader_create(struct tu_device *dev,
    NIR_PASS_V(nir, nir_lower_explicit_io,
               nir_var_mem_ubo | nir_var_mem_ssbo,
               nir_address_format_vec2_index_32bit_offset);
+
+   NIR_PASS_V(nir, nir_lower_explicit_io,
+              nir_var_mem_global,
+              nir_address_format_64bit_global);
+
+   NIR_PASS_V(nir, nir_lower_int64);
 
    if (nir->info.stage == MESA_SHADER_COMPUTE) {
       NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
