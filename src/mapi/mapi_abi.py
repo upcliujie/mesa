@@ -478,6 +478,10 @@ class ABIPrinter(object):
             print(self.c_header)
 
         print()
+        print('#ifdef MemoryBarrier')
+        print('#undef MemoryBarrier')
+        print('#endif)
+        print()
         print('#ifdef MAPI_TMP_DEFINES')
         print(self.c_public_includes())
         print()
