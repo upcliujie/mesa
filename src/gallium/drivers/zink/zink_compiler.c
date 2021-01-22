@@ -337,7 +337,7 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
       want_halfz = true;
    }
    /* only run this if we aren't already using halfz */
-   if (want_halfz) {
+   if (want_halfz && key && !zink_vs_key(key)->clip_halfz) {
       if (!needs_free)
          needs_free = nir = nir_shader_clone(NULL, nir);
       NIR_PASS_V(nir, nir_lower_clip_halfz);
