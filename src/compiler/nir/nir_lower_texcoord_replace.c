@@ -26,6 +26,36 @@
 
 #include "nir.h"
 #include "nir_builder.h"
+#include "nir_deref.h"
+
+static nir_ssa_def *
+get_io_index(nir_builder *b, nir_deref_instr *deref)
+{
+   nir_deref_path path;
+   nir_deref_path_init(&path, deref, NULL);
+
+   assert(path.path[0]->deref_type == nir_deref_type_var);
+   nir_deref_instr **p = &path.path[1];
+
+   /* Just emit code and let constant-folding go to town */
+   nir_ssa_def *offset = nir_imm_int(b, 0);
+
+   for (; *p; p++) {
+      if ((*p)->deref_type == nir_deref_type_array) {
+         unsigned size = glsl_get_length((*p)->type);
+
+         nir_ssa_def *mul =
+            nir_amul_imm(b, nir_ssa_for_src(b, (*p)->arr.index, 1), size);
+
+         offset = nir_iadd(b, offset, mul);
+      } else
+         unreachable("Unsupported deref type");
+   }
+
+   nir_deref_path_finish(&path);
+
+   return offset;
+}
 
 static void
 nir_lower_texcoord_replace_impl(nir_function_impl *impl,
@@ -78,14 +108,26 @@ nir_lower_texcoord_replace_impl(nir_function_impl *impl,
              var->data.location < VARYING_SLOT_TEX0 ||
              var->data.location > VARYING_SLOT_TEX7)
             continue;
+         unsigned texcoord_base = var->data.location - VARYING_SLOT_TEX0;
 
-         unsigned texcoord = var->data.location - VARYING_SLOT_TEX0;
-         if (!(coord_replace & (1u << texcoord)))
-            continue;
+         b.cursor = nir_after_instr(instr);
+         nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+         nir_ssa_def *index = get_io_index(&b, deref);
+         nir_ssa_def *texcoord = nir_iadd_imm(&b, index, texcoord_base);
 
-         b.cursor = nir_before_instr(instr);
-         nir_ssa_def_rewrite_uses(&intrin->dest.ssa,
-                                  nir_src_for_ssa(new_coord));
+         nir_ssa_def *cnd =
+            nir_i2b(&b,
+                    nir_iand_imm(&b,
+                                 nir_ishl(&b,
+                                          nir_imm_int(&b, 1),
+                                          texcoord),
+                                 coord_replace));
+         nir_ssa_def *result = nir_bcsel(&b, cnd, new_coord,
+                                         &intrin->dest.ssa);
+
+         nir_ssa_def_rewrite_uses_after(&intrin->dest.ssa,
+                                        nir_src_for_ssa(result),
+                                        result->parent_instr);
       }
    }
 
