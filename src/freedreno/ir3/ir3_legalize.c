@@ -272,13 +272,11 @@ legalize_block(struct ir3_legalize_ctx *ctx, struct ir3_block *block)
          else
             regmask_set(&state->needs_sy, n->dsts[0]);
       } else if (is_atomic(n->opc)) {
-         if (n->flags & IR3_INSTR_G) {
-            if (ctx->compiler->gpu_id >= 600) {
-               /* New encoding, returns  result via second src: */
-               regmask_set(&state->needs_sy, n->srcs[2]);
-            } else {
-               regmask_set(&state->needs_sy, n->dsts[0]);
-            }
+         if (is_bindless_atomic(n->opc)) {
+            regmask_set(&state->needs_sy, n->srcs[2]);
+         } else if (is_global_a3xx_atomic(n->opc) ||
+                    is_global_a6xx_atomic(n->opc)) {
+            regmask_set(&state->needs_sy, n->dsts[0]);
          } else {
             regmask_set(&state->needs_ss, n->dsts[0]);
          }
