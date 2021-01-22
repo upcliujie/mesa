@@ -688,6 +688,11 @@ lower_bit_size_callback(const nir_instr *instr, UNUSED void *data)
       if (alu->dest.dest.ssa.bit_size >= 32)
          return 0;
 
+      /* Note: nir_op_iabs and nir_op_ineg are not lowered here because the
+       * 8-bit ABS or NEG instruction should eventually get copy propagated
+       * into the MOV that does the type conversion.  This results in far
+       * fewer MOV instructions.
+       */
       switch (alu->op) {
       case nir_op_idiv:
       case nir_op_imod:
@@ -709,6 +714,9 @@ lower_bit_size_callback(const nir_instr *instr, UNUSED void *data)
       case nir_op_fsin:
       case nir_op_fcos:
          return devinfo->gen < 9 ? 32 : 0;
+      case nir_op_isign:
+         assert(!"Should have been lowered by nir_opt_algebraic.");
+         return 0;
       default:
          if (devinfo->gen >= 11) {
             if (nir_op_infos[alu->op].num_inputs >= 2 &&
