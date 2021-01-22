@@ -65,6 +65,7 @@ nir_lower_texcoord_replace_impl(nir_function_impl *impl,
    nir_builder b;
 
    nir_builder_init(&b, impl);
+   b.cursor = nir_before_cf_list(&impl->body);
 
    nir_ssa_def *new_coord;
    if (point_coord_is_sysval) {
@@ -81,7 +82,6 @@ nir_lower_texcoord_replace_impl(nir_function_impl *impl,
          pntc->data.location = VARYING_SLOT_PNTC;
       }
 
-      b.cursor = nir_before_cf_list(&impl->body);
       new_coord = nir_load_var(&b, pntc);
    }
 
