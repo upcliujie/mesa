@@ -24,7 +24,9 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/sysmacros.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include "drm-uapi/drm_fourcc.h"
@@ -281,6 +283,7 @@ get_device_extensions(const struct anv_physical_device *device,
       .EXT_line_rasterization                = true,
       .EXT_memory_budget                     = device->has_mem_available,
       .EXT_pci_bus_info                      = true,
+      .EXT_physical_device_drm               = true,
       .EXT_pipeline_creation_cache_control   = true,
       .EXT_pipeline_creation_feedback        = true,
       .EXT_post_depth_coverage               = device->info.ver >= 9,
@@ -912,6 +915,24 @@ anv_physical_device_try_create(struct anv_instance *instance,
 
    device->engine_info = anv_gem_get_engine_info(fd);
    anv_physical_device_init_queue_families(device);
+
+   struct stat st;
+   if (stat(path, &st) != 0) {
+      result = vk_errorfi(instance, NULL, VK_ERROR_INITIALIZATION_FAILED,
+                          "failed to stat DRM render node %s", path);
+      goto fail_engine_info;
+   }
+   device->local_node[0] = (int64_t) major(st.st_rdev);
+   device->local_node[1] = (int64_t) minor(st.st_rdev);
+   if (master_fd != -1) {
+      if (stat(primary_path, &st) != 0) {
+         result = vk_errorfi(instance, NULL, VK_ERROR_INITIALIZATION_FAILED,
+                             "failed to stat DRM primary node %s", primary_path);
+         goto fail_engine_info;
+      }
+      device->master_node[0] = (int64_t) major(st.st_rdev);
+      device->master_node[1] = (int64_t) minor(st.st_rdev);
+   }
 
    result = anv_init_wsi(device);
    if (result != VK_SUCCESS)
@@ -2245,6 +2266,22 @@ void anv_GetPhysicalDeviceProperties2(
          CORE_PROPERTY(1, 2, driverName);
          CORE_PROPERTY(1, 2, driverInfo);
          CORE_PROPERTY(1, 2, conformanceVersion);
+         break;
+      }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT: {
+         VkPhysicalDeviceDrmPropertiesEXT *props =
+            (VkPhysicalDeviceDrmPropertiesEXT *)ext;
+         if (pdevice->master_fd != -1) {
+            props->hasPrimary = true;
+            props->primaryMajor = pdevice->master_node[0];
+            props->primaryMinor = pdevice->master_node[1];
+         } else {
+            props->hasPrimary = false;
+         }
+         props->hasRender = true;
+         props->renderMajor = pdevice->local_node[0];
+         props->renderMinor = pdevice->local_node[1];
          break;
       }
 
