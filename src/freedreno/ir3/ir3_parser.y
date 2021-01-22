@@ -992,17 +992,17 @@ cat6_reg_or_immed: reg
 
 cat6_bindless_ibo_opc_1src: T_OP_RESINFO_B       { new_instr(OPC_RESINFO); }
 
-cat6_bindless_ibo_opc_2src: T_OP_ATOMIC_B_ADD        { new_instr(OPC_ATOMIC_ADD)->flags  |= IR3_INSTR_G; dummy_dst(); }
-|                  T_OP_ATOMIC_B_SUB        { new_instr(OPC_ATOMIC_SUB)->flags  |= IR3_INSTR_G; dummy_dst(); }
-|                  T_OP_ATOMIC_B_XCHG       { new_instr(OPC_ATOMIC_XCHG)->flags |= IR3_INSTR_G; dummy_dst(); }
-|                  T_OP_ATOMIC_B_INC        { new_instr(OPC_ATOMIC_INC)->flags  |= IR3_INSTR_G; dummy_dst(); }
-|                  T_OP_ATOMIC_B_DEC        { new_instr(OPC_ATOMIC_DEC)->flags  |= IR3_INSTR_G; dummy_dst(); }
-|                  T_OP_ATOMIC_B_CMPXCHG    { new_instr(OPC_ATOMIC_CMPXCHG)->flags |= IR3_INSTR_G; dummy_dst(); }
-|                  T_OP_ATOMIC_B_MIN        { new_instr(OPC_ATOMIC_MIN)->flags  |= IR3_INSTR_G; dummy_dst(); }
-|                  T_OP_ATOMIC_B_MAX        { new_instr(OPC_ATOMIC_MAX)->flags  |= IR3_INSTR_G; dummy_dst(); }
-|                  T_OP_ATOMIC_B_AND        { new_instr(OPC_ATOMIC_AND)->flags  |= IR3_INSTR_G; dummy_dst(); }
-|                  T_OP_ATOMIC_B_OR         { new_instr(OPC_ATOMIC_OR)->flags   |= IR3_INSTR_G; dummy_dst(); }
-|                  T_OP_ATOMIC_B_XOR        { new_instr(OPC_ATOMIC_XOR)->flags  |= IR3_INSTR_G; dummy_dst(); }
+cat6_bindless_ibo_opc_2src: T_OP_ATOMIC_B_ADD        { new_instr(OPC_ATOMIC_B_ADD); dummy_dst(); }
+|                  T_OP_ATOMIC_B_SUB        { new_instr(OPC_ATOMIC_B_SUB); dummy_dst(); }
+|                  T_OP_ATOMIC_B_XCHG       { new_instr(OPC_ATOMIC_B_XCHG); dummy_dst(); }
+|                  T_OP_ATOMIC_B_INC        { new_instr(OPC_ATOMIC_B_INC); dummy_dst(); }
+|                  T_OP_ATOMIC_B_DEC        { new_instr(OPC_ATOMIC_B_DEC); dummy_dst(); }
+|                  T_OP_ATOMIC_B_CMPXCHG    { new_instr(OPC_ATOMIC_B_CMPXCHG); dummy_dst(); }
+|                  T_OP_ATOMIC_B_MIN        { new_instr(OPC_ATOMIC_B_MIN); dummy_dst(); }
+|                  T_OP_ATOMIC_B_MAX        { new_instr(OPC_ATOMIC_B_MAX); dummy_dst(); }
+|                  T_OP_ATOMIC_B_AND        { new_instr(OPC_ATOMIC_B_AND); dummy_dst(); }
+|                  T_OP_ATOMIC_B_OR         { new_instr(OPC_ATOMIC_B_OR); dummy_dst(); }
+|                  T_OP_ATOMIC_B_XOR        { new_instr(OPC_ATOMIC_B_XOR); dummy_dst(); }
 |                  T_OP_LDIB_B              { new_instr(OPC_LDIB); }
 |                  T_OP_STIB_B              { new_instr(OPC_STIB); dummy_dst(); }
 

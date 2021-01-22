@@ -1108,7 +1108,27 @@ static inline bool is_madsh(opc_t opc)
 	}
 }
 
-static inline bool is_atomic(opc_t opc)
+static inline bool is_bindless_atomic(opc_t opc)
+{
+	switch (opc) {
+	case OPC_ATOMIC_B_ADD:
+	case OPC_ATOMIC_B_SUB:
+	case OPC_ATOMIC_B_XCHG:
+	case OPC_ATOMIC_B_INC:
+	case OPC_ATOMIC_B_DEC:
+	case OPC_ATOMIC_B_CMPXCHG:
+	case OPC_ATOMIC_B_MIN:
+	case OPC_ATOMIC_B_MAX:
+	case OPC_ATOMIC_B_AND:
+	case OPC_ATOMIC_B_OR:
+	case OPC_ATOMIC_B_XOR:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static inline bool is_legacy_atomic(opc_t opc)
 {
 	switch (opc) {
 	case OPC_ATOMIC_ADD:
@@ -1126,6 +1146,11 @@ static inline bool is_atomic(opc_t opc)
 	default:
 		return false;
 	}
+}
+
+static inline bool is_atomic(opc_t opc)
+{
+	return is_bindless_atomic(opc) || is_legacy_atomic(opc);
 }
 
 static inline bool is_ssbo(opc_t opc)
