@@ -985,6 +985,12 @@ struct anv_physical_device {
 
     void (*cmd_emit_timestamp)(struct anv_batch *, struct anv_bo *, uint32_t );
     struct intel_measure_device                 measure_device;
+
+    /**
+     * Major & minor DRM numbers.
+     */
+    int64_t                                     local_node[2];
+    int64_t                                     master_node[2];
 };
 
 struct anv_app_info {
