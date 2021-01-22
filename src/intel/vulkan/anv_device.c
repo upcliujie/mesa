@@ -3208,7 +3208,7 @@ VkResult anv_EnumerateDeviceLayerProperties(
 
 void anv_GetDeviceQueue(
     VkDevice                                    _device,
-    uint32_t                                    queueNodeIndex,
+    uint32_t                                    queueFamilyIndex,
     uint32_t                                    queueIndex,
     VkQueue*                                    pQueue)
 {
@@ -3216,7 +3216,7 @@ void anv_GetDeviceQueue(
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
       .pNext = NULL,
       .flags = 0,
-      .queueFamilyIndex = queueNodeIndex,
+      .queueFamilyIndex = queueFamilyIndex,
       .queueIndex = queueIndex,
    };
 
