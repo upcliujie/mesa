@@ -111,9 +111,6 @@ __instruction_case(struct encode_state *s, struct ir3_instruction *instr)
 		} else {
 			return OPC_MOV_GPR;
 		}
-	} else if ((instr->block->shader->compiler->gpu_id > 600) &&
-			is_atomic(instr->opc) && (instr->flags & IR3_INSTR_G)) {
-		return instr->opc - OPC_ATOMIC_ADD + OPC_ATOMIC_B_ADD;
 	} else if (s->compiler->gpu_id >= 600) {
 		if (instr->opc == OPC_RESINFO) {
 			return OPC_RESINFO_B;
@@ -223,9 +220,10 @@ extract_cat6_DESC_MODE(struct ir3_instruction *instr)
 static inline struct ir3_register *
 extract_cat6_SRC(struct ir3_instruction *instr, unsigned n)
 {
-	if (instr->flags & IR3_INSTR_G) {
+	if (is_global_a3xx_atomic(instr->opc)) {
 		n++;
 	}
+
 	assert(n < instr->regs_count);
 	return instr->regs[n];
 }
