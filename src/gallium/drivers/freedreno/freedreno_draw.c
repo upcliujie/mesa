@@ -105,8 +105,6 @@ batch_draw_tracking(struct fd_batch *batch, const struct pipe_draw_info *info,
 		}
 	}
 
-	if (fd_logicop_enabled(ctx))
-		batch->gmem_reason |= FD_GMEM_LOGICOP_ENABLED;
 
 	for (unsigned i = 0; i < pfb->nr_cbufs; i++) {
 		struct pipe_resource *surf;
@@ -124,11 +122,15 @@ batch_draw_tracking(struct fd_batch *batch, const struct pipe_draw_info *info,
 
 		buffers |= PIPE_CLEAR_COLOR0 << i;
 
-		if (fd_blend_enabled(ctx, i))
-			batch->gmem_reason |= FD_GMEM_BLEND_ENABLED;
-
 		if (ctx->dirty & FD_DIRTY_FRAMEBUFFER)
 			resource_written(batch, pfb->cbufs[i]->texture);
+	}
+
+	if (ctx->dirty & FD_DIRTY_BLEND) {
+		if (fd_logicop_enabled(ctx))
+			batch->gmem_reason |= FD_GMEM_LOGICOP_ENABLED;
+		if (ctx->blend->rt[0].blend_enable || ctx->blend->independent_blend_enable)
+			batch->gmem_reason |= FD_GMEM_BLEND_ENABLED;
 	}
 
 	/* Mark SSBOs */

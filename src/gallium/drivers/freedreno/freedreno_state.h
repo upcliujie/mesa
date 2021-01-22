@@ -50,11 +50,6 @@ static inline bool fd_logicop_enabled(struct fd_context *ctx)
 	return ctx->blend && ctx->blend->logicop_enable;
 }
 
-static inline bool fd_blend_enabled(struct fd_context *ctx, unsigned n)
-{
-	return ctx->blend && ctx->blend->rt[n].blend_enable;
-}
-
 static inline bool fd_depth_clamp_enabled(struct fd_context *ctx)
 {
 	return !(ctx->rasterizer->depth_clip_near && ctx->rasterizer->depth_clip_far);
