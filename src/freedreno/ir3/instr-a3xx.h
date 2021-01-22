@@ -48,7 +48,7 @@ void ir3_assert_handler(const char *expr, const char *file, int line,
 		} \
 	} while (0)
 /* size of largest OPC field of all the instruction categories: */
-#define NOPC_BITS 6
+#define NOPC_BITS 7
 
 #define _OPC(cat, opc)   (((cat) << NOPC_BITS) | opc)
 
@@ -278,6 +278,30 @@ typedef enum {
 	OPC_ATOMIC_B_AND      = _OPC(6, 52),
 	OPC_ATOMIC_B_OR       = _OPC(6, 53),
 	OPC_ATOMIC_B_XOR      = _OPC(6, 54),
+
+	OPC_ATOMIC_S_ADD      = _OPC(6, 55),
+	OPC_ATOMIC_S_SUB      = _OPC(6, 56),
+	OPC_ATOMIC_S_XCHG     = _OPC(6, 57),
+	OPC_ATOMIC_S_INC      = _OPC(6, 58),
+	OPC_ATOMIC_S_DEC      = _OPC(6, 59),
+	OPC_ATOMIC_S_CMPXCHG  = _OPC(6, 60),
+	OPC_ATOMIC_S_MIN      = _OPC(6, 61),
+	OPC_ATOMIC_S_MAX      = _OPC(6, 62),
+	OPC_ATOMIC_S_AND      = _OPC(6, 63),
+	OPC_ATOMIC_S_OR       = _OPC(6, 64),
+	OPC_ATOMIC_S_XOR      = _OPC(6, 65),
+
+	OPC_ATOMIC_G_ADD      = _OPC(6, 66),
+	OPC_ATOMIC_G_SUB      = _OPC(6, 67),
+	OPC_ATOMIC_G_XCHG     = _OPC(6, 68),
+	OPC_ATOMIC_G_INC      = _OPC(6, 69),
+	OPC_ATOMIC_G_DEC      = _OPC(6, 70),
+	OPC_ATOMIC_G_CMPXCHG  = _OPC(6, 71),
+	OPC_ATOMIC_G_MIN      = _OPC(6, 72),
+	OPC_ATOMIC_G_MAX      = _OPC(6, 73),
+	OPC_ATOMIC_G_AND      = _OPC(6, 74),
+	OPC_ATOMIC_G_OR       = _OPC(6, 75),
+	OPC_ATOMIC_G_XOR      = _OPC(6, 76),
 
 	/* category 7: */
 	OPC_BAR             = _OPC(7, 0),
@@ -1108,7 +1132,7 @@ static inline bool is_madsh(opc_t opc)
 	}
 }
 
-static inline bool is_atomic(opc_t opc)
+static inline bool is_local_atomic(opc_t opc)
 {
 	switch (opc) {
 	case OPC_ATOMIC_ADD:
@@ -1126,6 +1150,74 @@ static inline bool is_atomic(opc_t opc)
 	default:
 		return false;
 	}
+}
+
+static inline bool is_global_a3xx_atomic(opc_t opc)
+{
+	switch (opc) {
+	case OPC_ATOMIC_S_ADD:
+	case OPC_ATOMIC_S_SUB:
+	case OPC_ATOMIC_S_XCHG:
+	case OPC_ATOMIC_S_INC:
+	case OPC_ATOMIC_S_DEC:
+	case OPC_ATOMIC_S_CMPXCHG:
+	case OPC_ATOMIC_S_MIN:
+	case OPC_ATOMIC_S_MAX:
+	case OPC_ATOMIC_S_AND:
+	case OPC_ATOMIC_S_OR:
+	case OPC_ATOMIC_S_XOR:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static inline bool is_global_a6xx_atomic(opc_t opc)
+{
+	switch (opc) {
+	case OPC_ATOMIC_G_ADD:
+	case OPC_ATOMIC_G_SUB:
+	case OPC_ATOMIC_G_XCHG:
+	case OPC_ATOMIC_G_INC:
+	case OPC_ATOMIC_G_DEC:
+	case OPC_ATOMIC_G_CMPXCHG:
+	case OPC_ATOMIC_G_MIN:
+	case OPC_ATOMIC_G_MAX:
+	case OPC_ATOMIC_G_AND:
+	case OPC_ATOMIC_G_OR:
+	case OPC_ATOMIC_G_XOR:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static inline bool is_bindless_atomic(opc_t opc)
+{
+	switch (opc) {
+	case OPC_ATOMIC_B_ADD:
+	case OPC_ATOMIC_B_SUB:
+	case OPC_ATOMIC_B_XCHG:
+	case OPC_ATOMIC_B_INC:
+	case OPC_ATOMIC_B_DEC:
+	case OPC_ATOMIC_B_CMPXCHG:
+	case OPC_ATOMIC_B_MIN:
+	case OPC_ATOMIC_B_MAX:
+	case OPC_ATOMIC_B_AND:
+	case OPC_ATOMIC_B_OR:
+	case OPC_ATOMIC_B_XOR:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static inline bool is_atomic(opc_t opc)
+{
+	return is_local_atomic(opc) ||
+			is_global_a3xx_atomic(opc) ||
+			is_global_a6xx_atomic(opc) ||
+			is_bindless_atomic(opc);
 }
 
 static inline bool is_ssbo(opc_t opc)
