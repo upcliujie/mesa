@@ -30,6 +30,7 @@
 #include <pthread.h>
 #include <assert.h>
 #include <stdint.h>
+
 #include "drm-uapi/i915_drm.h"
 
 #ifdef HAVE_VALGRIND
@@ -1145,6 +1146,12 @@ struct anv_physical_device {
     struct wsi_device                       wsi_device;
     int                                         local_fd;
     int                                         master_fd;
+
+    /**
+     * Major & minor DRM numbers.
+     */
+    int64_t                                     local_node[2];
+    int64_t                                     master_node[2];
 };
 
 struct anv_app_info {

@@ -148,6 +148,7 @@ EXTENSIONS = [
     Extension('VK_EXT_line_rasterization',                1, True),
     Extension('VK_EXT_memory_budget',                     1, 'device->has_mem_available'),
     Extension('VK_EXT_pci_bus_info',                      2, True),
+    Extension('VK_EXT_physical_device_drm',               1, True),
     Extension('VK_EXT_pipeline_creation_cache_control',   3, True),
     Extension('VK_EXT_pipeline_creation_feedback',        1, True),
     Extension('VK_EXT_post_depth_coverage',               1, 'device->info.gen >= 9'),

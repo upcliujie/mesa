@@ -24,7 +24,9 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/sysmacros.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include "drm-uapi/drm_fourcc.h"
@@ -549,6 +551,24 @@ anv_physical_device_try_create(struct anv_instance *instance,
       }
    }
    device->master_fd = master_fd;
+
+   struct stat st;
+   if (stat(path, &st) != 0) {
+      result = vk_errorfi(instance, NULL, VK_ERROR_INITIALIZATION_FAILED,
+                          "failed to stat DRM node %s", path);
+      goto fail_disk_cache;
+   }
+   device->local_node[0] = (int64_t) major(st.st_rdev);
+   device->local_node[1] = (int64_t) minor(st.st_rdev);
+   if (master_fd != -1) {
+      if (stat(primary_path, &st) != 0) {
+         result = vk_errorfi(instance, NULL, VK_ERROR_INITIALIZATION_FAILED,
+                             "failed to stat DRM node %s", primary_path);
+         goto fail_disk_cache;
+      }
+      device->master_node[0] = (int64_t) major(st.st_rdev);
+      device->master_node[1] = (int64_t) minor(st.st_rdev);
+   }
 
    result = anv_init_wsi(device);
    if (result != VK_SUCCESS)
@@ -1896,6 +1916,22 @@ void anv_GetPhysicalDeviceProperties2(
          CORE_PROPERTY(1, 2, driverName);
          CORE_PROPERTY(1, 2, driverInfo);
          CORE_PROPERTY(1, 2, conformanceVersion);
+         break;
+      }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT: {
+         VkPhysicalDeviceDrmPropertiesEXT *props =
+            (VkPhysicalDeviceDrmPropertiesEXT *)ext;
+         if (pdevice->master_fd != -1) {
+            props->hasPrimary = true;
+            props->primaryMajor = pdevice->master_node[0];
+            props->primaryMinor = pdevice->master_node[1];
+         } else {
+            props->hasPrimary = false;
+         }
+         props->hasRender = true;
+         props->renderMajor = pdevice->local_node[0];
+         props->renderMinor = pdevice->local_node[1];
          break;
       }
 
