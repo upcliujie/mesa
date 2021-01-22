@@ -2013,6 +2013,65 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 	case nir_intrinsic_bindless_resource_ir3:
 		dst[0] = ir3_get_src(ctx, &intr->src[0])[0];
 		break;
+	case nir_intrinsic_load_global: {
+		struct ir3_instruction *addr;
+
+		addr = ir3_create_collect(ctx, (struct ir3_instruction*[]){
+				ir3_get_src(ctx, &intr->src[0])[0],
+				ir3_get_src(ctx, &intr->src[0])[1],
+		}, 2);
+
+		struct ir3_instruction *load =
+			ir3_LDG(b, addr, 0, create_immed(b, 0), 0,
+					create_immed(b, dest_components), 0);
+		load->cat6.type = TYPE_U32;
+		load->regs[0]->wrmask = MASK(dest_components);
+
+		load->barrier_class = IR3_BARRIER_BUFFER_R;
+		load->barrier_conflict = IR3_BARRIER_BUFFER_W;
+
+		ir3_split_dest(b, dst, load, 0, dest_components);
+		break;
+	}
+	case nir_intrinsic_store_global: {
+		struct ir3_instruction *value, *addr;
+		unsigned wrmask = nir_intrinsic_write_mask(intr);
+		unsigned ncomp = ffs(~wrmask) - 1;
+		ncomp *= intr->src[0].ssa->bit_size == 64 ? 2 : 1;
+		assert(ncomp <= 4);
+
+		addr = ir3_create_collect(ctx, (struct ir3_instruction*[]){
+				ir3_get_src(ctx, &intr->src[1])[0],
+				ir3_get_src(ctx, &intr->src[1])[1],
+		}, 2);
+
+		value = ir3_create_collect(ctx, ir3_get_src(ctx, &intr->src[0]), ncomp);
+
+		struct ir3_instruction *stg =
+			ir3_STG_G(b, addr, 0, value, 0,
+					  create_immed(b, ncomp), 0, create_immed(b, 0), 0);
+		stg->cat6.type = TYPE_U32;
+		stg->cat6.iim_val = 1;
+
+		array_insert(b, b->keeps, stg);
+
+		stg->barrier_class = IR3_BARRIER_BUFFER_W;
+		stg->barrier_conflict = IR3_BARRIER_BUFFER_R | IR3_BARRIER_BUFFER_W;
+		break;
+	}
+	case nir_intrinsic_global_atomic_add:
+	case nir_intrinsic_global_atomic_imin:
+	case nir_intrinsic_global_atomic_umin:
+	case nir_intrinsic_global_atomic_imax:
+	case nir_intrinsic_global_atomic_umax:
+	case nir_intrinsic_global_atomic_and:
+	case nir_intrinsic_global_atomic_or:
+	case nir_intrinsic_global_atomic_xor:
+	case nir_intrinsic_global_atomic_exchange:
+	case nir_intrinsic_global_atomic_comp_swap: {
+		dst[0] = ctx->funcs->emit_intrinsic_atomic_global(ctx, intr);
+		break;
+	}
 	default:
 		ir3_context_error(ctx, "Unhandled intrinsic type: %s\n",
 				nir_intrinsic_infos[intr->intrinsic].name);
