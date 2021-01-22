@@ -1243,6 +1243,7 @@ struct anv_queue {
 
    struct anv_device *                       device;
 
+   uint32_t                                  family;
    VkDeviceQueueCreateFlags                  flags;
 
    int                                       context_id;

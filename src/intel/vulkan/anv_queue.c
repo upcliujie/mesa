@@ -517,7 +517,8 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
       return vk_error(VK_ERROR_INITIALIZATION_FAILED);
 
    queue->device = device;
-   queue->flags = 0;
+   queue->family = pCreateInfo->queueFamilyIndex;
+   queue->flags = pCreateInfo->flags;
    queue->lost = false;
    queue->quit = false;
 
