@@ -77,7 +77,17 @@ anv_device_perf_init(struct anv_device *device)
 static struct anv_queue *
 device_get_perf_queue(struct anv_device *device)
 {
-   return &device->queue;
+   if (!list_is_singular(&device->queues)) {
+      vk_debug_report(&device->physical->instance->debug_report_callbacks,
+                      VK_DEBUG_REPORT_WARNING_BIT_EXT,
+                      VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT,
+                      (uint64_t)(uintptr_t)device,
+                      0, 0, "anv",
+                      "Enabled global performance counters on a device with "
+                      "multiple queues.  Only the first queue will show up "
+                      "in the results.");
+   }
+   return list_first_entry(&device->queues, struct anv_queue, link);
 }
 
 static int

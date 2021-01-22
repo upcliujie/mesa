@@ -351,8 +351,14 @@ anv_queue_submit_deferred_locked(struct anv_queue *queue, uint32_t *advance)
 static VkResult
 anv_device_submit_deferred_locked(struct anv_device *device)
 {
-   uint32_t advance = 0;
-   return anv_queue_submit_deferred_locked(&device->queue, &advance);
+   anv_foreach_queue(queue, device) {
+      uint32_t advance = 0;
+      VkResult result = anv_queue_submit_deferred_locked(queue, &advance);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   return VK_SUCCESS;
 }
 
 static void
@@ -503,18 +509,23 @@ vk_priority_to_gen(int priority)
 }
 
 VkResult
-anv_queue_init(struct anv_device *device, struct anv_queue *queue,
-               const VkDeviceQueueCreateInfo *pCreateInfo)
+anv_queue_create(struct anv_device *device,
+                 const VkDeviceQueueCreateInfo *pCreateInfo,
+                 const VkAllocationCallbacks *pAllocator)
 {
+   struct anv_queue *queue;
    VkResult result;
-
-   assert(pCreateInfo->queueCount == 1);
 
    /* Check requested queues and fail if we are requested to create any
     * queues with flags we don't support.
     */
    if (pCreateInfo->flags != 0)
       return vk_error(VK_ERROR_INITIALIZATION_FAILED);
+
+   queue = vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*queue), 8,
+                     VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (queue == NULL)
+      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
    queue->device = device;
    queue->family = pCreateInfo->queueFamilyIndex;
@@ -523,8 +534,10 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
    queue->quit = false;
 
    queue->context_id = anv_gem_create_context(device);
-   if (queue->context_id == -1)
-      return vk_error(VK_ERROR_INITIALIZATION_FAILED);
+   if (queue->context_id == -1) {
+      result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
+      goto fail_alloc;
+   }
 
    if (device->physical->has_context_priority) {
       const VkDeviceQueueGlobalPriorityCreateInfoEXT *queue_priority =
@@ -565,6 +578,7 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
    }
 
    vk_object_base_init(&device->vk, &queue->base, VK_OBJECT_TYPE_QUEUE);
+   list_addtail(&queue->link, &device->queues);
 
    return VK_SUCCESS;
 
@@ -574,12 +588,15 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
    pthread_mutex_destroy(&queue->mutex);
  fail_context:
    anv_gem_destroy_context(device, queue->context_id);
+ fail_alloc:
+   vk_free2(&device->vk.alloc, pAllocator, queue);
 
    return result;
 }
 
 void
-anv_queue_finish(struct anv_queue *queue)
+anv_queue_destroy(struct anv_queue *queue,
+                  const VkAllocationCallbacks *pAllocator)
 {
    if (queue->device->has_thread_submit) {
       pthread_mutex_lock(&queue->mutex);
@@ -596,6 +613,8 @@ anv_queue_finish(struct anv_queue *queue)
 
    anv_gem_destroy_context(queue->device, queue->context_id);
    vk_object_base_finish(&queue->base);
+
+   vk_free2(&queue->device->vk.alloc, pAllocator, queue);
 }
 
 static VkResult
