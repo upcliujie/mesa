@@ -45,7 +45,6 @@
 #include "vk_util.h"
 #include "vk_deferred_operation.h"
 #include "common/gen_aux_map.h"
-#include "common/gen_defines.h"
 #include "common/gen_uuid.h"
 #include "compiler/glsl_types.h"
 
@@ -2545,23 +2544,6 @@ VkResult anv_EnumerateDeviceExtensionProperties(
    return vk_outarray_status(&out);
 }
 
-static int
-vk_priority_to_gen(int priority)
-{
-   switch (priority) {
-   case VK_QUEUE_GLOBAL_PRIORITY_LOW_EXT:
-      return GEN_CONTEXT_LOW_PRIORITY;
-   case VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT:
-      return GEN_CONTEXT_MEDIUM_PRIORITY;
-   case VK_QUEUE_GLOBAL_PRIORITY_HIGH_EXT:
-      return GEN_CONTEXT_HIGH_PRIORITY;
-   case VK_QUEUE_GLOBAL_PRIORITY_REALTIME_EXT:
-      return GEN_CONTEXT_REALTIME_PRIORITY;
-   default:
-      unreachable("Invalid priority");
-   }
-}
-
 static VkResult
 anv_device_init_hiz_clear_value_bo(struct anv_device *device)
 {
@@ -2761,24 +2743,6 @@ VkResult anv_CreateDevice(
       }
    }
 
-   /* Check requested queues and fail if we are requested to create any
-    * queues with flags we don't support.
-    */
-   assert(pCreateInfo->queueCreateInfoCount > 0);
-   for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
-      if (pCreateInfo->pQueueCreateInfos[i].flags != 0)
-         return vk_error(VK_ERROR_INITIALIZATION_FAILED);
-   }
-
-   /* Check if client specified queue priority. */
-   const VkDeviceQueueGlobalPriorityCreateInfoEXT *queue_priority =
-      vk_find_struct_const(pCreateInfo->pQueueCreateInfos[0].pNext,
-                           DEVICE_QUEUE_GLOBAL_PRIORITY_CREATE_INFO_EXT);
-
-   VkQueueGlobalPriorityEXT priority =
-      queue_priority ? queue_priority->globalPriority :
-         VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT;
-
    device = vk_alloc2(&physical_device->instance->alloc, pAllocator,
                        sizeof(*device), 8,
                        VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
@@ -2812,17 +2776,13 @@ VkResult anv_CreateDevice(
       goto fail_device;
    }
 
-   device->context_id = anv_gem_create_context(device);
-   if (device->context_id == -1) {
-      result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
-      goto fail_fd;
-   }
-
    device->has_thread_submit = physical_device->has_thread_submit;
 
-   result = anv_queue_init(device, &device->queue);
+   assert(pCreateInfo->queueCreateInfoCount == 1);
+   result = anv_queue_init(device, &device->queue,
+                           &pCreateInfo->pQueueCreateInfos[0]);
    if (result != VK_SUCCESS)
-      goto fail_context_id;
+      goto fail_fd;
 
    if (physical_device->use_softpin) {
       if (pthread_mutex_init(&device->vma_mutex, NULL) != 0) {
@@ -2847,21 +2807,6 @@ VkResult anv_CreateDevice(
    }
 
    list_inithead(&device->memory_objects);
-
-   /* As per spec, the driver implementation may deny requests to acquire
-    * a priority above the default priority (MEDIUM) if the caller does not
-    * have sufficient privileges. In this scenario VK_ERROR_NOT_PERMITTED_EXT
-    * is returned.
-    */
-   if (physical_device->has_context_priority) {
-      int err = anv_gem_set_context_param(device->fd, device->context_id,
-                                          I915_CONTEXT_PARAM_PRIORITY,
-                                          vk_priority_to_gen(priority));
-      if (err != 0 && priority > VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT) {
-         result = vk_error(VK_ERROR_NOT_PERMITTED_EXT);
-         goto fail_vmas;
-      }
-   }
 
    device->info = physical_device->info;
    device->isl_dev = physical_device->isl_dev;
@@ -2893,7 +2838,7 @@ VkResult anv_CreateDevice(
 
    if (pthread_mutex_init(&device->mutex, NULL) != 0) {
       result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
-      goto fail_queue;
+      goto fail_vmas;
    }
 
    pthread_condattr_t condattr;
@@ -3102,8 +3047,6 @@ VkResult anv_CreateDevice(
    }
  fail_queue:
    anv_queue_finish(&device->queue);
- fail_context_id:
-   anv_gem_destroy_context(device, device->context_id);
  fail_fd:
    close(device->fd);
  fail_device:
@@ -3168,8 +3111,6 @@ void anv_DestroyDevice(
 
    pthread_cond_destroy(&device->queue_submit);
    pthread_mutex_destroy(&device->mutex);
-
-   anv_gem_destroy_context(device, device->context_id);
 
    if (INTEL_DEBUG & DEBUG_BATCH)
       gen_batch_decode_ctx_finish(&device->decoder_ctx);
@@ -3320,7 +3261,7 @@ anv_queue_query_status(struct anv_queue *queue)
 
    uint32_t active, pending;
    int ret = anv_gem_context_get_reset_stats(queue->device->fd,
-                                             queue->device->context_id,
+                                             queue->context_id,
                                              &active, &pending);
    if (ret == -1) {
       /* We don't know the real error. */

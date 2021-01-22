@@ -74,6 +74,12 @@ anv_device_perf_init(struct anv_device *device)
    device->perf_fd = -1;
 }
 
+static struct anv_queue *
+device_get_perf_queue(struct anv_device *device)
+{
+   return &device->queue;
+}
+
 static int
 anv_device_perf_open(struct anv_device *device, uint64_t metric_id)
 {
@@ -96,7 +102,7 @@ anv_device_perf_open(struct anv_device *device, uint64_t metric_id)
    properties[p++] = 31; /* slowest sampling period */
 
    properties[p++] = DRM_I915_PERF_PROP_CTX_HANDLE;
-   properties[p++] = device->context_id;
+   properties[p++] = device_get_perf_queue(device)->context_id;
 
    properties[p++] = DRM_I915_PERF_PROP_HOLD_PREEMPTION;
    properties[p++] = true;

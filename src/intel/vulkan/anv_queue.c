@@ -34,6 +34,7 @@
 #include "anv_private.h"
 #include "vk_util.h"
 
+#include "common/gen_defines.h"
 #include "genxml/gen7_pack.h"
 
 uint64_t anv_gettime_ns(void)
@@ -484,15 +485,63 @@ _anv_queue_submit(struct anv_queue *queue, struct anv_queue_submit **_submit,
    }
 }
 
+static int
+vk_priority_to_gen(int priority)
+{
+   switch (priority) {
+   case VK_QUEUE_GLOBAL_PRIORITY_LOW_EXT:
+      return GEN_CONTEXT_LOW_PRIORITY;
+   case VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT:
+      return GEN_CONTEXT_MEDIUM_PRIORITY;
+   case VK_QUEUE_GLOBAL_PRIORITY_HIGH_EXT:
+      return GEN_CONTEXT_HIGH_PRIORITY;
+   case VK_QUEUE_GLOBAL_PRIORITY_REALTIME_EXT:
+      return GEN_CONTEXT_REALTIME_PRIORITY;
+   default:
+      unreachable("Invalid priority");
+   }
+}
+
 VkResult
-anv_queue_init(struct anv_device *device, struct anv_queue *queue)
+anv_queue_init(struct anv_device *device, struct anv_queue *queue,
+               const VkDeviceQueueCreateInfo *pCreateInfo)
 {
    VkResult result;
+
+   assert(pCreateInfo->queueCount == 1);
+
+   /* Check requested queues and fail if we are requested to create any
+    * queues with flags we don't support.
+    */
+   if (pCreateInfo->flags != 0)
+      return vk_error(VK_ERROR_INITIALIZATION_FAILED);
 
    queue->device = device;
    queue->flags = 0;
    queue->lost = false;
    queue->quit = false;
+
+   queue->context_id = anv_gem_create_context(device);
+   if (queue->context_id == -1)
+      return vk_error(VK_ERROR_INITIALIZATION_FAILED);
+
+   if (device->physical->has_context_priority) {
+      const VkDeviceQueueGlobalPriorityCreateInfoEXT *queue_priority =
+         vk_find_struct_const(pCreateInfo->pNext,
+                              DEVICE_QUEUE_GLOBAL_PRIORITY_CREATE_INFO_EXT);
+
+      VkQueueGlobalPriorityEXT priority =
+         queue_priority ? queue_priority->globalPriority :
+                          VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT;
+
+      int err = anv_gem_set_context_param(device->fd, queue->context_id,
+                                          I915_CONTEXT_PARAM_PRIORITY,
+                                          vk_priority_to_gen(priority));
+      if (err != 0 && priority > VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT) {
+         result = vk_error(VK_ERROR_NOT_PERMITTED_EXT);
+         goto fail_context;
+      }
+   }
 
    list_inithead(&queue->queued_submits);
 
@@ -500,9 +549,10 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue)
     * submission.
     */
    if (device->has_thread_submit) {
-      if (pthread_mutex_init(&queue->mutex, NULL) != 0)
-         return vk_error(VK_ERROR_INITIALIZATION_FAILED);
-
+      if (pthread_mutex_init(&queue->mutex, NULL) != 0) {
+         result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
+         goto fail_context;
+      }
       if (pthread_cond_init(&queue->cond, NULL) != 0) {
          result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
          goto fail_mutex;
@@ -521,6 +571,8 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue)
    pthread_cond_destroy(&queue->cond);
  fail_mutex:
    pthread_mutex_destroy(&queue->mutex);
+ fail_context:
+   anv_gem_destroy_context(device, queue->context_id);
 
    return result;
 }
@@ -528,21 +580,21 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue)
 void
 anv_queue_finish(struct anv_queue *queue)
 {
+   if (queue->device->has_thread_submit) {
+      pthread_mutex_lock(&queue->mutex);
+      pthread_cond_broadcast(&queue->cond);
+      queue->quit = true;
+      pthread_mutex_unlock(&queue->mutex);
+
+      void *ret;
+      pthread_join(queue->thread, &ret);
+
+      pthread_cond_destroy(&queue->cond);
+      pthread_mutex_destroy(&queue->mutex);
+   }
+
+   anv_gem_destroy_context(queue->device, queue->context_id);
    vk_object_base_finish(&queue->base);
-
-   if (!queue->device->has_thread_submit)
-      return;
-
-   pthread_mutex_lock(&queue->mutex);
-   pthread_cond_broadcast(&queue->cond);
-   queue->quit = true;
-   pthread_mutex_unlock(&queue->mutex);
-
-   void *ret;
-   pthread_join(queue->thread, &ret);
-
-   pthread_cond_destroy(&queue->cond);
-   pthread_mutex_destroy(&queue->mutex);
 }
 
 static VkResult

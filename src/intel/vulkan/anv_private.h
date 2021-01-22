@@ -1245,6 +1245,8 @@ struct anv_queue {
 
    VkDeviceQueueCreateFlags                  flags;
 
+   int                                       context_id;
+
    /* Set once from the device api calls. */
    bool                                      lost_signaled;
 
@@ -1354,7 +1356,6 @@ struct anv_device {
     bool                                        no_hw;
     struct gen_device_info                      info;
     struct isl_device                           isl_dev;
-    int                                         context_id;
     int                                         fd;
     bool                                        can_chain_batches;
     bool                                        robust_buffer_access;
@@ -1579,7 +1580,8 @@ VkResult anv_device_bo_busy(struct anv_device *device, struct anv_bo *bo);
 VkResult anv_device_wait(struct anv_device *device, struct anv_bo *bo,
                          int64_t timeout);
 
-VkResult anv_queue_init(struct anv_device *device, struct anv_queue *queue);
+VkResult anv_queue_init(struct anv_device *device, struct anv_queue *queue,
+                        const VkDeviceQueueCreateInfo *pCreateInfo);
 void anv_queue_finish(struct anv_queue *queue);
 
 VkResult anv_queue_execbuf_locked(struct anv_queue *queue, struct anv_queue_submit *submit);
