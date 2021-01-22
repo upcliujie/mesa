@@ -1273,7 +1273,6 @@ enum if_stmt_loc {
    if_loc_then = 1 << 0,
    if_loc_else = 1 << 1,
    if_loc_outside = 1 << 2,
-   if_loc_both = if_loc_then | if_loc_else,
 };
 
 /* small helper to check if a cf_node is contained in an IF_stmt
@@ -1301,35 +1300,52 @@ is_cf_node_inside_if(nir_cf_node *node, nir_if *nif)
 }
 
 /* This small optimization targets phis between two IF statements with
- * the same condition. If the phi dst is only used on one branch leg,
+ * the same condition.
+ * If rewrite is true, we replace all uses in the following IF
+ * with the corresponding phi-src.
+ * Otherwise, if the phi dst is only used on one branch leg,
  * the 'unused' phi source gets replaced with undef.
  *
- * It's not the most efficient function, but rarely used.
  */
 static bool
-opt_phi_src_unused(nir_builder *b, nir_phi_instr *phi,
-                   nir_if *prev_if, nir_if *next_if)
+opt_phi_src(nir_builder *b, nir_phi_instr *phi, bool rewrite,
+            nir_if *prev_if, nir_if *next_if)
 {
    /* return early, if either of the sources is already undef */
-   nir_foreach_phi_src(phi_src, phi) {
-      if (phi_src->src.ssa->parent_instr->type == nir_instr_type_ssa_undef)
-         return false;
+   if (!rewrite) {
+      nir_foreach_phi_src(phi_src, phi) {
+         if (phi_src->src.ssa->parent_instr->type == nir_instr_type_ssa_undef)
+            return false;
+      }
    }
 
+   nir_src then_src =
+      nir_phi_get_src_from_block(phi, nir_if_last_then_block(prev_if))->src;
+   nir_src else_src =
+      nir_phi_get_src_from_block(phi, nir_if_last_else_block(prev_if))->src;
    enum if_stmt_loc if_locations = if_loc_unknown;
    enum if_stmt_loc loc = if_loc_unknown;
 
-   nir_foreach_if_use(if_use, &phi->dest.ssa) {
-      /* check weather the if_use is on the then- or else- side */
-      if_locations |= is_cf_node_inside_if(&if_use->parent_if->cf_node, next_if);
-      if (if_locations & if_loc_outside || if_locations == if_loc_both)
-         return false;
+   nir_foreach_if_use_safe(if_use, &phi->dest.ssa) {
+      /* check whether the if_use is on the then- or else- side */
+      loc = is_cf_node_inside_if(&if_use->parent_if->cf_node, next_if);
+      if (rewrite) {
+         if (loc == if_loc_then)
+            nir_if_rewrite_condition(if_use->parent_if, then_src);
+         else if (loc == if_loc_else)
+            nir_if_rewrite_condition(if_use->parent_if, else_src);
+      } else {
+         if_locations |= loc;
+         if (if_locations != if_loc_then && if_locations != if_loc_else)
+            return false;
+      }
    }
 
-   nir_foreach_use(use, &phi->dest.ssa) {
-      /* check weather the use is on the then- or else- side */
+   nir_foreach_use_safe(use, &phi->dest.ssa) {
+      /* check whether the use is on the then- or else- side */
       nir_block *use_block = use->parent_instr->block;
 
+      /* Phi-uses are actually at the corresponding predecessor blocks */
       if (use->parent_instr->type == nir_instr_type_phi &&
           nir_cf_node_prev(&use_block->cf_node) == &next_if->cf_node) {
           nir_phi_instr *use_phi = nir_instr_as_phi(use->parent_instr);
@@ -1343,16 +1359,24 @@ opt_phi_src_unused(nir_builder *b, nir_phi_instr *phi,
          loc = is_cf_node_inside_if(&use_block->cf_node, next_if);
       }
 
-      /* we check for circular phis later */
-      if (loc == if_loc_outside &&
-          use->parent_instr->type == nir_instr_type_phi) {
-         continue;
+      if (rewrite) {
+         if (loc & if_loc_then)
+            nir_instr_rewrite_src(use->parent_instr, use, then_src);
+         else if (loc & if_loc_else)
+            nir_instr_rewrite_src(use->parent_instr, use, else_src);
+      } else {
+         if (loc == if_loc_outside) {
+            if (use->parent_instr->type == nir_instr_type_phi)
+               continue;
+         }
+         if_locations |= loc;
+         if (if_locations != if_loc_then && if_locations != if_loc_else)
+            return false;
       }
-      if_locations |= loc;
-
-      if (if_locations & if_loc_outside || if_locations == if_loc_both)
-         return false;
    }
+
+   if (rewrite)
+      return true;
 
    nir_block *unused_blk = if_locations == if_loc_then ?
                            nir_if_last_else_block(prev_if) :
@@ -1365,7 +1389,7 @@ opt_phi_src_unused(nir_builder *b, nir_phi_instr *phi,
          continue;
 
       nir_block *instr_block = use->parent_instr->block;
-      /* ignore phis directly after the block */
+      /* ignore phis directly after or inside the IF */
       if (instr_block == nir_cf_node_cf_tree_next(&next_if->cf_node))
          continue;
       if (is_cf_node_inside_if(&instr_block->cf_node, next_if) != if_loc_outside)
@@ -1373,7 +1397,7 @@ opt_phi_src_unused(nir_builder *b, nir_phi_instr *phi,
 
       /* we know that one phi src is unused except for other phis:
        * -> check if these phis have no other users except
-       *    circular phis or this src
+       *    circular phis or this unused src
        */
       struct phi_visited next = { NULL, unused_src->ssa };
       if (!phi_is_circular(nir_instr_as_phi(use->parent_instr), &next))
@@ -1387,47 +1411,6 @@ opt_phi_src_unused(nir_builder *b, nir_phi_instr *phi,
    nir_instr_rewrite_src(&phi->instr, unused_src, nir_src_for_ssa(undef));
 
    return true;
-}
-
-static void
-rewrite_if_phi(nir_phi_instr *phi, nir_if *prev_if, nir_if *next_if)
-{
-   nir_src then_src =
-      nir_phi_get_src_from_block(phi, nir_if_last_then_block(prev_if))->src;
-   nir_src else_src =
-      nir_phi_get_src_from_block(phi, nir_if_last_else_block(prev_if))->src;
-   enum if_stmt_loc loc = if_loc_unknown;
-
-   nir_foreach_if_use_safe(if_use, &phi->dest.ssa) {
-      enum if_stmt_loc loc = is_cf_node_inside_if(&if_use->parent_if->cf_node, next_if);
-      if (loc == if_loc_then)
-         nir_if_rewrite_condition(if_use->parent_if, then_src);
-      else if (loc == if_loc_else)
-         nir_if_rewrite_condition(if_use->parent_if, else_src);
-   }
-
-   nir_foreach_use_safe(use, &phi->dest.ssa) {
-      nir_block *use_block = use->parent_instr->block;
-
-      if (use->parent_instr->type == nir_instr_type_phi &&
-          nir_cf_node_prev(&use_block->cf_node) == &next_if->cf_node) {
-          nir_phi_instr *use_phi = nir_instr_as_phi(use->parent_instr);
-         nir_foreach_phi_src(src, use_phi) {
-            if (src->src.ssa == &phi->dest.ssa) {
-               loc = src->pred == nir_if_last_then_block(next_if) ? if_loc_then : if_loc_else;
-               break;
-            }
-         }
-      } else {
-         loc = is_cf_node_inside_if(&use_block->cf_node, next_if);
-      }
-
-      loc = is_cf_node_inside_if(&use_block->cf_node, next_if);
-      if (loc == if_loc_then)
-         nir_instr_rewrite_src(use->parent_instr, use, then_src);
-      else if (loc == if_loc_else)
-         nir_instr_rewrite_src(use->parent_instr, use, else_src);
-   }
 }
 
 static bool
@@ -1451,22 +1434,20 @@ opt_if_merge(nir_builder *b, nir_if *nif)
        nir_block_ends_in_jump(nir_if_last_else_block(nif)))
       return false;
 
-   /* if there are only phis, we rewrite the sources in the following IF
+   /* If there are only phis, we rewrite the sources in the following IF
     * and merge the IF-stmts.
     * Otherwise, we just try to optimize unused phi-sources */
    if (!exec_list_is_empty(&next_blk->instr_list)) {
-      if (nir_block_last_instr(next_blk)->type == nir_instr_type_phi) {
-         nir_foreach_instr(instr, next_blk) {
-            rewrite_if_phi(nir_instr_as_phi(instr), nif, next_if);
-         }
-      } else {
-         bool progress = false;
-         nir_foreach_instr(instr, next_blk) {
-            if (instr->type != nir_instr_type_phi)
-               return progress;
-            progress |= opt_phi_src_unused(b, nir_instr_as_phi(instr), nif, next_if);
-         }
+      bool rewrite = nir_block_last_instr(next_blk)->type == nir_instr_type_phi;
+      bool progress = false;
+      nir_foreach_instr(instr, next_blk) {
+         if (instr->type != nir_instr_type_phi)
+            return progress;
+         progress |= opt_phi_src(b, nir_instr_as_phi(instr), rewrite,
+                                 nif, next_if);
       }
+      if (!rewrite)
+         return progress;
    }
 
    /* Here we merge two consecutive ifs that have the same condition e.g:
