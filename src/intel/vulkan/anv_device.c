@@ -24,7 +24,9 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/sysmacros.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include "drm-uapi/drm_fourcc.h"
@@ -281,6 +283,7 @@ get_device_extensions(const struct anv_physical_device *device,
       .EXT_line_rasterization                = true,
       .EXT_memory_budget                     = device->has_mem_available,
       .EXT_pci_bus_info                      = true,
+      .EXT_physical_device_drm               = true,
       .EXT_pipeline_creation_cache_control   = true,
       .EXT_pipeline_creation_feedback        = true,
       .EXT_post_depth_coverage               = device->info.ver >= 9,
@@ -2245,6 +2248,27 @@ void anv_GetPhysicalDeviceProperties2(
          CORE_PROPERTY(1, 2, driverName);
          CORE_PROPERTY(1, 2, driverInfo);
          CORE_PROPERTY(1, 2, conformanceVersion);
+         break;
+      }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT: {
+         VkPhysicalDeviceDrmPropertiesEXT *props =
+            (VkPhysicalDeviceDrmPropertiesEXT *)ext;
+         struct stat st;
+
+         props->hasPrimary = false;
+         props->hasRender = false;
+
+         if (fstat(pdevice->master_fd, &st) == 0) {
+            props->hasPrimary = true;
+            props->primaryMajor = (int64_t) major(st.st_rdev);
+            props->primaryMinor = (int64_t) minor(st.st_rdev);
+         }
+         if (fstat(pdevice->local_fd, &st) == 0) {
+            props->hasRender = true;
+            props->renderMajor = (int64_t) major(st.st_rdev);
+            props->renderMinor = (int64_t) minor(st.st_rdev);
+         }
          break;
       }
 
