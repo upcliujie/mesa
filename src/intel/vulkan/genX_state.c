@@ -327,7 +327,14 @@ VkResult
 genX(init_device_state)(struct anv_device *device)
 {
    init_slice_hashing_state(device);
-   return init_queue_context(&device->queue);
+
+   anv_foreach_queue(queue, device) {
+      VkResult result = init_queue_context(queue);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   return VK_SUCCESS;
 }
 
 static uint32_t

@@ -1239,7 +1239,10 @@ struct anv_queue_submit {
 };
 
 struct anv_queue {
-    struct vk_object_base                       base;
+   struct vk_object_base                     base;
+
+   /* Link in anv_device::queues */
+   struct list_head                          link;
 
    struct anv_device *                       device;
 
@@ -1273,6 +1276,9 @@ struct anv_queue {
    /* Set to true to stop the submission thread */
    bool                                      quit;
 };
+
+#define anv_foreach_queue(queue, device) \
+   list_for_each_entry_safe(struct anv_queue, queue, &(device)->queues, link)
 
 struct anv_pipeline_cache {
    struct vk_object_base                        base;
@@ -1407,7 +1413,7 @@ struct anv_device {
 
     struct anv_state                            slice_hash;
 
-    struct anv_queue                            queue;
+    struct list_head                            queues;
 
     struct anv_scratch_pool                     scratch_pool;
 
@@ -1582,9 +1588,11 @@ VkResult anv_device_bo_busy(struct anv_device *device, struct anv_bo *bo);
 VkResult anv_device_wait(struct anv_device *device, struct anv_bo *bo,
                          int64_t timeout);
 
-VkResult anv_queue_init(struct anv_device *device, struct anv_queue *queue,
-                        const VkDeviceQueueCreateInfo *pCreateInfo);
-void anv_queue_finish(struct anv_queue *queue);
+VkResult anv_queue_create(struct anv_device *device,
+                          const VkDeviceQueueCreateInfo *pCreateInfo,
+                          const VkAllocationCallbacks *pAllocator);
+void anv_queue_destroy(struct anv_queue *queue,
+                       const VkAllocationCallbacks *pAllocator);
 
 VkResult anv_queue_execbuf_locked(struct anv_queue *queue, struct anv_queue_submit *submit);
 VkResult anv_queue_submit_simple_batch(struct anv_queue *queue,
