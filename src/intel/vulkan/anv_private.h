@@ -1414,6 +1414,7 @@ struct anv_device {
     pthread_mutex_t                             mutex;
     pthread_cond_t                              queue_submit;
     int                                         _lost;
+    struct anv_queue *                          lost_queue;
     int                                         lost_reported;
 
     struct gen_batch_decode_ctx                 decoder_ctx;

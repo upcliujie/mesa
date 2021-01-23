@@ -2767,7 +2767,8 @@ VkResult anv_CreateDevice(
 
    device->physical = physical_device;
    device->no_hw = physical_device->no_hw;
-   device->_lost = false;
+   device->_lost = 0;
+   device->lost_queue = NULL;
 
    /* XXX(chadv): Can we dup() physicalDevice->fd here? */
    device->fd = open(physical_device->path, O_RDWR | O_CLOEXEC);
@@ -3187,13 +3188,14 @@ _anv_device_report_lost(struct anv_device *device)
 
    device->lost_reported = true;
 
-   struct anv_queue *queue = &device->queue;
-
-   __vk_errorf(device->physical->instance, device,
-               VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT,
-               VK_ERROR_DEVICE_LOST,
-               queue->error_file, queue->error_line,
-               "%s", queue->error_msg);
+   struct anv_queue *queue = p_atomic_read(&device->lost_queue);
+   if (queue != NULL) {
+      __vk_errorf(device->physical->instance, device,
+                  VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT,
+                  VK_ERROR_DEVICE_LOST,
+                  queue->error_file, queue->error_line,
+                  "%s", queue->error_msg);
+   }
 }
 
 VkResult
@@ -3241,7 +3243,8 @@ _anv_queue_set_lost(struct anv_queue *queue,
              msg, ap);
    va_end(ap);
 
-   p_atomic_inc(&queue->device->_lost);
+   if (p_atomic_inc_return(&queue->device->_lost) == 1)
+      p_atomic_set(&queue->device->lost_queue, queue);
 
    if (env_var_as_boolean("ANV_ABORT_ON_DEVICE_LOSS", false))
       abort();
