@@ -1129,7 +1129,7 @@ summary:
        name:  results
        ----  --------
        pass:     8878
-       fail:       33
+       fail:       32
       crash:       95
        skip:      997
     timeout:        0
@@ -1140,4 +1140,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:    10005
+      total:    10004
