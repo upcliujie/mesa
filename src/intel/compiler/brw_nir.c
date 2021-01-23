@@ -718,15 +718,14 @@ lower_bit_size_callback(const nir_instr *instr, UNUSED void *data)
          assert(!"Should have been lowered by nir_opt_algebraic.");
          return 0;
       default:
-         if (devinfo->gen >= 11) {
-            if (nir_op_infos[alu->op].num_inputs >= 2 &&
-                alu->dest.dest.ssa.bit_size == 8)
-               return 16;
+         if (nir_op_infos[alu->op].num_inputs >= 2 &&
+             alu->dest.dest.ssa.bit_size == 8)
+            return 16;
 
-            if (nir_alu_instr_is_comparison(alu) &&
-                alu->src[0].src.ssa->bit_size == 8)
-               return 16;
-         }
+         if (nir_alu_instr_is_comparison(alu) &&
+             alu->src[0].src.ssa->bit_size == 8)
+            return 16;
+
          return 0;
       }
       break;
@@ -747,7 +746,7 @@ lower_bit_size_callback(const nir_instr *instr, UNUSED void *data)
       case nir_intrinsic_quad_swap_horizontal:
       case nir_intrinsic_quad_swap_vertical:
       case nir_intrinsic_quad_swap_diagonal:
-         if (intrin->src[0].ssa->bit_size == 8 && devinfo->gen >= 11)
+         if (intrin->src[0].ssa->bit_size == 8)
             return 16;
          return 0;
 
@@ -780,7 +779,7 @@ lower_bit_size_callback(const nir_instr *instr, UNUSED void *data)
 
    case nir_instr_type_phi: {
       nir_phi_instr *phi = nir_instr_as_phi(instr);
-      if (devinfo->gen >= 11 && phi->dest.ssa.bit_size == 8)
+      if (phi->dest.ssa.bit_size == 8)
          return 16;
       return 0;
    }
