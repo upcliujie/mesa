@@ -43,7 +43,7 @@ vk_object_base_finish(struct vk_object_base *base)
    util_sparse_array_finish(&base->private_data);
 }
 
-void
+VkResult
 vk_device_init(struct vk_device *device,
                UNUSED const VkDeviceCreateInfo *pCreateInfo,
                const VkAllocationCallbacks *instance_alloc,
@@ -61,6 +61,8 @@ vk_device_init(struct vk_device *device,
    mtx_init(&device->swapchain_private_mtx, mtx_plain);
    device->swapchain_private = NULL;
 #endif /* ANDROID */
+
+   return VK_SUCCESS;
 }
 
 void

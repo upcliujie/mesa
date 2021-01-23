@@ -1045,7 +1045,8 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
          &physical_device->instance->alloc, pAllocator);
    if (result != VK_SUCCESS) {
       vk_free(&device->vk.alloc, device);
-      return vk_startup_errorf(physical_device->instance, result);
+      return vk_startup_errorf(physical_device->instance, result,
+                               "vk_device_init failed");
    }
 
    device->instance = physical_device->instance;

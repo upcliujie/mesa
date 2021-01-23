@@ -80,11 +80,14 @@ struct vk_device {
 #endif
 };
 
-void vk_device_init(struct vk_device *device,
-                    const VkDeviceCreateInfo *pCreateInfo,
-                    const VkAllocationCallbacks *instance_alloc,
-                    const VkAllocationCallbacks *device_alloc);
-void vk_device_finish(struct vk_device *device);
+VkResult MUST_CHECK
+vk_device_init(struct vk_device *device,
+               const VkDeviceCreateInfo *pCreateInfo,
+               const VkAllocationCallbacks *instance_alloc,
+               const VkAllocationCallbacks *device_alloc);
+
+void
+vk_device_finish(struct vk_device *device);
 
 #define VK_DEFINE_HANDLE_CASTS(__driver_type, __base, __VkType, __VK_TYPE) \
    static inline struct __driver_type *                                    \
