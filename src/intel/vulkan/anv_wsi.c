@@ -29,8 +29,17 @@
 static PFN_vkVoidFunction
 anv_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
 {
-   ANV_FROM_HANDLE(anv_physical_device, physical_device, physicalDevice);
-   return anv_lookup_entrypoint(&physical_device->info, pName);
+   PFN_vkVoidFunction func;
+
+   func = vk_instance_dispatch_table_get(&anv_instance_dispatch_table, pName);
+   if (func != NULL)
+      return func;
+
+   func = vk_physical_device_dispatch_table_get(&anv_physical_device_dispatch_table, pName);
+   if (func != NULL)
+      return func;
+
+   return vk_device_dispatch_table_get(&vk_device_trampolines, pName);
 }
 
 static void
@@ -83,7 +92,7 @@ anv_init_wsi(struct anv_physical_device *physical_device)
    result = wsi_device_init(&physical_device->wsi_device,
                             anv_physical_device_to_handle(physical_device),
                             anv_wsi_proc_addr,
-                            &physical_device->instance->alloc,
+                            &physical_device->instance->vk.alloc,
                             physical_device->master_fd,
                             &physical_device->instance->dri_options,
                             false);
@@ -103,7 +112,7 @@ void
 anv_finish_wsi(struct anv_physical_device *physical_device)
 {
    wsi_device_finish(&physical_device->wsi_device,
-                     &physical_device->instance->alloc);
+                     &physical_device->instance->vk.alloc);
 }
 
 void anv_DestroySurfaceKHR(
@@ -117,7 +126,7 @@ void anv_DestroySurfaceKHR(
    if (!surface)
       return;
 
-   vk_free2(&instance->alloc, pAllocator, surface);
+   vk_free2(&instance->vk.alloc, pAllocator, surface);
 }
 
 VkResult anv_GetPhysicalDeviceSurfaceSupportKHR(
