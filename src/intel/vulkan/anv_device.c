@@ -3106,6 +3106,7 @@ VkResult anv_CreateDevice(
  fail_fd:
    close(device->fd);
  fail_device:
+   vk_device_finish(&device->vk);
    vk_free(&device->vk.alloc, device);
 
    return result;
