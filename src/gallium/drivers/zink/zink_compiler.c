@@ -232,6 +232,8 @@ zink_screen_init_compiler(struct zink_screen *screen)
 
    if (!screen->info.feats.features.shaderInt64)
       screen->nir_options.lower_int64_options = ~0;
+   else
+      screen->nir_options.lower_mul_2x32_64 = true;
 
    if (!screen->info.feats.features.shaderFloat64)
       screen->nir_options.lower_doubles_options = ~0;
