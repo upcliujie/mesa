@@ -1129,14 +1129,6 @@ void anv_GetImageMemoryRequirements2(
          break;
       }
 
-      default:
-         anv_debug_ignored_stype(ext->sType);
-         break;
-      }
-   }
-
-   vk_foreach_struct(ext, pMemoryRequirements->pNext) {
-      switch (ext->sType) {
       case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS: {
          VkMemoryDedicatedRequirements *requirements = (void *)ext;
          if (image->needs_set_tiling || image->external_format) {
