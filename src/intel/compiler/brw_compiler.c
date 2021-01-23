@@ -189,9 +189,6 @@ brw_compiler_create(void *mem_ctx, const struct gen_device_info *devinfo)
       nir_options->lower_int64_options = int64_options;
       nir_options->lower_doubles_options = fp64_options;
 
-      /* Starting with Gen11, we lower away 8-bit arithmetic */
-      nir_options->support_8bit_alu = devinfo->gen < 11;
-
       nir_options->unify_interfaces = i < MESA_SHADER_FRAGMENT;
 
       compiler->glsl_compiler_options[i].NirOptions = nir_options;
