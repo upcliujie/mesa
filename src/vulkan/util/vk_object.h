@@ -99,6 +99,14 @@ vk_instance_init(struct vk_instance *instance,
 void
 vk_instance_finish(struct vk_instance *instance);
 
+PFN_vkVoidFunction
+vk_instance_get_proc_addr(const struct vk_instance *instance,
+                          const char *name);
+
+PFN_vkVoidFunction
+vk_instance_get_physical_device_proc_addr(const struct vk_instance *instance,
+                                          const char *name);
+
 struct vk_physical_device {
    struct vk_object_base base;
    struct vk_instance *instance;
@@ -145,6 +153,10 @@ vk_device_init(struct vk_device *device,
 
 void
 vk_device_finish(struct vk_device *device);
+
+PFN_vkVoidFunction
+vk_device_get_proc_addr(const struct vk_device *device,
+                        const char *name);
 
 #define VK_DEFINE_HANDLE_CASTS(__driver_type, __base, __VkType, __VK_TYPE) \
    static inline struct __driver_type *                                    \

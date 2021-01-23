@@ -108,6 +108,53 @@ vk_instance_finish(struct vk_instance *instance)
    vk_object_base_finish(&instance->base);
 }
 
+PFN_vkVoidFunction
+vk_instance_get_proc_addr(const struct vk_instance *instance,
+                          const char *name)
+{
+   PFN_vkVoidFunction func;
+
+   if (instance == NULL || name == NULL)
+      return NULL;
+
+   func = vk_instance_dispatch_table_get_if_supported(&instance->dispatch_table,
+                                                      name,
+                                                      instance->app_info.api_version,
+                                                      &instance->enabled_extensions);
+   if (func != NULL)
+      return func;
+
+   func = vk_physical_device_dispatch_table_get_if_supported(&vk_physical_device_trampolines,
+                                                             name,
+                                                             instance->app_info.api_version,
+                                                             &instance->enabled_extensions);
+   if (func != NULL)
+      return func;
+
+   func = vk_device_dispatch_table_get_if_supported(&vk_device_trampolines,
+                                                    name,
+                                                    instance->app_info.api_version,
+                                                    &instance->enabled_extensions,
+                                                    NULL);
+   if (func != NULL)
+      return func;
+
+   return NULL;
+}
+
+PFN_vkVoidFunction
+vk_instance_get_physical_device_proc_addr(const struct vk_instance *instance,
+                                          const char *name)
+{
+   if (instance == NULL || name == NULL)
+      return NULL;
+
+   return vk_physical_device_dispatch_table_get_if_supported(&vk_physical_device_trampolines,
+                                                             name,
+                                                             instance->app_info.api_version,
+                                                             &instance->enabled_extensions);
+}
+
 VkResult
 vk_physical_device_init(struct vk_physical_device *pdevice,
                         UNUSED struct vk_instance *instance,
@@ -194,6 +241,21 @@ vk_device_finish(UNUSED struct vk_device *device)
 #endif /* ANDROID */
 
    vk_object_base_finish(&device->base);
+}
+
+PFN_vkVoidFunction
+vk_device_get_proc_addr(const struct vk_device *device,
+                        const char *name)
+{
+   if (device == NULL || name == NULL)
+      return NULL;
+
+   struct vk_instance *instance = device->physical->instance;
+   return vk_device_dispatch_table_get_if_supported(&device->dispatch_table,
+                                                    name,
+                                                    instance->app_info.api_version,
+                                                    &instance->enabled_extensions,
+                                                    &device->enabled_extensions);
 }
 
 void *
