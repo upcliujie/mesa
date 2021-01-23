@@ -1548,7 +1548,7 @@ spec/glsl-1.50/execution/variable-indexing/gs-input-array-vec3-index-rd: crash
 spec/glsl-1.50/execution/variable-indexing/gs-input-array-vec4-index-rd: fail
 spec/glsl-1.50/execution/variable-indexing/gs-output-array-vec3-index-wr: fail
 spec/glsl-1.50/execution/variable-indexing/gs-output-array-vec4-index-wr: crash
-spec/glsl-1.50/execution/variable-indexing/vs-output-array-vec2-index-wr-before-gs: fail
+spec/glsl-1.50/execution/variable-indexing/vs-output-array-vec2-index-wr-before-gs: skip
 spec/glsl-1.50/execution/variable-indexing/vs-output-array-vec3-index-wr-before-gs: fail
 spec/glsl-1.50/execution/variable-indexing/vs-output-array-vec4-index-wr-before-gs: fail
 spec/glsl-es-3.10/execution/cs-image-atomic-if-else-2: fail
