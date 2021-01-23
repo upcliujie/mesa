@@ -56,6 +56,17 @@ static inline bool handle_transfer(struct pipe_resource *prsc)
    return false;
 }
 
+static inline bool
+should_separate(struct u_transfer_helper *helper,
+                enum pipe_format format)
+{
+   if ((helper->separate_stencil && util_format_is_depth_and_stencil(format)) ||
+       (format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT && helper->separate_z32s8))
+       return true;
+
+   return false;
+}
+
 /* The pipe_transfer ptr could either be the driver's, or u_transfer,
  * depending on whether we are intervening or not.  Check handle_transfer()
  * before dereferencing.
@@ -89,8 +100,7 @@ u_transfer_helper_resource_create(struct pipe_screen *pscreen,
    enum pipe_format format = templ->format;
    struct pipe_resource *prsc;
 
-   if ((helper->separate_stencil && util_format_is_depth_and_stencil(format)) ||
-       (format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT && helper->separate_z32s8)) {
+   if (should_separate(helper, format)) {
       struct pipe_resource t = *templ;
       struct pipe_resource *stencil;
 
@@ -567,8 +577,7 @@ u_transfer_helper_deinterleave_transfer_map(struct pipe_context *pctx,
    unsigned width = box->width;
    unsigned height = box->height;
 
-   if (!((helper->separate_stencil && util_format_is_depth_and_stencil(format)) ||
-       (format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT && helper->separate_z32s8)))
+   if (!should_separate(helper, format))
       return helper->vtbl->transfer_map(pctx, prsc, level, usage, box, pptrans);
 
    debug_assert(box->depth == 1);
@@ -645,8 +654,7 @@ u_transfer_helper_deinterleave_transfer_unmap(struct pipe_context *pctx,
    struct u_transfer_helper *helper = pctx->screen->transfer_helper;
    enum pipe_format format = ptrans->resource->format;
 
-   if ((helper->separate_stencil && util_format_is_depth_and_stencil(format)) ||
-       (format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT && helper->separate_z32s8)) {
+   if (should_separate(helper, format)) {
       struct u_transfer *trans = (struct u_transfer *)ptrans;
 
       if (!(ptrans->usage & PIPE_MAP_FLUSH_EXPLICIT)) {
