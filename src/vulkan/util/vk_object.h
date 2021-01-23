@@ -30,6 +30,9 @@
 #include "util/macros.h"
 #include "util/sparse_array.h"
 
+#include "vk_entrypoints.h"
+#include "vk_extensions.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -66,10 +69,60 @@ vk_object_base_from_u64_handle(uint64_t handle, VkObjectType obj_type)
    return base;
 }
 
+struct vk_app_info {
+   const char*        app_name;
+   uint32_t           app_version;
+   const char*        engine_name;
+   uint32_t           engine_version;
+   uint32_t           api_version;
+};
+
+struct vk_instance {
+   struct vk_object_base base;
+   VkAllocationCallbacks alloc;
+
+   struct vk_app_info app_info;
+   struct vk_instance_extension_table enabled_extensions;
+
+   struct vk_instance_dispatch_table dispatch_table;
+};
+
+VkResult MUST_CHECK
+vk_instance_init(struct vk_instance *instance,
+                 const struct vk_instance_extension_table *supported_extensions,
+                 const struct vk_instance_dispatch_table *dispatch_table,
+                 const VkInstanceCreateInfo *pCreateInfo,
+                 const VkAllocationCallbacks *alloc);
+
+void
+vk_instance_finish(struct vk_instance *instance);
+
+struct vk_physical_device {
+   struct vk_object_base base;
+   struct vk_instance *instance;
+
+   struct vk_device_extension_table supported_extensions;
+
+   struct vk_physical_device_dispatch_table dispatch_table;
+};
+
+VkResult MUST_CHECK
+vk_physical_device_init(struct vk_physical_device *physical_device,
+                        struct vk_instance *instance,
+                        const struct vk_device_extension_table *supported_extensions,
+                        const struct vk_physical_device_dispatch_table *dispatch_table);
+
+void
+vk_physical_device_finish(struct vk_physical_device *physical_device);
 
 struct vk_device {
    struct vk_object_base base;
    VkAllocationCallbacks alloc;
+   struct vk_physical_device *physical;
+
+   struct vk_device_extension_table enabled_extensions;
+
+   struct vk_device_dispatch_table dispatch_table;
 
    /* For VK_EXT_private_data */
    uint32_t private_data_next_index;
@@ -82,6 +135,8 @@ struct vk_device {
 
 VkResult MUST_CHECK
 vk_device_init(struct vk_device *device,
+               struct vk_physical_device *physical_device,
+               const struct vk_device_dispatch_table *dispatch_table,
                const VkDeviceCreateInfo *pCreateInfo,
                const VkAllocationCallbacks *instance_alloc,
                const VkAllocationCallbacks *device_alloc);

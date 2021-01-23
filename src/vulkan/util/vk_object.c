@@ -44,16 +44,132 @@ vk_object_base_finish(struct vk_object_base *base)
 }
 
 VkResult
+vk_instance_init(struct vk_instance *instance,
+                 const struct vk_instance_extension_table *supported_extensions,
+                 const struct vk_instance_dispatch_table *dispatch_table,
+                 const VkInstanceCreateInfo *pCreateInfo,
+                 const VkAllocationCallbacks *alloc)
+{
+   memset(instance, 0, sizeof(*instance));
+   vk_object_base_init(NULL, &instance->base, VK_OBJECT_TYPE_INSTANCE);
+   instance->alloc = *alloc;
+
+   instance->app_info = (struct vk_app_info) { .api_version = 0 };
+   if (pCreateInfo->pApplicationInfo) {
+      const VkApplicationInfo *app = pCreateInfo->pApplicationInfo;
+
+      instance->app_info.app_name =
+         vk_strdup(&instance->alloc, app->pApplicationName,
+                   VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+      instance->app_info.app_version = app->applicationVersion;
+
+      instance->app_info.engine_name =
+         vk_strdup(&instance->alloc, app->pEngineName,
+                   VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+      instance->app_info.engine_version = app->engineVersion;
+
+      instance->app_info.api_version = app->apiVersion;
+   }
+
+   if (instance->app_info.api_version == 0)
+      instance->app_info.api_version = VK_API_VERSION_1_0;
+
+   if (supported_extensions != NULL) {
+      for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
+         int idx;
+         for (idx = 0; idx < VK_INSTANCE_EXTENSION_COUNT; idx++) {
+            if (strcmp(pCreateInfo->ppEnabledExtensionNames[i],
+                       vk_instance_extensions[idx].extensionName) == 0)
+               break;
+         }
+
+         if (idx >= VK_INSTANCE_EXTENSION_COUNT)
+            return VK_ERROR_EXTENSION_NOT_PRESENT;
+
+         if (!supported_extensions->extensions[idx])
+            return VK_ERROR_EXTENSION_NOT_PRESENT;
+
+         instance->enabled_extensions.extensions[idx] = true;
+      }
+   }
+
+   if (dispatch_table != NULL)
+      instance->dispatch_table = *dispatch_table;
+
+   return VK_SUCCESS;
+}
+
+void
+vk_instance_finish(struct vk_instance *instance)
+{
+   vk_free(&instance->alloc, (char *)instance->app_info.app_name);
+   vk_free(&instance->alloc, (char *)instance->app_info.engine_name);
+   vk_object_base_finish(&instance->base);
+}
+
+VkResult
+vk_physical_device_init(struct vk_physical_device *pdevice,
+                        UNUSED struct vk_instance *instance,
+                        const struct vk_device_extension_table *supported_extensions,
+                        const struct vk_physical_device_dispatch_table *dispatch_table)
+{
+   memset(pdevice, 0, sizeof(*pdevice));
+   vk_object_base_init(NULL, &pdevice->base, VK_OBJECT_TYPE_PHYSICAL_DEVICE);
+   pdevice->instance = instance;
+
+   if (supported_extensions != NULL)
+      pdevice->supported_extensions = *supported_extensions;
+
+   if (dispatch_table != NULL)
+      pdevice->dispatch_table = *dispatch_table;
+
+   return VK_SUCCESS;
+}
+
+void
+vk_physical_device_finish(struct vk_physical_device *physical_device)
+{
+   vk_object_base_finish(&physical_device->base);
+}
+
+VkResult
 vk_device_init(struct vk_device *device,
-               UNUSED const VkDeviceCreateInfo *pCreateInfo,
+               struct vk_physical_device *physical_device,
+               const struct vk_device_dispatch_table *dispatch_table,
+               const VkDeviceCreateInfo *pCreateInfo,
                const VkAllocationCallbacks *instance_alloc,
                const VkAllocationCallbacks *device_alloc)
 {
+   memset(device, 0, sizeof(*device));
    vk_object_base_init(device, &device->base, VK_OBJECT_TYPE_DEVICE);
    if (device_alloc)
       device->alloc = *device_alloc;
    else
       device->alloc = *instance_alloc;
+
+   device->physical = physical_device;
+
+   if (dispatch_table != NULL)
+      device->dispatch_table = *dispatch_table;
+
+   if (physical_device != NULL) {
+      for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
+         int idx;
+         for (idx = 0; idx < VK_DEVICE_EXTENSION_COUNT; idx++) {
+            if (strcmp(pCreateInfo->ppEnabledExtensionNames[i],
+                       vk_device_extensions[idx].extensionName) == 0)
+               break;
+         }
+
+         if (idx >= VK_DEVICE_EXTENSION_COUNT)
+            return VK_ERROR_EXTENSION_NOT_PRESENT;
+
+         if (!physical_device->supported_extensions.extensions[idx])
+            return VK_ERROR_EXTENSION_NOT_PRESENT;
+
+         device->enabled_extensions.extensions[idx] = true;
+      }
+   }
 
    p_atomic_set(&device->private_data_next_index, 0);
 
