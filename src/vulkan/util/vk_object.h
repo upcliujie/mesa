@@ -45,6 +45,8 @@ struct vk_object_base {
    VK_LOADER_DATA _loader_data;
    VkObjectType type;
 
+   struct vk_device *device;
+
    /* For VK_EXT_private_data */
    struct util_sparse_array private_data;
 };
@@ -178,6 +180,13 @@ vk_device_finish(struct vk_device *device);
       vk_object_base_assert_valid(&_obj->__base, __VK_TYPE);               \
       return (__VkType)(uintptr_t) _obj;                                   \
    }
+
+VK_DEFINE_HANDLE_CASTS(vk_instance, base, VkInstance,
+                       VK_OBJECT_TYPE_INSTANCE)
+VK_DEFINE_HANDLE_CASTS(vk_physical_device, base, VkPhysicalDevice,
+                       VK_OBJECT_TYPE_PHYSICAL_DEVICE)
+VK_DEFINE_HANDLE_CASTS(vk_device, base, VkDevice,
+                       VK_OBJECT_TYPE_DEVICE)
 
 #define VK_FROM_HANDLE(__driver_type, __name, __handle) \
    struct __driver_type *__name = __driver_type ## _from_handle(__handle)
