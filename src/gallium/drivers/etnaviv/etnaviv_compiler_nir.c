@@ -370,6 +370,15 @@ get_src(struct etna_compile *c, nir_src *src)
          return (hw_src) { .use = 1, .rgroup = INST_RGROUP_INTERNAL };
       case nir_intrinsic_load_frag_coord:
          return SRC_REG(0, INST_SWIZ_IDENTITY);
+      case nir_intrinsic_load_texture_scaling: {
+         int sampler = nir_src_as_int(intr->src[0]);
+         nir_const_value values[] = {
+            TEXSCALE(sampler, 0),
+            TEXSCALE(sampler, 1),
+         };
+
+         return src_swizzle(const_src(c, values, 2), SWIZZLE(X,Y,X,X));
+      }
       default:
          compile_error(c, "Unhandled NIR intrinsic type: %s\n",
                        nir_intrinsic_infos[intr->intrinsic].name);
@@ -582,6 +591,7 @@ emit_intrinsic(struct etna_compile *c, nir_intrinsic_instr * intr)
       break;
    case nir_intrinsic_load_input:
    case nir_intrinsic_load_instance_id:
+   case nir_intrinsic_load_texture_scaling:
       break;
    default:
       compile_error(c, "Unhandled NIR intrinsic type: %s\n",
@@ -911,12 +921,8 @@ emit_shader(struct etna_compile *c, unsigned *num_temps, unsigned *num_consts)
                base += off[0].u32;
             nir_const_value value[4];
 
-            for (unsigned i = 0; i < intr->dest.ssa.num_components; i++) {
-               if (nir_intrinsic_base(intr) < 0)
-                  value[i] = TEXSCALE(~nir_intrinsic_base(intr), i);
-               else
+            for (unsigned i = 0; i < intr->dest.ssa.num_components; i++)
                   value[i] = UNIFORM(base * 4 + i);
-            }
 
             b.cursor = nir_after_instr(instr);
             nir_ssa_def *def = nir_build_imm(&b, intr->dest.ssa.num_components, 32, value);
@@ -1044,6 +1050,11 @@ fill_vs_mystery(struct etna_shader_variant *v)
 bool
 etna_compile_shader_nir(struct etna_shader_variant *v)
 {
+   static const struct nir_lower_tex_options tex_options = {
+      .lower_txp = ~0u,
+      .lower_rect_tex_scale = true,
+   };
+
    if (unlikely(!v))
       return false;
 
@@ -1096,7 +1107,7 @@ etna_compile_shader_nir(struct etna_shader_variant *v)
    NIR_PASS_V(s, nir_lower_regs_to_ssa);
    NIR_PASS_V(s, nir_lower_vars_to_ssa);
    NIR_PASS_V(s, nir_lower_indirect_derefs, nir_var_all, UINT32_MAX);
-   NIR_PASS_V(s, nir_lower_tex, &(struct nir_lower_tex_options) { .lower_txp = ~0u });
+   NIR_PASS_V(s, nir_lower_tex, &tex_options);
    NIR_PASS_V(s, nir_lower_alu_to_scalar, etna_alu_to_scalar_filter_cb, specs);
 
    etna_optimize_loop(s);
