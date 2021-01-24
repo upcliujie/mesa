@@ -462,6 +462,52 @@ vk_object_base_get_private_data(struct vk_device *device,
    }
 }
 
+static VkResult
+vku_CreatePrivateDataSlotEXT(VkDevice _device,
+                             const VkPrivateDataSlotCreateInfoEXT *pCreateInfo,
+                             const VkAllocationCallbacks *pAllocator,
+                             VkPrivateDataSlotEXT *pPrivateDataSlot)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+   return vk_private_data_slot_create(device, pCreateInfo, pAllocator,
+                                      pPrivateDataSlot);
+}
+
+static void
+vku_DestroyPrivateDataSlotEXT(VkDevice _device,
+                              VkPrivateDataSlotEXT privateDataSlot,
+                              const VkAllocationCallbacks *pAllocator)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+   vk_private_data_slot_destroy(device, privateDataSlot, pAllocator);
+}
+
+static VkResult
+vku_SetPrivateDataEXT(VkDevice _device,
+                      VkObjectType objectType,
+                      uint64_t objectHandle,
+                      VkPrivateDataSlotEXT privateDataSlot,
+                      uint64_t data)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+   return vk_object_base_set_private_data(device,
+                                          objectType, objectHandle,
+                                          privateDataSlot, data);
+}
+
+static void
+vku_GetPrivateDataEXT(VkDevice _device,
+                      VkObjectType objectType,
+                      uint64_t objectHandle,
+                      VkPrivateDataSlotEXT privateDataSlot,
+                      uint64_t *pData)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+   vk_object_base_get_private_data(device,
+                                   objectType, objectHandle,
+                                   privateDataSlot, pData);
+}
+
 #define ADD_COMMON_ENTRYPOINT(Name) \
    if (table->Name == NULL) table->Name = vku_##Name
 
@@ -479,4 +525,10 @@ static void
 add_common_device_entrypoints(struct vk_device_dispatch_table *table)
 {
    ADD_COMMON_ENTRYPOINT(GetDeviceProcAddr);
+
+   /* VK_EXT_private_data */
+   ADD_COMMON_ENTRYPOINT(CreatePrivateDataSlotEXT);
+   ADD_COMMON_ENTRYPOINT(DestroyPrivateDataSlotEXT);
+   ADD_COMMON_ENTRYPOINT(SetPrivateDataEXT);
+   ADD_COMMON_ENTRYPOINT(GetPrivateDataEXT);
 }
