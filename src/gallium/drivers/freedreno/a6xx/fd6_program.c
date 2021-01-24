@@ -782,11 +782,24 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 	OUT_PKT4(ring, REG_A6XX_GRAS_SAMPLE_CNTL, 1);
 	OUT_RING(ring, COND(sample_shading, A6XX_GRAS_SAMPLE_CNTL_PER_SAMP_MODE));
 
+	unsigned mrt_components = 0;
+
 	OUT_PKT4(ring, REG_A6XX_SP_FS_OUTPUT_REG(0), 8);
 	for (i = 0; i < 8; i++) {
 		OUT_RING(ring, A6XX_SP_FS_OUTPUT_REG_REGID(color_regid[i]) |
 				COND(color_regid[i] & HALF_REG_ID, A6XX_SP_FS_OUTPUT_REG_HALF_PRECISION));
+		if (VALIDREG(color_regid[i])) {
+			mrt_components |= 0xf << (i * 4);
+		}
 	}
+
+	/* dual source blending has an extra fs output in the 2nd slot */
+	if (fs_has_dual_src_color) {
+		mrt_components |= 0xf << 4;
+	}
+
+	OUT_REG(ring, A6XX_SP_FS_RENDER_COMPONENTS(.dword = mrt_components));
+	OUT_REG(ring, A6XX_RB_RENDER_COMPONENTS(.dword = mrt_components));
 
 	OUT_PKT4(ring, REG_A6XX_VPC_VS_PACK, 1);
 	OUT_RING(ring, A6XX_VPC_VS_PACK_POSITIONLOC(pos_loc) |
