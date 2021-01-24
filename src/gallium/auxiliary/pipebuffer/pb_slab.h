@@ -116,6 +116,7 @@ struct pb_slabs
    unsigned min_order;
    unsigned num_orders;
    unsigned num_heaps;
+   bool allow_three_fourths_allocations;
 
    /* One group per (heap, order) pair. */
    struct pb_slab_group *groups;
@@ -144,7 +145,7 @@ pb_slabs_reclaim(struct pb_slabs *slabs);
 bool
 pb_slabs_init(struct pb_slabs *slabs,
               unsigned min_order, unsigned max_order,
-              unsigned num_heaps,
+              unsigned num_heaps, bool allow_three_fourth_allocations,
               void *priv,
               slab_can_reclaim_fn *can_reclaim,
               slab_alloc_fn *slab_alloc,
