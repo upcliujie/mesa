@@ -44,6 +44,10 @@ vk_object_base_finish(struct vk_object_base *base)
    util_sparse_array_finish(&base->private_data);
 }
 
+static void add_common_instance_entrypoints(struct vk_instance_dispatch_table *table);
+static void add_common_physical_device_entrypoints(struct vk_physical_device_dispatch_table *table);
+static void add_common_device_entrypoints(struct vk_device_dispatch_table *table);
+
 VkResult
 vk_instance_init(struct vk_instance *instance,
                  const struct vk_instance_extension_table *supported_extensions,
@@ -94,8 +98,10 @@ vk_instance_init(struct vk_instance *instance,
       }
    }
 
-   if (dispatch_table != NULL)
+   if (dispatch_table != NULL) {
       instance->dispatch_table = *dispatch_table;
+      add_common_instance_entrypoints(&instance->dispatch_table);
+   }
 
    return VK_SUCCESS;
 }
@@ -168,8 +174,10 @@ vk_physical_device_init(struct vk_physical_device *pdevice,
    if (supported_extensions != NULL)
       pdevice->supported_extensions = *supported_extensions;
 
-   if (dispatch_table != NULL)
+   if (dispatch_table != NULL) {
       pdevice->dispatch_table = *dispatch_table;
+      add_common_physical_device_entrypoints(&pdevice->dispatch_table);
+   }
 
    return VK_SUCCESS;
 }
@@ -197,8 +205,10 @@ vk_device_init(struct vk_device *device,
 
    device->physical = physical_device;
 
-   if (dispatch_table != NULL)
+   if (dispatch_table != NULL) {
       device->dispatch_table = *dispatch_table;
+      add_common_device_entrypoints(&device->dispatch_table);
+   }
 
    if (physical_device != NULL) {
       for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
@@ -256,6 +266,14 @@ vk_device_get_proc_addr(const struct vk_device *device,
                                                     instance->app_info.api_version,
                                                     &instance->enabled_extensions,
                                                     &device->enabled_extensions);
+}
+
+static PFN_vkVoidFunction
+vku_GetDeviceProcAddr(VkDevice _device,
+                            const char *pName)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+   return vk_device_get_proc_addr(device, pName);
 }
 
 void *
@@ -442,4 +460,23 @@ vk_object_base_get_private_data(struct vk_device *device,
    } else {
       *pData = 0;
    }
+}
+
+#define ADD_COMMON_ENTRYPOINT(Name) \
+   if (table->Name == NULL) table->Name = vku_##Name
+
+static void
+add_common_instance_entrypoints(struct vk_instance_dispatch_table *table)
+{
+}
+
+static void
+add_common_physical_device_entrypoints(struct vk_physical_device_dispatch_table *table)
+{
+}
+
+static void
+add_common_device_entrypoints(struct vk_device_dispatch_table *table)
+{
+   ADD_COMMON_ENTRYPOINT(GetDeviceProcAddr);
 }
