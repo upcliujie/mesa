@@ -65,6 +65,24 @@ $(intermediates)/vk_enum_to_str.c: $(MESA_TOP)/src/vulkan/util/gen_enum_to_str.p
 
 $(intermediates)/vk_enum_to_str.h: $(intermediates)/vk_enum_to_str.c
 
+$(intermediates)/vk_common_entrypoints.c: $(MESA_TOP)/src/vulkan/util/vk_entrypoints_gen.py \
+		$(vulkan_api_xml)
+	@echo "target Generated: $(PRIVATE_MODULE) <= $(notdir $(@))"
+	@mkdir -p $(dir $@)
+	$(hide) $(MESA_PYTHON2) $< \
+	    --xml $(vulkan_api_xml) \
+	    --proto --weak --prefix vk_common \
+	    --out-c $@
+
+$(intermediates)/vk_common_entrypoints.h: $(MESA_TOP)/src/vulkan/util/vk_entrypoints_gen.py \
+		$(vulkan_api_xml)
+	@echo "target Generated: $(PRIVATE_MODULE) <= $(notdir $(@))"
+	@mkdir -p $(dir $@)
+	$(hide) $(MESA_PYTHON2) $< \
+	    --xml $(vulkan_api_xml) \
+	    --proto --weak --prefix vk_common \
+	    --out-h $@
+
 $(intermediates)/vk_dispatch_table.c: $(MESA_TOP)/src/vulkan/util/vk_dispatch_table_gen_gen.py \
 		$(vulkan_api_xml)
 	@echo "target Generated: $(PRIVATE_MODULE) <= $(notdir $(@))"
