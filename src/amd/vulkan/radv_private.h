@@ -54,6 +54,8 @@
 #include "vk_alloc.h"
 #include "vk_debug_report.h"
 #include "vk_device.h"
+#include "vk_instance.h"
+#include "vk_physical_device.h"
 #include "vk_format.h"
 
 #include "radv_radeon_winsys.h"
@@ -276,7 +278,7 @@ bool radv_device_entrypoint_is_enabled(int index, uint32_t core_version,
 void *radv_lookup_entrypoint(const char *name);
 
 struct radv_physical_device {
-	VK_LOADER_DATA                              _loader_data;
+        struct vk_physical_device vk;
 
 	/* Link in radv_instance::physical_devices */
 	struct list_head                            link;
@@ -329,9 +331,7 @@ struct radv_physical_device {
 };
 
 struct radv_instance {
-	struct vk_object_base                       base;
-
-	VkAllocationCallbacks                       alloc;
+        struct vk_instance vk;
 
 	uint32_t                                    apiVersion;
 
