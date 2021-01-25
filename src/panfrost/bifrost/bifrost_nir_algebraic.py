@@ -50,6 +50,9 @@ for sz in ('8', '16', '32'):
             ((t + 'max', 'a@' + sz, 'b@' + sz), ('b' + sz + 'csel', (t + 'lt' + sz, b, a), a, b))
         ]
 
+for sz in ('8', '16', '32'):
+    algebraic_late += [(('ufind_msb', 'a@' + sz), ('b' + sz + 'csel', ('ieq' + sz, a, 0), -1, ('isub', int(sz) - 1, ('uclz', ('u2u32', a)))))]
+
 # Midgard is able to type convert down by only one "step" per instruction; if
 # NIR wants more than one step, we need to break up into multiple instructions
 
