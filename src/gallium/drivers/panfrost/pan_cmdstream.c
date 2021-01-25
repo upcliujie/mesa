@@ -721,18 +721,9 @@ panfrost_map_constant_buffer_gpu(struct panfrost_batch *batch,
         }
 }
 
-struct sysval_uniform {
-        union {
-                float f[4];
-                int32_t i[4];
-                uint32_t u[4];
-                uint64_t du[2];
-        };
-};
-
 static void
 panfrost_upload_viewport_scale_sysval(struct panfrost_batch *batch,
-                                      struct sysval_uniform *uniform)
+                                      struct pan_sysval_uniform *uniform)
 {
         struct panfrost_context *ctx = batch->ctx;
         const struct pipe_viewport_state *vp = &ctx->pipe_viewport;
@@ -744,7 +735,7 @@ panfrost_upload_viewport_scale_sysval(struct panfrost_batch *batch,
 
 static void
 panfrost_upload_viewport_offset_sysval(struct panfrost_batch *batch,
-                                       struct sysval_uniform *uniform)
+                                       struct pan_sysval_uniform *uniform)
 {
         struct panfrost_context *ctx = batch->ctx;
         const struct pipe_viewport_state *vp = &ctx->pipe_viewport;
@@ -757,7 +748,7 @@ panfrost_upload_viewport_offset_sysval(struct panfrost_batch *batch,
 static void panfrost_upload_txs_sysval(struct panfrost_batch *batch,
                                        enum pipe_shader_type st,
                                        unsigned int sysvalid,
-                                       struct sysval_uniform *uniform)
+                                       struct pan_sysval_uniform *uniform)
 {
         struct panfrost_context *ctx = batch->ctx;
         unsigned texidx = PAN_SYSVAL_ID_TO_TXS_TEX_IDX(sysvalid);
@@ -792,7 +783,7 @@ static void
 panfrost_upload_ssbo_sysval(struct panfrost_batch *batch,
                             enum pipe_shader_type st,
                             unsigned ssbo_id,
-                            struct sysval_uniform *uniform)
+                            struct pan_sysval_uniform *uniform)
 {
         struct panfrost_context *ctx = batch->ctx;
 
@@ -815,7 +806,7 @@ static void
 panfrost_upload_sampler_sysval(struct panfrost_batch *batch,
                                enum pipe_shader_type st,
                                unsigned samp_idx,
-                               struct sysval_uniform *uniform)
+                               struct pan_sysval_uniform *uniform)
 {
         struct panfrost_context *ctx = batch->ctx;
         struct pipe_sampler_state *sampl = &ctx->samplers[st][samp_idx]->base;
@@ -835,7 +826,7 @@ panfrost_upload_sampler_sysval(struct panfrost_batch *batch,
 
 static void
 panfrost_upload_num_work_groups_sysval(struct panfrost_batch *batch,
-                                       struct sysval_uniform *uniform)
+                                       struct pan_sysval_uniform *uniform)
 {
         struct panfrost_context *ctx = batch->ctx;
 
@@ -846,7 +837,7 @@ panfrost_upload_num_work_groups_sysval(struct panfrost_batch *batch,
 
 static void
 panfrost_upload_local_group_size_sysval(struct panfrost_batch *batch,
-                                        struct sysval_uniform *uniform)
+                                        struct pan_sysval_uniform *uniform)
 {
         struct panfrost_context *ctx = batch->ctx;
 
@@ -857,7 +848,7 @@ panfrost_upload_local_group_size_sysval(struct panfrost_batch *batch,
 
 static void
 panfrost_upload_work_dim_sysval(struct panfrost_batch *batch,
-                                struct sysval_uniform *uniform)
+                                struct pan_sysval_uniform *uniform)
 {
         struct panfrost_context *ctx = batch->ctx;
 
@@ -869,7 +860,7 @@ panfrost_upload_sysvals(struct panfrost_batch *batch, void *buf,
                         struct panfrost_shader_state *ss,
                         enum pipe_shader_type st)
 {
-        struct sysval_uniform *uniforms = (void *)buf;
+        struct pan_sysval_uniform *uniforms = (void *)buf;
 
         for (unsigned i = 0; i < ss->sysval_count; ++i) {
                 int sysval = ss->sysval[i];

@@ -30,6 +30,15 @@
 #include <stdbool.h>
 #include "midgard_pack.h"
 
+struct pan_sysval_uniform {
+        union {
+                float f[4];
+                int32_t i[4];
+                uint32_t u[4];
+                uint64_t du[2];
+        };
+};
+
 /* Invocation packing */
 
 void
