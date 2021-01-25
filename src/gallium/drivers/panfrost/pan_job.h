@@ -149,6 +149,9 @@ struct panfrost_batch *
 panfrost_get_fresh_batch_for_fbo(struct panfrost_context *ctx);
 
 void
+panfrost_freeze_batch(struct panfrost_batch *batch);
+
+void
 panfrost_batch_init(struct panfrost_context *ctx);
 
 void
