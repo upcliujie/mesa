@@ -37,6 +37,8 @@
 #include "util/list.h"
 #include "util/sparse_array.h"
 
+#include "panfrost/util/pan_ir.h"
+
 #include <midgard_pack.h>
 
 /* Driver limits */
@@ -87,6 +89,28 @@ struct pan_blit_shader {
 struct pan_blit_shaders {
         struct panfrost_bo *bo;
         struct pan_blit_shader loads[PAN_BLIT_NUM_TARGETS][PAN_BLIT_NUM_TYPES][2];
+};
+
+enum pan_indirect_draw_flags {
+        PAN_INDIRECT_DRAW_INDEX_SIZE_MASK = 3,
+        PAN_INDIRECT_DRAW_HAS_PSIZ = 1 << 2,
+        PAN_INDIRECT_DRAW_INDIRECT_DRAW_COUNT = 1 << 3,
+        PAN_INDIRECT_DRAW_PRIMITIVE_RESTART = 1 << 4,
+        PAN_INDIRECT_DRAW_UPDATE_PRIM_SIZE = 1 << 5,
+        PAN_INDIRECT_DRAW_NUM_SHADERS = 1 << 6,
+};
+
+struct pan_indirect_draw_shader {
+        struct panfrost_bo *bo;
+        unsigned stack_size;
+        unsigned shared_size;
+        unsigned sysval_count;
+        unsigned sysvals[MAX_SYSVAL_COUNT];
+};
+
+struct pan_indirect_draw_shaders {
+        struct pan_indirect_draw_shader shaders[PAN_INDIRECT_DRAW_NUM_SHADERS];
+        struct panfrost_bo *states;
 };
 
 typedef uint32_t mali_pixel_format;
@@ -143,6 +167,7 @@ struct panfrost_device {
         } bo_cache;
 
         struct pan_blit_shaders blit_shaders;
+        struct pan_indirect_draw_shaders indirect_draw_shaders;
 
         /* Tiler heap shared across all tiler jobs, allocated against the
          * device since there's only a single tiler. Since this is invisible to

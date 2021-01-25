@@ -48,6 +48,7 @@
 #include "pan_resource.h"
 #include "pan_public.h"
 #include "pan_util.h"
+#include "pan_indirect_draw.h"
 #include "decode.h"
 
 #include "pan_context.h"
@@ -838,6 +839,7 @@ panfrost_create_screen(int fd, struct renderonly *ro)
 
         panfrost_resource_screen_init(&screen->base);
         panfrost_init_blit_shaders(dev);
+        panfrost_init_indirect_draw_shaders(dev);
 
         return &screen->base;
 }
