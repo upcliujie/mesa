@@ -172,6 +172,16 @@ struct pipe_screen {
                                 unsigned bindings );
 
    /**
+    * Check if the given pipe_format and resource is supported for linear filtering
+    * as a sampler view.
+    * \param format The format to check.
+    * \param pres The resource to check.
+    */
+   bool (*is_linear_filtering_supported)( struct pipe_screen *,
+                                          enum pipe_format format,
+                                          struct pipe_resource *pres );
+
+   /**
     * Check if the given pipe_format is supported as output for this codec/profile.
     * \param profile  profile to check, may also be PIPE_VIDEO_PROFILE_UNKNOWN
     */
