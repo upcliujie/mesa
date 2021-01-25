@@ -24,16 +24,13 @@ COPYRIGHT = """\
  */
 """
 
-import argparse
 import os.path
-import re
 import sys
 
 VULKAN_UTIL = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../vulkan/util'))
 sys.path.append(VULKAN_UTIL)
 
 from vk_extensions import *
-from vk_extensions_gen import *
 
 API_PATCH_VERSION = 145
 
@@ -219,16 +216,3 @@ for version in API_VERSIONS:
     version.version.patch = API_PATCH_VERSION
     assert version.version > MAX_API_VERSION
     MAX_API_VERSION = version.version
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--out-c', help='Output C file.', required=True)
-    parser.add_argument('--out-h', help='Output H file.', required=True)
-    parser.add_argument('--xml',
-                        help='Vulkan API XML file.',
-                        required=True,
-                        action='append',
-                        dest='xml_files')
-    args = parser.parse_args()
-
-    gen_extensions('radv', args.xml_files, API_VERSIONS, MAX_API_VERSION, EXTENSIONS, args.out_c, args.out_h)
