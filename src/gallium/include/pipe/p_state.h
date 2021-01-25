@@ -415,6 +415,7 @@ struct pipe_sampler_state
    float lod_bias;               /**< LOD/lambda bias */
    float min_lod, max_lod;       /**< LOD clamp range, after bias */
    union pipe_color_union border_color;
+   bool border_color_is_integer;
 };
 
 union pipe_surface_desc {

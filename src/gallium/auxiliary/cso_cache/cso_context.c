@@ -72,6 +72,7 @@ struct cso_context {
    boolean has_tessellation;
    boolean has_compute_shader;
    boolean has_streamout;
+   boolean needs_sampler_border_color_type;
 
    unsigned saved_state;  /**< bitmask of CSO_BIT_x flags */
 
@@ -276,6 +277,10 @@ cso_create_context(struct pipe_context *pipe, unsigned flags)
    if (pipe->screen->get_param(pipe->screen,
                                PIPE_CAP_MAX_STREAM_OUTPUT_BUFFERS) != 0) {
       ctx->has_streamout = TRUE;
+   }
+   if (pipe->screen->get_param(pipe->screen,
+                               PIPE_CAP_NEED_BORDER_COLOR_TYPE) != 0) {
+      ctx->needs_sampler_border_color_type = TRUE;
    }
 
    ctx->max_sampler_seen = -1;
@@ -1102,7 +1107,9 @@ cso_single_sampler(struct cso_context *ctx, enum pipe_shader_type shader_stage,
                    unsigned idx, const struct pipe_sampler_state *templ)
 {
    if (templ) {
-      unsigned key_size = sizeof(struct pipe_sampler_state);
+      unsigned key_size = ctx-> needs_sampler_border_color_type ?
+                             sizeof(struct pipe_sampler_state) :
+                             offsetof(struct pipe_sampler_state, border_color_is_integer);
       unsigned hash_key = cso_construct_key((void*)templ, key_size);
       struct cso_sampler *cso;
       struct cso_hash_iter iter =
