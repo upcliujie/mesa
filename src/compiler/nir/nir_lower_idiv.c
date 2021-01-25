@@ -54,6 +54,9 @@ convert_instr(nir_builder *bld, nir_alu_instr *alu)
        (op != nir_op_irem))
       return false;
 
+   if (alu->dest.dest.ssa.bit_size != 32)
+      return false;
+
    is_signed = (op == nir_op_idiv ||
                 op == nir_op_imod ||
                 op == nir_op_irem);
