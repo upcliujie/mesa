@@ -335,14 +335,19 @@ radv_physical_device_try_create(struct radv_instance *instance,
 	}
 
 	struct radv_physical_device *device =
-		vk_zalloc2(&instance->alloc, NULL, sizeof(*device), 8,
+		vk_zalloc2(&instance->vk.alloc, NULL, sizeof(*device), 8,
 			   VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
 	if (!device) {
 		result = vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 		goto fail_fd;
 	}
 
-	device->_loader_data.loaderMagic = ICD_LOADER_MAGIC;
+	result = vk_physical_device_init(&device->vk, &instance->vk, NULL,
+					 NULL);
+	if (result != VK_SUCCESS) {
+		goto fail_alloc;
+	}
+
 	device->instance = instance;
 
 	if (drm_device) {
@@ -355,7 +360,7 @@ radv_physical_device_try_create(struct radv_instance *instance,
 	if (!device->ws) {
 		result = vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
 				   "failed to initialize winsys");
-		goto fail_alloc;
+		goto fail_base;
 	}
 
 	if (drm_device && instance->enabled_extensions.KHR_display) {
@@ -468,8 +473,10 @@ fail_disk_cache:
 	disk_cache_destroy(device->disk_cache);
 fail_wsi:
 	device->ws->destroy(device->ws);
+fail_base:
+	vk_physical_device_finish(&device->vk);
 fail_alloc:
-	vk_free(&instance->alloc, device);
+	vk_free(&instance->vk.alloc, device);
 fail_fd:
 	if (fd != -1)
 		close(fd);
@@ -488,7 +495,8 @@ radv_physical_device_destroy(struct radv_physical_device *device)
 		close(device->local_fd);
 	if (device->master_fd != -1)
 		close(device->master_fd);
-	vk_free(&device->instance->alloc, device);
+	vk_physical_device_finish(&device->vk);
+	vk_free(&device->instance->vk.alloc, device);
 }
 
 static void *
@@ -667,10 +675,10 @@ static void  radv_init_dri_options(struct radv_instance *instance)
 	driParseConfigFiles(&instance->dri_options,
 	                    &instance->available_dri_options,
 	                    0, "radv", NULL,
-	                    instance->applicationName,
-	                    instance->applicationVersion,
-	                    instance->engineName,
-	                    instance->engineVersion);
+	                    instance->vk.app_info.app_name,
+	                    instance->vk.app_info.app_version,
+	                    instance->vk.app_info.engine_name,
+	                    instance->vk.app_info.engine_version);
 }
 
 VkResult radv_CreateInstance(
@@ -681,35 +689,21 @@ VkResult radv_CreateInstance(
 	struct radv_instance *instance;
 	VkResult result;
 
-	instance = vk_zalloc2(&default_alloc, pAllocator, sizeof(*instance), 8,
-			      VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+	if (!pAllocator)
+		pAllocator = &default_alloc;
+
+	instance = vk_zalloc(pAllocator, sizeof(*instance), 8,
+			     VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
 	if (!instance)
 		return vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-	vk_object_base_init(NULL, &instance->base, VK_OBJECT_TYPE_INSTANCE);
-
-	if (pAllocator)
-		instance->alloc = *pAllocator;
-	else
-		instance->alloc = default_alloc;
-
-	if (pCreateInfo->pApplicationInfo) {
-		const VkApplicationInfo *app = pCreateInfo->pApplicationInfo;
-
-		instance->applicationName =
-			vk_strdup(&instance->alloc, app->pApplicationName,
-				  VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-		instance->applicationVersion = app->applicationVersion;
-
-		instance->engineName =
-			vk_strdup(&instance->alloc, app->pEngineName,
-				  VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-		instance->engineVersion = app->engineVersion;
-		instance->apiVersion = app->apiVersion;
+	result = vk_instance_init(&instance->vk,
+				  NULL, NULL,
+				  pCreateInfo, pAllocator);
+	if (result != VK_SUCCESS) {
+		vk_free(pAllocator, instance);
+		return vk_error(instance, result);
 	}
-
-	if (instance->apiVersion == 0)
-		instance->apiVersion = VK_API_VERSION_1_0;
 
 	instance->debug_flags = parse_debug_string(getenv("RADV_DEBUG"),
 						   radv_debug_options);
@@ -748,7 +742,7 @@ VkResult radv_CreateInstance(
 
 		if (idx >= RADV_INSTANCE_EXTENSION_COUNT ||
 		    !radv_instance_extensions_supported.extensions[idx]) {
-			vk_object_base_finish(&instance->base);
+			vk_instance_finish(&instance->vk);
 			vk_free2(&default_alloc, pAllocator, instance);
 			return vk_error(instance, VK_ERROR_EXTENSION_NOT_PRESENT);
 		}
@@ -763,7 +757,7 @@ VkResult radv_CreateInstance(
 		 * not been enabled must not be advertised.
 		 */
 		if (!unchecked &&
-		    !radv_instance_entrypoint_is_enabled(i, instance->apiVersion,
+		    !radv_instance_entrypoint_is_enabled(i, instance->vk.app_info.api_version,
 							 &instance->enabled_extensions)) {
 			instance->dispatch.entrypoints[i] = NULL;
 		} else {
@@ -777,7 +771,7 @@ VkResult radv_CreateInstance(
 		 * not been enabled must not be advertised.
 		 */
 		if (!unchecked &&
-		    !radv_physical_device_entrypoint_is_enabled(i, instance->apiVersion,
+		    !radv_physical_device_entrypoint_is_enabled(i, instance->vk.app_info.api_version,
 								&instance->enabled_extensions)) {
 			instance->physical_device_dispatch.entrypoints[i] = NULL;
 		} else {
@@ -791,7 +785,7 @@ VkResult radv_CreateInstance(
 		 * not been enabled must not be advertised.
 		 */
 		if (!unchecked &&
-		    !radv_device_entrypoint_is_enabled(i, instance->apiVersion,
+		    !radv_device_entrypoint_is_enabled(i, instance->vk.app_info.api_version,
 						       &instance->enabled_extensions, NULL)) {
 			instance->device_dispatch.entrypoints[i] = NULL;
 		} else {
@@ -805,7 +799,7 @@ VkResult radv_CreateInstance(
 
 	result = vk_debug_report_instance_init(&instance->debug_report_callbacks);
 	if (result != VK_SUCCESS) {
-		vk_object_base_finish(&instance->base);
+		vk_instance_finish(&instance->vk);
 		vk_free2(&default_alloc, pAllocator, instance);
 		return vk_error(instance, result);
 	}
@@ -836,9 +830,6 @@ void radv_DestroyInstance(
 		radv_physical_device_destroy(pdevice);
 	}
 
-	vk_free(&instance->alloc, instance->engineName);
-	vk_free(&instance->alloc, instance->applicationName);
-
 	VG(VALGRIND_DESTROY_MEMPOOL(instance));
 
 	glsl_type_singleton_decref();
@@ -848,8 +839,8 @@ void radv_DestroyInstance(
 
 	vk_debug_report_instance_destroy(&instance->debug_report_callbacks);
 
-	vk_object_base_finish(&instance->base);
-	vk_free(&instance->alloc, instance);
+	vk_instance_finish(&instance->vk);
+	vk_free(&instance->vk.alloc, instance);
 }
 
 static VkResult
@@ -2612,7 +2603,7 @@ radv_device_init_dispatch(struct radv_device *device)
 		 * enabled must not be advertised.
 		 */
 		if (!unchecked &&
-		    !radv_device_entrypoint_is_enabled(i, instance->apiVersion,
+		    !radv_device_entrypoint_is_enabled(i, instance->vk.app_info.api_version,
 						       &instance->enabled_extensions,
 						       &device->enabled_extensions)) {
 			device->dispatch.entrypoints[i] = NULL;
@@ -2760,14 +2751,14 @@ VkResult radv_CreateDevice(
 		}
 	}
 
-	device = vk_zalloc2(&physical_device->instance->alloc, pAllocator,
+	device = vk_zalloc2(&physical_device->instance->vk.alloc, pAllocator,
 			    sizeof(*device), 8,
 			    VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 	if (!device)
 		return vk_error(physical_device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
 	result = vk_device_init(&device->vk, NULL, NULL, pCreateInfo,
-				&physical_device->instance->alloc, pAllocator);
+				&physical_device->instance->vk.alloc, pAllocator);
 	if (result != VK_SUCCESS) {
 		vk_free(&device->vk.alloc, device);
 		return result;
@@ -8099,7 +8090,7 @@ radv_CreateDebugReportCallbackEXT(VkInstance _instance,
 {
 	RADV_FROM_HANDLE(radv_instance, instance, _instance);
 	return vk_create_debug_report_callback(&instance->debug_report_callbacks,
-	                                       pCreateInfo, pAllocator, &instance->alloc,
+	                                       pCreateInfo, pAllocator, &instance->vk.alloc,
 	                                       pCallback);
 }
 
@@ -8110,7 +8101,7 @@ radv_DestroyDebugReportCallbackEXT(VkInstance _instance,
 {
 	RADV_FROM_HANDLE(radv_instance, instance, _instance);
 	vk_destroy_debug_report_callback(&instance->debug_report_callbacks,
-	                                 _callback, pAllocator, &instance->alloc);
+	                                 _callback, pAllocator, &instance->vk.alloc);
 }
 
 void

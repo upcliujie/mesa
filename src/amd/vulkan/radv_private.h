@@ -333,13 +333,6 @@ struct radv_physical_device {
 struct radv_instance {
         struct vk_instance vk;
 
-	uint32_t                                    apiVersion;
-
-	char *                                      applicationName;
-	uint32_t                                    applicationVersion;
-	char *                                      engineName;
-	uint32_t                                    engineVersion;
-
 	uint64_t debug_flags;
 	uint64_t perftest_flags;
 
