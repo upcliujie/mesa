@@ -122,11 +122,26 @@ PIGLIT_OPTIONS=$(printf "%s" "$PIGLIT_OPTIONS")
 
 PIGLIT_CMD="./piglit run -j${FDO_CI_CONCURRENT:-4} $PIGLIT_OPTIONS $PIGLIT_PROFILES "$(/usr/bin/printf "%q" "$RESULTS")
 
-RUN_CMD="export LD_LIBRARY_PATH=$__LD_LIBRARY_PATH; $SANITY_MESA_VERSION_CMD && $PIGLIT_CMD"
+PIGLIT_OUTPUT="/tmp/piglit-run.txt"
+
+# How often to print "piglit run" 's output, in seconds
+PIGLIT_LAZY_OUTPUT_INTERVAL=10
+
+RUN_CMD="export LD_LIBRARY_PATH=$__LD_LIBRARY_PATH; $SANITY_MESA_VERSION_CMD && $PIGLIT_CMD 1>$PIGLIT_OUTPUT && tail -n 5 $PIGLIT_OUTPUT && rm $PIGLIT_OUTPUT"
 
 if [ "$RUN_CMD_WRAPPER" ]; then
     RUN_CMD="set +e; $RUN_CMD_WRAPPER "$(/usr/bin/printf "%q" "$RUN_CMD")"; set -e"
 fi
+
+lazy_piglit_output() {
+    while
+        sleep $PIGLIT_LAZY_OUTPUT_INTERVAL
+        __LAST_LINE=$(tail -n 1 "$PIGLIT_OUTPUT" 2>/dev/null)
+        [ "x$__LAST_PRINTED_LINE" != "x$__LAST_LINE" ] \
+            && echo "$__LAST_LINE" && __LAST_PRINTED_LINE="$__LAST_LINE"
+        kill -0 $RUN_CMD_PID 2>/dev/null
+    do :; done
+}
 
 print_red() {
     RED='\033[0;31m'
@@ -176,7 +191,11 @@ replay_minio_upload_images() {
 
 FAILURE_MESSAGE=$(printf "%s" "Unexpected change in results:")
 
-eval $RUN_CMD
+eval $RUN_CMD & RUN_CMD_PID=$!
+
+quiet lazy_piglit_output
+
+wait $RUN_CMD_PID
 
 if [ $? -ne 0 ]; then
     printf "%s\n" "Found $(cat /tmp/version.txt), expected $MESA_VERSION"
