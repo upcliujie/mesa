@@ -181,6 +181,7 @@ struct st_context
    boolean shader_has_one_variant[MESA_SHADER_STAGES];
 
    boolean needs_texcoord_semantic;
+   boolean needs_border_color_type;
    boolean apply_texture_swizzle_to_border_color;
    boolean linear_depth_filtering_semantics;
    boolean texture_buffer_sampler;
