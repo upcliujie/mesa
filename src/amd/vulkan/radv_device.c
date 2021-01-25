@@ -342,8 +342,12 @@ radv_physical_device_try_create(struct radv_instance *instance,
 		goto fail_fd;
 	}
 
+	struct vk_physical_device_dispatch_table dispatch_table;
+	vk_physical_device_dispatch_table_from_entrypoints(
+		&dispatch_table, &radv_physical_device_entrypoints, true);
+
 	result = vk_physical_device_init(&device->vk, &instance->vk, NULL,
-					 NULL);
+					 &dispatch_table);
 	if (result != VK_SUCCESS) {
 		goto fail_alloc;
 	}
@@ -363,7 +367,7 @@ radv_physical_device_try_create(struct radv_instance *instance,
 		goto fail_base;
 	}
 
-	if (drm_device && instance->enabled_extensions.KHR_display) {
+	if (drm_device && instance->vk.enabled_extensions.KHR_display) {
 		master_fd = open(drm_device->nodes[DRM_NODE_PRIMARY], O_RDWR | O_CLOEXEC);
 		if (master_fd >= 0) {
 			uint32_t accel_working = 0;
@@ -447,7 +451,7 @@ radv_physical_device_try_create(struct radv_instance *instance,
 	radv_physical_device_init_mem_types(device);
 
 	radv_physical_device_get_supported_extensions(device,
-						      &device->supported_extensions);
+						      &device->vk.supported_extensions);
 
 	if (drm_device)
 		device->bus_info = *drm_device->businfo.pci;
@@ -697,8 +701,12 @@ VkResult radv_CreateInstance(
 	if (!instance)
 		return vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
 
+	struct vk_instance_dispatch_table dispatch_table;
+	vk_instance_dispatch_table_from_entrypoints(
+		&dispatch_table, &radv_instance_entrypoints, true);
 	result = vk_instance_init(&instance->vk,
-				  NULL, NULL,
+				  &radv_instance_extensions_supported,
+				  &dispatch_table,
 				  pCreateInfo, pAllocator);
 	if (result != VK_SUCCESS) {
 		vk_free(pAllocator, instance);
@@ -726,71 +734,6 @@ VkResult radv_CreateInstance(
 			fprintf(stderr, "* WARNING: Unknown option 'RADV_PERFTEST=llvm'. Did you mean 'RADV_DEBUG=llvm'? *\n");
 			fprintf(stderr, "*********************************************************************************\n");
 			abort();
-		}
-	}
-
-	if (instance->debug_flags & RADV_DEBUG_STARTUP)
-		radv_logi("Created an instance");
-
-	for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
-		int idx;
-		for (idx = 0; idx < RADV_INSTANCE_EXTENSION_COUNT; idx++) {
-			if (!strcmp(pCreateInfo->ppEnabledExtensionNames[i],
-				    radv_instance_extensions[idx].extensionName))
-				break;
-		}
-
-		if (idx >= RADV_INSTANCE_EXTENSION_COUNT ||
-		    !radv_instance_extensions_supported.extensions[idx]) {
-			vk_instance_finish(&instance->vk);
-			vk_free2(&default_alloc, pAllocator, instance);
-			return vk_error(instance, VK_ERROR_EXTENSION_NOT_PRESENT);
-		}
-
-		instance->enabled_extensions.extensions[idx] = true;
-	}
-
-	bool unchecked = instance->debug_flags & RADV_DEBUG_ALL_ENTRYPOINTS;
-
-	for (unsigned i = 0; i < ARRAY_SIZE(instance->dispatch.entrypoints); i++) {
-		/* Vulkan requires that entrypoints for extensions which have
-		 * not been enabled must not be advertised.
-		 */
-		if (!unchecked &&
-		    !radv_instance_entrypoint_is_enabled(i, instance->vk.app_info.api_version,
-							 &instance->enabled_extensions)) {
-			instance->dispatch.entrypoints[i] = NULL;
-		} else {
-			instance->dispatch.entrypoints[i] =
-				radv_instance_dispatch_table.entrypoints[i];
-		}
-	}
-
-	 for (unsigned i = 0; i < ARRAY_SIZE(instance->physical_device_dispatch.entrypoints); i++) {
-		/* Vulkan requires that entrypoints for extensions which have
-		 * not been enabled must not be advertised.
-		 */
-		if (!unchecked &&
-		    !radv_physical_device_entrypoint_is_enabled(i, instance->vk.app_info.api_version,
-								&instance->enabled_extensions)) {
-			instance->physical_device_dispatch.entrypoints[i] = NULL;
-		} else {
-			instance->physical_device_dispatch.entrypoints[i] =
-				radv_physical_device_dispatch_table.entrypoints[i];
-		}
-	}
-
-	for (unsigned i = 0; i < ARRAY_SIZE(instance->device_dispatch.entrypoints); i++) {
-		/* Vulkan requires that entrypoints for extensions which have
-		 * not been enabled must not be advertised.
-		 */
-		if (!unchecked &&
-		    !radv_device_entrypoint_is_enabled(i, instance->vk.app_info.api_version,
-						       &instance->enabled_extensions, NULL)) {
-			instance->device_dispatch.entrypoints[i] = NULL;
-		} else {
-			instance->device_dispatch.entrypoints[i] =
-				radv_device_dispatch_table.entrypoints[i];
 		}
 	}
 
@@ -2551,15 +2494,6 @@ radv_device_init_gs_info(struct radv_device *device)
 						       device->physical_device->rad_info.family);
 }
 
-static int radv_get_device_extension_index(const char *name)
-{
-	for (unsigned i = 0; i < RADV_DEVICE_EXTENSION_COUNT; ++i) {
-		if (strcmp(name, radv_device_extensions[i].extensionName) == 0)
-			return i;
-	}
-	return -1;
-}
-
 static int
 radv_get_int_debug_option(const char *name, int default_value)
 {
@@ -2586,38 +2520,6 @@ static bool radv_thread_trace_enabled()
 {
 	return radv_get_int_debug_option("RADV_THREAD_TRACE", -1) >= 0 ||
 	       getenv("RADV_THREAD_TRACE_TRIGGER");
-}
-
-static void
-radv_device_init_dispatch(struct radv_device *device)
-{
-	const struct radv_instance *instance = device->physical_device->instance;
-	const struct radv_device_dispatch_table *dispatch_table_layer = NULL;
-	bool unchecked = instance->debug_flags & RADV_DEBUG_ALL_ENTRYPOINTS;
-
-	if (radv_thread_trace_enabled()) {
-		/* Use device entrypoints from the SQTT layer if enabled. */
-		dispatch_table_layer = &sqtt_device_dispatch_table;
-	}
-
-	for (unsigned i = 0; i < ARRAY_SIZE(device->dispatch.entrypoints); i++) {
-		/* Vulkan requires that entrypoints for extensions which have not been
-		 * enabled must not be advertised.
-		 */
-		if (!unchecked &&
-		    !radv_device_entrypoint_is_enabled(i, instance->vk.app_info.api_version,
-						       &instance->enabled_extensions,
-						       &device->enabled_extensions)) {
-			device->dispatch.entrypoints[i] = NULL;
-		} else if (dispatch_table_layer &&
-			   dispatch_table_layer->entrypoints[i]) {
-			device->dispatch.entrypoints[i] =
-				dispatch_table_layer->entrypoints[i];
-		} else {
-			device->dispatch.entrypoints[i] =
-				radv_device_dispatch_table.entrypoints[i];
-		}
-	}
 }
 
 static VkResult
@@ -2759,7 +2661,10 @@ VkResult radv_CreateDevice(
 	if (!device)
 		return vk_error(physical_device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-	result = vk_device_init(&device->vk, NULL, NULL, pCreateInfo,
+	struct vk_device_dispatch_table dispatch_table;
+	vk_device_dispatch_table_from_entrypoints(&dispatch_table,
+						  &radv_device_entrypoints, true);
+	result = vk_device_init(&device->vk, &physical_device->vk, &dispatch_table, pCreateInfo,
 				&physical_device->instance->vk.alloc, pAllocator);
 	if (result != VK_SUCCESS) {
 		vk_free(&device->vk.alloc, device);
@@ -2771,35 +2676,21 @@ VkResult radv_CreateDevice(
 
 	device->ws = physical_device->ws;
 
-	for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
-		const char *ext_name = pCreateInfo->ppEnabledExtensionNames[i];
-		int index = radv_get_device_extension_index(ext_name);
-		if (index < 0 || !physical_device->supported_extensions.extensions[index]) {
-			vk_device_finish(&device->vk);
-			vk_free(&device->vk.alloc, device);
-			return vk_error(physical_device->instance, VK_ERROR_EXTENSION_NOT_PRESENT);
-		}
-
-		device->enabled_extensions.extensions[index] = true;
-	}
-
-	radv_device_init_dispatch(device);
-
-	keep_shader_info = device->enabled_extensions.AMD_shader_info;
+	keep_shader_info = device->vk.enabled_extensions.AMD_shader_info;
 
 	/* With update after bind we can't attach bo's to the command buffer
 	 * from the descriptor set anymore, so we have to use a global BO list.
 	 */
 	device->use_global_bo_list =
 		(device->instance->perftest_flags & RADV_PERFTEST_BO_LIST) ||
-		device->enabled_extensions.EXT_descriptor_indexing ||
-		device->enabled_extensions.EXT_buffer_device_address ||
-		device->enabled_extensions.KHR_buffer_device_address;
+		device->vk.enabled_extensions.EXT_descriptor_indexing ||
+		device->vk.enabled_extensions.EXT_buffer_device_address ||
+		device->vk.enabled_extensions.KHR_buffer_device_address;
 
 	device->robust_buffer_access = robust_buffer_access;
 
 	device->adjust_frag_coord_z = (vrs_enabled ||
-				       device->enabled_extensions.KHR_fragment_shading_rate) &&
+				       device->vk.enabled_extensions.KHR_fragment_shading_rate) &&
 				      (device->physical_device->rad_info.family == CHIP_SIENNA_CICHLID ||
 				       device->physical_device->rad_info.family == CHIP_NAVY_FLOUNDER ||
 				       device->physical_device->rad_info.family == CHIP_VANGOGH);
@@ -5179,31 +5070,10 @@ VkResult radv_EnumerateInstanceExtensionProperties(
 	VK_OUTARRAY_MAKE_TYPED(VkExtensionProperties, out, pProperties,
 			       pPropertyCount);
 
-	for (int i = 0; i < RADV_INSTANCE_EXTENSION_COUNT; i++) {
+	for (int i = 0; i < VK_INSTANCE_EXTENSION_COUNT; i++) {
 		if (radv_instance_extensions_supported.extensions[i]) {
 			vk_outarray_append_typed(VkExtensionProperties, &out, prop) {
-				*prop = radv_instance_extensions[i];
-			}
-		}
-	}
-
-	return vk_outarray_status(&out);
-}
-
-VkResult radv_EnumerateDeviceExtensionProperties(
-    VkPhysicalDevice                            physicalDevice,
-    const char*                                 pLayerName,
-    uint32_t*                                   pPropertyCount,
-    VkExtensionProperties*                      pProperties)
-{
-	RADV_FROM_HANDLE(radv_physical_device, device, physicalDevice);
-	VK_OUTARRAY_MAKE_TYPED(VkExtensionProperties, out, pProperties,
-			       pPropertyCount);
-
-	for (int i = 0; i < RADV_DEVICE_EXTENSION_COUNT; i++) {
-		if (device->supported_extensions.extensions[i]) {
-			vk_outarray_append_typed(VkExtensionProperties, &out, prop) {
-				*prop = radv_device_extensions[i];
+				*prop = vk_instance_extensions[i];
 			}
 		}
 	}
@@ -5243,19 +5113,7 @@ PFN_vkVoidFunction radv_GetInstanceProcAddr(
 	if (instance == NULL)
 		return NULL;
 
-	int idx = radv_get_instance_entrypoint_index(pName);
-	if (idx >= 0)
-		return instance->dispatch.entrypoints[idx];
-
-	idx = radv_get_physical_device_entrypoint_index(pName);
-	if (idx >= 0)
-		return instance->physical_device_dispatch.entrypoints[idx];
-
-	idx = radv_get_device_entrypoint_index(pName);
-	if (idx >= 0)
-		return instance->device_dispatch.entrypoints[idx];
-
-	return NULL;
+	return vk_instance_get_proc_addr(&instance->vk, pName);
 }
 
 /* The loader wants us to expose a second GetInstanceProcAddr function
@@ -5285,31 +5143,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_icdGetPhysicalDeviceProcAddr(
 	const char*                                 pName)
 {
 	RADV_FROM_HANDLE(radv_instance, instance, _instance);
-
-	if (!pName || !instance)
-		return NULL;
-
-	int idx = radv_get_physical_device_entrypoint_index(pName);
-	if (idx < 0)
-		return NULL;
-
-	return instance->physical_device_dispatch.entrypoints[idx];
-}
-
-PFN_vkVoidFunction radv_GetDeviceProcAddr(
-	VkDevice                                    _device,
-	const char*                                 pName)
-{
-	RADV_FROM_HANDLE(radv_device, device, _device);
-
-	if (!device || !pName)
-		return NULL;
-
-	int idx = radv_get_device_entrypoint_index(pName);
-	if (idx < 0)
-		return NULL;
-
-	return device->dispatch.entrypoints[idx];
+	return vk_instance_get_physical_device_proc_addr(&instance->vk, pName);
 }
 
 bool radv_get_memory_fd(struct radv_device *device,
