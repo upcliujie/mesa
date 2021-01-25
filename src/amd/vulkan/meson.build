@@ -18,25 +18,39 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+radv_extensions_py = files('radv_extensions.py')
+
 radv_entrypoints = custom_target(
-  'radv_entrypoints.[ch]',
-  input : ['radv_entrypoints_gen.py', vk_api_xml],
+  'radv_entrypoints',
+  input : [vk_entrypoints_gen, vk_api_xml],
   output : ['radv_entrypoints.h', 'radv_entrypoints.c'],
   command : [
-    prog_python, '@INPUT0@', '--xml', '@INPUT1@', '--outdir',
-    meson.current_build_dir()
+    prog_python, '@INPUT0@', '--xml', '@INPUT1@', '--proto', '--weak',
+    '--out-h', '@OUTPUT0@', '--out-c', '@OUTPUT1@', '--prefix', 'radv',
+    '--device-prefix', 'sqtt',
   ],
-  depend_files : files('radv_extensions.py'),
 )
 
 radv_extensions_c = custom_target(
   'radv_extensions.c',
-  input : ['radv_extensions.py', vk_api_xml],
-  output : ['radv_extensions.c', 'radv_extensions.h'],
+  input : ['radv_extensions_gen.py', vk_api_xml],
+  output : 'radv_extensions.c',
   command : [
-    prog_python, '@INPUT0@', '--xml', '@INPUT1@', '--out-c', '@OUTPUT0@',
-    '--out-h', '@OUTPUT1@'
+    prog_python, '@INPUT0@', '--xml', '@INPUT1@',
+    '--out-c', '@OUTPUT0@',
   ],
+  depend_files : radv_extensions_py,
+)
+
+radv_extensions_h = custom_target(
+  'radv_extensions.h',
+  input : ['radv_extensions_gen.py', vk_api_xml],
+  output : 'radv_extensions.h',
+  command : [
+    prog_python, '@INPUT0@', '--xml', '@INPUT1@',
+    '--out-h', '@OUTPUT@',
+  ],
+  depend_files : radv_extensions_py,
 )
 
 amd_vk_format_table_c = custom_target(
@@ -171,7 +185,7 @@ endif
 
 libvulkan_radeon = shared_library(
   'vulkan_radeon',
-  [libradv_files, radv_entrypoints, radv_extensions_c, amd_vk_format_table_c, sha1_h],
+  [libradv_files, radv_entrypoints, radv_extensions_c, radv_extensions_h, amd_vk_format_table_c, sha1_h],
   include_directories : [
     inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_amd, inc_amd_common, inc_amd_common_llvm, inc_compiler, inc_util, inc_vulkan_wsi,
   ],
