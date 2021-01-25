@@ -82,6 +82,7 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
 
 void
 panfrost_emit_vertex_tiler_jobs(struct panfrost_batch *batch,
+                                const struct panfrost_ptr *indirect_draw_job,
                                 const struct panfrost_ptr *vertex_job,
                                 const struct panfrost_ptr *tiler_job);
 
