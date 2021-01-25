@@ -2149,6 +2149,8 @@ bi_optimize_nir(nir_shader *nir)
         unsigned lower_flrp = 16 | 32 | 64;
 
         NIR_PASS(progress, nir, nir_lower_regs_to_ssa);
+        NIR_PASS(progress, nir, pan_nir_lower_64bit_intrin);
+        NIR_PASS(progress, nir, nir_lower_int64);
         NIR_PASS(progress, nir, nir_lower_idiv, nir_lower_idiv_fast);
 
         nir_lower_tex_options lower_tex_options = {
@@ -2157,10 +2159,6 @@ bi_optimize_nir(nir_shader *nir)
                 .lower_tex_without_implicit_lod = true,
                 .lower_txd = true,
         };
-
-        NIR_PASS(progress, nir, pan_nir_lower_64bit_intrin);
-
-        NIR_PASS(progress, nir, nir_lower_int64);
 
         NIR_PASS(progress, nir, nir_lower_tex, &lower_tex_options);
         NIR_PASS(progress, nir, nir_lower_alu_to_scalar, NULL, NULL);
