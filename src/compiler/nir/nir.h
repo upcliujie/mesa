@@ -2902,6 +2902,7 @@ typedef struct {
    bool structured;
 
    nir_metadata valid_metadata;
+   nir_variable_mode loop_analysis_indirect_mask;
 } nir_function_impl;
 
 #define nir_foreach_function_temp_variable(var, impl) \

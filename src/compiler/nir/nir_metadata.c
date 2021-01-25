@@ -43,11 +43,15 @@ nir_metadata_require(nir_function_impl *impl, nir_metadata required, ...)
       nir_calc_dominance_impl(impl);
    if (NEEDS_UPDATE(nir_metadata_live_ssa_defs))
       nir_live_ssa_defs_impl(impl);
-   if (NEEDS_UPDATE(nir_metadata_loop_analysis)) {
+   if (required & nir_metadata_loop_analysis) {
       va_list ap;
       va_start(ap, required);
-      nir_loop_analyze_impl(impl, va_arg(ap, nir_variable_mode));
+      nir_variable_mode indirect_mask = va_arg(ap, nir_variable_mode);
       va_end(ap);
+
+      if (NEEDS_UPDATE(nir_metadata_loop_analysis) ||
+          indirect_mask != impl->loop_analysis_indirect_mask)
+         nir_loop_analyze_impl(impl, indirect_mask);
    }
 
 #undef NEEDS_UPDATE
