@@ -119,6 +119,7 @@ st_convert_sampler(const struct st_context *st,
    sampler->wrap_r = gl_wrap_xlate(msamp->Attrib.WrapR);
 
    bool is_linear_filtering_supported = true;
+   enum pipe_tex_filter min_img_filter = gl_filter_to_img_filter(msamp->Attrib.MinFilter);
 
    if (msamp->Attrib.MinFilter == GL_LINEAR ||
        msamp->Attrib.MagFilter == GL_LINEAR) {
@@ -128,12 +129,25 @@ st_convert_sampler(const struct st_context *st,
          is_linear_filtering_supported = !sv->view->u.tex.no_linear_filter;
    }
 
-   if (!is_linear_filtering_supported ||
+   if (!is_linear_filtering_supported &&
+       (!st->emulate_gl_clamp || (
+       sampler->wrap_s != PIPE_TEX_WRAP_CLAMP &&
+       sampler->wrap_s != PIPE_TEX_WRAP_MIRROR_CLAMP &&
+       sampler->wrap_t != PIPE_TEX_WRAP_CLAMP &&
+       sampler->wrap_t != PIPE_TEX_WRAP_MIRROR_CLAMP &&
+       sampler->wrap_r != PIPE_TEX_WRAP_CLAMP &&
+       sampler->wrap_r != PIPE_TEX_WRAP_MIRROR_CLAMP))) {
+      /* this conditional has the same result as the one after it,
+       * but its complexity makes splitting it more readable
+       */
+      sampler->min_img_filter = gl_filter_to_img_filter(GL_NEAREST);
+      sampler->mag_img_filter = gl_filter_to_img_filter(GL_NEAREST);
+   } else if (!is_linear_filtering_supported ||
        (texobj->_IsIntegerFormat && st->ctx->Const.ForceIntegerTexNearest)) {
       sampler->min_img_filter = gl_filter_to_img_filter(GL_NEAREST);
       sampler->mag_img_filter = gl_filter_to_img_filter(GL_NEAREST);
    } else {
-      sampler->min_img_filter = gl_filter_to_img_filter(msamp->Attrib.MinFilter);
+      sampler->min_img_filter = min_img_filter;
       sampler->mag_img_filter = gl_filter_to_img_filter(msamp->Attrib.MagFilter);
    }
 
@@ -141,6 +155,32 @@ st_convert_sampler(const struct st_context *st,
       sampler->min_mip_filter = gl_filter_to_mip_filter(msamp->Attrib.MinFilter);
    else
       sampler->min_mip_filter = gl_filter_to_img_filter(GL_NEAREST);
+
+   if (st->emulate_gl_clamp) {
+      bool clamp_to_border = is_linear_filtering_supported &&
+                             min_img_filter != PIPE_TEX_FILTER_NEAREST &&
+                             sampler->mag_img_filter != PIPE_TEX_FILTER_NEAREST;
+      if (sampler->wrap_s == PIPE_TEX_WRAP_CLAMP)
+         sampler->wrap_s = clamp_to_border ? PIPE_TEX_WRAP_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+      else if (sampler->wrap_s == PIPE_TEX_WRAP_MIRROR_CLAMP)
+         sampler->wrap_s = clamp_to_border ? PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE;
+
+      if (sampler->wrap_t == PIPE_TEX_WRAP_CLAMP)
+         sampler->wrap_t = clamp_to_border ? PIPE_TEX_WRAP_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+      else if (sampler->wrap_t == PIPE_TEX_WRAP_MIRROR_CLAMP)
+         sampler->wrap_t = clamp_to_border ? PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE;
+
+      if (sampler->wrap_r == PIPE_TEX_WRAP_CLAMP)
+         sampler->wrap_r = clamp_to_border ? PIPE_TEX_WRAP_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+      else if (sampler->wrap_r == PIPE_TEX_WRAP_MIRROR_CLAMP)
+         sampler->wrap_r = clamp_to_border ? PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE;
+   }
 
    if (texobj->Target != GL_TEXTURE_RECTANGLE_ARB)
       sampler->normalized_coords = 1;
