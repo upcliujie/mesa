@@ -130,7 +130,7 @@ panfrost_create_batch(struct panfrost_context *ctx,
         return batch;
 }
 
-static void
+void
 panfrost_freeze_batch(struct panfrost_batch *batch)
 {
         struct panfrost_context *ctx = batch->ctx;
