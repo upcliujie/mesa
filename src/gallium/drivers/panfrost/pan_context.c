@@ -54,6 +54,7 @@
 #include "pan_blending.h"
 #include "pan_blend_shaders.h"
 #include "pan_cmdstream.h"
+#include "pan_indirect_draw.h"
 #include "pan_util.h"
 #include "decode.h"
 #include "util/pan_lower_framebuffer.h"
@@ -602,7 +603,166 @@ panfrost_indirect_draw(struct panfrost_context *ctx,
                 return;
         }
 
-        assert(0);
+        struct panfrost_device *dev = pan_device(ctx->base.screen);
+
+        assert(ctx->draw_modes & (1 << info->mode));
+        ctx->active_prim = info->mode;
+        ctx->indirect_draw_count = indirect->draw_count;
+
+        struct panfrost_batch *batch = panfrost_get_batch_for_fbo(ctx);
+
+        /* Don't add too many jobs to a single batch */
+        if (batch->scoreboard.job_index + (indirect->draw_count * 3) > 10000)
+                batch = panfrost_get_fresh_batch_for_fbo(ctx);
+
+        panfrost_batch_set_requirements(batch);
+
+        mali_ptr shared_mem = panfrost_batch_reserve_framebuffer(batch);
+
+        struct panfrost_ptr tiler =
+                panfrost_pool_alloc_aligned(&batch->pool,
+                                            pan_is_bifrost(dev) ?
+                                            MALI_BIFROST_TILER_JOB_LENGTH :
+                                            MALI_MIDGARD_TILER_JOB_LENGTH,
+                                            64);
+        struct panfrost_ptr vertex =
+                panfrost_pool_alloc_aligned(&batch->pool,
+                                            MALI_COMPUTE_JOB_LENGTH,
+                                            64);
+
+        struct panfrost_shader_state *vs =
+                panfrost_get_shader_state(ctx, PIPE_SHADER_VERTEX);
+
+        struct panfrost_bo *index_buf = NULL;
+
+        if (info->index_size) {
+                assert(!info->has_user_indices);
+                index_buf = pan_resource(info->index.resource)->bo;
+        }
+
+        mali_ptr varyings = 0, vs_vary = 0, fs_vary = 0, pos = 0, psiz = 0;
+        unsigned varying_buf_count;
+
+        /* We want to create templates, set all count fields to 0 to reflect
+         * that.
+         */
+        ctx->instance_count = ctx->vertex_count = ctx->padded_count = 0;
+        ctx->offset_start = 0;
+
+        panfrost_emit_varying_descriptor(batch, 0,
+                                         &vs_vary, &fs_vary, &varyings,
+                                         &varying_buf_count, &pos, &psiz);
+
+        mali_ptr attribs, attrib_bufs;
+        attribs = panfrost_emit_vertex_data(batch, &attrib_bufs);
+
+        /* Zero-ed invocation, the compute job will update it. */
+        static struct mali_invocation_packed invocation;
+
+        /* Fire off the draw itself */
+        panfrost_draw_emit_vertex(batch, info, &invocation, shared_mem,
+                                  vs_vary, varyings, attribs, attrib_bufs,
+                                  vertex.cpu);
+        panfrost_draw_emit_tiler(batch, info, NULL, &invocation, shared_mem,
+                                 index_buf ? index_buf->ptr.gpu : 0,
+                                 fs_vary, varyings, pos, psiz, tiler.cpu);
+
+        /* FIXME: Currently allocating 16M of growable memory, meaning that we
+         * only allocate what we really use, the problem is:
+         * - allocation happens 2M at a time, which might be more than we
+         *   actually need
+         * - 16M might be too short depending on the number of
+         *   instance/vertex/varyings
+         */
+        struct panfrost_bo *varying_mem_bo =
+                panfrost_batch_create_bo(batch, 16 * 1024 * 1024,
+                                         PAN_BO_INVISIBLE | PAN_BO_GROWABLE,
+                                         PAN_BO_ACCESS_PRIVATE | PAN_BO_ACCESS_RW |
+                                         PAN_BO_ACCESS_VERTEX_TILER);
+
+        assert(indirect->buffer);
+
+        struct panfrost_resource *draw_buf = pan_resource(indirect->buffer);
+        unsigned min_draw_buf_stride = (info->index_size ? 5 : 4) * 4;
+
+        /* Don't count images: those attributes don't need to be patched. */
+        unsigned attrib_count =
+                vs->attribute_count -
+                util_bitcount(ctx->image_mask[PIPE_SHADER_VERTEX]);
+
+        struct pan_indirect_draw_info draw_info = {
+                .draw_count = indirect->draw_count,
+                .draw_buf = draw_buf->bo->ptr.gpu + indirect->offset,
+                .draw_buf_stride = indirect->stride ? : min_draw_buf_stride,
+                .index_buf = index_buf ? index_buf->ptr.gpu : 0,
+                .vertex_job = vertex.gpu,
+                .tiler_job = tiler.gpu,
+                .attrib_bufs = attrib_bufs,
+                .attribs = attribs,
+                .attrib_count = attrib_count,
+                .varying_bufs = varyings,
+                .varying_mem = varying_mem_bo->ptr.gpu,
+        };
+
+        if (panfrost_writes_point_size(ctx))
+                draw_info.flags |= PAN_INDIRECT_DRAW_UPDATE_PRIM_SIZE;
+
+        if (vs->writes_point_size)
+                draw_info.flags |= PAN_INDIRECT_DRAW_HAS_PSIZ;
+
+        if (indirect->draw_count > 1)
+                draw_info.flags |= PAN_INDIRECT_DRAW_MULTI_DRAW;
+
+        unsigned min_draw_buf_size =
+                draw_info.draw_buf_stride * draw_info.draw_count;
+
+        assert(draw_info.draw_buf_stride >= min_draw_buf_stride);
+        assert(indirect->offset + min_draw_buf_size <= draw_buf->bo->size);
+
+        if (indirect->indirect_draw_count) {
+                struct panfrost_bo *draw_count_buf =
+                        pan_resource(indirect->indirect_draw_count)->bo;
+                unsigned offset = indirect->indirect_draw_count_offset;
+
+                assert(offset + sizeof(uint32_t) < draw_count_buf->size);
+                draw_info.draw_count_ptr = draw_count_buf->ptr.gpu + offset;
+                draw_info.flags |= PAN_INDIRECT_DRAW_INDIRECT_DRAW_COUNT;
+        }
+
+        if (info->primitive_restart) {
+                draw_info.restart_index = info->restart_index;
+                draw_info.flags |= PAN_INDIRECT_DRAW_PRIMITIVE_RESTART;
+        }
+
+        switch (info->index_size) {
+        case 0:
+                draw_info.flags |= PAN_INDIRECT_DRAW_NO_INDEX;
+                break;
+        case 1:
+                draw_info.flags |= PAN_INDIRECT_DRAW_1B_INDEX;
+                break;
+        case 2:
+                draw_info.flags |= PAN_INDIRECT_DRAW_2B_INDEX;
+                break;
+        case 4:
+                draw_info.flags |= PAN_INDIRECT_DRAW_4B_INDEX;
+                break;
+        default:
+                unreachable("Invalid index size\n");
+        }
+
+        struct panfrost_ptr compute =
+                panfrost_emit_indirect_draw(&batch->pool,
+                                            &batch->scoreboard,
+                                            &draw_info);
+
+        panfrost_emit_vertex_tiler_jobs(batch, &compute, &vertex, &tiler);
+
+        /* Adjust the batch stack size based on the new shader stack sizes. */
+        panfrost_batch_adjust_stack_size(batch);
+
+        /* TODO: update statistics (see panfrost_statistics_record()) */
+        /* TODO: Increment transform feedback offsets */
 }
 
 static void
