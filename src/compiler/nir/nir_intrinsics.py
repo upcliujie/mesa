@@ -213,6 +213,12 @@ index("nir_alu_type", "dest_type")
 # The swizzle mask for quad_swizzle_amd & masked_swizzle_amd
 index("unsigned", "swizzle_mask")
 
+# The stride of load_mubuf_gcn/store_mubuf_gcn
+index("unsigned", "stride")
+
+# The SLC ("system level coherent") bit of load_mubuf_gcn/store_mubuf_gcn
+index("bool", "gcn_slc")
+
 # Separate source/dest access flags for copies
 index("enum gl_access_qualifier", "dst_access")
 index("enum gl_access_qualifier", "src_access")
@@ -1117,6 +1123,16 @@ intrinsic("load_local_shared_r600", src_comp=[0], dest_comp=0, indices = [COMPON
 
 store("local_shared_r600", [1], [WRITE_MASK])
 store("tf_r600", [])
+
+# AMD GCN/RDNA specific intrinsics
+# src[] = { descriptor, base address, scalar offset }
+intrinsic("load_mubuf_gcn", src_comp=[4, 1, 1], dest_comp=0,
+                           indices=[BASE, STRIDE, GCN_SLC, MEMORY_MODES],
+                           flags=[CAN_ELIMINATE, CAN_REORDER])
+# src[] = { store value, descriptor, base address, scalar offset }
+intrinsic("store_mubuf_gcn", src_comp=[0, 4, 1, 1],
+                           indices=[BASE, WRITE_MASK, STRIDE, GCN_SLC, MEMORY_MODES],
+                           flags=[CAN_REORDER])
 
 # V3D-specific instrinc for tile buffer color reads.
 #
