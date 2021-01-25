@@ -183,13 +183,16 @@ void get_block_needs(wqm_ctx &ctx, exec_ctx &exec_ctx, Block* block)
       bool propagate_wqm = instr->opcode == aco_opcode::p_wqm;
       bool preserve_wqm = instr->opcode == aco_opcode::p_discard_if;
       bool pred_by_exec = needs_exec_mask(instr.get());
-      for (const Definition& definition : instr->definitions) {
+      for (Definition& definition : instr->definitions) {
          if (!definition.isTemp())
             continue;
          const unsigned def = definition.tempId();
          ctx.defined_in[def] = block->index;
+         ctx.needs_wqm[def] = ctx.needs_wqm[def] | definition.needsWQM();
          if (needs == Unspecified && ctx.needs_wqm[def]) {
-            needs = pred_by_exec ? WQM : Unspecified;
+            if (pred_by_exec)
+               needs = WQM;
+            definition.setWQM(pred_by_exec);
             propagate_wqm = true;
          }
       }

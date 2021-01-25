@@ -272,6 +272,13 @@ public:
       return Definition(program->allocateId(rc), reg, rc);
    }
 
+   Definition wqm(Temp tmp, bool program_needs_wqm = false) {
+      Definition def = Definition(tmp);
+      def.setWQM(true);
+      program->needs_wqm |= program_needs_wqm;
+      return def;
+   }
+
    inline aco_opcode w64or32(WaveSpecificOpcode opcode) const {
       if (program->wave_size == 64)
          return (aco_opcode) opcode;
