@@ -109,19 +109,38 @@ st_convert_sampler(const struct st_context *st,
                    float tex_unit_lod_bias,
                    struct pipe_sampler_state *sampler)
 {
+   const struct st_texture_object *stobj = NULL;
+   /* XXX: clean that up to not use the sampler view at all */
+   const struct st_sampler_view *sv = NULL;
+
    memset(sampler, 0, sizeof(*sampler));
    sampler->wrap_s = gl_wrap_xlate(msamp->Attrib.WrapS);
    sampler->wrap_t = gl_wrap_xlate(msamp->Attrib.WrapT);
    sampler->wrap_r = gl_wrap_xlate(msamp->Attrib.WrapR);
 
-   if (texobj->_IsIntegerFormat && st->ctx->Const.ForceIntegerTexNearest) {
+   bool is_linear_filtering_supported = true;
+
+   if (msamp->Attrib.MinFilter == GL_LINEAR ||
+       msamp->Attrib.MagFilter == GL_LINEAR) {
+      stobj = st_texture_object_const(texobj);
+      sv = st_texture_get_current_sampler_view(st, stobj);
+      if (sv)
+         is_linear_filtering_supported = !sv->view->u.tex.no_linear_filter;
+   }
+
+   if (!is_linear_filtering_supported ||
+       (texobj->_IsIntegerFormat && st->ctx->Const.ForceIntegerTexNearest)) {
       sampler->min_img_filter = gl_filter_to_img_filter(GL_NEAREST);
       sampler->mag_img_filter = gl_filter_to_img_filter(GL_NEAREST);
    } else {
       sampler->min_img_filter = gl_filter_to_img_filter(msamp->Attrib.MinFilter);
       sampler->mag_img_filter = gl_filter_to_img_filter(msamp->Attrib.MagFilter);
    }
-   sampler->min_mip_filter = gl_filter_to_mip_filter(msamp->Attrib.MinFilter);
+
+   if (is_linear_filtering_supported)
+      sampler->min_mip_filter = gl_filter_to_mip_filter(msamp->Attrib.MinFilter);
+   else
+      sampler->min_mip_filter = gl_filter_to_img_filter(GL_NEAREST);
 
    if (texobj->Target != GL_TEXTURE_RECTANGLE_ARB)
       sampler->normalized_coords = 1;
@@ -172,9 +191,10 @@ st_convert_sampler(const struct st_context *st,
          texBaseFormat = GL_STENCIL_INDEX;
 
       if (st->apply_texture_swizzle_to_border_color) {
-         const struct st_texture_object *stobj = st_texture_object_const(texobj);
-         /* XXX: clean that up to not use the sampler view at all */
-         const struct st_sampler_view *sv = st_texture_get_current_sampler_view(st, stobj);
+         if (!stobj)
+            stobj = st_texture_object_const(texobj);
+         if (!sv)
+            sv = st_texture_get_current_sampler_view(st, stobj);
 
          if (sv) {
             struct pipe_sampler_view *view = sv->view;
