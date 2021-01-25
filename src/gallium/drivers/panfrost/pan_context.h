@@ -133,7 +133,7 @@ struct panfrost_context {
         uint64_t tf_prims_generated;
         struct panfrost_query *occlusion_query;
 
-        unsigned indirect_draw_count;
+        bool indirect_draw;
         unsigned vertex_count;
         unsigned instance_count;
         unsigned offset_start;

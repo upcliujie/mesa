@@ -1474,7 +1474,7 @@ panfrost_emit_vertex_data(struct panfrost_batch *batch,
         struct panfrost_device *dev = pan_device(ctx->base.screen);
         struct panfrost_vertex_state *so = ctx->vertex;
         struct panfrost_shader_state *vs = panfrost_get_shader_state(ctx, PIPE_SHADER_VERTEX);
-        bool instanced = ctx->indirect_draw_count || ctx->instance_count > 1;
+        bool instanced = ctx->indirect_draw || ctx->instance_count > 1;
         uint32_t image_mask = ctx->image_mask[PIPE_SHADER_VERTEX];
         unsigned nr_images = util_bitcount(image_mask);
 
@@ -1548,7 +1548,7 @@ panfrost_emit_vertex_data(struct panfrost_batch *batch,
                 unsigned divisor = elem->instance_divisor;
                 unsigned stride = buf->stride;
 
-                if (ctx->indirect_draw_count) {
+                if (ctx->indirect_draw) {
                         /* With indirect draws we can't guess the vertex_count.
                          * Pre-set the address, stride and size fields, the
                          * compute shader do the rest.
@@ -1697,7 +1697,7 @@ panfrost_emit_varyings(struct panfrost_batch *batch,
 {
         unsigned size = stride * count;
         mali_ptr ptr =
-                batch->ctx->indirect_draw_count ? 0 :
+                batch->ctx->indirect_draw ? 0 :
                 panfrost_pool_alloc_aligned(&batch->invisible_pool, size, 64).gpu;
 
         pan_pack(slot, ATTRIBUTE_BUFFER, cfg) {
@@ -2219,29 +2219,23 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
 
 void
 panfrost_emit_vertex_tiler_jobs(struct panfrost_batch *batch,
-                                const struct panfrost_ptr *indirect_draw_job,
                                 const struct panfrost_ptr *vertex_job,
                                 const struct panfrost_ptr *tiler_job)
 {
         struct panfrost_context *ctx = batch->ctx;
 
-        unsigned compute =
-                indirect_draw_job ?
-                panfrost_add_job(&batch->pool, &batch->scoreboard,
-                                 MALI_JOB_TYPE_COMPUTE, false,
-                                 ctx->indirect_draw_count > 0, 0,
-                                 indirect_draw_job, false) :
-                0;
-
         /* If rasterizer discard is enable, only submit the vertex */
 
         unsigned vertex = panfrost_add_job(&batch->pool, &batch->scoreboard,
                                            MALI_JOB_TYPE_VERTEX, false, false,
-                                           compute, 0, vertex_job, false);
+                                           ctx->indirect_draw ?
+                                           batch->indirect_draw_job_id : 0,
+                                           0, vertex_job, false);
 
         if (ctx->rasterizer->base.rasterizer_discard)
                 return;
 
-        panfrost_add_job(&batch->pool, &batch->scoreboard, MALI_JOB_TYPE_TILER,
-                         false, false, vertex, 0, tiler_job, false);
+        panfrost_add_job(&batch->pool, &batch->scoreboard,
+                         MALI_JOB_TYPE_TILER, false, false,
+                         vertex, 0, tiler_job, false);
 }
