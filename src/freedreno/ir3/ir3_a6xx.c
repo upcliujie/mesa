@@ -48,16 +48,20 @@ emit_intrinsic_load_ssbo(struct ir3_context *ctx, nir_intrinsic_instr *intr,
 
 	offset = ir3_get_src(ctx, &intr->src[2])[0];
 
+	uint32_t num_components = intr->num_components *
+		(intr->dest.ssa.bit_size == 64 ? 2 : 1);
+	assert(num_components <= 4);
+
 	ldib = ir3_LDIB(b, ir3_ssbo_to_ibo(ctx, intr->src[0]), 0, offset, 0);
-	ldib->regs[0]->wrmask = MASK(intr->num_components);
-	ldib->cat6.iim_val = intr->num_components;
+	ldib->regs[0]->wrmask = MASK(num_components);
+	ldib->cat6.iim_val = num_components;
 	ldib->cat6.d = 1;
 	ldib->cat6.type = intr->dest.ssa.bit_size == 16 ? TYPE_U16 : TYPE_U32;
 	ldib->barrier_class = IR3_BARRIER_BUFFER_R;
 	ldib->barrier_conflict = IR3_BARRIER_BUFFER_W;
 	ir3_handle_bindless_cat6(ldib, intr->src[0]);
 
-	ir3_split_dest(b, dst, ldib, 0, intr->num_components);
+	ir3_split_dest(b, dst, ldib, 0, num_components);
 }
 
 /* src[] = { value, block_index, offset }. const_index[] = { write_mask } */
@@ -68,6 +72,8 @@ emit_intrinsic_store_ssbo(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 	struct ir3_instruction *stib, *val, *offset;
 	unsigned wrmask = nir_intrinsic_write_mask(intr);
 	unsigned ncomp = ffs(~wrmask) - 1;
+	ncomp *= intr->src[0].ssa->bit_size == 64 ? 2 : 1;
+	assert(ncomp <= 4);
 
 	assert(wrmask == BITFIELD_MASK(intr->num_components));
 

@@ -269,9 +269,11 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 
 	if (alu->dest.dest.is_ssa) {
 		dst_sz = alu->dest.dest.ssa.num_components;
+		dst_sz *= (alu->dest.dest.ssa.bit_size == 64 ? 2 : 1);
 		wrmask = (1 << dst_sz) - 1;
 	} else {
 		dst_sz = alu->dest.dest.reg.reg->num_components;
+		dst_sz *= (alu->dest.dest.reg.reg->bit_size == 64 ? 2 : 1);
 		wrmask = alu->dest.write_mask;
 	}
 
@@ -694,6 +696,17 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 		dst[0] = ir3_BFREV_B(b, src[0], 0);
 		break;
 
+	case nir_op_pack_64_2x32_split:
+		dst[0] = src[0];
+		dst[1] = src[1];
+		break;
+	case nir_op_unpack_64_2x32_split_x:
+		dst[0] = src[0];
+		break;
+	case nir_op_unpack_64_2x32_split_y:
+		dst[0] = ir3_get_src(ctx, &alu->src[0].src)[1];
+		break;
+
 	default:
 		ir3_context_error(ctx, "Unhandled ALU op: %s\n",
 				nir_op_infos[alu->op].name);
@@ -719,6 +732,9 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 			compile_assert(ctx, nir_dest_bit_size(alu->dest.dest) != 1);
 		}
 	}
+
+	assert(alu->op == nir_op_pack_64_2x32_split ||
+			nir_dest_bit_size(alu->dest.dest) != 64);
 
 	ir3_put_dst(ctx, &alu->dest.dest);
 }
@@ -790,12 +806,15 @@ emit_intrinsic_load_ubo(struct ir3_context *ctx, nir_intrinsic_instr *intr,
 		addr = ir3_ADD_S(b, addr, 0, src1, 0);
 	}
 
+	uint32_t num_components = intr->num_components *
+		(intr->dest.ssa.bit_size == 64 ? 2 : 1);
+
 	/* if offset is to large to encode in the ldg, split it out: */
-	if ((off + (intr->num_components * 4)) > 1024) {
+	if ((off + (num_components * 4)) > 1024) {
 		/* split out the minimal amount to improve the odds that
 		 * cp can fit the immediate in the add.s instruction:
 		 */
-		unsigned off2 = off + (intr->num_components * 4) - 1024;
+		unsigned off2 = off + (num_components * 4) - 1024;
 		addr = ir3_ADD_S(b, addr, 0, create_immed(b, off2), 0);
 		off -= off2;
 	}
@@ -814,7 +833,7 @@ emit_intrinsic_load_ubo(struct ir3_context *ctx, nir_intrinsic_instr *intr,
 		addr = ir3_create_collect(ctx, (struct ir3_instruction*[]){ addr, base_hi }, 2);
 	}
 
-	for (int i = 0; i < intr->num_components; i++) {
+	for (int i = 0; i < num_components; i++) {
 		struct ir3_instruction *load =
 			ir3_LDG(b, addr, 0,
 					create_immed(b, off + i * 4), 0,
@@ -871,20 +890,24 @@ emit_intrinsic_load_shared(struct ir3_context *ctx, nir_intrinsic_instr *intr,
 	struct ir3_instruction *ldl, *offset;
 	unsigned base;
 
+	uint32_t num_components = intr->num_components *
+		(intr->dest.ssa.bit_size == 64 ? 2 : 1);
+	assert(num_components <= 4);
+
 	offset = ir3_get_src(ctx, &intr->src[0])[0];
 	base   = nir_intrinsic_base(intr);
 
 	ldl = ir3_LDL(b, offset, 0,
 			create_immed(b, base), 0,
-			create_immed(b, intr->num_components), 0);
+			create_immed(b, num_components), 0);
 
 	ldl->cat6.type = utype_dst(intr->dest);
-	ldl->regs[0]->wrmask = MASK(intr->num_components);
+	ldl->regs[0]->wrmask = MASK(num_components);
 
 	ldl->barrier_class = IR3_BARRIER_SHARED_R;
 	ldl->barrier_conflict = IR3_BARRIER_SHARED_W;
 
-	ir3_split_dest(b, dst, ldl, 0, intr->num_components);
+	ir3_split_dest(b, dst, ldl, 0, num_components);
 }
 
 /* src[] = { value, offset }. const_index[] = { base, write_mask } */
@@ -902,6 +925,8 @@ emit_intrinsic_store_shared(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 	base   = nir_intrinsic_base(intr);
 	wrmask = nir_intrinsic_write_mask(intr);
 	ncomp  = ffs(~wrmask) - 1;
+	ncomp *= intr->src[0].ssa->bit_size == 64 ? 2 : 1;
+	assert(ncomp <= 4);
 
 	assert(wrmask == BITFIELD_MASK(intr->num_components));
 
@@ -925,24 +950,28 @@ emit_intrinsic_load_shared_ir3(struct ir3_context *ctx, nir_intrinsic_instr *int
 	struct ir3_instruction *load, *offset;
 	unsigned base;
 
+	uint32_t num_components = intr->num_components *
+		(intr->dest.ssa.bit_size == 64 ? 2 : 1);
+	assert(num_components <= 4);
+
 	offset = ir3_get_src(ctx, &intr->src[0])[0];
 	base   = nir_intrinsic_base(intr);
 
 	load = ir3_LDLW(b, offset, 0,
 			create_immed(b, base), 0,
-			create_immed(b, intr->num_components), 0);
+			create_immed(b, num_components), 0);
 
 	/* for a650, use LDL for tess ctrl inputs: */
 	if (ctx->so->type == MESA_SHADER_TESS_CTRL && ctx->compiler->tess_use_shared)
 		load->opc = OPC_LDL;
 
 	load->cat6.type = utype_dst(intr->dest);
-	load->regs[0]->wrmask = MASK(intr->num_components);
+	load->regs[0]->wrmask = MASK(num_components);
 
 	load->barrier_class = IR3_BARRIER_SHARED_R;
 	load->barrier_conflict = IR3_BARRIER_SHARED_W;
 
-	ir3_split_dest(b, dst, load, 0, intr->num_components);
+	ir3_split_dest(b, dst, load, 0, num_components);
 }
 
 /* src[] = { value, offset }. const_index[] = { base } */
@@ -956,9 +985,13 @@ emit_intrinsic_store_shared_ir3(struct ir3_context *ctx, nir_intrinsic_instr *in
 	value  = ir3_get_src(ctx, &intr->src[0]);
 	offset = ir3_get_src(ctx, &intr->src[1])[0];
 
+	uint32_t num_components = intr->num_components *
+		(intr->src[0].ssa->bit_size == 64 ? 2 : 1);
+	assert(num_components <= 4);
+
 	store = ir3_STLW(b, offset, 0,
-		ir3_create_collect(ctx, value, intr->num_components), 0,
-		create_immed(b, intr->num_components), 0);
+		ir3_create_collect(ctx, value, num_components), 0,
+		create_immed(b, num_components), 0);
 
 	/* for a650, use STL for vertex outputs used by tess ctrl shader: */
 	if (ctx->so->type == MESA_SHADER_VERTEX && ctx->so->key.tessellation &&
@@ -1061,19 +1094,23 @@ emit_intrinsic_load_scratch(struct ir3_context *ctx, nir_intrinsic_instr *intr,
 	struct ir3_block *b = ctx->block;
 	struct ir3_instruction *ldp, *offset;
 
+	uint32_t num_components = intr->num_components *
+		(intr->dest.ssa.bit_size == 64 ? 2 : 1);
+	assert(num_components <= 4);
+
 	offset = ir3_get_src(ctx, &intr->src[0])[0];
 
 	ldp = ir3_LDP(b, offset, 0,
 			create_immed(b, 0), 0,
-			create_immed(b, intr->num_components), 0);
+			create_immed(b, num_components), 0);
 
 	ldp->cat6.type = utype_dst(intr->dest);
-	ldp->regs[0]->wrmask = MASK(intr->num_components);
+	ldp->regs[0]->wrmask = MASK(num_components);
 
 	ldp->barrier_class = IR3_BARRIER_PRIVATE_R;
 	ldp->barrier_conflict = IR3_BARRIER_PRIVATE_W;
 
-	ir3_split_dest(b, dst, ldp, 0, intr->num_components);
+	ir3_split_dest(b, dst, ldp, 0, num_components);
 }
 
 /* src[] = { value, offset }. const_index[] = { write_mask } */
@@ -1090,6 +1127,8 @@ emit_intrinsic_store_scratch(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 
 	wrmask = nir_intrinsic_write_mask(intr);
 	ncomp  = ffs(~wrmask) - 1;
+	ncomp *= intr->src[0].ssa->bit_size == 64 ? 2 : 1;
+	assert(ncomp <= 4);
 
 	assert(wrmask == BITFIELD_MASK(intr->num_components));
 
@@ -1534,7 +1573,8 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 	struct ir3_instruction **dst;
 	struct ir3_instruction * const *src;
 	struct ir3_block *b = ctx->block;
-	unsigned dest_components = nir_intrinsic_dest_components(intr);
+	unsigned dest_components = nir_intrinsic_dest_components(intr) *
+		(intr->dest.ssa.bit_size == 64 ? 2 : 1);
 	int idx;
 
 	if (info->has_dest) {
@@ -1632,7 +1672,9 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 
 	case nir_intrinsic_store_global_ir3: {
 		struct ir3_instruction *value, *addr, *offset;
-		unsigned ncomp = nir_intrinsic_src_components(intr, 0);
+		unsigned ncomp = nir_intrinsic_src_components(intr, 0) *
+			(intr->src[0].ssa->bit_size == 64 ? 2 : 1);
+		assert(ncomp <= 4);
 
 		addr = ir3_create_collect(ctx, (struct ir3_instruction*[]){
 				ir3_get_src(ctx, &intr->src[1])[0],
@@ -1658,6 +1700,7 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 
 	case nir_intrinsic_load_global_ir3: {
 		struct ir3_instruction *addr, *offset;
+		assert(dest_components <= 4);
 
 		addr = ir3_create_collect(ctx, (struct ir3_instruction*[]){
 				ir3_get_src(ctx, &intr->src[0])[0],
@@ -2010,19 +2053,29 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 static void
 emit_load_const(struct ir3_context *ctx, nir_load_const_instr *instr)
 {
-	struct ir3_instruction **dst = ir3_get_dst_ssa(ctx, &instr->def,
-			instr->def.num_components);
+	uint32_t num_regs = instr->def.num_components *
+		(instr->def.bit_size == 64 ? 2 : 1);
+	struct ir3_instruction **dst = ir3_get_dst_ssa(ctx, &instr->def, num_regs);
 
 	if (instr->def.bit_size == 16) {
 		for (int i = 0; i < instr->def.num_components; i++)
 			dst[i] = create_immed_typed(ctx->block,
 										instr->value[i].u16,
 										TYPE_U16);
-	} else {
+	} else if (instr->def.bit_size == 32) {
 		for (int i = 0; i < instr->def.num_components; i++)
 			dst[i] = create_immed_typed(ctx->block,
 										instr->value[i].u32,
 										TYPE_U32);
+	} else {
+		for (int i = 0; i < instr->def.num_components; i++) {
+			dst[i * 2] = create_immed_typed(ctx->block,
+										instr->value[i].u64 & 0xffffffff,
+										TYPE_U32);
+			dst[i * 2 + 1] = create_immed_typed(ctx->block,
+										instr->value[i].u64 >> 32,
+										TYPE_U32);
+		}
 	}
 
 }
@@ -2030,14 +2083,17 @@ emit_load_const(struct ir3_context *ctx, nir_load_const_instr *instr)
 static void
 emit_undef(struct ir3_context *ctx, nir_ssa_undef_instr *undef)
 {
+	uint32_t num_components = undef->def.num_components *
+		(undef->def.bit_size == 64 ? 2 : 1);
+
 	struct ir3_instruction **dst = ir3_get_dst_ssa(ctx, &undef->def,
-			undef->def.num_components);
+			num_components);
 	type_t type = (undef->def.bit_size == 16) ? TYPE_U16 : TYPE_U32;
 
 	/* backend doesn't want undefined instructions, so just plug
 	 * in 0.0..
 	 */
-	for (int i = 0; i < undef->def.num_components; i++)
+	for (int i = 0; i < num_components; i++)
 		dst[i] = create_immed_typed(ctx->block, fui(0.0), type);
 }
 
@@ -2983,6 +3039,7 @@ setup_input(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 	unsigned frac = nir_intrinsic_component(intr);
 	unsigned offset = nir_src_as_uint(intr->src[coord ? 1 : 0]);
 	unsigned ncomp = nir_intrinsic_dest_components(intr);
+	ncomp *= (intr->dest.ssa.bit_size == 64 ? 2 : 1);
 	unsigned n = nir_intrinsic_base(intr) + offset;
 	unsigned slot = nir_intrinsic_io_semantics(intr).location + offset;
 	unsigned compmask;
@@ -3187,6 +3244,7 @@ setup_output(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 	unsigned n = nir_intrinsic_base(intr) + offset;
 	unsigned frac = nir_intrinsic_component(intr);
 	unsigned ncomp = nir_intrinsic_src_components(intr, 0);
+	ncomp *= (intr->src[0].ssa->bit_size == 64 ? 2 : 1);
 
 	/* For per-view variables, each user-facing slot corresponds to multiple
 	 * views, each with a corresponding driver_location, and the offset is for
