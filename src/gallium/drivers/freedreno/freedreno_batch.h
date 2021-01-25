@@ -306,7 +306,6 @@ fd_batch_reference(struct fd_batch **ptr, struct fd_batch *batch)
 static inline void
 fd_batch_unlock_submit(struct fd_batch *batch)
 {
-   simple_mtx_unlock(&batch->submit_lock);
 }
 
 /**
@@ -316,11 +315,7 @@ fd_batch_unlock_submit(struct fd_batch *batch)
 static inline bool MUST_CHECK
 fd_batch_lock_submit(struct fd_batch *batch)
 {
-   simple_mtx_lock(&batch->submit_lock);
-   bool ret = !batch->flushed;
-   if (!ret)
-      fd_batch_unlock_submit(batch);
-   return ret;
+   return !batch->flushed;
 }
 
 /**
