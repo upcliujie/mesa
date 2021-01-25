@@ -434,9 +434,17 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 			int32_t iim_val = src_reg->iim_val;
 
 			debug_assert((opc_cat(instr->opc) == 1) ||
+					(opc_cat(instr->opc) == 2) ||
 					(opc_cat(instr->opc) == 6) ||
 					ir3_cat2_int(instr->opc) ||
 					(is_mad(instr->opc) && (n == 0)));
+
+			if ((opc_cat(instr->opc) == 2) &&
+					!ir3_cat2_int(instr->opc)) {
+				iim_val = ir3_flut(src_reg->fim_val);
+				if (iim_val < 0)
+					return false;
+			}
 
 			if (new_flags & IR3_REG_SABS)
 				iim_val = abs(iim_val);

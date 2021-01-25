@@ -490,6 +490,37 @@ ir3_fixup_src_type(struct ir3_instruction *instr)
 	}
 }
 
+#define LOG210 3.321928095
+
+/**
+ * Map a floating point immed to FLUT (float lookup table) value,
+ * returns negative for immediates that cannot be mapped.
+ */
+int
+ir3_flut(float f)
+{
+	static const float flut[] = {
+		0.0,
+		0.5,
+		1.0,
+		2.0,
+		M_E,            /* e */
+		M_PI,           /* pi */
+		M_1_PI,         /* 1/pi */
+		1.0 / M_LOG2E,  /* 1/log2(e) */
+		M_LOG2E,        /* log2(e) */
+		1.0 / LOG210,   /* 1/log2(10) */
+		LOG210,         /* log2(10) */
+		4.0,
+	};
+
+	for (unsigned i = 0; i < ARRAY_SIZE(flut); i++)
+		if (flut[i] == f)
+			return i;
+
+	return -1;
+}
+
 static unsigned
 cp_flags(unsigned flags)
 {
@@ -549,10 +580,7 @@ ir3_valid_flags(struct ir3_instruction *instr, unsigned n,
 		break;
 	case 2:
 		valid_flags = ir3_cat2_absneg(instr->opc) |
-				IR3_REG_CONST | IR3_REG_RELATIV;
-
-		if (ir3_cat2_int(instr->opc))
-			valid_flags |= IR3_REG_IMMED;
+				IR3_REG_CONST | IR3_REG_RELATIV | IR3_REG_IMMED;
 
 		if (flags & ~valid_flags)
 			return false;
