@@ -32,7 +32,18 @@
 static PFN_vkVoidFunction
 radv_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
 {
-	return radv_lookup_entrypoint(pName);
+	RADV_FROM_HANDLE(radv_physical_device, pdevice, physicalDevice);
+	PFN_vkVoidFunction func;
+
+	func = vk_instance_dispatch_table_get(&pdevice->instance->vk.dispatch_table, pName);
+	if (func != NULL)
+		return func;
+
+	func = vk_physical_device_dispatch_table_get(&pdevice->vk.dispatch_table, pName);
+	if (func != NULL)
+		return func;
+
+	return vk_device_dispatch_table_get(&vk_device_trampolines, pName);
 }
 
 static void
