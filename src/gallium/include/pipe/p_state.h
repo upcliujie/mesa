@@ -476,6 +476,7 @@ struct pipe_sampler_view
          unsigned last_layer:16;   /**< last layer to use for array textures */
          unsigned first_level:8;   /**< first mipmap level to use */
          unsigned last_level:8;    /**< last mipmap level to use */
+         bool no_linear_filter:1; /**< texture cannot be used with linear filtering */
       } tex;
       struct {
          unsigned offset;   /**< offset in bytes */
