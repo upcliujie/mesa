@@ -472,6 +472,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_mbcnt_amd:
    case nir_intrinsic_elect:
    case nir_intrinsic_load_tlb_color_v3d:
+   case nir_intrinsic_load_mubuf_gcn:
       is_divergent = true;
       break;
 
