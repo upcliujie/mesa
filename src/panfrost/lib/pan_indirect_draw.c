@@ -1126,15 +1126,15 @@ panfrost_init_indirect_draw_shaders(struct panfrost_device *dev)
         dev->indirect_draw_shaders.states =
                 panfrost_bo_create(dev, state_bo_size, 0);
 
-        /* FIXME: Currently allocating 128M of growable memory, meaning that we
+        /* FIXME: Currently allocating 512M of growable memory, meaning that we
          * only allocate what we really use, the problem is:
          * - allocation happens 2M at a time, which might be more than we
          *   actually need
-         * - 128M might be too short depending on the number of
-         *   instance/vertex/varyings
+         * - the memory is attached to the device to speed up subsequent
+	 *   indirect draws, but that also means it's never shrinked
          */
         dev->indirect_draw_shaders.varying_heap =
-                panfrost_bo_create(dev, 128 * 1024 * 1024,
+                panfrost_bo_create(dev, 512 * 1024 * 1024,
                                    PAN_BO_INVISIBLE | PAN_BO_GROWABLE);
 }
 
