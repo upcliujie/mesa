@@ -469,7 +469,8 @@ panfrost_load_midg(struct pan_pool *pool,
                                                           INVOCATION),
                                           1, vertex_count, 1, 1, 1, 1, true);
 
-        panfrost_add_job(pool, scoreboard, MALI_JOB_TYPE_TILER, false, 0, &t, true);
+        panfrost_add_job(pool, scoreboard, MALI_JOB_TYPE_TILER, false, false,
+                         0, &t, true);
 }
 
 static void
@@ -665,5 +666,6 @@ panfrost_load_bifrost(struct pan_pool *pool,
                 cfg.address = tiler;
         }
 
-        panfrost_add_job(pool, scoreboard, MALI_JOB_TYPE_TILER, false, 0, &t, true);
+        panfrost_add_job(pool, scoreboard, MALI_JOB_TYPE_TILER, false, false,
+                         0, &t, true);
 }
