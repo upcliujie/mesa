@@ -1181,12 +1181,13 @@ panfrost_emit_vertex_data(struct panfrost_batch *batch,
         bool is_bifrost = !!(dev->quirks & IS_BIFROST);
         struct panfrost_vertex_state *so = ctx->vertex;
         struct panfrost_shader_state *vs = panfrost_get_shader_state(ctx, PIPE_SHADER_VERTEX);
+        bool instanced = ctx->indirect_draw || ctx->instance_count > 1;
 
         /* Worst case: everything is NPOT, which is only possible if instancing
          * is enabled. Otherwise single record is gauranteed */
         struct panfrost_ptr S = panfrost_pool_alloc_aligned(&batch->pool,
                         MALI_ATTRIBUTE_BUFFER_LENGTH * (vs->attribute_count + 1) *
-                        (ctx->instance_count > 1 ? 2 : 1),
+                        (instanced ? 2 : 1),
                         MALI_ATTRIBUTE_BUFFER_LENGTH * 2);
 
         struct panfrost_ptr T = panfrost_pool_alloc_aligned(&batch->pool,
@@ -1244,8 +1245,31 @@ panfrost_emit_vertex_data(struct panfrost_batch *batch,
                 /* When there is a divisor, the hardware-level divisor is
                  * the product of the instance divisor and the padded count */
                 unsigned divisor = elem->instance_divisor;
-                unsigned hw_divisor = ctx->padded_count * divisor;
                 unsigned stride = buf->stride;
+
+                if (ctx->indirect_draw) {
+                        /* With indirect draws we can't guess the vertex_count.
+                         * Pre-set the address, stride and size fields, the
+                         * compute shader do the rest.
+                         */
+                        pan_pack(bufs + k, ATTRIBUTE_BUFFER, cfg) {
+                                cfg.pointer = addr;
+                                cfg.stride = stride;
+                                cfg.size = size;
+                        }
+
+                        /* We store the unmodified divisor in the continuation
+                         * slot so the compute shader can retrieve it.
+                         */
+                        pan_pack(bufs + k + 1, ATTRIBUTE_BUFFER_CONTINUATION_NPOT, cfg) {
+                                cfg.divisor = divisor;
+                        }
+
+                        k += 2;
+                        continue;
+                }
+
+                unsigned hw_divisor = ctx->padded_count * divisor;
 
                 /* If there's a divisor(=1) but no instancing, we want every
                  * attribute to be the same */
@@ -1367,7 +1391,9 @@ panfrost_emit_varyings(struct panfrost_batch *batch,
                 unsigned stride, unsigned count)
 {
         unsigned size = stride * count;
-        mali_ptr ptr = panfrost_pool_alloc_aligned(&batch->invisible_pool, size, 64).gpu;
+        mali_ptr ptr =
+                batch->ctx->indirect_draw ? 0 :
+                panfrost_pool_alloc_aligned(&batch->invisible_pool, size, 64).gpu;
 
         pan_pack(slot, ATTRIBUTE_BUFFER, cfg) {
                 cfg.stride = stride;
@@ -1755,6 +1781,7 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
                                  mali_ptr *vs_attribs,
                                  mali_ptr *fs_attribs,
                                  mali_ptr *buffers,
+                                 unsigned *buffer_count,
                                  mali_ptr *position,
                                  mali_ptr *psiz)
 {
@@ -1828,6 +1855,9 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
                         MALI_ATTRIBUTE_BUFFER_LENGTH * 2);
         struct mali_attribute_buffer_packed *varyings =
                 (struct mali_attribute_buffer_packed *) T.cpu;
+
+        if (buffer_count)
+                *buffer_count = xfb_base + ctx->streamout.num_targets;
 
         /* Suppress prefetch on Bifrost */
         memset(varyings + (xfb_base * ctx->streamout.num_targets), 0, sizeof(*varyings));
