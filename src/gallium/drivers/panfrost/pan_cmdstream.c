@@ -2076,16 +2076,25 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
 
 void
 panfrost_emit_vertex_tiler_jobs(struct panfrost_batch *batch,
+                                const struct panfrost_ptr *indirect_draw_job,
                                 const struct panfrost_ptr *vertex_job,
                                 const struct panfrost_ptr *tiler_job)
 {
         struct panfrost_context *ctx = batch->ctx;
 
+        unsigned compute =
+                indirect_draw_job ?
+                panfrost_add_job(&batch->pool, &batch->scoreboard,
+                                 MALI_JOB_TYPE_COMPUTE, false,
+                                 ctx->indirect_draw_count > 0, 0,
+                                 indirect_draw_job, false) :
+                0;
+
         /* If rasterizer discard is enable, only submit the vertex */
 
         unsigned vertex = panfrost_add_job(&batch->pool, &batch->scoreboard,
                                            MALI_JOB_TYPE_VERTEX, false, false,
-                                           0, vertex_job, false);
+                                           compute, vertex_job, false);
 
         if (ctx->rasterizer->base.rasterizer_discard)
                 return;

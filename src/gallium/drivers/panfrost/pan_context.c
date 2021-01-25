@@ -576,7 +576,7 @@ panfrost_direct_draw(struct panfrost_context *ctx,
                                   vs_vary, varyings, attribs, attrib_bufs, vertex.cpu);
         panfrost_draw_emit_tiler(batch, info, draw, &invocation, shared_mem, indices,
                                  fs_vary, varyings, pos, psiz, tiler.cpu);
-        panfrost_emit_vertex_tiler_jobs(batch, &vertex, &tiler);
+        panfrost_emit_vertex_tiler_jobs(batch, NULL ,&vertex, &tiler);
 
         /* Adjust the batch stack size based on the new shader stack sizes. */
         panfrost_batch_adjust_stack_size(batch);
