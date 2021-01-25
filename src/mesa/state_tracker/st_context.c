@@ -684,6 +684,8 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
                                                  PIPE_CAP_SHAREABLE_SHADERS);
    st->needs_texcoord_semantic =
       screen->get_param(screen, PIPE_CAP_TGSI_TEXCOORD);
+   st->needs_border_color_type =
+      screen->get_param(screen, PIPE_CAP_NEED_BORDER_COLOR_TYPE);
    st->apply_texture_swizzle_to_border_color =
       !!(screen->get_param(screen, PIPE_CAP_TEXTURE_BORDER_COLOR_QUIRK) &
          (PIPE_QUIRK_TEXTURE_BORDER_COLOR_SWIZZLE_NV50 |
