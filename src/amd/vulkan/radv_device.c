@@ -2439,12 +2439,13 @@ radv_queue_init(struct radv_device *device, struct radv_queue *queue,
 		VkDeviceQueueCreateFlags flags,
 		const VkDeviceQueueGlobalPriorityCreateInfoEXT *global_priority)
 {
-	queue->_loader_data.loaderMagic = ICD_LOADER_MAGIC;
 	queue->device = device;
 	queue->queue_family_index = queue_family_index;
 	queue->queue_idx = idx;
 	queue->priority = radv_get_queue_global_priority(global_priority);
 	queue->flags = flags;
+
+	vk_object_base_init(&device->vk, &queue->base, VK_OBJECT_TYPE_QUEUE);
 
 	VkResult result = device->ws->ctx_create(device->ws, queue->priority, &queue->hw_ctx);
 	if (result != VK_SUCCESS)
@@ -2466,6 +2467,7 @@ radv_queue_init(struct radv_device *device, struct radv_queue *queue,
 static void
 radv_queue_finish(struct radv_queue *queue)
 {
+	vk_object_base_finish(&queue->base);
 	if (queue->hw_ctx) {
 		if (queue->cond_created) {
 			if (queue->thread_running) {
