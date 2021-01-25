@@ -119,6 +119,7 @@ st_convert_sampler(const struct st_context *st,
    sampler->wrap_r = gl_wrap_xlate(msamp->Attrib.WrapR);
 
    bool is_linear_filtering_supported = true;
+   bool has_depth = false;
 
    if (st->pipe->screen->is_linear_filtering_supported) {
       enum pipe_format fmt = PIPE_FORMAT_NONE;
@@ -135,9 +136,19 @@ st_convert_sampler(const struct st_context *st,
       assert(fmt != PIPE_FORMAT_NONE);
       is_linear_filtering_supported =
          st->pipe->screen->is_linear_filtering_supported(st->pipe->screen, fmt, stobj->pt);
+      if (st->linear_depth_filtering_semantics)
+         has_depth = util_format_has_depth(util_format_description(fmt));
    }
 
-   if (!is_linear_filtering_supported ||
+   /* PIPE_CAP_LINEAR_DEPTH_FILTERING */
+   if (has_depth &&
+       !is_linear_filtering_supported) {
+      /* this conditional has the same result as the one before it,
+       * but its complexity makes splitting it more readable
+       */
+      sampler->min_img_filter = gl_filter_to_img_filter(GL_NEAREST);
+      sampler->mag_img_filter = gl_filter_to_img_filter(GL_NEAREST);
+   } else if ((!is_linear_filtering_supported && !has_depth) ||
        (texobj->_IsIntegerFormat && st->ctx->Const.ForceIntegerTexNearest)) {
       sampler->min_img_filter = gl_filter_to_img_filter(GL_NEAREST);
       sampler->mag_img_filter = gl_filter_to_img_filter(GL_NEAREST);
@@ -146,7 +157,7 @@ st_convert_sampler(const struct st_context *st,
       sampler->mag_img_filter = gl_filter_to_img_filter(msamp->Attrib.MagFilter);
    }
 
-   if (is_linear_filtering_supported)
+   if (is_linear_filtering_supported || has_depth)
       sampler->min_mip_filter = gl_filter_to_mip_filter(msamp->Attrib.MinFilter);
    else
       sampler->min_mip_filter = gl_filter_to_img_filter(GL_NEAREST);
@@ -245,6 +256,27 @@ st_convert_sampler(const struct st_context *st,
          sampler->compare_mode = PIPE_TEX_COMPARE_R_TO_TEXTURE;
          sampler->compare_func = st_compare_func_to_pipe(msamp->Attrib.CompareFunc);
       }
+   }
+
+   /* PIPE_CAP_LINEAR_DEPTH_FILTERING (zink):
+
+    * If the format being queried is a depth/stencil format,
+    * this bit only specifies that the depth aspect (not the stencil aspect)
+    * of an image of this format supports linear filtering,
+    * and that linear filtering of the depth aspect is supported whether
+    * depth compare is enabled in the sampler or not.
+    * If this bit is not present, linear filtering with depth compare disabled
+    * is unsupported and linear filtering with depth compare enabled is supported
+    * - VK spec, VkFormatFeatureFlagBits
+
+    */
+   if (sampler->compare_mode == PIPE_TEX_COMPARE_NONE &&
+       has_depth && !is_linear_filtering_supported &&
+       (sampler->mag_img_filter == PIPE_TEX_FILTER_LINEAR ||
+        sampler->min_img_filter == PIPE_TEX_FILTER_LINEAR ||
+        sampler->min_mip_filter == PIPE_TEX_FILTER_LINEAR)) {
+      sampler->compare_mode = PIPE_TEX_COMPARE_R_TO_TEXTURE;
+      sampler->compare_func = PIPE_FUNC_ALWAYS;
    }
 
    /* Only set the seamless cube map texture parameter because the per-context
