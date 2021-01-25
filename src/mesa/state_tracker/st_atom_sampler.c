@@ -123,6 +123,31 @@ st_convert_sampler(const struct st_context *st,
    }
    sampler->min_mip_filter = gl_filter_to_mip_filter(msamp->Attrib.MinFilter);
 
+   if (st->emulate_gl_clamp) {
+      bool clamp_to_border = sampler->min_img_filter != PIPE_TEX_FILTER_NEAREST &&
+                             sampler->mag_img_filter != PIPE_TEX_FILTER_NEAREST;
+      if (sampler->wrap_s == PIPE_TEX_WRAP_CLAMP)
+         sampler->wrap_s = clamp_to_border ? PIPE_TEX_WRAP_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+      else if (sampler->wrap_s == PIPE_TEX_WRAP_MIRROR_CLAMP)
+         sampler->wrap_s = clamp_to_border ? PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE;
+
+      if (sampler->wrap_t == PIPE_TEX_WRAP_CLAMP)
+         sampler->wrap_t = clamp_to_border ? PIPE_TEX_WRAP_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+      else if (sampler->wrap_t == PIPE_TEX_WRAP_MIRROR_CLAMP)
+         sampler->wrap_t = clamp_to_border ? PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE;
+
+      if (sampler->wrap_r == PIPE_TEX_WRAP_CLAMP)
+         sampler->wrap_r = clamp_to_border ? PIPE_TEX_WRAP_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+      else if (sampler->wrap_r == PIPE_TEX_WRAP_MIRROR_CLAMP)
+         sampler->wrap_r = clamp_to_border ? PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER :
+                                             PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE;
+   }
+
    if (texobj->Target != GL_TEXTURE_RECTANGLE_ARB)
       sampler->normalized_coords = 1;
 
