@@ -62,7 +62,7 @@ panfrost_add_job(
                 bool barrier, bool suppress_prefetch,
                 unsigned local_dep,
                 const struct panfrost_ptr *job,
-                bool inject);
+                bool inject, bool loopback);
 
 void panfrost_scoreboard_initialize_tiler(
                 struct pan_pool *pool,

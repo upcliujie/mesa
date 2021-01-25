@@ -113,7 +113,7 @@ panfrost_add_job(
                 bool barrier, bool suppress_prefetch,
                 unsigned local_dep,
                 const struct panfrost_ptr *job,
-                bool inject)
+                bool inject, bool loopback)
 {
         bool is_bifrost = !!(pool->dev->quirks & IS_BIFROST);
         unsigned global_dep = 0;
@@ -143,7 +143,7 @@ panfrost_add_job(
                 header.dependency_1 = local_dep;
                 header.dependency_2 = global_dep;
 
-                if (inject)
+                if (inject || loopback)
                         header.next = scoreboard->first_job;
         }
 
