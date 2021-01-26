@@ -102,12 +102,18 @@ update_gl_clamp(struct st_context *st, struct gl_program *prog, uint32_t *gl_cla
          assert(texobj);
 
          msamp = _mesa_get_samplerobj(ctx, tex_unit);
-         if (is_wrap_gl_clamp(msamp->Attrib.WrapS))
+         if (is_wrap_gl_clamp(msamp->Attrib.WrapS)) {
             gl_clamp[0] |= BITFIELD64_BIT(unit);
-         if (is_wrap_gl_clamp(msamp->Attrib.WrapT))
+            st->seen_gl_clampler = true;
+         }
+         if (is_wrap_gl_clamp(msamp->Attrib.WrapT)) {
             gl_clamp[1] |= BITFIELD64_BIT(unit);
-         if (is_wrap_gl_clamp(msamp->Attrib.WrapR))
+            st->seen_gl_clampler = true;
+         }
+         if (is_wrap_gl_clamp(msamp->Attrib.WrapR)) {
             gl_clamp[2] |= BITFIELD64_BIT(unit);
+            st->seen_gl_clampler = true;
+         }
       }
    }
 }
