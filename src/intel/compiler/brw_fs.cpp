@@ -2801,6 +2801,19 @@ fs_visitor::opt_algebraic()
             break;
          }
          break;
+      case BRW_OPCODE_AND:
+         if (inst->src[1].file != IMM)
+            continue;
+
+         if (inst->src[0].file == IMM) {
+            inst->opcode = BRW_OPCODE_MOV;
+            inst->src[0].ud &= inst->src[1].ud;
+            inst->src[1] = reg_undef;
+            progress = true;
+            break;
+         }
+
+         break;
       case BRW_OPCODE_OR:
          if (inst->src[0].equals(inst->src[1]) ||
              inst->src[1].is_zero()) {
