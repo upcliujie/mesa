@@ -1873,7 +1873,6 @@ void lower_to_hw_instr(Program* program)
                break;
             }
             case aco_opcode::p_parallelcopy:
-            case aco_opcode::p_wqm:
             {
                std::map<PhysReg, copy_operation> copy_operations;
                for (unsigned j = 0; j < instr->operands.size(); j++) {

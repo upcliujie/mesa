@@ -180,7 +180,7 @@ void get_block_needs(wqm_ctx &ctx, exec_ctx &exec_ctx, Block* block)
        * However, parallelcopies inserted by RA must be. */
       if (instr->format == Format::MIMG && instr->mimg().wqm_mask)
          needs = WQM;
-      bool propagate_wqm = instr->opcode == aco_opcode::p_wqm;
+      bool propagate_wqm = false;
       bool preserve_wqm = instr->opcode == aco_opcode::p_discard_if;
       bool pred_by_exec = needs_exec_mask(instr.get());
       for (Definition& definition : instr->definitions) {
@@ -230,8 +230,7 @@ void get_block_needs(wqm_ctx &ctx, exec_ctx &exec_ctx, Block* block)
          }
       }
 
-      if ((instr->opcode == aco_opcode::p_logical_end && info.logical_end_wqm) ||
-          instr->opcode == aco_opcode::p_wqm) {
+      if (instr->opcode == aco_opcode::p_logical_end && info.logical_end_wqm) {
          assert(needs != Exact);
          needs = WQM;
       }

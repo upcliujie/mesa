@@ -279,7 +279,6 @@ opcode("p_reload")
 opcode("p_start_linear_vgpr")
 opcode("p_end_linear_vgpr")
 
-opcode("p_wqm")
 opcode("p_discard_if")
 opcode("p_load_helper")
 opcode("p_demote_to_helper")

@@ -745,7 +745,6 @@ bool alu_can_accept_constant(aco_opcode opcode, unsigned operand)
       return operand != 2;
    case aco_opcode::s_addk_i32:
    case aco_opcode::s_mulk_i32:
-   case aco_opcode::p_wqm:
    case aco_opcode::p_extract_vector:
    case aco_opcode::p_split_vector:
    case aco_opcode::v_readlane_b32:
@@ -1537,12 +1536,6 @@ void label_instruction(opt_ctx &ctx, Block& block, aco_ptr<Instruction>& instr)
          /* Flip the operands to get rid of the scc_invert instruction */
          std::swap(instr->operands[0], instr->operands[1]);
          instr->operands[2].setTemp(ctx.info[instr->operands[2].tempId()].temp);
-      }
-      break;
-   case aco_opcode::p_wqm:
-      if (instr->operands[0].isTemp() &&
-          ctx.info[instr->operands[0].tempId()].is_scc_invert()) {
-         ctx.info[instr->definitions[0].tempId()].set_temp(instr->operands[0].getTemp());
       }
       break;
    default:
@@ -3429,14 +3422,6 @@ void select_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
                instr->opcode == aco_opcode::s_cselect_b32) &&
               instr->operands[2].isTemp()) {
       ctx.info[instr->operands[2].tempId()].set_scc_needed();
-   } else if (instr->opcode == aco_opcode::p_wqm &&
-              instr->operands[0].isTemp() &&
-              ctx.info[instr->definitions[0].tempId()].is_scc_needed()) {
-      /* Propagate label so it is correctly detected by the uniform bool transform */
-      ctx.info[instr->operands[0].tempId()].set_scc_needed();
-
-      /* Fix definition to SCC, this will prevent RA from adding superfluous moves */
-      instr->definitions[0].setFixed(scc);
    }
 
    /* check for literals */

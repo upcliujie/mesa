@@ -1535,7 +1535,6 @@ void handle_pseudo(ra_ctx& ctx,
    case aco_opcode::p_create_vector:
    case aco_opcode::p_split_vector:
    case aco_opcode::p_parallelcopy:
-   case aco_opcode::p_wqm:
       break;
    default:
       return;
@@ -2298,7 +2297,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                   reg.reg_b += instr->definitions[j].bytes();
                if (get_reg_specified(ctx, register_file, definition->regClass(), instr, reg))
                   definition->setFixed(reg);
-            } else if (instr->opcode == aco_opcode::p_wqm || instr->opcode == aco_opcode::p_parallelcopy) {
+            } else if (instr->opcode == aco_opcode::p_parallelcopy) {
                PhysReg reg = instr->operands[i].physReg();
                if (instr->operands[i].isTemp() &&
                    instr->operands[i].getTemp().type() == definition->getTemp().type() &&
