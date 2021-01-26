@@ -161,6 +161,8 @@ lower_intrinsic(lower_state *state, nir_intrinsic_instr *intr)
          return lower_large_src(&intr->src[1], state);
       return false;
 
+   case nir_intrinsic_load_global:
+   case nir_intrinsic_store_global:
    case nir_intrinsic_global_atomic_add:
    case nir_intrinsic_global_atomic_imin:
    case nir_intrinsic_global_atomic_umin:
