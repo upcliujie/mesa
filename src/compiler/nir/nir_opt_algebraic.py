@@ -2123,7 +2123,9 @@ late_optimizations = [
    (('flt', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('flt', a, b)),
    (('flt', '#b(is_gt_0_and_lt_1)', ('fsat(is_used_once)', a)), ('flt', b, a)),
    (('fge', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('fge', a, b)),
-   (('fge', '#b(is_gt_0_and_lt_1)', ('fsat(is_used_once)', a)), ('fge', b, a)),
+   # fge(b > 0 && b < 1, fsat(a)) is inexact if a is NaN (fsat(NaN) is 0)
+   # because it returns True while fge(b, a) always returns False.
+   (('~fge', '#b(is_gt_0_and_lt_1)', ('fsat(is_used_once)', a)), ('fge', b, a)),
    (('feq', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('feq', a, b)),
    (('fneu', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('fneu', a, b)),
 
