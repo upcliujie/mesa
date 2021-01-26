@@ -260,7 +260,7 @@ x86_build-base:
     - .fdo.container-build@debian
     - .container
   variables:
-    MESA_IMAGE_TAG: &x86_build-base "2021-01-08-more-vulkan-cross"
+    MESA_IMAGE_TAG: &x86_build-base "2021-01-26-update-piglit"
 
 .use-x86_build-base:
   extends:
@@ -445,7 +445,7 @@ armhf_test:
 
 .windows-docker-vs2019:
   variables:
-    WINDOWS_TAG: "2020-12-02"
+    WINDOWS_TAG: "2021-01-26"
     WINDOWS_IMAGE: "$CI_REGISTRY_IMAGE/windows/x64_build:${WINDOWS_TAG}-${MESA_TEMPLATES_COMMIT}"
     WINDOWS_UPSTREAM_IMAGE: "$CI_REGISTRY/$FDO_UPSTREAM_REPO/windows/x64_build:${WINDOWS_TAG}-${MESA_TEMPLATES_COMMIT}"
 

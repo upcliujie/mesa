@@ -599,7 +599,7 @@ spec/nv_viewport_swizzle/viewport_swizzle: skip
 summary:
        name:  results
        ----  --------
-       pass:    15819
+       pass:    15823
        fail:       83
       crash:      170
        skip:      345
@@ -611,4 +611,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:    16417
+      total:    16421
