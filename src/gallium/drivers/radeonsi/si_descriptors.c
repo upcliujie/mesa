@@ -638,7 +638,9 @@ static void si_image_views_begin_new_cs(struct si_context *sctx, struct si_image
 
       assert(view->resource);
 
-      si_sampler_view_add_buffer(sctx, view->resource, RADEON_USAGE_READWRITE, false, false);
+      si_sampler_view_add_buffer(sctx, view->resource,
+                                 RADEON_USAGE_READWRITE | RADEON_USAGE_NO_IMPLICIT_SYNC,
+                                 false, false);
    }
 }
 
@@ -799,8 +801,9 @@ static void si_set_shader_image(struct si_context *ctx, unsigned shader, unsigne
    /* Since this can flush, it must be done after enabled_mask is updated. */
    si_sampler_view_add_buffer(
       ctx, &res->b.b,
-      (view->access & PIPE_IMAGE_ACCESS_WRITE) ? RADEON_USAGE_READWRITE : RADEON_USAGE_READ, false,
-      true);
+      (view->access & PIPE_IMAGE_ACCESS_WRITE) ?
+         (RADEON_USAGE_READWRITE | RADEON_USAGE_NO_IMPLICIT_SYNC) : RADEON_USAGE_READ,
+      false, true);
 }
 
 static void si_set_shader_images(struct pipe_context *pipe, enum pipe_shader_type shader,
