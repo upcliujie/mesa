@@ -884,7 +884,7 @@ st_get_vp_variant(struct st_context *st,
    struct st_common_variant *vpv;
 
    /* Search for existing variant */
-   size_t size = st->emulate_gl_clamp ? sizeof(*key) : offsetof(struct st_common_variant_key, gl_clamp);
+   size_t size = st->emulate_gl_clamp && st->seen_gl_clamp ? sizeof(*key) : offsetof(struct st_common_variant_key, gl_clamp);
    for (vpv = st_common_variant(stp->variants); vpv;
         vpv = st_common_variant(vpv->base.next)) {
       if (memcmp(&vpv->key, key, size) == 0) {
@@ -1567,7 +1567,7 @@ st_get_fp_variant(struct st_context *st,
    struct st_fp_variant *fpv;
 
    /* Search for existing variant */
-   size_t size = st->emulate_gl_clamp ? sizeof(*key) : offsetof(struct st_fp_variant_key, gl_clamp);
+   size_t size = st->emulate_gl_clamp && st->seen_gl_clamp ? sizeof(*key) : offsetof(struct st_fp_variant_key, gl_clamp);
    for (fpv = st_fp_variant(stfp->variants); fpv;
         fpv = st_fp_variant(fpv->base.next)) {
       if (memcmp(&fpv->key, key, size) == 0) {
@@ -1743,7 +1743,7 @@ st_get_common_variant(struct st_context *st,
    struct gl_program_parameter_list *params = prog->Base.Parameters;
 
    /* Search for existing variant */
-   size_t size = st->emulate_gl_clamp ? sizeof(*key) : offsetof(struct st_common_variant_key, gl_clamp);
+   size_t size = st->emulate_gl_clamp && st->seen_gl_clamp ? sizeof(*key) : offsetof(struct st_common_variant_key, gl_clamp);
    for (v = prog->variants; v; v = v->next) {
       if (memcmp(&st_common_variant(v)->key, key, size) == 0)
          break;
