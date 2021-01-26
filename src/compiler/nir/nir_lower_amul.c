@@ -311,7 +311,11 @@ nir_lower_amul(nir_shader *shader,
             if (alu->op != nir_op_amul)
                continue;
 
-            alu->op = nir_op_imul24;
+            if (nir_dest_bit_size(alu->dest.dest) == 32)
+               alu->op = nir_op_imul24;
+            else
+               alu->op = nir_op_imul;
+
             progress |= true;
          }
       }
