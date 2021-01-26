@@ -203,6 +203,154 @@ v3d_general_tmu_op(nir_intrinsic_instr *instr)
 }
 
 /**
+ * Checks if pipelining a new TMU operation requiring 'components' LDTMUs and
+ * 'writes' TMU register writes would overflow any of the TMU fifos.
+ */
+static bool
+tmu_fifo_overflow(struct v3d_compile *c, uint32_t components, uint32_t writes)
+{
+        if (c->tmu.input_fifo_size + writes > 16 / c->threads)
+                return true;
+
+        /* Output and Config fifos are only involved with TMU lookups */
+        if (components > 0 &&
+            (c->tmu.config_fifo_size + 1 > 8 / c->threads ||
+             c->tmu.output_fifo_size + components > 16 / c->threads)) {
+                return true;
+        }
+
+        return false;
+}
+
+/**
+ * Emits the thread switch and LDTMU/TMUWT for all outstanding TMU operations,
+ * popping all TMU fifo entries.
+ */
+void
+ntq_flush_tmu(struct v3d_compile *c)
+{
+        if (c->tmu.flush_count == 0)
+                return;
+
+        vir_emit_thrsw(c);
+
+        bool emitted_tmuwt = false;
+        for (int i = 0; i < c->tmu.flush_count; i++) {
+                if (c->tmu.flush[i].num_components > 0) {
+                        nir_dest *dest = c->tmu.flush[i].dest;
+                        assert(dest);
+
+                        for (int j = 0; j < c->tmu.flush[i].num_components; j++) {
+                                ntq_store_dest(c, dest, j,
+                                               vir_MOV(c, vir_LDTMU(c)));
+                        }
+                } else if (!emitted_tmuwt) {
+                        vir_TMUWT(c);
+                        emitted_tmuwt = true;
+                }
+        }
+
+        c->tmu.input_fifo_size = 0;
+        c->tmu.config_fifo_size = 0;
+        c->tmu.output_fifo_size = 0;
+        c->tmu.flush_count = 0;
+}
+
+/**
+ * Queues a pending thread switch + LDTMU/TMUWT for a TMU operation. The caller
+ * is reponsible for ensuring that doing this doesn't overflow the TMU fifos,
+ * and more specifically, the output fifo, since that can't stall.
+ */
+static void
+ntq_add_pending_tmu_flush(struct v3d_compile *c,
+                          nir_dest *dest,
+                          uint32_t num_components,
+                          uint32_t tmu_writes)
+{
+        assert(!tmu_fifo_overflow(c, num_components, tmu_writes));
+
+        c->tmu.input_fifo_size += tmu_writes;
+        if (num_components > 0) {
+                c->tmu.config_fifo_size += 1;
+                c->tmu.output_fifo_size += num_components;
+        }
+
+        c->tmu.flush[c->tmu.flush_count].dest = dest;
+        c->tmu.flush[c->tmu.flush_count].num_components = num_components;
+        c->tmu.flush_count++;
+}
+
+static uint32_t
+get_required_tmu_writes(nir_intrinsic_instr *instr)
+{
+        switch (instr->intrinsic) {
+        /* === TMU general === */
+
+        /* Address */
+        case nir_intrinsic_load_uniform:
+        case nir_intrinsic_load_ubo:
+        case nir_intrinsic_load_ssbo:
+        case nir_intrinsic_load_scratch:
+        case nir_intrinsic_load_shared:
+                return 1;
+
+        /* Andress + Data (if not implemented as atomic inc/dec) */
+        case nir_intrinsic_ssbo_atomic_add:
+                return v3d_get_op_for_atomic_add(instr, 2) !=
+                       V3D_TMU_OP_WRITE_ADD_READ_PREFETCH ? 1 : 2;
+        case nir_intrinsic_shared_atomic_add:
+                return v3d_get_op_for_atomic_add(instr, 1) !=
+                       V3D_TMU_OP_WRITE_ADD_READ_PREFETCH ? 1 : 2;
+
+        /* Address + Data */
+        case nir_intrinsic_ssbo_atomic_imin:
+        case nir_intrinsic_ssbo_atomic_umin:
+        case nir_intrinsic_ssbo_atomic_imax:
+        case nir_intrinsic_ssbo_atomic_umax:
+        case nir_intrinsic_ssbo_atomic_and:
+        case nir_intrinsic_ssbo_atomic_or:
+        case nir_intrinsic_ssbo_atomic_xor:
+        case nir_intrinsic_ssbo_atomic_exchange:
+        case nir_intrinsic_shared_atomic_imin:
+        case nir_intrinsic_shared_atomic_umin:
+        case nir_intrinsic_shared_atomic_imax:
+        case nir_intrinsic_shared_atomic_umax:
+        case nir_intrinsic_shared_atomic_and:
+        case nir_intrinsic_shared_atomic_or:
+        case nir_intrinsic_shared_atomic_xor:
+        case nir_intrinsic_shared_atomic_exchange:
+                return 2;
+
+        /* Address, Compare, Data */
+        case nir_intrinsic_shared_atomic_comp_swap:
+        case nir_intrinsic_ssbo_atomic_comp_swap:
+                return 3;
+
+        /* Adresss + up to 4 data components.
+         *
+         * Notice that the TMU general implementation may split the store in
+         * two TMU operations if the writemask is not contiguous. In that case
+         * we end up with each split operation requiring an address write.
+         */
+        case nir_intrinsic_store_ssbo:
+        case nir_intrinsic_store_scratch:
+        case nir_intrinsic_store_shared: {
+                const uint32_t writemask = nir_intrinsic_write_mask(instr);
+                const uint32_t count = util_bitcount(writemask);
+                const uint32_t first = ffs(writemask);
+                const uint32_t last = util_last_bit(writemask);
+                if (count == last - first + 1)
+                        return 1 + count; /* Contiguous */
+                else
+                        return 2 + count; /* Not contiguous*/
+        }
+
+        default:
+                unreachable("Unknown TMU intrinsic\n");
+   }
+}
+
+/**
  * Implements indirect uniform loads and SSBO accesses through the TMU general
  * memory access interface.
  */
@@ -210,6 +358,14 @@ static void
 ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
                      bool is_shared_or_scratch)
 {
+       /* If pipelining this TMU operation would overflow TMU fifos, we need
+        * to flush.
+        */
+        const uint32_t dest_components = nir_intrinsic_dest_components(instr);
+        const uint32_t required_tmu_writes = get_required_tmu_writes(instr);
+        if (tmu_fifo_overflow(c, dest_components, required_tmu_writes))
+                ntq_flush_tmu(c);
+
         uint32_t tmu_op = v3d_general_tmu_op(instr);
 
         /* If we were able to replace atomic_add for an inc/dec, then we
@@ -417,16 +573,13 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
                 if (vir_in_nonuniform_control_flow(c))
                         vir_set_cond(tmu, V3D_QPU_COND_IFA);
 
-                vir_emit_thrsw(c);
 
-                /* Read the result, or wait for the TMU op to complete. */
-                for (int i = 0; i < nir_intrinsic_dest_components(instr); i++) {
-                        ntq_store_dest(c, &instr->dest, i,
-                                       vir_MOV(c, vir_LDTMU(c)));
-                }
-
-                if (nir_intrinsic_dest_components(instr) == 0)
-                        vir_TMUWT(c);
+                /* Delay emission of the thread switch and LDTMU/TMUWT until
+                 * we really need to do it to improve pipelining.
+                 */
+                assert(tmu_writes <= required_tmu_writes);
+                ntq_add_pending_tmu_flush(c, &instr->dest,
+                                          dest_components, tmu_writes);
         } while (is_store && writemask != 0);
 }
 
@@ -532,20 +685,44 @@ ntq_store_dest(struct v3d_compile *c, nir_dest *dest, int chan,
         }
 }
 
+/**
+ * This looks up the qreg associated with a particular ssa/reg used as a source
+ * in any instruction.
+ *
+ * It is expected that the definition for any NIR value read as a source has
+ * been emitted by a previous instruction, however, in the case of TMU
+ * operations we may have postponed emission of the thread switch and LDTMUs
+ * required to read the TMU results until the results are actually used to
+ * improve pipelining, which then would lead to us not finding them here,
+ * meaning that this is as far as we can postpone that part of the TMU
+ * operation. So, if we ever fail to find a definition here, flush any
+ * outstanding TMU operations and try again one more time.
+ */
 struct qreg
 ntq_get_src(struct v3d_compile *c, nir_src src, int i)
 {
         struct hash_entry *entry;
         if (src.is_ssa) {
-                entry = _mesa_hash_table_search(c->def_ht, src.ssa);
                 assert(i < src.ssa->num_components);
+
+                entry = _mesa_hash_table_search(c->def_ht, src.ssa);
+                if (!entry) {
+                        ntq_flush_tmu(c);
+                        entry = _mesa_hash_table_search(c->def_ht, src.ssa);
+                }
         } else {
                 nir_register *reg = src.reg.reg;
-                entry = _mesa_hash_table_search(c->def_ht, reg);
                 assert(reg->num_array_elems == 0);
                 assert(src.reg.base_offset == 0);
                 assert(i < reg->num_components);
+
+                entry = _mesa_hash_table_search(c->def_ht, reg);
+                if (!entry) {
+                        ntq_flush_tmu(c);
+                        entry = _mesa_hash_table_search(c->def_ht, reg);
+                }
         }
+        assert(entry);
 
         struct qreg *qregs = entry->data;
         return qregs[i];
@@ -2520,6 +2697,8 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                 break;
 
         case nir_intrinsic_discard:
+                ntq_flush_tmu(c);
+
                 if (vir_in_nonuniform_control_flow(c)) {
                         vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), c->execute),
                                    V3D_QPU_PF_PUSHZ);
@@ -2533,6 +2712,8 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                 break;
 
         case nir_intrinsic_discard_if: {
+                ntq_flush_tmu(c);
+
                 enum v3d_qpu_cond cond = ntq_emit_bool_to_cond(c, instr->src[0]);
 
                 if (vir_in_nonuniform_control_flow(c)) {
@@ -2561,10 +2742,9 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                 /* We don't do any instruction scheduling of these NIR
                  * instructions between each other, so we just need to make
                  * sure that the TMU operations before the barrier are flushed
-                 * before the ones after the barrier.  That is currently
-                 * handled by having a THRSW in each of them and a LDTMU
-                 * series or a TMUWT after.
+                 * before the ones after the barrier.
                  */
+                ntq_flush_tmu(c);
                 break;
 
         case nir_intrinsic_control_barrier:
@@ -2572,6 +2752,8 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                  * (actually supergroup) to block until the last invocation
                  * reaches the TSY op.
                  */
+                ntq_flush_tmu(c);
+
                 if (c->devinfo->ver >= 42) {
                         vir_BARRIERID_dest(c, vir_reg(QFILE_MAGIC,
                                                       V3D_QPU_WADDR_SYNCB));
@@ -3061,6 +3243,13 @@ ntq_emit_block(struct v3d_compile *c, nir_block *block)
         nir_foreach_instr(instr, block) {
                 ntq_emit_instr(c, instr);
         }
+
+        /* Always process pending TMU operations in the same block they were
+         * emitted: we can't emit TMU operations in a block and then emit a
+         * thread switch and LDTMU/TMUWT for them in another block, possibly
+         * under control flow.
+         */
+        ntq_flush_tmu(c);
 }
 
 static void ntq_emit_cf_list(struct v3d_compile *c, struct exec_list *list);
