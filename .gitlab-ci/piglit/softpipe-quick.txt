@@ -547,6 +547,7 @@ spec/arb_buffer_storage/bufferstorage-persistent_gles3 read coherent client-stor
 spec/arb_clear_texture/arb_clear_texture-multisample: skip
 spec/arb_color_buffer_float/gl_rgba8_snorm-render: fail
 spec/arb_color_buffer_float/gl_rgba8_snorm-render-fog: fail
+spec/arb_compute_shader/execution/min-dvec4-double-large-group-size: skip
 spec/arb_compute_variable_group_size/errors: skip
 spec/arb_compute_variable_group_size/execution/basic-local-size: skip
 spec/arb_compute_variable_group_size/execution/fixed-local-size: skip
@@ -3061,7 +3062,7 @@ summary:
        pass:    26857
        fail:      400
       crash:       38
-       skip:     2590
+       skip:     2591
     timeout:        0
        warn:        4
  incomplete:        0
@@ -3070,4 +3071,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:    29914
+      total:    29915

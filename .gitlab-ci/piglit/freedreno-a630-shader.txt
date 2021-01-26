@@ -801,6 +801,7 @@ spec/arb_shading_language_420pack/linker/different-bindings-shader-storage-block
 spec/arb_tessellation_shader/execution/16in-1out: crash
 spec/arb_tessellation_shader/execution/1in-1out: crash
 spec/arb_tessellation_shader/execution/barrier-patch: crash
+spec/arb_tessellation_shader/execution/built-in-functions/tcs-op-div-uvec3-uvec3: fail
 spec/arb_tessellation_shader/execution/compatibility/tcs-tes-ff-frag: skip
 spec/arb_tessellation_shader/execution/compatibility/tes-clamp-vertex-color: skip
 spec/arb_tessellation_shader/execution/compatibility/tes-clip-vertex-different-from-position: skip
@@ -1127,8 +1128,8 @@ spec/oes_viewport_array/viewport-gs-writes-out-of-range: skip
 summary:
        name:  results
        ----  --------
-       pass:     8878
-       fail:       32
+       pass:     8877
+       fail:       33
       crash:       95
        skip:      997
     timeout:        0
