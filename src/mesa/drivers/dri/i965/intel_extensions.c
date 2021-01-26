@@ -392,4 +392,11 @@ intelInitExtensions(struct gl_context *ctx)
    ctx->Extensions.EXT_demote_to_helper_invocation = true;
 
    ctx->Const.PrimitiveRestartFixedIndex = true;
+
+   if (devinfo->gen >= 7) {
+      ctx->Extensions.EXT_memory_object_fd = true;
+      ctx->Extensions.EXT_memory_object = true;
+      ctx->Extensions.EXT_semaphore = true;
+      ctx->Extensions.EXT_semaphore_fd = true;
+   }
 }
