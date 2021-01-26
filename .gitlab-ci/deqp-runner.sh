@@ -43,16 +43,21 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 RESULTS=`pwd`/${DEQP_RESULTS_DIR:-results}
 mkdir -p $RESULTS
 
+# Use the user-defined mustpass
+if [ -e "$INSTALL/deqp-$GPU_VERSION-mustpass.txt" ]; then
+    MUSTPASS="$INSTALL/deqp-$GPU_VERSION-mustpass.txt"
+fi
+
 # Generate test case list file.
 if [ "$DEQP_VER" = "vk" ]; then
-   cp /deqp/mustpass/vk-$DEQP_VARIANT.txt /tmp/case-list.txt
+   cp ${MUSTPASS:-/deqp/mustpass/vk-$DEQP_VARIANT.txt} /tmp/case-list.txt
    DEQP=/deqp/external/vulkancts/modules/vulkan/deqp-vk
 elif [ "$DEQP_VER" = "gles2" -o "$DEQP_VER" = "gles3" -o "$DEQP_VER" = "gles31" ]; then
-   cp /deqp/mustpass/$DEQP_VER-$DEQP_VARIANT.txt /tmp/case-list.txt
+   cp ${MUSTPASS:-/deqp/mustpass/$DEQP_VER-$DEQP_VARIANT.txt} /tmp/case-list.txt
    DEQP=/deqp/modules/$DEQP_VER/deqp-$DEQP_VER
    SUITE=dEQP
 else
-   cp /deqp/mustpass/$DEQP_VER-$DEQP_VARIANT.txt /tmp/case-list.txt
+   cp ${MUSTPASS:-/deqp/mustpass/$DEQP_VER-$DEQP_VARIANT.txt} /tmp/case-list.txt
    DEQP=/deqp/external/openglcts/modules/glcts
    SUITE=KHR
 fi
