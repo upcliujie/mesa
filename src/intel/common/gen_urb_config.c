@@ -56,6 +56,8 @@
  * \param[in] entry_size - the URB entry size (from the shader compiler)
  * \param[out] entries - the number of URB entries for each stage
  * \param[out] start - the starting offset for each stage
+ * \param[out] deref_block_size - deref block size for 3DSTATE_SF
+ * \param[out] constrained - true if we wanted more space than we had
  */
 void
 gen_get_urb_config(const struct gen_device_info *devinfo,
@@ -63,7 +65,8 @@ gen_get_urb_config(const struct gen_device_info *devinfo,
                    bool tess_present, bool gs_present,
                    const unsigned entry_size[4],
                    unsigned entries[4], unsigned start[4],
-                   enum gen_urb_deref_block_size *deref_block_size)
+                   enum gen_urb_deref_block_size *deref_block_size,
+                   bool *constrained)
 {
    unsigned urb_size_kB = gen_get_l3_config_urb_size(devinfo, l3_cfg);
 
@@ -189,6 +192,8 @@ gen_get_urb_config(const struct gen_device_info *devinfo,
 
       chunks[MESA_SHADER_GEOMETRY] += remaining_space;
    }
+
+   *constrained = total_wants > 0;
 
    /* Sanity check that we haven't over-allocated. */
    unsigned total_chunks = push_constant_chunks;
