@@ -1996,25 +1996,37 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
             if (!def.isTemp())
                continue;
             live.erase(def.tempId());
+
+            /* get op-def affinity-relation */
+            Operand op = Operand();
+            if (!def.isFixed() && instr->opcode == aco_opcode::p_parallelcopy)
+               op = instr->operands[i];
+            else if ((instr->opcode == aco_opcode::v_interp_p2_f32 ||
+                      instr->opcode == aco_opcode::v_writelane_b32 ||
+                      instr->opcode == aco_opcode::v_writelane_b32_e64 ||
+                      instr->opcode == aco_opcode::v_mad_f32 ||
+                      (instr->opcode == aco_opcode::v_fma_f32 && program->chip_class >= GFX10) ||
+                      instr->opcode == aco_opcode::v_mad_f16 ||
+                      instr->opcode == aco_opcode::v_mad_legacy_f16 ||
+                      (instr->opcode == aco_opcode::v_fma_f16 && program->chip_class >= GFX10) ||
+                      (instr->opcode == aco_opcode::v_pk_fma_f16 && program->chip_class >= GFX10)) &&
+                     !instr->usesModifiers())
+               op = instr->operands[2];
+
             /* mark last-seen phi operand */
             std::unordered_map<unsigned, unsigned>::iterator it = temp_to_phi_ressources.find(def.tempId());
             if (it != temp_to_phi_ressources.end() && def.regClass() == phi_ressources[it->second][0].regClass()) {
                phi_ressources[it->second][0] = def.getTemp();
                /* try to coalesce phi affinities with parallelcopies */
-               Operand op = Operand();
-               if (!def.isFixed() && instr->opcode == aco_opcode::p_parallelcopy)
-                  op = instr->operands[i];
-               else if ((instr->opcode == aco_opcode::v_mad_f32 ||
-                        (instr->opcode == aco_opcode::v_fma_f32 && program->chip_class >= GFX10) ||
-                        instr->opcode == aco_opcode::v_mad_f16 ||
-                        instr->opcode == aco_opcode::v_mad_legacy_f16 ||
-                        (instr->opcode == aco_opcode::v_fma_f16 && program->chip_class >= GFX10)) && !instr->usesModifiers())
-                  op = instr->operands[2];
-
                if (op.isTemp() && op.isFirstKillBeforeDef() && def.regClass() == op.regClass()) {
                   phi_ressources[it->second].emplace_back(op.getTemp());
                   temp_to_phi_ressources[op.tempId()] = it->second;
                }
+            }
+            /* add affinity for op-def relation */
+            if (op.isTemp() && op.isFirstKillBeforeDef() && def.regClass() == op.regClass() &&
+                ctx.vectors.find(def.tempId()) != ctx.vectors.end()) {
+               ctx.affinities[op.tempId()] = def.tempId();
             }
          }
       }
