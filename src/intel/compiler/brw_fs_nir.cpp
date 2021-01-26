@@ -981,6 +981,7 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
    case nir_op_u2u32:
    case nir_op_iabs:
    case nir_op_ineg:
+   case nir_op_pack_32_4x8_split:
       break;
 
    default:
@@ -1708,6 +1709,10 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
    case nir_op_pack_64_2x32_split:
    case nir_op_pack_32_2x16_split:
       bld.emit(FS_OPCODE_PACK, result, op[0], op[1]);
+      break;
+
+   case nir_op_pack_32_4x8_split:
+      bld.emit(FS_OPCODE_PACK, result, op, 4);
       break;
 
    case nir_op_unpack_64_2x32_split_x:
