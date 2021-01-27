@@ -1183,7 +1183,7 @@ radv-raven-traces:
 
 .deqp-test:
   script:
-    - ./install/deqp-runner.sh
+    - ./install/deqp/run.sh
   artifacts:
     reports:
       junit: results/junit.xml
@@ -1567,7 +1567,7 @@ arm64_a630_piglit_shader:
 
 .baremetal-deqp-test:
   variables:
-    BARE_METAL_TEST_SCRIPT: "/install/deqp-runner.sh"
+    BARE_METAL_TEST_SCRIPT: "/install/deqp/run.sh"
     DEQP_SKIPS: deqp-default-skips.txt
     DEQP_PARALLEL: 0 # Default to number of CPUs
 
@@ -1740,7 +1740,7 @@ vc4-rpi3-gles2:armhf:
     - .vc4-rpi3-test:armhf
   parallel: 4
   variables:
-    BARE_METAL_TEST_SCRIPT: "/install/deqp-runner.sh"
+    BARE_METAL_TEST_SCRIPT: "/install/deqp/run.sh"
     DEQP_VER: gles2
 
 .vc4-rpi3-piglit:armhf:

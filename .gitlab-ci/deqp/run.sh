@@ -79,18 +79,18 @@ if [ ! -s /tmp/case-list.txt ]; then
     exit 1
 fi
 
-if [ -e "$INSTALL/deqp-$GPU_VERSION-fails.txt" ]; then
-    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --baseline $INSTALL/deqp-$GPU_VERSION-fails.txt"
+if [ -e "$INSTALL/deqp/deqp-$GPU_VERSION-fails.txt" ]; then
+    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --baseline $INSTALL/deqp/deqp-$GPU_VERSION-fails.txt"
 fi
 
-if [ -e "$INSTALL/deqp-$GPU_VERSION-flakes.txt" ]; then
-    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --flakes $INSTALL/deqp-$GPU_VERSION-flakes.txt"
+if [ -e "$INSTALL/deqp/deqp-$GPU_VERSION-flakes.txt" ]; then
+    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --flakes $INSTALL/deqp/deqp-$GPU_VERSION-flakes.txt"
 fi
 
-if [ -e "$INSTALL/deqp-$GPU_VERSION-skips.txt" ]; then
-    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --skips $INSTALL/deqp-$GPU_VERSION-skips.txt"
+if [ -e "$INSTALL/deqp/deqp-$GPU_VERSION-skips.txt" ]; then
+    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --skips $INSTALL/deqp/deqp-$GPU_VERSION-skips.txt"
 else
-    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --skips $INSTALL/deqp-default-skips.txt"
+    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --skips $INSTALL/deqp/deqp-default-skips.txt"
 fi
 
 set +e
