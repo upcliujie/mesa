@@ -340,8 +340,19 @@ swrastGetImageShm(__DRIdrawable * read,
    swrastGetImageShm2(read, x, y, w, h, shmid, loaderPrivate);
 }
 
+static void
+swrastGetRGBOffsets(void *loaderPrivate, int *offsets)
+{
+   struct drisw_screen *dscreen = (struct drisw_screen *)loaderPrivate;
+   Visual *visual = XDefaultVisual(dscreen->base.dpy, dscreen->base.scr);
+
+   offsets[0] = ffs(visual->red_mask) - 1;
+   offsets[1] = ffs(visual->green_mask) - 1;
+   offsets[2] = ffs(visual->blue_mask) - 1;
+}
+
 static const __DRIswrastLoaderExtension swrastLoaderExtension_shm = {
-   .base = {__DRI_SWRAST_LOADER, 6 },
+   .base = {__DRI_SWRAST_LOADER, 7 },
 
    .getDrawableInfo     = swrastGetDrawableInfo,
    .putImage            = swrastPutImage,
@@ -352,6 +363,7 @@ static const __DRIswrastLoaderExtension swrastLoaderExtension_shm = {
    .getImageShm         = swrastGetImageShm,
    .putImageShm2        = swrastPutImageShm2,
    .getImageShm2        = swrastGetImageShm2,
+   .getRGBOffsets       = swrastGetRGBOffsets,
 };
 
 static const __DRIextension *loader_extensions_shm[] = {

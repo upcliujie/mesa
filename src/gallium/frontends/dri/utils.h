@@ -36,6 +36,10 @@ struct __DRIconfigRec {
     struct gl_config modes;
 };
 
+int
+driGetFormatMasksAndShifts(mesa_format format, const uint32_t **masks,
+			   const int **shifts);
+
 extern __DRIconfig **
 driCreateConfigs(mesa_format format,
 		 const uint8_t * depth_bits, const uint8_t * stencil_bits,
