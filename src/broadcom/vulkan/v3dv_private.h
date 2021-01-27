@@ -129,9 +129,6 @@ struct v3d_simulator_file;
 struct v3dv_physical_device {
    struct vk_physical_device vk;
 
-   struct v3dv_device_extension_table supported_extensions;
-   struct v3dv_physical_device_dispatch_table dispatch;
-
    char *name;
    int32_t render_fd;
    int32_t display_fd;
@@ -187,10 +184,6 @@ struct v3dv_instance {
    struct vk_instance vk;
 
    struct v3dv_app_info app_info;
-
-   struct v3dv_instance_extension_table enabled_extensions;
-   struct v3dv_instance_dispatch_table dispatch;
-   struct v3dv_device_dispatch_table device_dispatch;
 
    int physicalDeviceCount;
    struct v3dv_physical_device physicalDevice;
@@ -299,9 +292,6 @@ struct v3dv_device {
 
    struct v3dv_instance *instance;
    struct v3dv_physical_device *pdevice;
-
-   struct v3dv_device_extension_table enabled_extensions;
-   struct v3dv_device_dispatch_table dispatch;
 
    struct v3d_device_info devinfo;
    struct v3dv_queue queue;
@@ -1827,6 +1817,8 @@ v3dv_get_internal_depth_type(VkFormat format)
    }
 }
 
+extern const struct vk_instance_extension_table v3dv_instance_extensions_supported;
+
 uint32_t v3dv_physical_device_api_version(struct v3dv_physical_device *dev);
 uint32_t v3dv_physical_device_vendor_id(struct v3dv_physical_device *dev);
 uint32_t v3dv_physical_device_device_id(struct v3dv_physical_device *dev);
@@ -1841,17 +1833,14 @@ const char *v3dv_get_device_entry_name(int index);
 
 bool
 v3dv_instance_entrypoint_is_enabled(int index, uint32_t core_version,
-                                    const struct v3dv_instance_extension_table *instance);
+                                    const struct vk_instance_extension_table *instance);
 bool
 v3dv_physical_device_entrypoint_is_enabled(int index, uint32_t core_version,
-                                           const struct v3dv_instance_extension_table *instance);
+                                           const struct vk_instance_extension_table *instance);
 bool
 v3dv_device_entrypoint_is_enabled(int index, uint32_t core_version,
-                                  const struct v3dv_instance_extension_table *instance,
-                                  const struct v3dv_device_extension_table *device);
-
-void *v3dv_lookup_entrypoint(const struct v3d_device_info *devinfo,
-                             const char *name);
+                                  const struct vk_instance_extension_table *instance,
+                                  const struct vk_device_extension_table *device);
 
 VkResult __vk_errorf(struct v3dv_instance *instance, VkResult error,
                      const char *file, int line,
