@@ -727,6 +727,13 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
                                 bi_imm_f32(b->shader->blend_constants[3]));
                 break;
 
+	case nir_intrinsic_load_sample_positions_pan:
+                for (unsigned i = 0; i < 2; ++i) {
+                        bi_mov_i32_to(b, bi_word(dst, i),
+                                        bi_fau(BIR_FAU_SAMPLE_POS_ARRAY, i));
+                }
+                break;
+
 	case nir_intrinsic_load_sample_mask_in:
                 /* r61[0:15] contains the coverage bitmap */
                 bi_u16_to_u32_to(b, dst, bi_half(bi_register(61), false));
