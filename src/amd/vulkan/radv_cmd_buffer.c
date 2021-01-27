@@ -5330,6 +5330,35 @@ radv_cs_emit_indirect_draw_packet(struct radv_cmd_buffer *cmd_buffer,
 	}
 }
 
+static inline void
+radv_emit_vertex_packets(struct radv_cmd_buffer *cmd_buffer,
+		      const struct radv_draw_info *info,
+		      uint32_t vertex_offset)
+{
+	struct radv_cmd_state *state = &cmd_buffer->state;
+	struct radeon_cmdbuf *cs = cmd_buffer->cs;
+	if (vertex_offset != state->last_vertex_offset ||
+	    (state->pipeline->graphics.vtx_emit_num > 1 &&
+	     info->first_instance != state->last_first_instance)) {
+		if (state->pipeline->graphics.vtx_emit_num == 1)
+			radeon_set_sh_reg(cs, state->pipeline->graphics.vtx_base_sgpr, vertex_offset);
+		else {
+			radeon_set_sh_reg_seq(cs, state->pipeline->graphics.vtx_base_sgpr,
+					      state->pipeline->graphics.vtx_emit_num);
+
+			radeon_emit(cs, vertex_offset);
+			if (state->pipeline->graphics.uses_drawid)
+				/* drawid */
+				radeon_emit(cs, 0);
+			if (!state->pipeline->graphics.uses_drawid ||
+			     state->pipeline->graphics.vtx_emit_num == 3)
+				radeon_emit(cs, info->first_instance);
+		}
+		state->last_first_instance = info->first_instance;
+		state->last_vertex_offset = vertex_offset;
+	}
+}
+
 static void
 radv_emit_direct_draw_packets_indexed(struct radv_cmd_buffer *cmd_buffer,
 				      const struct radv_draw_info *info,
@@ -5609,18 +5638,7 @@ radv_draw_pre(struct radv_cmd_buffer *cmd_buffer,
 			radeon_emit(cs, info->instance_count);
 			state->last_num_instances = info->instance_count;
 		}
-		if (vertex_offset != state->last_vertex_offset ||
-		    info->first_instance != state->last_first_instance) {
-			radeon_set_sh_reg_seq(cs, state->pipeline->graphics.vtx_base_sgpr,
-					      state->pipeline->graphics.vtx_emit_num);
-
-			radeon_emit(cs, vertex_offset);
-			radeon_emit(cs, info->first_instance);
-			if (state->pipeline->graphics.vtx_emit_num == 3)
-				radeon_emit(cs, 0);
-			state->last_first_instance = info->first_instance;
-			state->last_vertex_offset = vertex_offset;
-		}
+		radv_emit_vertex_packets(cmd_buffer, info, vertex_offset);
 	}
 	assert(cmd_buffer->cs->cdw <= cdw_max);
 
