@@ -138,6 +138,9 @@ gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
 	case nir_intrinsic_load_draw_id:
 		info->vs.needs_draw_id = true;
 		break;
+	case nir_intrinsic_load_base_instance:
+		info->needs_base_instance = true;
+		break;
 	case nir_intrinsic_load_instance_id:
 		info->vs.needs_instance_id = true;
 		break;
