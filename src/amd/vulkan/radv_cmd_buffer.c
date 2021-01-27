@@ -5270,12 +5270,11 @@ static void radv_emit_view_index(struct radv_cmd_buffer *cmd_buffer, unsigned in
 static void
 radv_cs_emit_draw_packet(struct radv_cmd_buffer *cmd_buffer,
                          uint32_t vertex_count,
-			 bool use_opaque)
+			 uint32_t use_opaque)
 {
 	radeon_emit(cmd_buffer->cs, PKT3(PKT3_DRAW_INDEX_AUTO, 1, cmd_buffer->state.predicating));
 	radeon_emit(cmd_buffer->cs, vertex_count);
-	radeon_emit(cmd_buffer->cs, V_0287F0_DI_SRC_SEL_AUTO_INDEX |
-	                            S_0287F0_USE_OPAQUE(use_opaque));
+	radeon_emit(cmd_buffer->cs, V_0287F0_DI_SRC_SEL_AUTO_INDEX | use_opaque);
 }
 
 static void
@@ -5374,13 +5373,14 @@ radv_emit_direct_draw_packets_indexed(struct radv_cmd_buffer *cmd_buffer,
 static void
 radv_emit_direct_draw_packets(struct radv_cmd_buffer *cmd_buffer,
 			      const struct radv_draw_info *info,
-			      uint32_t count)
+			      uint32_t count,
+			      uint32_t use_opaque)
 {
 	struct radv_cmd_state *state = &cmd_buffer->state;
 	if (!state->subpass->view_mask) {
 		radv_cs_emit_draw_packet(cmd_buffer,
-					 count);
-					 !!info->strmout_buffer);
+					 count,
+					 use_opaque);
 	} else {
 		unsigned i;
 		for_each_bit(i, state->subpass->view_mask) {
@@ -5388,7 +5388,7 @@ radv_emit_direct_draw_packets(struct radv_cmd_buffer *cmd_buffer,
 
 			radv_cs_emit_draw_packet(cmd_buffer,
 						 count,
-						 !!info->strmout_buffer);
+						 use_opaque);
 		}
 	}
 }
@@ -5682,7 +5682,7 @@ void radv_CmdDraw(
 	if (!radv_draw_pre(cmd_buffer, &info, firstVertex))
 	   return;
 	radv_emit_direct_draw_packets(cmd_buffer, &info,
-				      vertexCount);
+				      vertexCount, 0);
 	radv_draw_post(cmd_buffer);
 }
 
@@ -7272,7 +7272,7 @@ void radv_CmdDrawIndirectByteCountEXT(
 
 	if (!radv_draw_pre(cmd_buffer, &info, 0))
 	   return;
-	radv_emit_indirect_draw_packets(cmd_buffer, &info);
+	radv_emit_direct_draw_packets(cmd_buffer, &info, 1, S_0287F0_USE_OPAQUE(1));
 	radv_draw_post(cmd_buffer);
 }
 
