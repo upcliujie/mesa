@@ -306,8 +306,10 @@ gather_info_input_decl_vs(const nir_shader *nir, const nir_variable *var,
 	for (unsigned i = 0; i < attrib_count; ++i) {
 		unsigned attrib_index = var->data.location + i - VERT_ATTRIB_GENERIC0;
 
-		if (key->vs.instance_rate_inputs & (1u << attrib_index))
+		if (key->vs.instance_rate_inputs & (1u << attrib_index)) {
 			info->vs.needs_instance_id = true;
+			info->needs_base_instance = true;
+		}
 	}
 }
 
