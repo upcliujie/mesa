@@ -1489,17 +1489,16 @@ namespace {
    }
 
    /**
-    * Calculate the maximum possible throughput of the program compatible with
-    * the cycle-count utilization estimated for each asynchronous unit, in
-    * threads-per-cycle units.
+    * Calculate the time when all units will be idle, in clock units.
     */
    float
-   calculate_thread_throughput(const state &st, float busy)
+   units_busy_time(const state &st)
    {
+      float busy = 0.0;
       for (unsigned i = 0; i < num_units; i++)
          busy = MAX2(busy, st.unit_busy[i]);
 
-      return 1.0 / busy;
+      return busy;
    }
 
    /**
@@ -1568,8 +1567,15 @@ namespace {
          p.block_latency[block->num] = elapsed - elapsed0;
       }
 
-      p.latency = elapsed;
-      p.throughput = dispatch_width * calculate_thread_throughput(st, elapsed);
+      /**
+       * Calculate the minimum latency and maximum possible throughput of
+       * the program compatible with the cycle-count utilization estimated
+       * for each asynchronous unit, in threads-per-cycle units.
+       */
+
+      float busy = units_busy_time(st);
+      p.latency = MAX2(elapsed, (unsigned)busy);
+      p.throughput = 1.0 * dispatch_width / p.latency;
    }
 }
 
