@@ -311,20 +311,27 @@ MoveResult MoveState::upwards_move()
    }
 
    /* check if candidate uses/kills an operand which is used by a dependency */
-   for (const Operand& op : instr->operands) {
-      if (op.isTemp() && (!improved_rar || op.isFirstKill()) && RAR_dependencies[op.tempId()])
-         return move_fail_rar;
+   std::set<Temp> killed_ops;
+   for (Operand& op : instr->operands) {
+      if (op.isTemp() && RAR_dependencies[op.tempId()]) {
+         if (!improved_rar)
+            return move_fail_rar;
+         if (op.isFirstKill())
+            killed_ops.emplace(op.getTemp());
+         op.setKill(false);
+      }
    }
 
    /* check if register pressure is low enough: the diff is negative if register pressure is decreased */
    const RegisterDemand candidate_diff = get_live_changes(instr);
    const RegisterDemand temp = get_temp_registers(instr);
-   if (RegisterDemand(total_demand + candidate_diff).exceeds(max_registers))
-      return move_fail_pressure;
    const RegisterDemand temp2 = get_temp_registers(block->instructions[insert_idx - 1]);
    const RegisterDemand new_demand = register_demand[insert_idx - 1] - temp2 + candidate_diff + temp;
+   if (RegisterDemand(total_demand + candidate_diff).exceeds(max_registers))
+      goto fail;
+
    if (new_demand.exceeds(max_registers))
-      return move_fail_pressure;
+      goto fail;
 
    /* move the candidate above the insert_idx */
    move_element(block->instructions.begin(), source_idx, insert_idx);
@@ -336,6 +343,27 @@ MoveResult MoveState::upwards_move()
    register_demand[insert_idx] = new_demand;
    total_demand += candidate_diff;
 
+   for (int i = source_idx; !killed_ops.empty() && i > insert_idx; i--) {
+      auto it = killed_ops.begin();
+      while (it != killed_ops.end()) {
+         Temp t = *it;
+         register_demand[i] -= t;
+         bool found = false;
+         for (Operand& op : block->instructions[i]->operands) {
+            if (op.isTemp() && op.getTemp() == t) {
+               op.setFirstKill(!found);
+               op.setKill(true);
+               found = true;
+            }
+         }
+         if (found)
+            it = killed_ops.erase(it);
+         else
+            ++it;
+      }
+   }
+   assert(killed_ops.empty());
+
    insert_idx++;
 
    total_demand.update(register_demand[source_idx]);
@@ -344,6 +372,20 @@ MoveResult MoveState::upwards_move()
    upwards_verify_invariants();
 
    return move_success;
+
+   fail:
+   /* restore kill flags */
+   for (Temp t : killed_ops) {
+      bool first = true;
+      for (Operand& op : instr->operands) {
+         if (op.isTemp() && op.getTemp() == t) {
+            op.setFirstKill(first);
+            op.setKill(true);
+            first = false;
+         }
+      }
+   }
+   return move_fail_pressure;
 }
 
 void MoveState::upwards_skip()
