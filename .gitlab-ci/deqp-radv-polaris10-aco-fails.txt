@@ -1,0 +1,7 @@
+# Fixed by CTS 00e745999e771df2a604bf24d85594a69ad441fe
+dEQP-VK.sparse_resources.image_sparse_binding.2d.r8_snorm.1024_128_1,Fail
+dEQP-VK.sparse_resources.image_sparse_binding.2d.r8_snorm.512_256_1,Fail
+dEQP-VK.sparse_resources.image_sparse_binding.2d.rg8_snorm.1024_128_1,Fail
+dEQP-VK.sparse_resources.image_sparse_binding.2d.rg8_snorm.512_256_1,Fail
+dEQP-VK.sparse_resources.image_sparse_binding.2d.rgba8_snorm.1024_128_1,Fail
+dEQP-VK.sparse_resources.image_sparse_binding.2d.rgba8_snorm.512_256_1,Fail
