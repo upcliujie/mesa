@@ -5337,18 +5337,27 @@ radv_emit_vertex_packets(struct radv_cmd_buffer *cmd_buffer,
 {
 	struct radv_cmd_state *state = &cmd_buffer->state;
 	struct radeon_cmdbuf *cs = cmd_buffer->cs;
-        if (vertex_offset != state->last_vertex_offset ||
-            info->first_instance != state->last_first_instance) {
-		radeon_set_sh_reg_seq(cs, state->pipeline->graphics.vtx_base_sgpr,
-			  state->pipeline->graphics.vtx_emit_num);
+	bool uses_baseinstance = state->pipeline->graphics.uses_baseinstance;
+	bool uses_drawid = state->pipeline->graphics.uses_drawid;
+	if (vertex_offset != state->last_vertex_offset ||
+	    (uses_baseinstance &&
+	     info->first_instance != state->last_first_instance)) {
+		if (!uses_baseinstance && !uses_drawid)
+			radeon_set_sh_reg(cs, state->pipeline->graphics.vtx_base_sgpr, vertex_offset);
+		else {
+			radeon_set_sh_reg_seq(cs, state->pipeline->graphics.vtx_base_sgpr,
+					      state->pipeline->graphics.vtx_emit_num);
 
-		radeon_emit(cs, vertex_offset);
-		if (state->pipeline->graphics.vtx_emit_num == 3)
-			radeon_emit(cs, 0);
-		radeon_emit(cs, info->first_instance);
+			radeon_emit(cs, vertex_offset);
+			if (uses_drawid)
+				/* drawid */
+				radeon_emit(cs, 0);
+			if (uses_baseinstance)
+				radeon_emit(cs, info->first_instance);
+		}
 		state->last_first_instance = info->first_instance;
 		state->last_vertex_offset = vertex_offset;
-        }
+	}
 }
 
 static void
