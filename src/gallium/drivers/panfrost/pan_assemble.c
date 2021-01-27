@@ -97,6 +97,7 @@ pan_prepare_bifrost_props(struct panfrost_shader_state *state,
                 state->preload.fragment.fragment_position = state->reads_frag_coord;
                 state->preload.fragment.coverage = true;
                 state->preload.fragment.primitive_flags = state->reads_face;
+                state->preload.fragment.sample_mask_id = true;
                 break;
         case MESA_SHADER_COMPUTE:
                 pan_prepare(&state->properties, RENDERER_PROPERTIES);
