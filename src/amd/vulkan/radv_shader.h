@@ -264,6 +264,7 @@ struct radv_shader_info {
 	bool need_indirect_descriptor_sets;
 	bool is_ngg;
 	bool is_ngg_passthrough;
+	bool needs_base_instance;
 	struct {
 		uint8_t input_usage_mask[RADV_VERT_ATTRIB_MAX];
 		uint8_t output_usage_mask[VARYING_SLOT_VAR31 + 1];
