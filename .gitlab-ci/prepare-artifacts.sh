@@ -28,7 +28,6 @@ echo "$(cat VERSION) (git-$(git rev-parse HEAD | cut -b -10))" >> install/VERSIO
 cp -Rp .gitlab-ci/bare-metal install/
 cp -Rp .gitlab-ci/deqp install/
 cp -Rp .gitlab-ci/piglit install/
-cp -Rp .gitlab-ci/traces*.yml install/
 cp -Rp .gitlab-ci/fossils.yml install/
 cp -Rp .gitlab-ci/fossils install/
 cp -Rp .gitlab-ci/fossilize-runner.sh install/
