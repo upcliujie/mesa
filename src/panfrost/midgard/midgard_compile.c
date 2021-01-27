@@ -1052,6 +1052,8 @@ emit_alu(compiler_context *ctx, nir_alu_instr *instr)
         }
 
         if ((opcode_props & UNITS_ALL) == UNIT_VLUT) {
+                assert (outmod != midgard_outmod_int_high);
+
                 /* To avoid duplicating the lookup tables (probably), true LUT
                  * instructions can only operate as if they were scalars. Lower
                  * them here by changing the component. */
@@ -1094,7 +1096,25 @@ emit_alu(compiler_context *ctx, nir_alu_instr *instr)
                         emit_mir_instruction(ctx, ins_split[i]);
                 }
         } else {
-                emit_mir_instruction(ctx, ins);
+                midgard_instruction *I = emit_mir_instruction(ctx, ins);
+
+                /* There are special restrictions on masks of .hi instructions,
+                 * so add a move to lower */
+                if (is_int && outmod == midgard_outmod_int_high) {
+                        unsigned tmp = make_compiler_temp(ctx);
+                        midgard_instruction mov = v_mov(tmp, ins.dest);
+
+                        mov.mask = ins.mask;
+
+                        for (unsigned c = 0; c < 4; ++c)
+                                mov.swizzle[1][c] = 0;
+
+                        I->mask = 0x1;
+                        assert(util_bitcount(I->mask) == 1);
+
+                        emit_mir_instruction(ctx, mov);
+                        I->dest = tmp;
+                }
         }
 }
 
@@ -3084,6 +3104,7 @@ midgard_compile_shader_nir(void *mem_ctx, nir_shader *nir,
                 inline_alu_constants(ctx, block);
                 embedded_to_inline_constant(ctx, block);
         }
+
         /* MIR-level optimizations */
 
         bool progress = false;
