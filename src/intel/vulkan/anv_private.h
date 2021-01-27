@@ -61,7 +61,6 @@
 #include "util/vma.h"
 #include "util/xmlconfig.h"
 #include "vk_alloc.h"
-#include "vk_debug_report.h"
 #include "vk_device.h"
 #include "vk_instance.h"
 #include "vk_physical_device.h"
@@ -1162,8 +1161,6 @@ struct anv_instance {
     struct list_head                            physical_devices;
 
     bool                                        pipeline_cache_enabled;
-
-    struct vk_debug_report_instance             debug_report_callbacks;
 
     struct driOptionCache                       dri_options;
     struct driOptionCache                       available_dri_options;
