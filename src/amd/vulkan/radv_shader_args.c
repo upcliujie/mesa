@@ -282,9 +282,11 @@ declare_vs_specific_input_sgprs(struct radv_shader_args *args,
 				   &args->ac.vertex_buffers);
 		}
 		ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.base_vertex);
-		ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.start_instance);
 		if (args->shader_info->vs.needs_draw_id) {
 			ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.draw_id);
+		}
+		if (args->shader_info->needs_base_instance) {
+			ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.start_instance);
 		}
 	}
 }
@@ -412,10 +414,12 @@ set_vs_specific_input_locs(struct radv_shader_args *args,
 					   user_sgpr_idx);
 		}
 
-		unsigned vs_num = 2;
+		unsigned vs_num = 1;
 		if (args->shader_info->vs.needs_draw_id)
 			vs_num++;
 
+		if (args->shader_info->needs_base_instance)
+			vs_num++;
 		set_loc_shader(args, AC_UD_VS_BASE_VERTEX_START_INSTANCE,
 			       user_sgpr_idx, vs_num);
 	}
