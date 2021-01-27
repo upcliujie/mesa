@@ -2130,22 +2130,7 @@ panfrost_emit_sample_locations(struct panfrost_batch *batch)
             0, 256,
             0, 256,
             128, 128,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
-            0, 0,
         };
 
-        return panfrost_pool_upload_aligned(&batch->pool, locations, 96 * sizeof(uint16_t), 64);
+        return panfrost_pool_upload_aligned(&batch->pool, locations, sizeof(locations), 64);
 }
