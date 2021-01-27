@@ -1113,7 +1113,7 @@ llvmpipe-traces:
     - .llvmpipe-test
   variables:
     EGL_PLATFORM: "surfaceless"
-    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-llvmpipe.yml"
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/piglit/traces-llvmpipe.yml"
     PIGLIT_REPLAY_DEVICE_NAME: "gl-vmware-llvmpipe"
     PIGLIT_RESULTS: "llvmpipe-replay"
 
@@ -1131,7 +1131,7 @@ virgl-traces:
     - .virgl-test
   variables:
     EGL_PLATFORM: "surfaceless"
-    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-virgl.yml"
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/piglit/traces-virgl.yml"
     PIGLIT_REPLAY_DEVICE_NAME: "gl-virgl"
     PIGLIT_RESULTS: "virgl-replay"
     MESA_GLES_VERSION_OVERRIDE: "3.1"
@@ -1144,7 +1144,7 @@ arm64-a630-traces:
   variables:
     BARE_METAL_TEST_SCRIPT: "/install/piglit/run.sh"
     EGL_PLATFORM: "surfaceless"
-    PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/traces-freedreno.yml"
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/piglit/traces-freedreno.yml"
     PIGLIT_REPLAY_DEVICE_NAME: "freedreno-a630"
     PIGLIT_RESULTS: "freedreno-a630-replay"
     # This lets us run several more traces which don't use any features we're
@@ -1162,7 +1162,7 @@ radv-polaris10-traces:
     - .test-radv
     - .test-manual
   variables:
-    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-radv.yml"
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/piglit/traces-radv.yml"
     PIGLIT_REPLAY_DEVICE_NAME: "vk-amd-polaris10"
     PIGLIT_RESULTS: "radv-polaris10-replay"
   tags:
@@ -1175,7 +1175,7 @@ radv-raven-traces:
     - .test-radv
     - .test-manual
   variables:
-    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-radv.yml"
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/piglit/traces-radv.yml"
     PIGLIT_REPLAY_DEVICE_NAME: "vk-amd-raven"
     PIGLIT_RESULTS: "radv-raven-replay"
   tags:
