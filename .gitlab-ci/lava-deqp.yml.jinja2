@@ -89,7 +89,7 @@ actions:
           - export {{ env_vars }}
 {% endif %}
 
-          # deqp-runner.sh assumes some stuff is in pwd
+          # deqp/run.sh assumes some stuff is in pwd
           - cd /
 
           - wget -S --progress=dot:giga -O- {{ mesa_url }} | tar -xz
@@ -99,7 +99,7 @@ actions:
           - export DEQP_VER={{ deqp_version }}
           - export LIBGL_DRIVERS_PATH=`pwd`/install/lib/dri
 
-          - "if sh /install/deqp-runner.sh; then
+          - "if sh /install/deqp/run.sh; then
                   echo 'deqp: pass';
              else
                   echo 'deqp: fail';

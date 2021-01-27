@@ -13,7 +13,7 @@ if ! env \
   DEQP_VER=gles31 \
   DEQP_FRACTION=5 \
   FD_MESA_DEBUG=nobypass \
-  /install/deqp-runner.sh; then
+  /install/deqp/run.sh; then
     EXIT=1
 fi
 
@@ -24,7 +24,7 @@ if ! env \
   DEQP_FRACTION=5 \
   FD_MESA_DEBUG=nogmem \
   GPU_VERSION=freedreno-a630-bypass \
-  /install/deqp-runner.sh; then
+  /install/deqp/run.sh; then
     EXIT=1
 fi
 
@@ -34,7 +34,7 @@ if ! env \
   DEQP_VER=gles31 \
   IR3_SHADER_DEBUG=nouboopt \
   DEQP_CASELIST_FILTER="functional.*ubo" \
-  /install/deqp-runner.sh; then
+  /install/deqp/run.sh; then
     EXIT=1
 fi
 
@@ -44,7 +44,7 @@ if ! env \
   DEQP_VER=gles3 \
   DEQP_CONFIG="rgb565d0s0ms0" \
   DEQP_VARIANT="565-no-depth-no-stencil" \
-  /install/deqp-runner.sh; then
+  /install/deqp/run.sh; then
     EXIT=1
 fi
 
@@ -54,7 +54,7 @@ if ! env \
   DEQP_VER=gles31 \
   DEQP_CONFIG="rgb565d0s0ms0" \
   DEQP_VARIANT="565-no-depth-no-stencil" \
-  /install/deqp-runner.sh; then
+  /install/deqp/run.sh; then
     EXIT=1
 fi
 
@@ -64,7 +64,7 @@ fi
 #   DEQP_VER=gles3 \
 #   DEQP_CONFIG="rgba8888d24s8ms4" \
 #   DEQP_VARIANT="multisample" \
-#   /install/deqp-runner.sh; then
+#   /install/deqp/run.sh; then
 #     EXIT=1
 # fi
 
@@ -74,7 +74,7 @@ fi
 #   DEQP_VER=gles31 \
 #   DEQP_CONFIG="rgba8888d24s8ms4" \
 #   DEQP_VARIANT="multisample" \
-#   /install/deqp-runner.sh; then
+#   /install/deqp/run.sh; then
 #     EXIT=1
 # fi
 
