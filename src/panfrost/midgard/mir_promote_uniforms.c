@@ -46,6 +46,7 @@ mir_is_promoteable_ubo(midgard_instruction *ins)
                 (OP_IS_UBO_READ(ins->op)) &&
                 !(ins->constants.u32[0] & 0xF) &&
                 !(ins->load_store.arg_1) &&
+                (ins->src[1] == ~0) &&
                 (ins->load_store.arg_2 == 0x1E) &&
                 ((ins->constants.u32[0] / 16) < 16);
 }

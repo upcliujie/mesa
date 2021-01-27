@@ -1152,7 +1152,7 @@ emit_ubo_read(
         unsigned offset,
         nir_src *indirect_offset,
         unsigned indirect_shift,
-        unsigned index)
+        nir_src *index)
 {
         /* TODO: half-floats */
 
@@ -1175,7 +1175,20 @@ emit_ubo_read(
                 ins.load_store.arg_2 = 0x1E;
         }
 
-        ins.load_store.arg_1 = index;
+        bool const_idx = index && nir_src_is_const(*index);
+
+        if (const_idx && nir_src_as_uint(*index) + 1 <= 255) {
+                ins.load_store.arg_1 = nir_src_as_uint(*index);
+        } else if (index) {
+                ins.src[1] = nir_src_index(ctx, index);
+                ins.src_types[1] = nir_type_uint32;
+
+                for (unsigned i = 0; i < ARRAY_SIZE(ins.swizzle[1]); ++i)
+                        ins.swizzle[1][i] = 0;
+
+                /* set buffer index subregister enable bit */
+                ins.load_store.varying_parameters |= (1 << 1);
+        }
 
         return emit_mir_instruction(ctx, ins);
 }
@@ -1461,7 +1474,7 @@ emit_sysval_read(compiler_context *ctx, nir_instr *instr,
 
         /* Emit the read itself -- this is never indirect */
         midgard_instruction *ins =
-                emit_ubo_read(ctx, instr, dest, (uniform * 16) + offset, NULL, 0, 0);
+                emit_ubo_read(ctx, instr, dest, (uniform * 16) + offset, NULL, 0, NULL);
 
         ins->mask = mask_of(nr_components);
 }
@@ -1720,17 +1733,11 @@ emit_intrinsic(compiler_context *ctx, nir_intrinsic_instr *instr)
                 reg = nir_dest_index(&instr->dest);
 
                 if (is_uniform && !ctx->is_blend) {
-                        emit_ubo_read(ctx, &instr->instr, reg, (ctx->sysvals.sysval_count + offset) * 16, indirect_offset, 4, 0);
+                        emit_ubo_read(ctx, &instr->instr, reg, (ctx->sysvals.sysval_count + offset) * 16, indirect_offset, 4, NULL);
                 } else if (is_kernel) {
-                        emit_ubo_read(ctx, &instr->instr, reg, (ctx->sysvals.sysval_count * 16) + offset, indirect_offset, 0, 0);
+                        emit_ubo_read(ctx, &instr->instr, reg, (ctx->sysvals.sysval_count * 16) + offset, indirect_offset, 0, NULL);
                 } else if (is_ubo) {
-                        nir_src index = instr->src[0];
-
-                        /* TODO: Is indirect block number possible? */
-                        assert(nir_src_is_const(index));
-
-                        uint32_t uindex = nir_src_as_uint(index) + 1;
-                        emit_ubo_read(ctx, &instr->instr, reg, offset, indirect_offset, 0, uindex);
+                        emit_ubo_read(ctx, &instr->instr, reg, offset, indirect_offset, 0, &instr->src[0]);
                 } else if (is_global || is_shared || is_scratch) {
                         unsigned seg = is_global ? LDST_GLOBAL : (is_shared ? LDST_SHARED : LDST_SCRATCH);
                         emit_global(ctx, &instr->instr, true, reg, src_offset, seg);
