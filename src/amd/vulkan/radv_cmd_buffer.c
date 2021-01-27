@@ -5675,12 +5675,16 @@ void radv_CmdDraw(
 	uint32_t                                    firstInstance)
 {
 	RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-	struct radv_draw_info info = {0};
+	struct radv_draw_info info;
 
 	info.count = vertexCount;
 	info.instance_count = instanceCount;
 	info.first_instance = firstInstance;
 	info.vertex_offset = firstVertex;
+	info.strmout_buffer = NULL;
+	info.indirect = NULL;
+	info.indexed = false;
+
 
 	radv_draw(cmd_buffer, &info);
 }
@@ -5694,7 +5698,7 @@ void radv_CmdDrawIndexed(
 	uint32_t                                    firstInstance)
 {
 	RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-	struct radv_draw_info info = {0};
+	struct radv_draw_info info;
 
 	info.indexed = true;
 	info.count = indexCount;
@@ -5702,6 +5706,8 @@ void radv_CmdDrawIndexed(
 	info.first_index = firstIndex;
 	info.vertex_offset = vertexOffset;
 	info.first_instance = firstInstance;
+	info.strmout_buffer = NULL;
+	info.indirect = NULL;
 
 	radv_draw(cmd_buffer, &info);
 }
@@ -5715,12 +5721,15 @@ void radv_CmdDrawIndirect(
 {
 	RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
 	RADV_FROM_HANDLE(radv_buffer, buffer, _buffer);
-	struct radv_draw_info info = {0};
+	struct radv_draw_info info;
 
 	info.count = drawCount;
 	info.indirect = buffer;
 	info.indirect_offset = offset;
 	info.stride = stride;
+	info.strmout_buffer = NULL;
+	info.count_buffer = NULL;
+	info.indexed = false;
 
 	radv_draw(cmd_buffer, &info);
 }
@@ -5734,13 +5743,15 @@ void radv_CmdDrawIndexedIndirect(
 {
 	RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
 	RADV_FROM_HANDLE(radv_buffer, buffer, _buffer);
-	struct radv_draw_info info = {0};
+	struct radv_draw_info info;
 
 	info.indexed = true;
 	info.count = drawCount;
 	info.indirect = buffer;
 	info.indirect_offset = offset;
 	info.stride = stride;
+        info.count_buffer = NULL;
+	info.strmout_buffer = NULL;
 
 	radv_draw(cmd_buffer, &info);
 }
@@ -5757,7 +5768,7 @@ void radv_CmdDrawIndirectCount(
 	RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
 	RADV_FROM_HANDLE(radv_buffer, buffer, _buffer);
 	RADV_FROM_HANDLE(radv_buffer, count_buffer, _countBuffer);
-	struct radv_draw_info info = {0};
+	struct radv_draw_info info;
 
 	info.count = maxDrawCount;
 	info.indirect = buffer;
@@ -5765,6 +5776,8 @@ void radv_CmdDrawIndirectCount(
 	info.count_buffer = count_buffer;
 	info.count_buffer_offset = countBufferOffset;
 	info.stride = stride;
+	info.strmout_buffer = NULL;
+	info.indexed = false;
 
 	radv_draw(cmd_buffer, &info);
 }
@@ -5781,7 +5794,7 @@ void radv_CmdDrawIndexedIndirectCount(
 	RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
 	RADV_FROM_HANDLE(radv_buffer, buffer, _buffer);
 	RADV_FROM_HANDLE(radv_buffer, count_buffer, _countBuffer);
-	struct radv_draw_info info = {0};
+	struct radv_draw_info info;
 
 	info.indexed = true;
 	info.count = maxDrawCount;
@@ -5790,6 +5803,7 @@ void radv_CmdDrawIndexedIndirectCount(
 	info.count_buffer = count_buffer;
 	info.count_buffer_offset = countBufferOffset;
 	info.stride = stride;
+	info.strmout_buffer = NULL;
 
 	radv_draw(cmd_buffer, &info);
 }
@@ -7233,13 +7247,17 @@ void radv_CmdDrawIndirectByteCountEXT(
 {
 	RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
 	RADV_FROM_HANDLE(radv_buffer, counterBuffer, _counterBuffer);
-	struct radv_draw_info info = {0};
+	struct radv_draw_info info;
 
+	info.count = 0;
+	info.vertex_offset = 0;
 	info.instance_count = instanceCount;
 	info.first_instance = firstInstance;
 	info.strmout_buffer = counterBuffer;
 	info.strmout_buffer_offset = counterBufferOffset;
 	info.stride = vertexStride;
+	info.indexed = false;
+	info.indirect = NULL;
 
 	radv_draw(cmd_buffer, &info);
 }
