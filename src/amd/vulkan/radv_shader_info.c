@@ -138,6 +138,9 @@ gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
 	case nir_intrinsic_load_draw_id:
 		info->vs.needs_draw_id = true;
 		break;
+	case nir_intrinsic_load_base_instance:
+		info->needs_base_instance = true;
+		break;
 	case nir_intrinsic_load_instance_id:
 		info->vs.needs_instance_id = true;
 		break;
@@ -303,8 +306,10 @@ gather_info_input_decl_vs(const nir_shader *nir, const nir_variable *var,
 	for (unsigned i = 0; i < attrib_count; ++i) {
 		unsigned attrib_index = var->data.location + i - VERT_ATTRIB_GENERIC0;
 
-		if (key->vs.instance_rate_inputs & (1u << attrib_index))
+		if (key->vs.instance_rate_inputs & (1u << attrib_index)) {
 			info->vs.needs_instance_id = true;
+			info->needs_base_instance = true;
+		}
 	}
 }
 
