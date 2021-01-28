@@ -249,6 +249,8 @@ static inline type_t
 utype_for_size(unsigned bit_size)
 {
    switch (bit_size) {
+   case 64:
+      return TYPE_U32;
    case 32:
       return TYPE_U32;
    case 16:
