@@ -1962,7 +1962,7 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
             affinity_related.emplace_back(instr->definitions[0].getTemp());
             affinity_related.emplace_back(instr->definitions[0].getTemp());
             for (const Operand& op : instr->operands) {
-               if (op.isTemp() && op.regClass() == instr->definitions[0].regClass()) {
+               if (op.isTemp() && op.isKill() && op.regClass() == instr->definitions[0].regClass()) {
                   affinity_related.emplace_back(op.getTemp());
                   temp_to_phi_ressources[op.tempId()] = phi_ressources.size();
                }
@@ -2023,8 +2023,10 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
    for (std::vector<Temp>& vec : phi_ressources) {
       assert(vec.size() > 1);
       for (unsigned i = 1; i < vec.size(); i++)
-         if (vec[i].id() != vec[0].id())
+         if (vec[i].id() != vec[0].id()) {
+            fprintf(stderr, "affinity[%d] = %d\n", vec[i].id(), vec[0].id());
             ctx.affinities[vec[i].id()] = vec[0].id();
+         }
    }
 
    /* state of register file after phis */
