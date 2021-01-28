@@ -89,3 +89,92 @@ vk_common_EnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice,
 
    return vk_outarray_status(&out);
 }
+
+void
+vk_common_GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDevice,
+                                    VkPhysicalDeviceFeatures *pFeatures)
+{
+   VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
+
+   VkPhysicalDeviceFeatures2 features2 = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+   };
+
+   pdevice->dispatch_table.GetPhysicalDeviceFeatures2(physicalDevice,
+                                                      &features2);
+   *pFeatures = features2.features;
+}
+
+void
+vk_common_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
+                                      VkPhysicalDeviceProperties *pProperties)
+{
+   VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
+
+   VkPhysicalDeviceProperties2 props2 = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+   };
+
+   pdevice->dispatch_table.GetPhysicalDeviceProperties2(physicalDevice,
+                                                        &props2);
+   *pProperties = props2.properties;
+}
+
+void
+vk_common_GetPhysicalDeviceMemoryProperties(VkPhysicalDevice physicalDevice,
+                                            VkPhysicalDeviceMemoryProperties *pMemoryProperties)
+{
+   VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
+
+   VkPhysicalDeviceMemoryProperties2 props2 = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,
+   };
+   pdevice->dispatch_table.GetPhysicalDeviceMemoryProperties2(physicalDevice,
+                                                              &props2);
+   *pMemoryProperties = props2.memoryProperties;
+}
+
+void
+vk_common_GetPhysicalDeviceFormatProperties(VkPhysicalDevice physicalDevice,
+                                            VkFormat format,
+                                            VkFormatProperties *pFormatProperties)
+{
+   VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
+
+   VkFormatProperties2 props2 = {
+      .sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,
+   };
+   pdevice->dispatch_table.GetPhysicalDeviceFormatProperties2(physicalDevice,
+                                                              format, &props2);
+   *pFormatProperties = props2.formatProperties;
+}
+
+VkResult
+vk_common_GetPhysicalDeviceImageFormatProperties(VkPhysicalDevice physicalDevice,
+                                                 VkFormat format,
+                                                 VkImageType type,
+                                                 VkImageTiling tiling,
+                                                 VkImageUsageFlags usage,
+                                                 VkImageCreateFlags flags,
+                                                 VkImageFormatProperties *pImageFormatProperties)
+{
+   VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
+
+   VkPhysicalDeviceImageFormatInfo2 info = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+      .format = format,
+      .type = type,
+      .tiling = tiling,
+      .usage = usage,
+      .flags = flags
+   };
+   VkImageFormatProperties2 props2 = {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+   };
+   VkResult result =
+      pdevice->dispatch_table.GetPhysicalDeviceImageFormatProperties2(physicalDevice,
+                                                                      &info, &props2);
+   *pImageFormatProperties = props2.imageFormatProperties;
+
+   return result;
+}
