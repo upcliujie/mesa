@@ -37,6 +37,8 @@
 #include <vk_enum_to_str.h>
 
 #include "vk_device.h"
+#include "vk_instance.h"
+#include "vk_physical_device.h"
 
 #include <xf86drm.h>
 
@@ -125,12 +127,9 @@ struct v3dv_instance;
 struct v3d_simulator_file;
 
 struct v3dv_physical_device {
-   struct vk_object_base base;
+   struct vk_physical_device vk;
 
    struct v3dv_instance *instance;
-
-   struct v3dv_device_extension_table supported_extensions;
-   struct v3dv_physical_device_dispatch_table dispatch;
 
    char *name;
    int32_t render_fd;
@@ -184,15 +183,11 @@ struct v3dv_app_info {
 };
 
 struct v3dv_instance {
-   struct vk_object_base base;
+   struct vk_instance vk;
 
    VkAllocationCallbacks alloc;
 
    struct v3dv_app_info app_info;
-
-   struct v3dv_instance_extension_table enabled_extensions;
-   struct v3dv_instance_dispatch_table dispatch;
-   struct v3dv_device_dispatch_table device_dispatch;
 
    int physicalDeviceCount;
    struct v3dv_physical_device physicalDevice;
@@ -301,9 +296,6 @@ struct v3dv_device {
 
    struct v3dv_instance *instance;
    struct v3dv_physical_device *pdevice;
-
-   struct v3dv_device_extension_table enabled_extensions;
-   struct v3dv_device_dispatch_table dispatch;
 
    struct v3d_device_info devinfo;
    struct v3dv_queue queue;
@@ -1840,17 +1832,6 @@ int v3dv_get_physical_device_entrypoint_index(const char *name);
 const char *v3dv_get_instance_entry_name(int index);
 const char *v3dv_get_physical_device_entry_name(int index);
 const char *v3dv_get_device_entry_name(int index);
-
-bool
-v3dv_instance_entrypoint_is_enabled(int index, uint32_t core_version,
-                                    const struct v3dv_instance_extension_table *instance);
-bool
-v3dv_physical_device_entrypoint_is_enabled(int index, uint32_t core_version,
-                                           const struct v3dv_instance_extension_table *instance);
-bool
-v3dv_device_entrypoint_is_enabled(int index, uint32_t core_version,
-                                  const struct v3dv_instance_extension_table *instance,
-                                  const struct v3dv_device_extension_table *device);
 
 void *v3dv_lookup_entrypoint(const struct v3d_device_info *devinfo,
                              const char *name);

@@ -99,10 +99,10 @@ v3dv_EnumerateInstanceExtensionProperties(const char *pLayerName,
 
    VK_OUTARRAY_MAKE(out, pProperties, pPropertyCount);
 
-   for (int i = 0; i < V3DV_INSTANCE_EXTENSION_COUNT; i++) {
+   for (int i = 0; i < VK_INSTANCE_EXTENSION_COUNT; i++) {
       if (v3dv_instance_extensions_supported.extensions[i]) {
          vk_outarray_append(&out, prop) {
-            *prop = v3dv_instance_extensions[i];
+            *prop = vk_instance_extensions[i];
          }
       }
    }
@@ -120,110 +120,35 @@ v3dv_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO);
 
-   struct v3dv_instance_extension_table enabled_extensions = {};
-   for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
-      int idx;
-      for (idx = 0; idx < V3DV_INSTANCE_EXTENSION_COUNT; idx++) {
-         if (strcmp(pCreateInfo->ppEnabledExtensionNames[i],
-                    v3dv_instance_extensions[idx].extensionName) == 0)
-            break;
-      }
+   if (pAllocator == NULL)
+      pAllocator = &default_alloc;
 
-      if (idx >= V3DV_INSTANCE_EXTENSION_COUNT)
-         return vk_error(NULL, VK_ERROR_EXTENSION_NOT_PRESENT);
-
-      if (!v3dv_instance_extensions_supported.extensions[idx])
-         return vk_error(NULL, VK_ERROR_EXTENSION_NOT_PRESENT);
-
-      enabled_extensions.extensions[idx] = true;
-   }
-
-   instance = vk_alloc2(&default_alloc, pAllocator, sizeof(*instance), 8,
-                        VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+   instance = vk_alloc(pAllocator, sizeof(*instance), 8,
+                       VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
    if (!instance)
       return vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   vk_object_base_init(NULL, &instance->base, VK_OBJECT_TYPE_INSTANCE);
+   struct vk_instance_dispatch_table dispatch_table;
+   vk_instance_dispatch_table_from_entrypoints(
+      &dispatch_table, &v3dv_instance_entrypoints, true);
 
-   if (pAllocator)
-      instance->alloc = *pAllocator;
-   else
-      instance->alloc = default_alloc;
+   result = vk_instance_init(&instance->vk,
+                             &v3dv_instance_extensions_supported,
+                             &dispatch_table,
+                             pCreateInfo, pAllocator);
+   if (result != VK_SUCCESS) {
+      vk_free(pAllocator, instance);
+      return vk_error(NULL, result);
+   }
 
    v3d_process_debug_variable();
-
-   instance->app_info = (struct v3dv_app_info) { .api_version = 0 };
-   if (pCreateInfo->pApplicationInfo) {
-      const VkApplicationInfo *app = pCreateInfo->pApplicationInfo;
-
-      instance->app_info.app_name =
-         vk_strdup(&instance->alloc, app->pApplicationName,
-                   VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-      instance->app_info.app_version = app->applicationVersion;
-
-      instance->app_info.engine_name =
-         vk_strdup(&instance->alloc, app->pEngineName,
-                   VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-      instance->app_info.engine_version = app->engineVersion;
-
-      instance->app_info.api_version = app->apiVersion;
-   }
-
-   if (instance->app_info.api_version == 0)
-      instance->app_info.api_version = VK_API_VERSION_1_0;
-
-   instance->enabled_extensions = enabled_extensions;
-
-   for (unsigned i = 0; i < ARRAY_SIZE(instance->dispatch.entrypoints); i++) {
-      /* Vulkan requires that entrypoints for extensions which have not been
-       * enabled must not be advertised.
-       */
-      if (!v3dv_instance_entrypoint_is_enabled(i,
-                                              instance->app_info.api_version,
-                                              &instance->enabled_extensions)) {
-         instance->dispatch.entrypoints[i] = NULL;
-      } else {
-         instance->dispatch.entrypoints[i] =
-            v3dv_instance_dispatch_table.entrypoints[i];
-      }
-   }
-
-   struct v3dv_physical_device *pdevice = &instance->physicalDevice;
-   for (unsigned i = 0; i < ARRAY_SIZE(pdevice->dispatch.entrypoints); i++) {
-      /* Vulkan requires that entrypoints for extensions which have not been
-       * enabled must not be advertised.
-       */
-      if (!v3dv_physical_device_entrypoint_is_enabled(i,
-                                                     instance->app_info.api_version,
-                                                     &instance->enabled_extensions)) {
-         pdevice->dispatch.entrypoints[i] = NULL;
-      } else {
-         pdevice->dispatch.entrypoints[i] =
-            v3dv_physical_device_dispatch_table.entrypoints[i];
-      }
-   }
-
-   for (unsigned i = 0; i < ARRAY_SIZE(instance->device_dispatch.entrypoints); i++) {
-      /* Vulkan requires that entrypoints for extensions which have not been
-       * enabled must not be advertised.
-       */
-      if (!v3dv_device_entrypoint_is_enabled(i,
-                                            instance->app_info.api_version,
-                                            &instance->enabled_extensions,
-                                            NULL)) {
-         instance->device_dispatch.entrypoints[i] = NULL;
-      } else {
-         instance->device_dispatch.entrypoints[i] =
-            v3dv_device_dispatch_table.entrypoints[i];
-      }
-   }
 
    instance->physicalDeviceCount = -1;
 
    result = vk_debug_report_instance_init(&instance->debug_report_callbacks);
    if (result != VK_SUCCESS) {
-      vk_object_base_finish(&instance->base);
-      vk_free2(&default_alloc, pAllocator, instance);
+      vk_instance_finish(&instance->vk);
+      vk_free(pAllocator, instance);
       return vk_error(NULL, result);
    }
 
@@ -284,7 +209,7 @@ physical_device_finish(struct v3dv_physical_device *device)
    v3d_simulator_destroy(device->sim_file);
 #endif
 
-   vk_object_base_finish(&device->base);
+   vk_physical_device_finish(&device->vk);
    mtx_destroy(&device->mutex);
 }
 
@@ -312,7 +237,7 @@ v3dv_DestroyInstance(VkInstance _instance,
 
    glsl_type_singleton_decref();
 
-   vk_object_base_finish(&instance->base);
+   vk_instance_finish(&instance->vk);
    vk_free(&instance->alloc, instance);
 }
 
@@ -694,7 +619,6 @@ physical_device_init(struct v3dv_physical_device *device,
    VkResult result = VK_SUCCESS;
    int32_t master_fd = -1;
 
-   vk_object_base_init(NULL, &device->base, VK_OBJECT_TYPE_PHYSICAL_DEVICE);
    device->instance = instance;
 
    assert(drm_render_device);
@@ -708,7 +632,7 @@ physical_device_init(struct v3dv_physical_device *device,
     * we postpone that until a swapchain is created.
     */
 
-   if (instance->enabled_extensions.KHR_display) {
+   if (instance->vk.enabled_extensions.KHR_display) {
 #if !using_v3d_simulator
       /* Open the primary node on the vc4 display device */
       assert(drm_primary_device);
@@ -733,22 +657,22 @@ physical_device_init(struct v3dv_physical_device *device,
 
    if (!v3d_get_device_info(device->render_fd, &device->devinfo, &v3dv_ioctl)) {
       result = VK_ERROR_INCOMPATIBLE_DRIVER;
-      goto fail;
+      goto fail_fds;
    }
 
    if (device->devinfo.ver < 42) {
       result = VK_ERROR_INCOMPATIBLE_DRIVER;
-      goto fail;
+      goto fail_fds;
    }
 
    if (!device_has_expected_features(device)) {
       result = VK_ERROR_INCOMPATIBLE_DRIVER;
-      goto fail;
+      goto fail_fds;
    }
 
    result = init_uuids(device);
    if (result != VK_SUCCESS)
-      goto fail;
+      goto fail_fds;
 
    device->compiler = v3d_compiler_init(&device->devinfo);
    device->next_program_id = 0;
@@ -772,20 +696,34 @@ physical_device_init(struct v3dv_physical_device *device,
 
    device->options.merge_jobs = getenv("V3DV_NO_MERGE_JOBS") == NULL;
 
+   struct vk_device_extension_table supported_extensions;
+   v3dv_physical_device_get_supported_extensions(device, &supported_extensions);
+
+   struct vk_physical_device_dispatch_table dispatch_table;
+   vk_physical_device_dispatch_table_from_entrypoints(
+      &dispatch_table, &v3dv_physical_device_entrypoints, true);
+
+   result = vk_physical_device_init(&device->vk, &instance->vk,
+                                    &supported_extensions,
+                                    &dispatch_table);
+   if (result != VK_SUCCESS) {
+      vk_error(instance, result);
+      goto fail_fds;
+   }
+
    result = v3dv_wsi_init(device);
    if (result != VK_SUCCESS) {
       vk_error(instance, result);
-      goto fail;
+      goto fail_vk_pd;
    }
-
-   v3dv_physical_device_get_supported_extensions(device,
-                                                 &device->supported_extensions);
 
    pthread_mutex_init(&device->mutex, NULL);
 
    return VK_SUCCESS;
 
-fail:
+fail_vk_pd:
+   vk_physical_device_finish(&device->vk);
+fail_fds:
    if (render_fd >= 0)
       close(render_fd);
    if (master_fd >= 0)
@@ -1319,39 +1257,9 @@ v3dv_GetInstanceProcAddr(VkInstance _instance,
                          const char *pName)
 {
    V3DV_FROM_HANDLE(v3dv_instance, instance, _instance);
-
-   /* The Vulkan 1.0 spec for vkGetInstanceProcAddr has a table of exactly
-    * when we have to return valid function pointers, NULL, or it's left
-    * undefined.  See the table for exact details.
-    */
-   if (pName == NULL)
-      return NULL;
-
-#define LOOKUP_V3DV_ENTRYPOINT(entrypoint)              \
-   if (strcmp(pName, "vk" #entrypoint) == 0)            \
-      return (PFN_vkVoidFunction)v3dv_##entrypoint
-
-   LOOKUP_V3DV_ENTRYPOINT(EnumerateInstanceExtensionProperties);
-   LOOKUP_V3DV_ENTRYPOINT(CreateInstance);
-
-#undef LOOKUP_V3DV_ENTRYPOINT
-
-   if (instance == NULL)
-      return NULL;
-
-   int idx = v3dv_get_instance_entrypoint_index(pName);
-   if (idx >= 0)
-      return instance->dispatch.entrypoints[idx];
-
-   idx = v3dv_get_physical_device_entrypoint_index(pName);
-   if (idx >= 0)
-      return instance->physicalDevice.dispatch.entrypoints[idx];
-
-   idx = v3dv_get_device_entrypoint_index(pName);
-   if (idx >= 0)
-      return instance->device_dispatch.entrypoints[idx];
-
-   return NULL;
+   return vk_instance_get_proc_addr(&instance->vk,
+                                    &v3dv_instance_entrypoints,
+                                    pName);
 }
 
 /* With version 1+ of the loader interface the ICD should expose
@@ -1370,22 +1278,6 @@ vk_icdGetInstanceProcAddr(VkInstance instance,
    return v3dv_GetInstanceProcAddr(instance, pName);
 }
 
-PFN_vkVoidFunction
-v3dv_GetDeviceProcAddr(VkDevice _device,
-                       const char *pName)
-{
-   V3DV_FROM_HANDLE(v3dv_device, device, _device);
-
-   if (!device || !pName)
-      return NULL;
-
-   int idx = v3dv_get_device_entrypoint_index(pName);
-   if (idx < 0)
-      return NULL;
-
-   return device->dispatch.entrypoints[idx];
-}
-
 /* With version 4+ of the loader interface the ICD should expose
  * vk_icdGetPhysicalDeviceProcAddr()
  */
@@ -1399,39 +1291,7 @@ vk_icdGetPhysicalDeviceProcAddr(VkInstance  _instance,
                                 const char* pName)
 {
    V3DV_FROM_HANDLE(v3dv_instance, instance, _instance);
-
-   if (!pName || !instance)
-      return NULL;
-
-   int idx = v3dv_get_physical_device_entrypoint_index(pName);
-   if (idx < 0)
-      return NULL;
-
-   return instance->physicalDevice.dispatch.entrypoints[idx];
-}
-
-VkResult
-v3dv_EnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice,
-                                        const char *pLayerName,
-                                        uint32_t *pPropertyCount,
-                                        VkExtensionProperties *pProperties)
-{
-   /* We don't support any layers */
-   if (pLayerName)
-      return vk_error(NULL, VK_ERROR_LAYER_NOT_PRESENT);
-
-   V3DV_FROM_HANDLE(v3dv_physical_device, device, physicalDevice);
-   VK_OUTARRAY_MAKE(out, pProperties, pPropertyCount);
-
-   for (int i = 0; i < V3DV_DEVICE_EXTENSION_COUNT; i++) {
-      if (device->supported_extensions.extensions[i]) {
-         vk_outarray_append(&out, prop) {
-            *prop = v3dv_device_extensions[i];
-         }
-      }
-   }
-
-   return vk_outarray_status(&out);
+   return vk_instance_get_physical_device_proc_addr(&instance->vk, pName);
 }
 
 VkResult
@@ -1484,24 +1344,6 @@ queue_finish(struct v3dv_queue *queue)
 }
 
 static void
-init_device_dispatch(struct v3dv_device *device)
-{
-   for (unsigned i = 0; i < ARRAY_SIZE(device->dispatch.entrypoints); i++) {
-      /* Vulkan requires that entrypoints for extensions which have not been
-       * enabled must not be advertised.
-       */
-      if (!v3dv_device_entrypoint_is_enabled(i, device->instance->app_info.api_version,
-                                             &device->instance->enabled_extensions,
-                                             &device->enabled_extensions)) {
-         device->dispatch.entrypoints[i] = NULL;
-      } else {
-         device->dispatch.entrypoints[i] =
-            v3dv_device_dispatch_table.entrypoints[i];
-      }
-   }
-}
-
-static void
 init_device_meta(struct v3dv_device *device)
 {
    mtx_init(&device->meta.mtx, mtx_plain);
@@ -1532,25 +1374,6 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
 
-   /* Check enabled extensions */
-   struct v3dv_device_extension_table enabled_extensions = { };
-   for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
-      int idx;
-      for (idx = 0; idx < V3DV_DEVICE_EXTENSION_COUNT; idx++) {
-         if (strcmp(pCreateInfo->ppEnabledExtensionNames[i],
-                    v3dv_device_extensions[idx].extensionName) == 0)
-            break;
-      }
-
-      if (idx >= V3DV_DEVICE_EXTENSION_COUNT)
-         return vk_error(instance, VK_ERROR_EXTENSION_NOT_PRESENT);
-
-      if (!physical_device->supported_extensions.extensions[idx])
-         return vk_error(instance, VK_ERROR_EXTENSION_NOT_PRESENT);
-
-      enabled_extensions.extensions[idx] = true;
-   }
-
    /* Check enabled features */
    if (pCreateInfo->pEnabledFeatures) {
       VkPhysicalDeviceFeatures supported_features;
@@ -1579,8 +1402,14 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
    if (!device)
       return vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   result = vk_device_init(&device->vk, NULL, NULL, pCreateInfo,
-                           &physical_device->instance->alloc, pAllocator);
+   struct vk_device_dispatch_table dispatch_table;
+   vk_device_dispatch_table_from_entrypoints(
+      &dispatch_table, &v3dv_device_entrypoints, true);
+
+   result = vk_device_init(&device->vk, &physical_device->vk,
+                           &dispatch_table, pCreateInfo,
+                           &physical_device->instance->vk.alloc,
+                           pAllocator);
    if (result != VK_SUCCESS) {
       vk_free(&device->vk.alloc, device);
       return vk_error(instance, result);
@@ -1601,7 +1430,6 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
       goto fail;
 
    device->devinfo = physical_device->devinfo;
-   device->enabled_extensions = enabled_extensions;
 
    if (pCreateInfo->pEnabledFeatures) {
       memcpy(&device->features, pCreateInfo->pEnabledFeatures,
@@ -1616,7 +1444,6 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
       goto fail;
    }
 
-   init_device_dispatch(device);
    init_device_meta(device);
    v3dv_bo_cache_init(device);
    v3dv_pipeline_cache_init(&device->default_pipeline_cache, device,

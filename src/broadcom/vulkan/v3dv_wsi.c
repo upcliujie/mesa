@@ -32,8 +32,8 @@
 static PFN_vkVoidFunction
 v3dv_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
 {
-   V3DV_FROM_HANDLE(v3dv_physical_device, physical_device, physicalDevice);
-   return v3dv_lookup_entrypoint(&physical_device->devinfo, pName);
+   V3DV_FROM_HANDLE(v3dv_physical_device, pdevice, physicalDevice);
+   return vk_instance_get_proc_addr_unchecked(&pdevice->instance->vk, pName);
 }
 
 VkResult
