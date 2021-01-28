@@ -32,7 +32,8 @@
 static VKAPI_PTR PFN_vkVoidFunction
 tu_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
 {
-   return tu_lookup_entrypoint_unchecked(pName);
+   TU_FROM_HANDLE(tu_physical_device, pdevice, physicalDevice);
+   return vk_instance_get_proc_addr_unchecked(&pdevice->instance->vk, pName);
 }
 
 VkResult
