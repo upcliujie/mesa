@@ -3441,7 +3441,8 @@ iris_set_vertex_buffers(struct pipe_context *ctx,
    struct iris_screen *screen = (struct iris_screen *)ctx->screen;
    struct iris_genx_state *genx = ice->state.genx;
 
-   ice->state.bound_vertex_buffers &= ~u_bit_consecutive64(start_slot, count);
+   ice->state.bound_vertex_buffers &=
+      ~u_bit_consecutive64(start_slot, count + unbind_num_trailing_slots);
 
    for (unsigned i = 0; i < count; i++) {
       const struct pipe_vertex_buffer *buffer = buffers ? &buffers[i] : NULL;
