@@ -174,12 +174,28 @@ MoveResult MoveState::downwards_move(bool clause)
 
    /* check if one of candidate's operands is killed by depending instruction */
    std::vector<bool>& RAR_deps = improved_rar ? (clause ? RAR_dependencies_clause : RAR_dependencies) : depends_on;
-   for (const Operand& op : instr->operands) {
+   std::set<Temp> killed_ops;
+   for (Operand& op : instr->operands) {
       if (op.isTemp() && RAR_deps[op.tempId()]) {
-         // FIXME: account for difference in register pressure
-         return move_fail_rar;
+         if (!improved_rar)
+            return move_fail_rar;
+         op.setKill(true);
+         if (killed_ops.emplace(op.getTemp()).second)
+            op.setFirstKill(true);
       }
    }
+
+   const int dest_insert_idx = clause ? insert_idx_clause : insert_idx;
+   const RegisterDemand register_pressure = clause ? total_demand_clause : total_demand;
+   const RegisterDemand candidate_diff = get_live_changes(instr);
+   const RegisterDemand temp = get_temp_registers(instr);
+   const RegisterDemand temp2 = get_temp_registers(block->instructions[dest_insert_idx - 1]);
+   const RegisterDemand new_demand = register_demand[dest_insert_idx - 1] - temp2 + temp;
+
+   if (RegisterDemand(register_pressure - candidate_diff).exceeds(max_registers))
+      goto fail;
+   if (new_demand.exceeds(max_registers))
+      goto fail;
 
    if (clause) {
       for (const Operand& op : instr->operands) {
@@ -191,18 +207,6 @@ MoveResult MoveState::downwards_move(bool clause)
       }
    }
 
-   const int dest_insert_idx = clause ? insert_idx_clause : insert_idx;
-   const RegisterDemand register_pressure = clause ? total_demand_clause : total_demand;
-
-   const RegisterDemand candidate_diff = get_live_changes(instr);
-   const RegisterDemand temp = get_temp_registers(instr);
-   if (RegisterDemand(register_pressure - candidate_diff).exceeds(max_registers))
-      return move_fail_pressure;
-   const RegisterDemand temp2 = get_temp_registers(block->instructions[dest_insert_idx - 1]);
-   const RegisterDemand new_demand = register_demand[dest_insert_idx - 1] - temp2 + temp;
-   if (new_demand.exceeds(max_registers))
-      return move_fail_pressure;
-
    /* move the candidate below the memory load */
    move_element(block->instructions.begin(), source_idx, dest_insert_idx);
 
@@ -213,6 +217,28 @@ MoveResult MoveState::downwards_move(bool clause)
    register_demand[dest_insert_idx - 1] = new_demand;
    insert_idx_clause--;
    total_demand_clause -= candidate_diff;
+
+   for (int i = source_idx; !killed_ops.empty() && i < dest_insert_idx; i++) {
+      auto it = killed_ops.begin();
+      while (it != killed_ops.end()) {
+         Temp t = *it;
+         bool found = false;
+         for (Operand& op : block->instructions[i]->operands) {
+            if (op.isTemp() && op.getTemp() == t) {
+               found |= op.isFirstKill();
+               op.setKill(false);
+            }
+         }
+         if (found) {
+            it = killed_ops.erase(it);
+         } else {
+            register_demand[i] -= t;
+            ++it;
+         }
+      }
+   }
+   assert(killed_ops.empty());
+
    if (source_idx == insert_idx_clause) {
       total_demand_clause = RegisterDemand{};
    }
@@ -231,6 +257,16 @@ MoveResult MoveState::downwards_move(bool clause)
 
    downwards_advance_helper();
    return move_success;
+
+   fail:
+   /* revert kill flags */
+   for (Operand& op : instr->operands) {
+      if (op.isTemp()) {
+         if (killed_ops.find(op.getTemp()) != killed_ops.end())
+            op.setKill(false);
+      }
+   }
+   return move_fail_pressure;
 }
 
 void MoveState::downwards_skip()
