@@ -921,7 +921,7 @@ handle_rgba_blit(struct fd_context *ctx, const struct pipe_blit_info *info)
 	/* Acc query state will have been dirtied by our fd_batch_update_queries, so
 	 * the ctx->batch may need to turn its queries back on.
 	 */
-	ctx->update_active_queries = true;
+	ctx->dirty |= FD_DIRTY_QUERIES;
 
 	return true;
 }
