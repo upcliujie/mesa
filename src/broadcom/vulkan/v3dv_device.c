@@ -1332,7 +1332,14 @@ v3dv_GetInstanceProcAddr(VkInstance _instance,
       return (PFN_vkVoidFunction)v3dv_##entrypoint
 
    LOOKUP_V3DV_ENTRYPOINT(EnumerateInstanceExtensionProperties);
+   LOOKUP_V3DV_ENTRYPOINT(EnumerateInstanceLayerProperties);
+   LOOKUP_V3DV_ENTRYPOINT(EnumerateInstanceVersion);
    LOOKUP_V3DV_ENTRYPOINT(CreateInstance);
+
+   /* GetInstanceProcAddr() can also be called with a NULL instance.
+    * See https://gitlab.khronos.org/vulkan/vulkan/issues/2057
+    */
+   LOOKUP_V3DV_ENTRYPOINT(GetInstanceProcAddr);
 
 #undef LOOKUP_V3DV_ENTRYPOINT
 
