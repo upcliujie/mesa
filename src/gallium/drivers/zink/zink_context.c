@@ -135,13 +135,12 @@ sampler_address_mode(enum pipe_tex_wrap filter)
 {
    switch (filter) {
    case PIPE_TEX_WRAP_REPEAT: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-   case PIPE_TEX_WRAP_CLAMP: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; /* not technically correct, but kinda works */
    case PIPE_TEX_WRAP_CLAMP_TO_EDGE: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
    case PIPE_TEX_WRAP_CLAMP_TO_BORDER: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
    case PIPE_TEX_WRAP_MIRROR_REPEAT: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-   case PIPE_TEX_WRAP_MIRROR_CLAMP: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE; /* not technically correct, but kinda works */
    case PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
    case PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE; /* not technically correct, but kinda works */
+   default: break;
    }
    unreachable("unexpected wrap");
 }
@@ -353,6 +352,12 @@ zink_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *pres,
    sampler_view->base.context = pctx;
 
    if (state->target != PIPE_BUFFER) {
+      VkFormatProperties props;
+      VkFormat format = zink_get_format(screen, state->format);
+      vkGetPhysicalDeviceFormatProperties(screen->pdev, format, &props);
+      sampler_view->base.u.tex.no_linear_filter = !(res->optimal_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) &&
+                                                  !(!res->optimal_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
+
       VkImageViewCreateInfo ivci = {};
       ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
       ivci.image = res->image;
@@ -368,7 +373,7 @@ zink_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *pres,
          ivci.format = VK_FORMAT_S8_UINT;
          ivci.components.g = VK_COMPONENT_SWIZZLE_R;
       } else
-         ivci.format = zink_get_format(screen, state->format);
+         ivci.format = format;
       assert(ivci.format);
 
       ivci.subresourceRange.baseMipLevel = state->u.tex.first_level;
