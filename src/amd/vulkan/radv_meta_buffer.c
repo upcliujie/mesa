@@ -387,7 +387,17 @@ void radv_copy_buffer(struct radv_cmd_buffer *cmd_buffer,
 		      uint64_t src_offset, uint64_t dst_offset,
 		      uint64_t size)
 {
-	if (size >= RADV_BUFFER_OPS_CS_THRESHOLD && !(size & 3) && !(src_offset & 3) && !(dst_offset & 3))
+	bool use_compute = size >= RADV_BUFFER_OPS_CS_THRESHOLD &&
+			   !(size & 3) && !(src_offset & 3) && !(dst_offset & 3);
+
+	if (cmd_buffer->device->physical_device->rad_info.chip_class >= GFX10 &&
+	    cmd_buffer->device->physical_device->rad_info.has_dedicated_vram &&
+	    (src_bo->initial_domain | dst_bo->initial_domain) & RADEON_DOMAIN_GTT) {
+		/* Prefer CP DMA for GTT on dGPUS due to slow PCIe. */
+		use_compute = false;
+	}
+
+	if (use_compute)
 		copy_buffer_shader(cmd_buffer, src_bo, dst_bo,
 				   src_offset, dst_offset, size);
 	else if (size) {
