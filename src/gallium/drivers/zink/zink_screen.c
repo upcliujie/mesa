@@ -160,6 +160,11 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_TEXTURE_SWIZZLE:
       return 1;
 
+   case PIPE_CAP_LINEAR_DEPTH_FILTERING:
+   case PIPE_CAP_NEED_BORDER_COLOR_TYPE:
+   case PIPE_CAP_EMULATE_GL_CLAMP:
+      return 1;
+
    case PIPE_CAP_MAX_TEXTURE_2D_SIZE:
       return screen->info.props.limits.maxImageDimension2D;
    case PIPE_CAP_MAX_TEXTURE_3D_LEVELS:
@@ -583,6 +588,19 @@ vk_sample_count_flags(uint32_t sample_count)
    default:
       return 0;
    }
+}
+
+static bool
+zink_is_linear_filtering_supported(struct pipe_screen *pscreen, enum pipe_format format,
+                                   struct pipe_resource *pres)
+{
+   struct zink_screen *screen = zink_screen(pscreen);
+   struct zink_resource *res = zink_resource(pres);
+   VkFormatProperties props;
+   vkGetPhysicalDeviceFormatProperties(screen->pdev, zink_get_format(screen, format), &props);
+   return (res->optimal_tiling && props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
+          (!res->optimal_tiling && props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
+
 }
 
 static bool
@@ -1124,6 +1142,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
    screen->base.get_shader_param = zink_get_shader_param;
    screen->base.get_compiler_options = zink_get_compiler_options;
    screen->base.is_format_supported = zink_is_format_supported;
+   screen->base.is_linear_filtering_supported = zink_is_linear_filtering_supported;
    screen->base.context_create = zink_context_create;
    screen->base.flush_frontbuffer = zink_flush_frontbuffer;
    screen->base.destroy = zink_destroy_screen;
