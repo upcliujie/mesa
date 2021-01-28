@@ -1573,7 +1573,7 @@ radv_get_max_waves(struct radv_device *device,
 		unsigned max_workgroup_size =
 			radv_get_max_workgroup_size(chip_class, stage, variant->info.cs.block_size);
 		lds_per_wave = (conf->lds_size * lds_increment) /
-			       DIV_ROUND_UP(max_workgroup_size, wave_size);
+			       DIV_ROUND_UP(max_workgroup_size, 64);
 	}
 
 	if (conf->num_sgprs) {
