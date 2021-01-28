@@ -145,14 +145,6 @@ v3dv_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
 
    instance->physicalDeviceCount = -1;
 
-   result = vk_debug_report_instance_init(&instance->debug_report_callbacks);
-   if (result != VK_SUCCESS) {
-      vk_instance_finish(&instance->vk);
-      vk_free(pAllocator, instance);
-      return vk_error(NULL, result);
-   }
-
-
    /* We start with the default values for the pipeline_cache envvars */
    instance->pipeline_cache_enabled = true;
    instance->default_pipeline_cache_enabled = true;
@@ -232,8 +224,6 @@ v3dv_DestroyInstance(VkInstance _instance,
    vk_free(&instance->alloc, (char *)instance->app_info.engine_name);
 
    VG(VALGRIND_DESTROY_MEMPOOL(instance));
-
-   vk_debug_report_instance_destroy(&instance->debug_report_callbacks);
 
    glsl_type_singleton_decref();
 
@@ -1526,28 +1516,6 @@ v3dv_DeviceWaitIdle(VkDevice _device)
 {
    V3DV_FROM_HANDLE(v3dv_device, device, _device);
    return v3dv_QueueWaitIdle(v3dv_queue_to_handle(&device->queue));
-}
-
-VkResult
-v3dv_CreateDebugReportCallbackEXT(VkInstance _instance,
-                                 const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
-                                 const VkAllocationCallbacks* pAllocator,
-                                 VkDebugReportCallbackEXT* pCallback)
-{
-   V3DV_FROM_HANDLE(v3dv_instance, instance, _instance);
-   return vk_create_debug_report_callback(&instance->debug_report_callbacks,
-                                          pCreateInfo, pAllocator, &instance->alloc,
-                                          pCallback);
-}
-
-void
-v3dv_DestroyDebugReportCallbackEXT(VkInstance _instance,
-                                  VkDebugReportCallbackEXT _callback,
-                                  const VkAllocationCallbacks* pAllocator)
-{
-   V3DV_FROM_HANDLE(v3dv_instance, instance, _instance);
-   vk_destroy_debug_report_callback(&instance->debug_report_callbacks,
-                                    _callback, pAllocator, &instance->alloc);
 }
 
 static VkResult
