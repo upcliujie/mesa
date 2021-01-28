@@ -160,6 +160,9 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_TEXTURE_SWIZZLE:
       return 1;
 
+   case PIPE_CAP_EMULATE_GL_CLAMP:
+      return 0;
+
    case PIPE_CAP_MAX_TEXTURE_2D_SIZE:
       return screen->info.props.limits.maxImageDimension2D;
    case PIPE_CAP_MAX_TEXTURE_3D_LEVELS:
