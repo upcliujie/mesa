@@ -894,6 +894,24 @@ radv_get_shader_binary_size(size_t code_size)
 	return code_size + DEBUGGER_NUM_MARKERS * 4;
 }
 
+static bool radv_should_use_wgp_mode(const struct radv_device *device, gl_shader_stage stage,
+				     const struct radv_shader_info *info)
+{
+	enum chip_class chip = device->physical_device->rad_info.chip_class;
+	switch (stage) {
+	case MESA_SHADER_COMPUTE:
+	case MESA_SHADER_TESS_CTRL:
+		return chip >= GFX10;
+	case MESA_SHADER_GEOMETRY:
+		return chip == GFX10 || (chip >= GFX10_3 && !info->is_ngg);
+	case MESA_SHADER_VERTEX:
+	case MESA_SHADER_TESS_EVAL:
+		return chip == GFX10 && info->is_ngg;
+	default:
+		return false;
+	}
+}
+
 static void radv_postprocess_config(const struct radv_device *device,
 				    const struct ac_shader_config *config_in,
 				    const struct radv_shader_info *info,
@@ -956,6 +974,8 @@ static void radv_postprocess_config(const struct radv_device *device,
 		config_out->rsrc2 |= S_00B22C_USER_SGPR_MSB_GFX9(info->num_user_sgprs >> 5);
 	}
 
+	bool wgp_mode = radv_should_use_wgp_mode(device, stage, info);
+
 	switch (stage) {
 	case MESA_SHADER_TESS_EVAL:
 		if (info->is_ngg) {
@@ -998,7 +1018,7 @@ static void radv_postprocess_config(const struct radv_device *device,
 					     S_00B12C_EXCP_EN(excp_en);
 		}
 		config_out->rsrc1 |= S_00B428_MEM_ORDERED(pdevice->rad_info.chip_class >= GFX10) |
-				     S_00B428_WGP_MODE(pdevice->rad_info.chip_class >= GFX10);
+				     S_00B428_WGP_MODE(wgp_mode);
 		config_out->rsrc2 |= S_00B42C_SHARED_VGPR_CNT(num_shared_vgpr_blocks);
 		break;
 	case MESA_SHADER_VERTEX:
@@ -1048,7 +1068,7 @@ static void radv_postprocess_config(const struct radv_device *device,
 		break;
 	case MESA_SHADER_COMPUTE:
 		config_out->rsrc1 |= S_00B848_MEM_ORDERED(pdevice->rad_info.chip_class >= GFX10) |
-				     S_00B848_WGP_MODE(pdevice->rad_info.chip_class >= GFX10);
+				     S_00B848_WGP_MODE(wgp_mode);
 		config_out->rsrc2 |=
 			S_00B84C_TGID_X_EN(info->cs.uses_block_id[0]) |
 			S_00B84C_TGID_Y_EN(info->cs.uses_block_id[1]) |
@@ -1099,7 +1119,7 @@ static void radv_postprocess_config(const struct radv_device *device,
 		 * disable exactly 1 CU per SA for GS.
 		 */
 		config_out->rsrc1 |= S_00B228_GS_VGPR_COMP_CNT(gs_vgpr_comp_cnt) |
-				     S_00B228_WGP_MODE(pdevice->rad_info.chip_class == GFX10);
+				     S_00B228_WGP_MODE(wgp_mode);
 		config_out->rsrc2 |= S_00B22C_ES_VGPR_COMP_CNT(es_vgpr_comp_cnt) |
 				     S_00B22C_LDS_SIZE(config_in->lds_size) |
 				     S_00B22C_OC_LDS_EN(es_stage == MESA_SHADER_TESS_EVAL);
@@ -1135,7 +1155,7 @@ static void radv_postprocess_config(const struct radv_device *device,
 		}
 
 		config_out->rsrc1 |= S_00B228_GS_VGPR_COMP_CNT(gs_vgpr_comp_cnt) |
-				     S_00B228_WGP_MODE(pdevice->rad_info.chip_class >= GFX10);
+				     S_00B228_WGP_MODE(wgp_mode);
 		config_out->rsrc2 |= S_00B22C_ES_VGPR_COMP_CNT(es_vgpr_comp_cnt) |
 		                         S_00B22C_OC_LDS_EN(es_type == MESA_SHADER_TESS_EVAL);
 	} else if (pdevice->rad_info.chip_class >= GFX9 &&
@@ -1209,8 +1229,8 @@ radv_shader_variant_create(struct radv_device *device,
 		}
 
 		if (rtld_binary.lds_size > 0) {
-			unsigned alloc_granularity = device->physical_device->rad_info.chip_class >= GFX7 ? 512 : 256;
-			config.lds_size = align(rtld_binary.lds_size, alloc_granularity) / alloc_granularity;
+			unsigned encode_granularity = device->physical_device->rad_info.lds_encode_granularity;
+			config.lds_size = align(rtld_binary.lds_size, encode_granularity) / encode_granularity;
 		}
 
 		variant->code_size = rtld_binary.rx_size;
@@ -1435,6 +1455,7 @@ radv_shader_variant_compile(struct radv_device *device,
 	options.robust_buffer_access = device->robust_buffer_access;
 	options.robust_buffer_access2 = device->robust_buffer_access2;
 	options.disable_optimizations = disable_optimizations;
+	options.wgp_mode = radv_should_use_wgp_mode(device, stage, info);
 
 	return shader_variant_compile(device, module, shaders, shader_count, stage, info,
 				      &options, false, false,
@@ -1472,6 +1493,7 @@ radv_create_trap_handler_shader(struct radv_device *device)
 	nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_trap_handler");
 
 	options.explicit_scratch_args = true;
+	options.wgp_mode = radv_should_use_wgp_mode(device, MESA_SHADER_COMPUTE, &info);
 	info.wave_size = 64;
 
 	shader = shader_variant_compile(device, NULL, &b.shader, 1,
@@ -1562,48 +1584,49 @@ radv_get_max_waves(struct radv_device *device,
                    struct radv_shader_variant *variant,
                    gl_shader_stage stage)
 {
-	enum chip_class chip_class = device->physical_device->rad_info.chip_class;
-	unsigned lds_increment = chip_class >= GFX7 ? 512 : 256;
+	struct radeon_info *info = &device->physical_device->rad_info;
+	enum chip_class chip_class = info->chip_class;
 	uint8_t wave_size = variant->info.wave_size;
 	struct ac_shader_config *conf = &variant->config;
 	unsigned max_simd_waves;
 	unsigned lds_per_wave = 0;
 
-	max_simd_waves = device->physical_device->rad_info.max_wave64_per_simd;
+	max_simd_waves = info->max_wave64_per_simd * (64 / wave_size);
 
 	if (stage == MESA_SHADER_FRAGMENT) {
-		lds_per_wave = conf->lds_size * lds_increment +
-			       align(variant->info.ps.num_interp * 48,
-				     lds_increment);
+		lds_per_wave = conf->lds_size * info->lds_encode_granularity +
+			       variant->info.ps.num_interp * 48;
+		lds_per_wave = align(lds_per_wave, info->lds_alloc_granularity);
 	} else if (stage == MESA_SHADER_COMPUTE) {
 		unsigned max_workgroup_size =
 			radv_get_max_workgroup_size(chip_class, stage, variant->info.cs.block_size);
-		lds_per_wave = (conf->lds_size * lds_increment) /
-			       DIV_ROUND_UP(max_workgroup_size, wave_size);
+		lds_per_wave = align(conf->lds_size * info->lds_encode_granularity,
+				     info->lds_alloc_granularity);
+		lds_per_wave /= DIV_ROUND_UP(max_workgroup_size, wave_size);
 	}
 
-	if (conf->num_sgprs) {
+	if (conf->num_sgprs && chip_class < GFX10) {
 		unsigned sgprs = align(conf->num_sgprs, chip_class >= GFX8 ? 16 : 8);
-		max_simd_waves =
-			MIN2(max_simd_waves,
-			     device->physical_device->rad_info.num_physical_sgprs_per_simd /
-			     sgprs);
+		max_simd_waves = MIN2(max_simd_waves, info->num_physical_sgprs_per_simd / sgprs);
 	}
 
 	if (conf->num_vgprs) {
+		unsigned physical_vgprs = info->num_physical_wave64_vgprs_per_simd * (64 / wave_size);
 		unsigned vgprs = align(conf->num_vgprs, wave_size == 32 ? 8 : 4);
 		if (chip_class >= GFX10_3)
 		   vgprs = align(vgprs, wave_size == 32 ? 16 : 8);
-		max_simd_waves =
-			MIN2(max_simd_waves,
-			     device->physical_device->rad_info.num_physical_wave64_vgprs_per_simd / vgprs);
+		max_simd_waves = MIN2(max_simd_waves, physical_vgprs / vgprs);
 	}
 
-	unsigned max_lds_per_simd = device->physical_device->rad_info.lds_size_per_workgroup / device->physical_device->rad_info.num_simd_per_compute_unit;
-	if (lds_per_wave)
-		max_simd_waves = MIN2(max_simd_waves, max_lds_per_simd / lds_per_wave);
+	unsigned simd_per_workgroup = info->num_simd_per_compute_unit;
+	if (chip_class >= GFX10)
+		simd_per_workgroup *= 2; /* like lds_size_per_workgroup, assume WGP on GFX10+ */
 
-	return max_simd_waves;
+	unsigned max_lds_per_simd = info->lds_size_per_workgroup / simd_per_workgroup;
+	if (lds_per_wave)
+		max_simd_waves = MIN2(max_simd_waves, DIV_ROUND_UP(max_lds_per_simd, lds_per_wave));
+
+	return chip_class >= GFX10 ? max_simd_waves * (wave_size / 32) : max_simd_waves;
 }
 
 VkResult
@@ -1630,7 +1653,7 @@ radv_GetShaderInfoAMD(VkDevice _device,
 		if (!pInfo) {
 			*pInfoSize = sizeof(VkShaderStatisticsInfoAMD);
 		} else {
-			unsigned lds_multiplier = device->physical_device->rad_info.chip_class >= GFX7 ? 512 : 256;
+			unsigned lds_multiplier = device->physical_device->rad_info.lds_encode_granularity;
 			struct ac_shader_config *conf = &variant->config;
 
 			VkShaderStatisticsInfoAMD statistics = {0};

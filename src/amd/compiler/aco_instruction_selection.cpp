@@ -4638,7 +4638,7 @@ void emit_interp_instr(isel_context *ctx, unsigned idx, unsigned component, Temp
    Builder bld(ctx->program, ctx->block);
 
    if (dst.regClass() == v2b) {
-      if (ctx->program->has_16bank_lds) {
+      if (ctx->program->dev.has_16bank_lds) {
          assert(ctx->options->chip_class <= GFX8);
          Builder::Result interp_p1 =
             bld.vintrp(aco_opcode::v_interp_mov_f32, bld.def(v1),
@@ -4664,7 +4664,7 @@ void emit_interp_instr(isel_context *ctx, unsigned idx, unsigned component, Temp
          bld.vintrp(aco_opcode::v_interp_p1_f32, bld.def(v1), coord1,
                     bld.m0(prim_mask), idx, component);
 
-      if (ctx->program->has_16bank_lds)
+      if (ctx->program->dev.has_16bank_lds)
          interp_p1.instr->operands[0].setLateKill(true);
 
       bld.vintrp(aco_opcode::v_interp_p2_f32, Definition(dst), coord2,
@@ -12248,7 +12248,7 @@ void select_trap_handler_shader(Program *program, struct nir_shader *shader,
    assert(args->options->chip_class == GFX8);
 
    init_program(program, compute_cs, args->shader_info,
-                args->options->chip_class, args->options->family, config);
+                args->options->chip_class, args->options->family, args->options->wgp_mode, config);
 
    isel_context ctx = {};
    ctx.program = program;
