@@ -517,11 +517,6 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 	OPT_V(s, nir_opt_large_constants, glsl_get_vec4_size_align_bytes, 32 /* bytes */);
 	OPT_V(s, ir3_nir_lower_load_constant, so);
 
-	if (!so->binning_pass)
-		OPT_V(s, ir3_nir_analyze_ubo_ranges, so);
-
-	progress |= OPT(s, ir3_nir_lower_ubo_loads, so);
-
 	/* Lower large temporaries to scratch, which in Qualcomm terms is private
 	 * memory, to avoid excess register pressure. This should happen after
 	 * nir_opt_large_constants, because loading from a UBO is much, much less
@@ -532,6 +527,13 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 				   16 * 16 /* bytes */, glsl_get_natural_size_align_bytes);
 	}
 
+	if (so->shader->compiler->gpu_id >= 600)
+		NIR_PASS_V(s, ir3_nir_lower_buffer_reference_load_store);
+
+	if (!so->binning_pass)
+		OPT_V(s, ir3_nir_analyze_ubo_ranges, so);
+
+	progress |= OPT(s, ir3_nir_lower_ubo_loads, so);
 
 	OPT_V(s, nir_lower_amul, ir3_glsl_type_size);
 
