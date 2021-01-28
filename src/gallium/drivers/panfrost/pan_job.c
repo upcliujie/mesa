@@ -978,8 +978,9 @@ panfrost_batch_submit_ioctl(struct panfrost_batch *batch,
         panfrost_pool_get_bo_handles(&batch->invisible_pool, bo_handles + submit.bo_handle_count);
         submit.bo_handle_count += panfrost_pool_num_bos(&batch->invisible_pool);
 
-        /* Used by all tiler jobs (XXX: skip for compute-only) */
-        if (!(reqs & PANFROST_JD_REQ_FS))
+        /* Used by all tiler jobs (XXX: skip for compute-only).
+         * Bifrost needs it for fragment jobs as well. */
+        if (!(reqs & PANFROST_JD_REQ_FS) || (dev->quirks & IS_BIFROST))
                 bo_handles[submit.bo_handle_count++] = dev->tiler_heap->gem_handle;
 
         submit.bo_handles = (u64) (uintptr_t) bo_handles;
