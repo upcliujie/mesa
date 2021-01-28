@@ -155,6 +155,8 @@ enum fd_dirty_3d_state {
 	/* only used by a2xx.. possibly can be removed.. */
 	FD_DIRTY_TEXSTATE    = BIT(21),
 
+	FD_DIRTY_QUERIES     = BIT(22),
+
 	/* fine grained state changes, for cases where state is not orthogonal
 	 * from hw perspective:
 	 */
@@ -220,11 +222,6 @@ struct fd_context {
 	/* list of active accumulating queries: */
 	struct list_head acc_active_queries;
 	/*@}*/
-
-	/* Whether we need to recheck the active_queries list next
-	 * fd_batch_update_queries().
-	 */
-	bool update_active_queries;
 
 	/* Current state of pctx->set_active_query_state() (i.e. "should drawing
 	 * be counted against non-perfcounter queries")

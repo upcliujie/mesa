@@ -194,10 +194,15 @@ batch_draw_tracking(struct fd_batch *batch, const struct pipe_draw_info *info,
 {
 	struct fd_context *ctx = batch->ctx;
 
-	/* NOTE: needs to be before resource_written(batch->query_buf), otherwise
-	 * query_buf may not be created yet.
-	 */
-	fd_batch_update_queries(batch);
+	if (ctx->dirty & FD_DIRTY_QUERIES) {
+		/* NOTE: needs to be before resource_written(batch->query_buf),
+		 * otherwise query_buf may not be created yet for sample queries.  For
+		 * acc queries, we have to do this outside of the screen lock because
+		 * the individual query resource_writtens happen inside here with screen
+		 * locking around them.
+		 */
+		fd_batch_update_queries(batch);
+	}
 
 	/*
 	 * Figure out the buffers/features we need:

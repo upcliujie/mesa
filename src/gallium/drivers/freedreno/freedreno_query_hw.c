@@ -389,18 +389,16 @@ fd_hw_query_update_batch(struct fd_batch *batch, bool disable_all)
 {
 	struct fd_context *ctx = batch->ctx;
 
-	if (disable_all || ctx->update_active_queries) {
-		struct fd_hw_query *hq;
-		LIST_FOR_EACH_ENTRY(hq, &batch->ctx->hw_active_queries, list) {
-			bool was_active = query_active_in_batch(batch, hq);
-			bool now_active = !disable_all &&
-				(ctx->active_queries || hq->provider->always);
+	struct fd_hw_query *hq;
+	LIST_FOR_EACH_ENTRY(hq, &batch->ctx->hw_active_queries, list) {
+		bool was_active = query_active_in_batch(batch, hq);
+		bool now_active = !disable_all &&
+			(ctx->active_queries || hq->provider->always);
 
-			if (now_active && !was_active)
-				resume_query(batch, hq, batch->draw);
-			else if (was_active && !now_active)
-				pause_query(batch, hq, batch->draw);
-		}
+		if (now_active && !was_active)
+			resume_query(batch, hq, batch->draw);
+		else if (was_active && !now_active)
+			pause_query(batch, hq, batch->draw);
 	}
 	clear_sample_cache(batch);
 }
