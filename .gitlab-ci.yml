@@ -1544,6 +1544,8 @@ arm64_a630_piglit_shader:
     # instead of fd.o.  Set FDO_HTTP_CACHE_URI to an http cache for your test lab to
     # improve it even more (see https://docs.mesa3d.org/ci/bare-metal.html for
     # setup).
+    - echo ${FDO_HTTP_CACHE_URI}
+    - echo ${DRIVER_URL}
     - wget ${FDO_HTTP_CACHE_URI}${DRIVER_URL} -S --progress=dot:giga -O- | tar -xz
   artifacts:
     when: always
