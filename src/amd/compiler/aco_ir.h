@@ -1828,6 +1828,7 @@ public:
    uint16_t sgpr_alloc_granule; /* minus one. must be power of two */
    uint16_t vgpr_alloc_granule; /* minus one. must be power of two */
    unsigned workgroup_size; /* if known; otherwise UINT_MAX */
+   bool wgp_mode;
 
    bool xnack_enabled = false;
    bool sram_ecc_enabled = false;
