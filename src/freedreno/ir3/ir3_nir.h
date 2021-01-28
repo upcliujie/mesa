@@ -67,6 +67,8 @@ bool ir3_nir_fixup_load_uniform(nir_shader *nir);
 nir_ssa_def *
 ir3_nir_try_propagate_bit_shift(nir_builder *b, nir_ssa_def *offset, int32_t shift);
 
+bool ir3_nir_lower_buffer_reference_load_store(nir_shader *shader);
+
 static inline nir_intrinsic_instr *
 ir3_bindless_resource(nir_src src)
 {

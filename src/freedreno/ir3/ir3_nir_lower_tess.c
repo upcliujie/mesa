@@ -159,7 +159,7 @@ replace_intrinsic(nir_builder *b, nir_intrinsic_instr *intr,
 
 	if (nir_intrinsic_infos[op].has_dest)
 		nir_ssa_dest_init(&new_intr->instr, &new_intr->dest,
-						  intr->num_components, 32, NULL);
+						  intr->num_components, intr->dest.ssa.bit_size, NULL);
 
 	nir_builder_instr_insert(b, &new_intr->instr);
 
