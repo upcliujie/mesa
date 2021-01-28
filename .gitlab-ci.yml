@@ -1541,7 +1541,7 @@ arm64_a630_piglit_shader:
     - DRIVER_URL: https://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/mesa-arm64.tar.gz
   before_script:
     # Use this instead of gitlab's artifacts download because it hits packet.net
-    # instead of fd.o.  Set DRIVER_URL to an http cache for your test lab to
+    # instead of fd.o.  Set FDO_HTTP_CACHE_URI to an http cache for your test lab to
     # improve it even more (see https://docs.mesa3d.org/ci/bare-metal.html for
     # setup).
     - wget ${FDO_HTTP_CACHE_URI}${DRIVER_URL} -S --progress=dot:giga -O- | tar -xz
