@@ -98,7 +98,9 @@ static bool copy_propagate_alu(nir_alu_src *src, nir_alu_instr *copy)
          src->swizzle[i] = copy->src[src->swizzle[i]].swizzle[0];
    }
 
-   nir_instr_rewrite_src(&user->instr, &src->src, nir_src_for_ssa(def));
+   list_del(&src->src.use_link);
+   list_addtail(&src->src.use_link, &def->uses);
+   src->src.ssa = def;
 
    return true;
 }
@@ -108,7 +110,9 @@ static bool copy_propagate(nir_src *src, nir_alu_instr *copy)
    if (!is_swizzleless_move(copy))
       return false;
 
-   nir_instr_rewrite_src(src->parent_instr, src, nir_src_for_ssa(copy->src[0].src.ssa));
+   list_del(&src->use_link);
+   list_addtail(&src->use_link, &copy->src[0].src.ssa->uses);
+   src->ssa = copy->src[0].src.ssa;
 
    return true;
 }
@@ -118,8 +122,9 @@ static bool copy_propagate_if(nir_src *src, nir_alu_instr *copy)
    if (!is_swizzleless_move(copy))
       return false;
 
-   nir_if *parent_if = container_of(src, nir_if, condition);
-   nir_if_rewrite_condition(parent_if, nir_src_for_ssa(copy->src[0].src.ssa));
+   list_del(&src->use_link);
+   list_addtail(&src->use_link, &copy->src[0].src.ssa->if_uses);
+   src->ssa = copy->src[0].src.ssa;
 
    return true;
 }
