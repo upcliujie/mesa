@@ -467,11 +467,14 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws,
 		request.flags |= AMDGPU_GEM_CREATE_CPU_GTT_USWC;
 	if (!(flags & RADEON_FLAG_IMPLICIT_SYNC) && ws->info.drm_minor >= 22)
 		request.flags |= AMDGPU_GEM_CREATE_EXPLICIT_SYNC;
-	if (flags & RADEON_FLAG_NO_INTERPROCESS_SHARING &&
-	    ws->info.has_local_buffers &&
-	    (ws->use_local_bos || (flags & RADEON_FLAG_PREFER_LOCAL_BO))) {
-		bo->base.is_local = true;
-		request.flags |= AMDGPU_GEM_CREATE_VM_ALWAYS_VALID;
+	if (flags & RADEON_FLAG_NO_INTERPROCESS_SHARING) {
+		if (flags & RADEON_FLAG_USE_GLOBAL_LIST)
+			bo->base.use_global_list = true;
+
+		if (ws->info.has_local_buffers && ws->use_local_bos) {
+			bo->base.is_local = true;
+			request.flags |= AMDGPU_GEM_CREATE_VM_ALWAYS_VALID;
+		}
 	}
 
 	/* this won't do anything on pre 4.9 kernels */
@@ -788,7 +791,7 @@ radv_amdgpu_bo_get_flags_from_fd(struct radeon_winsys *_ws, int fd,
 	if (info.alloc_flags & AMDGPU_GEM_CREATE_CPU_GTT_USWC)
 		*flags |= RADEON_FLAG_GTT_WC;
 	if (info.alloc_flags & AMDGPU_GEM_CREATE_VM_ALWAYS_VALID)
-		*flags |= RADEON_FLAG_NO_INTERPROCESS_SHARING | RADEON_FLAG_PREFER_LOCAL_BO;
+		*flags |= RADEON_FLAG_NO_INTERPROCESS_SHARING;
 	if (info.alloc_flags & AMDGPU_GEM_CREATE_VRAM_CLEARED)
 		*flags |= RADEON_FLAG_ZERO_VRAM;
 	return true;
