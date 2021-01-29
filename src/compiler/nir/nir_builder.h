@@ -838,8 +838,15 @@ nir_ieq_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
    return nir_ieq(build, x, nir_imm_intN_t(build, y, x->bit_size));
 }
 
+typedef enum
+{
+   _nir_imul_imm = 0,
+   _nir_umul24_imm,
+   _nir_amul_imm,
+} _nir_mul_imm_type;
+
 static inline nir_ssa_def *
-_nir_mul_imm(nir_builder *build, nir_ssa_def *x, uint64_t y, bool amul)
+_nir_mul_imm(nir_builder *build, nir_ssa_def *x, uint64_t y, _nir_mul_imm_type type)
 {
    assert(x->bit_size <= 64);
    y &= BITFIELD64_MASK(x->bit_size);
@@ -851,8 +858,10 @@ _nir_mul_imm(nir_builder *build, nir_ssa_def *x, uint64_t y, bool amul)
    } else if (!build->shader->options->lower_bitops &&
               util_is_power_of_two_or_zero64(y)) {
       return nir_ishl(build, x, nir_imm_int(build, ffsll(y) - 1));
-   } else if (amul) {
+   } else if (type == _nir_amul_imm) {
       return nir_amul(build, x, nir_imm_intN_t(build, y, x->bit_size));
+   } else if (type == _nir_umul24_imm) {
+      return nir_umul24(build, x, nir_imm_intN_t(build, y, x->bit_size));
    } else {
       return nir_imul(build, x, nir_imm_intN_t(build, y, x->bit_size));
    }
@@ -861,13 +870,19 @@ _nir_mul_imm(nir_builder *build, nir_ssa_def *x, uint64_t y, bool amul)
 static inline nir_ssa_def *
 nir_imul_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
 {
-   return _nir_mul_imm(build, x, y, false);
+   return _nir_mul_imm(build, x, y, _nir_imul_imm);
+}
+
+static inline nir_ssa_def *
+nir_umul24_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
+{
+   return _nir_mul_imm(build, x, y, _nir_umul24_imm);
 }
 
 static inline nir_ssa_def *
 nir_amul_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
 {
-   return _nir_mul_imm(build, x, y, true);
+   return _nir_mul_imm(build, x, y, _nir_amul_imm);
 }
 
 static inline nir_ssa_def *
