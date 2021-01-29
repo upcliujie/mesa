@@ -381,11 +381,17 @@ optimizations.extend([
    (('fneu', ('fneg', a), -1.0), ('fneu', 1.0, a)),
    (('feq', -1.0, ('fneg', a)), ('feq', a, 1.0)),
 
+   # fsat(NaN) < b => 0 < b => true, and !(b >= NaN) => true
+   (('flt', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('inot', ('!fge', b, a))),
+
    # b < fsat(NaN) => b < 0 => false, and b < Nan => false.
    (('flt', '#b(is_gt_0_and_lt_1)', ('fsat(is_used_once)', a)), ('flt', b, a)),
 
    # fsat(NaN) >= b => 0 >= b => false, and NaN >= b => false.
    (('fge', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('fge', a, b)),
+
+   # b >= fsat(NaN) => b >= 0 => true, and !(NaN < b) => true
+   (('fge', '#b(is_gt_0_and_lt_1)', ('fsat(is_used_once)', a)), ('inot', ('!flt', a, b))),
 
    # b == fsat(NaN) => b == 0 => false, and b == NaN => false.
    (('feq', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('feq', a, b)),
@@ -395,6 +401,12 @@ optimizations.extend([
 
    # fsat(NaN) >= 1 => 0 >= 1 => false, and NaN >= 1 => false.
    (('fge', ('fsat(is_used_once)', a), 1.0), ('fge', a, 1.0)),
+
+   # fsat(NaN) < 1 => 0 < 1 => true, and !(1 >= NaN) => true
+   (('flt', ('fsat(is_used_once)', a), 1.0), ('inot', ('!fge', 1.0, a))),
+
+   # 0 >= fsat(NaN) => 0 >= 0 => true, and !(NaN < 0) => true
+   (('fge', 0.0, ('fsat(is_used_once)', a)), ('inot', ('!flt', a, 0.0))),
 
    # 0 < fsat(NaN) => 0 < 0 => false, and 0 < NaN => false.
    (('flt', 0.0, ('fsat(is_used_once)', a)), ('flt', 0.0, a)),
@@ -2254,12 +2266,16 @@ late_optimizations = [
    # new patterns like these.  The patterns that compare with zero are removed
    # because they are unlikely to be created in by anything in
    # late_optimizations.
+   (('flt', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('inot', ('!fge', b, a))),
    (('flt', '#b(is_gt_0_and_lt_1)', ('fsat(is_used_once)', a)), ('flt', b, a)),
    (('fge', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('fge', a, b)),
+   (('fge', '#b(is_gt_0_and_lt_1)', ('fsat(is_used_once)', a)), ('inot', ('!flt', a, b))),
    (('feq', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('feq', a, b)),
    (('fneu', ('fsat(is_used_once)', a), '#b(is_gt_0_and_lt_1)'), ('fneu', a, b)),
 
    (('fge', ('fsat(is_used_once)', a), 1.0), ('fge', a, 1.0)),
+
+   (('flt', ('fsat(is_used_once)', a), 1.0), ('inot', ('!fge', 1.0, a))),
 
    (('~fge', ('fmin(is_used_once)', ('fadd(is_used_once)', a, b), ('fadd', c, d)), 0.0), ('iand', ('fge', a, ('fneg', b)), ('fge', c, ('fneg', d)))),
 
