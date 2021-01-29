@@ -471,7 +471,17 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws,
 	    ws->info.has_local_buffers &&
 	    (ws->use_local_bos || (flags & RADEON_FLAG_PREFER_LOCAL_BO))) {
 		bo->base.is_local = true;
-		request.flags |= AMDGPU_GEM_CREATE_VM_ALWAYS_VALID;
+
+		if (ws->use_local_bos) {
+			/* VM_ALWAYS_VALID means that all BOs must fit in
+			 * memory (VRAM+GTT) for each submission. This is
+			 * causing a lot of troubles when the total allocated
+			 * memory is greater than the available memory,
+			 * especially on APUs. Only use it if explicitely
+			 * enabled for testing purposes.
+			 */
+			request.flags |= AMDGPU_GEM_CREATE_VM_ALWAYS_VALID;
+		}
 	}
 
 	/* this won't do anything on pre 4.9 kernels */
