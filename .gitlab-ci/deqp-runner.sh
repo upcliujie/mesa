@@ -120,6 +120,7 @@ run_cts() {
         --deqp $deqp \
         --output $RESULTS \
         --caselist $caselist \
+        --min-tests-per-group 128 \
         --testlog-to-xml  /deqp/executor/testlog-to-xml \
         $JOB \
         $SUMMARY_LIMIT \
