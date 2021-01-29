@@ -350,6 +350,115 @@ get_required_tmu_writes(nir_intrinsic_instr *instr)
    }
 }
 
+static void
+emit_tmu_general_store_writes(struct v3d_compile *c,
+                              nir_intrinsic_instr *instr,
+                              uint32_t base_const_offset,
+                              uint32_t *writemask,
+                              uint32_t *const_offset,
+                              uint32_t *tmu_writes)
+{
+        struct qreg tmud = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUD);
+
+        /* Find the first set of consecutive components that
+         * are enabled in the writemask and emit the TMUD
+         * instructions for them.
+         */
+        uint32_t first_component = ffs(*writemask) - 1;
+        uint32_t last_component = first_component;
+        while (*writemask & BITFIELD_BIT(last_component + 1))
+                last_component++;
+
+        assert(first_component >= 0 &&
+               first_component <= last_component &&
+               last_component < instr->num_components);
+
+        for (int i = first_component; i <= last_component; i++) {
+                struct qreg data = ntq_get_src(c, instr->src[0], i);
+                vir_MOV_dest(c, tmud, data);
+                (*tmu_writes)++;
+        }
+
+        /* Update the offset for the TMU write based on the
+         * the first component we are writing.
+         */
+        *const_offset = base_const_offset + first_component * 4;
+
+        /* Clear these components from the writemask */
+        uint32_t written_mask = BITFIELD_RANGE(first_component, *tmu_writes);
+        (*writemask) &= ~written_mask;
+}
+
+static void
+emit_tmu_general_atomic_writes(struct v3d_compile *c,
+                               nir_intrinsic_instr *instr,
+                               uint32_t tmu_op,
+                               bool has_index,
+                               uint32_t *tmu_writes)
+{
+        struct qreg tmud = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUD);
+
+        struct qreg data = ntq_get_src(c, instr->src[1 + has_index], 0);
+        vir_MOV_dest(c, tmud, data);
+        (*tmu_writes)++;
+
+        if (tmu_op == V3D_TMU_OP_WRITE_CMPXCHG_READ_FLUSH) {
+                data = ntq_get_src(c, instr->src[2 + has_index], 0);
+                vir_MOV_dest(c, tmud, data);
+                (*tmu_writes)++;
+        }
+}
+
+static void
+emit_tmu_general_address_write(struct v3d_compile *c,
+                               nir_intrinsic_instr *instr,
+                               uint32_t config,
+                               bool dynamic_src,
+                               int offset_src,
+                               struct qreg base_offset,
+                               uint32_t const_offset,
+                               uint32_t *tmu_writes)
+{
+       (*tmu_writes)++;
+
+        if (vir_in_nonuniform_control_flow(c)) {
+                vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), c->execute),
+                           V3D_QPU_PF_PUSHZ);
+        }
+
+        struct qreg tmua;
+        if (config == ~0)
+                tmua = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUA);
+        else
+                tmua = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUAU);
+
+        struct qinst *tmu;
+        if (dynamic_src) {
+                struct qreg offset = base_offset;
+                if (const_offset != 0) {
+                        offset = vir_ADD(c, offset,
+                                         vir_uniform_ui(c, const_offset));
+                }
+                struct qreg data = ntq_get_src(c, instr->src[offset_src], 0);
+                tmu = vir_ADD_dest(c, tmua, offset, data);
+        } else {
+                if (const_offset != 0) {
+                        tmu = vir_ADD_dest(c, tmua, base_offset,
+                                           vir_uniform_ui(c, const_offset));
+                } else {
+                        tmu = vir_MOV_dest(c, tmua, base_offset);
+                }
+        }
+
+        if (config != ~0) {
+                tmu->uniform =
+                        vir_get_uniform_index(c, QUNIFORM_CONSTANT, config);
+        }
+
+        if (vir_in_nonuniform_control_flow(c))
+                vir_set_cond(tmu, V3D_QPU_COND_IFA);
+}
+
 /**
  * Implements indirect uniform loads and SSBO accesses through the TMU general
  * memory access interface.
@@ -449,64 +558,21 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
                                                                       1 : 0]));
         }
 
-        struct qreg tmud = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUD);
         unsigned writemask = is_store ? nir_intrinsic_write_mask(instr) : 0;
         uint32_t base_const_offset = const_offset;
-        int first_component = -1;
-        int last_component = -1;
         do {
-                int tmu_writes = 1; /* address */
-
-                if (is_store) {
-                        /* Find the first set of consecutive components that
-                         * are enabled in the writemask and emit the TMUD
-                         * instructions for them.
-                         */
-                        first_component = ffs(writemask) - 1;
-                        last_component = first_component;
-                        while (writemask & BITFIELD_BIT(last_component + 1))
-                                last_component++;
-
-                        assert(first_component >= 0 &&
-                               first_component <= last_component &&
-                               last_component < instr->num_components);
-
-                        struct qreg tmud = vir_reg(QFILE_MAGIC,
-                                                   V3D_QPU_WADDR_TMUD);
-                        for (int i = first_component; i <= last_component; i++) {
-                                struct qreg data =
-                                        ntq_get_src(c, instr->src[0], i);
-                                vir_MOV_dest(c, tmud, data);
-                                tmu_writes++;
-                        }
-
-                        /* Update the offset for the TMU write based on the
-                         * the first component we are writing.
-                         */
-                        const_offset = base_const_offset + first_component * 4;
-
-                        /* Clear these components from the writemask */
-                        uint32_t written_mask =
-                                BITFIELD_RANGE(first_component, tmu_writes - 1);
-                        writemask &= ~written_mask;
+                uint32_t tmu_writes = 0;
+               if (is_store) {
+                       emit_tmu_general_store_writes(c, instr,
+                                                     base_const_offset,
+                                                     &writemask,
+                                                     &const_offset,
+                                                     &tmu_writes);
                 } else if (!is_load && !atomic_add_replaced) {
-                        struct qreg data =
-                                ntq_get_src(c, instr->src[1 + has_index], 0);
-                        vir_MOV_dest(c, tmud, data);
-                        tmu_writes++;
-                        if (tmu_op == V3D_TMU_OP_WRITE_CMPXCHG_READ_FLUSH) {
-                                data = ntq_get_src(c, instr->src[2 + has_index],
-                                                   0);
-                                vir_MOV_dest(c, tmud, data);
-                                tmu_writes++;
-                        }
+                        emit_tmu_general_atomic_writes(c, instr,
+                                                       tmu_op, has_index,
+                                                       &tmu_writes);
                 }
-
-                /* Make sure we won't exceed the 16-entry TMU fifo if each
-                 * thread is storing at the same time.
-                 */
-                while (tmu_writes > 16 / c->threads)
-                        c->threads /= 2;
 
                 /* The spec says that for atomics, the TYPE field is ignored,
                  * but that doesn't seem to be the case for CMPXCHG.  Just use
@@ -514,19 +580,16 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
                  * choose "32bit" for atomic reads, which has been fine).
                  */
                 uint32_t num_components;
-                if (is_load || atomic_add_replaced) {
+                if (is_load || atomic_add_replaced)
                         num_components = instr->num_components;
-                } else {
-                        assert(tmu_writes > 1);
-                        num_components = tmu_writes - 1;
-                }
+                else
+                        num_components = tmu_writes;
+                assert(num_components > 0);
 
                 uint32_t perquad = is_load && !vir_in_nonuniform_control_flow(c)
-                   ? GENERAL_TMU_LOOKUP_PER_QUAD
-                   : GENERAL_TMU_LOOKUP_PER_PIXEL;
-                uint32_t config = (0xffffff00 |
-                                   tmu_op << 3|
-                                   perquad);
+                        ? GENERAL_TMU_LOOKUP_PER_QUAD
+                        : GENERAL_TMU_LOOKUP_PER_PIXEL;
+                uint32_t config = 0xffffff00 | tmu_op << 3 | perquad;
                 if (num_components == 1) {
                         config |= GENERAL_TMU_LOOKUP_TYPE_32BIT_UI;
                 } else {
@@ -534,45 +597,18 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
                                   num_components - 2;
                 }
 
-                if (vir_in_nonuniform_control_flow(c)) {
-                        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), c->execute),
-                                   V3D_QPU_PF_PUSHZ);
-                }
+                emit_tmu_general_address_write(c, instr, config,
+                                               dynamic_src,
+                                               offset_src,
+                                               base_offset,
+                                               const_offset,
+                                               &tmu_writes);
 
-                struct qreg tmua;
-                if (config == ~0)
-                        tmua = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUA);
-                else
-                        tmua = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUAU);
-
-                struct qinst *tmu;
-                if (dynamic_src) {
-                        struct qreg offset = base_offset;
-                        if (const_offset != 0) {
-                                offset = vir_ADD(c, offset,
-                                                 vir_uniform_ui(c, const_offset));
-                        }
-                        struct qreg data =
-                                ntq_get_src(c, instr->src[offset_src], 0);
-                        tmu = vir_ADD_dest(c, tmua, offset, data);
-                } else {
-                        if (const_offset != 0) {
-                                tmu = vir_ADD_dest(c, tmua, base_offset,
-                                                   vir_uniform_ui(c, const_offset));
-                        } else {
-                                tmu = vir_MOV_dest(c, tmua, base_offset);
-                        }
-                }
-
-                if (config != ~0) {
-                        tmu->uniform =
-                                vir_get_uniform_index(c, QUNIFORM_CONSTANT,
-                                                      config);
-                }
-
-                if (vir_in_nonuniform_control_flow(c))
-                        vir_set_cond(tmu, V3D_QPU_COND_IFA);
-
+                /* Make sure we won't exceed the 16-entry TMU fifo if each
+                 * thread is storing at the same time.
+                 */
+                while (tmu_writes > 16 / c->threads)
+                        c->threads /= 2;
 
                 /* Delay emission of the thread switch and LDTMU/TMUWT until
                  * we really need to do it to improve pipelining.
