@@ -444,6 +444,8 @@ fd5_blitter_blit(struct fd_context *ctx, const struct pipe_blit_info *info)
 
 	emit_setup(batch->draw);
 
+	fd_batch_update_queries(batch);
+
 	if ((info->src.resource->target == PIPE_BUFFER) &&
 			(info->dst.resource->target == PIPE_BUFFER)) {
 		assert(fd_resource(info->src.resource)->layout.tile_mode == TILE5_LINEAR);
@@ -461,6 +463,11 @@ fd5_blitter_blit(struct fd_context *ctx, const struct pipe_blit_info *info)
 
 	fd_batch_flush(batch);
 	fd_batch_reference(&batch, NULL);
+
+	/* Acc query state will have been dirtied by our fd_batch_update_queries, so
+	 * the ctx->batch may need to turn its queries back on.
+	 */
+	ctx->dirty |= FD_DIRTY_QUERIES;
 
 	return true;
 }
