@@ -439,7 +439,12 @@ void vk_${type}_dispatch_table_from_entrypoints(
             if (entry[i] == NULL)
                 continue;
             unsigned disp_index = ${type}_compaction_table[i];
-            assert(disp[disp_index] == NULL);
+#ifndef NDEBUG
+            if (disp[disp_index] != NULL) {
+                fprintf(stderr, "ERROR: Duplicate entrypoint found: %u\\n", i);
+                abort();
+            }
+#endif
             disp[disp_index] = entry[i];
         }
     } else {
