@@ -116,15 +116,7 @@ TEMPLATE_C = Template(COPYRIGHT + """
 #ifdef ${e.guard}
     % endif
     % for p in prefixes:
-#ifdef _MSC_VER
-    #pragma comment(linker, "/alternatename:${p}_${e.name}_Weak=${p}_${e.name}_Null")
-    #pragma comment(linker, "/alternatename:${p}_${e.name}=${p}_${e.name}_Weak")
-    ${e.return_type} (*${p}_${e.name}_Null)(${e.decl_params()}) = 0;
-    ${e.return_type} ${p}_${e.name}_Weak(${e.decl_params()});
-#else
-    ${e.return_type} ${p}_${e.name}(${e.decl_params()})\
-        __attribute__ ((weak, visibility("hidden")));
-#endif
+    ${e.return_type} ${p}_${e.name}(${e.decl_params()}) __attribute__ ((weak));
     % endfor
     % if e.guard is not None:
 #endif // ${e.guard}

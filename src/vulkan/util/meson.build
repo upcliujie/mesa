@@ -101,6 +101,6 @@ idep_vulkan_util_headers = declare_dependency(
 idep_vulkan_util = declare_dependency(
   # Instruct users of this library to link with --whole-archive.  Otherwise,
   # our weak function overloads may not resolve properly.
-  link_whole : libvulkan_util,
+  link_with : libvulkan_util,
   dependencies : idep_vulkan_util_headers
 )
