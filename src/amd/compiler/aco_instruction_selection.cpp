@@ -728,7 +728,11 @@ uint32_t get_alu_src_ub(isel_context *ctx, nir_alu_instr *instr, int src_idx)
 {
    nir_ssa_scalar scalar = nir_ssa_scalar{instr->src[src_idx].src.ssa,
                                           instr->src[src_idx].swizzle[0]};
-   return nir_unsigned_upper_bound(ctx->shader, ctx->range_ht, scalar, &ctx->ub_config);
+   uint32_t ub = nir_unsigned_upper_bound(ctx->shader, ctx->range_ht, scalar, &ctx->ub_config);
+   if (instr->op == nir_op_umul24)
+      ub = MIN2(ub, 0xffffff);
+
+   return ub;
 }
 
 Temp convert_pointer_to_64_bit(isel_context *ctx, Temp ptr, bool non_uniform=false)
@@ -1827,6 +1831,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       }
       break;
    }
+   case nir_op_umul24:
    case nir_op_imul: {
       if (dst.bytes() <= 2 && ctx->program->chip_class >= GFX10) {
          emit_vop3a_instruction(ctx, instr, aco_opcode::v_mul_lo_u16_e64, dst);
