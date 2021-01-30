@@ -147,7 +147,7 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
              unsigned index_offset)
 {
 	struct fd6_context *fd6_ctx = fd6_context(ctx);
-	struct ir3_shader *gs = ctx->prog.gs;
+	struct ir3_shader *gs = ir3_get_shader(ctx->prog.gs);
 	struct fd6_emit emit = {
 		.ctx = ctx,
 		.vtx  = &ctx->vtx,
@@ -155,9 +155,9 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 		.indirect = indirect,
 		.draw = draw,
 		.key = {
-			.vs = ctx->prog.vs,
-			.gs = ctx->prog.gs,
-			.fs = ctx->prog.fs,
+			.vs = ir3_get_shader(ctx->prog.vs),
+			.gs = ir3_get_shader(ctx->prog.gs),
+			.fs = ir3_get_shader(ctx->prog.fs),
 			.key = {
 				.color_two_side = ctx->rasterizer->light_twoside,
 				.vclamp_color = ctx->rasterizer->clamp_vertex_color,
@@ -188,8 +188,8 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 		return false;
 
 	if (info->mode == PIPE_PRIM_PATCHES) {
-		emit.key.hs = ctx->prog.hs;
-		emit.key.ds = ctx->prog.ds;
+		emit.key.hs = ir3_get_shader(ctx->prog.hs);
+		emit.key.ds = ir3_get_shader(ctx->prog.ds);
 
 		if (!(ctx->prog.hs && ctx->prog.ds))
 			return false;
