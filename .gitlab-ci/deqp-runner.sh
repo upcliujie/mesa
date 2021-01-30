@@ -108,9 +108,6 @@ if [ -n "$DEQP_NO_SAVE_RESULTS" ]; then
    SUMMARY_LIMIT="--summary-limit 0"
 fi
 
-# Silence the debug output for apps triggering GL errors, since dEQP will do a lot of that.
-export MESA_DEBUG=silent
-
 run_cts() {
     deqp=$1
     caselist=$2
@@ -120,7 +117,6 @@ run_cts() {
         --deqp $deqp \
         --output $RESULTS \
         --caselist $caselist \
-        --min-tests-per-group 128 \
         --testlog-to-xml  /deqp/executor/testlog-to-xml \
         $JOB \
         $SUMMARY_LIMIT \
