@@ -333,9 +333,8 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 			return 4;
 		return 0;
 
-	/* TODO if we need this, do it in nir/ir3 backend to avoid breaking precompile: */
 	case PIPE_CAP_FORCE_PERSAMPLE_INTERP:
-		return 0;
+		return is_a6xx(screen);
 
 	case PIPE_CAP_FBFETCH:
 		if (fd_device_version(screen->dev) >= FD_VERSION_GMEM_BASE &&
