@@ -1279,7 +1279,7 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 
 	/* Sparse resources with multi-planar formats are unsupported. */
 	if (info->flags & VK_IMAGE_CREATE_SPARSE_BINDING_BIT) {
-		if (desc->plane_count > 1)
+		if (vk_format_get_plane_count(format) > 1)
 			goto unsupported;
 	}
 
@@ -1288,7 +1288,7 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 		if (physical_device->rad_info.chip_class < GFX8)
 			goto unsupported;
 
-		if (desc->plane_count > 1 || info->type != VK_IMAGE_TYPE_2D ||
+		if (vk_format_get_plane_count(format) > 1 || info->type != VK_IMAGE_TYPE_2D ||
 		    info->tiling != VK_IMAGE_TILING_OPTIMAL ||
 		    vk_format_is_depth_or_stencil(format))
 			goto unsupported;
