@@ -31,10 +31,6 @@
 #include "pipe/p_screen.h"
 #include "ir3/ir3_shader.h"
 
-struct ir3_shader * ir3_shader_create(struct ir3_compiler *compiler,
-		const struct pipe_shader_state *cso,
-		struct pipe_debug_callback *debug,
-		struct pipe_screen *screen);
 struct ir3_shader *
 ir3_shader_create_compute(struct ir3_compiler *compiler,
 		const struct pipe_compute_state *cso,
