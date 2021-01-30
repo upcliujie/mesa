@@ -94,9 +94,10 @@ vk_common_GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDevice,
 {
    VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
 
-   VkPhysicalDeviceFeatures2 features2 = {
-      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-   };
+   /* Don't zero-init this struct since the driver fills it out entirely */
+   VkPhysicalDeviceFeatures2 features2;
+   features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+   features2.pNext = NULL;
 
    pdevice->dispatch_table.GetPhysicalDeviceFeatures2(physicalDevice,
                                                       &features2);
@@ -109,9 +110,10 @@ vk_common_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
 {
    VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
 
-   VkPhysicalDeviceProperties2 props2 = {
-      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-   };
+   /* Don't zero-init this struct since the driver fills it out entirely */
+   VkPhysicalDeviceProperties2 props2;
+   props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+   props2.pNext = NULL;
 
    pdevice->dispatch_table.GetPhysicalDeviceProperties2(physicalDevice,
                                                         &props2);
@@ -124,9 +126,11 @@ vk_common_GetPhysicalDeviceMemoryProperties(VkPhysicalDevice physicalDevice,
 {
    VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
 
-   VkPhysicalDeviceMemoryProperties2 props2 = {
-      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,
-   };
+   /* Don't zero-init this struct since the driver fills it out entirely */
+   VkPhysicalDeviceMemoryProperties2 props2;
+   props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+   props2.pNext = NULL;
+
    pdevice->dispatch_table.GetPhysicalDeviceMemoryProperties2(physicalDevice,
                                                               &props2);
    *pMemoryProperties = props2.memoryProperties;
@@ -139,9 +143,11 @@ vk_common_GetPhysicalDeviceFormatProperties(VkPhysicalDevice physicalDevice,
 {
    VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
 
-   VkFormatProperties2 props2 = {
-      .sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,
-   };
+   /* Don't zero-init this struct since the driver fills it out entirely */
+   VkFormatProperties2 props2;
+   props2.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2;
+   props2.pNext = NULL;
+
    pdevice->dispatch_table.GetPhysicalDeviceFormatProperties2(physicalDevice,
                                                               format, &props2);
    *pFormatProperties = props2.formatProperties;
@@ -166,9 +172,12 @@ vk_common_GetPhysicalDeviceImageFormatProperties(VkPhysicalDevice physicalDevice
       .usage = usage,
       .flags = flags
    };
-   VkImageFormatProperties2 props2 = {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
-   };
+
+   /* Don't zero-init this struct since the driver fills it out entirely */
+   VkImageFormatProperties2 props2;
+   props2.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2;
+   props2.pNext = NULL;
+
    VkResult result =
       pdevice->dispatch_table.GetPhysicalDeviceImageFormatProperties2(physicalDevice,
                                                                       &info, &props2);
