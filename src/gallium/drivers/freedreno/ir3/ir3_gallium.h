@@ -55,6 +55,7 @@ struct ir3_shader * ir3_get_shader(struct ir3_shader_state *hwcso);
 
 void ir3_prog_init(struct pipe_context *pctx);
 void ir3_screen_init(struct pipe_screen *pscreen);
+void ir3_screen_fini(struct pipe_screen *pscreen);
 
 /**
  * A helper to determine if a fs input 'i' is point/sprite coord, given
