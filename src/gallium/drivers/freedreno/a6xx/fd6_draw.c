@@ -147,7 +147,7 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
              unsigned index_offset)
 {
 	struct fd6_context *fd6_ctx = fd6_context(ctx);
-	struct ir3_shader *gs = ctx->prog.gs;
+	struct ir3_shader *gs = ir3_get_shader(ctx->prog.gs);
 	struct fd6_emit emit = {
 		.ctx = ctx,
 		.vtx  = &ctx->vtx,
@@ -194,7 +194,7 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 		if (!(ctx->prog.hs && ctx->prog.ds))
 			return false;
 
-		shader_info *ds_info = &emit.key.ds->nir->info;
+		shader_info *ds_info = &ir3_get_shader(emit.key.ds)->nir->info;
 		emit.key.key.tessellation = ir3_tess_mode(ds_info->tess.primitive_mode);
 	}
 
