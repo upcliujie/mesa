@@ -64,7 +64,7 @@
 #include "lp_bld_bitarit.h"
 #include "lp_bld_arit.h"
 #include "lp_bld_flow.h"
-
+#include "lp_bld_constrained.h"
 #if defined(PIPE_ARCH_SSE)
 #include <xmmintrin.h>
 #endif
@@ -3238,6 +3238,13 @@ lp_build_exp2(struct lp_build_context *bld,
    LLVMValueRef expfpart = NULL;
    LLVMValueRef res = NULL;
 
+   if (type.floating && type.width == 16) {
+      char intrinsic[32];
+      lp_format_intrinsic(intrinsic, sizeof intrinsic, "llvm.exp2", vec_type);
+      LLVMValueRef args[] = { x };
+      return lp_build_intrinsic(builder, intrinsic, vec_type, args, 1, 0);
+   }
+
    assert(lp_check_value(bld->type, x));
 
    /* TODO: optimize the constant case */
@@ -3419,6 +3426,15 @@ lp_build_log2_approx(struct lp_build_context *bld,
    LLVMValueRef p_z = NULL;
    LLVMValueRef res = NULL;
 
+   if (bld->type.width == 16) {
+      char intrinsic[32];
+      lp_format_intrinsic(intrinsic, sizeof intrinsic, "llvm.log2", bld->vec_type);
+      LLVMValueRef args[] = { x };
+      if (p_log2)
+         *p_log2 = lp_build_intrinsic(builder, intrinsic, bld->vec_type, args, 1, 0);
+      return;
+   }
+   lp_build_log2_approx(bld, x, NULL, NULL, &res, TRUE);
    assert(lp_check_value(bld->type, x));
 
    if(p_exp || p_floor_log2 || p_log2) {
@@ -3654,17 +3670,24 @@ lp_build_isfinite(struct lp_build_context *bld,
    LLVMValueRef intx = LLVMBuildBitCast(builder, x, int_vec_type, "");
    LLVMValueRef infornan32 = lp_build_const_int_vec(bld->gallivm, bld->type,
                                                     0x7f800000);
+   LLVMValueRef infornan16 = lp_build_const_int_vec(bld->gallivm, bld->type,
+                                                    0x7c00);
 
    if (!bld->type.floating) {
       return lp_build_const_int_vec(bld->gallivm, bld->type, 0);
    }
    assert(bld->type.floating);
    assert(lp_check_value(bld->type, x));
-   assert(bld->type.width == 32);
 
-   intx = LLVMBuildAnd(builder, intx, infornan32, "");
-   return lp_build_compare(bld->gallivm, int_type, PIPE_FUNC_NOTEQUAL,
-                           intx, infornan32);
+   if (bld->type.width == 32) {
+      intx = LLVMBuildAnd(builder, intx, infornan32, "");
+      return lp_build_compare(bld->gallivm, int_type, PIPE_FUNC_NOTEQUAL,
+                              intx, infornan32);
+   } else {
+      intx = LLVMBuildAnd(builder, intx, infornan16, "");
+      return lp_build_compare(bld->gallivm, int_type, PIPE_FUNC_NOTEQUAL,
+                              intx, infornan16);
+   }
 }
 
 /*
@@ -3757,3 +3780,11 @@ lp_build_fpstate_set(struct gallivm_state *gallivm,
                          &mxcsr_ptr, 1, 0);
    }
 }
+
+LLVMValueRef
+lp_build_f2f16_rtz(struct lp_build_context *bld,
+                   LLVMValueRef value)
+{
+   return lp_build_confp_fptrunc_rtz(bld, value);
+}
+

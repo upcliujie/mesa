@@ -410,4 +410,7 @@ void
 lp_build_fpstate_set(struct gallivm_state *gallivm,
                      LLVMValueRef mxcsr);
 
+LLVMValueRef
+lp_build_f2f16_rtz(struct lp_build_context *bld,
+                   LLVMValueRef value);
 #endif /* !LP_BLD_ARIT_H */

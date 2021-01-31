@@ -1001,6 +1001,8 @@ static void emit_load_ubo(struct lp_build_nir_context *bld_base,
          num_consts = lp_build_shr_imm(uint_bld, num_consts, 1);
       else if (bit_size == 16)
          num_consts = lp_build_shl_imm(uint_bld, num_consts, 1);
+      else if (bit_size == 8)
+         num_consts = lp_build_shl_imm(uint_bld, num_consts, 2);
 
       for (unsigned c = 0; c < nc; c++) {
          LLVMValueRef this_offset = lp_build_add(uint_bld, offset, lp_build_const_int_vec(gallivm, uint_bld->type, c));
@@ -2015,6 +2017,12 @@ void lp_build_nir_soa(struct gallivm_state *gallivm,
       dbl_type = type;
       dbl_type.width *= 2;
       lp_build_context_init(&bld.bld_base.dbl_bld, gallivm, dbl_type);
+   }
+   {
+      struct lp_type half_type;
+      half_type = type;
+      half_type.width /= 2;
+      lp_build_context_init(&bld.bld_base.half_bld, gallivm, half_type);
    }
    {
       struct lp_type uint64_type;

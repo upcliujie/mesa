@@ -357,6 +357,7 @@ if draw_with_llvm
     'gallivm/lp_bld_bitarit.h',
     'gallivm/lp_bld_const.c',
     'gallivm/lp_bld_const.h',
+    'gallivm/lp_bld_constrained.c',
     'gallivm/lp_bld_conv.c',
     'gallivm/lp_bld_conv.h',
     'gallivm/lp_bld_coro.c',

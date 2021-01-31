@@ -256,9 +256,7 @@ lp_build_one(struct gallivm_state *gallivm, struct lp_type type)
 
    elem_type = lp_build_elem_type(gallivm, type);
 
-   if(type.floating && type.width == 16)
-      elems[0] = LLVMConstInt(elem_type, _mesa_float_to_half(1.0f), 0);
-   else if(type.floating)
+   if(type.floating)
       elems[0] = LLVMConstReal(elem_type, 1.0);
    else if(type.fixed)
       elems[0] = LLVMConstInt(elem_type, 1LL << (type.width/2), 0);
@@ -303,9 +301,7 @@ lp_build_const_elem(struct gallivm_state *gallivm,
    LLVMTypeRef elem_type = lp_build_elem_type(gallivm, type);
    LLVMValueRef elem;
 
-   if(type.floating && type.width == 16) {
-      elem = LLVMConstInt(elem_type, _mesa_float_to_half((float)val), 0);
-   } else if(type.floating) {
+   if(type.floating) {
       elem = LLVMConstReal(elem_type, val);
    }
    else {

@@ -47,7 +47,7 @@ static LLVMValueRef cast_type(struct lp_build_nir_context *bld_base, LLVMValueRe
    case nir_type_float:
       switch (bit_size) {
       case 16:
-         return LLVMBuildBitCast(builder, val, LLVMVectorType(LLVMHalfTypeInContext(bld_base->base.gallivm->context), bld_base->base.type.length), "");
+         return LLVMBuildBitCast(builder, val, bld_base->half_bld.vec_type, "");
       case 32:
          return LLVMBuildBitCast(builder, val, bld_base->base.vec_type, "");
       case 64:
@@ -100,10 +100,15 @@ static LLVMValueRef cast_type(struct lp_build_nir_context *bld_base, LLVMValueRe
 static struct lp_build_context *get_flt_bld(struct lp_build_nir_context *bld_base,
                                             unsigned op_bit_size)
 {
-   if (op_bit_size == 64)
+   switch (op_bit_size) {
+   case 64:
       return &bld_base->dbl_bld;
-   else
+   case 16:
+      return &bld_base->half_bld;
+   default:
+   case 32:
       return &bld_base->base;
+   }
 }
 
 static unsigned glsl_sampler_to_pipe(int sampler_dim, bool is_array)
@@ -247,6 +252,8 @@ static LLVMValueRef fcmp32(struct lp_build_nir_context *bld_base,
       result = lp_build_cmp(flt_bld, compare, src[0], src[1]);
    if (src_bit_size == 64)
       result = LLVMBuildTrunc(builder, result, bld_base->int_bld.vec_type, "");
+   else if (src_bit_size == 16)
+      result = LLVMBuildSExt(builder, result, bld_base->int_bld.vec_type, "");
    return result;
 }
 
@@ -313,6 +320,9 @@ static LLVMValueRef emit_b2f(struct lp_build_nir_context *bld_base,
                                       "");
    result = LLVMBuildBitCast(builder, result, bld_base->base.vec_type, "");
    switch (bitsize) {
+   case 16:
+      result = LLVMBuildFPTrunc(builder, result, bld_base->half_bld.vec_type, "");
+      break;
    case 32:
       break;
    case 64:
@@ -530,6 +540,9 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
    LLVMValueRef result;
    enum gallivm_nan_behavior minmax_nan = bld_base->shader->info.stage == MESA_SHADER_KERNEL ? GALLIVM_NAN_RETURN_OTHER : GALLIVM_NAN_BEHAVIOR_UNDEFINED;
    switch (op) {
+   case nir_op_b2f16:
+      result = emit_b2f(bld_base, src[0], 16);
+      break;
    case nir_op_b2f32:
       result = emit_b2f(bld_base, src[0], 32);
       break;
@@ -563,12 +576,17 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
    case nir_op_f2b32:
       result = flt_to_bool32(bld_base, src_bit_size[0], src[0]);
       break;
+
+//     result = lp_build_f2f16_rtz(&bld_base->base, src[0]);
+//     break;
    case nir_op_f2f16:
+   case nir_op_f2f16_rtz:
+   case nir_op_f2f16_rtne:
       if (src_bit_size[0] == 64)
          src[0] = LLVMBuildFPTrunc(builder, src[0],
                                    bld_base->base.vec_type, "");
       result = LLVMBuildFPTrunc(builder, src[0],
-                                LLVMVectorType(LLVMHalfTypeInContext(gallivm->context), bld_base->base.type.length), "");
+                                bld_base->half_bld.vec_type, "");
       break;
    case nir_op_f2f32:
       if (src_bit_size[0] < 32)
@@ -631,7 +649,7 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
       result = lp_build_ceil(get_flt_bld(bld_base, src_bit_size[0]), src[0]);
       break;
    case nir_op_fcos:
-      result = lp_build_cos(&bld_base->base, src[0]);
+      result = lp_build_cos(get_flt_bld(bld_base, src_bit_size[0]), src[0]);
       break;
    case nir_op_fddx:
    case nir_op_fddx_coarse:
@@ -651,7 +669,7 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
       result = fcmp32(bld_base, PIPE_FUNC_EQUAL, src_bit_size[0], src);
       break;
    case nir_op_fexp2:
-      result = lp_build_exp2(&bld_base->base, src[0]);
+      result = lp_build_exp2(get_flt_bld(bld_base, src_bit_size[0]), src[0]);
       break;
    case nir_op_ffloor:
       result = lp_build_floor(get_flt_bld(bld_base, src_bit_size[0]), src[0]);
@@ -678,7 +696,7 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
       break;
    }
    case nir_op_flog2:
-      result = lp_build_log2_safe(&bld_base->base, src[0]);
+      result = lp_build_log2_safe(get_flt_bld(bld_base, src_bit_size[0]), src[0]);
       break;
    case nir_op_flt:
    case nir_op_flt32:
@@ -709,7 +727,7 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
       result = lp_build_negate(get_flt_bld(bld_base, src_bit_size[0]), src[0]);
       break;
    case nir_op_fpow:
-      result = lp_build_pow(&bld_base->base, src[0], src[1]);
+      result = lp_build_pow(get_flt_bld(bld_base, src_bit_size[0]), src[0], src[1]);
       break;
    case nir_op_fquantize2f16:
       result = do_quantize_to_f16(bld_base, src[0]);
@@ -730,7 +748,7 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
       result = lp_build_sgn(get_flt_bld(bld_base, src_bit_size[0]), src[0]);
       break;
    case nir_op_fsin:
-      result = lp_build_sin(&bld_base->base, src[0]);
+      result = lp_build_sin(get_flt_bld(bld_base, src_bit_size[0]), src[0]);
       break;
    case nir_op_fsqrt:
       result = lp_build_sqrt(get_flt_bld(bld_base, src_bit_size[0]), src[0]);
@@ -740,6 +758,10 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
       break;
    case nir_op_i2b32:
       result = int_to_bool32(bld_base, src_bit_size[0], false, src[0]);
+      break;
+   case nir_op_i2f16:
+      result = LLVMBuildSIToFP(builder, src[0],
+                               bld_base->half_bld.vec_type, "");
       break;
    case nir_op_i2f32:
       result = lp_build_int_to_float(&bld_base->base, src[0]);
@@ -881,6 +903,10 @@ static LLVMValueRef do_alu_action(struct lp_build_nir_context *bld_base,
       result = LLVMBuildBitCast(builder, tmp, bld_base->dbl_bld.vec_type, "");
       break;
    }
+   case nir_op_u2f16:
+      result = LLVMBuildUIToFP(builder, src[0],
+                               bld_base->half_bld.vec_type, "");
+      break;
    case nir_op_u2f32:
       result = LLVMBuildUIToFP(builder, src[0], bld_base->base.vec_type, "");
       break;

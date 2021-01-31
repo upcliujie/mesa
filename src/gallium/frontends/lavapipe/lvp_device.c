@@ -89,6 +89,8 @@ static const struct vk_instance_extension_table lvp_instance_extensions_supporte
 };
 
 static const struct vk_device_extension_table lvp_device_extensions_supported = {
+   .KHR_16bit_storage                     = true,
+   .KHR_8bit_storage                      = true,
    .KHR_bind_memory2                      = true,
    .KHR_create_renderpass2                = true,
    .KHR_dedicated_allocation              = true,
@@ -112,6 +114,7 @@ static const struct vk_device_extension_table lvp_device_extensions_supported = 
    .KHR_relaxed_block_layout              = true,
    .KHR_sampler_mirror_clamp_to_edge      = true,
    .KHR_shader_draw_parameters            = true,
+   .KHR_shader_float16_int8               = true,
    .KHR_storage_buffer_storage_class      = true,
 #ifdef LVP_USE_WSI_PLATFORM
    .KHR_swapchain                         = true,
@@ -537,6 +540,21 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures2(
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES: {
          lvp_get_physical_device_features_1_1(pdevice, (void *)ext);
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES: {
+         VkPhysicalDevice8BitStorageFeatures *features =
+            (VkPhysicalDevice8BitStorageFeatures *)ext;
+         features->storageBuffer8BitAccess = true;
+         features->uniformAndStorageBuffer8BitAccess = true;
+         features->storagePushConstant8 = true;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES: {
+         VkPhysicalDeviceShaderFloat16Int8Features *features =
+            (VkPhysicalDeviceShaderFloat16Int8Features*)ext;
+         features->shaderFloat16 = true;
+         features->shaderInt8 = true;
          break;
       }
       default:

@@ -107,9 +107,12 @@ lp_build_half_to_float(struct gallivm_state *gallivm,
 
    struct lp_type f32_type = lp_type_float_vec(32, 32 * src_length);
    struct lp_type i32_type = lp_type_int_vec(32, 32 * src_length);
+   struct lp_type i16_type = lp_type_int_vec(16, 16 * src_length);
    LLVMTypeRef int_vec_type = lp_build_vec_type(gallivm, i32_type);
+   LLVMTypeRef int16_vec_type = lp_build_vec_type(gallivm, i16_type);
    LLVMValueRef h;
 
+   src = LLVMBuildBitCast(builder, src, int16_vec_type, "");
    if (util_get_cpu_caps()->has_f16c &&
        (src_length == 4 || src_length == 8)) {
       if (LLVM_VERSION_MAJOR < 11) {
@@ -165,6 +168,8 @@ lp_build_float_to_half(struct gallivm_state *gallivm,
                    ? LLVMGetVectorSize(f32_vec_type) : 1;
    struct lp_type i32_type = lp_type_int_vec(32, 32 * length);
    struct lp_type i16_type = lp_type_int_vec(16, 16 * length);
+   struct lp_type f16_type = lp_type_float_vec(16, 16 * length);
+   LLVMTypeRef f16_vec_type = lp_build_vec_type(gallivm, f16_type);
    LLVMValueRef result;
 
    /*
@@ -194,6 +199,7 @@ lp_build_float_to_half(struct gallivm_state *gallivm,
       if (length == 4) {
          result = lp_build_extract_range(gallivm, result, 0, 4);
       }
+      result = LLVMBuildBitCast(builder, result, f16_vec_type, "");
    }
 
    else {
