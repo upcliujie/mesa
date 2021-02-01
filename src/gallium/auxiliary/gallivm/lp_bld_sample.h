@@ -584,6 +584,7 @@ lp_build_lod_selector(struct lp_build_sample_context *bld,
                       LLVMValueRef lod_bias, /* optional */
                       LLVMValueRef explicit_lod, /* optional */
                       unsigned mip_filter,
+                      LLVMValueRef max_aniso,
                       LLVMValueRef *out_lod,
                       LLVMValueRef *out_lod_ipart,
                       LLVMValueRef *out_lod_fpart,
