@@ -147,6 +147,8 @@ struct st_fp_variant_key
    GLuint lower_texcoord_replace:MAX_TEXTURE_COORD_UNITS;
    unsigned lower_alpha_func:3;
 
+   GLuint lower_rect_tex:1;
+
    /** needed for ATI_fragment_shader */
    uint8_t texture_index[MAX_NUM_FRAGMENT_REGISTERS_ATI];
 
