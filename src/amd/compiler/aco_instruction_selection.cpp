@@ -6906,6 +6906,46 @@ void visit_global_atomic(isel_context *ctx, nir_intrinsic_instr *instr)
    }
 }
 
+void visit_load_mubuf(isel_context *ctx, nir_intrinsic_instr *intrin)
+{
+   Temp dst = get_ssa_temp(ctx, &intrin->dest.ssa);
+   Temp descriptor = get_ssa_temp(ctx, intrin->src[0].ssa);
+   Temp v_offset = get_ssa_temp(ctx, intrin->src[1].ssa);
+   Temp s_offset = get_ssa_temp(ctx, intrin->src[2].ssa);
+   unsigned const_offset = nir_intrinsic_base(intrin);
+   unsigned stride = nir_intrinsic_stride(intrin);
+   bool reorder = nir_intrinsic_can_reorder(intrin);
+   bool slc = nir_intrinsic_gcn_slc(intrin);
+
+   unsigned elem_size_bytes = intrin->dest.ssa.bit_size / 8u;
+   unsigned num_components = intrin->dest.ssa.num_components;
+   bool swizzled = stride != 0;
+
+   load_vmem_mubuf(ctx, dst, descriptor, v_offset, s_offset, const_offset,
+                   elem_size_bytes, num_components, stride, !swizzled, reorder, slc);
+}
+
+void visit_store_mubuf(isel_context *ctx, nir_intrinsic_instr *intrin)
+{
+   Temp store_src = get_ssa_temp(ctx, intrin->src[0].ssa);
+   Temp descriptor = get_ssa_temp(ctx, intrin->src[1].ssa);
+   Temp v_offset = get_ssa_temp(ctx, intrin->src[2].ssa);
+   Temp s_offset = get_ssa_temp(ctx, intrin->src[3].ssa);
+
+   unsigned const_offset = nir_intrinsic_base(intrin);
+   unsigned stride = nir_intrinsic_stride(intrin);
+   unsigned write_mask = nir_intrinsic_write_mask(intrin);
+   nir_variable_mode mem_mode = nir_intrinsic_memory_modes(intrin);
+   bool slc = nir_intrinsic_gcn_slc(intrin);
+
+   unsigned elem_size_bytes = intrin->src[0].ssa->bit_size / 8u;
+   memory_sync_info sync(mem_mode == nir_var_shader_out ? storage_vmem_output : storage_none);
+   bool swizzled = stride != 0;
+
+   store_vmem_mubuf(ctx, store_src, descriptor, v_offset, s_offset, const_offset,
+                    elem_size_bytes, write_mask, !swizzled, sync, slc);
+}
+
 sync_scope translate_nir_scope(nir_scope scope)
 {
    switch (scope) {
@@ -8069,6 +8109,12 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
       break;
    case nir_intrinsic_load_global:
       visit_load_global(ctx, instr);
+      break;
+   case nir_intrinsic_load_mubuf_gcn:
+      visit_load_mubuf(ctx, instr);
+      break;
+   case nir_intrinsic_store_mubuf_gcn:
+      visit_store_mubuf(ctx, instr);
       break;
    case nir_intrinsic_store_global:
       visit_store_global(ctx, instr);
