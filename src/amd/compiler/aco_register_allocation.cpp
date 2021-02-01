@@ -763,7 +763,7 @@ std::pair<PhysReg, bool> get_reg_simple(ra_ctx& ctx,
          /* Find the next chunk of available register slots */
          reg_it = std::find_if(reg_it, end_it, is_free);
          auto next_nonfree_it = std::find_if_not(reg_it, end_it, is_free);
-         if (reg_it == bounds.end()) {
+         if (reg_it == end_it) {
             break;
          }
 
