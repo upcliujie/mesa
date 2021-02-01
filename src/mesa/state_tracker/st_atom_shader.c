@@ -120,6 +120,15 @@ st_update_fp( struct st_context *st )
           st->ctx->Point.CoordReplace)
          key.lower_texcoord_replace = st->ctx->Point.CoordReplace;
 
+      /* _NEW_TEXTURE_OBJECT */
+      if (st->lower_rect_tex) {
+         const struct st_texture_object *obj =
+            st_get_texture_object(st->ctx, &stfp->Base, st->ctx->Texture.CurrentUnit);
+
+         if (obj && obj->base.Target == GL_TEXTURE_RECTANGLE)
+            key.lower_rect_tex = 1;
+      }
+
       /* gl_driver_flags::NewFragClamp */
       key.clamp_color = st->clamp_frag_color_in_shader &&
                         st->ctx->Color._ClampFragmentColor;
