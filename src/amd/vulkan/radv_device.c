@@ -2635,6 +2635,7 @@ VkResult radv_CreateDevice(
 	bool overallocation_disallowed = false;
 	bool custom_border_colors = false;
 	bool vrs_enabled = false;
+	bool update_descriptor_after_bind = false;
 
 	/* Check enabled features */
 	if (pCreateInfo->pEnabledFeatures) {
@@ -2684,6 +2685,19 @@ VkResult radv_CreateDevice(
 				robust_buffer_access2 = true;
 			break;
 		}
+		case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES: {
+			const VkPhysicalDeviceDescriptorIndexingFeatures *features = (const void *)ext;
+			if (features->descriptorBindingUniformBufferUpdateAfterBind ||
+			    features->descriptorBindingSampledImageUpdateAfterBind ||
+			    features->descriptorBindingStorageImageUpdateAfterBind ||
+			    features->descriptorBindingStorageBufferUpdateAfterBind ||
+			    features->descriptorBindingUniformTexelBufferUpdateAfterBind ||
+			    features->descriptorBindingStorageTexelBufferUpdateAfterBind ||
+			    features->descriptorBindingUpdateUnusedWhilePending) {
+				update_descriptor_after_bind = true;
+			}
+			break;
+		}
 		default:
 			break;
 		}
@@ -2726,7 +2740,7 @@ VkResult radv_CreateDevice(
 	 */
 	device->use_global_bo_list =
 		(device->instance->perftest_flags & RADV_PERFTEST_BO_LIST) ||
-		device->vk.enabled_extensions.EXT_descriptor_indexing ||
+		update_descriptor_after_bind ||
 		device->vk.enabled_extensions.EXT_buffer_device_address ||
 		device->vk.enabled_extensions.KHR_buffer_device_address;
 
