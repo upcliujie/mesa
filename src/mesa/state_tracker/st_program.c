@@ -783,7 +783,7 @@ st_create_vp_variant(struct st_context *st,
          finalize = true;
       }
 
-      if (finalize || !st->allow_st_finalize_nir_twice) {
+      if (st->lower_rect_tex || finalize || !st->allow_st_finalize_nir_twice) {
          st_finalize_nir(st, &stvp->Base, stvp->shader_program, state.ir.nir,
                          true, false);
 
@@ -1378,7 +1378,7 @@ st_create_fp_variant(struct st_context *st,
          finalize = true;
       }
 
-      if (finalize || !st->allow_st_finalize_nir_twice) {
+      if (st->lower_rect_tex || finalize || !st->allow_st_finalize_nir_twice) {
          st_finalize_nir(st, &stfp->Base, stfp->shader_program, state.ir.nir,
                          false, false);
       }
