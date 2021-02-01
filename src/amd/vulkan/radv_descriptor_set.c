@@ -503,7 +503,7 @@ VkResult radv_CreatePipelineLayout(
 		}
 		dynamic_offset_count += layout->set[set].dynamic_offset_count;
 		dynamic_shader_stages |= layout->set[set].dynamic_offset_stages;
-		_mesa_sha1_update(&ctx, set_layout, set_layout->layout_size);
+		_mesa_sha1_update(&ctx, ((void*)set_layout) + sizeof(struct vk_object_base), set_layout->layout_size - sizeof(struct vk_object_base));
 	}
 
 	layout->dynamic_offset_count = dynamic_offset_count;
