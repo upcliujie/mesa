@@ -1310,6 +1310,12 @@ st_create_fp_variant(struct st_context *st,
          finalize = true;
       }
 
+      if (st->lower_rect_tex) {
+         const struct nir_lower_tex_options opts = { .lower_rect = true, };
+         NIR_PASS_V(state.ir.nir, nir_lower_tex, &opts);
+         finalize = true;
+      }
+
       assert(!(key->bitmap && key->drawpixels));
 
       /* glBitmap */
