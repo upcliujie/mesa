@@ -32,6 +32,7 @@
 #include "intel/common/gen_gem.h"
 #include "util/bitscan.h"
 #include "util/macros.h"
+#include "util/log.h"
 
 #include "drm-uapi/i915_drm.h"
 
@@ -1050,9 +1051,12 @@ reset_masks(struct gen_device_info *devinfo)
 }
 
 static void
-update_from_topology(struct gen_device_info *devinfo,
+update_from_topology(struct gen_device_info *origin_devinfo,
                      const struct drm_i915_query_topology_info *topology)
 {
+   struct gen_device_info _devinfo, *devinfo = &_devinfo;
+
+   *devinfo = *origin_devinfo;
    reset_masks(devinfo);
 
    devinfo->subslice_slice_stride = topology->subslice_stride;
@@ -1063,6 +1067,11 @@ update_from_topology(struct gen_device_info *devinfo,
    assert(sizeof(devinfo->slice_masks) >= DIV_ROUND_UP(topology->max_slices, 8));
    memcpy(&devinfo->slice_masks, topology->data, DIV_ROUND_UP(topology->max_slices, 8));
    devinfo->num_slices = __builtin_popcount(devinfo->slice_masks);
+   if (devinfo->num_slices == 0) {
+      mesa_logw("Kernel reports invalid topology for device 0x%x (0 slice)",
+                devinfo->chipset_id);
+      return;
+   }
 
    uint32_t subslice_mask_len =
       topology->max_slices * topology->subslice_stride;
@@ -1081,7 +1090,11 @@ update_from_topology(struct gen_device_info *devinfo,
       }
       n_subslices += devinfo->num_subslices[s];
    }
-   assert(n_subslices > 0);
+   if (n_subslices == 0) {
+      mesa_logw("Kernel reports invalid topology for device 0x%x (0 subslice)",
+                devinfo->chipset_id);
+      return;
+   }
 
    if (devinfo->gen == 11) {
       /* On ICL we only have one slice */
@@ -1119,8 +1132,15 @@ update_from_topology(struct gen_device_info *devinfo,
    uint32_t n_eus = 0;
    for (int b = 0; b < eu_mask_len; b++)
       n_eus += __builtin_popcount(devinfo->eu_masks[b]);
+   if (n_eus == 0) {
+      mesa_logw("Kernel reports invalid topology for device 0x%x (0 EU)",
+                devinfo->chipset_id);
+      return;
+   }
 
    devinfo->num_eu_per_subslice = DIV_ROUND_UP(n_eus, n_subslices);
+
+   *origin_devinfo = *devinfo;
 }
 
 static bool
