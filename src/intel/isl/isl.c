@@ -2212,7 +2212,7 @@ isl_surf_supports_ccs(const struct isl_device *dev,
        */
 
       /* TODO: Handle the other tiling formats */
-      if (surf->tiling != ISL_TILING_Y0)
+      if (surf->tiling != ISL_TILING_Y0 && surf->tiling != ISL_TILING_4)
          return false;
    } else {
       /* ISL_GFX_VER(dev) < 12 */
