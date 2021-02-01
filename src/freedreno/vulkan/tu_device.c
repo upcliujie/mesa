@@ -411,7 +411,7 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       .shaderInt16 = false,
       .sparseBinding = false,
       .variableMultisampleRate = false,
-      .inheritedQueries = false,
+      .inheritedQueries = true,
    };
 
    vk_foreach_struct(ext, pFeatures->pNext)
