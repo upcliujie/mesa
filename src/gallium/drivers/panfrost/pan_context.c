@@ -533,6 +533,16 @@ panfrost_draw_vbo(
 
         panfrost_batch_set_requirements(batch);
 
+        /* Add the tiler heap to the list of accessed BOs: tiler heap is
+         * written by tiler jobs and read by fragment jobs (the polygon list
+         * is coming from this heap).
+         */
+        panfrost_batch_add_bo(batch, device->tiler_heap,
+                              PAN_BO_ACCESS_SHARED |
+                              PAN_BO_ACCESS_RW |
+                              PAN_BO_ACCESS_VERTEX_TILER |
+                              PAN_BO_ACCESS_FRAGMENT);
+
         /* Take into account a negative bias */
         ctx->vertex_count = draws[0].count + (info->index_size ? abs(info->index_bias) : 0);
         ctx->instance_count = info->instance_count;

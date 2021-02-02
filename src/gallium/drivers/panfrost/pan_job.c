@@ -970,7 +970,7 @@ panfrost_batch_submit_ioctl(struct panfrost_batch *batch,
 
         bo_handles = calloc(panfrost_pool_num_bos(&batch->pool) +
                             panfrost_pool_num_bos(&batch->invisible_pool) +
-                            batch->bos->entries + 1,
+                            batch->bos->entries,
                             sizeof(*bo_handles));
         assert(bo_handles);
 
@@ -981,11 +981,6 @@ panfrost_batch_submit_ioctl(struct panfrost_batch *batch,
         submit.bo_handle_count += panfrost_pool_num_bos(&batch->pool);
         panfrost_pool_get_bo_handles(&batch->invisible_pool, bo_handles + submit.bo_handle_count);
         submit.bo_handle_count += panfrost_pool_num_bos(&batch->invisible_pool);
-
-        /* Used by all tiler jobs, and occasionally by fragment jobs.
-         * (XXX: skip for compute-only) */
-        bo_handles[submit.bo_handle_count++] = dev->tiler_heap->gem_handle;
-
         submit.bo_handles = (u64) (uintptr_t) bo_handles;
         if (ctx->is_noop)
                 ret = 0;
