@@ -1021,9 +1021,17 @@ panfrost_batch_submit_ioctl(struct panfrost_batch *batch,
 static int
 panfrost_batch_submit_jobs(struct panfrost_batch *batch, uint32_t in_sync, uint32_t out_sync)
 {
+        struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
         bool has_draws = batch->scoreboard.first_job;
         bool has_frag = batch->scoreboard.tiler_dep || batch->clear;
         int ret = 0;
+
+        /* Take the submit lock to make sure no tiler jobs from other context
+         * are inserted between our tiler and fragment jobs, failing to do that
+         * might result in tiler heap corruption.
+         */
+        if (has_draws && has_frag)
+                pthread_mutex_lock(&dev->submit_lock);
 
         if (has_draws) {
                 ret = panfrost_batch_submit_ioctl(batch, batch->scoreboard.first_job,
@@ -1046,6 +1054,9 @@ panfrost_batch_submit_jobs(struct panfrost_batch *batch, uint32_t in_sync, uint3
                                                   out_sync);
                 assert(!ret);
         }
+
+        if (has_draws && has_frag)
+                pthread_mutex_unlock(&dev->submit_lock);
 
         return ret;
 }
