@@ -1437,7 +1437,8 @@ radv_image_create_layout(struct radv_device *device,
 
 	assert(image->planes[0].surface.surf_size);
 	assert(ac_modifier_has_dcc(image->planes[0].surface.modifier) ==
-	       radv_image_has_dcc(image));
+	       radv_image_has_dcc(image) ||
+	       image->planes[0].surface.modifier == DRM_FORMAT_MOD_INVALID);
 	return VK_SUCCESS;
 }
 
