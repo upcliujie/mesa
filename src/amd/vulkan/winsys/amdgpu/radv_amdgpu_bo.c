@@ -504,6 +504,7 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws,
 
 	bo->bo = buf_handle;
 	bo->base.initial_domain = initial_domain;
+	bo->base.use_global_list = bo->base.is_local;
 	bo->is_shared = false;
 	bo->priority = priority;
 
@@ -633,6 +634,7 @@ radv_amdgpu_winsys_bo_from_ptr(struct radeon_winsys *_ws,
 	bo->ws = ws;
 	bo->bo = buf_handle;
 	bo->base.initial_domain = RADEON_DOMAIN_GTT;
+	bo->base.use_global_list = false;
 	bo->priority = priority;
 
 	ASSERTED int r = amdgpu_bo_export(buf_handle, amdgpu_bo_handle_type_kms, &bo->bo_handle);
@@ -707,6 +709,7 @@ radv_amdgpu_winsys_bo_from_fd(struct radeon_winsys *_ws,
 	bo->base.va = va;
 	bo->va_handle = va_handle;
 	bo->base.initial_domain = initial;
+	bo->base.use_global_list = false;
 	bo->size = result.alloc_size;
 	bo->is_shared = true;
 	bo->ws = ws;
