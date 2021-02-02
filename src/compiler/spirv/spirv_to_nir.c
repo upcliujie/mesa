@@ -5000,6 +5000,9 @@ vtn_handle_execution_mode(struct vtn_builder *b, struct vtn_value *entry_point,
       /* Handled later by vtn_handle_execution_mode_id(). */
       break;
 
+   case SpvExecutionModeSubgroupUniformControlFlowKHR:
+      break;
+
    default:
       vtn_fail("Unhandled execution mode: %s (%u)",
                spirv_executionmode_to_string(mode->exec_mode),
