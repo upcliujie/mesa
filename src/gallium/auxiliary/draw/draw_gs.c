@@ -648,6 +648,8 @@ int draw_geometry_shader_run(struct draw_geometry_shader *shader,
       shader->jit_context->prim_lengths = shader->llvm_prim_lengths;
       shader->jit_context->emitted_vertices = shader->llvm_emitted_vertices;
       shader->jit_context->emitted_prims = shader->llvm_emitted_primitives;
+
+      shader->jit_context->aniso_filter_table = lp_build_sample_aniso_filter_table();
    }
 #endif
 
