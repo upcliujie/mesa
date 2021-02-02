@@ -469,7 +469,13 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws,
 		request.flags |= AMDGPU_GEM_CREATE_EXPLICIT_SYNC;
 	if (flags & RADEON_FLAG_NO_INTERPROCESS_SHARING &&
 	    ws->info.has_local_buffers &&
-	    (ws->use_local_bos || (flags & RADEON_FLAG_RESIDENT))) {
+	    (ws->use_local_bos ||
+	     /* Only make BOs always resident on dGPU because on APU the total
+	      * memory (VRAM+GTT) is rather small and can cause troubles. This
+	      * is because VM_ALWAYS_VALID means that all BOs must fit in
+	      * memory (VRAM+GTT) for each submission.
+	      */
+	     (ws->info.has_dedicated_vram && (flags & RADEON_FLAG_RESIDENT)))) {
 		bo->base.is_resident = true;
 		request.flags |= AMDGPU_GEM_CREATE_VM_ALWAYS_VALID;
 	}
@@ -496,6 +502,7 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws,
 
 	bo->bo = buf_handle;
 	bo->base.initial_domain = initial_domain;
+	bo->base.use_global_list = false;
 	bo->is_shared = false;
 	bo->priority = priority;
 

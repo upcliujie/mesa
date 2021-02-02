@@ -165,6 +165,7 @@ struct radeon_winsys_bo {
 	uint64_t va;
 	bool is_resident;
 	bool vram_no_cpu_access;
+	bool use_global_list;
 	enum radeon_bo_domain initial_domain;
 };
 struct radv_winsys_sem_counts {
@@ -371,8 +372,10 @@ static inline void radv_cs_add_buffer(struct radeon_winsys *ws,
 				      struct radeon_cmdbuf *cs,
 				      struct radeon_winsys_bo *bo)
 {
-	/* Do not need to add a BO to the list if it's always resident. */
-	if (bo->is_resident)
+	/* Do not need to add a BO to the list if it's always resident or
+	 * if it's already in the global BO list.
+	 */
+	if (bo->is_resident || bo->use_global_list)
 		return;
 
 	ws->cs_add_buffer(cs, bo);
