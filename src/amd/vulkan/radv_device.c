@@ -2641,6 +2641,8 @@ VkResult radv_CreateDevice(
 			robust_buffer_access = true;
 	}
 
+	robust_buffer_access = true;
+
 	vk_foreach_struct_const(ext, pCreateInfo->pNext) {
 		switch (ext->sType) {
 		case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2: {
