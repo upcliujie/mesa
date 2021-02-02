@@ -1991,6 +1991,12 @@ bool radv_layout_can_fast_clear(const struct radv_device *device,
 	    !radv_layout_dcc_compressed(device, image, layout, in_render_loop, queue_mask))
 		return false;
 
+	if (!(image->usage & (VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+	                      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+	                      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+	                      VK_IMAGE_USAGE_STORAGE_BIT)))
+		return false;
+
 	return layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL &&
 	       queue_mask == (1u << RADV_QUEUE_GENERAL);
 }
@@ -2001,6 +2007,14 @@ bool radv_layout_dcc_compressed(const struct radv_device *device,
 				bool in_render_loop,
 			        unsigned queue_mask)
 {
+	/* If the image is read-only, we can always just keep it compressed */
+	if (!(image->usage & (VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+	                      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+	                      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+	                      VK_IMAGE_USAGE_STORAGE_BIT)) &&
+	    radv_image_has_dcc(image))
+		return false;
+
 	/* Don't compress compute transfer dst, as image stores are not supported. */
 	if ((layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL ||
 	     layout == VK_IMAGE_LAYOUT_GENERAL) &&
