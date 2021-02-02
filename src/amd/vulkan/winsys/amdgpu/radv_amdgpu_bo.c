@@ -496,6 +496,7 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws,
 
 	bo->bo = buf_handle;
 	bo->base.initial_domain = initial_domain;
+	bo->base.use_global_list = false;
 	bo->is_shared = false;
 	bo->priority = priority;
 
