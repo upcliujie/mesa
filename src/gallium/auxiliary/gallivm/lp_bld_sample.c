@@ -887,7 +887,7 @@ lp_build_lod_selector(struct lp_build_sample_context *bld,
                                 (bld->dims > 1)) || cube_rho;
 
          if (bld->static_sampler_state->aniso &&
-             !explicit_lod) {
+             !explicit_lod && !cube_rho) {
             rho = lp_build_pmin(bld, texture_unit, s, t, max_aniso);
             rho_squared = true;
          } else
