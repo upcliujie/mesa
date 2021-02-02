@@ -569,6 +569,25 @@ radv_cmd_buffer_upload_alloc(struct radv_cmd_buffer *cmd_buffer,
 	return true;
 }
 
+/* Allocate memory within as few scalar cache lines as possible */
+static bool
+radv_cmd_buffer_upload_alloc_scalar(struct radv_cmd_buffer *cmd_buffer,
+				    unsigned size,
+				    unsigned *out_offset,
+				    void **ptr)
+{
+	struct radeon_info *rad_info = &cmd_buffer->device->physical_device->rad_info;
+
+	/* Use a more relaxed alignment if this allocation still uses the same
+	 * number of scalar cache lines.
+	 */
+	unsigned line_size = rad_info->chip_class >= GFX10 ? 64 : 32;
+	unsigned gap = align(cmd_buffer->upload.offset, line_size) - cmd_buffer->upload.offset;
+	unsigned alignment = (size & (line_size - 1)) <= gap ? 4 : line_size;
+
+	return radv_cmd_buffer_upload_alloc(cmd_buffer, size, alignment, out_offset, ptr);
+}
+
 bool
 radv_cmd_buffer_upload_data(struct radv_cmd_buffer *cmd_buffer,
 			    unsigned size, unsigned alignment,
@@ -578,6 +597,23 @@ radv_cmd_buffer_upload_data(struct radv_cmd_buffer *cmd_buffer,
 
 	if (!radv_cmd_buffer_upload_alloc(cmd_buffer, size, alignment,
 					  out_offset, (void **)&ptr))
+		return false;
+
+	if (ptr)
+		memcpy(ptr, data, size);
+
+	return true;
+}
+
+static bool
+radv_cmd_buffer_upload_data_scalar(struct radv_cmd_buffer *cmd_buffer,
+				   unsigned size, const void *data,
+				   unsigned *out_offset)
+{
+	uint8_t *ptr;
+
+	if (!radv_cmd_buffer_upload_alloc_scalar(cmd_buffer, size, out_offset,
+						 (void **)&ptr))
 		return false;
 
 	if (ptr)
@@ -2634,9 +2670,9 @@ radv_flush_push_descriptors(struct radv_cmd_buffer *cmd_buffer,
 		(struct radv_descriptor_set *)&descriptors_state->push_set.set;
 	unsigned bo_offset;
 
-	if (!radv_cmd_buffer_upload_data(cmd_buffer, set->header.size, 32,
-					 set->header.mapped_ptr,
-					 &bo_offset))
+	if (!radv_cmd_buffer_upload_data_scalar(cmd_buffer, set->header.size,
+						set->header.mapped_ptr,
+						&bo_offset))
 		return;
 
 	set->header.va = radv_buffer_get_va(cmd_buffer->upload.upload_bo);
@@ -2653,8 +2689,7 @@ radv_flush_indirect_descriptor_sets(struct radv_cmd_buffer *cmd_buffer,
 	uint32_t offset;
 	void *ptr;
 
-	if (!radv_cmd_buffer_upload_alloc(cmd_buffer, size,
-					  256, &offset, &ptr))
+	if (!radv_cmd_buffer_upload_alloc_scalar(cmd_buffer, size, &offset, &ptr))
 		return;
 
 	for (unsigned i = 0; i < MAX_SETS; i++) {
@@ -2797,9 +2832,8 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer,
 	}
 
 	if (need_push_constants) {
-		if (!radv_cmd_buffer_upload_alloc(cmd_buffer, layout->push_constant_size +
-						  16 * layout->dynamic_offset_count,
-						  256, &offset, &ptr))
+		if (!radv_cmd_buffer_upload_alloc_scalar(cmd_buffer, layout->push_constant_size +
+							 16 * layout->dynamic_offset_count, &offset, &ptr))
 			return;
 
 		memcpy(ptr, cmd_buffer->push_constants, layout->push_constant_size);
@@ -2847,8 +2881,8 @@ radv_flush_vertex_descriptors(struct radv_cmd_buffer *cmd_buffer,
 		uint64_t va;
 
 		/* allocate some descriptor state for vertex buffers */
-		if (!radv_cmd_buffer_upload_alloc(cmd_buffer, count * 16, 256,
-						  &vb_offset, &vb_ptr))
+		if (!radv_cmd_buffer_upload_alloc_scalar(cmd_buffer, count * 16,
+							 &vb_offset, &vb_ptr))
 			return;
 
 		for (i = 0; i < count; i++) {
@@ -2969,9 +3003,9 @@ radv_flush_streamout_descriptors(struct radv_cmd_buffer *cmd_buffer)
 		uint64_t va;
 
 		/* Allocate some descriptor state for streamout buffers. */
-		if (!radv_cmd_buffer_upload_alloc(cmd_buffer,
-						  MAX_SO_BUFFERS * 16, 256,
-						  &so_offset, &so_ptr))
+		if (!radv_cmd_buffer_upload_alloc_scalar(cmd_buffer,
+							 MAX_SO_BUFFERS * 16,
+							 &so_offset, &so_ptr))
 			return;
 
 		for (uint32_t i = 0; i < MAX_SO_BUFFERS; i++) {
@@ -4237,9 +4271,8 @@ void radv_meta_push_descriptor_set(
 	push_set->header.size = layout->set[set].layout->size;
 	push_set->header.layout = layout->set[set].layout;
 
-	if (!radv_cmd_buffer_upload_alloc(cmd_buffer, push_set->header.size, 32,
-	                                  &bo_offset,
-	                                  (void**) &push_set->header.mapped_ptr))
+	if (!radv_cmd_buffer_upload_alloc_scalar(cmd_buffer, push_set->header.size,
+	                                  &bo_offset, (void**) &push_set->header.mapped_ptr))
 		return;
 
 	push_set->header.va = radv_buffer_get_va(cmd_buffer->upload.upload_bo);
