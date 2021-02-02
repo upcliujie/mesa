@@ -569,6 +569,26 @@ radv_cmd_buffer_upload_alloc(struct radv_cmd_buffer *cmd_buffer,
 	return true;
 }
 
+/* Allocate memory within as few scalar cache lines as possible */
+static bool
+radv_cmd_buffer_upload_alloc_scalar(struct radv_cmd_buffer *cmd_buffer,
+				    unsigned size,
+				    unsigned *out_offset,
+				    void **ptr)
+{
+	struct radeon_info *rad_info = &cmd_buffer->device->physical_device->rad_info;
+
+	/* Use a more relaxed alignment if this allocation still uses the same
+	 * number of scalar cache lines.
+	 */
+	unsigned line_size = rad_info->chip_class >= GFX10 ? 64 : 32;
+	unsigned gap = align(cmd_buffer->upload.offset, line_size) -
+		       align(cmd_buffer->upload.offset, 4);
+	unsigned alignment = (size & (line_size - 1)) <= gap ? 4 : line_size;
+
+	return radv_cmd_buffer_upload_alloc(cmd_buffer, size, alignment, out_offset, ptr);
+}
+
 bool
 radv_cmd_buffer_upload_data(struct radv_cmd_buffer *cmd_buffer,
 			    unsigned size, unsigned alignment,
@@ -2653,8 +2673,7 @@ radv_flush_indirect_descriptor_sets(struct radv_cmd_buffer *cmd_buffer,
 	uint32_t offset;
 	void *ptr;
 
-	if (!radv_cmd_buffer_upload_alloc(cmd_buffer, size,
-					  256, &offset, &ptr))
+	if (!radv_cmd_buffer_upload_alloc_scalar(cmd_buffer, size, &offset, &ptr))
 		return;
 
 	for (unsigned i = 0; i < MAX_SETS; i++) {
@@ -2797,9 +2816,8 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer,
 	}
 
 	if (need_push_constants) {
-		if (!radv_cmd_buffer_upload_alloc(cmd_buffer, layout->push_constant_size +
-						  16 * layout->dynamic_offset_count,
-						  256, &offset, &ptr))
+		if (!radv_cmd_buffer_upload_alloc_scalar(cmd_buffer, layout->push_constant_size +
+							 16 * layout->dynamic_offset_count, &offset, &ptr))
 			return;
 
 		memcpy(ptr, cmd_buffer->push_constants, layout->push_constant_size);
@@ -2847,8 +2865,8 @@ radv_flush_vertex_descriptors(struct radv_cmd_buffer *cmd_buffer,
 		uint64_t va;
 
 		/* allocate some descriptor state for vertex buffers */
-		if (!radv_cmd_buffer_upload_alloc(cmd_buffer, count * 16, 256,
-						  &vb_offset, &vb_ptr))
+		if (!radv_cmd_buffer_upload_alloc_scalar(cmd_buffer, count * 16,
+							 &vb_offset, &vb_ptr))
 			return;
 
 		for (i = 0; i < count; i++) {
@@ -2969,9 +2987,9 @@ radv_flush_streamout_descriptors(struct radv_cmd_buffer *cmd_buffer)
 		uint64_t va;
 
 		/* Allocate some descriptor state for streamout buffers. */
-		if (!radv_cmd_buffer_upload_alloc(cmd_buffer,
-						  MAX_SO_BUFFERS * 16, 256,
-						  &so_offset, &so_ptr))
+		if (!radv_cmd_buffer_upload_alloc_scalar(cmd_buffer,
+							 MAX_SO_BUFFERS * 16,
+							 &so_offset, &so_ptr))
 			return;
 
 		for (uint32_t i = 0; i < MAX_SO_BUFFERS; i++) {
