@@ -1316,9 +1316,11 @@ void radv_CmdCopyQueryPoolResults(
 	switch (pool->type) {
 	case VK_QUERY_TYPE_OCCLUSION:
 		if (flags & VK_QUERY_RESULT_WAIT_BIT) {
+			unsigned enabled_rb_mask = cmd_buffer->device->physical_device->rad_info.enabled_rb_mask;
+			uint32_t last_enabled_rb = 16 * util_last_bit(enabled_rb_mask);
 			for(unsigned i = 0; i < queryCount; ++i, dest_va += stride) {
 				unsigned query = firstQuery + i;
-				uint64_t src_va = va + query * pool->stride + pool->stride - 4;
+				uint64_t src_va = va + query * pool->stride + last_enabled_rb - 4;
 
 				radeon_check_space(cmd_buffer->device->ws, cs, 7);
 
