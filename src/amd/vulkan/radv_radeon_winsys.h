@@ -61,7 +61,7 @@ enum radeon_bo_flag { /* bitfield */
 	RADEON_FLAG_NO_INTERPROCESS_SHARING = (1 << 6),
 	RADEON_FLAG_READ_ONLY =     (1 << 7),
 	RADEON_FLAG_32BIT =         (1 << 8),
-	RADEON_FLAG_PREFER_LOCAL_BO = (1 << 9),
+	RADEON_FLAG_RESIDENT = (1 << 9),
 	RADEON_FLAG_ZERO_VRAM = (1 << 10),
 };
 
@@ -163,7 +163,7 @@ struct radeon_winsys_ctx;
 
 struct radeon_winsys_bo {
 	uint64_t va;
-	bool is_local;
+	bool is_resident;
 	bool vram_no_cpu_access;
 	enum radeon_bo_domain initial_domain;
 };
@@ -371,7 +371,8 @@ static inline void radv_cs_add_buffer(struct radeon_winsys *ws,
 				      struct radeon_cmdbuf *cs,
 				      struct radeon_winsys_bo *bo)
 {
-	if (bo->is_local)
+	/* Do not need to add a BO to the list if it's always resident. */
+	if (bo->is_resident)
 		return;
 
 	ws->cs_add_buffer(cs, bo);

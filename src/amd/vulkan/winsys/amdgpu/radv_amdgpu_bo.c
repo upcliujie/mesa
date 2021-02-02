@@ -469,8 +469,8 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws,
 		request.flags |= AMDGPU_GEM_CREATE_EXPLICIT_SYNC;
 	if (flags & RADEON_FLAG_NO_INTERPROCESS_SHARING &&
 	    ws->info.has_local_buffers &&
-	    (ws->use_local_bos || (flags & RADEON_FLAG_PREFER_LOCAL_BO))) {
-		bo->base.is_local = true;
+	    (ws->use_local_bos || (flags & RADEON_FLAG_RESIDENT))) {
+		bo->base.is_resident = true;
 		request.flags |= AMDGPU_GEM_CREATE_VM_ALWAYS_VALID;
 	}
 
@@ -788,7 +788,7 @@ radv_amdgpu_bo_get_flags_from_fd(struct radeon_winsys *_ws, int fd,
 	if (info.alloc_flags & AMDGPU_GEM_CREATE_CPU_GTT_USWC)
 		*flags |= RADEON_FLAG_GTT_WC;
 	if (info.alloc_flags & AMDGPU_GEM_CREATE_VM_ALWAYS_VALID)
-		*flags |= RADEON_FLAG_NO_INTERPROCESS_SHARING | RADEON_FLAG_PREFER_LOCAL_BO;
+		*flags |= RADEON_FLAG_NO_INTERPROCESS_SHARING | RADEON_FLAG_RESIDENT;
 	if (info.alloc_flags & AMDGPU_GEM_CREATE_VRAM_CLEARED)
 		*flags |= RADEON_FLAG_ZERO_VRAM;
 	return true;

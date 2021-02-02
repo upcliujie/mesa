@@ -2459,7 +2459,8 @@ VkResult radv_bo_list_add(struct radv_device *device,
 {
 	struct radv_bo_list *bo_list = &device->bo_list;
 
-	if (bo->is_local)
+	/* Do not need to add a BO to the global list if it's always resident. */
+	if (bo->is_resident)
 		return VK_SUCCESS;
 
 	if (unlikely(!device->use_global_bo_list))
@@ -2489,7 +2490,7 @@ void radv_bo_list_remove(struct radv_device *device,
 {
 	struct radv_bo_list *bo_list = &device->bo_list;
 
-	if (bo->is_local)
+	if (bo->is_resident)
 		return;
 
 	if (unlikely(!device->use_global_bo_list))
@@ -5352,7 +5353,7 @@ static VkResult radv_alloc_memory(struct radv_device *device,
 		if (!dedicate_info && !import_info && (!export_info || !export_info->handleTypes)) {
 			flags |= RADEON_FLAG_NO_INTERPROCESS_SHARING;
 			if (device->use_global_bo_list) {
-				flags |= RADEON_FLAG_PREFER_LOCAL_BO;
+				flags |= RADEON_FLAG_RESIDENT;
 			}
 		}
 
