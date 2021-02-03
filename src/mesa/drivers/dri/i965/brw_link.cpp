@@ -285,6 +285,9 @@ brw_link_shader(struct gl_context *ctx, struct gl_shader_program *shProg)
       brw_nir_lower_resources(prog->nir, shProg, prog, &brw->screen->devinfo);
 
       NIR_PASS_V(prog->nir, brw_nir_lower_gl_images, prog);
+
+      NIR_PASS_V(prog->nir, brw_nir_lower_storage_image_late,
+                 &brw->screen->devinfo);
    }
 
    /* Determine first and last stage. */
