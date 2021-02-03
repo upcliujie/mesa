@@ -203,25 +203,23 @@ v3d_general_tmu_op(nir_intrinsic_instr *instr)
 }
 
 /**
- * Checks if pipelining a new TMU operation requiring 'components' LDTMUs and
- * 'writes' TMU register writes would overflow any of the TMU fifos.
+ * Checks if pipelining a new TMU operation requiring 'components' LDTMUs
+ * would overflow the Output TMU fifo.
+ *
+ * It is not allowed to overflow the Output fifo, however, we can overflow
+ * Input and Config fifos. Doing that makes the shader stall, but only for as
+ * long as it needs to be able to continue so it is better for pipelining to
+ * let the QPU stall on these if needed than trying to emit TMU flushes in the
+ * driver.
  */
 bool
-ntq_tmu_fifo_overflow(struct v3d_compile *c,
-                      uint32_t components,
-                      uint32_t writes)
+ntq_tmu_fifo_overflow(struct v3d_compile *c, uint32_t components)
 {
-        if (c->tmu.input_fifo_size + writes > 16 / c->threads)
+        if (c->tmu.flush_count >= MAX_TMU_QUEUE_SIZE)
                 return true;
 
-        /* Output and Config fifos are only involved with TMU lookups */
-        if (components > 0 &&
-            (c->tmu.config_fifo_size + 1 > 8 / c->threads ||
-             c->tmu.output_fifo_size + components > 16 / c->threads)) {
-                return true;
-        }
-
-        return false;
+        return components > 0 &&
+               c->tmu.output_fifo_size + components > 16 / c->threads;
 }
 
 /**
@@ -254,8 +252,6 @@ ntq_flush_tmu(struct v3d_compile *c)
                 }
         }
 
-        c->tmu.input_fifo_size = 0;
-        c->tmu.config_fifo_size = 0;
         c->tmu.output_fifo_size = 0;
         c->tmu.flush_count = 0;
 }
@@ -268,17 +264,13 @@ ntq_flush_tmu(struct v3d_compile *c)
 void
 ntq_add_pending_tmu_flush(struct v3d_compile *c,
                           nir_dest *dest,
-                          uint32_t component_mask,
-                          uint32_t tmu_writes)
+                          uint32_t component_mask)
 {
         const uint32_t num_components = util_bitcount(component_mask);
-        assert(!ntq_tmu_fifo_overflow(c, num_components, tmu_writes));
+        assert(!ntq_tmu_fifo_overflow(c, num_components));
 
-        c->tmu.input_fifo_size += tmu_writes;
-        if (num_components > 0) {
-                c->tmu.config_fifo_size += 1;
+        if (num_components > 0)
                 c->tmu.output_fifo_size += num_components;
-        }
 
         c->tmu.flush[c->tmu.flush_count].dest = dest;
         c->tmu.flush[c->tmu.flush_count].component_mask = component_mask;
@@ -541,14 +533,14 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
         }
 
         /* We are ready to emit TMU register writes now, but before we actually
-         * emit them we need to know the amount of writes we will require
-         * and we need to flush outstanding TMU operations if any of the writes
-         * reads from the result of an outstanding TMU operation before we emit
-         * any of the writes for the current operation to avoid corrupting its
-         * TMU sequence. To do this we run this logic twice, the first time
-         * it will count register writes and flush pending TMU requests if
-         * necessary due to a dependency, and the second one will emit the
-         * actual TMU writes.
+         * emit them we need to flush outstanding TMU operations if any of our
+         * writes reads from the result of an outstanding TMU operation before
+         * we start the TMU sequence for this operation, since otherwise the
+         * flush could happen in the middle of the TMU sequence we are about to
+         * emit, which is illegal. To do this we run this logic twice, the
+         * first time it will count required register writes and flush pending
+         * TMU requests if necessary due to a dependency, and the second one
+         * will emit the actual TMU writes.
          */
         const uint32_t dest_components = nir_intrinsic_dest_components(instr);
         uint32_t base_const_offset = const_offset;
@@ -620,7 +612,7 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
                                 /* If pipelining this TMU operation would
                                  * overflow TMU fifos, we need to flush.
                                  */
-                                if (ntq_tmu_fifo_overflow(c, dest_components, tmu_writes))
+                                if (ntq_tmu_fifo_overflow(c, dest_components))
                                         ntq_flush_tmu(c);
                         } else {
                                 /* Delay emission of the thread switch and
@@ -630,8 +622,7 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
                                 const uint32_t component_mask =
                                         (1 << dest_components) - 1;
                                 ntq_add_pending_tmu_flush(c, &instr->dest,
-                                                          component_mask,
-                                                          tmu_writes);
+                                                          component_mask);
                         }
                 }
         } while (is_store && writemask != 0);
