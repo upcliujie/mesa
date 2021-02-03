@@ -488,8 +488,11 @@ void collect_preasm_stats(Program *program)
       for (unsigned pred : block.linear_preds)
          block_est.join(blocks[pred]);
 
-      for (aco_ptr<Instruction>& instr : block.instructions)
+      for (aco_ptr<Instruction>& instr : block.instructions) {
+         unsigned before = block_est.cur_cycle;
          block_est.add(instr);
+         instr->pass_flags = block_est.cur_cycle - before;
+      }
 
       /* TODO: it would be nice to be able to consider estimated loop trip
        * counts used for loop unrolling.
@@ -537,6 +540,24 @@ void collect_preasm_stats(Program *program)
 
    program->statistics[statistic_latency] = round(latency);
    program->statistics[statistic_inv_throughput] = round(1.0 / wave64_per_cycle);
+
+   if (debug_flags & DEBUG_PERF_INFO) {
+      aco_print_program(program, stderr, print_no_ssa | print_perf_info);
+
+      printf("num_waves: %u\n", program->num_waves);
+      printf("salu_smem_usage: %f\n", usage[(int)BlockCycleEstimator::scalar]);
+      printf("branch_sendmsg_usage: %f\n", usage[(int)BlockCycleEstimator::branch_sendmsg]);
+      printf("valu_usage: %f\n", usage[(int)BlockCycleEstimator::valu]);
+      printf("valu_complex_usage: %f\n", usage[(int)BlockCycleEstimator::valu_complex]);
+      printf("lds_usage: %f\n", usage[(int)BlockCycleEstimator::lds]);
+      printf("export_gds_usage: %f\n", usage[(int)BlockCycleEstimator::export_gds]);
+      printf("vmem_usage: %f\n", usage[(int)BlockCycleEstimator::vmem]);
+      printf("latency: %f\n", latency);
+      printf("parallelism: %f\n", parallelism);
+      printf("max_utilization: %f\n", max_utilization);
+      printf("wave64_per_cycle: %f\n", wave64_per_cycle);
+      printf("\n");
+   }
 }
 
 void collect_postasm_stats(Program *program, const std::vector<uint32_t>& code)
