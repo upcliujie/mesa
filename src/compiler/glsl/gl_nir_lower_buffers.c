@@ -29,6 +29,10 @@
 #include "util/compiler.h"
 #include "main/mtypes.h"
 
+struct lower_buffers_args {
+   const struct gl_shader_program *shader_program;
+};
+
 static nir_ssa_def *
 get_block_array_index(nir_builder *b, nir_deref_instr *deref,
                       const struct gl_shader_program *shader_program)
@@ -157,169 +161,151 @@ get_block_index_offset(nir_variable *var,
 }
 
 static bool
-lower_buffer_interface_derefs_impl(nir_function_impl *impl,
-                                   const struct gl_shader_program *shader_program)
+lower_buffers_instr(nir_builder *b, nir_instr *instr, void *_args)
 {
-   bool progress = false;
+   const struct lower_buffers_args *args = _args;
 
-   nir_builder b;
-   nir_builder_init(&b, impl);
+   switch (instr->type) {
+   case nir_instr_type_deref: {
+      nir_deref_instr *deref = nir_instr_as_deref(instr);
+      if (!nir_deref_mode_is_one_of(deref, nir_var_mem_ubo | nir_var_mem_ssbo))
+         return false;
 
-   nir_foreach_block(block, impl) {
-      nir_foreach_instr_safe(instr, block) {
-         switch (instr->type) {
-         case nir_instr_type_deref: {
-            nir_deref_instr *deref = nir_instr_as_deref(instr);
-            if (!nir_deref_mode_is_one_of(deref, nir_var_mem_ubo |
-                                                 nir_var_mem_ssbo))
-               break;
+      /* We use nir_address_format_32bit_index_offset */
+      assert(deref->dest.is_ssa);
+      assert(deref->dest.ssa.bit_size == 32);
+      deref->dest.ssa.num_components = 2;
 
-            /* We use nir_address_format_32bit_index_offset */
-            assert(deref->dest.is_ssa);
-            assert(deref->dest.ssa.bit_size == 32);
-            deref->dest.ssa.num_components = 2;
+      b->cursor = nir_before_instr(&deref->instr);
 
-            progress = true;
+      unsigned offset = 0;
+      nir_ssa_def *index;
+      if (deref->deref_type == nir_deref_type_var &&
+          !glsl_type_is_interface(glsl_without_array(deref->var->type))) {
+         /* This variable is contained in an interface block rather than
+          * containing one.  We need the block index and its offset
+          * inside that block
+          */
+         unsigned index_imm;
+         get_block_index_offset(deref->var, args->shader_program,
+                                b->shader->info.stage,
+                                &index_imm, &offset);
+         index = nir_imm_int(b, index_imm);
+      } else if (glsl_type_is_interface(deref->type)) {
+         /* This is the last deref before the block boundary.
+          * Everything after this point is a byte offset and will be
+          * handled by nir_lower_explicit_io().
+          */
+         index = get_block_array_index(b, deref, args->shader_program);
+      } else {
+         /* This will get handled by nir_lower_explicit_io(). */
+         return false;
+      }
 
-            b.cursor = nir_before_instr(&deref->instr);
+      nir_ssa_def *ptr = nir_vec2(b, index, nir_imm_int(b, offset));
 
-            unsigned offset = 0;
-            nir_ssa_def *index;
-            if (deref->deref_type == nir_deref_type_var &&
-                !glsl_type_is_interface(glsl_without_array(deref->var->type))) {
-               /* This variable is contained in an interface block rather than
-                * containing one.  We need the block index and its offset
-                * inside that block
-                */
-               unsigned index_imm;
-               get_block_index_offset(deref->var, shader_program,
-                                      b.shader->info.stage,
-                                      &index_imm, &offset);
-               index = nir_imm_int(&b, index_imm);
-            } else if (glsl_type_is_interface(deref->type)) {
-               /* This is the last deref before the block boundary.
-                * Everything after this point is a byte offset and will be
-                * handled by nir_lower_explicit_io().
-                */
-               index = get_block_array_index(&b, deref, shader_program);
-            } else {
-               /* This will get handled by nir_lower_explicit_io(). */
-               break;
-            }
+      nir_deref_instr *cast = nir_build_deref_cast(b, ptr, deref->modes,
+                                                   deref->type, 0);
+      /* Set the alignment on the cast so that we get good alignment out
+       * of nir_lower_explicit_io.  Our offset to the start of the UBO
+       * variable is always a constant, so we can use the maximum
+       * align_mul.
+       */
+      cast->cast.align_mul = NIR_ALIGN_MUL_MAX;
+      cast->cast.align_offset = offset % NIR_ALIGN_MUL_MAX;
 
-            nir_ssa_def *ptr = nir_vec2(&b, index, nir_imm_int(&b, offset));
+      nir_ssa_def_rewrite_uses(&deref->dest.ssa,
+                               nir_src_for_ssa(&cast->dest.ssa));
+      nir_deref_instr_remove_if_unused(deref);
+      return true;
+   }
 
-            nir_deref_instr *cast = nir_build_deref_cast(&b, ptr, deref->modes,
-                                                         deref->type, 0);
-            /* Set the alignment on the cast so that we get good alignment out
-             * of nir_lower_explicit_io.  Our offset to the start of the UBO
-             * variable is always a constant, so we can use the maximum
-             * align_mul.
-             */
-            cast->cast.align_mul = NIR_ALIGN_MUL_MAX;
-            cast->cast.align_offset = offset % NIR_ALIGN_MUL_MAX;
+   case nir_instr_type_intrinsic: {
+      nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+      switch (intrin->intrinsic) {
+      case nir_intrinsic_load_deref: {
+         nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+         if (!nir_deref_mode_is_one_of(deref, nir_var_mem_ubo |
+                                              nir_var_mem_ssbo))
+            return false;
 
-            nir_ssa_def_rewrite_uses(&deref->dest.ssa,
-                                     nir_src_for_ssa(&cast->dest.ssa));
-            nir_deref_instr_remove_if_unused(deref);
-            break;
+         /* UBO and SSBO Booleans are 32-bit integers where any non-zero
+          * value is considered true.  NIR Booleans, on the other hand
+          * are 1-bit values until you get to a very late stage of the
+          * compilation process.  We need to turn those 1-bit loads into
+          * a 32-bit load wrapped in an i2b to get a proper NIR boolean
+          * from the SSBO.
+          */
+         if (glsl_type_is_boolean(deref->type)) {
+            assert(intrin->dest.is_ssa);
+            b->cursor = nir_after_instr(&intrin->instr);
+            intrin->dest.ssa.bit_size = 32;
+            nir_ssa_def *bval = nir_i2b(b, &intrin->dest.ssa);
+            nir_ssa_def_rewrite_uses_after(&intrin->dest.ssa,
+                                           nir_src_for_ssa(bval),
+                                           bval->parent_instr);
+            return true;
          }
+         return false;
+      }
 
-         case nir_instr_type_intrinsic: {
-            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
-            switch (intrin->intrinsic) {
-            case nir_intrinsic_load_deref: {
-               nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-               if (!nir_deref_mode_is_one_of(deref, nir_var_mem_ubo |
-                                                    nir_var_mem_ssbo))
-                  break;
+      case nir_intrinsic_store_deref: {
+         nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+         if (!nir_deref_mode_is_one_of(deref, nir_var_mem_ubo |
+                                              nir_var_mem_ssbo))
+            return false;
 
-               /* UBO and SSBO Booleans are 32-bit integers where any non-zero
-                * value is considered true.  NIR Booleans, on the other hand
-                * are 1-bit values until you get to a very late stage of the
-                * compilation process.  We need to turn those 1-bit loads into
-                * a 32-bit load wrapped in an i2b to get a proper NIR boolean
-                * from the SSBO.
-                */
-               if (glsl_type_is_boolean(deref->type)) {
-                  assert(intrin->dest.is_ssa);
-                  b.cursor = nir_after_instr(&intrin->instr);
-                  intrin->dest.ssa.bit_size = 32;
-                  nir_ssa_def *bval = nir_i2b(&b, &intrin->dest.ssa);
-                  nir_ssa_def_rewrite_uses_after(&intrin->dest.ssa,
-                                                 nir_src_for_ssa(bval),
-                                                 bval->parent_instr);
-                  progress = true;
-               }
-               break;
-            }
-
-            case nir_intrinsic_store_deref: {
-               nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-               if (!nir_deref_mode_is_one_of(deref, nir_var_mem_ubo |
-                                                    nir_var_mem_ssbo))
-                  break;
-
-               /* SSBO Booleans are 32-bit integers where any non-zero value
-                * is considered true.  NIR Booleans, on the other hand are
-                * 1-bit values until you get to a very late stage of the
-                * compilation process.  We need to turn those 1-bit stores
-                * into a b2i32 followed by a 32-bit store.  Technically the
-                * value we write doesn't have to be 0/1 so once Booleans are
-                * lowered to 32-bit values, we have an unneeded sanitation
-                * step but in practice it doesn't cost much.
-                */
-               if (glsl_type_is_boolean(deref->type)) {
-                  assert(intrin->src[1].is_ssa);
-                  b.cursor = nir_before_instr(&intrin->instr);
-                  nir_ssa_def *ival = nir_b2i32(&b, intrin->src[1].ssa);
-                  nir_instr_rewrite_src(&intrin->instr, &intrin->src[1],
-                                        nir_src_for_ssa(ival));
-                  progress = true;
-               }
-               break;
-            }
-
-            case nir_intrinsic_copy_deref:
-               unreachable("copy_deref should be lowered by now");
-               break;
-
-            default:
-               /* Nothing to do */
-               break;
-            }
-            break;
+         /* SSBO Booleans are 32-bit integers where any non-zero value
+          * is considered true.  NIR Booleans, on the other hand are
+          * 1-bit values until you get to a very late stage of the
+          * compilation process.  We need to turn those 1-bit stores
+          * into a b2i32 followed by a 32-bit store.  Technically the
+          * value we write doesn't have to be 0/1 so once Booleans are
+          * lowered to 32-bit values, we have an unneeded sanitation
+          * step but in practice it doesn't cost much.
+          */
+         if (glsl_type_is_boolean(deref->type)) {
+            assert(intrin->src[1].is_ssa);
+            b->cursor = nir_before_instr(&intrin->instr);
+            nir_ssa_def *ival = nir_b2i32(b, intrin->src[1].ssa);
+            nir_instr_rewrite_src(&intrin->instr, &intrin->src[1],
+                                  nir_src_for_ssa(ival));
+            return true;
          }
+         return false;
+      }
 
-         default:
-            break; /* Nothing to do */
-         }
+      case nir_intrinsic_copy_deref:
+         unreachable("copy_deref should be lowered by now");
+         return false;
+
+      default:
+         /* Nothing to do */
+         return false;
       }
    }
 
-   if (progress) {
-      nir_metadata_preserve(impl, nir_metadata_block_index |
-                                  nir_metadata_dominance);
+   default:
+      return false;
    }
-
-   return progress;
 }
 
 bool
 gl_nir_lower_buffers(nir_shader *shader,
                      const struct gl_shader_program *shader_program)
 {
-   bool progress = false;
+   struct lower_buffers_args args = {
+      .shader_program = shader_program,
+   };
 
    /* First, we lower the derefs to turn block variable and array derefs into
     * a nir_address_format_32bit_index_offset pointer.  From there forward,
     * we leave the derefs in place and let nir_lower_explicit_io handle them.
     */
-   nir_foreach_function(function, shader) {
-      if (function->impl &&
-          lower_buffer_interface_derefs_impl(function->impl, shader_program))
-         progress = true;
-   }
+   bool progress = nir_shader_instructions_pass(shader, lower_buffers_instr,
+                                                nir_metadata_block_index |
+                                                nir_metadata_dominance,
+                                                &args);
 
    /* If that did something, we validate and then call nir_lower_explicit_io
     * to finish the process.
