@@ -127,6 +127,10 @@ void
 fd6_vsc_update_sizes(struct fd_batch *batch, const struct pipe_draw_info *info,
                      const struct pipe_draw_start_count *draw)
 {
+	/* If we are using an indirect draw count, skip guessing the VSC size. */
+	if (!draw->count)
+		return;
+
 	if (!batch->num_bins_per_pipe) {
 		batch->num_bins_per_pipe = fd_gmem_estimate_bins_per_pipe(batch);
 
