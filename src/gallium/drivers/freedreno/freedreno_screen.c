@@ -406,8 +406,6 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 		if (is_ir3(screen))
 			return PIPE_MAX_SO_BUFFERS;
 		return 0;
-	case PIPE_CAP_STREAM_OUTPUT_PAUSE_RESUME:
-	case PIPE_CAP_STREAM_OUTPUT_INTERLEAVE_BUFFERS:
 	case PIPE_CAP_TGSI_FS_POSITION_IS_SYSVAL:
 	case PIPE_CAP_TGSI_TEXCOORD:
 		if (is_ir3(screen))
