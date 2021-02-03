@@ -587,6 +587,11 @@ struct v3d_compile {
 
         /* TMU pipelining tracking */
         struct {
+                /* NIR registers that have been updated with a TMU operation
+                 * that has not been flushed yet.
+                 */
+                struct hash_table *regs_ht;
+
                 uint32_t output_fifo_size;
 
                 struct {

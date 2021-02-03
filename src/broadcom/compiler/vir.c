@@ -540,7 +540,8 @@ vir_compile_init(const struct v3d_compiler *compiler,
 
         c->def_ht = _mesa_hash_table_create(c, _mesa_hash_pointer,
                                             _mesa_key_pointer_equal);
-
+        c->tmu.regs_ht = _mesa_hash_table_create(c, _mesa_hash_pointer,
+                                                 _mesa_key_pointer_equal);
         return c;
 }
 
