@@ -155,6 +155,43 @@ lp_build_packed_ddx_ddy_twocoord(struct lp_build_context *bld,
       return LLVMBuildSub(builder, vec2, vec1, "ddxddyddxddy");
 }
 
+LLVMValueRef
+lp_build_packed_ddx_ddy_twocoord_aniso(struct lp_build_context *bld,
+				       LLVMValueRef a, LLVMValueRef b)
+{
+   struct gallivm_state *gallivm = bld->gallivm;
+   LLVMBuilderRef builder = gallivm->builder;
+   LLVMValueRef shuffles1[LP_MAX_VECTOR_LENGTH/4];
+   LLVMValueRef shuffles2[LP_MAX_VECTOR_LENGTH/4];
+   LLVMValueRef vec1, vec2;
+   unsigned length, num_quads, i;
+
+   /* XXX: do hsub version */
+   length = bld->type.length;
+   num_quads = length / 4;
+   for (i = 0; i < num_quads; i++) {
+      unsigned s1 = 4 * i;
+      unsigned s2 = 4 * i + length;
+      shuffles1[4*i + 0] = lp_build_const_int32(gallivm, LP_BLD_QUAD_BOTTOM_LEFT + s1);
+      shuffles1[4*i + 1] = lp_build_const_int32(gallivm, LP_BLD_QUAD_BOTTOM_LEFT + s1);
+      shuffles1[4*i + 2] = lp_build_const_int32(gallivm, LP_BLD_QUAD_BOTTOM_LEFT + s2);
+      shuffles1[4*i + 3] = lp_build_const_int32(gallivm, LP_BLD_QUAD_BOTTOM_LEFT + s2);
+      shuffles2[4*i + 0] = lp_build_const_int32(gallivm, LP_BLD_QUAD_BOTTOM_RIGHT + s1);
+      shuffles2[4*i + 1] = lp_build_const_int32(gallivm, LP_BLD_QUAD_TOP_LEFT + s1);
+      shuffles2[4*i + 2] = lp_build_const_int32(gallivm, LP_BLD_QUAD_BOTTOM_RIGHT + s2);
+      shuffles2[4*i + 3] = lp_build_const_int32(gallivm, LP_BLD_QUAD_TOP_LEFT + s2);
+   }
+   vec1 = LLVMBuildShuffleVector(builder, a, b,
+                                 LLVMConstVector(shuffles1, length), "");
+   vec2 = LLVMBuildShuffleVector(builder, a, b,
+                                 LLVMConstVector(shuffles2, length), "");
+   if (bld->type.floating)
+      return LLVMBuildFSub(builder, vec2, vec1, "ddxddyddxddy");
+   else
+      return LLVMBuildSub(builder, vec2, vec1, "ddxddyddxddy");
+}
+
+
 
 /**
  * Twiddle from quad format to row format

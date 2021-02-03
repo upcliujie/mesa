@@ -98,4 +98,7 @@ lp_bld_quad_twiddle(struct gallivm_state *gallivm,
                     unsigned src_count,
                     LLVMValueRef* dst);
 
+LLVMValueRef
+lp_build_packed_ddx_ddy_twocoord_aniso(struct lp_build_context *bld,
+				       LLVMValueRef a, LLVMValueRef b);
 #endif /* LP_BLD_QUAD_H_ */

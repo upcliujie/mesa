@@ -2076,7 +2076,7 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
    struct lp_build_context *coord_bld = &bld->coord_bld;
    struct lp_build_context *int_size_bld = &bld->int_size_in_bld;
    struct lp_build_context *float_size_bld = &bld->float_size_in_bld;
-   LLVMValueRef ddx_ddy = lp_build_packed_ddx_ddy_twocoord(&bld->coord_bld, coords[0], coords[1]);
+   LLVMValueRef ddx_ddy = lp_build_packed_ddx_ddy_twocoord_aniso(&bld->coord_bld, coords[0], coords[1]);
    LLVMValueRef int_size, float_size;
    LLVMValueRef first_level, first_level_vec;
    LLVMTypeRef i32t = LLVMInt32TypeInContext(gallivm->context);
