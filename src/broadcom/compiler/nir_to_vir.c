@@ -740,8 +740,10 @@ ntq_store_dest(struct v3d_compile *c, nir_dest *dest, int chan,
  * required to read the TMU results until the results are actually used to
  * improve pipelining, which then would lead to us not finding them here,
  * meaning that this is as far as we can postpone that part of the TMU
- * operation. So, if we ever fail to find a definition here, flush any
- * outstanding TMU operations and try again one more time.
+ * operation. So, if we ever fail to find an SSA definition here, flush any
+ * outstanding TMU operations and try again one more time. For registers,
+ * we always need to flush, since they could be written more than once
+ * and we may find a previous definition with an old value.
  */
 struct qreg
 ntq_get_src(struct v3d_compile *c, nir_src src, int i)
@@ -761,11 +763,8 @@ ntq_get_src(struct v3d_compile *c, nir_src src, int i)
                 assert(src.reg.base_offset == 0);
                 assert(i < reg->num_components);
 
+                ntq_flush_tmu(c);
                 entry = _mesa_hash_table_search(c->def_ht, reg);
-                if (!entry) {
-                        ntq_flush_tmu(c);
-                        entry = _mesa_hash_table_search(c->def_ht, reg);
-                }
         }
         assert(entry);
 
