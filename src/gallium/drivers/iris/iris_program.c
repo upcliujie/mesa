@@ -2230,6 +2230,7 @@ iris_create_uncompiled_shader(struct iris_screen *screen,
    NIR_PASS_V(nir, brw_nir_lower_storage_image, devinfo,
               &ish->uses_atomic_load_store);
    NIR_PASS_V(nir, iris_lower_storage_image_derefs);
+   NIR_PASS_V(nir, brw_nir_lower_storage_image, devinfo, NULL);
 
    nir_sweep(nir);
 
