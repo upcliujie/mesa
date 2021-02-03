@@ -322,7 +322,8 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 	 */
 	emit_marker6(ring, 7);
 
-	if (indirect && indirect->buffer) {
+	if (indirect) {
+		assert(indirect->buffer);
 		draw_emit_indirect(ring, &draw0, info, indirect, index_offset);
 	} else {
 		draw_emit(ring, &draw0, info, draw, index_offset);
