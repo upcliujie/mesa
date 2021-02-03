@@ -125,6 +125,8 @@ bool brw_nir_lower_scoped_barriers(nir_shader *nir);
 bool brw_nir_lower_storage_image_early(nir_shader *nir,
                                        const struct intel_device_info *devinfo,
                                        bool *uses_atomic_load_store);
+bool brw_nir_lower_storage_image_late(nir_shader *nir,
+                                      const struct intel_device_info *devinfo);
 void brw_nir_rewrite_image_intrinsic(nir_intrinsic_instr *intrin,
                                      nir_ssa_def *index);
 void brw_nir_rewrite_bindless_image_intrinsic(nir_intrinsic_instr *intrin,
