@@ -2208,10 +2208,6 @@ tu_pipeline_builder_parse_dynamic(struct tu_pipeline_builder *builder,
    if (!dynamic_info)
       return;
 
-   pipeline->gras_su_cntl_mask = ~0u;
-   pipeline->rb_depth_cntl_mask = ~0u;
-   pipeline->rb_stencil_cntl_mask = ~0u;
-
    for (uint32_t i = 0; i < dynamic_info->dynamicStateCount; i++) {
       VkDynamicState state = dynamic_info->pDynamicStates[i];
       switch (state) {
@@ -2716,6 +2712,10 @@ tu_pipeline_builder_build(struct tu_pipeline_builder *builder,
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    (*pipeline)->layout = builder->layout;
+
+   (*pipeline)->gras_su_cntl_mask = ~0u;
+   (*pipeline)->rb_depth_cntl_mask = ~0u;
+   (*pipeline)->rb_stencil_cntl_mask = ~0u;
 
    /* compile and upload shaders */
    result = tu_pipeline_builder_compile_shaders(builder, *pipeline);
