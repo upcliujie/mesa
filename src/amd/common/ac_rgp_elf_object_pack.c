@@ -360,7 +360,7 @@ struct ac_rgp_elf_note_msgpack_hdr {
 void
 ac_rgp_file_write_elf_object(FILE *output, size_t file_elf_start,
                              struct rgp_code_object_record *record,
-                             uint32_t *written_size)
+                             uint32_t *written_size, uint flags)
 {
    Elf64_Ehdr elf_hdr;
    Elf64_Shdr sec_hdr[5];
@@ -383,7 +383,7 @@ ac_rgp_file_write_elf_object(FILE *output, size_t file_elf_start,
    elf_hdr.e_machine = EM_AMDGPU;
    elf_hdr.e_version = EV_CURRENT;
    elf_hdr.e_entry = 0;
-   elf_hdr.e_flags = EF_AMDGPU_MACH_AMDGCN_GFX902;
+   elf_hdr.e_flags = flags;
    elf_hdr.e_shstrndx = 1; /* string table entry is hardcoded to 1*/
    elf_hdr.e_phoff = 0;
    elf_hdr.e_shentsize = sizeof(Elf64_Shdr);
