@@ -774,13 +774,8 @@ radv_amdgpu_get_bo_list(struct radv_amdgpu_winsys *ws,
 			handles[i].bo_priority = extra_bo_array[i]->priority;
 		}
 
-		for (unsigned i = 0; i < count + !!extra_cs; ++i) {
-			struct radv_amdgpu_cs *cs;
-
-			if (i == count)
-				cs = (struct radv_amdgpu_cs*)extra_cs;
-			else
-				cs = (struct radv_amdgpu_cs*)cs_array[i];
+		for (unsigned i = 0; i < count; ++i) {
+			struct radv_amdgpu_cs *cs = (struct radv_amdgpu_cs*)cs_array[i];
 
 			if (!cs->num_buffers)
 				continue;
@@ -840,6 +835,17 @@ radv_amdgpu_get_bo_list(struct radv_amdgpu_winsys *ws,
 					handles[num_handles].bo_priority = bo->priority;
 					++num_handles;
 				}
+			}
+		}
+
+		if (extra_cs) {
+			/* Append the BOs from the preamble CS directly
+			 * because they are not reference by any other CS.
+			 */
+			struct radv_amdgpu_cs *cs = (struct radv_amdgpu_cs*)extra_cs;
+			for (unsigned i = 0; i < cs->num_buffers; ++i) {
+				handles[num_handles] = cs->handles[i];
+				++num_handles;
 			}
 		}
 	}
