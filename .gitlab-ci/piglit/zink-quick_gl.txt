@@ -2115,6 +2115,7 @@ spec/egl_ext_platform_device/conformance/create_pbuffer: skip
 spec/egl_ext_platform_device/conformance/create_pixmap: skip
 spec/egl_ext_platform_device/conformance/create_window: skip
 spec/egl_ext_platform_device/conformance/initialize_display: skip
+spec/egl_ext_protected_content/conformance: skip
 spec/egl_khr_fence_sync/conformance/eglcreatesynckhr_with_display_bound_in_other_thread: skip
 spec/egl_khr_fence_sync/conformance/eglcreatesynckhr_wrong_display_same_thread: skip
 spec/egl_khr_gl_image/egl_khr_gl_renderbuffer_image-clear-shared-image gl_depth_component24: fail
@@ -2677,6 +2678,7 @@ spec/ext_framebuffer_object/fbo-depthtex: fail
 spec/ext_gpu_shader4/bindfragdatalocation mixed-int-float-fbo: skip
 spec/ext_gpu_shader4/bindfragdatalocation mixed-int-float-fbo int_second: skip
 spec/ext_image_dma_buf_import/ext_image_dma_buf_import-export: skip
+spec/ext_image_dma_buf_import/ext_image_dma_buf_import-export-tex: skip
 spec/ext_image_dma_buf_import/ext_image_dma_buf_import-intel_external_sampler_only: skip
 spec/ext_image_dma_buf_import/ext_image_dma_buf_import-invalid_attributes: skip
 spec/ext_image_dma_buf_import/ext_image_dma_buf_import-invalid_hints: skip
@@ -3184,7 +3186,7 @@ summary:
        pass:    18464
        fail:     1213
       crash:       19
-       skip:     1921
+       skip:     1923
     timeout:        0
        warn:        4
  incomplete:        0
@@ -3193,4 +3195,4 @@ summary:
     changes:        0
       fixes:        0
 regressions:        0
-      total:    21644
+      total:    21646
