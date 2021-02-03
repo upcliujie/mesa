@@ -2142,12 +2142,10 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
    ddx_ddy = lp_build_mul(coord_bld, ddx_ddy, scaling);
 
    static const unsigned char swizzle01[] = { /* no-op swizzle */
-      0, 1,
-      LP_BLD_SWIZZLE_DONTCARE, LP_BLD_SWIZZLE_DONTCARE
+      0, 1, 0, 1,
    };
    static const unsigned char swizzle23[] = {
-      2, 3,
-      LP_BLD_SWIZZLE_DONTCARE, LP_BLD_SWIZZLE_DONTCARE
+      2, 3, 2, 3,
    };
 
    LLVMValueRef ddx_ddys, ddx_ddyt;
@@ -2158,15 +2156,30 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
    /* * A*x*x + B*x*y + C*y*y = F.*/
    /* float A = vx*vx+vy*vy+1; */
    LLVMValueRef A = lp_build_mul(coord_bld, ddx_ddyt, ddx_ddyt);
+   static const unsigned char swizzle15[] = { /* no-op swizzle */
+      1, 1, 1, 1, 5, 5, 5, 5
+   };
+   static const unsigned char swizzle04[] = { /* no-op swizzle */
+      0, 0, 0, 0, 4, 4, 4, 4
+   };
+   LLVMValueRef Ay = lp_build_swizzle_aos(coord_bld, A, swizzle15);
+   A = lp_build_add(coord_bld, A, Ay);
    A = lp_build_add(coord_bld, A, coord_bld->one);
+   A = lp_build_swizzle_aos(coord_bld, A, swizzle04);
 
    /* float B = -2*(ux*vx+uy*vy); */
    LLVMValueRef B = lp_build_mul(coord_bld, ddx_ddys, ddx_ddyt);
+   LLVMValueRef By = lp_build_swizzle_aos(coord_bld, B, swizzle15);
+   B = lp_build_add(coord_bld, B, By);
    B = lp_build_mul_imm(coord_bld, B, -2);
+   B = lp_build_swizzle_aos(coord_bld, B, swizzle04);
 
    /* float C = ux*ux+uy*uy+1; */
    LLVMValueRef C = lp_build_mul(coord_bld, ddx_ddys, ddx_ddys);
+   LLVMValueRef Cy = lp_build_swizzle_aos(coord_bld, C, swizzle15);
+   C = lp_build_add(coord_bld, C, Cy);
    C = lp_build_add(coord_bld, C, coord_bld->one);
+   C = lp_build_swizzle_aos(coord_bld, C, swizzle04);
 
    /* float F = A*C-B*B/4.0f; */
    LLVMValueRef F = lp_build_mul(coord_bld, B, B);
@@ -2332,7 +2345,7 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
           * then truncate it.
           */
          LLVMValueRef q_mask = LLVMBuildICmp(builder,
-                                             LLVMIntSLE,
+                                             LLVMIntULE,
                                              q,
                                              lp_build_const_int_vec(gallivm, bld->int_coord_bld.type, 0x3ff), "");
          q_mask = LLVMBuildSExt(builder, q_mask, bld->int_coord_bld.vec_type, "");
