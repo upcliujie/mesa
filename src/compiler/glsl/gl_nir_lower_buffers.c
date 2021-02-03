@@ -31,6 +31,7 @@
 
 struct lower_buffers_args {
    const struct gl_shader_program *shader_program;
+   nir_address_format addr_format;
 };
 
 static nir_ssa_def *
@@ -202,7 +203,27 @@ lower_buffers_instr(nir_builder *b, nir_instr *instr, void *_args)
          return false;
       }
 
-      nir_ssa_def *ptr = nir_vec2(b, index, nir_imm_int(b, offset));
+      nir_ssa_def *ptr;
+      switch (args->addr_format) {
+      case nir_address_format_32bit_index_offset:
+         ptr = nir_vec2(b, index, nir_imm_int(b, offset));
+         break;
+
+      case nir_address_format_64bit_global:
+         ptr = nir_load_ssbo_base_ptr(b, 1, 64, index);
+         break;
+
+      case nir_address_format_64bit_bounded_global:
+         ptr = nir_load_ssbo_base_ptr(b, 1, 64, index);
+         ptr = nir_vec4(b, nir_unpack_64_2x32_split_x(b, ptr),
+                           nir_unpack_64_2x32_split_y(b, ptr),
+                           nir_get_ssbo_size(b, index),
+                           nir_imm_int(b, offset));
+         break;
+
+      default:
+         unreachable("Unsupported address format for GL buffers");
+      }
 
       nir_deref_instr *cast = nir_build_deref_cast(b, ptr, deref->modes,
                                                    deref->type, 0);
@@ -292,10 +313,12 @@ lower_buffers_instr(nir_builder *b, nir_instr *instr, void *_args)
 
 bool
 gl_nir_lower_buffers(nir_shader *shader,
-                     const struct gl_shader_program *shader_program)
+                     const struct gl_shader_program *shader_program,
+                     nir_address_format addr_format)
 {
    struct lower_buffers_args args = {
       .shader_program = shader_program,
+      .addr_format = addr_format,
    };
 
    /* First, we lower the derefs to turn block variable and array derefs into
@@ -313,7 +336,7 @@ gl_nir_lower_buffers(nir_shader *shader,
    if (progress) {
       nir_validate_shader(shader, "Lowering buffer interface derefs");
       nir_lower_explicit_io(shader, nir_var_mem_ubo | nir_var_mem_ssbo,
-                            nir_address_format_32bit_index_offset);
+                            addr_format);
    }
 
    return progress;

@@ -754,6 +754,8 @@ system_value("work_dim", 1)
 system_value("line_width", 1)
 system_value("aa_line_width", 1)
 # BASE=0 for global/shader, BASE=1 for local/function
+intrinsic("load_ssbo_base_ptr", src_comp=[-1], dest_comp=0,
+          indices=[ACCESS], flags=[CAN_ELIMINATE, CAN_REORDER])
 system_value("scratch_base_ptr", 0, bit_sizes=[32,64], indices=[BASE])
 system_value("constant_base_ptr", 0, bit_sizes=[32,64])
 system_value("shared_base_ptr", 0, bit_sizes=[32,64])

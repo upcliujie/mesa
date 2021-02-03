@@ -821,7 +821,8 @@ st_link_nir(struct gl_context *ctx,
       /* This needs to run after the initial pass of nir_lower_vars_to_ssa, so
        * that the buffer indices are constants in nir where they where
        * constants in GLSL. */
-      NIR_PASS_V(nir, gl_nir_lower_buffers, shader_program);
+      NIR_PASS_V(nir, gl_nir_lower_buffers, shader_program,
+                 nir_address_format_32bit_index_offset);
 
       /* Remap the locations to slots so those requiring two slots will occupy
        * two locations. For instance, if we have in the IR code a dvec3 attr0 in
