@@ -588,6 +588,7 @@ struct v3d_compile {
         /* TMU pipelining tracking */
         struct {
                 uint32_t output_fifo_size;
+                struct hash_table *regs_ht;
 
                 struct {
                         nir_dest *dest;
