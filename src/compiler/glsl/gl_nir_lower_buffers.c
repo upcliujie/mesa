@@ -184,30 +184,30 @@ lower_buffer_interface_derefs_impl(nir_function_impl *impl,
             b.cursor = nir_before_instr(&deref->instr);
 
             unsigned offset = 0;
-            nir_ssa_def *ptr;
+            nir_ssa_def *index;
             if (deref->deref_type == nir_deref_type_var &&
                 !glsl_type_is_interface(glsl_without_array(deref->var->type))) {
                /* This variable is contained in an interface block rather than
                 * containing one.  We need the block index and its offset
                 * inside that block
                 */
-               unsigned index;
+               unsigned index_imm;
                get_block_index_offset(deref->var, shader_program,
                                       b.shader->info.stage,
-                                      &index, &offset);
-               ptr = nir_imm_ivec2(&b, index, offset);
+                                      &index_imm, &offset);
+               index = nir_imm_int(&b, index_imm);
             } else if (glsl_type_is_interface(deref->type)) {
                /* This is the last deref before the block boundary.
                 * Everything after this point is a byte offset and will be
                 * handled by nir_lower_explicit_io().
                 */
-               nir_ssa_def *index = get_block_array_index(&b, deref,
-                                                          shader_program);
-               ptr = nir_vec2(&b, index, nir_imm_int(&b, offset));
+               index = get_block_array_index(&b, deref, shader_program);
             } else {
                /* This will get handled by nir_lower_explicit_io(). */
                break;
             }
+
+            nir_ssa_def *ptr = nir_vec2(&b, index, nir_imm_int(&b, offset));
 
             nir_deref_instr *cast = nir_build_deref_cast(&b, ptr, deref->modes,
                                                          deref->type, 0);
