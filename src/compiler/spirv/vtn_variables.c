@@ -2008,6 +2008,10 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
 
       case SpvStorageClassOutput:
       case SpvStorageClassPrivate:
+         vtn_assert(b->options->environment != NIR_SPIRV_OPENCL);
+         /* These can have any initializer. */
+         break;
+
       case SpvStorageClassFunction:
          /* These can have any initializer. */
          break;
@@ -2029,13 +2033,13 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
             NULL;
          vtn_assert(env_name);
          vtn_fail("In %s, any OpVariable with an Initializer operand "
-                  "must have Output, Private, Function, %s%s%s as "
+                  "must have %s%s%s, or Function as "
                   "its Storage Class operand.  Variable %u has an "
                   "Initializer but its Storage Class is %s.",
                   env_name,
-                  env == NIR_SPIRV_VULKAN ? "or Workgroup" : "",
-                  env == NIR_SPIRV_OPENCL ? "CrossWorkgroup, or UniformConstant" : "",
-                  env == NIR_SPIRV_OPENGL ? "or UniformConstant" : "",
+                  env == NIR_SPIRV_VULKAN ? "Private, Output, Workgroup" : "",
+                  env == NIR_SPIRV_OPENCL ? "CrossWorkgroup, UniformConstant" : "",
+                  env == NIR_SPIRV_OPENGL ? "Private, Output, UniformConstant" : "",
                   vtn_id_for_value(b, val),
                   spirv_storageclass_to_string(storage_class));
          }
