@@ -76,6 +76,7 @@ actions:
           - mount -t devpts devpts /dev/pts
           - echo "nameserver 8.8.8.8" > /etc/resolv.conf
           - for i in 1 2 3; do sntp -sS pool.ntp.org && break || sleep 2; done
+          - syslogd -n &> /dev/null
 
           - modprobe amdgpu || true
 
@@ -99,6 +100,7 @@ actions:
           - export DEQP_VER={{ deqp_version }}
 
           - export PYTHONPATH=$(python3 -c "import sys;print(\":\".join(sys.path))")
+          - export KERNEL_URL="{{ base_artifacts_url }}/{{ kernel_image_name }}"
           - export PIGLIT_REPLAY_EXTRA_ARGS="--keep-image"
           - export PIGLIT_REPLAY_REFERENCE_IMAGES_BASE_URL="/mesa-tracie-results/${CI_PROJECT_PATH}"
           - export PIGLIT_REPLAY_ARTIFACTS_BASE_URL="/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}"
@@ -108,7 +110,9 @@ actions:
 
           - export LIBGL_DRIVERS_PATH=`pwd`/install/lib/dri
 
-          - "if sh $LAVA_TEST_SCRIPT; then
+          - "if [ \"x$DRIVER_NAME\" = \"xvirgl\" ]; then
+                  sh /install/crosvm-runner.sh;
+             elif sh $LAVA_TEST_SCRIPT; then
                   echo 'mesa: pass';
              else
                   echo 'mesa: fail';
