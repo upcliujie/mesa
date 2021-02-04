@@ -31,6 +31,8 @@ cp -Rp .gitlab-ci/fossils.yml install/
 cp -Rp .gitlab-ci/fossils install/
 cp -Rp .gitlab-ci/fossilize-runner.sh install/
 cp -Rp .gitlab-ci/deqp-runner.sh install/
+cp -Rp .gitlab-ci/crosvm-runner.sh install/
+cp -Rp .gitlab-ci/crosvm-init.sh install/
 cp -Rp ci-expects/*/* install/
 
 # Tar up the install dir so that symlinks and hardlinks aren't each
