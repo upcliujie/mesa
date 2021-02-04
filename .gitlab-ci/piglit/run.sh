@@ -3,6 +3,7 @@
 set -ex
 
 INSTALL="$(pwd)/install"
+MINIO_ARGS="$MINIO_ARGS"
 
 RESULTS="$(pwd)/results"
 mkdir -p "$RESULTS"
@@ -158,7 +159,7 @@ replay_minio_upload_images() {
             fi
             __MINIO_PATH="$PIGLIT_REPLAY_REFERENCE_IMAGES_BASE_URL"
             __DESTINATION_FILE_PATH="${line##*-}"
-            if ci-fairy minio ls "minio://${MINIO_HOST}${__MINIO_PATH}/${__DESTINATION_FILE_PATH}" 2>/dev/null; then
+            if ci-fairy minio ls $MINIO_ARGS "minio://${MINIO_HOST}${__MINIO_PATH}/${__DESTINATION_FILE_PATH}" 2>/dev/null; then
                 continue
             fi
         else
@@ -173,7 +174,7 @@ replay_minio_upload_images() {
                 -i "$RESULTS"/junit.xml
         fi
 
-        ci-fairy minio cp "$RESULTS/$__PREFIX/$line" \
+        ci-fairy minio cp $MINIO_ARGS "$RESULTS/$__PREFIX/$line" \
             "minio://${MINIO_HOST}${__MINIO_PATH}/${__DESTINATION_FILE_PATH}"
     done
 }
@@ -201,18 +202,18 @@ mkdir -p .gitlab-ci/piglit
 if [ "x$PIGLIT_PROFILES" = "xreplay" ] \
        && [ ${PIGLIT_REPLAY_UPLOAD_TO_MINIO:-0} -eq 1 ]; then
 
-    ci-fairy minio login $CI_JOB_JWT
+    ci-fairy minio login $MINIO_ARGS $CI_JOB_JWT
 
     __PREFIX="trace/$PIGLIT_REPLAY_DEVICE_NAME"
     __MINIO_PATH="$PIGLIT_REPLAY_ARTIFACTS_BASE_URL"
     __MINIO_TRACES_PREFIX="traces"
 
-    ci-fairy minio cp "$RESULTS"/results.json.bz2 \
+    ci-fairy minio cp $MINIO_ARGS "$RESULTS"/results.json.bz2 \
         "minio://${MINIO_HOST}${__MINIO_PATH}/${__MINIO_TRACES_PREFIX}/results.json.bz2"
 
     quiet replay_minio_upload_images
 
-    ci-fairy minio cp "$RESULTS"/junit.xml \
+    ci-fairy minio cp $MINIO_ARGS "$RESULTS"/junit.xml \
         "minio://${MINIO_HOST}${__MINIO_PATH}/${__MINIO_TRACES_PREFIX}/junit.xml"
 fi
 
