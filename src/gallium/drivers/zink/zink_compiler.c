@@ -505,6 +505,59 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
       }
    }
    NIR_PASS_V(nir, nir_convert_from_ssa, true);
+
+   unsigned reserved = 0;
+   unsigned char slot_map[VARYING_SLOT_MAX];
+   if (shader_slots_reserved) {
+      reserved = *shader_slots_reserved;
+      memcpy(slot_map, shader_slot_map, sizeof(slot_map));
+   }
+
+   nir_foreach_variable_with_modes(var, nir, nir_var_shader_in | nir_var_shader_out) {
+      if ((nir->info.stage == MESA_SHADER_VERTEX && var->data.mode == nir_var_shader_in) ||
+          (nir->info.stage == MESA_SHADER_FRAGMENT && var->data.mode == nir_var_shader_out))
+         continue;
+
+      unsigned slot = var->data.location;
+      switch (var->data.location) {
+      case VARYING_SLOT_POS:
+      case VARYING_SLOT_PNTC:
+      case VARYING_SLOT_PSIZ:
+      case VARYING_SLOT_LAYER:
+      case VARYING_SLOT_PRIMITIVE_ID:
+      case VARYING_SLOT_CLIP_DIST0:
+      case VARYING_SLOT_CULL_DIST0:
+      case VARYING_SLOT_VIEWPORT:
+      case VARYING_SLOT_FACE:
+      case VARYING_SLOT_TESS_LEVEL_OUTER:
+      case VARYING_SLOT_TESS_LEVEL_INNER:
+         /* SPIR-V builtins, nothing to do */
+         break;
+
+      default:
+         if (nir->info.stage < MESA_SHADER_FRAGMENT &&
+             var->data.patch) {
+            assert(var->data.location >= VARYING_SLOT_PATCH0);
+            slot = var->data.location - VARYING_SLOT_PATCH0;
+         } else if ((var->data.mode == nir_var_shader_out &&
+                     nir->info.stage == MESA_SHADER_TESS_CTRL) ||
+                    (var->data.mode != nir_var_shader_out &&
+                     nir->info.stage == MESA_SHADER_TESS_EVAL)) {
+            assert(var->data.location >= VARYING_SLOT_VAR0);
+            slot = var->data.location - VARYING_SLOT_VAR0;
+         } else {
+            if (slot_map[var->data.location] == 0xff) {
+               assert(reserved < MAX_VARYING);
+               slot_map[var->data.location] = reserved;
+               reserved += glsl_count_vec4_slots(var->type, false, false);
+            }
+            slot = slot_map[var->data.location];
+            assert(slot < MAX_VARYING);
+         }
+         var->data.driver_location = slot;
+      }
+   }
+
    struct spirv_shader *spirv = nir_to_spirv(nir, streamout, shader_slot_map, shader_slots_reserved);
    if (!spirv)
       goto done;
