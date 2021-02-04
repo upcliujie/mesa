@@ -471,6 +471,7 @@ enum tu_draw_state_group_id
    TU_DRAW_STATE_INPUT_ATTACHMENTS_GMEM,
    TU_DRAW_STATE_INPUT_ATTACHMENTS_SYSMEM,
    TU_DRAW_STATE_LRZ,
+   TU_DRAW_STATE_DEPTH_PLANE,
 
    /* dynamic state related draw states */
    TU_DRAW_STATE_DYNAMIC,
@@ -833,6 +834,8 @@ enum tu_lrz_direction {
 struct tu_lrz_pipeline
 {
    uint32_t force_disable_mask;
+   bool fs_has_kill;
+   bool force_late_z;
 };
 
 struct tu_lrz_state
@@ -915,6 +918,8 @@ struct tu_cmd_state
    bool predication_active;
 
    struct tu_lrz_state lrz;
+
+   struct tu_draw_state depth_plane_state;
 };
 
 struct tu_cmd_pool
