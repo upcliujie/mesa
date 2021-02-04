@@ -84,7 +84,11 @@ struct d3d12_validation_tools
 
 struct d3d12_validation_tools *d3d12_validator_create()
 {
-   return new d3d12_validation_tools();
+   d3d12_validation_tools *tools = new d3d12_validation_tools();
+   if (tools->validator)
+      return tools;
+   delete tools;
+   return nullptr;
 }
 
 void d3d12_validator_destroy(struct d3d12_validation_tools *validator)
