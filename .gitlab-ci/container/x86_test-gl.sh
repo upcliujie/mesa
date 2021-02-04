@@ -13,7 +13,9 @@ STABLE_EPHEMERAL=" \
       clang-10 \
       cmake \
       g++ \
+      libcap-dev \
       libclang-cpp10-dev \
+      libfdt-dev \
       libgbm-dev \
       libgles2-mesa-dev \
       libpcre3-dev \
@@ -39,12 +41,17 @@ STABLE_EPHEMERAL=" \
 apt-get install -y --no-remove \
       $STABLE_EPHEMERAL \
       clinfo \
+      inetutils-syslogd \
+      iptables \
       libclang-common-10-dev \
       libclang-cpp10 \
+      libcap2 \
+      libfdt1 \
       libxcb-shm0 \
       ocl-icd-libopencl1 \
       python3-lxml \
-      python3-simplejson
+      python3-simplejson \
+      sysvinit-core
 
 
 . .gitlab-ci/container/container_pre_build.sh
@@ -61,6 +68,10 @@ apt-get install -y --no-remove \
 ############### Build virglrenderer
 
 . .gitlab-ci/container/build-virglrenderer.sh
+
+############### Build Crosvm
+
+. .gitlab-ci/container/build-crosvm.sh
 
 ############### Build piglit
 
