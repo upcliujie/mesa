@@ -65,7 +65,9 @@ apt-get install -y automake \
                    debootstrap \
                    git \
                    libboost-dev \
+                   libcap-dev \
                    libegl1-mesa-dev \
+                   libfdt-dev \
                    libgbm-dev \
                    libgles2-mesa-dev \
                    libpcre3-dev \
@@ -109,6 +111,14 @@ fi
 STRIP_CMD="${GCC_ARCH}-strip"
 mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}
 
+############### Build Crosvm
+if [[ "$DEBIAN_ARCH" = "amd64" ]]; then
+    EXTRA_MESON_ARGS=-Dprefix=/libraries/ PKG_CONFIG_PATH=/libraries/lib/x86_64-linux-gnu/pkgconfig . .gitlab-ci/container/build-virglrenderer.sh
+    . .gitlab-ci/container/build-crosvm.sh
+    mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin
+    mv /usr/local/bin/crosvm /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/.
+    rm -rf /platform/crosvm
+fi
 
 ############### Build dEQP runner
 . .gitlab-ci/container/build-deqp-runner.sh
@@ -149,7 +159,7 @@ rm -rf /renderdoc
 
 
 ############### Build libdrm
-EXTRA_MESON_ARGS+=" -D prefix=/libdrm"
+EXTRA_MESON_ARGS+=" -D prefix=/libraries"
 . .gitlab-ci/container/build-libdrm.sh
 
 
@@ -228,14 +238,13 @@ rm /lava-files/rootfs-${DEBIAN_ARCH}/create-rootfs.sh
 rm /lava-files/rootfs-${DEBIAN_ARCH}/llvm-snapshot.gpg.key
 
 
-############### Install the built libdrm
+############### Install the built libraries
 # Dependencies pulled during the creation of the rootfs may overwrite
-# the built libdrm. Hence, we add it after the rootfs has been already
+# the built libraries. Hence, we add it after the rootfs has been already
 # created.
 mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/usr/lib/$GCC_ARCH
-find /libdrm/ -name lib\*\.so\* | xargs cp -t /lava-files/rootfs-${DEBIAN_ARCH}/usr/lib/$GCC_ARCH/.
-rm -rf /libdrm
-
+find /libraries/ -name lib\*\.so\* | xargs cp -t /lava-files/rootfs-${DEBIAN_ARCH}/usr/lib/$GCC_ARCH/.
+rm -rf /libraries
 
 du -ah /lava-files/rootfs-${DEBIAN_ARCH} | sort -h | tail -100
 pushd /lava-files/rootfs-${DEBIAN_ARCH}

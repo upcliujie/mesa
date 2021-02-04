@@ -1,5 +1,5 @@
 variables:
-  DISTRIBUTION_TAG: "2021-02-08-subdir-move"
+  DISTRIBUTION_TAG: "2021-02-08-crosvm"
 
 .kernel+rootfs:
   stage: container-2
