@@ -3462,6 +3462,121 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd)
    return ds;
 }
 
+static bool
+tu6_writes_depth(struct tu_cmd_buffer *cmd, bool depth_test_enable)
+{
+   struct tu_pipeline *pipeline = cmd->state.pipeline;
+
+   bool depth_write_enable =
+      (pipeline->rb_depth_cntl_mask & A6XX_RB_DEPTH_CNTL_Z_WRITE_ENABLE) ?
+      pipeline->lrz.ds_state.depth_write :
+      cmd->state.rb_depth_cntl & A6XX_RB_DEPTH_CNTL_Z_WRITE_ENABLE;
+
+   VkCompareOp depth_compare_op =
+      (pipeline->rb_depth_cntl_mask & A6XX_RB_DEPTH_CNTL_ZFUNC__MASK) ?
+      pipeline->lrz.ds_state.depth_compare_op :
+      (cmd->state.rb_depth_cntl & A6XX_RB_DEPTH_CNTL_ZFUNC__MASK) >> A6XX_RB_DEPTH_CNTL_ZFUNC__SHIFT;
+
+   bool depth_compare_op_writes = depth_compare_op != VK_COMPARE_OP_NEVER;
+
+   return depth_test_enable && depth_write_enable && depth_compare_op_writes;
+}
+
+static bool
+tu6_writes_stencil(struct tu_cmd_buffer *cmd)
+{
+   struct tu_pipeline *pipeline = cmd->state.pipeline;
+
+   bool stencil_test_enable =
+      (pipeline->rb_stencil_cntl_mask & A6XX_RB_STENCIL_CONTROL_STENCIL_ENABLE) ?
+      pipeline->lrz.ds_state.stencil_test_enable :
+      (cmd->state.rb_stencil_cntl & A6XX_RB_STENCIL_CONTROL_STENCIL_ENABLE);
+
+   bool stencil_front_write =
+      (pipeline->dynamic_state_mask & BIT(VK_DYNAMIC_STATE_STENCIL_WRITE_MASK)) ?
+      (cmd->state.dynamic_stencil_wrmask & 0xff) :
+      pipeline->lrz.ds_state.front.writemask;
+
+   bool stencil_back_write =
+      (pipeline->dynamic_state_mask & BIT(VK_DYNAMIC_STATE_STENCIL_WRITE_MASK)) ?
+      ((cmd->state.dynamic_stencil_wrmask & 0xff00) >> 8) :
+      pipeline->lrz.ds_state.back.writemask;
+
+   struct tu_lrz_stencil_state front = pipeline->lrz.ds_state.front;
+   struct tu_lrz_stencil_state back = pipeline->lrz.ds_state.back;
+
+   if (!(pipeline->rb_stencil_cntl_mask & A6XX_RB_STENCIL_CONTROL_FAIL__MASK))
+      front.fail_op =
+         (cmd->state.rb_stencil_cntl & A6XX_RB_STENCIL_CONTROL_FAIL__MASK) >> A6XX_RB_STENCIL_CONTROL_FAIL__SHIFT;
+
+   if (!(pipeline->rb_stencil_cntl_mask & A6XX_RB_STENCIL_CONTROL_ZPASS__MASK))
+      front.pass_op =
+         (cmd->state.rb_stencil_cntl & A6XX_RB_STENCIL_CONTROL_ZPASS__MASK) >> A6XX_RB_STENCIL_CONTROL_ZPASS__SHIFT;
+
+   if (!(pipeline->rb_stencil_cntl_mask & A6XX_RB_STENCIL_CONTROL_ZFAIL__MASK))
+      front.depth_fail_op =
+         (cmd->state.rb_stencil_cntl & A6XX_RB_STENCIL_CONTROL_ZFAIL__MASK) >> A6XX_RB_STENCIL_CONTROL_ZFAIL__SHIFT;
+
+   if (!(pipeline->rb_stencil_cntl_mask & A6XX_RB_STENCIL_CONTROL_FAIL_BF__MASK))
+      back.fail_op =
+         (cmd->state.rb_stencil_cntl & A6XX_RB_STENCIL_CONTROL_FAIL_BF__MASK) >> A6XX_RB_STENCIL_CONTROL_FAIL_BF__SHIFT;
+
+   if (!(pipeline->rb_stencil_cntl_mask & A6XX_RB_STENCIL_CONTROL_ZPASS_BF__MASK))
+      back.pass_op =
+         (cmd->state.rb_stencil_cntl & A6XX_RB_STENCIL_CONTROL_ZPASS_BF__MASK) >> A6XX_RB_STENCIL_CONTROL_ZPASS_BF__SHIFT;
+
+   if (!(pipeline->rb_stencil_cntl_mask & A6XX_RB_STENCIL_CONTROL_ZFAIL_BF__MASK))
+      back.depth_fail_op =
+         (cmd->state.rb_stencil_cntl & A6XX_RB_STENCIL_CONTROL_ZFAIL_BF__MASK) >> A6XX_RB_STENCIL_CONTROL_ZFAIL_BF__SHIFT;
+
+   bool stencil_front_op_writes =
+      front.pass_op != VK_STENCIL_OP_KEEP &&
+      front.fail_op != VK_STENCIL_OP_KEEP &&
+      front.depth_fail_op != VK_STENCIL_OP_KEEP;
+
+   bool stencil_back_op_writes =
+      back.pass_op != VK_STENCIL_OP_KEEP &&
+      back.fail_op != VK_STENCIL_OP_KEEP &&
+      back.depth_fail_op != VK_STENCIL_OP_KEEP;
+
+   return stencil_test_enable &&
+      ((stencil_front_write && stencil_front_op_writes) ||
+       (stencil_back_write && stencil_back_op_writes));
+}
+
+static struct tu_draw_state
+tu6_build_depth_plane_z_mode(struct tu_cmd_buffer *cmd)
+{
+   struct tu_cs cs;
+   struct tu_draw_state ds = tu_cs_draw_state(&cmd->sub_cs, &cs, 4);
+
+   enum a6xx_ztest_mode zmode = A6XX_EARLY_Z;
+
+   struct tu_pipeline *pipeline = cmd->state.pipeline;
+   bool depth_test_enable =
+      (pipeline->rb_depth_cntl_mask & A6XX_RB_DEPTH_CNTL_Z_ENABLE) ?
+      pipeline->lrz.ds_state.depth_test_enable :
+      cmd->state.rb_depth_cntl & A6XX_RB_DEPTH_CNTL_Z_ENABLE;
+
+   bool depth_write = tu6_writes_depth(cmd, depth_test_enable);
+
+   bool stencil_write = tu6_writes_stencil(cmd);
+   if (cmd->state.pipeline->lrz.fs_has_kill &&
+       (depth_write || stencil_write)) {
+      zmode = cmd->state.lrz.valid ? A6XX_EARLY_LRZ_LATE_Z : A6XX_LATE_Z;
+   }
+
+   if (cmd->state.pipeline->lrz.force_late_z || !depth_test_enable)
+      zmode = A6XX_LATE_Z;
+
+   tu_cs_emit_pkt4(&cs, REG_A6XX_GRAS_SU_DEPTH_PLANE_CNTL, 1);
+   tu_cs_emit(&cs, A6XX_GRAS_SU_DEPTH_PLANE_CNTL_Z_MODE(zmode));
+
+   tu_cs_emit_pkt4(&cs, REG_A6XX_RB_DEPTH_PLANE_CNTL, 1);
+   tu_cs_emit(&cs, A6XX_RB_DEPTH_PLANE_CNTL_Z_MODE(zmode));
+   return ds;
+}
+
 static VkResult
 tu6_draw_common(struct tu_cmd_buffer *cmd,
                 struct tu_cs *cs,
@@ -3471,14 +3586,18 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
 {
    const struct tu_pipeline *pipeline = cmd->state.pipeline;
    VkResult result;
+   bool dirty_lrz =
+      cmd->state.dirty & (TU_CMD_DIRTY_LRZ | TU_CMD_DIRTY_RB_DEPTH_CNTL | TU_CMD_DIRTY_RB_STENCIL_CNTL);
 
    struct tu_descriptor_state *descriptors_state =
       &cmd->descriptors[VK_PIPELINE_BIND_POINT_GRAPHICS];
 
    tu_emit_cache_flush_renderpass(cmd, cs);
 
-   if (cmd->state.dirty & (TU_CMD_DIRTY_LRZ | TU_CMD_DIRTY_RB_DEPTH_CNTL | TU_CMD_DIRTY_RB_STENCIL_CNTL))
+   if (dirty_lrz)
       cmd->state.lrz.state = tu6_build_lrz(cmd);
+
+   cmd->state.depth_plane_state = tu6_build_depth_plane_z_mode(cmd);
 
    tu_cs_emit_regs(cs, A6XX_PC_PRIMITIVE_CNTL_0(
          .primitive_restart =
@@ -3568,6 +3687,7 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
       tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VB, cmd->state.vertex_buffers);
       tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VS_PARAMS, cmd->state.vs_params);
       tu_cs_emit_draw_state(cs, TU_DRAW_STATE_LRZ, cmd->state.lrz.state);
+      tu_cs_emit_draw_state(cs, TU_DRAW_STATE_DEPTH_PLANE, cmd->state.depth_plane_state);
 
       for (uint32_t i = 0; i < ARRAY_SIZE(cmd->state.dynamic_state); i++) {
          tu_cs_emit_draw_state(cs, TU_DRAW_STATE_DYNAMIC + i,
@@ -3585,7 +3705,7 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
          ((cmd->state.dirty & TU_CMD_DIRTY_SHADER_CONSTS) ? 2 : 0) +
          ((cmd->state.dirty & TU_CMD_DIRTY_DESC_SETS_LOAD) ? 1 : 0) +
          ((cmd->state.dirty & TU_CMD_DIRTY_VERTEX_BUFFERS) ? 1 : 0) +
-         ((cmd->state.dirty & TU_CMD_DIRTY_LRZ) ? 1 : 0) +
+         (dirty_lrz ? 2 : 0) +
          1; /* vs_params */
 
       if ((cmd->state.dirty & TU_CMD_DIRTY_VB_STRIDE) &&
@@ -3614,8 +3734,10 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
       }
       tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VS_PARAMS, cmd->state.vs_params);
 
-      if (cmd->state.dirty & TU_CMD_DIRTY_LRZ)
+      if (dirty_lrz) {
          tu_cs_emit_draw_state(cs, TU_DRAW_STATE_LRZ, cmd->state.lrz.state);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_DEPTH_PLANE, cmd->state.depth_plane_state);
+      }
    }
 
    tu_cs_sanity_check(cs);
