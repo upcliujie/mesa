@@ -2373,10 +2373,11 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
          weights = lp_build_and(&bld->int_coord_bld, weights, q_mask);
          weights = LLVMBuildBitCast(builder, weights, bld->coord_bld.vec_type, "");
 
-         LLVMValueRef new_coords[3];
+         LLVMValueRef new_coords[4];
          new_coords[0] = lp_build_div(coord_bld, lp_build_int_to_float(coord_bld, u_val), width_dim);
          new_coords[1] = lp_build_div(coord_bld, lp_build_int_to_float(coord_bld, v_val), height_dim);
          new_coords[2] = coords[2];
+         new_coords[3] = NULL;
 
          /* lookup q in filter table */
          LLVMValueRef temp_colors[4];
@@ -2449,8 +2450,16 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
 
    LLVMValueRef den = LLVMBuildLoad(builder, den_store, "");
 
+   LLVMValueRef colors_den0[4];
+   lp_build_sample_image_nearest(bld, size0,
+                                 row_stride0_vec, img_stride0_vec,
+                                 data_ptr0, mipoff0, coords, offsets,
+                                 colors_den0);
+
+   LLVMValueRef den0 = lp_build_cmp(&bld->coord_bld, PIPE_FUNC_EQUAL, den, bld->coord_bld.zero);
    for (chan = 0; chan < 4; chan++) {
       colors0[chan] = lp_build_div(&bld->texel_bld, LLVMBuildLoad(builder, colors0[chan], ""), den);
+      colors0[chan] = lp_build_select(&bld->texel_bld, den0, colors_den0[chan], colors0[chan]);
       LLVMBuildStore(builder, colors0[chan], colors_out[chan]);
    }
 }
