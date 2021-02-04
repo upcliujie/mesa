@@ -66,7 +66,6 @@ vk_common_CreateRenderPass(VkDevice _device,
 
    /* note: these counts shouldn't be excessively high, so allocating it all
     * on the stack should be OK..
-    * also note preserve attachments aren't translated, currently unused
     */
    VkAttachmentDescription2 attachments[pCreateInfo->attachmentCount];
    VkSubpassDescription2 subpasses[pCreateInfo->subpassCount];
@@ -128,6 +127,8 @@ vk_common_CreateRenderPass(VkDevice _device,
          .viewMask = 0,
          .inputAttachmentCount = pCreateInfo->pSubpasses[i].inputAttachmentCount,
          .colorAttachmentCount = pCreateInfo->pSubpasses[i].colorAttachmentCount,
+         .preserveAttachmentCount = pCreateInfo->pSubpasses[i].preserveAttachmentCount,
+         .pPreserveAttachments = pCreateInfo->pSubpasses[i].pPreserveAttachments,
       };
 
       if (multiview_info && multiview_info->subpassCount) {
