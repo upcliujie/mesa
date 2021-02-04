@@ -1118,7 +1118,7 @@ llvmpipe-traces:
     PIGLIT_REPLAY_DEVICE_NAME: "gl-vmware-llvmpipe"
     PIGLIT_RESULTS: "llvmpipe-replay"
 
-.virgl-test:
+.virpipe-test:
   extends:
     - .test-gl
     - .virgl-rules
@@ -1126,15 +1126,15 @@ llvmpipe-traces:
     LIBGL_ALWAYS_SOFTWARE: "true"
     GALLIUM_DRIVER: "virpipe"
 
-virgl-traces:
+virpipe-traces:
   extends:
     - .piglit-traces-test
-    - .virgl-test
+    - .virpipe-test
   variables:
     EGL_PLATFORM: "surfaceless"
-    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-virgl.yml"
-    PIGLIT_REPLAY_DEVICE_NAME: "gl-virgl"
-    PIGLIT_RESULTS: "virgl-replay"
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-virpipe.yml"
+    PIGLIT_REPLAY_DEVICE_NAME: "gl-virpipe"
+    PIGLIT_RESULTS: "virpipe-replay"
     MESA_GLES_VERSION_OVERRIDE: "3.1"
     MESA_GLSL_VERSION_OVERRIDE: "310"
 
@@ -1298,11 +1298,11 @@ softpipe-gl:
   extends:
     - softpipe-gles2
 
-virgl-gles2-on-gl:
+virpipe-gles2-on-gl:
   variables:
     DEQP_VER: gles2
     DEQP_NO_SAVE_RESULTS: 1
-    GPU_VERSION: virgl-gl
+    GPU_VERSION: virpipe-gl
     # Don't use threads inside llvmpipe, we've already got all cores
     # busy at the deqp-runner level.
     LP_NUM_THREADS: 0
@@ -1310,37 +1310,37 @@ virgl-gles2-on-gl:
     DEQP_EXPECTED_RENDERER: virgl
   extends:
     - .deqp-test
-    - .virgl-test
+    - .virpipe-test
 
-virgl-gles3-on-gl:
+virpipe-gles3-on-gl:
   variables:
     DEQP_VER: gles3
     DEQP_RUNNER_OPTIONS: "--timeout 180"
-  extends: virgl-gles2-on-gl
+  extends: virpipe-gles2-on-gl
 
-virgl-gles31-on-gl:
+virpipe-gles31-on-gl:
   parallel: 2
   variables:
     DEQP_VER: gles31
     MESA_GLES_VERSION_OVERRIDE: "3.1"
     MESA_GLSL_VERSION_OVERRIDE: "310"
     MESA_EXTENSION_OVERRIDE: "-GL_OES_tessellation_shader"
-  extends: virgl-gles3-on-gl
+  extends: virpipe-gles3-on-gl
 
-virgl-gl30-on-gl:
+virpipe-gl30-on-gl:
   variables:
     DEQP_VER: gl30
-  extends: virgl-gles2-on-gl
+  extends: virpipe-gles2-on-gl
 
-virgl-gl31-on-gl:
+virpipe-gl31-on-gl:
   variables:
     DEQP_VER: gl31
-  extends: virgl-gles2-on-gl
+  extends: virpipe-gles2-on-gl
 
-virgl-gl32-on-gl:
+virpipe-gl32-on-gl:
   variables:
     DEQP_VER: gl32
-  extends: virgl-gles2-on-gl
+  extends: virpipe-gles2-on-gl
 
 # Rules for tests that should not be present in MRs or the main
 # project's pipeline (don't block marge or report red on
@@ -1358,28 +1358,28 @@ virgl-gl32-on-gl:
   variables:
     GIT_STRATEGY: none
 
-virgl-gles2-on-gles:
+virpipe-gles2-on-gles:
   variables:
     VIRGL_HOST_API: GLES
-    GPU_VERSION: virgl-gles
+    GPU_VERSION: virpipe-gles
   extends:
-    - virgl-gles2-on-gl
+    - virpipe-gles2-on-gl
     - .test-manual
 
-virgl-gles3-on-gles:
+virpipe-gles3-on-gles:
   variables:
     VIRGL_HOST_API: GLES
-    GPU_VERSION: virgl-gles
+    GPU_VERSION: virpipe-gles
   extends:
-    - virgl-gles3-on-gl
+    - virpipe-gles3-on-gl
     - .test-manual
 
-virgl-gles31-on-gles:
+virpipe-gles31-on-gles:
   variables:
     VIRGL_HOST_API: GLES
-    GPU_VERSION: virgl-gles
+    GPU_VERSION: virpipe-gles
   extends:
-    - virgl-gles31-on-gl
+    - virpipe-gles31-on-gl
     - .test-manual
 
 .arm64-a630-test:
