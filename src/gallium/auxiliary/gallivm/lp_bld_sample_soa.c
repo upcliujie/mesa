@@ -2350,7 +2350,7 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
                                              lp_build_const_int_vec(gallivm, bld->int_coord_bld.type, 0x3ff), "");
          q_mask = LLVMBuildSExt(builder, q_mask, bld->int_coord_bld.vec_type, "");
 
-         q = lp_build_min(&bld->int_coord_bld, q, bld->int_coord_bld.zero);
+         q = lp_build_max(&bld->int_coord_bld, q, bld->int_coord_bld.zero);
          q = lp_build_and(&bld->int_coord_bld, q, lp_build_const_int_vec(gallivm, bld->int_coord_bld.type, 0x3ff));
 
          /* update the offsets to deal with float size. */
