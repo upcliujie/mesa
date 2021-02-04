@@ -177,6 +177,9 @@ optimizations = [
    (('usub_sat', a, 0), a),
    (('usadd_4x8_vc4', a, 0), a),
    (('usadd_4x8_vc4', a, ~0), ~0),
+   # This does not preserve the sign of zero. For example:
+   # "-1.0*0.0 + 0.0*0.0" -> "0.0 * (-1.0+0.0)"
+   # "-1.0*-1.0 + -1.0*1.0" -> "-1.0 * (-1.0 + 1.0)"
    (('~fadd', ('fmul', a, b), ('fmul', a, c)), ('fmul', a, ('fadd', b, c))),
    (('~fadd', ('fmulz', a, b), ('fmulz', a, c)), ('fmulz', a, ('fadd', b, c))),
    (('~ffma', a, b, ('ffma(is_used_once)', a, c, d)), ('ffma', a, ('fadd', b, c), d)),
@@ -1394,12 +1397,12 @@ optimizations.extend([
    (('~fexp2', ('fmul', ('flog2', a), 0.5)), ('fsqrt', a)),
    (('~fexp2', ('fmul', ('flog2', a), 2.0)), ('fmul', a, a)),
    (('~fexp2', ('fmul', ('flog2', a), 4.0)), ('fmul', ('fmul', a, a), ('fmul', a, a))),
-   (('~fpow', a, 1.0), a),
-   (('~fpow', a, 2.0), ('fmul', a, a)),
-   (('~fpow', a, 4.0), ('fmul', ('fmul', a, a), ('fmul', a, a))),
-   (('~fpow', 2.0, a), ('fexp2', a)),
-   (('~fpow', ('fpow', a, 2.2), 0.454545), a),
-   (('~fpow', ('fabs', ('fpow', a, 2.2)), 0.454545), ('fabs', a)),
+   (imprecise('fpow', a, 1.0), ('fcanonicalize', a)),
+   (imprecise('fpow', a, 2.0), ('fmul', a, a)),
+   (imprecise('fpow', a, 4.0), ('fmul', ('fmul', a, a), ('fmul', a, a))),
+   (imprecise('fpow', 2.0, a), ('fexp2', a)),
+   (imprecise('fpow', ('fpow', a, 2.2), 0.454545), ('fcanonicalize', a)),
+   (imprecise('fpow', ('fabs', ('fpow', a, 2.2)), 0.454545), ('fabs', a)),
    (('~fsqrt', ('fexp2', a)), ('fexp2', ('fmul', 0.5, a))),
    (('~frcp', ('fexp2', a)), ('fexp2', ('fneg', a))),
    (('~frsq', ('fexp2', a)), ('fexp2', ('fmul', -0.5, a))),
@@ -1412,12 +1415,12 @@ optimizations.extend([
    (('~fmul', ('fsqrt', a), ('fsqrt', a)), ('fabs',a)),
    (('~fmulz', ('fsqrt', a), ('fsqrt', a)), ('fabs', a)),
    # Division and reciprocal
-   (('~fdiv', 1.0, a), ('frcp', a)),
+   (imprecise('fdiv', 1.0, a), ('frcp', a)),
    (('fdiv', a, b), ('fmul', a, ('frcp', b)), 'options->lower_fdiv'),
    (('~frcp', ('frcp', a)), a),
-   (('~frcp', ('fsqrt', a)), ('frsq', a)),
+   (imprecise('frcp', ('fsqrt', a)), ('frsq', a)),
    (('fsqrt', a), ('frcp', ('frsq', a)), 'options->lower_fsqrt'),
-   (('~frcp', ('frsq', a)), ('fsqrt', a), '!options->lower_fsqrt'),
+   (imprecise('frcp', ('frsq', a)), ('fsqrt', a), '!options->lower_fsqrt'),
    # Trig
    (('fsin', a), lowered_sincos(0.5), 'options->lower_sincos'),
    (('fcos', a), lowered_sincos(0.75), 'options->lower_sincos'),
@@ -1746,7 +1749,7 @@ optimizations.extend([
    (('imul', ('ineg', a), b), ('ineg', ('imul', a, b))),
 
    # Propagate constants up multiplication chains
-   (('~fmul(is_used_once)', ('fmul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fmul', ('fmul', a, c), b)),
+   (imprecise('fmul(is_used_once)', ('fmul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fmul', ('fmul', a, c), b)),
    (('~fmulz(is_used_once)', ('fmulz(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fmulz', ('fmulz', a, c), b)),
    (('~fmul(is_used_once)', ('fmulz(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c(is_finite_not_zero)'), ('fmulz', ('fmul', a, c), b)),
    (('imul(is_used_once)', ('imul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('imul', ('imul', a, c), b)),
@@ -1754,8 +1757,8 @@ optimizations.extend([
    (('~ffmaz', ('fmulz(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c', d), ('ffmaz', ('fmulz', a, c), b, d)),
    (('~ffma', ('fmulz(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c(is_finite_not_zero)', d), ('ffmaz', ('fmul', a, c), b, d)),
    # Prefer moving out a multiplication for more MAD/FMA-friendly code
-   (('~fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_fmul)'), '#c'), ('fadd', ('fadd', a, c), b)),
-   (('~fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fadd', ('fadd', a, c), b)),
+   (imprecise('fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_fmul)'), '#c(is_finite)'), ('fadd', ('fadd', a, c), b)),
+   (imprecise('fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c(is_finite)'), ('fadd', ('fadd', a, c), b)),
    (('~fadd(is_used_once)', ('ffma(is_used_once)', 'a(is_not_const)', b, 'c(is_not_const)'), '#d'), ('fadd', ('ffma', a, b, d), c)),
    (('~fadd(is_used_once)', ('ffmaz(is_used_once)', 'a(is_not_const)', b, 'c(is_not_const)'), '#d'), ('fadd', ('ffmaz', a, b, d), c)),
    (('iadd(is_used_once)', ('iadd(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('iadd', ('iadd', a, c), b)),
@@ -1763,15 +1766,15 @@ optimizations.extend([
    # Reassociate constants in add/mul chains so they can be folded together.
    # For now, we mostly only handle cases where the constants are separated by
    # a single non-constant.  We could do better eventually.
-   (('~fmul', '#a', ('fmul', 'b(is_not_const)', '#c')), ('fmul', ('fmul', a, c), b)),
+   (imprecise('fmul', '#a', ('fmul', 'b(is_not_const)', '#c')), ('fmul', ('fmul', a, c), b)),
    (('~fmulz', '#a', ('fmulz', 'b(is_not_const)', '#c')), ('fmulz', ('fmulz', a, c), b)),
    (('~fmul', '#a(is_finite_not_zero)', ('fmulz', 'b(is_not_const)', '#c')), ('fmulz', ('fmul', a, c), b)),
    (('~ffma', '#a', ('fmul', 'b(is_not_const)', '#c'), d), ('ffma', ('fmul', a, c), b, d)),
    (('~ffmaz', '#a', ('fmulz', 'b(is_not_const)', '#c'), d), ('ffmaz', ('fmulz', a, c), b, d)),
    (('~ffmaz', '#a(is_finite_not_zero)', ('fmulz', 'b(is_not_const)', '#c'), d), ('ffmaz', ('fmul', a, c), b, d)),
    (('imul', '#a', ('imul', 'b(is_not_const)', '#c')), ('imul', ('imul', a, c), b)),
-   (('~fadd', '#a',          ('fadd', 'b(is_not_const)', '#c')),  ('fadd', ('fadd', a,          c),           b)),
-   (('~fadd', '#a', ('fneg', ('fadd', 'b(is_not_const)', '#c'))), ('fadd', ('fadd', a, ('fneg', c)), ('fneg', b))),
+   (imprecise('fadd', '#a',          ('fadd', 'b(is_not_const)', '#c')),  ('fadd', ('fadd', a,          c),           b)),
+   (imprecise('fadd', '#a', ('fneg', ('fadd', 'b(is_not_const)', '#c'))), ('fadd', ('fadd', a, ('fneg', c)), ('fneg', b))),
    (('~fadd', '#a',          ('ffma', 'b(is_not_const)', 'c(is_not_const)', '#d')),  ('ffma',          b,  c, ('fadd', a,          d))),
    (('~fadd', '#a', ('fneg', ('ffma', 'b(is_not_const)', 'c(is_not_const)', '#d'))), ('ffma', ('fneg', b), c, ('fadd', a, ('fneg', d)))),
    (('~fadd', '#a',          ('ffmaz', 'b(is_not_const)', 'c(is_not_const)', '#d')),  ('ffmaz',          b,  c, ('fadd', a,          d))),
