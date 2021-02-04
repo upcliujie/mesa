@@ -325,6 +325,9 @@ static void radv_amdgpu_log_bo(struct radv_amdgpu_winsys *ws,
 static int radv_amdgpu_global_bo_list_add(struct radv_amdgpu_winsys *ws,
 					  struct radv_amdgpu_winsys_bo *bo)
 {
+	if (bo->base.is_local)
+		return VK_SUCCESS;
+
 	u_rwlock_wrlock(&ws->global_bo_list.lock);
 	if (ws->global_bo_list.count == ws->global_bo_list.capacity) {
 		unsigned capacity = MAX2(4, ws->global_bo_list.capacity * 2);
@@ -347,6 +350,9 @@ static int radv_amdgpu_global_bo_list_add(struct radv_amdgpu_winsys *ws,
 static void radv_amdgpu_global_bo_list_del(struct radv_amdgpu_winsys *ws,
 					   struct radv_amdgpu_winsys_bo *bo)
 {
+	if (bo->base.is_local)
+		return;
+
 	u_rwlock_wrlock(&ws->global_bo_list.lock);
 	for(unsigned i = ws->global_bo_list.count; i-- > 0;) {
 		if (ws->global_bo_list.bos[i] == bo) {
