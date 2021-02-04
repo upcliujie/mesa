@@ -1565,8 +1565,7 @@ struct drm_i915_query_engine_info *anv_gem_get_engine_info(int fd);
 int anv_gem_count_engines(const struct drm_i915_query_engine_info *info,
                           uint16_t engine_class);
 
-uint64_t anv_vma_alloc(struct anv_device *device,
-                       uint64_t size, uint64_t align,
+uint64_t anv_vma_alloc(struct anv_device *device, uint64_t size,
                        enum anv_bo_alloc_flags alloc_flags,
                        uint64_t client_address);
 void anv_vma_free(struct anv_device *device,

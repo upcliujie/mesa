@@ -1598,17 +1598,6 @@ anv_bo_alloc_flags_to_bo_flags(struct anv_device *device,
    return bo_flags;
 }
 
-static uint32_t
-anv_device_get_bo_align(struct anv_device *device,
-                        enum anv_bo_alloc_flags alloc_flags)
-{
-   /* Gen12 CCS surface addresses need to be 64K aligned. */
-   if (device->info.gen >= 12 && (alloc_flags & ANV_BO_ALLOC_IMPLICIT_CCS))
-      return 64 * 1024;
-
-   return 4096;
-}
-
 VkResult
 anv_device_alloc_bo(struct anv_device *device,
                     uint64_t size,
@@ -1625,8 +1614,6 @@ anv_device_alloc_bo(struct anv_device *device,
 
    /* The kernel is going to give us whole pages anyway */
    size = align_u64(size, 4096);
-
-   const uint32_t align = anv_device_get_bo_align(device, alloc_flags);
 
    uint64_t ccs_size = 0;
    if (device->info.has_aux_map && (alloc_flags & ANV_BO_ALLOC_IMPLICIT_CCS)) {
@@ -1689,7 +1676,7 @@ anv_device_alloc_bo(struct anv_device *device,
       new_bo.offset = explicit_address;
    } else if (new_bo.flags & EXEC_OBJECT_PINNED) {
       new_bo.offset = anv_vma_alloc(device, new_bo.size + new_bo._ccs_size,
-                                    align, alloc_flags, explicit_address);
+                                    alloc_flags, explicit_address);
       if (new_bo.offset == 0) {
          if (new_bo.map)
             anv_gem_munmap(device, new_bo.map, size);
@@ -1795,8 +1782,6 @@ anv_device_import_bo_from_host_ptr(struct anv_device *device,
       if (new_bo.flags & EXEC_OBJECT_PINNED) {
          assert(new_bo._ccs_size == 0);
          new_bo.offset = anv_vma_alloc(device, new_bo.size,
-                                       anv_device_get_bo_align(device,
-                                                               alloc_flags),
                                        alloc_flags, client_address);
          if (new_bo.offset == 0) {
             anv_gem_close(device, new_bo.gem_handle);
@@ -1927,8 +1912,6 @@ anv_device_import_bo(struct anv_device *device,
       if (new_bo.flags & EXEC_OBJECT_PINNED) {
          assert(new_bo._ccs_size == 0);
          new_bo.offset = anv_vma_alloc(device, new_bo.size,
-                                       anv_device_get_bo_align(device,
-                                                               alloc_flags),
                                        alloc_flags, client_address);
          if (new_bo.offset == 0) {
             anv_gem_close(device, new_bo.gem_handle);

@@ -3291,12 +3291,36 @@ VkResult anv_DeviceWaitIdle(
    return VK_SUCCESS;
 }
 
+
+static uint64_t
+anv_vma_align(struct anv_device *device)
+{
+   /* CCS surface addresses for Gen12+ and all bo addresses for Gen12hp need to
+    * be 64K aligned. Looking at plenty of VA space available, it makes sense
+    * to keep things simple by using 64K alignment for all Gen12+.
+    */
+   if (device->info.gen >= 12)
+      return 64 * 1024;
+
+   return 4096;
+}
+
+static uint64_t
+anv_vma_size(struct anv_device *device, uint64_t size)
+{
+   return align_u64(size, 4096);
+}
+
 uint64_t
 anv_vma_alloc(struct anv_device *device,
-              uint64_t size, uint64_t align,
+              uint64_t size,
               enum anv_bo_alloc_flags alloc_flags,
               uint64_t client_address)
 {
+   uint64_t align = anv_vma_align(device);
+
+   size = anv_vma_size(device, size);
+
    pthread_mutex_lock(&device->vma_mutex);
 
    uint64_t addr = 0;
@@ -3334,6 +3358,8 @@ anv_vma_free(struct anv_device *device,
              uint64_t address, uint64_t size)
 {
    const uint64_t addr_48b = gen_48b_address(address);
+
+   size = anv_vma_size(device, size);
 
    pthread_mutex_lock(&device->vma_mutex);
 
