@@ -607,9 +607,10 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
       bool spill = true;
 
       for (unsigned i = 0; i < phi->operands.size(); i++) {
-         if (phi->operands[i].isUndefined())
+         assert(!phi->operands[i].isConstant());
+         // TODO: in theory, we can spill phis with exec operands and temp definitions
+         if (!phi->definitions[0].isTemp() || !phi->operands[i].isTemp())
             continue;
-         assert(phi->operands[i].isTemp());
          if (ctx.spills_exit[preds[i]].find(phi->operands[i].getTemp()) == ctx.spills_exit[preds[i]].end())
             spill = false;
          else
@@ -817,6 +818,8 @@ void add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
       if (phi->opcode != aco_opcode::p_phi &&
           phi->opcode != aco_opcode::p_linear_phi)
          break;
+      if (!phi->definitions[0].isTemp())
+         continue;
 
       /* if the phi is not spilled, add to instructions */
       if (ctx.spills_entry[block_idx].find(phi->definitions[0].getTemp()) == ctx.spills_entry[block_idx].end()) {
@@ -933,7 +936,7 @@ void add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
    /* iterate phis for which operands to reload */
    for (aco_ptr<Instruction>& phi : instructions) {
       assert(phi->opcode == aco_opcode::p_phi || phi->opcode == aco_opcode::p_linear_phi);
-      assert(ctx.spills_entry[block_idx].find(phi->definitions[0].getTemp()) == ctx.spills_entry[block_idx].end());
+      assert(!phi->definitions[0].isTemp() || ctx.spills_entry[block_idx].find(phi->definitions[0].getTemp()) == ctx.spills_entry[block_idx].end());
 
       std::vector<unsigned>& preds = phi->opcode == aco_opcode::p_phi ? block->logical_preds : block->linear_preds;
       for (unsigned i = 0; i < phi->operands.size(); i++) {
