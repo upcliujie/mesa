@@ -4650,9 +4650,8 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
 
       inst->desc =
          (inst->group / 16) << 11 | /* rt slot group */
-         brw_dp_write_desc(devinfo, inst->target, msg_ctl,
-                           GEN6_DATAPORT_WRITE_MESSAGE_RENDER_TARGET_WRITE,
-                           inst->last_rt, false);
+         brw_fb_write_desc(devinfo, inst->target, msg_ctl,
+                           inst->last_rt, false /* send_commit_msg */);
 
       uint32_t ex_desc = 0;
       if (devinfo->gen >= 11) {

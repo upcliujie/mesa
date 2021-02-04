@@ -959,7 +959,6 @@ fs_reg_alloc::emit_spill(const fs_builder &bld, fs_reg src,
             brw_dp_write_desc(devinfo, GEN8_BTI_STATELESS_NON_COHERENT,
                               BRW_DATAPORT_OWORD_BLOCK_DWORDS(reg_size * 8),
                               GEN6_DATAPORT_WRITE_MESSAGE_OWORD_BLOCK_WRITE,
-                              0 /* not a render target */,
                               false /* send_commit_msg */);
       } else {
          spill_inst = bld.emit(SHADER_OPCODE_GEN4_SCRATCH_WRITE,
