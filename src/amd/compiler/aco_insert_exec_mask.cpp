@@ -465,7 +465,6 @@ unsigned add_coupling_code(exec_ctx& ctx, Block* block,
       assert(!(block->kind & block_kind_top_level) || info.num_exec_masks <= 2);
 
       /* create the loop exit phis if not trivial */
-      bool need_parallelcopy = false;
       for (unsigned exec_idx = 0; exec_idx < info.num_exec_masks; exec_idx++) {
          Temp same = ctx.info[preds[0]].exec[exec_idx].first;
          uint8_t type = ctx.info[header_preds[0]].exec[exec_idx].second;
@@ -476,21 +475,6 @@ unsigned add_coupling_code(exec_ctx& ctx, Block* block,
                trivial = false;
          }
 
-         if (exec_idx == info.num_exec_masks - 1u) {
-            bool all_liveout_exec = true;
-            bool all_not_liveout_exec = true;
-            for (unsigned pred : preds) {
-               all_liveout_exec = all_liveout_exec && same == ctx.program->blocks[pred].live_out_exec;
-               all_not_liveout_exec = all_not_liveout_exec && same != ctx.program->blocks[pred].live_out_exec;
-            }
-            if (!all_liveout_exec && !all_not_liveout_exec)
-               trivial = false;
-            else if (all_not_liveout_exec)
-               need_parallelcopy = true;
-
-            need_parallelcopy |= !trivial;
-         }
-
          if (trivial) {
             ctx.info[idx].exec.emplace_back(same, type);
          } else {
@@ -499,7 +483,6 @@ unsigned add_coupling_code(exec_ctx& ctx, Block* block,
             phi->definitions[0] = bld.def(bld.lm);
             if (exec_idx == info.num_exec_masks - 1u) {
                phi->definitions[0] = Definition(exec, bld.lm);
-               need_parallelcopy = false;
             }
             for (unsigned i = 0; i < phi->operands.size(); i++)
                phi->operands[i] = get_exec_op(ctx.info[preds[i]].exec[exec_idx].first);
@@ -531,7 +514,7 @@ unsigned add_coupling_code(exec_ctx& ctx, Block* block,
       }
 
       assert(ctx.info[idx].exec.back().first.size() == bld.lm.size());
-      if (need_parallelcopy && get_exec_op(ctx.info[idx].exec.back().first).isTemp()) {
+      if (get_exec_op(ctx.info[idx].exec.back().first).isTemp()) {
          /* only create this parallelcopy is needed, since the operand isn't
           * fixed to exec which causes the spiller to miscalculate register demand */
          /* TODO: Fix register_demand calculation for spilling on loop exits.
@@ -1039,8 +1022,6 @@ void process_block(exec_ctx& ctx, Block* block)
    block->instructions = std::move(instructions);
 
    add_branch_code(ctx, block);
-
-   block->live_out_exec = ctx.info[block->index].exec.back().first;
 }
 
 } /* end namespace */

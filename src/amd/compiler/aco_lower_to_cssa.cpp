@@ -86,6 +86,9 @@ bool collect_phi_info(cssa_ctx& ctx)
                          ctx.program->blocks[pred].linear_idom;
                } while (def_points[i] != pred &&
                         ctx.live_vars.live_out[pred].count(op.tempId()));
+            } else {
+               /* no need to insert a copy of the exec mask */
+               assert(op.isFixed() && op.physReg() == exec);
             }
          }
 
@@ -95,8 +98,8 @@ bool collect_phi_info(cssa_ctx& ctx)
             if (op.isUndefined())
                continue;
             /* check if the operand comes from the exec mask of a predecessor */
-            if (op.isTemp() && op.getTemp() == ctx.program->blocks[preds[i]].live_out_exec)
-               op.setFixed(exec);
+            if (op.isFixed() && op.physReg() == exec)
+               continue;
 
             bool interferes = false;
             unsigned idom = is_logical ?
