@@ -1325,7 +1325,8 @@ tu6_emit_fs_outputs(struct tu_cs *cs,
                     const struct ir3_shader_variant *fs,
                     uint32_t mrt_count, bool dual_src_blend,
                     uint32_t render_components,
-                    bool is_s8_uint)
+                    bool is_s8_uint,
+                    struct tu_pipeline *pipeline)
 {
    uint32_t smask_regid, posz_regid, stencilref_regid;
 
@@ -1371,19 +1372,13 @@ tu6_emit_fs_outputs(struct tu_cs *cs,
    tu_cs_emit_regs(cs,
                    A6XX_RB_RENDER_COMPONENTS(.dword = render_components));
 
-   enum a6xx_ztest_mode zmode;
+   if (pipeline) {
+      pipeline->lrz.fs_has_kill = fs->has_kill;
 
-   if (fs->no_earlyz || fs->has_kill || fs->writes_pos || fs->writes_stencilref || is_s8_uint) {
-      zmode = A6XX_LATE_Z;
-   } else {
-      zmode = A6XX_EARLY_Z;
+      if (fs->no_earlyz || fs->writes_pos || fs->writes_stencilref || is_s8_uint) {
+         pipeline->lrz.force_late_z = true;
+      }
    }
-
-   tu_cs_emit_pkt4(cs, REG_A6XX_GRAS_SU_DEPTH_PLANE_CNTL, 1);
-   tu_cs_emit(cs, A6XX_GRAS_SU_DEPTH_PLANE_CNTL_Z_MODE(zmode));
-
-   tu_cs_emit_pkt4(cs, REG_A6XX_RB_DEPTH_PLANE_CNTL, 1);
-   tu_cs_emit(cs, A6XX_RB_DEPTH_PLANE_CNTL_Z_MODE(zmode));
 }
 
 static void
@@ -1451,7 +1446,8 @@ tu6_emit_geom_tess_consts(struct tu_cs *cs,
 static void
 tu6_emit_program(struct tu_cs *cs,
                  struct tu_pipeline_builder *builder,
-                 bool binning_pass)
+                 bool binning_pass,
+                 struct tu_pipeline *pipeline)
 {
    const struct ir3_shader_variant *vs = builder->variants[MESA_SHADER_VERTEX];
    const struct ir3_shader_variant *bs = builder->binning_variant;
@@ -1529,7 +1525,8 @@ tu6_emit_program(struct tu_cs *cs,
       tu6_emit_fs_outputs(cs, fs, builder->color_attachment_count,
                           builder->use_dual_src_blend,
                           builder->render_components,
-                          builder->depth_attachment_format == VK_FORMAT_S8_UINT);
+                          builder->depth_attachment_format == VK_FORMAT_S8_UINT,
+                          pipeline);
    } else {
       /* TODO: check if these can be skipped if fs is disabled */
       struct ir3_shader_variant dummy_variant = {};
@@ -1537,7 +1534,8 @@ tu6_emit_program(struct tu_cs *cs,
       tu6_emit_fs_outputs(cs, &dummy_variant, builder->color_attachment_count,
                           builder->use_dual_src_blend,
                           builder->render_components,
-                          builder->depth_attachment_format == VK_FORMAT_S8_UINT);
+                          builder->depth_attachment_format == VK_FORMAT_S8_UINT,
+                          NULL);
    }
 
    if (gs || hs) {
@@ -2302,11 +2300,11 @@ tu_pipeline_builder_parse_shader_stages(struct tu_pipeline_builder *builder,
 {
    struct tu_cs prog_cs;
    tu_cs_begin_sub_stream(&pipeline->cs, 512, &prog_cs);
-   tu6_emit_program(&prog_cs, builder, false);
+   tu6_emit_program(&prog_cs, builder, false, pipeline);
    pipeline->program.state = tu_cs_end_draw_state(&pipeline->cs, &prog_cs);
 
    tu_cs_begin_sub_stream(&pipeline->cs, 512, &prog_cs);
-   tu6_emit_program(&prog_cs, builder, true);
+   tu6_emit_program(&prog_cs, builder, true, pipeline);
    pipeline->program.binning_state = tu_cs_end_draw_state(&pipeline->cs, &prog_cs);
 
    VkShaderStageFlags stages = 0;
