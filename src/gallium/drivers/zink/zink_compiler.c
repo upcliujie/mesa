@@ -506,13 +506,7 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
    }
    NIR_PASS_V(nir, nir_convert_from_ssa, true);
 
-   unsigned reserved = 0;
-   unsigned char slot_map[VARYING_SLOT_MAX];
-   if (shader_slots_reserved) {
-      reserved = *shader_slots_reserved;
-      memcpy(slot_map, shader_slot_map, sizeof(slot_map));
-   }
-
+   unsigned reserved = shader_slots_reserved ? *shader_slots_reserved : 0;
    nir_foreach_variable_with_modes(var, nir, nir_var_shader_in | nir_var_shader_out) {
       if ((nir->info.stage == MESA_SHADER_VERTEX && var->data.mode == nir_var_shader_in) ||
           (nir->info.stage == MESA_SHADER_FRAGMENT && var->data.mode == nir_var_shader_out))
@@ -547,19 +541,22 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
             assert(var->data.location >= VARYING_SLOT_VAR0);
             slot = var->data.location - VARYING_SLOT_VAR0;
          } else {
-            if (slot_map[var->data.location] == 0xff) {
+            if (shader_slot_map[var->data.location] == 0xff) {
                assert(reserved < MAX_VARYING);
-               slot_map[var->data.location] = reserved;
+               shader_slot_map[var->data.location] = reserved;
                reserved += glsl_count_vec4_slots(var->type, false, false);
             }
-            slot = slot_map[var->data.location];
+            slot = shader_slot_map[var->data.location];
             assert(slot < MAX_VARYING);
          }
          var->data.driver_location = slot;
       }
    }
 
-   struct spirv_shader *spirv = nir_to_spirv(nir, streamout, shader_slot_map, shader_slots_reserved);
+   if (shader_slots_reserved)
+      *shader_slots_reserved = reserved;
+
+   struct spirv_shader *spirv = nir_to_spirv(nir, streamout);
    if (!spirv)
       goto done;
 
