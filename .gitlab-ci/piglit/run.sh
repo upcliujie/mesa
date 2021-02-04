@@ -6,6 +6,7 @@ INSTALL="$(pwd)/install"
 
 RESULTS="$(pwd)/results"
 mkdir -p "$RESULTS"
+rm -rf "$RESULTS"/*
 
 # Set up the driver environment.
 # Modifiying here directly LD_LIBRARY_PATH may cause problems when
@@ -119,7 +120,6 @@ fi
 
 SANITY_MESA_VERSION_CMD="$SANITY_MESA_VERSION_CMD | tee /tmp/version.txt | grep \"Mesa $MESA_VERSION\(\s\|$\)\""
 
-rm -rf results
 cd /piglit
 
 PIGLIT_OPTIONS=$(printf "%s" "$PIGLIT_OPTIONS")
