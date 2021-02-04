@@ -130,7 +130,6 @@ libanv_files = files(
   'anv_queue.c',
   'anv_util.c',
   'anv_wsi.c',
-  'vk_format_info.h',
 )
 
 anv_deps = [
