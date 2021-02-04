@@ -106,6 +106,7 @@ EXTENSIONS = [
     Extension('VK_KHR_device_group',                      4, True),
     Extension('VK_KHR_device_group_creation',             1, True),
     Extension('VK_EXT_descriptor_indexing',               2, True),
+    Extension('VK_KHR_pipeline_executable_properties',    1, True),
 ]
 
 MAX_API_VERSION = VkVersion(MAX_API_VERSION)
