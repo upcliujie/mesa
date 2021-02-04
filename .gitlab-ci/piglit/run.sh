@@ -6,6 +6,7 @@ INSTALL=$(realpath -s "$PWD"/install)
 
 RESULTS=$(realpath -s "$PWD"/results)
 mkdir -p "$RESULTS"
+rm -rf "$RESULTS"/*
 
 # Set up the driver environment.
 # Modifiying here directly LD_LIBRARY_PATH may cause problems when
@@ -183,7 +184,6 @@ replay_minio_upload_images() {
 
 SANITY_MESA_VERSION_CMD="$SANITY_MESA_VERSION_CMD | tee /tmp/version.txt | grep \"Mesa $MESA_VERSION\(\s\|$\)\""
 
-rm -rf results
 cd /piglit
 
 if [ -n "$USE_CASELIST" ]; then
