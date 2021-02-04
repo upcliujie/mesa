@@ -2061,6 +2061,7 @@ lp_build_layer_coord(struct lp_build_sample_context *bld,
 
 static void
 lp_build_sample_aniso(struct lp_build_sample_context *bld,
+                      unsigned texture_unit,
                       unsigned img_filter,
                       unsigned mip_filter,
                       boolean is_gather,
@@ -2101,7 +2102,7 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
       mipoff0 = lp_build_get_mip_offsets(bld, ilevel0);
    }
    first_level = bld->dynamic_state->first_level(bld->dynamic_state, gallivm,
-                                                 bld->context_ptr, 0, NULL);
+                                                 bld->context_ptr, texture_unit, NULL);
    first_level_vec = lp_build_broadcast_scalar(int_size_bld, first_level);
    int_size = lp_build_minify(int_size_bld, bld->int_size, first_level_vec, TRUE);
    float_size = lp_build_int_to_float(float_size_bld, int_size);
@@ -2608,6 +2609,10 @@ lp_build_sample_common(struct lp_build_sample_context *bld,
       lod_ipart = lp_build_extract_range(bld->gallivm, lod_ipart, 0, 1);
    }
 
+   if (aniso) {
+      lp_build_nearest_mip_level(bld, texture_index, lod_ipart, ilevel0, NULL);
+      return;
+   }
    /*
     * Compute integer mipmap level(s) to fetch texels from: ilevel0, ilevel1
     */
@@ -2872,6 +2877,7 @@ lp_build_clamp_border_color(struct lp_build_sample_context *bld,
  */
 static void
 lp_build_sample_general(struct lp_build_sample_context *bld,
+                        unsigned texture_unit,
                         unsigned sampler_unit,
                         boolean is_gather,
                         const LLVMValueRef *coords,
@@ -2916,7 +2922,7 @@ lp_build_sample_general(struct lp_build_sample_context *bld,
    }
 
    if (sampler_state->aniso && sampler_state->min_mip_filter == PIPE_TEX_MIPFILTER_LINEAR) {
-      lp_build_sample_aniso(bld, PIPE_TEX_FILTER_NEAREST, mip_filter,
+      lp_build_sample_aniso(bld, texture_unit, PIPE_TEX_FILTER_NEAREST, mip_filter,
                             false, coords, offsets, ilevel0,
                             ilevel1, lod_fpart, texels);
    } else if (min_filter == mag_filter) {
@@ -3671,7 +3677,7 @@ lp_build_sample_soa_code(struct gallivm_state *gallivm,
          }
 
          else {
-            lp_build_sample_general(&bld, sampler_index,
+            lp_build_sample_general(&bld, texture_index, sampler_index,
                                     op_type == LP_SAMPLER_OP_GATHER,
                                     newcoords, offsets,
                                     lod_positive, lod_fpart,
@@ -3822,7 +3828,7 @@ lp_build_sample_soa_code(struct gallivm_state *gallivm,
                newcoords4[3] = lp_build_extract_range(gallivm, newcoords[3], 4*i, 4);
                newcoords4[4] = lp_build_extract_range(gallivm, newcoords[4], 4*i, 4);
 
-               lp_build_sample_general(&bld4, sampler_index,
+               lp_build_sample_general(&bld4, texture_index, sampler_index,
                                        op_type == LP_SAMPLER_OP_GATHER,
                                        newcoords4, offsets4,
                                        lod_positive4, lod_fpart4,

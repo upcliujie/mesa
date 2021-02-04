@@ -251,7 +251,7 @@ lp_build_pmin(struct lp_build_sample_context *bld,
    LLVMTypeRef i32t = LLVMInt32TypeInContext(bld->gallivm->context);
    LLVMValueRef index0 = LLVMConstInt(i32t, 0, 0);
    LLVMValueRef index1 = LLVMConstInt(i32t, 1, 0);
-   LLVMValueRef ddx_ddy = lp_build_packed_ddx_ddy_twocoord(coord_bld, s, t);
+   LLVMValueRef ddx_ddy = lp_build_packed_ddx_ddy_twocoord_aniso(coord_bld, s, t);
    LLVMValueRef int_size, float_size;
    LLVMValueRef first_level, first_level_vec;
    unsigned length = coord_bld->type.length;
@@ -1005,7 +1005,9 @@ lp_build_lod_selector(struct lp_build_sample_context *bld,
    *out_lod_positive = lp_build_cmp(lodf_bld, PIPE_FUNC_GREATER,
                                     lod, lodf_bld->zero);
 
-   if (mip_filter == PIPE_TEX_MIPFILTER_LINEAR) {
+   if (bld->static_sampler_state->aniso) {
+      *out_lod_ipart = lp_build_itrunc(lodf_bld, lod);
+   } else if (mip_filter == PIPE_TEX_MIPFILTER_LINEAR) {
       if (!bld->no_brilinear) {
          lp_build_brilinear_lod(lodf_bld, lod, BRILINEAR_FACTOR,
                                 out_lod_ipart, out_lod_fpart);
