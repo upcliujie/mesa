@@ -360,3 +360,18 @@ radeonsi-stoney-traces:amd64:
     ENV_VARS: "EGL_PLATFORM=surfaceless PIGLIT_PROFILES=replay PIGLIT_HTML_SUMMARY=0 PIGLIT_JUNIT_RESULTS=1"
   tags:
     - mesa-ci-aarch64-lava-collabora
+
+virgl-traces:amd64:
+  extends:
+    - .lava-piglit-traces:amd64
+    - .virgl-rules
+  variables:
+    DEVICE_TYPE: hp-11A-G6-EE-grunt
+    DTB: ""
+    GPU_VERSION: virgl
+    DRIVER_NAME: virgl
+    BOOT_METHOD: depthcharge
+    KERNEL_IMAGE_TYPE: ""
+    ENV_VARS: "EGL_PLATFORM=surfaceless PIGLIT_PROFILES=replay PIGLIT_HTML_SUMMARY=0 PIGLIT_JUNIT_RESULTS=1"
+  tags:
+    - mesa-ci-aarch64-lava-collabora
