@@ -130,8 +130,10 @@ vk_common_CreateRenderPass(VkDevice _device,
          .colorAttachmentCount = pCreateInfo->pSubpasses[i].colorAttachmentCount,
       };
 
-      if (multiview_info && multiview_info->subpassCount)
+      if (multiview_info && multiview_info->subpassCount) {
+         assert(multiview_info->subpassCount == pCreateInfo->subpassCount);
          subpasses[i].viewMask = multiview_info->pViewMasks[i];
+      }
 
       subpasses[i].pInputAttachments = reference_ptr;
       translate_references(&reference_ptr,
@@ -192,8 +194,10 @@ vk_common_CreateRenderPass(VkDevice _device,
          .viewOffset = 0,
       };
 
-      if (multiview_info && multiview_info->dependencyCount)
+      if (multiview_info && multiview_info->dependencyCount) {
+         assert(multiview_info->dependencyCount == pCreateInfo->dependencyCount);
          dependencies[i].viewOffset = multiview_info->pViewOffsets[i];
+      }
    }
 
    VkRenderPassCreateInfo2 create_info = {
@@ -208,7 +212,7 @@ vk_common_CreateRenderPass(VkDevice _device,
       .pDependencies = dependencies,
    };
 
-   if (multiview_info) {
+   if (multiview_info && multiview_info->correlationMaskCount > 0) {
       create_info.correlatedViewMaskCount = multiview_info->correlationMaskCount;
       create_info.pCorrelatedViewMasks = multiview_info->pCorrelationMasks;
    }
