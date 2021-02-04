@@ -499,6 +499,7 @@ emit_input(struct ntv_context *ctx, struct nir_variable *var)
 
       default:
          slot = handle_slot(ctx, slot, glsl_count_vec4_slots(var->type, false, false));
+         assert(var->data.driver_location == slot);
          spirv_builder_emit_location(&ctx->builder, var_id, slot);
       }
       if (var->data.centroid)
@@ -525,6 +526,7 @@ emit_input(struct ntv_context *ctx, struct nir_variable *var)
 
       default:
          slot = handle_handle_slot(ctx, var, false);
+         assert(var->data.driver_location == slot);
          spirv_builder_emit_location(&ctx->builder, var_id, slot);
       }
    }
@@ -583,6 +585,7 @@ emit_output(struct ntv_context *ctx, struct nir_variable *var)
 
       default:
          slot = handle_handle_slot(ctx, var, true);
+         assert(var->data.driver_location == slot);
          spirv_builder_emit_location(&ctx->builder, var_id, slot);
       }
       /* tcs can't do xfb */
