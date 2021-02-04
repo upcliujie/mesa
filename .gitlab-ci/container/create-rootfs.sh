@@ -45,8 +45,12 @@ apt-get -y install --no-install-recommends \
     $VK_CTS_PACKAGES \
     ca-certificates \
     curl \
+    inetutils-syslogd \
     initramfs-tools \
+    iptables \
     libexpat1 \
+    libfdt1 \
+    libcap2 \
     libpng16-16 \
     libpython3.7 \
     libsensors5 \
@@ -75,6 +79,7 @@ apt-get -y install --no-install-recommends \
     python3-yaml \
     sntp \
     strace \
+    sysvinit-core \
     wget \
     xinit \
     xserver-xorg-core \
