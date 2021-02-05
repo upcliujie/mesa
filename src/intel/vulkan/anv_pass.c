@@ -243,12 +243,16 @@ num_subpass_attachments2(const VkSubpassDescription2KHR *desc)
    const VkSubpassDescriptionDepthStencilResolveKHR *ds_resolve =
       vk_find_struct_const(desc->pNext,
                            SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR);
+   const VkFragmentShadingRateAttachmentInfoKHR *fsr_attachment =
+      vk_find_struct_const(desc->pNext,
+                           FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR);
 
    return desc->inputAttachmentCount +
           desc->colorAttachmentCount +
           (desc->pResolveAttachments ? desc->colorAttachmentCount : 0) +
           (desc->pDepthStencilAttachment != NULL) +
-          (ds_resolve && ds_resolve->pDepthStencilResolveAttachment);
+          (ds_resolve && ds_resolve->pDepthStencilResolveAttachment) +
+          (fsr_attachment != NULL && fsr_attachment->pFragmentShadingRateAttachment);
 }
 
 VkResult anv_CreateRenderPass2(
@@ -387,6 +391,22 @@ VkResult anv_CreateRenderPass2(
          subpass->depth_resolve_mode = ds_resolve->depthResolveMode;
          subpass->stencil_resolve_mode = ds_resolve->stencilResolveMode;
       }
+
+      const VkFragmentShadingRateAttachmentInfoKHR *fsr_attachment =
+         vk_find_struct_const(desc->pNext,
+                              FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR);
+
+      if (fsr_attachment && fsr_attachment->pFragmentShadingRateAttachment) {
+         subpass->fsr_attachment = subpass_attachments++;
+
+         *subpass->fsr_attachment = (struct anv_subpass_attachment) {
+            .usage =          VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR,
+            .attachment =     fsr_attachment->pFragmentShadingRateAttachment->attachment,
+            .layout =         fsr_attachment->pFragmentShadingRateAttachment->layout,
+         };
+         subpass->fsr_extent = fsr_attachment->shadingRateAttachmentTexelSize;
+      }
+
    }
 
    for (uint32_t i = 0; i < pCreateInfo->dependencyCount; i++) {
