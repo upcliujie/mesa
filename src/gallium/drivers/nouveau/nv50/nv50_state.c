@@ -1091,6 +1091,11 @@ nv50_set_vertex_buffers(struct pipe_context *pipe,
                                  unbind_num_trailing_slots,
                                  take_ownership);
 
+    unsigned clear_mask = ~(((1ull << unbind_num_trailing_slots) - 1) << (start_slot + count));
+    nv50->vbo_user &= clear_mask;
+    nv50->vbo_constant &= clear_mask;
+    nv50->vtxbufs_coherent &= clear_mask;
+
    if (!vb) {
       nv50->vbo_user &= ~(((1ull << count) - 1) << start_slot);
       nv50->vbo_constant &= ~(((1ull << count) - 1) << start_slot);

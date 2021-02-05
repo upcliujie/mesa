@@ -1012,6 +1012,11 @@ nvc0_set_vertex_buffers(struct pipe_context *pipe,
                                   unbind_num_trailing_slots,
                                   take_ownership);
 
+    unsigned clear_mask = ~(((1ull << unbind_num_trailing_slots) - 1) << (start_slot + count));
+    nvc0->vbo_user &= clear_mask;
+    nvc0->constant_vbos &= clear_mask;
+    nvc0->vtxbufs_coherent &= clear_mask;
+
     if (!vb) {
        nvc0->vbo_user &= ~(((1ull << count) - 1) << start_slot);
        nvc0->constant_vbos &= ~(((1ull << count) - 1) << start_slot);
