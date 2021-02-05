@@ -636,6 +636,9 @@ struct anv_bo {
 
    /** True if this BO has implicit CCS data attached to it */
    bool has_implicit_ccs:1;
+
+   /** True if this BO is allocated in local memory */
+   bool is_local_memory:1;
 };
 
 static inline struct anv_bo *
@@ -1458,6 +1461,9 @@ enum anv_bo_alloc_flags {
 
    /** This buffer has implicit CCS data attached to it */
    ANV_BO_ALLOC_IMPLICIT_CCS = (1 << 9),
+
+   /** This buffer is allocated from local memory */
+   ANV_BO_ALLOC_LOCAL_MEM = (1 << 10),
 };
 
 VkResult anv_device_alloc_bo(struct anv_device *device, uint64_t size,
@@ -1569,7 +1575,7 @@ uint64_t anv_vma_alloc(struct anv_device *device, uint64_t size,
                        enum anv_bo_alloc_flags alloc_flags,
                        uint64_t client_address);
 void anv_vma_free(struct anv_device *device,
-                  uint64_t address, uint64_t size);
+                  uint64_t address, uint64_t size, bool local_memory);
 
 struct anv_reloc_list {
    uint32_t                                     num_relocs;

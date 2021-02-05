@@ -3293,8 +3293,19 @@ VkResult anv_DeviceWaitIdle(
 
 
 static uint64_t
-anv_vma_align(struct anv_device *device)
+anv_vma_align(struct anv_device *device, bool local_memory)
 {
+   /* For gen12-hp, the local memory indicator moved up one level in the page
+    * tables (PTE -> PDE). As a result, lmem and smem cannot share a single
+    * PDE, which means they can't live in the same 2MiB aligned region.
+    *
+    * We can either align lmem or smem to 2Mb so that smaller allocation in
+    * the other type of memory can exist within a PDE. Since we expect most
+    * things to go in lmem, align smem to 2Mb.
+    */
+   if (gen_device_info_is_12hp(&device->info) && !local_memory)
+      return 2 * 1024 * 1024;
+
    /* CCS surface addresses for Gen12+ and all bo addresses for Gen12hp need to
     * be 64K aligned. Looking at plenty of VA space available, it makes sense
     * to keep things simple by using 64K alignment for all Gen12+.
@@ -3306,8 +3317,14 @@ anv_vma_align(struct anv_device *device)
 }
 
 static uint64_t
-anv_vma_size(struct anv_device *device, uint64_t size)
+anv_vma_size(struct anv_device *device, uint64_t size, bool local_memory)
 {
+   /* Similarly to the alignment of the VMA, we also align the VMA of smem
+    * allocations to ensure no other allocation is within the same PDE.
+    */
+   if (gen_device_info_is_12hp(&device->info) && !local_memory)
+      return align_u64(size, 2 * 1024 * 1024);
+
    return align_u64(size, 4096);
 }
 
@@ -3317,9 +3334,11 @@ anv_vma_alloc(struct anv_device *device,
               enum anv_bo_alloc_flags alloc_flags,
               uint64_t client_address)
 {
-   uint64_t align = anv_vma_align(device);
+   bool local_memory = alloc_flags & ANV_BO_ALLOC_LOCAL_MEM;
 
-   size = anv_vma_size(device, size);
+   uint64_t align = anv_vma_align(device, local_memory);
+
+   size = anv_vma_size(device, size, local_memory);
 
    pthread_mutex_lock(&device->vma_mutex);
 
@@ -3355,11 +3374,12 @@ done:
 
 void
 anv_vma_free(struct anv_device *device,
-             uint64_t address, uint64_t size)
+             uint64_t address, uint64_t size,
+             bool local_memory)
 {
    const uint64_t addr_48b = gen_48b_address(address);
 
-   size = anv_vma_size(device, size);
+   size = anv_vma_size(device, size, local_memory);
 
    pthread_mutex_lock(&device->vma_mutex);
 

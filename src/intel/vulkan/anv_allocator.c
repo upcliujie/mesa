@@ -1641,6 +1641,7 @@ anv_device_alloc_bo(struct anv_device *device,
       .has_client_visible_address =
          (alloc_flags & ANV_BO_ALLOC_CLIENT_VISIBLE_ADDRESS) != 0,
       .has_implicit_ccs = ccs_size > 0,
+      .is_local_memory = alloc_flags & ANV_BO_ALLOC_LOCAL_MEM,
    };
 
    if (alloc_flags & ANV_BO_ALLOC_MAPPED) {
@@ -2012,7 +2013,7 @@ anv_device_release_bo(struct anv_device *device,
    }
 
    if ((bo->flags & EXEC_OBJECT_PINNED) && !bo->has_fixed_address)
-      anv_vma_free(device, bo->offset, bo->size + bo->_ccs_size);
+      anv_vma_free(device, bo->offset, bo->size + bo->_ccs_size, bo->is_local_memory);
 
    uint32_t gem_handle = bo->gem_handle;
 
