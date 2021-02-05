@@ -121,6 +121,7 @@ SANITY_MESA_VERSION_CMD="$SANITY_MESA_VERSION_CMD | tee /tmp/version.txt | grep 
 
 if [ "$GALLIUM_DRIVER" = "zink" ]; then
     export VK_ICD_FILENAMES="$INSTALL/share/vulkan/icd.d/lvp_icd.x86_64.json"
+    ls -la $INSTALL/share/vulkan/icd.d/lvp_icd.x86_64.json
 fi
 
 rm -rf results
