@@ -291,6 +291,8 @@ x86_build-base:
     - .container
   variables:
     MESA_IMAGE_TAG: &x86_build-base "2021-02-08-container-reorg"
+  rules:
+    - when: always
 
 .use-x86_build-base:
   extends:
@@ -392,6 +394,8 @@ x86_test-base:
   extends: x86_build-base
   variables:
     MESA_IMAGE_TAG: &x86_test-base "2021-02-17-gfxreconstruct-master"
+  rules:
+    - when: always
 
 .use-x86_test-base:
   extends:
