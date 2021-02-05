@@ -1669,6 +1669,26 @@ nir_print_shader(nir_shader *shader, FILE *fp)
    fflush(fp);
 }
 
+char *
+nir_shader_as_str(nir_shader *nir, void *mem_ctx)
+{
+   char *stream_data = NULL;
+   size_t stream_size = 0;
+   FILE *stream = open_memstream(&stream_data, &stream_size);
+
+   nir_print_shader(nir, stream);
+
+   fclose(stream);
+
+   char *str = ralloc_size(mem_ctx, stream_size + 1);
+   memcpy(str, stream_data, stream_size);
+   str[stream_size] = '\0';
+
+   free(stream_data);
+
+   return str;
+}
+
 void
 nir_print_instr(const nir_instr *instr, FILE *fp)
 {
