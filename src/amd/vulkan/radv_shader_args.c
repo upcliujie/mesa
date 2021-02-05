@@ -412,10 +412,7 @@ set_vs_specific_input_locs(struct radv_shader_args *args,
 					   user_sgpr_idx);
 		}
 
-		unsigned vs_num = 2;
-		if (args->shader_info->vs.needs_draw_id)
-			vs_num++;
-
+		unsigned vs_num = count_vs_user_sgprs(args) - 1;
 		set_loc_shader(args, AC_UD_VS_BASE_VERTEX_START_INSTANCE,
 			       user_sgpr_idx, vs_num);
 	}
