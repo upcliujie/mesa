@@ -3754,9 +3754,9 @@ VkResult anv_AllocateMemory(
        */
       if (image->needs_set_tiling) {
          const uint32_t i915_tiling =
-            isl_tiling_to_i915_tiling(image->planes[0].surface.isl.tiling);
+            isl_tiling_to_i915_tiling(image->planes[0].primary_surface.isl.tiling);
          int ret = anv_gem_set_tiling(device, mem->bo->gem_handle,
-                                      image->planes[0].surface.isl.row_pitch_B,
+                                      image->planes[0].primary_surface.isl.row_pitch_B,
                                       i915_tiling);
          if (ret) {
             anv_device_release_bo(device, mem->bo);
@@ -4082,108 +4082,6 @@ void anv_GetBufferMemoryRequirements2(
          break;
       }
    }
-}
-
-void anv_GetImageMemoryRequirements2(
-    VkDevice                                    _device,
-    const VkImageMemoryRequirementsInfo2*       pInfo,
-    VkMemoryRequirements2*                      pMemoryRequirements)
-{
-   ANV_FROM_HANDLE(anv_device, device, _device);
-   ANV_FROM_HANDLE(anv_image, image, pInfo->image);
-
-   /* The Vulkan spec (git aaed022) says:
-    *
-    *    memoryTypeBits is a bitfield and contains one bit set for every
-    *    supported memory type for the resource. The bit `1<<i` is set if and
-    *    only if the memory type `i` in the VkPhysicalDeviceMemoryProperties
-    *    structure for the physical device is supported.
-    *
-    * All types are currently supported for images.
-    */
-   uint32_t memory_types = (1ull << device->physical->memory.type_count) - 1;
-
-   pMemoryRequirements->memoryRequirements.size = image->size;
-   pMemoryRequirements->memoryRequirements.alignment = image->alignment;
-   pMemoryRequirements->memoryRequirements.memoryTypeBits = memory_types;
-
-   vk_foreach_struct_const(ext, pInfo->pNext) {
-      switch (ext->sType) {
-      case VK_STRUCTURE_TYPE_IMAGE_PLANE_MEMORY_REQUIREMENTS_INFO: {
-         const VkImagePlaneMemoryRequirementsInfo *plane_reqs =
-            (const VkImagePlaneMemoryRequirementsInfo *) ext;
-         uint32_t plane = anv_image_aspect_to_plane(image->aspects,
-                                                    plane_reqs->planeAspect);
-
-         assert(image->planes[plane].offset == 0);
-
-         /* The Vulkan spec (git aaed022) says:
-          *
-          *    memoryTypeBits is a bitfield and contains one bit set for every
-          *    supported memory type for the resource. The bit `1<<i` is set
-          *    if and only if the memory type `i` in the
-          *    VkPhysicalDeviceMemoryProperties structure for the physical
-          *    device is supported.
-          *
-          * All types are currently supported for images.
-          */
-         pMemoryRequirements->memoryRequirements.memoryTypeBits =
-               (1ull << device->physical->memory.type_count) - 1;
-
-         pMemoryRequirements->memoryRequirements.size = image->planes[plane].size;
-         pMemoryRequirements->memoryRequirements.alignment =
-            image->planes[plane].alignment;
-         break;
-      }
-
-      default:
-         anv_debug_ignored_stype(ext->sType);
-         break;
-      }
-   }
-
-   vk_foreach_struct(ext, pMemoryRequirements->pNext) {
-      switch (ext->sType) {
-      case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS: {
-         VkMemoryDedicatedRequirements *requirements = (void *)ext;
-         if (image->needs_set_tiling || image->external_format) {
-            /* If we need to set the tiling for external consumers, we need a
-             * dedicated allocation.
-             *
-             * See also anv_AllocateMemory.
-             */
-            requirements->prefersDedicatedAllocation = true;
-            requirements->requiresDedicatedAllocation = true;
-         } else {
-            requirements->prefersDedicatedAllocation = false;
-            requirements->requiresDedicatedAllocation = false;
-         }
-         break;
-      }
-
-      default:
-         anv_debug_ignored_stype(ext->sType);
-         break;
-      }
-   }
-}
-
-void anv_GetImageSparseMemoryRequirements(
-    VkDevice                                    device,
-    VkImage                                     image,
-    uint32_t*                                   pSparseMemoryRequirementCount,
-    VkSparseImageMemoryRequirements*            pSparseMemoryRequirements)
-{
-   *pSparseMemoryRequirementCount = 0;
-}
-
-void anv_GetImageSparseMemoryRequirements2(
-    VkDevice                                    device,
-    const VkImageSparseMemoryRequirementsInfo2* pInfo,
-    uint32_t*                                   pSparseMemoryRequirementCount,
-    VkSparseImageMemoryRequirements2*           pSparseMemoryRequirements)
-{
-   *pSparseMemoryRequirementCount = 0;
 }
 
 void anv_GetDeviceMemoryCommitment(

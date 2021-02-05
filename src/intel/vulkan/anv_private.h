@@ -3718,13 +3718,20 @@ struct anv_image {
    VkDeviceSize size;
    uint32_t alignment;
 
-   /* Whether the image is made of several underlying buffer objects rather a
-    * single one with different offsets.
+   /**
+    * Image has multi-planar format and was created with
+    * VK_IMAGE_CREATE_DISJOINT_BIT.
     */
    bool disjoint;
 
    /* Image was created with external format. */
    bool external_format;
+
+   /**
+    * Image was imported from gralloc with VkNativeBufferANDROID. The gralloc bo
+    * must be released when the image is destroyed.
+    */
+   bool from_gralloc;
 
    /**
     * Image subsurfaces
@@ -3772,7 +3779,7 @@ struct anv_image {
       VkDeviceSize size;
       uint32_t alignment;
 
-      struct anv_surface surface;
+      struct anv_surface primary_surface;
 
       /**
        * A surface which shadows the main surface and may have different
@@ -3800,11 +3807,6 @@ struct anv_image {
        * BO associated with this plane, set when bound.
        */
       struct anv_address address;
-
-      /**
-       * When destroying the image, also free the bo.
-       * */
-      bool bo_is_owned;
    } planes[3];
 };
 
