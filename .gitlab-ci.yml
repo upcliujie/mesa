@@ -1121,7 +1121,8 @@ llvmpipe-traces:
   extends:
     - .zink-rules
   variables:
-    EGL_PLATFORM: "surfaceless"
+    LIBGL_ALWAYS_SOFTWARE: "true"
+    PIGLIT_PLATFORM: mixed_glx_egl
     ZINK_USE_LAVAPIPE: "true"
     GALLIUM_DRIVER: "zink"
 
