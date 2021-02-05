@@ -34,12 +34,12 @@
 
 struct fd3_emit;
 
-void fd3_program_emit(struct fd_ringbuffer *ring, struct fd3_emit *emit,
-					  int nr, struct pipe_surface **bufs);
+void fd3_program_emit(struct fd_ringbuffer *ring, struct fd3_emit *emit, int nr,
+                      struct pipe_surface **bufs);
 
 void fd3_prog_init(struct pipe_context *pctx);
 
 bool fd3_needs_manual_clipping(const struct ir3_shader *,
-							   const struct pipe_rasterizer_state *);
+                               const struct pipe_rasterizer_state *);
 
 #endif /* FD3_PROGRAM_H_ */
