@@ -155,60 +155,62 @@ static bool
 fd2_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *pinfo,
              const struct pipe_draw_indirect_info *indirect,
              const struct pipe_draw_start_count *pdraw,
-			 unsigned index_offset)
+             unsigned index_offset)
 {
-	if (!ctx->prog.fs || !ctx->prog.vs)
-		return false;
+   if (!ctx->prog.fs || !ctx->prog.vs)
+      return false;
 
-	if (ctx->dirty & FD_DIRTY_VTXBUF)
-		emit_vertexbufs(ctx);
+   if (ctx->dirty & FD_DIRTY_VTXBUF)
+      emit_vertexbufs(ctx);
 
-	if (fd_binning_enabled)
-		fd2_emit_state_binning(ctx, ctx->dirty);
+   if (fd_binning_enabled)
+      fd2_emit_state_binning(ctx, ctx->dirty);
 
-	fd2_emit_state(ctx, ctx->dirty);
+   fd2_emit_state(ctx, ctx->dirty);
 
-	/* a2xx can draw only 65535 vertices at once
-	 * on a22x the field in the draw command is 32bits but seems limited too
-	 * using a limit of 32k because it fixes an unexplained hang
-	 * 32766 works for all primitives (multiple of 2 and 3)
-	 */
-	if (pdraw->count > 32766) {
-		static const uint16_t step_tbl[PIPE_PRIM_MAX] = {
-			[0 ... PIPE_PRIM_MAX - 1]  = 32766,
-			[PIPE_PRIM_LINE_STRIP]     = 32765,
-			[PIPE_PRIM_TRIANGLE_STRIP] = 32764,
+   /* a2xx can draw only 65535 vertices at once
+    * on a22x the field in the draw command is 32bits but seems limited too
+    * using a limit of 32k because it fixes an unexplained hang
+    * 32766 works for all primitives (multiple of 2 and 3)
+    */
+   if (pdraw->count > 32766) {
+      /* clang-format off */
+      static const uint16_t step_tbl[PIPE_PRIM_MAX] = {
+         [0 ... PIPE_PRIM_MAX - 1]  = 32766,
+         [PIPE_PRIM_LINE_STRIP]     = 32765,
+         [PIPE_PRIM_TRIANGLE_STRIP] = 32764,
 
-			/* needs more work */
-			[PIPE_PRIM_TRIANGLE_FAN]   = 0,
-			[PIPE_PRIM_LINE_LOOP]      = 0,
-		};
+         /* needs more work */
+         [PIPE_PRIM_TRIANGLE_FAN]   = 0,
+         [PIPE_PRIM_LINE_LOOP]      = 0,
+      };
+      /* clang-format on */
 
-		struct pipe_draw_start_count draw = *pdraw;
-		unsigned count = draw.count;
-		unsigned step = step_tbl[pinfo->mode];
-		unsigned num_vertices = ctx->batch->num_vertices;
+      struct pipe_draw_start_count draw = *pdraw;
+      unsigned count = draw.count;
+      unsigned step = step_tbl[pinfo->mode];
+      unsigned num_vertices = ctx->batch->num_vertices;
 
-		if (!step)
-			return false;
+      if (!step)
+         return false;
 
-		for (; count + step > 32766; count -= step) {
-			draw.count = MIN2(count, 32766);
-			draw_impl(ctx, pinfo, &draw, ctx->batch->draw, index_offset, false);
-			draw_impl(ctx, pinfo, &draw, ctx->batch->binning, index_offset, true);
-			draw.start += step;
-			ctx->batch->num_vertices += step;
-		}
-		/* changing this value is a hack, restore it */
-		ctx->batch->num_vertices = num_vertices;
-	} else {
-		draw_impl(ctx, pinfo, pdraw, ctx->batch->draw, index_offset, false);
-		draw_impl(ctx, pinfo, pdraw, ctx->batch->binning, index_offset, true);
-	}
+      for (; count + step > 32766; count -= step) {
+         draw.count = MIN2(count, 32766);
+         draw_impl(ctx, pinfo, &draw, ctx->batch->draw, index_offset, false);
+         draw_impl(ctx, pinfo, &draw, ctx->batch->binning, index_offset, true);
+         draw.start += step;
+         ctx->batch->num_vertices += step;
+      }
+      /* changing this value is a hack, restore it */
+      ctx->batch->num_vertices = num_vertices;
+   } else {
+      draw_impl(ctx, pinfo, pdraw, ctx->batch->draw, index_offset, false);
+      draw_impl(ctx, pinfo, pdraw, ctx->batch->binning, index_offset, true);
+   }
 
-	fd_context_all_clean(ctx);
+   fd_context_all_clean(ctx);
 
-	return true;
+   return true;
 }
 
 static void
