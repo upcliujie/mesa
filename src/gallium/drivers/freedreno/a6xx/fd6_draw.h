@@ -30,9 +30,8 @@
 
 #include "pipe/p_context.h"
 
-#include "freedreno_draw.h"
-
 #include "fd6_context.h"
+#include "freedreno_draw.h"
 
 void fd6_draw_init(struct pipe_context *pctx);
 

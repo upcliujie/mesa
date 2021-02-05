@@ -27,15 +27,15 @@
 #ifndef FD4_PROGRAM_H_
 #define FD4_PROGRAM_H_
 
-#include "pipe/p_context.h"
-#include "freedreno_context.h"
-
 #include "ir3/ir3_shader.h"
+#include "pipe/p_context.h"
+
+#include "freedreno_context.h"
 
 struct fd4_emit;
 
-void fd4_program_emit(struct fd_ringbuffer *ring, struct fd4_emit *emit,
-		int nr, struct pipe_surface **bufs);
+void fd4_program_emit(struct fd_ringbuffer *ring, struct fd4_emit *emit, int nr,
+                      struct pipe_surface **bufs);
 
 void fd4_prog_init(struct pipe_context *pctx);
 
