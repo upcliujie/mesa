@@ -6009,6 +6009,53 @@ cmd_buffer_emit_depth_stencil(struct anv_cmd_buffer *cmd_buffer)
    cmd_buffer->state.hiz_enabled = isl_aux_usage_has_hiz(info.hiz_usage);
 }
 
+static void
+cmd_buffer_emit_cps_control_buffer(struct anv_cmd_buffer *cmd_buffer)
+{
+#if GFX_VERx10 >= 125
+   struct anv_device *device = cmd_buffer->device;
+
+   if (!device->vk.enabled_extensions.KHR_fragment_shading_rate)
+      return;
+
+   uint32_t *dw = anv_batch_emit_dwords(&cmd_buffer->batch,
+                                        device->isl_dev.cpb.size / 4);
+   if (dw == NULL)
+      return;
+
+   struct isl_cpb_emit_info info = { };
+
+   const struct anv_image_view *fsr_iview =
+      anv_cmd_buffer_get_fsr_view(cmd_buffer);
+   if (fsr_iview) {
+      const struct anv_image_view *color_iview =
+         anv_cmd_buffer_get_first_color_view(cmd_buffer);
+      const struct anv_image_view *depth_iview =
+         anv_cmd_buffer_get_depth_stencil_view(cmd_buffer);
+
+      info.color_view = color_iview ? &color_iview->planes[0].isl : NULL;
+      info.color_surf =
+         color_iview ? &color_iview->image->planes[0].primary_surface.isl : NULL;
+      info.depth_view = depth_iview ? &depth_iview->planes[0].isl : NULL;
+      info.depth_surf =
+         depth_iview ? &depth_iview->image->planes[0].primary_surface.isl : NULL;
+      info.view = &fsr_iview->planes[0].isl;
+      info.surf = &fsr_iview->image->planes[0].primary_surface.isl;
+      info.address =
+         anv_batch_emit_reloc(&cmd_buffer->batch,
+                              dw + device->isl_dev.cpb.offset / 4,
+                              fsr_iview->image->bindings[0].address.bo,
+                              fsr_iview->image->bindings[0].address.offset +
+                              fsr_iview->image->bindings[0].memory_range.offset);
+      info.mocs =
+         anv_mocs(device, fsr_iview->image->bindings[0].address.bo,
+                  ISL_SURF_USAGE_CPB_BIT);
+   }
+
+   isl_emit_cpb_control_s(&device->isl_dev, dw, &info);
+#endif /* GFX_VERx10 >= 125 */
+}
+
 /**
  * This ANDs the view mask of the current subpass with the pending clear
  * views in the attachment to get the mask of views active in the subpass
@@ -6267,12 +6314,13 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
          continue;
 
       assert(a < cmd_state->pass->attachment_count);
+      struct anv_subpass_attachment *att = &subpass->attachments[i];
       struct anv_attachment_state *att_state = &cmd_state->attachments[a];
 
-      struct anv_image_view *iview = cmd_state->attachments[a].image_view;
+      struct anv_image_view *iview = att_state->image_view;
       const struct anv_image *image = iview->image;
 
-      VkImageLayout target_layout = subpass->attachments[i].layout;
+      VkImageLayout target_layout = att->layout;
       VkImageLayout target_stencil_layout =
          subpass->attachments[i].stencil_layout;
 
@@ -6291,6 +6339,22 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
       } else {
          base_layer = iview->planes[0].isl.base_array_layer;
          layer_count = fb->layers;
+      }
+
+      /* Treat the fragment shading rate attachment as color. But make sure we
+       * don't use fb->layers if the fragment shading rate attachment only has
+       * one layer.
+       *
+       * Vulkan spec 1.2.170 - VkFramebufferCreateInfo :
+       *
+       *    "each element of pAttachments that is used as a fragment shading
+       *     rate attachment by renderPass must have a layerCount that is
+       *     either 1, or greater than layers"
+       */
+      if ((att->usage & VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR) &&
+          iview->planes[0].isl.array_len == 1) {
+         base_layer = 0;
+         layer_count = 1;
       }
 
       if (image->vk.aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) {
@@ -6462,6 +6526,8 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
 #endif
 
    cmd_buffer_emit_depth_stencil(cmd_buffer);
+
+   cmd_buffer_emit_cps_control_buffer(cmd_buffer);
 }
 
 static enum blorp_filter
@@ -6818,8 +6884,9 @@ cmd_buffer_do_layout_transitions(struct anv_cmd_buffer *cmd_buffer,
          continue;
 
       assert(a < cmd_state->pass->attachment_count);
+      struct anv_subpass_attachment *att = &subpass->attachments[i];
       struct anv_attachment_state *att_state = &cmd_state->attachments[a];
-      struct anv_image_view *iview = cmd_state->attachments[a].image_view;
+      struct anv_image_view *iview = att_state->image_view;
       const struct anv_image *image = iview->image;
 
       /* Transition the image into the final layout for this render pass */
@@ -6836,6 +6903,22 @@ cmd_buffer_do_layout_transitions(struct anv_cmd_buffer *cmd_buffer,
       } else {
          base_layer = iview->planes[0].isl.base_array_layer;
          layer_count = fb->layers;
+      }
+
+      /* Treat the fragment shading rate attachment as color. But make sure we
+       * don't use fb->layers if the fragment shading rate attachment only has
+       * one layer.
+       *
+       * Vulkan spec 1.2.170 - VkFramebufferCreateInfo :
+       *
+       *    "each element of pAttachments that is used as a fragment shading
+       *     rate attachment by renderPass must have a layerCount that is
+       *     either 1, or greater than layers"
+       */
+      if (att->usage & VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR &&
+          iview->planes[0].isl.array_len == 1) {
+         base_layer = 0;
+         layer_count = 1;
       }
 
       if (image->vk.aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) {
@@ -7230,6 +7313,8 @@ cmd_buffer_begin_rendering(struct anv_cmd_buffer *cmd_buffer,
 #endif
 
    cmd_buffer_emit_depth_stencil(cmd_buffer);
+
+   cmd_buffer_emit_cps_control_buffer(cmd_buffer);
 }
 
 static void
