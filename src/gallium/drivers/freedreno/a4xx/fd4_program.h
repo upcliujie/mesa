@@ -35,7 +35,7 @@
 struct fd4_emit;
 
 void fd4_program_emit(struct fd_ringbuffer *ring, struct fd4_emit *emit,
-		int nr, struct pipe_surface **bufs);
+                      int nr, struct pipe_surface **bufs);
 
 void fd4_prog_init(struct pipe_context *pctx);
 

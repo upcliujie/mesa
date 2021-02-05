@@ -32,22 +32,24 @@
 
 #include "freedreno_util.h"
 
-struct fd3_blend_stateobj {
-	struct pipe_blend_state base;
-	uint32_t rb_render_control;
-	struct {
-		uint32_t blend_control;
-		uint32_t control;
-	} rb_mrt[A3XX_MAX_RENDER_TARGETS];
+struct fd3_blend_stateobj
+{
+   struct pipe_blend_state base;
+   uint32_t rb_render_control;
+   struct
+   {
+      uint32_t blend_control;
+      uint32_t control;
+   } rb_mrt[A3XX_MAX_RENDER_TARGETS];
 };
 
 static inline struct fd3_blend_stateobj *
 fd3_blend_stateobj(struct pipe_blend_state *blend)
 {
-	return (struct fd3_blend_stateobj *)blend;
+   return (struct fd3_blend_stateobj *) blend;
 }
 
-void * fd3_blend_state_create(struct pipe_context *pctx,
-		const struct pipe_blend_state *cso);
+void *fd3_blend_state_create(struct pipe_context *pctx,
+                             const struct pipe_blend_state *cso);
 
 #endif /* FD3_BLEND_H_ */
