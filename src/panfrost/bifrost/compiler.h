@@ -683,6 +683,10 @@ bi_node_to_index(unsigned node, unsigned node_count)
 #define bi_foreach_dest(ins, v) \
         for (unsigned v = 0; v < ARRAY_SIZE(ins->dest); ++v)
 
+#define bi_foreach_instr_and_src_in_tuple(tuple, ins, s) \
+        bi_foreach_instr_in_tuple(tuple, ins) \
+                bi_foreach_src(ins, s)
+
 static inline bi_instr *
 bi_prev_op(bi_instr *ins)
 {
@@ -733,6 +737,7 @@ bi_singleton(void *memctx, bi_instr *ins,
                 bi_block *block,
                 unsigned scoreboard_id,
                 unsigned dependencies,
+                uint64_t combined_constant,
                 bool osrb);
 
 /* Liveness */
