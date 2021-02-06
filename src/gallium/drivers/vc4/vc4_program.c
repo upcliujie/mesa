@@ -473,17 +473,6 @@ ntq_emit_tex(struct vc4_compile *c, nir_tex_instr *instr)
         };
         uint32_t next_texture_u = 0;
 
-        /* There is no native support for GL texture rectangle coordinates, so
-         * we have to rescale from ([0, width], [0, height]) to ([0, 1], [0,
-         * 1]).
-         */
-        if (instr->sampler_dim == GLSL_SAMPLER_DIM_RECT) {
-                s = qir_FMUL(c, s,
-                             qir_uniform(c, QUNIFORM_TEXRECT_SCALE_X, unit));
-                t = qir_FMUL(c, t,
-                             qir_uniform(c, QUNIFORM_TEXRECT_SCALE_Y, unit));
-        }
-
         if (instr->sampler_dim == GLSL_SAMPLER_DIM_CUBE || is_txl) {
                 texture_u[2] = qir_uniform(c, QUNIFORM_TEXTURE_CONFIG_P2,
                                            unit | (is_txl << 16));
@@ -1874,6 +1863,17 @@ ntq_emit_intrinsic(struct vc4_compile *c, nir_intrinsic_instr *instr)
                                     ntq_get_src(c, instr->src[0], 0));
                 }
 
+                break;
+        }
+
+        case nir_intrinsic_load_texture_rect_scaling: {
+                assert(nir_src_is_const(instr->src[0]));
+                int sampler = nir_src_as_int(instr->src[0]);
+
+                ntq_store_dest(c, &instr->dest, 0,
+                                qir_uniform(c, QUNIFORM_TEXRECT_SCALE_X, sampler));
+                ntq_store_dest(c, &instr->dest, 1,
+                                qir_uniform(c, QUNIFORM_TEXRECT_SCALE_Y, sampler));
                 break;
         }
 
