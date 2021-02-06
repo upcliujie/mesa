@@ -1608,8 +1608,7 @@ ntq_setup_inputs(struct vc4_compile *c)
                 if (c->stage == QSTAGE_FRAG) {
                         if (var->data.location == VARYING_SLOT_POS) {
                                 emit_fragcoord_input(c, loc);
-                        } else if (util_varying_is_point_coord(var->data.location,
-                                                               c->fs_key->point_sprite_mask)) {
+                        } else if (var->data.location == VARYING_SLOT_PNTC) {
                                 c->inputs[loc * 4 + 0] = c->point_x;
                                 c->inputs[loc * 4 + 1] = c->point_y;
                         } else {
@@ -2746,14 +2745,6 @@ vc4_update_compiled_fs(struct vc4_context *vc4, uint8_t prim_mode)
                 key->alpha_test_func = vc4->zsa->base.alpha_func;
         else
                 key->alpha_test_func = COMPARE_FUNC_ALWAYS;
-
-        if (key->is_points) {
-                key->point_sprite_mask =
-                        vc4->rasterizer->base.sprite_coord_enable;
-                key->point_coord_upper_left =
-                        (vc4->rasterizer->base.sprite_coord_mode ==
-                         PIPE_SPRITE_COORD_UPPER_LEFT);
-        }
 
         key->ubo_1_size = vc4->constbuf[PIPE_SHADER_FRAGMENT].cb[1].buffer_size;
         key->light_twoside = vc4->rasterizer->base.light_twoside;

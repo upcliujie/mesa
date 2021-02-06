@@ -330,7 +330,6 @@ struct vc4_fs_key {
         bool stencil_full_writemasks;
         bool is_points;
         bool is_lines;
-        bool point_coord_upper_left;
         bool light_twoside;
         bool msaa;
         bool sample_coverage;
@@ -338,7 +337,6 @@ struct vc4_fs_key {
         bool sample_alpha_to_one;
         uint8_t alpha_test_func;
         uint8_t logicop_func;
-        uint32_t point_sprite_mask;
         uint32_t ubo_1_size;
 
         struct pipe_rt_blend_state blend;
