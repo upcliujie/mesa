@@ -1692,8 +1692,7 @@ pan_xfb_base(unsigned present)
 static inline unsigned
 pan_varying_present(const struct panfrost_device *dev,
                     struct panfrost_shader_state *vs,
-                    struct panfrost_shader_state *fs,
-                    uint16_t point_coord_mask)
+                    struct panfrost_shader_state *fs)
 {
         /* At the moment we always emit general and position buffers. Not
          * strictly necessary but usually harmless */
@@ -1713,15 +1712,6 @@ pan_varying_present(const struct panfrost_device *dev,
 
         if (fs->reads_frag_coord && !pan_is_bifrost(dev))
                 present |= (1 << PAN_VARY_FRAGCOORD);
-
-        /* Also, if we have a point sprite, we need a point coord buffer */
-
-        for (unsigned i = 0; i < fs->varying_count; i++)  {
-                gl_varying_slot loc = fs->varyings_loc[i];
-
-                if (util_varying_is_point_coord(loc, point_coord_mask))
-                        present |= (1 << PAN_VARY_PNTCOORD);
-        }
 
         return present;
 }
@@ -1903,7 +1893,6 @@ panfrost_emit_varying(const struct panfrost_device *dev,
                       struct panfrost_shader_state *other,
                       struct panfrost_shader_state *xfb,
                       unsigned present,
-                      uint16_t point_sprite_mask,
                       unsigned max_xfb,
                       unsigned *streamout_offsets,
                       unsigned *gen_offsets,
@@ -1920,9 +1909,7 @@ panfrost_emit_varying(const struct panfrost_device *dev,
         if (!should_alloc && gen_formats[idx])
                 format = gen_formats[idx];
 
-        if (util_varying_is_point_coord(loc, point_sprite_mask)) {
-                pan_emit_vary_special(dev, out, present, PAN_VARY_PNTCOORD);
-        } else if (panfrost_xfb_captured(xfb, loc, max_xfb)) {
+        if (panfrost_xfb_captured(xfb, loc, max_xfb)) {
                 struct pipe_stream_output *o = pan_get_so(&xfb->stream_output, loc);
                 pan_emit_vary_xfb(dev, out, present, max_xfb, streamout_offsets, format, *o);
         } else if (loc == VARYING_SLOT_POS) {
@@ -1985,13 +1972,7 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
                         &batch->pool, vs_size + fs_size, MALI_ATTRIBUTE_LENGTH);
 
         struct pipe_stream_output_info *so = &vs->stream_output;
-        uint16_t point_coord_mask = ctx->rasterizer->base.sprite_coord_enable;
-
-        /* TODO: point sprites need lowering on Bifrost */
-        if (pan_is_bifrost(dev))
-                point_coord_mask =  0;
-
-        unsigned present = pan_varying_present(dev, vs, fs, point_coord_mask);
+        unsigned present = pan_varying_present(dev, vs, fs);
 
         /* Check if this varying is linked by us. This is the case for
          * general-purpose, non-captured varyings. If it is, link it. If it's
@@ -2019,14 +2000,14 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
         struct mali_attribute_packed *ofs = ovs + vs->varying_count;
 
         for (unsigned i = 0; i < vs->varying_count; i++) {
-                panfrost_emit_varying(dev, ovs + i, vs, fs, vs, present, 0,
+                panfrost_emit_varying(dev, ovs + i, vs, fs, vs, present,
                                       ctx->streamout.num_targets, streamout_offsets,
                                       gen_offsets, gen_formats, &gen_stride, i,
                                       true, false);
         }
 
         for (unsigned i = 0; i < fs->varying_count; i++) {
-                panfrost_emit_varying(dev, ofs + i, fs, vs, vs, present, point_coord_mask,
+                panfrost_emit_varying(dev, ofs + i, fs, vs, vs, present,
                                       ctx->streamout.num_targets, streamout_offsets,
                                       gen_offsets, gen_formats, &gen_stride, i,
                                       false, true);
