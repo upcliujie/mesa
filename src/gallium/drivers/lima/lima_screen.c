@@ -105,7 +105,6 @@ lima_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    /* Unimplemented, but for exporting OpenGL 2.0 */
    case PIPE_CAP_OCCLUSION_QUERY:
-   case PIPE_CAP_POINT_SPRITE:
       return 1;
 
    /* not clear supported */
