@@ -1877,6 +1877,17 @@ ntq_emit_intrinsic(struct vc4_compile *c, nir_intrinsic_instr *instr)
                 break;
         }
 
+        case nir_intrinsic_load_texture_scaling: {
+                assert(nir_src_is_const(instr->src[0]));
+                int sampler = nir_src_as_int(instr->src[0]);
+
+                ntq_store_dest(c, &instr->dest, 0,
+                                qir_uniform(c, QUNIFORM_TEXRECT_SCALE_X, sampler));
+                ntq_store_dest(c, &instr->dest, 1,
+                                qir_uniform(c, QUNIFORM_TEXRECT_SCALE_Y, sampler));
+                break;
+        }
+
         default:
                 fprintf(stderr, "Unknown intrinsic: ");
                 nir_print_instr(&instr->instr, stderr);
