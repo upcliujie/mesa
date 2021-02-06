@@ -387,7 +387,6 @@ struct v3d_fs_key {
         bool is_lines;
         bool line_smoothing;
         bool alpha_test;
-        bool point_coord_upper_left;
         bool light_twoside;
         bool msaa;
         bool sample_coverage;
@@ -416,7 +415,6 @@ struct v3d_fs_key {
 
         uint8_t alpha_test_func;
         uint8_t logicop_func;
-        uint32_t point_sprite_mask;
 
         struct pipe_rt_blend_state blend;
 };

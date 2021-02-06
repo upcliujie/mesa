@@ -611,14 +611,6 @@ v3d_update_compiled_fs(struct v3d_context *v3d, uint8_t prim_mode)
                 }
         }
 
-        if (key->is_points) {
-                key->point_sprite_mask =
-                        v3d->rasterizer->base.sprite_coord_enable;
-                key->point_coord_upper_left =
-                        (v3d->rasterizer->base.sprite_coord_mode ==
-                         PIPE_SPRITE_COORD_UPPER_LEFT);
-        }
-
         key->light_twoside = v3d->rasterizer->base.light_twoside;
         key->shade_model_flat = v3d->rasterizer->base.flatshade;
 

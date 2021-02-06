@@ -1181,19 +1181,6 @@ pipeline_populate_v3d_fs_key(struct v3d_fs_key *key,
          else if (util_format_is_pure_sint(fb_pipe_format))
             key->int_color_rb |= 1 << i;
       }
-
-      if (key->is_points) {
-         /* FIXME: The mask would need to be computed based on the shader
-          * inputs. On gallium it is done at st_atom_rasterizer
-          * (sprite_coord_enable). anv seems (need to confirm) to do that on
-          * genX_pipeline (PointSpriteTextureCoordinateEnable). Would be also
-          * better to have tests to guide filling the mask.
-          */
-         key->point_sprite_mask = 0;
-
-         /* Vulkan mandates upper left. */
-         key->point_coord_upper_left = true;
-      }
    }
 
    /* FIXME: we understand that this is used on GL to configure fixed-function

@@ -1909,10 +1909,8 @@ static bool
 program_reads_point_coord(struct v3d_compile *c)
 {
         nir_foreach_shader_in_variable(var, c->s) {
-                if (util_varying_is_point_coord(var->data.location,
-                                                c->fs_key->point_sprite_mask)) {
+                if (var->data.location == VARYING_SLOT_PNTC)
                         return true;
-                }
         }
 
         return false;
@@ -1997,8 +1995,7 @@ ntq_setup_fs_inputs(struct v3d_compile *c)
 
                 if (var->data.location == VARYING_SLOT_POS) {
                         emit_fragcoord_input(c, loc);
-                } else if (util_varying_is_point_coord(var->data.location,
-                                                       c->fs_key->point_sprite_mask)) {
+                } else if (var->data.location == VARYING_SLOT_PNTC) {
                         c->inputs[loc * 4 + 0] = c->point_x;
                         c->inputs[loc * 4 + 1] = c->point_y;
                 } else if (var->data.compact) {
