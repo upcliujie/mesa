@@ -704,6 +704,12 @@ nvc0_clear(struct pipe_context *pipe, unsigned buffers,
    if (!nvc0_state_validate_3d(nvc0, NVC0_NEW_3D_FRAMEBUFFER))
       return;
 
+   if (scissor_state) {
+      BEGIN_NVC0(push, NVC0_3D(SCREEN_SCISSOR_HORIZ), 2);
+      PUSH_DATA (push, scissor_state->minx | (scissor_state->maxx - scissor_state->minx) << 16);
+      PUSH_DATA (push, scissor_state->miny | (scissor_state->maxy - scissor_state->miny) << 16);
+   }
+
    if (buffers & PIPE_CLEAR_COLOR && fb->nr_cbufs) {
       BEGIN_NVC0(push, NVC0_3D(CLEAR_COLOR(0)), 4);
       PUSH_DATAf(push, color->f[0]);
@@ -760,6 +766,13 @@ nvc0_clear(struct pipe_context *pipe, unsigned buffers,
          PUSH_DATA (push, (i << 6) | 0x3c |
                     (j << NVC0_3D_CLEAR_BUFFERS_LAYER__SHIFT));
       }
+   }
+
+   /* restore screen scissor */
+   if (scissor_state) {
+      BEGIN_NVC0(push, NVC0_3D(SCREEN_SCISSOR_HORIZ), 2);
+      PUSH_DATA (push, fb->width << 16);
+      PUSH_DATA (push, fb->height << 16);
    }
 }
 
