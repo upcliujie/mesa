@@ -543,6 +543,19 @@ nv50_clear(struct pipe_context *pipe, unsigned buffers, const struct pipe_scisso
    BEGIN_NV04(push, NV50_3D(RT_ARRAY_MODE), 1);
    PUSH_DATA (push, (nv50->rt_array_mode & NV50_3D_RT_ARRAY_MODE_MODE_3D) | 512);
 
+   if (scissor_state) {
+      uint32_t minx = scissor_state->minx;
+      uint32_t maxx = MIN2(fb->width, scissor_state->maxx);
+      uint32_t miny = scissor_state->miny;
+      uint32_t maxy = MIN2(fb->height, scissor_state->maxy);
+      if (maxx <= minx || maxy <= miny)
+         return;
+
+      BEGIN_NV04(push, NV50_3D(SCREEN_SCISSOR_HORIZ), 2);
+      PUSH_DATA (push, minx | (maxx - minx) << 16);
+      PUSH_DATA (push, miny | (maxy - miny) << 16);
+   }
+
    if (buffers & PIPE_CLEAR_COLOR && fb->nr_cbufs) {
       BEGIN_NV04(push, NV50_3D(CLEAR_COLOR(0)), 4);
       PUSH_DATAf(push, color->f[0]);
@@ -602,6 +615,13 @@ nv50_clear(struct pipe_context *pipe, unsigned buffers, const struct pipe_scisso
    /* restore the array mode */
    BEGIN_NV04(push, NV50_3D(RT_ARRAY_MODE), 1);
    PUSH_DATA (push, nv50->rt_array_mode);
+
+   /* restore screen scissor */
+   if (scissor_state) {
+      BEGIN_NV04(push, NV50_3D(SCREEN_SCISSOR_HORIZ), 2);
+      PUSH_DATA (push, fb->width << 16);
+      PUSH_DATA (push, fb->height << 16);
+   }
 }
 
 static void
