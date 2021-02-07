@@ -120,6 +120,15 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
                return false;
             break;
 
+         case nir_intrinsic_load_ubo: {
+            bool direct_0 = nir_src_is_const(intrin->src[0]);
+            bool direct_1 = nir_src_is_const(intrin->src[1]);
+
+            if (!alu_ok || !direct_0 || !direct_1)
+               return false;
+            break;
+         }
+
          default:
             return false;
          }
