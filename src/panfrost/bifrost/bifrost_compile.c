@@ -336,8 +336,8 @@ bi_emit_blend_op(bi_builder *b, bi_index rgba, nir_alu_type T, unsigned rt)
         }
 
         assert(rt < 8);
-        assert(b->shader->blend_types);
-        b->shader->blend_types[rt] = T;
+        assert(b->shader->blend_info);
+        b->shader->blend_info[rt].type = T;
 }
 
 static void
@@ -2505,12 +2505,12 @@ bi_cull_dead_branch(bi_block *block)
         }
 }
 
-panfrost_program *
-bifrost_compile_shader_nir(void *mem_ctx, nir_shader *nir,
-                           const struct panfrost_compile_inputs *inputs)
+void
+bifrost_compile_shader_nir(nir_shader *nir,
+                           const struct panfrost_compile_inputs *inputs,
+                           struct util_dynarray *binary,
+                           struct pan_shader_info *info)
 {
-        panfrost_program *program = rzalloc(mem_ctx, panfrost_program);
-
         bifrost_debug = debug_get_option_bifrost_debug();
 
         bi_context *ctx = rzalloc(NULL, bi_context);
@@ -2558,9 +2558,10 @@ bifrost_compile_shader_nir(void *mem_ctx, nir_shader *nir,
         }
 
         panfrost_nir_assign_sysvals(&ctx->sysvals, ctx, nir);
-        program->sysval_count = ctx->sysvals.sysval_count;
-        memcpy(program->sysvals, ctx->sysvals.sysvals, sizeof(ctx->sysvals.sysvals[0]) * ctx->sysvals.sysval_count);
-        ctx->blend_types = program->blend_types;
+        info->sysval_count = ctx->sysvals.sysval_count;
+        memcpy(info->sysvals, ctx->sysvals.sysvals,
+               sizeof(info->sysvals[0]) * info->sysval_count);
+        ctx->blend_info = info->bifrost.blend;
         ctx->tls_size = nir->scratch_size;
 
         nir_foreach_function(func, nir) {
@@ -2609,8 +2610,7 @@ bifrost_compile_shader_nir(void *mem_ctx, nir_shader *nir,
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal)
                 bi_print_shader(ctx, stdout);
 
-        util_dynarray_init(&program->compiled, NULL);
-        unsigned final_clause = bi_pack(ctx, &program->compiled);
+        unsigned final_clause = bi_pack(ctx, binary);
 
         /* If we need to wait for ATEST or BLEND in the first clause, pass the
          * corresponding bits through to the renderer state descriptor */
@@ -2618,31 +2618,26 @@ bifrost_compile_shader_nir(void *mem_ctx, nir_shader *nir,
         bi_clause *first_clause = bi_next_clause(ctx, first_block, NULL);
 
         unsigned first_deps = first_clause ? first_clause->dependencies : 0;
-        program->wait_6 = (first_deps & (1 << 6));
-        program->wait_7 = (first_deps & (1 << 7));
-
-        memcpy(program->blend_ret_offsets, ctx->blend_ret_offsets, sizeof(program->blend_ret_offsets));
+        info->bifrost.wait_6 = (first_deps & (1 << 6));
+        info->bifrost.wait_7 = (first_deps & (1 << 7));
 
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal) {
-                disassemble_bifrost(stdout, program->compiled.data,
-                                program->compiled.size,
-                                bifrost_debug & BIFROST_DBG_VERBOSE);
+                disassemble_bifrost(stdout, binary->data, binary->size,
+                                    bifrost_debug & BIFROST_DBG_VERBOSE);
         }
 
         /* Pad the shader with enough zero bytes to trick the prefetcher */
         unsigned prefetch_size = BIFROST_SHADER_PREFETCH - final_clause;
 
-        memset(util_dynarray_grow(&program->compiled, uint8_t, prefetch_size),
+        memset(util_dynarray_grow(binary, uint8_t, prefetch_size),
                0, prefetch_size);
 
-        program->tls_size = ctx->tls_size;
+        info->tls_size = ctx->tls_size;
 
         if ((bifrost_debug & BIFROST_DBG_SHADERDB || inputs->shaderdb) &&
             !skip_internal) {
-                bi_print_stats(ctx, program->compiled.size, stderr);
+                bi_print_stats(ctx, binary->size, stderr);
         }
 
         ralloc_free(ctx);
-
-        return program;
 }

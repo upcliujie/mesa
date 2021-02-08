@@ -27,28 +27,22 @@
 
 #include "pan_device.h"
 #include "pan_shader.h"
+#include "panfrost/util/pan_ir.h"
 
-#include "panfrost/midgard/midgard_compile.h"
-#include "panfrost/bifrost/bifrost_compile.h"
+const nir_shader_compiler_options *
+pan_shader_get_compiler_options(const struct panfrost_device *dev);
 
-static inline const nir_shader_compiler_options *
-panfrost_get_shader_options(const struct panfrost_device *dev)
-{
-        if (pan_is_bifrost(dev))
-                return &bifrost_nir_options;
+void
+pan_shader_compile(const struct panfrost_device *dev,
+                   nir_shader *s,
+                   const struct panfrost_compile_inputs *inputs,
+                   struct util_dynarray *binary,
+                   struct pan_shader_info *info);
 
-        return &midgard_nir_options;
-}
-
-static inline panfrost_program *
-panfrost_compile_shader(const struct panfrost_device *dev,
-                        void *mem_ctx, nir_shader *nir,
-                        const struct panfrost_compile_inputs *inputs)
-{
-        if (pan_is_bifrost(dev))
-                return bifrost_compile_shader_nir(mem_ctx, nir, inputs);
-
-        return midgard_compile_shader_nir(mem_ctx, nir, inputs);
-}
+void
+pan_shader_prepare_rsd(const struct panfrost_device *dev,
+                       const struct pan_shader_info *shader_info,
+                       mali_ptr shader_ptr,
+                       struct MALI_RENDERER_STATE *rsd);
 
 #endif

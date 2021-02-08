@@ -492,7 +492,7 @@ typedef struct {
        float blend_constants[4];
 
        /* Blend return offsets */
-       uint32_t blend_ret_offsets[8];
+       struct bifrost_shader_blend_info *blend_info;
 
        /* Blend tile buffer conversion desc */
        uint64_t blend_desc;
@@ -503,7 +503,6 @@ typedef struct {
        bi_block *break_block;
        bi_block *continue_block;
        bool emitted_atest;
-       nir_alu_type *blend_types;
 
        /* For creating temporaries */
        unsigned ssa_alloc;

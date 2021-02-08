@@ -84,36 +84,6 @@ panfrost_nir_assign_sysvals(struct panfrost_sysvals *ctx, void *memctx, nir_shad
 int
 panfrost_sysval_for_instr(nir_instr *instr, nir_dest *dest);
 
-typedef struct {
-        int work_register_count;
-        int uniform_cutoff;
-
-        /* For Bifrost - output type for each RT */
-        nir_alu_type blend_types[8];
-
-        /* For Bifrost - return address for blend instructions */
-        uint32_t blend_ret_offsets[8];
-
-        /* Prepended before uniforms, mapping to SYSVAL_ names for the
-         * sysval */
-
-        unsigned sysval_count;
-        unsigned sysvals[MAX_SYSVAL_COUNT];
-
-        int first_tag;
-
-        struct util_dynarray compiled;
-
-        /* The number of bytes to allocate per-thread for Thread Local Storage
-         * (register spilling), or zero if no spilling is used */
-        unsigned tls_size;
-
-        /* For Bifrost, should the program wait on dependency slots 6/7 before
-         * starting? For ATEST/BLEND in the first clause, which can occur with
-         * extremely simple shaders */
-        bool wait_6, wait_7;
-} panfrost_program;
-
 struct panfrost_compile_inputs {
         unsigned gpu_id;
         bool is_blend;
@@ -126,6 +96,74 @@ struct panfrost_compile_inputs {
         bool shaderdb;
 
         enum pipe_format rt_formats[8];
+};
+
+struct pan_shader_varying {
+        gl_varying_slot location;
+        enum pipe_format format;
+};
+
+struct bifrost_shader_blend_info {
+        nir_alu_type type;
+        uint32_t return_offset;
+};
+
+struct bifrost_shader_info {
+        struct bifrost_shader_blend_info blend[8];
+        bool wait_6, wait_7;
+};
+
+struct midgard_shader_info {
+        unsigned uniform_cutoff;
+        unsigned first_tag;
+};
+
+struct pan_shader_info {
+        gl_shader_stage stage;
+        unsigned work_reg_count;
+        unsigned tls_size;
+        unsigned wls_size;
+
+        union {
+                struct {
+                        bool reads_frag_coord;
+                        bool reads_point_coord;
+                        bool reads_face;
+                        bool helper_invocations;
+                        bool can_discard;
+                        bool writes_depth;
+                        bool writes_stencil;
+                        bool sidefx;
+                        BITSET_WORD outputs_read;
+                } fs;
+
+                struct {
+                        bool writes_point_size;
+                } vs;
+        };
+
+        bool writes_global;
+        uint64_t outputs_written;
+
+        unsigned texture_count;
+        unsigned ubo_count;
+        unsigned uniform_count;
+        unsigned attribute_count;
+
+        struct {
+                unsigned input_count;
+                struct pan_shader_varying input[MAX_VARYING];
+                unsigned output_count;
+                struct pan_shader_varying output[MAX_VARYING];
+        } varyings;
+
+        unsigned sysval_count;
+        unsigned sysvals[MAX_SYSVAL_COUNT];
+
+        union {
+                struct bifrost_shader_info bifrost;
+                struct midgard_shader_info midgard;
+        };
 };
 
 typedef struct pan_block {
