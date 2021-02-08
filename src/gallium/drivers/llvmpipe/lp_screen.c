@@ -601,6 +601,21 @@ llvmpipe_get_compiler_options(struct pipe_screen *screen,
    return &gallivm_nir_options;
 }
 
+static boolean
+util_format_is_scaled(enum pipe_format format)
+{
+   const struct util_format_description *desc = util_format_description(format);
+   int i;
+
+   /* Find the first non-void channel. */
+   i = util_format_get_first_non_void_channel(format);
+   if (i == -1)
+      return FALSE;
+
+   return !desc->channel[i].pure_integer && !desc->channel[i].normalized &&
+      (desc->channel[i].type == UTIL_FORMAT_TYPE_SIGNED ||
+       desc->channel[i].type == UTIL_FORMAT_TYPE_UNSIGNED);
+}
 /**
  * Query format support for creating a texture, drawing surface, etc.
  * \param format  the format to test
@@ -677,6 +692,9 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
       }
    }
 
+   if (!(bind & PIPE_BIND_VERTEX_BUFFER) &&
+       util_format_is_scaled(format))
+      return false;
    if (bind & PIPE_BIND_DISPLAY_TARGET) {
       if(!winsys->is_displaytarget_format_supported(winsys, bind, format))
          return false;
