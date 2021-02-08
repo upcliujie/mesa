@@ -1796,7 +1796,8 @@ typedef struct nir_io_semantics {
    unsigned gs_streams:8; /* xxyyzzww: 2-bit stream index for each component */
    unsigned medium_precision:1; /* GLSL mediump qualifier */
    unsigned per_view:1;
-   unsigned _pad:7;
+   unsigned high_16bits:1; /* whether accessing low or high half of the slot */
+   unsigned _pad:6;
 } nir_io_semantics;
 
 #define NIR_INTRINSIC_MAX_INPUTS 11
@@ -4293,6 +4294,7 @@ void nir_compact_varyings(nir_shader *producer, nir_shader *consumer,
                           bool default_to_smooth_interp);
 void nir_link_xfb_varyings(nir_shader *producer, nir_shader *consumer);
 bool nir_link_opt_varyings(nir_shader *producer, nir_shader *consumer);
+void nir_link_varying_precision(nir_shader *producer, nir_shader *consumer);
 
 bool nir_lower_amul(nir_shader *shader,
                     int (*type_size)(const struct glsl_type *, bool));
@@ -4909,7 +4911,23 @@ bool nir_lower_doubles(nir_shader *shader, const nir_shader *softfp64,
                        nir_lower_doubles_options options);
 bool nir_lower_pack(nir_shader *shader);
 
-void nir_lower_mediump_outputs(nir_shader *nir);
+bool nir_recompute_io_bases(nir_function_impl *impl, nir_variable_mode modes);
+bool nir_lower_mediump_io(nir_shader *nir, nir_variable_mode modes,
+                          uint64_t varying_mask, bool use_16bit_slots);
+bool nir_force_mediump_io(nir_shader *nir, nir_variable_mode modes,
+                          nir_alu_type types);
+bool nir_unpack_16bit_varying_slots(nir_shader *nir, nir_variable_mode modes);
+bool nir_fold_16bit_sampler_conversions(nir_shader *nir,
+                                        unsigned tex_src_types);
+
+typedef struct {
+   bool legalize_type;         /* whether this src should be legalized */
+   uint8_t bit_size;           /* bit_size to enforce */
+   nir_tex_src_type match_src; /* if bit_size is 0, match bit size of this */
+} nir_tex_src_type_constraint, nir_tex_src_type_constraints[nir_num_tex_src_types];
+
+bool nir_legalize_16bit_sampler_srcs(nir_shader *nir,
+                                     nir_tex_src_type_constraints constraints);
 
 bool nir_lower_point_size(nir_shader *shader, float min, float max);
 
