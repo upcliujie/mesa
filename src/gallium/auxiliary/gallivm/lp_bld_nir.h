@@ -57,6 +57,8 @@ struct lp_build_nir_context
    struct hash_table *regs;
    struct hash_table *vars;
 
+   LLVMValueRef aniso_filter_table;
+
    nir_shader *shader;
 
    void (*load_ubo)(struct lp_build_nir_context *bld_base,
