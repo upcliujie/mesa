@@ -1227,7 +1227,9 @@ bool get_reg_specified(ra_ctx& ctx,
 
    PhysRegInterval reg_win = { reg, rc.size() };
    PhysRegInterval bounds = get_reg_bounds(ctx.program, rc.type());
-   if (!bounds.contains(reg_win))
+   /* VCC/SCC are outside the bounds */
+   bool special_reg = rc.type() == RegType::sgpr && reg >= bounds.lo() && reg >= ctx.program->sgpr_limit;
+   if (!bounds.contains(reg_win) && !special_reg)
       return false;
 
    if (rc.is_subdword()) {
