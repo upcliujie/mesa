@@ -794,12 +794,12 @@ class TreeAutomaton(object):
       self._compute_items()
       self._build_table()
 
-      self.filtered_c_type = 'uint16_t'
+      self.filtered_c_type = 'uint8_t'
       self.unfiltered_c_type = 'uint16_t'
 
       for op in self.opcodes:
             for f in self.filter[op]:
-                  assert f < 0x10000, 'Filtered state for opcode {} is too large: {}'.format(op, f)
+                  assert f < 0x100, 'Filtered state for opcode {} is too large: {}'.format(op, f)
 
             num_filtered = len(self.rep[op])
             num_srcs = len(next(iter(self.table[op])))
