@@ -167,6 +167,12 @@ typedef enum
 const char *gl_vert_attrib_name(gl_vert_attrib attrib);
 
 /**
+ * Limits of inputs and outputs.
+ */
+#define MAX_TEXTURE_COORD_UNITS     8
+#define MAX_VERTEX_GENERIC_ATTRIBS  16
+
+/**
  * Symbolic constats to help iterating over
  * specific blocks of vertex attributes.
  *
