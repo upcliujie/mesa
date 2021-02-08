@@ -113,6 +113,7 @@ struct lp_sampler_params
    const LLVMValueRef *offsets;
    LLVMValueRef ms_index;
    LLVMValueRef lod;
+   LLVMValueRef aniso_filter_table;
    const struct lp_derivatives *derivs;
    LLVMValueRef *texel;
 };
@@ -443,6 +444,8 @@ struct lp_build_sample_context
    LLVMValueRef border_color_clamped;
 
    LLVMValueRef context_ptr;
+
+   LLVMValueRef aniso_filter_table;
 };
 
 /*
@@ -749,6 +752,8 @@ lp_build_image_op_array_case(struct lp_build_img_op_array_switch *switch_info,
 			     struct lp_sampler_dynamic_state *dynamic_state);
 
 void lp_build_image_op_array_fini_soa(struct lp_build_img_op_array_switch *switch_info);
+
+const float *lp_build_sample_aniso_filter_table(void);
 #ifdef __cplusplus
 }
 #endif
