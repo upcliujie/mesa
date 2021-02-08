@@ -1121,9 +1121,8 @@ llvmpipe-traces:
   extends:
     - .zink-rules
   variables:
-    LIBGL_ALWAYS_SOFTWARE: "true"
+    MESA_LOADER_DRIVER_OVERRIDE: "zink"
     ZINK_USE_LAVAPIPE: "true"
-    GALLIUM_DRIVER: "zink"
 
 zink-piglit-quick_gl:
   extends:
