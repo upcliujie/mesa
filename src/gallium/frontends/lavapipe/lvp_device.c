@@ -1669,3 +1669,33 @@ void lvp_GetPhysicalDeviceExternalSemaphoreProperties(
    pExternalSemaphoreProperties->compatibleHandleTypes = 0;
    pExternalSemaphoreProperties->externalSemaphoreFeatures = 0;
 }
+
+VkResult lvp_GetPhysicalDeviceCalibrateableTimeDomainsEXT(
+   VkPhysicalDevice physicalDevice,
+   uint32_t *pTimeDomainCount,
+   VkTimeDomainEXT *pTimeDomains)
+{
+   *pTimeDomainCount = 2;
+   if (!pTimeDomains)
+      return VK_SUCCESS;
+
+   pTimeDomains[0] = VK_TIME_DOMAIN_DEVICE_EXT;
+   pTimeDomains[1] = VK_TIME_DOMAIN_CLOCK_MONOTONIC_EXT;
+   return VK_SUCCESS;
+}
+
+VkResult lvp_GetCalibratedTimestampsEXT(
+   VkDevice device,
+   uint32_t timestampCount,
+   const VkCalibratedTimestampInfoEXT *pTimestampInfos,
+   uint64_t *pTimestamps,
+   uint64_t *pMaxDeviation)
+{
+   *pMaxDeviation = 1;
+
+   uint64_t now = os_time_get_nano();
+   for (unsigned i = 0; i < timestampCount; i++) {
+      pTimestamps[i] = now;
+   }
+   return VK_SUCCESS;
+}
