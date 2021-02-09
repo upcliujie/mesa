@@ -90,16 +90,20 @@ gl_nir_opts(nir_shader *nir)
       NIR_PASS(progress, nir, nir_opt_peephole_select, 8, true, true);
 
       NIR_PASS(progress, nir, nir_opt_phi_precision);
+      NIR_PASS(progress, nir, nir_opt_algebraic);
+      NIR_PASS(progress, nir, nir_opt_constant_folding);
 
       if (!nir->options->lower_bitops) {
          const unsigned min_bit_size = nir->options->support_8bit_alu
             ? 8 : (nir->options->support_16bit_alu ? 16 : 32);
 
-         NIR_PASS(progress, nir, nir_opt_idiv_const, min_bit_size);
+         bool idiv_progress = false;
+         NIR_PASS(idiv_progress, nir, nir_opt_idiv_const, min_bit_size);
+         if (idiv_progress) {
+            progress = true;
+            NIR_PASS(progress, nir, nir_opt_constant_folding);
+         }
       }
-
-      NIR_PASS(progress, nir, nir_opt_algebraic);
-      NIR_PASS(progress, nir, nir_opt_constant_folding);
 
       if (!nir->info.flrp_lowered) {
          unsigned lower_flrp =
