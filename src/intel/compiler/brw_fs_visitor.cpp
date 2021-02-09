@@ -278,21 +278,31 @@ fs_visitor::emit_interpolation_setup_gfx6()
 
    struct brw_wm_prog_data *wm_prog_data = brw_wm_prog_data(prog_data);
 
-   fs_reg int_pixel_offset_xy, half_int_pixel_offset_x, half_int_pixel_offset_y;
+   fs_reg int_pixel_offset_x, int_pixel_offset_y; /* Used on Gen12HP+ */
+   fs_reg int_pixel_offset_xy; /* Used on Gen8+ */
+   fs_reg half_int_pixel_offset_x, half_int_pixel_offset_y;
    if (wm_prog_data->per_coarse_pixel_dispatch) {
       struct brw_reg r1_0 = retype(brw_vec1_reg(BRW_GENERAL_REGISTER_FILE, 1, 0), BRW_REGISTER_TYPE_UB);
 
       const fs_builder dbld =
          abld.exec_all().group(MIN2(16, dispatch_width) * 2, 0);
 
-      fs_reg int_pixel_offset_x = dbld.vgrf(BRW_REGISTER_TYPE_UW);
-      dbld.AND(int_pixel_offset_x, byte_offset(r1_0, 0), brw_imm_v(0x0000f0f0));
+      if (devinfo->verx10 >= 125) {
+         int_pixel_offset_x = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+         dbld.AND(int_pixel_offset_x, byte_offset(r1_0, 0), brw_imm_v(0x0f000f00));
 
-      fs_reg int_pixel_offset_y = dbld.vgrf(BRW_REGISTER_TYPE_UW);
-      dbld.AND(int_pixel_offset_y, byte_offset(r1_0, 1), brw_imm_v(0xff000000));
+         int_pixel_offset_y = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+         dbld.AND(int_pixel_offset_y, byte_offset(r1_0, 1), brw_imm_v(0x0f0f0000));
+      } else {
+         int_pixel_offset_x = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+         dbld.AND(int_pixel_offset_x, byte_offset(r1_0, 0), brw_imm_v(0x0000f0f0));
 
-      int_pixel_offset_xy = dbld.vgrf(BRW_REGISTER_TYPE_UW);
-      dbld.OR(int_pixel_offset_xy, int_pixel_offset_x, int_pixel_offset_y);
+         int_pixel_offset_y = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+         dbld.AND(int_pixel_offset_y, byte_offset(r1_0, 1), brw_imm_v(0xff000000));
+
+         int_pixel_offset_xy = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+         dbld.OR(int_pixel_offset_xy, int_pixel_offset_x, int_pixel_offset_y);
+      }
 
       half_int_pixel_offset_x = bld.vgrf(BRW_REGISTER_TYPE_UW);
       half_int_pixel_offset_y = bld.vgrf(BRW_REGISTER_TYPE_UW);
@@ -300,6 +310,8 @@ fs_visitor::emit_interpolation_setup_gfx6()
       bld.SHR(half_int_pixel_offset_x, suboffset(r1_0, 0), brw_imm_ud(1));
       bld.SHR(half_int_pixel_offset_y, suboffset(r1_0, 1), brw_imm_ud(1));
    } else {
+      int_pixel_offset_x = fs_reg(brw_imm_v(0x01000100));
+      int_pixel_offset_y = fs_reg(brw_imm_v(0x01010000));
       int_pixel_offset_xy = fs_reg(brw_imm_v(0x11001010));
       half_int_pixel_offset_x = fs_reg(brw_imm_uw(0));
       half_int_pixel_offset_y = fs_reg(brw_imm_uw(0));
@@ -317,10 +329,17 @@ fs_visitor::emit_interpolation_setup_gfx6()
 
          dbld.ADD(int_pixel_x,
                   fs_reg(stride(suboffset(gi_uw, 4), 2, 8, 0)),
-                  fs_reg(brw_imm_v(0x01000100)));
+                  int_pixel_offset_x);
          dbld.ADD(int_pixel_y,
                   fs_reg(stride(suboffset(gi_uw, 5), 2, 8, 0)),
-                  fs_reg(brw_imm_v(0x01010000)));
+                  int_pixel_offset_y);
+
+         if (wm_prog_data->per_coarse_pixel_dispatch) {
+            dbld.ADD(int_pixel_x, int_pixel_x,
+                     horiz_stride(half_int_pixel_offset_x, 0));
+            dbld.ADD(int_pixel_y, int_pixel_y,
+                     horiz_stride(half_int_pixel_offset_y, 0));
+         }
 
          hbld.MOV(offset(pixel_x, hbld, i), horiz_stride(int_pixel_x, 2));
          hbld.MOV(offset(pixel_y, hbld, i), horiz_stride(int_pixel_y, 2));
