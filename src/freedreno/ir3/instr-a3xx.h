@@ -1171,6 +1171,7 @@ static inline bool is_cat2_float(opc_t opc)
 	case OPC_RNDNE_F:
 	case OPC_RNDAZ_F:
 	case OPC_TRUNC_F:
+	case OPC_BARY_F:
 		return true;
 
 	default:
