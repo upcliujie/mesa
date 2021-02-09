@@ -366,7 +366,7 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
    if (!(flags & PIPE_CONTEXT_PREFER_THREADED) ||
        (flags & PIPE_CONTEXT_COMPUTE_ONLY) ||
-       !env_var_as_boolean("IRIS_THREADED_CONTEXT", false))
+       !env_var_as_boolean("IRIS_THREADED_CONTEXT", true))
       return ctx;
 
    return threaded_context_create(ctx, &screen->transfer_pool,
