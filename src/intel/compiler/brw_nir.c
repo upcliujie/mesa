@@ -788,7 +788,7 @@ brw_nir_optimize(nir_shader *nir,
       LOOP_OPT(nir_lower_constant_convert_alu_types);
       LOOP_OPT(nir_opt_constant_folding);
 
-      if (LOOP_OPT(nir_opt_idiv_const, 32))
+      if (LOOP_OPT(nir_opt_idiv_const, 16))
          LOOP_OPT(nir_opt_constant_folding);
 
       if (lower_flrp != 0) {
@@ -1656,7 +1656,7 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
 
    if (devinfo->verx10 >= 125) {
       /* Lower integer division by constants before nir_lower_idiv. */
-      OPT(nir_opt_idiv_const, 32);
+      OPT(nir_opt_idiv_const, 16);
       const nir_lower_idiv_options options = {
          .allow_fp16 = false
       };
