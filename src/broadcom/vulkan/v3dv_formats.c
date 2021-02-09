@@ -156,6 +156,18 @@ static const struct v3dv_format format_table[] = {
    FORMAT(EAC_R11_SNORM_BLOCK,        NO,  SIGNED_R11_EAC,           SWIZ_X001, 16, true),
    FORMAT(EAC_R11G11_UNORM_BLOCK,     NO,  RG11_EAC,                 SWIZ_XY01, 16, true),
    FORMAT(EAC_R11G11_SNORM_BLOCK,     NO,  SIGNED_RG11_EAC,          SWIZ_XY01, 16, true),
+
+   /* Compressed: BC1 */
+   FORMAT(BC1_RGB_UNORM_BLOCK,        NO,  BC1,                      SWIZ_XYZ1, 16, false),
+
+   FORMAT(BC1_RGB_UNORM_BLOCK,        NO,  BC1,                      SWIZ_XYZ1, 16, false),
+   FORMAT(BC1_RGB_SRGB_BLOCK,         NO,  BC1,                      SWIZ_XYZ1, 16, false),
+   FORMAT(BC1_RGBA_UNORM_BLOCK,       NO,  BC1,                      SWIZ_XYZW, 16, false),
+   FORMAT(BC1_RGBA_SRGB_BLOCK,        NO,  BC1,                      SWIZ_XYZW, 16, false),
+   FORMAT(BC2_UNORM_BLOCK,            NO,  BC2,                      SWIZ_XYZW, 16, false),
+   FORMAT(BC2_SRGB_BLOCK,             NO,  BC2,                      SWIZ_XYZW, 16, false),
+   FORMAT(BC3_UNORM_BLOCK,            NO,  BC3,                      SWIZ_XYZW, 16, false),
+   FORMAT(BC3_SRGB_BLOCK,             NO,  BC3,                      SWIZ_XYZW, 16, false),
 };
 
 const struct v3dv_format *
