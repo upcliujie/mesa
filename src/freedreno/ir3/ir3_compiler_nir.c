@@ -3693,7 +3693,6 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
 	do {
 		progress = false;
 
-		progress |= IR3_PASS(ir, ir3_cf);
 		progress |= IR3_PASS(ir, ir3_cp, so);
 		progress |= IR3_PASS(ir, ir3_dce, so);
 	} while (progress);

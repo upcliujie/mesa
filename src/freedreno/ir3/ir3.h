@@ -1304,9 +1304,6 @@ void ir3_remove_nops(struct ir3 *ir);
 struct ir3_shader_variant;
 bool ir3_dce(struct ir3 *ir, struct ir3_shader_variant *so);
 
-/* fp16 conversion folding */
-bool ir3_cf(struct ir3 *ir);
-
 /* copy-propagate: */
 bool ir3_cp(struct ir3 *ir, struct ir3_shader_variant *so);
 bool ir3_cp_postsched(struct ir3 *ir);
