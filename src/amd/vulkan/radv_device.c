@@ -4666,8 +4666,10 @@ radv_queue_submit_deferred(struct radv_deferred_queue_submission *submission,
 							      advance, initial_preamble, continue_preamble_cs,
 							      &sem_info,
 							      can_patch, base_fence);
-			if (result != VK_SUCCESS)
+			if (result != VK_SUCCESS) {
+				free(cs_array);
 				goto fail;
+			}
 
 			if (queue->device->trace_bo) {
 				radv_check_gpu_hangs(queue, cs_array[j]);
@@ -4681,9 +4683,6 @@ radv_queue_submit_deferred(struct radv_deferred_queue_submission *submission,
 		free(cs_array);
 	}
 
-	radv_free_temp_syncobjs(queue->device,
-				submission->temporary_semaphore_part_count,
-				submission->temporary_semaphore_parts);
 	radv_finalize_timelines(queue->device,
 	                        submission->wait_semaphore_count,
 	                        submission->wait_semaphores,
@@ -4696,9 +4695,6 @@ radv_queue_submit_deferred(struct radv_deferred_queue_submission *submission,
 	 * condition variable is only triggered when timelines and queue have
 	 * been updated. */
 	radv_queue_submission_update_queue(submission, processing_list);
-	radv_free_sem_info(&sem_info);
-	free(submission);
-	return VK_SUCCESS;
 
 fail:
 	if (result != VK_SUCCESS && result != VK_ERROR_DEVICE_LOST) {
@@ -4715,6 +4711,7 @@ fail:
 	radv_free_temp_syncobjs(queue->device,
 				submission->temporary_semaphore_part_count,
 				submission->temporary_semaphore_parts);
+	radv_free_sem_info(&sem_info);
 	free(submission);
 	return result;
 }
