@@ -50,6 +50,7 @@ apt-get -y install --no-install-recommends \
     libpng16-16 \
     libpython3.7 \
     libsensors5 \
+    libvulkan \
     libwaffle-1-0 \
     libx11-6 \
     libx11-xcb1 \
