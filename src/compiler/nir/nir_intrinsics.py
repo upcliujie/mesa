@@ -902,7 +902,7 @@ load("input_vertex", [1, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_EL
 # src[] = { vertex, offset }.
 load("per_vertex_input", [1, 1], [BASE, COMPONENT, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER])
 # src[] = { barycoord, offset }.
-load("interpolated_input", [2, 1], [BASE, COMPONENT, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER])
+load("interpolated_input", [2, 1], [BASE, COMPONENT, IO_SEMANTICS, DEST_TYPE], [CAN_ELIMINATE, CAN_REORDER])
 
 # src[] = { buffer_index, offset }.
 load("ssbo", [-1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE])

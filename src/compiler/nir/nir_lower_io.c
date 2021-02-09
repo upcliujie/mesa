@@ -301,6 +301,7 @@ emit_load(struct lower_io_state *state,
 
    if (load->intrinsic == nir_intrinsic_load_input ||
        load->intrinsic == nir_intrinsic_load_input_vertex ||
+       load->intrinsic == nir_intrinsic_load_interpolated_input ||
        load->intrinsic == nir_intrinsic_load_uniform)
       nir_intrinsic_set_dest_type(load, dest_type);
 
