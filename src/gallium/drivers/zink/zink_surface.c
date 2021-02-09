@@ -22,6 +22,7 @@
  */
 
 #include "zink_context.h"
+#include "zink_framebuffer.h"
 #include "zink_resource.h"
 #include "zink_screen.h"
 #include "zink_surface.h"
@@ -124,6 +125,7 @@ create_surface(struct pipe_context *pctx,
    surface->base.u.tex.level = level;
    surface->base.u.tex.first_layer = templ->u.tex.first_layer;
    surface->base.u.tex.last_layer = templ->u.tex.last_layer;
+   util_dynarray_init(&surface->framebuffer_refs, NULL);
 
    if (vkCreateImageView(screen->dev, ivci, NULL,
                          &surface->image_view) != VK_SUCCESS) {
@@ -186,20 +188,59 @@ zink_create_surface(struct pipe_context *pctx,
    return zink_get_surface(zink_context(pctx), pres, templ, &ivci);
 }
 
+/* framebuffers are owned by their surfaces, so each time a surface that's part of a cached fb
+ * is destroyed, it has to unref all the framebuffers it's attached to in order to avoid leaking
+ * all the framebuffers
+ *
+ * surfaces are always batch-tracked, so it is impossible for a framebuffer to be destroyed
+ * while it is in use
+ */
 static void
-zink_surface_destroy(struct pipe_context *pctx,
-                     struct pipe_surface *psurface)
+surface_clear_fb_refs(struct zink_screen *screen, struct pipe_surface *psurface)
 {
-   struct zink_screen *screen = zink_screen(pctx->screen);
+   struct zink_surface *surface = zink_surface(psurface);
+   util_dynarray_foreach(&surface->framebuffer_refs, struct zink_framebuffer*, fb_ref) {
+      struct zink_framebuffer *fb = *fb_ref;
+      for (unsigned i = 0; i < fb->state.num_attachments; i++) {
+         if (fb->surfaces[i] == psurface) {
+            simple_mtx_lock(&screen->framebuffer_mtx);
+            fb->surfaces[i] = NULL;
+            _mesa_hash_table_remove_key(&screen->framebuffer_cache, &fb->state);
+            zink_framebuffer_reference(screen, &fb, NULL);
+            simple_mtx_unlock(&screen->framebuffer_mtx);
+            break;
+         }
+         /* null surface doesn't get a ref but it will double-free
+          * if the pointer isn't unset
+          */
+         if (fb->null_surface == psurface)
+            fb->null_surface = NULL;
+      }
+   }
+   util_dynarray_fini(&surface->framebuffer_refs);
+}
+
+void
+zink_destroy_surface(struct zink_screen *screen, struct pipe_surface *psurface)
+{
    struct zink_surface *surface = zink_surface(psurface);
    simple_mtx_lock(&screen->surface_mtx);
    struct hash_entry *he = _mesa_hash_table_search_pre_hashed(&screen->surface_cache, surface->hash, &surface->ivci);
    assert(he);
    _mesa_hash_table_remove(&screen->surface_cache, he);
    simple_mtx_unlock(&screen->surface_mtx);
+   surface_clear_fb_refs(screen, psurface);
+   util_dynarray_fini(&surface->framebuffer_refs);
    pipe_resource_reference(&psurface->texture, NULL);
    vkDestroyImageView(screen->dev, surface->image_view, NULL);
    FREE(surface);
+}
+
+static void
+zink_surface_destroy(struct pipe_context *pctx,
+                     struct pipe_surface *psurface)
+{
+   zink_destroy_surface(zink_screen(pctx->screen), psurface);
 }
 
 void

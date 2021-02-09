@@ -36,6 +36,7 @@ struct zink_surface {
    VkImageView image_view;
    uint32_t hash;
    struct zink_batch_usage batch_uses;
+   struct util_dynarray framebuffer_refs;
 };
 
 static inline struct zink_surface *
@@ -43,6 +44,9 @@ zink_surface(struct pipe_surface *pipe)
 {
    return (struct zink_surface *)pipe;
 }
+
+void
+zink_destroy_surface(struct zink_screen *screen, struct pipe_surface *psurface);
 
 void
 zink_context_surface_init(struct pipe_context *context);
