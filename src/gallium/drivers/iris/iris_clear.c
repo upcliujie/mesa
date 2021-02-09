@@ -354,7 +354,7 @@ clear_color(struct iris_context *ice,
    }
 
    if (p_res->target == PIPE_BUFFER)
-      util_range_add(&res->base, &res->valid_buffer_range, box->x, box->x + box->width);
+      util_range_add(&res->base.b, &res->valid_buffer_range, box->x, box->x + box->width);
 
    iris_batch_maybe_flush(batch, 1500);
 
@@ -576,7 +576,7 @@ clear_depth_stencil(struct iris_context *ice,
       iris_resource_prepare_depth(ice, batch, z_res, level, box->z, box->depth);
       iris_emit_buffer_barrier_for(batch, z_res->bo, IRIS_DOMAIN_DEPTH_WRITE);
       iris_blorp_surf_for_resource(&batch->screen->isl_dev,
-                                   &z_surf, &z_res->base, z_res->aux.usage,
+                                   &z_surf, &z_res->base.b, z_res->aux.usage,
                                    level, true);
    }
 
@@ -587,7 +587,7 @@ clear_depth_stencil(struct iris_context *ice,
       iris_emit_buffer_barrier_for(batch, stencil_res->bo,
                                    IRIS_DOMAIN_DEPTH_WRITE);
       iris_blorp_surf_for_resource(&batch->screen->isl_dev,
-                                   &stencil_surf, &stencil_res->base,
+                                   &stencil_surf, &stencil_res->base.b,
                                    stencil_res->aux.usage, level, true);
    }
 
