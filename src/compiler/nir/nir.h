@@ -4986,6 +4986,8 @@ bool nir_opt_large_constants(nir_shader *shader,
 
 bool nir_opt_loop_unroll(nir_shader *shader, nir_variable_mode indirect_mask);
 
+bool nir_opt_mediump_texops(nir_shader *shader);
+
 typedef enum {
     nir_move_const_undef = (1 << 0),
     nir_move_load_ubo    = (1 << 1),
