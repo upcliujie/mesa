@@ -1,5 +1,5 @@
 variables:
-  DISTRIBUTION_TAG: "2021-02-08-subdir-move"
+  DISTRIBUTION_TAG: "2021-02-09-zink-piglit"
 
 .kernel+rootfs:
   stage: container-2
