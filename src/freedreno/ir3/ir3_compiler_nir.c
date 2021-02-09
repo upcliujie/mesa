@@ -2382,9 +2382,29 @@ emit_tex(struct ir3_context *ctx, nir_tex_instr *tex)
 		struct ir3_instruction *idx = coord[coords];
 
 		/* the array coord for cube arrays needs 0.5 added to it */
-		if (ctx->compiler->array_index_add_half && !is_isam(opc))
-			idx = ir3_ADD_F(b, idx, 0, create_immed(b, fui(0.5)), 0);
+		if (ctx->compiler->array_index_add_half && !is_isam(opc)) {
+			type_t type;
+			if (opc_cat(idx->opc) == 1) {
+				type = idx->cat1.src_type;
+			} else if (opc_cat(idx->opc) == 5) {
+				type = idx->cat5.type;
+                        } else if (is_cat2_float(idx->opc) || is_cat3_float(idx->opc)) {
+                          type = (idx->regs[0]->flags & IR3_REG_HALF) ? TYPE_F16 : TYPE_F32;
+			} else {
+				unreachable("not cat1 nor cat5");
+			}
 
+			if (type_size(type) == 16) {
+				idx = ir3_ADD_F(b, idx, 0,
+						create_immed_typed(b,
+								   _mesa_float_to_half(0.5f),
+								   TYPE_U16), 0);
+				idx->regs[0]->flags |= IR3_REG_HALF;
+			} else {
+				idx = ir3_ADD_F(b, idx, 0,
+						create_immed(b, fui(0.5)), 0);
+			}
+		}
 		src0[nsrc0++] = idx;
 	}
 
