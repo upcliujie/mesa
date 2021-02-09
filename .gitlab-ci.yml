@@ -261,7 +261,7 @@ x86_build-base:
     - .fdo.container-build@debian
     - .container
   variables:
-    MESA_IMAGE_TAG: &x86_build-base "2021-02-08-container-reorg"
+    MESA_IMAGE_TAG: &x86_build-base "2021-02-09-zink-piglit"
 
 .use-x86_build-base:
   extends:
