@@ -29,4 +29,4 @@ traces:
   - path: humus/Portals.trace
     expectations:
       - device: gl-virgl
-        checksum: 80e88e6be47138c18370d84c6426544f
+        checksum: 300270f4fc4c0ba2d8415316693b7a51
