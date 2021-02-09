@@ -358,6 +358,7 @@ ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
 			s->info.stage == MESA_SHADER_FRAGMENT &&
 			!(ir3_shader_debug & IR3_DBG_NOFP16)) {
 		NIR_PASS_V(s, nir_lower_mediump_outputs);
+		NIR_PASS_V(s, nir_opt_mediump_texops);
 	}
 
 	/* we cannot ensure that ir3_finalize_nir() is only called once, so
