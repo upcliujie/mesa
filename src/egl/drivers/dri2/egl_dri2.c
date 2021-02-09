@@ -88,48 +88,56 @@
 static const struct dri2_pbuffer_visual {
    const char *format_name;
    unsigned int dri_image_format;
+   unsigned int fourcc_image_format;
    int rgba_shifts[4];
    unsigned int rgba_sizes[4];
 } dri2_pbuffer_visuals[] = {
    {
       "ABGR16F",
       __DRI_IMAGE_FORMAT_ABGR16161616F,
+      DRM_FORMAT_ABGR16161616F,
       { 0, 16, 32, 48 },
       { 16, 16, 16, 16 }
    },
    {
       "XBGR16F",
       __DRI_IMAGE_FORMAT_XBGR16161616F,
+      DRM_FORMAT_XBGR16161616F,
       { 0, 16, 32, -1 },
       { 16, 16, 16, 0 }
    },
    {
       "A2RGB10",
       __DRI_IMAGE_FORMAT_ARGB2101010,
+      DRM_FORMAT_ARGB2101010,
       { 20, 10, 0, 30 },
       { 10, 10, 10, 2 }
    },
    {
       "X2RGB10",
       __DRI_IMAGE_FORMAT_XRGB2101010,
+      DRM_FORMAT_XRGB2101010,
       { 20, 10, 0, -1 },
       { 10, 10, 10, 0 }
    },
    {
       "ARGB8888",
       __DRI_IMAGE_FORMAT_ARGB8888,
+      DRM_FORMAT_ARGB8888,
       { 16, 8, 0, 24 },
       { 8, 8, 8, 8 }
    },
    {
       "RGB888",
       __DRI_IMAGE_FORMAT_XRGB8888,
+      DRM_FORMAT_XRGB8888,
       { 16, 8, 0, -1 },
       { 8, 8, 8, 0 }
    },
    {
       "RGB565",
       __DRI_IMAGE_FORMAT_RGB565,
+      DRM_FORMAT_RGB565,
       { 11, 5, 0, -1 },
       { 5, 6, 5, 0 }
    },
@@ -649,8 +657,13 @@ dri2_add_pbuffer_configs_for_visuals(_EGLDisplay *disp)
       for (unsigned j = 0; j < ARRAY_SIZE(dri2_pbuffer_visuals); j++) {
          struct dri2_egl_config *dri2_conf;
 
+         EGLint attr_list[] = {
+            EGL_NATIVE_VISUAL_ID, dri2_pbuffer_visuals[j].fourcc_image_format,
+            EGL_NONE
+         };
+
          dri2_conf = dri2_add_config(disp, dri2_dpy->driver_configs[i],
-               config_count + 1, EGL_PBUFFER_BIT, NULL,
+               config_count + 1, EGL_PBUFFER_BIT, attr_list,
                dri2_pbuffer_visuals[j].rgba_shifts, dri2_pbuffer_visuals[j].rgba_sizes);
 
          if (dri2_conf) {
