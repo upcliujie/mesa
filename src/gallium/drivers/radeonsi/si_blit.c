@@ -593,9 +593,10 @@ static void si_check_render_feedback_texture(struct si_context *sctx, struct si_
       si_texture_disable_dcc(sctx, tex);
 }
 
-static void si_check_render_feedback_textures(struct si_context *sctx, struct si_samplers *textures)
+static void si_check_render_feedback_textures(struct si_context *sctx, struct si_samplers *textures,
+                                              uint32_t in_use_mask)
 {
-   uint32_t mask = textures->enabled_mask;
+   uint32_t mask = textures->enabled_mask & in_use_mask;
 
    while (mask) {
       const struct pipe_sampler_view *view;
@@ -614,9 +615,10 @@ static void si_check_render_feedback_textures(struct si_context *sctx, struct si
    }
 }
 
-static void si_check_render_feedback_images(struct si_context *sctx, struct si_images *images)
+static void si_check_render_feedback_images(struct si_context *sctx, struct si_images *images,
+                                            uint32_t in_use_mask)
 {
-   uint32_t mask = images->enabled_mask;
+   uint32_t mask = images->enabled_mask & in_use_mask;
 
    while (mask) {
       const struct pipe_image_view *view;
@@ -680,9 +682,23 @@ static void si_check_render_feedback(struct si_context *sctx)
    if (!si_get_total_colormask(sctx))
       return;
 
+   struct si_shader_info *shader_info[SI_NUM_SHADERS] = {
+      [PIPE_SHADER_VERTEX] = sctx->vs_shader.cso ? &sctx->vs_shader.cso->info : NULL,
+      [PIPE_SHADER_TESS_CTRL] = sctx->tcs_shader.cso ? &sctx->tcs_shader.cso->info : NULL,
+      [PIPE_SHADER_TESS_EVAL] = sctx->tes_shader.cso ? &sctx->tes_shader.cso->info : NULL,
+      [PIPE_SHADER_GEOMETRY] = sctx->gs_shader.cso ? &sctx->gs_shader.cso->info : NULL,
+      [PIPE_SHADER_FRAGMENT] = sctx->ps_shader.cso ? &sctx->ps_shader.cso->info : NULL,
+      [PIPE_SHADER_COMPUTE] = sctx->cs_shader_state.program ? &sctx->cs_shader_state.program->sel.info : NULL,
+   };
+
    for (int i = 0; i < SI_NUM_SHADERS; ++i) {
-      si_check_render_feedback_images(sctx, &sctx->images[i]);
-      si_check_render_feedback_textures(sctx, &sctx->samplers[i]);
+      if (!shader_info[i])
+         continue;
+
+      si_check_render_feedback_images(sctx, &sctx->images[i],
+                                      u_bit_consecutive(0, shader_info[i]->base.num_images));
+      si_check_render_feedback_textures(sctx, &sctx->samplers[i],
+                                        shader_info[i]->base.textures_used);
    }
 
    si_check_render_feedback_resident_images(sctx);
