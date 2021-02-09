@@ -44,35 +44,68 @@ nir_lower_mediump_outputs(nir_shader *nir)
             continue;
 
          nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
-         if (intr->intrinsic != nir_intrinsic_store_output)
-            continue;
 
-         if (!nir_intrinsic_io_semantics(intr).medium_precision)
-            break; /* can't lower */
+         switch (intr->intrinsic) {
+         case nir_intrinsic_load_interpolated_input:
+           if (!nir_intrinsic_io_semantics(intr).medium_precision)
+              break; /* can't lower */
 
-         switch (nir_intrinsic_src_type(intr)) {
-         case nir_type_float32:
-            b.cursor = nir_before_instr(&intr->instr);
-            nir_instr_rewrite_src(&intr->instr, &intr->src[0],
-                  nir_src_for_ssa(nir_f2f16(&b, intr->src[0].ssa)));
-            nir_intrinsic_set_src_type(intr, nir_type_float16);
+           switch (nir_intrinsic_dest_type(intr)) {
+           case nir_type_float32:
+              b.cursor = nir_after_instr(&intr->instr);
+              nir_ssa_def *def = nir_f2f32(&b,
+                                           nir_imm_zero(&b,
+                                                        intr->num_components,
+                                                        16));
+              nir_alu_instr *alu = nir_instr_as_alu(def->parent_instr);
+
+              nir_ssa_def_rewrite_uses(&intr->dest.ssa, nir_src_for_ssa(def));
+
+              nir_instr_rewrite_src(def->parent_instr, &alu->src[0].src,
+                                    nir_src_for_ssa(&intr->dest.ssa));
+
+              nir_intrinsic_set_dest_type(intr, nir_type_float16);
+              intr->dest.ssa.bit_size = 16;
+              break;
+
+            default:
+              break;
+            }
             break;
 
-         case nir_type_int32:
-            b.cursor = nir_before_instr(&intr->instr);
-            nir_instr_rewrite_src(&intr->instr, &intr->src[0],
-                  nir_src_for_ssa(nir_i2i16(&b, intr->src[0].ssa)));
-            nir_intrinsic_set_src_type(intr, nir_type_int16);
-            break;
+         case nir_intrinsic_store_output:
+           if (!nir_intrinsic_io_semantics(intr).medium_precision)
+              break; /* can't lower */
 
-         case nir_type_uint32:
-            b.cursor = nir_before_instr(&intr->instr);
-            nir_instr_rewrite_src(&intr->instr, &intr->src[0],
-                  nir_src_for_ssa(nir_u2u16(&b, intr->src[0].ssa)));
-            nir_intrinsic_set_src_type(intr, nir_type_uint16);
-            break;
+           switch (nir_intrinsic_src_type(intr)) {
+           case nir_type_float32:
+              b.cursor = nir_before_instr(&intr->instr);
+              nir_instr_rewrite_src(&intr->instr, &intr->src[0],
+                    nir_src_for_ssa(nir_f2f16(&b, intr->src[0].ssa)));
+              nir_intrinsic_set_src_type(intr, nir_type_float16);
+              break;
 
-         default:;
+           case nir_type_int32:
+              b.cursor = nir_before_instr(&intr->instr);
+              nir_instr_rewrite_src(&intr->instr, &intr->src[0],
+                    nir_src_for_ssa(nir_i2i16(&b, intr->src[0].ssa)));
+              nir_intrinsic_set_src_type(intr, nir_type_int16);
+              break;
+
+           case nir_type_uint32:
+              b.cursor = nir_before_instr(&intr->instr);
+              nir_instr_rewrite_src(&intr->instr, &intr->src[0],
+                    nir_src_for_ssa(nir_u2u16(&b, intr->src[0].ssa)));
+              nir_intrinsic_set_src_type(intr, nir_type_uint16);
+              break;
+
+           default:
+              break;
+           }
+           break;
+
+         default:
+            break;
          }
       }
    }
