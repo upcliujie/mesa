@@ -202,6 +202,8 @@ fi
 
 FAILURE_MESSAGE=$(printf "%s" "Unexpected change in results:")
 
+ci-fairy minio login $CI_JOB_JWT
+
 eval $RUN_CMD
 
 if [ $? -ne 0 ]; then
@@ -226,8 +228,6 @@ mkdir -p .gitlab-ci/piglit
 
 if [ "x$PIGLIT_PROFILES" = "xreplay" ] \
        && [ ${PIGLIT_REPLAY_UPLOAD_TO_MINIO:-0} -eq 1 ]; then
-
-    ci-fairy minio login $CI_JOB_JWT
 
     __PREFIX="trace/$PIGLIT_REPLAY_DEVICE_NAME"
     __MINIO_PATH="$PIGLIT_REPLAY_ARTIFACTS_BASE_URL"
