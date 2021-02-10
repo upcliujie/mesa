@@ -72,6 +72,7 @@ files_vulkan_util = files(
   'vk_render_pass.c',
   'vk_shader_module.c',
   'vk_shader_module.h',
+  'vk_synchronization2.c',
   'vk_util.c',
   'vk_util.h',
 )
@@ -150,7 +151,7 @@ idep_vulkan_util_headers = declare_dependency(
 
 # This is likely a bug in the Meson VS backend, as MSVC with ninja works fine.
 # See this discussion here:
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/10506 
+# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/10506
 if get_option('backend').startswith('vs')
   idep_vulkan_util = declare_dependency(
     link_with : libvulkan_util,
