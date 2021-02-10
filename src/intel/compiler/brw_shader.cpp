@@ -732,6 +732,8 @@ backend_shader::backend_shader(const struct brw_compiler *compiler,
 
 backend_shader::~backend_shader()
 {
+   if(cfg)
+      delete cfg;
 }
 
 bool
