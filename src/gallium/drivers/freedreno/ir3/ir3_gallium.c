@@ -274,6 +274,31 @@ create_initial_compute_variants_async(void *job, int thread_index)
 	shader->initial_variants_done = true;
 }
 
+static struct ir3_instrumentation_iova
+create_instrumentation_iova(void *ctx, uint64_t size)
+{
+	struct fd_device *dev = ctx;
+	struct fd_bo *bo = fd_bo_new(dev, size,
+		DRM_FREEDRENO_GEM_CACHE_WCOMBINE, "instrumentation");
+
+	struct ir3_instrumentation_iova iova = {
+		.private_data = bo,
+		.iova = fd_bo_get_iova(bo),
+		.map = fd_bo_map(bo),
+	};
+
+	return iova;
+}
+
+static void
+destroy_instrumentation_iova(void *ctx, struct ir3_instrumentation_iova *iova)
+{
+	struct fd_device *dev = ctx;
+	struct fd_bo *bo = iova->private_data;
+	fd_bo_cpu_fini(bo);
+	fd_bo_del(bo);
+}
+
 /* a bit annoying that compute-shader and normal shader state objects
  * aren't a bit more aligned.
  */
@@ -310,6 +335,10 @@ ir3_shader_compute_state_create(struct pipe_context *pctx,
 
 	struct ir3_shader *shader = ir3_shader_from_nir(compiler, nir, 0, NULL);
 	struct ir3_shader_state *hwcso = calloc(1, sizeof(*hwcso));
+
+	shader->iova_func.ctx = ctx->dev;
+	shader->iova_func.create_iova = &create_instrumentation_iova;
+	shader->iova_func.destroy_iova = &destroy_instrumentation_iova;
 
 	util_queue_fence_init(&hwcso->ready);
 	hwcso->shader = shader;
@@ -366,6 +395,10 @@ ir3_shader_state_create(struct pipe_context *pctx, const struct pipe_shader_stat
 	copy_stream_out(&stream_output, &cso->stream_output);
 
 	hwcso->shader = ir3_shader_from_nir(compiler, nir, 0, &stream_output);
+
+	hwcso->shader->iova_func.ctx = ctx->dev;
+	hwcso->shader->iova_func.create_iova = &create_instrumentation_iova;
+	hwcso->shader->iova_func.destroy_iova = &destroy_instrumentation_iova;
 
 	/*
 	 * Create initial variants to avoid draw-time stalls.  This is

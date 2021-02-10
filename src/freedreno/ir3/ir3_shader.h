@@ -693,6 +693,20 @@ ir3_has_binning_vs(const struct ir3_shader_key *key)
 	return true;
 }
 
+struct ir3_instrumentation_iova {
+	void *private_data;
+
+	uint64_t iova;
+	void *map;
+};
+
+struct ir3_instrumentation_funcs {
+	struct ir3_instrumentation_iova (*create_iova)(void *ctx, uint64_t size);
+	void (*destroy_iova)(void *ctx, struct ir3_instrumentation_iova *);
+
+	void *ctx;
+};
+
 /**
  * Represents a shader at the API level, before state-specific variants are
  * generated.
@@ -726,6 +740,8 @@ struct ir3_shader {
 	 * recompiles for GL NOS that doesn't actually apply to the shader.
 	 */
 	struct ir3_shader_key key_mask;
+
+	struct ir3_instrumentation_funcs iova_func;
 };
 
 /**
@@ -770,6 +786,12 @@ uint32_t ir3_trim_constlen(struct ir3_shader_variant **variants,
 void ir3_shader_destroy(struct ir3_shader *shader);
 void ir3_shader_disasm(struct ir3_shader_variant *so, uint32_t *bin, FILE *out);
 uint64_t ir3_shader_outputs(const struct ir3_shader *so);
+
+bool
+ir3_instrument_shader(struct ir3_shader_variant *v);
+
+void
+ir3_dump_all_instrumentation_results(FILE *out);
 
 int
 ir3_glsl_type_size(const struct glsl_type *type, bool bindless);

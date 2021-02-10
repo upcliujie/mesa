@@ -773,6 +773,32 @@ tu_gather_xfb_info(nir_shader *nir, struct ir3_stream_output_info *info)
    ralloc_free(xfb);
 }
 
+static struct ir3_instrumentation_iova
+tu_create_instrumentation_iova(void *ctx, uint64_t size)
+{
+   struct tu_device *dev = ctx;
+   struct tu_bo *bo = ralloc(NULL, struct tu_bo);
+   tu_bo_init_new(dev, bo, size, false);
+   tu_bo_map(dev, bo);
+
+   struct ir3_instrumentation_iova iova = {
+      .private_data = bo,
+      .iova = bo->iova,
+      .map = bo->map,
+   };
+
+   return iova;
+}
+
+static void
+tu_destroy_instrumentation_iova(void *ctx, struct ir3_instrumentation_iova *iova)
+{
+   struct tu_device *dev = ctx;
+   struct tu_bo *bo = iova->private_data;
+   tu_bo_finish(dev, bo);
+   ralloc_free(bo);
+}
+
 struct tu_shader *
 tu_shader_create(struct tu_device *dev,
                  nir_shader *nir,
@@ -855,6 +881,10 @@ tu_shader_create(struct tu_device *dev,
       ir3_shader_from_nir(dev->compiler, nir,
                           align(shader->push_consts.count, 4),
                           &so_info);
+
+   shader->ir3_shader->iova_func.ctx = dev;
+   shader->ir3_shader->iova_func.create_iova = &tu_create_instrumentation_iova;
+   shader->ir3_shader->iova_func.destroy_iova = &tu_destroy_instrumentation_iova;
 
    return shader;
 }

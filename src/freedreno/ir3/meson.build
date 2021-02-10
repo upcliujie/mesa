@@ -104,6 +104,7 @@ libfreedreno_ir3_files = files(
   'ir3_shader.c',
   'ir3_shader.h',
   'ir3_validate.c',
+  'ir3_instrumentation.c',
   'regmask.h',
 )
 
@@ -133,6 +134,18 @@ test('ir3_delay_test',
   executable(
     'ir3_delay_test',
     'tests/delay.c',
+    link_with: libfreedreno_ir3,
+    link_args: ld_args_build_id,
+    dependencies: [idep_mesautil, idep_nir],
+    include_directories: [inc_freedreno, inc_include, inc_src, inc_mesa, inc_gallium],
+  ),
+  suite: ['freedreno'],
+)
+
+test('ir3_register_dumping_test',
+  executable(
+    'ir3_register_dumping_test',
+    'tests/register_dumping.c',
     link_with: libfreedreno_ir3,
     link_args: ld_args_build_id,
     dependencies: [idep_mesautil, idep_nir],
