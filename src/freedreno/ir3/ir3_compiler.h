@@ -156,6 +156,7 @@ enum ir3_shader_debug {
 
 extern enum ir3_shader_debug ir3_shader_debug;
 extern const char *ir3_shader_override_path;
+extern const char *ir3_shader_instrument;
 
 static inline bool
 shader_debug_enabled(gl_shader_stage type)

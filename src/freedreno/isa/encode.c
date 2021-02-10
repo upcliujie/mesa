@@ -311,3 +311,14 @@ isa_assemble(struct ir3_shader_variant *v)
 
 	return ptr;
 }
+
+uint64_t
+isa_assemble_instruction(struct ir3_compiler *compiler, struct ir3_instruction *instr)
+{
+	struct encode_state s = {
+		.compiler = compiler,
+		.instr = instr,
+	};
+
+	return encode__instruction(&s, NULL, instr);
+}

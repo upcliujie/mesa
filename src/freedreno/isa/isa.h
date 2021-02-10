@@ -84,5 +84,8 @@ void isa_decode(void *bin, int sz, FILE *out, const struct isa_decode_options *o
 
 struct ir3_shader_variant;
 void * isa_assemble(struct ir3_shader_variant *v);
+struct ir3_compiler;
+struct ir3_instruction;
+uint64_t isa_assemble_instruction(struct ir3_compiler *compiler, struct ir3_instruction *instr);
 
 #endif /* _ISA_H_ */
