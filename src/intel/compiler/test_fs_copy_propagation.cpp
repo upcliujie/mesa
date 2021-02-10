@@ -30,6 +30,7 @@ using namespace brw;
 
 class copy_propagation_test : public ::testing::Test {
    virtual void SetUp();
+   virtual void TearDown();
 
 public:
    struct brw_compiler *compiler;
@@ -65,6 +66,15 @@ void copy_propagation_test::SetUp()
    v = new copy_propagation_fs_visitor(compiler, prog_data, shader);
 
    devinfo->gen = 4;
+}
+
+void copy_propagation_test::TearDown()
+{
+   delete v;
+   ralloc_free(prog_data);
+   free(devinfo);
+   free(compiler);
+   free(ctx);
 }
 
 static fs_inst *

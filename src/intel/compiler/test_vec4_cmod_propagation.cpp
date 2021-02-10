@@ -33,6 +33,7 @@ using namespace brw;
 
 class cmod_propagation_test : public ::testing::Test {
    virtual void SetUp();
+   virtual void TearDown();
 
 public:
    struct brw_compiler *compiler;
@@ -108,6 +109,15 @@ void cmod_propagation_test::SetUp()
    v = new cmod_propagation_vec4_visitor(compiler, shader, prog_data);
 
    devinfo->gen = 4;
+}
+
+void cmod_propagation_test::TearDown()
+{
+   delete v;
+   ralloc_free(prog_data);
+   free(devinfo);
+   free(compiler);
+   free(ctx);
 }
 
 static vec4_instruction *
