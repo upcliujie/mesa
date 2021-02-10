@@ -1852,6 +1852,7 @@ iris_transfer_map(struct pipe_context *ctx,
    bool map_would_stall = false;
 
    if (!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
+      // XXX: maybe can't do is_busy if TC_TRANSFER_MAP_NO_INFER_UNSYNCHRONIZED
       map_would_stall =
          resource_is_busy(ice, res) ||
          iris_has_invalid_primary(res, level, 1, box->z, box->depth);
@@ -1865,7 +1866,12 @@ iris_transfer_map(struct pipe_context *ctx,
        (usage & PIPE_MAP_DIRECTLY))
       return NULL;
 
-   struct iris_transfer *map = slab_alloc(&ice->transfer_pool);
+   struct iris_transfer *map;
+
+   if (usage & TC_TRANSFER_MAP_THREADED_UNSYNC)
+      map = slab_alloc(&ice->transfer_pool_unsync);
+   else
+      map = slab_alloc(&ice->transfer_pool);
 
    if (!map)
       return NULL;
@@ -2020,6 +2026,11 @@ iris_transfer_unmap(struct pipe_context *ctx, struct pipe_transfer *xfer)
       map->unmap(map);
 
    pipe_resource_reference(&xfer->resource, NULL);
+
+   /* transfer_unmap is always called from the driver thread, so we have to
+    * use transfer_pool, not transfer_pool_unsync.  Freeing an object into a
+    * different pool is allowed, however.
+    */
    slab_free(&ice->transfer_pool, map);
 }
 
