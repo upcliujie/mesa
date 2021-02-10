@@ -224,7 +224,7 @@ assemble_variant(struct ir3_shader_variant *v)
 	v->bin = ir3_shader_assemble(v);
 
 	bool dbg_enabled = shader_debug_enabled(v->shader->type);
-	if (dbg_enabled || ir3_shader_override_path) {
+	if (dbg_enabled || ir3_shader_override_path || ir3_shader_instrument) {
 		unsigned char sha1[21];
 		char sha1buf[41];
 
@@ -240,6 +240,16 @@ assemble_variant(struct ir3_shader_variant *v)
 				ir3_shader_stage(v), v->shader->nir->info.name, sha1buf);
 			if (v->shader->type == MESA_SHADER_FRAGMENT)
 				fprintf(stdout, "SIMD0\n");
+			ir3_shader_disasm(v, v->bin, stdout);
+		}
+
+		if (ir3_shader_instrument && (strcmp(sha1buf, ir3_shader_instrument) == 0)) {
+			ir3_instrument_shader(v);
+			v->bin = ir3_shader_assemble(v);
+
+			fprintf(stdout, "Native code for INTRUMENTED %s shader %s with sha1 %s:\n",
+				ir3_shader_stage(v), v->shader->nir->info.name, sha1buf);
+
 			ir3_shader_disasm(v, v->bin, stdout);
 		}
 	}

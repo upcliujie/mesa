@@ -1226,6 +1226,8 @@ tu_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
    if (!device)
       return;
 
+   ir3_dump_all_instrumentation_results();
+
    for (unsigned i = 0; i < TU_MAX_QUEUE_FAMILIES; i++) {
       for (unsigned q = 0; q < device->queue_count[i]; q++)
          tu_queue_finish(&device->queues[i][q]);
