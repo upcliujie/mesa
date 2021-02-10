@@ -413,11 +413,11 @@ add_aux_surface_if_supported(struct anv_device *device,
          return VK_SUCCESS;
 
       ok = isl_surf_get_hiz_surf(&device->isl_dev,
-                                 &image->planes[plane].surface.isl,
+                                 &image->planes[plane].primary_surface.isl,
                                  &image->planes[plane].aux_surface.isl);
       assert(ok);
       if (!isl_surf_supports_ccs(&device->isl_dev,
-                                 &image->planes[plane].surface.isl)) {
+                                 &image->planes[plane].primary_surface.isl)) {
          image->planes[plane].aux_usage = ISL_AUX_USAGE_HIZ;
       } else if (image->usage & (VK_IMAGE_USAGE_SAMPLED_BIT |
                                  VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) &&
@@ -443,7 +443,7 @@ add_aux_surface_if_supported(struct anv_device *device,
          return VK_SUCCESS;
 
       if (!isl_surf_supports_ccs(&device->isl_dev,
-                                 &image->planes[plane].surface.isl))
+                                 &image->planes[plane].primary_surface.isl))
          return VK_SUCCESS;
 
       image->planes[plane].aux_usage = ISL_AUX_USAGE_STC_CCS;
@@ -493,7 +493,7 @@ add_aux_surface_if_supported(struct anv_device *device,
          return VK_SUCCESS;
 
       ok = isl_surf_get_ccs_surf(&device->isl_dev,
-                                 &image->planes[plane].surface.isl,
+                                 &image->planes[plane].primary_surface.isl,
                                  &image->planes[plane].aux_surface.isl,
                                  NULL, 0);
       if (!ok)
@@ -532,7 +532,7 @@ add_aux_surface_if_supported(struct anv_device *device,
    } else if ((aspect & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) && image->samples > 1) {
       assert(!(image->usage & VK_IMAGE_USAGE_STORAGE_BIT));
       ok = isl_surf_get_mcs_surf(&device->isl_dev,
-                                 &image->planes[plane].surface.isl,
+                                 &image->planes[plane].primary_surface.isl,
                                  &image->planes[plane].aux_surface.isl);
       if (!ok)
          return VK_SUCCESS;
@@ -595,7 +595,7 @@ add_primary_surface(struct anv_device *device,
 {
    bool ok;
 
-   struct anv_surface *anv_surf = &image->planes[plane].surface;
+   struct anv_surface *anv_surf = &image->planes[plane].primary_surface;
 
    ok = isl_surf_init(&device->isl_dev, &anv_surf->isl,
       .dim = vk_to_isl_surf_dim[image->type],
@@ -636,7 +636,7 @@ check_surfaces(const struct anv_image *image,
     * to the aux's offset.
     */
    uintmax_t plane_end = plane->offset + plane->size;
-   const struct anv_surface *primary_surface = &plane->surface;
+   const struct anv_surface *primary_surface = &plane->primary_surface;
    const struct anv_surface *aux_surface = &plane->aux_surface;
    uintmax_t last_surface_offset = MAX2(primary_surface->offset, aux_surface->offset);
    uintmax_t last_surface_size = aux_surface->isl.size_B > 0
@@ -797,6 +797,7 @@ anv_image_create(VkDevice _device,
                                              pCreateInfo->extent);
    image->vk_format = pCreateInfo->format;
    image->format = anv_get_format(pCreateInfo->format);
+   image->n_planes = image->format->n_planes;
    image->aspects = vk_format_aspects(image->vk_format);
    image->levels = pCreateInfo->mipLevels;
    image->array_size = pCreateInfo->arrayLayers;
@@ -804,10 +805,17 @@ anv_image_create(VkDevice _device,
    image->usage = anv_image_create_usage(pCreateInfo, pCreateInfo->usage);
    image->create_flags = pCreateInfo->flags;
    image->tiling = pCreateInfo->tiling;
-   image->disjoint = pCreateInfo->flags & VK_IMAGE_CREATE_DISJOINT_BIT;
    image->needs_set_tiling = wsi_info && wsi_info->scanout;
    image->drm_format_mod = isl_mod_info ? isl_mod_info->modifier :
                                           DRM_FORMAT_MOD_INVALID;
+
+   /* The Vulkan 1.2.165 glossary says:
+    *
+    *    A disjoint image consists of multiple disjoint planes, and is created
+    *    with the VK_IMAGE_CREATE_DISJOINT_BIT bit set.
+    */
+   image->disjoint = image->format->n_planes > 1 &&
+                     (pCreateInfo->flags & VK_IMAGE_CREATE_DISJOINT_BIT);
 
    if (image->aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
       image->stencil_usage = pCreateInfo->usage;
@@ -830,14 +838,9 @@ anv_image_create(VkDevice _device,
       return VK_SUCCESS;
    }
 
-   const struct anv_format *format = anv_get_format(image->vk_format);
-   assert(format != NULL);
-
    const isl_tiling_flags_t isl_tiling_flags =
       choose_isl_tiling_flags(&device->info, create_info, isl_mod_info,
                               image->needs_set_tiling);
-
-   image->n_planes = format->n_planes;
 
    const VkImageFormatListCreateInfoKHR *fmt_list =
       vk_find_struct_const(pCreateInfo->pNext,
@@ -979,11 +982,10 @@ anv_DestroyImage(VkDevice _device, VkImage _image,
    if (!image)
       return;
 
-   for (uint32_t p = 0; p < image->n_planes; ++p) {
-      if (image->planes[p].bo_is_owned) {
-         assert(image->planes[p].address.bo != NULL);
-         anv_device_release_bo(device, image->planes[p].address.bo);
-      }
+   if (image->from_gralloc) {
+      assert(image->n_planes == 1);
+      assert(image->planes[0].address.bo != NULL);
+      anv_device_release_bo(device, image->planes[0].address.bo);
    }
 
    vk_object_base_finish(&image->base);
@@ -996,7 +998,7 @@ static void anv_image_bind_memory_plane(struct anv_device *device,
                                         struct anv_device_memory *memory,
                                         uint32_t memory_offset)
 {
-   assert(!image->planes[plane].bo_is_owned);
+   assert(!image->from_gralloc);
 
    if (!memory) {
       image->planes[plane].address = ANV_NULL_ADDRESS;
@@ -1089,6 +1091,108 @@ resolve_ahw_image(struct anv_device *device,
 #endif
 }
 
+void anv_GetImageMemoryRequirements2(
+    VkDevice                                    _device,
+    const VkImageMemoryRequirementsInfo2*       pInfo,
+    VkMemoryRequirements2*                      pMemoryRequirements)
+{
+   ANV_FROM_HANDLE(anv_device, device, _device);
+   ANV_FROM_HANDLE(anv_image, image, pInfo->image);
+
+   /* The Vulkan spec (git aaed022) says:
+    *
+    *    memoryTypeBits is a bitfield and contains one bit set for every
+    *    supported memory type for the resource. The bit `1<<i` is set if and
+    *    only if the memory type `i` in the VkPhysicalDeviceMemoryProperties
+    *    structure for the physical device is supported.
+    *
+    * All types are currently supported for images.
+    */
+   uint32_t memory_types = (1ull << device->physical->memory.type_count) - 1;
+
+   pMemoryRequirements->memoryRequirements.size = image->size;
+   pMemoryRequirements->memoryRequirements.alignment = image->alignment;
+   pMemoryRequirements->memoryRequirements.memoryTypeBits = memory_types;
+
+   vk_foreach_struct_const(ext, pInfo->pNext) {
+      switch (ext->sType) {
+      case VK_STRUCTURE_TYPE_IMAGE_PLANE_MEMORY_REQUIREMENTS_INFO: {
+         const VkImagePlaneMemoryRequirementsInfo *plane_reqs =
+            (const VkImagePlaneMemoryRequirementsInfo *) ext;
+         uint32_t plane = anv_image_aspect_to_plane(image->aspects,
+                                                    plane_reqs->planeAspect);
+
+         assert(image->planes[plane].offset == 0);
+
+         /* The Vulkan spec (git aaed022) says:
+          *
+          *    memoryTypeBits is a bitfield and contains one bit set for every
+          *    supported memory type for the resource. The bit `1<<i` is set
+          *    if and only if the memory type `i` in the
+          *    VkPhysicalDeviceMemoryProperties structure for the physical
+          *    device is supported.
+          *
+          * All types are currently supported for images.
+          */
+         pMemoryRequirements->memoryRequirements.memoryTypeBits =
+               (1ull << device->physical->memory.type_count) - 1;
+
+         pMemoryRequirements->memoryRequirements.size = image->planes[plane].size;
+         pMemoryRequirements->memoryRequirements.alignment =
+            image->planes[plane].alignment;
+         break;
+      }
+
+      default:
+         anv_debug_ignored_stype(ext->sType);
+         break;
+      }
+   }
+
+   vk_foreach_struct(ext, pMemoryRequirements->pNext) {
+      switch (ext->sType) {
+      case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS: {
+         VkMemoryDedicatedRequirements *requirements = (void *)ext;
+         if (image->needs_set_tiling || image->external_format) {
+            /* If we need to set the tiling for external consumers, we need a
+             * dedicated allocation.
+             *
+             * See also anv_AllocateMemory.
+             */
+            requirements->prefersDedicatedAllocation = true;
+            requirements->requiresDedicatedAllocation = true;
+         } else {
+            requirements->prefersDedicatedAllocation = false;
+            requirements->requiresDedicatedAllocation = false;
+         }
+         break;
+      }
+
+      default:
+         anv_debug_ignored_stype(ext->sType);
+         break;
+      }
+   }
+}
+
+void anv_GetImageSparseMemoryRequirements(
+    VkDevice                                    device,
+    VkImage                                     image,
+    uint32_t*                                   pSparseMemoryRequirementCount,
+    VkSparseImageMemoryRequirements*            pSparseMemoryRequirements)
+{
+   *pSparseMemoryRequirementCount = 0;
+}
+
+void anv_GetImageSparseMemoryRequirements2(
+    VkDevice                                    device,
+    const VkImageSparseMemoryRequirementsInfo2* pInfo,
+    uint32_t*                                   pSparseMemoryRequirementCount,
+    VkSparseImageMemoryRequirements2*           pSparseMemoryRequirements)
+{
+   *pSparseMemoryRequirementCount = 0;
+}
+
 VkResult anv_BindImageMemory2(
     VkDevice                                    _device,
     uint32_t                                    bindInfoCount,
@@ -1178,7 +1282,7 @@ void anv_GetImageSubresourceLayout(
    } else {
       uint32_t plane = anv_image_aspect_to_plane(image->aspects,
                                                  subresource->aspectMask);
-      surface = &image->planes[plane].surface;
+      surface = &image->planes[plane].primary_surface;
    }
 
    assert(__builtin_popcount(subresource->aspectMask) == 1);
@@ -1410,7 +1514,7 @@ anv_layout_to_aux_state(const struct gen_device_info * const devinfo,
    assert(aux_usage != ISL_AUX_USAGE_NONE);
 
    /* All images that use an auxiliary surface are required to be tiled. */
-   assert(image->planes[plane].surface.isl.tiling != ISL_TILING_LINEAR);
+   assert(image->planes[plane].primary_surface.isl.tiling != ISL_TILING_LINEAR);
 
    /* Handle a few special cases */
    switch (layout) {
@@ -1745,7 +1849,7 @@ anv_image_fill_surface_state(struct anv_device *device,
 {
    uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
 
-   const struct anv_surface *surface = &image->planes[plane].surface,
+   const struct anv_surface *surface = &image->planes[plane].primary_surface,
       *aux_surface = &image->planes[plane].aux_surface;
 
    struct isl_view view = *view_in;
