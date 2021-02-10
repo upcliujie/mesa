@@ -718,6 +718,10 @@ zink_is_format_supported(struct pipe_screen *pscreen,
           !(props.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT))
          return false;
    } else {
+      if (format == PIPE_FORMAT_X24S8_UINT && bind == PIPE_BIND_SAMPLER_VIEW)
+         /* this is always supported even if it requires workarounds */
+         return true;
+
       /* all other targets are texture-targets */
       if (bind & PIPE_BIND_RENDER_TARGET &&
           !(props.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT))
