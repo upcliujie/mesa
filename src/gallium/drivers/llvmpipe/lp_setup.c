@@ -1514,8 +1514,7 @@ void
 lp_setup_begin_query(struct lp_setup_context *setup,
                      struct llvmpipe_query *pq)
 {
-
-   set_scene_state(setup, SETUP_ACTIVE, "begin_query");
+   lp_setup_update_state(setup, TRUE);
 
    if (!(pq->type == PIPE_QUERY_OCCLUSION_COUNTER ||
          pq->type == PIPE_QUERY_OCCLUSION_PREDICATE ||
