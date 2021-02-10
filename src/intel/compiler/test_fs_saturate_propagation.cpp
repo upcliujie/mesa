@@ -30,6 +30,7 @@ using namespace brw;
 
 class saturate_propagation_test : public ::testing::Test {
    virtual void SetUp();
+   virtual void TearDown();
 
 public:
    struct brw_compiler *compiler;
@@ -66,6 +67,16 @@ void saturate_propagation_test::SetUp()
 
    devinfo->gen = 6;
 }
+
+void saturate_propagation_test::TearDown()
+{
+   delete v;
+   ralloc_free(prog_data);
+   free(devinfo);
+   free(compiler);
+   free(ctx);
+}
+
 
 static fs_inst *
 instruction(bblock_t *block, int num)

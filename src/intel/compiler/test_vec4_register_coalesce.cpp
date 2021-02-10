@@ -33,6 +33,7 @@ int ret = 0;
 
 class register_coalesce_test : public ::testing::Test {
    virtual void SetUp();
+   virtual void TearDown();
 
 public:
    struct brw_compiler *compiler;
@@ -103,6 +104,15 @@ void register_coalesce_test::SetUp()
    v = new register_coalesce_vec4_visitor(compiler, shader, prog_data);
 
    devinfo->gen = 4;
+}
+
+void register_coalesce_test::TearDown()
+{
+   delete v;
+   ralloc_free(prog_data);
+   free(devinfo);
+   free(compiler);
+   free(ctx);
 }
 
 static void

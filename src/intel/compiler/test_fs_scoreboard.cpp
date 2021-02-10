@@ -30,6 +30,7 @@ using namespace brw;
 
 class scoreboard_test : public ::testing::Test {
    virtual void SetUp();
+   virtual void TearDown();
 
 public:
    struct brw_compiler *compiler;
@@ -54,6 +55,15 @@ void scoreboard_test::SetUp()
    v = new fs_visitor(compiler, NULL, NULL, NULL, &prog_data->base, shader, 8, -1);
 
    devinfo->gen = 12;
+}
+
+void scoreboard_test::TearDown()
+{
+   delete v;
+   ralloc_free(prog_data);
+   free(devinfo);
+   free(compiler);
+   free(ctx);
 }
 
 static fs_inst *

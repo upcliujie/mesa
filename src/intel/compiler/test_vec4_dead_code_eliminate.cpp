@@ -29,6 +29,7 @@ using namespace brw;
 
 class dead_code_eliminate_test : public ::testing::Test {
    virtual void SetUp();
+   virtual void TearDown();
 
 public:
    struct brw_compiler *compiler;
@@ -98,6 +99,15 @@ void dead_code_eliminate_test::SetUp()
    v = new dead_code_eliminate_vec4_visitor(compiler, shader, prog_data);
 
    devinfo->gen = 4;
+}
+
+void dead_code_eliminate_test::TearDown()
+{
+   delete v;
+   ralloc_free(prog_data);
+   free(devinfo);
+   free(compiler);
+   free(ctx);
 }
 
 static void
