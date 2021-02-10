@@ -212,6 +212,8 @@ fi
 
 FAILURE_MESSAGE=$(printf "%s" "Unexpected change in results:")
 
+ci-fairy minio login $CI_JOB_JWT
+
 eval $RUN_CMD
 
 if [ $? -ne 0 ]; then
