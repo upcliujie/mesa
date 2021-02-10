@@ -77,6 +77,9 @@ compute_vertex_info(struct llvmpipe_context *llvmpipe)
 
    vinfo->num_attribs = 0;
 
+   if (!llvmpipe->vs)
+      return;
+
    vs_index = draw_find_shader_output(llvmpipe->draw,
                                       TGSI_SEMANTIC_POSITION, 0);
 
@@ -192,7 +195,7 @@ void llvmpipe_update_derived( struct llvmpipe_context *llvmpipe )
    }
 
    /* This needs LP_NEW_RASTERIZER because of draw_prepare_shader_outputs(). */
-   if (llvmpipe->dirty & (LP_NEW_RASTERIZER |
+   if (llvmpipe->vs && llvmpipe->dirty & (LP_NEW_RASTERIZER |
                           LP_NEW_FS |
                           LP_NEW_GS |
                           LP_NEW_TCS |
@@ -200,7 +203,7 @@ void llvmpipe_update_derived( struct llvmpipe_context *llvmpipe )
                           LP_NEW_VS))
       compute_vertex_info(llvmpipe);
 
-   if (llvmpipe->dirty & (LP_NEW_FS |
+   if (llvmpipe->fs && llvmpipe->dirty & (LP_NEW_FS |
                           LP_NEW_FRAMEBUFFER |
                           LP_NEW_BLEND |
                           LP_NEW_SCISSOR |
@@ -234,7 +237,7 @@ void llvmpipe_update_derived( struct llvmpipe_context *llvmpipe )
       lp_setup_set_rasterizer_discard(llvmpipe->setup, discard);
    }
 
-   if (llvmpipe->dirty & (LP_NEW_FS |
+   if (llvmpipe->fs && llvmpipe->dirty & (LP_NEW_FS |
                           LP_NEW_FRAMEBUFFER |
                           LP_NEW_RASTERIZER))
       llvmpipe_update_setup( llvmpipe );

@@ -944,6 +944,8 @@ llvmpipe_update_setup(struct llvmpipe_context *lp)
    struct lp_setup_variant *variant = NULL;
    struct lp_setup_variant_list_item *li;
 
+   if (!lp->fs)
+      return;
    lp_make_setup_variant_key(lp, key);
 
    foreach(li, &lp->setup_variants_list) {

@@ -2675,6 +2675,7 @@ static void lvp_execute_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer,
          handle_pipeline_barrier(cmd, state);
          break;
       case LVP_CMD_BEGIN_QUERY:
+         emit_state(state);
          handle_begin_query(cmd, state);
          break;
       case LVP_CMD_END_QUERY:
