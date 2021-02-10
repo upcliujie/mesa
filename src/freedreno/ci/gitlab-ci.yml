@@ -257,3 +257,21 @@ a630-traces:
   artifacts:
     reports:
       junit: results/junit.xml
+
+a630-traces-optional:
+  extends:
+    - .piglit-traces-test
+    - .a630-test
+  variables:
+    BARE_METAL_TEST_SCRIPT: "/install/piglit/run.sh"
+    BM_START_XORG: 1
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/opt-traces-freedreno.yml"
+    PIGLIT_REPLAY_DEVICE_NAME: "freedreno-a630"
+    PIGLIT_RESULTS: "freedreno-a630-replay"
+    MESA_GLSL_VERSION_OVERRIDE: "460"
+    MESA_GL_VERSION_OVERRIDE: "4.6"
+  rules:
+    - if: '$GITLAB_USER_LOGIN == "marge-bot"'
+      when: on_success
+    - when: never
+  allow_failure: true
