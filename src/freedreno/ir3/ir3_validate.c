@@ -72,6 +72,32 @@ validate_src(struct ir3_validate_ctx *ctx, struct ir3_register *reg)
 	validate_assert(ctx, reg_class_flags(src->regs[0]) == reg_class_flags(reg));
 }
 
+/* phi sources are logically read at the end of the predecessor basic block,
+ * and we have to validate them then in order to correctly validate that the
+ * use comes after the definition for loop phis.
+ */
+static void
+validate_phi_src(struct ir3_validate_ctx *ctx, struct ir3_block *block, struct ir3_block *pred)
+{
+	unsigned pred_idx = ir3_block_get_pred_index(block, pred);
+
+	foreach_instr (phi, &block->instr_list) {
+		if (phi->opc != OPC_META_PHI)
+			break;
+
+		ctx->current_instr = phi;
+		validate_assert(ctx, phi->regs_count == block->predecessors_count + 1);
+		validate_src(ctx, phi->regs[1 + pred_idx]);
+	}
+}
+
+static void
+validate_phi(struct ir3_validate_ctx *ctx, struct ir3_instruction *phi)
+{
+	_mesa_set_add(ctx->defs, phi);
+	validate_assert(ctx, writes_gpr(phi));
+}
+
 #define validate_reg_size(ctx, reg, type) \
 	validate_assert(ctx, type_size(type) == (((reg)->flags & IR3_REG_HALF) ? 16 : 32))
 
@@ -79,6 +105,11 @@ static void
 validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
 {
 	struct ir3_register *last_reg = NULL;
+
+	if (instr->opc == OPC_META_PHI) {
+		validate_phi(ctx, instr);
+		return;
+	}
 
 	if (writes_gpr(instr)) {
 		if (instr->regs[0]->flags & IR3_REG_RELATIV) {
@@ -218,6 +249,11 @@ ir3_validate(struct ir3 *ir)
 		foreach_instr (instr, &block->instr_list) {
 			ctx->current_instr = instr;
 			validate_instr(ctx, instr);
+		}
+
+		for (unsigned i = 0; i < 2; i++) {
+			if (block->successors[i])
+				validate_phi_src(ctx, block->successors[i], block);
 		}
 	}
 
