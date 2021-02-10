@@ -52,6 +52,29 @@ The three GitLab CI systems currently integrated are:
    LAVA
    docker
 
+Application traces replay
+-------------------------
+
+The CI replays application traces with various drivers in two different jobs. The first
+job replays traces listed in ``src/<driver>/ci/traces-<driver>.yml`` files and if any
+of those traces fail the job fails as well. The second job replays traces listed in
+``src/<driver>/ci/opt-traces-<driver>.yml`` and it is allowed to fail. This second
+job is only created when the pipeline is triggered by `marge-bot` as it is the only user
+having access to those traces.
+
+A ``traces-<driver>.yml`` file also includes a ``download-url`` pointing to a MinIO
+instance where to download the traces from. While the first job should always work with
+publicly accessible traces, the second job could point to an url with restricted access.
+
+Think of non-redistributable traces that should not be exposed to the public. Failing to
+access that URL would not prevent the pipeline to pass, therefore forks made by
+contributors without permissions to download non-redistributable traces could be merged
+without frictions.
+
+As a side, only maintainers of such non-redistributable traces are responsible for
+ensuring that replays are successful, since other contributors would not be able to
+download and test them by themselves.
+
 Intel CI
 --------
 
