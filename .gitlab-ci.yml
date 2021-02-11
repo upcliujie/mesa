@@ -285,7 +285,7 @@ x86_build-base:
     - .fdo.container-build@debian
     - .container
   variables:
-    MESA_IMAGE_TAG: &x86_build-base "2021-02-08-container-reorg"
+    MESA_IMAGE_TAG: &x86_build-base "2021-02-11-piglit-update"
 
 .use-x86_build-base:
   extends:
@@ -302,7 +302,7 @@ x86_build:
   extends:
     - .use-x86_build-base
   variables:
-    MESA_IMAGE_TAG: &x86_build "2021-02-08-container-reorg"
+    MESA_IMAGE_TAG: &x86_build "2021-02-11-piglit-update"
 
 .use-x86_build:
   extends:
@@ -319,7 +319,7 @@ i386_build:
   extends:
     - .use-x86_build-base
   variables:
-    MESA_IMAGE_TAG: &i386_build "2021-02-08-container-reorg"
+    MESA_IMAGE_TAG: &i386_build "2021-02-11-piglit-update"
 
 .use-i386_build:
   extends:
