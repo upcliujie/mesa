@@ -440,12 +440,12 @@ VKAPI_ATTR void VKAPI_CALL lvp_CmdBindDescriptorSets(
       return;
 
    cmd->u.descriptor_sets.bind_point = pipelineBindPoint;
-   cmd->u.descriptor_sets.layout = layout;
    cmd->u.descriptor_sets.first = firstSet;
    cmd->u.descriptor_sets.count = descriptorSetCount;
 
    sets = (struct lvp_descriptor_set **)(cmd + 1);
    for (i = 0; i < descriptorSetCount; i++) {
+      cmd->u.descriptor_sets.set_layout[i] = layout->set[i].layout;
       sets[i] = lvp_descriptor_set_from_handle(pDescriptorSets[i]);
    }
    cmd->u.descriptor_sets.sets = sets;
