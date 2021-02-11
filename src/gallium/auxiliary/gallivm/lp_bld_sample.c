@@ -306,10 +306,10 @@ lp_build_pmin(struct lp_build_sample_context *bld,
    LLVMValueRef pmax2 = lp_build_max(coord_bld, px2, py2);
    LLVMValueRef pmin2 = lp_build_min(coord_bld, px2, py2);
 
-   LLVMValueRef e = lp_build_div(coord_bld, pmax2, pmin2);
+   LLVMValueRef temp = lp_build_mul(coord_bld, pmin2, max_aniso);
 
    LLVMValueRef comp = lp_build_compare(gallivm, coord_bld->type, PIPE_FUNC_GREATER,
-                                        e, max_aniso);
+                                        pmin2, temp);
 
    LLVMValueRef pmin2_alt = lp_build_div(coord_bld, pmax2, max_aniso);
 
