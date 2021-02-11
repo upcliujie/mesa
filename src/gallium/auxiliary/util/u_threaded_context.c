@@ -1321,12 +1321,28 @@ tc_create_sampler_view(struct pipe_context *_pipe,
 }
 
 static void
+tc_call_sampler_view_destroy(struct pipe_context *pipe, union tc_payload *payload)
+{
+   pipe->sampler_view_destroy(pipe, *(struct pipe_sampler_view **)payload);
+}
+
+static void
 tc_sampler_view_destroy(struct pipe_context *_pipe,
                         struct pipe_sampler_view *view)
 {
-   struct pipe_context *pipe = threaded_context(_pipe)->pipe;
+   struct threaded_context *tc = threaded_context(_pipe);
+   struct pipe_context *pipe = tc->pipe;
 
-   pipe->sampler_view_destroy(pipe, view);
+   if (tc_in_driver_thread(tc)) {
+      pipe->sampler_view_destroy(pipe, view);
+      return;
+   }
+
+   struct pipe_sampler_view **p = (struct pipe_sampler_view **)
+         tc_add_sized_call(tc, TC_CALL_sampler_view_destroy,
+                           tc_payload_size_to_call_slots(
+                                 sizeof(struct pipe_sampler_view *)));
+   *p = view;
 }
 
 static struct pipe_stream_output_target *
