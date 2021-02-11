@@ -2601,6 +2601,38 @@ tc_launch_grid(struct pipe_context *_pipe,
    memcpy(p, info, sizeof(*info));
 }
 
+struct tc_driver_job {
+   tc_driver_func func;
+   void *job;
+};
+
+static void
+tc_call_driver_job(struct pipe_context *pipe, union tc_payload *payload)
+{
+   struct tc_driver_job *p = (struct tc_driver_job *)payload;
+
+   p->func(pipe, p->job);
+}
+
+/**
+ * Enqueue work from driver to handle in driver thread.  If the context is
+ * not threaded, or already in the driver thread, this will return false
+ */
+bool
+tc_driver_job(struct threaded_context *tc, tc_driver_func func, void *job)
+{
+   if (tc_in_driver_thread(tc))
+      return false;
+
+   struct tc_driver_job *p = (struct tc_driver_job*)
+      tc_add_struct_typed_call(tc, TC_CALL_driver_job, tc_driver_job);
+
+   p->func = func;
+   p->job  = job;
+
+   return true;
+}
+
 static void
 tc_call_resource_copy_region(struct pipe_context *pipe, union tc_payload *payload)
 {
