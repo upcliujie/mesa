@@ -191,7 +191,7 @@ void aco_compile_shader(unsigned shader_count,
 
          if (fail) {
             fprintf(stderr, "Failed to disassemble program:\n");
-            aco_print_program(program.get(), stderr);
+            aco_print_program(program.get(), stderr, aco::print_no_ssa);
             fputs(data, stderr);
             abort();
          }
