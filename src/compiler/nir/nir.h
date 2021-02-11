@@ -5036,6 +5036,8 @@ bool nir_opt_large_constants(nir_shader *shader,
                              glsl_type_size_align_func size_align,
                              unsigned threshold);
 
+bool nir_opt_small_constants(nir_shader *shader, unsigned max_bit_size);
+
 bool nir_opt_loop_unroll(nir_shader *shader, nir_variable_mode indirect_mask);
 
 typedef enum {

@@ -232,6 +232,7 @@ files_libnir = files(
   'nir_opt_remove_phis.c',
   'nir_opt_shrink_vectors.c',
   'nir_opt_sink.c',
+  'nir_opt_small_constants.c',
   'nir_opt_trivial_continues.c',
   'nir_opt_undef.c',
   'nir_opt_uniform_atomics.c',
