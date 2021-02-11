@@ -238,6 +238,7 @@ typedef void (*tc_replace_buffer_storage_func)(struct pipe_context *ctx,
                                                struct pipe_resource *src);
 typedef struct pipe_fence_handle *(*tc_create_fence_func)(struct pipe_context *ctx,
                                                           struct tc_unflushed_batch_token *token);
+typedef void (*tc_driver_func)(struct pipe_context *ctx, void *job);
 
 struct threaded_resource {
    struct pipe_resource b;
@@ -409,6 +410,9 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
             const struct pipe_draw_indirect_info *indirect,
             const struct pipe_draw_start_count *draws,
             unsigned num_draws);
+
+bool
+tc_driver_job(struct threaded_context *tc, tc_driver_func func, void *data);
 
 static inline struct threaded_context *
 threaded_context(struct pipe_context *pipe)
