@@ -325,7 +325,7 @@ static const struct anv_format main_formats[] = {
    fmt_unsupported(VK_FORMAT_B8G8R8_UINT),
    fmt_unsupported(VK_FORMAT_B8G8R8_SINT),
    fmt_unsupported(VK_FORMAT_B8G8R8_SRGB),
-   fmt1(VK_FORMAT_B8G8R8A8_UNORM,                    ISL_FORMAT_B8G8R8A8_UNORM),
+   swiz_fmt1(VK_FORMAT_B8G8R8A8_UNORM,               ISL_FORMAT_R8G8B8A8_UNORM,  BGRA),
    fmt_unsupported(VK_FORMAT_B8G8R8A8_SNORM),
    fmt_unsupported(VK_FORMAT_B8G8R8A8_USCALED),
    fmt_unsupported(VK_FORMAT_B8G8R8A8_SSCALED),
