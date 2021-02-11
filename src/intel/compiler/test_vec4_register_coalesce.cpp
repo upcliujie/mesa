@@ -49,9 +49,10 @@ class register_coalesce_vec4_visitor : public vec4_visitor
 {
 public:
    register_coalesce_vec4_visitor(struct brw_compiler *compiler,
+                                  void *mem_ctx,
                                   nir_shader *shader,
                                   struct brw_vue_prog_data *prog_data)
-      : vec4_visitor(compiler, NULL, NULL, prog_data, shader, NULL,
+      : vec4_visitor(compiler, NULL, NULL, prog_data, shader, mem_ctx,
                      false /* no_spills */, -1)
    {
       prog_data->dispatch_mode = DISPATCH_MODE_4X2_DUAL_OBJECT;
@@ -92,16 +93,17 @@ protected:
 
 void register_coalesce_test::SetUp()
 {
-   ctx = (struct gl_context *)calloc(1, sizeof(*ctx));
-   compiler = (struct brw_compiler *)calloc(1, sizeof(*compiler));
-   devinfo = (struct gen_device_info *)calloc(1, sizeof(*devinfo));
-   prog_data = (struct brw_vue_prog_data *)calloc(1, sizeof(*prog_data));
+   ctx = (struct gl_context*) ralloc_context(NULL);
+   compiler = rzalloc(ctx, struct brw_compiler);
+   devinfo = rzalloc(ctx, struct gen_device_info);
    compiler->devinfo = devinfo;
 
-   nir_shader *shader =
-      nir_shader_create(NULL, MESA_SHADER_VERTEX, NULL, NULL);
+   prog_data = ralloc(ctx, struct brw_vue_prog_data);
 
-   v = new register_coalesce_vec4_visitor(compiler, shader, prog_data);
+   nir_shader *shader =
+      nir_shader_create(ctx, MESA_SHADER_VERTEX, NULL, NULL);
+
+   v = new register_coalesce_vec4_visitor(compiler, ctx, shader, prog_data);
 
    devinfo->gen = 4;
 }
@@ -109,10 +111,10 @@ void register_coalesce_test::SetUp()
 void register_coalesce_test::TearDown()
 {
    delete v;
-   ralloc_free(prog_data);
-   free(devinfo);
-   free(compiler);
-   free(ctx);
+   v = NULL;
+
+   ralloc_free(ctx);
+   ctx = NULL;
 }
 
 static void
