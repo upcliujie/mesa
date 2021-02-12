@@ -17,6 +17,7 @@ export __LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$INSTALL/lib/"
 # run against the Mesa built by CI, rather than any installed distro version.
 MESA_VERSION=$(cat "$INSTALL/VERSION" | sed 's/\./\\./g')
 
+DRIVER_NAME="${PIGLIT_RESULTS%%-*}"
 if [ "$VK_DRIVER" ]; then
 
     ### VULKAN ###
@@ -156,7 +157,7 @@ replay_minio_upload_images() {
         | while read -r line; do
 
         __TRACE="${line%-*-*}"
-        if grep -q "^$__PREFIX/$__TRACE: pass$" ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.orig"; then
+        if grep -q "^$__PREFIX/$__TRACE: pass$" "ci-expects/$DRIVER_NAME/$PIGLIT_RESULTS.txt.orig"; then
             if [ "x$CI_PROJECT_PATH" != "x$FDO_UPSTREAM_REPO" ]; then
                 continue
             fi
@@ -197,9 +198,9 @@ fi
 
 PIGLIT_RESULTS="${PIGLIT_RESULTS:-$PIGLIT_PROFILES}"
 RESULTSFILE="$RESULTS/$PIGLIT_RESULTS.txt"
-mkdir -p .gitlab-ci/piglit
+mkdir -p ci-expects/$DRIVER_NAME
 ./piglit summary console "$RESULTS"/results.json.bz2 \
-    | tee ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.orig" \
+    | tee "ci-expects/$DRIVER_NAME/$PIGLIT_RESULTS.txt.orig" \
     | head -n -1 | grep -v ": pass" > $RESULTSFILE
 
 if [ "x$PIGLIT_PROFILES" = "xreplay" ] \
@@ -221,8 +222,8 @@ if [ "x$PIGLIT_PROFILES" = "xreplay" ] \
 fi
 
 cp "$INSTALL/piglit/$PIGLIT_RESULTS.txt" \
-   ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline"
-if diff -q ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE; then
+   "ci-expects/$DRIVER_NAME/$PIGLIT_RESULTS.txt.baseline"
+if diff -q "ci-expects/$DRIVER_NAME/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE; then
     exit 0
 fi
 
@@ -241,5 +242,5 @@ if [ ${PIGLIT_HTML_SUMMARY:-1} -eq 1 ]; then
 fi
 
 quiet print_red printf "%s\n" "$FAILURE_MESSAGE"
-quiet print_red diff -u ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE
+quiet print_red diff -u "ci-expects/$DRIVER_NAME/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE
 exit 1

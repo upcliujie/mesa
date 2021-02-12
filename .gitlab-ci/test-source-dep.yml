@@ -310,5 +310,6 @@
       when: on_success
     - changes:
       - src/gallium/drivers/zink/**/*
+      - ci-expects/zink/*
       when: on_success
     - when: never
