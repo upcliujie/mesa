@@ -3287,6 +3287,7 @@ struct gl_shader_compiler_options
    GLboolean LowerPrecisionFloat16;
    GLboolean LowerPrecisionInt16;
    GLboolean LowerPrecisionDerivatives;
+   GLboolean LowerPrecisionFloat16Uniforms;
 
    /**
     * This enables lowering of 16b constants.  Some drivers may not
