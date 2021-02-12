@@ -24,12 +24,25 @@ if [ -n "$USE_CASELIST" ]; then
 
     PIGLIT_TESTS="--test-list /tmp/case-list.txt"
 
+    # If the caselist is too long to run in a reasonable amount of time, let
+    # the job specify what fraction (1/n) of the caselist we should run.
+    # Note: N~M is a gnu sed extension to match every nth line (first line is
+    # #1).
+    if [ -n "$PIGLIT_FRACTION" ]; then
+        sed -ni 1~$PIGLIT_FRACTION"p" /tmp/case-list.txt
+    fi
+
     # If the job is parallel at the gitlab job level, take the corresponding
     # fraction of the caselist.
     if [ -n "$CI_NODE_INDEX" ]; then
         sed -ni $CI_NODE_INDEX~$CI_NODE_TOTAL"p" /tmp/case-list.txt
     fi
 else
+    if [ -n "$PIGLIT_FRACTION" ]; then
+        echo "Can't use PIGLIT_FRACTION with replay profile or multiple profiles"
+        exit 1
+    fi
+
     if [ -n "$CI_NODE_INDEX" ]; then
         echo "Can't parallelize piglit with replay profile or multiple profiles"
         exit 1

@@ -180,6 +180,14 @@ if [ "x$PIGLIT_PROFILES" != "xreplay" ] && [ "$PIGLIT_PROFILES" = "${PIGLIT_PROF
 
     eval $RUN_GENTESTS
 
+    # If the caselist is too long to run in a reasonable amount of time, let
+    # the job specify what fraction (1/n) of the caselist we should run.
+    # Note: N~M is a gnu sed extension to match every nth line (first line is
+    # #1).
+    if [ -n "$PIGLIT_FRACTION" ]; then
+        sed -ni 1~$PIGLIT_FRACTION"p" /tmp/case-list.txt
+    fi
+
     # If the job is parallel at the gitlab job level, take the corresponding
     # fraction of the caselist.
     if [ -n "$CI_NODE_INDEX" ]; then
@@ -188,6 +196,10 @@ if [ "x$PIGLIT_PROFILES" != "xreplay" ] && [ "$PIGLIT_PROFILES" = "${PIGLIT_PROF
 
     PIGLIT_TESTS="--test-list /tmp/case-list.txt"
 else
+    if [ -n "$PIGLIT_FRACTION" ]; then
+        FAILURE_MESSAGE=$(printf "%s" "Can't use PIGLIT_FRACTION with replay profile or multiple profiles")
+    fi
+
     if [ -n "$CI_NODE_INDEX" ]; then
         FAILURE_MESSAGE=$(printf "%s" "Can't parallelize piglit with replay profile or multiple profiles")
     fi
