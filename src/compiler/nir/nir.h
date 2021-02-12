@@ -4995,16 +4995,17 @@ bool nir_opt_algebraic_late(nir_shader *shader);
 bool nir_opt_algebraic_distribute_src_mods(nir_shader *shader);
 bool nir_opt_constant_folding(nir_shader *shader);
 
-/* Try to combine a and b into a.  Return true if combination was possible,
- * which will result in b being removed by the pass.  Return false if
- * combination wasn't possible.
- */
-typedef bool (*nir_combine_memory_barrier_cb)(
+/* Given two scoped barriers, check if we can combine. */
+typedef bool (*nir_combine_barrier_cb)(
    nir_intrinsic_instr *a, nir_intrinsic_instr *b, void *data);
 
-bool nir_opt_combine_memory_barriers(nir_shader *shader,
-                                     nir_combine_memory_barrier_cb combine_cb,
-                                     void *data);
+/* The standard case: combine all memory barriers but not control */ 
+bool nir_combine_memory_barriers(
+      nir_intrinsic_instr *a, nir_intrinsic_instr *b, void *data);
+
+bool nir_opt_combine_barriers(nir_shader *shader,
+                              nir_combine_barrier_cb combine_cb,
+                              void *data);
 
 bool nir_opt_combine_stores(nir_shader *shader, nir_variable_mode modes);
 
