@@ -4789,7 +4789,7 @@ bool check_vertex_fetch_size(isel_context *ctx, const ac_data_format_info *vtx_i
 }
 
 uint8_t get_fetch_data_format(isel_context *ctx, const ac_data_format_info *vtx_info,
-                              unsigned offset, unsigned stride, unsigned *channels,
+                              unsigned offset, unsigned binding_size, unsigned *channels,
                               unsigned binding_align)
 {
    if (!vtx_info->chan_byte_size) {
@@ -4805,7 +4805,7 @@ uint8_t get_fetch_data_format(isel_context *ctx, const ac_data_format_info *vtx_
              !check_vertex_fetch_size(ctx, vtx_info, offset, binding_align, new_channels)) {
          new_channels++;
          /* don't make the attribute potentially out-of-bounds */
-         if (offset + new_channels * vtx_info->chan_byte_size > stride)
+         if (offset + new_channels * vtx_info->chan_byte_size > binding_size)
             new_channels = 5;
       }
 
@@ -4893,6 +4893,7 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
       uint32_t attrib_stride = ctx->options->key.vs.vertex_attribute_strides[location];
       unsigned attrib_format = ctx->options->key.vs.vertex_attribute_formats[location];
       unsigned binding_align = ctx->options->key.vs.vertex_binding_align[attrib_binding];
+      unsigned binding_size = ctx->options->key.vs.vertex_binding_size[attrib_binding];
       enum ac_fetch_format alpha_adjust = ctx->options->key.vs.alpha_adjust[location];
 
       unsigned dfmt = attrib_format & 0xf;
@@ -4963,7 +4964,7 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
                            !ctx->options->robust_buffer_access2);
          unsigned fetch_dfmt = V_008F0C_BUF_DATA_FORMAT_INVALID;
          if (!use_mubuf) {
-            fetch_dfmt = get_fetch_data_format(ctx, vtx_info, fetch_offset, attrib_stride, &fetch_component,
+            fetch_dfmt = get_fetch_data_format(ctx, vtx_info, fetch_offset, binding_size, &fetch_component,
                                                binding_align);
          } else {
             if (fetch_component == 3 && ctx->options->chip_class == GFX6) {
