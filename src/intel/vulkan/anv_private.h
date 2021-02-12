@@ -1515,11 +1515,12 @@ int anv_gem_execbuffer(struct anv_device *device,
                        struct drm_i915_gem_execbuffer2 *execbuf);
 int anv_gem_set_tiling(struct anv_device *device, uint32_t gem_handle,
                        uint32_t stride, uint32_t tiling);
-int anv_gem_create_context(struct anv_device *device);
+int anv_gem_create_context(struct anv_device *device, bool protected);
 int anv_gem_create_context_engines(struct anv_device *device,
                                    const struct drm_i915_query_engine_info *info,
                                    int num_engines,
-                                   uint16_t *engine_classes);
+                                   uint16_t *engine_classes,
+                                   bool protected);
 bool anv_gem_has_context_priority(int fd);
 int anv_gem_destroy_context(struct anv_device *device, int context);
 int anv_gem_set_context_param(int fd, int context, uint32_t param,
