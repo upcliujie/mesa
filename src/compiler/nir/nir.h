@@ -4534,6 +4534,7 @@ bool nir_lower_flrp(nir_shader *shader, unsigned lowering_mask,
                     bool always_precise);
 
 bool nir_lower_alu_to_scalar(nir_shader *shader, nir_instr_filter_cb cb, const void *data);
+bool nir_lower_barriers(nir_shader *shader);
 bool nir_lower_bool_to_bitsize(nir_shader *shader);
 bool nir_lower_bool_to_float(nir_shader *shader);
 bool nir_lower_bool_to_int32(nir_shader *shader);
