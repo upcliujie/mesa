@@ -898,7 +898,7 @@ test-d3d12-windows:
     GIT_STRATEGY: none # testing doesn't build anything from source
     GALLIUM_DRIVER: d3d12
     PIGLIT_PROFILE: quick_gl
-    PIGLIT_OPTIONS: -x nv_copy_depth_to_color -x repeat-wait -x arb_timer_query@timestamp-get
+    PIGLIT_TESTS: -x nv_copy_depth_to_color -x repeat-wait -x arb_timer_query@timestamp-get
   script:
     - . _install/piglit_run.ps1
   artifacts:
@@ -1125,7 +1125,7 @@ llvmpipe-piglit-cl:
     LP_NUM_THREADS: 1
     PIGLIT_PROFILES: cl
     PIGLIT_RESULTS: "llvmpipe-cl"
-    PIGLIT_OPTIONS: >
+    PIGLIT_TESTS: >
       -x bswap -x phatk -x clz-optimizations
   script:
     - install/piglit/run_cl.sh
@@ -1140,6 +1140,7 @@ llvmpipe-piglit-quick_gl:
     LP_NUM_THREADS: 0
     PIGLIT_OPTIONS: >
       --process-isolation false
+    PIGLIT_TESTS: >
       -x egl_ext_device_
       -x egl_ext_platform_device
       -x ext_timer_query@time-elapsed
@@ -1196,7 +1197,7 @@ zink-piglit-quick_gl:
     - .zink-test
   variables:
     LP_NUM_THREADS: 0
-    PIGLIT_OPTIONS: >
+    PIGLIT_TESTS: >
       -x arb_map_buffer_alignment@arb_map_buffer_alignment-map-invalidate-range
       -x glx-make-current
     PIGLIT_PROFILES: quick_gl
@@ -1342,7 +1343,7 @@ softpipe-piglit-quick:
     # rasterpos skipped until we uprev piglit (commit ff2a7650be7349)
     # triangle-rasterization skipped due to flakes thanks to it using a time-based random seed.
     # glx-multithread-texture is flaky, undiagnosed
-    PIGLIT_OPTIONS: >
+    PIGLIT_TESTS: >
       -x rasterpos
       -x triangle-rasterization
       -x glx-multithread-texture
@@ -1587,7 +1588,7 @@ a630_vk_sysmem:
     #
     # vs-clip-distance/vertex-enables skipped because they seem to be flaky in
     # parallel with other tests (reliably fails on its own)
-    PIGLIT_OPTIONS: >-
+    PIGLIT_TESTS: >-
       -x vs-output-array-vec2-index-wr-before-gs
       -x fixed-clip-enables
       -x vs-clip-distance-enables
@@ -1804,7 +1805,7 @@ a530_gles31:
     # Also excluding some particularly slow tests (gl-1.3-texture-env)
     #
     # Check fastboot.sh for more piglit tests being excluded!
-    PIGLIT_OPTIONS: >-
+    PIGLIT_TESTS: >-
       -x atomic_counters
       -x gl-1.0-blend-func
       -x glsl-1.30@execution@clipping
@@ -1889,6 +1890,8 @@ vc4-rpi3-gles2:armhf:
     BM_POE_TIMEOUT: 180
     PIGLIT_OPTIONS: >-
       --timeout 60
+    PIGLIT_PLATFORM: gbm
+    PIGLIT_TESTS: >-
       -x .tesc
       -x .tese
       -x arb_gpu_shader_fp64
@@ -1932,7 +1935,6 @@ vc4-rpi3-gles2:armhf:
       -x ppgtt_memory_alignment
       -x streaming-texture-leak
       -x texturesize
-    PIGLIT_PLATFORM: gbm
 
 vc4-rpi3-piglit-quick_gl:armhf:
   extends:
