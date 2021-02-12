@@ -151,7 +151,7 @@ anv_gem_get_bit6_swizzle(int fd, uint32_t tiling)
 }
 
 int
-anv_gem_create_context(struct anv_device *device)
+anv_gem_create_context(struct anv_device *device, bool protected)
 {
    unreachable("Unused");
 }
@@ -182,7 +182,9 @@ anv_gem_has_context_priority(int fd)
 
 int
 anv_gem_context_get_reset_stats(int fd, int context,
-                                uint32_t *active, uint32_t *pending)
+                                uint32_t *active,
+                                uint32_t *pending,
+                                bool *invalidated)
 {
    unreachable("Unused");
 }
@@ -265,7 +267,8 @@ int
 anv_gem_create_context_engines(struct anv_device *device,
                                const struct drm_i915_query_engine_info *info,
                                int num_engines,
-                               uint16_t *engine_classes)
+                               uint16_t *engine_classes,
+                               bool protected)
 {
    unreachable("Unused");
 }
