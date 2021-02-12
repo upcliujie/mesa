@@ -1986,6 +1986,26 @@ void brw_CMP(struct brw_codegen *p,
    }
 }
 
+void brw_CMPN(struct brw_codegen *p,
+              struct brw_reg dest,
+              unsigned conditional,
+              struct brw_reg src0,
+              struct brw_reg src1)
+{
+   const struct gen_device_info *devinfo = p->devinfo;
+   brw_inst *insn = next_insn(p, BRW_OPCODE_CMPN);
+
+   brw_inst_set_cond_modifier(devinfo, insn, conditional);
+   brw_set_dest(p, insn, dest);
+   brw_set_src0(p, insn, src0);
+   brw_set_src1(p, insn, src1);
+
+   /* Should only be used to implement Min or Max on Gen4/5.  There may also
+    * be workarounds necessary on Gen7.
+    */
+   assert(devinfo->gen < 7);
+}
+
 /***********************************************************************
  * Helpers for the various SEND message types:
  */
