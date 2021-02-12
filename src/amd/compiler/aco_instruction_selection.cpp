@@ -4592,7 +4592,8 @@ void visit_load_interpolated_input(isel_context *ctx, nir_intrinsic_instr *instr
 }
 
 bool check_vertex_fetch_size(isel_context *ctx, const ac_data_format_info *vtx_info,
-                             unsigned offset, unsigned binding_align, unsigned channels)
+                             unsigned offset, unsigned binding_align, unsigned channels,
+                             bool require_align)
 {
    unsigned vertex_byte_size = vtx_info->chan_byte_size * channels;
    if (vtx_info->chan_byte_size != 4 && channels == 3)
@@ -4604,13 +4605,12 @@ bool check_vertex_fetch_size(isel_context *ctx, const ac_data_format_info *vtx_i
     * also if the VBO offset is aligned to a scalar (eg. stride is 8 and VBO
     * offset is 2 for R16G16B16A16_SNORM).
     */
-   return (ctx->options->chip_class >= GFX7 && ctx->options->chip_class <= GFX9) ||
+   return (ctx->options->chip_class >= GFX7 && ctx->options->chip_class <= GFX9 && !require_align) ||
           (offset % vertex_byte_size == 0 && MAX2(binding_align, 1) % vertex_byte_size == 0);
 }
 
 uint8_t get_fetch_data_format(isel_context *ctx, const ac_data_format_info *vtx_info,
-                              unsigned offset, unsigned stride, unsigned *channels,
-                              unsigned binding_align)
+                              unsigned offset, unsigned *channels, unsigned binding_align)
 {
    if (!vtx_info->chan_byte_size) {
       *channels = vtx_info->num_channels;
@@ -4618,22 +4618,31 @@ uint8_t get_fetch_data_format(isel_context *ctx, const ac_data_format_info *vtx_
    }
 
    unsigned num_channels = *channels;
-   if (!check_vertex_fetch_size(ctx, vtx_info, offset, binding_align, *channels)) {
+   if (!check_vertex_fetch_size(ctx, vtx_info, offset, binding_align, *channels, false)) {
       unsigned new_channels = num_channels + 1;
-      /* first, assume more loads is worse and try using a larger data format */
-      while (new_channels <= 4 &&
-             !check_vertex_fetch_size(ctx, vtx_info, offset, binding_align, new_channels)) {
-         new_channels++;
-         /* don't make the attribute potentially out-of-bounds */
-         if (offset + new_channels * vtx_info->chan_byte_size > stride)
-            new_channels = 5;
+      /* First, assume more loads is worse and try using a larger data format.
+       *
+       * We can't do this on GFX8 because there's always a chance of making the load out-of-bounds
+       * (GFX8 uses raw bounds checking, with NUM_RECORDS in units of bytes, not elements), and
+       * MTBUF loads are bounds checked all-or-nothing.
+       *
+       * We set require_align=true because if it's unaligned, then it might cross the page boundry
+       * and cause a fault.
+       */
+      if (ctx->options->chip_class != GFX8) {
+         while (new_channels <= 4 && !check_vertex_fetch_size(ctx, vtx_info, offset, binding_align,
+                                                              new_channels, true)) {
+            new_channels++;
+         }
+      } else {
+         new_channels = 5;
       }
 
       if (new_channels == 5) {
          /* then try decreasing load size (at the cost of more loads) */
          new_channels = *channels;
          while (new_channels > 1 &&
-                !check_vertex_fetch_size(ctx, vtx_info, offset, binding_align, new_channels))
+                !check_vertex_fetch_size(ctx, vtx_info, offset, binding_align, new_channels, false))
             new_channels--;
       }
 
@@ -4781,7 +4790,7 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
                           vtx_info->chan_byte_size == 4;
          unsigned fetch_dfmt = V_008F0C_BUF_DATA_FORMAT_INVALID;
          if (!use_mubuf) {
-            fetch_dfmt = get_fetch_data_format(ctx, vtx_info, fetch_offset, attrib_stride, &fetch_component,
+            fetch_dfmt = get_fetch_data_format(ctx, vtx_info, fetch_offset, &fetch_component,
                                                binding_align);
          } else {
             if (fetch_component == 3 && ctx->options->chip_class == GFX6) {
