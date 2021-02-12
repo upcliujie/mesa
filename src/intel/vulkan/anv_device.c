@@ -2972,9 +2972,13 @@ VkResult anv_CreateDevice(
       goto fail_device;
    }
 
+   bool protected = false;
    uint32_t num_queues = 0;
-   for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++)
+   for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
       num_queues += pCreateInfo->pQueueCreateInfos[i].queueCount;
+      protected |= (pCreateInfo->pQueueCreateInfos[0].flags &
+                    VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT);
+   }
 
    if (device->physical->engine_info) {
       /* The kernel API supports at most 64 engines */
@@ -2996,10 +3000,11 @@ VkResult anv_CreateDevice(
       device->context_id =
          anv_gem_create_context_engines(device,
                                         physical_device->engine_info,
-                                        engine_count, engine_classes);
+                                        engine_count, engine_classes,
+                                        protected);
    } else {
       assert(num_queues == 1);
-      device->context_id = anv_gem_create_context(device);
+      device->context_id = anv_gem_create_context(device, protected);
    }
    if (device->context_id == -1) {
       result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
