@@ -2590,6 +2590,12 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
 		key.vertex_attribute_bindings[location] = desc->binding;
 		key.vertex_attribute_offsets[location] = desc->offset;
 
+		const struct ac_data_format_info *dfmt_info = ac_get_data_format_info(data_format);
+		unsigned attrib_align = dfmt_info->chan_byte_size ?
+					dfmt_info->chan_byte_size : dfmt_info->element_size;
+		key.vertex_binding_align[desc->binding] =
+			MAX2(key.vertex_binding_align[desc->binding], attrib_align);
+
 		if (!uses_dynamic_stride) {
 			/* From the Vulkan spec 1.2.157:
 			 *
@@ -2707,6 +2713,8 @@ radv_fill_shader_keys(struct radv_device *device,
 		keys[MESA_SHADER_VERTEX].vs.vertex_attribute_strides[i] = key->vertex_attribute_strides[i];
 		keys[MESA_SHADER_VERTEX].vs.alpha_adjust[i] = key->vertex_alpha_adjust[i];
 	}
+	for (unsigned i = 0; i < MAX_VBS; ++i)
+		keys[MESA_SHADER_VERTEX].vs.vertex_binding_align[i] = key->vertex_binding_align[i];
 	keys[MESA_SHADER_VERTEX].vs.outprim = si_conv_prim_to_gs_out(key->topology);
 
 	if (nir[MESA_SHADER_TESS_CTRL]) {
