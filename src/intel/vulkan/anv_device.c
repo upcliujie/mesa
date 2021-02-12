@@ -3025,9 +3025,13 @@ VkResult anv_CreateDevice(
       goto fail_device;
    }
 
+   bool protected = false;
    uint32_t num_queues = 0;
-   for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++)
+   for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
       num_queues += pCreateInfo->pQueueCreateInfos[i].queueCount;
+      protected |= (pCreateInfo->pQueueCreateInfos[i].flags &
+                    VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT);
+   }
 
    if (device->physical->engine_info) {
       /* The kernel API supports at most 64 engines */
@@ -3049,10 +3053,11 @@ VkResult anv_CreateDevice(
       device->context_id =
          anv_gem_create_context_engines(device,
                                         physical_device->engine_info,
-                                        engine_count, engine_classes);
+                                        engine_count, engine_classes,
+                                        protected);
    } else {
       assert(num_queues == 1);
-      device->context_id = anv_gem_create_context(device);
+      device->context_id = anv_gem_create_context(device, protected);
    }
    if (device->context_id == -1) {
       result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
@@ -3543,14 +3548,17 @@ anv_device_query_status(struct anv_device *device)
       return VK_ERROR_DEVICE_LOST;
 
    uint32_t active, pending;
+   bool invalidated;
    int ret = anv_gem_context_get_reset_stats(device->fd, device->context_id,
-                                             &active, &pending);
+                                             &active, &pending, &invalidated);
    if (ret == -1) {
       /* We don't know the real error. */
       return anv_device_set_lost(device, "get_reset_stats failed: %m");
    }
 
-   if (active) {
+   if (invalidated) {
+      return anv_device_set_lost(device, "Context invalidated (protected content session loss)");
+   } else if (active) {
       return anv_device_set_lost(device, "GPU hung on one of our command buffers");
    } else if (pending) {
       return anv_device_set_lost(device, "GPU hung with commands in-flight");

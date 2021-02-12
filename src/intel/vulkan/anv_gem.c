@@ -387,21 +387,53 @@ anv_gem_has_context_priority(int fd)
 }
 
 int
-anv_gem_create_context(struct anv_device *device)
+anv_gem_create_context(struct anv_device *device, bool protected)
 {
-   struct drm_i915_gem_context_create create = { 0 };
+   if (protected) {
+      struct drm_i915_gem_create_ext_setparam recoverable_param = {
+         .param = {
+            .param = I915_CONTEXT_PARAM_RECOVERABLE,
+            .data = false,
+         },
+      };
+      struct drm_i915_gem_context_create_ext_setparam protected_param = {
+         .param = {
+            .param = I915_CONTEXT_PARAM_PROTECTED_CONTENT,
+            .value = true,
+         },
+      };
+      struct drm_i915_gem_context_create_ext create = {
+         .flags = I915_CONTEXT_CREATE_FLAGS_USE_EXTENSIONS,
+      };
 
-   int ret = intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE, &create);
-   if (ret == -1)
-      return -1;
+      intel_gem_add_ext(&create.extensions,
+                        I915_CONTEXT_CREATE_EXT_SETPARAM,
+                        &recoverable_param.base);
+      intel_gem_add_ext(&create.extensions,
+                        I915_CONTEXT_CREATE_EXT_SETPARAM,
+                        &protected_param.base);
 
-   return create.ctx_id;
+      int ret = intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE_EXT, &create);
+      if (ret != 0)
+         return -1;
+
+      return create.ctx_id;
+   } else {
+      struct drm_i915_gem_context_create create = { 0 };
+
+      int ret = intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE, &create);
+      if (ret == -1)
+         return -1;
+
+      return create.ctx_id;
+   }
 }
 
 int
 anv_gem_create_context_engines(struct anv_device *device,
                                const struct drm_i915_query_engine_info *info,
-                               int num_engines, uint16_t *engine_classes)
+                               int num_engines, uint16_t *engine_classes,
+                               bool protected)
 {
    const size_t engine_inst_sz = 2 * sizeof(__u16); /* 1 class, 1 instance */
    const size_t engines_param_size =
@@ -461,19 +493,41 @@ anv_gem_create_context_engines(struct anv_device *device,
           (uintptr_t)class_inst_ptr);
 
    struct drm_i915_gem_context_create_ext_setparam set_engines = {
-      .base = {
-         .name = I915_CONTEXT_CREATE_EXT_SETPARAM,
-      },
       .param = {
 	 .param = I915_CONTEXT_PARAM_ENGINES,
          .value = (uintptr_t)engines_param,
          .size = engines_param_size,
       }
    };
+   struct drm_i915_gem_create_ext_setparam recoverable_param = {
+      .param = {
+         .param = I915_CONTEXT_PARAM_RECOVERABLE,
+         .data = false,
+      },
+   };
+   struct drm_i915_gem_context_create_ext_setparam protected_param = {
+      .param = {
+         .param = I915_CONTEXT_PARAM_PROTECTED_CONTENT,
+         .value = true,
+      },
+   };
+
    struct drm_i915_gem_context_create_ext create = {
       .flags = I915_CONTEXT_CREATE_FLAGS_USE_EXTENSIONS,
-      .extensions = (uintptr_t)&set_engines,
    };
+
+   intel_gem_add_ext(&create.extensions,
+                     I915_CONTEXT_CREATE_EXT_SETPARAM,
+                     &set_engines.base);
+   if (protected) {
+      intel_gem_add_ext(&create.extensions,
+                        I915_CONTEXT_CREATE_EXT_SETPARAM,
+                        &recoverable_param.base);
+      intel_gem_add_ext(&create.extensions,
+                        I915_CONTEXT_CREATE_EXT_SETPARAM,
+                        &protected_param.base);
+   }
+
    int ret = intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE_EXT, &create);
    free(engines_param);
    if (ret == -1)
@@ -525,7 +579,9 @@ anv_gem_get_context_param(int fd, int context, uint32_t param, uint64_t *value)
 
 int
 anv_gem_context_get_reset_stats(int fd, int context,
-                                uint32_t *active, uint32_t *pending)
+                                uint32_t *active,
+                                uint32_t *pending,
+                                bool *invalidated)
 {
    struct drm_i915_reset_stats stats = {
       .ctx_id = context,
@@ -535,6 +591,7 @@ anv_gem_context_get_reset_stats(int fd, int context,
    if (ret == 0) {
       *active = stats.batch_active;
       *pending = stats.batch_pending;
+      *invalidated = (stats.flags & I915_CONTEXT_INVALIDATED) != 0;
    }
 
    return ret;
