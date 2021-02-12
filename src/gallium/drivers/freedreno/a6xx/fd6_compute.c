@@ -76,7 +76,7 @@ fd6_delete_compute_state(struct pipe_context *pctx, void *hwcso)
 /* maybe move to fd6_program? */
 static void
 cs_program_emit(struct fd_context *ctx, struct fd_ringbuffer *ring,
-				struct ir3_shader_variant *v)
+				struct ir3_shader_variant *v) assert_dt
 {
 	const struct ir3_info *i = &v->info;
 	enum a3xx_threadsize thrsz = FOUR_QUADS;
@@ -135,6 +135,7 @@ cs_program_emit(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
 static void
 fd6_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info)
+	in_dt
 {
 	struct fd6_compute_stateobj *so = ctx->compute;
 	struct ir3_shader_key key = {};
@@ -222,6 +223,7 @@ fd6_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info)
 
 void
 fd6_compute_init(struct pipe_context *pctx)
+	disable_thread_safety_analysis
 {
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->launch_grid = fd6_launch_grid;
