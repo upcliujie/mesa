@@ -31,7 +31,7 @@
 #include "si_shader_internal.h"
 #include "tgsi/tgsi_from_mesa.h"
 
-static const nir_deref_instr *tex_get_texture_deref(nir_tex_instr *instr)
+static nir_deref_instr *tex_get_texture_deref(nir_tex_instr *instr)
 {
    for (unsigned i = 0; i < instr->num_srcs; i++) {
       switch (instr->src[i].src_type) {
@@ -183,16 +183,21 @@ static void scan_instruction(const struct nir_shader *nir, struct si_shader_info
 {
    if (instr->type == nir_instr_type_tex) {
       nir_tex_instr *tex = nir_instr_as_tex(instr);
-      const nir_deref_instr *deref = tex_get_texture_deref(tex);
+      nir_deref_instr *deref = tex_get_texture_deref(tex);
       nir_variable *var = deref ? nir_deref_instr_get_variable(deref) : NULL;
 
       if (var) {
          if (var->data.mode != nir_var_uniform || var->data.bindless)
             info->uses_bindless_samplers = true;
       }
+
+      if (nir_deref_instr_has_indirect(deref))
+         info->uses_indirect_descriptor = true;
    } else if (instr->type == nir_instr_type_intrinsic) {
       nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
       const char *intr_name = nir_intrinsic_infos[intr->intrinsic].name;
+      bool is_ssbo = strstr(intr_name, "ssbo");
+      bool is_image = strstr(intr_name, "image_deref");
       bool is_bindless_image = strstr(intr_name, "bindless_image");
 
       if (is_bindless_image)
@@ -206,7 +211,37 @@ static void scan_instruction(const struct nir_shader *nir, struct si_shader_info
           intr->intrinsic == nir_intrinsic_store_ssbo)
          info->num_memory_stores++;
 
+
+      if (is_image && nir_deref_instr_has_indirect(nir_src_as_deref(intr->src[0])))
+         info->uses_indirect_descriptor = true;
+
+      if (is_bindless_image) {
+         /* Check if the bindless handle comes from indirect load_ubo. */
+         nir_instr *src = intr->src[0].ssa->parent_instr;
+
+         if (src->type == nir_instr_type_intrinsic &&
+             nir_instr_as_intrinsic(src)->intrinsic == nir_intrinsic_load_ubo) {
+            if (!nir_src_is_const(nir_instr_as_intrinsic(src)->src[0]))
+               info->uses_indirect_descriptor = true;
+         } else {
+            /* Some other instruction. Set a safe value. */
+            info->uses_indirect_descriptor = true;
+         }
+      }
+
+      if (intr->intrinsic != nir_intrinsic_store_ssbo && is_ssbo &&
+          !nir_src_is_const(intr->src[0]))
+         info->uses_indirect_descriptor = true;
+
       switch (intr->intrinsic) {
+      case nir_intrinsic_store_ssbo:
+         if (!nir_src_is_const(intr->src[1]))
+            info->uses_indirect_descriptor = true;
+         break;
+      case nir_intrinsic_load_ubo:
+         if (!nir_src_is_const(intr->src[0]))
+            info->uses_indirect_descriptor = true;
+         break;
       case nir_intrinsic_load_local_invocation_id:
       case nir_intrinsic_load_work_group_id: {
          unsigned mask = nir_ssa_def_components_read(&intr->dest.ssa);
