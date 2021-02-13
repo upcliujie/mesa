@@ -2126,6 +2126,36 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          }
          brw_CMP(p, dst, inst->conditional_mod, src[0], src[1]);
 	 break;
+      case BRW_OPCODE_CMPN:
+         /* Page 166 of the Ivy Bridge PRM Volume 4 part 3 (Execution Unit
+          * ISA) says:
+          *
+          *    Accumulator cannot be destination, implicit or explicit. The
+          *    destination must be a general register or the null register.
+          *
+          * Page 77 of the Haswell PRM Volume 2b contains the same text.  The
+          * 965G PRMs contain similar text.
+          *
+          * Page 864 (page 880 of the PDF) of the Broadwell PRM Volume 7 says:
+          *
+          *    For the cmp and cmpn instructions, remove the accumulator
+          *    restrictions.
+          */
+         assert(devinfo > 7 ||
+                dst.file != BRW_ARCHITECTURE_REGISTER_FILE ||
+                dst.nr == BRW_ARF_NULL);
+
+         if (inst->exec_size >= 16 && devinfo->gen == 7 && !devinfo->is_haswell &&
+             dst.file == BRW_ARCHITECTURE_REGISTER_FILE) {
+            /* For unknown reasons the WaCMPInstFlagDepClearedEarly workaround
+             * implemented in the compiler is not sufficient. Overriding the
+             * type when the destination is the null register is necessary but
+             * not sufficient by itself.
+             */
+            dst.type = BRW_REGISTER_TYPE_D;
+         }
+         brw_CMPN(p, dst, inst->conditional_mod, src[0], src[1]);
+         break;
       case BRW_OPCODE_SEL:
 	 brw_SEL(p, dst, src[0], src[1]);
 	 break;
