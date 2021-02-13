@@ -86,6 +86,18 @@ tc_debug_check(struct threaded_context *tc)
    }
 }
 
+static void
+tc_set_driver_thread(struct threaded_context *tc)
+{
+   tc->driver_thread = thrd_current();
+}
+
+static void
+tc_restore_driver_thread(struct threaded_context *tc)
+{
+   tc->driver_thread = tc->queue.threads[0];
+}
+
 /* We don't want to read or write min_index and max_index, because
  * it shouldn't be needed by drivers at this point.
  */
@@ -219,6 +231,8 @@ tc_batch_flush(struct threaded_context *tc)
 {
    struct tc_batch *next = &tc->batch_slots[tc->next];
 
+   assert(!tc_in_driver_thread(tc));
+
    tc_assert(next->num_total_call_slots != 0);
    tc_batch_check(next);
    tc_debug_check(tc);
@@ -245,6 +259,7 @@ tc_add_sized_call(struct threaded_context *tc, enum tc_call_id id,
                   unsigned num_call_slots)
 {
    struct tc_batch *next = &tc->batch_slots[tc->next];
+   assert(!tc_in_driver_thread(tc));
 
    tc_debug_check(tc);
 
@@ -322,7 +337,11 @@ _tc_sync(struct threaded_context *tc, UNUSED const char *info, UNUSED const char
    if (next->num_total_call_slots) {
       p_atomic_add(&tc->num_direct_slots, next->num_total_call_slots);
       tc->bytes_mapped_estimate = 0;
+
+      tc_set_driver_thread(tc);
       tc_batch_execute(next, 0);
+      tc_restore_driver_thread(tc);
+
       synced = true;
    }
 
@@ -548,7 +567,9 @@ tc_get_query_result(struct pipe_context *_pipe,
    if (!tq->flushed)
       tc_sync_msg(tc, wait ? "wait" : "nowait");
 
+   tc_set_driver_thread(tc);
    bool success = pipe->get_query_result(pipe, query, wait, result);
+   tc_restore_driver_thread(tc);
 
    if (success) {
       tq->flushed = true;
@@ -1691,12 +1712,17 @@ tc_transfer_map(struct pipe_context *_pipe,
       tc_sync_msg(tc, resource->target != PIPE_BUFFER ? "  texture" :
                       usage & PIPE_MAP_DISCARD_RANGE ? "  discard_range" :
                       usage & PIPE_MAP_READ ? "  read" : "  staging conflict");
+      tc_set_driver_thread(tc);
    }
 
    tc->bytes_mapped_estimate += box->width;
 
-   return pipe->transfer_map(pipe, tres->latest ? tres->latest : resource,
+   void *ret = pipe->transfer_map(pipe, tres->latest ? tres->latest : resource,
                              level, usage, box, transfer);
+
+   tc_restore_driver_thread(tc);
+
+   return ret;
 }
 
 struct tc_transfer_flush_region {
@@ -1991,8 +2017,10 @@ tc_texture_subdata(struct pipe_context *_pipe,
       struct pipe_context *pipe = tc->pipe;
 
       tc_sync(tc);
+      tc_set_driver_thread(tc);
       pipe->texture_subdata(pipe, resource, level, usage, box, data,
                             stride, layer_stride);
+      tc_restore_driver_thread(tc);
    }
 }
 
@@ -2319,7 +2347,9 @@ out_of_memory:
 
    if (!(flags & PIPE_FLUSH_DEFERRED))
       tc_flush_queries(tc);
+   tc_set_driver_thread(tc);
    pipe->flush(pipe, fence, flags);
+   tc_restore_driver_thread(tc);
 }
 
 static void
@@ -3031,6 +3061,8 @@ threaded_context_create(struct pipe_context *pipe,
     */
    if (!util_queue_init(&tc->queue, "gdrv", TC_MAX_BATCHES - 2, 1, 0))
       goto fail;
+
+   tc_restore_driver_thread(tc);
 
    for (unsigned i = 0; i < TC_MAX_BATCHES; i++) {
       tc->batch_slots[i].sentinel = TC_SENTINEL;
