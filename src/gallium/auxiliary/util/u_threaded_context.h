@@ -181,6 +181,7 @@
 #ifndef U_THREADED_CONTEXT_H
 #define U_THREADED_CONTEXT_H
 
+#include "c11/threads.h"
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
 #include "util/u_inlines.h"
@@ -341,7 +342,7 @@ struct tc_unflushed_batch_token {
 };
 
 struct tc_batch {
-   struct pipe_context *pipe;
+   struct threaded_context *tc;
    unsigned sentinel;
    unsigned num_total_call_slots;
    struct tc_unflushed_batch_token *token;
@@ -375,6 +376,13 @@ struct threaded_context {
 
    struct util_queue queue;
    struct util_queue_fence *fence;
+
+   /**
+    * The driver thread is normally the queue thread, but
+    * there are cases where the queue is flushed directly
+    * from the frontend thread
+    */
+   thrd_t driver_thread;
 
    unsigned last, next;
    struct tc_batch batch_slots[TC_MAX_BATCHES];
@@ -433,6 +441,31 @@ tc_unflushed_batch_token_reference(struct tc_unflushed_batch_token **dst,
    if (pipe_reference((struct pipe_reference *)*dst, (struct pipe_reference *)src))
       free(*dst);
    *dst = src;
+}
+
+static inline bool
+tc_in_driver_thread(struct threaded_context *tc)
+{
+   if (!tc)
+      return true;
+#ifndef _WIN32
+   return tc->driver_thread == thrd_current();
+#else
+   assert(!"TODO");
+   return false;
+#endif
+}
+
+/**
+ * Helper for !NDEBUG builds to assert that it is called from driver
+ * thread.  This is to help drivers ensure that various code-paths
+ * are not hit indirectly from pipe entry points that are called from
+ * front-end/state-tracker thread.
+ */
+static inline void
+tc_assert_driver_thread(struct threaded_context *tc)
+{
+   assert(tc_in_driver_thread(tc));
 }
 
 #endif
