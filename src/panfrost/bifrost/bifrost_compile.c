@@ -767,6 +767,10 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
                 bi_emit_acmpxchg(b, instr, BI_SEG_WLS);
                 break;
 
+        case nir_intrinsic_scoped_barrier:
+                bi_barrier_to(b, bi_null());
+                break;
+
         case nir_intrinsic_load_frag_coord:
                 bi_emit_load_frag_coord(b, instr);
                 break;
@@ -2363,6 +2367,8 @@ bi_optimize_nir(nir_shader *nir)
         NIR_PASS(progress, nir, nir_lower_tex, &lower_tex_options);
         NIR_PASS(progress, nir, nir_lower_alu_to_scalar, NULL, NULL);
         NIR_PASS(progress, nir, nir_lower_load_const_to_scalar);
+        NIR_PASS(progress, nir, nir_lower_barriers);
+        NIR_PASS(progress, nir, nir_opt_combine_barriers, NULL, NULL);
 
         do {
                 progress = false;

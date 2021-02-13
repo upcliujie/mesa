@@ -84,6 +84,7 @@ static const nir_shader_compiler_options bifrost_nir_options = {
         .fuse_ffma32 = true,
         .fuse_ffma64 = true,
         .use_interpolated_input_intrinsics = true,
+        .use_scoped_barrier = true,
 
         .lower_uniforms_to_ubo = true,
 
