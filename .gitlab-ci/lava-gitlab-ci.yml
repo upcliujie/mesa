@@ -1,5 +1,5 @@
 variables:
-  MESA_LAVA_TAG: "2021-02-10-zink"
+  MESA_LAVA_TAG: "2021-02-11-remove-pytest"
 
 .kernel+rootfs:
   stage: container-2
