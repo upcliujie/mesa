@@ -1509,6 +1509,16 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
 
       void *stage_ctx = ralloc_context(NULL);
 
+      /* Check if sample shading is enabled in the shader and toggle
+       * it on for the pipeline independent if sampleShadingEnable is set.
+       */
+      if (s == MESA_SHADER_FRAGMENT) {
+         nir_shader_gather_info(stages[s].nir,
+                                nir_shader_get_entrypoint(stages[s].nir));
+         if (stages[s].nir->info.fs.uses_sample_shading)
+            pipeline->sample_shading_enable = true;
+      }
+
       anv_pipeline_lower_nir(&pipeline->base, stage_ctx, &stages[s], layout);
 
       if (prev_stage && compiler->glsl_compiler_options[s].NirOptions->unify_interfaces) {
