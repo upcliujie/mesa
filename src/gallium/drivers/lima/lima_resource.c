@@ -361,6 +361,19 @@ lima_resource_from_handle(struct pipe_screen *pscreen,
    else
       res->levels[0].width = pres->width0;
 
+   if (screen->ro) {
+      /* Make sure that renderonly has a handle to our buffer in the
+       * display's fd, so that a later renderonly_get_handle()
+       * returns correct handles or GEM names.
+       */
+      res->scanout =
+         renderonly_create_gpu_import_for_resource(pres,
+                                                   screen->ro,
+                                                   NULL);
+      if (!res->scanout)
+         goto err_out;
+   }
+
    return pres;
 
 err_out:
