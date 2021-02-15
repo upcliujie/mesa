@@ -151,6 +151,8 @@ optimizations = [
    (('fmul', 'a@16', 0.0), 0.0, '!'+signed_zero_inf_nan_preserve_16),
    (('fmul', 'a@32', 0.0), 0.0, '!'+signed_zero_inf_nan_preserve_32),
    (('imul', a, 0), 0),
+   (('imul24', a, 0), 0),
+   (('umul24', a, 0), 0),
    (('umul_unorm_4x8', a, 0), 0),
    (('umul_unorm_4x8', a, ~0), a),
    (('~fmul', a, 1.0), a),
@@ -159,6 +161,8 @@ optimizations = [
    # this multiplication isn't needed.
    (('fmul(is_only_used_as_float)', a, 1.0), a),
    (('imul', a, 1), a),
+   (('imul24', a, 1), a),
+   (('umul24', a, 1), a),
    (('fmul', a, -1.0), ('fneg', a)),
    (('imul', a, -1), ('ineg', a)),
    # If a < 0: fsign(a)*a*a => -1*a*a => -a*a => abs(a)*a
@@ -261,10 +265,16 @@ optimizations.extend([
    # (a * (#b << #d)) + (#c << #d)
    (('ishl', ('iadd', ('imul', a, '#b'), '#c'), '#d'),
     ('iadd', ('imul', a, ('ishl', b, d)), ('ishl', c, d))),
+   (('ishl', ('iadd', ('imul24', a, '#b'), '#c'), '#d'),
+    ('iadd', ('imul24', a, ('ishl', b, d)), ('ishl', c, d))),
+   (('ishl', ('iadd', ('umul24', a, '#b'), '#c'), '#d'),
+    ('iadd', ('umul24', a, ('ishl', b, d)), ('ishl', c, d))),
 
    # (a * #b) << #c
    # a * (#b << #c)
    (('ishl', ('imul', a, '#b'), '#c'), ('imul', a, ('ishl', b, c))),
+   (('ishl', ('imul24', a, '#b'), '#c'), ('imul24', a, ('ishl', b, c))),
+   (('ishl', ('umul24', a, '#b'), '#c'), ('umul24', a, ('ishl', b, c))),
 ])
 
 # Care must be taken here.  Shifts in NIR uses only the lower log2(bitsize)
@@ -342,6 +352,8 @@ optimizations.extend([
 
    # (a + #b) * #c
    (('imul', ('iadd(is_used_once)', a, '#b'), '#c'), ('iadd', ('imul', a, c), ('imul', b, c))),
+   (('imul24', ('iadd(is_used_once)', a, '#b'), '#c'), ('iadd', ('imul24', a, c), ('imul24', b, c))),
+   (('umul24', ('iadd(is_used_once)', a, '#b'), '#c'), ('iadd', ('umul24', a, c), ('umul24', b, c))),
 
    # Comparison simplifications
    (('~inot', ('flt', a, b)), ('fge', a, b)),
@@ -1309,6 +1321,8 @@ optimizations.extend([
    # Propagate constants up multiplication chains
    (('~fmul(is_used_once)', ('fmul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fmul', ('fmul', a, c), b)),
    (('imul(is_used_once)', ('imul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('imul', ('imul', a, c), b)),
+   (('imul24(is_used_once)', ('imul24(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('imul24', ('imul24', a, c), b)),
+   (('umul24(is_used_once)', ('umul24(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('umul24', ('umul24', a, c), b)),
    # Prefer moving out a multiplication for more MAD/FMA-friendly code
    (('~fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_fmul)'), '#c'), ('fadd', ('fadd', a, c), b)),
    (('~fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fadd', ('fadd', a, c), b)),
@@ -1319,6 +1333,8 @@ optimizations.extend([
    # a single non-constant.  We could do better eventually.
    (('~fmul', '#a', ('fmul', 'b(is_not_const)', '#c')), ('fmul', ('fmul', a, c), b)),
    (('imul', '#a', ('imul', 'b(is_not_const)', '#c')), ('imul', ('imul', a, c), b)),
+   (('imul24', '#a', ('imul24', 'b(is_not_const)', '#c')), ('imul24', ('imul24', a, c), b)),
+   (('umul24', '#a', ('umul24', 'b(is_not_const)', '#c')), ('umul24', ('umul24', a, c), b)),
    (('~fadd', '#a',          ('fadd', 'b(is_not_const)', '#c')),  ('fadd', ('fadd', a,          c),           b)),
    (('~fadd', '#a', ('fneg', ('fadd', 'b(is_not_const)', '#c'))), ('fadd', ('fadd', a, ('fneg', c)), ('fneg', b))),
    (('iadd', '#a', ('iadd', 'b(is_not_const)', '#c')), ('iadd', ('iadd', a, c), b)),
@@ -2115,11 +2131,15 @@ before_ffma_optimizations = [
    # Propagate constants down multiplication chains
    (('~fmul(is_used_once)', ('fmul(is_used_once)', 'a(is_not_const)', '#b'), 'c(is_not_const)'), ('fmul', ('fmul', a, c), b)),
    (('imul(is_used_once)', ('imul(is_used_once)', 'a(is_not_const)', '#b'), 'c(is_not_const)'), ('imul', ('imul', a, c), b)),
+   (('imul24(is_used_once)', ('imul24(is_used_once)', 'a(is_not_const)', '#b'), 'c(is_not_const)'), ('imul24', ('imul24', a, c), b)),
+   (('umul24(is_used_once)', ('umul24(is_used_once)', 'a(is_not_const)', '#b'), 'c(is_not_const)'), ('umul24', ('umul24', a, c), b)),
    (('~fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', '#b'), 'c(is_not_const)'), ('fadd', ('fadd', a, c), b)),
    (('iadd(is_used_once)', ('iadd(is_used_once)', 'a(is_not_const)', '#b'), 'c(is_not_const)'), ('iadd', ('iadd', a, c), b)),
 
    (('~fadd', ('fmul', a, b), ('fmul', a, c)), ('fmul', a, ('fadd', b, c))),
    (('iadd', ('imul', a, b), ('imul', a, c)), ('imul', a, ('iadd', b, c))),
+   (('iadd', ('imul24', a, b), ('imul24', a, c)), ('imul24', a, ('iadd', b, c))),
+   (('iadd', ('umul24', a, b), ('umul24', a, c)), ('umul24', a, ('iadd', b, c))),
    (('~fadd', ('fneg', a), a), 0.0),
    (('iadd', ('ineg', a), a), 0),
    (('iadd', ('ineg', a), ('iadd', a, b)), b),
