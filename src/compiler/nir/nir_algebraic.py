@@ -200,7 +200,9 @@ class Value(object):
    ${val.cond if val.cond else 'NULL'},
    ${val.swizzle()},
 % elif isinstance(val, Expression):
-   ${'true' if val.inexact else 'false'}, ${'true' if val.exact else 'false'},
+   ${'true' if val.unsafe else 'false'},
+   ${'true' if val.imprecise else 'false'},
+   ${'true' if val.exact else 'false'},
    ${val.comm_expr_idx}, ${val.comm_exprs},
    ${val.c_opcode()},
    { ${', '.join(src.c_value_ptr(cache) for src in val.sources)} },
@@ -359,22 +361,39 @@ class Variable(Value):
 _opcode_re = re.compile(r"(?P<inexact>~)?(?P<exact>!)?(?P<opcode>\w+)(?:@(?P<bits>\d+))?"
                         r"(?P<cond>\([^\)]+\))?")
 
+class SearchExpression(object):
+   def __init__(self, expr):
+      self.opcode = expr[0]
+      self.sources = expr[1:]
+      self.unsafe = False
+      self.imprecise = False
+
+   @staticmethod
+   def create(val):
+      if isinstance(val, tuple):
+         return SearchExpression(val)
+      else:
+         assert(isinstance(val, SearchExpression))
+         return val
+
 class Expression(Value):
    def __init__(self, expr, name_base, varset):
       Value.__init__(self, expr, name_base, "expression")
-      assert isinstance(expr, tuple)
 
-      m = _opcode_re.match(expr[0])
+      expr = SearchExpression.create(expr)
+
+      m = _opcode_re.match(expr.opcode)
       assert m and m.group('opcode') is not None
 
       self.opcode = m.group('opcode')
       self._bit_size = int(m.group('bits')) if m.group('bits') else None
-      self.inexact = m.group('inexact') is not None
+      self.unsafe = (m.group('inexact') is not None) or expr.unsafe
+      self.imprecise = (m.group('inexact') is not None) or expr.imprecise
       self.exact = m.group('exact') is not None
       self.cond = m.group('cond')
 
-      assert not self.inexact or not self.exact, \
-            'Expression cannot be both exact and inexact.'
+      assert not (self.unsafe or self.imprecise) or not self.exact, \
+            'Expression cannot be both exact and unsafe/imprecise.'
 
       # "many-comm-expr" isn't really a condition.  It's notification to the
       # generator that this pattern is known to have too many commutative
@@ -390,7 +409,7 @@ class Expression(Value):
          self.many_commutative_expressions = True
 
       self.sources = [ Value.create(src, "{0}_{1}".format(name_base, i), varset)
-                       for (i, src) in enumerate(expr[1:]) ]
+                       for (i, src) in enumerate(expr.sources) ]
 
       # nir_search_expression::srcs is hard-coded to 4
       assert len(self.sources) <= 4
@@ -1222,3 +1241,23 @@ class AlgebraicPass(object):
                                              automaton=self.automaton,
                                              get_c_opcode=get_c_opcode,
                                              itertools=itertools)
+
+# Don't match precise/invariant expressions
+def imprecise(*expr):
+   expr = SearchExpression.create(expr)
+   expr.imprecise = True
+   return expr
+
+# Don't match if NaN/Inf/-0.0 guarantees are required.
+def unsafe(*expr):
+   expr = SearchExpression.create(expr)
+   expr.unsafe = True
+   return expr
+
+# Disable the optimization for precise/invariant expressions or if NaN/Inf/-0.0
+# guarantees are required.
+def unsafe_imprecise(*expr):
+   expr = SearchExpression.create(expr)
+   expr.unsafe = True
+   expr.imprecise = True
+   return expr
