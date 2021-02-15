@@ -134,11 +134,17 @@ uint16_t nir_search_op_for_nir_op(nir_op op);
 typedef struct {
    nir_search_value value;
 
+   /* When set on a search expression, the expression will only match for
+    * shaders which do not require that denormals are flushed or -0.0/inf/NaN
+    * are preserved.
+    */
+   bool unsafe;
+
    /* When set on a search expression, the expression will only match an SSA
     * value that does *not* have the exact bit set.  If unset, the exact bit
     * on the SSA value is ignored.
     */
-   bool inexact;
+   bool imprecise;
 
    /** In a replacement, requests that the instruction be marked exact. */
    bool exact;
