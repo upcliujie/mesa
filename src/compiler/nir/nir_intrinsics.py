@@ -1134,6 +1134,20 @@ intrinsic("store_mubuf_gcn", src_comp=[0, 4, 1, 1],
                            indices=[BASE, WRITE_MASK, STRIDE, GCN_SLC, MEMORY_MODES],
                            flags=[CAN_REORDER])
 
+# Descriptor where TCS outputs are stored for TES
+system_value("ring_tess_offchip_gcn", 4)
+system_value("ring_tess_offchip_offset_gcn", 1)
+# Descriptor where TCS outputs are stored for the HW tessellator
+system_value("ring_tess_factors_gcn", 4)
+system_value("ring_tess_factors_offset_gcn", 1)
+
+# Number of patches processed by each TCS workgroup
+system_value("tcs_num_patches_gcn", 1)
+# Relative tessellation patch ID within the current workgroup
+system_value("tess_rel_patch_id_gcn", 1)
+# Relative vertex ID = tess_rel_patch_id * tcs_input_vertex_count + vertex index within current patch
+system_value("tess_vs_rel_id_gcn", 1)
+
 # V3D-specific instrinc for tile buffer color reads.
 #
 # The hardware requires that we read the samples and components of a pixel
