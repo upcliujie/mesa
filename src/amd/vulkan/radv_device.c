@@ -403,7 +403,8 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
 	.KHR_zero_initialize_workgroup_memory  = true,
 	.EXT_4444_formats                      = true,
 	.EXT_buffer_device_address             = true,
-	.EXT_calibrated_timestamps             = RADV_SUPPORT_CALIBRATED_TIMESTAMPS,
+	.EXT_calibrated_timestamps             = RADV_SUPPORT_CALIBRATED_TIMESTAMPS &&
+	                                         device->rad_info.has_dedicated_vram,
 	.EXT_conditional_rendering             = true,
 	.EXT_conservative_rasterization        = device->rad_info.chip_class >= GFX9,
 	.EXT_custom_border_color               = true,
