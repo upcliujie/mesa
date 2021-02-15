@@ -870,7 +870,7 @@ static void si_lower_nir(struct si_screen *sscreen, struct nir_shader *nir)
                  /* TODO: LLVM fails to compile this test if VS inputs are 16-bit:
                   * dEQP-GLES31.functional.shaders.builtin_functions.integer.bitfieldinsert.uvec3_lowp_geometry
                   */
-                 (nir->info.stage != MESA_SHADER_VERTEX ? nir_var_shader_in : 0) | nir_var_shader_out,
+                 (1||nir->info.stage != MESA_SHADER_VERTEX ? nir_var_shader_in : 0) | nir_var_shader_out,
                  BITFIELD64_BIT(VARYING_SLOT_PNTC) | BITFIELD64_RANGE(VARYING_SLOT_VAR0, 32),
                  true);
    }
