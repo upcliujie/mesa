@@ -1170,6 +1170,12 @@ nir_max_unsigned_upper_bound(nir_ssa_scalar scalar)
    if (scalar.def->parent_instr->type == nir_instr_type_intrinsic) {
       nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(scalar.def->parent_instr);
       switch (intrin->intrinsic) {
+      case nir_intrinsic_load_tess_rel_patch_id_gcn:
+      case nir_intrinsic_load_tcs_num_patches_gcn:
+         /* A very generous maximum of 128 x wave64 TCS with a patch size of 1.
+          * (No current HW can actually have anything close to that many waves in a workgroup.)
+          */
+         return 128u * 64u * 1u;
       default:
          return max;
       }
@@ -1230,6 +1236,7 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
       uint32_t res = max;
       nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(scalar.def->parent_instr);
       switch (intrin->intrinsic) {
+      case nir_intrinsic_load_tess_vs_rel_id_gcn:
       case nir_intrinsic_load_local_invocation_index:
          if (shader->info.stage != MESA_SHADER_COMPUTE ||
              shader->info.cs.local_size_variable) {
@@ -1327,6 +1334,11 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
          uint32_t src0 = nir_unsigned_upper_bound(shader, range_ht, (nir_ssa_scalar){intrin->src[0].ssa, 0}, config);
          uint32_t src1 = nir_unsigned_upper_bound(shader, range_ht, (nir_ssa_scalar){intrin->src[1].ssa, 0}, config);
          res = MAX2(src0, src1);
+         break;
+      case nir_intrinsic_load_tess_rel_patch_id_gcn:
+      case nir_intrinsic_load_tcs_num_patches_gcn:
+         /* A very generous maximum */
+         res = config->max_work_group_invocations;
          break;
       }
       default:
