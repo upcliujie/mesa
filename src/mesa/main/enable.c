@@ -1112,7 +1112,11 @@ _mesa_set_enable(struct gl_context *ctx, GLenum cap, GLboolean state)
           * GLSL vertex shaders on desktop.
           */
          if (!_mesa_has_ARB_vertex_program(ctx) &&
-             ctx->API != API_OPENGL_CORE)
+             ctx->API != API_OPENGL_CORE &&
+             /* Manhattan uses this enum even if it's not part of GLES.
+              * We have to allow it for compatibility.
+              */
+             ctx->API != API_OPENGLES2)
             goto invalid_enum_error;
          if (ctx->VertexProgram.PointSizeEnabled == state)
             return;
