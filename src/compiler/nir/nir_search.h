@@ -134,14 +134,16 @@ uint16_t nir_search_op_for_nir_op(nir_op op);
 typedef struct {
    nir_search_value value;
 
-   /* When set on a search expression, the expression will only match an SSA
-    * value that does *not* have the exact bit set and for shaders which do not
-    * require that denormals are flushed and -0.0/inf/NaN are preserved.  If
-    * unset, the exact bit on the SSA value is ignored.
+   /* Same as exact, except the expression will not match for shaders which
+    * require that denormals are flushed or -0.0/inf/NaN are preserved.
     */
    bool unsafe;
 
-   /** In a replacement, requests that the instruction be marked exact. */
+   /* In a replacement, requests that the instruction be marked exact.
+    * When set on a search expression, the expression will only match an SSA
+    * value that does *not* have the exact bit set.  If unset, the exact bit on
+    * the SSA value is ignored.
+    */
    bool exact;
 
    /* Commutative expression index.  This is assigned by opt_algebraic.py when
