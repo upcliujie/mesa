@@ -506,6 +506,29 @@ lower_tess_ctrl_block(nir_block *block, nir_builder *b, struct state *state)
 			nir_instr_remove(&intr->instr);
 			break;
 
+		case nir_intrinsic_scoped_barrier: {
+			/* Remove the scope corresponding to nir_intrinsic_control_barrier
+			 * and mode corresponding to nir_intrinsic_memory_barrier_tcs_patch,
+			 * because they are not applicable to TCS for the reasons described
+			 * above.
+			 */
+
+			nir_variable_mode modes = nir_intrinsic_memory_modes(intr);
+			modes &= ~nir_var_shader_out;
+
+			nir_scope scope = nir_intrinsic_execution_scope(intr);
+			scope &= ~NIR_SCOPE_WORKGROUP;
+
+			if (scope == 0 && modes == 0) {
+				nir_instr_remove(&intr->instr);
+			} else {
+				nir_intrinsic_set_memory_modes(intr, modes);
+				nir_intrinsic_set_execution_scope(intr, scope);
+			}
+
+			break;
+		}
+
 		case nir_intrinsic_load_per_vertex_output: {
 			// src[] = { vertex, offset }.
 
