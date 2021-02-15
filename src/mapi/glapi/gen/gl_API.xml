@@ -2312,7 +2312,9 @@
         <glx rop="125"/>
     </function>
 
-    <function name="DrawBuffer" no_error="true">
+    <!-- Manhattan uses glDrawBuffer even if it's not part of GLES.
+         We have to expose it for compatibility. -->
+    <function name="DrawBuffer" no_error="true" es2="2.0">
         <param name="mode" type="GLenum"/>
         <glx rop="126"/>
     </function>
@@ -2893,7 +2895,9 @@
         <glx sop="141"/>
     </function>
 
-    <function name="DepthRange">
+    <!-- Manhattan uses glDepthRange even if it's not part of GLES.
+         We have to expose it for compatibility. -->
+    <function name="DepthRange" es2="2.0">
         <param name="zNear" type="GLclampd"/>
         <param name="zFar" type="GLclampd"/>
         <glx rop="174"/>
