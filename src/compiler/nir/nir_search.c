@@ -405,7 +405,7 @@ match_expression(const nir_search_expression *expr, nir_alu_instr *instr,
        instr->dest.dest.ssa.bit_size != expr->value.bit_size)
       return false;
 
-   state->inexact_match = expr->unsafe || state->inexact_match;
+   state->inexact_match = (expr->unsafe || expr->exact) || state->inexact_match;
    state->has_exact_alu = instr->exact || state->has_exact_alu;
    if (state->inexact_match && state->has_exact_alu)
       return false;
@@ -614,6 +614,8 @@ UNUSED static void dump_value(const nir_search_value *val)
       fprintf(stderr, "(");
       if (expr->unsafe)
          fprintf(stderr, "~");
+      if (expr->exact)
+         fprintf(stderr, "!");
       switch (expr->opcode) {
 #define CASE(n) \
       case nir_search_op_##n: fprintf(stderr, #n); break;
