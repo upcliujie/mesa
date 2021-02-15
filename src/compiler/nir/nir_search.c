@@ -405,7 +405,7 @@ match_expression(const nir_search_expression *expr, nir_alu_instr *instr,
        instr->dest.dest.ssa.bit_size != expr->value.bit_size)
       return false;
 
-   state->inexact_match = expr->inexact || state->inexact_match;
+   state->inexact_match = expr->imprecise || state->inexact_match;
    state->has_exact_alu = instr->exact || state->has_exact_alu;
    if (state->inexact_match && state->has_exact_alu)
       return false;
@@ -612,8 +612,10 @@ UNUSED static void dump_value(const nir_search_value *val)
    case nir_search_value_expression: {
       const nir_search_expression *expr = nir_search_value_as_expression(val);
       fprintf(stderr, "(");
-      if (expr->inexact)
+      if (expr->unsafe)
          fprintf(stderr, "~");
+      if (expr->imprecise || expr->exact)
+         fprintf(stderr, "!");
       switch (expr->opcode) {
 #define CASE(n) \
       case nir_search_op_##n: fprintf(stderr, #n); break;
@@ -877,7 +879,7 @@ nir_algebraic_instr(nir_builder *build, nir_instr *instr,
    unsigned bit_size = alu->dest.dest.ssa.bit_size;
    const unsigned execution_mode =
       build->shader->info.float_controls_execution_mode;
-   const bool ignore_inexact =
+   const bool ignore_unsafe =
       nir_is_float_control_signed_zero_inf_nan_preserve(execution_mode, bit_size) ||
       nir_is_denorm_flush_to_zero(execution_mode, bit_size);
 
@@ -886,7 +888,7 @@ nir_algebraic_instr(nir_builder *build, nir_instr *instr,
    for (uint16_t i = 0; i < transform_counts[xform_idx]; i++) {
       const struct transform *xform = &transforms[xform_idx][i];
       if (condition_flags[xform->condition_offset] &&
-          !(xform->search->inexact && ignore_inexact) &&
+          !(xform->search->unsafe && ignore_unsafe) &&
           nir_replace_instr(build, alu, range_ht, states, pass_op_table,
                             xform->search, xform->replace, worklist)) {
          _mesa_hash_table_clear(range_ht, NULL);
