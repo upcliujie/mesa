@@ -23,6 +23,7 @@
 
 #include "vk_device.h"
 
+#include "vk_alloc.h"
 #include "vk_common_entrypoints.h"
 #include "vk_instance.h"
 #include "vk_physical_device.h"
@@ -73,6 +74,19 @@ vk_device_init(struct vk_device *device,
       device->enabled_extensions.extensions[idx] = true;
    }
 
+   device->queue_infos = vk_alloc(&device->alloc,
+                                  sizeof(*device->queue_infos) *
+                                  pCreateInfo->queueCreateInfoCount,
+                                  8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+   if (!device->queue_infos)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
+      device->queue_infos[i].queue_family_index =
+         pCreateInfo->pQueueCreateInfos[i].queueFamilyIndex;
+      device->queue_infos[i].flags = pCreateInfo->pQueueCreateInfos[i].flags;
+   }
+
    p_atomic_set(&device->private_data_next_index, 0);
 
 #ifdef ANDROID
@@ -93,6 +107,8 @@ vk_device_finish(UNUSED struct vk_device *device)
       ralloc_free(device->swapchain_private);
    }
 #endif /* ANDROID */
+
+   vk_free(&device->alloc, device->queue_infos);
 
    vk_object_base_finish(&device->base);
 }
@@ -128,13 +144,20 @@ vk_common_GetDeviceQueue(VkDevice _device,
 {
    VK_FROM_HANDLE(vk_device, device, _device);
 
-   const VkDeviceQueueInfo2 info = {
+   VkDeviceQueueInfo2 info = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
       .pNext = NULL,
       .flags = 0,
       .queueFamilyIndex = queueFamilyIndex,
       .queueIndex = queueIndex,
    };
+
+   for (uint32_t i = 0; i < device->n_queue_infos; i++) {
+      if (queueFamilyIndex == device->queue_infos[i].queue_family_index) {
+         info.flags = device->queue_infos[i].flags;
+         break;
+      }
+   }
 
    device->dispatch_table.GetDeviceQueue2(_device, &info, pQueue);
 }
