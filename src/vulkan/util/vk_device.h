@@ -40,6 +40,12 @@ struct vk_device {
 
    struct vk_device_dispatch_table dispatch_table;
 
+   struct vk_device_queue_info {
+      uint32_t queue_family_index;
+      VkDeviceQueueCreateFlags flags;
+   } *queue_infos;
+   uint32_t n_queue_infos;
+
    /* For VK_EXT_private_data */
    uint32_t private_data_next_index;
 
