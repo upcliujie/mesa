@@ -135,10 +135,11 @@ typedef struct {
    nir_search_value value;
 
    /* When set on a search expression, the expression will only match an SSA
-    * value that does *not* have the exact bit set.  If unset, the exact bit
-    * on the SSA value is ignored.
+    * value that does *not* have the exact bit set and for shaders which do not
+    * require that denormals are flushed and -0.0/inf/NaN are preserved.  If
+    * unset, the exact bit on the SSA value is ignored.
     */
-   bool inexact;
+   bool unsafe;
 
    /** In a replacement, requests that the instruction be marked exact. */
    bool exact;

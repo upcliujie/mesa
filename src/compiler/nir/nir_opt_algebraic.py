@@ -50,11 +50,12 @@ signed_zero_inf_nan_preserve_32 = 'nir_is_float_control_signed_zero_inf_nan_pres
 # either a numeric constant or a string representing a variable name.
 #
 # If the opcode in a search expression is prefixed by a '~' character, this
-# indicates that the operation is inexact.  Such operations will only get
-# applied to SSA values that do not have the exact bit set.  This should be
-# used by by any optimizations that are not bit-for-bit exact.  It should not,
-# however, be used for backend-requested lowering operations as those need to
-# happen regardless of precision.
+# indicates that the operation is unsafe.  Such operations will only get
+# applied to SSA values that do not have the exact bit set and for shaders which
+# do not require that denormals are flushed and -0.0/inf/NaN are preserved. This
+# should be used by by any optimizations that are not bit-for-bit exact.  It
+# should not, however, be used for backend-requested lowering operations as
+# those need to happen regardless of precision.
 #
 # Variable names are specified as "[#]name[@type][(cond)][.swiz]" where:
 # "#" indicates that the given variable will only match constants,
