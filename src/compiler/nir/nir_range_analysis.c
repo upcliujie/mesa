@@ -1175,6 +1175,7 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
       uint32_t res = max;
       nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(scalar.def->parent_instr);
       switch (intrin->intrinsic) {
+      case nir_intrinsic_load_tess_vs_rel_id_gcn:
       case nir_intrinsic_load_local_invocation_index:
          if (shader->info.stage != MESA_SHADER_COMPUTE ||
              shader->info.cs.local_size_variable) {
@@ -1272,6 +1273,11 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
          uint32_t src0 = nir_unsigned_upper_bound(shader, range_ht, (nir_ssa_scalar){intrin->src[0].ssa, 0}, config);
          uint32_t src1 = nir_unsigned_upper_bound(shader, range_ht, (nir_ssa_scalar){intrin->src[1].ssa, 0}, config);
          res = MAX2(src0, src1);
+         break;
+      case nir_intrinsic_load_tess_rel_patch_id_gcn:
+      case nir_intrinsic_load_tcs_num_patches_gcn:
+         /* A very generous maximum */
+         res = config->max_work_group_invocations;
          break;
       }
       default:
