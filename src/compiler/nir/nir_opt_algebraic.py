@@ -43,6 +43,7 @@ signed_zero_inf_nan_preserve_16 = 'nir_is_float_control_signed_zero_inf_nan_pres
 signed_zero_inf_nan_preserve_32 = 'nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 32)'
 
 ignore_exact = nir_algebraic.ignore_exact
+imprecise = nir_algebraic.imprecise
 
 # Written in the form (<search>, <replace>) where <search> is an expression
 # and <replace> is either an expression or a value.  An expression is
