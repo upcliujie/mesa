@@ -3585,6 +3585,9 @@ _mesa_MapBufferRange(GLenum target, GLintptr offset, GLsizeiptr length,
       return NULL;
    }
 
+   if (access & GL_MAP_WRITE_BIT && !(access & GL_MAP_READ_BIT))
+      access |= GL_MAP_INVALIDATE_RANGE_BIT;
+
    bufObj = get_buffer(ctx, "glMapBufferRange", target, GL_INVALID_OPERATION);
    if (!bufObj)
       return NULL;
