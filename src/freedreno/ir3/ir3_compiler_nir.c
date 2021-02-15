@@ -1319,6 +1319,63 @@ emit_intrinsic_barrier(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 		barrier->flags = IR3_INSTR_SS | IR3_INSTR_SY;
 		barrier->barrier_class = IR3_BARRIER_EVERYTHING;
 		break;
+	case nir_intrinsic_scoped_barrier: {
+		nir_variable_mode modes = nir_intrinsic_memory_modes(intr);
+
+		/* shader_out is no-op for us, should have been removed in lower_tess */
+		assert(!(modes & nir_var_shader_out));
+
+		if (!(modes & (nir_var_mem_shared | nir_var_mem_ssbo |
+				nir_var_mem_global))) {
+			return;
+		}
+
+		barrier = ir3_FENCE(b);
+		barrier->cat7.r = true;
+		barrier->cat7.w = true;
+
+		if (modes & (nir_var_mem_ssbo | nir_var_mem_global)) {
+			barrier->cat7.g = true;
+		}
+
+		if (modes & nir_var_mem_shared) {
+			barrier->cat7.l = true;
+		}
+
+		barrier->barrier_class = 0;
+		barrier->barrier_conflict = 0;
+
+		if (modes & nir_var_mem_shared) {
+			barrier->barrier_class |= IR3_BARRIER_SHARED_W;
+			barrier->barrier_conflict |= IR3_BARRIER_SHARED_R |
+					IR3_BARRIER_SHARED_W;
+		}
+
+		if (modes & (nir_var_mem_ssbo | nir_var_mem_global)) {
+			barrier->barrier_class |= IR3_BARRIER_BUFFER_W;
+			barrier->barrier_conflict |=
+					IR3_BARRIER_BUFFER_R | IR3_BARRIER_BUFFER_W;
+		}
+
+		/* TODO: check for image mode when it has a separate one */
+		if (modes & nir_var_mem_ssbo) {
+			barrier->barrier_class |= IR3_BARRIER_IMAGE_W;
+			barrier->barrier_conflict |=
+					IR3_BARRIER_IMAGE_W | IR3_BARRIER_IMAGE_R;
+		}
+
+		if (nir_intrinsic_execution_scope(intr) >= NIR_SCOPE_WORKGROUP) {
+			array_insert(b, b->keeps, barrier);
+
+			barrier = ir3_BAR(b);
+			barrier->cat7.g = true;
+			barrier->cat7.l = true;
+			barrier->flags = IR3_INSTR_SS | IR3_INSTR_SY;
+			barrier->barrier_class = IR3_BARRIER_EVERYTHING;
+		}
+
+		break;
+	}
 	case nir_intrinsic_memory_barrier_buffer:
 		barrier = ir3_FENCE(b);
 		barrier->cat7.g = true;
@@ -1808,6 +1865,7 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 			ctx->so->no_earlyz = true;
 		dst[0] = ctx->funcs->emit_intrinsic_atomic_image(ctx, intr);
 		break;
+	case nir_intrinsic_scoped_barrier:
 	case nir_intrinsic_control_barrier:
 	case nir_intrinsic_memory_barrier:
 	case nir_intrinsic_group_memory_barrier:
