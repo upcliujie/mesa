@@ -45,15 +45,22 @@ bi_opt_dead_code_eliminate(bi_context *ctx, bi_block *block, bool soft)
         uint16_t *live = mem_dup(block->base.live_out, temp_count * sizeof(uint16_t));
 
         bi_foreach_instr_in_block_safe_rev(block, ins) {
+                /* If we read *and* write from the staging register, we can't
+                 * delete a destination without deleting the instruction */
+                bool sr_read = bi_opcode_props[ins->op].sr_read;
+                bool sr_write = bi_opcode_props[ins->op].sr_write;
+                bool can_cull = !(sr_read && sr_write);
+
                 unsigned index = bi_get_node(ins->dest[0]);
 
                 if (index < temp_count && !(live[index] & bi_writemask(ins))) {
-                        if (soft || bi_side_effects(ins->op))
-                                ins->dest[0] = bi_null();
-                        else
+                        if (!(soft || bi_side_effects(ins->op))) {
                                 bi_remove_instruction(ins);
-
-                        progress |= true;
+                                progress = true;
+                        } else if (can_cull) {
+                                ins->dest[0] = bi_null();
+                                progress = true;
+                        }
                 }
 
                 bi_liveness_ins_update(live, ins, temp_count);
