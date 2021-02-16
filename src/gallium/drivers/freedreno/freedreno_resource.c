@@ -70,7 +70,7 @@ static void
 rebind_resource_in_ctx(struct fd_context *ctx, struct fd_resource *rsc)
 	assert_dt
 {
-	struct pipe_resource *prsc = &rsc->base;
+	struct pipe_resource *prsc = &rsc->b.b;
 
 	if (ctx->rebind_resource)
 		ctx->rebind_resource(ctx, rsc);
@@ -155,7 +155,7 @@ static void
 rebind_resource(struct fd_resource *rsc)
 	assert_dt
 {
-	struct fd_screen *screen = fd_screen(rsc->base.screen);
+	struct fd_screen *screen = fd_screen(rsc->b.b.screen);
 
 	fd_screen_lock(screen);
 	fd_resource_lock(rsc);
@@ -171,7 +171,7 @@ rebind_resource(struct fd_resource *rsc)
 static inline void
 fd_resource_set_bo(struct fd_resource *rsc, struct fd_bo *bo)
 {
-	struct fd_screen *screen = fd_screen(rsc->base.screen);
+	struct fd_screen *screen = fd_screen(rsc->b.b.screen);
 
 	rsc->bo = bo;
 	rsc->seqno = p_atomic_inc_return(&screen->rsc_seqno);
@@ -187,7 +187,7 @@ __fd_resource_wait(struct fd_context *ctx, struct fd_resource *rsc,
 	int ret;
 
 	perf_time_ctx(ctx, 10000, "%s: a busy \"%"PRSC_FMT"\" BO stalled",
-				func, PRSC_ARGS(&rsc->base)) {
+				func, PRSC_ARGS(&rsc->b.b)) {
 		ret = fd_bo_cpu_prep(rsc->bo, ctx->pipe, op);
 	}
 
@@ -197,8 +197,8 @@ __fd_resource_wait(struct fd_context *ctx, struct fd_resource *rsc,
 static void
 realloc_bo(struct fd_resource *rsc, uint32_t size)
 {
-	struct pipe_resource *prsc = &rsc->base;
-	struct fd_screen *screen = fd_screen(rsc->base.screen);
+	struct pipe_resource *prsc = &rsc->b.b;
+	struct fd_screen *screen = fd_screen(rsc->b.b.screen);
 	uint32_t flags = DRM_FREEDRENO_GEM_CACHE_WCOMBINE |
 			DRM_FREEDRENO_GEM_TYPE_KMEM |
 			COND(prsc->bind & PIPE_BIND_SCANOUT, DRM_FREEDRENO_GEM_SCANOUT);
@@ -261,7 +261,7 @@ fd_try_shadow_resource(struct fd_context *ctx, struct fd_resource *rsc,
 	assert_dt
 {
 	struct pipe_context *pctx = &ctx->base;
-	struct pipe_resource *prsc = &rsc->base;
+	struct pipe_resource *prsc = &rsc->b.b;
 	bool fallback = false;
 
 	if (prsc->next)
@@ -330,8 +330,8 @@ fd_try_shadow_resource(struct fd_context *ctx, struct fd_resource *rsc,
 	 */
 	struct fd_resource *shadow = fd_resource(pshadow);
 
-	DBG("shadow: %p (%d) -> %p (%d)\n", rsc, rsc->base.reference.count,
-			shadow, shadow->base.reference.count);
+	DBG("shadow: %p (%d) -> %p (%d)\n", rsc, rsc->b.b.reference.count,
+			shadow, shadow->b.b.reference.count);
 
 	/* TODO valid_buffer_range?? */
 	swap(rsc->bo,        shadow->bo);
@@ -463,7 +463,7 @@ fd_alloc_staging(struct fd_context *ctx, struct fd_resource *rsc,
 		unsigned level, const struct pipe_box *box)
 {
 	struct pipe_context *pctx = &ctx->base;
-	struct pipe_resource tmpl = rsc->base;
+	struct pipe_resource tmpl = rsc->b.b;
 
 	tmpl.width0  = box->width;
 	tmpl.height0 = box->height;
@@ -540,7 +540,7 @@ static void fd_resource_transfer_flush_region(struct pipe_context *pctx,
 	struct fd_resource *rsc = fd_resource(ptrans->resource);
 
 	if (ptrans->resource->target == PIPE_BUFFER)
-		util_range_add(&rsc->base, &rsc->valid_buffer_range,
+		util_range_add(&rsc->b.b, &rsc->valid_buffer_range,
 					   ptrans->box.x + box->x,
 					   ptrans->box.x + box->x + box->width);
 }
@@ -612,7 +612,7 @@ fd_resource_transfer_unmap(struct pipe_context *pctx,
 		fd_bo_cpu_fini(rsc->bo);
 	}
 
-	util_range_add(&rsc->base, &rsc->valid_buffer_range,
+	util_range_add(&rsc->b.b, &rsc->valid_buffer_range,
 				   ptrans->box.x,
 				   ptrans->box.x + ptrans->box.width);
 
@@ -691,6 +691,8 @@ resource_transfer_map(struct pipe_context *pctx,
 	char *buf;
 	int ret = 0;
 
+	tc_assert_driver_thread(&ctx->tc);
+
 	/* we always need a staging texture for tiled buffers:
 	 *
 	 * TODO we might sometimes want to *also* shadow the resource to avoid
@@ -703,7 +705,7 @@ resource_transfer_map(struct pipe_context *pctx,
 		staging_rsc = fd_alloc_staging(ctx, rsc, level, box);
 		if (staging_rsc) {
 			// TODO for PIPE_MAP_READ, need to do untiling blit..
-			trans->staging_prsc = &staging_rsc->base;
+			trans->staging_prsc = &staging_rsc->b.b;
 			trans->base.stride = fd_resource_pitch(staging_rsc, 0);
 			trans->base.layer_stride = fd_resource_layer_stride(staging_rsc, 0);
 			trans->staging_box = *box;
@@ -791,7 +793,7 @@ resource_transfer_map(struct pipe_context *pctx,
 				 */
 				staging_rsc = fd_alloc_staging(ctx, rsc, level, box);
 				if (staging_rsc) {
-					trans->staging_prsc = &staging_rsc->base;
+					trans->staging_prsc = &staging_rsc->b.b;
 					trans->base.stride = fd_resource_pitch(staging_rsc, 0);
 					trans->base.layer_stride =
 						fd_resource_layer_stride(staging_rsc, 0);
@@ -895,6 +897,8 @@ fd_resource_destroy(struct pipe_screen *pscreen,
 	if (rsc->scanout)
 		renderonly_scanout_destroy(rsc->scanout, fd_screen(pscreen)->ro);
 
+	threaded_resource_deinit(prsc);
+
 	util_range_destroy(&rsc->valid_buffer_range);
 	simple_mtx_destroy(&rsc->lock);
 	FREE(rsc);
@@ -980,7 +984,7 @@ fd_resource_allocate_and_resolve(struct pipe_screen *pscreen,
 	uint32_t size;
 
 	rsc = CALLOC_STRUCT(fd_resource);
-	prsc = &rsc->base;
+	prsc = &rsc->b.b;
 
 	if (!rsc)
 		return NULL;
@@ -988,6 +992,8 @@ fd_resource_allocate_and_resolve(struct pipe_screen *pscreen,
 	*prsc = *tmpl;
 
 	DBG("%"PRSC_FMT, PRSC_ARGS(prsc));
+
+	threaded_resource_init(prsc);
 
 	fd_resource_layout_init(prsc);
 
@@ -1129,7 +1135,7 @@ fd_resource_create_with_modifiers(struct pipe_screen *pscreen,
 		if (!rsc)
 			return NULL;
 
-		return &rsc->base;
+		return &rsc->b.b;
 	}
 
 	prsc = fd_resource_allocate_and_resolve(pscreen, tmpl, modifiers, count, &size);
@@ -1172,11 +1178,13 @@ fd_resource_from_handle(struct pipe_screen *pscreen,
 		return NULL;
 
 	struct fdl_slice *slice = fd_resource_slice(rsc, 0);
-	struct pipe_resource *prsc = &rsc->base;
+	struct pipe_resource *prsc = &rsc->b.b;
 
 	*prsc = *tmpl;
 
 	DBG("%"PRSC_FMT", modifier=%"PRIx64, PRSC_ARGS(prsc), handle->modifier);
+
+	threaded_resource_init(prsc);
 
 	fd_resource_layout_init(prsc);
 
@@ -1310,7 +1318,7 @@ fd_resource_get_stencil(struct pipe_resource *prsc)
 {
 	struct fd_resource *rsc = fd_resource(prsc);
 	if (rsc->stencil)
-		return &rsc->stencil->base;
+		return &rsc->stencil->b.b;
 	return NULL;
 }
 
