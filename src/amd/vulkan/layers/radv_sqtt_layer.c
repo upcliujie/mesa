@@ -289,7 +289,7 @@ radv_describe_layout_transition(struct radv_cmd_buffer *cmd_buffer,
 	cmd_buffer->state.num_layout_transitions++;
 }
 
-void
+static void
 radv_describe_pipeline_bind(struct radv_cmd_buffer *cmd_buffer,
 			    VkPipelineBindPoint pipelineBindPoint,
 			    struct radv_pipeline *pipeline)
@@ -297,6 +297,9 @@ radv_describe_pipeline_bind(struct radv_cmd_buffer *cmd_buffer,
 	struct rgp_sqtt_marker_pipeline_bind marker = {0};
 	struct radeon_cmdbuf *cs = cmd_buffer->cs;
 	uint64_t pipeline_idx = (uintptr_t)pipeline;
+
+	// TODO: Enable when PSO records & friends are dumped.
+	return;
 
 	if (likely(!cmd_buffer->device->thread_trace.bo))
 		return;
@@ -679,9 +682,13 @@ void sqtt_CmdCopyQueryPoolResults(
 void sqtt_CmdBindPipeline(
 	VkCommandBuffer                             commandBuffer,
 	VkPipelineBindPoint                         pipelineBindPoint,
-	VkPipeline                                  pipeline)
+	VkPipeline                                  _pipeline)
 {
-	API_MARKER(BindPipeline, commandBuffer, pipelineBindPoint, pipeline);
+	RADV_FROM_HANDLE(radv_pipeline, pipeline, _pipeline);
+
+	API_MARKER(BindPipeline, commandBuffer, pipelineBindPoint, _pipeline);
+
+	radv_describe_pipeline_bind(cmd_buffer, pipelineBindPoint, pipeline);
 }
 
 void sqtt_CmdBindDescriptorSets(
