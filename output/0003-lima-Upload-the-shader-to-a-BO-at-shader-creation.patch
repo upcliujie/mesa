@@ -1,0 +1,95 @@
+From bcae4459b5e148d0aeb20d95de80d968c6eef070 Mon Sep 17 00:00:00 2001
+From: Eric Anholt <eric@anholt.net>
+Date: Tue, 16 Feb 2021 12:49:01 -0800
+Subject: [PATCH 3/4] lima: Upload the shader to a BO at shader creation.
+
+No need to conditionally upload later.
+
+Signed-off-by: Erico Nunes <nunes.erico@gmail.com>
+---
+ src/gallium/drivers/lima/lima_program.c | 48 ++++++++++++-------------
+ 1 file changed, 22 insertions(+), 26 deletions(-)
+
+diff --git a/src/gallium/drivers/lima/lima_program.c b/src/gallium/drivers/lima/lima_program.c
+index f41b5d77a10..a6fc583924a 100644
+--- a/src/gallium/drivers/lima/lima_program.c
++++ b/src/gallium/drivers/lima/lima_program.c
+@@ -300,6 +300,16 @@ lima_fs_compile_shader(struct lima_context *ctx,
+    fs->uses_discard = nir->info.fs.uses_discard;
+    ralloc_free(nir);
+ 
++   fs->bo = lima_bo_create(screen, fs->shader_size, 0);
++   if (!fs->bo) {
++      fprintf(stderr, "lima: create fs shader bo fail\n");
++      return false;
++   }
++
++   memcpy(lima_bo_map(fs->bo), fs->shader, fs->shader_size);
++   ralloc_free(fs->shader);
++   fs->shader = NULL;
++
+    return true;
+ }
+ 
+@@ -387,6 +397,18 @@ lima_vs_compile_shader(struct lima_context *ctx,
+    }
+ 
+    ralloc_free(nir);
++
++   struct lima_screen *screen = lima_screen(ctx->base.screen);
++   vs->bo = lima_bo_create(screen, vs->shader_size, 0);
++   if (!vs->bo) {
++      fprintf(stderr, "lima: create vs shader bo fail\n");
++      return false;
++   }
++
++   memcpy(lima_bo_map(vs->bo), vs->shader, vs->shader_size);
++   ralloc_free(vs->shader);
++   vs->shader = NULL;
++
+    return true;
+ }
+ 
+@@ -440,19 +462,6 @@ lima_update_vs_state(struct lima_context *ctx)
+ 
+    ctx->vs = vs;
+ 
+-   if (!vs->bo) {
+-      struct lima_screen *screen = lima_screen(ctx->base.screen);
+-      vs->bo = lima_bo_create(screen, vs->shader_size, 0);
+-      if (!vs->bo) {
+-         fprintf(stderr, "lima: create vs shader bo fail\n");
+-         return false;
+-      }
+-
+-      memcpy(lima_bo_map(vs->bo), vs->shader, vs->shader_size);
+-      ralloc_free(vs->shader);
+-      vs->shader = NULL;
+-   }
+-
+    if (ctx->vs != old_vs)
+       ctx->dirty |= LIMA_CONTEXT_DIRTY_COMPILED_VS;
+ 
+@@ -523,19 +532,6 @@ lima_update_fs_state(struct lima_context *ctx)
+ 
+    ctx->fs = fs;
+ 
+-   if (!fs->bo) {
+-      struct lima_screen *screen = lima_screen(ctx->base.screen);
+-      fs->bo = lima_bo_create(screen, fs->shader_size, 0);
+-      if (!fs->bo) {
+-         fprintf(stderr, "lima: create fs shader bo fail\n");
+-         return false;
+-      }
+-
+-      memcpy(lima_bo_map(fs->bo), fs->shader, fs->shader_size);
+-      ralloc_free(fs->shader);
+-      fs->shader = NULL;
+-   }
+-
+    if (ctx->fs != old_fs)
+       ctx->dirty |= LIMA_CONTEXT_DIRTY_COMPILED_FS;
+ 
+-- 
+2.29.2
+

@@ -1,0 +1,123 @@
+From b04bda1f4562cd9a7e555ab3d1cc381b961366a2 Mon Sep 17 00:00:00 2001
+From: Eric Anholt <eric@anholt.net>
+Date: Tue, 16 Feb 2021 12:42:22 -0800
+Subject: [PATCH 1/4] lima: Stop encoding the texture format in the shader key.
+
+We can compose the swizzles at sampler view creation time, saving
+recompiles on texture format changes.
+
+Signed-off-by: Erico Nunes <nunes.erico@gmail.com>
+---
+ src/gallium/drivers/lima/lima_context.h |  2 +-
+ src/gallium/drivers/lima/lima_program.c | 28 +++++--------------------
+ src/gallium/drivers/lima/lima_state.c   |  6 ++++++
+ 3 files changed, 12 insertions(+), 24 deletions(-)
+
+diff --git a/src/gallium/drivers/lima/lima_context.h b/src/gallium/drivers/lima/lima_context.h
+index 128127f9dfd..87c25b7e89a 100644
+--- a/src/gallium/drivers/lima/lima_context.h
++++ b/src/gallium/drivers/lima/lima_context.h
+@@ -58,7 +58,6 @@ struct lima_fs_bind_state {
+ struct lima_fs_key {
+    struct lima_fs_bind_state *shader_state;
+    struct {
+-      enum pipe_format format;
+       uint8_t swizzle[4];
+    } tex[PIPE_MAX_SAMPLERS];
+ };
+@@ -292,6 +291,7 @@ lima_sampler_state(struct pipe_sampler_state *psstate)
+ 
+ struct lima_sampler_view {
+    struct pipe_sampler_view base;
++   uint8_t swizzle[4];
+ };
+ 
+ static inline struct lima_sampler_view *
+diff --git a/src/gallium/drivers/lima/lima_program.c b/src/gallium/drivers/lima/lima_program.c
+index 8d60c6d14ed..11447a93c57 100644
+--- a/src/gallium/drivers/lima/lima_program.c
++++ b/src/gallium/drivers/lima/lima_program.c
+@@ -37,7 +37,6 @@
+ #include "lima_job.h"
+ #include "lima_program.h"
+ #include "lima_bo.h"
+-#include "lima_format.h"
+ 
+ #include "ir/lima_ir.h"
+ 
+@@ -283,23 +282,9 @@ lima_fs_compile_shader(struct lima_context *ctx,
+       .swizzle_result = ~0u,
+    };
+ 
+-   /* Lower the format swizzle and ARB_texture_swizzle-style swizzle. */
+    for (int i = 0; i < PIPE_MAX_SAMPLERS; i++) {
+-      enum pipe_format format = key->tex[i].format;
+-      if (!format)
+-         continue;
+-
+-      const uint8_t *format_swizzle = lima_format_get_texel_swizzle(format);
+-
+-      for (int j = 0; j < 4; j++) {
+-         uint8_t arb_swiz = key->tex[i].swizzle[j];
+-
+-         if (arb_swiz <= 3) {
+-            tex_options.swizzles[i][j] = format_swizzle[arb_swiz];
+-         } else {
+-            tex_options.swizzles[i][j] = arb_swiz;
+-         }
+-      }
++      for (int j = 0; j < 4; j++)
++         tex_options.swizzles[i][j] = key->tex[i].swizzle[j];
+    }
+ 
+    lima_program_optimize_fs_nir(nir, &tex_options);
+@@ -522,12 +507,9 @@ lima_update_fs_state(struct lima_context *ctx)
+        lima_tex->num_samplers &&
+        lima_tex->num_textures)) {
+       for (int i = 0; i < lima_tex->num_samplers; i++) {
+-         struct pipe_sampler_view *sampler = lima_tex->textures[i];
+-         key->tex[i].format = sampler->format;
+-         key->tex[i].swizzle[0] = sampler->swizzle_r;
+-         key->tex[i].swizzle[1] = sampler->swizzle_g;
+-         key->tex[i].swizzle[2] = sampler->swizzle_b;
+-         key->tex[i].swizzle[3] = sampler->swizzle_a;
++         struct lima_sampler_view *sampler = lima_sampler_view(lima_tex->textures[i]);
++         for (int j = 0; j < 4; j++)
++            key->tex[i].swizzle[j] = sampler->swizzle[j];
+       }
+    }
+ 
+diff --git a/src/gallium/drivers/lima/lima_state.c b/src/gallium/drivers/lima/lima_state.c
+index 957ed7cefcb..31e578c52cb 100644
+--- a/src/gallium/drivers/lima/lima_state.c
++++ b/src/gallium/drivers/lima/lima_state.c
+@@ -23,6 +23,7 @@
+  *
+  */
+ 
++#include "util/format/u_format.h"
+ #include "util/u_memory.h"
+ #include "util/u_inlines.h"
+ #include "util/u_helpers.h"
+@@ -33,6 +34,7 @@
+ 
+ #include "lima_screen.h"
+ #include "lima_context.h"
++#include "lima_format.h"
+ #include "lima_resource.h"
+ 
+ static void
+@@ -355,6 +357,10 @@ lima_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *prsc,
+    so->base.reference.count = 1;
+    so->base.context = pctx;
+ 
++   uint8_t sampler_swizzle[4] = {cso->swizzle_r, cso->swizzle_g, cso->swizzle_b, cso->swizzle_a};
++   const uint8_t *format_swizzle = lima_format_get_texel_swizzle(cso->format);
++   util_format_compose_swizzles(format_swizzle, sampler_swizzle, so->swizzle);
++
+    return &so->base;
+ }
+ 
+-- 
+2.29.2
+
