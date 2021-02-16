@@ -8556,13 +8556,7 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
       emit_wqm(bld, wqm_tmp, dst);
       break;
    }
-   case nir_intrinsic_load_helper_invocation: {
-      Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
-      bld.pseudo(aco_opcode::p_load_helper, Definition(dst));
-      ctx->block->kind |= block_kind_needs_lowering;
-      ctx->program->needs_exact = true;
-      break;
-   }
+   case nir_intrinsic_load_helper_invocation:
    case nir_intrinsic_is_helper_invocation: {
       Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
       bld.pseudo(aco_opcode::p_is_helper, Definition(dst));
