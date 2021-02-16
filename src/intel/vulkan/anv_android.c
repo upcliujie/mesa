@@ -729,13 +729,10 @@ anv_AcquireImageANDROID(
          semaphore_fd = nativeFenceFd;
          fence_fd = dup(nativeFenceFd);
          if (fence_fd < 0) {
+            VkResult err = (errno == EMFILE) ? VK_ERROR_TOO_MANY_OBJECTS :
+                                               VK_ERROR_OUT_OF_HOST_MEMORY;
             close(nativeFenceFd);
-            if (errno == EMFILE) {
-               return vk_error(VK_ERROR_TOO_MANY_OBJECTS);
-            } else {
-               /* We don't know what error this is */
-               return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
-            }
+            return vk_error(err);
          }
       } else if (semaphore_h != VK_NULL_HANDLE) {
          semaphore_fd = nativeFenceFd;
