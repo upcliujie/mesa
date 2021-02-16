@@ -109,8 +109,10 @@ zink_create_surface(struct pipe_context *pctx,
    ivci.subresourceRange.layerCount = 1 + templ->u.tex.last_layer - templ->u.tex.first_layer;
 
    if (pres->target == PIPE_TEXTURE_CUBE ||
-       pres->target == PIPE_TEXTURE_CUBE_ARRAY)
-      ivci.subresourceRange.layerCount *= 6;
+       pres->target == PIPE_TEXTURE_CUBE_ARRAY) {
+      if (ivci.subresourceRange.layerCount != 6)
+         ivci.subresourceRange.layerCount *= 6;
+   }
 
    if (vkCreateImageView(screen->dev, &ivci, NULL,
                          &surface->image_view) != VK_SUCCESS) {
