@@ -5,7 +5,7 @@ traces:
   - path: glmark2/desktop-blur-radius=5:effect=blur:passes=1:separable=true:windows=4.rdc
     expectations:
       - device: gl-radeonsi-stoney
-        checksum: 316650141be869c8afe76b42d3573b49
+        checksum: 316650141be869c8afe76b42d3573b42
   - path: glmark2/jellyfish.rdc
     expectations:
       - device: gl-radeonsi-stoney

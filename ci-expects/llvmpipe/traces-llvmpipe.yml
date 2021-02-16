@@ -5,7 +5,7 @@ traces:
   - path: glmark2/desktop-blur-radius=5:effect=blur:passes=1:separable=true:windows=4.rdc
     expectations:
       - device: gl-vmware-llvmpipe
-        checksum: 8867f3a41f180626d0d4b7661ff5c0f4
+        checksum: 8867f3a41f180626d0d4b7661ff5c0f2
   - path: glmark2/jellyfish.rdc
     expectations:
       - device: gl-vmware-llvmpipe

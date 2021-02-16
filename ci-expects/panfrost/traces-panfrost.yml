@@ -5,9 +5,9 @@ traces:
   - path: glmark2/desktop-blur-radius=5:effect=blur:passes=1:separable=true:windows=4.rdc
     expectations:
       - device: gl-panfrost-t860
-        checksum: 95df5e619a36e88fe408e45567a2d149
+        checksum: 95df5e619a36e88fe408e45567a2d142
       - device: gl-panfrost-t760
-        checksum: 30663eac9a4767d26fbf9b6db9712d9f
+        checksum: 30663eac9a4767d26fbf9b6db9712d92
   - path: glmark2/jellyfish.rdc
     expectations:
       - device: gl-panfrost-t860
