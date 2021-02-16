@@ -73,9 +73,7 @@
 #include <llvm/Support/CBindingWrapping.h>
 
 #include <llvm/Config/llvm-config.h>
-#if LLVM_USE_INTEL_JITEVENTS
 #include <llvm/ExecutionEngine/JITEventListener.h>
-#endif
 
 #if LLVM_VERSION_MAJOR < 7
 // Workaround http://llvm.org/PR23628
@@ -538,6 +536,9 @@ lp_build_create_jit_compiler_for_module(LLVMExecutionEngineRef *OutJIT,
       JIT->setObjectCache(objcache);
       cache_out->jit_obj_cache = (void *)objcache;
    }
+
+   JIT->RegisterJITEventListener(
+      JITEventListener::createPerfJITEventListener());
 
 #if LLVM_USE_INTEL_JITEVENTS
    JITEventListener *JEL = JITEventListener::createIntelJITEventListener();
