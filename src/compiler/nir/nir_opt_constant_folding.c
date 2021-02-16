@@ -179,6 +179,71 @@ fail:
    return NULL;
 }
 
+static nir_ssa_def *
+try_extract_const_addition(nir_builder *b, nir_instr *instr, unsigned *out_const)
+{
+   if (instr->type != nir_instr_type_alu)
+      return NULL;
+
+   nir_alu_instr *alu = nir_instr_as_alu(instr);
+   if (alu->op != nir_op_iadd ||
+       !nir_alu_src_is_trivial_ssa(alu, 0) ||
+       !nir_alu_src_is_trivial_ssa(alu, 1))
+      return NULL;
+
+   if (!alu->no_unsigned_wrap)
+      return NULL;
+
+   for (unsigned i = 0; i < 2; ++i) {
+      if (nir_src_is_const(alu->src[i].src)) {
+         *out_const += nir_src_as_uint(alu->src[i].src);
+         return alu->src[1 - i].src.ssa;
+      }
+
+      nir_ssa_def *replace_src = try_extract_const_addition(b, alu->src[0].src.ssa->parent_instr, out_const);
+      if (replace_src) {
+         b->cursor = nir_before_instr(&alu->instr);
+         return nir_iadd(b, replace_src, alu->src[1 - i].src.ssa);
+      }
+   }
+
+   return NULL;
+}
+
+static bool
+try_fold_load_store(nir_builder *b,
+                    nir_intrinsic_instr *intrin,
+                    UNUSED struct constant_fold_state *state,
+                    unsigned offset_src_idx)
+{
+   /* Assume that BASE is the constant offset of a load/store.
+    * Try to constant-fold additions to the offset source
+    * into the actual const offset of the instruction.
+    */
+
+   unsigned off_const = nir_intrinsic_base(intrin);
+   nir_src *off_src = &intrin->src[offset_src_idx];
+   nir_ssa_def *replace_src = NULL;
+
+   if (!off_src->is_ssa || off_src->ssa->bit_size != 32)
+      return false;
+
+   if (!nir_src_is_const(*off_src)) {
+      replace_src = try_extract_const_addition(b, off_src->ssa->parent_instr, &off_const);
+   } else if (nir_src_as_uint(*off_src)) {
+      off_const += nir_src_as_uint(*off_src);
+      b->cursor = nir_before_instr(&intrin->instr);
+      replace_src = nir_imm_zero(b, off_src->ssa->num_components, off_src->ssa->bit_size);
+   }
+
+   if (!replace_src)
+      return false;
+
+   nir_instr_rewrite_src(&intrin->instr, &intrin->src[offset_src_idx], nir_src_for_ssa(replace_src));
+   nir_intrinsic_set_base(intrin, off_const);
+   return true;
+}
+
 static bool
 try_fold_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin,
                    struct constant_fold_state *state)
@@ -226,6 +291,11 @@ try_fold_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin,
       }
       return false;
    }
+
+   case nir_intrinsic_load_shared:
+      return try_fold_load_store(b, intrin, state, 0);
+   case nir_intrinsic_store_shared:
+      return try_fold_load_store(b, intrin, state, 1);
 
    case nir_intrinsic_load_constant: {
       state->has_load_constant = true;
