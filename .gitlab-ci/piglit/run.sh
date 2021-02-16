@@ -192,7 +192,7 @@ fi
 
 if [ ${PIGLIT_JUNIT_RESULTS:-0} -eq 1 ]; then
     ./piglit summary aggregate "$RESULTS" -o junit.xml
-    FAILURE_MESSAGE=$(printf "${FAILURE_MESSAGE}\n%s" "Check the JUnit report for failures at: ${CI_JOB_URL}/artifacts/file/results/junit.xml")
+    FAILURE_MESSAGE=$(printf "${FAILURE_MESSAGE}\n%s" "Check the JUnit report for failures at: https://${CI_PROJECT_ROOT_NAMESPACE}.${CI_PAGES_DOMAIN}/-/${CI_PROJECT_NAME}/-/jobs/${CI_JOB_ID}/artifacts/results/junit.xml")
 fi
 
 PIGLIT_RESULTS="${PIGLIT_RESULTS:-$PIGLIT_PROFILES}"
@@ -237,7 +237,7 @@ if [ ${PIGLIT_HTML_SUMMARY:-1} -eq 1 ]; then
             | xargs -0 sed -i 's%<img src="file://%<img src="https://'"${MINIO_HOST}${PIGLIT_REPLAY_REFERENCE_IMAGES_BASE_URL}"'/%g'
     fi
 
-    FAILURE_MESSAGE=$(printf "${FAILURE_MESSAGE}\n%s" "Check the HTML summary for problems at: ${CI_JOB_URL}/artifacts/file/summary/problems.html")
+    FAILURE_MESSAGE=$(printf "${FAILURE_MESSAGE}\n%s" "Check the HTML summary for problems at: https://${CI_PROJECT_ROOT_NAMESPACE}.${CI_PAGES_DOMAIN}/-/${CI_PROJECT_NAME}/-/jobs/${CI_JOB_ID}/artifacts/results/summary/problems.html")
 fi
 
 quiet print_red printf "%s\n" "$FAILURE_MESSAGE"
