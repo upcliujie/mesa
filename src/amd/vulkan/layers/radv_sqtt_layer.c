@@ -290,7 +290,7 @@ radv_describe_layout_transition(struct radv_cmd_buffer *cmd_buffer,
 	cmd_buffer->state.num_layout_transitions++;
 }
 
-void
+static void
 radv_describe_pipeline_bind(struct radv_cmd_buffer *cmd_buffer,
 			    VkPipelineBindPoint pipelineBindPoint,
 			    struct radv_pipeline *pipeline)
@@ -671,9 +671,13 @@ void sqtt_CmdCopyQueryPoolResults(
 void sqtt_CmdBindPipeline(
 	VkCommandBuffer                             commandBuffer,
 	VkPipelineBindPoint                         pipelineBindPoint,
-	VkPipeline                                  pipeline)
+	VkPipeline                                  _pipeline)
 {
-	API_MARKER(BindPipeline, commandBuffer, pipelineBindPoint, pipeline);
+	RADV_FROM_HANDLE(radv_pipeline, pipeline, _pipeline);
+
+	API_MARKER(BindPipeline, commandBuffer, pipelineBindPoint, _pipeline);
+
+	radv_describe_pipeline_bind(cmd_buffer, pipelineBindPoint, pipeline);
 }
 
 void sqtt_CmdBindDescriptorSets(
