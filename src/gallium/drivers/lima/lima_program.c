@@ -503,14 +503,10 @@ lima_update_fs_state(struct lima_context *ctx)
    memset(key, 0, sizeof(*key));
    key->shader_state = ctx->bind_fs;
 
-   if (((ctx->dirty & LIMA_CONTEXT_DIRTY_TEXTURES) &&
-       lima_tex->num_samplers &&
-       lima_tex->num_textures)) {
-      for (int i = 0; i < lima_tex->num_samplers; i++) {
-         struct lima_sampler_view *sampler = lima_sampler_view(lima_tex->textures[i]);
-         for (int j = 0; j < 4; j++)
-            key->tex[i].swizzle[j] = sampler->swizzle[j];
-      }
+   for (int i = 0; i < lima_tex->num_samplers; i++) {
+      struct lima_sampler_view *sampler = lima_sampler_view(lima_tex->textures[i]);
+      for (int j = 0; j < 4; j++)
+         key->tex[i].swizzle[j] = sampler->swizzle[j];
    }
 
    /* Fill rest with identity swizzle */
