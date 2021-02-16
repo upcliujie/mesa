@@ -123,6 +123,25 @@ opt_shrink_vectors_image_store(nir_builder *b, nir_intrinsic_instr *instr)
       return false;
 
    unsigned components = util_format_get_nr_components(format);
+
+   /* workaround game bugs where the format is too small */
+   nir_alu_instr *vec = nir_src_as_alu_instr(instr->src[3]);
+   if (vec && vec->op == nir_op_vec(instr->num_components)) {
+      for (unsigned i = 1; i < instr->num_components; i++) {
+         if ((vec->src[i].src.ssa != vec->src[0].src.ssa ||
+              vec->src[i].swizzle[0] != vec->src[0].swizzle[0]) &&
+             vec->src[i].src.ssa->parent_instr->type != nir_instr_type_ssa_undef)
+            components = MAX2(components, i + 1);
+      }
+   } else if (nir_src_is_const(instr->src[3])) {
+      for (unsigned i = 1; i < instr->num_components; i++) {
+         if (nir_src_comp_as_uint(instr->src[3], i) != nir_src_comp_as_uint(instr->src[3], 0))
+            components = MAX2(components, i + 1);
+      }
+   } else {
+      return false;
+   }
+
    if (components >= instr->num_components)
       return false;
 
