@@ -31,6 +31,7 @@
 #include "compiler/shader_enums.h"
 #include "intel/common/gen_gem.h"
 #include "util/bitscan.h"
+#include "util/log.h"
 #include "util/macros.h"
 
 #include "drm-uapi/i915_drm.h"
@@ -1222,7 +1223,7 @@ gen_get_device_info_from_pci_id(int pci_id,
 #include "pci_ids/i915_pci_ids.h"
 
    default:
-      fprintf(stderr, "Driver does not support the 0x%x PCI ID.\n", pci_id);
+      mesa_logw("Driver does not support the 0x%x PCI ID.", pci_id);
       return false;
    }
 
@@ -1304,7 +1305,7 @@ getparam_topology(struct gen_device_info *devinfo, int fd)
     * be detected at runtime.
     */
    if (devinfo->gen >= 8)
-      fprintf(stderr, "Kernel 4.1 required to properly query GPU properties.\n");
+      mesa_logw("Kernel 4.1 required to properly query GPU properties.");
 
    return false;
 }
@@ -1397,17 +1398,16 @@ gen_get_device_info_from_fd(int fd, struct gen_device_info *devinfo)
          if (devid <= 0)
             devid = strtol(devid_override, NULL, 0);
          if (devid <= 0) {
-            fprintf(stderr, "Invalid INTEL_DEVID_OVERRIDE=\"%s\". "
+            mesa_loge("Invalid INTEL_DEVID_OVERRIDE=\"%s\". "
                     "Use a valid numeric PCI ID or one of the supported "
                     "platform names: %s", devid_override, name_map[0].name);
             for (unsigned i = 1; i < ARRAY_SIZE(name_map); i++)
-               fprintf(stderr, ", %s", name_map[i].name);
-            fprintf(stderr, "\n");
+               mesa_loge("   %s", name_map[i].name);
             return false;
          }
       } else {
-         fprintf(stderr, "Ignoring INTEL_DEVID_OVERRIDE=\"%s\" because "
-                 "real and effective user ID don't match.\n", devid_override);
+         mesa_logi("Ignoring INTEL_DEVID_OVERRIDE=\"%s\" because "
+                   "real and effective user ID don't match.", devid_override);
       }
    }
 
@@ -1425,7 +1425,7 @@ gen_get_device_info_from_fd(int fd, struct gen_device_info *devinfo)
    }
 
    if (devinfo->gen == 10) {
-      fprintf(stderr, "Gen10 support is redacted.\n");
+      mesa_loge("Gen10 support is redacted.");
       return false;
    }
 
@@ -1438,7 +1438,7 @@ gen_get_device_info_from_fd(int fd, struct gen_device_info *devinfo)
                 &timestamp_frequency))
       devinfo->timestamp_frequency = timestamp_frequency;
    else if (devinfo->gen >= 10) {
-      fprintf(stderr, "Kernel 4.15 required to read the CS timestamp frequency.\n");
+      mesa_loge("Kernel 4.15 required to read the CS timestamp frequency.");
       return false;
    }
 
