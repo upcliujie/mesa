@@ -78,11 +78,17 @@ zink_create_surface(struct pipe_context *pctx,
       break;
 
    case PIPE_TEXTURE_CUBE:
-      ivci.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+      if (templ->u.tex.first_layer == templ->u.tex.last_layer)
+         ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+      else
+         ivci.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
       break;
 
    case PIPE_TEXTURE_CUBE_ARRAY:
-      ivci.viewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
+      if (templ->u.tex.first_layer == templ->u.tex.last_layer)
+         ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+      else
+         ivci.viewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
       break;
 
    case PIPE_TEXTURE_3D:
@@ -107,10 +113,6 @@ zink_create_surface(struct pipe_context *pctx,
    ivci.subresourceRange.levelCount = 1;
    ivci.subresourceRange.baseArrayLayer = templ->u.tex.first_layer;
    ivci.subresourceRange.layerCount = 1 + templ->u.tex.last_layer - templ->u.tex.first_layer;
-
-   if (pres->target == PIPE_TEXTURE_CUBE ||
-       pres->target == PIPE_TEXTURE_CUBE_ARRAY)
-      ivci.subresourceRange.layerCount *= 6;
 
    if (vkCreateImageView(screen->dev, &ivci, NULL,
                          &surface->image_view) != VK_SUCCESS) {
