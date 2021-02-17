@@ -48,7 +48,7 @@ pan_shader_prepare_midgard_rsd(const struct pan_shader_info *info,
                                struct MALI_RENDERER_STATE *rsd)
 {
         rsd->properties.uniform_buffer_count = info->ubo_count;
-        rsd->properties.midgard.uniform_count = info->midgard.uniform_cutoff;
+        rsd->properties.midgard.uniform_count = info->push.count / 4;
         rsd->properties.midgard.shader_has_side_effects = info->writes_global;
         rsd->properties.midgard.fp_mode = MALI_FP_MODE_GL_INF_NAN_ALLOWED;
 
