@@ -1707,6 +1707,30 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
       prev_stage = &stages[s];
    }
 
+   /* Figure out the last geometry stage that should write the primitive
+    * shading rate if used and force it. Our backend will write the default
+    * value if the shader doesn't do it.
+    */
+   if (stages[MESA_SHADER_FRAGMENT].entrypoint &&
+       stages[MESA_SHADER_FRAGMENT].key.wm.coarse_pixel) {
+      struct anv_pipeline_stage *last_psr = NULL;
+      for (unsigned s = 0; s < MESA_SHADER_STAGES; s++) {
+         if (!stages[s].entrypoint)
+            continue;
+
+         switch (s) {
+         case MESA_SHADER_VERTEX:
+         case MESA_SHADER_TESS_EVAL:
+         case MESA_SHADER_GEOMETRY:
+            last_psr = &stages[s];
+            break;
+         }
+      }
+
+      assert(last_psr);
+      last_psr->nir->info.outputs_written |= VARYING_BIT_PRIMITIVE_SHADING_RATE;
+   }
+
    prev_stage = NULL;
    for (unsigned i = 0; i < ARRAY_SIZE(shader_order); i++) {
       gl_shader_stage s = shader_order[i];
