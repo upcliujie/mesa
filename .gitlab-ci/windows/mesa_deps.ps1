@@ -159,7 +159,7 @@ if (!$?) {
   Exit 1
 }
 Push-Location -Path C:\src\piglit
-git checkout f8767f9c9d0afe0ce8d37ddd80a61f73ccfb1cc6
+git checkout 4ac05e80170205f56a9c66d5ed5a0c73eb580bab
 Pop-Location
 
 Get-Date
