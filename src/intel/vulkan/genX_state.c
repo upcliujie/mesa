@@ -635,6 +635,7 @@ VkResult genX(CreateSampler)(
        *   "Mip Mode Filter must be set to MIPFILTER_NONE for Planar YUV surfaces."
        */
       const bool isl_format_is_planar_yuv =
+         sampler->conversion != NULL &&
          isl_format_is_yuv(sampler->conversion->format->planes[0].isl_format) &&
          isl_format_is_planar(sampler->conversion->format->planes[0].isl_format);
 
