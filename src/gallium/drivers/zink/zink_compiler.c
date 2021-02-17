@@ -469,6 +469,14 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
             nir = nir_shader_clone(NULL, zs->nir);
          NIR_PASS_V(nir, lower_dual_blend);
       }
+      if (zink_fs_key(key)->point_sprite) {
+         if (nir == zs->nir)
+            nir = nir_shader_clone(NULL, zs->nir);
+         /* this is shifted 2 places for packing */
+         uint32_t point_sprite = (zink_fs_key(key)->point_sprite & ~((2 << 1u) - 1)) >> 2;
+         enum pipe_sprite_coord_mode mode = (zink_fs_key(key)->point_sprite & ((2 << 1u) - 1)) >> 1;
+         NIR_PASS_V(nir, nir_lower_texcoord_replace, point_sprite, false, !!mode);
+      }
    }
    struct spirv_shader *spirv = nir_to_spirv(nir, streamout, shader_slot_map, shader_slots_reserved);
    assert(spirv);
