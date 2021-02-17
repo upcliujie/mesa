@@ -400,13 +400,13 @@ x86_test-base:
 x86_test-gl:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-gl "2021-02-11-vkglcts-1.2.5.1"
+    MESA_IMAGE_TAG: &x86_test-gl "2021-02-16-piglit-update"
 
 # Debian 10 based x86 test image for VK
 x86_test-vk:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-vk "2021-02-11-vkglcts-1.2.5.1"
+    MESA_IMAGE_TAG: &x86_test-vk "2021-02-16-piglit-update"
 
 # Debian 10 based ARM build image
 arm_build:
@@ -448,7 +448,7 @@ arm64_test:
   extends:
     - .use-arm_test-base
   variables:
-    MESA_IMAGE_TAG: &arm64_test "2021-02-15-kernel"
+    MESA_IMAGE_TAG: &arm64_test "2021-02-16-piglit-update"
 
 .use-arm64_test:
   extends:
@@ -465,7 +465,7 @@ armhf_test:
   extends:
     - .use-arm_test-base
   variables:
-    MESA_IMAGE_TAG: &armhf_test "2021-02-15-kernel"
+    MESA_IMAGE_TAG: &armhf_test "2021-02-16-piglit-update"
 
 .use-armhf_test:
   extends:
@@ -494,7 +494,7 @@ armhf_test:
     - .set-image
   variables:
     MESA_IMAGE_PATH: "windows/x64_build"
-    MESA_IMAGE_TAG: "2021-01-29"
+    MESA_IMAGE_TAG: "2021-02-16"
     MESA_UPSTREAM_IMAGE: "$CI_REGISTRY/$FDO_UPSTREAM_REPO/$MESA_IMAGE_PATH:${MESA_IMAGE_TAG}--${MESA_TEMPLATES_COMMIT}"
 
 windows_build_vs2019:
