@@ -778,6 +778,10 @@ void init_context(isel_context *ctx, nir_shader *shader)
                   case nir_intrinsic_read_invocation:
                   case nir_intrinsic_first_invocation:
                   case nir_intrinsic_ballot:
+                  case nir_intrinsic_load_ring_tess_factors_gcn:
+                  case nir_intrinsic_load_ring_tess_factors_offset_gcn:
+                  case nir_intrinsic_load_ring_tess_offchip_gcn:
+                  case nir_intrinsic_load_ring_tess_offchip_offset_gcn:
                      type = RegType::sgpr;
                      break;
                   case nir_intrinsic_load_sample_id:
@@ -853,6 +857,8 @@ void init_context(isel_context *ctx, nir_shader *shader)
                   case nir_intrinsic_load_invocation_id:
                   case nir_intrinsic_load_primitive_id:
                   case nir_intrinsic_load_mubuf_gcn:
+                  case nir_intrinsic_load_tess_rel_patch_id_gcn:
+                  case nir_intrinsic_load_tess_vs_rel_id_gcn:
                      type = RegType::vgpr;
                      break;
                   case nir_intrinsic_shuffle:
