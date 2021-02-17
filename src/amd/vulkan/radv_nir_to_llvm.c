@@ -4110,6 +4110,9 @@ LLVMModuleRef ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm,
 					ctx.tcs_num_patches,
 					tcs_num_outputs,
 					tcs_num_patch_outputs);
+
+			/* This is used for reporting LDS statistics */
+			ctx->program->config->lds_size = args->shader_info->tcs.num_lds_blocks;
 		}
 	}
 
