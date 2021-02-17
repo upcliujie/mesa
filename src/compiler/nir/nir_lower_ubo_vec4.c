@@ -113,6 +113,9 @@ nir_lower_ubo_vec4_lower(nir_builder *b, nir_instr *instr, void *data)
                                            intr->dest.ssa.bit_size,
                                            num_components);
 
+   if (nir_intrinsic_has_access(load))
+      nir_intrinsic_set_access(load, nir_intrinsic_access(intr));
+
    nir_ssa_def *result = &load->dest.ssa;
 
    int align_chan_offset = align_offset / chan_size_bytes;
@@ -153,6 +156,9 @@ nir_lower_ubo_vec4_lower(nir_builder *b, nir_instr *instr, void *data)
       nir_intrinsic_instr *next_load = create_load(b, intr->src[0].ssa, next_vec4_offset,
                                                    intr->dest.ssa.bit_size,
                                                    num_components);
+
+      if (nir_intrinsic_has_access(load))
+         nir_intrinsic_set_access(load, nir_intrinsic_access(intr));
 
       nir_ssa_def *channels[NIR_MAX_VEC_COMPONENTS];
       for (unsigned i = 0; i < intr->num_components; i++) {
