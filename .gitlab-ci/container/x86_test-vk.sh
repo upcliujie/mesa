@@ -136,6 +136,10 @@ rm -rf /root/.rustup /root/.cargo
 
 . .gitlab-ci/container/build-vulkantools.sh
 
+############### Build libdrm
+
+. .gitlab-ci/container/build-libdrm.sh
+
 ############### Uninstall the build software
 
 ccache --show-stats
