@@ -406,7 +406,7 @@ x86_test-gl:
 x86_test-vk:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-vk "2021-02-11-vkglcts-1.2.5.1"
+    MESA_IMAGE_TAG: &x86_test-vk "2021-02-17-add-libdrm"
 
 # Debian 10 based ARM build image
 arm_build:

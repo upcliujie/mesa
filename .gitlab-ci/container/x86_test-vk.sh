@@ -27,6 +27,7 @@ STABLE_EPHEMERAL=" \
       pkg-config \
       python3-distutils \
       wget \
+      xz-utils \
       "
 
 # Unfortunately, gfxreconstruct needs the -dev packages:
@@ -135,6 +136,10 @@ rm -rf /root/.rustup /root/.cargo
 ############### Build VulkanTools
 
 . .gitlab-ci/container/build-vulkantools.sh
+
+############### Build libdrm
+
+. .gitlab-ci/container/build-libdrm.sh
 
 ############### Uninstall the build software
 
