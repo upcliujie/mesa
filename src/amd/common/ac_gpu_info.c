@@ -666,7 +666,9 @@ bool ac_query_gpu_info(int fd, void *dev_p, struct radeon_info *info,
 
       if (info->drm_minor >= 35) {
          info->tcc_harvested = device_info.tcc_disabled_mask != 0;
-         info->num_tcc_blocks = info->max_tcc_blocks - util_bitcount64(device_info.tcc_disabled_mask);
+         uint32_t num_disabled_tcc_blocks =
+            MIN2(util_bitcount64(device_info.tcc_disabled_mask), info->max_tcc_blocks);
+         info->num_tcc_blocks = info->max_tcc_blocks - num_disabled_tcc_blocks;
       } else {
          /* This is a hack, but it's all we can do without a kernel upgrade. */
          info->tcc_harvested = (info->vram_size / info->max_tcc_blocks) != 512 * 1024 * 1024;
