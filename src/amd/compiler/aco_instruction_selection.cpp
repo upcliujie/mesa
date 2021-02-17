@@ -8763,6 +8763,32 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
       /* unused in the legacy pipeline, the HW keeps track of this for us */
       break;
    }
+   case nir_intrinsic_load_tess_rel_patch_id_gcn: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_tess_rel_patch_id(ctx));
+      break;
+   }
+   case nir_intrinsic_load_tess_vs_rel_id_gcn: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_arg(ctx, ctx->args->ac.vs_rel_patch_id));
+      break;
+   }
+   case nir_intrinsic_load_ring_tess_factors_gcn: {
+      bld.smem(aco_opcode::s_load_dwordx4, Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
+               ctx->program->private_segment_buffer, Operand(RING_HS_TESS_FACTOR * 16u));
+      break;
+   }
+   case nir_intrinsic_load_ring_tess_factors_offset_gcn: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_arg(ctx, ctx->args->ac.tcs_factor_offset));
+      break;
+   }
+   case nir_intrinsic_load_ring_tess_offchip_gcn: {
+      bld.smem(aco_opcode::s_load_dwordx4, Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
+               ctx->program->private_segment_buffer, Operand(RING_HS_TESS_OFFCHIP * 16u));
+      break;
+   }
+   case nir_intrinsic_load_ring_tess_offchip_offset_gcn: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_arg(ctx, ctx->args->ac.tess_offchip_offset));
+      break;
+   }
    default:
       isel_err(&instr->instr, "Unimplemented intrinsic instr");
       abort();
