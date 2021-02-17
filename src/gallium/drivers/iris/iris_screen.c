@@ -92,13 +92,13 @@ iris_flush_frontbuffer(struct pipe_screen *_screen,
 static const char *
 iris_get_vendor(struct pipe_screen *pscreen)
 {
-   return "Intel";
+   return "Intel: Test";
 }
 
 static const char *
 iris_get_device_vendor(struct pipe_screen *pscreen)
 {
-   return "Intel";
+   return "Intel: Test";
 }
 
 static void
