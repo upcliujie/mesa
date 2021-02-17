@@ -35,6 +35,7 @@ struct zink_vs_key {
 
 struct zink_fs_key {
    unsigned shader_id;
+   uint16_t point_sprite : 10; //packed: pipe_sprite_coord_mode | (sprite_coord_enable << 2)
    //bool flat_shade;
    bool samples;
    bool force_dual_color_blend;
