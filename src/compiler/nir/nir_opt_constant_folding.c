@@ -294,6 +294,10 @@ try_fold_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin,
       return try_fold_load_store(b, intrin, state, 0);
    case nir_intrinsic_store_shared:
       return try_fold_load_store(b, intrin, state, 1);
+   case nir_intrinsic_load_mubuf_gcn:
+      return try_fold_load_store(b, intrin, state, 1);
+   case nir_intrinsic_store_mubuf_gcn:
+      return try_fold_load_store(b, intrin, state, 2);
 
    case nir_intrinsic_load_constant: {
       state->has_load_constant = true;
