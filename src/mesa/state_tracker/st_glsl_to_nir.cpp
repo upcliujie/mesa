@@ -1021,6 +1021,7 @@ st_finalize_nir(struct st_context *st, struct gl_program *prog,
                 bool is_before_variants)
 {
    struct pipe_screen *screen = st->screen;
+   bool optimize_parameters = is_before_variants && nir->options->lower_uniforms_to_ubo;
 
    NIR_PASS_V(nir, nir_split_var_copies);
    NIR_PASS_V(nir, nir_lower_var_copies);
@@ -1033,11 +1034,13 @@ st_finalize_nir(struct st_context *st, struct gl_program *prog,
 
    st_nir_lower_uniforms(st, nir);
 
-   if (is_before_variants && nir->options->lower_uniforms_to_ubo) {
-      /* This must be done after uniforms are lowered to UBO and all
-       * nir_var_uniform variables are removed from NIR to prevent conflicts
-       * between state parameter merging and shader variant generation.
+   if (optimize_parameters) {
+      /* This optimization must be done only once for a shader program, and only
+       * after initial uniform locations have been assigned, we should only be
+       * here in the can-finalize-twice case.
        */
+      assert(st->allow_st_finalize_nir_twice);
+
       _mesa_optimize_state_parameters(&st->ctx->Const, prog->Parameters);
    }
 
@@ -1045,8 +1048,21 @@ st_finalize_nir(struct st_context *st, struct gl_program *prog,
    if (!screen->get_param(screen, PIPE_CAP_NIR_IMAGES_AS_DEREF))
       NIR_PASS_V(nir, gl_nir_lower_images, false);
 
-   if (finalize_by_driver && screen->finalize_nir)
+   if (finalize_by_driver && screen->finalize_nir) {
       screen->finalize_nir(screen, nir, false);
+
+      if (optimize_parameters) {
+         /* Remove uniform variables that got their locations assigned above, so
+          * that on shader variant generation they don't get reassigned
+          * (breaking the optimization we did up front here and causing illegal
+          * reallocation of uniform storage).
+          */
+         nir_foreach_uniform_variable_safe(var, nir) {
+            exec_node_remove(&var->node);
+         }
+         nir_validate_shader(nir, "after uniform var removal");
+      }
+   }
 }
 
 } /* extern "C" */
