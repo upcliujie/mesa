@@ -40,6 +40,7 @@
 #include "sid.h"
 #include "ac_binary.h"
 #include "ac_llvm_util.h"
+#include "ac_nir.h"
 #include "ac_nir_to_llvm.h"
 #include "ac_rtld.h"
 #include "vk_format.h"
@@ -806,6 +807,52 @@ radv_lower_io(struct radv_device *device, nir_shader *nir)
 		   nir_var_shader_in | nir_var_shader_out);
 }
 
+void
+radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
+                     struct radv_shader_info *info, struct radv_shader_variant_key *key)
+{
+	if (radv_use_llvm_for_stage(device, nir->info.stage))
+		return;
+
+	if (nir->info.stage == MESA_SHADER_VERTEX) {
+		if (key->vs_common_out.as_ls) {
+			ac_nir_lower_ls_outputs_to_mem(
+				nir,
+				info->vs.tcs_in_out_eq,
+				info->vs.tcs_temp_only_input_mask,
+				info->vs.num_linked_outputs);
+		}
+	} else if (nir->info.stage == MESA_SHADER_TESS_CTRL) {
+		ac_nir_lower_hs_inputs_to_mem(
+			nir,
+			info->vs.tcs_in_out_eq,
+			info->tcs.num_linked_inputs);
+		ac_nir_lower_hs_outputs_to_mem(
+			nir, device->physical_device->rad_info.chip_class,
+			key->tcs.tes_reads_tess_factors,
+			info->tcs.tes_inputs_read,
+			info->tcs.tes_patch_inputs_read,
+			info->tcs.num_linked_inputs,
+			info->tcs.num_linked_outputs,
+			info->tcs.num_linked_patch_outputs,
+			true);
+		ac_nir_lower_tess_to_const(
+			nir,
+			key->tcs.input_vertices,
+			info->tcs.num_patches,
+			ac_nir_lower_patch_vtx_in | ac_nir_lower_num_patches);
+	} else if (nir->info.stage == MESA_SHADER_TESS_EVAL) {
+		ac_nir_lower_tes_inputs_to_mem(
+			nir,
+			info->tes.num_linked_inputs,
+			info->tes.num_linked_patch_inputs);
+		ac_nir_lower_tess_to_const(
+			nir,
+			nir->info.tess.tcs_vertices_out,
+			key->tes.num_patches,
+			ac_nir_lower_patch_vtx_in | ac_nir_lower_num_patches);
+	}
+}
 
 static void *
 radv_alloc_shader_memory(struct radv_device *device,
