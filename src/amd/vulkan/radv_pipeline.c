@@ -3501,6 +3501,32 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			nir_opt_sink(nir[i], move_opts | nir_move_load_ssbo);
 			nir_opt_move(nir[i], move_opts);
 
+			/* Lower I/O intrinsics to memory instructions.
+			 * It needs nir_opt_sink and nir_opt_move, but also
+			 * better code is generated if we run this after the other optimizations.
+			 */
+			if (radv_lower_io_to_mem(device, nir[i], &infos[i], pipeline_key)) {
+				/* Algebraic optimizations and cleanup after the lowered I/O */
+				more_algebraic = true;
+				while (more_algebraic) {
+					more_algebraic = false;
+					NIR_PASS(more_algebraic, nir[i], nir_copy_prop);
+					NIR_PASS(more_algebraic, nir[i], nir_opt_dce);
+					NIR_PASS(more_algebraic, nir[i], nir_opt_constant_folding);
+					NIR_PASS(more_algebraic, nir[i], nir_opt_algebraic);
+				}
+				more_late_algebraic = true;
+				while (more_late_algebraic) {
+					more_late_algebraic = false;
+					NIR_PASS(more_late_algebraic, nir[i], nir_opt_algebraic_late);
+					NIR_PASS_V(nir[i], nir_opt_constant_folding);
+					NIR_PASS_V(nir[i], nir_copy_prop);
+					NIR_PASS_V(nir[i], nir_opt_dce);
+					NIR_PASS_V(nir[i], nir_opt_cse);
+				}
+				nir_lower_load_const_to_scalar(nir[i]);
+			}
+
 			radv_stop_feedback(stage_feedbacks[i], false);
 		}
 	}
