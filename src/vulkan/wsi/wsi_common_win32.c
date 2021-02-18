@@ -231,13 +231,13 @@ wsi_win32_surface_get_formats(VkIcdSurfaceBase *icd_surface,
                            uint32_t* pSurfaceFormatCount,
                            VkSurfaceFormatKHR* pSurfaceFormats)
 {
-   VK_OUTARRAY_MAKE(out, pSurfaceFormats, pSurfaceFormatCount);
+   VK_OUTARRAY_MAKE_TYPED(VkSurfaceFormatKHR, out, pSurfaceFormats, pSurfaceFormatCount);
 
    VkFormat sorted_formats[ARRAY_SIZE(available_surface_formats)];
    get_sorted_vk_formats(wsi_device, sorted_formats);
 
    for (unsigned i = 0; i < ARRAY_SIZE(sorted_formats); i++) {
-      vk_outarray_append(&out, f) {
+      vk_outarray_append_typed(VkSurfaceFormatKHR, &out, f) {
          f->format = sorted_formats[i];
          f->colorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
       }
@@ -274,13 +274,13 @@ wsi_win32_surface_get_formats2(VkIcdSurfaceBase *icd_surface,
                             uint32_t* pSurfaceFormatCount,
                             VkSurfaceFormat2KHR* pSurfaceFormats)
 {
-      VK_OUTARRAY_MAKE(out, pSurfaceFormats, pSurfaceFormatCount);
+      VK_OUTARRAY_MAKE_TYPED(VkSurfaceFormat2KHR, out, pSurfaceFormats, pSurfaceFormatCount);
 
    VkFormat sorted_formats[ARRAY_SIZE(available_surface_formats)];
    get_sorted_vk_formats(wsi_device, sorted_formats);
 
    for (unsigned i = 0; i < ARRAY_SIZE(sorted_formats); i++) {
-      vk_outarray_append(&out, f) {
+      vk_outarray_append_typed(VkSurfaceFormat2KHR, &out, f) {
          assert(f->sType == VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR);
          f->surfaceFormat.format = sorted_formats[i];
          f->surfaceFormat.colorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
@@ -343,9 +343,9 @@ wsi_win32_surface_get_present_rectangles(VkIcdSurfaceBase *surface,
                                       uint32_t* pRectCount,
                                       VkRect2D* pRects)
 {
-   VK_OUTARRAY_MAKE(out, pRects, pRectCount);
+   VK_OUTARRAY_MAKE_TYPED(VkRect2D, out, pRects, pRectCount);
 
-   vk_outarray_append(&out, rect) {
+   vk_outarray_append_typed(VkRect2D, &out, rect) {
       /* We don't know a size so just return the usual "I don't know." */
       *rect = (VkRect2D) {
          .offset = { 0, 0 },
