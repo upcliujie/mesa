@@ -81,6 +81,7 @@ static const struct nir_shader_compiler_options nir_options = {
 	.lower_rotate = true,
 	.has_fsub = true,
 	.has_isub = true,
+	.has_umul24 = true,
 	.use_scoped_barrier = true,
 	.max_unroll_iterations = 32,
 	.max_unroll_iterations_aggressive = 128,
