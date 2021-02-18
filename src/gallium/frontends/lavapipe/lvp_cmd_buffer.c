@@ -95,6 +95,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_AllocateCommandBuffers(
 
          result = lvp_reset_cmd_buffer(cmd_buffer);
          cmd_buffer->level = pAllocateInfo->level;
+         cmd_buffer->base._loader_data.loaderMagic = ICD_LOADER_MAGIC;
 
          pCommandBuffers[i] = lvp_cmd_buffer_to_handle(cmd_buffer);
       } else {
