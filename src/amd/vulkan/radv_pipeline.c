@@ -3414,6 +3414,8 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 				keys[i].tes.num_patches = infos[MESA_SHADER_TESS_CTRL].tcs.num_patches;
 			}
 
+			radv_lower_io_to_mem(device, nir[i], &infos[i], &keys[i]);
+
 			bool lower_to_scalar = false;
 
 			nir_load_store_vectorize_options vectorize_opts = {
