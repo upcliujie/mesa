@@ -1530,7 +1530,9 @@ ssa_def_bits_used(nir_ssa_def *def, int recur)
 
          case nir_op_extract_u8:
          case nir_op_extract_i8:
-            if (src_idx == 0 && nir_src_is_const(use_alu->src[1].src)) {
+            if (src_idx == 0 &&
+                nir_src_num_components(use_alu->src[1].src) == 1 &&
+                nir_src_is_const(use_alu->src[1].src)) {
                unsigned chunk = nir_src_as_uint(use_alu->src[1].src);
                bits_used |= 0xffull << (chunk * 8);
                break;
@@ -1540,7 +1542,9 @@ ssa_def_bits_used(nir_ssa_def *def, int recur)
 
          case nir_op_extract_u16:
          case nir_op_extract_i16:
-            if (src_idx == 0 && nir_src_is_const(use_alu->src[1].src)) {
+            if (src_idx == 0 &&
+                nir_src_num_components(use_alu->src[1].src) == 1 &&
+                nir_src_is_const(use_alu->src[1].src)) {
                unsigned chunk = nir_src_as_uint(use_alu->src[1].src);
                bits_used |= 0xffffull << (chunk * 16);
                break;
@@ -1560,7 +1564,8 @@ ssa_def_bits_used(nir_ssa_def *def, int recur)
 
          case nir_op_iand:
             assert(src_idx < 2);
-            if (nir_src_is_const(use_alu->src[1 - src_idx].src)) {
+            if (nir_src_num_components(use_alu->src[1 - src_idx].src) == 1 &&
+                nir_src_is_const(use_alu->src[1 - src_idx].src)) {
                uint64_t u64 = nir_src_as_uint(use_alu->src[1 - src_idx].src);
                bits_used |= u64;
                break;
@@ -1570,7 +1575,8 @@ ssa_def_bits_used(nir_ssa_def *def, int recur)
 
          case nir_op_ior:
             assert(src_idx < 2);
-            if (nir_src_is_const(use_alu->src[1 - src_idx].src)) {
+            if (nir_src_num_components(use_alu->src[1 - src_idx].src) == 1 &&
+                nir_src_is_const(use_alu->src[1 - src_idx].src)) {
                uint64_t u64 = nir_src_as_uint(use_alu->src[1 - src_idx].src);
                bits_used |= all_bits & ~u64;
                break;
