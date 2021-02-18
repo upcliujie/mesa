@@ -499,8 +499,9 @@ struct ir3 {
 	struct list_head array_list;
 
 #ifdef DEBUG
-	unsigned block_count, instr_count;
+	unsigned block_count;
 #endif
+	unsigned instr_count;
 };
 
 struct ir3_array {
