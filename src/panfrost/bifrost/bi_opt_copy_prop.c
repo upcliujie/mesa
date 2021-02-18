@@ -34,11 +34,9 @@ bi_rewrite_scalar_uses(bi_context *ctx, bi_index old, bi_index new)
 
         bi_foreach_instr_global(ctx, use) {
                 bi_foreach_src(use, s) {
-                        bi_index src = use->src[s];
-                        bool scalar = (bi_count_read_registers(use, s) == 1);
-
-                        if (bi_is_word_equiv(src, old) && scalar) {
-                                use->src[s] = bi_replace_index(src, new);
+                        if (bi_is_word_equiv(use->src[s], old) &&
+                                        (bi_count_read_registers(use, s) == 1)) {
+                                use->src[s] = bi_replace_index(use->src[s], new);
                                 progress = true;
                         }
                 }
