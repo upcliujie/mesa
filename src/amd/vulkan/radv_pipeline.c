@@ -3448,6 +3448,16 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 				nir_opt_idiv_const(nir[i], 8);
 			nir_lower_idiv(nir[i], nir_lower_idiv_precise);
 
+			/* These need to happen before radv_lower_io_to_mem. */
+			nir_move_options move_opts =
+				nir_move_const_undef | nir_move_load_ubo | nir_move_load_input |
+				nir_move_comparisons | nir_move_copies;
+			nir_opt_sink(nir[i], move_opts | nir_move_load_ssbo);
+			nir_opt_move(nir[i], move_opts);
+
+			/* Lower I/O intrinsics to memory instructions. */
+			radv_lower_io_to_mem(device, nir[i], &infos[i], pipeline_key);
+
 			/* optimize the lowered ALU operations */
 			bool more_algebraic = true;
 			while (more_algebraic) {
@@ -3496,11 +3506,6 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 
 			/* cleanup passes */
 			nir_lower_load_const_to_scalar(nir[i]);
-			nir_move_options move_opts =
-				nir_move_const_undef | nir_move_load_ubo | nir_move_load_input |
-				nir_move_comparisons | nir_move_copies;
-			nir_opt_sink(nir[i], move_opts | nir_move_load_ssbo);
-			nir_opt_move(nir[i], move_opts);
 
 			radv_stop_feedback(stage_feedbacks[i], false);
 		}
