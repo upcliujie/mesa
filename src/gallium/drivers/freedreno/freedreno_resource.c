@@ -246,6 +246,57 @@ do_blit(struct fd_context *ctx, const struct pipe_blit_info *blit, bool fallback
 	}
 }
 
+/**
+ * Replace the storage of dst with src.  This is only used by TC in the
+ * DISCARD_WHOLE_RESOURCE path, and src is a freshly allocated buffer.
+ */
+void
+fd_replace_buffer_storage(struct pipe_context *pctx, struct pipe_resource *pdst,
+		struct pipe_resource *psrc)
+{
+	struct fd_context  *ctx = fd_context(pctx);
+	struct fd_resource *dst = fd_resource(pdst);
+	struct fd_resource *src = fd_resource(psrc);
+
+	DBG("pdst=%p, psrc=%p", pdst, psrc);
+
+	/* This should only be called with buffers.. which side-steps some tricker
+	 * cases, like a rsc that is in a batch-cache key...
+	 */
+	assert(pdst->target == PIPE_BUFFER);
+	assert(psrc->target == PIPE_BUFFER);
+	assert(dst->track->bc_batch_mask == 0);
+	assert(src->track->bc_batch_mask == 0);
+	assert(src->track->batch_mask == 0);
+	assert(src->track->write_batch == NULL);
+	assert(memcmp(&dst->layout, &src->layout, sizeof(dst->layout)) == 0);
+
+
+	/* get rid of any references that batch-cache might have to us (which
+	 * should empty/destroy rsc->batches hashset)
+	 */
+	fd_bc_invalidate_resource(dst, false);
+	rebind_resource(dst);
+
+	fd_screen_lock(ctx->screen);
+
+	fd_bo_del(dst->bo);
+	dst->bo = fd_bo_ref(src->bo);
+
+	struct fd_batch *batch;
+	foreach_batch (batch, &ctx->screen->batch_cache, dst->track->batch_mask) {
+		struct set_entry *entry = _mesa_set_search(batch->resources, dst);
+		_mesa_set_remove(batch->resources, entry);
+	}
+
+	fd_resource_tracking_reference(&dst->track, src->track);
+	src->is_replacement = true;
+
+	dst->seqno = p_atomic_inc_return(&ctx->screen->rsc_seqno);
+
+	fd_screen_unlock(ctx->screen);
+}
+
 static void
 flush_resource(struct fd_context *ctx, struct fd_resource *rsc, unsigned usage);
 
@@ -439,6 +490,8 @@ fd_try_shadow_resource(struct fd_context *ctx, struct fd_resource *rsc,
 void
 fd_resource_uncompress(struct fd_context *ctx, struct fd_resource *rsc)
 {
+	tc_assert_driver_thread(ctx->tc);
+
 	bool success =
 		fd_try_shadow_resource(ctx, rsc, 0, NULL, FD_FORMAT_MOD_QCOM_TILED);
 
@@ -616,6 +669,10 @@ fd_resource_transfer_unmap(struct pipe_context *pctx,
 				   ptrans->box.x + ptrans->box.width);
 
 	pipe_resource_reference(&ptrans->resource, NULL);
+
+	/* Don't use pool_transfers_unsync. We are always in the driver
+	 * thread. Freeing an object into a different pool is allowed.
+	 */
 	slab_free(&ctx->transfer_pool, ptrans);
 }
 
@@ -690,6 +747,8 @@ resource_transfer_map(struct pipe_context *pctx,
 	char *buf;
 	int ret = 0;
 
+	tc_assert_driver_thread(ctx->tc);
+
 	/* we always need a staging texture for tiled buffers:
 	 *
 	 * TODO we might sometimes want to *also* shadow the resource to avoid
@@ -699,9 +758,10 @@ resource_transfer_map(struct pipe_context *pctx,
 	if (rsc->layout.tile_mode) {
 		struct fd_resource *staging_rsc;
 
+		assert(prsc->target != PIPE_BUFFER);
+
 		staging_rsc = fd_alloc_staging(ctx, rsc, level, box);
 		if (staging_rsc) {
-			// TODO for PIPE_MAP_READ, need to do untiling blit..
 			trans->staging_prsc = &staging_rsc->b.b;
 			trans->b.b.stride = fd_resource_pitch(staging_rsc, 0);
 			trans->b.b.layer_stride = fd_resource_layer_stride(staging_rsc, 0);
@@ -725,19 +785,9 @@ resource_transfer_map(struct pipe_context *pctx,
 		}
 	}
 
-	if (ctx->in_shadow && !(usage & PIPE_MAP_READ))
-		usage |= PIPE_MAP_UNSYNCHRONIZED;
-
 	if (usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE) {
 		invalidate_resource(rsc, usage);
-	} else if ((usage & PIPE_MAP_WRITE) &&
-			   prsc->target == PIPE_BUFFER &&
-			   !util_ranges_intersect(&rsc->valid_buffer_range,
-									  box->x, box->x + box->width)) {
-		/* We are trying to write to a previously uninitialized range. No need
-		 * to wait.
-		 */
-	} else if (!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
+	} else {
 		struct fd_batch *write_batch = NULL;
 
 		/* hold a reference, so it doesn't disappear under us: */
@@ -830,6 +880,41 @@ resource_transfer_map(struct pipe_context *pctx,
 	return resource_transfer_map_unsync(pctx, prsc, level, usage, box, trans);
 }
 
+static unsigned
+improve_transfer_map_usage(struct fd_context *ctx, struct fd_resource *rsc,
+		unsigned usage, const struct pipe_box *box)
+	/* Not *strictly* true, but the access to things that must only be in driver-
+	 * thread are protected by !(usage & TC_TRANSFER_MAP_THREADED_UNSYNC):
+	 */
+	in_dt
+{
+	if (usage & TC_TRANSFER_MAP_NO_INVALIDATE) {
+		usage &= ~PIPE_MAP_DISCARD_WHOLE_RESOURCE;
+		usage &= ~PIPE_MAP_DISCARD_RANGE;
+	}
+
+	if (usage & TC_TRANSFER_MAP_THREADED_UNSYNC)
+		usage |= PIPE_MAP_UNSYNCHRONIZED;
+
+	if (!(usage & (TC_TRANSFER_MAP_NO_INFER_UNSYNCHRONIZED |
+			TC_TRANSFER_MAP_THREADED_UNSYNC |
+			PIPE_MAP_UNSYNCHRONIZED))) {
+		if (ctx->in_shadow && !(usage & PIPE_MAP_READ)) {
+			usage |= PIPE_MAP_UNSYNCHRONIZED;
+		} else if ((usage & PIPE_MAP_WRITE) &&
+				   (rsc->b.b.target == PIPE_BUFFER) &&
+				   !util_ranges_intersect(&rsc->valid_buffer_range,
+										  box->x, box->x + box->width)) {
+			/* We are trying to write to a previously uninitialized range. No need
+			 * to synchronize.
+			 */
+			usage |= PIPE_MAP_UNSYNCHRONIZED;
+		}
+	}
+
+	return usage;
+}
+
 static void *
 fd_resource_transfer_map(struct pipe_context *pctx,
 		struct pipe_resource *prsc,
@@ -850,13 +935,20 @@ fd_resource_transfer_map(struct pipe_context *pctx,
 		return NULL;
 	}
 
-	ptrans = slab_alloc(&ctx->transfer_pool);
+	if (usage & TC_TRANSFER_MAP_THREADED_UNSYNC) {
+		ptrans = slab_alloc(&ctx->transfer_pool_unsync);
+	} else {
+		ptrans = slab_alloc(&ctx->transfer_pool);
+	}
+
 	if (!ptrans)
 		return NULL;
 
 	/* slab_alloc_st() doesn't zero: */
 	trans = fd_transfer(ptrans);
 	memset(trans, 0, sizeof(*trans));
+
+	usage = improve_transfer_map_usage(ctx, rsc, usage, box);
 
 	pipe_resource_reference(&ptrans->resource, prsc);
 	ptrans->level = level;
@@ -886,7 +978,9 @@ fd_resource_destroy(struct pipe_screen *pscreen,
 		struct pipe_resource *prsc)
 {
 	struct fd_resource *rsc = fd_resource(prsc);
-	fd_bc_invalidate_resource(rsc, true);
+
+	if (!rsc->is_replacement)
+		fd_bc_invalidate_resource(rsc, true);
 	if (rsc->bo)
 		fd_bo_del(rsc->bo);
 	if (rsc->lrz)
@@ -924,6 +1018,8 @@ fd_resource_get_handle(struct pipe_screen *pscreen,
 		unsigned usage)
 {
 	struct fd_resource *rsc = fd_resource(prsc);
+
+	rsc->b.is_shared = true;
 
 	handle->modifier = fd_resource_modifier(rsc);
 
@@ -1019,6 +1115,9 @@ fd_resource_allocate_and_resolve(struct pipe_screen *pscreen,
 	DBG("%"PRSC_FMT, PRSC_ARGS(prsc));
 
 	threaded_resource_init(prsc);
+
+	if (tmpl->bind & PIPE_BIND_SHARED)
+		rsc->b.is_shared = true;
 
 	fd_resource_layout_init(prsc);
 
@@ -1200,6 +1299,7 @@ fd_resource_from_handle(struct pipe_screen *pscreen,
 	DBG("%"PRSC_FMT", modifier=%"PRIx64, PRSC_ARGS(prsc), handle->modifier);
 
 	threaded_resource_init(prsc);
+	rsc->b.is_shared = true;
 
 	fd_resource_layout_init(prsc);
 
@@ -1389,6 +1489,7 @@ fd_resource_from_memobj(struct pipe_screen *pscreen,
 	if (!prsc)
 		return NULL;
 	rsc = fd_resource(prsc);
+	rsc->b.is_shared = true;
 
 	/* bo's size has to be large enough, otherwise cleanup resource and fail
 	 * gracefully.

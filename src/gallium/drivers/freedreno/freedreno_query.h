@@ -47,7 +47,7 @@ struct fd_query_funcs {
 };
 
 struct fd_query {
-	struct threaded_transfer base;
+	struct threaded_query base;
 
 	const struct fd_query_funcs *funcs;
 	int type;
