@@ -170,8 +170,79 @@ struct sqtt_file_chunk_cpu_info {
 static_assert(sizeof(struct sqtt_file_chunk_cpu_info) == 112,
               "sqtt_file_chunk_cpu_info doesn't match RGP spec");
 
+struct cpu_info {
+   char vendor_name[16];
+   char processor_name[48];
+   uint32_t num_physical_cores;
+   uint32_t num_logical_cores;
+   uint32_t clock_speed;
+};
+
+static void ac_get_cpu_info(struct cpu_info *info)
+{
+   uint32_t cpu_clock_speed_total = 0;
+   char line[1024];
+   FILE *f;
+
+   f = fopen("/proc/cpuinfo", "r");
+   if (!f)
+      return;
+
+   while (fgets(line, sizeof(line), f)) {
+      char *str;
+
+      /* Parse vendor name. */
+      str = strstr(line, "vendor_id");
+      if (str) {
+         char *v = strtok(str, ":");
+         v = strtok(NULL, ":");
+         strncpy(info->vendor_name, v + 1, sizeof(info->vendor_name));
+         info->vendor_name[strlen(v) - 2] = '\0';
+      }
+
+      /* Parse process name. */
+      str = strstr(line, "model name");
+      if (str) {
+         char *v = strtok(str, ":");
+         v = strtok(NULL, ":");
+         strncpy(info->processor_name, v + 1, sizeof(info->processor_name));
+         info->processor_name[strlen(v) - 2] = '\0';
+      }
+
+      /* Parse the current CPU clock speed for each cores. */
+      str = strstr(line, "cpu MHz");
+      if (str) {
+         uint32_t v = 0;
+         if (sscanf(str, "cpu MHz : %d", &v) == 1)
+            cpu_clock_speed_total += v;
+      }
+
+      /* Parse the number of logical cores. */
+      str = strstr(line, "siblings");
+      if (str) {
+         uint32_t v = 0;
+         if (sscanf(str, "siblings : %d", &v) == 1)
+            info->num_logical_cores = v;
+      }
+
+      /* Parse the number of physical cores. */
+      str = strstr(line, "cpu cores");
+      if (str) {
+         uint32_t v = 0;
+         if (sscanf(str, "cpu cores : %d", &v) == 1)
+            info->num_physical_cores = v;
+      }
+   }
+
+   if (info->num_logical_cores)
+      info->clock_speed = cpu_clock_speed_total / info->num_logical_cores;
+
+   fclose(f);
+}
+
 static void ac_sqtt_fill_cpu_info(struct sqtt_file_chunk_cpu_info *chunk)
 {
+   struct cpu_info info = {0};
    uint64_t system_ram_size = 0;
 
    chunk->header.chunk_id.type = SQTT_FILE_CHUNK_TYPE_CPU_INFO;
@@ -182,14 +253,14 @@ static void ac_sqtt_fill_cpu_info(struct sqtt_file_chunk_cpu_info *chunk)
 
    chunk->cpu_timestamp_freq = 1000000000; /* tick set to 1ns */
 
-   /* TODO: fill with real info. */
+   /* Query CPU info by parsing /proc/cpuinfo. */
+   ac_get_cpu_info(&info);
 
-   strncpy((char *)chunk->vendor_id, "Unknown", sizeof(chunk->vendor_id));
-   strncpy((char *)chunk->processor_brand, "Unknown", sizeof(chunk->processor_brand));
-   chunk->clock_speed = 0;
-   chunk->num_logical_cores = 0;
-   chunk->num_physical_cores = 0;
-
+   strncpy((char *)chunk->vendor_id, info.vendor_name, sizeof(chunk->vendor_id));
+   strncpy((char *)chunk->processor_brand, info.processor_name, sizeof(chunk->processor_brand));
+   chunk->clock_speed = info.clock_speed;
+   chunk->num_logical_cores = info.num_logical_cores;
+   chunk->num_physical_cores = info.num_physical_cores;
    chunk->system_ram_size = 0;
    if (os_get_total_physical_memory(&system_ram_size))
       chunk->system_ram_size = system_ram_size / (1024 * 1024);
