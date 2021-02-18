@@ -530,6 +530,8 @@ fd_create_stream_output_target(struct pipe_context *pctx,
 	target->offset_buf = pipe_buffer_create(pctx->screen,
 			PIPE_BIND_CUSTOM, PIPE_USAGE_IMMUTABLE, sizeof(uint32_t));
 
+	DBG("base.buffer=%p, offset_buf=%p", target->base.buffer, target->offset_buf);
+
 	assert(rsc->b.b.target == PIPE_BUFFER);
 	util_range_add(&rsc->b.b, &rsc->valid_buffer_range,
 		buffer_offset, buffer_offset + buffer_size);
