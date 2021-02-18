@@ -1714,7 +1714,6 @@ struct Block {
    RegisterDemand register_demand = RegisterDemand();
    uint16_t loop_nest_depth = 0;
    uint16_t divergent_if_logical_depth = 0;
-   uint16_t divergent_if_linear_depth = 0;
    uint16_t uniform_if_depth = 0;
    uint16_t kind = 0;
    int logical_idom = -1;
@@ -1895,7 +1894,6 @@ public:
    float_mode next_fp_mode;
    unsigned next_loop_depth = 0;
    unsigned next_divergent_if_logical_depth = 0;
-   unsigned next_divergent_if_linear_depth = 0;
    unsigned next_uniform_if_depth = 0;
 
    struct {
@@ -1939,7 +1937,6 @@ public:
       block.fp_mode = next_fp_mode;
       block.loop_nest_depth = next_loop_depth;
       block.divergent_if_logical_depth = next_divergent_if_logical_depth;
-      block.divergent_if_linear_depth = next_divergent_if_linear_depth;
       block.uniform_if_depth = next_uniform_if_depth;
       blocks.emplace_back(std::move(block));
       return &blocks.back();

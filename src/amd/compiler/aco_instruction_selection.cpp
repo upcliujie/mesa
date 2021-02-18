@@ -10103,7 +10103,6 @@ static void begin_divergent_if_else(isel_context *ctx, if_context *ic)
    ctx->program->next_divergent_if_logical_depth--;
 
    /** emit linear then block */
-   ctx->program->next_divergent_if_linear_depth++;
    Block* BB_then_linear = ctx->program->create_and_insert_block();
    BB_then_linear->kind |= block_kind_uniform;
    add_linear_edge(ic->BB_if_idx, BB_then_linear);
@@ -10113,7 +10112,6 @@ static void begin_divergent_if_else(isel_context *ctx, if_context *ic)
    branch->definitions[0].setHint(vcc);
    BB_then_linear->instructions.emplace_back(std::move(branch));
    add_linear_edge(BB_then_linear->index, &ic->BB_invert);
-   ctx->program->next_divergent_if_linear_depth--;
 
 
    /** emit invert merge block */
@@ -10168,7 +10166,6 @@ static void end_divergent_if(isel_context *ctx, if_context *ic)
 
 
    /** emit linear else block */
-   ctx->program->next_divergent_if_linear_depth++;
    Block* BB_else_linear = ctx->program->create_and_insert_block();
    BB_else_linear->kind |= block_kind_uniform;
    add_linear_edge(ic->invert_idx, BB_else_linear);
@@ -10179,7 +10176,6 @@ static void end_divergent_if(isel_context *ctx, if_context *ic)
    branch->definitions[0].setHint(vcc);
    BB_else_linear->instructions.emplace_back(std::move(branch));
    add_linear_edge(BB_else_linear->index, &ic->BB_endif);
-   ctx->program->next_divergent_if_linear_depth--;
 
 
    /** emit endif merge block */

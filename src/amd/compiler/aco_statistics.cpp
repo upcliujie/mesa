@@ -505,7 +505,11 @@ void collect_preasm_stats(Program *program)
       iter *= block.loop_nest_depth > 2 ? pow(2.0, block.loop_nest_depth - 2) : 1.0;
       iter *= pow(0.5, block.uniform_if_depth);
       iter *= pow(0.75, block.divergent_if_logical_depth);
-      iter *= pow(0.25, block.divergent_if_linear_depth);
+
+      bool divergent_if_linear_else = block.logical_preds.empty() && block.linear_preds.size() == 1 && block.linear_succs.size() == 1 &&
+                                      program->blocks[block.linear_preds[0]].kind & (block_kind_branch | block_kind_invert);
+      if (divergent_if_linear_else)
+         iter *= 0.25;
 
       latency += block_est.cur_cycle * iter;
       for (unsigned i = 0; i < (unsigned)BlockCycleEstimator::resource_count; i++)
