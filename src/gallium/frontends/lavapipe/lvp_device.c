@@ -1063,7 +1063,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_MapMemory(
 
    map = device->pscreen->map_memory(device->pscreen, mem->pmem);
 
-   *ppData = map + offset;
+   *ppData = (char *)map + offset;
    return VK_SUCCESS;
 }
 
