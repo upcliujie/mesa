@@ -2500,7 +2500,7 @@ bi_lower_branch(bi_block *block)
                 if (branched) {
                         assert(was_jump && (ins->op == BI_OPCODE_JUMP));
                         bi_remove_instruction(ins);
-                        break;
+                        continue;
                 }
 
                 branched = true;
