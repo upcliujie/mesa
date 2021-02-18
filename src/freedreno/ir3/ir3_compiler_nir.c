@@ -47,6 +47,9 @@ ir3_handle_bindless_cat6(struct ir3_instruction *instr, nir_src rsrc)
 		return;
 
 	instr->flags |= IR3_INSTR_B;
+	if (nir_intrinsic_has_access(intrin) &&
+			(nir_intrinsic_access(intrin) & ACCESS_NON_UNIFORM))
+		instr->flags |= IR3_INSTR_NONUNIF;
 	instr->cat6.base = nir_intrinsic_desc_set(intrin);
 }
 
@@ -2112,6 +2115,9 @@ get_tex_samp_tex_src(struct ir3_context *ctx, nir_tex_instr *tex)
 	if (texture_idx >= 0 || sampler_idx >= 0) {
 		/* Bindless case */
 		info.flags |= IR3_INSTR_B;
+
+		if (tex->texture_non_uniform || tex->sampler_non_uniform)
+			info.flags |= IR3_INSTR_NONUNIF;
 
 		/* Gather information required to determine which encoding to
 		 * choose as well as for prefetch.

@@ -425,17 +425,17 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->shaderFloat16                       = false;
          features->shaderInt8                          = false;
 
-         features->descriptorIndexing                                 = false;
+         features->descriptorIndexing                                 = true;
          features->shaderInputAttachmentArrayDynamicIndexing          = false;
-         features->shaderUniformTexelBufferArrayDynamicIndexing       = false;
-         features->shaderStorageTexelBufferArrayDynamicIndexing       = false;
-         features->shaderUniformBufferArrayNonUniformIndexing         = false;
-         features->shaderSampledImageArrayNonUniformIndexing          = false;
-         features->shaderStorageBufferArrayNonUniformIndexing         = false;
-         features->shaderStorageImageArrayNonUniformIndexing          = false;
+         features->shaderUniformTexelBufferArrayDynamicIndexing       = true;
+         features->shaderStorageTexelBufferArrayDynamicIndexing       = true;
+         features->shaderUniformBufferArrayNonUniformIndexing         = true;
+         features->shaderSampledImageArrayNonUniformIndexing          = true;
+         features->shaderStorageBufferArrayNonUniformIndexing         = true;
+         features->shaderStorageImageArrayNonUniformIndexing          = true;
          features->shaderInputAttachmentArrayNonUniformIndexing       = false;
-         features->shaderUniformTexelBufferArrayNonUniformIndexing    = false;
-         features->shaderStorageTexelBufferArrayNonUniformIndexing    = false;
+         features->shaderUniformTexelBufferArrayNonUniformIndexing    = true;
+         features->shaderStorageTexelBufferArrayNonUniformIndexing    = true;
          features->descriptorBindingUniformBufferUpdateAfterBind      = false;
          features->descriptorBindingSampledImageUpdateAfterBind       = false;
          features->descriptorBindingStorageImageUpdateAfterBind       = false;
@@ -445,7 +445,7 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->descriptorBindingUpdateUnusedWhilePending          = false;
          features->descriptorBindingPartiallyBound                    = false;
          features->descriptorBindingVariableDescriptorCount           = false;
-         features->runtimeDescriptorArray                             = false;
+         features->runtimeDescriptorArray                             = true;
 
          features->samplerFilterMinmax                 = true;
          features->scalarBlockLayout                   = false;
@@ -511,15 +511,15 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          VkPhysicalDeviceDescriptorIndexingFeaturesEXT *features =
             (VkPhysicalDeviceDescriptorIndexingFeaturesEXT *) ext;
          features->shaderInputAttachmentArrayDynamicIndexing = false;
-         features->shaderUniformTexelBufferArrayDynamicIndexing = false;
-         features->shaderStorageTexelBufferArrayDynamicIndexing = false;
-         features->shaderUniformBufferArrayNonUniformIndexing = false;
-         features->shaderSampledImageArrayNonUniformIndexing = false;
-         features->shaderStorageBufferArrayNonUniformIndexing = false;
-         features->shaderStorageImageArrayNonUniformIndexing = false;
+         features->shaderUniformTexelBufferArrayDynamicIndexing = true;
+         features->shaderStorageTexelBufferArrayDynamicIndexing = true;
+         features->shaderUniformBufferArrayNonUniformIndexing = true;
+         features->shaderSampledImageArrayNonUniformIndexing = true;
+         features->shaderStorageBufferArrayNonUniformIndexing = true;
+         features->shaderStorageImageArrayNonUniformIndexing = true;
          features->shaderInputAttachmentArrayNonUniformIndexing = false;
-         features->shaderUniformTexelBufferArrayNonUniformIndexing = false;
-         features->shaderStorageTexelBufferArrayNonUniformIndexing = false;
+         features->shaderUniformTexelBufferArrayNonUniformIndexing = true;
+         features->shaderStorageTexelBufferArrayNonUniformIndexing = true;
          features->descriptorBindingUniformBufferUpdateAfterBind = false;
          features->descriptorBindingSampledImageUpdateAfterBind = false;
          features->descriptorBindingStorageImageUpdateAfterBind = false;
@@ -529,7 +529,7 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->descriptorBindingUpdateUnusedWhilePending = false;
          features->descriptorBindingPartiallyBound = false;
          features->descriptorBindingVariableDescriptorCount = false;
-         features->runtimeDescriptorArray = false;
+         features->runtimeDescriptorArray = true;
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT: {
@@ -599,6 +599,37 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
             (VkPhysicalDevicePerformanceQueryFeaturesKHR *)ext;
          feature->performanceCounterQueryPools = true;
          feature->performanceCounterMultipleQueryPools = false;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES_EXT: {
+         VkPhysicalDeviceDescriptorIndexingPropertiesEXT *props =
+            (VkPhysicalDeviceDescriptorIndexingPropertiesEXT *)ext;
+         props->shaderUniformBufferArrayNonUniformIndexingNative = true;
+         props->shaderSampledImageArrayNonUniformIndexingNative = true;
+         props->shaderStorageBufferArrayNonUniformIndexingNative = true;
+         props->shaderStorageImageArrayNonUniformIndexingNative = true;
+         props->shaderInputAttachmentArrayNonUniformIndexingNative = false;
+         props->robustBufferAccessUpdateAfterBind = false;
+         props->quadDivergentImplicitLod = false;
+
+         /* TODO. For now, set 0 to a bunch of maximum values, they could be
+          * edited after support for UpdateAfterBind features.
+          */
+         props->maxPerStageDescriptorUpdateAfterBindSamplers = 0;
+         props->maxPerStageDescriptorUpdateAfterBindUniformBuffers = 0;
+         props->maxPerStageDescriptorUpdateAfterBindStorageBuffers = 0;
+         props->maxPerStageDescriptorUpdateAfterBindSampledImages = 0;
+         props->maxPerStageDescriptorUpdateAfterBindStorageImages = 0;
+         props->maxPerStageDescriptorUpdateAfterBindInputAttachments = 0;
+         props->maxPerStageUpdateAfterBindResources = 0;
+         props->maxDescriptorSetUpdateAfterBindSamplers = 0;
+         props->maxDescriptorSetUpdateAfterBindUniformBuffers = 0;
+         props->maxDescriptorSetUpdateAfterBindUniformBuffersDynamic = 0;
+         props->maxDescriptorSetUpdateAfterBindStorageBuffers = 0;
+         props->maxDescriptorSetUpdateAfterBindStorageBuffersDynamic = 0;
+         props->maxDescriptorSetUpdateAfterBindSampledImages = 0;
+         props->maxDescriptorSetUpdateAfterBindStorageImages = 0;
+         props->maxDescriptorSetUpdateAfterBindInputAttachments = 0;
          break;
       }
 

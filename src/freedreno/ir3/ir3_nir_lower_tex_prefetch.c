@@ -163,6 +163,12 @@ lower_tex_prefetch_block(nir_block *block)
 		if (tex->op != nir_texop_tex)
 			continue;
 
+		/* Since the driver supports non-uniform indexing, seems it
+		 * shouldn't enable texture prefetch in that case.
+		 */
+		if (tex->sampler_non_uniform || tex->texture_non_uniform)
+			continue;
+
 		if (has_src(tex, nir_tex_src_bias) ||
 				has_src(tex, nir_tex_src_lod) ||
 				has_src(tex, nir_tex_src_comparator) ||
