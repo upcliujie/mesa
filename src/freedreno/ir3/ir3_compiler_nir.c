@@ -635,7 +635,7 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 		if (cond->opc == OPC_ABSNEG_S &&
 				cond->flags == 0 &&
 				(cond->regs[1]->flags & (IR3_REG_SNEG | IR3_REG_SABS)) == IR3_REG_SNEG) {
-			cond = cond->regs[1]->instr;
+			cond = cond->regs[1]->def->instr;
 		}
 
 		compile_assert(ctx, bs[1] == bs[2]);
