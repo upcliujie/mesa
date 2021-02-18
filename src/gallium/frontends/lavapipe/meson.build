@@ -57,6 +57,8 @@ endif
 
 if with_platform_windows
   lvp_flags += '-DVK_USE_PLATFORM_WIN32_KHR'
+  # hack around vk_icd.h issues.
+  lvp_flags += '-DVK_NO_PROTOTYPES'
   liblvp_files += files('lvp_wsi_win32.c')
 endif
 
