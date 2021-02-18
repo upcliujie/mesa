@@ -39,6 +39,21 @@
 #include "ir3.h"
 #include "ir3_context.h"
 
+static bool
+is_nonuniform_access(nir_src src)
+{
+	assert(src.parent_instr->type == nir_instr_type_intrinsic);
+
+	nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(src.parent_instr);
+
+	if (nir_intrinsic_has_access(intrin) &&
+			(nir_intrinsic_access(intrin) & ACCESS_NON_UNIFORM)) {
+		return true;
+	}
+
+	return false;
+}
+
 void
 ir3_handle_bindless_cat6(struct ir3_instruction *instr, nir_src rsrc)
 {
@@ -47,6 +62,8 @@ ir3_handle_bindless_cat6(struct ir3_instruction *instr, nir_src rsrc)
 		return;
 
 	instr->flags |= IR3_INSTR_B;
+	if (is_nonuniform_access(rsrc))
+		instr->flags |= IR3_INSTR_NONUNIF;
 	instr->cat6.base = nir_intrinsic_desc_set(intrin);
 }
 
@@ -2112,6 +2129,9 @@ get_tex_samp_tex_src(struct ir3_context *ctx, nir_tex_instr *tex)
 	if (texture_idx >= 0 || sampler_idx >= 0) {
 		/* Bindless case */
 		info.flags |= IR3_INSTR_B;
+
+		if (tex->texture_non_uniform || tex->sampler_non_uniform)
+			info.flags |= IR3_INSTR_NONUNIF;
 
 		/* Gather information required to determine which encoding to
 		 * choose as well as for prefetch.
