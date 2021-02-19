@@ -941,6 +941,14 @@ static inline bool is_meta(struct ir3_instruction *instr)
 	return (opc_cat(instr->opc) == -1);
 }
 
+static inline unsigned reg_elems(struct ir3_register *reg)
+{
+	if (reg->flags & IR3_REG_ARRAY)
+		return reg->size;
+	else
+		return util_last_bit(reg->wrmask);
+}
+
 static inline unsigned dest_regs(struct ir3_instruction *instr)
 {
 	if ((instr->regs_count == 0) || is_store(instr) || is_flow(instr))
