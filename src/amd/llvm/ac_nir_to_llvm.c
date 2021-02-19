@@ -3924,6 +3924,51 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
    case nir_intrinsic_set_vertex_and_primitive_count:
       /* Currently ignored. */
       break;
+   case nir_intrinsic_load_mubuf_gcn: {
+      LLVMValueRef descriptor = get_src(ctx, instr->src[0]);
+      LLVMValueRef addr_voffset = get_src(ctx, instr->src[1]);
+      LLVMValueRef addr_soffset = get_src(ctx, instr->src[2]);
+      unsigned num_components = instr->dest.ssa.num_components;
+      unsigned const_offset = nir_intrinsic_base(instr);
+      unsigned stride = nir_intrinsic_stride(instr);
+      bool reorder = nir_intrinsic_can_reorder(instr);
+      bool slc = nir_intrinsic_gcn_slc(instr);
+
+      enum ac_image_cache_policy cache_policy = ac_glc;
+      if (stride)
+         cache_policy |= ac_swizzled;
+      if (slc)
+         cache_policy |= ac_slc;
+      if (ctx->ac.chip_class >= GFX10)
+         cache_policy |= ac_dlc;
+
+      result = ac_build_buffer_load(&ctx->ac, descriptor, num_components, NULL,
+                                    addr_voffset, addr_soffset, const_offset,
+                                    cache_policy, reorder, false);
+      result = ac_trim_vector(&ctx->ac, result, num_components);
+      break;
+   }
+   case nir_intrinsic_store_mubuf_gcn: {
+      LLVMValueRef store_data = get_src(ctx, instr->src[0]);
+      LLVMValueRef descriptor = get_src(ctx, instr->src[1]);
+      LLVMValueRef addr_voffset = get_src(ctx, instr->src[2]);
+      LLVMValueRef addr_soffset = get_src(ctx, instr->src[3]);
+      unsigned num_components = instr->src[0].ssa->num_components;
+      unsigned const_offset = nir_intrinsic_base(instr);
+      unsigned stride = nir_intrinsic_stride(instr);
+      bool slc = nir_intrinsic_gcn_slc(instr);
+
+      enum ac_image_cache_policy cache_policy = ac_glc;
+      if (stride)
+         cache_policy |= ac_swizzled;
+      if (slc)
+         cache_policy |= ac_slc;
+
+      ac_build_buffer_store_dword(&ctx->ac, descriptor, store_data, num_components,
+                                  addr_voffset, addr_soffset, const_offset,
+                                  cache_policy);
+      break;
+   }
    default:
       fprintf(stderr, "Unknown intrinsic: ");
       nir_print_instr(&instr->instr, stderr);
