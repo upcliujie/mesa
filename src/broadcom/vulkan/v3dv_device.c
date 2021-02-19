@@ -1433,6 +1433,9 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
    v3dv_pipeline_cache_init(&device->default_pipeline_cache, device,
                             device->instance->default_pipeline_cache_enabled);
 
+   device->fs_set =
+      _mesa_set_create(NULL, _mesa_hash_string, _mesa_key_string_equal);
+
    *pDevice = v3dv_device_to_handle(device);
 
    return VK_SUCCESS;
@@ -1449,6 +1452,10 @@ v3dv_DestroyDevice(VkDevice _device,
                    const VkAllocationCallbacks *pAllocator)
 {
    V3DV_FROM_HANDLE(v3dv_device, device, _device);
+
+   set_foreach(device->fs_set, entry)
+      printf("FS SHA1: %s\n", (char *) entry->key);
+   _mesa_set_destroy(device->fs_set, NULL);
 
    v3dv_DeviceWaitIdle(_device);
    queue_finish(&device->queue);

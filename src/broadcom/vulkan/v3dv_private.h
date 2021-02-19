@@ -334,6 +334,8 @@ struct v3dv_device {
    struct v3dv_pipeline_cache default_pipeline_cache;
 
    VkPhysicalDeviceFeatures features;
+
+   struct set *fs_set;
 };
 
 struct v3dv_device_memory {

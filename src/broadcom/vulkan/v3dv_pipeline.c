@@ -1982,7 +1982,89 @@ pipeline_compile_graphics(struct v3dv_pipeline *pipeline,
 
       pipeline->fs = p_stage;
       pipeline->active_stages |= MESA_SHADER_FRAGMENT;
+   } else {
+      char *sha1buf = malloc(128);
+      _mesa_sha1_format(sha1buf, pipeline->fs->shader_sha1);
+      _mesa_set_add(device->fs_set, sha1buf);
    }
+
+#if 0
+   /* Fragment shader replacement */
+   char sha1buf[41];
+      _mesa_sha1_format(sha1buf, pipeline->fs->shader_sha1);
+
+   const char *sha1_list[] = {
+#if 0
+      "ae00b59bbfa876b0017fe213e955abee61835ea4", // Walls
+      "414ba5f0141b72f0efd61e45cba45602dc7f5150", // Floor
+      "ea3c5d9ce71e8fbbc8562b1dc1195836e1471c3f", // Some edges or sides in structures
+      "1224eb43552b70fe14c7bcb161a42d70fcac6299", // Pickable items
+      "c9139cfed70aae11902095a237c2f9fd591c3598", // Some of the exterior walls
+      "b4a18362ca4361ff86cf7f3c207905d17df8cfa1", // Interior fog effect 
+      "54f96c4377d94bcfa3faa88f8d8c03900ae7bfeb", // light shafts
+#endif
+   };
+   const int sha1_list_size = sizeof(sha1_list) / sizeof(char *);
+
+   const float sha1_colors[] = {
+      1.0, 0.0, 0.0, 1.0,
+      0.0, 1.0, 0.0, 1.0,
+      0.0, 0.0, 1.0, 1.0,
+      1.0, 1.0, 0.0, 1.0,
+      0.0, 1.0, 1.0, 1.0,
+      1.0, 0.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0,
+   };
+   const int color_list_size = sizeof(sha1_colors) / (4 * sizeof(float));
+
+   int index = -1;
+   if (pipeline->fs) {
+      for (int i = 0; i < sha1_list_size; i++) {
+         if (!strcmp(sha1buf, sha1_list[i])) {
+            index = i;
+            break;
+         }
+      }
+   }
+
+   if (index != -1) {
+      printf("Replacing fragment shader %s\n",  sha1buf);
+      nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT,
+                                                     &v3dv_nir_options,
+                                                     "replaced_fs_%d", index);
+      nir_variable *fs_out_color =
+         nir_variable_create(b.shader, nir_var_shader_out,
+                             glsl_uvec4_type(), "out_color");
+      fs_out_color->data.location = FRAG_RESULT_DATA0;
+      int co = (index % color_list_size) * 4;
+      nir_ssa_def *color = nir_imm_vec4(&b, sha1_colors[co], sha1_colors[co+1],
+                                            sha1_colors[co+2], sha1_colors[co+3]);
+      nir_store_var(&b, fs_out_color, color, 0xf);
+
+      struct v3dv_pipeline_stage *p_stage =
+         vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*p_stage), 8,
+                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+
+      if (p_stage == NULL)
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+      p_stage->pipeline = pipeline;
+      p_stage->stage = MESA_SHADER_FRAGMENT;
+      p_stage->entrypoint = "main";
+      p_stage->module = 0;
+      p_stage->nir = b.shader;
+
+      _mesa_sha1_compute(b.shader->info.name, strlen(b.shader->info.name),
+                         p_stage->shader_sha1);
+
+      p_stage->program_id =
+         p_atomic_inc_return(&physical_device->next_program_id);
+      p_stage->compiled_variant_count = 0;
+
+      pipeline->fs = p_stage;
+      pipeline->active_stages |= MESA_SHADER_FRAGMENT;
+   }
+#endif
 
    /* Linking */
    link_shaders(pipeline->vs->nir, pipeline->fs->nir);
