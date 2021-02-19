@@ -97,4 +97,5 @@ if with_tests
   )
 endif
 
+subdir('clc')
 subdir('glsl')
