@@ -30,6 +30,7 @@
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 #include "util/u_upload_mgr.h"
+#include "util/log.h"
 #include "compiler/shader_info.h"
 
 /* 0 = disabled, 1 = assertions, 2 = printfs */
@@ -42,7 +43,7 @@
 #endif
 
 #if TC_DEBUG >= 2
-#define tc_printf printf
+#define tc_printf mesa_logi
 #define tc_asprintf asprintf
 #define tc_strcmp strcmp
 #else
