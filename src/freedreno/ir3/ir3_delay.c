@@ -117,6 +117,51 @@ ir3_delayslots(struct ir3_instruction *assigner,
 	}
 }
 
+/* Post-RA, we don't have arrays any more, so we have to be a bit careful here
+ * and have to handle relative accesses specially.
+ */
+
+static unsigned
+post_ra_reg_elems(struct ir3_register *reg)
+{
+	if (reg->flags & IR3_REG_RELATIV)
+		return reg->size;
+	return reg_elems(reg);
+}
+
+static unsigned
+post_ra_reg_num(struct ir3_register *reg)
+{
+	if (reg->flags & IR3_REG_RELATIV)
+		return reg->array.base;
+	return reg->num;
+}
+
+static bool
+regs_interfere(struct ir3_register *assigner, struct ir3_register *consumer,
+			   unsigned consumer_n, bool mergedregs)
+{
+	if (consumer->flags & IR3_REG_SSA) {
+		return consumer->def == assigner;
+	}
+
+	if (!mergedregs &&
+		(consumer->flags & IR3_REG_HALF) != (assigner->flags & IR3_REG_HALF))
+		return false;
+
+	unsigned consumer_start = post_ra_reg_num(consumer) * ir3_reg_elem_size(consumer);
+	unsigned consumer_end = consumer_start + post_ra_reg_elems(consumer) * ir3_reg_elem_size(consumer);
+	unsigned assigner_start = post_ra_reg_num(assigner) * ir3_reg_elem_size(assigner);
+	unsigned assigner_end = assigner_start + post_ra_reg_elems(assigner) * ir3_reg_elem_size(assigner);
+
+	if (assigner_start >= consumer_end || consumer_start >= assigner_end)
+		return false;
+
+	/* TODO compute delayslot offset due to repeat here */
+
+	return true;
+}
+
 static bool
 count_instruction(struct ir3_instruction *n)
 {
@@ -127,205 +172,97 @@ count_instruction(struct ir3_instruction *n)
 	return is_alu(n) || (is_flow(n) && (n->opc != OPC_JUMP) && (n->opc != OPC_B));
 }
 
-/**
- * @block: the block to search in, starting from end; in first pass,
- *    this will be the block the instruction would be inserted into
- *    (but has not yet, ie. it only contains already scheduled
- *    instructions).  For intra-block scheduling (second pass), this
- *    would be one of the predecessor blocks.
- * @instr: the instruction to search for
- * @maxd:  max distance, bail after searching this # of instruction
- *    slots, since it means the instruction we are looking for is
- *    far enough away
- * @pred:  if true, recursively search into predecessor blocks to
- *    find the worst case (shortest) distance (only possible after
- *    individual blocks are all scheduled)
- */
 static unsigned
-distance(struct ir3_block *block, struct ir3_instruction *instr,
-		unsigned maxd, bool pred)
+delay_calc(struct ir3_block *block,
+		   struct ir3_instruction *start,
+		   struct ir3_instruction *orig_consumer,
+		   unsigned orig_consumer_n,
+		   struct ir3_instruction *cur_consumer,
+		   unsigned distance, bool soft, bool pred, bool mergedregs)
 {
-	unsigned d = 0;
-
-	/* Note that this relies on incrementally building up the block's
-	 * instruction list.. but this is how scheduling and nopsched
-	 * work.
+	unsigned delay = 0;
+	/* Search backwards starting at the instruction before start, unless it's
+	 * NULL then search backwards from the block end.
 	 */
-	foreach_instr_rev (n, &block->instr_list) {
-		if ((n == instr) || (d >= maxd))
-			return MIN2(maxd, d + n->nop);
-		if (count_instruction(n))
-			d = MIN2(maxd, d + 1 + n->repeat + n->nop);
+	struct list_head *start_list = start ? start->node.prev : block->instr_list.prev;
+	list_for_each_entry_from_rev(struct ir3_instruction, assigner, start_list, &block->instr_list, node) {
+		if (count_instruction(assigner))
+			distance += assigner->nop;
+
+		if (distance >= (soft ? 10 : 6))
+			return delay;
+
+		if (assigner->opc == OPC_META_SPLIT || assigner->opc == OPC_META_COLLECT) {
+			struct ir3_instruction *consumer = orig_consumer ? orig_consumer : cur_consumer;
+			foreach_src_n (src, n, cur_consumer) {
+				if ((src->flags & IR3_REG_SSA) && src->def->instr == assigner) {
+					unsigned consumer_n = orig_consumer ? orig_consumer_n : n;
+					unsigned new_delay =
+						delay_calc(block, assigner, consumer, consumer_n,
+								assigner, distance, soft, pred, mergedregs);
+					delay = MAX2(delay, new_delay);
+				}
+			}
+		} else if (!is_meta(assigner)) {
+			unsigned new_delay = 0;
+			struct ir3_instruction *consumer = orig_consumer ? orig_consumer : cur_consumer;
+
+			if (consumer->address == assigner)
+				new_delay = MAX2(new_delay, ir3_delayslots(assigner, consumer, 0, soft));
+
+			if (dest_regs(assigner) != 0) {
+				foreach_src_n (src, n, cur_consumer) {
+					if (src->flags & (IR3_REG_IMMED | IR3_REG_CONST))
+						continue;
+
+					if (!regs_interfere(assigner->regs[0], src, n, mergedregs))
+						continue;
+
+					unsigned consumer_n = orig_consumer ? orig_consumer_n : n;
+					new_delay = MAX2(new_delay, ir3_delayslots(assigner, consumer, consumer_n + 1, soft));
+				}
+			}
+
+			new_delay = new_delay > distance ? new_delay - distance : 0;
+			delay = MAX2(delay, new_delay);
+		}
+
+		if (count_instruction(assigner))
+			distance += 1 + assigner->repeat;
+
+		if (distance >= (soft ? 10 : 6))
+			return delay;
 	}
 
-	/* if coming from a predecessor block, assume it is assigned far
-	 * enough away.. we'll fix up later.
+	/* Note: this allows recursion into "block" if it has already been
+	 * visited, but *not* recursion into its predecessors. We may have to
+	 * visit the original block twice, for the loop case where we have to
+	 * consider definititons in an earlier iterations of the same loop:
+	 *
+	 * while (...) {
+	 *		mov.u32u32 ..., r0.x
+	 *		...
+	 *		mov.u32u32 r0.x, ...
+	 * }
+	 *
+	 * However any other recursion would be unnecessary.
 	 */
-	if (!pred)
-		return maxd;
 
-	if (pred && (block->data != block)) {
-		/* Search into predecessor blocks, finding the one with the
-		 * shortest distance, since that will be the worst case
-		 */
-		unsigned min = maxd - d;
-
-		/* (ab)use block->data to prevent recursion: */
+	if (pred && block->data != block) {
 		block->data = block;
 
 		for (unsigned i = 0; i < block->predecessors_count; i++) {
 			struct ir3_block *pred = block->predecessors[i];
-			unsigned n;
-
-			n = distance(pred, instr, min, pred);
-
-			min = MIN2(min, n);
+			unsigned pred_delay =
+				delay_calc(pred, NULL, orig_consumer, orig_consumer_n,
+						   cur_consumer, distance, soft, pred, mergedregs);
+			delay = MAX2(delay, pred_delay);
 		}
 
 		block->data = NULL;
-		d += min;
-	}
-
-	return d;
-}
-
-/* calculate delay for specified src: */
-static unsigned
-delay_calc_srcn(struct ir3_block *block,
-		struct ir3_instruction *assigner,
-		struct ir3_instruction *consumer,
-		unsigned srcn, bool soft, bool pred)
-{
-	unsigned delay = 0;
-
-	if (is_meta(assigner)) {
-		foreach_src_n (src, n, assigner) {
-			unsigned d;
-
-			if (!src->instr)
-				continue;
-
-			d = delay_calc_srcn(block, src->instr, consumer, srcn, soft, pred);
-
-			/* A (rptN) instruction executes in consecutive cycles so
-			 * it's outputs are written in successive cycles.  And
-			 * likewise for it's (r)'d (incremented) inputs, they are
-			 * read on successive cycles.
-			 *
-			 * So we need to adjust the delay for (rptN)'s assigners
-			 * and consumers accordingly.
-			 *
-			 * Note that the dst of a (rptN) instruction is implicitly
-			 * (r) (the assigner case), although that is not the case
-			 * for src registers.  There is exactly one case, bary.f,
-			 * which has a vecN (collect) src that is not (r)'d.
-			 */
-			if ((assigner->opc == OPC_META_SPLIT) && src->instr->repeat) {
-				/* (rptN) assigner case: */
-				d -= MIN2(d, src->instr->repeat - assigner->split.off);
-			} else if ((assigner->opc == OPC_META_COLLECT) && consumer->repeat &&
-					(consumer->regs[srcn]->flags & IR3_REG_R)) {
-				d -= MIN2(d, n);
-			}
-
-			delay = MAX2(delay, d);
-		}
-	} else {
-		delay = ir3_delayslots(assigner, consumer, srcn, soft);
-		delay -= distance(block, assigner, delay, pred);
 	}
 
 	return delay;
-}
-
-static struct ir3_instruction *
-find_array_write(struct ir3_block *block, unsigned array_id, unsigned maxd)
-{
-	unsigned d = 0;
-
-	/* Note that this relies on incrementally building up the block's
-	 * instruction list.. but this is how scheduling and nopsched
-	 * work.
-	 */
-	foreach_instr_rev (n, &block->instr_list) {
-		if (d >= maxd)
-			return NULL;
-		if (count_instruction(n))
-			d++;
-		if (dest_regs(n) == 0)
-			continue;
-
-		/* note that a dest reg will never be an immediate */
-		if (n->regs[0]->array.id == array_id)
-			return n;
-	}
-
-	return NULL;
-}
-
-/* like list_length() but only counts instructions which count in the
- * delay determination:
- */
-static unsigned
-count_block_delay(struct ir3_block *block)
-{
-	unsigned delay = 0;
-	foreach_instr (n, &block->instr_list) {
-		if (!count_instruction(n))
-			continue;
-		delay++;
-	}
-	return delay;
-}
-
-static unsigned
-delay_calc_array(struct ir3_block *block, unsigned array_id,
-		struct ir3_instruction *consumer, unsigned srcn,
-		bool soft, bool pred, unsigned maxd)
-{
-	struct ir3_instruction *assigner;
-
-	assigner = find_array_write(block, array_id, maxd);
-	if (assigner)
-		return delay_calc_srcn(block, assigner, consumer, srcn, soft, pred);
-
-	if (!pred)
-		return 0;
-
-	unsigned len = count_block_delay(block);
-	if (maxd <= len)
-		return 0;
-
-	maxd -= len;
-
-	if (block->data == block) {
-		/* we have a loop, return worst case: */
-		return maxd;
-	}
-
-	/* If we need to search into predecessors, find the one with the
-	 * max delay.. the resulting delay is that minus the number of
-	 * counted instructions in this block:
-	 */
-	unsigned max = 0;
-
-	/* (ab)use block->data to prevent recursion: */
-	block->data = block;
-
-	for (unsigned i = 0; i < block->predecessors_count; i++) {
-		struct ir3_block *pred = block->predecessors[i];
-		unsigned delay =
-			delay_calc_array(pred, array_id, consumer, srcn, soft, pred, maxd);
-
-		max = MAX2(max, delay);
-	}
-
-	block->data = NULL;
-
-	if (max < len)
-		return 0;
-
-	return max - len;
 }
 
 /**
@@ -339,28 +276,9 @@ delay_calc_array(struct ir3_block *block, unsigned array_id,
  */
 unsigned
 ir3_delay_calc(struct ir3_block *block, struct ir3_instruction *instr,
-		bool soft, bool pred)
+		bool soft, bool pred, bool mergedregs)
 {
-	unsigned delay = 0;
-
-	foreach_src_n (src, i, instr) {
-		unsigned d = 0;
-
-		if ((src->flags & IR3_REG_RELATIV) && !(src->flags & IR3_REG_CONST)) {
-			d = delay_calc_array(block, src->array.id, instr, i+1, soft, pred, 6);
-		} else if (src->instr) {
-			d = delay_calc_srcn(block, src->instr, instr, i+1, soft, pred);
-		}
-
-		delay = MAX2(delay, d);
-	}
-
-	if (instr->address) {
-		unsigned d = delay_calc_srcn(block, instr->address, instr, 0, soft, pred);
-		delay = MAX2(delay, d);
-	}
-
-	return delay;
+	return delay_calc(block, NULL, NULL, 0, instr, 0, soft, pred, mergedregs);
 }
 
 /**
