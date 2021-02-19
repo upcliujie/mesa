@@ -158,6 +158,18 @@ libintel_compiler = static_library(
   build_by_default : false,
 )
 
+exe_intel_clc = executable(
+  'intel_clc',
+  ['intel_clc.c'],
+  link_with : [
+    libintel_compiler, libintel_common, libintel_dev, libisl,
+  ],
+  include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel],
+  c_args : [pre_args, no_override_init_args],
+  dependencies : [idep_nir, idep_clc, idep_mesautil],
+  native : true,
+)
+
 if with_tests
   # The last two tests are not C++ or gtest, pre comment in autotools make
   foreach t : ['fs_cmod_propagation', 'fs_copy_propagation',
