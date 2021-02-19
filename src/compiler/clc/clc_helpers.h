@@ -30,7 +30,7 @@ extern "C" {
 
 #include "nir_types.h"
 
-#include "clc_compiler.h"
+#include "clc.h"
 #include "util/u_string.h"
 
 #include <assert.h>
