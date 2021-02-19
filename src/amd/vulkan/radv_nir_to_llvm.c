@@ -857,7 +857,12 @@ static LLVMValueRef
 load_patch_vertices_in(struct ac_shader_abi *abi)
 {
 	struct radv_shader_context *ctx = radv_shader_context_from_abi(abi);
-	return LLVMConstInt(ctx->ac.i32, ctx->args->options->key.tcs.input_vertices, false);
+	if (ctx->stage == MESA_SHADER_TESS_CTRL)
+		return LLVMConstInt(ctx->ac.i32, ctx->args->options->key.tcs.input_vertices, false);
+	else if (ctx->stage == MESA_SHADER_TESS_EVAL)
+		return LLVMConstInt(ctx->ac.i32, ctx->shader->info.tess.tcs_vertices_out, false);
+	else
+		unreachable("load_patch_vertices_in is only supported in tessellation shaders.");
 }
 
 
