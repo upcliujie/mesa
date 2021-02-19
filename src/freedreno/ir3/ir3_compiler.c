@@ -77,7 +77,6 @@ ir3_compiler_create(struct fd_device *dev, uint32_t gpu_id)
 
 	compiler->dev = dev;
 	compiler->gpu_id = gpu_id;
-	compiler->set = ir3_ra_alloc_reg_set(compiler, false);
 
 	/* All known GPU's have 32k local memory (aka shared) */
 	compiler->local_mem_size = 32 * 1024;
@@ -87,7 +86,6 @@ ir3_compiler_create(struct fd_device *dev, uint32_t gpu_id)
 	compiler->max_waves = 16;
 
 	if (compiler->gpu_id >= 600) {
-		compiler->mergedregs_set = ir3_ra_alloc_reg_set(compiler, true);
 		compiler->samgq_workaround = true;
 		/* a6xx split the pipeline state into geometry and fragment state, in
 		 * order to let the VS run ahead of the FS. As a result there are now
