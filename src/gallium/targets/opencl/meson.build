@@ -61,45 +61,39 @@ if get_option('shared-llvm') != 'false'
 endif
 
 if not (dep_clang.found() and _usable_clang) and get_option('shared-llvm') != 'true'
+
+  _modules = [
+    'clangCodeGen',
+    'clangFrontendTool',
+    'clangFrontend',
+    'clangDriver',
+    'clangSerialization',
+    'clangParse',
+    'clangSema',
+    'clangAnalysis',
+    'clangAST',
+    'clangASTMatchers',
+    'clangEdit',
+    'clangLex',
+    'clangBasic',
+  ]
+
   dep_clang = dependency(
     'Clang',
     method : 'cmake',
     required : false,
-    modules : [
-      'clangCodeGen',
-      'clangFrontendTool',
-      'clangFrontend',
-      'clangDriver',
-      'clangSerialization',
-      'clangParse',
-      'clangSema',
-      'clangAnalysis',
-      'clangAST',
-      'clangASTMatchers',
-      'clangEdit',
-      'clangLex',
-      'clangBasic',
+    modules : _modules,
     ],
   )
 
   if not dep_clang.found()
     dep_clang = [
-      cpp.find_library('clangCodeGen', dirs : llvm_libdir),
-      cpp.find_library('clangFrontendTool', dirs : llvm_libdir),
-      cpp.find_library('clangFrontend', dirs : llvm_libdir),
-      cpp.find_library('clangDriver', dirs : llvm_libdir),
-      cpp.find_library('clangSerialization', dirs : llvm_libdir),
-      cpp.find_library('clangParse', dirs : llvm_libdir),
-      cpp.find_library('clangSema', dirs : llvm_libdir),
-      cpp.find_library('clangAnalysis', dirs : llvm_libdir),
-      cpp.find_library('clangAST', dirs : llvm_libdir),
-      cpp.find_library('clangASTMatchers', dirs : llvm_libdir),
-      cpp.find_library('clangEdit', dirs : llvm_libdir),
-      cpp.find_library('clangLex', dirs : llvm_libdir),
-      cpp.find_library('clangBasic', dirs : llvm_libdir),
       cpp.find_library('Polly', dirs : llvm_libdir, required : false),
       cpp.find_library('PollyISL', dirs : llvm_libdir, required : false),
     ]
+    foreach m : _modules:
+      dep_clang += cpp.find_library(m, dirs : llvm_libdir)
+    endforeach
   endif
 endif
 
