@@ -268,6 +268,135 @@ bool try_coalesce_copy(cssa_ctx& ctx, copy copy, uint32_t block_idx)
    return try_merge_merge_set(ctx, copy.def.getTemp(), op_set);
 }
 
+/* node in the location-transfer-graph */
+struct ltg_node {
+   copy cp;
+   uint32_t num_uses;
+   uint32_t read_idx;
+   uint32_t write_idx;
+};
+
+void emit_copies_block(Builder bld, std::vector<ltg_node>& ltg, RegType type)
+{
+   auto&& it = ltg.begin();
+   unsigned num = 0; /* number of remaining circular copies */
+   while (it != ltg.end()) {
+      /* already emitted or wrong regclass */
+      if (it->write_idx == -1u || it->cp.def.regClass().type() != type) {
+         ++it;
+         continue;
+      }
+      /* the target is still needed as operand */
+      if (it->num_uses > 0) {
+         num++;
+         ++it;
+         continue;
+      }
+
+      bld.copy(it->cp.def, it->cp.op);
+
+      for (ltg_node& node : ltg) {
+         if (it->write_idx == node.read_idx)
+            node.num_uses--;
+      }
+
+      it->write_idx = -1u;
+      it = ltg.begin();
+      num = 0;
+   }
+
+   /* if there are circular dependencies, we just emit them as single parallelcopy */
+   if (num) {
+      aco_ptr<Pseudo_instruction> copy{create_instruction<Pseudo_instruction>(aco_opcode::p_parallelcopy, Format::PSEUDO, num, num)};
+      it = ltg.begin();
+      for (unsigned i = 0; i < num; i++) {
+         while (it->write_idx == -1u || it->cp.def.regClass().type() != type)
+            ++it;
+
+         copy->definitions[i] = it->cp.def;
+         copy->operands[i] = it->cp.op;
+         it->write_idx = -1u;
+      }
+      bld.insert(std::move(copy));
+   }
+}
+
+void emit_parallelcopies(cssa_ctx& ctx)
+{
+   std::unordered_map<uint32_t, Operand> renames;
+
+   for (unsigned i = 0; i < ctx.program->blocks.size(); i++) {
+      std::vector<ltg_node> ltg;
+      /* first, try to coalesce all parallelcopies */
+      for (const copy& cp : ctx.parallelcopies[i]) {
+         if (try_coalesce_copy(ctx, cp, i)) {
+            renames.emplace(cp.def.tempId(), cp.op);
+            /* update liveness info */
+            ctx.live_vars.live_out[i].erase(cp.def.tempId());
+            if (cp.op.isTemp())
+               ctx.live_vars.live_out[i].insert(cp.op.tempId());
+         } else {
+            uint32_t read_idx = -1u;
+            if (cp.op.isTemp())
+               read_idx = ctx.merge_node_table[cp.op.tempId()].index;
+            uint32_t write_idx = ctx.merge_node_table[cp.def.tempId()].index;
+            assert(write_idx != -1u);
+            ltg.emplace_back(ltg_node{cp, 0, read_idx, write_idx});
+         }
+      }
+
+      /* build location-transfer-graph */
+      for (ltg_node& node : ltg) {
+         if (!node.cp.op.isTemp())
+            continue;
+
+         for (ltg_node& other : ltg) {
+            if (other.write_idx == node.read_idx)
+               node.num_uses++;
+         }
+      }
+
+      /* emit parallelcopies ordered */
+      Builder bld(ctx.program);
+      Block& block = ctx.program->blocks[i];
+
+      /* emit VGPR copies */
+      auto IsLogicalEnd = [] (const aco_ptr<Instruction>& inst) -> bool {
+         return inst->opcode == aco_opcode::p_logical_end;
+      };
+      auto it = std::find_if(block.instructions.rbegin(), block.instructions.rend(), IsLogicalEnd);
+      bld.reset(&block.instructions, std::prev(it.base()));
+      emit_copies_block(bld, ltg, RegType::vgpr);
+
+      /* emit SGPR copies */
+      aco_ptr<Instruction> branch = std::move(block.instructions.back());
+      block.instructions.pop_back();
+      bld.reset(&block.instructions);
+      emit_copies_block(bld, ltg, RegType::sgpr);
+      bld.insert(std::move(branch));
+   }
+
+   /* finally, rename coalesced phi operands */
+   for (Block& block : ctx.program->blocks) {
+      for (aco_ptr<Instruction>& phi : block.instructions) {
+         if (phi->opcode != aco_opcode::p_phi &&
+             phi->opcode != aco_opcode::p_linear_phi)
+            break;
+
+         for (Operand& op : phi->operands) {
+            if (!op.isTemp())
+               continue;
+            auto&& it = renames.find(op.tempId());
+            if (it != renames.end()) {
+               op = it->second;
+               renames.erase(it);
+            }
+         }
+      }
+   }
+   assert(renames.empty());
+}
+
 bool collect_phi_info(cssa_ctx& ctx)
 {
    bool progress = false;
