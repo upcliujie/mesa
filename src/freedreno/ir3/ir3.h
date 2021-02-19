@@ -722,6 +722,12 @@ static inline bool is_same_type_mov(struct ir3_instruction *instr)
 		if (!is_same_type_reg(instr->regs[0], instr->regs[1]))
 			return false;
 		break;
+	case OPC_META_COLLECT:
+		/* A collect/split with one source is a move */
+		return instr->regs_count == 2;
+	case OPC_META_SPLIT:
+		/* A split of a scalar is a move */
+		return instr->regs[1]->wrmask == 1;
 	default:
 		return false;
 	}
