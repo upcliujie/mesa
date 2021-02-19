@@ -319,6 +319,11 @@ util_bitcount64(uint64_t n)
 #endif
 }
 
+#define foreach_bit(b, dword)                          \
+   for (uint32_t __dword = (dword), b;                     \
+        ((b) = ffs(__dword) - 1, __dword);      \
+        __dword &= ~(1 << (b)))
+
 #ifdef __cplusplus
 }
 #endif
