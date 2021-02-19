@@ -175,10 +175,52 @@ bool interference(cssa_ctx& ctx, Temp var, Temp parent)
       }
    }
 
+   /* check if these are from our virtual parallelcopy */
+   if (parent_live || var_live) {
+      for (const copy& cp : ctx.parallelcopies[block_idx]) {
+         if (cp.def.getTemp() == parent || cp.def.getTemp() == var)
+            return false;
+      }
+   }
+   for (const copy& cp : ctx.parallelcopies[block_idx]) {
+      if (!cp.op.isTemp() || cp.op.regClass() != var.regClass())
+         continue;
+      if (cp.op.getTemp() == parent)
+         parent_live = true;
+      if (cp.op.getTemp() == var)
+         var_live = true;
+      if (var_live && parent_live)
+         return false;
+   }
+
    /* both, parent and var, are present in the same block */
+   const Block& block = ctx.program->blocks[block_idx];
+   for (auto it = block.instructions.crbegin(); it != block.instructions.crend(); ++it) {
+      if (parent_live || var_live) {
+         for (const Definition& def : (*it)->definitions) {
+            if (!def.isTemp())
+               continue;
+            /* if only one of the two is live at the point of definition,
+             * they don't interfere */
+            if (def.getTemp() == parent || def.getTemp() == var)
+               return false;
+         }
+      }
 
-   // TODO
+      for (const Operand& op : (*it)->operands) {
+         if (!op.isTemp())
+            continue;
+         if (op.getTemp() == parent)
+            parent_live = true;
+         if (op.getTemp() == var)
+            var_live = true;
+      }
 
+      if (var_live && parent_live)
+         return false;
+   }
+
+   assert(false && "unreachable - we should have found an intersection if there exist one.");
    return true;
 }
 
