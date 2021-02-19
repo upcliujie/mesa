@@ -578,6 +578,14 @@ struct ir3_block {
 	 */
 	void *data;
 
+	uint32_t index;
+
+	struct ir3_block *imm_dom;
+	DECLARE_ARRAY(struct ir3_block *, dom_children);
+
+	uint32_t dom_pre_index;
+	uint32_t dom_post_index;
+
 #ifdef DEBUG
 	uint32_t serialno;
 #endif
@@ -593,9 +601,18 @@ block_id(struct ir3_block *block)
 #endif
 }
 
+static inline struct ir3_block *
+ir3_start_block(struct ir3 *ir)
+{
+	return LIST_ENTRY(struct ir3_block, ir->block_list.next, node);
+}
+
 void ir3_block_add_predecessor(struct ir3_block *block, struct ir3_block *pred);
 void ir3_block_remove_predecessor(struct ir3_block *block, struct ir3_block *pred);
 unsigned ir3_block_get_pred_index(struct ir3_block *block, struct ir3_block *pred);
+
+void ir3_calc_dominance(struct ir3 *ir);
+bool ir3_block_dominates(struct ir3_block *a, struct ir3_block *b);
 
 struct ir3_shader_variant;
 
