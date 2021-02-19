@@ -78,7 +78,6 @@ if with_tools.contains('all')
     'asahi',
   ]
 endif
-with_clc = false
 
 with_any_vulkan_layers = get_option('vulkan-layers').length() != 0
 with_intel_tools = with_tools.contains('intel') or with_tools.contains('intel-ui')
@@ -308,6 +307,9 @@ if with_aco_tests and not with_amd_vk
   error('ACO tests require Radv')
 endif
 
+with_microsoft_clc = get_option('microsoft-clc').enabled()
+with_clc = with_microsoft_clc
+
 dep_clang = dependency(
   'clang',
   method : 'cmake',
@@ -316,10 +318,8 @@ dep_clang = dependency(
     'clangBasic', 'clangCodeGen', 'clangDriver', 'clangFrontend', 'clangFrontendTool',
     'clangHandleCXX', 'clangHandleLLVM',
   ],
-  required : get_option('microsoft-clc'),
+  required : with_clc,
 )
-with_microsoft_clc = dep_clang.found()
-with_clc = dep_clang.found()
 
 with_spirv_to_dxil = get_option('spirv-to-dxil')
 
@@ -616,7 +616,7 @@ dep_dxheaders = null_dep
 if with_gallium_d3d12 or with_microsoft_clc
   dep_dxheaders = dependency('DirectX-Headers', fallback : ['DirectX-Headers', 'dep_dxheaders'],
     required : with_gallium_d3d12
-  ) 
+  )
 endif
 
 if with_vulkan_overlay_layer or with_aco_tests
@@ -1607,7 +1607,7 @@ if with_gallium_opencl
   ]
   llvm_optional_modules += ['frontendopenmp']
 endif
-if with_microsoft_clc
+if with_clc
   llvm_modules += ['target', 'linker', 'irreader', 'option', 'libdriver']
 endif
 if with_tests or with_gallium_softpipe
@@ -1616,7 +1616,7 @@ endif
 
 if with_amd_vk or with_gallium_radeonsi
   _llvm_version = '>= 11.0.0'
-elif with_microsoft_clc
+elif with_clc
   _llvm_version = '>= 10.0.0'
 elif with_gallium_opencl
   _llvm_version = '>= 8.0.0'
@@ -1669,7 +1669,7 @@ if _llvm != 'disabled'
     optional_modules : llvm_optional_modules,
     required : (
       with_amd_vk or with_gallium_radeonsi or with_gallium_swr or
-      with_gallium_opencl or with_microsoft_clc or _llvm == 'enabled'
+      with_gallium_opencl or with_clc or _llvm == 'enabled'
     ),
     static : not _shared_llvm,
     method : _llvm_method,
@@ -1726,13 +1726,13 @@ elif with_amd_vk or with_gallium_radeonsi or with_gallium_swr or with_swrast_vk
   error('The following drivers require LLVM: Radv, RadeonSI, SWR, Lavapipe. One of these is enabled, but LLVM is disabled.')
 elif with_gallium_opencl
   error('The OpenCL "Clover" state tracker requires LLVM, but LLVM is disabled.')
-elif with_microsoft_clc
-  error('The Microsoft CLC compiler requires LLVM, but LLVM is disabled.')
+elif with_clc
+  error('The CLC compiler requires LLVM, but LLVM is disabled.')
 else
   draw_with_llvm = false
 endif
 
-with_opencl_spirv = (_opencl != 'disabled' and get_option('opencl-spirv')) or with_microsoft_clc
+with_opencl_spirv = (_opencl != 'disabled' and get_option('opencl-spirv')) or with_clc
 if with_opencl_spirv
   chosen_llvm_version_array = dep_llvm.version().split('.')
   chosen_llvm_version_major = chosen_llvm_version_array[0].to_int()
