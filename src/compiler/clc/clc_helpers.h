@@ -28,15 +28,10 @@
 extern "C" {
 #endif
 
-#include "nir_types.h"
-
-#include "clc_compiler.h"
-#include "util/u_string.h"
+#include "clc.h"
 
 #include <assert.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdint.h>
 
 const struct clc_kernel_info *
 clc_spirv_get_kernels_info(const struct spirv_binary *spvbin,
