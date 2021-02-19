@@ -49,6 +49,14 @@ u_sampler_view_default_dx9_template(struct pipe_sampler_view *view,
                                     const struct pipe_resource *texture,
                                     enum pipe_format format);
 
+void
+u_sampler_view_swizzle_argb(struct pipe_sampler_view *view,
+                            enum pipe_format dst_format);
+
+void
+u_sampler_format_swizzle_color_argb(union pipe_color_union *color, bool is_integer);
+void
+u_sampler_format_swizzle_color_abgr(union pipe_color_union *color, bool is_integer);
 
 #ifdef __cplusplus
 } /* extern "C" { */
