@@ -101,8 +101,10 @@ tu_physical_device_init(struct tu_physical_device *device,
    disk_cache_format_hex_id(buf, device->cache_uuid, VK_UUID_SIZE * 2);
    device->disk_cache = disk_cache_create(device->name, buf, 0);
 
+#if 0
    fprintf(stderr, "WARNING: tu is not a conformant vulkan implementation, "
                    "testing use only.\n");
+#endif
 
    fd_get_driver_uuid(device->driver_uuid);
    fd_get_device_uuid(device->device_uuid, device->gpu_id);

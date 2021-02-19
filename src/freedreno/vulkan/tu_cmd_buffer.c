@@ -3010,7 +3010,9 @@ tu_CmdNextSubpass2(VkCommandBuffer commandBuffer,
           * check if the resolved attachment is needed by later subpasses,
           * if it is, should be doing a GMEM->GMEM resolve instead of GMEM->MEM->GMEM..
           */
+#if 0
          tu_finishme("missing GMEM->GMEM resolve path\n");
+#endif
          tu_load_gmem_attachment(cmd, cs, a, true);
       }
    }

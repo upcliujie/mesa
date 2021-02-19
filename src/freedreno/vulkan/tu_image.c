@@ -459,7 +459,9 @@ ubwc_possible(VkFormat format, VkImageType type, VkImageUsageFlags usage, bool h
       return false;
 
    if (type == VK_IMAGE_TYPE_3D) {
+#if 0
       tu_finishme("UBWC with 3D textures");
+#endif
       return false;
    }
 
