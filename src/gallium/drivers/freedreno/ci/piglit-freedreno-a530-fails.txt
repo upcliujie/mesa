@@ -388,9 +388,9 @@ spec@glsl-1.30@execution@clipping@vs-clip-distance-out-param,Fail
 spec@glsl-1.30@execution@clipping@vs-clip-distance-primitives,Fail
 spec@glsl-1.30@execution@clipping@vs-clip-distance-retval,Fail
 spec@glsl-1.30@execution@clipping@vs-clip-distance-uint-index,Fail
-spec@glsl-1.30@execution@fs-large-local-array-vec2,Crash
+spec@glsl-1.30@execution@fs-large-local-array-vec2,Fail
 spec@glsl-1.30@execution@fs-large-local-array-vec3,Crash
-spec@glsl-1.30@execution@fs-large-local-array-vec4,Crash
+spec@glsl-1.30@execution@fs-large-local-array-vec4,Fail
 spec@glsl-1.30@execution@interpolation@interpolation-flat-gl_backcolor-flat-distance,Fail
 spec@glsl-1.30@execution@interpolation@interpolation-flat-gl_backcolor-flat-vertex,Fail
 spec@glsl-1.30@execution@interpolation@interpolation-flat-gl_backcolor-smooth-distance,Fail
