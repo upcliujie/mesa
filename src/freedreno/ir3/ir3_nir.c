@@ -278,6 +278,70 @@ should_split_wrmask(const nir_instr *instr, const void *data)
 	}
 }
 
+static bool
+ir3_nir_lower_array_sampler_impl(nir_function_impl *impl)
+{
+   nir_builder b;
+   nir_builder_init(&b, impl);
+
+   bool progress = false;
+   nir_foreach_block(block, impl) {
+		nir_foreach_instr_safe(instr, block) {
+			if (instr->type != nir_instr_type_tex)
+				continue;
+
+			nir_tex_instr *tex = nir_instr_as_tex(instr);
+			if (!tex->is_array || tex->op == nir_texop_lod)
+				continue;
+
+			int coord_idx = nir_tex_instr_src_index(tex, nir_tex_src_coord);
+			if (coord_idx == -1 ||
+				nir_tex_instr_src_type(tex, coord_idx) != nir_type_float)
+				continue;
+
+			/* the array coord needs 0.5 added to it */
+			b.cursor = nir_before_instr(&tex->instr);
+
+			unsigned ncomp = tex->coord_components;
+			nir_ssa_def *src =
+				nir_ssa_for_src(&b, tex->src[coord_idx].src, ncomp);
+
+			/* split src into components: */
+			nir_ssa_def *comp[4];
+
+			assume(ncomp >= 1);
+
+			for (unsigned j = 0; j < ncomp; j++)
+				comp[j] = nir_channel(&b, src, j);
+
+			/* array coord is last */
+			comp[ncomp-1] = nir_fadd(&b, comp[ncomp-1],
+					nir_imm_floatN_t(&b, 0.5, src->bit_size));
+
+			/* and move the result back into a single vecN: */
+			src = nir_vec(&b, comp, ncomp);
+
+			nir_instr_rewrite_src(&tex->instr,
+								&tex->src[coord_idx].src,
+								nir_src_for_ssa(src));
+		}
+	}
+	nir_metadata_preserve(impl, nir_metadata_block_index |
+							    nir_metadata_dominance);
+	return progress;
+}
+
+static bool
+ir3_nir_lower_array_sampler(nir_shader *shader)
+{
+	bool progress = false;
+	nir_foreach_function(function, shader) {
+		if (function->impl && ir3_nir_lower_array_sampler_impl(function->impl))
+			progress = true;
+	}
+	return progress;
+}
+
 void
 ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 {
@@ -310,6 +374,8 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 	OPT_V(s, nir_lower_regs_to_ssa);
 	OPT_V(s, nir_lower_wrmasks, should_split_wrmask, s);
 
+	if (compiler->array_index_add_half)
+		OPT_V(s, ir3_nir_lower_array_sampler);
 	OPT_V(s, nir_lower_tex, &tex_options);
 	OPT_V(s, nir_lower_load_const_to_scalar);
 	if (compiler->gpu_id < 500)
