@@ -710,7 +710,7 @@ kill_sched(struct ir3 *ir, struct ir3_shader_variant *so)
 
 /* Insert nop's required to make this a legal/valid shader program: */
 static void
-nop_sched(struct ir3 *ir)
+nop_sched(struct ir3 *ir, struct ir3_shader_variant *so)
 {
 	foreach_block (block, &ir->block_list) {
 		struct ir3_instruction *last = NULL;
@@ -723,7 +723,8 @@ nop_sched(struct ir3 *ir)
 		list_inithead(&block->instr_list);
 
 		foreach_instr_safe (instr, &instr_list) {
-			unsigned delay = ir3_delay_calc(block, instr, false, true);
+			unsigned delay =
+				ir3_delay_calc(block, instr, false, true, so->mergedregs);
 
 			/* NOTE: I think the nopN encoding works for a5xx and
 			 * probably a4xx, but not a3xx.  So far only tested on
@@ -801,7 +802,7 @@ ir3_legalize(struct ir3 *ir, struct ir3_shader_variant *so, int *max_bary)
 		progress |= apply_fine_deriv_macro(ctx, block);
 	}
 
-	nop_sched(ir);
+	nop_sched(ir, so);
 
 	do {
 		ir3_count_instructions(ir);
