@@ -642,6 +642,11 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
       else
          result = LLVMBuildSub(ctx->ac.builder, src[0], src[1], "");
       break;
+   case nir_op_umul24:
+      /* Convince LLVM to use v_mul_u32_u24. It is smart enough not to emit v_and_b32. */
+      src[0] = LLVMBuildAnd(ctx->ac.builder, src[0], LLVMConstInt(ctx->ac.i32, 0xffffff, 0), "");
+      src[1] = LLVMBuildAnd(ctx->ac.builder, src[1], LLVMConstInt(ctx->ac.i32, 0xffffff, 0), "");
+      /* fall through */
    case nir_op_imul:
       if (instr->no_unsigned_wrap)
          result = LLVMBuildNUWMul(ctx->ac.builder, src[0], src[1], "");
