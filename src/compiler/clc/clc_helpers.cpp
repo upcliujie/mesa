@@ -49,10 +49,7 @@
 
 #include "util/macros.h"
 #include "glsl_types.h"
-#include "nir.h"
-#include "nir_types.h"
 
-#include "clc_helpers.h"
 #include "spirv.h"
 
 #include "opencl-c.h.h"
@@ -142,8 +139,6 @@ public:
 
       uint32_t funcId = ins->words[op->offset];
 
-      SPIRVKernelInfo *kernel = NULL;
-
       for (auto &kernel : kernels) {
          if (funcId == kernel.funcId && !kernel.args.size()) {
             curKernel = &kernel;
@@ -198,9 +193,8 @@ public:
    void parseTypePointer(const spv_parsed_instruction_t *ins)
    {
       enum clc_kernel_arg_address_qualifier addrQualifier;
-      uint32_t typeId, targetTypeId, storageClass;
+      uint32_t typeId, storageClass;
       const spv_parsed_operand_t *op;
-      const char *typeName;
 
       assert(ins->num_operands == 3);
 
@@ -329,7 +323,7 @@ public:
    void parseOpDecorate(const spv_parsed_instruction_t *ins)
    {
       const spv_parsed_operand_t *op;
-      uint32_t id, decoration;
+      uint32_t id;
 
       assert(ins->num_operands >= 2);
 
@@ -613,14 +607,13 @@ clc_to_spirv(const struct clc_compile_args *args,
                                                   clang_opts.data() + clang_opts.size(),
 #endif
                                                   diag)) {
-      log += "Couldn't create Clang invocation.\n";
-      clc_error(logger, log.c_str());
+      clc_error(logger, "%sCouldn't create Clang invocation.\n", log.c_str());
       return -1;
    }
 
    if (diag.hasErrorOccurred()) {
-      log += "Errors occurred during Clang invocation.\n";
-      clc_error(logger, log.c_str());
+      clc_error(logger, "%sErrors occurred during Clang invocation.\n",
+                log.c_str());
       return -1;
    }
 
@@ -683,16 +676,16 @@ clc_to_spirv(const struct clc_compile_args *args,
    // Compile the code
    clang::EmitLLVMOnlyAction act(llvm_ctx.get());
    if (!c->ExecuteAction(act)) {
-      log += "Error executing LLVM compilation action.\n";
-      clc_error(logger, log.c_str());
+      clc_error(logger, "%sError executing LLVM compilation action.\n",
+                log.c_str());
       return -1;
    }
 
    auto mod = act.takeModule();
    std::ostringstream spv_stream;
    if (!::llvm::writeSpirv(mod.get(), spv_stream, log)) {
-      log += "Translation from LLVM IR to SPIR-V failed.\n";
-      clc_error(logger, log.c_str());
+      clc_error(logger, "%sTranslation from LLVM IR to SPIR-V failed.\n",
+                log.c_str());
       return -1;
    }
 
@@ -702,36 +695,6 @@ clc_to_spirv(const struct clc_compile_args *args,
    memcpy(spvbin->data, spv_out.data(), spvbin->size);
 
    return 0;
-}
-
-static const char *
-spv_result_to_str(spv_result_t res)
-{
-   switch (res) {
-   case SPV_SUCCESS: return "success";
-   case SPV_UNSUPPORTED: return "unsupported";
-   case SPV_END_OF_STREAM: return "end of stream";
-   case SPV_WARNING: return "warning";
-   case SPV_FAILED_MATCH: return "failed match";
-   case SPV_REQUESTED_TERMINATION: return "requested termination";
-   case SPV_ERROR_INTERNAL: return "internal error";
-   case SPV_ERROR_OUT_OF_MEMORY: return "out of memory";
-   case SPV_ERROR_INVALID_POINTER: return "invalid pointer";
-   case SPV_ERROR_INVALID_BINARY: return "invalid binary";
-   case SPV_ERROR_INVALID_TEXT: return "invalid text";
-   case SPV_ERROR_INVALID_TABLE: return "invalid table";
-   case SPV_ERROR_INVALID_VALUE: return "invalid value";
-   case SPV_ERROR_INVALID_DIAGNOSTIC: return "invalid diagnostic";
-   case SPV_ERROR_INVALID_LOOKUP: return "invalid lookup";
-   case SPV_ERROR_INVALID_ID: return "invalid id";
-   case SPV_ERROR_INVALID_CFG: return "invalid config";
-   case SPV_ERROR_INVALID_LAYOUT: return "invalid layout";
-   case SPV_ERROR_INVALID_CAPABILITY: return "invalid capability";
-   case SPV_ERROR_INVALID_DATA: return "invalid data";
-   case SPV_ERROR_MISSING_EXTENSION: return "missing extension";
-   case SPV_ERROR_WRONG_VERSION: return "wrong version";
-   default: return "unknown error";
-   }
 }
 
 class SPIRVMessageConsumer {

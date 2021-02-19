@@ -91,7 +91,7 @@ clc_compile(const struct clc_compile_args *args,
 
    obj = calloc(1, sizeof(*obj));
    if (!obj) {
-      clc_error(logger, "D3D12: failed to allocate a clc_object");
+      clc_error(logger, "failed to allocate a clc_object");
       return NULL;
    }
 
