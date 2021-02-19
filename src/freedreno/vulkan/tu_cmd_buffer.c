@@ -1432,6 +1432,7 @@ tu_AllocateCommandBuffers(VkDevice _device,
 
          result = tu_reset_cmd_buffer(cmd_buffer);
          cmd_buffer->level = pAllocateInfo->level;
+         cmd_buffer->base._loader_data.loaderMagic = ICD_LOADER_MAGIC;
 
          pCommandBuffers[i] = tu_cmd_buffer_to_handle(cmd_buffer);
       } else {
