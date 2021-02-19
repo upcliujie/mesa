@@ -275,3 +275,10 @@ a630-traces-optional:
       when: on_success
     - when: never
   allow_failure: true
+
+freedreno-fail:
+  extends:
+    - .freedreno-rules
+    - .use-arm64_test
+  script:
+    echo "Fail" && false
