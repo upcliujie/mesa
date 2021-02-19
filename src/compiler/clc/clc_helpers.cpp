@@ -52,8 +52,10 @@
 
 #include "spirv.h"
 
+#ifdef USE_STATIC_OPENCL_C_H
 #include "opencl-c.h.h"
 #include "opencl-c-base.h.h"
+#endif
 
 using ::llvm::Function;
 using ::llvm::LLVMContext;
@@ -630,17 +632,17 @@ clc_to_spirv(const struct clc_compile_args *args,
                    c->getDiagnostics(), c->getInvocation().TargetOpts));
 
    c->getFrontendOpts().ProgramAction = clang::frontend::EmitLLVMOnly;
+
+#ifdef USE_STATIC_OPENCL_C_H
    c->getHeaderSearchOpts().UseBuiltinIncludes = false;
    c->getHeaderSearchOpts().UseStandardSystemIncludes = false;
-
-   // Add opencl-c generic search path
    {
       ::llvm::SmallString<128> system_header_path;
       ::llvm::sys::path::system_temp_directory(true, system_header_path);
-      ::llvm::sys::path::append(system_header_path, "openclon12");
-      c->getHeaderSearchOpts().AddPath(system_header_path.str(),
-                                       clang::frontend::Angled,
-                                       false, false);
+//      ::llvm::sys::path::append(system_header_path, "openclon12");
+//      c->getHeaderSearchOpts().AddPath(system_header_path.str(),
+//                                       clang::frontend::Angled,
+//                                       false, false);
 
       ::llvm::sys::path::append(system_header_path, "opencl-c.h");
       c->getPreprocessorOpts().addRemappedFile(system_header_path.str(),
@@ -651,6 +653,18 @@ clc_to_spirv(const struct clc_compile_args *args,
       c->getPreprocessorOpts().addRemappedFile(system_header_path.str(),
          ::llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(opencl_c_base_source, _countof(opencl_c_base_source) - 1)).release());
    }
+#else
+   c->getHeaderSearchOpts().UseBuiltinIncludes = true;
+   c->getHeaderSearchOpts().UseStandardSystemIncludes = true;
+   c->getHeaderSearchOpts().ResourceDir = CLANG_RESOURCE_DIR;
+
+   // Add opencl-c generic search path
+   c->getHeaderSearchOpts().AddPath(CLANG_RESOURCE_DIR,
+                                    clang::frontend::Angled,
+                                    false, false);
+   // Add opencl include
+   c->getPreprocessorOpts().Includes.push_back("opencl-c.h");
+#endif
 
    if (args->num_headers) {
       ::llvm::SmallString<128> tmp_header_path;
