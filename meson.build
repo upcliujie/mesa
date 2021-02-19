@@ -315,7 +315,8 @@ if with_aco_tests and not with_amd_vk
 endif
 
 with_microsoft_clc = get_option('microsoft-clc').enabled()
-with_clc = with_microsoft_clc
+with_intel_clc = get_option('intel-clc').enabled()
+with_clc = with_microsoft_clc or with_intel_clc
 with_libclc = with_clc
 with_spirv_to_dxil = get_option('spirv-to-dxil')
 
@@ -920,6 +921,10 @@ if _opencl != 'disabled'
 else
   with_gallium_opencl = false
   with_opencl_icd = false
+endif
+
+if with_intel_vk
+  with_clc = true
 endif
 
 dep_clc = null_dep
