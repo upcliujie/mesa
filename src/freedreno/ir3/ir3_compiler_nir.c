@@ -3715,14 +3715,8 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
 		 */
 		if (ctx->compiler->gpu_id >= 600 && so->binning_pass &&
 				so->type == MESA_SHADER_VERTEX) {
-			for (int i = 0; i < ctx->ninputs; i++) {
-				struct ir3_instruction *in = ctx->inputs[i];
-
-				if (!in)
-					continue;
-
-				unsigned n = i / 4;
-				unsigned c = i % 4;
+			foreach_input (in, ctx->ir) {
+				unsigned n = in->input.inidx;
 
 				debug_assert(n < so->nonbinning->inputs_count);
 
@@ -3730,7 +3724,7 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
 					continue;
 
 				/* be sure to keep inputs, even if only used in VS */
-				if (so->nonbinning->inputs[n].compmask & (1 << c))
+				if (so->nonbinning->inputs[n].compmask)
 					array_insert(in->block, in->block->keeps, in);
 			}
 		}
