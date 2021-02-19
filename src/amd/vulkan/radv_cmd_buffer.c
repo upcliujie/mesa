@@ -3872,6 +3872,7 @@ VkResult radv_AllocateCommandBuffers(
 
 			result = radv_reset_cmd_buffer(cmd_buffer);
 			cmd_buffer->level = pAllocateInfo->level;
+			cmd_buffer->base._loader_data.loaderMagic = ICD_LOADER_MAGIC;
 
 			pCommandBuffers[i] = radv_cmd_buffer_to_handle(cmd_buffer);
 		} else {
