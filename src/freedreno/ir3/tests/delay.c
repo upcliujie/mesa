@@ -58,6 +58,7 @@ static const struct test {
 		mov.f32f32 r0.z, c0.z
 		mad.f32 r0.x, r0.x, r0.y, r0.z
 	),
+#if 0
 	TEST(2,
 		mov.f32f32 r0.x, c0.x
 		mov.f32f32 r0.y, c0.y
@@ -84,6 +85,7 @@ static const struct test {
 		(rpt2)mov.f32f32 r0.x, (r)c0.x
 		(rpt2)add.f r0.x, (r)r0.x, c0.x
 	),
+#endif
 };
 
 static struct ir3_shader *
