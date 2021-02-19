@@ -8685,11 +8685,14 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
       break;
    }
    case nir_intrinsic_load_patch_vertices_in: {
-      assert(ctx->shader->info.stage == MESA_SHADER_TESS_CTRL ||
-             ctx->shader->info.stage == MESA_SHADER_TESS_EVAL);
-
-      Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
-      bld.copy(Definition(dst), Operand(ctx->args->options->key.tcs.input_vertices));
+      if (ctx->shader->info.stage == MESA_SHADER_TESS_CTRL)
+         /* Number of TCS input vertices per patch */
+         bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), Operand(ctx->args->options->key.tcs.input_vertices));
+      else if (ctx->shader->info.stage == MESA_SHADER_TESS_EVAL)
+         /* Number of TES input = TCS output vertices per patch */
+         bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), Operand(ctx->shader->info.tess.tcs_vertices_out));
+      else
+         unreachable("load_patch_vertices_in is only supported in tessellation shaders.");
       break;
    }
    case nir_intrinsic_emit_vertex_with_counter: {
