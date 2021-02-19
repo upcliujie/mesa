@@ -316,7 +316,7 @@ endif
 
 with_microsoft_clc = get_option('microsoft-clc').enabled()
 with_clc = with_microsoft_clc
-with_libclc = with_clc
+with_libclc = with_clc or with_intel_vk
 with_spirv_to_dxil = get_option('spirv-to-dxil')
 
 if host_machine.system() == 'darwin'
@@ -911,6 +911,10 @@ if _opencl != 'disabled'
 else
   with_gallium_opencl = false
   with_opencl_icd = false
+endif
+
+if with_intel_vk
+  with_clc = true
 endif
 
 dep_clc = null_dep
