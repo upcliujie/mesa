@@ -23,6 +23,8 @@
 // ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
 
+#include "clc_helpers.h"
+
 #include <sstream>
 
 #include <llvm/ADT/ArrayRef.h>
@@ -879,7 +881,7 @@ clc_c_to_spir(const struct clc_compile_args *args,
    writer.writeModule(*pair.first);
 
    out_spir->size = buffer.size_in_bytes();
-   out_spir->data = malloc(out_spir->size);
+   out_spir->data = static_cast<uint32_t*>(malloc(out_spir->size));
    memcpy(out_spir->data, buffer.data(), out_spir->size);
 
    return 0;
