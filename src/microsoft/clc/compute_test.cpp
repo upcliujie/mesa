@@ -624,6 +624,7 @@ ComputeTest::SetUp()
    if (!compiler_ctx_g) {
       clc_libclc_options options = { };
       options.optimize = (debug_get_option_debug_compute() & COMPUTE_DEBUG_OPTIMIZE_LIBCLC) != 0;
+      options.nir_options = dxil_get_nir_compiler_options();
 
       compiler_ctx_g = clc_libclc_new(&logger, &options);
       if (!compiler_ctx_g)
