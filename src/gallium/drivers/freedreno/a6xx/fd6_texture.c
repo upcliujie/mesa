@@ -48,12 +48,6 @@ remove_tex_entry(struct fd6_context *fd6_ctx, struct hash_entry *entry)
 static enum a6xx_tex_clamp
 tex_clamp(unsigned wrap, bool clamp_to_edge, bool *needs_border)
 {
-	/* Hardware does not support _CLAMP, but we emulate it: */
-	if (wrap == PIPE_TEX_WRAP_CLAMP) {
-		wrap = (clamp_to_edge) ?
-			PIPE_TEX_WRAP_CLAMP_TO_EDGE : PIPE_TEX_WRAP_CLAMP_TO_BORDER;
-	}
-
 	switch (wrap) {
 	case PIPE_TEX_WRAP_REPEAT:
 		return A6XX_TEX_REPEAT;
@@ -175,53 +169,6 @@ fd6_sampler_state_delete(struct pipe_context *pctx, void *hwcso)
 	fd_screen_unlock(ctx->screen);
 
 	free(hwcso);
-}
-
-static void
-fd6_sampler_states_bind(struct pipe_context *pctx,
-		enum pipe_shader_type shader, unsigned start,
-		unsigned nr, void **hwcso)
-{
-	struct fd_context *ctx = fd_context(pctx);
-	struct fd6_context *fd6_ctx = fd6_context(ctx);
-	uint16_t saturate_s = 0, saturate_t = 0, saturate_r = 0;
-	unsigned i;
-
-	if (!hwcso)
-		nr = 0;
-
-	for (i = 0; i < nr; i++) {
-		if (hwcso[i]) {
-			struct fd6_sampler_stateobj *sampler =
-					fd6_sampler_stateobj(hwcso[i]);
-			if (sampler->saturate_s)
-				saturate_s |= (1 << i);
-			if (sampler->saturate_t)
-				saturate_t |= (1 << i);
-			if (sampler->saturate_r)
-				saturate_r |= (1 << i);
-		}
-	}
-
-	fd_sampler_states_bind(pctx, shader, start, nr, hwcso);
-
-	if (shader == PIPE_SHADER_FRAGMENT) {
-		fd6_ctx->fsaturate =
-			(saturate_s != 0) ||
-			(saturate_t != 0) ||
-			(saturate_r != 0);
-		fd6_ctx->fsaturate_s = saturate_s;
-		fd6_ctx->fsaturate_t = saturate_t;
-		fd6_ctx->fsaturate_r = saturate_r;
-	} else if (shader == PIPE_SHADER_VERTEX) {
-		fd6_ctx->vsaturate =
-			(saturate_s != 0) ||
-			(saturate_t != 0) ||
-			(saturate_r != 0);
-		fd6_ctx->vsaturate_s = saturate_s;
-		fd6_ctx->vsaturate_t = saturate_t;
-		fd6_ctx->vsaturate_r = saturate_r;
-	}
 }
 
 static struct pipe_sampler_view *
@@ -528,7 +475,7 @@ fd6_texture_init(struct pipe_context *pctx)
 
 	pctx->create_sampler_state = fd6_sampler_state_create;
 	pctx->delete_sampler_state = fd6_sampler_state_delete;
-	pctx->bind_sampler_states = fd6_sampler_states_bind;
+	pctx->bind_sampler_states = fd_sampler_states_bind;
 
 	pctx->create_sampler_view = fd6_sampler_view_create;
 	pctx->sampler_view_destroy = fd6_sampler_view_destroy;
