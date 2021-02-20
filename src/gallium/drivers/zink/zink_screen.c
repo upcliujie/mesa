@@ -245,6 +245,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_INT64:
    case PIPE_CAP_INT64_DIVMOD:
    case PIPE_CAP_DOUBLES:
+   case PIPE_CAP_LOWER_INDIRECT_BO_ACCESS:
       return 1;
 
    case PIPE_CAP_MAX_DUAL_SOURCE_RENDER_TARGETS:
