@@ -308,6 +308,7 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
    case PIPE_CAP_CAN_BIND_CONST_BUFFER_AS_VERTEX:
    case PIPE_CAP_TGSI_DIV:
    case PIPE_CAP_NIR_ATOMICS_AS_DEREF:
+   case PIPE_CAP_LOWER_INDIRECT_BO_ACCESS:
       return 0;
 
    case PIPE_CAP_ALLOW_MAPPED_BUFFERS_DURING_EXECUTION:

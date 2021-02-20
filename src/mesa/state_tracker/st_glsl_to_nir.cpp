@@ -806,6 +806,8 @@ st_link_nir(struct gl_context *ctx,
       nir_build_program_resource_list(ctx, shader_program, false);
    }
 
+   struct pipe_screen *pscreen = st->pipe->screen;
+   bool lower_indirect = pscreen->get_param(pscreen, PIPE_CAP_LOWER_INDIRECT_BO_ACCESS);
    for (unsigned i = 0; i < num_shaders; i++) {
       struct gl_linked_shader *shader = linked_shader[i];
       nir_shader *nir = shader->Program->nir;
@@ -818,6 +820,9 @@ st_link_nir(struct gl_context *ctx,
       opt_access_options.infer_non_readable = false;
       NIR_PASS_V(nir, nir_opt_access, &opt_access_options);
 
+      if (lower_indirect)
+         NIR_PASS_V(nir, nir_lower_indirect_derefs,
+                    nir_var_mem_ubo | nir_var_mem_ssbo, UINT_MAX);
       /* This needs to run after the initial pass of nir_lower_vars_to_ssa, so
        * that the buffer indices are constants in nir where they where
        * constants in GLSL. */
