@@ -148,7 +148,7 @@ lower_indirect_derefs_block(nir_block *block, nir_builder *b,
          base = parent;
       }
 
-      if (!has_indirect || !base || indirect_array_len > max_lower_array_len)
+      if (!has_indirect || !base || !indirect_array_len || indirect_array_len > max_lower_array_len)
          continue;
 
       /* Only lower variables whose mode is in the mask, or compact
