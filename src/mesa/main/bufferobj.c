@@ -3554,6 +3554,10 @@ map_buffer_range(struct gl_context *ctx, struct gl_buffer_object *bufObj,
       return NULL;
    }
 
+   if (ctx->Const.IgnoreMapUnsynchronized) {
+      access &= ~GL_MAP_UNSYNCHRONIZED_BIT;
+   }
+
    assert(ctx->Driver.MapBufferRange);
    void *map = ctx->Driver.MapBufferRange(ctx, offset, length, access, bufObj,
                                           MAP_USER);
