@@ -4292,6 +4292,9 @@ struct gl_constants
     *  incorrect results). */
    bool AllowIncorrectPrimitiveId;
 
+   /** Whether to ignore GL_MAP_UNSYNCHRONIZED_BIT */
+   bool IgnoreMapUnsynchronized;
+
    /** Whether to allow the fast path for frequently updated VAOs. */
    bool AllowDynamicVAOFastPath;
 
