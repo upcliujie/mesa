@@ -3943,16 +3943,6 @@ void store_lds(isel_context *ctx, unsigned elem_size_bytes, Temp data, uint32_t 
    }
 }
 
-unsigned calculate_lds_alignment(isel_context *ctx, unsigned const_offset)
-{
-   unsigned align = 16;
-   if (const_offset)
-      align = std::min(align, 1u << (ffs(const_offset) - 1));
-
-   return align;
-}
-
-
 aco_opcode get_buffer_store_op(unsigned bytes)
 {
    switch (bytes) {
@@ -4210,94 +4200,6 @@ Temp ngg_gs_emit_vertex_lds_addr(isel_context *ctx, Temp emit_vertex_idx)
    return ngg_gs_vertex_lds_addr(ctx, vertex_idx);
 }
 
-std::pair<Temp, unsigned> offset_add_from_nir(isel_context *ctx, const std::pair<Temp, unsigned> &base_offset, nir_src *off_src, unsigned stride = 1u)
-{
-   Builder bld(ctx->program, ctx->block);
-   Temp offset = base_offset.first;
-   unsigned const_offset = base_offset.second;
-
-   if (!nir_src_is_const(*off_src)) {
-      Temp indirect_offset_arg = get_ssa_temp(ctx, off_src->ssa);
-      Temp with_stride;
-
-      /* Calculate indirect offset with stride */
-      if (likely(indirect_offset_arg.regClass() == v1))
-         with_stride = bld.v_mul24_imm(bld.def(v1), indirect_offset_arg, stride);
-      else if (indirect_offset_arg.regClass() == s1)
-         with_stride = bld.sop2(aco_opcode::s_mul_i32, bld.def(s1), Operand(stride), indirect_offset_arg);
-      else
-         unreachable("Unsupported register class of indirect offset");
-
-      /* Add to the supplied base offset */
-      if (offset.id() == 0)
-         offset = with_stride;
-      else if (unlikely(offset.regClass() == s1 && with_stride.regClass() == s1))
-         offset = bld.sop2(aco_opcode::s_add_u32, bld.def(s1), bld.def(s1, scc), with_stride, offset);
-      else if (offset.size() == 1 && with_stride.size() == 1)
-         offset = bld.vadd32(bld.def(v1), with_stride, offset);
-      else
-         unreachable("Unsupported register class of indirect offset");
-   } else {
-      unsigned const_offset_arg = nir_src_as_uint(*off_src);
-      const_offset += const_offset_arg * stride;
-   }
-
-   return std::make_pair(offset, const_offset);
-}
-
-std::pair<Temp, unsigned> offset_add(isel_context *ctx, const std::pair<Temp, unsigned> &off1, const std::pair<Temp, unsigned> &off2)
-{
-   Builder bld(ctx->program, ctx->block);
-   Temp offset;
-
-   if (off1.first.id() && off2.first.id()) {
-      if (unlikely(off1.first.regClass() == s1 && off2.first.regClass() == s1))
-         offset = bld.sop2(aco_opcode::s_add_u32, bld.def(s1), bld.def(s1, scc), off1.first, off2.first);
-      else if (off1.first.size() == 1 && off2.first.size() == 1)
-         offset = bld.vadd32(bld.def(v1), off1.first, off2.first);
-      else
-         unreachable("Unsupported register class of indirect offset");
-   } else {
-      offset = off1.first.id() ? off1.first : off2.first;
-   }
-
-   return std::make_pair(offset, off1.second + off2.second);
-}
-
-std::pair<Temp, unsigned> offset_mul(isel_context *ctx, const std::pair<Temp, unsigned> &offs, unsigned multiplier)
-{
-   Builder bld(ctx->program, ctx->block);
-   unsigned const_offset = offs.second * multiplier;
-
-   if (!offs.first.id())
-      return std::make_pair(offs.first, const_offset);
-
-   Temp offset = unlikely(offs.first.regClass() == s1)
-                 ? bld.sop2(aco_opcode::s_mul_i32, bld.def(s1), Operand(multiplier), offs.first)
-                 : bld.v_mul24_imm(bld.def(v1), offs.first, multiplier);
-
-   return std::make_pair(offset, const_offset);
-}
-
-std::pair<Temp, unsigned> get_intrinsic_io_basic_offset(isel_context *ctx, nir_intrinsic_instr *instr, unsigned base_stride, unsigned component_stride)
-{
-   Builder bld(ctx->program, ctx->block);
-
-   /* base is the driver_location, which is in slots */
-   unsigned const_offset = nir_intrinsic_base(instr) * 4u * base_stride;
-   /* component is in bytes */
-   const_offset += nir_intrinsic_component(instr) * component_stride;
-
-   /* offset should be interpreted in relation to the base, so the instruction effectively reads/writes another input/output when it has an offset */
-   nir_src *off_src = nir_get_io_offset_src(instr);
-   return offset_add_from_nir(ctx, std::make_pair(Temp(), const_offset), off_src, 4u * base_stride);
-}
-
-std::pair<Temp, unsigned> get_intrinsic_io_basic_offset(isel_context *ctx, nir_intrinsic_instr *instr, unsigned stride = 1u)
-{
-   return get_intrinsic_io_basic_offset(ctx, instr, stride, stride);
-}
-
 Temp get_tess_rel_patch_id(isel_context *ctx)
 {
    Builder bld(ctx->program, ctx->block);
@@ -4366,37 +4268,6 @@ bool load_input_from_temps(isel_context *ctx, nir_intrinsic_instr *instr, Temp d
    return true;
 }
 
-void visit_store_es_output(isel_context *ctx, nir_intrinsic_instr *instr)
-{
-   Builder bld(ctx->program, ctx->block);
-
-   std::pair<Temp, unsigned> offs = get_intrinsic_io_basic_offset(ctx, instr, 4u);
-   Temp src = get_ssa_temp(ctx, instr->src[0].ssa);
-   unsigned write_mask = nir_intrinsic_write_mask(instr);
-   unsigned elem_size_bytes = instr->src[0].ssa->bit_size / 8u;
-
-   if (ctx->stage.hw == HWStage::ES) {
-      /* GFX6-8: ES stage is not merged into GS, data is passed from ES to GS in VMEM. */
-      Temp esgs_ring = bld.smem(aco_opcode::s_load_dwordx4, bld.def(s4), ctx->program->private_segment_buffer, Operand(RING_ESGS_VS * 16u));
-      Temp es2gs_offset = get_arg(ctx, ctx->args->ac.es2gs_offset);
-      store_vmem_mubuf(ctx, src, esgs_ring, offs.first, es2gs_offset, offs.second, elem_size_bytes, write_mask, false, memory_sync_info(), true);
-   } else {
-      assert(ctx->stage == vertex_geometry_gs || ctx->stage == tess_eval_geometry_gs ||
-             ctx->stage == vertex_geometry_ngg || ctx->stage == tess_eval_geometry_ngg);
-
-      /* GFX9+: ES stage is merged into GS, data is passed between them using LDS. */
-      unsigned itemsize = ctx->stage.has(SWStage::VS)
-                           ? ctx->program->info->vs.es_info.esgs_itemsize
-                           : ctx->program->info->tes.es_info.esgs_itemsize;
-      Temp vertex_idx = thread_id_in_threadgroup(ctx);
-      Temp lds_base = bld.v_mul24_imm(bld.def(v1), vertex_idx, itemsize);
-
-      offs = offset_add(ctx, offs, std::make_pair(lds_base, 0u));
-      unsigned lds_align = calculate_lds_alignment(ctx, offs.second);
-      store_lds(ctx, elem_size_bytes, src, write_mask, offs.first, offs.second, lds_align);
-   }
-}
-
 void visit_store_output(isel_context *ctx, nir_intrinsic_instr *instr)
 {
    if (ctx->stage == vertex_vs ||
@@ -4411,9 +4282,6 @@ void visit_store_output(isel_context *ctx, nir_intrinsic_instr *instr)
          isel_err(instr->src[1].ssa->parent_instr, "Unimplemented output offset instruction");
          abort();
       }
-   } else if ((ctx->stage.hw == HWStage::ES) ||
-              (ctx->stage.has(SWStage::GS) && ctx->shader->info.stage != MESA_SHADER_GEOMETRY)) {
-      visit_store_es_output(ctx, instr);
    } else {
       unreachable("Shader stage not implemented");
    }
@@ -4919,75 +4787,6 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
    }
 }
 
-std::pair<Temp, unsigned> get_gs_per_vertex_input_offset(isel_context *ctx, nir_intrinsic_instr *instr, unsigned base_stride = 1u)
-{
-   assert(ctx->shader->info.stage == MESA_SHADER_GEOMETRY);
-
-   bool merged_esgs = ctx->stage != geometry_gs;
-   Builder bld(ctx->program, ctx->block);
-   nir_src *vertex_src = nir_get_io_vertex_index_src(instr);
-   Temp vertex_offset;
-
-   if (!nir_src_is_const(*vertex_src)) {
-      /* better code could be created, but this case probably doesn't happen
-       * much in practice */
-      Temp indirect_vertex = as_vgpr(ctx, get_ssa_temp(ctx, vertex_src->ssa));
-      for (unsigned i = 0; i < ctx->shader->info.gs.vertices_in; i++) {
-         Temp elem;
-
-         if (merged_esgs) {
-            elem = get_arg(ctx, ctx->args->ac.gs_vtx_offset[i / 2u * 2u]);
-            if (i % 2u)
-               elem = bld.vop2(aco_opcode::v_lshrrev_b32, bld.def(v1), Operand(16u), elem);
-         } else {
-            elem = get_arg(ctx, ctx->args->ac.gs_vtx_offset[i]);
-         }
-
-         if (vertex_offset.id()) {
-            Temp cond = bld.vopc(aco_opcode::v_cmp_eq_u32, bld.hint_vcc(bld.def(bld.lm)),
-                                 Operand(i), indirect_vertex);
-            vertex_offset = bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1), vertex_offset, elem, cond);
-         } else {
-            vertex_offset = elem;
-         }
-      }
-
-      if (merged_esgs)
-         vertex_offset = bld.vop2(aco_opcode::v_and_b32, bld.def(v1), Operand(0xffffu), vertex_offset);
-   } else {
-      unsigned vertex = nir_src_as_uint(*vertex_src);
-      if (merged_esgs)
-         vertex_offset = bld.vop3(aco_opcode::v_bfe_u32, bld.def(v1),
-                                  get_arg(ctx, ctx->args->ac.gs_vtx_offset[vertex / 2u * 2u]),
-                                  Operand((vertex % 2u) * 16u), Operand(16u));
-      else
-         vertex_offset = get_arg(ctx, ctx->args->ac.gs_vtx_offset[vertex]);
-   }
-
-   std::pair<Temp, unsigned> offs = get_intrinsic_io_basic_offset(ctx, instr, base_stride);
-   offs = offset_add(ctx, offs, std::make_pair(vertex_offset, 0u));
-   return offset_mul(ctx, offs, 4u);
-}
-
-void visit_load_gs_per_vertex_input(isel_context *ctx, nir_intrinsic_instr *instr)
-{
-   assert(ctx->shader->info.stage == MESA_SHADER_GEOMETRY);
-
-   Builder bld(ctx->program, ctx->block);
-   Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
-   unsigned elem_size_bytes = instr->dest.ssa.bit_size / 8;
-
-   if (ctx->stage == geometry_gs) {
-      std::pair<Temp, unsigned> offs = get_gs_per_vertex_input_offset(ctx, instr, ctx->program->wave_size);
-      Temp ring = bld.smem(aco_opcode::s_load_dwordx4, bld.def(s4), ctx->program->private_segment_buffer, Operand(RING_ESGS_GS * 16u));
-      load_vmem_mubuf(ctx, dst, ring, offs.first, Temp(), offs.second, elem_size_bytes, instr->dest.ssa.num_components, 4u * ctx->program->wave_size, false, true);
-   } else {
-      std::pair<Temp, unsigned> offs = get_gs_per_vertex_input_offset(ctx, instr);
-      unsigned lds_align = calculate_lds_alignment(ctx, offs.second);
-      load_lds(ctx, elem_size_bytes, dst, offs.first, offs.second, lds_align);
-   }
-}
-
 void visit_load_tcs_per_vertex_input(isel_context *ctx, nir_intrinsic_instr *instr)
 {
    assert(ctx->shader->info.stage == MESA_SHADER_TESS_CTRL);
@@ -5004,9 +4803,6 @@ void visit_load_tcs_per_vertex_input(isel_context *ctx, nir_intrinsic_instr *ins
 void visit_load_per_vertex_input(isel_context *ctx, nir_intrinsic_instr *instr)
 {
    switch (ctx->shader->info.stage) {
-   case MESA_SHADER_GEOMETRY:
-      visit_load_gs_per_vertex_input(ctx, instr);
-      break;
    case MESA_SHADER_TESS_CTRL:
       visit_load_tcs_per_vertex_input(ctx, instr);
       break;
