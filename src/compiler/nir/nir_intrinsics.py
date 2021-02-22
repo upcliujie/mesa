@@ -1140,6 +1140,9 @@ system_value("ring_tess_offchip_offset_gcn", 1)
 # Descriptor where TCS outputs are stored for the HW tessellator
 system_value("ring_tess_factors_gcn", 4)
 system_value("ring_tess_factors_offset_gcn", 1)
+# Descriptor where ES outputs are stored for GS to read on GFX6-8
+system_value("ring_esgs_gcn", 4)
+system_value("ring_es2gs_offset_gcn", 1)
 
 # Number of patches processed by each TCS workgroup
 system_value("tcs_num_patches_gcn", 1)
@@ -1147,6 +1150,8 @@ system_value("tcs_num_patches_gcn", 1)
 system_value("tess_rel_patch_id_gcn", 1)
 # Relative vertex ID = tess_rel_patch_id * tcs_input_vertex_count + vertex index within current patch
 system_value("tess_vs_rel_id_gcn", 1)
+# Vertex offsets used for GS per-vertex inputs
+system_value("gs_vertex_offset_gcn", 1, [BASE])
 
 # V3D-specific instrinc for tile buffer color reads.
 #
