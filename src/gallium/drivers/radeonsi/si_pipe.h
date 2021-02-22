@@ -1046,10 +1046,10 @@ struct si_context {
    union {
       struct {
          struct si_shader_ctx_state vs;
-         struct si_shader_ctx_state ps;
-         struct si_shader_ctx_state gs;
          struct si_shader_ctx_state tcs;
          struct si_shader_ctx_state tes;
+         struct si_shader_ctx_state gs;
+         struct si_shader_ctx_state ps;
       } shader;
       struct si_shader_ctx_state shaders[SI_NUM_GRAPHICS_SHADERS];
    };
