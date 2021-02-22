@@ -475,6 +475,16 @@ load_ring_tess_offchip(struct ac_shader_abi *abi)
 	return ctx->hs_ring_tess_offchip;
 }
 
+static LLVMValueRef
+load_ring_esgs(struct ac_shader_abi *abi)
+{
+	struct radv_shader_context *ctx = radv_shader_context_from_abi(abi);
+	assert(ctx->stage == MESA_SHADER_VERTEX ||
+	       ctx->stage == MESA_SHADER_TESS_EVAL ||
+	       ctx->stage == MESA_SHADER_GEOMETRY);
+
+	return ctx->esgs_ring;
+}
 
 static LLVMValueRef radv_load_base_vertex(struct ac_shader_abi *abi, bool non_indexed_is_zero)
 {
@@ -3330,6 +3340,7 @@ LLVMModuleRef ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm,
 	ctx.abi.load_resource = radv_load_resource;
 	ctx.abi.load_ring_tess_factors = load_ring_tess_factors;
 	ctx.abi.load_ring_tess_offchip = load_ring_tess_offchip;
+	ctx.abi.load_ring_esgs = load_ring_esgs;
 	ctx.abi.clamp_shadow_reference = false;
 	ctx.abi.adjust_frag_coord_z = args->options->adjust_frag_coord_z;
 	ctx.abi.robust_buffer_access = args->options->robust_buffer_access;
