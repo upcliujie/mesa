@@ -39,6 +39,7 @@
 #include "util/u_atomic.h"
 #include "frontend/api.h"
 #include "hud/hud_context.h"
+#include "glapi/glapi.h"
 
 #include "gldrv.h"
 #include "stw_device.h"
@@ -436,6 +437,8 @@ stw_make_current(HDC hDrawDC, HDC hReadDC, DHGLRC dhglrc)
 
    if (!stw_dev)
       return FALSE;
+
+   _glapi_check_multithread();
 
    old_ctx = stw_current_context();
    if (old_ctx != NULL) {
