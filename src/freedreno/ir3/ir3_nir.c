@@ -430,6 +430,21 @@ ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
 			s->info.stage == MESA_SHADER_FRAGMENT &&
 			!(ir3_shader_debug & IR3_DBG_NOFP16)) {
 		NIR_PASS_V(s, nir_lower_mediump_io, nir_var_shader_out, 0, false);
+		NIR_PASS_V(s, nir_fold_16bit_sampler_conversions, (1 << nir_tex_src_coord));
+
+		nir_tex_src_type_constraints tex_constraints = {
+			[nir_tex_src_lod]          = {true, 0, nir_tex_src_coord},
+			[nir_tex_src_bias]         = {true, 0, nir_tex_src_coord},
+			[nir_tex_src_offset]       = {true, 0, nir_tex_src_coord},
+			[nir_tex_src_comparator]   = {true, 0, nir_tex_src_coord},
+
+			[nir_tex_src_min_lod]      = {true, 0, nir_tex_src_coord},
+			[nir_tex_src_ms_index]     = {true, 0, nir_tex_src_coord},
+			[nir_tex_src_ddx]          = {true, 0, nir_tex_src_coord},
+			[nir_tex_src_ddy]          = {true, 0, nir_tex_src_coord},
+
+		};
+		NIR_PASS_V(s, nir_legalize_16bit_sampler_srcs, tex_constraints);
 	}
 
 	/* we cannot ensure that ir3_finalize_nir() is only called once, so
