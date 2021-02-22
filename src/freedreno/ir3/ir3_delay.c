@@ -88,12 +88,32 @@ ir3_delayslots(struct ir3_instruction *assigner,
 	if (is_flow(consumer) || is_sfu(consumer) || is_tex(consumer) ||
 			is_mem(consumer)) {
 		return 6;
-	} else if ((is_mad(consumer->opc) || is_madsh(consumer->opc)) &&
-			(n == 3)) {
-		/* special case, 3rd src to cat3 not required on first cycle */
-		return 1;
 	} else {
-		return 3;
+		/* assigner and consumer are both alu */
+		assert(n > 0);
+
+		/* In mergedregs mode, there is an extra 2-cycle penalty when half of
+		 * a full-reg is read as a half-reg, and a 1-cycle penalty when a
+		 * half-reg is read as a full-reg.
+		 */
+		bool half_to_full =
+			(assigner->regs[0]->flags & IR3_REG_HALF) &&
+			!(consumer->regs[n - 1]->flags & IR3_REG_HALF);
+		bool full_to_half =
+			!(assigner->regs[0]->flags & IR3_REG_HALF) &&
+			(consumer->regs[n - 1]->flags & IR3_REG_HALF);
+		unsigned penalty = 0;
+		if (half_to_full)
+			penalty = 1;
+		else if (full_to_half)
+			penalty = 2;
+		if ((is_mad(consumer->opc) || is_madsh(consumer->opc)) &&
+			(n == 3)) {
+			/* special case, 3rd src to cat3 not required on first cycle */
+			return 1 + penalty;
+		} else {
+			return 3 + penalty;
+		}
 	}
 }
 
