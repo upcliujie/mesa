@@ -7906,6 +7906,11 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
       break;
    }
    case nir_intrinsic_load_local_invocation_index: {
+      if (ctx->stage.hw == HWStage::GS || ctx->stage.hw == HWStage::NGG) {
+         bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), thread_id_in_threadgroup(ctx));
+         break;
+      }
+
       Temp id = emit_mbcnt(ctx, bld.tmp(v1));
 
       /* The tg_size bits [6:11] contain the subgroup id,
@@ -8515,6 +8520,21 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
    }
    case nir_intrinsic_load_ring_tess_offchip_offset_gcn: {
       bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_arg(ctx, ctx->args->ac.tess_offchip_offset));
+      break;
+   }
+   case nir_intrinsic_load_ring_esgs_gcn: {
+      unsigned ring = ctx->stage.hw == HWStage::ES ? RING_ESGS_VS : RING_ESGS_GS;
+      bld.smem(aco_opcode::s_load_dwordx4, Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
+               ctx->program->private_segment_buffer, Operand(ring * 16u));
+      break;
+   }
+   case nir_intrinsic_load_ring_es2gs_offset_gcn: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_arg(ctx, ctx->args->ac.es2gs_offset));
+      break;
+   }
+   case nir_intrinsic_load_gs_vertex_offset_gcn: {
+      unsigned b = nir_intrinsic_base(instr);
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_arg(ctx, ctx->args->ac.gs_vtx_offset[b]));
       break;
    }
    default:
