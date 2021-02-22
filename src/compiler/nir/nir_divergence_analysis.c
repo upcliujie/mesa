@@ -141,6 +141,8 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_ring_tess_offchip_gcn:
    case nir_intrinsic_load_ring_tess_factors_offset_gcn:
    case nir_intrinsic_load_ring_tess_offchip_offset_gcn:
+   case nir_intrinsic_load_ring_esgs_gcn:
+   case nir_intrinsic_load_ring_es2gs_offset_gcn:
       is_divergent = false;
       break;
 
@@ -480,6 +482,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_mubuf_gcn:
    case nir_intrinsic_load_tess_rel_patch_id_gcn:
    case nir_intrinsic_load_tess_vs_rel_id_gcn:
+   case nir_intrinsic_load_gs_vertex_offset_gcn:
       is_divergent = true;
       break;
 
