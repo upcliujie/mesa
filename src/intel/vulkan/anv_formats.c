@@ -1124,6 +1124,17 @@ anv_get_image_format_properties(
       }
    }
 
+   if (info->flags & VK_IMAGE_CREATE_ALIAS_BIT) {
+      /* Reject aliasing of images with non-linear DRM format modifiers because
+       * they might use ANV_IMAGE_MEMORY_BINDING_PRIVATE, which is not aliasable
+       * because it does not belong to a VkDeviceMemory.
+       */
+      if (info->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
+          isl_mod_info->modifier != DRM_FORMAT_MOD_LINEAR) {
+         goto unsupported;
+      }
+   }
+
    if (info->usage & VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT) {
       /* Nothing to check. */
    }
