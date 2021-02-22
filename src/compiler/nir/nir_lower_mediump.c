@@ -439,7 +439,7 @@ nir_fold_16bit_sampler_conversions(nir_shader *nir,
             }
 
             /* Handle vector sources that are made of scalar instructions. */
-            if (nir_op_is_vec(src_alu->op)) {
+            if (nir_op_is_vec(src_alu->op) && src_alu->op != nir_op_mov) {
                /* See if the vector is made of f16->f32 opcodes. */
                unsigned num = nir_dest_num_components(src_alu->dest.dest);
                bool is_f16_to_f32 = true;
