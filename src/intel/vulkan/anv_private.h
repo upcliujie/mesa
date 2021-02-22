@@ -3643,6 +3643,12 @@ struct anv_image_memory_range {
       ANV_IMAGE_MEMORY_BINDING_PLANE_1,
       ANV_IMAGE_MEMORY_BINDING_PLANE_2,
 
+      /**
+       * Driver-private bo. In special cases we may store the aux surface and/or
+       * aux state in this binding.
+       */
+      ANV_IMAGE_MEMORY_BINDING_PRIVATE,
+
       /** Sentinel */
       ANV_IMAGE_MEMORY_BINDING_END,
    } binding;
@@ -3687,10 +3693,11 @@ anv_surface_is_valid(const struct anv_surface *surface)
  * Within each format plane:
  *    - '+' marks required components
  *    - '?' marks optional components
+ *    - omitted components do not exist
  *
  * The memory layout is validated in check_memory_bindings().
  *
- * Case: image is not disjoint
+ * Case: image lacks drm_format_mod and is not disjoint
  *
  *    ANV_IMAGE_MEMORY_BINDING_MAIN
  *       + plane0.primary_surface
@@ -3706,7 +3713,7 @@ anv_surface_is_valid(const struct anv_surface *surface)
  *       ? plane2.aux_surface
  *       ? plane2.fast_clear_memory_range
  *
- * Case: image is disjoint
+ * Case: image lacks drm_format_mod and is disjoint
  *
  *    ANV_IMAGE_MEMORY_BINDING_PLANE0
  *       + plane0.primary_surface
@@ -3723,6 +3730,49 @@ anv_surface_is_valid(const struct anv_surface *surface)
  *       ? plane2.shadow_surface
  *       ? plane2.aux_surface
  *       ? plane2.fast_clear_memory_range
+ *
+ * Case: image has drm_format_mod; mod has aux; format is single-planar
+ *
+ *    We do not yet support this case on gen12, where the ccs surface is
+ *    implicit.
+ *
+ *    Note on ANV_IMAGE_MEMORY_BINDING_PRIVATE. If the image was externally
+ *    allocated, then the size of its external VkDeviceMemory will accomomdate
+ *    the primary surface and the aux surface.  However, the external memory
+ *    might not contain sufficient padding into which we can place the fast
+ *    clear data, because the fast clear data is an internal driver detail,
+ *    outside the modifier's ABI. Even if it did contain sufficient padding, we
+ *    must not use it because the modifier's ABI does not claim ownership of it.
+ *    Therefore, we must place the fast clear data into a driver-private bo.
+ *
+ *    ANV_IMAGE_MEMORY_BINDING_MAIN
+ *       + plane0.primary_surface
+ *       + plane0.aux_surface
+ *    ANV_IMAGE_MEMORY_BINDING_PRIVATE
+ *       + plane0.fast_clear_memory_range
+ *
+ * Case: image has drm_format_mod; mod lacks aux; format is single-planar
+ *
+ *    Note on ANV_IMAGE_MEMORY_BINDING_PRIVATE. If the driver would support aux
+ *    usage for the image if the image had no modifier, then we may privately
+ *    enable aux usage to improve performance. Similar to the reasons explained
+ *    in the case where the image has a modifier *with* aux, we must place the
+ *    driver-private aux surface and aux data into a driver-private bo. Each
+ *    time the app releases ownership to the foreign queue or presentation
+ *    engine, we must ensure the image's memory complies with the modifier's
+ *    ABI, and therefore must fully resolve the image before completing the
+ *    ownership transfer.
+ *
+ *    For example, if the image has I915_FORMAT_MOD_TILING_Y and
+ *    VK_FORMAT_R8G8B8A8_UNORM, then we may privately enable ISL_AUX_USAGE_CCS_E
+ *    and place the driver-private aux surface and fast clear data into
+ *    ANV_IMAGE_MEMORY_BINDING_PRIVATE.
+ *
+ *    ANV_IMAGE_MEMORY_BINDING_MAIN
+ *       + plane0.primary_surface
+ *    ANV_IMAGE_MEMORY_BINDING_PRIVATE
+ *       ? plane0.aux_surface
+ *       ? plane0.fast_clear_memory_range
  */
 struct anv_image {
    struct vk_object_base base;
@@ -3777,6 +3827,9 @@ struct anv_image {
 
    /**
     * The memory bindings created by vkCreateImage and vkBindImageMemory.
+    *
+    * For details on the image's memory layout, see
+    * anv_image.c:check_memory_bindings().
     *
     * vkCreateImage constructs the `memory_range` for each
     * anv_image_memory_binding.  After vkCreateImage, each binding is valid if
