@@ -818,6 +818,12 @@ radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
 				info->vs.tcs_temp_only_input_mask,
 				info->vs.num_linked_outputs);
 			return true;
+		} else if (info->vs.as_es) {
+			ac_nir_lower_es_outputs_to_mem(
+				nir,
+				device->physical_device->rad_info.chip_class,
+				info->vs.num_linked_outputs);
+			return true;
 		}
 	} else if (nir->info.stage == MESA_SHADER_TESS_CTRL) {
 		ac_nir_lower_hs_inputs_to_mem(
@@ -850,6 +856,20 @@ radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
 			nir->info.tess.tcs_vertices_out,
 			info->num_tess_patches,
 			ac_nir_lower_patch_vtx_in | ac_nir_lower_num_patches);
+
+		if (info->tes.as_es) {
+			ac_nir_lower_es_outputs_to_mem(
+				nir,
+				device->physical_device->rad_info.chip_class,
+				info->tes.num_linked_outputs);
+		}
+
+		return true;
+	} else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
+		ac_nir_lower_gs_inputs_to_mem(
+			nir,
+			device->physical_device->rad_info.chip_class,
+			info->gs.num_linked_inputs);
 		return true;
 	}
 
