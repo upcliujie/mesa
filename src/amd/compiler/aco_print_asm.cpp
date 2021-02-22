@@ -110,13 +110,6 @@ std::pair<bool, size_t> disasm_instr(chip_class chip, LLVMDisasmContextRef disas
                                     (exec_size - pos) * sizeof(uint32_t), pos * 4,
                                     outline, outline_size);
 
-   if (chip >= GFX10 && l == 8 &&
-       ((binary[pos] & 0xffff0000) == 0xd7610000) &&
-       ((binary[pos + 1] & 0x1ff) == 0xff)) {
-      /* v_writelane with literal uses 3 dwords but llvm consumes only 2 */
-      l += 4;
-   }
-
    bool invalid = false;
    size_t size;
    if (!l &&
