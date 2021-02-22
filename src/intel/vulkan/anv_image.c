@@ -76,6 +76,8 @@ image_binding_grow(struct anv_image *image,
       if (!image->disjoint)
          binding = ANV_IMAGE_MEMORY_BINDING_MAIN;
       break;
+   case ANV_IMAGE_MEMORY_BINDING_PRIVATE:
+      break;
    case ANV_IMAGE_MEMORY_BINDING_END:
       unreachable("ANV_IMAGE_MEMORY_BINDING_END");
    }
@@ -396,12 +398,17 @@ add_aux_state_tracking_buffer(struct anv_device *device,
       }
    }
 
+   enum anv_image_memory_binding binding =
+      ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane;
+
+   if (image->drm_format_mod != DRM_FORMAT_MOD_INVALID)
+       binding = ANV_IMAGE_MEMORY_BINDING_PRIVATE;
+
    /* We believe that 256B alignment may be sufficient, but we choose 4K due to
     * lack of testing.  And MI_LOAD/STORE operations require dword-alignment.
     */
    image->planes[plane].fast_clear_memory_range =
-      image_binding_grow(image, ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
-                         state_size, 4096);
+      image_binding_grow(image, binding, state_size, 4096);
 }
 
 /**
@@ -575,9 +582,16 @@ add_aux_surface_if_supported(struct anv_device *device,
          image->planes[plane].aux_usage = ISL_AUX_USAGE_CCS_D;
       }
 
-      if (!device->physical->has_implicit_ccs)
-         add_surface(image, ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
-                     &image->planes[plane].aux_surface);
+      if (!device->physical->has_implicit_ccs) {
+         enum anv_image_memory_binding binding =
+            ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane;
+
+         if (image->drm_format_mod != DRM_FORMAT_MOD_INVALID &&
+             !isl_drm_modifier_has_aux(image->drm_format_mod))
+            binding = ANV_IMAGE_MEMORY_BINDING_PRIVATE;
+
+         add_surface(image, binding, &image->planes[plane].aux_surface);
+      }
 
       add_aux_state_tracking_buffer(device, image, plane);
    } else if ((aspect & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) && image->samples > 1) {
@@ -759,7 +773,17 @@ check_memory_bindings(const struct anv_device *device,
       }
 
       /* Check aux_surface */
+      if (image->drm_format_mod != DRM_FORMAT_MOD_INVALID &&
+          isl_drm_modifier_has_aux(image->drm_format_mod))
+         assert(anv_surface_is_valid(&plane->aux_surface));
+
       if (anv_surface_is_valid(&plane->aux_surface)) {
+         enum anv_image_memory_binding binding = primary_binding;
+
+         if (image->drm_format_mod != DRM_FORMAT_MOD_INVALID &&
+             !isl_drm_modifier_has_aux(image->drm_format_mod))
+            binding = ANV_IMAGE_MEMORY_BINDING_PRIVATE;
+
          /* Display hardware requires that the aux surface start at
           * a higher address than the primary surface. The 3D hardware
           * doesn't care, but we enforce the display requirement in case
@@ -767,7 +791,7 @@ check_memory_bindings(const struct anv_device *device,
           */
          check_memory_range(accum_ranges,
                             .test_surface = &plane->aux_surface,
-                            .expect_binding = primary_binding);
+                            .expect_binding = binding);
       }
 
       /* Check fast clear state */
@@ -776,6 +800,11 @@ check_memory_bindings(const struct anv_device *device,
               image->aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV));
 
       if (plane->fast_clear_memory_range.size > 0) {
+         enum anv_image_memory_binding binding = primary_binding;
+
+         if (image->drm_format_mod != DRM_FORMAT_MOD_INVALID)
+            binding = ANV_IMAGE_MEMORY_BINDING_PRIVATE;
+
          /* We believe that 256B alignment may be sufficient, but we choose 4K
           * due to lack of testing.  And MI_LOAD/STORE operations require
           * dword-alignment.
@@ -783,7 +812,7 @@ check_memory_bindings(const struct anv_device *device,
          assert(plane->fast_clear_memory_range.alignment == 4096);
          check_memory_range(accum_ranges,
                             .test_range = &plane->fast_clear_memory_range,
-                            .expect_binding = primary_binding);
+                            .expect_binding = binding);
       }
    }
 #endif
@@ -1226,6 +1255,10 @@ anv_DestroyImage(VkDevice _device, VkImage _image,
          anv_device_release_bo(device, image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN].address.bo);
    }
 
+   struct anv_bo *private_bo = image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE].address.bo;
+   if (private_bo)
+      anv_device_release_bo(device, private_bo);
+
    vk_object_base_finish(&image->base);
    vk_free2(&device->vk.alloc, pAllocator, image);
 }
@@ -1422,6 +1455,7 @@ VkResult anv_BindImageMemory2(
     const VkBindImageMemoryInfo*                pBindInfos)
 {
    ANV_FROM_HANDLE(anv_device, device, _device);
+   VkResult result;
 
    for (uint32_t i = 0; i < bindInfoCount; i++) {
       const VkBindImageMemoryInfo *bind_info = &pBindInfos[i];
@@ -1472,14 +1506,13 @@ VkResult anv_BindImageMemory2(
             assert(image->aspects == swapchain_image->aspects);
             assert(mem == NULL);
 
-            /* The Vulkan 1.2 spec ensures that the image is not disjoint. See
-             * the table of implied image creation parameters for swapchains
-             * <vkspec.html#swapchain-wsi-image-create-info>.
-             */
-            assert(!swapchain_image->disjoint);
+            for (int j = 0; j < ARRAY_SIZE(image->bindings); ++j)
+               image->bindings[j].address = swapchain_image->bindings[j].address;
 
-            image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN].address =
-               swapchain_image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN].address;
+            struct anv_bo *private_bo =
+               image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE].address.bo;
+            if (private_bo)
+               anv_bo_ref(private_bo);
 
             did_bind = true;
             break;
@@ -1515,9 +1548,50 @@ VkResult anv_BindImageMemory2(
              device->physical->has_implicit_ccs)
             image->planes[p].aux_usage = ISL_AUX_USAGE_NONE;
       }
+
+      /* Allocate a private bo if the image uses one, unless
+       * VkBindImageMemorySwapchainInfoKHR already bound it.
+       */
+      struct anv_image_binding *private_binding =
+         &image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE];
+
+      if (private_binding->memory_range.size > 0 &&
+          !private_binding->address.bo) {
+         result = anv_device_alloc_bo(device, "image-binding-private",
+                                      private_binding->memory_range.size, 0, 0,
+                                      &private_binding->address.bo);
+         if (result != VK_SUCCESS)
+            goto fail;
+      }
    }
 
    return VK_SUCCESS;
+
+ fail:
+   /* We must undo all bindings because the spec says:
+    *
+    *    VK_ERROR_OUT_OF_*_MEMORY errors do not modify any currently existing
+    *    Vulkan objects. Objects that have already been successfully created can
+    *    still be used by the application.
+    *
+    * It's safe to undo the bindings of *all* images because the spec requires
+    * that all images be unbound when calling vkBindImageMemory2.
+    */
+   for (uint32_t i = 0; i < bindInfoCount; i++) {
+      const VkBindImageMemoryInfo *bind_info = &pBindInfos[i];
+      ANV_FROM_HANDLE(anv_image, image, bind_info->image);
+
+      struct anv_bo *private_bo =
+         image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE].address.bo;
+      if (private_bo)
+         anv_device_release_bo(device, private_bo);
+
+      for (int j = 0; j < ARRAY_SIZE(image->bindings); ++j) {
+         image->bindings[j].address = (struct anv_address) { 0 };
+      }
+   }
+
+   return result;
 }
 
 void anv_GetImageSubresourceLayout(
