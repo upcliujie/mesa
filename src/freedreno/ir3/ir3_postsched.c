@@ -77,9 +77,6 @@ struct ir3_postsched_node {
 #define foreach_sched_node(__n, __list) \
 	list_for_each_entry(struct ir3_postsched_node, __n, __list, dag.link)
 
-#define foreach_bit(b, mask) \
-	for (uint32_t _m = ({debug_assert((mask) >= 1); (mask);}); _m && ({(b) = u_bit_scan(&_m); 1;});)
-
 static void
 schedule(struct ir3_postsched_ctx *ctx, struct ir3_instruction *instr)
 {
@@ -402,8 +399,6 @@ static void
 calculate_deps(struct ir3_postsched_deps_state *state,
 		struct ir3_postsched_node *node)
 {
-	int b;
-
 	/* Add dependencies on instructions that previously (or next,
 	 * in the reverse direction) wrote any of our src registers:
 	 */
@@ -418,6 +413,7 @@ calculate_deps(struct ir3_postsched_deps_state *state,
 				add_reg_dep(state, node, reg, arr->reg + i, false);
 			}
 		} else {
+			assert(reg->wrmask >= 1);
 			foreach_bit (b, reg->wrmask) {
 				add_reg_dep(state, node, reg, reg->num + b, false);
 
@@ -450,6 +446,7 @@ calculate_deps(struct ir3_postsched_deps_state *state,
 			add_reg_dep(state, node, reg, arr->reg + i, true);
 		}
 	} else {
+		assert(reg->wrmask >= 1);
 		foreach_bit (b, reg->wrmask) {
 			add_reg_dep(state, node, reg, reg->num + b, true);
 		}
