@@ -95,11 +95,9 @@ _GLAPI_EXPORT extern const void *_glapi_Context;
 _GLAPI_EXPORT extern struct _glapi_table *_glapi_Dispatch;
 _GLAPI_EXPORT extern void *_glapi_Context;
 
-#define GET_DISPATCH() \
-     (likely(_glapi_Dispatch) ? _glapi_Dispatch : _glapi_get_dispatch())
+#define GET_DISPATCH() _glapi_get_dispatch()
 
-#define GET_CURRENT_CONTEXT(C)  struct gl_context *C = (struct gl_context *) \
-     (likely(_glapi_Context) ? _glapi_Context : _glapi_get_context())
+#define GET_CURRENT_CONTEXT(C)  struct gl_context *C = (struct gl_context *) _glapi_get_context()
 
 #endif /* defined (USE_ELF_TLS) */
 
