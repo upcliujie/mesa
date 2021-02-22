@@ -402,40 +402,16 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
          }
       }
 
-      /* select live-through vgpr variables and constants */
-      while (new_demand.vgpr - spilled_registers.vgpr > ctx.target_pressure.vgpr) {
+      /* select live-through variables and constants */
+      while ((new_demand - spilled_registers).exceeds(ctx.target_pressure)) {
          unsigned distance = 0;
          Temp to_spill;
+         RegType type = RegType::sgpr;
+         if (new_demand.vgpr - spilled_registers.vgpr > ctx.target_pressure.vgpr)
+            type = RegType::vgpr;
+
          for (std::pair<Temp, std::pair<uint32_t, uint32_t>> pair : ctx.next_use_distances_end[block_idx - 1]) {
-            if (pair.first.type() == RegType::vgpr &&
-                (pair.second.first >= loop_end || ctx.remat.count(pair.first)) &&
-                pair.second.first >= loop_end &&
-                pair.second.second > distance &&
-                ctx.spills_entry[block_idx].find(pair.first) == ctx.spills_entry[block_idx].end()) {
-               to_spill = pair.first;
-               distance = pair.second.second;
-            }
-         }
-         if (distance == 0)
-            break;
-
-         uint32_t spill_id;
-         if (ctx.spills_exit[block_idx - 1].find(to_spill) == ctx.spills_exit[block_idx - 1].end()) {
-            spill_id = ctx.allocate_spill_id(to_spill.regClass());
-         } else {
-            spill_id = ctx.spills_exit[block_idx - 1][to_spill];
-         }
-
-         ctx.spills_entry[block_idx][to_spill] = spill_id;
-         spilled_registers.vgpr += to_spill.size();
-      }
-
-      /* select live-through sgpr variables and constants */
-      while (new_demand.sgpr - spilled_registers.sgpr > ctx.target_pressure.sgpr) {
-         unsigned distance = 0;
-         Temp to_spill;
-         for (std::pair<Temp, std::pair<uint32_t, uint32_t>> pair : ctx.next_use_distances_end[block_idx - 1]) {
-            if (pair.first.type() == RegType::sgpr &&
+            if (pair.first.type() == type &&
                 (pair.second.first >= loop_end || ctx.remat.count(pair.first)) &&
                 pair.second.second > distance &&
                 ctx.spills_entry[block_idx].find(pair.first) == ctx.spills_entry[block_idx].end()) {
@@ -454,13 +430,11 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
          }
 
          ctx.spills_entry[block_idx][to_spill] = spill_id;
-         spilled_registers.sgpr += to_spill.size();
+         spilled_registers += to_spill;
       }
-
-
 
       /* shortcut */
-      if (!RegisterDemand(new_demand - spilled_registers).exceeds(ctx.target_pressure))
+      if (!(new_demand - spilled_registers).exceeds(ctx.target_pressure))
          return spilled_registers;
 
       /* if reg pressure is too high at beginning of loop, add variables with furthest use */
@@ -478,28 +452,13 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
             reg_pressure.sgpr, ctx.register_demand[pred].back().sgpr - spilled_registers.sgpr);
       }
 
-      while (reg_pressure.sgpr > ctx.target_pressure.sgpr) {
+      while (reg_pressure.exceeds(ctx.target_pressure)) {
          unsigned distance = 0;
          Temp to_spill;
-         for (std::pair<Temp, std::pair<uint32_t, uint32_t>> pair : ctx.next_use_distances_start[block_idx]) {
-            if (pair.first.type() == RegType::sgpr &&
-                pair.second.second > distance &&
-                ctx.spills_entry[block_idx].find(pair.first) == ctx.spills_entry[block_idx].end()) {
-               to_spill = pair.first;
-               distance = pair.second.second;
-            }
-         }
-         assert(distance != 0);
+         RegType type = reg_pressure.vgpr > ctx.target_pressure.vgpr ? RegType::vgpr : RegType::sgpr;
 
-         ctx.spills_entry[block_idx][to_spill] = ctx.allocate_spill_id(to_spill.regClass());
-         spilled_registers.sgpr += to_spill.size();
-         reg_pressure.sgpr -= to_spill.size();
-      }
-      while (reg_pressure.vgpr > ctx.target_pressure.vgpr) {
-         unsigned distance = 0;
-         Temp to_spill;
          for (std::pair<Temp, std::pair<uint32_t, uint32_t>> pair : ctx.next_use_distances_start[block_idx]) {
-            if (pair.first.type() == RegType::vgpr &&
+            if (pair.first.type() == type &&
                 pair.second.second > distance &&
                 ctx.spills_entry[block_idx].find(pair.first) == ctx.spills_entry[block_idx].end()) {
                to_spill = pair.first;
@@ -508,8 +467,8 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
          }
          assert(distance != 0);
          ctx.spills_entry[block_idx][to_spill] = ctx.allocate_spill_id(to_spill.regClass());
-         spilled_registers.vgpr += to_spill.size();
-         reg_pressure.vgpr -= to_spill.size();
+         spilled_registers += to_spill;
+         reg_pressure -= to_spill;
       }
 
       return spilled_registers;
@@ -668,16 +627,17 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
          reg_pressure.sgpr, ctx.register_demand[pred].back().sgpr - spilled_registers.sgpr);
    }
 
-   while (reg_pressure.sgpr > ctx.target_pressure.sgpr) {
+   while (reg_pressure.exceeds(ctx.target_pressure)) {
       assert(!partial_spills.empty());
-
       std::set<Temp>::iterator it = partial_spills.begin();
       Temp to_spill = Temp();
       unsigned distance = 0;
+      RegType type = reg_pressure.vgpr > ctx.target_pressure.vgpr ? RegType::vgpr : RegType::sgpr;
+
       while (it != partial_spills.end()) {
          assert(ctx.spills_entry[block_idx].find(*it) == ctx.spills_entry[block_idx].end());
 
-         if (it->type() == RegType::sgpr && ctx.next_use_distances_start[block_idx][*it].second > distance) {
+         if (it->type() == type && ctx.next_use_distances_start[block_idx][*it].second > distance) {
             distance = ctx.next_use_distances_start[block_idx][*it].second;
             to_spill = *it;
          }
@@ -687,31 +647,8 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
 
       ctx.spills_entry[block_idx][to_spill] = ctx.allocate_spill_id(to_spill.regClass());
       partial_spills.erase(to_spill);
-      spilled_registers.sgpr += to_spill.size();
-      reg_pressure.sgpr -= to_spill.size();
-   }
-
-   while (reg_pressure.vgpr > ctx.target_pressure.vgpr) {
-      assert(!partial_spills.empty());
-
-      std::set<Temp>::iterator it = partial_spills.begin();
-      Temp to_spill = Temp();
-      unsigned distance = 0;
-      while (it != partial_spills.end()) {
-         assert(ctx.spills_entry[block_idx].find(*it) == ctx.spills_entry[block_idx].end());
-
-         if (it->type() == RegType::vgpr && ctx.next_use_distances_start[block_idx][*it].second > distance) {
-            distance = ctx.next_use_distances_start[block_idx][*it].second;
-            to_spill = *it;
-         }
-         ++it;
-      }
-      assert(distance != 0);
-
-      ctx.spills_entry[block_idx][to_spill] = ctx.allocate_spill_id(to_spill.regClass());
-      partial_spills.erase(to_spill);
-      spilled_registers.vgpr += to_spill.size();
-      reg_pressure.vgpr -= to_spill.size();
+      spilled_registers += to_spill;
+      reg_pressure -= to_spill;
    }
 
    return spilled_registers;
@@ -1151,7 +1088,7 @@ void process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
          assert(!local_next_use_distance.empty());
 
          /* if reg pressure is too high, spill variable with furthest next use */
-         while (RegisterDemand(new_demand - spilled_registers).exceeds(ctx.target_pressure)) {
+         while ((new_demand - spilled_registers).exceeds(ctx.target_pressure)) {
             unsigned distance = 0;
             Temp to_spill;
             bool do_rematerialize = false;
@@ -1233,7 +1170,7 @@ void spill_block(spill_ctx& ctx, unsigned block_idx)
    std::map<Temp, uint32_t> current_spills = ctx.spills_entry[block_idx];
 
    /* check conditions to process this block */
-   bool process = RegisterDemand(block->register_demand - spilled_registers).exceeds(ctx.target_pressure) ||
+   bool process = (block->register_demand - spilled_registers).exceeds(ctx.target_pressure) ||
                   !ctx.renames[block_idx].empty() ||
                   ctx.remat_used.size();
 
