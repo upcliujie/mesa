@@ -360,6 +360,46 @@ std::vector<std::map<Temp, uint32_t>> local_next_uses(spill_ctx& ctx, Block* blo
    return local_next_uses;
 }
 
+RegisterDemand get_demand_before(spill_ctx& ctx, unsigned block_idx, unsigned idx)
+{
+   if (idx == 0) {
+      RegisterDemand demand = ctx.register_demand[block_idx][idx];
+      aco_ptr<Instruction>& instr = ctx.program->blocks[block_idx].instructions[idx];
+      aco_ptr<Instruction> instr_before(nullptr);
+      return get_demand_before(demand, instr, instr_before);
+   } else {
+      return ctx.register_demand[block_idx][idx - 1];
+   }
+}
+
+RegisterDemand get_live_in_demand(spill_ctx& ctx, unsigned block_idx)
+{
+   unsigned idx = 0;
+   RegisterDemand reg_pressure = RegisterDemand();
+   Block& block = ctx.program->blocks[block_idx];
+   for (aco_ptr<Instruction>& phi : block.instructions) {
+      if (!is_phi(phi))
+         break;
+      idx++;
+
+      /* Killed phi definitions increase pressure in the predecessor but not
+       * the block they're in. Since the loops below are both to control
+       * pressure of the start of this block and the ends of it's
+       * predecessors, we need to count killed unspilled phi definitions here. */
+      if (phi->definitions[0].isTemp() && phi->definitions[0].isKill() &&
+          !ctx.spills_entry[block_idx].count(phi->definitions[0].getTemp()))
+         reg_pressure += phi->definitions[0].getTemp();
+   }
+
+   reg_pressure += get_demand_before(ctx, block_idx, idx);
+
+   /* Consider register pressure from linear predecessors. This can affect
+    * reg_pressure if the branch instructions define sgprs. */
+   for (unsigned pred : block.linear_preds)
+      reg_pressure.sgpr = std::max<int16_t>(reg_pressure.sgpr, ctx.register_demand[pred].back().sgpr);
+
+   return reg_pressure;
+}
 
 RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_idx)
 {
@@ -438,19 +478,8 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
          return spilled_registers;
 
       /* if reg pressure is too high at beginning of loop, add variables with furthest use */
-      unsigned idx = 0;
-      while (block->instructions[idx]->opcode == aco_opcode::p_phi || block->instructions[idx]->opcode == aco_opcode::p_linear_phi)
-         idx++;
-
-      assert(idx != 0 && "loop without phis: TODO");
-      idx--;
-      RegisterDemand reg_pressure = ctx.register_demand[block_idx][idx] - spilled_registers;
-      /* Consider register pressure from linear predecessors. This can affect
-       * reg_pressure if the branch instructions define sgprs. */
-      for (unsigned pred : block->linear_preds) {
-         reg_pressure.sgpr = std::max<int16_t>(
-            reg_pressure.sgpr, ctx.register_demand[pred].back().sgpr - spilled_registers.sgpr);
-      }
+      RegisterDemand reg_pressure = get_live_in_demand(ctx, block_idx);
+      reg_pressure -= spilled_registers;
 
       while (reg_pressure.exceeds(ctx.target_pressure)) {
          unsigned distance = 0;
@@ -561,10 +590,9 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
    }
 
    /* same for phis */
-   unsigned idx = 0;
-   while (block->instructions[idx]->opcode == aco_opcode::p_linear_phi ||
-          block->instructions[idx]->opcode == aco_opcode::p_phi) {
-      aco_ptr<Instruction>& phi = block->instructions[idx];
+   for (aco_ptr<Instruction>& phi : block->instructions) {
+      if (!is_phi(phi))
+         break;
       std::vector<unsigned>& preds = phi->opcode == aco_opcode::p_phi ? block->logical_preds : block->linear_preds;
       bool spill = true;
 
@@ -587,46 +615,15 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
          partial_spills.erase(phi->definitions[0].getTemp());
          spilled_registers += phi->definitions[0].getTemp();
       }
-
-      idx++;
    }
 
    /* if reg pressure at first instruction is still too high, add partially spilled variables */
-   RegisterDemand reg_pressure;
-   if (idx == 0) {
-      for (const Definition& def : block->instructions[idx]->definitions) {
-         if (def.isTemp()) {
-            reg_pressure -= def.getTemp();
-         }
+   RegisterDemand reg_pressure = get_live_in_demand(ctx, block_idx);
+   reg_pressure -= spilled_registers;
+      for (unsigned pred : block->linear_preds) {
+         reg_pressure.sgpr = std::max<int16_t>(
+            reg_pressure.sgpr, ctx.register_demand[pred].back().sgpr - spilled_registers.sgpr);
       }
-      for (const Operand& op : block->instructions[idx]->operands) {
-         if (op.isTemp() && op.isFirstKill()) {
-            reg_pressure += op.getTemp();
-         }
-      }
-   } else {
-      for (unsigned i = 0; i < idx; i++) {
-         aco_ptr<Instruction>& instr = block->instructions[i];
-         assert(is_phi(instr));
-         /* Killed phi definitions increase pressure in the predecessor but not
-          * the block they're in. Since the loops below are both to control
-          * pressure of the start of this block and the ends of it's
-          * predecessors, we need to count killed unspilled phi definitions here. */
-         if (instr->definitions[0].isKill() &&
-             !ctx.spills_entry[block_idx].count(instr->definitions[0].getTemp()))
-            reg_pressure += instr->definitions[0].getTemp();
-      }
-      idx--;
-   }
-   reg_pressure += ctx.register_demand[block_idx][idx] - spilled_registers;
-
-   /* Consider register pressure from linear predecessors. This can affect
-    * reg_pressure if the branch instructions define sgprs. */
-   for (unsigned pred : block->linear_preds) {
-      reg_pressure.sgpr = std::max<int16_t>(
-         reg_pressure.sgpr, ctx.register_demand[pred].back().sgpr - spilled_registers.sgpr);
-   }
-
    while (reg_pressure.exceeds(ctx.target_pressure)) {
       assert(!partial_spills.empty());
       std::set<Temp>::iterator it = partial_spills.begin();
@@ -652,19 +649,6 @@ RegisterDemand init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_id
    }
 
    return spilled_registers;
-}
-
-
-RegisterDemand get_demand_before(spill_ctx& ctx, unsigned block_idx, unsigned idx)
-{
-   if (idx == 0) {
-      RegisterDemand demand = ctx.register_demand[block_idx][idx];
-      aco_ptr<Instruction>& instr = ctx.program->blocks[block_idx].instructions[idx];
-      aco_ptr<Instruction> instr_before(nullptr);
-      return get_demand_before(demand, instr, instr_before);
-   } else {
-      return ctx.register_demand[block_idx][idx - 1];
-   }
 }
 
 void add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
@@ -759,8 +743,7 @@ void add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
 
    /* iterate the phi nodes for which operands to spill at the predecessor */
    for (aco_ptr<Instruction>& phi : block->instructions) {
-      if (phi->opcode != aco_opcode::p_phi &&
-          phi->opcode != aco_opcode::p_linear_phi)
+      if (!is_phi(phi))
          break;
 
       /* if the phi is not spilled, add to instructions */
