@@ -864,7 +864,7 @@ zink_draw_vbo(struct pipe_context *pctx,
          if (dindirect->indirect_draw_count) {
              struct zink_resource *indirect_draw_count = zink_resource(dindirect->indirect_draw_count);
              zink_batch_reference_resource_rw(batch, indirect_draw_count, false);
-             screen->vk_CmdDrawIndexedIndirectCount(batch->cmdbuf, indirect->buffer, dindirect->offset,
+             screen->vk_CmdDrawIndexedIndirectCountKHR(batch->cmdbuf, indirect->buffer, dindirect->offset,
                                            indirect_draw_count->buffer, dindirect->indirect_draw_count_offset,
                                            dindirect->draw_count, dindirect->stride);
          } else
@@ -886,7 +886,7 @@ zink_draw_vbo(struct pipe_context *pctx,
          if (dindirect->indirect_draw_count) {
              struct zink_resource *indirect_draw_count = zink_resource(dindirect->indirect_draw_count);
              zink_batch_reference_resource_rw(batch, indirect_draw_count, false);
-             screen->vk_CmdDrawIndirectCount(batch->cmdbuf, indirect->buffer, dindirect->offset,
+             screen->vk_CmdDrawIndirectCountKHR(batch->cmdbuf, indirect->buffer, dindirect->offset,
                                            indirect_draw_count->buffer, dindirect->indirect_draw_count_offset,
                                            dindirect->draw_count, dindirect->stride);
          } else

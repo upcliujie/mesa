@@ -996,8 +996,8 @@ load_device_extensions(struct zink_screen *screen)
    }
 
    if (screen->info.have_KHR_draw_indirect_count) {
-      GET_PROC_ADDR(CmdDrawIndexedIndirectCount);
-      GET_PROC_ADDR(CmdDrawIndirectCount);
+      GET_PROC_ADDR(CmdDrawIndexedIndirectCountKHR);
+      GET_PROC_ADDR(CmdDrawIndirectCountKHR);
    }
 
    if (screen->info.have_EXT_calibrated_timestamps) {
