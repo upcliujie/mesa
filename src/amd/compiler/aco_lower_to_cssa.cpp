@@ -73,10 +73,13 @@ void collect_parallelcopies(cssa_ctx& ctx)
              phi->opcode != aco_opcode::p_linear_phi)
             break;
 
+         const Definition& def = phi->definitions[0];
+         if (!def.isTemp())
+            continue;
+
          std::vector<unsigned>& preds = phi->opcode == aco_opcode::p_phi ?
                                         block.logical_preds :
                                         block.linear_preds;
-         const Definition& def = phi->definitions[0];
          uint32_t index = ctx.merge_sets.size();
          merge_set set;
 
@@ -84,6 +87,18 @@ void collect_parallelcopies(cssa_ctx& ctx)
             Operand op = phi->operands[i];
             if (op.isUndefined())
                continue;
+
+            if (def.regClass().type() == RegType::sgpr && !op.isTemp()) {
+               if (op.isConstant()) {
+                  if (ctx.program->chip_class >= GFX10)
+                     continue;
+                  if (op.size() == 1 && !op.isLiteral())
+                     continue;
+               } else {
+                  assert(op.isFixed() && op.physReg() == exec);
+                  continue;
+               }
+            }
 
             /* create new temporary and rename operands */
             Temp tmp = bld.tmp(def.regClass());
@@ -99,6 +114,10 @@ void collect_parallelcopies(cssa_ctx& ctx)
                ctx.live_vars.live_out[preds[i]].erase(op.tempId());
             ctx.live_vars.live_out[preds[i]].insert(tmp.id());
          }
+
+         if (set.empty())
+            continue;
+
          /* place the definition in dominance-order */
          if (def.isTemp()) {
             if (block.kind & block_kind_loop_header)
