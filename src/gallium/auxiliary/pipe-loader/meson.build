@@ -39,7 +39,7 @@ endif
 if with_gallium_drisw_kms
   libpipe_loader_defines += '-DHAVE_PIPE_LOADER_KMS'
 endif
-if not (with_gallium_st_nine or with_gallium_opencl)
+if not (with_gallium_st_nine or with_gallium_opencl) and not with_platform_windows
   libpipe_loader_defines += '-DDROP_PIPE_LOADER_MISC'
 endif
 
