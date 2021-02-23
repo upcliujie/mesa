@@ -797,6 +797,19 @@ optimizations.extend([
     # int32 -> int16 -> float16 ==> int32 -> float16
     (('u2f16', ('i2imp', 'a@32')), ('u2f16', a)),
     (('i2f16', ('i2imp', 'a@32')), ('i2f16', a)),
+
+    (('f2fmp', ('vec2', ('f2f32', 'a@16'),
+                        ('f2f32', 'b@16'))),
+     ('vec2', a, b)),
+    (('f2fmp', ('vec3', ('f2f32', 'a@16'),
+                        ('f2f32', 'b@16'),
+                        ('f2f32', 'c@16'))),
+     ('vec3', a, b, c)),
+    (('f2fmp', ('vec4', ('f2f32', 'a@16'),
+                        ('f2f32', 'b@16'),
+                        ('f2f32', 'c@16'),
+                        ('f2f32', 'd@16'))),
+     ('vec4', a, b, c, d)),
 ])
 
 # Integer sizes
@@ -2502,6 +2515,21 @@ distribute_src_mods = [
    (('fabs', ('fsign(is_used_once)', a)), ('fsign', ('fabs', a))),
 ]
 
+mediump_conversions = [
+    (('f2fmp', ('vec2', ('f2f32', 'a@16'),
+                        ('f2f32', 'b@16'))),
+     ('vec2', a, b)),
+    (('f2fmp', ('vec3', ('f2f32', 'a@16'),
+                        ('f2f32', 'b@16'),
+                        ('f2f32', 'c@16'))),
+     ('vec3', a, b, c)),
+    (('f2fmp', ('vec4', ('f2f32', 'a@16'),
+                        ('f2f32', 'b@16'),
+                        ('f2f32', 'c@16'),
+                        ('f2f32', 'd@16'))),
+     ('vec4', a, b, c, d)),
+]
+
 print(nir_algebraic.AlgebraicPass("nir_opt_algebraic", optimizations).render())
 print(nir_algebraic.AlgebraicPass("nir_opt_algebraic_before_ffma",
                                   before_ffma_optimizations).render())
@@ -2509,3 +2537,5 @@ print(nir_algebraic.AlgebraicPass("nir_opt_algebraic_late",
                                   late_optimizations).render())
 print(nir_algebraic.AlgebraicPass("nir_opt_algebraic_distribute_src_mods",
                                   distribute_src_mods).render())
+print(nir_algebraic.AlgebraicPass("nir_opt_algebraic_mediump_conversions",
+                                  mediump_conversions).render())
