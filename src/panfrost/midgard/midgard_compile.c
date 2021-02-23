@@ -1444,19 +1444,21 @@ emit_attr_read(
 
         /* Use the type appropriate load */
         switch (t) {
-        case nir_type_uint:
-        case nir_type_bool:
+        case nir_type_uint32:
+        case nir_type_bool32:
                 ins.op = midgard_op_ld_attr_32u;
                 break;
-        case nir_type_int:
+        case nir_type_int32:
                 ins.op = midgard_op_ld_attr_32i;
                 break;
-        case nir_type_float:
+        case nir_type_float32:
                 ins.op = midgard_op_ld_attr_32;
+                break;
+        case nir_type_float16:
+                ins.op = midgard_op_ld_attr_16;
                 break;
         default:
                 unreachable("Attempted to load unknown type");
-                break;
         }
 
         emit_mir_instruction(ctx, ins);
@@ -1584,7 +1586,7 @@ static void
 emit_vertex_builtin(compiler_context *ctx, nir_intrinsic_instr *instr)
 {
         unsigned reg = nir_dest_index(&instr->dest);
-        emit_attr_read(ctx, reg, vertex_builtin_arg(instr->intrinsic), 1, nir_type_int);
+        emit_attr_read(ctx, reg, vertex_builtin_arg(instr->intrinsic), 1, nir_type_int32);
 }
 
 static void
@@ -1761,7 +1763,8 @@ emit_intrinsic(compiler_context *ctx, nir_intrinsic_instr *instr)
                         else
                                 emit_mir_instruction(ctx, v_mov(*input, reg));
                 } else if (ctx->stage == MESA_SHADER_VERTEX) {
-                        emit_attr_read(ctx, reg, offset, nr_comp, t);
+                        emit_attr_read(ctx, reg, offset, nr_comp, 
+                                        nir_intrinsic_dest_type(instr));
                 } else {
                         DBG("Unknown load\n");
                         assert(0);
