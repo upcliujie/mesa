@@ -36,6 +36,8 @@
 
 #include "vk_format.h"
 
+#define ANV_OFFSET_IMPLICIT UINT64_MAX
+
 static const enum isl_surf_dim
 vk_to_isl_surf_dim[] = {
    [VK_IMAGE_TYPE_1D] = ISL_SURF_DIM_1D,
@@ -51,18 +53,25 @@ memory_range_end(struct anv_image_memory_range memory_range)
 }
 
 /**
- * Extend the memory binding's range by appending a new memory range with the
- * given size and alignment. Return the appended range.
+ * Extend the memory binding's range by appending a new memory range with `size`
+ * and `alignment` at `offset`. Return the appended range.
+ *
+ * Offset is ignored if ANV_OFFSET_IMPLICIT.
  *
  * The given binding must not be ANV_IMAGE_MEMORY_BINDING_MAIN. The function
  * converts to MAIN as needed.
  */
-static struct anv_image_memory_range
-image_binding_grow(struct anv_image *image,
+static VkResult MUST_CHECK
+image_binding_grow(const struct anv_device *device,
+                   struct anv_image *image,
                    enum anv_image_memory_binding binding,
+                   uint64_t offset,
                    uint64_t size,
-                   uint32_t alignment)
+                   uint32_t alignment,
+                   struct anv_image_memory_range *out_range)
 {
+   const bool has_implicit_offset = (offset == ANV_OFFSET_IMPLICIT);
+
    assert(size > 0);
    assert(util_is_power_of_two_or_zero(alignment));
 
@@ -77,6 +86,7 @@ image_binding_grow(struct anv_image *image,
          binding = ANV_IMAGE_MEMORY_BINDING_MAIN;
       break;
    case ANV_IMAGE_MEMORY_BINDING_PRIVATE:
+      assert(offset == ANV_OFFSET_IMPLICIT);
       break;
    case ANV_IMAGE_MEMORY_BINDING_END:
       unreachable("ANV_IMAGE_MEMORY_BINDING_END");
@@ -85,17 +95,52 @@ image_binding_grow(struct anv_image *image,
    struct anv_image_memory_range *container =
       &image->bindings[binding].memory_range;
 
-   struct anv_image_memory_range new = {
-      .binding = container->binding,
-      .offset = align_u64(container->offset + container->size, alignment),
+   if (has_implicit_offset) {
+      offset = align_u64(container->offset + container->size, alignment);
+   } else {
+      /* Offset must be validated because it comes from
+       * VkImageDrmFormatModifierExplicitCreateInfoEXT.
+       */
+      if (unlikely(!anv_is_aligned(offset, alignment))) {
+         return vk_errorf(device, &device->vk.base,
+                          VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT,
+                          "VkImageDrmFormatModifierExplicitCreateInfoEXT::"
+                          "pPlaneLayouts[]::offset is misaligned");
+      }
+
+      /* We require that surfaces be added in memory-order. This simplifies the
+       * layout validation required by
+       * VkImageDrmFormatModifierExplicitCreateInfoEXT,
+       */
+      if (unlikely(offset < container->size)) {
+         return vk_errorf(device, &device->vk.base,
+                          VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT,
+                          "VkImageDrmFormatModifierExplicitCreateInfoEXT::"
+                          "pPlaneLayouts[]::offset is too small");
+      }
+   }
+
+   if (__builtin_add_overflow(offset, size, &container->size)) {
+      if (has_implicit_offset) {
+         abort(); /* internal error */
+      } else {
+         return vk_errorf(device, &device->vk.base,
+                          VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT,
+                          "VkImageDrmFormatModifierExplicitCreateInfoEXT::"
+                          "pPlaneLayouts[]::offset is too large");
+      }
+   }
+
+   container->alignment = MAX2(container->alignment, alignment);
+
+   *out_range = (struct anv_image_memory_range) {
+      .binding = binding,
+      .offset = offset,
       .size = size,
       .alignment = alignment,
    };
 
-   container->size = new.offset + new.size;
-   container->alignment = MAX2(container->alignment, new.alignment);
-
-   return new;
+   return VK_SUCCESS;
 }
 
 /**
@@ -221,22 +266,24 @@ choose_isl_tiling_flags(const struct gen_device_info *devinfo,
 }
 
 /**
- * Set the surface's anv_image_memory_range and add it to the given binding's
- * memory range.
+ * Add the surface to the binding at the given offset.
  *
  * \see image_binding_grow()
  */
-static void
-add_surface(struct anv_image *image,
+static VkResult MUST_CHECK
+add_surface(struct anv_device *device,
+            struct anv_image *image,
+            struct anv_surface *surf,
             enum anv_image_memory_binding binding,
-            struct anv_surface *surf)
+            uint64_t offset)
 {
    /* isl surface must be initialized */
    assert(surf->isl.size_B > 0);
 
-   surf->memory_range = image_binding_grow(image, binding,
-                                           surf->isl.size_B,
-                                           surf->isl.alignment_B);
+   return image_binding_grow(device, image, binding, offset,
+                             surf->isl.size_B,
+                             surf->isl.alignment_B,
+                             &surf->memory_range);
 }
 
 /**
@@ -377,6 +424,8 @@ add_aux_state_tracking_buffer(struct anv_device *device,
                               struct anv_image *image,
                               uint32_t plane)
 {
+   ASSERTED VkResult result;
+
    assert(image && device);
    assert(image->planes[plane].aux_usage != ISL_AUX_USAGE_NONE &&
           image->aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV);
@@ -407,8 +456,10 @@ add_aux_state_tracking_buffer(struct anv_device *device,
    /* We believe that 256B alignment may be sufficient, but we choose 4K due to
     * lack of testing.  And MI_LOAD/STORE operations require dword-alignment.
     */
-   image->planes[plane].fast_clear_memory_range =
-      image_binding_grow(image, binding, state_size, 4096);
+   result = image_binding_grow(device, image, binding,
+                               ANV_OFFSET_IMPLICIT, state_size, 4096,
+                               &image->planes[plane].fast_clear_memory_range);
+   assert(result == VK_SUCCESS);
 }
 
 /**
@@ -427,6 +478,7 @@ add_aux_surface_if_supported(struct anv_device *device,
                              isl_surf_usage_flags_t isl_extra_usage_flags)
 {
    VkImageAspectFlags aspect = plane_format.aspect;
+   VkResult result;
    bool ok;
 
    /* The aux surface must not be already added. */
@@ -492,8 +544,11 @@ add_aux_surface_if_supported(struct anv_device *device,
          image->planes[plane].aux_usage = ISL_AUX_USAGE_HIZ_CCS;
       }
 
-      add_surface(image, ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
-                  &image->planes[plane].aux_surface);
+      result = add_surface(device, image, &image->planes[plane].aux_surface,
+                           ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
+                           ANV_OFFSET_IMPLICIT);
+      if (result != VK_SUCCESS)
+         return result;
    } else if (aspect == VK_IMAGE_ASPECT_STENCIL_BIT) {
 
       if (INTEL_DEBUG & DEBUG_NO_RBC)
@@ -590,7 +645,10 @@ add_aux_surface_if_supported(struct anv_device *device,
              !isl_drm_modifier_has_aux(image->drm_format_mod))
             binding = ANV_IMAGE_MEMORY_BINDING_PRIVATE;
 
-         add_surface(image, binding, &image->planes[plane].aux_surface);
+         result = add_surface(device, image, &image->planes[plane].aux_surface,
+                              binding, ANV_OFFSET_IMPLICIT);
+         if (result != VK_SUCCESS)
+            return result;
       }
 
       add_aux_state_tracking_buffer(device, image, plane);
@@ -603,8 +661,13 @@ add_aux_surface_if_supported(struct anv_device *device,
          return VK_SUCCESS;
 
       image->planes[plane].aux_usage = ISL_AUX_USAGE_MCS;
-      add_surface(image, ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
-                  &image->planes[plane].aux_surface);
+
+      result = add_surface(device, image, &image->planes[plane].aux_surface,
+                           ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
+                           ANV_OFFSET_IMPLICIT);
+      if (result != VK_SUCCESS)
+         return result;
+
       add_aux_state_tracking_buffer(device, image, plane);
    }
 
@@ -620,6 +683,7 @@ add_shadow_surface(struct anv_device *device,
                    VkImageUsageFlags vk_plane_usage)
 {
    ASSERTED bool ok;
+   ASSERTED VkResult result;
 
    ok = isl_surf_init(&device->isl_dev,
                       &image->planes[plane].shadow_surface.isl,
@@ -642,8 +706,11 @@ add_shadow_surface(struct anv_device *device,
     */
    assert(ok);
 
-   add_surface(image, ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
-               &image->planes[plane].shadow_surface);
+   result = add_surface(device, image, &image->planes[plane].shadow_surface,
+                        ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
+                        ANV_OFFSET_IMPLICIT);
+   assert(result == VK_SUCCESS);
+
    return VK_SUCCESS;
 }
 
@@ -682,9 +749,9 @@ add_primary_surface(struct anv_device *device,
 
    image->planes[plane].aux_usage = ISL_AUX_USAGE_NONE;
 
-   add_surface(image, ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane, anv_surf);
-
-   return VK_SUCCESS;
+   return add_surface(device, image, anv_surf,
+                      ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
+                      ANV_OFFSET_IMPLICIT);
 }
 
 #ifdef DEBUG
