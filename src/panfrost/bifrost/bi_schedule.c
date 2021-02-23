@@ -746,6 +746,10 @@ bi_instr_schedulable(bi_instr *instr,
         if ((fma && !bi_can_fma(instr)) || (!fma && !bi_can_add(instr)))
                 return false;
 
+        /* +FADD.v2f16 lacks clamp modifier, use *FADD.v2f16 instead */
+        if (!fma && instr->op == BI_OPCODE_FADD_V2F16 && instr->clamp)
+                return false;
+
         /* There can only be one message-passing instruction per clause */
         if (bi_must_message(instr) && clause->message)
                 return false;
