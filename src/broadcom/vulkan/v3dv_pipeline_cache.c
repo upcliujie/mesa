@@ -164,13 +164,19 @@ v3dv_pipeline_cache_search_for_nir(struct v3dv_pipeline *pipeline,
          ralloc_free(nir);
       } else {
          cache->nir_stats.hit++;
-         cache_dump_stats(cache);
+         if (unlikely(dump_stats)) {
+            fprintf(stderr, "\tnir cache hit: %p\n", nir);
+            cache_dump_stats(cache);
+         }
          return nir;
       }
    }
 
    cache->nir_stats.miss++;
-   cache_dump_stats(cache);
+   if (unlikely(dump_stats)) {
+      fprintf(stderr, "\tnir cache miss\n");
+      cache_dump_stats(cache);
+   }
 
    return NULL;
 }
@@ -228,7 +234,7 @@ v3dv_pipeline_cache_search_for_variant(struct v3dv_pipeline *pipeline,
 
       cache->variant_stats.hit++;
       if (unlikely(dump_stats)) {
-         fprintf(stderr, "\tcache hit: %p\n", variant);
+         fprintf(stderr, "\tvariant cache hit: %p\n", variant);
          cache_dump_stats(cache);
       }
 
@@ -241,7 +247,7 @@ v3dv_pipeline_cache_search_for_variant(struct v3dv_pipeline *pipeline,
 
    cache->variant_stats.miss++;
    if (unlikely(dump_stats)) {
-      fprintf(stderr, "\tcache miss\n");
+      fprintf(stderr, "\tvariant cache miss\n");
       cache_dump_stats(cache);
    }
 
