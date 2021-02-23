@@ -159,7 +159,7 @@ radv_optimize_nir(const struct radv_device *device, struct nir_shader *shader,
 			 NULL);
 
                 NIR_PASS_V(shader, nir_lower_alu_to_scalar, NULL, NULL);
-                NIR_PASS_V(shader, nir_lower_phis_to_scalar);
+                NIR_PASS_V(shader, nir_lower_phis_to_scalar, false);
 
                 NIR_PASS(progress, shader, nir_copy_prop);
                 NIR_PASS(progress, shader, nir_opt_remove_phis);
