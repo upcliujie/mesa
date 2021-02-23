@@ -720,7 +720,8 @@ fd_resource_transfer_map(struct pipe_context *pctx,
 		/* We are trying to write to a previously uninitialized range. No need
 		 * to wait.
 		 */
-	} else if (!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
+	} else if ((usage & PIPE_MAP_DISCARD_RANGE) ||
+			!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
 		struct fd_batch *write_batch = NULL;
 
 		/* hold a reference, so it doesn't disappear under us: */
