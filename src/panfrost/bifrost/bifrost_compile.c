@@ -2874,7 +2874,7 @@ bi_vectorize_filter(const nir_instr *instr, void *data)
 }
 
 static void
-bi_optimize_nir(nir_shader *nir)
+bi_optimize_nir(nir_shader *nir, bool is_blend)
 {
         bool progress;
         unsigned lower_flrp = 16 | 32 | 64;
@@ -2946,6 +2946,12 @@ bi_optimize_nir(nir_shader *nir)
                          nir_var_function_temp);
 
         } while (progress);
+
+        /* Run after opts so it can hit more. Must run before late algebraic so
+         * f2fmp is still there and so the redundant conversions can be
+         * optimized out after */
+        if (!is_blend)
+                NIR_PASS(progress, nir, nir_fuse_io_16);
 
         /* We need to cleanup after each iteration of late algebraic
          * optimizations, since otherwise NIR can produce weird edge cases
@@ -3103,7 +3109,7 @@ bifrost_compile_shader_nir(nir_shader *nir,
         // TODO: re-enable when fp16 is flipped on
         // NIR_PASS_V(nir, nir_lower_mediump_outputs);
 
-        bi_optimize_nir(nir);
+        bi_optimize_nir(nir, ctx->inputs->is_blend);
 
         NIR_PASS_V(nir, pan_nir_reorder_writeout);
 
