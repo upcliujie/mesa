@@ -390,6 +390,10 @@ bi_can_fma(bi_instr *ins)
 ASSERTED static bool
 bi_can_add(bi_instr *ins)
 {
+        /* +FADD.v2f16 lacks clamp modifier, use *FADD.v2f16 instead */
+        if (!fma && instr->op == BI_OPCODE_FADD_V2F16 && instr->clamp)
+                return false;
+
         /* TODO: some additional fp16 constraints */
         return bi_opcode_props[ins->op].add;
 }
