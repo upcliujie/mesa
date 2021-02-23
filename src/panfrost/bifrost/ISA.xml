@@ -2400,6 +2400,7 @@
     </mod>
   </ins>
 
+  <!--
   <ins name="*V2F32_TO_V2F16" mask="0x7fe000" exact="0x6e8000">
     <src start="0" mask="0xfb"/>
     <src start="3" mask="0xfb"/>
@@ -2441,6 +2442,7 @@
       </and>
     </derived>
   </ins>
+  -->
 
   <ins name="*VN_ASST1.f16" mask="0x7ff000" exact="0x6eb000">
     <src start="0" mask="0xfb"/>
