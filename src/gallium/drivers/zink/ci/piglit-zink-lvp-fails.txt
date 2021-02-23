@@ -1,4 +1,3 @@
-glx@extension string sanity,Fail
 glx@glx-copy-sub-buffer,Fail
 glx@glx-multithread-buffer,Fail
 glx@glx-multithread-texture,Fail
