@@ -823,8 +823,8 @@ lower_es_output_store(nir_builder *b,
       /* GFX6-8: ES is a separate HW stage, data is passed from ES to GS in VRAM. */
       nir_ssa_def *ring = nir_build_load_ring_esgs_gcn(b);
       nir_ssa_def *es2gs_off = nir_build_load_ring_es2gs_offset_gcn(b);
-      nir_build_store_mubuf_gcn(b, intrin->src[0].ssa, io_off, ring, es2gs_off,
-                                .stride = 4u, .gcn_slc = true, .memory_modes = nir_var_shader_out);
+      nir_build_store_mubuf_gcn(b, intrin->src[0].ssa, ring, io_off, es2gs_off,
+                                .stride = 4u, .gcn_slc = true, .write_mask = write_mask, .memory_modes = nir_var_shader_out);
    } else {
       /* GFX9+: ES is merged into GS, data is passed through LDS. */
       unsigned esgs_itemsize = st->num_reserved_es_outputs * 16u;
