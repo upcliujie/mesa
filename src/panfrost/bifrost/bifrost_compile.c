@@ -1619,8 +1619,10 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         case nir_op_b32csel:
                 if (sz == 8)
                         bi_mux_v4i8_to(b, dst, s2, s1, s0, BI_MUX_INT_ZERO);
-                else
-                        bi_csel_to(b, sz, dst, s0, bi_zero(), s1, s2, BI_CMPF_NE);
+                else if (sz == 16)
+                        bi_csel_v2i16_to(b, dst, s0, bi_zero(), s1, s2, BI_CMPF_NE);
+                else if (sz == 32)
+                        bi_csel_i32_to(b, dst, s0, bi_zero(), s1, s2, BI_CMPF_NE);
                 break;
 
         case nir_op_ishl:
