@@ -599,7 +599,7 @@ zink_get_shader_param(struct pipe_screen *pscreen,
    }
 
    case PIPE_SHADER_CAP_MAX_CONST_BUFFER_SIZE:
-      /* 16384 required by GL spec, this is the minimum required by VK spec */
+      /* At least 16384 is guaranteed by VK spec */
       assert(screen->info.props.limits.maxUniformBufferRange >= 16384);
       /* but Gallium can't handle values that are too big */
       return MIN2(screen->info.props.limits.maxUniformBufferRange, 1 << 31);
