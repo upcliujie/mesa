@@ -40,44 +40,63 @@
  *
  * ## VS-TCS-TES I/O - How it works:
  *
+ * ```
+ * SW model:    SW VS         SW TCS    tessellator    SW TES
+ *                ┊             ┊             ┊          ┊
+ *              ┌────┐        ┌────┐        ┌────┐    ┌─────┐
+ * HW pipeline: │ LS │─╮   ╭─>│ HS │─╮   ╭─>│ FF │ ╭─>│VS/ES│
+ *              └────┘ │   │  └────┘ │   │  └────┘ │  └─────┘
+ * Memory:             ╰─>LDS<──╯    ╰─>VRAM───────╯
+ * ```
+ *
  * * SW VS runs as a HW LS (Local Shader, merged into HS on GFX9+),
  *   and SW TCS runs as HW HS (Hull Shader).
  *   SW TES runs as either HW VS or HW ES (Export Shader).
- * * LS and HS share the same LDS space. LS->HS cross-stage I/O always goes through LDS.
- *   Notable exception:
- *   on GFX9+ when the input and output patch size are the same, the number of LS and HS
- *   invocations are also the same, so some I/O can be passed through temporaries (see tcs_in_out_eq).
- * * HS outputs are stored in LDS if the HS reads them.
- * * TES doesn't use the same LDS space. (Possible on the HW, but not implemented in Mesa,
- *   because that would force the TES waves to run on the same CU as the LS-HS waves.)
- *   So, HS outputs are stored to VRAM if the TES reads them.
+ * * LS and HS share the same LDS space.
+ * * LS (SW VS) stores outputs to LDS to be read by HS (SW TCS).
+ * * HS (SW TCS) stores outputs in LDS if the HS (SW TCS) reads them.
+ * * HS (SW TCS) stores outputs in VRAM if the next stage (SW TES) reads them.
+ *
+ * Side note: some old HW supports having TES read from the same LDS space where LS/HS write, but
+ * Mesa always stores HS outputs to VRAM to avoid forcing TES waves to run on the same CU as the LS/HS waves.
+ *
+ * ### Passing VS-TCS I/O in registers
+ *
+ * On GPUs that run SW VS and  SW TCS on the same HW stage (HS on GFX9+),
+ * IO can be passed through registers instead of LDS when the following conditions are met:
+ *
+ * 1. TCS input and output patch size match
+ * 2. Floating point execution modes in SW VS and SW TCS match
+ * 3. The SW VS output is not written indirectly, and the corresponding SW TCS input is not read indirectly
+ *
+ * Some HS outputs could be passed through registers to, but this is a TODO.
  *
  * ### LDS layout used by VS-TCS:
  *
  * ```
- * TCS per-vertex inputs for patch 0  <--- 0
+ * TCS per-vertex inputs for patch 0  <─── 0
  * TCS per-vertex inputs for patch 1
- * TCS per-vertex inputs for patch 2  <--- hs_per_vertex_input_lds_offset (rel_patch_id = 2)
+ * TCS per-vertex inputs for patch 2  <─── hs_per_vertex_input_lds_offset (rel_patch_id = 2)
  * ...
- * TCS per-vertex outputs for patch 0 <--- output_patch0_offset
- * TCS per-patch outputs for patch 0  <--- output_patch0_patch_data_offset
+ * TCS per-vertex outputs for patch 0 <─── output_patch0_offset
+ * TCS per-patch outputs for patch 0  <─── output_patch0_patch_data_offset
  * TCS per-vertex outputs for patch 1
  * TCS per-patch outputs for patch 1
- * TCS per-vertex outputs for patch 2 <--- hs_output_lds_offset (rel_patch_id = 2, per-vertex)
- * TCS per-patch outputs for patch 2  <--- hs_output_lds_offset (rel_patch_id = 2, per-patch)
+ * TCS per-vertex outputs for patch 2 <─── hs_output_lds_offset (rel_patch_id = 2, per-vertex)
+ * TCS per-patch outputs for patch 2  <─── hs_output_lds_offset (rel_patch_id = 2, per-patch)
  * ...
  * ```
  *
  * ### VRAM layout used by TCS-TES I/O:
  *
  * ```
- * attr 0 of patch 0 vertex 0   <-- "off-chip LDS" offset
+ * attr 0 of patch 0 vertex 0   <─── "off-chip LDS" offset
  * attr 0 of patch 0 vertex 1
  * attr 0 of patch 0 vertex 2
  * ...
  * attr 0 of patch 1 vertex 0
  * attr 0 of patch 1 vertex 1
- * attr 0 of patch 1 vertex 2   <-- hs_per_vertex_output_vmem_offset (attribute slot = 0, rel_patch_id = 1, vertex index = 1)
+ * attr 0 of patch 1 vertex 2   <─── hs_per_vertex_output_vmem_offset (attribute slot = 0, rel_patch_id = 1, vertex index = 1)
  * ...
  * attr 0 of patch 2 vertex 0
  * attr 0 of patch 2 vertex 1
@@ -90,7 +109,7 @@
  * ...
  * per-patch attr 0 of patch 0
  * per-patch attr 0 of patch 1
- * per-patch attr 0 of patch 2  <-- hs_per_patch_output_vmem_offset (attribute slot = 0, rel_patch_id = 2)
+ * per-patch attr 0 of patch 2  <─── hs_per_patch_output_vmem_offset (attribute slot = 0, rel_patch_id = 2)
  * ...
  * per-patch attr 1 of patch 0
  * per-patch attr 1 of patch 1
