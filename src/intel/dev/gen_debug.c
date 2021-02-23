@@ -98,6 +98,7 @@ static const struct debug_control debug_control[] = {
                     DEBUG_TES | DEBUG_GS | DEBUG_CS |
                     DEBUG_RT },
    { "rt",          DEBUG_RT },
+   { "hang_recovery", DEBUG_HANG_RECOVERY },
    { NULL,    0 }
 };
 

@@ -740,10 +740,24 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
     * has been lost and needs to be re-initialized.  If this succeeds,
     * dubiously claim success...
     */
-   if (ret == -EIO && replace_hw_ctx(batch)) {
+   if (ret == -EIO) {
       if (batch->reset->reset) {
          /* Tell gallium frontends the device is lost and it was our fault. */
          batch->reset->reset(batch->reset->data, PIPE_GUILTY_CONTEXT_RESET);
+      } else {
+         if (!(INTEL_DEBUG & DEBUG_HANG_RECOVERY)) {
+            /* There's bug somewhere, which completely messes up the X session
+             * if we attempt to continue. Just give up for now.
+             */
+            fprintf(stderr,
+                  "GPU hanged and it's unsafe to continue, aborting.\n");
+            abort();
+         }
+
+         if (!replace_hw_ctx(batch)) {
+            fprintf(stderr, "GPU hanged and recovery failed\n");
+            abort();
+         }
       }
 
       ret = 0;
