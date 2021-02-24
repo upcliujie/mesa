@@ -809,8 +809,8 @@ static void fill_sampler_view_stage(struct rendering_state *state,
 
    if (util_format_is_depth_or_stencil(templ.format)) {
       templ.swizzle_r = PIPE_SWIZZLE_X;
-      templ.swizzle_g = PIPE_SWIZZLE_0;
-      templ.swizzle_b = PIPE_SWIZZLE_0;
+      templ.swizzle_g = PIPE_SWIZZLE_X;
+      templ.swizzle_b = PIPE_SWIZZLE_X;
    }
 
    if (state->sv[p_stage][sv_idx])
