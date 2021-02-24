@@ -185,6 +185,11 @@ nir_lower_mediump_io(nir_shader *nir, nir_variable_mode modes,
                                       convert(&b, intr->src[0].ssa));
             nir_intrinsic_set_src_type(intr, (type & ~32) | 16);
          } else {
+            if (intr->intrinsic == nir_intrinsic_load_input) continue;
+            if (nir_intrinsic_has_interp_mode(intr) &&
+                nir_intrinsic_interp_mode(intr) == INTERP_MODE_FLAT)
+               continue;
+
             /* Loads. */
             nir_alu_type type = nir_intrinsic_dest_type(intr);
 

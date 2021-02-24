@@ -429,7 +429,10 @@ ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
 	if (compiler->gpu_id >= 600 &&
 			s->info.stage == MESA_SHADER_FRAGMENT &&
 			!(ir3_shader_debug & IR3_DBG_NOFP16)) {
-		NIR_PASS_V(s, nir_lower_mediump_io, nir_var_shader_out, 0, false);
+		NIR_PASS_V(s, nir_lower_mediump_io,
+				   (s->info.stage != MESA_SHADER_VERTEX ? nir_var_shader_in : 0) | nir_var_shader_out,
+				   BITFIELD64_BIT(VARYING_SLOT_PNTC) | BITFIELD64_RANGE(VARYING_SLOT_VAR0, 32),
+				   false);
 		NIR_PASS_V(s, nir_opt_algebraic_mediump_conversions);
 		NIR_PASS_V(s, nir_opt_dce);
 		NIR_PASS_V(s, nir_fold_16bit_sampler_conversions, (1 << nir_tex_src_coord));
