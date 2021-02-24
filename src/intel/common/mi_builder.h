@@ -1222,6 +1222,105 @@ mi_store_mem64_offset(struct mi_builder *b,
    mi_builder_flush_math(b);
 }
 
+/*
+ * Control-flow Section.  Only available on GFX 12.5+
+ */
+
+struct _mi_goto {
+   bool predicated;
+   void *mi_bbs;
+};
+
+struct mi_goto_target {
+   bool placed;
+   unsigned num_gotos;
+   struct _mi_goto gotos[8];
+   __gen_address_type addr;
+};
+
+#define MI_GOTO_TARGET_INIT ((struct mi_goto_target) {})
+
+static inline void
+_mi_goto(struct mi_builder *b, struct mi_goto_target *t,
+             bool predicated)
+{
+   if (predicated) {
+      mi_builder_emit(b, GENX(MI_SET_PREDICATE), sp) {
+         sp.PredicateEnable = NOOPOnResultClear;
+      }
+   }
+   if (t->placed) {
+      mi_builder_emit(b, GENX(MI_BATCH_BUFFER_START), bbs) {
+         bbs.PredicationEnable         = predicated;
+         bbs.AddressSpaceIndicator     = ASI_PPGTT;
+         bbs.BatchBufferStartAddress   = t->addr;
+      }
+   } else {
+      assert(t->num_gotos < ARRAY_SIZE(t->gotos));
+      struct _mi_goto g = {
+         .predicated = predicated,
+         .mi_bbs = __gen_get_batch_dwords(b->user_data,
+                                          GENX(MI_BATCH_BUFFER_START_length)),
+      };
+      memset(g.mi_bbs, 0, 4 * GENX(MI_BATCH_BUFFER_START_length));
+      t->gotos[t->num_gotos++] = g;
+   }
+   if (predicated) {
+      mi_builder_emit(b, GENX(MI_SET_PREDICATE), sp) {
+         sp.PredicateEnable = NOOPNever;
+      }
+   }
+}
+
+static inline void
+mi_goto(struct mi_builder *b, struct mi_goto_target *t)
+{
+   _mi_goto(b, t, false);
+}
+
+static inline void
+mi_goto_if(struct mi_builder *b, struct mi_goto_target *t)
+{
+   _mi_goto(b, t, true);
+}
+
+static inline void
+mi_goto_target(struct mi_builder *b, struct mi_goto_target *t)
+{
+   mi_builder_emit(b, GENX(MI_SET_PREDICATE), sp) {
+      sp.PredicateEnable = NOOPNever;
+      t->addr = __gen_get_batch_address(b->user_data, _dst);
+   }
+   t->placed = true;
+
+   struct GENX(MI_BATCH_BUFFER_START) bbs = { GENX(MI_BATCH_BUFFER_START_header) };
+   bbs.AddressSpaceIndicator     = ASI_PPGTT;
+   bbs.BatchBufferStartAddress   = t->addr;
+
+   for (unsigned i = 0; i < t->num_gotos; i++) {
+      bbs.PredicationEnable = t->gotos[i].predicated;
+      GENX(MI_BATCH_BUFFER_START_pack)(b->user_data, t->gotos[i].mi_bbs, &bbs);
+   }
+}
+
+static inline struct mi_goto_target
+mi_goto_target_init_and_place(struct mi_builder *b)
+{
+   struct mi_goto_target t = MI_GOTO_TARGET_INIT;
+   mi_goto_target(b, &t);
+   return t;
+}
+
+#define mi_loop(b) \
+   for (struct mi_goto_target __break = MI_GOTO_TARGET_INIT, \
+        __continue = mi_goto_target_init_and_place(b); !__break.placed; \
+        mi_goto(b, &__continue), mi_goto_target(b, &__break))
+
+#define mi_break(b) mi_goto(b, &__break)
+#define mi_break_if(b) mi_goto_if(b, &__break)
+#define mi_continue(b) mi_goto(b, &__continue)
+#define mi_continue_if(b) mi_goto_if(b, &__continue)
+
 #endif /* GEN_VERSIONx10 >= 125 */
 
 #endif /* MI_BUILDER_H */
