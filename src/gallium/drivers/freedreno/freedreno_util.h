@@ -111,6 +111,24 @@ extern bool fd_binning_enabled;
 			mesa_logw(__VA_ARGS__); \
 	} while(0)
 
+#define perf_time(limit_ns, fmt, ...) for( \
+		struct __perf_time_state __s = { \
+				.t = -os_time_get_nano(), \
+		}; \
+		!__s.done; \
+		({ \
+			__s.t += os_time_get_nano(); \
+			__s.done = true; \
+			if (__s.t > (limit_ns)) { \
+				perf_debug(fmt " (%.03f ms)", ##__VA_ARGS__, (double)__s.t / 1000000.0); \
+			} \
+		}))
+
+struct __perf_time_state {
+	int64_t t;
+	bool done;
+};
+
 struct fd_context;
 
 /**
