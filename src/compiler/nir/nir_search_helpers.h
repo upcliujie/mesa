@@ -363,6 +363,11 @@ is_created_as_float(struct hash_table *ht, UNUSED const shader_info *info,
    if (src_alu == NULL)
       return false;
 
+   if (nir_op_is_bcsel(src_alu->op)) {
+      return is_created_as_float(ht, info, src_alu, 1, 0, NULL) &&
+             is_created_as_float(ht, info, src_alu, 2, 0, NULL);
+   }
+
    nir_alu_type output_type = nir_op_infos[src_alu->op].output_type;
    return nir_alu_type_get_base_type(output_type) == nir_type_float;
 }
@@ -432,9 +437,15 @@ is_only_used_as_float(const nir_alu_instr *instr)
       assert(instr != user_alu);
 
       unsigned index = (nir_alu_src*)container_of(src, nir_alu_src, src) - user_alu->src;
-      nir_alu_type type = nir_op_infos[user_alu->op].input_types[index];
-      if (nir_alu_type_get_base_type(type) != nir_type_float)
-         return false;
+
+      if (index != 0 && nir_op_is_bcsel(user_alu->op)) {
+         if (!is_only_used_as_float(user_alu))
+            return false;
+      } else {
+         nir_alu_type type = nir_op_infos[user_alu->op].input_types[index];
+         if (nir_alu_type_get_base_type(type) != nir_type_float)
+            return false;
+      }
    }
 
    return true;
