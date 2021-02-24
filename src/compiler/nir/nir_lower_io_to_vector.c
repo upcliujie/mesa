@@ -258,7 +258,8 @@ create_new_io_vars(nir_shader *shader, nir_variable_mode mode,
 
             /* We had better not have any overlapping vars */
             for (unsigned i = 1; i < num_components; i++)
-               assert(old_vars[loc][frac + i] == NULL);
+               assert(old_vars[loc][frac + i] == NULL ||
+                      old_vars[loc][frac + i] == first_var);
 
             frac += num_components;
          }
