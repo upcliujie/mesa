@@ -182,6 +182,21 @@ optimizations = [
 
    # flrp(a, a + b, c) => a + flrp(0, b, c) => a + (b * c)
    (('~flrp', a, ('fadd(is_used_once)', a, b), c), ('fadd', ('fmul', b, c), a)),
+
+   (('idp4a', a, 0, b), b),
+   (('udp4a', a, 0, b), b),
+   (('idp4a_sat', a, 0, b), b),
+   (('udp4a_sat', a, 0, b), b),
+   (('iadd', ('idp4a(is_used_once)', a, b, '#c(is_not_zero)'), '#d'), ('idp4a', a, b, ('iadd', c, d))),
+   (('iadd', ('udp4a(is_used_once)', a, b, '#c(is_not_zero)'), '#d'), ('udp4a', a, b, ('iadd', c, d))),
+
+   # Try to let constant folding eliminate the dot-product part.
+   (('iadd', ('idp4a', 'a(is_not_const)', b, 0), c), ('idp4a', a, b, c)),
+   (('iadd', ('udp4a', 'a(is_not_const)', b, 0), c), ('udp4a', a, b, c)),
+   (('idp4a', '#a', '#b', 'c(is_not_const)'), ('iadd', ('idp4a', a, b, 0), c)),
+   (('udp4a', '#a', '#b', 'c(is_not_const)'), ('iadd', ('udp4a', a, b, 0), c)),
+   (('idp4a_sat', '#a', '#b', 'c(is_not_const)'), ('iadd_sat', ('idp4a', a, b, 0), c), '!options->lower_add_sat'),
+   (('udp4a_sat', '#a', '#b', 'c(is_not_const)'), ('uadd_sat', ('udp4a', a, b, 0), c), '!options->lower_add_sat'),
 ]
 
 # Float sizes
@@ -1260,6 +1275,13 @@ optimizations.extend([
 
    (('extract_u8', ('extract_i8', a, b), 0), ('extract_u8', a, b)),
    (('extract_u8', ('extract_u8', a, b), 0), ('extract_u8', a, b)),
+
+   (('iadd', ('iadd', ('iadd', ('extract_u8', 'a@32', 0), ('extract_u8', a, 1)), ('extract_u8', a, 2)), ('extract_u8', a, 3)),
+    ('udp4a', a, 0x01010101, 0), 'options->has_dp4a'),
+
+   # Some users of the previou extract_u8-to-udp4a pattern check that the
+   # original (packed) value is zero to try to avoid doing work.
+   (('bcsel', ('ine', a, 0), ('udp4a', a, b, c), c), ('udp4a', a, b, c)),
 
     # Word extraction
    (('ushr', ('ishl', 'a@32', 16), 16), ('extract_u16', a, 0), '!options->lower_extract_word'),
