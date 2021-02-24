@@ -1255,6 +1255,20 @@ nir_op_is_vec(nir_op op)
 }
 
 static inline bool
+nir_op_is_bcsel(nir_op op)
+{
+   switch (op) {
+   case nir_op_bcsel:
+   case nir_op_b8csel:
+   case nir_op_b16csel:
+   case nir_op_b32csel:
+      return true;
+   default:
+      return false;
+   }
+}
+
+static inline bool
 nir_is_float_control_signed_zero_inf_nan_preserve(unsigned execution_mode, unsigned bit_size)
 {
     return (16 == bit_size && execution_mode & FLOAT_CONTROLS_SIGNED_ZERO_INF_NAN_PRESERVE_FP16) ||
