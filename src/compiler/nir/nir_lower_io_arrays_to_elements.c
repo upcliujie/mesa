@@ -35,7 +35,7 @@
 static unsigned
 get_io_offset(nir_builder *b, nir_deref_instr *deref, nir_variable *var,
               unsigned *element_index, unsigned *xfb_offset,
-              nir_ssa_def **vertex_index)
+              nir_ssa_def **vertex_index, bool *is_indirect)
 {
    nir_deref_path path;
    nir_deref_path_init(&path, deref, NULL);
@@ -55,6 +55,10 @@ get_io_offset(nir_builder *b, nir_deref_instr *deref, nir_variable *var,
    *xfb_offset = 0;
    for (; *p; p++) {
       if ((*p)->deref_type == nir_deref_type_array) {
+         if (!nir_src_is_const((*p)->arr.index)) {
+            *is_indirect = true;
+            break;
+         }
          /* must not be indirect dereference */
          unsigned index = nir_src_as_uint((*p)->arr.index);
 
@@ -127,15 +131,18 @@ lower_array(nir_builder *b, nir_intrinsic_instr *intr, nir_variable *var,
       return;
    }
 
-   nir_variable **elements =
-      get_array_elements(varyings, var, b->shader->info.stage);
-
    nir_ssa_def *vertex_index = NULL;
    unsigned elements_index = 0;
    unsigned xfb_offset = 0;
+   bool is_indirect = false;
    unsigned io_offset = get_io_offset(b, nir_src_as_deref(intr->src[0]),
                                       var, &elements_index, &xfb_offset,
-                                      &vertex_index);
+                                      &vertex_index, &is_indirect);
+   if (is_indirect)
+      return;
+
+   nir_variable **elements =
+      get_array_elements(varyings, var, b->shader->info.stage);
 
    nir_variable *element = elements[elements_index];
    if (!element) {
