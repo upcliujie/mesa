@@ -280,6 +280,11 @@ is_created_as_float(struct hash_table *ht, nir_shader *shader,
    if (src_alu == NULL)
       return true;
 
+   if (nir_op_is_bcsel(src_alu->op)) {
+      return is_created_as_float(ht, shader, src_alu, 1, 0, NULL) &&
+             is_created_as_float(ht, shader, src_alu, 2, 0, NULL);
+   }
+
    nir_alu_type output_type = nir_op_infos[src_alu->op].output_type;
    return nir_alu_type_get_base_type(output_type) == nir_type_float;
 }
@@ -341,16 +346,22 @@ static inline bool
 is_only_used_as_float(nir_alu_instr *instr)
 {
    nir_foreach_use(src, &instr->dest.dest.ssa) {
-      const nir_instr *const user_instr = src->parent_instr;
+      nir_instr *user_instr = src->parent_instr;
       if (user_instr->type != nir_instr_type_alu)
          return false;
 
-      const nir_alu_instr *const user_alu = nir_instr_as_alu(user_instr);
+      nir_alu_instr *user_alu = nir_instr_as_alu(user_instr);
       assert(instr != user_alu);
 
       unsigned index = (nir_alu_src*)container_of(src, nir_alu_src, src) - user_alu->src;
-      if (nir_op_infos[user_alu->op].input_types[index] != nir_type_float)
-         return false;
+
+      if (index != 0 && nir_op_is_bcsel(user_alu->op)) {
+         if (!is_only_used_as_float(user_alu))
+            return false;
+      } else {
+         if (nir_op_infos[user_alu->op].input_types[index] != nir_type_float)
+            return false;
+      }
    }
 
    return true;
