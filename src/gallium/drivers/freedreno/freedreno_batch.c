@@ -49,7 +49,7 @@ alloc_ring(struct fd_batch *batch, unsigned sz, enum fd_ringbuffer_flags flags)
 	 * size of zero.
 	 */
 	if ((fd_device_version(ctx->screen->dev) >= FD_VERSION_UNLIMITED_CMDS) &&
-			!(fd_mesa_debug & FD_DBG_NOGROW)){
+			!DBG_ENABLED(NOGROW)) {
 		flags |= FD_RINGBUFFER_GROWABLE;
 		sz = 0;
 	}
@@ -536,7 +536,7 @@ fd_batch_check_size(struct fd_batch *batch)
 {
 	debug_assert(!batch->flushed);
 
-	if (unlikely(fd_mesa_debug & FD_DBG_FLUSH)) {
+	if (DBG_ENABLED(FLUSH)) {
 		fd_batch_flush(batch);
 		return;
 	}

@@ -37,7 +37,7 @@
 #include "freedreno_util.h"
 
 #ifdef DEBUG
-#  define BATCH_DEBUG (fd_mesa_debug & FD_DBG_MSGS)
+#  define BATCH_DEBUG DBG_ENABLED(MSGS)
 #else
 #  define BATCH_DEBUG 0
 #endif

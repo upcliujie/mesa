@@ -984,7 +984,7 @@ fd_resource_allocate_and_resolve(struct pipe_screen *pscreen,
 		linear = true;
 	}
 
-	if (fd_mesa_debug & FD_DBG_NOTILE)
+	if (DBG_ENABLED(NOTILE))
 		linear = true;
 
 	/* Normally, for non-shared buffers, allow buffer compression if
@@ -1012,7 +1012,7 @@ fd_resource_allocate_and_resolve(struct pipe_screen *pscreen,
 		}
 	}
 
-	allow_ubwc &= !(fd_mesa_debug & FD_DBG_NOUBWC);
+	allow_ubwc &= !DBG_ENABLED(NOUBWC);
 
 	pipe_reference_init(&prsc->reference, 1);
 
@@ -1056,7 +1056,7 @@ fd_resource_allocate_and_resolve(struct pipe_screen *pscreen,
 		size = rsc->layout.layer_size * prsc->array_size;
 	}
 
-	if (fd_mesa_debug & FD_DBG_LAYOUT)
+	if (DBG_ENABLED(LAYOUT))
 		fdl_dump_layout(&rsc->layout);
 
 	/* Hand out the resolved size. */
