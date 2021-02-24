@@ -1308,3 +1308,110 @@ unop_horiz("pack_double_2x32_dxil", 1, tuint64, 2, tuint32,
            "dst.x = src0.x | ((uint64_t)src0.y << 32);")
 unop_horiz("unpack_double_2x32_dxil", 2, tuint32, 1, tuint64,
            "dst.x = src0.x; dst.y = src0.x >> 32;")
+
+# src0 and src1 are i8vec4 packed in an int32, and src2 is an int32.  The int8
+# components are sign-extended to 32-bits, and a dot-product is performed on
+# the resulting vectors.  src2 is added to the result of the dot-product.
+opcode("idp4a", 0, tint32, [0, 0, 0], [tint32, tint32, tint32],
+       False, _2src_commutative, """
+   const int v0x = (int)(int8_t)(src0      );
+   const int v0y = (int)(int8_t)(src0 >>  8);
+   const int v0z = (int)(int8_t)(src0 >> 16);
+   const int v0w = (int)(int8_t)(src0 >> 24);
+   const int v1x = (int)(int8_t)(src1      );
+   const int v1y = (int)(int8_t)(src1 >>  8);
+   const int v1z = (int)(int8_t)(src1 >> 16);
+   const int v1w = (int)(int8_t)(src1 >> 24);
+
+   dst = (v0x * v1x) + (v0y * v1y) + (v0z * v1z) + (v0w * v1w) + src2;
+""")
+
+# Like idp4a, but unsigned.
+opcode("udp4a", 0, tuint32, [0, 0, 0], [tuint32, tuint32, tuint32],
+       False, _2src_commutative, """
+   const unsigned v0x = (unsigned)(uint8_t)(src0      );
+   const unsigned v0y = (unsigned)(uint8_t)(src0 >>  8);
+   const unsigned v0z = (unsigned)(uint8_t)(src0 >> 16);
+   const unsigned v0w = (unsigned)(uint8_t)(src0 >> 24);
+   const unsigned v1x = (unsigned)(uint8_t)(src1      );
+   const unsigned v1y = (unsigned)(uint8_t)(src1 >>  8);
+   const unsigned v1z = (unsigned)(uint8_t)(src1 >> 16);
+   const unsigned v1w = (unsigned)(uint8_t)(src1 >> 24);
+
+   dst = (v0x * v1x) + (v0y * v1y) + (v0z * v1z) + (v0w * v1w) + src2;
+""")
+
+# src0 is i8vec4 packed in an int32, src1 is u u8vec4 packed in an int32, and
+# src2 is an int32.  The 8-bit components are extended to 32-bits, and a
+# dot-product is performed on the resulting vectors.  src2 is added to the
+# result of the dot-product.
+#
+# NOTE: Unlike many of the other dp4a opcodes, this mixed signs of source 0
+# and source 1 mean that this opcode is not 2-source commutative
+opcode("iudp4a", 0, tint32, [0, 0, 0], [tint32, tuint32, tint32],
+       False, "", """
+   const int v0x = (int)(int8_t)(src0      );
+   const int v0y = (int)(int8_t)(src0 >>  8);
+   const int v0z = (int)(int8_t)(src0 >> 16);
+   const int v0w = (int)(int8_t)(src0 >> 24);
+   const unsigned v1x = (unsigned)(uint8_t)(src1      );
+   const unsigned v1y = (unsigned)(uint8_t)(src1 >>  8);
+   const unsigned v1z = (unsigned)(uint8_t)(src1 >> 16);
+   const unsigned v1w = (unsigned)(uint8_t)(src1 >> 24);
+
+   dst = (v0x * v1x) + (v0y * v1y) + (v0z * v1z) + (v0w * v1w) + src2;
+""")
+
+# Like idp4a, but the result is clampled to the range [-0x80000000, 0x7ffffffff].
+opcode("idp4a_sat", 0, tint32, [0, 0, 0], [tint32, tint32, tint32],
+       False, _2src_commutative, """
+   const int64_t v0x = (int64_t)(int8_t)(src0      );
+   const int64_t v0y = (int64_t)(int8_t)(src0 >>  8);
+   const int64_t v0z = (int64_t)(int8_t)(src0 >> 16);
+   const int64_t v0w = (int64_t)(int8_t)(src0 >> 24);
+   const int64_t v1x = (int64_t)(int8_t)(src1      );
+   const int64_t v1y = (int64_t)(int8_t)(src1 >>  8);
+   const int64_t v1z = (int64_t)(int8_t)(src1 >> 16);
+   const int64_t v1w = (int64_t)(int8_t)(src1 >> 24);
+
+   const int64_t tmp = (v0x * v1x) + (v0y * v1y) + (v0z * v1z) + (v0w * v1w) + src2;
+
+   dst = tmp >= INT32_MAX ? INT32_MAX : (tmp <= INT32_MIN ? INT32_MIN : tmp);
+""")
+
+# Like udp4a, but the result is clampled to the range [0, 0xfffffffff].
+opcode("udp4a_sat", 0, tint32, [0, 0, 0], [tint32, tint32, tint32],
+       False, _2src_commutative, """
+   const uint64_t v0x = (uint64_t)(uint8_t)(src0      );
+   const uint64_t v0y = (uint64_t)(uint8_t)(src0 >>  8);
+   const uint64_t v0z = (uint64_t)(uint8_t)(src0 >> 16);
+   const uint64_t v0w = (uint64_t)(uint8_t)(src0 >> 24);
+   const uint64_t v1x = (uint64_t)(uint8_t)(src1      );
+   const uint64_t v1y = (uint64_t)(uint8_t)(src1 >>  8);
+   const uint64_t v1z = (uint64_t)(uint8_t)(src1 >> 16);
+   const uint64_t v1w = (uint64_t)(uint8_t)(src1 >> 24);
+
+   const uint64_t tmp = (v0x * v1x) + (v0y * v1y) + (v0z * v1z) + (v0w * v1w) + src2;
+
+   dst = tmp >= UINT32_MAX ? UINT32_MAX : tmp;
+""")
+
+# Like iudp4a, but the result is clampled to the range [-0x80000000, 0x7ffffffff].
+#
+# NOTE: Unlike many of the other dp4a opcodes, this mixed signs of source 0
+# and source 1 mean that this opcode is not 2-source commutative
+opcode("iudp4a_sat", 0, tint32, [0, 0, 0], [tint32, tuint32, tint32],
+       False, "", """
+   const int64_t v0x = (int64_t)(int8_t)(src0      );
+   const int64_t v0y = (int64_t)(int8_t)(src0 >>  8);
+   const int64_t v0z = (int64_t)(int8_t)(src0 >> 16);
+   const int64_t v0w = (int64_t)(int8_t)(src0 >> 24);
+   const uint64_t v1x = (uint64_t)(uint8_t)(src1      );
+   const uint64_t v1y = (uint64_t)(uint8_t)(src1 >>  8);
+   const uint64_t v1z = (uint64_t)(uint8_t)(src1 >> 16);
+   const uint64_t v1w = (uint64_t)(uint8_t)(src1 >> 24);
+
+   const int64_t tmp = (v0x * v1x) + (v0y * v1y) + (v0z * v1z) + (v0w * v1w) + src2;
+
+   dst = tmp >= INT32_MAX ? INT32_MAX : (tmp <= INT32_MIN ? INT32_MIN : tmp);
+""")
