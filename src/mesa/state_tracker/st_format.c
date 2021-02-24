@@ -96,9 +96,9 @@ st_mesa_format_to_pipe_format(const struct st_context *st,
       case MESA_FORMAT_ETC2_RG11_EAC:
          return PIPE_FORMAT_R16G16_UNORM;
       case MESA_FORMAT_ETC2_SIGNED_R11_EAC:
-         return PIPE_FORMAT_R16_SNORM;
+         return PIPE_FORMAT_R16_FLOAT; /* float is faster than snorm on some hw */
       case MESA_FORMAT_ETC2_SIGNED_RG11_EAC:
-         return PIPE_FORMAT_R16G16_SNORM;
+         return PIPE_FORMAT_R16G16_FLOAT;  /* float is faster than snorm on some hw */
       case MESA_FORMAT_ETC2_RGB8_PUNCHTHROUGH_ALPHA1:
          return st->transcode_etc ? PIPE_FORMAT_DXT1_RGBA : PIPE_FORMAT_R8G8B8A8_UNORM;
       case MESA_FORMAT_ETC2_SRGB8_PUNCHTHROUGH_ALPHA1:
