@@ -148,7 +148,7 @@ optimizations = [
    (('irem', a, '#b(is_pos_power_of_two)'),    ('bcsel', ('ige', a, 0), ('iand', a, ('isub', b, 1)), ('ior', a, ('ineg', b)))),
    (('irem', a, '#b(is_neg_power_of_two)'),    ('bcsel', ('ige', a, 0), ('iand', a, ('inot', b)), ('ior', a, b))),
 
-   (('~fneg', ('fneg', a)), a),
+   (('fneg', ('fneg', a)), ('fcanonicalize', a)),
    (('ineg', ('ineg', a)), a),
    (('fabs', ('fneg', a)), ('fabs', a)),
    (('fabs', ('u2f', a)), ('u2f', a)),
@@ -156,12 +156,7 @@ optimizations = [
    (('iabs', ('ineg', a)), ('iabs', a)),
    (('f2b', ('fneg', a)), ('f2b', a)),
    (('i2b', ('ineg', a)), ('i2b', a)),
-   (('~fadd', a, 0.0), a),
-   # a+0.0 is 'a' unless 'a' is denormal or -0.0. If it's only used by a
-   # floating point instruction, they should flush any input denormals and we
-   # can replace -0.0 with 0.0 if the float execution mode allows it.
-   (('fadd(is_only_used_as_float)', 'a@16', 0.0), a, '!'+signed_zero_inf_nan_preserve_16),
-   (('fadd(is_only_used_as_float)', 'a@32', 0.0), a, '!'+signed_zero_inf_nan_preserve_32),
+   (('fadd', 'a(can_elim_negative_zero)', 0.0), ('fcanonicalize', a)),
    (('iadd', a, 0), a),
    (('usadd_4x8', a, 0), a),
    (('usadd_4x8', a, ~0), ~0),
@@ -176,18 +171,11 @@ optimizations = [
    (('~fadd', ('fneg', a), ('fadd', a, b)), b),
    (('~fadd', a, ('fadd', ('fneg', a), b)), b),
    (('fadd', ('fsat', a), ('fsat', ('fneg', a))), ('fsat', ('fabs', a))),
-   (('~fmul', a, 0.0), 0.0),
-   # The only effect a*0.0 should have is when 'a' is infinity, -0.0 or NaN
-   (('fmul', 'a@16', 0.0), 0.0, '!'+signed_zero_inf_nan_preserve_16),
-   (('fmul', 'a@32', 0.0), 0.0, '!'+signed_zero_inf_nan_preserve_32),
+   (('fmul', 'a(is_finite_and_can_elim_neg_zero)', 0.0), 0.0),
    (('imul', a, 0), 0),
    (('umul_unorm_4x8', a, 0), 0),
    (('umul_unorm_4x8', a, ~0), a),
-   (('~fmul', a, 1.0), a),
-   # The only effect a*1.0 can have is flushing denormals. If it's only used by
-   # a floating point instruction, they should flush any input denormals and
-   # this multiplication isn't needed.
-   (('fmul(is_only_used_as_float)', a, 1.0), a),
+   (('fmul', a, 1.0), ('fcanonicalize', a)),
    (('imul', a, 1), a),
    (('fmul', a, -1.0), ('fneg', a)),
    (('imul', a, -1), ('ineg', a)),
@@ -197,16 +185,14 @@ optimizations = [
    # If a != a: fsign(a)*a*a => 0*NaN*NaN => abs(NaN)*NaN
    (('fmul', ('fsign', a), ('fmul', a, a)), ('fmul', ('fabs', a), a)),
    (('fmul', ('fmul', ('fsign', a), a), a), ('fmul', ('fabs', a), a)),
-   (('~ffma', 0.0, a, b), b),
-   (('ffma@16(is_only_used_as_float)', 0.0, a, b), b, '!'+signed_zero_inf_nan_preserve_16),
-   (('ffma@32(is_only_used_as_float)', 0.0, a, b), b, '!'+signed_zero_inf_nan_preserve_32),
+   (('ffma', 0.0, 'a(is_finite_and_can_elim_neg_zero)', b), ('fcanonicalize', b)),
    (('~ffma', a, b, 0.0), ('fmul', a, b)),
    (('ffma@16', a, b, 0.0), ('fmul', a, b), '!'+signed_zero_inf_nan_preserve_16),
    (('ffma@32', a, b, 0.0), ('fmul', a, b), '!'+signed_zero_inf_nan_preserve_32),
    (('ffma', 1.0, a, b), ('fadd', a, b)),
    (('ffma', -1.0, a, b), ('fadd', ('fneg', a), b)),
-   (('~flrp', a, b, 0.0), a),
-   (('~flrp', a, b, 1.0), b),
+   (('flrp', a, 'b(is_finite)', 0.0), ('fcanonicalize', a)),
+   (('flrp', 'a(is_finite)', b, 1.0), ('fcanonicalize', b)),
    (('~flrp', a, a, b), a),
    (('~flrp', 0.0, a, b), ('fmul', a, b)),
 
@@ -579,8 +565,8 @@ optimizations.extend([
    (('bcsel', a, a, b), ('ior', a, b)),
    (('bcsel', a, b, False), ('iand', a, b)),
    (('bcsel', a, b, a), ('iand', a, b)),
-   (('~fmin', a, a), a),
-   (('~fmax', a, a), a),
+   (('fmin', a, a), ('fcanonicalize', a)),
+   (('fmax', a, a), ('fcanonicalize', a)),
    (('imin', a, a), a),
    (('imax', a, a), a),
    (('umin', a, a), a),
@@ -628,9 +614,9 @@ optimizations.extend([
    (('imin', a, ('ineg', a)), ('ineg', ('iabs', a))),
    (('fmin', a, ('fneg', ('fabs', a))), ('fneg', ('fabs', a))),
    (('imin', a, ('ineg', ('iabs', a))), ('ineg', ('iabs', a))),
-   (('~fmin', a, ('fabs', a)), a),
+   (('fmin', a, ('fabs', a)), ('fcanonicalize', a)),
    (('imin', a, ('iabs', a)), a),
-   (('~fmax', a, ('fneg', ('fabs', a))), a),
+   (('fmax', a, ('fneg', ('fabs', a))), ('fcanonicalize', a)),
    (('imax', a, ('ineg', ('iabs', a))), a),
    (('fmax', a, ('fabs', a)), ('fabs', a)),
    (('imax', a, ('iabs', a)), ('iabs', a)),
@@ -1083,7 +1069,7 @@ optimizations.extend([
    # Division and reciprocal
    (imprecise('fdiv', 1.0, a), ('frcp', a)),
    (('fdiv', a, b), ('fmul', a, ('frcp', b)), 'options->lower_fdiv'),
-   (('~frcp', ('frcp', a)), a),
+   (imprecise('frcp', ('frcp', a)), ('fcanonicalize', a)),
    (imprecise('frcp', ('fsqrt', a)), ('frsq', a)),
    (('fsqrt', a), ('frcp', ('frsq', a)), 'options->lower_fsqrt'),
    (imprecise('frcp', ('frsq', a)), ('fsqrt', a), '!options->lower_fsqrt'),
@@ -1117,7 +1103,7 @@ optimizations.extend([
    (('bcsel@64', a, -0.0, -1.0), ('fneg', ('b2f', ('inot', a))), '!(options->lower_doubles_options & nir_lower_fp64_full_software)'),
 
    (('bcsel', a, b, b), b),
-   (('~fcsel', a, b, b), b),
+   (('fcsel', a, b, b), ('fcanonicalize', b)),
 
    # D3D Boolean emulation
    (('bcsel', a, -1, 0), ('ineg', ('b2i', 'a@1'))),
@@ -1145,7 +1131,7 @@ optimizations.extend([
    (('inot', ('f2b1', a)), ('feq', a, 0.0)),
 
    # Conversions from 16 bits to 32 bits and back can always be removed
-   (('f2fmp', ('f2f32', 'a@16')), a),
+   (('f2fmp', ('f2f32', 'a@16')), ('fcanonicalize', a)),
    (('i2imp', ('i2i32', 'a@16')), a),
    (('i2imp', ('u2u32', 'a@16')), a),
 
@@ -1165,7 +1151,7 @@ optimizations.extend([
 
    # Conversions to 16 bits would be lossy so they should only be removed if
    # the instruction was generated by the precision lowering pass.
-   (('f2f32', ('f2fmp', 'a@32')), a),
+   (('f2f32', ('f2fmp', 'a@32')), ('fcanonicalize', a)),
    (('i2i32', ('i2imp', 'a@32')), a),
    (('u2u32', ('i2imp', 'a@32')), a),
 
@@ -1174,16 +1160,14 @@ optimizations.extend([
    (('f2f32', ('i2fmp', 'a@32')), ('i2f32', a)),
    (('f2f32', ('u2fmp', 'a@32')), ('u2f32', a)),
 
-   # Conversions from float32 to float64 and back can be removed as long as
-   # it doesn't need to be precise, since the conversion may e.g. flush denorms
-   (('f2f32', ('f2f64', 'a@32')), a),
+   (('f2f32', ('f2f64', 'a@32')), ('fcanonicalize', a)),
 
    (('ffloor', 'a(is_integral)'), a),
    (('fceil', 'a(is_integral)'), a),
    (('ftrunc', 'a(is_integral)'), a),
    # fract(x) = x - floor(x), so fract(NaN) = NaN
    (('~ffract', 'a(is_integral)'), 0.0),
-   (('fabs', 'a(is_not_negative)'), a),
+   (('fabs', 'a(is_not_negative)'), ('fcanonicalize', a)),
    (('iabs', 'a(is_not_negative)'), a),
    (('fsat', 'a(is_not_positive)'), 0.0),
 
@@ -2289,7 +2273,7 @@ late_optimizations = [
 
    # nir_lower_to_source_mods will collapse this, but its existence during the
    # optimization loop can prevent other optimizations.
-   (('fneg', ('fneg', a)), a),
+   (('fneg', ('fneg', a)), ('fcanonicalize', a)),
 
    # Subtractions get lowered during optimization, so we need to recombine them
    (('fadd', a, ('fneg', 'b')), ('fsub', 'a', 'b'), 'options->has_fsub'),
