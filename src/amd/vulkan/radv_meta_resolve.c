@@ -944,42 +944,6 @@ radv_cmd_buffer_resolve_subpass(struct radv_cmd_buffer *cmd_buffer)
 	radv_describe_end_render_pass_resolve(cmd_buffer);
 }
 
-/**
- * Decompress CMask/FMask before resolving a multisampled source image inside a
- * subpass.
- */
-void
-radv_decompress_resolve_subpass_src(struct radv_cmd_buffer *cmd_buffer)
-{
-	const struct radv_subpass *subpass = cmd_buffer->state.subpass;
-	struct radv_framebuffer *fb = cmd_buffer->state.framebuffer;
-	uint32_t layer_count = fb->layers;
-
-	if (subpass->view_mask)
-		layer_count = util_last_bit(subpass->view_mask);
-
-	for (uint32_t i = 0; i < subpass->color_count; ++i) {
-		struct radv_subpass_attachment src_att = subpass->color_attachments[i];
-		struct radv_subpass_attachment dest_att = subpass->resolve_attachments[i];
-
-		if (dest_att.attachment == VK_ATTACHMENT_UNUSED)
-			continue;
-
-		struct radv_image_view *src_iview = cmd_buffer->state.attachments[src_att.attachment].iview;
-		struct radv_image *src_image = src_iview->image;
-
-		VkImageResolve2KHR region = {0};
-		region.sType = VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2_KHR;
-		region.srcSubresource.aspectMask = src_iview->aspect_mask;
-		region.srcSubresource.mipLevel = 0;
-		region.srcSubresource.baseArrayLayer = src_iview->base_layer;
-		region.srcSubresource.layerCount = layer_count;
-
-		radv_decompress_resolve_src(cmd_buffer, src_image,
-					    src_att.layout, &region);
-	}
-}
-
 static struct radv_sample_locations_state *
 radv_get_resolve_sample_locations(struct radv_cmd_buffer *cmd_buffer)
 {

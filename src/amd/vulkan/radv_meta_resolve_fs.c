@@ -1140,8 +1140,6 @@ radv_cmd_buffer_resolve_subpass_fs(struct radv_cmd_buffer *cmd_buffer)
 	barrier.dst_access_mask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
 	radv_subpass_barrier(cmd_buffer, &barrier);
 
-	radv_decompress_resolve_subpass_src(cmd_buffer);
-
 	radv_meta_save(&saved_state, cmd_buffer,
 		       RADV_META_SAVE_GRAPHICS_PIPELINE |
 		       RADV_META_SAVE_CONSTANTS |
