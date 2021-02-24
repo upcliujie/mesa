@@ -244,6 +244,7 @@ struct st_config_options
    bool allow_incorrect_primitive_id;
    bool force_integer_tex_nearest;
    bool force_gl_names_reuse;
+   bool transcode_etc;
    char *force_gl_vendor;
    unsigned char config_options_sha1[20];
 };
