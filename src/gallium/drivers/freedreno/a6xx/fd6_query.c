@@ -299,22 +299,22 @@ log_counters(struct fd6_primitives_sample *ps)
 		"x",
 	};
 
-	printf("  counter\t\tstart\t\t\tstop\t\t\tdiff\n");
+	fprintf(stderr, "  counter\t\tstart\t\t\tstop\t\t\tdiff\n");
 	for (int i = 0; i < counter_count; i++) {
-		printf("  RBBM_PRIMCTR_%d\t0x%016llx\t0x%016llx\t%lld\t%s\n",
+		fprintf(stderr, "  RBBM_PRIMCTR_%d\t0x%016llx\t0x%016llx\t%lld\t%s\n",
 				i + (counter_base - REG_A6XX_RBBM_PRIMCTR_0_LO) / 2,
 				ps->prim_start[i], ps->prim_stop[i], ps->prim_stop[i] - ps->prim_start[i], labels[i]);
 	}
 
-	printf("  so counts\n");
+	fprintf(stderr, "  so counts\n");
 	for (int i = 0; i < ARRAY_SIZE(ps->start); i++) {
-		printf("  CHANNEL %d emitted\t0x%016llx\t0x%016llx\t%lld\n",
+		fprintf(stderr, "  CHANNEL %d emitted\t0x%016llx\t0x%016llx\t%lld\n",
 				i, ps->start[i].generated, ps->stop[i].generated, ps->stop[i].generated - ps->start[i].generated);
-		printf("  CHANNEL %d generated\t0x%016llx\t0x%016llx\t%lld\n",
+		fprintf(stderr, "  CHANNEL %d generated\t0x%016llx\t0x%016llx\t%lld\n",
 				i, ps->start[i].emitted, ps->stop[i].emitted, ps->stop[i].emitted - ps->start[i].emitted);
 	}
 
-	printf("generated %lld, emitted %lld\n", ps->result.generated, ps->result.emitted);
+	fprintf(stderr, "generated %lld, emitted %lld\n", ps->result.generated, ps->result.emitted);
 }
 
 #else

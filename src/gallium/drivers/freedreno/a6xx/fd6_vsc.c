@@ -148,7 +148,7 @@ fd6_vsc_update_sizes(struct fd_batch *batch, const struct pipe_draw_info *info,
 		draw_stream_size_bits(info, batch->num_bins_per_pipe, prim_strm_bits);
 
 #if 0
-	printf("vsc: prim_strm_bits=%d, draw_strm_bits=%d, nb=%u, ic=%u, c=%u, pc=%u (%s)\n",
+	fprintf(stderr, "vsc: prim_strm_bits=%d, draw_strm_bits=%d, nb=%u, ic=%u, c=%u, pc=%u (%s)\n",
 			prim_strm_bits, draw_strm_bits, batch->num_bins_per_pipe,
 			info->instance_count, info->count,
 			(info->count * info->instance_count) /

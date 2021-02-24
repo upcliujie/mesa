@@ -550,7 +550,7 @@ void
 ir3_assert_handler(const char *expr, const char *file, int line,
 		const char *func)
 {
-	fprintf(stdout, "\n%s:%u: %s: Assertion `%s' failed.\n", file, line, func, expr);
+	fprintf(stderr, "\n%s:%u: %s: Assertion `%s' failed.\n", file, line, func, expr);
 	if (jmp_env_valid)
 		longjmp(jmp_env, 1);
 	abort();

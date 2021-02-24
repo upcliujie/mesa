@@ -456,7 +456,7 @@ void
 fd_resource_dump(struct fd_resource *rsc, const char *name)
 {
 	fd_bo_cpu_prep(rsc->bo, NULL, DRM_FREEDRENO_PREP_READ);
-	printf("%s: \n", name);
+	fprintf(stderr, "%s: \n", name);
 	dump_hex(fd_bo_map(rsc->bo), fd_bo_size(rsc->bo));
 }
 

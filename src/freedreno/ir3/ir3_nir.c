@@ -295,7 +295,7 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 
 	if (ir3_shader_debug & IR3_DBG_DISASM) {
 		debug_printf("----------------------\n");
-		nir_print_shader(s, stdout);
+		nir_print_shader(s, stderr);
 		debug_printf("----------------------\n");
 	}
 
@@ -328,7 +328,7 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 
 	if (ir3_shader_debug & IR3_DBG_DISASM) {
 		debug_printf("----------------------\n");
-		nir_print_shader(s, stdout);
+		nir_print_shader(s, stderr);
 		debug_printf("----------------------\n");
 	}
 
@@ -429,7 +429,7 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 {
 	if (ir3_shader_debug & IR3_DBG_DISASM) {
 		debug_printf("----------------------\n");
-		nir_print_shader(s, stdout);
+		nir_print_shader(s, stderr);
 		debug_printf("----------------------\n");
 	}
 
@@ -571,7 +571,7 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 
 	if (ir3_shader_debug & IR3_DBG_DISASM) {
 		debug_printf("----------------------\n");
-		nir_print_shader(s, stdout);
+		nir_print_shader(s, stderr);
 		debug_printf("----------------------\n");
 	}
 

@@ -235,12 +235,12 @@ assemble_variant(struct ir3_shader_variant *v)
 			ir3_shader_override_path && try_override_shader_variant(v, sha1buf);
 
 		if (dbg_enabled || shader_overridden) {
-			fprintf(stdout, "Native code%s for unnamed %s shader %s with sha1 %s:\n",
+			fprintf(stderr, "Native code%s for unnamed %s shader %s with sha1 %s:\n",
 				shader_overridden ? " (overridden)" : "",
 				ir3_shader_stage(v), v->shader->nir->info.name, sha1buf);
 			if (v->shader->type == MESA_SHADER_FRAGMENT)
-				fprintf(stdout, "SIMD0\n");
-			ir3_shader_disasm(v, v->bin, stdout);
+				fprintf(stderr, "SIMD0\n");
+			ir3_shader_disasm(v, v->bin, stderr);
 		}
 	}
 
@@ -333,7 +333,7 @@ create_variant(struct ir3_shader *shader, const struct ir3_shader_key *key)
 
 		if (ir3_shader_debug & IR3_DBG_DISASM) {
 			printf("dump nir%d: type=%d", shader->id, shader->type);
-			nir_print_shader(shader->nir, stdout);
+			nir_print_shader(shader->nir, stderr);
 		}
 
 		shader->nir_finalized = true;

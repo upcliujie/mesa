@@ -151,9 +151,9 @@ ir3_context_init(struct ir3_compiler *compiler,
 	}
 
 	if (shader_debug_enabled(so->type)) {
-		fprintf(stdout, "NIR (final form) for %s shader %s:\n",
+		fprintf(stderr, "NIR (final form) for %s shader %s:\n",
 			ir3_shader_stage(so), so->shader->nir->info.name);
-		nir_print_shader(ctx->s, stdout);
+		nir_print_shader(ctx->s, stderr);
 	}
 
 	ir3_ibo_mapping_init(&so->image_mapping, ctx->s->info.num_textures);
@@ -416,7 +416,7 @@ ir3_context_error(struct ir3_context *ctx, const char *format, ...)
 		_debug_vprintf(format, ap);
 	}
 	va_end(ap);
-	nir_print_shader_annotated(ctx->s, stdout, errors);
+	nir_print_shader_annotated(ctx->s, stderr, errors);
 	ralloc_free(errors);
 	ctx->error = true;
 	unreachable("");

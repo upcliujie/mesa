@@ -220,7 +220,7 @@ enum {
 };
 
 #define compile_error(ctx, args...) ({ \
-	printf(args); \
+	fprintf(stderr, args); \
 	assert(0); \
 })
 
