@@ -67,15 +67,14 @@ struct ir3_shader_state {
 static bool
 initial_variants_synchronous(struct fd_context *ctx)
 {
-	return unlikely(ctx->debug.debug_message ||
-			(fd_mesa_debug & FD_DBG_SHADERDB)) ||
-			(fd_mesa_debug & FD_DBG_SERIALC);
+	return unlikely(ctx->debug.debug_message) ||
+			DBG_ENABLED(SHADERDB) || DBG_ENABLED(SERIALC);
 }
 
 static void
 dump_shader_info(struct ir3_shader_variant *v, struct pipe_debug_callback *debug)
 {
-	if (!unlikely(fd_mesa_debug & FD_DBG_SHADERDB))
+	if (!DBG_ENABLED(SHADERDB))
 		return;
 
 	pipe_debug_message(debug, SHADER_INFO,

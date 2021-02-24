@@ -493,7 +493,7 @@ fd_screen_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 		 *
 		 * See: https://code.google.com/p/android/issues/detail?id=206513
 		 */
-		if (fd_mesa_debug & FD_DBG_DEQP)
+		if (DBG_ENABLED(DEQP))
 			return 48.0f;
 		return 127.0f;
 	case PIPE_CAPF_MAX_POINT_WIDTH:
@@ -605,7 +605,7 @@ fd_screen_get_shader_param(struct pipe_screen *pscreen,
 		return ((is_a5xx(screen) || is_a6xx(screen)) &&
 				(shader == PIPE_SHADER_COMPUTE ||
 					shader == PIPE_SHADER_FRAGMENT) &&
-				!(fd_mesa_debug & FD_DBG_NOFP16));
+				!DBG_ENABLED(NOFP16));
 	case PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS:
 	case PIPE_SHADER_CAP_MAX_SAMPLER_VIEWS:
 		return 16;
@@ -889,7 +889,7 @@ fd_screen_create(struct fd_device *dev, struct renderonly *ro)
 
 	fd_mesa_debug = debug_get_option_fd_mesa_debug();
 
-	if (fd_mesa_debug & FD_DBG_NOBIN)
+	if (DBG_ENABLED(NOBIN))
 		fd_binning_enabled = false;
 
 	if (!screen)
@@ -1030,7 +1030,7 @@ fd_screen_create(struct fd_device *dev, struct renderonly *ro)
 
 	freedreno_dev_info_init(&screen->info, screen->gpu_id);
 
-	if (fd_mesa_debug & FD_DBG_PERFC) {
+	if (DBG_ENABLED(PERFC)) {
 		screen->perfcntr_groups = fd_perfcntrs(screen->gpu_id,
 				&screen->num_perfcntr_groups);
 	}
@@ -1040,7 +1040,7 @@ fd_screen_create(struct fd_device *dev, struct renderonly *ro)
 	 * buffers would be too much otherwise.
 	 */
 	if (fd_device_version(dev) >= FD_VERSION_UNLIMITED_CMDS)
-		screen->reorder = !(fd_mesa_debug & FD_DBG_INORDER);
+		screen->reorder = !DBG_ENABLED(INORDER);
 
 	if (BATCH_DEBUG)
 		screen->live_batches = _mesa_pointer_set_create(NULL);

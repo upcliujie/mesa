@@ -96,8 +96,10 @@ enum fd_debug_flag {
 extern int fd_mesa_debug;
 extern bool fd_binning_enabled;
 
+#define DBG_ENABLED(category)  unlikely(fd_mesa_debug & FD_DBG_##category)
+
 #define DBG(fmt, ...) \
-		do { if (fd_mesa_debug & FD_DBG_MSGS) \
+		do { if (DBG_ENABLED(MSGS)) \
 			mesa_logd("%s:%d: "fmt, \
 				__FUNCTION__, __LINE__, ##__VA_ARGS__); } while (0)
 
@@ -107,7 +109,7 @@ extern bool fd_binning_enabled;
 	} while(0)
 
 #define perf_debug(...) do { \
-		if (unlikely(fd_mesa_debug & FD_DBG_PERF)) \
+		if (DBG_ENABLED(PERF)) \
 			mesa_logw(__VA_ARGS__); \
 	} while(0)
 
