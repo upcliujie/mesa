@@ -541,6 +541,15 @@ depth_test_quad(struct quad_stage *qs,
    struct softpipe_context *softpipe = qs->softpipe;
    unsigned zmask = 0;
    unsigned j;
+   boolean is_float_z = data->format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT ||
+                        data->format == PIPE_FORMAT_Z32_FLOAT;
+
+#define DEPTHTEST(l, op, r) do { \
+       for (j = 0; j < TGSI_QUAD_SIZE; j++) { \
+          if (l op r) \
+             zmask |= (1 << j); \
+       } \
+   } while (0)
 
    switch (softpipe->depth_stencil->depth_func) {
    case PIPE_FUNC_NEVER:
@@ -550,40 +559,34 @@ depth_test_quad(struct quad_stage *qs,
       /* Note this is pretty much a single sse or cell instruction.  
        * Like this:  quad->mask &= (quad->outputs.depth < zzzz);
        */
-      for (j = 0; j < TGSI_QUAD_SIZE; j++) {
-	 if (data->qzzzz[j] < data->bzzzz[j]) 
-	    zmask |= 1 << j;
-      }
+      if (is_float_z)
+         DEPTHTEST(((float *)data->qzzzz)[j], <, ((float *)data->bzzzz)[j]);
+      else
+         DEPTHTEST(data->qzzzz[j], <, data->bzzzz[j]);
       break;
    case PIPE_FUNC_EQUAL:
-      for (j = 0; j < TGSI_QUAD_SIZE; j++) {
-	 if (data->qzzzz[j] == data->bzzzz[j]) 
-	    zmask |= 1 << j;
-      }
+      DEPTHTEST(data->qzzzz[j], ==, data->bzzzz[j]);
       break;
    case PIPE_FUNC_LEQUAL:
-      for (j = 0; j < TGSI_QUAD_SIZE; j++) {
-	 if (data->qzzzz[j] <= data->bzzzz[j]) 
-	    zmask |= (1 << j);
-      }
+      if (is_float_z)
+         DEPTHTEST(((float *)data->qzzzz)[j], <=, ((float *)data->bzzzz)[j]);
+      else
+         DEPTHTEST(data->qzzzz[j], <=, data->bzzzz[j]);
       break;
    case PIPE_FUNC_GREATER:
-      for (j = 0; j < TGSI_QUAD_SIZE; j++) {
-	 if (data->qzzzz[j] > data->bzzzz[j]) 
-	    zmask |= (1 << j);
-      }
+      if (is_float_z)
+         DEPTHTEST(((float *)data->qzzzz)[j], >, ((float *)data->bzzzz)[j]);
+      else
+         DEPTHTEST(data->qzzzz[j], >, data->bzzzz[j]);
       break;
    case PIPE_FUNC_NOTEQUAL:
-      for (j = 0; j < TGSI_QUAD_SIZE; j++) {
-	 if (data->qzzzz[j] != data->bzzzz[j]) 
-	    zmask |= (1 << j);
-      }
+      DEPTHTEST(data->qzzzz[j], !=, data->bzzzz[j]);
       break;
    case PIPE_FUNC_GEQUAL:
-      for (j = 0; j < TGSI_QUAD_SIZE; j++) {
-	 if (data->qzzzz[j] >= data->bzzzz[j]) 
-	    zmask |= (1 << j);
-      }
+      if (is_float_z)
+         DEPTHTEST(((float *)data->qzzzz)[j], >=, ((float *)data->bzzzz)[j]);
+      else
+         DEPTHTEST(data->qzzzz[j], >=, data->bzzzz[j]);
       break;
    case PIPE_FUNC_ALWAYS:
       zmask = MASK_ALL;
