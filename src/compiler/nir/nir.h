@@ -3668,6 +3668,9 @@ typedef struct nir_shader_compiler_options {
     * for rect texture lowering. */
    bool has_txs;
 
+   /** Backend supports all variants of the dot_4x8 opcodes. */
+   bool has_dot_4x8;
+
    /* Whether to generate only scoped_barrier intrinsics instead of the set of
     * memory and control barrier intrinsics based on GLSL.
     */
