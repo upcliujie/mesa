@@ -807,11 +807,12 @@ static void fill_sampler_view_stage(struct rendering_state *state,
    if (iv->components.a != VK_COMPONENT_SWIZZLE_IDENTITY)
       templ.swizzle_a = vk_conv_swizzle(iv->components.a);
 
-   if (util_format_is_depth_or_stencil(templ.format)) {
+   if (iv->subresourceRange.aspectMask == VK_IMAGE_ASPECT_DEPTH_BIT) {
       templ.swizzle_r = PIPE_SWIZZLE_X;
-      templ.swizzle_g = PIPE_SWIZZLE_0;
-      templ.swizzle_b = PIPE_SWIZZLE_0;
-   }
+      templ.swizzle_g = PIPE_SWIZZLE_X;
+      templ.swizzle_b = PIPE_SWIZZLE_X;
+   } else if (iv->subresourceRange.aspectMask == VK_IMAGE_ASPECT_STENCIL_BIT)
+      templ.swizzle_r = PIPE_SWIZZLE_Y;
 
    if (state->sv[p_stage][sv_idx])
       pipe_sampler_view_reference(&state->sv[p_stage][sv_idx], NULL);
