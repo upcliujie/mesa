@@ -283,7 +283,6 @@ foz_prepare(struct foz_db *foz_db, char *base_filename)
       free(idx_filename);
 
       if (!check_files_opened_successfully(foz_db->file[file_idx], db_idx)) {
-         fclose(db_idx);
          continue; /* Ignore invalid user provided filename and continue */
       }
 
