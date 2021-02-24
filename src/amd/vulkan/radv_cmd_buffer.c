@@ -1420,16 +1420,14 @@ radv_emit_depth_bias(struct radv_cmd_buffer *cmd_buffer)
 {
 	struct radv_dynamic_state *d = &cmd_buffer->state.dynamic;
 	unsigned slope = fui(d->depth_bias.slope * 16.0f);
-	unsigned bias = fui(d->depth_bias.bias * cmd_buffer->state.offset_scale);
-
 
 	radeon_set_context_reg_seq(cmd_buffer->cs,
 				   R_028B7C_PA_SU_POLY_OFFSET_CLAMP, 5);
 	radeon_emit(cmd_buffer->cs, fui(d->depth_bias.clamp)); /* CLAMP */
 	radeon_emit(cmd_buffer->cs, slope); /* FRONT SCALE */
-	radeon_emit(cmd_buffer->cs, bias); /* FRONT OFFSET */
+	radeon_emit(cmd_buffer->cs, fui(d->depth_bias.bias)); /* FRONT OFFSET */
 	radeon_emit(cmd_buffer->cs, slope); /* BACK SCALE */
-	radeon_emit(cmd_buffer->cs, bias); /* BACK OFFSET */
+	radeon_emit(cmd_buffer->cs, fui(d->depth_bias.bias)); /* BACK OFFSET */
 }
 
 static void
@@ -2343,10 +2341,6 @@ radv_emit_framebuffer_state(struct radv_cmd_buffer *cmd_buffer)
 
 		radv_emit_fb_ds_state(cmd_buffer, &cmd_buffer->state.attachments[idx].ds, iview, layout, in_render_loop);
 
-		if (cmd_buffer->state.attachments[idx].ds.offset_scale != cmd_buffer->state.offset_scale) {
-			cmd_buffer->state.dirty |= RADV_CMD_DIRTY_DYNAMIC_DEPTH_BIAS;
-			cmd_buffer->state.offset_scale = cmd_buffer->state.attachments[idx].ds.offset_scale;
-		}
 		radv_load_ds_clear_metadata(cmd_buffer, iview);
 	} else {
 		if (cmd_buffer->device->physical_device->rad_info.chip_class == GFX9)
