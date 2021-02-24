@@ -1784,6 +1784,19 @@ fs_visitor::nir_emit_alu(const fs_builder &bld, nir_alu_instr *instr,
       bld.emit(FS_OPCODE_PACK_HALF_2x16_SPLIT, result, op[0], op[1]);
       break;
 
+   case nir_op_idp4a:
+   case nir_op_udp4a:
+   case nir_op_iudp4a:
+      bld.DP4A(result, op[2], op[0], op[1]);
+      break;
+
+   case nir_op_idp4a_sat:
+   case nir_op_udp4a_sat:
+   case nir_op_iudp4a_sat:
+      bld.DP4A(result, op[2], op[0], op[1])
+         ->saturate = true;
+      break;
+
    case nir_op_ffma:
       if (nir_has_any_rounding_mode_enabled(execution_mode)) {
          brw_rnd_mode rnd =
