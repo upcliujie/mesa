@@ -343,8 +343,11 @@ class PrintCode(gl_XML.gl_print_base):
                 self.validate_count_or_fallback(func)
 
             self.print_async_dispatch(func)
-            if func.return_type == 'GLboolean':
-                out('return GL_TRUE;') # for glUnmapBuffer
+            if func.return_type != 'void':
+                if 'Unmap' in func.name:
+                    out('return GL_TRUE;')
+                elif 'CheckFramebufferStatus' in func.name:
+                    out('return GL_FRAMEBUFFER_COMPLETE;')
         out('}')
 
     def print_async_body(self, func):
