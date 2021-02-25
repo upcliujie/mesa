@@ -79,48 +79,48 @@ int main(int argc, char** argv)
       create_fn = translate_sse2_create;
    else if (!strcmp(argv[1], "nosse"))
    {
-      util_cpu_caps.has_sse = 0;
-      util_cpu_caps.has_sse2 = 0;
-      util_cpu_caps.has_sse3 = 0;
-      util_cpu_caps.has_sse4_1 = 0;
+      util_get_cpu_caps()->has_sse = 0;
+      util_get_cpu_caps()->has_sse2 = 0;
+      util_get_cpu_caps()->has_sse3 = 0;
+      util_get_cpu_caps()->has_sse4_1 = 0;
       create_fn = translate_sse2_create;
    }
    else if (!strcmp(argv[1], "sse"))
    {
-      if(!util_cpu_caps.has_sse || !rtasm_cpu_has_sse())
+      if(!util_get_cpu_caps()->has_sse || !rtasm_cpu_has_sse())
       {
          printf("Error: CPU doesn't support SSE (test with qemu)\n");
          return 2;
       }
-      util_cpu_caps.has_sse2 = 0;
-      util_cpu_caps.has_sse3 = 0;
-      util_cpu_caps.has_sse4_1 = 0;
+      util_get_cpu_caps()->has_sse2 = 0;
+      util_get_cpu_caps()->has_sse3 = 0;
+      util_get_cpu_caps()->has_sse4_1 = 0;
       create_fn = translate_sse2_create;
    }
    else if (!strcmp(argv[1], "sse2"))
    {
-      if(!util_cpu_caps.has_sse2 || !rtasm_cpu_has_sse())
+      if(!util_get_cpu_caps()->has_sse2 || !rtasm_cpu_has_sse())
       {
          printf("Error: CPU doesn't support SSE2 (test with qemu)\n");
          return 2;
       }
-      util_cpu_caps.has_sse3 = 0;
-      util_cpu_caps.has_sse4_1 = 0;
+      util_get_cpu_caps()->has_sse3 = 0;
+      util_get_cpu_caps()->has_sse4_1 = 0;
       create_fn = translate_sse2_create;
    }
    else if (!strcmp(argv[1], "sse3"))
    {
-      if(!util_cpu_caps.has_sse3 || !rtasm_cpu_has_sse())
+      if(!util_get_cpu_caps()->has_sse3 || !rtasm_cpu_has_sse())
       {
          printf("Error: CPU doesn't support SSE3 (test with qemu)\n");
          return 2;
       }
-      util_cpu_caps.has_sse4_1 = 0;
+      util_get_cpu_caps()->has_sse4_1 = 0;
       create_fn = translate_sse2_create;
    }
    else if (!strcmp(argv[1], "sse4.1"))
    {
-      if(!util_cpu_caps.has_sse4_1 || !rtasm_cpu_has_sse())
+      if(!util_get_cpu_caps()->has_sse4_1 || !rtasm_cpu_has_sse())
       {
          printf("Error: CPU doesn't support SSE4.1 (test with qemu)\n");
          return 2;

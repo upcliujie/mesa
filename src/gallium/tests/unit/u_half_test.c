@@ -36,12 +36,12 @@ test(void)
 int
 main(int argc, char **argv)
 {
-   assert(!util_cpu_caps.has_f16c);
+   assert(!util_get_cpu_caps()->has_f16c);
    test();
 
    /* Test f16c. */
    util_cpu_detect();
-   if (util_cpu_caps.has_f16c)
+   if (util_get_cpu_caps()->has_f16c)
       test();
 
    printf("Success!\n");
