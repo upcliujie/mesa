@@ -105,8 +105,18 @@ struct util_cpu_caps {
    util_affinity_mask *L3_affinity_mask;
 };
 
-extern struct util_cpu_caps
-util_cpu_caps;
+static inline const struct util_cpu_caps *
+util_get_cpu_caps(void)
+{
+	extern struct util_cpu_caps util_cpu_caps;
+
+	/* If you hit this assert, it means that something is using the
+	 * cpu-caps without having first called util_cpu_detect()
+	 */
+	assert(util_cpu_caps.nr_cpus > 1);
+
+	return &util_cpu_caps;
+}
 
 void util_cpu_detect(void);
 
