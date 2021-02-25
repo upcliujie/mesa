@@ -1202,6 +1202,8 @@ check_device_needs_mesa_wsi(struct zink_screen *screen)
       ) {
       screen->needs_mesa_wsi = true;
        }
+  else if (screen->info.driver_props.driverID == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA_KHR)
+     screen->needs_mesa_flush_wsi = true;
 }
 
 static void
