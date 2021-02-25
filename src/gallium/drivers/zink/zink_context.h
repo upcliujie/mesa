@@ -132,6 +132,7 @@ struct zink_context {
    struct blitter_context *blitter;
 
    struct pipe_device_reset_callback reset;
+   struct zink_resource *flush_res;
 
    struct zink_batch batches[ZINK_NUM_GFX_BATCHES];
    bool is_device_lost;
