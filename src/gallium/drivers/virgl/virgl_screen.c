@@ -38,6 +38,11 @@
 #include "virgl_public.h"
 #include "virgl_context.h"
 #include "virtio-gpu/virgl_protocol.h"
+#include "virgl_encode.h"
+
+#include "gallium/drivers/radeonsi/si_query.h"
+#include "main/context.h"
+#include <GL/gl.h>
 
 int virgl_debug = 0;
 static const struct debug_named_value virgl_debug_options[] = {
@@ -333,6 +338,8 @@ virgl_get_param(struct pipe_screen *screen, enum pipe_cap param)
        * in virgl_encode_shader_state().
        */
       return 0;
+   case PIPE_CAP_QUERY_MEMORY_INFO:
+      return vscreen->caps.caps.v2.capability_bits_v2 & VIRGL_CAP_V2_MEMINFO;
    default:
       return u_pipe_screen_get_param_defaults(screen, param);
    }
@@ -831,6 +838,35 @@ fixup_formats(union virgl_caps *caps, struct virgl_supported_format_mask *mask)
       mask->bitmask[i] = caps->v1.sampler.bitmask[i];
 }
 
+void virgl_query_memory_info(struct pipe_screen *screen, struct pipe_memory_info *info)
+{
+   struct virgl_screen *vscreen = virgl_screen(screen);
+   struct pipe_context *ctx = screen->context_create(screen, NULL, 0);
+   struct virgl_context *vctx = virgl_context(ctx);
+   struct pipe_resource *templ = CALLOC_STRUCT(pipe_resource);
+   struct virgl_resource *res;
+
+   templ->target = PIPE_BUFFER;
+   templ->format = PIPE_FORMAT_R8_UNORM;
+   templ->bind = PIPE_BIND_CUSTOM;
+   templ->width0 = sizeof(struct pipe_memory_info);
+   templ->height0 = 1;
+   templ->depth0 = 1;
+   templ->array_size = 1;
+   templ->last_level = 0;
+   templ->nr_samples = 0;
+   templ->flags = 0;
+
+   res = (struct virgl_resource*) screen->resource_create(screen, templ);
+
+   virgl_encode_get_memory_info(vctx, res);
+   ctx->flush(ctx, NULL, 0);
+   vscreen->vws->resource_wait(vscreen->vws, res->hw_res);
+   pipe_buffer_read(ctx, &res->u.b, 0, sizeof(struct pipe_memory_info), info);
+   screen->resource_destroy(screen, &res->u.b);
+   ctx->destroy(ctx);
+}
+
 struct pipe_screen *
 virgl_create_screen(struct virgl_winsys *vws, const struct pipe_screen_config *config)
 {
@@ -872,6 +908,7 @@ virgl_create_screen(struct virgl_winsys *vws, const struct pipe_screen_config *c
    //screen->base.fence_signalled = virgl_fence_signalled;
    screen->base.fence_finish = virgl_fence_finish;
    screen->base.fence_get_fd = virgl_fence_get_fd;
+   screen->base.query_memory_info = virgl_query_memory_info;
 
    virgl_init_screen_resource_functions(&screen->base);
 

@@ -68,6 +68,9 @@ virgl_screen(struct pipe_screen *pipe)
 bool
 virgl_has_readback_format(struct pipe_screen *screen, enum virgl_formats fmt);
 
+void
+virgl_query_memory_info(struct pipe_screen *screen, struct pipe_memory_info *info);
+
 /* GL_ARB_map_buffer_alignment requires 64 as the minimum alignment value.  In
  * addition to complying with the extension, a high enough alignment value is
  * expected by various external GL clients. For example, wined3d doesn't like
