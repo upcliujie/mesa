@@ -900,6 +900,12 @@ static void si_lower_nir(struct si_screen *sscreen, struct nir_shader *nir)
    if (sscreen->b.get_shader_param(&sscreen->b, PIPE_SHADER_FRAGMENT, PIPE_SHADER_CAP_FP16))
       si_late_optimize_16bit_samplers(sscreen, nir);
 
+   nir_move_options move_opts =
+           nir_move_const_undef | nir_move_load_ubo | nir_move_load_input |
+           nir_move_comparisons | nir_move_copies;
+   NIR_PASS_V(nir, nir_opt_sink, move_opts | nir_move_load_ssbo);
+   NIR_PASS_V(nir, nir_opt_move, move_opts);
+
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
 }
 
