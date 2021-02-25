@@ -637,6 +637,7 @@ v3d_screen_get_compiler_options(struct pipe_screen *pscreen,
 static const uint64_t v3d_available_modifiers[] = {
    DRM_FORMAT_MOD_BROADCOM_UIF,
    DRM_FORMAT_MOD_LINEAR,
+   DRM_FORMAT_MOD_BROADCOM_SAND128,
 };
 
 static void
@@ -669,8 +670,18 @@ v3d_screen_is_dmabuf_modifier_supported(struct pipe_screen *pscreen,
                                         bool *external_only)
 {
         int i;
+        int num_modifiers = ARRAY_SIZE(v3d_available_modifiers);
 
-        for (i = 0; i < ARRAY_SIZE(v3d_available_modifiers); i++) {
+        bool is_sand_col128 = (format == PIPE_FORMAT_NV12) &&
+                (fourcc_mod_broadcom_mod(modifier) == DRM_FORMAT_MOD_BROADCOM_SAND128);
+
+        if (is_sand_col128) {
+                if (external_only)
+                        *external_only = true;
+                return true;
+        }
+
+        for (i = 0; i < num_modifiers - 1; i++) {
                 if (v3d_available_modifiers[i] == modifier) {
                         if (external_only)
                                 *external_only = false;
