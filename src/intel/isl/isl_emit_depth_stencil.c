@@ -125,6 +125,10 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
 #if GFX_VERx10 >= 125
       db.TiledMode = isl_encode_tiling[info->depth_surf->tiling];
       db.MipTailStartLOD = 15;
+      db.CompressionMode = isl_aux_usage_has_ccs(info->hiz_usage);
+      db.RenderCompressionFormat =
+         db.CompressionMode ?
+         isl_get_render_compression_format(info->depth_surf->format) : 0;
 #elif GFX_VER <= 6
       db.TiledSurface = info->depth_surf->tiling != ISL_TILING_LINEAR;
       db.TileWalk = info->depth_surf->tiling == ISL_TILING_Y0 ? TILEWALK_YMAJOR :
@@ -169,6 +173,10 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
 #if GFX_VERx10 >= 125
       sb.TiledMode = isl_encode_tiling[info->stencil_surf->tiling];
       sb.MipTailStartLOD = 15;
+      sb.CompressionMode = info->stencil_aux_usage == ISL_AUX_USAGE_STC_CCS;
+      sb.RenderCompressionFormat =
+         sb.CompressionMode ?
+         isl_get_render_compression_format(info->stencil_surf->format) : 0;
 #endif
 #if GFX_VER >= 12
       sb.StencilWriteEnable = true;
