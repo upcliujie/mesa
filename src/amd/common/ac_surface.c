@@ -1253,15 +1253,16 @@ static int gfx6_compute_surface(ADDR_HANDLE addrlib, const struct radeon_info *i
     */
    int stencil_tile_idx = -1;
 
-   if (AddrSurfInfoIn.flags.depth && !AddrSurfInfoIn.flags.noStencil &&
-       (config->info.levels > 1 || info->family == CHIP_STONEY)) {
+   if (AddrSurfInfoIn.flags.depth && !AddrSurfInfoIn.flags.noStencil) {
       /* Compute stencilTileIdx that is compatible with the (depth)
        * tileIdx. This degrades the depth surface if necessary to
        * ensure that a matching stencilTileIdx exists. */
       AddrSurfInfoIn.flags.matchStencilTileCfg = 1;
 
-      /* Keep the depth mip-tail compatible with texturing. */
-      AddrSurfInfoIn.flags.noStencil = 1;
+      if (config->info.levels > 1 || info->family == CHIP_STONEY) {
+         /* Keep the depth mip-tail compatible with texturing. */
+         AddrSurfInfoIn.flags.noStencil = 1;
+      }
    }
 
    /* Set preferred macrotile parameters. This is usually required
