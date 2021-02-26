@@ -3895,7 +3895,10 @@ anv_image_address(const struct anv_image *image,
 {
    const struct anv_image_binding *binding = &image->bindings[mem_range->binding];
    assert(binding->memory_range.offset == 0);
-   assert(mem_range->size > 0);
+
+   if (mem_range->size == 0)
+      return ANV_NULL_ADDRESS;
+
    return anv_address_add(binding->address, mem_range->offset);
 }
 
