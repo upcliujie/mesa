@@ -3715,7 +3715,7 @@ struct anv_surface {
 static inline bool MUST_CHECK
 anv_surface_is_valid(const struct anv_surface *surface)
 {
-   return surface->isl.size_B > 0;
+   return surface->isl.size_B > 0 && surface->memory_range.size > 0;
 }
 
 struct anv_image {
