@@ -1206,6 +1206,14 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
                    config->max_work_group_count[scalar.comp]) - 1u;
          }
          break;
+      case nir_intrinsic_load_invocation_id:
+         if (shader->info.stage == MESA_SHADER_TESS_CTRL) {
+            if (!shader->info.tess.tcs_vertices_out)
+               return 511; /* With a generous maximum output patch size of 512 */
+
+            return shader->info.tess.tcs_vertices_out - 1;
+         }
+         break;
       case nir_intrinsic_load_subgroup_invocation:
       case nir_intrinsic_first_invocation:
       case nir_intrinsic_mbcnt_amd:
