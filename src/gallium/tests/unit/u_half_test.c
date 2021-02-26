@@ -36,20 +36,14 @@ test(void)
 int
 main(int argc, char **argv)
 {
-   extern struct util_cpu_caps_t util_cpu_caps;
-
-   /* Initial test run is without f16c, but we need to pretend the
-    * cpu caps are initialized to skip an assert:
-    */
-   util_cpu_caps.nr_cpus = 1;
-
-   assert(!util_get_cpu_caps()->has_f16c);
+   util_cpu_detect();
    test();
 
-   /* Test f16c. */
-   util_cpu_detect();
-   if (util_get_cpu_caps()->has_f16c)
+   /* Test non-f16c. */
+   if (util_get_cpu_caps()->has_f16c) {
+      ((struct util_cpu_caps_t *)util_get_cpu_caps())->has_f16c = false;
       test();
+   }
 
    printf("Success!\n");
    return 0;
