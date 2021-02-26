@@ -38,6 +38,7 @@
 struct constant_fold_state {
    bool has_load_constant;
    bool has_indirect_load_const;
+   struct hash_table *range_ht;
 };
 
 static bool
@@ -179,8 +180,20 @@ fail:
    return NULL;
 }
 
+/* The config here should be generic enough to be correct on any HW.
+ * TODO: allow the backend to set this, either add to shader_info or pass an arg to constant folding.
+ */
+static const nir_unsigned_upper_bound_config ub_config = {
+   .min_subgroup_size = 1u,
+   .max_subgroup_size = 65535,
+   .max_work_group_invocations = 65535,
+   .max_work_group_count = {[0 ... 2] = 65535},
+   .max_work_group_size = {[0 ... 2] = 65535},
+   .vertex_attrib_max = {[0 ... 31] = UINT32_MAX},
+};
+
 static nir_ssa_def *
-try_extract_const_addition(nir_builder *b, nir_instr *instr, unsigned *out_const)
+try_extract_const_addition(nir_builder *b, nir_instr *instr, struct constant_fold_state *state, unsigned *out_const)
 {
    if (instr->type != nir_instr_type_alu)
       return NULL;
@@ -191,8 +204,23 @@ try_extract_const_addition(nir_builder *b, nir_instr *instr, unsigned *out_const
        !nir_alu_src_is_trivial_ssa(alu, 1))
       return NULL;
 
-   if (!alu->no_unsigned_wrap)
-      return NULL;
+   /* Check if there can really be an unsigned wrap */
+   if (!alu->no_unsigned_wrap) {
+      if (!state->range_ht) {
+         /* Cache for nir_unsigned_upper_bound */
+         state->range_ht = _mesa_pointer_hash_table_create(NULL);
+         /* Dominance metadata is needed by nir_unsigned_upper_bound to chase phis */
+         nir_metadata_require(b->impl, nir_metadata_dominance);
+      }
+
+      nir_ssa_scalar src0 = {alu->src[0].src.ssa, 0};
+      nir_ssa_scalar src1 = {alu->src[1].src.ssa, 0};
+      uint32_t ub0 = nir_unsigned_upper_bound(b->shader, state->range_ht, src0, &ub_config);
+      uint32_t ub1 = nir_unsigned_upper_bound(b->shader, state->range_ht, src1, &ub_config);
+
+      if ((UINT32_MAX - ub0) < ub1)
+         return NULL;
+   }
 
    for (unsigned i = 0; i < 2; ++i) {
       if (nir_src_is_const(alu->src[i].src)) {
@@ -200,7 +228,7 @@ try_extract_const_addition(nir_builder *b, nir_instr *instr, unsigned *out_const
          return alu->src[1 - i].src.ssa;
       }
 
-      nir_ssa_def *replace_src = try_extract_const_addition(b, alu->src[0].src.ssa->parent_instr, out_const);
+      nir_ssa_def *replace_src = try_extract_const_addition(b, alu->src[0].src.ssa->parent_instr, state, out_const);
       if (replace_src) {
          b->cursor = nir_before_instr(&alu->instr);
          return nir_iadd(b, replace_src, alu->src[1 - i].src.ssa);
@@ -213,7 +241,7 @@ try_extract_const_addition(nir_builder *b, nir_instr *instr, unsigned *out_const
 static bool
 try_fold_load_store(nir_builder *b,
                     nir_intrinsic_instr *intrin,
-                    UNUSED struct constant_fold_state *state,
+                    struct constant_fold_state *state,
                     unsigned offset_src_idx)
 {
    /* Assume that BASE is the constant offset of a load/store.
@@ -229,7 +257,7 @@ try_fold_load_store(nir_builder *b,
       return false;
 
    if (!nir_src_is_const(*off_src)) {
-      replace_src = try_extract_const_addition(b, off_src->ssa->parent_instr, &off_const);
+      replace_src = try_extract_const_addition(b, off_src->ssa->parent_instr, state, &off_const);
    } else if (nir_src_as_uint(*off_src)) {
       off_const += nir_src_as_uint(*off_src);
       b->cursor = nir_before_instr(&intrin->instr);
@@ -396,6 +424,7 @@ nir_opt_constant_folding(nir_shader *shader)
    struct constant_fold_state state;
    state.has_load_constant = false;
    state.has_indirect_load_const = false;
+   state.range_ht = NULL;
 
    bool progress = nir_shader_instructions_pass(shader, try_fold_instr,
                                                 nir_metadata_block_index |
@@ -411,6 +440,9 @@ nir_opt_constant_folding(nir_shader *shader)
       shader->constant_data = NULL;
       shader->constant_data_size = 0;
    }
+
+   if (state.range_ht)
+      _mesa_hash_table_destroy(state.range_ht, NULL);
 
    return progress;
 }
