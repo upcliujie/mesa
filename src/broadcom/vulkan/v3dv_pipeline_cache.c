@@ -26,8 +26,8 @@
 #include "util/blob.h"
 #include "nir/nir_serialize.h"
 
-static const bool dump_stats = false;
-static const bool dump_stats_verbose = false;
+static bool dump_stats = false;
+static bool dump_stats_verbose = false;
 
 /* Shared for nir/variants */
 #define V3DV_MAX_PIPELINE_CACHE_ENTRIES 4096
@@ -63,6 +63,18 @@ cache_dump_stats(struct v3dv_pipeline_cache *cache)
    fprintf(stderr, "  variant cache entries:      %d\n", cache->variant_stats.count);
    fprintf(stderr, "  variant cache miss count:   %d\n", cache->variant_stats.miss);
    fprintf(stderr, "  variant cache hit  count:   %d\n", cache->variant_stats.hit);
+}
+
+void
+v3dv_pipeline_cache_dump_stats(struct v3dv_pipeline_cache *cache)
+{
+   bool previous_value = dump_stats_verbose;
+
+   dump_stats_verbose = true;
+
+   cache_dump_stats(cache);
+
+   dump_stats_verbose = previous_value;
 }
 
 void

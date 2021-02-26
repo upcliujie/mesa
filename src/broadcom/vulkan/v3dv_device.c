@@ -1456,6 +1456,10 @@ v3dv_DestroyDevice(VkDevice _device,
    pthread_mutex_destroy(&device->mutex);
    drmSyncobjDestroy(device->pdevice->render_fd, device->last_job_sync);
    destroy_device_meta(device);
+
+   if (env_var_as_boolean("V3DV_DEBUG_DEFAULT_PIPELINE_CACHE_ON_DESTROY", false))
+      v3dv_pipeline_cache_dump_stats(&device->default_pipeline_cache);
+
    v3dv_pipeline_cache_finish(&device->default_pipeline_cache);
 
    /* Bo cache should be removed the last, as any other object could be
