@@ -2162,10 +2162,12 @@ anv_image_fill_surface_state(struct anv_device *device,
        * are used to store other information.  This should be ok, however,
        * because the surface buffer addresses are always 4K page aligned.
        */
-      uint32_t *aux_addr_dw = state_inout->state.map +
-         device->isl_dev.ss.aux_addr_offset;
-      assert((aux_address.offset & 0xfff) == 0);
-      state_inout->aux_address.offset |= *aux_addr_dw & 0xfff;
+      if (!anv_address_is_null(aux_address)) {
+         uint32_t *aux_addr_dw = state_inout->state.map +
+            device->isl_dev.ss.aux_addr_offset;
+         assert((aux_address.offset & 0xfff) == 0);
+         state_inout->aux_address.offset |= *aux_addr_dw & 0xfff;
+      }
 
       if (device->info.gen >= 10 && clear_address.bo) {
          uint32_t *clear_addr_dw = state_inout->state.map +
