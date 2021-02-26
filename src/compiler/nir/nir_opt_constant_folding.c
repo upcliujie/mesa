@@ -191,8 +191,16 @@ try_extract_const_addition(nir_builder *b, nir_instr *instr, unsigned *out_const
        !nir_alu_src_is_trivial_ssa(alu, 1))
       return NULL;
 
-   if (!alu->no_unsigned_wrap)
-      return NULL;
+   if (!alu->no_unsigned_wrap) {
+      /* Check if there really can be an unsigned wrap. */
+      nir_ssa_scalar sc_0 = {alu->src[0].src.ssa, 0};
+      nir_ssa_scalar sc_1 = {alu->src[1].src.ssa, 0};
+      unsigned upper_bound_0 = nir_max_unsigned_upper_bound(sc_0);
+      unsigned upper_bound_1 = nir_max_unsigned_upper_bound(sc_1);
+
+      if ((UINT_MAX - upper_bound_0) < upper_bound_1)
+         return NULL;
+   }
 
    for (unsigned i = 0; i < 2; ++i) {
       if (nir_src_is_const(alu->src[i].src)) {

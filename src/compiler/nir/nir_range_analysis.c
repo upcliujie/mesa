@@ -1154,6 +1154,61 @@ lookup_input(nir_shader *shader, unsigned driver_location)
 }
 
 uint32_t
+nir_max_unsigned_upper_bound(nir_ssa_scalar scalar)
+{
+   /* Cheap alternative to the real range analysis.
+    * This helps with various address offset calculations.
+    */
+
+   assert(scalar.def->bit_size <= 32);
+
+   if (nir_ssa_scalar_is_const(scalar))
+      return nir_ssa_scalar_as_uint(scalar);
+
+   uint32_t max = bitmask(scalar.def->bit_size);
+
+   if (scalar.def->parent_instr->type == nir_instr_type_intrinsic) {
+      nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(scalar.def->parent_instr);
+      switch (intrin->intrinsic) {
+      default:
+         return max;
+      }
+   }
+
+   if (nir_ssa_scalar_is_alu(scalar)) {
+      nir_op op = nir_ssa_scalar_alu_op(scalar);
+
+      uint32_t src0 = nir_max_unsigned_upper_bound(nir_ssa_scalar_chase_alu_src(scalar, 0));
+      uint32_t src1 = max;
+      if (nir_op_infos[op].num_inputs > 1)
+         src1 = nir_max_unsigned_upper_bound(nir_ssa_scalar_chase_alu_src(scalar, 1));
+
+      switch (op) {
+      case nir_op_iadd:
+         if ((max - src0) < src1)
+            return max;
+         return src0 + src1;
+      case nir_op_imul:
+         if (src0 != 0 && (src0 * src1) / src0 != src1)
+            return max;
+         return src0 * src1;
+      case nir_op_ishl:
+         if (util_last_bit64(src0) + src1 > scalar.def->bit_size)
+            return max;
+         return src0 << MIN2(src1, scalar.def->bit_size - 1u);
+      case nir_op_umin:
+         return MIN2(src0, src1);
+      case nir_op_umax:
+         return MAX2(src0, src1);
+      default:
+         return max;
+      }
+   }
+
+   return max;
+}
+
+uint32_t
 nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
                          nir_ssa_scalar scalar,
                          const nir_unsigned_upper_bound_config *config)
