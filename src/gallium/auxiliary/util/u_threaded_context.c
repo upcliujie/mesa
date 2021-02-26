@@ -1723,17 +1723,22 @@ tc_transfer_map(struct pipe_context *_pipe,
       }
    }
 
+   struct pipe_resource *map_rsc;
+
    /* Unsychronized buffer mappings don't have to synchronize the thread. */
    if (!(usage & TC_TRANSFER_MAP_THREADED_UNSYNC)) {
       tc_sync_msg(tc, resource->target != PIPE_BUFFER ? "  texture" :
                       usage & PIPE_MAP_DISCARD_RANGE ? "  discard_range" :
                       usage & PIPE_MAP_READ ? "  read" : "  staging conflict");
       tc_set_driver_thread(tc);
+      map_rsc = &tres->b;
+   } else {
+      map_rsc = tres->latest;
    }
 
    tc->bytes_mapped_estimate += box->width;
 
-   void *ret = pipe->transfer_map(pipe, tres->latest ? tres->latest : resource,
+   void *ret = pipe->transfer_map(pipe, map_rsc,
                              level, usage, box, transfer);
 
    tc_restore_driver_thread(tc);
