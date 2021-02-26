@@ -5165,6 +5165,9 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
                          nir_ssa_scalar scalar,
                          const nir_unsigned_upper_bound_config *config);
 
+uint32_t
+nir_max_unsigned_upper_bound(nir_ssa_scalar scalar);
+
 bool
 nir_addition_might_overflow(nir_shader *shader, struct hash_table *range_ht,
                             nir_ssa_scalar ssa, unsigned const_val,
