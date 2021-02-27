@@ -101,6 +101,19 @@ descriptor_size(VkDescriptorType type)
    }
 }
 
+static uint32_t
+mutable_descriptor_size(const VkMutableDescriptorTypeListVALVE *list)
+{
+   uint32_t max_size = 0;
+
+   for (uint32_t i = 0; i < list->descriptorTypeCount; i++) {
+      uint32_t size = descriptor_size(list->pDescriptorTypes[i]);
+      max_size = MAX2 (max_size, size);
+   }
+
+   return max_size;
+}
+
 VkResult
 tu_CreateDescriptorSetLayout(
    VkDevice _device,
@@ -117,6 +130,10 @@ tu_CreateDescriptorSetLayout(
       vk_find_struct_const(
          pCreateInfo->pNext,
          DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT);
+   const VkMutableDescriptorTypeCreateInfoVALVE *mutable_info =
+      vk_find_struct_const(
+         pCreateInfo->pNext,
+         MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_VALVE);
 
    uint32_t max_binding = 0;
    uint32_t immutable_sampler_count = 0;
@@ -183,8 +200,20 @@ tu_CreateDescriptorSetLayout(
       set_layout->binding[b].array_size = binding->descriptorCount;
       set_layout->binding[b].offset = set_layout->size;
       set_layout->binding[b].dynamic_offset_offset = dynamic_offset_count;
-      set_layout->binding[b].size = descriptor_size(binding->descriptorType);
       set_layout->binding[b].shader_stages = binding->stageFlags;
+
+      if (binding->descriptorType == VK_DESCRIPTOR_TYPE_MUTABLE_VALVE) {
+         assert(mutable_info);
+         assert(mutable_info->mutableDescriptorTypeListCount >= 1);
+
+         /* For mutable descriptor types we must allocate a size that fits the
+          * largest descriptor type that the binding can mutate to.
+          */
+         set_layout->binding[b].size =
+            mutable_descriptor_size(&mutable_info->pMutableDescriptorTypeLists[j]);
+      } else {
+         set_layout->binding[b].size = descriptor_size(binding->descriptorType);
+      }
 
       if (variable_flags && binding->binding < variable_flags->bindingCount &&
           (variable_flags->pBindingFlags[binding->binding] &

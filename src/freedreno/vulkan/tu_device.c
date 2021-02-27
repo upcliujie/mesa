@@ -601,6 +601,12 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          feature->performanceCounterMultipleQueryPools = false;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_VALVE: {
+         VkPhysicalDeviceMutableDescriptorTypeFeaturesVALVE *features =
+            (VkPhysicalDeviceMutableDescriptorTypeFeaturesVALVE *)ext;
+         features->mutableDescriptorType = true;
+         break;
+      }
 
       default:
          break;
