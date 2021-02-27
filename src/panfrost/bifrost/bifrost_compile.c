@@ -1325,20 +1325,26 @@ bi_cmpf_nir(nir_op op)
         switch (op) {
         case nir_op_flt32:
         case nir_op_ilt32:
+        case nir_op_ilt16:
         case nir_op_ult32:
+        case nir_op_ult16:
                 return BI_CMPF_LT;
 
         case nir_op_fge32:
         case nir_op_ige32:
+        case nir_op_ige16:
         case nir_op_uge32:
+        case nir_op_uge16:
                 return BI_CMPF_GE;
 
         case nir_op_feq32:
         case nir_op_ieq32:
+        case nir_op_ieq16:
                 return BI_CMPF_EQ;
 
         case nir_op_fneu32:
         case nir_op_ine32:
+        case nir_op_ine16:
                 return BI_CMPF_NE;
 
         default:
@@ -1637,7 +1643,9 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 break;
 
         case nir_op_ieq32:
+        case nir_op_ieq16:
         case nir_op_ine32:
+        case nir_op_ine16:
                 if (sz == 32) {
                         bi_icmp_i32_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
                                         BI_RESULT_TYPE_M1);
@@ -1651,7 +1659,9 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 break;
 
         case nir_op_ilt32:
+        case nir_op_ilt16:
         case nir_op_ige32:
+        case nir_op_ige16:
                 if (sz == 32) {
                         bi_icmp_s32_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
                                         BI_RESULT_TYPE_M1);
@@ -1665,7 +1675,9 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 break;
 
         case nir_op_ult32:
+        case nir_op_ult16:
         case nir_op_uge32:
+        case nir_op_uge16:
                 if (sz == 32) {
                         bi_icmp_u32_to(b, dst, s0, s1, bi_cmpf_nir(instr->op),
                                         BI_RESULT_TYPE_M1);
