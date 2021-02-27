@@ -1434,7 +1434,7 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
 
    init_device_meta(device);
    v3dv_bo_cache_init(device);
-   v3dv_pipeline_cache_init(&device->default_pipeline_cache, device,
+   v3dv_pipeline_cache_init(&device->default_pipeline_cache, device, NULL,
                             device->instance->default_pipeline_cache_enabled);
 
    *pDevice = v3dv_device_to_handle(device);

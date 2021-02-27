@@ -253,6 +253,23 @@ struct v3dv_meta_texel_buffer_copy_pipeline {
    uint8_t key[V3DV_META_TEXEL_BUFFER_COPY_CACHE_KEY_SIZE];
 };
 
+struct v3dv_pipeline_key {
+   bool robust_buffer_access;
+   uint8_t topology;
+   uint8_t logicop_func;
+   bool msaa;
+   bool sample_coverage;
+   bool sample_alpha_to_coverage;
+   bool sample_alpha_to_one;
+   uint8_t cbufs;
+   struct {
+      enum pipe_format format;
+      const uint8_t *swizzle;
+   } color_fmt[V3D_MAX_DRAW_BUFFERS];
+   uint8_t f32_color_rb;
+   uint32_t va_swap_rb_mask;
+};
+
 struct v3dv_pipeline_cache_stats {
    uint32_t miss;
    uint32_t hit;
@@ -281,8 +298,14 @@ struct v3dv_pipeline_cache {
    struct hash_table *nir_cache;
    struct v3dv_pipeline_cache_stats nir_stats;
 
-   struct hash_table *variant_cache;
-   struct v3dv_pipeline_cache_stats variant_stats;
+   /* FIXME: better name? We try to cache the most relevant data from the
+    * cache, so although "cache" is confusing, "pipeline_cache" would be even
+    * more
+    */
+   struct hash_table *cache;
+   struct v3dv_pipeline_cache_stats stats;
+
+   VkAllocationCallbacks alloc;
 };
 
 struct v3dv_device {
@@ -1320,6 +1343,20 @@ vk_to_mesa_shader_stage(VkShaderStageFlagBits vk_stage)
    return ffs(vk_stage) - 1;
 }
 
+struct v3dv_descriptor_map {
+   /* TODO: avoid fixed size array/justify the size */
+   unsigned num_desc; /* Number of descriptors  */
+   int set[64];
+   int binding[64];
+   int array_index[64];
+   int array_size[64];
+
+   /* NOTE: the following is only for sampler, but this is the easier place to
+    * put it.
+    */
+   uint8_t return_size[64];
+};
+
 struct v3dv_shader_variant {
    uint32_t ref_cnt;
 
@@ -1335,11 +1372,6 @@ struct v3dv_shader_variant {
       struct v3d_fs_key fs;
    } key;
    uint32_t v3d_key_size;
-
-   /* key for the pipeline cache, it is p_stage shader_sha1 + v3d compiler
-    * sha1
-    */
-   unsigned char variant_sha1[20];
 
    union {
       struct v3d_prog_data *base;
@@ -1552,20 +1584,6 @@ struct v3dv_pipeline_layout {
    uint32_t push_constant_size;
 };
 
-struct v3dv_descriptor_map {
-   /* TODO: avoid fixed size array/justify the size */
-   unsigned num_desc; /* Number of descriptors  */
-   int set[64];
-   int binding[64];
-   int array_index[64];
-   int array_size[64];
-
-   /* NOTE: the following is only for sampler, but this is the easier place to
-    * put it.
-    */
-   uint8_t return_size[64];
-};
-
 struct v3dv_sampler {
    struct vk_object_base base;
 
@@ -1638,6 +1656,8 @@ struct v3dv_pipeline {
    struct v3dv_pipeline_stage *fs;
    struct v3dv_pipeline_stage *cs;
 
+   unsigned char sha1[20];
+
    /* Spilling memory requirements */
    struct {
       struct v3dv_bo *bo;
@@ -1682,7 +1702,6 @@ struct v3dv_pipeline {
 
    struct v3dv_descriptor_map ubo_map;
    struct v3dv_descriptor_map ssbo_map;
-
    struct v3dv_descriptor_map sampler_map;
    struct v3dv_descriptor_map texture_map;
 
@@ -1877,7 +1896,6 @@ struct v3dv_shader_variant *
 v3dv_shader_variant_create(struct v3dv_device *device,
                            gl_shader_stage stage,
                            bool is_coord,
-                           const unsigned char *variant_sha1,
                            const struct v3d_key *key,
                            uint32_t key_size,
                            struct v3d_prog_data *prog_data,
@@ -1954,6 +1972,7 @@ v3dv_immutable_samplers(const struct v3dv_descriptor_set_layout *set,
 
 void v3dv_pipeline_cache_init(struct v3dv_pipeline_cache *cache,
                               struct v3dv_device *device,
+                              const VkAllocationCallbacks *pAllocator,
                               bool cache_enabled);
 
 void v3dv_pipeline_cache_finish(struct v3dv_pipeline_cache *cache);
@@ -1968,15 +1987,13 @@ nir_shader* v3dv_pipeline_cache_search_for_nir(struct v3dv_pipeline *pipeline,
                                                const nir_shader_compiler_options *nir_options,
                                                unsigned char sha1_key[20]);
 
-struct v3dv_shader_variant*
-v3dv_pipeline_cache_search_for_variant(struct v3dv_pipeline *pipeline,
-                                       struct v3dv_pipeline_cache *cache,
-                                       unsigned char sha1_key[20]);
+bool
+v3dv_pipeline_cache_search_for_pipeline(struct v3dv_pipeline *pipeline,
+                                        struct v3dv_pipeline_cache *cache);
 
 void
-v3dv_pipeline_cache_upload_variant(struct v3dv_pipeline *pipeline,
-                                   struct v3dv_pipeline_cache *cache,
-                                   struct v3dv_shader_variant  *variant);
+v3dv_pipeline_cache_upload_pipeline(struct v3dv_pipeline *pipeline,
+                                    struct v3dv_pipeline_cache *cache);
 
 void v3dv_shader_module_internal_init(struct v3dv_shader_module *module,
                                       nir_shader *nir);
