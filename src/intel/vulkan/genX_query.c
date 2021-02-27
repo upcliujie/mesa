@@ -842,7 +842,7 @@ emit_xfb_query(struct gen_mi_builder *b, uint32_t stream,
    assert(stream < MAX_XFB_STREAMS);
 
    gen_mi_store(b, gen_mi_mem64(anv_address_add(addr, 0)),
-                gen_mi_reg64(GENX(SO_NUM_PRIMS_WRITTEN0_num) + stream * 8));
+                gen_mi_reg32(GENX(SO_NUM_PRIMS_WRITTEN0_num) + stream * 4));
    gen_mi_store(b, gen_mi_mem64(anv_address_add(addr, 16)),
                 gen_mi_reg64(GENX(SO_PRIM_STORAGE_NEEDED0_num) + stream * 8));
 }
