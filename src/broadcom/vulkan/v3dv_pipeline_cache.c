@@ -359,6 +359,18 @@ shader_variant_create_from_blob(struct v3dv_device *device,
    if (blob->overrun)
       return NULL;
 
+   const struct v3dv_descriptor_map *ubo_map =
+      blob_read_bytes(blob, sizeof(struct v3dv_descriptor_map));
+   const struct v3dv_descriptor_map *ssbo_map =
+      blob_read_bytes(blob, sizeof(struct v3dv_descriptor_map));
+   const struct v3dv_descriptor_map *sampler_map =
+      blob_read_bytes(blob, sizeof(struct v3dv_descriptor_map));
+   const struct v3dv_descriptor_map *texture_map =
+      blob_read_bytes(blob, sizeof(struct v3dv_descriptor_map));
+
+   if (blob->overrun)
+      return NULL;
+
    /* shader_variant_create expects a newly created prog_data for their own,
     * as it is what the v3d compiler returns. So we are also allocating one
     * (including the uniform list) and filled it up with the data that we read
@@ -378,6 +390,8 @@ shader_variant_create_from_blob(struct v3dv_device *device,
                                      v3d_key, v3d_key_size,
                                      new_prog_data, prog_data_size,
                                      qpu_insts, qpu_insts_size,
+                                     ubo_map, ssbo_map,
+                                     texture_map, sampler_map,
                                      &result);
 }
 
@@ -616,6 +630,11 @@ shader_variant_write_to_blob(const struct v3dv_shader_variant *variant,
    blob_write_uint32(blob, variant->qpu_insts_size);
    assert(variant->assembly_bo->map);
    blob_write_bytes(blob, variant->assembly_bo->map, variant->qpu_insts_size);
+
+   blob_write_bytes(blob, &variant->ubo_map, sizeof(struct v3dv_descriptor_map));
+   blob_write_bytes(blob, &variant->ssbo_map, sizeof(struct v3dv_descriptor_map));
+   blob_write_bytes(blob, &variant->sampler_map, sizeof(struct v3dv_descriptor_map));
+   blob_write_bytes(blob, &variant->texture_map, sizeof(struct v3dv_descriptor_map));
 
    return !blob->out_of_memory;
 }

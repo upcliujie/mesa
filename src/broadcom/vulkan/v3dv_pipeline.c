@@ -1428,6 +1428,8 @@ pipeline_check_spill_size(struct v3dv_pipeline *pipeline,
  * it is used only to copy to their own prog_data
  *
  * Creation includes allocating a shader source bo, and filling it up.
+ *
+ * FIXME: a lot of parameters
  */
 struct v3dv_shader_variant *
 v3dv_shader_variant_create(struct v3dv_device *device,
@@ -1440,6 +1442,10 @@ v3dv_shader_variant_create(struct v3dv_device *device,
                            uint32_t prog_data_size,
                            const uint64_t *qpu_insts,
                            uint32_t qpu_insts_size,
+                           const struct v3dv_descriptor_map *ubo_map,
+                           const struct v3dv_descriptor_map *ssbo_map,
+                           const struct v3dv_descriptor_map *texture_map,
+                           const struct v3dv_descriptor_map *sampler_map,
                            VkResult *out_vk_result)
 {
    struct v3dv_shader_variant *variant =
@@ -1471,6 +1477,12 @@ v3dv_shader_variant_create(struct v3dv_device *device,
       }
       variant->qpu_insts_size = qpu_insts_size;
    }
+
+
+   memcpy(&variant->ubo_map, ubo_map, sizeof(struct v3dv_descriptor_map));
+   memcpy(&variant->ssbo_map, ssbo_map, sizeof(struct v3dv_descriptor_map));
+   memcpy(&variant->texture_map, texture_map, sizeof(struct v3dv_descriptor_map));
+   memcpy(&variant->sampler_map, sampler_map, sizeof(struct v3dv_descriptor_map));
 
    *out_vk_result = VK_SUCCESS;
 
@@ -1521,6 +1533,12 @@ pipeline_search_for_variant(struct v3dv_pipeline_stage *p_stage,
 
    if (variant) {
       pipeline_check_spill_size(pipeline, variant);
+
+      memcpy(&pipeline->ubo_map, &variant->ubo_map, sizeof(struct v3dv_descriptor_map));
+      memcpy(&pipeline->ssbo_map, &variant->ssbo_map, sizeof(struct v3dv_descriptor_map));
+      memcpy(&pipeline->texture_map, &variant->texture_map, sizeof(struct v3dv_descriptor_map));
+      memcpy(&pipeline->sampler_map, &variant->sampler_map, sizeof(struct v3dv_descriptor_map));
+
       return variant;
    }
 
@@ -1591,6 +1609,10 @@ pipeline_compile_shader_variant(struct v3dv_pipeline_stage *p_stage,
                                  key, key_size,
                                  prog_data, v3d_prog_data_size(p_stage->stage),
                                  qpu_insts, qpu_insts_size,
+                                 &pipeline->ubo_map,
+                                 &pipeline->ssbo_map,
+                                 &pipeline->texture_map,
+                                 &pipeline->sampler_map,
                                  out_vk_result);
    if (qpu_insts)
       free(qpu_insts);

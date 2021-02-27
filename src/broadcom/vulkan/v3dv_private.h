@@ -1307,6 +1307,20 @@ vk_to_mesa_shader_stage(VkShaderStageFlagBits vk_stage)
    return ffs(vk_stage) - 1;
 }
 
+struct v3dv_descriptor_map {
+   /* TODO: avoid fixed size array/justify the size */
+   unsigned num_desc; /* Number of descriptors  */
+   int set[64];
+   int binding[64];
+   int array_index[64];
+   int array_size[64];
+
+   /* NOTE: the following is only for sampler, but this is the easier place to
+    * put it.
+    */
+   uint8_t return_size[64];
+};
+
 struct v3dv_shader_variant {
    uint32_t ref_cnt;
 
@@ -1345,6 +1359,21 @@ struct v3dv_shader_variant {
     */
    struct v3dv_bo *assembly_bo;
    uint32_t qpu_insts_size;
+
+
+   /* descriptors map when the variant was created. We need to store them in
+    * order to being restored if we get the variant from the cache.
+    *
+    * FIXME: we don't really need to store the maps in all the variants. One
+    * option that would allow to reduce the variant's size would be to store
+    * also pipeline-level entries on the cache.
+    */
+   struct v3dv_descriptor_map ubo_map;
+   struct v3dv_descriptor_map ssbo_map;
+
+   struct v3dv_descriptor_map sampler_map;
+   struct v3dv_descriptor_map texture_map;
+
 };
 
 /*
@@ -1537,20 +1566,6 @@ struct v3dv_pipeline_layout {
 
    uint32_t dynamic_offset_count;
    uint32_t push_constant_size;
-};
-
-struct v3dv_descriptor_map {
-   /* TODO: avoid fixed size array/justify the size */
-   unsigned num_desc; /* Number of descriptors  */
-   int set[64];
-   int binding[64];
-   int array_index[64];
-   int array_size[64];
-
-   /* NOTE: the following is only for sampler, but this is the easier place to
-    * put it.
-    */
-   uint8_t return_size[64];
 };
 
 struct v3dv_sampler {
@@ -1871,6 +1886,10 @@ v3dv_shader_variant_create(struct v3dv_device *device,
                            uint32_t prog_data_size,
                            const uint64_t *qpu_insts,
                            uint32_t qpu_insts_size,
+                           const struct v3dv_descriptor_map *ubo_map,
+                           const struct v3dv_descriptor_map *ssbo_map,
+                           const struct v3dv_descriptor_map *texture_map,
+                           const struct v3dv_descriptor_map *sampler_map,
                            VkResult *out_vk_result);
 
 void
