@@ -76,6 +76,7 @@ draw_impl(struct fd_context *ctx, struct fd_ringbuffer *ring,
  * tracker's perspective) state change causes us to switch to a
  * different variant.
  */
+// TODO move last_key to fd_context and de-duplicate this
 static void
 fixup_shader_state(struct fd_context *ctx, struct ir3_shader_key *key)
 	assert_dt
