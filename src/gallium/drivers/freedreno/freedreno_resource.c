@@ -248,6 +248,8 @@ do_blit(struct fd_context *ctx, const struct pipe_blit_info *blit, bool fallback
 
 /**
  * Replace the storage of dst with src.
+ *
+ * TODO deduplicate similar logic in fd_try_shadow_resource()
  */
 void
 fd_replace_buffer_storage(struct pipe_context *pctx, struct pipe_resource *pdst,
