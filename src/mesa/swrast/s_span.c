@@ -1042,22 +1042,27 @@ put_values(struct gl_context *ctx, struct gl_renderbuffer *rb,
            const void *values, const GLubyte *mask)
 {
    struct swrast_renderbuffer *srb = swrast_renderbuffer(rb);
+   const struct util_format_description *format_desc =
+      util_format_description(rb->Format);
    GLuint i;
 
    for (i = 0; i < count; i++) {
       if (mask[i]) {
-         if (datatype == GL_UNSIGNED_BYTE) {
-            util_format_write_4ub(rb->Format,
-                                  (uint8_t *)values + 4 * i, 0,
-                                  srb->Map, srb->RowStride,
-                                  x[i], y[i], 1, 1);
+         /* NOTE: We don't use util_format_write_4* for this because it does the
+          * stride multiply in unsigned, but our rowstride can be negative for
+          * winsys buffers.
+          */
+         void *pixel = srb->Map +
+            y[i] * srb->RowStride +
+            x[i] * (format_desc->block.bits / 8);
+
+         if (datatype == GL_UNSIGNED_BYTE)
+         {
+            util_format_pack_rgba_8unorm(rb->Format, pixel, (const uint8_t *)values + 4 * i, 1);
          }
          else {
             assert(datatype == GL_FLOAT);
-            util_format_write_4(rb->Format,
-                                (float *)values + 4 * i, 0,
-                                srb->Map, srb->RowStride,
-                                x[i], y[i], 1, 1);
+            util_format_pack_rgba(rb->Format, pixel, (const float *)values + 4 * i, 1);
          }
       }
    }
