@@ -1574,6 +1574,19 @@ util_format_pack_rgba(enum pipe_format format, void *dst,
       desc->pack_rgba_float((uint8_t *)dst, 0, (const float *)src, 0, w, 1);
 }
 
+/**
+ * Packs a row of color data from 8-bit-per-channel unorm RGBA.
+ */
+static inline void
+util_format_pack_rgba_8unorm(enum pipe_format format, void *dst,
+                        const void *src, unsigned w)
+{
+   const struct util_format_pack_description *desc =
+      util_format_pack_description(format);
+
+   desc->pack_rgba_8unorm((uint8_t *)dst, 0, (const uint8_t *)src, 0, w, 1);
+}
+
 /*
  * Format access functions for subrectangles
  */
