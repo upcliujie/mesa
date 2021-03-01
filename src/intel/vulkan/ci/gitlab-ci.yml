@@ -1,0 +1,42 @@
+.anv-test:
+  extends:
+    - .lava-test:amd64
+    - .anv-rules
+  variables:
+    DTB: ""
+    VK_DRIVER: intel
+    BOOT_METHOD: depthcharge
+    KERNEL_IMAGE_TYPE: ""
+    DEQP_VERSION: vk
+  tags:
+    - mesa-ci-aarch64-lava-collabora
+
+anv-apl-vk:
+  extends:
+    - .anv-test
+    - .test-manual
+  variables:
+    DEVICE_TYPE: asus-C523NA-A20057-coral
+    GPU_VERSION: anv-apl
+    ENV_VARS: "DEQP_EXPECTED_RENDERER=APL"
+    DEQP_FRACTION: 50
+
+anv-glk-vk:
+  extends:
+    - .anv-test
+    - .test-manual
+  variables:
+    DEVICE_TYPE: hp-x360-12b-n4000-octopus
+    GPU_VERSION: anv-glk
+    ENV_VARS: "DEQP_EXPECTED_RENDERER=GLK"
+    DEQP_FRACTION: 50
+
+anv-amly-vk:
+  extends:
+    - .anv-test
+    - .test-manual
+  variables:
+    DEVICE_TYPE: asus-C433TA-AJ0005-rammus
+    GPU_VERSION: anv-amly
+    ENV_VARS: "DEQP_EXPECTED_RENDERER=AML"
+    DEQP_FRACTION: 50
