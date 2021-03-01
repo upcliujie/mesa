@@ -425,7 +425,6 @@ void si_init_shader_args(struct si_shader_context *ctx, bool ngg_cull_shader)
       declare_global_desc_pointers(ctx);
       declare_per_stage_desc_pointers(ctx, true);
       ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->tcs_offchip_layout);
-      ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->tcs_out_lds_offsets);
       ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->tcs_out_lds_layout);
       ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->vs_state_bits);
       ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->args.tess_offchip_offset);
@@ -460,7 +459,6 @@ void si_init_shader_args(struct si_shader_context *ctx, bool ngg_cull_shader)
       declare_vs_specific_input_sgprs(ctx);
 
       ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->tcs_offchip_layout);
-      ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->tcs_out_lds_offsets);
       ac_add_arg(&ctx->args, AC_ARG_SGPR, 1, AC_ARG_INT, &ctx->tcs_out_lds_layout);
       if (ctx->stage == MESA_SHADER_VERTEX)
          declare_vb_descriptor_input_sgprs(ctx);

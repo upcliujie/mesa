@@ -118,12 +118,6 @@ struct si_shader_context {
    struct ac_arg tcs_offchip_layout;
 
    /* API TCS */
-   /* Offsets where TCS outputs and TCS patch outputs live in LDS:
-    *   [0:15] = TCS output patch0 offset / 16, max = NUM_PATCHES * 32 * 32 = 64K (TODO: not enough bits)
-    *   [16:31] = TCS output patch0 offset for per-patch / 16
-    *             max = (NUM_PATCHES + 1) * 32*32 = 66624 (TODO: not enough bits)
-    */
-   struct ac_arg tcs_out_lds_offsets;
    /* Layout of TCS outputs / TES inputs:
     *   [0:12] = stride between output patches in DW, num_outputs * num_vertices * 4
     *            max = 32*32*4 + 32*4 = 4224

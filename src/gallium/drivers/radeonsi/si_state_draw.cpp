@@ -333,16 +333,11 @@ static void si_emit_derived_tess_state(struct si_context *sctx,
 
    sctx->last_num_patches = *num_patches;
 
-   unsigned output_patch0_offset = input_patch_size * *num_patches;
-   unsigned perpatch_output_offset = output_patch0_offset + pervertex_output_patch_size;
-
    /* Compute userdata SGPRs. */
    assert(((input_vertex_size / 4) & ~0xff) == 0);
    assert(((output_vertex_size / 4) & ~0xff) == 0);
    assert(((input_patch_size / 4) & ~0x1fff) == 0);
    assert(((output_patch_size / 4) & ~0x1fff) == 0);
-   assert(((output_patch0_offset / 16) & ~0xffff) == 0);
-   assert(((perpatch_output_offset / 16) & ~0xffff) == 0);
    assert(num_tcs_input_cp <= 32);
    assert(num_tcs_output_cp <= 32);
    assert(*num_patches <= 64);
@@ -355,7 +350,6 @@ static void si_emit_derived_tess_state(struct si_context *sctx,
    unsigned tcs_in_layout = S_VS_STATE_LS_OUT_PATCH_SIZE(input_patch_size / 4) |
                             S_VS_STATE_LS_OUT_VERTEX_SIZE(input_vertex_size / 4);
    unsigned tcs_out_layout = (output_patch_size / 4) | (num_tcs_input_cp << 13) | ring_va;
-   unsigned tcs_out_offsets = (output_patch0_offset / 16) | ((perpatch_output_offset / 16) << 16);
    unsigned offchip_layout =
       (*num_patches - 1) | ((num_tcs_output_cp - 1) << 6) |
       ((pervertex_output_patch_size * *num_patches) << 11);
@@ -395,9 +389,8 @@ static void si_emit_derived_tess_state(struct si_context *sctx,
 
       /* Set userdata SGPRs for merged LS-HS. */
       radeon_set_sh_reg_seq(
-         cs, R_00B430_SPI_SHADER_USER_DATA_LS_0 + GFX9_SGPR_TCS_OFFCHIP_LAYOUT * 4, 3);
+         cs, R_00B430_SPI_SHADER_USER_DATA_LS_0 + GFX9_SGPR_TCS_OFFCHIP_LAYOUT * 4, 2);
       radeon_emit(cs, offchip_layout);
-      radeon_emit(cs, tcs_out_offsets);
       radeon_emit(cs, tcs_out_layout);
    } else {
       unsigned ls_rsrc2 = ls_current->config.rsrc2;
@@ -415,9 +408,8 @@ static void si_emit_derived_tess_state(struct si_context *sctx,
 
       /* Set userdata SGPRs for TCS. */
       radeon_set_sh_reg_seq(
-         cs, R_00B430_SPI_SHADER_USER_DATA_HS_0 + GFX6_SGPR_TCS_OFFCHIP_LAYOUT * 4, 4);
+         cs, R_00B430_SPI_SHADER_USER_DATA_HS_0 + GFX6_SGPR_TCS_OFFCHIP_LAYOUT * 4, 3);
       radeon_emit(cs, offchip_layout);
-      radeon_emit(cs, tcs_out_offsets);
       radeon_emit(cs, tcs_out_layout);
       radeon_emit(cs, tcs_in_layout);
    }
