@@ -106,6 +106,9 @@ vn_log_result(struct vn_instance *instance,
               VkResult result,
               const char *where);
 
+void
+vn_relax(uint32_t *iter);
+
 static_assert(sizeof(vn_object_id) >= sizeof(uintptr_t), "");
 
 static inline VkResult
