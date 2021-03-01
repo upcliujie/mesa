@@ -1,0 +1,2 @@
+# 60s timeout in CI
+dEQP-GLES31.functional.ubo.random.all_per_block_buffers.20

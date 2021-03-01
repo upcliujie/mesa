@@ -21,6 +21,7 @@ include:
   - local: 'src/amd/ci/gitlab-ci.yml'
   - local: 'src/broadcom/ci/gitlab-ci.yml'
   - local: 'src/freedreno/ci/gitlab-ci.yml'
+  - local: 'src/intel/vulkan/ci/gitlab-ci.yml'
   - local: 'src/gallium/drivers/iris/ci/gitlab-ci.yml'
   - local: 'src/gallium/drivers/lima/ci/gitlab-ci.yml'
   - local: 'src/gallium/drivers/llvmpipe/ci/gitlab-ci.yml'
@@ -668,7 +669,7 @@ meson-testing:
     GALLIUM_ST: >
       -D dri3=enabled
     GALLIUM_DRIVERS: "swrast,virgl,radeonsi,zink,iris"
-    VULKAN_DRIVERS: "swrast,amd"
+    VULKAN_DRIVERS: "swrast,amd,intel"
     BUILDTYPE: "debugoptimized"
     EXTRA_OPTION: >
       -D valgrind=false
