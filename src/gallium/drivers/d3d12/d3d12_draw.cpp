@@ -86,6 +86,7 @@ fill_srv_descriptors(struct d3d12_context *ctx,
                      unsigned stage)
 {
    struct d3d12_batch *batch = d3d12_current_batch(ctx);
+   struct d3d12_screen *screen = d3d12_screen(ctx->base.screen);
    D3D12_CPU_DESCRIPTOR_HANDLE descs[PIPE_MAX_SHADER_SAMPLER_VIEWS];
    struct d3d12_descriptor_handle table_start;
 
@@ -121,7 +122,7 @@ fill_srv_descriptors(struct d3d12_context *ctx,
                                                 state);
          }
       } else {
-         descs[i] = ctx->null_srvs[shader->srv_bindings[i].dimension].cpu_handle;
+         descs[i] = screen->null_srvs[shader->srv_bindings[i].dimension].cpu_handle;
       }
    }
 
@@ -137,6 +138,7 @@ fill_sampler_descriptors(struct d3d12_context *ctx,
 {
    const struct d3d12_shader *shader = shader_sel->current;
    struct d3d12_batch *batch = d3d12_current_batch(ctx);
+   struct d3d12_screen *screen = d3d12_screen(ctx->base.screen);
    D3D12_CPU_DESCRIPTOR_HANDLE descs[PIPE_MAX_SHADER_SAMPLER_VIEWS];
    struct d3d12_descriptor_handle table_start;
 
@@ -159,7 +161,7 @@ fill_sampler_descriptors(struct d3d12_context *ctx,
          else
             descs[i] = sampler->handle.cpu_handle;
       } else
-         descs[i] = ctx->null_sampler.cpu_handle;
+         descs[i] = screen->null_sampler.cpu_handle;
    }
 
    d3d12_descriptor_heap_append_handles(batch->sampler_heap, descs, shader->num_srv_bindings);
@@ -443,6 +445,7 @@ d3d12_draw_vbo(struct pipe_context *pctx,
       return;
 
    struct d3d12_context *ctx = d3d12_context(pctx);
+   struct d3d12_screen *screen = d3d12_screen(pctx->screen);
    struct d3d12_batch *batch;
    struct pipe_resource *index_buffer = NULL;
    unsigned index_offset = 0;
@@ -665,7 +668,7 @@ d3d12_draw_vbo(struct pipe_context *pctx,
             render_targets[i] = d3d12_surface_get_handle(surface, conversion_modes[i]);
             d3d12_batch_reference_surface_texture(batch, surface);
          } else
-            render_targets[i] = ctx->null_rtv.cpu_handle;
+            render_targets[i] = screen->null_rtv.cpu_handle;
       }
       if (ctx->fb.zsbuf) {
          struct d3d12_surface *surface = d3d12_surface(ctx->fb.zsbuf);

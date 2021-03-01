@@ -109,6 +109,8 @@ delete_object(set_entry *entry)
 bool
 d3d12_reset_batch(struct d3d12_context *ctx, struct d3d12_batch *batch, uint64_t timeout_ns)
 {
+   struct d3d12_screen *screen = d3d12_screen(ctx->base.screen);
+
    // batch hasn't been submitted before
    if (!batch->fence && !batch->has_errors)
       return true;
@@ -124,9 +126,11 @@ d3d12_reset_batch(struct d3d12_context *ctx, struct d3d12_batch *batch, uint64_t
    _mesa_set_clear(batch->surfaces, delete_surface);
    _mesa_set_clear(batch->objects, delete_object);
 
+   mtx_lock(&screen->descriptor_pool_mutex);
    util_dynarray_foreach(&batch->zombie_samplers, d3d12_descriptor_handle, handle)
       d3d12_descriptor_handle_free(handle);
    util_dynarray_clear(&batch->zombie_samplers);
+   mtx_unlock(&screen->descriptor_pool_mutex);
 
    d3d12_descriptor_heap_clear(batch->view_heap);
    d3d12_descriptor_heap_clear(batch->sampler_heap);

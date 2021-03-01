@@ -139,7 +139,10 @@ initialize_dsv(struct pipe_context *pctx,
       unreachable("Unhandled DSV dimension");
    }
 
-   d3d12_descriptor_pool_alloc_handle(ctx->dsv_pool, handle);
+   mtx_lock(&screen->descriptor_pool_mutex);
+   d3d12_descriptor_pool_alloc_handle(screen->dsv_pool, handle);
+   mtx_unlock(&screen->descriptor_pool_mutex);
+
    screen->dev->CreateDepthStencilView(d3d12_resource_resource(res), &desc,
                                        handle->cpu_handle);
 }
@@ -216,7 +219,10 @@ initialize_rtv(struct pipe_context *pctx,
       unreachable("Unhandled RTV dimension");
    }
 
-   d3d12_descriptor_pool_alloc_handle(ctx->rtv_pool, handle);
+   mtx_lock(&screen->descriptor_pool_mutex);
+   d3d12_descriptor_pool_alloc_handle(screen->rtv_pool, handle);
+   mtx_unlock(&screen->descriptor_pool_mutex);
+
    screen->dev->CreateRenderTargetView(d3d12_resource_resource(res), &desc,
                                        handle->cpu_handle);
 }
@@ -262,10 +268,14 @@ d3d12_surface_destroy(struct pipe_context *pctx,
                       struct pipe_surface *psurf)
 {
    struct d3d12_surface *surface = (struct d3d12_surface*) psurf;
+   struct d3d12_screen *screen = d3d12_screen(pctx->screen);
 
+   mtx_lock(&screen->descriptor_pool_mutex);
    d3d12_descriptor_handle_free(&surface->desc_handle);
    if (d3d12_descriptor_handle_is_allocated(&surface->uint_rtv_handle))
       d3d12_descriptor_handle_free(&surface->uint_rtv_handle);
+   mtx_unlock(&screen->descriptor_pool_mutex);
+
    pipe_resource_reference(&psurf->texture, NULL);
    pipe_resource_reference(&surface->rgba_texture, NULL);
    FREE(surface);
