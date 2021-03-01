@@ -119,6 +119,7 @@ EXTENSIONS = [
     Extension('VK_EXT_discard_rectangles',                1, False),
     Extension('VK_EXT_display_control',                   1, 'VK_USE_PLATFORM_DISPLAY_KHR'),
     Extension('VK_EXT_display_surface_counter',           1, 'VK_USE_PLATFORM_DISPLAY_KHR'),
+    Extension('VK_EXT_extended_dynamic_state',            1, True),
     Extension('VK_EXT_external_memory_dma_buf',           1, True),
     Extension('VK_EXT_external_memory_host',              1, False),
     Extension('VK_EXT_global_priority',                   1, False),
