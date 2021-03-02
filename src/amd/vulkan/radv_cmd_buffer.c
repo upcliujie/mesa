@@ -6345,7 +6345,7 @@ static void radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffe
 		                                      src_render_loop, src_queue_mask) &&
 		           !radv_layout_can_fast_clear(cmd_buffer->device, image, dst_layout,
 		                                       dst_render_loop, dst_queue_mask)) {
-			radv_fast_clear_flush_image_inplace(cmd_buffer, image, range);
+			radv_fast_clear_flush_image_inplace(cmd_buffer, image, range, false);
 		}
 
 		if (src_layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
@@ -6375,7 +6375,7 @@ static void radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffe
 		}
 
 		if (fce_eliminate || fmask_expand)
-			radv_fast_clear_flush_image_inplace(cmd_buffer, image, range);
+			radv_fast_clear_flush_image_inplace(cmd_buffer, image, range, false);
 
 		if (fmask_expand) {
 			struct radv_barrier_data barrier = {0};
