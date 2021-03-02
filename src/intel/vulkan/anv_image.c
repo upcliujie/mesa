@@ -1397,7 +1397,8 @@ VkResult anv_BindImageMemory2(
          const struct anv_bo *bo =
             image->bindings[binding].address.bo;
 
-         if (device->physical->has_implicit_ccs && !bo->has_implicit_ccs)
+         if (bo && !bo->has_implicit_ccs &&
+             device->physical->has_implicit_ccs)
             image->planes[p].aux_usage = ISL_AUX_USAGE_NONE;
       }
    }
