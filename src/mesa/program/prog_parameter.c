@@ -223,12 +223,12 @@ _mesa_reserve_parameter_storage(struct gl_program_parameter_list *paramList,
 
       paramList->ParameterValues = (gl_constant_value *)
          align_realloc(paramList->ParameterValues,         /* old buf */
-                       oldValNum * 4 * sizeof(gl_constant_value),/* old sz */
+                       oldValNum * sizeof(gl_constant_value),/* old sz */
                        /* Overallocate the size by 12 because matrix rows can
                         * be allocated partially but fetch_state always writes
                         * 4 components (16 bytes).
                         */
-                       paramList->SizeValues * 4 * sizeof(gl_constant_value) +
+                       paramList->SizeValues * sizeof(gl_constant_value) +
                        12, 16);
    }
 }
@@ -278,7 +278,7 @@ _mesa_add_parameter(struct gl_program_parameter_list *paramList,
    else if (_mesa_gl_datatype_is_64bit(datatype))
       oldValNum = align(oldValNum, 2); /* pad start to 64-bit */
 
-   _mesa_reserve_parameter_storage(paramList, 1, DIV_ROUND_UP(padded_size, 4));
+   _mesa_reserve_parameter_storage(paramList, 1, align(padded_size, 4));
 
    if (!paramList->Parameters ||
        !paramList->ParameterValues) {
@@ -347,6 +347,9 @@ _mesa_add_parameter(struct gl_program_parameter_list *paramList,
    } else {
       unreachable("invalid parameter type");
    }
+
+   assert(paramList->NumParameters <= paramList->Size);
+   assert(paramList->NumParameterValues <= paramList->SizeValues);
 
    return (GLint) oldNum;
 }
