@@ -644,7 +644,7 @@ radv_get_thread_trace(struct radv_queue *queue,
 		struct ac_thread_trace_se thread_trace_se = {0};
 		int first_active_cu = ffs(device->physical_device->rad_info.cu_mask[se][0]);
 
-		if (!ac_is_thread_trace_complete(&device->physical_device->rad_info, info)) {
+		if (!ac_is_thread_trace_complete(&device->physical_device->rad_info, &device->thread_trace, info)) {
 			uint32_t expected_size =
 				ac_get_expected_buffer_size(&device->physical_device->rad_info, info);
 			uint32_t available_size =
