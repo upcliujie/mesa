@@ -155,13 +155,16 @@ radv_image_use_fast_clear_for_image(const struct radv_device *device,
 bool
 radv_are_formats_dcc_compatible(const struct radv_physical_device *pdev,
                                 const void *pNext, VkFormat format,
-                                VkImageCreateFlags flags)
+                                VkImageCreateFlags flags, bool *sign_reinterpret)
 {
 	bool blendable;
 
 	if (!radv_is_colorbuffer_format_supported(pdev,
 	                                          format, &blendable))
 		return false;
+
+	if (sign_reinterpret != NULL)
+		*sign_reinterpret = false;
 
 	if (flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) {
 		const struct VkImageFormatListCreateInfo *format_list =
@@ -178,7 +181,8 @@ radv_are_formats_dcc_compatible(const struct radv_physical_device *pdev,
 					continue;
 
 				if (!radv_dcc_formats_compatible(format,
-				                                 format_list->pViewFormats[i]))
+				                                 format_list->pViewFormats[i],
+				                                 sign_reinterpret))
 					return false;
 			}
 		} else {
@@ -216,9 +220,10 @@ radv_formats_is_atomic_allowed(const void *pNext, VkFormat format,
 
 static bool
 radv_use_dcc_for_image(struct radv_device *device,
-		       const struct radv_image *image,
+		       struct radv_image *image,
 		       const VkImageCreateInfo *pCreateInfo,
-		       VkFormat format)
+		       VkFormat format,
+		       bool *sign_reinterpret)
 {
 	/* DCC (Delta Color Compression) is only available for GFX8+. */
 	if (device->physical_device->rad_info.chip_class < GFX8)
@@ -270,8 +275,8 @@ radv_use_dcc_for_image(struct radv_device *device,
 	}
 
 	return radv_are_formats_dcc_compatible(device->physical_device,
-	                                       pCreateInfo->pNext, format,
-	                                       pCreateInfo->flags);
+					       pCreateInfo->pNext, format,
+					       pCreateInfo->flags, sign_reinterpret);
 }
 
 /*
@@ -512,7 +517,7 @@ radv_patch_image_from_extra_info(struct radv_device *device,
 
 static uint64_t
 radv_get_surface_flags(struct radv_device *device,
-                       const struct radv_image *image,
+                       struct radv_image *image,
                        unsigned plane_id,
                        const VkImageCreateInfo *pCreateInfo,
                        VkFormat image_format)
@@ -572,7 +577,8 @@ radv_get_surface_flags(struct radv_device *device,
 	    vk_format_is_compressed(image_format))
 		flags |= RADEON_SURF_NO_RENDER_TARGET;
 
-	if (!radv_use_dcc_for_image(device, image, pCreateInfo, image_format))
+	if (!radv_use_dcc_for_image(device, image, pCreateInfo, image_format,
+				    &image->planes[plane_id].dcc_sign_reinterpret))
 		flags |= RADEON_SURF_DISABLE_DCC;
 
 	if (!radv_use_fmask_for_image(device, image))
@@ -1396,6 +1402,7 @@ radv_image_reset_layout(struct radv_image *image)
 
 		uint64_t flags = image->planes[i].surface.flags;
 		uint64_t modifier = image->planes[i].surface.modifier;
+		bool dcc_sign_reinterpret = image->planes[i].dcc_sign_reinterpret;
 		memset(image->planes + i, 0, sizeof(image->planes[i]));
 
 		image->planes[i].surface.flags = flags;
@@ -1403,6 +1410,7 @@ radv_image_reset_layout(struct radv_image *image)
 		image->planes[i].surface.blk_w = vk_format_get_blockwidth(format);
 		image->planes[i].surface.blk_h = vk_format_get_blockheight(format);
 		image->planes[i].surface.bpe = vk_format_get_blocksize(vk_format_depth_only(format));
+		image->planes[i].dcc_sign_reinterpret = dcc_sign_reinterpret;
 
 		/* align byte per element on dword */
 		if (image->planes[i].surface.bpe == 3) {
