@@ -430,8 +430,11 @@ copy_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *src_image,
          src_image, cmd_buffer->queue_family_index, cmd_buffer->queue_family_index);
       bool src_compressed = radv_layout_dcc_compressed(cmd_buffer->device, src_image,
                                                        src_image_layout, false, src_queue_mask);
+      bool dcc_sign_reinterpret = false;
 
-      if (!src_compressed || radv_dcc_formats_compatible(b_src.format, b_dst.format)) {
+      if (!src_compressed ||
+          (radv_dcc_formats_compatible(b_src.format, b_dst.format, &dcc_sign_reinterpret) &&
+           (!dcc_sign_reinterpret || src_image->planes[a].dcc_sign_reinterpret))) {
          b_src.format = b_dst.format;
       } else if (!dst_compressed) {
          b_dst.format = b_src.format;
