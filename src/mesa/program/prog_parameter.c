@@ -219,7 +219,9 @@ _mesa_reserve_parameter_storage(struct gl_program_parameter_list *paramList,
    }
 
    if (oldValNum + reserve_values > paramList->SizeValues) {
-      paramList->SizeValues += 16 + reserve_values; /* alloc some extra */
+      unsigned oldSize = paramList->SizeValues;
+      unsigned add = 16 + reserve_values; /* alloc some extra */
+      paramList->SizeValues += add;
 
       paramList->ParameterValues = (gl_constant_value *)
          align_realloc(paramList->ParameterValues,         /* old buf */
@@ -230,6 +232,9 @@ _mesa_reserve_parameter_storage(struct gl_program_parameter_list *paramList,
                         */
                        paramList->SizeValues * sizeof(gl_constant_value) +
                        12, 16);
+      /* The values are written to the shader cache, so clear them. */
+      memset(paramList->ParameterValues + oldSize, 0,
+             add * sizeof(gl_constant_value));
    }
 }
 
