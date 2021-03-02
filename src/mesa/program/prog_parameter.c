@@ -210,7 +210,7 @@ _mesa_reserve_parameter_storage(struct gl_program_parameter_list *paramList,
 
    if (oldNum + reserve_params > paramList->Size) {
       /* Need to grow the parameter list array (alloc some extra) */
-      paramList->Size += 4 * reserve_params;
+      paramList->Size += 4 + reserve_params;
 
       /* realloc arrays */
       paramList->Parameters =
@@ -219,7 +219,7 @@ _mesa_reserve_parameter_storage(struct gl_program_parameter_list *paramList,
    }
 
    if (oldValNum + reserve_values > paramList->SizeValues) {
-      paramList->SizeValues += 4 * reserve_values;
+      paramList->SizeValues += 16 + reserve_values; /* alloc some extra */
 
       paramList->ParameterValues = (gl_constant_value *)
          align_realloc(paramList->ParameterValues,         /* old buf */
