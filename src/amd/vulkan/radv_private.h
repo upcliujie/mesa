@@ -1844,13 +1844,15 @@ bool radv_format_pack_clear_color(VkFormat format,
 bool radv_is_colorbuffer_format_supported(const struct radv_physical_device *pdevice,
                                           VkFormat format, bool *blendable);
 bool radv_dcc_formats_compatible(VkFormat format1,
-                                 VkFormat format2);
+                                 VkFormat format2,
+                                 bool *sign_reinterpret);
 bool radv_is_atomic_format_supported(VkFormat format);
 bool radv_device_supports_etc(struct radv_physical_device *physical_device);
 
 struct radv_image_plane {
 	VkFormat format;
 	struct radeon_surf surface;
+	bool dcc_sign_reinterpret;
 };
 
 struct radv_image {
@@ -2220,7 +2222,7 @@ VkResult radv_image_create(VkDevice _device,
 bool
 radv_are_formats_dcc_compatible(const struct radv_physical_device *pdev,
                                 const void *pNext, VkFormat format,
-                                VkImageCreateFlags flags);
+                                VkImageCreateFlags flags, bool *sign_reinterpret);
 
 bool vi_alpha_is_on_msb(struct radv_device *device, VkFormat format);
 
