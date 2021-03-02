@@ -1195,6 +1195,7 @@ load_device_extensions(struct zink_screen *screen)
       GET_PROC_ADDR(CmdSetStencilOpEXT);
       GET_PROC_ADDR(CmdSetStencilTestEnableEXT);
       GET_PROC_ADDR(CmdBindVertexBuffers2EXT);
+      GET_PROC_ADDR(CmdSetFrontFaceEXT);
    }
 
    if (screen->info.have_KHR_timeline_semaphore)
