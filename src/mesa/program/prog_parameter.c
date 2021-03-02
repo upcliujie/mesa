@@ -223,12 +223,12 @@ _mesa_reserve_parameter_storage(struct gl_program_parameter_list *paramList,
 
       paramList->ParameterValues = (gl_constant_value *)
          align_realloc(paramList->ParameterValues,         /* old buf */
-                       oldValNum * 4 * sizeof(gl_constant_value),/* old sz */
+                       oldValNum * sizeof(gl_constant_value),/* old sz */
                        /* Overallocate the size by 12 because matrix rows can
                         * be allocated partially but fetch_state always writes
                         * 4 components (16 bytes).
                         */
-                       paramList->SizeValues * 4 * sizeof(gl_constant_value) +
+                       paramList->SizeValues * sizeof(gl_constant_value) +
                        12, 16);
    }
 }
