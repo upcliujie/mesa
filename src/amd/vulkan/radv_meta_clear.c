@@ -1760,6 +1760,9 @@ vi_get_fast_clear_parameters(struct radv_device *device, const struct radv_image
           desc->swizzle[i] >= PIPE_SWIZZLE_X && desc->swizzle[i] <= PIPE_SWIZZLE_W)
          return;
 
+   if ((main_value || extra_value) && iview->image->planes[0].dcc_sign_reinterpret)
+      return;
+
    *can_avoid_fast_clear_elim = true;
 
    if (main_value) {
