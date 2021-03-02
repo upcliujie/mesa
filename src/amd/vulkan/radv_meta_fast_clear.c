@@ -740,7 +740,8 @@ static void
 radv_emit_color_decompress(struct radv_cmd_buffer *cmd_buffer,
                            struct radv_image *image,
                            const VkImageSubresourceRange *subresourceRange,
-                           bool decompress_dcc)
+                           bool decompress_dcc,
+                           bool ignore_predicate)
 {
 	bool use_predication = false;
 	bool old_predicating = false;
@@ -749,7 +750,7 @@ radv_emit_color_decompress(struct radv_cmd_buffer *cmd_buffer,
 
 	if ((decompress_dcc && radv_dcc_enabled(image, subresourceRange->baseMipLevel)) ||
 	    (!(radv_image_has_fmask(image) && !image->tc_compatible_cmask) && image->fce_pred_offset)) {
-		use_predication = true;
+		use_predication = !ignore_predicate;
 	}
 
 	/* If we are asked for DCC decompression without DCC predicates we cannot
@@ -816,7 +817,8 @@ radv_emit_color_decompress(struct radv_cmd_buffer *cmd_buffer,
 void
 radv_fast_clear_flush_image_inplace(struct radv_cmd_buffer *cmd_buffer,
                                     struct radv_image *image,
-                                    const VkImageSubresourceRange *subresourceRange)
+                                    const VkImageSubresourceRange *subresourceRange,
+                                    bool ignore_predicate)
 {
 	struct radv_barrier_data barrier = {0};
 
@@ -827,7 +829,7 @@ radv_fast_clear_flush_image_inplace(struct radv_cmd_buffer *cmd_buffer,
 	}
 	radv_describe_layout_transition(cmd_buffer, &barrier);
 
-	radv_emit_color_decompress(cmd_buffer, image, subresourceRange, false);
+	radv_emit_color_decompress(cmd_buffer, image, subresourceRange, false, ignore_predicate);
 }
 
 static void
@@ -835,7 +837,7 @@ radv_decompress_dcc_gfx(struct radv_cmd_buffer *cmd_buffer,
                         struct radv_image *image,
                         const VkImageSubresourceRange *subresourceRange)
 {
-	radv_emit_color_decompress(cmd_buffer, image, subresourceRange, true);
+	radv_emit_color_decompress(cmd_buffer, image, subresourceRange, true, false);
 }
 
 static void
