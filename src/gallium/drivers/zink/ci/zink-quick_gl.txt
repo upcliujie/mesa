@@ -1270,7 +1270,7 @@ spec/arb_tessellation_shader/arb_tessellation_shader-immediate-mode-draw-patches
 spec/arb_tessellation_shader/arb_tessellation_shader-tes-gs-max-output -small -scan 1 50: crash
 spec/arb_texture_buffer_object/formats (fs, arb): skip
 spec/arb_texture_buffer_object/formats (vs, arb): skip
-spec/arb_texture_buffer_object/indexed: crash
+spec/arb_texture_buffer_object/indexed: fail
 spec/arb_texture_buffer_object/negative-unsupported: skip
 spec/arb_texture_buffer_object/render-no-bo: crash
 spec/arb_texture_buffer_range/ranges-2 compat: fail
