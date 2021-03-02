@@ -1513,6 +1513,7 @@ static void vi_get_fast_clear_parameters(struct radv_device *device,
 					 VkFormat image_format,
 					 VkFormat view_format,
 					 const VkClearColorValue *clear_value,
+					 struct radv_image_plane *plane,
 					 uint32_t* reset_value,
 					 bool *can_avoid_fast_clear_elim)
 {
@@ -1589,6 +1590,9 @@ static void vi_get_fast_clear_parameters(struct radv_device *device,
 		    desc->swizzle[i] <= PIPE_SWIZZLE_W)
 			return;
 
+	if ((main_value || extra_value) && plane->dcc_sign_reinterpret)
+		return;
+
 	*can_avoid_fast_clear_elim = true;
 	*reset_value = 0;
 	if (main_value)
@@ -1644,8 +1648,8 @@ radv_can_fast_clear_color(struct radv_cmd_buffer *cmd_buffer,
 		vi_get_fast_clear_parameters(cmd_buffer->device,
 					     iview->image->vk_format,
 					     iview->vk_format,
-					     &clear_value, &reset_value,
-					     &can_avoid_fast_clear_elim);
+					     &clear_value, &iview->image->planes[0],
+					     &reset_value, &can_avoid_fast_clear_elim);
 
 		if (iview->image->info.samples > 1) {
 			/* DCC fast clear with MSAA should clear CMASK. */
@@ -1720,8 +1724,8 @@ radv_fast_clear_color(struct radv_cmd_buffer *cmd_buffer,
 		vi_get_fast_clear_parameters(cmd_buffer->device,
 					     iview->image->vk_format,
 					     iview->vk_format,
-					     &clear_value, &reset_value,
-					     &can_avoid_fast_clear_elim);
+					     &clear_value, &iview->image->planes[0],
+					     &reset_value, &can_avoid_fast_clear_elim);
 
 		if (radv_image_has_cmask(iview->image)) {
 			flush_bits = radv_clear_cmask(cmd_buffer, iview->image,
