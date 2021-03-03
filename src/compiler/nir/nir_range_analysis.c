@@ -1646,7 +1646,7 @@ nir_addition_might_overflow(nir_shader *shader, struct hash_table *range_ht,
 }
 
 static uint64_t
-ssa_def_bits_used(nir_ssa_def *def, int recur)
+ssa_def_bits_used(const nir_ssa_def *def, int recur)
 {
    uint64_t bits_used = 0;
    uint64_t all_bits = BITFIELD64_MASK(def->bit_size);
@@ -1767,7 +1767,7 @@ ssa_def_bits_used(nir_ssa_def *def, int recur)
       }
 
       case nir_instr_type_intrinsic: {
-         nir_intrinsic_instr *use_intrin =
+         const nir_intrinsic_instr *use_intrin =
             nir_instr_as_intrinsic(src->parent_instr);
          unsigned src_idx = src - use_intrin->src;
 
@@ -1820,7 +1820,7 @@ ssa_def_bits_used(nir_ssa_def *def, int recur)
       }
 
       case nir_instr_type_phi: {
-         nir_phi_instr *use_phi = nir_instr_as_phi(src->parent_instr);
+         const nir_phi_instr *use_phi = nir_instr_as_phi(src->parent_instr);
          bits_used |= ssa_def_bits_used(&use_phi->dest.ssa, recur);
          break;
       }
@@ -1839,7 +1839,7 @@ ssa_def_bits_used(nir_ssa_def *def, int recur)
 }
 
 uint64_t
-nir_ssa_def_bits_used(nir_ssa_def *def)
+nir_ssa_def_bits_used(const nir_ssa_def *def)
 {
    return ssa_def_bits_used(def, 2);
 }

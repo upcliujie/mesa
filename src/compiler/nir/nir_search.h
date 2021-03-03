@@ -165,7 +165,7 @@ typedef struct {
     * typically used to match an expressions uses such as the number of times
     * the expression is used, and whether its used by an if.
     */
-   bool (*cond)(nir_alu_instr *instr);
+   bool (*cond)(const nir_alu_instr *instr);
 } nir_search_expression;
 
 struct per_op_table {
