@@ -58,10 +58,10 @@ memory_range_end(struct anv_image_memory_range memory_range)
  * converts to MAIN as needed.
  */
 static struct anv_image_memory_range
-memory_binding_grow(struct anv_image *image,
-                    enum anv_image_memory_binding binding,
-                    uint64_t size,
-                    uint32_t alignment)
+image_binding_grow(struct anv_image *image,
+                   enum anv_image_memory_binding binding,
+                   uint64_t size,
+                   uint32_t alignment)
 {
    assert(size > 0);
    assert(util_is_power_of_two_or_zero(alignment));
@@ -222,7 +222,7 @@ choose_isl_tiling_flags(const struct gen_device_info *devinfo,
  * Set the surface's anv_image_memory_range and add it to the given binding's
  * memory range.
  *
- * \see memory_binding_grow()
+ * \see image_binding_grow()
  */
 static void
 add_surface(struct anv_image *image,
@@ -232,9 +232,9 @@ add_surface(struct anv_image *image,
    /* isl surface must be initialized */
    assert(surf->isl.size_B > 0);
 
-   surf->memory_range = memory_binding_grow(image, binding,
-                                            surf->isl.size_B,
-                                            surf->isl.alignment_B);
+   surf->memory_range = image_binding_grow(image, binding,
+                                           surf->isl.size_B,
+                                           surf->isl.alignment_B);
 }
 
 /**
@@ -400,8 +400,8 @@ add_aux_state_tracking_buffer(struct anv_device *device,
     * lack of testing.  And MI_LOAD/STORE operations require dword-alignment.
     */
    image->planes[plane].fast_clear_memory_range =
-      memory_binding_grow(image, ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
-                          state_size, 4096);
+      image_binding_grow(image, ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
+                         state_size, 4096);
 }
 
 /**
