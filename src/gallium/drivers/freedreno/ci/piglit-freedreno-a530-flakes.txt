@@ -1,0 +1,6 @@
+glx@glx_arb_sync_control@swapbuffersmsc-divisor-zero
+glx@glx_arb_sync_control@waitformsc
+glx@glx-multithread-texture
+glx@glx-swap-event_async
+spec@!opengl_1.1@texsubimage
+spec@arb_pixel_buffer_object@texsubimage pbo
