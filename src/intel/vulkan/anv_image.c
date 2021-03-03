@@ -50,6 +50,27 @@ memory_range_end(struct anv_image_memory_range memory_range)
    return memory_range.offset + memory_range.size;
 }
 
+static struct anv_image_binding * MUST_CHECK
+image_binding_get(struct anv_image *image,
+                  enum anv_image_memory_binding binding)
+{
+   switch (binding) {
+   case ANV_IMAGE_MEMORY_BINDING_MAIN:
+      assert(!image->disjoint);
+      break;
+   case ANV_IMAGE_MEMORY_BINDING_PLANE_0:
+   case ANV_IMAGE_MEMORY_BINDING_PLANE_1:
+   case ANV_IMAGE_MEMORY_BINDING_PLANE_2:
+      if (!image->disjoint)
+         binding = ANV_IMAGE_MEMORY_BINDING_MAIN;
+      break;
+   case ANV_IMAGE_MEMORY_BINDING_END:
+      unreachable("ANV_IMAGE_MEMORY_BINDING_END");
+   }
+
+   return &image->bindings[binding];
+}
+
 /**
  * Extend the memory binding's range by appending a new memory range with the
  * given size and alignment. Return the appended range.
@@ -66,25 +87,14 @@ memory_binding_grow(struct anv_image *image,
    assert(size > 0);
    assert(util_is_power_of_two_or_zero(alignment));
 
-   switch (binding) {
-   case ANV_IMAGE_MEMORY_BINDING_MAIN:
-      /* The caller must not pre-translate BINDING_PLANE_i to BINDING_MAIN. */
-      unreachable("ANV_IMAGE_MEMORY_BINDING_MAIN");
-   case ANV_IMAGE_MEMORY_BINDING_PLANE_0:
-   case ANV_IMAGE_MEMORY_BINDING_PLANE_1:
-   case ANV_IMAGE_MEMORY_BINDING_PLANE_2:
-      if (!image->disjoint)
-         binding = ANV_IMAGE_MEMORY_BINDING_MAIN;
-      break;
-   case ANV_IMAGE_MEMORY_BINDING_END:
-      unreachable("ANV_IMAGE_MEMORY_BINDING_END");
-   }
+   /* The caller must not pre-translate BINDING_PLANE_i to BINDING_MAIN. */
+   assert(binding != ANV_IMAGE_MEMORY_BINDING_MAIN);
 
    struct anv_image_memory_range *container =
-      &image->bindings[binding].memory_range;
+      &image_binding_get(image, binding)->memory_range;
 
    struct anv_image_memory_range new = {
-      .binding = binding,
+      .binding = container->binding,
       .offset = align_u32(container->offset + container->size, alignment),
       .size = size,
       .alignment = alignment,
@@ -1237,7 +1247,7 @@ void anv_GetImageMemoryRequirements2(
          uint32_t plane = anv_image_aspect_to_plane(image->aspects,
                                                     plane_reqs->planeAspect);
          const struct anv_image_binding *binding =
-            &image->bindings[ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane];
+            image_binding_get(image, ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane);
 
          pMemoryRequirements->memoryRequirements = (struct VkMemoryRequirements) {
             .size = binding->memory_range.size,
@@ -1284,7 +1294,7 @@ void anv_GetImageMemoryRequirements2(
 
    if (!image->disjoint) {
       const struct anv_image_binding *binding =
-         &image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN];
+         image_binding_get(image, ANV_IMAGE_MEMORY_BINDING_MAIN);
 
       pMemoryRequirements->memoryRequirements = (struct VkMemoryRequirements) {
          .size = binding->memory_range.size,
@@ -1336,9 +1346,19 @@ VkResult anv_BindImageMemory2(
                (const VkBindImagePlaneMemoryInfo *) s;
             uint32_t plane = anv_image_aspect_to_plane(image->aspects,
                                                        plane_info->planeAspect);
-            assert(image->disjoint);
 
-            image->bindings[ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane].address =
+            /* Warning: Unlike VkImagePlaneMemoryRequirementsInfo, which
+             * requires that the image be disjoint (that is, multi-planar format
+             * and VK_IMAGE_CREATE_DISJOINT_BIT), VkBindImagePlaneMemoryInfo
+             * allows the image to be non-disjoint and requires only that the
+             * image have the DISJOINT flag. (This may be a mistake in the
+             * spec). Therefore, we may need to convert
+             * ANV_IMAGE_MEMORY_BINDING_PLANE_0 to MAIN.
+             */
+            struct anv_image_binding *binding =
+               image_binding_get(image, ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane);
+
+            binding->address =
                (struct anv_address) {
                   .bo = mem->bo,
                   .offset = bind_info->memoryOffset,
@@ -1376,7 +1396,6 @@ VkResult anv_BindImageMemory2(
       }
 
       if (!did_bind) {
-         /* If VkBindImageMemoryInfo is absent, then the image is disjoint. */
          assert(!image->disjoint);
 
          image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN].address =
