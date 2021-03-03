@@ -554,6 +554,26 @@ _mesa_validate_DrawElementsInstanced(struct gl_context *ctx,
    return !error;
 }
 
+static bool
+xfb_mode_is_valid(GLenum mode)
+{
+   switch (mode) {
+   case GL_POINTS:
+   case GL_LINES:
+   case GL_LINE_LOOP:
+   case GL_LINE_STRIP:
+   case GL_TRIANGLES:
+   case GL_TRIANGLE_STRIP:
+   case GL_TRIANGLE_FAN:
+   case GL_LINE_STRIP_ADJACENCY:
+   case GL_LINES_ADJACENCY:
+   case GL_TRIANGLE_STRIP_ADJACENCY:
+   case GL_TRIANGLES_ADJACENCY:
+   case GL_PATCHES:
+      return true;
+   }
+   return false;
+}
 
 static GLboolean
 _mesa_validate_DrawTransformFeedback(struct gl_context *ctx,
@@ -579,6 +599,9 @@ _mesa_validate_DrawTransformFeedback(struct gl_context *ctx,
             error = GL_INVALID_OPERATION;
       }
    }
+
+   if (!xfb_mode_is_valid(mode))
+      error = GL_INVALID_ENUM;
 
    if (error)
       _mesa_error(ctx, error, "glDrawTransformFeedback*");
