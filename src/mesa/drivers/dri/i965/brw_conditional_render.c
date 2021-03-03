@@ -34,7 +34,7 @@
 
 #include "brw_context.h"
 #include "brw_defines.h"
-#include "intel_batchbuffer.h"
+#include "brw_batchbuffer.h"
 
 static void
 set_predicate_enable(struct brw_context *brw,

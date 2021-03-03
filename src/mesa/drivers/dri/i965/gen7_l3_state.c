@@ -26,7 +26,7 @@
 #include "brw_context.h"
 #include "brw_defines.h"
 #include "brw_state.h"
-#include "intel_batchbuffer.h"
+#include "brw_batchbuffer.h"
 
 /**
  * Calculate the desired L3 partitioning based on the current state of the
