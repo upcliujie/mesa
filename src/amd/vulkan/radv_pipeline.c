@@ -1451,7 +1451,7 @@ radv_compute_ia_multi_vgt_param_helpers(struct radv_pipeline *pipeline)
 	const struct radv_device *device = pipeline->device;
 
 	if (radv_pipeline_has_tess(pipeline))
-		ia_multi_vgt_param.primgroup_size = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.tcs.num_patches;
+		ia_multi_vgt_param.primgroup_size = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.num_tess_patches;
 	else if (radv_pipeline_has_gs(pipeline))
 		ia_multi_vgt_param.primgroup_size = 64;
 	else
@@ -2733,8 +2733,6 @@ radv_fill_shader_keys(struct radv_device *device,
 		keys[MESA_SHADER_VERTEX].vs_common_out.as_ls = true;
 		keys[MESA_SHADER_TESS_CTRL].tcs.input_vertices = key->tess_input_vertices;
 		keys[MESA_SHADER_TESS_CTRL].tcs.primitive_mode = nir[MESA_SHADER_TESS_EVAL]->info.tess.primitive_mode;
-
-		keys[MESA_SHADER_TESS_CTRL].tcs.tes_reads_tess_factors = !!(nir[MESA_SHADER_TESS_EVAL]->info.inputs_read & (VARYING_BIT_TESS_LEVEL_INNER | VARYING_BIT_TESS_LEVEL_OUTER));
 	}
 
 	if (nir[MESA_SHADER_GEOMETRY]) {
@@ -2916,13 +2914,6 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 		filled_stages |= (1 << MESA_SHADER_FRAGMENT);
 	}
 
-	if (nir[MESA_SHADER_TESS_CTRL]) {
-		infos[MESA_SHADER_TESS_CTRL].tcs.tes_inputs_read =
-			nir[MESA_SHADER_TESS_EVAL]->info.inputs_read;
-		infos[MESA_SHADER_TESS_CTRL].tcs.tes_patch_inputs_read =
-			nir[MESA_SHADER_TESS_EVAL]->info.patch_inputs_read;
-	}
-
 	if (pipeline->device->physical_device->rad_info.chip_class >= GFX9 &&
 	    nir[MESA_SHADER_TESS_CTRL]) {
 		struct nir_shader *combined_nir[] = {nir[MESA_SHADER_VERTEX], nir[MESA_SHADER_TESS_CTRL]};
@@ -2937,9 +2928,7 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 						  &infos[MESA_SHADER_TESS_CTRL]);
 		}
 
-		keys[MESA_SHADER_TESS_EVAL].tes.num_patches =
-			infos[MESA_SHADER_TESS_CTRL].tcs.num_patches;
-
+		infos[MESA_SHADER_TESS_EVAL].num_tess_patches = infos[MESA_SHADER_TESS_CTRL].num_tess_patches;
 		filled_stages |= (1 << MESA_SHADER_VERTEX);
 		filled_stages |= (1 << MESA_SHADER_TESS_CTRL);
 	}
@@ -2967,8 +2956,7 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 		int i = u_bit_scan(&active_stages);
 
 		if (i == MESA_SHADER_TESS_EVAL) {
-			keys[MESA_SHADER_TESS_EVAL].tes.num_patches =
-				infos[MESA_SHADER_TESS_CTRL].tcs.num_patches;
+			infos[MESA_SHADER_TESS_EVAL].num_tess_patches = infos[MESA_SHADER_TESS_CTRL].num_tess_patches;
 		}
 
 		radv_nir_shader_info_init(&infos[i]);
@@ -3352,6 +3340,9 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			NIR_PASS_V(nir[i], nir_lower_memory_model);
 
 			if (i == MESA_SHADER_VERTEX) {
+				infos[i].vs.as_ls = !!nir[MESA_SHADER_TESS_CTRL];
+				infos[i].vs.as_es = !infos[i].vs.as_ls && !!nir[MESA_SHADER_GEOMETRY];
+
 				if (nir[MESA_SHADER_TESS_CTRL] && !radv_use_llvm_for_stage(device, i)) {
 					/* When the number of TCS input and output vertices are the same (typically 3):
 					 * - There is an equal amount of LS and HS invocations
@@ -3382,6 +3373,9 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			} else if (i == MESA_SHADER_TESS_CTRL) {
 				/* Copy correct primitive mode from TES info. */
 				nir[i]->info.tess.primitive_mode = nir[MESA_SHADER_TESS_EVAL]->info.tess.primitive_mode;
+				infos[i].tcs.tes_reads_tess_factors = !!(nir[MESA_SHADER_TESS_EVAL]->info.inputs_read & (VARYING_BIT_TESS_LEVEL_INNER | VARYING_BIT_TESS_LEVEL_OUTER));
+				infos[i].tcs.tes_inputs_read = nir[MESA_SHADER_TESS_EVAL]->info.inputs_read;
+				infos[i].tcs.tes_patch_inputs_read = nir[MESA_SHADER_TESS_EVAL]->info.patch_inputs_read;
 
 				/* Number of tessellation patches processed per workgroup in the current pipeline. */
 				unsigned tcs_num_patches =
@@ -3406,11 +3400,12 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 						infos[i].tcs.num_linked_outputs,
 						infos[i].tcs.num_linked_patch_outputs);
 
-				infos[i].tcs.num_patches = tcs_num_patches;
+				infos[i].num_tess_patches = tcs_num_patches;
 				infos[i].tcs.num_lds_blocks = tcs_lds_size;
 			} else if (i == MESA_SHADER_TESS_EVAL) {
 				/* Copy num_patches from TCS info. */
-				keys[i].tes.num_patches = infos[MESA_SHADER_TESS_CTRL].tcs.num_patches;
+				infos[i].num_tess_patches = infos[MESA_SHADER_TESS_CTRL].num_tess_patches;
+				infos[i].tes.as_es = !!nir[MESA_SHADER_GEOMETRY];
 			}
 
 			bool lower_to_scalar = false;
@@ -3613,7 +3608,7 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			radv_stop_feedback(stage_feedbacks[MESA_SHADER_TESS_CTRL], false);
 		}
 		modules[MESA_SHADER_VERTEX] = NULL;
-		keys[MESA_SHADER_TESS_EVAL].tes.num_patches = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.tcs.num_patches;
+		infos[MESA_SHADER_TESS_EVAL].num_tess_patches = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.num_tess_patches;
 	}
 
 	if (device->physical_device->rad_info.chip_class >= GFX9 && modules[MESA_SHADER_GEOMETRY]) {
@@ -3638,7 +3633,7 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 	for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
 		if(modules[i] && !pipeline->shaders[i]) {
 			if (i == MESA_SHADER_TESS_EVAL) {
-				keys[MESA_SHADER_TESS_EVAL].tes.num_patches = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.tcs.num_patches;
+				infos[MESA_SHADER_TESS_EVAL].num_tess_patches = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.num_tess_patches;
 			}
 
 			radv_start_feedback(stage_feedbacks[i]);
@@ -4757,7 +4752,7 @@ radv_pipeline_generate_tess_state(struct radeon_cmdbuf *ctx_cs,
 
 	num_tcs_input_cp = pCreateInfo->pTessellationState->patchControlPoints;
 	num_tcs_output_cp = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.tcs.tcs_vertices_out; //TCS VERTICES OUT
-	num_patches = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.tcs.num_patches;
+	num_patches = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.num_tess_patches;
 
 	ls_hs_config = S_028B58_NUM_PATCHES(num_patches) |
 		       S_028B58_HS_NUM_INPUT_CP(num_tcs_input_cp) |
@@ -5254,7 +5249,7 @@ gfx10_pipeline_generate_ge_cntl(struct radeon_cmdbuf *ctx_cs,
 	unsigned vertgroup_size = 256; /* 256 = disable vertex grouping */
 
 	if (radv_pipeline_has_tess(pipeline)) {
-		primgroup_size = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.tcs.num_patches;
+		primgroup_size = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.num_tess_patches;
 	} else if (radv_pipeline_has_gs(pipeline)) {
 		const struct gfx9_gs_info *gs_state =
 			&pipeline->shaders[MESA_SHADER_GEOMETRY]->info.gs_ring_info;
