@@ -84,7 +84,7 @@ memory_binding_grow(struct anv_image *image,
       &image->bindings[binding].memory_range;
 
    struct anv_image_memory_range new = {
-      .binding = binding,
+      .binding = container->binding,
       .offset = align_u32(container->offset + container->size, alignment),
       .size = size,
       .alignment = alignment,
