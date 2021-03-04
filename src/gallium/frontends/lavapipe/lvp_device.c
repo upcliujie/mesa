@@ -113,6 +113,7 @@ static const struct vk_device_extension_table lvp_device_extensions_supported = 
    .KHR_push_descriptor                   = true,
    .KHR_relaxed_block_layout              = true,
    .KHR_sampler_mirror_clamp_to_edge      = true,
+   .KHR_sampler_ycbcr_conversion          = true,
    .KHR_shader_draw_parameters            = true,
    .KHR_shader_float16_int8               = true,
    .KHR_storage_buffer_storage_class      = true,
@@ -445,7 +446,7 @@ lvp_get_physical_device_features_1_1(struct lvp_physical_device *pdevice,
    f->variablePointersStorageBuffer       = true;
    f->variablePointers                    = false;
    f->protectedMemory                     = false;
-   f->samplerYcbcrConversion              = false;
+   f->samplerYcbcrConversion              = true;
    f->shaderDrawParameters                = true;
 }
 
