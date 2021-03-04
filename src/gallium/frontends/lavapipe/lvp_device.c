@@ -113,6 +113,7 @@ static const struct vk_device_extension_table lvp_device_extensions_supported = 
    .KHR_push_descriptor                   = true,
    .KHR_relaxed_block_layout              = true,
    .KHR_sampler_mirror_clamp_to_edge      = true,
+   .KHR_sampler_ycbcr_conversion          = true,
    .KHR_shader_draw_parameters            = true,
    .KHR_storage_buffer_storage_class      = true,
 #ifdef LVP_USE_WSI_PLATFORM
@@ -541,6 +542,12 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures2(
          features->bufferDeviceAddress = true;
          features->bufferDeviceAddressCaptureReplay = false;
          features->bufferDeviceAddressMultiDevice = false;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES: {
+         VkPhysicalDeviceSamplerYcbcrConversionFeatures *features =
+            (VkPhysicalDeviceSamplerYcbcrConversionFeatures *) ext;
+         features->samplerYcbcrConversion = false;
          break;
       }
       default:
@@ -1759,6 +1766,23 @@ VKAPI_ATTR void VKAPI_CALL lvp_DestroySampler(
       return;
    vk_object_base_finish(&sampler->base);
    vk_free2(&device->vk.alloc, pAllocator, sampler);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateSamplerYcbcrConversionKHR(
+    VkDevice                                    device,
+    const VkSamplerYcbcrConversionCreateInfo*   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSamplerYcbcrConversion*                   pYcbcrConversion)
+{
+   return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+}
+
+VKAPI_ATTR void VKAPI_CALL lvp_DestroySamplerYcbcrConversionKHR(
+    VkDevice                                    device,
+    VkSamplerYcbcrConversion                    ycbcrConversion,
+    const VkAllocationCallbacks*                pAllocator)
+{
 }
 
 /* vk_icd.h does not declare this function, so we declare it here to
