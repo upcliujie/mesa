@@ -31,6 +31,10 @@
 #ifndef EGLDISPLAY_INCLUDED
 #define EGLDISPLAY_INCLUDED
 
+#ifdef HAVE_X11_PLATFORM
+#include <X11/Xlib.h>
+#endif
+
 #include "c99_compat.h"
 #include "c11/threads.h"
 
