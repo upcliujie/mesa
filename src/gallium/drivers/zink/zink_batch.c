@@ -271,6 +271,7 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
 void
 zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
 {
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
    zink_reset_batch(ctx, batch);
 
    VkCommandBufferBeginInfo cbbi = {};
@@ -287,9 +288,21 @@ zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
       struct zink_batch_state *last_state = zink_batch_state(ctx->last_fence);
       batch->last_batch_id = last_state->fence.batch_id;
    } else {
-      if (zink_screen(ctx->base.screen)->threaded)
+      if (screen->threaded)
          util_queue_init(&batch->flush_queue, "zfq", 8, 1, UTIL_QUEUE_INIT_RESIZE_IF_FULL);
    }
+
+   if (screen->vk_CmdInsertDebugUtilsLabelEXT && screen->renderdoc_api) {
+      VkDebugUtilsLabelEXT capture_label;
+      capture_label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+      capture_label.pNext = NULL;
+      capture_label.pLabelName = "vr-marker,frame_end,type,application";
+      memset(capture_label.color, 0, sizeof(capture_label.color));
+      assert(screen->vk_CmdInsertDebugUtilsLabelEXT);
+      screen->vk_CmdInsertDebugUtilsLabelEXT(batch->state->barrier_cmdbuf, &capture_label);
+      screen->vk_CmdInsertDebugUtilsLabelEXT(batch->state->cmdbuf, &capture_label);
+   }
+
    if (!ctx->queries_disabled)
       zink_resume_queries(ctx, batch);
 }

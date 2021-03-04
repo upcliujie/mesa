@@ -1367,6 +1367,19 @@ zink_internal_setup_moltenvk(struct zink_screen *screen)
 }
 
 static void
+setup_renderdoc(struct zink_screen *screen)
+{
+#ifndef _WIN32
+   void *get_api = dlsym(NULL, "RENDERDOC_GetAPI");
+   if (!get_api)
+      return;
+   screen->renderdoc_api = get_api;
+   //in case we ever want to so something more complex...
+   //get_api(eRENDERDOC_API_Version_1_0_0, (void**)&screen->renderdoc_api);
+#endif
+}
+
+static void
 check_device_needs_mesa_wsi(struct zink_screen *screen)
 {
    if (
@@ -1563,8 +1576,12 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
    if (!screen->instance)
       goto fail;
 
-   if (screen->instance_info.have_EXT_debug_utils && !create_debug(screen))
-      debug_printf("ZINK: failed to setup debug utils\n");
+   if (screen->instance_info.have_EXT_debug_utils) {
+      if (!create_debug(screen))
+         debug_printf("ZINK: failed to setup debug utils\n");
+      else
+         GET_PROC_ADDR_INSTANCE(CmdInsertDebugUtilsLabelEXT);
+   }
 
    choose_pdev(screen);
    if (screen->pdev == VK_NULL_HANDLE)
@@ -1584,6 +1601,8 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
       debug_printf("ZINK: failed to detect features\n");
       goto fail;
    }
+
+   setup_renderdoc(screen);
 
    /* Some Vulkan implementations have special requirements for WSI
     * allocations.
