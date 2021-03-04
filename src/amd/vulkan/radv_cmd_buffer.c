@@ -5421,7 +5421,8 @@ radv_emit_draw_packets(struct radv_cmd_buffer *cmd_buffer,
 			/* Skip draw calls with 0-sized index buffers. They
 			 * cause a hang on some chips, like Navi10-14.
 			 */
-			if (!remaining_indexes)
+			if (!remaining_indexes &&
+				cmd_buffer->device->physical_device->rad_info.chip_class == GFX10)
 				return;
 
 			index_va = state->index_va;
