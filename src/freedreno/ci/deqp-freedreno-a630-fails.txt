@@ -13,10 +13,6 @@ KHR-GL33.transform_feedback.query_vertex_separate_test,Fail
 # likely-looking fixes in later versions of the loader.
 dEQP-VK.api.device_init.create_instance_device_intentional_alloc_fail,Fail
 
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/9409
-dEQP-VK.compute.basic.max_local_size_x,Crash
-dEQP-VK.compute.basic.max_local_size_y,Crash
-
 # only fails with TU_DEBUG=forcebin
 dEQP-VK.glsl.atomic_operations.add_unsigned_geometry,Fail
 dEQP-VK.glsl.atomic_operations.and_signed_geometry,Fail
