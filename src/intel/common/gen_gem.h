@@ -73,5 +73,6 @@ gen_ioctl(int fd, unsigned long request, void *arg)
 }
 
 bool gen_gem_supports_syncobj_wait(int fd);
+bool gen_gem_supports_accurate_timestamp_query(int fd);
 
 #endif /* GEN_GEM_H */
