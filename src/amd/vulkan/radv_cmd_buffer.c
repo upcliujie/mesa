@@ -4094,7 +4094,7 @@ void radv_CmdBindIndexBuffer(
 	cmd_buffer->state.index_va += index_buffer->offset + offset;
 
 	int index_size = radv_get_vgt_index_size(vk_to_index_type(indexType));
-	cmd_buffer->state.max_index_count = (index_buffer->size - offset) / index_size;
+	cmd_buffer->state.max_index_count = (MAX2(index_buffer->size, offset) - offset) / index_size;
 	cmd_buffer->state.dirty |= RADV_CMD_DIRTY_INDEX_BUFFER;
 	radv_cs_add_buffer(cmd_buffer->device->ws, cmd_buffer->cs, index_buffer->bo);
 }
