@@ -146,4 +146,6 @@ intel_i915_query_alloc(int fd, uint64_t query_id)
 
 bool intel_gem_supports_syncobj_wait(int fd);
 
+bool intel_gem_supports_accurate_timestamp_query(int fd);
+
 #endif /* INTEL_GEM_H */

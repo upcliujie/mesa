@@ -23,6 +23,8 @@
 #include "intel_gem.h"
 #include "drm-uapi/i915_drm.h"
 
+#include <time.h>
+
 bool
 intel_gem_supports_syncobj_wait(int fd)
 {
@@ -54,4 +56,29 @@ intel_gem_supports_syncobj_wait(int fd)
     * DRM_SYNCOBJ_WAIT_FLAGS_WAIT_FOR_SUBMIT flag.
     */
    return ret == -1 && errno == ETIME;
+}
+
+bool
+intel_gem_supports_accurate_timestamp_query(int fd)
+{
+   struct drm_i915_query_cs_cycles cs_cyles = {
+      .engine = {
+         .engine_class = I915_ENGINE_CLASS_RENDER,
+         .engine_instance = 0,
+      },
+      .clockid = CLOCK_MONOTONIC,
+   };
+   struct drm_i915_query_item item = {
+      .query_id = DRM_I915_QUERY_CS_CYCLES,
+      .length = sizeof(cs_cyles),
+      .data_ptr = (uintptr_t)&cs_cyles,
+   };
+   struct drm_i915_query args = {
+      .num_items = 1,
+      .flags = 0,
+      .items_ptr = (uintptr_t)&item,
+   };
+
+   int ret = intel_ioctl(fd, DRM_IOCTL_I915_QUERY, &args);
+   return ret == 0 && item.length >= 0;
 }
