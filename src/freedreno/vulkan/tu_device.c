@@ -678,8 +678,13 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
       .maxFragmentCombinedOutputResources = 8,
       .maxComputeSharedMemorySize = 32768,
       .maxComputeWorkGroupCount = { 65535, 65535, 65535 },
+      /* Higher than this and fences in a shader start causing hangs */
       .maxComputeWorkGroupInvocations = 2048,
-      .maxComputeWorkGroupSize = { 2048, 2048, 2048 },
+      /* Blob advertises { 1024, 1024, 64 }, but
+       * dEQP-VK.compute.basic.max_local_size_z passes with
+       * maxComputeWorkGroupSize[3] being 1024.
+       */
+      .maxComputeWorkGroupSize = { 1024, 1024, 1024 },
       .subPixelPrecisionBits = 8,
       .subTexelPrecisionBits = 8,
       .mipmapPrecisionBits = 8,
