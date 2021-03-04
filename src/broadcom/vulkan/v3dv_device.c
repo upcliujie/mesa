@@ -45,6 +45,7 @@
 
 #include "util/build_id.h"
 #include "util/debug.h"
+#include "util/u_cpu_detect.h"
 
 #ifdef VK_USE_PLATFORM_XCB_KHR
 #include <xcb/xcb.h>
@@ -617,6 +618,8 @@ physical_device_init(struct v3dv_physical_device *device,
       result = VK_ERROR_INCOMPATIBLE_DRIVER;
       goto fail;
    }
+
+   util_cpu_detect();
 
    /* If we are running on VK_KHR_display we need to acquire the master
     * display device now for the v3dv_wsi_init() call below. For anything else
