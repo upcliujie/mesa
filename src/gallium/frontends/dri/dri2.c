@@ -28,7 +28,9 @@
  *    <wallbraker@gmail.com> Chia-I Wu <olv@lunarg.com>
  */
 
+#ifdef HAVE_LIBDRM
 #include <xf86drm.h>
+#endif
 #include "GL/mesa_glinterop.h"
 #include "util/disk_cache.h"
 #include "util/u_memory.h"
@@ -2166,6 +2168,7 @@ dri2_init_screen_extensions(struct dri_screen *screen,
       screen->image_extension.createImageWithModifiers =
          dri2_create_image_with_modifiers;
 
+#ifdef HAVE_LIBDRM
    if (pscreen->get_param(pscreen, PIPE_CAP_DMABUF)) {
       uint64_t cap;
 
@@ -2185,6 +2188,7 @@ dri2_init_screen_extensions(struct dri_screen *screen,
          }
       }
    }
+#endif
    *nExt++ = &screen->image_extension.base;
 
    if (!is_kms_screen) {
