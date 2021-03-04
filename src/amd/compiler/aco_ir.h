@@ -1877,6 +1877,9 @@ public:
       return allocationID;
    }
 
+   friend void reindex_ssa(Program* program);
+   friend void reindex_ssa(Program* program, std::vector<IDSet>& live_out);
+
    Block* create_and_insert_block() {
       blocks.emplace_back(blocks.size());
       blocks.back().fp_mode = next_fp_mode;
