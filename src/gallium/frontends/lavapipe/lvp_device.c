@@ -105,6 +105,7 @@ static const struct vk_device_extension_table lvp_device_extensions_supported = 
    .KHR_maintenance1                      = true,
    .KHR_maintenance2                      = true,
    .KHR_maintenance3                      = true,
+   .KHR_multiview                         = true,
    .KHR_push_descriptor                   = true,
    .KHR_relaxed_block_layout              = true,
    .KHR_sampler_mirror_clamp_to_edge      = true,
@@ -478,17 +479,12 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures2(
          features->geometryStreams = true;
          break;
       }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT: {
-         VkPhysicalDeviceConditionalRenderingFeaturesEXT *features =
-            (VkPhysicalDeviceConditionalRenderingFeaturesEXT*)ext;
-         features->conditionalRendering = true;
-         features->inheritedConditionalRendering = false;
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT: {
-         VkPhysicalDeviceExtendedDynamicStateFeaturesEXT *features =
-            (VkPhysicalDeviceExtendedDynamicStateFeaturesEXT*)ext;
-         features->extendedDynamicState = true;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES: {
+         VkPhysicalDeviceMultiviewFeatures *features =
+            (VkPhysicalDeviceMultiviewFeatures*)ext;
+         features->multiview = true;
+         features->multiviewGeometryShader = true;
+         features->multiviewTessellationShader = true;
          break;
       }
       default:
@@ -717,6 +713,14 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceProperties2(
          properties->transformFeedbackStreamsLinesTriangles = false;
          properties->transformFeedbackRasterizationStreamSelect = false;
          properties->transformFeedbackDraw = true;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES: {
+         VkPhysicalDeviceMultiviewProperties *properties =
+            (VkPhysicalDeviceMultiviewProperties *)ext;
+         properties->maxMultiviewViewCount = 6;
+         properties->maxMultiviewInstanceIndex = INT_MAX;
+         break;
       }
       default:
          break;
