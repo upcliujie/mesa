@@ -1635,6 +1635,39 @@ zink_internal_setup_moltenvk(struct zink_screen *screen)
 }
 
 static void
+setup_renderdoc(struct zink_screen *screen)
+{
+#ifndef _WIN32
+   void *renderdoc = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD);
+   /* not loaded */
+   if (!renderdoc)
+      return;
+
+   pRENDERDOC_GetAPI get_api = dlsym(renderdoc, "RENDERDOC_GetAPI");
+   if (!get_api)
+      return;
+
+   /* need synchronous dispatch for renderdoc coherency */
+   screen->threaded = false;
+   get_api(eRENDERDOC_API_Version_1_0_0, (void**)&screen->renderdoc_api);
+   screen->renderdoc_api->SetActiveWindow(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(screen->instance), NULL);
+
+   const char *capture_id = debug_get_option("ZINK_RENDERDOC", NULL);
+   if (!capture_id)
+      return;
+   int count = sscanf(capture_id, "%u:%u", &screen->renderdoc_capture_start, &screen->renderdoc_capture_end);
+   if (count != 2) {
+      count = sscanf(capture_id, "%u", &screen->renderdoc_capture_start);
+      if (!count) {
+          printf("`ZINK_RENDERDOC` usage: ZINK_RENDERDOC=frame_no[:end_frame_no]\n");
+          abort();
+      }
+      screen->renderdoc_capture_end = screen->renderdoc_capture_start;
+   }
+#endif
+}
+
+static void
 populate_format_props(struct zink_screen *screen)
 {
    for (unsigned i = 0; i < PIPE_FORMAT_COUNT; i++) {
@@ -2146,6 +2179,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
       goto fail;
    }
 
+   setup_renderdoc(screen);
    if (screen->threaded)
       util_queue_init(&screen->flush_queue, "zfq", 8, 1, UTIL_QUEUE_INIT_RESIZE_IF_FULL, screen);
 

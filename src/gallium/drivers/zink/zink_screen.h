@@ -45,6 +45,10 @@
 
 #include <vulkan/vulkan.h>
 
+#ifndef _WIN32
+#include "renderdoc_app.h"
+#endif
+
 extern uint32_t zink_debug;
 struct hash_table;
 
@@ -152,6 +156,12 @@ struct zink_screen {
    VkDebugUtilsMessengerEXT debugUtilsCallbackHandle;
 
    uint32_t cur_custom_border_color_samplers;
+
+#ifndef _WIN32
+   RENDERDOC_API_1_0_0 *renderdoc_api;
+   unsigned renderdoc_capture_start;
+   unsigned renderdoc_capture_end;
+#endif
 
    struct vk_dispatch_table vk;
 
