@@ -304,9 +304,13 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
    batch->has_work = false;
 }
 
+static unsigned frame = 1;
+static bool capturing = false;
+
 void
 zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
 {
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
    zink_reset_batch(ctx, batch);
 
    batch->state->usage.unflushed = true;
@@ -325,6 +329,24 @@ zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
       struct zink_batch_state *last_state = zink_batch_state(ctx->last_fence);
       batch->last_batch_usage = &last_state->usage;
    }
+
+#ifndef _WIN32
+   if (VKCTX(CmdInsertDebugUtilsLabelEXT) && screen->renderdoc_api) {
+      VkDebugUtilsLabelEXT capture_label;
+      /* Magic fallback which lets us bridge the Wine barrier over to Linux RenderDoc. */
+      capture_label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+      capture_label.pNext = NULL;
+      capture_label.pLabelName = "vr-marker,frame_end,type,application";
+      memset(capture_label.color, 0, sizeof(capture_label.color));
+      VKCTX(CmdInsertDebugUtilsLabelEXT)(batch->state->barrier_cmdbuf, &capture_label);
+      VKCTX(CmdInsertDebugUtilsLabelEXT)(batch->state->cmdbuf, &capture_label);
+   }
+
+   if (screen->renderdoc_api && !capturing && frame >= screen->renderdoc_capture_start && frame <= screen->renderdoc_capture_end) {
+      screen->renderdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(screen->instance), NULL);
+      capturing = true;
+   }
+#endif
 
    if (!ctx->queries_disabled)
       zink_resume_queries(ctx, batch);
@@ -559,6 +581,7 @@ copy_scanout(struct zink_batch_state *bs, struct zink_resource *res)
    );
    /* separate flag to avoid annoying validation errors for new scanout objs */
    res->scanout_obj_init = true;
+   frame++;
 }
 
 void
@@ -591,6 +614,8 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
    }
    batch->work_count = 0;
 
+
+
    if (screen->device_lost)
       return;
 
@@ -603,6 +628,12 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
       submit_queue(batch->state, NULL, 0);
       post_submit(batch->state, NULL, 0);
    }
+#ifndef _WIN32
+   if (screen->renderdoc_api && batch->state->flush_res && capturing && frame >= screen->renderdoc_capture_start && frame <= screen->renderdoc_capture_end) {
+      screen->renderdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(screen->instance), NULL);
+      capturing = false;
+   }
+#endif
 }
 
 void
