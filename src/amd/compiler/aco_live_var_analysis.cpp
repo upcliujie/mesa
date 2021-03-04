@@ -230,6 +230,8 @@ void process_live_temps_per_block(Program *program, live& lives, Block* block,
             worklist.insert(preds[i]);
             if (insn->opcode == aco_opcode::p_phi && operand.getTemp().type() == RegType::sgpr)
                phi_sgpr_ops[preds[i]] += operand.size();
+         } else if (live.count(operand.tempId())) {
+            operand.setKill(false);
          }
       }
       phi_idx--;
