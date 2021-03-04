@@ -507,6 +507,7 @@ draw_vbo(struct draw_context *draw,
    draw->pt.user.max_index = info->index_bounds_valid ? info->max_index : ~0;
    draw->pt.user.eltSize = info->index_size ? draw->pt.user.eltSizeIB : 0;
    draw->pt.user.drawid = info->drawid;
+   draw->pt.user.viewid = info->view_id;
 
    draw->pt.vertices_per_patch = info->vertices_per_patch;
 
