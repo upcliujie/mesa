@@ -157,6 +157,7 @@ fd_acc_get_query_result(struct fd_context *ctx, struct fd_query *q,
 		int ret;
 
 		if (pending(rsc, false)) {
+			assert(!q->base.flushed);
 			/* piglit spec@arb_occlusion_query@occlusion_query_conform
 			 * test, and silly apps perhaps, get stuck in a loop trying
 			 * to get  query result forever with wait==false..  we don't
@@ -169,6 +170,8 @@ fd_acc_get_query_result(struct fd_context *ctx, struct fd_query *q,
 				fd_context_access_end(ctx);
 			}
 			return false;
+		} else {
+			tc_assert_driver_thread(ctx->tc);
 		}
 
 		ret = fd_resource_wait(ctx, rsc,
