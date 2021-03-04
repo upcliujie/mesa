@@ -1545,12 +1545,15 @@ static void handle_next_subpass(struct lvp_cmd_buffer_entry *cmd,
 static void handle_draw(struct lvp_cmd_buffer_entry *cmd,
                         struct rendering_state *state)
 {
+   const struct lvp_subpass *subpass = &state->pass->subpasses[state->subpass];
    state->info.index_size = 0;
    state->info.index.resource = NULL;
    state->draw.start = cmd->u.draw.first_vertex;
    state->draw.count = cmd->u.draw.vertex_count;
    state->info.start_instance = cmd->u.draw.first_instance;
    state->info.instance_count = cmd->u.draw.instance_count;
+   state->info.view_mask = subpass->view_mask;
+
    state->pctx->draw_vbo(state->pctx, &state->info, NULL, &state->draw, 1);
 }
 
@@ -2095,6 +2098,7 @@ static void handle_update_buffer(struct lvp_cmd_buffer_entry *cmd,
 static void handle_draw_indexed(struct lvp_cmd_buffer_entry *cmd,
                                 struct rendering_state *state)
 {
+   const struct lvp_subpass *subpass = &state->pass->subpasses[state->subpass];
    state->info.index_bounds_valid = false;
    state->info.min_index = 0;
    state->info.max_index = ~0;
@@ -2105,6 +2109,7 @@ static void handle_draw_indexed(struct lvp_cmd_buffer_entry *cmd,
    state->info.start_instance = cmd->u.draw_indexed.first_instance;
    state->info.instance_count = cmd->u.draw_indexed.instance_count;
    state->info.index_bias = cmd->u.draw_indexed.vertex_offset;
+   state->info.view_mask = subpass->view_mask;
 
    if (state->info.primitive_restart) {
       if (state->info.index_size == 4)
@@ -2112,13 +2117,13 @@ static void handle_draw_indexed(struct lvp_cmd_buffer_entry *cmd,
       else
          state->info.restart_index = 0xffff;
    }
-
    state->pctx->draw_vbo(state->pctx, &state->info, NULL, &state->draw, 1);
 }
 
 static void handle_draw_indirect(struct lvp_cmd_buffer_entry *cmd,
                                  struct rendering_state *state, bool indexed)
 {
+   const struct lvp_subpass *subpass = &state->pass->subpasses[state->subpass];
    if (indexed) {
       state->info.index_bounds_valid = false;
       state->info.index_size = state->index_size;
@@ -2130,6 +2135,8 @@ static void handle_draw_indirect(struct lvp_cmd_buffer_entry *cmd,
    state->indirect_info.stride = cmd->u.draw_indirect.stride;
    state->indirect_info.draw_count = cmd->u.draw_indirect.draw_count;
    state->indirect_info.buffer = cmd->u.draw_indirect.buffer->bo;
+   state->info.view_mask = subpass->view_mask;
+
    state->pctx->draw_vbo(state->pctx, &state->info, &state->indirect_info, &state->draw, 1);
 }
 
@@ -2558,6 +2565,7 @@ static void handle_resolve_image(struct lvp_cmd_buffer_entry *cmd,
 static void handle_draw_indirect_count(struct lvp_cmd_buffer_entry *cmd,
                                        struct rendering_state *state, bool indexed)
 {
+   const struct lvp_subpass *subpass = &state->pass->subpasses[state->subpass];
    if (indexed) {
       state->info.index_bounds_valid = false;
       state->info.index_size = state->index_size;
@@ -2571,6 +2579,8 @@ static void handle_draw_indirect_count(struct lvp_cmd_buffer_entry *cmd,
    state->indirect_info.buffer = cmd->u.draw_indirect_count.buffer->bo;
    state->indirect_info.indirect_draw_count_offset = cmd->u.draw_indirect_count.count_buffer_offset;
    state->indirect_info.indirect_draw_count = cmd->u.draw_indirect_count.count_buffer->bo;
+   state->info.view_mask = subpass->view_mask;
+
    state->pctx->draw_vbo(state->pctx, &state->info, &state->indirect_info, &state->draw, 1);
 }
 
@@ -2725,6 +2735,7 @@ static void handle_draw_indirect_byte_count(struct lvp_cmd_buffer_entry *cmd,
                                             struct rendering_state *state)
 {
    struct lvp_cmd_draw_indirect_byte_count *dibc = &cmd->u.draw_indirect_byte_count;
+   const struct lvp_subpass *subpass = &state->pass->subpasses[state->subpass];
 
    pipe_buffer_read(state->pctx,
                     dibc->counter_buffer->bo,
@@ -2736,6 +2747,7 @@ static void handle_draw_indirect_byte_count(struct lvp_cmd_buffer_entry *cmd,
    state->info.index_size = 0;
 
    state->draw.count /= cmd->u.draw_indirect_byte_count.vertex_stride;
+   state->info.view_mask = subpass->view_mask;
    state->pctx->draw_vbo(state->pctx, &state->info, &state->indirect_info, &state->draw, 1);
 }
 
