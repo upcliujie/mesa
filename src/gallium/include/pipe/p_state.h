@@ -769,6 +769,7 @@ struct pipe_draw_info
     * Primitive restart enable/index (only applies to indexed drawing)
     */
    unsigned restart_index;
+   unsigned view_id; /**< id of this draw in a multiview */
 
    /* Pointers must be placed appropriately for optimal structure packing on
     * 64-bit CPUs.
