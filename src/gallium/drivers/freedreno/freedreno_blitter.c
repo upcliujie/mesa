@@ -121,6 +121,14 @@ static void
 fd_blitter_pipe_end(struct fd_context *ctx)
 	assert_dt
 {
+	struct blitter_context *blitter = ctx->blitter;
+
+	/* We save the constant buffer in fd_blitter_pipe_begin(), but
+	 * not all u_blitter paths restore it:
+	 */
+	if (blitter->saved_fs_constant_buffer.buffer)
+		util_blitter_restore_constant_buffer_state(blitter);
+
 	ctx->in_discard_blit = false;
 }
 
