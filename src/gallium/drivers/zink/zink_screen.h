@@ -111,6 +111,8 @@ struct zink_screen {
 
    uint32_t cur_custom_border_color_samplers;
 
+   bool renderdoc_api;
+
    bool needs_mesa_wsi;
    bool needs_mesa_flush_wsi;
 
@@ -171,6 +173,7 @@ struct zink_screen {
 
    PFN_vkCreateDebugUtilsMessengerEXT vk_CreateDebugUtilsMessengerEXT;
    PFN_vkDestroyDebugUtilsMessengerEXT vk_DestroyDebugUtilsMessengerEXT;
+   PFN_vkCmdInsertDebugUtilsLabelEXT vk_CmdInsertDebugUtilsLabelEXT;
 
 #if defined(MVK_VERSION)
    PFN_vkGetMoltenVKConfigurationMVK vk_GetMoltenVKConfigurationMVK;

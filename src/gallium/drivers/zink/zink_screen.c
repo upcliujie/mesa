@@ -1307,6 +1307,7 @@ create_debug(struct zink_screen *screen)
 {
    GET_PROC_ADDR_INSTANCE(CreateDebugUtilsMessengerEXT);
    GET_PROC_ADDR_INSTANCE(DestroyDebugUtilsMessengerEXT);
+   GET_PROC_ADDR_INSTANCE(CmdInsertDebugUtilsLabelEXT);
 
    VkDebugUtilsMessengerCreateInfoEXT vkDebugUtilsMessengerCreateInfoEXT = {
        VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
@@ -1376,6 +1377,19 @@ zink_internal_setup_moltenvk(struct zink_screen *screen)
 #endif // MVK_VERSION
 
    return true;
+}
+
+static void
+setup_renderdoc(struct zink_screen *screen)
+{
+#ifndef _WIN32
+   void *get_api = dlsym(NULL, "RENDERDOC_GetAPI");
+   if (!get_api)
+      return;
+   screen->renderdoc_api = true;
+   //in case we ever want to so something more complex...
+   //get_api(eRENDERDOC_API_Version_1_0_0, (void**)&screen->renderdoc_api);
+#endif
 }
 
 static void
@@ -1618,6 +1632,8 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
       debug_printf("ZINK: failed to detect features\n");
       goto fail;
    }
+
+   setup_renderdoc(screen);
 
    /* Some Vulkan implementations have special requirements for WSI
     * allocations.
