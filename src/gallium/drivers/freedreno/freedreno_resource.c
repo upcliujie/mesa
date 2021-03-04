@@ -729,19 +729,9 @@ resource_transfer_map(struct pipe_context *pctx,
 		}
 	}
 
-	if (ctx->in_shadow && !(usage & PIPE_MAP_READ))
-		usage |= PIPE_MAP_UNSYNCHRONIZED;
-
 	if (usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE) {
 		invalidate_resource(rsc, usage);
-	} else if ((usage & PIPE_MAP_WRITE) &&
-			   prsc->target == PIPE_BUFFER &&
-			   !util_ranges_intersect(&rsc->valid_buffer_range,
-									  box->x, box->x + box->width)) {
-		/* We are trying to write to a previously uninitialized range. No need
-		 * to wait.
-		 */
-	} else if (!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
+	} else {
 		struct fd_batch *write_batch = NULL;
 
 		/* hold a reference, so it doesn't disappear under us: */
@@ -834,6 +824,41 @@ resource_transfer_map(struct pipe_context *pctx,
 	return resource_transfer_map_unsync(pctx, prsc, level, usage, box, trans);
 }
 
+static unsigned
+improve_transfer_map_usage(struct fd_context *ctx, struct fd_resource *rsc,
+		unsigned usage, const struct pipe_box *box)
+	/* Not *strictly* true, but the access to things that must only be in driver-
+	 * thread are protected by !(usage & TC_TRANSFER_MAP_THREADED_UNSYNC):
+	 */
+	in_dt
+{
+	if (usage & TC_TRANSFER_MAP_NO_INVALIDATE) {
+		usage &= ~PIPE_MAP_DISCARD_WHOLE_RESOURCE;
+		usage &= ~PIPE_MAP_DISCARD_RANGE;
+	}
+
+	if (usage & TC_TRANSFER_MAP_THREADED_UNSYNC)
+		usage |= PIPE_MAP_UNSYNCHRONIZED;
+
+	if (!(usage & (TC_TRANSFER_MAP_NO_INFER_UNSYNCHRONIZED |
+			TC_TRANSFER_MAP_THREADED_UNSYNC |
+			PIPE_MAP_UNSYNCHRONIZED))) {
+		if (ctx->in_shadow && !(usage & PIPE_MAP_READ)) {
+			usage |= PIPE_MAP_UNSYNCHRONIZED;
+		} else if ((usage & PIPE_MAP_WRITE) &&
+				   (rsc->b.b.target == PIPE_BUFFER) &&
+				   !util_ranges_intersect(&rsc->valid_buffer_range,
+										  box->x, box->x + box->width)) {
+			/* We are trying to write to a previously uninitialized range. No need
+			 * to synchronize.
+			 */
+			usage |= PIPE_MAP_UNSYNCHRONIZED;
+		}
+	}
+
+	return usage;
+}
+
 static void *
 fd_resource_transfer_map(struct pipe_context *pctx,
 		struct pipe_resource *prsc,
@@ -861,6 +886,8 @@ fd_resource_transfer_map(struct pipe_context *pctx,
 	/* slab_alloc_st() doesn't zero: */
 	trans = fd_transfer(ptrans);
 	memset(trans, 0, sizeof(*trans));
+
+	usage = improve_transfer_map_usage(ctx, rsc, usage, box);
 
 	pipe_resource_reference(&ptrans->resource, prsc);
 	ptrans->level = level;
