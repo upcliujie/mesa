@@ -678,8 +678,22 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
       .maxFragmentCombinedOutputResources = 8,
       .maxComputeSharedMemorySize = 32768,
       .maxComputeWorkGroupCount = { 65535, 65535, 65535 },
-      .maxComputeWorkGroupInvocations = 2048,
-      .maxComputeWorkGroupSize = { 2048, 2048, 2048 },
+      /* A SP "core" can only have 16 threads (at least on A650).
+       * With a wave size of 64 (which the blob always uses for compute shaders),
+       * that limits the value to 1024 if there are dependencies between the
+       * waves (fences). With a wave size of 128 the limit is 2048, but
+       * maxComputeWorkGroupInvocations should be 1024 because we will have to
+       * drop to wavesize of 64 in some cases.
+       * Another limiting factor when fences are used, which couldn't be expressed
+       * by a global limit, is a register footprint, e.g. 2048 is only possible
+       * with reg footprint <= 4, 1024 with reg footprint <= 8 and so on.
+       */
+      .maxComputeWorkGroupInvocations = 1024,
+      /* Blob advertises { 1024, 1024, 64 }, but
+       * dEQP-VK.compute.basic.max_local_size_z passes with
+       * maxComputeWorkGroupSize[3] being 1024.
+       */
+      .maxComputeWorkGroupSize = { 1024, 1024, 1024 },
       .subPixelPrecisionBits = 8,
       .subTexelPrecisionBits = 8,
       .mipmapPrecisionBits = 8,
