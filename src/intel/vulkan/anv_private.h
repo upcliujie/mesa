@@ -920,6 +920,9 @@ struct anv_physical_device {
      */
     bool                                        has_reg_timestamp;
 
+    /** True if engine timestamp register can be queried through i915_query. */
+    bool                                        has_timestamp_query;
+
     /** True if this device has implicit AUX
      *
      * If true, CCS is handled as an implicit attachment to the BO rather than

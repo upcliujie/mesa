@@ -923,6 +923,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
    uint64_t u64_ignore;
    device->has_reg_timestamp = anv_gem_reg_read(fd, TIMESTAMP | I915_REG_READ_8B_WA,
                                                 &u64_ignore) == 0;
+   device->has_timestamp_query = intel_gem_supports_accurate_timestamp_query(fd);
 
    device->always_flush_cache = INTEL_DEBUG(DEBUG_SYNC) ||
       driQueryOptionb(&instance->dri_options, "always_flush_cache");
@@ -4553,6 +4554,19 @@ anv_clock_gettime(clockid_t clock_id)
    return (uint64_t) current.tv_sec * 1000000000ULL + current.tv_nsec;
 }
 
+static inline bool
+is_vk_clock_monotonic(VkTimeDomainEXT domain)
+{
+   return domain == VK_TIME_DOMAIN_CLOCK_MONOTONIC_EXT ||
+          domain == VK_TIME_DOMAIN_CLOCK_MONOTONIC_RAW_EXT;
+}
+
+static inline bool
+is_vk_clock_device(VkTimeDomainEXT domain)
+{
+   return domain == VK_TIME_DOMAIN_DEVICE_EXT;
+}
+
 VkResult anv_GetCalibratedTimestampsEXT(
    VkDevice                                     _device,
    uint32_t                                     timestampCount,
@@ -4563,45 +4577,111 @@ VkResult anv_GetCalibratedTimestampsEXT(
    ANV_FROM_HANDLE(anv_device, device, _device);
    struct anv_instance *instance = device->physical->instance;
    uint64_t timestamp_frequency = device->info.timestamp_frequency;
-   int  ret;
-   int d;
    uint64_t begin, end;
    uint64_t max_clock_period = 0;
    clockid_t clock_id = anv_select_cpu_clock_id(instance,
                                                 VK_TIME_DOMAIN_CLOCK_MONOTONIC_RAW_EXT);
 
-   begin = anv_clock_gettime(clock_id);
+   begin = end = anv_clock_gettime(clock_id);
 
-   for (d = 0; d < timestampCount; d++) {
-      switch (pTimestampInfos[d].timeDomain) {
-      case VK_TIME_DOMAIN_DEVICE_EXT:
-         ret = anv_gem_reg_read(device->fd, TIMESTAMP | I915_REG_READ_8B_WA,
-                                &pTimestamps[d]);
+   for (uint32_t d = 0, increment = 1; d < timestampCount; d += increment) {
+      /* If we have a request pattern like this :
+       *  - domain0 = VK_TIME_DOMAIN_CLOCK_MONOTONIC_EXT or VK_TIME_DOMAIN_CLOCK_MONOTONIC_RAW_EXT
+       *  - domain1 = VK_TIME_DOMAIN_DEVICE_EXT
+       *  - domain2 = domain0 (optional)
+       *
+       * We can combine all of those into a single ioctl for maximum accuracy.
+       */
+      if (device->physical->has_timestamp_query &&
+          (d + 1) < timestampCount &&
+          ((is_vk_clock_monotonic(pTimestampInfos[d].timeDomain) &&
+            is_vk_clock_device(pTimestampInfos[d + 1].timeDomain)) ||
+           (is_vk_clock_device(pTimestampInfos[d].timeDomain) &&
+            is_vk_clock_monotonic(pTimestampInfos[d + 1].timeDomain)))) {
+         /* We'll consume at least 2 elements. */
+         increment = 2;
 
-         if (ret != 0) {
-            return anv_device_set_lost(device, "Failed to read the TIMESTAMP "
-                                               "register: %m");
+         struct drm_i915_query_cs_cycles cs_cycles = {
+            .engine = {
+               .engine_class = I915_ENGINE_CLASS_RENDER,
+               .engine_instance = 0,
+            },
+            .clockid = anv_select_cpu_clock_id(instance,
+                                               pTimestampInfos[d].timeDomain),
+         };
+         int len = sizeof(cs_cycles);
+         int ret = intel_i915_query(device->fd, DRM_I915_QUERY_CS_CYCLES,
+                                    &cs_cycles, &len);
+         if (ret < 0 || len < 0) {
+            pTimestamps[d + 0] = 0;
+            pTimestamps[d + 1] = 0;
+            continue;
          }
+
+         if (is_vk_clock_monotonic(pTimestampInfos[d].timeDomain))
+            pTimestamps[d + 0] = cs_cycles.cpu_timestamp[0];
+         else
+            pTimestamps[d + 0] = cs_cycles.cs_cycles;
+
+         if (is_vk_clock_monotonic(pTimestampInfos[d].timeDomain))
+            pTimestamps[d + 1] = cs_cycles.cpu_timestamp[1];
+         else
+            pTimestamps[d + 1] = cs_cycles.cs_cycles;
+
          uint64_t device_period = DIV_ROUND_UP(1000000000, timestamp_frequency);
          max_clock_period = MAX2(max_clock_period, device_period);
-         break;
-      case VK_TIME_DOMAIN_CLOCK_MONOTONIC_EXT:
-         pTimestamps[d] = anv_clock_gettime(CLOCK_MONOTONIC);
-         max_clock_period = MAX2(max_clock_period, 1);
-         break;
+
+         /* If we can consume a third element */
+         if ((d + 2) < timestampCount &&
+             is_vk_clock_monotonic(pTimestampInfos[d].timeDomain) &&
+             pTimestampInfos[d].timeDomain == pTimestampInfos[d + 2].timeDomain) {
+            pTimestamps[d + 2] = cs_cycles.cpu_timestamp[1];
+            increment++;
+         }
+
+         /* If we're the first element, we can replace begin */
+         if (d == 0 && cs_cycles.clockid == clock_id)
+            begin = cs_cycles.cpu_timestamp[0];
+
+         /* If we're in the same clock domain as begin/end. We can set the end. */
+         if (cs_cycles.clockid == clock_id)
+            end = cs_cycles.cpu_timestamp[1];
+      } else {
+         increment = 1;
+
+         switch (pTimestampInfos[d].timeDomain) {
+         case VK_TIME_DOMAIN_DEVICE_EXT: {
+            int ret = anv_gem_reg_read(device->fd,
+                                       TIMESTAMP | I915_REG_READ_8B_WA,
+                                       &pTimestamps[d]);
+
+            if (ret != 0) {
+               return anv_device_set_lost(device, "Failed to read the TIMESTAMP "
+                                          "register: %m");
+            }
+            uint64_t device_period = DIV_ROUND_UP(1000000000, timestamp_frequency);
+            max_clock_period = MAX2(max_clock_period, device_period);
+            break;
+         }
+         case VK_TIME_DOMAIN_CLOCK_MONOTONIC_EXT:
+            pTimestamps[d] = anv_clock_gettime(CLOCK_MONOTONIC);
+            max_clock_period = MAX2(max_clock_period, 1);
+            break;
 
 #ifdef CLOCK_MONOTONIC_RAW
-      case VK_TIME_DOMAIN_CLOCK_MONOTONIC_RAW_EXT:
-         pTimestamps[d] = begin;
-         break;
+         case VK_TIME_DOMAIN_CLOCK_MONOTONIC_RAW_EXT:
+            pTimestamps[d] = begin;
+            break;
 #endif
-      default:
-         pTimestamps[d] = 0;
-         break;
+         default:
+            pTimestamps[d] = 0;
+                  break;
+         }
       }
    }
 
-   end = anv_clock_gettime(clock_id);
+   if (end == begin)
+      end = anv_clock_gettime(clock_id);
 
     /*
      * The maximum deviation is the sum of the interval over which we
