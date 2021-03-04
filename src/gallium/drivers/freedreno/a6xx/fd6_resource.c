@@ -103,6 +103,16 @@ can_do_ubwc(struct pipe_resource *prsc)
 	return true;
 }
 
+static void
+resource_uncompress_job(struct pipe_context *pctx, void *job)
+	in_dt
+{
+	struct fd_context *ctx = fd_context(pctx);
+	struct fd_resource *rsc = job;
+
+	fd_resource_uncompress(ctx, rsc);
+}
+
 /**
  * Ensure the rsc is in an ok state to be used with the specified format.
  * This handles the case of UBWC buffers used with non-UBWC compatible
@@ -111,7 +121,6 @@ can_do_ubwc(struct pipe_resource *prsc)
 void
 fd6_validate_format(struct fd_context *ctx, struct fd_resource *rsc,
 		enum pipe_format format)
-	in_dt  /* TODO this will be re-worked with threaded-ctx, this is just temporary */
 {
 	if (!rsc->layout.ubwc)
 		return;
@@ -122,7 +131,8 @@ fd6_validate_format(struct fd_context *ctx, struct fd_resource *rsc,
 	perf_debug_ctx(ctx, "%"PRSC_FMT": demoted to uncompressed due to use as %s",
 		PRSC_ARGS(&rsc->b.b), util_format_short_name(format));
 
-	fd_resource_uncompress(ctx, rsc);
+	if (!tc_driver_job(ctx->tc, resource_uncompress_job, rsc))
+		resource_uncompress_job(&ctx->base, rsc);
 }
 
 static void
