@@ -49,20 +49,25 @@ struct copy {
 };
 
 struct merge_node {
-   Operand value;
-   uint32_t index;
-   uint32_t defined_at;
+   Operand value; /* original value: can be an SSA-def or constant value */
+   uint32_t index; /* index into the vector of merge sets */
+   uint32_t defined_at; /* defining block */
+
+   /* we also remember two dominating defs with the same value: */
+   Temp equal_anc_in = Temp(); /* within the same merge set */
+   Temp equal_anc_out = Temp(); /* from a different set */
 };
 
 struct cssa_ctx {
    Program* program;
-   live& live_vars;
-   std::vector<std::vector<copy>> parallelcopies; // copies per block
-   std::vector<merge_set> merge_sets; // each vector is one (ordered) merge set
-   std::unordered_map<uint32_t, merge_node> merge_node_table; // tempid -> merge set index
+   std::vector<IDSet>& live_out; /* live-out sets per block */
+   std::vector<std::vector<copy>> parallelcopies; /* copies per block */
+   std::vector<merge_set> merge_sets; /* each vector is one (ordered) merge set */
+   std::unordered_map<uint32_t, merge_node> merge_node_table; /* tempid -> merge node */
 };
 
-
+/* create (virtual) parallelcopies for each phi instruction and
+ * already merge copy-definitions with phi-defs into merge sets */
 void collect_parallelcopies(cssa_ctx& ctx)
 {
    ctx.parallelcopies.resize(ctx.program->blocks.size());
@@ -83,6 +88,7 @@ void collect_parallelcopies(cssa_ctx& ctx)
          uint32_t index = ctx.merge_sets.size();
          merge_set set;
 
+         bool has_preheader_copy = false;
          for (unsigned i = 0; i < phi->operands.size(); i++) {
             Operand op = phi->operands[i];
             if (op.isUndefined())
@@ -99,6 +105,7 @@ void collect_parallelcopies(cssa_ctx& ctx)
                   continue;
                }
             }
+            has_preheader_copy |= i == 0 && block.kind & block_kind_loop_header;
 
             /* create new temporary and rename operands */
             Temp tmp = bld.tmp(def.regClass());
@@ -111,8 +118,8 @@ void collect_parallelcopies(cssa_ctx& ctx)
 
             /* update the liveness information */
             if (op.isKill())
-               ctx.live_vars.live_out[preds[i]].erase(op.tempId());
-            ctx.live_vars.live_out[preds[i]].insert(tmp.id());
+               ctx.live_out[preds[i]].erase(op.tempId());
+            ctx.live_out[preds[i]].insert(tmp.id());
          }
 
          if (set.empty())
@@ -120,10 +127,12 @@ void collect_parallelcopies(cssa_ctx& ctx)
 
          /* place the definition in dominance-order */
          if (def.isTemp()) {
-            if (block.kind & block_kind_loop_header)
+            if (has_preheader_copy)
                set.emplace(std::next(set.begin()), def.getTemp());
+            else if (block.kind & block_kind_loop_header)
+               set.emplace(set.begin(), def.getTemp());
             else
-               set.emplace(set.end(), def.getTemp());
+               set.emplace_back(def.getTemp());
             ctx.merge_node_table[def.tempId()] = {Operand(def.getTemp()), index, block.index};
          }
          ctx.merge_sets.emplace_back(set);
@@ -131,20 +140,23 @@ void collect_parallelcopies(cssa_ctx& ctx)
    }
 }
 
-/* check whether the defining block of a comes after b. */
+/* check whether the definition of a comes after b. */
+inline
 bool defined_after(cssa_ctx& ctx, Temp a, Temp b)
 {
    merge_node& node_a = ctx.merge_node_table[a.id()];
    merge_node& node_b = ctx.merge_node_table[b.id()];
-   if (node_a.defined_at > node_b.defined_at)
-      return true;
-   else
-      return false;
+   if (node_a.defined_at == node_b.defined_at)
+      return a.id() > b.id();
+
+   return node_a.defined_at > node_b.defined_at;
 }
 
-/* check whether block(a) dominates block(b) */
+/* check whether a dominates b where b is defined after a */
+inline
 bool dominates(cssa_ctx& ctx, Temp a, Temp b)
 {
+   assert(defined_after(ctx, b, a));
    merge_node& node_a = ctx.merge_node_table[a.id()];
    merge_node& node_b = ctx.merge_node_table[b.id()];
    unsigned idom = node_b.defined_at;
@@ -156,101 +168,116 @@ bool dominates(cssa_ctx& ctx, Temp a, Temp b)
    return idom == node_a.defined_at;
 }
 
-/* check interference between parent and var:
- * We already know that block(parent) dominates block(var). */
-bool interference(cssa_ctx& ctx, Temp var, Temp parent)
+/* check intersection between var and parent:
+ * We already know that parent dominates var. */
+inline
+bool intersects(cssa_ctx& ctx, Temp var, Temp parent)
 {
    merge_node& node_var = ctx.merge_node_table[var.id()];
    merge_node& node_parent = ctx.merge_node_table[parent.id()];
-
-   /* If they are already in the same set, there is no need to re-check */
-   if (node_var.index == node_parent.index)
-      return false;
-
-   /* equal values don't interfere */
-   if (node_var.value == node_parent.value)
-      return false;
-
-   /* if both variables are live-out, they interfere */
+   assert(node_var.index != node_parent.index);
    uint32_t block_idx = node_var.defined_at;
-   bool parent_live = ctx.live_vars.live_out[block_idx].count(parent.id());
-   bool var_live = ctx.live_vars.live_out[block_idx].count(var.id());
-   if (parent_live && var_live)
+
+   /* if the parent is live-out at the definition block of var, they intersect */
+   bool parent_live = ctx.live_out[block_idx].count(parent.id());
+   if (parent_live)
       return true;
 
    /* parent is defined in a different block than var */
    if (node_parent.defined_at < node_var.defined_at) {
-      /* if parent is live-in and live-out, they interfere */
-      if (parent_live)
-         return true;
-
       /* if the parent is not live-in, they don't interfere */
       std::vector<uint32_t>& preds = var.type() == RegType::vgpr ?
                                      ctx.program->blocks[block_idx].logical_preds :
                                      ctx.program->blocks[block_idx].linear_preds;
       for (uint32_t pred : preds) {
-         if (!ctx.live_vars.live_out[pred].count(parent.id()))
+         if (!ctx.live_out[pred].count(parent.id()))
             return false;
       }
    }
 
-   /* check if these are from our virtual parallelcopy */
-   if (parent_live || var_live) {
-      for (const copy& cp : ctx.parallelcopies[block_idx]) {
-         if (cp.def.getTemp() == parent || cp.def.getTemp() == var)
-            return false;
-      }
-   }
    for (const copy& cp : ctx.parallelcopies[block_idx]) {
-      if (!cp.op.isTemp() || cp.op.regClass() != var.regClass())
-         continue;
-      if (cp.op.getTemp() == parent)
-         parent_live = true;
-      if (cp.op.getTemp() == var)
-         var_live = true;
-      if (var_live && parent_live)
+      /* if var is defined at the edge, they don't intersect */
+      if (cp.def.getTemp() == var)
          return false;
+      if (cp.op.isTemp() && cp.op.getTemp() == parent)
+         parent_live = true;
    }
+   /* if the parent is live at the edge, they intersect */
+   if (parent_live)
+      return true;
 
    /* both, parent and var, are present in the same block */
    const Block& block = ctx.program->blocks[block_idx];
    for (auto it = block.instructions.crbegin(); it != block.instructions.crend(); ++it) {
-      if (parent_live || var_live) {
-         for (const Definition& def : (*it)->definitions) {
-            if (!def.isTemp())
-               continue;
-            /* if only one of the two is live at the point of definition,
-             * they don't interfere */
-            if (def.getTemp() == parent || def.getTemp() == var)
-               return false;
-         }
+      /* if the parent was not encountered yet, it can only be used by a phi */
+      if (is_phi(it->get()))
+         break;
+
+      for (const Definition& def : (*it)->definitions) {
+         if (!def.isTemp())
+            continue;
+         /* if parent was not found yet, they don't intersect */
+         if (def.getTemp() == var)
+            return false;
       }
 
       for (const Operand& op : (*it)->operands) {
          if (!op.isTemp())
             continue;
+         /* if the var was defined before this point, they intersect */
          if (op.getTemp() == parent)
-            parent_live = true;
-         if (op.getTemp() == var)
-            var_live = true;
+            return true;
       }
-
-      if (var_live && parent_live)
-         return false;
    }
 
-   assert(false && "unreachable - we should have found an intersection if there exist one.");
+   return false;
+}
+
+/* check interference between var and parent:
+ * i.e. they have different values and intersect.
+ * If parent and var share the same value, also updates the equal ancestor. */
+inline
+bool interference(cssa_ctx& ctx, Temp var, Temp parent)
+{
+   assert(var != parent);
+   merge_node& node_var = ctx.merge_node_table[var.id()];
+   node_var.equal_anc_out = Temp();
+
+   if (node_var.index == ctx.merge_node_table[parent.id()].index) {
+      /* check/update in other set */
+      parent = ctx.merge_node_table[parent.id()].equal_anc_out;
+   }
+
+   Temp tmp = parent;
+   /* check if var intersects with parent or any equal-valued ancestor */
+   while (tmp != Temp() && !intersects(ctx, var, tmp)) {
+      merge_node& node_tmp = ctx.merge_node_table[tmp.id()];
+      tmp = node_tmp.equal_anc_in;
+   }
+
+   /* no intersection found */
+   if (tmp == Temp())
+      return false;
+
+   /* var and parent, same value, but in different sets */
+   if (node_var.value == ctx.merge_node_table[parent.id()].value) {
+      node_var.equal_anc_out = tmp;
+      return false;
+   }
+
+   /* var and parent, different values and intersect */
    return true;
 }
 
-/* tries to merge set_b into set_a of given temporary */
+/* tries to merge set_b into set_a of given temporary and
+ * drops that temporary as it is being coalesced */
 bool try_merge_merge_set(cssa_ctx& ctx, Temp dst, merge_set& set_b)
 {
    auto def_node_it = ctx.merge_node_table.find(dst.id());
    uint32_t index = def_node_it->second.index;
    merge_set& set_a = ctx.merge_sets[index];
    std::vector<Temp> dom; /* stack of the traversal */
-   merge_set union_set;
+   merge_set union_set; /* the new merged merge-set */
    uint32_t i_a = 0;
    uint32_t i_b = 0;
 
@@ -267,6 +294,7 @@ bool try_merge_merge_set(cssa_ctx& ctx, Temp dst, merge_set& set_b)
          current = set_a[i_a++];
 
       Temp other = dom.empty() ? Temp() : dom.back();
+      assert(other != current);
       while (other != Temp() && !dominates(ctx, other, current)) {
          dom.pop_back(); /* not the desired parent, remove */
          other = dom.empty() ? Temp() : dom.back(); /* consider next one */
@@ -278,18 +306,30 @@ bool try_merge_merge_set(cssa_ctx& ctx, Temp dst, merge_set& set_b)
 
       dom.emplace_back(current); /* otherwise, keep checking */
       if (current != dst)
-         union_set.emplace_back(current);
+         union_set.emplace_back(current); /* maintain the new merge-set sorted */
    }
 
-   /* replace set_a and update hashmap */
-   for (Temp t : set_b)
-      ctx.merge_node_table[t.id()].index = index;
+   /* update hashmap */
+   for (Temp t : union_set) {
+      merge_node& node = ctx.merge_node_table[t.id()];
+      /* update the equal ancestors:
+       * i.e. the 'closest' dominating def with the same value */
+      Temp in = node.equal_anc_in;
+      Temp out = node.equal_anc_out;
+      if (in == Temp() || (out != Temp() && defined_after(ctx, out, in)))
+         node.equal_anc_in = out;
+      node.equal_anc_out = Temp();
+      /* update merge-set index */
+      node.index = index;
+   }
    set_b = merge_set(); /* free the old set_b */
    ctx.merge_sets[index] = union_set;
-   ctx.merge_node_table.erase(def_node_it);
+   ctx.merge_node_table.erase(dst.id()); /* remove the temporary */
+
    return true;
 }
 
+/* returns true if the copy can safely be omitted */
 bool try_coalesce_copy(cssa_ctx& ctx, copy copy, uint32_t block_idx)
 {
    /* we can only coalesce copies of the same register class */
@@ -301,6 +341,10 @@ bool try_coalesce_copy(cssa_ctx& ctx, copy copy, uint32_t block_idx)
    assert(ctx.merge_node_table.find(copy.def.tempId()) != ctx.merge_node_table.end());
    auto&& merge_node_it = ctx.merge_node_table.find(copy.op.tempId());
    if (merge_node_it != ctx.merge_node_table.end()) {
+      /* check if this operand has already been coalesced into the same set */
+      if (merge_node_it->second.index == ctx.merge_node_table[copy.def.tempId()].index)
+         return true;
+
       /* check if the operand already has a merge_set */
       if (merge_node_it->second.index != -1u)
          return try_merge_merge_set(ctx, copy.def.getTemp(), ctx.merge_sets[merge_node_it->second.index]);
@@ -317,8 +361,9 @@ bool try_coalesce_copy(cssa_ctx& ctx, copy copy, uint32_t block_idx)
              ctx.program->blocks[pred].logical_idom :
              ctx.program->blocks[pred].linear_idom;
    } while (block_idx != pred &&
-            ctx.live_vars.live_out[pred].count(copy.op.tempId()));
+            ctx.live_out[pred].count(copy.op.tempId()));
 
+   /* create hashmap entry */
    ctx.merge_node_table[copy.op.tempId()] = {copy.op, -1u, block_idx};
    merge_set op_set = merge_set{copy.op.getTemp()};
    return try_merge_merge_set(ctx, copy.def.getTemp(), op_set);
@@ -332,6 +377,8 @@ struct ltg_node {
    uint32_t write_idx;
 };
 
+/* emit the copies in an order that does not
+ * create interferences within a merge-set */
 void emit_copies_block(Builder bld, std::vector<ltg_node>& ltg, RegType type)
 {
    auto&& it = ltg.begin();
@@ -349,11 +396,15 @@ void emit_copies_block(Builder bld, std::vector<ltg_node>& ltg, RegType type)
          continue;
       }
 
+      /* emit the copy */
       bld.copy(it->cp.def, it->cp.op);
 
-      for (ltg_node& node : ltg) {
-         if (it->write_idx == node.read_idx)
-            node.num_uses--;
+      /* update the location transfer graph */
+      if (it->read_idx != -1u) {
+         for (ltg_node& other : ltg) {
+            if (other.write_idx == it->read_idx)
+               other.num_uses--;
+         }
       }
 
       it->write_idx = -1u;
@@ -377,20 +428,26 @@ void emit_copies_block(Builder bld, std::vector<ltg_node>& ltg, RegType type)
    }
 }
 
+/* either emits or coalesces all parallelcopies and
+ * renames the phi-operands accordingly. */
 void emit_parallelcopies(cssa_ctx& ctx)
 {
    std::unordered_map<uint32_t, Operand> renames;
 
-   for (unsigned i = 0; i < ctx.program->blocks.size(); i++) {
+   /* we iterate backwards to prioritize coalescing in else-blocks */
+   for (int i = ctx.program->blocks.size() - 1; i >= 0; i--) {
+      if (ctx.parallelcopies[i].empty())
+         continue;
+
       std::vector<ltg_node> ltg;
       /* first, try to coalesce all parallelcopies */
       for (const copy& cp : ctx.parallelcopies[i]) {
          if (try_coalesce_copy(ctx, cp, i)) {
             renames.emplace(cp.def.tempId(), cp.op);
             /* update liveness info */
-            ctx.live_vars.live_out[i].erase(cp.def.tempId());
+            ctx.live_out[i].erase(cp.def.tempId());
             if (cp.op.isTemp())
-               ctx.live_vars.live_out[i].insert(cp.op.tempId());
+               ctx.live_out[i].insert(cp.op.tempId());
          } else {
             uint32_t read_idx = -1u;
             if (cp.op.isTemp())
@@ -403,12 +460,11 @@ void emit_parallelcopies(cssa_ctx& ctx)
 
       /* build location-transfer-graph */
       for (ltg_node& node : ltg) {
-         if (!node.cp.op.isTemp())
+         if (node.read_idx == -1u)
             continue;
-
          for (ltg_node& other : ltg) {
             if (other.write_idx == node.read_idx)
-               node.num_uses++;
+               other.num_uses++;
          }
       }
 
@@ -458,7 +514,8 @@ void emit_parallelcopies(cssa_ctx& ctx)
 
 void lower_to_cssa(Program* program, live& live_vars)
 {
-   cssa_ctx ctx = {program, live_vars};
+   reindex_ssa(program, live_vars.live_out);
+   cssa_ctx ctx = {program, live_vars.live_out};
    collect_parallelcopies(ctx);
    emit_parallelcopies(ctx);
 
