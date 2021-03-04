@@ -1117,6 +1117,12 @@ VkResult anv_CreateInstance(
    instance->physical_devices_enumerated = false;
    list_inithead(&instance->physical_devices);
 
+#ifdef CLOCK_MONOTONIC_RAW
+   struct timespec current;
+   instance->has_clock_monotonic_raw =
+      clock_gettime(CLOCK_MONOTONIC_RAW, &current) == 0;
+#endif
+
    instance->pipeline_cache_enabled =
       env_var_as_boolean("ANV_ENABLE_PIPELINE_CACHE", true);
 
@@ -4519,17 +4525,23 @@ VkResult anv_GetPhysicalDeviceCalibrateableTimeDomainsEXT(
    return vk_outarray_status(&out);
 }
 
+static clockid_t
+anv_select_cpu_clock_id(struct anv_instance *instance, VkTimeDomainEXT time_domain)
+{
+   assert(time_domain != VK_TIME_DOMAIN_DEVICE_EXT);
+#if CLOCK_MONOTONIC_RAW
+   if (time_domain == VK_TIME_DOMAIN_CLOCK_MONOTONIC_RAW_EXT &&
+       instance->has_clock_monotonic_raw)
+      return CLOCK_MONOTONIC_RAW;
+#endif
+   return CLOCK_MONOTONIC;
+}
+
 static uint64_t
 anv_clock_gettime(clockid_t clock_id)
 {
    struct timespec current;
-   int ret;
-
-   ret = clock_gettime(clock_id, &current);
-#ifdef CLOCK_MONOTONIC_RAW
-   if (ret < 0 && clock_id == CLOCK_MONOTONIC_RAW)
-      ret = clock_gettime(CLOCK_MONOTONIC, &current);
-#endif
+   int ret = clock_gettime(clock_id, &current);
    if (ret < 0)
       return 0;
 
@@ -4544,17 +4556,16 @@ VkResult anv_GetCalibratedTimestampsEXT(
    uint64_t                                     *pMaxDeviation)
 {
    ANV_FROM_HANDLE(anv_device, device, _device);
+   struct anv_instance *instance = device->physical->instance;
    uint64_t timestamp_frequency = device->info.timestamp_frequency;
    int  ret;
    int d;
    uint64_t begin, end;
    uint64_t max_clock_period = 0;
+   clockid_t clock_id = anv_select_cpu_clock_id(instance,
+                                                VK_TIME_DOMAIN_CLOCK_MONOTONIC_RAW_EXT);
 
-#ifdef CLOCK_MONOTONIC_RAW
-   begin = anv_clock_gettime(CLOCK_MONOTONIC_RAW);
-#else
-   begin = anv_clock_gettime(CLOCK_MONOTONIC);
-#endif
+   begin = anv_clock_gettime(clock_id);
 
    for (d = 0; d < timestampCount; d++) {
       switch (pTimestampInfos[d].timeDomain) {
@@ -4585,11 +4596,7 @@ VkResult anv_GetCalibratedTimestampsEXT(
       }
    }
 
-#ifdef CLOCK_MONOTONIC_RAW
-   end = anv_clock_gettime(CLOCK_MONOTONIC_RAW);
-#else
-   end = anv_clock_gettime(CLOCK_MONOTONIC);
-#endif
+   end = anv_clock_gettime(clock_id);
 
     /*
      * The maximum deviation is the sum of the interval over which we

@@ -981,6 +981,7 @@ struct anv_instance {
     struct list_head                            physical_devices;
 
     bool                                        pipeline_cache_enabled;
+    bool                                        has_clock_monotonic_raw;
 
     struct driOptionCache                       dri_options;
     struct driOptionCache                       available_dri_options;
