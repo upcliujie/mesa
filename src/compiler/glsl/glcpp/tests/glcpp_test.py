@@ -100,7 +100,7 @@ def _valgrind(glcpp, filename):
         stderr=subprocess.PIPE,
         stdin=subprocess.PIPE)
     _, errors = proc.communicate(contents)
-    if proc.returncode != 31:
+    if proc.returncode == 0:
         return (True, [])
     return (False, errors.decode('utf-8'))
 
