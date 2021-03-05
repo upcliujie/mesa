@@ -1360,13 +1360,14 @@ lp_build_sample_image_linear(struct lp_build_sample_context *bld,
    if (dims == 1) {
       assert(!is_gather);
       if (bld->static_sampler_state->compare_mode == PIPE_TEX_COMPARE_NONE) {
-         /* Interpolate two samples from 1D image to produce one color */
-         for (chan = 0; chan < 4; chan++) {
-            colors_out[chan] = lp_build_lerp(texel_bld, s_fpart,
-                                             neighbors[0][0][chan],
-                                             neighbors[0][1][chan],
-                                             0);
-         }
+         lp_build_reduce_filter(texel_bld,
+                                bld->static_sampler_state->reduction_mode,
+                                0,
+                                4,
+                                s_fpart,
+                                neighbors[0][0],
+                                neighbors[0][1],
+                                colors_out);
       }
       else {
          LLVMValueRef cmpval0, cmpval1;
@@ -1619,15 +1620,17 @@ lp_build_sample_image_linear(struct lp_build_sample_context *bld,
          }
          else {
             /* Bilinear interpolate the four samples from the 2D image / 3D slice */
-            for (chan = 0; chan < 4; chan++) {
-               colors0[chan] = lp_build_lerp_2d(texel_bld,
-                                                s_fpart, t_fpart,
-                                                neighbors[0][0][chan],
-                                                neighbors[0][1][chan],
-                                                neighbors[1][0][chan],
-                                                neighbors[1][1][chan],
-                                                0);
-            }
+            lp_build_reduce_filter_2d(texel_bld,
+                                      bld->static_sampler_state->reduction_mode,
+                                      0,
+                                      4,
+                                      s_fpart,
+                                      t_fpart,
+                                      neighbors[0][0],
+                                      neighbors[0][1],
+                                      neighbors[1][0],
+                                      neighbors[1][1],
+                                      colors0);
          }
       }
       else {
@@ -1699,22 +1702,27 @@ lp_build_sample_image_linear(struct lp_build_sample_context *bld,
 
          if (bld->static_sampler_state->compare_mode == PIPE_TEX_COMPARE_NONE) {
             /* Bilinear interpolate the four samples from the second Z slice */
-            for (chan = 0; chan < 4; chan++) {
-               colors1[chan] = lp_build_lerp_2d(texel_bld,
-                                                s_fpart, t_fpart,
-                                                neighbors1[0][0][chan],
-                                                neighbors1[0][1][chan],
-                                                neighbors1[1][0][chan],
-                                                neighbors1[1][1][chan],
-                                                0);
-            }
+            lp_build_reduce_filter_2d(texel_bld,
+                                      bld->static_sampler_state->reduction_mode,
+                                      0,
+                                      4,
+                                      s_fpart,
+                                      t_fpart,
+                                      neighbors1[0][0],
+                                      neighbors1[0][1],
+                                      neighbors1[1][0],
+                                      neighbors1[1][1],
+                                      colors1);
+
             /* Linearly interpolate the two samples from the two 3D slices */
-            for (chan = 0; chan < 4; chan++) {
-               colors_out[chan] = lp_build_lerp(texel_bld,
-                                                r_fpart,
-                                                colors0[chan], colors1[chan],
-                                                0);
-            }
+            lp_build_reduce_filter(texel_bld,
+                                   bld->static_sampler_state->reduction_mode,
+                                   0,
+                                   4,
+                                   r_fpart,
+                                   colors0,
+                                   colors1,
+                                   colors_out);
          }
          else {
             LLVMValueRef cmpval00, cmpval01, cmpval10, cmpval11;
