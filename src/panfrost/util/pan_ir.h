@@ -143,6 +143,9 @@ struct bifrost_shader_blend_info {
 struct bifrost_shader_info {
         struct bifrost_shader_blend_info blend[8];
         bool wait_6, wait_7;
+
+        /* Packed, preloaded message descriptors */
+        uint16_t messages[2];
 };
 
 struct midgard_shader_info {
