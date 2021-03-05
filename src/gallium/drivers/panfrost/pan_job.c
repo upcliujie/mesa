@@ -850,7 +850,7 @@ panfrost_load_surface(struct panfrost_batch *batch, struct pipe_surface *surf, u
                    PAN_BO_ACCESS_FRAGMENT);
 
                 memcpy(bo->ptr.cpu, b->buffer, b->size);
-                assert(b->work_count <= 4);
+                assert(pan_is_bifrost(batch->pool.dev) || b->work_count <= 4);
 
                 blend_shader = bo->ptr.gpu | b->first_tag;
         }
