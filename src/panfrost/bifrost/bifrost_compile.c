@@ -3972,6 +3972,10 @@ bi_compile_variant_nir(nir_shader *nir,
                 bi_opt_push_ubo(ctx);
         }
 
+        /* Push LD_VAR_IMM/VAR_TEX instructions */
+        if (optimize && ctx->arch == 7 && ctx->stage == MESA_SHADER_FRAGMENT)
+                bi_opt_message_preload(ctx);
+
         if (likely(optimize)) {
                 bi_opt_copy_prop(ctx);
                 bi_opt_constant_fold(ctx);
