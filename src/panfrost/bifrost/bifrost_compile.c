@@ -2975,6 +2975,10 @@ bifrost_compile_shader_nir(nir_shader *nir,
                 block->base.name = block_source_count++;
         }
 
+        /* Push LD_VAR_IMM/VAR_TEX instructions, TODO: enable when RA can cope */
+        if (ctx->arch == 7 && ctx->stage == MESA_SHADER_FRAGMENT && 0)
+                bi_opt_message_preload(ctx);
+
         /* Runs before copy prop */
         bi_opt_push_ubo(ctx);
 
