@@ -2888,6 +2888,26 @@ bi_lower_branch(bi_block *block)
         }
 }
 
+/* TODO: Amortize cost by integrating with RA? */
+
+static void
+bi_analyze_registers(bi_context *ctx)
+{
+        uint64_t registers_used = 0;
+
+        bi_foreach_instr_global(ctx, ins) {
+                bi_foreach_dest(ins, d) {
+                        if (ins->dest[d].type != BI_INDEX_REGISTER) continue;
+                        unsigned reg = ins->dest[d].value;
+                        unsigned count = bi_count_write_registers(ins, d);
+                        unsigned mask = (1 << count) - 1;
+                        registers_used |= ((uint64_t) mask) << reg;
+                }
+        }
+
+        ctx->registers_used = registers_used;
+}
+
 void
 bifrost_compile_shader_nir(nir_shader *nir,
                            const struct panfrost_compile_inputs *inputs,
@@ -2980,6 +3000,7 @@ bifrost_compile_shader_nir(nir_shader *nir,
         bi_schedule(ctx);
         bi_assign_scoreboard(ctx);
         bi_register_allocate(ctx);
+        bi_analyze_registers(ctx);
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal)
                 bi_print_shader(ctx, stdout);
 
@@ -2993,6 +3014,12 @@ bifrost_compile_shader_nir(nir_shader *nir,
         unsigned first_deps = first_clause ? first_clause->dependencies : 0;
         info->bifrost.wait_6 = (first_deps & (1 << 6));
         info->bifrost.wait_7 = (first_deps & (1 << 7));
+
+        /* Round work register count up to 32 or 64 noting "32 registers"
+         * corresponds to [R0, R15] U [R48, R63] */
+
+        info->work_reg_count =
+                (ctx->registers_used & (((1ull << 32) - 1) << 16)) ? 64 : 32;
 
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal) {
                 disassemble_bifrost(stdout, binary->data, binary->size,

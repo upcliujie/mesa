@@ -532,6 +532,7 @@ typedef struct {
        unsigned loop_count;
        unsigned spills;
        unsigned fills;
+       uint64_t registers_used;
 } bi_context;
 
 static inline void
