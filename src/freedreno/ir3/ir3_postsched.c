@@ -197,7 +197,7 @@ choose_instr(struct ir3_postsched_ctx *ctx)
 		if (d > 0)
 			continue;
 
-		if (!is_kill(n->instr))
+		if (!is_kill_or_demote(n->instr))
 			continue;
 
 		if (!chosen || (chosen->max_delay < n->max_delay))
@@ -553,7 +553,7 @@ sched_dag_init(struct ir3_postsched_ctx *ctx)
 			dag_add_edge(&sn->dag, &n->dag, NULL);
 		}
 
-		if (is_kill(instr)) {
+		if (is_kill_or_demote(instr)) {
 			util_dynarray_append(&kills, struct ir3_instruction *, instr);
 		} else if (is_tex(instr) || is_mem(instr)) {
 			util_dynarray_foreach(&kills, struct ir3_instruction *, instrp) {

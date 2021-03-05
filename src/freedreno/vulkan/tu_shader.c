@@ -68,6 +68,7 @@ tu_spirv_to_nir(struct tu_device *dev,
          .multiview = true,
          .shader_viewport_index_layer = true,
          .geometry_streams = true,
+         .demote_to_helper_invocation = true,
       },
    };
    const nir_shader_compiler_options *nir_options =
@@ -171,6 +172,8 @@ tu_spirv_to_nir(struct tu_device *dev,
    NIR_PASS_V(nir, nir_lower_indirect_derefs, nir_var_shader_in | nir_var_shader_out, UINT32_MAX);
 
    NIR_PASS_V(nir, nir_lower_io_arrays_to_elements_no_indirects, false);
+
+   NIR_PASS_V(nir, nir_lower_is_helper_invocation);
 
    NIR_PASS_V(nir, nir_lower_system_values);
    NIR_PASS_V(nir, nir_lower_compute_system_values, NULL);
