@@ -205,6 +205,7 @@ struct lp_static_sampler_state
    /* Hacks */
    unsigned force_nearest_s:1;
    unsigned force_nearest_t:1;
+   unsigned reduction_mode:2;
 };
 
 
