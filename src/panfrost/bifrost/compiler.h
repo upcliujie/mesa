@@ -985,6 +985,7 @@ void bi_opt_mod_prop_backward(bi_context *ctx);
 void bi_opt_dead_code_eliminate(bi_context *ctx);
 void bi_opt_fuse_dual_texture(bi_context *ctx);
 void bi_opt_dce_post_ra(bi_context *ctx);
+void bi_opt_message_preload(bi_context *ctx);
 void bi_opt_push_ubo(bi_context *ctx);
 void bi_lower_swizzle(bi_context *ctx);
 void bi_lower_fau(bi_context *ctx);
@@ -1129,6 +1130,15 @@ bi_after_instr(bi_instr *instr)
         .option = bi_cursor_after_instr,
         .instr = instr
     };
+}
+
+static inline bi_cursor
+bi_before_nonempty_block(bi_block *block)
+{
+        bi_instr *I = list_first_entry(&block->instructions, bi_instr, link);
+        assert(I != NULL);
+
+        return bi_before_instr(I);
 }
 
 /* Invariant: a tuple must be nonempty UNLESS it is the last tuple of a clause,
