@@ -48,6 +48,7 @@ static const struct debug_named_value bifrost_debug_options[] = {
         {"noopt",     BIFROST_DBG_NOOPT,        "Skip optimization passes"},
         {"noidvs",    BIFROST_DBG_NOIDVS,       "Disable IDVS"},
         {"nosb",      BIFROST_DBG_NOSB,         "Disable scoreboarding"},
+        {"nopreload", BIFROST_DBG_NOPRELOAD,    "Disable message preloading"},
         DEBUG_NAMED_VALUE_END
 };
 
@@ -3260,6 +3261,34 @@ bi_count_tuple_stats(bi_clause *clause, bi_tuple *tuple, struct bi_stats *stats)
 
 }
 
+/*
+ * v7 allows preloading LD_VAR or VAR_TEX messages that must complete before the
+ * shader completes. These costs are not accounted for in the general cycle
+ * counts, so this function calculates the effective cost of these messages, as
+ * if they were executed by shader code.
+ */
+static unsigned
+bi_count_preload_cost(bi_context *ctx)
+{
+        /* Units: 1/16 of a normalized cycle, assuming that we may interpolate
+         * 16 fp16 varying components per cycle or fetch two texels per cycle.
+         */
+        unsigned cost = 0;
+
+        for (unsigned i = 0; i < ARRAY_SIZE(ctx->info.bifrost->messages); ++i) {
+                struct bifrost_message_preload msg = ctx->info.bifrost->messages[i];
+
+                if (msg.enabled && msg.texture) {
+                        /* 2 coordinate, 2 half-words each, plus texture */
+                        cost += 12;
+                } else if (msg.enabled) {
+                        cost += (msg.num_components * (msg.fp16 ? 1 : 2));
+                }
+        }
+
+        return cost;
+}
+
 static const char *
 bi_shader_stage_name(bi_context *ctx)
 {
@@ -3317,16 +3346,20 @@ bi_print_stats(bi_context *ctx, unsigned size, FILE *fp)
         fprintf(stderr, "%s - %s shader: "
                         "%u inst, %u tuples, %u clauses, "
                         "%f cycles, %f arith, %f texture, %f vary, %f ldst, "
-                        "%u quadwords, %u threads, %u loops, "
-                        "%u:%u spills:fills\n",
+                        "%u quadwords, %u threads",
                         ctx->nir->info.label ?: "",
                         bi_shader_stage_name(ctx),
                         stats.nr_ins, stats.nr_tuples, stats.nr_clauses,
                         cycles_bound, cycles_arith, cycles_texture,
                         cycles_varying, cycles_ldst,
-                        size / 16, nr_threads,
-                        ctx->loop_count,
-                        ctx->spills, ctx->fills);
+                        size / 16, nr_threads);
+
+        if (ctx->arch == 7) {
+                fprintf(stderr, ", %u preloads", bi_count_preload_cost(ctx));
+        }
+
+        fprintf(stderr, ", %u loops, %u:%u spills:fills\n",
+                        ctx->loop_count, ctx->spills, ctx->fills);
 }
 
 static int
@@ -3970,6 +4003,12 @@ bi_compile_variant_nir(nir_shader *nir,
         /* Runs before copy prop */
         if (optimize && !ctx->inputs->no_ubo_to_push) {
                 bi_opt_push_ubo(ctx);
+        }
+
+        /* Push LD_VAR_IMM/VAR_TEX instructions */
+        if (optimize && ctx->arch == 7 && ctx->stage == MESA_SHADER_FRAGMENT &&
+            !(bifrost_debug & BIFROST_DBG_NOPRELOAD)) {
+                bi_opt_message_preload(ctx);
         }
 
         if (likely(optimize)) {
