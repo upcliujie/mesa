@@ -768,6 +768,8 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
       return NULL;
    }
 
+   brw_process_intel_debug_variable();
+
    struct iris_screen *screen = rzalloc(NULL, struct iris_screen);
    if (!screen)
       return NULL;
@@ -809,8 +811,6 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
 
    if (!iris_init_identifier_bo(screen))
       return NULL;
-
-   brw_process_intel_debug_variable();
 
    screen->driconf.dual_color_blend_by_location =
       driQueryOptionb(config->options, "dual_color_blend_by_location");

@@ -2568,6 +2568,7 @@ __DRIconfig **brw_init_screen(__DRIscreen *dri_screen)
    struct brw_screen *screen;
 
    util_cpu_detect();
+   brw_process_intel_debug_variable();
 
    if (dri_screen->image.loader) {
    } else if (dri_screen->dri2.loader->base.version <= 2 ||
@@ -2610,8 +2611,6 @@ __DRIconfig **brw_init_screen(__DRIscreen *dri_screen)
 
    if (!brw_init_bufmgr(screen))
        return NULL;
-
-   brw_process_intel_debug_variable();
 
    if ((INTEL_DEBUG & DEBUG_SHADER_TIME) && devinfo->gen < 7) {
       fprintf(stderr,
