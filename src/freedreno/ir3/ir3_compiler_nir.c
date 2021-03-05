@@ -2659,15 +2659,18 @@ resolve_phis(struct ir3_context *ctx, struct ir3_block *block)
 
 		for (unsigned i = 0; i < block->predecessors_count; i++) {
 			struct ir3_block *pred = block->predecessors[i];
-			struct ir3_instruction *src = NULL;
 			nir_foreach_phi_src(nsrc, nphi) {
 				if (get_block(ctx, nsrc->pred) == pred) {
-					src = ir3_get_src(ctx, &nsrc->src)[0];
+					if (nsrc->src.ssa->parent_instr->type == nir_instr_type_ssa_undef) {
+						/* Create an ir3 undef */
+						ir3_reg_create(phi, INVALID_REG, phi->regs[0]->flags & ~IR3_REG_DEST);
+					} else {
+						struct ir3_instruction *src = ir3_get_src(ctx, &nsrc->src)[0];
+						__ssa_src(phi, src, 0);
+					}
 					break;
 				}
 			}
-			assert(src);
-			__ssa_src(phi, src, 0);
 		}
 	}
 }
