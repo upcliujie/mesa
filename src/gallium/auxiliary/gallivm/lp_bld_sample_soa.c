@@ -1619,14 +1619,29 @@ lp_build_sample_image_linear(struct lp_build_sample_context *bld,
          }
          else {
             /* Bilinear interpolate the four samples from the 2D image / 3D slice */
-            for (chan = 0; chan < 4; chan++) {
-               colors0[chan] = lp_build_lerp_2d(texel_bld,
-                                                s_fpart, t_fpart,
-                                                neighbors[0][0][chan],
-                                                neighbors[0][1][chan],
-                                                neighbors[1][0][chan],
-                                                neighbors[1][1][chan],
-                                                0);
+            if (bld->static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_MIN) {
+               for (chan = 0; chan < 4; chan++)
+                  colors0[chan] = lp_build_min_2d(texel_bld,
+                                                  neighbors[0][0][chan],
+                                                  neighbors[0][1][chan],
+                                                  neighbors[1][0][chan],
+                                                  neighbors[1][1][chan]);
+            } else if (bld->static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_MAX) {
+               for (chan = 0; chan < 4; chan++)
+                  colors0[chan] = lp_build_max_2d(texel_bld,
+                                                  neighbors[0][0][chan],
+                                                  neighbors[0][1][chan],
+                                                  neighbors[1][0][chan],
+                                                  neighbors[1][1][chan]);
+            } else {
+               for (chan = 0; chan < 4; chan++)
+                  colors0[chan] = lp_build_lerp_2d(texel_bld,
+                                                   s_fpart, t_fpart,
+                                                   neighbors[0][0][chan],
+                                                   neighbors[0][1][chan],
+                                                   neighbors[1][0][chan],
+                                                   neighbors[1][1][chan],
+                                                   0);
             }
          }
       }
