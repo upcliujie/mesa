@@ -87,6 +87,7 @@ bi_varying_src0_for_barycentric(bi_builder *b, nir_intrinsic_instr *intr)
 {
         switch (intr->intrinsic) {
         case nir_intrinsic_load_barycentric_centroid:
+        case nir_intrinsic_load_barycentric_pixel:
         case nir_intrinsic_load_barycentric_sample:
                 return bi_register(61);
 
@@ -131,7 +132,6 @@ bi_varying_src0_for_barycentric(bi_builder *b, nir_intrinsic_instr *intr)
                 return bi_v2f16_to_v2s16(b, f16, BI_ROUND_RTZ);
         }
 
-        case nir_intrinsic_load_barycentric_pixel:
         default:
                 return bi_dontcare();
         }
@@ -145,10 +145,10 @@ bi_interp_for_intrinsic(nir_intrinsic_op op)
                 return BI_SAMPLE_CENTROID;
         case nir_intrinsic_load_barycentric_sample:
         case nir_intrinsic_load_barycentric_at_sample:
+        case nir_intrinsic_load_barycentric_pixel:
                 return BI_SAMPLE_SAMPLE;
         case nir_intrinsic_load_barycentric_at_offset:
                 return BI_SAMPLE_EXPLICIT;
-        case nir_intrinsic_load_barycentric_pixel:
         default:
                 return BI_SAMPLE_CENTER;
         }
