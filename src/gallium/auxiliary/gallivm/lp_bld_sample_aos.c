@@ -705,34 +705,75 @@ lp_build_sample_fetch_image_linear(struct lp_build_sample_context *bld,
    else {
       /* general 1/2/3-D lerping */
       if (dims == 1) {
-         packed = lp_build_lerp(&u8n,
-                                s_fpart,
-                                neighbors[0][0][0],
-                                neighbors[0][0][1],
-                                LP_BLD_LERP_PRESCALED_WEIGHTS);
-      } else if (dims == 2) {
-         /* 2-D lerp */
-         packed = lp_build_lerp_2d(&u8n,
-                                   s_fpart, t_fpart,
+         if (bld->static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_MIN)
+            packed = lp_build_min(&u8n, neighbors[0][0][0],
+                                  neighbors[0][0][1]);
+         else if (bld->static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_MAX)
+            packed = lp_build_max(&u8n, neighbors[0][0][0],
+                                  neighbors[0][0][1]);
+         else
+            packed = lp_build_lerp(&u8n,
+                                   s_fpart,
                                    neighbors[0][0][0],
                                    neighbors[0][0][1],
-                                   neighbors[0][1][0],
-                                   neighbors[0][1][1],
                                    LP_BLD_LERP_PRESCALED_WEIGHTS);
+      } else if (dims == 2) {
+         /* 2-D lerp */
+         if (bld->static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_MIN)
+            packed = lp_build_min_2d(&u8n,
+                                     neighbors[0][0][0],
+                                     neighbors[0][0][1],
+                                     neighbors[0][1][0],
+                                     neighbors[0][1][1]);
+         else if (bld->static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_MAX)
+            packed = lp_build_max_2d(&u8n,
+                                     neighbors[0][0][0],
+                                     neighbors[0][0][1],
+                                     neighbors[0][1][0],
+                                     neighbors[0][1][1]);
+         else
+            packed = lp_build_lerp_2d(&u8n,
+                                      s_fpart, t_fpart,
+                                      neighbors[0][0][0],
+                                      neighbors[0][0][1],
+                                      neighbors[0][1][0],
+                                      neighbors[0][1][1],
+                                      LP_BLD_LERP_PRESCALED_WEIGHTS);
       } else {
          /* 3-D lerp */
          assert(dims == 3);
-         packed = lp_build_lerp_3d(&u8n,
-                                   s_fpart, t_fpart, r_fpart,
-                                   neighbors[0][0][0],
-                                   neighbors[0][0][1],
-                                   neighbors[0][1][0],
-                                   neighbors[0][1][1],
-                                   neighbors[1][0][0],
-                                   neighbors[1][0][1],
-                                   neighbors[1][1][0],
-                                   neighbors[1][1][1],
-                                   LP_BLD_LERP_PRESCALED_WEIGHTS);
+         if (bld->static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_MIN)
+            packed = lp_build_min_3d(&u8n,
+                                     neighbors[0][0][0],
+                                     neighbors[0][0][1],
+                                     neighbors[0][1][0],
+                                     neighbors[0][1][1],
+                                     neighbors[1][0][0],
+                                     neighbors[1][0][1],
+                                     neighbors[1][1][0],
+                                     neighbors[1][1][1]);
+         else if (bld->static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_MAX)
+            packed = lp_build_max_3d(&u8n,
+                                     neighbors[0][0][0],
+                                     neighbors[0][0][1],
+                                     neighbors[0][1][0],
+                                     neighbors[0][1][1],
+                                     neighbors[1][0][0],
+                                     neighbors[1][0][1],
+                                     neighbors[1][1][0],
+                                     neighbors[1][1][1]);
+         else
+            packed = lp_build_lerp_3d(&u8n,
+                                      s_fpart, t_fpart, r_fpart,
+                                      neighbors[0][0][0],
+                                      neighbors[0][0][1],
+                                      neighbors[0][1][0],
+                                      neighbors[0][1][1],
+                                      neighbors[1][0][0],
+                                      neighbors[1][0][1],
+                                      neighbors[1][1][0],
+                                      neighbors[1][1][1],
+                                      LP_BLD_LERP_PRESCALED_WEIGHTS);
       }
    }
 
@@ -1092,9 +1133,17 @@ lp_build_sample_mipmap(struct lp_build_sample_context *bld,
                                                LLVMConstVector(shuffle, u8n_bld.type.length), "");
          }
 
-         colors0 = lp_build_lerp(&u8n_bld, lod_fpart,
-                                 colors0, colors1,
-                                 LP_BLD_LERP_PRESCALED_WEIGHTS);
+         if (bld->static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_MIN) {
+            colors0 = lp_build_min(&u8n_bld,
+                                   colors0, colors1);
+         } else if (bld->static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_MAX) {
+            colors0 = lp_build_max(&u8n_bld,
+                                   colors0, colors1);
+         } else {
+            colors0 = lp_build_lerp(&u8n_bld, lod_fpart,
+                                    colors0, colors1,
+                                    LP_BLD_LERP_PRESCALED_WEIGHTS);
+         }
 
          LLVMBuildStore(builder, colors0, colors_var);
       }

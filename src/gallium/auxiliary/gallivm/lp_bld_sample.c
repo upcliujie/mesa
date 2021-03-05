@@ -193,7 +193,7 @@ lp_sampler_static_sampler_state(struct lp_static_sampler_state *state,
    state->mag_img_filter    = sampler->mag_img_filter;
    state->min_mip_filter    = sampler->min_mip_filter;
    state->seamless_cube_map = sampler->seamless_cube_map;
-
+   state->reduction_mode    = sampler->reduction_mode;
    if (sampler->max_lod > 0.0f) {
       state->max_lod_pos = 1;
    }
