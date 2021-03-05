@@ -776,6 +776,7 @@ void bi_print_shader(bi_context *ctx, FILE *fp);
 void bi_opt_copy_prop(bi_context *ctx);
 void bi_opt_dead_code_eliminate(bi_context *ctx);
 void bi_opt_dce_post_ra(bi_context *ctx);
+void bi_opt_message_preload(bi_context *ctx);
 void bi_opt_push_ubo(bi_context *ctx);
 void bi_opt_constant_fold(bi_context *ctx);
 void bi_lower_swizzle(bi_context *ctx);

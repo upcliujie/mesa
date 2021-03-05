@@ -29,9 +29,9 @@ inc_panfrost = include_directories([
 
 subdir('shared')
 subdir('util')
+subdir('lib')
 subdir('midgard')
 subdir('bifrost')
-subdir('lib')
 subdir('perf')
 
 files_bifrost = files(

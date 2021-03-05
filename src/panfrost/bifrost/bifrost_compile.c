@@ -3415,6 +3415,10 @@ bifrost_compile_shader_nir(nir_shader *nir,
                 bi_emit_atest(&b, bi_zero());
         }
 
+        /* Push LD_VAR_IMM/VAR_TEX instructions */
+        if (ctx->arch == 7 && ctx->stage == MESA_SHADER_FRAGMENT)
+                bi_opt_message_preload(ctx);
+
         /* Runs before constant folding */
         bi_lower_swizzle(ctx);
 
