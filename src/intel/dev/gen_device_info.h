@@ -275,6 +275,11 @@ struct gen_device_info
     * no_hw is true when the chipset_id pci device id has been overridden
     */
    bool no_hw;
+
+   /**
+    * no_compression is true when overridden by INTEL_DEBUG=norbc
+    */
+   bool no_compression;
    /** @} */
 };
 

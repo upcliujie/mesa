@@ -369,7 +369,7 @@ modifier_is_supported(const struct gen_device_info *devinfo,
 
    if (modinfo->aux_usage == ISL_AUX_USAGE_CCS_E) {
       /* If INTEL_DEBUG=norbc is set, don't support any CCS_E modifiers */
-      if (INTEL_DEBUG & DEBUG_NO_RBC)
+      if (unlikely(devinfo->no_compression))
          return false;
 
       /* CCS_E is not supported for planar images */

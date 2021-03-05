@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "gen_debug.h"
 #include "gen_device_info.h"
 #include "compiler/shader_enums.h"
 #include "intel/common/gen_gem.h"
@@ -1458,6 +1459,8 @@ gen_get_device_info_from_fd(int fd, struct gen_device_info *devinfo)
 
    gen_get_aperture_size(fd, &devinfo->aperture_bytes);
    devinfo->has_tiling_uapi = gen_has_get_tiling(fd);
+
+   devinfo->no_compression = INTEL_DEBUG & DEBUG_NO_RBC;
 
    return true;
 }

@@ -147,7 +147,7 @@ isl_drm_modifier_get_score(const struct gen_device_info *devinfo,
       if (devinfo->gen >= 12)
          return 0;
 
-      if (INTEL_DEBUG & DEBUG_NO_RBC)
+      if (unlikely(devinfo->no_compression))
          return 0;
 
       return 4;
