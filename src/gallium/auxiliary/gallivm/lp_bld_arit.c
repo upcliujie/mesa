@@ -1580,6 +1580,53 @@ lp_build_min(struct lp_build_context *bld,
    return lp_build_min_simple(bld, a, b, GALLIVM_NAN_BEHAVIOR_UNDEFINED);
 }
 
+LLVMValueRef
+lp_build_min_2d(struct lp_build_context *bld,
+                LLVMValueRef a,
+                LLVMValueRef b,
+                LLVMValueRef c,
+                LLVMValueRef d)
+{
+   LLVMValueRef v0 = lp_build_min(bld, a, b);
+   LLVMValueRef v1 = lp_build_min(bld, c, d);
+   return lp_build_min(bld, v0, v1);
+}
+
+LLVMValueRef
+lp_build_max_2d(struct lp_build_context *bld,
+                LLVMValueRef a,
+                LLVMValueRef b,
+                LLVMValueRef c,
+                LLVMValueRef d)
+{
+   LLVMValueRef v0 = lp_build_max(bld, a, b);
+   LLVMValueRef v1 = lp_build_max(bld, c, d);
+   return lp_build_max(bld, v0, v1);
+}
+
+LLVMValueRef
+lp_build_min_3d(struct lp_build_context *bld,
+                LLVMValueRef a, LLVMValueRef b,
+                LLVMValueRef c, LLVMValueRef d,
+                LLVMValueRef e, LLVMValueRef f,
+                LLVMValueRef g, LLVMValueRef h)
+{
+   LLVMValueRef v0 = lp_build_min_2d(bld, a, b, c, d);
+   LLVMValueRef v1 = lp_build_min_2d(bld, e, f, g, h);
+   return lp_build_min(bld, v0, v1);
+}
+
+LLVMValueRef
+lp_build_max_3d(struct lp_build_context *bld,
+                LLVMValueRef a, LLVMValueRef b,
+                LLVMValueRef c, LLVMValueRef d,
+                LLVMValueRef e, LLVMValueRef f,
+                LLVMValueRef g, LLVMValueRef h)
+{
+   LLVMValueRef v0 = lp_build_max_2d(bld, a, b, c, d);
+   LLVMValueRef v1 = lp_build_max_2d(bld, e, f, g, h);
+   return lp_build_max(bld, v0, v1);
+}
 
 /**
  * Generate min(a, b)
