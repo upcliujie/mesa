@@ -608,6 +608,13 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          break;
       }
 
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES_KHR: {
+         VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR *features =
+            (VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR *)ext;
+         features->shaderTerminateInvocation = true;
+         break;
+      }
+
       default:
          break;
       }

@@ -104,6 +104,7 @@ EXTENSIONS = [
     Extension('VK_KHR_performance_query',                 1, 'device->instance->debug_flags & TU_DEBUG_PERFC'),
     Extension('VK_EXT_memory_budget',                     1, True),
     Extension('VK_EXT_shader_demote_to_helper_invocation', 1, True),
+    Extension('VK_KHR_shader_terminate_invocation',       1, True),
 ]
 
 MAX_API_VERSION = VkVersion(MAX_API_VERSION)
