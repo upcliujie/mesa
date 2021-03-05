@@ -213,6 +213,35 @@ lp_build_max_ext(struct lp_build_context *bld,
                  enum gallivm_nan_behavior nan_behavior);
 
 LLVMValueRef
+lp_build_min_2d(struct lp_build_context *bld,
+                LLVMValueRef a,
+                LLVMValueRef b,
+                LLVMValueRef c,
+                LLVMValueRef d);
+
+LLVMValueRef
+lp_build_max_2d(struct lp_build_context *bld,
+                LLVMValueRef a,
+                LLVMValueRef b,
+                LLVMValueRef c,
+                LLVMValueRef d);
+
+
+LLVMValueRef
+lp_build_min_3d(struct lp_build_context *bld,
+                LLVMValueRef a, LLVMValueRef b,
+                LLVMValueRef c, LLVMValueRef d,
+                LLVMValueRef e, LLVMValueRef f,
+                LLVMValueRef g, LLVMValueRef h);
+
+LLVMValueRef
+lp_build_max_3d(struct lp_build_context *bld,
+                LLVMValueRef a, LLVMValueRef b,
+                LLVMValueRef c, LLVMValueRef d,
+                LLVMValueRef e, LLVMValueRef f,
+                LLVMValueRef g, LLVMValueRef h);
+
+LLVMValueRef
 lp_build_clamp(struct lp_build_context *bld,
                LLVMValueRef a,
                LLVMValueRef min,
