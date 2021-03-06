@@ -128,7 +128,7 @@ public:
 
    int fd;
    int ctx_id;
-   gen_device_info devinfo;
+//   gen_device_info devinfo;
 
    uint32_t batch_bo_handle;
 #if GEN_GEN >= 8
@@ -193,12 +193,12 @@ mi_builder_test::SetUp()
          ASSERT_EQ(drmIoctl(fd, DRM_IOCTL_I915_GETPARAM,
                             (void *)&getparam), 0) << strerror(errno);
 
-         ASSERT_TRUE(gen_get_device_info_from_pci_id(device_id, &devinfo));
-         if (devinfo.gen != GEN_GEN || devinfo.is_haswell != GEN_IS_HASWELL) {
-            close(fd);
-            fd = -1;
-            continue;
-         }
+//         ASSERT_TRUE(gen_get_device_info_from_pci_id(device_id, &devinfo));
+//         if (devinfo.gen != GEN_GEN || devinfo.is_haswell != GEN_IS_HASWELL) {
+//            close(fd);
+//            fd = -1;
+//            continue;
+//         }
 
 
          /* Found a device! */
