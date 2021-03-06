@@ -9,7 +9,7 @@ from mesonbuild import optinterpreter
 
 def describe_option(option_name: str, option_default_value: str,
                     option_type: str, option_message: str) -> None:
-    print('name:    ' + option_name)
+    print('name:    ' + str(option_name))
     print('default: ' + option_default_value)
     print('type:    ' + option_type)
     for line in wrap(option_message, width=COLUMNS - 9):
