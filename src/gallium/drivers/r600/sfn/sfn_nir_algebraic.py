@@ -23,6 +23,10 @@
 import argparse
 import sys
 
+a = 'a'
+b = 'b'
+c = 'c'
+
 lower_alu = [
    # For chipfamily r600 one must do fma (2*pi ffract() - 0.5)
    (('fsin', "a@32"), ('fsin_r600', ('fadd', ('ffract', ('ffma', a, 0.15915494, 0.5)), -0.5))),
@@ -32,6 +36,27 @@ lower_alu = [
     ('bcsel', ('ult', 31, 'bits'), 'insert',
               ('bfi_r600', ('bfm', 'bits', 'offset'), ('ishl', 'insert', 'offset'), 'base'))),
 
+   (('bcsel', ('ilt', 0, 'a@32'), 'b@32', 'c@32'), ('i32csel_gt', a, b, c)),
+   (('bcsel', ('ilt', 'a@32', 0), 'b@32', 'c@32'), ('i32csel_ge', a, c, b)),
+
+   (('bcsel', ('ige', 'a@32', 0), 'b@32', 'c@32'), ('i32csel_ge', a, b, c)),
+   (('bcsel', ('ige', 0, 'a@32'), 'b@32', 'c@32'), ('i32csel_gt', a, c, b)),
+
+   (('fcsel', ('slt', 0, a), b, c), ('fcsel_gt', a, b, c)),
+   (('fcsel', ('slt', a, 0), b, c), ('fcsel_ge', a, c, b)),
+
+   (('fcsel', ('sge', a, 0), b, c), ('fcsel_ge', a, b, c)),
+   (('fcsel', ('sge', 0, a), b, c), ('fcsel_gt', a, c, b)),
+
+   (('ifind_msb', 'value'),
+    ('i32csel_ge', ('ifind_msb_rev', 'value'),
+                   ('isub', 31, ('ifind_msb_rev', 'value')),
+                   ('ifind_msb_rev', 'value'))),
+
+   (('ufind_msb', 'value'),
+    ('i32csel_ge', ('ufind_msb_rev', 'value'),
+	  	   ('isub', 31, ('ufind_msb_rev', 'value')),
+		   ('ufind_msb_rev', 'value'))),
 ]
 
 def main():
