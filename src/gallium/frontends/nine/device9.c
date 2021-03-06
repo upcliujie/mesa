@@ -2978,18 +2978,18 @@ NineDevice9_DrawPrimitiveUP( struct NineDevice9 *This,
     u_upload_data(This->vertex_uploader,
                   0,
                   (prim_count_to_vertex_count(PrimitiveType, PrimitiveCount)) * VertexStreamZeroStride,
-                  64,
+                  1,
                   pVertexStreamZeroData,
                   &buffer_offset,
                   &resource);
     u_upload_unmap(This->vertex_uploader);
 
     nine_context_set_stream_source_apply(This, 0, resource,
-                                         buffer_offset, VertexStreamZeroStride);
+                                         buffer_offset%VertexStreamZeroStride, VertexStreamZeroStride);
     pipe_resource_reference(&resource, NULL);
 
     NineBeforeDraw(This);
-    nine_context_draw_primitive(This, PrimitiveType, 0, PrimitiveCount);
+    nine_context_draw_primitive(This, PrimitiveType, buffer_offset/VertexStreamZeroStride, PrimitiveCount);
     NineAfterDraw(This);
 
     NineDevice9_PauseRecording(This);
