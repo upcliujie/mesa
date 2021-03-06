@@ -454,6 +454,16 @@ for (int bit = bit_size - 1; bit >= 0; bit--) {
 }
 """)
 
+unop_convert("ufind_msb_rev", tint32, tuint, """
+dst = -1;
+for (int bit = 0; bit < bit_size; bit++) {
+   if (!(src0 >> bit)) {
+      dst = bit;
+      break;
+   }
+}
+""")
+
 unop("uclz", tuint32, """
 int bit;
 for (bit = bit_size - 1; bit >= 0; bit--) {
@@ -473,6 +483,22 @@ for (int bit = 31; bit >= 0; bit--) {
       (!((src0 >> bit) & 1) && (src0 < 0))) {
       dst = bit;
       break;
+   }
+}
+""")
+
+unop_convert("ifind_msb_rev", tint32, tuint, """
+dst = -1;
+if (src0 != 0 || src0 != -1) {
+   for (int bit = 0; bit < 32; bit++) {
+      /* If src0 < 0, we're looking for the first 0 bit.
+       * if src0 >= 0, we're looking for the first 1 bit.
+       */
+      if (((!(src0 >> bit)) && (src0 >= 0)) ||
+          ((src0 >> bit) && (src0 < 0))) {
+         dst = bit;
+         break;
+      }
    }
 }
 """)
@@ -988,6 +1014,16 @@ opcode("b16csel", 0, tuint, [0, 0, 0],
        [tbool16, tuint, tuint], False, "", "src0 ? src1 : src2")
 opcode("b32csel", 0, tuint, [0, 0, 0],
        [tbool32, tuint, tuint], False, "", "src0 ? src1 : src2")
+
+triop("fcsel_gt", tfloat32, "", "(src0 > 0.0f) ? src1 : src2")
+
+opcode("i32csel_gt", 0, tuint32, [0, 0, 0],
+       [tint32, tuint32, tuint32], False, "", "src0 > 0 ? src1 : src2")
+
+triop("fcsel_ge", tfloat32, "", "(src0 >= 0.0f) ? src1 : src2")
+
+opcode("i32csel_ge", 0, tuint32, [0, 0, 0],
+       [tint32, tuint32, tuint32], False, "", "src0 >= 0 ? src1 : src2")
 
 # SM5 bfi assembly
 triop("bfi", tuint32, "", """
