@@ -1736,32 +1736,6 @@ pan_get_so(struct pipe_stream_output_info *info, gl_varying_slot loc)
         unreachable("Varying not captured");
 }
 
-static unsigned
-pan_varying_size(enum mali_format fmt)
-{
-        unsigned type = MALI_EXTRACT_TYPE(fmt);
-        unsigned chan = MALI_EXTRACT_CHANNELS(fmt);
-        unsigned bits = MALI_EXTRACT_BITS(fmt);
-        unsigned bpc = 0;
-
-        if (bits == MALI_CHANNEL_FLOAT) {
-                /* No doubles */
-                bool fp16 = (type == MALI_FORMAT_SINT);
-                assert(fp16 || (type == MALI_FORMAT_UNORM));
-
-                bpc = fp16 ? 2 : 4;
-        } else {
-                assert(type >= MALI_FORMAT_SNORM && type <= MALI_FORMAT_SINT);
-
-                /* See the enums */
-                bits = 1 << bits;
-                assert(bits >= 8);
-                bpc = bits / 8;
-        }
-
-        return bpc * chan;
-}
-
 /* Indices for named (non-XFB) varyings that are present. These are packed
  * tightly so they correspond to a bitfield present (P) indexed by (1 <<
  * PAN_VARY_*). This has the nice property that you can lookup the buffer index
@@ -1941,7 +1915,7 @@ pan_emit_general_varying(const struct panfrost_device *dev,
                 /* We're linked, so allocate a space via a watermark allocation */
                 gen_offsets[idx] = *gen_stride;
                 offset = *gen_stride;
-                *gen_stride += pan_varying_size(format);
+                *gen_stride += size;
         }
 
         pan_emit_vary(dev, out, pan_varying_index(present, PAN_VARY_GENERAL),
