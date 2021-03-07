@@ -174,6 +174,22 @@ mi_builder_flush_math(struct mi_builder *b)
 
 #if GEN_GEN >= 8 || GEN_IS_HASWELL
 
+static inline unsigned
+mi_value_bits(struct mi_value val)
+{
+   switch (val.type) {
+   case MI_VALUE_TYPE_IMM:
+   case MI_VALUE_TYPE_MEM64:
+   case MI_VALUE_TYPE_REG64:
+      return 64;
+
+   case MI_VALUE_TYPE_MEM32:
+   case MI_VALUE_TYPE_REG32:
+      return 32;
+   }
+   unreachable("Invalid MI value type");
+}
+
 static inline bool
 mi_value_is_gpr(struct mi_value val)
 {
@@ -531,6 +547,11 @@ _mi_copy_no_unref(struct mi_builder *b,
    }
 }
 
+#if GEN_GEN >= 8 || GEN_IS_HASWELL
+static inline struct mi_value
+mi_resolve_invert(struct mi_builder *b, struct mi_value src);
+#endif
+
 /** Store the value in src to the value represented by dst
  *
  * If the bit size of src and dst mismatch, this function does an unsigned
@@ -542,6 +563,9 @@ _mi_copy_no_unref(struct mi_builder *b,
 static inline void
 mi_store(struct mi_builder *b, struct mi_value dst, struct mi_value src)
 {
+#if GEN_GEN >= 8 || GEN_IS_HASWELL
+   src = mi_resolve_invert(b, src);
+#endif
    _mi_copy_no_unref(b, dst, src);
    mi_value_unref(b, src);
    mi_value_unref(b, dst);
@@ -693,7 +717,7 @@ _mi_pack_alu(uint32_t opcode, uint32_t operand1, uint32_t operand2)
 static inline struct mi_value
 mi_value_to_gpr(struct mi_builder *b, struct mi_value val)
 {
-   if (mi_value_is_gpr(val))
+   if (mi_value_is_gpr(val) && (val.reg % 8) == 0)
       return val;
 
    /* Save off the invert flag because it makes copy() grumpy */
@@ -702,7 +726,11 @@ mi_value_to_gpr(struct mi_builder *b, struct mi_value val)
 
    struct mi_value tmp = mi_new_gpr(b);
    _mi_copy_no_unref(b, tmp, val);
+   mi_value_unref(b, val);
    tmp.invert = invert;
+
+   if (mi_value_bits(val) == 32)
+      tmp = mi_value_half(tmp, false);
 
    return tmp;
 }
@@ -735,6 +763,10 @@ mi_math_binop(struct mi_builder *b, uint32_t opcode,
 {
    struct mi_value dst = mi_new_gpr(b);
 
+   assert(src0.type == MI_VALUE_TYPE_IMM ||
+          src1.type == MI_VALUE_TYPE_IMM ||
+          mi_value_bits(src0) == mi_value_bits(src1));
+
    uint32_t dw[4];
    dw[0] = _mi_math_load_src(b, MI_ALU_SRCA, &src0);
    dw[1] = _mi_math_load_src(b, MI_ALU_SRCB, &src1);
@@ -745,6 +777,9 @@ mi_math_binop(struct mi_builder *b, uint32_t opcode,
    mi_value_unref(b, src0);
    mi_value_unref(b, src1);
 
+   if (src0.type == MI_VALUE_TYPE_REG32 || src1.type == MI_VALUE_TYPE_REG32)
+      dst = mi_value_half(dst, false);
+
    return dst;
 }
 
@@ -754,9 +789,19 @@ mi_inot(struct mi_builder *b, struct mi_value val)
    if (val.type == MI_VALUE_TYPE_IMM)
       return mi_imm(~mi_value_to_u64(val));
 
-   /* TODO These currently can't be passed into mi_copy */
    val.invert = !val.invert;
    return val;
+}
+
+static inline struct mi_value
+mi_resolve_invert(struct mi_builder *b, struct mi_value src)
+{
+   if (!src.invert)
+      return src;
+
+   assert(src.type != MI_VALUE_TYPE_IMM);
+   return mi_math_binop(b, MI_ALU_ADD, src, mi_imm(0),
+                           MI_ALU_STORE, MI_ALU_ACCU);
 }
 
 static inline struct mi_value
@@ -797,7 +842,7 @@ mi_ieq(struct mi_builder *b, struct mi_value src0, struct mi_value src1)
 
    /* Compute "equal" by subtracting and storing the zero bit */
    return mi_math_binop(b, MI_ALU_SUB, src0, src1,
-                            MI_ALU_STORE, MI_ALU_ZF);
+                           MI_ALU_STORE, MI_ALU_ZF);
 }
 
 static inline struct mi_value
@@ -808,7 +853,7 @@ mi_ine(struct mi_builder *b, struct mi_value src0, struct mi_value src1)
 
    /* Compute "not equal" by subtracting and storing the inverse zero bit */
    return mi_math_binop(b, MI_ALU_SUB, src0, src1,
-                            MI_ALU_STOREINV, MI_ALU_ZF);
+                           MI_ALU_STOREINV, MI_ALU_ZF);
 }
 
 static inline struct mi_value
@@ -844,6 +889,22 @@ mi_iand(struct mi_builder *b, struct mi_value src0, struct mi_value src1)
 }
 
 static inline struct mi_value
+mi_u2u64(struct mi_builder *b, struct mi_value src)
+{
+   if (mi_value_bits(src) == 64)
+      return src;
+
+   if (src.invert)
+      return mi_iand(b, src, mi_imm(0xffffffffu));
+
+   struct mi_value tmp = mi_new_gpr(b);
+   _mi_copy_no_unref(b, tmp, src);
+   mi_value_unref(b, src);
+
+   return tmp;
+}
+
+static inline struct mi_value
 mi_nz(struct mi_builder *b, struct mi_value src)
 {
    if (src.type == MI_VALUE_TYPE_IMM)
@@ -876,6 +937,45 @@ mi_ior(struct mi_builder *b,
 
 #if GEN_VERSIONx10 >= 125
 static inline struct mi_value
+mi_math_shiftop(struct mi_builder *b, uint32_t opcode,
+                struct mi_value src0, struct mi_value src1)
+{
+   struct mi_value dst = mi_new_gpr(b);
+
+   switch (opcode) {
+   case MI_ALU_SHL:
+      /* High junk is ok; it gets thrown away */
+      break;
+   case MI_ALU_SHR:
+      src0 = mi_u2u64(b, src0);
+      break;
+   case MI_ALU_SAR:
+      assert(mi_value_bits(src0) == 64);
+      break;
+   default:
+      unreachable("Invalid shift op");
+   }
+
+   /* We can't have junk in the upper bits */
+   src1 = mi_u2u64(b, src1);
+
+   uint32_t dw[4];
+   dw[0] = _mi_math_load_src(b, MI_ALU_SRCA, &src0);
+   dw[1] = _mi_math_load_src(b, MI_ALU_SRCB, &src1);
+   dw[2] = _mi_pack_alu(opcode, 0, 0);
+   dw[3] = _mi_pack_alu(MI_ALU_STORE, _mi_value_as_gpr(dst), MI_ALU_ACCU);
+   _mi_builder_push_math(b, dw, 4);
+
+   mi_value_unref(b, src0);
+   mi_value_unref(b, src1);
+
+   if (src0.type == MI_VALUE_TYPE_REG32)
+      dst = mi_value_half(dst, false);
+
+   return dst;
+}
+
+static inline struct mi_value
 mi_ishl(struct mi_builder *b, struct mi_value src0, struct mi_value src1)
 {
    if (src1.type == MI_VALUE_TYPE_IMM) {
@@ -886,8 +986,7 @@ mi_ishl(struct mi_builder *b, struct mi_value src0, struct mi_value src1)
    if (src0.type == MI_VALUE_TYPE_IMM && src1.type == MI_VALUE_TYPE_IMM)
       return mi_imm(mi_value_to_u64(src0) << mi_value_to_u64(src1));
 
-   return mi_math_binop(b, MI_ALU_SHL, src0, src1,
-                            MI_ALU_STORE, MI_ALU_ACCU);
+   return mi_math_shiftop(b, MI_ALU_SHL, src0, src1);
 }
 
 static inline struct mi_value
@@ -901,8 +1000,7 @@ mi_ushr(struct mi_builder *b, struct mi_value src0, struct mi_value src1)
    if (src0.type == MI_VALUE_TYPE_IMM && src1.type == MI_VALUE_TYPE_IMM)
       return mi_imm(mi_value_to_u64(src0) >> mi_value_to_u64(src1));
 
-   return mi_math_binop(b, MI_ALU_SHR, src0, src1,
-                            MI_ALU_STORE, MI_ALU_ACCU);
+   return mi_math_shiftop(b, MI_ALU_SHR, src0, src1);
 }
 
 static inline struct mi_value
@@ -940,8 +1038,7 @@ mi_ishr(struct mi_builder *b, struct mi_value src0, struct mi_value src1)
    if (src0.type == MI_VALUE_TYPE_IMM && src1.type == MI_VALUE_TYPE_IMM)
       return mi_imm((int64_t)mi_value_to_u64(src0) >> mi_value_to_u64(src1));
 
-   return mi_math_binop(b, MI_ALU_SAR, src0, src1,
-                            MI_ALU_STORE, MI_ALU_ACCU);
+   return mi_math_shiftop(b, MI_ALU_SAR, src0, src1);
 }
 
 static inline struct mi_value
@@ -1043,6 +1140,11 @@ mi_ushr32_imm(struct mi_builder *b, struct mi_value src, uint32_t shift)
    if (src.type == MI_VALUE_TYPE_IMM)
       return mi_imm((mi_value_to_u64(src) >> shift) & UINT32_MAX);
 
+   src = mi_u2u64(b, src);
+
+#if GEN_VERSIONx10 >= 125
+   return mi_value_half(mi_ushr_imm(b, src, shift), false);
+#else
    if (shift > 32) {
       struct mi_value tmp = mi_new_gpr(b);
       _mi_copy_no_unref(b, mi_value_half(tmp, false),
@@ -1060,6 +1162,7 @@ mi_ushr32_imm(struct mi_builder *b, struct mi_value src, uint32_t shift)
    _mi_copy_no_unref(b, mi_value_half(dst, true), mi_imm(0));
    mi_value_unref(b, tmp);
    return dst;
+#endif
 }
 
 static inline struct mi_value
@@ -1069,6 +1172,8 @@ mi_udiv32_imm(struct mi_builder *b, struct mi_value N, uint32_t D)
       assert(mi_value_to_u64(N) <= UINT32_MAX);
       return mi_imm(mi_value_to_u64(N) / D);
    }
+
+   N = mi_u2u64(b, N);
 
    /* We implicitly assume that N is only a 32-bit value */
    if (D == 0) {
@@ -1081,7 +1186,7 @@ mi_udiv32_imm(struct mi_builder *b, struct mi_value N, uint32_t D)
       assert(m.multiplier <= UINT32_MAX);
 
       if (m.pre_shift)
-         N = mi_ushr32_imm(b, N, m.pre_shift);
+         N = mi_u2u64(b, mi_ushr32_imm(b, N, m.pre_shift));
 
       /* Do the 32x32 multiply  into gpr0 */
       N = mi_imul_imm(b, N, m.multiplier);
@@ -1202,6 +1307,7 @@ mi_store_mem64_offset(struct mi_builder *b,
 
    /* We can't handle inverts with STOREIND */
    assert(!data.invert);
+   assert(mi_value_bits(data) == 64);
    data = mi_value_to_gpr(b, data);
 
    uint32_t dw[5];

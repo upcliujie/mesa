@@ -536,6 +536,34 @@ TEST_F(mi_builder_test, memcpy)
 
 #define EXPECT_EQ_IMM(x, imm) EXPECT_EQ(x, mi_value_to_u64(imm))
 
+TEST_F(mi_builder_test, inot)
+{
+   const uint64_t value = 0x0123456789abcdef;
+   const uint32_t value_lo = (uint32_t)value;
+   const uint32_t value_hi = (uint32_t)(value >> 32);
+   memcpy(input, &value, sizeof(value));
+
+   mi_store(&b, out_mem64(0),  mi_inot(&b, in_mem64(0)));
+   mi_store(&b, out_mem64(8),  mi_inot(&b, mi_inot(&b, in_mem64(0))));
+   mi_store(&b, out_mem64(16), mi_inot(&b, in_mem32(0)));
+   mi_store(&b, out_mem64(24), mi_inot(&b, in_mem32(4)));
+   mi_store(&b, out_mem32(32), mi_inot(&b, in_mem64(0)));
+   mi_store(&b, out_mem32(36), mi_inot(&b, in_mem32(0)));
+   mi_store(&b, out_mem32(40), mi_inot(&b, mi_inot(&b, in_mem32(0))));
+   mi_store(&b, out_mem32(44), mi_inot(&b, in_mem32(4)));
+
+   submit_batch();
+
+   EXPECT_EQ(*(uint64_t *)(output + 0),  ~value);
+   EXPECT_EQ(*(uint64_t *)(output + 8),  value);
+   EXPECT_EQ(*(uint64_t *)(output + 16), ~value_lo);
+   EXPECT_EQ(*(uint64_t *)(output + 24), ~value_hi);
+   EXPECT_EQ(*(uint32_t *)(output + 32), (uint32_t)~value);
+   EXPECT_EQ(*(uint32_t *)(output + 36), (uint32_t)~value_lo);
+   EXPECT_EQ(*(uint32_t *)(output + 40), (uint32_t)value_lo);
+   EXPECT_EQ(*(uint32_t *)(output + 44), (uint32_t)~value_hi);
+}
+
 /* Test adding of immediates of all kinds including
  *
  *  - All zeroes
@@ -593,6 +621,45 @@ TEST_F(mi_builder_test, add_imm)
    EXPECT_EQ(*(uint64_t *)(output + 88),  value + ~add);
    EXPECT_EQ(*(uint64_t *)(output + 96),  value);
    EXPECT_EQ(*(uint64_t *)(output + 104), value + add);
+}
+
+TEST_F(mi_builder_test, u2u64)
+{
+   const uint64_t value = 0x0123456789abcdef;
+   const uint32_t value_lo = (uint32_t)value;
+   const uint32_t value_hi = (uint32_t)(value >> 32);
+   memcpy(input, &value, sizeof(value));
+
+   mi_store(&b, out_mem64(0),  mi_u2u64(&b, in_mem64(0)));
+   mi_store(&b, out_mem64(8),  mi_u2u64(&b, in_mem32(0)));
+   mi_store(&b, out_mem64(16), mi_u2u64(&b, in_mem32(4)));
+   mi_store(&b, out_mem64(24), mi_u2u64(&b, mi_inot(&b, in_mem64(0))));
+   mi_store(&b, out_mem64(32), mi_u2u64(&b, mi_inot(&b, in_mem32(0))));
+   mi_store(&b, out_mem64(40), mi_u2u64(&b, mi_inot(&b, in_mem32(4))));
+   mi_store(&b, out_mem64(48), mi_inot(&b, mi_u2u64(&b, in_mem64(0))));
+   mi_store(&b, out_mem64(56), mi_inot(&b, mi_u2u64(&b, in_mem32(0))));
+   mi_store(&b, out_mem64(64), mi_inot(&b, mi_u2u64(&b, in_mem32(4))));
+
+   submit_batch();
+
+   EXPECT_EQ_IMM(*(uint64_t *)(output + 0),
+                 mi_u2u64(&b, mi_imm(value)));
+   EXPECT_EQ_IMM(*(uint64_t *)(output + 8),
+                 mi_u2u64(&b, mi_imm(value_lo)));
+   EXPECT_EQ_IMM(*(uint64_t *)(output + 16),
+                 mi_u2u64(&b, mi_imm(value_hi)));
+   EXPECT_EQ_IMM(*(uint64_t *)(output + 24),
+                 mi_u2u64(&b, mi_inot(&b, mi_imm(value))));
+   EXPECT_EQ_IMM(*(uint64_t *)(output + 32),
+                 mi_u2u64(&b, mi_inot(&b, mi_imm(value_lo))));
+   EXPECT_EQ_IMM(*(uint64_t *)(output + 40),
+                 mi_u2u64(&b, mi_inot(&b, mi_imm(value_hi))));
+   EXPECT_EQ_IMM(*(uint64_t *)(output + 48),
+                 mi_inot(&b, mi_u2u64(&b, mi_imm(value))));
+   EXPECT_EQ_IMM(*(uint64_t *)(output + 56),
+                 mi_inot(&b, mi_u2u64(&b, mi_imm(value_lo))));
+   EXPECT_EQ_IMM(*(uint64_t *)(output + 64),
+                 mi_inot(&b, mi_u2u64(&b, mi_imm(value_hi))));
 }
 
 TEST_F(mi_builder_test, ult_uge_ieq_ine)
