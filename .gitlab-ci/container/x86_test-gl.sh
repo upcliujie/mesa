@@ -57,6 +57,14 @@ apt-get install -y --no-remove \
 . .gitlab-ci/container/container_pre_build.sh
 
 
+############### Build kernel
+
+export DEFCONFIG="arch/x86/configs/x86_64_defconfig"
+export KERNEL_IMAGE_NAME=bzImage
+export KERNEL_ARCH=x86_64
+export DEBIAN_ARCH=amd64
+. .gitlab-ci/container/build-kernel.sh
+
 ############### Build spirv-tools (debian too old)
 
 . .gitlab-ci/container/build-spirv-tools.sh
