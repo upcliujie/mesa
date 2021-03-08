@@ -1033,6 +1033,79 @@ static void si_do_CB_resolve(struct si_context *sctx, const struct pipe_blit_inf
    si_make_CB_shader_coherent(sctx, 1, false, true /* no DCC */);
 }
 
+static bool resolve_formats_compatible(enum pipe_format src, enum pipe_format dst,
+                                       bool src_swaps_rgb_to_bgr, bool *need_rgb_to_bgr)
+{
+   const struct util_format_description *src_desc = util_format_description(src);
+   const struct util_format_description *dst_desc = util_format_description(dst);
+
+   *need_rgb_to_bgr = false;
+
+   if (src_desc->format == dst_desc->format)
+      return true;
+
+   /* Compare basic compatibility attributes. */
+   if (src_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN ||
+       dst_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN)
+      return false;
+
+   if (src_desc->block.bits != dst_desc->block.bits ||
+       src_desc->nr_channels != dst_desc->nr_channels ||
+       src_desc->colorspace != dst_desc->colorspace)
+      return false;
+
+   for (int i = 0; i < 4; ++i) {
+      enum pipe_swizzle swizzle = dst_desc->swizzle[i];
+
+      if (src_desc->channel[i].size != dst_desc->channel[i].size ||
+          (swizzle < 4 &&
+           (src_desc->channel[swizzle].type != dst_desc->channel[swizzle].type ||
+            src_desc->channel[swizzle].normalized != dst_desc->channel[swizzle].normalized)))
+         return false;
+   }
+
+   /* Determine swizzle compatibility. */
+   static ubyte rgba[] = {0, 1, 2, 3};
+   static ubyte bgra[] = {2, 1, 0, 3};
+   ubyte *src_swz = src_swaps_rgb_to_bgr ? bgra : rgba;
+   bool swizzle_compatible = true;
+
+   for (int i = 0; i < 4; ++i) {
+      enum pipe_swizzle dst_swizzle = dst_desc->swizzle[i];
+      enum pipe_swizzle src_swizzle = src_swz[src_desc->swizzle[i]];
+
+      if (dst_swizzle < 4) {
+         if (src_swizzle != dst_swizzle)
+            swizzle_compatible = false;
+
+         if (src_desc->channel[dst_swizzle].type != dst_desc->channel[dst_swizzle].type ||
+             src_desc->channel[dst_swizzle].normalized != dst_desc->channel[dst_swizzle].normalized)
+            return false;
+      }
+   }
+
+   if (swizzle_compatible)
+      return true;
+
+   /* It's already swap. Don't swap it back. */
+   if (src_swaps_rgb_to_bgr)
+      return false;
+
+   /* The swizzle is not compatible. See if this is just an RGB -> BGR swizzle. */
+   *need_rgb_to_bgr = src_desc->nr_channels == 4 &&
+                      src_desc->swizzle[0] == dst_desc->swizzle[2] &&
+                      src_desc->swizzle[2] == dst_desc->swizzle[0] &&
+                      /* RGBx -> BGRx */
+                      ((src_desc->swizzle[1] == PIPE_SWIZZLE_Y &&
+                        dst_desc->swizzle[1] == PIPE_SWIZZLE_Y) ||
+                       /* xRGB -> xBGR */
+                       (src_desc->swizzle[1] == PIPE_SWIZZLE_Z &&
+                        dst_desc->swizzle[1] == PIPE_SWIZZLE_Z));
+
+   /* The caller must check need_rgb_to_bgr. */
+   return true;
+}
+
 static bool do_hardware_msaa_resolve(struct pipe_context *ctx, const struct pipe_blit_info *info)
 {
    struct si_context *sctx = (struct si_context *)ctx;
@@ -1059,19 +1132,22 @@ static bool do_hardware_msaa_resolve(struct pipe_context *ctx, const struct pipe
    if (format == PIPE_FORMAT_R16G16_SNORM)
       format = PIPE_FORMAT_R16A16_SNORM;
 
+   bool need_rgb_to_bgr = false;
+
    /* Check the remaining requirements for hw resolve. */
    if (util_max_layer(info->dst.resource, info->dst.level) == 0 && !info->scissor_enable &&
        (info->mask & PIPE_MASK_RGBA) == PIPE_MASK_RGBA &&
-       util_is_format_compatible(util_format_description(info->src.format),
-                                 util_format_description(info->dst.format)) &&
+       resolve_formats_compatible(info->src.format, info->dst.format,
+                                  src->swap_rgb_to_bgr, &need_rgb_to_bgr) &&
        dst_width == info->src.resource->width0 && dst_height == info->src.resource->height0 &&
        info->dst.box.x == 0 && info->dst.box.y == 0 && info->dst.box.width == dst_width &&
        info->dst.box.height == dst_height && info->dst.box.depth == 1 && info->src.box.x == 0 &&
        info->src.box.y == 0 && info->src.box.width == dst_width &&
        info->src.box.height == dst_height && info->src.box.depth == 1 && !dst->surface.is_linear &&
        (!dst->cmask_buffer || !dst->dirty_level_mask)) { /* dst cannot be fast-cleared */
-      /* Check the last constraint. */
-      if (src->surface.micro_tile_mode != dst->surface.micro_tile_mode) {
+      /* Check the remaining constraints. */
+      if (src->surface.micro_tile_mode != dst->surface.micro_tile_mode ||
+          need_rgb_to_bgr) {
          /* The next fast clear will switch to this mode to
           * get direct hw resolve next time if the mode is
           * different now.
@@ -1082,7 +1158,11 @@ static bool do_hardware_msaa_resolve(struct pipe_context *ctx, const struct pipe
           * destination texture instead, but the more general
           * solution is to implement compute shader resolve.
           */
-         src->last_msaa_resolve_target_micro_mode = dst->surface.micro_tile_mode;
+         if (src->surface.micro_tile_mode != dst->surface.micro_tile_mode)
+            src->last_msaa_resolve_target_micro_mode = dst->surface.micro_tile_mode;
+         if (need_rgb_to_bgr)
+            src->swap_rgb_to_bgr_on_next_clear = true;
+
          goto resolve_to_temp;
       }
 
