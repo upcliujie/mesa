@@ -27,6 +27,15 @@ lower_alu = [
    # For chipfamily r600 one must do fma (2*pi ffract() - 0.5)
    (('fsin', "a@32"), ('fsin_r600', ('fadd', ('ffract', ('ffma', 'a', 0.15915494, 0.5)), -0.5))),
    (('fcos', "a@32"), ('fcos_r600', ('fadd', ('ffract', ('ffma', 'a', 0.15915494, 0.5)), -0.5))),
+   (('ifind_msb', 'value'),
+    ('i32csel_ge', ('ifind_msb_rev', 'value'),
+                   ('isub', 31, ('ifind_msb_rev', 'value')),
+                   ('ifind_msb_rev', 'value'))),
+
+   (('ufind_msb', 'value'),
+    ('i32csel_ge', ('ufind_msb_rev', 'value'),
+	  	   ('isub', 31, ('ufind_msb_rev', 'value')),
+		   ('ufind_msb_rev', 'value'))),
 ]
 
 def main():
