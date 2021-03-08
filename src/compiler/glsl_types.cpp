@@ -26,6 +26,7 @@
 #include "compiler/glsl/glsl_parser_extras.h"
 #include "glsl_types.h"
 #include "util/hash_table.h"
+#include "util/u_cpu_detect.h"
 #include "util/u_string.h"
 
 
@@ -518,6 +519,8 @@ hash_free_type_function(struct hash_entry *entry)
 void
 glsl_type_singleton_init_or_ref()
 {
+   util_cpu_detect();
+
    mtx_lock(&glsl_type::hash_mutex);
    glsl_type_users++;
    mtx_unlock(&glsl_type::hash_mutex);
