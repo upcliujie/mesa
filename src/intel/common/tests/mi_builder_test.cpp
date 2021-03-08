@@ -1040,6 +1040,8 @@ TEST_F(mi_builder_test, goto)
    EXPECT_EQ(*(uint64_t *)(output + 0), value);
 }
 
+#define MI_PREDICATE_RESULT  0x2418
+
 TEST_F(mi_builder_test, goto_if)
 {
    const uint64_t values[] = {
@@ -1057,7 +1059,7 @@ TEST_F(mi_builder_test, goto_if)
    }
 
    struct mi_goto_target t = MI_GOTO_TARGET_INIT;
-   mi_goto_if(&b, &t);
+   mi_goto_if(&b, mi_reg32(MI_PREDICATE_RESULT), &t);
 
    mi_store(&b, out_mem64(0), mi_imm(values[1]));
 
@@ -1067,7 +1069,7 @@ TEST_F(mi_builder_test, goto_if)
       mip.CompareOperation = COMPARE_TRUE;
    }
 
-   mi_goto_if(&b, &t);
+   mi_goto_if(&b, mi_reg32(MI_PREDICATE_RESULT), &t);
 
    /* This one should be skipped */
    mi_store(&b, out_mem64(0), mi_imm(values[2]));
@@ -1079,8 +1081,6 @@ TEST_F(mi_builder_test, goto_if)
    EXPECT_EQ(*(uint64_t *)(output + 0), values[1]);
 }
 
-#define MI_PREDICATE_RESULT  0x2418
-
 TEST_F(mi_builder_test, loop_simple)
 {
    const uint64_t loop_count = 8;
@@ -1088,10 +1088,7 @@ TEST_F(mi_builder_test, loop_simple)
    mi_store(&b, out_mem64(0), mi_imm(0));
 
    mi_loop(&b) {
-      mi_store(&b, mi_reg64(MI_PREDICATE_RESULT),
-                       mi_uge(&b, out_mem64(0), mi_imm(loop_count)));
-
-      mi_break_if(&b);
+      mi_break_if(&b, mi_uge(&b, out_mem64(0), mi_imm(loop_count)));
 
       mi_store(&b, out_mem64(0), mi_iadd_imm(&b, out_mem64(0), 1));
    }
@@ -1106,14 +1103,18 @@ TEST_F(mi_builder_test, loop_break)
    mi_loop(&b) {
       mi_store(&b, out_mem64(0), mi_imm(1));
 
-      mi_break(&b);
+      mi_break_if(&b, mi_imm(0));
 
       mi_store(&b, out_mem64(0), mi_imm(2));
+
+      mi_break(&b);
+
+      mi_store(&b, out_mem64(0), mi_imm(3));
    }
 
    submit_batch();
 
-   EXPECT_EQ(*(uint64_t *)(output + 0), 1);
+   EXPECT_EQ(*(uint64_t *)(output + 0), 2);
 }
 
 TEST_F(mi_builder_test, loop_continue)
@@ -1124,10 +1125,7 @@ TEST_F(mi_builder_test, loop_continue)
    mi_store(&b, out_mem64(8), mi_imm(0));
 
    mi_loop(&b) {
-      mi_store(&b, mi_reg64(MI_PREDICATE_RESULT),
-                       mi_uge(&b, out_mem64(0), mi_imm(loop_count)));
-
-      mi_break_if(&b);
+      mi_break_if(&b, mi_uge(&b, out_mem64(0), mi_imm(loop_count)));
 
       mi_store(&b, out_mem64(0), mi_iadd_imm(&b, out_mem64(0), 1));
       mi_store(&b, out_mem64(8), mi_imm(5));
@@ -1151,10 +1149,7 @@ TEST_F(mi_builder_test, loop_continue_if)
    mi_store(&b, out_mem64(8), mi_imm(0));
 
    mi_loop(&b) {
-      mi_store(&b, mi_reg64(MI_PREDICATE_RESULT),
-                       mi_uge(&b, out_mem64(0), mi_imm(loop_count)));
-
-      mi_break_if(&b);
+      mi_break_if(&b, mi_uge(&b, out_mem64(0), mi_imm(loop_count)));
 
       mi_store(&b, out_mem64(0), mi_iadd_imm(&b, out_mem64(0), 1));
       mi_store(&b, out_mem64(8), mi_imm(5));
@@ -1165,7 +1160,7 @@ TEST_F(mi_builder_test, loop_continue_if)
          mip.CompareOperation = COMPARE_FALSE;
       }
 
-      mi_continue_if(&b);
+      mi_continue_if(&b, mi_reg32(MI_PREDICATE_RESULT));
 
       mi_store(&b, out_mem64(8), mi_imm(10));
 
@@ -1175,7 +1170,7 @@ TEST_F(mi_builder_test, loop_continue_if)
          mip.CompareOperation = COMPARE_TRUE;
       }
 
-      mi_continue_if(&b);
+      mi_continue_if(&b, mi_reg32(MI_PREDICATE_RESULT));
 
       mi_store(&b, out_mem64(8), mi_imm(15));
    }

@@ -175,10 +175,16 @@ mi_builder_flush_math(struct mi_builder *b)
 #if GEN_GEN >= 8 || GEN_IS_HASWELL
 
 static inline bool
+mi_value_is_reg(struct mi_value val)
+{
+   return val.type == MI_VALUE_TYPE_REG32 ||
+          val.type == MI_VALUE_TYPE_REG64;
+}
+
+static inline bool
 mi_value_is_gpr(struct mi_value val)
 {
-   return (val.type == MI_VALUE_TYPE_REG32 ||
-           val.type == MI_VALUE_TYPE_REG64) &&
+   return mi_value_is_reg(val) &&
           val.reg >= _MI_BUILDER_GPR_BASE &&
           val.reg < _MI_BUILDER_GPR_BASE +
                     _MI_BUILDER_NUM_HW_GPRS * 8;
@@ -187,8 +193,7 @@ mi_value_is_gpr(struct mi_value val)
 static inline bool
 _mi_value_is_allocated_gpr(struct mi_value val)
 {
-   return (val.type == MI_VALUE_TYPE_REG32 ||
-           val.type == MI_VALUE_TYPE_REG64) &&
+   return mi_value_is_reg(val) &&
           val.reg >= _MI_BUILDER_GPR_BASE &&
           val.reg < _MI_BUILDER_GPR_BASE +
                     MI_BUILDER_NUM_ALLOC_GPRS * 8;
@@ -1258,10 +1263,35 @@ struct mi_goto_target {
 
 #define MI_GOTO_TARGET_INIT ((struct mi_goto_target) {})
 
+#define MI_BUILDER_MI_PREDICATE_RESULT_num  0x2418
+
 static inline void
-_mi_goto(struct mi_builder *b, struct mi_goto_target *t,
-             bool predicated)
+mi_goto_if(struct mi_builder *b, struct mi_value cond,
+           struct mi_goto_target *t)
 {
+   /* First, set up the predicate, if any */
+   bool predicated;
+   if (cond.type == MI_VALUE_TYPE_IMM) {
+      /* If it's an immediate, the goto either doesn't happen or happens
+       * unconditionally.
+       */
+      if (mi_value_to_u64(cond) == 0)
+         return;
+
+      assert(mi_value_to_u64(cond) == ~0ull);
+      predicated = false;
+   } else if (mi_value_is_reg(cond) &&
+              cond.reg == MI_BUILDER_MI_PREDICATE_RESULT_num) {
+      /* If it's MI_PREDICATE_RESULT, we use whatever predicate the client
+       * provided us with
+       */
+      assert(cond.type == MI_VALUE_TYPE_REG32);
+      predicated = true;
+   } else {
+      mi_store(b, mi_reg32(MI_BUILDER_MI_PREDICATE_RESULT_num), cond);
+      predicated = true;
+   }
+
    if (predicated) {
       mi_builder_emit(b, GENX(MI_SET_PREDICATE), sp) {
          sp.PredicateEnable = NOOPOnResultClear;
@@ -1293,13 +1323,7 @@ _mi_goto(struct mi_builder *b, struct mi_goto_target *t,
 static inline void
 mi_goto(struct mi_builder *b, struct mi_goto_target *t)
 {
-   _mi_goto(b, t, false);
-}
-
-static inline void
-mi_goto_if(struct mi_builder *b, struct mi_goto_target *t)
-{
-   _mi_goto(b, t, true);
+   mi_goto_if(b, mi_imm(-1), t);
 }
 
 static inline void
@@ -1335,9 +1359,9 @@ mi_goto_target_init_and_place(struct mi_builder *b)
         mi_goto(b, &__continue), mi_goto_target(b, &__break))
 
 #define mi_break(b) mi_goto(b, &__break)
-#define mi_break_if(b) mi_goto_if(b, &__break)
+#define mi_break_if(b, cond) mi_goto_if(b, cond, &__break)
 #define mi_continue(b) mi_goto(b, &__continue)
-#define mi_continue_if(b) mi_goto_if(b, &__continue)
+#define mi_continue_if(b, cond) mi_goto_if(b, cond, &__continue)
 
 #endif /* GEN_VERSIONx10 >= 125 */
 
