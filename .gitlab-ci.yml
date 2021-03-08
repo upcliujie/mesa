@@ -411,7 +411,8 @@ x86_test-base:
 x86_test-gl:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-gl "2021-03-08-crosvm"
+    MESA_IMAGE_TAG: &x86_test-gl "2021-03-08-kernel"
+    KERNEL_URL: "https://gitlab.freedesktop.org/tomeu/linux/-/archive/v5.10-rc2-for-mesa-ci/linux-v5.10-rc2-for-mesa-ci.tar.gz"
 
 # Debian 10 based x86 test image for VK
 x86_test-vk:
