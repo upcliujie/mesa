@@ -1647,6 +1647,14 @@ fixup_pipelined_ldvary(struct v3d_compile *c,
         if (v3d_qpu_reads_flags(&prev->qpu))
                 return false;
 
+        /* Note: by moving ldvary to the previous instruction we make it update
+         * r5 in the current one, so in theory we would also need to make sure
+         * that the current instruction doesn't write to r5, in practice, we
+         * don't need to do this though, because in that case the QPU scheduler
+         * would've not been able to merge ldvary into this instruction, since
+         * it would detect a write dependency.
+         */
+
         /* Move the ldvary to the previous instruction and remove it from the
          * current one.
          */
