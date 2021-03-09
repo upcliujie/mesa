@@ -2941,9 +2941,10 @@ NineDevice9_DrawPrimitive( struct NineDevice9 *This,
     for (i = 0; i < This->caps.MaxStreams; i++) {
         unsigned stride = This->state.vtxbuf[i].stride;
         if (IS_SYSTEMMEM_DYNAMIC((struct NineBuffer9*)This->state.stream[i])) {
-            unsigned start = StartVertex * stride;
+            unsigned start = This->state.vtxbuf[i].buffer_offset + StartVertex * stride;
             unsigned full_size = This->state.stream[i]->base.size;
-            unsigned size = MIN2(full_size-start, PrimitiveCount * stride);
+            unsigned num_vertices = prim_count_to_vertex_count(PrimitiveType, PrimitiveCount);
+            unsigned size = MIN2(full_size-start, num_vertices * stride);
             if (!stride) /* Instancing. Not sure what to do. Require all */
                 size = full_size;
             NineTrackSystemmemDynamic(&This->state.stream[i]->base, start, size);
@@ -2959,7 +2960,7 @@ NineDevice9_DrawPrimitive( struct NineDevice9 *This,
 
 static void index_systemmem_get_min_max( struct NineIndexBuffer9 *idxbuf,
                                          UINT StartIndex,
-                                         UINT PrimitiveCount,
+                                         UINT num_indices,
                                          uint32_t *min,
                                          uint32_t *max)
 {
@@ -2968,7 +2969,7 @@ static void index_systemmem_get_min_max( struct NineIndexBuffer9 *idxbuf,
         uint16_t *buf = idxbuf->base.managed.data;
         uint16_t min_index = 65535;
         uint16_t max_index = 0;
-        for (i = StartIndex; i < MIN2(StartIndex+PrimitiveCount, idxbuf->base.size/2); i++) {
+        for (i = StartIndex; i < MIN2(StartIndex+num_indices, idxbuf->base.size/2); i++) {
             min_index = MIN2(min_index, buf[i]);
             max_index = MAX2(max_index, buf[i]);
         }
@@ -2979,7 +2980,7 @@ static void index_systemmem_get_min_max( struct NineIndexBuffer9 *idxbuf,
         uint32_t *buf = idxbuf->base.managed.data;
         uint32_t min_index = UINT_MAX;
         uint32_t max_index = 0;
-        for (i = StartIndex; i < MIN2(StartIndex+PrimitiveCount, idxbuf->base.size/4); i++) {
+        for (i = StartIndex; i < MIN2(StartIndex+num_indices, idxbuf->base.size/4); i++) {
             min_index = MIN2(min_index, buf[i]);
             max_index = MAX2(max_index, buf[i]);
         }
@@ -3042,11 +3043,11 @@ NineDevice9_DrawIndexedPrimitive( struct NineDevice9 *This,
             }
             stop = MIN2(stop, full_size);
             DBG("Deduced range: %d %d (%d %d)\n", start, stop, (int)(MinVertexIndex+BaseVertexIndex)*stride, (int)(MinVertexIndex+NumVertices+BaseVertexIndex)*stride);
-#endif
-            start = (MAX2(0, MinVertexIndex+BaseVertexIndex))*stride;
-            stop = (MinVertexIndex+NumVertices+BaseVertexIndex)*stride;
+#else
+            start = MAX2(0, This->state.vtxbuf[i].buffer_offset+(MinVertexIndex+BaseVertexIndex)*stride);
+            stop = This->state.vtxbuf[i].buffer_offset+(MinVertexIndex+NumVertices+BaseVertexIndex)*stride;
             stop = MIN2(stop, full_size);
-
+#endif
             NineTrackSystemmemDynamic(&This->state.stream[i]->base,
                                       start, stop-start);
         }
