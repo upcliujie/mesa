@@ -1682,6 +1682,8 @@ static void visit_intrinsic(struct lp_build_nir_context *bld_base,
    case nir_intrinsic_load_sample_mask_in:
    case nir_intrinsic_load_view_index:
    case nir_intrinsic_load_subgroup_invocation:
+   case nir_intrinsic_load_subgroup_id:
+   case nir_intrinsic_load_num_subgroups:
       bld_base->sysval_intrin(bld_base, instr, result);
       break;
    case nir_intrinsic_load_helper_invocation:
@@ -1787,6 +1789,9 @@ static void visit_intrinsic(struct lp_build_nir_context *bld_base,
    case nir_intrinsic_vote_any:
    case nir_intrinsic_vote_ieq:
       bld_base->vote(bld_base, cast_type(bld_base, get_src(bld_base, instr->src[0]), nir_type_int, 32), instr, result);
+      break;
+   case nir_intrinsic_elect:
+      bld_base->elect(bld_base, result);
       break;
    case nir_intrinsic_read_invocation:
    case nir_intrinsic_read_first_invocation: {

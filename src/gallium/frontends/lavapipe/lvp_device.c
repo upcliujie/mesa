@@ -761,9 +761,9 @@ lvp_get_physical_device_properties_1_1(struct lvp_physical_device *pdevice,
    p->deviceLUIDValid = false;
    p->deviceNodeMask = 0;
 
-   p->subgroupSize = 0;
-   p->subgroupSupportedStages = 0;
-   p->subgroupSupportedOperations = 0;
+   p->subgroupSize = 8;
+   p->subgroupSupportedStages = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+   p->subgroupSupportedOperations = VK_SUBGROUP_FEATURE_BASIC_BIT;
    p->subgroupQuadOperationsInAllStages = false;
 
    p->pointClippingBehavior = VK_POINT_CLIPPING_BEHAVIOR_ALL_CLIP_PLANES;
