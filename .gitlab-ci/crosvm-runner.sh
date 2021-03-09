@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -ex
+set -x
 
 ln -sf $CI_PROJECT_DIR/install /install
 
@@ -9,8 +9,12 @@ export EGL_PLATFORM=surfaceless
 
 env > /install/crosvm-env.sh
 
+sleep 2
+
 mkdir -p /results
 mount -t tmpfs tmpfs /results
+
+sleep 2
 
 mkdir -p /piglit/.gitlab-ci/piglit
 mount -t tmpfs tmpfs /piglit/.gitlab-ci/piglit
