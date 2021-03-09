@@ -40,4 +40,5 @@ crosvm run \
   -p "root=my_root rw rootfstype=virtiofs loglevel=3 init=$CI_PROJECT_DIR/install/crosvm-init.sh ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0" \
   /lava-files/bzImage
 
+mkdir -p $CI_PROJECT_DIR/results
 mv /results/* $CI_PROJECT_DIR/results/.
