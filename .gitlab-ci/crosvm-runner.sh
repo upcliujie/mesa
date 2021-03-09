@@ -11,8 +11,9 @@ export -p > /crosvm-env.sh
 
 sleep 2
 
-mkdir -p $CI_PROJECT_DIR/results
-mount -t tmpfs tmpfs $CI_PROJECT_DIR/results
+# Temporary results dir because from the guest we cannot write to /
+mkdir -p /results
+mount -t tmpfs tmpfs /results
 
 sleep 2
 
@@ -39,4 +40,4 @@ crosvm run \
   -p "root=my_root rw rootfstype=virtiofs loglevel=3 init=$CI_PROJECT_DIR/install/crosvm-init.sh ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0" \
   /lava-files/bzImage
 
-ls -l $CI_PROJECT_DIR/results
+mv /results/* $CI_PROJECT_DIR/results/.
