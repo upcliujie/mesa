@@ -780,6 +780,8 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
                                  pipeline->device->robust_buffer_access,
                                  layout, nir, &stage->bind_map);
 
+   NIR_PASS_V(nir, brw_nir_lower_storage_image, compiler->devinfo, NULL);
+
    NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_ubo,
               nir_address_format_32bit_index_offset);
    NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_ssbo,
