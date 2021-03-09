@@ -75,7 +75,7 @@ struct NineBuffer9
         bool discard_nooverwrite;
         bool discard_nooverwrite_noalign;
         unsigned nooverwrite_compatible_min_x;
-        struct pipe_box valid_region;
+        struct pipe_box invalid_region;
         struct pipe_box required_valid_region;
     } managed;
 };
@@ -118,47 +118,46 @@ NineBuffer9_Upload( struct NineBuffer9 *This )
     int start = (This->managed.dirty_box.x/64)*64;
     int upload_size = MIN2(This->size, ((This->managed.dirty_box.x+This->managed.dirty_box.width+63)/64)*64) - start;
     unsigned upload_flags = 0;
-    struct pipe_box box;
+    struct pipe_box box, uploading_box = This->managed.dirty_box;
 
     assert(This->base.pool != D3DPOOL_DEFAULT && This->managed.dirty);
 
     if (This->base.pool == D3DPOOL_SYSTEMMEM && This->base.usage & D3DUSAGE_DYNAMIC) {
         /* D3DPOOL_SYSTEMMEM D3DUSAGE_DYNAMIC buffers tend to be updated frequently in a round fashion
          * with no overlap for each lock (except obviously when coming back at the start of the
-         * buffer. For more efficient uploads, use DISCARD/NOOVERWRITE. */
-        if (This->managed.dirty_box.x == 0) {
+         * buffer). For more efficient uploads, use DISCARD/NOOVERWRITE.
+         * TESTING: ONLY uploading what is needed right now */
+        /* Add dirty regions to invalid regions */
+        if (This->managed.dirty_box.width > 0)
+            u_box_union_1d(&box, &This->managed.invalid_region, &This->managed.dirty_box);
+
+        /* The box to upload */
+        //u_box_intersect_1d(&box, &This->managed.invalid_region, &This->managed.required_valid_region);
+        box = This->managed.required_valid_region;
+        if (box.width == 0)
+            return; /* Nothing to upload */
+
+        if (box.x == 0) {
             upload_flags |= PIPE_MAP_DISCARD_WHOLE_RESOURCE;
-            u_box_1d(0, 0, &This->managed.valid_region);
-            /* As we have discarded the resource, previous required valid regions
-             * can be flushed */
-            u_box_intersect_1d(&This->managed.required_valid_region,
-                               &This->managed.required_valid_region, &This->managed.dirty_box);
+            start = 0;
+            upload_size = box.width;
+            u_box_1d(box.width, This->size, &This->managed.invalid_region);
             This->managed.discard_nooverwrite = true;
             This->managed.discard_nooverwrite_noalign = false;
-            This->managed.nooverwrite_compatible_min_x = This->managed.dirty_box.width;
-        } else if (This->managed.discard_nooverwrite && This->managed.nooverwrite_compatible_min_x <= This->managed.dirty_box.x) {
+            This->managed.nooverwrite_compatible_min_x = box.width;
+        } else if (This->managed.discard_nooverwrite && This->managed.nooverwrite_compatible_min_x <= box.x) {
             upload_flags |= PIPE_MAP_UNSYNCHRONIZED;
             This->managed.nooverwrite_compatible_min_x = This->managed.dirty_box.x+This->managed.dirty_box.width;
-            if (This->managed.discard_nooverwrite_noalign) {
-                start = This->managed.dirty_box.x;
-                upload_size = This->managed.dirty_box.width;
-            }
+            /* TODO discard_nooverwrite_noalign */
+            start = box.x;
+            upload_size = box.width;
         } else {
             /* One use incompatible with DISCARD/NOOVERWRITE. Disable until next discard */
             This->managed.discard_nooverwrite = false;
+            start = This->managed.required_valid_region.x;
+            upload_size = This->managed.required_valid_region.width;
         }
-        u_box_union_1d(&This->managed.valid_region, &This->managed.valid_region, &This->managed.dirty_box);
-        u_box_union_1d(&box, &This->managed.valid_region, &This->managed.required_valid_region);
-        /* If some required regions are missing, upload them too. */
-        if (box.x != This->managed.valid_region.x || box.width != This->managed.valid_region.width) {
-            unsigned stop = start + upload_size;
-            if (box.x != This->managed.valid_region.x)
-                start = box.x;
-            if ((box.x + box.width) < (This->managed.valid_region.x + This->managed.valid_region.width))
-                stop = box.x + box.width;
-            upload_size = stop - start;
-            This->managed.valid_region = box;
-        }
+        u_box_1d(start, upload_size, &uploading_box); /* TODO alignment */
     } else if (start == 0 && upload_size == This->size) {
         upload_flags |= PIPE_MAP_DISCARD_WHOLE_RESOURCE;
     }
@@ -166,9 +165,9 @@ NineBuffer9_Upload( struct NineBuffer9 *This )
     if (This->managed.pending_upload) {
         u_box_union_1d(&This->managed.upload_pending_regions,
                        &This->managed.upload_pending_regions,
-                       &This->managed.dirty_box);
+                       &uploading_box);
     } else {
-        This->managed.upload_pending_regions = This->managed.dirty_box;
+        This->managed.upload_pending_regions = uploading_box;
     }
     nine_context_range_upload(device, &This->managed.pending_upload,
                               (struct NineUnknown *)This,

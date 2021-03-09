@@ -2917,31 +2917,14 @@ NineAfterDraw( struct NineDevice9 *This )
 static void
 NineTrackSystemmemDynamic( struct NineBuffer9 *This, unsigned start, unsigned width )
 {
-    struct pipe_box box, box2;
+    struct pipe_box box;
 
     u_box_1d(start, width, &box);
-    u_box_union_1d(&This->managed.required_valid_region,
-                   &This->managed.required_valid_region,
-                   &box);
-
-    if (!This->managed.dirty) {
-        u_box_union_1d(&box2,
-                       &This->managed.required_valid_region,
-                       &This->managed.valid_region);
-        if (This->managed.valid_region.x != box2.x ||
-            This->managed.valid_region.width != box2.width) {
-            This->managed.dirty = TRUE;
-            This->managed.dirty_box = box;
-            BASEBUF_REGISTER_UPDATE(This);
-        }
-    } else {
-        /* dirty_box.x == 0 triggers a discard which resets the required_valid_region to
-         * the dirty box */
-        if (This->managed.dirty_box.x == 0)
-            u_box_union_1d(&This->managed.dirty_box,
-                           &This->managed.dirty_box,
-                           &box);
-    }
+    This->managed.required_valid_region = box;
+    if (This->managed.dirty)
+        return;
+    This->managed.dirty = TRUE;
+    BASEBUF_REGISTER_UPDATE(This);
 }
 
 HRESULT NINE_WINAPI
@@ -3016,7 +2999,7 @@ NineDevice9_DrawIndexedPrimitive( struct NineDevice9 *This,
                                   UINT StartIndex,
                                   UINT PrimitiveCount )
 {
-    unsigned i;
+    unsigned i, num_indices;
     DBG("iface %p, PrimitiveType %u, BaseVertexIndex %u, MinVertexIndex %u "
         "NumVertices %u, StartIndex %u, PrimitiveCount %u\n",
         This, PrimitiveType, BaseVertexIndex, MinVertexIndex, NumVertices,
@@ -3025,11 +3008,13 @@ NineDevice9_DrawIndexedPrimitive( struct NineDevice9 *This,
     user_assert(This->state.idxbuf, D3DERR_INVALIDCALL);
     user_assert(This->state.vdecl, D3DERR_INVALIDCALL);
 
+    num_indices = prim_count_to_vertex_count(PrimitiveType, PrimitiveCount);
+
     /* Tracking for dynamic SYSTEMMEM */
     if (IS_SYSTEMMEM_DYNAMIC(&This->state.idxbuf->base))
         NineTrackSystemmemDynamic(&This->state.idxbuf->base,
                                   StartIndex * This->state.idxbuf->index_size,
-                                  PrimitiveCount * This->state.idxbuf->index_size);
+                                  num_indices * This->state.idxbuf->index_size);
 
     for (i = 0; i < This->caps.MaxStreams; i++) {
         /* Set vertex buffers full dirty. Check indices if readable directly */
@@ -3038,7 +3023,7 @@ NineDevice9_DrawIndexedPrimitive( struct NineDevice9 *This,
             uint32_t full_size = This->state.stream[i]->base.size;
             uint32_t start, stop, min, max;
             if (This->state.idxbuf->base.managed.data) {
-                index_systemmem_get_min_max(This->state.idxbuf, StartIndex, PrimitiveCount, &min, &max);
+                index_systemmem_get_min_max(This->state.idxbuf, StartIndex, num_indices, &min, &max);
                 DBG("Computed min/max of index buffer: %d %d\n", (int)min, (int)max);
                 min += BaseVertexIndex;
                 max += BaseVertexIndex;
@@ -3055,6 +3040,7 @@ NineDevice9_DrawIndexedPrimitive( struct NineDevice9 *This,
                 stop = full_size;
             }
             stop = MIN2(stop, full_size);
+            DBG("Deduced range: %d %d (%d %d)\n", start, stop, (int)(MinVertexIndex+BaseVertexIndex)*stride, (int)(MinVertexIndex+NumVertices+BaseVertexIndex)*stride);
 
             NineTrackSystemmemDynamic(&This->state.stream[i]->base,
                                       start, stop-start);
