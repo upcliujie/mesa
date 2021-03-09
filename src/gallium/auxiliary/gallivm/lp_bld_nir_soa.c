@@ -1576,6 +1576,12 @@ static void emit_sysval_intrin(struct lp_build_nir_context *bld_base,
       result[0] = LLVMConstVector(elems, bld->bld_base.base.type.length);
       break;
    }
+   case nir_intrinsic_load_subgroup_id:
+      result[0] = lp_build_broadcast_scalar(&bld_base->uint_bld, lp_build_const_int32(gallivm, 0));
+      break;
+   case nir_intrinsic_load_num_subgroups:
+      result[0] = lp_build_broadcast_scalar(&bld_base->uint_bld, lp_build_const_int32(gallivm, bld_base->uint_bld.type.length));
+      break;
    }
 }
 
@@ -1845,6 +1851,12 @@ static void emit_vote(struct lp_build_nir_context *bld_base, LLVMValueRef src, n
    lp_build_loop_end_cond(&loop_state, lp_build_const_int32(gallivm, bld_base->uint_bld.type.length),
 			  NULL, LLVMIntUGE);
    result[0] = lp_build_broadcast_scalar(&bld_base->uint_bld, LLVMBuildLoad(builder, res_store, ""));
+}
+
+static void emit_elect(struct lp_build_nir_context *bld_base, LLVMValueRef result[4])
+{
+   struct gallivm_state *gallivm = bld_base->base.gallivm;
+   result[0] = lp_build_const_int32(gallivm, 0);
 }
 
 static void emit_read_invocation(struct lp_build_nir_context *bld_base,
@@ -2129,6 +2141,7 @@ void lp_build_nir_soa(struct gallivm_state *gallivm,
    bld.bld_base.image_op = emit_image_op;
    bld.bld_base.image_size = emit_image_size;
    bld.bld_base.vote = emit_vote;
+   bld.bld_base.elect = emit_elect;
    bld.bld_base.read_invocation = emit_read_invocation;
    bld.bld_base.helper_invocation = emit_helper_invocation;
    bld.bld_base.interp_at = emit_interp_at;
