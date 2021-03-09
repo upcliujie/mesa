@@ -9,9 +9,9 @@ mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /tmp
 
-cd `dirname "$0"`
+cd `dirname "$0"`/..    # This should be $CI_PROJECT_DIR
 
-. ./crosvm-env.sh
+. ./install/crosvm-env.sh
 
 sleep 2
 
