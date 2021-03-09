@@ -1577,10 +1577,10 @@ static void emit_sysval_intrin(struct lp_build_nir_context *bld_base,
       break;
    }
    case nir_intrinsic_load_subgroup_id:
-      result[0] = lp_build_broadcast_scalar(&bld_base->uint_bld, lp_build_const_int32(gallivm, 0));
+      result[0] = lp_build_broadcast_scalar(&bld_base->uint_bld, bld->system_values.subgroup_id);
       break;
    case nir_intrinsic_load_num_subgroups:
-      result[0] = lp_build_broadcast_scalar(&bld_base->uint_bld, lp_build_const_int32(gallivm, bld_base->uint_bld.type.length));
+      result[0] = lp_build_broadcast_scalar(&bld_base->uint_bld, bld->system_values.num_subgroups);
       break;
    }
 }
@@ -1856,7 +1856,37 @@ static void emit_vote(struct lp_build_nir_context *bld_base, LLVMValueRef src, n
 static void emit_elect(struct lp_build_nir_context *bld_base, LLVMValueRef result[4])
 {
    struct gallivm_state *gallivm = bld_base->base.gallivm;
-   result[0] = lp_build_const_int32(gallivm, 0);
+   LLVMBuilderRef builder = gallivm->builder;
+   LLVMValueRef exec_mask = mask_vec(bld_base);
+   struct lp_build_loop_state loop_state;
+
+   LLVMValueRef idx_store = lp_build_alloca(gallivm, bld_base->int_bld.elem_type, "");
+   LLVMValueRef found_store = lp_build_alloca(gallivm, bld_base->int_bld.elem_type, "");
+   lp_build_loop_begin(&loop_state, gallivm, lp_build_const_int32(gallivm, 0));
+   LLVMValueRef value_ptr = LLVMBuildExtractElement(gallivm->builder, exec_mask,
+                                                    loop_state.counter, "");
+   LLVMValueRef cond = LLVMBuildICmp(gallivm->builder,
+                                     LLVMIntEQ,
+                                     value_ptr,
+                                     lp_build_const_int32(gallivm, -1), "");
+   LLVMValueRef cond2 = LLVMBuildICmp(gallivm->builder,
+                                      LLVMIntEQ,
+                                      LLVMBuildLoad(builder, found_store, ""),
+                                      lp_build_const_int32(gallivm, 0), "");
+
+   cond = LLVMBuildAnd(builder, cond, cond2, "");
+   struct lp_build_if_state ifthen;
+   lp_build_if(&ifthen, gallivm, cond);
+   LLVMBuildStore(builder, lp_build_const_int32(gallivm, 1), found_store);
+   LLVMBuildStore(builder, loop_state.counter, idx_store);
+   lp_build_endif(&ifthen);
+   lp_build_loop_end_cond(&loop_state, lp_build_const_int32(gallivm, bld_base->uint_bld.type.length),
+                          NULL, LLVMIntUGE);
+
+   result[0] = LLVMBuildInsertElement(builder, bld_base->uint_bld.zero,
+                                      lp_build_const_int32(gallivm, -1),
+                                      LLVMBuildLoad(builder, idx_store, ""),
+                                      "");
 }
 
 static void emit_read_invocation(struct lp_build_nir_context *bld_base,
