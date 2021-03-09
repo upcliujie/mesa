@@ -21,6 +21,9 @@ unset XDG_RUNTIME_DIR
 /usr/sbin/iptables-legacy  -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 echo 1 > /proc/sys/net/ipv4/ip_forward 
 
+# Crosvm wants this
+syslogd -n &> /dev/null
+
 crosvm run \
   --gpu gles=false,backend=3d,egl=true,surfaceless=true \
   -m 4096 \
