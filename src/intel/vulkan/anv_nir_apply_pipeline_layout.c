@@ -225,6 +225,21 @@ build_load_descriptor(nir_builder *b, nir_ssa_def *desc_addr, unsigned offset,
                        .range = ~0);
 }
 
+/** Convert a vulkan descriptor address to a deref pointer
+ *
+ * Coming out of SPIR-V, both the binding derefs (in the form of
+ * vulkan_resource_[re]index intrinsics) and the memory derefs (in the form
+ * of nir_deref_instr) use the same vector component/bit size.  The meaning
+ * of those values for memory derefs (nir_deref_instr) is given by the
+ * nir_address_format associated with the descriptor type.  For binding
+ * derefs, it's an entirely internal API which describes where a thing lives
+ * in the descriptor set.  The load_vulkan_descriptor intrinsic exists to
+ * provide a transition point between the two forms of derefs.  In some
+ * cases, it's an actual memory load from the descriptor set and, in others,
+ * it simply converts from one form to another.
+ *
+ * See lower_res_index_intrinsic for details about each binding deref format.
+ */
 static nir_ssa_def *
 build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
                 nir_ssa_def *array_index, nir_address_format addr_format,
