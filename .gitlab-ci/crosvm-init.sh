@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -ex
+set -x
 
 mount -t proc none /proc
 mount -t sysfs none /sys
@@ -11,14 +11,20 @@ mount -t tmpfs tmpfs /tmp
 
 . `dirname "$0"`/crosvm-env.sh
 
+sleep 2
+
 # / is ro
 export PIGLIT_REPLAY_EXTRA_ARGS="$PIGLIT_REPLAY_EXTRA_ARGS --db-path /tmp/replayer-db"
+
+sleep 2
 
 if sh $LAVA_TEST_SCRIPT; then
     echo 'mesa: pass';
 else
     echo 'mesa: fail';
 fi
+
+sleep 2
 
 poweroff -d -n -f || true
 
