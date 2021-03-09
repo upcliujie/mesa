@@ -9,7 +9,7 @@ mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /tmp
 
-export $(cat /install/crosvm-env.sh | xargs)
+export $(cat `dirname "$0"`/crosvm-env.sh | xargs)
 
 # / is ro
 export PIGLIT_REPLAY_EXTRA_ARGS="$PIGLIT_REPLAY_EXTRA_ARGS --db-path /tmp/replayer-db"
