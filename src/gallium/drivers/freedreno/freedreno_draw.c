@@ -360,6 +360,16 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 		util_format_short_name(pipe_surface_format(pfb->cbufs[0])),
 		util_format_short_name(pipe_surface_format(pfb->zsbuf)));
 
+	/* Calculate draw cost: */
+	batch->cost += pfb->nr_cbufs;
+	for (unsigned i = 0; i < pfb->nr_cbufs; i++)
+		if (fd_blend_enabled(ctx, i))
+			batch->cost++;
+	if (fd_depth_enabled(ctx))
+		batch->cost++;
+	if (fd_depth_write_enabled(ctx))
+		batch->cost++;
+
 	if (ctx->draw_vbo(ctx, info, indirect, &draws[0], index_offset))
 		batch->needs_flush = true;
 
