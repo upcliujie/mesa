@@ -194,7 +194,7 @@ tu6_emit_load_state(struct tu_pipeline *pipeline, bool compute)
          case VK_DESCRIPTOR_TYPE_SAMPLER:
          case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
          case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER: {
-            tu_foreach_stage(stage, stages) {
+            vk_foreach_stage(stage, stages) {
                emit_load_state(&cs, tu6_stage2opcode(stage),
                                binding->type == VK_DESCRIPTOR_TYPE_SAMPLER ?
                                ST6_SHADER : ST6_CONSTANTS,
@@ -208,14 +208,14 @@ tu6_emit_load_state(struct tu_pipeline *pipeline, bool compute)
                       binding->dynamic_offset_offset) * A6XX_TEX_CONST_DWORDS;
             /* fallthrough */
          case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-            tu_foreach_stage(stage, stages) {
+            vk_foreach_stage(stage, stages) {
                emit_load_state(&cs, tu6_stage2opcode(stage), ST6_UBO,
                                tu6_stage2shadersb(stage), base, offset, count);
             }
             break;
          }
          case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: {
-            tu_foreach_stage(stage, stages) {
+            vk_foreach_stage(stage, stages) {
                /* TODO: We could emit less CP_LOAD_STATE6 if we used
                 * struct-of-arrays instead of array-of-structs.
                 */

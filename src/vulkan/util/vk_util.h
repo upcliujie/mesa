@@ -43,6 +43,13 @@ extern "C" {
    for (const struct VkBaseInStructure *__iter = (const struct VkBaseInStructure *)(__start); \
         __iter; __iter = __iter->pNext)
 
+#define VK_STAGE_MASK ((1 << MESA_SHADER_STAGES) - 1)
+
+#define vk_foreach_stage(stage, stage_bits)                                  \
+   for (gl_shader_stage stage,                                               \
+        __tmp = (gl_shader_stage)((stage_bits) & VK_STAGE_MASK);              \
+        stage = __builtin_ffs(__tmp) - 1, __tmp; __tmp &= ~(1 << (stage)))
+
 /**
  * A wrapper for a Vulkan output array. A Vulkan output array is one that
  * follows the convention of the parameters to

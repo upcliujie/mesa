@@ -3298,14 +3298,6 @@ struct anv_shader_module {
    char                                         data[0];
 };
 
-#define ANV_STAGE_MASK ((1 << MESA_SHADER_STAGES) - 1)
-
-#define anv_foreach_stage(stage, stage_bits)                         \
-   for (gl_shader_stage stage,                                       \
-        __tmp = (gl_shader_stage)((stage_bits) & ANV_STAGE_MASK);    \
-        stage = __builtin_ffs(__tmp) - 1, __tmp;                     \
-        __tmp &= ~(1 << (stage)))
-
 enum anv_shader_reloc {
    ANV_SHADER_RELOC_CONST_DATA_ADDR_LOW,
    ANV_SHADER_RELOC_CONST_DATA_ADDR_HIGH,

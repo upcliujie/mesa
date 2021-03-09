@@ -25,13 +25,6 @@
 #include <vulkan/vulkan.h>
 #include "vk_util.h"
 
-#define TU_STAGE_MASK ((1 << MESA_SHADER_STAGES) - 1)
-
-#define tu_foreach_stage(stage, stage_bits)                                  \
-   for (gl_shader_stage stage,                                               \
-        __tmp = (gl_shader_stage)((stage_bits) &TU_STAGE_MASK);              \
-        stage = __builtin_ffs(__tmp) - 1, __tmp; __tmp &= ~(1 << (stage)))
-
 static inline enum a3xx_msaa_samples
 tu_msaa_samples(uint32_t samples)
 {

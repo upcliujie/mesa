@@ -2722,7 +2722,7 @@ radv_flush_descriptors(struct radv_cmd_buffer *cmd_buffer,
 	                                                   MAX_SETS * MESA_SHADER_STAGES * 4);
 
 	if (cmd_buffer->state.pipeline) {
-		radv_foreach_stage(stage, stages) {
+		vk_foreach_stage(stage, stages) {
 			if (!cmd_buffer->state.pipeline->shaders[stage])
 				continue;
 
@@ -2773,7 +2773,7 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer,
 	    (!layout->push_constant_size && !layout->dynamic_offset_count))
 		return;
 
-	radv_foreach_stage(stage, stages) {
+	vk_foreach_stage(stage, stages) {
 		shader = radv_get_shader(pipeline, stage);
 		if (!shader)
 			continue;
@@ -2808,7 +2808,7 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer,
 	                                   cmd_buffer->cs, MESA_SHADER_STAGES * 4);
 
 		prev_shader = NULL;
-		radv_foreach_stage(stage, stages) {
+		vk_foreach_stage(stage, stages) {
 			shader = radv_get_shader(pipeline, stage);
 
 			/* Avoid redundantly emitting the address for merged stages. */

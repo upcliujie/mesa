@@ -182,14 +182,6 @@ struct lvp_shader_module {
    char                                         data[0];
 };
 
-#define LVP_STAGE_MASK ((1 << MESA_SHADER_STAGES) - 1)
-
-#define lvp_foreach_stage(stage, stage_bits)                         \
-   for (gl_shader_stage stage,                                       \
-        __tmp = (gl_shader_stage)((stage_bits) & LVP_STAGE_MASK);    \
-        stage = ffs(__tmp) - 1, __tmp;                     \
-        __tmp &= ~(1 << (stage)))
-
 struct lvp_physical_device {
    struct vk_physical_device vk;
 

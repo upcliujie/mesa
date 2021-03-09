@@ -121,7 +121,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateDescriptorSetLayout(
       switch (binding->descriptorType) {
       case VK_DESCRIPTOR_TYPE_SAMPLER:
       case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-         lvp_foreach_stage(s, binding->stageFlags) {
+         vk_foreach_stage(s, binding->stageFlags) {
             set_layout->binding[b].stage[s].sampler_index = set_layout->stage[s].sampler_count;
             set_layout->stage[s].sampler_count += binding->descriptorCount;
          }
@@ -133,14 +133,14 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateDescriptorSetLayout(
       switch (binding->descriptorType) {
       case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
       case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
-         lvp_foreach_stage(s, binding->stageFlags) {
+         vk_foreach_stage(s, binding->stageFlags) {
             set_layout->binding[b].stage[s].const_buffer_index = set_layout->stage[s].const_buffer_count;
             set_layout->stage[s].const_buffer_count += binding->descriptorCount;
          }
         break;
       case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
       case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
-         lvp_foreach_stage(s, binding->stageFlags) {
+         vk_foreach_stage(s, binding->stageFlags) {
             set_layout->binding[b].stage[s].shader_buffer_index = set_layout->stage[s].shader_buffer_count;
             set_layout->stage[s].shader_buffer_count += binding->descriptorCount;
          }
@@ -149,7 +149,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateDescriptorSetLayout(
       case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
       case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
       case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
-         lvp_foreach_stage(s, binding->stageFlags) {
+         vk_foreach_stage(s, binding->stageFlags) {
             set_layout->binding[b].stage[s].image_index = set_layout->stage[s].image_count;
             set_layout->stage[s].image_count += binding->descriptorCount;
          }
@@ -157,7 +157,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateDescriptorSetLayout(
       case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
       case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
       case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
-         lvp_foreach_stage(s, binding->stageFlags) {
+         vk_foreach_stage(s, binding->stageFlags) {
             set_layout->binding[b].stage[s].sampler_view_index = set_layout->stage[s].sampler_view_count;
             set_layout->stage[s].sampler_view_count += binding->descriptorCount;
          }

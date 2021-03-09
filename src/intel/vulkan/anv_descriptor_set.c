@@ -290,11 +290,11 @@ void anv_GetDescriptorSetLayoutSupport(
             for (uint32_t i = 0; i < binding->descriptorCount; i++) {
                ANV_FROM_HANDLE(anv_sampler, sampler,
                                binding->pImmutableSamplers[i]);
-               anv_foreach_stage(s, binding->stageFlags)
+               vk_foreach_stage(s, binding->stageFlags)
                   surface_count[s] += sampler->n_planes;
             }
          } else {
-            anv_foreach_stage(s, binding->stageFlags)
+            vk_foreach_stage(s, binding->stageFlags)
                surface_count[s] += binding->descriptorCount;
          }
          break;
@@ -303,7 +303,7 @@ void anv_GetDescriptorSetLayoutSupport(
          if (anv_descriptor_data_supports_bindless(pdevice, desc_data, false))
             break;
 
-         anv_foreach_stage(s, binding->stageFlags)
+         vk_foreach_stage(s, binding->stageFlags)
             surface_count[s] += binding->descriptorCount;
          break;
       }

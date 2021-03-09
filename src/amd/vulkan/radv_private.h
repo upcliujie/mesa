@@ -1647,14 +1647,6 @@ radv_hash_shaders(unsigned char *hash,
 		  const struct radv_pipeline_key *key,
 		  uint32_t flags);
 
-#define RADV_STAGE_MASK ((1 << MESA_SHADER_STAGES) - 1)
-
-#define radv_foreach_stage(stage, stage_bits)				\
-	for (gl_shader_stage stage,					\
-		     __tmp = (gl_shader_stage)((stage_bits) & RADV_STAGE_MASK);	\
-	     stage = ffs(__tmp) - 1, __tmp;				\
-	     __tmp &= ~(1 << (stage)))
-
 extern const VkFormat radv_fs_key_format_exemplars[NUM_META_FS_KEYS];
 unsigned radv_format_meta_fs_key(struct radv_device *device, VkFormat format);
 

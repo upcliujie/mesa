@@ -484,7 +484,7 @@ void anv_CmdBindPipeline(
       cmd_buffer->state.gfx.vb_dirty |= gfx_pipeline->vb_used;
       cmd_buffer->state.gfx.dirty |= ANV_CMD_DIRTY_PIPELINE;
 
-      anv_foreach_stage(stage, gfx_pipeline->active_stages) {
+      vk_foreach_stage(stage, gfx_pipeline->active_stages) {
          set_dirty_for_bind_map(cmd_buffer, stage,
                                 &gfx_pipeline->shaders[stage]->bind_map);
       }

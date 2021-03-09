@@ -2972,7 +2972,7 @@ cmd_buffer_emit_descriptor_pointers(struct anv_cmd_buffer *cmd_buffer,
       [MESA_SHADER_COMPUTE]                     = 0,
    };
 
-   anv_foreach_stage(s, stages) {
+   vk_foreach_stage(s, stages) {
       assert(s < ARRAY_SIZE(binding_table_opcodes));
       assert(binding_table_opcodes[s] > 0);
 
@@ -3292,7 +3292,7 @@ cmd_buffer_flush_push_constants(struct anv_cmd_buffer *cmd_buffer,
 
    /* Compute robust pushed register access mask for each stage. */
    if (cmd_buffer->device->robust_buffer_access) {
-      anv_foreach_stage(stage, dirty_stages) {
+      vk_foreach_stage(stage, dirty_stages) {
          if (!anv_pipeline_has_stage(pipeline, stage))
             continue;
 
@@ -3334,7 +3334,7 @@ cmd_buffer_flush_push_constants(struct anv_cmd_buffer *cmd_buffer,
     */
    gfx_state->base.push_constants_state = ANV_STATE_NULL;
 
-   anv_foreach_stage(stage, dirty_stages) {
+   vk_foreach_stage(stage, dirty_stages) {
       unsigned buffer_count = 0;
       flushed |= mesa_to_vk_shader_stage(stage);
       UNUSED uint32_t max_push_range = 0;
@@ -3644,7 +3644,7 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
        * descriptors or push constants is dirty.
        */
       dirty |= cmd_buffer->state.push_constants_dirty;
-      dirty &= ANV_STAGE_MASK & VK_SHADER_STAGE_ALL_GRAPHICS;
+      dirty &= VK_STAGE_MASK & VK_SHADER_STAGE_ALL_GRAPHICS;
       cmd_buffer_flush_push_constants(cmd_buffer, dirty);
    }
 
