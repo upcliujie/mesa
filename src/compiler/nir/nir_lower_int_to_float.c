@@ -91,6 +91,16 @@ lower_alu_instr(nir_builder *b, nir_alu_instr *alu)
    case nir_op_umax: alu->op = nir_op_fmax; break;
    case nir_op_umin: alu->op = nir_op_fmin; break;
 
+   case nir_op_ishl:
+      rep = nir_fmul(b, nir_ssa_for_alu_src(b, alu, 0),
+                        nir_fexp2(b, nir_ssa_for_alu_src(b, alu, 1)));
+      break;
+
+   case nir_op_ushr:
+      rep = nir_ftrunc(b, nir_fdiv(b, nir_ssa_for_alu_src(b, alu, 0),
+                                      nir_fexp2(b, nir_ssa_for_alu_src(b, alu, 1))));
+      break;
+
    case nir_op_ball_iequal2:  alu->op = nir_op_ball_fequal2; break;
    case nir_op_ball_iequal3:  alu->op = nir_op_ball_fequal3; break;
    case nir_op_ball_iequal4:  alu->op = nir_op_ball_fequal4; break;
