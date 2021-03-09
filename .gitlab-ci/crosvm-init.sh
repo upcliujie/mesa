@@ -9,7 +9,9 @@ mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /tmp
 
-. `dirname "$0"`/crosvm-env.sh
+cd `dirname "$0"`
+
+. crosvm-env.sh
 
 sleep 2
 
