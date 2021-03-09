@@ -11,7 +11,7 @@ mount -t tmpfs tmpfs /tmp
 
 cd `dirname "$0"`/..    # This should be $CI_PROJECT_DIR
 
-. ./install/crosvm-env.sh
+. /crosvm-env.sh
 
 sleep 2
 
