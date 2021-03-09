@@ -1377,7 +1377,7 @@ tu6_emit_fs_outputs(struct tu_cs *cs,
 
    enum a6xx_ztest_mode zmode;
 
-   if (fs->no_earlyz || fs->has_kill || fs->writes_pos || fs->writes_stencilref || is_s8_uint) {
+   if (fs->no_earlyz || fs->has_kill || fs->writes_pos || fs->writes_stencilref || is_s8_uint || fs->writes_smask) {
       zmode = A6XX_LATE_Z;
    } else {
       zmode = A6XX_EARLY_Z;
