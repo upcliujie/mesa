@@ -175,6 +175,8 @@ NineBuffer9_Upload( struct NineBuffer9 *This )
         } else {
             This->managed.discard_nooverwrite = false;
         }
+        start = (uploading_box.x/64)*64;
+        upload_size = MIN2(This->size, ((uploading_box.x+uploading_box.width+63)/64)*64) - start;
     }
     else if (start == 0 && upload_size == This->size) {
         upload_flags |= PIPE_MAP_DISCARD_WHOLE_RESOURCE;
