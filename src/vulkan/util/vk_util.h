@@ -240,6 +240,19 @@ struct vk_pipeline_cache_header {
    memcpy((dest), (src), (count) * sizeof(*(src))); \
 } while (0)
 
+static inline gl_shader_stage
+vk_to_mesa_shader_stage(VkShaderStageFlagBits vk_stage)
+{
+   assert(__builtin_popcount(vk_stage) == 1);
+   return ffs(vk_stage) - 1;
+}
+
+static inline VkShaderStageFlagBits
+mesa_to_vk_shader_stage(gl_shader_stage mesa_stage)
+{
+   return (1 << mesa_stage);
+}
+
 #ifdef __cplusplus
 }
 #endif
