@@ -6406,6 +6406,17 @@ static void radv_init_color_image_metadata(struct radv_cmd_buffer *cmd_buffer,
 	}
 }
 
+static void radv_retile_transition(struct radv_cmd_buffer *cmd_buffer,
+				   struct radv_image *image,
+				   VkImageLayout src_layout,
+				   VkImageLayout dst_layout,
+				   unsigned dst_queue_mask)
+{
+	if (src_layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
+	    (dst_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ||
+	     (dst_queue_mask & (1u << RADV_QUEUE_FOREIGN))))
+		radv_retile_dcc(cmd_buffer, image);
+}
 /**
  * Handle color image transitions for DCC/FMASK/CMASK.
  */
@@ -6426,9 +6437,8 @@ static void radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffe
 					       src_queue_mask, dst_queue_mask,
 					       range);
 
-		if (dst_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
-		    image->retile_map)
-			radv_retile_dcc(cmd_buffer, image);
+		if (image->retile_map)
+			radv_retile_transition(cmd_buffer, image, src_layout, dst_layout, dst_queue_mask);
 		return;
 	}
 
@@ -6445,10 +6455,8 @@ static void radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffe
 			radv_fast_clear_flush_image_inplace(cmd_buffer, image, range);
 		}
 
-		if (src_layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
-		    dst_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
-		    image->retile_map)
-			radv_retile_dcc(cmd_buffer, image);
+		if (image->retile_map)
+			radv_retile_transition(cmd_buffer, image, src_layout, dst_layout, dst_queue_mask);
 	} else if (radv_image_has_cmask(image) || radv_image_has_fmask(image)) {
 		bool fce_eliminate = false, fmask_expand = false;
 
