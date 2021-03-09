@@ -2,6 +2,8 @@
 
 set -x
 
+ln -sf $CI_PROJECT_DIR/install /install
+
 export LD_LIBRARY_PATH=$CI_PROJECT_DIR/install/lib/
 export EGL_PLATFORM=surfaceless
 
