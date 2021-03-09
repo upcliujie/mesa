@@ -164,6 +164,17 @@ NineBuffer9_Upload( struct NineBuffer9 *This )
         uploading_box = This->managed.required_valid_region;
         start = uploading_box.x;
         upload_size = uploading_box.width;
+        if (start == 0) {
+            upload_flags |= PIPE_MAP_DISCARD_WHOLE_RESOURCE;
+            This->managed.discard_nooverwrite = true;
+            This->managed.nooverwrite_compatible_min_x = upload_size;
+        } else if (This->managed.discard_nooverwrite &&
+            start >= This->managed.nooverwrite_compatible_min_x) {
+            upload_flags |= PIPE_MAP_UNSYNCHRONIZED;
+            This->managed.nooverwrite_compatible_min_x = start+upload_size;
+        } else {
+            This->managed.discard_nooverwrite = false;
+        }
     }
     else if (start == 0 && upload_size == This->size) {
         upload_flags |= PIPE_MAP_DISCARD_WHOLE_RESOURCE;
