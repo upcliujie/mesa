@@ -1885,10 +1885,6 @@ genX(CmdExecuteCommands)(
    genX(cmd_buffer_emit_state_base_address)(primary);
 }
 
-#define IVB_L3SQCREG1_SQGHPCI_DEFAULT     0x00730000
-#define VLV_L3SQCREG1_SQGHPCI_DEFAULT     0x00d30000
-#define HSW_L3SQCREG1_SQGHPCI_DEFAULT     0x00610000
-
 /**
  * Program the hardware to use the specified L3 configuration.
  */
@@ -1900,12 +1896,16 @@ genX(cmd_buffer_config_l3)(struct anv_cmd_buffer *cmd_buffer,
    if (cfg == cmd_buffer->state.current_l3_config)
       return;
 
+#if GEN_GEN >= 11
+   /* On Gen11+ we use only one config, so make it never changes and skip the
+    * stall programming entirely.
+    */
+   assert(cfg == cmd_buffer->device->l3_config);
+#else
    if (INTEL_DEBUG & DEBUG_L3) {
       mesa_logd("L3 config transition: ");
       intel_dump_l3_config(cfg, stderr);
    }
-
-   UNUSED const bool has_slm = cfg->n[INTEL_L3P_SLM];
 
    /* According to the hardware docs, the L3 partitioning can only be changed
     * while the pipeline is completely drained and the caches are flushed,
@@ -1948,116 +1948,8 @@ genX(cmd_buffer_config_l3)(struct anv_cmd_buffer *cmd_buffer,
       pc.CommandStreamerStallEnable = true;
    }
 
-#if GEN_GEN >= 8
-
-   assert(!cfg->n[INTEL_L3P_IS] && !cfg->n[INTEL_L3P_C] && !cfg->n[INTEL_L3P_T]);
-
-#if GEN_GEN >= 12
-#define L3_ALLOCATION_REG GENX(L3ALLOC)
-#define L3_ALLOCATION_REG_num GENX(L3ALLOC_num)
-#else
-#define L3_ALLOCATION_REG GENX(L3CNTLREG)
-#define L3_ALLOCATION_REG_num GENX(L3CNTLREG_num)
-#endif
-
-   uint32_t l3cr;
-   anv_pack_struct(&l3cr, L3_ALLOCATION_REG,
-#if GEN_GEN < 11
-                   .SLMEnable = has_slm,
-#endif
-#if GEN_GEN == 11
-   /* WA_1406697149: Bit 9 "Error Detection Behavior Control" must be set
-    * in L3CNTLREG register. The default setting of the bit is not the
-    * desirable behavior.
-   */
-                   .ErrorDetectionBehaviorControl = true,
-                   .UseFullWays = true,
-#endif
-                   .URBAllocation = cfg->n[INTEL_L3P_URB],
-                   .ROAllocation = cfg->n[INTEL_L3P_RO],
-                   .DCAllocation = cfg->n[INTEL_L3P_DC],
-                   .AllAllocation = cfg->n[INTEL_L3P_ALL]);
-
-   /* Set up the L3 partitioning. */
-   emit_lri(&cmd_buffer->batch, L3_ALLOCATION_REG_num, l3cr);
-
-#else
-
-   const bool has_dc = cfg->n[INTEL_L3P_DC] || cfg->n[INTEL_L3P_ALL];
-   const bool has_is = cfg->n[INTEL_L3P_IS] || cfg->n[INTEL_L3P_RO] ||
-                       cfg->n[INTEL_L3P_ALL];
-   const bool has_c = cfg->n[INTEL_L3P_C] || cfg->n[INTEL_L3P_RO] ||
-                      cfg->n[INTEL_L3P_ALL];
-   const bool has_t = cfg->n[INTEL_L3P_T] || cfg->n[INTEL_L3P_RO] ||
-                      cfg->n[INTEL_L3P_ALL];
-
-   assert(!cfg->n[INTEL_L3P_ALL]);
-
-   /* When enabled SLM only uses a portion of the L3 on half of the banks,
-    * the matching space on the remaining banks has to be allocated to a
-    * client (URB for all validated configurations) set to the
-    * lower-bandwidth 2-bank address hashing mode.
-    */
-   const struct gen_device_info *devinfo = &cmd_buffer->device->info;
-   const bool urb_low_bw = has_slm && !devinfo->is_baytrail;
-   assert(!urb_low_bw || cfg->n[INTEL_L3P_URB] == cfg->n[INTEL_L3P_SLM]);
-
-   /* Minimum number of ways that can be allocated to the URB. */
-   const unsigned n0_urb = devinfo->is_baytrail ? 32 : 0;
-   assert(cfg->n[INTEL_L3P_URB] >= n0_urb);
-
-   uint32_t l3sqcr1, l3cr2, l3cr3;
-   anv_pack_struct(&l3sqcr1, GENX(L3SQCREG1),
-                   .ConvertDC_UC = !has_dc,
-                   .ConvertIS_UC = !has_is,
-                   .ConvertC_UC = !has_c,
-                   .ConvertT_UC = !has_t);
-   l3sqcr1 |=
-      GEN_IS_HASWELL ? HSW_L3SQCREG1_SQGHPCI_DEFAULT :
-      devinfo->is_baytrail ? VLV_L3SQCREG1_SQGHPCI_DEFAULT :
-      IVB_L3SQCREG1_SQGHPCI_DEFAULT;
-
-   anv_pack_struct(&l3cr2, GENX(L3CNTLREG2),
-                   .SLMEnable = has_slm,
-                   .URBLowBandwidth = urb_low_bw,
-                   .URBAllocation = cfg->n[INTEL_L3P_URB] - n0_urb,
-#if !GEN_IS_HASWELL
-                   .ALLAllocation = cfg->n[INTEL_L3P_ALL],
-#endif
-                   .ROAllocation = cfg->n[INTEL_L3P_RO],
-                   .DCAllocation = cfg->n[INTEL_L3P_DC]);
-
-   anv_pack_struct(&l3cr3, GENX(L3CNTLREG3),
-                   .ISAllocation = cfg->n[INTEL_L3P_IS],
-                   .ISLowBandwidth = 0,
-                   .CAllocation = cfg->n[INTEL_L3P_C],
-                   .CLowBandwidth = 0,
-                   .TAllocation = cfg->n[INTEL_L3P_T],
-                   .TLowBandwidth = 0);
-
-   /* Set up the L3 partitioning. */
-   emit_lri(&cmd_buffer->batch, GENX(L3SQCREG1_num), l3sqcr1);
-   emit_lri(&cmd_buffer->batch, GENX(L3CNTLREG2_num), l3cr2);
-   emit_lri(&cmd_buffer->batch, GENX(L3CNTLREG3_num), l3cr3);
-
-#if GEN_IS_HASWELL
-   if (cmd_buffer->device->physical->cmd_parser_version >= 4) {
-      /* Enable L3 atomics on HSW if we have a DC partition, otherwise keep
-       * them disabled to avoid crashing the system hard.
-       */
-      uint32_t scratch1, chicken3;
-      anv_pack_struct(&scratch1, GENX(SCRATCH1),
-                      .L3AtomicDisable = !has_dc);
-      anv_pack_struct(&chicken3, GENX(CHICKEN3),
-                      .L3AtomicDisableMask = true,
-                      .L3AtomicDisable = !has_dc);
-      emit_lri(&cmd_buffer->batch, GENX(SCRATCH1_num), scratch1);
-      emit_lri(&cmd_buffer->batch, GENX(CHICKEN3_num), chicken3);
-   }
-#endif
-
-#endif
-
+   genX(emit_l3_config)(&cmd_buffer->batch, cmd_buffer->device, cfg);
+#endif /* GEN_GEN >= 11 */
    cmd_buffer->state.current_l3_config = cfg;
 }
 
