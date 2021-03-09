@@ -1812,6 +1812,8 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
          zink_fb_clears_apply(ctx, surf->texture);
          ctx->rp_changed = true;
       }
+      if (surf)
+         zink_resource(surf->texture)->fb_binds--;
    }
    if (ctx->fb_state.zsbuf) {
       struct pipe_surface *surf = ctx->fb_state.zsbuf;
@@ -1819,6 +1821,7 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
          zink_fb_clears_apply(ctx, ctx->fb_state.zsbuf->texture);
          ctx->rp_changed = true;
       }
+      zink_resource(surf->texture)->fb_binds--;
    }
    /* renderpass changes if the number or types of attachments change */
    ctx->rp_changed |= ctx->fb_state.nr_cbufs != state->nr_cbufs;
@@ -1828,6 +1831,15 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
    unsigned h = ctx->fb_state.height;
 
    util_copy_framebuffer_state(&ctx->fb_state, state);
+   for (int i = 0; i < ctx->fb_state.nr_cbufs; i++) {
+      struct pipe_surface *surf = ctx->fb_state.cbufs[i];
+      if (surf)
+         zink_resource(surf->texture)->fb_binds++;
+   }
+   if (ctx->fb_state.zsbuf) {
+      struct pipe_surface *surf = ctx->fb_state.zsbuf;
+      zink_resource(surf->texture)->fb_binds++;
+   }
    if (ctx->fb_state.width != w || ctx->fb_state.height != h)
       ctx->scissor_changed = true;
    rebind_fb_state(ctx, NULL, true);
