@@ -225,6 +225,23 @@ build_load_descriptor(nir_builder *b, nir_ssa_def *desc_addr, unsigned offset,
                        .range = ~0);
 }
 
+/** Build a Vulkan descriptor address
+ *
+ * Coming out of SPIR-V, both the binding derefs (in the form of
+ * vulkan_resource_[re]index intrinsics) and the memory derefs (in the form
+ * of nir_deref_instr) use the same vector component/bit size.  The meaning
+ * of those values for memory derefs (nir_deref_instr) is given by the
+ * nir_address_format associated with the descriptor type.  For binding
+ * derefs, it's an entirely internal to ANV encoding which describes, in some
+ * sense, the address of the descriptor.  Thanks to the NIR/SPIR-V rules, it
+ * must be packed into the same size SSA values as a memory address.
+ *
+ * The load_vulkan_descriptor intrinsic exists to provide a transition point
+ * between the two forms of derefs: descriptor and memory.  In some cases,
+ * it's an actual memory load from the descriptor set and, in others, it
+ * simply converts from one form to another.  See build_load_buffer_descriptor
+ * for more details.
+ */
 static nir_ssa_def *
 build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
                 nir_ssa_def *array_index, nir_address_format addr_format,
@@ -333,6 +350,10 @@ build_buffer_desc_addr(nir_builder *b, const VkDescriptorType desc_type,
    return nir_vec2(b, res.set_idx, desc_offset);
 }
 
+/** Convert a Vulkan descriptor address to a deref pointer
+ *
+ * See build_res_index for details about each binding deref format.
+ */
 static nir_ssa_def *
 build_load_buffer_descriptor(nir_builder *b, const VkDescriptorType desc_type,
                              nir_ssa_def *index, nir_address_format addr_format,
