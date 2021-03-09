@@ -42,3 +42,5 @@ crosvm run \
 
 mkdir -p $CI_PROJECT_DIR/results
 mv /results/* $CI_PROJECT_DIR/results/.
+
+test -f /results/success

@@ -19,9 +19,7 @@ export PIGLIT_REPLAY_EXTRA_ARGS="$PIGLIT_REPLAY_EXTRA_ARGS --db-path /tmp/replay
 sleep 2
 
 if sh $CROSVM_TEST_SCRIPT; then
-    echo 'mesa: pass';
-else
-    echo 'mesa: fail';
+    touch /results/success
 fi
 
 sleep 2
