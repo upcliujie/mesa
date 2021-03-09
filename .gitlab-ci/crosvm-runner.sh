@@ -36,6 +36,6 @@ crosvm run \
   --disable-sandbox \
   --shared-dir /:my_root:type=fs:writeback=true:timeout=60:cache=always \
   --host_ip=192.168.30.1 --netmask=255.255.255.0 --mac "AA:BB:CC:00:00:12" \
-  -p "root=my_root rw rootfstype=virtiofs loglevel=7 init=/install/crosvm-init.sh ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0" \
+  -p "root=my_root rw rootfstype=virtiofs loglevel=3 init=/install/crosvm-init.sh ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0" \
   /lava-files/bzImage
 

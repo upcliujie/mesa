@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -x
+set -e
 
 mount -t proc none /proc
 mount -t sysfs none /sys
