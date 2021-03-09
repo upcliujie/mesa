@@ -151,6 +151,15 @@ genX(emit_slice_hashing_state)(struct anv_device *device,
 #endif
 }
 
+static void
+emit_lri(struct anv_batch *batch, uint32_t reg, uint32_t imm)
+{
+   anv_batch_emit(batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
+      lri.RegisterOffset   = reg;
+      lri.DataDWord        = imm;
+   }
+}
+
 static VkResult
 init_render_queue_state(struct anv_queue *queue)
 {
@@ -223,10 +232,7 @@ init_render_queue_state(struct anv_queue *queue)
                    .HeaderlessMessageforPreemptableContexts = true,
                    .HeaderlessMessageforPreemptableContextsMask = true);
 
-    anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-      lri.RegisterOffset = GENX(SAMPLER_MODE_num);
-      lri.DataDWord      = sampler_mode;
-   }
+   emit_lri(&batch, GENX(SAMPLER_MODE_num), sampler_mode);
 
    /* Bit 1 "Enabled Texel Offset Precision Fix" must be set in
     * HALF_SLICE_CHICKEN7 register.
@@ -236,10 +242,7 @@ init_render_queue_state(struct anv_queue *queue)
                    .EnabledTexelOffsetPrecisionFix = true,
                    .EnabledTexelOffsetPrecisionFixMask = true);
 
-    anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-      lri.RegisterOffset = GENX(HALF_SLICE_CHICKEN7_num);
-      lri.DataDWord      = half_slice_chicken7;
-   }
+   emit_lri(&batch, GENX(HALF_SLICE_CHICKEN7_num), half_slice_chicken7);
 
    uint32_t tccntlreg;
    anv_pack_struct(&tccntlreg, GENX(TCCNTLREG),
@@ -248,10 +251,7 @@ init_render_queue_state(struct anv_queue *queue)
                    .URBPartialWriteMergingEnable = true,
                    .TCDisable = true);
 
-   anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-      lri.RegisterOffset = GENX(TCCNTLREG_num);
-      lri.DataDWord      = tccntlreg;
-   }
+   emit_lri(&batch, GENX(TCCNTLREG_num), tccntlreg);
 
 #endif
    genX(emit_slice_hashing_state)(device, &batch);
@@ -267,10 +267,7 @@ init_render_queue_state(struct anv_queue *queue)
                       .DisableRepackingforCompression = true,
                       .DisableRepackingforCompressionMask = true);
 
-      anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-         lri.RegisterOffset = GENX(CACHE_MODE_0_num);
-         lri.DataDWord      = cache_mode_0;
-      }
+      emit_lri(&batch, GENX(CACHE_MODE_0_num), cache_mode_0);
    }
 
    /* an unknown issue is causing vs push constants to become
@@ -284,24 +281,15 @@ init_render_queue_state(struct anv_queue *queue)
                    .ReplayMode = MidcmdbufferPreemption,
                    .ReplayModeMask = true);
 
-   anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-      lri.RegisterOffset = GENX(CS_CHICKEN1_num);
-      lri.DataDWord      = cs_chicken1;
-   }
+   emit_lri(&batch, GENX(CS_CHICKEN1_num), cs_chicken1);
 #endif
 
 #if GEN_GEN == 12
    if (device->info.has_aux_map) {
       uint64_t aux_base_addr = gen_aux_map_get_base(device->aux_map_ctx);
       assert(aux_base_addr % (32 * 1024) == 0);
-      anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-         lri.RegisterOffset = GENX(GFX_AUX_TABLE_BASE_ADDR_num);
-         lri.DataDWord = aux_base_addr & 0xffffffff;
-      }
-      anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-         lri.RegisterOffset = GENX(GFX_AUX_TABLE_BASE_ADDR_num) + 4;
-         lri.DataDWord = aux_base_addr >> 32;
-      }
+      emit_lri(&batch, GENX(GFX_AUX_TABLE_BASE_ADDR_num), aux_base_addr & 0xffffffff);
+      emit_lri(&batch, GENX(GFX_AUX_TABLE_BASE_ADDR_num) + 4, aux_base_addr >> 32);
    }
 #endif
 
@@ -316,32 +304,23 @@ init_render_queue_state(struct anv_queue *queue)
       anv_pack_struct(&tmp_reg, GENX(CS_DEBUG_MODE2),
                       .CONSTANT_BUFFERAddressOffsetDisable = true,
                       .CONSTANT_BUFFERAddressOffsetDisableMask = true);
-      anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-         lri.RegisterOffset = GENX(CS_DEBUG_MODE2_num);
-         lri.DataDWord      = tmp_reg;
-      }
+      emit_lri(&batch, GENX(CS_DEBUG_MODE2_num), tmp_reg);
 #elif GEN_GEN == 8
       anv_pack_struct(&tmp_reg, GENX(INSTPM),
                       .CONSTANT_BUFFERAddressOffsetDisable = true,
                       .CONSTANT_BUFFERAddressOffsetDisableMask = true);
-      anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-         lri.RegisterOffset = GENX(INSTPM_num);
-         lri.DataDWord      = tmp_reg;
-      }
+      emit_lri(&batch, GENX(INSTPM_num), tmp_reg);
 #endif
    }
 
+   UNUSED const struct gen_l3_config *cfg = gen_get_default_l3_config(&device->info);
 #if GEN_GEN >= 12
-   const struct gen_l3_config *cfg = gen_get_default_l3_config(&device->info);
    if (!cfg) {
       /* Platforms with no configs just setup full-way allocation. */
       uint32_t l3cr;
       anv_pack_struct(&l3cr, GENX(L3ALLOC),
                       .L3FullWayAllocationEnable = true);
-      anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-         lri.RegisterOffset = GENX(L3ALLOC_num);
-         lri.DataDWord      = l3cr;
-      }
+      emit_lri(&batch, GENX(L3ALLOC_num), l3cr);
    }
 #endif
 
