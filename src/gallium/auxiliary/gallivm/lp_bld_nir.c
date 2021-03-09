@@ -97,15 +97,6 @@ static LLVMValueRef cast_type(struct lp_build_nir_context *bld_base, LLVMValueRe
 }
 
 
-static struct lp_build_context *get_flt_bld(struct lp_build_nir_context *bld_base,
-                                            unsigned op_bit_size)
-{
-   if (op_bit_size == 64)
-      return &bld_base->dbl_bld;
-   else
-      return &bld_base->base;
-}
-
 static unsigned glsl_sampler_to_pipe(int sampler_dim, bool is_array)
 {
    unsigned pipe_target = PIPE_BUFFER;
@@ -1788,7 +1779,8 @@ static void visit_intrinsic(struct lp_build_nir_context *bld_base,
    case nir_intrinsic_vote_all:
    case nir_intrinsic_vote_any:
    case nir_intrinsic_vote_ieq:
-      bld_base->vote(bld_base, cast_type(bld_base, get_src(bld_base, instr->src[0]), nir_type_int, 32), instr, result);
+   case nir_intrinsic_vote_feq:
+      bld_base->vote(bld_base, cast_type(bld_base, get_src(bld_base, instr->src[0]), nir_type_int,  nir_src_bit_size(instr->src[0])), instr, result);
       break;
    case nir_intrinsic_elect:
       bld_base->elect(bld_base, result);
