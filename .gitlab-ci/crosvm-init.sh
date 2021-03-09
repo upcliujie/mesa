@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -e
+set -ex
 
 mount -t proc none /proc
 mount -t sysfs none /sys
@@ -10,7 +10,8 @@ mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /tmp
 
 cd `dirname "$0"`
-
+pwd
+ls -l
 . crosvm-env.sh
 
 sleep 2
