@@ -2051,6 +2051,8 @@ static inline uint64_t
 radv_image_get_fce_pred_va(const struct radv_image *image,
 			   uint32_t base_level)
 {
+	assert(image->fce_pred_offset != 0);
+
 	uint64_t va = radv_buffer_get_va(image->bo);
 	va += image->offset + image->fce_pred_offset + base_level * 8;
 	return va;
@@ -2060,6 +2062,8 @@ static inline uint64_t
 radv_image_get_dcc_pred_va(const struct radv_image *image,
 			   uint32_t base_level)
 {
+	assert(image->dcc_pred_offset != 0);
+
 	uint64_t va = radv_buffer_get_va(image->bo);
 	va += image->offset + image->dcc_pred_offset + base_level * 8;
 	return va;
@@ -2069,6 +2073,8 @@ static inline uint64_t
 radv_get_tc_compat_zrange_va(const struct radv_image *image,
 			     uint32_t base_level)
 {
+	assert(image->tc_compat_zrange_offset != 0);
+
 	uint64_t va = radv_buffer_get_va(image->bo);
 	va += image->offset + image->tc_compat_zrange_offset + base_level * 4;
 	return va;
