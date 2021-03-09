@@ -121,7 +121,7 @@ NineBuffer9_Upload( struct NineBuffer9 *This )
     struct pipe_box box, uploading_box = This->managed.dirty_box;
 
     assert(This->base.pool != D3DPOOL_DEFAULT && This->managed.dirty);
-
+#if 0
     if (This->base.pool == D3DPOOL_SYSTEMMEM && This->base.usage & D3DUSAGE_DYNAMIC) {
         /* D3DPOOL_SYSTEMMEM D3DUSAGE_DYNAMIC buffers tend to be updated frequently in a round fashion
          * with no overlap for each lock (except obviously when coming back at the start of the
@@ -158,9 +158,17 @@ NineBuffer9_Upload( struct NineBuffer9 *This )
             upload_size = This->managed.required_valid_region.width;
         }
         u_box_1d(start, upload_size, &uploading_box); /* TODO alignment */
-    } else if (start == 0 && upload_size == This->size) {
+    } 
+#endif
+    if (This->base.pool == D3DPOOL_SYSTEMMEM) {
+        uploading_box = This->managed.required_valid_region;
+        start = uploading_box.x;
+        upload_size = uploading_box.width;
+    }
+    else if (start == 0 && upload_size == This->size) {
         upload_flags |= PIPE_MAP_DISCARD_WHOLE_RESOURCE;
     }
+    
 
     if (This->managed.pending_upload) {
         u_box_union_1d(&This->managed.upload_pending_regions,

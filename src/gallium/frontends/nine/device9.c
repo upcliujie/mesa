@@ -3022,6 +3022,7 @@ NineDevice9_DrawIndexedPrimitive( struct NineDevice9 *This,
             uint32_t stride = This->state.vtxbuf[i].stride;
             uint32_t full_size = This->state.stream[i]->base.size;
             uint32_t start, stop, min, max;
+#if 0
             if (This->state.idxbuf->base.managed.data) {
                 index_systemmem_get_min_max(This->state.idxbuf, StartIndex, num_indices, &min, &max);
                 DBG("Computed min/max of index buffer: %d %d\n", (int)min, (int)max);
@@ -3041,6 +3042,10 @@ NineDevice9_DrawIndexedPrimitive( struct NineDevice9 *This,
             }
             stop = MIN2(stop, full_size);
             DBG("Deduced range: %d %d (%d %d)\n", start, stop, (int)(MinVertexIndex+BaseVertexIndex)*stride, (int)(MinVertexIndex+NumVertices+BaseVertexIndex)*stride);
+#endif
+            start = (MAX2(0, MinVertexIndex+BaseVertexIndex))*stride;
+            stop = (MinVertexIndex+NumVertices+BaseVertexIndex)*stride;
+            stop = MIN2(stop, full_size);
 
             NineTrackSystemmemDynamic(&This->state.stream[i]->base,
                                       start, stop-start);
