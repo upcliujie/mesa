@@ -23,6 +23,7 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 
 # Crosvm wants this
 syslogd -n &> /dev/null
+sleep 1
 
 crosvm run \
   --gpu gles=false,backend=3d,egl=true,surfaceless=true \
