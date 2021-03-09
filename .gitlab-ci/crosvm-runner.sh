@@ -2,8 +2,6 @@
 
 set -ex
 
-wget -O /tmp/vmlinux $KERNEL_URL
-
 export LD_LIBRARY_PATH=`pwd`/install/lib/
 export EGL_PLATFORM=surfaceless
 
