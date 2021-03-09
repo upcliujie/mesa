@@ -39,6 +39,7 @@
 #include "vk_device.h"
 #include "vk_instance.h"
 #include "vk_physical_device.h"
+#include "vk_util.h"
 
 #include <xf86drm.h>
 
@@ -1296,16 +1297,6 @@ struct v3dv_shader_module {
    uint32_t size;
    char data[0];
 };
-
-/* FIXME: the same function at anv, radv and tu, perhaps create common
- * place?
- */
-static inline gl_shader_stage
-vk_to_mesa_shader_stage(VkShaderStageFlagBits vk_stage)
-{
-   assert(__builtin_popcount(vk_stage) == 1);
-   return ffs(vk_stage) - 1;
-}
 
 struct v3dv_shader_variant {
    uint32_t ref_cnt;
