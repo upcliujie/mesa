@@ -83,4 +83,6 @@ virgl-traces:
     PIGLIT_RESULTS: "virgl-replay"
     MESA_GLES_VERSION_OVERRIDE: "3.1"
     MESA_GLSL_VERSION_OVERRIDE: "310"
+  script:
+    - install/crosvm-runner.sh
 
