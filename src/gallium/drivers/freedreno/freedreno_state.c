@@ -44,6 +44,22 @@
  */
 
 static void
+update_draw_cost(struct fd_context *ctx)
+	assert_dt
+{
+	struct pipe_framebuffer_state *pfb = &ctx->framebuffer;
+
+	ctx->draw_cost = pfb->nr_cbufs;
+	for (unsigned i = 0; i < pfb->nr_cbufs; i++)
+		if (fd_blend_enabled(ctx, i))
+			ctx->draw_cost++;
+	if (fd_depth_enabled(ctx))
+		ctx->draw_cost++;
+	if (fd_depth_write_enabled(ctx))
+		ctx->draw_cost++;
+}
+
+static void
 fd_set_blend_color(struct pipe_context *pctx,
 		const struct pipe_blend_color *blend_color)
 	in_dt
@@ -290,6 +306,7 @@ fd_set_framebuffer_state(struct pipe_context *pctx,
 	ctx->disabled_scissor.maxy = cso->height;
 
 	ctx->dirty |= FD_DIRTY_SCISSOR;
+	update_draw_cost(ctx);
 }
 
 static void
@@ -416,6 +433,7 @@ fd_blend_state_bind(struct pipe_context *pctx, void *hwcso)
 	ctx->dirty |= FD_DIRTY_BLEND;
 	if (old_is_dual != new_is_dual)
 		ctx->dirty |= FD_DIRTY_BLEND_DUAL;
+	update_draw_cost(ctx);
 }
 
 static void
@@ -468,6 +486,7 @@ fd_zsa_state_bind(struct pipe_context *pctx, void *hwcso)
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->zsa = hwcso;
 	ctx->dirty |= FD_DIRTY_ZSA;
+	update_draw_cost(ctx);
 }
 
 static void
