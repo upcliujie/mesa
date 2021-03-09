@@ -10,9 +10,8 @@ mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /tmp
 
 cd `dirname "$0"`
-pwd
-ls -l
-. crosvm-env.sh
+
+. ./crosvm-env.sh
 
 sleep 2
 
