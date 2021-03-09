@@ -84,6 +84,8 @@ virgl-traces:
     MESA_GLES_VERSION_OVERRIDE: "3.1"
     MESA_GLSL_VERSION_OVERRIDE: "310"
     GALLIUM_DRIVER: "llvmpipe"
+  tags:
+    - kvm
   script:
     - install/crosvm-runner.sh
 
