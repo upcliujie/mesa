@@ -37,6 +37,8 @@ lower_fp16_casts_filter(const nir_instr *instr, const void *data)
       case nir_op_f2f16:
       case nir_op_f2f16_rtne:
       case nir_op_f2f16_rtz:
+         if (nir_src_bit_size(alu->src[0].src) == 64)
+             return false;
          return true;
       default:
          return false;
