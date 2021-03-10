@@ -142,6 +142,8 @@ struct fd_batch {
 	 * This does ignore depth buffer traffic for samples which do not
 	 * pass do to depth-test fail, and some other details.  But it is
 	 * just intended to be a rough estimate that is easy to calculate.
+	 *
+	 * TODO this should probably at least account for MSAA..
 	 */
 	unsigned cost;
 
