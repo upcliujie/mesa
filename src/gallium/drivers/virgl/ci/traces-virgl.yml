@@ -33,39 +33,39 @@ traces:
   - path: 0ad/0ad.trace
     expectations:
       - device: gl-virgl
-        checksum: ea2b03e0768e8400c0badd46e4d26087
+        checksum: b244fb65c77f5cca2c49bb256874e132
   - path: glmark2/buffer-columns=200:interleave=false:update-dispersion=0.9:update-fraction=0.5:update-method=map.rdc
     expectations:
       - device: gl-virgl
-        checksum: 1d04a606014f00663e0d078903d190c8
+        checksum: 7194a135b454ab0a44da54b1b4318573
   - path: glmark2/buffer-columns=200:interleave=false:update-dispersion=0.9:update-fraction=0.5:update-method=subdata.rdc
     expectations:
       - device: gl-virgl
-        checksum: 6c00e3f05fab4b0df449451803b2749a
+        checksum: b28fafe3844e83854ac66526ec3c6f7b
   - path: glmark2/buffer-columns=200:interleave=true:update-dispersion=0.9:update-fraction=0.5:update-method=map.rdc
     expectations:
       - device: gl-virgl
-        checksum: 5706da41ae1877086e7ac2dc9af66e81
+        checksum: be20e9586750d29d8e24f418a2ddd6b3
   - path: glmark2/bump-bump-render=height.rdc
     expectations:
       - device: gl-virgl
-        checksum: bfa8557cd352b832e915c3c553b14c1f
+        checksum: 44b19dbaeb169b37957ad7e36655c82b
   - path: glmark2/bump-bump-render=high-poly.rdc
     expectations:
       - device: gl-virgl
-        checksum: 737a729713c894596b7cb4c1726239af
+        checksum: b8fbdcf5b27b6f0a80a483f97aa8f95b
   - path: glmark2/bump-bump-render=normals.rdc
     expectations:
       - device: gl-virgl
-        checksum: 8f81c0d4aa531277784872935523efd8
+        checksum: 3217bb7c1ab99631d6c8079c39900cd8
   - path: glmark2/conditionals-fragment-steps=0:vertex-steps=0.rdc
     expectations:
       - device: gl-virgl
-        checksum: 4d654718f516adb891e6adef04924896
+        checksum: 37076f5d551f1650457d6200c148a6d5
   - path: glmark2/conditionals-fragment-steps=5:vertex-steps=0.rdc
     expectations:
       - device: gl-virgl
-        checksum: 7937cc1cb07b980da11a7c892a97bcdc
+        checksum: 74d437bbeaea401d9f3c91d03090150a
   - path: glmark2/conditionals-fragment-steps=0:vertex-steps=5.rdc
     expectations:
       - device: gl-virgl
@@ -245,11 +245,11 @@ traces:
   - path: valve/half-life-2.trace
     expectations:
       - device: gl-virgl
-        checksum: 8f5929c82e7d990e8c3d2bea14688224
+        checksum: 72bf0c0747e653a7ebc6d1a0190b4bbf
   - path: valve/portal-2.trace
     expectations:
       - device: gl-virgl
-        checksum: a3a9e158ccf7fa5ba978e045505a060e
+        checksum: 41ab89c4174004360d63c2fd7dd81ff4
   - path: supertuxkart/supertuxkart-antediluvian-abyss.rdc
     expectations:
       - device: gl-virgl
