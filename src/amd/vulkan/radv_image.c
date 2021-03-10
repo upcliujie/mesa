@@ -1702,7 +1702,7 @@ radv_image_view_make_descriptor(struct radv_image_view *iview,
 				VkFormat vk_format,
 				const VkComponentMapping *components,
 				bool is_storage_image, bool disable_compression,
-				bool write_compress_enable,
+				bool enable_compression, bool write_compress_enable,
 				unsigned plane_id, unsigned descriptor_plane_id)
 {
 	struct radv_image *image = iview->image;
@@ -1748,7 +1748,7 @@ radv_image_view_make_descriptor(struct radv_image_view *iview,
 	/* Keep DCC compressed for image stores on GFX10+ if requested by
 	 * internal operations.
 	 */
-	if ((is_storage_image || disable_compression) &&
+	if (((is_storage_image && !enable_compression) || disable_compression) &&
 	    (!write_compress_enable || device->physical_device->rad_info.chip_class < GFX10))
 		disable_compression = true;
 
@@ -1960,6 +1960,7 @@ radv_image_view_init(struct radv_image_view *iview,
 		radv_image_view_can_fast_clear(device, iview);
 
 	bool disable_compression = extra_create_info ? extra_create_info->disable_compression: false;
+	bool enable_compression = extra_create_info ? extra_create_info->enable_compression : false;
 	bool write_compress_enable = extra_create_info ? extra_create_info->write_compress_enable : false;
 
 	for (unsigned i = 0; i < (iview->multiple_planes ? vk_format_get_plane_count(image->vk_format) : 1); ++i) {
@@ -1967,12 +1968,12 @@ radv_image_view_init(struct radv_image_view *iview,
 		radv_image_view_make_descriptor(iview, device, format,
 						&pCreateInfo->components,
 						false, disable_compression,
-						false,
+						false, false,
 						iview->plane_id + i, i);
 		radv_image_view_make_descriptor(iview, device,
 						format, &pCreateInfo->components,
 						true, disable_compression,
-						write_compress_enable,
+						enable_compression, write_compress_enable,
 						iview->plane_id + i, i);
 	}
 }
