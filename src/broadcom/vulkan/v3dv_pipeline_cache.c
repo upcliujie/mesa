@@ -51,19 +51,6 @@ struct serialized_nir {
    char data[0];
 };
 
-struct cache_entry {
-   uint32_t ref_cnt;
-
-   unsigned char sha1_key[20];
-
-   struct v3dv_descriptor_map ubo_map;
-   struct v3dv_descriptor_map ssbo_map;
-   struct v3dv_descriptor_map sampler_map;
-   struct v3dv_descriptor_map texture_map;
-
-   struct v3dv_shader_variant *variants[BROADCOM_SHADER_STAGES];
-};
-
 static void
 cache_dump_stats(struct v3dv_pipeline_cache *cache, bool verbose)
 {
@@ -229,80 +216,20 @@ v3dv_pipeline_cache_init(struct v3dv_pipeline_cache *cache,
 }
 
 /*
- * Note that we had cache_entry_ref and cache_entry_ref_variants because when
- * the pipeline looks up for info using a key, only the variants increase the
- * ref. Everything else will be copied.
+ * It searchs for pipeline cached data, and returns a v3dv_shared_data with
+ * it, or NULL if doesn't have it cached. On the former, it will increases the
+ * ref_count, so caller is responsible to unref it.
  */
-static void
-cache_entry_ref_variants(struct cache_entry *cache_entry)
-{
-   for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
-      if (cache_entry->variants[stage] != NULL)
-         v3dv_shader_variant_ref(cache_entry->variants[stage]);
-   }
-}
-/*
- * cache_entry refs are used to share the same entries between pipeline
- * caches, so handled internally.
- *
- * Additionally, as we can disable pipeline cache, we need to keep the
- * reference count on the variants, so pipeline can handle own/free variants
- * in the same way in both cases.
- */
-static void
-cache_entry_ref(struct cache_entry *cache_entry)
-{
-   assert(cache_entry && cache_entry->ref_cnt >= 1);
-   p_atomic_inc(&cache_entry->ref_cnt);
-
-   cache_entry_ref_variants(cache_entry);
-}
-
-static void
-cache_entry_destroy(struct v3dv_pipeline_cache *cache,
-                    struct cache_entry *cache_entry)
-{
-   vk_free(&cache->alloc, cache_entry);
-}
-
-static void
-cache_entry_unref_variants(struct v3dv_device *device,
-                           struct cache_entry *cache_entry)
-{
-   for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
-      if (cache_entry->variants[stage] != NULL)
-         v3dv_shader_variant_unref(device, cache_entry->variants[stage]);
-   }
-}
-
-static void
-cache_entry_unref(struct v3dv_pipeline_cache *cache,
-                  struct cache_entry *cache_entry)
-{
-   assert(cache_entry && cache_entry->ref_cnt >= 1);
-   cache_entry_unref_variants(cache->device, cache_entry);
-
-   if (p_atomic_dec_zero(&cache_entry->ref_cnt))
-      cache_entry_destroy(cache, cache_entry);
-}
-
-/*
- * It searchs for pipeline cached data, and fills the pipeline with it.
- *
- * FIXME: we use this method to fill up the cached data so we don't need to
- * expose the definition of cache_entry, but perhaps it would be clearer if it
- * returns the cached data, and let the caller to fill up.
- */
-bool
-v3dv_pipeline_cache_search_for_pipeline(struct v3dv_pipeline *pipeline,
-                                        struct v3dv_pipeline_cache *cache)
+struct v3dv_shared_data *
+v3dv_pipeline_cache_search_for_pipeline(struct v3dv_pipeline_cache *cache,
+                                        unsigned char sha1_key[20])
 {
    if (!cache || !cache->cache)
       return NULL;
 
    if (dump_stats) {
       char sha1buf[41];
-      _mesa_sha1_format(sha1buf, pipeline->sha1);
+      _mesa_sha1_format(sha1buf, sha1_key);
 
       fprintf(stderr, "pipeline cache %p, search pipeline with key %s\n", cache, sha1buf);
    }
@@ -310,11 +237,11 @@ v3dv_pipeline_cache_search_for_pipeline(struct v3dv_pipeline *pipeline,
    pthread_mutex_lock(&cache->mutex);
 
    struct hash_entry *entry =
-      _mesa_hash_table_search(cache->cache, pipeline->sha1);
+      _mesa_hash_table_search(cache->cache, sha1_key);
 
    if (entry) {
-      struct cache_entry *cache_entry =
-         (struct cache_entry *) entry->data;
+      struct v3dv_shared_data *cache_entry =
+         (struct v3dv_shared_data *) entry->data;
 
       cache->stats.hit++;
       if (dump_stats) {
@@ -322,38 +249,12 @@ v3dv_pipeline_cache_search_for_pipeline(struct v3dv_pipeline *pipeline,
          cache_dump_stats(cache, dump_stats_verbose);
       }
 
-      /* Now the pipeline will use the existing variants so we ref them */
       if (cache_entry)
-         cache_entry_ref_variants(cache_entry);
-
-      if (pipeline->cs) {
-         assert(cache_entry->variants[BROADCOM_SHADER_COMPUTE]);
-
-         pipeline->cs->current_variant = cache_entry->variants[BROADCOM_SHADER_COMPUTE];
-      } else {
-         assert(cache_entry->variants[BROADCOM_SHADER_VERTEX]);
-         assert(cache_entry->variants[BROADCOM_SHADER_VERTEX_BIN]);
-         assert(cache_entry->variants[BROADCOM_SHADER_FRAGMENT]);
-
-         pipeline->vs->current_variant =
-            cache_entry->variants[BROADCOM_SHADER_VERTEX];
-         pipeline->vs_bin->current_variant =
-            cache_entry->variants[BROADCOM_SHADER_VERTEX_BIN];
-         pipeline->fs->current_variant =
-            cache_entry->variants[BROADCOM_SHADER_FRAGMENT];
-      }
-
-      memcpy(&pipeline->ubo_map, &cache_entry->ubo_map,
-             sizeof(struct v3dv_descriptor_map));
-      memcpy(&pipeline->ssbo_map, &cache_entry->ssbo_map,
-             sizeof(struct v3dv_descriptor_map));
-      memcpy(&pipeline->sampler_map, &cache_entry->sampler_map,
-             sizeof(struct v3dv_descriptor_map));
-      memcpy(&pipeline->texture_map, &cache_entry->texture_map,
-             sizeof(struct v3dv_descriptor_map));
+         v3dv_shared_data_ref(cache_entry);
 
       pthread_mutex_unlock(&cache->mutex);
-      return true;
+
+      return cache_entry;
    }
 
    cache->stats.miss++;
@@ -363,29 +264,44 @@ v3dv_pipeline_cache_search_for_pipeline(struct v3dv_pipeline *pipeline,
    }
 
    pthread_mutex_unlock(&cache->mutex);
-   return false;
+   return NULL;
 }
 
-static struct cache_entry *
-cache_entry_new(struct v3dv_pipeline_cache *cache,
-                const unsigned char sha1_key[20],
-                struct v3dv_shader_variant **variants,
-                const bool variants_owned,
-                const struct v3dv_descriptor_map *ubo_map,
-                const struct v3dv_descriptor_map *ssbo_map,
-                const struct v3dv_descriptor_map *sampler_map,
-                const struct v3dv_descriptor_map *texture_map)
+void
+v3dv_shared_data_destroy(struct v3dv_device *device,
+                         struct v3dv_shared_data *cache_entry)
 {
-   size_t size = sizeof(struct cache_entry);
-   struct cache_entry *new_entry =
-      vk_object_zalloc(&cache->device->vk, &cache->alloc, size,
+   for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
+      if (cache_entry->variants[stage] != NULL)
+         v3dv_shader_variant_destroy(device, cache_entry->variants[stage]);
+   }
+
+   vk_free(&device->vk.alloc, cache_entry);
+}
+
+static struct v3dv_shared_data *
+v3dv_shared_data_new(struct v3dv_pipeline_cache *cache,
+                     const unsigned char sha1_key[20],
+                     struct v3dv_shader_variant **variants,
+                     const struct v3dv_descriptor_map *ubo_map,
+                     const struct v3dv_descriptor_map *ssbo_map,
+                     const struct v3dv_descriptor_map *sampler_map,
+                     const struct v3dv_descriptor_map *texture_map)
+{
+   size_t size = sizeof(struct v3dv_shared_data);
+   /* We create new_entry using the device alloc. Right now shared_data is ref
+    * and unref by both the pipeline and the pipeline cache, so we can't
+    * ensure that the cache or pipeline alloc will be available on the last
+    * unref.
+    */
+   struct v3dv_shared_data *new_entry =
+      vk_object_zalloc(&cache->device->vk, &cache->device->vk.alloc, size,
                        VK_SYSTEM_ALLOCATION_SCOPE_CACHE);
 
    if (new_entry == NULL)
       return NULL;
 
    new_entry->ref_cnt = 1;
-
    memcpy(new_entry->sha1_key, sha1_key, 20);
 
    memcpy(&new_entry->ubo_map, ubo_map, sizeof(struct v3dv_descriptor_map));
@@ -396,17 +312,10 @@ cache_entry_new(struct v3dv_pipeline_cache *cache,
    for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++)
       new_entry->variants[stage] = variants[stage];
 
-   /* variants_owned is used to distinguish two cases: when you are uploading
-    * pipeline data, so the variants first reference belongs to the pipeline,
-    * or when we are deserializing pipeline cache data, so those newly created
-    * variants belongs initially to the cache_entry.
-    */
-   if (!variants_owned)
-      cache_entry_ref_variants(new_entry);
-
    return new_entry;
 }
 
+/* Uploads all the "cacheable" or shared data from the pipeline */
 void
 v3dv_pipeline_cache_upload_pipeline(struct v3dv_pipeline *pipeline,
                                     struct v3dv_pipeline_cache *cache)
@@ -419,43 +328,22 @@ v3dv_pipeline_cache_upload_pipeline(struct v3dv_pipeline *pipeline,
 
    pthread_mutex_lock(&cache->mutex);
    struct hash_entry *entry =
-      _mesa_hash_table_search(cache->cache, pipeline->sha1);
+      _mesa_hash_table_search(cache->cache, pipeline->data->sha1_key);
 
    if (entry) {
       pthread_mutex_unlock(&cache->mutex);
       return;
    }
 
-   struct v3dv_shader_variant *variants[BROADCOM_SHADER_STAGES] =
-      {NULL, NULL, NULL, NULL};
-
-   if (pipeline->cs != NULL) {
-      variants[BROADCOM_SHADER_COMPUTE] = pipeline->cs->current_variant;
-   } else {
-      variants[BROADCOM_SHADER_VERTEX] = pipeline->vs->current_variant;
-      variants[BROADCOM_SHADER_VERTEX_BIN] = pipeline->vs_bin->current_variant;
-      variants[BROADCOM_SHADER_FRAGMENT] = pipeline->fs->current_variant;
-   }
-
-   struct cache_entry *new_entry =
-      cache_entry_new(cache,
-                      pipeline->sha1, variants, false,
-                      &pipeline->ubo_map,
-                      &pipeline->ssbo_map,
-                      &pipeline->sampler_map,
-                      &pipeline->texture_map);
-
-   if (new_entry == NULL)
-      return;
-
-   _mesa_hash_table_insert(cache->cache, new_entry->sha1_key, new_entry);
+   v3dv_shared_data_ref(pipeline->data);
+   _mesa_hash_table_insert(cache->cache, pipeline->data->sha1_key, pipeline->data);
    cache->stats.count++;
    if (dump_stats) {
       char sha1buf[41];
-      _mesa_sha1_format(sha1buf, pipeline->sha1);
+      _mesa_sha1_format(sha1buf, pipeline->data->sha1_key);
 
-      fprintf(stderr, "pipeline cache %p, new cache entry with sha1 key %s\n\n",
-              cache, sha1buf);
+      fprintf(stderr, "pipeline cache %p, new cache entry with sha1 key %s:%p\n\n",
+              cache, sha1buf, pipeline->data);
       cache_dump_stats(cache, dump_stats_verbose);
    }
 
@@ -533,9 +421,9 @@ shader_variant_create_from_blob(struct v3dv_device *device,
                                      &result);
 }
 
-static struct cache_entry *
-cache_entry_create_from_blob(struct v3dv_pipeline_cache *cache,
-                             struct blob_reader *blob)
+static struct v3dv_shared_data *
+v3dv_shared_data_create_from_blob(struct v3dv_pipeline_cache *cache,
+                                  struct blob_reader *blob)
 {
    const unsigned char *sha1_key = blob_read_bytes(blob, 20);
 
@@ -563,8 +451,8 @@ cache_entry_create_from_blob(struct v3dv_pipeline_cache *cache,
       variants[stage] = variant;
    }
 
-   return cache_entry_new(cache, sha1_key, variants, true,
-                          ubo_map, ssbo_map, sampler_map, texture_map);
+   return v3dv_shared_data_new(cache, sha1_key, variants,
+                               ubo_map, ssbo_map, sampler_map, texture_map);
 }
 
 static void
@@ -617,8 +505,8 @@ pipeline_cache_load(struct v3dv_pipeline_cache *cache,
       return;
 
    for (uint32_t i = 0; i < count; i++) {
-      struct cache_entry *cache_entry =
-         cache_entry_create_from_blob(cache, &blob);
+      struct v3dv_shared_data *cache_entry =
+         v3dv_shared_data_create_from_blob(cache, &blob);
       if (!cache_entry)
          break;
 
@@ -683,9 +571,9 @@ v3dv_pipeline_cache_finish(struct v3dv_pipeline_cache *cache)
 
    if (cache->cache) {
       hash_table_foreach(cache->cache, entry) {
-         struct cache_entry *cache_entry = entry->data;
+         struct v3dv_shared_data *cache_entry = entry->data;
          if (cache_entry)
-            cache_entry_unref(cache, cache_entry);
+            v3dv_shared_data_unref(cache->device, cache_entry);
       }
 
       _mesa_hash_table_destroy(cache->cache, NULL);
@@ -758,13 +646,13 @@ v3dv_MergePipelineCaches(VkDevice device,
       }
 
       hash_table_foreach(src->cache, entry) {
-         struct cache_entry *cache_entry = entry->data;
+         struct v3dv_shared_data *cache_entry = entry->data;
          assert(cache_entry);
 
          if (_mesa_hash_table_search(dst->cache, cache_entry->sha1_key))
             continue;
 
-         cache_entry_ref(cache_entry);
+         v3dv_shared_data_ref(cache_entry);
          _mesa_hash_table_insert(dst->cache, cache_entry->sha1_key, cache_entry);
 
          dst->stats.count++;
@@ -805,8 +693,8 @@ shader_variant_write_to_blob(const struct v3dv_shader_variant *variant,
 }
 
 static bool
-cache_entry_write_to_blob(const struct cache_entry *cache_entry,
-                          struct blob *blob)
+v3dv_shared_data_write_to_blob(const struct v3dv_shared_data *cache_entry,
+                               struct blob *blob)
 {
    blob_write_bytes(blob, cache_entry->sha1_key, 20);
 
@@ -907,10 +795,10 @@ v3dv_GetPipelineCacheData(VkDevice _device,
 
    if (cache->cache) {
       hash_table_foreach(cache->cache, entry) {
-         struct cache_entry *cache_entry = entry->data;
+         struct v3dv_shared_data *cache_entry = entry->data;
 
          size_t save_size = blob.size;
-         if (!cache_entry_write_to_blob(cache_entry, &blob)) {
+         if (!v3dv_shared_data_write_to_blob(cache_entry, &blob)) {
             /* If it fails reset to the previous size and bail */
             blob.size = save_size;
             pthread_mutex_unlock(&cache->mutex);

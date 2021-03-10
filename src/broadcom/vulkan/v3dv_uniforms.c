@@ -97,14 +97,14 @@ write_tmu_p0(struct v3dv_cmd_buffer *cmd_buffer,
 
    /* We need to ensure that the texture bo is added to the job */
    struct v3dv_bo *texture_bo =
-      v3dv_descriptor_map_get_texture_bo(descriptor_state, &pipeline->texture_map,
+      v3dv_descriptor_map_get_texture_bo(descriptor_state, &pipeline->data->texture_map,
                                          pipeline->layout, texture_idx);
    assert(texture_bo);
    v3dv_job_add_bo(job, texture_bo);
 
    struct v3dv_cl_reloc state_reloc =
       v3dv_descriptor_map_get_texture_shader_state(descriptor_state,
-                                                   &pipeline->texture_map,
+                                                   &pipeline->data->texture_map,
                                                    pipeline->layout,
                                                    texture_idx);
 
@@ -130,11 +130,11 @@ write_tmu_p1(struct v3dv_cmd_buffer *cmd_buffer,
           sampler_idx != V3DV_NO_SAMPLER_32BIT_IDX);
 
    struct v3dv_cl_reloc sampler_state_reloc =
-      v3dv_descriptor_map_get_sampler_state(descriptor_state, &pipeline->sampler_map,
+      v3dv_descriptor_map_get_sampler_state(descriptor_state, &pipeline->data->sampler_map,
                                             pipeline->layout, sampler_idx);
 
    const struct v3dv_sampler *sampler =
-      v3dv_descriptor_map_get_sampler(descriptor_state, &pipeline->sampler_map,
+      v3dv_descriptor_map_get_sampler(descriptor_state, &pipeline->data->sampler_map,
                                          pipeline->layout, sampler_idx);
    assert(sampler);
 
@@ -167,7 +167,7 @@ write_ubo_ssbo_uniforms(struct v3dv_cmd_buffer *cmd_buffer,
 
    struct v3dv_descriptor_map *map =
       content == QUNIFORM_UBO_ADDR || content == QUNIFORM_GET_UBO_SIZE ?
-      &pipeline->ubo_map : &pipeline->ssbo_map;
+      &pipeline->data->ubo_map : &pipeline->data->ssbo_map;
 
    uint32_t offset =
       content == QUNIFORM_UBO_ADDR ?
@@ -285,7 +285,7 @@ get_texture_size(struct v3dv_cmd_buffer *cmd_buffer,
 
    struct v3dv_descriptor *descriptor =
       v3dv_descriptor_map_get_descriptor(descriptor_state,
-                                         &pipeline->texture_map,
+                                         &pipeline->data->texture_map,
                                          pipeline->layout,
                                          texture_idx, NULL);
 
