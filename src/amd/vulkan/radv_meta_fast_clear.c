@@ -901,7 +901,9 @@ radv_decompress_dcc_compute(struct radv_cmd_buffer *cmd_buffer,
 								.baseArrayLayer = subresourceRange->baseArrayLayer + s,
 								.layerCount = 1
 							     },
-					     }, NULL),
+					     }, &(struct radv_image_view_extra_create_info) {
+						.write_compress_enable = true,
+					     });
 
 			radv_meta_push_descriptor_set(cmd_buffer,
 						      VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -952,8 +954,12 @@ radv_decompress_dcc_compute(struct radv_cmd_buffer *cmd_buffer,
 					RADV_CMD_FLAG_INV_VCACHE |
 			radv_src_access_flush(cmd_buffer, VK_ACCESS_SHADER_WRITE_BIT, image);
 
-	/* Initialize the DCC metadata as "fully expanded". */
-	radv_initialize_dcc(cmd_buffer, image, subresourceRange, 0xffffffff);
+	/* GFX10+ supports image stores with DCC and the destination image
+	 * view will set the COMPRESS bit.
+	 */
+	if (cmd_buffer->device->physical_device->rad_info.chip_class < GFX10) {
+		radv_initialize_dcc(cmd_buffer, image, subresourceRange, 0xffffffff);
+	}
 }
 
 void
