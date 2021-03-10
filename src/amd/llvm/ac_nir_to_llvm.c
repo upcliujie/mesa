@@ -483,7 +483,7 @@ struct waterfall_context {
  *     things through.
  */
 static LLVMValueRef enter_waterfall(struct ac_nir_context *ctx, struct waterfall_context *wctx,
-                                    LLVMValueRef value, bool divergent)
+                                    LLVMValueRef value, bool divergent, unsigned channel)
 {
    /* If the app claims the value is divergent but it is constant we can
     * end up with a dynamic index of NULL. */
@@ -496,15 +496,20 @@ static LLVMValueRef enter_waterfall(struct ac_nir_context *ctx, struct waterfall
 
    ac_build_bgnloop(&ctx->ac, 6000);
 
-   LLVMValueRef scalar_value = ac_build_readlane(&ctx->ac, value, NULL);
+   LLVMValueRef handle = ac_llvm_extract_elem(&ctx->ac, value, channel);
+   LLVMValueRef scalar_value = ac_build_readlane(&ctx->ac, handle, NULL);
 
    LLVMValueRef active =
-      LLVMBuildICmp(ctx->ac.builder, LLVMIntEQ, value, scalar_value, "uniform_active");
+      LLVMBuildICmp(ctx->ac.builder, LLVMIntEQ, handle, scalar_value, "uniform_active");
 
    wctx->phi_bb[0] = LLVMGetInsertBlock(ctx->ac.builder);
    ac_build_ifcc(&ctx->ac, active, 6001);
 
-   return scalar_value;
+   if (LLVMGetTypeKind(LLVMTypeOf(value)) == LLVMVectorTypeKind)
+      return LLVMBuildInsertElement(ctx->ac.builder, value, scalar_value,
+                                    LLVMConstInt(ctx->ac.i32, channel, false), "");
+   else
+      return scalar_value;
 }
 
 static LLVMValueRef exit_waterfall(struct ac_nir_context *ctx, struct waterfall_context *wctx,
@@ -1691,7 +1696,7 @@ static LLVMValueRef enter_waterfall_ssbo(struct ac_nir_context *ctx, struct wate
                                          const nir_intrinsic_instr *instr, nir_src src)
 {
    return enter_waterfall(ctx, wctx, get_src(ctx, src),
-                          nir_intrinsic_access(instr) & ACCESS_NON_UNIFORM);
+                          nir_intrinsic_access(instr) & ACCESS_NON_UNIFORM, 1);
 }
 
 static void visit_store_ssbo(struct ac_nir_context *ctx, nir_intrinsic_instr *instr)
@@ -2013,7 +2018,7 @@ static LLVMValueRef enter_waterfall_ubo(struct ac_nir_context *ctx, struct water
                                         const nir_intrinsic_instr *instr)
 {
    return enter_waterfall(ctx, wctx, get_src(ctx, instr->src[0]),
-                          nir_intrinsic_access(instr) & ACCESS_NON_UNIFORM);
+                          nir_intrinsic_access(instr) & ACCESS_NON_UNIFORM, 1);
 }
 
 static LLVMValueRef visit_load_global(struct ac_nir_context *ctx,
@@ -2413,7 +2418,7 @@ static LLVMValueRef enter_waterfall_image(struct ac_nir_context *ctx,
       deref_instr = nir_instr_as_deref(instr->src[0].ssa->parent_instr);
 
    LLVMValueRef value = get_sampler_desc_index(ctx, deref_instr, &instr->instr, true);
-   return enter_waterfall(ctx, wctx, value, nir_intrinsic_access(instr) & ACCESS_NON_UNIFORM);
+   return enter_waterfall(ctx, wctx, value, nir_intrinsic_access(instr) & ACCESS_NON_UNIFORM, 0);
 }
 
 static LLVMValueRef visit_image_load(struct ac_nir_context *ctx, const nir_intrinsic_instr *instr,
@@ -3827,7 +3832,7 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
          struct waterfall_context wctx;
          LLVMValueRef index_val;
 
-         index_val = enter_waterfall(ctx, &wctx, index, true);
+         index_val = enter_waterfall(ctx, &wctx, index, true, 0);
 
          src = LLVMBuildZExt(ctx->ac.builder, src, ctx->ac.i32, "");
 
@@ -4146,10 +4151,10 @@ static void tex_fetch_ptrs(struct ac_nir_context *ctx, nir_tex_instr *instr,
    LLVMValueRef sampler_dynamic_index =
       get_sampler_desc_index(ctx, sampler_deref_instr, &instr->instr, false);
    if (instr->texture_non_uniform)
-      texture_dynamic_index = enter_waterfall(ctx, wctx + 0, texture_dynamic_index, true);
+      texture_dynamic_index = enter_waterfall(ctx, wctx + 0, texture_dynamic_index, true, 0);
 
    if (instr->sampler_non_uniform)
-      sampler_dynamic_index = enter_waterfall(ctx, wctx + 1, sampler_dynamic_index, true);
+      sampler_dynamic_index = enter_waterfall(ctx, wctx + 1, sampler_dynamic_index, true, 0);
 
    enum ac_descriptor_type main_descriptor =
       instr->sampler_dim == GLSL_SAMPLER_DIM_BUF ? AC_DESC_BUFFER : AC_DESC_IMAGE;

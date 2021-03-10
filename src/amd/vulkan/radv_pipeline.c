@@ -3326,8 +3326,8 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 						 nir_lower_non_uniform_ssbo_access |
 						 nir_lower_non_uniform_texture_access |
 						 nir_lower_non_uniform_image_access,
-					.ubo_channel = 0,
-					.ssbo_channel = 0,
+					.ubo_channel = 1,
+					.ssbo_channel = 1,
 					.tex_channel = 0,
 					.image_channel = 0,
 				};
