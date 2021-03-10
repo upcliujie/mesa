@@ -97,7 +97,7 @@ static VkResult
 create_dcc_compress_compute(struct radv_device *device)
 {
 	VkResult result = VK_SUCCESS;
-	struct radv_shader_module cs = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
 
 	cs.nir = build_dcc_decompress_compute_shader(device);
 
@@ -151,7 +151,7 @@ create_dcc_compress_compute(struct radv_device *device)
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -266,7 +266,7 @@ create_pipeline(struct radv_device *device,
 	VkResult result;
 	VkDevice device_h = radv_device_to_handle(device);
 
-	struct radv_shader_module fs_module = {
+	struct vk_shader_module fs_module = {
 		.nir = radv_meta_build_nir_fs_noop(),
 	};
 
@@ -286,7 +286,7 @@ create_pipeline(struct radv_device *device,
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = radv_shader_module_to_handle(&fs_module),
+			.module = vk_shader_module_to_handle(&fs_module),
 			.pName = "main",
 		},
 	};
@@ -512,7 +512,7 @@ radv_device_init_meta_fast_clear_flush_state_internal(struct radv_device *device
 		return VK_SUCCESS;
 	}
 
-	struct radv_shader_module vs_module = { .nir = radv_meta_build_nir_vs_generate_vertices() };
+	struct vk_shader_module vs_module = { .nir = radv_meta_build_nir_vs_generate_vertices() };
 	if (!vs_module.nir) {
 		/* XXX: Need more accurate error */
 		res = VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -528,7 +528,7 @@ radv_device_init_meta_fast_clear_flush_state_internal(struct radv_device *device
 	if (res != VK_SUCCESS)
 		goto fail;
 
-	VkShaderModule vs_module_h = radv_shader_module_to_handle(&vs_module);
+	VkShaderModule vs_module_h = vk_shader_module_to_handle(&vs_module);
 	res = create_pipeline(device, vs_module_h,
 			      device->meta_state.fast_clear_flush.p_layout);
 	if (res != VK_SUCCESS)
