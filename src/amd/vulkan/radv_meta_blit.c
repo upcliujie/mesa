@@ -782,8 +782,8 @@ build_pipeline(struct radv_device *device,
 		return VK_SUCCESS;
 	}
 
-	struct radv_shader_module fs = {0};
-	struct radv_shader_module vs = {.nir = build_nir_vertex_shader()};
+	struct vk_shader_module fs = {0};
+	struct vk_shader_module vs = {.nir = build_nir_vertex_shader()};
 	VkRenderPass rp;
 
 	switch(aspect) {
@@ -812,13 +812,13 @@ build_pipeline(struct radv_device *device,
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = radv_shader_module_to_handle(&vs),
+			.module = vk_shader_module_to_handle(&vs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		}, {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = radv_shader_module_to_handle(&fs),
+			.module = vk_shader_module_to_handle(&fs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		},
