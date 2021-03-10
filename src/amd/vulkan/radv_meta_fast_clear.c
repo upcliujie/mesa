@@ -901,9 +901,7 @@ radv_decompress_dcc_compute(struct radv_cmd_buffer *cmd_buffer,
 								.baseArrayLayer = subresourceRange->baseArrayLayer + s,
 								.layerCount = 1
 							     },
-					     }, &(struct radv_image_view_extra_create_info) {
-						     .disable_compression = true
-					     });
+					     }, NULL),
 
 			radv_meta_push_descriptor_set(cmd_buffer,
 						      VK_PIPELINE_BIND_POINT_COMPUTE,
