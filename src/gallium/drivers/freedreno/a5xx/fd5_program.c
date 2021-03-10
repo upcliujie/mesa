@@ -247,7 +247,7 @@ fd5_program_emit(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
 	setup_stages(emit, s);
 
-	fssz = (s[FS].i->max_reg >= 24) ? TWO_QUADS : FOUR_QUADS;
+	fssz = (s[FS].i->double_threadsize) ? FOUR_QUADS : TWO_QUADS;
 
 	pos_regid = ir3_find_output_regid(s[VS].v, VARYING_SLOT_POS);
 	psize_regid = ir3_find_output_regid(s[VS].v, VARYING_SLOT_PSIZ);
