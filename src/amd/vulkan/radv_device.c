@@ -797,6 +797,7 @@ static const struct debug_control radv_debug_options[] = {
 	{"noumr", RADV_DEBUG_NO_UMR},
 	{"invariantgeom", RADV_DEBUG_INVARIANT_GEOM},
 	{"nodisplaydcc", RADV_DEBUG_NO_DISPLAY_DCC},
+	{"novrsflatshading", RADV_DEBUG_NO_VRS_FLAT_SHADING},
 	{NULL, 0}
 };
 
