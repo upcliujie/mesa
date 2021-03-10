@@ -32,10 +32,6 @@
 static nir_shader *
 build_dcc_decompress_compute_shader(struct radv_device *dev)
 {
-	const struct glsl_type *buf_type = glsl_sampler_type(GLSL_SAMPLER_DIM_2D,
-							     false,
-							     false,
-							     GLSL_TYPE_FLOAT);
 	const struct glsl_type *img_type = glsl_image_type(GLSL_SAMPLER_DIM_2D,
 							   false,
 							   GLSL_TYPE_FLOAT);
@@ -47,7 +43,7 @@ build_dcc_decompress_compute_shader(struct radv_device *dev)
 	b.shader->info.cs.local_size[1] = 16;
 	b.shader->info.cs.local_size[2] = 1;
 	nir_variable *input_img = nir_variable_create(b.shader, nir_var_uniform,
-						      buf_type, "s_tex");
+						      img_type, "in_img");
 	input_img->data.descriptor_set = 0;
 	input_img->data.binding = 0;
 
@@ -64,31 +60,22 @@ build_dcc_decompress_compute_shader(struct radv_device *dev)
 						b.shader->info.cs.local_size[2], 0);
 
 	nir_ssa_def *global_id = nir_iadd(&b, nir_imul(&b, wg_id, block_size), invoc_id);
-	nir_ssa_def *input_img_deref = &nir_build_deref_var(&b, input_img)->dest.ssa;
 
-	nir_tex_instr *tex = nir_tex_instr_create(b.shader, 3);
-	tex->sampler_dim = GLSL_SAMPLER_DIM_2D;
-	tex->op = nir_texop_txf;
-	tex->src[0].src_type = nir_tex_src_coord;
-	tex->src[0].src = nir_src_for_ssa(nir_channels(&b, global_id, 3));
-	tex->src[1].src_type = nir_tex_src_lod;
-	tex->src[1].src = nir_src_for_ssa(nir_imm_int(&b, 0));
-	tex->src[2].src_type = nir_tex_src_texture_deref;
-	tex->src[2].src = nir_src_for_ssa(input_img_deref);
-	tex->dest_type = nir_type_float32;
-	tex->is_array = false;
-	tex->coord_components = 2;
+	nir_ssa_def *data =
+		nir_image_deref_load(&b, 4, 32, &nir_build_deref_var(&b, input_img)->dest.ssa,
+					 global_id, nir_ssa_undef(&b, 1, 32), nir_imm_int(&b, 0));
 
-	nir_ssa_dest_init(&tex->instr, &tex->dest, 4, 32, "tex");
-	nir_builder_instr_insert(&b, &tex->instr);
-
+	/* We need a NIR_SCOPE_DEVICE memory_scope because ACO will avoid
+	 * creating a vmcnt(0) because it expects the L1 cache to keep memory
+	 * operations in-order for the same workgroup. The vmcnt(0) seems
+	 * necessary however. */
 	nir_scoped_barrier(&b, .execution_scope=NIR_SCOPE_WORKGROUP,
-			       .memory_scope=NIR_SCOPE_WORKGROUP,
+			       .memory_scope=NIR_SCOPE_DEVICE,
 			       .memory_semantics=NIR_MEMORY_ACQ_REL,
 			       .memory_modes=nir_var_mem_ssbo);
 
 	nir_image_deref_store(&b, &nir_build_deref_var(&b, output_img)->dest.ssa,
-	                          global_id, nir_ssa_undef(&b, 1, 32), &tex->dest.ssa,
+	                          global_id, nir_ssa_undef(&b, 1, 32), data,
 	                          nir_imm_int(&b, 0));
 	return b.shader;
 }
