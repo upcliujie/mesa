@@ -29,7 +29,6 @@
 
 #include "isl.h"
 #include "dev/gen_device_info.h"
-#include "dev/gen_debug.h"
 
 uint32_t
 isl_tiling_to_i915_tiling(enum isl_tiling tiling)
@@ -146,7 +145,7 @@ isl_drm_modifier_get_score(const struct isl_device *dev, uint64_t modifier)
       if (dev->info->gen >= 12)
          return 0;
 
-      if (INTEL_DEBUG & DEBUG_NO_RBC)
+      if (dev->no_compression)
          return 0;
 
       return 4;

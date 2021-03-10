@@ -1042,6 +1042,7 @@ struct isl_device {
    const struct gen_device_info *info;
    bool use_separate_stencil;
    bool has_bit6_swizzling;
+   bool no_compression;
 
    /**
     * Describes the layout of a RENDER_SURFACE_STATE structure for the
