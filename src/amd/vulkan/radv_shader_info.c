@@ -743,5 +743,17 @@ radv_nir_shader_info_pass(const struct nir_shader *nir,
 		if (key->fs.is_dual_src) {
 			info->ps.cb_shader_mask |= (info->ps.cb_shader_mask & 0xf) << 4;
 		}
+
+		info->ps.allow_flat_shading =
+			!(info->ps.uses_persp_or_linear_interp ||
+			  info->ps.needs_sample_positions ||
+			  info->ps.writes_memory ||
+			  nir->info.fs.needs_quad_helper_invocations ||
+			  BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_FRAG_COORD) ||
+			  BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_POINT_COORD) ||
+			  BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_SAMPLE_ID) ||
+			  BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_SAMPLE_POS) ||
+			  BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_SAMPLE_MASK_IN) ||
+			  BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_HELPER_INVOCATION));
 	}
 }
