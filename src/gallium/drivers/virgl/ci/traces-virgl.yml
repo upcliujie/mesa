@@ -201,11 +201,11 @@ traces:
   - path: humus/RaytracedShadows.trace
     expectations:
       - device: gl-virgl
-        checksum: 5f1a655e62eab99d53dab88b634afed3
+        checksum: 0e1096159db72b650d43f134c3ccaf79
   - path: humus/VolumetricFogging2.trace
     expectations:
       - device: gl-virgl
-        checksum: e5d2b54f49ba1c24279d5ff84e0f002b
+        checksum: a596785521a96162204ac266d5496c23
   - path: itoral-gl-terrain-demo/demo.trace
     expectations:
       - device: gl-virgl
@@ -213,7 +213,7 @@ traces:
   - path: neverball/neverball.trace
     expectations:
       - device: gl-virgl
-        checksum: 57fd57aef14d37043a7b56a16dbf50b6
+        checksum: 6936cde5edab2b3fd02115ef36015cde
   - path: pathfinder/canvas_moire.trace
     expectations:
       - device: gl-virgl
@@ -229,19 +229,19 @@ traces:
   - path: supertuxkart/supertuxkart-mansion-egl-gles.trace
     expectations:
       - device: gl-virgl
-        checksum: 5f3fff8969813a5fc5d8d95b4d4c5755
+        checksum: 23c5c49f5ce5cb6e59567120e7931820
   - path: xonotic/xonotic-keybench-high.trace
     expectations:
       - device: gl-virgl
-        checksum: 0efd30250af93d0b5f03eeabd079e8ee
+        checksum: e8a52c8f558a0085eb45fcba0f6c59e2
   - path: valve/counterstrike.trace
     expectations:
       - device: gl-virgl
-        checksum: 5a11d791a5a718d4aa6c84b416b9f2b6
+        checksum: c63da1fbaec101dba5224ca1f52ec429
   - path: valve/counterstrike-source.trace
     expectations:
       - device: gl-virgl
-        checksum: 4b707f385256b380c936186db8c251cb
+        checksum: d1248fd7ba4965af15e16bf465c27bc5
   - path: valve/half-life-2.trace
     expectations:
       - device: gl-virgl
