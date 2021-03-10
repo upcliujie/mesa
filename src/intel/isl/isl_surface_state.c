@@ -250,6 +250,10 @@ isl_genX(surf_fill_state_s)(const struct isl_device *dev, void *state,
 {
    struct GENX(RENDER_SURFACE_STATE) s = { 0 };
 
+   assert(!(info->aux_usage != ISL_AUX_USAGE_NONE &&
+            !isl_surf_usage_is_depth(info->surf->usage) &&
+            dev->no_compression));
+
    s.SurfaceType = get_surftype(info->surf->dim, info->view->usage);
 
    if (info->view->usage & ISL_SURF_USAGE_RENDER_TARGET_BIT)
