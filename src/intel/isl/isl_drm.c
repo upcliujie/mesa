@@ -129,8 +129,7 @@ isl_drm_modifier_get_info(uint64_t modifier)
 }
 
 uint32_t
-isl_drm_modifier_get_score(const struct gen_device_info *devinfo,
-                           uint64_t modifier)
+isl_drm_modifier_get_score(const struct isl_device *dev, uint64_t modifier)
 {
    /* FINISHME: Add gen12 modifiers */
    switch (modifier) {
@@ -144,7 +143,7 @@ isl_drm_modifier_get_score(const struct gen_device_info *devinfo,
       return 3;
    case I915_FORMAT_MOD_Y_TILED_CCS:
       /* Gen12's CCS layout differs from Gen9-11. */
-      if (devinfo->gen >= 12)
+      if (dev->info->gen >= 12)
          return 0;
 
       if (INTEL_DEBUG & DEBUG_NO_RBC)

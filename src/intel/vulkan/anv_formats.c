@@ -542,13 +542,14 @@ anv_get_format_plane(const struct gen_device_info *devinfo, VkFormat vk_format,
 // Format capabilities
 
 VkFormatFeatureFlags
-anv_get_image_format_features(const struct gen_device_info *devinfo,
+anv_get_image_format_features(const struct isl_device *isl_dev,
                               VkFormat vk_format,
                               const struct anv_format *anv_format,
                               VkImageTiling vk_tiling,
                               const struct isl_drm_modifier_info *isl_mod_info)
 {
    VkFormatFeatureFlags flags = 0;
+   const struct gen_device_info *devinfo = isl_dev->info;
 
    if (anv_format == NULL)
       return 0;
@@ -706,7 +707,7 @@ anv_get_image_format_features(const struct gen_device_info *devinfo,
    }
 
    if (vk_tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
-      if (!isl_drm_modifier_get_score(devinfo, isl_mod_info->modifier))
+      if (!isl_drm_modifier_get_score(isl_dev, isl_mod_info->modifier))
          return 0;
 
       /* Try to restrict the supported formats to those in drm_fourcc.h. The
@@ -823,7 +824,7 @@ get_drm_format_modifier_properties_list(const struct anv_physical_device *physic
                                         VkFormat vk_format,
                                         VkDrmFormatModifierPropertiesListEXT *list)
 {
-   const struct gen_device_info *devinfo = &physical_device->info;
+   const struct isl_device *isl_dev = &physical_device->isl_dev;
    const struct anv_format *anv_format = anv_get_format(vk_format);
 
    VK_OUTARRAY_MAKE(out, list->pDrmFormatModifierProperties,
@@ -831,7 +832,7 @@ get_drm_format_modifier_properties_list(const struct anv_physical_device *physic
 
    isl_drm_modifier_info_for_each(isl_mod_info) {
       VkFormatFeatureFlags features =
-         anv_get_image_format_features(devinfo, vk_format, anv_format,
+         anv_get_image_format_features(isl_dev, vk_format, anv_format,
                                        VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT,
                                        isl_mod_info);
       if (!features)
@@ -857,18 +858,18 @@ void anv_GetPhysicalDeviceFormatProperties(
     VkFormatProperties*                         pFormatProperties)
 {
    ANV_FROM_HANDLE(anv_physical_device, physical_device, physicalDevice);
-   const struct gen_device_info *devinfo = &physical_device->info;
+   const struct isl_device *isl_dev = &physical_device->isl_dev;
    const struct anv_format *anv_format = anv_get_format(vk_format);
 
    *pFormatProperties = (VkFormatProperties) {
       .linearTilingFeatures =
-         anv_get_image_format_features(devinfo, vk_format, anv_format,
+         anv_get_image_format_features(isl_dev, vk_format, anv_format,
                                        VK_IMAGE_TILING_LINEAR, NULL),
       .optimalTilingFeatures =
-         anv_get_image_format_features(devinfo, vk_format, anv_format,
+         anv_get_image_format_features(isl_dev, vk_format, anv_format,
                                        VK_IMAGE_TILING_OPTIMAL, NULL),
       .bufferFeatures =
-         get_buffer_format_features(devinfo, vk_format, anv_format),
+         get_buffer_format_features(isl_dev->info, vk_format, anv_format),
    };
 }
 
@@ -908,6 +909,7 @@ anv_get_image_format_properties(
    uint32_t maxArraySize;
    VkSampleCountFlags sampleCounts;
    struct anv_instance *instance = physical_device->instance;
+   const struct isl_device *isl_dev = &physical_device->isl_dev;
    const struct gen_device_info *devinfo = &physical_device->info;
    const struct anv_format *format = anv_get_format(info->format);
    const struct isl_drm_modifier_info *isl_mod_info = NULL;
@@ -927,7 +929,7 @@ anv_get_image_format_properties(
    }
 
    assert(format->vk_format == info->format);
-   format_feature_flags = anv_get_image_format_features(devinfo, info->format,
+   format_feature_flags = anv_get_image_format_features(isl_dev, info->format,
                                                         format, info->tiling,
                                                         isl_mod_info);
 
@@ -940,7 +942,7 @@ anv_get_image_format_properties(
          VkFormat vk_view_format = format_list_info->pViewFormats[i];
          const struct anv_format *anv_view_format = anv_get_format(vk_view_format);
          VkFormatFeatureFlags view_format_features =
-            anv_get_image_format_features(devinfo, vk_view_format,
+            anv_get_image_format_features(isl_dev, vk_view_format,
                                           anv_view_format,
                                           info->tiling,
                                           isl_mod_info);

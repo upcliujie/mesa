@@ -853,7 +853,7 @@ choose_drm_format_mod(const struct anv_physical_device *device,
    uint32_t best_score = 0;
 
    for (uint32_t i = 0; i < modifier_count; ++i) {
-      uint32_t score = isl_drm_modifier_get_score(&device->info, modifiers[i]);
+      uint32_t score = isl_drm_modifier_get_score(&device->isl_dev, modifiers[i]);
       if (score > best_score) {
          best_mod = modifiers[i];
          best_score = score;

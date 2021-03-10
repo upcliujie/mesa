@@ -4221,7 +4221,7 @@ anv_sanitize_image_offset(const VkImageType imageType,
 }
 
 VkFormatFeatureFlags
-anv_get_image_format_features(const struct gen_device_info *devinfo,
+anv_get_image_format_features(const struct isl_device *isl_dev,
                               VkFormat vk_format,
                               const struct anv_format *anv_format,
                               VkImageTiling vk_tiling,
