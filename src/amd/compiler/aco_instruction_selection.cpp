@@ -2510,8 +2510,14 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          if (ctx->program->chip_class >= GFX8) {
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_i16_f16, dst);
          } else {
-            // GFX7 and earlier do not support f16⟷i16 conversions
-            assert(false && "f16→i16 conversion not implemented on GFX7 and earlier");
+            // GFX7 and earlier do not support direct f16⟷i16 conversions
+            Temp tmp = bld.tmp(v1);
+            emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_f32_f16, tmp);
+            tmp = bld.vop1(aco_opcode::v_cvt_i32_f32, bld.def(v1), tmp);
+            tmp = convert_int(ctx, bld, tmp, 32, 16, false, (dst.type() == RegType::sgpr) ? Temp() : dst);
+            if (dst.type() == RegType::sgpr) {
+               bld.pseudo(aco_opcode::p_as_uniform, Definition(dst), tmp);
+            }
          }
       } else if (instr->src[0].src.ssa->bit_size == 32) {
          emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_i32_f32, dst);
@@ -2526,8 +2532,14 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          if (ctx->program->chip_class >= GFX8) {
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_u16_f16, dst);
          } else {
-            // GFX7 and earlier do not support f16⟷u16 conversions
-            assert(false && "f16→u16 conversion not implemented on GFX7 and earlier");
+            // GFX7 and earlier do not support direct f16⟷u16 conversions
+            Temp tmp = bld.tmp(v1);
+            emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_f32_f16, tmp);
+            tmp = bld.vop1(aco_opcode::v_cvt_u32_f32, bld.def(v1), tmp);
+            tmp = convert_int(ctx, bld, tmp, 32, 16, false, (dst.type() == RegType::sgpr) ? Temp() : dst);
+            if (dst.type() == RegType::sgpr) {
+               bld.pseudo(aco_opcode::p_as_uniform, Definition(dst), tmp);
+            }
          }
       } else if (instr->src[0].src.ssa->bit_size == 32) {
          emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_u32_f32, dst);
