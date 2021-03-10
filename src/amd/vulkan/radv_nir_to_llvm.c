@@ -372,11 +372,10 @@ radv_load_resource(struct ac_shader_abi *abi, LLVMValueRef index,
 		offset = ac_build_imad(&ctx->ac, index, stride, offset);
 	}
 
-	desc_ptr = LLVMBuildGEP(ctx->ac.builder, desc_ptr, &offset, 1, "");
 	desc_ptr = LLVMBuildPtrToInt(ctx->ac.builder, desc_ptr, ctx->ac.i32, "");
 
-	LLVMValueRef res[] = {desc_ptr, ctx->ac.i32_0};
-	return ac_build_gather_values(&ctx->ac, res, 2);
+	LLVMValueRef res[] = {desc_ptr, offset, ctx->ac.i32_0};
+	return ac_build_gather_values(&ctx->ac, res, 3);
 }
 
 
@@ -868,8 +867,12 @@ static LLVMValueRef radv_load_base_vertex(struct ac_shader_abi *abi, bool non_in
 	return ac_get_arg(&ctx->ac, ctx->args->ac.base_vertex);
 }
 
-static LLVMValueRef convert_pointer_to_64_bit(struct radv_shader_context *ctx, LLVMValueRef ptr, bool non_uniform)
+static LLVMValueRef get_desc_ptr(struct radv_shader_context *ctx, LLVMValueRef ptr, bool non_uniform)
 {
+	LLVMValueRef set_ptr = ac_llvm_extract_elem(&ctx->ac, ptr, 0);
+	LLVMValueRef offset = ac_llvm_extract_elem(&ctx->ac, ptr, 1);
+	ptr = LLVMBuildNUWAdd(ctx->ac.builder, set_ptr, offset, "");
+
 	if (non_uniform) {
 		/* 32-bit seems to always use SMEM. addrspacecast from 32-bit -> 64-bit is broken. */
 		LLVMValueRef dwords[] = {ptr, LLVMConstInt(ctx->ac.i32, ctx->args->options->address32_hi, false)};
@@ -887,7 +890,7 @@ static LLVMValueRef radv_load_ssbo(struct ac_shader_abi *abi,
 	struct radv_shader_context *ctx = radv_shader_context_from_abi(abi);
 	LLVMValueRef result;
 
-	buffer_ptr = convert_pointer_to_64_bit(ctx, buffer_ptr, non_uniform);
+	buffer_ptr = get_desc_ptr(ctx, buffer_ptr, non_uniform);
 	if (!non_uniform)
 		LLVMSetMetadata(buffer_ptr, ctx->ac.uniform_md_kind, ctx->ac.empty_md);
 
@@ -934,7 +937,7 @@ static LLVMValueRef radv_load_ubo(struct ac_shader_abi *abi,
 		}
 	}
 
-	buffer_ptr = convert_pointer_to_64_bit(ctx, buffer_ptr, false);
+	buffer_ptr = get_desc_ptr(ctx, buffer_ptr, false);
 	LLVMSetMetadata(buffer_ptr, ctx->ac.uniform_md_kind, ctx->ac.empty_md);
 
 	result = LLVMBuildLoad(ctx->ac.builder, buffer_ptr, "");
