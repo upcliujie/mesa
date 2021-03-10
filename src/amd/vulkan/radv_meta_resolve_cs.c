@@ -848,7 +848,9 @@ void radv_meta_resolve_compute_image(struct radv_cmd_buffer *cmd_buffer,
 						     .baseArrayLayer = dest_base_layer + layer,
 						     .layerCount = 1,
 					     },
-				     }, NULL);
+				     }, &(struct radv_image_view_extra_create_info) {
+					.write_compress_enable = true,
+				     });
 
 		emit_resolve(cmd_buffer,
 			     &src_iview,
@@ -860,7 +862,11 @@ void radv_meta_resolve_compute_image(struct radv_cmd_buffer *cmd_buffer,
 
 	radv_meta_restore(&saved_state, cmd_buffer);
 
-	if (radv_layout_dcc_compressed(cmd_buffer->device, dest_image,
+	/* GFX10+ supports image stores with DCC and the destination image
+	 * view will set the COMPRESS bit.
+	 */
+	if (cmd_buffer->device->physical_device->rad_info.chip_class < GFX10 &&
+	    radv_layout_dcc_compressed(cmd_buffer->device, dest_image,
 				       dest_image_layout, false, queue_mask)) {
 
 		cmd_buffer->state.flush_bits |= RADV_CMD_FLAG_CS_PARTIAL_FLUSH |
