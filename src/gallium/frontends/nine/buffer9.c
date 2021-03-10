@@ -136,7 +136,7 @@ NineBuffer9_ctor( struct NineBuffer9 *This,
     if (Pool != D3DPOOL_DEFAULT) {
         This->managed.data = align_calloc(
             nine_format_get_level_alloc_size(This->base.info.format,
-                                             Size, 1, 0), 32);
+                                             Size, 1, 0), 64);
         if (!This->managed.data)
             return E_OUTOFMEMORY;
         memset(This->managed.data, 0, Size);
