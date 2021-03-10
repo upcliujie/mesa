@@ -2104,6 +2104,9 @@ isl_surf_get_ccs_surf(const struct isl_device *dev,
 {
    assert(aux_surf);
 
+   if (dev->no_compression)
+      return false;
+
    /* An uninitialized surface is needed to get a CCS surface. */
    if (aux_surf->size_B > 0 &&
        (extra_aux_surf == NULL || extra_aux_surf->size_B > 0)) {
