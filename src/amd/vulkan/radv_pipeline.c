@@ -3266,6 +3266,14 @@ opt_vectorize_callback(const nir_instr *instr, void *_)
    }
 }
 
+static unsigned
+non_uniform_access_callback(const nir_src *src, void *_)
+{
+	if (src->ssa->num_components == 1)
+		return 0x1;
+	return nir_chase_binding(*src).success ? 0x2 : 0x3;
+}
+
 VkResult radv_create_shaders(struct radv_pipeline *pipeline,
                              struct radv_device *device,
                              struct radv_pipeline_cache *cache,
@@ -3397,7 +3405,8 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 						 nir_lower_non_uniform_ssbo_access |
 						 nir_lower_non_uniform_texture_access |
 						 nir_lower_non_uniform_image_access,
-					.callback = NULL,
+					.callback = &non_uniform_access_callback,
+					.callback_data = NULL,
 				};
 				NIR_PASS_V(nir[i], nir_lower_non_uniform_access, &options);
 			}
