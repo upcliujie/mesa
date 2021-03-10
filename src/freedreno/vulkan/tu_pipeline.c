@@ -390,6 +390,8 @@ tu6_emit_xs_config(struct tu_cs *cs,
       return;
    }
 
+   enum a6xx_threadsize thrsz =
+      xs->info.double_threadsize ? THREAD128 : THREAD64;
    switch (stage) {
    case MESA_SHADER_VERTEX:
       tu_cs_emit_regs(cs, A6XX_SP_VS_CTRL_REG0(
@@ -427,7 +429,7 @@ tu6_emit_xs_config(struct tu_cs *cs,
                .halfregfootprint = xs->info.max_half_reg + 1,
                .branchstack = xs->branchstack,
                .mergedregs = xs->mergedregs,
-               .threadsize = THREAD128,
+               .threadsize = thrsz,
                .pixlodenable = xs->need_pixlod,
                .diff_fine = xs->need_fine_derivatives,
                .varying = xs->total_in != 0,
@@ -441,7 +443,7 @@ tu6_emit_xs_config(struct tu_cs *cs,
                .halfregfootprint = xs->info.max_half_reg + 1,
                .branchstack = xs->branchstack,
                .mergedregs = xs->mergedregs,
-               .threadsize = THREAD128,
+               .threadsize = thrsz,
       ));
       break;
    default:
@@ -576,6 +578,7 @@ tu6_emit_cs_config(struct tu_cs *cs, const struct tu_shader *shader,
    uint32_t work_group_id =
       ir3_find_sysval_regid(v, SYSTEM_VALUE_WORK_GROUP_ID);
 
+   enum a6xx_threadsize thrsz = v->info.double_threadsize ? THREAD128 : THREAD64;
    tu_cs_emit_pkt4(cs, REG_A6XX_HLSQ_CS_CNTL_0, 2);
    tu_cs_emit(cs,
               A6XX_HLSQ_CS_CNTL_0_WGIDCONSTID(work_group_id) |
@@ -583,7 +586,7 @@ tu6_emit_cs_config(struct tu_cs *cs, const struct tu_shader *shader,
               A6XX_HLSQ_CS_CNTL_0_WGOFFSETCONSTID(regid(63, 0)) |
               A6XX_HLSQ_CS_CNTL_0_LOCALIDREGID(local_invocation_id));
    tu_cs_emit(cs, A6XX_HLSQ_CS_CNTL_1_LINEARLOCALIDREGID(regid(63, 0)) |
-                  A6XX_HLSQ_CS_CNTL_1_THREADSIZE(THREAD128));
+                  A6XX_HLSQ_CS_CNTL_1_THREADSIZE(thrsz));
 }
 
 static void
@@ -1303,8 +1306,9 @@ tu6_emit_fs_inputs(struct tu_cs *cs, const struct ir3_shader_variant *fs)
                   A6XX_HLSQ_CONTROL_4_REG_IJ_LINEAR_SAMPLE(ij_regid[IJ_LINEAR_SAMPLE]));
    tu_cs_emit(cs, 0xfc);
 
+   enum a6xx_threadsize thrsz = fs->info.double_threadsize ? THREAD128 : THREAD64;
    tu_cs_emit_pkt4(cs, REG_A6XX_HLSQ_FS_CNTL_0, 1);
-   tu_cs_emit(cs, A6XX_HLSQ_FS_CNTL_0_THREADSIZE(THREAD128) |
+   tu_cs_emit(cs, A6XX_HLSQ_FS_CNTL_0_THREADSIZE(thrsz) |
                   COND(enable_varyings, A6XX_HLSQ_FS_CNTL_0_VARYINGS));
 
    bool need_size = fs->frag_face || fs->fragcoord_compmask != 0;
