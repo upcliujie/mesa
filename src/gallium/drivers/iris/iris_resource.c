@@ -72,9 +72,11 @@ static const uint64_t priority_to_modifier[] = {
 };
 
 static bool
-modifier_is_supported(const struct gen_device_info *devinfo,
+modifier_is_supported(const struct isl_device *isl_dev,
                       enum pipe_format pfmt, uint64_t modifier)
 {
+   const struct gen_device_info *devinfo = isl_dev->info;
+
    /* Check for basic device support. */
    switch (modifier) {
    case DRM_FORMAT_MOD_LINEAR:
@@ -113,7 +115,7 @@ modifier_is_supported(const struct gen_device_info *devinfo,
       break;
    case I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS:
    case I915_FORMAT_MOD_Y_TILED_CCS: {
-      if (INTEL_DEBUG & DEBUG_NO_RBC)
+      if (isl_dev->no_compression)
          return false;
 
       enum isl_format rt_format =
@@ -133,14 +135,14 @@ modifier_is_supported(const struct gen_device_info *devinfo,
 }
 
 static uint64_t
-select_best_modifier(struct gen_device_info *devinfo, enum pipe_format pfmt,
+select_best_modifier(const struct isl_device *isl_dev, enum pipe_format pfmt,
                      const uint64_t *modifiers,
                      int count)
 {
    enum modifier_priority prio = MODIFIER_PRIORITY_INVALID;
 
    for (int i = 0; i < count; i++) {
-      if (!modifier_is_supported(devinfo, pfmt, modifiers[i]))
+      if (!modifier_is_supported(isl_dev, pfmt, modifiers[i]))
          continue;
 
       switch (modifiers[i]) {
@@ -212,7 +214,7 @@ iris_query_dmabuf_modifiers(struct pipe_screen *pscreen,
                             int *count)
 {
    struct iris_screen *screen = (void *) pscreen;
-   const struct gen_device_info *devinfo = &screen->devinfo;
+   const struct isl_device *isl_dev = &screen->isl_dev;
 
    uint64_t all_modifiers[] = {
       DRM_FORMAT_MOD_LINEAR,
@@ -226,7 +228,7 @@ iris_query_dmabuf_modifiers(struct pipe_screen *pscreen,
    int supported_mods = 0;
 
    for (int i = 0; i < ARRAY_SIZE(all_modifiers); i++) {
-      if (!modifier_is_supported(devinfo, pfmt, all_modifiers[i]))
+      if (!modifier_is_supported(isl_dev, pfmt, all_modifiers[i]))
          continue;
 
       if (supported_mods < max) {
@@ -251,9 +253,9 @@ iris_is_dmabuf_modifier_supported(struct pipe_screen *pscreen,
                                   bool *external_only)
 {
    struct iris_screen *screen = (void *) pscreen;
-   const struct gen_device_info *devinfo = &screen->devinfo;
+   const struct isl_device *isl_dev = &screen->isl_dev;
 
-   if (modifier_is_supported(devinfo, pfmt, modifier)) {
+   if (modifier_is_supported(isl_dev, pfmt, modifier)) {
       if (external_only)
          *external_only = is_modifier_external_only(pfmt, modifier);
 
@@ -638,7 +640,7 @@ iris_resource_configure_aux(struct iris_screen *screen,
       isl_surf_get_hiz_surf(&screen->isl_dev, &res->surf, &res->aux.surf);
 
    const bool has_ccs =
-      ((!res->mod_info && !(INTEL_DEBUG & DEBUG_NO_RBC)) ||
+      (!res->mod_info ||
        (res->mod_info && res->mod_info->aux_usage != ISL_AUX_USAGE_NONE)) &&
       isl_surf_get_ccs_surf(&screen->isl_dev, &res->surf, &res->aux.surf,
                             &res->aux.extra_aux.surf, 0);
@@ -920,14 +922,14 @@ iris_resource_create_with_modifiers(struct pipe_screen *pscreen,
                                     int modifiers_count)
 {
    struct iris_screen *screen = (struct iris_screen *)pscreen;
-   struct gen_device_info *devinfo = &screen->devinfo;
+   const struct isl_device *isl_dev = &screen->isl_dev;
    struct iris_resource *res = iris_alloc_resource(pscreen, templ);
 
    if (!res)
       return NULL;
 
    uint64_t modifier =
-      select_best_modifier(devinfo, templ->format, modifiers, modifiers_count);
+      select_best_modifier(isl_dev, templ->format, modifiers, modifiers_count);
 
    if (modifier == DRM_FORMAT_MOD_INVALID && modifiers_count > 0) {
       fprintf(stderr, "Unsupported modifier, resource creation failed.\n");
