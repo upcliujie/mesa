@@ -325,7 +325,7 @@ create_resolve_pipeline(struct radv_device *device,
 			VkPipeline *pipeline)
 {
 	VkResult result;
-	struct radv_shader_module cs = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
 
 	mtx_lock(&device->meta_state.mtx);
 	if (*pipeline) {
@@ -340,7 +340,7 @@ create_resolve_pipeline(struct radv_device *device,
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -376,7 +376,7 @@ create_depth_stencil_resolve_pipeline(struct radv_device *device,
 				      VkPipeline *pipeline)
 {
 	VkResult result;
-	struct radv_shader_module cs = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
 
 	mtx_lock(&device->meta_state.mtx);
 	if (*pipeline) {
@@ -391,7 +391,7 @@ create_depth_stencil_resolve_pipeline(struct radv_device *device,
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
