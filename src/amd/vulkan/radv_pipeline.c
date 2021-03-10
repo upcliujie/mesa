@@ -3202,8 +3202,9 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
                              VkPipelineCreationFeedbackEXT *pipeline_feedback,
                              VkPipelineCreationFeedbackEXT **stage_feedbacks)
 {
-	struct radv_shader_module fs_m = {0};
-	struct radv_shader_module *modules[MESA_SHADER_STAGES] = { 0, };
+	struct vk_shader_module fs_m = {0};
+ vk_object_base_init(&device->vk, &fs_m.base, VK_OBJECT_TYPE_SHADER_MODULE);
+	struct vk_shader_module *modules[MESA_SHADER_STAGES] = { 0, };
 	nir_shader *nir[MESA_SHADER_STAGES] = {0};
 	struct radv_shader_binary *binaries[MESA_SHADER_STAGES] = {NULL};
 	struct radv_shader_variant_key keys[MESA_SHADER_STAGES] = {{{{{0}}}}};
@@ -3219,7 +3220,7 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 
 	for (unsigned i = 0; i < MESA_SHADER_STAGES; ++i) {
 		if (pStages[i]) {
-			modules[i] = radv_shader_module_from_handle(pStages[i]->module);
+			modules[i] = vk_shader_module_from_handle(pStages[i]->module);
 			if (modules[i]->nir)
 				_mesa_sha1_compute(modules[i]->nir->info.name,
 				                   strlen(modules[i]->nir->info.name),

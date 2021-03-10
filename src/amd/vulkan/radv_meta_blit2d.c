@@ -730,27 +730,29 @@ blit2d_init_color_pipeline(struct radv_device *device,
 	}
 
 	const VkPipelineVertexInputStateCreateInfo *vi_create_info;
-	struct radv_shader_module fs = { .nir = NULL };
+	struct vk_shader_module fs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &fs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 
 	fs.nir = build_nir_copy_fragment_shader(device, src_func, name, src_type == BLIT2D_SRC_TYPE_IMAGE_3D, log2_samples > 0);
 	vi_create_info = &normal_vi_create_info;
 
-	struct radv_shader_module vs = {
+	struct vk_shader_module vs = {
 		.nir = build_nir_vertex_shader(),
 	};
+ vk_object_base_init(&device->vk, &vs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	VkPipelineShaderStageCreateInfo pipeline_shader_stages[] = {
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = radv_shader_module_to_handle(&vs),
+			.module = vk_shader_module_to_handle(&vs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		}, {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = radv_shader_module_to_handle(&fs),
+			.module = vk_shader_module_to_handle(&fs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		},
@@ -932,26 +934,28 @@ blit2d_init_depth_only_pipeline(struct radv_device *device,
 	}
 
 	const VkPipelineVertexInputStateCreateInfo *vi_create_info;
-	struct radv_shader_module fs = { .nir = NULL };
+	struct vk_shader_module fs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &fs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	fs.nir = build_nir_copy_fragment_shader_depth(device, src_func, name, src_type == BLIT2D_SRC_TYPE_IMAGE_3D, log2_samples > 0);
 	vi_create_info = &normal_vi_create_info;
 
-	struct radv_shader_module vs = {
+	struct vk_shader_module vs = {
 		.nir = build_nir_vertex_shader(),
 	};
+ vk_object_base_init(&device->vk, &vs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	VkPipelineShaderStageCreateInfo pipeline_shader_stages[] = {
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = radv_shader_module_to_handle(&vs),
+			.module = vk_shader_module_to_handle(&vs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		}, {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = radv_shader_module_to_handle(&fs),
+			.module = vk_shader_module_to_handle(&fs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		},
@@ -1126,26 +1130,28 @@ blit2d_init_stencil_only_pipeline(struct radv_device *device,
 	}
 
 	const VkPipelineVertexInputStateCreateInfo *vi_create_info;
-	struct radv_shader_module fs = { .nir = NULL };
+	struct vk_shader_module fs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &fs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	fs.nir = build_nir_copy_fragment_shader_stencil(device, src_func, name, src_type == BLIT2D_SRC_TYPE_IMAGE_3D, log2_samples > 0);
 	vi_create_info = &normal_vi_create_info;
 
-	struct radv_shader_module vs = {
+	struct vk_shader_module vs = {
 		.nir = build_nir_vertex_shader(),
 	};
+ vk_object_base_init(&device->vk, &vs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	VkPipelineShaderStageCreateInfo pipeline_shader_stages[] = {
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = radv_shader_module_to_handle(&vs),
+			.module = vk_shader_module_to_handle(&vs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		}, {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = radv_shader_module_to_handle(&fs),
+			.module = vk_shader_module_to_handle(&fs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		},

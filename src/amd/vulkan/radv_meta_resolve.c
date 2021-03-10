@@ -138,9 +138,10 @@ create_pipeline(struct radv_device *device,
 	VkResult result;
 	VkDevice device_h = radv_device_to_handle(device);
 
-	struct radv_shader_module fs_module = {
+	struct vk_shader_module fs_module = {
 		.nir = build_nir_fs(),
 	};
+ vk_object_base_init(&device->vk, &fs_module.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	if (!fs_module.nir) {
 		/* XXX: Need more accurate error */
@@ -180,7 +181,7 @@ create_pipeline(struct radv_device *device,
 						       {
 							       .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 							       .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-							       .module = radv_shader_module_to_handle(&fs_module),
+							       .module = vk_shader_module_to_handle(&fs_module),
 							       .pName = "main",
 						       },
 					       },
@@ -283,7 +284,8 @@ radv_device_init_meta_resolve_state(struct radv_device *device, bool on_demand)
 
 	VkResult res = VK_SUCCESS;
 	struct radv_meta_state *state = &device->meta_state;
-	struct radv_shader_module vs_module = { .nir = radv_meta_build_nir_vs_generate_vertices() };
+	struct vk_shader_module vs_module = { .nir = radv_meta_build_nir_vs_generate_vertices() };
+ vk_object_base_init(&device->vk, &vs_module.base, VK_OBJECT_TYPE_SHADER_MODULE);
 	if (!vs_module.nir) {
 		/* XXX: Need more accurate error */
 		res = VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -297,7 +299,7 @@ radv_device_init_meta_resolve_state(struct radv_device *device, bool on_demand)
 		if (res != VK_SUCCESS)
 			goto fail;
 
-		VkShaderModule vs_module_h = radv_shader_module_to_handle(&vs_module);
+		VkShaderModule vs_module_h = vk_shader_module_to_handle(&vs_module);
 		res = create_pipeline(device, vs_module_h,
 				      &state->resolve.pipeline[fs_key], state->resolve.pass[fs_key]);
 		if (res != VK_SUCCESS)
@@ -436,13 +438,14 @@ build_resolve_pipeline(struct radv_device *device,
 		return result;
 	}
 
-	struct radv_shader_module vs_module = { .nir = radv_meta_build_nir_vs_generate_vertices() };
+	struct vk_shader_module vs_module = { .nir = radv_meta_build_nir_vs_generate_vertices() };
+ vk_object_base_init(&device->vk, &vs_module.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	result = create_pass(device, radv_fs_key_format_exemplars[fs_key], &device->meta_state.resolve.pass[fs_key]);
 	if (result != VK_SUCCESS)
 		goto fail;
 
-	VkShaderModule vs_module_h = radv_shader_module_to_handle(&vs_module);
+	VkShaderModule vs_module_h = vk_shader_module_to_handle(&vs_module);
 	result = create_pipeline(device, vs_module_h, &device->meta_state.resolve.pipeline[fs_key], device->meta_state.resolve.pass[fs_key]);
 
 fail:

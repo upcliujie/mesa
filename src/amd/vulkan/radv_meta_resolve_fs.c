@@ -161,11 +161,13 @@ create_resolve_pipeline(struct radv_device *device,
 	if (vk_format_is_int(format))
 		is_integer = true;
 
-	struct radv_shader_module fs = { .nir = NULL };
+	struct vk_shader_module fs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &fs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 	fs.nir = build_resolve_fragment_shader(device, is_integer, samples);
-	struct radv_shader_module vs = {
+	struct vk_shader_module vs = {
 		.nir = build_nir_vertex_shader(),
 	};
+ vk_object_base_init(&device->vk, &vs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	VkRenderPass *rp = &device->meta_state.resolve_fragment.rc[samples_log2].render_pass[fs_key][0];
 
@@ -175,13 +177,13 @@ create_resolve_pipeline(struct radv_device *device,
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = radv_shader_module_to_handle(&vs),
+			.module = vk_shader_module_to_handle(&vs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		}, {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = radv_shader_module_to_handle(&fs),
+			.module = vk_shader_module_to_handle(&fs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		},
@@ -496,8 +498,10 @@ create_depth_stencil_resolve_pipeline(struct radv_device *device,
 		return VK_SUCCESS;
 	}
 
-	struct radv_shader_module fs = { .nir = NULL };
-	struct radv_shader_module vs = { .nir = NULL };
+	struct vk_shader_module fs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &fs.base, VK_OBJECT_TYPE_SHADER_MODULE);
+	struct vk_shader_module vs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &vs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 	uint32_t samples = 1 << samples_log2;
 
 	vs.nir = build_nir_vertex_shader();
@@ -508,13 +512,13 @@ create_depth_stencil_resolve_pipeline(struct radv_device *device,
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = radv_shader_module_to_handle(&vs),
+			.module = vk_shader_module_to_handle(&vs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		}, {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = radv_shader_module_to_handle(&fs),
+			.module = vk_shader_module_to_handle(&fs),
 			.pName = "main",
 			.pSpecializationInfo = NULL
 		},

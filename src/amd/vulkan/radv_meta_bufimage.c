@@ -108,8 +108,10 @@ static VkResult
 radv_device_init_meta_itob_state(struct radv_device *device)
 {
 	VkResult result;
-	struct radv_shader_module cs = { .nir = NULL };
-	struct radv_shader_module cs_3d = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
+	struct vk_shader_module cs_3d = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs_3d.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	cs.nir = build_nir_itob_compute_shader(device, false);
 	if (device->physical_device->rad_info.chip_class >= GFX9)
@@ -169,7 +171,7 @@ radv_device_init_meta_itob_state(struct radv_device *device)
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -192,7 +194,7 @@ radv_device_init_meta_itob_state(struct radv_device *device)
 		VkPipelineShaderStageCreateInfo pipeline_shader_stage_3d = {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-			.module = radv_shader_module_to_handle(&cs_3d),
+			.module = vk_shader_module_to_handle(&cs_3d),
 			.pName = "main",
 			.pSpecializationInfo = NULL,
 		};
@@ -314,8 +316,10 @@ static VkResult
 radv_device_init_meta_btoi_state(struct radv_device *device)
 {
 	VkResult result;
-	struct radv_shader_module cs = { .nir = NULL };
-	struct radv_shader_module cs_3d = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
+	struct vk_shader_module cs_3d = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs_3d.base, VK_OBJECT_TYPE_SHADER_MODULE);
 	cs.nir = build_nir_btoi_compute_shader(device, false);
 	if (device->physical_device->rad_info.chip_class >= GFX9)
 		cs_3d.nir = build_nir_btoi_compute_shader(device, true);
@@ -373,7 +377,7 @@ radv_device_init_meta_btoi_state(struct radv_device *device)
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -396,7 +400,7 @@ radv_device_init_meta_btoi_state(struct radv_device *device)
 		VkPipelineShaderStageCreateInfo pipeline_shader_stage_3d = {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-			.module = radv_shader_module_to_handle(&cs_3d),
+			.module = vk_shader_module_to_handle(&cs_3d),
 			.pName = "main",
 			.pSpecializationInfo = NULL,
 		};
@@ -530,7 +534,8 @@ static VkResult
 radv_device_init_meta_btoi_r32g32b32_state(struct radv_device *device)
 {
 	VkResult result;
-	struct radv_shader_module cs = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	cs.nir = build_nir_btoi_r32g32b32_compute_shader(device);
 
@@ -584,7 +589,7 @@ radv_device_init_meta_btoi_r32g32b32_state(struct radv_device *device)
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -690,8 +695,10 @@ static VkResult
 radv_device_init_meta_itoi_state(struct radv_device *device)
 {
 	VkResult result;
-	struct radv_shader_module cs = { .nir = NULL };
-	struct radv_shader_module cs_3d = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
+	struct vk_shader_module cs_3d = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs_3d.base, VK_OBJECT_TYPE_SHADER_MODULE);
 	cs.nir = build_nir_itoi_compute_shader(device, false);
 	if (device->physical_device->rad_info.chip_class >= GFX9)
 		cs_3d.nir = build_nir_itoi_compute_shader(device, true);
@@ -749,7 +756,7 @@ radv_device_init_meta_itoi_state(struct radv_device *device)
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -772,7 +779,7 @@ radv_device_init_meta_itoi_state(struct radv_device *device)
 		VkPipelineShaderStageCreateInfo pipeline_shader_stage_3d = {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-			.module = radv_shader_module_to_handle(&cs_3d),
+			.module = vk_shader_module_to_handle(&cs_3d),
 			.pName = "main",
 			.pSpecializationInfo = NULL,
 		};
@@ -918,7 +925,8 @@ static VkResult
 radv_device_init_meta_itoi_r32g32b32_state(struct radv_device *device)
 {
 	VkResult result;
-	struct radv_shader_module cs = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	cs.nir = build_nir_itoi_r32g32b32_compute_shader(device);
 
@@ -972,7 +980,7 @@ radv_device_init_meta_itoi_r32g32b32_state(struct radv_device *device)
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -1056,8 +1064,10 @@ static VkResult
 radv_device_init_meta_cleari_state(struct radv_device *device)
 {
 	VkResult result;
-	struct radv_shader_module cs = { .nir = NULL };
-	struct radv_shader_module cs_3d = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
+	struct vk_shader_module cs_3d = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs_3d.base, VK_OBJECT_TYPE_SHADER_MODULE);
 	cs.nir = build_nir_cleari_compute_shader(device, false);
 	if (device->physical_device->rad_info.chip_class >= GFX9)
 		cs_3d.nir = build_nir_cleari_compute_shader(device, true);
@@ -1109,7 +1119,7 @@ radv_device_init_meta_cleari_state(struct radv_device *device)
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -1134,7 +1144,7 @@ radv_device_init_meta_cleari_state(struct radv_device *device)
 		VkPipelineShaderStageCreateInfo pipeline_shader_stage_3d = {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-			.module = radv_shader_module_to_handle(&cs_3d),
+			.module = vk_shader_module_to_handle(&cs_3d),
 			.pName = "main",
 			.pSpecializationInfo = NULL,
 		};
@@ -1235,7 +1245,8 @@ static VkResult
 radv_device_init_meta_cleari_r32g32b32_state(struct radv_device *device)
 {
 	VkResult result;
-	struct radv_shader_module cs = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	cs.nir = build_nir_cleari_r32g32b32_compute_shader(device);
 
@@ -1280,7 +1291,7 @@ radv_device_init_meta_cleari_r32g32b32_state(struct radv_device *device)
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};

@@ -146,9 +146,10 @@ create_pipeline(struct radv_device *device,
 		return VK_SUCCESS;
 	}
 
-	struct radv_shader_module vs_module = {
+	struct vk_shader_module vs_module = {
 		.nir = radv_meta_build_nir_vs_generate_vertices()
 	};
+ vk_object_base_init(&device->vk, &vs_module.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	if (!vs_module.nir) {
 		/* XXX: Need more accurate error */
@@ -156,9 +157,10 @@ create_pipeline(struct radv_device *device,
 		goto cleanup;
 	}
 
-	struct radv_shader_module fs_module = {
+	struct vk_shader_module fs_module = {
 		.nir = radv_meta_build_nir_fs_noop(),
 	};
+ vk_object_base_init(&device->vk, &fs_module.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	if (!fs_module.nir) {
 		/* XXX: Need more accurate error */
@@ -178,13 +180,13 @@ create_pipeline(struct radv_device *device,
 		       {
 				.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 				.stage = VK_SHADER_STAGE_VERTEX_BIT,
-				.module = radv_shader_module_to_handle(&vs_module),
+				.module = vk_shader_module_to_handle(&vs_module),
 				.pName = "main",
 			},
 			{
 				.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 				.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-				.module = radv_shader_module_to_handle(&fs_module),
+				.module = vk_shader_module_to_handle(&fs_module),
 				.pName = "main",
 			},
 		},

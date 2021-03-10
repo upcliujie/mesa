@@ -671,10 +671,14 @@ build_timestamp_query_shader(struct radv_device *device)
 static VkResult radv_device_init_meta_query_state_internal(struct radv_device *device)
 {
 	VkResult result;
-	struct radv_shader_module occlusion_cs = { .nir = NULL };
-	struct radv_shader_module pipeline_statistics_cs = { .nir = NULL };
-	struct radv_shader_module tfb_cs = { .nir = NULL };
-	struct radv_shader_module timestamp_cs = { .nir = NULL };
+	struct vk_shader_module occlusion_cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &occlusion_cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
+	struct vk_shader_module pipeline_statistics_cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &pipeline_statistics_cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
+	struct vk_shader_module tfb_cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &tfb_cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
+	struct vk_shader_module timestamp_cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &timestamp_cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	mtx_lock(&device->meta_state.mtx);
 	if (device->meta_state.query.pipeline_statistics_query_pipeline) {
@@ -733,7 +737,7 @@ static VkResult radv_device_init_meta_query_state_internal(struct radv_device *d
 	VkPipelineShaderStageCreateInfo occlusion_pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&occlusion_cs),
+		.module = vk_shader_module_to_handle(&occlusion_cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -755,7 +759,7 @@ static VkResult radv_device_init_meta_query_state_internal(struct radv_device *d
 	VkPipelineShaderStageCreateInfo pipeline_statistics_pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&pipeline_statistics_cs),
+		.module = vk_shader_module_to_handle(&pipeline_statistics_cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -777,7 +781,7 @@ static VkResult radv_device_init_meta_query_state_internal(struct radv_device *d
 	VkPipelineShaderStageCreateInfo tfb_pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&tfb_cs),
+		.module = vk_shader_module_to_handle(&tfb_cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -799,7 +803,7 @@ static VkResult radv_device_init_meta_query_state_internal(struct radv_device *d
 	VkPipelineShaderStageCreateInfo timestamp_pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&timestamp_cs),
+		.module = vk_shader_module_to_handle(&timestamp_cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};

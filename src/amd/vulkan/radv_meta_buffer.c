@@ -72,8 +72,10 @@ build_buffer_copy_shader(struct radv_device *dev)
 VkResult radv_device_init_meta_buffer_state(struct radv_device *device)
 {
 	VkResult result;
-	struct radv_shader_module fill_cs = { .nir = NULL };
-	struct radv_shader_module copy_cs = { .nir = NULL };
+	struct vk_shader_module fill_cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &fill_cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
+	struct vk_shader_module copy_cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &copy_cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 
 	fill_cs.nir = build_buffer_fill_shader(device);
 	copy_cs.nir = build_buffer_copy_shader(device);
@@ -162,7 +164,7 @@ VkResult radv_device_init_meta_buffer_state(struct radv_device *device)
 	VkPipelineShaderStageCreateInfo fill_pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&fill_cs),
+		.module = vk_shader_module_to_handle(&fill_cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
@@ -184,7 +186,7 @@ VkResult radv_device_init_meta_buffer_state(struct radv_device *device)
 	VkPipelineShaderStageCreateInfo copy_pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&copy_cs),
+		.module = vk_shader_module_to_handle(&copy_cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};

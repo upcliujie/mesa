@@ -200,7 +200,8 @@ create_fmask_expand_pipeline(struct radv_device *device,
 			     VkPipeline *pipeline)
 {
 	struct radv_meta_state *state = &device->meta_state;
-	struct radv_shader_module cs = { .nir = NULL };
+	struct vk_shader_module cs = { .nir = NULL };
+ vk_object_base_init(&device->vk, &cs.base, VK_OBJECT_TYPE_SHADER_MODULE);
 	VkResult result;
 
 	cs.nir = build_fmask_expand_compute_shader(device, samples);
@@ -208,7 +209,7 @@ create_fmask_expand_pipeline(struct radv_device *device,
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = radv_shader_module_to_handle(&cs),
+		.module = vk_shader_module_to_handle(&cs),
 		.pName = "main",
 		.pSpecializationInfo = NULL,
 	};
