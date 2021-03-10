@@ -638,7 +638,7 @@ si_set_mutable_tex_desc_fields(struct radv_device *device,
 			       unsigned plane_id,
 			       unsigned base_level, unsigned first_level,
 			       unsigned block_width, bool is_stencil,
-			       bool is_storage_image, bool disable_compression,
+			       bool disable_compression,
 			       uint32_t *state)
 {
 	struct radv_image_plane *plane = &image->planes[plane_id];
@@ -1200,7 +1200,7 @@ radv_query_opaque_metadata(struct radv_device *device,
 				     desc, NULL);
 
 	si_set_mutable_tex_desc_fields(device, image, &image->planes[0].surface.u.legacy.level[0], 0, 0, 0,
-				       image->planes[0].surface.blk_w, false, false, false, desc);
+				       image->planes[0].surface.blk_w, false, false, desc);
 
 	ac_surface_get_umd_metadata(&device->physical_device->rad_info, &image->planes[0].surface,
 				    image->info.levels, desc, &md->size_metadata, md->metadata);
@@ -1752,7 +1752,7 @@ radv_image_view_make_descriptor(struct radv_image_view *iview,
 				       plane_id,
 				       iview->base_mip,
 				       iview->base_mip,
-				       blk_w, is_stencil, is_storage_image,
+				       blk_w, is_stencil,
 				       is_storage_image || disable_compression,
 				       descriptor->plane_descriptors[descriptor_plane_id]);
 }
