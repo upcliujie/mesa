@@ -287,6 +287,38 @@ typedef enum {
    BROADCOM_SHADER_COMPUTE,
 } broadcom_shader_stage;
 
+/* Assumes that the coordinate shaders will be custom-handled by the caller */
+static inline broadcom_shader_stage
+gl_shader_stage_to_broadcom(gl_shader_stage stage)
+{
+   switch (stage) {
+   case MESA_SHADER_VERTEX:
+      return BROADCOM_SHADER_VERTEX;
+   case MESA_SHADER_FRAGMENT:
+      return BROADCOM_SHADER_FRAGMENT;
+   case MESA_SHADER_COMPUTE:
+      return BROADCOM_SHADER_COMPUTE;
+   default:
+      unreachable("Unknown gl shader stage");
+   }
+}
+
+static inline gl_shader_stage
+broadcom_shader_stage_to_gl(broadcom_shader_stage stage)
+{
+   switch (stage) {
+   case BROADCOM_SHADER_VERTEX:
+   case BROADCOM_SHADER_VERTEX_BIN:
+      return MESA_SHADER_VERTEX;
+   case BROADCOM_SHADER_FRAGMENT:
+      return MESA_SHADER_FRAGMENT;
+   case BROADCOM_SHADER_COMPUTE:
+      return MESA_SHADER_COMPUTE;
+   default:
+      unreachable("Unknown broadcom shader stage");
+   }
+}
+
 #define BROADCOM_SHADER_STAGES (BROADCOM_SHADER_COMPUTE + 1)
 
 struct v3dv_pipeline_cache {
@@ -1360,8 +1392,7 @@ struct v3dv_descriptor_map {
 struct v3dv_shader_variant {
    uint32_t ref_cnt;
 
-   gl_shader_stage stage;
-   bool is_coord;
+   broadcom_shader_stage stage;
 
    union {
       struct v3d_prog_data *base;
@@ -1394,11 +1425,7 @@ struct v3dv_shader_variant {
 struct v3dv_pipeline_stage {
    struct v3dv_pipeline *pipeline;
 
-   gl_shader_stage stage;
-   /* FIXME: is_coord only make sense if stage == MESA_SHADER_VERTEX. Perhaps
-    * a stage base/vs/fs as keys and prog_data?
-    */
-   bool is_coord;
+   broadcom_shader_stage stage;
 
    const struct v3dv_shader_module *module;
    const char *entrypoint;
@@ -1868,8 +1895,7 @@ v3dv_get_shader_variant(struct v3dv_pipeline_stage *p_stage,
 
 struct v3dv_shader_variant *
 v3dv_shader_variant_create(struct v3dv_device *device,
-                           gl_shader_stage stage,
-                           bool is_coord,
+                           broadcom_shader_stage stage,
                            struct v3d_prog_data *prog_data,
                            uint32_t prog_data_size,
                            const uint64_t *qpu_insts,
