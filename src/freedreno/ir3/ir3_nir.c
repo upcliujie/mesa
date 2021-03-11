@@ -278,6 +278,33 @@ should_split_wrmask(const nir_instr *instr, const void *data)
 	}
 }
 
+static bool
+ir3_nir_lower_ssbo_size_filter(const nir_instr *instr, const void *data)
+{
+	return instr->type == nir_instr_type_intrinsic &&
+		nir_instr_as_intrinsic(instr)->intrinsic == nir_intrinsic_get_ssbo_size;
+}
+
+static nir_ssa_def *
+ir3_nir_lower_ssbo_size_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+	nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+	return nir_ishl(b, &intr->dest.ssa, nir_imm_int(b, 2));
+}
+
+/**
+ * The resinfo opcode we have for getting the SSBO size returns a number of
+ * dwords, while the NIR intrinsic coming in is a number of bytes.  Switch
+ * things so the NIR intrinsic in our backend means dwords.
+ */
+static bool
+ir3_nir_lower_ssbo_size(nir_shader *s)
+{
+	return nir_shader_lower_instructions(s,
+			ir3_nir_lower_ssbo_size_filter,
+			ir3_nir_lower_ssbo_size_instr, NULL);
+}
+
 void
 ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 {
@@ -314,6 +341,8 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 	OPT_V(s, nir_lower_load_const_to_scalar);
 	if (compiler->gpu_id < 500)
 		OPT_V(s, ir3_nir_lower_tg4_to_tex);
+
+	OPT_V(s, ir3_nir_lower_ssbo_size);
 
 	ir3_optimize_loop(s);
 
