@@ -297,8 +297,7 @@ alloc_variant(struct ir3_shader *shader, const struct ir3_shader_key *key,
 	v->type = shader->type;
 	v->mergedregs = shader->compiler->gpu_id >= 600;
 
-	if (!v->binning_pass)
-		v->const_state = rzalloc_size(v, sizeof(*v->const_state));
+	v->const_state = rzalloc_size(v, sizeof(*v->const_state));
 
 	return v;
 }
@@ -342,8 +341,20 @@ create_variant(struct ir3_shader *shader, const struct ir3_shader_key *key)
 	if (!compile_variant(v))
 		goto fail;
 
-	if (needs_binning_variant(v) && !compile_variant(v->binning))
-		goto fail;
+	if (needs_binning_variant(v)) {
+		/* Copy the non-binning variant's const state to the binning shader, so
+		 * a6xx can reuse the same const upload state for both.
+		 */
+		memcpy(v->binning->const_state, v->const_state, sizeof(*v->const_state));
+
+		uint32_t immeds_size = v->const_state->immediates_size *
+				sizeof(v->const_state->immediates[0]);
+		v->binning->const_state->immediates = ralloc_size(v->binning->const_state, immeds_size);
+		memcpy(v->binning->const_state->immediates, v->const_state->immediates, immeds_size);
+
+		if (!compile_variant(v->binning))
+			goto fail;
+	}
 
 	ir3_disk_cache_store(shader->compiler, v);
 
