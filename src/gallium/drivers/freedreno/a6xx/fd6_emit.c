@@ -1104,8 +1104,6 @@ fd6_emit_state(struct fd_ringbuffer *ring, struct fd6_emit *emit)
 		OUT_PKT4(obj, REG_A6XX_SP_IBO_COUNT, 1);
 		OUT_RING(obj, ir3_shader_nibo(fs));
 
-		fd6_emit_ibo_consts(emit, fs, PIPE_SHADER_FRAGMENT, ring);
-
 		fd6_emit_take_group(emit, obj, FD6_GROUP_IBO, ENABLE_DRAW);
 		fd_ringbuffer_del(state);
 	}

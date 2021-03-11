@@ -590,7 +590,7 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 }
 
 static void
-ir3_nir_scan_driver_consts(nir_shader *shader,
+ir3_nir_scan_driver_consts(struct ir3_compiler *compiler, nir_shader *shader,
 		struct ir3_const_state *layout)
 {
 	nir_foreach_function (function, shader) {
@@ -619,13 +619,15 @@ ir3_nir_scan_driver_consts(nir_shader *shader,
 				case nir_intrinsic_image_atomic_comp_swap:
 				case nir_intrinsic_image_store:
 				case nir_intrinsic_image_size:
-					idx = nir_src_as_uint(intr->src[0]);
-					if (layout->image_dims.mask & (1 << idx))
-						break;
-					layout->image_dims.mask |= (1 << idx);
-					layout->image_dims.off[idx] =
-						layout->image_dims.count;
-					layout->image_dims.count += 3; /* three const per */
+					if (compiler->gpu_id < 600) {
+						idx = nir_src_as_uint(intr->src[0]);
+						if (layout->image_dims.mask & (1 << idx))
+							break;
+						layout->image_dims.mask |= (1 << idx);
+						layout->image_dims.off[idx] =
+							layout->image_dims.count;
+						layout->image_dims.count += 3; /* three const per */
+					}
 					break;
 				case nir_intrinsic_load_base_vertex:
 				case nir_intrinsic_load_first_vertex:
@@ -670,7 +672,7 @@ ir3_setup_const_state(nir_shader *nir, struct ir3_shader_variant *v,
 
 	memset(&const_state->offsets, ~0, sizeof(const_state->offsets));
 
-	ir3_nir_scan_driver_consts(nir, const_state);
+	ir3_nir_scan_driver_consts(compiler, nir, const_state);
 
 	if ((compiler->gpu_id < 500) &&
 			(v->shader->stream_output.num_outputs > 0)) {
