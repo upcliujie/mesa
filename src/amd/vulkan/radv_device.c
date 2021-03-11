@@ -653,9 +653,6 @@ radv_physical_device_try_create(struct radv_instance *instance,
 	device->out_of_order_rast_allowed = device->rad_info.has_out_of_order_rast &&
 					    !(device->instance->debug_flags & RADV_DEBUG_NO_OUT_OF_ORDER);
 
-	device->dcc_msaa_allowed =
-		(device->instance->perftest_flags & RADV_PERFTEST_DCC_MSAA);
-
 	device->use_ngg = device->rad_info.chip_class >= GFX10 &&
 			  device->rad_info.family != CHIP_NAVI14 &&
 			  !(device->instance->debug_flags & RADV_DEBUG_NO_NGG);
@@ -809,7 +806,6 @@ radv_get_debug_option_name(int id)
 
 static const struct debug_control radv_perftest_options[] = {
 	{"localbos", RADV_PERFTEST_LOCAL_BOS},
-	{"dccmsaa", RADV_PERFTEST_DCC_MSAA},
 	{"bolist", RADV_PERFTEST_BO_LIST},
 	{"tccompatcmask", RADV_PERFTEST_TC_COMPAT_CMASK},
 	{"cswave32", RADV_PERFTEST_CS_WAVE_32},

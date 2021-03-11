@@ -223,8 +223,7 @@ radv_use_dcc_for_image(struct radv_device *device,
 
 	/* TODO: Fix and enable DCC MSAA on older chips. */
 	if (pCreateInfo->samples > 1 &&
-	    !device->physical_device->dcc_msaa_allowed &&
-	     device->physical_device->rad_info.chip_class < GFX10)
+	    device->physical_device->rad_info.chip_class < GFX10)
 		return false;
 
 	return radv_are_formats_dcc_compatible(device->physical_device,
