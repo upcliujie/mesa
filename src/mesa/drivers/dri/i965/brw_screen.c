@@ -355,12 +355,13 @@ static const struct {
 };
 
 static bool
-modifier_is_supported(const struct gen_device_info *devinfo,
+modifier_is_supported(const struct isl_device *isl_dev,
                       const struct brw_image_format *fmt, int dri_format,
                       uint64_t modifier)
 {
    const struct isl_drm_modifier_info *modinfo =
       isl_drm_modifier_get_info(modifier);
+   const struct gen_device_info *devinfo = isl_dev->info;
    int i;
 
    /* ISL had better know about the modifier */
@@ -368,8 +369,10 @@ modifier_is_supported(const struct gen_device_info *devinfo,
       return false;
 
    if (modinfo->aux_usage == ISL_AUX_USAGE_CCS_E) {
-      /* If INTEL_DEBUG=norbc is set, don't support any CCS_E modifiers */
-      if (INTEL_DEBUG & DEBUG_NO_RBC)
+      /* If isl_device.no_compression is set, don't support any CCS_E
+       * modifiers
+       */
+      if (isl_dev->no_compression)
          return false;
 
       /* CCS_E is not supported for planar images */
@@ -685,7 +688,7 @@ const uint64_t priority_to_modifier[] = {
 };
 
 static uint64_t
-select_best_modifier(struct gen_device_info *devinfo,
+select_best_modifier(const struct isl_device *isl_dev,
                      int dri_format,
                      const uint64_t *modifiers,
                      const unsigned count)
@@ -693,7 +696,7 @@ select_best_modifier(struct gen_device_info *devinfo,
    enum modifier_priority prio = MODIFIER_PRIORITY_INVALID;
 
    for (int i = 0; i < count; i++) {
-      if (!modifier_is_supported(devinfo, NULL, dri_format, modifiers[i]))
+      if (!modifier_is_supported(isl_dev, NULL, dri_format, modifiers[i]))
          continue;
 
       switch (modifiers[i]) {
@@ -748,7 +751,7 @@ brw_create_image_common(__DRIscreen *dri_screen,
    if (modifier == DRM_FORMAT_MOD_INVALID) {
       if (modifiers) {
          /* User requested specific modifiers */
-         modifier = select_best_modifier(&screen->devinfo, format,
+         modifier = select_best_modifier(&screen->isl_dev, format,
                                          modifiers, count);
          if (modifier == DRM_FORMAT_MOD_INVALID)
             return NULL;
@@ -986,7 +989,7 @@ brw_query_format_modifier_attribs(__DRIscreen *dri_screen,
    struct brw_screen *screen = dri_screen->driverPrivate;
    const struct brw_image_format *f = brw_image_format_lookup(fourcc);
 
-   if (!modifier_is_supported(&screen->devinfo, f, 0, modifier))
+   if (!modifier_is_supported(&screen->isl_dev, f, 0, modifier))
       return false;
 
    switch (attrib) {
@@ -1102,7 +1105,7 @@ brw_create_image_from_fds_common(__DRIscreen *dri_screen,
       return NULL;
 
    if (modifier != DRM_FORMAT_MOD_INVALID &&
-       !modifier_is_supported(&screen->devinfo, f, 0, modifier))
+       !modifier_is_supported(&screen->isl_dev, f, 0, modifier))
       return NULL;
 
    if (f->nplanes == 1)
@@ -1414,7 +1417,7 @@ brw_query_dma_buf_modifiers(__DRIscreen *_screen, int fourcc, int max,
 
    for (i = 0; i < ARRAY_SIZE(supported_modifiers); i++) {
       uint64_t modifier = supported_modifiers[i].modifier;
-      if (!modifier_is_supported(&screen->devinfo, f, 0, modifier))
+      if (!modifier_is_supported(&screen->isl_dev, f, 0, modifier))
          continue;
 
       num_mods++;
