@@ -331,13 +331,6 @@ tu_render_pass_add_implicit_deps(struct tu_render_pass *pass,
    }
 }
 
-static void update_samples(struct tu_subpass *subpass,
-                           VkSampleCountFlagBits samples)
-{
-   assert(subpass->samples == 0 || subpass->samples == samples);
-   subpass->samples = samples;
-}
-
 static void
 tu_render_pass_gmem_config(struct tu_render_pass *pass,
                            const struct tu_physical_device *phys_dev)
@@ -569,7 +562,6 @@ tu_CreateRenderPass2(VkDevice _device,
       subpass->color_count = desc->colorAttachmentCount;
       subpass->resolve_count = 0;
       subpass->resolve_depth_stencil = is_depth_stencil_resolve_enabled(ds_resolve);
-      subpass->samples = 0;
       subpass->srgb_cntl = 0;
 
       subpass->multiview_mask = desc->viewMask;
@@ -596,7 +588,6 @@ tu_CreateRenderPass2(VkDevice _device,
 
             if (a != VK_ATTACHMENT_UNUSED) {
                pass->attachments[a].gmem_offset = 0;
-               update_samples(subpass, pCreateInfo->pAttachments[a].samples);
 
                if (vk_format_is_srgb(pass->attachments[a].format))
                   subpass->srgb_cntl |= 1 << j;
@@ -628,10 +619,7 @@ tu_CreateRenderPass2(VkDevice _device,
       subpass->depth_stencil_attachment.attachment = a;
       if (a != VK_ATTACHMENT_UNUSED) {
             pass->attachments[a].gmem_offset = 0;
-            update_samples(subpass, pCreateInfo->pAttachments[a].samples);
       }
-
-      subpass->samples = subpass->samples ?: 1;
    }
 
    /* disable unused attachments */

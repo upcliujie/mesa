@@ -1471,8 +1471,6 @@ struct tu_subpass
    struct tu_subpass_attachment *resolve_attachments;
    struct tu_subpass_attachment depth_stencil_attachment;
 
-   VkSampleCountFlagBits samples;
-
    uint32_t srgb_cntl;
    uint32_t multiview_mask;
 

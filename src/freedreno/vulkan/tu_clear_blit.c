@@ -1977,6 +1977,8 @@ tu_clear_sysmem_attachments(struct tu_cmd_buffer *cmd,
          tu_cs_emit(cs, 0);
    }
 
+   tu6_emit_msaa(cs, max_samples);
+
    for (uint32_t i = 0; i < rect_count; i++) {
       if (rects[i].baseArrayLayer || rects[i].layerCount > 1)
          layered_clear = true;
