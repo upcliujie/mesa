@@ -276,6 +276,9 @@ v3dv_shared_data_destroy(struct v3dv_device *device,
          v3dv_shader_variant_destroy(device, cache_entry->variants[stage]);
    }
 
+   if (cache_entry->assembly_bo)
+      v3dv_bo_free(device, cache_entry->assembly_bo);
+
    vk_free(&device->vk.alloc, cache_entry);
 }
 
@@ -286,7 +289,9 @@ v3dv_shared_data_new(struct v3dv_pipeline_cache *cache,
                      const struct v3dv_descriptor_map *ubo_map,
                      const struct v3dv_descriptor_map *ssbo_map,
                      const struct v3dv_descriptor_map *sampler_map,
-                     const struct v3dv_descriptor_map *texture_map)
+                     const struct v3dv_descriptor_map *texture_map,
+                     const uint64_t *total_assembly,
+                     const uint32_t total_assembly_size)
 {
    size_t size = sizeof(struct v3dv_shared_data);
    /* We create new_entry using the device alloc. Right now shared_data is ref
@@ -311,6 +316,25 @@ v3dv_shared_data_new(struct v3dv_pipeline_cache *cache,
 
    for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++)
       new_entry->variants[stage] = variants[stage];
+
+   struct v3dv_bo *bo = v3dv_bo_alloc(cache->device, total_assembly_size,
+                                      "pipeline shader assembly", true);
+   if (!bo) {
+      fprintf(stderr, "failed to allocate memory for shaders assembly\n");
+      v3dv_shared_data_unref(cache->device, new_entry);
+      return NULL;
+   }
+
+   bool ok = v3dv_bo_map(cache->device, bo, total_assembly_size);
+   if (!ok) {
+      fprintf(stderr, "failed to map source shader buffer\n");
+      v3dv_shared_data_unref(cache->device, new_entry);
+      return NULL;
+   }
+
+   memcpy(bo->map, total_assembly, total_assembly_size);
+
+   new_entry->assembly_bo = bo;
 
    return new_entry;
 }
@@ -396,8 +420,8 @@ shader_variant_create_from_blob(struct v3dv_device *device,
    if (blob->overrun)
       return NULL;
 
+   uint32_t assembly_offset = blob_read_uint32(blob);
    uint32_t qpu_insts_size = blob_read_uint32(blob);
-   const uint64_t *qpu_insts = blob_read_bytes(blob, qpu_insts_size);
    if (blob->overrun)
       return NULL;
 
@@ -417,7 +441,8 @@ shader_variant_create_from_blob(struct v3dv_device *device,
 
    return v3dv_shader_variant_create(device, stage,
                                      new_prog_data, prog_data_size,
-                                     qpu_insts, qpu_insts_size,
+                                     assembly_offset,
+                                     NULL, qpu_insts_size,
                                      &result);
 }
 
@@ -451,8 +476,12 @@ v3dv_shared_data_create_from_blob(struct v3dv_pipeline_cache *cache,
       variants[stage] = variant;
    }
 
+   uint32_t total_assembly_size = blob_read_uint32(blob);
+   const uint64_t *total_assembly =
+      blob_read_bytes(blob, total_assembly_size);
    return v3dv_shared_data_new(cache, sha1_key, variants,
-                               ubo_map, ssbo_map, sampler_map, texture_map);
+                               ubo_map, ssbo_map, sampler_map, texture_map,
+                               total_assembly, total_assembly_size);
 }
 
 static void
@@ -685,9 +714,8 @@ shader_variant_write_to_blob(const struct v3dv_shader_variant *variant,
    blob_write_bytes(blob, ulist->contents, sizeof(enum quniform_contents) * ulist->count);
    blob_write_bytes(blob, ulist->data, sizeof(uint32_t) * ulist->count);
 
+   blob_write_uint32(blob, variant->assembly_offset);
    blob_write_uint32(blob, variant->qpu_insts_size);
-   assert(variant->assembly_bo->map);
-   blob_write_bytes(blob, variant->assembly_bo->map, variant->qpu_insts_size);
 
    return !blob->out_of_memory;
 }
@@ -708,6 +736,7 @@ v3dv_shared_data_write_to_blob(const struct v3dv_shared_data *cache_entry,
    blob_write_uint8(blob, variant_count);
 
    uint8_t real_count = 0;
+   uint32_t total_assembly_size = 0;
    for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
       if (cache_entry->variants[stage] == NULL)
          continue;
@@ -716,8 +745,14 @@ v3dv_shared_data_write_to_blob(const struct v3dv_shared_data *cache_entry,
       if (!shader_variant_write_to_blob(cache_entry->variants[stage], blob))
          return false;
       real_count++;
+      total_assembly_size += cache_entry->variants[stage]->qpu_insts_size;
    }
    assert(real_count == variant_count);
+
+   assert(cache_entry->assembly_bo->map);
+   assert(cache_entry->assembly_bo->size > total_assembly_size);
+   blob_write_uint32(blob, total_assembly_size);
+   blob_write_bytes(blob, cache_entry->assembly_bo->map, total_assembly_size);
 
    return !blob->out_of_memory;
 }

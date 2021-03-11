@@ -3796,6 +3796,13 @@ emit_gl_shader_state(struct v3dv_cmd_buffer *cmd_buffer)
                            32);
    v3dv_return_if_oom(cmd_buffer, NULL);
 
+   struct v3dv_shader_variant *vs_variant =
+      pipeline->data->variants[BROADCOM_SHADER_VERTEX];
+   struct v3dv_shader_variant *vs_bin_variant =
+      pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN];
+   struct v3dv_shader_variant *fs_variant =
+      pipeline->data->variants[BROADCOM_SHADER_FRAGMENT];
+
    cl_emit_with_prepacked(&job->indirect, GL_SHADER_STATE_RECORD,
                           pipeline->shader_state_record, shader) {
 
@@ -3810,11 +3817,11 @@ emit_gl_shader_state(struct v3dv_cmd_buffer *cmd_buffer)
          pipeline->vpm_cfg.As;
 
       shader.coordinate_shader_code_address =
-         v3dv_cl_address(pipeline->vs_bin->current_variant->assembly_bo, 0);
+         v3dv_cl_address(pipeline->data->assembly_bo, vs_bin_variant->assembly_offset);
       shader.vertex_shader_code_address =
-         v3dv_cl_address(pipeline->vs->current_variant->assembly_bo, 0);
+         v3dv_cl_address(pipeline->data->assembly_bo, vs_variant->assembly_offset);
       shader.fragment_shader_code_address =
-         v3dv_cl_address(pipeline->fs->current_variant->assembly_bo, 0);
+         v3dv_cl_address(pipeline->data->assembly_bo, fs_variant->assembly_offset);
 
       shader.coordinate_shader_uniforms_address = cmd_buffer->state.uniforms.vs_bin;
       shader.vertex_shader_uniforms_address = cmd_buffer->state.uniforms.vs;
@@ -5241,9 +5248,9 @@ cmd_buffer_create_csd_job(struct v3dv_cmd_buffer *cmd_buffer,
    assert(submit->cfg[4] != ~0);
 
    assert(pipeline->cs->current_variant &&
-          pipeline->cs->current_variant->assembly_bo);
+          pipeline->data->assembly_bo);
    const struct v3dv_shader_variant *variant = pipeline->cs->current_variant;
-   submit->cfg[5] = variant->assembly_bo->offset;
+   submit->cfg[5] = pipeline->data->assembly_bo->offset + variant->assembly_offset;
    submit->cfg[5] |= V3D_CSD_CFG5_PROPAGATE_NANS;
    if (variant->prog_data.base->single_seg)
       submit->cfg[5] |= V3D_CSD_CFG5_SINGLE_SEG;
@@ -5261,7 +5268,7 @@ cmd_buffer_create_csd_job(struct v3dv_cmd_buffer *cmd_buffer,
       }
    }
 
-   v3dv_job_add_bo(job, variant->assembly_bo);
+   v3dv_job_add_bo(job, pipeline->data->assembly_bo);
 
    struct v3dv_cl_reloc uniforms =
       v3dv_write_uniforms_wg_offsets(cmd_buffer, pipeline->cs,

@@ -1403,11 +1403,17 @@ struct v3dv_shader_variant {
     * serialize
     */
    uint32_t prog_data_size;
-   /* FIXME: using one bo per shader. Eventually we would be interested on
-    * reusing the same bo for all the shaders, like a bo per v3dv_pipeline for
-    * shaders.
+
+   /* The assembly for this variant will be used on a bo shared by other
+    * variants. This is the offset on that bo
     */
-   struct v3dv_bo *assembly_bo;
+   uint32_t assembly_offset;
+
+   /* Note: it is really likely that qpu_insts would be NULL, as it will be
+    * used only temporary, to upload it to the shared bo, as we compile the
+    * different stages individually.
+    */
+   uint64_t *qpu_insts;
    uint32_t qpu_insts_size;
 };
 
@@ -1653,6 +1659,8 @@ struct v3dv_shared_data {
    struct v3dv_descriptor_map texture_map;
 
    struct v3dv_shader_variant *variants[BROADCOM_SHADER_STAGES];
+
+   struct v3dv_bo *assembly_bo;
 };
 
 struct v3dv_pipeline {
@@ -1911,7 +1919,8 @@ v3dv_shader_variant_create(struct v3dv_device *device,
                            broadcom_shader_stage stage,
                            struct v3d_prog_data *prog_data,
                            uint32_t prog_data_size,
-                           const uint64_t *qpu_insts,
+                           uint32_t assembly_offset,
+                           uint64_t *qpu_insts,
                            uint32_t qpu_insts_size,
                            VkResult *out_vk_result);
 
@@ -1926,8 +1935,9 @@ v3dv_shared_data_ref(struct v3dv_shared_data *cache_entry)
    p_atomic_inc(&cache_entry->ref_cnt);
 }
 
-void v3dv_shared_data_destroy(struct v3dv_device *device,
-                              struct v3dv_shared_data *cache_entry);
+void
+v3dv_shared_data_destroy(struct v3dv_device *device,
+                         struct v3dv_shared_data *cache_entry);
 
 static inline void
 v3dv_shared_data_unref(struct v3dv_device *device,

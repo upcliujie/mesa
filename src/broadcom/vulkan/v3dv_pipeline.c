@@ -131,8 +131,6 @@ void
 v3dv_shader_variant_destroy(struct v3dv_device *device,
                             struct v3dv_shader_variant *variant)
 {
-   if (variant->assembly_bo)
-      v3dv_bo_free(device, variant->assembly_bo);
    ralloc_free(variant->prog_data.base);
    vk_free(&device->vk.alloc, variant);
 }
@@ -1277,67 +1275,49 @@ pipeline_stage_create_vs_bin(const struct v3dv_pipeline_stage *src,
    return p_stage;
 }
 
-/* FIXME: right now this just asks for an bo for the exact size of the qpu
- * assembly. It would be good to be able to re-use bos to avoid bo
- * fragmentation. This could be tricky though, as right now we are uploading
- * the assembly from two paths, when compiling a shader, or when deserializing
- * from the pipeline cache. This also means that the same variant can be
- * shared by different objects. So with the current approach it is clear who
- * owns the assembly bo, but if shared, who owns the shared bo?
- *
- * For now one-bo per-assembly would work.
- *
+/*
  * Returns false if it was not able to allocate or map the assembly bo memory.
  */
 static bool
-upload_assembly(struct v3dv_device *device,
-                struct v3dv_shader_variant *variant,
-                broadcom_shader_stage stage,
-                const void *data,
-                uint32_t size)
+upload_assembly(struct v3dv_pipeline *pipeline)
 {
-   const char *name = NULL;
-   /* We are uploading the assembly just once, so at this point we shouldn't
-    * have any bo
-    */
-   assert(variant->assembly_bo == NULL);
+   uint32_t total_size = 0;
+   for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
+      struct v3dv_shader_variant *variant = pipeline->data->variants[stage];
+      if (variant != NULL)
+         total_size += variant->qpu_insts_size;
+   }
 
-   switch (stage) {
-   case BROADCOM_SHADER_VERTEX:
-      name = "vertex_shader_assembly";
-      break;
-   case BROADCOM_SHADER_VERTEX_BIN:
-      name = "coord_shader_assembly";
-      break;
-   case BROADCOM_SHADER_FRAGMENT:
-      name = "fragment_shader_assembly";
-      break;
-   case BROADCOM_SHADER_COMPUTE:
-      name = "compute_shader_assembly";
-      break;
-   default:
-      unreachable("Stage not supported\n");
-      break;
-   };
-
-   struct v3dv_bo *bo = v3dv_bo_alloc(device, size, name, true);
+   struct v3dv_bo *bo = v3dv_bo_alloc(pipeline->device, total_size,
+                                      "pipeline shader assembly", true);
    if (!bo) {
       fprintf(stderr, "failed to allocate memory for shader\n");
       return false;
    }
 
-   bool ok = v3dv_bo_map(device, bo, size);
+   bool ok = v3dv_bo_map(pipeline->device, bo, total_size);
    if (!ok) {
       fprintf(stderr, "failed to map source shader buffer\n");
       return false;
    }
 
-   memcpy(bo->map, data, size);
+   uint32_t offset = 0;
+   for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
+      struct v3dv_shader_variant *variant = pipeline->data->variants[stage];
+      if (variant != NULL) {
+         variant->assembly_offset = offset;
 
-   /* We don't unmap the assembly bo, as we would use to gather the assembly
-    * when serializing the variant.
-    */
-   variant->assembly_bo = bo;
+         memcpy(bo->map + offset, variant->qpu_insts, variant->qpu_insts_size);
+         offset += variant->qpu_insts_size;
+
+         /* We dont need qpu_insts anymore. */
+         free(variant->qpu_insts);
+         variant->qpu_insts = NULL;
+      }
+   }
+   assert(total_size == offset);
+
+   pipeline->data->assembly_bo = bo;
 
    return true;
 }
@@ -1438,7 +1418,8 @@ v3dv_shader_variant_create(struct v3dv_device *device,
                            broadcom_shader_stage stage,
                            struct v3d_prog_data *prog_data,
                            uint32_t prog_data_size,
-                           const uint64_t *qpu_insts,
+                           uint32_t assembly_offset,
+                           uint64_t *qpu_insts,
                            uint32_t qpu_insts_size,
                            VkResult *out_vk_result)
 {
@@ -1455,17 +1436,9 @@ v3dv_shader_variant_create(struct v3dv_device *device,
    variant->prog_data_size = prog_data_size;
    variant->prog_data.base = prog_data;
 
-   if (qpu_insts) {
-      if (!upload_assembly(device, variant, stage,
-                           qpu_insts, qpu_insts_size)) {
-         ralloc_free(variant->prog_data.base);
-         vk_free(&device->vk.alloc, variant);
-
-         *out_vk_result = VK_ERROR_OUT_OF_DEVICE_MEMORY;
-         return NULL;
-      }
-      variant->qpu_insts_size = qpu_insts_size;
-   }
+   variant->assembly_offset = assembly_offset;
+   variant->qpu_insts_size = qpu_insts_size;
+   variant->qpu_insts = qpu_insts;
 
    *out_vk_result = VK_SUCCESS;
 
@@ -1524,11 +1497,9 @@ pipeline_compile_shader_variant(struct v3dv_pipeline_stage *p_stage,
       v3dv_shader_variant_create(pipeline->device, p_stage->stage,
                                  prog_data,
                                  v3d_prog_data_size(broadcom_shader_stage_to_gl(p_stage->stage)),
+                                 0, /* Not a final value, will be computed at upload_assembly */
                                  qpu_insts, qpu_insts_size,
                                  out_vk_result);
-
-   if (qpu_insts)
-      free(qpu_insts);
 
    if (*out_vk_result == VK_SUCCESS) {
       /* If we got a variant, we don't need the nir shader anymore so let's
@@ -2088,7 +2059,6 @@ pipeline_compile_graphics(struct v3dv_pipeline *pipeline,
    unsigned char pipeline_sha1[20];
    pipeline_hash_graphics(pipeline, &pipeline_key, pipeline_sha1);
 
-   bool from_cache = false;
    pipeline->data =
       v3dv_pipeline_cache_search_for_pipeline(cache, pipeline_sha1);
 
@@ -2096,7 +2066,8 @@ pipeline_compile_graphics(struct v3dv_pipeline *pipeline,
       assert(pipeline->data->variants[BROADCOM_SHADER_VERTEX]);
       assert(pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN]);
       assert(pipeline->data->variants[BROADCOM_SHADER_FRAGMENT]);
-      from_cache = true;
+
+      pipeline_sync_graphics_variants(pipeline, true);
 
       goto success;
    }
@@ -2137,8 +2108,12 @@ pipeline_compile_graphics(struct v3dv_pipeline *pipeline,
    if (vk_result != VK_SUCCESS)
       return vk_result;
 
+   pipeline_sync_graphics_variants(pipeline, false);
+
+   if (!upload_assembly(pipeline))
+      return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+
  success:
-   pipeline_sync_graphics_variants(pipeline, from_cache);
    pipeline_check_spill_size(pipeline);
    v3dv_pipeline_cache_upload_pipeline(pipeline, cache);
 
@@ -3226,10 +3201,9 @@ pipeline_compile_compute(struct v3dv_pipeline *pipeline,
    pipeline->data =
       v3dv_pipeline_cache_search_for_pipeline(cache, pipeline_sha1);
 
-   bool from_cache = false;
    if (pipeline->data != NULL) {
       assert(pipeline->data->variants[BROADCOM_SHADER_COMPUTE]);
-      from_cache = true;
+      pipeline_sync_compute_variants(pipeline, true);
       goto success;
    }
 
@@ -3255,8 +3229,11 @@ pipeline_compile_compute(struct v3dv_pipeline *pipeline,
    if (result != VK_SUCCESS)
       return result;
 
+   pipeline_sync_compute_variants(pipeline, false);
+   if (!upload_assembly(pipeline))
+      return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+
  success:
-   pipeline_sync_compute_variants(pipeline, from_cache);
    pipeline_check_spill_size(pipeline);
    v3dv_pipeline_cache_upload_pipeline(pipeline, cache);
 
