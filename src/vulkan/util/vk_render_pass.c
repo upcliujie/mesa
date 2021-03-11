@@ -81,11 +81,11 @@ vk_common_CreateRenderPass(VkDevice _device,
    }
 
    VK_MULTIALLOC(ma);
-   vk_multialloc_add(&ma, &create_info, 1);
-   vk_multialloc_add(&ma, &subpasses, pCreateInfo->subpassCount);
-   vk_multialloc_add(&ma, &attachments, pCreateInfo->attachmentCount);
-   vk_multialloc_add(&ma, &dependencies, pCreateInfo->dependencyCount);
-   vk_multialloc_add(&ma, &references, reference_count);
+   vk_multialloc_add(&ma, &create_info, 1, VkRenderPassCreateInfo2);
+   vk_multialloc_add(&ma, &subpasses, pCreateInfo->subpassCount, VkSubpassDescription2);
+   vk_multialloc_add(&ma, &attachments, pCreateInfo->attachmentCount, VkAttachmentDescription2);
+   vk_multialloc_add(&ma, &dependencies, pCreateInfo->dependencyCount, VkSubpassDependency2);
+   vk_multialloc_add(&ma, &references, reference_count, VkAttachmentReference2);
    if (!vk_multialloc_alloc2(&ma, &device->alloc, pAllocator,
                              VK_SYSTEM_ALLOCATION_SCOPE_COMMAND))
       return VK_ERROR_OUT_OF_HOST_MEMORY;
