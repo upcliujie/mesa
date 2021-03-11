@@ -123,6 +123,64 @@ fixup_regfootprint(struct ir3_shader_variant *v)
 	}
 }
 
+static void
+ir3_trim_const_count(uint32_t constlen, uint32_t *offset, uint32_t *count, int dword_units)
+{
+	if (*offset >= constlen) {
+		*offset = ~0;
+		*count = 0;
+	} else {
+		*count = MIN2(*count, (constlen - *offset) * (4 / dword_units));
+	}
+}
+
+/* Trim unused consts from the const state to reduce the complexity of uploads.
+ * Note that consts->offsets.* and constlen are both in vec4 units.
+ */
+static void
+ir3_trim_variant_consts(struct ir3_shader_variant *v)
+{
+	unsigned ptrsz = ir3_pointer_size(v->shader->compiler);
+
+	/* Note: Not using ir3_const_state() here because we don't want to trim the
+	 * VS's const state when processing a binning shader.  If this trimmed state
+	 * gets unused when sharing consts between BS and VS, that's fine.
+	 */
+	struct ir3_const_state *consts = v->const_state;
+
+	ir3_trim_const_count(v->constlen, &consts->offsets.ubo, &consts->num_ubos, ptrsz);
+
+	ir3_trim_const_count(v->constlen, &consts->offsets.image_dims, &consts->image_dims.count, 4);
+	consts->image_dims.mask &= MASK(consts->image_dims.count);
+
+	ir3_trim_const_count(v->constlen, &consts->offsets.driver_param, &consts->num_driver_params, 1);
+
+	ir3_trim_const_count(v->constlen, &consts->offsets.immediate, &consts->immediates_count, 1);
+	/* immediates don't follow the pattern of other const uploads where ~0 means don't upload */
+	if (consts->offsets.immediate == ~0)
+		consts->offsets.immediate = 0;
+
+	consts->num_primitive_map = v->input_size;
+	ir3_trim_const_count(v->constlen, &consts->offsets.primitive_map, &consts->num_primitive_map, 1);
+
+	struct ir3_ubo_analysis_state *ubo_state = &consts->ubo_state;
+	int next = 0;
+	for (int i = 0; i < ubo_state->num_enabled; i++) {
+		if (ubo_state->range[i].offset >= v->constlen * 16)
+			continue;
+
+		uint32_t size = MIN2(ubo_state->range[i].end - ubo_state->range[i].start,
+				v->constlen * 16 - ubo_state->range[i].offset);
+		ubo_state->range[i].end = ubo_state->range[i].start + size;
+
+		/* Fill in holes from unused ranges. */
+		if (next != i)
+			memcpy(&ubo_state->range[next], &ubo_state->range[i], sizeof(ubo_state->range[i]));
+		next++;
+	}
+	ubo_state->num_enabled = next;
+}
+
 /* wrapper for ir3_assemble() which does some info fixup based on
  * shader state.  Non-static since used by ir3_cmdline too.
  */
@@ -172,6 +230,8 @@ void * ir3_shader_assemble(struct ir3_shader_variant *v)
 	 */
 	if (compiler->gpu_id >= 400)
 		v->constlen = align(v->constlen, 4);
+
+	ir3_trim_variant_consts(v);
 
 	/* Use the per-wave layout by default on a6xx. It should result in better
 	 * performance when loads/stores are to a uniform index.
