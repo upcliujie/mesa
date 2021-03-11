@@ -626,8 +626,6 @@ RADV driver environment variables
       enable the global BO list
    ``cswave32``
       enable wave32 for compute shaders (GFX10+)
-   ``dccmsaa``
-      enable DCC for MSAA images
    ``dfsm``
       enable dfsm
    ``gewave32``

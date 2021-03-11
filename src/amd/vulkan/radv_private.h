@@ -278,9 +278,6 @@ struct radv_physical_device {
 
 	bool out_of_order_rast_allowed;
 
-	/* Whether DCC should be enabled for MSAA textures. */
-	bool dcc_msaa_allowed;
-
 	/* Whether to enable NGG. */
 	bool use_ngg;
 
