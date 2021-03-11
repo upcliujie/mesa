@@ -297,8 +297,9 @@ alloc_variant(struct ir3_shader *shader, const struct ir3_shader_key *key,
 	v->type = shader->type;
 	v->mergedregs = shader->compiler->gpu_id >= 600;
 
-	if (!v->binning_pass)
-		v->const_state = rzalloc_size(v, sizeof(*v->const_state));
+	v->const_state = rzalloc_size(v, sizeof(*v->const_state));
+	if (nonbinning)
+		memcpy(v->const_state, nonbinning->const_state, sizeof(*v->const_state));
 
 	return v;
 }

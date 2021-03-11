@@ -580,12 +580,12 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 
 	nir_sweep(s);
 
-	/* Binning pass variants re-use  the const_state of the corresponding
-	 * draw pass shader, so that same const emit can be re-used for both
-	 * passes:
+	/* Binning pass variants re-use  the const_state of the corresponding draw
+	 * pass shader (set up at alloc_variant() time), so that same const emit can
+	 * be re-used for both passes:
 	 */
 	if (!so->binning_pass)
-		ir3_setup_const_state(s, so, ir3_const_state(so));
+		ir3_setup_const_state(s, so, so->const_state);
 }
 
 static void
