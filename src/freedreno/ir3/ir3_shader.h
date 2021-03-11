@@ -162,6 +162,7 @@ struct ir3_ubo_analysis_state {
 struct ir3_const_state {
    unsigned num_ubos;
    unsigned num_driver_params; /* scalar */
+   unsigned num_primitive_map;
 
    /* UBO that should be mapped to the NIR shader's constant_data (or -1). */
    int32_t constant_data_ubo;
