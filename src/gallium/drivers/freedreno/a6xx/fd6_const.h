@@ -29,8 +29,6 @@
 #include "fd6_emit.h"
 
 void fd6_emit_consts(struct fd6_emit *emit) assert_dt;
-void fd6_emit_ibo_consts(struct fd6_emit *emit, const struct ir3_shader_variant *v,
-		enum pipe_shader_type stage, struct fd_ringbuffer *ring) assert_dt;
 void fd6_emit_cs_consts(const struct ir3_shader_variant *v, struct fd_ringbuffer *ring,
 		struct fd_context *ctx, const struct pipe_grid_info *info) assert_dt;
 void fd6_emit_immediates(struct fd_screen *screen, const struct ir3_shader_variant *v,
