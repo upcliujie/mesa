@@ -330,19 +330,19 @@ vtn_nir_alu_op_for_spirv_opcode(struct vtn_builder *b,
    case SpvOpULessThan:                                            return nir_op_ult;
    case SpvOpSLessThan:                                            return nir_op_ilt;
    case SpvOpFOrdLessThan:                         *exact = true;  return nir_op_flt;
-   case SpvOpFUnordLessThan:                       *exact = true;  return nir_op_flt;
+   case SpvOpFUnordLessThan:                       *exact = true;  return nir_op_fge;
    case SpvOpUGreaterThan:          *swap = true;                  return nir_op_ult;
    case SpvOpSGreaterThan:          *swap = true;                  return nir_op_ilt;
    case SpvOpFOrdGreaterThan:       *swap = true;  *exact = true;  return nir_op_flt;
-   case SpvOpFUnordGreaterThan:     *swap = true;  *exact = true;  return nir_op_flt;
+   case SpvOpFUnordGreaterThan:     *swap = true;  *exact = true;  return nir_op_fge;
    case SpvOpULessThanEqual:        *swap = true;                  return nir_op_uge;
    case SpvOpSLessThanEqual:        *swap = true;                  return nir_op_ige;
    case SpvOpFOrdLessThanEqual:     *swap = true;  *exact = true;  return nir_op_fge;
-   case SpvOpFUnordLessThanEqual:   *swap = true;  *exact = true;  return nir_op_fge;
+   case SpvOpFUnordLessThanEqual:   *swap = true;  *exact = true;  return nir_op_flt;
    case SpvOpUGreaterThanEqual:                                    return nir_op_uge;
    case SpvOpSGreaterThanEqual:                                    return nir_op_ige;
    case SpvOpFOrdGreaterThanEqual:                 *exact = true;  return nir_op_fge;
-   case SpvOpFUnordGreaterThanEqual:               *exact = true;  return nir_op_fge;
+   case SpvOpFUnordGreaterThanEqual:               *exact = true;  return nir_op_flt;
 
    /* Conversions: */
    case SpvOpQuantizeToF16:         return nir_op_fquantize2f16;
@@ -600,7 +600,22 @@ vtn_handle_alu(struct vtn_builder *b, SpvOp opcode,
       break;
    }
 
-   case SpvOpFUnordEqual:
+   case SpvOpFUnordEqual: {
+      const bool save_exact = b->nb.exact;
+
+      b->nb.exact = true;
+
+      dest->def =
+         nir_ior(&b->nb,
+                 nir_feq(&b->nb, src[0], src[1]),
+                 nir_ior(&b->nb,
+                         nir_fneu(&b->nb, src[0], src[0]),
+                         nir_fneu(&b->nb, src[1], src[1])));
+
+      b->nb.exact = save_exact;
+      break;
+   }
+
    case SpvOpFUnordLessThan:
    case SpvOpFUnordGreaterThan:
    case SpvOpFUnordLessThanEqual:
@@ -623,12 +638,10 @@ vtn_handle_alu(struct vtn_builder *b, SpvOp opcode,
 
       b->nb.exact = true;
 
+      /* Use the property FUnordLessThan(a, b) ≡ !FOrdGreaterThanEqual(a, b). */
       dest->def =
-         nir_ior(&b->nb,
-                 nir_build_alu(&b->nb, op, src[0], src[1], NULL, NULL),
-                 nir_ior(&b->nb,
-                         nir_fneu(&b->nb, src[0], src[0]),
-                         nir_fneu(&b->nb, src[1], src[1])));
+         nir_inot(&b->nb,
+                  nir_build_alu(&b->nb, op, src[0], src[1], NULL, NULL));
 
       b->nb.exact = save_exact;
       break;
