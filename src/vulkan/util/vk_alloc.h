@@ -177,12 +177,18 @@ _vk_multialloc_add(struct vk_multialloc *ma,
 #define vk_multialloc_add(_ma, _ptr, _count) \
    vk_multialloc_add_size(_ma, _ptr, (_count) * sizeof(**(_ptr)));
 
+#define vk_multialloc_add_size_typed(_ma, _ptr, _size, _type) \
+   _vk_multialloc_add((_ma), (void **)(_ptr), (_size), alignof(_type))
+
+#define vk_multialloc_add_typed(_ma, _ptr, _count, _type) \
+   vk_multialloc_add_size_typed(_ma, _ptr, (_count) * sizeof(**(_ptr)), _type);
+
 static ALWAYS_INLINE void *
 vk_multialloc_alloc(struct vk_multialloc *ma,
                     const VkAllocationCallbacks *alloc,
                     VkSystemAllocationScope scope)
 {
-   void *ptr = vk_alloc(alloc, ma->size, ma->align, scope);
+   char *ptr = vk_alloc(alloc, ma->size, ma->align, scope);
    if (!ptr)
       return NULL;
 
