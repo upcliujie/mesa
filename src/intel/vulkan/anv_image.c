@@ -489,7 +489,7 @@ add_aux_surface_if_supported(struct anv_device *device,
                   &image->planes[plane].aux_surface);
    } else if (aspect == VK_IMAGE_ASPECT_STENCIL_BIT) {
 
-      if (INTEL_DEBUG & DEBUG_NO_RBC)
+      if (device->isl_dev.no_compression)
          return VK_SUCCESS;
 
       if (!isl_surf_supports_ccs(&device->isl_dev,
@@ -538,9 +538,6 @@ add_aux_surface_if_supported(struct anv_device *device,
                        "currently tracks. Not allocating a CCS buffer.");
          return VK_SUCCESS;
       }
-
-      if (INTEL_DEBUG & DEBUG_NO_RBC)
-         return VK_SUCCESS;
 
       ok = isl_surf_get_ccs_surf(&device->isl_dev,
                                  &image->planes[plane].primary_surface.isl,
