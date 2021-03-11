@@ -459,11 +459,6 @@ tu6_emit_xs_config(struct tu_cs *cs,
    uint32_t base = const_state->offsets.immediate;
    int size = DIV_ROUND_UP(const_state->immediates_count, 4);
 
-   /* truncate size to avoid writing constants that shader
-    * does not use:
-    */
-   size = MIN2(size + base, xs->constlen) - base;
-
    if (size > 0) {
       tu_cs_emit_pkt7(cs, tu6_stage2opcode(stage), 3 + size * 4);
       tu_cs_emit(cs, CP_LOAD_STATE6_0_DST_OFF(base) |
@@ -506,8 +501,7 @@ tu6_emit_xs_config(struct tu_cs *cs,
 
          uint32_t start = ubo_state->range[i].start;
          uint32_t end = ubo_state->range[i].end;
-         uint32_t size = MIN2(end - start,
-                              (16 * xs->constlen) - ubo_state->range[i].offset);
+         uint32_t size = end - start;
 
          tu_cs_emit_pkt7(cs, tu6_stage2opcode(stage), 3);
          tu_cs_emit(cs,

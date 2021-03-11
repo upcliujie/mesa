@@ -3065,11 +3065,6 @@ tu6_emit_user_consts(struct tu_cs *cs, const struct tu_pipeline *pipeline,
       uint32_t size = state->range[i].end - state->range[i].start;
       uint32_t offset = state->range[i].start;
 
-      /* and even if the start of the const buffer is before
-       * first_immediate, the end may not be:
-       */
-      size = MIN2(size, (16 * link->constlen) - state->range[i].offset);
-
       if (size == 0)
          continue;
 
@@ -3497,7 +3492,7 @@ vs_params_offset(struct tu_cmd_buffer *cmd)
       &cmd->state.pipeline->program.link[MESA_SHADER_VERTEX];
    const struct ir3_const_state *const_state = &link->const_state;
 
-   if (const_state->offsets.driver_param >= link->constlen)
+   if (const_state->num_driver_params)
       return 0;
 
    /* this layout is required by CP_DRAW_INDIRECT_MULTI */
@@ -3815,8 +3810,7 @@ tu_emit_compute_driver_params(struct tu_cmd_buffer *cmd,
          [IR3_DP_NUM_WORK_GROUPS_Z] = info->blocks[2],
       };
 
-      uint32_t num_consts = MIN2(const_state->num_driver_params,
-                                 (link->constlen - offset) * 4);
+      uint32_t num_consts = const_state->num_driver_params;
       assert(num_consts <= ARRAY_SIZE(driver_params));
 
       /* push constants */
