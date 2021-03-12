@@ -585,6 +585,8 @@ _mesa_program_resource_find_name(struct gl_shader_program *shProg,
    if (res)
       return res;
 
+   size_t baselen = strlen(name);
+
    res = shProg->data->ProgramResourceList;
    for (unsigned i = 0; i < shProg->data->NumProgramResourceList; i++, res++) {
       if (res->Type != programInterface)
@@ -597,11 +599,6 @@ _mesa_program_resource_find_name(struct gl_shader_program *shProg,
       if (rname == NULL)
          continue;
 
-      unsigned baselen = strlen(rname);
-      unsigned baselen_without_array_index = baselen;
-      const char *rname_last_square_bracket = strrchr(rname, '[');
-      bool found = false;
-      bool rname_has_array_index_zero = false;
       /* From ARB_program_interface_query spec:
        *
        * "uint GetProgramResourceIndex(uint program, enum programInterface,
@@ -623,22 +620,15 @@ _mesa_program_resource_find_name(struct gl_shader_program *shProg,
        *    string would exactly match the name of the variable if the suffix
        *    "[0]" were appended to the string; [...]"
        */
-      /* Remove array's index from interface block name comparison only if
-       * array's index is zero and the resulting string length is the same
-       * than the provided name's length.
-       */
-      if (rname_last_square_bracket) {
-         baselen_without_array_index -= strlen(rname_last_square_bracket);
-         rname_has_array_index_zero =
-            (strcmp(rname_last_square_bracket, "[0]") == 0) &&
-            (baselen_without_array_index == strlen(name));
-      }
+      if (strncmp(name, rname, baselen) != 0)
+         continue;
 
-      if (strncmp(rname, name, baselen) == 0)
-         found = true;
-      else if (rname_has_array_index_zero &&
-               strncmp(rname, name, baselen_without_array_index) == 0)
-         found = true;
+      bool rname_has_array_index_zero = false;
+      /* Valid match if rname's length is the same as name's, or if rname is
+       * "name[0]\n".
+       */
+      bool found = rname[baselen] == '\0' ||
+           (rname_has_array_index_zero = (strcmp(&rname[baselen], "[0]") == 0));
 
       if (found) {
          switch (programInterface) {
