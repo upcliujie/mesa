@@ -829,49 +829,223 @@ fd6_emit_state(struct fd_ringbuffer *ring, struct fd6_emit *emit)
 
 	emit_marker6(ring, 5);
 
-	/* NOTE: we track fb_read differently than _BLEND_ENABLED since
-	 * we might at some point decide to do sysmem in some cases when
-	 * blend is enabled:
+	/* NOTE: we track fb_read differently than _BLEND_ENABLED since we
+	 * might decide to do sysmem in some cases when blend is enabled:
 	 */
 	if (fs->fb_read)
 		ctx->batch->gmem_reason |= FD_GMEM_FB_READ;
 
-	if (emit->dirty & FD_DIRTY_VTXSTATE) {
-		struct fd6_vertex_stateobj *vtx = fd6_vertex_stateobj(ctx->vtx.vtx);
+	u_foreach_bit (b, emit->dirty_groups) {
+		enum fd6_state_id group = b;
+		struct fd_ringbuffer *state = NULL;
+		uint32_t enable_mask = ENABLE_ALL;
 
-		fd6_emit_add_group(emit, vtx->stateobj, FD6_GROUP_VTXSTATE, ENABLE_ALL);
-	}
+		switch (group) {
+		case FD6_GROUP_VTXSTATE:
+			state = fd6_vertex_stateobj(ctx->vtx.vtx)->stateobj;
+			fd_ringbuffer_ref(state);
+			break;
+		case FD6_GROUP_VBO:
+			state = build_vbo_state(emit);
+			break;
+		case FD6_GROUP_ZSA:
+			state = fd6_zsa_state(ctx,
+							util_format_is_pure_integer(pipe_surface_format(pfb->cbufs[0])),
+							fd_depth_clamp_enabled(ctx));
+			fd_ringbuffer_ref(state);
+			break;
+		case FD6_GROUP_LRZ:
+			state = build_lrz(emit, false);
+			if (!state)
+				continue;
+			enable_mask = ENABLE_DRAW;
+			break;
+		case FD6_GROUP_LRZ_BINNING:
+			state = build_lrz(emit, true);
+			if (!state)
+				continue;
+			break;
+		case FD6_GROUP_SCISSOR: {
+			struct pipe_scissor_state *scissor = fd_context_get_scissor(ctx);
 
-	if (emit->dirty & FD_DIRTY_VTXBUF) {
-		struct fd_ringbuffer *state;
+			state = fd_submit_new_ringbuffer(emit->ctx->batch->submit, 3*4,
+					FD_RINGBUFFER_STREAMING);
 
-		state = build_vbo_state(emit);
-		fd6_emit_take_group(emit, state, FD6_GROUP_VBO, ENABLE_ALL);
-	}
+			OUT_REG(state,
+					A6XX_GRAS_SC_SCREEN_SCISSOR_TL(0,
+							.x = scissor->minx,
+							.y = scissor->miny
+					),
+					A6XX_GRAS_SC_SCREEN_SCISSOR_BR(0,
+							.x = MAX2(scissor->maxx, 1) - 1,
+							.y = MAX2(scissor->maxy, 1) - 1
+					)
+			);
 
-	if (dirty & (FD_DIRTY_ZSA | FD_DIRTY_RASTERIZER)) {
-		struct fd_ringbuffer *state =
-			fd6_zsa_state(ctx,
-					util_format_is_pure_integer(pipe_surface_format(pfb->cbufs[0])),
-					fd_depth_clamp_enabled(ctx));
+			ctx->batch->max_scissor.minx = MIN2(ctx->batch->max_scissor.minx, scissor->minx);
+			ctx->batch->max_scissor.miny = MIN2(ctx->batch->max_scissor.miny, scissor->miny);
+			ctx->batch->max_scissor.maxx = MAX2(ctx->batch->max_scissor.maxx, scissor->maxx);
+			ctx->batch->max_scissor.maxy = MAX2(ctx->batch->max_scissor.maxy, scissor->maxy);
+			break;
+		}
+		case FD6_GROUP_PROG:
+			fd6_emit_add_group(emit, prog->config_stateobj, FD6_GROUP_PROG_CONFIG, ENABLE_ALL);
+			fd6_emit_add_group(emit, prog->stateobj, FD6_GROUP_PROG, ENABLE_DRAW);
+			fd6_emit_add_group(emit, prog->binning_stateobj,
+					FD6_GROUP_PROG_BINNING, CP_SET_DRAW_STATE__0_BINNING);
 
-		fd6_emit_add_group(emit, state, FD6_GROUP_ZSA, ENABLE_ALL);
-	}
+			/* emit remaining streaming program state, ie. what depends on
+			 * other emit state, so cannot be pre-baked.
+			 */
+			fd6_emit_take_group(emit, fd6_program_interp_state(emit),
+					FD6_GROUP_PROG_INTERP, ENABLE_DRAW);
+			continue;
+		case FD6_GROUP_RASTERIZER:
+			state = fd6_rasterizer_state(ctx, emit->primitive_restart);
+			fd_ringbuffer_ref(state);
+			break;
+		case FD6_GROUP_PROG_FB_RAST: {
+			struct fd_ringbuffer *ring = fd_submit_new_ringbuffer(
+					emit->ctx->batch->submit, 9 * 4, FD_RINGBUFFER_STREAMING);
 
-	if (dirty & (FD_DIRTY_ZSA | FD_DIRTY_BLEND | FD_DIRTY_PROG)) {
-		struct fd_ringbuffer *state;
+			unsigned nr = pfb->nr_cbufs;
 
-		state = build_lrz(emit, false);
-		if (state) {
-			fd6_emit_take_group(emit, state, FD6_GROUP_LRZ, ENABLE_DRAW);
+			if (ctx->rasterizer->rasterizer_discard)
+				nr = 0;
+
+			struct fd6_blend_stateobj *blend = fd6_blend_stateobj(ctx->blend);
+
+			if (blend->use_dual_src_blend)
+				nr++;
+
+			OUT_PKT4(ring, REG_A6XX_RB_FS_OUTPUT_CNTL0, 2);
+			OUT_RING(ring, COND(fs->writes_pos, A6XX_RB_FS_OUTPUT_CNTL0_FRAG_WRITES_Z) |
+					COND(fs->writes_smask && pfb->samples > 1,
+							A6XX_RB_FS_OUTPUT_CNTL0_FRAG_WRITES_SAMPMASK) |
+					COND(fs->writes_stencilref,
+							A6XX_RB_FS_OUTPUT_CNTL0_FRAG_WRITES_STENCILREF) |
+					COND(blend->use_dual_src_blend,
+							A6XX_RB_FS_OUTPUT_CNTL0_DUAL_COLOR_IN_ENABLE));
+			OUT_RING(ring, A6XX_RB_FS_OUTPUT_CNTL1_MRT(nr));
+
+			OUT_PKT4(ring, REG_A6XX_SP_FS_OUTPUT_CNTL1, 1);
+			OUT_RING(ring, A6XX_SP_FS_OUTPUT_CNTL1_MRT(nr));
+
+			unsigned mrt_components = 0;
+			for (unsigned i = 0; i < pfb->nr_cbufs; i++) {
+				if (!pfb->cbufs[i])
+					continue;
+				mrt_components |= 0xf << (i * 4);
+			}
+
+			/* dual source blending has an extra fs output in the 2nd slot */
+			if (blend->use_dual_src_blend)
+				mrt_components |= 0xf << 4;
+
+			mrt_components &= prog->mrt_components;
+
+			OUT_REG(ring, A6XX_SP_FS_RENDER_COMPONENTS(.dword = mrt_components));
+			OUT_REG(ring, A6XX_RB_RENDER_COMPONENTS(.dword = mrt_components));
+
+			state = ring;
+
+			break;
+		}
+		case FD6_GROUP_BLEND:
+			state = fd6_blend_variant(ctx->blend, pfb->samples, ctx->sample_mask)->stateobj;
+			fd_ringbuffer_ref(state);
+			break;
+		case FD6_GROUP_BLEND_COLOR: {
+			struct pipe_blend_color *bcolor = &ctx->blend_color;
+			state = fd_submit_new_ringbuffer(emit->ctx->batch->submit,
+					5*4, FD_RINGBUFFER_STREAMING);
+
+			OUT_REG(state,
+					A6XX_RB_BLEND_RED_F32(bcolor->color[0]),
+					A6XX_RB_BLEND_GREEN_F32(bcolor->color[1]),
+					A6XX_RB_BLEND_BLUE_F32(bcolor->color[2]),
+					A6XX_RB_BLEND_ALPHA_F32(bcolor->color[3])
+				);
+
+			break;
+		}
+		case FD6_GROUP_IBO: {
+			if (hs) {
+				debug_assert(ir3_shader_nibo(hs) == 0);
+				debug_assert(ir3_shader_nibo(ds) == 0);
+			}
+			if (gs) {
+				debug_assert(ir3_shader_nibo(gs) == 0);
+			}
+			struct fd_ringbuffer *ibo_state =
+				fd6_build_ibo_state(ctx, fs, PIPE_SHADER_FRAGMENT);
+			struct fd_ringbuffer *obj = fd_submit_new_ringbuffer(
+				ctx->batch->submit, 0x100, FD_RINGBUFFER_STREAMING);
+
+			OUT_PKT7(obj, CP_LOAD_STATE6, 3);
+			OUT_RING(obj, CP_LOAD_STATE6_0_DST_OFF(0) |
+				CP_LOAD_STATE6_0_STATE_TYPE(ST6_SHADER) |
+				CP_LOAD_STATE6_0_STATE_SRC(SS6_INDIRECT) |
+				CP_LOAD_STATE6_0_STATE_BLOCK(SB6_IBO) |
+				CP_LOAD_STATE6_0_NUM_UNIT(ir3_shader_nibo(fs)));
+			OUT_RB(obj, ibo_state);
+
+			OUT_PKT4(obj, REG_A6XX_SP_IBO, 2);
+			OUT_RB(obj, ibo_state);
+
+			/* TODO if we used CP_SET_DRAW_STATE for compute shaders, we could
+			 * de-duplicate this from program->config_stateobj
+			 */
+			OUT_PKT4(obj, REG_A6XX_SP_IBO_COUNT, 1);
+			OUT_RING(obj, ir3_shader_nibo(fs));
+
+			fd6_emit_ibo_consts(emit, fs, PIPE_SHADER_FRAGMENT, ring);
+
+			fd_ringbuffer_del(ibo_state);
+
+			state = obj;
+			break;
+		}
+		case FD6_GROUP_VS_TEX:
+			needs_border |= fd6_emit_combined_textures(ring, emit, PIPE_SHADER_VERTEX, vs);
+			continue;
+		case FD6_GROUP_HS_TEX:
+			if (hs) {
+				needs_border |= fd6_emit_combined_textures(ring, emit, PIPE_SHADER_TESS_CTRL, hs);
+			}
+			continue;
+		case FD6_GROUP_DS_TEX:
+			if (ds) {
+				needs_border |= fd6_emit_combined_textures(ring, emit, PIPE_SHADER_TESS_EVAL, ds);
+			}
+			continue;
+		case FD6_GROUP_GS_TEX:
+			if (gs) {
+				needs_border |= fd6_emit_combined_textures(ring, emit, PIPE_SHADER_GEOMETRY, gs);
+			}
+			continue;
+		case FD6_GROUP_FS_TEX:
+			needs_border |= fd6_emit_combined_textures(ring, emit, PIPE_SHADER_FRAGMENT, fs);
+			continue;
+		default:
+			unreachable("bad state group");
 		}
 
-		state = build_lrz(emit, true);
-		if (state) {
-			fd6_emit_take_group(emit, state,
-					FD6_GROUP_LRZ_BINNING, CP_SET_DRAW_STATE__0_BINNING);
-		}
+		fd6_emit_take_group(emit, state, group, enable_mask);
 	}
+
+	fd6_emit_consts(emit);
+
+	struct ir3_stream_output_info *info = &fd6_last_shader(prog)->shader->stream_output;
+	if (info->num_outputs)
+		fd6_emit_streamout(ring, emit, info);
+
+	if (needs_border)
+		emit_border_color(ctx, ring);
+
+	/*
+	 * TODO port non-stategroup stuff.. maybe add a special placeholder group?
+	 */
 
 	if (dirty & FD_DIRTY_STENCIL_REF) {
 		struct pipe_stencil_ref *sr = &ctx->stencil_ref;
@@ -879,33 +1053,6 @@ fd6_emit_state(struct fd_ringbuffer *ring, struct fd6_emit *emit)
 		OUT_PKT4(ring, REG_A6XX_RB_STENCILREF, 1);
 		OUT_RING(ring, A6XX_RB_STENCILREF_REF(sr->ref_value[0]) |
 				A6XX_RB_STENCILREF_BFREF(sr->ref_value[1]));
-	}
-
-	/* NOTE: scissor enabled bit is part of rasterizer state, but
-	 * fd_rasterizer_state_bind() will mark scissor dirty if needed:
-	 */
-	if (dirty & FD_DIRTY_SCISSOR) {
-		struct fd_ringbuffer *ring = fd_submit_new_ringbuffer(
-				emit->ctx->batch->submit, 3*4, FD_RINGBUFFER_STREAMING);
-		struct pipe_scissor_state *scissor = fd_context_get_scissor(ctx);
-
-		OUT_REG(ring,
-				A6XX_GRAS_SC_SCREEN_SCISSOR_TL(0,
-					.x = scissor->minx,
-					.y = scissor->miny
-				),
-				A6XX_GRAS_SC_SCREEN_SCISSOR_BR(0,
-					.x = MAX2(scissor->maxx, 1) - 1,
-					.y = MAX2(scissor->maxy, 1) - 1
-				)
-			);
-
-		fd6_emit_take_group(emit, ring, FD6_GROUP_SCISSOR, ENABLE_ALL);
-
-		ctx->batch->max_scissor.minx = MIN2(ctx->batch->max_scissor.minx, scissor->minx);
-		ctx->batch->max_scissor.miny = MIN2(ctx->batch->max_scissor.miny, scissor->miny);
-		ctx->batch->max_scissor.maxx = MAX2(ctx->batch->max_scissor.maxx, scissor->maxx);
-		ctx->batch->max_scissor.maxy = MAX2(ctx->batch->max_scissor.maxy, scissor->maxy);
 	}
 
 	if (dirty & FD_DIRTY_VIEWPORT) {
@@ -961,153 +1108,6 @@ fd6_emit_state(struct fd_ringbuffer *ring, struct fd6_emit *emit)
 		OUT_REG(ring,
 				A6XX_RB_Z_CLAMP_MIN(zmin),
 				A6XX_RB_Z_CLAMP_MAX(zmax));
-	}
-
-	if (dirty & FD_DIRTY_PROG) {
-		fd6_emit_add_group(emit, prog->config_stateobj, FD6_GROUP_PROG_CONFIG, ENABLE_ALL);
-		fd6_emit_add_group(emit, prog->stateobj, FD6_GROUP_PROG, ENABLE_DRAW);
-		fd6_emit_add_group(emit, prog->binning_stateobj,
-				FD6_GROUP_PROG_BINNING, CP_SET_DRAW_STATE__0_BINNING);
-
-		/* emit remaining streaming program state, ie. what depends on
-		 * other emit state, so cannot be pre-baked.
-		 */
-		struct fd_ringbuffer *streaming = fd6_program_interp_state(emit);
-
-		fd6_emit_take_group(emit, streaming, FD6_GROUP_PROG_INTERP, ENABLE_DRAW);
-	}
-
-	if (dirty & FD_DIRTY_RASTERIZER) {
-		struct fd_ringbuffer *stateobj =
-			fd6_rasterizer_state(ctx, emit->primitive_restart);
-		fd6_emit_add_group(emit, stateobj,
-						   FD6_GROUP_RASTERIZER, ENABLE_ALL);
-	}
-
-	if (dirty & (FD_DIRTY_FRAMEBUFFER | FD_DIRTY_RASTERIZER_DISCARD |
-				 FD_DIRTY_PROG | FD_DIRTY_BLEND_DUAL)) {
-		struct fd_ringbuffer *ring = fd_submit_new_ringbuffer(
-				emit->ctx->batch->submit, 9 * 4, FD_RINGBUFFER_STREAMING);
-
-		unsigned nr = pfb->nr_cbufs;
-
-		if (ctx->rasterizer->rasterizer_discard)
-			nr = 0;
-
-		struct fd6_blend_stateobj *blend = fd6_blend_stateobj(ctx->blend);
-
-		if (blend->use_dual_src_blend)
-			nr++;
-
-		OUT_PKT4(ring, REG_A6XX_RB_FS_OUTPUT_CNTL0, 2);
-		OUT_RING(ring, COND(fs->writes_pos, A6XX_RB_FS_OUTPUT_CNTL0_FRAG_WRITES_Z) |
-				COND(fs->writes_smask && pfb->samples > 1,
-						A6XX_RB_FS_OUTPUT_CNTL0_FRAG_WRITES_SAMPMASK) |
-				COND(fs->writes_stencilref,
-						A6XX_RB_FS_OUTPUT_CNTL0_FRAG_WRITES_STENCILREF) |
-				COND(blend->use_dual_src_blend,
-						A6XX_RB_FS_OUTPUT_CNTL0_DUAL_COLOR_IN_ENABLE));
-		OUT_RING(ring, A6XX_RB_FS_OUTPUT_CNTL1_MRT(nr));
-
-		OUT_PKT4(ring, REG_A6XX_SP_FS_OUTPUT_CNTL1, 1);
-		OUT_RING(ring, A6XX_SP_FS_OUTPUT_CNTL1_MRT(nr));
-
-		unsigned mrt_components = 0;
-		for (unsigned i = 0; i < pfb->nr_cbufs; i++) {
-			if (!pfb->cbufs[i])
-				continue;
-			mrt_components |= 0xf << (i * 4);
-		}
-
-		/* dual source blending has an extra fs output in the 2nd slot */
-		if (blend->use_dual_src_blend)
-			mrt_components |= 0xf << 4;
-
-		mrt_components &= prog->mrt_components;
-
-		OUT_REG(ring, A6XX_SP_FS_RENDER_COMPONENTS(.dword = mrt_components));
-		OUT_REG(ring, A6XX_RB_RENDER_COMPONENTS(.dword = mrt_components));
-
-		fd6_emit_take_group(emit, ring, FD6_GROUP_PROG_FB_RAST, ENABLE_DRAW);
-	}
-
-	fd6_emit_consts(emit);
-
-	struct ir3_stream_output_info *info = &fd6_last_shader(prog)->shader->stream_output;
-	if (info->num_outputs)
-		fd6_emit_streamout(ring, emit, info);
-
-	if (dirty & (FD_DIRTY_BLEND | FD_DIRTY_SAMPLE_MASK)) {
-		struct fd6_blend_variant *blend = fd6_blend_variant(ctx->blend,
-				pfb->samples, ctx->sample_mask);
-		fd6_emit_add_group(emit, blend->stateobj, FD6_GROUP_BLEND, ENABLE_DRAW);
-	}
-
-	if (dirty & FD_DIRTY_BLEND_COLOR) {
-		struct pipe_blend_color *bcolor = &ctx->blend_color;
-		struct fd_ringbuffer *ring = fd_submit_new_ringbuffer(
-				emit->ctx->batch->submit, 5*4, FD_RINGBUFFER_STREAMING);
-
-		OUT_REG(ring,
-				A6XX_RB_BLEND_RED_F32(bcolor->color[0]),
-				A6XX_RB_BLEND_GREEN_F32(bcolor->color[1]),
-				A6XX_RB_BLEND_BLUE_F32(bcolor->color[2]),
-				A6XX_RB_BLEND_ALPHA_F32(bcolor->color[3])
-			);
-
-		fd6_emit_take_group(emit, ring, FD6_GROUP_BLEND_COLOR, ENABLE_DRAW);
-	}
-
-	needs_border |= fd6_emit_combined_textures(ring, emit, PIPE_SHADER_VERTEX, vs);
-	if (hs) {
-		needs_border |= fd6_emit_combined_textures(ring, emit, PIPE_SHADER_TESS_CTRL, hs);
-		needs_border |= fd6_emit_combined_textures(ring, emit, PIPE_SHADER_TESS_EVAL, ds);
-	}
-	if (gs) {
-		needs_border |= fd6_emit_combined_textures(ring, emit, PIPE_SHADER_GEOMETRY, gs);
-	}
-	needs_border |= fd6_emit_combined_textures(ring, emit, PIPE_SHADER_FRAGMENT, fs);
-
-	if (needs_border)
-		emit_border_color(ctx, ring);
-
-	if (hs) {
-		debug_assert(ir3_shader_nibo(hs) == 0);
-		debug_assert(ir3_shader_nibo(ds) == 0);
-	}
-	if (gs) {
-		debug_assert(ir3_shader_nibo(gs) == 0);
-	}
-
-#define DIRTY_IBO (FD_DIRTY_SHADER_SSBO | FD_DIRTY_SHADER_IMAGE | \
-				   FD_DIRTY_SHADER_PROG)
-	if (ctx->dirty_shader[PIPE_SHADER_FRAGMENT] & DIRTY_IBO) {
-		struct fd_ringbuffer *state =
-			fd6_build_ibo_state(ctx, fs, PIPE_SHADER_FRAGMENT);
-		struct fd_ringbuffer *obj = fd_submit_new_ringbuffer(
-			ctx->batch->submit, 0x100, FD_RINGBUFFER_STREAMING);
-
-		OUT_PKT7(obj, CP_LOAD_STATE6, 3);
-		OUT_RING(obj, CP_LOAD_STATE6_0_DST_OFF(0) |
-			CP_LOAD_STATE6_0_STATE_TYPE(ST6_SHADER) |
-			CP_LOAD_STATE6_0_STATE_SRC(SS6_INDIRECT) |
-			CP_LOAD_STATE6_0_STATE_BLOCK(SB6_IBO) |
-			CP_LOAD_STATE6_0_NUM_UNIT(ir3_shader_nibo(fs)));
-		OUT_RB(obj, state);
-
-		OUT_PKT4(obj, REG_A6XX_SP_IBO, 2);
-		OUT_RB(obj, state);
-
-		/* TODO if we used CP_SET_DRAW_STATE for compute shaders, we could
-		 * de-duplicate this from program->config_stateobj
-		 */
-		OUT_PKT4(obj, REG_A6XX_SP_IBO_COUNT, 1);
-		OUT_RING(obj, ir3_shader_nibo(fs));
-
-		fd6_emit_ibo_consts(emit, fs, PIPE_SHADER_FRAGMENT, ring);
-
-		fd6_emit_take_group(emit, obj, FD6_GROUP_IBO, ENABLE_DRAW);
-		fd_ringbuffer_del(state);
 	}
 
 	if (emit->num_groups > 0) {
