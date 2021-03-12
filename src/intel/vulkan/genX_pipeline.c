@@ -1558,7 +1558,7 @@ get_sampler_count(const struct anv_shader_bin *bin)
 static uint32_t
 get_binding_table_entry_count(const struct anv_shader_bin *bin)
 {
-   return DIV_ROUND_UP(bin->bind_map.surface_count, 32);
+   return MIN2(bin->bind_map.surface_count, 31);
 }
 
 static struct anv_address
