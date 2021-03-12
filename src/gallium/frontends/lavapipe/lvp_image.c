@@ -73,6 +73,9 @@ lvp_image_create(VkDevice _device,
       if (pCreateInfo->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
          template.bind |= PIPE_BIND_DEPTH_STENCIL;
 
+      if (pCreateInfo->usage & VK_IMAGE_USAGE_SAMPLED_BIT)
+         template.bind |= PIPE_BIND_SAMPLER_VIEW;
+
       template.format = vk_format_to_pipe(pCreateInfo->format);
       template.width0 = pCreateInfo->extent.width;
       template.height0 = pCreateInfo->extent.height;
