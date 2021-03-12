@@ -156,9 +156,6 @@ ir3_trim_variant_consts(struct ir3_shader_variant *v)
 	ir3_trim_const_count(v->constlen, &consts->offsets.driver_param, &consts->num_driver_params, 1);
 
 	ir3_trim_const_count(v->constlen, &consts->offsets.immediate, &consts->immediates_count, 1);
-	/* immediates don't follow the pattern of other const uploads where ~0 means don't upload */
-	if (consts->offsets.immediate == ~0)
-		consts->offsets.immediate = 0;
 
 	struct ir3_ubo_analysis_state *ubo_state = &consts->ubo_state;
 	int next = 0;
