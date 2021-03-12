@@ -148,13 +148,10 @@ destroy_pipeline_stage(struct v3dv_device *device,
 }
 
 static void
-v3dv_destroy_pipeline(struct v3dv_pipeline *pipeline,
-                      struct v3dv_device *device,
-                      const VkAllocationCallbacks *pAllocator)
+pipeline_free_pipeline_stages(struct v3dv_device *device,
+                              struct v3dv_pipeline *pipeline,
+                              const VkAllocationCallbacks *pAllocator)
 {
-   if (!pipeline)
-      return;
-
    /* FIXME: we can't just use a loop over mesa stage due the bin, would be
     * good to find an alternative.
     */
@@ -162,6 +159,22 @@ v3dv_destroy_pipeline(struct v3dv_pipeline *pipeline,
    destroy_pipeline_stage(device, pipeline->vs_bin, pAllocator);
    destroy_pipeline_stage(device, pipeline->fs, pAllocator);
    destroy_pipeline_stage(device, pipeline->cs, pAllocator);
+
+   pipeline->vs = NULL;
+   pipeline->vs_bin = NULL;
+   pipeline->fs = NULL;
+   pipeline->cs = NULL;
+}
+
+static void
+v3dv_destroy_pipeline(struct v3dv_pipeline *pipeline,
+                      struct v3dv_device *device,
+                      const VkAllocationCallbacks *pAllocator)
+{
+   if (!pipeline)
+      return;
+
+   pipeline_free_pipeline_stages(device, pipeline, pAllocator);
 
    if (pipeline->data) {
       v3dv_shared_data_unref(device, pipeline->data);
@@ -2064,6 +2077,11 @@ pipeline_compile_graphics(struct v3dv_pipeline *pipeline,
    if (default_cache != cache)
       v3dv_pipeline_cache_upload_pipeline(pipeline, default_cache);
 
+   /* As we got the variants at pipeline->data, after compiling we don't need
+    * the pipeline_stages
+    */
+   pipeline_free_pipeline_stages(device, pipeline, pAllocator);
+
  success:
    pipeline_check_spill_size(pipeline);
 
@@ -3180,6 +3198,10 @@ pipeline_compile_compute(struct v3dv_pipeline *pipeline,
       return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 
    v3dv_pipeline_cache_upload_pipeline(pipeline, cache);
+   /* As we got the variants at pipeline->data, after compiling we don't need
+    * the pipeline_stages
+    */
+   pipeline_free_pipeline_stages(device, pipeline, alloc);
 
  success:
    pipeline_check_spill_size(pipeline);

@@ -5209,8 +5209,7 @@ cmd_buffer_create_csd_job(struct v3dv_cmd_buffer *cmd_buffer,
                           uint32_t *wg_size_out)
 {
    struct v3dv_pipeline *pipeline = cmd_buffer->state.compute.pipeline;
-   assert(pipeline && pipeline->cs &&
-          pipeline->data->variants[BROADCOM_SHADER_COMPUTE]);
+   assert(pipeline && pipeline->data->variants[BROADCOM_SHADER_COMPUTE]);
 
    struct v3dv_job *job = vk_zalloc(&cmd_buffer->device->vk.alloc,
                                     sizeof(struct v3dv_job), 8,
