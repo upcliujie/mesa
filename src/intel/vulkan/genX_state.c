@@ -291,16 +291,11 @@ init_render_queue_state(struct anv_queue *queue)
 #endif
    }
 
-   UNUSED const struct intel_l3_config *cfg = intel_get_default_l3_config(&device->info);
-#if GEN_GEN >= 12
-   if (!cfg) {
-      /* Platforms with no configs just setup full-way allocation. */
-      anv_batch_write_reg(&batch, GENX(L3ALLOC), l3a) {
-         l3a.L3FullWayAllocationEnable = true;
-      }
-   }
-#endif
 #if GEN_GEN >= 11
+   /* Starting with GFX version 11, SLM is no longer part of the L3$ config
+    * so it never changes throughout the lifetime of the VkDevice.
+    */
+   const struct intel_l3_config *cfg = intel_get_default_l3_config(&device->info);
    genX(emit_l3_config)(&batch, device, cfg);
    device->l3_config = cfg;
 #endif
@@ -348,15 +343,7 @@ genX(emit_l3_config)(struct anv_batch *batch,
    UNUSED const struct gen_device_info *devinfo = &device->info;
    UNUSED const bool has_slm = cfg->n[INTEL_L3P_SLM];
 
-#if GEN_GEN >= 12
-   /* On DG1 we have no config to program. */
-   if (cfg == NULL)
-      return;
-#endif
-
 #if GEN_GEN >= 8
-
-   assert(!cfg->n[INTEL_L3P_IS] && !cfg->n[INTEL_L3P_C] && !cfg->n[INTEL_L3P_T]);
 
 #if GEN_GEN >= 12
 #define L3_ALLOCATION_REG GENX(L3ALLOC)
@@ -367,21 +354,32 @@ genX(emit_l3_config)(struct anv_batch *batch,
 #endif
 
    anv_batch_write_reg(batch, L3_ALLOCATION_REG, l3cr) {
+      if (cfg == NULL) {
+#if GEN_GEN >= 12
+         l3cr.L3FullWayAllocationEnable = true;
+#else
+         unreachable("Invalid L3$ config");
+#endif
+      } else {
 #if GEN_GEN < 11
-      l3cr.SLMEnable = has_slm;
+         l3cr.SLMEnable = has_slm;
 #endif
 #if GEN_GEN == 11
-   /* WA_1406697149: Bit 9 "Error Detection Behavior Control" must be set
-    * in L3CNTLREG register. The default setting of the bit is not the
-    * desirable behavior.
-   */
-      l3cr.ErrorDetectionBehaviorControl = true;
-      l3cr.UseFullWays = true;
+         /* WA_1406697149: Bit 9 "Error Detection Behavior Control" must be
+          * set in L3CNTLREG register. The default setting of the bit is not
+          * the desirable behavior.
+          */
+         l3cr.ErrorDetectionBehaviorControl = true;
+         l3cr.UseFullWays = true;
 #endif
-      l3cr.URBAllocation = cfg->n[INTEL_L3P_URB];
-      l3cr.ROAllocation = cfg->n[INTEL_L3P_RO];
-      l3cr.DCAllocation = cfg->n[INTEL_L3P_DC];
-      l3cr.AllAllocation = cfg->n[INTEL_L3P_ALL];
+         assert(cfg->n[INTEL_L3P_IS] == 0);
+         assert(cfg->n[INTEL_L3P_C] == 0);
+         assert(cfg->n[INTEL_L3P_T] == 0);
+         l3cr.URBAllocation = cfg->n[INTEL_L3P_URB];
+         l3cr.ROAllocation = cfg->n[INTEL_L3P_RO];
+         l3cr.DCAllocation = cfg->n[INTEL_L3P_DC];
+         l3cr.AllAllocation = cfg->n[INTEL_L3P_ALL];
+      }
    }
 
 #else
