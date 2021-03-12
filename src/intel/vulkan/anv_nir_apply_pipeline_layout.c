@@ -58,6 +58,27 @@ struct apply_pipeline_layout_state {
    } set[MAX_SETS];
 };
 
+static nir_address_format
+addr_format_for_desc_type(VkDescriptorType desc_type,
+                          struct apply_pipeline_layout_state *state)
+{
+   switch (desc_type) {
+   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+      return state->ssbo_addr_format;
+
+   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+      return state->ubo_addr_format;
+
+   case VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT:
+      return nir_address_format_32bit_index_offset;
+
+   default:
+      unreachable("Unsupported descriptor type");
+   }
+}
+
 static void
 add_binding(struct apply_pipeline_layout_state *state,
             uint32_t set, uint32_t binding)
@@ -211,16 +232,20 @@ nir_deref_find_descriptor(nir_deref_instr *deref,
 }
 
 static nir_ssa_def *
-build_load_descriptor(nir_builder *b, nir_ssa_def *desc_addr, unsigned offset,
-                      unsigned num_components, unsigned bit_size,
-                      struct apply_pipeline_layout_state *state)
+build_load_descriptor_mem(nir_builder *b,
+                          nir_ssa_def *desc_addr, unsigned desc_offset,
+                          unsigned num_components, unsigned bit_size,
+                          struct apply_pipeline_layout_state *state)
 
 {
+   nir_ssa_def *surface_index = nir_channel(b, desc_addr, 0);
+   nir_ssa_def *offset32 =
+      nir_iadd_imm(b, nir_channel(b, desc_addr, 1), desc_offset);
+
    return nir_load_ubo(b, num_components, bit_size,
-                       nir_channel(b, desc_addr, 0),
-                       nir_channel(b, desc_addr, 1),
+                       surface_index, offset32,
                        .align_mul = 8,
-                       .align_offset = offset % 8,
+                       .align_offset = desc_offset % 8,
                        .range_base = 0,
                        .range = ~0);
 }
@@ -239,8 +264,8 @@ build_load_descriptor(nir_builder *b, nir_ssa_def *desc_addr, unsigned offset,
  * The load_vulkan_descriptor intrinsic exists to provide a transition point
  * between the two forms of derefs: descriptor and memory.  In some cases,
  * it's an actual memory load from the descriptor set and, in others, it
- * simply converts from one form to another.  See build_load_buffer_descriptor
- * for more details.
+ * simply converts from one form to another.  See build_load_descriptor() for
+ * more details.
  */
 static nir_ssa_def *
 build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
@@ -336,9 +361,9 @@ build_res_reindex(nir_builder *b, nir_ssa_def *orig, nir_ssa_def *delta,
 }
 
 static nir_ssa_def *
-build_buffer_desc_addr(nir_builder *b, const VkDescriptorType desc_type,
-                       nir_ssa_def *index, nir_address_format addr_format,
-                       struct apply_pipeline_layout_state *state)
+build_desc_addr(nir_builder *b, const VkDescriptorType desc_type,
+                nir_ssa_def *index, nir_address_format addr_format,
+                struct apply_pipeline_layout_state *state)
 {
    assert(addr_format == nir_address_format_64bit_global_32bit_offset ||
           addr_format == nir_address_format_64bit_bounded_global);
@@ -360,9 +385,9 @@ build_buffer_desc_addr(nir_builder *b, const VkDescriptorType desc_type,
  * See build_res_index for details about each binding deref format.
  */
 static nir_ssa_def *
-build_load_buffer_descriptor(nir_builder *b, const VkDescriptorType desc_type,
-                             nir_ssa_def *index, nir_address_format addr_format,
-                             struct apply_pipeline_layout_state *state)
+build_load_descriptor(nir_builder *b, const VkDescriptorType desc_type,
+                      nir_ssa_def *index, nir_address_format addr_format,
+                      struct apply_pipeline_layout_state *state)
 {
    if (addr_format == nir_address_format_32bit_index_offset) {
       nir_ssa_def *array_index = nir_channel(b, index, 0);
@@ -378,9 +403,9 @@ build_load_buffer_descriptor(nir_builder *b, const VkDescriptorType desc_type,
    }
 
    nir_ssa_def *desc_addr =
-      build_buffer_desc_addr(b, desc_type, index, addr_format, state);
+      build_desc_addr(b, desc_type, index, addr_format, state);
 
-   nir_ssa_def *desc = build_load_descriptor(b, desc_addr, 0, 4, 32, state);
+   nir_ssa_def *desc = build_load_descriptor_mem(b, desc_addr, 0, 4, 32, state);
 
    if (state->has_dynamic_buffers) {
       struct res_index_defs res = unpack_res_index(b, index);
@@ -599,27 +624,6 @@ lower_direct_buffer_instr(nir_builder *b, nir_instr *instr, void *_state)
    }
 }
 
-static nir_address_format
-desc_addr_format(VkDescriptorType desc_type,
-                 struct apply_pipeline_layout_state *state)
-{
-   switch (desc_type) {
-   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
-      return state->ssbo_addr_format;
-
-   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
-      return state->ubo_addr_format;
-
-   case VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT:
-      return nir_address_format_32bit_index_offset;
-
-   default:
-      unreachable("Unsupported descriptor type");
-   }
-}
-
 static bool
 lower_res_index_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin,
                           struct apply_pipeline_layout_state *state)
@@ -627,7 +631,7 @@ lower_res_index_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin,
    b->cursor = nir_before_instr(&intrin->instr);
 
    nir_address_format addr_format =
-      desc_addr_format(nir_intrinsic_desc_type(intrin), state);
+      addr_format_for_desc_type(nir_intrinsic_desc_type(intrin), state);
 
    assert(intrin->src[0].is_ssa);
    nir_ssa_def *index =
@@ -652,7 +656,7 @@ lower_res_reindex_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin,
    b->cursor = nir_before_instr(&intrin->instr);
 
    nir_address_format addr_format =
-      desc_addr_format(nir_intrinsic_desc_type(intrin), state);
+      addr_format_for_desc_type(nir_intrinsic_desc_type(intrin), state);
 
    assert(intrin->src[0].is_ssa && intrin->src[1].is_ssa);
    nir_ssa_def *index =
@@ -676,6 +680,7 @@ lower_load_vulkan_descriptor(nir_builder *b, nir_intrinsic_instr *intrin,
    b->cursor = nir_before_instr(&intrin->instr);
 
    const VkDescriptorType desc_type = nir_intrinsic_desc_type(intrin);
+   nir_address_format addr_format = addr_format_for_desc_type(desc_type, state);
 
    assert(intrin->dest.is_ssa);
    nir_foreach_use(src, &intrin->dest.ssa) {
@@ -704,8 +709,8 @@ lower_load_vulkan_descriptor(nir_builder *b, nir_intrinsic_instr *intrin,
 
    assert(intrin->src[0].is_ssa);
    nir_ssa_def *desc =
-      build_load_buffer_descriptor(b, desc_type, intrin->src[0].ssa,
-                                   desc_addr_format(desc_type, state), state);
+      build_load_descriptor(b, desc_type, intrin->src[0].ssa,
+                            addr_format, state);
 
    assert(intrin->dest.is_ssa);
    assert(intrin->dest.ssa.bit_size == desc->bit_size);
@@ -726,12 +731,12 @@ lower_get_ssbo_size(nir_builder *b, nir_intrinsic_instr *intrin,
    b->cursor = nir_before_instr(&intrin->instr);
 
    nir_address_format addr_format =
-      desc_addr_format(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, state);
+      addr_format_for_desc_type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, state);
 
    assert(intrin->src[0].is_ssa);
    nir_ssa_def *desc =
-      build_load_buffer_descriptor(b, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                                   intrin->src[0].ssa, addr_format, state);
+      build_load_descriptor(b, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                            intrin->src[0].ssa, addr_format, state);
 
    switch (addr_format) {
    case nir_address_format_64bit_global_32bit_offset:
