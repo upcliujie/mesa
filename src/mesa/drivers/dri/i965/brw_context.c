@@ -858,7 +858,7 @@ brw_process_driconf_options(struct brw_context *brw)
    struct gl_context *ctx = &brw->ctx;
    const driOptionCache *const options = &brw->screen->optionCache;
 
-   if (INTEL_DEBUG & DEBUG_NO_HIZ) {
+   if (brw->screen->isl_dev.no_hiz) {
        brw->has_hiz = false;
        /* On gen6, you can only do separate stencil with HIZ. */
        if (devinfo->gen == 6)
