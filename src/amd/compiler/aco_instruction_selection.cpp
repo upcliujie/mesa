@@ -2407,12 +2407,12 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    }
    case nir_op_i2f16: {
       assert(dst.regClass() == v2b);
+      assert(instr->src[0].src.ssa->bit_size <= 16);
+
       Temp src = get_alu_src(ctx, instr->src[0]);
       if (instr->src[0].src.ssa->bit_size == 8) {
          // Expand integer to the size expected by the uint→float converter used below
          src = convert_int(ctx, bld, src, 8, (ctx->program->chip_class >= GFX8) ? 16 : 32, true);
-      } else if (instr->src[0].src.ssa->bit_size == 64) {
-         src = convert_int(ctx, bld, src, 64, 32, false);
       }
 
       if (ctx->program->chip_class >= GFX8) {
@@ -2469,12 +2469,12 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    }
    case nir_op_u2f16: {
       assert(dst.regClass() == v2b);
+      assert(instr->src[0].src.ssa->bit_size <= 16);
+
       Temp src = get_alu_src(ctx, instr->src[0]);
       if (instr->src[0].src.ssa->bit_size == 8) {
          // Expand integer to the size expected by the uint→float converter used below
          src = convert_int(ctx, bld, src, 8, (ctx->program->chip_class >= GFX8) ? 16 : 32, false);
-      } else if (instr->src[0].src.ssa->bit_size == 64) {
-         src = convert_int(ctx, bld, src, 64, 32, false);
       }
 
       if (ctx->program->chip_class >= GFX8) {
