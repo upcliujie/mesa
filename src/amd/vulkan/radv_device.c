@@ -2819,6 +2819,8 @@ VkResult radv_CreateDevice(
 		}
 	}
 
+   robust_buffer_access = true;
+
 	device = vk_zalloc2(&physical_device->instance->vk.alloc, pAllocator,
 			    sizeof(*device), 8,
 			    VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
