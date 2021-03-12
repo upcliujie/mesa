@@ -66,7 +66,7 @@ fd_set_blend_color(struct pipe_context *pctx,
 {
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->blend_color = *blend_color;
-	ctx->dirty |= FD_DIRTY_BLEND_COLOR;
+	fd_context_dirty(ctx, FD_DIRTY_BLEND_COLOR);
 }
 
 static void
@@ -76,7 +76,7 @@ fd_set_stencil_ref(struct pipe_context *pctx,
 {
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->stencil_ref = stencil_ref;
-	ctx->dirty |= FD_DIRTY_STENCIL_REF;
+	fd_context_dirty(ctx, FD_DIRTY_STENCIL_REF);
 }
 
 static void
@@ -86,7 +86,7 @@ fd_set_clip_state(struct pipe_context *pctx,
 {
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->ucp = *clip;
-	ctx->dirty |= FD_DIRTY_UCP;
+	fd_context_dirty(ctx, FD_DIRTY_UCP);
 }
 
 static void
@@ -95,7 +95,7 @@ fd_set_sample_mask(struct pipe_context *pctx, unsigned sample_mask)
 {
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->sample_mask = (uint16_t)sample_mask;
-	ctx->dirty |= FD_DIRTY_SAMPLE_MASK;
+	fd_context_dirty(ctx, FD_DIRTY_SAMPLE_MASK);
 }
 
 static void
@@ -104,7 +104,7 @@ fd_set_min_samples(struct pipe_context *pctx, unsigned min_samples)
 {
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->min_samples = min_samples;
-	ctx->dirty |= FD_DIRTY_MIN_SAMPLES;
+	fd_context_dirty(ctx, FD_DIRTY_MIN_SAMPLES);
 }
 
 /* notes from calim on #dri-devel:
@@ -136,9 +136,8 @@ fd_set_constant_buffer(struct pipe_context *pctx,
 	}
 
 	so->enabled_mask |= 1 << index;
-	ctx->dirty_shader[shader] |= FD_DIRTY_SHADER_CONST;
-	ctx->dirty |= FD_DIRTY_CONST;
 
+	fd_context_dirty_shader(ctx, shader, FD_DIRTY_SHADER_CONST);
 	fd_resource_set_usage(cb->buffer, FD_DIRTY_CONST);
 }
 
@@ -180,8 +179,7 @@ fd_set_shader_buffers(struct pipe_context *pctx,
 		}
 	}
 
-	ctx->dirty_shader[shader] |= FD_DIRTY_SHADER_SSBO;
-	ctx->dirty |= FD_DIRTY_SSBO;
+	fd_context_dirty_shader(ctx, shader, FD_DIRTY_SHADER_SSBO);
 }
 
 void
@@ -236,8 +234,7 @@ fd_set_shader_images(struct pipe_context *pctx,
 
 	so->enabled_mask &= ~(BITFIELD_MASK(unbind_num_trailing_slots) << (start + count));
 
-	ctx->dirty_shader[shader] |= FD_DIRTY_SHADER_IMAGE;
-	ctx->dirty |= FD_DIRTY_IMAGE;
+	fd_context_dirty_shader(ctx, shader, FD_DIRTY_SHADER_IMAGE);
 }
 
 static void
@@ -298,14 +295,14 @@ fd_set_framebuffer_state(struct pipe_context *pctx,
 		fd_batch_flush(ctx->batch);
 	}
 
-	ctx->dirty |= FD_DIRTY_FRAMEBUFFER;
+	fd_context_dirty(ctx, FD_DIRTY_FRAMEBUFFER);
 
 	ctx->disabled_scissor.minx = 0;
 	ctx->disabled_scissor.miny = 0;
 	ctx->disabled_scissor.maxx = cso->width;
 	ctx->disabled_scissor.maxy = cso->height;
 
-	ctx->dirty |= FD_DIRTY_SCISSOR;
+	fd_context_dirty(ctx, FD_DIRTY_SCISSOR);
 	update_draw_cost(ctx);
 }
 
@@ -316,7 +313,7 @@ fd_set_polygon_stipple(struct pipe_context *pctx,
 {
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->stipple = *stipple;
-	ctx->dirty |= FD_DIRTY_STIPPLE;
+	fd_context_dirty(ctx, FD_DIRTY_STIPPLE);
 }
 
 static void
@@ -329,7 +326,7 @@ fd_set_scissor_states(struct pipe_context *pctx,
 	struct fd_context *ctx = fd_context(pctx);
 
 	ctx->scissor = *scissor;
-	ctx->dirty |= FD_DIRTY_SCISSOR;
+	fd_context_dirty(ctx, FD_DIRTY_SCISSOR);
 }
 
 static void
@@ -369,7 +366,7 @@ fd_set_viewport_states(struct pipe_context *pctx,
 	scissor->maxx = CLAMP(ceilf(maxx), 0.f, max_dims);
 	scissor->maxy = CLAMP(ceilf(maxy), 0.f, max_dims);
 
-	ctx->dirty |= FD_DIRTY_VIEWPORT;
+	fd_context_dirty(ctx, FD_DIRTY_VIEWPORT);
 }
 
 static void
@@ -395,7 +392,7 @@ fd_set_vertex_buffers(struct pipe_context *pctx,
 			uint32_t new_stride = vb ? vb[i].stride : 0;
 			uint32_t old_stride = so->vb[i].stride;
 			if ((new_enabled != old_enabled) || (new_stride != old_stride)) {
-				ctx->dirty |= FD_DIRTY_VTXSTATE;
+				fd_context_dirty(ctx, FD_DIRTY_VTXSTATE);
 				break;
 			}
 		}
@@ -409,7 +406,7 @@ fd_set_vertex_buffers(struct pipe_context *pctx,
 	if (!vb)
 		return;
 
-	ctx->dirty |= FD_DIRTY_VTXBUF;
+	fd_context_dirty(ctx, FD_DIRTY_VTXBUF);
 
 	for (unsigned i = 0; i < count; i++) {
 		assert(!vb[i].is_user_buffer);
@@ -430,9 +427,9 @@ fd_blend_state_bind(struct pipe_context *pctx, void *hwcso)
 		cso->rt[0].blend_enable && util_blend_state_is_dual(cso, 0) :
 		false;
 	ctx->blend = hwcso;
-	ctx->dirty |= FD_DIRTY_BLEND;
+	fd_context_dirty(ctx, FD_DIRTY_BLEND);
 	if (old_is_dual != new_is_dual)
-		ctx->dirty |= FD_DIRTY_BLEND_DUAL;
+		fd_context_dirty(ctx, FD_DIRTY_BLEND_DUAL);
 	update_draw_cost(ctx);
 }
 
@@ -452,7 +449,7 @@ fd_rasterizer_state_bind(struct pipe_context *pctx, void *hwcso)
 	bool discard = ctx->rasterizer && ctx->rasterizer->rasterizer_discard;
 
 	ctx->rasterizer = hwcso;
-	ctx->dirty |= FD_DIRTY_RASTERIZER;
+	fd_context_dirty(ctx, FD_DIRTY_RASTERIZER);
 
 	if (ctx->rasterizer && ctx->rasterizer->scissor) {
 		ctx->current_scissor = &ctx->scissor;
@@ -466,10 +463,10 @@ fd_rasterizer_state_bind(struct pipe_context *pctx, void *hwcso)
 	 * if it changed to/from &ctx->disable_scissor
 	 */
 	if (old_scissor != fd_context_get_scissor(ctx))
-		ctx->dirty |= FD_DIRTY_SCISSOR;
+		fd_context_dirty(ctx, FD_DIRTY_SCISSOR);
 
 	if (ctx->rasterizer && (discard != ctx->rasterizer->rasterizer_discard))
-		ctx->dirty |= FD_DIRTY_RASTERIZER_DISCARD;
+		fd_context_dirty(ctx, FD_DIRTY_RASTERIZER_DISCARD);
 }
 
 static void
@@ -485,7 +482,7 @@ fd_zsa_state_bind(struct pipe_context *pctx, void *hwcso)
 {
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->zsa = hwcso;
-	ctx->dirty |= FD_DIRTY_ZSA;
+	fd_context_dirty(ctx, FD_DIRTY_ZSA);
 	update_draw_cost(ctx);
 }
 
@@ -524,7 +521,7 @@ fd_vertex_state_bind(struct pipe_context *pctx, void *hwcso)
 {
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->vtx.vtx = hwcso;
-	ctx->dirty |= FD_DIRTY_VTXSTATE;
+	fd_context_dirty(ctx, FD_DIRTY_VTXSTATE);
 }
 
 static struct pipe_stream_output_target *
@@ -601,7 +598,7 @@ fd_set_stream_output_targets(struct pipe_context *pctx,
 
 	so->num_targets = num_targets;
 
-	ctx->dirty |= FD_DIRTY_STREAMOUT;
+	fd_context_dirty(ctx, FD_DIRTY_STREAMOUT);
 }
 
 static void
@@ -610,6 +607,7 @@ fd_bind_compute_state(struct pipe_context *pctx, void *state)
 {
 	struct fd_context *ctx = fd_context(pctx);
 	ctx->compute = state;
+	/* NOTE: Don't mark FD_DIRTY_PROG for compute specific state */
 	ctx->dirty_shader[PIPE_SHADER_COMPUTE] |= FD_DIRTY_SHADER_PROG;
 }
 
