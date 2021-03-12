@@ -90,6 +90,7 @@ struct fd6_emit {
 	const struct pipe_draw_start_count *draw;
 	struct ir3_cache_key key;
 	enum fd_dirty_3d_state dirty;
+	uint32_t dirty_groups;
 
 	uint32_t sprite_coord_enable;  /* bitmask */
 	bool sprite_coord_mode;

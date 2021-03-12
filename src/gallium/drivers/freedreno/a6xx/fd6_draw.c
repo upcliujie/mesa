@@ -207,7 +207,10 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 
 	fixup_draw_state(ctx, &emit);
 
-	emit.dirty = ctx->dirty;      /* *after* fixup_shader_state() */
+	/* *after* fixup_shader_state(): */
+	emit.dirty = ctx->dirty;
+	emit.dirty_groups = ctx->gen_dirty;
+
 	emit.bs = fd6_emit_get_prog(&emit)->bs;
 	emit.vs = fd6_emit_get_prog(&emit)->vs;
 	emit.hs = fd6_emit_get_prog(&emit)->hs;
