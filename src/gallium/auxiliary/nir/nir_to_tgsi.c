@@ -2936,7 +2936,7 @@ nir_to_tgsi(struct nir_shader *s,
 
    c->s = s;
    c->native_integers = native_integers;
-   c->ureg = ureg_create(pipe_shader_type_from_mesa(s->info.stage));
+   c->ureg = ureg_create_with_screen(pipe_shader_type_from_mesa(s->info.stage), screen);
    ureg_setup_shader_info(c->ureg, &s->info);
 
    ntt_setup_inputs(c);
