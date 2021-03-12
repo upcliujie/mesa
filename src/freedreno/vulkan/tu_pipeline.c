@@ -531,11 +531,6 @@ tu6_emit_xs(struct tu_cs *cs,
    uint32_t base = const_state->offsets.immediate;
    int size = DIV_ROUND_UP(const_state->immediates_count, 4);
 
-   /* truncate size to avoid writing constants that shader
-    * does not use:
-    */
-   size = MIN2(size + base, xs->constlen) - base;
-
    if (size > 0) {
       tu_cs_emit_pkt7(cs, tu6_stage2opcode(stage), 3 + size * 4);
       tu_cs_emit(cs, CP_LOAD_STATE6_0_DST_OFF(base) |
@@ -578,8 +573,7 @@ tu6_emit_xs(struct tu_cs *cs,
 
          uint32_t start = ubo_state->range[i].start;
          uint32_t end = ubo_state->range[i].end;
-         uint32_t size = MIN2(end - start,
-                              (16 * xs->constlen) - ubo_state->range[i].offset);
+         uint32_t size = end - start;
 
          tu_cs_emit_pkt7(cs, tu6_stage2opcode(stage), 3);
          tu_cs_emit(cs,
@@ -825,14 +819,12 @@ tu6_emit_link_map(struct tu_cs *cs,
 {
    const struct ir3_const_state *const_state = ir3_const_state(consumer);
    uint32_t base = const_state->offsets.primitive_map;
-   int size = DIV_ROUND_UP(consumer->input_size, 4);
+   int size = DIV_ROUND_UP(const_state->num_primitive_map, 4);
 
-   size = (MIN2(size + base, consumer->constlen) - base) * 4;
-   if (size <= 0)
-      return;
-
-   tu6_emit_const(cs, CP_LOAD_STATE6_GEOM, base, sb, 0, size,
-                         producer->output_loc);
+   if (size) {
+      tu6_emit_const(cs, CP_LOAD_STATE6_GEOM, base, sb, 0, size * 4,
+                     producer->output_loc);
+   }
 }
 
 static uint16_t
