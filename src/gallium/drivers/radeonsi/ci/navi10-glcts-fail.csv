@@ -1,0 +1,5 @@
+KHR-GL46.gl_spirv.spirv_glsl_to_spirv_builtin_functions_test,Fail,0.14721796
+KHR-GL46.pipeline_statistics_query_tests_ARB.functional_geometry_shader_queries,Fail,3.1780958
+KHR-GL46.shader_ballot_tests.ShaderBallotFunctionRead,Fail,0.33187136
+KHR-GL46.shader_image_load_store.basic-api-bind,Fail,0.011476422
+KHR-GL46.sparse_buffer_tests.BufferStorageTest,Fail,3.2917619
