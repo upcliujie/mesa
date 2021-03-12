@@ -387,7 +387,7 @@ calculate_deps(struct schedule_state *state, struct schedule_node *n)
         }
 
         if (inst->sig.wrtmuc)
-                add_write_dep(state, &state->last_tmu_config, n);
+                add_read_dep(state, state->last_tmu_config, n);
 
         if (inst->sig.ldtlb | inst->sig.ldtlbu)
                 add_write_dep(state, &state->last_tlb, n);
