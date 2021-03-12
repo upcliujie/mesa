@@ -579,7 +579,23 @@ static const struct dri2_format_mapping dri2_format_table[] = {
       { DRM_FORMAT_UYVY,          __DRI_IMAGE_FORMAT_NONE,
         __DRI_IMAGE_COMPONENTS_Y_UXVX,    PIPE_FORMAT_UYVY, 2,
         { { 0, 0, 0, __DRI_IMAGE_FORMAT_GR88 },
-          { 0, 1, 0, __DRI_IMAGE_FORMAT_ABGR8888 } } }
+          { 0, 1, 0, __DRI_IMAGE_FORMAT_ABGR8888 } } },
+
+      /* The Y21x formats work in a similar fashion to the YUYV and UYVY
+       * formats.
+       */
+      { DRM_FORMAT_Y210,          __DRI_IMAGE_FORMAT_NONE,
+        __DRI_IMAGE_COMPONENTS_Y_XUXV,    PIPE_FORMAT_Y210, 2,
+        { { 0, 0, 0, __DRI_IMAGE_FORMAT_GR1616 },
+          { 0, 1, 0, __DRI_IMAGE_FORMAT_ABGR16161616 } } },
+      { DRM_FORMAT_Y212,          __DRI_IMAGE_FORMAT_NONE,
+        __DRI_IMAGE_COMPONENTS_Y_XUXV,    PIPE_FORMAT_Y212, 2,
+        { { 0, 0, 0, __DRI_IMAGE_FORMAT_GR1616 },
+          { 0, 1, 0, __DRI_IMAGE_FORMAT_ABGR16161616 } } },
+      { DRM_FORMAT_Y216,          __DRI_IMAGE_FORMAT_NONE,
+        __DRI_IMAGE_COMPONENTS_Y_XUXV,    PIPE_FORMAT_Y216, 2,
+        { { 0, 0, 0, __DRI_IMAGE_FORMAT_GR1616 },
+          { 0, 1, 0, __DRI_IMAGE_FORMAT_ABGR16161616 } } },
 };
 
 const struct dri2_format_mapping *
