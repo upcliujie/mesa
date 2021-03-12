@@ -291,14 +291,18 @@ init_render_queue_state(struct anv_queue *queue)
 #endif
    }
 
+   UNUSED const struct intel_l3_config *cfg = intel_get_default_l3_config(&device->info);
 #if GEN_GEN >= 12
-   const struct intel_l3_config *cfg = intel_get_default_l3_config(&device->info);
    if (!cfg) {
       /* Platforms with no configs just setup full-way allocation. */
       anv_batch_write_reg(&batch, GENX(L3ALLOC), l3a) {
          l3a.L3FullWayAllocationEnable = true;
       }
    }
+#endif
+#if GEN_GEN >= 11
+   genX(emit_l3_config)(&batch, device, cfg);
+   device->l3_config = cfg;
 #endif
 
    anv_batch_emit(&batch, GENX(MI_BATCH_BUFFER_END), bbe);
