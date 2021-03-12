@@ -2057,14 +2057,15 @@ pipeline_compile_graphics(struct v3dv_pipeline *pipeline,
    if (!upload_assembly(pipeline))
       return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 
- success:
-   pipeline_check_spill_size(pipeline);
    v3dv_pipeline_cache_upload_pipeline(pipeline, cache);
 
    struct v3dv_pipeline_cache *default_cache =
       &pipeline->device->default_pipeline_cache;
    if (default_cache != cache)
       v3dv_pipeline_cache_upload_pipeline(pipeline, default_cache);
+
+ success:
+   pipeline_check_spill_size(pipeline);
 
    /* FIXME: values below are default when non-GS is available. Would need to
     * provide real values if GS gets supported
@@ -3178,9 +3179,10 @@ pipeline_compile_compute(struct v3dv_pipeline *pipeline,
    if (!upload_assembly(pipeline))
       return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 
+   v3dv_pipeline_cache_upload_pipeline(pipeline, cache);
+
  success:
    pipeline_check_spill_size(pipeline);
-   v3dv_pipeline_cache_upload_pipeline(pipeline, cache);
 
    return VK_SUCCESS;
 }
