@@ -457,13 +457,13 @@ add_aux_surface_if_supported(struct anv_device *device,
          return VK_SUCCESS;
       }
 
-      if (INTEL_DEBUG & DEBUG_NO_HIZ)
-         return VK_SUCCESS;
-
       ok = isl_surf_get_hiz_surf(&device->isl_dev,
                                  &image->planes[plane].primary_surface.isl,
                                  &image->planes[plane].aux_surface.isl);
-      assert(ok);
+      assert(ok || device->isl_dev.no_hiz);
+      if (!ok)
+         return VK_SUCCESS;
+
       if (!isl_surf_supports_ccs(&device->isl_dev,
                                  &image->planes[plane].primary_surface.isl)) {
          image->planes[plane].aux_usage = ISL_AUX_USAGE_HIZ;
