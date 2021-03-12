@@ -125,20 +125,6 @@ ir3_emit_constant_data(struct fd_screen *screen,
 
       uint32_t size = state->range[i].end - state->range[i].start;
 
-      /* Pre-a6xx, we might have ranges enabled in the shader that aren't
-       * used in the binning variant.
-       */
-      if (16 * v->constlen <= state->range[i].offset)
-         continue;
-
-      /* and even if the start of the const buffer is before
-       * first_immediate, the end may not be:
-       */
-      size = MIN2(size, (16 * v->constlen) - state->range[i].offset);
-
-      if (size == 0)
-         continue;
-
       emit_const_bo(ring, v, state->range[i].offset / 4,
                     v->info.constant_data_offset + state->range[i].start,
                     size / 4, v->bo);
@@ -171,20 +157,6 @@ ir3_emit_user_consts(struct fd_screen *screen,
       uint32_t size = state->range[i].end - state->range[i].start;
       uint32_t offset = cb->buffer_offset + state->range[i].start;
 
-      /* Pre-a6xx, we might have ranges enabled in the shader that aren't
-       * used in the binning variant.
-       */
-      if (16 * v->constlen <= state->range[i].offset)
-         continue;
-
-      /* and even if the start of the const buffer is before
-       * first_immediate, the end may not be:
-       */
-      size = MIN2(size, (16 * v->constlen) - state->range[i].offset);
-
-      if (size == 0)
-         continue;
-
       /* things should be aligned to vec4: */
       debug_assert((state->range[i].offset % 16) == 0);
       debug_assert((size % 16) == 0);
@@ -205,7 +177,9 @@ ir3_emit_ubos(struct fd_context *ctx, const struct ir3_shader_variant *v,
               struct fd_ringbuffer *ring, struct fd_constbuf_stateobj *constbuf)
 {
    const struct ir3_const_state *const_state = ir3_const_state(v);
-   uint32_t offset = const_state->offsets.ubo;
+
+   if (!const_state->num_ubos)
+      return;
 
    /* a6xx+ uses UBO state and ldc instead of pointers emitted in
     * const state and ldg:
@@ -213,44 +187,40 @@ ir3_emit_ubos(struct fd_context *ctx, const struct ir3_shader_variant *v,
    if (ctx->screen->gen >= 6)
       return;
 
-   if (v->constlen > offset) {
-      uint32_t params = const_state->num_ubos;
-      uint32_t offsets[params];
-      struct fd_bo *bos[params];
+   uint32_t params = const_state->num_ubos;
+   uint32_t offsets[params];
+   struct fd_bo *bos[params];
 
-      for (uint32_t i = 0; i < params; i++) {
-         if (i == const_state->constant_data_ubo) {
-            bos[i] = v->bo;
-            offsets[i] = v->info.constant_data_offset;
-            continue;
-         }
-
-         struct pipe_constant_buffer *cb = &constbuf->cb[i];
-
-         /* If we have user pointers (constbuf 0, aka GL uniforms), upload
-          * them to a buffer now, and save it in the constbuf so that we
-          * don't have to reupload until they get changed.
-          */
-         if (cb->user_buffer) {
-            struct pipe_context *pctx = &ctx->base;
-            u_upload_data(pctx->stream_uploader, 0, cb->buffer_size, 64,
-                          cb->user_buffer, &cb->buffer_offset, &cb->buffer);
-            cb->user_buffer = NULL;
-         }
-
-         if ((constbuf->enabled_mask & (1 << i)) && cb->buffer) {
-            offsets[i] = cb->buffer_offset;
-            bos[i] = fd_resource(cb->buffer)->bo;
-         } else {
-            offsets[i] = 0;
-            bos[i] = NULL;
-         }
+   for (uint32_t i = 0; i < params; i++) {
+      if (i == const_state->constant_data_ubo) {
+         bos[i] = v->bo;
+         offsets[i] = v->info.constant_data_offset;
+         continue;
       }
 
-      assert(offset * 4 + params <= v->constlen * 4);
+      struct pipe_constant_buffer *cb = &constbuf->cb[i];
 
-      emit_const_ptrs(ring, v, offset * 4, params, bos, offsets);
+      /* If we have user pointers (constbuf 0, aka GL uniforms), upload
+       * them to a buffer now, and save it in the constbuf so that we
+       * don't have to reupload until they get changed.
+       */
+      if (cb->user_buffer) {
+         struct pipe_context *pctx = &ctx->base;
+         u_upload_data(pctx->stream_uploader, 0, cb->buffer_size, 64,
+                       cb->user_buffer, &cb->buffer_offset, &cb->buffer);
+         cb->user_buffer = NULL;
+      }
+
+      if ((constbuf->enabled_mask & (1 << i)) && cb->buffer) {
+         offsets[i] = cb->buffer_offset;
+         bos[i] = fd_resource(cb->buffer)->bo;
+      } else {
+         offsets[i] = 0;
+         bos[i] = NULL;
+      }
    }
+
+   emit_const_ptrs(ring, v, const_state->offsets.ubo * 4, params, bos, offsets);
 }
 
 static inline void
@@ -313,20 +283,12 @@ ir3_emit_immediates(struct fd_screen *screen,
                     struct fd_ringbuffer *ring)
 {
    const struct ir3_const_state *const_state = ir3_const_state(v);
-   uint32_t base = const_state->offsets.immediate;
-   int size = DIV_ROUND_UP(const_state->immediates_count, 4);
 
-   /* truncate size to avoid writing constants that shader
-    * does not use:
-    */
-   size = MIN2(size + base, v->constlen) - base;
-
-   /* convert out of vec4: */
-   base *= 4;
-   size *= 4;
-
-   if (size > 0)
-      emit_const_user(ring, v, base, size, const_state->immediates);
+   if (const_state->immediates_count) {
+      emit_const_user(ring, v, const_state->offsets.immediate * 4,
+                      align(const_state->immediates_count, 4),
+                      const_state->immediates);
+   }
 
    /* NIR constant data has the same lifetime as immediates, so upload it
     * now, too.
@@ -342,16 +304,10 @@ ir3_emit_link_map(struct fd_screen *screen,
 {
    const struct ir3_const_state *const_state = ir3_const_state(v);
    uint32_t base = const_state->offsets.primitive_map;
-   int size = DIV_ROUND_UP(v->input_size, 4);
-
-   /* truncate size to avoid writing constants that shader
-    * does not use:
-    */
-   size = MIN2(size + base, v->constlen) - base;
+   int size = align(const_state->num_primitive_map, 4);
 
    /* convert out of vec4: */
    base *= 4;
-   size *= 4;
 
    if (size > 0)
       emit_const_user(ring, v, base, size, producer->output_loc);
@@ -462,11 +418,9 @@ ir3_emit_vs_driver_params(const struct ir3_shader_variant *v,
    }
 
    /* Only emit as many params as needed, i.e. up to the highest enabled UCP
-    * plane. However a binning pass may drop even some of these, so limit to
-    * program max.
+    * plane.
     */
-   const uint32_t vertex_params_size =
-      MIN2(const_state->num_driver_params, (v->constlen - offset) * 4);
+   const uint32_t vertex_params_size = const_state->num_driver_params;
    assert(vertex_params_size <= IR3_DP_VS_COUNT);
 
    bool needs_vtxid_base =
@@ -556,7 +510,7 @@ ir3_emit_cs_consts(const struct ir3_shader_variant *v,
    /* emit compute-shader driver-params: */
    const struct ir3_const_state *const_state = ir3_const_state(v);
    uint32_t offset = const_state->offsets.driver_param;
-   if (v->constlen > offset) {
+   if (const_state->num_driver_params) {
       ring_wfi(ctx->batch, ring);
 
       if (info->indirect) {
@@ -596,10 +550,9 @@ ir3_emit_cs_consts(const struct ir3_shader_variant *v,
             [IR3_DP_LOCAL_GROUP_SIZE_Y] = info->block[1],
             [IR3_DP_LOCAL_GROUP_SIZE_Z] = info->block[2],
          };
-         uint32_t size =
-            MIN2(const_state->num_driver_params, v->constlen * 4 - offset * 4);
 
-         emit_const_user(ring, v, offset * 4, size, compute_params);
+         emit_const_user(ring, v, offset * 4, const_state->num_driver_params,
+                         compute_params);
       }
    }
 }
