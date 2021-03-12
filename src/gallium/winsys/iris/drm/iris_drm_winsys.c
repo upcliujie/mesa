@@ -26,7 +26,11 @@
 
 #include "util/os_file.h"
 
+#include "renderonly/renderonly.h"
+#include "kmsro/drm/kmsro_drm_public.h"
 #include "iris_drm_public.h"
+#include "iris/iris_screen.h"
+
 extern struct pipe_screen *iris_screen_create(int fd, const struct pipe_screen_config *config);
 
 struct pipe_screen *
@@ -35,5 +39,22 @@ iris_drm_screen_create(int fd, const struct pipe_screen_config *config)
    int newfd = os_dupfd_cloexec(fd);
    if (newfd < 0)
       return NULL;
+
    return iris_screen_create(newfd, config);
+}
+
+struct pipe_screen *
+iris_screen_create_renderonly(struct renderonly *ro,
+                              const struct pipe_screen_config *config)
+{
+   struct iris_screen *pscreen;
+
+   pscreen = (struct iris_screen *)iris_screen_create(os_dupfd_cloexec(ro->gpu_fd), config);
+   if (!pscreen)
+      return NULL;
+
+   pscreen->ro = ro;
+   pscreen->winsys_fd = ro->kms_fd;
+
+   return &pscreen->base;
 }
