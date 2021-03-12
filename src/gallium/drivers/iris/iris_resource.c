@@ -636,7 +636,7 @@ iris_resource_configure_aux(struct iris_screen *screen,
    const bool has_mcs = !res->mod_info &&
       isl_surf_get_mcs_surf(&screen->isl_dev, &res->surf, &res->aux.surf);
 
-   const bool has_hiz = !res->mod_info && !(INTEL_DEBUG & DEBUG_NO_HIZ) &&
+   const bool has_hiz = !res->mod_info &&
       isl_surf_get_hiz_surf(&screen->isl_dev, &res->surf, &res->aux.surf);
 
    const bool has_ccs =
