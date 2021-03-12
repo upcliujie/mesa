@@ -3080,7 +3080,7 @@ job_update_ez_state(struct v3dv_job *job,
     */
 
    /* If the FS writes Z, then it may update against the chosen EZ direction */
-   if (pipeline->fs->current_variant->prog_data.fs->writes_z) {
+   if (pipeline->data->variants[BROADCOM_SHADER_FRAGMENT]->prog_data.fs->writes_z) {
       job->ez_state = VC5_EZ_DISABLED;
       return;
    }
@@ -3673,7 +3673,7 @@ emit_varyings_state(struct v3dv_cmd_buffer *cmd_buffer)
    struct v3dv_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
 
    struct v3d_fs_prog_data *prog_data_fs =
-      pipeline->fs->current_variant->prog_data.fs;
+      pipeline->data->variants[BROADCOM_SHADER_FRAGMENT]->prog_data.fs;
 
    const uint32_t num_flags =
       ARRAY_SIZE(prog_data_fs->flat_shade_flags);
@@ -3754,7 +3754,8 @@ update_gfx_uniform_state(struct v3dv_cmd_buffer *cmd_buffer,
 
    if (needs_fs_update) {
       cmd_buffer->state.uniforms.fs =
-         v3dv_write_uniforms(cmd_buffer, pipeline->fs);
+         v3dv_write_uniforms(cmd_buffer, pipeline,
+                             pipeline->data->variants[BROADCOM_SHADER_FRAGMENT]);
    }
 
    const bool needs_vs_update =
@@ -3763,10 +3764,12 @@ update_gfx_uniform_state(struct v3dv_cmd_buffer *cmd_buffer,
 
    if (needs_vs_update) {
       cmd_buffer->state.uniforms.vs =
-         v3dv_write_uniforms(cmd_buffer, pipeline->vs);
+         v3dv_write_uniforms(cmd_buffer, pipeline,
+                             pipeline->data->variants[BROADCOM_SHADER_VERTEX]);
 
       cmd_buffer->state.uniforms.vs_bin =
-         v3dv_write_uniforms(cmd_buffer, pipeline->vs_bin);
+         v3dv_write_uniforms(cmd_buffer, pipeline,
+                             pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN]);
    }
 }
 
@@ -3780,10 +3783,17 @@ emit_gl_shader_state(struct v3dv_cmd_buffer *cmd_buffer)
    struct v3dv_pipeline *pipeline = state->gfx.pipeline;
    assert(pipeline);
 
+   struct v3d_vs_prog_data *prog_data_vs =
+      pipeline->data->variants[BROADCOM_SHADER_VERTEX]->prog_data.vs;
+   struct v3d_vs_prog_data *prog_data_vs_bin =
+      pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN]->prog_data.vs;
+   struct v3d_fs_prog_data *prog_data_fs =
+      pipeline->data->variants[BROADCOM_SHADER_FRAGMENT]->prog_data.fs;
+
    /* Update the cache dirty flag based on the shader progs data */
-   job->tmu_dirty_rcl |= pipeline->vs_bin->current_variant->prog_data.vs->base.tmu_dirty_rcl;
-   job->tmu_dirty_rcl |= pipeline->vs->current_variant->prog_data.vs->base.tmu_dirty_rcl;
-   job->tmu_dirty_rcl |= pipeline->fs->current_variant->prog_data.fs->base.tmu_dirty_rcl;
+   job->tmu_dirty_rcl |= prog_data_vs_bin->base.tmu_dirty_rcl;
+   job->tmu_dirty_rcl |= prog_data_vs->base.tmu_dirty_rcl;
+   job->tmu_dirty_rcl |= prog_data_fs->base.tmu_dirty_rcl;
 
    /* See GFXH-930 workaround below */
    uint32_t num_elements_to_emit = MAX2(pipeline->va_count, 1);
@@ -3832,12 +3842,6 @@ emit_gl_shader_state(struct v3dv_cmd_buffer *cmd_buffer)
    }
 
    /* Upload vertex element attributes (SHADER_STATE_ATTRIBUTE_RECORD) */
-   struct v3d_vs_prog_data *prog_data_vs =
-      pipeline->vs->current_variant->prog_data.vs;
-
-   struct v3d_vs_prog_data *prog_data_vs_bin =
-      pipeline->vs_bin->current_variant->prog_data.vs;
-
    bool cs_loaded_any = false;
    const bool cs_uses_builtins = prog_data_vs_bin->uses_iid ||
                                  prog_data_vs_bin->uses_biid ||
@@ -5205,7 +5209,8 @@ cmd_buffer_create_csd_job(struct v3dv_cmd_buffer *cmd_buffer,
                           uint32_t *wg_size_out)
 {
    struct v3dv_pipeline *pipeline = cmd_buffer->state.compute.pipeline;
-   assert(pipeline && pipeline->cs && pipeline->cs->current_variant);
+   assert(pipeline && pipeline->cs &&
+          pipeline->data->variants[BROADCOM_SHADER_COMPUTE]);
 
    struct v3dv_job *job = vk_zalloc(&cmd_buffer->device->vk.alloc,
                                     sizeof(struct v3dv_job), 8,
@@ -5229,7 +5234,7 @@ cmd_buffer_create_csd_job(struct v3dv_cmd_buffer *cmd_buffer,
    submit->cfg[2] |= group_count_z << V3D_CSD_CFG012_WG_COUNT_SHIFT;
 
    const struct v3d_compute_prog_data *cpd =
-      pipeline->cs->current_variant->prog_data.cs;
+      pipeline->data->variants[BROADCOM_SHADER_COMPUTE]->prog_data.cs;
 
    const uint32_t wgs_per_sg = 1; /* FIXME */
    const uint32_t wg_size = cpd->local_size[0] *
@@ -5247,9 +5252,10 @@ cmd_buffer_create_csd_job(struct v3dv_cmd_buffer *cmd_buffer,
                     (group_count_x * group_count_y * group_count_z) - 1;
    assert(submit->cfg[4] != ~0);
 
-   assert(pipeline->cs->current_variant &&
+   assert(pipeline->data->variants[BROADCOM_SHADER_COMPUTE] &&
           pipeline->data->assembly_bo);
-   const struct v3dv_shader_variant *variant = pipeline->cs->current_variant;
+   const struct v3dv_shader_variant *variant =
+      pipeline->data->variants[BROADCOM_SHADER_COMPUTE];
    submit->cfg[5] = pipeline->data->assembly_bo->offset + variant->assembly_offset;
    submit->cfg[5] |= V3D_CSD_CFG5_PROPAGATE_NANS;
    if (variant->prog_data.base->single_seg)
@@ -5269,9 +5275,11 @@ cmd_buffer_create_csd_job(struct v3dv_cmd_buffer *cmd_buffer,
    }
 
    v3dv_job_add_bo(job, pipeline->data->assembly_bo);
-
+   struct v3dv_shader_variant *cs_variant =
+      pipeline->data->variants[BROADCOM_SHADER_COMPUTE];
    struct v3dv_cl_reloc uniforms =
-      v3dv_write_uniforms_wg_offsets(cmd_buffer, pipeline->cs,
+      v3dv_write_uniforms_wg_offsets(cmd_buffer, pipeline,
+                                     cs_variant,
                                      wg_uniform_offsets_out);
    submit->cfg[6] = uniforms.bo->offset + uniforms.offset;
 

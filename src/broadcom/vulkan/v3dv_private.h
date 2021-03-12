@@ -1442,11 +1442,6 @@ struct v3dv_pipeline_stage {
 
    /** A name for this program, so you can track it in shader-db output. */
    uint32_t program_id;
-
-   /* Note that this variant the equivalent to
-    * pipeline->data->variants[stage]. This is just a convenient link.
-    */
-   struct v3dv_shader_variant *current_variant;
 };
 
 /* FIXME: although the full vpm_config is not required at this point, as we
@@ -1901,9 +1896,12 @@ void v3d_store_tiled_image(void *dst, uint32_t dst_stride,
                            const struct pipe_box *box);
 
 struct v3dv_cl_reloc v3dv_write_uniforms(struct v3dv_cmd_buffer *cmd_buffer,
-                                         struct v3dv_pipeline_stage *p_stage);
+                                         struct v3dv_pipeline *pipeline,
+                                         struct v3dv_shader_variant *variant);
+
 struct v3dv_cl_reloc v3dv_write_uniforms_wg_offsets(struct v3dv_cmd_buffer *cmd_buffer,
-                                                    struct v3dv_pipeline_stage *p_stage,
+                                                    struct v3dv_pipeline *pipeline,
+                                                    struct v3dv_shader_variant *variant,
                                                     uint32_t **wg_count_offsets);
 
 struct v3dv_shader_variant *

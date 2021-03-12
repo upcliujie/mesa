@@ -144,7 +144,6 @@ destroy_pipeline_stage(struct v3dv_device *device,
       return;
 
    ralloc_free(p_stage->nir);
-   /* current_variant freed with the pipeline->data*/
    vk_free2(&device->vk.alloc, pAllocator, p_stage);
 }
 
@@ -1222,7 +1221,8 @@ pipeline_populate_v3d_vs_key(struct v3d_vs_key *key,
       key->num_used_outputs = 0;
    } else {
       struct v3dv_pipeline *pipeline = p_stage->pipeline;
-      struct v3dv_shader_variant *fs_variant = pipeline->fs->current_variant;
+      struct v3dv_shader_variant *fs_variant =
+         pipeline->data->variants[BROADCOM_SHADER_FRAGMENT];
 
       key->num_used_outputs = fs_variant->prog_data.fs->num_inputs;
 
@@ -1370,21 +1370,14 @@ pipeline_check_spill_size(struct v3dv_pipeline *pipeline)
 {
    uint32_t max_spill_size = 0;
 
-   /* FIXME: loop over it */
-   if (pipeline->cs != NULL) {
-      max_spill_size =
-         MAX2(pipeline->cs->current_variant->prog_data.base->spill_size,
-              max_spill_size);
-   }
-   if (pipeline->fs != NULL) {
-      max_spill_size =
-         MAX2(pipeline->fs->current_variant->prog_data.base->spill_size,
-              max_spill_size);
-   }
-   if (pipeline->vs != NULL) {
-      max_spill_size =
-         MAX2(pipeline->vs->current_variant->prog_data.base->spill_size,
-              max_spill_size);
+   for(uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
+      struct v3dv_shader_variant *variant =
+         pipeline->data->variants[stage];
+
+      if (variant != NULL) {
+         max_spill_size = MAX2(variant->prog_data.base->spill_size,
+                               max_spill_size);
+      }
    }
 
    if (max_spill_size > pipeline->spill.size_per_thread) {
@@ -1461,7 +1454,7 @@ pipeline_compile_shader_variant(struct v3dv_pipeline_stage *p_stage,
                                 VkResult *out_vk_result)
 {
    /* Right now we don't support more than one variant */
-   assert(p_stage->current_variant == NULL);
+   assert(p_stage->pipeline->data->variants[BROADCOM_SHADER_COMPUTE] == NULL);
    struct v3dv_pipeline *pipeline = p_stage->pipeline;
    struct v3dv_physical_device *physical_device =
       &pipeline->device->instance->physicalDevice;
@@ -1725,7 +1718,7 @@ pipeline_compile_vertex_shader(struct v3dv_pipeline *pipeline,
    /* Right now we only support pipelines with both vertex and fragment
     * shader.
     */
-   assert(pipeline->fs);
+   assert(pipeline->data->variants[BROADCOM_SHADER_FRAGMENT]);
 
    assert(pipeline->vs_bin != NULL);
    if (pipeline->vs_bin->nir == NULL) {
@@ -1735,24 +1728,19 @@ pipeline_compile_vertex_shader(struct v3dv_pipeline *pipeline,
 
    VkResult vk_result;
    struct v3d_vs_key key;
-   if (p_stage->current_variant == NULL) {
-      pipeline_populate_v3d_vs_key(&key, pCreateInfo, p_stage);
 
-      p_stage->current_variant =
-         pipeline_compile_shader_variant(pipeline->vs, &key.base, sizeof(key),
-                                         pAllocator, &vk_result);
+   pipeline_populate_v3d_vs_key(&key, pCreateInfo, p_stage);
+   pipeline->data->variants[BROADCOM_SHADER_VERTEX] =
+      pipeline_compile_shader_variant(pipeline->vs, &key.base, sizeof(key),
+                                      pAllocator, &vk_result);
    if (vk_result != VK_SUCCESS)
       return vk_result;
 
-   }
-
    p_stage = pipeline->vs_bin;
-   if (p_stage->current_variant == NULL) {
-      pipeline_populate_v3d_vs_key(&key, pCreateInfo, p_stage);
-      p_stage->current_variant =
-         pipeline_compile_shader_variant(pipeline->vs_bin, &key.base, sizeof(key),
-                                         pAllocator, &vk_result);
-   }
+   pipeline_populate_v3d_vs_key(&key, pCreateInfo, p_stage);
+   pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN] =
+      pipeline_compile_shader_variant(pipeline->vs_bin, &key.base, sizeof(key),
+                                      pAllocator, &vk_result);
 
    return vk_result;
 }
@@ -1772,7 +1760,7 @@ pipeline_compile_fragment_shader(struct v3dv_pipeline *pipeline,
                                 get_ucp_enable_mask(pipeline->vs));
 
    VkResult vk_result;
-   p_stage->current_variant =
+   pipeline->data->variants[BROADCOM_SHADER_FRAGMENT] =
       pipeline_compile_shader_variant(p_stage, &key.base, sizeof(key),
                                       pAllocator, &vk_result);
 
@@ -1902,46 +1890,6 @@ v3dv_shared_data_new_empty(const unsigned char sha1_key[20],
    return new_entry;
 }
 
-/* We maintain pipeline->data->variants and
- * pipeline->vs/vs_bin/fs/cs->current_variant, being both the same variants,
- * mostly for convenience.
- *
- * FIXME: even if we need to update several places, in the end perhaps it
- * would be more convenient to just have one.
- */
-static void
-pipeline_sync_graphics_variants(struct v3dv_pipeline *pipeline,
-                                bool from_cache)
-{
-   if (from_cache) {
-      pipeline->vs->current_variant =
-         pipeline->data->variants[BROADCOM_SHADER_VERTEX];
-      pipeline->vs_bin->current_variant =
-         pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN];
-      pipeline->fs->current_variant =
-         pipeline->data->variants[BROADCOM_SHADER_FRAGMENT];
-   } else {
-      pipeline->data->variants[BROADCOM_SHADER_VERTEX] =
-         pipeline->vs->current_variant;
-      pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN] =
-         pipeline->vs_bin->current_variant;
-      pipeline->data->variants[BROADCOM_SHADER_FRAGMENT] =
-         pipeline->fs->current_variant;
-   }
-}
-
-static void
-pipeline_sync_compute_variants(struct v3dv_pipeline *pipeline,
-                               bool from_cache)
-{
-   if (from_cache) {
-      pipeline->cs->current_variant =
-         pipeline->data->variants[BROADCOM_SHADER_COMPUTE];
-   } else {
-      pipeline->data->variants[BROADCOM_SHADER_COMPUTE] =
-         pipeline->cs->current_variant;
-   }
-}
 /*
  * It compiles a pipeline. Note that it also allocate internal object, but if
  * some allocations success, but other fails, the method is not freeing the
@@ -2067,8 +2015,6 @@ pipeline_compile_graphics(struct v3dv_pipeline *pipeline,
       assert(pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN]);
       assert(pipeline->data->variants[BROADCOM_SHADER_FRAGMENT]);
 
-      pipeline_sync_graphics_variants(pipeline, true);
-
       goto success;
    }
 
@@ -2096,19 +2042,17 @@ pipeline_compile_graphics(struct v3dv_pipeline *pipeline,
    /* We should have got all the variants or no variants from the cache, as we
     * group them.
     */
-   assert(!pipeline->fs->current_variant);
+   assert(!pipeline->data->variants[BROADCOM_SHADER_FRAGMENT]);
    vk_result = pipeline_compile_fragment_shader(pipeline, pAllocator, pCreateInfo);
    if (vk_result != VK_SUCCESS)
       return vk_result;
 
-   assert(!pipeline->vs->current_variant &&
-          !pipeline->vs_bin->current_variant);
+   assert(!pipeline->data->variants[BROADCOM_SHADER_VERTEX] &&
+          !pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN]);
 
    vk_result = pipeline_compile_vertex_shader(pipeline, pAllocator, pCreateInfo);
    if (vk_result != VK_SUCCESS)
       return vk_result;
-
-   pipeline_sync_graphics_variants(pipeline, false);
 
    if (!upload_assembly(pipeline))
       return VK_ERROR_OUT_OF_DEVICE_MEMORY;
@@ -2125,15 +2069,18 @@ pipeline_compile_graphics(struct v3dv_pipeline *pipeline,
    /* FIXME: values below are default when non-GS is available. Would need to
     * provide real values if GS gets supported
     */
+   struct v3dv_shader_variant *vs_variant =
+      pipeline->data->variants[BROADCOM_SHADER_VERTEX];
+   struct v3dv_shader_variant *vs_bin_variant =
+      pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN];
+
    pipeline->vpm_cfg_bin.As = 1;
    pipeline->vpm_cfg_bin.Ve = 0;
-   pipeline->vpm_cfg_bin.Vc =
-      pipeline->vs_bin->current_variant->prog_data.vs->vcm_cache_size;
+   pipeline->vpm_cfg_bin.Vc = vs_bin_variant->prog_data.vs->vcm_cache_size;
 
    pipeline->vpm_cfg.As = 1;
    pipeline->vpm_cfg.Ve = 0;
-   pipeline->vpm_cfg.Vc =
-      pipeline->vs->current_variant->prog_data.vs->vcm_cache_size;
+   pipeline->vpm_cfg.Vc = vs_variant->prog_data.vs->vcm_cache_size;
 
    return VK_SUCCESS;
 }
@@ -2639,13 +2586,13 @@ pack_shader_state_record(struct v3dv_pipeline *pipeline)
           cl_packet_length(GL_SHADER_STATE_RECORD));
 
    struct v3d_fs_prog_data *prog_data_fs =
-      pipeline->fs->current_variant->prog_data.fs;
+      pipeline->data->variants[BROADCOM_SHADER_FRAGMENT]->prog_data.fs;
 
    struct v3d_vs_prog_data *prog_data_vs =
-      pipeline->vs->current_variant->prog_data.vs;
+      pipeline->data->variants[BROADCOM_SHADER_VERTEX]->prog_data.vs;
 
    struct v3d_vs_prog_data *prog_data_vs_bin =
-      pipeline->vs_bin->current_variant->prog_data.vs;
+      pipeline->data->variants[BROADCOM_SHADER_VERTEX_BIN]->prog_data.vs;
 
 
    /* Note: we are not packing addresses, as we need the job (see
@@ -3029,7 +2976,7 @@ pipeline_init(struct v3dv_pipeline *pipeline,
 
    pipeline->va_count = 0;
    struct v3d_vs_prog_data *prog_data_vs =
-      pipeline->vs->current_variant->prog_data.vs;
+      pipeline->data->variants[BROADCOM_SHADER_VERTEX]->prog_data.vs;
 
    for (uint32_t i = 0; i < vi_info->vertexAttributeDescriptionCount; i++) {
       const VkVertexInputAttributeDescription *desc =
@@ -3203,7 +3150,6 @@ pipeline_compile_compute(struct v3dv_pipeline *pipeline,
 
    if (pipeline->data != NULL) {
       assert(pipeline->data->variants[BROADCOM_SHADER_COMPUTE]);
-      pipeline_sync_compute_variants(pipeline, true);
       goto success;
    }
 
@@ -3222,14 +3168,13 @@ pipeline_compile_compute(struct v3dv_pipeline *pipeline,
    struct v3d_key key;
    pipeline_populate_v3d_key(&key, p_stage, 0,
                              pipeline->device->features.robustBufferAccess);
-   p_stage->current_variant =
+   pipeline->data->variants[BROADCOM_SHADER_COMPUTE] =
       pipeline_compile_shader_variant(p_stage, &key, sizeof(key),
                                       alloc, &result);
 
    if (result != VK_SUCCESS)
       return result;
 
-   pipeline_sync_compute_variants(pipeline, false);
    if (!upload_assembly(pipeline))
       return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 

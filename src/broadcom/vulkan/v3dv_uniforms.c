@@ -309,13 +309,13 @@ get_texture_size(struct v3dv_cmd_buffer *cmd_buffer,
 
 struct v3dv_cl_reloc
 v3dv_write_uniforms_wg_offsets(struct v3dv_cmd_buffer *cmd_buffer,
-                               struct v3dv_pipeline_stage *p_stage,
+                               struct v3dv_pipeline *pipeline,
+                               struct v3dv_shader_variant *variant,
                                uint32_t **wg_count_offsets)
 {
    struct v3d_uniform_list *uinfo =
-      &p_stage->current_variant->prog_data.base->uniforms;
+      &variant->prog_data.base->uniforms;
    struct v3dv_dynamic_state *dynamic = &cmd_buffer->state.dynamic;
-   struct v3dv_pipeline *pipeline = p_stage->pipeline;
 
    struct v3dv_job *job = cmd_buffer->state.job;
    assert(job);
@@ -432,7 +432,8 @@ v3dv_write_uniforms_wg_offsets(struct v3dv_cmd_buffer *cmd_buffer,
 
 struct v3dv_cl_reloc
 v3dv_write_uniforms(struct v3dv_cmd_buffer *cmd_buffer,
-                    struct v3dv_pipeline_stage *p_stage)
+                    struct v3dv_pipeline *pipeline,
+                    struct v3dv_shader_variant *variant)
 {
-   return v3dv_write_uniforms_wg_offsets(cmd_buffer, p_stage, NULL);
+   return v3dv_write_uniforms_wg_offsets(cmd_buffer, pipeline, variant, NULL);
 }
