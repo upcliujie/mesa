@@ -2182,11 +2182,21 @@ storage_qualifier:
    {
       memset(& $$, 0, sizeof($$));
       $$.flags.q.attribute = 1;
+
+      if (state->is_version(420, 300) && !state->compat_shader) {
+         _mesa_glsl_error(&@1, state, "attribute qualifier was removed"
+                          " use the in qualifier instead");
+      }
    }
    | VARYING
    {
       memset(& $$, 0, sizeof($$));
       $$.flags.q.varying = 1;
+
+      if (state->is_version(420, 300) && !state->compat_shader) {
+         _mesa_glsl_error(&@1, state, "varying qualifier was removed"
+                          " use in/out qualifiers instead");
+      }
    }
    | IN_TOK
    {
