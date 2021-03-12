@@ -201,6 +201,7 @@ isl_device_init(struct isl_device *dev,
    dev->use_separate_stencil = ISL_DEV_GEN(dev) >= 6;
    dev->has_bit6_swizzling = has_bit6_swizzling;
    dev->no_compression = INTEL_DEBUG & DEBUG_NO_RBC;
+   dev->no_hiz = INTEL_DEBUG & DEBUG_NO_HIZ;
 
    /* The ISL_DEV macros may be defined in the CFLAGS, thus hardcoding some
     * device properties at buildtime. Verify that the macros with the device
