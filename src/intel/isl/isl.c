@@ -1797,6 +1797,9 @@ isl_surf_get_hiz_surf(const struct isl_device *dev,
                       const struct isl_surf *surf,
                       struct isl_surf *hiz_surf)
 {
+   if (dev->no_hiz)
+      return false;
+
    assert(ISL_DEV_GEN(dev) >= 5 && ISL_DEV_USE_SEPARATE_STENCIL(dev));
 
    if (!isl_surf_usage_is_depth(surf->usage))
