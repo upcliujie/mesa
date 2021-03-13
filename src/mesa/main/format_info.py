@@ -31,6 +31,8 @@ def get_gl_base_format(fmat):
       return 'GL_NONE'
    elif fmat.name in ['MESA_FORMAT_YCBCR', 'MESA_FORMAT_YCBCR_REV']:
       return 'GL_YCBCR_MESA'
+   elif fmat.name in ['MESA_FORMAT_RG_RB_UNORM8', 'MESA_FORMAT_GR_BR_UNORM8']:
+      return 'GL_RGB'
    elif fmat.has_channel('r'):
       if fmat.has_channel('g'):
          if fmat.has_channel('b'):
