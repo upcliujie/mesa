@@ -77,6 +77,14 @@ for f in formats:
       <% continue %>
    %endif
 
+   %if f.name in ('MESA_FORMAT_RG_RB_UNORM8', 'MESA_FORMAT_GR_BR_UNORM8'):
+static inline void
+pack_ubyte_${f.short_name()}(const uint8_t src[4], void *dst)
+{
+}
+      <% continue %>
+   %endif
+
 static inline void
 pack_ubyte_${f.short_name()}(const uint8_t src[4], void *dst)
 {
