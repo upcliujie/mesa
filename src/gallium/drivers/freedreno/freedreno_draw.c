@@ -149,6 +149,7 @@ batch_draw_tracking_for_dirty_bits(struct fd_batch *batch)
 		}
 	}
 
+	// TODO other shader stages
 	if (ctx->dirty_shader[PIPE_SHADER_VERTEX] & FD_DIRTY_SHADER_CONST) {
 		u_foreach_bit (i, ctx->constbuf[PIPE_SHADER_VERTEX].enabled_mask)
 			resource_read(batch, ctx->constbuf[PIPE_SHADER_VERTEX].cb[i].buffer);
@@ -168,6 +169,7 @@ batch_draw_tracking_for_dirty_bits(struct fd_batch *batch)
 	}
 
 	/* Mark textures as being read */
+	// TODO other shader stages
 	if (ctx->dirty_shader[PIPE_SHADER_VERTEX] & FD_DIRTY_SHADER_TEX) {
 		u_foreach_bit (i, ctx->tex[PIPE_SHADER_VERTEX].valid_textures)
 			resource_read(batch, ctx->tex[PIPE_SHADER_VERTEX].textures[i]->texture);
