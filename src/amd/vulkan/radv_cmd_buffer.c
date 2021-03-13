@@ -6606,7 +6606,7 @@ radv_set_rt_stack_size(struct radv_cmd_buffer *cmd_buffer, uint32_t size)
       wave_size = cmd_buffer->state.rt_pipeline->shaders[MESA_SHADER_COMPUTE]->info.wave_size;
    }
 
-   /* The 1024 alignment has been cargo culted from ACO */
+   /* The hardware register is specified as a multiple of 256 DWORDS. */
    scratch_bytes_per_wave += align(size * wave_size, 1024);
 
    cmd_buffer->compute_scratch_size_per_wave_needed =
