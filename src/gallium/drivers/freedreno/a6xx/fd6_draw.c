@@ -305,6 +305,7 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 		ctx->last.restart_index = restart_index;
 	}
 
+	// TODO we still need to ir3_emit_vs_driver_params() if driver-params are needed!
 	if (emit.dirty)
 		fd6_emit_state(ring, &emit);
 
