@@ -341,7 +341,9 @@ genX(emit_l3_config)(struct anv_batch *batch,
                      const struct intel_l3_config *cfg)
 {
    UNUSED const struct gen_device_info *devinfo = &device->info;
+#if GEN_GEN < 11
    UNUSED const bool has_slm = cfg->n[INTEL_L3P_SLM];
+#endif
 
 #if GEN_GEN >= 8
 
