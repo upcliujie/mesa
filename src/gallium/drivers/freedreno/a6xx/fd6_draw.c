@@ -218,11 +218,13 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 	emit.gs = fd6_emit_get_prog(&emit)->gs;
 	emit.fs = fd6_emit_get_prog(&emit)->fs;
 
-	ctx->stats.vs_regs += ir3_shader_halfregs(emit.vs);
-	ctx->stats.hs_regs += COND(emit.hs, ir3_shader_halfregs(emit.hs));
-	ctx->stats.ds_regs += COND(emit.ds, ir3_shader_halfregs(emit.ds));
-	ctx->stats.gs_regs += COND(emit.gs, ir3_shader_halfregs(emit.gs));
-	ctx->stats.fs_regs += ir3_shader_halfregs(emit.fs);
+	if (unlikely(ctx->stats_users > 0)) {
+		ctx->stats.vs_regs += ir3_shader_halfregs(emit.vs);
+		ctx->stats.hs_regs += COND(emit.hs, ir3_shader_halfregs(emit.hs));
+		ctx->stats.ds_regs += COND(emit.ds, ir3_shader_halfregs(emit.ds));
+		ctx->stats.gs_regs += COND(emit.gs, ir3_shader_halfregs(emit.gs));
+		ctx->stats.fs_regs += ir3_shader_halfregs(emit.fs);
+	}
 
 	struct fd_ringbuffer *ring = ctx->batch->draw;
 
