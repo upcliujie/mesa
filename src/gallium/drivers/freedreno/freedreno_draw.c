@@ -262,11 +262,6 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 		unsigned num_draws)
 	in_dt
 {
-	if (num_draws > 1) {
-		util_draw_multi(pctx, info, indirect, draws, num_draws);
-		return;
-	}
-
 	struct fd_context *ctx = fd_context(pctx);
 
 	/* for debugging problems with indirect draw, it is convenient
@@ -372,10 +367,12 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 
 	batch->cost += ctx->draw_cost;
 
-	if (ctx->draw_vbo(ctx, info, indirect, &draws[0], index_offset))
-		batch->needs_flush = true;
+	for (unsigned i = 0; i < num_draws; i++) {
+		if (ctx->draw_vbo(ctx, info, indirect, &draws[i], index_offset))
+			batch->needs_flush = true;
 
-	batch->num_vertices += draws[0].count * info->instance_count;
+		batch->num_vertices += draws[i].count * info->instance_count;
+	}
 
 	for (unsigned i = 0; i < ctx->streamout.num_targets; i++) {
 		assert(num_draws == 1);
