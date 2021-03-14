@@ -43,6 +43,12 @@
 #include "freedreno_util.h"
 
 static void
+fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
+		const struct pipe_draw_indirect_info *indirect,
+		const struct pipe_draw_start_count *draws,
+		unsigned num_draws);
+
+static void
 resource_read(struct fd_batch *batch, struct pipe_resource *prsc)
 	assert_dt
 {
@@ -264,21 +270,31 @@ update_draw_stats(struct fd_context *ctx, const struct pipe_draw_info *info,
 	ctx->stats.prims_generated += prims;
 }
 
+static ATTRIBUTE_NOINLINE void
+emulate_multi_draw(struct pipe_context *pctx, const struct pipe_draw_info *info,
+		const struct pipe_draw_indirect_info *indirect,
+		const struct pipe_draw_start_count *draws,
+		unsigned num_draws)
+	assert_dt
+{
+	struct pipe_draw_info tmp_info = *info;
+
+	for (unsigned i = 0; i < num_draws; i++) {
+		fd_draw_vbo(pctx, &tmp_info, indirect, &draws[i], 1);
+		if (tmp_info.increment_draw_id)
+			tmp_info.drawid++;
+	}
+}
+
 static void
 fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
-            const struct pipe_draw_indirect_info *indirect,
-            const struct pipe_draw_start_count *draws,
-            unsigned num_draws)
+		const struct pipe_draw_indirect_info *indirect,
+		const struct pipe_draw_start_count *draws,
+		unsigned num_draws)
 	in_dt
 {
 	if (num_draws > 1) {
-		struct pipe_draw_info tmp_info = *info;
-
-		for (unsigned i = 0; i < num_draws; i++) {
-			fd_draw_vbo(pctx, &tmp_info, indirect, &draws[i], 1);
-			if (tmp_info.increment_draw_id)
-				tmp_info.drawid++;
-		}
+		emulate_multi_draw(pctx, info, indirect, draws, num_draws);
 		return;
 	}
 
