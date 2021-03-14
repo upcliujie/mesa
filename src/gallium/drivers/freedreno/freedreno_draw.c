@@ -280,7 +280,8 @@ emulate_multi_draw(struct pipe_context *pctx, const struct pipe_draw_info *info,
 	struct pipe_draw_info tmp_info = *info;
 
 	for (unsigned i = 0; i < num_draws; i++) {
-		fd_draw_vbo(pctx, &tmp_info, indirect, &draws[i], 1);
+		if (indirect || (draws[i].count && info->instance_count))
+			fd_draw_vbo(pctx, &tmp_info, indirect, &draws[i], 1);
 		if (tmp_info.increment_draw_id)
 			tmp_info.drawid++;
 	}
@@ -298,9 +299,6 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 		return;
 	}
 
-	if (!indirect && (!draws[0].count || !info->instance_count))
-		return;
-
 	struct fd_context *ctx = fd_context(pctx);
 
 	/* for debugging problems with indirect draw, it is convenient
@@ -308,6 +306,10 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 	 * bogus data:
 	 */
 	if (indirect && indirect->buffer && FD_DBG(NOINDR)) {
+		if (num_draws > 1) {
+			emulate_multi_draw(pctx, info, indirect, draws, num_draws);
+			return;
+		}
 		util_draw_indirect(pctx, info, indirect);
 		return;
 	}
@@ -318,6 +320,10 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 
 	/* emulate unsupported primitives: */
 	if (!fd_supported_prim(ctx, info->mode)) {
+		if (num_draws > 1) {
+			emulate_multi_draw(pctx, info, indirect, draws, num_draws);
+			return;
+		}
 		if (ctx->streamout.num_targets > 0)
 			mesa_loge("stream-out with emulated prims");
 		util_primconvert_save_rasterizer_state(ctx->primconvert, ctx->rasterizer);
@@ -331,6 +337,10 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 	struct pipe_draw_info new_info;
 	if (info->index_size) {
 		if (info->has_user_indices) {
+			if (num_draws > 1) {
+				emulate_multi_draw(pctx, info, indirect, draws, num_draws);
+				return;
+			}
 			if (!util_upload_index_buffer(pctx, info, &draws[0],
 					&indexbuf, &index_offset, 4))
 				return;
@@ -341,6 +351,11 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 		} else {
 			indexbuf = info->index.resource;
 		}
+	}
+
+	if ((ctx->streamout.num_targets > 0) && (num_draws > 1)) {
+		emulate_multi_draw(pctx, info, indirect, draws, num_draws);
+		return;
 	}
 
 	struct fd_batch *batch = fd_context_batch(ctx);
@@ -389,8 +404,10 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 
 	batch->num_vertices += draws[0].count * info->instance_count;
 
-	for (unsigned i = 0; i < ctx->streamout.num_targets; i++)
+	for (unsigned i = 0; i < ctx->streamout.num_targets; i++) {
+		assert(num_draws == 1);
 		ctx->streamout.offsets[i] += draws[0].count;
+	}
 
 	if (FD_DBG(DDRAW))
 		fd_context_all_dirty(ctx);
