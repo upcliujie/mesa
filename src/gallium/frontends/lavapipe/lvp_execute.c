@@ -834,7 +834,7 @@ static void fill_sampler_view_stage(struct rendering_state *state,
 
    enum pipe_format pformat;
    if (iv->subresourceRange.aspectMask == VK_IMAGE_ASPECT_DEPTH_BIT)
-      pformat = vk_format_to_pipe(iv->format);
+      pformat = util_format_get_depth_only(vk_format_to_pipe(iv->format));
    else if (iv->subresourceRange.aspectMask == VK_IMAGE_ASPECT_STENCIL_BIT)
       pformat = util_format_stencil_only(vk_format_to_pipe(iv->format));
    else
