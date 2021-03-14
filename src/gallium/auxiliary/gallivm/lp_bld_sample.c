@@ -107,7 +107,11 @@ lp_sampler_static_texture_state(struct lp_static_texture_state *state,
 
    texture = view->texture;
 
-   state->format            = view->format;
+   if (view->format == PIPE_FORMAT_Z32_FLOAT &&
+       view->texture->format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT)
+      state->format = PIPE_FORMAT_Z32_FLOAT_S8X24_UINT;
+   else
+      state->format            = view->format;
    state->swizzle_r         = view->swizzle_r;
    state->swizzle_g         = view->swizzle_g;
    state->swizzle_b         = view->swizzle_b;
