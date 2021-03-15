@@ -108,6 +108,8 @@ wsi_device_init(struct wsi_device *wsi,
    WSI_GET_CB(GetPhysicalDeviceFormatProperties);
    WSI_GET_CB(GetPhysicalDeviceFormatProperties2KHR);
    WSI_GET_CB(GetPhysicalDeviceImageFormatProperties2);
+   WSI_GET_CB(ImportFenceFdKHR);
+   WSI_GET_CB(ImportSemaphoreFdKHR);
    WSI_GET_CB(ResetFences);
    WSI_GET_CB(QueueSubmit);
    WSI_GET_CB(WaitForFences);
@@ -812,6 +814,13 @@ wsi_signal_semaphore_for_image(struct vk_device *device,
 {
    VK_FROM_HANDLE(vk_semaphore, semaphore, _semaphore);
 
+#ifndef _WIN32
+   VkResult result = wsi_signal_semaphore_for_dma_buf(chain, _semaphore,
+                                                      image->dma_buf_fd);
+   if (result != VK_ERROR_FEATURE_NOT_PRESENT)
+      return result;
+#endif
+
    if (!chain->wsi->signal_fence_with_memory)
       return VK_SUCCESS;
 
@@ -828,6 +837,13 @@ wsi_signal_fence_for_image(struct vk_device *device,
                            VkFence _fence)
 {
    VK_FROM_HANDLE(vk_fence, fence, _fence);
+
+#ifndef _WIN32
+   VkResult result = wsi_signal_fence_for_dma_buf(chain, _fence,
+                                                  image->dma_buf_fd);
+   if (result != VK_ERROR_FEATURE_NOT_PRESENT)
+      return result;
+#endif
 
    if (!chain->wsi->signal_fence_with_memory)
       return VK_SUCCESS;
