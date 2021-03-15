@@ -2550,9 +2550,9 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_f2i8:
    case nir_op_f2i16: {
       if (instr->src[0].src.ssa->bit_size == 16) {
-         if (ctx->program->chip_class >= GFX8) {
+         /*if (ctx->program->chip_class >= GFX8) {
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_i16_f16, dst);
-         } else {
+         } else*/ {
             // GFX7 and earlier do not support f16⟷i16 conversions
             assert(false && "f16→i16 conversion not implemented on GFX7 and earlier");
             Temp tmp = bld.tmp(v1);
@@ -2573,9 +2573,9 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_f2u8:
    case nir_op_f2u16: {
       if (instr->src[0].src.ssa->bit_size == 16) {
-         if (ctx->program->chip_class >= GFX8) {
+         /*if (ctx->program->chip_class >= GFX8) {
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_u16_f16, dst);
-         } else {
+         } else*/ {
             // GFX7 and earlier do not support f16⟷u16 conversions
             assert(false && "f16→u16 conversion not implemented on GFX7 and earlier");
             Temp tmp = bld.tmp(v1);
