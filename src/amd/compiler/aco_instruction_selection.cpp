@@ -1230,21 +1230,28 @@ Temp emit_floor_f64(isel_context *ctx, Builder& bld, Definition dst, Temp val)
 
 Temp uadd32_sat(Builder& bld, Definition dst, Temp src0, Temp src1)
 {
-   if (bld.program->chip_class >= GFX9) {
-      aco_ptr<VOP3_instruction> add{create_instruction<VOP3_instruction>(aco_opcode::v_add_u32, asVOP3(Format::VOP2), 2, 1)};
-      add->operands[0] = Operand(src0);
-      add->operands[1] = Operand(src1);
-      add->definitions[0] = dst;
-      add->clamp = 1;
-      bld.insert(std::move(add));
-   } else {
+   if (bld.program->chip_class < GFX8) {
       if (src1.regClass() != v1)
          std::swap(src0, src1);
       assert(src1.regClass() == v1);
       Temp tmp = bld.tmp(v1);
       Temp carry = bld.vadd32(Definition(tmp), src0, src1, true).def(1).getTemp();
       bld.vop2_e64(aco_opcode::v_cndmask_b32, dst, tmp, Operand((uint32_t) -1), carry);
+      return dst.getTemp();
    }
+
+   aco_ptr<VOP3_instruction> add;
+   if (bld.program->chip_class >= GFX9) {
+      add.reset(create_instruction<VOP3_instruction>(aco_opcode::v_add_u32, asVOP3(Format::VOP2), 2, 1));
+   } else {
+      add.reset(create_instruction<VOP3_instruction>(aco_opcode::v_add_co_u32, asVOP3(Format::VOP2), 2, 2));
+      add->definitions[1] = bld.hint_vcc(bld.def(bld.lm));
+   }
+   add->operands[0] = Operand(src0);
+   add->operands[1] = Operand(src1);
+   add->definitions[0] = dst;
+   add->clamp = 1;
+   bld.insert(std::move(add));
    return dst.getTemp();
 }
 
