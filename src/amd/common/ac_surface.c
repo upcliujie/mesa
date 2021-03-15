@@ -1819,6 +1819,9 @@ static int gfx9_compute_miptree(struct ac_addrlib *addrlib, const struct radeon_
       return 0;
    }
 
+   if (surf->flags & (RADEON_SURF_ZBUFFER | RADEON_SURF_SBUFFER))
+      return 0;
+
    {
       /* Compute tile swizzle for the color surface.
        * All *_X and *_T modes can use the swizzle.
