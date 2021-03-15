@@ -400,3 +400,7 @@ if with_tests
   subdir('tests/format')
   subdir('tests/vector')
 endif
+
+if with_perfetto
+  dep_perfetto = dependency('perfetto', fallback: ['perfetto', 'dep_perfetto'])
+endif
