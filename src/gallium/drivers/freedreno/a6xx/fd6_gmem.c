@@ -32,6 +32,7 @@
 #include "util/u_memory.h"
 #include "util/u_inlines.h"
 #include "util/format/u_format.h"
+#include "util/format_srgb.h"
 
 #include "freedreno_draw.h"
 #include "freedreno_state.h"
@@ -1344,7 +1345,7 @@ emit_sysmem_clears(struct fd_batch *batch, struct fd_ringbuffer *ring)
 
 	if (buffers & PIPE_CLEAR_COLOR) {
 		for (int i = 0; i < pfb->nr_cbufs; i++) {
-			union pipe_color_union *color = &batch->clear_color[i];
+			union pipe_color_union color = batch->clear_color[i];
 
 			if (!pfb->cbufs[i])
 				continue;
@@ -1352,8 +1353,16 @@ emit_sysmem_clears(struct fd_batch *batch, struct fd_ringbuffer *ring)
 			if (!(buffers & (PIPE_CLEAR_COLOR0 << i)))
 				continue;
 
+			/* For solid-fill blits, the hw isn't going to convert from
+			 * linear to srgb for us:
+			 */
+			if (util_format_is_srgb(pfb->cbufs[i]->format)) {
+				for (int i = 0; i < 3; i++)
+					color.f[i] = util_format_linear_to_srgb_float(color.f[i]);
+			}
+
 			fd6_clear_surface(ctx, ring,
-					pfb->cbufs[i], pfb->width, pfb->height, color);
+					pfb->cbufs[i], pfb->width, pfb->height, &color);
 		}
 	}
 	if (buffers & (PIPE_CLEAR_DEPTH | PIPE_CLEAR_STENCIL)) {
