@@ -2686,12 +2686,6 @@ spec/arb_texture_multisample/texelfetch/16-vs-sampler2dms: skip
 spec/arb_texture_multisample/texelfetch/16-vs-sampler2dmsarray: skip
 spec/arb_texture_multisample/texelfetch/16-vs-usampler2dms: skip
 spec/arb_texture_multisample/texelfetch/16-vs-usampler2dmsarray: skip
-spec/arb_texture_multisample/texelfetch/2-gs-isampler2dms: fail
-spec/arb_texture_multisample/texelfetch/2-gs-isampler2dmsarray: fail
-spec/arb_texture_multisample/texelfetch/2-gs-sampler2dms: fail
-spec/arb_texture_multisample/texelfetch/2-gs-sampler2dmsarray: fail
-spec/arb_texture_multisample/texelfetch/2-gs-usampler2dms: fail
-spec/arb_texture_multisample/texelfetch/2-gs-usampler2dmsarray: fail
 spec/arb_texture_multisample/texelfetch/32-fs-isampler2dms: skip
 spec/arb_texture_multisample/texelfetch/32-fs-isampler2dmsarray: skip
 spec/arb_texture_multisample/texelfetch/32-fs-sampler2dms: skip
@@ -2710,12 +2704,6 @@ spec/arb_texture_multisample/texelfetch/32-vs-sampler2dms: skip
 spec/arb_texture_multisample/texelfetch/32-vs-sampler2dmsarray: skip
 spec/arb_texture_multisample/texelfetch/32-vs-usampler2dms: skip
 spec/arb_texture_multisample/texelfetch/32-vs-usampler2dmsarray: skip
-spec/arb_texture_multisample/texelfetch/4-gs-isampler2dms: fail
-spec/arb_texture_multisample/texelfetch/4-gs-isampler2dmsarray: fail
-spec/arb_texture_multisample/texelfetch/4-gs-sampler2dms: fail
-spec/arb_texture_multisample/texelfetch/4-gs-sampler2dmsarray: fail
-spec/arb_texture_multisample/texelfetch/4-gs-usampler2dms: fail
-spec/arb_texture_multisample/texelfetch/4-gs-usampler2dmsarray: fail
 spec/arb_texture_multisample/texelfetch/6-fs-isampler2dms: skip
 spec/arb_texture_multisample/texelfetch/6-fs-isampler2dmsarray: skip
 spec/arb_texture_multisample/texelfetch/6-fs-sampler2dms: skip
