@@ -400,3 +400,7 @@ if with_tests
   subdir('tests/format')
   subdir('tests/vector')
 endif
+
+if with_perfetto
+  subdir('perfetto')
+endif
