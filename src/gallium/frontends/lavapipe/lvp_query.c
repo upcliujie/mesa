@@ -138,8 +138,9 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_GetQueryPoolResults(
                *(uint64_t *)dptr = result.u64;
                dptr += 8;
             }
-         } else
-            dptr += stride;
+         } else {
+            dptr += 8;
+         }
 
       } else {
          if (ready || (flags & VK_QUERY_RESULT_PARTIAL_BIT)) {
@@ -174,7 +175,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_GetQueryPoolResults(
                dptr += 4;
             }
          } else
-            dptr += stride;
+            dptr += 4;
       }
 
       if (flags & VK_QUERY_RESULT_WITH_AVAILABILITY_BIT) {
