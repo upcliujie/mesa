@@ -1216,6 +1216,7 @@ struct radv_dynamic_state {
 
    bool depth_bias_enable;
    bool primitive_restart_enable;
+   bool rasterizer_discard_enable;
 };
 
 extern const struct radv_dynamic_state default_dynamic_state;
@@ -1722,6 +1723,7 @@ struct radv_pipeline {
          unsigned tess_patch_control_points;
          unsigned pa_su_sc_mode_cntl;
          unsigned db_depth_control;
+         unsigned pa_cl_clip_cntl;
          bool uses_dynamic_stride;
 
          /* Used for rbplus */
