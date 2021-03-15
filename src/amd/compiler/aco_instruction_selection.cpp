@@ -1228,6 +1228,26 @@ Temp emit_floor_f64(isel_context *ctx, Builder& bld, Definition dst, Temp val)
    return add->definitions[0].getTemp();
 }
 
+Temp uadd32_sat(Builder& bld, Definition dst, Temp src0, Temp src1)
+{
+   if (bld.program->chip_class >= GFX9) {
+      aco_ptr<VOP3_instruction> add{create_instruction<VOP3_instruction>(aco_opcode::v_add_u32, asVOP3(Format::VOP2), 2, 1)};
+      add->operands[0] = Operand(src0);
+      add->operands[1] = Operand(src1);
+      add->definitions[0] = dst;
+      add->clamp = 1;
+      bld.insert(std::move(add));
+   } else {
+      if (src1.regClass() != v1)
+         std::swap(src0, src1);
+      assert(src1.regClass() == v1);
+      Temp tmp = bld.tmp(v1);
+      Temp carry = bld.vadd32(Definition(tmp), src0, src1, true).def(1).getTemp();
+      bld.vop2_e64(aco_opcode::v_cndmask_b32, dst, tmp, Operand((uint32_t) -1), carry);
+   }
+   return dst.getTemp();
+}
+
 void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
 {
    if (!instr->dest.dest.is_ssa) {
@@ -1613,6 +1633,22 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          emit_vop1_instruction(ctx, instr, op, msb_rev);
          Temp msb = bld.tmp(v1);
          Temp carry = bld.vsub32(Definition(msb), Operand(31u), Operand(msb_rev), true).def(1).getTemp();
+         bld.vop2_e64(aco_opcode::v_cndmask_b32, Definition(dst), msb, Operand((uint32_t)-1), carry);
+      } else if (src.regClass() == v2) {
+         aco_opcode op = instr->op == nir_op_ufind_msb ? aco_opcode::v_ffbh_u32 : aco_opcode::v_ffbh_i32;
+
+         Temp lo = bld.tmp(v1), hi = bld.tmp(v1);
+         bld.pseudo(aco_opcode::p_split_vector, Definition(lo), Definition(hi), src);
+
+         lo = uadd32_sat(bld, bld.def(v1), bld.copy(bld.def(s1), Operand(32u)),
+                                           bld.vop1(op, bld.def(v1), lo));
+         hi = bld.vop1(op, bld.def(v1), hi);
+         Temp found_hi = bld.vopc(aco_opcode::v_cmp_lg_u32, bld.def(bld.lm), Operand((uint32_t)-1), hi);
+
+         Temp msb_rev = bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1), lo, hi, found_hi);
+
+         Temp msb = bld.tmp(v1);
+         Temp carry = bld.vsub32(Definition(msb), Operand(63u), Operand(msb_rev), true).def(1).getTemp();
          bld.vop2_e64(aco_opcode::v_cndmask_b32, Definition(dst), msb, Operand((uint32_t)-1), carry);
       } else {
          isel_err(&instr->instr, "Unimplemented NIR instr bit size");
