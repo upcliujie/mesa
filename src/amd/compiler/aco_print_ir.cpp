@@ -879,6 +879,8 @@ void aco_print_block(const Block* block, FILE *output, unsigned flags, const liv
    fprintf(output, "*/\n");
 
    if (flags & print_live_vars) {
+      assert(live_vars);
+
       fprintf(output, "\tlive out:");
       for (unsigned id : live_vars->live_out[block->index])
          fprintf(output, " %%%d", id);
