@@ -598,9 +598,6 @@ shader_variant_write_to_blob(const struct v3dv_shader_variant *variant,
    blob_write_uint32(blob, variant->stage);
    blob_write_uint8(blob, variant->is_coord);
 
-   blob_write_uint32(blob, variant->v3d_key_size);
-   blob_write_bytes(blob, &variant->key, variant->v3d_key_size);
-
    blob_write_bytes(blob, variant->variant_sha1, sizeof(variant->variant_sha1));
 
    blob_write_uint32(blob, variant->prog_data_size);
