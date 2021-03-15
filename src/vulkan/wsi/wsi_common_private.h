@@ -109,6 +109,12 @@ void
 wsi_destroy_image(const struct wsi_swapchain *chain,
                   struct wsi_image *image);
 
+VkResult
+wsi_signal_semaphore_for_dma_buf(const struct wsi_swapchain *chain,
+                                 VkSemaphore semaphore, int dma_buf_fd);
+VkResult
+wsi_signal_fence_for_dma_buf(const struct wsi_swapchain *chain,
+                             VkFence fence, int dma_buf_fd);
 
 struct wsi_interface {
    VkResult (*get_support)(VkIcdSurfaceBase *surface,
