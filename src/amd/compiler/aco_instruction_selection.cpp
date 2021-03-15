@@ -2427,9 +2427,23 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_i2f32: {
       assert(dst.size() == 1);
       Temp src = get_alu_src(ctx, instr->src[0]);
-      if (instr->src[0].src.ssa->bit_size <= 16)
-         src = convert_int(ctx, bld, src, instr->src[0].src.ssa->bit_size, 32, true);
-      bld.vop1(aco_opcode::v_cvt_f32_i32, Definition(dst), src);
+      const unsigned input_size = instr->src[0].src.ssa->bit_size;
+      if (input_size <= 32) {
+         if (input_size <= 16) {
+            // Sign-extend to 32-bits
+            src = convert_int(ctx, bld, src, instr->src[0].src.ssa->bit_size, 32, true);
+         }
+         bld.vop1(aco_opcode::v_cvt_f32_i32, Definition(dst), src);
+      } else {
+         assert(input_size == 64);
+         RegClass rc = RegClass(src.type(), 1);
+         Temp lower = bld.tmp(rc), upper = bld.tmp(rc);
+         bld.pseudo(aco_opcode::p_split_vector, Definition(lower), Definition(upper), src);
+         lower = bld.vop1(aco_opcode::v_cvt_f32_u32, bld.def(v1), lower);
+         upper = bld.vop1(aco_opcode::v_cvt_f32_i32, bld.def(v1), upper);
+         bld.vop3(aco_opcode::v_fma_f32, Definition(dst), upper, Operand(0x4f800000u /* 1 << 32 as float */), lower);
+      }
+
       break;
    }
    case nir_op_i2f64: {
@@ -2475,12 +2489,21 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_u2f32: {
       assert(dst.size() == 1);
       Temp src = get_alu_src(ctx, instr->src[0]);
-      if (instr->src[0].src.ssa->bit_size == 8) {
+      const unsigned input_size = instr->src[0].src.ssa->bit_size;
+      if (input_size == 8) {
          bld.vop1(aco_opcode::v_cvt_f32_ubyte0, Definition(dst), src);
-      } else {
-         if (instr->src[0].src.ssa->bit_size == 16)
+      } else if (input_size <= 32) {
+         if (input_size == 16)
             src = convert_int(ctx, bld, src, instr->src[0].src.ssa->bit_size, 32, true);
          bld.vop1(aco_opcode::v_cvt_f32_u32, Definition(dst), src);
+      } else {
+         assert(input_size == 64);
+         RegClass rc = RegClass(src.type(), 1);
+         Temp lower = bld.tmp(rc), upper = bld.tmp(rc);
+         bld.pseudo(aco_opcode::p_split_vector, Definition(lower), Definition(upper), src);
+         lower = bld.vop1(aco_opcode::v_cvt_f32_u32, bld.def(v1), lower);
+         upper = bld.vop1(aco_opcode::v_cvt_f32_u32, bld.def(v1), upper);
+         bld.vop3(aco_opcode::v_fma_f32, Definition(dst), upper, Operand(0x4f800000u /* 1 << 32 as float */), lower);
       }
       break;
    }
