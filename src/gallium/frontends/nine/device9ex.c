@@ -69,7 +69,12 @@ NineDevice9Ex_SetConvolutionMonoKernel( struct NineDevice9Ex *This,
                                         float *rows,
                                         float *columns )
 {
-    STUB(D3DERR_INVALIDCALL);
+    (void)This;
+    (void)width;
+    (void)height;
+    (void)rows;
+    (void)columns;
+    STUB(D3D_OK);
 }
 
 HRESULT NINE_WINAPI
@@ -83,7 +88,16 @@ NineDevice9Ex_ComposeRects( struct NineDevice9Ex *This,
                             int Xoffset,
                             int Yoffset )
 {
-    STUB(D3DERR_INVALIDCALL);
+    (void)This;
+    (void)pSrc;
+    (void)pDst;
+    (void)pSrcRectDescs;
+    (void)NumRects;
+    (void)pDstRectDescs;
+    (void)Operation;
+    (void)Xoffset;
+    (void)Yoffset;
+    STUB(D3D_OK);
 }
 
 HRESULT NINE_WINAPI
@@ -115,21 +129,27 @@ HRESULT NINE_WINAPI
 NineDevice9Ex_GetGPUThreadPriority( struct NineDevice9Ex *This,
                                     INT *pPriority )
 {
-    STUB(D3DERR_INVALIDCALL);
+    user_assert(pPriority != NULL, D3DERR_INVALIDCALL);
+    *pPriority = This->base.gpu_priority;
+    return D3D_OK;
 }
 
 HRESULT NINE_WINAPI
 NineDevice9Ex_SetGPUThreadPriority( struct NineDevice9Ex *This,
                                     INT Priority )
 {
-    STUB(D3DERR_INVALIDCALL);
+    user_assert(Priority >= -7 && Priority <= 7, D3DERR_INVALIDCALL);
+    This->base.gpu_priority = Priority;
+    return D3D_OK;
 }
 
 HRESULT NINE_WINAPI
 NineDevice9Ex_WaitForVBlank( struct NineDevice9Ex *This,
                              UINT iSwapChain )
 {
-    STUB(D3DERR_INVALIDCALL);
+    (void)This;
+    (void)iSwapChain;
+    STUB(D3D_OK);
 }
 
 HRESULT NINE_WINAPI
@@ -137,21 +157,27 @@ NineDevice9Ex_CheckResourceResidency( struct NineDevice9Ex *This,
                                       IDirect3DResource9 **pResourceArray,
                                       UINT32 NumResources )
 {
-    STUB(D3DERR_INVALIDCALL);
+    (void)This;
+    (void)pResourceArray;
+    (void)NumResources;
+    STUB(D3D_OK);
 }
 
 HRESULT NINE_WINAPI
 NineDevice9Ex_SetMaximumFrameLatency( struct NineDevice9Ex *This,
                                       UINT MaxLatency )
 {
-    STUB(D3DERR_INVALIDCALL);
+    This->base.max_frame_latency = MaxLatency;
+    return D3D_OK;
 }
 
 HRESULT NINE_WINAPI
 NineDevice9Ex_GetMaximumFrameLatency( struct NineDevice9Ex *This,
                                       UINT *pMaxLatency )
 {
-    STUB(D3DERR_INVALIDCALL);
+    user_assert(pMaxLatency != NULL, D3DERR_INVALIDCALL);
+    *pMaxLatency = This->base.max_frame_latency;
+    return D3D_OK;
 }
 
 HRESULT NINE_WINAPI
@@ -346,6 +372,7 @@ NineDevice9Ex_GetDisplayModeEx( struct NineDevice9Ex *This,
 HRESULT NINE_WINAPI
 NineDevice9Ex_TestCooperativeLevel( struct NineDevice9Ex *This )
 {
+    (void)This;
     return D3D_OK;
 }
 
