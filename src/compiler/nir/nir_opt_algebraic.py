@@ -240,6 +240,8 @@ optimizations.extend([
    (('~ffma@16', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma16'),
    (('~ffma@32', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma32'),
    (('~ffma@64', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma64'),
+   # Separate ffma if the mul can be CSE'd
+   (('~ffma', 'a(is_used_by_mul)', b, c), ('fadd', ('fmul', a, b), c)),
 
    (('~fmul', ('fadd', ('iand', ('ineg', ('b2i', 'a@bool')), ('fmul', b, c)), '#d'), '#e'),
     ('bcsel', a, ('fmul', ('fadd', ('fmul', b, c), d), e), ('fmul', d, e))),
