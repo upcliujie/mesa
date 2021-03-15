@@ -531,6 +531,32 @@ wsi_common_get_images(VkSwapchainKHR _swapchain,
    return vk_outarray_status(&images);
 }
 
+static VkResult
+wsi_signal_semaphore_for_image(const struct wsi_swapchain *chain,
+                               const struct wsi_image *image,
+                               VkSemaphore semaphore)
+{
+   if (chain->wsi->signal_semaphore_for_memory != NULL) {
+      chain->wsi->signal_semaphore_for_memory(chain->device, semaphore,
+                                              image->memory);
+   }
+
+   return VK_SUCCESS;
+}
+
+static VkResult
+wsi_signal_fence_for_image(const struct wsi_swapchain *chain,
+                           const struct wsi_image *image,
+                           VkFence fence)
+{
+   if (chain->wsi->signal_fence_for_memory != NULL) {
+      chain->wsi->signal_fence_for_memory(chain->device, fence,
+                                          image->memory);
+   }
+
+   return VK_SUCCESS;
+}
+
 VkResult
 wsi_common_acquire_next_image2(const struct wsi_device *wsi,
                                VkDevice device,
@@ -549,20 +575,22 @@ wsi_common_acquire_next_image2(const struct wsi_device *wsi,
       wsi->set_memory_ownership(swapchain->device, mem, true);
    }
 
-   if (pAcquireInfo->semaphore != VK_NULL_HANDLE &&
-       wsi->signal_semaphore_for_memory != NULL) {
-      struct wsi_image *image =
-         swapchain->get_wsi_image(swapchain, *pImageIndex);
-      wsi->signal_semaphore_for_memory(device, pAcquireInfo->semaphore,
-                                       image->memory);
+   struct wsi_image *image =
+      swapchain->get_wsi_image(swapchain, *pImageIndex);
+
+   if (pAcquireInfo->semaphore != VK_NULL_HANDLE) {
+      VkResult signal_result =
+         wsi_signal_semaphore_for_image(swapchain, image,
+                                        pAcquireInfo->semaphore);
+      if (signal_result != VK_SUCCESS)
+         return signal_result;
    }
 
-   if (pAcquireInfo->fence != VK_NULL_HANDLE &&
-       wsi->signal_fence_for_memory != NULL) {
-      struct wsi_image *image =
-         swapchain->get_wsi_image(swapchain, *pImageIndex);
-      wsi->signal_fence_for_memory(device, pAcquireInfo->fence,
-                                   image->memory);
+   if (pAcquireInfo->fence != VK_NULL_HANDLE) {
+      VkResult signal_result =
+         wsi_signal_fence_for_image(swapchain, image, pAcquireInfo->fence);
+      if (signal_result != VK_SUCCESS)
+         return signal_result;
    }
 
    return result;
