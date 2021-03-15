@@ -821,6 +821,14 @@ wsi_signal_semaphore_for_image(struct vk_device *device,
 
    vk_semaphore_reset_temporary(device, semaphore);
 
+#ifndef _WIN32
+   VkResult result = wsi_create_sync_for_dma_buf_wait(chain, image,
+                                                      VK_SYNC_FEATURE_GPU_WAIT,
+                                                      &semaphore->temporary);
+   if (result != VK_ERROR_FEATURE_NOT_PRESENT)
+      return result;
+#endif
+
    if (chain->wsi->signal_semaphore_with_memory) {
       return device->create_sync_for_memory(device, image->memory,
                                             false /* signal_memory */,
@@ -841,6 +849,14 @@ wsi_signal_fence_for_image(struct vk_device *device,
    VK_FROM_HANDLE(vk_fence, fence, _fence);
 
    vk_fence_reset_temporary(device, fence);
+
+#ifndef _WIN32
+   VkResult result = wsi_create_sync_for_dma_buf_wait(chain, image,
+                                                      VK_SYNC_FEATURE_CPU_WAIT,
+                                                      &fence->temporary);
+   if (result != VK_ERROR_FEATURE_NOT_PRESENT)
+      return result;
+#endif
 
    if (chain->wsi->signal_fence_with_memory) {
       return device->create_sync_for_memory(device, image->memory,
@@ -1008,11 +1024,39 @@ wsi_common_queue_present(const struct wsi_device *wsi,
 
       VkFence fence = swapchain->fences[image_index];
 
-      struct wsi_memory_signal_submit_info mem_signal = {
-         .sType = VK_STRUCTURE_TYPE_WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA,
-         .memory = image->memory,
-      };
-      __vk_append_struct(&submit_info, &mem_signal);
+      bool has_signal_dma_buf = true;
+      struct wsi_memory_signal_submit_info mem_signal;
+      result = wsi_test_signal_dma_buf_from_semaphore(swapchain, image);
+      if (result == VK_SUCCESS) {
+         if (swapchain->semaphore == VK_NULL_HANDLE) {
+            const VkSemaphoreCreateInfo semaphore_info = {
+               .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            };
+            result = wsi->CreateSemaphore(device, &semaphore_info,
+                                          &swapchain->alloc,
+                                          &swapchain->semaphore);
+            if (result != VK_SUCCESS)
+               goto fail_present;
+         }
+
+         assert(submit_info.signalSemaphoreCount == 0);
+         submit_info.signalSemaphoreCount = 1;
+         submit_info.pSignalSemaphores = &swapchain->semaphore;
+         has_signal_dma_buf = true;
+      } else if (VK_ERROR_FEATURE_NOT_PRESENT) {
+         /* If we don't have dma-buf signaling, signal the memory object by
+          * chaining wsi_memory_signal_submit_info into VkSubmitInfo.
+          */
+         result = VK_SUCCESS;
+         has_signal_dma_buf = false;
+         mem_signal = (struct wsi_memory_signal_submit_info) {
+            .sType = VK_STRUCTURE_TYPE_WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA,
+            .memory = image->memory,
+         };
+         __vk_append_struct(&submit_info, &mem_signal);
+      } else {
+         goto fail_present;
+      }
 
       result = wsi->QueueSubmit(submit_queue, 1, &submit_info, fence);
       if (result != VK_SUCCESS)
@@ -1033,6 +1077,12 @@ wsi_common_queue_present(const struct wsi_device *wsi,
       if (wsi->set_memory_ownership) {
          VkDeviceMemory mem = swapchain->get_wsi_image(swapchain, image_index)->memory;
          wsi->set_memory_ownership(swapchain->device, mem, false);
+      }
+
+      if (has_signal_dma_buf) {
+         VK_FROM_HANDLE(vk_semaphore, semaphore, swapchain->semaphore);
+         struct vk_sync *sync = vk_semaphore_get_active_sync(semaphore);
+         result = wsi_signal_dma_buf_from_sync(swapchain, sync, image);
       }
 
    fail_present:
