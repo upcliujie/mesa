@@ -2432,7 +2432,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       const unsigned input_size = instr->src[0].src.ssa->bit_size;
       if (input_size <= 16) {
          /* Expand integer to the size expected by the uint→float converter used below */
-         unsigned target_size = (ctx->program->chip_class >= GFX8 ? 16 : 32);
+         unsigned target_size = (false ? 16 : 32);
          if (input_size != target_size) {
             src = convert_int(ctx, bld, src, input_size, target_size, true);
          }
@@ -2445,7 +2445,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          src = convert_int(ctx, bld, src, 64, 32, false);
       }
 
-      if (ctx->program->chip_class >= GFX8 && input_size <= 16) {
+      if (false && input_size <= 16) {
          bld.vop1(aco_opcode::v_cvt_f16_i16, Definition(dst), src);
       } else {
          /* Convert to f32 and then down to f16. This is needed to handle
@@ -2512,7 +2512,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       const unsigned input_size = instr->src[0].src.ssa->bit_size;
       if (input_size <= 16) {
          /* Expand integer to the size expected by the uint→float converter used below */
-         unsigned target_size = (ctx->program->chip_class >= GFX8 ? 16 : 32);
+         unsigned target_size = (false ? 16 : 32);
          if (input_size != target_size) {
             src = convert_int(ctx, bld, src, input_size, target_size, false);
          }
@@ -2525,7 +2525,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          src = convert_int(ctx, bld, src, 64, 32, false);
       }
 
-      if (ctx->program->chip_class >= GFX8) {
+      if (/*ctx->program->chip_class >= GFX8*/false) {
          /* float16 has a range of [0, 65519]. Converting from larger
           * inputs is UB, so we just need to consider the lower 16 bits */
          bld.vop1(aco_opcode::v_cvt_f16_u16, Definition(dst), src);
@@ -2582,9 +2582,9 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_f2i8:
    case nir_op_f2i16: {
       if (instr->src[0].src.ssa->bit_size == 16) {
-         if (ctx->program->chip_class >= GFX8) {
+         /*if (ctx->program->chip_class >= GFX8) {
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_i16_f16, dst);
-         } else {
+         } else*/ {
             /* GFX7 and earlier do not support direct f16⟷i16 conversions */
             Temp tmp = bld.tmp(v1);
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_f32_f16, tmp);
@@ -2604,9 +2604,9 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_f2u8:
    case nir_op_f2u16: {
       if (instr->src[0].src.ssa->bit_size == 16) {
-         if (ctx->program->chip_class >= GFX8) {
+         /*if (ctx->program->chip_class >= GFX8) {
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_u16_f16, dst);
-         } else {
+         } else*/ {
             /* GFX7 and earlier do not support direct f16⟷u16 conversions */
             Temp tmp = bld.tmp(v1);
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_f32_f16, tmp);
