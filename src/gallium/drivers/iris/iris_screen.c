@@ -260,6 +260,9 @@ iris_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_MIXED_COLOR_DEPTH_BITS:
    case PIPE_CAP_FENCE_SIGNAL:
       return true;
+   /* Optimization below causing unknown performance issues on gen9. */
+   case PIPE_CAP_DYNAMIC_VAO_FAST_PATH:
+      return devinfo->gen >= 9;
    case PIPE_CAP_FBFETCH:
       return BRW_MAX_DRAW_BUFFERS;
    case PIPE_CAP_FBFETCH_COHERENT:
