@@ -2431,7 +2431,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       Temp src = get_alu_src(ctx, instr->src[0]);
       if (instr->src[0].src.ssa->bit_size == 8) {
          /* Expand integer to the size expected by the uint→float converter used below */
-         src = convert_int(ctx, bld, src, 8, (ctx->program->chip_class >= GFX8) ? 16 : 32, true);
+         src = convert_int(ctx, bld, src, 8, (/*ctx->program->chip_class >= GFX8*/false) ? 16 : 32, true);
       } else if (instr->src[0].src.ssa->bit_size == 64) {
          /* Truncate down to 32 bits; if any of the upper bits are relevant,
           * the value does not fall into the single-precision float range
@@ -2441,7 +2441,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          src = convert_int(ctx, bld, src, 64, 32, false);
       }
 
-      if (ctx->program->chip_class >= GFX8 && instr->src[0].src.ssa->bit_size <= 16) {
+      if (/*ctx->program->chip_class >= GFX8*/ false && instr->src[0].src.ssa->bit_size <= 16) {
          bld.vop1(aco_opcode::v_cvt_f16_i16, Definition(dst), src);
       } else {
          /* Convert to f32 and then down to f16. This is needed to handle
@@ -2507,7 +2507,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
       Temp src = get_alu_src(ctx, instr->src[0]);
       if (instr->src[0].src.ssa->bit_size == 8) {
          /* Expand integer to the size expected by the uint→float converter used below */
-         src = convert_int(ctx, bld, src, 8, (ctx->program->chip_class >= GFX8) ? 16 : 32, false);
+         src = convert_int(ctx, bld, src, 8, (/*ctx->program->chip_class >= GFX8*/false) ? 16 : 32, false);
       } else if (instr->src[0].src.ssa->bit_size == 64) {
          /* Truncate down to 32 bits; if any of the upper bits are non-zero,
           * the value does not fall into the single-precision float range
@@ -2517,7 +2517,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          src = convert_int(ctx, bld, src, 64, 32, false);
       }
 
-      if (ctx->program->chip_class >= GFX8) {
+      if (/*ctx->program->chip_class >= GFX8*/false) {
          /* float16 has a range of [0, 65519]. Converting from larger
           * inputs is UB, so we just need to consider the lower 16 bits */
          bld.vop1(aco_opcode::v_cvt_f16_u16, Definition(dst), src);
@@ -2574,9 +2574,9 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_f2i8:
    case nir_op_f2i16: {
       if (instr->src[0].src.ssa->bit_size == 16) {
-         if (ctx->program->chip_class >= GFX8) {
+         /*if (ctx->program->chip_class >= GFX8) {
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_i16_f16, dst);
-         } else {
+         } else*/ {
             /* GFX7 and earlier do not support direct f16⟷i16 conversions */
             Temp tmp = bld.tmp(v1);
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_f32_f16, tmp);
@@ -2596,9 +2596,9 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
    case nir_op_f2u8:
    case nir_op_f2u16: {
       if (instr->src[0].src.ssa->bit_size == 16) {
-         if (ctx->program->chip_class >= GFX8) {
+         /*if (ctx->program->chip_class >= GFX8) {
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_u16_f16, dst);
-         } else {
+         } else*/ {
             /* GFX7 and earlier do not support direct f16⟷u16 conversions */
             Temp tmp = bld.tmp(v1);
             emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_f32_f16, tmp);
