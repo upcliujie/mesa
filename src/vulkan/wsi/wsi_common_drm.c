@@ -28,11 +28,105 @@
 #include "vk_util.h"
 #include "drm-uapi/drm_fourcc.h"
 
+#include <errno.h>
+#include <linux/dma-buf.h>
+#include <linux/sync_file.h>
 #include <time.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <xf86drm.h>
+
+struct dma_buf_sync_file_wsi {
+   __u32 flags;
+   __s32 fd;
+};
+
+#define DMA_BUF_IOCTL_EXPORT_SYNC_FILE_WSI   _IOWR(DMA_BUF_BASE, 2, struct dma_buf_sync_file_wsi)
+
+static VkResult
+wsi_dma_buf_export_sync_file(int dma_buf_fd, int *sync_file_fd)
+{
+   /* Don't keep trying an IOCTL that doesn't exist. */
+   static bool no_dma_buf_sync_file = false;
+   if (no_dma_buf_sync_file)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   struct dma_buf_sync_file_wsi dma_buf_sync_file_export = {
+      .flags = DMA_BUF_SYNC_WRITE,
+      .fd = -1,
+   };
+   int ret = drmIoctl(dma_buf_fd, DMA_BUF_IOCTL_EXPORT_SYNC_FILE_WSI,
+                      &dma_buf_sync_file_export);
+   if (ret) {
+      if (errno == ENOTTY) {
+         no_dma_buf_sync_file = true;
+         return VK_ERROR_FEATURE_NOT_PRESENT;
+      } else {
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
+      }
+   }
+
+   *sync_file_fd = dma_buf_sync_file_export.fd;
+
+   return VK_SUCCESS;
+}
+
+VkResult
+wsi_signal_semaphore_for_dma_buf(const struct wsi_swapchain *chain,
+                                 VkSemaphore semaphore, int dma_buf_fd)
+{
+   if (chain->wsi->ImportSemaphoreFdKHR == NULL)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   int sync_file_fd = -1;
+   VkResult result = wsi_dma_buf_export_sync_file(dma_buf_fd, &sync_file_fd);
+   if (result != VK_SUCCESS)
+      return result;
+
+   const VkImportSemaphoreFdInfoKHR import_info = {
+      .sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR,
+      .semaphore = semaphore,
+      .flags = VK_SEMAPHORE_IMPORT_TEMPORARY_BIT,
+      .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+
+      /* vkImportSemaphoreFdKHR takes ownership of the fd */
+      .fd = sync_file_fd,
+   };
+   result = chain->wsi->ImportSemaphoreFdKHR(chain->device, &import_info);
+   if (result != VK_SUCCESS)
+      close(sync_file_fd);
+
+   return result;
+}
+
+VkResult
+wsi_signal_fence_for_dma_buf(const struct wsi_swapchain *chain,
+                             VkFence fence, int dma_buf_fd)
+{
+   if (chain->wsi->ImportFenceFdKHR == NULL)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   int sync_file_fd = -1;
+   VkResult result = wsi_dma_buf_export_sync_file(dma_buf_fd, &sync_file_fd);
+   if (result != VK_SUCCESS)
+      return result;
+
+   const VkImportFenceFdInfoKHR import_info = {
+      .sType = VK_STRUCTURE_TYPE_IMPORT_FENCE_FD_INFO_KHR,
+      .fence = fence,
+      .flags = VK_FENCE_IMPORT_TEMPORARY_BIT,
+      .handleType = VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT,
+
+      /* vkImportFenceFdKHR takes ownership of the fd */
+      .fd = sync_file_fd,
+   };
+   result = chain->wsi->ImportFenceFdKHR(chain->device, &import_info);
+   if (result != VK_SUCCESS)
+      close(sync_file_fd);
+
+   return result;
+}
 
 bool
 wsi_device_matches_drm_fd(const struct wsi_device *wsi, int drm_fd)
