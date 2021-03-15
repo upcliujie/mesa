@@ -191,6 +191,8 @@ struct wsi_device {
    WSI_CB(GetPhysicalDeviceFormatProperties);
    WSI_CB(GetPhysicalDeviceFormatProperties2KHR);
    WSI_CB(GetPhysicalDeviceImageFormatProperties2);
+   WSI_CB(ImportFenceFdKHR);
+   WSI_CB(ImportSemaphoreFdKHR);
    WSI_CB(ResetFences);
    WSI_CB(QueueSubmit);
    WSI_CB(WaitForFences);
