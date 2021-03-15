@@ -49,6 +49,7 @@ pre_args = [
   '-DPACKAGE_BUGREPORT="https://gitlab.freedesktop.org/mesa/mesa/-/issues"',
 ]
 
+with_perfetto = get_option('perfetto')
 with_vulkan_icd_dir = get_option('vulkan-icd-dir')
 with_tests = get_option('build-tests')
 with_aco_tests = get_option('build-aco-tests')
@@ -2120,6 +2121,7 @@ lines += 'HUD lmsensors:   ' + (dep_lmsensors.found() ? 'yes' : 'no')
 
 lines += ''
 lines += 'Shared-glapi:    ' + (with_shared_glapi ? 'yes' : 'no')
+lines += 'Perfetto:        ' + (with_perfetto ? 'yes' : 'no')
 
 
 indent = '        '
