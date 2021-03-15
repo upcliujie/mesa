@@ -245,22 +245,12 @@ struct assignment {
    assignment(PhysReg reg_, RegClass rc_) : reg(reg_), rc(rc_), assigned(-1) {}
 };
 
-struct phi_info {
-   Instruction* phi;
-   unsigned block_idx;
-   std::set<Instruction*> uses;
-};
-
 struct ra_ctx {
-   std::bitset<512> war_hint;
    Program* program;
    std::vector<assignment> assignments;
    std::vector<std::unordered_map<unsigned, Temp>> renames;
-   std::vector<std::vector<Instruction*>> incomplete_phis;
-   std::vector<bool> filled;
-   std::vector<bool> sealed;
+   std::vector<uint32_t> loop_header;
    std::unordered_map<unsigned, Temp> orig_names;
-   std::unordered_map<unsigned, phi_info> phi_map;
    std::unordered_map<unsigned, unsigned> affinities;
    std::unordered_map<unsigned, Instruction*> vectors;
    std::unordered_map<unsigned, Instruction*> split_vectors;
@@ -269,6 +259,7 @@ struct ra_ctx {
    uint16_t max_used_vgpr = 0;
    uint16_t sgpr_limit;
    uint16_t vgpr_limit;
+   std::bitset<512> war_hint;
    std::bitset<64> defs_done; /* see MAX_ARGS in aco_instruction_selection_setup.cpp */
 
    ra_test_policy policy;
@@ -277,9 +268,6 @@ struct ra_ctx {
       : program(program_),
         assignments(program->peekAllocationId()),
         renames(program->blocks.size()),
-        incomplete_phis(program->blocks.size()),
-        filled(program->blocks.size()),
-        sealed(program->blocks.size()),
         policy(policy_)
    {
       pseudo_dummy.reset(create_instruction<Instruction>(aco_opcode::p_parallelcopy, Format::PSEUDO, 0, 0));
