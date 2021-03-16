@@ -1,0 +1,1185 @@
+glx@extension string sanity
+glx@glx-copy-sub-buffer
+glx@glx-multi-window-single-context
+glx@glx-multithread
+glx@glx-multithread-buffer
+glx@glx-multithread-texture
+glx@glx-query-drawable-glx_fbconfig_id-window
+glx@glx-swap-copy
+glx@glx-swap-pixmap-bad
+glx@glx-visuals-depth
+glx@glx-visuals-depth -pixmap
+glx@glx-visuals-stencil
+glx@glx-visuals-stencil -pixmap
+glx@glx_arb_create_context_es2_profile@invalid opengl es version
+glx@glx_ext_import_context@free context
+glx@glx_ext_import_context@get context id
+glx@glx_ext_import_context@get current display
+glx@glx_ext_import_context@import context, multi process
+glx@glx_ext_import_context@import context, single process
+glx@glx_ext_import_context@imported context has same context id
+glx@glx_ext_import_context@make current, multi process
+glx@glx_ext_import_context@make current, single process
+glx@glx_ext_import_context@query context info
+shaders@glsl-bug-110796
+shaders@glsl-fs-flat-color
+shaders@glsl-fs-pointcoord
+shaders@point-vertex-id divisor
+shaders@point-vertex-id gl_instanceid
+shaders@point-vertex-id gl_instanceid divisor
+shaders@point-vertex-id gl_vertexid
+shaders@point-vertex-id gl_vertexid divisor
+shaders@point-vertex-id gl_vertexid gl_instanceid
+shaders@point-vertex-id gl_vertexid gl_instanceid divisor
+spec@!opengl 1.0@gl-1.0-dlist-materials
+spec@!opengl 1.0@gl-1.0-dlist-shademodel
+spec@!opengl 1.0@gl-1.0-edgeflag
+spec@!opengl 1.0@gl-1.0-edgeflag-quads
+spec@!opengl 1.0@gl-1.0-no-op-paths
+spec@!opengl 1.0@gl-1.0-swapbuffers-behavior
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@glbegin@end(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawarrays(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quad_strip), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_ccw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_fill), quadrant: right top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: center top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: left top
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right bottom
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right middle
+spec@!opengl 1.1@clipflat@gldrawelements(gl_quads), glfrontface(gl_cw), glpolygonmode(gl_line), quadrant: right top
+spec@!opengl 1.1@copyteximage 1d
+spec@!opengl 1.1@copyteximage 2d
+spec@!opengl 1.1@depthstencil-default_fb-copypixels
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-24_8
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-32f_24_8_rev
+spec@!opengl 1.1@line-flat-clip-color
+spec@!opengl 1.1@linestipple@factor 2x
+spec@!opengl 1.1@linestipple@factor 3x
+spec@!opengl 1.1@linestipple@line loop
+spec@!opengl 1.1@linestipple@line strip
+spec@!opengl 1.1@linestipple@restarting lines within a single begin-end block
+spec@!opengl 1.1@polygon-mode
+spec@!opengl 1.1@polygon-mode-facing
+spec@!opengl 1.1@polygon-mode-offset@config 0: expected white pixel on bottom edge
+spec@!opengl 1.1@polygon-mode-offset@config 0: expected white pixel on left edge
+spec@!opengl 1.1@polygon-mode-offset@config 0: expected white pixel on right edge
+spec@!opengl 1.1@polygon-mode-offset@config 0: expected white pixel on top edge
+spec@!opengl 1.1@polygon-mode-offset@config 1: expected blue pixel in center
+spec@!opengl 1.1@polygon-mode-offset@config 2: expected blue pixel in center
+spec@!opengl 1.1@polygon-mode-offset@config 2: expected white pixel on right edge
+spec@!opengl 1.1@polygon-mode-offset@config 2: expected white pixel on top edge
+spec@!opengl 1.1@polygon-mode-offset@config 5: expected blue pixel in center
+spec@!opengl 1.1@polygon-mode-offset@config 6: expected blue pixel in center
+spec@!opengl 1.1@polygon-mode-offset@config 6: expected white pixel on right edge
+spec@!opengl 1.1@polygon-mode-offset@config 6: expected white pixel on top edge
+spec@!opengl 1.1@polygon-offset
+spec@!opengl 1.1@read-front
+spec@!opengl 1.1@read-front clear-front-first
+spec@!opengl 1.1@texwrap 1d bordercolor@gl_rgba8, border color only
+spec@!opengl 1.1@texwrap 1d proj bordercolor@gl_rgba8, projected, border color only
+spec@!opengl 1.1@texwrap 2d bordercolor@gl_rgba8, border color only
+spec@!opengl 1.1@texwrap 2d proj bordercolor@gl_rgba8, projected, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_alpha12, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_alpha16, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_alpha4, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_alpha8, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_intensity12, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_intensity16, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_intensity4, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_intensity8, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_luminance12, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_luminance12_alpha12, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_luminance12_alpha4, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_luminance16, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_luminance16_alpha16, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_luminance4, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_luminance4_alpha4, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_luminance6_alpha2, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_luminance8, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_luminance8_alpha8, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_r3_g3_b2, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgb10, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgb10_a2, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgb12, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgb16, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgb4, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgb5, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgb5_a1, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgb8, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgba12, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgba16, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgba2, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgba4, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor-swizzled@gl_rgba8, swizzled, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_alpha12, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_alpha16, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_alpha4, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_alpha8, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_intensity12, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_intensity16, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_intensity4, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_intensity8, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_luminance12, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_luminance12_alpha12, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_luminance12_alpha4, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_luminance16, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_luminance16_alpha16, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_luminance4, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_luminance4_alpha4, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_luminance6_alpha2, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_luminance8, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_luminance8_alpha8, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_r3_g3_b2, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgb10, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgb10_a2, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgb12, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgb16, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgb4, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgb5, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgb5_a1, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgb8, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgba12, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgba16, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgba2, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgba4, border color only
+spec@!opengl 1.1@texwrap formats bordercolor@gl_rgba8, border color only
+spec@!opengl 1.2@copyteximage 3d
+spec@!opengl 1.2@texwrap 3d bordercolor@gl_rgba8, border color only
+spec@!opengl 1.2@texwrap 3d proj bordercolor@gl_rgba8, projected, border color only
+spec@!opengl 1.3@gl-1.3-texture-env
+spec@!opengl 1.3@tex-border-1
+spec@!opengl 1.3@tex3d-depth1
+spec@!opengl 1.4@copy-pixels
+spec@!opengl 1.4@gl-1.4-polygon-offset
+spec@!opengl 2.0@depth-tex-modes-glsl
+spec@!opengl 2.0@gl-2.0-edgeflag
+spec@!opengl 2.0@gl-2.0-edgeflag-immediate
+spec@!opengl 2.0@max-samplers border
+spec@!opengl 2.1@pbo@test_polygon_stip
+spec@!opengl 2.1@polygon-stipple-fs
+spec@!opengl 3.0@clearbuffer-depth
+spec@!opengl 3.0@clearbuffer-stencil
+spec@!opengl 3.0@sampler-cube-shadow
+spec@!opengl 3.1@primitive-restart-xfb flush
+spec@!opengl 3.1@primitive-restart-xfb generated
+spec@!opengl 3.1@primitive-restart-xfb written
+spec@!opengl 3.2@gl-3.2-adj-prims cull-back pv-first
+spec@!opengl 3.2@gl-3.2-adj-prims cull-back pv-last
+spec@!opengl 3.2@gl-3.2-adj-prims cull-front pv-first
+spec@!opengl 3.2@gl-3.2-adj-prims cull-front pv-last
+spec@!opengl 3.2@gl-3.2-adj-prims line cull-back pv-first
+spec@!opengl 3.2@gl-3.2-adj-prims line cull-back pv-last
+spec@!opengl 3.2@gl-3.2-adj-prims line cull-front pv-first
+spec@!opengl 3.2@gl-3.2-adj-prims line cull-front pv-last
+spec@!opengl 3.2@gl-3.2-adj-prims pv-first
+spec@!opengl 3.2@gl-3.2-adj-prims pv-last
+spec@!opengl es 2.0@glsl-fs-pointcoord
+spec@!opengl es 3.0@gles-3.0-transform-feedback-uniform-buffer-object
+spec@arb_clear_texture@arb_clear_texture-multisample
+spec@arb_depth_buffer_float@fbo-clear-formats stencil@gl_depth32f_stencil8
+spec@arb_depth_buffer_float@fbo-depth-gl_depth32f_stencil8-blit
+spec@arb_depth_buffer_float@fbo-depth-gl_depth32f_stencil8-copypixels
+spec@arb_depth_buffer_float@fbo-depthstencil-gl_depth32f_stencil8-copypixels
+spec@arb_depth_buffer_float@fbo-depthstencil-gl_depth32f_stencil8-drawpixels-24_8
+spec@arb_depth_buffer_float@fbo-depthstencil-gl_depth32f_stencil8-drawpixels-32f_24_8_rev
+spec@arb_depth_buffer_float@fbo-stencil-gl_depth32f_stencil8-blit
+spec@arb_depth_buffer_float@fbo-stencil-gl_depth32f_stencil8-copypixels
+spec@arb_depth_buffer_float@texwrap formats bordercolor-swizzled@gl_depth32f_stencil8, swizzled, border color only
+spec@arb_depth_buffer_float@texwrap formats bordercolor-swizzled@gl_depth_component32f, swizzled, border color only
+spec@arb_depth_buffer_float@texwrap formats bordercolor@gl_depth32f_stencil8, border color only
+spec@arb_depth_buffer_float@texwrap formats bordercolor@gl_depth_component32f, border color only
+spec@arb_depth_texture@depth-tex-modes
+spec@arb_depth_texture@texwrap formats bordercolor-swizzled@gl_depth_component16, swizzled, border color only
+spec@arb_depth_texture@texwrap formats bordercolor-swizzled@gl_depth_component24, swizzled, border color only
+spec@arb_depth_texture@texwrap formats bordercolor-swizzled@gl_depth_component32, swizzled, border color only
+spec@arb_depth_texture@texwrap formats bordercolor@gl_depth_component16, border color only
+spec@arb_depth_texture@texwrap formats bordercolor@gl_depth_component24, border color only
+spec@arb_depth_texture@texwrap formats bordercolor@gl_depth_component32, border color only
+spec@arb_es2_compatibility@texwrap formats bordercolor-swizzled@gl_rgb565, swizzled, border color only
+spec@arb_es2_compatibility@texwrap formats bordercolor@gl_rgb565, border color only
+spec@arb_framebuffer_object@arb_framebuffer_object-depth-stencil-blit depth gl_depth24_stencil8
+spec@arb_framebuffer_object@arb_framebuffer_object-depth-stencil-blit depth gl_depth32f_stencil8
+spec@arb_framebuffer_object@arb_framebuffer_object-depth-stencil-blit stencil gl_depth24_stencil8
+spec@arb_framebuffer_object@arb_framebuffer_object-depth-stencil-blit stencil gl_depth32f_stencil8
+spec@arb_framebuffer_object@fbo-blit-scaled-linear
+spec@arb_framebuffer_object@fbo-gl_pointcoord
+spec@arb_framebuffer_object@framebuffer-blit-levels draw stencil
+spec@arb_framebuffer_object@framebuffer-blit-levels read stencil
+spec@arb_get_program_binary@restore-sso-program
+spec@arb_gpu_shader_fp64@execution@arb_gpu_shader_fp64-tf-separate
+spec@arb_pipeline_statistics_query@arb_pipeline_statistics_query-frag
+spec@arb_point_parameters@arb_point_parameters-point-attenuation@aliased combinations
+spec@arb_point_parameters@arb_point_parameters-point-attenuation@antialiased combinations
+spec@arb_point_sprite@arb_point_sprite-checkerboard
+spec@arb_point_sprite@arb_point_sprite-mipmap
+spec@arb_program_interface_query@arb_program_interface_query-getprogramresourceindex@'vs_input2[1][0]' on gl_program_input
+spec@arb_provoking_vertex@arb-provoking-vertex-clipped-geometry-flatshading
+spec@arb_provoking_vertex@arb-provoking-vertex-render
+spec@arb_sample_shading@ignore-centroid-qualifier 2
+spec@arb_sample_shading@ignore-centroid-qualifier 4
+spec@arb_sample_shading@interpolate-at-sample-position 2
+spec@arb_sample_shading@interpolate-at-sample-position 4
+spec@arb_sample_shading@samplemask 2 all@0.250000 mask_in_one
+spec@arb_sample_shading@samplemask 2 all@0.500000 mask_in_one
+spec@arb_sample_shading@samplemask 2 all@1.000000 mask_in_one
+spec@arb_sample_shading@samplemask 2 all@noms mask_in_one
+spec@arb_sample_shading@samplemask 2 all@noms partition
+spec@arb_sample_shading@samplemask 2 all@sample mask_in_one
+spec@arb_sample_shading@samplemask 2@0.250000 mask_in_one
+spec@arb_sample_shading@samplemask 2@0.500000 mask_in_one
+spec@arb_sample_shading@samplemask 2@1.000000 mask_in_one
+spec@arb_sample_shading@samplemask 2@noms mask_in_one
+spec@arb_sample_shading@samplemask 2@noms partition
+spec@arb_sample_shading@samplemask 2@sample mask_in_one
+spec@arb_sample_shading@samplemask 4 all@0.250000 mask_in_one
+spec@arb_sample_shading@samplemask 4 all@0.500000 mask_in_one
+spec@arb_sample_shading@samplemask 4 all@1.000000 mask_in_one
+spec@arb_sample_shading@samplemask 4 all@noms mask_in_one
+spec@arb_sample_shading@samplemask 4 all@noms partition
+spec@arb_sample_shading@samplemask 4 all@sample mask_in_one
+spec@arb_sample_shading@samplemask 4@0.250000 mask_in_one
+spec@arb_sample_shading@samplemask 4@0.500000 mask_in_one
+spec@arb_sample_shading@samplemask 4@1.000000 mask_in_one
+spec@arb_sample_shading@samplemask 4@noms mask_in_one
+spec@arb_sample_shading@samplemask 4@noms partition
+spec@arb_sample_shading@samplemask 4@sample mask_in_one
+spec@arb_seamless_cube_map@arb_seamless_cubemap
+spec@arb_shader_texture_lod@execution@arb_shader_texture_lod-texgrad
+spec@arb_stencil_texturing@draw
+spec@arb_texture_buffer_object@indexed
+spec@arb_texture_buffer_range@ranges-2 compat
+spec@arb_texture_compression@texwrap formats bordercolor-swizzled@gl_compressed_alpha, swizzled, border color only
+spec@arb_texture_compression@texwrap formats bordercolor-swizzled@gl_compressed_intensity, swizzled, border color only
+spec@arb_texture_compression@texwrap formats bordercolor-swizzled@gl_compressed_luminance, swizzled, border color only
+spec@arb_texture_compression@texwrap formats bordercolor-swizzled@gl_compressed_luminance_alpha, swizzled, border color only
+spec@arb_texture_compression@texwrap formats bordercolor-swizzled@gl_compressed_rgb, swizzled, border color only
+spec@arb_texture_compression@texwrap formats bordercolor-swizzled@gl_compressed_rgba, swizzled, border color only
+spec@arb_texture_compression@texwrap formats bordercolor@gl_compressed_alpha, border color only
+spec@arb_texture_compression@texwrap formats bordercolor@gl_compressed_intensity, border color only
+spec@arb_texture_compression@texwrap formats bordercolor@gl_compressed_luminance, border color only
+spec@arb_texture_compression@texwrap formats bordercolor@gl_compressed_luminance_alpha, border color only
+spec@arb_texture_compression@texwrap formats bordercolor@gl_compressed_rgb, border color only
+spec@arb_texture_compression@texwrap formats bordercolor@gl_compressed_rgba, border color only
+spec@arb_texture_compression_bptc@texwrap formats bordercolor-swizzled@gl_compressed_rgb_bptc_signed_float, swizzled, border color only
+spec@arb_texture_compression_bptc@texwrap formats bordercolor-swizzled@gl_compressed_rgb_bptc_unsigned_float, swizzled, border color only
+spec@arb_texture_compression_bptc@texwrap formats bordercolor-swizzled@gl_compressed_rgba_bptc_unorm, swizzled, border color only
+spec@arb_texture_compression_bptc@texwrap formats bordercolor-swizzled@gl_compressed_srgb_alpha_bptc_unorm, swizzled, border color only
+spec@arb_texture_compression_bptc@texwrap formats bordercolor@gl_compressed_rgb_bptc_signed_float, border color only
+spec@arb_texture_compression_bptc@texwrap formats bordercolor@gl_compressed_rgb_bptc_unsigned_float, border color only
+spec@arb_texture_compression_bptc@texwrap formats bordercolor@gl_compressed_rgba_bptc_unorm, border color only
+spec@arb_texture_compression_bptc@texwrap formats bordercolor@gl_compressed_srgb_alpha_bptc_unorm, border color only
+spec@arb_texture_cube_map@copyteximage cube
+spec@arb_texture_cube_map_array@arb_texture_cube_map_array-sampler-cube-array-shadow
+spec@arb_texture_float@fbo-blending-formats@gl_intensity16f_arb
+spec@arb_texture_float@fbo-blending-formats@gl_intensity32f_arb
+spec@arb_texture_float@fbo-blending-formats@gl_luminance16f_arb
+spec@arb_texture_float@fbo-blending-formats@gl_luminance32f_arb
+spec@arb_texture_float@fbo-blending-formats@gl_rgb16f
+spec@arb_texture_float@fbo-blending-formats@gl_rgb32f
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_alpha16f_arb, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_alpha32f_arb, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_intensity16f_arb, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_intensity32f_arb, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_luminance16f_arb, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_luminance32f_arb, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_luminance_alpha16f_arb, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_luminance_alpha32f_arb, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_rgb16f, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_rgb32f, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_rgba16f, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor-swizzled@gl_rgba32f, swizzled, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_alpha16f_arb, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_alpha32f_arb, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_intensity16f_arb, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_intensity32f_arb, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_luminance16f_arb, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_luminance32f_arb, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_luminance_alpha16f_arb, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_luminance_alpha32f_arb, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_rgb16f, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_rgb32f, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_rgba16f, border color only
+spec@arb_texture_float@texwrap formats bordercolor@gl_rgba32f, border color only
+spec@arb_texture_multisample@arb_texture_multisample-dsa-texelfetch@texture type: gl_rgb9_e5
+spec@arb_texture_rectangle@copyteximage rect
+spec@arb_texture_rectangle@texwrap rect bordercolor@gl_rgba8, border color only
+spec@arb_texture_rectangle@texwrap rect proj bordercolor@gl_rgba8, projected, border color only
+spec@arb_texture_rg@multisample-fast-clear gl_arb_texture_rg-int
+spec@arb_texture_rg@texwrap formats bordercolor-swizzled@gl_r16, swizzled, border color only
+spec@arb_texture_rg@texwrap formats bordercolor-swizzled@gl_r8, swizzled, border color only
+spec@arb_texture_rg@texwrap formats bordercolor-swizzled@gl_rg16, swizzled, border color only
+spec@arb_texture_rg@texwrap formats bordercolor-swizzled@gl_rg8, swizzled, border color only
+spec@arb_texture_rg@texwrap formats bordercolor@gl_r16, border color only
+spec@arb_texture_rg@texwrap formats bordercolor@gl_r8, border color only
+spec@arb_texture_rg@texwrap formats bordercolor@gl_rg16, border color only
+spec@arb_texture_rg@texwrap formats bordercolor@gl_rg8, border color only
+spec@arb_texture_rg@texwrap formats-float bordercolor-swizzled@gl_r16f, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-float bordercolor-swizzled@gl_r32f, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-float bordercolor-swizzled@gl_rg16f, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-float bordercolor-swizzled@gl_rg32f, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-float bordercolor@gl_r16f, border color only
+spec@arb_texture_rg@texwrap formats-float bordercolor@gl_r32f, border color only
+spec@arb_texture_rg@texwrap formats-float bordercolor@gl_rg16f, border color only
+spec@arb_texture_rg@texwrap formats-float bordercolor@gl_rg32f, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_r16i, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_r16ui, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_r32i, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_r32ui, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_r8i, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_r8ui, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_rg16i, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_rg16ui, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_rg32i, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_rg32ui, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_rg8i, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor-swizzled@gl_rg8ui, swizzled, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_r16i, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_r16ui, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_r32i, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_r32ui, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_r8i, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_r8ui, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_rg16i, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_rg16ui, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_rg32i, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_rg32ui, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_rg8i, border color only
+spec@arb_texture_rg@texwrap formats-int bordercolor@gl_rg8ui, border color only
+spec@arb_texture_rgb10_a2ui@texwrap formats bordercolor-swizzled@gl_rgb10_a2ui, swizzled, border color only
+spec@arb_texture_rgb10_a2ui@texwrap formats bordercolor@gl_rgb10_a2ui, border color only
+spec@arb_texture_stencil8@texwrap formats bordercolor-swizzled@gl_stencil_index8, swizzled, border color only
+spec@arb_texture_stencil8@texwrap formats bordercolor@gl_stencil_index8, border color only
+spec@arb_texture_view@rendering-formats@clear gl_r16 as gl_r16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r16 as gl_r16f
+spec@arb_texture_view@rendering-formats@clear gl_r16 as gl_r16i
+spec@arb_texture_view@rendering-formats@clear gl_r16 as gl_r16ui
+spec@arb_texture_view@rendering-formats@clear gl_r16 as gl_rg8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r16 as gl_rg8i
+spec@arb_texture_view@rendering-formats@clear gl_r16 as gl_rg8ui
+spec@arb_texture_view@rendering-formats@clear gl_r16_snorm as gl_r16
+spec@arb_texture_view@rendering-formats@clear gl_r16_snorm as gl_r16f
+spec@arb_texture_view@rendering-formats@clear gl_r16_snorm as gl_r16i
+spec@arb_texture_view@rendering-formats@clear gl_r16_snorm as gl_r16ui
+spec@arb_texture_view@rendering-formats@clear gl_r16_snorm as gl_rg8
+spec@arb_texture_view@rendering-formats@clear gl_r16_snorm as gl_rg8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r16_snorm as gl_rg8i
+spec@arb_texture_view@rendering-formats@clear gl_r16_snorm as gl_rg8ui
+spec@arb_texture_view@rendering-formats@clear gl_r16f as gl_r16
+spec@arb_texture_view@rendering-formats@clear gl_r16f as gl_r16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r16f as gl_rg8
+spec@arb_texture_view@rendering-formats@clear gl_r16f as gl_rg8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r16i as gl_r16
+spec@arb_texture_view@rendering-formats@clear gl_r16i as gl_r16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r16i as gl_r16f
+spec@arb_texture_view@rendering-formats@clear gl_r16i as gl_r16i
+spec@arb_texture_view@rendering-formats@clear gl_r16i as gl_rg8
+spec@arb_texture_view@rendering-formats@clear gl_r16i as gl_rg8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r16i as gl_rg8i
+spec@arb_texture_view@rendering-formats@clear gl_r16ui as gl_r16
+spec@arb_texture_view@rendering-formats@clear gl_r16ui as gl_r16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r16ui as gl_r16f
+spec@arb_texture_view@rendering-formats@clear gl_r16ui as gl_r16i
+spec@arb_texture_view@rendering-formats@clear gl_r16ui as gl_rg8
+spec@arb_texture_view@rendering-formats@clear gl_r16ui as gl_rg8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r16ui as gl_rg8i
+spec@arb_texture_view@rendering-formats@clear gl_r32f as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_r32f as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r32f as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_r32f as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_r32f as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_r32f as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_r32f as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r32f as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_r32i as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_r32i as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r32i as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_r32i as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_r32i as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_r32i as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_r32i as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r32i as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_r32ui as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_r32ui as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r32ui as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_r32ui as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_r32ui as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_r32ui as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_r32ui as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r32ui as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_r8 as gl_r8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r8 as gl_r8i
+spec@arb_texture_view@rendering-formats@clear gl_r8 as gl_r8ui
+spec@arb_texture_view@rendering-formats@clear gl_r8_snorm as gl_r8
+spec@arb_texture_view@rendering-formats@clear gl_r8_snorm as gl_r8i
+spec@arb_texture_view@rendering-formats@clear gl_r8_snorm as gl_r8ui
+spec@arb_texture_view@rendering-formats@clear gl_r8i as gl_r8
+spec@arb_texture_view@rendering-formats@clear gl_r8i as gl_r8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r8i as gl_r8i
+spec@arb_texture_view@rendering-formats@clear gl_r8ui as gl_r8
+spec@arb_texture_view@rendering-formats@clear gl_r8ui as gl_r8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_r8ui as gl_r8i
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_r32i
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_r32ui
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_rg16ui
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_rgb10_a2ui
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_rg16 as gl_rgba8ui
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_r32i
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_r32ui
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_rg16ui
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_rgb10_a2ui
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_rg16_snorm as gl_rgba8ui
+spec@arb_texture_view@rendering-formats@clear gl_rg16f as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rg16f as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_rg16f as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg16f as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_rg16f as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_rg16f as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg16i as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rg16i as gl_r32i
+spec@arb_texture_view@rendering-formats@clear gl_rg16i as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_rg16i as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg16i as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_rg16i as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_rg16i as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_rg16i as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_rg16i as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg16i as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_rg16ui as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rg16ui as gl_r32i
+spec@arb_texture_view@rendering-formats@clear gl_rg16ui as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_rg16ui as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg16ui as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_rg16ui as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_rg16ui as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_rg16ui as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_rg16ui as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg16ui as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_rg32f as gl_rgba16
+spec@arb_texture_view@rendering-formats@clear gl_rg32f as gl_rgba16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg32f as gl_rgba16f
+spec@arb_texture_view@rendering-formats@clear gl_rg32f as gl_rgba16i
+spec@arb_texture_view@rendering-formats@clear gl_rg32i as gl_rgba16
+spec@arb_texture_view@rendering-formats@clear gl_rg32i as gl_rgba16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg32i as gl_rgba16f
+spec@arb_texture_view@rendering-formats@clear gl_rg32i as gl_rgba16i
+spec@arb_texture_view@rendering-formats@clear gl_rg32ui as gl_rgba16
+spec@arb_texture_view@rendering-formats@clear gl_rg32ui as gl_rgba16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg32ui as gl_rgba16f
+spec@arb_texture_view@rendering-formats@clear gl_rg32ui as gl_rgba16i
+spec@arb_texture_view@rendering-formats@clear gl_rg8 as gl_r16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg8 as gl_r16f
+spec@arb_texture_view@rendering-formats@clear gl_rg8 as gl_r16i
+spec@arb_texture_view@rendering-formats@clear gl_rg8 as gl_r16ui
+spec@arb_texture_view@rendering-formats@clear gl_rg8 as gl_rg8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg8 as gl_rg8i
+spec@arb_texture_view@rendering-formats@clear gl_rg8 as gl_rg8ui
+spec@arb_texture_view@rendering-formats@clear gl_rg8_snorm as gl_r16
+spec@arb_texture_view@rendering-formats@clear gl_rg8_snorm as gl_r16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg8_snorm as gl_r16f
+spec@arb_texture_view@rendering-formats@clear gl_rg8_snorm as gl_r16i
+spec@arb_texture_view@rendering-formats@clear gl_rg8_snorm as gl_r16ui
+spec@arb_texture_view@rendering-formats@clear gl_rg8_snorm as gl_rg8
+spec@arb_texture_view@rendering-formats@clear gl_rg8_snorm as gl_rg8i
+spec@arb_texture_view@rendering-formats@clear gl_rg8_snorm as gl_rg8ui
+spec@arb_texture_view@rendering-formats@clear gl_rg8i as gl_r16
+spec@arb_texture_view@rendering-formats@clear gl_rg8i as gl_r16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg8i as gl_r16f
+spec@arb_texture_view@rendering-formats@clear gl_rg8i as gl_r16i
+spec@arb_texture_view@rendering-formats@clear gl_rg8i as gl_rg8
+spec@arb_texture_view@rendering-formats@clear gl_rg8i as gl_rg8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg8i as gl_rg8i
+spec@arb_texture_view@rendering-formats@clear gl_rg8ui as gl_r16
+spec@arb_texture_view@rendering-formats@clear gl_rg8ui as gl_r16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg8ui as gl_r16f
+spec@arb_texture_view@rendering-formats@clear gl_rg8ui as gl_r16i
+spec@arb_texture_view@rendering-formats@clear gl_rg8ui as gl_rg8
+spec@arb_texture_view@rendering-formats@clear gl_rg8ui as gl_rg8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rg8ui as gl_rg8i
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_r32i
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_r32ui
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_rg16ui
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_rgb10_a2ui
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2 as gl_rgba8ui
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2ui as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2ui as gl_r32i
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2ui as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2ui as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2ui as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2ui as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2ui as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2ui as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2ui as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb10_a2ui as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_rgb16 as gl_rgb16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb16 as gl_rgb16f
+spec@arb_texture_view@rendering-formats@clear gl_rgb16 as gl_rgb16i
+spec@arb_texture_view@rendering-formats@clear gl_rgb16 as gl_rgb16ui
+spec@arb_texture_view@rendering-formats@clear gl_rgb16_snorm as gl_rgb16
+spec@arb_texture_view@rendering-formats@clear gl_rgb16_snorm as gl_rgb16f
+spec@arb_texture_view@rendering-formats@clear gl_rgb16_snorm as gl_rgb16i
+spec@arb_texture_view@rendering-formats@clear gl_rgb16_snorm as gl_rgb16ui
+spec@arb_texture_view@rendering-formats@clear gl_rgb16f as gl_rgb16
+spec@arb_texture_view@rendering-formats@clear gl_rgb16f as gl_rgb16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb16i as gl_rgb16
+spec@arb_texture_view@rendering-formats@clear gl_rgb16i as gl_rgb16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb16i as gl_rgb16f
+spec@arb_texture_view@rendering-formats@clear gl_rgb16i as gl_rgb16i
+spec@arb_texture_view@rendering-formats@clear gl_rgb16ui as gl_rgb16
+spec@arb_texture_view@rendering-formats@clear gl_rgb16ui as gl_rgb16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb16ui as gl_rgb16f
+spec@arb_texture_view@rendering-formats@clear gl_rgb16ui as gl_rgb16i
+spec@arb_texture_view@rendering-formats@clear gl_rgb8 as gl_rgb8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb8 as gl_rgb8i
+spec@arb_texture_view@rendering-formats@clear gl_rgb8 as gl_rgb8ui
+spec@arb_texture_view@rendering-formats@clear gl_rgb8_snorm as gl_rgb8
+spec@arb_texture_view@rendering-formats@clear gl_rgb8_snorm as gl_rgb8i
+spec@arb_texture_view@rendering-formats@clear gl_rgb8_snorm as gl_rgb8ui
+spec@arb_texture_view@rendering-formats@clear gl_rgb8i as gl_rgb8
+spec@arb_texture_view@rendering-formats@clear gl_rgb8i as gl_rgb8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb8i as gl_rgb8i
+spec@arb_texture_view@rendering-formats@clear gl_rgb8ui as gl_rgb8
+spec@arb_texture_view@rendering-formats@clear gl_rgb8ui as gl_rgb8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgb8ui as gl_rgb8i
+spec@arb_texture_view@rendering-formats@clear gl_rgba16 as gl_rg32f
+spec@arb_texture_view@rendering-formats@clear gl_rgba16 as gl_rg32i
+spec@arb_texture_view@rendering-formats@clear gl_rgba16 as gl_rg32ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba16 as gl_rgba16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba16 as gl_rgba16f
+spec@arb_texture_view@rendering-formats@clear gl_rgba16 as gl_rgba16i
+spec@arb_texture_view@rendering-formats@clear gl_rgba16 as gl_rgba16ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba16_snorm as gl_rg32f
+spec@arb_texture_view@rendering-formats@clear gl_rgba16_snorm as gl_rg32i
+spec@arb_texture_view@rendering-formats@clear gl_rgba16_snorm as gl_rg32ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba16_snorm as gl_rgba16
+spec@arb_texture_view@rendering-formats@clear gl_rgba16_snorm as gl_rgba16f
+spec@arb_texture_view@rendering-formats@clear gl_rgba16_snorm as gl_rgba16i
+spec@arb_texture_view@rendering-formats@clear gl_rgba16_snorm as gl_rgba16ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba16f as gl_rg32f
+spec@arb_texture_view@rendering-formats@clear gl_rgba16f as gl_rgba16
+spec@arb_texture_view@rendering-formats@clear gl_rgba16f as gl_rgba16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba16i as gl_rg32f
+spec@arb_texture_view@rendering-formats@clear gl_rgba16i as gl_rg32i
+spec@arb_texture_view@rendering-formats@clear gl_rgba16i as gl_rgba16
+spec@arb_texture_view@rendering-formats@clear gl_rgba16i as gl_rgba16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba16i as gl_rgba16f
+spec@arb_texture_view@rendering-formats@clear gl_rgba16i as gl_rgba16i
+spec@arb_texture_view@rendering-formats@clear gl_rgba16ui as gl_rg32f
+spec@arb_texture_view@rendering-formats@clear gl_rgba16ui as gl_rg32i
+spec@arb_texture_view@rendering-formats@clear gl_rgba16ui as gl_rgba16
+spec@arb_texture_view@rendering-formats@clear gl_rgba16ui as gl_rgba16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba16ui as gl_rgba16f
+spec@arb_texture_view@rendering-formats@clear gl_rgba16ui as gl_rgba16i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_r32i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_r32ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_rg16ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_rgb10_a2ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8 as gl_rgba8ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_r32i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_r32ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_rg16ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_rgb10_a2ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8_snorm as gl_rgba8ui
+spec@arb_texture_view@rendering-formats@clear gl_rgba8i as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rgba8i as gl_r32i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8i as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_rgba8i as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba8i as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_rgba8i as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8i as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_rgba8i as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_rgba8i as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba8i as gl_rgba8i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8ui as gl_r32f
+spec@arb_texture_view@rendering-formats@clear gl_rgba8ui as gl_r32i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8ui as gl_rg16
+spec@arb_texture_view@rendering-formats@clear gl_rgba8ui as gl_rg16_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba8ui as gl_rg16f
+spec@arb_texture_view@rendering-formats@clear gl_rgba8ui as gl_rg16i
+spec@arb_texture_view@rendering-formats@clear gl_rgba8ui as gl_rgb10_a2
+spec@arb_texture_view@rendering-formats@clear gl_rgba8ui as gl_rgba8
+spec@arb_texture_view@rendering-formats@clear gl_rgba8ui as gl_rgba8_snorm
+spec@arb_texture_view@rendering-formats@clear gl_rgba8ui as gl_rgba8i
+spec@arb_texture_view@rendering-formats@render to gl_rgb8 as gl_rgb8_snorm
+spec@arb_texture_view@rendering-formats@render to gl_rgb8 as gl_rgb8i
+spec@arb_texture_view@rendering-formats@render to gl_rgb8 as gl_rgb8ui
+spec@arb_texture_view@rendering-formats@render to gl_rgb8_snorm as gl_rgb8
+spec@arb_texture_view@rendering-formats@render to gl_rgb8i as gl_rgb8
+spec@arb_texture_view@rendering-formats@render to gl_rgb8ui as gl_rgb8
+spec@arb_texture_view@rendering-formats@sample gl_rgb8 as gl_rgb8_snorm
+spec@arb_texture_view@rendering-formats@sample gl_rgb8 as gl_rgb8i
+spec@arb_texture_view@rendering-formats@sample gl_rgb8 as gl_rgb8ui
+spec@arb_texture_view@rendering-formats@sample gl_rgb8_snorm as gl_rgb8
+spec@arb_texture_view@rendering-formats@sample gl_rgb8i as gl_rgb8
+spec@arb_texture_view@rendering-formats@sample gl_rgb8ui as gl_rgb8
+spec@arb_texture_view@sampling-2d-array-as-cubemap-array
+spec@arb_transform_feedback_instanced@draw-auto instanced
+spec@egl 1.4@egl-copy-buffers
+spec@egl_khr_gl_image@egl_khr_gl_renderbuffer_image-clear-shared-image gl_depth_component24
+spec@ext_framebuffer_blit@fbo-blit-check-limits
+spec@ext_framebuffer_multisample@accuracy 2 depth_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 2 depth_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy 2 stencil_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 2 stencil_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy 4 depth_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 4 depth_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy 4 stencil_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 4 stencil_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy all_samples depth_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy all_samples depth_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy all_samples stencil_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy all_samples stencil_resolve small depthstencil
+spec@ext_framebuffer_multisample@blit-mismatched-formats
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 2 msaa
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 2 upsample
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 4 msaa
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 4 upsample
+spec@ext_framebuffer_multisample@enable-flag
+spec@ext_framebuffer_multisample@interpolation 2 centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 2 centroid-disabled
+spec@ext_framebuffer_multisample@interpolation 2 centroid-edges
+spec@ext_framebuffer_multisample@interpolation 2 non-centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 2 non-centroid-disabled
+spec@ext_framebuffer_multisample@interpolation 4 centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 4 centroid-disabled
+spec@ext_framebuffer_multisample@interpolation 4 centroid-edges
+spec@ext_framebuffer_multisample@interpolation 4 non-centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 4 non-centroid-disabled
+spec@ext_framebuffer_multisample@multisample-blit 2 depth
+spec@ext_framebuffer_multisample@multisample-blit 2 stencil
+spec@ext_framebuffer_multisample@multisample-blit 4 depth
+spec@ext_framebuffer_multisample@multisample-blit 4 stencil
+spec@ext_framebuffer_multisample@no-color 2 depth combined
+spec@ext_framebuffer_multisample@no-color 2 depth single
+spec@ext_framebuffer_multisample@no-color 2 depth-computed combined
+spec@ext_framebuffer_multisample@no-color 2 depth-computed single
+spec@ext_framebuffer_multisample@no-color 2 stencil combined
+spec@ext_framebuffer_multisample@no-color 4 depth combined
+spec@ext_framebuffer_multisample@no-color 4 depth single
+spec@ext_framebuffer_multisample@no-color 4 depth-computed combined
+spec@ext_framebuffer_multisample@no-color 4 depth-computed single
+spec@ext_framebuffer_multisample@no-color 4 stencil combined
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 2 depth
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 4 depth
+spec@ext_framebuffer_multisample@sample-coverage 2 non-inverted
+spec@ext_framebuffer_multisample@sample-coverage 4 non-inverted
+spec@ext_framebuffer_multisample@unaligned-blit 2 stencil downsample
+spec@ext_framebuffer_multisample@unaligned-blit 2 stencil msaa
+spec@ext_framebuffer_multisample@unaligned-blit 2 stencil upsample
+spec@ext_framebuffer_multisample@unaligned-blit 4 stencil downsample
+spec@ext_framebuffer_multisample@unaligned-blit 4 stencil msaa
+spec@ext_framebuffer_multisample@unaligned-blit 4 stencil upsample
+spec@ext_framebuffer_multisample@upsample 2 depth
+spec@ext_framebuffer_multisample@upsample 2 stencil
+spec@ext_framebuffer_multisample@upsample 4 depth
+spec@ext_framebuffer_multisample@upsample 4 stencil
+spec@ext_framebuffer_object@fbo-blending-format-quirks
+spec@ext_framebuffer_object@fbo-blending-formats@3
+spec@ext_framebuffer_object@fbo-blending-formats@gl_intensity
+spec@ext_framebuffer_object@fbo-blending-formats@gl_intensity12
+spec@ext_framebuffer_object@fbo-blending-formats@gl_intensity16
+spec@ext_framebuffer_object@fbo-blending-formats@gl_intensity4
+spec@ext_framebuffer_object@fbo-blending-formats@gl_intensity8
+spec@ext_framebuffer_object@fbo-blending-formats@gl_luminance
+spec@ext_framebuffer_object@fbo-blending-formats@gl_luminance12
+spec@ext_framebuffer_object@fbo-blending-formats@gl_luminance16
+spec@ext_framebuffer_object@fbo-blending-formats@gl_luminance4
+spec@ext_framebuffer_object@fbo-blending-formats@gl_luminance8
+spec@ext_framebuffer_object@fbo-blending-formats@gl_rgb
+spec@ext_framebuffer_object@fbo-blending-formats@gl_rgb10
+spec@ext_framebuffer_object@fbo-blending-formats@gl_rgb12
+spec@ext_framebuffer_object@fbo-blending-formats@gl_rgb16
+spec@ext_framebuffer_object@fbo-blending-formats@gl_rgb4
+spec@ext_framebuffer_object@fbo-blending-formats@gl_rgb8
+spec@ext_packed_depth_stencil@fbo-blit-d24s8
+spec@ext_packed_depth_stencil@fbo-clear-formats stencil@gl_depth24_stencil8
+spec@ext_packed_depth_stencil@fbo-clear-formats stencil@gl_depth_stencil
+spec@ext_packed_depth_stencil@fbo-depth-gl_depth24_stencil8-blit
+spec@ext_packed_depth_stencil@fbo-depth-gl_depth24_stencil8-copypixels
+spec@ext_packed_depth_stencil@fbo-depthstencil-gl_depth24_stencil8-copypixels
+spec@ext_packed_depth_stencil@fbo-depthstencil-gl_depth24_stencil8-drawpixels-24_8
+spec@ext_packed_depth_stencil@fbo-depthstencil-gl_depth24_stencil8-drawpixels-32f_24_8_rev
+spec@ext_packed_depth_stencil@fbo-stencil-gl_depth24_stencil8-blit
+spec@ext_packed_depth_stencil@fbo-stencil-gl_depth24_stencil8-copypixels
+spec@ext_packed_depth_stencil@readdrawpixels
+spec@ext_packed_depth_stencil@texwrap formats bordercolor-swizzled@gl_depth24_stencil8, swizzled, border color only
+spec@ext_packed_depth_stencil@texwrap formats bordercolor@gl_depth24_stencil8, border color only
+spec@ext_packed_float@query-rgba-signed-components
+spec@ext_packed_float@texwrap formats bordercolor-swizzled@gl_r11f_g11f_b10f, swizzled, border color only
+spec@ext_packed_float@texwrap formats bordercolor@gl_r11f_g11f_b10f, border color only
+spec@ext_provoking_vertex@provoking-vertex
+spec@ext_texture_array@copyteximage 1d_array
+spec@ext_texture_array@copyteximage 2d_array
+spec@ext_texture_array@fbo-depth-array fs-writes-stencil
+spec@ext_texture_array@fbo-depth-array stencil-clear
+spec@ext_texture_array@fbo-depth-array stencil-draw
+spec@ext_texture_array@fbo-depth-array stencil-layered-clear
+spec@ext_texture_compression_rgtc@texwrap formats bordercolor-swizzled@gl_compressed_red_rgtc1, swizzled, border color only
+spec@ext_texture_compression_rgtc@texwrap formats bordercolor-swizzled@gl_compressed_rg_rgtc2, swizzled, border color only
+spec@ext_texture_compression_rgtc@texwrap formats bordercolor-swizzled@gl_compressed_signed_rg_rgtc2, swizzled, border color only
+spec@ext_texture_compression_rgtc@texwrap formats bordercolor@gl_compressed_red_rgtc1, border color only
+spec@ext_texture_compression_rgtc@texwrap formats bordercolor@gl_compressed_rg_rgtc2, border color only
+spec@ext_texture_compression_rgtc@texwrap formats bordercolor@gl_compressed_signed_rg_rgtc2, border color only
+spec@ext_texture_compression_s3tc@texwrap formats bordercolor-swizzled@gl_compressed_rgb_s3tc_dxt1_ext, swizzled, border color only
+spec@ext_texture_compression_s3tc@texwrap formats bordercolor-swizzled@gl_compressed_rgba_s3tc_dxt1_ext, swizzled, border color only
+spec@ext_texture_compression_s3tc@texwrap formats bordercolor-swizzled@gl_compressed_rgba_s3tc_dxt3_ext, swizzled, border color only
+spec@ext_texture_compression_s3tc@texwrap formats bordercolor-swizzled@gl_compressed_rgba_s3tc_dxt5_ext, swizzled, border color only
+spec@ext_texture_compression_s3tc@texwrap formats bordercolor@gl_compressed_rgb_s3tc_dxt1_ext, border color only
+spec@ext_texture_compression_s3tc@texwrap formats bordercolor@gl_compressed_rgba_s3tc_dxt1_ext, border color only
+spec@ext_texture_compression_s3tc@texwrap formats bordercolor@gl_compressed_rgba_s3tc_dxt3_ext, border color only
+spec@ext_texture_compression_s3tc@texwrap formats bordercolor@gl_compressed_rgba_s3tc_dxt5_ext, border color only
+spec@ext_texture_integer@multisample-fast-clear gl_ext_texture_integer
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_alpha16i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_alpha16ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_alpha32i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_alpha32ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_alpha8i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_alpha8ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_intensity16i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_intensity16ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_intensity32i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_intensity32ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_intensity8i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_intensity8ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance16i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance16ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance32i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance32ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance8i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance8ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance_alpha16i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance_alpha16ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance_alpha32i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance_alpha32ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance_alpha8i_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_luminance_alpha8ui_ext, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgb16i, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgb16ui, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgb32i, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgb32ui, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgb8i, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgb8ui, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgba16i, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgba16ui, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgba32i, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgba32ui, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgba8i, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor-swizzled@gl_rgba8ui, swizzled, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_alpha16i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_alpha16ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_alpha32i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_alpha32ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_alpha8i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_alpha8ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_intensity16i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_intensity16ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_intensity32i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_intensity32ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_intensity8i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_intensity8ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance16i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance16ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance32i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance32ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance8i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance8ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance_alpha16i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance_alpha16ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance_alpha32i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance_alpha32ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance_alpha8i_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_luminance_alpha8ui_ext, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgb16i, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgb16ui, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgb32i, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgb32ui, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgb8i, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgb8ui, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgba16i, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgba16ui, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgba32i, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgba32ui, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgba8i, border color only
+spec@ext_texture_integer@texwrap formats bordercolor@gl_rgba8ui, border color only
+spec@ext_texture_shared_exponent@texwrap formats bordercolor-swizzled@gl_rgb9_e5, swizzled, border color only
+spec@ext_texture_shared_exponent@texwrap formats bordercolor@gl_rgb9_e5, border color only
+spec@ext_texture_snorm@fbo-blending-formats@gl_intensity16_snorm
+spec@ext_texture_snorm@fbo-blending-formats@gl_intensity8_snorm
+spec@ext_texture_snorm@fbo-blending-formats@gl_intensity_snorm
+spec@ext_texture_snorm@fbo-blending-formats@gl_luminance16_snorm
+spec@ext_texture_snorm@fbo-blending-formats@gl_luminance8_snorm
+spec@ext_texture_snorm@fbo-blending-formats@gl_luminance_snorm
+spec@ext_texture_snorm@fbo-blending-formats@gl_rgb16_snorm
+spec@ext_texture_snorm@fbo-blending-formats@gl_rgb8_snorm
+spec@ext_texture_snorm@fbo-blending-formats@gl_rgb_snorm
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_alpha16_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_alpha8_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_intensity16_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_intensity8_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_luminance16_alpha16_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_luminance16_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_luminance8_alpha8_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_luminance8_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_r16_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_r8_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_rg16_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_rg8_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_rgb16_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_rgb8_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_rgba16_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor-swizzled@gl_rgba8_snorm, swizzled, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_alpha16_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_alpha8_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_intensity16_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_intensity8_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_luminance16_alpha16_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_luminance16_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_luminance8_alpha8_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_luminance8_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_r16_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_r8_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_rg16_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_rg8_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_rgb16_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_rgb8_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_rgba16_snorm, border color only
+spec@ext_texture_snorm@texwrap formats bordercolor@gl_rgba8_snorm, border color only
+spec@ext_texture_srgb@texwrap formats bordercolor-swizzled@gl_sluminance8, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats bordercolor-swizzled@gl_sluminance8_alpha8, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats bordercolor-swizzled@gl_srgb8, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats bordercolor-swizzled@gl_srgb8_alpha8, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats bordercolor@gl_sluminance8, border color only
+spec@ext_texture_srgb@texwrap formats bordercolor@gl_sluminance8_alpha8, border color only
+spec@ext_texture_srgb@texwrap formats bordercolor@gl_srgb8, border color only
+spec@ext_texture_srgb@texwrap formats bordercolor@gl_srgb8_alpha8, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@gl_compressed_sluminance, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@gl_compressed_sluminance_alpha, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@gl_compressed_srgb, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@gl_compressed_srgb_alpha, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@gl_compressed_srgb_alpha_s3tc_dxt1_ext, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@gl_compressed_srgb_alpha_s3tc_dxt3_ext, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@gl_compressed_srgb_alpha_s3tc_dxt5_ext, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@gl_compressed_srgb_s3tc_dxt1_ext, swizzled, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor@gl_compressed_sluminance, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor@gl_compressed_sluminance_alpha, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor@gl_compressed_srgb, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor@gl_compressed_srgb_alpha, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor@gl_compressed_srgb_alpha_s3tc_dxt1_ext, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor@gl_compressed_srgb_alpha_s3tc_dxt3_ext, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor@gl_compressed_srgb_alpha_s3tc_dxt5_ext, border color only
+spec@ext_texture_srgb@texwrap formats-s3tc bordercolor@gl_compressed_srgb_s3tc_dxt1_ext, border color only
+spec@ext_texture_swizzle@depth_texture_mode_and_swizzle
+spec@ext_transform_feedback2@counting with pause
+spec@ext_transform_feedback2@draw-auto
+spec@ext_transform_feedback@generatemipmap prims_generated
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_loop ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_loop other
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_strip ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_strip_adjacency ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_strip_adjacency other
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_lines ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_lines other
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_lines_adjacency ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_lines_adjacency other
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_points ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_points other
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangle_fan ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangle_strip ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangle_strip_adjacency ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangle_strip_adjacency other
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangles ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangles other
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangles_adjacency ffs
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangles_adjacency other
+spec@glsl-1.50@execution@geometry@primitive-types gl_triangle_fan
+spec@glsl-1.50@execution@geometry@primitive-types gl_triangle_strip
+spec@glsl-1.50@execution@geometry@primitive-types gl_triangle_strip_adjacency
+spec@glsl-1.50@execution@geometry@tri-strip-ordering-with-prim-restart gl_triangle_strip ffs
+spec@glsl-1.50@execution@geometry@tri-strip-ordering-with-prim-restart gl_triangle_strip other
+spec@glsl-1.50@execution@geometry@tri-strip-ordering-with-prim-restart gl_triangle_strip_adjacency ffs
+spec@glsl-1.50@execution@geometry@tri-strip-ordering-with-prim-restart gl_triangle_strip_adjacency other
+spec@intel_performance_query@intel_performance_query-issue_2235
+spec@khr_texture_compression_astc@array-gl@12x12 block dim
+spec@khr_texture_compression_astc@array-gl@5x5 block dim
+spec@khr_texture_compression_astc@miptree-gl ldr@ldr profile
+spec@khr_texture_compression_astc@miptree-gl srgb-fp@srgb decode full precision
+spec@khr_texture_compression_astc@miptree-gl srgb-sd@srgb skip decode
+spec@khr_texture_compression_astc@miptree-gl srgb@srgb decode
+spec@khr_texture_compression_astc@miptree-gles ldr@ldr profile
+spec@khr_texture_compression_astc@miptree-gles srgb-fp@srgb decode full precision
+spec@khr_texture_compression_astc@miptree-gles srgb-sd@srgb skip decode
+spec@khr_texture_compression_astc@miptree-gles srgb@srgb decode
+spec@khr_texture_compression_astc@sliced-3d-miptree-gl ldr@ldr profile
+spec@khr_texture_compression_astc@sliced-3d-miptree-gl srgb-fp@srgb decode full precision
+spec@khr_texture_compression_astc@sliced-3d-miptree-gl srgb@srgb decode
+spec@khr_texture_compression_astc@sliced-3d-miptree-gles ldr@ldr profile
+spec@khr_texture_compression_astc@sliced-3d-miptree-gles srgb-fp@srgb decode full precision
+spec@khr_texture_compression_astc@sliced-3d-miptree-gles srgb@srgb decode
+spec@nv_conditional_render@copytexsubimage
+spec@nv_conditional_render@generatemipmap
+spec@nv_copy_depth_to_color@nv_copy_depth_to_color
+spec@nv_copy_depth_to_color@nv_copy_depth_to_color 0 0x223344ff
+spec@nv_copy_depth_to_color@nv_copy_depth_to_color 0 0x76356278
+spec@nv_copy_depth_to_color@nv_copy_depth_to_color 1 0x223344ff
+spec@nv_copy_depth_to_color@nv_copy_depth_to_color 1 0x76356278
+spec@nv_primitive_restart@primitive-restart-disable_vbo
+spec@nv_primitive_restart@primitive-restart-draw-mode-line_strip
+spec@nv_primitive_restart@primitive-restart-draw-mode-triangle_fan
+spec@nv_primitive_restart@primitive-restart-draw-mode-triangle_strip
+spec@nv_primitive_restart@primitive-restart-vbo_combined_vertex_and_index
+spec@nv_primitive_restart@primitive-restart-vbo_index_only
+spec@nv_primitive_restart@primitive-restart-vbo_separate_vertex_and_index
+spec@nv_primitive_restart@primitive-restart-vbo_vertex_only
+glx@glx-tfp
+shaders@glsl-uniform-interstage-limits@subdivide 5
+shaders@glsl-uniform-interstage-limits@subdivide 5, statechanges
+spec@!opengl 1.1@ppgtt_memory_alignment
+spec@!opengl 3.2@glsl-resource-not-bound buffer
+spec@arb_fragment_program@fp-abs-01
+spec@arb_gpu_shader_fp64@execution@arb_gpu_shader_fp64-fs-non-uniform-control-flow-ssbo
+spec@arb_gpu_shader_fp64@execution@arb_gpu_shader_fp64-vs-non-uniform-control-flow-ssbo
+spec@arb_shader_storage_buffer_object@array-ssbo-binding
+spec@arb_shading_language_420pack@active sampler conflict
+spec@arb_tessellation_shader@arb_tessellation_shader-tes-gs-max-output -small -scan 1 50
+spec@arb_texture_buffer_object@render-no-bo
+spec@arb_uniform_buffer_object@maxblocks
+spec@glsl-1.50@gs-max-output
