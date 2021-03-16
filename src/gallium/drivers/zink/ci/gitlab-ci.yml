@@ -22,6 +22,8 @@ zink-piglit-quick_gl:
       -x spec@arb_query_buffer_object@qbo
     PIGLIT_PROFILES: quick_gl
     PIGLIT_RESULTS: "zink-quick_gl"
+  script:
+    - install/piglit/piglit-runner.sh
 
 .zink-lvp-deqp-test:
   extends:

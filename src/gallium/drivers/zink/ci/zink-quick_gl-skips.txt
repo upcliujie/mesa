@@ -1,0 +1,1563 @@
+fast_color_clear@fcc-clear-tex
+fast_color_clear@fcc-write-after-clear
+glx@glx-buffer-age
+glx@glx-buffer-age vblank_mode=0
+glx@glx-context-flush-control
+glx@glx-copy-sub-buffer samples=16
+glx@glx-copy-sub-buffer samples=2
+glx@glx-copy-sub-buffer samples=32
+glx@glx-copy-sub-buffer samples=4
+glx@glx-copy-sub-buffer samples=6
+glx@glx-copy-sub-buffer samples=8
+glx@glx-multithread-makecurrent-1
+glx@glx-multithread-makecurrent-2
+glx@glx-multithread-makecurrent-3
+glx@glx-multithread-makecurrent-4
+glx@glx-swap-event_async
+glx@glx-swap-event_event
+glx@glx-swap-event_interval
+glx@glx-swap-exchange
+glx@glx_arb_create_context_no_error@no error
+glx@glx_arb_create_context_robustness@invalid reset notification strategy
+glx@glx_arb_create_context_robustness@require gl_arb_robustness
+glx@glx_arb_sync_control@glxgetmscrateoml
+glx@glx_arb_sync_control@swapbuffersmsc-divisor-zero
+glx@glx_arb_sync_control@swapbuffersmsc-return
+glx@glx_arb_sync_control@swapbuffersmsc-return swap_interval 0
+glx@glx_arb_sync_control@swapbuffersmsc-return swap_interval 1
+glx@glx_arb_sync_control@timing -divisor 1
+glx@glx_arb_sync_control@timing -divisor 2
+glx@glx_arb_sync_control@timing -fullscreen -divisor 1
+glx@glx_arb_sync_control@timing -fullscreen -divisor 2
+glx@glx_arb_sync_control@timing -fullscreen -msc-delta 1
+glx@glx_arb_sync_control@timing -fullscreen -msc-delta 2
+glx@glx_arb_sync_control@timing -msc-delta 1
+glx@glx_arb_sync_control@timing -msc-delta 2
+glx@glx_arb_sync_control@timing -waitformsc -divisor 1
+glx@glx_arb_sync_control@timing -waitformsc -divisor 2
+glx@glx_arb_sync_control@timing -waitformsc -msc-delta 1
+glx@glx_arb_sync_control@timing -waitformsc -msc-delta 2
+glx@glx_arb_sync_control@waitformsc
+glx@glx_ext_no_config_context@no fbconfig
+hiz@hiz-depth-read-fbo-d24-s8
+hiz@hiz-depth-stencil-test-fbo-d24-s8
+hiz@hiz-depth-test-fbo-d24-s8
+hiz@hiz-stencil-read-fbo-d24-s8
+hiz@hiz-stencil-test-fbo-d24-s8
+object namespace pollution@vertex-array with glbitmap
+object namespace pollution@vertex-array with glblitframebuffer
+object namespace pollution@vertex-array with glclear
+object namespace pollution@vertex-array with glcleartexsubimage
+object namespace pollution@vertex-array with glcopyimagesubdata
+object namespace pollution@vertex-array with glcopypixels
+object namespace pollution@vertex-array with glcopytexsubimage2d
+object namespace pollution@vertex-array with gldrawpixels
+object namespace pollution@vertex-array with glgeneratemipmap
+object namespace pollution@vertex-array with glgetteximage
+object namespace pollution@vertex-array with glgetteximage-compressed
+object namespace pollution@vertex-array with gltexsubimage2d
+shaders@activeprogram-bad-program
+shaders@activeprogram-get
+shaders@createshaderprogram-attached-shaders
+shaders@createshaderprogram-bad-type
+shaders@glsl-fs-fogscale@gs-out and fs
+shaders@glsl-fs-fogscale@vs, gs and fs
+shaders@gpu_shader4_attribs
+shaders@sso-simple
+shaders@sso-uniforms-01
+shaders@sso-uniforms-02
+shaders@sso-user-varying-01
+shaders@sso-user-varying-02
+shaders@useshaderprogram-bad-program
+shaders@useshaderprogram-bad-type
+shaders@useshaderprogram-flushverts-1
+spec@!opengl 1.0@rasterpos@glsl_vs_gs_linked
+spec@!opengl 1.0@rasterpos@glsl_vs_gs_sso
+spec@!opengl 1.0@rasterpos@glsl_vs_image1d
+spec@!opengl 1.0@rasterpos@glsl_vs_image_bo
+spec@!opengl 1.0@rasterpos@glsl_vs_ssbo
+spec@!opengl 1.0@rasterpos@glsl_vs_tbo
+spec@!opengl 1.0@rasterpos@glsl_vs_tes_linked
+spec@!opengl 1.0@rasterpos@glsl_vs_tes_sso
+spec@!opengl 1.0@rasterpos@glsl_vs_ubo
+spec@!opengl 1.1@depthstencil-default_fb-blit samples=16
+spec@!opengl 1.1@depthstencil-default_fb-blit samples=2
+spec@!opengl 1.1@depthstencil-default_fb-blit samples=32
+spec@!opengl 1.1@depthstencil-default_fb-blit samples=4
+spec@!opengl 1.1@depthstencil-default_fb-blit samples=6
+spec@!opengl 1.1@depthstencil-default_fb-blit samples=8
+spec@!opengl 1.1@depthstencil-default_fb-clear samples=16
+spec@!opengl 1.1@depthstencil-default_fb-clear samples=2
+spec@!opengl 1.1@depthstencil-default_fb-clear samples=32
+spec@!opengl 1.1@depthstencil-default_fb-clear samples=4
+spec@!opengl 1.1@depthstencil-default_fb-clear samples=6
+spec@!opengl 1.1@depthstencil-default_fb-clear samples=8
+spec@!opengl 1.1@depthstencil-default_fb-copypixels samples=16
+spec@!opengl 1.1@depthstencil-default_fb-copypixels samples=2
+spec@!opengl 1.1@depthstencil-default_fb-copypixels samples=32
+spec@!opengl 1.1@depthstencil-default_fb-copypixels samples=4
+spec@!opengl 1.1@depthstencil-default_fb-copypixels samples=6
+spec@!opengl 1.1@depthstencil-default_fb-copypixels samples=8
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-24_8 samples=16
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-24_8 samples=2
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-24_8 samples=32
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-24_8 samples=4
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-24_8 samples=6
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-24_8 samples=8
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-32f_24_8_rev samples=16
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-32f_24_8_rev samples=2
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-32f_24_8_rev samples=32
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-32f_24_8_rev samples=4
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-32f_24_8_rev samples=6
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-32f_24_8_rev samples=8
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-float-and-ushort samples=16
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-float-and-ushort samples=2
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-float-and-ushort samples=32
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-float-and-ushort samples=4
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-float-and-ushort samples=6
+spec@!opengl 1.1@depthstencil-default_fb-drawpixels-float-and-ushort samples=8
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-24_8 samples=16
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-24_8 samples=2
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-24_8 samples=32
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-24_8 samples=4
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-24_8 samples=6
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-24_8 samples=8
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-32f_24_8_rev samples=16
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-32f_24_8_rev samples=2
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-32f_24_8_rev samples=32
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-32f_24_8_rev samples=4
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-32f_24_8_rev samples=6
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-32f_24_8_rev samples=8
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-float-and-ushort samples=16
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-float-and-ushort samples=2
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-float-and-ushort samples=32
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-float-and-ushort samples=4
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-float-and-ushort samples=6
+spec@!opengl 1.1@depthstencil-default_fb-readpixels-float-and-ushort samples=8
+spec@!opengl 1.1@draw-pixels samples=16
+spec@!opengl 1.1@draw-pixels samples=2
+spec@!opengl 1.1@draw-pixels samples=32
+spec@!opengl 1.1@draw-pixels samples=4
+spec@!opengl 1.1@draw-pixels samples=6
+spec@!opengl 1.1@draw-pixels samples=8
+spec@!opengl 1.1@max-texture-size@gl_texture_2d-gl_rgba16
+spec@!opengl 1.1@max-texture-size@gl_texture_2d-gl_rgba32f
+spec@!opengl 1.1@max-texture-size@gl_texture_3d-gl_rgba16
+spec@!opengl 1.1@max-texture-size@gl_texture_3d-gl_rgba32f
+spec@!opengl 1.1@max-texture-size@gl_texture_3d-gl_rgba8
+spec@!opengl 1.1@max-texture-size@gl_texture_cube_map-gl_rgba16
+spec@!opengl 1.1@max-texture-size@gl_texture_cube_map-gl_rgba32f
+spec@!opengl 1.1@max-texture-size@gl_texture_cube_map-gl_rgba8
+spec@!opengl 1.1@max-texture-size@gl_texture_rectangle-gl_rgba16
+spec@!opengl 1.1@max-texture-size@gl_texture_rectangle-gl_rgba32f
+spec@!opengl 1.1@read-front clear-front-first samples=16
+spec@!opengl 1.1@read-front clear-front-first samples=2
+spec@!opengl 1.1@read-front clear-front-first samples=32
+spec@!opengl 1.1@read-front clear-front-first samples=4
+spec@!opengl 1.1@read-front clear-front-first samples=6
+spec@!opengl 1.1@read-front clear-front-first samples=8
+spec@!opengl 1.1@read-front samples=16
+spec@!opengl 1.1@read-front samples=2
+spec@!opengl 1.1@read-front samples=32
+spec@!opengl 1.1@read-front samples=4
+spec@!opengl 1.1@read-front samples=6
+spec@!opengl 1.1@read-front samples=8
+spec@!opengl 1.1@teximage-colors gl_alpha12@exact upload-download of gl_alpha12
+spec@!opengl 1.1@teximage-colors gl_alpha4@exact upload-download of gl_alpha4
+spec@!opengl 1.1@teximage-colors gl_alpha@exact upload-download of gl_alpha
+spec@!opengl 1.1@teximage-colors gl_luminance12@exact upload-download of gl_luminance12
+spec@!opengl 1.1@teximage-colors gl_luminance12_alpha12@exact upload-download of gl_luminance12_alpha12
+spec@!opengl 1.1@teximage-colors gl_luminance12_alpha4@exact upload-download of gl_luminance12_alpha4
+spec@!opengl 1.1@teximage-colors gl_luminance4@exact upload-download of gl_luminance4
+spec@!opengl 1.1@teximage-colors gl_luminance4_alpha4@exact upload-download of gl_luminance4_alpha4
+spec@!opengl 1.1@teximage-colors gl_luminance6_alpha2@exact upload-download of gl_luminance6_alpha2
+spec@!opengl 1.1@teximage-colors gl_luminance@exact upload-download of gl_luminance
+spec@!opengl 1.1@teximage-colors gl_luminance_alpha@exact upload-download of gl_luminance_alpha
+spec@!opengl 1.1@teximage-colors gl_r11f_g11f_b10f@exact upload-download of gl_r11f_g11f_b10f
+spec@!opengl 1.1@teximage-colors gl_r16f@exact upload-download of gl_r16f
+spec@!opengl 1.1@teximage-colors gl_red@exact upload-download of gl_red
+spec@!opengl 1.1@teximage-colors gl_rg16f@exact upload-download of gl_rg16f
+spec@!opengl 1.1@teximage-colors gl_rg@exact upload-download of gl_rg
+spec@!opengl 1.1@teximage-colors gl_rgb10@exact upload-download of gl_rgb10
+spec@!opengl 1.1@teximage-colors gl_rgb12@exact upload-download of gl_rgb12
+spec@!opengl 1.1@teximage-colors gl_rgb16f@exact upload-download of gl_rgb16f
+spec@!opengl 1.1@teximage-colors gl_rgb4@exact upload-download of gl_rgb4
+spec@!opengl 1.1@teximage-colors gl_rgb5@exact upload-download of gl_rgb5
+spec@!opengl 1.1@teximage-colors gl_rgb9_e5@exact upload-download of gl_rgb9_e5
+spec@!opengl 1.1@teximage-colors gl_rgb@exact upload-download of gl_rgb
+spec@!opengl 1.1@teximage-colors gl_rgba12@exact upload-download of gl_rgba12
+spec@!opengl 1.1@teximage-colors gl_rgba@exact upload-download of gl_rgba
+spec@!opengl 1.1@windowoverlap
+spec@!opengl 1.2@copyteximage 3d samples=16
+spec@!opengl 1.2@copyteximage 3d samples=2
+spec@!opengl 1.2@copyteximage 3d samples=32
+spec@!opengl 1.2@copyteximage 3d samples=4
+spec@!opengl 1.2@copyteximage 3d samples=6
+spec@!opengl 1.2@copyteximage 3d samples=8
+spec@!opengl 1.4@copy-pixels samples=16
+spec@!opengl 1.4@copy-pixels samples=2
+spec@!opengl 1.4@copy-pixels samples=32
+spec@!opengl 1.4@copy-pixels samples=4
+spec@!opengl 1.4@copy-pixels samples=6
+spec@!opengl 1.4@copy-pixels samples=8
+spec@!opengl 1.4@gl-1.4-rgba-mipmap-texture-with-rgb-visual
+spec@!opengl 2.0@vertex-program-two-side back back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side back back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side back back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side back back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side back back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side back front2 back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side back front2 back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side back front2 back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side back front2 back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side back front2 back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side back front2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side back front2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side back front2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side back front2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side back front2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side back@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side back@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side back@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side back@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side back@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back front2 back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back front2 back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back front2 back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back front2 back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back front2 back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back front2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back front2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back front2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back front2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back front2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled back@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back front2 back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back front2 back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back front2 back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back front2 back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back front2 back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back front2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back front2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back front2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back front2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back front2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front back@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2 back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2 back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2 back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2 back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2 back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front2 back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front2 back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front2 back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front2 back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front2 back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side enabled@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side enabled@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front back back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front back back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side front back back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2 back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2 back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2 back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2 back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2 back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side front back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front back@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front back@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side front back@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front front2 back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front front2 back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front front2 back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side front front2 back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side front front2 back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front front2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front front2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front front2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side front front2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side front front2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front2 back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front2 back2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front2 back2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side front2 back2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side front2 back2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front2@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side front2@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side front2@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side front@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side front@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side front@vs, tcs, tes and fs
+spec@!opengl 2.0@vertex-program-two-side@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side@tcs-out, tes and fs
+spec@!opengl 2.0@vertex-program-two-side@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side@vs, gs and fs
+spec@!opengl 2.0@vertex-program-two-side@vs, tcs, tes and fs
+spec@!opengl 3.0@clearbuffer-depth-cs-probe
+spec@!opengl 3.1@draw-buffers-errors
+spec@!opengl 4.2@gl-max-vertex-attrib-stride
+spec@!opengl 4.2@required-renderbuffer-attachment-formats
+spec@!opengl 4.2@required-sized-texture-formats
+spec@!opengl 4.2@required-texture-attachment-formats
+spec@!opengl 4.3@get_glsl_version
+spec@!opengl 4.5@compare-framebuffer-parameter-with-get
+spec@!opengl 4.5@named-framebuffer-draw-buffers-errors
+spec@!opengl 4.5@named-framebuffer-read-buffer-errors
+spec@!opengl es 2.0@invalid-es3-queries_gles2
+spec@3dfx_texture_compression_fxt1@compressedteximage gl_compressed_rgb_fxt1_3dfx
+spec@3dfx_texture_compression_fxt1@compressedteximage gl_compressed_rgba_fxt1_3dfx
+spec@3dfx_texture_compression_fxt1@fbo-generatemipmap-formats
+spec@3dfx_texture_compression_fxt1@fxt1-teximage
+spec@amd_compressed_atc_texture@miptree
+spec@amd_depth_clamp_separate@amd_depth_clamp_separate_range
+spec@amd_depth_clamp_separate@amd_depth_clamp_separate_status
+spec@amd_framebuffer_multisample_advanced@api-glcore
+spec@amd_framebuffer_multisample_advanced@api-gles3
+spec@amd_performance_monitor@api
+spec@amd_performance_monitor@measure
+spec@amd_performance_monitor@vc4
+spec@amd_pinned_memory@decrement-offset
+spec@amd_pinned_memory@increment-offset
+spec@amd_pinned_memory@map-buffer decrement-offset
+spec@amd_pinned_memory@map-buffer increment-offset
+spec@amd_pinned_memory@map-buffer offset=0
+spec@amd_pinned_memory@offset=0
+spec@amd_seamless_cubemap_per_texture@amd_seamless_cubemap_per_texture
+spec@apple_object_purgeable@object_purgeable-api-pbo
+spec@apple_object_purgeable@object_purgeable-api-texture
+spec@apple_object_purgeable@object_purgeable-api-vbo
+spec@apple_vertex_array_object@isvertexarray
+spec@apple_vertex_array_object@vao-01
+spec@apple_vertex_array_object@vao-02
+spec@arb_bindless_texture@border-color
+spec@arb_bindless_texture@conversions
+spec@arb_bindless_texture@errors
+spec@arb_bindless_texture@handles
+spec@arb_bindless_texture@illegal
+spec@arb_bindless_texture@legal
+spec@arb_bindless_texture@limit
+spec@arb_bindless_texture@uint64_attribs
+spec@arb_bindless_texture@uniform
+spec@arb_buffer_storage@bufferstorage-persistent draw
+spec@arb_buffer_storage@bufferstorage-persistent draw client-storage
+spec@arb_buffer_storage@bufferstorage-persistent read
+spec@arb_buffer_storage@bufferstorage-persistent read client-storage
+spec@arb_buffer_storage@bufferstorage-persistent_gles3 draw
+spec@arb_buffer_storage@bufferstorage-persistent_gles3 draw client-storage
+spec@arb_buffer_storage@bufferstorage-persistent_gles3 draw coherent
+spec@arb_buffer_storage@bufferstorage-persistent_gles3 draw coherent client-storage
+spec@arb_buffer_storage@bufferstorage-persistent_gles3 read
+spec@arb_buffer_storage@bufferstorage-persistent_gles3 read client-storage
+spec@arb_buffer_storage@bufferstorage-persistent_gles3 read coherent
+spec@arb_buffer_storage@bufferstorage-persistent_gles3 read coherent client-storage
+spec@arb_compute_shader@api_errors
+spec@arb_compute_shader@built-in constants
+spec@arb_compute_shader@compiler@work_group_size_too_large
+spec@arb_compute_shader@display-list
+spec@arb_compute_shader@indirect-compute
+spec@arb_compute_shader@local-id-explosion
+spec@arb_compute_shader@minmax
+spec@arb_compute_shader@render-and-compute
+spec@arb_compute_shader@zero-dispatch-size
+spec@arb_compute_variable_group_size@errors
+spec@arb_compute_variable_group_size@local-size
+spec@arb_compute_variable_group_size@minmax
+spec@arb_copy_image@arb_copy_image-formats --samples=2@source: gl_depth32f_stencil8@destination: gl_depth32f_stencil8
+spec@arb_copy_image@arb_copy_image-formats --samples=2@source: gl_depth_component@destination: gl_depth_component
+spec@arb_copy_image@arb_copy_image-formats --samples=2@source: gl_depth_component16@destination: gl_depth_component16
+spec@arb_copy_image@arb_copy_image-formats --samples=2@source: gl_depth_component24@destination: gl_depth_component24
+spec@arb_copy_image@arb_copy_image-formats --samples=2@source: gl_depth_component32@destination: gl_depth_component32
+spec@arb_copy_image@arb_copy_image-formats --samples=2@source: gl_depth_stencil@destination: gl_depth_stencil
+spec@arb_copy_image@arb_copy_image-formats --samples=2@source: gl_stencil_index8@destination: gl_stencil_index8
+spec@arb_copy_image@arb_copy_image-formats --samples=4@source: gl_depth32f_stencil8@destination: gl_depth32f_stencil8
+spec@arb_copy_image@arb_copy_image-formats --samples=4@source: gl_depth_component@destination: gl_depth_component
+spec@arb_copy_image@arb_copy_image-formats --samples=4@source: gl_depth_component16@destination: gl_depth_component16
+spec@arb_copy_image@arb_copy_image-formats --samples=4@source: gl_depth_component24@destination: gl_depth_component24
+spec@arb_copy_image@arb_copy_image-formats --samples=4@source: gl_depth_component32@destination: gl_depth_component32
+spec@arb_copy_image@arb_copy_image-formats --samples=4@source: gl_depth_stencil@destination: gl_depth_stencil
+spec@arb_copy_image@arb_copy_image-formats --samples=4@source: gl_stencil_index8@destination: gl_stencil_index8
+spec@arb_copy_image@arb_copy_image-formats --samples=8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 1024 d=z32f_s8_s=z24_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 1024 d=z32f_s=z24_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 1024 s=z24_s8_d=z32f
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 1024 s=z24_s8_d=z32f_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 146 d=z32f_s8_s=z24_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 146 d=z32f_s=z24_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 146 s=z24_s8_d=z32f
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 146 s=z24_s8_d=z32f_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 273 d=z32f_s8_s=z24_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 273 d=z32f_s=z24_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 273 s=z24_s8_d=z32f
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 273 s=z24_s8_d=z32f_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 292 d=z32f_s8_s=z24_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 292 d=z32f_s=z24_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 292 s=z24_s8_d=z32f
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 292 s=z24_s8_d=z32f_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 585 d=z32f_s8_s=z24_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 585 d=z32f_s=z24_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 585 s=z24_s8_d=z32f
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 585 s=z24_s8_d=z32f_s8
+spec@arb_direct_state_access@compressedtextureimage gl_compressed_rgba_s3tc_dxt5_ext
+spec@arb_direct_state_access@create-programpipelines@default compute shader program == 0
+spec@arb_direct_state_access@getcompressedtextureimage
+spec@arb_direct_state_access@gettextureimage-formats
+spec@arb_direct_state_access@gettextureimage-formats init-by-rendering
+spec@arb_direct_state_access@gettextureimage-luminance
+spec@arb_draw_indirect@arb_draw_indirect-draw-arrays-compat
+spec@arb_draw_indirect@arb_draw_indirect-draw-elements-compat
+spec@arb_fragment_program@fp-indirections
+spec@arb_fragment_shader_interlock@arb_fragment_shader_interlock-image-load-store
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-params@dsa
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-query@ms2
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-roundup-samples
+spec@arb_geometry_shader4@arb_geometry_shader4-ignore-adjacent-vertices  gl_line_strip_adjacency
+spec@arb_geometry_shader4@arb_geometry_shader4-ignore-adjacent-vertices  gl_lines_adjacency
+spec@arb_geometry_shader4@arb_geometry_shader4-ignore-adjacent-vertices  gl_triangle_strip_adjacency
+spec@arb_geometry_shader4@arb_geometry_shader4-ignore-adjacent-vertices  gl_triangles_adjacency
+spec@arb_geometry_shader4@arb_geometry_shader4-ignore-adjacent-vertices indexed gl_line_strip_adjacency
+spec@arb_geometry_shader4@arb_geometry_shader4-ignore-adjacent-vertices indexed gl_lines_adjacency
+spec@arb_geometry_shader4@arb_geometry_shader4-ignore-adjacent-vertices indexed gl_triangle_strip_adjacency
+spec@arb_geometry_shader4@arb_geometry_shader4-ignore-adjacent-vertices indexed gl_triangles_adjacency
+spec@arb_geometry_shader4@arb_geometry_shader4-program-parameter-input-type
+spec@arb_geometry_shader4@arb_geometry_shader4-program-parameter-input-type-draw
+spec@arb_geometry_shader4@arb_geometry_shader4-program-parameter-output-type
+spec@arb_geometry_shader4@arb_geometry_shader4-program-parameter-vertices-out 1
+spec@arb_geometry_shader4@arb_geometry_shader4-program-parameter-vertices-out max
+spec@arb_geometry_shader4@arb_geometry_shader4-program-parameter-vertices-out tf 1
+spec@arb_geometry_shader4@arb_geometry_shader4-program-parameter-vertices-out tf max
+spec@arb_geometry_shader4@arb_geometry_shader4-vertices-in
+spec@arb_get_program_binary@reset-uniform
+spec@arb_get_program_binary@restore-implicit-use-program
+spec@arb_get_program_binary@xfb-varyings
+spec@arb_gpu_shader5@arb_gpu_shader5-xfb-streams-without-invocations
+spec@arb_gpu_shader5@arb_gpu_shader5-xfb-streams-without-invocations spirv
+spec@arb_gpu_shader_fp64@execution@arb_gpu_shader_fp64-dlist-uniforms
+spec@arb_internalformat_query@minmax
+spec@arb_internalformat_query@misc. api error checks
+spec@arb_pipeline_statistics_query@arb_pipeline_statistics_query-comp
+spec@arb_post_depth_coverage@arb_post_depth_coverage-basic
+spec@arb_post_depth_coverage@arb_post_depth_coverage-multisampling
+spec@arb_post_depth_coverage@arb_post_depth_coverage-sample-shading
+spec@arb_program_interface_query@arb_program_interface_query-getprogramresourceiv@compute on gl_compute_subroutine_uniform
+spec@arb_program_interface_query@arb_program_interface_query-resource-location@test_subroutine_stages_compute
+spec@arb_program_interface_query@arb_program_interface_query-resource-query@gl_compute_subroutine
+spec@arb_program_interface_query@arb_program_interface_query-resource-query@gl_compute_subroutine_uniform
+spec@arb_program_interface_query@arb_program_interface_query-resource-query@gl_program_input(cs)
+spec@arb_program_interface_query@arb_program_interface_query-resource-query@gl_program_output(cs)
+spec@arb_program_interface_query@arb_program_interface_query-resource-query@gl_uniform(cs)
+spec@arb_program_interface_query@arb_program_interface_query-resource-query@gl_uniform_block(cs)
+spec@arb_query_buffer_object@coherency@index-buffer-gl_compute_shader_invocations
+spec@arb_query_buffer_object@coherency@index-buffer-gl_fragment_shader_invocations
+spec@arb_query_buffer_object@coherency@index-buffer-gl_geometry_shader_invocations
+spec@arb_query_buffer_object@coherency@index-buffer-gl_geometry_shader_primitives_emitted
+spec@arb_query_buffer_object@coherency@index-buffer-gl_primitives_generated
+spec@arb_query_buffer_object@coherency@index-buffer-gl_primitives_submitted
+spec@arb_query_buffer_object@coherency@index-buffer-gl_samples_passed
+spec@arb_query_buffer_object@coherency@index-buffer-gl_tess_control_shader_patches
+spec@arb_query_buffer_object@coherency@index-buffer-gl_tess_evaluation_shader_invocations
+spec@arb_query_buffer_object@coherency@index-buffer-gl_time_elapsed
+spec@arb_query_buffer_object@coherency@index-buffer-gl_timestamp
+spec@arb_query_buffer_object@coherency@index-buffer-gl_transform_feedback_primitives_written
+spec@arb_query_buffer_object@coherency@index-buffer-gl_vertex_shader_invocations
+spec@arb_query_buffer_object@coherency@index-buffer-gl_vertices_submitted
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_any_samples_passed
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_any_samples_passed_conservative
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_clipping_input_primitives
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_clipping_output_primitives
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_compute_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_fragment_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_geometry_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_geometry_shader_primitives_emitted
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_primitives_generated
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_primitives_submitted
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_samples_passed
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_tess_control_shader_patches
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_tess_evaluation_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_transform_feedback_primitives_written
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_vertex_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-dispatch-gl_vertices_submitted
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_compute_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_fragment_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_geometry_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_geometry_shader_primitives_emitted
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_primitives_generated
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_primitives_submitted
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_samples_passed
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_tess_control_shader_patches
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_tess_evaluation_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_time_elapsed
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_timestamp
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_transform_feedback_primitives_written
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_vertex_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-draw-count-gl_vertices_submitted
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_compute_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_fragment_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_geometry_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_geometry_shader_primitives_emitted
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_primitives_generated
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_primitives_submitted
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_samples_passed
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_tess_control_shader_patches
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_tess_evaluation_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_time_elapsed
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_timestamp
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_transform_feedback_primitives_written
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_vertex_shader_invocations
+spec@arb_query_buffer_object@coherency@indirect-draw-gl_vertices_submitted
+spec@arb_sample_locations@test
+spec@arb_sample_shading@builtin-gl-num-samples 16
+spec@arb_sample_shading@builtin-gl-num-samples 32
+spec@arb_sample_shading@builtin-gl-num-samples 6
+spec@arb_sample_shading@builtin-gl-num-samples 8
+spec@arb_sample_shading@builtin-gl-sample-id 16
+spec@arb_sample_shading@builtin-gl-sample-id 32
+spec@arb_sample_shading@builtin-gl-sample-id 6
+spec@arb_sample_shading@builtin-gl-sample-id 8
+spec@arb_sample_shading@builtin-gl-sample-position 16
+spec@arb_sample_shading@builtin-gl-sample-position 32
+spec@arb_sample_shading@builtin-gl-sample-position 6
+spec@arb_sample_shading@builtin-gl-sample-position 8
+spec@arb_sample_shading@ignore-centroid-qualifier 16
+spec@arb_sample_shading@ignore-centroid-qualifier 32
+spec@arb_sample_shading@ignore-centroid-qualifier 6
+spec@arb_sample_shading@ignore-centroid-qualifier 8
+spec@arb_sample_shading@interpolate-at-sample-position 16
+spec@arb_sample_shading@interpolate-at-sample-position 32
+spec@arb_sample_shading@interpolate-at-sample-position 6
+spec@arb_sample_shading@interpolate-at-sample-position 8
+spec@arb_sample_shading@samplemask 0 all
+spec@arb_sample_shading@samplemask 16
+spec@arb_sample_shading@samplemask 16 all
+spec@arb_sample_shading@samplemask 32
+spec@arb_sample_shading@samplemask 32 all
+spec@arb_sample_shading@samplemask 6
+spec@arb_sample_shading@samplemask 6 all
+spec@arb_sample_shading@samplemask 8
+spec@arb_sample_shading@samplemask 8 all
+spec@arb_separate_shader_objects@atomic counter
+spec@arb_separate_shader_objects@programuniform coverage@double matrices
+spec@arb_separate_shader_objects@programuniform coverage@double scalar and vectors
+spec@arb_shader_atomic_counters@max-counters@combined test above maximum number of atomic counter buffers
+spec@arb_shader_draw_parameters@drawid-single-draw-display-list
+spec@arb_shader_image_load_store@atomicity
+spec@arb_shader_image_load_store@bitcast
+spec@arb_shader_image_load_store@coherency
+spec@arb_shader_image_load_store@dead-fragments
+spec@arb_shader_image_load_store@early-z
+spec@arb_shader_image_load_store@host-mem-barrier
+spec@arb_shader_image_load_store@indexing
+spec@arb_shader_image_load_store@invalid
+spec@arb_shader_image_load_store@layer
+spec@arb_shader_image_load_store@level
+spec@arb_shader_image_load_store@max-images
+spec@arb_shader_image_load_store@max-size
+spec@arb_shader_image_load_store@minmax
+spec@arb_shader_image_load_store@qualifiers
+spec@arb_shader_image_load_store@restrict
+spec@arb_shader_image_load_store@semantics
+spec@arb_shader_image_load_store@shader-mem-barrier
+spec@arb_shader_image_load_store@state
+spec@arb_shader_image_load_store@unused
+spec@arb_shader_image_size@builtin
+spec@arb_shader_texture_image_samples@texturesamples@fs-isampler2dms-16
+spec@arb_shader_texture_image_samples@texturesamples@fs-isampler2dms-2
+spec@arb_shader_texture_image_samples@texturesamples@fs-isampler2dms-32
+spec@arb_shader_texture_image_samples@texturesamples@fs-isampler2dms-6
+spec@arb_shader_texture_image_samples@texturesamples@fs-isampler2dms-8
+spec@arb_shader_texture_image_samples@texturesamples@fs-isampler2dmsarray-16
+spec@arb_shader_texture_image_samples@texturesamples@fs-isampler2dmsarray-2
+spec@arb_shader_texture_image_samples@texturesamples@fs-isampler2dmsarray-32
+spec@arb_shader_texture_image_samples@texturesamples@fs-isampler2dmsarray-6
+spec@arb_shader_texture_image_samples@texturesamples@fs-isampler2dmsarray-8
+spec@arb_shader_texture_image_samples@texturesamples@fs-sampler2dms-16
+spec@arb_shader_texture_image_samples@texturesamples@fs-sampler2dms-2
+spec@arb_shader_texture_image_samples@texturesamples@fs-sampler2dms-32
+spec@arb_shader_texture_image_samples@texturesamples@fs-sampler2dms-6
+spec@arb_shader_texture_image_samples@texturesamples@fs-sampler2dms-8
+spec@arb_shader_texture_image_samples@texturesamples@fs-sampler2dmsarray-16
+spec@arb_shader_texture_image_samples@texturesamples@fs-sampler2dmsarray-2
+spec@arb_shader_texture_image_samples@texturesamples@fs-sampler2dmsarray-32
+spec@arb_shader_texture_image_samples@texturesamples@fs-sampler2dmsarray-6
+spec@arb_shader_texture_image_samples@texturesamples@fs-sampler2dmsarray-8
+spec@arb_shader_texture_image_samples@texturesamples@fs-usampler2dms-16
+spec@arb_shader_texture_image_samples@texturesamples@fs-usampler2dms-2
+spec@arb_shader_texture_image_samples@texturesamples@fs-usampler2dms-32
+spec@arb_shader_texture_image_samples@texturesamples@fs-usampler2dms-6
+spec@arb_shader_texture_image_samples@texturesamples@fs-usampler2dms-8
+spec@arb_shader_texture_image_samples@texturesamples@fs-usampler2dmsarray-16
+spec@arb_shader_texture_image_samples@texturesamples@fs-usampler2dmsarray-2
+spec@arb_shader_texture_image_samples@texturesamples@fs-usampler2dmsarray-32
+spec@arb_shader_texture_image_samples@texturesamples@fs-usampler2dmsarray-6
+spec@arb_shader_texture_image_samples@texturesamples@fs-usampler2dmsarray-8
+spec@arb_shader_texture_image_samples@texturesamples@gs-isampler2dms-16
+spec@arb_shader_texture_image_samples@texturesamples@gs-isampler2dms-2
+spec@arb_shader_texture_image_samples@texturesamples@gs-isampler2dms-32
+spec@arb_shader_texture_image_samples@texturesamples@gs-isampler2dms-6
+spec@arb_shader_texture_image_samples@texturesamples@gs-isampler2dms-8
+spec@arb_shader_texture_image_samples@texturesamples@gs-isampler2dmsarray-16
+spec@arb_shader_texture_image_samples@texturesamples@gs-isampler2dmsarray-2
+spec@arb_shader_texture_image_samples@texturesamples@gs-isampler2dmsarray-32
+spec@arb_shader_texture_image_samples@texturesamples@gs-isampler2dmsarray-6
+spec@arb_shader_texture_image_samples@texturesamples@gs-isampler2dmsarray-8
+spec@arb_shader_texture_image_samples@texturesamples@gs-sampler2dms-16
+spec@arb_shader_texture_image_samples@texturesamples@gs-sampler2dms-2
+spec@arb_shader_texture_image_samples@texturesamples@gs-sampler2dms-32
+spec@arb_shader_texture_image_samples@texturesamples@gs-sampler2dms-6
+spec@arb_shader_texture_image_samples@texturesamples@gs-sampler2dms-8
+spec@arb_shader_texture_image_samples@texturesamples@gs-sampler2dmsarray-16
+spec@arb_shader_texture_image_samples@texturesamples@gs-sampler2dmsarray-2
+spec@arb_shader_texture_image_samples@texturesamples@gs-sampler2dmsarray-32
+spec@arb_shader_texture_image_samples@texturesamples@gs-sampler2dmsarray-6
+spec@arb_shader_texture_image_samples@texturesamples@gs-sampler2dmsarray-8
+spec@arb_shader_texture_image_samples@texturesamples@gs-usampler2dms-16
+spec@arb_shader_texture_image_samples@texturesamples@gs-usampler2dms-2
+spec@arb_shader_texture_image_samples@texturesamples@gs-usampler2dms-32
+spec@arb_shader_texture_image_samples@texturesamples@gs-usampler2dms-6
+spec@arb_shader_texture_image_samples@texturesamples@gs-usampler2dms-8
+spec@arb_shader_texture_image_samples@texturesamples@gs-usampler2dmsarray-16
+spec@arb_shader_texture_image_samples@texturesamples@gs-usampler2dmsarray-2
+spec@arb_shader_texture_image_samples@texturesamples@gs-usampler2dmsarray-32
+spec@arb_shader_texture_image_samples@texturesamples@gs-usampler2dmsarray-6
+spec@arb_shader_texture_image_samples@texturesamples@gs-usampler2dmsarray-8
+spec@arb_shader_texture_image_samples@texturesamples@vs-isampler2dms-16
+spec@arb_shader_texture_image_samples@texturesamples@vs-isampler2dms-2
+spec@arb_shader_texture_image_samples@texturesamples@vs-isampler2dms-32
+spec@arb_shader_texture_image_samples@texturesamples@vs-isampler2dms-6
+spec@arb_shader_texture_image_samples@texturesamples@vs-isampler2dms-8
+spec@arb_shader_texture_image_samples@texturesamples@vs-isampler2dmsarray-16
+spec@arb_shader_texture_image_samples@texturesamples@vs-isampler2dmsarray-2
+spec@arb_shader_texture_image_samples@texturesamples@vs-isampler2dmsarray-32
+spec@arb_shader_texture_image_samples@texturesamples@vs-isampler2dmsarray-6
+spec@arb_shader_texture_image_samples@texturesamples@vs-isampler2dmsarray-8
+spec@arb_shader_texture_image_samples@texturesamples@vs-sampler2dms-16
+spec@arb_shader_texture_image_samples@texturesamples@vs-sampler2dms-2
+spec@arb_shader_texture_image_samples@texturesamples@vs-sampler2dms-32
+spec@arb_shader_texture_image_samples@texturesamples@vs-sampler2dms-6
+spec@arb_shader_texture_image_samples@texturesamples@vs-sampler2dms-8
+spec@arb_shader_texture_image_samples@texturesamples@vs-sampler2dmsarray-16
+spec@arb_shader_texture_image_samples@texturesamples@vs-sampler2dmsarray-2
+spec@arb_shader_texture_image_samples@texturesamples@vs-sampler2dmsarray-32
+spec@arb_shader_texture_image_samples@texturesamples@vs-sampler2dmsarray-6
+spec@arb_shader_texture_image_samples@texturesamples@vs-sampler2dmsarray-8
+spec@arb_shader_texture_image_samples@texturesamples@vs-usampler2dms-16
+spec@arb_shader_texture_image_samples@texturesamples@vs-usampler2dms-2
+spec@arb_shader_texture_image_samples@texturesamples@vs-usampler2dms-32
+spec@arb_shader_texture_image_samples@texturesamples@vs-usampler2dms-6
+spec@arb_shader_texture_image_samples@texturesamples@vs-usampler2dms-8
+spec@arb_shader_texture_image_samples@texturesamples@vs-usampler2dmsarray-16
+spec@arb_shader_texture_image_samples@texturesamples@vs-usampler2dmsarray-2
+spec@arb_shader_texture_image_samples@texturesamples@vs-usampler2dmsarray-32
+spec@arb_shader_texture_image_samples@texturesamples@vs-usampler2dmsarray-6
+spec@arb_shader_texture_image_samples@texturesamples@vs-usampler2dmsarray-8
+spec@arb_sparse_buffer@basic
+spec@arb_sparse_buffer@buffer-data
+spec@arb_sparse_buffer@commit
+spec@arb_sparse_buffer@minmax
+spec@arb_tessellation_shader@arb_tessellation_shader-immediate-mode-draw-patches
+spec@arb_texture_buffer_object@formats (fs, arb)
+spec@arb_texture_buffer_object@formats (vs, arb)
+spec@arb_texture_buffer_object@negative-unsupported
+spec@arb_texture_cube_map@copyteximage cube samples=16
+spec@arb_texture_cube_map@copyteximage cube samples=2
+spec@arb_texture_cube_map@copyteximage cube samples=32
+spec@arb_texture_cube_map@copyteximage cube samples=4
+spec@arb_texture_cube_map@copyteximage cube samples=6
+spec@arb_texture_cube_map@copyteximage cube samples=8
+spec@arb_texture_float@multisample-formats 16 gl_arb_texture_float
+spec@arb_texture_float@multisample-formats 32 gl_arb_texture_float
+spec@arb_texture_float@multisample-formats 6 gl_arb_texture_float
+spec@arb_texture_float@multisample-formats 8 gl_arb_texture_float
+spec@arb_texture_multisample@arb_texture_multisample-negative-max-samples
+spec@arb_texture_multisample@arb_texture_multisample-texelfetch 16
+spec@arb_texture_multisample@arb_texture_multisample-texelfetch 32
+spec@arb_texture_multisample@arb_texture_multisample-texelfetch 6
+spec@arb_texture_multisample@arb_texture_multisample-texelfetch 8
+spec@arb_texture_multisample@fb-completeness@16
+spec@arb_texture_multisample@fb-completeness@32
+spec@arb_texture_multisample@fb-completeness@6
+spec@arb_texture_multisample@fb-completeness@8
+spec@arb_texture_multisample@sample-position@16
+spec@arb_texture_multisample@sample-position@32
+spec@arb_texture_multisample@sample-position@6
+spec@arb_texture_multisample@sample-position@8
+spec@arb_texture_multisample@texelfetch@16-fs-isampler2dms
+spec@arb_texture_multisample@texelfetch@16-fs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@16-fs-sampler2dms
+spec@arb_texture_multisample@texelfetch@16-fs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@16-fs-usampler2dms
+spec@arb_texture_multisample@texelfetch@16-fs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@16-gs-isampler2dms
+spec@arb_texture_multisample@texelfetch@16-gs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@16-gs-sampler2dms
+spec@arb_texture_multisample@texelfetch@16-gs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@16-gs-usampler2dms
+spec@arb_texture_multisample@texelfetch@16-gs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@16-vs-isampler2dms
+spec@arb_texture_multisample@texelfetch@16-vs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@16-vs-sampler2dms
+spec@arb_texture_multisample@texelfetch@16-vs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@16-vs-usampler2dms
+spec@arb_texture_multisample@texelfetch@16-vs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@32-fs-isampler2dms
+spec@arb_texture_multisample@texelfetch@32-fs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@32-fs-sampler2dms
+spec@arb_texture_multisample@texelfetch@32-fs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@32-fs-usampler2dms
+spec@arb_texture_multisample@texelfetch@32-fs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@32-gs-isampler2dms
+spec@arb_texture_multisample@texelfetch@32-gs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@32-gs-sampler2dms
+spec@arb_texture_multisample@texelfetch@32-gs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@32-gs-usampler2dms
+spec@arb_texture_multisample@texelfetch@32-gs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@32-vs-isampler2dms
+spec@arb_texture_multisample@texelfetch@32-vs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@32-vs-sampler2dms
+spec@arb_texture_multisample@texelfetch@32-vs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@32-vs-usampler2dms
+spec@arb_texture_multisample@texelfetch@32-vs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@6-fs-isampler2dms
+spec@arb_texture_multisample@texelfetch@6-fs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@6-fs-sampler2dms
+spec@arb_texture_multisample@texelfetch@6-fs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@6-fs-usampler2dms
+spec@arb_texture_multisample@texelfetch@6-fs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@6-gs-isampler2dms
+spec@arb_texture_multisample@texelfetch@6-gs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@6-gs-sampler2dms
+spec@arb_texture_multisample@texelfetch@6-gs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@6-gs-usampler2dms
+spec@arb_texture_multisample@texelfetch@6-gs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@6-vs-isampler2dms
+spec@arb_texture_multisample@texelfetch@6-vs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@6-vs-sampler2dms
+spec@arb_texture_multisample@texelfetch@6-vs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@6-vs-usampler2dms
+spec@arb_texture_multisample@texelfetch@6-vs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@8-fs-isampler2dms
+spec@arb_texture_multisample@texelfetch@8-fs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@8-fs-sampler2dms
+spec@arb_texture_multisample@texelfetch@8-fs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@8-fs-usampler2dms
+spec@arb_texture_multisample@texelfetch@8-fs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@8-gs-isampler2dms
+spec@arb_texture_multisample@texelfetch@8-gs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@8-gs-sampler2dms
+spec@arb_texture_multisample@texelfetch@8-gs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@8-gs-usampler2dms
+spec@arb_texture_multisample@texelfetch@8-gs-usampler2dmsarray
+spec@arb_texture_multisample@texelfetch@8-vs-isampler2dms
+spec@arb_texture_multisample@texelfetch@8-vs-isampler2dmsarray
+spec@arb_texture_multisample@texelfetch@8-vs-sampler2dms
+spec@arb_texture_multisample@texelfetch@8-vs-sampler2dmsarray
+spec@arb_texture_multisample@texelfetch@8-vs-usampler2dms
+spec@arb_texture_multisample@texelfetch@8-vs-usampler2dmsarray
+spec@arb_texture_rectangle@copyteximage rect samples=16
+spec@arb_texture_rectangle@copyteximage rect samples=2
+spec@arb_texture_rectangle@copyteximage rect samples=32
+spec@arb_texture_rectangle@copyteximage rect samples=4
+spec@arb_texture_rectangle@copyteximage rect samples=6
+spec@arb_texture_rectangle@copyteximage rect samples=8
+spec@arb_texture_rg@multisample-formats 16 gl_arb_texture_rg
+spec@arb_texture_rg@multisample-formats 16 gl_arb_texture_rg-float
+spec@arb_texture_rg@multisample-formats 16 gl_arb_texture_rg-int
+spec@arb_texture_rg@multisample-formats 32 gl_arb_texture_rg
+spec@arb_texture_rg@multisample-formats 32 gl_arb_texture_rg-float
+spec@arb_texture_rg@multisample-formats 32 gl_arb_texture_rg-int
+spec@arb_texture_rg@multisample-formats 6 gl_arb_texture_rg
+spec@arb_texture_rg@multisample-formats 6 gl_arb_texture_rg-float
+spec@arb_texture_rg@multisample-formats 6 gl_arb_texture_rg-int
+spec@arb_texture_rg@multisample-formats 8 gl_arb_texture_rg
+spec@arb_texture_rg@multisample-formats 8 gl_arb_texture_rg-float
+spec@arb_texture_rg@multisample-formats 8 gl_arb_texture_rg-int
+spec@arb_texture_stencil8@fbo-clear-formats@gl_stencil_index8 (fbo incomplete)
+spec@arb_texture_view@bug-layers-image
+spec@arb_texture_view@rendering-layers-image
+spec@arb_vertex_attrib_64bit@get_double_attribs-display-lists
+spec@arb_vertex_program@vp-address-02
+spec@arb_vertex_program@vp-address-04
+spec@arb_vertex_type_2_10_10_10_rev@attrib-p-type-size-match
+spec@arb_viewport_array@display-list
+spec@ati_envmap_bumpmap@ati_envmap_bumpmap-bump
+spec@ati_texture_compression_3dc@fbo-generatemipmap-formats
+spec@ati_texture_compression_3dc@texwrap formats
+spec@ati_texture_compression_3dc@texwrap formats bordercolor
+spec@ati_texture_compression_3dc@texwrap formats bordercolor-swizzled
+spec@egl 1.4@egl-blob-cache
+spec@egl 1.4@egl-context-priority
+spec@egl 1.4@egl-ext_egl_image_storage
+spec@egl 1.4@egl-flush-external
+spec@egl 1.4@egl-gl_oes_egl_image
+spec@egl 1.4@egl-invalid-attr
+spec@egl 1.4@eglcreatepbuffersurface with egl_samples set
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglclientwaitsynckhr_native_zero_timeout
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglclientwaitsynckhr_nonzero_timeout
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglcreatesynckhr_default_attributes
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglcreatesynckhr_invalid_attrib_list
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglcreatesynckhr_invalid_display
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglcreatesynckhr_native_dup_fence
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglcreatesynckhr_native_dup_invalid
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglcreatesynckhr_native_from_fd
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglcreatesynckhr_no_current_context
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglcreatesynckhr_wrong_display_same_thread
+spec@egl_android_native_fence_sync@egl_khr_fence_sync android_native@eglgetsyncattribkhr_invalid_attrib
+spec@egl_chromium_sync_control@conformance@eglgetsyncvalueschromium_msc_and_sbc_test
+spec@egl_chromium_sync_control@conformance@eglgetsyncvalueschromium_null_pointers
+spec@egl_chromium_sync_control@conformance@eglgetsyncvalueschromium_ust_test
+spec@egl_ext_device_drm@conformance
+spec@egl_ext_image_dma_buf_import_modifiers@conformance
+spec@egl_ext_platform_device@conformance@create_pbuffer
+spec@egl_ext_platform_device@conformance@create_pixmap
+spec@egl_ext_platform_device@conformance@create_window
+spec@egl_ext_platform_device@conformance@initialize_display
+spec@egl_ext_protected_content@conformance
+spec@egl_khr_fence_sync@conformance@eglcreatesynckhr_with_display_bound_in_other_thread
+spec@egl_khr_fence_sync@conformance@eglcreatesynckhr_wrong_display_same_thread
+spec@egl_nok_swap_region@basic
+spec@egl_nok_texture_from_pixmap@basic
+spec@ext_depth_bounds_test@depth_bounds
+spec@ext_direct_state_access@framebuffer@namedframebuffertexture1dext
+spec@ext_direct_state_access@framebuffer@namedframebuffertexture2dext
+spec@ext_direct_state_access@framebuffer@namedframebuffertexture3dext
+spec@ext_direct_state_access@indexed-state-queries 12@getdoublei_vext
+spec@ext_direct_state_access@indexed-state-queries 12@getfloati_vext
+spec@ext_direct_state_access@indexed-state-queries 12@getpointeri_vext
+spec@ext_direct_state_access@named-buffers 15@flushmappednamedbufferrangeext
+spec@ext_direct_state_access@named-buffers 15@mapnamedbufferext
+spec@ext_direct_state_access@named-buffers 15@mapnamedbufferrangeext
+spec@ext_direct_state_access@named-buffers 15@namedcopybuffersubdataext
+spec@ext_external_objects@memory-object-api-errors
+spec@ext_external_objects@semaphore-api-errors
+spec@ext_external_objects@vk-buf-exchange
+spec@ext_external_objects@vk-depth-display
+spec@ext_external_objects@vk-image-display
+spec@ext_external_objects@vk-image-display-overwrite
+spec@ext_external_objects@vk-image-overwrite
+spec@ext_external_objects@vk-pix-buf-update-errors
+spec@ext_external_objects@vk-vert-buf-reuse
+spec@ext_external_objects@vk-vert-buf-update-errors
+spec@ext_external_objects_fd@memory-object-api-errors
+spec@ext_external_objects_fd@semaphore-api-errors
+spec@ext_framebuffer_multisample@accuracy 16 color
+spec@ext_framebuffer_multisample@accuracy 16 color depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 color depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 16 color linear
+spec@ext_framebuffer_multisample@accuracy 16 color small
+spec@ext_framebuffer_multisample@accuracy 16 color small depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 color small depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 16 color small linear
+spec@ext_framebuffer_multisample@accuracy 16 depth_draw
+spec@ext_framebuffer_multisample@accuracy 16 depth_draw depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 depth_draw small
+spec@ext_framebuffer_multisample@accuracy 16 depth_draw small depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 depth_resolve
+spec@ext_framebuffer_multisample@accuracy 16 depth_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 depth_resolve small
+spec@ext_framebuffer_multisample@accuracy 16 depth_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 srgb
+spec@ext_framebuffer_multisample@accuracy 16 srgb depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 srgb depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 16 srgb linear
+spec@ext_framebuffer_multisample@accuracy 16 srgb small
+spec@ext_framebuffer_multisample@accuracy 16 srgb small depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 srgb small depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 16 srgb small linear
+spec@ext_framebuffer_multisample@accuracy 16 stencil_draw
+spec@ext_framebuffer_multisample@accuracy 16 stencil_draw depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 stencil_draw small
+spec@ext_framebuffer_multisample@accuracy 16 stencil_draw small depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 stencil_resolve
+spec@ext_framebuffer_multisample@accuracy 16 stencil_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 16 stencil_resolve small
+spec@ext_framebuffer_multisample@accuracy 16 stencil_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy 2 color
+spec@ext_framebuffer_multisample@accuracy 2 color linear
+spec@ext_framebuffer_multisample@accuracy 2 color small
+spec@ext_framebuffer_multisample@accuracy 2 color small linear
+spec@ext_framebuffer_multisample@accuracy 2 depth_draw
+spec@ext_framebuffer_multisample@accuracy 2 depth_draw small
+spec@ext_framebuffer_multisample@accuracy 2 depth_resolve
+spec@ext_framebuffer_multisample@accuracy 2 depth_resolve small
+spec@ext_framebuffer_multisample@accuracy 2 srgb
+spec@ext_framebuffer_multisample@accuracy 2 srgb linear
+spec@ext_framebuffer_multisample@accuracy 2 srgb small
+spec@ext_framebuffer_multisample@accuracy 2 srgb small linear
+spec@ext_framebuffer_multisample@accuracy 2 stencil_draw
+spec@ext_framebuffer_multisample@accuracy 2 stencil_draw small
+spec@ext_framebuffer_multisample@accuracy 2 stencil_resolve
+spec@ext_framebuffer_multisample@accuracy 2 stencil_resolve small
+spec@ext_framebuffer_multisample@accuracy 32 color
+spec@ext_framebuffer_multisample@accuracy 32 color depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 color depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 32 color linear
+spec@ext_framebuffer_multisample@accuracy 32 color small
+spec@ext_framebuffer_multisample@accuracy 32 color small depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 color small depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 32 color small linear
+spec@ext_framebuffer_multisample@accuracy 32 depth_draw
+spec@ext_framebuffer_multisample@accuracy 32 depth_draw depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 depth_draw small
+spec@ext_framebuffer_multisample@accuracy 32 depth_draw small depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 depth_resolve
+spec@ext_framebuffer_multisample@accuracy 32 depth_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 depth_resolve small
+spec@ext_framebuffer_multisample@accuracy 32 depth_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 srgb
+spec@ext_framebuffer_multisample@accuracy 32 srgb depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 srgb depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 32 srgb linear
+spec@ext_framebuffer_multisample@accuracy 32 srgb small
+spec@ext_framebuffer_multisample@accuracy 32 srgb small depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 srgb small depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 32 srgb small linear
+spec@ext_framebuffer_multisample@accuracy 32 stencil_draw
+spec@ext_framebuffer_multisample@accuracy 32 stencil_draw depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 stencil_draw small
+spec@ext_framebuffer_multisample@accuracy 32 stencil_draw small depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 stencil_resolve
+spec@ext_framebuffer_multisample@accuracy 32 stencil_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 32 stencil_resolve small
+spec@ext_framebuffer_multisample@accuracy 32 stencil_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy 4 color
+spec@ext_framebuffer_multisample@accuracy 4 color linear
+spec@ext_framebuffer_multisample@accuracy 4 color small
+spec@ext_framebuffer_multisample@accuracy 4 color small linear
+spec@ext_framebuffer_multisample@accuracy 4 depth_draw
+spec@ext_framebuffer_multisample@accuracy 4 depth_draw small
+spec@ext_framebuffer_multisample@accuracy 4 depth_resolve
+spec@ext_framebuffer_multisample@accuracy 4 depth_resolve small
+spec@ext_framebuffer_multisample@accuracy 4 srgb
+spec@ext_framebuffer_multisample@accuracy 4 srgb linear
+spec@ext_framebuffer_multisample@accuracy 4 srgb small
+spec@ext_framebuffer_multisample@accuracy 4 srgb small linear
+spec@ext_framebuffer_multisample@accuracy 4 stencil_draw
+spec@ext_framebuffer_multisample@accuracy 4 stencil_draw small
+spec@ext_framebuffer_multisample@accuracy 4 stencil_resolve
+spec@ext_framebuffer_multisample@accuracy 4 stencil_resolve small
+spec@ext_framebuffer_multisample@accuracy 6 color
+spec@ext_framebuffer_multisample@accuracy 6 color depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 color depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 6 color linear
+spec@ext_framebuffer_multisample@accuracy 6 color small
+spec@ext_framebuffer_multisample@accuracy 6 color small depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 color small depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 6 color small linear
+spec@ext_framebuffer_multisample@accuracy 6 depth_draw
+spec@ext_framebuffer_multisample@accuracy 6 depth_draw depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 depth_draw small
+spec@ext_framebuffer_multisample@accuracy 6 depth_draw small depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 depth_resolve
+spec@ext_framebuffer_multisample@accuracy 6 depth_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 depth_resolve small
+spec@ext_framebuffer_multisample@accuracy 6 depth_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 srgb
+spec@ext_framebuffer_multisample@accuracy 6 srgb depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 srgb depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 6 srgb linear
+spec@ext_framebuffer_multisample@accuracy 6 srgb small
+spec@ext_framebuffer_multisample@accuracy 6 srgb small depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 srgb small depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 6 srgb small linear
+spec@ext_framebuffer_multisample@accuracy 6 stencil_draw
+spec@ext_framebuffer_multisample@accuracy 6 stencil_draw depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 stencil_draw small
+spec@ext_framebuffer_multisample@accuracy 6 stencil_draw small depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 stencil_resolve
+spec@ext_framebuffer_multisample@accuracy 6 stencil_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 6 stencil_resolve small
+spec@ext_framebuffer_multisample@accuracy 6 stencil_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 color
+spec@ext_framebuffer_multisample@accuracy 8 color depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 color depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 8 color linear
+spec@ext_framebuffer_multisample@accuracy 8 color small
+spec@ext_framebuffer_multisample@accuracy 8 color small depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 color small depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 8 color small linear
+spec@ext_framebuffer_multisample@accuracy 8 depth_draw
+spec@ext_framebuffer_multisample@accuracy 8 depth_draw depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 depth_draw small
+spec@ext_framebuffer_multisample@accuracy 8 depth_draw small depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 depth_resolve
+spec@ext_framebuffer_multisample@accuracy 8 depth_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 depth_resolve small
+spec@ext_framebuffer_multisample@accuracy 8 depth_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 srgb
+spec@ext_framebuffer_multisample@accuracy 8 srgb depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 srgb depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 8 srgb linear
+spec@ext_framebuffer_multisample@accuracy 8 srgb small
+spec@ext_framebuffer_multisample@accuracy 8 srgb small depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 srgb small depthstencil linear
+spec@ext_framebuffer_multisample@accuracy 8 srgb small linear
+spec@ext_framebuffer_multisample@accuracy 8 stencil_draw
+spec@ext_framebuffer_multisample@accuracy 8 stencil_draw depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 stencil_draw small
+spec@ext_framebuffer_multisample@accuracy 8 stencil_draw small depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 stencil_resolve
+spec@ext_framebuffer_multisample@accuracy 8 stencil_resolve depthstencil
+spec@ext_framebuffer_multisample@accuracy 8 stencil_resolve small
+spec@ext_framebuffer_multisample@accuracy 8 stencil_resolve small depthstencil
+spec@ext_framebuffer_multisample@accuracy all_samples color
+spec@ext_framebuffer_multisample@accuracy all_samples color linear
+spec@ext_framebuffer_multisample@accuracy all_samples color small
+spec@ext_framebuffer_multisample@accuracy all_samples color small linear
+spec@ext_framebuffer_multisample@accuracy all_samples depth_draw
+spec@ext_framebuffer_multisample@accuracy all_samples depth_draw small
+spec@ext_framebuffer_multisample@accuracy all_samples depth_resolve
+spec@ext_framebuffer_multisample@accuracy all_samples depth_resolve small
+spec@ext_framebuffer_multisample@accuracy all_samples srgb
+spec@ext_framebuffer_multisample@accuracy all_samples srgb linear
+spec@ext_framebuffer_multisample@accuracy all_samples srgb small
+spec@ext_framebuffer_multisample@accuracy all_samples srgb small linear
+spec@ext_framebuffer_multisample@accuracy all_samples stencil_draw
+spec@ext_framebuffer_multisample@accuracy all_samples stencil_draw small
+spec@ext_framebuffer_multisample@accuracy all_samples stencil_resolve
+spec@ext_framebuffer_multisample@accuracy all_samples stencil_resolve small
+spec@ext_framebuffer_multisample@alpha-blending-after-rendering 16
+spec@ext_framebuffer_multisample@alpha-blending-after-rendering 32
+spec@ext_framebuffer_multisample@alpha-blending-after-rendering 6
+spec@ext_framebuffer_multisample@alpha-blending-after-rendering 8
+spec@ext_framebuffer_multisample@alpha-to-coverage-dual-src-blend 16
+spec@ext_framebuffer_multisample@alpha-to-coverage-dual-src-blend 32
+spec@ext_framebuffer_multisample@alpha-to-coverage-dual-src-blend 6
+spec@ext_framebuffer_multisample@alpha-to-coverage-dual-src-blend 8
+spec@ext_framebuffer_multisample@alpha-to-coverage-no-draw-buffer-zero 16
+spec@ext_framebuffer_multisample@alpha-to-coverage-no-draw-buffer-zero 32
+spec@ext_framebuffer_multisample@alpha-to-coverage-no-draw-buffer-zero 6
+spec@ext_framebuffer_multisample@alpha-to-coverage-no-draw-buffer-zero 8
+spec@ext_framebuffer_multisample@alpha-to-coverage-no-draw-buffer-zero-write 16
+spec@ext_framebuffer_multisample@alpha-to-coverage-no-draw-buffer-zero-write 32
+spec@ext_framebuffer_multisample@alpha-to-coverage-no-draw-buffer-zero-write 6
+spec@ext_framebuffer_multisample@alpha-to-coverage-no-draw-buffer-zero-write 8
+spec@ext_framebuffer_multisample@alpha-to-one-dual-src-blend 16
+spec@ext_framebuffer_multisample@alpha-to-one-dual-src-blend 32
+spec@ext_framebuffer_multisample@alpha-to-one-dual-src-blend 6
+spec@ext_framebuffer_multisample@alpha-to-one-dual-src-blend 8
+spec@ext_framebuffer_multisample@alpha-to-one-msaa-disabled 16
+spec@ext_framebuffer_multisample@alpha-to-one-msaa-disabled 32
+spec@ext_framebuffer_multisample@alpha-to-one-msaa-disabled 6
+spec@ext_framebuffer_multisample@alpha-to-one-msaa-disabled 8
+spec@ext_framebuffer_multisample@bitmap 16
+spec@ext_framebuffer_multisample@bitmap 32
+spec@ext_framebuffer_multisample@bitmap 6
+spec@ext_framebuffer_multisample@bitmap 8
+spec@ext_framebuffer_multisample@blit-flipped 16 x
+spec@ext_framebuffer_multisample@blit-flipped 16 y
+spec@ext_framebuffer_multisample@blit-flipped 32 x
+spec@ext_framebuffer_multisample@blit-flipped 32 y
+spec@ext_framebuffer_multisample@blit-flipped 6 x
+spec@ext_framebuffer_multisample@blit-flipped 6 y
+spec@ext_framebuffer_multisample@blit-flipped 8 x
+spec@ext_framebuffer_multisample@blit-flipped 8 y
+spec@ext_framebuffer_multisample@blit-mismatched-samples
+spec@ext_framebuffer_multisample@blit-multiple-render-targets 16
+spec@ext_framebuffer_multisample@blit-multiple-render-targets 32
+spec@ext_framebuffer_multisample@blit-multiple-render-targets 6
+spec@ext_framebuffer_multisample@blit-multiple-render-targets 8
+spec@ext_framebuffer_multisample@clear 16 color
+spec@ext_framebuffer_multisample@clear 16 depth
+spec@ext_framebuffer_multisample@clear 16 stencil
+spec@ext_framebuffer_multisample@clear 32 color
+spec@ext_framebuffer_multisample@clear 32 depth
+spec@ext_framebuffer_multisample@clear 32 stencil
+spec@ext_framebuffer_multisample@clear 6 color
+spec@ext_framebuffer_multisample@clear 6 depth
+spec@ext_framebuffer_multisample@clear 6 stencil
+spec@ext_framebuffer_multisample@clear 8 color
+spec@ext_framebuffer_multisample@clear 8 depth
+spec@ext_framebuffer_multisample@clear 8 stencil
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 16 downsample
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 16 msaa
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 16 normal
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 16 upsample
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 32 downsample
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 32 msaa
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 32 normal
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 32 upsample
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 6 downsample
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 6 msaa
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 6 normal
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 6 upsample
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 8 downsample
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 8 msaa
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 8 normal
+spec@ext_framebuffer_multisample@clip-and-scissor-blit 8 upsample
+spec@ext_framebuffer_multisample@draw-buffers-alpha-to-coverage 16
+spec@ext_framebuffer_multisample@draw-buffers-alpha-to-coverage 32
+spec@ext_framebuffer_multisample@draw-buffers-alpha-to-coverage 6
+spec@ext_framebuffer_multisample@draw-buffers-alpha-to-coverage 8
+spec@ext_framebuffer_multisample@draw-buffers-alpha-to-one 16
+spec@ext_framebuffer_multisample@draw-buffers-alpha-to-one 32
+spec@ext_framebuffer_multisample@draw-buffers-alpha-to-one 6
+spec@ext_framebuffer_multisample@draw-buffers-alpha-to-one 8
+spec@ext_framebuffer_multisample@formats 16
+spec@ext_framebuffer_multisample@formats 32
+spec@ext_framebuffer_multisample@formats 6
+spec@ext_framebuffer_multisample@formats 8
+spec@ext_framebuffer_multisample@int-draw-buffers-alpha-to-coverage 16
+spec@ext_framebuffer_multisample@int-draw-buffers-alpha-to-coverage 32
+spec@ext_framebuffer_multisample@int-draw-buffers-alpha-to-coverage 6
+spec@ext_framebuffer_multisample@int-draw-buffers-alpha-to-coverage 8
+spec@ext_framebuffer_multisample@int-draw-buffers-alpha-to-one 16
+spec@ext_framebuffer_multisample@int-draw-buffers-alpha-to-one 32
+spec@ext_framebuffer_multisample@int-draw-buffers-alpha-to-one 6
+spec@ext_framebuffer_multisample@int-draw-buffers-alpha-to-one 8
+spec@ext_framebuffer_multisample@interpolation 16 centroid-deriv
+spec@ext_framebuffer_multisample@interpolation 16 centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 16 centroid-disabled
+spec@ext_framebuffer_multisample@interpolation 16 centroid-edges
+spec@ext_framebuffer_multisample@interpolation 16 non-centroid-deriv
+spec@ext_framebuffer_multisample@interpolation 16 non-centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 16 non-centroid-disabled
+spec@ext_framebuffer_multisample@interpolation 32 centroid-deriv
+spec@ext_framebuffer_multisample@interpolation 32 centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 32 centroid-disabled
+spec@ext_framebuffer_multisample@interpolation 32 centroid-edges
+spec@ext_framebuffer_multisample@interpolation 32 non-centroid-deriv
+spec@ext_framebuffer_multisample@interpolation 32 non-centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 32 non-centroid-disabled
+spec@ext_framebuffer_multisample@interpolation 6 centroid-deriv
+spec@ext_framebuffer_multisample@interpolation 6 centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 6 centroid-disabled
+spec@ext_framebuffer_multisample@interpolation 6 centroid-edges
+spec@ext_framebuffer_multisample@interpolation 6 non-centroid-deriv
+spec@ext_framebuffer_multisample@interpolation 6 non-centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 6 non-centroid-disabled
+spec@ext_framebuffer_multisample@interpolation 8 centroid-deriv
+spec@ext_framebuffer_multisample@interpolation 8 centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 8 centroid-disabled
+spec@ext_framebuffer_multisample@interpolation 8 centroid-edges
+spec@ext_framebuffer_multisample@interpolation 8 non-centroid-deriv
+spec@ext_framebuffer_multisample@interpolation 8 non-centroid-deriv-disabled
+spec@ext_framebuffer_multisample@interpolation 8 non-centroid-disabled
+spec@ext_framebuffer_multisample@line-smooth 16
+spec@ext_framebuffer_multisample@line-smooth 32
+spec@ext_framebuffer_multisample@line-smooth 6
+spec@ext_framebuffer_multisample@line-smooth 8
+spec@ext_framebuffer_multisample@multisample-blit 16 color
+spec@ext_framebuffer_multisample@multisample-blit 16 color linear
+spec@ext_framebuffer_multisample@multisample-blit 16 depth
+spec@ext_framebuffer_multisample@multisample-blit 16 stencil
+spec@ext_framebuffer_multisample@multisample-blit 32 color
+spec@ext_framebuffer_multisample@multisample-blit 32 color linear
+spec@ext_framebuffer_multisample@multisample-blit 32 depth
+spec@ext_framebuffer_multisample@multisample-blit 32 stencil
+spec@ext_framebuffer_multisample@multisample-blit 6 color
+spec@ext_framebuffer_multisample@multisample-blit 6 color linear
+spec@ext_framebuffer_multisample@multisample-blit 6 depth
+spec@ext_framebuffer_multisample@multisample-blit 6 stencil
+spec@ext_framebuffer_multisample@multisample-blit 8 color
+spec@ext_framebuffer_multisample@multisample-blit 8 color linear
+spec@ext_framebuffer_multisample@multisample-blit 8 depth
+spec@ext_framebuffer_multisample@multisample-blit 8 stencil
+spec@ext_framebuffer_multisample@negative-max-samples
+spec@ext_framebuffer_multisample@no-color 16 depth combined
+spec@ext_framebuffer_multisample@no-color 16 depth separate
+spec@ext_framebuffer_multisample@no-color 16 depth single
+spec@ext_framebuffer_multisample@no-color 16 depth-computed combined
+spec@ext_framebuffer_multisample@no-color 16 depth-computed separate
+spec@ext_framebuffer_multisample@no-color 16 depth-computed single
+spec@ext_framebuffer_multisample@no-color 16 stencil combined
+spec@ext_framebuffer_multisample@no-color 16 stencil separate
+spec@ext_framebuffer_multisample@no-color 16 stencil single
+spec@ext_framebuffer_multisample@no-color 2 depth separate
+spec@ext_framebuffer_multisample@no-color 2 depth-computed separate
+spec@ext_framebuffer_multisample@no-color 2 stencil separate
+spec@ext_framebuffer_multisample@no-color 32 depth combined
+spec@ext_framebuffer_multisample@no-color 32 depth separate
+spec@ext_framebuffer_multisample@no-color 32 depth single
+spec@ext_framebuffer_multisample@no-color 32 depth-computed combined
+spec@ext_framebuffer_multisample@no-color 32 depth-computed separate
+spec@ext_framebuffer_multisample@no-color 32 depth-computed single
+spec@ext_framebuffer_multisample@no-color 32 stencil combined
+spec@ext_framebuffer_multisample@no-color 32 stencil separate
+spec@ext_framebuffer_multisample@no-color 32 stencil single
+spec@ext_framebuffer_multisample@no-color 4 depth separate
+spec@ext_framebuffer_multisample@no-color 4 depth-computed separate
+spec@ext_framebuffer_multisample@no-color 4 stencil separate
+spec@ext_framebuffer_multisample@no-color 6 depth combined
+spec@ext_framebuffer_multisample@no-color 6 depth separate
+spec@ext_framebuffer_multisample@no-color 6 depth single
+spec@ext_framebuffer_multisample@no-color 6 depth-computed combined
+spec@ext_framebuffer_multisample@no-color 6 depth-computed separate
+spec@ext_framebuffer_multisample@no-color 6 depth-computed single
+spec@ext_framebuffer_multisample@no-color 6 stencil combined
+spec@ext_framebuffer_multisample@no-color 6 stencil separate
+spec@ext_framebuffer_multisample@no-color 6 stencil single
+spec@ext_framebuffer_multisample@no-color 8 depth combined
+spec@ext_framebuffer_multisample@no-color 8 depth separate
+spec@ext_framebuffer_multisample@no-color 8 depth single
+spec@ext_framebuffer_multisample@no-color 8 depth-computed combined
+spec@ext_framebuffer_multisample@no-color 8 depth-computed separate
+spec@ext_framebuffer_multisample@no-color 8 depth-computed single
+spec@ext_framebuffer_multisample@no-color 8 stencil combined
+spec@ext_framebuffer_multisample@no-color 8 stencil separate
+spec@ext_framebuffer_multisample@no-color 8 stencil single
+spec@ext_framebuffer_multisample@point-smooth 16
+spec@ext_framebuffer_multisample@point-smooth 32
+spec@ext_framebuffer_multisample@point-smooth 6
+spec@ext_framebuffer_multisample@point-smooth 8
+spec@ext_framebuffer_multisample@polygon-smooth 16
+spec@ext_framebuffer_multisample@polygon-smooth 32
+spec@ext_framebuffer_multisample@polygon-smooth 6
+spec@ext_framebuffer_multisample@polygon-smooth 8
+spec@ext_framebuffer_multisample@polygon-stipple 16
+spec@ext_framebuffer_multisample@polygon-stipple 32
+spec@ext_framebuffer_multisample@polygon-stipple 6
+spec@ext_framebuffer_multisample@polygon-stipple 8
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 16 color
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 16 depth
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 32 color
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 32 depth
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 6 color
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 6 depth
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 8 color
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 8 depth
+spec@ext_framebuffer_multisample@sample-alpha-to-one 16
+spec@ext_framebuffer_multisample@sample-alpha-to-one 32
+spec@ext_framebuffer_multisample@sample-alpha-to-one 6
+spec@ext_framebuffer_multisample@sample-alpha-to-one 8
+spec@ext_framebuffer_multisample@sample-coverage 16 inverted
+spec@ext_framebuffer_multisample@sample-coverage 16 non-inverted
+spec@ext_framebuffer_multisample@sample-coverage 32 inverted
+spec@ext_framebuffer_multisample@sample-coverage 32 non-inverted
+spec@ext_framebuffer_multisample@sample-coverage 6 inverted
+spec@ext_framebuffer_multisample@sample-coverage 6 non-inverted
+spec@ext_framebuffer_multisample@sample-coverage 8 inverted
+spec@ext_framebuffer_multisample@sample-coverage 8 non-inverted
+spec@ext_framebuffer_multisample@turn-on-off 16
+spec@ext_framebuffer_multisample@turn-on-off 32
+spec@ext_framebuffer_multisample@turn-on-off 6
+spec@ext_framebuffer_multisample@turn-on-off 8
+spec@ext_framebuffer_multisample@unaligned-blit 16 color downsample
+spec@ext_framebuffer_multisample@unaligned-blit 16 color msaa
+spec@ext_framebuffer_multisample@unaligned-blit 16 color upsample
+spec@ext_framebuffer_multisample@unaligned-blit 16 depth downsample
+spec@ext_framebuffer_multisample@unaligned-blit 16 depth msaa
+spec@ext_framebuffer_multisample@unaligned-blit 16 depth upsample
+spec@ext_framebuffer_multisample@unaligned-blit 16 stencil downsample
+spec@ext_framebuffer_multisample@unaligned-blit 16 stencil msaa
+spec@ext_framebuffer_multisample@unaligned-blit 16 stencil upsample
+spec@ext_framebuffer_multisample@unaligned-blit 32 color downsample
+spec@ext_framebuffer_multisample@unaligned-blit 32 color msaa
+spec@ext_framebuffer_multisample@unaligned-blit 32 color upsample
+spec@ext_framebuffer_multisample@unaligned-blit 32 depth downsample
+spec@ext_framebuffer_multisample@unaligned-blit 32 depth msaa
+spec@ext_framebuffer_multisample@unaligned-blit 32 depth upsample
+spec@ext_framebuffer_multisample@unaligned-blit 32 stencil downsample
+spec@ext_framebuffer_multisample@unaligned-blit 32 stencil msaa
+spec@ext_framebuffer_multisample@unaligned-blit 32 stencil upsample
+spec@ext_framebuffer_multisample@unaligned-blit 6 color downsample
+spec@ext_framebuffer_multisample@unaligned-blit 6 color msaa
+spec@ext_framebuffer_multisample@unaligned-blit 6 color upsample
+spec@ext_framebuffer_multisample@unaligned-blit 6 depth downsample
+spec@ext_framebuffer_multisample@unaligned-blit 6 depth msaa
+spec@ext_framebuffer_multisample@unaligned-blit 6 depth upsample
+spec@ext_framebuffer_multisample@unaligned-blit 6 stencil downsample
+spec@ext_framebuffer_multisample@unaligned-blit 6 stencil msaa
+spec@ext_framebuffer_multisample@unaligned-blit 6 stencil upsample
+spec@ext_framebuffer_multisample@unaligned-blit 8 color downsample
+spec@ext_framebuffer_multisample@unaligned-blit 8 color msaa
+spec@ext_framebuffer_multisample@unaligned-blit 8 color upsample
+spec@ext_framebuffer_multisample@unaligned-blit 8 depth downsample
+spec@ext_framebuffer_multisample@unaligned-blit 8 depth msaa
+spec@ext_framebuffer_multisample@unaligned-blit 8 depth upsample
+spec@ext_framebuffer_multisample@unaligned-blit 8 stencil downsample
+spec@ext_framebuffer_multisample@unaligned-blit 8 stencil msaa
+spec@ext_framebuffer_multisample@unaligned-blit 8 stencil upsample
+spec@ext_framebuffer_multisample@upsample 16 color
+spec@ext_framebuffer_multisample@upsample 16 color linear
+spec@ext_framebuffer_multisample@upsample 16 depth
+spec@ext_framebuffer_multisample@upsample 16 stencil
+spec@ext_framebuffer_multisample@upsample 32 color
+spec@ext_framebuffer_multisample@upsample 32 color linear
+spec@ext_framebuffer_multisample@upsample 32 depth
+spec@ext_framebuffer_multisample@upsample 32 stencil
+spec@ext_framebuffer_multisample@upsample 6 color
+spec@ext_framebuffer_multisample@upsample 6 color linear
+spec@ext_framebuffer_multisample@upsample 6 depth
+spec@ext_framebuffer_multisample@upsample 6 stencil
+spec@ext_framebuffer_multisample@upsample 8 color
+spec@ext_framebuffer_multisample@upsample 8 color linear
+spec@ext_framebuffer_multisample@upsample 8 depth
+spec@ext_framebuffer_multisample@upsample 8 stencil
+spec@ext_framebuffer_multisample_blit_scaled@blit-scaled samples=16
+spec@ext_framebuffer_multisample_blit_scaled@blit-scaled samples=16 with gl_texture_2d_multisample_array
+spec@ext_framebuffer_multisample_blit_scaled@blit-scaled samples=32
+spec@ext_framebuffer_multisample_blit_scaled@blit-scaled samples=32 with gl_texture_2d_multisample_array
+spec@ext_framebuffer_multisample_blit_scaled@blit-scaled samples=6
+spec@ext_framebuffer_multisample_blit_scaled@blit-scaled samples=6 with gl_texture_2d_multisample_array
+spec@ext_framebuffer_multisample_blit_scaled@blit-scaled samples=8
+spec@ext_framebuffer_multisample_blit_scaled@blit-scaled samples=8 with gl_texture_2d_multisample_array
+spec@ext_gpu_shader4@bindfragdatalocation mixed-int-float-fbo
+spec@ext_gpu_shader4@bindfragdatalocation mixed-int-float-fbo int_second
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-export
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-export-tex
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-intel_external_sampler_only
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-invalid_attributes
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-invalid_hints
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-missing_attributes
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-ownership_transfer
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-refcount
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_argb8888
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_ayuv
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_nv12
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_p010
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_p012
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_p016
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_uyvy
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_xrgb8888
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_xyuv
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_yuv420
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_yuyv
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_yvu420
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-transcode-nv12-as-r8-gr88
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-unsupported_format
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 1024 d=z24_s8_s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 1024 d=z24_s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 1024 s=z24_s8_d=z24
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 1024 s=z24_s8_d=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 146 d=z24_s8_s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 146 d=z24_s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 146 s=z24_s8_d=z24
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 146 s=z24_s8_d=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 273 d=z24_s8_s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 273 d=z24_s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 273 s=z24_s8_d=z24
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 273 s=z24_s8_d=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 292 d=z24_s8_s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 292 d=z24_s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 292 s=z24_s8_d=z24
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 292 s=z24_s8_d=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 585 d=z24_s8_s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 585 d=z24_s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 585 s=z24_s8_d=z24
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 585 s=z24_s8_d=z24_s8
+spec@ext_packed_float@multisample-formats 16 gl_ext_packed_float
+spec@ext_packed_float@multisample-formats 32 gl_ext_packed_float
+spec@ext_packed_float@multisample-formats 6 gl_ext_packed_float
+spec@ext_packed_float@multisample-formats 8 gl_ext_packed_float
+spec@ext_render_snorm@render
+spec@ext_shader_image_load_store@bind_image_error
+spec@ext_shader_image_load_store@image_functions
+spec@ext_shader_samples_identical@ext_shader_samples_identical-simple-fs 16
+spec@ext_shader_samples_identical@ext_shader_samples_identical-simple-fs 2
+spec@ext_shader_samples_identical@ext_shader_samples_identical-simple-fs 32
+spec@ext_shader_samples_identical@ext_shader_samples_identical-simple-fs 4
+spec@ext_shader_samples_identical@ext_shader_samples_identical-simple-fs 6
+spec@ext_shader_samples_identical@ext_shader_samples_identical-simple-fs 8
+spec@ext_texture_array@copyteximage 1d_array samples=16
+spec@ext_texture_array@copyteximage 1d_array samples=2
+spec@ext_texture_array@copyteximage 1d_array samples=32
+spec@ext_texture_array@copyteximage 1d_array samples=4
+spec@ext_texture_array@copyteximage 1d_array samples=6
+spec@ext_texture_array@copyteximage 1d_array samples=8
+spec@ext_texture_array@copyteximage 2d_array samples=16
+spec@ext_texture_array@copyteximage 2d_array samples=2
+spec@ext_texture_array@copyteximage 2d_array samples=32
+spec@ext_texture_array@copyteximage 2d_array samples=4
+spec@ext_texture_array@copyteximage 2d_array samples=6
+spec@ext_texture_array@copyteximage 2d_array samples=8
+spec@ext_texture_compression_latc@fbo-generatemipmap-formats
+spec@ext_texture_compression_latc@fbo-generatemipmap-formats-signed
+spec@ext_texture_compression_latc@texwrap formats
+spec@ext_texture_compression_latc@texwrap formats bordercolor
+spec@ext_texture_compression_latc@texwrap formats bordercolor-swizzled
+spec@ext_texture_integer@fbo-integer
+spec@ext_texture_integer@multisample-formats 16 gl_ext_texture_integer
+spec@ext_texture_integer@multisample-formats 32 gl_ext_texture_integer
+spec@ext_texture_integer@multisample-formats 6 gl_ext_texture_integer
+spec@ext_texture_integer@multisample-formats 8 gl_ext_texture_integer
+spec@ext_texture_norm16@render
+spec@ext_texture_snorm@multisample-formats 16 gl_ext_texture_snorm
+spec@ext_texture_snorm@multisample-formats 32 gl_ext_texture_snorm
+spec@ext_texture_snorm@multisample-formats 6 gl_ext_texture_snorm
+spec@ext_texture_snorm@multisample-formats 8 gl_ext_texture_snorm
+spec@ext_texture_srgb@multisample-formats 16 gl_ext_texture_srgb
+spec@ext_texture_srgb@multisample-formats 32 gl_ext_texture_srgb
+spec@ext_texture_srgb@multisample-formats 6 gl_ext_texture_srgb
+spec@ext_texture_srgb@multisample-formats 8 gl_ext_texture_srgb
+spec@ext_window_rectangles@dlist@call
+spec@ext_window_rectangles@dlist@compile and execute
+spec@ext_window_rectangles@errors
+spec@ext_window_rectangles@errors_gles3
+spec@ext_window_rectangles@render
+spec@ext_window_rectangles@render_gles3
+spec@glsl-1.50@built-in constants compatibility
+spec@glsl-es-3.10@built-in constants
+spec@intel_blackhole_render@intel_blackhole-blit
+spec@intel_blackhole_render@intel_blackhole-blit_gles2
+spec@intel_blackhole_render@intel_blackhole-blit_gles3
+spec@intel_blackhole_render@intel_blackhole-dispatch
+spec@intel_blackhole_render@intel_blackhole-draw
+spec@intel_blackhole_render@intel_blackhole-draw_gles2
+spec@intel_blackhole_render@intel_blackhole-draw_gles3
+spec@intel_conservative_rasterization@intel_conservative_rasterization-depthcoverage
+spec@intel_conservative_rasterization@intel_conservative_rasterization-depthcoverage_gles3
+spec@intel_conservative_rasterization@intel_conservative_rasterization-innercoverage
+spec@intel_conservative_rasterization@intel_conservative_rasterization-innercoverage_gles3
+spec@intel_conservative_rasterization@intel_conservative_rasterization-invalid
+spec@intel_conservative_rasterization@intel_conservative_rasterization-invalid_gles3
+spec@intel_conservative_rasterization@intel_conservative_rasterization-tri
+spec@intel_conservative_rasterization@intel_conservative_rasterization-tri_gles3
+spec@khr_texture_compression_astc@array-gles
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control -1
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 0
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 1
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 2
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 3
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 4
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 5
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 6
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 7
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 8
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 8 0 0
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 8 0 1
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 8 1 0
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 8 1 1
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control 9
+spec@nv_alpha_to_coverage_dither_control@nv_alpha_to_coverage_dither_control-error
+spec@nv_copy_image@nv_copy_image-formats --samples=2@source: gl_depth32f_stencil8@destination: gl_depth32f_stencil8
+spec@nv_copy_image@nv_copy_image-formats --samples=2@source: gl_depth_component@destination: gl_depth_component
+spec@nv_copy_image@nv_copy_image-formats --samples=2@source: gl_depth_component16@destination: gl_depth_component16
+spec@nv_copy_image@nv_copy_image-formats --samples=2@source: gl_depth_component24@destination: gl_depth_component24
+spec@nv_copy_image@nv_copy_image-formats --samples=2@source: gl_depth_component32@destination: gl_depth_component32
+spec@nv_copy_image@nv_copy_image-formats --samples=2@source: gl_depth_stencil@destination: gl_depth_stencil
+spec@nv_copy_image@nv_copy_image-formats --samples=2@source: gl_stencil_index8@destination: gl_stencil_index8
+spec@nv_copy_image@nv_copy_image-formats --samples=4@source: gl_depth32f_stencil8@destination: gl_depth32f_stencil8
+spec@nv_copy_image@nv_copy_image-formats --samples=4@source: gl_depth_component@destination: gl_depth_component
+spec@nv_copy_image@nv_copy_image-formats --samples=4@source: gl_depth_component16@destination: gl_depth_component16
+spec@nv_copy_image@nv_copy_image-formats --samples=4@source: gl_depth_component24@destination: gl_depth_component24
+spec@nv_copy_image@nv_copy_image-formats --samples=4@source: gl_depth_component32@destination: gl_depth_component32
+spec@nv_copy_image@nv_copy_image-formats --samples=4@source: gl_depth_stencil@destination: gl_depth_stencil
+spec@nv_copy_image@nv_copy_image-formats --samples=4@source: gl_stencil_index8@destination: gl_stencil_index8
+spec@nv_copy_image@nv_copy_image-formats --samples=8
+spec@nv_fill_rectangle@invalid-draw-mode
+spec@nv_fragment_program_option@fp-abs-02
+spec@nv_fragment_program_option@fp-condition_codes-01
+spec@nv_fragment_program_option@fp-rfl
+spec@nv_fragment_program_option@fp-set-02
+spec@nv_fragment_program_option@fp-unpack-01
+spec@nv_image_formats@nv_image_formats-gles3
+spec@nv_vertex_program2_option@vp-address-03
+spec@nv_vertex_program2_option@vp-address-05
+spec@nv_vertex_program2_option@vp-address-06
+spec@nv_vertex_program2_option@vp-clipdistance-01
+spec@nv_vertex_program2_option@vp-clipdistance-02
+spec@nv_vertex_program2_option@vp-clipdistance-03
+spec@nv_vertex_program2_option@vp-clipdistance-04
+spec@nv_viewport_swizzle@nv_viewport_swizzle-errors
+spec@nv_viewport_swizzle@nv_viewport_swizzle-errors_gles3
+spec@oes_egl_image_external_essl3@oes_egl_image_external_essl3@oes_egl_image_external_essl3_imageload
+spec@oes_egl_image_external_essl3@oes_egl_image_external_essl3@oes_egl_image_external_essl3_imagestore
+spec@oes_geometry_shader@built-in constants
+spec@oes_matrix_get@all queries
+spec@oes_texture_compression_astc@miptree-3d-gl hdr
+spec@oes_texture_compression_astc@miptree-3d-gl ldr
+spec@oes_texture_compression_astc@miptree-3d-gl srgb
+spec@oes_texture_compression_astc@miptree-3d-gles hdr
+spec@oes_texture_compression_astc@miptree-3d-gles ldr
+spec@oes_texture_compression_astc@miptree-3d-gles srgb
+spec@oes_texture_view@clear-into-view-2d
+spec@oes_texture_view@clear-into-view-2d-array
+spec@oes_texture_view@clear-into-view-layered
+spec@oes_texture_view@copytexsubimage-layers
+spec@oes_texture_view@formats
+spec@oes_texture_view@immutable_levels
+spec@oes_texture_view@queries
+spec@oes_texture_view@rendering-formats
+spec@oes_texture_view@rendering-layers
+spec@oes_texture_view@rendering-levels
+spec@oes_texture_view@rendering-target
+spec@oes_texture_view@sampling-2d-array-as-2d-layer
+spec@oes_texture_view@sampling-2d-array-as-cubemap
+spec@oes_texture_view@sampling-2d-array-as-cubemap-array
+spec@oes_texture_view@targets
+spec@oes_texture_view@texsubimage-layers
+spec@oes_texture_view@texsubimage-layers pbo
+spec@oes_texture_view@texsubimage-levels
+spec@oes_texture_view@texsubimage-levels pbo
+spec@oes_viewport_array@bounds
+spec@oes_viewport_array@clear
+spec@oes_viewport_array@depthrange-indices
+spec@oes_viewport_array@minmax
+spec@oes_viewport_array@queries
+spec@oes_viewport_array@render-depthrange
+spec@oes_viewport_array@render-scissor
+spec@oes_viewport_array@render-viewport
+spec@oes_viewport_array@render-viewport-2
+spec@oes_viewport_array@scissor-check
+spec@oes_viewport_array@scissor-indices
+spec@oes_viewport_array@viewport-indices
+wgl@wgl-multi-context-single-window
+wgl@wgl-multi-window-single-context
+wgl@wgl-sanity
