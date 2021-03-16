@@ -89,8 +89,6 @@ shaders/glsl-fs-flat-color: fail
 shaders/glsl-fs-fogscale/gs-out and fs: skip
 shaders/glsl-fs-fogscale/vs, gs and fs: skip
 shaders/glsl-fs-pointcoord: fail
-shaders/glsl-uniform-interstage-limits/subdivide 5: crash
-shaders/glsl-uniform-interstage-limits/subdivide 5, statechanges: crash
 shaders/gpu_shader4_attribs: skip
 shaders/point-vertex-id divisor: fail
 shaders/point-vertex-id gl_instanceid: fail
