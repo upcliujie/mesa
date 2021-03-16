@@ -458,6 +458,12 @@ class ISA(object):
                 for field_name, field in case.fields.items():
                     if field.type == 'float':
                         assert field.get_size() == 32 or field.get_size() == 16
+
+                    if not isinstance(field, BitSetDerivedField):
+                        assert field.high < bitset.get_size(), \
+                            "{}.{}: invalid bit range: [{}, {}] is not in [{}, {}]".format(
+                            bitset_name, field_name, field.low, field.high, 0, bitset.get_size() - 1)
+
                     if field.type in builtin_types:
                         continue
                     if field.type in self.enums:
