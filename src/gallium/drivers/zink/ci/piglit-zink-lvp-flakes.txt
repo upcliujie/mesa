@@ -1,0 +1,2 @@
+spec@glsl-1.30@execution@tex-miplevel-selection texture() 1dshadow
+spec@glsl-1.30@execution@tex-miplevel-selection textureproj 2d_projvec4
