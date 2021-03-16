@@ -2435,7 +2435,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          src = convert_int(ctx, bld, src, 64, 32, false);
       }
 
-      if (ctx->program->chip_class >= GFX8) {
+      if (ctx->program->chip_class >= GFX8 && instr->src[0].src.ssa->bit_size <= 16) {
          bld.vop1(aco_opcode::v_cvt_f16_i16, Definition(dst), src);
       } else {
          // GFX7 and earlier do not support f16⟷i16 conversions
@@ -2499,7 +2499,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          src = convert_int(ctx, bld, src, 64, 32, false);
       }
 
-      if (ctx->program->chip_class >= GFX8) {
+      if (ctx->program->chip_class >= GFX8 && instr->src[0].src.ssa->bit_size <= 16) {
          bld.vop1(aco_opcode::v_cvt_f16_u16, Definition(dst), src);
       } else {
          // GFX7 and earlier do not support f16⟷u16 conversions
