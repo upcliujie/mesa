@@ -757,6 +757,15 @@ fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 		}
 	}
 
+	if (!emit->streamout_mask && ctx->last.streamout_mask) {
+		OUT_PKT7(ring, CP_CONTEXT_REG_BUNCH, 4);
+		OUT_RING(ring, REG_A5XX_VPC_SO_CNTL);
+		OUT_RING(ring, 0);
+		OUT_RING(ring, REG_A5XX_VPC_SO_BUF_CNTL);
+		OUT_RING(ring, 0);
+	}
+	ctx->last.streamout_mask = emit->streamout_mask;
+
 	if (dirty & FD_DIRTY_BLEND) {
 		struct fd5_blend_stateobj *blend = fd5_blend_stateobj(ctx->blend);
 		uint32_t i;
