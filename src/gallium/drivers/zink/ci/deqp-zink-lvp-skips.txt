@@ -1,1 +1,2 @@
 KHR-GL32.texture_size_promotion.functional
+dEQP-GLES3.functional.primitive_restart*unsigned_byte*
