@@ -2117,8 +2117,12 @@ static void handle_draw_indexed(struct lvp_cmd_buffer_entry *cmd,
    if (state->info.primitive_restart) {
       if (state->info.index_size == 4)
          state->info.restart_index = 0xffffffff;
-      else
+      else if (state->info.index_size == 2)
          state->info.restart_index = 0xffff;
+      else {
+         assert(state->info.index_size == 1);
+         state->info.restart_index = 0xff;
+      }
    }
    state->pctx->draw_vbo(state->pctx, &state->info, NULL, &state->draw, 1);
 }
