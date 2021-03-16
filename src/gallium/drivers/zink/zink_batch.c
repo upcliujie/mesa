@@ -45,22 +45,6 @@ zink_reset_batch(struct zink_context *ctx, struct zink_batch *batch)
       _mesa_set_remove(batch->active_queries, entry);
    }
 
-   /* unref all used sampler-views */
-   set_foreach(batch->sampler_views, entry) {
-      struct pipe_sampler_view *pres = (struct pipe_sampler_view *)entry->key;
-      struct zink_sampler_view *sampler_view = zink_sampler_view(pres);
-      sampler_view->batch_uses &= ~BITFIELD_BIT(batch->batch_id);
-      if (sampler_view->base.target == PIPE_BUFFER) {
-         struct zink_buffer_view *buffer_view = sampler_view->buffer_view;
-         zink_buffer_view_reference(screen, &buffer_view, NULL);
-      } else {
-         struct zink_surface *surface = sampler_view->image_view;
-         pipe_surface_reference((struct pipe_surface**)&surface, NULL);
-      }
-      pipe_sampler_view_reference(&pres, NULL);
-      _mesa_set_remove(batch->sampler_views, entry);
-   }
-
    set_foreach(batch->surfaces, entry) {
       struct zink_surface *surf = (struct zink_surface *)entry->key;
       surf->batch_uses &= ~BITFIELD64_BIT(batch->batch_id);
@@ -128,7 +112,6 @@ zink_batch_destroy(struct zink_context* ctx, struct zink_batch *batch)
    zink_fence_reference(screen, &batch->fence, NULL);
    _mesa_set_destroy(batch->fbs, NULL);
    _mesa_set_destroy(batch->resources, NULL);
-   _mesa_set_destroy(batch->sampler_views, NULL);
    util_dynarray_fini(&batch->zombie_samplers);
    _mesa_set_destroy(batch->surfaces, NULL);
    _mesa_set_destroy(batch->programs, NULL);
@@ -158,7 +141,6 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch)
    batch->fbs = _mesa_pointer_set_create(NULL);
    batch->active_queries = _mesa_pointer_set_create(NULL);
    batch->resources = _mesa_pointer_set_create(NULL);
-   batch->sampler_views = _mesa_pointer_set_create(NULL);
    batch->surfaces = _mesa_pointer_set_create(NULL);
    batch->bufferviews = _mesa_pointer_set_create(NULL);
    batch->programs = _mesa_pointer_set_create(NULL);
@@ -166,7 +148,7 @@ init_batch(struct zink_context *ctx, struct zink_batch *batch)
    util_dynarray_init(&batch->zombie_samplers, NULL);
    util_dynarray_init(&batch->persistent_resources, NULL);
 
-   if (!batch->resources || !batch->sampler_views || !batch->desc_sets ||
+   if (!batch->resources || !batch->desc_sets ||
        !batch->programs || !batch->surfaces || !batch->bufferviews ||
        !batch->active_queries)
       return;
@@ -304,22 +286,32 @@ zink_batch_reference_resource_rw(struct zink_batch *batch, struct zink_resource 
    return batch_to_flush;
 }
 
+static bool
+ptr_add_usage(struct zink_batch *batch, struct set *s, void *ptr, uint32_t *u)
+{
+   bool found = false;
+   uint32_t bit = BITFIELD_BIT(batch->batch_id);
+   if ((*u) & bit)
+      return false;
+   _mesa_set_search_and_add(s, ptr, &found);
+   assert(!found);
+   *u |= bit;
+   return true;
+}
+
 void
 zink_batch_reference_sampler_view(struct zink_batch *batch,
                                   struct zink_sampler_view *sv)
 {
-   bool found = false;
-   uint32_t bit = BITFIELD_BIT(batch->batch_id);
-   if (sv->batch_uses & bit)
-      return;
-   _mesa_set_search_and_add(batch->sampler_views, sv, &found);
-   assert(!found);
-   sv->batch_uses |= bit;
-   pipe_reference(NULL, &sv->base.reference);
-   if (sv->base.target == PIPE_BUFFER)
+   if (sv->base.target == PIPE_BUFFER) {
+      if (!ptr_add_usage(batch, batch->bufferviews, sv->buffer_view, &sv->buffer_view->batch_uses))
+         return;
       pipe_reference(NULL, &sv->buffer_view->reference);
-   else
+   } else {
+      if (!ptr_add_usage(batch, batch->surfaces, sv->image_view, &sv->image_view->batch_uses))
+         return;
       pipe_reference(NULL, &sv->image_view->base.reference);
+   }
    batch->has_work = true;
 }
 
