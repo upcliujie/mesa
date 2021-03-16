@@ -2181,7 +2181,7 @@ void radv_GetPhysicalDeviceProperties2(
 			properties->extraPrimitiveOverestimationSizeGranularity = 0;
 			properties->primitiveUnderestimation = false;
 			properties->conservativePointAndLineRasterization = false;
-			properties->degenerateTrianglesRasterized = false;
+			properties->degenerateTrianglesRasterized = true;
 			properties->degenerateLinesRasterized = false;
 			properties->fullyCoveredFragmentShaderInputVariable = false;
 			properties->conservativeRasterizationPostDepthCoverage = false;
