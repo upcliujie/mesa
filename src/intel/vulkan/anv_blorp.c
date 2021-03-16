@@ -1398,8 +1398,10 @@ anv_image_msaa_resolve(struct anv_cmd_buffer *cmd_buffer,
    assert(dst_image->type == VK_IMAGE_TYPE_2D);
    assert(dst_image->samples == 1);
    assert(src_image->n_planes == dst_image->n_planes);
-   assert(!src_image->format->can_ycbcr);
-   assert(!dst_image->format->can_ycbcr);
+   assert(!src_image->format->can_ycbcr ||
+          (src_image->format->planes[0].aspect & VK_IMAGE_ASPECT_COLOR_BIT) != 0);
+   assert(!dst_image->format->can_ycbcr ||
+          (dst_image->format->planes[0].aspect & VK_IMAGE_ASPECT_COLOR_BIT) != 0);
 
    struct blorp_surf src_surf, dst_surf;
    get_blorp_surf_for_anv_image(cmd_buffer->device, src_image, aspect,
@@ -1500,7 +1502,8 @@ void anv_CmdResolveImage2KHR(
    ANV_FROM_HANDLE(anv_image, src_image, pResolveImageInfo->srcImage);
    ANV_FROM_HANDLE(anv_image, dst_image, pResolveImageInfo->dstImage);
 
-   assert(!src_image->format->can_ycbcr);
+   assert(!src_image->format->can_ycbcr ||
+          (src_image->format->planes[0].aspect & VK_IMAGE_ASPECT_COLOR_BIT) != 0);
 
    for (uint32_t r = 0; r < pResolveImageInfo->regionCount; r++) {
       resolve_image(cmd_buffer,
