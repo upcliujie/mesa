@@ -987,7 +987,7 @@ meson-i386:
   variables:
     CROSS: i386
     VULKAN_DRIVERS: intel,amd,swrast
-    GALLIUM_DRIVERS: "iris,nouveau,r300,r600,radeonsi,swrast,virgl,zink"
+    GALLIUM_DRIVERS: "iris,nouveau,r300,r600,swrast,virgl,zink"
     DRI_DRIVERS: "i915,i965,r100,r200,nouveau"
     EXTRA_OPTION: >
       -D vulkan-overlay-layer=true
@@ -1015,7 +1015,7 @@ meson-ppc64el:
     CROSS: ppc64el
     EXTRA_OPTION: >
       -D werror=true
-    GALLIUM_DRIVERS: "nouveau,radeonsi,swrast,virgl,zink"
+    GALLIUM_DRIVERS: "nouveau,swrast,virgl,zink"
     VULKAN_DRIVERS: "amd,swrast"
 
 meson-mingw32-x86_64:
