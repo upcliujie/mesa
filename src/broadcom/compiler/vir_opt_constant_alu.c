@@ -70,6 +70,23 @@ opt_constant_add(struct v3d_compile *c, struct qinst *inst, union fi *values)
                 unif = vir_uniform_ui(c, values[0].ui + values[1].ui);
                 break;
 
+        case V3D_QPU_A_FADD: {
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_f(c, values[0].f + values[1].f);
+                break;
+        }
+
+        case V3D_QPU_A_SUB:
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_ui(c, values[0].ui - values[1].ui);
+                break;
+
+        case V3D_QPU_A_FSUB: {
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_f(c, values[0].f - values[1].f);
+                break;
+        }
+
         case V3D_QPU_A_AND:
                 c->cursor = vir_after_inst(inst);
                 unif = vir_uniform_ui(c, values[0].ui & values[1].ui);
