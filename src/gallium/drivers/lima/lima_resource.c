@@ -351,8 +351,21 @@ lima_resource_from_handle(struct pipe_screen *pscreen,
       stride = util_format_get_stride(pres->format, width);
       size = util_format_get_2d_size(pres->format, stride, height);
 
-      if (res->levels[0].stride != stride || res->bo->size < size) {
-         debug_error("import buffer not properly aligned\n");
+      if (res->tiled && res->levels[0].stride != stride) {
+         fprintf(stderr, "tiled imported buffer has mismatching stride: %d (BO) != %d (expected)",
+                     res->levels[0].stride, stride);
+         goto err_out;
+      }
+
+      if (!res->tiled && res->levels[0].stride < stride) {
+         fprintf(stderr, "linear imported buffer has mismatching stride: %d (BO) < %d (expected)",
+                     res->levels[0].stride, stride);
+         goto err_out;
+      }
+
+      if (res->bo->size < size) {
+         fprintf(stderr, "imported bo size is smaller than expected: %d (BO) < %d (expected)\n",
+                     res->bo->size, size);
          goto err_out;
       }
 
