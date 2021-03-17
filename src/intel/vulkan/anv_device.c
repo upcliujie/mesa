@@ -894,7 +894,13 @@ anv_physical_device_try_create(struct anv_instance *instance,
    }
    device->master_fd = master_fd;
 
+#if 0
+   /* Currently disabled while we sort out some uAPI issues upstream.  Will be
+    * re-enabled once we figure out all the engine/context/vm relationships.
+    */
    device->engine_info = anv_gem_get_engine_info(fd);
+#endif
+
    anv_physical_device_init_queue_families(device);
 
    result = anv_init_wsi(device);
