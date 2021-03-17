@@ -995,6 +995,7 @@ meson-i386:
       -D vulkan-overlay-layer=true
       -D vulkan-device-select-layer=true
       -D werror=true
+    LLVM_VERSION: "9"
 
 meson-s390x:
   extends:
