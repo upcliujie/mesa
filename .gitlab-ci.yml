@@ -948,7 +948,6 @@ meson-clover:
     EXTRA_OPTION: >
       -D werror=true
   script:
-    - LLVM_VERSION=8 .gitlab-ci/meson/build.sh
     - LLVM_VERSION=9 .gitlab-ci/meson/build.sh
     - .gitlab-ci/meson/build.sh
 
