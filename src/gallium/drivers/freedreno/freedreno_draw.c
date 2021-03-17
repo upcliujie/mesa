@@ -342,12 +342,6 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 	if (ctx->draw_vbo(ctx, info, indirect, &draws[0], index_offset))
 		batch->needs_flush = true;
 
-	/* TODO prims_emitted should be clipped when the stream-out buffer is
-	 * not large enough.  See max_tf_vtx().. probably need to move that
-	 * into common code.  Although a bit more annoying since a2xx doesn't
-	 * use ir3 so no common way to get at the pipe_stream_output_info
-	 * which is needed for this calculation.
-	 */
 	if (ctx->active_queries && ctx->screen->gpu_id < 600) {
 		/* Counting prims in sw doesn't work for GS and tesselation. For older
 		 * gens we don't have those stages and don't have the hw counters enabled,
@@ -360,9 +354,21 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 		else
 			prims = 0;
 
-		if (ctx->streamout.num_targets > 0)
-			ctx->stats.prims_emitted += prims;
 		ctx->stats.prims_generated += prims;
+
+		if (ctx->streamout.num_targets > 0) {
+			/* Clip the prims we're writing to the size of the SO buffers. */
+			enum pipe_prim_type tf_prim = u_decomposed_prim(info->mode);
+			unsigned verts_written = u_vertices_for_prims(tf_prim, prims);
+			unsigned remaining_vert_space = ctx->streamout.max_tf_vtx - ctx->streamout.verts_written;
+			if (verts_written > remaining_vert_space) {
+				verts_written = remaining_vert_space;
+				u_trim_pipe_prim(tf_prim, &remaining_vert_space);
+			}
+			ctx->streamout.verts_written += verts_written;
+
+			ctx->stats.prims_emitted += u_reduced_prims_for_vertices(tf_prim, verts_written);
+		}
 	}
 
 	batch->num_vertices += draws[0].count * info->instance_count;
