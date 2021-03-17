@@ -401,8 +401,14 @@ static const struct anv_format ycbcr_formats[] = {
    fmt_unsupported(VK_FORMAT_R10X6_UNORM_PACK16),
    fmt_unsupported(VK_FORMAT_R10X6G10X6_UNORM_2PACK16),
    fmt_unsupported(VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16),
-   fmt_unsupported(VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16),
-   fmt_unsupported(VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16),
+
+   ycbcr_fmt(VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, BLUE, ZERO, RED), 2, 1)),
+   ycbcr_fmt(VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, GREEN, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, ZERO, RED, ZERO), 2, 1)),
+
    fmt_unsupported(VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16),
@@ -413,20 +419,25 @@ static const struct anv_format ycbcr_formats[] = {
 
    ycbcr_fmt(VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16, 1,
              y_plane(0, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, RGBA, 1, 1)),
+   ycbcr_fmt(VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, BLUE, ZERO, RED), 2, 1)),
+   ycbcr_fmt(VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, GREEN, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, ZERO, RED, ZERO), 2, 1)),
 
-   fmt_unsupported(VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16),
-   fmt_unsupported(VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16),
    fmt_unsupported(VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16),
-   /* TODO: it is possible to enable the following 2 formats, but that
-    * requires further refactoring of how we handle multiplanar formats.
-    */
-   fmt_unsupported(VK_FORMAT_G16B16G16R16_422_UNORM),
-   fmt_unsupported(VK_FORMAT_B16G16R16G16_422_UNORM),
 
+   ycbcr_fmt(VK_FORMAT_G16B16G16R16_422_UNORM, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, BLUE, ZERO, RED), 2, 1)),
+   ycbcr_fmt(VK_FORMAT_B16G16R16G16_422_UNORM, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, GREEN, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, ZERO, RED, ZERO), 2, 1)),
    ycbcr_fmt(VK_FORMAT_G16_B16_R16_3PLANE_420_UNORM, 3,
              y_plane(0, ISL_FORMAT_R16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
              chroma_plane(1, ISL_FORMAT_R16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, ZERO, ZERO, ZERO), 2, 2),
@@ -522,6 +533,20 @@ anv_get_format_plane(const struct gen_device_info *devinfo, VkFormat vk_format,
    struct anv_format_plane plane_format = format->planes[plane];
    if (plane_format.isl_format == ISL_FORMAT_UNSUPPORTED)
       return unsupported;
+
+   /* These VK formats map the same memory twice with different ISL formats.
+    * They must be restricted to Ice Lake and later to avoid hardware texture
+    * cache bugs.
+    */
+   if (devinfo->ver < 11 &&
+       (vk_format == VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16 ||
+        vk_format == VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16 ||
+        vk_format == VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16 ||
+        vk_format == VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16 ||
+        vk_format == VK_FORMAT_G16B16G16R16_422_UNORM ||
+        vk_format == VK_FORMAT_B16G16R16G16_422_UNORM)) {
+      return unsupported;
+   }
 
    if (tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
       return plane_format;
