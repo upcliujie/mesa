@@ -315,12 +315,21 @@ dump_samplers(struct gen_batch_decode_ctx *ctx, uint32_t offset, int count)
       return;
    }
 
+#define SAMPLER_STATE_SIZE 16
+
+   if (count * SAMPLER_STATE_SIZE >= bo.size) {
+      fprintf(ctx->fp, "  sampler state ends after bo ends\n");
+      return;
+   }
+
    for (int i = 0; i < count; i++) {
       fprintf(ctx->fp, "sampler state %d\n", i);
       ctx_print_group(ctx, strct, state_addr, state_map);
-      state_addr += 16;
-      state_map += 16;
+      state_addr += SAMPLER_STATE_SIZE;
+      state_map += SAMPLER_STATE_SIZE;
    }
+
+#undef SAMPLER_STATE_SIZE
 }
 
 static void
