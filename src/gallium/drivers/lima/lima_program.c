@@ -28,6 +28,7 @@
 
 #include "tgsi/tgsi_dump.h"
 #include "compiler/nir/nir.h"
+#include "compiler/nir/nir_serialize.h"
 #include "nir/tgsi_to_nir.h"
 
 #include "pipe/p_state.h"
@@ -37,6 +38,7 @@
 #include "lima_job.h"
 #include "lima_program.h"
 #include "lima_bo.h"
+#include "lima_disk_cache.h"
 
 #include "ir/lima_ir.h"
 
@@ -301,6 +303,15 @@ lima_fs_compile_shader(struct lima_context *ctx,
    fs->uses_discard = nir->info.fs.uses_discard;
    ralloc_free(nir);
 
+   return true;
+}
+
+static bool
+lima_fs_upload_shader(struct lima_context *ctx,
+                      struct lima_fs_compiled_shader *fs)
+{
+   struct lima_screen *screen = lima_screen(ctx->base.screen);
+
    fs->bo = lima_bo_create(screen, fs->shader_size, 0);
    if (!fs->bo) {
       fprintf(stderr, "lima: create fs shader bo fail\n");
@@ -308,8 +319,6 @@ lima_fs_compile_shader(struct lima_context *ctx,
    }
 
    memcpy(lima_bo_map(fs->bo), fs->shader, fs->shader_size);
-   ralloc_free(fs->shader);
-   fs->shader = NULL;
 
    return true;
 }
@@ -318,6 +327,7 @@ static struct lima_fs_compiled_shader *
 lima_get_compiled_fs(struct lima_context *ctx,
                      struct lima_fs_key *key)
 {
+   struct lima_screen *screen = lima_screen(ctx->base.screen);
    struct hash_table *ht;
    uint32_t key_size;
 
@@ -328,20 +338,39 @@ lima_get_compiled_fs(struct lima_context *ctx,
    if (entry)
       return entry->data;
 
-   /* not on cache, compile and insert into the cache */
-   struct lima_fs_compiled_shader *fs = rzalloc(NULL, struct lima_fs_compiled_shader);
-   if (!fs)
-      return NULL;
+   /* Not on memory cache, try disk cache */
+   struct lima_fs_compiled_shader *fs =
+      lima_fs_disk_cache_retrieve(screen->disk_cache, key);
 
-   if (!lima_fs_compile_shader(ctx, key, fs))
-      return NULL;
+   if (!fs) {
+      /* Not on disk cache, compile and insert into disk cache*/
+      fs = rzalloc(NULL, struct lima_fs_compiled_shader);
+      if (!fs)
+         return NULL;
 
+      if (!lima_fs_compile_shader(ctx, key, fs))
+         goto err;
+
+      lima_fs_disk_cache_store(screen->disk_cache, key, fs);
+   }
+
+   if (!lima_fs_upload_shader(ctx, fs))
+      goto err;
+
+   ralloc_free(fs->shader);
+   fs->shader = NULL;
+
+   /* Insert into memory cache */
    struct lima_key *dup_key;
    dup_key = rzalloc_size(fs, key_size);
    memcpy(dup_key, key, key_size);
    _mesa_hash_table_insert(ht, dup_key, fs);
 
    return fs;
+
+err:
+   ralloc_free(fs);
+   return NULL;
 }
 
 static void *
@@ -350,6 +379,7 @@ lima_create_fs_state(struct pipe_context *pctx,
 {
    struct lima_context *ctx = lima_context(pctx);
    struct lima_fs_uncompiled_shader *so = rzalloc(NULL, struct lima_fs_uncompiled_shader);
+   struct lima_screen *screen = lima_screen(pctx->screen);
 
    if (!so)
       return NULL;
@@ -367,6 +397,19 @@ lima_create_fs_state(struct pipe_context *pctx,
 
    so->base.type = PIPE_SHADER_IR_NIR;
    so->base.ir.nir = nir;
+
+   if (screen->disk_cache) {
+      /* Serialize the NIR to a binary blob that we can hash for the disk
+       * cache.  Drop unnecessary information (like variable names)
+       * so the serialized NIR is smaller, and also to let us detect more
+       * isomorphic shaders when hashing, increasing cache hits.
+       */
+      struct blob blob;
+      blob_init(&blob);
+      nir_serialize(&blob, nir, true);
+      _mesa_sha1_compute(blob.data, blob.size, so->nir_sha1);
+      blob_finish(&blob);
+   }
 
    if (lima_debug & LIMA_DEBUG_PRECOMPILE) {
       /* Trigger initial compilation with default settings */
@@ -436,6 +479,13 @@ lima_vs_compile_shader(struct lima_context *ctx,
 
    ralloc_free(nir);
 
+   return true;
+}
+
+static bool
+lima_vs_upload_shader(struct lima_context *ctx,
+                      struct lima_vs_compiled_shader *vs)
+{
    struct lima_screen *screen = lima_screen(ctx->base.screen);
    vs->bo = lima_bo_create(screen, vs->shader_size, 0);
    if (!vs->bo) {
@@ -444,8 +494,6 @@ lima_vs_compile_shader(struct lima_context *ctx,
    }
 
    memcpy(lima_bo_map(vs->bo), vs->shader, vs->shader_size);
-   ralloc_free(vs->shader);
-   vs->shader = NULL;
 
    return true;
 }
@@ -454,6 +502,7 @@ static struct lima_vs_compiled_shader *
 lima_get_compiled_vs(struct lima_context *ctx,
                      struct lima_vs_key *key)
 {
+   struct lima_screen *screen = lima_screen(ctx->base.screen);
    struct hash_table *ht;
    uint32_t key_size;
 
@@ -464,13 +513,26 @@ lima_get_compiled_vs(struct lima_context *ctx,
    if (entry)
       return entry->data;
 
-   /* not on cache, compile and insert into the cache */
-   struct lima_vs_compiled_shader *vs = rzalloc(NULL, struct lima_vs_compiled_shader);
-   if (!vs)
-      return NULL;
+   /* Not on memory cache, try disk cache */
+   struct lima_vs_compiled_shader *vs =
+      lima_vs_disk_cache_retrieve(screen->disk_cache, key);
 
-   if (!lima_vs_compile_shader(ctx, key, vs))
-      return NULL;
+   if (!vs) {
+      /* Not on disk cache, compile and insert into disk cache */
+      vs = rzalloc(NULL, struct lima_vs_compiled_shader);
+      if (!vs)
+         return NULL;
+      if (!lima_vs_compile_shader(ctx, key, vs))
+         goto err;
+
+      lima_vs_disk_cache_store(screen->disk_cache, key, vs);
+   }
+
+   if (!lima_vs_upload_shader(ctx, vs))
+      goto err;
+
+   ralloc_free(vs->shader);
+   vs->shader = NULL;
 
    struct lima_key *dup_key;
    dup_key = rzalloc_size(vs, key_size);
@@ -478,6 +540,10 @@ lima_get_compiled_vs(struct lima_context *ctx,
    _mesa_hash_table_insert(ht, dup_key, vs);
 
    return vs;
+
+err:
+   ralloc_free(vs);
+   return NULL;
 }
 
 bool
@@ -551,6 +617,7 @@ lima_create_vs_state(struct pipe_context *pctx,
                      const struct pipe_shader_state *cso)
 {
    struct lima_context *ctx = lima_context(pctx);
+   struct lima_screen *screen = lima_screen(pctx->screen);
    struct lima_vs_uncompiled_shader *so = rzalloc(NULL, struct lima_vs_uncompiled_shader);
 
    if (!so)
@@ -569,6 +636,19 @@ lima_create_vs_state(struct pipe_context *pctx,
 
    so->base.type = PIPE_SHADER_IR_NIR;
    so->base.ir.nir = nir;
+
+   if (screen->disk_cache) {
+      /* Serialize the NIR to a binary blob that we can hash for the disk
+       * cache.  Drop unnecessary information (like variable names)
+       * so the serialized NIR is smaller, and also to let us detect more
+       * isomorphic shaders when hashing, increasing cache hits.
+       */
+      struct blob blob;
+      blob_init(&blob);
+      nir_serialize(&blob, nir, true);
+      _mesa_sha1_compute(blob.data, blob.size, so->nir_sha1);
+      blob_finish(&blob);
+   }
 
    if (lima_debug & LIMA_DEBUG_PRECOMPILE) {
       /* Trigger initial compilation with default settings */

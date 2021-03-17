@@ -53,6 +53,7 @@ struct lima_fs_compiled_shader {
 
 struct lima_fs_uncompiled_shader {
    struct pipe_shader_state base;
+   unsigned char nir_sha1[20];
 };
 
 struct lima_fs_key {
@@ -91,6 +92,7 @@ struct lima_vs_compiled_shader {
 
 struct lima_vs_uncompiled_shader {
    struct pipe_shader_state base;
+   unsigned char nir_sha1[20];
 };
 
 struct lima_vs_key {
