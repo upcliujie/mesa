@@ -9,6 +9,9 @@
 
 #include "pps_driver.h"
 
+#ifdef PPS_FREEDRENO
+#include "freedreno/ds/fd_pps_driver.h"
+#endif // PPS_FREEDRENO
 #ifdef PPS_PANFROST
 #include "panfrost/ds/pan_pps_driver.h"
 #endif // PPS_PANFROST
@@ -24,6 +27,9 @@ namespace pps
 const std::vector<std::string> &Driver::supported_device_names()
 {
    static std::vector<std::string> supported_device_names = {
+#ifdef PPS_FREEDRENO
+      FreedrenoDriver::get_name(),
+#endif // PPS_PANFROST
 #ifdef PPS_PANFROST
       PanfrostDriver::get_name(),
 #endif // PPS_PANFROST
@@ -38,6 +44,11 @@ std::unique_ptr<Driver> Driver::create(DrmDevice &&drm_device)
 {
    std::unique_ptr<Driver> driver;
 
+#ifdef PPS_FREEDRENO
+   if (drm_device.name == FreedrenoDriver::get_name()) {
+      driver = std::make_unique<FreedrenoDriver>();
+   }
+#endif // PPS_PANFROST
 #ifdef PPS_PANFROST
    if (drm_device.name == PanfrostDriver::get_name()) {
       driver = std::make_unique<PanfrostDriver>();
