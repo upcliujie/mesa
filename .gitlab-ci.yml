@@ -1019,6 +1019,7 @@ meson-ppc64el:
       -D werror=true
     GALLIUM_DRIVERS: "nouveau,radeonsi,swrast,virgl,zink"
     VULKAN_DRIVERS: "amd,swrast"
+    LLVM_VERSION: "9"
 
 meson-mingw32-x86_64:
   extends: .meson-build
