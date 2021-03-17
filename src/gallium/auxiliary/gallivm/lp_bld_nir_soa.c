@@ -1910,7 +1910,7 @@ static void emit_reduce(struct lp_build_nir_context *bld_base, LLVMValueRef src,
    struct lp_build_loop_state loop_state;
    nir_op reduction_op = nir_intrinsic_reduction_op(instr);
 
-   LLVMValueRef res_store;
+   LLVMValueRef res_store = NULL;
    LLVMValueRef scan_store;
    struct lp_build_context *int_bld = get_int_bld(bld_base, true, bit_size);
 
