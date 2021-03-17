@@ -157,6 +157,58 @@ opt_constant_add(struct v3d_compile *c, struct qinst *inst, union fi *values)
                 break;
         }
 
+        case V3D_QPU_A_RECIP: {
+                c->cursor = vir_after_inst(inst);
+                if (values[0].f == 0.0f) {
+                        unif = vir_uniform_ui(c, values[0].ui & 0x80000000u ?
+                                              0xff800000u : 0x7f800000u);
+                } else {
+                        unif = vir_uniform_f(c, 1.0f / values[0].f);
+                }
+                break;
+        }
+
+        case V3D_QPU_A_RSQRT: {
+                c->cursor = vir_after_inst(inst);
+                if (values[0].f == 0.0f) {
+                        unif = vir_uniform_ui(c, values[0].ui & 0x80000000u ?
+                                              0xff800000u : 0x7f800000u);
+                } else {
+                        unif = vir_uniform_f(c, 1.0f / sqrtf(values[0].f));
+                }
+                break;
+        }
+
+        case V3D_QPU_A_RSQRT2: {
+                c->cursor = vir_after_inst(inst);
+                if (values[0].f == 0.0f) {
+                        unif = vir_uniform_ui(c, 0u);
+                } else if (values[0].ui == 0x7f800000u) { /* +inf */
+                        unif = vir_uniform_ui(c, 1u);
+                } else {
+                        unif = vir_uniform_f(c, 1.0f / sqrtf(values[0].f));
+                }
+                break;
+        }
+
+        case V3D_QPU_A_EXP: {
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_f(c, exp2(values[0].f));
+                break;
+        }
+
+        case V3D_QPU_A_LOG: {
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_f(c, log2(values[0].f));
+                break;
+        }
+
+        case V3D_QPU_A_SIN: {
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_f(c, sin(values[0].f));
+                break;
+        }
+
         case V3D_QPU_A_VFPACK: {
                 assert(inst->qpu.alu.add.output_pack == V3D_QPU_PACK_NONE);
 
