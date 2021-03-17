@@ -59,6 +59,21 @@
 #include "util/half_float.h"
 #include "util/u_math.h"
 
+/* Remove the original ALU instruction and replace the uniform
+ * load. If the original instruction loaded an implicit uniform we
+ * need to replicate that in the new instruction.
+ */
+static void
+replace_inst(struct v3d_compile *c, struct qinst *inst, struct qreg *unif)
+{
+        struct qreg dst = inst->dst;
+        struct qinst *mov = vir_MOV_dest(c, dst, *unif);
+        mov->uniform = inst->uniform;
+        vir_remove_instruction(c, inst);
+        if (dst.file == QFILE_TEMP)
+                c->defs[dst.index] = mov;
+}
+
 static bool
 opt_constant_add(struct v3d_compile *c, struct qinst *inst, union fi *values)
 {
@@ -158,16 +173,27 @@ opt_constant_add(struct v3d_compile *c, struct qinst *inst, union fi *values)
                 return false;
         }
 
-        /* Remove the original ALU instruction and replace it with a uniform
-         * load. If the original instruction loaded an implicit uniform we
-         * need to replicate that in the new instruction.
-         */
-        struct qreg dst = inst->dst;
-        struct qinst *mov = vir_MOV_dest(c, dst, unif);
-        mov->uniform = inst->uniform;
-        vir_remove_instruction(c, inst);
-        if (dst.file == QFILE_TEMP)
-                c->defs[dst.index] = mov;
+        replace_inst(c, inst, &unif);
+        return true;
+}
+
+static bool
+opt_constant_mul(struct v3d_compile *c, struct qinst *inst, union fi *values)
+{
+        /* FIXME: handle more mul operations */
+        struct qreg unif = { };
+        switch (inst->qpu.alu.mul.op) {
+        case V3D_QPU_M_FMUL: {
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_f(c, values[0].f * values[1].f);
+                break;
+        }
+
+        default:
+                return false;
+        }
+
+        replace_inst(c, inst, &unif);
         return true;
 }
 
@@ -215,9 +241,11 @@ try_opt_constant_alu(struct v3d_compile *c, struct qinst *inst)
                 return false;
         }
 
-        /* FIXME: handle mul operations */
         if (vir_is_add(inst))
                 return opt_constant_add(c, inst, values);
+
+        if (vir_is_mul(inst))
+                return opt_constant_mul(c, inst, values);
 
         return false;
 }
