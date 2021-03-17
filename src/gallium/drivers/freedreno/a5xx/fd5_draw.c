@@ -117,6 +117,8 @@ fd5_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 	if (!vp || !fp)
 		return false;
 
+	ir3_update_max_tf_vtx(ctx, vp);
+
 	if (unlikely(ctx->stats_users > 0)) {
 		ctx->stats.vs_regs += ir3_shader_halfregs(vp);
 		ctx->stats.fs_regs += ir3_shader_halfregs(fp);
