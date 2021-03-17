@@ -325,17 +325,6 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 	batch->back_blit = ctx->in_shadow;
 	batch->num_draws++;
 
-	/* Counting prims in sw doesn't work for GS and tesselation. For older
-	 * gens we don't have those stages and don't have the hw counters enabled,
-	 * so keep the count accurate for non-patch geometry.
-	 */
-	unsigned prims;
-	if ((info->mode != PIPE_PRIM_PATCHES) &&
-			(info->mode != PIPE_PRIM_MAX))
-		prims = u_reduced_prims_for_vertices(info->mode, draws[0].count);
-	else
-		prims = 0;
-
 	ctx->stats.draw_calls++;
 
 	/* TODO prims_emitted should be clipped when the stream-out buffer is
@@ -344,9 +333,22 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 	 * use ir3 so no common way to get at the pipe_stream_output_info
 	 * which is needed for this calculation.
 	 */
-	if (ctx->streamout.num_targets > 0)
-		ctx->stats.prims_emitted += prims;
-	ctx->stats.prims_generated += prims;
+	if (ctx->active_queries) {
+		/* Counting prims in sw doesn't work for GS and tesselation. For older
+		 * gens we don't have those stages and don't have the hw counters enabled,
+		 * so keep the count accurate for non-patch geometry.
+		 */
+		unsigned prims;
+		if ((info->mode != PIPE_PRIM_PATCHES) &&
+				(info->mode != PIPE_PRIM_MAX))
+			prims = u_reduced_prims_for_vertices(info->mode, draws[0].count);
+		else
+			prims = 0;
+
+		if (ctx->streamout.num_targets > 0)
+			ctx->stats.prims_emitted += prims;
+		ctx->stats.prims_generated += prims;
+	}
 
 	/* Clearing last_fence must come after the batch dependency tracking
 	 * (resource_read()/resource_written()), as that can trigger a flush,
