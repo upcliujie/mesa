@@ -85,6 +85,46 @@ opt_constant_add(struct v3d_compile *c, struct qinst *inst, union fi *values)
                 unif = vir_uniform_ui(c, values[0].ui ^ values[1].ui);
                 break;
 
+        case V3D_QPU_A_UMIN:
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_ui(c, values[0].ui < values[1].ui ?
+                                      values[0].ui : values[1].ui);
+                break;
+
+        case V3D_QPU_A_UMAX:
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_ui(c, values[0].ui > values[1].ui ?
+                                      values[0].ui : values[1].ui);
+                break;
+
+        case V3D_QPU_A_MIN: {
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_ui(c, values[0].i < values[1].i ?
+                                      values[0].ui : values[1].ui);
+                break;
+        }
+
+        case V3D_QPU_A_MAX: {
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_ui(c, values[0].i > values[1].i ?
+                                      values[0].ui : values[1].ui);
+                break;
+        }
+
+        case V3D_QPU_A_FMIN: {
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_f(c, values[0].f < values[1].f ?
+                                     values[0].f : values[1].f);
+                break;
+        }
+
+        case V3D_QPU_A_FMAX: {
+                c->cursor = vir_after_inst(inst);
+                unif = vir_uniform_f(c, values[0].f > values[1].f ?
+                                     values[0].f : values[1].f);
+                break;
+        }
+
         case V3D_QPU_A_VFPACK: {
                 assert(inst->qpu.alu.add.output_pack == V3D_QPU_PACK_NONE);
 
