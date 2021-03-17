@@ -3566,14 +3566,6 @@ anv_plane_to_aspect(VkImageAspectFlags image_aspects,
 const struct anv_format *
 anv_get_format(VkFormat format);
 
-static inline uint32_t
-anv_get_format_planes(VkFormat vk_format)
-{
-   const struct anv_format *format = anv_get_format(vk_format);
-
-   return format != NULL ? format->n_planes : 0;
-}
-
 struct anv_format_plane
 anv_get_format_plane(const struct gen_device_info *devinfo, VkFormat vk_format,
                      VkImageAspectFlagBits aspect, VkImageTiling tiling);
