@@ -181,6 +181,9 @@ class Commit:
         return True
 
     async def backport(self, ui: 'UI') -> bool:
+        # Ensure that if a commit is marked backported it's nominated, as some
+        # backported commits are not nominated.
+        self.nominated = True
         self.resolution = Resolution.BACKPORTED
 
         # Find the sha of the commit on the master branch and save that
