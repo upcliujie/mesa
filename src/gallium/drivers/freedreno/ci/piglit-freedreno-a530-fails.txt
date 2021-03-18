@@ -35,9 +35,7 @@ glx@glx_ext_import_context@query context info,Fail
 shaders@glsl-bug-110796,Fail
 shaders@glsl-kwin-blur-1,Fail
 shaders@glsl-kwin-blur-2,Fail
-shaders@glsl-uniform-interstage-limits@300 vs- 300 fs,Fail
 shaders@glsl-uniform-interstage-limits@350 vs- 350 fs,Fail
-shaders@glsl-uniform-interstage-limits@400 vs- 400 fs,Fail
 shaders@point-vertex-id divisor,Crash
 shaders@point-vertex-id gl_instanceid,Crash
 shaders@point-vertex-id gl_instanceid divisor,Crash
@@ -125,6 +123,7 @@ spec@arb_direct_state_access@gettextureimage-formats init-by-rendering,Fail
 spec@arb_draw_indirect@gl_vertexid used with gldrawarraysindirect,Crash
 spec@arb_draw_indirect@gl_vertexid used with gldrawelementsindirect,Crash
 spec@arb_fragment_program@fp-fragment-position,Crash
+spec@arb_fragment_program@fp-indirections2,Crash
 spec@arb_fragment_program@sparse-samplers,Crash
 spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic,Fail
 spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-query,Fail
