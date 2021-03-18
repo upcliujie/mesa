@@ -397,7 +397,9 @@ async def resolve_fixes(commits: typing.List['Commit'], previous: typing.List['C
     This must be done in order, because a commit 3 might fix commit 2 which
     fixes commit 1.
     """
-    shas: typing.Set[str] = set(c.sha for c in previous if c.nominated)
+    # If the commit was backported then its sha will not match the same commit
+    # in master. But we still want to apply any fixes to the backported commit
+    shas: typing.Set[str] = {c.master_sha or c.sha for c in previous if c.nominated}
     assert None not in shas, 'None in shas'
 
     for commit in reversed(commits):

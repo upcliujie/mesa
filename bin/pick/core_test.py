@@ -439,6 +439,18 @@ class TestResolveFixes:
         await core.resolve_fixes(c, p)
         assert not c[0].nominated
 
+    @pytest.mark.asyncio
+    async def test_for_backport(self):
+        """Because commit commit 1234 is a backport of abcd, commit f123 should be nominated."""
+        p = [
+            core.Commit('1234', 'desc', True, resolution=core.Resolution.BACKPORTED, master_sha='abcd'),
+        ]
+        c = [
+            core.Commit('f123', 'desc', nomination_type=core.NominationType.FIXES, because_sha='abcd'),
+        ]
+        await core.resolve_fixes(c, p)
+        assert c[0].nominated
+
 
 class TestIsCommitInBranch:
 
