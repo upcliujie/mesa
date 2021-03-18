@@ -215,6 +215,15 @@ class Commit:
         await ui.feedback(f'{self.sha} ({self.description}) committed successfully')
 
 
+@attr.s(slots=True)
+class State:
+
+    """Shared state of the commits."""
+
+    new_commits: typing.List[Commit] = attr.ib(factory=list)
+    old_commits: typing.List[Commit] = attr.ib(factory=list)
+
+
 async def get_new_commits(sha: str) -> typing.List[typing.Tuple[str, str]]:
     # Try to get the authoritative upstream master
     p = await asyncio.create_subprocess_exec(
