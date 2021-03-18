@@ -175,10 +175,21 @@ v3dv_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
 }
 
 static void
+v3dv_physical_device_free_disk_cache(struct v3dv_physical_device *device)
+{
+#ifdef ENABLE_SHADER_CACHE
+   if (device->disk_cache)
+      disk_cache_destroy(device->disk_cache);
+#else
+   assert(device->disk_cache == NULL);
+#endif
+}
+
+static void
 physical_device_finish(struct v3dv_physical_device *device)
 {
    v3dv_wsi_finish(device);
-
+   v3dv_physical_device_free_disk_cache(device);
    v3d_compiler_free(device->compiler);
 
    close(device->render_fd);
@@ -551,6 +562,8 @@ init_uuids(struct v3dv_physical_device *device)
                        "build-id too short.  It needs to be a SHA");
    }
 
+   memcpy(device->driver_build_sha1, build_id_data(note), 20);
+
    uint32_t vendor_id = v3dv_physical_device_vendor_id(device);
    uint32_t device_id = v3dv_physical_device_device_id(device);
 
@@ -585,6 +598,24 @@ init_uuids(struct v3dv_physical_device *device)
    memcpy(device->device_uuid, sha1, VK_UUID_SIZE);
 
    return VK_SUCCESS;
+}
+
+static void
+v3dv_physical_device_init_disk_cache(struct v3dv_physical_device *device)
+{
+#ifdef ENABLE_SHADER_CACHE
+   char renderer[10];
+   ASSERTED int len = snprintf(renderer, sizeof(renderer), "v3dv_%04x",
+                               v3dv_physical_device_device_id(device));
+   assert(len == sizeof(renderer) - 1);
+
+   char timestamp[41];
+   _mesa_sha1_format(timestamp, device->driver_build_sha1);
+
+   device->disk_cache = disk_cache_create(renderer, timestamp, 0);
+#else
+   device->disk_cache = NULL;
+#endif
 }
 
 static VkResult
@@ -663,6 +694,7 @@ physical_device_init(struct v3dv_physical_device *device,
    if (result != VK_SUCCESS)
       goto fail;
 
+   v3dv_physical_device_init_disk_cache(device);
    device->compiler = v3d_compiler_init(&device->devinfo);
    device->next_program_id = 0;
 
