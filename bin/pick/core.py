@@ -157,6 +157,9 @@ class Commit:
         self.resolution = Resolution.MERGED
         await ui.feedback(f'{self.sha} ({self.description}) applied successfully')
 
+        # Rescan in case this creates new nomination
+        await ui.rescan()
+
         # Append the changes to the .pickstatus.json file
         ui.state.save()
         v = await commit_state(amend=True)
@@ -205,6 +208,9 @@ class Commit:
             await ui.feedback(f'{self.sha} has been marked as a backport of {shas[0]}, '
                               f'but there were other candidates: {", ".join(shas[1:])}')
         self.master_sha = shas[0]
+
+        # Rescan in case this creates new nomination
+        await ui.rescan()
 
         ui.state.save()
         v = await commit_state(message=f'Mark {self.sha} as backported')
