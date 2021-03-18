@@ -3154,6 +3154,14 @@ vtn_handle_image(struct vtn_builder *b, SpvOp opcode,
       image.lod = NULL;
       break;
 
+   case SpvOpImageQuerySamples:
+      res_val = vtn_untyped_value(b, w[3]);
+      image.image = vtn_get_image(b, w[3], &access);
+      image.coord = NULL;
+      image.sample = NULL;
+      image.lod = NULL;
+      break;
+
    case SpvOpImageQueryFormat:
    case SpvOpImageQueryOrder:
       res_val = vtn_untyped_value(b, w[3]);
@@ -3280,6 +3288,7 @@ vtn_handle_image(struct vtn_builder *b, SpvOp opcode,
    OP(AtomicFMaxEXT,             atomic_fmax)
    OP(ImageQueryFormat,          format)
    OP(ImageQueryOrder,           order)
+   OP(ImageQuerySamples,         samples)
 #undef OP
    default:
       vtn_fail_with_opcode("Invalid image opcode", opcode);
@@ -3290,6 +3299,7 @@ vtn_handle_image(struct vtn_builder *b, SpvOp opcode,
    intrin->src[0] = nir_src_for_ssa(&image.image->dest.ssa);
 
    switch (opcode) {
+   case SpvOpImageQuerySamples:
    case SpvOpImageQuerySize:
    case SpvOpImageQuerySizeLod:
    case SpvOpImageQueryFormat:
@@ -3321,6 +3331,7 @@ vtn_handle_image(struct vtn_builder *b, SpvOp opcode,
    nir_intrinsic_set_access(intrin, access);
 
    switch (opcode) {
+   case SpvOpImageQuerySamples:
    case SpvOpImageQueryFormat:
    case SpvOpImageQueryOrder:
       /* No additional sources */
@@ -5359,7 +5370,6 @@ vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
    case SpvOpImageSparseDrefGather:
    case SpvOpImageQueryLod:
    case SpvOpImageQueryLevels:
-   case SpvOpImageQuerySamples:
       vtn_handle_texture(b, opcode, w, count);
       break;
 
@@ -5374,6 +5384,18 @@ vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
 
    case SpvOpImageQuerySizeLod:
    case SpvOpImageQuerySize: {
+      struct vtn_type *image_type = vtn_get_value_type(b, w[3]);
+      vtn_assert(image_type->base_type == vtn_base_type_image);
+      if (glsl_type_is_image(image_type->glsl_image)) {
+         vtn_handle_image(b, opcode, w, count);
+      } else {
+         vtn_assert(glsl_type_is_sampler(image_type->glsl_image));
+         vtn_handle_texture(b, opcode, w, count);
+      }
+      break;
+   }
+
+   case SpvOpImageQuerySamples: {
       struct vtn_type *image_type = vtn_get_value_type(b, w[3]);
       vtn_assert(image_type->base_type == vtn_base_type_image);
       if (glsl_type_is_image(image_type->glsl_image)) {
