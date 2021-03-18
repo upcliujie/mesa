@@ -998,8 +998,9 @@ anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
          if (cmd_buffer->batch_bos.next == cmd_buffer->batch_bos.prev) {
             int32_t batch_len =
                cmd_buffer->batch.next - cmd_buffer->batch.start;
+            const struct gen_device_info *devinfo = &cmd_buffer->device->info;
 
-            for (int32_t i = 0; i < (512 - batch_len); i += 4)
+            for (int32_t i = 0; i < (devinfo->cs_prefetch_size - batch_len); i += 4)
                anv_batch_emit(&cmd_buffer->batch, GEN8_MI_NOOP, noop);
          }
 
