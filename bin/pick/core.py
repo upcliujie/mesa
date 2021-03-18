@@ -22,6 +22,7 @@
 
 import asyncio
 import enum
+import itertools
 import json
 import pathlib
 import re
@@ -156,7 +157,7 @@ class Commit:
         await ui.feedback(f'{self.sha} ({self.description}) applied successfully')
 
         # Append the changes to the .pickstatus.json file
-        ui.save()
+        ui.state.save()
         v = await commit_state(amend=True)
         return (v, '')
 
@@ -173,7 +174,7 @@ class Commit:
 
     async def denominate(self, ui: 'UI') -> bool:
         self.resolution = Resolution.DENOMINATED
-        ui.save()
+        ui.state.save()
         v = await commit_state(message=f'Mark {self.sha} as denominated')
         assert v
         await ui.feedback(f'{self.sha} ({self.description}) denominated successfully')
@@ -201,7 +202,7 @@ class Commit:
                               f'but there were other candidates: {", ".join(shas[1:])}')
         self.master_sha = shas[0]
 
-        ui.save()
+        ui.state.save()
         v = await commit_state(message=f'Mark {self.sha} as backported')
         assert v
         await ui.feedback(f'{self.sha} ({self.description}) backported successfully')
@@ -209,7 +210,7 @@ class Commit:
 
     async def resolve(self, ui: 'UI') -> None:
         self.resolution = Resolution.MERGED
-        ui.save()
+        ui.state.save()
         v = await commit_state(amend=True)
         assert v
         await ui.feedback(f'{self.sha} ({self.description}) committed successfully')
@@ -222,6 +223,13 @@ class State:
 
     new_commits: typing.List[Commit] = attr.ib(factory=list)
     old_commits: typing.List[Commit] = attr.ib(factory=list)
+
+    def save(self) -> None:
+        commits = itertools.chain(self.new_commits, self.old_commits)
+        with pick_status_json.open('wt') as f:
+            json.dump([c.to_json() for c in commits], f, indent=4)
+
+        asyncio.ensure_future(commit_state(message=f'Update to {self.new_commits[0].sha}'))
 
 
 async def get_new_commits(sha: str) -> typing.List[typing.Tuple[str, str]]:
@@ -398,11 +406,3 @@ def load() -> typing.List['Commit']:
     with pick_status_json.open('r') as f:
         raw = json.load(f)
         return [Commit.from_json(c) for c in raw]
-
-
-def save(commits: typing.Iterable['Commit']) -> None:
-    commits = list(commits)
-    with pick_status_json.open('wt') as f:
-        json.dump([c.to_json() for c in commits], f, indent=4)
-
-    asyncio.ensure_future(commit_state(message=f'Update to {commits[0].sha}'))

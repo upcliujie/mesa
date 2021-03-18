@@ -168,7 +168,7 @@ class UI:
             if commit.nominated and commit.resolution is core.Resolution.UNRESOLVED:
                 b = urwid.AttrMap(CommitWidget(self, commit), None, focus_map='reversed')
                 self.commit_list.append(b)
-        self.save()
+        self.state.save()
 
     async def feedback(self, text: str) -> None:
         self.feedback_box.append(urwid.AttrMap(urwid.Text(text), None))
@@ -180,9 +180,6 @@ class UI:
             if c.base_widget is commit:
                 del self.commit_list[i]
                 break
-
-    def save(self):
-        core.save(itertools.chain(self.state.new_commits, self.state.old_commits))
 
     def add(self) -> None:
         """Add an additional commit which isn't nominated."""
