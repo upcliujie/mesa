@@ -447,7 +447,7 @@ lvp_get_physical_device_features_1_1(struct lvp_physical_device *pdevice,
    f->variablePointersStorageBuffer       = true;
    f->variablePointers                    = false;
    f->protectedMemory                     = false;
-   f->samplerYcbcrConversion              = false;
+   f->samplerYcbcrConversion              = true;
    f->shaderDrawParameters                = true;
 }
 
