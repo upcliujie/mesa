@@ -65,3 +65,7 @@ bifrost_compiler = executable(
   ],
   build_by_default : with_tools.contains('panfrost')
 )
+
+if with_datasources.contains('panfrost') or with_datasources.contains('auto')
+  subdir('ds')
+endif

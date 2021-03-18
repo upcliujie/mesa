@@ -13,18 +13,20 @@ pps_sources = [
 include_pps = include_directories('../')
 
 dep_drm = dependency('libdrm')
-gpu_deps = [dep_drm, dep_perfetto]
+pps_deps = [dep_drm, dep_perfetto]
+pps_deps += pps_datasources
 
 lib_pps = static_library(
   'pps',
   sources: pps_sources,
-  dependencies: gpu_deps,
+  include_directories: [include_pps, inc_src],
+  dependencies: pps_deps,
   cpp_args: '-std=c++17'
 )
 
 dep_pps = declare_dependency(
   link_with: lib_pps,
-  include_directories: include_pps
+  include_directories: [include_pps, inc_src]
 )
 
 producer_sources = [
@@ -35,7 +37,7 @@ producer_sources = [
 executable(
   'pps-producer',
   sources: producer_sources,
-  include_directories: include_pps,
+  include_directories: [include_pps, inc_src],
   dependencies: [dep_pps, dep_perfetto],
   cpp_args: '-std=c++17',
   install: true
