@@ -35,8 +35,6 @@ files_mesa_util = files(
   'build_id.h',
   'cnd_monotonic.h',
   'compiler.h',
-  'compress.c',
-  'compress.h',
   'crc32.c',
   'crc32.h',
   'dag.c',
@@ -136,6 +134,17 @@ files_mesa_util = files(
   'vma.h',
   'xxhash.h',
 )
+
+files_compress = files(
+  'compress.c',
+  'compress.h',
+)
+
+if dep_zlib.found() or dep_zstd.found()
+  files_mesa_util += files_compress
+elif with_shader_cache
+  error('Shader cache requires zlib or zstd')
+endif
 
 files_drirc = files('00-mesa-defaults.conf')
 

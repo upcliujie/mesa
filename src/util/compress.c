@@ -28,7 +28,9 @@
 #define ZLIB_CONST
 #endif
 
+#ifdef HAVE_ZLIB
 #include "zlib.h"
+#endif
 
 #ifdef HAVE_ZSTD
 #include "zstd.h"
