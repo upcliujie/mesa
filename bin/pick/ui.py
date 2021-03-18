@@ -142,30 +142,20 @@ class UI:
 
     async def update(self) -> None:
         self.state.load()
-        with open('VERSION', 'r') as f:
-            version = '.'.join(f.read().split('.')[:2])
-        if self.state.old_commits:
-            sha = self.state.old_commits[0].sha
-        else:
-            sha = f'{version}-branchpoint'
-
-        new_commits = await core.get_new_commits(sha)
+        new_commits = await self.state.check_new_commits()
 
         if new_commits:
             pb = urwid.ProgressBar('a', 'b', done=len(new_commits))
             o = self.mainloop.widget
             self.mainloop.widget = urwid.Overlay(
                 urwid.Filler(urwid.LineBox(pb)), o, 'center', ('relative', 50), 'middle', ('relative', 50))
-            self.state.new_commits = await core.gather_commits(
-                version, self.state.old_commits, new_commits,
-                lambda: pb.set_completion(pb.current + 1))
+            await self.state.get_new_commits(new_commits, lambda: pb.set_completion(pb.current + 1))
             self.mainloop.widget = o
 
         for commit in reversed(list(itertools.chain(self.state.new_commits, self.state.old_commits))):
             if commit.nominated and commit.resolution is core.Resolution.UNRESOLVED:
                 b = urwid.AttrMap(CommitWidget(self, commit), None, focus_map='reversed')
                 self.commit_list.append(b)
-        self.state.save()
 
     async def feedback(self, text: str) -> None:
         self.feedback_box.append(urwid.AttrMap(urwid.Text(text), None))

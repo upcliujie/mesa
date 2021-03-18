@@ -223,13 +223,12 @@ class State:
 
     new_commits: typing.List[Commit] = attr.ib(factory=list)
     old_commits: typing.List[Commit] = attr.ib(factory=list)
+    _version: typing.Optional[str] = attr.ib(None, init=False)
 
     def save(self) -> None:
         commits = itertools.chain(self.new_commits, self.old_commits)
         with pick_status_json.open('wt') as f:
             json.dump([c.to_json() for c in commits], f, indent=4)
-
-        asyncio.ensure_future(commit_state(message=f'Update to {self.new_commits[0].sha}'))
 
     def load(self) -> None:
         if not pick_status_json.exists():
@@ -238,23 +237,68 @@ class State:
             raw = json.load(f)
             self.old_commits = [Commit.from_json(c) for c in raw]
 
+    @property
+    def version(self) -> None:
+        if self._version is None:
+            with open('VERSION', 'r') as f:
+                self._version = '.'.join(f.read().split('.')[:2])
+        return self._version
 
-async def get_new_commits(sha: str) -> typing.List[typing.Tuple[str, str]]:
-    # Try to get the authoritative upstream master
-    p = await asyncio.create_subprocess_exec(
-        'git', 'for-each-ref', '--format=%(upstream)', 'refs/heads/master',
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.DEVNULL)
-    out, _ = await p.communicate()
-    upstream = out.decode().strip()
+    async def check_new_commits(self) -> typing.List[typing.Tuple[str, str]]:
+        if self.old_commits:
+            sha = self.old_commits[0].sha
+        else:
+            sha = f'{self.version}-branchpoint'
 
-    p = await asyncio.create_subprocess_exec(
-        'git', 'log', '--pretty=oneline', f'{sha}..{upstream}',
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.DEVNULL)
-    out, _ = await p.communicate()
-    assert p.returncode == 0, f"git log didn't work: {sha}"
-    return list(split_commit_list(out.decode().strip()))
+        # Try to get the authoritative upstream master
+        p = await asyncio.create_subprocess_exec(
+            'git', 'for-each-ref', '--format=%(upstream)', 'refs/heads/master',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL)
+        out, _ = await p.communicate()
+        upstream = out.decode().strip()
+
+        p = await asyncio.create_subprocess_exec(
+            'git', 'log', '--pretty=oneline', f'{sha}..{upstream}',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL)
+        out, _ = await p.communicate()
+        assert p.returncode == 0, f"git log didn't work: {sha}"
+        return list(split_commit_list(out.decode().strip()))
+
+    async def get_new_commits(self, new: typing.List[typing.Tuple[str, str]],
+                              cb: typing.Callable) -> None:
+        # We create an array of the final size up front, then we pass that array
+        # to the "inner" co-routine, which is turned into a list of tasks and
+        # collected by asyncio.gather. We do this to allow the tasks to be
+        # asynchronously gathered, but to also ensure that the commits list remains
+        # in order.
+        m_commits: typing.List[typing.Optional['Commit']] = [None] * len(new)
+        tasks = []
+
+        async def inner(commit: 'Commit',
+                        commits: typing.List[typing.Optional['Commit']],
+                        index: int, cb: typing.Callable) -> None:
+            commits[index] = await resolve_nomination(commit, self.version)
+            cb()
+
+        for i, (sha, desc) in enumerate(new):
+            tasks.append(asyncio.ensure_future(
+                inner(Commit(sha, desc), m_commits, i, cb)))
+
+        await asyncio.gather(*tasks)
+        assert None not in m_commits
+        commits = typing.cast(typing.List[Commit], m_commits)
+
+        await resolve_fixes(commits, self.old_commits)
+
+        for commit in commits:
+            if commit.resolution is Resolution.UNRESOLVED and not commit.nominated:
+                commit.resolution = Resolution.NOTNEEDED
+
+        self.new_commits = commits
+        self.save()
+        await commit_state(message=f'Update to {self.new_commits[0].sha}')
 
 
 def split_commit_list(commits: str) -> typing.Generator[typing.Tuple[str, str], None, None]:
@@ -373,35 +417,3 @@ async def resolve_fixes(commits: typing.List['Commit'], previous: typing.List['C
                     shas.remove(commit.because_sha)
                     break
 
-
-async def gather_commits(version: str, previous: typing.List['Commit'],
-                         new: typing.List[typing.Tuple[str, str]], cb) -> typing.List['Commit']:
-    # We create an array of the final size up front, then we pass that array
-    # to the "inner" co-routine, which is turned into a list of tasks and
-    # collected by asyncio.gather. We do this to allow the tasks to be
-    # asynchronously gathered, but to also ensure that the commits list remains
-    # in order.
-    m_commits: typing.List[typing.Optional['Commit']] = [None] * len(new)
-    tasks = []
-
-    async def inner(commit: 'Commit', version: str,
-                    commits: typing.List[typing.Optional['Commit']],
-                    index: int, cb) -> None:
-        commits[index] = await resolve_nomination(commit, version)
-        cb()
-
-    for i, (sha, desc) in enumerate(new):
-        tasks.append(asyncio.ensure_future(
-            inner(Commit(sha, desc), version, m_commits, i, cb)))
-
-    await asyncio.gather(*tasks)
-    assert None not in m_commits
-    commits = typing.cast(typing.List[Commit], m_commits)
-
-    await resolve_fixes(commits, previous)
-
-    for commit in commits:
-        if commit.resolution is Resolution.UNRESOLVED and not commit.nominated:
-            commit.resolution = Resolution.NOTNEEDED
-
-    return commits
