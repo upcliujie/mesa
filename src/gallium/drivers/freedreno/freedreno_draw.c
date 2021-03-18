@@ -327,6 +327,21 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 
 	ctx->stats.draw_calls++;
 
+	/* Clearing last_fence must come after the batch dependency tracking
+	 * (resource_read()/resource_written()), as that can trigger a flush,
+	 * re-populating last_fence
+	 */
+	fd_fence_ref(&ctx->last_fence, NULL);
+
+	struct pipe_framebuffer_state *pfb = &batch->framebuffer;
+	DBG("%p: %ux%u num_draws=%u (%s/%s)", batch,
+		pfb->width, pfb->height, batch->num_draws,
+		util_format_short_name(pipe_surface_format(pfb->cbufs[0])),
+		util_format_short_name(pipe_surface_format(pfb->zsbuf)));
+
+	if (ctx->draw_vbo(ctx, info, indirect, &draws[0], index_offset))
+		batch->needs_flush = true;
+
 	/* TODO prims_emitted should be clipped when the stream-out buffer is
 	 * not large enough.  See max_tf_vtx().. probably need to move that
 	 * into common code.  Although a bit more annoying since a2xx doesn't
@@ -349,21 +364,6 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 			ctx->stats.prims_emitted += prims;
 		ctx->stats.prims_generated += prims;
 	}
-
-	/* Clearing last_fence must come after the batch dependency tracking
-	 * (resource_read()/resource_written()), as that can trigger a flush,
-	 * re-populating last_fence
-	 */
-	fd_fence_ref(&ctx->last_fence, NULL);
-
-	struct pipe_framebuffer_state *pfb = &batch->framebuffer;
-	DBG("%p: %ux%u num_draws=%u (%s/%s)", batch,
-		pfb->width, pfb->height, batch->num_draws,
-		util_format_short_name(pipe_surface_format(pfb->cbufs[0])),
-		util_format_short_name(pipe_surface_format(pfb->zsbuf)));
-
-	if (ctx->draw_vbo(ctx, info, indirect, &draws[0], index_offset))
-		batch->needs_flush = true;
 
 	batch->num_vertices += draws[0].count * info->instance_count;
 
