@@ -50,6 +50,9 @@ pre_args = [
 ]
 
 with_perfetto = get_option('perfetto')
+with_datasources = get_option('datasources')
+with_any_datasource = with_datasources.length() != 0
+
 with_vulkan_icd_dir = get_option('vulkan-icd-dir')
 with_tests = get_option('build-tests')
 with_aco_tests = get_option('build-aco-tests')
@@ -2121,7 +2124,12 @@ lines += 'HUD lmsensors:   ' + (dep_lmsensors.found() ? 'yes' : 'no')
 
 lines += ''
 lines += 'Shared-glapi:    ' + (with_shared_glapi ? 'yes' : 'no')
+
+lines += ''
 lines += 'Perfetto:        ' + (with_perfetto ? 'yes' : 'no')
+if with_any_datasource
+  lines += 'Perfetto ds:     ' + ' '.join(with_datasources)
+endif
 
 
 indent = '        '
