@@ -231,6 +231,13 @@ class State:
 
         asyncio.ensure_future(commit_state(message=f'Update to {self.new_commits[0].sha}'))
 
+    def load(self) -> None:
+        if not pick_status_json.exists():
+            return
+        with pick_status_json.open('r') as f:
+            raw = json.load(f)
+            self.old_commits = [Commit.from_json(c) for c in raw]
+
 
 async def get_new_commits(sha: str) -> typing.List[typing.Tuple[str, str]]:
     # Try to get the authoritative upstream master
@@ -398,11 +405,3 @@ async def gather_commits(version: str, previous: typing.List['Commit'],
             commit.resolution = Resolution.NOTNEEDED
 
     return commits
-
-
-def load() -> typing.List['Commit']:
-    if not pick_status_json.exists():
-        return []
-    with pick_status_json.open('r') as f:
-        raw = json.load(f)
-        return [Commit.from_json(c) for c in raw]

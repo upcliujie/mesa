@@ -140,11 +140,8 @@ class UI:
         asyncio.ensure_future(self.update())
         return self.root
 
-    def load(self) -> None:
-        self.state.old_commits = core.load()
-
     async def update(self) -> None:
-        self.load()
+        self.state.load()
         with open('VERSION', 'r') as f:
             version = '.'.join(f.read().split('.')[:2])
         if self.state.old_commits:
