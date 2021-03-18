@@ -181,6 +181,26 @@ class Commit:
 
     async def backport(self, ui: 'UI') -> bool:
         self.resolution = Resolution.BACKPORTED
+
+        # Find the sha of the commit on the master branch and save that
+        async with COMMIT_LOCK:
+            p = await asyncio.create_subprocess_exec(
+                'git', 'log', '--grep', re.escape(self.description),
+                '--format=%H', 'refs/heads/master',
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            r, o, _ = await p.communicate()
+        shas = o.decode().strip().split()
+        if len(shas) > 1:
+            # We could potentially do something more here, but I don't forsee
+            # two commits with the exact same commit message being a common thing,
+            # and I suspect even in that event the newest commit is the right
+            # one anyway.
+            await ui.feedback(f'{self.sha} has been marked as a backport of {shas[0]}, '
+                              f'but there were other candidates: {", ".join(shas[1:])}')
+        self.master_sha = shas[0]
+
         ui.save()
         v = await commit_state(message=f'Mark {self.sha} as backported')
         assert v

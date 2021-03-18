@@ -85,6 +85,7 @@ class CommitWidget(urwid.Text):
             self.ui.remove_commit(self)
 
     async def backport(self) -> None:
+        
         async with self.ui.git_lock:
             await self.commit.backport(self.ui)
             self.ui.remove_commit(self)
