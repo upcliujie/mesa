@@ -606,7 +606,7 @@ set_layout_buffer_view_count(const struct anv_descriptor_set_layout *set_layout,
    return set_layout->buffer_view_count - shrink;
 }
 
-static uint32_t
+uint32_t
 set_layout_descriptor_buffer_size(const struct anv_descriptor_set_layout *set_layout,
                                   uint32_t var_desc_count)
 {
