@@ -85,7 +85,6 @@ class CommitWidget(urwid.Text):
             self.ui.remove_commit(self)
 
     async def backport(self) -> None:
-        
         async with self.ui.git_lock:
             await self.commit.backport(self.ui)
             self.ui.remove_commit(self)
@@ -105,11 +104,7 @@ class CommitWidget(urwid.Text):
 @attr.s(slots=True)
 class UI:
 
-    """Main management object.
-
-    :previous_commits: A list of commits to master since this branch was created
-    :new_commits: Commits added to master since the last time this script was run
-    """
+    """Main management object."""
 
     commit_list: typing.List['urwid.Button'] = attr.ib(factory=lambda: urwid.SimpleFocusListWalker([]), init=False)
     feedback_box: typing.List['urwid.Text'] = attr.ib(factory=lambda: urwid.SimpleFocusListWalker([]), init=False)
@@ -119,8 +114,7 @@ class UI:
     root: RootWidget = attr.ib(attr.Factory(lambda s: s._make_root(), True), init=False)
     mainloop: urwid.MainLoop = attr.ib(None, init=False)
 
-    previous_commits: typing.List['core.Commit'] = attr.ib(factory=list, init=False)
-    new_commits: typing.List['core.Commit'] = attr.ib(factory=list, init=False)
+    state: core.State = attr.ib(factory=core.State, init=False)
     git_lock: asyncio.Lock = attr.ib(factory=asyncio.Lock, init=False)
 
     def _make_body(self) -> 'urwid.Columns':
@@ -147,14 +141,14 @@ class UI:
         return self.root
 
     def load(self) -> None:
-        self.previous_commits = core.load()
+        self.state.old_commits = core.load()
 
     async def update(self) -> None:
         self.load()
         with open('VERSION', 'r') as f:
             version = '.'.join(f.read().split('.')[:2])
-        if self.previous_commits:
-            sha = self.previous_commits[0].sha
+        if self.state.old_commits:
+            sha = self.state.old_commits[0].sha
         else:
             sha = f'{version}-branchpoint'
 
@@ -165,12 +159,12 @@ class UI:
             o = self.mainloop.widget
             self.mainloop.widget = urwid.Overlay(
                 urwid.Filler(urwid.LineBox(pb)), o, 'center', ('relative', 50), 'middle', ('relative', 50))
-            self.new_commits = await core.gather_commits(
-                version, self.previous_commits, new_commits,
+            self.state.new_commits = await core.gather_commits(
+                version, self.state.old_commits, new_commits,
                 lambda: pb.set_completion(pb.current + 1))
             self.mainloop.widget = o
 
-        for commit in reversed(list(itertools.chain(self.new_commits, self.previous_commits))):
+        for commit in reversed(list(itertools.chain(self.state.new_commits, self.state.old_commits))):
             if commit.nominated and commit.resolution is core.Resolution.UNRESOLVED:
                 b = urwid.AttrMap(CommitWidget(self, commit), None, focus_map='reversed')
                 self.commit_list.append(b)
@@ -188,7 +182,7 @@ class UI:
                 break
 
     def save(self):
-        core.save(itertools.chain(self.new_commits, self.previous_commits))
+        core.save(itertools.chain(self.state.new_commits, self.state.old_commits))
 
     def add(self) -> None:
         """Add an additional commit which isn't nominated."""
@@ -205,7 +199,7 @@ class UI:
                 return
 
             sha = await core.full_sha(text)
-            for c in reversed(list(itertools.chain(self.new_commits, self.previous_commits))):
+            for c in reversed(list(itertools.chain(self.state.new_commits, self.state.old_commits))):
                 if c.sha == sha:
                     commit = c
                     break
