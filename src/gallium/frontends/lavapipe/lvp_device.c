@@ -112,7 +112,6 @@ static const struct vk_device_extension_table lvp_device_extensions_supported = 
    .KHR_push_descriptor                   = true,
    .KHR_relaxed_block_layout              = true,
    .KHR_sampler_mirror_clamp_to_edge      = true,
-   .KHR_sampler_ycbcr_conversion          = true,
    .KHR_shader_draw_parameters            = true,
    .KHR_storage_buffer_storage_class      = true,
 #ifdef LVP_USE_WSI_PLATFORM
