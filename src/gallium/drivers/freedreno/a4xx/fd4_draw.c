@@ -83,25 +83,31 @@ fd4_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 	struct fd4_emit emit = {
 		.debug = &ctx->debug,
 		.vtx  = &ctx->vtx,
-		.prog = &ctx->prog,
 		.info = info,
 		.indirect = indirect,
 		.draw = draw,
 		.key = {
-			.rasterflat = ctx->rasterizer->flatshade,
-			.ucp_enables = ctx->rasterizer->clip_plane_enable,
-			.has_per_samp = fd4_ctx->fastc_srgb || fd4_ctx->vastc_srgb,
-			.vastc_srgb = fd4_ctx->vastc_srgb,
-			.fastc_srgb = fd4_ctx->fastc_srgb,
+			.vs = ctx->prog.vs,
+			.fs = ctx->prog.fs,
+			.key = {
+				.rasterflat = ctx->rasterizer->flatshade,
+				.ucp_enables = ctx->rasterizer->clip_plane_enable,
+				.has_per_samp = fd4_ctx->fastc_srgb || fd4_ctx->vastc_srgb,
+				.vastc_srgb = fd4_ctx->vastc_srgb,
+				.fastc_srgb = fd4_ctx->fastc_srgb,
+			},
 		},
 		.rasterflat = ctx->rasterizer->flatshade,
 		.sprite_coord_enable = ctx->rasterizer->sprite_coord_enable,
 		.sprite_coord_mode = ctx->rasterizer->sprite_coord_mode,
 	};
 
-	ir3_fixup_shader_state(&ctx->base, &emit.key);
+	ir3_fixup_shader_state(&ctx->base, &emit.key.key);
 
 	enum fd_dirty_3d_state dirty = ctx->dirty;
+
+	emit.prog = fd4_program_state(ir3_cache_lookup(ctx->shader_cache, &emit.key, &ctx->debug));
+
 	const struct ir3_shader_variant *vp = fd4_emit_get_vp(&emit);
 	const struct ir3_shader_variant *fp = fd4_emit_get_fp(&emit);
 
