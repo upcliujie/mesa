@@ -153,6 +153,7 @@ class Commit:
         if p.returncode != 0:
             return (False, err.decode())
 
+        self.nominated = True
         self.resolution = Resolution.MERGED
         await ui.feedback(f'{self.sha} ({self.description}) applied successfully')
 
