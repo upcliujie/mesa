@@ -304,6 +304,15 @@ class State:
         self.save()
         await commit_state(message=f'Update to {self.new_commits[0].sha}')
 
+    async def rescan(self) -> None:
+        """Rescan commits to see if some state changed.
+
+        This be needed apply() or backport() is called, as those may need
+        some other patches that were previously marked as not needed.
+        """
+        commits = self.new_commits + self.old_commits
+        await resolve_fixes(commits, commits)
+
 
 def split_commit_list(commits: str) -> typing.Generator[typing.Tuple[str, str], None, None]:
     if not commits:

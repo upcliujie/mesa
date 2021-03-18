@@ -53,6 +53,8 @@ class RootWidget(urwid.Frame):
             raise urwid.ExitMainLoop()
         elif key == 'u':
             asyncio.ensure_future(self.ui.update())
+        elif key == 'r':
+            asyncio.ensure_future(self.ui.rescan())
         elif key == 'a':
             self.ui.add()
         else:
@@ -129,7 +131,8 @@ class UI:
             urwid.Text('[C]herry Pick'),
             urwid.Text('[D]enominate'),
             urwid.Text('[B]ackport'),
-            urwid.Text('[A]pply additional patch')
+            urwid.Text('[A]pply additional patch'),
+            urwid.Text('[R]escan commits'),
         ]
         return urwid.Columns(body)
 
@@ -152,6 +155,14 @@ class UI:
             await self.state.get_new_commits(new_commits, lambda: pb.set_completion(pb.current + 1))
             self.mainloop.widget = o
 
+        for commit in reversed(list(itertools.chain(self.state.new_commits, self.state.old_commits))):
+            if commit.nominated and commit.resolution is core.Resolution.UNRESOLVED:
+                b = urwid.AttrMap(CommitWidget(self, commit), None, focus_map='reversed')
+                self.commit_list.append(b)
+
+    async def rescan(self) -> None:
+        await self.state.rescan()
+        self.commit_list.clear()
         for commit in reversed(list(itertools.chain(self.state.new_commits, self.state.old_commits))):
             if commit.nominated and commit.resolution is core.Resolution.UNRESOLVED:
                 b = urwid.AttrMap(CommitWidget(self, commit), None, focus_map='reversed')
