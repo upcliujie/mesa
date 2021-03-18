@@ -99,6 +99,22 @@
       when: on_success
     - changes: &llvmpipe_file_list
       - src/gallium/drivers/llvmpipe/**/*
+      - src/gallium/winsys/sw/**/*
+      when: on_success
+    - when: never
+
+.lavapipe-rules:
+  stage: software-renderer
+  rules:
+    - *ignore_scheduled_pipelines
+    - changes:
+        *mesa_core_file_list
+      when: on_success
+    - changes:
+        *gallium_core_file_list
+      when: on_success
+    - changes: &lavapipe_file_list
+      - src/gallium/drivers/llvmpipe/**/*
       - src/gallium/frontends/lavapipe/**/*
       - src/gallium/winsys/sw/**/*
       when: on_success
@@ -314,6 +330,9 @@
         *llvmpipe_file_list
       when: on_success
     - changes:
+        *lavapipe_file_list
+      when: on_success
+    - changes:
         *vulkan_file_list
       when: on_success
     - changes: &d3d12_file_list
@@ -339,6 +358,9 @@
         *llvmpipe_file_list
       when: on_success
     - changes:
+        *lavapipe_file_list
+      when: on_success
+    - changes:
         *vulkan_file_list
       when: on_success
     - changes: *d3d12_file_list
@@ -357,6 +379,9 @@
       when: on_success
     - changes:
         *llvmpipe_file_list
+      when: on_success
+    - changes:
+        *lavapipe_file_list
       when: on_success
     - changes:
       - src/gallium/drivers/zink/**/*
