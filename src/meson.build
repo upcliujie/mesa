@@ -136,3 +136,5 @@ if with_glx != 'disabled' and not with_glvnd
     variables : ['glx_tls=@0@'.format(use_elf_tls ? 'yes' : 'no')],
   )
 endif
+
+subdir('tool')
