@@ -1265,11 +1265,14 @@ anv_cmd_buffer_push_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
        ((*push_set)->set_used_on_gpu ||
         set->desc_mem.alloc_size < layout->descriptor_buffer_size)) {
       /* The previous buffer is either actively used by some GPU command (so
-       * we can't modify it) or is too small.  Allocate a new one.
+       * we can't modify it) or is too small.  Allocate a new one, and make
+       * sure it's sized to a multiple of 32 so it's safe to use with push
+       * constants.
        */
       struct anv_state desc_mem =
          anv_state_stream_alloc(&cmd_buffer->dynamic_state_stream,
-                                layout->descriptor_buffer_size, 32);
+                                anv_descriptor_set_layout_descriptor_buffer_size(layout, 0),
+                                ANV_UBO_ALIGNMENT);
       if (set->desc_mem.alloc_size) {
          /* TODO: Do we really need to copy all the time? */
          memcpy(desc_mem.map, set->desc_mem.map,
