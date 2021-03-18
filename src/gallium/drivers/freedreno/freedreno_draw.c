@@ -348,7 +348,7 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 	 * use ir3 so no common way to get at the pipe_stream_output_info
 	 * which is needed for this calculation.
 	 */
-	if (ctx->active_queries) {
+	if (ctx->active_queries && ctx->screen->gpu_id < 600) {
 		/* Counting prims in sw doesn't work for GS and tesselation. For older
 		 * gens we don't have those stages and don't have the hw counters enabled,
 		 * so keep the count accurate for non-patch geometry.
