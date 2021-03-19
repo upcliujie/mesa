@@ -3,6 +3,8 @@
 set -e
 set -o xtrace
 
+export DEBIAN_FRONTEND=noninteractive
+
 check_minio()
 {
     MINIO_PATH="${MINIO_HOST}/mesa-lava/$1/${DISTRIBUTION_TAG}/${DEBIAN_ARCH}"
@@ -65,7 +67,8 @@ if [[ -e /cross_file-$DEBIAN_ARCH.txt ]]; then
 fi
 
 apt-get update
-apt-get install -y automake \
+apt-get install -y --no-remove \
+                   automake \
                    bc \
                    cmake \
                    debootstrap \
@@ -75,11 +78,13 @@ apt-get install -y automake \
                    libgbm-dev \
                    libgles2-mesa-dev \
                    libpcre3-dev \
-                   libpng-dev \
                    libpython3-dev \
                    libssl-dev \
+                   libudev-dev \
                    libvulkan-dev \
                    libwaffle-dev \
+                   libwayland-dev \
+                   libx11-xcb-dev \
                    libxcb-keysyms1-dev \
                    libxkbcommon-dev \
                    patch \
@@ -88,23 +93,25 @@ apt-get install -y automake \
                    python3-mako \
                    python3-numpy \
                    python3-serial \
-                   qt5-default \
                    qt5-qmake \
                    qtbase5-dev \
                    wget
 
 
 if [[ "$DEBIAN_ARCH" = "armhf" ]]; then
-    apt-get install -y libboost-dev:armhf \
+    apt-get install -y --no-remove \
+                       libboost-dev:armhf \
                        libegl1-mesa-dev:armhf \
                        libelf-dev:armhf \
                        libgbm-dev:armhf \
                        libgles2-mesa-dev:armhf \
                        libpcre3-dev:armhf \
-                       libpng-dev:armhf \
                        libpython3-dev:armhf \
+                       libudev-dev:armhf \
                        libvulkan-dev:armhf \
                        libwaffle-dev:armhf \
+                       libwayland-dev:armhf \
+                       libx11-xcb-dev:armhf \
                        libxcb-keysyms1-dev:armhf \
                        libxkbcommon-dev:armhf \
                        qtbase5-dev:armhf
@@ -134,17 +141,6 @@ if [ -n "$INCLUDE_PIGLIT" ]; then
     . .gitlab-ci/container/build-piglit.sh
     mv /piglit /lava-files/rootfs-${DEBIAN_ARCH}/.
 fi
-
-
-############### Build apitrace
-. .gitlab-ci/container/build-apitrace.sh
-mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/apitrace
-mv /apitrace/build /lava-files/rootfs-${DEBIAN_ARCH}/apitrace
-rm -rf /apitrace
-
-mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/waffle
-mv /waffle/build /lava-files/rootfs-${DEBIAN_ARCH}/waffle
-rm -rf /waffle
 
 
 ############### Build renderdoc
@@ -216,23 +212,22 @@ rm -rf /root/.rustup /root/.cargo
 
 ############### Create rootfs
 set +e
-debootstrap \
-    --variant=minbase \
-    --arch=${DEBIAN_ARCH} \
+if ! debootstrap \
+     --variant=minbase \
+     --arch=${DEBIAN_ARCH} \
      --components main,contrib,non-free \
-    buster \
-    /lava-files/rootfs-${DEBIAN_ARCH}/ \
-    http://deb.debian.org/debian
-
-cat /lava-files/rootfs-${DEBIAN_ARCH}/debootstrap/debootstrap.log
+     bullseye \
+     /lava-files/rootfs-${DEBIAN_ARCH}/ \
+     http://deb.debian.org/debian; then
+    cat /lava-files/rootfs-${DEBIAN_ARCH}/debootstrap/debootstrap.log
+    exit 1
+fi
 set -e
 
 cp .gitlab-ci/container/create-rootfs.sh /lava-files/rootfs-${DEBIAN_ARCH}/.
-cp .gitlab-ci/container/llvm-snapshot.gpg.key /lava-files/rootfs-${DEBIAN_ARCH}/.
 chroot /lava-files/rootfs-${DEBIAN_ARCH} \
     sh -c "INCLUDE_PIGLIT=$INCLUDE_PIGLIT sh /create-rootfs.sh"
 rm /lava-files/rootfs-${DEBIAN_ARCH}/create-rootfs.sh
-rm /lava-files/rootfs-${DEBIAN_ARCH}/llvm-snapshot.gpg.key
 
 
 ############### Install the built libdrm

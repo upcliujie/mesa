@@ -27,17 +27,20 @@ BAREMETAL_EPHEMERAL=" \
         libgles2-mesa-dev:$arch \
         libpciaccess-dev:$arch \
         libpcre3-dev:$arch \
-        libpng-dev:$arch \
         libpython3-dev:$arch \
         libstdc++6:$arch \
         libtinfo-dev:$arch \
         libudev-dev:$arch \
         libvulkan-dev:$arch \
         libwaffle-dev:$arch \
+        libwayland-dev:$arch \
+        libx11-xcb-dev:$arch \
         libxcb-keysyms1-dev:$arch \
         libxkbcommon-dev:$arch \
+        python-is-python3 \
         python3-dev \
-        qt5-default \
+        python3-mako \
+        python3-requests \
         qt5-qmake \
         qtbase5-dev:$arch \
         "

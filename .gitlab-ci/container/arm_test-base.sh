@@ -6,12 +6,11 @@ set -o xtrace
 ############### Install packages for building
 apt-get install -y ca-certificates
 sed -i -e 's/http:\/\/deb/https:\/\/deb/g' /etc/apt/sources.list
-echo 'deb https://deb.debian.org/debian buster-backports main' >/etc/apt/sources.list.d/backports.list
+echo 'deb https://deb.debian.org/debian buster main' >/etc/apt/sources.list.d/buster.list
 apt-get update
 
 apt-get install -y --no-remove \
         abootimg \
-        android-sdk-ext4-utils \
         bc \
         bison \
         bzip2 \
@@ -23,21 +22,23 @@ apt-get install -y --no-remove \
         flex \
         g++ \
         git \
+        meson \
         netcat \
         nginx-full \
         pkg-config \
         procps \
+        python-is-python3 \
         python3-distutils \
         python3-minimal \
         python3-serial \
-        python3.7 \
         rsync \
         telnet \
         u-boot-tools \
         unzip
 
-apt install -t buster-backports -y --no-remove \
-    meson
+# Not available in bullseye anymore
+apt-get install -y --no-remove -t buster \
+        android-sdk-ext4-utils
 
 # setup nginx
 sed -i '/gzip_/ s/#\ //g' /etc/nginx/nginx.conf
