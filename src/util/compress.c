@@ -28,7 +28,9 @@
 #define ZLIB_CONST
 #endif
 
+#ifdef HAVE_ZLIB
 #include "zlib.h"
+#endif
 
 #ifdef HAVE_ZSTD
 #include "zstd.h"
@@ -47,7 +49,7 @@ util_compress_max_compressed_len(size_t in_data_size)
     * compression runs faster if `dstCapacity` >= `ZSTD_compressBound(srcSize)`.
     */
    return ZSTD_compressBound(in_data_size);
-#else
+#elif defined(HAVE_ZLIB)
    /* From https://zlib.net/zlib_tech.html:
     *
     *    "In the worst possible case, where the other block types would expand
@@ -59,6 +61,8 @@ util_compress_max_compressed_len(size_t in_data_size)
     */
    size_t num_blocks = (in_data_size + 16383) / 16384; /* round up blocks */
    return in_data_size + 6 + (num_blocks * 5);        
+#else
+   return 0;
 #endif
 }
 
@@ -74,7 +78,7 @@ util_compress_deflate(const uint8_t *in_data, size_t in_data_size,
       return 0;
 
    return ret;
-#else
+#elif defined(HAVE_ZLIB)
    size_t compressed_size = 0;
 
    /* allocate deflate state */
@@ -105,7 +109,9 @@ util_compress_deflate(const uint8_t *in_data, size_t in_data_size,
    /* clean up and return */
    (void) deflateEnd(&strm);
    return compressed_size;
-# endif
+#else
+   return 0;
+#endif
 }
 
 /**
@@ -118,7 +124,7 @@ util_compress_inflate(const uint8_t *in_data, size_t in_data_size,
 #ifdef HAVE_ZSTD
    size_t ret = ZSTD_decompress(out_data, out_data_size, in_data, in_data_size);
    return !ZSTD_isError(ret);
-#else
+#elif defined(HAVE_ZLIB)
    z_stream strm;
 
    /* allocate inflate state */
@@ -149,5 +155,7 @@ util_compress_inflate(const uint8_t *in_data, size_t in_data_size,
    /* clean up and return */
    (void)inflateEnd(&strm);
    return true;
+#else
+   return false;
 #endif
 }
