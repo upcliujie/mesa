@@ -271,12 +271,14 @@ static void si_compute_do_clear_or_copy(struct si_context *sctx, struct pipe_res
       pipe_resource_reference(&saved_sb[i].buffer, NULL);
 }
 
-void si_clear_buffer(struct si_context *sctx, struct pipe_resource *dst, uint64_t offset,
-                     uint64_t size, uint32_t *clear_value, uint32_t clear_value_size,
-                     enum si_coherency coher, enum si_clear_method method)
+/* Return the used clear method. */
+enum si_clear_method si_clear_buffer(struct si_context *sctx, struct pipe_resource *dst,
+                                     uint64_t offset, uint64_t size, uint32_t *clear_value,
+                                     uint32_t clear_value_size, enum si_coherency coher,
+                                     enum si_clear_method method)
 {
    if (!size)
-      return;
+      return SI_AUTO_SELECT_CLEAR_METHOD;
 
    ASSERTED unsigned clear_alignment = MIN2(clear_value_size, 4);
 
@@ -317,7 +319,7 @@ void si_clear_buffer(struct si_context *sctx, struct pipe_resource *dst, uint64_
 
    if (clear_value_size == 12) {
       si_compute_clear_12bytes_buffer(sctx, dst, offset, size, clear_value, coher);
-      return;
+      return SI_COMPUTE_CLEAR_METHOD;
    }
 
    uint64_t aligned_size = size & ~3ull;
@@ -350,11 +352,13 @@ void si_clear_buffer(struct si_context *sctx, struct pipe_resource *dst, uint64_
            (clear_value_size == 4 && offset % 4 == 0 && size > compute_min_size))) {
          method = SI_COMPUTE_CLEAR_METHOD;
       }
+
       if (method == SI_COMPUTE_CLEAR_METHOD) {
          si_compute_do_clear_or_copy(sctx, dst, offset, NULL, 0, aligned_size, clear_value,
                                      clear_value_size, coher);
       } else {
          assert(clear_value_size == 4);
+         method = SI_CP_DMA_CLEAR_METHOD;
          si_cp_dma_clear_buffer(sctx, &sctx->gfx_cs, dst, offset, aligned_size, *clear_value, 0,
                                 coher, get_cache_policy(sctx, coher, size));
       }
@@ -371,6 +375,7 @@ void si_clear_buffer(struct si_context *sctx, struct pipe_resource *dst, uint64_
 
       pipe_buffer_write(&sctx->b, dst, offset, size, clear_value);
    }
+   return method;
 }
 
 void si_screen_clear_buffer(struct si_screen *sscreen, struct pipe_resource *dst, uint64_t offset,
