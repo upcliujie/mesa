@@ -316,6 +316,7 @@ dump_samplers(struct gen_batch_decode_ctx *ctx, uint32_t offset, int count)
 
    if (count * SAMPLER_STATE_SIZE >= bo.size) {
       fprintf(ctx->fp, "  sampler state ends after bo ends\n");
+      assert(!"sampler state ends after bo ends");
       return;
    }
 
