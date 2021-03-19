@@ -474,8 +474,8 @@ virgl_drm_winsys_resource_create_handle(struct virgl_winsys *qws,
    }
 
    if (res) {
-      struct virgl_hw_res *r = NULL;
-      virgl_drm_resource_reference(&qdws->base, &r, res);
+      /* Avoid pipe_reference since ref count could be zero */
+      p_atomic_inc(&res->reference.count);
       goto done;
    }
 
