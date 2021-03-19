@@ -1,0 +1,37 @@
+@import url("../basic.css");
+
+html  {
+  height: 100%;
+}
+
+.navbar {
+  flex: none;
+}
+
+footer {
+  flex: 1;
+}
+
+#menu .caption {
+  margin-bottom: 0;
+}
+
+#menu .caption-text,
+#menu li.current {
+  font-weight: bold;
+}
+
+#menu li.current li {
+  font-weight: initial;
+}
+
+
+#menu ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+#menu ul ul {
+  padding-left: 1rem;
+}
+
