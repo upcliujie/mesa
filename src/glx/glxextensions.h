@@ -58,6 +58,7 @@ enum
    EXT_visual_rating_bit,
    ATI_pixel_format_float_bit,
    INTEL_swap_event_bit,
+   MESA_copper_bit,
    MESA_copy_sub_buffer_bit,
    MESA_depth_float_bit,
    MESA_multithread_makecurrent_bit,
