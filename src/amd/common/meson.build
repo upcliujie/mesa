@@ -122,4 +122,20 @@ if with_tests and not with_platform_windows
     ),
     suite: ['amd']
   )
+
+  if dep_openmp.found()
+    test(
+      'ac_surface_dcc_address_test',
+      executable(
+        'ac_surface_dcc_address_test',
+        ['ac_surface_dcc_address_test.c'],
+        link_with: [libamd_common, libamdgpu_addrlib],
+        include_directories : [
+          inc_amd, inc_gallium, inc_include, inc_src,
+        ],
+        dependencies: [idep_amdgfxregs_h, dep_libdrm_amdgpu, idep_mesautil, dep_openmp],
+      ),
+      suite: ['amd']
+    )
+  endif
 endif
