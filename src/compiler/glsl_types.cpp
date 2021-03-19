@@ -1594,7 +1594,7 @@ glsl_type::field_index(const char *name) const
 
 
 unsigned
-glsl_type::component_slots() const
+glsl_type::component_slots(int current_size) const
 {
    switch (this->base_type) {
    case GLSL_TYPE_UINT:
@@ -1610,24 +1610,46 @@ glsl_type::component_slots() const
 
    case GLSL_TYPE_DOUBLE:
    case GLSL_TYPE_UINT64:
-   case GLSL_TYPE_INT64:
-      return 2 * this->components();
+   case GLSL_TYPE_INT64: {
+      int size = 2 * this->components();
+      if (current_size >= 0) {
+         int total = (current_size % 4) + size;
+         /* The possibilities are when placing N components:
+          *  - [x|o|o| ]: 'oo' can fit after 'x', no padding needed
+          *  - [x|o|o|o][o|o|o| ]: 'oooooo' can fit after 'x', when packed
+          * it will look like this [x|o|o|.][o|o|o|o], padding is needed
+          */
+         if (total > 4 && current_size % 2)
+            size++;
+      }
+      return size;
+   }
 
    case GLSL_TYPE_STRUCT:
    case GLSL_TYPE_INTERFACE: {
       unsigned size = 0;
 
-      for (unsigned i = 0; i < this->length; i++)
-         size += this->fields.structure[i].type->component_slots();
+      for (unsigned i = 0; i < this->length; i++) {
+         size += this->fields.structure[i].type->component_slots(
+            (current_size >= 0) ? (current_size + size) : -1);
+      }
 
       return size;
    }
 
-   case GLSL_TYPE_ARRAY:
-      return this->length * this->fields.array->component_slots();
+   case GLSL_TYPE_ARRAY: {
+      unsigned size = 0;
+      for (unsigned i = 0; i < this->length; i++) {
+         size += this->fields.array->component_slots(
+            (current_size >= 0) ? (current_size + size) : -1);
+      }
+      return size;
+   }
 
    case GLSL_TYPE_SAMPLER:
    case GLSL_TYPE_IMAGE:
+      if (current_size >= 0)
+         return 2 + ((current_size % 4) == 3 ? 1 : 0);
       return 2;
 
    case GLSL_TYPE_SUBROUTINE:

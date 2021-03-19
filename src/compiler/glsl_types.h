@@ -518,8 +518,10 @@ public:
     *
     * This is used to determine how many uniform or varying locations a type
     * might occupy.
+    * If current_size is not -1, it contains the current accumulated size (
+    * when called recursively) and it's used to take padding into account.
     */
-   unsigned component_slots() const;
+   unsigned component_slots(int current_size = -1) const;
 
    /**
     * Calculate offset between the base location of the struct in

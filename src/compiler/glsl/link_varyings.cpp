@@ -1913,8 +1913,9 @@ varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
       unsigned slots = type->count_attribute_slots(false);
       this->matches[this->num_matches].num_components = slots * 4;
    } else {
+      /* The number of slots needed taking padding for packing into account */
       this->matches[this->num_matches].num_components
-         = type->component_slots();
+         = type->component_slots(0);
    }
 
    this->matches[this->num_matches].producer_var = producer_var;

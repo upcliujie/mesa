@@ -609,6 +609,7 @@ lower_packed_varyings_visitor::lower_rvalue(ir_rvalue *rvalue,
       unsigned location_frac = fine_location % 4;
       for (unsigned i = 0; i < components; ++i)
          swizzle_values[i] = i + location_frac;
+      assert(this->components[location - VARYING_SLOT_VAR0] >= components);
       ir_dereference *packed_deref =
          this->get_packed_varying_deref(location, unpacked_var, name,
                                         vertex_index);
