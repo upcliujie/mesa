@@ -126,10 +126,17 @@ FreedrenoDriver::collect_countables()
       countable.collect();
 }
 
+#include <xf86drm.h>
+
 bool
 FreedrenoDriver::init_perfcnt()
 {
    uint64_t val;
+
+   // XXX hack.. somehow we are getting mmap fail with the fd
+   // that pps opens for us (even though it appears to be a
+   // render node):
+   drm_device.fd = drmOpenWithType("msm", NULL, DRM_NODE_RENDER);
 
    dev = fd_device_new(drm_device.fd);
    pipe = fd_pipe_new(dev, FD_PIPE_3D);
