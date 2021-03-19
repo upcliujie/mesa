@@ -86,6 +86,11 @@ class Counter
 
    /// The unit of the counter
    Units units;
+
+   // TODO can we make it possible to actually subclass Counter
+   // without having to put everything here?
+   std::function<int64_t()> derive;
+
 };
 
 /// @param get New getter function for this counter
