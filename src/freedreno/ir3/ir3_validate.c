@@ -92,6 +92,10 @@ validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
 
 		validate_src(ctx, reg);
 
+		/* a0/a1 are always half-reg */
+		if (n != 0 && reg_num(reg) == REG_A0)
+			continue;
+
 		/* Validate that all src's are either half of full.
 		 *
 		 * Note: tex instructions w/ .s2en are a bit special in that the
