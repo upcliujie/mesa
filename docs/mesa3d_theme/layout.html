@@ -54,14 +54,14 @@
 {% endblock %}
 
 {% block content %}
-  <main class="container my-3">
+  <main class="container">
     <div class="row">
-      <div class="body col-12 col-lg-9 order-1 order-lg-2" role="main">
+      <div class="body col-12 col-lg-9 order-1 order-lg-2 py-3" role="main">
         {% block body %}{% endblock %}
       </div>
 
       {% block navigation %}
-      <div id="menu" class="col-12 col-lg-3 order-2 order-lg-1">
+      <div id="menu" class="col-12 col-lg-3 order-2 order-lg-1 bg-light py-3">
         {% block menu %}
         {% set toctree = toctree(maxdepth=4, collapse=True, includehidden=True, titles_only=False) %}
         {% if toctree %}
