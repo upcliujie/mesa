@@ -475,8 +475,16 @@ virgl_drm_winsys_resource_create_handle(struct virgl_winsys *qws,
 
    if (res) {
       struct virgl_hw_res *r = NULL;
-      virgl_drm_resource_reference(&qdws->base, &r, res);
-      goto done;
+      int count = p_atomic_inc_return(&res->reference.count);
+      /* If reference count was zero, it will be dropped by another
+       * thread after the lock is realeased. We can't reuse it. */
+      if (count == 1) {
+         p_atomic_dec(&res->reference.count);
+      } else {
+         virgl_drm_resource_reference(&qdws->base, &r, res);
+         p_atomic_dec(&res->reference.count);
+         goto done;
+      }
    }
 
    res = CALLOC_STRUCT(virgl_hw_res);
