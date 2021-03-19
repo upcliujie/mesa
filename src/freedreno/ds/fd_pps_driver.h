@@ -124,8 +124,6 @@ private:
       DerivedCounter(FreedrenoDriver *d, std::string name, Counter::Units units,
                      std::function<int64_t()> derive);
    private:
-      std::function<int64_t()> derive;
-
       static Value getter(const Counter &c, const Driver &d);
    };
 
