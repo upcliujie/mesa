@@ -798,8 +798,6 @@ driGetAPIMask(__DRIscreen *screen)
 static void
 driSwapBuffers(__DRIdrawable *pdp)
 {
-    assert(pdp->driScreenPriv->swrast_loader);
-
     pdp->driScreenPriv->driver->SwapBuffers(pdp);
 }
 
