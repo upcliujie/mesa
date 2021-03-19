@@ -491,7 +491,8 @@ static void si_do_fast_color_clear(struct si_context *sctx, unsigned *buffers,
             continue;
 
          /* TODO: This DCC+CMASK clear doesn't work with MSAA. */
-         if (tex->buffer.b.b.nr_samples >= 2 && tex->cmask_buffer && eliminate_needed)
+         if (sctx->chip_class != GFX9 &&
+             tex->buffer.b.b.nr_samples >= 2 && tex->cmask_buffer && eliminate_needed)
             continue;
 
          if (!vi_dcc_clear_level(sctx, tex, 0, reset_value))
