@@ -15,10 +15,10 @@ apt-get install -y --no-remove \
         netcat \
         nginx-full \
         procps \
+        python-is-python3 \
         python3-distutils \
         python3-minimal \
         python3-serial \
-        python3.7 \
         rsync \
         telnet \
         unzip \

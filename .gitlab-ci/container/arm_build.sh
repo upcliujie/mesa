@@ -5,11 +5,10 @@ set -o xtrace
 
 apt-get -y install ca-certificates
 sed -i -e 's/http:\/\/deb/https:\/\/deb/g' /etc/apt/sources.list
-echo 'deb https://deb.debian.org/debian buster-backports main' >/etc/apt/sources.list.d/backports.list
+echo 'deb https://deb.debian.org/debian buster main' >/etc/apt/sources.list.d/buster.list
 apt-get update
 apt-get -y install \
 	abootimg \
-	android-sdk-ext4-utils \
 	autoconf \
 	automake \
 	bc \
@@ -23,7 +22,7 @@ apt-get -y install \
 	git \
 	kmod \
 	lavacli \
-	libasan5 \
+	libasan6 \
 	libdrm-dev \
 	libelf-dev \
 	libexpat1-dev \
@@ -41,9 +40,10 @@ apt-get -y install \
 	libxrandr-dev \
 	libxshmfence-dev \
 	libxxf86vm-dev \
-	llvm-8-dev \
+	llvm-11-dev \
+	meson \
 	pkg-config \
-	python \
+	python-is-python3 \
 	python3-mako \
 	python3-pil \
 	python3-pip \
@@ -55,10 +55,11 @@ apt-get -y install \
 	xz-utils \
 	zlib1g-dev
 
-pip3 install git+http://gitlab.freedesktop.org/freedesktop/ci-templates@6f5af7e5574509726c79109e3c147cee95e81366
+# Not available anymore in bullseye
+apt-get install -y --no-remove -t buster \
+        android-sdk-ext4-utils
 
-apt install -y --no-remove -t buster-backports \
-    meson
+pip3 install git+http://gitlab.freedesktop.org/freedesktop/ci-templates@6f5af7e5574509726c79109e3c147cee95e81366
 
 arch=armhf
 . .gitlab-ci/container/cross_build.sh
