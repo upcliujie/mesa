@@ -72,6 +72,15 @@ static void virgl_hw_res_destroy(struct virgl_drm_winsys *qdws,
       struct drm_gem_close args;
 
       mtx_lock(&qdws->bo_handles_mutex);
+
+      /* Another thread could reference it just after the reference
+       * count reaches to zero. Just return in such case and it will
+       * be dropped later. */
+      if (pipe_is_referenced(&res->reference)) {
+         mtx_unlock(&qdws->bo_handles_mutex);
+         return;
+      }
+
       _mesa_hash_table_remove_key(qdws->bo_handles,
                              (void *)(uintptr_t)res->bo_handle);
       if (res->flink_name)
