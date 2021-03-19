@@ -61,7 +61,7 @@
       </div>
 
       {% block navigation %}
-      <div id="menu" class="col-12 col-lg-3 order-2 order-lg-1">
+      <nav id="menu" class="col-12 col-lg-3 order-2 order-lg-1">
         {% block menu %}
         {% set toctree = toctree(maxdepth=4, collapse=True, includehidden=True, titles_only=False) %}
         {% if toctree %}
@@ -70,7 +70,7 @@
           {{ toc }}
         {% endif %}
         {% endblock %}
-      </div>
+      </nav>
       {% endblock %}
     </div>
   </main>
