@@ -133,6 +133,135 @@ void try_apply_branch_vcc(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
    instr->operands[0] = op0_instr->operands[0];
 }
 
+void try_shortcircuit_uniform_bool(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
+{
+   /*
+    * Eliminates an SCC copy by applying a "short-circuit" to uniform boolean logic.
+    * In order to do the short-circuit transform, the pattern should look like this:
+    *
+    * sN = p_parallelcopy scc        ; used only once
+    * scc = s_cmp_xxx A, B           ; used only once
+    * sM, scc = s_and/or_b32 sN, scc
+    *
+    * The p_parallelcopy is replaced by an s_cselect and s_cmp_xxx adjusted
+    * to use the result from the cselect, and s_and is eliminated:
+    *
+    * sN = s_cselect X, Y, scc  ; X and Y depend on the opcodes
+    * scc = s_cmp_xxx sN, B     ; scc is equivalent to what was previously produced by s_and/or_b32
+    *
+    * When sM is used, a parallelcopy is inserted which copies scc to it,
+    * in the hopes that we might be able to delete it later.
+    */
+
+   if ((instr->opcode != aco_opcode::s_and_b32 &&
+        instr->opcode != aco_opcode::s_or_b32) ||
+       (instr->operands[0].physReg() != scc &&
+        instr->operands[1].physReg() != scc))
+      return;
+
+   /* Move SCC to the second operand to reduce possible permutations */
+   if (!instr->operands[0].isConstant() && instr->operands[0].physReg() == scc)
+      std::swap(instr->operands[0], instr->operands[1]);
+
+   int op0_instr_idx = last_writer_idx(ctx, instr->operands[0]);
+   int op1_instr_idx = last_writer_idx(ctx, instr->operands[1]);
+
+   /* Both operands must have a defining instr, and operand 1 must come later */
+   if (op0_instr_idx == -1 || op1_instr_idx <= op0_instr_idx)
+      return;
+
+   aco_ptr<Instruction> &op0_scc2sgpr = ctx.current_block->instructions[op0_instr_idx];
+   aco_ptr<Instruction> &op1_scc = ctx.current_block->instructions[op1_instr_idx];
+
+   if (op0_scc2sgpr->opcode != aco_opcode::p_parallelcopy ||
+       op0_scc2sgpr->operands[0].physReg() != scc)
+      return;
+
+   if (op1_scc->format == Format::SOPC) {
+      /* Make sure if there is a constant, it's always in the 2nd operand */
+      if (op1_scc->operands[0].isConstant()) {
+         /* Flip the opcode so that it has the same meaning with the constant in the 2nd operand */
+         aco_opcode op = aco_opcode::num_opcodes;
+         switch (op1_scc->opcode) {
+         case aco_opcode::s_cmp_eq_u32:
+         case aco_opcode::s_cmp_eq_i32:
+         case aco_opcode::s_cmp_lg_u32:
+         case aco_opcode::s_cmp_lg_i32:
+            op = op1_scc->opcode;
+            break;
+         default:
+            return;
+         }
+
+         op1_scc->opcode = op;
+         std::swap(op1_scc->operands[0], op1_scc->operands[1]);
+      }
+   }
+
+   Operand csel_op0;
+   Operand csel_op1;
+
+   if (op1_scc->opcode == aco_opcode::s_cmp_eq_u32 ||
+       op1_scc->opcode == aco_opcode::s_cmp_eq_i32) {
+      /* a && (b == c) => (a ? b : !c) == c (only when c is constant)
+       * a || (b == c) => (a ? c : b) == c
+       */
+      if (!(instr->opcode == aco_opcode::s_or_b32 ||
+            op1_scc->operands[1].isConstant()))
+         return;
+
+      csel_op0 = instr->opcode == aco_opcode::s_or_b32
+               ? op1_scc->operands[1]
+               : op1_scc->operands[0];
+      csel_op1 = instr->opcode == aco_opcode::s_or_b32
+               ? op1_scc->operands[0]
+               : Operand((uint32_t) !op1_scc->operands[1].constantValue());
+   } else if (op1_scc->opcode == aco_opcode::s_cmp_lg_u32 ||
+              op1_scc->opcode == aco_opcode::s_cmp_lg_i32) {
+      /* a && (b != c) => (a ? b : c) != c
+       * a || (b != c) => (a ? !c : b) != c (only when c is constant)
+       */
+      if (!(instr->opcode == aco_opcode::s_and_b32 ||
+            op1_scc->operands[1].isConstant()))
+         return;
+
+      csel_op0 = instr->opcode == aco_opcode::s_or_b32
+               ? Operand((uint32_t) !op1_scc->operands[1].constantValue())
+               : op1_scc->operands[0];
+      csel_op1 = instr->opcode == aco_opcode::s_or_b32
+               ? op1_scc->operands[0]
+               : op1_scc->operands[1];
+   } else {
+      return;
+   }
+
+   /* Create a conditional select which will choose the 1st operand of the 2nd SOPC instruction */
+   SOP2_instruction *csel = create_instruction<SOP2_instruction>(aco_opcode::s_cselect_b32, Format::SOP2, 3, 1);
+   csel->definitions[0] = op0_scc2sgpr->definitions[0];
+   csel->operands[0] = csel_op0;
+   csel->operands[1] = csel_op1;
+   csel->operands[2] = op0_scc2sgpr->operands[0];
+
+   /* Replace SCC copy */
+   op0_scc2sgpr.reset(csel);
+
+   /* Edit the scc producer to use the definition from the cselect, and replace the current instr */
+   op1_scc->definitions[0] = instr->definitions[1];
+   op1_scc->operands[0] = Operand(csel->definitions[0].getTemp(), csel->definitions[0].physReg());
+
+   if (ctx.uses[instr->definitions[0].tempId()] != 0) {
+      /* Insert a new SCC copy, which can be potentially still deleted later */
+      ctx.uses[instr->definitions[1].tempId()]++;
+      Pseudo_instruction *copy = create_instruction<Pseudo_instruction>(aco_opcode::p_parallelcopy, Format::PSEUDO, 1, 1);
+      copy->definitions[0] = instr->definitions[0];
+      copy->operands[0] = Operand(instr->definitions[1].getTemp(), scc);
+      instr.reset(copy);
+   } else {
+      /* Delete the current instr */
+      instr.reset();
+   }
+}
+
 void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 {
    ctx.current_instr_idx++;
@@ -162,7 +291,8 @@ void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 
    try_apply_branch_vcc(ctx, instr);
 
-   save_reg_writes(ctx, instr);
+   try_shortcircuit_uniform_bool(ctx, instr);
+
    if (instr)
       save_reg_writes(ctx, instr);
 }
