@@ -3302,9 +3302,10 @@ static void si_emit_framebuffer_state(struct si_context *sctx)
          radeon_emit(cs, zb->db_depth_slice);  /* DB_DEPTH_SLICE */
       }
 
+      unsigned level = zb->base.u.tex.level;
       radeon_set_context_reg_seq(cs, R_028028_DB_STENCIL_CLEAR, 2);
-      radeon_emit(cs, tex->stencil_clear_value);    /* R_028028_DB_STENCIL_CLEAR */
-      radeon_emit(cs, fui(tex->depth_clear_value)); /* R_02802C_DB_DEPTH_CLEAR */
+      radeon_emit(cs, tex->stencil_clear_value[level]);    /* R_028028_DB_STENCIL_CLEAR */
+      radeon_emit(cs, fui(tex->depth_clear_value[level])); /* R_02802C_DB_DEPTH_CLEAR */
 
       radeon_set_context_reg(cs, R_028008_DB_DEPTH_VIEW, zb->db_depth_view);
       radeon_set_context_reg(cs, R_028ABC_DB_HTILE_SURFACE, db_htile_surface);
