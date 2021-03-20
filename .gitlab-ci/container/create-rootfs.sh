@@ -26,6 +26,7 @@ if [ -n "$INCLUDE_PIGLIT" ]; then
                      python3-mako
                      python3-numpy
                      python3-packaging
+                     python3-renderdoc
                      python3-requests
                      python3-simplejson
                      python3-yaml

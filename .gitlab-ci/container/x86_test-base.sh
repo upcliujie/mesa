@@ -50,8 +50,6 @@ apt-get install -y --no-remove \
       python3-requests \
       python3-six \
       python3-yaml \
-      qtbase5-dev \
-      qt5-qmake \
       vulkan-tools \
       waffle-utils \
       xauth \

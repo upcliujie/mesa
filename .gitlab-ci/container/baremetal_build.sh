@@ -16,7 +16,6 @@ BAREMETAL_EPHEMERAL=" \
         automake \
         crossbuild-essential-$arch \
         git-lfs \
-        libboost-dev:$arch \
         libdrm-dev:$arch \
         libegl1-mesa-dev:$arch \
         libelf-dev:$arch \
@@ -26,8 +25,6 @@ BAREMETAL_EPHEMERAL=" \
         libgl1-mesa-dev:$arch \
         libgles2-mesa-dev:$arch \
         libpciaccess-dev:$arch \
-        libpcre3-dev:$arch \
-        libpython3-dev:$arch \
         libstdc++6:$arch \
         libtinfo-dev:$arch \
         libudev-dev:$arch \
@@ -35,14 +32,10 @@ BAREMETAL_EPHEMERAL=" \
         libwaffle-dev:$arch \
         libwayland-dev:$arch \
         libx11-xcb-dev:$arch \
-        libxcb-keysyms1-dev:$arch \
         libxkbcommon-dev:$arch \
         python-is-python3 \
-        python3-dev \
         python3-mako \
         python3-requests \
-        qt5-qmake \
-        qtbase5-dev:$arch \
         "
 
 apt-get install -y --no-remove $BAREMETAL_EPHEMERAL

@@ -1,5 +1,5 @@
 variables:
-  MESA_LAVA_TAG: "2021-03-24-bullseye2"
+  MESA_LAVA_TAG: "2021-03-25-librenderdoc"
 
 .kernel+rootfs:
   stage: container-2

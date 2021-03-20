@@ -73,48 +73,38 @@ apt-get install -y --no-remove \
                    cmake \
                    debootstrap \
                    git \
-                   libboost-dev \
                    libegl1-mesa-dev \
                    libgbm-dev \
                    libgles2-mesa-dev \
-                   libpcre3-dev \
-                   libpython3-dev \
                    libssl-dev \
                    libudev-dev \
                    libvulkan-dev \
                    libwaffle-dev \
                    libwayland-dev \
                    libx11-xcb-dev \
-                   libxcb-keysyms1-dev \
                    libxkbcommon-dev \
                    patch \
-                   python3-dev \
                    python3-distutils \
                    python3-mako \
                    python3-numpy \
                    python3-serial \
-                   qt5-qmake \
-                   qtbase5-dev \
                    wget
 
 
 if [[ "$DEBIAN_ARCH" = "armhf" ]]; then
     apt-get install -y --no-remove \
-                       libboost-dev:armhf \
                        libegl1-mesa-dev:armhf \
                        libelf-dev:armhf \
                        libgbm-dev:armhf \
                        libgles2-mesa-dev:armhf \
-                       libpcre3-dev:armhf \
-                       libpython3-dev:armhf \
                        libudev-dev:armhf \
                        libvulkan-dev:armhf \
                        libwaffle-dev:armhf \
                        libwayland-dev:armhf \
                        libx11-xcb-dev:armhf \
-                       libxcb-keysyms1-dev:armhf \
                        libxkbcommon-dev:armhf \
-                       qtbase5-dev:armhf
+                       libvulkan-dev:armhf \
+                       libxkbcommon-dev:armhf
 fi
 
 
@@ -141,14 +131,6 @@ if [ -n "$INCLUDE_PIGLIT" ]; then
     . .gitlab-ci/container/build-piglit.sh
     mv /piglit /lava-files/rootfs-${DEBIAN_ARCH}/.
 fi
-
-
-############### Build renderdoc
-EXTRA_CMAKE_ARGS+=" -DENABLE_XCB=false"
-. .gitlab-ci/container/build-renderdoc.sh
-mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/renderdoc
-mv /renderdoc/build /lava-files/rootfs-${DEBIAN_ARCH}/renderdoc
-rm -rf /renderdoc
 
 
 ############### Build libdrm
