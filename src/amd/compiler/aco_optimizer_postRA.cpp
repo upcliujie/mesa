@@ -95,9 +95,50 @@ int last_writer_idx(pr_opt_ctx &ctx, const Operand &op)
    return last_writer_idx(ctx, op.physReg(), op.regClass());
 }
 
+void try_apply_branch_vcc(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
+{
+   /* Check if we have a branch that uses SCC */
+   if (instr->format != Format::PSEUDO_BRANCH ||
+       instr->operands.size() == 0 ||
+       instr->operands[0].physReg() != scc)
+      return;
+
+   /* We are looking for the following pattern:
+    *
+    * vcc = ...                      ; last_vcc_wr
+    * sX, scc = s_and_bXX vcc, exec  ; op0_instr
+    * (...vcc must not be clobbered inbetween...)
+    * s_cbranch_XX scc               ; instr
+    */
+
+   int op0_instr_idx = last_writer_idx(ctx, instr->operands[0]);
+   int last_vcc_wr_idx = last_writer_idx(ctx, vcc, ctx.program->lane_mask);
+
+   if (op0_instr_idx == -1 || last_vcc_wr_idx == -1)
+      return;
+
+   aco_ptr<Instruction> &op0_instr = ctx.current_block->instructions[op0_instr_idx];
+   aco_ptr<Instruction> &last_vcc_wr = ctx.current_block->instructions[last_vcc_wr_idx];
+
+   if ((op0_instr->opcode != aco_opcode::s_and_b64 /* wave64 */ &&
+        op0_instr->opcode != aco_opcode::s_and_b32 /* wave32 */) ||
+       op0_instr->operands[0].physReg() != vcc ||
+       op0_instr->operands[1].physReg() != exec ||
+       last_vcc_wr->definitions[0].tempId() != op0_instr->operands[0].tempId())
+      return;
+
+   /* Reduce the uses of the SCC def */
+   ctx.uses[instr->operands[0].tempId()]--;
+   /* Use VCC instead of SCC in the branch */
+   instr->operands[0] = op0_instr->operands[0];
+}
+
 void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 {
    ctx.current_instr_idx++;
+
+   try_apply_branch_vcc(ctx, instr);
+
    save_reg_writes(ctx, instr);
    if (instr)
       save_reg_writes(ctx, instr);
