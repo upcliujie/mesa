@@ -836,7 +836,7 @@ spirv_builder_emit_image_read(struct spirv_builder *b,
    }
    if (b->needs_vk_mem_model) {
       operand_mask |= SpvImageOperandsMakeTexelAvailableMask | SpvImageOperandsNonPrivateTexelMask;
-      extra_operands[num_extra_operands++] = spirv_builder_const_uint(b, 32, SpvScopeWorkgroup);
+      extra_operands[num_extra_operands++] = spirv_builder_const_uint(b, 32, SpvScopeDevice);
    }
    /* finalize num_extra_operands / extra_operands */
    extra_operands[0] = operand_mask;
@@ -879,7 +879,7 @@ spirv_builder_emit_image_write(struct spirv_builder *b,
    }
    if (b->needs_vk_mem_model) {
       operand_mask |= SpvImageOperandsMakeTexelAvailableMask | SpvImageOperandsNonPrivateTexelMask;
-      extra_operands[num_extra_operands++] = spirv_builder_const_uint(b, 32, SpvScopeWorkgroup);
+      extra_operands[num_extra_operands++] = spirv_builder_const_uint(b, 32, SpvScopeDevice);
    }
    /* finalize num_extra_operands / extra_operands */
    extra_operands[0] = operand_mask;
