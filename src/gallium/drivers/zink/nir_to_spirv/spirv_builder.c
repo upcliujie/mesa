@@ -819,7 +819,7 @@ spirv_builder_emit_image_read(struct spirv_builder *b,
 {
    SpvId result = spirv_builder_new_id(b);
 
-   SpvImageOperandsMask operand_mask = SpvImageOperandsMakeTexelVisibleMask | SpvImageOperandsNonPrivateTexelMask;
+   SpvImageOperandsMask operand_mask = 0;
    SpvId extra_operands[5];
    int num_extra_operands = 1;
    if (lod) {
@@ -834,9 +834,12 @@ spirv_builder_emit_image_read(struct spirv_builder *b,
       extra_operands[num_extra_operands++] = offset;
       operand_mask |= SpvImageOperandsOffsetMask;
    }
+   if (b->needs_vk_mem_model) {
+      operand_mask |= SpvImageOperandsMakeTexelAvailableMask | SpvImageOperandsNonPrivateTexelMask;
+      extra_operands[num_extra_operands++] = spirv_builder_const_uint(b, 32, SpvScopeWorkgroup);
+   }
    /* finalize num_extra_operands / extra_operands */
    extra_operands[0] = operand_mask;
-   extra_operands[num_extra_operands++] = spirv_builder_const_uint(b, 32, SpvScopeWorkgroup);
 
    spirv_buffer_prepare(&b->instructions, b->mem_ctx, 5 + num_extra_operands);
    spirv_buffer_emit_word(&b->instructions, SpvOpImageRead |
@@ -859,7 +862,7 @@ spirv_builder_emit_image_write(struct spirv_builder *b,
                                SpvId sample,
                                SpvId offset)
 {
-   SpvImageOperandsMask operand_mask = SpvImageOperandsMakeTexelAvailableMask | SpvImageOperandsNonPrivateTexelMask;
+   SpvImageOperandsMask operand_mask = 0;
    SpvId extra_operands[5];
    int num_extra_operands = 1;
    if (lod) {
@@ -874,9 +877,12 @@ spirv_builder_emit_image_write(struct spirv_builder *b,
       extra_operands[num_extra_operands++] = offset;
       operand_mask |= SpvImageOperandsOffsetMask;
    }
+   if (b->needs_vk_mem_model) {
+      operand_mask |= SpvImageOperandsMakeTexelAvailableMask | SpvImageOperandsNonPrivateTexelMask;
+      extra_operands[num_extra_operands++] = spirv_builder_const_uint(b, 32, SpvScopeWorkgroup);
+   }
    /* finalize num_extra_operands / extra_operands */
    extra_operands[0] = operand_mask;
-   extra_operands[num_extra_operands++] = spirv_builder_const_uint(b, 32, SpvScopeWorkgroup);
 
    spirv_buffer_prepare(&b->instructions, b->mem_ctx, 4 + num_extra_operands);
    spirv_buffer_emit_word(&b->instructions, SpvOpImageWrite |
@@ -1477,20 +1483,22 @@ spirv_builder_emit_var(struct spirv_builder *b, SpvId type,
 void
 spirv_builder_emit_memory_barrier(struct spirv_builder *b, SpvScope scope, SpvMemorySemanticsMask semantics)
 {
+   SpvMemorySemanticsMask mask = b->needs_vk_mem_model ? SpvMemorySemanticsMakeAvailableMask | SpvMemorySemanticsMakeVisibleMask : 0;
    spirv_buffer_prepare(&b->instructions, b->mem_ctx, 3);
    spirv_buffer_emit_word(&b->instructions, SpvOpMemoryBarrier | (3 << 16));
    spirv_buffer_emit_word(&b->instructions, spirv_builder_const_uint(b, 32, scope));
-   spirv_buffer_emit_word(&b->instructions, spirv_builder_const_uint(b, 32, semantics | SpvMemorySemanticsMakeAvailableMask | SpvMemorySemanticsMakeVisibleMask));
+   spirv_buffer_emit_word(&b->instructions, spirv_builder_const_uint(b, 32, semantics | mask));
 }
 
 void
 spirv_builder_emit_control_barrier(struct spirv_builder *b, SpvScope scope, SpvScope mem_scope, SpvMemorySemanticsMask semantics)
 {
+   SpvMemorySemanticsMask mask = b->needs_vk_mem_model ? SpvMemorySemanticsMakeAvailableMask | SpvMemorySemanticsMakeVisibleMask : 0;
    spirv_buffer_prepare(&b->instructions, b->mem_ctx, 4);
    spirv_buffer_emit_word(&b->instructions, SpvOpControlBarrier | (4 << 16));
    spirv_buffer_emit_word(&b->instructions, spirv_builder_const_uint(b, 32, scope));
    spirv_buffer_emit_word(&b->instructions, spirv_builder_const_uint(b, 32, mem_scope));
-   spirv_buffer_emit_word(&b->instructions, spirv_builder_const_uint(b, 32, semantics | SpvMemorySemanticsMakeAvailableMask | SpvMemorySemanticsMakeVisibleMask));
+   spirv_buffer_emit_word(&b->instructions, spirv_builder_const_uint(b, 32, semantics | mask));
 }
 
 SpvId

@@ -41,6 +41,7 @@ struct spirv_buffer {
 
 struct spirv_builder {
    void *mem_ctx;
+   bool needs_vk_mem_model;
 
    struct set *caps;
 

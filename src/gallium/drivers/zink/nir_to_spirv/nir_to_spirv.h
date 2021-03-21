@@ -42,9 +42,14 @@ struct spirv_shader {
 struct nir_shader;
 struct pipe_stream_output_info;
 
+struct ntv_options {
+   bool needs_vk_mem_model;
+};
+
 struct spirv_shader *
 nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
-             unsigned char *shader_slot_map, unsigned char *shader_slots_reserved);
+             unsigned char *shader_slot_map, unsigned char *shader_slots_reserved,
+             const struct ntv_options *opts);
 
 void
 spirv_shader_delete(struct spirv_shader *s);
