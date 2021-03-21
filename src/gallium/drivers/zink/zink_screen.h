@@ -91,6 +91,7 @@ struct zink_screen {
    uint32_t timestamp_valid_bits;
    VkDevice dev;
    VkDebugUtilsMessengerEXT debugUtilsCallbackHandle;
+   bool needs_vk_mem_model;
 
    uint32_t cur_custom_border_color_samplers;
 
