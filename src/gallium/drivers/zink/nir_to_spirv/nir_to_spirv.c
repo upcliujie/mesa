@@ -3545,13 +3545,15 @@ get_spacing(enum gl_tess_spacing spacing)
 
 struct spirv_shader *
 nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
-             unsigned char *shader_slot_map, unsigned char *shader_slots_reserved)
+             unsigned char *shader_slot_map, unsigned char *shader_slots_reserved,
+             const struct ntv_options *opts)
 {
    struct spirv_shader *ret = NULL;
 
    struct ntv_context ctx = {};
    ctx.mem_ctx = ralloc_context(NULL);
    ctx.builder.mem_ctx = ctx.mem_ctx;
+   ctx.builder.needs_vk_mem_model = opts->needs_vk_mem_model;
 
    switch (s->info.stage) {
    case MESA_SHADER_VERTEX:
@@ -3627,7 +3629,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info,
    ctx.GLSL_std_450 = spirv_builder_import(&ctx.builder, "GLSL.std.450");
    spirv_builder_emit_source(&ctx.builder, SpvSourceLanguageUnknown, 0);
 
-   if (s->info.num_images) {
+   if (s->info.num_images && opts->needs_vk_mem_model) {
       /* this is required for correct io semantics */
       spirv_builder_emit_extension(&ctx.builder, "SPV_KHR_vulkan_memory_model");
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityVulkanMemoryModel);
