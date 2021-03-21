@@ -11,6 +11,7 @@
 #include "tgsi/tgsi_from_mesa.h"
 #include "util/hash_table.h"
 #include "util/u_debug.h"
+#include "util/u_draw.h"
 #include "util/u_helpers.h"
 #include "util/u_inlines.h"
 #include "util/u_prim.h"
@@ -839,13 +840,7 @@ zink_draw_vbo(struct pipe_context *pctx,
               unsigned num_draws)
 {
    if (num_draws > 1) {
-      struct pipe_draw_info tmp_info = *dinfo;
-
-      for (unsigned i = 0; i < num_draws; i++) {
-         zink_draw_vbo(pctx, &tmp_info, dindirect, &draws[i], 1);
-         if (tmp_info.increment_draw_id)
-            tmp_info.drawid++;
-      }
+      util_draw_multi(pctx, dinfo, dindirect, draws, num_draws);
       return;
    }
 
