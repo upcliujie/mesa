@@ -513,8 +513,10 @@ st_glsl_to_nir_post_opts(struct st_context *st, struct gl_program *prog,
     * storage don't need to lower builtins.
     */
    if (!shader_program->data->spirv &&
-       !st->ctx->Const.PackedDriverUniformStorage)
+       !st->ctx->Const.PackedDriverUniformStorage) {
+      NIR_PASS_V(nir, nir_lower_indirect_derefs, nir_var_uniform, UINT_MAX);
       NIR_PASS_V(nir, st_nir_lower_builtin);
+   }
 
    if (!screen->get_param(screen, PIPE_CAP_NIR_ATOMICS_AS_DEREF))
       NIR_PASS_V(nir, gl_nir_lower_atomics, shader_program, true);
