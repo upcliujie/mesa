@@ -874,7 +874,7 @@ zink_draw_vbo(struct pipe_context *pctx,
          return;
 
       util_primconvert_save_rasterizer_state(ctx->primconvert, &rast_state->base);
-      util_primconvert_draw_vbo(ctx->primconvert, dinfo, &draws[0]);
+      util_primconvert_draw_vbo(ctx->primconvert, dinfo, dindirect, draws, num_draws);
       return;
    }
    if (ctx->gfx_pipeline_state.vertices_per_patch != dinfo->vertices_per_patch)
