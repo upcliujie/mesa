@@ -505,7 +505,7 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, struct z
    }
    NIR_PASS_V(nir, nir_convert_from_ssa, true);
    struct ntv_options opts;
-   opts.needs_vk_mem_model = screen->info.props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
+   opts.needs_vk_mem_model = screen->needs_vk_mem_model;
    struct spirv_shader *spirv = nir_to_spirv(nir, streamout, shader_slot_map, shader_slots_reserved, &opts);
    assert(spirv);
 

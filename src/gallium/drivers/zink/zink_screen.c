@@ -716,9 +716,7 @@ zink_get_shader_param(struct pipe_screen *pscreen,
       return (1 << PIPE_SHADER_IR_NIR) | (1 << PIPE_SHADER_IR_TGSI);
 
    case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
-      if ((screen->info.have_KHR_vulkan_memory_model ||
-           /* CPU memory is always coherent, which is equivalent to VK mem model */
-           screen->info.props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) &&
+      if ((screen->info.have_KHR_vulkan_memory_model || !screen->needs_vk_mem_model) &&
           (screen->info.feats.features.shaderStorageImageExtendedFormats ||
           (screen->info.feats.features.shaderStorageImageWriteWithoutFormat &&
            screen->info.feats.features.shaderStorageImageReadWithoutFormat)))
@@ -1147,6 +1145,22 @@ load_device_extensions(struct zink_screen *screen)
    return true;
 }
 
+static void
+check_mem_model_reqs(struct zink_screen *screen)
+{
+   bool driver_is_good = false;
+   /* these drivers are known to be good citizens */
+   switch (screen->info.driver_props.driverID) {
+   case VK_DRIVER_ID_MESA_RADV:
+   case VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA:
+      driver_is_good = true;
+      break;
+   default:
+      break;
+   }
+   screen->needs_vk_mem_model = !(driver_is_good || screen->info.props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU);
+}
+
 static VkBool32 VKAPI_CALL
 zink_debug_util_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
@@ -1375,6 +1389,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
    check_device_needs_mesa_wsi(screen);
 
    zink_internal_setup_moltenvk(screen);
+   check_mem_model_reqs(screen);
 
    screen->dev = zink_create_logical_device(screen);
    if (!screen->dev)
