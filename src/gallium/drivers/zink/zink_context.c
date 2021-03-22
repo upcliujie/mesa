@@ -2128,15 +2128,13 @@ zink_resource_copy_region(struct pipe_context *pctx,
 
       region.srcSubresource.aspectMask = src->aspect;
       region.srcSubresource.mipLevel = src_level;
-      region.srcSubresource.layerCount = 1;
+      region.extent.depth = src_box->depth;
       if (src->base.array_size > 1) {
          region.srcSubresource.baseArrayLayer = src_box->z;
          region.srcSubresource.layerCount = src_box->depth;
-         region.extent.depth = 1;
       } else {
          region.srcOffset.z = src_box->z;
          region.srcSubresource.layerCount = 1;
-         region.extent.depth = src_box->depth;
       }
 
       region.srcOffset.x = src_box->x;
