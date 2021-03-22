@@ -1176,17 +1176,16 @@ resolve_ahw_image(struct anv_device *device,
           vk_tiling == VK_IMAGE_TILING_OPTIMAL);
 
    /* Check format. */
-   VkFormat vk_format = vk_format_from_android(desc.format, desc.usage);
+   VkFormat vk_format = anv_vk_format_from_android(desc.format, desc.usage);
    enum isl_format isl_fmt = anv_get_isl_format(&device->info,
                                                 vk_format,
                                                 VK_IMAGE_ASPECT_COLOR_BIT,
                                                 vk_tiling);
    assert(isl_fmt != ISL_FORMAT_UNSUPPORTED);
 
-   /* Handle RGB(X)->RGBA fallback. */
+   /* Handle RGB->RGBA fallback. */
    switch (desc.format) {
    case AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM:
-   case AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM:
       if (isl_format_is_rgb(isl_fmt))
          isl_fmt = isl_format_rgb_to_rgba(isl_fmt);
       break;
