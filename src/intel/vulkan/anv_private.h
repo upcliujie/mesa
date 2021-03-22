@@ -3957,6 +3957,15 @@ anv_can_sample_with_hiz(const struct gen_device_info * const devinfo,
    return image->samples == 1;
 }
 
+bool MUST_CHECK
+anv_image_plane_needs_shadow_surface(const struct gen_device_info *devinfo,
+                                     struct anv_format_plane plane_format,
+                                     VkImageTiling vk_tiling,
+                                     uint64_t drm_format_mod,
+                                     VkImageUsageFlags vk_plane_usage,
+                                     VkImageCreateFlags vk_create_flags,
+                                     isl_tiling_flags_t *inout_primary_tiling_flags);
+
 static inline bool
 anv_image_plane_uses_aux_map(const struct anv_device *device,
                              const struct anv_image *image,

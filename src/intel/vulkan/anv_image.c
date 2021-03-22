@@ -249,17 +249,21 @@ add_surface(struct anv_image *image,
  *
  * @see anv_image::planes[]::shadow_surface
  */
-static bool
+bool MUST_CHECK
 anv_image_plane_needs_shadow_surface(const struct gen_device_info *devinfo,
                                      struct anv_format_plane plane_format,
                                      VkImageTiling vk_tiling,
+                                     uint64_t drm_format_mod,
                                      VkImageUsageFlags vk_plane_usage,
                                      VkImageCreateFlags vk_create_flags,
                                      isl_tiling_flags_t *inout_primary_tiling_flags)
 {
+   bool is_linear = (vk_tiling == VK_IMAGE_TILING_LINEAR ||
+                     drm_format_mod == DRM_FORMAT_MOD_LINEAR);
+
    if (devinfo->gen <= 8 &&
        (vk_create_flags & VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT) &&
-       vk_tiling == VK_IMAGE_TILING_OPTIMAL) {
+       !is_linear) {
       /* We must fallback to a linear surface because we may not be able to
        * correctly handle the offsets if tiled. (On gen9,
        * RENDER_SURFACE_STATE::X/Y Offset are sufficient). To prevent garbage
@@ -855,6 +859,13 @@ check_drm_format_mod(const struct anv_device *device,
       assert(isl_layout->colorspace == ISL_COLORSPACE_LINEAR ||
              isl_layout->colorspace == ISL_COLORSPACE_SRGB);
 
+      /* No shadow surface */
+      if (anv_surface_is_valid(&plane->shadow_surface)) {
+         return vk_errorf(device, &image->base, VK_ERROR_UNKNOWN,
+                          "image with modifier unexpectedly has a shadow "
+                          "surface");
+      }
+
       if (isl_mod_info->aux_usage != ISL_AUX_USAGE_NONE) {
          /* Reject DISJOINT for consistency with the GL driver. */
          assert(!image->disjoint);
@@ -904,7 +915,9 @@ add_all_surfaces(struct anv_device *device,
        */
       bool needs_shadow =
          anv_image_plane_needs_shadow_surface(devinfo, plane_format,
-                                              image->tiling, vk_usage,
+                                              image->tiling,
+                                              image->drm_format_mod,
+                                              vk_usage,
                                               image->create_flags,
                                               &isl_tiling_flags);
 
