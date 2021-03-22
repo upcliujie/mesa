@@ -730,6 +730,8 @@ emit_image(struct ntv_context *ctx, struct nir_variable *var)
    }
 
    SpvDim dimension = type_to_dim(glsl_get_sampler_dim(type), &is_ms);
+   if (dimension == SpvDimCube)
+      spirv_builder_emit_cap(&ctx->builder, SpvCapabilityImageCubeArray);
 
    SpvId result_type = get_glsl_basetype(ctx, glsl_get_sampler_result_type(type));
    SpvId image_type = spirv_builder_type_image(&ctx->builder, result_type,
