@@ -90,4 +90,6 @@
 /* Number of invocations in each subgroup. */
 #define RADV_SUBGROUP_SIZE 64
 
+#define RADV_MAX_HIT_ATTRIB_SIZE 32
+
 #endif /* RADV_CONSTANTS_H */
