@@ -1713,6 +1713,16 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->shaderIntegerDotProduct = true;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR: {
+         VkPhysicalDeviceRayTracingPipelineFeaturesKHR *features =
+            (VkPhysicalDeviceRayTracingPipelineFeaturesKHR *)ext;
+         features->rayTracingPipeline = true;
+         features->rayTracingPipelineShaderGroupHandleCaptureReplay = true;
+         features->rayTracingPipelineShaderGroupHandleCaptureReplayMixed = true;
+         features->rayTracingPipelineTraceRaysIndirect = false;
+         features->rayTraversalPrimitiveCulling = false;
+         break;
+      }
       default:
          break;
       }
@@ -2462,6 +2472,19 @@ radv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          props->integerDotProductAccumulatingSaturating64BitUnsignedAccelerated = false;
          props->integerDotProductAccumulatingSaturating64BitSignedAccelerated = false;
          props->integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = false;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR: {
+         VkPhysicalDeviceRayTracingPipelinePropertiesKHR *props =
+            (VkPhysicalDeviceRayTracingPipelinePropertiesKHR *)ext;
+         props->shaderGroupHandleSize = RADV_RT_HANDLE_SIZE;
+         props->maxRayRecursionDepth = 31; /* Minimum allowed for DXR. */
+         props->maxShaderGroupStride = 16384; /* dummy */
+         props->shaderGroupBaseAlignment = 16;
+         props->shaderGroupHandleCaptureReplaySize = 16;
+         props->maxRayDispatchInvocationCount = 1024 * 1024 * 64;
+         props->shaderGroupHandleAlignment = 16;
+         props->maxRayHitAttributeSize = RADV_MAX_HIT_ATTRIB_SIZE;
          break;
       }
       default:
