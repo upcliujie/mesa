@@ -1012,6 +1012,17 @@ anv_get_image_format_properties(
                                         info->tiling, format_list_info)) {
          goto unsupported;
       }
+
+      for (int p = 0; p < format->n_planes; ++p) {
+         if (anv_image_plane_needs_shadow_surface(&physical_device->info,
+                                                  format->planes[p],
+                                                  info->tiling,
+                                                  isl_mod_info->modifier,
+                                                  info->usage,
+                                                  info->flags,
+                                                  NULL))
+            goto unsupported;
+      }
    }
 
    /* Our hardware doesn't support 1D compressed textures.
