@@ -833,6 +833,13 @@ check_drm_format_mod(const struct anv_device *device,
    assert(image->array_size == 1);
    assert(image->samples == 1);
 
+   /* Reject aliasing if the image has non-linear modifier because we may
+    * allocate a private aux surface, which is not aliasable because it lives
+    * not in a VkDeviceMemory.
+    */
+   assert(!(image->create_flags & VK_IMAGE_CREATE_ALIAS_BIT) ||
+          image->drm_format_mod == DRM_FORMAT_MOD_LINEAR);
+
    /* FINISHME: Support multi-planar formats with modifiers */
    assert(image->n_planes == 1);
    assert(image->aspects == VK_IMAGE_ASPECT_COLOR_BIT);
