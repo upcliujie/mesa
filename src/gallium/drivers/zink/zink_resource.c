@@ -503,10 +503,10 @@ resource_create(struct pipe_screen *pscreen,
    struct zink_screen *screen = zink_screen(pscreen);
    struct zink_resource *res = CALLOC_STRUCT(zink_resource);
 
-   res->base = *templ;
+   res->base.b = *templ;
 
-   pipe_reference_init(&res->base.reference, 1);
-   res->base.screen = pscreen;
+   pipe_reference_init(&res->base.b.reference, 1);
+   res->base.b.screen = pscreen;
 
    bool optimal_tiling = false;
    res->obj = resource_object_create(screen, templ, whandle, &optimal_tiling);
@@ -528,15 +528,15 @@ resource_create(struct pipe_screen *pscreen,
    if (screen->winsys && (templ->bind & PIPE_BIND_DISPLAY_TARGET)) {
       struct sw_winsys *winsys = screen->winsys;
       res->dt = winsys->displaytarget_create(screen->winsys,
-                                             res->base.bind,
-                                             res->base.format,
+                                             res->base.b.bind,
+                                             res->base.b.format,
                                              templ->width0,
                                              templ->height0,
                                              64, NULL,
                                              &res->dt_stride);
    }
 
-   return &res->base;
+   return &res->base.b;
 }
 
 static struct pipe_resource *
@@ -556,7 +556,7 @@ zink_resource_get_handle(struct pipe_screen *pscreen,
    struct zink_resource *res = zink_resource(tex);
    struct zink_screen *screen = zink_screen(pscreen);
 
-   if (res->base.target != PIPE_BUFFER) {
+   if (res->base.b.target != PIPE_BUFFER) {
       VkImageSubresource sub_res = {};
       VkSubresourceLayout sub_res_layout = {};
 
@@ -625,7 +625,7 @@ zink_resource_invalidate(struct pipe_context *pctx, struct pipe_resource *pres)
       return;
 
    struct zink_resource_object *old_obj = res->obj;
-   struct zink_resource_object *new_obj = resource_object_create(screen, pres, NULL, NULL);
+   struct zink_resource_object *new_obj = resource_object_create(screen, &res->base.b, NULL, NULL);
    if (!new_obj) {
       debug_printf("new backing resource alloc failed!");
       return;
@@ -644,18 +644,18 @@ zink_transfer_copy_bufimage(struct zink_context *ctx,
                             struct zink_resource *src,
                             struct zink_transfer *trans)
 {
-   assert((trans->base.usage & (PIPE_MAP_DEPTH_ONLY | PIPE_MAP_STENCIL_ONLY)) !=
+   assert((trans->base.b.usage & (PIPE_MAP_DEPTH_ONLY | PIPE_MAP_STENCIL_ONLY)) !=
           (PIPE_MAP_DEPTH_ONLY | PIPE_MAP_STENCIL_ONLY));
 
-   bool buf2img = src->base.target == PIPE_BUFFER;
+   bool buf2img = src->base.b.target == PIPE_BUFFER;
 
-   struct pipe_box box = trans->base.box;
+   struct pipe_box box = trans->base.b.box;
    int x = box.x;
    if (buf2img)
       box.x = src->obj->offset + trans->offset;
 
-   zink_copy_image_buffer(ctx, NULL, dst, src, trans->base.level, buf2img ? x : dst->obj->offset,
-                           box.y, box.z, trans->base.level, &box, trans->base.usage);
+   zink_copy_image_buffer(ctx, NULL, dst, src, trans->base.b.level, buf2img ? x : dst->obj->offset,
+                           box.y, box.z, trans->base.b.level, &box, trans->base.b.usage);
 }
 
 bool
@@ -782,9 +782,9 @@ buffer_transfer_map(struct zink_context *ctx, struct zink_resource *res, unsigne
          return NULL;
       }
    }
-   trans->base.usage = usage;
+   trans->base.b.usage = usage;
    if (usage & PIPE_MAP_WRITE)
-      util_range_add(&res->base, &res->valid_buffer_range, box->x, box->x + box->width);
+      util_range_add(&res->base.b, &res->valid_buffer_range, box->x, box->x + box->width);
    return ptr;
 }
 
@@ -805,12 +805,12 @@ zink_transfer_map(struct pipe_context *pctx,
       return NULL;
 
    memset(trans, 0, sizeof(*trans));
-   pipe_resource_reference(&trans->base.resource, pres);
+   pipe_resource_reference(&trans->base.b.resource, pres);
 
-   trans->base.resource = pres;
-   trans->base.level = level;
-   trans->base.usage = usage;
-   trans->base.box = *box;
+   trans->base.b.resource = pres;
+   trans->base.b.level = level;
+   trans->base.b.usage = usage;
+   trans->base.b.box = *box;
 
    void *ptr, *base;
    if (pres->target == PIPE_BUFFER) {
@@ -829,9 +829,9 @@ zink_transfer_map(struct pipe_context *pctx,
             format = util_format_get_depth_only(pres->format);
          else if (usage & PIPE_MAP_STENCIL_ONLY)
             format = PIPE_FORMAT_S8_UINT;
-         trans->base.stride = util_format_get_stride(format, box->width);
-         trans->base.layer_stride = util_format_get_2d_size(format,
-                                                            trans->base.stride,
+         trans->base.b.stride = util_format_get_stride(format, box->width);
+         trans->base.b.layer_stride = util_format_get_2d_size(format,
+                                                            trans->base.b.stride,
                                                             box->height);
 
          struct pipe_resource templ = *pres;
@@ -839,7 +839,7 @@ zink_transfer_map(struct pipe_context *pctx,
          templ.usage = PIPE_USAGE_STAGING;
          templ.target = PIPE_BUFFER;
          templ.bind = 0;
-         templ.width0 = trans->base.layer_stride * box->depth;
+         templ.width0 = trans->base.b.layer_stride * box->depth;
          templ.height0 = templ.depth0 = 0;
          templ.last_level = 0;
          templ.array_size = 1;
@@ -881,11 +881,11 @@ zink_transfer_map(struct pipe_context *pctx,
          };
          VkSubresourceLayout srl;
          vkGetImageSubresourceLayout(screen->dev, res->obj->image, &isr, &srl);
-         trans->base.stride = srl.rowPitch;
-         trans->base.layer_stride = srl.arrayPitch;
+         trans->base.b.stride = srl.rowPitch;
+         trans->base.b.layer_stride = srl.arrayPitch;
          trans->offset = srl.offset;
          trans->depthPitch = srl.depthPitch;
-         const struct util_format_description *desc = util_format_description(res->base.format);
+         const struct util_format_description *desc = util_format_description(res->base.b.format);
          unsigned offset = srl.offset +
                            box->z * srl.depthPitch +
                            (box->y / desc->block.height) * srl.rowPitch +
@@ -901,7 +901,7 @@ zink_transfer_map(struct pipe_context *pctx,
    if ((usage & PIPE_MAP_PERSISTENT) && !(usage & PIPE_MAP_COHERENT))
       res->obj->persistent_maps++;
 
-   *transfer = &trans->base;
+   *transfer = &trans->base.b;
    return ptr;
 }
 
@@ -914,7 +914,7 @@ zink_transfer_flush_region(struct pipe_context *pctx,
    struct zink_resource *res = zink_resource(ptrans->resource);
    struct zink_transfer *trans = (struct zink_transfer *)ptrans;
 
-   if (trans->base.usage & PIPE_MAP_WRITE) {
+   if (trans->base.b.usage & PIPE_MAP_WRITE) {
       struct zink_screen *screen = zink_screen(pctx->screen);
       struct zink_resource *m = trans->staging_res ? zink_resource(trans->staging_res) :
                                                      res;
@@ -923,11 +923,11 @@ zink_transfer_flush_region(struct pipe_context *pctx,
          size = box->width;
          offset = trans->offset + box->x;
       } else {
-         size = box->width * box->height * util_format_get_blocksize(m->base.format);
+         size = box->width * box->height * util_format_get_blocksize(m->base.b.format);
          offset = trans->offset +
                   box->z * trans->depthPitch +
-                  util_format_get_2d_size(m->base.format, trans->base.stride, box->y) +
-                  util_format_get_stride(m->base.format, box->x);
+                  util_format_get_2d_size(m->base.b.format, trans->base.b.stride, box->y) +
+                  util_format_get_stride(m->base.b.format, box->x);
          assert(offset + size <= res->obj->size);
       }
       if (!m->obj->coherent) {
@@ -954,7 +954,7 @@ zink_transfer_unmap(struct pipe_context *pctx,
    struct zink_resource *res = zink_resource(ptrans->resource);
    struct zink_transfer *trans = (struct zink_transfer *)ptrans;
 
-   if (!(trans->base.usage & (PIPE_MAP_FLUSH_EXPLICIT | PIPE_MAP_COHERENT))) {
+   if (!(trans->base.b.usage & (PIPE_MAP_FLUSH_EXPLICIT | PIPE_MAP_COHERENT))) {
       zink_transfer_flush_region(pctx, ptrans, &ptrans->box);
    }
 
@@ -962,12 +962,12 @@ zink_transfer_unmap(struct pipe_context *pctx,
       unmap_resource(screen, zink_resource(trans->staging_res));
    } else
       unmap_resource(screen, res);
-   if ((trans->base.usage & PIPE_MAP_PERSISTENT) && !(trans->base.usage & PIPE_MAP_COHERENT))
+   if ((trans->base.b.usage & PIPE_MAP_PERSISTENT) && !(trans->base.b.usage & PIPE_MAP_COHERENT))
       res->obj->persistent_maps--;
 
    if (trans->staging_res)
       pipe_resource_reference(&trans->staging_res, NULL);
-   pipe_resource_reference(&trans->base.resource, NULL);
+   pipe_resource_reference(&trans->base.b.resource, NULL);
    slab_free(&ctx->transfer_pool, ptrans);
 }
 
@@ -1011,13 +1011,14 @@ zink_resource_object_init_storage(struct zink_context *ctx, struct zink_resource
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    /* base resource already has the cap */
-   if (res->base.bind & PIPE_BIND_SHADER_IMAGE)
+   if (res->base.b.bind & PIPE_BIND_SHADER_IMAGE)
       return true;
    if (res->obj->is_buffer) {
       if (res->obj->sbuffer)
          return true;
-      VkBufferCreateInfo bci = create_bci(screen, &res->base, res->base.bind | PIPE_BIND_SHADER_IMAGE);
+      VkBufferCreateInfo bci = create_bci(screen, &res->base.b, res->base.b.bind | PIPE_BIND_SHADER_IMAGE);
       bci.size = res->obj->size;
+
       VkBuffer buffer;
       if (vkCreateBuffer(screen->dev, &bci, NULL, &buffer) != VK_SUCCESS)
          return false;
@@ -1025,26 +1026,26 @@ zink_resource_object_init_storage(struct zink_context *ctx, struct zink_resource
       res->obj->sbuffer = res->obj->buffer;
       res->obj->buffer = buffer;
    } else {
-      zink_fb_clears_apply_region(ctx, &res->base, (struct u_rect){0, res->base.width0, 0, res->base.height0});
+      zink_fb_clears_apply_region(ctx, &res->base.b, (struct u_rect){0, res->base.b.width0, 0, res->base.b.height0});
       zink_resource_image_barrier(ctx, NULL, res, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0);
-      res->base.bind |= PIPE_BIND_SHADER_IMAGE;
+      res->base.b.bind |= PIPE_BIND_SHADER_IMAGE;
       struct zink_resource_object *old_obj = res->obj;
-      struct zink_resource_object *new_obj = resource_object_create(screen, &res->base, NULL, &res->optimal_tiling);
+      struct zink_resource_object *new_obj = resource_object_create(screen, &res->base.b, NULL, &res->optimal_tiling);
       if (!new_obj) {
          debug_printf("new backing resource alloc failed!");
-         res->base.bind &= ~PIPE_BIND_SHADER_IMAGE;
+         res->base.b.bind &= ~PIPE_BIND_SHADER_IMAGE;
          return false;
       }
       struct zink_resource staging = *res;
       staging.obj = old_obj;
       res->obj = new_obj;
       zink_descriptor_set_refs_clear(&old_obj->desc_set_refs, old_obj);
-      for (unsigned i = 0; i <= res->base.last_level; i++) {
+      for (unsigned i = 0; i <= res->base.b.last_level; i++) {
          struct pipe_box box = {0, 0, 0,
-                                u_minify(res->base.width0, i),
-                                u_minify(res->base.height0, i), res->base.array_size};
-         box.depth = util_num_layers(&res->base, i);
-         ctx->base.resource_copy_region(&ctx->base, &res->base, i, 0, 0, 0, &staging.base, i, &box);
+                                u_minify(res->base.b.width0, i),
+                                u_minify(res->base.b.height0, i), res->base.b.array_size};
+         box.depth = util_num_layers(&res->base.b, i);
+         ctx->base.resource_copy_region(&ctx->base, &res->base.b, i, 0, 0, 0, &staging.base.b, i, &box);
       }
       zink_resource_object_reference(screen, &old_obj, NULL);
    }
@@ -1068,7 +1069,7 @@ zink_resource_object_init_storage(struct zink_context *ctx, struct zink_resource
          for (unsigned i = 0; i < PIPE_SHADER_TYPES; i++) {
             for (unsigned j = 0; j < ctx->num_sampler_views[i]; j++) {
                struct zink_sampler_view *sv = zink_sampler_view(ctx->sampler_views[i][j]);
-               if (sv && sv->base.texture == &res->base) {
+               if (sv && sv->base.texture == &res->base.b) {
                    struct pipe_surface *psurf = &sv->image_view->base;
                    zink_rebind_surface(ctx, &psurf);
                    sv->image_view = zink_surface(psurf);

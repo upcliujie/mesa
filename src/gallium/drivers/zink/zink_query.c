@@ -526,7 +526,7 @@ copy_pool_results_to_buffer(struct zink_context *ctx, struct zink_query *query, 
    /* if it's a single query that doesn't need special handling, we can copy it and be done */
    zink_batch_reference_resource_rw(batch, res, true);
    zink_resource_buffer_barrier(ctx, batch, res, VK_ACCESS_TRANSFER_WRITE_BIT, 0);
-   util_range_add(&res->base, &res->valid_buffer_range, offset, offset + result_size);
+   util_range_add(&res->base.b, &res->valid_buffer_range, offset, offset + result_size);
    assert(query_id < NUM_QUERIES);
    vkCmdCopyQueryPoolResults(batch->state->cmdbuf, pool, query_id, num_results, res->obj->buffer,
                              offset, 0, flags);
@@ -882,7 +882,7 @@ zink_render_condition(struct pipe_context *pctx,
          copy_results_to_buffer(ctx, query, res, 0, num_results, flags);
       } else {
          /* these need special handling */
-         force_cpu_read(ctx, pquery, PIPE_QUERY_TYPE_U32, &res->base, 0);
+         force_cpu_read(ctx, pquery, PIPE_QUERY_TYPE_U32, &res->base.b, 0);
       }
       query->predicate_dirty = false;
    }
