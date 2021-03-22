@@ -353,7 +353,6 @@ struct si_texture {
     * - HTILE buffer (Z/S compression and fast Z/S clear)
     * - DCC buffer (color compression and new fast color clear)
     * - displayable DCC buffer (if the DCC buffer is not displayable)
-    * - DCC retile mapping buffer (if the DCC buffer is not displayable)
     */
    uint64_t cmask_base_address_reg;
    struct si_resource *cmask_buffer;
@@ -417,8 +416,6 @@ struct si_texture {
    unsigned ps_draw_ratio;
    /* The number of clears since the last DCC usage analysis. */
    unsigned num_slow_clears;
-
-   struct si_resource *dcc_retile_buffer;
 };
 
 struct si_surface {
@@ -1552,7 +1549,7 @@ void *si_create_dcc_decompress_cs(struct pipe_context *ctx);
 void *si_clear_render_target_shader(struct pipe_context *ctx);
 void *si_clear_render_target_shader_1d_array(struct pipe_context *ctx);
 void *si_clear_12bytes_buffer_shader(struct pipe_context *ctx);
-void *si_create_dcc_retile_cs(struct pipe_context *ctx);
+void *si_create_dcc_retile_cs(struct si_context *sctx, struct radeon_surf *surf);
 void *si_create_fmask_expand_cs(struct pipe_context *ctx, unsigned num_samples, bool is_array);
 void *si_create_query_result_cs(struct si_context *sctx);
 void *gfx10_create_sh_query_result_cs(struct si_context *sctx);
