@@ -483,7 +483,9 @@ nvc0_miptree_transfer_map(struct pipe_context *pctx,
    if (usage & PIPE_MAP_WRITE)
       flags |= NOUVEAU_BO_WR;
 
+   PUSH_ACQ(nvc0->base.pushbuf);
    ret = PUSH_BO_MAP(nvc0->base.pushbuf, tx->rect[1].bo, flags, nvc0->screen->base.client);
+   PUSH_REL(nvc0->base.pushbuf);
    if (ret) {
       pipe_resource_reference(&tx->base.resource, NULL);
       nouveau_bo_ref(NULL, &tx->rect[1].bo);

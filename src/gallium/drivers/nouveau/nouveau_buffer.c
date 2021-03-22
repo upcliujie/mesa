@@ -474,9 +474,11 @@ nouveau_buffer_transfer_map(struct pipe_context *pipe,
     * wait on the whole slab and instead use the logic below to return a
     * reasonable buffer for that case.
     */
+   PUSH_ACQ(nv->screen->pushbuf);
    ret = PUSH_BO_MAP(nv->pushbuf, buf->bo,
                      buf->mm ? 0 : nouveau_screen_transfer_flags(usage),
                      nv->client);
+   PUSH_REL(nv->screen->pushbuf);
    if (ret) {
       FREE(tx);
       return NULL;
