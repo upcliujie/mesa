@@ -3402,11 +3402,17 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			radv_start_feedback(stage_feedbacks[i]);
 
 			if (!radv_use_llvm_for_stage(device, i)) {
-				NIR_PASS_V(nir[i], nir_lower_non_uniform_access,
-				           nir_lower_non_uniform_ubo_access |
-				           nir_lower_non_uniform_ssbo_access |
-				           nir_lower_non_uniform_texture_access |
-				           nir_lower_non_uniform_image_access);
+				nir_lower_non_uniform_access_options options = {
+					.types = nir_lower_non_uniform_ubo_access |
+						 nir_lower_non_uniform_ssbo_access |
+						 nir_lower_non_uniform_texture_access |
+						 nir_lower_non_uniform_image_access,
+					.ubo_channel = 0,
+					.ssbo_channel = 0,
+					.tex_channel = 0,
+					.image_channel = 0,
+				};
+				NIR_PASS_V(nir[i], nir_lower_non_uniform_access, &options);
 			}
 			NIR_PASS_V(nir[i], nir_lower_memory_model);
 

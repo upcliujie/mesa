@@ -4846,8 +4846,16 @@ enum nir_lower_non_uniform_access_type {
    nir_lower_non_uniform_image_access   = (1 << 3),
 };
 
+typedef struct nir_lower_non_uniform_access_options {
+   enum nir_lower_non_uniform_access_type types;
+   unsigned ubo_channel;
+   unsigned ssbo_channel;
+   unsigned tex_channel;
+   unsigned image_channel;
+} nir_lower_non_uniform_access_options;
+
 bool nir_lower_non_uniform_access(nir_shader *shader,
-                                  enum nir_lower_non_uniform_access_type);
+                                  const nir_lower_non_uniform_access_options *options);
 
 enum nir_lower_idiv_path {
    /* This path is based on NV50LegalizeSSA::handleDIV(). It is the faster of
