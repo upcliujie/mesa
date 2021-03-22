@@ -49,6 +49,7 @@
 #include "freedreno_resource.h"
 #include "freedreno_fence.h"
 #include "freedreno_query.h"
+#include "freedreno_perfetto.h"
 #include "freedreno_util.h"
 
 #include "a2xx/fd2_screen.h"
@@ -919,6 +920,10 @@ fd_screen_create(struct fd_device *dev, struct renderonly *ro)
 
 	if (!screen)
 		return NULL;
+
+#ifdef HAVE_PERFETTO
+	fd_perfetto_init();
+#endif
 
 	pscreen = &screen->base;
 

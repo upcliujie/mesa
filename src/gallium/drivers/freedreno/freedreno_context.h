@@ -40,6 +40,7 @@
 #include "freedreno_autotune.h"
 #include "freedreno_screen.h"
 #include "freedreno_gmem.h"
+#include "freedreno_perfetto.h"
 #include "freedreno_util.h"
 
 #ifdef __cplusplus
@@ -439,6 +440,15 @@ struct fd_context {
 	struct pipe_debug_callback debug;
 
 	struct u_trace_context trace_context dt;
+
+#ifdef HAVE_PERFETTO
+	struct fd_perfetto_state perfetto;
+#endif
+
+	/*
+	 * Counter to generate submit-ids
+	 */
+	uint32_t submit_count;
 
 	/* Called on rebind_resource() for any per-gen cleanup required: */
 	void (*rebind_resource)(struct fd_context *ctx, struct fd_resource *rsc) dt;
