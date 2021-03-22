@@ -51,6 +51,17 @@ enum {
 					   RADV_PREFETCH_PS)
 };
 
+
+enum {
+	RADV_RT_STAGE_BITS =
+		(VK_SHADER_STAGE_RAYGEN_BIT_KHR |
+		 VK_SHADER_STAGE_ANY_HIT_BIT_KHR |
+		 VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR |
+		 VK_SHADER_STAGE_MISS_BIT_KHR |
+		 VK_SHADER_STAGE_INTERSECTION_BIT_KHR |
+		 VK_SHADER_STAGE_CALLABLE_BIT_KHR)
+};
+
 static void radv_handle_image_transition(struct radv_cmd_buffer *cmd_buffer,
 					 struct radv_image *image,
 					 VkImageLayout src_layout,
@@ -2643,6 +2654,7 @@ radv_flush_push_descriptors(struct radv_cmd_buffer *cmd_buffer,
 
 static void
 radv_flush_indirect_descriptor_sets(struct radv_cmd_buffer *cmd_buffer,
+				    struct radv_pipeline *pipeline,
 				    VkPipelineBindPoint bind_point)
 {
 	struct radv_descriptor_state *descriptors_state =
@@ -2666,43 +2678,40 @@ radv_flush_indirect_descriptor_sets(struct radv_cmd_buffer *cmd_buffer,
 	uint64_t va = radv_buffer_get_va(cmd_buffer->upload.upload_bo);
 	va += offset;
 
-	if (cmd_buffer->state.pipeline) {
-		if (cmd_buffer->state.pipeline->shaders[MESA_SHADER_VERTEX])
-			radv_emit_userdata_address(cmd_buffer, cmd_buffer->state.pipeline, MESA_SHADER_VERTEX,
+	if (bind_point == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+		if (pipeline->shaders[MESA_SHADER_VERTEX])
+			radv_emit_userdata_address(cmd_buffer, pipeline, MESA_SHADER_VERTEX,
 						   AC_UD_INDIRECT_DESCRIPTOR_SETS, va);
 
-		if (cmd_buffer->state.pipeline->shaders[MESA_SHADER_FRAGMENT])
-			radv_emit_userdata_address(cmd_buffer, cmd_buffer->state.pipeline, MESA_SHADER_FRAGMENT,
+		if (pipeline->shaders[MESA_SHADER_FRAGMENT])
+			radv_emit_userdata_address(cmd_buffer, pipeline, MESA_SHADER_FRAGMENT,
 						   AC_UD_INDIRECT_DESCRIPTOR_SETS, va);
 
-		if (radv_pipeline_has_gs(cmd_buffer->state.pipeline))
-			radv_emit_userdata_address(cmd_buffer, cmd_buffer->state.pipeline, MESA_SHADER_GEOMETRY,
+		if (radv_pipeline_has_gs(pipeline))
+			radv_emit_userdata_address(cmd_buffer, pipeline, MESA_SHADER_GEOMETRY,
 						   AC_UD_INDIRECT_DESCRIPTOR_SETS, va);
 
-		if (radv_pipeline_has_tess(cmd_buffer->state.pipeline))
-			radv_emit_userdata_address(cmd_buffer, cmd_buffer->state.pipeline, MESA_SHADER_TESS_CTRL,
+		if (radv_pipeline_has_tess(pipeline))
+			radv_emit_userdata_address(cmd_buffer, pipeline, MESA_SHADER_TESS_CTRL,
 						   AC_UD_INDIRECT_DESCRIPTOR_SETS, va);
 
-		if (radv_pipeline_has_tess(cmd_buffer->state.pipeline))
-			radv_emit_userdata_address(cmd_buffer, cmd_buffer->state.pipeline, MESA_SHADER_TESS_EVAL,
+		if (radv_pipeline_has_tess(pipeline))
+			radv_emit_userdata_address(cmd_buffer, pipeline, MESA_SHADER_TESS_EVAL,
 						   AC_UD_INDIRECT_DESCRIPTOR_SETS, va);
-	}
-
-	if (cmd_buffer->state.compute_pipeline)
-		radv_emit_userdata_address(cmd_buffer, cmd_buffer->state.compute_pipeline, MESA_SHADER_COMPUTE,
+	} else {
+		radv_emit_userdata_address(cmd_buffer, pipeline, MESA_SHADER_COMPUTE,
 					   AC_UD_INDIRECT_DESCRIPTOR_SETS, va);
+	}
 }
 
 static void
 radv_flush_descriptors(struct radv_cmd_buffer *cmd_buffer,
-		       VkShaderStageFlags stages)
+		       VkShaderStageFlags stages,
+		       struct radv_pipeline *pipeline,
+		       VkPipelineBindPoint bind_point)
 {
-	VkPipelineBindPoint bind_point = stages & VK_SHADER_STAGE_COMPUTE_BIT ?
-					 VK_PIPELINE_BIND_POINT_COMPUTE :
-					 VK_PIPELINE_BIND_POINT_GRAPHICS;
 	struct radv_descriptor_state *descriptors_state =
 		radv_get_descriptors_state(cmd_buffer, bind_point);
-	struct radv_cmd_state *state = &cmd_buffer->state;
 	bool flush_indirect_descriptors;
 
 	if (!descriptors_state->dirty)
@@ -2711,36 +2720,31 @@ radv_flush_descriptors(struct radv_cmd_buffer *cmd_buffer,
 	if (descriptors_state->push_dirty)
 		radv_flush_push_descriptors(cmd_buffer, bind_point);
 
-	flush_indirect_descriptors =
-		(bind_point == VK_PIPELINE_BIND_POINT_GRAPHICS &&
-		 state->pipeline && state->pipeline->need_indirect_descriptor_sets) ||
-		(bind_point == VK_PIPELINE_BIND_POINT_COMPUTE &&
-		 state->compute_pipeline && state->compute_pipeline->need_indirect_descriptor_sets);
+	flush_indirect_descriptors = pipeline && pipeline->need_indirect_descriptor_sets;
 
 	if (flush_indirect_descriptors)
-		radv_flush_indirect_descriptor_sets(cmd_buffer, bind_point);
+		radv_flush_indirect_descriptor_sets(cmd_buffer, pipeline, bind_point);
 
 	ASSERTED unsigned cdw_max = radeon_check_space(cmd_buffer->device->ws,
 	                                                   cmd_buffer->cs,
 	                                                   MAX_SETS * MESA_SHADER_STAGES * 4);
 
-	if (cmd_buffer->state.pipeline) {
-		radv_foreach_stage(stage, stages) {
-			if (!cmd_buffer->state.pipeline->shaders[stage])
-				continue;
-
+	if (pipeline) {
+		if (stages & VK_SHADER_STAGE_COMPUTE_BIT) {
 			radv_emit_descriptor_pointers(cmd_buffer,
-						      cmd_buffer->state.pipeline,
-						      descriptors_state, stage);
-		}
-	}
+						      pipeline,
+						      descriptors_state,
+						      MESA_SHADER_COMPUTE);
+		} else {
+			radv_foreach_stage(stage, stages) {
+				if (!cmd_buffer->state.pipeline->shaders[stage])
+					continue;
 
-	if (cmd_buffer->state.compute_pipeline &&
-	    (stages & VK_SHADER_STAGE_COMPUTE_BIT)) {
-		radv_emit_descriptor_pointers(cmd_buffer,
-					      cmd_buffer->state.compute_pipeline,
-					      descriptors_state,
-					      MESA_SHADER_COMPUTE);
+				radv_emit_descriptor_pointers(cmd_buffer,
+							      pipeline,
+							      descriptors_state, stage);
+			}
+		}
 	}
 
 	descriptors_state->dirty = 0;
@@ -2754,14 +2758,8 @@ radv_flush_descriptors(struct radv_cmd_buffer *cmd_buffer,
 
 static void
 radv_flush_constants(struct radv_cmd_buffer *cmd_buffer,
-		     VkShaderStageFlags stages)
+		     VkShaderStageFlags stages, struct radv_pipeline *pipeline, VkPipelineBindPoint bind_point)
 {
-	struct radv_pipeline *pipeline = stages & VK_SHADER_STAGE_COMPUTE_BIT
-					 ? cmd_buffer->state.compute_pipeline
-					 : cmd_buffer->state.pipeline;
-	VkPipelineBindPoint bind_point = stages & VK_SHADER_STAGE_COMPUTE_BIT ?
-					 VK_PIPELINE_BIND_POINT_COMPUTE :
-					 VK_PIPELINE_BIND_POINT_GRAPHICS;
 	struct radv_descriptor_state *descriptors_state =
 		radv_get_descriptors_state(cmd_buffer, bind_point);
 	struct radv_pipeline_layout *layout = pipeline->layout;
@@ -2770,13 +2768,30 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer,
 	unsigned offset;
 	void *ptr;
 	uint64_t va;
+	uint32_t internal_stages;
+	uint32_t dirty_stages = 0;
 
 	stages &= cmd_buffer->push_constant_stages;
 	if (!stages ||
 	    (!layout->push_constant_size && !layout->dynamic_offset_count))
 		return;
 
-	radv_foreach_stage(stage, stages) {
+	internal_stages = stages;
+	switch(bind_point) {
+	case VK_PIPELINE_BIND_POINT_GRAPHICS:
+		break;
+	case VK_PIPELINE_BIND_POINT_COMPUTE:
+		dirty_stages = RADV_RT_STAGE_BITS;
+		break;
+	case VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR:
+		internal_stages = VK_SHADER_STAGE_COMPUTE_BIT;
+		dirty_stages = VK_SHADER_STAGE_COMPUTE_BIT;
+		break;
+	default:
+		unreachable("Unhandled bind point");
+	}
+
+	radv_foreach_stage(stage, internal_stages) {
 		shader = radv_get_shader(pipeline, stage);
 		if (!shader)
 			continue;
@@ -2811,7 +2826,7 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer,
 	                                   cmd_buffer->cs, MESA_SHADER_STAGES * 4);
 
 		prev_shader = NULL;
-		radv_foreach_stage(stage, stages) {
+		radv_foreach_stage(stage, internal_stages) {
 			shader = radv_get_shader(pipeline, stage);
 
 			/* Avoid redundantly emitting the address for merged stages. */
@@ -2826,6 +2841,7 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer,
 	}
 
 	cmd_buffer->push_constant_stages &= ~stages;
+	cmd_buffer->push_constant_stages |= dirty_stages;
 }
 
 static void
@@ -3058,8 +3074,10 @@ radv_upload_graphics_shader_descriptors(struct radv_cmd_buffer *cmd_buffer, bool
 {
 	radv_flush_vertex_descriptors(cmd_buffer, pipeline_is_dirty);
 	radv_flush_streamout_descriptors(cmd_buffer);
-	radv_flush_descriptors(cmd_buffer, VK_SHADER_STAGE_ALL_GRAPHICS);
-	radv_flush_constants(cmd_buffer, VK_SHADER_STAGE_ALL_GRAPHICS);
+	radv_flush_descriptors(cmd_buffer, VK_SHADER_STAGE_ALL_GRAPHICS,
+	                       cmd_buffer->state.pipeline, VK_PIPELINE_BIND_POINT_GRAPHICS);
+	radv_flush_constants(cmd_buffer, VK_SHADER_STAGE_ALL_GRAPHICS,
+	                     cmd_buffer->state.pipeline, VK_PIPELINE_BIND_POINT_GRAPHICS);
 	radv_flush_ngg_gs_state(cmd_buffer);
 }
 
@@ -4375,10 +4393,8 @@ VkResult radv_EndCommandBuffer(
 }
 
 static void
-radv_emit_compute_pipeline(struct radv_cmd_buffer *cmd_buffer)
+radv_emit_compute_pipeline(struct radv_cmd_buffer *cmd_buffer, struct radv_pipeline *pipeline)
 {
-	struct radv_pipeline *pipeline = cmd_buffer->state.compute_pipeline;
-
 	if (!pipeline || pipeline == cmd_buffer->state.emitted_compute_pipeline)
 		return;
 
@@ -5943,17 +5959,24 @@ radv_emit_dispatch_packets(struct radv_cmd_buffer *cmd_buffer,
 }
 
 static void
-radv_upload_compute_shader_descriptors(struct radv_cmd_buffer *cmd_buffer)
+radv_upload_compute_shader_descriptors(struct radv_cmd_buffer *cmd_buffer,
+                                       struct radv_pipeline *pipeline,
+                                       VkPipelineBindPoint bind_point)
 {
-	radv_flush_descriptors(cmd_buffer, VK_SHADER_STAGE_COMPUTE_BIT);
-	radv_flush_constants(cmd_buffer, VK_SHADER_STAGE_COMPUTE_BIT);
+	radv_flush_descriptors(cmd_buffer, VK_SHADER_STAGE_COMPUTE_BIT,
+	                       pipeline, bind_point);
+	radv_flush_constants(cmd_buffer,
+	                     bind_point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR ? 
+	                     RADV_RT_STAGE_BITS : VK_SHADER_STAGE_COMPUTE_BIT,
+	                     pipeline, bind_point);
 }
 
 static void
 radv_dispatch(struct radv_cmd_buffer *cmd_buffer,
-	      const struct radv_dispatch_info *info)
+	      const struct radv_dispatch_info *info,
+	      struct radv_pipeline *pipeline,
+	      VkPipelineBindPoint bind_point)
 {
-	struct radv_pipeline *pipeline = cmd_buffer->state.compute_pipeline;
 	bool has_prefetch =
 		cmd_buffer->device->physical_device->rad_info.chip_class >= GFX7;
 	bool pipeline_is_dirty = pipeline &&
@@ -5970,11 +5993,11 @@ radv_dispatch(struct radv_cmd_buffer *cmd_buffer,
 		 * time the CUs are idle is very short. (there are only SET_SH
 		 * packets between the wait and the draw)
 		 */
-		radv_emit_compute_pipeline(cmd_buffer);
+		radv_emit_compute_pipeline(cmd_buffer, pipeline);
 		si_emit_cache_flush(cmd_buffer);
 		/* <-- CUs are idle here --> */
 
-		radv_upload_compute_shader_descriptors(cmd_buffer);
+		radv_upload_compute_shader_descriptors(cmd_buffer, pipeline, bind_point);
 
 		radv_emit_dispatch_packets(cmd_buffer, info);
 		/* <-- CUs are busy here --> */
@@ -5998,13 +6021,34 @@ radv_dispatch(struct radv_cmd_buffer *cmd_buffer,
 						  pipeline->shaders[MESA_SHADER_COMPUTE]);
 		}
 
-		radv_upload_compute_shader_descriptors(cmd_buffer);
+		radv_upload_compute_shader_descriptors(cmd_buffer, pipeline, bind_point);
 
-		radv_emit_compute_pipeline(cmd_buffer);
+		radv_emit_compute_pipeline(cmd_buffer, pipeline);
 		radv_emit_dispatch_packets(cmd_buffer, info);
 	}
 
+	if (pipeline_is_dirty) {
+		/* Raytracing uses compute shaders but has separate bind points and pipelines.
+		 * So if we set compute userdata & shader registers we should dirty the raytracing
+		 * ones and the other way around.
+		 *
+		 * We only need to do this when the pipeline is dirty because when we switch between
+		 * the two we always need to switch pipelines.
+		 */
+		radv_mark_descriptor_sets_dirty(cmd_buffer,
+		                                bind_point == VK_PIPELINE_BIND_POINT_COMPUTE ?
+							VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR :
+							VK_PIPELINE_BIND_POINT_COMPUTE);
+	}
+
 	radv_cmd_buffer_after_draw(cmd_buffer, RADV_CMD_FLAG_CS_PARTIAL_FLUSH);
+}
+
+static void
+radv_compute_dispatch(struct radv_cmd_buffer *cmd_buffer,
+		      const struct radv_dispatch_info *info)
+{
+	radv_dispatch(cmd_buffer, info, cmd_buffer->state.compute_pipeline, VK_PIPELINE_BIND_POINT_COMPUTE);
 }
 
 void radv_CmdDispatchBase(
@@ -6026,7 +6070,7 @@ void radv_CmdDispatchBase(
 	info.offsets[0] = base_x;
 	info.offsets[1] = base_y;
 	info.offsets[2] = base_z;
-	radv_dispatch(cmd_buffer, &info);
+	radv_compute_dispatch(cmd_buffer, &info);
 }
 
 void radv_CmdDispatch(
@@ -6050,7 +6094,7 @@ void radv_CmdDispatchIndirect(
 	info.indirect = buffer;
 	info.indirect_offset = offset;
 
-	radv_dispatch(cmd_buffer, &info);
+	radv_compute_dispatch(cmd_buffer, &info);
 }
 
 void radv_unaligned_dispatch(
@@ -6066,7 +6110,7 @@ void radv_unaligned_dispatch(
 	info.blocks[2] = z;
 	info.unaligned = 1;
 
-	radv_dispatch(cmd_buffer, &info);
+	radv_compute_dispatch(cmd_buffer, &info);
 }
 
 void
