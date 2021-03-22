@@ -29,6 +29,11 @@
 #include "amd_family.h"
 #include "util/format/u_format.h"
 
+/* NIR is optional. Some components don't want to include NIR with ac_surface.h. */
+#ifdef AC_SURFACE_INCLUDE_NIR
+#include "compiler/nir/nir_builder.h"
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -155,6 +160,52 @@ struct gfx9_surf_level {
                    * where each layer has an array of levels) */
 };
 
+/**
+ * DCC address equation for doing DCC address computations in shaders.
+ *
+ * ac_surface_dcc_address_test.c contains the reference implementation.
+ * ac_nir_dcc_addr_from_coord is the NIR implementation.
+ *
+ * The gfx9 equation doesn't support mipmapping.
+ * The gfx10 equation doesn't support mipmapping and MSAA.
+ * (those are also limitations of Addr2ComputeDccAddrFromCoord)
+ */
+struct gfx9_dcc_equation {
+   uint16_t meta_block_width;
+   uint16_t meta_block_height;
+   uint16_t meta_block_depth;
+
+   union {
+      /* The gfx9 DCC equation is chip-specific, and it varies with:
+       * - resource type
+       * - swizzle_mode
+       * - bpp
+       * - number of fragments
+       * - pipe_aligned
+       * - rb_aligned
+       */
+      struct {
+         uint8_t num_bits;
+         uint8_t num_pipe_bits;
+
+         struct {
+            uint8_t num_coords;
+
+            struct {
+               uint8_t dim:3; /* 0..4 */
+               uint8_t ord:5; /* 0..31 */
+            } coord[5]; /* 0..num_coords */
+         } bit[32]; /* 0..num_bits */
+      } gfx9;
+
+      /* The gfx10 DCC equation is chip-specific, it requires 64KB_R_X, and it varies with:
+       * - bpp
+       * - pipe_aligned
+       */
+      uint16_t gfx10_bits[68];
+   } u;
+};
+
 struct gfx9_surf_layout {
    struct gfx9_surf_flags surf;    /* color or depth surface */
    struct gfx9_surf_flags fmask;   /* not added to surf_size */
@@ -183,6 +234,9 @@ struct gfx9_surf_layout {
    uint8_t dcc_block_height;
    uint8_t dcc_block_depth;
 
+   uint16_t dcc_pitch_max;
+   uint16_t dcc_height;
+
    /* Displayable DCC. This is always rb_aligned=0 and pipe_aligned=0.
     * The 3D engine doesn't support that layout except for chips with 1 RB.
     * All other chips must set rb_aligned=1.
@@ -191,10 +245,7 @@ struct gfx9_surf_layout {
    uint32_t display_dcc_size;
    uint32_t display_dcc_alignment;
    uint16_t display_dcc_pitch_max; /* (mip chain pitch - 1) */
-   uint16_t dcc_pitch_max;
-   bool dcc_retile_use_uint16;     /* if all values fit into uint16_t */
-   uint32_t dcc_retile_num_elements;
-   void *dcc_retile_map;
+   uint16_t display_dcc_height;
 
    /* Offset within slice in bytes, only valid for prt images. */
    uint32_t prt_level_offset[RADEON_SURF_MAX_LEVELS];
@@ -209,6 +260,11 @@ struct gfx9_surf_layout {
 
    /* CMASK level info (only level 0) */
    struct gfx9_surf_level cmask_level0;
+
+   /* For DCC retiling. */
+   struct gfx9_dcc_equation dcc_equation;
+   struct gfx9_dcc_equation display_dcc_equation;
+   bool dcc_equations_valid;
 };
 
 struct radeon_surf {
@@ -374,10 +430,19 @@ uint64_t ac_surface_get_plane_stride(enum chip_class chip_class,
 /* Of the whole miplevel, not an individual layer */
 uint64_t ac_surface_get_plane_size(const struct radeon_surf *surf,
                                    unsigned plane);
-uint32_t ac_surface_get_retile_map_size(const struct radeon_surf *surf);
 
 void ac_surface_print_info(FILE *out, const struct radeon_info *info,
                            const struct radeon_surf *surf);
+
+#ifdef AC_SURFACE_INCLUDE_NIR
+nir_ssa_def *ac_nir_dcc_addr_from_coord(nir_builder *b, const struct radeon_info *info,
+                                        struct radeon_surf *surf,
+                                        struct gfx9_dcc_equation *equation,
+                                        nir_ssa_def *dcc_pitch, nir_ssa_def *dcc_height,
+                                        nir_ssa_def *dcc_slice_size,
+                                        nir_ssa_def *x, nir_ssa_def *y, nir_ssa_def *z,
+                                        nir_ssa_def *sample, nir_ssa_def *pipe_xor);
+#endif
 
 #ifdef __cplusplus
 }
