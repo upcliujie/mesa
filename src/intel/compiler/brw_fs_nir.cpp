@@ -2611,15 +2611,18 @@ fs_visitor::get_tcs_eight_patch_icp_handle(const fs_builder &bld,
 {
    struct brw_tcs_prog_key *tcs_key = (struct brw_tcs_prog_key *) key;
    struct brw_tcs_prog_data *tcs_prog_data = brw_tcs_prog_data(prog_data);
-   const nir_src &vertex_src = instr->src[0];
+   const nir_src &nir_vertex_src = instr->src[0];
 
    unsigned first_icp_handle = tcs_prog_data->include_primitive_id ? 3 : 2;
 
-   if (nir_src_is_const(vertex_src)) {
-      return fs_reg(retype(brw_vec8_grf(first_icp_handle +
-                                        nir_src_as_uint(vertex_src), 0),
-                           BRW_REGISTER_TYPE_UD));
+   if (nir_src_is_const(nir_vertex_src)) {
+      unsigned reg_nr = first_icp_handle + MIN2(nir_src_as_uint(nir_vertex_src),
+                                                tcs_key->input_vertices - 1);
+      return fs_reg(retype(brw_vec8_grf(reg_nr, 0), BRW_REGISTER_TYPE_UD));
    }
+
+   fs_reg vertex_src = retype(get_nir_src(nir_vertex_src), BRW_REGISTER_TYPE_UD);
+   bld.emit_minmax(vertex_src, vertex_src, brw_imm_ud(tcs_key->input_vertices - 1), BRW_CONDITIONAL_L);
 
    /* The vertex index is non-constant.  We need to use indirect
     * addressing to fetch the proper URB handle.
@@ -2643,9 +2646,7 @@ fs_visitor::get_tcs_eight_patch_icp_handle(const fs_builder &bld,
    /* channel_offsets = 4 * sequence = <28, 24, 20, 16, 12, 8, 4, 0> */
    bld.SHL(channel_offsets, sequence, brw_imm_ud(2u));
    /* Convert vertex_index to bytes (multiply by 32) */
-   bld.SHL(vertex_offset_bytes,
-           retype(get_nir_src(vertex_src), BRW_REGISTER_TYPE_UD),
-           brw_imm_ud(5u));
+   bld.SHL(vertex_offset_bytes, vertex_src, brw_imm_ud(5u));
    bld.ADD(icp_offset_bytes, vertex_offset_bytes, channel_offsets);
 
    /* Use first_icp_handle as the base offset.  There is one register
