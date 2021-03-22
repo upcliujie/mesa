@@ -303,18 +303,16 @@ zink_context_destroy(struct pipe_context *pctx)
       pipe_resource_reference(&ctx->null_buffers[i], NULL);
 
    simple_mtx_destroy(&ctx->batch_mtx);
-   struct zink_fence *fence = zink_fence(&ctx->batch.state);
    zink_clear_batch_state(ctx, ctx->batch.state);
-   zink_fence_reference(screen, &fence, NULL);
+   zink_batch_state_reference(screen, &ctx->batch.state, NULL);
    hash_table_foreach(&ctx->batch_states, entry) {
-      fence = entry->data;
-      zink_clear_batch_state(ctx, entry->data);
-      zink_fence_reference(screen, &fence, NULL);
+      struct zink_batch_state *bs = entry->data;
+      zink_clear_batch_state(ctx, bs);
+      zink_batch_state_reference(screen, &bs, NULL);
    }
    util_dynarray_foreach(&ctx->free_batch_states, struct zink_batch_state*, bs) {
-      fence = zink_fence(*bs);
       zink_clear_batch_state(ctx, *bs);
-      zink_fence_reference(screen, &fence, NULL);
+      zink_batch_state_reference(screen, bs, NULL);
    }
 
    if (ctx->framebuffer) {
@@ -1887,9 +1885,7 @@ zink_flush(struct pipe_context *pctx,
    if (deferred && !batch->has_work) {
       fence = ctx->last_fence;
    }
-   zink_fence_reference(screen,
-                        (struct zink_fence **)pfence,
-                        fence);
+   zink_batch_state_reference(screen, NULL, zink_batch_state(fence));
    if (flags & PIPE_FLUSH_END_OF_FRAME) {
       /* if the first frame has not yet occurred, we need an explicit fence here
        * in some cases in order to correctly draw the first frame, though it's

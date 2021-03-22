@@ -17,6 +17,12 @@
 #include "wsi_common.h"
 
 void
+debug_describe_zink_batch_state(char *buf, const struct zink_batch_state *ptr)
+{
+   sprintf(buf, "zink_batch_state");
+}
+
+void
 zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
@@ -162,6 +168,7 @@ create_batch_state(struct zink_context *ctx)
       goto fail
 
    bs->ctx = ctx;
+   pipe_reference_init(&bs->reference, 1);
 
    SET_CREATE_OR_FAIL(bs->fbs);
    SET_CREATE_OR_FAIL(bs->fence.resources);

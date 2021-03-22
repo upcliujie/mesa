@@ -52,7 +52,8 @@ destroy_fence(struct zink_screen *screen, struct zink_fence *fence)
 {
    if (fence->fence)
       vkDestroyFence(screen->dev, fence->fence, NULL);
-   zink_batch_state_destroy(screen, zink_batch_state(fence));
+   struct zink_batch_state *bs = zink_batch_state(fence);
+   zink_batch_state_reference(screen, &bs, NULL);
 }
 
 void
