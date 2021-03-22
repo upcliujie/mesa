@@ -95,6 +95,7 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 void
 zink_clear_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 {
+   bs->fence.completed = true;
    zink_reset_batch_state(ctx, bs);
 }
 
@@ -104,6 +105,7 @@ zink_batch_reset_all(struct zink_context *ctx)
    simple_mtx_lock(&ctx->batch_mtx);
    hash_table_foreach(&ctx->batch_states, entry) {
       struct zink_batch_state *bs = entry->data;
+      bs->fence.completed = true;
       zink_reset_batch_state(ctx, bs);
       _mesa_hash_table_remove(&ctx->batch_states, entry);
       util_dynarray_append(&ctx->free_batch_states, struct zink_batch_state *, bs);
@@ -190,8 +192,9 @@ find_unused_state(struct hash_entry *entry)
 {
    struct zink_fence *fence = entry->data;
    /* we can't reset these from fence_finish because threads */
+   bool completed = p_atomic_read(&fence->completed);
    bool submitted = p_atomic_read(&fence->submitted);
-   return !submitted;
+   return submitted && completed;
 }
 
 static struct zink_batch_state *
@@ -253,6 +256,7 @@ zink_start_batch(struct zink_context *ctx, struct zink_batch *batch)
       debug_printf("vkBeginCommandBuffer failed\n");
 
    batch->state->fence.batch_id = ctx->curr_batch;
+   batch->state->fence.completed = false;
    if (ctx->last_fence) {
       struct zink_batch_state *last_state = zink_batch_state(ctx->last_fence);
       batch->last_batch_id = last_state->fence.batch_id;

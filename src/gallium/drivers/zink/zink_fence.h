@@ -44,6 +44,7 @@ struct zink_fence {
    simple_mtx_t resource_mtx;
    struct set *resources; /* resources need access removed asap, so they're on the fence */
    bool submitted;
+   bool completed;
 };
 
 static inline struct zink_fence *

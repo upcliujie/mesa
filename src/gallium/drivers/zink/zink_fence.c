@@ -78,7 +78,7 @@ fence_reference(struct pipe_screen *pscreen,
 bool
 zink_vkfence_wait(struct zink_screen *screen, struct zink_fence *fence, uint64_t timeout_ns)
 {
-   if (!fence->submitted)
+   if (p_atomic_read(&fence->completed))
       return true;
 
    bool success;
@@ -89,8 +89,8 @@ zink_vkfence_wait(struct zink_screen *screen, struct zink_fence *fence, uint64_t
       success = vkGetFenceStatus(screen->dev, fence->fence) == VK_SUCCESS;
 
    if (success) {
+      p_atomic_set(&fence->completed, true);
       zink_fence_clear_resources(screen, fence);
-      p_atomic_set(&fence->submitted, false);
    }
    return success;
 }
