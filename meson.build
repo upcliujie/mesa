@@ -53,6 +53,10 @@ with_perfetto = get_option('perfetto')
 with_datasources = get_option('datasources')
 with_any_datasource = with_datasources.length() != 0
 
+if with_perfetto
+  pre_args += '-DHAVE_PERFETTO'
+endif
+
 with_vulkan_icd_dir = get_option('vulkan-icd-dir')
 with_tests = get_option('build-tests')
 with_aco_tests = get_option('build-aco-tests')

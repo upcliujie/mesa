@@ -202,6 +202,15 @@ if with_platform_haiku
   deps_for_libmesa_util += dep_network
 endif
 
+if with_perfetto
+  files_mesa_util += files(
+    'u_perfetto.cc',
+    'u_perfetto.h',
+  )
+  dep_perfetto = dependency('perfetto', fallback: ['perfetto', 'dep_perfetto'])
+  deps_for_libmesa_util += dep_perfetto
+endif
+
 _libmesa_util = static_library(
   'mesa_util',
   [files_mesa_util, files_debug_stack, format_srgb],
@@ -401,6 +410,3 @@ if with_tests
   subdir('tests/vector')
 endif
 
-if with_perfetto
-  dep_perfetto = dependency('perfetto', fallback: ['perfetto', 'dep_perfetto'])
-endif
