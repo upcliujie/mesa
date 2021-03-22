@@ -22,6 +22,8 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#define AC_SURFACE_INCLUDE_NIR
+#include "ac_surface.h"
 #include "si_pipe.h"
 #include "tgsi/tgsi_text.h"
 #include "tgsi/tgsi_ureg.h"
@@ -253,76 +255,6 @@ void *si_create_clear_buffer_rmw_cs(struct pipe_context *ctx)
    state.prog = tokens;
 
    return ctx->create_compute_state(ctx, &state);
-}
-
-/* Create a compute shader that copies DCC from one buffer to another
- * where each DCC buffer has a different layout.
- *
- * image[0]: offset remap table (pairs of <src_offset, dst_offset>),
- *           2 pairs are read
- * image[1]: DCC source buffer, typed r8_uint
- * image[2]: DCC destination buffer, typed r8_uint
- */
-void *si_create_dcc_retile_cs(struct pipe_context *ctx)
-{
-   struct ureg_program *ureg = ureg_create(PIPE_SHADER_COMPUTE);
-   if (!ureg)
-      return NULL;
-
-   ureg_property(ureg, TGSI_PROPERTY_CS_FIXED_BLOCK_WIDTH, 64);
-   ureg_property(ureg, TGSI_PROPERTY_CS_FIXED_BLOCK_HEIGHT, 1);
-   ureg_property(ureg, TGSI_PROPERTY_CS_FIXED_BLOCK_DEPTH, 1);
-
-   /* Compute the global thread ID (in idx). */
-   struct ureg_src tid = ureg_DECL_system_value(ureg, TGSI_SEMANTIC_THREAD_ID, 0);
-   struct ureg_src blk = ureg_DECL_system_value(ureg, TGSI_SEMANTIC_BLOCK_ID, 0);
-   struct ureg_dst idx = ureg_writemask(ureg_DECL_temporary(ureg), TGSI_WRITEMASK_X);
-   ureg_UMAD(ureg, idx, blk, ureg_imm1u(ureg, 64), tid);
-
-   /* Load 2 pairs of offsets for DCC load & store. */
-   struct ureg_src map = ureg_DECL_image(ureg, 0, TGSI_TEXTURE_BUFFER, 0, false, false);
-   struct ureg_dst offsets = ureg_DECL_temporary(ureg);
-   struct ureg_src map_load_args[] = {map, ureg_src(idx)};
-
-   ureg_memory_insn(ureg, TGSI_OPCODE_LOAD, &offsets, 1, map_load_args, 2, TGSI_MEMORY_RESTRICT,
-                    TGSI_TEXTURE_BUFFER, 0);
-
-   struct ureg_src dcc_src = ureg_DECL_image(ureg, 1, TGSI_TEXTURE_BUFFER, 0, false, false);
-   struct ureg_dst dcc_dst =
-      ureg_dst(ureg_DECL_image(ureg, 2, TGSI_TEXTURE_BUFFER, 0, true, false));
-   struct ureg_dst dcc_value[2];
-
-   /* Copy DCC values:
-    *   dst[offsets.y] = src[offsets.x];
-    *   dst[offsets.w] = src[offsets.z];
-    */
-   for (unsigned i = 0; i < 2; i++) {
-      dcc_value[i] = ureg_writemask(ureg_DECL_temporary(ureg), TGSI_WRITEMASK_X);
-
-      struct ureg_src load_args[] = {dcc_src,
-                                     ureg_scalar(ureg_src(offsets), TGSI_SWIZZLE_X + i * 2)};
-      ureg_memory_insn(ureg, TGSI_OPCODE_LOAD, &dcc_value[i], 1, load_args, 2, TGSI_MEMORY_RESTRICT,
-                       TGSI_TEXTURE_BUFFER, 0);
-   }
-
-   dcc_dst = ureg_writemask(dcc_dst, TGSI_WRITEMASK_X);
-
-   for (unsigned i = 0; i < 2; i++) {
-      struct ureg_src store_args[] = {ureg_scalar(ureg_src(offsets), TGSI_SWIZZLE_Y + i * 2),
-                                      ureg_src(dcc_value[i])};
-      ureg_memory_insn(ureg, TGSI_OPCODE_STORE, &dcc_dst, 1, store_args, 2, TGSI_MEMORY_RESTRICT,
-                       TGSI_TEXTURE_BUFFER, 0);
-   }
-   ureg_END(ureg);
-
-   struct pipe_compute_state state = {};
-   state.ir_type = PIPE_SHADER_IR_TGSI;
-   state.prog = ureg_get_tokens(ureg, NULL);
-
-   void *cs = ctx->create_compute_state(ctx, &state);
-   ureg_destroy(ureg);
-   ureg_free_tokens(state.prog);
-   return cs;
 }
 
 /* Create the compute shader that is used to collect the results.
@@ -1041,5 +973,69 @@ void *gfx10_create_sh_query_result_cs(struct si_context *sctx)
    state.ir_type = PIPE_SHADER_IR_TGSI;
    state.prog = tokens;
 
+   return sctx->b.create_compute_state(&sctx->b, &state);
+}
+
+void *si_create_dcc_retile_cs(struct si_context *sctx, struct radeon_surf *surf)
+{
+   struct pipe_screen *screen = sctx->b.screen;
+   const nir_shader_compiler_options *options =
+      screen->get_compiler_options(screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
+
+   nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, options, "dcc_retile");
+   b.shader->info.cs.local_size[0] = 8;
+   b.shader->info.cs.local_size[1] = 8;
+   b.shader->info.cs.local_size[2] = 1;
+   b.shader->info.cs.user_data_components_amd = 3;
+
+   /* Get user data SGPRs. */
+   nir_ssa_def *user_sgprs = nir_load_user_data_amd(&b);
+   nir_ssa_def *src_dcc_info = nir_channel(&b, user_sgprs, 1);
+   nir_ssa_def *dst_dcc_info = nir_channel(&b, user_sgprs, 2);
+
+   /* Relative offset from the displayable DCC to the non-displayable DCC in the same buffer. */
+   nir_ssa_def *src_dcc_offset = nir_channel(&b, user_sgprs, 0);
+   nir_ssa_def *src_dcc_pitch = nir_iand(&b, src_dcc_info, nir_imm_int(&b, 0xffff));
+   nir_ssa_def *dst_dcc_pitch = nir_iand(&b, dst_dcc_info, nir_imm_int(&b, 0xffff));
+   nir_ssa_def *src_dcc_height = nir_ushr(&b, src_dcc_info, nir_imm_int(&b, 16));
+   nir_ssa_def *dst_dcc_height = nir_ushr(&b, dst_dcc_info, nir_imm_int(&b, 16));
+
+   /* Declare the SSBO. */
+   const struct glsl_type *buf_type = glsl_array_type(glsl_uint8_t_type(), 0, 0);
+   nir_variable *dcc_buffer = nir_variable_create(b.shader, nir_var_mem_ssbo, buf_type, "src");
+   dcc_buffer->data.binding = 0;
+   b.shader->info.num_ssbos = 1;
+
+   /* Get the 2D coordinates. */
+   nir_ssa_def *local_ids = nir_channels(&b, nir_load_local_invocation_id(&b), 0x3);
+   nir_ssa_def *block_ids = nir_channels(&b, nir_load_work_group_id(&b, 32), 0x3);
+   nir_ssa_def *coord = nir_iadd(&b, nir_imul(&b, block_ids, nir_imm_ivec2(&b, 8, 8)), local_ids);
+   nir_ssa_def *zero = nir_imm_int(&b, 0);
+
+   /* Multiply the coordinates by the DCC block size (they are DCC block coordinates). */
+   coord = nir_imul(&b, coord, nir_imm_ivec2(&b, surf->u.gfx9.dcc_block_width,
+                                             surf->u.gfx9.dcc_block_height));
+
+   nir_ssa_def *src_offset =
+      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, surf, &surf->u.gfx9.dcc_equation,
+                                 src_dcc_pitch, src_dcc_height, zero, /* DCC slice size */
+                                 nir_channel(&b, coord, 0), nir_channel(&b, coord, 1), /* x, y */
+                                 zero, zero, zero); /* z, sample, pipe_xor */
+   src_offset = nir_iadd(&b, src_offset, src_dcc_offset);
+   nir_ssa_def *value = nir_load_ssbo(&b, 1, 8, zero, src_offset, .align_mul=1);
+
+   nir_ssa_def *dst_offset =
+      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, surf, &surf->u.gfx9.display_dcc_equation,
+                                 dst_dcc_pitch, dst_dcc_height, zero, /* DCC slice size */
+                                 nir_channel(&b, coord, 0), nir_channel(&b, coord, 1), /* x, y */
+                                 zero, zero, zero); /* z, sample, pipe_xor */
+   nir_store_ssbo(&b, value, zero, dst_offset, .write_mask=0x1, .align_mul=1);
+
+   nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+
+   struct pipe_compute_state state = {0};
+   state.ir_type = PIPE_SHADER_IR_NIR;
+   state.prog = b.shader;
+   screen->finalize_nir(screen, (void*)state.prog, false);
    return sctx->b.create_compute_state(&sctx->b, &state);
 }
