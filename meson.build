@@ -50,6 +50,9 @@ pre_args = [
 ]
 
 with_perfetto = get_option('perfetto')
+if with_perfetto
+  pre_args += '-DHAVE_PERFETTO'
+endif
 with_vulkan_icd_dir = get_option('vulkan-icd-dir')
 with_tests = get_option('build-tests')
 with_aco_tests = get_option('build-aco-tests')

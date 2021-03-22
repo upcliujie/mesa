@@ -29,7 +29,16 @@ include_perfetto = include_directories('../')
 
 lib_perfetto = static_library(
   'perfetto',
-  'perfetto.cc',
+  sources: [
+    'perfetto.cc',
+    'perfetto.h',
+    'u_perfetto.cc',
+    'u_perfetto.h',
+  ],
+  include_directories: [
+    inc_include,
+    inc_src,
+  ],
   dependencies: dep_threads,
 )
 
