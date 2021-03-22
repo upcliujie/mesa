@@ -1068,6 +1068,17 @@ anv_get_image_format_properties(
       }
    }
 
+   if (info->flags & VK_IMAGE_CREATE_ALIAS_BIT) {
+      /* Reject aliasing if the image has non-linear modifier because we may
+       * allocate a private aux surface, which is not aliasable because it lives
+       * not in a VkDeviceMemory.
+       */
+      if (info->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
+          isl_mod_info->modifier != DRM_FORMAT_MOD_LINEAR) {
+         goto unsupported;
+      }
+   }
+
    if (info->flags & VK_IMAGE_CREATE_DISJOINT_BIT) {
       /* From the Vulkan 1.2.149 spec, VkImageCreateInfo:
        *
