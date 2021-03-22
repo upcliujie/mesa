@@ -1311,6 +1311,7 @@ struct radv_cmd_state {
    struct radv_pipeline *emitted_pipeline;
    struct radv_pipeline *compute_pipeline;
    struct radv_pipeline *emitted_compute_pipeline;
+   struct radv_pipeline *rt_pipeline; /* emitted = emitted_compute_pipeline */
    struct radv_framebuffer *framebuffer;
    struct radv_render_pass *pass;
    const struct radv_subpass *subpass;
@@ -1575,15 +1576,15 @@ radv_emit_shader_pointer(struct radv_device *device, struct radeon_cmdbuf *cs, u
 static inline struct radv_descriptor_state *
 radv_get_descriptors_state(struct radv_cmd_buffer *cmd_buffer, VkPipelineBindPoint bind_point)
 {
-	switch(bind_point) {
-	case VK_PIPELINE_BIND_POINT_GRAPHICS:
-	case VK_PIPELINE_BIND_POINT_COMPUTE:
-   return &cmd_buffer->descriptors[bind_point];
-	case VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR:
-		return &cmd_buffer->descriptors[2];
-	default:
-		unreachable("Unhandled bind point");
-	}
+   switch (bind_point) {
+   case VK_PIPELINE_BIND_POINT_GRAPHICS:
+   case VK_PIPELINE_BIND_POINT_COMPUTE:
+      return &cmd_buffer->descriptors[bind_point];
+   case VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR:
+      return &cmd_buffer->descriptors[2];
+   default:
+      unreachable("Unhandled bind point");
+   }
 }
 
 /*
