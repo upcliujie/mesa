@@ -42,6 +42,10 @@
 #include "freedreno_gmem.h"
 #include "freedreno_util.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define BORDER_COLOR_UPLOAD_SIZE (2 * PIPE_MAX_SAMPLERS * BORDERCOLOR_SIZE)
 
 struct fd_vertex_stateobj;
@@ -564,6 +568,17 @@ fd_context_dirty_resource(enum fd_dirty_3d_state dirty)
 			FD_DIRTY_VTXBUF | FD_DIRTY_TEX | FD_DIRTY_STREAMOUT);
 }
 
+#ifdef __cplusplus
+#  define or_dirty(d, mask) do { \
+			decltype(mask) _d = (d); \
+			d = (decltype(mask))(_d | (mask)); \
+		} while (0)
+#else
+#  define or_dirty(d, mask) do { \
+			d |= (mask); \
+		} while (0)
+#endif
+
 /* Mark specified non-shader-stage related state as dirty: */
 static inline void
 fd_context_dirty(struct fd_context *ctx, enum fd_dirty_3d_state dirty)
@@ -575,9 +590,9 @@ fd_context_dirty(struct fd_context *ctx, enum fd_dirty_3d_state dirty)
 	ctx->gen_dirty |= ctx->gen_dirty_map[ffs(dirty) - 1];
 
 	if (fd_context_dirty_resource(dirty))
-		dirty |= FD_DIRTY_RESOURCE;
+		or_dirty(dirty, FD_DIRTY_RESOURCE);
 
-	ctx->dirty |= dirty;
+	or_dirty(ctx->dirty, dirty);
 }
 
 static inline void
@@ -605,7 +620,7 @@ fd_context_dirty_shader(struct fd_context *ctx, enum pipe_shader_type shader,
 
 	ctx->gen_dirty |= ctx->gen_dirty_shader_map[shader][ffs(dirty) - 1];
 
-	ctx->dirty_shader[shader] |= dirty;
+	or_dirty(ctx->dirty_shader[shader], dirty);
 	fd_context_dirty(ctx, map[ffs(dirty) - 1]);
 }
 
@@ -615,7 +630,7 @@ fd_context_all_dirty(struct fd_context *ctx)
 	assert_dt
 {
 	ctx->last.dirty = true;
-	ctx->dirty = ~0;
+	ctx->dirty = (enum fd_dirty_3d_state)~0;
 
 	/* NOTE: don't use ~0 for gen_dirty, because the gen specific
 	 * emit code will loop over all the bits:
@@ -623,7 +638,7 @@ fd_context_all_dirty(struct fd_context *ctx)
 	ctx->gen_dirty = ctx->gen_all_dirty;
 
 	for (unsigned i = 0; i < PIPE_SHADER_TYPES; i++)
-		ctx->dirty_shader[i] = ~0;
+		ctx->dirty_shader[i] = (enum fd_dirty_shader_state)~0;
 }
 
 static inline void
@@ -631,7 +646,7 @@ fd_context_all_clean(struct fd_context *ctx)
 	assert_dt
 {
 	ctx->last.dirty = false;
-	ctx->dirty = 0;
+	ctx->dirty = (enum fd_dirty_3d_state)0;
 	ctx->gen_dirty = 0;
 	for (unsigned i = 0; i < PIPE_SHADER_TYPES; i++) {
 		/* don't mark compute state as clean, since it is not emitted
@@ -641,7 +656,7 @@ fd_context_all_clean(struct fd_context *ctx)
 		 */
 		if (i == PIPE_SHADER_COMPUTE)
 			continue;
-		ctx->dirty_shader[i] = 0;
+		ctx->dirty_shader[i] = (enum fd_dirty_shader_state)0;
 	}
 }
 
@@ -702,5 +717,9 @@ struct pipe_context * fd_context_init(struct fd_context *ctx,
 struct pipe_context * fd_context_init_tc(struct pipe_context *pctx, unsigned flags);
 
 void fd_context_destroy(struct pipe_context *pctx) assert_dt;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FREEDRENO_CONTEXT_H_ */
