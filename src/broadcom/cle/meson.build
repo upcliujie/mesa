@@ -54,9 +54,7 @@ v3d_xml_h = custom_target(
 )
 
 expat_args = []
-# I'd love to use dep_expat.found() here, but the android CI build picks up the
-# amd64 .pc file. :(
-if not with_platform_android
+if dep_expat.found()
   expat_args += '-DWITH_LIBEXPAT=1'
 endif
 
