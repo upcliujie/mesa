@@ -69,6 +69,7 @@ libaco_files = files(
   'aco_insert_NOPs.cpp',
   'aco_insert_waitcnt.cpp',
   'aco_reduce_assign.cpp',
+  'aco_register_allocation.h',
   'aco_register_allocation.cpp',
   'aco_live_var_analysis.cpp',
   'aco_lower_phis.cpp',
