@@ -243,7 +243,7 @@ nouveau_fence_wait(struct nouveau_fence *fence, struct pipe_debug_callback *debu
       return false;
 
    /* waiting on not flushed fences makes no sense */
-   assert(fence->state >= NOUVEAU_FENCE_STATE_FLUSHED);
+   assert(fence->state >= NOUVEAU_FENCE_STATE_EMITTED);
 
    do {
       if (fence->state == NOUVEAU_FENCE_STATE_SIGNALLED) {
