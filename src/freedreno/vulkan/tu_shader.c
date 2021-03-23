@@ -76,6 +76,7 @@ tu_spirv_to_nir(struct tu_device *dev,
          .physical_storage_buffer_address = true,
          .float_controls = true,
          .float16 = true,
+         .storage_16bit = dev->physical_device->gpu_id >= 650,
       },
    };
    const nir_shader_compiler_options *nir_options =
