@@ -1106,6 +1106,8 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
                         uint32_t base_layer, uint32_t layer_count,
                         VkImageLayout initial_layout,
                         VkImageLayout final_layout,
+                        uint64_t src_queue_family,
+                        uint64_t dst_queue_family,
                         bool will_full_fast_clear)
 {
    struct anv_device *device = cmd_buffer->device;
@@ -1125,12 +1127,32 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
    /* The spec disallows these final layouts. */
    assert(final_layout != VK_IMAGE_LAYOUT_UNDEFINED &&
           final_layout != VK_IMAGE_LAYOUT_PREINITIALIZED);
+   const struct isl_drm_modifier_info *isl_mod_info =
+      image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT
+      ? isl_drm_modifier_get_info(image->drm_format_mod)
+      : NULL;
 
-   /* No work is necessary if the layout stays the same or if this subresource
-    * range lacks auxiliary data.
+   /* Ownership transition on the foreign queue requires special action when the
+    * image has a DRM format modifier.
     */
-   if (initial_layout == final_layout)
-      return;
+   const bool mod_foreign_acquire =
+      image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
+      src_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT;
+
+   const bool mod_foreign_release =
+      image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
+      dst_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT;
+
+   /* Simultaneous acquire and release on the foreign queue is illegal. */
+   assert(src_queue_family != VK_QUEUE_FAMILY_FOREIGN_EXT ||
+          dst_queue_family != VK_QUEUE_FAMILY_FOREIGN_EXT);
+
+   if (initial_layout == final_layout &&
+       !mod_foreign_acquire &&
+       !mod_foreign_release) {
+      /* No work is needed. */
+       return;
+   }
 
    uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
 
@@ -1140,6 +1162,7 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
        * for texturing.  The client is about to use it in READ_ONLY_OPTIMAL so
        * we need to ensure the shadow copy is up-to-date.
        */
+      assert(image->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT);
       assert(image->aspects == VK_IMAGE_ASPECT_COLOR_BIT);
       assert(image->planes[plane].primary_surface.isl.tiling == ISL_TILING_LINEAR);
       assert(image->planes[plane].shadow_surface.isl.tiling != ISL_TILING_LINEAR);
@@ -1156,28 +1179,95 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
 
    assert(image->planes[plane].primary_surface.isl.tiling != ISL_TILING_LINEAR);
 
-   if (initial_layout == VK_IMAGE_LAYOUT_UNDEFINED ||
-       initial_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
+   /* The following layouts are equivalent for non-linear images. */
+   const bool initial_layout_undefined =
+      initial_layout == VK_IMAGE_LAYOUT_UNDEFINED ||
+      initial_layout == VK_IMAGE_LAYOUT_PREINITIALIZED;
+
+   bool must_init_fast_clear_state = false;
+   bool must_init_aux_surface = false;
+
+   if (initial_layout_undefined) {
+      /* The subresource may have been aliased and populated with arbitrary
+       * data.
+       */
+      must_init_fast_clear_state = true;
+      must_init_aux_surface = true;
+   } else if (mod_foreign_acquire) {
+      /* The fast clear state lives in a driver-private bo, and therefore the
+       * foreign queue is unaware of it.
+       */
+      assert(image->planes[plane].fast_clear_memory_range.binding ==
+              ANV_IMAGE_MEMORY_BINDING_PRIVATE);
+
+      if (image->planes[plane].aux_surface.memory_range.binding ==
+          ANV_IMAGE_MEMORY_BINDING_PRIVATE) {
+         assert(isl_mod_info->aux_usage == ISL_AUX_USAGE_NONE);
+
+         /* The aux surface, in addition to the fast clear state, lives in
+          * a driver-private bo, and therefore the foreign queue is unaware of
+          * it.
+          *
+          * If this is the first time we are accessing the image, then the aux
+          * surface and the fast clear state are uninitialized.
+          *
+          * If this is NOT the first time we are accessing the image, then we
+          * may have resolved the image to the pass-through state during our
+          * most recent ownership release to the foreign queue. In this case,
+          * the driver-private aux surface and fast clear state are still
+          * correctly in the pass-through state when we re-acquire the image
+          * with a defined VkImageLayout. However, we do not track the aux
+          * state with MI stores, and therefore must assume the worst-case: that
+          * this is the first time we are accessing the image.
+          */
+         must_init_fast_clear_state = true;
+         must_init_aux_surface = true;
+      } else {
+         assert(isl_mod_info->aux_usage != ISL_AUX_USAGE_NONE);
+
+         /* The aux surface, unlike the fast clear state, lives in
+          * application-visible VkDeviceMemory and is shared with the foreign
+          * queue. Therefore, when we acquire ownership of the image with
+          * a defined VkImageLayout from the foreign queue, the aux surface is
+          * valid and has the aux state required by the modifier.
+          *
+          * If this is the first time we are accessing the image, then the
+          * fast clear state is uninitialized.
+          *
+          * If this is NOT the first time we are accessing
+          * the image, then the fast clear state may still be valid and correct
+          * due to the resolve up during our most recent ownership release to
+          * the foreign queue. However, we do not track the aux state with MI
+          * stores, and therefore must assume the worst-case: that this is the
+          * first time we are accessing the image.
+          */
+         must_init_fast_clear_state = true;
+         must_init_aux_surface = false;
+      }
+   }
+
 #if GEN_GEN == 12
+   /* We do not yet support modifiers with aux on gen12. */
+   assert(image->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT);
+
+   if (initial_layout_undefined) {
       if (device->physical->has_implicit_ccs && devinfo->has_aux_map) {
          anv_image_init_aux_tt(cmd_buffer, image, aspect,
                                base_level, level_count,
                                base_layer, layer_count);
       }
+   }
 #else
-      assert(!(device->physical->has_implicit_ccs && devinfo->has_aux_map));
+   assert(!(device->physical->has_implicit_ccs && devinfo->has_aux_map));
 #endif
 
-      /* A subresource in the undefined layout may have been aliased and
-       * populated with any arrangement of bits. Therefore, we must initialize
-       * the related aux buffer and clear buffer entry with desirable values.
-       * An initial layout of PREINITIALIZED is the same as UNDEFINED for
-       * images with VK_IMAGE_TILING_OPTIMAL.
-       *
-       * Initialize the relevant clear buffer entries.
-       */
+   if (must_init_fast_clear_state) {
       if (base_level == 0 && base_layer == 0)
          init_fast_clear_color(cmd_buffer, image, aspect);
+   }
+
+   if (must_init_aux_surface) {
+      assert(must_init_fast_clear_state);
 
       /* Initialize the aux buffers to enable correct rendering.  In order to
        * ensure that things such as storage images work correctly, aux buffers
@@ -1268,10 +1358,19 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
       return;
    }
 
-   const enum isl_aux_usage initial_aux_usage =
+   enum isl_aux_usage initial_aux_usage =
       anv_layout_to_aux_usage(devinfo, image, aspect, 0, initial_layout);
-   const enum isl_aux_usage final_aux_usage =
+   enum isl_aux_usage final_aux_usage =
       anv_layout_to_aux_usage(devinfo, image, aspect, 0, final_layout);
+
+   /* We must override the anv_layout_to_* functions because they are unaware of
+    * acquire/release direction.
+    */
+   if (mod_foreign_acquire) {
+      initial_aux_usage = isl_mod_info->aux_usage;
+   } else if (mod_foreign_release) {
+      final_aux_usage = isl_mod_info->aux_usage;
+   }
 
    /* The current code assumes that there is no mixing of CCS_E and CCS_D.
     * We can handle transitions between CCS_D/E to and from NONE.  What we
@@ -2317,6 +2416,8 @@ void genX(CmdPipelineBarrier)(
                                     base_layer, layer_count,
                                     pImageMemoryBarriers[i].oldLayout,
                                     pImageMemoryBarriers[i].newLayout,
+                                    pImageMemoryBarriers[i].srcQueueFamilyIndex,
+                                    pImageMemoryBarriers[i].dstQueueFamilyIndex,
                                     false /* will_full_fast_clear */);
          }
       }
@@ -5275,6 +5376,8 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
          transition_color_buffer(cmd_buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
                                  level, 1, base_layer, layer_count,
                                  att_state->current_layout, target_layout,
+                                 VK_QUEUE_FAMILY_IGNORED,
+                                 VK_QUEUE_FAMILY_IGNORED,
                                  will_full_fast_clear);
          att_state->aux_usage =
             anv_layout_to_aux_usage(&cmd_buffer->device->info, image,
@@ -5950,6 +6053,8 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
                                  iview->planes[0].isl.base_level, 1,
                                  base_layer, layer_count,
                                  att_state->current_layout, target_layout,
+                                 VK_QUEUE_FAMILY_IGNORED,
+                                 VK_QUEUE_FAMILY_IGNORED,
                                  false /* will_full_fast_clear */);
       }
 
