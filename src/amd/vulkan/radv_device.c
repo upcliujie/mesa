@@ -168,9 +168,23 @@ radv_physical_device_init_mem_types(struct radv_physical_device *device)
 {
 	uint64_t visible_vram_size = radv_get_visible_vram_size(device);
 	uint64_t vram_size = radv_get_vram_size(device);
+	uint64_t gtt_size = device->rad_info.gart_size;
 	int vram_index = -1, visible_vram_index = -1, gart_index = -1;
+
 	device->memory_properties.memoryHeapCount = 0;
 	device->heaps = 0;
+
+	if (!device->rad_info.has_dedicated_vram) {
+		/* On APUs, the carveout is usually too small for games that
+		 * request a minimum VRAM size greater than it. To workaround
+		 * this, we compute the total available memory size (GTT +
+		 * visible VRAM size) and report 2/3 as VRAM and 1/3 as GTT.
+		 */
+		const uint64_t total_size = gtt_size + visible_vram_size;
+		visible_vram_size = (total_size / 3) * 2;
+		gtt_size = total_size - visible_vram_size;
+		vram_size = 0;
+	}
 
 	/* Only get a VRAM heap if it is significant, not if it is a 16 MiB
 	 * remainder above visible VRAM. */
@@ -183,11 +197,11 @@ radv_physical_device_init_mem_types(struct radv_physical_device *device)
 		};
 	}
 
-	if (device->rad_info.gart_size > 0) {
+	if (gtt_size > 0) {
 		gart_index = device->memory_properties.memoryHeapCount++;
 		device->heaps |= RADV_HEAP_GTT;
 		device->memory_properties.memoryHeaps[gart_index] = (VkMemoryHeap) {
-			.size = device->rad_info.gart_size,
+			.size = gtt_size,
 			.flags = 0,
 		};
 	}
