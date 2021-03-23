@@ -177,6 +177,8 @@ static void allocate_user_sgprs(struct radv_shader_args *args,
 
 	switch (stage) {
 	case MESA_SHADER_COMPUTE:
+		if (args->shader_info->cs.uses_sbt)
+			user_sgpr_count += 1;
 		if (args->shader_info->cs.uses_grid_size)
 			user_sgpr_count += 3;
 		break;
@@ -463,6 +465,11 @@ radv_declare_shader_args(struct radv_shader_args *args,
 	case MESA_SHADER_COMPUTE:
 		declare_global_input_sgprs(args, &user_sgpr_info);
 
+		if (args->shader_info->cs.uses_sbt) {
+			ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_CONST_DESC_PTR,
+				   &args->ac.sbt_descriptors);
+		}
+
 		if (args->shader_info->cs.uses_grid_size) {
 			ac_add_arg(&args->ac, AC_ARG_SGPR, 3, AC_ARG_INT,
 				   &args->ac.num_work_groups);
@@ -721,6 +728,10 @@ radv_declare_shader_args(struct radv_shader_args *args,
 
 	switch (stage) {
 	case MESA_SHADER_COMPUTE:
+		if (args->shader_info->cs.uses_sbt) {
+			set_loc_shader(args, AC_UD_CS_SBT_DESCRIPTORS,
+				       &user_sgpr_idx, 1);
+		}
 		if (args->shader_info->cs.uses_grid_size) {
 			set_loc_shader(args, AC_UD_CS_GRID_SIZE,
 				       &user_sgpr_idx, 3);
