@@ -684,7 +684,7 @@ kill_sched(struct ir3 *ir, struct ir3_shader_variant *so)
 		 * need to add at least one entry for the divergence which is resolved
 		 * at the end:
 		 */
-		so->branchstack++;
+		so->branchstack = MIN2(so->branchstack + 1, 32);
 
 		/* We don't update predecessors/successors, so we have to do this
 		 * manually:

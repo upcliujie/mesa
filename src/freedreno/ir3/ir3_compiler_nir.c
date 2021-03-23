@@ -3901,7 +3901,7 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
 		}
 	}
 
-	so->branchstack = ctx->max_stack;
+	so->branchstack = MIN2(ctx->max_stack, 32);
 
 	/* Note that actual_in counts inputs that are not bary.f'd for FS: */
 	if (so->type == MESA_SHADER_FRAGMENT)
