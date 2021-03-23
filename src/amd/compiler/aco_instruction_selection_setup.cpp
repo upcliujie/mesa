@@ -818,6 +818,7 @@ void init_context(isel_context *ctx, nir_shader *shader)
                   case nir_intrinsic_load_buffer_amd:
                   case nir_intrinsic_load_tess_rel_patch_id_amd:
                   case nir_intrinsic_load_gs_vertex_offset_amd:
+                  case nir_intrinsic_load_sbt_amd:
                      type = RegType::vgpr;
                      break;
                   case nir_intrinsic_shuffle:
