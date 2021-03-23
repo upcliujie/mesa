@@ -510,7 +510,7 @@ get_cpu_topology(void)
                 * to round up to the next power of two.
                 */
                unsigned L3_index = apic_id[i] /
-                                   util_next_power_of_two(cores_per_L3);
+                                   util_next_power_of_two(cores_per_L3 + 1);
 
                util_cpu_caps.L3_affinity_mask[L3_index][i / 32] |= cpu_bit;
                util_cpu_caps.cpu_to_L3[i] = L3_index;
