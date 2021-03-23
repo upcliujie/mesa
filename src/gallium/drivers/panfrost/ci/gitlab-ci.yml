@@ -158,6 +158,32 @@ panfrost-g52-gles31:arm64:
     DEQP_PARALLEL: 6
     DEQP_EXPECTED_RENDERER: G52
 
+panfrost-g52-traces-restricted:
+  extends:
+    - .lava-piglit-traces:arm64
+    - .lava-meson-g12b-a311d-khadas-vim3
+  variables:
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/restricted-traces-panfrost.yml"
+    MESA_GLSL_VERSION_OVERRIDE: "460"
+    MESA_GL_VERSION_OVERRIDE: "4.6"
+    PAN_MESA_DEBUG: "deqp,sync"
+    MESA_GLES_VERSION_OVERRIDE: "3.2"
+    EGL_PLATFORM: surfaceless
+    PIGLIT_PROFILES: replay
+    PIGLIT_JUNIT_RESULTS: 1
+    PIGLIT_HTML_SUMMARY: 0
+    PIGLIT_REPLAY_MINIO_BUCKET: mesa-tracie-private
+    PIGLIT_REPLAY_EXTRA_ARGS: "--keep-image"
+    FDO_CI_CONCURRENT: 1
+    DRIVER_NAME: panfrost
+  timeout: 72h
+  rules:
+    - if: '($GITLAB_USER_LOGIN == "marge-bot" || $GITLAB_USER_LOGIN == "tomeu") &&
+           $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == $CI_COMMIT_REF_NAME'
+      when: on_success
+    - when: never
+  allow_failure: true
+
 .lava-acer-mt8183-cp311-3h-jacuzzi:
   extends:
     - .panfrost-bifrost-rules
