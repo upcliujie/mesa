@@ -75,6 +75,7 @@ tu_spirv_to_nir(struct tu_device *dev,
          .runtime_descriptor_array = true,
          .physical_storage_buffer_address = true,
          .float_controls = true,
+         .float16 = true,
       },
    };
    const nir_shader_compiler_options *nir_options =
