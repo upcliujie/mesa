@@ -389,6 +389,9 @@ brw_compile_tcs(const struct brw_compiler *compiler,
    if (key->quads_workaround)
       brw_nir_apply_tcs_quads_workaround(nir);
 
+   if (key->input_vertices > 0)
+      brw_nir_clamp_tcs_load_per_vertex_input(nir, key->input_vertices);
+
    brw_postprocess_nir(nir, compiler, is_scalar);
 
    bool has_primitive_id =
