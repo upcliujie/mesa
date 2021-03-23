@@ -388,6 +388,7 @@ brw_compile_tcs(const struct brw_compiler *compiler,
                              key->tes_primitive_mode);
    if (key->quads_workaround)
       brw_nir_apply_tcs_quads_workaround(nir);
+   brw_nir_clamp_tcs_load_per_vertex_input(nir, key->input_vertices);
 
    brw_postprocess_nir(nir, compiler, is_scalar);
 

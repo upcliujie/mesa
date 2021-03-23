@@ -138,6 +138,9 @@ void brw_postprocess_nir(nir_shader *nir,
 
 bool brw_nir_clamp_image_1d_2d_array_sizes(nir_shader *shader);
 
+bool brw_nir_clamp_tcs_load_per_vertex_input(nir_shader *nir,
+                                             unsigned input_vertices);
+
 bool brw_nir_apply_attribute_workarounds(nir_shader *nir,
                                          const uint8_t *attrib_wa_flags);
 
