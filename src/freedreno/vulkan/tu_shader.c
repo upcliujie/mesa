@@ -73,6 +73,8 @@ tu_spirv_to_nir(struct tu_device *dev,
          .descriptor_array_dynamic_indexing = true,
          .descriptor_array_non_uniform_indexing = true,
          .runtime_descriptor_array = true,
+         .physical_storage_buffer_address = true,
+         .float_controls = true,
       },
    };
    const nir_shader_compiler_options *nir_options =
