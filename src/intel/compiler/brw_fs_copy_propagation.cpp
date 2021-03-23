@@ -547,6 +547,25 @@ fs_visitor::try_copy_propagate(fs_inst *inst, int arg, acp_entry *entry)
                         devinfo))
       return false;
 
+   /* The Xe-Hp documentation has the following register regioning
+    * restrictions :
+    *
+    *   "In case where source or destination datatype is 64b or operation is
+    *    integer DWord multiply [or in case where a floating point data type
+    *    is used as destination :
+    *
+    *       Register Regioning patterns where register data bit locations are
+    *       changed between source and destination are not supported on Src0
+    *       and Src1 except for broadcast of a scalar.
+    *   "
+    *
+    * Most of this already checked in can_take_stride(), we're only left with
+    * checking the reg offsets match.
+    */
+   if (has_dst_aligned_region_restriction(devinfo, inst, dst_type) &&
+       (reg_offset(inst->dst) % REG_SIZE) != (reg_offset(entry->src) % REG_SIZE))
+      return false;
+
    /* Bail if the source FIXED_GRF region of the copy cannot be trivially
     * composed with the source region of the instruction -- E.g. because the
     * copy uses some extended stride greater than 4 not supported natively by
