@@ -259,8 +259,8 @@ create_cov(struct ir3_context *ctx, struct ir3_instruction *src,
 	struct ir3_instruction *cov =
 		ir3_COV(ctx->block, src, src_type, dst_type);
 
-	if (op == nir_op_f2f16_rtne)
-		cov->regs[0]->flags |= IR3_REG_EVEN;
+	if (op != nir_op_f2f16 && op != nir_op_f2f16_rtne)
+		cov->regs[0]->flags |= IR3_REG_RTZ;
 
 	return cov;
 }

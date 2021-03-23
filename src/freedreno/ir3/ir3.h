@@ -108,7 +108,7 @@ struct ir3_register {
 		IR3_REG_SNEG   = 0x100,
 		IR3_REG_SABS   = 0x200,
 		IR3_REG_BNOT   = 0x400,
-		IR3_REG_EVEN   = 0x800,
+		IR3_REG_RTZ   = 0x800,
 		IR3_REG_POS_INF= 0x1000,
 		/* (ei) flag, end-input?  Set on last bary, presumably to signal
 		 * that the shader needs no more input:

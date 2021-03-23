@@ -790,11 +790,12 @@ cat1_mova:         T_OP_MOVA T_A0 ',' {
                    } cat1_src
 
                    /* NOTE: cat1 can also *write* to relative gpr */
+				   /* note: cat1 has RTZ behavior by default */
 cat1_instr:        cat1_movmsk
 |                  cat1_mova1
 |                  cat1_mova
-|                  cat1_opc dst_reg ',' cat1_src
-|                  cat1_opc relative_gpr ',' cat1_src
+|                  cat1_opc { rflags.flags |= IR3_REG_RTZ; } dst_reg ',' cat1_src
+|                  cat1_opc { rflags.flags |= IR3_REG_RTZ; } relative_gpr ',' cat1_src
 
 cat2_opc_1src:     T_OP_ABSNEG_F  { new_instr(OPC_ABSNEG_F); }
 |                  T_OP_ABSNEG_S  { new_instr(OPC_ABSNEG_S); }
@@ -1112,7 +1113,7 @@ reg:               T_REGISTER     { $$ = new_reg($1, 0); }
 
 const:             T_CONSTANT     { $$ = new_reg($1, IR3_REG_CONST); }
 
-dst_reg_flag:      T_EVEN         { rflags.flags |= IR3_REG_EVEN; }
+dst_reg_flag:      T_EVEN         { rflags.flags &= ~IR3_REG_RTZ; }
 |                  T_POS_INFINITY { rflags.flags |= IR3_REG_POS_INF; }
 |                  T_EI           { rflags.flags |= IR3_REG_EI; }
 |                  T_WRMASK       { rflags.wrmask = $1; }

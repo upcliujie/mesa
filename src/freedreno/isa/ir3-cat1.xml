@@ -80,7 +80,7 @@ SOFTWARE.
 		<map name="DST_TYPE">src->cat1.dst_type</map>
 		<map name="DST_REL">!!(src->regs[0]->flags &amp; IR3_REG_RELATIV)</map>
 		<map name="SRC_TYPE">src->cat1.src_type</map>
-		<map name="EVEN">!!(src->regs[0]->flags &amp; IR3_REG_EVEN)</map>
+		<map name="EVEN">!(src->regs[0]->flags &amp; IR3_REG_RTZ)</map>
 		<map name="POS_INF">!!(src->regs[0]->flags &amp; IR3_REG_POS_INF)</map>
 	</encode>
 </bitset>
