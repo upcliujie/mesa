@@ -1,0 +1,48 @@
+traces-db:
+  download-url: "http://caching-proxy/cache/?uri=https://minio-packet.freedesktop.org/mesa-tracie-private/"
+
+traces:
+#  - path: alien-isolation/AlienIsolation.bin.1-trim--k-f2000-v20201203.trace
+#    expectations:
+#       Crash
+#      - device: gl-panfrost-g52
+#        checksum: a842b8fd77db530b4c727fd741f3aa9e
+  - path: civilization-v/CivilizationV-trim--s705-761-f762-v20201203.trace
+    expectations:
+      - device: gl-panfrost-g52
+        checksum: e0e3a5f4cd18d0a2300880e25c2d95aa
+      # Crashes sometimes
+      #- device: gl-panfrost-t860
+      #  checksum: 605d4b6e6c46c31b2ffcdf18a7243445
+#  - path: golf-with-your-friends/GolfWithYourFriends-trim--f1070-v20201203.trace
+#    expectations:
+#       Crash
+#      - device: gl-panfrost-g52
+#        checksum: a842b8fd77db530b4c727fd741f3aa9e
+  - path: hollow-knight/HollowKnight-trim--f2020-v20201203.trace
+    expectations:
+      - device: gl-panfrost-g52
+        checksum: 5c1d910760c35f3a5d2c97ec22636d02
+      - device: gl-panfrost-t860
+        checksum: 2ad32a4569809ae63fbdc5ba417937c4
+#  - path: ksp/KSP-trim--f4800-v20201203.trace
+#    expectations:
+#       Crash
+#      - device: gl-panfrost-g52
+#        checksum: a842b8fd77db530b4c727fd741f3aa9e
+#  - path: overcooked2/Overcooked2-trim--f3301-v20201203.trace
+#    expectations:
+#       Crash
+#      - device: gl-panfrost-g52
+#        checksum: a842b8fd77db530b4c727fd741f3aa9e
+#  - path: plaugue-inc-evolved/PlagueIncEvolved-trim--f1200-v20201203.trace
+#    expectations:
+#       Crash
+#      - device: gl-panfrost-g52
+#        checksum: a842b8fd77db530b4c727fd741f3aa9e
+#  - path: portal2/Portal2-trim--f1020-v20201203.trace
+#    expectations:
+#       Crash
+#      - device: gl-panfrost-g52
+#        checksum: a842b8fd77db530b4c727fd741f3aa9e
+
