@@ -80,7 +80,6 @@ static int64_t anv_get_relative_timeout(uint64_t abs_timeout)
    return rel_timeout;
 }
 
-static void anv_semaphore_unref(struct anv_device *device, struct anv_semaphore *semaphore);
 static void anv_semaphore_impl_cleanup(struct anv_device *device,
                                        struct anv_semaphore_impl *impl);
 
@@ -2126,8 +2125,6 @@ VkResult anv_CreateSemaphore(
 
    vk_object_base_init(&device->vk, &semaphore->base, VK_OBJECT_TYPE_SEMAPHORE);
 
-   p_atomic_set(&semaphore->refcount, 1);
-
    const VkExportSemaphoreCreateInfo *export =
       vk_find_struct_const(pCreateInfo->pNext, EXPORT_SEMAPHORE_CREATE_INFO);
    VkExternalSemaphoreHandleTypeFlags handleTypes =
@@ -2215,19 +2212,6 @@ anv_semaphore_reset_temporary(struct anv_device *device,
    anv_semaphore_impl_cleanup(device, &semaphore->temporary);
 }
 
-static void
-anv_semaphore_unref(struct anv_device *device, struct anv_semaphore *semaphore)
-{
-   if (!p_atomic_dec_zero(&semaphore->refcount))
-      return;
-
-   anv_semaphore_impl_cleanup(device, &semaphore->temporary);
-   anv_semaphore_impl_cleanup(device, &semaphore->permanent);
-
-   vk_object_base_finish(&semaphore->base);
-   vk_free(&device->vk.alloc, semaphore);
-}
-
 void anv_DestroySemaphore(
     VkDevice                                    _device,
     VkSemaphore                                 _semaphore,
@@ -2239,7 +2223,11 @@ void anv_DestroySemaphore(
    if (semaphore == NULL)
       return;
 
-   anv_semaphore_unref(device, semaphore);
+   anv_semaphore_impl_cleanup(device, &semaphore->temporary);
+   anv_semaphore_impl_cleanup(device, &semaphore->permanent);
+
+   vk_object_base_finish(&semaphore->base);
+   vk_free(&device->vk.alloc, semaphore);
 }
 
 void anv_GetPhysicalDeviceExternalSemaphoreProperties(
