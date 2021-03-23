@@ -164,6 +164,7 @@ enum radv_ud_index {
 	AC_UD_VS_MAX_UD,
 	AC_UD_PS_MAX_UD,
 	AC_UD_CS_GRID_SIZE = AC_UD_SHADER_START,
+	AC_UD_CS_SBT_DESCRIPTORS,
 	AC_UD_CS_MAX_UD,
 	AC_UD_GS_MAX_UD,
 	AC_UD_TCS_MAX_UD,
@@ -330,6 +331,8 @@ struct radv_shader_info {
 		bool uses_thread_id[3];
 		bool uses_local_invocation_idx;
 		unsigned block_size[3];
+
+		bool uses_sbt;
 	} cs;
 	struct {
 		uint64_t tes_inputs_read;
