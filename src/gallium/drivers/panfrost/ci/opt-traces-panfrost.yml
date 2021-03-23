@@ -1,0 +1,36 @@
+traces-db:
+  download-url: "http://192.168.101.1/cache/?uri=https://minio-packet.freedesktop.org/mesa-tracie-private/"
+
+traces:
+  - path: alien-isolation/AlienIsolation.bin.1-trim--k-f2000-v20201203.trace
+    expectations:
+      - device: gl-panfrost-g52
+        checksum: a842b8fd77db530b4c727fd741f3aa9e
+  - path: civilization-v/CivilizationV-trim--s705-761-f762-v20201203.trace
+    expectations:
+      - device: gl-panfrost-g52
+        checksum: c188673ef5e43a0a50a3fbedde1e10c0
+  - path: golf-with-your-friends/GolfWithYourFriends-trim--f1070-v20201203.trace
+    expectations:
+      - device: gl-panfrost-g52
+        checksum: 4adadd1a3028303c83fabfd28fd8735c
+  - path: hollow-knight/HollowKnight-trim--f2020-v20201203.trace
+    expectations:
+      - device: gl-panfrost-g52
+        checksum: 990d0a343586aa52d6f651af63cb1715
+  - path: ksp/KSP-trim--f4800-v20201203.trace
+    expectations:
+      - device: gl-panfrost-g52
+        checksum: 94d0b04cb130e59a95d6cccb235d7631
+  - path: overcooked2/Overcooked2-trim--f3301-v20201203.trace
+    expectations:
+      - device: gl-panfrost-g52
+        checksum: 7d7f12ca8a99653b15b50090627c9348
+  - path: plaugue-inc-evolved/PlagueIncEvolved-trim--f1200-v20201203.trace
+    expectations:
+      - device: gl-panfrost-g52
+        checksum: 59da6ef5c9509616d595d1613fdac42e
+  - path: portal2/Portal2-trim--f1020-v20201203.trace
+    expectations:
+      - device: gl-panfrost-g52
+        checksum: be496c7e985f13721c8b3f69de4ea307

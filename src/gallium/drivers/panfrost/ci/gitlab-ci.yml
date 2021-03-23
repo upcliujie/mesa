@@ -34,6 +34,7 @@ panfrost-t720-gles2:arm64:
     GPU_VERSION: panfrost-t760
     DRIVER_NAME: panfrost
     BOOT_METHOD: depthcharge
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/traces-panfrost.yml"
     KERNEL_IMAGE_TYPE: ""
     ENV_VARS: "PAN_MESA_DEBUG=deqp MESA_GLES_VERSION_OVERRIDE=3.1 MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330 EGL_PLATFORM=surfaceless PIGLIT_PROFILES=replay PIGLIT_HTML_SUMMARY=0 PIGLIT_JUNIT_RESULTS=1"
   tags:
@@ -73,6 +74,7 @@ panfrost-t860-traces:arm64:
     - .lava-piglit-traces:arm64
     - .lava-rk3399-gru-kevin
   variables:
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/traces-panfrost.yml"
     ENV_VARS: "PAN_MESA_DEBUG=deqp MESA_GLES_VERSION_OVERRIDE=3.1 MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330 EGL_PLATFORM=surfaceless PIGLIT_PROFILES=replay PIGLIT_HTML_SUMMARY=0 PIGLIT_JUNIT_RESULTS=1"
 
 .lava-meson-g12b-a311d-khadas-vim3:
@@ -115,3 +117,20 @@ panfrost-g52-gles3:arm64:
     ENV_VARS: "PAN_MESA_DEBUG=gles3 DEQP_PARALLEL=6 DEQP_EXPECTED_RENDERER=T820"
   tags:
     - mesa-ci-aarch64-lava-baylibre
+
+panfrost-g52-traces-restricted:
+  extends:
+    - .lava-piglit-traces:arm64
+    - .lava-meson-g12b-a311d-khadas-vim3
+  variables:
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/opt-traces-panfrost.yml"
+    MESA_GLSL_VERSION_OVERRIDE: "460"
+    MESA_GL_VERSION_OVERRIDE: "4.6"
+    ENV_VARS: "PAN_MESA_DEBUG=deqp MESA_GLES_VERSION_OVERRIDE=3.2 MESA_GL_VERSION_OVERRIDE=4.6 MESA_GLSL_VERSION_OVERRIDE=460 EGL_PLATFORM=surfaceless PIGLIT_PROFILES=replay PIGLIT_HTML_SUMMARY=0 PIGLIT_JUNIT_RESULTS=1 FDO_CI_CONCURRENT=1"
+    DRIVER_NAME: panfrost
+  timeout: 72h
+  rules:
+    - if: '$GITLAB_USER_LOGIN == "tomeu"'
+      when: on_success
+    - when: never
+  allow_failure: true
