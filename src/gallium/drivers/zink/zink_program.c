@@ -357,7 +357,8 @@ update_shader_modules(struct zink_context *ctx, struct zink_shader *stages[ZINK_
    /* we need to map pipe_shader_type -> gl_shader_stage so we can ensure that we're compiling
     * the shaders in pipeline order and have builtin input/output locations match up after being compacted
     */
-   unsigned dirty_shader_stages = ctx->dirty_shader_stages;
+   unsigned bits = u_bit_consecutive(PIPE_SHADER_VERTEX, 5);
+   unsigned dirty_shader_stages = ctx->dirty_shader_stages & bits;
    while (dirty_shader_stages) {
       unsigned type = u_bit_scan(&dirty_shader_stages);
       dirty[tgsi_processor_to_shader_stage(type)] = stages[type];
