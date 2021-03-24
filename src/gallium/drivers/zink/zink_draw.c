@@ -15,7 +15,7 @@
 #include "util/u_inlines.h"
 #include "util/u_prim.h"
 #include "util/u_prim_restart.h"
-
+#include "vk_format.h"
 
 static void
 desc_set_res_add(struct zink_descriptor_set *zds, struct zink_resource *res, unsigned int i, bool cache_hit)
@@ -203,18 +203,23 @@ zink_bind_vertex_buffers(struct zink_batch *batch, struct zink_context *ctx)
       return;
 
    for (unsigned i = 0; i < elems->hw_state.num_bindings; i++) {
-      struct pipe_vertex_buffer *vb = ctx->vertex_buffers + ctx->element_state->binding_map[i];
+      struct pipe_vertex_buffer *vb = &ctx->vertex_buffers[ctx->element_state->binding_map[i]];
       assert(vb);
       if (vb->buffer.resource) {
          struct zink_resource *res = zink_resource(vb->buffer.resource);
          buffers[i] = res->obj->buffer;
          buffer_offsets[i] = vb->buffer_offset;
-         buffer_strides[i] = vb->stride;
+         if (vb->stride == 0) {
+            buffer_strides[i] = elems->hw_state.attribs[i].offset +
+               util_format_get_blocksize(vk_format_to_pipe_format(elems->hw_state.attribs[i].format));
+         } else {
+            buffer_strides[i] = vb->stride;
+         }
          zink_batch_reference_resource_rw(batch, res, false);
       } else {
          buffers[i] = zink_resource(ctx->dummy_vertex_buffer)->obj->buffer;
          buffer_offsets[i] = 0;
-         buffer_strides[i] = 0;
+         buffer_strides[i] = 1;
       }
    }
 
