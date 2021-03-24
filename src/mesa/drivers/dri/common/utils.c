@@ -410,7 +410,6 @@ __DRIconfig **driConcatConfigs(__DRIconfig **a,
 
 static const struct { unsigned int attrib, offset; } attribMap[] = {
     __ATTRIB(__DRI_ATTRIB_BUFFER_SIZE,			rgbBits),
-    __ATTRIB(__DRI_ATTRIB_LEVEL,			level),
     __ATTRIB(__DRI_ATTRIB_RED_SIZE,			redBits),
     __ATTRIB(__DRI_ATTRIB_GREEN_SIZE,			greenBits),
     __ATTRIB(__DRI_ATTRIB_BLUE_SIZE,			blueBits),
@@ -441,8 +440,8 @@ static const struct { unsigned int attrib, offset; } attribMap[] = {
     /* The struct field doesn't matter here, these are handled by the
      * switch in driGetConfigAttribIndex.  We need them in the array
      * so the iterator includes them though.*/
-    __ATTRIB(__DRI_ATTRIB_RENDER_TYPE,			level),
-    __ATTRIB(__DRI_ATTRIB_CONFIG_CAVEAT,		level),
+    __ATTRIB(__DRI_ATTRIB_RENDER_TYPE,			redBits),
+    __ATTRIB(__DRI_ATTRIB_CONFIG_CAVEAT,		redBits),
 };
 
 
@@ -455,6 +454,9 @@ driGetConfigAttribIndex(const __DRIconfig *config,
 			unsigned int index, unsigned int *value)
 {
     switch (attribMap[index].attrib) {
+    case __DRI_ATTRIB_LEVEL:
+        *value = 0;
+        break;
     case __DRI_ATTRIB_RENDER_TYPE:
         /* no support for color index mode */
 	*value = __DRI_ATTRIB_RGBA_BIT;
