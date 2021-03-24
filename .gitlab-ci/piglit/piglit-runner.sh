@@ -106,6 +106,10 @@ quiet() {
 RESULTS_CSV=$RESULTS/results.csv
 FAILURES_CSV=$RESULTS/failures.csv
 
+echo "wtf"
+echo $MESA_LOADER_DRIVER_OVERRIDE
+echo $GALLIUM_DRIVER
+
 export LD_PRELOAD=$TEST_LD_PRELOAD
 
     piglit-runner \
