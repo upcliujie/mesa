@@ -139,12 +139,6 @@ static const struct
       __ATTRIB(__DRI_ATTRIB_STEREO, stereoMode),
       __ATTRIB(__DRI_ATTRIB_AUX_BUFFERS, numAuxBuffers),
 #if 0
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_TYPE, transparentPixel),
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_INDEX_VALUE, transparentIndex),
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_RED_VALUE, transparentRed),
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_GREEN_VALUE, transparentGreen),
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_BLUE_VALUE, transparentBlue),
-      __ATTRIB(__DRI_ATTRIB_TRANSPARENT_ALPHA_VALUE, transparentAlpha),
       __ATTRIB(__DRI_ATTRIB_RED_MASK, redMask),
       __ATTRIB(__DRI_ATTRIB_GREEN_MASK, greenMask),
       __ATTRIB(__DRI_ATTRIB_BLUE_MASK, blueMask),
