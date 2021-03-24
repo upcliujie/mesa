@@ -460,11 +460,19 @@ static struct ureg_src
 ntt_reladdr(struct ntt_compile *c, struct ureg_src addr)
 {
    if (c->any_reg_as_address) {
-      /* Make sure we're getting the refcounting right even on any_reg
-       * drivers.
-       */
-      c->next_addr_reg++;
+      c->addr_reg[c->next_addr_reg] = ureg_dst_undef();
 
+      /* Relative addressing can only read a File.Index.X channel, so move to a
+       * temp if we have to.
+       */
+      if (addr.Dimension || addr.Indirect) {
+         struct ureg_dst temp = ureg_DECL_temporary(c->ureg);
+         ureg_MOV(c->ureg, ureg_writemask(temp, TGSI_WRITEMASK_X), ureg_scalar(addr, 0));
+         addr = ureg_src(temp);
+         c->addr_reg[c->next_addr_reg] = temp;
+      }
+
+      c->next_addr_reg++;
       return ureg_scalar(addr, 0);
    }
 
@@ -485,6 +493,7 @@ ntt_put_reladdr(struct ntt_compile *c)
 {
    c->next_addr_reg--;
    assert(c->next_addr_reg >= 0);
+   ureg_release_temporary(c->ureg, c->addr_reg[c->next_addr_reg]);
 }
 
 static void
