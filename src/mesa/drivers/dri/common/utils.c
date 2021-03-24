@@ -350,13 +350,6 @@ driCreateConfigs(mesa_format format,
 		    modes->stencilBits = stencil_bits[k];
 		    modes->depthBits = depth_bits[k];
 
-		    modes->transparentPixel = GLX_NONE;
-		    modes->transparentRed = GLX_DONT_CARE;
-		    modes->transparentGreen = GLX_DONT_CARE;
-		    modes->transparentBlue = GLX_DONT_CARE;
-		    modes->transparentAlpha = GLX_DONT_CARE;
-		    modes->transparentIndex = GLX_DONT_CARE;
-
 		    if (db_modes[i] == __DRI_ATTRIB_SWAP_NONE) {
 		    	modes->doubleBufferMode = GL_FALSE;
 		        modes->swapMethod = __DRI_ATTRIB_SWAP_UNDEFINED;
@@ -433,12 +426,6 @@ static const struct { unsigned int attrib, offset; } attribMap[] = {
     __ATTRIB(__DRI_ATTRIB_DOUBLE_BUFFER,		doubleBufferMode),
     __ATTRIB(__DRI_ATTRIB_STEREO,			stereoMode),
     __ATTRIB(__DRI_ATTRIB_AUX_BUFFERS,			numAuxBuffers),
-    __ATTRIB(__DRI_ATTRIB_TRANSPARENT_TYPE,		transparentPixel),
-    __ATTRIB(__DRI_ATTRIB_TRANSPARENT_INDEX_VALUE,	transparentPixel),
-    __ATTRIB(__DRI_ATTRIB_TRANSPARENT_RED_VALUE,	transparentRed),
-    __ATTRIB(__DRI_ATTRIB_TRANSPARENT_GREEN_VALUE,	transparentGreen),
-    __ATTRIB(__DRI_ATTRIB_TRANSPARENT_BLUE_VALUE,	transparentBlue),
-    __ATTRIB(__DRI_ATTRIB_TRANSPARENT_ALPHA_VALUE,	transparentAlpha),
     __ATTRIB(__DRI_ATTRIB_RED_MASK,			redMask),
     __ATTRIB(__DRI_ATTRIB_RED_SHIFT,			redShift),
     __ATTRIB(__DRI_ATTRIB_GREEN_MASK,			greenMask),
