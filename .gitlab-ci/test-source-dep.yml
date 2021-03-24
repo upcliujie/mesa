@@ -8,6 +8,21 @@
     if: '$CI_PIPELINE_SOURCE == "schedule"'
     when: never
 
+# YAML anchors for rule conditions
+# --------------------------------
+.rules-anchors:
+  rules:
+    # Forked project branch and the user has added a keyword for
+    # automatic run
+    - &manual-forked-branch-and-keyword
+      if: &is-forked-branch-and-keyword '$CI_PROJECT_NAMESPACE != "mesa" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != $CI_COMMIT_REF_NAME && $UI_FORKED_AUTOMATIC_JOBS'
+      when: manual
+    # Forked project branch and the user has marked automatic runs,
+    # but not radv
+    - &manual-forked-branch-and-not-radv-keyword
+      if: &is-forked-branch-and-not-radv-keyword '$CI_PROJECT_NAMESPACE != "mesa" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != $CI_COMMIT_REF_NAME && $UI_FORKED_AUTOMATIC_JOBS && $UI_FORKED_AUTOMATIC_JOBS !~ /^(.*,)*\s*radv\s*(,.*)*$/'
+      when: manual
+
 # Mesa core source file dependencies
 # ----------------------------------
 .mesa-rules:
@@ -107,6 +122,7 @@
   stage: software-renderer
   rules:
     - *ignore_scheduled_pipelines
+    - *manual-forked-branch-and-keyword
     - changes:
         *mesa_core_file_list
       when: on_success
@@ -249,6 +265,7 @@
 .radv-rules:
   rules:
     - *ignore_scheduled_pipelines
+    - *manual-forked-branch-and-not-radv-keyword
     - changes:
         *mesa_core_file_list
       when: on_success

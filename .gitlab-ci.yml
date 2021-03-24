@@ -6,6 +6,10 @@ variables:
           /usr/bin/wget -q -O- ${CI_PROJECT_URL}/-/raw/${CI_COMMIT_SHA}/.gitlab-ci/download-git-cache.sh | sh -
           set +o xtrace
   MINIO_HOST: minio-packet.freedesktop.org
+  # === VARIABLES TO BE SET IN THE PROJECT'S SETTINGS > CI/CD > VARIABLES WEB UI ===
+  #
+  # List of keywords to trigger jobs automatically in a forked branch
+  #UI_FORKED_AUTOMATIC_JOBS: null
 
 include:
   - project: 'freedesktop/ci-templates'
@@ -83,6 +87,37 @@ stages:
     # Pre-merge pipeline for Marge Bot
     - if: &is-pre-merge-for-marge '$GITLAB_USER_LOGIN == "marge-bot" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == $CI_COMMIT_REF_NAME'
       when: on_success
+    # Forked project branch and the user has added a keyword for
+    # automatic run
+    - &manual-forked-branch-and-keyword
+      if: &is-forked-branch-and-keyword '$CI_PROJECT_NAMESPACE != "mesa" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != $CI_COMMIT_REF_NAME && $UI_FORKED_AUTOMATIC_JOBS'
+      when: manual
+    # Forked project branch and the user has marked radv for automatic
+    # run
+    - if: &is-forked-branch-and-radv-keyword '$CI_PROJECT_NAMESPACE != "mesa" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != $CI_COMMIT_REF_NAME && $UI_FORKED_AUTOMATIC_JOBS =~ /^(.*,)*\s*radv\s*(,.*)*$/'
+      when: on_success
+    # Forked project branch and the user has marked automatic runs,
+    # but not radv
+    - &manual-forked-branch-and-not-radv-keyword
+      if: &is-forked-branch-and-not-radv-keyword '$CI_PROJECT_NAMESPACE != "mesa" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != $CI_COMMIT_REF_NAME && $UI_FORKED_AUTOMATIC_JOBS && $UI_FORKED_AUTOMATIC_JOBS !~ /^(.*,)*\s*radv\s*(,.*)*$/'
+      when: manual
+    - changes: &all_paths
+      - VERSION
+      - bin/git_sha1_gen.py
+      - bin/install_megadrivers.py
+      - bin/meson_get_version.py
+      - bin/symbols-check.py
+      # GitLab CI
+      - .gitlab-ci.yml
+      - .gitlab-ci/**/*
+      # Meson
+      - meson*
+      - build-support/**/*
+      - subprojects/**/*
+      # Source code
+      - include/**/*
+      - src/**/*
+      when: on_success
 
 
 .docs-base:
@@ -142,24 +177,17 @@ test-docs-mr:
 .ci-run-policy:
   rules:
     - *ignore_scheduled_pipelines
+    # By default, if this is a forked branch and a keyword is
+    # contained in the UI_FORKED_AUTOMATIC_JOBS variable, set to
+    # manual
+    - if: *is-forked-branch-and-keyword
+      changes:
+        *all_paths
+      when: manual
     # If any files affecting the pipeline are changed, build/test jobs run
     # automatically once all dependency jobs have passed
-    - changes: &all_paths
-      - VERSION
-      - bin/git_sha1_gen.py
-      - bin/install_megadrivers.py
-      - bin/meson_get_version.py
-      - bin/symbols-check.py
-      # GitLab CI
-      - .gitlab-ci.yml
-      - .gitlab-ci/**/*
-      # Meson
-      - meson*
-      - build-support/**/*
-      - subprojects/**/*
-      # Source code
-      - include/**/*
-      - src/**/*
+    - changes:
+        *all_paths
       when: on_success
     # Otherwise, build/test jobs won't run
     - when: never
@@ -167,6 +195,22 @@ test-docs-mr:
     max: 2
     when:
       - runner_system_failure
+
+.ci-run-policy-radv:
+  rules:
+    - *ignore_scheduled_pipelines
+    # By default, if this is a forked branch and a keyword that is not
+    # radv is contained in the UI_FORKED_AUTOMATIC_JOBS variable, set
+    # to manual
+    - if: *is-forked-branch-and-not-radv-keyword
+      changes:
+        *all_paths
+      when: manual
+    - changes:
+        *all_paths
+      when: on_success
+    # Otherwise, build/test jobs won't run
+    - when: never
 
 success:
   stage: success
@@ -251,26 +295,30 @@ success:
     - *ignore_scheduled_pipelines
     # Run pipeline by default in the main project if any CI pipeline
     # configuration files were changed, to ensure docker images are up to date
-    - if: *is-post-merge
+    - &container-is-post-merge
+      if: *is-post-merge
       changes:
       - .gitlab-ci.yml
       - .gitlab-ci/**/*
       when: on_success
     # Run pipeline by default if it was triggered by Marge Bot, is for a
     # merge request, and any files affecting the pipeline were changed
-    - if: *is-pre-merge-for-marge
+    - &container-is-pre-merge-for-marge
+      if: *is-pre-merge-for-marge
       changes:
         *all_paths
       when: on_success
     # Run pipeline by default in the main project if it was not triggered by
     # Marge Bot, and any files affecting the pipeline were changed
-    - if: *is-post-merge-not-for-marge
+    - &container-is-post-merge-not-for-marge
+      if: *is-post-merge-not-for-marge
       changes:
         *all_paths
       when: on_success
     # Allow triggering jobs manually in other cases if any files affecting the
     # pipeline were changed
-    - changes:
+    - &container-changes
+      changes:
         *all_paths
       when: manual
     # Otherwise, container jobs won't run
@@ -281,6 +329,21 @@ success:
     FDO_DISTRIBUTION_EXEC: 'env FDO_CI_CONCURRENT=${FDO_CI_CONCURRENT} bash .gitlab-ci/container/${CI_JOB_NAME}.sh'
     # no need to pull the whole repo to build the container image
     GIT_STRATEGY: none
+
+.container-radv:
+  extends:
+    - .container
+  rules:
+    - *ignore_scheduled_pipelines
+    - *container-is-post-merge
+    - *container-is-pre-merge-for-marge
+    - *container-is-post-merge-not-for-marge
+    - if: *is-forked-branch-and-radv-keyword
+      changes:
+        *all_paths
+      when: on_success
+    - *container-changes
+    - when: never
 
 .use-base-image:
   extends:
@@ -294,7 +357,7 @@ success:
 x86_build-base:
   extends:
     - .fdo.container-build@debian
-    - .container
+    - .container-radv
   variables:
     MESA_IMAGE_TAG: &x86_build-base "2021-02-08-container-reorg"
 
@@ -312,6 +375,7 @@ x86_build-base:
 x86_build:
   extends:
     - .use-x86_build-base
+    - .ci-run-policy-radv
   variables:
     MESA_IMAGE_TAG: &x86_build "2021-02-19-strace"
 
@@ -417,7 +481,9 @@ x86_test-gl:
 
 # Debian 10 based x86 test image for VK
 x86_test-vk:
-  extends: .use-x86_test-base
+  extends:
+    - .use-x86_test-base
+    - .ci-run-policy-radv
   variables:
     MESA_IMAGE_TAG: &x86_test-vk "2021-03-16-piglit-runner"
 
@@ -641,6 +707,7 @@ sanity:
 meson-testing:
   extends:
     - .meson-build
+    - .ci-run-policy-radv
     - .ci-deqp-artifacts
   variables:
     UNWIND: "enabled"
@@ -665,6 +732,7 @@ meson-testing:
 meson-testing-asan:
   extends:
     - meson-testing
+    - .ci-run-policy
   variables:
     EXTRA_OPTION: >
       -D b_sanitize=address
