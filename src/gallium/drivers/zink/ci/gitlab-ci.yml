@@ -2,8 +2,8 @@
   extends:
     - .zink-rules
   variables:
-    MESA_LOADER_DRIVER_OVERRIDE: "zink"
     ZINK_USE_LAVAPIPE: "true"
+    GALLIUM_DRIVER: "zink"
     GPU_VERSION: zink-lvp
     # Fix non-conformant llvmpipe filter defaults
     GALLIVM_PERF: "no_filter_hacks"
