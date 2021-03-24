@@ -290,7 +290,6 @@ _mesa_initialize_visual( struct gl_config *vis,
    vis->accumBlueBits  = accumBlueBits;
    vis->accumAlphaBits = accumAlphaBits;
 
-   vis->sampleBuffers = numSamples > 0 ? 1 : 0;
    vis->samples = numSamples;
 }
 
