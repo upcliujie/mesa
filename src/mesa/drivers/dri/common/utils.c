@@ -424,7 +424,6 @@ static const struct { unsigned int attrib, offset; } attribMap[] = {
     __ATTRIB(__DRI_ATTRIB_SAMPLES,			samples),
     __ATTRIB(__DRI_ATTRIB_DOUBLE_BUFFER,		doubleBufferMode),
     __ATTRIB(__DRI_ATTRIB_STEREO,			stereoMode),
-    __ATTRIB(__DRI_ATTRIB_AUX_BUFFERS,			numAuxBuffers),
     __ATTRIB(__DRI_ATTRIB_RED_MASK,			redMask),
     __ATTRIB(__DRI_ATTRIB_RED_SHIFT,			redShift),
     __ATTRIB(__DRI_ATTRIB_GREEN_MASK,			greenMask),
@@ -455,6 +454,7 @@ driGetConfigAttribIndex(const __DRIconfig *config,
 {
     switch (attribMap[index].attrib) {
     case __DRI_ATTRIB_LEVEL:
+    case __DRI_ATTRIB_AUX_BUFFERS:
         *value = 0;
         break;
     case __DRI_ATTRIB_RENDER_TYPE:

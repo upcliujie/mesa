@@ -483,8 +483,7 @@ _swrast_add_soft_renderbuffers(struct gl_framebuffer *fb,
                                GLboolean depth,
                                GLboolean stencil,
                                GLboolean accum,
-                               GLboolean alpha,
-                               GLboolean aux)
+                               GLboolean alpha)
 {
    GLboolean frontLeft = GL_TRUE;
    GLboolean backLeft = fb->Visual.doubleBufferMode;
@@ -536,18 +535,6 @@ _swrast_add_soft_renderbuffers(struct gl_framebuffer *fb,
                              fb->Visual.accumBlueBits,
                              fb->Visual.accumAlphaBits);
    }
-
-   if (aux) {
-      assert(fb->Visual.numAuxBuffers > 0);
-      add_aux_renderbuffers(NULL, fb, fb->Visual.redBits,
-                            fb->Visual.numAuxBuffers);
-   }
-
-#if 0
-   if (multisample) {
-      /* maybe someday */
-   }
-#endif
 }
 
 

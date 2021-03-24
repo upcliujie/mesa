@@ -341,8 +341,7 @@ create_xmesa_buffer(XMesaDrawable d, BufferType type,
                                   vis->mesa_visual.depthBits > 0,
                                   vis->mesa_visual.stencilBits > 0,
                                   vis->mesa_visual.accumRedBits > 0,
-                                  GL_FALSE,  /* software alpha buffer */
-                                  vis->mesa_visual.numAuxBuffers > 0 );
+                                  GL_FALSE /* software alpha buffer */);
 
    /* GLX_EXT_texture_from_pixmap */
    b->TextureTarget = 0;
