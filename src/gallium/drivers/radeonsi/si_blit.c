@@ -1330,6 +1330,7 @@ void si_decompress_dcc(struct si_context *sctx, struct si_texture *tex)
                                util_max_layer(&tex->buffer.b.b, 0), true, false);
    } else {
       struct pipe_resource *ptex = &tex->buffer.b.b;
+      assert(ptex->nr_storage_samples <= 1);
 
       /* DCC decompression using a compute shader. */
       for (unsigned level = 0; level < tex->surface.num_dcc_levels; level++) {
