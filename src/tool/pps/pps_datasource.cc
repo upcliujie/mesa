@@ -276,7 +276,7 @@ void GpuDataSource::trace_callback(TraceContext ctx)
          PPS_LOG_IMPORTANT("Adjusting wake up time: %.2f ms -> %.2f ms",
             ms(data_source->time_to_sleep),
             ms(adjusted_time_to_sleep));
-         data_source->time_to_sleep = adjusted_time_to_sleep;
+//         data_source->time_to_sleep = adjusted_time_to_sleep;
          sleep_time = nanoseconds(0);
       }
    }
