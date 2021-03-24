@@ -950,6 +950,7 @@ ureg_dst_indirect( struct ureg_dst reg, struct ureg_src addr )
    reg.IndirectFile = addr.File;
    reg.IndirectIndex = addr.Index;
    reg.IndirectSwizzle = addr.SwizzleX;
+   assert(!addr.Indirect && !addr.Dimension);
    return reg;
 }
 
@@ -961,6 +962,7 @@ ureg_src_indirect( struct ureg_src reg, struct ureg_src addr )
    reg.IndirectFile = addr.File;
    reg.IndirectIndex = addr.Index;
    reg.IndirectSwizzle = addr.SwizzleX;
+   assert(!addr.Indirect && !addr.Dimension);
    return reg;
 }
 
