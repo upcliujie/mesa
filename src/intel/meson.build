@@ -37,3 +37,6 @@ endif
 if with_intel_vk
   subdir('vulkan')
 endif
+if with_perfetto
+  subdir('ds')
+endif
