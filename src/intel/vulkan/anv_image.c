@@ -930,7 +930,6 @@ anv_image_create(VkDevice _device,
                                              pCreateInfo->extent);
    image->vk_format = pCreateInfo->format;
    image->format = anv_get_format(pCreateInfo->format);
-   image->n_planes = image->format->n_planes;
    image->aspects = vk_format_aspects(image->vk_format);
    image->levels = pCreateInfo->mipLevels;
    image->array_size = pCreateInfo->arrayLayers;
@@ -941,6 +940,17 @@ anv_image_create(VkDevice _device,
    image->needs_set_tiling = wsi_info && wsi_info->scanout;
    image->drm_format_mod = isl_mod_info ? isl_mod_info->modifier :
                                           DRM_FORMAT_MOD_INVALID;
+
+   /* In case of external format, We don't know format yet,
+    * so skip the rest for now.
+    */
+   if (create_info->external_format) {
+      image->external_format = true;
+      *pImage = anv_image_to_handle(image);
+      return VK_SUCCESS;
+   }
+
+   image->n_planes = image->format->n_planes;
 
    /* The Vulkan 1.2.165 glossary says:
     *
@@ -966,15 +976,6 @@ anv_image_create(VkDevice _device,
       image->bindings[i] = (struct anv_image_binding) {
          .memory_range = { .binding = i },
       };
-   }
-
-   /* In case of external format, We don't know format yet,
-    * so skip the rest for now.
-    */
-   if (create_info->external_format) {
-      image->external_format = true;
-      *pImage = anv_image_to_handle(image);
-      return VK_SUCCESS;
    }
 
    const isl_tiling_flags_t isl_tiling_flags =
