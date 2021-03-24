@@ -43,6 +43,10 @@ struct wsi_image {
       VkCommandBuffer *blit_cmd_buffers;
    } prime;
 
+   struct {
+      VkCommandBuffer *query_cmd_buffers;
+   } dt;
+
    uint64_t drm_modifier;
    int num_planes;
    uint32_t sizes[4];
@@ -51,8 +55,6 @@ struct wsi_image {
    int fds[4];
 
    VkQueryPool query_pool;
-
-   VkCommandBuffer timestamp_buffer;
 
    struct wsi_timing *timing;
 };

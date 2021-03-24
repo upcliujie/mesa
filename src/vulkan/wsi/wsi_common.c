@@ -333,36 +333,49 @@ wsi_image_init_timestamp(const struct wsi_swapchain *chain,
    if (result != VK_SUCCESS)
       goto fail;
 
-   result = wsi->AllocateCommandBuffers(
-      chain->device,
-      &(const VkCommandBufferAllocateInfo) {
-         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .pNext = NULL,
-            .commandPool = chain->cmd_pools[0],
-            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = 1,
-            },
-      &image->timestamp_buffer);
-   if (result != VK_SUCCESS)
+   image->dt.query_cmd_buffers =
+      vk_zalloc(&chain->alloc,
+                sizeof(VkCommandBuffer) * wsi->queue_family_count, 8,
+                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (!image->dt.query_cmd_buffers) {
+      result = VK_ERROR_OUT_OF_HOST_MEMORY;
       goto fail;
+   }
 
-   wsi->BeginCommandBuffer(
-      image->timestamp_buffer,
-      &(VkCommandBufferBeginInfo) {
-         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = 0
-            });
+   for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
 
-   wsi->CmdResetQueryPool(image->timestamp_buffer,
-                          image->query_pool,
-                          0, 1);
+      result = wsi->AllocateCommandBuffers(
+         chain->device,
+         &(const VkCommandBufferAllocateInfo) {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+               .pNext = NULL,
+               .commandPool = chain->cmd_pools[0],
+               .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+               .commandBufferCount = 1,
+               },
+         &image->dt.query_cmd_buffers[i]);
 
-   wsi->CmdWriteTimestamp(image->timestamp_buffer,
-                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                          image->query_pool,
-                          0);
+      if (result != VK_SUCCESS)
+         goto fail;
 
-   wsi->EndCommandBuffer(image->timestamp_buffer);
+      wsi->BeginCommandBuffer(
+         image->dt.query_cmd_buffers[i],
+         &(VkCommandBufferBeginInfo) {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+               .flags = 0
+               });
+
+      wsi->CmdResetQueryPool(image->dt.query_cmd_buffers[i],
+                             image->query_pool,
+                             0, 1);
+
+      wsi->CmdWriteTimestamp(image->dt.query_cmd_buffers[i],
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             image->query_pool,
+                             0);
+
+      wsi->EndCommandBuffer(image->dt.query_cmd_buffers[i]);
+   }
 
    return VK_SUCCESS;
 fail:
@@ -381,6 +394,14 @@ wsi_destroy_image(const struct wsi_swapchain *chain,
                                  1, &image->prime.blit_cmd_buffers[i]);
       }
       vk_free(&chain->alloc, image->prime.blit_cmd_buffers);
+   }
+
+   if (image->dt.query_cmd_buffers) {
+      for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
+         wsi->FreeCommandBuffers(chain->device, chain->cmd_pools[i],
+                                 1, &image->dt.query_cmd_buffers[i]);
+      }
+      vk_free(&chain->alloc, image->dt.query_cmd_buffers);
    }
 
    wsi->FreeMemory(chain->device, image->memory, &chain->alloc);
@@ -879,7 +900,7 @@ wsi_common_queue_present(const struct wsi_device *wsi,
          }
 
          submit_buffers[submit_info.commandBufferCount++] =
-            image->timestamp_buffer;
+            image->dt.query_cmd_buffers[queue_family_index];
       }
 
       result = wsi->QueueSubmit(queue, 1, &submit_info, swapchain->fences[image_index]);
