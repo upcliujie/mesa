@@ -1,5 +1,5 @@
 variables:
-  MESA_LAVA_TAG: "2021-03-16-piglit-runner"
+  MESA_LAVA_TAG: "2021-03-24-deqp-runner"
 
 .kernel+rootfs:
   stage: container-2
