@@ -24,7 +24,7 @@
 #define BLOCK_ID(dev, block) ((dev & DEV_ID_MASK) | (block << DEV_COUNTER_SHIFT))
 
 // Minimum supported sampling period in nanoseconds
-#define MIN_SAMPLING_PERIOD_NS 500000
+#define MIN_SAMPLING_PERIOD_NS 50000
 
 namespace pps
 {
