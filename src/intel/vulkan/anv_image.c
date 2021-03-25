@@ -789,8 +789,14 @@ add_primary_surface(struct anv_device *device,
 
    image->planes[plane].aux_usage = ISL_AUX_USAGE_NONE;
 
-   return add_surface(device, image, anv_surf,
-                      ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane, offset);
+   if (plane == 1 && anv_is_y_plane_and_uv_plane_same_memory(image->vk_format)){
+      anv_surf->memory_range = image->planes[0].primary_surface.memory_range;
+
+      return VK_SUCCESS;
+   } else {
+      return add_surface(device, image, anv_surf,
+                         ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane, offset);
+   }
 }
 
 #ifndef NDEBUG
@@ -2801,6 +2807,12 @@ anv_CreateImageView(VkDevice _device,
    anv_foreach_image_aspect_bit(iaspect_bit, image, expanded_aspects) {
       uint32_t iplane =
          anv_image_aspect_to_plane(image->aspects, 1UL << iaspect_bit);
+
+      if (conv_format != NULL &&
+          anv_is_y_plane_and_uv_plane_same_memory(conv_format->vk_format)) {
+         iplane = 0;
+      }
+
       VkImageAspectFlags vplane_aspect =
          anv_plane_to_aspect(iview->aspect_mask, vplane);
       struct anv_format_plane format =

@@ -4213,6 +4213,24 @@ void anv_fill_buffer_surface_state(struct anv_device *device,
                                    struct anv_address address,
                                    uint32_t range, uint32_t stride);
 
+/**
+ * Do Y plane and UV planes have the same storage?
+ *
+ * Some packed, subsampled YUV formats are handled by the driver as if they
+ * were planar.  For these formats, the Y plane and the UV plane is the same
+ * memory, but the surface formats for each view a different.
+ */
+static inline bool
+anv_is_y_plane_and_uv_plane_same_memory(VkFormat vk_format)
+{
+   return vk_format == VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16 ||
+          vk_format == VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16 ||
+          vk_format == VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16 ||
+          vk_format == VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16 ||
+          vk_format == VK_FORMAT_G16B16G16R16_422_UNORM ||
+          vk_format == VK_FORMAT_B16G16R16G16_422_UNORM;
+}
+
 static inline void
 anv_clear_color_from_att_state(union isl_color_value *clear_color,
                                const struct anv_attachment_state *att_state,
