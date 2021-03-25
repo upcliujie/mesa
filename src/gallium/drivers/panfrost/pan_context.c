@@ -1081,7 +1081,7 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
         struct panfrost_device *device = pan_device(pctx->screen);
         struct panfrost_resource *prsrc = (struct panfrost_resource *)texture;
         enum pipe_format format = so->base.format;
-        assert(prsrc->image.bo);
+        assert(prsrc->image.data.bo);
 
         /* Format to access the stencil portion of a Z32_S8 texture */
         if (format == PIPE_FORMAT_X32_S8X24_UINT) {
@@ -1103,7 +1103,7 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
                 desc = util_format_description(format);
         }
 
-        so->texture_bo = prsrc->image.bo->ptr.gpu;
+        so->texture_bo = prsrc->image.data.bo->ptr.gpu;
         so->modifier = prsrc->image.layout.modifier;
 
         unsigned char user_swizzle[4] = {
@@ -1174,7 +1174,8 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
                              first_layer, last_layer,
                              texture->nr_samples,
                              user_swizzle,
-                             prsrc->image.bo->ptr.gpu + offset,
+                             prsrc->image.data.bo->ptr.gpu +
+                             prsrc->image.data.offset + offset,
                              &payload);
 }
 
