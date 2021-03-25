@@ -2794,8 +2794,8 @@ isl_tiling_get_intratile_offset_el(enum isl_tiling tiling,
 
    /* Pitches must make sense with the tiling */
    assert(row_pitch_B % tile_info.phys_extent_B.width == 0);
-   assert(array_pitch_el_rows % tile_info.logical_extent_el.d == 0);
-   assert(array_pitch_el_rows % tile_info.logical_extent_el.a == 0);
+   if (tile_info.logical_extent_el.d > 1 || tile_info.logical_extent_el.a > 1)
+      assert(array_pitch_el_rows % tile_info.logical_extent_el.h);
 
    /* For non-power-of-two formats, we need the address to be both tile and
     * element-aligned.  The easiest way to achieve this is to work with a tile
@@ -2823,8 +2823,7 @@ isl_tiling_get_intratile_offset_el(enum isl_tiling tiling,
 
    /* Compute an array pitch in number of tiles */
    uint32_t array_pitch_tl_rows =
-      array_pitch_el_rows / MAX2(tile_info.logical_extent_el.d,
-                                 tile_info.logical_extent_el.a);
+      array_pitch_el_rows / tile_info.logical_extent_el.h;
 
    /* Add the Z and array offset to the Y offset to get a 2D offset */
    y_offset_tl += (z_offset_tl + a_offset_tl) * array_pitch_tl_rows;
