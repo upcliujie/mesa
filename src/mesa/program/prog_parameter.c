@@ -216,7 +216,7 @@ _mesa_reserve_parameter_storage(struct gl_program_parameter_list *paramList,
       /* realloc arrays */
       paramList->Parameters =
          realloc(paramList->Parameters,
-                 paramList->Size * sizeof(struct gl_program_parameter));
+                 paramList->Size * 4 * sizeof(struct gl_program_parameter));
    }
 
    if (needSizeValues > paramList->SizeValues) {
@@ -225,16 +225,16 @@ _mesa_reserve_parameter_storage(struct gl_program_parameter_list *paramList,
 
       paramList->ParameterValues = (gl_constant_value *)
          align_realloc(paramList->ParameterValues,         /* old buf */
-                       oldValNum * sizeof(gl_constant_value),/* old sz */
+                       oldValNum * 4 * sizeof(gl_constant_value),/* old sz */
                        /* Overallocate the size by 12 because matrix rows can
                         * be allocated partially but fetch_state always writes
                         * 4 components (16 bytes).
                         */
-                       paramList->SizeValues * sizeof(gl_constant_value) +
+                       paramList->SizeValues * 4 * sizeof(gl_constant_value) +
                        12, 16);
       /* The values are written to the shader cache, so clear them. */
       memset(paramList->ParameterValues + oldSize, 0,
-             (paramList->SizeValues - oldSize) * sizeof(gl_constant_value));
+             (paramList->SizeValues - oldSize) * 4 * sizeof(gl_constant_value));
    }
 }
 
