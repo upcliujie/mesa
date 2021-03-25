@@ -688,7 +688,7 @@ panfrost_set_shader_images(
                 struct panfrost_resource *rsrc = pan_resource(image->resource);
 
                 /* Images don't work with AFBC, since they require pixel-level granularity */
-                if (drm_is_afbc(rsrc->layout.modifier)) {
+                if (drm_is_afbc(rsrc->image.layout.modifier)) {
                         pan_resource_modifier_convert(ctx, rsrc,
                                         DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED);
                 }
@@ -1081,7 +1081,7 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
         struct panfrost_device *device = pan_device(pctx->screen);
         struct panfrost_resource *prsrc = (struct panfrost_resource *)texture;
         enum pipe_format format = so->base.format;
-        assert(prsrc->bo);
+        assert(prsrc->image.bo);
 
         /* Format to access the stencil portion of a Z32_S8 texture */
         if (format == PIPE_FORMAT_X32_S8X24_UINT) {
@@ -1103,8 +1103,8 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
                 desc = util_format_description(format);
         }
 
-        so->texture_bo = prsrc->bo->ptr.gpu;
-        so->modifier = prsrc->layout.modifier;
+        so->texture_bo = prsrc->image.bo->ptr.gpu;
+        so->modifier = prsrc->image.layout.modifier;
 
         unsigned char user_swizzle[4] = {
                 so->base.swizzle_r,
@@ -1148,7 +1148,7 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
                                                        first_layer, last_layer,
                                                        texture->nr_samples,
                                                        type,
-                                                       prsrc->layout.modifier);
+                                                       prsrc->image.layout.modifier);
 
         so->bo = panfrost_bo_create(device, size, 0);
 
@@ -1166,7 +1166,7 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
                 payload.gpu += MALI_MIDGARD_TEXTURE_LENGTH;
         }
 
-        panfrost_new_texture(device, &prsrc->layout, tex,
+        panfrost_new_texture(device, &prsrc->image.layout, tex,
                              width, texture->height0,
                              depth, array_size,
                              format, type,
@@ -1174,7 +1174,7 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
                              first_layer, last_layer,
                              texture->nr_samples,
                              user_swizzle,
-                             prsrc->bo->ptr.gpu + offset,
+                             prsrc->image.bo->ptr.gpu + offset,
                              &payload);
 }
 
