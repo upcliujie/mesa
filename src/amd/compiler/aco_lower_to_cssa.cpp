@@ -363,57 +363,55 @@ bool try_coalesce_copy(cssa_ctx& ctx, copy copy, uint32_t block_idx)
 /* node in the location-transfer-graph */
 struct ltg_node {
    copy cp;
-   uint32_t num_uses;
    uint32_t read_idx;
-   uint32_t write_idx;
+   uint32_t num_uses = 0;
 };
 
 /* emit the copies in an order that does not
  * create interferences within a merge-set */
-void emit_copies_block(Builder bld, std::vector<ltg_node>& ltg, RegType type)
+void emit_copies_block(Builder bld, std::map<uint32_t, ltg_node>& ltg, RegType type)
 {
    auto&& it = ltg.begin();
-   unsigned num = 0; /* number of remaining circular copies */
    while (it != ltg.end()) {
-      /* already emitted or wrong regclass */
-      if (it->write_idx == -1u || it->cp.def.regClass().type() != type) {
-         ++it;
-         continue;
-      }
-      /* the target is still needed as operand */
-      if (it->num_uses > 0) {
-         num++;
+      const copy& cp = it->second.cp;
+      /* wrong regclass or still needed as operand */
+      if (cp.def.regClass().type() != type || it->second.num_uses > 0) {
          ++it;
          continue;
       }
 
       /* emit the copy */
-      bld.copy(it->cp.def, it->cp.op);
+      bld.copy(cp.def, it->second.cp.op);
 
       /* update the location transfer graph */
-      if (it->read_idx != -1u) {
-         for (ltg_node& other : ltg) {
-            if (other.write_idx == it->read_idx)
-               other.num_uses--;
-         }
+      if (it->second.read_idx != -1u) {
+         auto&& other = ltg.find(it->second.read_idx);
+         if (other != ltg.end())
+            other->second.num_uses--;
       }
-
-      it->write_idx = -1u;
+      ltg.erase(it);
       it = ltg.begin();
-      num = 0;
    }
+
+   /* count the number of remaining circular dependencies */
+   unsigned num = std::count_if(ltg.begin(), ltg.end(), [&] (auto& n){
+      return n.second.cp.def.regClass().type() == type;
+   });
 
    /* if there are circular dependencies, we just emit them as single parallelcopy */
    if (num) {
+      // TODO: this should be restricted to a feasible number of registers
+      // and otherwise use a temporary to avoid having to reload more (spilled)
+      // variables than we have registers.
       aco_ptr<Pseudo_instruction> copy{create_instruction<Pseudo_instruction>(aco_opcode::p_parallelcopy, Format::PSEUDO, num, num)};
       it = ltg.begin();
       for (unsigned i = 0; i < num; i++) {
-         while (it->write_idx == -1u || it->cp.def.regClass().type() != type)
+         while (it->second.cp.def.regClass().type() != type)
             ++it;
 
-         copy->definitions[i] = it->cp.def;
-         copy->operands[i] = it->cp.op;
-         it->write_idx = -1u;
+         copy->definitions[i] = it->second.cp.def;
+         copy->operands[i] = it->second.cp.op;
+         it = ltg.erase(it);
       }
       bld.insert(std::move(copy));
    }
@@ -430,7 +428,7 @@ void emit_parallelcopies(cssa_ctx& ctx)
       if (ctx.parallelcopies[i].empty())
          continue;
 
-      std::vector<ltg_node> ltg;
+      std::map<uint32_t, ltg_node> ltg;
       /* first, try to coalesce all parallelcopies */
       for (const copy& cp : ctx.parallelcopies[i]) {
          if (try_coalesce_copy(ctx, cp, i)) {
@@ -444,18 +442,17 @@ void emit_parallelcopies(cssa_ctx& ctx)
                read_idx = ctx.merge_node_table[cp.op.tempId()].index;
             uint32_t write_idx = ctx.merge_node_table[cp.def.tempId()].index;
             assert(write_idx != -1u);
-            ltg.emplace_back(ltg_node{cp, 0, read_idx, write_idx});
+            ltg[write_idx] = {cp, read_idx};
          }
       }
 
       /* build location-transfer-graph */
-      for (ltg_node& node : ltg) {
-         if (node.read_idx == -1u)
+      for (auto& pair : ltg) {
+         if (pair.second.read_idx == -1u)
             continue;
-         for (ltg_node& other : ltg) {
-            if (other.write_idx == node.read_idx)
-               other.num_uses++;
-         }
+         auto&& it = ltg.find(pair.second.read_idx);
+         if (it != ltg.end())
+            it->second.num_uses++;
       }
 
       /* emit parallelcopies ordered */
