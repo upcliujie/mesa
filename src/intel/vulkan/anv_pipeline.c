@@ -81,7 +81,8 @@ anv_shader_compile_to_nir(struct anv_device *device,
                           const struct vk_shader_module *module,
                           const char *entrypoint_name,
                           gl_shader_stage stage,
-                          const VkSpecializationInfo *spec_info)
+                          const VkSpecializationInfo *spec_info,
+                          const union brw_any_prog_key *key)
 {
    const struct anv_physical_device *pdevice = device->physical;
    const struct brw_compiler *compiler = pdevice->compiler;
@@ -206,6 +207,11 @@ anv_shader_compile_to_nir(struct anv_device *device,
       fprintf(stderr, "NIR (from SPIR-V) for %s shader:\n",
               gl_shader_stage_name(stage));
       nir_print_shader(nir, stderr);
+   }
+
+   if (nir->info.stage == MESA_SHADER_TESS_CTRL) {
+      const struct brw_tcs_prog_key *tcs_key = &key->tcs;
+      NIR_PASS_V(nir, anv_nir_clamp_per_vertex_input, tcs_key->input_vertices);
    }
 
    /* We have to lower away local constant initializers right before we
@@ -676,7 +682,8 @@ anv_pipeline_stage_get_nir(struct anv_pipeline *pipeline,
                                    stage->module,
                                    stage->entrypoint,
                                    stage->stage,
-                                   stage->spec_info);
+                                   stage->spec_info,
+                                   &stage->key);
    if (nir) {
       anv_device_upload_nir(pipeline->device, cache, nir, stage->shader_sha1);
       return nir;

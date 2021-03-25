@@ -88,6 +88,9 @@ void anv_nir_validate_push_layout(struct brw_stage_prog_data *prog_data,
 
 bool anv_nir_add_base_work_group_id(nir_shader *shader);
 
+bool anv_nir_clamp_per_vertex_input(nir_shader *shader,
+                                    unsigned input_vertices);
+
 #ifdef __cplusplus
 }
 #endif
