@@ -26,7 +26,9 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
+#ifdef WITH_LIBEXPAT
 #include <expat.h>
+#endif
 #include <inttypes.h>
 #include <zlib.h>
 
@@ -47,7 +49,9 @@ struct location {
 };
 
 struct parser_context {
+#ifdef WITH_LIBEXPAT
    XML_Parser parser;
+#endif
    int foo;
    struct location loc;
 
@@ -113,6 +117,7 @@ intel_spec_get_gen(struct intel_spec *spec)
    return spec->gen;
 }
 
+#ifdef WITH_LIBEXPAT
 static void __attribute__((noreturn))
 fail(struct location *loc, const char *msg, ...)
 {
@@ -236,6 +241,7 @@ get_register_offset(const char **atts, uint32_t *offset)
    }
    return;
 }
+#endif
 
 static void
 get_start_end_pos(int *start, int *end)
@@ -274,6 +280,7 @@ field_value(uint64_t value, int start, int end)
    return (value & mask(start, end)) >> (start);
 }
 
+#ifdef WITH_LIBEXPAT
 static struct intel_type
 string_to_type(struct parser_context *ctx, const char *s)
 {
@@ -507,16 +514,6 @@ character_data(void *data, const XML_Char *s, int len)
 {
 }
 
-static int
-devinfo_to_gen(const struct gen_device_info *devinfo, bool x10)
-{
-   if (devinfo->is_baytrail || devinfo->is_haswell) {
-      return devinfo->gen * 10 + 5;
-   }
-
-   return x10 ? devinfo->gen * 10 : devinfo->gen;
-}
-
 static uint32_t zlib_inflate(const void *compressed_data,
                              uint32_t compressed_len,
                              void **out_ptr)
@@ -593,11 +590,23 @@ intel_spec_init(void)
 
    return spec;
 }
+#endif
+
+static int
+devinfo_to_gen(const struct gen_device_info *devinfo, bool x10)
+{
+   if (devinfo->is_baytrail || devinfo->is_haswell) {
+      return devinfo->gen * 10 + 5;
+   }
+
+   return x10 ? devinfo->gen * 10 : devinfo->gen;
+}
 
 struct intel_spec *
 intel_spec_load(const struct gen_device_info *devinfo)
 {
-   struct parser_context ctx;
+   struct parser_context ctx = { 0 };
+#ifdef WITH_LIBEXPAT
    void *buf;
    uint8_t *text_data = NULL;
    uint32_t text_offset = 0, text_length = 0;
@@ -656,6 +665,7 @@ intel_spec_load(const struct gen_device_info *devinfo)
 
    XML_ParserFree(ctx.parser);
    free(text_data);
+#endif
 
    return ctx.spec;
 }
@@ -663,7 +673,8 @@ intel_spec_load(const struct gen_device_info *devinfo)
 struct intel_spec *
 intel_spec_load_filename(const char *filename)
 {
-   struct parser_context ctx;
+   struct parser_context ctx = { 0 };
+#ifdef WITH_LIBEXPAT
    FILE *input;
    void *buf;
    size_t len;
@@ -730,6 +741,7 @@ intel_spec_load_filename(const char *filename)
       intel_spec_destroy(ctx.spec);
       return NULL;
    }
+#endif
 
    return ctx.spec;
 }

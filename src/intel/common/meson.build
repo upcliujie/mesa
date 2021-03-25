@@ -18,8 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# TODO: android?
-
 files_libintel_common = files(
   'intel_aux_map.c',
   'intel_aux_map.h',
@@ -44,11 +42,17 @@ files_libintel_common = files(
   'intel_measure.h',
 )
 
+# disable libexpat on Android
+expat_args = []
+if not with_platform_android
+  expat_args += '-DWITH_LIBEXPAT=1'
+endif
+
 libintel_common = static_library(
   'intel_common',
   [files_libintel_common, genX_xml_h, sha1_h],
   include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel],
-  c_args : [no_override_init_args],
+  c_args : [no_override_init_args, expat_args],
   gnu_symbol_visibility : 'hidden',
   link_with : [libisl],
   dependencies : [dep_expat, dep_libdrm, dep_thread, idep_genxml, idep_mesautil],

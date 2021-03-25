@@ -24,6 +24,7 @@
 #include "common/intel_decoder.h"
 #include "intel_disasm.h"
 #include "util/macros.h"
+#include "util/u_debug.h"
 #include "main/macros.h" /* Needed for ROUND_DOWN_TO */
 
 #include <string.h>
@@ -1165,6 +1166,10 @@ intel_print_batch(struct intel_batch_decode_ctx *ctx,
                   const uint32_t *batch, uint32_t batch_size,
                   uint64_t batch_addr, bool from_ring)
 {
+#ifndef WITH_LIBEXPAT
+   debug_warn_once("batch dumping not supported due to missing libexpat");
+   return;
+#endif
    const uint32_t *p, *end = batch + batch_size / sizeof(uint32_t);
    int length;
    struct intel_group *inst;
