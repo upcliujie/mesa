@@ -52,9 +52,9 @@ struct copy {
 };
 
 struct merge_node {
-   Operand value; /* original value: can be an SSA-def or constant value */
-   uint32_t index; /* index into the vector of merge sets */
-   uint32_t defined_at; /* defining block */
+   Operand value = Operand(); /* original value: can be an SSA-def or constant value */
+   uint32_t index = -1u; /* index into the vector of merge sets */
+   uint32_t defined_at = -1u; /* defining block */
 
    /* we also remember two dominating defs with the same value: */
    Temp equal_anc_in = Temp(); /* within the same merge set */
@@ -321,41 +321,43 @@ bool try_merge_merge_set(cssa_ctx& ctx, Temp dst, merge_set& set_b)
 /* returns true if the copy can safely be omitted */
 bool try_coalesce_copy(cssa_ctx& ctx, copy copy, uint32_t block_idx)
 {
-   /* we can only coalesce copies of the same register class */
+   /* we can only coalesce temporaries */
    if (!copy.op.isTemp())
       return false;
+
+   /* try emplace a merge_node for the copy operand */
+   merge_node& op_node = ctx.merge_node_table[copy.op.tempId()];
+   if (op_node.defined_at == -1u) {
+      /* find defining block of operand */
+      uint32_t pred = block_idx;
+      do {
+         block_idx = pred;
+         pred = copy.op.regClass().type() == RegType::vgpr ?
+                ctx.program->blocks[pred].logical_idom :
+                ctx.program->blocks[pred].linear_idom;
+      } while (block_idx != pred &&
+               ctx.live_out[pred].count(copy.op.tempId()));
+      op_node.defined_at = block_idx;
+      op_node.value = copy.op;
+   }
+
+   /* we can only coalesce copies of the same register class */
    if (copy.op.regClass() != copy.def.regClass())
       return false;
 
-   assert(ctx.merge_node_table.find(copy.def.tempId()) != ctx.merge_node_table.end());
-   auto&& merge_node_it = ctx.merge_node_table.find(copy.op.tempId());
-   if (merge_node_it != ctx.merge_node_table.end()) {
-      /* check if this operand has already been coalesced into the same set */
-      if (merge_node_it->second.index == ctx.merge_node_table[copy.def.tempId()].index)
-         return true;
-
-      /* check if the operand already has a merge_set */
-      if (merge_node_it->second.index != -1u)
-         return try_merge_merge_set(ctx, copy.def.getTemp(), ctx.merge_sets[merge_node_it->second.index]);
-
+   /* check if this operand has not yet been coalesced */
+   if (op_node.index == -1u) {
       merge_set op_set = merge_set{copy.op.getTemp()};
       return try_merge_merge_set(ctx, copy.def.getTemp(), op_set);
    }
 
-   /* find defining block of operand */
-   uint32_t pred = block_idx;
-   do {
-      block_idx = pred;
-      pred = copy.op.regClass().type() == RegType::vgpr ?
-             ctx.program->blocks[pred].logical_idom :
-             ctx.program->blocks[pred].linear_idom;
-   } while (block_idx != pred &&
-            ctx.live_out[pred].count(copy.op.tempId()));
+   /* check if this operand has been coalesced into the same set */
+   assert(ctx.merge_node_table.count(copy.def.tempId()));
+   if (op_node.index == ctx.merge_node_table[copy.def.tempId()].index)
+      return true;
 
-   /* create hashmap entry */
-   ctx.merge_node_table[copy.op.tempId()] = {copy.op, -1u, block_idx};
-   merge_set op_set = merge_set{copy.op.getTemp()};
-   return try_merge_merge_set(ctx, copy.def.getTemp(), op_set);
+   /* otherwise, try to coalesce both merge sets */
+   return try_merge_merge_set(ctx, copy.def.getTemp(), ctx.merge_sets[op_node.index]);
 }
 
 /* node in the location-transfer-graph */
@@ -435,8 +437,7 @@ void emit_parallelcopies(cssa_ctx& ctx)
             renames.emplace(cp.def.tempId(), cp.op);
             /* update liveness info */
             ctx.live_out[i].erase(cp.def.tempId());
-            if (cp.op.isTemp())
-               ctx.live_out[i].insert(cp.op.tempId());
+            ctx.live_out[i].insert(cp.op.tempId());
          } else {
             uint32_t read_idx = -1u;
             if (cp.op.isTemp())
