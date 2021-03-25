@@ -29,6 +29,10 @@
 #include <stdio.h>
 #endif
 
+#ifdef HAVE_PERFETTO
+#include "perfetto/u_perfetto.h"
+#endif
+
 #include "util/detect_os.h"
 #include "util/log.h"
 
@@ -76,6 +80,9 @@ void
 mesa_log_v(enum mesa_log_level level, const char *tag, const char *format,
             va_list va)
 {
+#ifdef HAVE_PERFETTO
+   util_perfetto_log_v(level, tag, format, va);
+#endif
 #ifdef ANDROID
    __android_log_vprint(level_to_android(level), tag, format, va);
 #else
