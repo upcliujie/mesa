@@ -1710,20 +1710,18 @@ isl_surf_init_s(const struct isl_device *dev,
    } else {
       /* Pitches must make sense with the tiling */
       assert(row_pitch_B % tile_info.phys_extent_B.width == 0);
-      assert(array_pitch_el_rows % tile_info.logical_extent_el.d == 0);
-      assert(array_pitch_el_rows % tile_info.logical_extent_el.a == 0);
 
       uint32_t array_slices, array_pitch_tl_rows;
       if (phys_total_el.d > 1) {
          assert(phys_total_el.a == 1);
-         array_pitch_tl_rows = isl_align_div(array_pitch_el_rows,
-                                             tile_info.logical_extent_el.h);
+         array_pitch_tl_rows = isl_assert_div(array_pitch_el_rows,
+                                              tile_info.logical_extent_el.h);
          array_slices = isl_align_div(phys_total_el.d,
                                       tile_info.logical_extent_el.d);
       } else if (phys_total_el.a > 1) {
          assert(phys_total_el.d == 1);
-         array_pitch_tl_rows = isl_align_div(array_pitch_el_rows,
-                                             tile_info.logical_extent_el.h);
+         array_pitch_tl_rows = isl_assert_div(array_pitch_el_rows,
+                                              tile_info.logical_extent_el.h);
          array_slices = isl_align_div(phys_total_el.a,
                                       tile_info.logical_extent_el.a);
          assert(array_pitch_el_rows % tile_info.logical_extent_el.h == 0);
