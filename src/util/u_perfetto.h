@@ -24,12 +24,18 @@
 #ifndef _UTIL_PERFETTO_H
 #define _UTIL_PERFETTO_H
 
+#include <stdarg.h>
+
+#include "util/log.h"
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
 void util_perfetto_init(void);
+void util_perfetto_log(enum mesa_log_level level, const char *tag, const char *format, ...) PRINTFLIKE(3, 4);
+void util_perfetto_log_v(enum mesa_log_level level, const char *tag, const char *format, va_list va);
+
 
 #ifdef	__cplusplus
 }
