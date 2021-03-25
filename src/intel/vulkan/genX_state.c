@@ -258,6 +258,16 @@ init_render_queue_state(struct anv_queue *queue)
    }
 #endif
 
+#if GEN_VERSIONx10 == 120
+   /* Wa_1508744258: Disable optimization to avoid hangs in the general
+    * case.
+    */
+   anv_batch_write_reg(&batch, GENX(COMMON_SLICE_CHICKEN1), csc1) {
+      csc1.RCCRHWOOptimizationdisablebit = true;
+      csc1.RCCRHWOOptimizationdisablebitMask = true;
+   }
+#endif
+
 #if GEN_GEN == 12
    if (device->info.has_aux_map) {
       uint64_t aux_base_addr = intel_aux_map_get_base(device->aux_map_ctx);
