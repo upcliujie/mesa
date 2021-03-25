@@ -618,6 +618,12 @@ struct ir3_register * ir3_reg_create(struct ir3_instruction *instr,
 struct ir3_register * ir3_reg_clone(struct ir3 *shader,
 		struct ir3_register *reg);
 
+static inline unsigned
+ir3_reg_elem_size(const struct ir3_register *reg)
+{
+	return (reg->flags & IR3_REG_HALF) ? 1 : 2;
+}
+
 void ir3_instr_set_address(struct ir3_instruction *instr,
 		struct ir3_instruction *addr);
 
