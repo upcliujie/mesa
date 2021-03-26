@@ -427,7 +427,7 @@ arm_build:
     - .fdo.container-build@debian@arm64v8
     - .container
   variables:
-    MESA_IMAGE_TAG: &arm_build "2021-02-15-asan"
+    MESA_IMAGE_TAG: &arm_build "2021-03-26-piglit-minio"
 
 .use-arm_build:
   extends:
@@ -444,7 +444,7 @@ arm_test-base:
     - .fdo.container-build@debian
     - .container
   variables:
-    MESA_IMAGE_TAG: &arm_test-base "2021-02-08-container-reorg"
+    MESA_IMAGE_TAG: &arm_test-base "2021-03-26-piglit-minio"
 
 .use-arm_test-base:
   extends:
@@ -461,7 +461,7 @@ arm64_test:
   extends:
     - .use-arm_test-base
   variables:
-    MESA_IMAGE_TAG: &arm64_test "2021-03-17-waffle-dep"
+    MESA_IMAGE_TAG: &arm64_test "2021-03-26-piglit-minio"
 
 .use-arm64_test:
   extends:
