@@ -3,7 +3,7 @@ variables:
   MESA_TEMPLATES_COMMIT: &ci-templates-commit 52dd4a94044449c8481d18dcdc221a3c636366d2
   CI_PRE_CLONE_SCRIPT: |-
           set -o xtrace
-          /usr/bin/wget -q -O- ${CI_PROJECT_URL}/-/raw/${CI_COMMIT_SHA}/.gitlab-ci/download-git-cache.sh | sh -
+          /usr/bin/wget -q -O- ${CI_PROJECT_URL}/-/raw/${CI_COMMIT_SHA}/.gitlab-ci/download-git-cache.sh | bash -
           set +o xtrace
   MINIO_HOST: minio-packet.freedesktop.org
 
