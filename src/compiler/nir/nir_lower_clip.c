@@ -65,6 +65,7 @@ create_clipdist_var(nir_shader *shader,
    } else
       var->type = glsl_vec4_type();
 
+   shader->info.clip_distance_array_size = array_size;
    nir_shader_add_variable(shader, var);
    return var;
 }
