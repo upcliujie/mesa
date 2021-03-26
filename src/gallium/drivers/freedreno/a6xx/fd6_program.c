@@ -455,7 +455,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 			A6XX_SP_VS_CTRL_REG0_FULLREGFOOTPRINT(vs->info.max_reg + 1) |
 			A6XX_SP_VS_CTRL_REG0_HALFREGFOOTPRINT(vs->info.max_half_reg + 1) |
 			COND(vs->mergedregs, A6XX_SP_VS_CTRL_REG0_MERGEDREGS) |
-			A6XX_SP_VS_CTRL_REG0_BRANCHSTACK(vs->branchstack));
+			A6XX_SP_VS_CTRL_REG0_BRANCHSTACK(ir3_shader_branchstack_hw(vs)));
 
 	fd6_emit_shader(ctx, ring, vs);
 	fd6_emit_immediates(ctx->screen, vs, ring);
@@ -574,7 +574,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 		OUT_RING(ring,
 			A6XX_SP_HS_CTRL_REG0_FULLREGFOOTPRINT(hs->info.max_reg + 1) |
 			A6XX_SP_HS_CTRL_REG0_HALFREGFOOTPRINT(hs->info.max_half_reg + 1) |
-			A6XX_SP_HS_CTRL_REG0_BRANCHSTACK(hs->branchstack));
+			A6XX_SP_HS_CTRL_REG0_BRANCHSTACK(ir3_shader_branchstack_hw(hs)));
 
 		fd6_emit_shader(ctx, ring, hs);
 		fd6_emit_immediates(ctx->screen, hs, ring);
@@ -585,7 +585,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 			A6XX_SP_DS_CTRL_REG0_FULLREGFOOTPRINT(ds->info.max_reg + 1) |
 			A6XX_SP_DS_CTRL_REG0_HALFREGFOOTPRINT(ds->info.max_half_reg + 1) |
 			COND(ds->mergedregs, A6XX_SP_DS_CTRL_REG0_MERGEDREGS) |
-			A6XX_SP_DS_CTRL_REG0_BRANCHSTACK(ds->branchstack));
+			A6XX_SP_DS_CTRL_REG0_BRANCHSTACK(ir3_shader_branchstack_hw(ds)));
 
 		fd6_emit_shader(ctx, ring, ds);
 		fd6_emit_immediates(ctx->screen, ds, ring);
@@ -719,7 +719,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 			A6XX_SP_FS_CTRL_REG0_FULLREGFOOTPRINT(fs->info.max_reg + 1) |
 			A6XX_SP_FS_CTRL_REG0_HALFREGFOOTPRINT(fs->info.max_half_reg + 1) |
 			COND(fs->mergedregs, A6XX_SP_FS_CTRL_REG0_MERGEDREGS) |
-			A6XX_SP_FS_CTRL_REG0_BRANCHSTACK(fs->branchstack) |
+			A6XX_SP_FS_CTRL_REG0_BRANCHSTACK(ir3_shader_branchstack_hw(fs)) |
 			COND(fs->need_pixlod, A6XX_SP_FS_CTRL_REG0_PIXLODENABLE));
 
 	OUT_PKT4(ring, REG_A6XX_VPC_VS_LAYER_CNTL, 1);
@@ -799,7 +799,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
 		OUT_RING(ring,
 			A6XX_SP_GS_CTRL_REG0_FULLREGFOOTPRINT(gs->info.max_reg + 1) |
 			A6XX_SP_GS_CTRL_REG0_HALFREGFOOTPRINT(gs->info.max_half_reg + 1) |
-			A6XX_SP_GS_CTRL_REG0_BRANCHSTACK(gs->branchstack));
+			A6XX_SP_GS_CTRL_REG0_BRANCHSTACK(ir3_shader_branchstack_hw(gs)));
 
 		fd6_emit_shader(ctx, ring, gs);
 		fd6_emit_immediates(ctx->screen, gs, ring);
