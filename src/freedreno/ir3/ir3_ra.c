@@ -1649,8 +1649,14 @@ insert_live_in_move(struct ra_ctx *ctx, struct ra_interval *interval)
 static void
 insert_file_live_in_moves(struct ra_ctx *ctx, struct ra_file *file)
 {
+	BITSET_WORD *live_in = ctx->live->live_in[ctx->block->index];
 	rb_tree_foreach(struct ra_interval, interval, &file->physreg_intervals, physreg_node) {
-		insert_live_in_move(ctx, interval);
+		/* Skip phi nodes. This needs to happen after phi nodes are allocated,
+		 * because we may have to move live-ins around to make space for phi
+		 * nodes, but we shouldn't be handling phi nodes here.
+		 */
+		if (BITSET_TEST(live_in, interval->interval.reg->name))
+			insert_live_in_move(ctx, interval);
 	}
 }
 
