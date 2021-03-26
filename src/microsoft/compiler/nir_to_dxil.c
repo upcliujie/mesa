@@ -2448,6 +2448,8 @@ emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr,
                   nir_variable *output)
 {
    nir_alu_type out_type = nir_get_nir_type_for_glsl_base_type(glsl_get_base_type(output->type));
+   if (output->data.compact)
+      out_type = nir_type_float;
    enum overload_type overload = get_overload(out_type, 32);
    const struct dxil_func *func = dxil_get_function(&ctx->mod, "dx.op.storeOutput", overload);
 
@@ -2459,15 +2461,26 @@ emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr,
    const struct dxil_value *row = dxil_module_get_int32_const(&ctx->mod, 0);
 
    bool success = true;
-   uint32_t writemask = nir_intrinsic_write_mask(intr);
-   for (unsigned i = 0; i < nir_src_num_components(intr->src[1]) && success; ++i) {
-      if (writemask & (1 << i)) {
-         const struct dxil_value *col = dxil_module_get_int8_const(&ctx->mod, i);
-         const struct dxil_value *value = get_src(ctx, &intr->src[1], i, out_type);
-         const struct dxil_value *args[] = {
-            opcode, output_id, row, col, value
-         };
-         success &= dxil_emit_call_void(&ctx->mod, func, args, ARRAY_SIZE(args));
+   if (output->data.compact) {
+      nir_deref_instr *array_deref = nir_instr_as_deref(intr->src[0].ssa->parent_instr);
+      unsigned array_index = nir_src_as_uint(array_deref->arr.index);
+      const struct dxil_value *col = dxil_module_get_int8_const(&ctx->mod, array_index);
+      const struct dxil_value *value = get_src(ctx, &intr->src[1], 0, out_type);
+      const struct dxil_value *args[] = {
+         opcode, output_id, row, col, value
+      };
+      success = dxil_emit_call_void(&ctx->mod, func, args, ARRAY_SIZE(args));
+   } else {
+      uint32_t writemask = nir_intrinsic_write_mask(intr);
+      for (unsigned i = 0; i < nir_src_num_components(intr->src[1]) && success; ++i) {
+         if (writemask & (1 << i)) {
+            const struct dxil_value *col = dxil_module_get_int8_const(&ctx->mod, i);
+            const struct dxil_value *value = get_src(ctx, &intr->src[1], i, out_type);
+            const struct dxil_value *args[] = {
+               opcode, output_id, row, col, value
+            };
+            success &= dxil_emit_call_void(&ctx->mod, func, args, ARRAY_SIZE(args));
+         }
       }
    }
    return success;
