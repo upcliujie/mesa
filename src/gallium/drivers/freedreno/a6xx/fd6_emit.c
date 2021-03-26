@@ -1379,6 +1379,9 @@ fd6_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring)
 	OUT_PKT4(ring, REG_A6XX_RB_LRZ_CNTL, 1);
 	OUT_RING(ring, 0x00000000);
 
+	OUT_PKT7(ring, CP_SET_SUBDRAW_SIZE, 1);
+	OUT_RING(ring, FD6_TESS_SUBDRAW_SIZE);
+
 	if (!batch->nondraw) {
 		trace_end_state_restore(&batch->trace);
 	}

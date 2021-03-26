@@ -277,11 +277,23 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 		draw0.prim_type = DI_PT_PATCHES0 + info->vertices_per_patch;
 		draw0.tess_enable = true;
 
+		unsigned count;
+
+		/**
+		 * We can cap tessparam/tessfactor buffer sizes at the sub-draw
+		 * limit.  But in the indirect-draw case we must assume the worst.
+		 */
+		if (indirect && indirect->buffer) {
+			count = FD6_TESS_SUBDRAW_SIZE;
+		} else {
+			count = MIN2(draw->count, FD6_TESS_SUBDRAW_SIZE);
+		}
+
 		ctx->batch->tessellation = true;
 		ctx->batch->tessparam_size = MAX2(ctx->batch->tessparam_size,
-				emit.hs->output_size * 4 * draw->count);
+				emit.hs->output_size * 4 * count);
 		ctx->batch->tessfactor_size = MAX2(ctx->batch->tessfactor_size,
-				factor_stride * draw->count);
+				factor_stride * count);
 
 		if (!ctx->batch->tess_addrs_constobj) {
 			/* Reserve space for the bo address - we'll write them later in

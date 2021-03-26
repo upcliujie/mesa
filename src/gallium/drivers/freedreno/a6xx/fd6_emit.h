@@ -38,6 +38,12 @@
 
 struct fd_ringbuffer;
 
+/**
+ * Tess draws with higher count get split up into subdraws at this limit,
+ * to keep the size of tessfactor/tessparam buffer sizes managable.
+ */
+#define FD6_TESS_SUBDRAW_SIZE 2048
+
 /* To collect all the state objects to emit in a single CP_SET_DRAW_STATE
  * packet, the emit tracks a collection of however many state_group's that
  * need to be emit'd.
