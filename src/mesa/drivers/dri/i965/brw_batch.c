@@ -80,7 +80,7 @@ dump_validation_list(struct brw_batch *batch)
    }
 }
 
-static struct intel_batch_decode_bo
+UNUSED static struct intel_batch_decode_bo
 decode_get_bo(void *v_brw, bool ppgtt, uint64_t address)
 {
    struct brw_context *brw = v_brw;
@@ -103,7 +103,7 @@ decode_get_bo(void *v_brw, bool ppgtt, uint64_t address)
    return (struct intel_batch_decode_bo) { };
 }
 
-static unsigned
+UNUSED static unsigned
 decode_get_state_size(void *v_brw, uint64_t address, uint64_t base_address)
 {
    struct brw_context *brw = v_brw;
@@ -148,6 +148,7 @@ brw_batch_init(struct brw_context *brw)
    batch->validation_list =
       malloc(batch->exec_array_size * sizeof(batch->validation_list[0]));
 
+#ifndef ANDROID
    if (INTEL_DEBUG & DEBUG_BATCH) {
       batch->state_batch_sizes =
          _mesa_hash_table_u64_create(NULL);
@@ -163,6 +164,7 @@ brw_batch_init(struct brw_context *brw)
                                   decode_get_state_size, brw);
       batch->decoder.max_vbo_decoded_lines = 100;
    }
+#endif
 
    batch->use_batch_first =
       screen->kernel_features & KERNEL_ALLOWS_EXEC_BATCH_FIRST;
@@ -346,7 +348,9 @@ brw_batch_free(struct brw_batch *batch)
    brw_bo_unreference(batch->state.bo);
    if (batch->state_batch_sizes) {
       _mesa_hash_table_u64_destroy(batch->state_batch_sizes, NULL);
+#ifndef ANDROID
       intel_batch_decode_ctx_finish(&batch->decoder);
+#endif
    }
 }
 
@@ -830,11 +834,13 @@ submit_batch(struct brw_context *brw, int in_fence_fd, int *out_fence_fd)
       throttle(brw);
    }
 
+#ifndef ANDROID
    if (INTEL_DEBUG & DEBUG_BATCH) {
       intel_print_batch(&batch->decoder, batch->batch.map,
                         4 * USED_BATCH(*batch),
                         batch->batch.bo->gtt_offset, false);
    }
+#endif
 
    if (brw->ctx.Const.ResetStrategy == GL_LOSE_CONTEXT_ON_RESET_ARB)
       brw_check_for_reset(brw);
