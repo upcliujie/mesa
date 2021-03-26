@@ -116,6 +116,7 @@ dump_validation_list(struct iris_batch *batch)
    }
 }
 
+#ifndef ANDROID
 /**
  * Return BO information to the batch decoder (for debugging).
  */
@@ -165,6 +166,7 @@ decode_batch(struct iris_batch *batch)
    intel_print_batch(&batch->decoder, map, batch->primary_batch_size,
                      batch->exec_bos[0]->gtt_offset, false);
 }
+#endif
 
 void
 iris_init_batch(struct iris_context *ice,
@@ -212,6 +214,7 @@ iris_init_batch(struct iris_context *ice,
          batch->other_batches[j++] = &ice->batches[i];
    }
 
+#ifndef ANDROID
    if (INTEL_DEBUG) {
       const unsigned decode_flags =
          INTEL_BATCH_DECODE_FULL |
@@ -226,6 +229,7 @@ iris_init_batch(struct iris_context *ice,
       batch->decoder.instruction_base = IRIS_MEMZONE_SHADER_START;
       batch->decoder.max_vbo_decoded_lines = 32;
    }
+#endif
 
    iris_init_batch_measure(ice, batch);
 
@@ -451,8 +455,10 @@ iris_batch_free(struct iris_batch *batch)
 
    _mesa_hash_table_destroy(batch->cache.render, NULL);
 
+#ifndef ANDROID
    if (INTEL_DEBUG)
       intel_batch_decode_ctx_finish(&batch->decoder);
+#endif
 }
 
 /**
@@ -713,9 +719,11 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
          dump_validation_list(batch);
       }
 
+#ifndef ANDROID
       if (INTEL_DEBUG & DEBUG_BATCH) {
          decode_batch(batch);
       }
+#endif
    }
 
    int ret = submit_batch(batch);
