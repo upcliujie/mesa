@@ -1347,12 +1347,10 @@ handle_collect(struct ra_ctx *ctx, struct ir3_instruction *instr)
 static void
 handle_pcopy(struct ra_ctx *ctx, struct ir3_instruction *instr)
 {
-	for (unsigned i = instr->regs_count / 2; i < instr->regs_count; i++) {
-		struct ir3_register *def = instr->regs[i]->def;
-		if (!def)
+	for (unsigned i = instr->regs_count - 1; i >= instr->regs_count / 2; i--) {
+		if (!ra_reg_is_src(instr->regs[i]))
 			continue;
-		struct ra_interval *interval = &ctx->intervals[def->name];
-		assign_reg(instr, instr->regs[i], ra_interval_get_num(interval));
+		assign_src(ctx, instr, instr->regs[i]);
 	}
 }
 
