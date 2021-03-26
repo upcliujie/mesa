@@ -154,6 +154,13 @@ spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_yuyv,Fail
 spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_yvu420,Fail
 spec@ext_image_dma_buf_import@ext_image_dma_buf_import-transcode-nv12-as-r8-gr88,Fail
 spec@ext_image_dma_buf_import@ext_image_dma_buf_import-unsupported_format,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-reimport-bug,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_y210,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_y212,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_y216,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_y410,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_y412,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_y416,Fail
 spec@ext_packed_float@query-rgba-signed-components,Fail
 spec@ext_packed_float@texwrap formats bordercolor-swizzled,Fail
 spec@ext_texture_compression_rgtc@texwrap formats bordercolor-swizzled,Fail
@@ -206,3 +213,13 @@ spec@nv_primitive_restart@primitive-restart-vbo_combined_vertex_and_index,Fail
 spec@nv_primitive_restart@primitive-restart-vbo_index_only,Fail
 spec@nv_primitive_restart@primitive-restart-vbo_separate_vertex_and_index,Fail
 spec@nv_primitive_restart@primitive-restart-vbo_vertex_only,Fail
+spec@ext_external_objects@vk-buf-exchange,Fail
+spec@ext_external_objects@vk-depth-display,Fail
+spec@ext_external_objects@vk-image-display,Fail
+spec@ext_external_objects@vk-image-display-overwrite,Fail
+spec@ext_external_objects@vk-image-overwrite,Fail
+spec@ext_external_objects@vk-pix-buf-update-errors,Fail
+spec@ext_external_objects@vk-semaphores,Fail
+spec@ext_external_objects@vk-semaphores-2,Fail
+spec@ext_external_objects@vk-vert-buf-reuse,Fail
+spec@ext_external_objects@vk-vert-buf-update-errors,Fail
