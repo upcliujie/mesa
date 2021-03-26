@@ -575,10 +575,6 @@ emit_output(struct ntv_context *ctx, struct nir_variable *var)
       case VARYING_SLOT_CLIP_DIST0:
          assert(glsl_type_is_array(var->type));
          spirv_builder_emit_builtin(&ctx->builder, var_id, SpvBuiltInClipDistance);
-         /* this can be as large as 2x vec4, which requires 2 slots */
-         ctx->outputs[VARYING_SLOT_CLIP_DIST1] = var_id;
-         ctx->so_output_gl_types[VARYING_SLOT_CLIP_DIST1] = var->type;
-         ctx->so_output_types[VARYING_SLOT_CLIP_DIST1] = var_type;
          break;
 
       default:
