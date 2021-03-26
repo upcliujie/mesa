@@ -1327,7 +1327,7 @@ struct radv_cmd_state {
 	struct radv_buffer                           *index_buffer;
 	uint64_t                                     index_offset;
 	uint32_t                                     index_type;
-	uint32_t                                     max_index_count;
+	uint32_t                                     max_index_size;
 	uint64_t                                     index_va;
 	int32_t                                      last_index_type;
 

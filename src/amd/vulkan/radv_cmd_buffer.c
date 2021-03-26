@@ -2480,7 +2480,7 @@ radv_emit_index_buffer(struct radv_cmd_buffer *cmd_buffer, bool indirect)
 	}
 
 	/* For the direct indexed draws we use DRAW_INDEX_2, which includes
-	 * the index_va and max_index_count already. */
+	 * the index_va and max_index_size already. */
 	if (!indirect)
 		return;
 
@@ -2489,7 +2489,7 @@ radv_emit_index_buffer(struct radv_cmd_buffer *cmd_buffer, bool indirect)
 	radeon_emit(cs, state->index_va >> 32);
 
 	radeon_emit(cs, PKT3(PKT3_INDEX_BUFFER_SIZE, 0, 0));
-	radeon_emit(cs, state->max_index_count);
+	radeon_emit(cs, state->max_index_size);
 
 	cmd_buffer->state.dirty &= ~RADV_CMD_DIRTY_INDEX_BUFFER;
 }
@@ -4093,7 +4093,7 @@ void radv_CmdBindIndexBuffer(
 	cmd_buffer->state.index_va += index_buffer->offset + offset;
 
 	int index_size = radv_get_vgt_index_size(vk_to_index_type(indexType));
-	cmd_buffer->state.max_index_count = (index_buffer->size - offset) / index_size;
+	cmd_buffer->state.max_index_size = (index_buffer->size - offset) >> util_logbase2(index_size);
 	cmd_buffer->state.dirty |= RADV_CMD_DIRTY_INDEX_BUFFER;
 	radv_cs_add_buffer(cmd_buffer->device->ws, cmd_buffer->cs, index_buffer->bo);
 }
@@ -5279,17 +5279,16 @@ radv_cs_emit_draw_packet(struct radv_cmd_buffer *cmd_buffer,
  * Emit a PKT3_DRAW_INDEX_2 packet to render "index_count` vertices.
  *
  * The starting address "index_va" may point anywhere within the index buffer. The number of
- * indexes allocated in the index buffer *past that point* is specified by "max_index_count".
+ * indexes allocated in the index buffer *past that point* is specified by "max_index_size".
  * Hardware uses this information to return 0 for out-of-bounds reads.
  */
 static void
 radv_cs_emit_draw_indexed_packet(struct radv_cmd_buffer *cmd_buffer,
                                  uint64_t index_va,
-                                 uint32_t max_index_count,
                                  uint32_t index_count)
 {
 	radeon_emit(cmd_buffer->cs, PKT3(PKT3_DRAW_INDEX_2, 4, cmd_buffer->state.predicating));
-	radeon_emit(cmd_buffer->cs, max_index_count);
+	radeon_emit(cmd_buffer->cs, cmd_buffer->state.max_index_size);
 	radeon_emit(cmd_buffer->cs, index_va);
 	radeon_emit(cmd_buffer->cs, index_va >> 32);
 	radeon_emit(cmd_buffer->cs, index_count);
@@ -5404,21 +5403,12 @@ radv_emit_draw_packets_indexed(struct radv_cmd_buffer *cmd_buffer,
 	const int index_size = radv_get_vgt_index_size(state->index_type);
 	uint64_t index_va;
 
-	uint32_t remaining_indexes = cmd_buffer->state.max_index_count;
-	remaining_indexes = MAX2(remaining_indexes, info->first_index) - info->first_index;
-
-	/* Skip draw calls with 0-sized index buffers if the GPU can't handle them */
-	if (!remaining_indexes &&
-	    cmd_buffer->device->physical_device->rad_info.has_zero_index_buffer_bug)
-		return;
-
 	index_va = state->index_va;
 	index_va += first_index * index_size;
 
 	if (!state->subpass->view_mask) {
 		radv_cs_emit_draw_indexed_packet(cmd_buffer,
 						 index_va,
-						 remaining_indexes,
 						 count);
 	} else {
 		u_foreach_bit(i, state->subpass->view_mask) {
@@ -5426,7 +5416,6 @@ radv_emit_draw_packets_indexed(struct radv_cmd_buffer *cmd_buffer,
 
 			radv_cs_emit_draw_indexed_packet(cmd_buffer,
 							 index_va,
-							 remaining_indexes,
 							 count);
 		}
 	}
@@ -5749,6 +5738,11 @@ void radv_CmdDrawIndexed(
 	info.strmout_buffer = NULL;
 	info.indirect = NULL;
 
+	/* Skip draw calls with 0-sized index buffers if the GPU can't handle them */
+	if (cmd_buffer->device->physical_device->rad_info.has_zero_index_buffer_bug &&
+	    !cmd_buffer->state.max_index_size)
+		return;
+
 	if (!radv_before_draw(cmd_buffer, &info, vertexOffset))
 	   return;
 	radv_emit_draw_packets_indexed(cmd_buffer, &info,
@@ -5799,6 +5793,11 @@ void radv_CmdDrawIndexedIndirect(
 	info.stride = stride;
         info.count_buffer = NULL;
 	info.strmout_buffer = NULL;
+
+	/* Skip draw calls with 0-sized index buffers if the GPU can't handle them */
+	if (cmd_buffer->device->physical_device->rad_info.has_zero_index_buffer_bug &&
+	    !cmd_buffer->state.max_index_size)
+		return;
 
 	if (!radv_before_draw(cmd_buffer, &info, 0))
 	   return;
@@ -5857,6 +5856,11 @@ void radv_CmdDrawIndexedIndirectCount(
 	info.count_buffer_offset = countBufferOffset;
 	info.stride = stride;
 	info.strmout_buffer = NULL;
+
+	/* Skip draw calls with 0-sized index buffers if the GPU can't handle them */
+	if (cmd_buffer->device->physical_device->rad_info.has_zero_index_buffer_bug &&
+	    !cmd_buffer->state.max_index_size)
+		return;
 
 	if (!radv_before_draw(cmd_buffer, &info, 0))
 	   return;
