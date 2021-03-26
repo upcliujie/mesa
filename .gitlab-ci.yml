@@ -470,6 +470,7 @@ kernel+rootfs_amd64:
 .use-rootfs-amd64:
   variables:
     DISTRIBUTION_TAG: *distribution-tag-amd64
+    DEBIAN_ARCH: "amd64"
 
 # arm64 kernel+rootfs for LAVA runners (trimmed down piglit due to use as an initrd)
 kernel+rootfs_arm64:
@@ -487,6 +488,7 @@ kernel+rootfs_arm64:
 .use-rootfs-arm64:
   variables:
     DISTRIBUTION_TAG: *distribution-tag-arm64
+    DEBIAN_ARCH: "arm64"
   needs:
     - kernel+rootfs_arm64
 
@@ -496,13 +498,14 @@ kernel+rootfs_arm64_baremetal:
     - kernel+rootfs_arm64
   variables:
     ROOTFS_BUILD_TAG: "2021-03-26-bm-refactor"
-    DISTRIBUTION_TAG: &distribution-tag-arm64_baremetal "${ROOTFS_BUILD_TAG}--${MESA_BASE_TAG}--${MESA_TEMPLATES_COMMIT}"
+    DISTRIBUTION_TAG: &distribution-tag-arm64_baremetal "${ROOTFS_BUILD_TAG}--${MESA_BASE_TAG}--${MESA_TEMPLATES_COMMIT}-bm"
     DEBIAN_ARCH: "arm64"
     KERNEL_URL: "https://github.com/anholt/linux/archive/mesa-ci-2021-02-17-5.11.tar.gz"
 
 .use-rootfs-arm64-baremetal:
   variables:
     DISTRIBUTION_TAG: *distribution-tag-arm64
+    DEBIAN_ARCH: "arm64"
   needs:
     - kernel+rootfs_arm64_baremetal
 
@@ -512,13 +515,14 @@ kernel+rootfs_armhf:
     - kernel+rootfs_arm64
   variables:
     ROOTFS_BUILD_TAG: "2021-03-26-bm-refactor"
-    DISTRIBUTION_TAG: &distribution-tag-armhf "${ROOTFS_BUILD_TAG}--${MESA_BASE_TAG}--${MESA_TEMPLATES_COMMIT}-bm"
+    DISTRIBUTION_TAG: &distribution-tag-armhf "${ROOTFS_BUILD_TAG}--${MESA_BASE_TAG}--${MESA_TEMPLATES_COMMIT}"
     DEBIAN_ARCH: "armhf"
     PIGLIT_BUILD_TARGETS: "piglit_replayer"
 
 .use-rootfs-armhf:
   variables:
     DISTRIBUTION_TAG: *distribution-tag-arm
+    DEBIAN_ARCH: "armhf"
   needs:
     - kernel+rootfs_armhf
 
@@ -535,6 +539,7 @@ kernel+rootfs_armhf_baremetal:
 .use-rootfs-armhf-baremetal:
   variables:
     DISTRIBUTION_TAG: *distribution-tag-armhf_baremetal
+    DEBIAN_ARCH: "armhf"
   needs:
     - kernel+rootfs_armhf_baremetal
 
