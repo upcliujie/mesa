@@ -456,6 +456,11 @@ arm_build:
   script:
     - .gitlab-ci/container/lava_build.sh
 
+.bm_dist_vars:
+  variables:
+    ROOTFS_BUILD_TAG: 2021-03-26-bm-refactor
+    DISTRIBUTION_TAG: "${ROOTFS_BUILD_TAG}--${MESA_BASE_TAG}--${MESA_TEMPLATES_COMMIT}-bm"
+
 # x86 kernel for LAVA runners
 kernel+rootfs_amd64:
   extends:
@@ -503,6 +508,7 @@ kernel+rootfs_arm64_baremetal:
     KERNEL_URL: "https://github.com/anholt/linux/archive/mesa-ci-2021-02-17-5.11.tar.gz"
 
 .use-rootfs-arm64-baremetal:
+  extends: .bm_dist_vars
   variables:
     DISTRIBUTION_TAG: *distribution-tag-arm64
     DEBIAN_ARCH: "arm64"
@@ -537,6 +543,7 @@ kernel+rootfs_armhf_baremetal:
     KERNEL_URL: "https://github.com/anholt/linux/archive/mesa-ci-2021-02-17-5.11.tar.gz"
 
 .use-rootfs-armhf-baremetal:
+  extends: .bm_dist_vars
   variables:
     DISTRIBUTION_TAG: *distribution-tag-armhf_baremetal
     DEBIAN_ARCH: "armhf"
