@@ -1924,6 +1924,7 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
       }
    }
 
+#ifndef ANDROID
    if (INTEL_DEBUG & DEBUG_BATCH) {
       fprintf(stderr, "Batch on queue %d\n", (int)(queue - device->queues));
       if (submit->cmd_buffer_count) {
@@ -1957,6 +1958,7 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
                            device->trivial_batch_bo->offset, false);
       }
    }
+#endif
 
    if (submit->fence_count > 0) {
       assert(device->physical->has_syncobj);

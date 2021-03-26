@@ -2963,6 +2963,7 @@ VkResult anv_CreateDevice(
       goto fail_alloc;
    }
 
+#ifndef ANDROID
    if (INTEL_DEBUG & DEBUG_BATCH) {
       const unsigned decode_flags =
          INTEL_BATCH_DECODE_FULL |
@@ -2975,6 +2976,7 @@ VkResult anv_CreateDevice(
                                   stderr, decode_flags, NULL,
                                   decode_get_bo, NULL, device);
    }
+#endif
 
    device->physical = physical_device;
    device->no_hw = physical_device->no_hw;
@@ -3369,8 +3371,10 @@ void anv_DestroyDevice(
 
    anv_gem_destroy_context(device, device->context_id);
 
+#ifndef ANDROID
    if (INTEL_DEBUG & DEBUG_BATCH)
       intel_batch_decode_ctx_finish(&device->decoder_ctx);
+#endif
 
    close(device->fd);
 
