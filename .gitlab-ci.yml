@@ -428,6 +428,8 @@ arm_build:
     - .container
   variables:
     MESA_IMAGE_TAG: &arm_build "2021-02-15-asan"
+  rules:
+    - when: always
 
 .use-arm_build:
   extends:
@@ -543,6 +545,8 @@ arm_test-base:
     - .container
   variables:
     MESA_IMAGE_TAG: &arm_test-base "2021-02-08-container-reorg"
+  rules:
+    - when: always
 
 .use-arm_test-base:
   extends:
