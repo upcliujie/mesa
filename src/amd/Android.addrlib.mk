@@ -40,6 +40,8 @@ LOCAL_C_INCLUDES := \
 	$(MESA_TOP)/src/amd/addrlib/src/chip/gfx10 \
 	$(MESA_TOP)/src/amd/addrlib/src/chip/r800
 
+LOCAL_CPPFLAGS += -DLITTLEENDIAN_CPU
+
 LOCAL_EXPORT_C_INCLUDE_DIRS := \
 	$(LOCAL_PATH) \
 	$(LOCAL_PATH)/addrlib/core \
