@@ -93,7 +93,7 @@ class Counter
 
    /// Returns the value of this counter within counters memory
    /// Derived counters must use getter different than default
-   std::function<Getter> getter = default_getter;
+   std::function<Getter> getter;
 
    /// The unit of the counter
    Units units;
