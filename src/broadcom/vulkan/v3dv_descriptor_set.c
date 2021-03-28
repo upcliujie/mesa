@@ -609,12 +609,13 @@ v3dv_CreateDescriptorSetLayout(VkDevice _device,
 
    VkDescriptorSetLayoutBinding *bindings = NULL;
    if (pCreateInfo->bindingCount > 0) {
+      VkResult result;
       assert(max_binding >= 0);
-      bindings = vk_create_sorted_bindings(pCreateInfo->pBindings,
-                                           pCreateInfo->bindingCount);
-      if (!bindings) {
+      result = vk_create_sorted_bindings(pCreateInfo->pBindings,
+                                         pCreateInfo->bindingCount, &bindings);
+      if (result != VK_SUCCESS) {
          vk_object_free(&device->vk, pAllocator, set_layout);
-         return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+         return vk_error(device->instance, result);
       }
    }
 
