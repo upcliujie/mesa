@@ -1166,9 +1166,9 @@ radv_emit_rbplus_state(struct radv_cmd_buffer *cmd_buffer)
       if (cmd_buffer->state.attachments) {
          struct radv_color_buffer_info *cb = &cmd_buffer->state.attachments[idx].cb;
 
-         format = G_028C70_FORMAT(cb->cb_color_info);
+         format = G_028C70_FORMAT_GFX6(cb->cb_color_info);
          swap = G_028C70_COMP_SWAP(cb->cb_color_info);
-         has_alpha = !G_028C74_FORCE_DST_ALPHA_1(cb->cb_color_attrib);
+         has_alpha = !G_028C74_FORCE_DST_ALPHA_1_GFX6(cb->cb_color_attrib);
       } else {
          VkFormat fmt = cmd_buffer->state.pass->attachments[idx].format;
          format = radv_translate_colorformat(fmt);
@@ -2511,7 +2511,7 @@ radv_emit_framebuffer_state(struct radv_cmd_buffer *cmd_buffer)
       if (i >= subpass->color_count ||
           subpass->color_attachments[i].attachment == VK_ATTACHMENT_UNUSED) {
          radeon_set_context_reg(cmd_buffer->cs, R_028C70_CB_COLOR0_INFO + i * 0x3C,
-                                S_028C70_FORMAT(V_028C70_COLOR_INVALID));
+                                S_028C70_FORMAT_GFX6(V_028C70_COLOR_INVALID));
          continue;
       }
 
