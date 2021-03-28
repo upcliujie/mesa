@@ -678,6 +678,7 @@ nine_memfd_region_map(struct nine_allocator *allocator, struct nine_memfd_file *
     if (buf == MAP_FAILED) {
         error = errno;
         DBG("Failed to mmap a memfd file, errno=%d\n", error);
+        (void) error;
         return false;
     }
     region->map = buf;
@@ -725,6 +726,7 @@ nine_memfd_allocator(struct nine_allocator *allocator,
     if (memfd_file->fd == -1) {
         error = errno;
         DBG("Failed to created a memfd file, errno=%d\n", error);
+        (void) error;
         allocator->num_fd--;
         return false;
     }
@@ -732,6 +734,7 @@ nine_memfd_allocator(struct nine_allocator *allocator,
     if (ftruncate(memfd_file->fd, memfd_file->filesize) != 0) {
         error = errno;
         DBG("Failed to resize a memfd file, errno=%d\n", error);
+        (void) error;
         close(memfd_file->fd);
         allocator->num_fd--;
         return false;
