@@ -3671,6 +3671,59 @@ anv_surface_is_valid(const struct anv_surface *surface)
    return surface->isl.size_B > 0 && surface->memory_range.size > 0;
 }
 
+/**
+ * A VkImage.
+ *
+ * Memory Layout
+ * -------------
+ * The image's layout in memory is described below.  Within each binding, items
+ * are listed in memory-order.  Across bindings, there exists no memory-order.
+ * (That is, the memory range of BINDING_X may precede or follow the memory
+ * range of BINDING_Y.  The layout of the two bindings are independent).  The
+ * lowercase 'plane0', 'plane1', and 'plane2' refer to "format planes", not
+ * "memory planes". Of course, each format plane exists in the image's memory
+ * layout if and only if it exists in the image's VkFormat.
+ *
+ * Within each format plane:
+ *    - '+' marks required components
+ *    - '?' marks optional components
+ *
+ * The memory layout is validated in check_memory_bindings().
+ *
+ * Case: image is not disjoint
+ *
+ *    ANV_IMAGE_MEMORY_BINDING_MAIN
+ *       + plane0.primary_surface
+ *       ? plane0.shadow_surface
+ *       ? plane0.aux_surface
+ *       ? plane0.fast_clear_memory_range
+ *       + plane1.primary_surface
+ *       ? plane1.shadow_surface
+ *       ? plane1.aux_surface
+ *       ? plane1.fast_clear_memory_range
+ *       + plane2.primary_surface
+ *       ? plane2.shadow_surface
+ *       ? plane2.aux_surface
+ *       ? plane2.fast_clear_memory_range
+ *
+ * Case: image is disjoint
+ *
+ *    ANV_IMAGE_MEMORY_BINDING_PLANE0
+ *       + plane0.primary_surface
+ *       ? plane0.shadow_surface
+ *       ? plane0.aux_surface
+ *       ? plane0.fast_clear_memory_range
+ *    ANV_IMAGE_MEMORY_BINDING_PLANE1
+ *       + plane1.primary_surface
+ *       ? plane1.shadow_surface
+ *       ? plane1.aux_surface
+ *       ? plane1.fast_clear_memory_range
+ *    ANV_IMAGE_MEMORY_BINDING_PLANE2
+ *       + plane2.primary_surface
+ *       ? plane2.shadow_surface
+ *       ? plane2.aux_surface
+ *       ? plane2.fast_clear_memory_range
+ */
 struct anv_image {
    struct vk_object_base base;
 
@@ -3751,29 +3804,6 @@ struct anv_image {
     * reside in the same VkImage.  To satisfy both the hardware and Vulkan, we
     * allocate the depth and stencil buffers as separate surfaces in the same
     * bo.
-    *
-    * Memory layout :
-    *
-    * -----------------------
-    * |     surface0        |   /|\
-    * -----------------------    |
-    * |   shadow surface0   |    |
-    * -----------------------    | Plane 0
-    * |    aux surface0     |    |
-    * -----------------------    |
-    * | fast clear colors0  |   \|/
-    * -----------------------
-    * |     surface1        |   /|\
-    * -----------------------    |
-    * |   shadow surface1   |    |
-    * -----------------------    | Plane 1
-    * |    aux surface1     |    |
-    * -----------------------    |
-    * | fast clear colors1  |   \|/
-    * -----------------------
-    * |        ...          |
-    * |                     |
-    * -----------------------
     */
    struct anv_image_plane {
       struct anv_surface primary_surface;
