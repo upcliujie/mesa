@@ -1068,6 +1068,17 @@ anv_get_image_format_properties(
       }
    }
 
+   if (info->flags & VK_IMAGE_CREATE_ALIAS_BIT) {
+      /* Reject aliasing if the image's modifier has aux. For such modifiers, we
+       * place fast clear data into a private bo, which is not aliasable because
+       * it lives not in a VkDeviceMemory.
+       */
+      if (info->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
+          isl_mod_info->aux_usage != ISL_AUX_USAGE_NONE) {
+         goto unsupported;
+      }
+   }
+
    if (info->flags & VK_IMAGE_CREATE_DISJOINT_BIT) {
       /* From the Vulkan 1.2.149 spec, VkImageCreateInfo:
        *
@@ -1098,6 +1109,17 @@ anv_get_image_format_properties(
           * eglCreateImage, we require that the dma_buf for the primary surface
           * and the dma_buf for its aux surface refer to the same bo.
           */
+         goto unsupported;
+      }
+   }
+
+   if (info->flags & VK_IMAGE_CREATE_ALIAS_BIT) {
+      /* Reject aliasing of images with non-linear DRM format modifiers because
+       * they might use ANV_IMAGE_MEMORY_BINDING_PRIVATE, which is not aliasable
+       * because it does not belong to a VkDeviceMemory.
+       */
+      if (info->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
+          isl_mod_info->modifier != DRM_FORMAT_MOD_LINEAR) {
          goto unsupported;
       }
    }
