@@ -6869,7 +6869,7 @@ radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffer, struct ra
                                             src_layout, src_render_loop, src_queue_mask) &&
                  !radv_layout_can_fast_clear(cmd_buffer->device, image, range->baseMipLevel,
                                              dst_layout, dst_render_loop, dst_queue_mask)) {
-         radv_fast_clear_flush_image_inplace(cmd_buffer, image, range);
+         radv_fast_clear_flush_image_inplace(cmd_buffer, image, range, false);
          fast_clear_flushed = true;
       }
 
@@ -6880,7 +6880,7 @@ radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffer, struct ra
                                      src_layout, src_render_loop, src_queue_mask) &&
           !radv_layout_can_fast_clear(cmd_buffer->device, image, range->baseMipLevel,
                                       dst_layout, dst_render_loop, dst_queue_mask)) {
-         radv_fast_clear_flush_image_inplace(cmd_buffer, image, range);
+         radv_fast_clear_flush_image_inplace(cmd_buffer, image, range, false);
          fast_clear_flushed = true;
       }
    }
@@ -6902,7 +6902,7 @@ radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffer, struct ra
          /* A FMASK decompress is required before expanding
           * FMASK.
           */
-         radv_fast_clear_flush_image_inplace(cmd_buffer, image, range);
+         radv_fast_clear_flush_image_inplace(cmd_buffer, image, range, false);
       }
 
       struct radv_barrier_data barrier = {0};

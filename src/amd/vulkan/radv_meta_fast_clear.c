@@ -627,7 +627,8 @@ radv_process_color_image_layer(struct radv_cmd_buffer *cmd_buffer, struct radv_i
 
 static void
 radv_process_color_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image,
-                         const VkImageSubresourceRange *subresourceRange, enum radv_color_op op)
+                         const VkImageSubresourceRange *subresourceRange, enum radv_color_op op,
+                         bool ignore_predicate)
 {
    struct radv_device *device = cmd_buffer->device;
    struct radv_meta_saved_state saved_state;
@@ -639,7 +640,7 @@ radv_process_color_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *
    switch (op) {
    case FAST_CLEAR_ELIMINATE:
       pipeline = &device->meta_state.fast_clear_flush.cmask_eliminate_pipeline;
-      pred_offset = image->fce_pred_offset;
+      pred_offset = ignore_predicate ? 0 : image->fce_pred_offset;
       break;
    case FMASK_DECOMPRESS:
       pipeline = &device->meta_state.fast_clear_flush.fmask_decompress_pipeline;
@@ -650,7 +651,7 @@ radv_process_color_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *
       break;
    case DCC_DECOMPRESS:
       pipeline = &device->meta_state.fast_clear_flush.dcc_decompress_pipeline;
-      pred_offset = image->dcc_pred_offset;
+      pred_offset = ignore_predicate ? 0 : image->dcc_pred_offset;
 
       /* Flushing CB is required before and after DCC_DECOMPRESS. */
       flush_cb = true;
@@ -756,14 +757,15 @@ radv_process_color_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *
 
 static void
 radv_fast_clear_eliminate(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image,
-                          const VkImageSubresourceRange *subresourceRange)
+                          const VkImageSubresourceRange *subresourceRange, bool ignore_predicate)
 {
    struct radv_barrier_data barrier = {0};
 
    barrier.layout_transitions.fast_clear_eliminate = 1;
    radv_describe_layout_transition(cmd_buffer, &barrier);
 
-   radv_process_color_image(cmd_buffer, image, subresourceRange, FAST_CLEAR_ELIMINATE);
+   radv_process_color_image(cmd_buffer, image, subresourceRange, FAST_CLEAR_ELIMINATE,
+                            ignore_predicate);
 }
 
 static void
@@ -775,19 +777,20 @@ radv_fmask_decompress(struct radv_cmd_buffer *cmd_buffer, struct radv_image *ima
    barrier.layout_transitions.fmask_decompress = 1;
    radv_describe_layout_transition(cmd_buffer, &barrier);
 
-   radv_process_color_image(cmd_buffer, image, subresourceRange, FMASK_DECOMPRESS);
+   radv_process_color_image(cmd_buffer, image, subresourceRange, FMASK_DECOMPRESS, false);
 }
 
 void
 radv_fast_clear_flush_image_inplace(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image,
-                                    const VkImageSubresourceRange *subresourceRange)
+                                    const VkImageSubresourceRange *subresourceRange,
+                                    bool ignore_predicate)
 {
    if (radv_image_has_fmask(image) && !image->tc_compatible_cmask) {
       if (radv_image_has_dcc(image) && radv_image_has_cmask(image)) {
          /* MSAA images with DCC and CMASK might have been fast-cleared and might require a FCE but
           * FMASK_DECOMPRESS can't eliminate DCC fast clears.
           */
-         radv_fast_clear_eliminate(cmd_buffer, image, subresourceRange);
+         radv_fast_clear_eliminate(cmd_buffer, image, subresourceRange, ignore_predicate);
       }
 
       radv_fmask_decompress(cmd_buffer, image, subresourceRange);
@@ -796,7 +799,7 @@ radv_fast_clear_flush_image_inplace(struct radv_cmd_buffer *cmd_buffer, struct r
       if (radv_image_use_comp_to_single(cmd_buffer->device, image))
          return;
 
-      radv_fast_clear_eliminate(cmd_buffer, image, subresourceRange);
+      radv_fast_clear_eliminate(cmd_buffer, image, subresourceRange, ignore_predicate);
    }
 }
 
@@ -923,7 +926,7 @@ radv_decompress_dcc(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image
    radv_describe_layout_transition(cmd_buffer, &barrier);
 
    if (cmd_buffer->queue_family_index == RADV_QUEUE_GENERAL)
-      radv_process_color_image(cmd_buffer, image, subresourceRange, DCC_DECOMPRESS);
+      radv_process_color_image(cmd_buffer, image, subresourceRange, DCC_DECOMPRESS, false);
    else
       radv_decompress_dcc_compute(cmd_buffer, image, subresourceRange);
 }
