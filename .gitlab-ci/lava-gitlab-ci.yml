@@ -1,5 +1,5 @@
 variables:
-  MESA_LAVA_TAG: "2021-03-26-piglit-minio"
+  MESA_LAVA_TAG: "2021-03-29-piglit-minio"
 
 .kernel+rootfs:
   stage: container-2

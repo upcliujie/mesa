@@ -91,7 +91,7 @@ actions:
 
           - export PYTHONPATH=$(python3 -c "import sys;print(\":\".join(sys.path))")
           - export LIBGL_DRIVERS_PATH=`pwd`/install/lib/dri
-          - export PIGLIT_REPLAY_EXTRA_ARGS="--keep-image"
+          - export PIGLIT_REPLAY_EXTRA_ARGS="--keep-image --minio --role-session-name=${CI_PROJECT_PATH}:${CI_JOB_ID} --jwt=${CI_JOB_JWT}"
           - export PIGLIT_REPLAY_REFERENCE_IMAGES_BASE_URL="/mesa-tracie-results/${CI_PROJECT_PATH}"
           - export PIGLIT_REPLAY_ARTIFACTS_BASE_URL="/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}"
           - export PIGLIT_REPLAY_DEVICE_NAME=gl-{{ gpu_version }}
