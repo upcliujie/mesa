@@ -180,6 +180,7 @@ r2d_src_buffer(struct tu_cmd_buffer *cmd,
 {
    struct tu_native_format format = tu6_format_texture(vk_format, TILE6_LINEAR);
 
+   fprintf(stderr, "WTF: r2d_src_buffer: .pitch = %u\n", pitch);
    tu_cs_emit_regs(cs,
                    A6XX_SP_PS_2D_SRC_INFO(
                       .color_format = format.fmt,
@@ -2478,6 +2479,7 @@ store_cp_blit(struct tu_cmd_buffer *cmd,
    else
       r2d_dst(cs, iview, 0);
 
+   fprintf(stderr, "WTF: store_cp_blit: .pitch = %u\n", cmd->state.framebuffer->tile0.width * cpp);
    tu_cs_emit_regs(cs,
                    A6XX_SP_PS_2D_SRC_INFO(
                       .color_format = tu6_format_texture(format, TILE6_2).fmt,
