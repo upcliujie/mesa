@@ -130,3 +130,20 @@ dEQP-VK.fragment_shading_rate.fragstencil.dynamic.noattachment.shaderrate.keep.k
 dEQP-VK.fragment_shading_rate.fragstencil.dynamic.noattachment.shaderrate.keep.keep.256x256.samples8.vs,Fail
 dEQP-VK.fragment_shading_rate.fragstencil.dynamic.noattachment.shaderrate.replace.keep.151x431.samples8.vs,Fail
 dEQP-VK.fragment_shading_rate.fragstencil.dynamic.noattachment.shaderrate.replace.keep.256x256.samples8.vs,Fail
+
+# Fixed by CTS 3dddaeca8 ("Fix source blit image size")
+dEQP-VK.memory.pipeline_barrier.all.1024_vertex_buffer_stride_2,Crash
+dEQP-VK.memory.pipeline_barrier.all.1024_vertex_buffer_stride_4,Crash
+dEQP-VK.memory.pipeline_barrier.all_device.1024_vertex_buffer_stride_2,Crash
+dEQP-VK.memory.pipeline_barrier.all_device.1024_vertex_buffer_stride_4,Crash
+dEQP-VK.memory.pipeline_barrier.host_read_transfer_dst.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_image_sampled.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_index_buffer.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_storage_buffer.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_storage_image.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_storage_texel_buffer.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_uniform_buffer.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_uniform_texel_buffer.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_vertex_buffer.1024_vertex_buffer_stride_2,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_vertex_buffer.1024_vertex_buffer_stride_4,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_src_transfer_dst.1024,Crash
