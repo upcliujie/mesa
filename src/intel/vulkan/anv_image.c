@@ -779,8 +779,8 @@ add_primary_surface(struct anv_device *device,
       .tiling_flags = isl_tiling_flags);
 
    if (!ok) {
-      /* Should return VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT in
-       * come cases.
+      /* TODO: Should return
+       * VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT in come cases.
        */
       return VK_ERROR_OUT_OF_DEVICE_MEMORY;
    }
