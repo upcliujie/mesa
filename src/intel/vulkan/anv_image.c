@@ -1568,6 +1568,10 @@ void anv_GetImageMemoryRequirements2(
       case VK_STRUCTURE_TYPE_IMAGE_PLANE_MEMORY_REQUIREMENTS_INFO: {
          assert(image->disjoint);
          plane_reqs = (const VkImagePlaneMemoryRequirementsInfo *) ext;
+
+         /* FIXME(chadv): If image has a modifier, then spec requires that
+          * aspect be VK_IMAGE_ASPECT_MEMORY_PLANE_i_BIT_EXT.
+          */
          uint32_t plane = anv_image_aspect_to_plane(image->aspects,
                                                     plane_reqs->planeAspect);
          const struct anv_image_binding *binding =
@@ -1677,6 +1681,10 @@ VkResult anv_BindImageMemory2(
          case VK_STRUCTURE_TYPE_BIND_IMAGE_PLANE_MEMORY_INFO: {
             const VkBindImagePlaneMemoryInfo *plane_info =
                (const VkBindImagePlaneMemoryInfo *) s;
+
+            /* FIXME(chadv): If image has a modifier, then spec requires that
+             * aspect be VK_IMAGE_ASPECT_MEMORY_PLANE_i_BIT_EXT.
+             */
             uint32_t plane = anv_image_aspect_to_plane(image->aspects,
                                                        plane_info->planeAspect);
 
@@ -1807,6 +1815,9 @@ void anv_GetImageSubresourceLayout(
 {
    ANV_FROM_HANDLE(anv_image, image, _image);
 
+   /* FIXME(chadv): If image has a modifier, then spec requires that aspect be
+    * VK_IMAGE_ASPECT_MEMORY_PLANE_i_BIT_EXT.
+    */
    const struct anv_surface *surface;
    if (subresource->aspectMask == VK_IMAGE_ASPECT_PLANE_1_BIT &&
        image->drm_format_mod != DRM_FORMAT_MOD_INVALID &&
