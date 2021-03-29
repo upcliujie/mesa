@@ -121,3 +121,20 @@ dEQP-VK.drm_format_modifiers.create_list_modifiers.r16g16b16_uscaled,Crash
 dEQP-VK.image.mismatched_formats.sparse_image_read.d16_unorm_with_r16,Crash
 dEQP-VK.image.mismatched_formats.sparse_image_read.d32_sfloat_with_r32f,Crash
 dEQP-VK.image.mismatched_formats.sparse_image_read.s8_uint_with_r8ui,Crash
+
+# Fixed by CTS 3dddaeca8 ("Fix source blit image size")
+dEQP-VK.memory.pipeline_barrier.all.1024_vertex_buffer_stride_2,Crash
+dEQP-VK.memory.pipeline_barrier.all.1024_vertex_buffer_stride_4,Crash
+dEQP-VK.memory.pipeline_barrier.all_device.1024_vertex_buffer_stride_2,Crash
+dEQP-VK.memory.pipeline_barrier.all_device.1024_vertex_buffer_stride_4,Crash
+dEQP-VK.memory.pipeline_barrier.host_read_transfer_dst.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_image_sampled.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_index_buffer.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_storage_buffer.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_storage_image.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_storage_texel_buffer.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_uniform_buffer.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_uniform_texel_buffer.1024,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_vertex_buffer.1024_vertex_buffer_stride_2,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_dst_vertex_buffer.1024_vertex_buffer_stride_4,Crash
+dEQP-VK.memory.pipeline_barrier.transfer_src_transfer_dst.1024,Crash

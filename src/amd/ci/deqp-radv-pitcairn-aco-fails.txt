@@ -2783,3 +2783,6 @@ dEQP-VK.robustness.buffer_access.through_pointers.graphics.writes.vertex.3B_in_m
 dEQP-VK.robustness.buffer_access.through_pointers.graphics.writes.vertex.3B_in_memory_with_scalar_u64,Fail
 dEQP-VK.robustness.buffer_access.through_pointers.graphics.writes.vertex.3B_in_memory_with_vec4_s64,Fail
 dEQP-VK.robustness.buffer_access.through_pointers.graphics.writes.vertex.3B_in_memory_with_vec4_u64,Fail
+
+# Fixed by CTS 3dddaeca8 ("Fix source blit image size")
+dEQP-VK.memory.pipeline_barrier.transfer_src_transfer_dst.1024,Crash

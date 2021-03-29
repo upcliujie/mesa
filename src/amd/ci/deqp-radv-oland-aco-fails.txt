@@ -2647,3 +2647,5 @@ dEQP-VK.renderpass2.suballocation.subpass_dependencies.late_fragment_tests.rende
 dEQP-VK.renderpass2.suballocation.subpass_dependencies.late_fragment_tests.render_size_128_128.subpass_count_3.d32_sfloat_s8_uint,Fail
 dEQP-VK.renderpass2.suballocation.subpass_dependencies.late_fragment_tests.render_size_128_128.subpass_count_5.d32_sfloat_s8_uint,Fail
 
+# Fixed by CTS 3dddaeca8 ("Fix source blit image size")
+dEQP-VK.memory.pipeline_barrier.transfer_src_transfer_dst.1024,Crash
