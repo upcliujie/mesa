@@ -4485,15 +4485,12 @@ v3dv_CmdDrawIndirect(VkCommandBuffer commandBuffer,
                      uint32_t drawCount,
                      uint32_t stride)
 {
+   /* drawCount is the number of draws to execute, and can be zero. */
    if (drawCount == 0)
       return;
 
    V3DV_FROM_HANDLE(v3dv_cmd_buffer, cmd_buffer, commandBuffer);
    V3DV_FROM_HANDLE(v3dv_buffer, buffer, _buffer);
-
-   /* drawCount is the number of draws to execute, and can be zero. */
-   if (drawCount == 0)
-      return;
 
    cmd_buffer_emit_pre_draw(cmd_buffer);
 
