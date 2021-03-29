@@ -61,9 +61,9 @@
 #define LIMA_PIXEL_FORMAT_B8G8R8A8     0x03
 #define LIMA_PIXEL_FORMAT_B8           0x04
 #define LIMA_PIXEL_FORMAT_G8B8         0x05
+#define LIMA_PIXEL_FORMAT_R16G16B16A16_FLOAT 0x06
 #define LIMA_PIXEL_FORMAT_Z16          0x0e
 #define LIMA_PIXEL_FORMAT_Z24S8        0x0f
-#define LIMA_PIXEL_FORMAT_R16G16B16A16_FLOAT 0x26
 
 struct lima_format {
    bool present;
