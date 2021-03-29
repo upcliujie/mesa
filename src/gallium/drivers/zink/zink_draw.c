@@ -407,7 +407,7 @@ update_ubo_descriptors(struct zink_context *ctx, struct zink_descriptor_set *zds
       struct zink_shader *shader = stages[i];
       if (!shader)
          continue;
-      enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+      enum pipe_shader_type stage = (enum pipe_shader_type)i;
 
       for (int j = 0; j < shader->num_bindings[zds->pool->type]; j++) {
          int index = shader->bindings[zds->pool->type][j].index;
@@ -487,7 +487,7 @@ update_ssbo_descriptors(struct zink_context *ctx, struct zink_descriptor_set *zd
       struct zink_shader *shader = stages[i];
       if (!shader)
          continue;
-      enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+      enum pipe_shader_type stage = (enum pipe_shader_type)i;
 
       for (int j = 0; j < shader->num_bindings[zds->pool->type]; j++) {
          int index = shader->bindings[zds->pool->type][j].index;
@@ -604,7 +604,7 @@ update_sampler_descriptors(struct zink_context *ctx, struct zink_descriptor_set 
       struct zink_shader *shader = stages[i];
       if (!shader)
          continue;
-      enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+      enum pipe_shader_type stage = (enum pipe_shader_type)i;
 
       for (int j = 0; j < shader->num_bindings[zds->pool->type]; j++) {
          int index = shader->bindings[zds->pool->type][j].index;
@@ -689,7 +689,7 @@ update_image_descriptors(struct zink_context *ctx, struct zink_descriptor_set *z
       struct zink_shader *shader = stages[i];
       if (!shader)
          continue;
-      enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+      enum pipe_shader_type stage = (enum pipe_shader_type)i;
 
       for (int j = 0; j < shader->num_bindings[zds->pool->type]; j++) {
          int index = shader->bindings[zds->pool->type][j].index;
@@ -951,7 +951,8 @@ zink_draw_vbo(struct pipe_context *pctx,
       struct zink_shader *shader = ctx->gfx_stages[i];
       if (!shader)
          continue;
-      enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+      enum pipe_shader_type stage = (enum pipe_shader_type)i;
+
       if (ctx->num_so_targets &&
           (stage == PIPE_SHADER_GEOMETRY ||
           (stage == PIPE_SHADER_TESS_EVAL && !ctx->gfx_stages[PIPE_SHADER_GEOMETRY]) ||

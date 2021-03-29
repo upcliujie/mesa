@@ -509,7 +509,9 @@ zink_descriptor_program_init(struct zink_context *ctx,
       if (!shader)
          continue;
 
-      VkShaderStageFlagBits stage_flags = zink_shader_stage(pipe_shader_type_from_mesa(shader->nir->info.stage));
+      enum pipe_shader_type stage = (enum pipe_shader_type)i;
+      VkShaderStageFlagBits stage_flags = zink_shader_stage(stage);
+
       for (int j = 0; j < ZINK_DESCRIPTOR_TYPES; j++) {
          for (int k = 0; k < shader->num_bindings[j]; k++) {
             assert(num_bindings[j] < ARRAY_SIZE(bindings[j]));
