@@ -760,6 +760,12 @@ check_memory_bindings(const struct anv_device *device,
          ? ANV_IMAGE_MEMORY_BINDING_PLANE_0 + p
          : ANV_IMAGE_MEMORY_BINDING_MAIN;
 
+      /* Aliasing is incompatible with a private bo because it does not live in
+       * a VkDeviceMemory.
+       */
+      assert(!(image->create_flags & VK_IMAGE_CREATE_ALIAS_BIT) ||
+             image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE].memory_range.size == 0);
+
       /* Check primary surface */
       check_memory_range(accum_ranges,
                          .test_surface = &plane->primary_surface,
