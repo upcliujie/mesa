@@ -30,6 +30,7 @@ anv_entrypoints = custom_target(
     '--device-prefix', 'gen11', '--device-prefix', 'gen12',
     '--device-prefix', 'gen125',
   ],
+  depend_files : vk_entrypoints_gen_depend_files,
 )
 
 intel_icd = custom_target(
