@@ -122,7 +122,10 @@ image_binding_grow(const struct anv_device *device,
 
    if (__builtin_add_overflow(offset, size, &container->size)) {
       if (has_implicit_offset) {
-         abort(); /* internal error */
+         assert(!"overflow");
+         return vk_errorf(device, &device->vk.base,
+                          VK_ERROR_UNKNOWN,
+                          "internal error: overflow in %s", __func__);
       } else {
          return vk_errorf(device, &device->vk.base,
                           VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT,
