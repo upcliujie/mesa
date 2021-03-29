@@ -700,7 +700,10 @@ lima_pack_render_state(struct lima_context *ctx, const struct pipe_draw_info *in
       render->multi_sample = 0x0000F407;
    else
       render->multi_sample = 0x0000F807;
-   if (ctx->framebuffer.base.samples)
+
+   struct lima_context_framebuffer *fb = &ctx->framebuffer;
+   struct pipe_surface *cbuf = fb->base.cbufs[0];
+   if (fb->base.samples && cbuf && !util_format_is_float(cbuf->format))
       render->multi_sample |= 0x68;
 
    render->shader_address =
