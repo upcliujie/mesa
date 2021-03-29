@@ -516,6 +516,11 @@ add_aux_surface_if_supported(struct anv_device *device,
       if ((image->create_flags & VK_IMAGE_CREATE_ALIAS_BIT)) {
          /* The image may alias a plane of a multiplanar image. Above we ban
           * CCS on multiplanar images.
+          *
+          * We must also reject aliasing of any image that uses
+          * ANV_IMAGE_MEMORY_BINDING_PRIVATE. Since we're already rejecting all
+          * aliasing here, there's no need to further analyze if the image needs
+          * a private binding.
           */
          return VK_SUCCESS;
       }
@@ -759,6 +764,12 @@ check_memory_bindings(const struct anv_device *device,
       const enum anv_image_memory_binding primary_binding = image->disjoint
          ? ANV_IMAGE_MEMORY_BINDING_PLANE_0 + p
          : ANV_IMAGE_MEMORY_BINDING_MAIN;
+
+      /* Aliasing is incompatible with the private binding because it does not
+       * live in a VkDeviceMemory.
+       */
+      assert(!(image->create_flags & VK_IMAGE_CREATE_ALIAS_BIT) ||
+             image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE].memory_range.size == 0);
 
       /* Check primary surface */
       check_memory_range(accum_ranges,
