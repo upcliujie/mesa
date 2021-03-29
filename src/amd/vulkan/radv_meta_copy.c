@@ -432,12 +432,27 @@ copy_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *src_image,
                                                        src_image_layout, false, src_queue_mask);
       bool dcc_sign_reinterpret = false;
 
-      if (!src_compressed ||
-          (radv_dcc_formats_compatible(b_src.format, b_dst.format, &dcc_sign_reinterpret) &&
-           (!dcc_sign_reinterpret || src_image->planes[a].dcc_sign_reinterpret))) {
-         b_src.format = b_dst.format;
-      } else if (!dst_compressed) {
+      if (!dst_compressed) {
          b_dst.format = b_src.format;
+      } else if (!src_compressed ||
+                 radv_dcc_formats_compatible(b_src.format, b_dst.format, &dcc_sign_reinterpret)) {
+         if (src_compressed && dcc_sign_reinterpret && !src_image->planes[a].dcc_sign_reinterpret) {
+            /* We need a fast-clear eliminate in case the clear color is not allowed with sign
+             * reinterpretation. Since the predicate was not updated with consideration that we might
+             * reinterpretate with a different sign, we have to flush regardless of the predicate.
+             */
+            radv_fast_clear_flush_image_inplace(
+               cmd_buffer, src_image,
+               &(VkImageSubresourceRange){
+                  .aspectMask = src_aspects[a],
+                  .baseMipLevel = region->srcSubresource.mipLevel,
+                  .levelCount = 1,
+                  .baseArrayLayer = region->srcSubresource.baseArrayLayer,
+                  .layerCount = region->srcSubresource.layerCount,
+               },
+               true);
+         }
+         b_src.format = b_dst.format;
       } else {
          radv_decompress_dcc(cmd_buffer, dst_image,
                              &(VkImageSubresourceRange){
