@@ -343,6 +343,7 @@ emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
               enum a4xx_state_block sb,
               struct fd_texture_stateobj *tex) assert_dt
 {
+<<<<<<< HEAD
    bool needs_border = false;
    unsigned bcolor_offset =
       (sb == SB4_FS_TEX) ? ctx->tex[PIPE_SHADER_VERTEX].num_samplers : 0;
@@ -366,7 +367,7 @@ emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
          OUT_RING(ring, sampler->texsamp0);
          OUT_RING(ring, sampler->texsamp1);
          OUT_RING(ring, sampler->texsamp2 |
-                           A5XX_TEX_SAMP_2_BCOLOR_OFFSET(bcolor_offset));
+                           A5XX_TEX_SAMP_2_BCOLOR_OFFSET(bcolor_offset + i));
          OUT_RING(ring, sampler->texsamp3);
 
          needs_border |= sampler->needs_border;
@@ -420,6 +421,84 @@ emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
    }
 
    return needs_border;
+=======
+	bool needs_border = false;
+	unsigned bcolor_offset = (sb == SB4_FS_TEX) ? ctx->tex[PIPE_SHADER_VERTEX].num_samplers : 0;
+	unsigned i;
+
+	if (tex->num_samplers > 0) {
+		/* output sampler state: */
+		OUT_PKT7(ring, CP_LOAD_STATE4, 3 + (4 * tex->num_samplers));
+		OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(0) |
+				CP_LOAD_STATE4_0_STATE_SRC(SS4_DIRECT) |
+				CP_LOAD_STATE4_0_STATE_BLOCK(sb) |
+				CP_LOAD_STATE4_0_NUM_UNIT(tex->num_samplers));
+		OUT_RING(ring, CP_LOAD_STATE4_1_STATE_TYPE(ST4_SHADER) |
+				CP_LOAD_STATE4_1_EXT_SRC_ADDR(0));
+		OUT_RING(ring, CP_LOAD_STATE4_2_EXT_SRC_ADDR_HI(0));
+		for (i = 0; i < tex->num_samplers; i++) {
+			static const struct fd5_sampler_stateobj dummy_sampler = {};
+			const struct fd5_sampler_stateobj *sampler = tex->samplers[i] ?
+					fd5_sampler_stateobj(tex->samplers[i]) :
+					&dummy_sampler;
+			OUT_RING(ring, sampler->texsamp0);
+			OUT_RING(ring, sampler->texsamp1);
+			OUT_RING(ring, sampler->texsamp2 |
+					A5XX_TEX_SAMP_2_BCOLOR_OFFSET(i + bcolor_offset));
+			OUT_RING(ring, sampler->texsamp3);
+
+			needs_border |= sampler->needs_border;
+		}
+	}
+
+	if (tex->num_textures > 0) {
+		unsigned num_textures = tex->num_textures;
+
+		/* emit texture state: */
+		OUT_PKT7(ring, CP_LOAD_STATE4, 3 + (12 * num_textures));
+		OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(0) |
+				CP_LOAD_STATE4_0_STATE_SRC(SS4_DIRECT) |
+				CP_LOAD_STATE4_0_STATE_BLOCK(sb) |
+				CP_LOAD_STATE4_0_NUM_UNIT(num_textures));
+		OUT_RING(ring, CP_LOAD_STATE4_1_STATE_TYPE(ST4_CONSTANTS) |
+				CP_LOAD_STATE4_1_EXT_SRC_ADDR(0));
+		OUT_RING(ring, CP_LOAD_STATE4_2_EXT_SRC_ADDR_HI(0));
+		for (i = 0; i < tex->num_textures; i++) {
+			static const struct fd5_pipe_sampler_view dummy_view = {};
+			const struct fd5_pipe_sampler_view *view = tex->textures[i] ?
+					fd5_pipe_sampler_view(tex->textures[i]) :
+					&dummy_view;
+			enum a5xx_tile_mode tile_mode = TILE5_LINEAR;
+
+			if (view->base.texture)
+				tile_mode = fd_resource(view->base.texture)->layout.tile_mode;
+
+			OUT_RING(ring, view->texconst0 |
+					A5XX_TEX_CONST_0_TILE_MODE(tile_mode));
+			OUT_RING(ring, view->texconst1);
+			OUT_RING(ring, view->texconst2);
+			OUT_RING(ring, view->texconst3);
+			if (view->base.texture) {
+				struct fd_resource *rsc = fd_resource(view->base.texture);
+				if (view->base.format == PIPE_FORMAT_X32_S8X24_UINT)
+					rsc = rsc->stencil;
+				OUT_RELOC(ring, rsc->bo, view->offset,
+						(uint64_t)view->texconst5 << 32, 0);
+			} else {
+				OUT_RING(ring, 0x00000000);
+				OUT_RING(ring, view->texconst5);
+			}
+			OUT_RING(ring, view->texconst6);
+			OUT_RING(ring, view->texconst7);
+			OUT_RING(ring, view->texconst8);
+			OUT_RING(ring, view->texconst9);
+			OUT_RING(ring, view->texconst10);
+			OUT_RING(ring, view->texconst11);
+		}
+	}
+
+	return needs_border;
+>>>>>>> 386751a952b9 (freedreno/a5xx: Fix up border color pointers.)
 }
 
 static void
