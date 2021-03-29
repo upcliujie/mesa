@@ -1328,16 +1328,36 @@ print_ssa_undef_instr(nir_ssa_undef_instr* instr, print_state *state)
    fprintf(fp, " = undefined");
 }
 
+static int
+compare_phi_src(const void *p1, const void *p2)
+{
+   const nir_phi_src *src1 = *((const nir_phi_src **) p1);
+   const nir_phi_src *src2 = *((const nir_phi_src **) p2);
+
+   return (int) src1->pred->index - (int) src2->pred->index;
+}
+
 static void
 print_phi_instr(nir_phi_instr *instr, print_state *state)
 {
    FILE *fp = state->fp;
    print_dest(&instr->dest, state);
    fprintf(fp, " = phi ");
-   nir_foreach_phi_src(src, instr) {
-      if (&src->node != exec_list_get_head(&instr->srcs))
+
+   unsigned num_srcs = instr->instr.block->predecessors->entries;
+   nir_phi_src **srcs = malloc(num_srcs * sizeof(nir_phi_src *));
+
+   unsigned i = 0;
+   nir_foreach_phi_src(src, instr)
+      srcs[i++] = src;
+
+   qsort(srcs, num_srcs, sizeof(nir_phi_src *), compare_phi_src);
+
+   for (i = 0; i < num_srcs; i++) {
+      if (i != 0)
          fprintf(fp, ", ");
 
+      nir_phi_src *src = srcs[i];
       fprintf(fp, "block_%u: ", src->pred->index);
       print_src(&src->src, state);
    }
