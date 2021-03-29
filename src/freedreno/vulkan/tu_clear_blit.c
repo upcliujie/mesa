@@ -2478,6 +2478,11 @@ store_cp_blit(struct tu_cmd_buffer *cmd,
    else
       r2d_dst(cs, iview, 0);
 
+   uint32_t pitch = cmd->state.framebuffer->tile0.width * cpp;
+   if (((pitch >> 6) & 0xffff8000) != 0) {
+      fprintf(stderr, "WTF: store_cp_blit: cmd->state.framebuffer->tile0.width = %u\n", cmd->state.framebuffer->tile0.width);
+      fprintf(stderr, "WTF: store_cp_blit: cpp = %u\n", cpp);
+   }
    tu_cs_emit_regs(cs,
                    A6XX_SP_PS_2D_SRC_INFO(
                       .color_format = tu6_format_texture(format, TILE6_2).fmt,
