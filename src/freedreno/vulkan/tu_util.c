@@ -83,12 +83,6 @@ tu_tiling_config_update_tile_layout(struct tu_framebuffer *fb,
                                     const struct tu_device *dev,
                                     const struct tu_render_pass *pass)
 {
-   /* will force to sysmem, don't bother trying to have a valid tile config
-    * TODO: just skip all GMEM stuff when sysmem is forced?
-    */
-   if (!pass->gmem_pixels)
-      return;
-
    const uint32_t tile_align_w = pass->tile_align_w;
    const uint32_t tile_align_h = dev->physical_device->info.tile_align_h;
    const uint32_t max_tile_width = dev->physical_device->info.tile_max_w;
@@ -103,6 +97,12 @@ tu_tiling_config_update_tile_layout(struct tu_framebuffer *fb,
       .width = util_align_npot(fb->width, tile_align_w),
       .height = align(fb->height, tile_align_h),
    };
+
+   /* will force to sysmem, don't bother trying to have a valid tile config
+    * TODO: just skip all GMEM stuff when sysmem is forced?
+    */
+   if (!pass->gmem_pixels)
+      return;
 
    if (unlikely(dev->physical_device->instance->debug_flags & TU_DEBUG_FORCEBIN)) {
       /* start with 2x2 tiles */
