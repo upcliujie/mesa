@@ -255,6 +255,50 @@ mesa_to_vk_shader_stage(gl_shader_stage mesa_stage)
    return (VkShaderStageFlagBits) (1 << ((uint32_t) mesa_stage));
 }
 
+typedef struct vk_multidraw {
+   uint32_t first;
+   uint32_t count;
+} vk_multidraw;
+
+typedef struct vk_multidraw_indexed {
+   uint32_t first;
+   uint32_t count;
+   int32_t offset;
+} vk_multidraw_indexed;
+
+/* iterate over a sequence of indexed multidraws for VK_EXT_multi_draw extension */
+#define vk_foreach_multi_draw_indexed(_draw, _i, _pDrawInfo, _num_draws, _stride, ...) do { \
+   const vk_multidraw_indexed *_draw = (const void*)(_pDrawInfo); \
+   for (uint32_t _i = 0; \
+        (_i) < (_num_draws); \
+        (_i)++, (_draw) = (const vk_multidraw_indexed*)((const uint8_t*)(_draw) + (_stride))) { \
+   __VA_ARGS__ \
+   } } while (0)
+
+/* iterate over a sequence of multidraws for VK_EXT_multi_draw extension */
+#define vk_foreach_multi_draw(_draw, _i, _pDrawInfo, _num_draws, _stride, ...) do { \
+   const vk_multidraw *_draw = (const void*)(_pDrawInfo); \
+   for (uint32_t _i = 0; \
+        (_i) < (_num_draws); \
+        (_i)++, (_draw) = (const vk_multidraw*)((const uint8_t*)(_draw) + (_stride))) { \
+   __VA_ARGS__ \
+   } } while (0)
+
+#define VK_UTIL_MULTIDRAW_PROPS_MAXDRAWCOUNT2048(ptr) \
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_PROPERTIES_EXT: { \
+         VkPhysicalDeviceMultiDrawPropertiesEXT *props = (VkPhysicalDeviceMultiDrawPropertiesEXT *)(ptr); \
+         props->maxMultiDrawCount = 2048; \
+         break; \
+      }
+
+#define VK_UTIL_MULTIDRAW_FEATS(ptr) \
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_FEATURES_EXT: { \
+         VkPhysicalDeviceMultiDrawFeaturesEXT *features = (VkPhysicalDeviceMultiDrawFeaturesEXT *)(ptr); \
+         features->multiDraw = true; \
+         break; \
+      }
+
+
 #ifdef __cplusplus
 }
 #endif
