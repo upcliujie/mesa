@@ -121,6 +121,11 @@ lower_tex_src_plane_block(nir_builder *b, lower_tex_src_state *state, nir_block 
 
       if (plane[0].i32 > 0) {
          unsigned y_samp = tex->texture_index;
+         int tex_index = nir_tex_instr_src_index(tex, nir_tex_src_texture_deref);
+         if (tex_index >= 0) {
+            nir_deref_instr *deref = nir_src_as_deref(tex->src[tex_index].src);
+            y_samp = nir_deref_instr_get_variable(deref)->data.binding;
+         }
 
          assume(tex->texture_index == tex->sampler_index);
          assume(((state->lower_3plane & (1 << y_samp)) && plane[0].i32 < 3) ||
@@ -134,7 +139,6 @@ lower_tex_src_plane_block(nir_builder *b, lower_tex_src_state *state, nir_block 
          /* For drivers using PIPE_CAP_NIR_SAMPLERS_AS_DEREF, we need
           * to reference the correct sampler nir variable.
           */
-         int tex_index = nir_tex_instr_src_index(tex, nir_tex_src_texture_deref);
          int samp_index = nir_tex_instr_src_index(tex, nir_tex_src_sampler_deref);
          if (tex_index >= 0 && samp_index >= 0) {
             b->cursor = nir_before_instr(&tex->instr);
