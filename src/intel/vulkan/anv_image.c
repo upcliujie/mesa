@@ -1235,7 +1235,6 @@ anv_image_create(VkDevice _device,
    ANV_FROM_HANDLE(anv_device, device, _device);
    const VkImageCreateInfo *pCreateInfo = create_info->vk_info;
    const struct VkImageDrmFormatModifierExplicitCreateInfoEXT *mod_explicit_info = NULL;
-   const struct VkImageDrmFormatModifierListCreateInfoEXT *mod_list_info = NULL;
    const struct isl_drm_modifier_info *isl_mod_info = NULL;
    struct anv_image *image = NULL;
    VkResult r;
@@ -1246,14 +1245,15 @@ anv_image_create(VkDevice _device,
       vk_find_struct_const(pCreateInfo->pNext, WSI_IMAGE_CREATE_INFO_MESA);
 
    if (pCreateInfo->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
-      mod_explicit_info = vk_find_struct_const(pCreateInfo->pNext,
-                                               IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT);
-      mod_list_info = vk_find_struct_const(pCreateInfo->pNext,
-                                           IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT);
-
+      mod_explicit_info =
+         vk_find_struct_const(pCreateInfo->pNext,
+                              IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT);
       if (mod_explicit_info) {
          isl_mod_info = isl_drm_modifier_get_info(mod_explicit_info->drmFormatModifier);
       } else {
+         const struct VkImageDrmFormatModifierListCreateInfoEXT *mod_list_info =
+            vk_find_struct_const(pCreateInfo->pNext,
+                                 IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT);
          isl_mod_info = choose_drm_format_mod(device->physical,
                                               mod_list_info->drmFormatModifierCount,
                                               mod_list_info->pDrmFormatModifiers);
