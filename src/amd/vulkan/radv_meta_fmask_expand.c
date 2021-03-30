@@ -49,7 +49,7 @@ build_fmask_expand_compute_shader(struct radv_device *device, int samples)
 	nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform,
 						       img_type, "out_img");
 	output_img->data.descriptor_set = 0;
-	output_img->data.binding = 0;
+	output_img->data.binding = 1;
 	output_img->data.access = ACCESS_NON_READABLE;
 
 	nir_ssa_def *invoc_id = nir_load_local_invocation_id(&b);
@@ -115,7 +115,7 @@ radv_expand_fmask_image_inplace(struct radv_cmd_buffer *cmd_buffer,
 	const uint32_t samples = image->info.samples;
 	const uint32_t samples_log2 = ffs(samples) - 1;
 	unsigned layer_count = radv_get_layerCount(image, subresourceRange);
-	struct radv_image_view iview;
+	struct radv_image_view load_iview, store_iview;
 
 	radv_meta_save(&saved_state, cmd_buffer,
 		       RADV_META_SAVE_COMPUTE_PIPELINE |
@@ -128,7 +128,22 @@ radv_expand_fmask_image_inplace(struct radv_cmd_buffer *cmd_buffer,
 
 	cmd_buffer->state.flush_bits |= radv_dst_access_flush(cmd_buffer, VK_ACCESS_SHADER_WRITE_BIT, image);
 
-	radv_image_view_init(&iview, device,
+	radv_image_view_init(&load_iview, device,
+			     &(VkImageViewCreateInfo) {
+				     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+				     .image = radv_image_to_handle(image),
+				     .viewType = radv_meta_get_view_type(image),
+				     .format = vk_format_no_srgb(image->vk_format),
+				     .subresourceRange = {
+					     .aspectMask = subresourceRange->aspectMask,
+					     .baseMipLevel = 0,
+					     .levelCount = 1,
+					     .baseArrayLayer = subresourceRange->baseArrayLayer,
+					     .layerCount = layer_count,
+				     },
+			     }, NULL);
+
+	radv_image_view_init(&store_iview, device,
 			     &(VkImageViewCreateInfo) {
 				     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 				     .image = radv_image_to_handle(image),
@@ -147,18 +162,32 @@ radv_expand_fmask_image_inplace(struct radv_cmd_buffer *cmd_buffer,
 				      VK_PIPELINE_BIND_POINT_COMPUTE,
 				      cmd_buffer->device->meta_state.fmask_expand.p_layout,
 				      0, /* set */
-				      1, /* descriptorWriteCount */
+				      2, /* descriptorWriteCount */
 				      (VkWriteDescriptorSet[]) {
 				      {
 					      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 					      .dstBinding = 0,
 					      .dstArrayElement = 0,
 					      .descriptorCount = 1,
+					      .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+					      .pImageInfo = (VkDescriptorImageInfo[]) {
+						      {
+							      .sampler = VK_NULL_HANDLE,
+							      .imageView = radv_image_view_to_handle(&load_iview),
+							      .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+						      },
+					      }
+				      },
+				      {
+					      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					      .dstBinding = 1,
+					      .dstArrayElement = 0,
+					      .descriptorCount = 1,
 					      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					      .pImageInfo = (VkDescriptorImageInfo[]) {
 						      {
 							      .sampler = VK_NULL_HANDLE,
-							      .imageView = radv_image_view_to_handle(&iview),
+							      .imageView = radv_image_view_to_handle(&store_iview),
 							      .imageLayout = VK_IMAGE_LAYOUT_GENERAL
 						      },
 					      }
@@ -236,10 +265,17 @@ radv_device_init_meta_fmask_expand_state(struct radv_device *device)
 	VkDescriptorSetLayoutCreateInfo ds_create_info = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
-		.bindingCount = 1,
+		.bindingCount = 2,
 		.pBindings = (VkDescriptorSetLayoutBinding[]) {
 			{
 				.binding = 0,
+				.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+				.descriptorCount = 1,
+				.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+				.pImmutableSamplers = NULL
+			},
+			{
+				.binding = 1,
 				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				.descriptorCount = 1,
 				.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
