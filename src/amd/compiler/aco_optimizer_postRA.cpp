@@ -137,6 +137,29 @@ void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 {
    ctx.current_instr_idx++;
 
+   for (Operand &op : instr->operands) {
+      int wr_idx = last_writer_idx(ctx, op);
+      if (wr_idx < 0)
+         continue;
+
+      /* Find which instruction writes the register read by the current operand */
+      aco_ptr<Instruction> &wr_instr = ctx.current_block->instructions[wr_idx];
+      /* If the operand's register is written by a parallelcopy, see if we can get rid of it */
+      if (wr_instr->opcode == aco_opcode::p_parallelcopy &&
+          wr_instr->operands[0].regClass() == wr_instr->definitions[0].regClass()) {
+         /* Find the index of the instruction that writes what is copied */
+         int copied_wr_idx = last_writer_idx(ctx, wr_instr->operands[0]);
+         if (copied_wr_idx != -1 && copied_wr_idx < wr_idx) {
+            /* The register isn't overwritten between the copy and the current instr,
+             * so let's use that directly instead. This may let us delete the copy.
+             */
+            ctx.uses[op.tempId()]--;
+            op = wr_instr->operands[0];
+            ctx.uses[op.tempId()]++;
+         }
+      }
+   }
+
    try_apply_branch_vcc(ctx, instr);
 
    save_reg_writes(ctx, instr);
