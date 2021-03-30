@@ -1678,6 +1678,11 @@ static bool is_blit_generic_supported(struct blitter_context *blitter,
       }
    }
 
+   if (src && dst && src->target == PIPE_BUFFER && dst->target == PIPE_BUFFER) {
+      printf("supported: %u\n", ctx->has_txf);
+      return ctx->has_txf;
+   }
+
    return true;
 }
 
