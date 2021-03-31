@@ -444,7 +444,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
 #endif
 	.EXT_extended_dynamic_state            = true,
 	.EXT_external_memory_dma_buf           = true,
-	.EXT_external_memory_host              = device->rad_info.has_userptr,
+	.EXT_external_memory_host              = true,
 	.EXT_global_priority                   = true,
 	.EXT_host_query_reset                  = true,
 	.EXT_image_drm_format_modifier         = device->rad_info.chip_class >= GFX9,
