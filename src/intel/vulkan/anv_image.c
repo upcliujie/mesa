@@ -2265,7 +2265,7 @@ anv_CreateImageView(VkDevice _device,
    assert(range->baseMipLevel < image->levels);
 
    /* Check if a conversion info was passed. */
-   const struct anv_format *conv_format = NULL;
+   VkFormat conv_format = VK_FORMAT_UNDEFINED;
    const VkSamplerYcbcrConversionInfo *conv_info =
       vk_find_struct_const(pCreateInfo->pNext, SAMPLER_YCBCR_CONVERSION_INFO);
 
@@ -2276,7 +2276,7 @@ anv_CreateImageView(VkDevice _device,
    assert(!image->external_format || conv_info);
 
    if (conv_info) {
-      ANV_FROM_HANDLE(anv_ycbcr_conversion, conversion, conv_info->conversion);
+      VK_FROM_HANDLE(vk_ycbcr_conversion, conversion, conv_info->conversion);
       conv_format = conversion->format;
    }
 
@@ -2365,7 +2365,7 @@ anv_CreateImageView(VkDevice _device,
     * view format from the passed conversion info.
     */
    if (iview->vk_format == VK_FORMAT_UNDEFINED && conv_format)
-      iview->vk_format = conv_format->vk_format;
+      iview->vk_format = conv_format;
 
    iview->extent = (VkExtent3D) {
       .width  = anv_minify(image->extent.width , range->baseMipLevel),
