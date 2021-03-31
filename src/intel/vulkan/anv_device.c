@@ -2748,7 +2748,14 @@ vk_priority_to_gen(int priority)
 static VkResult
 anv_device_init_hiz_clear_value_bo(struct anv_device *device)
 {
-   VkResult result = anv_device_alloc_bo(device, "hiz-clear-value", 4096,
+   static const enum isl_format depth_formats [] = {
+      ISL_FORMAT_R16_UNORM,
+      ISL_FORMAT_R32_FLOAT,
+      ISL_FORMAT_R24_UNORM_X8_TYPELESS,
+   };
+
+   VkResult result = anv_device_alloc_bo(device, "hiz-clear-value",
+                                         ARRAY_SIZE(depth_formats) * 4096,
                                          ANV_BO_ALLOC_MAPPED,
                                          0 /* explicit_address */,
                                          &device->hiz_clear_bo);
@@ -2758,10 +2765,15 @@ anv_device_init_hiz_clear_value_bo(struct anv_device *device)
    union isl_color_value hiz_clear = { .u32 = { 0, } };
    hiz_clear.f32[0] = ANV_HZ_FC_VAL;
 
-   memcpy(device->hiz_clear_bo->map, hiz_clear.u32, sizeof(hiz_clear.u32));
+   for (uint32_t i = 0; i < ARRAY_SIZE(depth_formats); ++i) {
+      uint32_t offset = i * 4096;
+      memcpy(device->hiz_clear_bo->map + offset, hiz_clear.u32,
+             sizeof(hiz_clear.u32));
 
-   if (!device->info.has_llc)
-      gen_clflush_range(device->hiz_clear_bo->map, sizeof(hiz_clear.u32));
+      if (!device->info.has_llc)
+         gen_clflush_range(device->hiz_clear_bo->map + offset,
+                           sizeof(hiz_clear.u32));
+   }
 
    return VK_SUCCESS;
 }

@@ -265,6 +265,7 @@ get_blorp_surf_for_anv_image(const struct anv_device *device,
              */
             const struct anv_address clear_color_addr = (struct anv_address) {
                .bo = device->hiz_clear_bo,
+               .offset = anv_get_hiz_clear_bo_offset(blorp_surf->surf->format),
             };
             blorp_surf->clear_color_addr =
                anv_to_blorp_address(clear_color_addr);
