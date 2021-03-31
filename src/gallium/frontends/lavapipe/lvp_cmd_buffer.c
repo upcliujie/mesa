@@ -1718,7 +1718,8 @@ VKAPI_ATTR void VKAPI_CALL lvp_CmdBeginTransformFeedbackEXT(
    cmd->u.begin_transform_feedback.counter_buffer_offsets = (VkDeviceSize *)(cmd->u.begin_transform_feedback.counter_buffers + counterBufferCount);
 
    for (unsigned i = 0; i < counterBufferCount; i++) {
-      cmd->u.begin_transform_feedback.counter_buffers[i] = lvp_buffer_from_handle(pCounterBuffers[i]);
+      if (pCounterBuffers)
+         cmd->u.begin_transform_feedback.counter_buffers[i] = lvp_buffer_from_handle(pCounterBuffers[i]);
       if (pCounterBufferOffsets)
          cmd->u.begin_transform_feedback.counter_buffer_offsets[i] = pCounterBufferOffsets[i];
       else
@@ -1750,7 +1751,8 @@ VKAPI_ATTR void VKAPI_CALL lvp_CmdEndTransformFeedbackEXT(
    cmd->u.begin_transform_feedback.counter_buffer_offsets = (VkDeviceSize *)(cmd->u.begin_transform_feedback.counter_buffers + counterBufferCount);
 
    for (unsigned i = 0; i < counterBufferCount; i++) {
-      cmd->u.begin_transform_feedback.counter_buffers[i] = lvp_buffer_from_handle(pCounterBuffers[i]);
+      if (pCounterBuffers)
+         cmd->u.begin_transform_feedback.counter_buffers[i] = lvp_buffer_from_handle(pCounterBuffers[i]);
       if (pCounterBufferOffsets)
          cmd->u.begin_transform_feedback.counter_buffer_offsets[i] = pCounterBufferOffsets[i];
       else
