@@ -2059,6 +2059,21 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
       }
    }
 
+   if (!pCreateInfo->pRasterizationState->rasterizerDiscardEnable) {
+      if (states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE) {
+         assert(pCreateInfo->pColorBlendState);
+         const VkPipelineColorWriteCreateInfoEXT *color_write_info =
+            vk_find_struct_const(pCreateInfo->pColorBlendState->pNext,
+                                 PIPELINE_COLOR_WRITE_CREATE_INFO_EXT);
+
+         dynamic->color_writes = 0;
+         for (uint32_t i = 0; i < color_write_info->attachmentCount; i++) {
+            dynamic->color_writes |=
+               color_write_info->pColorWriteEnables[i] ? (1u << i) : 0;
+         }
+      }
+   }
+
    pipeline->dynamic_state_mask = states;
 }
 
