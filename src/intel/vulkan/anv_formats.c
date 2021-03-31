@@ -1534,17 +1534,6 @@ VkResult anv_CreateSamplerYcbcrConversion(
    ANV_FROM_HANDLE(anv_device, device, _device);
    struct anv_ycbcr_conversion *conversion;
 
-   /* Search for VkExternalFormatANDROID and resolve the format. */
-   struct anv_format *ext_format = NULL;
-   const VkExternalFormatANDROID *ext_info =
-      vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_FORMAT_ANDROID);
-
-   uint64_t format = ext_info ? ext_info->externalFormat : 0;
-   if (format) {
-      assert(pCreateInfo->format == VK_FORMAT_UNDEFINED);
-      ext_format = (struct anv_format *) (uintptr_t) format;
-   }
-
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO);
 
    conversion = vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*conversion), 8,
@@ -1560,10 +1549,19 @@ VkResult anv_CreateSamplerYcbcrConversion(
    conversion->ycbcr_model = pCreateInfo->ycbcrModel;
    conversion->ycbcr_range = pCreateInfo->ycbcrRange;
 
-   /* The Vulkan 1.1.95 spec says "When creating an external format conversion,
-    * the value of components if ignored."
-    */
-   if (!ext_format) {
+   /* Search for VkExternalFormatANDROID and resolve the format. */
+   const VkExternalFormatANDROID *ext_info =
+      vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_FORMAT_ANDROID);
+
+   if (ext_info && ext_info->externalFormat) {
+      assert(pCreateInfo->format == VK_FORMAT_UNDEFINED);
+      conversion->format = (struct anv_format *) (uintptr_t) ext_info->externalFormat;
+   } else {
+      /* The Vulkan 1.1.95 spec says
+       *
+       *    "When creating an external format conversion, the value of
+       *    components if ignored."
+       */
       conversion->mapping[0] = pCreateInfo->components.r;
       conversion->mapping[1] = pCreateInfo->components.g;
       conversion->mapping[2] = pCreateInfo->components.b;
@@ -1573,10 +1571,6 @@ VkResult anv_CreateSamplerYcbcrConversion(
    conversion->chroma_offsets[0] = pCreateInfo->xChromaOffset;
    conversion->chroma_offsets[1] = pCreateInfo->yChromaOffset;
    conversion->chroma_filter = pCreateInfo->chromaFilter;
-
-   /* Setup external format. */
-   if (ext_format)
-      conversion->format = ext_format;
 
    bool has_chroma_subsampled = false;
    for (uint32_t p = 0; p < conversion->format->n_planes; p++) {
