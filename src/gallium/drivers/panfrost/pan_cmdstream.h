@@ -90,6 +90,15 @@ panfrost_emit_vertex_tiler_jobs(struct panfrost_batch *batch,
                                 const struct panfrost_ptr *vertex_job,
                                 const struct panfrost_ptr *tiler_job);
 
+mali_ptr
+panfrost_emit_fragment_job(struct panfrost_batch *batch);
+
+void
+panfrost_emit_tls(struct panfrost_batch *batch);
+
+void
+panfrost_emit_fbd(struct panfrost_batch *batch);
+
 static inline unsigned
 panfrost_translate_compare_func(enum pipe_compare_func in)
 {

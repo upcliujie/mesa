@@ -2222,3 +2222,146 @@ panfrost_emit_vertex_tiler_jobs(struct panfrost_batch *batch,
         panfrost_add_job(&batch->pool, &batch->scoreboard, MALI_JOB_TYPE_TILER,
                          false, false, vertex, 0, tiler_job, false);
 }
+
+void
+panfrost_emit_tls(struct panfrost_batch *batch)
+{
+        struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
+
+        /* Emitted with the FB descriptor on Midgard. */
+        if (!pan_is_bifrost(dev))
+                return;
+
+        struct panfrost_bo *tls_bo =
+                batch->stack_size ?
+                panfrost_batch_get_scratchpad(batch,
+                                              batch->stack_size,
+                                              dev->thread_tls_alloc,
+                                              dev->core_count):
+                NULL;
+        struct pan_tls_info tls = {
+                .tls = {
+                        .ptr = tls_bo ? tls_bo->ptr.gpu : 0,
+                        .size = batch->stack_size,
+                },
+        };
+
+        assert(batch->tls.cpu);
+        pan_emit_tls(dev, &tls, batch->tls.cpu);
+}
+
+void
+panfrost_emit_fbd(struct panfrost_batch *batch)
+{
+        struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
+        struct pan_image_view rts[8];
+        struct pan_image_view zs;
+        struct pan_image_view s;
+        struct pan_fb_info fb;
+        struct panfrost_bo *tls_bo =
+                batch->stack_size ?
+                panfrost_batch_get_scratchpad(batch,
+                                              batch->stack_size,
+                                              dev->thread_tls_alloc,
+                                              dev->core_count):
+                NULL;
+        struct pan_tls_info tls = {
+                .tls = {
+                        .ptr = tls_bo ? tls_bo->ptr.gpu : 0,
+                        .size = batch->stack_size,
+                },
+        };
+
+        panfrost_batch_to_fb_info(batch, &fb, rts, &zs, &s);
+        for (unsigned i = 0; i < fb.rt_count; i++) {
+                /* Disable RTs that have no draws or clear. */
+                if (!((batch->clear | batch->draws) & (PIPE_CLEAR_COLOR0 << i))) {
+                        fb.rts[i].view = NULL;
+                        fb.rts[i].state = NULL;
+                }
+        }
+
+        /* Disable ZS is there's no draw or clear */
+        if (!((batch->clear | batch->draws) & PIPE_CLEAR_DEPTHSTENCIL)) {
+                fb.zs.view.zs = NULL;
+                fb.zs.view.s = NULL;
+                fb.zs.state.zs = NULL;
+                fb.zs.state.s = NULL;
+        }
+
+        batch->framebuffer.gpu |=
+                pan_emit_fbd(dev, &fb, &tls, &batch->tiler_ctx,
+                             batch->framebuffer.cpu);
+}
+
+/* Mark a surface as written */
+
+static void
+panfrost_initialize_surface(struct panfrost_batch *batch,
+                            struct pipe_surface *surf)
+{
+        if (!surf)
+                return;
+
+        unsigned level = surf->u.tex.level;
+        struct panfrost_resource *rsrc = pan_resource(surf->texture);
+
+        rsrc->state.slices[level].data_valid = true;
+}
+
+/* Generate a fragment job. This should be called once per frame. (According to
+ * presentations, this is supposed to correspond to eglSwapBuffers) */
+
+mali_ptr
+panfrost_emit_fragment_job(struct panfrost_batch *batch)
+{
+        /* Mark the affected buffers as initialized, since we're writing to it.
+         * Also, add the surfaces we're writing to to the batch */
+
+        struct pipe_framebuffer_state *fb = &batch->key;
+
+        for (unsigned i = 0; i < fb->nr_cbufs; ++i)
+                panfrost_initialize_surface(batch, fb->cbufs[i]);
+
+        panfrost_initialize_surface(batch, fb->zsbuf);
+
+        /* The passed tile coords can be out of range in some cases, so we need
+         * to clamp them to the framebuffer size to avoid a TILE_RANGE_FAULT.
+         * Theoretically we also need to clamp the coordinates positive, but we
+         * avoid that edge case as all four values are unsigned. Also,
+         * theoretically we could clamp the minima, but if that has to happen
+         * the asserts would fail anyway (since the maxima would get clamped
+         * and then be smaller than the minima). An edge case of sorts occurs
+         * when no scissors are added to draw, so by default min=~0 and max=0.
+         * But that can't happen if any actual drawing occurs (beyond a
+         * wallpaper reload), so this is again irrelevant in practice. */
+
+        batch->maxx = MIN2(batch->maxx, fb->width);
+        batch->maxy = MIN2(batch->maxy, fb->height);
+
+        /* Rendering region must be at least 1x1; otherwise, there is nothing
+         * to do and the whole job chain should have been discarded. */
+
+        assert(batch->maxx > batch->minx);
+        assert(batch->maxy > batch->miny);
+
+        struct panfrost_ptr transfer =
+                panfrost_pool_alloc_desc(&batch->pool, FRAGMENT_JOB);
+
+        pan_section_pack(transfer.cpu, FRAGMENT_JOB, HEADER, header) {
+                header.type = MALI_JOB_TYPE_FRAGMENT;
+                header.index = 1;
+        }
+
+        pan_section_pack(transfer.cpu, FRAGMENT_JOB, PAYLOAD, payload) {
+                payload.bound_min_x = batch->minx >> MALI_TILE_SHIFT;
+                payload.bound_min_y = batch->miny >> MALI_TILE_SHIFT;
+
+                /* Batch max values are inclusive, we need to subtract 1. */
+                payload.bound_max_x = (batch->maxx - 1) >> MALI_TILE_SHIFT;
+                payload.bound_max_y = (batch->maxy - 1) >> MALI_TILE_SHIFT;
+                payload.framebuffer = batch->framebuffer.gpu;
+        }
+
+        return transfer.gpu;
+}
