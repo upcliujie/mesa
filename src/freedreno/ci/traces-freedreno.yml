@@ -6,6 +6,10 @@ traces:
     expectations:
       - device: freedreno-a630
         checksum: ea2b03e0768e8400c0badd46e4d26087
+  - path: behdad-glyphy/glyphy.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: a0000000000000000000000000000000
   - path: glmark2/buffer-columns=200:interleave=false:update-dispersion=0.9:update-fraction=0.5:update-method=map.rdc
     expectations:
       - device: freedreno-a630
@@ -235,6 +239,10 @@ traces:
 #    expectations:
 #      - device: freedreno-a630
 #        checksum: 9571117bf4eab6fe29b12f6c3d42d865
+  - path: minetest/minetest.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: a0000000000000000000000000000000
   - path: neverball/neverball.trace
     expectations:
       - device: freedreno-a630
@@ -251,10 +259,18 @@ traces:
     expectations:
       - device: freedreno-a630
         checksum: f6661ed4de9e0a444c6338ebd0cd3768
+  - path: pioneer/pioneer.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: a0000000000000000000000000000000
   - path: supertuxkart/supertuxkart-mansion-egl-gles.trace
     expectations:
       - device: freedreno-a630
         checksum: 5f3fff8969813a5fc5d8d95b4d4c5755
+  - path: thedarkmod/thedarkmod.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: a0000000000000000000000000000000
   - path: xonotic/xonotic-keybench-high.trace
     expectations:
       - device: freedreno-a630
