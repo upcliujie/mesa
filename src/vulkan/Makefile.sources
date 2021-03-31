@@ -45,7 +45,9 @@ VULKAN_UTIL_FILES := \
 	util/vk_shader_module.c \
 	util/vk_shader_module.h \
 	util/vk_util.c \
-	util/vk_util.h
+	util/vk_util.h \
+	util/vk_ycbcr_conversion.c \
+	util/vk_ycbcr_conversion.h
 
 VULKAN_UTIL_GENERATED_FILES := \
 	util/vk_enum_to_str.c \

@@ -45,6 +45,8 @@ files_vulkan_util = files(
   'vk_shader_module.h',
   'vk_util.c',
   'vk_util.h',
+  'vk_ycbcr_conversion.c',
+  'vk_ycbcr_conversion.h',
 )
 
 vk_common_entrypoints = custom_target(
