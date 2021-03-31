@@ -3598,6 +3598,22 @@ anv_get_isl_format(const struct gen_device_info *devinfo, VkFormat vk_format,
    return anv_get_format_plane(devinfo, vk_format, aspect, tiling).isl_format;
 }
 
+static inline uint32_t
+anv_get_hiz_clear_bo_offset(enum isl_format format)
+{
+   uint32_t offset = 4096;
+   switch(format) {
+   case ISL_FORMAT_R16_UNORM:
+      return 0;
+   case ISL_FORMAT_R32_FLOAT:
+      return offset * 1;
+   case ISL_FORMAT_R24_UNORM_X8_TYPELESS:
+      return offset * 2;
+   default:
+      unreachable("Invalid depth format");
+   }
+}
+
 bool anv_formats_ccs_e_compatible(const struct gen_device_info *devinfo,
                                   VkImageCreateFlags create_flags,
                                   VkFormat vk_format,
