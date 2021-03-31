@@ -1554,7 +1554,7 @@ VkResult anv_CreateSamplerYcbcrConversion(
       vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_FORMAT_ANDROID);
 
    if (ext_info && ext_info->externalFormat) {
-      conversion->format = (struct anv_format *) (uintptr_t) ext_info->externalFormat;
+      conversion->format = anv_get_format(ext_info->externalFormat);
    } else {
       /* The Vulkan 1.1.95 spec says
        *
