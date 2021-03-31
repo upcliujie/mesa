@@ -32,12 +32,16 @@ apt-get install -y --no-remove \
         python3-serial \
         python3.7 \
         rsync \
-        telnet \
+        snmp \
         u-boot-tools \
         unzip
 
 apt install -t buster-backports -y --no-remove \
     meson
+
+# setup SNMPv2 SMI MIB
+wget https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-SMI.txt \
+    -O /usr/share/snmp/mibs/SNMPv2-SMI.txt
 
 # setup nginx
 sed -i '/gzip_/ s/#\ //g' /etc/nginx/nginx.conf
