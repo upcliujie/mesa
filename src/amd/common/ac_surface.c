@@ -1237,7 +1237,8 @@ static int gfx6_compute_surface(ADDR_HANDLE addrlib, const struct radeon_info *i
 }
 
 /* This is only called when expecting a tiled layout. */
-static int gfx9_get_preferred_swizzle_mode(ADDR_HANDLE addrlib, struct radeon_surf *surf,
+static int gfx9_get_preferred_swizzle_mode(ADDR_HANDLE addrlib, const struct radeon_info *info,
+                                           struct radeon_surf *surf,
                                            ADDR2_COMPUTE_SURFACE_INFO_INPUT *in, bool is_fmask,
                                            AddrSwizzleMode *swizzle_mode)
 {
@@ -1291,7 +1292,7 @@ static int gfx9_get_preferred_swizzle_mode(ADDR_HANDLE addrlib, struct radeon_su
          sin.preferredSwSet.sw_R = 1;
    }
 
-   if (in->resourceType == ADDR_RSRC_TEX_3D && in->numSlices > 1) {
+   if (info->chip_class >= GFX10 && in->resourceType == ADDR_RSRC_TEX_3D && in->numSlices > 1) {
       /* 3D textures should use S swizzle modes for the best performance.
        * THe only exception is 3D render targets, which prefer 64KB_D_X.
        *
@@ -1736,7 +1737,7 @@ static int gfx9_compute_miptree(struct ac_addrlib *addrlib, const struct radeon_
          fin.size = sizeof(ADDR2_COMPUTE_FMASK_INFO_INPUT);
          fout.size = sizeof(ADDR2_COMPUTE_FMASK_INFO_OUTPUT);
 
-         ret = gfx9_get_preferred_swizzle_mode(addrlib->handle, surf, in, true, &fin.swizzleMode);
+         ret = gfx9_get_preferred_swizzle_mode(addrlib->handle, info, surf, in, true, &fin.swizzleMode);
          if (ret != ADDR_OK)
             return ret;
 
@@ -1988,7 +1989,7 @@ static int gfx9_compute_surface(struct ac_addrlib *addrlib, const struct radeon_
             break;
          }
 
-         r = gfx9_get_preferred_swizzle_mode(addrlib->handle, surf, &AddrSurfInfoIn, false,
+         r = gfx9_get_preferred_swizzle_mode(addrlib->handle, info, surf, &AddrSurfInfoIn, false,
                                              &AddrSurfInfoIn.swizzleMode);
          if (r)
             return r;
@@ -2037,7 +2038,7 @@ static int gfx9_compute_surface(struct ac_addrlib *addrlib, const struct radeon_
       AddrSurfInfoIn.format = ADDR_FMT_8;
 
       if (!AddrSurfInfoIn.flags.depth) {
-         r = gfx9_get_preferred_swizzle_mode(addrlib->handle, surf, &AddrSurfInfoIn, false,
+         r = gfx9_get_preferred_swizzle_mode(addrlib->handle, info, surf, &AddrSurfInfoIn, false,
                                              &AddrSurfInfoIn.swizzleMode);
          if (r)
             return r;
