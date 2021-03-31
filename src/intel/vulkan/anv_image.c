@@ -2155,7 +2155,7 @@ anv_image_fill_surface_state(struct anv_device *device,
          if (aspect == VK_IMAGE_ASPECT_DEPTH_BIT) {
             clear_address = (struct anv_address) {
                .bo = device->hiz_clear_bo,
-               .offset = 0,
+               .offset = anv_get_hiz_clear_bo_offset(surface->isl.format),
             };
          } else {
             clear_address = anv_image_get_clear_color_addr(device, image, aspect);
