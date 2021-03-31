@@ -1888,10 +1888,9 @@ anv_image_ccs_op(struct anv_cmd_buffer *cmd_buffer,
           anv_image_aux_layers(image, aspect, level));
 
    uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
-   uint32_t width_div = image->format->planes[plane].denominator_scales[0];
-   uint32_t height_div = image->format->planes[plane].denominator_scales[1];
-   uint32_t level_width = anv_minify(image->extent.width, level) / width_div;
-   uint32_t level_height = anv_minify(image->extent.height, level) / height_div;
+   const struct anv_surface *surface = &image->planes[plane].primary_surface;
+   uint32_t level_width = anv_minify(surface->isl.logical_level0_px.w, level);
+   uint32_t level_height = anv_minify(surface->isl.logical_level0_px.h, level);
 
    struct blorp_batch batch;
    blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer,
