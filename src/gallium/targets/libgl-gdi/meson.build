@@ -47,6 +47,10 @@ libopengl32 = shared_library(
 
 if with_tests
   extra_test_deps = []
+  if with_gallium_d3d12
+    extra_test_deps += [cpp.find_library('d3d12')]
+  endif
+
   test(
     'wgl',
     executable(
