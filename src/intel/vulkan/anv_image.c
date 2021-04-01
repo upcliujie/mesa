@@ -1005,6 +1005,30 @@ anv_image_create_usage(const VkImageCreateInfo *pCreateInfo,
    return usage;
 }
 
+static VkResult MUST_CHECK
+alloc_private_binding(struct anv_device *device,
+                      struct anv_image *image,
+                      const VkImageCreateInfo *create_info)
+{
+   struct anv_image_binding *binding =
+      &image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE];
+
+   if (binding->memory_range.size == 0)
+      return VK_SUCCESS;
+
+   const VkImageSwapchainCreateInfoKHR *swapchain_info =
+      vk_find_struct_const(create_info->pNext, IMAGE_SWAPCHAIN_CREATE_INFO_KHR);
+
+   if (swapchain_info && swapchain_info->swapchain != VK_NULL_HANDLE) {
+      /* The image will be bound to swapchain memory. */
+      return VK_SUCCESS;
+   }
+
+   return anv_device_alloc_bo(device, "image-binding-private",
+                              binding->memory_range.size, 0, 0,
+                              &binding->address.bo);
+}
+
 VkResult
 anv_image_create(VkDevice _device,
                  const struct anv_image_create_info *create_info,
@@ -1110,6 +1134,10 @@ anv_image_create(VkDevice _device,
 
    r = add_all_surfaces(device, image, fmt_list, create_info->stride,
                         isl_tiling_flags, create_info->isl_extra_usage_flags);
+   if (r != VK_SUCCESS)
+      goto fail;
+
+   r = alloc_private_binding(device, image, pCreateInfo);
    if (r != VK_SUCCESS)
       goto fail;
 
@@ -1462,7 +1490,6 @@ VkResult anv_BindImageMemory2(
     const VkBindImageMemoryInfo*                pBindInfos)
 {
    ANV_FROM_HANDLE(anv_device, device, _device);
-   VkResult result;
 
    for (uint32_t i = 0; i < bindInfoCount; i++) {
       const VkBindImageMemoryInfo *bind_info = &pBindInfos[i];
@@ -1558,50 +1585,9 @@ VkResult anv_BindImageMemory2(
              device->physical->has_implicit_ccs)
             image->planes[p].aux_usage = ISL_AUX_USAGE_NONE;
       }
-
-      /* Allocate a private bo if the image uses one, unless
-       * VkBindImageMemorySwapchainInfoKHR already bound it.
-       */
-      struct anv_image_binding *private_binding =
-         &image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE];
-
-      if (private_binding->memory_range.size > 0 &&
-          !private_binding->address.bo) {
-         result = anv_device_alloc_bo(device, "image-binding-private",
-                                      private_binding->memory_range.size, 0, 0,
-                                      &private_binding->address.bo);
-         if (result != VK_SUCCESS)
-            goto fail;
-      }
    }
 
    return VK_SUCCESS;
-
- fail:
-   /* We must undo all bindings because the spec says:
-    *
-    *    VK_ERROR_OUT_OF_*_MEMORY errors do not modify any currently existing
-    *    Vulkan objects. Objects that have already been successfully created can
-    *    still be used by the application.
-    *
-    * It's safe to undo the bindings of *all* images because the spec requires
-    * that all images be unbound when calling vkBindImageMemory2.
-    */
-   for (uint32_t i = 0; i < bindInfoCount; i++) {
-      const VkBindImageMemoryInfo *bind_info = &pBindInfos[i];
-      ANV_FROM_HANDLE(anv_image, image, bind_info->image);
-
-      struct anv_bo *private_bo =
-         image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE].address.bo;
-      if (private_bo)
-         anv_device_release_bo(device, private_bo);
-
-      for (int j = 0; j < ARRAY_SIZE(image->bindings); ++j) {
-         image->bindings[j].address = (struct anv_address) { 0 };
-      }
-   }
-
-   return result;
 }
 
 void anv_GetImageSubresourceLayout(
