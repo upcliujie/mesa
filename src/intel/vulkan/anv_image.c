@@ -1085,7 +1085,7 @@ anv_image_create(VkDevice _device,
 
 fail:
    if (image)
-      vk_free2(&device->vk.alloc, alloc, image);
+      anv_DestroyImage(_device, anv_image_to_handle(image), alloc);
 
    return r;
 }
@@ -1221,8 +1221,8 @@ anv_DestroyImage(VkDevice _device, VkImage _image,
       assert(image->n_planes == 1);
       assert(image->planes[0].primary_surface.memory_range.binding ==
              ANV_IMAGE_MEMORY_BINDING_MAIN);
-      assert(image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN].address.bo != NULL);
-      anv_device_release_bo(device, image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN].address.bo);
+      if (image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN].address.bo)
+         anv_device_release_bo(device, image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN].address.bo);
    }
 
    vk_object_base_finish(&image->base);
