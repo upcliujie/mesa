@@ -1622,17 +1622,26 @@ void anv_GetImageSubresourceLayout(
     VkSubresourceLayout*                        layout)
 {
    ANV_FROM_HANDLE(anv_image, image, _image);
-
    const struct anv_surface *surface;
-   if (subresource->aspectMask == VK_IMAGE_ASPECT_PLANE_1_BIT &&
-       image->drm_format_mod != DRM_FORMAT_MOD_INVALID &&
-       isl_drm_modifier_has_aux(image->drm_format_mod)) {
-      /* If the memory binding differs between primary and aux, then the
-       * returned offset will be incorrect.
-       */
-      assert(image->planes[0].aux_surface.memory_range.binding ==
-             image->planes[0].primary_surface.memory_range.binding);
-      surface = &image->planes[0].aux_surface;
+
+   if (image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
+      assert(subresource->aspectMask >= VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT &&
+             subresource->aspectMask <= VK_IMAGE_ASPECT_MEMORY_PLANE_3_BIT_EXT);
+
+      uint32_t mem_plane = subresource->aspectMask -
+                           VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT;
+
+      if (mem_plane == 1 && isl_drm_modifier_has_aux(image->drm_format_mod)) {
+         /* If the memory binding differs between primary and aux, then the
+          * returned offset will be incorrect.
+          */
+         assert(image->planes[0].aux_surface.memory_range.binding ==
+                image->planes[0].primary_surface.memory_range.binding);
+         surface = &image->planes[0].aux_surface;
+      } else {
+         assert(mem_plane < image->n_planes);
+         surface = &image->planes[mem_plane].primary_surface;
+      }
    } else {
       uint32_t plane = anv_image_aspect_to_plane(image->aspects,
                                                  subresource->aspectMask);
