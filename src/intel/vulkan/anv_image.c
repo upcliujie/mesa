@@ -450,13 +450,11 @@ anv_formats_ccs_e_compatible(const struct gen_device_info *devinfo,
  *  * For any blorp operations, we pass the address to the clear value into
  *    blorp and it knows to copy the clear color.
  */
-static void
+static VkResult MUST_CHECK
 add_aux_state_tracking_buffer(struct anv_device *device,
                               struct anv_image *image,
                               uint32_t plane)
 {
-   ASSERTED VkResult result;
-
    assert(image && device);
    assert(image->planes[plane].aux_usage != ISL_AUX_USAGE_NONE &&
           image->aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV);
@@ -487,10 +485,9 @@ add_aux_state_tracking_buffer(struct anv_device *device,
    /* We believe that 256B alignment may be sufficient, but we choose 4K due to
     * lack of testing.  And MI_LOAD/STORE operations require dword-alignment.
     */
-   result = image_binding_grow(device, image, binding,
-                               ANV_OFFSET_IMPLICIT, state_size, 4096,
-                               &image->planes[plane].fast_clear_memory_range);
-   assert(result == VK_SUCCESS);
+   return image_binding_grow(device, image, binding,
+                             ANV_OFFSET_IMPLICIT, state_size, 4096,
+                             &image->planes[plane].fast_clear_memory_range);
 }
 
 /**
@@ -575,11 +572,9 @@ add_aux_surface_if_supported(struct anv_device *device,
          image->planes[plane].aux_usage = ISL_AUX_USAGE_HIZ_CCS;
       }
 
-      result = add_surface(device, image, &image->planes[plane].aux_surface,
-                           ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
-                           ANV_OFFSET_IMPLICIT);
-      if (result != VK_SUCCESS)
-         return result;
+      return add_surface(device, image, &image->planes[plane].aux_surface,
+                         ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
+                         ANV_OFFSET_IMPLICIT);
    } else if (aspect == VK_IMAGE_ASPECT_STENCIL_BIT) {
 
       if (INTEL_DEBUG & DEBUG_NO_RBC)
@@ -687,7 +682,7 @@ add_aux_surface_if_supported(struct anv_device *device,
             return result;
       }
 
-      add_aux_state_tracking_buffer(device, image, plane);
+      return add_aux_state_tracking_buffer(device, image, plane);
    } else if ((aspect & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) && image->samples > 1) {
       assert(!(image->usage & VK_IMAGE_USAGE_STORAGE_BIT));
       ok = isl_surf_get_mcs_surf(&device->isl_dev,
@@ -704,7 +699,7 @@ add_aux_surface_if_supported(struct anv_device *device,
       if (result != VK_SUCCESS)
          return result;
 
-      add_aux_state_tracking_buffer(device, image, plane);
+      return add_aux_state_tracking_buffer(device, image, plane);
    }
 
    return VK_SUCCESS;
@@ -719,7 +714,6 @@ add_shadow_surface(struct anv_device *device,
                    VkImageUsageFlags vk_plane_usage)
 {
    ASSERTED bool ok;
-   ASSERTED VkResult result;
 
    ok = isl_surf_init(&device->isl_dev,
                       &image->planes[plane].shadow_surface.isl,
@@ -742,12 +736,9 @@ add_shadow_surface(struct anv_device *device,
     */
    assert(ok);
 
-   result = add_surface(device, image, &image->planes[plane].shadow_surface,
-                        ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
-                        ANV_OFFSET_IMPLICIT);
-   assert(result == VK_SUCCESS);
-
-   return VK_SUCCESS;
+   return add_surface(device, image, &image->planes[plane].shadow_surface,
+                      ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
+                      ANV_OFFSET_IMPLICIT);
 }
 
 /**
