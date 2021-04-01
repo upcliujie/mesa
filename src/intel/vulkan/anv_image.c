@@ -1009,6 +1009,8 @@ anv_image_create(VkDevice _device,
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &image->base, VK_OBJECT_TYPE_IMAGE);
+   VkImage _image = anv_image_to_handle(image);
+
    image->type = pCreateInfo->imageType;
    image->extent = anv_sanitize_image_extent(pCreateInfo->imageType,
                                              pCreateInfo->extent);
@@ -1048,7 +1050,7 @@ anv_image_create(VkDevice _device,
     */
    if (create_info->external_format) {
       image->external_format = true;
-      *pImage = anv_image_to_handle(image);
+      *pImage = _image;
       return VK_SUCCESS;
    }
 
@@ -1079,13 +1081,12 @@ anv_image_create(VkDevice _device,
    if (r != VK_SUCCESS)
       goto fail;
 
-   *pImage = anv_image_to_handle(image);
-
+   *pImage = _image;
    return VK_SUCCESS;
 
 fail:
    if (image)
-      anv_DestroyImage(_device, anv_image_to_handle(image), alloc);
+      anv_DestroyImage(_device, _image, alloc);
 
    return r;
 }
