@@ -116,6 +116,14 @@ radv_expand_fmask_image_inplace(struct radv_cmd_buffer *cmd_buffer,
 	const uint32_t samples_log2 = ffs(samples) - 1;
 	unsigned layer_count = radv_get_layerCount(image, subresourceRange);
 	struct radv_image_view iview;
+	bool old_predicating;
+
+	/* Enable predication. */
+	old_predicating = cmd_buffer->state.predicating;
+	radv_emit_set_predication_state_from_image(cmd_buffer, image,
+						   image->fmask_pred_offset,
+						   true);
+	cmd_buffer->state.predicating = true;
 
 	radv_meta_save(&saved_state, cmd_buffer,
 		       RADV_META_SAVE_COMPUTE_PIPELINE |
@@ -188,6 +196,23 @@ radv_expand_fmask_image_inplace(struct radv_cmd_buffer *cmd_buffer,
 
 	/* Re-initialize FMASK in fully expanded mode. */
 	radv_initialize_fmask(cmd_buffer, image, subresourceRange);
+
+	/* Disable predication. */
+	cmd_buffer->state.predicating = old_predicating;
+	radv_emit_set_predication_state_from_image(cmd_buffer, image,
+						   image->fmask_pred_offset,
+						   false);
+
+	if (cmd_buffer->state.predication_type != -1) {
+		/* Restore previous conditional rendering user state. */
+		si_emit_set_predication_state(cmd_buffer,
+					      cmd_buffer->state.predication_type,
+					      cmd_buffer->state.predication_op,
+					      cmd_buffer->state.predication_va);
+	}
+
+	/* Mark the image as being expanded. */
+	radv_update_fmask_metadata(cmd_buffer, image, false);
 }
 
 void radv_device_finish_meta_fmask_expand_state(struct radv_device *device)

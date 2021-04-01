@@ -1746,6 +1746,13 @@ radv_emit_fb_color_state(struct radv_cmd_buffer *cmd_buffer,
 
 		radv_update_dcc_metadata(cmd_buffer, image, &range, true);
 	}
+
+	if (radv_layout_fmask_compressed(cmd_buffer->device, image, layout,
+					 radv_image_queue_family_mask(image,
+								      cmd_buffer->queue_family_index,
+								      cmd_buffer->queue_family_index))) {
+		radv_update_fmask_metadata(cmd_buffer, image, true);
+	}
 }
 
 static void
@@ -2305,6 +2312,29 @@ radv_load_color_clear_metadata(struct radv_cmd_buffer *cmd_buffer,
 		radeon_emit(cs, PKT3(PKT3_PFP_SYNC_ME, 0, cmd_buffer->state.predicating));
 		radeon_emit(cs, 0);
 	}
+}
+
+/**
+ * Update the FMASK predicate to reflect the compression state.
+ */
+void
+radv_update_fmask_metadata(const struct radv_cmd_buffer *cmd_buffer,
+			   const struct radv_image *image, bool compressed)
+{
+	uint64_t pred_val = compressed;
+	uint64_t va = radv_image_get_fmask_pred_va(image);
+
+	if (image->fmask_pred_offset == 0)
+		return;
+
+	radeon_emit(cmd_buffer->cs, PKT3(PKT3_WRITE_DATA, 4, 0));
+	radeon_emit(cmd_buffer->cs, S_370_DST_SEL(V_370_MEM) |
+				    S_370_WR_CONFIRM(1) |
+				    S_370_ENGINE_SEL(V_370_PFP));
+	radeon_emit(cmd_buffer->cs, va);
+	radeon_emit(cmd_buffer->cs, va >> 32);
+	radeon_emit(cmd_buffer->cs, pred_val);
+	radeon_emit(cmd_buffer->cs, pred_val >> 32);
 }
 
 /* GFX9+ metadata cache flushing workaround. metadata cache coherency is
@@ -6389,6 +6419,13 @@ static void radv_init_color_image_metadata(struct radv_cmd_buffer *cmd_buffer,
 		uint32_t color_values[2] = {0};
 		radv_set_color_clear_metadata(cmd_buffer, image, range,
 					      color_values);
+	}
+
+	if (radv_image_has_fmask(image)) {
+		/* Initialize the FMASK predicate to FALSE because FMASK is in
+		 * the identity state.
+		 */
+		radv_update_fmask_metadata(cmd_buffer, image, false);
 	}
 }
 
