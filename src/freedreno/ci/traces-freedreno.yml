@@ -296,7 +296,7 @@ traces:
         checksum: 719477c58bdbc8d0cb1f1c5a9c0b1a45
       - device: freedreno-a630
         checksum: 84409b1b3c75e52ef43fa331f60c549f
-  - path: glxgears/glxgears.trace
+  - path: glxgears/glxgears-2.trace
     expectations:
       # inner rings are flat shaded when they should be smooth
       - device: freedreno-a306
