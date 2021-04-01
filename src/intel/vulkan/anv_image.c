@@ -1516,6 +1516,9 @@ VkResult anv_BindImageMemory2(
             for (int j = 0; j < ARRAY_SIZE(image->bindings); ++j)
                image->bindings[j].address = swapchain_image->bindings[j].address;
 
+            /* We must bump the private binding's bo's refcount because, unlike the other
+             * bindings, its lifetime is not application-managed.
+             */
             struct anv_bo *private_bo =
                image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE].address.bo;
             if (private_bo)
