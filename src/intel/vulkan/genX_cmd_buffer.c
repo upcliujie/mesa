@@ -1206,52 +1206,38 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
    } else if (mod_acquire) {
       /* The fast clear state lives in a driver-private bo, and therefore the
        * external/foreign queue is unaware of it.
+       *
+       * If this is the first time we are accessing the image, then the fast
+       * clear state is uninitialized.
+       *
+       * If this is NOT the first time we are accessing the image, then the fast
+       * clear state may still be valid and correct due to the resolve during
+       * our most recent ownership release.  However, we do not track the aux
+       * state with MI stores, and therefore must assume the worst-case: that
+       * this is the first time we are accessing the image.
        */
       assert(image->planes[plane].fast_clear_memory_range.binding ==
               ANV_IMAGE_MEMORY_BINDING_PRIVATE);
+      must_init_fast_clear_state = true;
 
       if (image->planes[plane].aux_surface.memory_range.binding ==
           ANV_IMAGE_MEMORY_BINDING_PRIVATE) {
          assert(isl_mod_info->aux_usage == ISL_AUX_USAGE_NONE);
 
-         /* The aux surface, in addition to the fast clear state, lives in
-          * a driver-private bo, and therefore the external/foreign queue is
-          * unaware of it.
-          *
-          * If this is the first time we are accessing the image, then the aux
-          * surface and the fast clear state are uninitialized.
-          *
-          * If this is NOT the first time we are accessing the image, then we
-          * may have resolved the image to the pass-through state during our
-          * most recent ownership release. In this case
-          * the driver-private aux surface and fast clear state are still
-          * correctly in the pass-through state when we re-acquire the image
-          * with a defined VkImageLayout. However, we do not track the aux
-          * state with MI stores, and therefore must assume the worst-case: that
-          * this is the first time we are accessing the image.
+         /* The aux surface, like the fast clear state, lives in
+          * a driver-private bo.  We must initialize the aux surface for the
+          * same reasons we must initialize the fast clear state.
           */
-         must_init_fast_clear_state = true;
          must_init_aux_surface = true;
       } else {
          assert(isl_mod_info->aux_usage != ISL_AUX_USAGE_NONE);
 
          /* The aux surface, unlike the fast clear state, lives in
-          * application-visible VkDeviceMemory and is shared with the external/foreign
-          * queue. Therefore, when we acquire ownership of the image with
-          * a defined VkImageLayout, the aux surface is
-          * valid and has the aux state required by the modifier.
-          *
-          * If this is the first time we are accessing the image, then the
-          * fast clear state is uninitialized.
-          *
-          * If this is NOT the first time we are accessing
-          * the image, then the fast clear state may still be valid and correct
-          * due to the resolve up during our most recent ownership release.
-          * However, we do not track the aux state with MI
-          * stores, and therefore must assume the worst-case: that this is the
-          * first time we are accessing the image.
+          * application-visible VkDeviceMemory and is shared with the
+          * external/foreign queue. Therefore, when we acquire ownership of the
+          * image with a defined VkImageLayout, the aux surface is valid and has
+          * the aux state required by the modifier.
           */
-         must_init_fast_clear_state = true;
          must_init_aux_surface = false;
       }
    }
