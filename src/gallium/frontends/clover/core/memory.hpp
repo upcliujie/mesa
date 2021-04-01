@@ -169,7 +169,16 @@ namespace clover {
                std::unique_ptr<root_resource>> resources;
    };
 
-   class image1d : public image {
+   template<cl_mem_object_type Type>
+   class basic_image : public image {
+   public:
+      using image::image;
+      virtual cl_mem_object_type type() const {
+         return Type;
+      }
+   };
+
+   class image1d : public basic_image<CL_MEM_OBJECT_IMAGE1D> {
    public:
       image1d(clover::context &ctx,
               std::vector<cl_mem_properties> properties,
@@ -177,11 +186,9 @@ namespace clover {
               const cl_image_format *format,
               size_t width, size_t row_pitch,
               void *host_ptr);
-
-      virtual cl_mem_object_type type() const;
    };
 
-   class image2d : public image {
+   class image2d : public basic_image<CL_MEM_OBJECT_IMAGE2D> {
    public:
       image2d(clover::context &ctx,
               std::vector<cl_mem_properties> properties,
@@ -189,11 +196,9 @@ namespace clover {
               const cl_image_format *format, size_t width,
               size_t height, size_t row_pitch,
               void *host_ptr);
-
-      virtual cl_mem_object_type type() const;
    };
 
-   class image3d : public image {
+   class image3d : public basic_image<CL_MEM_OBJECT_IMAGE3D>{
    public:
       image3d(clover::context &ctx,
               std::vector<cl_mem_properties> properties,
@@ -202,8 +207,6 @@ namespace clover {
               size_t width, size_t height, size_t depth,
               size_t row_pitch, size_t slice_pitch,
               void *host_ptr);
-
-      virtual cl_mem_object_type type() const;
    };
 }
 
