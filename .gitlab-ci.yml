@@ -438,8 +438,8 @@ kernel+rootfs_arm64-baremetal:
     - aarch64
   variables:
     DEBIAN_ARCH: "arm64"
-    KERNEL_URL: "https://github.com/anholt/linux/archive/mesa-ci-2021-02-17-5.11.tar.gz"
-    MESA_ROOTFS_TAG: &arm-baremetal "2021-03-31-piglit"
+    KERNEL_URL: "https://github.com/anholt/linux/archive/mesa-ci-2021-04-01-5.11.tar.gz"
+    MESA_ROOTFS_TAG: &arm-baremetal "2021-04-01-kernel"
     MINIO_SUFFIX: "baremetal"
 
 # Kernel & rootfs for armhf baremetal testing
