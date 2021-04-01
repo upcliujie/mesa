@@ -18,18 +18,7 @@ include:
       - '/templates/debian.yml'
   - local: '.gitlab-ci/lava-gitlab-ci.yml'
   - local: '.gitlab-ci/test-source-dep.yml'
-  - local: 'src/amd/ci/gitlab-ci.yml'
-  - local: 'src/broadcom/ci/gitlab-ci.yml'
   - local: 'src/freedreno/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/iris/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/lima/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/llvmpipe/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/panfrost/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/radeonsi/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/softpipe/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/virgl/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/zink/ci/gitlab-ci.yml'
-  - local: 'src/gallium/frontends/lavapipe/ci/gitlab-ci.yml'
 
 stages:
   - sanity
@@ -428,6 +417,8 @@ arm_build:
     - .container
   variables:
     MESA_IMAGE_TAG: &arm_build "2021-04-01-u-boot-tools"
+  rules:
+    - when: always
 
 .use-arm_build:
   extends:
