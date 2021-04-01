@@ -773,10 +773,6 @@ check_memory_bindings(const struct anv_device *device,
       }
 
       /* Check aux_surface */
-      if (image->drm_format_mod != DRM_FORMAT_MOD_INVALID &&
-          isl_drm_modifier_has_aux(image->drm_format_mod))
-         assert(anv_surface_is_valid(&plane->aux_surface));
-
       if (anv_surface_is_valid(&plane->aux_surface)) {
          enum anv_image_memory_binding binding = primary_binding;
 
