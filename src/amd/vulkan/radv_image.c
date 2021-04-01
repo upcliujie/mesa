@@ -1370,6 +1370,16 @@ radv_image_alloc_values(const struct radv_device *device, struct radv_image *ima
 		image->size += 8 * image->info.levels;
 	}
 
+	if (radv_image_has_fmask(image) &&
+	    (image->usage & (VK_IMAGE_USAGE_STORAGE_BIT |
+			     VK_IMAGE_USAGE_TRANSFER_DST_BIT))) {
+		/* Allocate a predicate for FMASK expand if the MSAA image is
+		 * potentially going to be used with image stores.
+		 */
+		image->fmask_pred_offset = image->size;
+		image->size += 8;
+	}
+
 	if (radv_image_is_tc_compat_htile(image) &&
 	    device->physical_device->rad_info.has_tc_compat_zrange_bug) {
 		/* Metadata for the TC-compatible HTILE hardware bug which

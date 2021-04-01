@@ -562,7 +562,7 @@ radv_device_init_meta_fast_clear_flush_state(struct radv_device *device, bool on
 	return radv_device_init_meta_fast_clear_flush_state_internal(device);
 }
 
-static void
+void
 radv_emit_set_predication_state_from_image(struct radv_cmd_buffer *cmd_buffer,
 				      struct radv_image *image,
 				      uint64_t pred_offset, bool value)

@@ -1549,6 +1549,10 @@ void radv_update_fce_metadata(struct radv_cmd_buffer *cmd_buffer,
 void radv_update_dcc_metadata(struct radv_cmd_buffer *cmd_buffer,
 			      struct radv_image *image,
 			      const VkImageSubresourceRange *range, bool value);
+
+void radv_update_fmask_metadata(const struct radv_cmd_buffer *cmd_buffer,
+			        const struct radv_image *image, bool value);
+
 enum radv_cmd_flush_bits
 radv_src_access_flush(struct radv_cmd_buffer *cmd_buffer,
 		      VkAccessFlags src_flags,
@@ -1876,6 +1880,7 @@ struct radv_image {
 	uint64_t clear_value_offset;
 	uint64_t fce_pred_offset;
 	uint64_t dcc_pred_offset;
+	uint64_t fmask_pred_offset;
 
 	/* On some GPUs DCC needs different tiling of the metadata for
 	 * rendering and for display, so we're stuck with having the metadata
@@ -2063,6 +2068,14 @@ radv_image_get_dcc_pred_va(const struct radv_image *image,
 }
 
 static inline uint64_t
+radv_image_get_fmask_pred_va(const struct radv_image *image)
+{
+	uint64_t va = radv_buffer_get_va(image->bo);
+	va += image->offset + image->fmask_pred_offset;
+	return va;
+}
+
+static inline uint64_t
 radv_get_tc_compat_zrange_va(const struct radv_image *image,
 			     uint32_t base_level)
 {
@@ -2237,6 +2250,11 @@ void radv_image_view_init(struct radv_image_view *view,
 			  struct radv_device *device,
 			  const VkImageViewCreateInfo *pCreateInfo,
 			  const struct radv_image_view_extra_create_info* extra_create_info);
+
+void
+radv_emit_set_predication_state_from_image(struct radv_cmd_buffer *cmd_buffer,
+				      struct radv_image *image,
+				      uint64_t pred_offset, bool value);
 
 VkFormat radv_get_aspect_format(struct radv_image *image, VkImageAspectFlags mask);
 
