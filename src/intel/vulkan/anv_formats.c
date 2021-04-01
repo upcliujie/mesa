@@ -408,6 +408,21 @@ static const struct anv_format ycbcr_formats[] = {
              chroma_plane(2, ISL_FORMAT_R16_UNORM, RGBA, _ISL_SWIZZLE(RED, ZERO, ZERO, ZERO), 1, 1)),
 };
 
+static const struct anv_format ycbcr_2plane_444_formats[] = {
+   ycbcr_fmt(VK_FORMAT_G8_B8R8_2PLANE_444_UNORM_EXT, 2,
+             y_plane(0, ISL_FORMAT_R8_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R8G8_UNORM, RGBA, _ISL_SWIZZLE(BLUE, RED, ZERO, ZERO), 1, 1)),
+   ycbcr_fmt(VK_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16_EXT, 2,
+             y_plane(0, ISL_FORMAT_R16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, RED, ZERO, ZERO), 1, 1)),
+   ycbcr_fmt(VK_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16_EXT, 2,
+             y_plane(0, ISL_FORMAT_R16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, RED, ZERO, ZERO), 1, 1)),
+   ycbcr_fmt(VK_FORMAT_G16_B16R16_2PLANE_444_UNORM_EXT, 2,
+             y_plane(0, ISL_FORMAT_R16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, RED, ZERO, ZERO), 1, 1)),
+};
+
 #undef _fmt
 #undef swiz_fmt1
 #undef fmt1
@@ -423,6 +438,8 @@ static const struct {
                                                  .n_formats = ARRAY_SIZE(_4444_formats), },
    [_VK_KHR_sampler_ycbcr_conversion_number] = { .formats = ycbcr_formats,
                                                  .n_formats = ARRAY_SIZE(ycbcr_formats), },
+   [_VK_EXT_ycbcr_2plane_444_formats_number] = { .formats = ycbcr_2plane_444_formats,
+                                                 .n_formats = ARRAY_SIZE(ycbcr_2plane_444_formats), },
 };
 
 const struct anv_format *
