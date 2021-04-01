@@ -1132,24 +1132,34 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
       ? isl_drm_modifier_get_info(image->drm_format_mod)
       : NULL;
 
-   /* Ownership transition on the foreign queue requires special action when the
-    * image has a DRM format modifier.
+   /* The spec calls these "special queue families reserved for external memory
+    * ownership transfers".
     */
-   const bool mod_foreign_acquire =
-      image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
-      src_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT;
+   const bool src_queue_special =
+      src_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT ||
+      src_queue_family == VK_QUEUE_FAMILY_EXTERNAL;
 
-   const bool mod_foreign_release =
-      image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT &&
-      dst_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT;
+   const bool dst_queue_special =
+      dst_queue_family == VK_QUEUE_FAMILY_FOREIGN_EXT ||
+      dst_queue_family == VK_QUEUE_FAMILY_EXTERNAL;
 
-   /* Simultaneous acquire and release on the foreign queue is illegal. */
-   assert(src_queue_family != VK_QUEUE_FAMILY_FOREIGN_EXT ||
-          dst_queue_family != VK_QUEUE_FAMILY_FOREIGN_EXT);
+   /* Simultaneous acquire and release on special queues is illegal. */
+   assert(!src_queue_special || !dst_queue_special);
+
+   /* Ownership transition on a special queue requires special action if the
+    * image has a DRM format modifier because we store image data in
+    * a driver-private bo which is inaccessible to the special queue.
+    */
+   const bool mod_acquire =
+      src_queue_special &&
+      image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT;
+
+   const bool mod_release =
+      dst_queue_special &&
+      image->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT;
 
    if (initial_layout == final_layout &&
-       !mod_foreign_acquire &&
-       !mod_foreign_release) {
+       !mod_acquire && !mod_release) {
       /* No work is needed. */
        return;
    }
@@ -1193,9 +1203,9 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
        */
       must_init_fast_clear_state = true;
       must_init_aux_surface = true;
-   } else if (mod_foreign_acquire) {
+   } else if (mod_acquire) {
       /* The fast clear state lives in a driver-private bo, and therefore the
-       * foreign queue is unaware of it.
+       * external/foreign queue is unaware of it.
        */
       assert(image->planes[plane].fast_clear_memory_range.binding ==
               ANV_IMAGE_MEMORY_BINDING_PRIVATE);
@@ -1205,15 +1215,15 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
          assert(isl_mod_info->aux_usage == ISL_AUX_USAGE_NONE);
 
          /* The aux surface, in addition to the fast clear state, lives in
-          * a driver-private bo, and therefore the foreign queue is unaware of
-          * it.
+          * a driver-private bo, and therefore the external/foreign queue is
+          * unaware of it.
           *
           * If this is the first time we are accessing the image, then the aux
           * surface and the fast clear state are uninitialized.
           *
           * If this is NOT the first time we are accessing the image, then we
           * may have resolved the image to the pass-through state during our
-          * most recent ownership release to the foreign queue. In this case,
+          * most recent ownership release. In this case
           * the driver-private aux surface and fast clear state are still
           * correctly in the pass-through state when we re-acquire the image
           * with a defined VkImageLayout. However, we do not track the aux
@@ -1226,9 +1236,9 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
          assert(isl_mod_info->aux_usage != ISL_AUX_USAGE_NONE);
 
          /* The aux surface, unlike the fast clear state, lives in
-          * application-visible VkDeviceMemory and is shared with the foreign
+          * application-visible VkDeviceMemory and is shared with the external/foreign
           * queue. Therefore, when we acquire ownership of the image with
-          * a defined VkImageLayout from the foreign queue, the aux surface is
+          * a defined VkImageLayout, the aux surface is
           * valid and has the aux state required by the modifier.
           *
           * If this is the first time we are accessing the image, then the
@@ -1236,8 +1246,8 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
           *
           * If this is NOT the first time we are accessing
           * the image, then the fast clear state may still be valid and correct
-          * due to the resolve up during our most recent ownership release to
-          * the foreign queue. However, we do not track the aux state with MI
+          * due to the resolve up during our most recent ownership release.
+          * However, we do not track the aux state with MI
           * stores, and therefore must assume the worst-case: that this is the
           * first time we are accessing the image.
           */
@@ -1366,9 +1376,9 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
    /* We must override the anv_layout_to_* functions because they are unaware of
     * acquire/release direction.
     */
-   if (mod_foreign_acquire) {
+   if (mod_acquire) {
       initial_aux_usage = isl_mod_info->aux_usage;
-   } else if (mod_foreign_release) {
+   } else if (mod_release) {
       final_aux_usage = isl_mod_info->aux_usage;
    }
 
