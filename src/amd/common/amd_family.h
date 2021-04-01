@@ -145,4 +145,78 @@ enum ring_type
    NUM_RING_TYPES,
 };
 
+static const inline char *ac_get_family_name(enum radeon_family family)
+{
+   switch (family) {
+   case CHIP_TAHITI:
+      return "tahiti";
+   case CHIP_PITCAIRN:
+      return "pitcairn";
+   case CHIP_VERDE:
+      return "verde";
+   case CHIP_OLAND:
+      return "oland";
+   case CHIP_HAINAN:
+      return "hainan";
+   case CHIP_BONAIRE:
+      return "bonaire";
+   case CHIP_KABINI:
+      return "kabini";
+   case CHIP_KAVERI:
+      return "kaveri";
+   case CHIP_HAWAII:
+      return "hawaii";
+   case CHIP_TONGA:
+      return "tonga";
+   case CHIP_ICELAND:
+      return "iceland";
+   case CHIP_CARRIZO:
+      return "carrizo";
+   case CHIP_FIJI:
+      return "fiji";
+   case CHIP_STONEY:
+      return "stoney";
+   case CHIP_POLARIS10:
+      return "polaris10";
+   case CHIP_POLARIS11:
+      return "polaris11";
+   case CHIP_POLARIS12:
+      return "polaris12";
+   case CHIP_VEGAM:
+      return "vegam";
+   case CHIP_VEGA10:
+      return "vega10";
+   case CHIP_RAVEN:
+      return "raven";
+   case CHIP_VEGA12:
+      return "vega12";
+   case CHIP_VEGA20:
+      return "vega20";
+   case CHIP_RAVEN2:
+      return "raven2";
+   case CHIP_RENOIR:
+      return "renoir";
+   case CHIP_ARCTURUS:
+      return "arcturus";
+   case CHIP_ALDEBARAN:
+      return "aldebaran";
+   case CHIP_NAVI10:
+      return "navi10";
+   case CHIP_NAVI12:
+      return "navi12";
+   case CHIP_NAVI14:
+      return "navi14";
+   case CHIP_SIENNA_CICHLID:
+      return "sienna_cichlid";
+   case CHIP_NAVY_FLOUNDER:
+      return "navy_flounder";
+   case CHIP_DIMGREY_CAVEFISH:
+      return "dimgrey_cavefish";
+   case CHIP_VANGOGH:
+      return "vangogh";
+   default:
+      return "";
+   }
+}
+
 #endif
