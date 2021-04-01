@@ -97,6 +97,7 @@ image_binding_grow(const struct anv_device *device,
                    uint32_t alignment,
                    struct anv_image_memory_range *out_range)
 {
+   /* We overwrite 'offset' but need to remember if it was implicit. */
    const bool has_implicit_offset = (offset == ANV_OFFSET_IMPLICIT);
 
    assert(size > 0);
