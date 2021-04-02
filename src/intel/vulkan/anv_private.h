@@ -1240,6 +1240,8 @@ struct anv_device {
     struct anv_scratch_pool                     scratch_pool;
     struct anv_bo                              *rt_scratch_bos[16];
 
+    struct anv_shader_bin                      *rt_trampoline;
+
     pthread_mutex_t                             mutex;
     pthread_cond_t                              queue_submit;
     int                                         _lost;
@@ -3486,9 +3488,6 @@ struct anv_ray_tracing_pipeline {
    /* All shaders in the pipeline */
    struct util_dynarray                         shaders;
 
-   /* Trampoline shader */
-   struct anv_state                             trampoline;
-
    /* Dummy stack return shader */
    struct anv_shader_bin *                      trivial_return_shader;
 
@@ -3556,6 +3555,9 @@ anv_pipeline_get_last_vue_prog_data(const struct anv_graphics_pipeline *pipeline
    else
       return &get_vs_prog_data(pipeline)->base;
 }
+
+VkResult
+anv_device_init_rt_trampoline(struct anv_device *device);
 
 VkResult
 anv_pipeline_init(struct anv_pipeline *pipeline,
