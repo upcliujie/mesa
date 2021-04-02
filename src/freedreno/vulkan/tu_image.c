@@ -590,13 +590,28 @@ tu_CreateImage(VkDevice _device,
       bool may_be_swapped = true;
       if (fmt_list) {
          may_be_swapped = false;
-         for (uint32_t i = 0; i < fmt_list->viewFormatCount; i++) {
-            if (tu6_format_color(fmt_list->pViewFormats[i], TILE6_LINEAR).swap) {
-               may_be_swapped = true;
-               break;
+         if (pCreateInfo->usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
+            for (uint32_t i = 0; i < fmt_list->viewFormatCount; i++) {
+               if (tu6_format_texture(fmt_list->pViewFormats[i], TILE6_LINEAR).swap) {
+                  may_be_swapped = true;
+                  break;
+               }
+            }
+         }
+
+         if (!may_be_swapped &&
+             (pCreateInfo->usage & (VK_IMAGE_USAGE_STORAGE_BIT |
+                                    VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
+                                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))) {
+            for (uint32_t i = 0; i < fmt_list->viewFormatCount; i++) {
+               if (tu6_format_color(fmt_list->pViewFormats[i], TILE6_LINEAR).swap) {
+                  may_be_swapped = true;
+                  break;
+               }
             }
          }
       }
+
       if (may_be_swapped)
          tile_mode = TILE6_LINEAR;
       ubwc_enabled = false;
