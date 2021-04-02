@@ -46,6 +46,11 @@ struct vk_object_base {
 
    /* For VK_EXT_private_data */
    struct util_sparse_array private_data;
+
+   /* VK_EXT_debug_utils */
+   char *object_name;
+   uint64_t tag_name;
+   void *tag;
 };
 
 void vk_object_base_init(UNUSED struct vk_device *device,

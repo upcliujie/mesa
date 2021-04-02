@@ -21,37 +21,46 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef VK_QUEUE_H
-#define VK_QUEUE_H
+#ifndef VK_DEBUG_UTILS_H
+#define VK_DEBUG_UTILS_H
 
-#include "vk_object.h"
-#include "util/u_dynarray.h"
+#include "vk_instance.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct vk_queue {
+struct vk_debug_utils_messenger {
    struct vk_object_base base;
 
-   /* VK_EXT_debug_utils */
-   /* Array of labels attached to this queue. */
-   struct util_dynarray labels;
-   /* Array of indices in `labels` array, corresponding to beginning
-    * of label ranges. */
-   struct util_dynarray label_begin_indices;
+   struct list_head link;
+
+   VkDebugUtilsMessageSeverityFlagsEXT severity;
+   VkDebugUtilsMessageTypeFlagsEXT type;
+   PFN_vkDebugUtilsMessengerCallbackEXT callback;
+   void *data;
 };
 
-VK_DEFINE_HANDLE_CASTS(vk_queue, base, VkQueue, VK_OBJECT_TYPE_QUEUE)
-
-VkResult MUST_CHECK
-vk_queue_init(struct vk_queue *queue, struct vk_device *device);
+VK_DEFINE_NONDISP_HANDLE_CASTS(vk_debug_utils_messenger, base,
+                               VkDebugUtilsMessengerEXT,
+                               VK_OBJECT_TYPE_DEBUG_UTILS_MESSENGER_EXT)
 
 void
-vk_queue_finish(struct vk_queue *queue);
+vk_debug_utils(struct vk_instance *instance,
+               VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+               VkDebugUtilsMessageTypeFlagsEXT types,
+               const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData);
+
+void
+vk_debug_message_instance(struct vk_instance *instance,
+                          VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                          VkDebugUtilsMessageTypeFlagsEXT types,
+                          const char *pMessageIdName,
+                          int32_t messageIdNumber,
+                          const char *pMessage);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  /* VK_QUEUE_H */
+#endif /* VK_DEBUG_UTILS_H */
