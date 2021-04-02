@@ -273,6 +273,10 @@ static VkResult anv_create_cmd_buffer(
    if (cmd_buffer == NULL)
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
+   result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk);
+   if (result != VK_SUCCESS)
+      goto fail;
+
    cmd_buffer->batch.status = VK_SUCCESS;
 
    cmd_buffer->device = device;
@@ -352,6 +356,8 @@ anv_cmd_buffer_destroy(struct anv_cmd_buffer *cmd_buffer)
    anv_cmd_state_finish(cmd_buffer);
 
    vk_free(&cmd_buffer->pool->alloc, cmd_buffer->self_mod_locations);
+
+   vk_command_buffer_finish(&cmd_buffer->vk);
 
    vk_object_free(&cmd_buffer->device->vk, &cmd_buffer->pool->alloc, cmd_buffer);
 }
