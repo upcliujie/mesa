@@ -1506,15 +1506,19 @@ VkResult anv_BindImageMemory2(
          case VK_STRUCTURE_TYPE_BIND_IMAGE_PLANE_MEMORY_INFO: {
             const VkBindImagePlaneMemoryInfo *plane_info =
                (const VkBindImagePlaneMemoryInfo *) s;
+
             uint32_t plane = anv_image_aspect_to_plane(image->aspects,
                                                        plane_info->planeAspect);
 
-            /* Unlike VkImagePlaneMemoryRequirementsInfo, which requires that
+            /* Workaround for possible spec bug.
+             *
+             * Unlike VkImagePlaneMemoryRequirementsInfo, which requires that
              * the image be disjoint (that is, multi-planar format and
              * VK_IMAGE_CREATE_DISJOINT_BIT), VkBindImagePlaneMemoryInfo allows
              * the image to be non-disjoint and requires only that the image
-             * have the DISJOINT flag. (This may be a spec bug). In this case,
-             * we continue as if VkImagePlaneMemoryRequirementsInfo was omitted.
+             * have the DISJOINT flag. In this case, regardless of the value of
+             * VkImagePlaneMemoryRequirementsInfo::planeAspect, the behavior is
+             * the same as if VkImagePlaneMemoryRequirementsInfo were omitted.
              */
             if (!image->disjoint) {
                assert(plane == 0);
