@@ -132,6 +132,28 @@ struct rendering_state {
    uint32_t so_offsets[PIPE_MAX_SO_BUFFERS];
 };
 
+ALWAYS_INLINE static void
+assert_3d_subresource_layers(const struct pipe_resource *pres, const VkImageSubresourceLayers *layers, const VkOffset3D *offsets)
+{
+#ifndef NDEBUG
+   assert(layers->baseArrayLayer == 0);
+   assert(layers->layerCount == 1);
+   assert(offsets[0].z <= pres->depth0);
+   assert(offsets[1].z <= pres->depth0);
+#endif
+}
+
+ALWAYS_INLINE static void
+assert_subresource_layers(const struct pipe_resource *pres, const VkImageSubresourceLayers *layers, const VkOffset3D *offsets)
+{
+#ifndef NDEBUG
+   assert(layers->baseArrayLayer < pres->array_size);
+   assert(layers->baseArrayLayer + layers->layerCount <= pres->array_size);
+   assert(offsets[0].z == 0);
+   assert(offsets[1].z == 1);
+#endif
+}
+
 static void emit_compute_state(struct rendering_state *state)
 {
    if (state->iv_dirty[PIPE_SHADER_COMPUTE]) {
@@ -2054,6 +2076,7 @@ static void handle_blit_image(struct lvp_cmd_buffer_entry *cmd,
       }
 
       if (blitcmd->src->bo->target == PIPE_TEXTURE_3D) {
+         assert_3d_subresource_layers(info.src.resource, &blitcmd->regions[i].srcSubresource, blitcmd->regions[i].srcOffsets);
          if (dstZ0 < dstZ1) {
             info.dst.box.z = dstZ0;
             info.src.box.z = srcZ0;
@@ -2066,12 +2089,16 @@ static void handle_blit_image(struct lvp_cmd_buffer_entry *cmd,
             info.src.box.depth = srcZ0 - srcZ1;
          }
       } else {
+         assert_subresource_layers(info.src.resource, &blitcmd->regions[i].srcSubresource, blitcmd->regions[i].srcOffsets);
          info.src.box.z = blitcmd->regions[i].srcSubresource.baseArrayLayer;
          info.dst.box.z = blitcmd->regions[i].dstSubresource.baseArrayLayer;
          info.src.box.depth = blitcmd->regions[i].srcSubresource.layerCount;
          info.dst.box.depth = blitcmd->regions[i].dstSubresource.layerCount;
       }
-
+      if (info.dst.resource->target == PIPE_TEXTURE_3D)
+         assert_3d_subresource_layers(info.dst.resource, &blitcmd->regions[i].dstSubresource, blitcmd->regions[i].dstOffsets);
+      else
+         assert_subresource_layers(info.dst.resource, &blitcmd->regions[i].dstSubresource, blitcmd->regions[i].dstOffsets);
       info.src.level = blitcmd->regions[i].srcSubresource.mipLevel;
       info.dst.level = blitcmd->regions[i].dstSubresource.mipLevel;
       state->pctx->blit(state->pctx, &info);
