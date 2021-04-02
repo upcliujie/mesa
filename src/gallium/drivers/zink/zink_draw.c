@@ -649,6 +649,11 @@ zink_draw_vbo(struct pipe_context *pctx,
    else
       vkCmdSetDepthBias(batch->state->cmdbuf, 0.0f, 0.0f, 0.0f);
 
+   if (ctx->sample_locations_changed) {
+      VkSampleLocationsInfoEXT loc;
+      zink_init_vk_sample_locations(ctx, &loc);
+      screen->vk_CmdSetSampleLocationsEXT(batch->state->cmdbuf, &loc);
+   }
    ctx->sample_locations_changed = false;
 
    if (ctx->gfx_pipeline_state.blend_state->need_blend_constants)
