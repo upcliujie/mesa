@@ -462,6 +462,32 @@ util_format_is_abgr(enum pipe_format format)
           desc->swizzle[3] == PIPE_SWIZZLE_X;
 }
 
+static inline bool
+util_format_is_xrgb(enum pipe_format format)
+{
+   const struct util_format_description *desc = util_format_description(format);
+   return desc->layout == UTIL_FORMAT_LAYOUT_PLAIN &&
+          desc->nr_channels == 4 &&
+          desc->channel[0].type == UTIL_FORMAT_TYPE_VOID &&
+          desc->swizzle[0] == PIPE_SWIZZLE_Y &&
+          desc->swizzle[1] == PIPE_SWIZZLE_Z &&
+          desc->swizzle[2] == PIPE_SWIZZLE_W &&
+          desc->swizzle[3] == PIPE_SWIZZLE_1;
+}
+
+static inline bool
+util_format_is_xbgr(enum pipe_format format)
+{
+   const struct util_format_description *desc = util_format_description(format);
+   return desc->layout == UTIL_FORMAT_LAYOUT_PLAIN &&
+          desc->nr_channels == 4 &&
+          desc->channel[0].type == UTIL_FORMAT_TYPE_VOID &&
+          desc->swizzle[0] == PIPE_SWIZZLE_W &&
+          desc->swizzle[1] == PIPE_SWIZZLE_Z &&
+          desc->swizzle[2] == PIPE_SWIZZLE_Y &&
+          desc->swizzle[3] == PIPE_SWIZZLE_1;
+}
+
 /**
  * Whether this format is plain, see UTIL_FORMAT_LAYOUT_PLAIN for more info.
  */
