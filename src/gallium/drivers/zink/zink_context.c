@@ -1480,6 +1480,19 @@ zink_init_vk_sample_locations(struct zink_context *ctx, VkSampleLocationsInfoEXT
    loc->pSampleLocations = ctx->vk_sample_locations;
 }
 
+static void
+zink_evaluate_depth_buffer(struct pipe_context *pctx)
+{
+   struct zink_context *ctx = zink_context(pctx);
+
+   if (!ctx->fb_state.zsbuf)
+      return;
+
+   struct zink_resource *res = zink_resource(ctx->fb_state.zsbuf->texture);
+   res->obj->needs_zs_evaluate = true;
+   zink_init_vk_sample_locations(ctx, &res->obj->zs_evaluate);
+}
+
 void
 zink_begin_render_pass(struct zink_context *ctx, struct zink_batch *batch)
 {
@@ -1845,7 +1858,7 @@ zink_resource_image_barrier_init(VkImageMemoryBarrier *imb, struct zink_resource
       res->obj->image,
       isr
    };
-   return zink_resource_image_needs_barrier(res, new_layout, flags, pipeline);
+   return res->obj->needs_zs_evaluate || zink_resource_image_needs_barrier(res, new_layout, flags, pipeline);
 }
 
 static inline VkCommandBuffer
@@ -1874,6 +1887,9 @@ zink_resource_image_barrier(struct zink_context *ctx, struct zink_batch *batch, 
    /* only barrier if we're changing layout or doing something besides read -> read */
    VkCommandBuffer cmdbuf = get_cmdbuf(ctx, res);
    assert(new_layout);
+   if (res->obj->needs_zs_evaluate)
+      imb.pNext = &res->obj->zs_evaluate;
+   res->obj->needs_zs_evaluate = false;
    vkCmdPipelineBarrier(
       cmdbuf,
       res->access_stage ? res->access_stage : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -2941,6 +2957,7 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ctx->base.flush = zink_flush;
    ctx->base.memory_barrier = zink_memory_barrier;
    ctx->base.texture_barrier = zink_texture_barrier;
+   ctx->base.evaluate_depth_buffer = zink_evaluate_depth_buffer;
 
    ctx->base.resource_commit = zink_resource_commit;
    ctx->base.resource_copy_region = zink_resource_copy_region;
