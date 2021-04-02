@@ -507,7 +507,9 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
       }
    }
 
-   vk_object_base_init(&device->vk, &queue->base, VK_OBJECT_TYPE_QUEUE);
+   result = vk_queue_init(&queue->vk, &device->vk);
+   if (result != VK_SUCCESS)
+      return result;
 
    return VK_SUCCESS;
 
@@ -535,7 +537,7 @@ anv_queue_finish(struct anv_queue *queue)
       pthread_mutex_destroy(&queue->mutex);
    }
 
-   vk_object_base_finish(&queue->base);
+   vk_queue_finish(&queue->vk);
 }
 
 static VkResult
