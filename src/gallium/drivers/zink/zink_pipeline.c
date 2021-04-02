@@ -135,7 +135,7 @@ zink_create_gfx_pipeline(struct zink_screen *screen,
    depth_stencil_state.back = state->depth_stencil_alpha_state->stencil_back;
    depth_stencil_state.depthWriteEnable = state->depth_stencil_alpha_state->depth_write;
 
-   VkDynamicState dynamicStateEnables[24] = {
+   VkDynamicState dynamicStateEnables[30] = {
       VK_DYNAMIC_STATE_LINE_WIDTH,
       VK_DYNAMIC_STATE_DEPTH_BIAS,
       VK_DYNAMIC_STATE_BLEND_CONSTANTS,
@@ -156,6 +156,8 @@ zink_create_gfx_pipeline(struct zink_screen *screen,
       dynamicStateEnables[state_count++] = VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT;
       dynamicStateEnables[state_count++] = VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE_EXT;
       dynamicStateEnables[state_count++] = VK_DYNAMIC_STATE_FRONT_FACE_EXT;
+      if (state->sample_locations_enabled)
+         dynamicStateEnables[state_count++] = VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT;
    } else {
       dynamicStateEnables[state_count++] = VK_DYNAMIC_STATE_VIEWPORT;
       dynamicStateEnables[state_count++] = VK_DYNAMIC_STATE_SCISSOR;
