@@ -33,6 +33,12 @@ extern "C" {
 
 struct vk_queue {
    struct vk_object_base base;
+
+   /* VK_EXT_debug_utils */
+   /* Array of labels attached to this queue. */
+   struct util_dynarray labels;
+   /* Whether the top label in `labels` starts a new region */
+   bool region_begin;
 };
 
 VK_DEFINE_HANDLE_CASTS(vk_queue, base, VkQueue, VK_OBJECT_TYPE_QUEUE)

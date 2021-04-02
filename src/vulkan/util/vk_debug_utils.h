@@ -21,41 +21,47 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef VK_COMMAND_BUFFER_H
-#define VK_COMMAND_BUFFER_H
+#ifndef VK_DEBUG_UTILS_H
+#define VK_DEBUG_UTILS_H
 
-#include "vk_object.h"
-#include "util/u_dynarray.h"
+#include "vk_instance.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct vk_command_buffer {
+struct vk_debug_utils_messenger {
    struct vk_object_base base;
+   VkAllocationCallbacks alloc;
 
-   /* VK_EXT_debug_utils */
-   /* Array of labels attached to this command buffer */
-   struct util_dynarray labels;
-   /* Whether the top label in `labels` starts a new region */
-   bool region_begin;
+   struct list_head link;
+
+   VkDebugUtilsMessageSeverityFlagsEXT severity;
+   VkDebugUtilsMessageTypeFlagsEXT type;
+   PFN_vkDebugUtilsMessengerCallbackEXT callback;
+   void *data;
 };
 
-VK_DEFINE_HANDLE_CASTS(vk_command_buffer, base, VkCommandBuffer,
-                       VK_OBJECT_TYPE_COMMAND_BUFFER)
-
-VkResult MUST_CHECK
-vk_command_buffer_init(struct vk_command_buffer *command_buffer,
-                       struct vk_device *device);
+VK_DEFINE_NONDISP_HANDLE_CASTS(vk_debug_utils_messenger, base,
+                               VkDebugUtilsMessengerEXT,
+                               VK_OBJECT_TYPE_DEBUG_UTILS_MESSENGER_EXT)
 
 void
-vk_command_buffer_reset(struct vk_command_buffer *command_buffer);
+vk_debug_message(struct vk_instance *instance,
+                 VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                 VkDebugUtilsMessageTypeFlagsEXT types,
+                 const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData);
 
 void
-vk_command_buffer_finish(struct vk_command_buffer *command_buffer);
+vk_debug_message_instance(struct vk_instance *instance,
+                          VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                          VkDebugUtilsMessageTypeFlagsEXT types,
+                          const char *pMessageIdName,
+                          int32_t messageIdNumber,
+                          const char *pMessage);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  /* VK_COMMAND_BUFFER_H */
+#endif /* VK_DEBUG_UTILS_H */
