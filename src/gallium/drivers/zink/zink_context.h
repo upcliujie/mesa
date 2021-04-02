@@ -206,6 +206,7 @@ struct zink_context {
    float blend_constants[4];
 
    bool sample_locations_changed;
+   VkSampleLocationEXT vk_sample_locations[PIPE_MAX_SAMPLE_LOCATION_GRID_SIZE * PIPE_MAX_SAMPLE_LOCATION_GRID_SIZE];
    uint8_t sample_locations[2 * 4 * 8 * 16];
 
    bool drawid_broken;
@@ -403,4 +404,6 @@ zink_buffer_view_reference(struct zink_screen *screen,
    if (dst) *dst = src;
 }
 
+void
+zink_init_vk_sample_locations(struct zink_context *ctx, VkSampleLocationsInfoEXT *loc);
 #endif
