@@ -1832,43 +1832,45 @@ blorp_update_clear_color(UNUSED struct blorp_batch *batch,
 {
    if (info->clear_color_addr.buffer && op == ISL_AUX_OP_FAST_CLEAR) {
 #if GEN_GEN == 11
-      blorp_emit(batch, GENX(PIPE_CONTROL), pipe) {
-         pipe.CommandStreamerStallEnable = true;
-      }
+      if (!isl_surf_usage_is_depth(info->surf.usage)) {
+         blorp_emit(batch, GENX(PIPE_CONTROL), pipe) {
+            pipe.CommandStreamerStallEnable = true;
+         }
 
-      /* 2 QWORDS */
-      const unsigned inlinedata_dw = 2 * 2;
-      const unsigned num_dwords = GENX(MI_ATOMIC_length) + inlinedata_dw;
+         /* 2 QWORDS */
+         const unsigned inlinedata_dw = 2 * 2;
+         const unsigned num_dwords = GENX(MI_ATOMIC_length) + inlinedata_dw;
 
-      struct blorp_address clear_addr = info->clear_color_addr;
-      uint32_t *dw = blorp_emitn(batch, GENX(MI_ATOMIC), num_dwords,
-                                 .DataSize = MI_ATOMIC_QWORD,
-                                 .ATOMICOPCODE = MI_ATOMIC_OP_MOVE8B,
-                                 .InlineData = true,
-                                 .MemoryAddress = clear_addr);
-      /* dw starts at dword 1, but we need to fill dwords 3 and 5 */
-      dw[2] = info->clear_color.u32[0];
-      dw[3] = 0;
-      dw[4] = info->clear_color.u32[1];
-      dw[5] = 0;
+         struct blorp_address clear_addr = info->clear_color_addr;
+         uint32_t *dw = blorp_emitn(batch, GENX(MI_ATOMIC), num_dwords,
+                                    .DataSize = MI_ATOMIC_QWORD,
+                                    .ATOMICOPCODE = MI_ATOMIC_OP_MOVE8B,
+                                    .InlineData = true,
+                                    .MemoryAddress = clear_addr);
+         /* dw starts at dword 1, but we need to fill dwords 3 and 5 */
+         dw[2] = info->clear_color.u32[0];
+         dw[3] = 0;
+         dw[4] = info->clear_color.u32[1];
+         dw[5] = 0;
 
-      clear_addr.offset += 8;
-      dw = blorp_emitn(batch, GENX(MI_ATOMIC), num_dwords,
-                                 .DataSize = MI_ATOMIC_QWORD,
-                                 .ATOMICOPCODE = MI_ATOMIC_OP_MOVE8B,
-                                 .CSSTALL = true,
-                                 .ReturnDataControl = true,
-                                 .InlineData = true,
-                                 .MemoryAddress = clear_addr);
-      /* dw starts at dword 1, but we need to fill dwords 3 and 5 */
-      dw[2] = info->clear_color.u32[2];
-      dw[3] = 0;
-      dw[4] = info->clear_color.u32[3];
-      dw[5] = 0;
+         clear_addr.offset += 8;
+         dw = blorp_emitn(batch, GENX(MI_ATOMIC), num_dwords,
+                                    .DataSize = MI_ATOMIC_QWORD,
+                                    .ATOMICOPCODE = MI_ATOMIC_OP_MOVE8B,
+                                    .CSSTALL = true,
+                                    .ReturnDataControl = true,
+                                    .InlineData = true,
+                                    .MemoryAddress = clear_addr);
+         /* dw starts at dword 1, but we need to fill dwords 3 and 5 */
+         dw[2] = info->clear_color.u32[2];
+         dw[3] = 0;
+         dw[4] = info->clear_color.u32[3];
+         dw[5] = 0;
 
-      blorp_emit(batch, GENX(PIPE_CONTROL), pipe) {
-         pipe.StateCacheInvalidationEnable = true;
-         pipe.TextureCacheInvalidationEnable = true;
+         blorp_emit(batch, GENX(PIPE_CONTROL), pipe) {
+            pipe.StateCacheInvalidationEnable = true;
+            pipe.TextureCacheInvalidationEnable = true;
+         }
       }
 #elif GEN_GEN >= 9
 
