@@ -1862,7 +1862,7 @@ void radv_GetImageSparseMemoryRequirements2(
 					image->planes[0].surface.u.gfx9.surf_slice_size;
 			} else {
 				req->memoryRequirements.imageMipTailOffset =
-					image->planes[0].surface.u.legacy.level[req->memoryRequirements.imageMipTailFirstLod ].offset;
+					(uint64_t)image->planes[0].surface.u.legacy.level[req->memoryRequirements.imageMipTailFirstLod ].offset_256B * 256;
 				req->memoryRequirements.imageMipTailSize =
 					image->size - req->memoryRequirements.imageMipTailOffset;
 				req->memoryRequirements.imageMipTailStride = 0;
