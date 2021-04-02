@@ -33,6 +33,13 @@ extern "C" {
 
 struct vk_command_buffer {
    struct vk_object_base base;
+
+   /* VK_EXT_debug_utils */
+   /* Array of labels attached to this command buffer */
+   struct util_dynarray labels;
+   /* Array of indices in `labels` array, corresponding to beginning
+    * of label ranges. */
+   struct util_dynarray label_begin_indices;
 };
 
 VK_DEFINE_HANDLE_CASTS(vk_command_buffer, base, VkCommandBuffer,
