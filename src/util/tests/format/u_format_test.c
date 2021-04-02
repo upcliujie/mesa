@@ -241,13 +241,11 @@ static boolean
 test_format_unpack_rgba(const struct util_format_description *format_desc,
                         const struct util_format_test_case *test)
 {
-   const struct util_format_unpack_description *unpack =
-      util_format_unpack_description(format_desc->format);
    float unpacked[UTIL_FORMAT_MAX_UNPACKED_HEIGHT][UTIL_FORMAT_MAX_UNPACKED_WIDTH][4] = { { { 0 } } };
    unsigned i, j, k;
    boolean success;
 
-   unpack->unpack_rgba(&unpacked[0][0][0], sizeof unpacked[0],
+   util_format_unpack_rgba_rect(format_desc->format, &unpacked[0][0][0], sizeof unpacked[0],
                        test->packed, 0,
                        format_desc->block.width, format_desc->block.height);
 
@@ -361,8 +359,6 @@ static boolean
 test_format_unpack_rgba_8unorm(const struct util_format_description *format_desc,
                                const struct util_format_test_case *test)
 {
-   const struct util_format_unpack_description *unpack =
-      util_format_unpack_description(format_desc->format);
    uint8_t unpacked[UTIL_FORMAT_MAX_UNPACKED_HEIGHT][UTIL_FORMAT_MAX_UNPACKED_WIDTH][4] = { { { 0 } } };
    uint8_t expected[UTIL_FORMAT_MAX_UNPACKED_HEIGHT][UTIL_FORMAT_MAX_UNPACKED_WIDTH][4] = { { { 0 } } };
    unsigned i, j, k;
@@ -371,7 +367,7 @@ test_format_unpack_rgba_8unorm(const struct util_format_description *format_desc
    if (util_format_is_pure_integer(format_desc->format))
       return FALSE;
 
-   unpack->unpack_rgba_8unorm(&unpacked[0][0][0], sizeof unpacked[0],
+   util_format_unpack_rgba_8unorm_rect(format_desc->format, &unpacked[0][0][0], sizeof unpacked[0],
                               test->packed, 0,
                               format_desc->block.width, format_desc->block.height);
 
