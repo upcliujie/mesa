@@ -889,6 +889,9 @@ vtn_get_builtin_location(struct vtn_builder *b,
       *location = SYSTEM_VALUE_FRONT_FACE;
       set_mode_system_value(b, mode);
       break;
+   case SpvBuiltInFullyCoveredEXT:
+      b->shader->info.fs.inner_coverage = true;
+      FALLTHROUGH;
    case SpvBuiltInSampleId:
       *location = SYSTEM_VALUE_SAMPLE_ID;
       set_mode_system_value(b, mode);
