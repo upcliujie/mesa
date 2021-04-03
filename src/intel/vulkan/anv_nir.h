@@ -31,6 +31,10 @@
 extern "C" {
 #endif
 
+bool
+anv_nir_lower_conservative_rasterization(nir_shader *nir,
+                                         const struct brw_wm_prog_key *key);
+
 bool anv_check_for_primitive_replication(nir_shader **shaders,
                                          struct anv_graphics_pipeline *pipeline);
 
