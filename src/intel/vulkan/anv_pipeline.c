@@ -455,6 +455,7 @@ static void
 populate_wm_prog_key(const struct gen_device_info *devinfo,
                      VkPipelineShaderStageCreateFlags flags,
                      const struct anv_subpass *subpass,
+                     const VkPipelineRasterizationStateCreateInfo *rs_info,
                      const VkPipelineMultisampleStateCreateInfo *ms_info,
                      struct brw_wm_prog_key *key)
 {
@@ -501,6 +502,18 @@ populate_wm_prog_key(const struct gen_device_info *devinfo,
          (ms_info->minSampleShading * ms_info->rasterizationSamples) > 1;
       key->multisample_fbo = true;
       key->frag_coord_adds_sample_pos = key->persample_interp;
+   }
+
+   const VkPipelineRasterizationConservativeStateCreateInfoEXT *cr =
+      vk_find_struct_const(rs_info, PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT);
+   if (cr && cr->conservativeRasterizationMode !=
+             VK_CONSERVATIVE_RASTERIZATION_MODE_DISABLED_EXT) {
+      /* Key values were carefully chose to match Vulkan */
+      key->vk_conservative = cr->conservativeRasterizationMode;
+      const unsigned samples = ms_info ? ms_info->rasterizationSamples : 1;
+      key->conservative_sample_mask = BITFIELD_MASK(samples);
+      if (ms_info && ms_info->pSampleMask)
+         key->conservative_sample_mask &= ms_info->pSampleMask[0];
    }
 }
 
@@ -1040,6 +1053,9 @@ anv_pipeline_compile_fs(const struct brw_compiler *compiler,
                         struct anv_pipeline_stage *fs_stage,
                         struct anv_pipeline_stage *prev_stage)
 {
+   NIR_PASS_V(fs_stage->nir, anv_nir_lower_conservative_rasterization,
+                             &fs_stage->key.wm);
+
    /* TODO: we could set this to 0 based on the information in nir_shader, but
     * we need this before we call spirv_to_nir.
     */
@@ -1284,6 +1300,7 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
             !info->pRasterizationState->rasterizerDiscardEnable;
          populate_wm_prog_key(devinfo, sinfo->flags,
                               pipeline->subpass,
+                              info->pRasterizationState,
                               raster_enabled ? info->pMultisampleState : NULL,
                               &stages[stage].key.wm);
          break;

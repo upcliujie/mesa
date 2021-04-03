@@ -478,6 +478,11 @@ struct brw_wm_prog_key {
    bool coherent_fb_fetch:1;
    bool ignore_sample_mask_out:1;
 
+   /* 0: None, 1: over-estimate, 2: under-estimate */
+   unsigned vk_conservative:2;
+   /* Used to implement Wa_220856683 */
+   unsigned conservative_sample_mask:16;
+
    uint8_t color_outputs_valid;
    uint64_t input_slots_valid;
    GLenum alpha_test_func;          /* < For Gfx4/5 MRT alpha test */
