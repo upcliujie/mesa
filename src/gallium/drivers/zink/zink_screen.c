@@ -361,6 +361,17 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_DEPTH_CLIP_DISABLE:
       return screen->info.feats.features.depthClamp;
 
+   case PIPE_CAP_MAX_CONSERVATIVE_RASTER_SUBPIXEL_PRECISION_BIAS:
+      return screen->info.have_EXT_conservative_rasterization ? 8 : 0;
+
+   case PIPE_CAP_CONSERVATIVE_RASTER_POST_SNAP_POINTS_LINES:
+      return screen->info.have_EXT_conservative_rasterization &&
+             screen->info.cons_raster_props.conservativePointAndLineRasterization;
+
+   case PIPE_CAP_CONSERVATIVE_RASTER_POST_DEPTH_COVERAGE:
+      return screen->info.have_EXT_conservative_rasterization &&
+             screen->info.cons_raster_props.conservativeRasterizationPostDepthCoverage;
+
    case PIPE_CAP_SHADER_STENCIL_EXPORT:
       return screen->info.have_EXT_shader_stencil_export;
 
