@@ -2908,7 +2908,7 @@ bi_vectorize_filter(const nir_instr *instr, void *data)
 }
 
 static void
-bi_optimize_nir(nir_shader *nir, bool is_blend)
+bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
 {
         bool progress;
         unsigned lower_flrp = 16 | 32 | 64;
@@ -2999,8 +2999,6 @@ bi_optimize_nir(nir_shader *nir, bool is_blend)
 
         NIR_PASS(progress, nir, nir_lower_alu_to_scalar, NULL, NULL);
         NIR_PASS(progress, nir, nir_opt_vectorize, bi_vectorize_filter, NULL);
-        NIR_PASS(progress, nir, nir_lower_load_const_to_scalar);
-        NIR_PASS(progress, nir, nir_opt_dce);
 
         /* Backend scheduler is purely local, so do some global optimizations
          * to reduce register pressure.  Skip the passes for blend shaders to
@@ -3013,6 +3011,14 @@ bi_optimize_nir(nir_shader *nir, bool is_blend)
                 NIR_PASS_V(nir, nir_opt_sink, move_all);
                 NIR_PASS_V(nir, nir_opt_move, move_all);
         }
+
+        nir_convert_to_lcssa(nir, true, true);
+        NIR_PASS_V(nir, nir_divergence_analysis);
+        NIR_PASS_V(nir, bi_lower_divergent_indirects,
+                        bifrost_lanes_per_warp(gpu_id));
+
+        NIR_PASS(progress, nir, nir_lower_load_const_to_scalar);
+        NIR_PASS(progress, nir, nir_opt_dce);
 
         /* Take us out of SSA */
         NIR_PASS(progress, nir, nir_lower_locals_to_regs);
@@ -3172,7 +3178,7 @@ bifrost_compile_shader_nir(nir_shader *nir,
                         NULL);
         }
 
-        bi_optimize_nir(nir, ctx->inputs->is_blend);
+        bi_optimize_nir(nir, ctx->inputs->gpu_id, ctx->inputs->is_blend);
 
         NIR_PASS_V(nir, pan_nir_reorder_writeout);
 
