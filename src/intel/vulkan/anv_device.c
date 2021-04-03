@@ -2278,11 +2278,11 @@ void anv_GetPhysicalDeviceProperties2(
          properties->primitiveOverestimationSize = 1.0f / 512.0f;
          properties->maxExtraPrimitiveOverestimationSize = 0.0f;
          properties->extraPrimitiveOverestimationSizeGranularity = 0.0f;
-         properties->primitiveUnderestimation = false;
+         properties->primitiveUnderestimation = true;
          properties->conservativePointAndLineRasterization = false;
          properties->degenerateTrianglesRasterized = true;
          properties->degenerateLinesRasterized = false;
-         properties->fullyCoveredFragmentShaderInputVariable = false;
+         properties->fullyCoveredFragmentShaderInputVariable = true;
          properties->conservativeRasterizationPostDepthCoverage = true;
          break;
       }
