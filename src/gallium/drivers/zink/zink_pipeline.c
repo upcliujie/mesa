@@ -123,6 +123,14 @@ zink_create_gfx_pipeline(struct zink_screen *screen,
       rast_state.pNext = &pv_state;
    }
 
+   VkPipelineRasterizationConservativeStateCreateInfoEXT cons_state = {};
+   if (state->rast_state->conservative) {
+      cons_state.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT;
+      cons_state.conservativeRasterizationMode = VK_CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE_EXT;
+      cons_state.pNext = rast_state.pNext;
+      rast_state.pNext = &cons_state;
+   }
+
    VkPipelineDepthStencilStateCreateInfo depth_stencil_state = {};
    depth_stencil_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
    depth_stencil_state.depthTestEnable = state->depth_stencil_alpha_state->depth_test;

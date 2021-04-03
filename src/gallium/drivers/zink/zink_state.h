@@ -53,6 +53,7 @@ struct zink_rasterizer_hw_state {
    VkCullModeFlags cull_mode;
    VkProvokingVertexModeEXT pv_mode;
    bool force_persample_interp;
+   bool conservative;
 };
 
 struct zink_rasterizer_state {

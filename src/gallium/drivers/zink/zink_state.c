@@ -438,6 +438,7 @@ zink_create_rasterizer_state(struct pipe_context *pctx,
    state->hw_state.rasterizer_discard = rs_state->rasterizer_discard;
    state->hw_state.force_persample_interp = rs_state->force_persample_interp;
    state->hw_state.pv_mode = rs_state->flatshade_first ? VK_PROVOKING_VERTEX_MODE_FIRST_VERTEX_EXT : VK_PROVOKING_VERTEX_MODE_LAST_VERTEX_EXT;
+   state->hw_state.conservative = rs_state->conservative_raster_mode == PIPE_CONSERVATIVE_RASTER_POST_SNAP;
 
    assert(rs_state->fill_front <= PIPE_POLYGON_MODE_POINT);
    if (rs_state->fill_back != rs_state->fill_front)
