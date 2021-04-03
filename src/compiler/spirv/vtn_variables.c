@@ -1053,6 +1053,10 @@ vtn_get_builtin_location(struct vtn_builder *b,
       *location = SYSTEM_VALUE_BARYCENTRIC_PULL_MODEL;
       set_mode_system_value(b, mode);
       break;
+   case SpvBuiltInFullyCoveredEXT:
+      *location = SYSTEM_VALUE_FULLY_COVERED;
+      set_mode_system_value(b, mode);
+      break;
    case SpvBuiltInLaunchIdKHR:
       *location = SYSTEM_VALUE_RAY_LAUNCH_ID;
       set_mode_system_value(b, mode);
