@@ -1202,6 +1202,10 @@ nir_src_is_dynamically_uniform(nir_src src)
       if (intr->intrinsic == nir_intrinsic_load_uniform &&
           nir_src_is_dynamically_uniform(intr->src[0]))
          return true;
+      if (intr->intrinsic == nir_intrinsic_load_ubo &&
+          nir_src_is_dynamically_uniform(intr->src[0]) &&
+          nir_src_is_dynamically_uniform(intr->src[1]))
+         return true;
    }
 
    /* Operating together dynamically uniform expressions produces a
