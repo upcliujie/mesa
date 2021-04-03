@@ -1240,6 +1240,10 @@ intrinsic("load_global_const_block_intel", src_comp=[1, 1], dest_comp=0,
 # Number of data items being operated on for a SIMD program.
 system_value("simd_width_intel", 1)
 
+# The "real" input coverage mask.  For per-sample dispatch, this contains all
+# of the samples, not just the one for the current invocation.
+system_value("coverage_mask_intel", 1)
+
 # Load a relocatable 32-bit value
 intrinsic("load_reloc_const_intel", dest_comp=1, bit_sizes=[32],
           indices=[PARAM_IDX], flags=[CAN_ELIMINATE, CAN_REORDER])
