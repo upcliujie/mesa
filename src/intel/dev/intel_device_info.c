@@ -1041,6 +1041,9 @@ update_from_topology(struct intel_device_info *devinfo,
    assert(sizeof(devinfo->slice_masks) >= DIV_ROUND_UP(topology->max_slices, 8));
    memcpy(&devinfo->slice_masks, topology->data, DIV_ROUND_UP(topology->max_slices, 8));
    devinfo->num_slices = __builtin_popcount(devinfo->slice_masks);
+   devinfo->max_slices = topology->max_slices;
+   devinfo->max_subslices_per_slice = topology->max_subslices;
+   devinfo->max_eu_per_subslice = topology->max_eus_per_subslice;
 
    uint32_t subslice_mask_len =
       topology->max_slices * topology->subslice_stride;

@@ -131,9 +131,22 @@ struct intel_device_info
    unsigned num_slices;
 
    /**
+    * Maximum number of slices present on this device (can be more than
+    * num_slices if some slices are fused).
+    */
+   unsigned max_slices;
+
+   /**
     * Number of subslices for each slice (used to be uniform until CNL).
     */
    unsigned num_subslices[INTEL_DEVICE_MAX_SUBSLICES];
+
+   /**
+    * Maximum number of subslices per slice present on this device (can be
+    * more than the maximum value in the num_subslices[] array if some
+    * subslices are fused).
+    */
+   unsigned max_subslices_per_slice;
 
    /**
     * Number of subslices on each pixel pipe (ICL).
@@ -146,6 +159,12 @@ struct intel_device_info
     * be acurate for one subslice).
     */
    unsigned num_eu_per_subslice;
+
+   /**
+    * Maximum number of EUs per subslice (can be more than num_eu_per_subslice
+    * if some EUs are fused off).
+    */
+   unsigned max_eu_per_subslice;
 
    /**
     * Number of threads per eu, varies between 4 and 8 between generations.
@@ -319,8 +338,9 @@ intel_device_info_subslice_total(const struct intel_device_info *devinfo)
 {
    uint32_t total = 0;
 
-   for (uint32_t i = 0; i < devinfo->num_slices; i++)
+   for (size_t i = 0; i < ARRAY_SIZE(devinfo->subslice_masks); i++) {
       total += __builtin_popcount(devinfo->subslice_masks[i]);
+   }
 
    return total;
 }
