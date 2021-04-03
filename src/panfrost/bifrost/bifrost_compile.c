@@ -2876,6 +2876,9 @@ bi_optimize_nir(nir_shader *nir)
         /* Take us out of SSA */
         NIR_PASS(progress, nir, nir_lower_locals_to_regs);
         NIR_PASS(progress, nir, nir_move_vec_src_uses_to_dest);
+
+        nir_convert_to_lcssa(nir, true, true);
+        NIR_PASS_V(nir, nir_divergence_analysis);
         NIR_PASS(progress, nir, nir_convert_from_ssa, true);
 }
 
