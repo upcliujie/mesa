@@ -2997,6 +2997,11 @@ bi_optimize_nir(nir_shader *nir, bool is_blend)
                 NIR_PASS(progress, nir, nir_opt_cse);
         }
 
+        nir_convert_to_lcssa(nir, true, true);
+        NIR_PASS_V(nir, nir_divergence_analysis);
+        NIR_PASS_V(nir, bi_lower_divergent_indirects,
+                        bifrost_lanes_per_warp(inputs->gpu_id));
+
         NIR_PASS(progress, nir, nir_lower_alu_to_scalar, NULL, NULL);
         NIR_PASS(progress, nir, nir_opt_vectorize, bi_vectorize_filter, NULL);
         NIR_PASS(progress, nir, nir_lower_load_const_to_scalar);
