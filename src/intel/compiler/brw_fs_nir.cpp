@@ -3336,6 +3336,12 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
       break;
    }
 
+   case nir_intrinsic_load_coverage_mask_intel:
+      bld.MOV(retype(dest, BRW_REGISTER_TYPE_UD),
+              fetch_payload_reg(bld, payload.sample_mask_in_reg,
+                                     BRW_REGISTER_TYPE_UD));
+      break;
+
    case nir_intrinsic_store_output: {
       const fs_reg src = get_nir_src(instr->src[0]);
       const unsigned store_offset = nir_src_as_uint(instr->src[1]);

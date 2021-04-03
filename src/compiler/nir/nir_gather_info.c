@@ -672,6 +672,10 @@ gather_intrinsic_info(nir_intrinsic_instr *instr, nir_shader *shader,
          shader->info.fs.uses_sample_qualifier = true;
       break;
 
+   case nir_intrinsic_load_coverage_mask_intel:
+      BITSET_SET(shader->info.system_values_read, SYSTEM_VALUE_SAMPLE_MASK_IN);
+      break;
+
    case nir_intrinsic_quad_broadcast:
    case nir_intrinsic_quad_swap_horizontal:
    case nir_intrinsic_quad_swap_vertical:
