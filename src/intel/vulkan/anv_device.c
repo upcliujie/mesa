@@ -2143,7 +2143,7 @@ void anv_GetPhysicalDeviceProperties2(
          properties->conservativePointAndLineRasterization = false;
          properties->degenerateTrianglesRasterized = true;
          properties->degenerateLinesRasterized = false;
-         properties->fullyCoveredFragmentShaderInputVariable = false;
+         properties->fullyCoveredFragmentShaderInputVariable = true;
          properties->conservativeRasterizationPostDepthCoverage = true;
          break;
       }
