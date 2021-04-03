@@ -2149,7 +2149,7 @@ emit_3dstate_ps_extra(struct anv_graphics_pipeline *pipeline,
                   VK_CONSERVATIVE_RASTERIZATION_MODE_DISABLED_EXT)
          ps.InputCoverageMaskState = ICMS_INNER_CONSERVATIVE;
       else
-         ps.InputCoverageMaskState  = ICMS_INNER_CONSERVATIVE;
+         ps.InputCoverageMaskState  = ICMS_NORMAL;
 #else
       ps.PixelShaderUsesInputCoverageMask = wm_prog_data->uses_sample_mask;
 #endif
