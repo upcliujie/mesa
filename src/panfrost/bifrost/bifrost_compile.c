@@ -190,6 +190,8 @@ bi_emit_load_attr(bi_builder *b, nir_intrinsic_instr *instr)
         nir_alu_type T = nir_intrinsic_dest_type(instr);
         enum bi_register_format regfmt = bi_reg_fmt_for_nir(T);
         nir_src *offset = nir_get_io_offset_src(instr);
+        assert(nir_src_is_dynamically_uniform(*offset) && "TODO: need to lower divergence");
+
         unsigned imm_index = 0;
         unsigned base = nir_intrinsic_base(instr);
         bool constant = nir_src_is_const(*offset);
@@ -236,6 +238,8 @@ bi_emit_load_vary(bi_builder *b, nir_intrinsic_instr *instr)
         }
 
         nir_src *offset = nir_get_io_offset_src(instr);
+        assert(nir_src_is_dynamically_uniform(*offset) && "TODO: need to lower divergence");
+
         unsigned imm_index = 0;
         bool immediate = bi_is_intr_immediate(instr, &imm_index, 20);
 
@@ -791,6 +795,7 @@ bi_emit_image_load(bi_builder *b, nir_intrinsic_instr *instr)
         bi_index coords = bi_src_index(&instr->src[1]);
         /* TODO: MSAA */
         assert(nr_dim != GLSL_SAMPLER_DIM_MS && "MSAA'd images not supported");
+        assert(nir_src_is_dynamically_uniform(instr->src[0]) && "TODO: need to lower divergence");
 
         bi_ld_attr_tex_to(b, bi_dest_index(&instr->dest),
                           bi_emit_image_coord(b, coords),
@@ -808,6 +813,7 @@ bi_emit_lea_image(bi_builder *b, nir_intrinsic_instr *instr)
 
         /* TODO: MSAA */
         assert(nr_dim != GLSL_SAMPLER_DIM_MS && "MSAA'd images not supported");
+        assert(nir_src_is_dynamically_uniform(instr->src[0]) && "TODO: need to lower divergence");
 
         enum bi_register_format type = (instr->intrinsic == nir_intrinsic_image_store) ?
                 bi_reg_fmt_for_nir(nir_intrinsic_src_type(instr)) :
