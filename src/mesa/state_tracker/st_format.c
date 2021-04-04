@@ -1463,6 +1463,18 @@ st_QueryInternalFormat(struct gl_context *ctx, GLenum target,
          params[0] = internalFormat;
       break;
    }
+   case GL_TEXTURE_REDUCTION_MODE_ARB:
+      params[0] = GL_FALSE;
+      enum pipe_format pformat = st_choose_format(st,
+                                                  internalFormat,
+                                                  GL_NONE,
+                                                  GL_NONE,
+                                                  PIPE_TEXTURE_2D, 0, 0,
+                                                  PIPE_BIND_SAMPLER_REDUCTION_MINMAX,
+                                                  false, false);
+      if (pformat)
+         params[0] = GL_TRUE;
+      break;
    default:
       /* For the rest of the pnames, we call back the Mesa's default
        * function for drivers that don't implement ARB_internalformat_query2.
