@@ -6378,6 +6378,12 @@ static void radv_init_color_image_metadata(struct radv_cmd_buffer *cmd_buffer,
 	}
 }
 
+static bool radv_image_need_retile(const struct radv_image *image)
+{
+	return image->planes[0].surface.display_dcc_offset &&
+	       image->planes[0].surface.display_dcc_offset != image->planes[0].surface.dcc_offset;
+}
+
 /**
  * Handle color image transitions for DCC/FMASK/CMASK.
  */
@@ -6398,9 +6404,9 @@ static void radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffe
 					       src_queue_mask, dst_queue_mask,
 					       range);
 
-		/*if (dst_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
-		    image->surface.retile_map)
-			radv_retile_dcc(cmd_buffer, image);*/
+		if (dst_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
+		    radv_image_need_retile(image))
+			radv_retile_dcc(cmd_buffer, image);
 		return;
 	}
 
@@ -6417,10 +6423,10 @@ static void radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffe
 			radv_fast_clear_flush_image_inplace(cmd_buffer, image, range);
 		}
 
-		/*if (src_layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
+		if (src_layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
 		    dst_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
-		    image->retile_map)
-			radv_retile_dcc(cmd_buffer, image);*/
+		    radv_image_need_retile(image))
+			radv_retile_dcc(cmd_buffer, image);
 	} else if (radv_image_has_cmask(image) || radv_image_has_fmask(image)) {
 		bool fce_eliminate = false, fmask_expand = false;
 
