@@ -586,7 +586,11 @@ lower_subgroups_instr(nir_builder *b, nir_instr *instr, void *_options)
       default:
          unreachable("you seriously can't tell this is unreachable?");
       }
-
+      /* this is glsl -> spirv semantics, rewriting a U64 load as a vec4 load and then converting back to U64 */
+      if (options->lower_glsl_to_spirv) {
+         nir_ssa_def *dvec = nir_bitcast_vector(b, val, intrin->dest.ssa.bit_size);
+         return nir_channel(b, dvec, 0);
+      }
       return uint_to_ballot_type(b, val,
                                  intrin->dest.ssa.num_components,
                                  intrin->dest.ssa.bit_size);
@@ -600,6 +604,12 @@ lower_subgroups_instr(nir_builder *b, nir_instr *instr, void *_options)
       nir_ssa_def *ballot =
          nir_ballot(b, options->ballot_components, options->ballot_bit_size,
                     intrin->src[0].ssa);
+
+      /* this is glsl -> spirv semantics, rewriting a U64 load as a vec4 load and then converting back to U64 */
+      if (options->lower_glsl_to_spirv) {
+         nir_ssa_def *dvec = nir_bitcast_vector(b, ballot, intrin->dest.ssa.bit_size);
+         return nir_channel(b, dvec, 0);
+      }
 
       return uint_to_ballot_type(b, ballot,
                                  intrin->dest.ssa.num_components,
