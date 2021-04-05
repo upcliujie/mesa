@@ -5888,7 +5888,7 @@ radv_init_fmask(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image,
 
 uint32_t
 radv_init_dcc(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image,
-              const VkImageSubresourceRange *range, uint32_t value)
+              const VkImageSubresourceRange *range)
 {
    struct radv_barrier_data barrier = {0};
    uint32_t flush_bits = 0;
@@ -5897,7 +5897,7 @@ radv_init_dcc(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image,
    barrier.layout_transitions.init_mask_ram = 1;
    radv_describe_layout_transition(cmd_buffer, &barrier);
 
-   flush_bits |= radv_clear_dcc(cmd_buffer, image, range, value);
+   flush_bits |= radv_clear_dcc(cmd_buffer, image, range, 0xffffffff);
 
    if (cmd_buffer->device->physical_device->rad_info.chip_class == GFX8) {
       /* When DCC is enabled with mipmaps, some levels might not
@@ -5932,9 +5932,6 @@ radv_init_dcc(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image,
  */
 static void
 radv_init_color_image_metadata(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image,
-                               VkImageLayout src_layout, bool src_render_loop,
-                               VkImageLayout dst_layout, bool dst_render_loop,
-                               unsigned src_queue_mask, unsigned dst_queue_mask,
                                const VkImageSubresourceRange *range)
 {
    uint32_t flush_bits = 0;
@@ -5954,14 +5951,7 @@ radv_init_color_image_metadata(struct radv_cmd_buffer *cmd_buffer, struct radv_i
    }
 
    if (radv_dcc_enabled(image, range->baseMipLevel)) {
-      uint32_t value = 0xffffffffu; /* Fully expanded mode. */
-
-      if (radv_layout_dcc_compressed(cmd_buffer->device, image, dst_layout, dst_render_loop,
-                                     dst_queue_mask)) {
-         value = 0u;
-      }
-
-      flush_bits |= radv_init_dcc(cmd_buffer, image, range, value);
+      flush_bits |= radv_init_dcc(cmd_buffer, image, range);
    }
 
    if (radv_image_has_cmask(image) || radv_dcc_enabled(image, range->baseMipLevel)) {
@@ -6000,8 +5990,7 @@ radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffer, struct ra
       return;
 
    if (src_layout == VK_IMAGE_LAYOUT_UNDEFINED) {
-      radv_init_color_image_metadata(cmd_buffer, image, src_layout, src_render_loop, dst_layout,
-                                     dst_render_loop, src_queue_mask, dst_queue_mask, range);
+      radv_init_color_image_metadata(cmd_buffer, image, range);
 
       if (image->retile_map)
          radv_retile_transition(cmd_buffer, image, src_layout, dst_layout, dst_queue_mask);
@@ -6010,7 +5999,7 @@ radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffer, struct ra
 
    if (radv_dcc_enabled(image, range->baseMipLevel)) {
       if (src_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
-         cmd_buffer->state.flush_bits |= radv_init_dcc(cmd_buffer, image, range, 0xffffffffu);
+         cmd_buffer->state.flush_bits |= radv_init_dcc(cmd_buffer, image, range);
       } else if (radv_layout_dcc_compressed(cmd_buffer->device, image, src_layout, src_render_loop,
                                             src_queue_mask) &&
                  !radv_layout_dcc_compressed(cmd_buffer->device, image, dst_layout, dst_render_loop,
