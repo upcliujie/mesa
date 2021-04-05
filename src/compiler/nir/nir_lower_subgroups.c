@@ -449,11 +449,18 @@ lower_subgroups_instr(nir_builder *b, nir_instr *instr, void *_options)
    }
 
    case nir_intrinsic_ballot: {
-      if (intrin->dest.ssa.num_components == 1 &&
+      if (((intrin->dest.ssa.num_components == 1 && !options->lower_ballot_to_vec) ||
+          (intrin->dest.ssa.num_components == 4 && options->lower_ballot_to_vec)) &&
           intrin->dest.ssa.bit_size == options->ballot_bit_size)
          return NULL;
 
-      nir_ssa_def *ballot = nir_ballot(b, 1, options->ballot_bit_size, intrin->src[0].ssa);
+      unsigned num_components = options->lower_ballot_to_vec ? 4 : 1;
+      nir_ssa_def *ballot = nir_ballot(b, num_components, options->ballot_bit_size, intrin->src[0].ssa);
+      /* this is glsl -> spirv semantics, rewriting a U64 load as a vec4 load and then converting back to U64 */
+      if (options->lower_ballot_to_vec) {
+         nir_ssa_def *dvec = nir_bitcast_vector(b, ballot, intrin->dest.ssa.bit_size);
+         return nir_channel(b, dvec, 0);
+      }
 
       return uint_to_ballot_type(b, ballot,
                                  intrin->dest.ssa.num_components,
