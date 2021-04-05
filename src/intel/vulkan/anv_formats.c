@@ -518,7 +518,7 @@ anv_get_format_plane(const struct gen_device_info *devinfo, VkFormat vk_format,
    if (format == NULL)
       return unsupported;
 
-   uint32_t plane = anv_image_aspect_to_plane(vk_format_aspects(vk_format), aspect);
+   uint32_t plane = anv_image_aspect_to_plane(anv_format_aspects(vk_format), aspect);
    struct anv_format_plane plane_format = format->planes[plane];
    if (plane_format.isl_format == ISL_FORMAT_UNSUPPORTED)
       return unsupported;
@@ -527,7 +527,7 @@ anv_get_format_plane(const struct gen_device_info *devinfo, VkFormat vk_format,
       return plane_format;
 
    if (aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
-      assert(vk_format_aspects(vk_format) &
+      assert(anv_format_aspects(vk_format) &
              (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT));
 
       /* There's no reason why we strictly can't support depth or stencil with
@@ -595,7 +595,7 @@ anv_get_image_format_features(const struct gen_device_info *devinfo,
    assert((isl_mod_info != NULL) ==
           (vk_tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT));
 
-   const VkImageAspectFlags aspects = vk_format_aspects(vk_format);
+   const VkImageAspectFlags aspects = anv_format_aspects(vk_format);
 
    if (aspects & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
       if (vk_tiling == VK_IMAGE_TILING_LINEAR ||
