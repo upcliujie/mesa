@@ -124,7 +124,7 @@ namespace {
     * specified for the i-th source region.
     */
    bool
-   has_invalid_src_region(const gen_device_info *devinfo, const fs_inst *inst,
+   has_invalid_src_region(const intel_device_info *devinfo, const fs_inst *inst,
                           unsigned i)
    {
       if (is_unordered(inst) || inst->is_control_source(i))
@@ -165,7 +165,7 @@ namespace {
     * specified for the destination region.
     */
    bool
-   has_invalid_dst_region(const gen_device_info *devinfo,
+   has_invalid_dst_region(const intel_device_info *devinfo,
                           const fs_inst *inst)
    {
       if (is_unordered(inst)) {
@@ -190,7 +190,7 @@ namespace {
     * specified for the i-th source region.
     */
    bool
-   has_invalid_src_modifiers(const gen_device_info *devinfo, const fs_inst *inst,
+   has_invalid_src_modifiers(const intel_device_info *devinfo, const fs_inst *inst,
                              unsigned i)
    {
       return !inst->can_do_source_mods(devinfo) &&
@@ -202,7 +202,7 @@ namespace {
     * specified for the destination.
     */
    bool
-   has_invalid_conversion(const gen_device_info *devinfo, const fs_inst *inst)
+   has_invalid_conversion(const intel_device_info *devinfo, const fs_inst *inst)
    {
       switch (inst->opcode) {
       case BRW_OPCODE_MOV:
@@ -216,7 +216,7 @@ namespace {
           * types.
           */
          return ((devinfo->ver == 7 && !devinfo->is_haswell) ||
-                 devinfo->is_cherryview || gen_device_info_is_9lp(devinfo)) &&
+                 devinfo->is_cherryview || intel_device_info_is_9lp(devinfo)) &&
                 type_sz(inst->src[0].type) > 4 &&
                 inst->dst.type != inst->src[0].type;
       default:
@@ -430,7 +430,7 @@ namespace {
    bool
    lower_instruction(fs_visitor *v, bblock_t *block, fs_inst *inst)
    {
-      const gen_device_info *devinfo = v->devinfo;
+      const intel_device_info *devinfo = v->devinfo;
       bool progress = false;
 
       if (has_invalid_conversion(devinfo, inst))
