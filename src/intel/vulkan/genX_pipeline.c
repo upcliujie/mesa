@@ -730,7 +730,7 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
       VkFormat vk_format =
          pass->attachments[subpass->depth_stencil_attachment->attachment].format;
       assert(vk_format_is_depth_or_stencil(vk_format));
-      if (vk_format_aspects(vk_format) & VK_IMAGE_ASPECT_DEPTH_BIT) {
+      if (anv_format_aspects(vk_format) & VK_IMAGE_ASPECT_DEPTH_BIT) {
          enum isl_format isl_format =
             anv_get_isl_format(&pipeline->base.device->info, vk_format,
                                VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -1053,7 +1053,7 @@ emit_ds_state(struct anv_graphics_pipeline *pipeline,
    if (subpass->depth_stencil_attachment) {
       VkFormat depth_stencil_format =
          pass->attachments[subpass->depth_stencil_attachment->attachment].format;
-      ds_aspects = vk_format_aspects(depth_stencil_format);
+      ds_aspects = anv_format_aspects(depth_stencil_format);
    }
 
    VkPipelineDepthStencilStateCreateInfo info = *pCreateInfo;

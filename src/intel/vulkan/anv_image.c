@@ -930,7 +930,7 @@ anv_image_create(VkDevice _device,
                                              pCreateInfo->extent);
    image->vk_format = pCreateInfo->format;
    image->format = anv_get_format(pCreateInfo->format);
-   image->aspects = vk_format_aspects(image->vk_format);
+   image->aspects = anv_format_aspects(image->vk_format);
    image->levels = pCreateInfo->mipLevels;
    image->array_size = pCreateInfo->arrayLayers;
    image->samples = pCreateInfo->samples;
@@ -1197,7 +1197,7 @@ resolve_ahw_image(struct anv_device *device,
     */
    image->vk_format = vk_format;
    image->format = anv_get_format(vk_format);
-   image->aspects = vk_format_aspects(image->vk_format);
+   image->aspects = anv_format_aspects(image->vk_format);
    image->n_planes = image->format->n_planes;
 
    uint32_t stride = desc.stride *

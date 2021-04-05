@@ -31,6 +31,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include "drm-uapi/i915_drm.h"
+#include "vk_format.h"
 
 #ifdef HAVE_VALGRIND
 #include <valgrind.h>
@@ -3559,6 +3560,24 @@ anv_plane_to_aspect(VkImageAspectFlags image_aspects,
       return VK_IMAGE_ASPECT_DEPTH_BIT << plane;
    assert(image_aspects == VK_IMAGE_ASPECT_STENCIL_BIT);
    return VK_IMAGE_ASPECT_STENCIL_BIT;
+}
+
+static inline VkImageAspectFlags
+anv_format_aspects(VkFormat format)
+{
+   switch (format) {
+   case VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16:
+   case VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16:
+   case VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16:
+   case VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16:
+   case VK_FORMAT_G16B16G16R16_422_UNORM:
+   case VK_FORMAT_B16G16R16G16_422_UNORM:
+      return (VK_IMAGE_ASPECT_PLANE_0_BIT |
+              VK_IMAGE_ASPECT_PLANE_1_BIT);
+
+   default:
+      return vk_format_aspects(format);
+   }
 }
 
 #define anv_foreach_image_aspect_bit(b, image, aspects) \

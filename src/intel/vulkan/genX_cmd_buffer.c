@@ -1419,7 +1419,7 @@ genX(cmd_buffer_setup_attachments)(struct anv_cmd_buffer *cmd_buffer,
       for (uint32_t i = 0; i < pass->attachment_count; ++i) {
          const struct anv_render_pass_attachment *pass_att = &pass->attachments[i];
          struct anv_attachment_state *att_state = &state->attachments[i];
-         VkImageAspectFlags att_aspects = vk_format_aspects(pass_att->format);
+         VkImageAspectFlags att_aspects = anv_format_aspects(pass_att->format);
          VkImageAspectFlags clear_aspects = 0;
          VkImageAspectFlags load_aspects = 0;
 
