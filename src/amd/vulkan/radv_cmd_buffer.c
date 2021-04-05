@@ -5956,6 +5956,8 @@ radv_init_color_image_metadata(struct radv_cmd_buffer *cmd_buffer, struct radv_i
 
    if (radv_image_has_cmask(image) || radv_dcc_enabled(image, range->baseMipLevel)) {
       radv_update_fce_metadata(cmd_buffer, image, range, false);
+      if (radv_dcc_enabled(image, range->baseMipLevel))
+         radv_update_dcc_metadata(cmd_buffer, image, range, false);
 
       uint32_t color_values[2] = {0};
       radv_set_color_clear_metadata(cmd_buffer, image, range, color_values);
