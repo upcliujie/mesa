@@ -817,7 +817,6 @@ void st_init_extensions(struct pipe_screen *screen,
       { o(EXT_shader_samples_identical),     PIPE_CAP_SHADER_SAMPLES_IDENTICAL         },
       { o(EXT_texture_array),                PIPE_CAP_MAX_TEXTURE_ARRAY_LAYERS         },
       { o(EXT_texture_filter_anisotropic),   PIPE_CAP_ANISOTROPIC_FILTER               },
-      { o(EXT_texture_filter_minmax),        PIPE_CAP_SAMPLER_REDUCTION_MINMAX         },
       { o(EXT_texture_mirror_clamp),         PIPE_CAP_TEXTURE_MIRROR_CLAMP             },
       { o(EXT_texture_shadow_lod),           PIPE_CAP_TEXTURE_SHADOW_LOD               },
       { o(EXT_texture_swizzle),              PIPE_CAP_TEXTURE_SWIZZLE                  },
@@ -1119,6 +1118,14 @@ void st_init_extensions(struct pipe_screen *screen,
          extension_table[cap_mapping[i].extension_offset] = GL_TRUE;
       }
    }
+
+   unsigned sampler_reduction_minmax = screen->get_param(screen, PIPE_CAP_SAMPLER_REDUCTION_MINMAX);
+   extensions->EXT_texture_filter_minmax = GL_FALSE;
+   extensions->ARB_texture_filter_minmax = GL_FALSE;
+   if (sampler_reduction_minmax == PIPE_SAMPLER_REDUCTION_MINMAX_EXT)
+      extensions->EXT_texture_filter_minmax = GL_TRUE;
+   else if (sampler_reduction_minmax == PIPE_SAMPLER_REDUCTION_MINMAX_ARB)
+      extensions->ARB_texture_filter_minmax = GL_TRUE;
 
    /* Expose the extensions which directly correspond to gallium formats. */
    init_format_extensions(screen, extensions, rendertarget_mapping,
