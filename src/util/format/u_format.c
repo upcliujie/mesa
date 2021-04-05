@@ -1130,3 +1130,15 @@ util_format_rgb_to_bgr(enum pipe_format format)
       return PIPE_FORMAT_NONE;
    }
 }
+
+const struct util_format_unpack_description *
+util_format_unpack_description(enum pipe_format format)
+{
+#if defined(PIPE_ARCH_AARCH64) && !defined NO_FORMAT_ASM
+   const struct util_format_unpack_description *unpack = util_format_unpack_description_neon(format);
+   if (unpack)
+      return unpack;
+#endif
+
+   return util_format_unpack_description_generic(format);
+}
