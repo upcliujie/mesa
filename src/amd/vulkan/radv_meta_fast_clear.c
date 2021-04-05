@@ -961,7 +961,7 @@ radv_decompress_dcc_compute(struct radv_cmd_buffer *cmd_buffer,
 
 	/* Initialize the DCC metadata as "fully expanded". */
 	cmd_buffer->state.flush_bits |=
-		radv_init_dcc(cmd_buffer, image, subresourceRange, 0xffffffff);
+		radv_init_dcc(cmd_buffer, image, subresourceRange);
 }
 
 void
