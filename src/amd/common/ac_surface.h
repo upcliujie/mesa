@@ -436,7 +436,7 @@ void ac_surface_print_info(FILE *out, const struct radeon_info *info,
 
 #ifdef AC_SURFACE_INCLUDE_NIR
 nir_ssa_def *ac_nir_dcc_addr_from_coord(nir_builder *b, const struct radeon_info *info,
-                                        struct radeon_surf *surf,
+                                        unsigned bpe,
                                         struct gfx9_dcc_equation *equation,
                                         nir_ssa_def *dcc_pitch, nir_ssa_def *dcc_height,
                                         nir_ssa_def *dcc_slice_size,

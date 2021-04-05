@@ -2813,7 +2813,7 @@ void ac_surface_print_info(FILE *out, const struct radeon_info *info,
 }
 
 nir_ssa_def *ac_nir_dcc_addr_from_coord(nir_builder *b, const struct radeon_info *info,
-                                        struct radeon_surf *surf,
+                                        unsigned bpe,
                                         struct gfx9_dcc_equation *equation,
                                         nir_ssa_def *dcc_pitch, nir_ssa_def *dcc_height,
                                         nir_ssa_def *dcc_slice_size,
@@ -2824,7 +2824,7 @@ nir_ssa_def *ac_nir_dcc_addr_from_coord(nir_builder *b, const struct radeon_info
    nir_ssa_def *one = nir_imm_int(b, 1);
 
    if (info->chip_class >= GFX10) {
-      unsigned bpp_log2 = util_logbase2(surf->bpe);
+      unsigned bpp_log2 = util_logbase2(bpe);
       unsigned meta_block_width_log2 = util_logbase2(equation->meta_block_width);
       unsigned meta_block_height_log2 = util_logbase2(equation->meta_block_height);
       unsigned blkSizeLog2 = meta_block_width_log2 + meta_block_height_log2 + bpp_log2 - 8;

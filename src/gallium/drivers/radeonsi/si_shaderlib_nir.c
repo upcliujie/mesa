@@ -84,7 +84,7 @@ void *si_create_dcc_retile_cs(struct si_context *sctx, struct radeon_surf *surf)
                                              surf->u.gfx9.dcc_block_height));
 
    nir_ssa_def *src_offset =
-      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, surf, &surf->u.gfx9.dcc_equation,
+      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, surf->bpe, &surf->u.gfx9.dcc_equation,
                                  src_dcc_pitch, src_dcc_height, zero, /* DCC slice size */
                                  nir_channel(&b, coord, 0), nir_channel(&b, coord, 1), /* x, y */
                                  zero, zero, zero); /* z, sample, pipe_xor */
@@ -92,7 +92,7 @@ void *si_create_dcc_retile_cs(struct si_context *sctx, struct radeon_surf *surf)
    nir_ssa_def *value = nir_load_ssbo(&b, 1, 8, zero, src_offset, .align_mul=1);
 
    nir_ssa_def *dst_offset =
-      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, surf, &surf->u.gfx9.display_dcc_equation,
+      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, surf->bpe, &surf->u.gfx9.display_dcc_equation,
                                  dst_dcc_pitch, dst_dcc_height, zero, /* DCC slice size */
                                  nir_channel(&b, coord, 0), nir_channel(&b, coord, 1), /* x, y */
                                  zero, zero, zero); /* z, sample, pipe_xor */
@@ -130,7 +130,7 @@ void *gfx9_create_clear_dcc_msaa_cs(struct si_context *sctx, struct si_texture *
                                                    tex->surface.u.gfx9.dcc_block_depth, 0), 0x7));
 
    nir_ssa_def *offset =
-      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, &tex->surface,
+      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, tex->surface.bpe,
                                  &tex->surface.u.gfx9.dcc_equation,
                                  dcc_pitch, dcc_height, zero, /* DCC slice size */
                                  nir_channel(&b, coord, 0), nir_channel(&b, coord, 1), /* x, y */
