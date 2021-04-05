@@ -2496,7 +2496,7 @@ void radv_meta_push_descriptor_set(struct radv_cmd_buffer *cmd_buffer,
 
 void radv_initialize_dcc(struct radv_cmd_buffer *cmd_buffer,
 			 struct radv_image *image,
-			 const VkImageSubresourceRange *range, uint32_t value);
+			 const VkImageSubresourceRange *range);
 
 void radv_initialize_fmask(struct radv_cmd_buffer *cmd_buffer,
 			   struct radv_image *image,

@@ -523,7 +523,7 @@ radv_meta_resolve_hardware_image(struct radv_cmd_buffer *cmd_buffer,
 			.layerCount = region->dstSubresource.layerCount,
 		};
 
-		radv_initialize_dcc(cmd_buffer, dst_image, &range, 0xffffffff);
+		radv_initialize_dcc(cmd_buffer, dst_image, &range);
 	}
 
 	for (uint32_t layer = 0; layer < region->srcSubresource.layerCount;
@@ -740,7 +740,7 @@ radv_cmd_buffer_resolve_subpass_hw(struct radv_cmd_buffer *cmd_buffer)
 				.layerCount = dest_iview->layer_count,
 			};
 
-			radv_initialize_dcc(cmd_buffer, dst_img, &range, 0xffffffff);
+			radv_initialize_dcc(cmd_buffer, dst_img, &range);
 			cmd_buffer->state.attachments[dest_att.attachment].current_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
 
