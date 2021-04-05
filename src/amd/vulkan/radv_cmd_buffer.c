@@ -6221,7 +6221,8 @@ static void radv_handle_depth_image_transition(struct radv_cmd_buffer *cmd_buffe
 	if (!radv_htile_enabled(image, range->baseMipLevel))
 		return;
 
-	if (src_layout == VK_IMAGE_LAYOUT_UNDEFINED) {
+	if (src_layout == VK_IMAGE_LAYOUT_UNDEFINED ||
+	    src_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
 		radv_initialize_htile(cmd_buffer, image, range);
 	} else if (!radv_layout_is_htile_compressed(device, image, src_layout, src_render_loop, src_queue_mask) &&
 	           radv_layout_is_htile_compressed(device, image, dst_layout, dst_render_loop, dst_queue_mask)) {
@@ -6378,7 +6379,8 @@ static void radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffe
 					       unsigned dst_queue_mask,
 					       const VkImageSubresourceRange *range)
 {
-	if (src_layout == VK_IMAGE_LAYOUT_UNDEFINED) {
+	if (src_layout == VK_IMAGE_LAYOUT_UNDEFINED ||
+	    src_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
 		radv_init_color_image_metadata(cmd_buffer, image, range);
 
 		if (dst_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
@@ -6388,9 +6390,7 @@ static void radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffe
 	}
 
 	if (radv_dcc_enabled(image, range->baseMipLevel)) {
-		if (src_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
-			radv_initialize_dcc(cmd_buffer, image, range);
-		} else if (radv_layout_dcc_compressed(cmd_buffer->device, image, src_layout, src_render_loop, src_queue_mask) &&
+		if (radv_layout_dcc_compressed(cmd_buffer->device, image, src_layout, src_render_loop, src_queue_mask) &&
 		           !radv_layout_dcc_compressed(cmd_buffer->device, image, dst_layout, dst_render_loop, dst_queue_mask)) {
 			radv_decompress_dcc(cmd_buffer, image, range);
 		} else if (radv_layout_can_fast_clear(cmd_buffer->device, image, src_layout,
