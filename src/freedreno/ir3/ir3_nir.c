@@ -430,6 +430,29 @@ ir3_nir_lower_view_layer_id(nir_shader *nir, bool layer_zero, bool view_zero)
 	return progress;
 }
 
+static unsigned
+lower_bit_size_callback(const nir_instr *instr, void *data)
+{
+	if (instr->type != nir_instr_type_alu)
+		return 0;
+	nir_alu_instr *alu = nir_instr_as_alu(instr);
+
+	if (alu->dest.dest.ssa.bit_size & 16) {
+		switch (alu->op) {
+		case nir_op_udiv:
+		case nir_op_idiv:
+		case nir_op_umod:
+		case nir_op_imod:
+		case nir_op_irem:
+			return 32;
+		default:
+			return 0;
+		}
+	}
+
+	return 0;
+}
+
 void
 ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 {
@@ -540,6 +563,13 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 		OPT_V(s, nir_copy_prop);
 		OPT_V(s, nir_opt_dce);
 		OPT_V(s, nir_opt_cse);
+	}
+
+	if (s->info.bit_sizes_int & 16) {
+		if (nir_lower_bit_size(s, lower_bit_size_callback, NULL)) {
+			if (OPT(s, nir_lower_idiv, nir_lower_idiv_fast))
+				ir3_optimize_loop(s);
+		}
 	}
 
 	OPT_V(s, nir_opt_sink, nir_move_const_undef);
