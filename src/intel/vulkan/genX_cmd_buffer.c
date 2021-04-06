@@ -952,8 +952,15 @@ genX(cmd_buffer_mark_image_written)(struct anv_cmd_buffer *cmd_buffer,
                                     uint32_t base_layer,
                                     uint32_t layer_count)
 {
-   /* The aspect must be exactly one of the image aspects. */
-   assert(util_bitcount(aspect) == 1 && (aspect & image->aspects));
+   /* The aspect must be exactly one of the image aspects.  Externally, the
+    * packed, subsampled, 16-bit YUV formats have a single plane.  Internally,
+    * we treat them as having separate Y and UV planes.  This assertion
+    * detects those cases and accounts for them.
+    */
+   assert(util_bitcount(aspect) == 1 &&
+          ((aspect & image->aspects) ||
+           (anv_is_y_plane_and_uv_plane_same_memory(image->vk_format) &&
+            aspect == VK_IMAGE_ASPECT_COLOR_BIT)));
 
    /* The only compression types with more than just fast-clears are MCS,
     * CCS_E, and HiZ.  With HiZ we just trust the layout and don't actually
