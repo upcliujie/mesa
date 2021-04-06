@@ -1253,3 +1253,13 @@ binop("umul24", tint32, _2src_commutative + associative,
 
 unop_convert("fisnormal", tbool1, tfloat, "isnormal(src0)")
 unop_convert("fisfinite", tbool1, tfloat, "isfinite(src0)")
+
+# DXIL specific double [un]pack
+# DXIL doesn't support generic [un]pack instructions, so we want those
+# lowered to bit ops, but DXIL also doesn't support 64bit bitcasts to/from
+# double, only [un]pack. So, this is essentially just the standard [un]pack,
+# except that it doesn't get lowered so we can handle it in the backend
+unop_horiz("pack_double_2x32", 1, tfloat64, 2, tuint32,
+           "*(uint64_t*)&dst.x = src0.x | ((uint64_t)src0.y << 32);")
+unop_horiz("unpack_double_2x32", 2, tuint32, 1, tfloat64,
+           "dst.x = *(uint64_t*)&src0.x; dst.y = *(uint64_t*)&src0.x >> 32;")
