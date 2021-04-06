@@ -63,11 +63,42 @@ static mtx_t call_mutex = _MTX_INITIALIZER_NP;
 static long unsigned call_no = 0;
 static bool dumping = false;
 
+static bool trigger_active = true;
+static char *trigger_filename = NULL;
+static FILE *trigger_stream = NULL;
+
+void
+trace_dump_trigger_active(bool active)
+{
+   trigger_active = active;
+}
+
+void
+trace_dump_check_trigger(void)
+{
+   if (!trigger_filename)
+      return;
+
+   mtx_lock(&call_mutex);
+   if (trigger_active) {
+      trigger_active = false;
+   } else {
+      if (!access(trigger_filename, W_OK)) {
+         if (!unlink(trigger_filename)) {
+            trigger_active = true;
+         } else {
+            fprintf(stderr, "error removing trigger file\n");
+            trigger_active = false;
+         }
+      }
+   }
+   mtx_unlock(&call_mutex);
+}
 
 static inline void
 trace_dump_write(const char *buf, size_t size)
 {
-   if (stream) {
+   if (stream && trigger_active) {
       fwrite(buf, size, 1, stream);
    }
 }
@@ -175,6 +206,7 @@ static void
 trace_dump_trace_close(void)
 {
    if (stream) {
+      trigger_active = true;
       trace_dump_writes("</trace>\n");
       if (close_stream) {
          fclose(stream);
@@ -182,6 +214,11 @@ trace_dump_trace_close(void)
          stream = NULL;
       }
       call_no = 0;
+      free(trigger_filename);
+      if (trigger_stream) {
+         fclose(trigger_stream);
+         trigger_stream = NULL;
+      }
    }
 }
 
@@ -234,6 +271,13 @@ trace_dump_trace_begin(void)
        * time.
        */
       atexit(trace_dump_trace_close);
+
+      const char *trigger = debug_get_option("GALLIUM_TRACE_TRIGGER", NULL);
+      if (trigger) {
+         trigger_filename = strdup(trigger);
+         trigger_active = false;
+      } else
+         trigger_active = true;
    }
 
    return true;
