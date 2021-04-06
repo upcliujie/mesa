@@ -832,6 +832,9 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
    OPT(nir_lower_tex, &tex_options);
    OPT(nir_normalize_cubemap_coords);
 
+   if (devinfo->ver <= 9)
+      OPT(brw_nir_fixup_null_surface_query_levels);
+
    OPT(nir_lower_global_vars_to_local);
 
    OPT(nir_split_var_copies);
