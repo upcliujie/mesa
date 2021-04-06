@@ -694,7 +694,11 @@ zink_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_INT64_ATOMICS:
    case PIPE_SHADER_CAP_FP16:
    case PIPE_SHADER_CAP_FP16_DERIVATIVES:
+      return 0; /* not implemented */
+
    case PIPE_SHADER_CAP_INT16:
+      return screen->info.feats.features.shaderInt16;
+
    case PIPE_SHADER_CAP_GLSL_16BIT_CONSTS:
       return 0; /* not implemented */
 
