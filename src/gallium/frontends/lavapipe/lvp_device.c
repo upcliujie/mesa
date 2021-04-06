@@ -1152,8 +1152,7 @@ lvp_queue_init(struct lvp_device *device, struct lvp_queue *queue)
    mtx_init(&queue->m, mtx_plain);
    queue->exec_thread = u_thread_create(queue_thread, queue);
 
-   vk_object_base_init(&device->vk, &queue->base, VK_OBJECT_TYPE_QUEUE);
-   return VK_SUCCESS;
+   return vk_queue_init(&queue->vk, &device->vk);
 }
 
 static void
