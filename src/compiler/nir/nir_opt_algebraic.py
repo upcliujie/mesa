@@ -1780,7 +1780,7 @@ for t in ['int', 'uint', 'float']:
 
         cond = 'true'
         if N == 8:
-            cond = 'options->support_8bit_alu'
+            cond = 'options->support_8bit_int_alu'
         elif N == 16:
             if t == 'int':
                 cond = 'options->support_16bit_int_alu'
