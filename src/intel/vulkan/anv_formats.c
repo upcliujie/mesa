@@ -731,8 +731,10 @@ anv_get_image_format_features(const struct gen_device_info *devinfo,
          }
       }
 
-      if (anv_format->n_planes > 1)
+      if (anv_format->n_planes > 1 &&
+          !anv_is_y_plane_and_uv_plane_same_memory(anv_format->vk_format)) {
          flags |= VK_FORMAT_FEATURE_DISJOINT_BIT;
+      }
 
       /* Almost all YCbCr formats either have multiple planes, are subsampled,
        * or have weird bit-pattern usages (e.g., Y412).  There are a couple

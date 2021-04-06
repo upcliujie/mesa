@@ -1340,6 +1340,7 @@ anv_image_create(VkDevice _device,
     *    with the VK_IMAGE_CREATE_DISJOINT_BIT bit set.
     */
    image->disjoint = image->format->n_planes > 1 &&
+                     !anv_is_y_plane_and_uv_plane_same_memory(image->vk_format) &&
                      (pCreateInfo->flags & VK_IMAGE_CREATE_DISJOINT_BIT);
 
    const isl_tiling_flags_t isl_tiling_flags =
