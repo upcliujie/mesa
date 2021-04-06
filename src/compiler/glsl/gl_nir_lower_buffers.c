@@ -166,6 +166,22 @@ lower_buffer_interface_derefs_impl(nir_function_impl *impl,
    nir_builder_init(&b, impl);
 
    nir_foreach_block(block, impl) {
+      nir_foreach_instr(instr, block) {
+         if (instr->type == nir_instr_type_intrinsic) {
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            if (intrin->intrinsic == nir_intrinsic_load_deref ||
+                intrin->intrinsic == nir_intrinsic_store_deref) {
+               nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+               while (deref && deref->deref_type != nir_deref_type_var)
+                  deref = nir_deref_instr_parent(deref);
+               assert(deref->deref_type == nir_deref_type_var);
+               nir_intrinsic_set_access(intrin, deref->var->data.access);
+            }
+         }
+      }
+   }
+
+   nir_foreach_block(block, impl) {
       nir_foreach_instr_safe(instr, block) {
          switch (instr->type) {
          case nir_instr_type_deref: {
