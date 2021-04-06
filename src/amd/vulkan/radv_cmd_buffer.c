@@ -406,7 +406,7 @@ radv_destroy_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
    for (unsigned i = 0; i < MAX_BIND_POINTS; i++)
       free(cmd_buffer->descriptors[i].push_set.set.mapped_ptr);
 
-   vk_object_base_finish(&cmd_buffer->base);
+   vk_command_buffer_finish(&cmd_buffer->vk);
    vk_free(&cmd_buffer->pool->alloc, cmd_buffer);
 }
 
@@ -420,7 +420,10 @@ radv_create_cmd_buffer(struct radv_device *device, struct radv_cmd_pool *pool,
    if (cmd_buffer == NULL)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   vk_object_base_init(&device->vk, &cmd_buffer->base, VK_OBJECT_TYPE_COMMAND_BUFFER);
+   VkResult result =
+      vk_command_buffer_init(&cmd_buffer->vk, &device->vk);
+   if (result != VK_SUCCESS)
+      return result;
 
    cmd_buffer->device = device;
    cmd_buffer->pool = pool;
@@ -3806,7 +3809,7 @@ radv_AllocateCommandBuffers(VkDevice _device, const VkCommandBufferAllocateInfo 
 
          result = radv_reset_cmd_buffer(cmd_buffer);
          cmd_buffer->level = pAllocateInfo->level;
-         vk_object_base_reset(&cmd_buffer->base);
+         vk_object_base_reset(&cmd_buffer->vk.base);
 
          pCommandBuffers[i] = radv_cmd_buffer_to_handle(cmd_buffer);
       } else {
