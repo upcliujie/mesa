@@ -588,6 +588,25 @@ vk_conservative_rasterization_mode(const VkPipelineRasterizationStateCreateInfo 
 }
 #endif
 
+const uint32_t genX(vk_to_gen_logic_op)[] = {
+   [VK_LOGIC_OP_COPY]                        = LOGICOP_COPY,
+   [VK_LOGIC_OP_CLEAR]                       = LOGICOP_CLEAR,
+   [VK_LOGIC_OP_AND]                         = LOGICOP_AND,
+   [VK_LOGIC_OP_AND_REVERSE]                 = LOGICOP_AND_REVERSE,
+   [VK_LOGIC_OP_AND_INVERTED]                = LOGICOP_AND_INVERTED,
+   [VK_LOGIC_OP_NO_OP]                       = LOGICOP_NOOP,
+   [VK_LOGIC_OP_XOR]                         = LOGICOP_XOR,
+   [VK_LOGIC_OP_OR]                          = LOGICOP_OR,
+   [VK_LOGIC_OP_NOR]                         = LOGICOP_NOR,
+   [VK_LOGIC_OP_EQUIVALENT]                  = LOGICOP_EQUIV,
+   [VK_LOGIC_OP_INVERT]                      = LOGICOP_INVERT,
+   [VK_LOGIC_OP_OR_REVERSE]                  = LOGICOP_OR_REVERSE,
+   [VK_LOGIC_OP_COPY_INVERTED]               = LOGICOP_COPY_INVERTED,
+   [VK_LOGIC_OP_OR_INVERTED]                 = LOGICOP_OR_INVERTED,
+   [VK_LOGIC_OP_NAND]                        = LOGICOP_NAND,
+   [VK_LOGIC_OP_SET]                         = LOGICOP_SET,
+};
+
 static void
 emit_rs_state(struct anv_graphics_pipeline *pipeline,
               const VkPipelineInputAssemblyStateCreateInfo *ia_info,
@@ -809,25 +828,6 @@ emit_ms_state(struct anv_graphics_pipeline *pipeline,
       sm.SampleMask = sample_mask;
    }
 }
-
-static const uint32_t vk_to_gen_logic_op[] = {
-   [VK_LOGIC_OP_COPY]                        = LOGICOP_COPY,
-   [VK_LOGIC_OP_CLEAR]                       = LOGICOP_CLEAR,
-   [VK_LOGIC_OP_AND]                         = LOGICOP_AND,
-   [VK_LOGIC_OP_AND_REVERSE]                 = LOGICOP_AND_REVERSE,
-   [VK_LOGIC_OP_AND_INVERTED]                = LOGICOP_AND_INVERTED,
-   [VK_LOGIC_OP_NO_OP]                       = LOGICOP_NOOP,
-   [VK_LOGIC_OP_XOR]                         = LOGICOP_XOR,
-   [VK_LOGIC_OP_OR]                          = LOGICOP_OR,
-   [VK_LOGIC_OP_NOR]                         = LOGICOP_NOR,
-   [VK_LOGIC_OP_EQUIVALENT]                  = LOGICOP_EQUIV,
-   [VK_LOGIC_OP_INVERT]                      = LOGICOP_INVERT,
-   [VK_LOGIC_OP_OR_REVERSE]                  = LOGICOP_OR_REVERSE,
-   [VK_LOGIC_OP_COPY_INVERTED]               = LOGICOP_COPY_INVERTED,
-   [VK_LOGIC_OP_OR_INVERTED]                 = LOGICOP_OR_INVERTED,
-   [VK_LOGIC_OP_NAND]                        = LOGICOP_NAND,
-   [VK_LOGIC_OP_SET]                         = LOGICOP_SET,
-};
 
 static const uint32_t vk_to_gen_blend[] = {
    [VK_BLEND_FACTOR_ZERO]                    = BLENDFACTOR_ZERO,
@@ -1216,7 +1216,7 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
          .AlphaToOneEnable = ms_info && ms_info->alphaToOneEnable,
 #endif
          .LogicOpEnable = info->logicOpEnable,
-         .LogicOpFunction = vk_to_gen_logic_op[info->logicOp],
+         .LogicOpFunction = genX(vk_to_gen_logic_op)[info->logicOp],
          /* Vulkan specification 1.2.168, VkLogicOp:
           *
           *   "Logical operations are controlled by the logicOpEnable and
