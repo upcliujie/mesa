@@ -75,6 +75,7 @@
 
 #include "tu_descriptor_set.h"
 #include "tu_util.h"
+#include "vk_command_buffer.h"
 
 /* Pre-declarations needed for WSI entrypoints */
 struct wl_surface;
@@ -1035,7 +1036,7 @@ enum tu_cmd_buffer_status
 
 struct tu_cmd_buffer
 {
-   struct vk_object_base base;
+   struct vk_command_buffer vk;
 
    struct tu_device *device;
 
