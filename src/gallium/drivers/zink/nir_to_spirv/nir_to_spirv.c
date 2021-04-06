@@ -211,7 +211,7 @@ emit_float_const(struct ntv_context *ctx, int bit_size, double value)
 static SpvId
 emit_uint_const(struct ntv_context *ctx, int bit_size, uint64_t value)
 {
-   assert(bit_size == 32 || bit_size == 64);
+   assert(bit_size == 16 || bit_size == 32 || bit_size == 64);
    return spirv_builder_const_uint(&ctx->builder, bit_size, value);
 }
 
@@ -239,7 +239,7 @@ get_fvec_type(struct ntv_context *ctx, unsigned bit_size, unsigned num_component
 static SpvId
 get_ivec_type(struct ntv_context *ctx, unsigned bit_size, unsigned num_components)
 {
-   assert(bit_size == 32 || bit_size == 64);
+   assert(bit_size == 16 || bit_size == 32 || bit_size == 64);
 
    SpvId int_type = spirv_builder_type_int(&ctx->builder, bit_size);
    if (num_components > 1)
@@ -253,7 +253,7 @@ get_ivec_type(struct ntv_context *ctx, unsigned bit_size, unsigned num_component
 static SpvId
 get_uvec_type(struct ntv_context *ctx, unsigned bit_size, unsigned num_components)
 {
-   assert(bit_size == 32 || bit_size == 64);
+   assert(bit_size == 16 || bit_size == 32 || bit_size == 64);
 
    SpvId uint_type = spirv_builder_type_uint(&ctx->builder, bit_size);
    if (num_components > 1)
@@ -890,7 +890,7 @@ get_vec_from_bit_size(struct ntv_context *ctx, uint32_t bit_size, uint32_t num_c
 {
    if (bit_size == 1)
       return get_bvec_type(ctx, num_components);
-   if (bit_size == 32 || bit_size == 64)
+   if (bit_size == 16 || bit_size == 32 || bit_size == 64)
       return get_uvec_type(ctx, bit_size, num_components);
    unreachable("unhandled register bit size");
    return 0;
@@ -962,7 +962,7 @@ get_alu_src_raw(struct ntv_context *ctx, nir_alu_instr *alu, unsigned src)
       return def;
 
    int bit_size = nir_src_bit_size(alu->src[src].src);
-   assert(bit_size == 1 || bit_size == 32 || bit_size == 64);
+   assert(bit_size == 1 || bit_size == 16 || bit_size == 32 || bit_size == 64);
 
    SpvId raw_type = bit_size == 1 ? spirv_builder_type_bool(&ctx->builder) :
                                     spirv_builder_type_uint(&ctx->builder, bit_size);
@@ -1369,7 +1369,7 @@ static SpvId
 get_ivec_constant(struct ntv_context *ctx, unsigned bit_size,
                   unsigned num_components, int64_t value)
 {
-   assert(bit_size == 32 || bit_size == 64);
+   assert(bit_size == 16 || bit_size == 32 || bit_size == 64);
 
    SpvId result = emit_int_const(ctx, bit_size, value);
    if (num_components == 1)
@@ -1514,11 +1514,15 @@ emit_alu(struct ntv_context *ctx, nir_alu_instr *alu)
    UNOP(nir_op_fddy, SpvOpDPdy)
    UNOP(nir_op_fddy_coarse, SpvOpDPdyCoarse)
    UNOP(nir_op_fddy_fine, SpvOpDPdyFine)
+   UNOP(nir_op_f2i16, SpvOpConvertFToS)
+   UNOP(nir_op_f2u16, SpvOpConvertFToU)
    UNOP(nir_op_f2i32, SpvOpConvertFToS)
    UNOP(nir_op_f2u32, SpvOpConvertFToU)
    UNOP(nir_op_i2f32, SpvOpConvertSToF)
    UNOP(nir_op_u2f32, SpvOpConvertUToF)
+   UNOP(nir_op_i2i16, SpvOpSConvert)
    UNOP(nir_op_i2i32, SpvOpSConvert)
+   UNOP(nir_op_u2u16, SpvOpUConvert)
    UNOP(nir_op_u2u32, SpvOpUConvert)
    UNOP(nir_op_f2f32, SpvOpFConvert)
    UNOP(nir_op_f2i64, SpvOpConvertFToS)
@@ -1539,6 +1543,7 @@ emit_alu(struct ntv_context *ctx, nir_alu_instr *alu)
          result = emit_unop(ctx, SpvOpNot, dest_type, src[0]);
       break;
 
+   case nir_op_b2i16:
    case nir_op_b2i32:
    case nir_op_b2i64:
       assert(nir_op_infos[alu->op].num_inputs == 1);
@@ -1756,6 +1761,8 @@ emit_load_const(struct ntv_context *ctx, nir_load_const_instr *load_const)
       if (bit_size == 1)
          constant = spirv_builder_const_bool(&ctx->builder,
                                              load_const->value[0].b);
+      else if (bit_size == 16)
+         constant = emit_uint_const(ctx, bit_size, load_const->value[0].u16);
       else if (bit_size == 32)
          constant = emit_uint_const(ctx, bit_size, load_const->value[0].u32);
       else if (bit_size == 64)
