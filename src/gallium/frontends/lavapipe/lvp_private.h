@@ -60,6 +60,7 @@ typedef uint32_t xcb_window_t;
 #include "vk_util.h"
 #include "vk_format.h"
 #include "vk_command_buffer.h"
+#include "vk_queue.h"
 
 #include "wsi_common.h"
 
@@ -164,7 +165,7 @@ bool lvp_physical_device_extension_supported(struct lvp_physical_device *dev,
                                               const char *name);
 
 struct lvp_queue {
-   struct vk_object_base base;
+   struct vk_queue vk;
    VkDeviceQueueCreateFlags flags;
    struct lvp_device *                         device;
    struct pipe_context *ctx;
@@ -612,7 +613,7 @@ VK_DEFINE_HANDLE_CASTS(lvp_device, vk.base, VkDevice, VK_OBJECT_TYPE_DEVICE)
 VK_DEFINE_HANDLE_CASTS(lvp_instance, vk.base, VkInstance, VK_OBJECT_TYPE_INSTANCE)
 VK_DEFINE_HANDLE_CASTS(lvp_physical_device, vk.base, VkPhysicalDevice,
                        VK_OBJECT_TYPE_PHYSICAL_DEVICE)
-VK_DEFINE_HANDLE_CASTS(lvp_queue, base, VkQueue, VK_OBJECT_TYPE_QUEUE)
+VK_DEFINE_HANDLE_CASTS(lvp_queue, vk.base, VkQueue, VK_OBJECT_TYPE_QUEUE)
 
    VK_DEFINE_NONDISP_HANDLE_CASTS(lvp_cmd_pool, base,VkCommandPool,
                                   VK_OBJECT_TYPE_COMMAND_POOL)

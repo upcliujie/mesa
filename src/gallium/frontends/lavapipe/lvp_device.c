@@ -1377,8 +1377,7 @@ lvp_queue_init(struct lvp_device *device, struct lvp_queue *queue)
    util_queue_init(&queue->queue, "lavapipe", 8, 1, UTIL_QUEUE_INIT_RESIZE_IF_FULL, device);
    p_atomic_set(&queue->count, 0);
 
-   vk_object_base_init(&device->vk, &queue->base, VK_OBJECT_TYPE_QUEUE);
-   return VK_SUCCESS;
+   return vk_queue_init(&queue->vk, &device->vk);
 }
 
 static void
