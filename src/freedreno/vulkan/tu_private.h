@@ -93,6 +93,7 @@ typedef uint32_t xcb_window_t;
 
 #include "vk_format.h"
 #include "vk_command_buffer.h"
+#include "vk_queue.h"
 
 #define MAX_VBS 32
 #define MAX_VERTEX_ATTRIBS 32
@@ -298,7 +299,7 @@ struct tu_u_trace_syncobj;
 
 struct tu_queue
 {
-   struct vk_object_base base;
+   struct vk_queue vk;
 
    struct tu_device *device;
    uint32_t queue_family_index;
