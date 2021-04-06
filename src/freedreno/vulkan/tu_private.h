@@ -76,6 +76,7 @@
 #include "tu_descriptor_set.h"
 #include "tu_util.h"
 #include "vk_command_buffer.h"
+#include "vk_queue.h"
 
 /* Pre-declarations needed for WSI entrypoints */
 struct wl_surface;
@@ -295,7 +296,7 @@ struct tu_syncobj;
 
 struct tu_queue
 {
-   struct vk_object_base base;
+   struct vk_queue vk;
 
    struct tu_device *device;
    uint32_t queue_family_index;
