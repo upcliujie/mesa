@@ -276,7 +276,8 @@ a630-traces-restricted:
     PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/restricted-traces-freedreno.yml"
     PIGLIT_REPLAY_EXTRA_ARGS:  --keep-image --db-path ${CI_PROJECT_DIR}/replayer-db/ --minio_host=minio-packet.freedesktop.org --minio_bucket=mesa-tracie-private --role-session-name=${CI_PROJECT_PATH}:${CI_JOB_ID} --jwt=${CI_JOB_JWT}
   rules:
-    - if: '$GITLAB_USER_LOGIN == "marge-bot"'
+    - if: '$GITLAB_USER_LOGIN == "marge-bot" ||
+           $GITLAB_USER_LOGIN == "tomeu"'
       when: on_success
     - when: never
   allow_failure: true
