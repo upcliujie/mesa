@@ -394,6 +394,9 @@ zink_screen_init_compiler(struct zink_screen *screen)
 
    screen->nir_options = default_options;
 
+   if (screen->info.feats.features.shaderInt16)
+      screen->nir_options.support_16bit_int_alu = true;
+
    if (!screen->info.feats.features.shaderInt64)
       screen->nir_options.lower_int64_options = ~0;
 
