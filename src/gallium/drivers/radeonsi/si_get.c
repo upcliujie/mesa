@@ -972,7 +972,8 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .max_unroll_iterations = 32,
       .use_interpolated_input_intrinsics = true,
       .lower_uniforms_to_ubo = true,
-      .support_16bit_alu = sscreen->info.has_packed_math_16bit,
+      .support_16bit_int_alu = sscreen->info.has_packed_math_16bit,
+      .support_16bit_float_alu = sscreen->info.has_packed_math_16bit,
       .vectorize_vec2_16bit = sscreen->info.has_packed_math_16bit,
    };
    sscreen->nir_options = nir_options;

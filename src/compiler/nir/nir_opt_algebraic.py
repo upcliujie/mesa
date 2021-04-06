@@ -1782,7 +1782,10 @@ for t in ['int', 'uint', 'float']:
         if N == 8:
             cond = 'options->support_8bit_alu'
         elif N == 16:
-            cond = 'options->support_16bit_alu'
+            if t == 'int':
+                cond = 'options->support_16bit_int_alu'
+            else:
+                cond = 'options->support_16bit_float_alu'
         x2xM = '{0}2{0}{1}'.format(t[0], M)
         x2xN = '{0}2{0}{1}'.format(t[0], N)
         aN = 'a@' + str(N)
