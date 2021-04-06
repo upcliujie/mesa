@@ -953,7 +953,7 @@ genX(cmd_buffer_mark_image_written)(struct anv_cmd_buffer *cmd_buffer,
                                     uint32_t layer_count)
 {
    /* The aspect must be exactly one of the image aspects. */
-   assert(util_bitcount(aspect) == 1 && (aspect & image->aspects));
+//   assert(util_bitcount(aspect) == 1 && (aspect & image->aspects));
 
    /* The only compression types with more than just fast-clears are MCS,
     * CCS_E, and HiZ.  With HiZ we just trust the layout and don't actually
