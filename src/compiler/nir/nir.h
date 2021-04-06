@@ -3428,8 +3428,11 @@ typedef struct nir_shader_compiler_options {
    /** Whether 8-bit ALU is supported. */
    bool support_8bit_alu;
 
-   /** Whether 16-bit ALU is supported. */
-   bool support_16bit_alu;
+   /** Whether 16-bit int ALU is supported. */
+   bool support_16bit_int_alu;
+
+   /** Whether 16-bit float ALU is supported. */
+   bool support_16bit_float_alu;
 
    unsigned max_unroll_iterations;
    unsigned max_unroll_iterations_aggressive;
