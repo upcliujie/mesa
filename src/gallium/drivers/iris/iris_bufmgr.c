@@ -207,6 +207,9 @@ struct iris_bufmgr {
    uint64_t vma_min_align;
    struct iris_memregion vram, sys;
 
+   /* Used only when use_global_vm is true. */
+   uint32_t global_vm_id;
+
    int next_screen_id;
 
    bool has_llc:1;
@@ -215,6 +218,7 @@ struct iris_bufmgr {
    bool has_tiling_uapi:1;
    bool has_userptr_probe:1;
    bool bo_reuse:1;
+   bool use_global_vm:1;
 
    struct intel_aux_map_context *aux_map_ctx;
 
@@ -1681,6 +1685,18 @@ iris_create_hw_context(struct iris_bufmgr *bufmgr)
    };
    intel_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM, &p);
 
+   if (bufmgr->use_global_vm) {
+      p.param = I915_CONTEXT_PARAM_VM;
+      p.value = bufmgr->global_vm_id;
+      ret = intel_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM, &p);
+      if (ret != 0) {
+         DBG("DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM failed: %s\n",
+             strerror(errno));
+         iris_destroy_hw_context(bufmgr, create.ctx_id);
+         return 0;
+      }
+   }
+
    return create.ctx_id;
 }
 
@@ -1851,6 +1867,23 @@ iris_bufmgr_query_meminfo(struct iris_bufmgr *bufmgr)
    return true;
 }
 
+static void
+iris_bufmgr_init_global_vm(int fd, struct iris_bufmgr *bufmgr)
+{
+   struct drm_i915_gem_context_param gcp = {
+      .ctx_id = 0,
+      .param = I915_CONTEXT_PARAM_VM,
+   };
+
+   if (intel_ioctl(fd, DRM_IOCTL_I915_GEM_CONTEXT_GETPARAM, &gcp)) {
+      bufmgr->use_global_vm = false;
+      bufmgr->global_vm_id = 0;
+   } else {
+      bufmgr->use_global_vm = true;
+      bufmgr->global_vm_id = gcp.value;
+   }
+}
+
 /**
  * Initializes the GEM buffer manager, which uses the kernel to allocate, map,
  * and manage map buffer objections.
@@ -1883,6 +1916,8 @@ iris_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
 
    simple_mtx_init(&bufmgr->lock, mtx_plain);
    simple_mtx_init(&bufmgr->bo_deps_lock, mtx_plain);
+
+   iris_bufmgr_init_global_vm(fd, bufmgr);
 
    list_inithead(&bufmgr->zombie_list);
 
