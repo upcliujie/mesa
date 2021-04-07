@@ -1085,7 +1085,7 @@ update_from_topology(struct intel_device_info *devinfo,
 
    if (devinfo->ver >= 11) {
       /* On current ICL+ hardware we only have one slice. */
-      assert(devinfo->slice_masks == 1);
+      assert(devinfo->slice_masks == 1 || devinfo->verx10 >= 125);
 
       /* Count the number of subslices on each pixel pipe. Assume that every
        * contiguous group of 4 subslices in the mask belong to the same pixel
