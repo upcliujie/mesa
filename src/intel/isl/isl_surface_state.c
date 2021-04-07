@@ -742,7 +742,7 @@ isl_genX(surf_fill_state_s)(const struct isl_device *dev, void *state,
 
    if (isl_aux_usage_has_fast_clears(info->aux_usage)) {
       if (info->use_clear_address) {
-#if GFX_VER >= 10
+#if GFX_VER >= 11
          s.ClearValueAddressEnable = true;
          s.ClearValueAddress = info->clear_address;
 #else
