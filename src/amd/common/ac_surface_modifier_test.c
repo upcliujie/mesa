@@ -43,6 +43,9 @@ struct test_entry {
 
    /* u_vector requires power of two sizing */
    char padding[8];
+#ifdef PIPE_ARCH_X86
+   char padding2[8];
+#endif
 };
 
 static uint64_t
@@ -395,6 +398,8 @@ static void print_test_entry(const struct test_entry *e)
 
 int main()
 {
+   STATIC_ASSERT(sizeof(struct test_entry) == 64);
+
    struct u_vector test_entries;
    u_vector_init(&test_entries,  util_next_power_of_two(sizeof(struct test_entry)), 4096);
 
