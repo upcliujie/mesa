@@ -135,7 +135,7 @@ void *gfx9_create_clear_dcc_msaa_cs(struct si_context *sctx, struct si_texture *
                                  dcc_pitch, dcc_height, zero, /* DCC slice size */
                                  nir_channel(&b, coord, 0), nir_channel(&b, coord, 1), /* x, y */
                                  tex->buffer.b.b.array_size > 1 ? nir_channel(&b, coord, 2) : zero, /* z */
-                                 zero, zero); /* z, sample, pipe_xor */
+                                 zero, zero); /* z, sample, pipe_xor */ // TODO: pipe_xor
 
    /* The trick here is that DCC elements for an even and the next odd sample are next to each other
     * in memory, so we only need to compute the address for sample 0 and the next DCC byte is always
