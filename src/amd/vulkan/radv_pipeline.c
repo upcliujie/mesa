@@ -44,6 +44,7 @@
 #include "ac_llvm_util.h"
 #include "ac_nir_to_llvm.h"
 #include "ac_shader_util.h"
+#include "aco_interface.h"
 #include "sid.h"
 #include "vk_format.h"
 
