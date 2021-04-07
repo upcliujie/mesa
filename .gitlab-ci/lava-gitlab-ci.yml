@@ -146,6 +146,8 @@ kernel+rootfs_armhf:
     - meson-testing
 
 .lava-traces-base:
+  variables:
+    LAVA_TEST_SCRIPT: "/install/piglit/run.sh"
   after_script:
     - mkdir -p artifacts
     - wget -O "artifacts/junit.xml" "https://minio-packet.freedesktop.org/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/${CI_JOB_ID}/traces/junit.xml"
@@ -156,7 +158,7 @@ kernel+rootfs_armhf:
 .lava-piglit:
   variables:
     TEST_SUITE: "piglit"
-    LAVA_TEST_SCRIPT: "/install/piglit/run.sh"
+    LAVA_TEST_SCRIPT: "/install/piglit/piglit-runner.sh"
 
 .lava-piglit-traces:amd64:
   extends:
@@ -175,3 +177,18 @@ kernel+rootfs_armhf:
     - .lava-test:arm64
     - .lava-piglit
     - .lava-traces-base
+
+.lava-piglit:amd64:
+  extends:
+    - .lava-test:amd64
+    - .lava-piglit
+
+.lava-piglit:armhf:
+  extends:
+    - .lava-test:armhf
+    - .lava-piglit
+
+.lava-piglit:arm64:
+  extends:
+    - .lava-test:arm64
+    - .lava-piglit
