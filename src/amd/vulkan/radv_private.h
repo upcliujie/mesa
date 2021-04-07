@@ -835,6 +835,12 @@ struct radv_device {
 
    /* Whether the user forced VRS rates on GFX10.3+. */
    enum radv_force_vrs force_vrs;
+
+   /* Depth image for VRS when not bound by the app. */
+   struct {
+      struct radv_image *image;
+      struct radv_device_memory *mem;
+   } vrs;
 };
 
 VkResult _radv_device_set_lost(struct radv_device *device, const char *file, int line,
