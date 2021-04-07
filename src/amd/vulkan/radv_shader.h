@@ -39,11 +39,12 @@
 #include "vulkan/util/vk_shader_module.h"
 #include "vulkan/vulkan.h"
 
-#include "aco_interface.h"
-
 #define RADV_VERT_ATTRIB_MAX MAX2(VERT_ATTRIB_MAX, VERT_ATTRIB_GENERIC0 + MAX_VERTEX_ATTRIBS)
 
 struct radv_device;
+struct radv_pipeline;
+struct radv_pipeline_cache;
+struct radv_pipeline_key;
 
 struct radv_vs_out_key {
    uint32_t as_es : 1;

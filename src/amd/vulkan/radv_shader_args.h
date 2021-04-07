@@ -23,6 +23,7 @@
 
 #include "compiler/shader_enums.h"
 #include "util/list.h"
+#include "util/macros.h"
 #include "ac_shader_args.h"
 #include "amd_family.h"
 #include "radv_constants.h"
