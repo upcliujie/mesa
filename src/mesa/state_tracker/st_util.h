@@ -112,12 +112,7 @@ st_point_size_per_vertex(struct gl_context *ctx)
             /* generated program which emits point size */
             return true;
          }
-      }
-      else if (ctx->API != API_OPENGLES2) {
-         /* PointSizeEnabled is always set in ES2 contexts */
-         return ctx->VertexProgram.PointSizeEnabled;
-      }
-      else {
+      } else {
          /* ST_NEW_TESSEVAL_PROGRAM | ST_NEW_GEOMETRY_PROGRAM */
          /* We have to check the last bound stage and see if it writes psize */
          struct gl_program *last = NULL;
