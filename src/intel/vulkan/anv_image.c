@@ -2382,21 +2382,19 @@ anv_CreateImageView(VkDevice _device,
     */
    uint32_t vplane = 0;
    anv_foreach_image_aspect_bit(iaspect_bit, image, expanded_aspects) {
-      uint32_t iplane =
-         anv_image_aspect_to_plane(image->aspects, 1UL << iaspect_bit);
-
-      if (conv_format != NULL &&
-          anv_is_y_plane_and_uv_plane_same_memory(conv_format->vk_format)) {
-         iplane = 0;
-      }
-
       VkImageAspectFlags vplane_aspect =
          anv_plane_to_aspect(iview->aspect_mask, vplane);
       struct anv_format_plane format =
          anv_get_format_plane(&device->info, iview->vk_format,
                               vplane_aspect, image->tiling);
 
-      iview->planes[vplane].image_plane = iplane;
+      if (conv_format != NULL &&
+          anv_is_y_plane_and_uv_plane_same_memory(conv_format->vk_format)) {
+         iview->planes[vplane].image_plane = 0;
+      } else {
+         iview->planes[vplane].image_plane =
+            anv_image_aspect_to_plane(image->aspects, 1UL << iaspect_bit);
+      }
 
       iview->planes[vplane].isl = (struct isl_view) {
          .format = format.isl_format,
