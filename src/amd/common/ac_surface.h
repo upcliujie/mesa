@@ -329,6 +329,7 @@ struct radeon_surf {
    uint32_t htile_size;
    uint32_t htile_slice_size;
    uint32_t htile_alignment;
+   uint32_t htile_pitch;
    uint32_t num_htile_levels : 4;
 
    uint32_t cmask_size;
