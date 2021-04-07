@@ -2773,27 +2773,6 @@ vk_priority_to_gen(int priority)
    }
 }
 
-static VkResult
-anv_device_init_hiz_clear_value_bo(struct anv_device *device)
-{
-   VkResult result = anv_device_alloc_bo(device, "hiz-clear-value", 4096,
-                                         ANV_BO_ALLOC_MAPPED,
-                                         0 /* explicit_address */,
-                                         &device->hiz_clear_bo);
-   if (result != VK_SUCCESS)
-      return result;
-
-   union isl_color_value hiz_clear = { .u32 = { 0, } };
-   hiz_clear.f32[0] = ANV_HZ_FC_VAL;
-
-   memcpy(device->hiz_clear_bo->map, hiz_clear.u32, sizeof(hiz_clear.u32));
-
-   if (!device->info.has_llc)
-      gen_clflush_range(device->hiz_clear_bo->map, sizeof(hiz_clear.u32));
-
-   return VK_SUCCESS;
-}
-
 static bool
 get_bo_from_pool(struct intel_batch_decode_bo *ret,
                  struct anv_block_pool *pool,
@@ -3256,12 +3235,6 @@ VkResult anv_CreateDevice(
                        isl_extent3d(1, 1, 1) /* This shouldn't matter */);
    assert(device->null_surface_state.offset == 0);
 
-   if (device->info.ver >= 10) {
-      result = anv_device_init_hiz_clear_value_bo(device);
-      if (result != VK_SUCCESS)
-         goto fail_trivial_batch_bo;
-   }
-
    anv_scratch_pool_init(device, &device->scratch_pool);
 
    result = anv_genX(&device->info, init_device_state)(device);
@@ -3282,8 +3255,6 @@ VkResult anv_CreateDevice(
    return VK_SUCCESS;
 
  fail_clear_value_bo:
-   if (device->info.ver >= 10)
-      anv_device_release_bo(device, device->hiz_clear_bo);
    anv_scratch_pool_finish(device, &device->scratch_pool);
  fail_trivial_batch_bo:
    anv_device_release_bo(device, device->trivial_batch_bo);
@@ -3363,8 +3334,6 @@ void anv_DestroyDevice(
 
    anv_device_release_bo(device, device->workaround_bo);
    anv_device_release_bo(device, device->trivial_batch_bo);
-   if (device->info.ver >= 10)
-      anv_device_release_bo(device, device->hiz_clear_bo);
 
    if (device->info.has_aux_map) {
       intel_aux_map_finish(device->aux_map_ctx);
