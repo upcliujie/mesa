@@ -138,7 +138,7 @@ struct intel_device_info
    /**
     * Number of subslices for each slice (used to be uniform until CNL).
     */
-   unsigned num_subslices[INTEL_DEVICE_MAX_SUBSLICES];
+   unsigned num_subslices[INTEL_DEVICE_MAX_SLICES];
 
    /**
     * Number of subslices on each pixel pipe (ICL).
