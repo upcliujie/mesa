@@ -77,14 +77,14 @@ void GpuDataSource::OnSetup(const SetupArgs &args)
    if (config.has_counter_period_ns()) {
       auto requested_sampling_period = std::chrono::nanoseconds(config.counter_period_ns());
       if (requested_sampling_period < min_sampling_period) {
-         PPS_LOG_ERROR("Sampling period should be greater than %lu ns (%.2f ms)",
+         PPS_LOG_ERROR("Sampling period should be greater than %" PRIu64 " ns (%.2f ms)",
             min_sampling_period.count(),
             ms(min_sampling_period));
       } else {
          time_to_sleep = requested_sampling_period;
       }
    }
-   PPS_LOG("Sampling period set to %lu ns", time_to_sleep.count());
+   PPS_LOG("Sampling period set to %" PRIu64 " ns", time_to_sleep.count());
 
    PPS_LOG("Initialization finished");
 }
