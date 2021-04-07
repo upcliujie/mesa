@@ -205,6 +205,17 @@ struct gfx9_dcc_equation {
    } u;
 };
 
+struct gfx10_htile_equation {
+   uint16_t meta_block_width;
+   uint16_t meta_block_height;
+
+   /* The gfx10 HTILE equation is chip-specific, it varies with:
+    * - rbplus
+    * - pipe_aligned
+    */
+   uint16_t gfx10_bits[72];
+};
+
 struct gfx9_surf_layout {
    struct gfx9_surf_flags surf;    /* color or depth surface */
    struct gfx9_surf_flags fmask;   /* not added to surf_size */
@@ -263,6 +274,9 @@ struct gfx9_surf_layout {
    /* For DCC retiling. */
    struct gfx9_dcc_equation dcc_equation; /* 2D only */
    struct gfx9_dcc_equation display_dcc_equation;
+
+   /* For HTILE VRS. */
+   struct gfx10_htile_equation htile_equation;
 };
 
 struct radeon_surf {
