@@ -1135,7 +1135,7 @@ generate_fs_loop(struct gallivm_state *gallivm,
       /*
        * Clamp according to ARB_depth_clamp semantics.
        */
-      if (key->depth_clamp) {
+      if (key->depth_clamp || zs_format_desc->is_unorm) {
          z = lp_build_depth_clamp(gallivm, builder, type, context_ptr,
                                   thread_data_ptr, z);
       }
@@ -3979,20 +3979,8 @@ make_variant_key(struct llvmpipe_context *lp,
     * Propagate the depth clamp setting from the rasterizer state.
     * depth_clip == 0 implies depth clamping is enabled.
     *
-    * When clip_halfz is enabled, then always clamp the depth values.
-    *
-    * XXX: This is incorrect for GL, but correct for d3d10 (depth
-    * clamp is always active in d3d10, regardless if depth clip is
-    * enabled or not).
-    * (GL has an always-on [0,1] clamp on fs depth output instead
-    * to ensure the depth values stay in range. Doesn't look like
-    * we do that, though...)
     */
-   if (lp->rasterizer->clip_halfz) {
-      key->depth_clamp = 1;
-   } else {
-      key->depth_clamp = (lp->rasterizer->depth_clip_near == 0) ? 1 : 0;
-   }
+   key->depth_clamp = (lp->rasterizer->depth_clip_near == 0) ? 1 : 0;
 
    /* alpha test only applies if render buffer 0 is non-integer (or does not exist) */
    if (!lp->framebuffer.nr_cbufs ||
