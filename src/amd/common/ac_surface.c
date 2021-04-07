@@ -2930,3 +2930,54 @@ nir_ssa_def *ac_nir_dcc_addr_from_coord(nir_builder *b, const struct radeon_info
                       nir_ishl(b, pipeXor, nir_imm_int(b, m_pipeInterleaveLog2)));
    }
 }
+
+nir_ssa_def *ac_nir_htile_addr_from_coord(nir_builder *b, const struct radeon_info *info,
+                                          const struct gfx10_htile_equation *equation,
+                                          nir_ssa_def *htile_pitch,
+                                          nir_ssa_def *htile_slice_size,
+                                          nir_ssa_def *x, nir_ssa_def *y, nir_ssa_def *z,
+                                          nir_ssa_def *pipe_xor)
+{
+   nir_ssa_def *zero = nir_imm_int(b, 0);
+   nir_ssa_def *one = nir_imm_int(b, 1);
+
+   assert(info->chip_class >= GFX10);
+
+   unsigned meta_block_width_log2 = util_logbase2(equation->meta_block_width);
+   unsigned meta_block_height_log2 = util_logbase2(equation->meta_block_height);
+   unsigned blkSizeLog2 = meta_block_width_log2 + meta_block_height_log2 - 4;
+
+   nir_ssa_def *coord[] = {x, y, z, 0};
+   nir_ssa_def *address = zero;
+
+   for (unsigned i = 0; i < blkSizeLog2 + 1; i++) {
+      nir_ssa_def *v = zero;
+
+      for (unsigned c = 0; c < 4; c++) {
+         unsigned index = i * 4 + c;
+         if (equation->gfx10_bits[index]) {
+            unsigned mask = equation->gfx10_bits[index];
+            nir_ssa_def *bits = coord[c];
+
+            while (mask)
+               v = nir_ixor(b, v, nir_iand(b, nir_ushr_imm(b, bits, u_bit_scan(&mask)), one));
+         }
+      }
+
+      address = nir_ior(b, address, nir_ishl(b, v, nir_imm_int(b, i)));
+   }
+
+   unsigned blkMask = (1 << blkSizeLog2) - 1;
+   unsigned pipeMask = (1 << G_0098F8_NUM_PIPES(info->gb_addr_config)) - 1;
+   unsigned m_pipeInterleaveLog2 = 8 + G_0098F8_PIPE_INTERLEAVE_SIZE_GFX9(info->gb_addr_config);
+   nir_ssa_def *xb = nir_ushr_imm(b, x, meta_block_width_log2);
+   nir_ssa_def *yb = nir_ushr_imm(b, y, meta_block_height_log2);
+   nir_ssa_def *pb = nir_ushr_imm(b, htile_pitch, meta_block_width_log2);
+   nir_ssa_def *blkIndex = nir_iadd(b, nir_imul(b, yb, pb), xb);
+   nir_ssa_def *pipeXor = nir_iand_imm(b, nir_ishl(b, nir_iand_imm(b, pipe_xor, pipeMask),
+                                                   nir_imm_int(b, m_pipeInterleaveLog2)), blkMask);
+
+   return nir_iadd(b, nir_iadd(b, nir_imul(b, htile_slice_size, z),
+                               nir_imul(b, blkIndex, nir_ishl(b, one, nir_imm_int(b, blkSizeLog2)))),
+                   nir_ixor(b, nir_ushr(b, address, one), pipeXor));
+}
