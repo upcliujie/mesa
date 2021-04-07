@@ -498,6 +498,16 @@ util_format_is_xbgr(enum pipe_format format)
    return false;
 }
 
+static inline bool
+util_format_is_rgbx(enum pipe_format format)
+{
+   const struct util_format_description *desc = util_format_description(format);
+   return desc->layout == UTIL_FORMAT_LAYOUT_PLAIN &&
+          (desc->block.bits == 32 || desc->block.bits == 64) &&
+          desc->nr_channels == 4 &&
+          desc->channel[3].type == UTIL_FORMAT_TYPE_VOID;
+}
+
 /**
  * Whether this format is plain, see UTIL_FORMAT_LAYOUT_PLAIN for more info.
  */
