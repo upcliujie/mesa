@@ -3184,14 +3184,9 @@ lower_bit_size_callback(const nir_instr *instr, void *_)
 		switch (alu->op) {
 		case nir_op_iabs:
 		case nir_op_bitfield_select:
-		case nir_op_udiv:
-		case nir_op_idiv:
-		case nir_op_umod:
-		case nir_op_imod:
 		case nir_op_imul_high:
 		case nir_op_umul_high:
 		case nir_op_ineg:
-		case nir_op_irem:
 		case nir_op_isign:
 			return 32;
 		case nir_op_imax:
@@ -3388,6 +3383,11 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 	}
 
 	for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
+		if (radv_can_dump_shader(device, modules[i], false))
+			nir_print_shader(nir[i], stderr);
+	}
+
+	for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
 		if (nir[i]) {
 			radv_start_feedback(stage_feedbacks[i]);
 
@@ -3438,7 +3438,11 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 			/* TODO: Implement nir_op_uadd_sat with LLVM. */
 			if (!radv_use_llvm_for_stage(device, i))
 				nir_opt_idiv_const(nir[i], 8);
-			nir_lower_idiv(nir[i], nir_lower_idiv_precise);
+
+			nir_lower_idiv(nir[i], &(nir_lower_idiv_options) {
+				.path = nir_lower_idiv_precise,
+				.allow_fp16 = true,
+			});
 
 			nir_opt_sink(nir[i], nir_move_load_input | nir_move_const_undef | nir_move_copies);
 			nir_opt_move(nir[i], nir_move_load_input | nir_move_const_undef | nir_move_copies);
@@ -3483,9 +3487,6 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 				}
 
 				if (nir_lower_bit_size(nir[i], lower_bit_size_callback, device)) {
-					// TODO: lower idiv beforehand
-					if (nir_lower_idiv(nir[i], nir_lower_idiv_precise))
-						NIR_PASS_V(nir[i], nir_opt_algebraic_late); /* needed for removing ineg again */
 					NIR_PASS_V(nir[i], nir_opt_constant_folding);
 					NIR_PASS_V(nir[i], nir_opt_dce);
 				}
@@ -3506,11 +3507,6 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 
 			radv_stop_feedback(stage_feedbacks[i], false);
 		}
-	}
-
-	for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
-		if (radv_can_dump_shader(device, modules[i], false))
-			nir_print_shader(nir[i], stderr);
 	}
 
 	radv_fill_shader_keys(device, keys, pipeline_key, nir);
