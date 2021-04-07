@@ -47,7 +47,7 @@ config_sources = [
   'pps_config.cc'
 ]
 
-dep_docopt = dependency('docopt')
+dep_docopt = dependency('docopt', required: false)
 
 if dep_docopt.found()
   executable(
