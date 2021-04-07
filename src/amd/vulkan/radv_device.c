@@ -2652,6 +2652,89 @@ radv_device_finish_border_color(struct radv_device *device)
    }
 }
 
+static VkResult
+radv_device_init_vrs_image(struct radv_device *device)
+{
+   /* FIXME: 4k depth buffers should be large enough for now but we might want to adjust this
+    * dynamically at some point. Also, it's probably better to use S8_UINT but no HTILE support yet.
+    */
+   uint32_t width = 4096, height = 4096;
+   VkMemoryRequirements2 mem_req;
+   VkDeviceMemory mem;
+   VkResult result;
+   VkImage image;
+
+   VkImageCreateInfo image_create_info = {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+      .imageType = VK_IMAGE_TYPE_2D,
+      .format = VK_FORMAT_D16_UNORM,
+      .extent = {width, height, 1},
+      .mipLevels = 1,
+      .arrayLayers = 1,
+      .samples = VK_SAMPLE_COUNT_1_BIT,
+      .tiling = VK_IMAGE_TILING_OPTIMAL,
+      .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      .queueFamilyIndexCount = 0,
+      .pQueueFamilyIndices = NULL,
+      .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+   };
+
+   result = radv_CreateImage(radv_device_to_handle(device), &image_create_info,
+                             &device->meta_state.alloc, &image);
+   if (result != VK_SUCCESS)
+      return result;
+
+   VkImageMemoryRequirementsInfo2 image_mem_info = {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
+      .image = image,
+   };
+
+   radv_GetImageMemoryRequirements2(radv_device_to_handle(device), &image_mem_info, &mem_req);
+
+   VkMemoryAllocateInfo alloc_info = {
+      .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+      .allocationSize = mem_req.memoryRequirements.size,
+   };
+
+   result = radv_AllocateMemory(radv_device_to_handle(device), &alloc_info,
+                                &device->meta_state.alloc, &mem);
+   if (result != VK_SUCCESS)
+      goto fail_alloc;
+
+   VkBindImageMemoryInfo bind_info = {
+      .sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,
+      .image = image,
+      .memory = mem,
+      .memoryOffset = 0,
+   };
+
+   result = radv_BindImageMemory2(radv_device_to_handle(device), 1, &bind_info);
+   if (result != VK_SUCCESS)
+      goto fail_bind;
+
+   device->vrs.image = radv_image_from_handle(image);
+   device->vrs.mem = radv_device_memory_from_handle(mem);
+
+   return VK_SUCCESS;
+
+fail_bind:
+   radv_FreeMemory(radv_device_to_handle(device), mem, &device->meta_state.alloc);
+fail_alloc:
+   radv_DestroyImage(radv_device_to_handle(device), image, &device->meta_state.alloc);
+
+   return result;
+}
+
+static void
+radv_device_finish_vrs_image(struct radv_device *device)
+{
+   radv_FreeMemory(radv_device_to_handle(device), radv_device_memory_to_handle(device->vrs.mem),
+                   &device->meta_state.alloc);
+   radv_DestroyImage(radv_device_to_handle(device), radv_image_to_handle(device->vrs.image),
+                     &device->meta_state.alloc);
+}
+
 VkResult
 _radv_device_set_lost(struct radv_device *device, const char *file, int line, const char *msg, ...)
 {
@@ -2973,6 +3056,12 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
          goto fail;
    }
 
+   if (attachment_vrs_enabled) {
+      result = radv_device_init_vrs_image(device);
+      if (result != VK_SUCCESS)
+         goto fail;
+   }
+
    for (int family = 0; family < RADV_MAX_QUEUE_FAMILIES; ++family) {
       device->empty_cs[family] = device->ws->cs_create(device->ws, family);
       if (!device->empty_cs[family])
@@ -3040,6 +3129,7 @@ fail:
       device->ws->buffer_destroy(device->ws, device->gfx_init);
 
    radv_device_finish_border_color(device);
+   radv_device_finish_vrs_image(device);
 
    for (unsigned i = 0; i < RADV_MAX_QUEUE_FAMILIES; i++) {
       for (unsigned q = 0; q < device->queue_count[i]; q++)
@@ -3070,6 +3160,7 @@ radv_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
       device->ws->buffer_destroy(device->ws, device->gfx_init);
 
    radv_device_finish_border_color(device);
+   radv_device_finish_vrs_image(device);
 
    for (unsigned i = 0; i < RADV_MAX_QUEUE_FAMILIES; i++) {
       for (unsigned q = 0; q < device->queue_count[i]; q++)
