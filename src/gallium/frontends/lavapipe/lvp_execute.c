@@ -438,7 +438,7 @@ static void handle_graphics_pipeline(struct lvp_cmd_buffer_entry *cmd,
    /* rasterization state */
    if (pipeline->graphics_create_info.pRasterizationState) {
       const VkPipelineRasterizationStateCreateInfo *rsc = pipeline->graphics_create_info.pRasterizationState;
-      state->rs_state.depth_clip_near = state->rs_state.depth_clip_far = !rsc->depthClampEnable;
+      state->rs_state.depth_clip_near = state->rs_state.depth_clip_far = rsc->depthClampEnable;
       state->rs_state.rasterizer_discard = rsc->rasterizerDiscardEnable;
 
 
