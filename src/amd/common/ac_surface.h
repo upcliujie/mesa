@@ -214,6 +214,17 @@ struct gfx9_dcc_equation {
    } u;
 };
 
+struct gfx10_htile_equation {
+   uint16_t meta_block_width;
+   uint16_t meta_block_height;
+
+   /* The gfx10 HTILE equation is chip-specific, it varies with:
+    * - rbplus
+    * - pipe_aligned
+    */
+   uint16_t gfx10_bits[72];
+};
+
 struct gfx9_surf_layout {
    uint16_t epitch;           /* gfx9 only, not on gfx10 */
    uint8_t swizzle_mode;      /* color or depth */
@@ -281,6 +292,9 @@ struct gfx9_surf_layout {
          uint64_t stencil_offset; /* separate stencil */
          uint16_t stencil_epitch;   /* gfx9 only, not on gfx10 */
          uint8_t stencil_swizzle_mode;
+
+         /* For HTILE VRS. */
+         struct gfx10_htile_equation htile_equation;
       } zs;
    };
 };
