@@ -4208,11 +4208,14 @@ void anv_GetBufferMemoryRequirements2(
     * 32-bits to avoid boundary checks when last DWord is not complete.
     * This would ensure that not internal padding would be needed for
     * 16-bit types.
+    *
+    * From the BDW PRM Vol. 2d: docs for RENDER_SURFACE_STATE::Width:
+    *
+    *   "For SURFTYPE_BUFFER: The low two bits of this field must be 11 if the
+    *    Surface Format is RAW (the size of the buffer must be a multiple of 4
+    *    bytes)."
     */
-   if (device->robust_buffer_access &&
-       (buffer->usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ||
-        buffer->usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
-      pMemoryRequirements->memoryRequirements.size = align_u64(buffer->size, 4);
+   pMemoryRequirements->memoryRequirements.size = align_u64(buffer->size, 4);
 
    pMemoryRequirements->memoryRequirements.memoryTypeBits = memory_types;
 
@@ -4456,7 +4459,7 @@ anv_fill_buffer_surface_state(struct anv_device *device, struct anv_state state,
                          .address = anv_address_physical(address),
                          .mocs = isl_mocs(&device->isl_dev, usage,
                                           address.bo && address.bo->is_external),
-                         .size_B = range,
+                         .size_B = align_u64(range, 4),
                          .format = format,
                          .swizzle = ISL_SWIZZLE_IDENTITY,
                          .stride_B = stride);
