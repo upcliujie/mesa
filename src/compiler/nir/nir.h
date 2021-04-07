@@ -4870,7 +4870,12 @@ enum nir_lower_idiv_path {
    nir_lower_idiv_precise,
 };
 
-bool nir_lower_idiv(nir_shader *shader, enum nir_lower_idiv_path path);
+typedef struct {
+   enum nir_lower_idiv_path path;
+   bool allow_fp16;
+} nir_lower_idiv_options;
+
+bool nir_lower_idiv(nir_shader *shader, const nir_lower_idiv_options *options);
 
 typedef struct nir_input_attachment_options {
    bool use_fragcoord_sysval;
