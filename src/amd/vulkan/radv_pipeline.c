@@ -3436,7 +3436,7 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 
 			nir_lower_idiv(nir[i], &(nir_lower_idiv_options) {
 				.path = nir_lower_idiv_precise,
-				.allow_fp16 = true,
+				.allow_fp16 = device->physical_device->rad_info.chip_class >= GFX9,
 			});
 
 			nir_opt_sink(nir[i], nir_move_load_input | nir_move_const_undef | nir_move_copies);
