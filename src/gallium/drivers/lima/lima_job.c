@@ -99,6 +99,7 @@ lima_job_create(struct lima_context *ctx)
 
    s->damage_rect.minx = s->damage_rect.miny = 0xffff;
    s->damage_rect.maxx = s->damage_rect.maxy = 0;
+   s->draws = 0;
 
    s->clear.depth = 0x00ffffff;
 
@@ -377,14 +378,28 @@ lima_pack_reload_plbu_cmd(struct lima_job *job, struct pipe_surface *psurf)
    if (util_format_is_depth_or_stencil(psurf->format)) {
       reload_render_state.alpha_blend &= 0x0fffffff;
       reload_render_state.depth_test |= 0x400;
-      if (surf->reload & PIPE_CLEAR_DEPTH)
+      if (surf->reload & PIPE_CLEAR_DEPTH) {
          reload_render_state.depth_test |= 0x801;
+         /* If we hit max draws per job limit we need to resolve the buffer
+          * to preserve intermediate state */
+         if (job->draws > MAX_DRAWS_PER_JOB)
+            job->resolve |= PIPE_CLEAR_DEPTH;
+      }
       if (surf->reload & PIPE_CLEAR_STENCIL) {
          reload_render_state.depth_test |= 0x1000;
          reload_render_state.stencil_front = 0x0000024f;
          reload_render_state.stencil_back = 0x0000024f;
          reload_render_state.stencil_test = 0x0000ffff;
+         /* If we hit max draws per job limit we need to resolve the buffer
+          * to preserve intermediate */
+         if (job->draws > MAX_DRAWS_PER_JOB)
+            job->resolve |= PIPE_CLEAR_STENCIL;
       }
+   } else {
+         /* If we hit max draws per job limit we need to resolve the buffer
+          * to preserve intermediate state */
+         if (job->draws > MAX_DRAWS_PER_JOB)
+            job->resolve |= PIPE_CLEAR_COLOR0;
    }
 
    memcpy(cpu + lima_reload_render_state_offset, &reload_render_state,
