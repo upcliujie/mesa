@@ -405,37 +405,20 @@ copperCreateScreen(int screen, struct glx_display *priv)
    extensions = vkscr->core->getExtensions(vkscr->driScreen);
    copperBindExtensions(vkscr, extensions);
 
-   /* XXX
-    *
-    * so this next bit about driver configs needs to be handled
-    * for real for just a whole bunch of reasons, and the current
-    * API is backwards. what we're going to do is call down to
-    * the driver with a struct gl_config corresponding to the
-    * fbconfig; the driver can either accept it - possibly
-    * modifying it in place to disable unsupported features -
-    * or reject it as unsupportable.
-    *
-    * until you have that, mesa/st can't figure out the pixel
-    * format for the framebuffer attachments, and MakeCurrent will
-    * fail, so nothing will ever try to allocate the fb attachments
-    * that correspond to the swapchain...
-    */
-   configs = vkscr->base.configs;
-   visuals = vkscr->base.visuals;
+   configs = driConvertConfigs(vkscr->core, vkscr->base.configs, driver_configs);
+   visuals = driConvertConfigs(vkscr->core, vkscr->base.configs, driver_configs);
 
    if (!configs || !visuals) {
        ErrorMessageF("No matching fbConfigs or visuals found\n");
        goto handle_error;
    }
 
-#if 0
    glx_config_destroy_list(vkscr->base.configs);
    vkscr->base.configs = configs;
    glx_config_destroy_list(vkscr->base.visuals);
    vkscr->base.visuals = visuals;
-#endif
 
-   // vkscr->driver_configs = driver_configs;
+   vkscr->driver_configs = driver_configs;
 
    vkscr->base.vtable = &copper_screen_vtable;
    psp = &vkscr->vtable;

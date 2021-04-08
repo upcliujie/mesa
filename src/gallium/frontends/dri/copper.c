@@ -185,7 +185,7 @@ copper_allocate_textures(struct dri_context *ctx,
 static void
 copper_update_drawable_info(struct dri_drawable *drawable)
 {
-   *(int *)0 = 0;
+   /* swrast turns this into just XGetGeometry */
 }
 
 static void

@@ -62,6 +62,9 @@ struct copper_screen
    const __DRIcoreExtension *core;
    const __DRIimageDriverExtension *image;
    const __DRIcopperExtension *copper;
+
+   const __DRIconfig **driver_configs;
+
    VkInstance instance;
    // VkPhysicalDevice pdev;
 };
