@@ -1604,6 +1604,8 @@ if with_llvm
 
   if draw_with_llvm
     pre_args += '-DDRAW_LLVM_AVAILABLE'
+  elif with_swrast_vk
+    error('Lavapipe requires LLVM draw support.')
   elif with_gallium_swr
     error('SWR requires LLVM draw support.')
   endif
