@@ -4886,6 +4886,55 @@ radv_cmd_buffer_begin_subpass(struct radv_cmd_buffer *cmd_buffer, uint32_t subpa
       radv_handle_subpass_image_transition(cmd_buffer, subpass->attachments[i], true);
    }
 
+   if (subpass->vrs_attachment) {
+      int idx = subpass->vrs_attachment->attachment;
+      struct radv_image_view *vrs_iview = cmd_buffer->state.attachments[idx].iview;
+      struct radv_image *dst_image;
+      VkExtent2D extent;
+
+      if (subpass->depth_stencil_attachment) {
+         /* When a subpass uses a VRS attachment and a depth/stencil attachment, we just need to
+          * copy the VRS rates to the HTILE buffer of the attachment.
+          */
+         int ds_idx = subpass->depth_stencil_attachment->attachment;
+         struct radv_image_view *ds_iview = cmd_buffer->state.attachments[ds_idx].iview;
+
+         dst_image = ds_iview->image;
+         extent.width = ds_iview->image->info.width;
+         extent.height = ds_iview->image->info.height;
+      } else {
+         /* When a subpass uses a VRS attachment without binding a depth/stencil attachment, we have
+          * to copy the VRS rates to our internal HTILE buffer.
+          */
+         struct radv_framebuffer *fb = cmd_buffer->state.framebuffer;
+         struct radv_image *ds_image = cmd_buffer->device->vrs.image;
+         uint32_t htile_value = radv_get_htile_initial_value(cmd_buffer->device, ds_image);
+
+         /* If we hit this we are in big troubles... */
+         assert(fb->width <= ds_image->info.width && fb->height <= ds_image->info.height);
+
+         dst_image = ds_image;
+         extent.width = fb->width,
+         extent.height = fb->height;
+
+         /* Clear the HTILE buffer before copying VRS rates because it's a read-modify-write
+          * operation.
+          */
+         VkImageSubresourceRange range = {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+         };
+
+         cmd_buffer->state.flush_bits |= radv_clear_htile(cmd_buffer, ds_image, &range, htile_value);
+      }
+
+      /* Copy the VRS rates to the HTILE buffer. */
+      radv_copy_vrs_htile(cmd_buffer, vrs_iview->image, &extent, dst_image);
+   }
+
    radv_describe_barrier_end(cmd_buffer);
 
    radv_cmd_buffer_clear_subpass(cmd_buffer);
