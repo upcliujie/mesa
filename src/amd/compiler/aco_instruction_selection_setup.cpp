@@ -390,7 +390,8 @@ setup_vs_variables(isel_context *ctx, nir_shader *nir)
          assert(!ctx->args->shader_info->so.num_outputs);
 
       /* TODO: check if the shader writes edge flags (not in Vulkan) */
-      ctx->ngg_nogs_early_prim_export = true;
+      nir_function_impl *entrypoint = nir_shader_get_entrypoint(nir);
+      ctx->ngg_nogs_early_prim_export = entrypoint->num_blocks <= 1;
    }
 
    if (ctx->stage == vertex_ngg && ctx->args->options->key.vs_common_out.export_prim_id) {
@@ -461,8 +462,8 @@ setup_tes_variables(isel_context *ctx, nir_shader *nir)
       if (ctx->stage.hw == HWStage::NGG)
          assert(!ctx->args->shader_info->so.num_outputs);
 
-      /* Tess eval shaders can't write edge flags, so this can be always true. */
-      ctx->ngg_nogs_early_prim_export = true;
+      nir_function_impl *entrypoint = nir_shader_get_entrypoint(nir);
+      ctx->ngg_nogs_early_prim_export = entrypoint->num_blocks <= 1;
    }
 }
 
