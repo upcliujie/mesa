@@ -49,6 +49,12 @@ struct hash_table;
 #define ZINK_DEBUG_TGSI 0x4
 #define ZINK_DEBUG_VALIDATION 0x8
 
+
+struct zink_modifier_prop {
+    uint32_t                             drmFormatModifierCount;
+    VkDrmFormatModifierPropertiesEXT*    pDrmFormatModifierProperties;
+};
+
 struct zink_screen {
    struct pipe_screen base;
    bool threaded;
@@ -167,6 +173,7 @@ struct zink_screen {
    PFN_vkGetImageDrmFormatModifierPropertiesEXT vk_GetImageDrmFormatModifierPropertiesEXT;
 
    VkFormatProperties format_props[PIPE_FORMAT_COUNT];
+   struct zink_modifier_prop modifier_props[PIPE_FORMAT_COUNT];
    struct {
       uint32_t image_view;
       uint32_t buffer_view;
