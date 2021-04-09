@@ -824,7 +824,9 @@ check_memory_range_s(const struct check_memory_range_params *p)
 
    assert(test_range->binding == p->expect_binding);
    assert(test_range->offset >= memory_range_end(*accum_range));
+#ifdef DEBUG
    assert(memory_range_is_aligned(*test_range));
+#endif
 
    if (p->test_surface) {
       assert(anv_surface_is_valid(p->test_surface));
