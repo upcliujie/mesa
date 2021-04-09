@@ -29,7 +29,7 @@ else
 
 # BOARD_GPU_DRIVERS should be defined.  The valid values are
 #
-#   classic drivers: i915 i965
+#   classic drivers: i965
 #   gallium drivers: swrast freedreno i915g nouveau kmsro r300g r600g radeonsi vc4 virgl vmwgfx etnaviv iris lima panfrost
 #
 # The main target is libGLES_mesa.  For each classic driver enabled, a DRI
@@ -58,7 +58,7 @@ endif
 
 # Lists to convert driver names to boolean variables
 # in form of <driver name>.<boolean make variable>
-classic_drivers := i915.HAVE_I915_DRI i965.HAVE_I965_DRI
+classic_drivers := i965.HAVE_I965_DRI
 gallium_drivers := \
 	swrast.HAVE_GALLIUM_SOFTPIPE \
 	freedreno.HAVE_GALLIUM_FREEDRENO \
