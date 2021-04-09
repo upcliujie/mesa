@@ -462,7 +462,7 @@ tgsi_exec_get_shader_param(enum pipe_shader_cap param)
    case PIPE_SHADER_CAP_SUBROUTINES:
       return 1;
    case PIPE_SHADER_CAP_INTEGERS:
-      return 1;
+      return 0;
    case PIPE_SHADER_CAP_INT64_ATOMICS:
    case PIPE_SHADER_CAP_FP16:
    case PIPE_SHADER_CAP_FP16_DERIVATIVES:
