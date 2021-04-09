@@ -301,6 +301,9 @@ dxil_module_add_function_type(struct dxil_module *m,
 nir_alu_type
 dxil_type_to_nir_type(const struct dxil_type *type);
 
+enum glsl_base_type
+dxil_type_to_glsl_base_type(const struct dxil_type *type);
+
 bool
 dxil_value_type_equal_to(const struct dxil_value *value,
                          const struct dxil_type *lhs);

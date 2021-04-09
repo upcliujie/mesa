@@ -429,6 +429,36 @@ dxil_type_to_nir_type(const struct dxil_type *type)
    }
 }
 
+enum glsl_base_type
+dxil_type_to_glsl_base_type(const struct dxil_type *type)
+{
+   assert(type);
+   switch (type->type) {
+   case TYPE_INTEGER:
+      switch (type->int_bits) {
+      case 1: return GLSL_TYPE_BOOL;
+      case 16: return GLSL_TYPE_INT16;
+      case 32: return GLSL_TYPE_INT;
+      case 64: return GLSL_TYPE_INT64;
+      default: return GLSL_TYPE_ERROR;
+      }
+   case TYPE_FLOAT:
+      switch (type->float_bits) {
+      case 16: return GLSL_TYPE_FLOAT16;
+      case 32: return GLSL_TYPE_FLOAT;
+      case 64: return GLSL_TYPE_DOUBLE;
+      default: return GLSL_TYPE_ERROR;
+      }
+   case TYPE_ARRAY: return GLSL_TYPE_ARRAY;
+   case TYPE_STRUCT: return GLSL_TYPE_STRUCT;
+   case TYPE_VOID: return GLSL_TYPE_VOID;
+   case TYPE_FUNCTION: return GLSL_TYPE_FUNCTION;
+   case TYPE_VECTOR: return dxil_type_to_glsl_base_type(type->array_or_vector_def.elem_type);
+   case TYPE_POINTER: return GLSL_TYPE_ERROR;
+   default: return GLSL_TYPE_ERROR;
+   }
+}
+
 bool
 dxil_value_type_bitsize_equal_to(const struct dxil_value *value, unsigned bitsize)
 {
