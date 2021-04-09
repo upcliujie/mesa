@@ -1058,7 +1058,7 @@ meson-i386:
     CROSS: i386
     VULKAN_DRIVERS: intel,amd,swrast,virtio-experimental
     GALLIUM_DRIVERS: "iris,nouveau,r300,r600,radeonsi,swrast,virgl,zink"
-    DRI_DRIVERS: "i915,i965,nouveau"
+    DRI_DRIVERS: "i915,i965"
     EXTRA_OPTION: >
       -D vulkan-layers=device-select,overlay
 
