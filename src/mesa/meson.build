@@ -22,7 +22,7 @@ subdir('program')
 subdir('main')
 
 # files shared between classic mesa and gallium mesa
-files_libmesa_common = files(
+files_libmesa = files(
   'program/arbprogparse.c',
   'program/arbprogparse.h',
   'program/ir_to_mesa.cpp',
@@ -348,127 +348,6 @@ files_libmesa_common = files(
   'vbo/vbo_save_loopback.c',
   'vbo/vbo_util.h',
   'x86/common_x86.c',
-)
-
-# mesa files
-files_libmesa_classic = files(
-  'math/m_clip_tmp.h',
-  'math/m_copy_tmp.h',
-  'math/m_dotprod_tmp.h',
-  'math/m_norm_tmp.h',
-  'math/m_xform.c',
-  'math/m_xform.h',
-  'math/m_xform_tmp.h',
-  'tnl/t_context.c',
-  'tnl/t_context.h',
-  'tnl/t_draw.c',
-  'tnl/tnl.h',
-  'tnl/t_pipeline.c',
-  'tnl/t_pipeline.h',
-  'tnl/t_rebase.c',
-  'tnl/t_split.c',
-  'tnl/t_split_copy.c',
-  'tnl/t_split.h',
-  'tnl/t_split_inplace.c',
-  'tnl/t_vb_cliptmp.h',
-  'tnl/t_vb_fog.c',
-  'tnl/t_vb_light.c',
-  'tnl/t_vb_lighttmp.h',
-  'tnl/t_vb_normals.c',
-  'tnl/t_vb_points.c',
-  'tnl/t_vb_program.c',
-  'tnl/t_vb_render.c',
-  'tnl/t_vb_rendertmp.h',
-  'tnl/t_vb_texgen.c',
-  'tnl/t_vb_texmat.c',
-  'tnl/t_vb_vertex.c',
-  'tnl/t_vertex.c',
-  'tnl/t_vertex_generic.c',
-  'tnl/t_vertex.h',
-  'tnl/t_vertex_sse.c',
-  'tnl/t_vp_build.c',
-  'tnl/t_vp_build.h',
-  'swrast/s_aaline.c',
-  'swrast/s_aaline.h',
-  'swrast/s_aalinetemp.h',
-  'swrast/s_aatriangle.c',
-  'swrast/s_aatriangle.h',
-  'swrast/s_aatritemp.h',
-  'swrast/s_alpha.c',
-  'swrast/s_alpha.h',
-  'swrast/s_atifragshader.c',
-  'swrast/s_atifragshader.h',
-  'swrast/s_bitmap.c',
-  'swrast/s_blend.c',
-  'swrast/s_blend.h',
-  'swrast/s_blit.c',
-  'swrast/s_chan.h',
-  'swrast/s_clear.c',
-  'swrast/s_context.c',
-  'swrast/s_context.h',
-  'swrast/s_copypix.c',
-  'swrast/s_depth.c',
-  'swrast/s_depth.h',
-  'swrast/s_drawpix.c',
-  'swrast_setup/ss_tritmp.h',
-  'swrast_setup/ss_vb.h',
-  'swrast_setup/swrast_setup.h',
-  'swrast/s_feedback.c',
-  'swrast/s_feedback.h',
-  'swrast/s_fog.c',
-  'swrast/s_fog.h',
-  'swrast/s_fragprog.c',
-  'swrast/s_fragprog.h',
-  'swrast/s_lines.c',
-  'swrast/s_lines.h',
-  'swrast/s_linetemp.h',
-  'swrast/s_logic.c',
-  'swrast/s_logic.h',
-  'swrast/s_masking.c',
-  'swrast/s_masking.h',
-  'swrast/s_points.c',
-  'swrast/s_points.h',
-  'swrast/s_renderbuffer.c',
-  'swrast/s_renderbuffer.h',
-  'swrast/s_span.c',
-  'swrast/s_span.h',
-  'swrast/s_stencil.c',
-  'swrast/s_stencil.h',
-  'swrast/s_texcombine.c',
-  'swrast/s_texcombine.h',
-  'swrast/s_texfetch.c',
-  'swrast/s_texfetch.h',
-  'swrast/s_texfetch_tmp.h',
-  'swrast/s_texfilter.c',
-  'swrast/s_texfilter.h',
-  'swrast/s_texrender.c',
-  'swrast/s_texture.c',
-  'swrast/s_triangle.c',
-  'swrast/s_triangle.h',
-  'swrast/s_tritemp.h',
-  'swrast/swrast.h',
-  'swrast/s_zoom.c',
-  'swrast/s_zoom.h',
-  'swrast_setup/ss_context.c',
-  'swrast_setup/ss_context.h',
-  'swrast_setup/ss_triangle.c',
-  'swrast_setup/ss_triangle.h',
-  'drivers/common/driverfuncs.c',
-  'drivers/common/driverfuncs.h',
-  'drivers/common/meta_blit.c',
-  'drivers/common/meta_generate_mipmap.c',
-  'drivers/common/meta.c',
-  'drivers/common/meta.h',
-  'x86/x86_xform.c',
-  'x86/3dnow.c',
-  'x86/sse.c',
-  'x86/rtasm/x86sse.c',
-  'x86/rtasm/x86sse.h',
-  'sparc/sparc.c',
-  'x86-64/x86-64.c',
-)
-
-files_libmesa_gallium = files(
   'state_tracker/st_atifs_to_nir.c',
   'state_tracker/st_atifs_to_nir.h',
   'state_tracker/st_atom_array.c',
@@ -608,7 +487,7 @@ files_libmesa_gallium = files(
 
 inc_libmesa_asm = []
 if with_asm_arch == 'x86'
-  files_libmesa_common += files(
+  files_libmesa += files(
     'x86/assyntax.h',
     'x86/clip_args.h',
     'x86/norm_args.h',
@@ -639,10 +518,10 @@ if with_asm_arch == 'x86'
   )
   inc_libmesa_asm = include_directories('x86')
 elif with_asm_arch == 'x86_64'
-  files_libmesa_common += files('x86-64/x86-64.h', 'x86-64/xform4.S')
+  files_libmesa += files('x86-64/x86-64.h', 'x86-64/xform4.S')
   inc_libmesa_asm = include_directories('x86-64')
 elif with_asm_arch == 'sparc'
-  files_libmesa_common += files(
+  files_libmesa += files(
     'sparc/sparc_clip.S',
     'sparc/norm.S',
     'sparc/xform.S',
@@ -668,7 +547,7 @@ get_hash_h = custom_target(
 )
 
 foreach x : [['format_info.h', 'format_info.py']]
-  files_libmesa_common += custom_target(
+  files_libmesa += custom_target(
     x[0],
     input : ['main/@0@'.format(x[1]), 'main/formats.csv'],
     output : x[0],
@@ -678,7 +557,7 @@ foreach x : [['format_info.h', 'format_info.py']]
   )
 endforeach
 
-files_libmesa_common += [
+files_libmesa += [
   mesa_lex,
   program_parse_tab,
   main_api_exec_c,
@@ -690,10 +569,7 @@ files_libmesa_common += [
   ir_expression_operation_h,
   main_remap_helper_h,
   sha1_h,
-] + main_marshal_generated_c
-files_libmesa_gallium += [
-  ir_expression_operation_h,
-  sha1_h,
+  main_marshal_generated_c,
 ]
 
 if with_sse41
@@ -720,42 +596,18 @@ if with_platform_windows
   endif
 endif
 
-libmesa_common = static_library(
-  'mesa_common',
-  files_libmesa_common,
-  c_args : [c_msvc_compat_args, _mesa_windows_args],
-  cpp_args : [cpp_msvc_compat_args, _mesa_windows_args],
-  gnu_symbol_visibility : 'hidden',
-  include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_libmesa_asm, include_directories('main')],
-  dependencies : [idep_nir_headers, idep_mesautil],
-  build_by_default : false,
-)
-
-libmesa_classic = static_library(
-  'mesa_classic',
-  files_libmesa_classic,
-  c_args : [c_msvc_compat_args],
-  cpp_args : [cpp_msvc_compat_args],
-  gnu_symbol_visibility : 'hidden',
-  include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_libmesa_asm, include_directories('main')],
-  link_with : [libmesa_common, libglsl, libmesa_sse41],
-  dependencies : [idep_nir_headers, idep_mesautil],
-  build_by_default : false,
-)
-
 libmesa_gallium = static_library(
   'mesa_gallium',
-  files_libmesa_gallium,
+  files_libmesa,
   c_args : [c_msvc_compat_args, _mesa_windows_args],
   cpp_args : [cpp_msvc_compat_args, _mesa_windows_args],
   gnu_symbol_visibility : 'hidden',
   include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_libmesa_asm, include_directories('main')],
-  link_with : [libmesa_common, libglsl, libmesa_sse41],
+  link_with : [libglsl, libmesa_sse41],
   dependencies : [idep_nir_headers, dep_vdpau, idep_mesautil],
   build_by_default : false,
 )
 
-subdir('drivers/dri')
 if with_tests
   subdir('main/tests')
 endif
