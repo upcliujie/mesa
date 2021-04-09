@@ -39,7 +39,15 @@ static uint64_t next_clock_sync_ns;  /* cpu time of next clk sync */
  */
 static uint64_t sync_gpu_ts;
 
-class FdRenderpassDataSource : public perfetto::DataSource<FdRenderpassDataSource> {
+struct FdRenderpassIncrementalState {
+	bool was_cleared = true;
+};
+
+struct FdRenderpassTraits : public perfetto::DefaultDataSourceTraits {
+	using IncrementalStateType = FdRenderpassIncrementalState;
+};
+
+class FdRenderpassDataSource : public perfetto::DataSource<FdRenderpassDataSource, FdRenderpassTraits> {
 public:
 	void OnSetup(const SetupArgs&) override {
 		// Use this callback to apply any custom configuration to your data source
@@ -81,11 +89,6 @@ PERFETTO_DEFINE_DATA_SOURCE_STATIC_MEMBERS(FdRenderpassDataSource);
 static void
 send_descriptors(FdRenderpassDataSource::TraceContext &ctx, uint64_t ts_ns)
 {
-	static bool descriptors_sent = false;
-
-	if (descriptors_sent)
-		return;
-
 	PERFETTO_LOG("Sending renderstage descriptors");
 
 	auto packet = ctx.NewTracePacket();
@@ -113,8 +116,6 @@ send_descriptors(FdRenderpassDataSource::TraceContext &ctx, uint64_t ts_ns)
 		if (stages[i].desc)
 			desc->set_description(stages[i].desc);
 	}
-
-	descriptors_sent = true;
 }
 
 static void
@@ -140,7 +141,9 @@ stage_end(struct pipe_context *pctx, uint64_t ts_ns, enum fd_stage_id stage)
 		return;
 
 	FdRenderpassDataSource::Trace([=](FdRenderpassDataSource::TraceContext tctx) {
-		send_descriptors(tctx, p->start_ts[stage]);
+		if (auto state = tctx.GetIncrementalState(); state->was_cleared) {
+			send_descriptors(tctx, p->start_ts[stage]);
+		}
 
 		auto packet = tctx.NewTracePacket();
 
