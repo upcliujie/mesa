@@ -404,6 +404,9 @@ zink_screen_init_compiler(struct zink_screen *screen)
       screen->nir_options.lower_flrp64 = true;
       screen->nir_options.lower_ffma64 = true;
    }
+
+   if (screen->info.driver_props.driverID == VK_DRIVER_ID_MESA_LLVMPIPE)
+      screen->nir_options.max_unroll_iterations = 32;
 }
 
 const void *
