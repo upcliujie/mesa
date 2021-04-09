@@ -143,6 +143,12 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_ring_tess_offchip_offset_amd:
    case nir_intrinsic_load_ring_esgs_amd:
    case nir_intrinsic_load_ring_es2gs_offset_amd:
+   case nir_intrinsic_load_workgroup_num_input_vertices_amd:
+   case nir_intrinsic_load_workgroup_num_input_primitives_amd:
+   case nir_intrinsic_load_shader_query_enabled_amd:
+   case nir_intrinsic_load_cull_front_face_enabled_amd:
+   case nir_intrinsic_load_cull_back_face_enabled_amd:
+   case nir_intrinsic_load_cull_any_enabled_amd:
       is_divergent = false;
       break;
 
@@ -488,6 +494,11 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_tlb_color_v3d:
    case nir_intrinsic_load_tess_rel_patch_id_amd:
    case nir_intrinsic_load_gs_vertex_offset_amd:
+   case nir_intrinsic_has_input_vertex_amd:
+   case nir_intrinsic_has_input_primitive_amd:
+   case nir_intrinsic_load_packed_passthrough_primitive_amd:
+   case nir_intrinsic_load_initial_edgeflag_amd:
+   case nir_intrinsic_gds_atomic_add_amd:
       is_divergent = true;
       break;
 
