@@ -49,8 +49,6 @@
 #include "mesa/main/externalobjects.h"
 
 struct brw_fence {
-   struct brw_context *brw;
-
    enum brw_fence_type {
       /** The fence waits for completion of brw_fence::batch_bo. */
       BRW_FENCE_TYPE_BO_WAIT,
@@ -163,7 +161,6 @@ static void
 brw_fence_init(struct brw_context *brw, struct brw_fence *fence,
                enum brw_fence_type type)
 {
-   fence->brw = brw;
    fence->type = type;
    mtx_init(&fence->mutex, mtx_plain);
 
@@ -331,8 +328,7 @@ brw_fence_has_completed(struct brw_fence *fence)
 }
 
 static bool
-brw_fence_client_wait_locked(struct brw_context *brw, struct brw_fence *fence,
-                             uint64_t timeout)
+brw_fence_client_wait_locked(struct brw_fence *fence, uint64_t timeout)
 {
    int32_t timeout_i32;
 
@@ -387,13 +383,12 @@ brw_fence_client_wait_locked(struct brw_context *brw, struct brw_fence *fence,
  * (This matches the behavior expected from __DRI2fence::client_wait_sync).
  */
 static bool
-brw_fence_client_wait(struct brw_context *brw, struct brw_fence *fence,
-                      uint64_t timeout)
+brw_fence_client_wait(struct brw_fence *fence, uint64_t timeout)
 {
    bool ret;
 
    mtx_lock(&fence->mutex);
-   ret = brw_fence_client_wait_locked(brw, fence, timeout);
+   ret = brw_fence_client_wait_locked(fence, timeout);
    mtx_unlock(&fence->mutex);
 
    return ret;
@@ -468,10 +463,9 @@ static void
 brw_gl_client_wait_sync(struct gl_context *ctx, struct gl_sync_object *_sync,
                         GLbitfield flags, GLuint64 timeout)
 {
-   struct brw_context *brw = brw_context(ctx);
    struct brw_gl_sync *sync = (struct brw_gl_sync *) _sync;
 
-   if (brw_fence_client_wait(brw, &sync->fence, timeout))
+   if (brw_fence_client_wait(&sync->fence, timeout))
       sync->gl.StatusFlag = 1;
 }
 
@@ -546,7 +540,7 @@ brw_dri_client_wait_sync(__DRIcontext *ctx, void *_fence, unsigned flags,
 {
    struct brw_fence *fence = _fence;
 
-   return brw_fence_client_wait(fence->brw, fence, timeout);
+   return brw_fence_client_wait(fence, timeout);
 }
 
 static void
@@ -560,7 +554,7 @@ brw_dri_server_wait_sync(__DRIcontext *ctx, void *_fence, unsigned flags)
    if (!fence)
       return;
 
-   brw_fence_server_wait(fence->brw, fence);
+   brw_fence_server_wait(ctx->driverPrivate, fence);
 }
 
 static unsigned
