@@ -337,10 +337,6 @@ if with_glx == 'auto'
   elif with_gallium
     # Even when building just gallium drivers the user probably wants dri
     with_glx = 'dri'
-  elif with_platform_x11 and with_any_opengl and not with_any_vk
-    # The automatic behavior should not be to turn on xlib based glx when
-    # building only vulkan drivers
-    with_glx = 'xlib'
   else
     with_glx = 'disabled'
   endif
@@ -438,10 +434,6 @@ if with_glx != 'disabled'
     elif with_dri
       error('gallium-xlib conflicts with any dri driver')
     endif
-  elif with_glx == 'xlib'
-    if with_dri
-      error('xlib conflicts with any dri driver')
-    endif
   elif with_glx == 'dri'
     if not with_shared_glapi
       error('dri based GLX requires shared-glapi')
@@ -454,7 +446,7 @@ glvnd_vendor_name = get_option('glvnd-vendor-name')
 if with_glvnd
   if with_platform_windows
     error('glvnd cannot be used on Windows')
-  elif with_glx == 'xlib' or with_glx == 'gallium-xlib'
+  elif with_glx == 'gallium-xlib'
     error('Cannot build glvnd support for GLX that is not DRI based.')
   elif with_glx == 'disabled' and not with_egl
     error('glvnd requires DRI based GLX and/or EGL')
@@ -814,7 +806,7 @@ if with_platform_x11
     pre_args += '-DHAVE_X11_PLATFORM'
     pre_args += '-DHAVE_XCB_PLATFORM'
   endif
-  if with_glx == 'xlib' or with_glx == 'gallium-xlib'
+  if with_glx == 'gallium-xlib'
     pre_args += '-DUSE_XSHM'
   else
     pre_args += '-DGLX_INDIRECT_RENDERING'
@@ -1813,7 +1805,7 @@ dep_xcb_xrandr = null_dep
 dep_xcb_shm = null_dep
 dep_xlib_xrandr = null_dep
 if with_platform_x11
-  if with_glx == 'xlib' or with_glx == 'gallium-xlib'
+  if with_glx == 'gallium-xlib'
     dep_x11 = dependency('x11')
     dep_xext = dependency('xext')
     dep_xcb = dependency('xcb')
@@ -1919,7 +1911,7 @@ endforeach
 
 gl_priv_reqs = []
 
-if with_glx == 'xlib' or with_glx == 'gallium-xlib'
+if with_glx == 'gallium-xlib'
   gl_priv_reqs += ['x11', 'xext', 'xcb']
 elif with_glx == 'dri'
   gl_priv_reqs += [
@@ -2011,8 +2003,6 @@ if with_glx != 'disabled'
   lines += ''
   if with_glx == 'dri'
     lines += 'GLX:             DRI-based'
-  elif with_glx == 'xlib'
-    lines += 'GLX:             Xlib-based'
   elif with_glx == 'gallium-xlib'
     lines += 'GLX:             Xlib-based (Gallium)'
   else
