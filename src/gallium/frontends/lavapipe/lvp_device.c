@@ -393,6 +393,13 @@ min_vertex_pipeline_param(struct pipe_screen *pscreen, enum pipe_shader_cap para
    return val;
 }
 
+static int
+min_gfx_pipeline_param(struct pipe_screen *pscreen, enum pipe_shader_cap param)
+{
+   return MIN2(min_vertex_pipeline_param(pscreen, param),
+               pscreen->get_shader_param(pscreen, PIPE_SHADER_FRAGMENT, param));
+}
+
 VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures(
    VkPhysicalDevice                            physicalDevice,
    VkPhysicalDeviceFeatures*                   pFeatures)
@@ -442,7 +449,7 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures(
       .shaderCullDistance                       = (pdevice->pscreen->get_param(pdevice->pscreen, PIPE_CAP_CULL_DISTANCE) == 1),
       .shaderFloat64                            = (pdevice->pscreen->get_param(pdevice->pscreen, PIPE_CAP_DOUBLES) == 1),
       .shaderInt64                              = (pdevice->pscreen->get_param(pdevice->pscreen, PIPE_CAP_INT64) == 1),
-      .shaderInt16                              = true,
+      .shaderInt16                              = (min_gfx_pipeline_param(pdevice->pscreen, PIPE_SHADER_CAP_INT16) == 1),
       .alphaToOne                               = true,
       .variableMultisampleRate                  = false,
       .inheritedQueries                         = false,
