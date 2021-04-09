@@ -49,7 +49,6 @@
 #include "main/remap.h"
 #include "main/vtxfmt.h"
 #include "glapi/glapi.h"
-#include "drivers/common/driverfuncs.h"
 
 #include "swrast/swrast.h"
 #include "vbo/vbo.h"
@@ -97,8 +96,6 @@ DispatchSanity_test::SetUp()
    memset(&driver_functions, 0, sizeof(driver_functions));
    memset(&share_list, 0, sizeof(share_list));
    memset(&ctx, 0, sizeof(ctx));
-
-   _mesa_init_driver_functions(&driver_functions);
 
    const unsigned size = _glapi_get_dispatch_table_size();
    nop_table = (_glapi_proc *) _mesa_new_nop_table(size);
