@@ -581,3 +581,5 @@ libgalliumvlwinsys = static_library(
   dependencies : [dep_libdrm, vlwinsys_deps, idep_mesautil],
   build_by_default : false,
 )
+
+subdir('dri_common')
