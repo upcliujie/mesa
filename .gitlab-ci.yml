@@ -871,7 +871,6 @@ meson-clang:
     UNWIND: "enabled"
     DRI_LOADERS: >
       -D glvnd=true
-    DRI_DRIVERS: "auto"
     GALLIUM_DRIVERS: "iris,nouveau,kmsro,r300,r600,freedreno,swr,swrast,svga,v3d,vc4,virgl,etnaviv,panfrost,lima,zink,radeonsi,tegra,d3d12"
     VULKAN_DRIVERS: intel,amd,freedreno,broadcom
     CC: "ccache clang-10"
@@ -975,7 +974,6 @@ meson-i386:
     CROSS: i386
     VULKAN_DRIVERS: intel,amd,swrast
     GALLIUM_DRIVERS: "iris,nouveau,r300,r600,radeonsi,swrast,virgl,zink"
-    DRI_DRIVERS: "i965"
     EXTRA_OPTION: >
       -D vulkan-layers=device-select,overlay
       -D werror=true
@@ -1009,7 +1007,6 @@ meson-mingw32-x86_64:
   stage: build-misc
   variables:
     UNWIND: "disabled"
-    DRI_DRIVERS: ""
     GALLIUM_DRIVERS: "swrast"
     EXTRA_OPTION: >
       -Dllvm=disabled

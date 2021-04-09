@@ -66,7 +66,6 @@ meson _build --native-file=native.file \
       -D build-tests=true \
       -D libunwind=${UNWIND} \
       ${DRI_LOADERS} \
-      -D dri-drivers=${DRI_DRIVERS:-[]} \
       ${GALLIUM_ST} \
       -D gallium-drivers=${GALLIUM_DRIVERS:-[]} \
       -D vulkan-drivers=${VULKAN_DRIVERS:-[]} \
