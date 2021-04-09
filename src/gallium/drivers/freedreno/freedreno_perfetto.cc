@@ -251,7 +251,7 @@ fd_perfetto_init(void)
 static void
 sync_timestamp(struct fd_context *ctx)
 {
-	uint64_t cpu_ts = perfetto::base::GetBootTimeNs().count();
+	uint64_t cpu_ts = perfetto::base::GetTimeInternalNs(CLOCK_REALTIME).count();
 	uint64_t gpu_ts;
 
 	if (cpu_ts < next_clock_sync_ns)
@@ -269,13 +269,14 @@ sync_timestamp(struct fd_context *ctx)
 		auto packet = tctx.NewTracePacket();
 
 		packet->set_timestamp(cpu_ts);
+		packet->set_timestamp_clock_id(perfetto::protos::pbzero::BUILTIN_CLOCK_REALTIME);
 
 		auto event = packet->set_clock_snapshot();
 
 		{
 			auto clock = event->add_clocks();
 
-			clock->set_clock_id(perfetto::protos::pbzero::BUILTIN_CLOCK_BOOTTIME);
+			clock->set_clock_id(perfetto::protos::pbzero::BUILTIN_CLOCK_REALTIME);
 			clock->set_timestamp(cpu_ts);
 		}
 
@@ -297,7 +298,8 @@ emit_submit_id(struct fd_context *ctx)
 	FdRenderpassDataSource::Trace([=](FdRenderpassDataSource::TraceContext tctx) {
 		auto packet = tctx.NewTracePacket();
 
-		packet->set_timestamp(perfetto::base::GetBootTimeNs().count());
+		packet->set_timestamp(perfetto::base::GetTimeInternalNs(CLOCK_REALTIME).count());
+		packet->set_timestamp_clock_id(perfetto::protos::pbzero::BUILTIN_CLOCK_REALTIME);
 
 		auto event = packet->set_vulkan_api_event();
 		auto submit = event->set_vk_queue_submit();
