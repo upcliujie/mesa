@@ -24,7 +24,21 @@
 #ifndef __FREEDRENO_UUID_H__
 #define __FREEDRENO_UUID_H__
 
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void fd_get_driver_uuid(void *uuid);
 void fd_get_device_uuid(void *uuid, unsigned gpu_id);
+
+#ifdef HAVE_PERFETTO
+uint32_t fd_get_clock_id(void);
+#endif
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __FREEDRENO_UUID_H__ */
