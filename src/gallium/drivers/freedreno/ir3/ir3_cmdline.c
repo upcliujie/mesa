@@ -306,7 +306,7 @@ main(int argc, char **argv)
 			break;
 		default:
 			printf("unrecognized arg: %c\n", opt);
-			/* fallthrough */
+			FALLTHROUGH;
 		case 'h':
 			print_usage();
 			return 0;
