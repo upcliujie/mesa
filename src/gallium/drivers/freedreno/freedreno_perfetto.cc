@@ -26,18 +26,9 @@
 #include "util/u_perfetto.h"
 
 #include "freedreno_tracepoints.h"
+#include "freedreno_uuid.h"
 
 static uint32_t gpu_clock_id;
-static uint64_t next_clock_sync_ns;  /* cpu time of next clk sync */
-
-/**
- * The timestamp at the point where we first emitted the clock_sync..
- * this  will be a *later* timestamp that the first GPU traces (since
- * we capture the first clock_sync from the CPU *after* the first GPU
- * tracepoints happen).  To avoid confusing perfetto we need to drop
- * the GPU traces with timestamps before this.
- */
-static uint64_t sync_gpu_ts;
 
 struct FdRenderpassIncrementalState {
 	bool was_cleared = true;
@@ -61,11 +52,7 @@ public:
 		u_trace_perfetto_start();
 		PERFETTO_LOG("Tracing started");
 
-		/* Note: clock_id's below 128 are reserved.. for custom clock sources,
-		 * using the hash of a namespaced string is the recommended approach.
-		 * See: https://perfetto.dev/docs/concepts/clock-sync
-		 */
-		gpu_clock_id = _mesa_hash_string("org.freedesktop.mesa.freedreno") | 0x80000000;
+		gpu_clock_id = fd_get_clock_id();
 	}
 
 	void OnStop(const StopArgs&) override {
@@ -132,13 +119,6 @@ stage_end(struct pipe_context *pctx, uint64_t ts_ns, enum fd_stage_id stage)
 {
 	struct fd_context *ctx = fd_context(pctx);
 	struct fd_perfetto_state *p = &ctx->perfetto;
-
-	/* If we haven't managed to calibrate the alignment between GPU and CPU
-	 * timestamps yet, then skip this trace, otherwise perfetto won't know
-	 * what to do with it.
-	 */
-	if (!sync_gpu_ts)
-		return;
 
 	FdRenderpassDataSource::Trace([=](FdRenderpassDataSource::TraceContext tctx) {
 		if (auto state = tctx.GetIncrementalState(); state->was_cleared) {
@@ -248,69 +228,39 @@ fd_perfetto_init(void)
 	FdRenderpassDataSource::Register(dsd);
 }
 
-static void
-sync_timestamp(struct fd_context *ctx)
-{
-	uint64_t cpu_ts = perfetto::base::GetBootTimeNs().count();
-	uint64_t gpu_ts;
-
-	if (cpu_ts < next_clock_sync_ns)
-		return;
-
-	if (fd_pipe_get_param(ctx->pipe, FD_TIMESTAMP, &gpu_ts)) {
-		PERFETTO_ELOG("Could not sync CPU and GPU clocks");
-		return;
-	}
-
-	/* convert GPU ts into ns: */
-	gpu_ts = ctx->ts_to_ns(gpu_ts);
-
-	FdRenderpassDataSource::Trace([=](FdRenderpassDataSource::TraceContext tctx) {
-		auto packet = tctx.NewTracePacket();
-
-		packet->set_timestamp(cpu_ts);
-
-		auto event = packet->set_clock_snapshot();
-
-		{
-			auto clock = event->add_clocks();
-
-			clock->set_clock_id(perfetto::protos::pbzero::BUILTIN_CLOCK_BOOTTIME);
-			clock->set_timestamp(cpu_ts);
-		}
-
-		{
-			auto clock = event->add_clocks();
-
-			clock->set_clock_id(gpu_clock_id);
-			clock->set_timestamp(gpu_ts);
-		}
-
-		sync_gpu_ts = gpu_ts;
-		next_clock_sync_ns = cpu_ts + 30000000;
-	});
-}
-
-static void
-emit_submit_id(struct fd_context *ctx)
+void
+fd_perfetto_submit(struct fd_context *ctx)
 {
 	FdRenderpassDataSource::Trace([=](FdRenderpassDataSource::TraceContext tctx) {
+		uint64_t gpu_ts;
+
+		/* Note, using GPU timestamp rather than CPU timestamp because
+		 * the GPU timestamp is universal, where boottime/monotonic/etc
+		 * clocks can differ inside vs outside of a container.  The PPS
+		 * process collecting perfcounters (which always runs outside of
+		 * the container) emits periodic clock_snapshot events which are
+		 * used to synchronize the GPU time to the host CPU time.
+		 *
+		 * TODO we could be a bit more clever and avoid an extra ioctl
+		 * for every submit by, if less CPU time has elapsed since last
+		 * querying the GPU time, adding the delta CPU time to the last
+		 * GPU time.
+		 */
+		if (fd_pipe_get_param(ctx->pipe, FD_TIMESTAMP, &gpu_ts)) {
+			PERFETTO_ELOG("Could not get GPU timestamp");
+			return;
+		}
+
 		auto packet = tctx.NewTracePacket();
 
-		packet->set_timestamp(perfetto::base::GetBootTimeNs().count());
+		packet->set_timestamp(gpu_ts);
+		packet->set_timestamp_clock_id(gpu_clock_id);
 
 		auto event = packet->set_vulkan_api_event();
 		auto submit = event->set_vk_queue_submit();
 
 		submit->set_submission_id(ctx->submit_count);
 	});
-}
-
-void
-fd_perfetto_submit(struct fd_context *ctx)
-{
-	sync_timestamp(ctx);
-	emit_submit_id(ctx);
 }
 
 /*

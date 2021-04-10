@@ -12,6 +12,9 @@
 
 #include "pps/pps.h"
 #include "pps/pps_algorithm.h"
+#include "pps/pps_datasource.h"
+
+#include "freedreno_uuid.h"
 
 namespace pps
 {
@@ -88,6 +91,74 @@ FreedrenoDriver::setup_a6xx_counters()
    // TODO add more.. see https://gpuinspector.dev/docs/gpu-counters/qualcomm
    // for what blob exposes
 }
+
+static uint64_t
+ticks_to_ns(uint64_t ts)
+{
+   /* This is based on the 19.2MHz always-on rbbm timer.
+    *
+    * TODO we should probably query this value from kernel..
+    */
+   return ts * (1000000000 / 19200000);
+}
+
+/**
+ * Synchronize GPU and CPU clocks.  This is done here, rather than in
+ * mesa, because the process using mesa could be inside of a container
+ * or VM, in which case it's view of CPU time won't be closely enough
+ * aligned with the view of CPU time in the host.  Since the pps-producer
+ * is always running in the host, it does have a valid view of the CPU
+ * time.
+ *
+ * Additional benefits are that there is always a single pps-producer,
+ * but there may be many processes using mesa and emitting GPU traces.
+ * And FreedrenoDriver is already detecting when the GPU goes through
+ * a suspend/resume cycle (ie. a discontinuity of GPU clock)
+ */
+void
+FreedrenoDriver::sync_timestamp()
+{
+   uint64_t cpu_ts = perfetto::base::GetBootTimeNs().count();
+
+   if (cpu_ts < next_clock_sync_ts)
+      return;
+
+   GpuDataSource::Trace([=](GpuDataSource::TraceContext ctx) {
+      uint64_t gpu_ts;
+
+      if (fd_pipe_get_param(pipe, FD_TIMESTAMP, &gpu_ts)) {
+         PERFETTO_ELOG("Could not sync CPU and GPU clocks");
+         return;
+      }
+
+      /* convert GPU ts into ns: */
+      gpu_ts = ticks_to_ns(gpu_ts);
+
+      auto packet = ctx.NewTracePacket();
+
+      packet->set_timestamp(cpu_ts);
+
+      auto event = packet->set_clock_snapshot();
+
+      {
+         auto clock = event->add_clocks();
+
+         clock->set_clock_id(perfetto::protos::pbzero::BUILTIN_CLOCK_BOOTTIME);
+         clock->set_timestamp(cpu_ts);
+      }
+
+      {
+         auto clock = event->add_clocks();
+
+         clock->set_clock_id(gpu_clock_id);
+         clock->set_timestamp(gpu_ts);
+      }
+
+      next_clock_sync_ts = cpu_ts + 30000000;
+   });
+
+}
+
 
 /**
  * Generate an submit the cmdstream to configure the counter/countable
@@ -190,6 +261,8 @@ FreedrenoDriver::init_perfcnt()
       return false;
    }
 
+   gpu_clock_id = fd_get_clock_id();
+
    configure_counters(true, true);
    collect_countables();
 
@@ -229,6 +302,8 @@ FreedrenoDriver::dump_perfcnt()
 
          suspend_count = val;
 
+         next_clock_sync_ts = 0;
+         sync_timestamp();
          configure_counters(true, true);
          collect_countables();
 
@@ -239,6 +314,8 @@ FreedrenoDriver::dump_perfcnt()
          return false;
       }
    }
+
+   sync_timestamp();
 
    auto last_ts = last_dump_ts;
 
