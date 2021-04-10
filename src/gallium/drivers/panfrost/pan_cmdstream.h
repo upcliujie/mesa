@@ -83,7 +83,8 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
                                  mali_ptr *fs_attribs,
                                  mali_ptr *buffers,
                                  mali_ptr *position,
-                                 mali_ptr *psiz);
+                                 mali_ptr *psiz,
+                                 bool point_coord_replace);
 
 void
 panfrost_emit_vertex_tiler_jobs(struct panfrost_batch *batch,

@@ -549,6 +549,8 @@ panfrost_direct_draw(struct panfrost_context *ctx,
                                           1, vertex_count, info->instance_count,
                                           1, 1, 1, true);
 
+        bool point_coord_replace = (mode == PIPE_PRIM_POINTS);
+
         /* Emit all sort of descriptors. */
         mali_ptr varyings = 0, vs_vary = 0, fs_vary = 0, pos = 0, psiz = 0;
 
@@ -556,7 +558,7 @@ panfrost_direct_draw(struct panfrost_context *ctx,
                                          ctx->padded_count *
                                          ctx->instance_count,
                                          &vs_vary, &fs_vary, &varyings,
-                                         &pos, &psiz);
+                                         &pos, &psiz, point_coord_replace);
 
         /* Fire off the draw itself */
         panfrost_draw_emit_vertex(batch, info, &invocation, shared_mem,
