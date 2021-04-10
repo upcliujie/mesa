@@ -29,6 +29,7 @@
 
 #include "git_sha1.h"
 #include "util/mesa-sha1.h"
+#include "util/hash_table.h"
 
 /* (Re)define UUID_SIZE to avoid including vulkan.h (or p_defines.h) here. */
 #define UUID_SIZE 16
@@ -91,3 +92,25 @@ fd_get_device_uuid(void *uuid, unsigned gpu_id)
 	assert(SHA1_DIGEST_LENGTH >= UUID_SIZE);
 	memcpy(uuid, sha1, UUID_SIZE);
 }
+
+#ifdef HAVE_PERFETTO
+/**
+ * Get the perfetto clock id for the custom globally scoped GPU clock.
+ *
+ * Note: clock_id's below 128 are reserved.. for custom clock sources,
+ * using the hash of a namespaced string is the recommended approach.
+ * See: https://perfetto.dev/docs/concepts/clock-sync
+ */
+uint32_t
+fd_get_clock_id(void)
+{
+	static uint32_t gpu_clock_id = 0;
+
+	if (!gpu_clock_id) {
+		gpu_clock_id =
+			_mesa_hash_string("org.freedesktop.mesa.freedreno") | 0x80000000;
+	}
+
+	return gpu_clock_id;
+}
+#endif

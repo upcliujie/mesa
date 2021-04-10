@@ -39,6 +39,8 @@ private:
    uint32_t next_countable_id;
    uint64_t last_dump_ts = 0;
    uint64_t last_capture_ts;
+   uint64_t next_clock_sync_ts = 0;
+   uint32_t gpu_clock_id;
 
    bool has_suspend_count;
    uint32_t suspend_count;
@@ -67,6 +69,7 @@ private:
 
    void setup_a6xx_counters();
 
+   void sync_timestamp();
    void configure_counters(bool reset, bool wait);
    void collect_countables();
 

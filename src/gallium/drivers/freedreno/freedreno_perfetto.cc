@@ -26,9 +26,9 @@
 #include "util/u_perfetto.h"
 
 #include "freedreno_tracepoints.h"
+#include "freedreno_uuid.h"
 
 static uint32_t gpu_clock_id;
-static uint64_t next_clock_sync_ns;  /* cpu time of next clk sync */
 
 /**
  * The timestamp at the point where we first emitted the clock_sync..
@@ -61,11 +61,7 @@ public:
 		u_trace_perfetto_start();
 		PERFETTO_LOG("Tracing started");
 
-		/* Note: clock_id's below 128 are reserved.. for custom clock sources,
-		 * using the hash of a namespaced string is the recommended approach.
-		 * See: https://perfetto.dev/docs/concepts/clock-sync
-		 */
-		gpu_clock_id = _mesa_hash_string("org.freedesktop.mesa.freedreno") | 0x80000000;
+		gpu_clock_id = fd_get_clock_id();
 	}
 
 	void OnStop(const StopArgs&) override {
@@ -248,24 +244,30 @@ fd_perfetto_init(void)
 	FdRenderpassDataSource::Register(dsd);
 }
 
-static void
-sync_timestamp(struct fd_context *ctx)
+static uint64_t
+gpu_time_ns(struct fd_context *ctx)
 {
-	uint64_t cpu_ts = perfetto::base::GetBootTimeNs().count();
-	uint64_t gpu_ts;
+	uint64_t val;
 
-	if (cpu_ts < next_clock_sync_ns)
-		return;
-
-	if (fd_pipe_get_param(ctx->pipe, FD_TIMESTAMP, &gpu_ts)) {
+	if (fd_pipe_get_param(ctx->pipe, FD_TIMESTAMP, &val)) {
 		PERFETTO_ELOG("Could not sync CPU and GPU clocks");
-		return;
+		return 0;
 	}
 
 	/* convert GPU ts into ns: */
-	gpu_ts = ctx->ts_to_ns(gpu_ts);
+	return ctx->ts_to_ns(val);
+}
+
+static void
+sync_timestamp(struct fd_context *ctx)
+{
+	if (sync_gpu_ts)
+		return;
 
 	FdRenderpassDataSource::Trace([=](FdRenderpassDataSource::TraceContext tctx) {
+		uint64_t cpu_ts = perfetto::base::GetBootTimeNs().count();
+		uint64_t gpu_ts = gpu_time_ns(ctx);
+
 		auto packet = tctx.NewTracePacket();
 
 		packet->set_timestamp(cpu_ts);
@@ -287,7 +289,6 @@ sync_timestamp(struct fd_context *ctx)
 		}
 
 		sync_gpu_ts = gpu_ts;
-		next_clock_sync_ns = cpu_ts + 30000000;
 	});
 }
 
@@ -297,7 +298,8 @@ emit_submit_id(struct fd_context *ctx)
 	FdRenderpassDataSource::Trace([=](FdRenderpassDataSource::TraceContext tctx) {
 		auto packet = tctx.NewTracePacket();
 
-		packet->set_timestamp(perfetto::base::GetBootTimeNs().count());
+		packet->set_timestamp(gpu_time_ns(ctx));
+		packet->set_timestamp_clock_id(gpu_clock_id);
 
 		auto event = packet->set_vulkan_api_event();
 		auto submit = event->set_vk_queue_submit();
