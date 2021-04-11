@@ -600,30 +600,29 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
        */
       NIR_PASS_V(nir, nir_lower_global_vars_to_local);
       NIR_PASS_V(nir, nir_lower_vars_to_ssa);
-
-      NIR_PASS_V(nir, nir_propagate_invariant,
-                 device->instance->debug_flags & RADV_DEBUG_INVARIANT_GEOM);
-
-      NIR_PASS_V(nir, nir_lower_system_values);
-      NIR_PASS_V(nir, nir_lower_compute_system_values, NULL);
-
-      NIR_PASS_V(nir, nir_lower_clip_cull_distance_arrays);
-
-      NIR_PASS_V(nir, nir_lower_discard_or_demote,
-                 device->instance->debug_flags & RADV_DEBUG_DISCARD_TO_DEMOTE);
-
-      nir_lower_doubles_options lower_doubles = nir->options->lower_doubles_options;
-
-      if (device->physical_device->rad_info.chip_class == GFX6) {
-         /* GFX6 doesn't support v_floor_f64 and the precision
-          * of v_fract_f64 which is used to implement 64-bit
-          * floor is less than what Vulkan requires.
-          */
-         lower_doubles |= nir_lower_dfloor;
-      }
-
-      NIR_PASS_V(nir, nir_lower_doubles, NULL, lower_doubles);
    }
+   NIR_PASS_V(nir, nir_propagate_invariant,
+              device->instance->debug_flags & RADV_DEBUG_INVARIANT_GEOM);
+
+   NIR_PASS_V(nir, nir_lower_system_values);
+   NIR_PASS_V(nir, nir_lower_compute_system_values, NULL);
+
+   NIR_PASS_V(nir, nir_lower_clip_cull_distance_arrays);
+
+   NIR_PASS_V(nir, nir_lower_discard_or_demote,
+              device->instance->debug_flags & RADV_DEBUG_DISCARD_TO_DEMOTE);
+
+   nir_lower_doubles_options lower_doubles = nir->options->lower_doubles_options;
+
+   if (device->physical_device->rad_info.chip_class == GFX6) {
+      /* GFX6 doesn't support v_floor_f64 and the precision
+       * of v_fract_f64 which is used to implement 64-bit
+       * floor is less than what Vulkan requires.
+       */
+      lower_doubles |= nir_lower_dfloor;
+   }
+
+   NIR_PASS_V(nir, nir_lower_doubles, NULL, lower_doubles);
 
    /* Vulkan uses the separate-shader linking model */
    nir->info.separate_shader = true;
