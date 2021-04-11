@@ -761,8 +761,6 @@ struct pipe_draw_info
    unsigned start_instance; /**< first instance id */
    unsigned instance_count; /**< number of instances */
 
-   unsigned drawid; /**< id of this draw in a multidraw */
-
    /**
     * Primitive restart enable/index (only applies to indexed drawing)
     */

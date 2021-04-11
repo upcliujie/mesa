@@ -471,6 +471,7 @@ panfrost_draw_emit_tiler(struct panfrost_batch *batch,
 static void
 panfrost_direct_draw(struct panfrost_context *ctx,
                      const struct pipe_draw_info *info,
+                     unsigned drawid_offset,
                      const struct pipe_draw_start_count_bias *draw)
 {
         if (!draw->count || !info->instance_count)
@@ -494,7 +495,7 @@ panfrost_direct_draw(struct panfrost_context *ctx,
                 }
 
                 util_primconvert_save_rasterizer_state(ctx->primconvert, &ctx->rasterizer->base);
-                util_primconvert_draw_vbo(ctx->primconvert, info, NULL, draw, 1);
+                util_primconvert_draw_vbo(ctx->primconvert, info, drawid_offset, NULL, draw, 1);
                 return;
         }
 
@@ -586,6 +587,7 @@ panfrost_direct_draw(struct panfrost_context *ctx,
 static void
 panfrost_indirect_draw(struct panfrost_context *ctx,
                        const struct pipe_draw_info *info,
+                       unsigned drawid_offset,
                        const struct pipe_draw_indirect_info *indirect,
                        const struct pipe_draw_start_count_bias *draw)
 {
@@ -739,6 +741,7 @@ panfrost_indirect_draw(struct panfrost_context *ctx,
 static void
 panfrost_draw_vbo(struct pipe_context *pipe,
                   const struct pipe_draw_info *info,
+                  unsigned drawid_offset,
                   const struct pipe_draw_indirect_info *indirect,
                   const struct pipe_draw_start_count_bias *draws,
                   unsigned num_draws)
@@ -754,16 +757,17 @@ panfrost_draw_vbo(struct pipe_context *pipe,
 
         if (indirect) {
                 assert(num_draws == 1);
-                panfrost_indirect_draw(ctx, info, indirect, &draws[0]);
+                panfrost_indirect_draw(ctx, info, drawid_offset, indirect, &draws[0]);
                 return;
         }
 
         struct pipe_draw_info tmp_info = *info;
+        unsigned drawid = drawid_offset;
 
         for (unsigned i = 0; i < num_draws; i++) {
-                panfrost_direct_draw(ctx, &tmp_info, &draws[i]);
+                panfrost_direct_draw(ctx, &tmp_info, drawid, &draws[i]);
                 if (tmp_info.increment_draw_id)
-                       tmp_info.drawid++;
+                       drawid++;
         }
 
 }

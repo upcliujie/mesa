@@ -65,7 +65,7 @@ util_draw_arrays(struct pipe_context *pipe,
    draw.start = start;
    draw.count = count;
 
-   pipe->draw_vbo(pipe, &info, NULL, &draw, 1);
+   pipe->draw_vbo(pipe, &info, 0, NULL, &draw, 1);
 }
 
 static inline void
@@ -89,7 +89,7 @@ util_draw_elements(struct pipe_context *pipe,
    draw.start = start;
    draw.count = count;
 
-   pipe->draw_vbo(pipe, &info, NULL, &draw, 1);
+   pipe->draw_vbo(pipe, &info, 0, NULL, &draw, 1);
 }
 
 static inline void
@@ -114,7 +114,7 @@ util_draw_arrays_instanced(struct pipe_context *pipe,
    draw.start = start;
    draw.count = count;
 
-   pipe->draw_vbo(pipe, &info, NULL, &draw, 1);
+   pipe->draw_vbo(pipe, &info, 0, NULL, &draw, 1);
 }
 
 static inline void
@@ -143,7 +143,7 @@ util_draw_elements_instanced(struct pipe_context *pipe,
    draw.start = start;
    draw.count = count;
 
-   pipe->draw_vbo(pipe, &info, NULL, &draw, 1);
+   pipe->draw_vbo(pipe, &info, 0, NULL, &draw, 1);
 }
 
 
@@ -160,6 +160,7 @@ util_draw_indirect(struct pipe_context *pipe,
  */
 void
 util_draw_multi(struct pipe_context *pctx, const struct pipe_draw_info *info,
+                unsigned drawid_offset,
                 const struct pipe_draw_indirect_info *indirect,
                 const struct pipe_draw_start_count_bias *draws,
                 unsigned num_draws);
