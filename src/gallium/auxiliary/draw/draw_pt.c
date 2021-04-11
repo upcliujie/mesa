@@ -536,7 +536,7 @@ draw_vbo(struct draw_context *draw,
    if (info->index_size)
       assert(draw->pt.user.elts);
 
-   draw->pt.user.eltBias = use_info->index_size ? use_info->index_bias : 0;
+   draw->pt.user.eltBias = use_info->index_size ? use_draws->index_bias : 0;
    draw->pt.user.min_index = use_info->index_bounds_valid ? use_info->min_index : 0;
    draw->pt.user.max_index = use_info->index_bounds_valid ? use_info->max_index : ~0;
    draw->pt.user.eltSize = use_info->index_size ? draw->pt.user.eltSizeIB : 0;

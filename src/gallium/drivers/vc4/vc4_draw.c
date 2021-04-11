@@ -183,7 +183,7 @@ vc4_emit_gl_shader_state(struct vc4_context *vc4,
         };
 
         uint32_t max_index = 0xffff;
-        unsigned index_bias = info->index_size ? info->index_bias : 0;
+        unsigned index_bias = info->index_size ? draws->index_bias : 0;
         for (int i = 0; i < vtx->num_elements; i++) {
                 struct pipe_vertex_element *elem = &vtx->pipe[i];
                 struct pipe_vertex_buffer *vb =
@@ -358,7 +358,7 @@ vc4_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
 
         bool needs_drawarrays_shader_state = false;
 
-        unsigned index_bias = info->index_size ? info->index_bias : 0;
+        unsigned index_bias = info->index_size ? draws->index_bias : 0;
         if ((vc4->dirty & (VC4_DIRTY_VTXBUF |
                            VC4_DIRTY_VTXSTATE |
                            VC4_DIRTY_PRIM_MODE |

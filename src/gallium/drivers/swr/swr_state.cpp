@@ -1125,8 +1125,8 @@ swr_user_vbuf_range(const struct pipe_draw_info *info,
       *size = elems * elem_pitch;
    } else if (vb->stride) {
       elems = info->max_index - info->min_index + 1;
-      *totelems = (info->max_index + (info->index_size ? info->index_bias : 0)) + 1;
-      *base = (info->min_index + (info->index_size ? info->index_bias : 0)) * vb->stride;
+      *totelems = (info->max_index + (info->index_size ? draws->index_bias : 0)) + 1;
+      *base = (info->min_index + (info->index_size ? draws->index_bias : 0)) * vb->stride;
       *size = elems * elem_pitch;
    } else {
       *totelems = 1;

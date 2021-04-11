@@ -219,7 +219,7 @@ st_draw_vbo(struct gl_context *ctx,
       draw.start = start + prims[i].start;
 
       info.mode = translate_prim(ctx, prims[i].mode);
-      info.index_bias = prims[i].basevertex;
+      draw.index_bias = prims[i].basevertex;
       info.drawid = prims[i].draw_id;
       if (!ib) {
          info.min_index = draw.start;
@@ -294,7 +294,6 @@ st_draw_gallium_complex(struct gl_context *ctx,
                         struct pipe_draw_info *info,
                         const struct pipe_draw_start_count_bias *draws,
                         const unsigned char *mode,
-                        const int *base_vertex,
                         unsigned num_draws)
 {
    struct st_context *st = st_context(ctx);
@@ -308,7 +307,7 @@ st_draw_gallium_complex(struct gl_context *ctx,
       MODE = 1,
       BASE_VERTEX = 2,
    };
-   unsigned mask = (mode ? MODE : 0) | (base_vertex ? BASE_VERTEX : 0);
+   unsigned mask = (mode ? MODE : 0);
    unsigned i, first;
    struct cso_context *cso = st->cso_context;
 
@@ -318,39 +317,6 @@ st_draw_gallium_complex(struct gl_context *ctx,
       for (i = 0, first = 0; i <= num_draws; i++) {
          if (i == num_draws || mode[i] != mode[first]) {
             info->mode = mode[first];
-            cso_multi_draw(cso, info, &draws[first], i - first);
-            first = i;
-
-            /* We can pass the reference only once. st_buffer_object keeps
-             * the reference alive for later draws.
-             */
-            info->take_index_buffer_ownership = false;
-         }
-      }
-      break;
-
-   case BASE_VERTEX:
-      for (i = 0, first = 0; i <= num_draws; i++) {
-         if (i == num_draws || base_vertex[i] != base_vertex[first]) {
-            info->index_bias = base_vertex[first];
-            cso_multi_draw(cso, info, &draws[first], i - first);
-            first = i;
-
-            /* We can pass the reference only once. st_buffer_object keeps
-             * the reference alive for later draws.
-             */
-            info->take_index_buffer_ownership = false;
-         }
-      }
-      break;
-
-   case MODE | BASE_VERTEX:
-      for (i = 0, first = 0; i <= num_draws; i++) {
-         if (i == num_draws ||
-             mode[i] != mode[first] ||
-             base_vertex[i] != base_vertex[first]) {
-            info->mode = mode[first];
-            info->index_bias = base_vertex[first];
             cso_multi_draw(cso, info, &draws[first], i - first);
             first = i;
 

@@ -54,7 +54,7 @@ draw_impl(struct fd_context *ctx, struct fd_ringbuffer *ring,
 		fd4_emit_vertex_bufs(ring, emit);
 
 	OUT_PKT0(ring, REG_A4XX_VFD_INDEX_OFFSET, 2);
-	OUT_RING(ring, info->index_size ? info->index_bias : emit->draw->start); /* VFD_INDEX_OFFSET */
+	OUT_RING(ring, info->index_size ? draws->index_bias : emit->draw->start); /* VFD_INDEX_OFFSET */
 	OUT_RING(ring, info->start_instance);   /* ??? UNKNOWN_2209 */
 
 	OUT_PKT0(ring, REG_A4XX_PC_RESTART_INDEX, 1);
