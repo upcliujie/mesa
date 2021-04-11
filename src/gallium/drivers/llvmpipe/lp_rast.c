@@ -962,13 +962,6 @@ lp_rast_create( unsigned num_threads )
 
    rast->no_rast = debug_get_bool_option("LP_NO_RAST", FALSE);
 
-   create_rast_threads(rast);
-
-   /* for synchronizing rasterization threads */
-   if (rast->num_threads > 0) {
-      util_barrier_init( &rast->barrier, rast->num_threads );
-   }
-
    memset(lp_dummy_tile, 0, sizeof lp_dummy_tile);
 
    return rast;
@@ -987,6 +980,21 @@ no_rast:
    return NULL;
 }
 
+void
+lp_rast_init(struct lp_rasterizer *rast)
+{
+   if (rast->init)
+      return;
+
+   create_rast_threads(rast);
+
+   /* for synchronizing rasterization threads */
+   if (rast->num_threads > 0) {
+      util_barrier_init( &rast->barrier, rast->num_threads );
+   }
+   rast->init = true;
+}
+
 
 /* Shutdown:
  */
@@ -999,14 +1007,14 @@ void lp_rast_destroy( struct lp_rasterizer *rast )
     * break out of its main loop.  The thread will then exit.
     */
    rast->exit_flag = TRUE;
-   for (i = 0; i < rast->num_threads; i++) {
+   for (i = 0; rast->init && i < rast->num_threads; i++) {
       pipe_semaphore_signal(&rast->tasks[i].work_ready);
    }
 
    /* Wait for threads to terminate before cleaning up per-thread data.
     * We don't actually call pipe_thread_wait to avoid dead lock on Windows
     * per https://bugs.freedesktop.org/show_bug.cgi?id=76252 */
-   for (i = 0; i < rast->num_threads; i++) {
+   for (i = 0; rast->init && i < rast->num_threads; i++) {
 #ifdef _WIN32
       pipe_semaphore_wait(&rast->tasks[i].work_done);
 #else
@@ -1015,7 +1023,7 @@ void lp_rast_destroy( struct lp_rasterizer *rast )
    }
 
    /* Clean up per-thread data */
-   for (i = 0; i < rast->num_threads; i++) {
+   for (i = 0; rast->init && i < rast->num_threads; i++) {
       pipe_semaphore_destroy(&rast->tasks[i].work_ready);
       pipe_semaphore_destroy(&rast->tasks[i].work_done);
    }
@@ -1024,7 +1032,7 @@ void lp_rast_destroy( struct lp_rasterizer *rast )
    }
 
    /* for synchronizing rasterization threads */
-   if (rast->num_threads > 0) {
+   if (rast->init && rast->num_threads > 0) {
       util_barrier_destroy( &rast->barrier );
    }
 
