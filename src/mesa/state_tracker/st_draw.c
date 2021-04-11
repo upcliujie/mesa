@@ -183,7 +183,7 @@ st_draw_gallium(struct gl_context *ctx,
    if (!prepare_indexed_draw(st, ctx, info, draws, num_draws))
       return;
 
-   cso_multi_draw(st->cso_context, info, draws, num_draws);
+   cso_multi_draw(st->cso_context, info, 0, draws, num_draws);
 }
 
 static void
@@ -214,7 +214,7 @@ st_draw_gallium_complex(struct gl_context *ctx,
       for (i = 0, first = 0; i <= num_draws; i++) {
          if (i == num_draws || mode[i] != mode[first]) {
             info->mode = mode[first];
-            cso_multi_draw(cso, info, &draws[first], i - first);
+            cso_multi_draw(cso, info, 0, &draws[first], i - first);
             first = i;
 
             /* We can pass the reference only once. st_buffer_object keeps
@@ -281,8 +281,7 @@ st_indirect_draw_vbo(struct gl_context *ctx,
       assert(!indirect_draw_count);
       indirect.draw_count = 1;
       for (i = 0; i < draw_count; i++) {
-         info.drawid = i;
-         cso_draw_vbo(st->cso_context, &info, &indirect, draw);
+         cso_draw_vbo(st->cso_context, &info, i, &indirect, draw);
          indirect.offset += stride;
       }
    } else {
@@ -293,7 +292,7 @@ st_indirect_draw_vbo(struct gl_context *ctx,
             st_buffer_object(indirect_draw_count)->buffer;
          indirect.indirect_draw_count_offset = indirect_draw_count_offset;
       }
-      cso_draw_vbo(st->cso_context, &info, &indirect, draw);
+      cso_draw_vbo(st->cso_context, &info, 0, &indirect, draw);
    }
 }
 
@@ -321,7 +320,7 @@ st_draw_transform_feedback(struct gl_context *ctx, GLenum mode,
    if (!st_transform_feedback_draw_init(tfb_vertcount, stream, &indirect))
       return;
 
-   cso_draw_vbo(st->cso_context, &info, &indirect, draw);
+   cso_draw_vbo(st->cso_context, &info, 0, &indirect, draw);
 }
 
 void
