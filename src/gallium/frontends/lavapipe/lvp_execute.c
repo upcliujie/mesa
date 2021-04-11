@@ -2177,7 +2177,7 @@ static void handle_draw_indirect(struct lvp_cmd_buffer_entry *cmd,
                                  struct rendering_state *state, bool indexed)
 {
    const struct lvp_subpass *subpass = &state->pass->subpasses[state->subpass];
-   struct pipe_draw_start_count draw = {0};
+   struct pipe_draw_start_count_bias draw = {0};
    if (indexed) {
       state->info.index_bounds_valid = false;
       state->info.index_size = state->index_size;
@@ -2648,7 +2648,7 @@ static void handle_draw_indirect_count(struct lvp_cmd_buffer_entry *cmd,
                                        struct rendering_state *state, bool indexed)
 {
    const struct lvp_subpass *subpass = &state->pass->subpasses[state->subpass];
-   struct pipe_draw_start_count draw = {0};
+   struct pipe_draw_start_count_bias draw = {0};
    if (indexed) {
       state->info.index_bounds_valid = false;
       state->info.index_size = state->index_size;
@@ -2825,7 +2825,7 @@ static void handle_draw_indirect_byte_count(struct lvp_cmd_buffer_entry *cmd,
 {
    struct lvp_cmd_draw_indirect_byte_count *dibc = &cmd->u.draw_indirect_byte_count;
    const struct lvp_subpass *subpass = &state->pass->subpasses[state->subpass];
-   struct pipe_draw_start_count draw = {0};
+   struct pipe_draw_start_count_bias draw = {0};
 
    pipe_buffer_read(state->pctx,
                     dibc->counter_buffer->bo,
