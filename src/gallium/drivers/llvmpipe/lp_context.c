@@ -45,6 +45,7 @@
 #include "lp_state.h"
 #include "lp_surface.h"
 #include "lp_query.h"
+#include "lp_rast.h"
 #include "lp_setup.h"
 #include "lp_screen.h"
 
@@ -243,6 +244,7 @@ llvmpipe_create_context(struct pipe_screen *screen, void *priv,
    struct llvmpipe_screen *s = llvmpipe_screen(screen);
    mtx_lock(&s->init_mtx);
    lp_disk_cache_create(s);
+   lp_rast_init(s->rast);
    mtx_unlock(&s->init_mtx);
    draw_set_disk_cache_callbacks(llvmpipe->draw,
                                  llvmpipe_screen(screen),
