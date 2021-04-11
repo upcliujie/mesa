@@ -49,6 +49,7 @@ struct lp_cs_tpool {
    unsigned num_threads;
    struct list_head workqueue;
    bool shutdown;
+   bool init;
 };
 
 struct lp_cs_local_mem {
@@ -69,6 +70,7 @@ struct lp_cs_tpool_task {
 };
 
 struct lp_cs_tpool *lp_cs_tpool_create(unsigned num_threads);
+void lp_cs_tpool_init(struct lp_cs_tpool *pool);
 void lp_cs_tpool_destroy(struct lp_cs_tpool *);
 
 struct lp_cs_tpool_task *lp_cs_tpool_queue_task(struct lp_cs_tpool *,
