@@ -90,6 +90,7 @@ draw_impl(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
 static bool
 fd3_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
+             unsigned drawid_offset,
              const struct pipe_draw_indirect_info *indirect,
              const struct pipe_draw_start_count_bias *draw,
              unsigned index_offset)
@@ -99,6 +100,7 @@ fd3_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
 		.debug = &ctx->debug,
 		.vtx  = &ctx->vtx,
 		.info = info,
+		.drawid_offset = drawid_offset,
 		.indirect = indirect,
 		.draw = draw,
 		.key = {

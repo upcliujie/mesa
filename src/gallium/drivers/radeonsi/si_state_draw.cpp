@@ -963,6 +963,7 @@ static void si_emit_draw_registers(struct si_context *sctx,
 
 template <chip_class GFX_VERSION, si_has_ngg NGG, si_has_prim_discard_cs ALLOW_PRIM_DISCARD_CS>
 static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw_info *info,
+                                 unsigned drawid_offset,
                                  const struct pipe_draw_indirect_info *indirect,
                                  const struct pipe_draw_start_count_bias *draws,
                                  unsigned num_draws,
@@ -1149,23 +1150,23 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
                   (info->start_instance != sctx->last_start_instance ||
                    sctx->last_start_instance == SI_START_INSTANCE_UNKNOWN)) ||
                  (set_draw_id &&
-                  (info->drawid != sctx->last_drawid ||
+                  (drawid_offset != sctx->last_drawid ||
                    sctx->last_drawid == SI_DRAW_ID_UNKNOWN)) ||
                  sh_base_reg != sctx->last_sh_base_reg) {
          if (set_base_instance) {
             radeon_set_sh_reg_seq(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, 3);
             radeon_emit(cs, base_vertex);
-            radeon_emit(cs, info->drawid);
+            radeon_emit(cs, drawid_offset);
             radeon_emit(cs, info->start_instance);
 
             sctx->last_start_instance = info->start_instance;
-            sctx->last_drawid = info->drawid;
+            sctx->last_drawid = drawid_offset;
          } else if (set_draw_id) {
             radeon_set_sh_reg_seq(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, 2);
             radeon_emit(cs, base_vertex);
-            radeon_emit(cs, info->drawid);
+            radeon_emit(cs, drawid_offset);
 
-            sctx->last_drawid = info->drawid;
+            sctx->last_drawid = drawid_offset;
          } else {
             radeon_set_sh_reg(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, base_vertex);
          }
@@ -1196,7 +1197,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
             uint64_t va = index_va + draws[i].start * index_size;
 
             if (i > 0 && set_draw_id) {
-               unsigned draw_id = info->drawid + i;
+               unsigned draw_id = drawid_offset + i;
 
                radeon_set_sh_reg(cs, sh_base_reg + SI_SGPR_DRAWID * 4, draw_id);
                sctx->last_drawid = draw_id;
@@ -1234,7 +1235,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
 
                if (i > 0) {
                   if (set_draw_id) {
-                     unsigned draw_id = info->drawid + i;
+                     unsigned draw_id = drawid_offset + i;
 
                      radeon_set_sh_reg(cs, sh_base_reg + SI_SGPR_DRAWID * 4, draw_id);
                      sctx->last_drawid = draw_id;
@@ -1255,7 +1256,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
          for (unsigned i = 0; i < num_draws; i++) {
             if (i > 0) {
                if (set_draw_id) {
-                  unsigned draw_id = info->drawid + i;
+                  unsigned draw_id = drawid_offset + i;
 
                   radeon_set_sh_reg_seq(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, 2);
                   radeon_emit(cs, draws[i].start);
@@ -1667,6 +1668,7 @@ template <chip_class GFX_VERSION, si_has_tess HAS_TESS, si_has_gs HAS_GS, si_has
           si_has_prim_discard_cs ALLOW_PRIM_DISCARD_CS>
 static void si_draw_vbo(struct pipe_context *ctx,
                         const struct pipe_draw_info *info,
+                        unsigned drawid_offset,
                         const struct pipe_draw_indirect_info *indirect,
                         const struct pipe_draw_start_count_bias *draws,
                         unsigned num_draws)
@@ -1884,7 +1886,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
               (instance_count == 1 ||
                (instance_count <= USHRT_MAX && index_size && index_size <= 2) ||
                pd_msg("instance_count too large or index_size == 4 or DrawArraysInstanced"))) &&
-       ((info->drawid == 0 && (num_draws == 1 || !info->increment_draw_id)) ||
+       ((drawid_offset == 0 && (num_draws == 1 || !info->increment_draw_id)) ||
         !sctx->shader.vs.cso->info.uses_drawid || pd_msg("draw_id > 0")) &&
        (!sctx->render_cond || pd_msg("render condition")) &&
        /* Forced enablement ignores pipeline statistics queries. */
@@ -1911,7 +1913,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
         * dispatches can run ahead. */
        (si_all_vs_resources_read_only(sctx, index_size ? indexbuf : NULL) ||
         pd_msg("write reference"))) {
-      switch (si_prepare_prim_discard_or_split_draw(sctx, info, draws, num_draws,
+      switch (si_prepare_prim_discard_or_split_draw(sctx, info, drawid_offset, draws, num_draws,
                                                     primitive_restart, total_direct_count)) {
       case SI_PRIM_DISCARD_ENABLED:
          original_index_size = index_size;
@@ -2124,7 +2126,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
 
       si_emit_draw_packets<GFX_VERSION, NGG,
                            !HAS_TESS && !HAS_GS ? PRIM_DISCARD_CS_OFF : ALLOW_PRIM_DISCARD_CS>
-            (sctx, info, indirect, draws, num_draws, indexbuf, index_size,
+            (sctx, info, drawid_offset, indirect, draws, num_draws, indexbuf, index_size,
              index_offset, instance_count, dispatch_prim_discard_cs,
              original_index_size);
       /* <-- CUs are busy here. */
@@ -2164,7 +2166,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
 
       si_emit_draw_packets<GFX_VERSION, NGG,
                            !HAS_TESS && !HAS_GS ? PRIM_DISCARD_CS_OFF : ALLOW_PRIM_DISCARD_CS>
-            (sctx, info, indirect, draws, num_draws, indexbuf, index_size,
+            (sctx, info, drawid_offset, indirect, draws, num_draws, indexbuf, index_size,
              index_offset, instance_count,
              dispatch_prim_discard_cs, original_index_size);
 
@@ -2243,7 +2245,7 @@ static void si_draw_rectangle(struct blitter_context *blitter, void *vertex_elem
    sctx->vertex_buffer_pointer_dirty = false;
    sctx->vertex_buffer_user_sgprs_dirty = false;
 
-   pipe->draw_vbo(pipe, &info, NULL, &draw, 1);
+   pipe->draw_vbo(pipe, &info, 0, NULL, &draw, 1);
 }
 
 extern "C"
@@ -2308,6 +2310,7 @@ static void si_init_draw_vbo_all_families(struct si_context *sctx)
 
 static void si_invalid_draw_vbo(struct pipe_context *pipe,
                                 const struct pipe_draw_info *info,
+                                unsigned drawid_offset,
                                 const struct pipe_draw_indirect_info *indirect,
                                 const struct pipe_draw_start_count_bias *draws,
                                 unsigned num_draws)
