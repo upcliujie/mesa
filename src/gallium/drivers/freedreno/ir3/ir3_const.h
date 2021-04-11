@@ -462,7 +462,7 @@ ir3_emit_vs_driver_params(const struct ir3_shader_variant *v,
                           struct fd_ringbuffer *ring, struct fd_context *ctx,
                           const struct pipe_draw_info *info,
                           const struct pipe_draw_indirect_info *indirect,
-                          const struct pipe_draw_start_count *draw)
+                          const struct pipe_draw_start_count_bias *draw)
 	assert_dt
 {
 	assert(v->need_driver_params);
@@ -546,7 +546,7 @@ static inline void
 ir3_emit_vs_consts(const struct ir3_shader_variant *v, struct fd_ringbuffer *ring,
                    struct fd_context *ctx, const struct pipe_draw_info *info,
                    const struct pipe_draw_indirect_info *indirect,
-                   const struct pipe_draw_start_count *draw)
+                   const struct pipe_draw_start_count_bias *draw)
 	assert_dt
 {
 	debug_assert(v->type == MESA_SHADER_VERTEX);
