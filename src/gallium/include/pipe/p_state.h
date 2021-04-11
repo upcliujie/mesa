@@ -764,11 +764,6 @@ struct pipe_draw_info
    unsigned drawid; /**< id of this draw in a multidraw */
 
    /**
-    * For indexed drawing, these fields apply after index lookup.
-    */
-   int index_bias; /**< a bias to be added to each index */
-
-   /**
     * Primitive restart enable/index (only applies to indexed drawing)
     */
    unsigned restart_index;
@@ -792,6 +787,7 @@ struct pipe_draw_info
    /* These must be last for better packing in u_threaded_context. */
    unsigned min_index; /**< the min index */
    unsigned max_index; /**< the max index */
+   unsigned tc_index_bias; /**< for tc usage only */
 };
 
 

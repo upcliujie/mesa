@@ -398,7 +398,7 @@ panfrost_draw_emit_tiler(struct panfrost_batch *batch,
                 if (info->index_size) {
                         cfg.index_type = panfrost_translate_index_size(info->index_size);
                         cfg.indices = indices;
-                        cfg.base_vertex_offset = info->index_bias - ctx->offset_start;
+                        cfg.base_vertex_offset = draws->index_bias - ctx->offset_start;
                 }
         }
 
@@ -510,7 +510,7 @@ panfrost_direct_draw(struct panfrost_context *ctx,
 
         /* Take into account a negative bias */
         ctx->indirect_draw = false;
-        ctx->vertex_count = draw->count + (info->index_size ? abs(info->index_bias) : 0);
+        ctx->vertex_count = draw->count + (info->index_size ? abs(draws->index_bias) : 0);
         ctx->instance_count = info->instance_count;
         ctx->active_prim = info->mode;
 
@@ -535,7 +535,7 @@ panfrost_direct_draw(struct panfrost_context *ctx,
 
                 /* Use the corresponding values */
                 vertex_count = max_index - min_index + 1;
-                ctx->offset_start = min_index + info->index_bias;
+                ctx->offset_start = min_index + draws->index_bias;
         } else {
                 ctx->offset_start = draw->start;
         }

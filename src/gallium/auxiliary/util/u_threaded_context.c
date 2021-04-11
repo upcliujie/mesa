@@ -131,7 +131,6 @@ simplify_draw_info(struct pipe_draw_info *info)
          info->restart_index = 0;
    } else {
       assert(!info->primitive_restart);
-      info->index_bias = 0;
       info->primitive_restart = false;
       info->restart_index = 0;
       info->index.resource = NULL;
@@ -150,9 +149,9 @@ is_next_call_a_mergeable_draw(struct tc_draw_single *first_info,
    simplify_draw_info(&(*next_info)->info);
 
    STATIC_ASSERT(offsetof(struct pipe_draw_info, min_index) ==
-                 sizeof(struct pipe_draw_info) - 8);
+                 sizeof(struct pipe_draw_info) - 16);
    STATIC_ASSERT(offsetof(struct pipe_draw_info, max_index) ==
-                 sizeof(struct pipe_draw_info) - 4);
+                 sizeof(struct pipe_draw_info) - 12);
 
    /* All fields must be the same except start and count. */
    /* u_threaded_context stores start/count in min/max_index for single draws. */
@@ -197,8 +196,10 @@ tc_batch_execute(void *job, UNUSED int thread_index)
             /* u_threaded_context stores start/count in min/max_index for single draws. */
             multi[0].start = first_info->info.min_index;
             multi[0].count = first_info->info.max_index;
+            multi[0].index_bias = first_info->info.tc_index_bias;
             multi[1].start = next_info->info.min_index;
             multi[1].count = next_info->info.max_index;
+            multi[1].index_bias = next_info->info.tc_index_bias;
 
             if (next_info->info.index_size)
                pipe_resource_reference(&next_info->info.index.resource, NULL);
@@ -211,6 +212,7 @@ tc_batch_execute(void *job, UNUSED int thread_index)
                /* u_threaded_context stores start/count in min/max_index for single draws. */
                multi[num_draws].start = next_info->info.min_index;
                multi[num_draws].count = next_info->info.max_index;
+               multi[num_draws].index_bias = next_info->info.tc_index_bias;
 
                if (next_info->info.index_size)
                   pipe_resource_reference(&next_info->info.index.resource, NULL);
@@ -2392,6 +2394,7 @@ tc_call_draw_single(struct pipe_context *pipe, union tc_payload *payload)
       (struct pipe_draw_start_count_bias *)&info->info.min_index;
    STATIC_ASSERT(offsetof(struct pipe_draw_start_count_bias, start) == 0);
    STATIC_ASSERT(offsetof(struct pipe_draw_start_count_bias, count) == 4);
+   STATIC_ASSERT(offsetof(struct pipe_draw_start_count_bias, index_bias) == 8);
 
    info->info.index_bounds_valid = false;
    info->info.has_user_indices = false;
@@ -2511,6 +2514,7 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
          /* u_threaded_context stores start/count in min/max_index for single draws. */
          p->info.min_index = offset >> util_logbase2(index_size);
          p->info.max_index = draws[0].count;
+         p->info.tc_index_bias = draws[0].index_bias;
       } else {
          /* Non-indexed call or indexed with a real index buffer. */
          struct tc_draw_single *p =
@@ -2523,6 +2527,7 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
          /* u_threaded_context stores start/count in min/max_index for single draws. */
          p->info.min_index = draws[0].start;
          p->info.max_index = draws[0].count;
+         p->info.tc_index_bias = draws[0].index_bias;
       }
       return;
    }
@@ -2584,6 +2589,7 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
             if (!count) {
                p->slot[i].start = 0;
                p->slot[i].count = 0;
+               p->slot[i].index_bias = 0;
                continue;
             }
 
@@ -2593,6 +2599,7 @@ tc_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *info,
                    (draws[i + total_offset].start << index_size_shift), size);
             p->slot[i].start = (buffer_offset + offset) >> index_size_shift;
             p->slot[i].count = count;
+            p->slot[i].index_bias = draws[i + total_offset].index_bias;
             offset += size;
          }
 
