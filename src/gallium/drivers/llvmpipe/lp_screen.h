@@ -64,6 +64,8 @@ struct llvmpipe_screen
    bool use_tgsi;
    bool allow_cl;
 
+   mtx_t init_mtx;
+
    struct disk_cache *disk_shader_cache;
    unsigned num_disk_shader_cache_hits;
    unsigned num_disk_shader_cache_misses;
@@ -88,5 +90,7 @@ static inline unsigned lp_get_constant_buffer_stride(struct pipe_screen *_screen
    struct llvmpipe_screen *screen = llvmpipe_screen(_screen);
    return screen->use_tgsi ? (sizeof(float) * 4) : sizeof(float);
 }
+
+void lp_disk_cache_create(struct llvmpipe_screen *screen);
 
 #endif /* LP_SCREEN_H */

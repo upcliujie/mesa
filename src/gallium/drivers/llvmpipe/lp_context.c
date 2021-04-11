@@ -240,6 +240,10 @@ llvmpipe_create_context(struct pipe_screen *screen, void *priv,
    if (!llvmpipe->draw)
       goto fail;
 
+   struct llvmpipe_screen *s = llvmpipe_screen(screen);
+   mtx_lock(&s->init_mtx);
+   lp_disk_cache_create(s);
+   mtx_unlock(&s->init_mtx);
    draw_set_disk_cache_callbacks(llvmpipe->draw,
                                  llvmpipe_screen(screen),
                                  lp_draw_disk_cache_find_shader,
