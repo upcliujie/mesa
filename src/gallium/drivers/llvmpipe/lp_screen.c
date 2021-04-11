@@ -818,12 +818,15 @@ llvmpipe_get_timestamp(struct pipe_screen *_screen)
    return os_time_get_nano();
 }
 
-static void lp_disk_cache_create(struct llvmpipe_screen *screen)
+void lp_disk_cache_create(struct llvmpipe_screen *screen)
 {
    struct mesa_sha1 ctx;
    unsigned gallivm_perf = gallivm_get_perf_flags();
    unsigned char sha1[20];
    char cache_id[20 * 2 + 1];
+
+   if (screen->disk_shader_cache)
+      return;
    _mesa_sha1_init(&ctx);
 
    if (!disk_cache_get_function_identifier(lp_disk_cache_create, &ctx) ||
@@ -957,6 +960,5 @@ llvmpipe_create_screen(struct sw_winsys *winsys)
    }
    (void) mtx_init(&screen->cs_mutex, mtx_plain);
 
-   lp_disk_cache_create(screen);
    return &screen->base;
 }
