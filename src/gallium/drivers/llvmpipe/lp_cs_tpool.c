@@ -83,9 +83,16 @@ lp_cs_tpool_create(unsigned num_threads)
    list_inithead(&pool->workqueue);
    assert (num_threads <= LP_MAX_THREADS);
    pool->num_threads = num_threads;
-   for (unsigned i = 0; i < num_threads; i++)
-      pool->threads[i] = u_thread_create(lp_cs_tpool_worker, pool);
+
    return pool;
+}
+
+void
+lp_cs_tpool_init(struct lp_cs_tpool *pool)
+{
+   for (unsigned i = 0; !pool->init && i < pool->num_threads; i++)
+      pool->threads[i] = u_thread_create(lp_cs_tpool_worker, pool);
+   pool->init = true;
 }
 
 void
@@ -99,7 +106,7 @@ lp_cs_tpool_destroy(struct lp_cs_tpool *pool)
    cnd_broadcast(&pool->new_work);
    mtx_unlock(&pool->m);
 
-   for (unsigned i = 0; i < pool->num_threads; i++) {
+   for (unsigned i = 0; pool->init && i < pool->num_threads; i++) {
       thrd_join(pool->threads[i], NULL);
    }
 
