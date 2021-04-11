@@ -762,11 +762,7 @@ struct pipe_draw_info
    unsigned instance_count; /**< number of instances */
 
    unsigned drawid; /**< id of this draw in a multidraw */
-
-   /**
-    * For indexed drawing, these fields apply after index lookup.
-    */
-   int index_bias; /**< a bias to be added to each index */
+   int _pad2; /**< padding for memcmp and index_bias reuse */
 
    /**
     * Primitive restart enable/index (only applies to indexed drawing)
