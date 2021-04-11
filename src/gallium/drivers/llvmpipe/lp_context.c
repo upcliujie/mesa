@@ -40,6 +40,7 @@
 #include "util/u_upload_mgr.h"
 #include "lp_clear.h"
 #include "lp_context.h"
+#include "lp_cs_tpool.h"
 #include "lp_flush.h"
 #include "lp_perf.h"
 #include "lp_state.h"
@@ -243,6 +244,7 @@ llvmpipe_create_context(struct pipe_screen *screen, void *priv,
 
    lp_disk_cache_create(llvmpipe_screen(screen));
    lp_rast_init(llvmpipe_screen(screen)->rast);
+   lp_cs_tpool_init(llvmpipe_screen(screen)->cs_tpool);
    draw_set_disk_cache_callbacks(llvmpipe->draw,
                                  llvmpipe_screen(screen),
                                  lp_draw_disk_cache_find_shader,
