@@ -1131,7 +1131,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
       }
 
       /* Base vertex and start instance. */
-      int base_vertex = original_index_size ? info->index_bias : draws[0].start;
+      int base_vertex = original_index_size ? draws->index_bias : draws[0].start;
 
       bool set_draw_id = sctx->vs_uses_draw_id;
       bool set_base_instance = sctx->vs_uses_base_instance;
