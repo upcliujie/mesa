@@ -112,6 +112,7 @@ struct lp_rasterizer_task
  */
 struct lp_rasterizer
 {
+   bool init;
    boolean exit_flag;
    boolean no_rast;  /**< For debugging/profiling */
 
