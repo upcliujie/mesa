@@ -101,7 +101,7 @@ static void
 draw_emit(struct fd_ringbuffer *ring,
 		  struct CP_DRAW_INDX_OFFSET_0 *draw0,
 		  const struct pipe_draw_info *info,
-		  const struct pipe_draw_start_count *draw,
+		  const struct pipe_draw_start_count_bias *draw,
 		  unsigned index_offset)
 {
 	if (info->index_size) {
@@ -143,7 +143,7 @@ fixup_draw_state(struct fd_context *ctx, struct fd6_emit *emit)
 static bool
 fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
              const struct pipe_draw_indirect_info *indirect,
-             const struct pipe_draw_start_count *draw,
+             const struct pipe_draw_start_count_bias *draw,
              unsigned index_offset)
 	assert_dt
 {
