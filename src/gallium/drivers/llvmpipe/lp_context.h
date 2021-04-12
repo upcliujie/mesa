@@ -110,6 +110,8 @@ struct llvmpipe_context {
 
    bool queries_disabled;
 
+   bool conformant_filtering;
+
    unsigned dirty; /**< Mask of LP_NEW_x flags */
    unsigned cs_dirty; /**< Mask of LP_CSNEW_x flags */
    /** Mapped vertex buffers */

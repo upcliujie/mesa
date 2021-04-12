@@ -508,7 +508,7 @@ lp_build_init(void)
  */
 struct gallivm_state *
 gallivm_create(const char *name, LLVMContextRef context,
-               struct lp_cached_code *cache)
+               struct lp_cached_code *cache, bool conformant_filtering)
 {
    struct gallivm_state *gallivm;
 
@@ -519,6 +519,8 @@ gallivm_create(const char *name, LLVMContextRef context,
          gallivm = NULL;
       }
    }
+
+   gallivm->conformant_filtering = conformant_filtering;
 
    assert(gallivm != NULL);
    return gallivm;

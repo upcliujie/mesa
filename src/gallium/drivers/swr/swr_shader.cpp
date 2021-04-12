@@ -327,7 +327,7 @@ struct BuilderSWR : public Builder {
       : Builder(pJitMgr)
    {
       pJitMgr->SetupNewModule();
-      gallivm = gallivm_create(pName, wrap(&JM()->mContext), NULL);
+      gallivm = gallivm_create(pName, wrap(&JM()->mContext), NULL, false);
       pJitMgr->mpCurrentModule = unwrap(gallivm->module);
    }
 

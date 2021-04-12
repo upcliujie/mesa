@@ -452,7 +452,7 @@ test_one(unsigned verbose,
       dump_blend_type(stdout, blend, type);
 
    context = LLVMContextCreate();
-   gallivm = gallivm_create("test_module", context, NULL);
+   gallivm = gallivm_create("test_module", context, NULL, false);
 
    func = add_blend_test(gallivm, blend, type);
 
