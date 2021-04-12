@@ -438,7 +438,7 @@ test_unary(unsigned verbose, FILE *fp, const struct unary_test_t *test, unsigned
    }
 
    context = LLVMContextCreate();
-   gallivm = gallivm_create("test_module", context, NULL);
+   gallivm = gallivm_create("test_module", context, NULL, false);
 
    test_func = build_unary_test_func(gallivm, test, length, test_name);
 

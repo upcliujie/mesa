@@ -890,7 +890,7 @@ draw_llvm_create_variant(struct draw_llvm *llvm,
       if (!cached.data_size)
          needs_caching = true;
    }
-   variant->gallivm = gallivm_create(module_name, llvm->context, &cached);
+   variant->gallivm = gallivm_create(module_name, llvm->context, &cached, false);
 
    create_jit_types(variant);
 
@@ -2932,7 +2932,7 @@ draw_gs_llvm_create_variant(struct draw_llvm *llvm,
       if (!cached.data_size)
          needs_caching = true;
    }
-   variant->gallivm = gallivm_create(module_name, llvm->context, &cached);
+   variant->gallivm = gallivm_create(module_name, llvm->context, &cached, false);
 
    create_gs_jit_types(variant);
 
@@ -3587,7 +3587,7 @@ draw_tcs_llvm_create_variant(struct draw_llvm *llvm,
          needs_caching = true;
    }
 
-   variant->gallivm = gallivm_create(module_name, llvm->context, &cached);
+   variant->gallivm = gallivm_create(module_name, llvm->context, &cached, false);
 
    create_tcs_jit_types(variant);
 
@@ -4096,7 +4096,7 @@ draw_tes_llvm_create_variant(struct draw_llvm *llvm,
       if (!cached.data_size)
          needs_caching = true;
    }
-   variant->gallivm = gallivm_create(module_name, llvm->context, &cached);
+   variant->gallivm = gallivm_create(module_name, llvm->context, &cached, false);
 
    create_tes_jit_types(variant);
 

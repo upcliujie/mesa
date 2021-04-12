@@ -3455,7 +3455,8 @@ lp_debug_fs_variant(struct lp_fragment_shader_variant *variant)
 }
 
 static void
-lp_fs_get_ir_cache_key(struct lp_fragment_shader_variant *variant,
+lp_fs_get_ir_cache_key(struct llvmpipe_context *lp,
+                       struct lp_fragment_shader_variant *variant,
                             unsigned char ir_sha1_cache_key[20])
 {
    struct blob blob = { 0 };
@@ -3470,6 +3471,7 @@ lp_fs_get_ir_cache_key(struct lp_fragment_shader_variant *variant,
    struct mesa_sha1 ctx;
    _mesa_sha1_init(&ctx);
    _mesa_sha1_update(&ctx, &variant->key, variant->shader->variant_key_size);
+   _mesa_sha1_update(&ctx, &lp->conformant_filtering, sizeof(lp->conformant_filtering));
    _mesa_sha1_update(&ctx, ir_binary, ir_size);
    _mesa_sha1_final(&ctx, ir_sha1_cache_key);
 
@@ -3507,13 +3509,13 @@ generate_variant(struct llvmpipe_context *lp,
    memcpy(&variant->key, key, shader->variant_key_size);
 
    if (shader->base.ir.nir) {
-      lp_fs_get_ir_cache_key(variant, ir_sha1_cache_key);
+      lp_fs_get_ir_cache_key(lp, variant, ir_sha1_cache_key);
 
       lp_disk_cache_find_shader(screen, &cached, ir_sha1_cache_key);
       if (!cached.data_size)
          needs_caching = true;
    }
-   variant->gallivm = gallivm_create(module_name, lp->context, &cached);
+   variant->gallivm = gallivm_create(module_name, lp->context, &cached, lp->conformant_filtering);
    if (!variant->gallivm) {
       FREE(variant);
       return NULL;

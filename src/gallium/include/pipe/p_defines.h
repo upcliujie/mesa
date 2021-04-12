@@ -441,6 +441,11 @@ enum pipe_flush_flags
 #define PIPE_CONTEXT_LOSE_CONTEXT_ON_RESET (1 << 6)
 
 /**
+ * Whether llvmpipe should do Vulkan-conformant filtering.
+ */
+#define PIPE_CONTEXT_LP_CONFORMANT_FILTERING (1 << 7)
+
+/**
  * Flags for pipe_context::memory_barrier.
  */
 #define PIPE_BARRIER_MAPPED_BUFFER     (1 << 0)

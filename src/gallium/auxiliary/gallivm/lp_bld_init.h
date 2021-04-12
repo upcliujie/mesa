@@ -57,6 +57,7 @@ struct gallivm_state
    LLVMValueRef coro_malloc_hook;
    LLVMValueRef coro_free_hook;
    LLVMValueRef debug_printf_hook;
+   bool conformant_filtering;
 };
 
 
@@ -66,7 +67,7 @@ lp_build_init(void);
 
 struct gallivm_state *
 gallivm_create(const char *name, LLVMContextRef context,
-               struct lp_cached_code *cache);
+               struct lp_cached_code *cache, bool conformant_filtering);
 
 void
 gallivm_destroy(struct gallivm_state *gallivm);
