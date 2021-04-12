@@ -45,10 +45,18 @@ vk_to_isl_surf_dim[] = {
    [VK_IMAGE_TYPE_3D] = ISL_SURF_DIM_3D,
 };
 
+#ifndef NDEBUG
+static bool MUST_CHECK
+memory_range_is_aligned(struct anv_image_memory_range memory_range)
+{
+   return anv_is_aligned(memory_range.offset, memory_range.alignment);
+}
+#endif
+
 static uint64_t MUST_CHECK
 memory_range_end(struct anv_image_memory_range memory_range)
 {
-   assert(anv_is_aligned(memory_range.offset, memory_range.alignment));
+   assert(memory_range_is_aligned(memory_range));
    return memory_range.offset + memory_range.size;
 }
 
@@ -193,8 +201,8 @@ memory_range_merge(struct anv_image_memory_range *a,
       return;
 
    assert(a->offset == 0);
-   assert(anv_is_aligned(a->offset, a->alignment));
-   assert(anv_is_aligned(b.offset, b.alignment));
+   assert(memory_range_is_aligned(*a));
+   assert(memory_range_is_aligned(b));
 
    a->alignment = MAX2(a->alignment, b.alignment);
    a->size = MAX2(a->size, b.offset + b.size);
@@ -798,14 +806,6 @@ add_primary_surface(struct anv_device *device,
    return add_surface(device, image, anv_surf,
                       ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane, offset);
 }
-
-#ifndef NDEBUG
-static bool MUST_CHECK
-memory_range_is_aligned(struct anv_image_memory_range memory_range)
-{
-   return anv_is_aligned(memory_range.offset, memory_range.alignment);
-}
-#endif
 
 struct check_memory_range_params {
    struct anv_image_memory_range *accum_ranges;
