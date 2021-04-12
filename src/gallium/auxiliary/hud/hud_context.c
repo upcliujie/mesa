@@ -1678,13 +1678,14 @@ hud_set_draw_context(struct hud_context *hud, struct cso_context *cso,
       /* Read a texture and do .xxxx swizzling. */
       static const char *fragment_shader_text = {
          "FRAG\n"
-         "DCL IN[0], GENERIC[0], LINEAR\n"
+         "DCL IN[0], COLOR[0]\n"
+         "DCL IN[1], GENERIC[0], LINEAR\n"
          "DCL SAMP[0]\n"
          "DCL SVIEW[0], RECT, FLOAT\n"
          "DCL OUT[0], COLOR[0]\n"
          "DCL TEMP[0]\n"
 
-         "TEX TEMP[0], IN[0], SAMP[0], RECT\n"
+         "TEX TEMP[0], IN[1], SAMP[0], RECT\n"
          "MOV OUT[0], TEMP[0].xxxx\n"
          "END\n"
       };
