@@ -90,12 +90,14 @@ struct panfrost_sysvals {
  * an offset to a word must be < 2^16. There are less than 2^8 UBOs */
 
 struct panfrost_ubo_word {
-        uint16_t ubo;
+        uint8_t ubo;
+        uint8_t size;
         uint16_t offset;
 };
 
 struct panfrost_ubo_push {
         unsigned count;
+        unsigned num_words;
         struct panfrost_ubo_word words[PAN_MAX_PUSH];
 };
 

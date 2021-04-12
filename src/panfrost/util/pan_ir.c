@@ -135,14 +135,21 @@ pan_print_alu_type(nir_alu_type t, FILE *fp)
 unsigned
 pan_lookup_pushed_ubo(struct panfrost_ubo_push *push, unsigned ubo, unsigned offs)
 {
-        struct panfrost_ubo_word word = {
-                .ubo = ubo,
-                .offset = offs
-        };
+        unsigned count = 0;
 
         for (unsigned i = 0; i < push->count; ++i) {
-                if (memcmp(push->words + i, &word, sizeof(word)) == 0)
-                        return i;
+                struct panfrost_ubo_word word = push->words[i];
+
+                count += word.size;
+
+                if (word.ubo != ubo)
+                        continue;
+
+                unsigned start = word.offset;
+                unsigned end = word.offset + (word.size * 4);
+
+                if (offs >= start && offs < end)
+                        return count - (end - offs) / 4;
         }
 
         unreachable("UBO not pushed");
@@ -152,10 +159,24 @@ pan_lookup_pushed_ubo(struct panfrost_ubo_push *push, unsigned ubo, unsigned off
 void
 pan_add_pushed_ubo(struct panfrost_ubo_push *push, unsigned ubo, unsigned offs)
 {
+        ++push->count;
+
+        if (push->num_words) {
+                struct panfrost_ubo_word *prev;
+                prev = &push->words[push->num_words - 1];
+
+                if (prev->ubo == ubo &&
+                    prev->offset + prev->size * 4 == offs) {
+                        ++prev->size;
+                        return;
+                }
+        }
+
         struct panfrost_ubo_word word = {
                 .ubo = ubo,
+                .size = 1,
                 .offset = offs,
         };
 
-        push->words[push->count++] = word;
+        push->words[push->num_words++] = word;
 }
