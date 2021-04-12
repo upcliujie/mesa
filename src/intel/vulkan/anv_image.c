@@ -45,13 +45,12 @@ vk_to_isl_surf_dim[] = {
    [VK_IMAGE_TYPE_3D] = ISL_SURF_DIM_3D,
 };
 
-#ifndef NDEBUG
+#ifdef DEBUG
 static bool MUST_CHECK
 memory_range_is_aligned(struct anv_image_memory_range memory_range)
 {
    return anv_is_aligned(memory_range.offset, memory_range.alignment);
 }
-#endif
 
 static uint64_t MUST_CHECK
 memory_range_end(struct anv_image_memory_range memory_range)
@@ -59,6 +58,7 @@ memory_range_end(struct anv_image_memory_range memory_range)
    assert(memory_range_is_aligned(memory_range));
    return memory_range.offset + memory_range.size;
 }
+#endif
 
 /**
  * Get binding for VkImagePlaneMemoryRequirementsInfo and
@@ -182,30 +182,6 @@ image_binding_grow(const struct anv_device *device,
    };
 
    return VK_SUCCESS;
-}
-
-/**
- * Adjust range 'a' to contain range 'b'.
- *
- * For simplicity's sake, the offset of 'a' must be 0 and remains 0.
- * If 'a' and 'b' target different bindings, then no merge occurs.
- */
-static void
-memory_range_merge(struct anv_image_memory_range *a,
-                   const struct anv_image_memory_range b)
-{
-   if (b.size == 0)
-      return;
-
-   if (a->binding != b.binding)
-      return;
-
-   assert(a->offset == 0);
-   assert(memory_range_is_aligned(*a));
-   assert(memory_range_is_aligned(b));
-
-   a->alignment = MAX2(a->alignment, b.alignment);
-   a->size = MAX2(a->size, b.offset + b.size);
 }
 
 static isl_surf_usage_flags_t
@@ -814,6 +790,31 @@ struct check_memory_range_params {
    enum anv_image_memory_binding expect_binding;
 };
 
+#ifdef DEBUG
+/**
+ * Adjust range 'a' to contain range 'b'.
+ *
+ * For simplicity's sake, the offset of 'a' must be 0 and remains 0.
+ * If 'a' and 'b' target different bindings, then no merge occurs.
+ */
+static void
+memory_range_merge(struct anv_image_memory_range *a,
+                   const struct anv_image_memory_range b)
+{
+   if (b.size == 0)
+      return;
+
+   if (a->binding != b.binding)
+      return;
+
+   assert(a->offset == 0);
+   assert(memory_range_is_aligned(*a));
+   assert(memory_range_is_aligned(b));
+
+   a->alignment = MAX2(a->alignment, b.alignment);
+   a->size = MAX2(a->size, b.offset + b.size);
+}
+
 #define check_memory_range(...) \
    check_memory_range_s(&(struct check_memory_range_params) { __VA_ARGS__ })
 
@@ -840,6 +841,7 @@ check_memory_range_s(const struct check_memory_range_params *p)
 
    memory_range_merge(accum_range, *test_range);
 }
+#endif
 
 /**
  * Validate the image's memory bindings *after* all its surfaces and memory
