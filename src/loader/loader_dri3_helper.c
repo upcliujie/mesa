@@ -737,8 +737,17 @@ dri3_back_buffer(struct loader_dri3_drawable *draw)
 }
 
 static struct loader_dri3_buffer *
+dri3_get_buffer(__DRIdrawable *driDrawable, unsigned int format,
+                enum loader_dri3_buffer_type buffer_type,
+                struct loader_dri3_drawable *draw);
+
+static struct loader_dri3_buffer *
 dri3_fake_front_buffer(struct loader_dri3_drawable *draw)
 {
+   if (!draw->have_fake_front) {
+      return dri3_get_buffer(draw->dri_drawable, draw->back_format,
+                             loader_dri3_buffer_front, draw);
+   }
    return draw->buffers[LOADER_DRI3_FRONT_ID];
 }
 
