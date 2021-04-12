@@ -1098,7 +1098,9 @@ lvp_queue_init(struct lvp_device *device, struct lvp_queue *queue)
    queue->device = device;
 
    queue->flags = 0;
-   queue->ctx = device->pscreen->context_create(device->pscreen, NULL, PIPE_CONTEXT_ROBUST_BUFFER_ACCESS);
+   queue->ctx = device->pscreen->context_create(device->pscreen, NULL,
+                                                PIPE_CONTEXT_ROBUST_BUFFER_ACCESS |
+                                                PIPE_CONTEXT_LP_CONFORMANT_FILTERING);
    list_inithead(&queue->workqueue);
    p_atomic_set(&queue->count, 0);
    mtx_init(&queue->m, mtx_plain);
