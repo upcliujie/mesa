@@ -1102,8 +1102,15 @@ get_push_uniforms(struct pan_pool *pool,
         uint32_t *out = push_consts_buf.cpu;
         uint8_t *in = (uint8_t *)inputs;
 
-        for (unsigned i = 0; i < shader->push.count; ++i)
-                memcpy(out + i, in + shader->push.ranges[i].offset, 4);
+        unsigned dst_offset = 0;
+
+        for (unsigned i = 0; i < shader->push.count; ++i) {
+                struct panfrost_ubo_range src = shader->push.ranges[i];
+
+                memcpy(out + dst_offset, in + src.offset, src.size * 4);
+
+                dst_offset += src.size;
+        }
 
         return push_consts_buf.gpu;
 }

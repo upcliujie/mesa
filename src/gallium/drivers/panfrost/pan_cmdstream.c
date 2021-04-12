@@ -1168,7 +1168,9 @@ panfrost_emit_const_buf(struct panfrost_batch *batch,
         uint32_t *push_cpu = (uint32_t *) push_transfer.cpu;
         *push_constants = push_transfer.gpu;
 
-        for (unsigned i = 0; i < ss->info.push.count; ++i) {
+        unsigned dst_offset = 0;
+
+        for (unsigned i = 0; i < ss->info.push.num_ranges; ++i) {
                 struct panfrost_ubo_range src = ss->info.push.ranges[i];
 
                 /* Map the UBO, this should be cheap. However this is reading
@@ -1179,8 +1181,9 @@ panfrost_emit_const_buf(struct panfrost_batch *batch,
                 const void *mapped_ubo = (src.ubo == sysval_ubo) ? transfer.cpu :
                         panfrost_map_constant_buffer_cpu(ctx, buf, src.ubo);
 
-                /* TODO: Is there any benefit to combining ranges */
-                memcpy(push_cpu + i, (uint8_t *) mapped_ubo + src.offset, 4);
+                memcpy(push_cpu + dst_offset, (uint8_t *) mapped_ubo + src.offset, src.size * 4);
+
+                dst_offset += src.size;
         }
 
         buf->dirty_mask = 0;
