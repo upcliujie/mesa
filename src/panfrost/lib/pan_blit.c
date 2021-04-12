@@ -576,9 +576,6 @@ bifrost_load_emit_blend_rt(struct pan_pool *pool, void *out,
                 if (blend_shader) {
                         cfg.bifrost.internal.shader.pc = blend_shader;
                 } else {
-                        const struct util_format_description *format_desc =
-                                util_format_description(image->format);
-
                         cfg.bifrost.equation.rgb.a = MALI_BLEND_OPERAND_A_SRC;
                         cfg.bifrost.equation.rgb.b = MALI_BLEND_OPERAND_B_SRC;
                         cfg.bifrost.equation.rgb.c = MALI_BLEND_OPERAND_C_ZERO;
@@ -588,7 +585,7 @@ bifrost_load_emit_blend_rt(struct pan_pool *pool, void *out,
                         cfg.bifrost.equation.color_mask = 0xf;
                         cfg.bifrost.internal.fixed_function.num_comps = 4;
                         cfg.bifrost.internal.fixed_function.conversion.memory_format =
-                                panfrost_format_to_bifrost_blend(pool->dev, format_desc, true);
+                                panfrost_format_to_bifrost_blend(pool->dev, image->format, true);
                         cfg.bifrost.internal.fixed_function.conversion.register_format =
                                 blit_type_to_reg_fmt(T);
 
