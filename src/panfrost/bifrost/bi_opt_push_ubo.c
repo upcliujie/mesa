@@ -100,14 +100,8 @@ bi_pick_ubo(struct panfrost_ubo_push *push, struct bi_ubo_analysis *analysis)
                         if (push->count > PAN_MAX_PUSH - range)
                                 return;
 
-                        for (unsigned offs = 0; offs < range; ++offs) {
-                                struct panfrost_ubo_word word = {
-                                        .ubo = ubo,
-                                        .offset = (r + offs) * 4
-                                };
-
-                                push->words[push->count++] = word;
-                        }
+                        for (unsigned offs = 0; offs < range; ++offs)
+                                pan_add_pushed_ubo(push, ubo, (r + offs) * 4);
 
                         /* Mark it as pushed so we can rewrite */
                         BITSET_SET(block->pushed, r);
