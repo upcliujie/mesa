@@ -1807,7 +1807,8 @@ emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
 }
 
 static void
-emit_3dstate_gs(struct anv_graphics_pipeline *pipeline)
+emit_3dstate_gs(struct anv_graphics_pipeline *pipeline,
+                const VkPipelineRasterizationStateCreateInfo *rs_info)
 {
    const struct gen_device_info *devinfo = &pipeline->base.device->info;
    const struct anv_shader_bin *gs_bin =
@@ -1817,6 +1818,9 @@ emit_3dstate_gs(struct anv_graphics_pipeline *pipeline)
       anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_GS), gs);
       return;
    }
+
+   const VkPipelineRasterizationStateStreamCreateInfoEXT *stream_info =
+      vk_find_struct_const(rs_info, PIPELINE_RASTERIZATION_STATE_STREAM_CREATE_INFO_EXT);
 
    const struct brw_gs_prog_data *gs_prog_data = get_gs_prog_data(pipeline);
 
@@ -1848,6 +1852,7 @@ emit_3dstate_gs(struct anv_graphics_pipeline *pipeline)
       gs.ControlDataHeaderSize   = gs_prog_data->control_data_header_size_hwords;
       gs.InstanceControl         = MAX2(gs_prog_data->invocations, 1) - 1;
       gs.ReorderMode             = TRAILING;
+      gs.DefaultStreamId         = stream_info ? stream_info->rasterizationStream : 0;
 
 #if GFX_VER >= 8
       gs.ExpectedVertexCount     = gs_prog_data->vertices_in;
@@ -2341,7 +2346,7 @@ genX(graphics_pipeline_create)(
 
    emit_3dstate_vs(pipeline);
    emit_3dstate_hs_te_ds(pipeline, pCreateInfo->pTessellationState);
-   emit_3dstate_gs(pipeline);
+   emit_3dstate_gs(pipeline, pCreateInfo->pRasterizationState);
    emit_3dstate_sbe(pipeline);
    emit_3dstate_wm(pipeline, subpass,
                    pCreateInfo->pInputAssemblyState,
