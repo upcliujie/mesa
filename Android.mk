@@ -29,7 +29,6 @@ else
 
 # BOARD_GPU_DRIVERS should be defined.  The valid values are
 #
-#   classic drivers: i965
 #   gallium drivers: swrast freedreno i915g nouveau kmsro r300g r600g radeonsi vc4 virgl vmwgfx etnaviv iris lima panfrost
 #
 # The main target is libGLES_mesa.  For each classic driver enabled, a DRI
@@ -58,7 +57,6 @@ endif
 
 # Lists to convert driver names to boolean variables
 # in form of <driver name>.<boolean make variable>
-classic_drivers := i965.HAVE_I965_DRI
 gallium_drivers := \
 	swrast.HAVE_GALLIUM_SOFTPIPE \
 	freedreno.HAVE_GALLIUM_FREEDRENO \
@@ -77,24 +75,19 @@ gallium_drivers := \
 	panfrost.HAVE_GALLIUM_PANFROST
 
 ifeq ($(BOARD_GPU_DRIVERS),all)
-MESA_BUILD_CLASSIC := $(filter HAVE_%, $(subst ., , $(classic_drivers)))
 MESA_BUILD_GALLIUM := $(filter HAVE_%, $(subst ., , $(gallium_drivers)))
 else
 # Warn if we have any invalid driver names
 $(foreach d, $(BOARD_GPU_DRIVERS), \
-	$(if $(findstring $(d).,$(classic_drivers) $(gallium_drivers)), \
+	$(if $(findstring $(d).,$(gallium_drivers)), \
 		, \
 		$(warning invalid GPU driver: $(d)) \
 	) \
 )
-MESA_BUILD_CLASSIC := $(strip $(foreach d, $(BOARD_GPU_DRIVERS), $(patsubst $(d).%,%, $(filter $(d).%, $(classic_drivers)))))
 MESA_BUILD_GALLIUM := $(strip $(foreach d, $(BOARD_GPU_DRIVERS), $(patsubst $(d).%,%, $(filter $(d).%, $(gallium_drivers)))))
 endif
-ifeq ($(filter x86%,$(TARGET_ARCH)),)
-	MESA_BUILD_CLASSIC :=
-endif
 
-$(foreach d, $(MESA_BUILD_CLASSIC) $(MESA_BUILD_GALLIUM), $(eval $(d) := true))
+$(foreach d, $(MESA_BUILD_GALLIUM), $(eval $(d) := true))
 
 ifneq ($(filter true, $(HAVE_GALLIUM_RADEONSI)),)
 MESA_ENABLE_LLVM := true
