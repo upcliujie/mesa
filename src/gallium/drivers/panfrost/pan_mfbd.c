@@ -99,7 +99,7 @@ panfrost_mfbd_rt_init_format(const struct panfrost_device *dev,
         if (desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB)
                 rt->srgb = true;
 
-        struct pan_blendable_format fmt = panfrost_blend_format(surf->format);
+        struct pan_blendable_format fmt = panfrost_blendable_formats[surf->format];
 
         if (fmt.internal) {
                 rt->internal_format = fmt.internal;
@@ -399,7 +399,7 @@ panfrost_mfbd_emit_zs_crc_ext(struct panfrost_batch *batch, void *extp,
 static unsigned
 pan_bytes_per_pixel_tib(enum pipe_format format)
 {
-        if (panfrost_blend_format(format).internal) {
+        if (panfrost_blendable_formats[format].internal) {
                 /* Blendable formats are always 32-bits in the tile buffer,
                  * extra bits are used as padding or to dither */
                 return 4;

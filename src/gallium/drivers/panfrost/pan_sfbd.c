@@ -45,7 +45,7 @@ panfrost_sfbd_format(struct pipe_surface *surf,
 
         fb->swizzle = panfrost_translate_swizzle_4(swizzle);
 
-        struct pan_blendable_format fmt = panfrost_blend_format(surf->format);
+        struct pan_blendable_format fmt = panfrost_blendable_formats[surf->format];
 
         if (fmt.internal) {
                 fb->internal_format = fmt.internal;

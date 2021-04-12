@@ -839,7 +839,7 @@ panfrost_load_surface(struct panfrost_batch *batch, struct pipe_surface *surf, u
         mali_ptr blend_shader = 0;
 
         if (loc >= FRAG_RESULT_DATA0 &&
-            !panfrost_blend_format(format).internal) {
+            !panfrost_blendable_formats[format].internal) {
                 struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
                 struct panfrost_bo *bo =
                         panfrost_batch_create_bo(batch, 4096,
