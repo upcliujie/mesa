@@ -1857,7 +1857,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 else if (src_sz == 16)
                         bi_u16_to_f32_to(b, dst, s0);
                 else
-                        bi_u8_to_f32_to(b, dst, bi_byte(s0, 0));
+                        bi_u8_to_f32_to(b, dst, s0);
                 break;
 
         case nir_op_i2f16:
@@ -1872,8 +1872,10 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         case nir_op_i2f32:
                 if (src_sz == 32)
                         bi_s32_to_f32_to(b, dst, s0, BI_ROUND_RTZ);
-                else
+                else if (src_sz == 16)
                         bi_s16_to_f32_to(b, dst, s0);
+                else if (src_sz == 8)
+                        bi_s8_to_f32_to(b, dst, s0);
                 break;
 
         case nir_op_i2i32:
@@ -2894,6 +2896,8 @@ bi_vectorize_filter(const nir_instr *instr, void *data)
         case nir_op_ushr:
         case nir_op_f2i16:
         case nir_op_f2u16:
+        case nir_op_i2f16:
+        case nir_op_u2f16:
                 return false;
         default:
                 return true;
