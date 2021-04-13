@@ -39,6 +39,9 @@
 
 #define MAX_PUSH_CONSTANTS_SIZE 128
 
+#define MAX_UNIFORM_BUFFERS 12
+#define MAX_STORAGE_BUFFERS 12
+
 #define MAX_DYNAMIC_UNIFORM_BUFFERS 16
 #define MAX_DYNAMIC_STORAGE_BUFFERS 8
 #define MAX_DYNAMIC_BUFFERS                                                  \

@@ -1002,8 +1002,8 @@ v3dv_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
 
    /* Per-stage limits */
    const uint32_t max_samplers = 16;
-   const uint32_t max_uniform_buffers = 12;
-   const uint32_t max_storage_buffers = 12;
+   const uint32_t max_uniform_buffers = MAX_UNIFORM_BUFFERS;
+   const uint32_t max_storage_buffers = MAX_STORAGE_BUFFERS;
    const uint32_t max_dynamic_storage_buffers = 6;
    const uint32_t max_sampled_images = 16;
    const uint32_t max_storage_images = 4;
