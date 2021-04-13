@@ -68,6 +68,8 @@
 /* Does this GPU support anisotropic filtering? */
 #define HAS_ANISOTROPIC (1 << 11)
 
+#define NO_TILE_ENABLE_MAP (1 << 12)
+
 /* Quirk collections common to particular uarchs */
 
 #define MIDGARD_QUIRKS (MIDGARD_BROKEN_FP16 | HAS_SWIZZLES \
@@ -84,20 +86,21 @@ panfrost_get_quirks(unsigned gpu_id, unsigned gpu_revision)
         case 0x620:
                 return MIDGARD_QUIRKS | MIDGARD_SFBD
                         | MIDGARD_NO_TYPED_BLEND_LOADS
-                        | NO_BLEND_PACKS | MIDGARD_NO_AFBC;
+                        | NO_BLEND_PACKS | MIDGARD_NO_AFBC
+                        | NO_TILE_ENABLE_MAP;
 
         case 0x720:
                 return MIDGARD_QUIRKS | MIDGARD_SFBD | MIDGARD_NO_HIER_TILING
-                        | MIDGARD_NO_AFBC;
+                        | MIDGARD_NO_AFBC | NO_TILE_ENABLE_MAP;
 
         case 0x820:
         case 0x830:
-                return MIDGARD_QUIRKS | MIDGARD_NO_HIER_TILING;
+                return MIDGARD_QUIRKS | MIDGARD_NO_HIER_TILING | NO_TILE_ENABLE_MAP;
 
         case 0x750:
                 /* Someone should investigate the broken loads? */
                 return MIDGARD_QUIRKS | MIDGARD_NO_TYPED_BLEND_LOADS
-                        | NO_BLEND_PACKS;
+                        | NO_BLEND_PACKS | NO_TILE_ENABLE_MAP;
 
         case 0x860:
         case 0x880:
