@@ -2119,7 +2119,6 @@ struct radv_image_view {
    VkImageAspectFlags aspect_mask;
    VkFormat vk_format;
    unsigned plane_id;
-   bool multiple_planes;
    uint32_t base_layer;
    uint32_t layer_count;
    uint32_t base_mip;
