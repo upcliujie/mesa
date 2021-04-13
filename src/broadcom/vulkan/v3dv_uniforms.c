@@ -33,6 +33,10 @@ struct texture_bo_list {
    struct v3dv_bo *state;
 };
 
+struct sampler_bo_list {
+   struct v3dv_bo *state;
+};
+
 /*
  * This method checks if the ubo used for push constants is needed to be
  * updated or not.
@@ -127,10 +131,10 @@ static void
 write_tmu_p1(struct v3dv_cmd_buffer *cmd_buffer,
              struct v3dv_pipeline *pipeline,
              struct v3dv_cl_out **uniforms,
-             uint32_t data)
+             uint32_t data,
+             struct sampler_bo_list *sampler_bos)
 {
    uint32_t sampler_idx = v3d_unit_data_get_unit(data);
-   struct v3dv_job *job = cmd_buffer->state.job;
    struct v3dv_descriptor_state *descriptor_state =
       v3dv_cmd_buffer_get_descriptor_state(cmd_buffer, pipeline);
 
@@ -158,10 +162,12 @@ write_tmu_p1(struct v3dv_cmd_buffer *cmd_buffer,
                                         &p1_unpacked);
    }
 
-   cl_aligned_reloc(&job->indirect, uniforms,
-                    sampler_state_reloc.bo,
-                    sampler_state_reloc.offset +
-                    p1_packed);
+   cl_aligned_u32(uniforms, sampler_state_reloc.bo->offset +
+                            sampler_state_reloc.offset +
+                            p1_packed);
+
+   assert(sampler_idx < V3D_MAX_TEXTURE_SAMPLERS);
+   sampler_bos[sampler_idx].state = sampler_state_reloc.bo;
 }
 
 static void
@@ -331,6 +337,7 @@ v3dv_write_uniforms_wg_offsets(struct v3dv_cmd_buffer *cmd_buffer,
    assert(job);
 
    struct texture_bo_list tex_bos[V3D_MAX_TEXTURE_SAMPLERS] = { NULL };
+   struct sampler_bo_list sampler_bos[V3D_MAX_TEXTURE_SAMPLERS] = { NULL };
 
    /* The hardware always pre-fetches the next uniform (also when there
     * aren't any), so we always allocate space for an extra slot. This
@@ -388,7 +395,7 @@ v3dv_write_uniforms_wg_offsets(struct v3dv_cmd_buffer *cmd_buffer,
          break;
 
       case QUNIFORM_TMU_CONFIG_P1:
-         write_tmu_p1(cmd_buffer, pipeline, &uniforms, data);
+         write_tmu_p1(cmd_buffer, pipeline, &uniforms, data, sampler_bos);
          break;
 
       case QUNIFORM_IMAGE_WIDTH:
@@ -444,6 +451,8 @@ v3dv_write_uniforms_wg_offsets(struct v3dv_cmd_buffer *cmd_buffer,
          v3dv_job_add_bo(job, tex_bos[i].tex);
       if (tex_bos[i].state)
          v3dv_job_add_bo(job, tex_bos[i].state);
+      if (sampler_bos[i].state)
+         v3dv_job_add_bo(job, sampler_bos[i].state);
    }
 
    return uniform_stream;
