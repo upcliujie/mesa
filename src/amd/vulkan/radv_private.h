@@ -2078,7 +2078,6 @@ union radv_descriptor {
 struct radv_image_view {
    struct vk_object_base base;
    struct radv_image *image; /**< VkImageViewCreateInfo::image */
-   struct radeon_winsys_bo *bo;
 
    VkImageViewType type;
    VkImageAspectFlags aspect_mask;
