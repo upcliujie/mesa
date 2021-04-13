@@ -28,6 +28,11 @@
 #include "v3dv_private.h"
 #include "vk_format_info.h"
 
+struct texture_bo_list {
+   struct v3dv_bo *tex;
+   struct v3dv_bo *state;
+};
+
 /*
  * This method checks if the ubo used for push constants is needed to be
  * updated or not.
@@ -88,10 +93,11 @@ static void
 write_tmu_p0(struct v3dv_cmd_buffer *cmd_buffer,
              struct v3dv_pipeline *pipeline,
              struct v3dv_cl_out **uniforms,
-             uint32_t data)
+             uint32_t data,
+             struct texture_bo_list *tex_bos)
 {
    uint32_t texture_idx = v3d_unit_data_get_unit(data);
-   struct v3dv_job *job = cmd_buffer->state.job;
+
    struct v3dv_descriptor_state *descriptor_state =
       v3dv_cmd_buffer_get_descriptor_state(cmd_buffer, pipeline);
 
@@ -101,7 +107,8 @@ write_tmu_p0(struct v3dv_cmd_buffer *cmd_buffer,
                                          &pipeline->shared_data->texture_map,
                                          pipeline->layout, texture_idx);
    assert(texture_bo);
-   v3dv_job_add_bo(job, texture_bo);
+   assert(texture_idx < V3D_MAX_TEXTURE_SAMPLERS);
+   tex_bos[texture_idx].tex = texture_bo;
 
    struct v3dv_cl_reloc state_reloc =
       v3dv_descriptor_map_get_texture_shader_state(descriptor_state,
@@ -109,10 +116,10 @@ write_tmu_p0(struct v3dv_cmd_buffer *cmd_buffer,
                                                    pipeline->layout,
                                                    texture_idx);
 
-   cl_aligned_reloc(&job->indirect, uniforms,
-                    state_reloc.bo,
-                    state_reloc.offset +
-                    v3d_unit_data_get_offset(data));
+   cl_aligned_u32(uniforms, state_reloc.bo->offset +
+                            state_reloc.offset +
+                            v3d_unit_data_get_offset(data));
+   tex_bos[texture_idx].state = state_reloc.bo;
 }
 
 /** V3D 4.x TMU configuration parameter 1 (sampler) */
@@ -323,6 +330,8 @@ v3dv_write_uniforms_wg_offsets(struct v3dv_cmd_buffer *cmd_buffer,
    struct v3dv_job *job = cmd_buffer->state.job;
    assert(job);
 
+   struct texture_bo_list tex_bos[V3D_MAX_TEXTURE_SAMPLERS] = { NULL };
+
    /* The hardware always pre-fetches the next uniform (also when there
     * aren't any), so we always allocate space for an extra slot. This
     * fixes MMU exceptions reported since Linux kernel 5.4 when the
@@ -375,7 +384,7 @@ v3dv_write_uniforms_wg_offsets(struct v3dv_cmd_buffer *cmd_buffer,
 
       case QUNIFORM_IMAGE_TMU_CONFIG_P0:
       case QUNIFORM_TMU_CONFIG_P0:
-         write_tmu_p0(cmd_buffer, pipeline, &uniforms, data);
+         write_tmu_p0(cmd_buffer, pipeline, &uniforms, data, tex_bos);
          break;
 
       case QUNIFORM_TMU_CONFIG_P1:
@@ -429,6 +438,13 @@ v3dv_write_uniforms_wg_offsets(struct v3dv_cmd_buffer *cmd_buffer,
    }
 
    cl_end(&job->indirect, uniforms);
+
+   for (int i = 0; i < V3D_MAX_TEXTURE_SAMPLERS; i++) {
+      if (tex_bos[i].tex)
+         v3dv_job_add_bo(job, tex_bos[i].tex);
+      if (tex_bos[i].state)
+         v3dv_job_add_bo(job, tex_bos[i].state);
+   }
 
    return uniform_stream;
 }
