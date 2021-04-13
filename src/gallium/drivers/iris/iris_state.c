@@ -4076,6 +4076,7 @@ iris_emit_sbe_swiz(struct iris_batch *batch,
             attr->ConstantSource = PRIM_ID;
             continue;
          }
+         break;
 
       default:
          break;
