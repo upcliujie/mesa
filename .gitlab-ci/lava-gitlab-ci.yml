@@ -17,10 +17,10 @@
   script:
     # Try to use the kernel and rootfs built in mainline first, to save cycles
     - >
-      if wget -q --method=HEAD "${ARTIFACTS_PREFIX}/${FDO_UPSTREAM_REPO}/lava/${DISTRIBUTION_TAG}/${ARCH}/done"; then
-        ARTIFACTS_URL="${ARTIFACTS_PREFIX}/${FDO_UPSTREAM_REPO}/lava/${DISTRIBUTION_TAG}/${ARCH}"
+      if wget -q --method=HEAD "${ARTIFACTS_PREFIX}/${FDO_UPSTREAM_REPO}/${DISTRIBUTION_TAG}/${ARCH}/done"; then
+        ARTIFACTS_URL="${ARTIFACTS_PREFIX}/${FDO_UPSTREAM_REPO}/${DISTRIBUTION_TAG}/${ARCH}"
       else
-        ARTIFACTS_URL="${ARTIFACTS_PREFIX}/${CI_PROJECT_PATH}/lava/${DISTRIBUTION_TAG}/${ARCH}"
+        ARTIFACTS_URL="${ARTIFACTS_PREFIX}/${CI_PROJECT_PATH}/${DISTRIBUTION_TAG}/${ARCH}"
       fi
     - >
       artifacts/generate_lava.py \
