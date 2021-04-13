@@ -6988,7 +6988,7 @@
         "description": "lavapipe: Free sorted descriptor array.",
         "nominated": true,
         "nomination_type": 1,
-        "resolution": 0,
+        "resolution": 3,
         "master_sha": null,
         "because_sha": "abc724e440ea1809c7c53cee42a99b68afbb1b11"
     },
