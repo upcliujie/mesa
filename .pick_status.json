@@ -13369,7 +13369,7 @@
         "description": "lavapipe: fix primitive-restart for uint8 indices",
         "nominated": true,
         "nomination_type": 1,
-        "resolution": 0,
+        "resolution": 3,
         "master_sha": null,
         "because_sha": "6526e6d11b82a96139c3e5d16120765262d5707e"
     },
