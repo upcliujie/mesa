@@ -4,7 +4,6 @@
   # Cancel job if a newer commit is pushed to the same branch
   interruptible: true
   variables:
-    DISTRIBUTION_TAG: *distribution-tag-arm
     GIT_STRATEGY: none # testing doesn't build anything from source
     ENV_VARS: "DEQP_PARALLEL=6"
     FIXED_ENV_VARS: "CI_PIPELINE_ID=${CI_PIPELINE_ID} CI_JOB_ID=${CI_JOB_ID} CI_PAGES_DOMAIN=${CI_PAGES_DOMAIN} CI_PROJECT_NAME=${CI_PROJECT_NAME} CI_PROJECT_PATH=${CI_PROJECT_PATH} CI_PROJECT_ROOT_NAMESPACE=${CI_PROJECT_ROOT_NAMESPACE} CI_JOB_JWT=${CI_JOB_JWT} CI_SERVER_URL=${CI_SERVER_URL} DRIVER_NAME=${DRIVER_NAME} FDO_UPSTREAM_REPO=${FDO_UPSTREAM_REPO} PIGLIT_NO_WINDOW=1 PIGLIT_REPLAY_UPLOAD_TO_MINIO=1 MINIO_HOST=${MINIO_HOST} LAVA_TEST_SCRIPT=${LAVA_TEST_SCRIPT} TEST_SUITE=${TEST_SUITE}"
@@ -62,8 +61,8 @@
   extends:
     - .lava-test
     - .use-arm_build
+    - .use-kernel+rootfs-armhf
   needs:
-    - kernel+rootfs_armhf
     - meson-armhf
 
 .lava-test:arm64:
@@ -77,16 +76,15 @@
   extends:
     - .lava-test
     - .use-arm_build
+    - .use-kernel+rootfs-arm64
   dependencies:
     - meson-arm64
   needs:
-    - kernel+rootfs_arm64
     - meson-arm64
 
 .lava-test:amd64:
   variables:
     ARCH: amd64
-    DISTRIBUTION_TAG: *distribution-tag-amd64
     KERNEL_IMAGE_NAME: bzImage
     KERNEL_IMAGE_TYPE: "type:\ zimage"
     BOOT_METHOD: u-boot
@@ -96,8 +94,8 @@
     - .use-x86_build-base # for same $MESA_BASE_TAG as in kernel+rootfs_amd64
     - .use-arm_build # ARM because it must match the architecture of the runner
     - .lava-test
+    - .use-kernel+rootfs-amd64
   needs:
-    - kernel+rootfs_amd64
     - arm_build # ARM because it must match the architecture of the runner
     - meson-testing
 
