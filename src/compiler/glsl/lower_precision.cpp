@@ -492,6 +492,9 @@ handle_call(ir_call *ir, const struct set *lowerable_rvalues)
        !strcmp(ir->callee_name(), "bitfieldReverse") ||
        !strcmp(ir->callee_name(), "frexp") ||
        !strcmp(ir->callee_name(), "ldexp") ||
+       /* Intermediate calculations can overflow.
+        * TODO: This is too heavy-handed */
+       !strcmp(ir->callee_name(), "inverse") ||
        /* Parameters and outputs are always highp: */
        /* TODO: The operations are highp, but carry and borrow outputs are lowp. */
        !strcmp(ir->callee_name(), "uaddCarry") ||
