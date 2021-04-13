@@ -6889,7 +6889,7 @@
         "description": "iris: disable dynamic VAO fastpath on GFX version 9",
         "nominated": true,
         "nomination_type": 1,
-        "resolution": 0,
+        "resolution": 3,
         "master_sha": null,
         "because_sha": "42842306d3c7ba71f89022a1ebb09a4454a1b6e0"
     },
