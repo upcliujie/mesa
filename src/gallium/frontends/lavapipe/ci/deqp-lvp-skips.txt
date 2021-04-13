@@ -6,7 +6,22 @@
 dEQP-VK.texture.filtering.3d.sizes.3x7x5.linear_mipmap_linear
 
 # Timeout (VK-GL-CTS 1.2.5.2)
+dEQP-VK.api.command_buffers.record_simul_use_primary
+dEQP-VK.api.command_buffers.record_simul_use_secondary
+dEQP-VK.api.command_buffers.secondary_execute_twice
+dEQP-VK.ssbo.layout.random.16bit.all_shared_buffer.40
+dEQP-VK.ssbo.phys.layout.random.16bit.scalar.13
+dEQP-VK.ssbo.phys.layout.random.all_shared_buffer.47
+dEQP-VK.tessellation.invariance.inner_triangle_set.quads_fractional_even_spacing
+dEQP-VK.tessellation.invariance.outer_edge_division.quads_equal_spacing
+dEQP-VK.tessellation.invariance.outer_edge_division.quads_fractional_even_spacing
+dEQP-VK.tessellation.invariance.outer_edge_division.quads_fractional_odd_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.quads_equal_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.quads_fractional_even_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.quads_fractional_odd_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.triangles_equal_spacing
 dEQP-VK.tessellation.invariance.outer_triangle_set.triangles_fractional_even_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.triangles_fractional_odd_spacing
 dEQP-VK.texture.filtering.3d.combinations.linear_mipmap_linear.linear.clamp_to_edge.clamp_to_edge.mirrored_repeat
 dEQP-VK.texture.filtering.3d.combinations.linear_mipmap_linear.linear.clamp_to_edge.mirror_clamp_to_edge.mirrored_repeat
 dEQP-VK.texture.filtering.3d.combinations.linear_mipmap_linear.linear.clamp_to_edge.repeat.mirrored_repeat
@@ -24,3 +39,4 @@ dEQP-VK.texture.filtering.3d.combinations.linear_mipmap_linear.nearest.mirrored_
 dEQP-VK.texture.filtering.3d.combinations.linear_mipmap_linear.nearest.mirrored_repeat.repeat.mirrored_repeat
 dEQP-VK.texture.filtering.3d.combinations.linear_mipmap_linear.nearest.repeat.mirrored_repeat.mirrored_repeat
 dEQP-VK.texture.filtering.3d.formats.a1r5g5b5_unorm.a1r5g5b5_unorm_linear_mipmap_linear
+dEQP-VK.ssbo.phys.layout.random.16bit.scalar.13
