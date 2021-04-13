@@ -565,6 +565,11 @@ panfrost_walk_dmabuf_modifiers(struct pipe_screen *screen,
                 if (drm_is_afbc(pan_best_modifiers[i]) && !afbc)
                         continue;
 
+                /* We can't play games with formats with external consumers */
+                if (!drm_is_afbc(pan_best_modifiers[i]) ||
+                    !panfrost_afbc_format_needs_fixup(dev, format))
+                        continue;
+
                 if ((pan_best_modifiers[i] & AFBC_FORMAT_MOD_YTR) && !ytr)
                         continue;
 
