@@ -155,6 +155,8 @@ print_instr_name(struct log_stream *stream, struct ir3_instruction *instr,
          /* clang-format on */
       };
       mesa_log_stream_printf(stream, "%s", name[instr->cat0.brtype]);
+   } else if (instr->opc == OPC_BARY_F && instr->cat2.interp == IR3_INTERP_FLAT) {
+      mesa_log_stream_printf(stream, "flat.b");
    } else {
       mesa_log_stream_printf(stream, "%s", disasm_a3xx_instr_name(instr->opc));
       if (instr->flags & IR3_INSTR_3D)

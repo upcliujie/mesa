@@ -319,14 +319,20 @@ struct ir3_instruction {
          round_t round;
       } cat1;
       struct {
-         enum {
-            IR3_COND_LT = 0,
-            IR3_COND_LE = 1,
-            IR3_COND_GT = 2,
-            IR3_COND_GE = 3,
-            IR3_COND_EQ = 4,
-            IR3_COND_NE = 5,
-         } condition;
+         union {
+            enum {
+               IR3_COND_LT = 0,
+               IR3_COND_LE = 1,
+               IR3_COND_GT = 2,
+               IR3_COND_GE = 3,
+               IR3_COND_EQ = 4,
+               IR3_COND_NE = 5,
+            } condition;
+            enum {
+               IR3_INTERP_SMOOTH = 0,
+               IR3_INTERP_FLAT = 1,
+            } interp;
+         };
       } cat2;
       struct {
          unsigned samp, tex;

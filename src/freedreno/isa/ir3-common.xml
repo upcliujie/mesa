@@ -290,6 +290,11 @@ SOFTWARE.
 	<value val="5" display="ne"/>
 </enum>
 
+<enum name="#interp">
+	<value val="0" display="bary.f"/>
+	<value val="1" display="flat.b"/>
+</enum>
+
 <enum name="#swiz">
 	<value val="0" display="x"/>
 	<value val="1" display="y"/>
