@@ -446,7 +446,7 @@ arm_build:
     GIT_STRATEGY: fetch
     KERNEL_URL: "https://gitlab.freedesktop.org/tomeu/linux/-/archive/v5.11-for-mesa-ci/linux-v5.11-for-mesa-ci.tar.gz"
     INSTALL_KERNEL_MODULES: 1
-    MESA_ROOTFS_TAG: &kernel+rootfs "2021-04-13-unified-kernel"
+    MESA_ROOTFS_TAG: &kernel-rootfs "2021-04-13-unified-kernel"
     DISTRIBUTION_TAG: &distribution-tag-arm "${MESA_ROOTFS_TAG}--${MESA_IMAGE_TAG}--${MESA_TEMPLATES_COMMIT}"
   script:
     - .gitlab-ci/container/lava_build.sh
@@ -491,7 +491,7 @@ arm_test:
     FDO_DISTRIBUTION_TAG: "${MESA_IMAGE_TAG}--${MESA_ROOTFS_TAG}--${MESA_ARM_BUILD_TAG}--${MESA_TEMPLATES_COMMIT}"
     MESA_ARM_BUILD_TAG: *arm_build
     MESA_IMAGE_TAG: &arm_test "2021-04-13-unified-kernel"
-    MESA_ROOTFS_TAG: *kernel+rootfs
+    MESA_ROOTFS_TAG: *kernel_rootfs
 
 .use-arm_test:
   image: "$CI_REGISTRY_IMAGE/${MESA_IMAGE_PATH}:${MESA_IMAGE_TAG}--${MESA_ROOTFS_TAG}--${MESA_ARM_BUILD_TAG}--${MESA_TEMPLATES_COMMIT}"
@@ -499,7 +499,7 @@ arm_test:
     MESA_ARM_BUILD_TAG: *arm_build
     MESA_IMAGE_PATH: "debian/arm_test"
     MESA_IMAGE_TAG: *arm_test
-    MESA_ROOTFS_TAG: *kernel+rootfs
+    MESA_ROOTFS_TAG: *kernel_rootfs
   needs:
     - arm_test
 
