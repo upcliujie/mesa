@@ -14,7 +14,7 @@
   variables:
     KERNEL_URL: "https://gitlab.freedesktop.org/tomeu/linux/-/archive/v5.11-for-mesa-ci/linux-v5.11-for-mesa-ci.tar.gz"
     INSTALL_KERNEL_MODULES: 1
-    MESA_ROOTFS_TAG: &lava-rootfs "2021-04-13-kernel-5.11"
+    MESA_ROOTFS_TAG: &lava-rootfs "2021-04-13-unified-kernel"
     MINIO_SUFFIX: "lava"
 
 kernel+rootfs_amd64:

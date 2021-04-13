@@ -5,7 +5,7 @@ set -o xtrace
 
 check_minio()
 {
-    MINIO_PATH="${MINIO_HOST}/mesa-lava/$1/${MINIO_SUFFIX}/${DISTRIBUTION_TAG}/${DEBIAN_ARCH}"
+    MINIO_PATH="${MINIO_HOST}/mesa-lava/$1/lava/${DISTRIBUTION_TAG}/${DEBIAN_ARCH}"
     if wget -q --method=HEAD "https://${MINIO_PATH}/done"; then
         exit
     fi
@@ -194,7 +194,7 @@ if [ -n "$INSTALL_KERNEL_MODULES" ]; then
     INSTALL_MOD_PATH=/lava-files/rootfs-${DEBIAN_ARCH}/ make modules_install
 fi
 
-if [[ ${DEBIAN_ARCH} = "arm64" ]] && [[ ${MINIO_SUFFIX} = "baremetal" ]]; then
+if [[ ${DEBIAN_ARCH} = "arm64" ]]; then
     make Image.lzma
     mkimage \
         -f auto \
@@ -242,7 +242,7 @@ find /libdrm/ -name lib\*\.so\* | xargs cp -t /lava-files/rootfs-${DEBIAN_ARCH}/
 rm -rf /libdrm
 
 
-if [ ${DEBIAN_ARCH} = arm64 ] && [ ${MINIO_SUFFIX} = baremetal ]; then
+if [ ${DEBIAN_ARCH} = arm64 ]; then
     # Make a gzipped copy of the Image for db410c.
     gzip -k /lava-files/Image
     KERNEL_IMAGE_NAME+=" Image.gz"
