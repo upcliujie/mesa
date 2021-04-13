@@ -817,6 +817,14 @@ panfrost_create_screen(int fd, struct renderonly *ro)
         if (dev->debug & PAN_DBG_NO_AFBC)
                 dev->quirks |= MIDGARD_NO_AFBC;
 
+        /* Some debug flags are developers-only and should not be used by
+         * end-users. We know there are bugs, that's why it's hidden. */
+
+        if (dev->debug & (PAN_DBG_DEQP | PAN_DBG_GL3 | PAN_DBG_MSAA16)) {
+                fprintf(stderr, "panfrost: Setting PAN_MESA_DEBUG taints the "
+                                "driver. Use at your risk.\n");
+        }
+
         dev->ro = ro;
 
         /* Check if we're loading against a supported GPU model. */
