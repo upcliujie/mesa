@@ -86,9 +86,14 @@ set -ex
 rm -rf results/
 mkdir -p results
 
+ls -l /nfs/usr/lib/modules/*
+
 # Create the rootfs in the NFS directory.  rm to make sure it's in a pristine
 # state, since it's volume-mounted on the host.
 rsync -a --delete $BM_ROOTFS/ /nfs/
+
+ls -l /nfs/usr/lib/modules/*
+ls -l $BM_ROOTFS/usr/lib/modules/*
 
 # If BM_BOOTFS is an URL, download it
 if echo $BM_BOOTFS | grep -q http; then
@@ -104,10 +109,15 @@ if [ -f $BM_BOOTFS ]; then
   BM_BOOTFS=/tmp/bootfs
 fi
 
+ls -l $BM_BOOTFS/usr/lib/modules/*
+ls -l $BM_BOOTFS/lib/modules/*
+
 # Install kernel modules (it could be either in /lib/modules or
 # /usr/lib/modules, but we want to install in the latter)
 [ -d $BM_BOOTFS/usr/lib/modules ] && rsync -a --delete $BM_BOOTFS/usr/lib/modules/ /nfs/usr/lib/modules/
 [ -d $BM_BOOTFS/lib/modules ] && rsync -a --delete $BM_BOOTFS/lib/modules/ /nfs/usr/lib/modules/
+
+ls -l /nfs/usr/lib/modules/*
 
 # Install kernel image + bootloader files
 rsync -a --delete $BM_BOOTFS/boot/ /tftp/
