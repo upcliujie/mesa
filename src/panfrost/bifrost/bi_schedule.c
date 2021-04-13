@@ -750,6 +750,12 @@ bi_instr_schedulable(bi_instr *instr,
         if (!fma && instr->op == BI_OPCODE_FADD_V2F16 && instr->clamp)
                 return false;
 
+        /* Errata: *V2F32_TO_V2F16 with distinct sources raises
+         * INSTR_INVALID_ENC under certain conditions */
+        if (fma && instr->op == BI_OPCODE_V2F32_TO_V2F16 &&
+                        !bi_is_word_equiv(instr->src[0], instr->src[1]))
+                return false;
+
         /* There can only be one message-passing instruction per clause */
         if (bi_must_message(instr) && clause->message)
                 return false;
