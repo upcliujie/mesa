@@ -125,6 +125,90 @@ nir_recompute_io_bases(nir_function_impl *impl, nir_variable_mode modes)
    return changed;
 }
 
+enum lower_analysis {
+   LOWER,
+   LOWER_IMPRECISE,
+   DONTLOWER
+};
+
+static enum lower_analysis
+should_lower_store_src(nir_src src)
+{
+   assert(src.is_ssa);
+
+   /* The conversion will be folded away, but check
+    * if we'd lose precision */
+   if (nir_src_is_const(src)) {
+      bool exact = true;
+
+      for (unsigned i = 0; i < src.ssa->num_components; ++i) {
+         float orig = nir_src_comp_as_float(src, i);
+         uint16_t half = _mesa_float_to_half(orig);
+         float full = _mesa_half_to_float(half);
+         exact &= (memcmp(&orig, &full, sizeof(float)) == 0);
+      }
+
+      return exact ? LOWER : LOWER_IMPRECISE;
+   }
+
+   nir_instr *parent = src.ssa->parent_instr;
+
+   /* Assume we can't fold conversions into intrinsics (XXX: textures?) */
+   if (parent->type != nir_instr_type_alu)
+      return DONTLOWER;
+
+   nir_alu_instr *alu = nir_instr_as_alu(parent);
+
+   /* Check if we fold out a conversion by inserting f2f16 */
+   if (alu->op == nir_op_f2f32)
+      return LOWER;
+   else
+      return DONTLOWER;
+}
+
+static enum lower_analysis
+should_lower_store(nir_intrinsic_instr *intr)
+{
+   nir_instr *parent = intr->src[0].ssa->parent_instr;
+   enum lower_analysis initial = should_lower_store_src(intr->src[0]);
+
+   if (parent->type != nir_instr_type_alu)
+      return initial;
+
+   nir_alu_instr *alu = nir_instr_as_alu(parent);
+
+   if (nir_op_is_vec(alu->op) && alu->op != nir_op_mov) {
+      /* Count the number of conversions if we don't do anything vs
+       * number if we turn into a 16-bit store */
+      unsigned srcs = nir_op_infos[alu->op].num_inputs;
+
+      unsigned hurt = 0, help = 0;
+      bool exact = true;
+
+      for (unsigned i = 0; i < srcs; ++i) {
+         enum lower_analysis a = should_lower_store_src(alu->src[i].src);
+         if (a == LOWER) {
+            help++;
+         } else if (a == DONTLOWER) {
+            hurt++;
+            exact = false;
+         } else if (a == LOWER_IMPRECISE) {
+            help++;
+            exact = false;
+         }
+      }
+
+      /* Heuristic: optimize for fewest conversions. Tie break in favour of
+       * lowering since lowering may enable other optimizations. */
+      if (help >= hurt)
+         return (exact ? LOWER : LOWER_IMPRECISE);
+      else
+         return DONTLOWER;
+   } else {
+      return initial;
+   }
+}
+
 /**
  * Lower mediump inputs and/or outputs to 16 bits.
  *
@@ -158,9 +242,17 @@ nir_lower_mediump_io(nir_shader *nir, nir_variable_mode modes,
                            !(nir->info.stage == MESA_SHADER_FRAGMENT &&
                              mode == nir_var_shader_out);
 
-         if (!sem.medium_precision ||
+         enum lower_analysis analysis = LOWER_IMPRECISE;
+
+         if (nir_intrinsic_has_src_type(intr))
+            analysis = should_lower_store(intr);
+
+         if (analysis == DONTLOWER)
+            continue;
+
+         if (analysis == LOWER_IMPRECISE && (!sem.medium_precision ||
              (is_varying && sem.location <= VARYING_SLOT_VAR31 &&
-              !(varying_mask & BITFIELD64_BIT(sem.location))))
+              !(varying_mask & BITFIELD64_BIT(sem.location)))))
             continue; /* can't lower */
 
          if (nir_intrinsic_has_src_type(intr)) {
