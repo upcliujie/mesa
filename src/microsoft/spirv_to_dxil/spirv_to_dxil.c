@@ -57,9 +57,6 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    NIR_PASS_V(nir, nir_split_per_member_structs);
 
-   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_ubo | nir_var_mem_ssbo,
-              nir_address_format_32bit_index_offset);
-
    nir_variable_mode nir_var_function_temp =
       nir_var_shader_in | nir_var_shader_out;
    NIR_PASS_V(nir, nir_lower_variable_initializers,
@@ -107,6 +104,12 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
          NIR_PASS(progress, nir, nir_opt_algebraic);
       } while (progress);
    }
+
+   nir_opt_access_options opt_access_opts = { .is_vulkan = true, .infer_non_readable = true };
+   NIR_PASS_V(nir, nir_opt_access, &opt_access_opts);
+
+   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_ubo | nir_var_mem_ssbo,
+      nir_address_format_32bit_index_offset);
 
    NIR_PASS_V(nir, dxil_nir_split_clip_cull_distance);
    NIR_PASS_V(nir, nir_lower_samplers);
