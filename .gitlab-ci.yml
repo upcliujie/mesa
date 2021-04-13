@@ -19,6 +19,7 @@ include:
     ref: *ci-templates-commit
     file:
       - '/templates/debian.yml'
+  - local: '.gitlab-ci/lava-gitlab-ci.yml'
   - local: '.gitlab-ci/test-source-dep.yml'
 
 stages:
