@@ -810,7 +810,6 @@ spec/arb_buffer_storage/bufferstorage-persistent_gles3 read: skip
 spec/arb_buffer_storage/bufferstorage-persistent_gles3 read client-storage: skip
 spec/arb_buffer_storage/bufferstorage-persistent_gles3 read coherent: skip
 spec/arb_buffer_storage/bufferstorage-persistent_gles3 read coherent client-storage: skip
-spec/arb_clear_texture/arb_clear_texture-multisample: fail
 spec/arb_compute_shader/api_errors: skip
 spec/arb_compute_shader/built-in constants: skip
 spec/arb_compute_shader/compiler/work_group_size_too_large: skip
