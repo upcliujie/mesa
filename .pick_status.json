@@ -10912,7 +10912,7 @@
         "description": "radv: Dedupe winsyses per device.",
         "nominated": true,
         "nomination_type": 1,
-        "resolution": 0,
+        "resolution": 3,
         "master_sha": null,
         "because_sha": "7bef19201822ab2aebfd244142ff3a23535019a7"
     },
