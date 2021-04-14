@@ -173,11 +173,6 @@ for i in /usr/bin/*-ld /usr/bin/ld; do
 done
 export PATH=`pwd`/ld-links:$PATH
 
-if [ -n "$INSTALL_KERNEL_MODULES" ]; then
-    # Disable all modules in defconfig, so we only build the ones we want
-    sed -i 's/=m/=n/g' ${DEFCONFIG}
-fi
-
 echo CONFIG_LOCALVERSION="`basename $KERNEL_URL`" >> ../.gitlab-ci/container/${KERNEL_ARCH}.config
 ./scripts/kconfig/merge_config.sh ${DEFCONFIG} ../.gitlab-ci/container/${KERNEL_ARCH}.config
 make ${KERNEL_IMAGE_NAME}
@@ -190,9 +185,11 @@ if [[ -n ${DEVICE_TREES} ]]; then
     cp ${DEVICE_TREES} /lava-files/.
 fi
 
-if [ -n "$INSTALL_KERNEL_MODULES" ]; then
-    make modules
-    INSTALL_MOD_PATH=/lava-files/rootfs-${DEBIAN_ARCH}/ make modules_install
+if [[ ${DEBIAN_ARCH} = "amd64" ]]; then
+    make modules_prepare
+    make SUBDIRS=scripts/mod
+    make SUBDIRS=drivers/gpu/drm/amd/amdgpu modules
+    INSTALL_MOD_PATH=/lava-files/rootfs-${DEBIAN_ARCH}/ make SUBDIRS=drivers/gpu/drm/amd/amdgpu modules_install
 fi
 
 if [[ ${DEBIAN_ARCH} = "arm64" ]]; then
