@@ -1195,11 +1195,17 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
          for (unsigned i = 0; i < num_draws; i++) {
             uint64_t va = index_va + draws[i].start * index_size;
 
-            if (i > 0 && set_draw_id) {
-               unsigned draw_id = info->drawid + i;
+            if (i > 0) {
+               if (info->index_bias_varies) {
+                  radeon_set_sh_reg(cs, sh_base_reg + SI_SGPR_BASE_VERTEX * 4, draws[i].index_bias);
+                  sctx->last_base_vertex = base_vertex;
+               }
+               if (set_draw_id) {
+                  unsigned draw_id = info->drawid + i;
 
-               radeon_set_sh_reg(cs, sh_base_reg + SI_SGPR_DRAWID * 4, draw_id);
-               sctx->last_drawid = draw_id;
+                  radeon_set_sh_reg(cs, sh_base_reg + SI_SGPR_DRAWID * 4, draw_id);
+                  sctx->last_drawid = draw_id;
+               }
             }
 
             radeon_emit(cs, PKT3(PKT3_DRAW_INDEX_2, 4, render_cond_bit));
@@ -1214,6 +1220,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
                          */
                         S_0287F0_NOT_EOP(GFX_VERSION >= GFX10 &&
                                          !set_draw_id &&
+                                         !info->index_bias_varies &&
                                          i < num_draws - 1));
          }
       } else {
