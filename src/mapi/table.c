@@ -50,7 +50,7 @@ noop_warn(const char *name)
       if (debug < 0)
          debug = (getenv("MESA_DEBUG") || getenv("LIBGL_DEBUG"));
 
-      if (debug)
+      if (debug && strcmp(debug, "silent") != 0)
          fprintf(stderr, "%s is no-op\n", name);
    }
 }
