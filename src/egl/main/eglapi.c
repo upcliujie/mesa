@@ -182,7 +182,7 @@ _eglCheckDisplay(_EGLDisplay *disp, const char *msg)
       _eglError(EGL_BAD_DISPLAY, msg);
       return false;
    }
-   if (!disp->Initialized) {
+   if (disp->RefCount == 0) {
       _eglError(EGL_NOT_INITIALIZED, msg);
       return false;
    }
@@ -621,7 +621,7 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
    if (!disp)
       RETURN_EGL_ERROR(NULL, EGL_BAD_DISPLAY, EGL_FALSE);
 
-   if (!disp->Initialized) {
+   if (disp->RefCount == 0) {
       /* set options */
       disp->Options.ForceSoftware =
          env_var_as_boolean("LIBGL_ALWAYS_SOFTWARE", false);
@@ -642,7 +642,6 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
          }
       }
 
-      disp->Initialized = EGL_TRUE;
       disp->Driver = &_eglDriver;
 
       /* limit to APIs supported by core */
@@ -708,11 +707,10 @@ eglTerminate(EGLDisplay dpy)
    else
       disp->RefCount = 0;
 
-   if (disp->Initialized && disp->RefCount == 0) {
+   if (disp->RefCount == 0) {
       disp->Driver->Terminate(disp);
       /* do not reset disp->Driver */
       disp->ClientAPIsString[0] = 0;
-      disp->Initialized = EGL_FALSE;
 
       /* Reset blob cache funcs on terminate. */
       disp->BlobCacheSet = NULL;
@@ -874,7 +872,7 @@ eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read,
       RETURN_EGL_ERROR(disp, EGL_BAD_DISPLAY, EGL_FALSE);
 
    /* display is allowed to be uninitialized under certain condition */
-   if (!disp->Initialized) {
+   if (disp->RefCount == 0) {
       if (draw != EGL_NO_SURFACE || read != EGL_NO_SURFACE ||
           ctx != EGL_NO_CONTEXT)
          RETURN_EGL_ERROR(disp, EGL_BAD_DISPLAY, EGL_FALSE);
@@ -1523,7 +1521,7 @@ _eglWaitClientCommon(void)
       RETURN_EGL_ERROR(disp, EGL_BAD_CURRENT_SURFACE, EGL_FALSE);
 
    /* a valid current context implies an initialized current display */
-   assert(disp->Initialized);
+   assert(disp->RefCount > 0);
    ret = disp->Driver->WaitClient(disp, ctx);
 
    RETURN_EGL_EVAL(disp, ret);
@@ -1566,7 +1564,7 @@ eglWaitNative(EGLint engine)
       RETURN_EGL_ERROR(disp, EGL_BAD_CURRENT_SURFACE, EGL_FALSE);
 
    /* a valid current context implies an initialized current display */
-   assert(disp->Initialized);
+   assert(disp->RefCount > 0);
    ret = disp->Driver->WaitNative(engine);
 
    RETURN_EGL_EVAL(disp, ret);
@@ -2774,7 +2772,7 @@ _eglLockDisplayInterop(EGLDisplay dpy, EGLContext context,
 {
 
    *disp = _eglLockDisplay(dpy);
-   if (!*disp || !(*disp)->Initialized || !(*disp)->Driver) {
+   if (!*disp || (*disp)->RefCount == 0 || !(*disp)->Driver) {
       if (*disp)
          _eglUnlockDisplay(*disp);
       return MESA_GLINTEROP_INVALID_DISPLAY;
