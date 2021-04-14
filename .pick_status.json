@@ -12460,7 +12460,7 @@
         "description": "ac/gpu_info: fix more non-coherent RB and GL2 combinations",
         "nominated": true,
         "nomination_type": 1,
-        "resolution": 0,
+        "resolution": 3,
         "master_sha": null,
         "because_sha": "abed921ce710d3a4463e0f8ccca2cfadf113e42b"
     },
