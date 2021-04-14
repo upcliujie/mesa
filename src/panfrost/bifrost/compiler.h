@@ -641,6 +641,13 @@ bi_node_to_index(unsigned node, unsigned node_count)
         return bi_get_index(node >> 1, node & PAN_IS_REG, 0);
 }
 
+static inline unsigned
+bi_word_node(bi_index idx)
+{
+        assert(bi_is_ssa(idx));
+        return (idx.value << 2) | idx.offset;
+}
+
 /* Iterators for Bifrost IR */
 
 #define bi_foreach_block(ctx, v) \
