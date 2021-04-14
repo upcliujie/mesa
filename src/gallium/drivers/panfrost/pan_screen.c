@@ -560,6 +560,9 @@ panfrost_walk_dmabuf_modifiers(struct pipe_screen *screen,
         /* Don't advertise AFBC before T760 */
         afbc &= !(dev->quirks & MIDGARD_NO_AFBC);
 
+        if (panfrost_afbc_format_needs_fixup(dev, format))
+                afbc = false;
+
         unsigned count = 0;
 
         for (unsigned i = 0; i < PAN_MODIFIER_COUNT; ++i) {
