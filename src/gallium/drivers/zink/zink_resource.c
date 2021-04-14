@@ -481,6 +481,8 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
       if (ici.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
          obj->transfer_dst = true;
 
+      if (ici.tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
+         obj->modifier_aspect = VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT;
 
       struct wsi_image_create_info image_wsi_info = {
          VK_STRUCTURE_TYPE_WSI_IMAGE_CREATE_INFO_MESA,
@@ -702,7 +704,7 @@ zink_resource_get_handle(struct pipe_screen *pscreen,
       VkImageSubresource sub_res = {0};
       VkSubresourceLayout sub_res_layout = {0};
 
-      sub_res.aspectMask = res->aspect;
+      sub_res.aspectMask = obj->modifier_aspect ? obj->modifier_aspect : res->aspect;
 
       vkGetImageSubresourceLayout(screen->dev, obj->image, &sub_res, &sub_res_layout);
 
@@ -1139,7 +1141,7 @@ zink_transfer_map(struct pipe_context *pctx,
                resource_sync_writes_from_batch_usage(ctx, res);
          }
          VkImageSubresource isr = {
-            res->aspect,
+            res->obj->modifier_aspect ? res->obj->modifier_aspect : res->aspect,
             level,
             0
          };
