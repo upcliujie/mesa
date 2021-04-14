@@ -3426,12 +3426,6 @@ typedef struct nir_shader_compiler_options {
    /** Lower nir_op_ibfe and nir_op_ubfe that have two constant sources. */
    bool lower_bfe_with_two_constants;
 
-   /** Whether 8-bit ALU is supported. */
-   bool support_8bit_alu;
-
-   /** Whether 16-bit ALU is supported. */
-   bool support_16bit_alu;
-
    unsigned max_unroll_iterations;
    unsigned max_unroll_iterations_aggressive;
 

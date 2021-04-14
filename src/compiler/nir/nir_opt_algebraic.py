@@ -1780,11 +1780,6 @@ for t in ['int', 'uint', 'float']:
         if N == 1 or N >= M:
             continue
 
-        cond = 'true'
-        if N == 8:
-            cond = 'options->support_8bit_alu'
-        elif N == 16:
-            cond = 'options->support_16bit_alu'
         x2xM = '{0}2{0}{1}'.format(t[0], M)
         x2xN = '{0}2{0}{1}'.format(t[0], N)
         aN = 'a@' + str(N)
@@ -1804,12 +1799,12 @@ for t in ['int', 'uint', 'float']:
 
             bP = 'b@' + str(P)
             optimizations += [
-                ((xeq, (x2xM, aN), (x2xM, bP)), (xeq, a, (x2xN, b)), cond),
-                ((xne, (x2xM, aN), (x2xM, bP)), (xne, a, (x2xN, b)), cond),
-                ((xge, (x2xM, aN), (x2xM, bP)), (xge, a, (x2xN, b)), cond),
-                ((xlt, (x2xM, aN), (x2xM, bP)), (xlt, a, (x2xN, b)), cond),
-                ((xge, (x2xM, bP), (x2xM, aN)), (xge, (x2xN, b), a), cond),
-                ((xlt, (x2xM, bP), (x2xM, aN)), (xlt, (x2xN, b), a), cond),
+                ((xeq, (x2xM, aN), (x2xM, bP)), (xeq, a, (x2xN, b))),
+                ((xne, (x2xM, aN), (x2xM, bP)), (xne, a, (x2xN, b))),
+                ((xge, (x2xM, aN), (x2xM, bP)), (xge, a, (x2xN, b))),
+                ((xlt, (x2xM, aN), (x2xM, bP)), (xlt, a, (x2xN, b))),
+                ((xge, (x2xM, bP), (x2xM, aN)), (xge, (x2xN, b), a)),
+                ((xlt, (x2xM, bP), (x2xM, aN)), (xlt, (x2xN, b), a)),
             ]
 
         # The next bit doesn't work on floats because the range checks would
