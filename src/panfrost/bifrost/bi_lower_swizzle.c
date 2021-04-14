@@ -30,7 +30,7 @@
  * recombine swizzles where we can as an optimization.
  */
 
-static void
+static bool
 bi_lower_swizzle_16(bi_context *ctx, bi_instr *ins, unsigned src, BITSET_WORD *replicates)
 {
         /* TODO: Use the opcode table and be a lot more methodical about this... */
@@ -55,7 +55,7 @@ bi_lower_swizzle_16(bi_context *ctx, bi_instr *ins, unsigned src, BITSET_WORD *r
             if (src == 0 && ins->src[src].swizzle != BI_SWIZZLE_H10)
                     break;
             else
-                    return;
+                    return true;
         case BI_OPCODE_LSHIFT_AND_V2I16:
         case BI_OPCODE_LSHIFT_OR_V2I16:
         case BI_OPCODE_LSHIFT_XOR_V2I16:
@@ -63,29 +63,39 @@ bi_lower_swizzle_16(bi_context *ctx, bi_instr *ins, unsigned src, BITSET_WORD *r
         case BI_OPCODE_RSHIFT_OR_V2I16:
         case BI_OPCODE_RSHIFT_XOR_V2I16:
             if (src == 2)
-                    return;
+                    return true;
             else
                     break;
         default:
-            return;
+            return true;
         }
+
+        /* We need to track whether we affect replication */
+        bool still_replicates = true;
 
         /* Identity is ok (TODO: what about replicate only?) */
-        if (ins->src[src].swizzle == BI_SWIZZLE_H01)
-                return;
+        bool identity = (ins->src[src].swizzle == BI_SWIZZLE_H01);
 
         /* If the source replicates, it doesn't matter what we pick */
-        if (bi_is_ssa(ins->src[src]) &&
-                        BITSET_TEST(replicates, bi_word_node(ins->src[src]))) {
-                ins->src[src].swizzle = BI_SWIZZLE_H01;
-                return;
+        identity |= (bi_is_ssa(ins->src[src]) &&
+                        BITSET_TEST(replicates, bi_word_node(ins->src[src])));
+
+        /* If the instruction is scalar we can ignore the other component */
+        if (ins->dest[0].swizzle == BI_SWIZZLE_H00 &&
+                        ins->src[src].swizzle == BI_SWIZZLE_H00) {
+                still_replicates = false;
+                identity = true;
         }
 
-        /* Lower it away */
-        bi_builder b = bi_init_builder(ctx, bi_before_instr(ins));
-        ins->src[src] = bi_replace_index(ins->src[src],
-                        bi_swz_v2i16(&b, ins->src[src]));
+        /* Failing that, lower away */
+        if (!identity) {
+                bi_builder b = bi_init_builder(ctx, bi_before_instr(ins));
+                ins->src[src] = bi_replace_index(ins->src[src],
+                                bi_swz_v2i16(&b, ins->src[src]));
+        }
+
         ins->src[src].swizzle = BI_SWIZZLE_H01;
+        return still_replicates;
 }
 
 static bool
@@ -112,7 +122,7 @@ bi_lower_swizzle(bi_context *ctx)
                         if (!bi_is_null(ins->src[s])) {
                                 enum bi_swizzle swz = ins->src[s].swizzle;
                                 repl_16 &= bi_swizzle_replicates_16(swz);
-                                bi_lower_swizzle_16(ctx, ins, s, replicates_16);
+                                repl_16 &= bi_lower_swizzle_16(ctx, ins, s, replicates_16);
                         }
                 }
 
