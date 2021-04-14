@@ -31,7 +31,7 @@
  */
 
 static void
-bi_lower_swizzle_16(bi_context *ctx, bi_instr *ins, unsigned src)
+bi_lower_swizzle_16(bi_context *ctx, bi_instr *ins, unsigned src, BITSET_WORD *replicates)
 {
         /* TODO: Use the opcode table and be a lot more methodical about this... */
         switch (ins->op) {
@@ -74,6 +74,13 @@ bi_lower_swizzle_16(bi_context *ctx, bi_instr *ins, unsigned src)
         if (ins->src[src].swizzle == BI_SWIZZLE_H01)
                 return;
 
+        /* If the source replicates, it doesn't matter what we pick */
+        if (bi_is_ssa(ins->src[src]) &&
+                        BITSET_TEST(replicates, bi_word_node(ins->src[src]))) {
+                ins->src[src].swizzle = BI_SWIZZLE_H01;
+                return;
+        }
+
         /* Lower it away */
         bi_builder b = bi_init_builder(ctx, bi_before_instr(ins));
         ins->src[src] = bi_replace_index(ins->src[src],
@@ -81,13 +88,35 @@ bi_lower_swizzle_16(bi_context *ctx, bi_instr *ins, unsigned src)
         ins->src[src].swizzle = BI_SWIZZLE_H01;
 }
 
+static bool
+bi_swizzle_replicates_16(enum bi_swizzle swz)
+{
+        return (swz == BI_SWIZZLE_H00) || (swz == BI_SWIZZLE_H11);
+}
+
+static bool
+bi_op_replicates_16(enum bi_opcode op)
+{
+        return op != BI_OPCODE_MKVEC_V2I16;
+}
+
 void
 bi_lower_swizzle(bi_context *ctx)
 {
+        BITSET_WORD *replicates_16 = calloc(sizeof(bi_index), ((ctx->ssa_alloc + 1) << 2));
+
         bi_foreach_instr_global_safe(ctx, ins) {
+                bool repl_16 = bi_op_replicates_16(ins->op);
+
                 bi_foreach_src(ins, s) {
-                        if (!bi_is_null(ins->src[s]))
-                                bi_lower_swizzle_16(ctx, ins, s);
+                        if (!bi_is_null(ins->src[s])) {
+                                enum bi_swizzle swz = ins->src[s].swizzle;
+                                repl_16 &= bi_swizzle_replicates_16(swz);
+                                bi_lower_swizzle_16(ctx, ins, s, replicates_16);
+                        }
                 }
+
+                if (repl_16 && bi_is_ssa(ins->dest[0]))
+                        BITSET_SET(replicates_16, bi_word_node(ins->dest[0]));
         }
 }
