@@ -243,8 +243,6 @@ struct radv_shader_info {
       bool has_vertex_buffers; /* needs vertex buffers and base/start */
       bool needs_draw_id;
       bool needs_instance_id;
-      struct radv_vs_output_info outinfo;
-      struct radv_es_output_info es_info;
       bool as_es;
       bool as_ls;
       bool export_prim_id;
@@ -269,8 +267,6 @@ struct radv_shader_info {
    } gs;
    struct {
       uint8_t output_usage_mask[VARYING_SLOT_VAR31 + 1];
-      struct radv_vs_output_info outinfo;
-      struct radv_es_output_info es_info;
       bool as_es;
       unsigned primitive_mode;
       enum gl_tess_spacing spacing;
@@ -334,6 +330,8 @@ struct radv_shader_info {
 
    struct gfx9_gs_info gs_ring_info;
    struct gfx10_ngg_info ngg_info;
+   struct radv_vs_output_info vs_outinfo;
+   struct radv_es_output_info es_info;
 
    unsigned float_controls_mode;
 };

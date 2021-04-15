@@ -1792,10 +1792,10 @@ gfx9_get_gs_info(const struct radv_pipeline_key *key, const struct radv_pipeline
    struct radv_shader_info *gs_info = &infos[MESA_SHADER_GEOMETRY];
    struct radv_es_output_info *es_info;
    if (pipeline->device->physical_device->rad_info.chip_class >= GFX9)
-      es_info = nir[MESA_SHADER_TESS_CTRL] ? &gs_info->tes.es_info : &gs_info->vs.es_info;
+      es_info = &gs_info->es_info;
    else
-      es_info = nir[MESA_SHADER_TESS_CTRL] ? &infos[MESA_SHADER_TESS_EVAL].tes.es_info
-                                           : &infos[MESA_SHADER_VERTEX].vs.es_info;
+      es_info = nir[MESA_SHADER_TESS_CTRL] ? &infos[MESA_SHADER_TESS_EVAL].es_info
+                                           : &infos[MESA_SHADER_VERTEX].es_info;
 
    unsigned gs_num_invocations = MAX2(gs_info->gs.invocations, 1);
    bool uses_adjacency;
@@ -1938,7 +1938,7 @@ gfx10_get_ngg_info(const struct radv_pipeline_key *key, struct radv_pipeline *pi
 {
    struct radv_shader_info *gs_info = &infos[MESA_SHADER_GEOMETRY];
    struct radv_es_output_info *es_info =
-      nir[MESA_SHADER_TESS_CTRL] ? &gs_info->tes.es_info : &gs_info->vs.es_info;
+      nir[MESA_SHADER_TESS_CTRL] ? &gs_info->es_info : &gs_info->es_info;
    unsigned gs_type = nir[MESA_SHADER_GEOMETRY] ? MESA_SHADER_GEOMETRY : MESA_SHADER_VERTEX;
    unsigned max_verts_per_prim = radv_get_num_input_vertices(nir);
    unsigned min_verts_per_prim = gs_type == MESA_SHADER_GEOMETRY ? max_verts_per_prim : 1;
@@ -2018,7 +2018,7 @@ gfx10_get_ngg_info(const struct radv_pipeline_key *key, struct radv_pipeline *pi
        * corresponding to the ES thread of the provoking vertex. All
        * ES threads load and export PrimitiveID for their thread.
        */
-      if (!nir[MESA_SHADER_TESS_CTRL] && infos[MESA_SHADER_VERTEX].vs.outinfo.export_prim_id)
+      if (!nir[MESA_SHADER_TESS_CTRL] && infos[MESA_SHADER_VERTEX].vs_outinfo.export_prim_id)
          esvert_lds_size = MAX2(esvert_lds_size, 1);
    }
 
@@ -2215,13 +2215,13 @@ get_vs_output_info(const struct radv_pipeline *pipeline)
 {
    if (radv_pipeline_has_gs(pipeline))
       if (radv_pipeline_has_ngg(pipeline))
-         return &pipeline->shaders[MESA_SHADER_GEOMETRY]->info.vs.outinfo;
+         return &pipeline->shaders[MESA_SHADER_GEOMETRY]->info.vs_outinfo;
       else
-         return &pipeline->gs_copy_shader->info.vs.outinfo;
+         return &pipeline->gs_copy_shader->info.vs_outinfo;
    else if (radv_pipeline_has_tess(pipeline))
-      return &pipeline->shaders[MESA_SHADER_TESS_EVAL]->info.tes.outinfo;
+      return &pipeline->shaders[MESA_SHADER_TESS_EVAL]->info.vs_outinfo;
    else
-      return &pipeline->shaders[MESA_SHADER_VERTEX]->info.vs.outinfo;
+      return &pipeline->shaders[MESA_SHADER_VERTEX]->info.vs_outinfo;
 }
 
 static void

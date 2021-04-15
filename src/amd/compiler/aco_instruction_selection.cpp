@@ -10203,9 +10203,7 @@ static void export_vs_varying(isel_context *ctx, int slot, bool is_pos, int *nex
 {
    assert(ctx->stage.hw == HWStage::VS || ctx->stage.hw == HWStage::NGG);
 
-   int offset = (ctx->stage.has(SWStage::TES) && !ctx->stage.has(SWStage::GS))
-                ? ctx->program->info->tes.outinfo.vs_output_param_offset[slot]
-                : ctx->program->info->vs.outinfo.vs_output_param_offset[slot];
+   int offset = ctx->program->info->vs_outinfo.vs_output_param_offset[slot];
    uint64_t mask = ctx->outputs.mask[slot];
    if (!is_pos && !mask)
       return;
@@ -10329,10 +10327,7 @@ static void create_vs_exports(isel_context *ctx)
 {
    assert(ctx->stage.hw == HWStage::VS || ctx->stage.hw == HWStage::NGG);
 
-   radv_vs_output_info *outinfo = (ctx->stage.has(SWStage::TES) && !ctx->stage.has(SWStage::GS))
-                                  ? &ctx->program->info->tes.outinfo
-                                  : &ctx->program->info->vs.outinfo;
-
+   radv_vs_output_info *outinfo = &ctx->program->info->vs_outinfo;
    ctx->block->kind |= block_kind_export_end;
 
    if (outinfo->export_prim_id && ctx->stage.hw != HWStage::NGG) {

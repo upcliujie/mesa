@@ -383,7 +383,7 @@ void
 setup_vs_variables(isel_context *ctx, nir_shader *nir)
 {
    if (ctx->stage == vertex_vs || ctx->stage == vertex_ngg) {
-      radv_vs_output_info *outinfo = &ctx->program->info->vs.outinfo;
+      radv_vs_output_info *outinfo = &ctx->program->info->vs_outinfo;
       setup_vs_output_info(ctx, nir, outinfo->export_prim_id,
                            ctx->options->key.vs_common_out.export_clip_dists, outinfo);
 
@@ -407,7 +407,7 @@ void setup_gs_variables(isel_context *ctx, nir_shader *nir)
    if (ctx->stage == vertex_geometry_gs || ctx->stage == tess_eval_geometry_gs) {
       ctx->program->config->lds_size = ctx->program->info->gs_ring_info.lds_size; /* Already in units of the alloc granularity */
    } else if (ctx->stage == vertex_geometry_ngg || ctx->stage == tess_eval_geometry_ngg) {
-      radv_vs_output_info *outinfo = &ctx->program->info->vs.outinfo;
+      radv_vs_output_info *outinfo = &ctx->program->info->vs_outinfo;
       setup_vs_output_info(ctx, nir, false,
                            ctx->options->key.vs_common_out.export_clip_dists, outinfo);
 
@@ -456,7 +456,7 @@ setup_tes_variables(isel_context *ctx, nir_shader *nir)
    ctx->tcs_num_patches = ctx->args->shader_info->num_tess_patches;
 
    if (ctx->stage == tess_eval_vs || ctx->stage == tess_eval_ngg) {
-      radv_vs_output_info *outinfo = &ctx->program->info->tes.outinfo;
+      radv_vs_output_info *outinfo = &ctx->program->info->vs_outinfo;
       setup_vs_output_info(ctx, nir, outinfo->export_prim_id,
                            ctx->options->key.vs_common_out.export_clip_dists, outinfo);
 
@@ -1131,7 +1131,7 @@ setup_isel_context(Program* program,
    unsigned scratch_size = 0;
    if (program->stage == gs_copy_vs) {
       assert(shader_count == 1);
-      setup_vs_output_info(&ctx, shaders[0], false, true, &args->shader_info->vs.outinfo);
+      setup_vs_output_info(&ctx, shaders[0], false, true, &args->shader_info->vs_outinfo);
    } else {
       for (unsigned i = 0; i < shader_count; i++) {
          nir_shader *nir = shaders[i];

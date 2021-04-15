@@ -2161,9 +2161,7 @@ handle_ngg_outputs_post_2(struct radv_shader_context *ctx)
    /* Export per-vertex data (positions and parameters). */
    ac_build_ifcc(&ctx->ac, is_es_thread, 6002);
    {
-      struct radv_vs_output_info *outinfo = ctx->stage == MESA_SHADER_TESS_EVAL
-                                               ? &ctx->args->shader_info->tes.outinfo
-                                               : &ctx->args->shader_info->vs.outinfo;
+      struct radv_vs_output_info *outinfo = &ctx->args->shader_info->vs_outinfo;
 
       /* Exporting the primitive ID is handled below. */
       /* TODO: use the new VS export path */
@@ -2475,7 +2473,7 @@ gfx10_ngg_gs_emit_epilogue_2(struct radv_shader_context *ctx)
    tmp = LLVMBuildICmp(builder, LLVMIntULT, tid, vertlive_scan.result_reduce, "");
    ac_build_ifcc(&ctx->ac, tmp, 5145);
    {
-      struct radv_vs_output_info *outinfo = &ctx->args->shader_info->vs.outinfo;
+      struct radv_vs_output_info *outinfo = &ctx->args->shader_info->vs_outinfo;
       bool export_view_index = ctx->args->options->key.has_multiview_view_index;
       struct radv_shader_output_values *outputs;
       unsigned noutput = 0;
@@ -2729,7 +2727,7 @@ handle_shader_outputs_post(struct ac_shader_abi *abi, unsigned max_outputs, LLVM
       else
          handle_vs_outputs_post(ctx, ctx->args->options->key.vs_common_out.export_prim_id,
                                 ctx->args->options->key.vs_common_out.export_clip_dists,
-                                &ctx->args->shader_info->vs.outinfo);
+                                &ctx->args->shader_info->vs_outinfo);
       break;
    case MESA_SHADER_FRAGMENT:
       handle_fs_outputs_post(ctx);
@@ -2747,7 +2745,7 @@ handle_shader_outputs_post(struct ac_shader_abi *abi, unsigned max_outputs, LLVM
       else
          handle_vs_outputs_post(ctx, ctx->args->options->key.vs_common_out.export_prim_id,
                                 ctx->args->options->key.vs_common_out.export_clip_dists,
-                                &ctx->args->shader_info->tes.outinfo);
+                                &ctx->args->shader_info->vs_outinfo);
       break;
    default:
       break;
@@ -2779,12 +2777,12 @@ ac_nir_eliminate_const_vs_outputs(struct radv_shader_context *ctx)
       if (ctx->args->options->key.vs_common_out.as_ls ||
           ctx->args->options->key.vs_common_out.as_es)
          return;
-      outinfo = &ctx->args->shader_info->vs.outinfo;
+      outinfo = &ctx->args->shader_info->vs_outinfo;
       break;
    case MESA_SHADER_TESS_EVAL:
       if (ctx->args->options->key.vs_common_out.as_es)
          return;
-      outinfo = &ctx->args->shader_info->tes.outinfo;
+      outinfo = &ctx->args->shader_info->vs_outinfo;
       break;
    default:
       unreachable("Unhandled shader type");
@@ -3346,7 +3344,7 @@ ac_gs_copy_shader_emit(struct radv_shader_context *ctx)
          radv_emit_streamout(ctx, stream);
 
       if (stream == 0) {
-         handle_vs_outputs_post(ctx, false, true, &ctx->args->shader_info->vs.outinfo);
+         handle_vs_outputs_post(ctx, false, true, &ctx->args->shader_info->vs_outinfo);
       }
 
       LLVMBuildBr(ctx->ac.builder, end_bb);
