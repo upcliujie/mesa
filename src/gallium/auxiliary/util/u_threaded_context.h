@@ -240,6 +240,9 @@ typedef void (*tc_replace_buffer_storage_func)(struct pipe_context *ctx,
                                                struct pipe_resource *src);
 typedef struct pipe_fence_handle *(*tc_create_fence_func)(struct pipe_context *ctx,
                                                           struct tc_unflushed_batch_token *token);
+typedef bool (*tc_resource_busy)(struct pipe_context *ctx,
+                                 struct pipe_resource *rsc,
+                                 unsigned usage);
 
 struct threaded_resource {
    struct pipe_resource b;
@@ -358,6 +361,7 @@ struct threaded_context {
    struct slab_child_pool pool_transfers;
    tc_replace_buffer_storage_func replace_buffer_storage;
    tc_create_fence_func create_fence;
+   tc_resource_busy resource_busy;
    unsigned map_buffer_alignment;
    unsigned ubo_alignment;
 
@@ -401,6 +405,7 @@ threaded_context_create(struct pipe_context *pipe,
                         struct slab_parent_pool *parent_transfer_pool,
                         tc_replace_buffer_storage_func replace_buffer,
                         tc_create_fence_func create_fence,
+                        tc_resource_busy resource_busy,
                         struct threaded_context **out);
 
 void

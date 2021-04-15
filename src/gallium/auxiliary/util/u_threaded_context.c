@@ -1686,6 +1686,9 @@ tc_transfer_map(struct pipe_context *_pipe,
    struct pipe_context *pipe = tc->pipe;
 
    if (resource->target == PIPE_BUFFER) {
+      if (tc->resource_busy && !tc->resource_busy(tc->pipe, resource, usage))
+         usage |= PIPE_MAP_UNSYNCHRONIZED;
+
       usage = tc_improve_map_buffer_flags(tc, tres, usage, box->x, box->width);
 
       /* Do a staging transfer within the threaded context. The driver should
@@ -1957,6 +1960,9 @@ tc_buffer_subdata(struct pipe_context *_pipe,
    /* PIPE_MAP_DIRECTLY supresses implicit DISCARD_RANGE. */
    if (!(usage & PIPE_MAP_DIRECTLY))
       usage |= PIPE_MAP_DISCARD_RANGE;
+
+   if (tc->resource_busy && !tc->resource_busy(tc->pipe, resource, usage))
+      usage |= PIPE_MAP_UNSYNCHRONIZED;
 
    usage = tc_improve_map_buffer_flags(tc, tres, usage, offset, size);
 
@@ -3061,6 +3067,9 @@ static const tc_execute execute_func[TC_NUM_CALLS] = {
  *                             in pipe_screen.
  * \param replace_buffer  callback for replacing a pipe_resource's storage
  *                        with another pipe_resource's storage.
+ * \param create_fence    optional callback to create a fence for async flush
+ * \param resource_busy   optional callback to tell TC if transfer_map()/etc
+ *                        with the given usage would stall
  * \param out  if successful, the threaded_context will be returned here in
  *             addition to the return value if "out" != NULL
  */
@@ -3069,6 +3078,7 @@ threaded_context_create(struct pipe_context *pipe,
                         struct slab_parent_pool *parent_transfer_pool,
                         tc_replace_buffer_storage_func replace_buffer,
                         tc_create_fence_func create_fence,
+                        tc_resource_busy resource_busy,
                         struct threaded_context **out)
 {
    struct threaded_context *tc;
@@ -3104,6 +3114,7 @@ threaded_context_create(struct pipe_context *pipe,
    tc->pipe = pipe;
    tc->replace_buffer_storage = replace_buffer;
    tc->create_fence = create_fence;
+   tc->resource_busy = resource_busy;
    tc->map_buffer_alignment =
       pipe->screen->get_param(pipe->screen, PIPE_CAP_MIN_MAP_BUFFER_ALIGNMENT);
    tc->ubo_alignment =

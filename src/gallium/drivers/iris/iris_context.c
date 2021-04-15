@@ -368,5 +368,6 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
    return threaded_context_create(ctx, &screen->transfer_pool,
                                   iris_replace_buffer_storage,
                                   NULL, /* TODO: asynchronous flushes? */
+                                  NULL,
                                   &ice->thrctx);
 }
