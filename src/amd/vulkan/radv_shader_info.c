@@ -307,7 +307,7 @@ gather_info_block(const nir_shader *nir, const nir_block *block, struct radv_sha
 
 static void
 gather_info_input_decl_vs(const nir_shader *nir, const nir_variable *var,
-                          struct radv_shader_info *info, const struct radv_shader_variant_key *key)
+                          struct radv_shader_info *info)
 {
    unsigned attrib_count = glsl_count_attribute_slots(var->type, true);
    int idx = var->data.location;
@@ -394,11 +394,11 @@ gather_info_input_decl_ps(const nir_shader *nir, const nir_variable *var,
 
 static void
 gather_info_input_decl(const nir_shader *nir, const nir_variable *var,
-                       struct radv_shader_info *info, const struct radv_shader_variant_key *key)
+                       struct radv_shader_info *info)
 {
    switch (nir->info.stage) {
    case MESA_SHADER_VERTEX:
-      gather_info_input_decl_vs(nir, var, info, key);
+      gather_info_input_decl_vs(nir, var, info);
       break;
    case MESA_SHADER_FRAGMENT:
       gather_info_input_decl_ps(nir, var, info);
@@ -446,7 +446,7 @@ gather_info_output_decl_gs(const nir_shader *nir, const nir_variable *var,
 
 static void
 gather_info_output_decl(const nir_shader *nir, const nir_variable *var,
-                        struct radv_shader_info *info, const struct radv_shader_variant_key *key)
+                        struct radv_shader_info *info)
 {
    struct radv_vs_output_info *vs_info = NULL;
 
@@ -540,7 +540,7 @@ radv_nir_shader_info_init(struct radv_shader_info *info)
 
 void
 radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeline_layout *layout,
-                          const struct radv_shader_variant_key *key, struct radv_shader_info *info)
+                          struct radv_shader_info *info)
 {
    struct nir_function *func = (struct nir_function *)exec_list_get_head_const(&nir->functions);
 
@@ -551,13 +551,13 @@ radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeli
    }
 
    nir_foreach_shader_in_variable (variable, nir)
-      gather_info_input_decl(nir, variable, info, key);
+      gather_info_input_decl(nir, variable, info);
 
    nir_foreach_block (block, func->impl) {
       gather_info_block(nir, block, info);
    }
 
-   nir_foreach_shader_out_variable(variable, nir) gather_info_output_decl(nir, variable, info, key);
+   nir_foreach_shader_out_variable(variable, nir) gather_info_output_decl(nir, variable, info);
 
    if (nir->info.stage == MESA_SHADER_VERTEX || nir->info.stage == MESA_SHADER_TESS_EVAL ||
        nir->info.stage == MESA_SHADER_GEOMETRY)

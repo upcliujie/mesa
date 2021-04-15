@@ -1418,7 +1418,6 @@ struct radv_shader_variant *
 radv_shader_variant_compile(struct radv_device *device, struct vk_shader_module *module,
                             struct nir_shader *const *shaders, int shader_count,
                             struct radv_pipeline_layout *layout,
-                            const struct radv_shader_variant_key *key,
                             struct radv_shader_info *info, bool keep_shader_info,
                             bool keep_statistic_info, bool disable_optimizations,
                             struct radv_shader_binary **binary_out)
@@ -1427,9 +1426,6 @@ radv_shader_variant_compile(struct radv_device *device, struct vk_shader_module 
    struct radv_nir_compiler_options options = {0};
 
    options.layout = layout;
-   if (key)
-      options.key = *key;
-
    options.explicit_scratch_args = !radv_use_llvm_for_stage(device, stage);
    options.robust_buffer_access = device->robust_buffer_access;
    options.robust_buffer_access2 = device->robust_buffer_access2;
