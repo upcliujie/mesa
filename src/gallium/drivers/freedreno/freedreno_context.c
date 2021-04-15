@@ -142,16 +142,13 @@ out:
 }
 
 static void
-fd_texture_barrier(struct pipe_context *pctx, unsigned flags) in_dt
+fd_texture_barrier(struct pipe_context *pctx, unsigned flags)
+   in_dt
 {
-   if (flags == PIPE_TEXTURE_BARRIER_FRAMEBUFFER) {
-      struct fd_context *ctx = fd_context(pctx);
+   struct fd_context *ctx = fd_context(pctx);
 
-      if (ctx->framebuffer_barrier) {
-         ctx->framebuffer_barrier(ctx);
-         return;
-      }
-   }
+   if (ctx->texture_barrier && ctx->texture_barrier(ctx, flags))
+      return;
 
    /* On devices that could sample from GMEM we could possibly do better.
     * Or if we knew that we were doing GMEM bypass we could just emit a
@@ -163,15 +160,17 @@ fd_texture_barrier(struct pipe_context *pctx, unsigned flags) in_dt
 
 static void
 fd_memory_barrier(struct pipe_context *pctx, unsigned flags)
+   in_dt
 {
+   struct fd_context *ctx = fd_context(pctx);
+
    if (!(flags & ~PIPE_BARRIER_UPDATE))
       return;
 
-   fd_context_flush(pctx, NULL, 0);
+   if (ctx->memory_barrier && ctx->memory_barrier(ctx, flags))
+      return;
 
-   /* TODO do we need to check for persistently mapped buffers and
-    * fd_bo_cpu_prep()??
-    */
+   fd_context_flush(pctx, NULL, 0);
 }
 
 static void

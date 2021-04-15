@@ -1374,13 +1374,17 @@ fd6_mem_to_mem(struct fd_ringbuffer *ring, struct pipe_resource *dst,
  * indicating what needs to be flushed..  although that would mean
  * figuring out which events trigger what state to flush..
  */
-static void
-fd6_framebuffer_barrier(struct fd_context *ctx) assert_dt
+static bool
+fd6_texture_barrier(struct fd_context *ctx, unsigned flags)
+   assert_dt
 {
    struct fd6_context *fd6_ctx = fd6_context(ctx);
-   struct fd_batch *batch = ctx->batch;
+   struct fd_batch *batch = fd_context_batch(ctx);
    struct fd_ringbuffer *ring = batch->draw;
    unsigned seqno;
+
+   if (flags != PIPE_TEXTURE_BARRIER_FRAMEBUFFER)
+      return false;
 
    seqno = fd6_event_write(batch, ring, RB_DONE_TS, true);
 
@@ -1403,6 +1407,37 @@ fd6_framebuffer_barrier(struct fd_context *ctx) assert_dt
    OUT_RING(ring, CP_WAIT_MEM_GTE_0_RESERVED(0));
    OUT_RELOC(ring, control_ptr(fd6_ctx, seqno));
    OUT_RING(ring, CP_WAIT_MEM_GTE_3_REF(seqno));
+
+   fd_batch_reference(&batch, NULL);
+
+   return true;
+}
+
+static bool
+fd6_memory_barrier(struct fd_context *ctx, unsigned flags)
+   assert_dt
+{
+   struct fd6_context *fd6_ctx = fd6_context(ctx);
+   struct fd_batch *batch = fd_context_batch(ctx);
+   struct fd_ringbuffer *ring = batch->draw;
+   unsigned seqno;
+
+   if (flags != PIPE_TEXTURE_BARRIER_FRAMEBUFFER)
+      return false;
+
+   seqno = fd6_event_write(batch, ring, RB_DONE_TS, true);
+
+   OUT_PKT7(ring, CP_WAIT_REG_MEM, 6);
+   OUT_RING(ring, CP_WAIT_REG_MEM_0_FUNCTION(WRITE_EQ) |
+                     CP_WAIT_REG_MEM_0_POLL_MEMORY);
+   OUT_RELOC(ring, control_ptr(fd6_ctx, seqno));
+   OUT_RING(ring, CP_WAIT_REG_MEM_3_REF(seqno));
+   OUT_RING(ring, CP_WAIT_REG_MEM_4_MASK(~0));
+   OUT_RING(ring, CP_WAIT_REG_MEM_5_DELAY_LOOP_CYCLES(16));
+
+   fd_batch_reference(&batch, NULL);
+
+   return true;
 }
 
 void
@@ -1417,5 +1452,6 @@ void
 fd6_emit_init(struct pipe_context *pctx) disable_thread_safety_analysis
 {
    struct fd_context *ctx = fd_context(pctx);
-   ctx->framebuffer_barrier = fd6_framebuffer_barrier;
+   ctx->texture_barrier = fd6_texture_barrier;
+   ctx->memory_barrier = fd6_memory_barrier;
 }
