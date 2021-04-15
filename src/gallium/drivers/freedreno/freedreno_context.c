@@ -39,21 +39,64 @@
 #include "freedreno_texture.h"
 #include "freedreno_util.h"
 
+/**
+ * With potentially two active batches, we need to choose which one to
+ * flush.  If we what two active, and there is a dependency between the
+ * two, choose the one that has the dependency (as flushing that will
+ * trigger the dependent batch to be flushed, and from a fencing standpoint
+ * we just care about the last batch flushed.
+ */
+static struct fd_batch *
+choose_flush_batch(struct fd_context *ctx)
+   in_dt
+{
+   struct fd_batch *batch = NULL;
+   struct fd_batch *batch_nondraw = NULL;
+
+   fd_batch_reference(&batch, ctx->batch);
+   fd_batch_reference(&batch_nondraw, ctx->batch_nondraw);
+
+   /* If we only have one or the other (or neither) the choice is easy: */
+   if (!batch) {
+      return batch_nondraw;
+   } else if (!batch_nondraw) {
+      return batch;
+   }
+
+   /* We have both, does one depend on the other? */
+   if (fd_batch_depends_on(batch, batch_nondraw)) {
+      fd_batch_reference(&batch_nondraw, NULL);
+      return batch;
+   } else if (fd_batch_depends_on(batch_nondraw, batch)) {
+      fd_batch_reference(&batch, NULL);
+      return batch_nondraw;
+   }
+
+   /* If there are no dependencies, add an artificial one.  We prefer
+    * the nondraw-batch to be flushed first as it has a better chance
+    * of being merged into the draw batch at the drm layer (since
+    * typically nondraw batches reference fewer bo's and are cheaper
+    * to merge into a draw batch, than the other way around).
+    */
+   fd_batch_add_dep(batch, batch_nondraw);
+   fd_batch_reference(&batch_nondraw, NULL);
+
+   return batch;
+}
+
 static void
 fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
                  unsigned flags) in_dt
 {
    struct fd_context *ctx = fd_context(pctx);
    struct pipe_fence_handle *fence = NULL;
-   struct fd_batch *batch = NULL;
-
-   /* We want to lookup current batch if it exists, but not create a new
-    * one if not (unless we need a fence)
-    */
-   fd_batch_reference(&batch, ctx->batch);
+   struct fd_batch *batch = choose_flush_batch(ctx);
 
    DBG("%p: flush: flags=%x", batch, flags);
 
+   /* Only create a batch, if we don't already have one pending, if
+    * a fence is required:
+    */
    if (fencep && !batch) {
       batch = fd_context_batch(ctx);
    } else if (!batch) {
@@ -271,6 +314,26 @@ fd_context_switch_to(struct fd_context *ctx, struct fd_batch *batch)
 }
 
 /**
+ * Return a reference to the current non-draw batch, caller must unref.
+ */
+struct fd_batch *
+fd_context_batch_nondraw(struct fd_context *ctx)
+{
+   struct fd_batch *batch = NULL;
+
+   fd_batch_reference(&batch, ctx->batch_nondraw);
+   if (!batch) {
+      batch = fd_bc_alloc_batch(&ctx->screen->batch_cache, ctx, true);
+      fd_batch_reference(&ctx->batch_nondraw, batch);
+      fd_context_all_dirty(ctx);
+   }
+
+   fd_context_switch_to(ctx, batch);
+
+   return batch;
+}
+
+/**
  * Return a reference to the current batch, caller must unref.
  */
 struct fd_batch *
@@ -289,6 +352,7 @@ fd_context_batch(struct fd_context *ctx)
       fd_batch_reference(&ctx->batch, batch);
       fd_context_all_dirty(ctx);
    }
+
    fd_context_switch_to(ctx, batch);
 
    return batch;

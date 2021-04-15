@@ -361,6 +361,8 @@ batch_flush(struct fd_batch *batch) assert_dt
    batch->flushed = true;
    if (batch == batch->ctx->batch)
       fd_batch_reference(&batch->ctx->batch, NULL);
+   if (batch == batch->ctx->batch_nondraw)
+      fd_batch_reference(&batch->ctx->batch_nondraw, NULL);
 
    fd_fence_ref(&batch->ctx->last_fence, batch->fence);
 
@@ -416,7 +418,7 @@ fd_batch_add_dep(struct fd_batch *batch, struct fd_batch *dep)
 {
    fd_screen_assert_locked(batch->ctx->screen);
 
-   if (batch->dependents_mask & (1 << dep->idx))
+   if (fd_batch_depends_on(batch, dep))
       return;
 
    /* a loop should not be possible */

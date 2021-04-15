@@ -281,6 +281,17 @@ struct fd_batch *fd_batch_create(struct fd_context *ctx, bool nondraw);
 
 void fd_batch_reset(struct fd_batch *batch) assert_dt;
 void fd_batch_flush(struct fd_batch *batch) assert_dt;
+
+/**
+ * Does 'batch' already have a dependency on 'dep'?
+ */
+static inline bool
+fd_batch_depends_on(struct fd_batch *batch, struct fd_batch *dep)
+   assert_dt
+{
+   return !!(batch->dependents_mask & (1 << dep->idx));
+}
+
 void fd_batch_add_dep(struct fd_batch *batch, struct fd_batch *dep) assert_dt;
 void fd_batch_resource_write(struct fd_batch *batch,
                              struct fd_resource *rsc) assert_dt;
