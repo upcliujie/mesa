@@ -564,7 +564,7 @@ radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeli
       gather_xfb_info(nir, info);
 
    /* Make sure to export the LayerID if the fragment shader needs it. */
-   if (key->vs_common_out.export_layer_id) {
+   if (info->vs_outinfo.export_layer_id) {
       switch (nir->info.stage) {
       case MESA_SHADER_VERTEX:
          info->vs.output_usage_mask[VARYING_SLOT_LAYER] |= 0x1;
@@ -594,7 +594,7 @@ radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeli
    }
 
    /* Make sure to export the PrimitiveID if the fragment shader needs it. */
-   if (key->vs_common_out.export_prim_id) {
+   if (info->vs_outinfo.export_prim_id) {
       switch (nir->info.stage) {
       case MESA_SHADER_VERTEX:
       case MESA_SHADER_TESS_EVAL:
@@ -607,7 +607,7 @@ radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeli
    }
 
    /* Make sure to export the ViewportIndex if the fragment shader needs it. */
-   if (key->vs_common_out.export_viewport_index) {
+   if (info->vs_outinfo.export_viewport_index) {
       switch (nir->info.stage) {
       case MESA_SHADER_VERTEX:
          info->vs.output_usage_mask[VARYING_SLOT_VIEWPORT] |= 0x1;
@@ -650,7 +650,7 @@ radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeli
       info->tes.ccw = nir->info.tess.ccw;
       info->tes.point_mode = nir->info.tess.point_mode;
       info->tes.as_es = key->vs_common_out.as_es;
-      info->tes.export_prim_id = key->vs_common_out.export_prim_id;
+      info->tes.export_prim_id = info->vs_outinfo.export_prim_id;
       info->is_ngg = key->vs_common_out.as_ngg;
       info->is_ngg_passthrough = key->vs_common_out.as_ngg_passthrough;
       break;
@@ -660,7 +660,7 @@ radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeli
    case MESA_SHADER_VERTEX:
       info->vs.as_es = key->vs_common_out.as_es;
       info->vs.as_ls = key->vs_common_out.as_ls;
-      info->vs.export_prim_id = key->vs_common_out.export_prim_id;
+      info->vs.export_prim_id = info->vs_outinfo.export_prim_id;
       info->is_ngg = key->vs_common_out.as_ngg;
       info->is_ngg_passthrough = key->vs_common_out.as_ngg_passthrough;
       break;

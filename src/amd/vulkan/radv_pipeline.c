@@ -2755,22 +2755,21 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
       radv_nir_shader_info_pass(nir[MESA_SHADER_FRAGMENT], pipeline->layout,
                                 &keys[MESA_SHADER_FRAGMENT], &infos[MESA_SHADER_FRAGMENT]);
 
-      /* TODO: These are no longer used as keys we should refactor this */
-      keys[MESA_SHADER_VERTEX].vs_common_out.export_prim_id =
+      infos[MESA_SHADER_VERTEX].vs_outinfo.export_prim_id =
          infos[MESA_SHADER_FRAGMENT].ps.prim_id_input;
-      keys[MESA_SHADER_VERTEX].vs_common_out.export_layer_id =
+      infos[MESA_SHADER_VERTEX].vs_outinfo.export_layer_id =
          infos[MESA_SHADER_FRAGMENT].ps.layer_input;
-      keys[MESA_SHADER_VERTEX].vs_common_out.export_clip_dists =
+      infos[MESA_SHADER_VERTEX].vs_outinfo.export_clip_dists =
          !!infos[MESA_SHADER_FRAGMENT].ps.num_input_clips_culls;
-      keys[MESA_SHADER_VERTEX].vs_common_out.export_viewport_index =
+      infos[MESA_SHADER_VERTEX].vs_outinfo.export_viewport_index =
          infos[MESA_SHADER_FRAGMENT].ps.viewport_index_input;
-      keys[MESA_SHADER_TESS_EVAL].vs_common_out.export_prim_id =
+      infos[MESA_SHADER_TESS_EVAL].vs_outinfo.export_prim_id =
          infos[MESA_SHADER_FRAGMENT].ps.prim_id_input;
-      keys[MESA_SHADER_TESS_EVAL].vs_common_out.export_layer_id =
+      infos[MESA_SHADER_TESS_EVAL].vs_outinfo.export_layer_id =
          infos[MESA_SHADER_FRAGMENT].ps.layer_input;
-      keys[MESA_SHADER_TESS_EVAL].vs_common_out.export_clip_dists =
+      infos[MESA_SHADER_TESS_EVAL].vs_outinfo.export_clip_dists =
          !!infos[MESA_SHADER_FRAGMENT].ps.num_input_clips_culls;
-      keys[MESA_SHADER_TESS_EVAL].vs_common_out.export_viewport_index =
+      infos[MESA_SHADER_TESS_EVAL].vs_outinfo.export_viewport_index =
          infos[MESA_SHADER_FRAGMENT].ps.viewport_index_input;
 
       /* NGG passthrough mode can't be enabled for vertex shaders
@@ -2778,7 +2777,7 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
        *
        * TODO: I should really refactor the keys logic.
        */
-      if (nir[MESA_SHADER_VERTEX] && keys[MESA_SHADER_VERTEX].vs_common_out.export_prim_id) {
+      if (nir[MESA_SHADER_VERTEX] && infos[MESA_SHADER_VERTEX].vs_outinfo.export_prim_id) {
          keys[MESA_SHADER_VERTEX].vs_common_out.as_ngg_passthrough = false;
       }
 

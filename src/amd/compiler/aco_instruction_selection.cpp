@@ -11253,7 +11253,7 @@ void ngg_nogs_export_primitives(isel_context *ctx)
    ngg_emit_prim_export(ctx, num_vertices_per_primitive, vtxindex);
 
    /* Export primitive ID. */
-   if (ctx->stage == vertex_ngg && ctx->args->options->key.vs_common_out.export_prim_id) {
+   if (ctx->stage == vertex_ngg && ctx->program->info->vs_outinfo.export_prim_id) {
       /* Copy Primitive IDs from GS threads to the LDS address corresponding to the ES thread of the provoking vertex. */
       Temp prim_id = get_arg(ctx, ctx->args->ac.gs_prim_id);
       Temp provoking_vtx_index = vtxindex[0];
@@ -11268,7 +11268,7 @@ void ngg_nogs_export_primitives(isel_context *ctx)
 
 void ngg_nogs_export_prim_id(isel_context *ctx)
 {
-   assert(ctx->args->options->key.vs_common_out.export_prim_id);
+   assert(ctx->program->info->vs_outinfo.export_prim_id);
    Temp prim_id;
 
    if (ctx->stage == vertex_ngg) {
@@ -11311,7 +11311,7 @@ void ngg_nogs_late_export_finale(isel_context *ctx)
    ngg_nogs_export_primitives(ctx);
 
    /* Export the primitive ID for VS - needs to read LDS written by GS threads. */
-   if (ctx->args->options->key.vs_common_out.export_prim_id && ctx->stage.has(SWStage::VS)) {
+   if (ctx->program->info->vs_outinfo.export_prim_id && ctx->stage.has(SWStage::VS)) {
       if_context ic;
       Temp is_es_thread = merged_wave_info_to_mask(ctx, 0);
       begin_divergent_if_then(ctx, &ic, is_es_thread);
@@ -11810,7 +11810,7 @@ void select_program(Program *program,
          create_vs_exports(&ctx);
       } else if (ngg_no_gs) {
          create_vs_exports(&ctx);
-         if (ctx.args->options->key.vs_common_out.export_prim_id && (ctx.ngg_nogs_early_prim_export || ctx.stage.has(SWStage::TES)))
+         if (ctx.program->info->vs_outinfo.export_prim_id && (ctx.ngg_nogs_early_prim_export || ctx.stage.has(SWStage::TES)))
             ngg_nogs_export_prim_id(&ctx);
       } else if (nir->info.stage == MESA_SHADER_GEOMETRY && !ngg_gs) {
          Builder bld(ctx.program, ctx.block);

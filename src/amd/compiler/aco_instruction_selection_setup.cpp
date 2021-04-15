@@ -385,7 +385,7 @@ setup_vs_variables(isel_context *ctx, nir_shader *nir)
    if (ctx->stage == vertex_vs || ctx->stage == vertex_ngg) {
       radv_vs_output_info *outinfo = &ctx->program->info->vs_outinfo;
       setup_vs_output_info(ctx, nir, outinfo->export_prim_id,
-                           ctx->options->key.vs_common_out.export_clip_dists, outinfo);
+                           ctx->program->info->vs_outinfo.export_clip_dists, outinfo);
 
       /* TODO: NGG streamout */
       if (ctx->stage.hw == HWStage::NGG)
@@ -395,7 +395,7 @@ setup_vs_variables(isel_context *ctx, nir_shader *nir)
       ctx->ngg_nogs_early_prim_export = exec_list_is_singular(&nir_shader_get_entrypoint(nir)->body);
    }
 
-   if (ctx->stage == vertex_ngg && ctx->args->options->key.vs_common_out.export_prim_id) {
+   if (ctx->stage == vertex_ngg && ctx->program->info->vs_outinfo.export_prim_id) {
       /* We need to store the primitive IDs in LDS */
       unsigned lds_size = ctx->program->info->ngg_info.esgs_ring_size;
       ctx->program->config->lds_size = DIV_ROUND_UP(lds_size, ctx->program->dev.lds_encoding_granule);
@@ -409,7 +409,7 @@ void setup_gs_variables(isel_context *ctx, nir_shader *nir)
    } else if (ctx->stage == vertex_geometry_ngg || ctx->stage == tess_eval_geometry_ngg) {
       radv_vs_output_info *outinfo = &ctx->program->info->vs_outinfo;
       setup_vs_output_info(ctx, nir, false,
-                           ctx->options->key.vs_common_out.export_clip_dists, outinfo);
+                           ctx->program->info->vs_outinfo.export_clip_dists, outinfo);
 
       unsigned ngg_gs_scratch_bytes = ctx->args->shader_info->so.num_outputs ? (44u * 4u) : (8u * 4u);
       unsigned ngg_emit_bytes = ctx->args->shader_info->ngg_info.ngg_emit_size * 4u;
@@ -458,7 +458,7 @@ setup_tes_variables(isel_context *ctx, nir_shader *nir)
    if (ctx->stage == tess_eval_vs || ctx->stage == tess_eval_ngg) {
       radv_vs_output_info *outinfo = &ctx->program->info->vs_outinfo;
       setup_vs_output_info(ctx, nir, outinfo->export_prim_id,
-                           ctx->options->key.vs_common_out.export_clip_dists, outinfo);
+                           ctx->program->info->vs_outinfo.export_clip_dists, outinfo);
 
       /* TODO: NGG streamout */
       if (ctx->stage.hw == HWStage::NGG)

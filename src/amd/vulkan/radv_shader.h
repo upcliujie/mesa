@@ -51,10 +51,6 @@ struct radv_vs_out_key {
    uint32_t as_ls : 1;
    uint32_t as_ngg : 1;
    uint32_t as_ngg_passthrough : 1;
-   uint32_t export_prim_id : 1;
-   uint32_t export_layer_id : 1;
-   uint32_t export_clip_dists : 1;
-   uint32_t export_viewport_index : 1;
 };
 
 struct radv_vs_variant_key {
@@ -187,6 +183,9 @@ struct radv_vs_output_info {
    bool writes_viewport_index;
    bool writes_primitive_shading_rate;
    bool export_prim_id;
+   bool export_layer_id;
+   bool export_clip_dists;
+   bool export_viewport_index;
    unsigned pos_exports;
 };
 
