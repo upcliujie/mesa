@@ -167,6 +167,10 @@ fd_memory_barrier(struct pipe_context *pctx, unsigned flags)
    if (!(flags & ~PIPE_BARRIER_UPDATE))
       return;
 
+   // TODO maybe we need some cache ops?
+   if (flags & PIPE_BARRIER_SHADER_BUFFER)
+      return;
+
    fd_context_flush(pctx, NULL, 0);
 
    /* TODO do we need to check for persistently mapped buffers and
