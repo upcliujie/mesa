@@ -528,9 +528,9 @@ void init_context(isel_context *ctx, nir_shader *shader)
    ctx->range_ht =_mesa_pointer_hash_table_create(NULL);
    ctx->ub_config.min_subgroup_size = 64;
    ctx->ub_config.max_subgroup_size = 64;
-   if (ctx->shader->info.stage == MESA_SHADER_COMPUTE && ctx->options->key.cs.subgroup_size) {
-      ctx->ub_config.min_subgroup_size = ctx->options->key.cs.subgroup_size;
-      ctx->ub_config.max_subgroup_size = ctx->options->key.cs.subgroup_size;
+   if (ctx->program->info->subgroup_size) {
+      ctx->ub_config.min_subgroup_size = ctx->program->info->subgroup_size;
+      ctx->ub_config.max_subgroup_size = ctx->program->info->subgroup_size;
    }
    ctx->ub_config.max_work_group_invocations = 2048;
    ctx->ub_config.max_work_group_count[0] = 65535;

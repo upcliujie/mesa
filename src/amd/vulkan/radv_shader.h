@@ -96,17 +96,12 @@ struct radv_fs_variant_key {
    uint32_t is_int10;
 };
 
-struct radv_cs_variant_key {
-   uint8_t subgroup_size;
-};
-
 struct radv_shader_variant_key {
    union {
       struct radv_vs_variant_key vs;
       struct radv_fs_variant_key fs;
       struct radv_tes_variant_key tes;
       struct radv_tcs_variant_key tcs;
-      struct radv_cs_variant_key cs;
 
       /* A common prefix of the vs and tes keys. */
       struct radv_vs_out_key vs_common_out;
@@ -246,6 +241,7 @@ struct radv_shader_info {
    bool needs_multiview_view_index;
    bool uses_invocation_id;
    bool uses_prim_id;
+   uint8_t subgroup_size; /* subgroup size (0 = use default) */
    uint8_t wave_size;
    uint8_t ballot_bit_size;
    struct radv_userdata_locations user_sgprs_locs;

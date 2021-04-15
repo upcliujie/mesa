@@ -2711,44 +2711,16 @@ radv_fill_shader_keys(struct radv_device *device, struct radv_shader_variant_key
    keys[MESA_SHADER_FRAGMENT].fs.is_int10 = key->is_int10;
    keys[MESA_SHADER_FRAGMENT].fs.log2_ps_iter_samples = key->log2_ps_iter_samples;
    keys[MESA_SHADER_FRAGMENT].fs.num_samples = key->num_samples;
-
-   if (nir[MESA_SHADER_COMPUTE]) {
-      unsigned subgroup_size = key->compute_subgroup_size;
-      unsigned req_subgroup_size = subgroup_size;
-      bool require_full_subgroups = key->require_full_subgroups;
-
-      if (!subgroup_size)
-         subgroup_size = device->physical_device->cs_wave_size;
-
-      unsigned local_size = nir[MESA_SHADER_COMPUTE]->info.cs.local_size[0] *
-                            nir[MESA_SHADER_COMPUTE]->info.cs.local_size[1] *
-                            nir[MESA_SHADER_COMPUTE]->info.cs.local_size[2];
-
-      /* Games don't always request full subgroups when they should,
-       * which can cause bugs if cswave32 is enabled.
-       */
-      if (device->physical_device->cs_wave_size == 32 &&
-          nir[MESA_SHADER_COMPUTE]->info.cs.uses_wide_subgroup_intrinsics && !req_subgroup_size &&
-          local_size % RADV_SUBGROUP_SIZE == 0)
-         require_full_subgroups = true;
-
-      if (require_full_subgroups && !req_subgroup_size) {
-         /* don't use wave32 pretending to be wave64 */
-         subgroup_size = RADV_SUBGROUP_SIZE;
-      }
-
-      keys[MESA_SHADER_COMPUTE].cs.subgroup_size = subgroup_size;
-   }
 }
 
 static uint8_t
 radv_get_wave_size(struct radv_device *device, const VkPipelineShaderStageCreateInfo *pStage,
-                   gl_shader_stage stage, const struct radv_shader_variant_key *key)
+                   gl_shader_stage stage, const struct radv_shader_info *info, const struct radv_shader_variant_key *key)
 {
    if (stage == MESA_SHADER_GEOMETRY && !key->vs_common_out.as_ngg)
       return 64;
    else if (stage == MESA_SHADER_COMPUTE) {
-      return key->cs.subgroup_size;
+      return info->subgroup_size;
    } else if (stage == MESA_SHADER_FRAGMENT)
       return device->physical_device->ps_wave_size;
    else
@@ -2757,15 +2729,17 @@ radv_get_wave_size(struct radv_device *device, const VkPipelineShaderStageCreate
 
 static uint8_t
 radv_get_ballot_bit_size(struct radv_device *device, const VkPipelineShaderStageCreateInfo *pStage,
-                         gl_shader_stage stage, const struct radv_shader_variant_key *key)
+                         gl_shader_stage stage, const struct radv_shader_info *info)
 {
-   if (stage == MESA_SHADER_COMPUTE && key->cs.subgroup_size)
-      return key->cs.subgroup_size;
+   if (stage == MESA_SHADER_COMPUTE && info->subgroup_size)
+      return info->subgroup_size;
    return 64;
 }
 
 static void
 radv_fill_shader_info(struct radv_pipeline *pipeline,
+                      const struct radv_pipeline_key *pipeline_key,
+                      const struct radv_device *device,
                       const VkPipelineShaderStageCreateInfo **pStages,
                       struct radv_shader_variant_key *keys, struct radv_shader_info *infos,
                       nir_shader **nir)
@@ -2812,6 +2786,33 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 
       filled_stages |= (1 << MESA_SHADER_FRAGMENT);
    }
+   if (nir[MESA_SHADER_COMPUTE]) {
+      unsigned subgroup_size = pipeline_key->compute_subgroup_size;
+      unsigned req_subgroup_size = subgroup_size;
+      bool require_full_subgroups = pipeline_key->require_full_subgroups;
+
+      if (!subgroup_size)
+         subgroup_size = device->physical_device->cs_wave_size;
+
+      unsigned local_size = nir[MESA_SHADER_COMPUTE]->info.cs.local_size[0] *
+                            nir[MESA_SHADER_COMPUTE]->info.cs.local_size[1] *
+                            nir[MESA_SHADER_COMPUTE]->info.cs.local_size[2];
+
+      /* Games don't always request full subgroups when they should,
+       * which can cause bugs if cswave32 is enabled.
+       */
+      if (device->physical_device->cs_wave_size == 32 &&
+          nir[MESA_SHADER_COMPUTE]->info.cs.uses_wide_subgroup_intrinsics && !req_subgroup_size &&
+          local_size % RADV_SUBGROUP_SIZE == 0)
+         require_full_subgroups = true;
+
+      if (require_full_subgroups && !req_subgroup_size) {
+         /* don't use wave32 pretending to be wave64 */
+         subgroup_size = RADV_SUBGROUP_SIZE;
+      }
+
+      infos[MESA_SHADER_COMPUTE].subgroup_size = subgroup_size;
+   }
 
    if (pipeline->device->physical_device->rad_info.chip_class >= GFX9 &&
        nir[MESA_SHADER_TESS_CTRL]) {
@@ -2856,9 +2857,9 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 
    for (int i = 0; i < MESA_SHADER_STAGES; i++) {
       if (nir[i]) {
-         infos[i].wave_size = radv_get_wave_size(pipeline->device, pStages[i], i, &keys[i]);
+         infos[i].wave_size = radv_get_wave_size(pipeline->device, pStages[i], i, &infos[i], &keys[i]);
          infos[i].ballot_bit_size =
-            radv_get_ballot_bit_size(pipeline->device, pStages[i], i, &keys[i]);
+            radv_get_ballot_bit_size(pipeline->device, pStages[i], i, &infos[i]);
       }
    }
 }
@@ -3398,7 +3399,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
 
    radv_fill_shader_keys(device, keys, pipeline_key, nir);
 
-   radv_fill_shader_info(pipeline, pStages, keys, infos, nir);
+   radv_fill_shader_info(pipeline, pipeline_key, device, pStages, keys, infos, nir);
 
    if ((nir[MESA_SHADER_VERTEX] && keys[MESA_SHADER_VERTEX].vs_common_out.as_ngg) ||
        (nir[MESA_SHADER_TESS_EVAL] && keys[MESA_SHADER_TESS_EVAL].vs_common_out.as_ngg)) {
