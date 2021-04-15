@@ -540,7 +540,7 @@ void init_context(isel_context *ctx, nir_shader *shader)
    ctx->ub_config.max_work_group_size[1] = 2048;
    ctx->ub_config.max_work_group_size[2] = 2048;
    for (unsigned i = 0; i < MAX_VERTEX_ATTRIBS; i++) {
-      unsigned attrib_format = ctx->options->key.vs.vertex_attribute_formats[i];
+      unsigned attrib_format = ctx->program->info->vs.vertex_attribute_formats[i];
       unsigned dfmt = attrib_format & 0xf;
       unsigned nfmt = (attrib_format >> 4) & 0x7;
 

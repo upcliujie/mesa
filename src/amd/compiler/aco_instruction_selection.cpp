@@ -4668,11 +4668,11 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
       unsigned location = nir_intrinsic_base(instr) - VERT_ATTRIB_GENERIC0;
       unsigned component = nir_intrinsic_component(instr);
       unsigned bitsize = instr->dest.ssa.bit_size;
-      unsigned attrib_binding = ctx->options->key.vs.vertex_attribute_bindings[location];
-      uint32_t attrib_offset = ctx->options->key.vs.vertex_attribute_offsets[location];
-      uint32_t attrib_stride = ctx->options->key.vs.vertex_attribute_strides[location];
-      unsigned attrib_format = ctx->options->key.vs.vertex_attribute_formats[location];
-      enum ac_fetch_format alpha_adjust = ctx->options->key.vs.alpha_adjust[location];
+      unsigned attrib_binding = ctx->program->info->vs.vertex_attribute_bindings[location];
+      uint32_t attrib_offset = ctx->program->info->vs.vertex_attribute_offsets[location];
+      uint32_t attrib_stride = ctx->program->info->vs.vertex_attribute_strides[location];
+      unsigned attrib_format = ctx->program->info->vs.vertex_attribute_formats[location];
+      enum ac_fetch_format alpha_adjust = ctx->program->info->vs.alpha_adjust[location];
 
       unsigned dfmt = attrib_format & 0xf;
       unsigned nfmt = (attrib_format >> 4) & 0x7;
@@ -4680,7 +4680,7 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
 
       unsigned mask = nir_ssa_def_components_read(&instr->dest.ssa) << component;
       unsigned num_channels = MIN2(util_last_bit(mask), vtx_info->num_channels);
-      bool post_shuffle = ctx->options->key.vs.post_shuffle & (1 << location);
+      bool post_shuffle = ctx->program->info->vs.post_shuffle & (1 << location);
       if (post_shuffle)
          num_channels = MAX2(num_channels, 3);
 
@@ -4688,8 +4688,8 @@ void visit_load_input(isel_context *ctx, nir_intrinsic_instr *instr)
       Temp list = bld.smem(aco_opcode::s_load_dwordx4, bld.def(s4), vertex_buffers, off);
 
       Temp index;
-      if (ctx->options->key.vs.instance_rate_inputs & (1u << location)) {
-         uint32_t divisor = ctx->options->key.vs.instance_rate_divisors[location];
+      if (ctx->program->info->vs.instance_rate_inputs & (1u << location)) {
+         uint32_t divisor = ctx->program->info->vs.instance_rate_divisors[location];
          Temp start_instance = get_arg(ctx, ctx->args->ac.start_instance);
          if (divisor) {
             Temp instance_id = get_arg(ctx, ctx->args->ac.instance_id);

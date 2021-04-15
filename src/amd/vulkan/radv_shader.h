@@ -46,27 +46,7 @@ struct radv_pipeline;
 struct radv_pipeline_cache;
 struct radv_pipeline_key;
 
-struct radv_vs_variant_key {
-   uint32_t instance_rate_inputs;
-   uint32_t instance_rate_divisors[MAX_VERTEX_ATTRIBS];
-   uint8_t vertex_attribute_formats[MAX_VERTEX_ATTRIBS];
-   uint32_t vertex_attribute_bindings[MAX_VERTEX_ATTRIBS];
-   uint32_t vertex_attribute_offsets[MAX_VERTEX_ATTRIBS];
-   uint32_t vertex_attribute_strides[MAX_VERTEX_ATTRIBS];
-
-   /* For 2_10_10_10 formats the alpha is handled as unsigned by pre-vega HW.
-    * so we may need to fix it up. */
-   enum ac_fetch_format alpha_adjust[MAX_VERTEX_ATTRIBS];
-
-   /* For some formats the channels have to be shuffled. */
-   uint32_t post_shuffle;
-
-   /* Output primitive type. */
-   uint8_t outprim;
-};
-
 struct radv_shader_variant_key {
-   struct radv_vs_variant_key vs;
    bool has_multiview_view_index;
 };
 
@@ -220,6 +200,23 @@ struct radv_shader_info {
    bool need_indirect_descriptor_sets;
    uint32_t num_tess_patches;
    struct {
+      uint32_t instance_rate_inputs;
+      uint32_t instance_rate_divisors[MAX_VERTEX_ATTRIBS];
+      uint8_t vertex_attribute_formats[MAX_VERTEX_ATTRIBS];
+      uint32_t vertex_attribute_bindings[MAX_VERTEX_ATTRIBS];
+      uint32_t vertex_attribute_offsets[MAX_VERTEX_ATTRIBS];
+      uint32_t vertex_attribute_strides[MAX_VERTEX_ATTRIBS];
+
+      /* For 2_10_10_10 formats the alpha is handled as unsigned by pre-vega HW.
+      * so we may need to fix it up. */
+      enum ac_fetch_format alpha_adjust[MAX_VERTEX_ATTRIBS];
+
+      /* For some formats the channels have to be shuffled. */
+      uint32_t post_shuffle;
+
+      /* Output primitive type. */
+      uint8_t outprim;
+
       uint8_t input_usage_mask[RADV_VERT_ATTRIB_MAX];
       uint8_t output_usage_mask[VARYING_SLOT_VAR31 + 1];
       bool has_vertex_buffers; /* needs vertex buffers and base/start */

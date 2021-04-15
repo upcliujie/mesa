@@ -676,7 +676,7 @@ handle_vs_input_decl(struct radv_shader_context *ctx, struct nir_variable *varia
    for (unsigned i = 0; i < attrib_count; ++i) {
       LLVMValueRef output[4];
       unsigned attrib_index = variable->data.location + i - VERT_ATTRIB_GENERIC0;
-      unsigned attrib_format = ctx->args->options->key.vs.vertex_attribute_formats[attrib_index];
+      unsigned attrib_format = ctx->args->shader_info->vs.vertex_attribute_formats[attrib_index];
       unsigned data_format = attrib_format & 0x0f;
       unsigned num_format = (attrib_format >> 4) & 0x07;
       bool is_float =
@@ -688,8 +688,8 @@ handle_vs_input_decl(struct radv_shader_context *ctx, struct nir_variable *varia
       if (num_input_channels == 0)
          continue;
 
-      if (ctx->args->options->key.vs.instance_rate_inputs & (1u << attrib_index)) {
-         uint32_t divisor = ctx->args->options->key.vs.instance_rate_divisors[attrib_index];
+      if (ctx->args->shader_info->vs.instance_rate_inputs & (1u << attrib_index)) {
+         uint32_t divisor = ctx->args->shader_info->vs.instance_rate_divisors[attrib_index];
 
          if (divisor) {
             buffer_index = ctx->abi.instance_id;
@@ -715,12 +715,12 @@ handle_vs_input_decl(struct radv_shader_context *ctx, struct nir_variable *varia
        * attribute format.
        */
       unsigned num_channels = MIN2(num_input_channels, vtx_info->num_channels);
-      unsigned attrib_binding = ctx->args->options->key.vs.vertex_attribute_bindings[attrib_index];
-      unsigned attrib_offset = ctx->args->options->key.vs.vertex_attribute_offsets[attrib_index];
-      unsigned attrib_stride = ctx->args->options->key.vs.vertex_attribute_strides[attrib_index];
-      unsigned alpha_adjust = ctx->args->options->key.vs.alpha_adjust[attrib_index];
+      unsigned attrib_binding = ctx->args->shader_info->vs.vertex_attribute_bindings[attrib_index];
+      unsigned attrib_offset = ctx->args->shader_info->vs.vertex_attribute_offsets[attrib_index];
+      unsigned attrib_stride = ctx->args->shader_info->vs.vertex_attribute_strides[attrib_index];
+      unsigned alpha_adjust = ctx->args->shader_info->vs.alpha_adjust[attrib_index];
 
-      if (ctx->args->options->key.vs.post_shuffle & (1 << attrib_index)) {
+      if (ctx->args->shader_info->vs.post_shuffle & (1 << attrib_index)) {
          /* Always load, at least, 3 channels for formats that
           * need to be shuffled because X<->Z.
           */
@@ -777,7 +777,7 @@ handle_vs_input_decl(struct radv_shader_context *ctx, struct nir_variable *varia
             ctx->ac.i32_0, ctx->ac.i32_0, num_channels, data_format, num_format, 0, true);
       }
 
-      if (ctx->args->options->key.vs.post_shuffle & (1 << attrib_index)) {
+      if (ctx->args->shader_info->vs.post_shuffle & (1 << attrib_index)) {
          LLVMValueRef c[4];
          c[0] = ac_llvm_extract_elem(&ctx->ac, input, 2);
          c[1] = ac_llvm_extract_elem(&ctx->ac, input, 1);
@@ -2071,7 +2071,7 @@ handle_ngg_outputs_post_2(struct radv_shader_context *ctx)
 
    if (ctx->stage == MESA_SHADER_VERTEX) {
       LLVMValueRef outprim_val =
-         LLVMConstInt(ctx->ac.i32, ctx->args->options->key.vs.outprim, false);
+         LLVMConstInt(ctx->ac.i32, ctx->args->shader_info->vs.outprim, false);
       num_vertices_val = LLVMBuildAdd(builder, outprim_val, ctx->ac.i32_1, "");
       num_vertices = 3; /* TODO: optimize for points & lines */
    } else {

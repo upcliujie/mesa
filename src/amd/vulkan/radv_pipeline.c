@@ -2628,18 +2628,6 @@ static void
 radv_fill_shader_keys(struct radv_device *device, struct radv_shader_variant_key *keys,
                       const struct radv_pipeline_key *key, nir_shader **nir)
 {
-   keys[MESA_SHADER_VERTEX].vs.instance_rate_inputs = key->instance_rate_inputs;
-   keys[MESA_SHADER_VERTEX].vs.post_shuffle = key->vertex_post_shuffle;
-   for (unsigned i = 0; i < MAX_VERTEX_ATTRIBS; ++i) {
-      keys[MESA_SHADER_VERTEX].vs.instance_rate_divisors[i] = key->instance_rate_divisors[i];
-      keys[MESA_SHADER_VERTEX].vs.vertex_attribute_formats[i] = key->vertex_attribute_formats[i];
-      keys[MESA_SHADER_VERTEX].vs.vertex_attribute_bindings[i] = key->vertex_attribute_bindings[i];
-      keys[MESA_SHADER_VERTEX].vs.vertex_attribute_offsets[i] = key->vertex_attribute_offsets[i];
-      keys[MESA_SHADER_VERTEX].vs.vertex_attribute_strides[i] = key->vertex_attribute_strides[i];
-      keys[MESA_SHADER_VERTEX].vs.alpha_adjust[i] = key->vertex_alpha_adjust[i];
-   }
-   keys[MESA_SHADER_VERTEX].vs.outprim = si_conv_prim_to_gs_out(key->topology);
-
    for (int i = 0; i < MESA_SHADER_STAGES; ++i)
       keys[i].has_multiview_view_index = key->has_multiview_view_index;
 }
@@ -2682,6 +2670,18 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
       if (nir[i])
          active_stages |= (1 << i);
    }
+
+   infos[MESA_SHADER_VERTEX].vs.instance_rate_inputs = pipeline_key->instance_rate_inputs;
+   infos[MESA_SHADER_VERTEX].vs.post_shuffle = pipeline_key->vertex_post_shuffle;
+   for (unsigned i = 0; i < MAX_VERTEX_ATTRIBS; ++i) {
+      infos[MESA_SHADER_VERTEX].vs.instance_rate_divisors[i] = pipeline_key->instance_rate_divisors[i];
+      infos[MESA_SHADER_VERTEX].vs.vertex_attribute_formats[i] = pipeline_key->vertex_attribute_formats[i];
+      infos[MESA_SHADER_VERTEX].vs.vertex_attribute_bindings[i] = pipeline_key->vertex_attribute_bindings[i];
+      infos[MESA_SHADER_VERTEX].vs.vertex_attribute_offsets[i] = pipeline_key->vertex_attribute_offsets[i];
+      infos[MESA_SHADER_VERTEX].vs.vertex_attribute_strides[i] = pipeline_key->vertex_attribute_strides[i];
+      infos[MESA_SHADER_VERTEX].vs.alpha_adjust[i] = pipeline_key->vertex_alpha_adjust[i];
+   }
+   infos[MESA_SHADER_VERTEX].vs.outprim = si_conv_prim_to_gs_out(pipeline_key->topology);
 
    if (nir[MESA_SHADER_TESS_CTRL]) {
       infos[MESA_SHADER_VERTEX].vs_outinfo.as_ls = true;
