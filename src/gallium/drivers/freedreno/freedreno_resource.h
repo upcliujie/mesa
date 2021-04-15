@@ -209,7 +209,7 @@ pending(struct fd_resource *rsc, bool write)
 }
 
 static inline bool
-fd_resource_busy(struct fd_resource *rsc, unsigned op)
+resource_busy(struct fd_resource *rsc, unsigned op)
 {
    return fd_bo_cpu_prep(rsc->bo, NULL, op | DRM_FREEDRENO_PREP_NOSYNC) != 0;
 }
