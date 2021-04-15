@@ -292,6 +292,40 @@ fd_replace_buffer_storage(struct pipe_context *pctx, struct pipe_resource *pdst,
    fd_screen_unlock(ctx->screen);
 }
 
+static unsigned
+translate_usage(unsigned usage)
+{
+   uint32_t op = 0;
+
+   if (usage & PIPE_MAP_READ)
+      op |= DRM_FREEDRENO_PREP_READ;
+
+   if (usage & PIPE_MAP_WRITE)
+      op |= DRM_FREEDRENO_PREP_WRITE;
+
+   return op;
+}
+
+bool
+fd_resource_busy(struct pipe_context *pctx, struct pipe_resource *prsc,
+                 unsigned usage)
+{
+   if (usage & PIPE_MAP_UNSYNCHRONIZED)
+      return false;
+
+   struct fd_resource *rsc = fd_resource(prsc);
+
+   if (pending(rsc, !!(usage & PIPE_MAP_WRITE)))
+      return true;
+
+   unsigned op = translate_usage(usage);
+
+   if (resource_busy(rsc, translate_usage(usage)))
+      return true;
+
+   return false;
+}
+
 static void flush_resource(struct fd_context *ctx, struct fd_resource *rsc,
                            unsigned usage);
 
@@ -670,20 +704,6 @@ fd_resource_transfer_unmap(struct pipe_context *pctx,
     * thread. Freeing an object into a different pool is allowed.
     */
    slab_free(&ctx->transfer_pool, ptrans);
-}
-
-static unsigned
-translate_usage(unsigned usage)
-{
-   uint32_t op = 0;
-
-   if (usage & PIPE_MAP_READ)
-      op |= DRM_FREEDRENO_PREP_READ;
-
-   if (usage & PIPE_MAP_WRITE)
-      op |= DRM_FREEDRENO_PREP_WRITE;
-
-   return op;
 }
 
 static void
