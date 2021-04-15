@@ -134,11 +134,107 @@ void try_apply_branch_vcc(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
    instr->operands[0] = op0_instr->operands[0];
 }
 
+void try_optimize_scc_branches(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
+{
+   if ((instr->opcode == aco_opcode::s_cmp_eq_u32 || instr->opcode == aco_opcode::s_cmp_eq_i32 ||
+        instr->opcode == aco_opcode::s_cmp_lg_u32 || instr->opcode == aco_opcode::s_cmp_lg_i32 ||
+        instr->opcode == aco_opcode::s_cmp_eq_u64 ||
+        instr->opcode == aco_opcode::s_cmp_lg_u64) &&
+       (instr->operands[0].constantEquals(0) || instr->operands[1].constantEquals(0)) &&
+       (instr->operands[0].isTemp() || instr->operands[1].isTemp())) {
+      /* Make sure the constant is always in operand 1 */
+      if (instr->operands[0].isConstant())
+         std::swap(instr->operands[0], instr->operands[1]);
+
+      if (ctx.uses[instr->operands[0].tempId()] > 1)
+         return;
+
+      int wr_idx = last_writer_idx(ctx, instr->operands[0]);
+      int sccwr_idx = last_writer_idx(ctx, scc, s1);
+      if (wr_idx < 0 || wr_idx != sccwr_idx)
+         return;
+
+      aco_ptr<Instruction> &wr_instr = ctx.current_block->instructions[wr_idx];
+      if (!wr_instr->isSALU() || wr_instr->definitions.size() < 2 || wr_instr->definitions[1].physReg() != scc)
+         return;
+
+      /* Look for instructions which set SCC := (D != 0) */
+      switch (wr_instr->opcode) {
+      case aco_opcode::s_bfe_i32:
+      case aco_opcode::s_bfe_i64:
+      case aco_opcode::s_bfe_u32:
+      case aco_opcode::s_bfe_u64:
+      case aco_opcode::s_and_b32:
+      case aco_opcode::s_and_b64:
+      case aco_opcode::s_andn2_b32:
+      case aco_opcode::s_andn2_b64:
+      case aco_opcode::s_or_b32:
+      case aco_opcode::s_or_b64:
+      case aco_opcode::s_orn2_b32:
+      case aco_opcode::s_orn2_b64:
+      case aco_opcode::s_xor_b32:
+      case aco_opcode::s_xor_b64:
+      case aco_opcode::s_xnor_b32:
+      case aco_opcode::s_xnor_b64:
+      case aco_opcode::s_nand_b32:
+      case aco_opcode::s_nand_b64:
+      case aco_opcode::s_lshl_b32:
+      case aco_opcode::s_lshl_b64:
+      case aco_opcode::s_lshr_b32:
+      case aco_opcode::s_lshr_b64:
+      case aco_opcode::s_ashr_i32:
+      case aco_opcode::s_ashr_i64:
+      case aco_opcode::s_absdiff_i32:
+         break;
+      default:
+         return;
+      }
+
+      /* Use the SCC def from wr_instr */
+      ctx.uses[instr->operands[0].tempId()]--;
+      instr->operands[0] = Operand(wr_instr->definitions[1].getTemp(), scc);
+      ctx.uses[instr->operands[0].tempId()]++;
+
+      /* Set the opcode and operand to 32-bit */
+      instr->operands[1] = Operand(0u);
+      instr->opcode = (instr->opcode == aco_opcode::s_cmp_eq_u32 ||
+                       instr->opcode == aco_opcode::s_cmp_eq_i32 ||
+                       instr->opcode == aco_opcode::s_cmp_eq_u64)
+                      ? aco_opcode::s_cmp_eq_u32
+                      : aco_opcode::s_cmp_lg_u32;
+   } else if (instr->format == Format::PSEUDO_BRANCH &&
+       instr->operands.size() == 1 &&
+       instr->operands[0].physReg() == scc) {
+
+      int wr_idx = last_writer_idx(ctx, instr->operands[0]);
+      if (wr_idx < 0)
+         return;
+
+      aco_ptr<Instruction> &wr_instr = ctx.current_block->instructions[wr_idx];
+      if ((wr_instr->opcode != aco_opcode::s_cmp_eq_u32 && wr_instr->opcode != aco_opcode::s_cmp_lg_u32) ||
+          wr_instr->operands[0].physReg() != scc ||
+          !(wr_instr->operands[1].constantEquals(0) || wr_instr->operands[1].constantEquals(1)))
+         return;
+
+      /* Flip the opcode if necessary */
+      if (instr->opcode == aco_opcode::p_cbranch_z && wr_instr->opcode == aco_opcode::s_cmp_eq_u32)
+         instr->opcode = aco_opcode::p_cbranch_nz;
+      else if (instr->opcode == aco_opcode::p_cbranch_nz && wr_instr->opcode == aco_opcode::s_cmp_eq_u32)
+         instr->opcode = aco_opcode::p_cbranch_z;
+
+      /* Use the previous SCC def */
+      ctx.uses[instr->operands[0].tempId()]--;
+      instr->operands[0] = wr_instr->operands[0];
+   }
+}
+
 void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 {
    ctx.current_instr_idx++;
 
    try_apply_branch_vcc(ctx, instr);
+
+   try_optimize_scc_branches(ctx, instr);
 
    if (instr)
       save_reg_writes(ctx, instr);
