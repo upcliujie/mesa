@@ -10338,7 +10338,7 @@ static void create_vs_exports(isel_context *ctx)
          ctx->outputs.temps[VARYING_SLOT_PRIMITIVE_ID * 4u] = get_arg(ctx, ctx->args->ac.vs_prim_id);
    }
 
-   if (ctx->options->key.has_multiview_view_index) {
+   if (ctx->program->info->has_multiview_view_index) {
       ctx->outputs.mask[VARYING_SLOT_LAYER] |= 0x1;
       ctx->outputs.temps[VARYING_SLOT_LAYER * 4u] = as_vgpr(ctx, get_arg(ctx, ctx->args->ac.view_index));
    }

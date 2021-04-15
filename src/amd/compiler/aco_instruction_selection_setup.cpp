@@ -346,7 +346,7 @@ setup_vs_output_info(isel_context *ctx, nir_shader *nir,
    }
    if (outinfo->writes_layer &&
        outinfo->vs_output_param_offset[VARYING_SLOT_LAYER] == AC_EXP_PARAM_UNDEFINED) {
-      /* when ctx->options->key.has_multiview_view_index = true, the layer
+      /* when has_multiview_view_index = true, the layer
        * variable isn't declared in NIR and it's isel's job to get the layer */
       outinfo->vs_output_param_offset[VARYING_SLOT_LAYER] = outinfo->param_exports++;
    }

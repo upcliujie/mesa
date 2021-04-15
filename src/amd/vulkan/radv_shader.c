@@ -1450,7 +1450,6 @@ radv_create_gs_copy_shader(struct radv_device *device, struct nir_shader *shader
    gl_shader_stage stage = MESA_SHADER_VERTEX;
 
    options.explicit_scratch_args = !radv_use_llvm_for_stage(device, stage);
-   options.key.has_multiview_view_index = multiview;
    options.disable_optimizations = disable_optimizations;
 
    return shader_variant_compile(device, NULL, &shader, 1, stage, info, &options, true, false,

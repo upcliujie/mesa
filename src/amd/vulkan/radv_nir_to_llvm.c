@@ -1358,7 +1358,7 @@ handle_vs_outputs_post(struct radv_shader_context *ctx, bool export_prim_id, boo
    struct radv_shader_output_values *outputs;
    unsigned noutput = 0;
 
-   if (ctx->args->options->key.has_multiview_view_index) {
+   if (ctx->args->shader_info->has_multiview_view_index) {
       LLVMValueRef *tmp_out = &ctx->abi.outputs[ac_llvm_reg_index_soa(VARYING_SLOT_LAYER, 0)];
       if (!*tmp_out) {
          for (unsigned i = 0; i < 4; ++i)
@@ -1477,7 +1477,7 @@ ngg_gs_get_vertex_storage(struct radv_shader_context *ctx)
 {
    unsigned num_outputs = util_bitcount64(ctx->output_mask);
 
-   if (ctx->args->options->key.has_multiview_view_index)
+   if (ctx->args->shader_info->has_multiview_view_index)
       num_outputs++;
 
    LLVMTypeRef elements[2] = {
@@ -2474,7 +2474,7 @@ gfx10_ngg_gs_emit_epilogue_2(struct radv_shader_context *ctx)
    ac_build_ifcc(&ctx->ac, tmp, 5145);
    {
       struct radv_vs_output_info *outinfo = &ctx->args->shader_info->vs_outinfo;
-      bool export_view_index = ctx->args->options->key.has_multiview_view_index;
+      bool export_view_index = ctx->args->shader_info->has_multiview_view_index;
       struct radv_shader_output_values *outputs;
       unsigned noutput = 0;
 

@@ -47,7 +47,6 @@ struct radv_pipeline_cache;
 struct radv_pipeline_key;
 
 struct radv_shader_variant_key {
-   bool has_multiview_view_index;
 };
 
 enum radv_compiler_debug_level {
@@ -187,6 +186,7 @@ struct radv_shader_info {
    uint8_t base_inline_push_consts;
    uint32_t desc_set_used_mask;
    bool needs_multiview_view_index;
+   bool has_multiview_view_index;
    bool uses_invocation_id;
    bool uses_prim_id;
    uint8_t subgroup_size; /* subgroup size (0 = use default) */

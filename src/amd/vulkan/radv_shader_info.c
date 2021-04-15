@@ -581,7 +581,7 @@ radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeli
    }
 
    /* Make sure to export the LayerID if the subpass has multiviews. */
-   if (key->has_multiview_view_index) {
+   if (info->has_multiview_view_index) {
       switch (nir->info.stage) {
       case MESA_SHADER_VERTEX:
       case MESA_SHADER_TESS_EVAL:
