@@ -359,11 +359,11 @@ traces:
   - path: gputest/gimark.trace
     expectations:
       - device: gl-intel-apl
-        checksum: 021e731119a20b4c6a70e22eebb05e39
+        checksum: d3cd1b67e4102fb51760a082be33c58b
       - device: gl-intel-glk
-        checksum: 021e731119a20b4c6a70e22eebb05e39
+        checksum: 6bfd7bd63fea552ecac7c5c3d174d42d
       - device: gl-intel-amly
-        checksum: 021e731119a20b4c6a70e22eebb05e39
+        checksum: 6bfd7bd63fea552ecac7c5c3d174d42d
   - path: gputest/pixmark-julia-fp32.trace
     expectations:
       - device: gl-intel-apl
