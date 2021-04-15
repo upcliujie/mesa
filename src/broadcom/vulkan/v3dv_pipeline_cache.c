@@ -359,10 +359,13 @@ v3dv_pipeline_shared_data_new(struct v3dv_pipeline_cache *cache,
    new_entry->ref_cnt = 1;
    memcpy(new_entry->sha1_key, sha1_key, 20);
 
-   memcpy(&new_entry->ubo_map, ubo_map, sizeof(struct v3dv_descriptor_map));
-   memcpy(&new_entry->ssbo_map, ssbo_map, sizeof(struct v3dv_descriptor_map));
-   memcpy(&new_entry->sampler_map, sampler_map, sizeof(struct v3dv_descriptor_map));
-   memcpy(&new_entry->texture_map, texture_map, sizeof(struct v3dv_descriptor_map));
+   /* FIXME: needed also src data per-stage */
+   for(uint32_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
+      memcpy(&new_entry->maps[stage].ubo_map, ubo_map, sizeof(struct v3dv_descriptor_map));
+      memcpy(&new_entry->maps[stage].ssbo_map, ssbo_map, sizeof(struct v3dv_descriptor_map));
+      memcpy(&new_entry->maps[stage].sampler_map, sampler_map, sizeof(struct v3dv_descriptor_map));
+      memcpy(&new_entry->maps[stage].texture_map, texture_map, sizeof(struct v3dv_descriptor_map));
+   }
 
    for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++)
       new_entry->variants[stage] = variants[stage];
@@ -820,14 +823,16 @@ v3dv_pipeline_shared_data_write_to_blob(const struct v3dv_pipeline_shared_data *
 {
    blob_write_bytes(blob, cache_entry->sha1_key, 20);
 
-   blob_write_bytes(blob, &cache_entry->ubo_map,
-                    sizeof(struct v3dv_descriptor_map));
-   blob_write_bytes(blob, &cache_entry->ssbo_map,
-                    sizeof(struct v3dv_descriptor_map));
-   blob_write_bytes(blob, &cache_entry->sampler_map,
-                    sizeof(struct v3dv_descriptor_map));
-   blob_write_bytes(blob, &cache_entry->texture_map,
-                    sizeof(struct v3dv_descriptor_map));
+   for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
+      blob_write_bytes(blob, &cache_entry->maps[stage].ubo_map,
+                       sizeof(struct v3dv_descriptor_map));
+      blob_write_bytes(blob, &cache_entry->maps[stage].ssbo_map,
+                       sizeof(struct v3dv_descriptor_map));
+      blob_write_bytes(blob, &cache_entry->maps[stage].sampler_map,
+                       sizeof(struct v3dv_descriptor_map));
+      blob_write_bytes(blob, &cache_entry->maps[stage].texture_map,
+                       sizeof(struct v3dv_descriptor_map));
+   }
 
    uint8_t variant_count = 0;
    for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
