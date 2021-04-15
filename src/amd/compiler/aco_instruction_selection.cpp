@@ -11197,7 +11197,7 @@ void ngg_emit_prim_export(isel_context *ctx, unsigned num_vertices_per_primitive
    Builder bld(ctx->program, ctx->block);
    Temp prim_exp_arg;
 
-   if (!ctx->stage.has(SWStage::GS) && ctx->args->options->key.vs_common_out.as_ngg_passthrough)
+   if (!ctx->stage.has(SWStage::GS) && ctx->program->info->vs_outinfo.as_ngg_passthrough)
       prim_exp_arg = get_arg(ctx, ctx->args->ac.gs_vtx_offset[0]);
    else
       prim_exp_arg = ngg_pack_prim_exp_arg(ctx, num_vertices_per_primitive, vtxindex, is_null);
@@ -11238,7 +11238,7 @@ void ngg_nogs_export_primitives(isel_context *ctx)
    }
 
    Temp vtxindex[max_vertices_per_primitive];
-   if (!ctx->args->options->key.vs_common_out.as_ngg_passthrough) {
+   if (!ctx->program->info->vs_outinfo.as_ngg_passthrough) {
       vtxindex[0] = bld.vop2(aco_opcode::v_and_b32, bld.def(v1), Operand(0xffffu),
                            get_arg(ctx, ctx->args->ac.gs_vtx_offset[0]));
       vtxindex[1] = num_vertices_per_primitive < 2 ? Temp(0, v1) :

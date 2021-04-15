@@ -168,7 +168,7 @@ static void
 create_function(struct radv_shader_context *ctx, gl_shader_stage stage, bool has_previous_stage)
 {
    if (ctx->ac.chip_class >= GFX10) {
-      if (is_pre_gs_stage(stage) && ctx->args->options->key.vs_common_out.as_ngg) {
+      if (is_pre_gs_stage(stage) && ctx->args->shader_info->vs_outinfo.as_ngg) {
          /* On GFX10, VS is merged into GS for NGG. */
          stage = MESA_SHADER_GEOMETRY;
          has_previous_stage = true;
@@ -189,7 +189,7 @@ create_function(struct radv_shader_context *ctx, gl_shader_stage stage, bool has
    load_descriptor_sets(ctx);
 
    if (stage == MESA_SHADER_TESS_CTRL ||
-       (stage == MESA_SHADER_VERTEX && ctx->args->options->key.vs_common_out.as_ls) ||
+       (stage == MESA_SHADER_VERTEX && ctx->args->shader_info->vs_outinfo.as_ls) ||
        /* GFX9 has the ESGS ring buffer in LDS. */
        (stage == MESA_SHADER_GEOMETRY && has_previous_stage)) {
       ac_declare_lds_as_pointer(&ctx->ac);
@@ -306,7 +306,7 @@ visit_emit_vertex_with_counter(struct ac_shader_abi *abi, unsigned stream, LLVMV
    unsigned offset = 0;
    struct radv_shader_context *ctx = radv_shader_context_from_abi(abi);
 
-   if (ctx->args->options->key.vs_common_out.as_ngg) {
+   if (ctx->args->shader_info->vs_outinfo.as_ngg) {
       gfx10_ngg_gs_emit_vertex(ctx, stream, vertexidx, addrs);
       return;
    }
@@ -351,7 +351,7 @@ visit_end_primitive(struct ac_shader_abi *abi, unsigned stream)
 {
    struct radv_shader_context *ctx = radv_shader_context_from_abi(abi);
 
-   if (ctx->args->options->key.vs_common_out.as_ngg) {
+   if (ctx->args->shader_info->vs_outinfo.as_ngg) {
       LLVMBuildStore(ctx->ac.builder, ctx->ac.i32_0, ctx->gs_curprim_verts[stream]);
       return;
    }
@@ -2140,7 +2140,7 @@ handle_ngg_outputs_post_2(struct radv_shader_context *ctx)
    {
       struct ac_ngg_prim prim = {0};
 
-      if (ctx->args->options->key.vs_common_out.as_ngg_passthrough) {
+      if (ctx->args->shader_info->vs_outinfo.as_ngg_passthrough) {
          prim.passthrough = ac_get_arg(&ctx->ac, ctx->args->ac.gs_vtx_offset[0]);
       } else {
          prim.num_vertices = num_vertices;
@@ -2700,7 +2700,7 @@ handle_fs_outputs_post(struct radv_shader_context *ctx)
 static void
 emit_gs_epilogue(struct radv_shader_context *ctx)
 {
-   if (ctx->args->options->key.vs_common_out.as_ngg) {
+   if (ctx->args->shader_info->vs_outinfo.as_ngg) {
       gfx10_ngg_gs_emit_epilogue_1(ctx);
       return;
    }
@@ -2718,11 +2718,11 @@ handle_shader_outputs_post(struct ac_shader_abi *abi, unsigned max_outputs, LLVM
 
    switch (ctx->stage) {
    case MESA_SHADER_VERTEX:
-      if (ctx->args->options->key.vs_common_out.as_ls)
+      if (ctx->args->shader_info->vs_outinfo.as_ls)
          break; /* Lowered in NIR */
-      else if (ctx->args->options->key.vs_common_out.as_es)
+      else if (ctx->args->shader_info->vs_outinfo.as_es)
          break; /* Lowered in NIR */
-      else if (ctx->args->options->key.vs_common_out.as_ngg)
+      else if (ctx->args->shader_info->vs_outinfo.as_ngg)
          handle_ngg_outputs_post_1(ctx);
       else
          handle_vs_outputs_post(ctx, ctx->args->shader_info->vs_outinfo.export_prim_id,
@@ -2738,9 +2738,9 @@ handle_shader_outputs_post(struct ac_shader_abi *abi, unsigned max_outputs, LLVM
    case MESA_SHADER_TESS_CTRL:
       break; /* Lowered in NIR */
    case MESA_SHADER_TESS_EVAL:
-      if (ctx->args->options->key.vs_common_out.as_es)
+      if (ctx->args->shader_info->vs_outinfo.as_es)
          break; /* Lowered in NIR */
-      else if (ctx->args->options->key.vs_common_out.as_ngg)
+      else if (ctx->args->shader_info->vs_outinfo.as_ngg)
          handle_ngg_outputs_post_1(ctx);
       else
          handle_vs_outputs_post(ctx, ctx->args->shader_info->vs_outinfo.export_prim_id,
@@ -2774,13 +2774,13 @@ ac_nir_eliminate_const_vs_outputs(struct radv_shader_context *ctx)
    case MESA_SHADER_GEOMETRY:
       return;
    case MESA_SHADER_VERTEX:
-      if (ctx->args->options->key.vs_common_out.as_ls ||
-          ctx->args->options->key.vs_common_out.as_es)
+      if (ctx->args->shader_info->vs_outinfo.as_ls ||
+          ctx->args->shader_info->vs_outinfo.as_es)
          return;
       outinfo = &ctx->args->shader_info->vs_outinfo;
       break;
    case MESA_SHADER_TESS_EVAL:
-      if (ctx->args->options->key.vs_common_out.as_es)
+      if (ctx->args->shader_info->vs_outinfo.as_es)
          return;
       outinfo = &ctx->args->shader_info->vs_outinfo;
       break;
@@ -2796,7 +2796,7 @@ static void
 ac_setup_rings(struct radv_shader_context *ctx)
 {
    if (ctx->args->options->chip_class <= GFX8 &&
-       (ctx->stage == MESA_SHADER_GEOMETRY || ctx->args->options->key.vs_common_out.as_es)) {
+       (ctx->stage == MESA_SHADER_GEOMETRY || ctx->args->shader_info->vs_outinfo.as_es)) {
       unsigned ring = ctx->stage == MESA_SHADER_GEOMETRY ? RING_ESGS_GS : RING_ESGS_VS;
       LLVMValueRef offset = LLVMConstInt(ctx->ac.i32, ring, false);
 
@@ -2961,7 +2961,7 @@ ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm, struct nir_shader *co
    }
 
    if (ctx.ac.chip_class >= GFX10) {
-      if (is_pre_gs_stage(shaders[0]->info.stage) && args->options->key.vs_common_out.as_ngg) {
+      if (is_pre_gs_stage(shaders[0]->info.stage) && args->shader_info->vs_outinfo.as_ngg) {
          ctx.max_workgroup_size = 128;
       }
    }
@@ -2982,7 +2982,7 @@ ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm, struct nir_shader *co
    ctx.abi.adjust_frag_coord_z = args->options->adjust_frag_coord_z;
    ctx.abi.robust_buffer_access = args->options->robust_buffer_access;
 
-   bool is_ngg = is_pre_gs_stage(shaders[0]->info.stage) && args->options->key.vs_common_out.as_ngg;
+   bool is_ngg = is_pre_gs_stage(shaders[0]->info.stage) && args->shader_info->vs_outinfo.as_ngg;
    if (shader_count >= 2 || is_ngg)
       ac_init_exec_full_mask(&ctx.ac);
 
@@ -3005,7 +3005,7 @@ ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm, struct nir_shader *co
        * Add an extra dword per vertex to ensure an odd stride, which
        * avoids bank conflicts for SoA accesses.
        */
-      if (!args->options->key.vs_common_out.as_ngg_passthrough)
+      if (!args->shader_info->vs_outinfo.as_ngg_passthrough)
          declare_esgs_ring(&ctx);
 
       /* This is really only needed when streamout and / or vertex
@@ -3029,7 +3029,7 @@ ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm, struct nir_shader *co
          for (int i = 0; i < 4; i++) {
             ctx.gs_next_vertex[i] = ac_build_alloca(&ctx.ac, ctx.ac.i32, "");
          }
-         if (args->options->key.vs_common_out.as_ngg) {
+         if (args->shader_info->vs_outinfo.as_ngg) {
             for (unsigned i = 0; i < 4; ++i) {
                ctx.gs_curprim_verts[i] = ac_build_alloca(&ctx.ac, ctx.ac.i32, "");
                ctx.gs_generated_prims[i] = ac_build_alloca(&ctx.ac, ctx.ac.i32, "");
@@ -3062,7 +3062,7 @@ ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm, struct nir_shader *co
       }
 
       if (shaders[shader_idx]->info.stage == MESA_SHADER_VERTEX &&
-          args->options->key.vs_common_out.as_ngg &&
+          args->shader_info->vs_outinfo.as_ngg &&
           args->shader_info->vs_outinfo.export_prim_id) {
          declare_esgs_ring(&ctx);
       }
@@ -3071,7 +3071,7 @@ ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm, struct nir_shader *co
 
       if (shader_idx) {
          if (shaders[shader_idx]->info.stage == MESA_SHADER_GEOMETRY &&
-             args->options->key.vs_common_out.as_ngg) {
+             args->shader_info->vs_outinfo.as_ngg) {
             gfx10_ngg_gs_emit_prologue(&ctx);
             nested_barrier = false;
          } else {
@@ -3137,10 +3137,10 @@ ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm, struct nir_shader *co
       /* This needs to be outside the if wrapping the shader body, as sometimes
        * the HW generates waves with 0 es/vs threads. */
       if (is_pre_gs_stage(shaders[shader_idx]->info.stage) &&
-          args->options->key.vs_common_out.as_ngg && shader_idx == shader_count - 1) {
+          args->shader_info->vs_outinfo.as_ngg && shader_idx == shader_count - 1) {
          handle_ngg_outputs_post_2(&ctx);
       } else if (shaders[shader_idx]->info.stage == MESA_SHADER_GEOMETRY &&
-                 args->options->key.vs_common_out.as_ngg) {
+                 args->shader_info->vs_outinfo.as_ngg) {
          gfx10_ngg_gs_emit_epilogue_2(&ctx);
       }
    }

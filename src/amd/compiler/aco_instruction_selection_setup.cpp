@@ -1030,11 +1030,13 @@ setup_isel_context(Program* program,
       }
    }
    bool gfx9_plus = args->options->chip_class >= GFX9;
-   bool ngg = args->shader_info->is_ngg && args->options->chip_class >= GFX10;
+   bool as_es = args->shader_info->vs_outinfo.as_es;
+   bool as_ls = args->shader_info->vs_outinfo.as_ls;
+   bool ngg = args->shader_info->vs_outinfo.as_ngg && args->options->chip_class >= GFX10;
    HWStage hw_stage { };
-   if (sw_stage == SWStage::VS && args->shader_info->vs.as_es && !ngg)
+   if (sw_stage == SWStage::VS && as_es && !ngg)
       hw_stage = HWStage::ES;
-   else if (sw_stage == SWStage::VS && !args->shader_info->vs.as_ls && !ngg)
+   else if (sw_stage == SWStage::VS && !as_ls && !ngg)
       hw_stage = HWStage::VS;
    else if (sw_stage == SWStage::VS && ngg)
       hw_stage = HWStage::NGG; /* GFX10/NGG: VS without GS uses the HW GS stage */
@@ -1050,17 +1052,17 @@ setup_isel_context(Program* program,
       hw_stage = HWStage::GS; /* GFX6-9: VS+GS merged into a GS (and GFX10/legacy) */
    else if (sw_stage == SWStage::VS_GS && ngg)
       hw_stage = HWStage::NGG; /* GFX10+: VS+GS merged into an NGG GS */
-   else if (sw_stage == SWStage::VS && args->shader_info->vs.as_ls)
+   else if (sw_stage == SWStage::VS && as_ls)
       hw_stage = HWStage::LS; /* GFX6-8: VS is a Local Shader, when tessellation is used */
    else if (sw_stage == SWStage::TCS)
       hw_stage = HWStage::HS; /* GFX6-8: TCS is a Hull Shader */
    else if (sw_stage == SWStage::VS_TCS)
       hw_stage = HWStage::HS; /* GFX9-10: VS+TCS merged into a Hull Shader */
-   else if (sw_stage == SWStage::TES && !args->shader_info->tes.as_es && !ngg)
+   else if (sw_stage == SWStage::TES && !as_es && !ngg)
       hw_stage = HWStage::VS; /* GFX6-9: TES without GS uses the HW VS stage (and GFX10/legacy) */
-   else if (sw_stage == SWStage::TES && !args->shader_info->tes.as_es && ngg)
+   else if (sw_stage == SWStage::TES && !as_es && ngg)
       hw_stage = HWStage::NGG; /* GFX10/NGG: TES without GS */
-   else if (sw_stage == SWStage::TES && args->shader_info->tes.as_es && !ngg)
+   else if (sw_stage == SWStage::TES && as_es && !ngg)
       hw_stage = HWStage::ES; /* GFX6-8: TES is an Export Shader */
    else if (sw_stage == SWStage::TES_GS && gfx9_plus && !ngg)
       hw_stage = HWStage::GS; /* GFX9: TES+GS merged into a GS (and GFX10/legacy) */

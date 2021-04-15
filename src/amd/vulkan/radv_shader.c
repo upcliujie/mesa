@@ -743,12 +743,12 @@ radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
                      struct radv_shader_info *info, const struct radv_pipeline_key *pl_key)
 {
    if (nir->info.stage == MESA_SHADER_VERTEX) {
-      if (info->vs.as_ls) {
+      if (info->vs_outinfo.as_ls) {
          ac_nir_lower_ls_outputs_to_mem(nir, info->vs.tcs_in_out_eq,
                                         info->vs.tcs_temp_only_input_mask,
                                         info->vs.num_linked_outputs);
          return true;
-      } else if (info->vs.as_es) {
+      } else if (info->vs_outinfo.as_es) {
          ac_nir_lower_es_outputs_to_mem(nir, device->physical_device->rad_info.chip_class,
                                         info->vs.num_linked_outputs);
          return true;
@@ -769,7 +769,7 @@ radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
       ac_nir_lower_tess_to_const(nir, nir->info.tess.tcs_vertices_out, info->num_tess_patches,
                                  ac_nir_lower_patch_vtx_in | ac_nir_lower_num_patches);
 
-      if (info->tes.as_es) {
+      if (info->vs_outinfo.as_es) {
          ac_nir_lower_es_outputs_to_mem(nir, device->physical_device->rad_info.chip_class,
                                         info->tes.num_linked_outputs);
       }
@@ -884,10 +884,10 @@ radv_should_use_wgp_mode(const struct radv_device *device, gl_shader_stage stage
    case MESA_SHADER_TESS_CTRL:
       return chip >= GFX10;
    case MESA_SHADER_GEOMETRY:
-      return chip == GFX10 || (chip >= GFX10_3 && !info->is_ngg);
+      return chip == GFX10 || (chip >= GFX10_3 && !info->vs_outinfo.as_ngg);
    case MESA_SHADER_VERTEX:
    case MESA_SHADER_TESS_EVAL:
-      return chip == GFX10 && info->is_ngg;
+      return chip == GFX10 && info->vs_outinfo.as_ngg;
    default:
       return false;
    }
@@ -954,10 +954,10 @@ radv_postprocess_config(const struct radv_device *device, const struct ac_shader
 
    switch (stage) {
    case MESA_SHADER_TESS_EVAL:
-      if (info->is_ngg) {
+      if (info->vs_outinfo.as_ngg) {
          config_out->rsrc1 |= S_00B228_MEM_ORDERED(pdevice->rad_info.chip_class >= GFX10);
          config_out->rsrc2 |= S_00B22C_OC_LDS_EN(1) | S_00B22C_EXCP_EN(excp_en);
-      } else if (info->tes.as_es) {
+      } else if (info->vs_outinfo.as_es) {
          assert(pdevice->rad_info.chip_class <= GFX8);
          vgpr_comp_cnt = info->uses_prim_id ? 3 : 2;
 
@@ -994,16 +994,16 @@ radv_postprocess_config(const struct radv_device *device, const struct ac_shader
       config_out->rsrc2 |= S_00B42C_SHARED_VGPR_CNT(num_shared_vgpr_blocks);
       break;
    case MESA_SHADER_VERTEX:
-      if (info->is_ngg) {
+      if (info->vs_outinfo.as_ngg) {
          config_out->rsrc1 |= S_00B228_MEM_ORDERED(pdevice->rad_info.chip_class >= GFX10);
-      } else if (info->vs.as_ls) {
+      } else if (info->vs_outinfo.as_ls) {
          assert(pdevice->rad_info.chip_class <= GFX8);
          /* We need at least 2 components for LS.
           * VGPR0-3: (VertexID, RelAutoindex, InstanceID / StepRate0, InstanceID).
           * StepRate0 is set to 1. so that VGPR3 doesn't have to be loaded.
           */
          vgpr_comp_cnt = info->vs.needs_instance_id ? 2 : 1;
-      } else if (info->vs.as_es) {
+      } else if (info->vs_outinfo.as_es) {
          assert(pdevice->rad_info.chip_class <= GFX8);
          /* VGPR0-3: (VertexID, InstanceID / StepRate0, ...) */
          vgpr_comp_cnt = info->vs.needs_instance_id ? 1 : 0;
@@ -1056,7 +1056,7 @@ radv_postprocess_config(const struct radv_device *device, const struct ac_shader
       break;
    }
 
-   if (pdevice->rad_info.chip_class >= GFX10 && info->is_ngg &&
+   if (pdevice->rad_info.chip_class >= GFX10 && info->vs_outinfo.as_ngg &&
        (stage == MESA_SHADER_VERTEX || stage == MESA_SHADER_TESS_EVAL ||
         stage == MESA_SHADER_GEOMETRY)) {
       unsigned gs_vgpr_comp_cnt, es_vgpr_comp_cnt;
@@ -1154,7 +1154,7 @@ radv_shader_variant_create(struct radv_device *device, const struct radv_shader_
       size_t elf_size = ((struct radv_shader_binary_rtld *)binary)->elf_size;
 
       if (device->physical_device->rad_info.chip_class >= GFX9 &&
-          (binary->stage == MESA_SHADER_GEOMETRY || binary->info.is_ngg) &&
+          (binary->stage == MESA_SHADER_GEOMETRY || binary->info.vs_outinfo.as_ngg) &&
           !binary->is_gs_copy_shader) {
          /* We add this symbol even on LLVM <= 8 to ensure that
           * shader->config.lds_size is set correctly below.
@@ -1165,7 +1165,7 @@ radv_shader_variant_create(struct radv_device *device, const struct radv_shader_
          sym->align = 64 * 1024;
       }
 
-      if (binary->info.is_ngg && binary->stage == MESA_SHADER_GEOMETRY) {
+      if (binary->info.vs_outinfo.as_ngg && binary->stage == MESA_SHADER_GEOMETRY) {
          struct ac_rtld_symbol *sym = &lds_symbols[num_lds_symbols++];
          sym->name = "ngg_emit";
          sym->size = binary->info.ngg_info.ngg_emit_size * 4;
@@ -1503,20 +1503,20 @@ radv_get_shader_name(struct radv_shader_info *info, gl_shader_stage stage)
 {
    switch (stage) {
    case MESA_SHADER_VERTEX:
-      if (info->vs.as_ls)
+      if (info->vs_outinfo.as_ls)
          return "Vertex Shader as LS";
-      else if (info->vs.as_es)
+      else if (info->vs_outinfo.as_es)
          return "Vertex Shader as ES";
-      else if (info->is_ngg)
+      else if (info->vs_outinfo.as_ngg)
          return "Vertex Shader as ESGS";
       else
          return "Vertex Shader as VS";
    case MESA_SHADER_TESS_CTRL:
       return "Tessellation Control Shader";
    case MESA_SHADER_TESS_EVAL:
-      if (info->tes.as_es)
+      if (info->vs_outinfo.as_es)
          return "Tessellation Evaluation Shader as ES";
-      else if (info->is_ngg)
+      else if (info->vs_outinfo.as_ngg)
          return "Tessellation Evaluation Shader as ESGS";
       else
          return "Tessellation Evaluation Shader as VS";

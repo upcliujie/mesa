@@ -455,11 +455,11 @@ gather_info_output_decl(const nir_shader *nir, const nir_variable *var,
       gather_info_output_decl_ps(nir, var, info);
       break;
    case MESA_SHADER_VERTEX:
-      if (!key->vs_common_out.as_ls && !key->vs_common_out.as_es)
+      if (!info->vs_outinfo.as_ls && !info->vs_outinfo.as_es)
          vs_info = &info->vs_outinfo;
 
       /* TODO: Adjust as_ls/as_nng. */
-      if (!key->vs_common_out.as_ls && key->vs_common_out.as_ngg)
+      if (!info->vs_outinfo.as_ls && info->vs_outinfo.as_ngg)
          gather_info_output_decl_gs(nir, var, info);
       break;
    case MESA_SHADER_GEOMETRY:
@@ -467,7 +467,7 @@ gather_info_output_decl(const nir_shader *nir, const nir_variable *var,
       gather_info_output_decl_gs(nir, var, info);
       break;
    case MESA_SHADER_TESS_EVAL:
-      if (!key->vs_common_out.as_es)
+      if (!info->vs_outinfo.as_es)
          vs_info = &info->vs_outinfo;
       break;
    default:
@@ -649,20 +649,13 @@ radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeli
       info->tes.spacing = nir->info.tess.spacing;
       info->tes.ccw = nir->info.tess.ccw;
       info->tes.point_mode = nir->info.tess.point_mode;
-      info->tes.as_es = key->vs_common_out.as_es;
       info->tes.export_prim_id = info->vs_outinfo.export_prim_id;
-      info->is_ngg = key->vs_common_out.as_ngg;
-      info->is_ngg_passthrough = key->vs_common_out.as_ngg_passthrough;
       break;
    case MESA_SHADER_TESS_CTRL:
       info->tcs.tcs_vertices_out = nir->info.tess.tcs_vertices_out;
       break;
    case MESA_SHADER_VERTEX:
-      info->vs.as_es = key->vs_common_out.as_es;
-      info->vs.as_ls = key->vs_common_out.as_ls;
       info->vs.export_prim_id = info->vs_outinfo.export_prim_id;
-      info->is_ngg = key->vs_common_out.as_ngg;
-      info->is_ngg_passthrough = key->vs_common_out.as_ngg_passthrough;
       break;
    default:
       break;
@@ -677,7 +670,7 @@ radv_nir_shader_info_pass(const struct nir_shader *nir, const struct radv_pipeli
 
    /* Compute the ESGS item size for VS or TES as ES. */
    if ((nir->info.stage == MESA_SHADER_VERTEX || nir->info.stage == MESA_SHADER_TESS_EVAL) &&
-       key->vs_common_out.as_es) {
+       info->vs_outinfo.as_es) {
       struct radv_es_output_info *es_info = &info->es_info;
       uint32_t num_outputs_written = nir->info.stage == MESA_SHADER_VERTEX
                                         ? info->vs.num_linked_outputs

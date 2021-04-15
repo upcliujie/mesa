@@ -832,20 +832,20 @@ radv_mesa_to_rgp_shader_stage(struct radv_pipeline *pipeline, gl_shader_stage st
 
    switch (stage) {
    case MESA_SHADER_VERTEX:
-      if (shader->info.vs.as_ls)
+      if (shader->info.vs_outinfo.as_ls)
          return RGP_HW_STAGE_LS;
-      else if (shader->info.vs.as_es)
+      else if (shader->info.vs_outinfo.as_es)
          return RGP_HW_STAGE_ES;
-      else if (shader->info.is_ngg)
+      else if (shader->info.vs_outinfo.as_ngg)
          return RGP_HW_STAGE_GS;
       else
          return RGP_HW_STAGE_VS;
    case MESA_SHADER_TESS_CTRL:
       return RGP_HW_STAGE_HS;
    case MESA_SHADER_TESS_EVAL:
-      if (shader->info.tes.as_es)
+      if (shader->info.vs_outinfo.as_es)
          return RGP_HW_STAGE_ES;
-      else if (shader->info.is_ngg)
+      else if (shader->info.vs_outinfo.as_ngg)
          return RGP_HW_STAGE_GS;
       else
          return RGP_HW_STAGE_VS;

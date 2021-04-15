@@ -46,16 +46,7 @@ struct radv_pipeline;
 struct radv_pipeline_cache;
 struct radv_pipeline_key;
 
-struct radv_vs_out_key {
-   uint32_t as_es : 1;
-   uint32_t as_ls : 1;
-   uint32_t as_ngg : 1;
-   uint32_t as_ngg_passthrough : 1;
-};
-
 struct radv_vs_variant_key {
-   struct radv_vs_out_key out;
-
    uint32_t instance_rate_inputs;
    uint32_t instance_rate_divisors[MAX_VERTEX_ATTRIBS];
    uint8_t vertex_attribute_formats[MAX_VERTEX_ATTRIBS];
@@ -74,18 +65,8 @@ struct radv_vs_variant_key {
    uint8_t outprim;
 };
 
-struct radv_tes_variant_key {
-   struct radv_vs_out_key out;
-};
-
 struct radv_shader_variant_key {
-   union {
-      struct radv_vs_variant_key vs;
-      struct radv_tes_variant_key tes;
-
-      /* A common prefix of the vs and tes keys. */
-      struct radv_vs_out_key vs_common_out;
-   };
+   struct radv_vs_variant_key vs;
    bool has_multiview_view_index;
 };
 
@@ -186,6 +167,10 @@ struct radv_vs_output_info {
    bool export_layer_id;
    bool export_clip_dists;
    bool export_viewport_index;
+   bool as_ls;
+   bool as_es;
+   bool as_ngg;
+   bool as_ngg_passthrough;
    unsigned pos_exports;
 };
 
@@ -233,8 +218,6 @@ struct radv_shader_info {
    unsigned num_input_vgprs;
    unsigned private_mem_vgprs;
    bool need_indirect_descriptor_sets;
-   bool is_ngg;
-   bool is_ngg_passthrough;
    uint32_t num_tess_patches;
    struct {
       uint8_t input_usage_mask[RADV_VERT_ATTRIB_MAX];
@@ -242,8 +225,6 @@ struct radv_shader_info {
       bool has_vertex_buffers; /* needs vertex buffers and base/start */
       bool needs_draw_id;
       bool needs_instance_id;
-      bool as_es;
-      bool as_ls;
       bool export_prim_id;
       bool tcs_in_out_eq;
       uint64_t tcs_temp_only_input_mask;
@@ -266,7 +247,6 @@ struct radv_shader_info {
    } gs;
    struct {
       uint8_t output_usage_mask[VARYING_SLOT_VAR31 + 1];
-      bool as_es;
       unsigned primitive_mode;
       enum gl_tess_spacing spacing;
       bool ccw;
