@@ -4654,7 +4654,7 @@ get_color_blit_fs(struct v3dv_device *device,
                                            UTIL_FORMAT_COLORSPACE_RGB,
                                            i);
 
-         if (dst_bit_size >= src_bit_size)
+         if (dst_bit_size >= src_bit_size || dst_bit_size == 0)
             continue;
 
          if (util_format_is_pure_uint(dst_pformat)) {
