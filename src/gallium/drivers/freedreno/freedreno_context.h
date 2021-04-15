@@ -303,6 +303,10 @@ struct fd_context {
     */
    struct fd_batch *batch dt;
 
+   /* Current non-draw batch, for coalescing blits and compute grids
+    */
+   struct fd_batch *batch_nondraw dt;
+
    /* NULL if there has been rendering since last flush.  Otherwise
     * keeps a reference to the last fence so we can re-use it rather
     * than having to flush no-op batch.
@@ -721,6 +725,7 @@ fd_supported_prim(struct fd_context *ctx, unsigned prim)
 void fd_context_switch_from(struct fd_context *ctx) assert_dt;
 void fd_context_switch_to(struct fd_context *ctx,
                           struct fd_batch *batch) assert_dt;
+struct fd_batch *fd_context_batch_nondraw(struct fd_context *ctx) assert_dt;
 struct fd_batch *fd_context_batch(struct fd_context *ctx) assert_dt;
 struct fd_batch *fd_context_batch_locked(struct fd_context *ctx) assert_dt;
 

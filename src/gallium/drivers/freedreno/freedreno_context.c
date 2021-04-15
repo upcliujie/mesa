@@ -51,6 +51,7 @@ fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
     * one if not (unless we need a fence)
     */
    fd_batch_reference(&batch, ctx->batch);
+// TODO need to flush ctx->batch_nondraw too
 
    DBG("%p: flush: flags=%x", batch, flags);
 
@@ -271,6 +272,26 @@ fd_context_switch_to(struct fd_context *ctx, struct fd_batch *batch)
 }
 
 /**
+ * Return a reference to the current non-draw batch, caller must unref.
+ */
+struct fd_batch *
+fd_context_batch_nondraw(struct fd_context *ctx)
+{
+   struct fd_batch *batch = NULL;
+
+   fd_batch_reference(&batch, ctx->batch_nondraw);
+   if (!batch) {
+      batch = fd_bc_alloc_batch(&ctx->screen->batch_cache, ctx, true);
+      fd_batch_reference(&ctx->batch_nondraw, batch);
+      fd_context_all_dirty(ctx);
+   }
+
+   fd_context_switch_to(ctx, batch);
+
+   return batch;
+}
+
+/**
  * Return a reference to the current batch, caller must unref.
  */
 struct fd_batch *
@@ -289,6 +310,7 @@ fd_context_batch(struct fd_context *ctx)
       fd_batch_reference(&ctx->batch, batch);
       fd_context_all_dirty(ctx);
    }
+
    fd_context_switch_to(ctx, batch);
 
    return batch;

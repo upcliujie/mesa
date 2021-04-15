@@ -907,14 +907,12 @@ static bool
 handle_rgba_blit(struct fd_context *ctx,
                  const struct pipe_blit_info *info) assert_dt
 {
-   struct fd_batch *batch;
-
    debug_assert(!(info->mask & PIPE_MASK_ZS));
 
    if (!can_do_blit(info))
       return false;
 
-   batch = fd_bc_alloc_batch(&ctx->screen->batch_cache, ctx, true);
+   struct fd_batch *batch = fd_context_batch_nondraw(ctx);
 
    fd_screen_lock(ctx->screen);
 
@@ -963,7 +961,6 @@ handle_rgba_blit(struct fd_context *ctx,
    fd_resource(info->dst.resource)->valid = true;
    batch->needs_flush = true;
 
-   fd_batch_flush(batch);
    fd_batch_reference(&batch, NULL);
 
    /* Acc query state will have been dirtied by our fd_batch_update_queries, so

@@ -533,7 +533,7 @@ fd_launch_grid(struct pipe_context *pctx,
       &ctx->shaderbuf[PIPE_SHADER_COMPUTE];
    struct fd_batch *batch, *save_batch = NULL;
 
-   batch = fd_bc_alloc_batch(&ctx->screen->batch_cache, ctx, true);
+   batch = fd_context_batch_nondraw(ctx);
    fd_batch_reference(&save_batch, ctx->batch);
    fd_batch_reference(&ctx->batch, batch);
    fd_context_all_dirty(ctx);
@@ -576,8 +576,6 @@ fd_launch_grid(struct pipe_context *pctx,
 
    batch->needs_flush = true;
    ctx->launch_grid(ctx, info);
-
-   fd_batch_flush(batch);
 
    fd_batch_reference(&ctx->batch, save_batch);
    fd_context_all_dirty(ctx);
