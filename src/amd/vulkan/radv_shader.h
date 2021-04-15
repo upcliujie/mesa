@@ -82,17 +82,10 @@ struct radv_tes_variant_key {
    struct radv_vs_out_key out;
 };
 
-struct radv_tcs_variant_key {
-   struct radv_vs_variant_key vs_key;
-   unsigned primitive_mode;
-   unsigned input_vertices;
-};
-
 struct radv_shader_variant_key {
    union {
       struct radv_vs_variant_key vs;
       struct radv_tes_variant_key tes;
-      struct radv_tcs_variant_key tcs;
 
       /* A common prefix of the vs and tes keys. */
       struct radv_vs_out_key vs_common_out;
@@ -328,6 +321,7 @@ struct radv_shader_info {
    struct {
       uint64_t tes_inputs_read;
       uint64_t tes_patch_inputs_read;
+      unsigned input_vertices;
       unsigned tcs_vertices_out;
       uint32_t num_lds_blocks;
       uint8_t num_linked_inputs;

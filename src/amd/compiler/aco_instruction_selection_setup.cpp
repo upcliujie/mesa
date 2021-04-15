@@ -1107,7 +1107,7 @@ setup_isel_context(Program* program,
    } else if (program->stage == vertex_tess_control_hs) {
       /* Merged LSHS operates in workgroups, but can still have a different number of LS and HS invocations */
       setup_tcs_info(&ctx, shaders[1], shaders[0]);
-      program->workgroup_size = ctx.tcs_num_patches * MAX2(shaders[1]->info.tess.tcs_vertices_out, ctx.args->options->key.tcs.input_vertices);
+      program->workgroup_size = ctx.tcs_num_patches * MAX2(shaders[1]->info.tess.tcs_vertices_out, program->info->tcs.input_vertices);
    } else if (program->stage.hw == HWStage::NGG) {
       gfx10_ngg_info &ngg_info = args->shader_info->ngg_info;
       unsigned num_gs_invocations = (program->stage.has(SWStage::GS)) ? MAX2(shaders[1]->info.gs.invocations, 1) : 1;

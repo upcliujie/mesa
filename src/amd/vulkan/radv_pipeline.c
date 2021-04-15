@@ -2642,9 +2642,6 @@ radv_fill_shader_keys(struct radv_device *device, struct radv_shader_variant_key
 
    if (nir[MESA_SHADER_TESS_CTRL]) {
       keys[MESA_SHADER_VERTEX].vs_common_out.as_ls = true;
-      keys[MESA_SHADER_TESS_CTRL].tcs.input_vertices = key->tess_input_vertices;
-      keys[MESA_SHADER_TESS_CTRL].tcs.primitive_mode =
-         nir[MESA_SHADER_TESS_EVAL]->info.tess.primitive_mode;
    }
 
    if (nir[MESA_SHADER_GEOMETRY]) {
@@ -2819,7 +2816,6 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
        nir[MESA_SHADER_TESS_CTRL]) {
       struct nir_shader *combined_nir[] = {nir[MESA_SHADER_VERTEX], nir[MESA_SHADER_TESS_CTRL]};
       struct radv_shader_variant_key key = keys[MESA_SHADER_TESS_CTRL];
-      key.tcs.vs_key = keys[MESA_SHADER_VERTEX].vs;
 
       radv_nir_shader_info_init(&infos[MESA_SHADER_TESS_CTRL]);
 
@@ -2930,6 +2926,7 @@ gather_tess_info(struct radv_device *device, nir_shader **nir, struct radv_shade
       infos[MESA_SHADER_TESS_CTRL].tcs.num_linked_outputs,
       infos[MESA_SHADER_TESS_CTRL].tcs.num_linked_patch_outputs);
 
+   infos[MESA_SHADER_TESS_CTRL].tcs.input_vertices = pipeline_key->tess_input_vertices;
    infos[MESA_SHADER_TESS_CTRL].num_tess_patches = num_patches;
    infos[MESA_SHADER_TESS_CTRL].tcs.num_lds_blocks = tcs_lds_size;
    infos[MESA_SHADER_TESS_CTRL].tcs.tes_reads_tess_factors =
@@ -3467,7 +3464,6 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
       if (!pipeline->shaders[MESA_SHADER_TESS_CTRL]) {
          struct nir_shader *combined_nir[] = {nir[MESA_SHADER_VERTEX], nir[MESA_SHADER_TESS_CTRL]};
          struct radv_shader_variant_key key = keys[MESA_SHADER_TESS_CTRL];
-         key.tcs.vs_key = keys[MESA_SHADER_VERTEX].vs;
 
          radv_start_feedback(stage_feedbacks[MESA_SHADER_TESS_CTRL]);
 
