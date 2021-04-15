@@ -977,10 +977,15 @@ pan_preload_emit_bifrost_pre_frame_dcd(struct pan_pool *desc_pool,
                     (dcd_idx * (MALI_DRAW_LENGTH + MALI_DRAW_PADDING_LENGTH));
 
         pan_preload_emit_dcd(desc_pool, fb, zs, coords, tsd, rsd, dcd);
-        fb->bifrost.pre_post.modes[dcd_idx] =
-                zs ?
-                MALI_PRE_POST_FRAME_SHADER_MODE_EARLY_ZS_ALWAYS :
-                MALI_PRE_POST_FRAME_SHADER_MODE_INTERSECT;
+        if (zs) {
+                fb->bifrost.pre_post.modes[dcd_idx] =
+                        desc_pool->dev->arch > 6 ?
+                        MALI_PRE_POST_FRAME_SHADER_MODE_EARLY_ZS_ALWAYS :
+                        MALI_PRE_POST_FRAME_SHADER_MODE_ALWAYS;
+        } else {
+                fb->bifrost.pre_post.modes[dcd_idx] =
+                        MALI_PRE_POST_FRAME_SHADER_MODE_INTERSECT;
+        }
 }
 
 static void
