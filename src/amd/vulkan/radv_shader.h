@@ -88,18 +88,9 @@ struct radv_tcs_variant_key {
    unsigned input_vertices;
 };
 
-struct radv_fs_variant_key {
-   uint32_t col_format;
-   uint8_t log2_ps_iter_samples;
-   uint8_t num_samples;
-   uint32_t is_int8;
-   uint32_t is_int10;
-};
-
 struct radv_shader_variant_key {
    union {
       struct radv_vs_variant_key vs;
-      struct radv_fs_variant_key fs;
       struct radv_tes_variant_key tes;
       struct radv_tcs_variant_key tcs;
 
@@ -298,6 +289,11 @@ struct radv_shader_info {
       uint8_t num_linked_outputs;
    } tes;
    struct {
+      uint32_t col_format;
+      uint8_t log2_ps_iter_samples;
+      uint8_t num_samples;
+      uint32_t is_int8;
+      uint32_t is_int10;
       bool uses_sample_shading;
       bool needs_sample_positions;
       bool writes_memory;

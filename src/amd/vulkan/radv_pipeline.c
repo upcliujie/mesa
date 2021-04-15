@@ -2705,12 +2705,6 @@ radv_fill_shader_keys(struct radv_device *device, struct radv_shader_variant_key
 
    for (int i = 0; i < MESA_SHADER_STAGES; ++i)
       keys[i].has_multiview_view_index = key->has_multiview_view_index;
-
-   keys[MESA_SHADER_FRAGMENT].fs.col_format = key->col_format;
-   keys[MESA_SHADER_FRAGMENT].fs.is_int8 = key->is_int8;
-   keys[MESA_SHADER_FRAGMENT].fs.is_int10 = key->is_int10;
-   keys[MESA_SHADER_FRAGMENT].fs.log2_ps_iter_samples = key->log2_ps_iter_samples;
-   keys[MESA_SHADER_FRAGMENT].fs.num_samples = key->num_samples;
 }
 
 static uint8_t
@@ -2754,6 +2748,13 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 
    if (nir[MESA_SHADER_FRAGMENT]) {
       radv_nir_shader_info_init(&infos[MESA_SHADER_FRAGMENT]);
+
+      infos[MESA_SHADER_FRAGMENT].ps.col_format = pipeline_key->col_format;
+      infos[MESA_SHADER_FRAGMENT].ps.is_int8 = pipeline_key->is_int8;
+      infos[MESA_SHADER_FRAGMENT].ps.is_int10 = pipeline_key->is_int10;
+      infos[MESA_SHADER_FRAGMENT].ps.log2_ps_iter_samples = pipeline_key->log2_ps_iter_samples;
+      infos[MESA_SHADER_FRAGMENT].ps.num_samples = pipeline_key->num_samples;
+
       radv_nir_shader_info_pass(nir[MESA_SHADER_FRAGMENT], pipeline->layout,
                                 &keys[MESA_SHADER_FRAGMENT], &infos[MESA_SHADER_FRAGMENT]);
 

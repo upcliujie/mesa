@@ -6930,9 +6930,9 @@ void visit_load_sample_mask_in(isel_context *ctx, nir_intrinsic_instr *instr) {
    uint8_t log2_ps_iter_samples;
    if (ctx->program->info->ps.uses_sample_shading) {
       log2_ps_iter_samples =
-         util_logbase2(ctx->options->key.fs.num_samples);
+         util_logbase2(ctx->program->info->ps.num_samples);
    } else {
-      log2_ps_iter_samples = ctx->options->key.fs.log2_ps_iter_samples;
+      log2_ps_iter_samples = ctx->program->info->ps.log2_ps_iter_samples;
    }
 
    Builder bld(ctx->program, ctx->block);
@@ -7605,7 +7605,7 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
    }
    case nir_intrinsic_load_barycentric_at_sample: {
       uint32_t sample_pos_offset = RING_PS_SAMPLE_POSITIONS * 16;
-      switch (ctx->options->key.fs.num_samples) {
+      switch (ctx->program->info->ps.num_samples) {
          case 2: sample_pos_offset += 1 << 3; break;
          case 4: sample_pos_offset += 3 << 3; break;
          case 8: sample_pos_offset += 7 << 3; break;
@@ -10468,10 +10468,10 @@ static bool export_fs_mrt_color(isel_context *ctx, int slot)
 
    slot -= FRAG_RESULT_DATA0;
    target = V_008DFC_SQ_EXP_MRT + slot;
-   col_format = (ctx->options->key.fs.col_format >> (4 * slot)) & 0xf;
+   col_format = (ctx->program->info->ps.col_format >> (4 * slot)) & 0xf;
 
-   bool is_int8 = (ctx->options->key.fs.is_int8 >> slot) & 1;
-   bool is_int10 = (ctx->options->key.fs.is_int10 >> slot) & 1;
+   bool is_int8 = (ctx->program->info->ps.is_int8 >> slot) & 1;
+   bool is_int10 = (ctx->program->info->ps.is_int10 >> slot) & 1;
    bool is_16bit = values[0].regClass() == v2b;
 
    /* Replace NaN by zero (only 32-bit) to fix game bugs if requested. */
