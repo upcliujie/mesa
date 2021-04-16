@@ -60,6 +60,11 @@ fd_pipe_new2(struct fd_device *dev, enum fd_pipe_id id, uint32_t prio)
    fd_pipe_get_param(pipe, FD_GPU_ID, &val);
    pipe->gpu_id = val;
 
+   pipe->control_mem = fd_bo_new(dev, sizeof(*pipe->control),
+                                 DRM_FREEDRENO_GEM_TYPE_KMEM,
+                                 "pipe-control");
+   pipe->control = fd_bo_map(pipe->control_mem);
+
    return pipe;
 }
 
@@ -81,6 +86,7 @@ fd_pipe_del(struct fd_pipe *pipe)
 {
    if (!p_atomic_dec_zero(&pipe->refcnt))
       return;
+   fd_bo_del(pipe->control_mem);
    pipe->funcs->destroy(pipe);
 }
 
@@ -99,5 +105,12 @@ fd_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp)
 int
 fd_pipe_wait_timeout(struct fd_pipe *pipe, uint32_t timestamp, uint64_t timeout)
 {
+
    return pipe->funcs->wait(pipe, timestamp, timeout);
+}
+
+void
+fd_pipe_emit_fence_ptr(struct fd_pipe *pipe, struct fd_ringbuffer *ring)
+{
+   OUT_RELOC(ring, control_ptr(pipe, fence));
 }

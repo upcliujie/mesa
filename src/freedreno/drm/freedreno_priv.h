@@ -118,11 +118,29 @@ struct fd_pipe_funcs {
    void (*destroy)(struct fd_pipe *pipe);
 };
 
+struct fd_pipe_control {
+   uint32_t fence;
+};
+#define control_ptr(pipe, member) \
+   (pipe)->control_mem, offsetof(struct fd_pipe_control, member), 0, 0
+
 struct fd_pipe {
    struct fd_device *dev;
    enum fd_pipe_id id;
    uint32_t gpu_id;
    int32_t refcnt;
+
+   /**
+    * Previous fence seqno allocated for this pipe.  The fd_pipe represents
+    * a single timeline, fences allocated by this pipe can be compared to
+    * each other, but fences from different pipes are not comparable (as
+    * there could be preemption of multiple priority level submitqueues at
+    * play)
+    */
+   uint32_t last_fence;
+   struct fd_bo *control_mem;
+   volatile struct fd_pipe_control *control;
+
    const struct fd_pipe_funcs *funcs;
 };
 
@@ -138,6 +156,7 @@ struct fd_submit_funcs {
 struct fd_submit {
    struct fd_pipe *pipe;
    const struct fd_submit_funcs *funcs;
+   uint32_t fence;
 };
 
 struct fd_bo_funcs {
@@ -165,11 +184,38 @@ struct fd_bo {
       NO_CACHE = 0,
       BO_CACHE = 1,
       RING_CACHE = 2,
-   } bo_reuse;
+   } bo_reuse : 2;
+
+   /* For userspace fencing, if a bo is used on 2nd pipe while still busy
+    * on the first, the conflict flag is set, and we need to fallback to
+    * the kernel to determine busyness.
+    *
+    * Also, buffers that are shared (imported or exported) may be used in
+    * other processes, so we need to fallback to kernel to determine
+    * busyness.
+    */
+   bool conflict : 1;
+   bool shared : 1;
+
+   /* For non-shared buffers, track the last pipe the buffer was active
+    * on, and the per-pipe fence value that indicates when the buffer is
+    * idle:
+    */
+   uint32_t last_fence;
+   struct fd_pipe *last_pipe;
 
    struct list_head list; /* bucket-list entry */
    time_t free_time;      /* time when added to bucket-list */
 };
+
+void fd_bo_set_fence(struct fd_bo *bo, struct fd_pipe *pipe, uint32_t fence);
+
+enum fd_bo_state {
+   FD_BO_STATE_IDLE,
+   FD_BO_STATE_BUSY,
+   FD_BO_STATE_UNKNOWN,
+};
+enum fd_bo_state fd_bo_state(struct fd_bo *bo);
 
 struct fd_bo *fd_bo_new_ring(struct fd_device *dev, uint32_t size);
 

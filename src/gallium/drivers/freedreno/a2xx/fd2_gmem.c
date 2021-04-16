@@ -226,6 +226,18 @@ fd2_emit_tile_gmem2mem(struct fd_batch *batch, const struct fd_tile *tile)
    fd2_emit_ib(batch->gmem, batch->tile_fini);
 }
 
+static void
+fd2_emit_tile_fini(struct fd_batch *batch)
+   assert_dt
+{
+   struct fd_ringbuffer *ring = batch->gmem;
+
+   OUT_PKT3(ring, CP_EVENT_WRITE, 3);
+   OUT_RING(ring, CP_EVENT_WRITE_0_EVENT(CACHE_FLUSH_TS));
+   fd_pipe_emit_fence_ptr(batch->ctx->pipe, ring);   /* ADDR_LO/HI */
+   OUT_RING(ring, fd_submit_next_fence(batch->submit));
+}
+
 /* transfer from system memory to gmem */
 
 static void
@@ -479,6 +491,18 @@ fd2_emit_sysmem_prep(struct fd_batch *batch)
    patch_draws(batch, IGNORE_VISIBILITY);
    util_dynarray_clear(&batch->draw_patches);
    util_dynarray_clear(&batch->shader_patches);
+}
+
+static void
+fd2_emit_sysmem_fini(struct fd_batch *batch)
+   assert_dt
+{
+   struct fd_ringbuffer *ring = batch->gmem;
+
+   OUT_PKT3(ring, CP_EVENT_WRITE, 3);
+   OUT_RING(ring, CP_EVENT_WRITE_0_EVENT(CACHE_FLUSH_TS));
+   fd_pipe_emit_fence_ptr(batch->ctx->pipe, ring);   /* ADDR_LO/HI */
+   OUT_RING(ring, fd_submit_next_fence(batch->submit));
 }
 
 /* before first tile */
@@ -758,9 +782,11 @@ fd2_gmem_init(struct pipe_context *pctx) disable_thread_safety_analysis
    struct fd_context *ctx = fd_context(pctx);
 
    ctx->emit_sysmem_prep = fd2_emit_sysmem_prep;
+   ctx->emit_sysmem_fini = fd2_emit_sysmem_fini;
    ctx->emit_tile_init = fd2_emit_tile_init;
    ctx->emit_tile_prep = fd2_emit_tile_prep;
    ctx->emit_tile_mem2gmem = fd2_emit_tile_mem2gmem;
    ctx->emit_tile_renderprep = fd2_emit_tile_renderprep;
    ctx->emit_tile_gmem2mem = fd2_emit_tile_gmem2mem;
+   ctx->emit_tile_fini = fd2_emit_tile_fini;
 }

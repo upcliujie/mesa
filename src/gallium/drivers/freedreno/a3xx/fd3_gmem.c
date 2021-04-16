@@ -498,6 +498,18 @@ fd3_emit_tile_gmem2mem(struct fd_batch *batch,
                      A3XX_GRAS_SC_CONTROL_RASTER_MODE(0));
 }
 
+static void
+fd3_emit_tile_fini(struct fd_batch *batch)
+   assert_dt
+{
+   struct fd_ringbuffer *ring = batch->gmem;
+
+   OUT_PKT3(ring, CP_EVENT_WRITE, 3);
+   OUT_RING(ring, CP_EVENT_WRITE_0_EVENT(CACHE_FLUSH_TS));
+   fd_pipe_emit_fence_ptr(batch->ctx->pipe, ring);   /* ADDR_LO/HI */
+   OUT_RING(ring, fd_submit_next_fence(batch->submit));
+}
+
 /* transfer from system memory to gmem */
 
 static void
@@ -787,6 +799,18 @@ fd3_emit_sysmem_prep(struct fd_batch *batch) assert_dt
 
    patch_draws(batch, IGNORE_VISIBILITY);
    patch_rbrc(batch, A3XX_RB_RENDER_CONTROL_BIN_WIDTH(pitch));
+}
+
+static void
+fd3_emit_sysmem_fini(struct fd_batch *batch)
+   assert_dt
+{
+   struct fd_ringbuffer *ring = batch->gmem;
+
+   OUT_PKT3(ring, CP_EVENT_WRITE, 3);
+   OUT_RING(ring, CP_EVENT_WRITE_0_EVENT(CACHE_FLUSH_TS));
+   fd_pipe_emit_fence_ptr(batch->ctx->pipe, ring);   /* ADDR_LO/HI */
+   OUT_RING(ring, fd_submit_next_fence(batch->submit));
 }
 
 static void
@@ -1088,9 +1112,11 @@ fd3_gmem_init(struct pipe_context *pctx) disable_thread_safety_analysis
    struct fd_context *ctx = fd_context(pctx);
 
    ctx->emit_sysmem_prep = fd3_emit_sysmem_prep;
+   ctx->emit_sysmem_fini = fd3_emit_sysmem_fini;
    ctx->emit_tile_init = fd3_emit_tile_init;
    ctx->emit_tile_prep = fd3_emit_tile_prep;
    ctx->emit_tile_mem2gmem = fd3_emit_tile_mem2gmem;
    ctx->emit_tile_renderprep = fd3_emit_tile_renderprep;
    ctx->emit_tile_gmem2mem = fd3_emit_tile_gmem2mem;
+   ctx->emit_tile_fini = fd3_emit_tile_fini;
 }

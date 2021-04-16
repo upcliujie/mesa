@@ -323,6 +323,7 @@ fd_bo_get_name(struct fd_bo *bo, uint32_t *name)
       set_name(bo, req.name);
       simple_mtx_unlock(&table_lock);
       bo->bo_reuse = NO_CACHE;
+      bo->shared = true;
    }
 
    *name = bo->name;
@@ -334,6 +335,7 @@ uint32_t
 fd_bo_handle(struct fd_bo *bo)
 {
    bo->bo_reuse = NO_CACHE;
+   bo->shared = true;
    return bo->handle;
 }
 
@@ -349,6 +351,7 @@ fd_bo_dmabuf(struct fd_bo *bo)
    }
 
    bo->bo_reuse = NO_CACHE;
+   bo->shared = true;
 
    return prime_fd;
 }
@@ -385,11 +388,60 @@ fd_bo_map(struct fd_bo *bo)
 int
 fd_bo_cpu_prep(struct fd_bo *bo, struct fd_pipe *pipe, uint32_t op)
 {
+   if (op & DRM_FREEDRENO_PREP_NOSYNC) {
+      switch (fd_bo_state(bo)) {
+      case FD_BO_STATE_IDLE: return 0;
+      case FD_BO_STATE_BUSY: return -EBUSY;
+      case FD_BO_STATE_UNKNOWN: break;
+      }
+   }
    return bo->funcs->cpu_prep(bo, pipe, op);
 }
 
 void
 fd_bo_cpu_fini(struct fd_bo *bo)
 {
-   bo->funcs->cpu_fini(bo);
+// TODO until we have cached buffers, the kernel side ioctl does nothing,
+//      so just skip it.  When we have cached buffers, we can make the
+//      ioctl conditional
+//   bo->funcs->cpu_fini(bo);
 }
+
+void
+fd_bo_set_fence(struct fd_bo *bo, struct fd_pipe *pipe, uint32_t fence)
+{
+   /* If re-used on the same pipe, just update the fence: */
+   if (bo->last_pipe == pipe) {
+      bo->last_fence = fence;
+      return;
+   }
+
+   if (fd_bo_state(bo) != FD_BO_STATE_IDLE) {
+      if (bo->last_pipe)
+         bo->conflict = true;
+      return;
+   }
+
+   assert(!bo->last_pipe);
+   bo->last_pipe = fd_pipe_ref(pipe);
+   bo->last_fence = fence;
+}
+
+enum fd_bo_state
+fd_bo_state(struct fd_bo *bo)
+{
+   if (bo->shared || bo->conflict)
+      return FD_BO_STATE_UNKNOWN;
+
+   if (!bo->last_pipe)
+      return FD_BO_STATE_IDLE;
+
+   if (fd_fence_before(bo->last_pipe->control->fence, bo->last_fence))
+      return FD_BO_STATE_BUSY;
+
+   fd_pipe_del(bo->last_pipe);
+   bo->last_pipe = NULL;
+
+   return FD_BO_STATE_IDLE;
+}
+
