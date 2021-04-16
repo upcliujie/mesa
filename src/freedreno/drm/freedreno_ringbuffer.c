@@ -66,3 +66,10 @@ fd_ringbuffer_new_object(struct fd_pipe *pipe, uint32_t size)
 {
    return pipe->funcs->ringbuffer_new_object(pipe, size);
 }
+
+uint32_t
+fd_submit_next_fence(struct fd_submit *submit)
+{
+   submit->fence = ++submit->pipe->last_fence;
+   return submit->fence;
+}
