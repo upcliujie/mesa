@@ -859,6 +859,9 @@ struct radv_device {
       struct radv_image *image;
       struct radv_device_memory *mem;
    } vrs;
+
+   struct u_rwlock vs_prologs_lock;
+   struct hash_table *vs_prologs;
 };
 
 VkResult _radv_device_set_lost(struct radv_device *device, const char *file, int line,
@@ -1016,7 +1019,8 @@ enum radv_dynamic_state_bits {
    RADV_DYNAMIC_LOGIC_OP = 1ull << 26,
    RADV_DYNAMIC_PRIMITIVE_RESTART_ENABLE = 1ull << 27,
    RADV_DYNAMIC_COLOR_WRITE_ENABLE = 1ull << 28,
-   RADV_DYNAMIC_ALL = (1ull << 29) - 1,
+   RADV_DYNAMIC_VERTEX_INPUT = 1ull << 29,
+   RADV_DYNAMIC_ALL = (1ull << 30) - 1,
 };
 
 enum radv_cmd_dirty_bits {
@@ -1051,12 +1055,14 @@ enum radv_cmd_dirty_bits {
    RADV_CMD_DIRTY_DYNAMIC_LOGIC_OP = 1ull << 26,
    RADV_CMD_DIRTY_DYNAMIC_PRIMITIVE_RESTART_ENABLE = 1ull << 27,
    RADV_CMD_DIRTY_DYNAMIC_COLOR_WRITE_ENABLE = 1ull << 28,
-   RADV_CMD_DIRTY_DYNAMIC_ALL = (1ull << 29) - 1,
-   RADV_CMD_DIRTY_PIPELINE = 1ull << 29,
-   RADV_CMD_DIRTY_INDEX_BUFFER = 1ull << 30,
-   RADV_CMD_DIRTY_FRAMEBUFFER = 1ull << 31,
-   RADV_CMD_DIRTY_VERTEX_BUFFER = 1ull << 32,
-   RADV_CMD_DIRTY_STREAMOUT_BUFFER = 1ull << 33
+   RADV_CMD_DIRTY_DYNAMIC_VERTEX_INPUT = 1ull << 29,
+   RADV_CMD_DIRTY_DYNAMIC_ALL = (1ull << 30) - 1,
+   RADV_CMD_DIRTY_PIPELINE = 1ull << 30,
+   RADV_CMD_DIRTY_INDEX_BUFFER = 1ull << 31,
+   RADV_CMD_DIRTY_FRAMEBUFFER = 1ull << 32,
+   RADV_CMD_DIRTY_VERTEX_BUFFER = 1ull << 33,
+   RADV_CMD_DIRTY_STREAMOUT_BUFFER = 1ull << 34,
+   RADV_CMD_DIRTY_VERTEX_STATE = RADV_CMD_DIRTY_VERTEX_BUFFER | RADV_CMD_DIRTY_DYNAMIC_VERTEX_INPUT,
 };
 
 enum radv_cmd_flush_bits {
@@ -1366,6 +1372,7 @@ struct radv_cmd_state {
    struct radv_render_pass *pass;
    const struct radv_subpass *subpass;
    struct radv_dynamic_state dynamic;
+   struct radv_vs_input_state dynamic_vs_input;
    struct radv_attachment_state *attachments;
    struct radv_streamout_state streamout;
    VkRect2D render_area;
@@ -1429,6 +1436,10 @@ struct radv_cmd_state {
 
    /* Whether DRAW_{INDEX}_INDIRECT_MULTI is emitted. */
    bool uses_draw_indirect_multi;
+
+   struct radv_shader_prolog *emitted_vs_prolog;
+   uint32_t *emitted_vs_prolog_key;
+   uint32_t emitted_vs_prolog_key_hash;
 };
 
 struct radv_cmd_pool {
@@ -1546,6 +1557,10 @@ void si_cp_dma_clear_buffer(struct radv_cmd_buffer *cmd_buffer, uint64_t va, uin
 void si_cp_dma_wait_for_idle(struct radv_cmd_buffer *cmd_buffer);
 
 void radv_set_db_count_control(struct radv_cmd_buffer *cmd_buffer);
+
+uint32_t radv_hash_vs_prolog(const void *key_);
+bool radv_cmp_vs_prolog(const void *a_, const void *b_);
+
 bool radv_cmd_buffer_upload_alloc(struct radv_cmd_buffer *cmd_buffer, unsigned size,
                                   unsigned *out_offset, void **ptr);
 void radv_cmd_buffer_set_subpass(struct radv_cmd_buffer *cmd_buffer,
