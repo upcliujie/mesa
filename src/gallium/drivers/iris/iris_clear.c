@@ -562,7 +562,7 @@ clear_depth_stencil(struct iris_context *ice,
       iris_flush_and_dirty_for_history(ice, batch, res, 0,
                                        "cache history: post fast Z clear");
       clear_depth = false;
-      z_res = false;
+      z_res = NULL;
    }
 
    /* At this point, we might have fast cleared the depth buffer. So if there's
