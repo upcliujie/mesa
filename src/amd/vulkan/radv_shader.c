@@ -1877,6 +1877,70 @@ radv_create_trap_handler_shader(struct radv_device *device)
    return shader;
 }
 
+static struct radv_shader_prolog *
+upload_vs_prolog(struct radv_device *device, struct radv_prolog_binary *bin, unsigned wave_size)
+{
+   struct radv_shader_prolog *prolog = malloc(sizeof(struct radv_shader_prolog));
+
+   prolog->alloc = alloc_shader_memory(device, bin->code_size, NULL);
+   if (!prolog->alloc) {
+      free(prolog);
+      return NULL;
+   }
+
+   prolog->bo = prolog->alloc->arena->bo;
+   char *dest_ptr = prolog->alloc->arena->ptr + prolog->alloc->offset;
+
+   memcpy(dest_ptr, bin->data, bin->code_size);
+
+   prolog->rsrc1 = S_00B848_VGPRS((bin->num_vgprs - 1) / (wave_size == 32 ? 8 : 4)) |
+                   S_00B228_SGPRS((bin->num_sgprs - 1) / 8);
+   prolog->num_preserved_sgprs = bin->num_preserved_sgprs;
+
+   return prolog;
+}
+
+struct radv_shader_prolog *
+radv_create_vs_prolog(struct radv_device *device, struct radv_vs_prolog_key *key)
+{
+   struct radv_nir_compiler_options options = {0};
+   options.explicit_scratch_args = true;
+   options.family = device->physical_device->rad_info.family;
+   options.chip_class = device->physical_device->rad_info.chip_class;
+   options.info = &device->physical_device->rad_info;
+   options.address32_hi = device->physical_device->rad_info.address32_hi;
+   options.key.vs_common_out.as_es = false; /* as_es doesn't matter */
+   options.key.vs_common_out.as_ls = key->as_ls;
+   options.key.vs_common_out.as_ngg = key->is_ngg;
+   options.dump_shader = device->instance->debug_flags & RADV_DEBUG_DUMP_PROLOGS;
+
+   struct radv_shader_info info = {0};
+   info.wave_size = key->wave32 ? 32 : 64;
+   info.vs.needs_instance_id = true;
+   info.vs.needs_base_instance = true;
+   info.vs.needs_draw_id = true;
+   info.vs.use_per_attribute_vb_descs = true;
+   info.vs.vb_desc_usage_mask = BITFIELD_MASK(key->num_attributes);
+   info.vs.has_prolog = true;
+   info.is_ngg = key->is_ngg;
+
+   struct radv_shader_args args = {0};
+   args.options = &options;
+   args.shader_info = &info;
+   radv_declare_shader_args(&args, key->next_stage, key->next_stage != MESA_SHADER_VERTEX,
+                            MESA_SHADER_VERTEX);
+
+   if (options.dump_shader)
+      ac_init_llvm_once();
+
+   struct radv_prolog_binary *binary = NULL;
+   aco_compile_vs_prolog(key, &binary, &args);
+   struct radv_shader_prolog *prolog = upload_vs_prolog(device, binary, info.wave_size);
+   free(binary);
+
+   return prolog;
+}
+
 void
 radv_shader_variant_destroy(struct radv_device *device, struct radv_shader_variant *variant)
 {
@@ -1891,6 +1955,16 @@ radv_shader_variant_destroy(struct radv_device *device, struct radv_shader_varia
    free(variant->ir_string);
    free(variant->statistics);
    free(variant);
+}
+
+void
+radv_prolog_destroy(struct radv_device *device, struct radv_shader_prolog *prolog)
+{
+   if (!prolog)
+      return;
+
+   free_shader_memory(device, prolog->alloc);
+   free(prolog);
 }
 
 uint64_t
