@@ -398,6 +398,9 @@ static void print_token(FILE *file, int type, YYSTYPE value)
 %token <tok> T_OP_MOVA
 %token <tok> T_OP_MOV
 %token <tok> T_OP_COV
+%token <tok> T_OP_SWZ
+%token <tok> T_OP_GAT
+%token <tok> T_OP_SCT
 
 /* category 2: */
 %token <tok> T_OP_ADD_F
@@ -790,10 +793,22 @@ cat1_mova:         T_OP_MOVA T_A0 ',' {
                        new_reg((61 << 3), IR3_REG_HALF);
                    } cat1_src
 
+cat1_multi_src:    src_reg_or_const
+|                  immediate
+
+cat1_swz:          T_OP_SWZ '.' T_CAT1_TYPE_TYPE { parse_type_type(new_instr(OPC_SWZ), $3); } dst_reg ',' dst_reg ',' cat1_multi_src ',' cat1_multi_src
+
+cat1_gat:          T_OP_GAT '.' T_CAT1_TYPE_TYPE { parse_type_type(new_instr(OPC_GAT), $3); } dst_reg ',' cat1_multi_src ',' cat1_multi_src ',' cat1_multi_src ',' cat1_multi_src
+
+cat1_sct:          T_OP_SCT '.' T_CAT1_TYPE_TYPE { parse_type_type(new_instr(OPC_SCT), $3); } dst_reg ',' dst_reg ',' dst_reg ',' dst_reg ',' cat1_multi_src
+
                    /* NOTE: cat1 can also *write* to relative gpr */
 cat1_instr:        cat1_movmsk
 |                  cat1_mova1
 |                  cat1_mova
+|                  cat1_swz
+|                  cat1_gat
+|                  cat1_sct
 |                  cat1_opc dst_reg ',' cat1_src
 |                  cat1_opc relative_gpr ',' cat1_src
 
