@@ -238,3 +238,10 @@ void aco_compile_shader(unsigned shader_count,
 
    *binary = (radv_shader_binary*) legacy_binary;
 }
+
+void aco_compile_vs_prolog(struct radv_vs_prolog_key *key, bool use_llvm,
+                           struct radv_prolog_binary** binary,
+                           struct radv_shader_args *args)
+{
+   unreachable("TODO");
+}

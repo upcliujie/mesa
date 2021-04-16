@@ -5300,7 +5300,8 @@ radv_pipeline_generate_pm4(struct radv_pipeline *pipeline,
 
 static void
 radv_pipeline_init_vertex_input_state(struct radv_pipeline *pipeline,
-                                      const VkGraphicsPipelineCreateInfo *pCreateInfo)
+                                      const VkGraphicsPipelineCreateInfo *pCreateInfo,
+                                      struct radv_pipeline_key *key)
 {
    const struct radv_shader_info *info = &radv_get_shader(pipeline, MESA_SHADER_VERTEX)->info;
    const VkPipelineVertexInputStateCreateInfo *vi_info = pCreateInfo->pVertexInputState;
@@ -5320,7 +5321,10 @@ radv_pipeline_init_vertex_input_state(struct radv_pipeline *pipeline,
    }
 
    pipeline->use_per_attribute_vb_descs = info->vs.use_per_attribute_vb_descs;
-   pipeline->vb_desc_usage_mask = info->vs.vb_desc_usage_mask;
+   if (info->vs.dynamic_vs_inputs)
+      pipeline->vb_desc_usage_mask = BITFIELD_MASK(util_last_bit(info->vs.vb_desc_usage_mask));
+   else
+      pipeline->vb_desc_usage_mask = info->vs.vb_desc_usage_mask;
    pipeline->vb_desc_alloc_size = util_bitcount(pipeline->vb_desc_usage_mask) * 16;
 }
 
@@ -5464,7 +5468,7 @@ radv_pipeline_init(struct radv_pipeline *pipeline, struct radv_device *device,
          pCreateInfo->pTessellationState->patchControlPoints;
    }
 
-   radv_pipeline_init_vertex_input_state(pipeline, pCreateInfo);
+   radv_pipeline_init_vertex_input_state(pipeline, pCreateInfo, &key);
    radv_pipeline_init_binning_state(pipeline, pCreateInfo, &blend);
    radv_pipeline_init_shader_stages_state(pipeline);
    radv_pipeline_init_scratch(device, pipeline);
