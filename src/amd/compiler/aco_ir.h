@@ -38,6 +38,8 @@
 
 struct radv_shader_args;
 struct radv_shader_info;
+struct radv_nir_compiler_options;
+struct radv_vs_prolog_key;
 
 namespace aco {
 
