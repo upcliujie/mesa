@@ -119,6 +119,8 @@ int fd_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp);
 /* timeout in nanosec */
 int fd_pipe_wait_timeout(struct fd_pipe *pipe, uint32_t timestamp,
                          uint64_t timeout);
+struct fd_ringbuffer;
+void fd_pipe_emit_fence_ptr(struct fd_pipe *pipe, struct fd_ringbuffer *ring);
 
 /* buffer-object functions:
  */

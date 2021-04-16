@@ -1374,6 +1374,11 @@ fd6_emit_tile_fini(struct fd_batch *batch)
    if (use_hw_binning(batch)) {
       check_vsc_overflow(batch->ctx);
    }
+
+   OUT_PKT7(ring, CP_EVENT_WRITE, 4);
+   OUT_RING(ring, CP_EVENT_WRITE_0_EVENT(CACHE_FLUSH_TS));
+   fd_pipe_emit_fence_ptr(batch->ctx->pipe, ring);   /* ADDR_LO/HI */
+   OUT_RING(ring, fd_submit_next_fence(batch->submit));
 }
 
 static void
@@ -1546,6 +1551,11 @@ fd6_emit_sysmem_fini(struct fd_batch *batch)
 
    fd6_event_write(batch, ring, PC_CCU_FLUSH_COLOR_TS, true);
    fd6_event_write(batch, ring, PC_CCU_FLUSH_DEPTH_TS, true);
+
+   OUT_PKT7(ring, CP_EVENT_WRITE, 4);
+   OUT_RING(ring, CP_EVENT_WRITE_0_EVENT(CACHE_FLUSH_TS));
+   fd_pipe_emit_fence_ptr(batch->ctx->pipe, ring);   /* ADDR_LO/HI */
+   OUT_RING(ring, fd_submit_next_fence(batch->submit));
 }
 
 void

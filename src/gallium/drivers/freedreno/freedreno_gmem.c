@@ -619,6 +619,7 @@ render_tiles(struct fd_batch *batch, struct fd_gmem_stateobj *gmem) assert_dt
       ctx->emit_tile_gmem2mem(batch, tile);
    }
 
+   // TODO this now becomes required.
    if (ctx->emit_tile_fini)
       ctx->emit_tile_fini(batch);
 
@@ -647,6 +648,7 @@ render_sysmem(struct fd_batch *batch) assert_dt
 
    fd_reset_wfi(batch);
 
+   // TODO this now becomes required.
    if (ctx->emit_sysmem_fini)
       ctx->emit_sysmem_fini(batch);
 }
