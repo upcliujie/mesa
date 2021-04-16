@@ -524,6 +524,36 @@ fast_clear_depth(struct iris_context *ice,
 }
 
 static void
+fast_clear_stencil(struct iris_context *ice,
+                   enum blorp_batch_flags blorp_flags,
+                   struct iris_resource *stencil_res, unsigned level,
+                   const struct pipe_box *box, uint8_t stencil)
+{
+   struct blorp_surf stencil_surf;
+   struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
+
+   iris_resource_prepare_access(ice, stencil_res, level, 1, box->z, box->depth,
+                                stencil_res->aux.usage, false);
+   iris_emit_buffer_barrier_for(batch, stencil_res->bo,
+                                IRIS_DOMAIN_DEPTH_WRITE);
+   iris_blorp_surf_for_resource(&batch->screen->isl_dev, &stencil_surf,
+                                &stencil_res->base.b, stencil_res->aux.usage,
+                                level, true);
+
+   iris_batch_sync_region_start(batch);
+   struct blorp_batch blorp_batch;
+   blorp_batch_init(&ice->blorp, &blorp_batch, batch, blorp_flags);
+
+   blorp_hiz_clear_depth_stencil(&blorp_batch, NULL, &stencil_surf,
+                                 level, box->z, box->depth, box->x, box->y,
+                                 box->x + box->width, box->y + box->height,
+                                 false, 0, 0xff, stencil);
+
+   blorp_batch_finish(&blorp_batch);
+   iris_batch_sync_region_end(batch);
+}
+
+static void
 clear_depth_stencil(struct iris_context *ice,
                     struct pipe_resource *p_res,
                     unsigned level,
@@ -565,10 +595,21 @@ clear_depth_stencil(struct iris_context *ice,
       z_res = NULL;
    }
 
-   /* At this point, we might have fast cleared the depth buffer. So if there's
-    * no stencil clear pending, return early.
+   if (clear_stencil && stencil_res &&
+       stencil_res->aux.usage != ISL_AUX_USAGE_NONE) {
+      fast_clear_stencil(ice, blorp_flags, stencil_res, level, box, stencil);
+      iris_flush_and_dirty_for_history(ice, batch, res, 0,
+                                       "cache history: post fast Stencil clear");
+      iris_resource_finish_write(ice, stencil_res, level, box->z, box->depth,
+                                 stencil_res->aux.usage);
+      clear_stencil = false;
+      stencil_res = NULL;
+   }
+
+   /* At this point, we might have fast cleared the depth/stencil buffer. So if
+    * there's no depth/stencil clear pending, return early.
     */
-   if (!(clear_depth || (clear_stencil && stencil_res))) {
+   if (!((clear_depth && z_res) || (clear_stencil && stencil_res))) {
       return;
    }
 
