@@ -1,3 +1,7 @@
+#menu {
+  height: max-content;
+}
+
 #menu .caption {
   margin-bottom: 0;
 }
