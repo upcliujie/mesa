@@ -184,6 +184,10 @@ allocate_user_sgprs(struct radv_shader_args *args, gl_shader_stage stage, bool h
    /* 2 user sgprs will always be allocated for scratch/rings */
    user_sgpr_count += 2;
 
+   /* prolog inputs */
+   if (args->shader_info->vs.has_prolog)
+      user_sgpr_count += 2;
+
    switch (stage) {
    case MESA_SHADER_COMPUTE:
       if (args->shader_info->cs.uses_sbt)
@@ -285,6 +289,9 @@ static void
 declare_vs_specific_input_sgprs(struct radv_shader_args *args, gl_shader_stage stage,
                                 bool has_previous_stage, gl_shader_stage previous_stage)
 {
+   if (args->shader_info->vs.has_prolog)
+      ac_add_arg(&args->ac, AC_ARG_SGPR, 2, AC_ARG_INT, &args->prolog_inputs);
+
    if (!args->is_gs_copy_shader && (stage == MESA_SHADER_VERTEX ||
                                     (has_previous_stage && previous_stage == MESA_SHADER_VERTEX))) {
       if (args->shader_info->vs.vb_desc_usage_mask) {
@@ -331,6 +338,13 @@ declare_vs_input_vgprs(struct radv_shader_args *args)
             ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, NULL); /* unused */
          }
       }
+   }
+
+   if (args->shader_info->vs.dynamic_vs_inputs) {
+      assert(args->shader_info->vs.use_per_attribute_vb_descs);
+      unsigned num_attributes = util_last_bit(args->shader_info->vs.vb_desc_usage_mask);
+      for (unsigned i = 0; i < num_attributes; i++)
+         ac_add_arg(&args->ac, AC_ARG_VGPR, 4, AC_ARG_INT, &args->vs_inputs[i]);
    }
 }
 
@@ -420,6 +434,9 @@ set_vs_specific_input_locs(struct radv_shader_args *args, gl_shader_stage stage,
                            bool has_previous_stage, gl_shader_stage previous_stage,
                            uint8_t *user_sgpr_idx)
 {
+   if (args->shader_info->vs.has_prolog)
+      set_loc_shader(args, AC_UD_VS_PROLOG_INPUTS, user_sgpr_idx, 2);
+
    if (!args->is_gs_copy_shader && (stage == MESA_SHADER_VERTEX ||
                                     (has_previous_stage && previous_stage == MESA_SHADER_VERTEX))) {
       if (args->shader_info->vs.vb_desc_usage_mask) {
