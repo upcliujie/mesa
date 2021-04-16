@@ -6,6 +6,17 @@
 {% endblock %}
 
 {% block extrahead %}
+<script type="text/javascript">
+  $(document).ready(function() {
+    $('#menu > .caption').each(function() {
+      $(this).click(function() {
+        $(this).toggleClass('collapsed');
+      });
+      if (!$(this).next().hasClass("current"))
+        $(this).addClass('collapsed');
+    });
+  });
+</script>
 {% endblock %}
 
 {% block body_tag %}
