@@ -90,6 +90,8 @@ struct fd_ringbuffer *fd_submit_new_ringbuffer(struct fd_submit *submit,
                                                uint32_t size,
                                                enum fd_ringbuffer_flags flags);
 
+uint32_t fd_submit_next_fence(struct fd_submit *submit);
+
 /* in_fence_fd: -1 for no in-fence, else fence fd
  * out_fence_fd: NULL for no output-fence requested, else ptr to return out-fence
  */
