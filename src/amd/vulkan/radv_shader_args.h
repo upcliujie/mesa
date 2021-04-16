@@ -27,6 +27,7 @@
 #include "ac_shader_args.h"
 #include "amd_family.h"
 #include "radv_constants.h"
+#include "radv_descriptor_set.h"
 
 struct radv_shader_args {
    struct ac_shader_args ac;
@@ -45,8 +46,12 @@ struct radv_shader_args {
    struct ac_arg ngg_viewport_scale[2];
    struct ac_arg ngg_viewport_translate[2];
 
+   struct ac_arg prolog_inputs;
+   struct ac_arg vs_inputs[MAX_VERTEX_ATTRIBS];
+
    bool is_gs_copy_shader;
    bool is_trap_handler_shader;
+   struct radv_vs_prolog_key *vs_prolog_key;
 };
 
 static inline struct radv_shader_args *
