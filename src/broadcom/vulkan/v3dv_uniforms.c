@@ -139,7 +139,7 @@ write_tmu_p0(struct v3dv_cmd_buffer *cmd_buffer,
    /* We need to ensure that the texture bo is added to the job */
    struct v3dv_bo *texture_bo =
       v3dv_descriptor_map_get_texture_bo(descriptor_state,
-                                         &pipeline->shared_data->maps[stage].texture_map,
+                                         &pipeline->shared_data->maps[stage]->texture_map,
                                          pipeline->layout, texture_idx);
    assert(texture_bo);
    assert(texture_idx < V3D_MAX_TEXTURE_SAMPLERS);
@@ -147,7 +147,7 @@ write_tmu_p0(struct v3dv_cmd_buffer *cmd_buffer,
 
    struct v3dv_cl_reloc state_reloc =
       v3dv_descriptor_map_get_texture_shader_state(descriptor_state,
-                                                   &pipeline->shared_data->maps[stage].texture_map,
+                                                   &pipeline->shared_data->maps[stage]->texture_map,
                                                    pipeline->layout,
                                                    texture_idx);
 
@@ -183,12 +183,12 @@ write_tmu_p1(struct v3dv_cmd_buffer *cmd_buffer,
 
    struct v3dv_cl_reloc sampler_state_reloc =
       v3dv_descriptor_map_get_sampler_state(descriptor_state,
-                                            &pipeline->shared_data->maps[stage].sampler_map,
+                                            &pipeline->shared_data->maps[stage]->sampler_map,
                                             pipeline->layout, sampler_idx);
 
    const struct v3dv_sampler *sampler =
       v3dv_descriptor_map_get_sampler(descriptor_state,
-                                      &pipeline->shared_data->maps[stage].sampler_map,
+                                      &pipeline->shared_data->maps[stage]->sampler_map,
                                       pipeline->layout, sampler_idx);
    assert(sampler);
 
@@ -230,8 +230,8 @@ write_ubo_ssbo_uniforms(struct v3dv_cmd_buffer *cmd_buffer,
 
    struct v3dv_descriptor_map *map =
       content == QUNIFORM_UBO_ADDR || content == QUNIFORM_GET_UBO_SIZE ?
-      &pipeline->shared_data->maps[stage].ubo_map :
-      &pipeline->shared_data->maps[stage].ssbo_map;
+      &pipeline->shared_data->maps[stage]->ubo_map :
+      &pipeline->shared_data->maps[stage]->ssbo_map;
 
    uint32_t offset =
       content == QUNIFORM_UBO_ADDR ?
@@ -358,7 +358,7 @@ get_texture_size(struct v3dv_cmd_buffer *cmd_buffer,
 
    struct v3dv_descriptor *descriptor =
       v3dv_descriptor_map_get_descriptor(descriptor_state,
-                                         &pipeline->shared_data->maps[stage].texture_map,
+                                         &pipeline->shared_data->maps[stage]->texture_map,
                                          pipeline->layout,
                                          texture_idx, NULL);
 

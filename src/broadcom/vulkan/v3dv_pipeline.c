@@ -525,6 +525,7 @@ descriptor_map_add(struct v3dv_descriptor_map *map,
                    int array_size,
                    uint8_t return_size)
 {
+   assert(map);
    assert(array_index < array_size);
    assert(return_size == 16 || return_size == 32);
 
@@ -579,21 +580,21 @@ pipeline_get_descriptor_map(struct v3dv_pipeline *pipeline,
 
    switch(desc_type) {
    case VK_DESCRIPTOR_TYPE_SAMPLER:
-      return &pipeline->shared_data->maps[broadcom_stage].sampler_map;
+      return &pipeline->shared_data->maps[broadcom_stage]->sampler_map;
    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
    case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
    case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
    case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
    case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
-      return &pipeline->shared_data->maps[broadcom_stage].texture_map;
+      return &pipeline->shared_data->maps[broadcom_stage]->texture_map;
    case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
       return is_sampler ?
-         &pipeline->shared_data->maps[broadcom_stage].sampler_map :
-         &pipeline->shared_data->maps[broadcom_stage].texture_map;
+         &pipeline->shared_data->maps[broadcom_stage]->sampler_map :
+         &pipeline->shared_data->maps[broadcom_stage]->texture_map;
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-      return &pipeline->shared_data->maps[broadcom_stage].ubo_map;
+      return &pipeline->shared_data->maps[broadcom_stage]->ubo_map;
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-      return &pipeline->shared_data->maps[broadcom_stage].ssbo_map;
+      return &pipeline->shared_data->maps[broadcom_stage]->ssbo_map;
    default:
       fprintf(stderr, "%s\n", vk_DescriptorType_to_str(desc_type));
       unreachable("Descriptor type unknown or not having a descriptor map");
@@ -1031,9 +1032,9 @@ pipeline_populate_v3d_key(struct v3d_key *key,
     * there 32 bit as default return size.
     */
    struct v3dv_descriptor_map *sampler_map =
-      &p_stage->pipeline->shared_data->maps[p_stage->stage].sampler_map;
+      &p_stage->pipeline->shared_data->maps[p_stage->stage]->sampler_map;
    struct v3dv_descriptor_map *texture_map =
-      &p_stage->pipeline->shared_data->maps[p_stage->stage].texture_map;
+      &p_stage->pipeline->shared_data->maps[p_stage->stage]->texture_map;
 
    key->num_tex_used = texture_map->num_desc;
    assert(key->num_tex_used <= V3D_MAX_TEXTURE_SAMPLERS);
@@ -1650,12 +1651,12 @@ pipeline_lower_nir(struct v3dv_pipeline *pipeline,
     * another for the case we need a 32bit return size.
     */
    UNUSED unsigned index =
-      descriptor_map_add(&pipeline->shared_data->maps[p_stage->stage].sampler_map,
+      descriptor_map_add(&pipeline->shared_data->maps[p_stage->stage]->sampler_map,
                          -1, -1, -1, 0, 16);
    assert(index == V3DV_NO_SAMPLER_16BIT_IDX);
 
    index =
-      descriptor_map_add(&pipeline->shared_data->maps[p_stage->stage].sampler_map,
+      descriptor_map_add(&pipeline->shared_data->maps[p_stage->stage]->sampler_map,
                          -2, -2, -2, 0, 32);
    assert(index == V3DV_NO_SAMPLER_32BIT_IDX);
 
@@ -1904,20 +1905,47 @@ pipeline_populate_compute_key(struct v3dv_pipeline *pipeline,
 
 static struct v3dv_pipeline_shared_data *
 v3dv_pipeline_shared_data_new_empty(const unsigned char sha1_key[20],
-                                    struct v3dv_device *device)
+                                    struct v3dv_device *device,
+                                    bool graphics_pipeline)
 {
-   size_t size = sizeof(struct v3dv_pipeline_shared_data);
    /* We create new_entry using the device alloc. Right now shared_data is ref
     * and unref by both the pipeline and the pipeline cache, so we can't
     * ensure that the cache or pipeline alloc will be available on the last
     * unref.
     */
    struct v3dv_pipeline_shared_data *new_entry =
-      vk_zalloc2(&device->vk.alloc, NULL, size, 8,
+      vk_zalloc2(&device->vk.alloc, NULL,
+                 sizeof(struct v3dv_pipeline_shared_data), 8,
                  VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
 
    if (new_entry == NULL)
       return NULL;
+
+   for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
+      /* We don't need specific descriptor map for vertex_bin, we can share
+       * with vertex
+       */
+      if (stage == BROADCOM_SHADER_VERTEX_BIN)
+         continue;
+
+      if (!graphics_pipeline && stage != BROADCOM_SHADER_COMPUTE)
+         continue;
+
+      struct v3dv_descriptor_maps *new_maps =
+         vk_zalloc2(&device->vk.alloc, NULL,
+                    sizeof(struct v3dv_descriptor_maps), 8,
+                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+
+      if (new_maps == NULL) {
+         vk_free(&device->vk.alloc, new_entry);
+         return NULL;
+      }
+
+      new_entry->maps[stage] = new_maps;
+   }
+
+   new_entry->maps[BROADCOM_SHADER_VERTEX_BIN] =
+      new_entry->maps[BROADCOM_SHADER_VERTEX];
 
    new_entry->ref_cnt = 1;
    memcpy(new_entry->sha1_key, sha1_key, 20);
@@ -2048,7 +2076,7 @@ pipeline_compile_graphics(struct v3dv_pipeline *pipeline,
    }
 
    pipeline->shared_data =
-      v3dv_pipeline_shared_data_new_empty(pipeline_sha1, pipeline->device);
+      v3dv_pipeline_shared_data_new_empty(pipeline_sha1, pipeline->device, true);
    /* If not, we try to get the nir shaders (from the SPIR-V shader, or from
     * the pipeline cache again) and compile.
     */
@@ -3202,7 +3230,8 @@ pipeline_compile_compute(struct v3dv_pipeline *pipeline,
    }
 
    pipeline->shared_data = v3dv_pipeline_shared_data_new_empty(pipeline_sha1,
-                                                               pipeline->device);
+                                                               pipeline->device,
+                                                               false);
 
    /* If not found on cache, compile it */
    p_stage->nir = pipeline_stage_get_nir(p_stage, pipeline, cache);

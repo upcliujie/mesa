@@ -324,6 +324,14 @@ v3dv_pipeline_shared_data_destroy(struct v3dv_device *device,
    for (uint8_t stage = 0; stage < BROADCOM_SHADER_STAGES; stage++) {
       if (shared_data->variants[stage] != NULL)
          v3dv_shader_variant_destroy(device, shared_data->variants[stage]);
+
+      /* We don't free the vertex_bin descriptor maps as we are sharing it
+       * with the vertex shader.
+       */
+      if (shared_data->maps[stage] != NULL &&
+          stage != BROADCOM_SHADER_VERTEX_BIN) {
+         vk_free(&device->vk.alloc, shared_data->maps[stage]);
+      }
    }
 
    if (shared_data->assembly_bo)
@@ -368,13 +376,13 @@ v3dv_pipeline_shared_data_new(struct v3dv_pipeline_cache *cache,
       if (stage == BROADCOM_SHADER_VERTEX_BIN)
          continue;
 
-      memcpy(&new_entry->maps[stage].ubo_map, ubo_map,
+      memcpy(&new_entry->maps[stage]->ubo_map, ubo_map,
              sizeof(struct v3dv_descriptor_map));
-      memcpy(&new_entry->maps[stage].ssbo_map, ssbo_map,
+      memcpy(&new_entry->maps[stage]->ssbo_map, ssbo_map,
              sizeof(struct v3dv_descriptor_map));
-      memcpy(&new_entry->maps[stage].sampler_map, sampler_map,
+      memcpy(&new_entry->maps[stage]->sampler_map, sampler_map,
              sizeof(struct v3dv_descriptor_map));
-      memcpy(&new_entry->maps[stage].texture_map, texture_map,
+      memcpy(&new_entry->maps[stage]->texture_map, texture_map,
              sizeof(struct v3dv_descriptor_map));
    }
 
@@ -841,13 +849,13 @@ v3dv_pipeline_shared_data_write_to_blob(const struct v3dv_pipeline_shared_data *
       if (stage == BROADCOM_SHADER_VERTEX_BIN)
          continue;
 
-      blob_write_bytes(blob, &cache_entry->maps[stage].ubo_map,
+      blob_write_bytes(blob, &cache_entry->maps[stage]->ubo_map,
                        sizeof(struct v3dv_descriptor_map));
-      blob_write_bytes(blob, &cache_entry->maps[stage].ssbo_map,
+      blob_write_bytes(blob, &cache_entry->maps[stage]->ssbo_map,
                        sizeof(struct v3dv_descriptor_map));
-      blob_write_bytes(blob, &cache_entry->maps[stage].sampler_map,
+      blob_write_bytes(blob, &cache_entry->maps[stage]->sampler_map,
                        sizeof(struct v3dv_descriptor_map));
-      blob_write_bytes(blob, &cache_entry->maps[stage].texture_map,
+      blob_write_bytes(blob, &cache_entry->maps[stage]->texture_map,
                        sizeof(struct v3dv_descriptor_map));
    }
 
