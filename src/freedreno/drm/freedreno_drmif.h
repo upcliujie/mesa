@@ -63,6 +63,17 @@ enum fd_param_id {
    FD_SUSPEND_COUNT, /* # of times the GPU has suspended, and potentially lost state */
 };
 
+/**
+ * Helper for fence/seqno comparisions which deals properly with rollover.
+ * Returns true if fence 'a' is before fence 'b'
+ */
+static inline bool
+fd_fence_before(uint32_t a, uint32_t b)
+{
+   return (int32_t)(a - b) < 0;
+}
+
+
 /* bo flags: */
 #define DRM_FREEDRENO_GEM_TYPE_SMI       0x00000001
 #define DRM_FREEDRENO_GEM_TYPE_KMEM      0x00000002
@@ -119,6 +130,8 @@ int fd_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp);
 /* timeout in nanosec */
 int fd_pipe_wait_timeout(struct fd_pipe *pipe, uint32_t timestamp,
                          uint64_t timeout);
+struct fd_ringbuffer;
+void fd_pipe_emit_fence_ptr(struct fd_pipe *pipe, struct fd_ringbuffer *ring);
 
 /* buffer-object functions:
  */
