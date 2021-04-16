@@ -73,6 +73,7 @@ static const struct test {
 
 	/* cat1 */
 	INSTR_6XX(20244000_00000020, "mov.f32f32 r0.x, c8.x"),
+	INSTR_6XX(20244400_00000020, "(sat)mov.f32f32 r0.x, c8.x"),
 	INSTR_6XX(20200000_00000020, "mov.f16f16 hr0.x, hc8.x"),
 	INSTR_6XX(20150000_00000000, "cov.s32s16 hr0.x, r0.x"),
 	INSTR_6XX(20156004_00000c11, "(ul)mov.s32s32 r1.x, c<a0.x + 17>"),
