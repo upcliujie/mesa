@@ -605,6 +605,8 @@ RADV driver environment variables
       :envvar:`RADV_DEBUG`=``hang``)
    ``novrsflatshading``
       disable VRS for flat shading (only on GFX10.3+)
+   ``prologs``
+      dump vertex shader prologs
    ``preoptir``
       dump LLVM IR before any optimizations
    ``shaders``
