@@ -3529,7 +3529,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
                             !radv_use_llvm_for_stage(device, i);
          if (lowered_ngg) {
             uint64_t ps_inputs_read = nir[MESA_SHADER_FRAGMENT] ? nir[MESA_SHADER_FRAGMENT]->info.inputs_read : 0;
-            bool consider_culling = radv_consider_culling(device, nir[i], ps_inputs_read);
+            bool consider_culling = radv_consider_culling(device, nir[i], ps_inputs_read, &infos[i]);
             radv_lower_ngg(device, nir[i], &infos[i], pipeline_key, &keys[i], consider_culling);
          }
 
@@ -5406,7 +5406,10 @@ radv_pipeline_init_vertex_input_state(struct radv_pipeline *pipeline,
    }
 
    pipeline->use_per_attribute_vb_descs = info->vs.use_per_attribute_vb_descs;
-   pipeline->vb_desc_usage_mask = info->vs.vb_desc_usage_mask;
+   if (info->vs.dynamic_vs_inputs)
+      pipeline->vb_desc_usage_mask = BITFIELD_MASK(util_last_bit(info->vs.vb_desc_usage_mask));
+   else
+      pipeline->vb_desc_usage_mask = info->vs.vb_desc_usage_mask;
    pipeline->vb_desc_alloc_size = util_bitcount(pipeline->vb_desc_usage_mask) * 16;
 }
 
