@@ -251,18 +251,67 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
    };
    int ret;
 
+   unsigned deferred_cmds = 0;
+
+   /* Determine the number of extra cmds's from deferred submits that
+    * we will be merging in:
+    */
+   list_for_each_entry (struct fd_submit, deferred_submit,
+                        &submit->pipe->deferred_submits, node) {
+      struct msm_submit_sp *msm_deferred_submit = to_msm_submit_sp(deferred_submit);
+
+      deferred_cmds += to_msm_ringbuffer_sp(msm_deferred_submit->primary)->u.nr_cmds;
+   }
+
    struct msm_ringbuffer_sp *primary =
       to_msm_ringbuffer_sp(msm_submit->primary);
-   struct drm_msm_gem_submit_cmd cmds[primary->u.nr_cmds];
+   struct drm_msm_gem_submit_cmd cmds[primary->u.nr_cmds + deferred_cmds];
+
+   unsigned cmd_idx = 0;
+
+   /* Prepend cmds from deferred submits that we are merging, and handle their
+    * bo tables
+    */
+   list_for_each_entry_safe (struct fd_submit, deferred_submit,
+                             &submit->pipe->deferred_submits, node) {
+      struct msm_submit_sp *msm_deferred_submit = to_msm_submit_sp(deferred_submit);
+      struct msm_ringbuffer_sp *deferred_primary =
+         to_msm_ringbuffer_sp(msm_deferred_submit->primary);
+
+      for (unsigned i = 0; i < deferred_primary->u.nr_cmds; i++) {
+         cmds[cmd_idx].type = MSM_SUBMIT_CMD_BUF;
+         cmds[cmd_idx].submit_idx =
+               msm_submit_append_bo(msm_submit, deferred_primary->u.cmds[i].ring_bo);
+         cmds[cmd_idx].submit_offset = deferred_primary->offset;
+         cmds[cmd_idx].size = deferred_primary->u.cmds[i].size;
+         cmds[cmd_idx].pad = 0;
+         cmds[cmd_idx].nr_relocs = 0;
+
+         cmd_idx++;
+      }
+
+      for (unsigned i = 0; i < msm_deferred_submit->nr_bos; i++) {
+         msm_submit_append_bo(msm_submit, msm_deferred_submit->bos[i]);
+      }
+
+      /* Now that the cmds/bos have been transfered over to the current submit,
+       * we can remove the deferred submit from the list and drop it's reference
+       */
+      list_del(&deferred_submit->node);
+      fd_submit_del(deferred_submit);
+   }
+
 
    for (unsigned i = 0; i < primary->u.nr_cmds; i++) {
-      cmds[i].type = MSM_SUBMIT_CMD_BUF;
-      cmds[i].submit_idx =
+      cmds[cmd_idx].type = MSM_SUBMIT_CMD_BUF;
+      cmds[cmd_idx].submit_idx =
          msm_submit_append_bo(msm_submit, primary->u.cmds[i].ring_bo);
-      cmds[i].submit_offset = primary->offset;
-      cmds[i].size = primary->u.cmds[i].size;
-      cmds[i].pad = 0;
-      cmds[i].nr_relocs = 0;
+      cmds[cmd_idx].submit_offset = primary->offset;
+      cmds[cmd_idx].size = primary->u.cmds[i].size;
+      cmds[cmd_idx].pad = 0;
+      cmds[cmd_idx].nr_relocs = 0;
+
+      cmd_idx++;
    }
 
    if (in_fence_fd != -1) {
@@ -324,7 +373,40 @@ msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
 {
    msm_submit_sp_flush_prep(submit);
 
+   /* If we don't need an out-fence, we can defer the submit.
+    *
+    * TODO we could defer submits with in-fence as well.. if we took our own
+    * reference to the fd, and merged all the in-fence-fd's when we flush the
+    * deferred submits
+    */
+   if ((in_fence_fd == -1) && !out_fence) {
+      assert(!out_fence_fd);
+
+      list_addtail(&fd_submit_ref(submit)->node, &submit->pipe->deferred_submits);
+
+      return 0;
+   }
+
    return msm_submit_sp_flush_finish(submit, in_fence_fd, out_fence_fd, out_fence);
+}
+
+void
+msm_pipe_sp_flush(struct fd_pipe *pipe)
+{
+   assert(!list_is_empty(&pipe->deferred_submits));
+
+   /* We just need to remove and flush the last entry in the list of
+    * deferred submits (which will cause any earlier deferred submits
+    * to be merged into the one we are flushing)
+    */
+   struct fd_submit *submit =
+         list_last_entry(&pipe->deferred_submits, struct fd_submit, node);
+
+   list_del(&submit->node);
+
+   msm_submit_sp_flush_finish(submit, -1, NULL, NULL);
+
+   fd_submit_del(submit);
 }
 
 static void
