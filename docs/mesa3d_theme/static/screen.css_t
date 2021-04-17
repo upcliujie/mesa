@@ -4,7 +4,7 @@
 
 div.body {
   max-width: initial;
-  min-width: initial;
+  min-width: 0;
 }
 
 html {
