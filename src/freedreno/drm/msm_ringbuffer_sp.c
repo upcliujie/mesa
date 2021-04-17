@@ -342,8 +342,10 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
       submit_bos[i].handle = msm_submit->bos[i]->handle;
       submit_bos[i].presumed = 0;
    }
-   req.bos = VOID2U64(submit_bos), req.nr_bos = msm_submit->nr_bos;
-   req.cmds = VOID2U64(cmds), req.nr_cmds = primary->u.nr_cmds;
+   req.bos = VOID2U64(submit_bos);
+   req.nr_bos = msm_submit->nr_bos;
+   req.cmds = VOID2U64(cmds);
+   req.nr_cmds = primary->u.nr_cmds + deferred_cmds;
 
    DEBUG_MSG("nr_cmds=%u, nr_bos=%u", req.nr_cmds, req.nr_bos);
 
@@ -366,6 +368,15 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
    return ret;
 }
 
+static bool
+should_defer(struct fd_submit *submit)
+{
+   struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
+
+   // TODO maybe we should also limit the # of deferred submits?
+   return msm_submit->nr_bos < 15;
+}
+
 static int
 msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
                     int *out_fence_fd, uint32_t *out_fence)
@@ -382,7 +393,7 @@ msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
     * reference to the fd, and merged all the in-fence-fd's when we flush the
     * deferred submits
     */
-   if ((in_fence_fd == -1) && !out_fence) {
+   if ((in_fence_fd == -1) && !out_fence && should_defer(submit)) {
       assert(!out_fence_fd);
 
       list_addtail(&fd_submit_ref(submit)->node, &pipe->deferred_submits);
