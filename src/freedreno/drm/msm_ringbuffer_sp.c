@@ -110,7 +110,7 @@ msm_submit_append_bo(struct msm_submit_sp *submit, struct fd_bo *bo)
 
    /* NOTE: it is legal to use the same bo on different threads for
     * different submits.  But it is not legal to use the same submit
-    * from given threads.
+    * from different threads.
     */
    idx = READ_ONCE(msm_bo->idx);
 
@@ -241,7 +241,8 @@ msm_submit_sp_flush_prep(struct fd_submit *submit)
 
 static int
 msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
-                           int *out_fence_fd, uint32_t *out_fence)
+                           int *out_fence_fd, uint32_t *out_fence,
+                           struct list_head *deferred_submits)
 {
    struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
    struct msm_pipe *msm_pipe = to_msm_pipe(submit->pipe);
@@ -251,18 +252,70 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
    };
    int ret;
 
+   unsigned deferred_cmds = 0;
+
+   /* Determine the number of extra cmds's from deferred submits that
+    * we will be merging in:
+    */
+   list_for_each_entry (struct fd_submit, deferred_submit, deferred_submits, node) {
+      struct msm_submit_sp *msm_deferred_submit = to_msm_submit_sp(deferred_submit);
+
+      deferred_cmds += to_msm_ringbuffer_sp(msm_deferred_submit->primary)->u.nr_cmds;
+   }
+
    struct msm_ringbuffer_sp *primary =
       to_msm_ringbuffer_sp(msm_submit->primary);
-   struct drm_msm_gem_submit_cmd cmds[primary->u.nr_cmds];
+   struct drm_msm_gem_submit_cmd cmds[primary->u.nr_cmds + deferred_cmds];
+
+   unsigned cmd_idx = 0;
+
+   /* Prepend cmds from deferred submits that we are merging, and handle their
+    * bo tables
+    */
+   list_for_each_entry_safe (struct fd_submit, deferred_submit, deferred_submits, node) {
+      struct msm_submit_sp *msm_deferred_submit = to_msm_submit_sp(deferred_submit);
+      struct msm_ringbuffer_sp *deferred_primary =
+         to_msm_ringbuffer_sp(msm_deferred_submit->primary);
+
+      for (unsigned i = 0; i < deferred_primary->u.nr_cmds; i++) {
+         cmds[cmd_idx].type = MSM_SUBMIT_CMD_BUF;
+         cmds[cmd_idx].submit_idx =
+               msm_submit_append_bo(msm_submit, deferred_primary->u.cmds[i].ring_bo);
+         cmds[cmd_idx].submit_offset = deferred_primary->offset;
+         cmds[cmd_idx].size = deferred_primary->u.cmds[i].size;
+         cmds[cmd_idx].pad = 0;
+         cmds[cmd_idx].nr_relocs = 0;
+
+         cmd_idx++;
+      }
+
+      for (unsigned i = 0; i < msm_deferred_submit->nr_bos; i++) {
+         /* Note: if bo is used in both the current submit and the deferred
+          * submit being merged, we expect to hit the fast-path as we add it
+          * to the current submit:
+          */
+         msm_submit_append_bo(msm_submit, msm_deferred_submit->bos[i]);
+      }
+
+      /* Now that the cmds/bos have been transfered over to the current submit,
+       * we can remove the deferred submit from the list and drop it's reference
+       */
+      list_del(&deferred_submit->node);
+      fd_submit_del(deferred_submit);
+   }
+
+   DEBUG_MSG("merged %u submits", cmd_idx);
 
    for (unsigned i = 0; i < primary->u.nr_cmds; i++) {
-      cmds[i].type = MSM_SUBMIT_CMD_BUF;
-      cmds[i].submit_idx =
+      cmds[cmd_idx].type = MSM_SUBMIT_CMD_BUF;
+      cmds[cmd_idx].submit_idx =
          msm_submit_append_bo(msm_submit, primary->u.cmds[i].ring_bo);
-      cmds[i].submit_offset = primary->offset;
-      cmds[i].size = primary->u.cmds[i].size;
-      cmds[i].pad = 0;
-      cmds[i].nr_relocs = 0;
+      cmds[cmd_idx].submit_offset = primary->offset;
+      cmds[cmd_idx].size = primary->u.cmds[i].size;
+      cmds[cmd_idx].pad = 0;
+      cmds[cmd_idx].nr_relocs = 0;
+
+      cmd_idx++;
    }
 
    if (in_fence_fd != -1) {
@@ -294,8 +347,10 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
       submit_bos[i].handle = msm_submit->bos[i]->handle;
       submit_bos[i].presumed = 0;
    }
-   req.bos = VOID2U64(submit_bos), req.nr_bos = msm_submit->nr_bos;
-   req.cmds = VOID2U64(cmds), req.nr_cmds = primary->u.nr_cmds;
+   req.bos = VOID2U64(submit_bos);
+   req.nr_bos = msm_submit->nr_bos;
+   req.cmds = VOID2U64(cmds);
+   req.nr_cmds = primary->u.nr_cmds + deferred_cmds;
 
    DEBUG_MSG("nr_cmds=%u, nr_bos=%u", req.nr_cmds, req.nr_bos);
 
@@ -318,13 +373,91 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
    return ret;
 }
 
+static bool
+should_defer(struct fd_submit *submit)
+{
+   struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
+
+   // TODO maybe we should also limit the # of deferred submits?
+   return msm_submit->nr_bos < 30;
+}
+
 static int
 msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
                     int *out_fence_fd, uint32_t *out_fence)
 {
+   struct fd_pipe *pipe = submit->pipe;
+
    msm_submit_sp_flush_prep(submit);
 
-   return msm_submit_sp_flush_finish(submit, in_fence_fd, out_fence_fd, out_fence);
+   simple_mtx_lock(&pipe->submit_lock);
+
+   /* If we don't need an out-fence, we can defer the submit.
+    *
+    * TODO we could defer submits with in-fence as well.. if we took our own
+    * reference to the fd, and merged all the in-fence-fd's when we flush the
+    * deferred submits
+    */
+   if ((in_fence_fd == -1) && !out_fence && should_defer(submit)) {
+      assert(!out_fence_fd);
+
+      list_addtail(&fd_submit_ref(submit)->node, &pipe->deferred_submits);
+      simple_mtx_unlock(&pipe->submit_lock);
+
+      return 0;
+   }
+
+   struct list_head deferred_submits;
+
+   list_replace(&pipe->deferred_submits, &deferred_submits);
+   list_inithead(&pipe->deferred_submits);
+
+   simple_mtx_unlock(&pipe->submit_lock);
+
+   return msm_submit_sp_flush_finish(submit, in_fence_fd, out_fence_fd,
+                                     out_fence, &deferred_submits);
+}
+
+void
+msm_pipe_sp_flush(struct fd_pipe *pipe, uint32_t fence)
+{
+   struct list_head deferred_submits;
+
+   list_inithead(&deferred_submits);
+
+   simple_mtx_lock(&pipe->submit_lock);
+
+   /* Note that it actually *is* important to not flush submits *after*
+    * the requested fence, otherwise we can race between TC driver thread
+    * and frontend thread (for example when waiting for flushed query
+    * results)
+    */
+   list_for_each_entry_safe (struct fd_submit, deferred_submit,
+                             &pipe->deferred_submits, node) {
+      if (deferred_submit->fence > fence)
+         break;
+
+      list_del(&deferred_submit->node);
+      list_addtail(&deferred_submit->node, &deferred_submits);
+   }
+
+   simple_mtx_unlock(&pipe->submit_lock);
+
+   if (list_is_empty(&deferred_submits))
+      return;
+
+   /* We just need to remove and flush the last entry in the list of
+    * deferred submits (which will cause any earlier deferred submits
+    * to be merged into the one we are flushing)
+    */
+   struct fd_submit *submit =
+         list_last_entry(&deferred_submits, struct fd_submit, node);
+
+   list_del(&submit->node);
+
+   msm_submit_sp_flush_finish(submit, -1, NULL, NULL, &deferred_submits);
+
+   fd_submit_del(submit);
 }
 
 static void
