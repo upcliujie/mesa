@@ -48,3 +48,20 @@ th, td {
   vertical-align: initial;
   padding: .25rem;
 }
+
+ol li > p:only-child,
+ol li > p:only-child:last-child,
+ul li > p:only-child,
+ul li > p:only-child:last-child,
+ol li > p,
+ul li > p {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+ol ol > li:first-child > :first-child,
+ol ul > li:first-child > :first-child,
+ul ol > li:first-child > :first-child,
+ul ul > li:first-child > :first-child {
+	margin-top: 0;
+}
