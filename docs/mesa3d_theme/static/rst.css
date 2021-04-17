@@ -42,6 +42,12 @@ code {
   padding: .25rem;
 }
 
+table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+}
+
 table,
 td, th,
 thead th {
