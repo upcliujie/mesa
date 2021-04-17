@@ -37,6 +37,7 @@ LOCAL_CFLAGS := \
 	-DI915
 
 LOCAL_C_INCLUDES := \
+	$(MESA_TOP)/src/intel \
 	$(MESA_DRI_C_INCLUDES)
 
 LOCAL_SRC_FILES := \
