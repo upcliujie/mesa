@@ -21,8 +21,8 @@ code {
 }
 
 .highlight {
-  border-radius: 3px;
-  padding: 0.25rem;
+  border-radius: .25rem;
+  padding: .25rem;
 }
 
 table,
@@ -46,5 +46,5 @@ thead {
 
 th, td {
   vertical-align: initial;
-  padding: 0.3rem;
+  padding: .25rem;
 }
