@@ -142,6 +142,7 @@ struct fd_pipe {
     * List of deferred submits, protected by submit_lock
     */
    struct list_head deferred_submits;
+   unsigned deferred_submit_count;
    simple_mtx_t submit_lock;
 
    struct fd_bo *control_mem;
