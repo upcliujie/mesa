@@ -73,6 +73,12 @@ fd_fence_before(uint32_t a, uint32_t b)
    return (int32_t)(a - b) < 0;
 }
 
+static inline bool
+fd_fence_after(uint32_t a, uint32_t b)
+{
+   return (int32_t)(a - b) > 0;
+}
+
 
 /* bo flags: */
 #define FD_BO_GPUREADONLY  BITSET_BIT(1)
