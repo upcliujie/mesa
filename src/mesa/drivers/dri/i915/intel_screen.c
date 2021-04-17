@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <time.h>
 #include <unistd.h>
+#include "common/intel_gem.h"
 #include "drm-uapi/drm_fourcc.h"
 #include "main/glheader.h"
 #include "main/context.h"
@@ -819,33 +820,6 @@ static const __DRIextension *intelScreenExtensions[] = {
     NULL
 };
 
-static bool
-intel_get_param(__DRIscreen *psp, int param, int *value)
-{
-   int ret;
-   struct drm_i915_getparam gp;
-
-   memset(&gp, 0, sizeof(gp));
-   gp.param = param;
-   gp.value = value;
-
-   ret = drmCommandWriteRead(psp->fd, DRM_I915_GETPARAM, &gp, sizeof(gp));
-   if (ret) {
-      if (ret != -EINVAL)
-	 _mesa_warning(NULL, "drm_i915_getparam: %d", ret);
-      return false;
-   }
-
-   return true;
-}
-
-static bool
-intel_get_boolean(__DRIscreen *psp, int param)
-{
-   int value = 0;
-   return intel_get_param(psp, param, &value) && value;
-}
-
 static void
 intelDestroyScreen(__DRIscreen * sPriv)
 {
@@ -1031,7 +1005,7 @@ intel_init_bufmgr(struct intel_screen *intelScreen)
 
    drm_intel_bufmgr_gem_enable_fenced_relocs(intelScreen->bufmgr);
 
-   if (!intel_get_boolean(spriv, I915_PARAM_HAS_RELAXED_DELTA)) {
+   if (!intel_getparam_boolean(spriv->fd, I915_PARAM_HAS_RELAXED_DELTA)) {
       fprintf(stderr, "[%s: %u] Kernel 2.6.39 required.\n", __func__, __LINE__);
       return false;
    }
