@@ -112,6 +112,13 @@ struct fd_pipe_funcs {
    struct fd_ringbuffer *(*ringbuffer_new_object)(struct fd_pipe *pipe,
                                                   uint32_t size);
    struct fd_submit *(*submit_new)(struct fd_pipe *pipe);
+
+   /**
+    * Flush any deferred submits (if deferred submits are supported by
+    * the pipe implementation)
+    */
+   void (*flush)(struct fd_pipe *pipe, uint32_t fence);
+
    int (*get_param)(struct fd_pipe *pipe, enum fd_param_id param,
                     uint64_t *value);
    int (*wait)(struct fd_pipe *pipe, uint32_t timestamp, uint64_t timeout);
@@ -138,6 +145,13 @@ struct fd_pipe {
     * play)
     */
    uint32_t last_fence;
+
+   /**
+    * List of deferred submits, protected by submit_lock
+    */
+   struct list_head deferred_submits;
+   simple_mtx_t submit_lock;
+
    struct fd_bo *control_mem;
    volatile struct fd_pipe_control *control;
 
@@ -158,6 +172,7 @@ struct fd_submit {
    struct fd_pipe *pipe;
    const struct fd_submit_funcs *funcs;
    uint32_t fence;
+   struct list_head node;  /* node in fd_pipe::deferred_submits */
 };
 
 struct fd_bo_funcs {

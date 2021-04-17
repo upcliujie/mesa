@@ -60,6 +60,9 @@ fd_pipe_new2(struct fd_device *dev, enum fd_pipe_id id, uint32_t prio)
    fd_pipe_get_param(pipe, FD_GPU_ID, &val);
    pipe->gpu_id = val;
 
+   list_inithead(&pipe->deferred_submits);
+   simple_mtx_init(&pipe->submit_lock, mtx_plain);
+
    pipe->control_mem = fd_bo_new(dev, sizeof(*pipe->control),
                                  DRM_FREEDRENO_GEM_TYPE_KMEM,
                                  "pipe-control");
@@ -86,6 +89,8 @@ fd_pipe_del(struct fd_pipe *pipe)
 {
    if (!p_atomic_dec_zero(&pipe->refcnt))
       return;
+   if (!list_is_empty(&pipe->deferred_submits))
+      pipe->funcs->flush(pipe, pipe->last_fence);
    fd_bo_del(pipe->control_mem);
    pipe->funcs->destroy(pipe);
 }
@@ -105,6 +110,9 @@ fd_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp)
 int
 fd_pipe_wait_timeout(struct fd_pipe *pipe, uint32_t timestamp, uint64_t timeout)
 {
+
+   if (!list_is_empty(&pipe->deferred_submits))
+      pipe->funcs->flush(pipe, pipe->last_fence);
 
    return pipe->funcs->wait(pipe, timestamp, timeout);
 }

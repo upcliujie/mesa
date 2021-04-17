@@ -395,6 +395,14 @@ fd_bo_cpu_prep(struct fd_bo *bo, struct fd_pipe *pipe, uint32_t op)
       case FD_BO_STATE_UNKNOWN: break;
       }
    }
+
+   /* In case the bo is referenced by a deferred submit, flush any pending
+    * deferred submits now
+    */
+   if (bo->last_pipe && !list_is_empty(&bo->last_pipe->deferred_submits)) {
+      bo->last_pipe->funcs->flush(bo->last_pipe, bo->last_fence);
+   }
+
    return bo->funcs->cpu_prep(bo, pipe, op);
 }
 
