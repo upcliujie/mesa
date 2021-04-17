@@ -477,6 +477,92 @@ iris_sample_with_depth_aux(const struct gen_device_info *devinfo,
    return res->surf.samples == 1 && res->surf.dim == ISL_SURF_DIM_2D;
 }
 
+void
+iris_hiz_clear(struct iris_context *ice, struct iris_batch *batch,
+               struct iris_resource *depth_res,
+               struct iris_resource *stencil_res, unsigned int level,
+               unsigned int start_layer, unsigned int num_layers,
+               const struct pipe_box *box, bool update_clear_depth,
+               uint8_t depth_mask, float depth, uint8_t stencil_mask,
+               uint8_t stencil)
+{
+   assert(depth_mask || stencil_mask);
+   iris_batch_maybe_flush(batch, 1500);
+
+   /* The following stalls and flushes are only documented to be required
+    * for HiZ clear operations.  However, they also seem to be required for
+    * resolve operations.
+    *
+    * From the Ivybridge PRM, volume 2, "Depth Buffer Clear":
+    *
+    *   "If other rendering operations have preceded this clear, a
+    *    PIPE_CONTROL with depth cache flush enabled, Depth Stall bit
+    *    enabled must be issued before the rectangle primitive used for
+    *    the depth buffer clear operation."
+    *
+    * Same applies for Gfx8 and Gfx9.
+    */
+   iris_emit_pipe_control_flush(batch,
+                                "hiz op: pre-flush",
+                                PIPE_CONTROL_DEPTH_CACHE_FLUSH |
+                                PIPE_CONTROL_DEPTH_STALL |
+                                PIPE_CONTROL_CS_STALL);
+
+   iris_batch_sync_region_start(batch);
+
+   struct blorp_surf depth_surf, stencil_surf;
+   if (depth_mask) {
+      iris_blorp_surf_for_resource(&batch->screen->isl_dev, &depth_surf,
+                                   &depth_res->base.b, depth_res->aux.usage,
+                                   level, true);
+   }
+
+   if (stencil_mask) {
+      iris_resource_prepare_access(ice, stencil_res, level, 1, start_layer,
+                                   num_layers, stencil_res->aux.usage, false);
+      iris_emit_buffer_barrier_for(batch, stencil_res->bo,
+                                   IRIS_DOMAIN_DEPTH_WRITE);
+      iris_blorp_surf_for_resource(&batch->screen->isl_dev, &stencil_surf,
+                                   &stencil_res->base.b, stencil_res->aux.usage,
+                                   level, true);
+   }
+
+   struct blorp_batch blorp_batch;
+   enum blorp_batch_flags flags = 0;
+   flags |= update_clear_depth ? 0 : BLORP_BATCH_NO_UPDATE_CLEAR_COLOR;
+   blorp_batch_init(&ice->blorp, &blorp_batch, batch, flags);
+
+   blorp_hiz_clear_depth_stencil(&blorp_batch, &depth_surf, &stencil_surf,
+                                 level, start_layer, num_layers, box->x, box->y,
+                                 box->x + box->width, box->y + box->height,
+                                 depth_mask, depth, stencil_mask, stencil);
+
+   blorp_batch_finish(&blorp_batch);
+
+   /* The following stalls and flushes are only documented to be required
+    * for HiZ clear operations.  However, they also seem to be required for
+    * resolve operations.
+    *
+    * From the Broadwell PRM, volume 7, "Depth Buffer Clear":
+    *
+    *    "Depth buffer clear pass using any of the methods (WM_STATE,
+    *     3DSTATE_WM or 3DSTATE_WM_HZ_OP) must be followed by a
+    *     PIPE_CONTROL command with DEPTH_STALL bit and Depth FLUSH bits
+    *     "set" before starting to render.  DepthStall and DepthFlush are
+    *     not needed between consecutive depth clear passes nor is it
+    *     required if the depth clear pass was done with
+    *     'full_surf_clear' bit set in the 3DSTATE_WM_HZ_OP."
+    *
+    * TODO: Such as the spec says, this could be conditional.
+    */
+   iris_emit_pipe_control_flush(batch,
+                                "hiz op: post flush",
+                                PIPE_CONTROL_DEPTH_CACHE_FLUSH |
+                                PIPE_CONTROL_DEPTH_STALL);
+
+   iris_batch_sync_region_end(batch);
+}
+
 /**
  * Perform a HiZ or depth resolve operation.
  *
