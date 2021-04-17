@@ -33,6 +33,8 @@ LOCAL_SRC_FILES := $(C_SOURCES)
 LOCAL_SHARED_LIBRARIES := libdrm_intel
 LOCAL_MODULE := libmesa_winsys_i915
 
+LOCAL_C_INCLUDES := $(MESA_TOP)/src/intel
+
 include $(GALLIUM_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
 

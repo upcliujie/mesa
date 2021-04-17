@@ -5,6 +5,7 @@
 
 #include "frontend/drm_driver.h"
 
+#include "common/intel_gem.h"
 #include "i915_drm_winsys.h"
 #include "i915_drm_public.h"
 #include "util/u_memory.h"
@@ -14,19 +15,6 @@
  * Helper functions
  */
 
-
-static void
-i915_drm_get_device_id(int fd, unsigned int *device_id)
-{
-   int ret;
-   struct drm_i915_getparam gp;
-
-   gp.param = I915_PARAM_CHIPSET_ID;
-   gp.value = (int *)device_id;
-
-   ret = ioctl(fd, DRM_IOCTL_I915_GETPARAM, &gp, sizeof(gp));
-   assert(ret == 0);
-}
 
 static int
 i915_drm_aperture_size(struct i915_winsys *iws)
@@ -53,20 +41,18 @@ struct i915_winsys *
 i915_drm_winsys_create(int drmFD)
 {
    struct i915_drm_winsys *idws;
-   unsigned int deviceID;
 
    idws = CALLOC_STRUCT(i915_drm_winsys);
    if (!idws)
       return NULL;
-
-   i915_drm_get_device_id(drmFD, &deviceID);
 
    i915_drm_winsys_init_batchbuffer_functions(idws);
    i915_drm_winsys_init_buffer_functions(idws);
    i915_drm_winsys_init_fence_functions(idws);
 
    idws->fd = drmFD;
-   idws->base.pci_id = deviceID;
+   idws->base.pci_id = intel_getparam_integer(drmFD, I915_PARAM_CHIPSET_ID);
+   assert(idws->base.pci_id != -1);
    idws->max_batch_size = 1 * 4096;
 
    idws->base.aperture_size = i915_drm_aperture_size;
