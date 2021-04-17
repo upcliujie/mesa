@@ -339,6 +339,15 @@ void iris_resource_disable_aux(struct iris_resource *res);
 #define INTEL_REMAINING_LEVELS UINT32_MAX
 
 void
+iris_hiz_clear(struct iris_context *ice, struct iris_batch *batch,
+               struct iris_resource *depth_res,
+               struct iris_resource *stencil_res, unsigned int level,
+               unsigned int start_layer, unsigned int num_layers,
+               const struct pipe_box *box, bool update_clear_depth,
+               uint8_t depth_mask, float depth, uint8_t stencil_mask,
+               uint8_t stencil);
+
+void
 iris_hiz_exec(struct iris_context *ice,
               struct iris_batch *batch,
               struct iris_resource *res,
