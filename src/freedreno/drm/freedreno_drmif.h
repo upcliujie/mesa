@@ -118,6 +118,7 @@ struct fd_pipe *fd_pipe_new2(struct fd_device *dev, enum fd_pipe_id id,
                              uint32_t prio);
 struct fd_pipe *fd_pipe_ref(struct fd_pipe *pipe);
 void fd_pipe_del(struct fd_pipe *pipe);
+void fd_pipe_discard(struct fd_pipe *pipe);
 int fd_pipe_get_param(struct fd_pipe *pipe, enum fd_param_id param,
                       uint64_t *value);
 int fd_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp);

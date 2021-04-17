@@ -128,6 +128,18 @@ struct fd_device {
 
    /* just for valgrind: */
    int bo_size;
+
+   /**
+    * List of deferred submits, protected by submit_lock.  The deferred
+    * submits are tracked globally per-device, even if they execute in
+    * different order on the kernel side (ie. due to different priority
+    * submitqueues, etc) to preserve the order that they are passed off
+    * to the kernel.  Once the kernel has them, it is the fences' job
+    * to preserve correct order of execution.
+    */
+   struct list_head deferred_submits;
+   unsigned deferred_submit_count;
+   simple_mtx_t submit_lock;
 };
 
 void fd_bo_cache_init(struct fd_bo_cache *cache, int coarse);
@@ -145,6 +157,13 @@ struct fd_pipe_funcs {
    struct fd_ringbuffer *(*ringbuffer_new_object)(struct fd_pipe *pipe,
                                                   uint32_t size);
    struct fd_submit *(*submit_new)(struct fd_pipe *pipe);
+
+   /**
+    * Flush any deferred submits (if deferred submits are supported by
+    * the pipe implementation)
+    */
+   void (*flush)(struct fd_pipe *pipe, uint32_t fence);
+
    int (*get_param)(struct fd_pipe *pipe, enum fd_param_id param,
                     uint64_t *value);
    int (*wait)(struct fd_pipe *pipe, uint32_t timestamp, uint64_t timeout);
@@ -171,6 +190,7 @@ struct fd_pipe {
     * play)
     */
    uint32_t last_fence;
+
    struct fd_bo *control_mem;
    volatile struct fd_pipe_control *control;
 
@@ -178,6 +198,14 @@ struct fd_pipe {
 };
 
 uint32_t fd_pipe_emit_fence(struct fd_pipe *pipe, struct fd_ringbuffer *ring);
+
+static inline void
+fd_pipe_flush(struct fd_pipe *pipe, uint32_t fence)
+{
+   if (!pipe->funcs->flush)
+      return;
+   pipe->funcs->flush(pipe, fence);
+}
 
 struct fd_submit_funcs {
    struct fd_ringbuffer *(*new_ringbuffer)(struct fd_submit *submit,
@@ -195,6 +223,7 @@ struct fd_submit {
 
    struct fd_ringbuffer *primary;
    uint32_t fence;
+   struct list_head node;  /* node in fd_pipe::deferred_submits */
 };
 
 struct fd_bo_funcs {

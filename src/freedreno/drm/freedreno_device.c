@@ -85,6 +85,9 @@ out:
    fd_bo_cache_init(&dev->bo_cache, false);
    fd_bo_cache_init(&dev->ring_cache, true);
 
+   list_inithead(&dev->deferred_submits);
+   simple_mtx_init(&dev->submit_lock, mtx_plain);
+
    return dev;
 }
 
@@ -116,6 +119,8 @@ fd_device_del_impl(struct fd_device *dev)
    int close_fd = dev->closefd ? dev->fd : -1;
 
    simple_mtx_assert_locked(&table_lock);
+
+   assert(list_is_empty(&dev->deferred_submits));
 
    fd_bo_cache_cleanup(&dev->bo_cache, 0);
    fd_bo_cache_cleanup(&dev->ring_cache, 0);
