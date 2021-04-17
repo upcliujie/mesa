@@ -451,7 +451,7 @@ can_fast_clear_depth(struct iris_context *ice,
 
 static void
 fast_clear_depth(struct iris_context *ice,
-                 struct iris_resource *res,
+                 struct iris_resource *depth_res,
                  unsigned level,
                  const struct pipe_box *box,
                  float depth)
@@ -463,10 +463,11 @@ fast_clear_depth(struct iris_context *ice,
    /* If we're clearing to a new clear value, then we need to resolve any clear
     * flags out of the HiZ buffer into the real depth buffer.
     */
-   if (res->aux.clear_color.f32[0] != depth) {
-      for (unsigned res_level = 0; res_level < res->surf.levels; res_level++) {
+   if (depth_res->aux.clear_color.f32[0] != depth) {
+      unsigned levels = depth_res->surf.levels;
+      for (unsigned res_level = 0; res_level < levels; res_level++) {
          const unsigned level_layers =
-            iris_get_num_logical_layers(res, res_level);
+            iris_get_num_logical_layers(depth_res, res_level);
          for (unsigned layer = 0; layer < level_layers; layer++) {
             if (res_level == level &&
                 layer >= box->z &&
@@ -476,7 +477,7 @@ fast_clear_depth(struct iris_context *ice,
             }
 
             enum isl_aux_state aux_state =
-               iris_resource_get_aux_state(res, res_level, layer);
+               iris_resource_get_aux_state(depth_res, res_level, layer);
 
             if (aux_state != ISL_AUX_STATE_CLEAR &&
                 aux_state != ISL_AUX_STATE_COMPRESSED_CLEAR) {
@@ -490,34 +491,34 @@ fast_clear_depth(struct iris_context *ice,
              * Fortunately, few applications ever change their depth clear
              * value so this shouldn't happen often.
              */
-            iris_hiz_exec(ice, batch, res, res_level, layer, 1,
+            iris_hiz_exec(ice, batch, depth_res, res_level, layer, 1,
                           ISL_AUX_OP_FULL_RESOLVE, false);
-            iris_resource_set_aux_state(ice, res, res_level, layer, 1,
+            iris_resource_set_aux_state(ice, depth_res, res_level, layer, 1,
                                         ISL_AUX_STATE_RESOLVED);
             iris_emit_pipe_control_flush(batch, "hiz op: post depth resolve",
                                          PIPE_CONTROL_TILE_CACHE_FLUSH);
          }
       }
       const union isl_color_value clear_value = { .f32 = {depth, } };
-      iris_resource_set_clear_color(ice, res, clear_value);
+      iris_resource_set_clear_color(ice, depth_res, clear_value);
       update_clear_depth = true;
    }
 
    for (unsigned l = 0; l < box->depth; l++) {
       enum isl_aux_state aux_state =
-         iris_resource_get_aux_state(res, level, box->z + l);
+         iris_resource_get_aux_state(depth_res, level, box->z + l);
       if (update_clear_depth || aux_state != ISL_AUX_STATE_CLEAR) {
          if (aux_state == ISL_AUX_STATE_CLEAR) {
             perf_debug(&ice->dbg, "Performing HiZ clear just to update the "
                                   "depth clear value\n");
          }
-         iris_hiz_exec(ice, batch, res, level,
+         iris_hiz_exec(ice, batch, depth_res, level,
                        box->z + l, 1, ISL_AUX_OP_FAST_CLEAR,
                        update_clear_depth);
       }
    }
 
-   iris_resource_set_aux_state(ice, res, level, box->z, box->depth,
+   iris_resource_set_aux_state(ice, depth_res, level, box->z, box->depth,
                                ISL_AUX_STATE_CLEAR);
    ice->state.dirty |= IRIS_DIRTY_DEPTH_BUFFER;
    ice->state.stage_dirty |= IRIS_ALL_STAGE_DIRTY_BINDINGS;
