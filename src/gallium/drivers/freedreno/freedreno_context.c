@@ -52,6 +52,36 @@ fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
     */
    fd_batch_reference(&batch, ctx->batch);
 // TODO need to flush ctx->batch_nondraw too
+/*
+Async flush idea.. we end up needing to add *some* tracking at fd/drm level
+but I think we'd need something similar for drm_uring.. we'd have to track
+per fd_bo what fd_pipe it is pending unflushed submit on to maintain the
+illusion that submit flush actually happened.. maybe redundant w/ tracking
+going on at fd_resource layer, but there is resource invalidate/reallocate.
+but I think we need this for drm_uring to avoid sync's with kernel (or just
+completely get rid of implicit sync??).  But if we can do async submit flush
+(ie. for nondraw batches or when fence is not required) we could merge blit/
+compute jobs into following renderpass..  ie. normally nondraw batches ref
+very few bo's so easy to merge them into later draw pass bo and cmd tables?
+
+we can merge blits into preamble when blit src does not depend on current
+batch?  That seems like a cheap way to gid of extra submits...
+
+also, userspace fences to avoid ioctl per-draw to query if buffer-upload dst
+is busy.. this is making a *big* difference in nba2k20
+
++ fd_pipe_control + bo per fd_pipe
++ gmem code calls fd_submit_next_seqno() in gmem code once order of submits
+  per fd_pipe is locked in (fd_pipe is per-context).. seqno counter is in
+  fd_pipe but fd_submit needs to know to update the fd_bo's
++ gmem code does CP_EVENT_WRITE:CACHE_FLUSH_TS to write timestamp back
+  to the pipe's control bo at end of batch
++ fd_bo adds ptr to last fd_pipe plus seqno value at the point where the
+  bo is known to be idle
++ *only* for non-shared buffers, and *only* when they are not active on
+  multiple pipes at the same time
+
+ */
 
    DBG("%p: flush: flags=%x", batch, flags);
 
