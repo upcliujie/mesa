@@ -189,6 +189,7 @@ struct fd_submit_funcs {
 };
 
 struct fd_submit {
+   int32_t refcnt;
    struct fd_pipe *pipe;
    const struct fd_submit_funcs *funcs;
 
