@@ -25,7 +25,7 @@ libi915drm = static_library(
     'i915_drm_winsys.c'
   ),
   include_directories : [
-    inc_include, inc_src, inc_gallium, inc_gallium_aux, inc_gallium_drivers
+    inc_include, inc_src, inc_gallium, inc_gallium_aux, inc_gallium_drivers, inc_intel,
   ],
   dependencies : [dep_libdrm, dep_libdrm_intel],
 )
