@@ -1355,6 +1355,12 @@ clc_to_dxil(struct clc_context *ctx,
 
          nir->info.cs.local_size[i] = conf->local_size[i];
       }
+   } else {
+      /* Make sure there's at least one thread that's set to run */
+      for (unsigned i = 0; i < ARRAY_SIZE(nir->info.cs.local_size); i++) {
+         if (nir->info.cs.local_size[i] == 0)
+            nir->info.cs.local_size[i] = 1;
+      }
    }
 
    NIR_PASS_V(nir, clc_nir_lower_kernel_input_loads, inputs_var);
