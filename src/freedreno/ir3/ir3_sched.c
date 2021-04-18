@@ -171,6 +171,12 @@ sched_check_src_cond(struct ir3_instruction *instr,
 					 struct ir3_sched_ctx *ctx)
 {
 	foreach_ssa_src (src, instr) {
+		/* sched nodes are only valid within the current block being
+		 * scheduled so we cannot consider srcs from other blocks
+		 */
+		if (src->block != instr->block)
+			continue;
+
 		/* meta:split/collect aren't real instructions, the thing that
 		 * we actually care about is *their* srcs
 		 */
