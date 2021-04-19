@@ -782,6 +782,7 @@ fd5_emit_sysmem_prep(struct fd_batch *batch) assert_dt
 
 static void
 fd5_emit_sysmem_fini(struct fd_batch *batch)
+   assert_dt
 {
    struct fd_ringbuffer *ring = batch->gmem;
 
@@ -792,6 +793,8 @@ fd5_emit_sysmem_fini(struct fd_batch *batch)
 
    fd5_event_write(batch, ring, PC_CCU_FLUSH_COLOR_TS, true);
    fd5_event_write(batch, ring, PC_CCU_FLUSH_DEPTH_TS, true);
+
+   fd5_cache_flush(batch, ring);
 }
 
 void
