@@ -90,3 +90,9 @@ llvmpipe-gles2:
     - .test-gl
     - .deqp-test
     - .llvmpipe-test
+
+llvmpipe-khr-gles2:
+  extends:
+    llvmpipe-gles2
+  variables:
+    DEQP_VER: gles2-khr
