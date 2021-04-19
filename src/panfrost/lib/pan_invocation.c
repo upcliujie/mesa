@@ -58,12 +58,12 @@ panfrost_pack_work_groups_compute(
         unsigned shifts[7] = { 0 };
 
         unsigned values[6] = {
-                MALI_POSITIVE(size_x),
-                MALI_POSITIVE(size_y),
-                MALI_POSITIVE(size_z),
-                MALI_POSITIVE(num_x),
-                MALI_POSITIVE(num_y),
-                MALI_POSITIVE(num_z),
+                MALI_POSITIVE(MAX2(size_x, 1)),
+                MALI_POSITIVE(MAX2(size_y, 1)),
+                MALI_POSITIVE(MAX2(size_z, 1)),
+                MALI_POSITIVE(MAX2(num_x, 1)),
+                MALI_POSITIVE(MAX2(num_y, 1)),
+                MALI_POSITIVE(MAX2(num_z, 1)),
         };
 
         for (unsigned i = 0; i < 6; ++i) {
