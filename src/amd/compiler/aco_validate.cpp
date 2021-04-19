@@ -702,7 +702,7 @@ bool validate_ra(Program *program) {
       return false;
 
    bool err = false;
-   aco::live live_vars = aco::live_var_analysis(program);
+   aco::live live_vars = aco::live_var_analysis(program, false);
    std::vector<std::vector<Temp>> phi_sgpr_ops(program->blocks.size());
 
    std::map<unsigned, Assignment> assignments;
