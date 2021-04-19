@@ -147,6 +147,12 @@ struct fd_pipe {
    uint32_t last_fence;
 
    /**
+    * The last fence seqno that was flushed to kernel (doesn't mean that it
+    * is complete, just that the kernel knows about it)
+    */
+   uint32_t last_submit_fence;
+
+   /**
     * List of deferred submits, protected by submit_lock
     */
    struct list_head deferred_submits;

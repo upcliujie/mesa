@@ -225,6 +225,8 @@ msm_pipe_new(struct fd_device *dev, enum fd_pipe_id id, uint32_t prio)
 
    if (fd_device_version(dev) >= FD_VERSION_SOFTPIN) {
       pipe->funcs = &sp_funcs;
+      util_queue_init(&msm_pipe->submit_queue, "submitq", 20, 1,
+                      UTIL_QUEUE_INIT_RESIZE_IF_FULL);
    } else {
       pipe->funcs = &legacy_funcs;
    }
