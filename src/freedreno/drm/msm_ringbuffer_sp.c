@@ -239,7 +239,7 @@ msm_submit_sp_flush_prep(struct fd_submit *submit)
 
 static int
 msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
-                           int *out_fence_fd, uint32_t *out_fence,
+                           struct fd_submit_fence *out_fence,
                            struct list_head *deferred_submits)
 {
    struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
@@ -319,7 +319,7 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
       req.fence_fd = in_fence_fd;
    }
 
-   if (out_fence_fd) {
+   if (out_fence && out_fence->use_fence_fd) {
       req.flags |= MSM_SUBMIT_FENCE_FD_OUT;
    }
 
@@ -357,12 +357,10 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
    if (ret) {
       ERROR_MSG("submit failed: %d (%s)", ret, strerror(errno));
       msm_dump_submit(&req);
-   } else if (!ret) {
-      if (out_fence)
-         *out_fence = req.fence;
-
-      if (out_fence_fd)
-         *out_fence_fd = req.fence_fd;
+   } else if (!ret && out_fence) {
+      out_fence->fence.kfence = req.fence;
+      out_fence->fence.ufence = submit->fence;
+      out_fence->fence_fd = req.fence_fd;
    }
 
    if (!bos_on_stack)
@@ -393,7 +391,7 @@ should_defer(struct fd_submit *submit)
 
 static int
 msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
-                    int *out_fence_fd, uint32_t *out_fence)
+                    struct fd_submit_fence *out_fence)
 {
    struct fd_device *dev = submit->pipe->dev;
 
@@ -411,7 +409,6 @@ msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
     * deferred submits
     */
    if ((in_fence_fd == -1) && !out_fence && !has_shared && should_defer(submit)) {
-      assert(!out_fence_fd);
       list_addtail(&fd_submit_ref(submit)->node, &dev->deferred_submits);
       dev->deferred_submit_count++;
       simple_mtx_unlock(&dev->submit_lock);
@@ -427,8 +424,8 @@ msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
 
    simple_mtx_unlock(&dev->submit_lock);
 
-   return msm_submit_sp_flush_finish(submit, in_fence_fd, out_fence_fd,
-                                     out_fence, &deferred_submits);
+   return msm_submit_sp_flush_finish(submit, in_fence_fd, out_fence,
+                                     &deferred_submits);
 }
 
 void
@@ -466,7 +463,7 @@ msm_pipe_sp_flush(struct fd_pipe *pipe, uint32_t fence)
 
    list_del(&submit->node);
 
-   msm_submit_sp_flush_finish(submit, -1, NULL, NULL, &deferred_submits);
+   msm_submit_sp_flush_finish(submit, -1, NULL, &deferred_submits);
 
    fd_submit_del(submit);
 }

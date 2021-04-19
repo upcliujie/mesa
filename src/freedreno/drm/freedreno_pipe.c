@@ -157,21 +157,21 @@ fd_pipe_get_param(struct fd_pipe *pipe, enum fd_param_id param, uint64_t *value)
 }
 
 int
-fd_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp)
+fd_pipe_wait(struct fd_pipe *pipe, const struct fd_fence *fence)
 {
-   return fd_pipe_wait_timeout(pipe, timestamp, ~0);
+   return fd_pipe_wait_timeout(pipe, fence, ~0);
 }
 
 int
-fd_pipe_wait_timeout(struct fd_pipe *pipe, uint32_t timestamp, uint64_t timeout)
+fd_pipe_wait_timeout(struct fd_pipe *pipe, const struct fd_fence *fence,
+                     uint64_t timeout)
 {
-   /* TODO if we knew the corresponding userspace fence, we could just
-    * flush to that point (and use it to detect that we don't need to
-    * call into the kernel)
-    */
-   fd_pipe_flush(pipe, pipe->last_fence);
+   if (!fd_fence_after(fence->ufence, pipe->control->fence))
+      return 0;
 
-   return pipe->funcs->wait(pipe, timestamp, timeout);
+   fd_pipe_flush(pipe, fence->ufence);
+
+   return pipe->funcs->wait(pipe, fence, timeout);
 }
 
 uint32_t
