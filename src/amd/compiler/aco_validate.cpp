@@ -574,8 +574,10 @@ bool validate_subdword_operand(chip_class chip, const aco_ptr<Instruction>& inst
       return byte == 0;
    if (instr->format == Format::PSEUDO && chip >= GFX8)
       return true;
-   if (instr->isSDWA() && (static_cast<SDWA_instruction *>(instr.get())->sel[index] & sdwa_asuint) == (sdwa_isra | op.bytes()))
-      return true;
+   if (instr->isSDWA()) {
+      unsigned sel = static_cast<SDWA_instruction *>(instr.get())->sel[index] & sdwa_asuint;
+      return (sel & sdwa_isra) && (sel & sdwa_rasize) <= op.bytes();
+   }
    if (byte == 2 && can_use_opsel(chip, instr->opcode, index, 1))
       return true;
 
