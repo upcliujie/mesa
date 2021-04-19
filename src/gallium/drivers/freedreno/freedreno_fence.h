@@ -30,12 +30,15 @@
 #include "pipe/p_context.h"
 #include "util/u_queue.h"
 
+#include "drm/freedreno_ringbuffer.h"
+
 struct pipe_fence_handle {
    struct pipe_reference reference;
 
-   /* fence holds a weak reference to the batch until the batch is flushed,
-    * at which point fd_fence_populate() is called and timestamp and possibly
-    * fence_fd become valid and the week reference is dropped.
+   /* fence holds a weak reference to the batch until the batch is flushed, to
+    * accommodate PIPE_FLUSH_DEFERRED.  When the batch is actually flushed, it
+    * is cleared (before the batch reference is dropped).  If we need to wait
+    * on a fence, and the batch is not NULL, we need to flush it.
     *
     * Note that with u_threaded_context async flushes, if a fence is requested
     * by the frontend, the fence is initially created without a weak reference
@@ -64,13 +67,10 @@ struct pipe_fence_handle {
    struct fd_context *ctx;
    struct fd_pipe *pipe;
    struct fd_screen *screen;
-   int fence_fd;
-   uint32_t timestamp;
+   struct fd_submit_fence submit_fence;
    uint32_t syncobj;
 };
 
-void fd_fence_populate(struct pipe_fence_handle *fence, uint32_t timestamp,
-                       int fence_fd);
 void fd_fence_repopulate(struct pipe_fence_handle *fence,
                          struct pipe_fence_handle *last_fence);
 void fd_fence_ref(struct pipe_fence_handle **ptr,

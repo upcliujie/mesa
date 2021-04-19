@@ -53,10 +53,10 @@ fd_submit_ref(struct fd_submit *submit)
 }
 
 int
-fd_submit_flush(struct fd_submit *submit, int in_fence_fd, int *out_fence_fd,
-                uint32_t *out_fence)
+fd_submit_flush(struct fd_submit *submit, int in_fence_fd,
+                struct fd_submit_fence *out_fence)
 {
-   return submit->funcs->flush(submit, in_fence_fd, out_fence_fd, out_fence);
+   return submit->funcs->flush(submit, in_fence_fd, out_fence);
 }
 
 struct fd_ringbuffer *
