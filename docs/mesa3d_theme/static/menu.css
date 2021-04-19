@@ -24,6 +24,12 @@
   padding-left: 1rem;
 }
 
+#menu p.caption::after {
+  display: block;
+  content: '';
+  clear: both;
+}
+
 #menu p.caption.collapsed + ul {
   display: none;
 }
