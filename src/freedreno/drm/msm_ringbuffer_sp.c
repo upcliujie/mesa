@@ -28,6 +28,7 @@
 #include <inttypes.h>
 
 #include "util/hash_table.h"
+#include "util/os_file.h"
 #include "util/slab.h"
 
 #include "drm/freedreno_ringbuffer.h"
@@ -59,6 +60,15 @@ struct msm_submit_sp {
     * so we can reclaim extra space at it's end.
     */
    struct fd_ringbuffer *suballoc_ring;
+
+   /* State for enqueued submits:
+    */
+   int in_fence_fd;
+   struct fd_submit_fence *out_fence;
+   struct list_head deferred_submits;
+
+   /* Used in case out_fence==NULL: */
+   struct util_queue_fence fence;
 };
 FD_DEFINE_CAST(fd_submit, msm_submit_sp);
 
@@ -293,6 +303,11 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
          /* Note: if bo is used in both the current submit and the deferred
           * submit being merged, we expect to hit the fast-path as we add it
           * to the current submit:
+          *
+          * TODO we might want to try to do all the msm_submit_append_bo()
+          * synchronously before pushing the rest to the submit-queue, since
+          * we have a better chance to hit the fast-path before the driver
+          * thread has moved on to re-using bo's in later rendering?
           */
          msm_submit_append_bo(msm_submit, msm_deferred_submit->bos[i]);
       }
@@ -370,6 +385,58 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
    return ret;
 }
 
+static void
+msm_submit_sp_flush_execute(void *job, int thread_index)
+{
+   struct fd_submit *submit = job;
+   struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
+
+   msm_submit_sp_flush_finish(submit, msm_submit->in_fence_fd,
+                              msm_submit->out_fence,
+                              &msm_submit->deferred_submits);
+
+   if (msm_submit->in_fence_fd != -1)
+      close(msm_submit->in_fence_fd);
+}
+
+static void
+msm_submit_sp_flush_cleanup(void *job, int thread_index)
+{
+   struct fd_submit *submit = job;
+   fd_submit_del(submit);
+}
+
+static int
+msm_submit_sp_flush_enqueue(struct fd_submit *submit, int in_fence_fd,
+                            struct fd_submit_fence *out_fence,
+                            struct list_head *deferred_submits)
+{
+   struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
+
+   msm_submit->in_fence_fd = (in_fence_fd == -1) ?
+         -1 : os_dupfd_cloexec(in_fence_fd);
+   msm_submit->out_fence   = out_fence;
+
+   list_replace(deferred_submits, &msm_submit->deferred_submits);
+   list_inithead(deferred_submits);
+
+   struct util_queue_fence *fence;
+   if (out_fence) {
+      fence = &out_fence->ready;
+   } else {
+      util_queue_fence_init(&msm_submit->fence);
+      fence = &msm_submit->fence;
+   }
+
+   util_queue_add_job(&to_msm_pipe(submit->pipe)->submit_queue,
+                      fd_submit_ref(submit), fence,
+                      msm_submit_sp_flush_execute,
+                      msm_submit_sp_flush_cleanup,
+                      0);
+
+   return 0;
+}
+
 static bool
 should_defer(struct fd_submit *submit)
 {
@@ -425,8 +492,8 @@ msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
 
    simple_mtx_unlock(&pipe->submit_lock);
 
-   return msm_submit_sp_flush_finish(submit, in_fence_fd, out_fence,
-                                     &deferred_submits);
+   return msm_submit_sp_flush_enqueue(submit, in_fence_fd, out_fence,
+                                      &deferred_submits);
 }
 
 void
@@ -467,7 +534,11 @@ msm_pipe_sp_flush(struct fd_pipe *pipe, uint32_t fence)
 
    list_del(&submit->node);
 
-   msm_submit_sp_flush_finish(submit, -1, NULL, &deferred_submits);
+   msm_submit_sp_flush_enqueue(submit, -1, NULL, &deferred_submits);
+
+   /* TODO we need to wait for queued work somehow.. also in the
+    * list_is_empty(&deferred_submits) case
+    */
 
    fd_submit_del(submit);
 }
