@@ -54,6 +54,7 @@ struct msm_pipe {
    uint32_t chip_id;
    uint32_t queue_id;
    struct slab_parent_pool ring_pool;
+   struct util_queue submit_queue;
 };
 FD_DEFINE_CAST(fd_pipe, msm_pipe);
 
