@@ -323,8 +323,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return 0;
 
    case PIPE_CAP_TEXTURE_BORDER_COLOR_QUIRK:
-      return screen->info.driver_props.driverID == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA_KHR ||
-             screen->info.driver_props.driverID == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS_KHR ?
+      return screen->info.driver_props.driverID != VK_DRIVER_ID_MESA_RADV ?
              0 : PIPE_QUIRK_TEXTURE_BORDER_COLOR_SWIZZLE_NV50;
 
    case PIPE_CAP_MAX_TEXTURE_2D_SIZE:
