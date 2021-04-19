@@ -285,7 +285,8 @@ main(int argc, char **argv)
 
    backend->emit_grid(kernel, grid, submit);
 
-   fd_submit_flush(submit, -1, NULL, NULL);
+   struct fd_submit_fence fence = {};
+   fd_submit_flush(submit, -1, &fence);
 
    for (int i = 0; i < kernel->num_bufs; i++) {
       fd_bo_cpu_prep(kernel->bufs[i], pipe, DRM_FREEDRENO_PREP_READ);
