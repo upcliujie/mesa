@@ -583,7 +583,6 @@ radv_descriptor_set_create(struct radv_device *device, struct radv_descriptor_po
       layout_size = layout->binding[layout->binding_count - 1].offset + *variable_count * stride;
    }
    layout_size = align_u32(layout_size, 32);
-   if (layout_size) {
       set->header.size = layout_size;
 
       if (!pool->host_memory_base && pool->entry_count == pool->max_entry_count) {
@@ -631,7 +630,6 @@ radv_descriptor_set_create(struct radv_device *device, struct radv_descriptor_po
          pool->entry_count++;
       } else
          return vk_error(device->instance, VK_ERROR_OUT_OF_POOL_MEMORY);
-   }
 
    if (layout->has_immutable_samplers) {
       for (unsigned i = 0; i < layout->binding_count; ++i) {
@@ -661,10 +659,9 @@ radv_descriptor_set_destroy(struct radv_device *device, struct radv_descriptor_p
 {
    assert(!pool->host_memory_base);
 
-   if (free_bo && set->header.size && !pool->host_memory_base) {
-      uint32_t offset = (uint8_t *)set->header.mapped_ptr - pool->mapped_ptr;
+   if (free_bo && !pool->host_memory_base) {
       for (int i = 0; i < pool->entry_count; ++i) {
-         if (pool->entries[i].offset == offset) {
+         if (pool->entries[i].set == set) {
             memmove(&pool->entries[i], &pool->entries[i + 1],
                     sizeof(pool->entries[i]) * (pool->entry_count - i - 1));
             --pool->entry_count;
