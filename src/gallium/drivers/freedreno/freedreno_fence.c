@@ -59,6 +59,8 @@ fence_flush(struct pipe_context *pctx, struct pipe_fence_handle *fence,
          }
       }
 
+      util_queue_fence_wait(&fence->submit_fence.ready);
+
       /* We've already waited for batch to be flushed and fence->batch
        * to be cleared:
        */
@@ -68,6 +70,8 @@ fence_flush(struct pipe_context *pctx, struct pipe_fence_handle *fence,
 
    if (fence->batch)
       fd_batch_flush(fence->batch);
+
+   util_queue_fence_wait(&fence->submit_fence.ready);
 
    debug_assert(!fence->batch);
 
@@ -81,6 +85,9 @@ fd_fence_repopulate(struct pipe_fence_handle *fence, struct pipe_fence_handle *l
     * might have been)
     */
    assert(!fence->submit_fence.needs_fence_fd);
+   assert(!last_fence->batch);
+
+   util_queue_fence_wait(&last_fence->submit_fence.ready);
 
    fence->submit_fence.fence = last_fence->submit_fence.fence;
 }
@@ -94,6 +101,14 @@ fd_fence_destroy(struct pipe_fence_handle *fence)
    if (fence->syncobj)
       drmSyncobjDestroy(fd_device_fd(fence->screen->dev), fence->syncobj);
    fd_pipe_del(fence->pipe);
+
+   /* TODO might be worth trying harder to avoid a potential stall here,
+    * but that would require the submit somehow holding a reference to
+    * the pipe_fence_handle.. and I'm not sure if it is a thing that is
+    * likely to matter much.
+    */
+   util_queue_fence_wait(&fence->submit_fence.ready);
+
    FREE(fence);
 }
 
@@ -136,6 +151,7 @@ fence_create(struct fd_context *ctx, struct fd_batch *batch, uint32_t timestamp,
 
    pipe_reference_init(&fence->reference, 1);
    util_queue_fence_init(&fence->ready);
+   util_queue_fence_init(&fence->submit_fence.ready);
 
    fence->ctx = ctx;
    fence->batch = batch;

@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include "util/u_atomic.h"
 #include "util/u_debug.h"
-#include "util/u_dynarray.h"
+#include "util/u_queue.h"
 
 #include "adreno_common.xml.h"
 #include "adreno_pm4.xml.h"
@@ -100,6 +100,13 @@ uint32_t fd_submit_next_fence(struct fd_submit *submit);
  * out-fence-fd
  */
 struct fd_submit_fence {
+   /**
+    * The ready fence is signaled once the submit is actually flushed down
+    * to the kernel, and fence/fence_fd are populated.  You must wait for
+    * this fence to be signaled before reading fence/fence_fd.
+    */
+   struct util_queue_fence ready;
+
    uint32_t fence;      /* 'timestamp' seqno, always generated */
    int fence_fd;        /* dma_fence fd, generated if needs_out_fence_fd */
    bool needs_fence_fd;
