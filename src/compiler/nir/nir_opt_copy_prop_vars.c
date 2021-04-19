@@ -111,7 +111,7 @@ value_equals_store_src(struct value *value, nir_intrinsic_instr *intrin)
    uintptr_t write_mask = nir_intrinsic_write_mask(intrin);
 
    for (unsigned i = 0; i < intrin->num_components; i++) {
-      if ((write_mask & (1 << i)) &&
+      if ((write_mask & ((uintptr_t)1 << i)) &&
           (value->ssa.def[i] != intrin->src[1].ssa ||
            value->ssa.component[i] != i))
          return false;
