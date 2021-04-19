@@ -173,7 +173,8 @@ flush_ring(void)
    if (!dev.submit)
       return;
 
-   ret = fd_submit_flush(dev.submit, -1, NULL, NULL);
+   struct fd_submit_fence fence = {};
+   ret = fd_submit_flush(dev.submit, -1, &fence);
    if (ret)
       errx(1, "submit failed: %d", ret);
    fd_ringbuffer_del(dev.ring);
