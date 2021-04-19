@@ -785,30 +785,6 @@ lower_load_ubo_packed_filter(const nir_instr *instr,
    return intr->intrinsic == nir_intrinsic_load_ubo;
 }
 
-static nir_ssa_def *
-lower_load_ubo_packed_impl(nir_builder *b, nir_instr *instr,
-                              UNUSED void *_options) {
-   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
-
-   nir_ssa_def *buffer = intr->src[0].ssa;
-   nir_ssa_def *offset = intr->src[1].ssa;
-
-   nir_ssa_def *result =
-      build_load_ubo_dxil(b, buffer,
-                          offset,
-                          nir_dest_num_components(intr->dest),
-                          nir_dest_bit_size(intr->dest));
-   return result;
-}
-
-bool
-nir_lower_packed_ubo_loads(nir_shader *nir) {
-   return nir_shader_lower_instructions(nir,
-                                        lower_load_ubo_packed_filter,
-                                        lower_load_ubo_packed_impl,
-                                        NULL);
-}
-
 void
 d3d12_lower_primitive_id(nir_shader *shader)
 {

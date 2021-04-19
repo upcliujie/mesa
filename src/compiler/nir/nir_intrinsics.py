@@ -1029,8 +1029,6 @@ load("shared_dxil", [1], [], [CAN_ELIMINATE])
 load("scratch_dxil", [1], [], [CAN_ELIMINATE])
 # src[] = { deref_var, offset }
 load("ptr_dxil", [1, 1], [], [])
-# src[] = { index, 16-byte-based-offset }
-load("ubo_dxil", [1, 1], [], [CAN_ELIMINATE])
 
 # DXIL Shared atomic intrinsics
 #

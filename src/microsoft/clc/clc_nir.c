@@ -31,19 +31,29 @@
 #include "clc_compiler.h"
 #include "../compiler/dxil_nir.h"
 
+static nir_ssa_def *
+load_clc_work_properties(nir_builder *b, nir_intrinsic *intr, nir_variable *var, uint32_t offset)
+{
+   return nir_load_ubo(b,
+                       nir_dest_num_components(intr->dest),
+                       nir_dest_bit_size(intr->dest),
+                       nir_imm_int(b, var->data.binding),
+                       nir_imm_int(b, offset),
+                       .align_mul = NIR_ALIGN_MUL_MAX,
+                       .align_offset = offset,
+                       .range_base = offset,
+                       .range = nir_dest_bit_size(intr->dest) * nir_dest_num_components / 8);
+}
+
 static bool
 lower_load_base_global_invocation_id(nir_builder *b, nir_intrinsic_instr *intr,
                                     nir_variable *var)
 {
    b->cursor = nir_after_instr(&intr->instr);
 
-   nir_ssa_def *offset =
-      build_load_ubo_dxil(b, nir_imm_int(b, var->data.binding),
-                          nir_imm_int(b,
-                                      offsetof(struct clc_work_properties_data,
-                                               global_offset_x)),
-                          nir_dest_num_components(intr->dest),
-                          nir_dest_bit_size(intr->dest));
+   nir_ssa_def *offset = load_clc_work_properties(b, intr, var,
+                                                  offsetof(struct clc_work_properties_data,
+                                                  global_offset_x));
    nir_ssa_def_rewrite_uses(&intr->dest.ssa, offset);
    nir_instr_remove(&intr->instr);
    return true;
@@ -55,13 +65,9 @@ lower_load_work_dim(nir_builder *b, nir_intrinsic_instr *intr,
 {
    b->cursor = nir_after_instr(&intr->instr);
 
-   nir_ssa_def *dim =
-      build_load_ubo_dxil(b, nir_imm_int(b, var->data.binding),
-                          nir_imm_int(b,
-                                      offsetof(struct clc_work_properties_data,
-                                               work_dim)),
-                          nir_dest_num_components(intr->dest),
-                          nir_dest_bit_size(intr->dest));
+   nir_ssa_def *dim = load_clc_work_properties(b, intr, var,
+                                                  offsetof(struct clc_work_properties_data,
+                                                  work_dim));
    nir_ssa_def_rewrite_uses(&intr->dest.ssa, dim);
    nir_instr_remove(&intr->instr);
    return true;
@@ -89,13 +95,9 @@ lower_load_num_work_groups(nir_builder *b, nir_intrinsic_instr *intr,
 {
    b->cursor = nir_after_instr(&intr->instr);
 
-   nir_ssa_def *count =
-      build_load_ubo_dxil(b, nir_imm_int(b, var->data.binding),
-                         nir_imm_int(b,
-                                     offsetof(struct clc_work_properties_data,
-                                              group_count_total_x)),
-                         nir_dest_num_components(intr->dest),
-                         nir_dest_bit_size(intr->dest));
+   nir_ssa_def *count = load_clc_work_properties(b, intr, var,
+                                                  offsetof(struct clc_work_properties_data,
+                                                  group_count_total_x));
    nir_ssa_def_rewrite_uses(&intr->dest.ssa, count);
    nir_instr_remove(&intr->instr);
    return true;
@@ -107,13 +109,9 @@ lower_load_base_work_group_id(nir_builder *b, nir_intrinsic_instr *intr,
 {
    b->cursor = nir_after_instr(&intr->instr);
 
-   nir_ssa_def *offset =
-      build_load_ubo_dxil(b, nir_imm_int(b, var->data.binding),
-                         nir_imm_int(b,
-                                     offsetof(struct clc_work_properties_data,
-                                              group_id_offset_x)),
-                         nir_dest_num_components(intr->dest),
-                         nir_dest_bit_size(intr->dest));
+   nir_ssa_def *offset = load_clc_work_properties(b, intr, var,
+                                                  offsetof(struct clc_work_properties_data,
+                                                  group_id_offset_x));
    nir_ssa_def_rewrite_uses(&intr->dest.ssa, offset);
    nir_instr_remove(&intr->instr);
    return true;

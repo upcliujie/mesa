@@ -212,49 +212,6 @@ ubo_load_select_32b_comps(nir_builder *b, nir_ssa_def *vec32,
    return nir_bcsel(b, cond, comps[1], comps[0]);
 }
 
-nir_ssa_def *
-build_load_ubo_dxil(nir_builder *b, nir_ssa_def *buffer,
-                    nir_ssa_def *offset, unsigned num_components,
-                    unsigned bit_size)
-{
-   nir_ssa_def *idx = nir_ushr(b, offset, nir_imm_int(b, 4));
-   nir_ssa_def *comps[NIR_MAX_VEC_COMPONENTS];
-   unsigned num_bits = num_components * bit_size;
-   unsigned comp_idx = 0;
-
-   /* We need to split loads in 16byte chunks because that's the
-    * granularity of cBufferLoadLegacy().
-    */
-   for (unsigned i = 0; i < num_bits; i += (16 * 8)) {
-      /* For each 16byte chunk (or smaller) we generate a 32bit ubo vec
-       * load.
-       */
-      unsigned subload_num_bits = MIN2(num_bits - i, 16 * 8);
-      nir_ssa_def *vec32 =
-         nir_load_ubo_dxil(b, 4, 32, buffer, nir_iadd(b, idx, nir_imm_int(b, i / (16 * 8))));
-
-      /* First re-arrange the vec32 to account for intra 16-byte offset. */
-      vec32 = ubo_load_select_32b_comps(b, vec32, offset, subload_num_bits / 8);
-
-      /* If we have 2 bytes or less to load we need to adjust the u32 value so
-       * we can always extract the LSB.
-       */
-      if (subload_num_bits <= 16) {
-         nir_ssa_def *shift = nir_imul(b, nir_iand(b, offset,
-                                                      nir_imm_int(b, 3)),
-                                          nir_imm_int(b, 8));
-         vec32 = nir_ushr(b, vec32, shift);
-      }
-
-      /* And now comes the pack/unpack step to match the original type. */
-      extract_comps_from_vec32(b, vec32, bit_size, &comps[comp_idx],
-                               subload_num_bits / bit_size);
-      comp_idx += subload_num_bits / bit_size;
-   }
-
-   assert(comp_idx == num_components);
-   return nir_vec(b, comps, num_components);
-}
 
 static bool
 lower_load_ssbo(nir_builder *b, nir_intrinsic_instr *intr)
@@ -684,24 +641,6 @@ dxil_nir_lower_ubo_to_temp(nir_shader *nir)
    return progress;
 }
 
-static bool
-lower_load_ubo(nir_builder *b, nir_intrinsic_instr *intr)
-{
-   assert(intr->dest.is_ssa);
-   assert(intr->src[0].is_ssa);
-   assert(intr->src[1].is_ssa);
-
-   b->cursor = nir_before_instr(&intr->instr);
-
-   nir_ssa_def *result =
-      build_load_ubo_dxil(b, intr->src[0].ssa, intr->src[1].ssa,
-                             nir_dest_num_components(intr->dest),
-                             nir_dest_bit_size(intr->dest));
-
-   nir_ssa_def_rewrite_uses(&intr->dest.ssa, result);
-   nir_instr_remove(&intr->instr);
-   return true;
-}
 
 bool
 dxil_nir_lower_loads_stores_to_dxil(nir_shader *nir)
@@ -732,9 +671,6 @@ dxil_nir_lower_loads_stores_to_dxil(nir_shader *nir)
                break;
             case nir_intrinsic_load_ssbo:
                progress |= lower_load_ssbo(&b, intr);
-               break;
-            case nir_intrinsic_load_ubo:
-               progress |= lower_load_ubo(&b, intr);
                break;
             case nir_intrinsic_store_shared:
             case nir_intrinsic_store_scratch:

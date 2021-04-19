@@ -2553,37 +2553,7 @@ emit_store_scratch(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 }
 
 static bool
-emit_load_ubo(struct ntd_context *ctx, nir_intrinsic_instr *intr)
-{
-   const struct dxil_value* handle = get_ubo_ssbo_handle(ctx, &intr->src[0], DXIL_RESOURCE_CLASS_CBV, 0);
-   if (!handle)
-      return false;
-
-   const struct dxil_value *offset;
-   nir_const_value *const_offset = nir_src_as_const_value(intr->src[1]);
-   if (const_offset) {
-      offset = dxil_module_get_int32_const(&ctx->mod, const_offset->i32 >> 4);
-   } else {
-      const struct dxil_value *offset_src = get_src(ctx, &intr->src[1], 0, nir_type_uint);
-      const struct dxil_value *c4 = dxil_module_get_int32_const(&ctx->mod, 4);
-      offset = dxil_emit_binop(&ctx->mod, DXIL_BINOP_ASHR, offset_src, c4, 0);
-   }
-
-   const struct dxil_value *agg = load_ubo(ctx, handle, offset, DXIL_F32);
-
-   if (!agg)
-      return false;
-
-   for (unsigned i = 0; i < nir_dest_num_components(intr->dest); ++i) {
-      const struct dxil_value *retval = dxil_emit_extractval(&ctx->mod, agg, i);
-      store_dest(ctx, &intr->dest, i, retval,
-                 nir_dest_bit_size(intr->dest) > 1 ? nir_type_float : nir_type_bool);
-   }
-   return true;
-}
-
-static bool
-emit_load_ubo_dxil(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+emit_load_ubo_vec4(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    assert(nir_dest_num_components(intr->dest) <= 4);
    assert(nir_dest_bit_size(intr->dest) == 32);
@@ -3355,8 +3325,8 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_load_ptr(ctx, intr);
    case nir_intrinsic_load_ubo:
       return emit_load_ubo(ctx, intr);
-   case nir_intrinsic_load_ubo_dxil:
-      return emit_load_ubo_dxil(ctx, intr);
+   case nir_intrinsic_load_ubo_vec4:
+      return emit_load_ubo_vec4(ctx, intr);
    case nir_intrinsic_load_front_face:
       return emit_load_input_interpolated(ctx, intr,
                                           ctx->system_value[SYSTEM_VALUE_FRONT_FACE]);

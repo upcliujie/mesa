@@ -47,11 +47,6 @@ bool dxil_nir_lower_fp16_casts(nir_shader *shader);
 bool dxil_nir_split_clip_cull_distance(nir_shader *shader);
 bool dxil_nir_lower_double_math(nir_shader *shader);
 
-nir_ssa_def *
-build_load_ubo_dxil(nir_builder *b, nir_ssa_def *buffer,
-                    nir_ssa_def *offset, unsigned num_components,
-                    unsigned bit_size);
-
 #ifdef __cplusplus
 }
 #endif

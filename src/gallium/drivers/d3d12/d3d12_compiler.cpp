@@ -147,7 +147,7 @@ compile_nir(struct d3d12_context *ctx, struct d3d12_shader_selector *sel,
 
    uint32_t num_ubos_before_lower_to_ubo = nir->info.num_ubos;
    uint32_t num_uniforms_before_lower_to_ubo = nir->num_uniforms;
-   NIR_PASS_V(nir, nir_lower_uniforms_to_ubo, false, false);
+   NIR_PASS_V(nir, nir_lower_uniforms_to_ubo, false, true);
    shader->has_default_ubo0 = num_uniforms_before_lower_to_ubo > 0 &&
                               nir->info.num_ubos > num_ubos_before_lower_to_ubo;
 
@@ -157,7 +157,7 @@ compile_nir(struct d3d12_context *ctx, struct d3d12_shader_selector *sel,
       NIR_PASS_V(nir, nir_lower_clip_halfz);
       NIR_PASS_V(nir, d3d12_lower_yflip);
    }
-   NIR_PASS_V(nir, nir_lower_packed_ubo_loads);
+   NIR_PASS_V(nir, nir_lower_ubo_vec4);
    NIR_PASS_V(nir, d3d12_lower_load_first_vertex);
    NIR_PASS_V(nir, d3d12_lower_state_vars, shader);
    NIR_PASS_V(nir, d3d12_lower_bool_input);
