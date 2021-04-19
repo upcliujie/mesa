@@ -505,7 +505,8 @@ struct fd_context {
    void (*clear_ubwc)(struct fd_batch *batch, struct fd_resource *rsc) dt;
 
    /* handling for barriers: */
-   void (*framebuffer_barrier)(struct fd_context *ctx) dt;
+   bool (*texture_barrier)(struct fd_context *ctx, unsigned flags) dt;
+   bool (*memory_barrier)(struct fd_context *ctx, unsigned flags) dt;
 
    /* logger: */
    void (*record_timestamp)(struct fd_ringbuffer *ring, struct fd_bo *bo,
