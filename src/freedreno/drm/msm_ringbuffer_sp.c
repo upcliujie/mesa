@@ -70,8 +70,9 @@ struct msm_submit_sp {
     */
    struct fd_ringbuffer *suballoc_ring;
 
-   /* State for enqueued submits:
+   /* State for enqueued submits, updated before the submit is enqueud
     */
+   unsigned nr_deferred_cmds;
    int in_fence_fd;
    struct fd_submit_fence *out_fence;
    struct list_head deferred_submits;
@@ -88,6 +89,7 @@ FD_DEFINE_CAST(fd_submit, msm_submit_sp);
 struct msm_cmd_sp {
    struct fd_bo *ring_bo;
    unsigned size;
+   unsigned submit_idx;
 };
 
 struct msm_ringbuffer_sp {
@@ -251,8 +253,10 @@ msm_submit_sp_flush_prep(struct fd_submit *submit)
    struct msm_ringbuffer_sp *primary =
       to_msm_ringbuffer_sp(msm_submit->primary);
 
-   for (unsigned i = 0; i < primary->u.nr_cmds; i++)
-      msm_submit_append_bo(msm_submit, primary->u.cmds[i].ring_bo);
+   for (unsigned i = 0; i < primary->u.nr_cmds; i++) {
+      primary->u.cmds[i].submit_idx =
+            msm_submit_append_bo(msm_submit, primary->u.cmds[i].ring_bo);
+   }
 
    for (unsigned i = 0; i < msm_submit->nr_bos; i++)
       fd_bo_set_fence(msm_submit->bos[i], submit->pipe, submit->fence);
@@ -271,20 +275,9 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
    };
    int ret;
 
-   unsigned deferred_cmds = 0;
-
-   /* Determine the number of extra cmds's from deferred submits that
-    * we will be merging in:
-    */
-   list_for_each_entry (struct fd_submit, deferred_submit, deferred_submits, node) {
-      struct msm_submit_sp *msm_deferred_submit = to_msm_submit_sp(deferred_submit);
-
-      deferred_cmds += to_msm_ringbuffer_sp(msm_deferred_submit->primary)->u.nr_cmds;
-   }
-
    struct msm_ringbuffer_sp *primary =
       to_msm_ringbuffer_sp(msm_submit->primary);
-   struct drm_msm_gem_submit_cmd cmds[primary->u.nr_cmds + deferred_cmds];
+   struct drm_msm_gem_submit_cmd cmds[primary->u.nr_cmds + msm_submit->nr_deferred_cmds];
 
    unsigned cmd_idx = 0;
 
@@ -298,27 +291,13 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
 
       for (unsigned i = 0; i < deferred_primary->u.nr_cmds; i++) {
          cmds[cmd_idx].type = MSM_SUBMIT_CMD_BUF;
-         cmds[cmd_idx].submit_idx =
-               msm_submit_append_bo(msm_submit, deferred_primary->u.cmds[i].ring_bo);
+         cmds[cmd_idx].submit_idx = deferred_primary->u.cmds[i].submit_idx;
          cmds[cmd_idx].submit_offset = deferred_primary->offset;
          cmds[cmd_idx].size = deferred_primary->u.cmds[i].size;
          cmds[cmd_idx].pad = 0;
          cmds[cmd_idx].nr_relocs = 0;
 
          cmd_idx++;
-      }
-
-      for (unsigned i = 0; i < msm_deferred_submit->nr_bos; i++) {
-         /* Note: if bo is used in both the current submit and the deferred
-          * submit being merged, we expect to hit the fast-path as we add it
-          * to the current submit:
-          *
-          * TODO we might want to try to do all the msm_submit_append_bo()
-          * synchronously before pushing the rest to the submit-queue, since
-          * we have a better chance to hit the fast-path before the driver
-          * thread has moved on to re-using bo's in later rendering?
-          */
-         msm_submit_append_bo(msm_submit, msm_deferred_submit->bos[i]);
       }
 
       /* Now that the cmds/bos have been transfered over to the current submit,
@@ -332,8 +311,7 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
 
    for (unsigned i = 0; i < primary->u.nr_cmds; i++) {
       cmds[cmd_idx].type = MSM_SUBMIT_CMD_BUF;
-      cmds[cmd_idx].submit_idx =
-         msm_submit_append_bo(msm_submit, primary->u.cmds[i].ring_bo);
+      cmds[cmd_idx].submit_idx = primary->u.cmds[i].submit_idx;
       cmds[cmd_idx].submit_offset = primary->offset;
       cmds[cmd_idx].size = primary->u.cmds[i].size;
       cmds[cmd_idx].pad = 0;
@@ -379,7 +357,7 @@ msm_submit_sp_flush_finish(struct fd_submit *submit, int in_fence_fd,
    req.bos = VOID2U64(submit_bos);
    req.nr_bos = msm_submit->nr_bos;
    req.cmds = VOID2U64(cmds);
-   req.nr_cmds = primary->u.nr_cmds + deferred_cmds;
+   req.nr_cmds = primary->u.nr_cmds + msm_submit->nr_deferred_cmds;
 
    DEBUG_MSG("nr_cmds=%u, nr_bos=%u", req.nr_cmds, req.nr_bos);
 
@@ -430,6 +408,31 @@ msm_submit_sp_flush_enqueue(struct fd_submit *submit, int in_fence_fd,
                             struct list_head *deferred_submits)
 {
    struct msm_submit_sp *msm_submit = to_msm_submit_sp(submit);
+
+   /* Do the parts of submit-merging that involve msm_submit_append_bo()
+    * up-front, because we are more likely to hit the fast-path before
+    * the bo's start getting used in later submits.
+    */
+   list_for_each_entry (struct fd_submit, deferred_submit, deferred_submits, node) {
+      struct msm_submit_sp *msm_deferred_submit = to_msm_submit_sp(deferred_submit);
+      struct msm_ringbuffer_sp *deferred_primary =
+         to_msm_ringbuffer_sp(msm_deferred_submit->primary);
+
+      msm_submit->nr_deferred_cmds += deferred_primary->u.nr_cmds;
+
+      for (unsigned i = 0; i < deferred_primary->u.nr_cmds; i++) {
+         deferred_primary->u.cmds[i].submit_idx =
+               msm_submit_append_bo(msm_submit, deferred_primary->u.cmds[i].ring_bo);
+      }
+
+      for (unsigned i = 0; i < msm_deferred_submit->nr_bos; i++) {
+         /* Note: if bo is used in both the current submit and the deferred
+          * submit being merged, we expect to hit the fast-path as we add it
+          * to the current submit:
+          */
+         msm_submit_append_bo(msm_submit, msm_deferred_submit->bos[i]);
+      }
+   }
 
    msm_submit->in_fence_fd = (in_fence_fd == -1) ?
          -1 : os_dupfd_cloexec(in_fence_fd);
