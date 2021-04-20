@@ -55,6 +55,12 @@ struct msm_pipe {
    uint32_t queue_id;
    struct slab_parent_pool ring_pool;
    struct util_queue submit_queue;
+
+   /**
+    * If we *ever* see an in-fence-fd, assume that userspace is
+    * not relying on implicit fences.
+    */
+   bool no_implicit_sync;
 };
 FD_DEFINE_CAST(fd_pipe, msm_pipe);
 
