@@ -2341,8 +2341,6 @@ emit_gep_for_index(struct ntd_context *ctx, const nir_variable *var,
 static const struct dxil_value *
 get_ubo_ssbo_handle(struct ntd_context *ctx, nir_src *src, enum dxil_resource_class class, unsigned base_binding)
 {
-   assume(class == DXIL_RESOURCE_CLASS_CBV || class == DXIL_RESOURCE_CLASS_UAV);
-
    /* This source might be one of:
     * 1. Constant resource index - just look it up in precomputed handle arrays
     *    If it's null in that array, create a handle, and store the result
@@ -2353,10 +2351,19 @@ get_ubo_ssbo_handle(struct ntd_context *ctx, nir_src *src, enum dxil_resource_cl
    nir_const_value *const_block_index = nir_src_as_const_value(*src);
    const struct dxil_value **handle_entry = NULL;
    if (const_block_index) {
-      if (class == DXIL_RESOURCE_CLASS_CBV)
+      switch (class) {
+      case DXIL_RESOURCE_CLASS_CBV:
          handle_entry = &ctx->cbv_handles[const_block_index->u32];
-      else
+         break;
+      case DXIL_RESOURCE_CLASS_UAV:
          handle_entry = &ctx->uav_handles[const_block_index->u32];
+         break;
+      case DXIL_RESOURCE_CLASS_SRV:
+         handle_entry = &ctx->srv_handles[const_block_index->u32];
+         break;
+      default:
+         unreachable("Unexpected resource class");
+      }
    }
 
    if (handle_entry && *handle_entry)
@@ -2380,7 +2387,12 @@ emit_load_ssbo(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    const struct dxil_value *int32_undef = get_int32_undef(&ctx->mod);
 
-   const struct dxil_value *handle = get_ubo_ssbo_handle(ctx, &intr->src[0], DXIL_RESOURCE_CLASS_UAV, 0);
+   nir_variable *var = nir_get_binding_variable(ctx->shader, nir_chase_binding(intr->src[0]));
+   enum dxil_resource_class class = DXIL_RESOURCE_CLASS_UAV;
+   if (var && var->data.access & ACCESS_NON_WRITEABLE)
+      class = DXIL_RESOURCE_CLASS_SRV;
+
+   const struct dxil_value *handle = get_ubo_ssbo_handle(ctx, &intr->src[0], class, 0);
    const struct dxil_value *offset =
       get_src(ctx, &intr->src[1], 0, nir_type_uint);
    if (!int32_undef || !handle || !offset)
@@ -3291,6 +3303,8 @@ emit_load_vulkan_descriptor(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       binding += nir_src_as_const_value(index->src[0])->u32;
    }
 
+   nir_variable *var = nir_get_binding_variable(ctx->shader, nir_chase_binding(intr->src[0]));
+
    const struct dxil_value *handle = NULL;
    const struct dxil_value **handle_entry = NULL;
    enum dxil_resource_class resource_class;
@@ -3301,8 +3315,13 @@ emit_load_vulkan_descriptor(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       resource_class = DXIL_RESOURCE_CLASS_CBV;
       break;
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-      handle_entry = &ctx->uav_handles[binding];
-      resource_class = DXIL_RESOURCE_CLASS_UAV;
+      if (var->data.access & ACCESS_NON_WRITEABLE) {
+         handle_entry = &ctx->srv_handles[binding];
+         resource_class = DXIL_RESOURCE_CLASS_SRV;
+      } else {
+         handle_entry = &ctx->uav_handles[binding];
+         resource_class = DXIL_RESOURCE_CLASS_UAV;
+      }
       break;
    default:
       unreachable("unknown descriptor type");
@@ -4156,7 +4175,12 @@ emit_ssbos(struct ntd_context *ctx)
       unsigned count = 1;
       if (glsl_type_is_array(var->type))
          count = glsl_get_length(var->type);
-      if (!emit_uav(ctx, var->data.binding, count, DXIL_COMP_TYPE_INVALID, DXIL_RESOURCE_KIND_RAW_BUFFER, var->name))
+
+      bool success = (var->data.access & ACCESS_NON_WRITEABLE) ?
+         emit_srv(ctx, var, var->data.binding, count) :
+         emit_uav(ctx, var->data.binding, count, DXIL_COMP_TYPE_INVALID, DXIL_RESOURCE_KIND_RAW_BUFFER, var->name);
+
+      if (!success)
          return false;
    }
 
