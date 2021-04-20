@@ -185,7 +185,9 @@ gather_vars_written(struct copy_prop_var_state *state,
             break;
 
          case nir_intrinsic_trace_ray:
-         case nir_intrinsic_execute_callable: {
+         case nir_intrinsic_execute_callable:
+         case nir_intrinsic_rt_trace_ray:
+         case nir_intrinsic_rt_execute_callable: {
             nir_deref_instr *payload =
                nir_src_as_deref(*nir_get_shader_call_payload_src(intrin));
 
