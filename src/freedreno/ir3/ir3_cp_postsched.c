@@ -182,6 +182,27 @@ instr_cp_postsched(struct ir3_instruction *mov)
 		}
 	}
 
+	bool has_true_dep = false;
+	foreach_ssa_use (use, mov) {
+		foreach_src_n (reg, n, use) {
+			if (ssa(reg) == mov) {
+				has_true_dep = true;
+				break;
+			}
+		}
+		if (has_true_dep)
+			break;
+	}
+
+	bool progress =
+		util_dynarray_num_elements(&newdeps, struct ir3_instruction **) > 0;
+
+	/* If there is even single true dependency on this mov, it won't be
+	 * removed and we don't need to update dependencies.
+	 */
+	if (has_true_dep)
+		return progress;
+
 	/* Once we have the complete set of instruction(s) that are are now
 	 * directly reading from the array, update any false-dep uses to
 	 * now depend on these instructions.  The only remaining uses at
@@ -194,7 +215,7 @@ instr_cp_postsched(struct ir3_instruction *mov)
 		}
 	}
 
-	return util_dynarray_num_elements(&newdeps, struct ir3_instruction **) > 0;
+	return progress;
 }
 
 bool
