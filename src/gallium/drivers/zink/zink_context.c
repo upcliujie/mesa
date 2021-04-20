@@ -1235,6 +1235,9 @@ static void
 flush_batch(struct zink_context *ctx, bool sync)
 {
    struct zink_batch *batch = &ctx->batch;
+   if (ctx->clears_enabled)
+      /* start rp to do all the clears */
+      zink_begin_render_pass(ctx, batch);
    zink_end_render_pass(ctx, batch);
    zink_end_batch(ctx, batch);
 
@@ -1716,13 +1719,6 @@ zink_flush(struct pipe_context *pctx,
    struct zink_batch *batch = &ctx->batch;
    struct zink_fence *fence = NULL;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-
-   if (!deferred) {
-      if (ctx->clears_enabled)
-         /* start rp to do all the clears */
-         zink_begin_render_pass(ctx, batch);
-      zink_end_render_pass(ctx, batch);
-   }
 
    if (!batch->has_work) {
        if (pfence) {
