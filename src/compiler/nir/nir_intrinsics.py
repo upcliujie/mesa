@@ -482,6 +482,24 @@ intrinsic("terminate_ray")
 # src[] = { sbt_index, payload }
 intrinsic("execute_callable", src_comp=[1, -1])
 
+# Driver independent raytracing helpers
+
+# rt_resume is a helper that that be the first instruction accesing the stack/scratch in a resume shader for a
+# raytracing pipeline. It includes the resume index (for nir_lower_shader_calls_internal reasons) and the stack size
+# of the variables spilled during the call. The stack size can be use to e.g. adjust a stack pointer.
+# BASE=call_idx RANGE=stack_size
+intrinsic("rt_resume", indices=[BASE, RANGE])
+
+# Lowered version of execute_callabe that includes the index of the resume shader, and the amount of scratch space
+# needed for this call (.ie. how much to increase a stack pointer by).
+# src[] = { sbt_index, payload } BASE=resume call_idx RANGE=stack_size
+intrinsic("rt_execute_callable", src_comp=[1, -1], indices=[BASE, RANGE])
+
+# Lowered version of trace_ray in a similar vein to rt_execute_callable.
+# src same as trace_ray BASE=resume call_idx RANGE=stack_size
+intrinsic("rt_trace_ray", src_comp=[-1, 1, 1, 1, 1, 1, 3, 1, 3, 1, -1], indices=[BASE, RANGE])
+
+
 # Atomic counters
 #
 # The *_var variants take an atomic_uint nir_variable, while the other,
