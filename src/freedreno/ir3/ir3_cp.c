@@ -548,23 +548,27 @@ instr_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr)
 			(instr->regs[2]->iim_val == 0) &&
 			(instr->cat2.condition == IR3_COND_NE)) {
 		struct ir3_instruction *cond = ssa(instr->regs[1]);
-		switch (cond->opc) {
-		case OPC_CMPS_S:
-		case OPC_CMPS_F:
-		case OPC_CMPS_U:
-			instr->opc   = cond->opc;
-			instr->flags = cond->flags;
-			instr->cat2  = cond->cat2;
-			ir3_instr_set_address(instr, cond->address);
-			instr->regs[1] = cond->regs[1];
-			instr->regs[2] = cond->regs[2];
-			instr->barrier_class |= cond->barrier_class;
-			instr->barrier_conflict |= cond->barrier_conflict;
-			unuse(cond);
-			ctx->progress = true;
-			break;
-		default:
-			break;
+
+		if (instr->address == cond->address ||
+				instr->block == cond->address->block) {
+			switch (cond->opc) {
+			case OPC_CMPS_S:
+			case OPC_CMPS_F:
+			case OPC_CMPS_U:
+				instr->opc   = cond->opc;
+				instr->flags = cond->flags;
+				instr->cat2  = cond->cat2;
+				ir3_instr_set_address(instr, cond->address);
+				instr->regs[1] = cond->regs[1];
+				instr->regs[2] = cond->regs[2];
+				instr->barrier_class |= cond->barrier_class;
+				instr->barrier_conflict |= cond->barrier_conflict;
+				unuse(cond);
+				ctx->progress = true;
+				break;
+			default:
+				break;
+			}
 		}
 	}
 
