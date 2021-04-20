@@ -392,6 +392,7 @@ vtn_pointer_dereference(struct vtn_builder *b,
           * will dereference deeper.
           */
          struct vtn_pointer *ptr = rzalloc(b, struct vtn_pointer);
+         ptr->ptr_type = base->ptr_type;
          ptr->mode = base->mode;
          ptr->type = type;
          ptr->block_index = block_index;
@@ -464,6 +465,7 @@ vtn_pointer_dereference(struct vtn_builder *b,
    }
 
    struct vtn_pointer *ptr = rzalloc(b, struct vtn_pointer);
+   ptr->ptr_type = base->ptr_type;
    ptr->mode = base->mode;
    ptr->type = type;
    ptr->var = base->var;
