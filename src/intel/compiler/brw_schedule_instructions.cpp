@@ -1104,6 +1104,7 @@ fs_instruction_scheduler::calculate_deps()
    schedule_node *last_mrf_write[BRW_MAX_MRF(v->devinfo->ver)];
    schedule_node *last_conditional_mod[8] = {};
    schedule_node *last_accumulator_write = NULL;
+   schedule_node *last_arf_write = NULL;
    /* Fixed HW registers are assumed to be separate from the virtual
     * GRFs, so they can be tracked separately.  We don't really write
     * to fixed GRFs much, so don't bother tracking them on a more
@@ -1143,7 +1144,7 @@ fs_instruction_scheduler::calculate_deps()
          } else if (inst->src[i].is_accumulator()) {
             add_dep(last_accumulator_write, n);
          } else if (inst->src[i].file == ARF) {
-            add_barrier_deps(n);
+            add_dep(last_arf_write, n);
          }
       }
 
@@ -1212,7 +1213,8 @@ fs_instruction_scheduler::calculate_deps()
          add_dep(last_accumulator_write, n);
          last_accumulator_write = n;
       } else if (inst->dst.file == ARF && !inst->dst.is_null()) {
-         add_barrier_deps(n);
+         add_dep(last_arf_write, n);
+         last_arf_write = n;
       }
 
       if (inst->mlen > 0 && inst->base_mrf != -1) {
@@ -1245,6 +1247,7 @@ fs_instruction_scheduler::calculate_deps()
    memset(last_mrf_write, 0, sizeof(last_mrf_write));
    memset(last_conditional_mod, 0, sizeof(last_conditional_mod));
    last_accumulator_write = NULL;
+   last_arf_write = NULL;
    last_fixed_grf_write = NULL;
 
    foreach_in_list_reverse_safe(schedule_node, n, &instructions) {
@@ -1272,7 +1275,7 @@ fs_instruction_scheduler::calculate_deps()
          } else if (inst->src[i].is_accumulator()) {
             add_dep(n, last_accumulator_write, 0);
          } else if (inst->src[i].file == ARF) {
-            add_barrier_deps(n);
+            add_dep(n, last_arf_write, 0);
          }
       }
 
@@ -1335,7 +1338,7 @@ fs_instruction_scheduler::calculate_deps()
       } else if (inst->dst.is_accumulator()) {
          last_accumulator_write = n;
       } else if (inst->dst.file == ARF && !inst->dst.is_null()) {
-         add_barrier_deps(n);
+         last_arf_write = n;
       }
 
       if (inst->mlen > 0 && inst->base_mrf != -1) {
@@ -1368,6 +1371,7 @@ vec4_instruction_scheduler::calculate_deps()
    schedule_node *last_mrf_write[BRW_MAX_MRF(v->devinfo->ver)];
    schedule_node *last_conditional_mod = NULL;
    schedule_node *last_accumulator_write = NULL;
+   schedule_node *last_arf_write = NULL;
    /* Fixed HW registers are assumed to be separate from the virtual
     * GRFs, so they can be tracked separately.  We don't really write
     * to fixed GRFs much, so don't bother tracking them on a more
@@ -1396,7 +1400,7 @@ vec4_instruction_scheduler::calculate_deps()
             assert(last_accumulator_write);
             add_dep(last_accumulator_write, n);
          } else if (inst->src[i].file == ARF) {
-            add_barrier_deps(n);
+            add_dep(last_arf_write, n);
          }
       }
 
@@ -1439,7 +1443,8 @@ vec4_instruction_scheduler::calculate_deps()
          add_dep(last_accumulator_write, n);
          last_accumulator_write = n;
       } else if (inst->dst.file == ARF && !inst->dst.is_null()) {
-         add_barrier_deps(n);
+         add_dep(last_arf_write, n);
+         last_arf_write = n;
       }
 
       if (inst->mlen > 0 && !inst->is_send_from_grf()) {
@@ -1466,6 +1471,7 @@ vec4_instruction_scheduler::calculate_deps()
    memset(last_mrf_write, 0, sizeof(last_mrf_write));
    last_conditional_mod = NULL;
    last_accumulator_write = NULL;
+   last_arf_write = NULL;
    last_fixed_grf_write = NULL;
 
    foreach_in_list_reverse_safe(schedule_node, n, &instructions) {
@@ -1481,7 +1487,7 @@ vec4_instruction_scheduler::calculate_deps()
          } else if (inst->src[i].is_accumulator()) {
             add_dep(n, last_accumulator_write);
          } else if (inst->src[i].file == ARF) {
-            add_barrier_deps(n);
+            add_dep(n, last_arf_write);
          }
       }
 
@@ -1516,7 +1522,7 @@ vec4_instruction_scheduler::calculate_deps()
       } else if (inst->dst.is_accumulator()) {
          last_accumulator_write = n;
       } else if (inst->dst.file == ARF && !inst->dst.is_null()) {
-         add_barrier_deps(n);
+         last_arf_write = n;
       }
 
       if (inst->mlen > 0 && !inst->is_send_from_grf()) {
