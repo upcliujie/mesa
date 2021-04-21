@@ -206,3 +206,18 @@ spec@nv_primitive_restart@primitive-restart-vbo_combined_vertex_and_index,Fail
 spec@nv_primitive_restart@primitive-restart-vbo_index_only,Fail
 spec@nv_primitive_restart@primitive-restart-vbo_separate_vertex_and_index,Fail
 spec@nv_primitive_restart@primitive-restart-vbo_vertex_only,Fail
+fast_color_clear@fcc-write-after-clear,Fail
+spec@!opengl 3.0@clearbuffer-depth-cs-probe,Fail
+spec@arb_compute_shader@local-id-explosion,Timeout
+spec@arb_pixel_buffer_object@fbo-pbo-readpixels-small,Fail
+spec@arb_pixel_buffer_object@pbo-read-argb8888,Fail
+spec@arb_pixel_buffer_object@pbo-readpixels-small,Fail
+spec@arb_post_depth_coverage@arb_post_depth_coverage-multisampling,Fail
+spec@arb_shader_image_load_store@early-z,Fail
+spec@arb_shader_image_load_store@indexing,Fail
+spec@arb_shader_image_load_store@invalid,Crash
+spec@khr_texture_compression_astc@array-gles,Fail
+spec@mesa_pack_invert@mesa_pack_invert-readpixels,Fail
+spec@oes_egl_image_external_essl3@oes_egl_image_external_essl3,Crash
+spec@oes_texture_view@rendering-formats,Fail
+spec@oes_texture_view@sampling-2d-array-as-cubemap-array,Fail
