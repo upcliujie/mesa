@@ -144,6 +144,7 @@ static const struct vk_device_extension_table lvp_device_extensions_supported = 
    .EXT_custom_border_color               = true,
    .EXT_provoking_vertex                  = true,
    .EXT_line_rasterization                = true,
+   .EXT_robustness2                       = true,
    .GOOGLE_decorate_string                = true,
    .GOOGLE_hlsl_functionality1            = true,
 };
@@ -658,6 +659,13 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures2(
          features->extendedDynamicState2PatchControlPoints = true;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT: {
+         VkPhysicalDeviceRobustness2FeaturesEXT *features = (VkPhysicalDeviceRobustness2FeaturesEXT *)ext;
+         features->robustBufferAccess2 = true;
+         features->robustImageAccess2 = true;
+         features->nullDescriptor = true;
+         break;
+      }
       default:
          break;
       }
@@ -991,6 +999,13 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceProperties2(
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_PROPERTIES_EXT: {
          VkPhysicalDeviceMultiDrawPropertiesEXT *props = (VkPhysicalDeviceMultiDrawPropertiesEXT *)ext;
          props->maxMultiDrawCount = 2048;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT: {
+         VkPhysicalDeviceRobustness2PropertiesEXT *props =
+            (VkPhysicalDeviceRobustness2PropertiesEXT *)ext;
+         props->robustStorageBufferAccessSizeAlignment = 1;
+         props->robustUniformBufferAccessSizeAlignment = 1;
          break;
       }
       default:
