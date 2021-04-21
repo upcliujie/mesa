@@ -262,7 +262,7 @@ nir_blend(
 
    /* Grab the blend constant ahead of time */
    nir_ssa_def *bconst;
-   if (options.is_bifrost) {
+   if (options.scalar) {
       /* Bifrost is a scalar architecture, so let's split loads now to avoid a
        * lowering pass.
        */
