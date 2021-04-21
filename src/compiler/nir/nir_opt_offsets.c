@@ -120,13 +120,9 @@ try_fold_load_store(nir_builder *b,
 }
 
 static bool
-process_instr(nir_builder *b, nir_instr *instr, void *s)
+process_instr(nir_builder *b, nir_intrinsic_instr *intrin, void *s)
 {
-   if (instr->type != nir_instr_type_intrinsic)
-      return false;
-
    opt_offsets_state *state = (opt_offsets_state *) s;
-   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
 
    switch (intrin->intrinsic) {
    case nir_intrinsic_load_shared:
@@ -150,10 +146,10 @@ nir_opt_offsets(nir_shader *shader)
    opt_offsets_state state;
    state.range_ht = NULL;
 
-   bool p = nir_shader_instructions_pass(shader, process_instr,
-                                         nir_metadata_block_index |
-                                         nir_metadata_dominance,
-                                         &state);
+   bool p = nir_shader_intrinsics_pass(shader, process_instr,
+                                       nir_metadata_block_index |
+                                       nir_metadata_dominance,
+                                       &state);
 
    if (state.range_ht)
       _mesa_hash_table_destroy(state.range_ht, NULL);
