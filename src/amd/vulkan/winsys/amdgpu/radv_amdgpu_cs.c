@@ -943,6 +943,7 @@ radv_amdgpu_winsys_cs_submit_sysmem(struct radeon_winsys_ctx *_ctx, int queue_id
 
             assert(size < 0xffff8);
 
+            pad_words = 0;
             while (!size || (size & 7)) {
                size++;
                pad_words++;
