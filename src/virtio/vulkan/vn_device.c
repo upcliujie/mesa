@@ -1361,6 +1361,11 @@ vn_physical_device_init_external_memory(
       physical_dev->external_memory.supported_handle_types =
          VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT |
          VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+
+      physical_dev->base.base.supported_extensions.KHR_external_memory_fd =
+         true;
+      physical_dev->base.base.supported_extensions
+         .EXT_external_memory_dma_buf = true;
    }
 }
 
@@ -2874,7 +2879,8 @@ vn_EnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice,
       if (physical_dev->base.base.supported_extensions.extensions[i]) {
          vk_outarray_append(&out, prop) {
             *prop = vk_device_extensions[i];
-            prop->specVersion = physical_dev->extension_spec_versions[i];
+            if (physical_dev->extension_spec_versions[i])
+               prop->specVersion = physical_dev->extension_spec_versions[i];
          }
       }
    }
@@ -3020,13 +3026,28 @@ merge_extension_names(const char *const *exts,
 }
 
 static const VkDeviceCreateInfo *
-vn_device_fix_create_info(const struct vn_physical_device *physical_dev,
+vn_device_fix_create_info(const struct vn_device *dev,
                           const VkDeviceCreateInfo *dev_info,
                           const VkAllocationCallbacks *alloc,
                           VkDeviceCreateInfo *local_info)
 {
+   const struct vn_physical_device *physical_dev = dev->physical_device;
    const char *extra_exts[8];
    uint32_t extra_count = 0;
+
+   if (dev->base.base.enabled_extensions.KHR_external_memory_fd ||
+       dev->base.base.enabled_extensions.EXT_external_memory_dma_buf) {
+      switch (physical_dev->external_memory.renderer_handle_type) {
+      case VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT:
+         extra_exts[extra_count++] = "VK_EXT_external_memory_dma_buf";
+         FALLTHROUGH;
+      case VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT:
+         extra_exts[extra_count++] = "VK_KHR_external_memory_fd";
+         break;
+      default:
+         break;
+      }
+   }
 
    if (physical_dev->wsi_device.supports_modifiers)
       extra_exts[extra_count++] = "VK_EXT_image_drm_format_modifier";
@@ -3078,8 +3099,8 @@ vn_CreateDevice(VkPhysicalDevice physicalDevice,
    dev->renderer = instance->renderer;
 
    VkDeviceCreateInfo local_create_info;
-   pCreateInfo = vn_device_fix_create_info(physical_dev, pCreateInfo, alloc,
-                                           &local_create_info);
+   pCreateInfo =
+      vn_device_fix_create_info(dev, pCreateInfo, alloc, &local_create_info);
    if (!pCreateInfo) {
       result = VK_ERROR_OUT_OF_HOST_MEMORY;
       goto fail;
