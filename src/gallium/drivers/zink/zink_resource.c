@@ -426,9 +426,10 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    VkMemoryRequirements reqs;
    VkMemoryPropertyFlags flags;
    bool need_dedicated = false;
-   VkExternalMemoryHandleTypeFlags external = 0;
+   VkExternalMemoryHandleTypeFlags export_types = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
    if (screen->info.have_EXT_external_memory_dma_buf)
-      external |= VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+      export_types |= VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+
    /* TODO: remove linear for wsi */
    bool scanout = templ->bind & PIPE_BIND_SCANOUT;
    bool shared = templ->bind & PIPE_BIND_SHARED;
@@ -471,7 +472,7 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
       if (shared) {
          emici.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
          emici.pNext = NULL;
-         emici.handleTypes = external;
+         emici.handleTypes = export_types;
          ici.pNext = &emici;
 
          assert(ici.tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT || mod != DRM_FORMAT_MOD_INVALID);
@@ -613,7 +614,7 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    VkExportMemoryAllocateInfo emai;
    if (templ->bind & PIPE_BIND_SHARED && shared) {
       emai.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
-      emai.handleTypes = external;
+      emai.handleTypes = export_types;
 
       emai.pNext = mai.pNext;
       mai.pNext = &emai;
@@ -624,7 +625,14 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
       NULL,
    };
 
-   if (whandle && (whandle->type == WINSYS_HANDLE_TYPE_FD || whandle->type == WINSYS_HANDLE_TYPE_KMS)) {
+   VkExternalMemoryHandleTypeFlags external = 0;
+   if (whandle) {
+      if (whandle->type == WINSYS_HANDLE_TYPE_FD)
+         external = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+      else if (whandle->type == WINSYS_HANDLE_TYPE_KMS)
+         external = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+      else
+         unreachable("unknown handle type");
       imfi.pNext = NULL;
       imfi.handleType = external;
       imfi.fd = whandle->handle;
