@@ -3563,15 +3563,11 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info, bool spir
    ctx.builder.mem_ctx = ctx.mem_ctx;
    ctx.spirv_15 = spirv_15;
 
-   switch (s->info.stage) {
-   case MESA_SHADER_VERTEX:
-   case MESA_SHADER_FRAGMENT:
-   case MESA_SHADER_COMPUTE:
-      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityShader);
-      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityImageBuffer);
-      spirv_builder_emit_cap(&ctx.builder, SpvCapabilitySampledBuffer);
-      break;
+   spirv_builder_emit_cap(&ctx.builder, SpvCapabilityShader);
+   spirv_builder_emit_cap(&ctx.builder, SpvCapabilityImageBuffer);
+   spirv_builder_emit_cap(&ctx.builder, SpvCapabilitySampledBuffer);
 
+   switch (s->info.stage) {
    case MESA_SHADER_TESS_CTRL:
    case MESA_SHADER_TESS_EVAL:
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityTessellation);
@@ -3588,8 +3584,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info, bool spir
          spirv_builder_emit_cap(&ctx.builder, SpvCapabilityGeometryPointSize);
       break;
 
-   default:
-      unreachable("invalid stage");
+   default: ;
    }
 
    ctx.info = &s->info;
