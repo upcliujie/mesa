@@ -3,6 +3,7 @@
 }
 
 #menu .caption {
+  cursor: pointer;
   margin-bottom: 0;
 }
 
