@@ -80,6 +80,7 @@ nir_builder_init_simple_shader(gl_shader_stage stage,
 }
 
 typedef bool (*nir_instr_pass_cb)(struct nir_builder *, nir_instr *, void *);
+typedef bool (*nir_intr_pass_cb)(struct nir_builder *, nir_intrinsic_instr *, void *);
 
 /**
  * Iterates over all the instructions in a NIR shader and calls the given pass
@@ -109,6 +110,39 @@ nir_shader_instructions_pass(nir_shader *shader,
       nir_foreach_block_safe(block, function->impl) {
          nir_foreach_instr_safe(instr, block) {
             progress |= pass(&b, instr, cb_data);
+         }
+      }
+
+      if (progress) {
+         nir_metadata_preserve(function->impl, preserved);
+      } else {
+         nir_metadata_preserve(function->impl, nir_metadata_all);
+      }
+   }
+
+   return progress;
+}
+
+/* A variant of the above specialized to intrinsics */
+static inline bool
+nir_shader_intrinsics_pass(nir_shader *shader,
+                           nir_intr_pass_cb pass,
+                           nir_metadata preserved,
+                           void *cb_data)
+{
+   bool progress = false;
+
+   nir_foreach_function(function, shader) {
+      if (!function->impl)
+         continue;
+
+      nir_builder b;
+      nir_builder_init(&b, function->impl);
+
+      nir_foreach_block_safe(block, function->impl) {
+         nir_foreach_instr_safe(instr, block) {
+            if (instr->type == nir_instr_type_intrinsic)
+               progress |= pass(&b, nir_instr_as_intrinsic(instr), cb_data);
          }
       }
 
