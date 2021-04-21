@@ -82,11 +82,9 @@ struct _glapi_table;
 extern __declspec(thread) struct _glapi_table * _glapi_tls_Dispatch;
 extern __declspec(thread) void * _glapi_tls_Context;
 #else
-_GLAPI_EXPORT extern __thread struct _glapi_table * _glapi_tls_Dispatch
-    __attribute__((tls_model("initial-exec")));
+_GLAPI_EXPORT extern __thread struct _glapi_table * _glapi_tls_Dispatch TLS_MODEL;
 
-_GLAPI_EXPORT extern __thread void * _glapi_tls_Context
-    __attribute__((tls_model("initial-exec")));
+_GLAPI_EXPORT extern __thread void * _glapi_tls_Context TLS_MODEL;
 #endif
 
 _GLAPI_EXPORT extern const struct _glapi_table *_glapi_Dispatch;

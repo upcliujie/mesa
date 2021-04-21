@@ -46,7 +46,7 @@
  *                 called afterward and it'll fill in the correct dispatch
  *                 offset.  This allows DRI libGL to avoid probing for DRI
  *                 drivers!  No changes to the public glapi interface.
- */
+*/
 
 #include "c11/threads.h"
 #include "util/u_thread.h"
@@ -105,12 +105,11 @@ __declspec(thread) struct _glapi_table *u_current_table
     = (struct _glapi_table *) table_noop_array;
 __declspec(thread) void *u_current_context;
 #else
-__thread struct _glapi_table *u_current_table
-    __attribute__((tls_model("initial-exec")))
+
+__thread struct _glapi_table *u_current_table TLS_MODEL
     = (struct _glapi_table *) table_noop_array;
 
-__thread void *u_current_context
-    __attribute__((tls_model("initial-exec")));
+__thread void *u_current_context TLS_MODEL;
 #endif
 
 #else
