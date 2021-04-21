@@ -1134,6 +1134,14 @@ if host_machine.system() == 'windows'
   endif
 endif
 
+# By default the NDK compiler, at least, emits emutls references instead of
+# ELF TLS, even when building targeting newer API levels.  Make it actually do
+# ELF TLS instead.
+if with_platform_android and use_elf_tls
+  c_args += '-fno-emulated-tls'
+  cpp_args += '-fno-emulated-tls'
+endif
+
 if get_option('sse2') and host_machine.system() == 'windows' and host_machine.cpu_family() == 'x86' and cc.get_id() == 'gcc'
   # These settings make generated MinGW code match MSVC and follow
   # GCC advice on https://gcc.gnu.org/wiki/FloatingPointMath#x86note
