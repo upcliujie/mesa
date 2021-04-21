@@ -454,6 +454,14 @@ if (not ['freebsd', 'openbsd', 'haiku'].contains(host_machine.system()) and
     (not with_platform_windows or not with_shared_glapi))
   pre_args += '-DUSE_ELF_TLS'
   use_elf_tls = true
+
+  if with_platform_android
+    # By default the NDK compiler, at least, emits emutls references instead of
+    # ELF TLS, even when building targeting newer API levels.  Make it actually do
+    # ELF TLS instead.
+    c_args += '-fno-emulated-tls'
+    cpp_args += '-fno-emulated-tls'
+  endif
 endif
 
 if with_glx != 'disabled'
