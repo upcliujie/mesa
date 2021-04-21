@@ -557,3 +557,15 @@ spec@khr_texture_compression_astc@sliced-3d-miptree-gles srgb,Fail
 spec@khr_texture_compression_astc@sliced-3d-miptree-gles srgb@sRGB decode,Fail
 spec@khr_texture_compression_astc@sliced-3d-miptree-gles srgb-fp,Fail
 spec@khr_texture_compression_astc@sliced-3d-miptree-gles srgb-fp@sRGB decode full precision,Fail
+fast_color_clear@fcc-write-after-clear,Fail
+spec@!opengl 3.0@clearbuffer-depth-cs-probe,Fail
+spec@arb_post_depth_coverage@arb_post_depth_coverage-multisampling,Fail
+spec@arb_shader_image_load_store@coherency,Crash
+spec@arb_shader_image_load_store@early-z,Fail
+spec@arb_shader_image_load_store@host-mem-barrier,Crash
+spec@arb_shader_image_load_store@indexing,Fail
+spec@arb_shader_image_load_store@invalid,Crash
+spec@arb_shader_image_load_store@semantics,Crash
+spec@khr_texture_compression_astc@array-gles,Fail
+spec@oes_egl_image_external_essl3@oes_egl_image_external_essl3,Crash
+spec@oes_texture_view@rendering-formats,Fail
