@@ -260,6 +260,7 @@ msm_submit_sp_flush(struct fd_submit *submit, int in_fence_fd,
       submit_bos[i].flags = msm_submit->bos[i]->flags;
       submit_bos[i].handle = msm_submit->bos[i]->handle;
       submit_bos[i].presumed = 0;
+      fd_bo_set_fence(msm_submit->bos[i], submit->pipe, submit->fence);
    }
    req.bos = VOID2U64(submit_bos), req.nr_bos = msm_submit->nr_bos;
    req.cmds = VOID2U64(cmds), req.nr_cmds = primary->u.nr_cmds;
