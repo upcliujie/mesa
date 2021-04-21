@@ -3051,6 +3051,8 @@ midgard_compile_shader_nir(nir_shader *nir,
         if (ctx->stage == MESA_SHADER_VERTEX) {
                 NIR_PASS_V(nir, nir_lower_viewport_transform);
                 NIR_PASS_V(nir, nir_lower_point_size, 1.0, 1024.0);
+        } else if (ctx->stage == MESA_SHADER_FRAGMENT) {
+                NIR_PASS_V(nir, nir_lower_fragcolor);
         }
 
         NIR_PASS_V(nir, nir_lower_var_copies);
