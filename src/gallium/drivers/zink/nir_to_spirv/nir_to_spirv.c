@@ -73,8 +73,6 @@ struct ntv_context {
    bool block_started;
    SpvId loop_break, loop_cont;
 
-   struct shader_info *info;
-
    SpvId front_face_var, instance_id_var, vertex_id_var,
          primitive_id_var, invocation_id_var, // geometry
          sample_mask_type, sample_id_var, sample_pos_var, sample_mask_in_var,
@@ -3467,8 +3465,6 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info)
 
    default: ;
    }
-
-   ctx.info = &s->info;
 
    if (s->info.stage < MESA_SHADER_GEOMETRY) {
       if (s->info.outputs_written & BITFIELD64_BIT(VARYING_SLOT_LAYER) ||
