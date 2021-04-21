@@ -2381,6 +2381,11 @@ zink_resource_image_barrier(struct zink_context *ctx, struct zink_batch *batch, 
    if (res->obj->needs_zs_evaluate)
       imb.pNext = &res->obj->zs_evaluate;
    res->obj->needs_zs_evaluate = false;
+   if (res->dmabuf_acquire) {
+      imb.srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT;
+      imb.dstQueueFamilyIndex = zink_screen(ctx->base.screen)->gfx_queue;
+      res->dmabuf_acquire = false;
+   }
    vkCmdPipelineBarrier(
       cmdbuf,
       res->access_stage ? res->access_stage : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
