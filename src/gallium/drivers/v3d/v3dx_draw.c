@@ -1611,6 +1611,13 @@ v3d_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
         submit.in_sync = v3d->out_sync;
         submit.out_sync = v3d->out_sync;
 
+        if (v3d->active_perfmon) {
+                assert(screen->has_perfmon);
+                submit.perfmon_id = v3d->active_perfmon->kperfmon_id;
+        }
+
+        v3d->last_perfmon = v3d->active_perfmon;
+
         if (!(V3D_DEBUG & V3D_DEBUG_NORAST)) {
                 int ret = v3d_ioctl(screen->fd, DRM_IOCTL_V3D_SUBMIT_CSD,
                                     &submit);
@@ -1619,6 +1626,11 @@ v3d_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
                         fprintf(stderr, "CSD submit call returned %s.  "
                                 "Expect corruption.\n", strerror(errno));
                         warned = true;
+                } else if (!ret) {
+                        if (v3d->active_perfmon) {
+                                v3d_fence_unreference(&v3d->active_perfmon->last_job_fence);
+                                v3d->active_perfmon->last_job_fence = v3d_fence_create(v3d);
+                        }
                 }
         }
 
