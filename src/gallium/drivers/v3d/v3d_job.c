@@ -502,6 +502,11 @@ v3d_job_submit(struct v3d_context *v3d, struct v3d_job *job)
         job->submit.bcl_end = job->bcl.bo->offset + cl_offset(&job->bcl);
         job->submit.rcl_end = job->rcl.bo->offset + cl_offset(&job->rcl);
 
+        if (v3d->perfmon) {
+                assert(screen->has_perfmon);
+                job->submit.perfmon_id = v3d->perfmon->id;
+        }
+
         job->submit.flags = 0;
         if (job->tmu_dirty_rcl && screen->has_cache_flush)
                 job->submit.flags |= DRM_V3D_SUBMIT_CL_FLUSH_CACHE;
@@ -529,6 +534,11 @@ v3d_job_submit(struct v3d_context *v3d, struct v3d_job *job)
                         fprintf(stderr, "Draw call returned %s.  "
                                         "Expect corruption.\n", strerror(errno));
                         warned = true;
+                } else if (!ret) {
+                        if (v3d->perfmon) {
+                                v3d_fence_unreference(&v3d->perfmon->last_job_fence);
+                                v3d->perfmon->last_job_fence = v3d_fence_create(v3d);
+                        }
                 }
 
                 /* If we are submitting a job in the middle of transform
