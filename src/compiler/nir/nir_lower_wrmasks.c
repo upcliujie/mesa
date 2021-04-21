@@ -185,14 +185,9 @@ struct nir_lower_wrmasks_state {
 };
 
 static bool
-nir_lower_wrmasks_instr(nir_builder *b, nir_instr *instr, void *data)
+nir_lower_wrmasks_instr(nir_builder *b, nir_intrinsic_instr *intr, void *data)
 {
    struct nir_lower_wrmasks_state *state = data;
-
-   if (instr->type != nir_instr_type_intrinsic)
-      return false;
-
-   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
 
    /* if no wrmask, then skip it: */
    if (!nir_intrinsic_has_write_mask(intr))
@@ -209,7 +204,7 @@ nir_lower_wrmasks_instr(nir_builder *b, nir_instr *instr, void *data)
    assert(offset_src(intr->intrinsic) >= 0);
 
    /* does backend need us to lower this intrinsic? */
-   if (state->cb && !state->cb(instr, state->data))
+   if (state->cb && !state->cb(&intr->instr, state->data))
       return false;
 
    split_wrmask(b, intr);
@@ -225,9 +220,9 @@ nir_lower_wrmasks(nir_shader *shader, nir_instr_filter_cb cb, const void *data)
       .data = data,
    };
 
-   return nir_shader_instructions_pass(shader,
-                                       nir_lower_wrmasks_instr,
-                                       nir_metadata_block_index |
-                                       nir_metadata_dominance,
-                                       &state);
+   return nir_shader_intrinsics_pass(shader,
+                                     nir_lower_wrmasks_instr,
+                                     nir_metadata_block_index |
+                                     nir_metadata_dominance,
+                                     &state);
 }
