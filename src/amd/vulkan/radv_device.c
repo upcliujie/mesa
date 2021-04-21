@@ -2407,14 +2407,19 @@ radv_get_memory_budget_properties(VkPhysicalDevice physicalDevice,
    RADV_FROM_HANDLE(radv_physical_device, device, physicalDevice);
    VkPhysicalDeviceMemoryProperties *memory_properties = &device->memory_properties;
 
-   /* For all memory heaps, the computation of budget is as follow:
-    *	heap_budget = heap_size - global_heap_usage + app_heap_usage
+   /* From the Vulkan spec 1.2.176:
     *
-    * The Vulkan spec 1.1.97 says that the budget should include any
-    * currently allocated device memory.
+    * The VkPhysicalDeviceMemoryBudgetPropertiesEXT::heapBudget values can be used as a guideline
+    * for how much total memory from each heap the current process can use at any given time, before
+    * allocations may start failing or causing performance degradation. The values may change based
+    * on other activity in the system that is outside the scope and control of the Vulkan
+    * implementation.
     *
-    * Note that the application heap usages are not really accurate (eg.
-    * in presence of shared buffers).
+    * The VkPhysicalDeviceMemoryBudgetPropertiesEXT::heapUsage will display the current process
+    * estimated heap usage.
+    *
+    * Note that the application heap usages are not really accurate (eg. in presence of shared
+    * buffers).
     */
    unsigned mask = device->heaps;
    unsigned heap = 0;
@@ -2441,7 +2446,7 @@ radv_get_memory_budget_properties(VkPhysicalDevice physicalDevice,
 
       uint64_t free_space = device->memory_properties.memoryHeaps[heap].size -
                             MIN2(device->memory_properties.memoryHeaps[heap].size, total_usage);
-      memoryBudget->heapBudget[heap] = free_space + internal_usage;
+      memoryBudget->heapBudget[heap] = free_space;
       memoryBudget->heapUsage[heap] = internal_usage;
       ++heap;
    }
