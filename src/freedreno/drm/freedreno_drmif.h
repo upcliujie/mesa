@@ -63,6 +63,17 @@ enum fd_param_id {
    FD_GLOBAL_FAULTS, /* # of global (all context) faults */
 };
 
+/**
+ * Helper for fence/seqno comparisions which deals properly with rollover.
+ * Returns true if fence 'a' is before fence 'b'
+ */
+static inline bool
+fd_fence_before(uint32_t a, uint32_t b)
+{
+   return (int32_t)(a - b) < 0;
+}
+
+
 /* bo flags: */
 #define FD_BO_GPUREADONLY  BITSET_BIT(1)
 #define FD_BO_SCANOUT      BITSET_BIT(2)
