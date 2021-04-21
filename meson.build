@@ -454,6 +454,29 @@ if (not ['freebsd', 'openbsd', 'haiku'].contains(host_machine.system()) and
     (not with_platform_windows or not with_shared_glapi))
   pre_args += '-DUSE_ELF_TLS'
   use_elf_tls = true
+
+  if with_platform_android
+    # By default the NDK compiler, at least, emits emutls references instead of
+    # ELF TLS, even when building targeting newer API levels.  Make it actually do
+    # ELF TLS instead.
+    c_args += '-fno-emulated-tls'
+    cpp_args += '-fno-emulated-tls'
+
+    # The Android dynamic loader doesn't support dynamic loading of initial-exec
+    # TLS.  Use the normal general-dynamic path, which at least gets us access
+    # to the current values with a cheap tls lookup function call rather than a
+    # more expensive pthread_getspecific().  The symptom of trying initial-exec is
+    #
+    #   dlopen failed: TLS symbol "(null)" in dlopened "/vendor/lib64/egl/libEGL_mesa.so"
+    #   referenced from "/vendor/lib64/egl/libEGL_mesa.so" using IE access model.
+    pre_args += '-DTLS_MODEL='
+  else
+    # Use the initial-exec TLS model.  glibc allocates a fixed number of extra
+    # slots for initial-exec TLS variables at startup, and Mesa relies on (even
+    # if it's dlopen()ed) being able to fit into those.  This model saves the
+    # call to look up the address of the TLS variable.
+    pre_args += '-DTLS_MODEL=__attribute__((tls_model("initial-exec")))'
+  endif
 endif
 
 if with_glx != 'disabled'

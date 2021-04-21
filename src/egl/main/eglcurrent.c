@@ -45,8 +45,7 @@ static tss_t _egl_TSD;
 static void _eglDestroyThreadInfo(_EGLThreadInfo *t);
 
 #ifdef USE_ELF_TLS
-static __thread const _EGLThreadInfo *_egl_TLS
-   __attribute__ ((tls_model("initial-exec")));
+static __thread const _EGLThreadInfo *_egl_TLS TLS_MODEL;
 #endif
 
 static inline void _eglSetTSD(const _EGLThreadInfo *t)
