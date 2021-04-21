@@ -119,6 +119,7 @@ struct zink_resource {
    uint16_t write_bind_count[2]; //gfx, compute
    uint16_t bind_count[2]; //gfx, compute
 
+   bool dmabuf_acquire;
    struct sw_displaytarget *dt;
    unsigned dt_stride;
 
