@@ -7,6 +7,10 @@
   margin-bottom: 0;
 }
 
+#menu a {
+  color: #6c757d;
+}
+
 #menu .caption-text,
 #menu li.current {
   font-weight: bold;
