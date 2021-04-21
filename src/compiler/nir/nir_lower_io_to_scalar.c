@@ -97,14 +97,10 @@ lower_store_output_to_scalar(nir_builder *b, nir_intrinsic_instr *intr)
 }
 
 static bool
-nir_lower_io_to_scalar_instr(nir_builder *b, nir_instr *instr, void *data)
+nir_lower_io_to_scalar_instr(nir_builder *b,
+      nir_intrinsic_instr *intr, void *data)
 {
    nir_variable_mode mask = *(nir_variable_mode *)data;
-
-   if (instr->type != nir_instr_type_intrinsic)
-      return false;
-
-   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
 
    if (intr->num_components == 1)
       return false;
@@ -127,11 +123,11 @@ nir_lower_io_to_scalar_instr(nir_builder *b, nir_instr *instr, void *data)
 void
 nir_lower_io_to_scalar(nir_shader *shader, nir_variable_mode mask)
 {
-   nir_shader_instructions_pass(shader,
-                                nir_lower_io_to_scalar_instr,
-                                nir_metadata_block_index |
-                                nir_metadata_dominance,
-                                &mask);
+   nir_shader_intrinsics_pass(shader,
+                              nir_lower_io_to_scalar_instr,
+                              nir_metadata_block_index |
+                              nir_metadata_dominance,
+                              &mask);
 }
 
 static nir_variable **
@@ -291,14 +287,10 @@ struct io_to_scalar_early_state {
 };
 
 static bool
-nir_lower_io_to_scalar_early_instr(nir_builder *b, nir_instr *instr, void *data)
+nir_lower_io_to_scalar_early_instr(nir_builder *b,
+      nir_intrinsic_instr *intr, void *data)
 {
    struct io_to_scalar_early_state *state = data;
-
-   if (instr->type != nir_instr_type_intrinsic)
-      return false;
-
-   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
 
    if (intr->num_components == 1)
       return false;
@@ -383,11 +375,11 @@ nir_lower_io_to_scalar_early(nir_shader *shader, nir_variable_mode mask)
       .mask = mask
    };
 
-   bool progress = nir_shader_instructions_pass(shader,
-                                                nir_lower_io_to_scalar_early_instr,
-                                                nir_metadata_block_index |
-                                                nir_metadata_dominance,
-                                                &state);
+   bool progress = nir_shader_intrinsics_pass(shader,
+                                              nir_lower_io_to_scalar_early_instr,
+                                              nir_metadata_block_index |
+                                              nir_metadata_dominance,
+                                              &state);
 
    /* Remove old input from the shaders inputs list */
    hash_table_foreach(state.split_inputs, entry) {
