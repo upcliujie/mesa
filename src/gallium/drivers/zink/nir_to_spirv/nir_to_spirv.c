@@ -3429,7 +3429,8 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info)
    ctx.builder.mem_ctx = ctx.mem_ctx;
 
    spirv_builder_emit_cap(&ctx.builder, SpvCapabilityShader);
-   spirv_builder_emit_cap(&ctx.builder, SpvCapabilityImageBuffer);
+   if (s->info.image_buffers != 0)
+      spirv_builder_emit_cap(&ctx.builder, SpvCapabilityImageBuffer);
    spirv_builder_emit_cap(&ctx.builder, SpvCapabilitySampledBuffer);
 
    switch (s->info.stage) {
