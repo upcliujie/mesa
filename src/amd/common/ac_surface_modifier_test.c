@@ -24,7 +24,7 @@
  * not change the meaning of existing modifiers.
  */
 
-struct test_entry {
+struct ALIGN32 test_entry {
    /* key part */
    uint64_t modifier;
    unsigned w;
@@ -32,20 +32,14 @@ struct test_entry {
    enum pipe_format format;
 
    /* debug info */
-   const char *name;
    uint8_t pipes;
    uint8_t rb;
    uint8_t banks_or_pkrs;
    uint8_t se;
+   const char *name;
 
    /* value to determine uniqueness */
    unsigned char hash[20];
-
-   /* u_vector requires power of two sizing */
-   char padding[8];
-#ifdef PIPE_ARCH_X86
-   char padding2[8];
-#endif
 };
 
 static uint64_t
@@ -234,19 +228,19 @@ static void test_modifier(const struct radeon_info *info,
          },
       };
 
-      struct test_entry entry = {
-         .modifier = modifier,
-         .w = config.info.width,
-         .h = config.info.height,
-         .format = format,
-         .name = name,
-         .pipes = G_0098F8_NUM_PIPES(info->gb_addr_config),
-         .rb = G_0098F8_NUM_RB_PER_SE(info->gb_addr_config) +
-               G_0098F8_NUM_SHADER_ENGINES_GFX9(info->gb_addr_config),
-         .se = G_0098F8_NUM_SHADER_ENGINES_GFX9(info->gb_addr_config),
-         .banks_or_pkrs = info->chip_class >= GFX10 ?
-            (info->gb_addr_config) : G_0098F8_NUM_BANKS(info->gb_addr_config)
-      };
+      struct test_entry entry;
+      memset(&entry, 0, sizeof(entry));
+      entry.modifier = modifier;
+      entry.w = config.info.width;
+      entry.h = config.info.height;
+      entry.format = format;
+      entry.name = name;
+      entry.pipes = G_0098F8_NUM_PIPES(info->gb_addr_config);
+      entry.rb = G_0098F8_NUM_RB_PER_SE(info->gb_addr_config) +
+                 G_0098F8_NUM_SHADER_ENGINES_GFX9(info->gb_addr_config);
+      entry.se = G_0098F8_NUM_SHADER_ENGINES_GFX9(info->gb_addr_config);
+      entry.banks_or_pkrs = info->chip_class >= GFX10 ?
+            (info->gb_addr_config) : G_0098F8_NUM_BANKS(info->gb_addr_config);
 
       struct radeon_surf surf = (struct radeon_surf) {
          .blk_w = 1,

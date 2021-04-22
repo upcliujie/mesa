@@ -234,8 +234,10 @@ do {                       \
 
 #ifdef _MSC_VER
 #define ALIGN16 __declspec(align(16))
+#define ALIGN32 __declspec(align(32))
 #else
 #define ALIGN16 __attribute__((aligned(16)))
+#define ALIGN32 __attribute__((aligned(32)))
 #endif
 
 #ifdef __cplusplus
