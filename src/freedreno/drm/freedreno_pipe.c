@@ -53,7 +53,7 @@ fd_pipe_new2(struct fd_device *dev, enum fd_pipe_id id, uint32_t prio)
       return NULL;
    }
 
-   pipe->dev = dev;
+   pipe->dev = fd_device_ref(dev);
    pipe->id = id;
    p_atomic_set(&pipe->refcnt, 1);
 
@@ -94,6 +94,7 @@ pipe_cleanup_locked(struct fd_pipe *pipe)
 {
    simple_mtx_assert_locked(&table_lock);
    fd_bo_del_locked(pipe->control_mem);
+   fd_device_del_locked(pipe->dev);
 }
 
 void
