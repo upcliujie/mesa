@@ -661,7 +661,7 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
       switch (line_mode) {
       case VK_LINE_RASTERIZATION_MODE_RECTANGULAR_EXT:
          raster.APIMode = DX100;
-         raster.DXMultisampleRasterizationEnable = true;
+         raster.DXMultisampleRasterizationEnable = (rs_info->lineWidth == 1.0);
          break;
 
       case VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT:
