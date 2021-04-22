@@ -28,6 +28,7 @@
 #include "vk_device.h"
 #include "util/hash_table.h"
 #include "util/ralloc.h"
+#include "vk_enum_to_str.h"
 
 static void
 vk_object_base_reinit(struct vk_object_base *base)
@@ -324,4 +325,24 @@ vk_common_GetPrivateDataEXT(VkDevice _device,
    vk_object_base_get_private_data(device,
                                    objectType, objectHandle,
                                    privateDataSlot, pData);
+}
+
+const char *
+vk_object_base_name(struct vk_object_base *obj)
+{
+   if (obj->object_name)
+      return obj->object_name;
+
+   int len = snprintf(NULL, 0, "%s(0x%"PRIx64")",
+                      vk_ObjectType_to_str(obj->type),
+                      (uint64_t)obj);
+
+   obj->object_name = vk_alloc(&obj->device->alloc, len + 1, 1,
+                               VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+
+   snprintf(obj->object_name, len + 1, "%s(0x%" PRIx64 ")",
+            vk_ObjectType_to_str(obj->type),
+            (uint64_t)obj);
+
+   return obj->object_name;
 }
