@@ -401,6 +401,10 @@ struct threaded_context {
    thread_id driver_thread;
 #endif
 
+   bool seen_tcs;
+   bool seen_tes;
+   bool seen_gs;
+
    unsigned last, next;
    struct tc_batch batch_slots[TC_MAX_BATCHES];
 };
