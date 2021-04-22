@@ -14,6 +14,7 @@ C_SOURCES := \
 	v3d_query.c \
 	v3d_query.h \
 	v3d_query_pipe.c \
+	v3d_query_perfcnt.c \
 	v3d_resource.c \
 	v3d_resource.h \
 	v3d_screen.c \
