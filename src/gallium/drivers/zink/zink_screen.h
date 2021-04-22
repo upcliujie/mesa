@@ -51,6 +51,8 @@ struct hash_table;
 
 struct zink_screen {
    struct pipe_screen base;
+   struct set contexts;
+   simple_mtx_t context_mtx;
    bool threaded;
    uint32_t curr_batch; //the current batch id
    uint32_t last_finished; //this is racy but ultimately doesn't matter

@@ -945,6 +945,7 @@ zink_destroy_screen(struct pipe_screen *pscreen)
       zink_destroy_framebuffer(screen, fb);
    }
 
+   simple_mtx_destroy(&screen->context_mtx);
    simple_mtx_destroy(&screen->surface_mtx);
    simple_mtx_destroy(&screen->bufferview_mtx);
    simple_mtx_destroy(&screen->framebuffer_mtx);
@@ -1453,6 +1454,8 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
    struct zink_screen *screen = rzalloc(NULL, struct zink_screen);
    if (!screen)
       return NULL;
+   _mesa_set_init(&screen->contexts, screen, _mesa_hash_pointer, _mesa_key_pointer_equal);
+   simple_mtx_init(&screen->context_mtx, mtx_plain);
 
    util_cpu_detect();
    screen->threaded = util_get_cpu_caps()->nr_cpus > 1 && debug_get_bool_option("GALLIUM_THREAD", util_get_cpu_caps()->nr_cpus > 1);

@@ -136,7 +136,10 @@ zink_context_destroy(struct pipe_context *pctx)
 
    zink_descriptor_pool_deinit(ctx);
 
-   p_atomic_dec(&screen->base.num_contexts);
+   /* TODO: if/when pipe_surface stops being context-based, delete all this */
+   simple_mtx_lock(&screen->context_mtx);
+   _mesa_set_remove_key(&screen->contexts, ctx);
+   simple_mtx_unlock(&screen->context_mtx);
 
    ralloc_free(ctx);
 }
@@ -2611,6 +2614,9 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    }
 
    p_atomic_inc(&screen->base.num_contexts);
+   simple_mtx_lock(&screen->context_mtx);
+   _mesa_set_add(&screen->contexts, ctx);
+   simple_mtx_unlock(&screen->context_mtx);
 
    return (struct pipe_context*)tc;
 
