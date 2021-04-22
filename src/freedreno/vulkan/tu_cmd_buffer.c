@@ -2492,6 +2492,15 @@ tu_CmdSetDepthBiasEnableEXT(VkCommandBuffer commandBuffer,
    cmd->state.dirty |= TU_CMD_DIRTY_GRAS_SU_CNTL;
 }
 
+void
+tu_CmdSetPrimitiveRestartEnableEXT(VkCommandBuffer commandBuffer,
+                                   VkBool32 primitiveRestartEnable)
+{
+   TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
+
+   cmd->state.primitive_restart_enable = primitiveRestartEnable;
+}
+
 static void
 tu_flush_for_access(struct tu_cache_state *cache,
                     enum tu_cmd_access_mask src_mask,
@@ -3636,9 +3645,13 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
       cmd->state.depth_plane_state = tu6_build_depth_plane_z_mode(cmd);
    }
 
+   bool primitive_restart_enabled = pipeline->ia.primitive_restart;
+   if (pipeline->dynamic_state_mask & BIT(TU_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE))
+      primitive_restart_enabled = cmd->state.primitive_restart_enable;
+
    tu_cs_emit_regs(cs, A6XX_PC_PRIMITIVE_CNTL_0(
          .primitive_restart =
-               pipeline->ia.primitive_restart && indexed,
+               primitive_restart_enabled && indexed,
          .tess_upper_left_domain_origin =
                pipeline->tess.upper_left_domain_origin));
 
