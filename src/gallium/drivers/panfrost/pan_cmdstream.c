@@ -1074,6 +1074,9 @@ panfrost_upload_sysvals(struct panfrost_batch *batch,
                         panfrost_upload_rt_conversion_sysval(batch,
                                         PAN_SYSVAL_ID(sysval), &uniforms[i]);
                         break;
+                case PAN_SYSVAL_BASE_VERTEX:
+                        uniforms[i].u[0] = batch->ctx->base_vertex;
+                        break;
                 default:
                         assert(0);
                 }

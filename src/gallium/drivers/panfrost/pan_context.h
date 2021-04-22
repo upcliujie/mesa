@@ -137,6 +137,7 @@ struct panfrost_context {
         unsigned vertex_count;
         unsigned instance_count;
         unsigned offset_start;
+        unsigned base_vertex;
         enum pipe_prim_type active_prim;
 
         /* If instancing is enabled, vertex count padded for instance; if

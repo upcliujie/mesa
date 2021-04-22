@@ -449,6 +449,7 @@ panfrost_direct_draw(struct panfrost_context *ctx,
         ctx->indirect_draw = false;
         ctx->vertex_count = draw->count + (info->index_size ? abs(info->index_bias) : 0);
         ctx->instance_count = info->instance_count;
+        ctx->base_vertex = info->index_bias;
         ctx->active_prim = info->mode;
 
         struct panfrost_ptr tiler =
