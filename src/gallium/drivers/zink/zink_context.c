@@ -139,6 +139,18 @@ zink_context_destroy(struct pipe_context *pctx)
    /* TODO: if/when pipe_surface stops being context-based, delete all this */
    simple_mtx_lock(&screen->context_mtx);
    _mesa_set_remove_key(&screen->contexts, ctx);
+   if (p_atomic_dec_return(&screen->base.num_contexts) > 0) {
+      /* if multiple contexts, replace surface->context pointers with valid ones */
+      simple_mtx_lock(&screen->surface_mtx);
+      struct set_entry *he = _mesa_set_random_entry(&screen->contexts, NULL);
+      struct pipe_context *replacement = he ? (struct pipe_context*)he->key : NULL;
+      hash_table_foreach(&screen->surface_cache, entry) {
+         struct zink_surface *surface = entry->data;
+         if (surface->base.context == pctx || surface->base.context == &ctx->tc->base)
+            surface->base.context = replacement;
+      }
+      simple_mtx_unlock(&screen->surface_mtx);
+   }
    simple_mtx_unlock(&screen->context_mtx);
 
    ralloc_free(ctx);
