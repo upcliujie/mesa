@@ -535,6 +535,12 @@ pan_blend_create_shader(const struct panfrost_device *dev,
 
         nir_alu_type src_types[] = { src0_type ?: nir_type_float32, src1_type ?: nir_type_float32 };
 
+        /* HACK: workaround buggy TGSI shaders (u_blitter) */
+        for (unsigned i = 0; i < ARRAY_SIZE(src_types); ++i) {
+                src_types[i] = nir_alu_type_get_base_type(nir_type) |
+                        nir_alu_type_get_type_size(src_types[i]);
+        }
+
 	nir_variable *c_src =
                 nir_variable_create(b.shader, nir_var_shader_in,
                                     glsl_vector_type(nir_get_glsl_base_type_for_nir_type(src_types[0]), 4),
