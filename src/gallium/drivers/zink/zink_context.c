@@ -139,6 +139,8 @@ zink_context_destroy(struct pipe_context *pctx)
 
    zink_descriptor_layouts_deinit(ctx);
 
+   p_atomic_dec(&screen->base.num_contexts);
+
    ralloc_free(ctx);
 }
 
@@ -3506,6 +3508,8 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
       tc->bytes_mapped_limit = screen->total_mem / 4;
       ctx->base.set_context_param = zink_set_context_param;
    }
+
+   p_atomic_inc(&screen->base.num_contexts);
 
    return (struct pipe_context*)tc;
 
