@@ -504,7 +504,7 @@ v3d_job_submit(struct v3d_context *v3d, struct v3d_job *job)
 
         if (v3d->perfmon) {
                 assert(screen->has_perfmon);
-                job->submit.perfmon_id = v3d->perfmon->id;
+                job->submit.perfmon_id = v3d->perfmon->kperfmon_id;
         }
 
         job->submit.flags = 0;

@@ -1623,7 +1623,7 @@ v3d_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
 
         if (v3d->perfmon) {
                 assert(screen->has_perfmon);
-                submit.perfmon_id = v3d->perfmon->id;
+                submit.perfmon_id = v3d->perfmon->kperfmon_id;
         }
 
         if (!(V3D_DEBUG & V3D_DEBUG_NORAST)) {
