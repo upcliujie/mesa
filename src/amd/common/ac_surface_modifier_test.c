@@ -43,7 +43,7 @@ struct test_entry {
 
    /* u_vector requires power of two sizing */
    char padding[8];
-#ifdef PIPE_ARCH_X86
+#if defined(PIPE_ARCH_X86) || defined(PIPE_ARCH_ARM) || defined(PIPE_ARCH_PPC)
    char padding2[8];
 #endif
 };
