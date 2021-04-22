@@ -189,6 +189,7 @@
 #include "c11/threads.h"
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
+#include "util/bitset.h"
 #include "util/u_inlines.h"
 #include "util/u_queue.h"
 #include "util/u_range.h"
@@ -232,6 +233,19 @@ struct tc_unflushed_batch_token;
  */
 #define TC_SLOTS_PER_BATCH    1536
 
+/* The buffer list queue is much deeper than the batch queue because buffer
+ * lists need to stay around until the driver internally flushes its command
+ * buffer.
+ */
+#define TC_MAX_BUFFER_LISTS   (TC_MAX_BATCHES * 4)
+
+/* This mask is used to get a hash of a buffer ID. It's also the bit size of
+ * the buffer list - 1. It must be 2^n - 1. The size should be as low as
+ * possible to minimize memory usage, but high enough to minimize hash
+ * collisions.
+ */
+#define TC_BUFFER_ID_MASK      BITFIELD_MASK(14)
+
 /* Threshold for when to use the queue or sync. */
 #define TC_MAX_STRING_MARKER_BYTES  512
 
@@ -245,7 +259,7 @@ struct tc_unflushed_batch_token;
 /* The maximum number of fences that can be added into the context by
  * tc_signal_fence_next_flush.
  */
-#define TC_MAX_SIGNAL_FENCES_NEXT_FLUSH TC_MAX_BATCHES
+#define TC_MAX_SIGNAL_FENCES_NEXT_FLUSH TC_MAX_BUFFER_LISTS
 
 typedef void (*tc_replace_buffer_storage_func)(struct pipe_context *ctx,
                                                struct pipe_resource *dst,
@@ -357,10 +371,16 @@ struct tc_batch {
 #if !defined(NDEBUG) && TC_DEBUG >= 1
    unsigned sentinel;
 #endif
-   unsigned num_total_slots;
+   uint16_t num_total_slots;
+   uint16_t buffer_list_index;
    struct util_queue_fence fence;
    struct tc_unflushed_batch_token *token;
    uint64_t slots[TC_SLOTS_PER_BATCH];
+};
+
+struct tc_buffer_list {
+   /* Buffer list where bit N means whether ID hash N is in the list. */
+   BITSET_DECLARE(buffer_list, TC_BUFFER_ID_MASK + 1);
 };
 
 struct threaded_context {
@@ -382,6 +402,8 @@ struct threaded_context {
    unsigned num_syncs;
 
    bool use_forced_staging_uploads;
+   bool add_all_gfx_bindings_to_buffer_list;
+   bool add_all_compute_bindings_to_buffer_list;
 
    /* Estimation of how much vram/gtt bytes are mmap'd in
     * the current tc_batch.
@@ -405,14 +427,31 @@ struct threaded_context {
    bool seen_tes;
    bool seen_gs;
 
+   bool seen_streamout_buffers;
+   bool seen_shader_buffers[PIPE_SHADER_TYPES];
+   bool seen_image_buffers[PIPE_SHADER_TYPES];
+   bool seen_sampler_buffers[PIPE_SHADER_TYPES];
+
    unsigned max_vertex_buffers;
    unsigned max_const_buffers;
    unsigned max_shader_buffers;
    unsigned max_images;
    unsigned max_samplers;
 
-   unsigned last, next;
+   /* Bound buffers are tracked here using threaded_resource::buffer_id_hash.
+    * 0 means unbound.
+    */
+   uint32_t vertex_buffers[PIPE_MAX_ATTRIBS];
+   uint32_t streamout_buffers[PIPE_MAX_SO_BUFFERS];
+   uint32_t const_buffers[PIPE_SHADER_TYPES][PIPE_MAX_CONSTANT_BUFFERS];
+   uint32_t shader_buffers[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
+   uint32_t image_buffers[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
+   /* Don't use PIPE_MAX_SHADER_SAMPLER_VIEWS because it's too large. */
+   uint32_t sampler_buffers[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
+
+   unsigned last, next, next_buf_list;
    struct tc_batch batch_slots[TC_MAX_BATCHES];
+   struct tc_buffer_list buffer_lists[TC_MAX_BUFFER_LISTS];
 };
 
 void threaded_resource_init(struct pipe_resource *res);
