@@ -55,7 +55,9 @@ iris_is_color_fast_clear_compatible(struct iris_context *ice,
       }
 
       if (devinfo->ver < 9 &&
-          color.f32[i] != 0.0f && color.f32[i] != 1.0f) {
+          ((isl_format_has_int_channel(format) && color.u32[i] != 0 &&
+           color.u32[i] != 1) ||
+          (color.f32[i] != 0.0f && color.f32[i] != 1.0f))) {
          return false;
       }
    }
