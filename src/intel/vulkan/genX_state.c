@@ -256,6 +256,16 @@ init_render_queue_state(struct anv_queue *queue)
       cc1.ReplayMode = MidcmdbufferPreemption;
       cc1.ReplayModeMask = true;
    }
+
+   /* Enable the new line drawing algorithm that produces higher quality
+    * lines.
+    * Note: On GFX_VER 12.5 the register got renamed to CHICKEN_RASTER_1,
+    * but we keep the old name to make it easier.
+    */
+   anv_batch_write_reg(&batch, GENX(3D_CHICKEN3), c3) {
+      c3.AALineQualityFix = true;
+      c3.AALineQualityFixMask = true;
+   }
 #endif
 
 #if GFX_VER == 12
