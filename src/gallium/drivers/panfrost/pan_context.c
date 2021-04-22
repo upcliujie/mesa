@@ -42,6 +42,7 @@
 #include "util/half_float.h"
 #include "util/u_helpers.h"
 #include "util/format/u_format.h"
+#include "util/u_draw.h"
 #include "util/u_prim.h"
 #include "util/u_prim_restart.h"
 #include "indices/u_primconvert.h"
@@ -450,6 +451,7 @@ panfrost_direct_draw(struct panfrost_context *ctx,
         ctx->indirect_draw = false;
         ctx->vertex_count = draw->count + (info->index_size ? abs(draw->index_bias) : 0);
         ctx->instance_count = info->instance_count;
+        ctx->base_vertex = info->index_size ? draw->index_bias : draw->start;
         ctx->active_prim = info->mode;
 
         struct panfrost_ptr tiler =
@@ -552,6 +554,12 @@ panfrost_indirect_draw(struct panfrost_context *ctx,
                 return;
         }
 
+        if (0) {
+                util_draw_indirect(&ctx->base, info, indirect);
+                return;
+        }
+
+
         /* Indirect draw count and multi-draw not supported. */
         assert(indirect->draw_count == 1 && !indirect->indirect_draw_count);
 
@@ -609,6 +617,11 @@ panfrost_indirect_draw(struct panfrost_context *ctx,
         ctx->instance_count = ctx->vertex_count = ctx->padded_count = 0;
         ctx->offset_start = 0;
 
+        /* Set the base_vertex sysval to NULL. Will be updated if the vertex
+         * shader uses gl_VertexID.
+         */
+        ctx->base_vertex_sysval_ptr = 0;
+
         bool point_coord_replace = (info->mode == PIPE_PRIM_POINTS);
 
         panfrost_emit_varying_descriptor(batch, 0,
@@ -655,6 +668,7 @@ panfrost_indirect_draw(struct panfrost_context *ctx,
                 .last_indirect_draw = batch->indirect_draw_job_id,
                 .draw_buf = draw_buf->image.data.bo->ptr.gpu + indirect->offset,
                 .index_buf = index_buf ? index_buf->ptr.gpu : 0,
+                .base_vertex_sysval = ctx->base_vertex_sysval_ptr,
                 .vertex_job = vertex.gpu,
                 .tiler_job = tiler.gpu,
                 .attrib_bufs = attrib_bufs,
