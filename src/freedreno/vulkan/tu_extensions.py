@@ -97,6 +97,7 @@ EXTENSIONS = [
     Extension('VK_EXT_host_query_reset',                  1, True),
     Extension('VK_EXT_shader_viewport_index_layer',       1, True),
     Extension('VK_EXT_extended_dynamic_state',            1, True),
+    Extension('VK_EXT_extended_dynamic_state2',           1, True),
     Extension('VK_KHR_push_descriptor',                   1, True),
     Extension('VK_KHR_incremental_present',               1, 'TU_HAS_SURFACE'),
     Extension('VK_KHR_image_format_list',                 1, True),

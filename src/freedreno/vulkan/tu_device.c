@@ -590,6 +590,14 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->extendedDynamicState = true;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT: {
+         VkPhysicalDeviceExtendedDynamicState2FeaturesEXT *features =
+            (VkPhysicalDeviceExtendedDynamicState2FeaturesEXT *)ext;
+         features->extendedDynamicState2 = false;
+         features->extendedDynamicState2LogicOp = false;
+         features->extendedDynamicState2PatchControlPoints = false;
+         break;
+      }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR: {
          VkPhysicalDevicePerformanceQueryFeaturesKHR *feature =
             (VkPhysicalDevicePerformanceQueryFeaturesKHR *)ext;
