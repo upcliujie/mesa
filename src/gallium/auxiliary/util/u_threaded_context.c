@@ -3326,6 +3326,12 @@ static const tc_execute execute_func[TC_NUM_CALLS] = {
 #undef CALL
 };
 
+static void tc_default_signal_fence_next_flush(struct pipe_context *ctx,
+                                               struct util_queue_fence *fence)
+{
+   util_queue_fence_signal(fence);
+}
+
 /**
  * Wrap an existing pipe_context into a threaded_context.
  *
@@ -3335,6 +3341,12 @@ static const tc_execute execute_func[TC_NUM_CALLS] = {
  *                             in pipe_screen.
  * \param replace_buffer  callback for replacing a pipe_resource's storage
  *                        with another pipe_resource's storage.
+ * \param create_fence    optional callback to create a fence for async flush
+ * \param is_resource_busy   optional callback to tell TC if transfer_map()/etc
+ *                           with the given usage would stall
+ * \param signal_fence_next_flush  optional call to track internal driver flushes
+ *                                 to track which buffers are referenced by
+ *                                 an unflushed command buffer
  * \param out  if successful, the threaded_context will be returned here in
  *             addition to the return value if "out" != NULL
  */
@@ -3343,6 +3355,8 @@ threaded_context_create(struct pipe_context *pipe,
                         struct slab_parent_pool *parent_transfer_pool,
                         tc_replace_buffer_storage_func replace_buffer,
                         tc_create_fence_func create_fence,
+                        tc_is_resource_busy is_resource_busy,
+                        tc_signal_fence_next_flush signal_fence_next_flush,
                         struct threaded_context **out)
 {
    struct threaded_context *tc;
@@ -3369,6 +3383,9 @@ threaded_context_create(struct pipe_context *pipe,
    tc->pipe = pipe;
    tc->replace_buffer_storage = replace_buffer;
    tc->create_fence = create_fence;
+   tc->is_resource_busy = is_resource_busy;
+   tc->signal_fence_next_flush = signal_fence_next_flush ? signal_fence_next_flush
+                                                         : tc_default_signal_fence_next_flush;
    tc->map_buffer_alignment =
       pipe->screen->get_param(pipe->screen, PIPE_CAP_MIN_MAP_BUFFER_ALIGNMENT);
    tc->ubo_alignment =

@@ -147,12 +147,28 @@
  *    implement buffer invalidation. This call is always queued.
  *
  *
- * Performance gotchas
- * -------------------
+ * Optional resource busy callbacks for better performance
+ * -------------------------------------------------------
  *
- * Buffer invalidations are done unconditionally - they don't check whether
- * the buffer is busy. This can cause drivers to have more live allocations
- * and CPU mappings than necessary.
+ * These are used to check whether a resource is used by the GPU and whether
+ * a resource is referenced by an unflushed command buffer. If neither is true,
+ * the threaded context will map the buffer as UNSYNCHRONIZED without flushing
+ * or synchronizing the thread and will skip any buffer invalidations
+ * (reallocations) because invalidating an idle buffer has no benefit.
+ *
+ * There are 2 callbacks:
+ *
+ * 1) is_resource_busy: It returns true when a resource is busy. If this is NULL,
+ *    the resource is considered always busy.
+ *
+ * 2) signal_fence_next_flush: The driver should signal this fence when it
+ *    executes the next flush. The fence is used by the threaded context to
+ *    test whether a buffer is referenced by an unflushed command buffer.
+ *    If this callback is NULL, the resource is considered to never be
+ *    referenced by an unflushed command buffer.
+ *
+ * If is_resource_busy is set, threaded_resource::buffer_id_unique must be set
+ * too.
  *
  *
  * How it works (queue architecture)
@@ -226,11 +242,21 @@ struct tc_unflushed_batch_token;
  */
 #define TC_MAX_SUBDATA_BYTES        320
 
+/* The maximum number of fences that can be added into the context by
+ * tc_signal_fence_next_flush.
+ */
+#define TC_MAX_SIGNAL_FENCES_NEXT_FLUSH TC_MAX_BATCHES
+
 typedef void (*tc_replace_buffer_storage_func)(struct pipe_context *ctx,
                                                struct pipe_resource *dst,
                                                struct pipe_resource *src);
 typedef struct pipe_fence_handle *(*tc_create_fence_func)(struct pipe_context *ctx,
                                                           struct tc_unflushed_batch_token *token);
+typedef bool (*tc_is_resource_busy)(struct pipe_screen *screen,
+                                    struct pipe_resource *resource,
+                                    unsigned usage);
+typedef void (*tc_signal_fence_next_flush)(struct pipe_context *ctx,
+                                           struct util_queue_fence *fence);
 
 struct threaded_resource {
    struct pipe_resource b;
@@ -260,6 +286,14 @@ struct threaded_resource {
     * pointers. */
    bool	is_shared;
    bool is_user_ptr;
+
+   /* Unique buffer ID. Drivers must set it to non-zero for buffers and it must
+    * be unique. Textures must set 0. Low bits are used as a hash of the ID.
+    * Use util_idalloc to generate these IDs. It's overwritten by u_threaded_context
+    * after buffer invalidations, so drivers should keep a copy of the ID
+    * for deallocation.
+    */
+   uint32_t buffer_id_unique;
 
    /* If positive, prefer DISCARD_RANGE with a staging buffer over any other
     * method of CPU access when map flags allow it. Useful for buffers that
@@ -335,6 +369,8 @@ struct threaded_context {
    struct slab_child_pool pool_transfers;
    tc_replace_buffer_storage_func replace_buffer_storage;
    tc_create_fence_func create_fence;
+   tc_is_resource_busy is_resource_busy;
+   tc_signal_fence_next_flush signal_fence_next_flush;
    unsigned map_buffer_alignment;
    unsigned ubo_alignment;
 
@@ -378,6 +414,8 @@ threaded_context_create(struct pipe_context *pipe,
                         struct slab_parent_pool *parent_transfer_pool,
                         tc_replace_buffer_storage_func replace_buffer,
                         tc_create_fence_func create_fence,
+                        tc_is_resource_busy is_resource_busy,
+                        tc_signal_fence_next_flush signal_fence_next_flush,
                         struct threaded_context **out);
 
 void
