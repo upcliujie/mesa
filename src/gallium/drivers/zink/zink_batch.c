@@ -113,6 +113,8 @@ zink_batch_reset_all(struct zink_context *ctx)
    simple_mtx_lock(&ctx->batch_mtx);
    hash_table_foreach(&ctx->batch_states, entry) {
       struct zink_batch_state *bs = entry->data;
+      if (bs == ctx->batch.state)
+         continue;
       bs->fence.completed = true;
       zink_reset_batch_state(ctx, bs);
       _mesa_hash_table_remove(&ctx->batch_states, entry);
