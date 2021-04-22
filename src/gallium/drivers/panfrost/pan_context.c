@@ -782,6 +782,7 @@ panfrost_set_shader_images(
 
                 /* Images don't work with AFBC, since they require pixel-level granularity */
                 if (drm_is_afbc(rsrc->image.layout.modifier)) {
+                        printf("convert!\n");
                         pan_resource_modifier_convert(ctx, rsrc,
                                         DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED);
                 }

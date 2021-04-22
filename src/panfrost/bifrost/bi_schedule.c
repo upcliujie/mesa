@@ -1505,6 +1505,7 @@ bi_schedule_block(bi_context *ctx, bi_block *block)
         bool incomplete = false;
 
         BITSET_FOREACH_SET(i, st.worklist, st.count) {
+                fprintf(stderr, "INCOMPLETE!\n");
                 bi_print_instr(st.instructions[i], stderr);
                 incomplete = true;
         }
