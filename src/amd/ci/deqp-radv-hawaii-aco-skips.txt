@@ -1,0 +1,15 @@
+# Exclude this test which might fail when a new extension is implemented.
+dEQP-VK.info.device_extensions
+
+# Exclude WSI related tests.
+dEQP-VK.image.swapchain_mutable.*
+dEQP-VK.wsi.*
+
+# Causes corruption or hang
+dEQP-VK.synchronization.*
+
+# These tests cause an immediate hang
+dEQP-VK.conditional_rendering.draw.condition_secondary_buffer_expect_execution.draw_indirect_count
+dEQP-VK.conditional_rendering.draw.condition_secondary_buffer_expect_execution.draw_indexed_indirect_count
+dEQP-VK.conditional_rendering.draw.condition_secondary_buffer_expect_execution_inverted.draw_indirect_count
+dEQP-VK.conditional_rendering.draw.condition_secondary_buffer_expect_execution_inverted.draw_indexed_indirect_count
