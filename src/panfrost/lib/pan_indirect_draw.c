@@ -72,6 +72,7 @@ struct jobs_data {
         nir_ssa_def *vertex_job;
         nir_ssa_def *tiler_job;
         nir_ssa_def *base_vertex_offset;
+        nir_ssa_def *base_vertex_sysval;
         nir_ssa_def *offset_start;
         nir_ssa_def *invocation;
 };
@@ -149,6 +150,9 @@ struct indirect_draw_inputs {
 
         /* index buffer */
         mali_ptr index_buf;
+
+        /* base_vertex sysval */
+        mali_ptr base_vertex_sysval;
 
         /* Pointers to various cmdstream structs that need to be patched */
         mali_ptr vertex_job;
@@ -301,6 +305,7 @@ extract_inputs(struct indirect_draw_shader_builder *builder)
         if (builder->index_min_max_search)
                 return;
 
+        builder->jobs.base_vertex_sysval = get_input_field(b, base_vertex_sysval);
         builder->jobs.vertex_job = get_input_field(b, vertex_job);
         builder->jobs.tiler_job = get_input_field(b, tiler_job);
         builder->attribs.attrib_bufs = get_input_field(b, attrib_bufs);
@@ -874,10 +879,16 @@ patch(struct indirect_draw_shader_builder *builder)
         builder->draw.instance_count =
                 get_draw_field(b, draw_ptr, instance_count);
         builder->draw.vertex_start = get_draw_field(b, draw_ptr, start);
-        if (index_size) {
-                builder->draw.index_bias =
-                        get_draw_field(b, draw_ptr, index_bias);
-        }
+        builder->draw.index_bias = index_size ?
+                                   get_draw_field(b, draw_ptr, index_bias):
+                                   nir_imm_int(b, 0);
+
+        IF (nir_ine(b, builder->jobs.base_vertex_sysval, nir_imm_int64(b, 0))) {
+                nir_ssa_def *base_vertex = index_size ?
+                                           builder->draw.index_bias :
+                                           builder->draw.vertex_start;
+                store_global(b, builder->jobs.base_vertex_sysval, base_vertex, 1);
+        } ENDIF
 
         get_instance_size(builder);
 
@@ -1228,6 +1239,7 @@ panfrost_emit_indirect_draw(struct pan_pool *pool,
                 .draw_ctx = draw_ctx_ptr.gpu,
                 .draw_buf = draw_info->draw_buf,
                 .index_buf = draw_info->index_buf,
+                .base_vertex_sysval = draw_info->base_vertex_sysval,
                 .vertex_job = draw_info->vertex_job,
                 .tiler_job = draw_info->tiler_job,
                 .attrib_bufs = draw_info->attrib_bufs,
