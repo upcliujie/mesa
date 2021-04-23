@@ -257,9 +257,6 @@ nir_blend(
    nir_lower_blend_options options,
    nir_ssa_def *src, nir_ssa_def *src1, nir_ssa_def *dst)
 {
-   if (options.logicop_enable)
-      return nir_blend_logicop(b, options, src, dst);
-
    /* Grab the blend constant ahead of time */
    nir_ssa_def *bconst;
    if (options.scalar) {
@@ -301,9 +298,7 @@ nir_blend(
       channels[c] = nir_blend_func(b, chan.func, psrc, pdst);
    }
 
-   /* Then just recombine with an applied colormask */
-   nir_ssa_def *blended = nir_vec(b, channels, 4);
-   return nir_color_mask(b, options.colormask, blended, dst);
+   return nir_vec(b, channels, 4);
 }
 
 static bool
@@ -353,7 +348,15 @@ nir_lower_blend_instr(nir_builder *b, nir_instr *instr, void *data)
    nir_ssa_def *dst = nir_load_var(b, var);
 
    /* Blend the two colors per the passed options */
-   nir_ssa_def *blended = nir_blend(b, *options, src, src1, dst);
+   nir_ssa_def *blended = src;
+
+   if (options->logicop_enable)
+      blended = nir_blend_logicop(b, *options, src, dst);
+   else if (!nir_is_blend_replace(*options))
+      blended = nir_blend(b, *options, src, src1, dst);
+
+   /* Apply a colormask */
+   blended = nir_color_mask(b, options->colormask, blended, dst);
 
    /* Write out the final color instead of the input */
    nir_instr_rewrite_src_ssa(instr, &intr->src[1], blended);
@@ -365,11 +368,6 @@ nir_lower_blend(nir_shader *shader, nir_lower_blend_options options)
 {
    assert(shader->info.stage == MESA_SHADER_FRAGMENT);
 
-   /* Only run for actual blending, since there's nothing to do and we don't
-    * want to degrade intermediate precision for non-blendable R32F targets) */
-
-   if (!nir_is_blend_replace(options)) {
-      nir_shader_instructions_pass(shader, nir_lower_blend_instr,
-            nir_metadata_block_index | nir_metadata_dominance, &options);
-   }
+   nir_shader_instructions_pass(shader, nir_lower_blend_instr,
+         nir_metadata_block_index | nir_metadata_dominance, &options);
 }
