@@ -2982,6 +2982,7 @@ vn_CreateDevice(VkPhysicalDevice physicalDevice,
 
    dev->instance = instance;
    dev->physical_device = physical_dev;
+   dev->renderer = instance->renderer;
 
    VkDeviceCreateInfo local_create_info;
    pCreateInfo = vn_device_fix_create_info(physical_dev, pCreateInfo, alloc,
