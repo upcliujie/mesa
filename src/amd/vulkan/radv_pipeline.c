@@ -3219,12 +3219,14 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
 
    pipeline->pipeline_hash = *(uint64_t *)hash;
 
+   bool insert_gs_copy_into_cache = true;
    bool found_in_application_cache = true;
    if (modules[MESA_SHADER_GEOMETRY] && !keep_executable_info) {
       struct radv_shader_variant *variants[MESA_SHADER_STAGES] = {0};
       radv_create_shader_variants_from_pipeline_cache(device, cache, gs_copy_hash, variants,
                                                       &found_in_application_cache);
       pipeline->gs_copy_shader = variants[MESA_SHADER_GEOMETRY];
+      insert_gs_copy_into_cache = false;
    }
 
    if (!keep_executable_info &&
@@ -3461,7 +3463,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
             disable_optimizations);
       }
 
-      if (!keep_executable_info && pipeline->gs_copy_shader) {
+      if (!keep_executable_info && pipeline->gs_copy_shader && insert_gs_copy_into_cache) {
          struct radv_shader_binary *gs_binaries[MESA_SHADER_STAGES] = {NULL};
          struct radv_shader_variant *gs_variants[MESA_SHADER_STAGES] = {0};
 
