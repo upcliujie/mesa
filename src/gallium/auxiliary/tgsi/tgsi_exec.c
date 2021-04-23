@@ -1941,7 +1941,7 @@ store_dest(struct tgsi_exec_machine *mach,
    else {
       for (i = 0; i < TGSI_QUAD_SIZE; i++)
          if (execmask & (1 << i)) {
-            if (chan->f[i] < 0.0f)
+            if (chan->f[i] < 0.0f || isnan(chan->f[i]))
                dst->f[i] = 0.0f;
             else if (chan->f[i] > 1.0f)
                dst->f[i] = 1.0f;
@@ -3628,7 +3628,7 @@ store_double_channel(struct tgsi_exec_machine *mach,
    else {
       for (i = 0; i < TGSI_QUAD_SIZE; i++)
          if (execmask & (1 << i)) {
-            if (chan->d[i] < 0.0)
+            if (chan->d[i] < 0.0 || isnan(chan->d[i]))
                temp.d[i] = 0.0;
             else if (chan->d[i] > 1.0)
                temp.d[i] = 1.0;
