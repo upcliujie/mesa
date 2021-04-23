@@ -1169,7 +1169,7 @@ panfrost_emit_const_buf(struct panfrost_batch *batch,
         *push_constants = push_transfer.gpu;
 
         for (unsigned i = 0; i < ss->info.push.count; ++i) {
-                struct panfrost_ubo_word src = ss->info.push.words[i];
+                struct panfrost_ubo_range src = ss->info.push.ranges[i];
 
                 /* Map the UBO, this should be cheap. However this is reading
                  * from write-combine memory which is _very_ slow. It might pay
