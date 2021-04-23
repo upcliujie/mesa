@@ -593,7 +593,7 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT: {
          VkPhysicalDeviceExtendedDynamicState2FeaturesEXT *features =
             (VkPhysicalDeviceExtendedDynamicState2FeaturesEXT *)ext;
-         features->extendedDynamicState2 = false;
+         features->extendedDynamicState2 = true;
          features->extendedDynamicState2LogicOp = false;
          features->extendedDynamicState2PatchControlPoints = false;
          break;
