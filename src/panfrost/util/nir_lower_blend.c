@@ -272,6 +272,10 @@ nir_blend(
    if (options.half)
       bconst = nir_f2f16(b, bconst);
 
+   /* Fixed-point framebuffers require their inputs clamped */
+   if (!util_format_is_float(options.format))
+      src = nir_fsat(b, src);
+
    /* We blend per channel and recombine later */
    nir_ssa_def *channels[4];
 
