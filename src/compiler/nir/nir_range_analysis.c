@@ -1433,6 +1433,7 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
    }
 
    if (nir_ssa_scalar_is_alu(scalar)) {
+      bool allow_64bit_src0 = false;
       nir_op op = nir_ssa_scalar_alu_op(scalar);
 
       switch (op) {
@@ -1457,11 +1458,19 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
       case nir_op_f2u32:
       case nir_op_fmul:
          break;
+      case nir_op_u2u1:
+      case nir_op_u2u8:
+      case nir_op_u2u16:
+      case nir_op_u2u32:
+         /* These opcodes can turn a 64-bit number into a smaller one, allow 64-bit src0 */
+         allow_64bit_src0 = true;
+         break;
       default:
          return max;
       }
 
-      uint32_t src0 = nir_unsigned_upper_bound(shader, range_ht, nir_ssa_scalar_chase_alu_src(scalar, 0), config);
+      nir_ssa_scalar src0_scalar = nir_ssa_scalar_chase_alu_src(scalar, 0);
+      uint32_t src0 = (src0_scalar.def->bit_size == 64 && allow_64bit_src0) ? max : nir_unsigned_upper_bound(shader, range_ht, src0_scalar, config);
       uint32_t src1 = max, src2 = max;
       if (nir_op_infos[op].num_inputs > 1)
          src1 = nir_unsigned_upper_bound(shader, range_ht, nir_ssa_scalar_chase_alu_src(scalar, 1), config);
@@ -1569,6 +1578,12 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
             float max_f = ceilf(src0_f) * ceilf(src1_f);
             memcpy(&res, &max_f, 4);
          }
+         break;
+      case nir_op_u2u1:
+      case nir_op_u2u8:
+      case nir_op_u2u16:
+      case nir_op_u2u32:
+         res = MIN2(src0, max);
          break;
       default:
          res = max;
