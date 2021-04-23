@@ -1456,6 +1456,11 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
       case nir_op_bfm:
       case nir_op_f2u32:
       case nir_op_fmul:
+      case nir_op_u2u1:
+      case nir_op_u2u8:
+      case nir_op_u2u16:
+      case nir_op_u2u32:
+      case nir_op_u2u64:
          break;
       default:
          return max;
@@ -1569,6 +1574,13 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
             float max_f = ceilf(src0_f) * ceilf(src1_f);
             memcpy(&res, &max_f, 4);
          }
+         break;
+      case nir_op_u2u1:
+      case nir_op_u2u8:
+      case nir_op_u2u16:
+      case nir_op_u2u32:
+      case nir_op_u2u64:
+         res = MIN2(src0, max);
          break;
       default:
          res = max;
