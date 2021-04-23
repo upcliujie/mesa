@@ -18,6 +18,8 @@ struct vn_renderer_shmem {
 struct vn_renderer_bo {
    atomic_int refcount;
    uint32_t res_id;
+   VkDeviceSize size;
+   void *ptr;
 };
 
 enum vn_renderer_sync_flags {
@@ -333,6 +335,7 @@ vn_renderer_bo_create_gpu(struct vn_renderer *renderer,
 
    assert(atomic_load(&bo->refcount) == 1);
    assert(bo->res_id);
+   assert(bo->size >= size);
 
    *out_bo = bo;
    return VK_SUCCESS;
@@ -354,6 +357,7 @@ vn_renderer_bo_create_dmabuf(struct vn_renderer *renderer,
 
    assert(atomic_load(&bo->refcount) == 1);
    assert(bo->res_id);
+   assert(bo->size >= size);
 
    *out_bo = bo;
    return VK_SUCCESS;
