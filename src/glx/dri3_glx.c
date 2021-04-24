@@ -759,6 +759,26 @@ dri3_bind_extensions(struct dri3_screen *psc, struct glx_display * priv,
                                  "GLX_EXT_create_context_es2_profile");
    }
 
+   /* Find renderer query extension first so we can ask if the driver thinks
+    * we are on a different GPU.
+    */
+   for (i = 0; extensions[i]; i++) {
+      if (strcmp(extensions[i]->name, __DRI2_RENDERER_QUERY) == 0) {
+         psc->rendererQuery = (__DRI2rendererQueryExtension *) extensions[i];
+         __glXEnableDirectExtension(&psc->base, "GLX_MESA_query_renderer");
+         break;
+      }
+   }
+
+   if (psc->rendererQuery) {
+      unsigned int is_different_gpu = 0;
+      if (psc->rendererQuery->queryInteger(psc->driScreen, 
+            __DRI2_RENDERER_DIFFERENT_GPU, &is_different_gpu) != -1) {
+         if (is_different_gpu)
+            psc->is_different_gpu = true;
+      }
+   }
+
    for (i = 0; extensions[i]; i++) {
       /* when on a different gpu than the server, the server pixmaps
        * can have a tiling mode we can't read. Thus we can't create
@@ -788,11 +808,6 @@ dri3_bind_extensions(struct dri3_screen *psc, struct glx_display * priv,
       if (strcmp(extensions[i]->name, __DRI2_NO_ERROR) == 0)
          __glXEnableDirectExtension(&psc->base,
                                     "GLX_ARB_create_context_no_error");
-
-      if (strcmp(extensions[i]->name, __DRI2_RENDERER_QUERY) == 0) {
-         psc->rendererQuery = (__DRI2rendererQueryExtension *) extensions[i];
-         __glXEnableDirectExtension(&psc->base, "GLX_MESA_query_renderer");
-      }
 
       if (strcmp(extensions[i]->name, __DRI2_INTEROP) == 0)
 	 psc->interop = (__DRI2interopExtension*)extensions[i];
