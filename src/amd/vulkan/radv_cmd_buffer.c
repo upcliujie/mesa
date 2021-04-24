@@ -3021,28 +3021,81 @@ radv_flush_streamout_descriptors(struct radv_cmd_buffer *cmd_buffer)
 static void
 radv_flush_ngg_gs_state(struct radv_cmd_buffer *cmd_buffer)
 {
-   struct radv_pipeline *pipeline = cmd_buffer->state.pipeline;
-   struct radv_userdata_info *loc;
-   uint32_t ngg_gs_state = 0;
-   uint32_t base_reg;
+   enum {
+      enable_ngg_gs_query = 1,
+      enable_ngg_cull_front_face = 2,
+      enable_ngg_cull_back_face = 4,
+      enable_ngg_cull_both_faces = 6,
+   };
 
-   if (!radv_pipeline_has_gs(pipeline) || !radv_pipeline_has_ngg(pipeline))
+   struct radv_pipeline *pipeline = cmd_buffer->state.pipeline;
+   struct radv_dynamic_state *d = &cmd_buffer->state.dynamic;
+   unsigned lookup_stage = MESA_SHADER_VERTEX;
+   uint32_t pa_su_sc_mode_cntl = cmd_buffer->state.pipeline->graphics.pa_su_sc_mode_cntl;
+   uint32_t val = 0;
+
+   if (!radv_pipeline_has_ngg(pipeline))
       return;
 
-   /* By default NGG GS queries are disabled but they are enabled if the
-    * command buffer has active GDS queries or if it's a secondary command
-    * buffer that inherits the number of generated primitives.
-    */
-   if (cmd_buffer->state.active_pipeline_gds_queries ||
-       (cmd_buffer->state.inherited_pipeline_statistics &
-        VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_PRIMITIVES_BIT))
-      ngg_gs_state = 1;
+   if (radv_pipeline_has_gs(pipeline)) {
+      lookup_stage = MESA_SHADER_GEOMETRY;
 
-   loc = radv_lookup_user_sgpr(pipeline, MESA_SHADER_GEOMETRY, AC_UD_NGG_GS_STATE);
-   base_reg = pipeline->user_data_0[MESA_SHADER_GEOMETRY];
+      /* By default NGG GS queries are disabled but they are enabled if the
+       * command buffer has active GDS queries or if it's a secondary command
+       * buffer that inherits the number of generated primitives.
+       */
+      if (cmd_buffer->state.active_pipeline_gds_queries ||
+          (cmd_buffer->state.inherited_pipeline_statistics &
+           VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_PRIMITIVES_BIT))
+         val |= enable_ngg_gs_query;
+   } else if (radv_pipeline_has_tess(pipeline)) {
+      lookup_stage = MESA_SHADER_TESS_EVAL;
+   }
+
+   if (d->rasterizer_discard_enable) {
+      /* Rasterizer discard = cull all triangles */
+      val |= enable_ngg_cull_both_faces;
+   } else if (cmd_buffer->state.dynamic.viewport.count == 1) {
+      /* TODO: find a good way to do this for multiple viewports */
+
+      /* Find the enabled culling options */
+      if (pipeline->graphics.needed_dynamic_state & RADV_DYNAMIC_CULL_MODE) {
+         if (d->cull_mode & VK_CULL_MODE_FRONT_BIT)
+            val |= enable_ngg_cull_front_face;
+         if (d->cull_mode & VK_CULL_MODE_BACK_BIT)
+            val |= enable_ngg_cull_back_face;
+      } else {
+         if (G_028814_CULL_FRONT(pa_su_sc_mode_cntl))
+            val |= enable_ngg_cull_front_face;
+         if (G_028814_CULL_BACK(pa_su_sc_mode_cntl))
+            val |= enable_ngg_cull_back_face;
+      }
+
+      uint32_t face_swap = 0;
+
+      /* The culling code operates on CW, swap when we have CCW */
+      if ((pipeline->graphics.needed_dynamic_state & RADV_DYNAMIC_FRONT_FACE) &&
+          d->front_face == VK_FRONT_FACE_COUNTER_CLOCKWISE)
+         face_swap ^= 1;
+      if (!(pipeline->graphics.needed_dynamic_state & RADV_DYNAMIC_FRONT_FACE) &&
+          G_028814_FACE(pa_su_sc_mode_cntl) == 0)
+         face_swap ^= 1;
+
+      /* Also swap when the viewport is inverted */
+      float vp_scale[3], vp_translate[3];
+      get_viewport_xform(&cmd_buffer->state.dynamic.viewport.viewports[0], vp_scale, vp_translate);
+      bool vp_y_inverted = (-vp_scale[1] + vp_translate[1]) > (vp_scale[1] + vp_translate[1]);
+      if (vp_y_inverted)
+         face_swap ^= 1;
+
+      val = (val & ~enable_ngg_cull_both_faces) | ((val & enable_ngg_cull_front_face) << face_swap) | ((val & enable_ngg_cull_back_face) >> face_swap);
+   }
+
+   struct radv_userdata_info *loc = radv_lookup_user_sgpr(pipeline, lookup_stage, AC_UD_NGG_GS_STATE);
    assert(loc->sgpr_idx != -1);
+   uint32_t base_reg = pipeline->user_data_0[lookup_stage];
 
-   radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc->sgpr_idx * 4, ngg_gs_state);
+   radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc->sgpr_idx * 4, val);
 }
 
 static void
