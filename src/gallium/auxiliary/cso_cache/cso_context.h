@@ -152,6 +152,7 @@ void cso_set_render_condition(struct cso_context *cso,
 #define CSO_BIT_VERTEX_SHADER         0x20000
 #define CSO_BIT_VIEWPORT              0x40000
 #define CSO_BIT_PAUSE_QUERIES         0x80000
+#define CSO_BIT_COMPUTE_SHADER        (1<<20)
 
 #define CSO_BITS_ALL_SHADERS (CSO_BIT_VERTEX_SHADER | \
                               CSO_BIT_FRAGMENT_SHADER | \
@@ -159,9 +160,13 @@ void cso_set_render_condition(struct cso_context *cso,
                               CSO_BIT_TESSCTRL_SHADER | \
                               CSO_BIT_TESSEVAL_SHADER)
 
+#define CSO_BIT_COMPUTE_SAMPLERS (1<<0)
+
 void cso_save_state(struct cso_context *cso, unsigned state_mask);
 void cso_restore_state(struct cso_context *cso);
 
+void cso_save_compute_state(struct cso_context *cso, unsigned state_mask);
+void cso_restore_compute_state(struct cso_context *cso);
 
 /* Optimized version. */
 void
