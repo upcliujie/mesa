@@ -1487,6 +1487,7 @@ void si_emit_compute(struct radv_device *device, struct radeon_cmdbuf *cs);
 
 void cik_create_gfx_config(struct radv_device *device);
 
+void get_viewport_xform(const VkViewport *viewport, float scale[3], float translate[3]);
 void si_write_viewport(struct radeon_cmdbuf *cs, int first_vp, int count,
                        const VkViewport *viewports);
 void si_write_scissors(struct radeon_cmdbuf *cs, int first, int count, const VkRect2D *scissors,
