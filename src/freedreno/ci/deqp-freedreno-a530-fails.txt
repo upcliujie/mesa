@@ -17,6 +17,8 @@ dEQP-GLES31.functional.layout_binding.image.image2d.fragment_binding_array,Crash
 dEQP-GLES31.functional.layout_binding.image.image2d.fragment_binding_max,Crash
 dEQP-GLES31.functional.layout_binding.image.image3d.fragment_binding_array,Crash
 dEQP-GLES31.functional.layout_binding.image.image3d.fragment_binding_max,Crash
+dEQP-GLES31.functional.synchronization.inter_call.without_memory_barrier.atomic_counter_dispatch_5_calls_128_invocations,Fail
+dEQP-GLES31.functional.synchronization.inter_call.without_memory_barrier.ssbo_atomic_counter_mixed_dispatch_5_calls_1k_invocations,Fail
 dEQP-GLES31.functional.texture.border_clamp.depth_compare_mode.depth24_stencil8.gather_size_pot,Fail
 dEQP-GLES31.functional.texture.border_clamp.depth_compare_mode.depth32f_stencil8.gather_size_pot,Fail
 dEQP-GLES31.functional.texture.border_clamp.depth_compare_mode.depth32f_stencil8.linear_size_pot,Fail
