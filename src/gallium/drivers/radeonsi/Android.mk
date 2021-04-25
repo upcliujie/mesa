@@ -43,6 +43,7 @@ LOCAL_C_INCLUDES := \
 	$(call generated-sources-dir-for,STATIC_LIBRARIES,libmesa_nir,,)/nir
 
 LOCAL_STATIC_LIBRARIES := \
+	libmesa_nir \
 	libmesa_amd_common \
 	libmesa_galliumvl
 
