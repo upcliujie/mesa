@@ -1044,7 +1044,8 @@ iris_resource_create_for_buffer(struct pipe_screen *pscreen,
 
 static struct pipe_resource *
 iris_resource_create_renderonly(struct pipe_screen *pscreen,
-                                const struct pipe_resource *templ)
+                                const struct pipe_resource *templ,
+                                uint64_t modifier)
 {
    struct iris_screen *screen = (struct iris_screen *)pscreen;
    struct pipe_resource scanout_templat = *templ;
@@ -1063,6 +1064,7 @@ iris_resource_create_renderonly(struct pipe_screen *pscreen,
    if (!scanout)
       return NULL;
 
+   handle.modifier = modifier;
    assert(handle.type == WINSYS_HANDLE_TYPE_FD);
    pres = pscreen->resource_from_handle(pscreen, templ, &handle,
                                         PIPE_HANDLE_USAGE_FRAMEBUFFER_WRITE);
@@ -1087,12 +1089,18 @@ iris_resource_create_with_modifiers(struct pipe_screen *pscreen,
 {
    struct iris_screen *screen = (struct iris_screen *)pscreen;
    struct intel_device_info *devinfo = &screen->devinfo;
+   uint64_t modifier =
+      select_best_modifier(devinfo, templ, modifiers, modifiers_count);
+
+   if (modifier == DRM_FORMAT_MOD_INVALID && modifiers_count > 0) {
+      fprintf(stderr, "Unsupported modifier, resource creation failed.\n");
+      return NULL;
+   }
 
    if (screen->ro &&
-       (templ->bind & (PIPE_BIND_DISPLAY_TARGET |
-                       PIPE_BIND_SCANOUT | PIPE_BIND_SHARED))) {
+       ((templ->bind & PIPE_BIND_SCANOUT ) || modifiers > 0)) {
       struct pipe_resource *pres =
-         iris_resource_create_renderonly(pscreen, templ);
+         iris_resource_create_renderonly(pscreen, templ, modifier);
       if (pres)
          return pres;
    }
@@ -1100,14 +1108,6 @@ iris_resource_create_with_modifiers(struct pipe_screen *pscreen,
    struct iris_resource *res = iris_alloc_resource(pscreen, templ);
    if (!res)
       return NULL;
-
-   uint64_t modifier =
-      select_best_modifier(devinfo, templ, modifiers, modifiers_count);
-
-   if (modifier == DRM_FORMAT_MOD_INVALID && modifiers_count > 0) {
-      fprintf(stderr, "Unsupported modifier, resource creation failed.\n");
-      goto fail;
-   }
 
    UNUSED const bool isl_surf_created_successfully =
       iris_resource_configure_main(screen, res, templ, modifier, 0);
