@@ -427,7 +427,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .EXT_4444_formats = true,
       .EXT_buffer_device_address = true,
       .EXT_calibrated_timestamps = RADV_SUPPORT_CALIBRATED_TIMESTAMPS,
-      .EXT_conditional_rendering = true,
+      .EXT_conditional_rendering = device->rad_info.chip_class >= GFX8,
       .EXT_conservative_rasterization = device->rad_info.chip_class >= GFX9,
       .EXT_custom_border_color = true,
       .EXT_debug_marker = radv_thread_trace_enabled(),
@@ -1294,7 +1294,7 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT: {
          VkPhysicalDeviceConditionalRenderingFeaturesEXT *features =
             (VkPhysicalDeviceConditionalRenderingFeaturesEXT *)ext;
-         features->conditionalRendering = true;
+         features->conditionalRendering = pdevice->rad_info.chip_class >= GFX8;
          features->inheritedConditionalRendering = false;
          break;
       }
