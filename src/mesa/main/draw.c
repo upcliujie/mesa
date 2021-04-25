@@ -1339,7 +1339,6 @@ _mesa_draw_arrays(struct gl_context *ctx, GLenum mode, GLint start,
    info.view_mask = 0;
    info.min_index = start;
    info.max_index = start + count - 1;
-   info.restart_index = 0;
 
    draw.start = start;
    draw.count = count;
@@ -1667,7 +1666,6 @@ _mesa_MultiDrawArrays(GLenum mode, const GLint *first,
    info.instance_count = 1;
    info.drawid = 0;
    info.view_mask = 0;
-   info.restart_index = 0;
 
    for (int i = 0; i < primcount; i++) {
       draw[i].start = first[i];
