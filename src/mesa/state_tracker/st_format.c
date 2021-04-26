@@ -111,9 +111,11 @@ st_mesa_format_to_pipe_format(const struct st_context *st,
 
    if (st_astc_format_fallback(st, mesaFormat)) {
       if (_mesa_is_format_srgb(mesaFormat))
-         return PIPE_FORMAT_R8G8B8A8_SRGB;
+         return st->transcode_astc ? PIPE_FORMAT_DXT5_SRGBA :
+                                     PIPE_FORMAT_R8G8B8A8_SRGB;
       else
-         return PIPE_FORMAT_R8G8B8A8_UNORM;
+         return st->transcode_astc ? PIPE_FORMAT_DXT5_RGBA :
+                                     PIPE_FORMAT_R8G8B8A8_UNORM;
    }
 
    return mesaFormat;
