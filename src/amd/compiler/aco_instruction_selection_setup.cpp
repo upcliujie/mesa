@@ -396,6 +396,9 @@ setup_vs_variables(isel_context *ctx, nir_shader *nir)
       ctx->program->config->lds_size = DIV_ROUND_UP(nir->info.shared_size, ctx->program->dev.lds_encoding_granule);
       assert((ctx->program->config->lds_size * ctx->program->dev.lds_encoding_granule) < (32 * 1024));
    }
+
+   /* TODO: use whatever the NIR pass sets for shared size instead of this hack */
+   ctx->program->config->lds_size = DIV_ROUND_UP(32 * 1024, ctx->program->dev.lds_encoding_granule);
 }
 
 void setup_gs_variables(isel_context *ctx, nir_shader *nir)
