@@ -209,4 +209,3 @@ dEQP-VK.texture.filtering.2d.formats.d24_unorm_s8_uint_stencil.nearest,Fail
 dEQP-VK.texture.filtering.2d_array.formats.d24_unorm_s8_uint_stencil.d24_unorm_s8_uint_stencil_nearest,Fail
 dEQP-VK.texture.filtering.cube.formats.d24_unorm_s8_uint_stencil.nearest,Fail
 dEQP-VK.texture.filtering.unnormal.formats.d24_unorm_s8_uint_stencil.nearest,Fail
-dEQP-VK.wsi.display_control.register_device_event,Fail
