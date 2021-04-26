@@ -1000,16 +1000,22 @@ static void handle_descriptor(struct rendering_state *state,
          return;
       idx += array_idx;
       idx += dyn_info->stage[stage].const_buffer_count;
-      state->const_buffer[p_stage][idx].buffer = descriptor->buffer->bo;
-      state->const_buffer[p_stage][idx].buffer_offset = descriptor->offset + descriptor->buffer->offset;
+      if (!descriptor->buffer) {
+         state->const_buffer[p_stage][idx].buffer = NULL;
+         state->const_buffer[p_stage][idx].buffer_offset = 0;
+         state->const_buffer[p_stage][idx].buffer_size = 0;
+      } else {
+         state->const_buffer[p_stage][idx].buffer = descriptor->buffer->bo;
+         state->const_buffer[p_stage][idx].buffer_offset = descriptor->offset + descriptor->buffer->offset;
+         if (descriptor->range == VK_WHOLE_SIZE)
+            state->const_buffer[p_stage][idx].buffer_size = descriptor->buffer->bo->width0 - state->const_buffer[p_stage][idx].buffer_offset;
+         else
+            state->const_buffer[p_stage][idx].buffer_size = descriptor->range;
+      }
       if (is_dynamic) {
          uint32_t offset = dyn_info->dynamic_offsets[dyn_info->dyn_index + binding->dynamic_index + array_idx];
          state->const_buffer[p_stage][idx].buffer_offset += offset;
       }
-      if (descriptor->range == VK_WHOLE_SIZE)
-         state->const_buffer[p_stage][idx].buffer_size = descriptor->buffer->bo->width0 - state->const_buffer[p_stage][idx].buffer_offset;
-      else
-         state->const_buffer[p_stage][idx].buffer_size = descriptor->range;
       if (state->num_const_bufs[p_stage] <= idx)
          state->num_const_bufs[p_stage] = idx + 1;
       state->constbuf_dirty[p_stage] = true;
