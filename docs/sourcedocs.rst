@@ -11,7 +11,7 @@ directory and run ``make``.
 
 For an example of Doxygen usage in Mesa, see a recent source file such
 as
-`bufferobj.c <https://gitlab.freedesktop.org/mesa/mesa/-/blob/master/src/mesa/main/bufferobj.c>`__.
+`bufferobj.c <https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/src/mesa/main/bufferobj.c>`__.
 
 If you're reading this page from your local copy of Mesa, and have run
 the doxygen scripts, you can read the documentation
