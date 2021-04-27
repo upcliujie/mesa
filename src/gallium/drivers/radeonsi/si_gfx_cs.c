@@ -52,6 +52,15 @@ void si_need_gfx_cs_space(struct si_context *ctx, unsigned num_draws)
       si_flush_gfx_cs(ctx, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW, NULL);
 }
 
+void si_signal_tc_fences(struct si_context *ctx)
+{
+   /* Signal fences set via tc_signal_fence_next_flush. */
+   for (unsigned i = 0; i < ctx->num_signal_fences_next_flush; i++)
+      util_queue_fence_signal(ctx->signal_fences_next_flush[i]);
+
+   ctx->num_signal_fences_next_flush = 0;
+}
+
 void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_handle **fence)
 {
    struct radeon_cmdbuf *cs = &ctx->gfx_cs;
@@ -93,8 +102,10 @@ void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_h
    /* Drop this flush if it's a no-op. */
    if (!radeon_emitted(cs, ctx->initial_gfx_cs_size) &&
        (!wait_flags || !ctx->gfx_last_ib_is_busy) &&
-       !(flags & RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION))
+       !(flags & RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION)) {
+      si_signal_tc_fences(ctx);
       return;
+   }
 
    /* Non-aux contexts must set up no-op API dispatch on GPU resets. This is
     * similar to si_get_reset_status but here we can ignore soft-recoveries,
@@ -198,6 +209,8 @@ void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_h
 
    /* Flush the CS. */
    ws->cs_flush(cs, flags, &ctx->last_gfx_fence);
+
+   si_signal_tc_fences(ctx);
    if (fence)
       ws->fence_reference(fence, ctx->last_gfx_fence);
 
