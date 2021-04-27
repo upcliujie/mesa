@@ -3413,6 +3413,9 @@ typedef struct nir_shader_compiler_options {
     */
    bool use_scoped_barrier;
 
+   /** Use nir_op_fmul_zerowins in nir_fast_normalize() */
+   bool use_zerowins_for_normalize;
+
    /**
     * Is this the Intel vec4 backend?
     *

@@ -184,7 +184,10 @@ nir_fast_distance(nir_builder *b, nir_ssa_def *x, nir_ssa_def *y)
 static inline nir_ssa_def*
 nir_fast_normalize(nir_builder *b, nir_ssa_def *vec)
 {
-   return nir_fdiv(b, vec, nir_fast_length(b, vec));
+   if (vec->bit_size == 32 && b->shader->options->use_zerowins_for_normalize)
+      return nir_fmul_zerowins(b, vec, nir_frcp(b, nir_fast_length(b, vec)));
+   else
+      return nir_fdiv(b, vec, nir_fast_length(b, vec));
 }
 
 static inline nir_ssa_def*
