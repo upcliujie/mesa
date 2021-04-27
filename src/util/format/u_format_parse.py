@@ -71,6 +71,9 @@ class Channel:
         s += str(self.size)
         return s
 
+    def __repr__(self):
+        return "Channel({})".format(self.__str__())
+
     def __eq__(self, other):
         if other is None:
             return False
@@ -135,6 +138,16 @@ class Format:
                 exit(1)
             self.be_channels = be_channels
             self.be_swizzles = be_swizzles
+
+            if self.is_bitmask():
+                # BE channels are just the reversed LE channels, but the VOID channels are left in place.
+                chans = self.nr_channels()
+                packed_be_channels = self.le_channels[chans -
+                                                    1::-1] + self.le_channels[chans:4]
+                if packed_be_channels != be_channels:
+                    print("{}: {} != {}".format(
+                        self.name, be_channels, packed_be_channels))
+                    exit(1)
         else:
             self.be_channels = copy.deepcopy(le_channels)
             self.be_swizzles = le_swizzles
