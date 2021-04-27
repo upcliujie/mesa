@@ -380,7 +380,7 @@ add_reg_dep(struct ir3_postsched_deps_state *state,
 		unsigned num, bool write)
 {
 	if (state->merged) {
-		if (reg->flags & IR3_REG_HALF) {
+		if ((reg->flags & IR3_REG_HALF) && num < regid(48, 0)) {
 			/* single conflict in half-reg space: */
 			add_single_reg_dep(state, node, num, write);
 		} else {
