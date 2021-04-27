@@ -2053,7 +2053,9 @@ void get_affinities(ra_ctx& ctx, std::vector<IDSet>& live_out_per_block)
                         (instr->opcode == aco_opcode::v_fma_f32 && ctx.program->chip_class >= GFX10) ||
                         instr->opcode == aco_opcode::v_mad_f16 ||
                         instr->opcode == aco_opcode::v_mad_legacy_f16 ||
-                        (instr->opcode == aco_opcode::v_fma_f16 && ctx.program->chip_class >= GFX10)) && !instr->usesModifiers())
+                        (instr->opcode == aco_opcode::v_fma_f16 && ctx.program->chip_class >= GFX10) ||
+                        (instr->opcode == aco_opcode::v_mad_legacy_f32 && ctx.program->dev.has_mac_legacy32) ||
+                        (instr->opcode == aco_opcode::v_fma_legacy_f32 && ctx.program->dev.has_mac_legacy32)) && !instr->usesModifiers())
                   op = instr->operands[2];
 
                if (op.isTemp() && op.isFirstKillBeforeDef() && def.regClass() == op.regClass()) {
@@ -2301,7 +2303,9 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
               instr->opcode == aco_opcode::v_mad_f16 ||
               instr->opcode == aco_opcode::v_mad_legacy_f16 ||
               (instr->opcode == aco_opcode::v_fma_f16 && program->chip_class >= GFX10) ||
-              (instr->opcode == aco_opcode::v_pk_fma_f16 && program->chip_class >= GFX10)) &&
+              (instr->opcode == aco_opcode::v_pk_fma_f16 && program->chip_class >= GFX10) ||
+              (instr->opcode == aco_opcode::v_mad_legacy_f32 && program->dev.has_mac_legacy32) ||
+              (instr->opcode == aco_opcode::v_fma_legacy_f32 && program->dev.has_mac_legacy32)) &&
              instr->operands[2].isTemp() &&
              instr->operands[2].isKillBeforeDef() &&
              instr->operands[2].getTemp().type() == RegType::vgpr &&
@@ -2333,6 +2337,12 @@ void register_allocation(Program *program, std::vector<IDSet>& live_out_per_bloc
                   break;
                case aco_opcode::v_pk_fma_f16:
                   instr->opcode = aco_opcode::v_pk_fmac_f16;
+                  break;
+               case aco_opcode::v_mad_legacy_f32:
+                  instr->opcode = aco_opcode::v_mac_legacy_f32;
+                  break;
+               case aco_opcode::v_fma_legacy_f32:
+                  instr->opcode = aco_opcode::v_fmac_legacy_f32;
                   break;
                default:
                   break;
