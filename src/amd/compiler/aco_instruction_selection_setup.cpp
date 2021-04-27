@@ -547,6 +547,7 @@ init_context(isel_context* ctx, nir_shader* shader)
                   nir_dest_is_divergent(alu_instr->dest.dest) ? RegType::vgpr : RegType::sgpr;
                switch (alu_instr->op) {
                case nir_op_fmul:
+               case nir_op_fmul_zerowins:
                case nir_op_fadd:
                case nir_op_fsub:
                case nir_op_fmax:
