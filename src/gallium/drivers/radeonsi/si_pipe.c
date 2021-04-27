@@ -761,6 +761,14 @@ fail:
    return NULL;
 }
 
+static bool si_is_resource_busy(struct pipe_screen *screen, struct pipe_resource *resource,
+                                unsigned usage)
+{
+   struct radeon_winsys *ws = ((struct si_screen *)screen)->ws;
+
+   return !ws->buffer_wait(ws, si_resource(resource)->buf, 0, RADEON_USAGE_READWRITE);
+}
+
 static struct pipe_context *si_pipe_create_context(struct pipe_screen *screen, void *priv,
                                                    unsigned flags)
 {
@@ -798,8 +806,8 @@ static struct pipe_context *si_pipe_create_context(struct pipe_screen *screen, v
       threaded_context_create(ctx, &sscreen->pool_transfers,
                               si_replace_buffer_storage,
                               sscreen->info.is_amdgpu ? si_create_fence : NULL,
-                              NULL,
-                              false,
+                              si_is_resource_busy,
+                              true,
                               &((struct si_context *)ctx)->tc);
 
    if (tc && tc != ctx && os_get_total_physical_memory(&total_ram)) {
