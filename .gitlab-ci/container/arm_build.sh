@@ -26,6 +26,7 @@ apt-get -y install \
 	flex \
 	g++ \
 	git \
+	glslang-tools \
 	kmod \
 	libasan6 \
 	libdrm-dev \
