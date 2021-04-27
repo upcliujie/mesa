@@ -636,7 +636,7 @@ iris_resource_configure_main(const struct iris_screen *screen,
    const enum isl_format format =
       iris_format_for_usage(&screen->devinfo, templ->format, usage).fmt;
 
-   const struct isl_surf_init_info init_info = {
+   struct isl_surf_init_info init_info = {
       .dim = target_to_isl_surf_dim(templ->target),
       .format = format,
       .width = templ->width0,
@@ -653,6 +653,14 @@ iris_resource_configure_main(const struct iris_screen *screen,
 
    if (!isl_surf_init_s(&screen->isl_dev, &res->surf, &init_info))
       return false;
+
+   /* HACK: align resource to AMD's display requirement for linear tiling. */
+   if (templ->bind & PIPE_BIND_SCANOUT &&
+       res->surf.tiling == ISL_TILING_LINEAR) {
+      init_info.row_pitch_B = ALIGN(res->surf.row_pitch_B, 256);
+      if (!isl_surf_init_s(&screen->isl_dev, &res->surf, &init_info))
+         return false;
+   }
 
    res->internal_format = templ->format;
 
