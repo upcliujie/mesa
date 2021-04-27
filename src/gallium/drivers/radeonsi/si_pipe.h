@@ -1269,6 +1269,9 @@ struct si_context {
     */
    struct hash_table *dirty_implicit_resources;
 
+   struct util_queue_fence *signal_fences_next_flush[TC_MAX_SIGNAL_FENCES_NEXT_FLUSH];
+   unsigned num_signal_fences_next_flush;
+
    pipe_draw_vbo_func draw_vbo[NUM_GFX_VERSIONS - GFX6][2][2][2][2];
 
    /* SQTT */
@@ -1458,6 +1461,7 @@ void si_allocate_gds(struct si_context *ctx);
 void si_set_tracked_regs_to_clear_state(struct si_context *ctx);
 void si_begin_new_gfx_cs(struct si_context *ctx, bool first_cs);
 void si_need_gfx_cs_space(struct si_context *ctx, unsigned num_draws);
+void si_signal_tc_fences(struct si_context *ctx);
 void si_emit_surface_sync(struct si_context *sctx, struct radeon_cmdbuf *cs,
                           unsigned cp_coher_cntl);
 void gfx10_emit_cache_flush(struct si_context *sctx, struct radeon_cmdbuf *cs);
