@@ -36,15 +36,73 @@
  *
  * This may come at the cost of additional register usage.  OTOH setting
  * the (ei) flag earlier probably frees up more VS to run.
+ *
+ * Not all varying fetches could be pulled into the start block.
+ * If there are fetches we couldn't pull, like load_interpolated_input
+ * with offset which depends on phi node, this pass is skipped since it
+ * would be hard to find a place to set (ei) flag (beside at the very end).
+ * a5xx and a6xx do automatically release varying storage at the end.
  */
 
+typedef struct {
+	nir_block *start_block;
+	bool precondition_failed;
+} precond_state;
 
 typedef struct {
 	nir_shader *shader;
 	nir_block *start_block;
 } state;
 
+
+
+static void check_precondition_instr(precond_state *state, nir_instr *instr);
 static void move_instruction_to_start_block(state *state, nir_instr *instr);
+
+static bool
+check_precondition_src(nir_src *src, void *state)
+{
+	check_precondition_instr(state, src->ssa->parent_instr);
+	return true;
+}
+
+static void
+check_precondition_instr(precond_state *state, nir_instr *instr)
+{
+	if (instr->block == state->start_block)
+		return;
+
+	if (instr->type == nir_instr_type_phi) {
+		state->precondition_failed = true;
+		return;
+	}
+
+	nir_foreach_src(instr, check_precondition_src, state);
+}
+
+static void
+check_precondition_block(precond_state *state, nir_block *block)
+{
+	nir_foreach_instr_safe (instr, block) {
+		if (instr->type != nir_instr_type_intrinsic)
+			continue;
+
+		nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+
+		switch (intr->intrinsic) {
+		case nir_intrinsic_load_interpolated_input:
+		case nir_intrinsic_load_input:
+			break;
+		default:
+			continue;
+		}
+
+		check_precondition_instr(state, instr);
+
+		if (state->precondition_failed)
+			return;
+	}
+}
 
 static bool
 move_src(nir_src *src, void *state)
@@ -110,6 +168,26 @@ ir3_nir_move_varying_inputs(nir_shader *shader)
 	bool progress = false;
 
 	debug_assert(shader->info.stage == MESA_SHADER_FRAGMENT);
+
+	nir_foreach_function (function, shader) {
+		precond_state state;
+
+		if (!function->impl)
+			continue;
+
+		state.precondition_failed = false;
+		state.start_block = nir_start_block(function->impl);
+
+		nir_foreach_block (block, function->impl) {
+			if (block == state.start_block)
+				continue;
+
+			check_precondition_block(&state, block);
+
+			if (state.precondition_failed)
+				return false;
+		}
+	}
 
 	nir_foreach_function (function, shader) {
 		state state;
