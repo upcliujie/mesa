@@ -3449,6 +3449,9 @@ typedef struct nir_shader_compiler_options {
    /** Backend supports fmulz (and ffmaz if lower_ffma32=false) */
    bool has_fmulz;
 
+   /** If true, nir_fast_normalize() will normalize zero vectors to zero instead of NaN. */
+   bool normalize_zero_to_zero;
+
    /**
     * Is this the Intel vec4 backend?
     *
