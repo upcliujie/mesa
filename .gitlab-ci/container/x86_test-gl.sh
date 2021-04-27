@@ -13,6 +13,7 @@ STABLE_EPHEMERAL=" \
       clang-11 \
       cmake \
       g++ \
+      glslang-tools \
       libclang-cpp11-dev \
       libgbm-dev \
       libgles2-mesa-dev \
