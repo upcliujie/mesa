@@ -87,6 +87,8 @@ radv_get_nir_options(struct radv_physical_device *device)
       .has_dot_4x8 = device->rad_info.has_accelerated_dot_product,
       .has_dot_2x16 = device->rad_info.has_accelerated_dot_product,
       .use_scoped_barrier = true,
+      .has_fmul_zerowins = true,
+      .normalize_zero_to_zero = true,
       .max_unroll_iterations = 32,
       .max_unroll_iterations_aggressive = 128,
       .use_interpolated_input_intrinsics = true,
