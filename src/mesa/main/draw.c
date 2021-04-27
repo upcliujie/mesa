@@ -936,6 +936,7 @@ _mesa_validate_MultiDrawElementsIndirectCount(struct gl_context *ctx,
 void
 _mesa_draw_gallium_fallback(struct gl_context *ctx,
                             struct pipe_draw_info *info,
+                            unsigned drawid_offset,
                             const struct pipe_draw_start_count_bias *draws,
                             unsigned num_draws)
 {
@@ -994,7 +995,7 @@ _mesa_draw_gallium_fallback(struct gl_context *ctx,
          prim.start = index_size && info->has_user_indices ? 0 : draws[i].start;
          prim.count = draws[i].count;
          prim.basevertex = index_size ? draws[i].index_bias : 0;
-         prim.draw_id = info->increment_draw_id ? i : 0;
+         prim.draw_id = drawid_offset + (info->increment_draw_id ? i : 0);
 
          if (!index_size) {
             min_index = draws[i].start;
@@ -1028,7 +1029,7 @@ _mesa_draw_gallium_fallback(struct gl_context *ctx,
       prim[num_prims].start = draws[i].start;
       prim[num_prims].count = draws[i].count;
       prim[num_prims].basevertex = info->index_size ? draws[i].index_bias : 0;
-      prim[num_prims].draw_id = info->increment_draw_id ? i : 0;
+      prim[num_prims].draw_id = drawid_offset + (info->increment_draw_id ? i : 0);
 
       if (!index_size) {
          min_index = MIN2(min_index, draws[i].start);
@@ -1066,6 +1067,7 @@ _mesa_draw_gallium_fallback(struct gl_context *ctx,
 void
 _mesa_draw_gallium_multimode_fallback(struct gl_context *ctx,
                                     struct pipe_draw_info *info,
+                                    unsigned drawid_offset,
                                     const struct pipe_draw_start_count_bias *draws,
                                     const unsigned char *mode,
                                     unsigned num_draws)
@@ -1076,7 +1078,7 @@ _mesa_draw_gallium_multimode_fallback(struct gl_context *ctx,
    for (i = 0, first = 0; i <= num_draws; i++) {
       if (i == num_draws || mode[i] != mode[first]) {
          info->mode = mode[first];
-         ctx->Driver.DrawGallium(ctx, info, &draws[first], i - first);
+         ctx->Driver.DrawGallium(ctx, info, drawid_offset, &draws[first], i - first);
          first = i;
       }
    }
@@ -1306,7 +1308,7 @@ _mesa_draw_arrays(struct gl_context *ctx, GLenum mode, GLint start,
    draw.start = start;
    draw.count = count;
 
-   ctx->Driver.DrawGallium(ctx, &info, &draw, 1);
+   ctx->Driver.DrawGallium(ctx, &info, 0, &draw, 1);
 
    if (MESA_DEBUG_FLAGS & DEBUG_ALWAYS_FLUSH) {
       _mesa_flush(ctx);
@@ -1636,7 +1638,7 @@ _mesa_MultiDrawArrays(GLenum mode, const GLint *first,
       draw[i].count = count[i];
    }
 
-   ctx->Driver.DrawGallium(ctx, &info, draw, primcount);
+   ctx->Driver.DrawGallium(ctx, &info, 0, draw, primcount);
 
    if (MESA_DEBUG_FLAGS & DEBUG_ALWAYS_FLUSH)
       _mesa_flush(ctx);
@@ -1792,7 +1794,7 @@ _mesa_validated_drawrangeelements(struct gl_context *ctx, GLenum mode,
     * for the latter case elsewhere.
     */
 
-   ctx->Driver.DrawGallium(ctx, &info, &draw, 1);
+   ctx->Driver.DrawGallium(ctx, &info, 0, &draw, 1);
 
    if (MESA_DEBUG_FLAGS & DEBUG_ALWAYS_FLUSH) {
       _mesa_flush(ctx);
@@ -2171,7 +2173,7 @@ _mesa_validated_multidrawelements(struct gl_context *ctx, GLenum mode,
          }
       }
 
-      ctx->Driver.DrawGallium(ctx, &info, draw, primcount);
+      ctx->Driver.DrawGallium(ctx, &info, 0, draw, primcount);
       FREE_PRIMS(draw, primcount);
    } else {
       /* draw[i].start would overflow. Draw one at a time. */
@@ -2191,7 +2193,7 @@ _mesa_validated_multidrawelements(struct gl_context *ctx, GLenum mode,
          draw.index_bias = basevertex ? basevertex[i] : 0;
          draw.count = count[i];
 
-         ctx->Driver.DrawGallium(ctx, &info, &draw, 1);
+         ctx->Driver.DrawGallium(ctx, &info, i, &draw, 1);
       }
    }
 
