@@ -688,6 +688,12 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
       src[1] = ac_to_float(&ctx->ac, src[1]);
       result = LLVMBuildFMul(ctx->ac.builder, src[0], src[1], "");
       break;
+   case nir_op_fmul_zerowins:
+      src[0] = ac_to_float(&ctx->ac, src[0]);
+      src[1] = ac_to_float(&ctx->ac, src[1]);
+      result = ac_build_intrinsic(&ctx->ac, "llvm.amdgcn.fmul.legacy", ctx->ac.f32,
+                                  src, 2, AC_FUNC_ATTR_READNONE);
+      break;
    case nir_op_frcp:
       /* For doubles, we need precise division to pass GLCTS. */
       if (ctx->ac.float_mode == AC_FLOAT_MODE_DEFAULT_OPENGL && ac_get_type_size(def_type) == 8) {
