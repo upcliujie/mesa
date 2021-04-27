@@ -163,6 +163,27 @@ nir_fast_distance(nir_builder *b, nir_ssa_def *x, nir_ssa_def *y)
 static inline nir_ssa_def*
 nir_fast_normalize(nir_builder *b, nir_ssa_def *vec)
 {
+   if (b->shader->options->normalize_zero_to_zero) {
+      nir_ssa_def *inv_len = nir_frcp(b, nir_fast_length(b, vec));
+
+      uint64_t flt_max;
+      switch (vec->bit_size) {
+      case 16:
+         flt_max = 0x7bff;
+         break;
+      case 32:
+         flt_max = 0x7f7fffff;
+         break;
+      case 64:
+         flt_max = UINT64_C(0x7fefffffffffffff);
+         break;
+      default:
+         unreachable("Invalid bit-size");
+      }
+
+      return nir_fmul(b, vec, nir_fmin(b, inv_len, nir_imm_intN_t(b, flt_max, vec->bit_size)));
+   }
+
    return nir_fdiv(b, vec, nir_fast_length(b, vec));
 }
 
