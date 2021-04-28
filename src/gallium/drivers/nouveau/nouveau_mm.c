@@ -213,7 +213,6 @@ nouveau_mm_allocate(struct nouveau_mman *cache,
    }
    simple_mtx_unlock(&bucket->lock);
 
-   alloc->next = NULL;
    alloc->offset = *offset;
    alloc->priv = (void *)slab;
 
