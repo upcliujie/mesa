@@ -1821,22 +1821,15 @@ anv_pipeline_compile_cs(struct anv_compute_pipeline *pipeline,
    return VK_SUCCESS;
 }
 
-struct anv_cs_parameters
-anv_cs_parameters(const struct anv_compute_pipeline *pipeline)
+struct brw_cs_dispatch_info
+anv_cs_dispatch_info(const struct anv_compute_pipeline *pipeline)
 {
    const struct brw_cs_prog_data *cs_prog_data = get_cs_prog_data(pipeline);
-
-   struct anv_cs_parameters cs_params = {};
-
-   cs_params.group_size = cs_prog_data->local_size[0] *
-                          cs_prog_data->local_size[1] *
-                          cs_prog_data->local_size[2];
-   cs_params.simd_size =
-      brw_cs_simd_size_for_group_size(&pipeline->base.device->info,
-                                      cs_prog_data, cs_params.group_size);
-   cs_params.threads = DIV_ROUND_UP(cs_params.group_size, cs_params.simd_size);
-
-   return cs_params;
+   return brw_cs_get_dispatch_info(&pipeline->base.device->info,
+                                   cs_prog_data,
+                                   cs_prog_data->local_size[0],
+                                   cs_prog_data->local_size[1],
+                                   cs_prog_data->local_size[2]);
 }
 
 /**
