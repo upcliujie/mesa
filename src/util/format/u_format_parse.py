@@ -136,32 +136,27 @@ class Format:
                 print(
                     "{} is an array format and should not include BE swizzles in the CSV".format(self.name))
                 exit(1)
+            if self.is_bitmask():
+                print(
+                    "{} is a bitmask format and should not include BE swizzles in the CSV".format(self.name))
+                exit(1)
             self.be_channels = be_channels
             self.be_swizzles = be_swizzles
+        elif self.is_bitmask() and not self.is_array():
+            # BE channels are just the reversed LE channels, but the VOID channels are left in place.
+            chans = self.nr_channels()
+            self.be_channels = self.le_channels[chans -
+                                                1::-1] + self.le_channels[chans:4]
 
-            if self.is_bitmask():
-                # BE channels are just the reversed LE channels, but the VOID channels are left in place.
-                chans = self.nr_channels()
-                packed_be_channels = self.le_channels[chans -
-                                                    1::-1] + self.le_channels[chans:4]
-                if packed_be_channels != be_channels:
-                    print("{}: {} != {}".format(
-                        self.name, be_channels, packed_be_channels))
-                    exit(1)
-
-                xyzw = [SWIZZLE_X, SWIZZLE_Y, SWIZZLE_Z, SWIZZLE_W]
-                chan_map = {SWIZZLE_X: xyzw[chans - 1] if chans >= 1 else SWIZZLE_X,
-                            SWIZZLE_Y: xyzw[chans - 2] if chans >= 2 else SWIZZLE_X,
-                            SWIZZLE_Z: xyzw[chans - 3] if chans >= 3 else SWIZZLE_X,
-                            SWIZZLE_W: xyzw[chans - 4] if chans >= 4 else SWIZZLE_X,
-                            SWIZZLE_1: SWIZZLE_1,
-                            SWIZZLE_0: SWIZZLE_0,
-                            SWIZZLE_NONE: SWIZZLE_NONE}
-                be_swizzles = [chan_map[s] for s in self.le_swizzles]
-                if be_swizzles != self.be_swizzles:
-                    print("{}: LE {}, computed BE {} != {}".format(
-                        self.name, self.le_swizzles, be_swizzles, self.be_swizzles))
-                    exit(1)
+            xyzw = [SWIZZLE_X, SWIZZLE_Y, SWIZZLE_Z, SWIZZLE_W]
+            chan_map = {SWIZZLE_X: xyzw[chans - 1] if chans >= 1 else SWIZZLE_X,
+                        SWIZZLE_Y: xyzw[chans - 2] if chans >= 2 else SWIZZLE_X,
+                        SWIZZLE_Z: xyzw[chans - 3] if chans >= 3 else SWIZZLE_X,
+                        SWIZZLE_W: xyzw[chans - 4] if chans >= 4 else SWIZZLE_X,
+                        SWIZZLE_1: SWIZZLE_1,
+                        SWIZZLE_0: SWIZZLE_0,
+                        SWIZZLE_NONE: SWIZZLE_NONE}
+            self.be_swizzles = [chan_map[s] for s in self.le_swizzles]
         else:
             self.be_channels = copy.deepcopy(le_channels)
             self.be_swizzles = le_swizzles
