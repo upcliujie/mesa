@@ -195,6 +195,27 @@
       when: on_success
     - when: never
 
+# Unfortunately YAML doesn't let us concatenate arrays, so we have to do the
+# rules duplication manually
+.freedreno-rules-performance:
+  # This is needed so the manual job won't block MRs
+  stage: success
+  rules:
+    - *ignore_scheduled_pipelines
+    - changes:
+        *mesa_core_file_list
+      when: manual
+    - changes:
+        *gallium_core_file_list
+      when: manual
+    - changes:
+        *vulkan_file_list
+      when: manual
+    - changes:
+        *freedreno_file_list
+      when: manual
+    - when: never
+
 .panfrost-midgard-rules:
   stage: arm
   rules:
