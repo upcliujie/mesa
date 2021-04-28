@@ -48,6 +48,7 @@ stages:
   - layered-backends
   - deploy
   - success
+  - post-merge
 
 # Generic rule to not run the job during scheduled pipelines
 # ----------------------------------------------------------
