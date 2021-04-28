@@ -1255,7 +1255,69 @@ iris_resource_from_memobj(struct pipe_screen *pscreen,
    res->offset = offset;
    res->external_format = memobj->format;
 
+   /* Additional reference for stencil. */
+   if (res->surf.usage & ISL_SURF_USAGE_STENCIL_BIT)
+      iris_bo_reference(memobj->bo);
+
    return &res->base.b;
+}
+
+/* Handle combined depth/stencil with memory objects. */
+static struct pipe_resource *
+iris_resource_from_memobj_wrapper(struct pipe_screen *pscreen,
+                                  const struct pipe_resource *templ,
+                                  struct pipe_memory_object *pmemobj,
+                                  uint64_t offset)
+{
+   struct iris_screen *screen = (struct iris_screen *)pscreen;
+   enum pipe_format format = templ->format;
+   struct pipe_resource *prsc;
+
+   if ((util_format_is_depth_and_stencil(format)) ||
+       (format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT)) {
+      struct pipe_resource t = *templ;
+      struct pipe_resource *stencil;
+
+      t.format = util_format_get_depth_only(format);
+
+      prsc = iris_resource_from_memobj(pscreen, &t, pmemobj, offset);
+      if (!prsc)
+         return NULL;
+
+      struct iris_resource *ires = (struct iris_resource *) prsc;
+
+      /* Stencil offset in the buffer without aux. */
+      uint64_t s_offset = ires->surf.size_B;
+
+      /* Setup aux surface for the depth buffer. */
+      if (util_format_has_depth(util_format_description(templ->format)) &&
+          !(INTEL_DEBUG & DEBUG_NO_HIZ)) {
+         if (!iris_resource_configure_aux(screen, ires, false))
+            return NULL;
+
+         /* Stencil is found after all aux for the main surface. */
+         s_offset = iris_resource_configure_aux_offsets(screen, ires);
+
+         ires->aux.bo = ires->bo;
+         iris_bo_reference(ires->aux.bo);
+
+         map_aux_addresses(screen, ires, ires->surf.format, 0);
+      }
+
+      prsc->format = format;
+      t.format = PIPE_FORMAT_S8_UINT;
+      stencil = iris_resource_from_memobj(pscreen, &t, pmemobj,
+                                          offset + s_offset);
+      if (!stencil) {
+         iris_resource_destroy(pscreen, prsc);
+         return NULL;
+      }
+      iris_resource_set_separate_stencil(prsc, stencil);
+      return prsc;
+   }
+
+   /* Normal case, no special handling: */
+   return iris_resource_from_memobj(pscreen, templ, pmemobj, offset);
 }
 
 static void
@@ -2391,7 +2453,7 @@ iris_init_screen_resource_functions(struct pipe_screen *pscreen)
    pscreen->resource_create = u_transfer_helper_resource_create;
    pscreen->resource_from_user_memory = iris_resource_from_user_memory;
    pscreen->resource_from_handle = iris_resource_from_handle;
-   pscreen->resource_from_memobj = iris_resource_from_memobj;
+   pscreen->resource_from_memobj = iris_resource_from_memobj_wrapper;
    pscreen->resource_get_handle = iris_resource_get_handle;
    pscreen->resource_get_param = iris_resource_get_param;
    pscreen->resource_destroy = u_transfer_helper_resource_destroy;
