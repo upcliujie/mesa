@@ -9769,6 +9769,27 @@ brw_cs_simd_size_for_group_size(const struct intel_device_info *devinfo,
    return 32;
 }
 
+struct brw_cs_dispatch_info
+brw_cs_get_dispatch_info(const struct intel_device_info *devinfo,
+                         const struct brw_cs_prog_data *prog_data,
+                         uint32_t size_x, uint32_t size_y, uint32_t size_z)
+{
+   struct brw_cs_dispatch_info info = {};
+
+   info.group_size = size_x * size_y * size_z;
+   info.simd_size =
+      brw_cs_simd_size_for_group_size(devinfo, prog_data, info.group_size);
+   info.threads = DIV_ROUND_UP(info.group_size, info.simd_size);
+
+   const uint32_t remainder = info.group_size & (info.simd_size - 1);
+   if (remainder > 0)
+      info.right_mask = ~0u >> (32 - remainder);
+   else
+      info.right_mask = ~0u >> (32 - info.simd_size);
+
+   return info;
+}
+
 const unsigned *
 brw_compile_bs(const struct brw_compiler *compiler, void *log_data,
                void *mem_ctx,
