@@ -1600,7 +1600,6 @@ if _llvm != 'disabled'
     ),
     static : not _shared_llvm,
     method : _llvm_method,
-    fallback : ['llvm', 'dep_llvm'],
     include_type : 'system',
   )
   with_llvm = dep_llvm.found()

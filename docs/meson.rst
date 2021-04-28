@@ -318,7 +318,7 @@ such a meson.build file might look like:
 
 ::
 
-   project('llvm', ['cpp'])
+   project('llvm', ['cpp'], meson_version : '>= 0.54',)
 
    cpp = meson.get_compiler('cpp')
 
@@ -352,6 +352,8 @@ such a meson.build file might look like:
      dependencies : _deps,
      version : '6.0.0',
    )
+
+   meson.override_dependency('llvm', dep_llvm)
 
    has_rtti = false
    irbuilder_h = files('include/llvm/IR/IRBuilder.h')
