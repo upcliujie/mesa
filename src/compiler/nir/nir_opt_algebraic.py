@@ -159,6 +159,7 @@ optimizations = [
    # The only effect a*0.0 should have is when 'a' is infinity, -0.0 or NaN
    (('fmul', 'a@16', 0.0), 0.0, '!'+signed_zero_inf_nan_preserve_16),
    (('fmul', 'a@32', 0.0), 0.0, '!'+signed_zero_inf_nan_preserve_32),
+   (('fmul_zerowins', a, 0.0), 0.0),
    (('imul', a, 0), 0),
    (('umul_unorm_4x8_vc4', a, 0), 0),
    (('umul_unorm_4x8_vc4', a, ~0), a),

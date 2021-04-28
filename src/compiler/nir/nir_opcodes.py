@@ -669,6 +669,20 @@ if (nir_is_rounding_mode_rtz(execution_mode, bit_size)) {
    dst = src0 * src1;
 }
 """)
+
+# Unlike fmul, anything (even infinity or NaN) multiplied by positive/negative zero is always
+# positive zero. Like fsat/fmin/fmax/comparisons, this opcode cannot assume a source is not
+# infinity or NaN (that would defeat the purpose of the opcode).
+binop("fmul_zerowins", tfloat32, _2src_commutative + associative, """
+if (src0 == 0.0 || src1 == 0.0) {
+   dst = 0.0;
+} else if (nir_is_rounding_mode_rtz(execution_mode, 32)) {
+   dst = _mesa_double_to_float_rtz((double)src0 * (double)src1);
+} else {
+   dst = src0 * src1;
+}
+""")
+
 # low 32-bits of signed/unsigned integer multiply
 binop("imul", tint, _2src_commutative + associative, """
    /* Use 64-bit multiplies to prevent overflow of signed arithmetic */
