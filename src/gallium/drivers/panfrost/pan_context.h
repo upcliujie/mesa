@@ -167,7 +167,6 @@ struct panfrost_context {
         unsigned sampler_view_count[PIPE_SHADER_TYPES];
 
         struct primconvert_context *primconvert;
-        struct blitter_context *blitter;
 
         struct panfrost_blend_state *blend;
 
