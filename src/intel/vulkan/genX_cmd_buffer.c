@@ -4559,12 +4559,12 @@ emit_compute_walker(struct anv_cmd_buffer *cmd_buffer,
    struct anv_cmd_compute_state *comp_state = &cmd_buffer->state.compute;
    const struct anv_shader_bin *cs_bin = pipeline->cs;
    bool predicate = cmd_buffer->state.conditional_render_enabled;
-   const struct anv_cs_parameters cs_params = anv_cs_parameters(pipeline);
+   const struct brw_cs_dispatch_info dispatch = anv_cs_dispatch_info(pipeline);
 
    anv_batch_emit(&cmd_buffer->batch, GENX(COMPUTE_WALKER), cw) {
       cw.IndirectParameterEnable        = indirect;
       cw.PredicateEnable                = predicate;
-      cw.SIMDSize                       = cs_params.simd_size / 16;
+      cw.SIMDSize                       = dispatch.simd_size / 16;
       cw.IndirectDataStartAddress       = comp_state->push_data.offset;
       cw.IndirectDataLength             = comp_state->push_data.alloc_size;
       cw.LocalXMaximum                  = prog_data->local_size[0] - 1;
@@ -4583,7 +4583,7 @@ emit_compute_walker(struct anv_cmd_buffer *cmd_buffer,
             cmd_buffer->state.binding_tables[MESA_SHADER_COMPUTE].offset,
          .BindingTableEntryCount =
             1 + MIN2(pipeline->cs->bind_map.surface_count, 30),
-         .NumberofThreadsinGPGPUThreadGroup = cs_params.threads,
+         .NumberofThreadsinGPGPUThreadGroup = dispatch.threads,
          .SharedLocalMemorySize = encode_slm_size(GFX_VER,
                                                   prog_data->base.total_shared),
          .BarrierEnable = prog_data->uses_barrier,
@@ -4602,15 +4602,15 @@ emit_gpgpu_walker(struct anv_cmd_buffer *cmd_buffer,
 {
    bool predicate = (GFX_VER <= 7 && indirect) ||
       cmd_buffer->state.conditional_render_enabled;
-   const struct anv_cs_parameters cs_params = anv_cs_parameters(pipeline);
+   const struct brw_cs_dispatch_info dispatch = anv_cs_dispatch_info(pipeline);
 
    anv_batch_emit(&cmd_buffer->batch, GENX(GPGPU_WALKER), ggw) {
       ggw.IndirectParameterEnable      = indirect;
       ggw.PredicateEnable              = predicate;
-      ggw.SIMDSize                     = cs_params.simd_size / 16;
+      ggw.SIMDSize                     = dispatch.simd_size / 16;
       ggw.ThreadDepthCounterMaximum    = 0;
       ggw.ThreadHeightCounterMaximum   = 0;
-      ggw.ThreadWidthCounterMaximum    = cs_params.threads - 1;
+      ggw.ThreadWidthCounterMaximum    = dispatch.threads - 1;
       ggw.ThreadGroupIDXDimension      = groupCountX;
       ggw.ThreadGroupIDYDimension      = groupCountY;
       ggw.ThreadGroupIDZDimension      = groupCountZ;
