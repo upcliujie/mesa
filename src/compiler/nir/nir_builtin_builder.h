@@ -166,6 +166,9 @@ nir_fast_normalize(nir_builder *b, nir_ssa_def *vec)
    if (b->shader->options->normalize_zero_to_zero) {
       nir_ssa_def *inv_len = nir_frcp(b, nir_fast_length(b, vec));
 
+      if (vec->bit_size == 32 && b->shader->options->has_fmul_zerowins)
+         return nir_fmul_zerowins(b, vec, inv_len);
+
       uint64_t flt_max;
       switch (vec->bit_size) {
       case 16:
