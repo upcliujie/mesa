@@ -1594,10 +1594,7 @@ if _llvm != 'disabled'
     version : _llvm_version,
     modules : llvm_modules,
     optional_modules : llvm_optional_modules,
-    required : (
-      with_amd_vk or with_gallium_radeonsi or with_gallium_swr or
-      with_gallium_opencl or with_microsoft_clc or _llvm == 'enabled'
-    ),
+    required : _llvm == 'enabled',
     static : not _shared_llvm,
     method : _llvm_method,
     fallback : ['llvm', 'dep_llvm'],
