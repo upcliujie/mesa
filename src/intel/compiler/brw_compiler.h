@@ -1715,6 +1715,20 @@ brw_cs_right_mask(unsigned group_size, unsigned simd_size)
       return ~0u >> (32 - simd_size);
 }
 
+struct brw_cs_dispatch_info {
+   uint32_t group_size;
+   uint32_t simd_size;
+   uint32_t threads;
+
+   /* RightExecutionMask field used in GPGPU_WALKER. */
+   uint32_t right_mask;
+};
+
+struct brw_cs_dispatch_info
+brw_cs_get_dispatch_info(const struct intel_device_info *devinfo,
+                         const struct brw_cs_prog_data *prog_data,
+                         uint32_t size_x, uint32_t size_y, uint32_t size_z);
+
 /**
  * Return true if the given shader stage is dispatched contiguously by the
  * relevant fixed function starting from channel 0 of the SIMD thread, which
