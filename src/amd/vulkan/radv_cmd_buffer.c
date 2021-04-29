@@ -3047,6 +3047,8 @@ radv_flush_ngg_gs_state(struct radv_cmd_buffer *cmd_buffer)
       enable_ngg_cull_front_face = 2,
       enable_ngg_cull_back_face = 4,
       enable_ngg_cull_both_faces = 6,
+      enable_ngg_cull_small_primitives = 8,
+      enable_ngg_cull_all = 14,
    };
 
    struct radv_pipeline *pipeline = cmd_buffer->state.pipeline;
@@ -3075,6 +3077,8 @@ radv_flush_ngg_gs_state(struct radv_cmd_buffer *cmd_buffer)
 
    if (lookup_stage != MESA_SHADER_GEOMETRY && !pipeline->shaders[lookup_stage]->info.has_ngg_culling)
       return;
+
+   uint32_t base_reg = pipeline->user_data_0[lookup_stage];
 
    if (d->rasterizer_discard_enable) {
       /* Rasterizer discard = cull all triangles */
@@ -3113,18 +3117,46 @@ radv_flush_ngg_gs_state(struct radv_cmd_buffer *cmd_buffer)
          face_swap ^= 1;
 
       val = (val & ~enable_ngg_cull_both_faces) | ((val & enable_ngg_cull_front_face) << face_swap) | ((val & enable_ngg_cull_back_face) >> face_swap);
+
+      if (vp_y_inverted) {
+         vp_scale[1] = -vp_scale[1];
+         vp_translate[1] = -vp_translate[1];
+      }
+
+      for (unsigned i = 0; i < 2; ++i) {
+         vp_scale[i] *= (float) pipeline->graphics.ms.num_samples;
+         vp_translate[i] *= (float) pipeline->graphics.ms.num_samples;
+      }
+
+      /* Small primitive precision: num_samples / 2^subpixel_bits (which is always 256 in RADV).
+       * num_samples is also a power of two, so the small prim precision can only be a power of two between 2^-2 and 2^-6
+       * Use the high 8 bits of the SGPR to store this exponent.
+       */
+      int8_t small_prim_precision_log2 = util_logbase2(pipeline->graphics.ms.num_samples) - util_logbase2(256);
+      val |= enable_ngg_cull_small_primitives | ((uint8_t) small_prim_precision_log2 << 24u);
+
+      struct radv_userdata_info *loc_sx = radv_lookup_user_sgpr(pipeline, lookup_stage, AC_UD_NGG_VIEWPORT_SCALE_X);
+      struct radv_userdata_info *loc_sy = radv_lookup_user_sgpr(pipeline, lookup_stage, AC_UD_NGG_VIEWPORT_SCALE_Y);
+      struct radv_userdata_info *loc_tx = radv_lookup_user_sgpr(pipeline, lookup_stage, AC_UD_NGG_VIEWPORT_TRANSLATE_X);
+      struct radv_userdata_info *loc_ty = radv_lookup_user_sgpr(pipeline, lookup_stage, AC_UD_NGG_VIEWPORT_TRANSLATE_Y);
+
+      assert(loc_sx->sgpr_idx != -1 && loc_sy->sgpr_idx != -1 && loc_tx->sgpr_idx != -1 && loc_ty->sgpr_idx != -1);
+
+      radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc_sx->sgpr_idx * 4, fui(vp_scale[0]));
+      radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc_sy->sgpr_idx * 4, fui(vp_scale[1]));
+      radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc_tx->sgpr_idx * 4, fui(vp_translate[0]));
+      radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc_ty->sgpr_idx * 4, fui(vp_translate[1]));
    }
 
    struct radv_userdata_info *loc = radv_lookup_user_sgpr(pipeline, lookup_stage, AC_UD_NGG_GS_STATE);
    assert(loc->sgpr_idx != -1);
-   uint32_t base_reg = pipeline->user_data_0[lookup_stage];
 
    radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc->sgpr_idx * 4, val);
 
    /* Geometry shaders always need the LDS, so this is not useful to them. */
    if (lookup_stage != MESA_SHADER_GEOMETRY) {
       unsigned rsrc2 = pipeline->shaders[lookup_stage]->config.rsrc2;
-      if ((val & enable_ngg_cull_both_faces) == 0) {
+      if ((val & enable_ngg_cull_all) == 0) {
          /* When culling is disabled, the compiled shader jumps over the culling code, and needs less LDS. */
          rsrc2 &= C_00B22C_LDS_SIZE;
          rsrc2 |= S_00B22C_LDS_SIZE(pipeline->shaders[lookup_stage]->info.lds_blocks_if_not_culling);
