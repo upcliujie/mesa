@@ -437,6 +437,16 @@ typedef struct shader_info {
           */
          uint64_t tcs_cross_invocation_outputs_read;
       } tess;
+
+      /* Applies to both TASK and MESH. */
+      struct {
+         uint16_t local_size[3];
+
+         /* MESH only. */
+         uint16_t vertices_out;
+         uint16_t primitives_out;
+         uint16_t primitive_type;  /* GL_POINTS, GL_GL_TRIANGLES or GL_TRIANGLES. */
+      } mesh;
    };
 } shader_info;
 
