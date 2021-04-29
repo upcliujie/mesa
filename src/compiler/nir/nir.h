@@ -494,6 +494,12 @@ typedef struct nir_variable {
       unsigned per_view:1;
 
       /**
+       * Used by Mesh Shading for variables that are written by Mesh shader
+       * and read by Fragment shader.
+       */
+      unsigned per_primitive:1;
+
+      /**
        * \brief Layout qualifier for gl_FragDepth. See nir_depth_layout.
        *
        * This is not equal to \c ir_depth_layout_none if and only if this
