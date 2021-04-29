@@ -298,6 +298,11 @@ typedef enum
    VARYING_SLOT_VIEW_INDEX,
    VARYING_SLOT_VIEWPORT_MASK, /* Does not appear in FS */
    VARYING_SLOT_PRIMITIVE_SHADING_RATE = VARYING_SLOT_FACE, /* Does not appear in FS. */
+
+   VARYING_SLOT_PRIMITIVE_COUNT = VARYING_SLOT_TESS_LEVEL_OUTER, /* Only appears in MESH. */
+   VARYING_SLOT_PRIMITIVE_INDICES = VARYING_SLOT_TESS_LEVEL_INNER, /* Only appears in MESH. */
+   VARYING_SLOT_TASK_COUNT = VARYING_SLOT_BOUNDING_BOX0, /* Only appears in TASK. */
+
    VARYING_SLOT_VAR0 = 32, /* First generic varying slot */
    /* the remaining are simply for the benefit of gl_varying_slot_name()
     * and not to be construed as an upper bound:
@@ -778,6 +783,11 @@ typedef enum
     * Fragment shading rate used for KHR_fragment_shading_rate (Vulkan).
     */
    SYSTEM_VALUE_FRAG_SHADING_RATE,
+
+   /*
+    * Mesh shaders.
+    */
+   SYSTEM_VALUE_PRIMITIVE_COUNT,
 
    SYSTEM_VALUE_MAX             /**< Number of values */
 } gl_system_value;
