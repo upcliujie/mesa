@@ -3114,6 +3114,17 @@ radv_flush_ngg_gs_state(struct radv_cmd_buffer *cmd_buffer)
    uint32_t base_reg = pipeline->user_data_0[lookup_stage];
 
    radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc->sgpr_idx * 4, val);
+
+   /* Geometry shaders always need the LDS, so this is not useful to them. */
+   if (lookup_stage != MESA_SHADER_GEOMETRY) {
+      unsigned rsrc2 = pipeline->shaders[lookup_stage]->config.rsrc2;
+      if ((val & enable_ngg_cull_both_faces) == 0) {
+         /* When culling is disabled, the compiled shader jumps over the culling code, and needs less LDS. */
+         rsrc2 &= C_00B22C_LDS_SIZE;
+         rsrc2 |= S_00B22C_LDS_SIZE(pipeline->shaders[lookup_stage]->info.lds_blocks_if_not_culling);
+      }
+      radeon_set_sh_reg(cmd_buffer->cs, R_00B22C_SPI_SHADER_PGM_RSRC2_GS, rsrc2);
+   }
 }
 
 static void
