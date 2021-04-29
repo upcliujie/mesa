@@ -259,6 +259,7 @@ struct radv_shader_info {
    bool need_indirect_descriptor_sets;
    bool is_ngg;
    bool is_ngg_passthrough;
+   bool has_ngg_culling;
    uint32_t num_tess_patches;
    struct {
       uint8_t input_usage_mask[RADV_VERT_ATTRIB_MAX];
