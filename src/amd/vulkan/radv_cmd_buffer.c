@@ -1306,6 +1306,7 @@ radv_emit_graphics_pipeline(struct radv_cmd_buffer *cmd_buffer)
    cmd_buffer->state.emitted_pipeline = pipeline;
 
    cmd_buffer->state.dirty &= ~RADV_CMD_DIRTY_PIPELINE;
+   cmd_buffer->state.dirty |= RADV_CMD_DIRTY_NGG_GS_STATE;
 }
 
 static void
@@ -2563,6 +2564,11 @@ radv_cmd_buffer_flush_dynamic_state(struct radv_cmd_buffer *cmd_buffer)
    if (states & RADV_CMD_DIRTY_DYNAMIC_FRAGMENT_SHADING_RATE)
       radv_emit_fragment_shading_rate(cmd_buffer);
 
+   if (states &
+       (RADV_CMD_DIRTY_DYNAMIC_CULL_MODE | RADV_CMD_DIRTY_DYNAMIC_FRONT_FACE |
+        RADV_CMD_DIRTY_DYNAMIC_VIEWPORT))
+      cmd_buffer->state.dirty |= RADV_CMD_DIRTY_NGG_GS_STATE;
+
    cmd_buffer->state.dirty &= ~states;
 }
 
@@ -2949,6 +2955,11 @@ radv_flush_streamout_descriptors(struct radv_cmd_buffer *cmd_buffer)
 static void
 radv_flush_ngg_gs_state(struct radv_cmd_buffer *cmd_buffer)
 {
+   if ((cmd_buffer->state.dirty & RADV_CMD_DIRTY_NGG_GS_STATE) == 0)
+      return;
+
+   cmd_buffer->state.dirty ^= RADV_CMD_DIRTY_NGG_GS_STATE;
+
    enum {
       enable_ngg_gs_query = 1,
       enable_ngg_cull_front_face = 2,
@@ -2980,8 +2991,12 @@ radv_flush_ngg_gs_state(struct radv_cmd_buffer *cmd_buffer)
       lookup_stage = MESA_SHADER_TESS_EVAL;
    }
 
+   if (lookup_stage != MESA_SHADER_GEOMETRY && !pipeline->shaders[lookup_stage]->info.has_ngg_culling)
+      return;
+
    /* TODO: find a good way to do this for multiple viewports */
-   if (cmd_buffer->state.dynamic.viewport.count == 1) {
+   if (pipeline->shaders[lookup_stage]->info.has_ngg_culling &&
+       cmd_buffer->state.dynamic.viewport.count == 1) {
       uint32_t face_swap = 0;
 
       /* Find the enabled culling options */
@@ -3037,7 +3052,6 @@ radv_upload_graphics_shader_descriptors(struct radv_cmd_buffer *cmd_buffer, bool
    radv_flush_streamout_descriptors(cmd_buffer);
    radv_flush_descriptors(cmd_buffer, VK_SHADER_STAGE_ALL_GRAPHICS);
    radv_flush_constants(cmd_buffer, VK_SHADER_STAGE_ALL_GRAPHICS);
-   radv_flush_ngg_gs_state(cmd_buffer);
 }
 
 struct radv_draw_info {
@@ -3879,6 +3893,7 @@ radv_BeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBegi
 
       cmd_buffer->state.inherited_pipeline_statistics =
          pBeginInfo->pInheritanceInfo->pipelineStatistics;
+      cmd_buffer->state.dirty |= RADV_CMD_DIRTY_NGG_GS_STATE;
 
       radv_cmd_buffer_set_subpass(cmd_buffer, subpass);
    }
@@ -5445,6 +5460,8 @@ radv_emit_all_graphics_states(struct radv_cmd_buffer *cmd_buffer, const struct r
 
    if (late_scissor_emission)
       radv_emit_scissor(cmd_buffer);
+
+   radv_flush_ngg_gs_state(cmd_buffer);
 }
 
 /* MUST inline this function to avoid massive perf loss in drawoverhead */

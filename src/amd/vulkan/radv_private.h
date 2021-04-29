@@ -1031,6 +1031,7 @@ enum radv_cmd_dirty_bits {
    RADV_CMD_DIRTY_FRAMEBUFFER = 1ull << 25,
    RADV_CMD_DIRTY_VERTEX_BUFFER = 1ull << 26,
    RADV_CMD_DIRTY_STREAMOUT_BUFFER = 1ull << 27,
+   RADV_CMD_DIRTY_NGG_GS_STATE = 1ull << 28,
 };
 
 enum radv_cmd_flush_bits {
