@@ -48,10 +48,14 @@ blorp_shader_type_to_name(enum blorp_shader_type type)
 
 void
 blorp_init(struct blorp_context *blorp, void *driver_ctx,
-           struct isl_device *isl_dev)
+           struct isl_device *isl_dev, const struct blorp_config *config)
 {
    blorp->driver_ctx = driver_ctx;
    blorp->isl_dev = isl_dev;
+   if (config)
+      blorp->config = *config;
+   else
+      memset(&blorp->config, 0, sizeof(blorp->config));
 }
 
 void
