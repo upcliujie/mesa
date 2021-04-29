@@ -1006,6 +1006,7 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .lower_uniforms_to_ubo = true,
       .support_16bit_alu = sscreen->options.fp16,
       .vectorize_vec2_16bit = sscreen->options.fp16,
+      .derivatives_safe_after_discard = sscreen->debug_flags & DBG(FS_CORRECT_DERIVS_AFTER_KILL),
    };
    sscreen->nir_options = nir_options;
 }
