@@ -1104,8 +1104,13 @@ static void si_clear_texture(struct pipe_context *pipe, struct pipe_resource *te
    struct pipe_surface *sf;
 
    tmpl.format = tex->format;
-   tmpl.u.tex.first_layer = box->z;
-   tmpl.u.tex.last_layer = box->z + box->depth - 1;
+   if (tex->target == PIPE_TEXTURE_1D_ARRAY) {
+      tmpl.u.tex.first_layer = box->y;
+      tmpl.u.tex.last_layer = box->y + box->height - 1;
+   } else {
+      tmpl.u.tex.first_layer = box->z;
+      tmpl.u.tex.last_layer = box->z + box->depth - 1;
+   }
    tmpl.u.tex.level = level;
    sf = pipe->create_surface(pipe, tex, &tmpl);
    if (!sf)
