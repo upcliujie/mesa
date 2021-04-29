@@ -3290,6 +3290,12 @@ st_ClearTexSubImage(struct gl_context *ctx,
 
    u_box_3d(xoffset, yoffset, zoffset + texImage->Face,
             width, height, depth, &box);
+
+   if (pt->target == PIPE_TEXTURE_1D_ARRAY) {
+      box.z = box.y;
+      box.depth = box.height;
+   }
+
    if (texObj->Immutable) {
       /* The texture object has to be consistent (no "loose", per-image
        * gallium resources).  If this texture is a view into another
