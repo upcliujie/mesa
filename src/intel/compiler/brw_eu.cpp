@@ -542,49 +542,41 @@ brw_disassemble(const struct intel_device_info *devinfo,
         }
       }
 
-      bool compacted = brw_inst_cmpt_control(devinfo, insn);
+      bool is_compacted = brw_inst_cmpt_control(devinfo, insn);
       if (0)
          fprintf(out, "0x%08x: ", offset);
 
-      if (compacted) {
-         brw_compact_inst *compacted = (brw_compact_inst *)insn;
-         if (dump_hex) {
-            unsigned char * insn_ptr = ((unsigned char *)&insn[0]);
-            const unsigned int blank_spaces = 24;
-            for (int i = 0 ; i < 8; i = i + 4) {
-               fprintf(out, "%02x %02x %02x %02x ",
-                       insn_ptr[i],
-                       insn_ptr[i + 1],
-                       insn_ptr[i + 2],
-                       insn_ptr[i + 3]);
-            }
-            /* Make compacted instructions hex value output vertically aligned
-             * with uncompacted instructions hex value
-             */
-            fprintf(out, "%*c", blank_spaces, ' ');
+      if (dump_hex && is_compacted) {
+         unsigned char * insn_ptr = ((unsigned char *)&insn[0]);
+         const unsigned int blank_spaces = 24;
+         for (int i = 0 ; i < 8; i = i + 4) {
+            fprintf(out, "%02x %02x %02x %02x ", insn_ptr[i], insn_ptr[i + 1],
+                    insn_ptr[i + 2], insn_ptr[i + 3]);
          }
+         /* Make compacted instructions hex value output vertically aligned
+          * with uncompacted instructions hex value
+          */
+         fprintf(out, "%*c", blank_spaces, ' ');
+      }
 
+      if (is_compacted) {
+         brw_compact_inst *compacted = (brw_compact_inst *)insn;
          brw_uncompact_instruction(devinfo, &uncompacted, compacted);
          insn = &uncompacted;
-         if (dump_hex) {
-            unsigned char * insn_ptr = ((unsigned char *)&insn[0]);
-            for (int i = 0 ; i < 16; i = i + 4) {
-               fprintf(out, "%02x %02x %02x %02x ",
-                       insn_ptr[i],
-                       insn_ptr[i + 1],
-                       insn_ptr[i + 2],
-                       insn_ptr[i + 3]);
-            }
+      }
+
+      if (dump_hex && !is_compacted) {
+         unsigned char * insn_ptr = ((unsigned char *)&insn[0]);
+         for (int i = 0 ; i < 16; i = i + 4) {
+            fprintf(out, "%02x %02x %02x %02x ", insn_ptr[i], insn_ptr[i + 1],
+                    insn_ptr[i + 2], insn_ptr[i + 3]);
          }
       }
 
-      brw_disassemble_inst(out, devinfo, insn, compacted, offset, root_label);
+      brw_disassemble_inst(out, devinfo, insn, is_compacted, offset,
+                           root_label);
 
-      if (compacted) {
-         offset += sizeof(brw_compact_inst);
-      } else {
-         offset += sizeof(brw_inst);
-      }
+      offset += is_compacted ? sizeof(brw_compact_inst) : sizeof(brw_inst);
    }
 }
 
