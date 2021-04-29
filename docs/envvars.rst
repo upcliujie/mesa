@@ -591,6 +591,8 @@ RADV driver environment variables
       disable memory shaders cache
    ``nongg``
       disable NGG for GFX10+
+   ``nonggc``
+      disable NGG culling for GFX10+
    ``nooutoforder``
       disable out-of-order rasterization
    ``notccompatcmask``
