@@ -1035,6 +1035,12 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
    sscreen->b.is_parallel_shader_compilation_finished = si_is_parallel_shader_compilation_finished;
    sscreen->b.finalize_nir = si_finalize_nir;
 
+   /* Set these flags in debug_flags early, so that the shader cache takes
+    * them into account.
+    */
+   if (driQueryOptionb(config->options, "glsl_correct_derivatives_after_discard"))
+      sscreen->debug_flags |= DBG(FS_CORRECT_DERIVS_AFTER_KILL);
+
    si_init_screen_get_functions(sscreen);
    si_init_screen_buffer_functions(sscreen);
    si_init_screen_fence_functions(sscreen);
@@ -1043,11 +1049,6 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
    si_init_screen_query_functions(sscreen);
    si_init_screen_live_shader_cache(sscreen);
 
-   /* Set these flags in debug_flags early, so that the shader cache takes
-    * them into account.
-    */
-   if (driQueryOptionb(config->options, "glsl_correct_derivatives_after_discard"))
-      sscreen->debug_flags |= DBG(FS_CORRECT_DERIVS_AFTER_KILL);
 
    if (sscreen->debug_flags & DBG(INFO))
       ac_print_gpu_info(&sscreen->info, stdout);
