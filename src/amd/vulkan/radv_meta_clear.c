@@ -1522,16 +1522,21 @@ radv_can_fast_clear_color(struct radv_cmd_buffer *cmd_buffer, const struct radv_
       }
 
       if (iview->image->info.levels > 1 &&
-          cmd_buffer->device->physical_device->rad_info.chip_class == GFX8) {
+          cmd_buffer->device->physical_device->rad_info.chip_class != GFX9) {
+         struct radeon_surf *surf = &iview->image->planes[0].surface;
+
          for (uint32_t l = 0; l < iview->level_count; l++) {
             uint32_t level = iview->base_mip + l;
-            struct legacy_surf_dcc_level *dcc_level =
-               &iview->image->planes[0].surface.u.legacy.color.dcc_level[level];
+            uint64_t dcc_level_size;
 
-            /* Do not fast clears if one level can't be
-             * fast cleared.
-             */
-            if (!dcc_level->dcc_fast_clear_size)
+            if (cmd_buffer->device->physical_device->rad_info.chip_class >= GFX10) {
+               dcc_level_size = surf->u.gfx9.meta_levels[level].size;
+            } else {
+               dcc_level_size = surf->u.legacy.color.dcc_level[level].dcc_fast_clear_size;
+            }
+
+            /* Do not fast clears if one level can't be fast cleared. */
+            if (!dcc_level_size)
                return false;
          }
       }
