@@ -1511,7 +1511,7 @@ radv_image_use_comp_to_single(const struct radv_device *device, const struct rad
    if (!radv_image_has_dcc(image))
       return false;
 
-   return false; /* TODO: will be enabled in a next commit. */
+   return true;
 }
 
 static uint64_t
