@@ -185,7 +185,7 @@ allocate_user_sgprs(struct radv_shader_args *args, gl_shader_stage stage, bool h
       if (!args->is_gs_copy_shader)
          user_sgpr_count += count_vs_user_sgprs(args);
       if (args->options->key.vs_common_out.as_ngg)
-         user_sgpr_count++; /* NGG GS state */
+         user_sgpr_count += 5; /* NGG GS state, viewport */
       break;
    case MESA_SHADER_TESS_CTRL:
       if (has_previous_stage) {
@@ -195,12 +195,12 @@ allocate_user_sgprs(struct radv_shader_args *args, gl_shader_stage stage, bool h
       break;
    case MESA_SHADER_TESS_EVAL:
       if (args->options->key.vs_common_out.as_ngg)
-         user_sgpr_count++; /* NGG GS state */
+         user_sgpr_count += 5; /* NGG GS state, viewport */
       break;
    case MESA_SHADER_GEOMETRY:
       if (has_previous_stage) {
          if (args->options->key.vs_common_out.as_ngg)
-            user_sgpr_count++; /* NGG GS state */
+            user_sgpr_count += 5; /* NGG GS state, viewport */
 
          if (previous_stage == MESA_SHADER_VERTEX) {
             user_sgpr_count += count_vs_user_sgprs(args);
@@ -494,6 +494,10 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
       }
       if (args->options->key.vs_common_out.as_ngg) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_gs_state);
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_scale_x);
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_scale_y);
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_translate_x);
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_translate_y);
       }
 
       declare_vs_input_vgprs(args);
@@ -556,6 +560,10 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
       }
       if (args->options->key.vs_common_out.as_ngg) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_gs_state);
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_scale_x);
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_scale_y);
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_translate_x);
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_translate_y);
       }
       declare_tes_input_vgprs(args);
       break;
@@ -587,6 +595,10 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
 
          if (args->options->key.vs_common_out.as_ngg) {
             ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_gs_state);
+            ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_scale_x);
+            ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_scale_y);
+            ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_translate_x);
+            ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_viewport_translate_y);
          }
 
          ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, &args->ac.gs_vtx_offset[0]);
@@ -681,6 +693,14 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
          set_loc_shader(args, AC_UD_VIEW_INDEX, &user_sgpr_idx, 1);
       if (args->ngg_gs_state.used)
          set_loc_shader(args, AC_UD_NGG_GS_STATE, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_scale_x.used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_SCALE_X, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_scale_y.used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_SCALE_Y, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_translate_x .used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_TRANSLATE_X, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_translate_y.used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_TRANSLATE_Y, &user_sgpr_idx, 1);
       break;
    case MESA_SHADER_TESS_CTRL:
       set_vs_specific_input_locs(args, stage, has_previous_stage, previous_stage, &user_sgpr_idx);
@@ -692,6 +712,14 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
          set_loc_shader(args, AC_UD_VIEW_INDEX, &user_sgpr_idx, 1);
       if (args->ngg_gs_state.used)
          set_loc_shader(args, AC_UD_NGG_GS_STATE, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_scale_x.used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_SCALE_X, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_scale_y.used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_SCALE_Y, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_translate_x .used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_TRANSLATE_X, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_translate_y.used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_TRANSLATE_Y, &user_sgpr_idx, 1);
       break;
    case MESA_SHADER_GEOMETRY:
       if (has_previous_stage) {
@@ -704,6 +732,14 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
 
       if (args->ngg_gs_state.used)
          set_loc_shader(args, AC_UD_NGG_GS_STATE, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_scale_x.used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_SCALE_X, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_scale_y.used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_SCALE_Y, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_translate_x .used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_TRANSLATE_X, &user_sgpr_idx, 1);
+      if (args->ngg_viewport_translate_y.used)
+         set_loc_shader(args, AC_UD_NGG_VIEWPORT_TRANSLATE_Y, &user_sgpr_idx, 1);
       break;
    case MESA_SHADER_FRAGMENT:
       break;
