@@ -753,6 +753,8 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
    if (shader->info.stage == MESA_SHADER_VERTEX && export_prim_id)
       state.total_lds_bytes = max_num_es_vertices * 4u;
 
+   unsigned lds_bytes_if_culling_off = state.total_lds_bytes;
+
    nir_cf_list extracted;
    nir_cf_extract(&extracted, nir_before_cf_list(&impl->body), nir_after_cf_list(&impl->body));
 
@@ -834,6 +836,7 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
    ac_nir_ngg_config ret = {
       .can_cull = can_cull,
       .passthrough = passthrough,
+      .lds_bytes_if_culling_off = lds_bytes_if_culling_off,
    };
 
    return ret;
