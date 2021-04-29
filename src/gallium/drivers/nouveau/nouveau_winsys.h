@@ -60,10 +60,10 @@ PUSH_DATAf(struct nouveau_pushbuf *push, float f)
    PUSH_DATA(push, u.i);
 }
 
-static inline void
+static inline int
 PUSH_KICK(struct nouveau_pushbuf *push)
 {
-   nouveau_pushbuf_kick(push, push->channel);
+   return nouveau_pushbuf_kick(push, push->channel);
 }
 
 
