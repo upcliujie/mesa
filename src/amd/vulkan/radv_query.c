@@ -1449,6 +1449,7 @@ emit_begin_query(struct radv_cmd_buffer *cmd_buffer, struct radv_query_pool *poo
          cmd_buffer->gds_needed = true;
 
          cmd_buffer->state.active_pipeline_gds_queries++;
+         cmd_buffer->state.dirty |= RADV_CMD_DIRTY_NGG_GS_STATE;
       }
       break;
    case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
@@ -1530,6 +1531,7 @@ emit_end_query(struct radv_cmd_buffer *cmd_buffer, struct radv_query_pool *pool,
          radeon_emit(cs, va >> 32);
 
          cmd_buffer->state.active_pipeline_gds_queries--;
+         cmd_buffer->state.dirty |= RADV_CMD_DIRTY_NGG_GS_STATE;
       }
       break;
    case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
