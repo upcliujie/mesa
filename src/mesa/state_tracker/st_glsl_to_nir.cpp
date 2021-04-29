@@ -257,6 +257,9 @@ st_nir_opts(nir_shader *nir)
       progress = false;
 
       NIR_PASS_V(nir, nir_lower_vars_to_ssa);
+
+      if (nir->info.stage == MESA_SHADER_FRAGMENT)
+         NIR_PASS_V(nir, nir_opt_move_discards_to_top);
       
       /* Linking deals with unused inputs/outputs, but here we can remove
        * things local to the shader in the hopes that we can cleanup other
