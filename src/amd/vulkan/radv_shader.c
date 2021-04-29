@@ -821,6 +821,7 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
 
    ac_nir_ngg_config out_conf = {0};
    const struct gfx10_ngg_info *ngg_info = &info->ngg_info;
+   bool is_meta_shader = !!nir->info.name;
    unsigned num_gs_invocations = nir->info.stage != MESA_SHADER_GEOMETRY ? 1 : info->gs.invocations;
    unsigned max_workgroup_size = MAX3(ngg_info->hw_max_esverts, ngg_info->max_out_verts, ngg_info->max_gsprims * num_gs_invocations * ngg_info->prim_amp_factor);
 
@@ -829,6 +830,7 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
       if (has_gs || !key->vs_common_out.as_ngg)
          return false;
 
+      bool consider_culling = !(device->instance->debug_flags & RADV_DEBUG_NO_NGG_CULLING) && !is_meta_shader;
       unsigned num_vertices_per_prim = 3;
 
       if (nir->info.stage == MESA_SHADER_TESS_EVAL) {
@@ -848,7 +850,7 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
             num_vertices_per_prim,
             max_workgroup_size,
             info->wave_size,
-            false,
+            consider_culling,
             key->vs_common_out.as_ngg_passthrough,
             key->vs_common_out.export_prim_id,
             key->vs.provoking_vtx_last);
