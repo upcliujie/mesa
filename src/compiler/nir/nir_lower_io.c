@@ -180,7 +180,7 @@ static unsigned get_number_of_slots(struct lower_io_state *state,
 
 static nir_ssa_def *
 get_io_offset(nir_builder *b, nir_deref_instr *deref,
-              nir_ssa_def **vertex_index,
+              nir_ssa_def **index,
               int (*type_size)(const struct glsl_type *, bool),
               unsigned *component, bool bts)
 {
@@ -193,9 +193,9 @@ get_io_offset(nir_builder *b, nir_deref_instr *deref,
    /* For per-vertex input arrays (i.e. geometry shader inputs), keep the
     * outermost array index separate.  Process the rest normally.
     */
-   if (vertex_index != NULL) {
+   if (index != NULL) {
       assert((*p)->deref_type == nir_deref_type_array);
-      *vertex_index = nir_ssa_for_src(b, (*p)->arr.index, 1);
+      *index = nir_ssa_for_src(b, (*p)->arr.index, 1);
       p++;
    }
 
@@ -243,7 +243,7 @@ get_io_offset(nir_builder *b, nir_deref_instr *deref,
 
 static nir_ssa_def *
 emit_load(struct lower_io_state *state,
-          nir_ssa_def *vertex_index, nir_variable *var, nir_ssa_def *offset,
+          nir_ssa_def *index, nir_variable *var, nir_ssa_def *offset,
           unsigned component, unsigned num_components, unsigned bit_size,
           nir_alu_type dest_type)
 {
@@ -260,10 +260,10 @@ emit_load(struct lower_io_state *state,
           var->data.interpolation != INTERP_MODE_FLAT &&
           !var->data.per_primitive) {
          if (var->data.interpolation == INTERP_MODE_EXPLICIT) {
-            assert(vertex_index != NULL);
+            assert(index != NULL);
             op = nir_intrinsic_load_input_vertex;
          } else {
-            assert(vertex_index == NULL);
+            assert(index == NULL);
 
             nir_intrinsic_op bary_op;
             if (var->data.sample ||
@@ -279,13 +279,13 @@ emit_load(struct lower_io_state *state,
             op = nir_intrinsic_load_interpolated_input;
          }
       } else {
-         op = vertex_index ? nir_intrinsic_load_per_vertex_input :
-                             nir_intrinsic_load_input;
+         op = index ? nir_intrinsic_load_per_vertex_input :
+                      nir_intrinsic_load_input;
       }
       break;
    case nir_var_shader_out:
-      op = vertex_index ? nir_intrinsic_load_per_vertex_output :
-                          nir_intrinsic_load_output;
+      op = index ? nir_intrinsic_load_per_vertex_output :
+                   nir_intrinsic_load_output;
       break;
    case nir_var_uniform:
       op = nir_intrinsic_load_uniform;
@@ -319,8 +319,8 @@ emit_load(struct lower_io_state *state,
       nir_intrinsic_set_io_semantics(load, semantics);
    }
 
-   if (vertex_index) {
-      load->src[0] = nir_src_for_ssa(vertex_index);
+   if (index) {
+      load->src[0] = nir_src_for_ssa(index);
       load->src[1] = nir_src_for_ssa(offset);
    } else if (barycentric) {
       load->src[0] = nir_src_for_ssa(barycentric);
@@ -338,7 +338,7 @@ emit_load(struct lower_io_state *state,
 
 static nir_ssa_def *
 lower_load(nir_intrinsic_instr *intrin, struct lower_io_state *state,
-           nir_ssa_def *vertex_index, nir_variable *var, nir_ssa_def *offset,
+           nir_ssa_def *index, nir_variable *var, nir_ssa_def *offset,
            unsigned component, const struct glsl_type *type)
 {
    assert(intrin->dest.is_ssa);
@@ -357,7 +357,7 @@ lower_load(nir_intrinsic_instr *intrin, struct lower_io_state *state,
                  (4 - component) / 2);
 
          nir_ssa_def *data32 =
-            emit_load(state, vertex_index, var, offset, component,
+            emit_load(state, index, var, offset, component,
                       num_comps * 2, 32, nir_type_uint32);
          for (unsigned i = 0; i < num_comps; i++) {
             comp64[dest_comp + i] =
@@ -375,11 +375,11 @@ lower_load(nir_intrinsic_instr *intrin, struct lower_io_state *state,
       /* Booleans are 32-bit */
       assert(glsl_type_is_boolean(type));
       return nir_b2b1(&state->builder,
-                      emit_load(state, vertex_index, var, offset, component,
+                      emit_load(state, index, var, offset, component,
                                 intrin->dest.ssa.num_components, 32,
                                 nir_type_bool32));
    } else {
-      return emit_load(state, vertex_index, var, offset, component,
+      return emit_load(state, index, var, offset, component,
                        intrin->dest.ssa.num_components,
                        intrin->dest.ssa.bit_size,
                        nir_get_nir_type_for_glsl_type(type));
@@ -388,7 +388,7 @@ lower_load(nir_intrinsic_instr *intrin, struct lower_io_state *state,
 
 static void
 emit_store(struct lower_io_state *state, nir_ssa_def *data,
-           nir_ssa_def *vertex_index, nir_variable *var, nir_ssa_def *offset,
+           nir_ssa_def *index, nir_variable *var, nir_ssa_def *offset,
            unsigned component, unsigned num_components,
            nir_component_mask_t write_mask, nir_alu_type src_type)
 {
@@ -396,9 +396,10 @@ emit_store(struct lower_io_state *state, nir_ssa_def *data,
    nir_variable_mode mode = var->data.mode;
 
    assert(mode == nir_var_shader_out);
-   nir_intrinsic_op op;
-   op = vertex_index ? nir_intrinsic_store_per_vertex_output :
-                       nir_intrinsic_store_output;
+   nir_intrinsic_op op =
+      !index                  ? nir_intrinsic_store_output :
+      var->data.per_primitive ? nir_intrinsic_store_per_primitive_output :
+                                nir_intrinsic_store_per_vertex_output;
 
    nir_intrinsic_instr *store =
       nir_intrinsic_instr_create(state->builder.shader, op);
@@ -412,10 +413,10 @@ emit_store(struct lower_io_state *state, nir_ssa_def *data,
 
    nir_intrinsic_set_write_mask(store, write_mask);
 
-   if (vertex_index)
-      store->src[1] = nir_src_for_ssa(vertex_index);
+   if (index)
+      store->src[1] = nir_src_for_ssa(index);
 
-   store->src[vertex_index ? 2 : 1] = nir_src_for_ssa(offset);
+   store->src[index ? 2 : 1] = nir_src_for_ssa(offset);
 
    unsigned gs_streams = 0;
    if (state->builder.shader->info.stage == MESA_SHADER_GEOMETRY) {
@@ -445,7 +446,7 @@ emit_store(struct lower_io_state *state, nir_ssa_def *data,
 
 static void
 lower_store(nir_intrinsic_instr *intrin, struct lower_io_state *state,
-            nir_ssa_def *vertex_index, nir_variable *var, nir_ssa_def *offset,
+            nir_ssa_def *index, nir_variable *var, nir_ssa_def *offset,
             unsigned component, const struct glsl_type *type)
 {
    assert(intrin->src[1].is_ssa);
@@ -475,7 +476,7 @@ lower_store(nir_intrinsic_instr *intrin, struct lower_io_state *state,
                   write_mask32 |= 3 << (i * 2);
             }
 
-            emit_store(state, data32, vertex_index, var, offset,
+            emit_store(state, data32, index, var, offset,
                        component, data32->num_components, write_mask32,
                        nir_type_uint32);
          }
@@ -490,12 +491,12 @@ lower_store(nir_intrinsic_instr *intrin, struct lower_io_state *state,
       /* Booleans are 32-bit */
       assert(glsl_type_is_boolean(type));
       nir_ssa_def *b32_val = nir_b2b32(&state->builder, intrin->src[1].ssa);
-      emit_store(state, b32_val, vertex_index, var, offset,
+      emit_store(state, b32_val, index, var, offset,
                  component, intrin->num_components,
                  nir_intrinsic_write_mask(intrin),
                  nir_type_bool32);
    } else {
-      emit_store(state, intrin->src[1].ssa, vertex_index, var, offset,
+      emit_store(state, intrin->src[1].ssa, index, var, offset,
                  component, intrin->num_components,
                  nir_intrinsic_write_mask(intrin),
                  nir_get_nir_type_for_glsl_type(type));
@@ -515,14 +516,14 @@ lower_interpolate_at(nir_intrinsic_instr *intrin, struct lower_io_state *state,
     */
    if (var->data.interpolation == INTERP_MODE_FLAT ||
        var->data.interpolation == INTERP_MODE_EXPLICIT) {
-      nir_ssa_def *vertex_index = NULL;
+      nir_ssa_def *index = NULL;
 
       if (var->data.interpolation == INTERP_MODE_EXPLICIT) {
          assert(intrin->intrinsic == nir_intrinsic_interp_deref_at_vertex);
-         vertex_index = intrin->src[1].ssa;
+         index = intrin->src[1].ssa;
       }
 
-      return lower_load(intrin, state, vertex_index, var, offset, component, type);
+      return lower_load(intrin, state, index, var, offset, component, type);
    }
 
    /* None of the supported APIs allow interpolation on 64-bit things */
@@ -620,10 +621,10 @@ nir_lower_io_block(nir_block *block,
 
       b->cursor = nir_before_instr(instr);
 
-      const bool per_vertex = nir_is_arrayed_io(var, b->shader->info.stage);
+      const bool is_arrayed = nir_is_arrayed_io(var, b->shader->info.stage);
 
       nir_ssa_def *offset;
-      nir_ssa_def *vertex_index = NULL;
+      nir_ssa_def *index = NULL;
       unsigned component_offset = var->data.location_frac;
       bool bindless_type_size = var->data.mode == nir_var_shader_in ||
                                 var->data.mode == nir_var_shader_out ||
@@ -660,7 +661,7 @@ nir_lower_io_block(nir_block *block,
          continue;
       }
 
-      offset = get_io_offset(b, deref, per_vertex ? &vertex_index : NULL,
+      offset = get_io_offset(b, deref, is_arrayed ? &index : NULL,
                              state->type_size, &component_offset,
                              bindless_type_size);
 
@@ -668,12 +669,12 @@ nir_lower_io_block(nir_block *block,
 
       switch (intrin->intrinsic) {
       case nir_intrinsic_load_deref:
-         replacement = lower_load(intrin, state, vertex_index, var, offset,
+         replacement = lower_load(intrin, state, index, var, offset,
                                   component_offset, deref->type);
          break;
 
       case nir_intrinsic_store_deref:
-         lower_store(intrin, state, vertex_index, var, offset,
+         lower_store(intrin, state, index, var, offset,
                      component_offset, deref->type);
          break;
 
@@ -681,7 +682,7 @@ nir_lower_io_block(nir_block *block,
       case nir_intrinsic_interp_deref_at_sample:
       case nir_intrinsic_interp_deref_at_offset:
       case nir_intrinsic_interp_deref_at_vertex:
-         assert(vertex_index == NULL);
+         assert(index == NULL);
          replacement = lower_interpolate_at(intrin, state, var, offset,
                                             component_offset, deref->type);
          break;
