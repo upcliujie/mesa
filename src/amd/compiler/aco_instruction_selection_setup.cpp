@@ -724,6 +724,9 @@ void init_context(isel_context *ctx, nir_shader *shader)
                   case nir_intrinsic_load_workgroup_num_input_vertices_amd:
                   case nir_intrinsic_load_workgroup_num_input_primitives_amd:
                   case nir_intrinsic_load_shader_query_enabled_amd:
+                  case nir_intrinsic_load_cull_front_face_enabled_amd:
+                  case nir_intrinsic_load_cull_back_face_enabled_amd:
+                  case nir_intrinsic_load_cull_any_enabled_amd:
                      type = RegType::sgpr;
                      break;
                   case nir_intrinsic_load_sample_id:
