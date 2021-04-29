@@ -1245,10 +1245,9 @@ vn_physical_device_init_properties(struct vn_physical_device *physical_dev)
    if (version_override) {
       props->apiVersion = version_override;
    } else {
-      if (props->apiVersion > VK_HEADER_VERSION_COMPLETE)
-         props->apiVersion = VK_HEADER_VERSION_COMPLETE;
-      if (props->apiVersion > vn_info_vk_xml_version())
-         props->apiVersion = vn_info_vk_xml_version();
+      /* cap the advertised api version to header version and xml version */
+      props->apiVersion = MIN3(props->apiVersion, VK_HEADER_VERSION_COMPLETE,
+                               instance->renderer_info.vk_xml_version);
 #ifdef ANDROID
       if (props->apiVersion >= VK_API_VERSION_1_2)
          props->apiVersion =
@@ -1597,7 +1596,8 @@ vn_physical_device_init_extensions(struct vn_physical_device *physical_dev)
 }
 
 static VkResult
-vn_physical_device_init_version(struct vn_physical_device *physical_dev)
+vn_physical_device_init_renderer_version(
+   struct vn_physical_device *physical_dev)
 {
    struct vn_instance *instance = physical_dev->instance;
 
@@ -1617,9 +1617,10 @@ vn_physical_device_init_version(struct vn_physical_device *physical_dev)
       return VK_ERROR_INITIALIZATION_FAILED;
    }
 
-   physical_dev->renderer_version = props.apiVersion;
-   if (physical_dev->renderer_version > instance->renderer_api_version)
-      physical_dev->renderer_version = instance->renderer_api_version;
+   /* device version for internal use is capped */
+   physical_dev->renderer_version =
+      MIN3(props.apiVersion, instance->renderer_api_version,
+           instance->renderer_info.vk_xml_version);
 
    return VK_SUCCESS;
 }
@@ -1630,7 +1631,7 @@ vn_physical_device_init(struct vn_physical_device *physical_dev)
    struct vn_instance *instance = physical_dev->instance;
    const VkAllocationCallbacks *alloc = &instance->base.base.alloc;
 
-   VkResult result = vn_physical_device_init_version(physical_dev);
+   VkResult result = vn_physical_device_init_renderer_version(physical_dev);
    if (result != VK_SUCCESS)
       return result;
 
