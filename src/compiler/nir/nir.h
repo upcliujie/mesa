@@ -366,7 +366,13 @@ typedef struct nir_variable {
       unsigned read_only:1;
       unsigned centroid:1;
       unsigned sample:1;
+
+      /**
+       * Variable is "shared" between all the invocations of a patch (for TCS)
+       * or workgroup (for Task/Mesh).
+       */
       unsigned patch:1;
+
       unsigned invariant:1;
 
      /**

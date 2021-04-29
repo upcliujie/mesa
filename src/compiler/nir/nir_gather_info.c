@@ -83,6 +83,8 @@ set_io_mask(nir_shader *shader, nir_variable *var, int offset, int len,
 
       int idx = var->data.location + offset + i;
       bool is_patch_generic = var->data.patch &&
+                              shader->info.stage != MESA_SHADER_TASK &&
+                              shader->info.stage != MESA_SHADER_MESH &&
                               idx != VARYING_SLOT_TESS_LEVEL_INNER &&
                               idx != VARYING_SLOT_TESS_LEVEL_OUTER &&
                               idx != VARYING_SLOT_BOUNDING_BOX0 &&
