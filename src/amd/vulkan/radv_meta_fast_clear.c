@@ -770,6 +770,10 @@ radv_fast_clear_flush_image_inplace(struct radv_cmd_buffer *cmd_buffer, struct r
    if (radv_image_has_fmask(image) && !image->tc_compatible_cmask) {
       barrier.layout_transitions.fmask_decompress = 1;
    } else {
+      /* Skip fast clear eliminate for images that support comp-to-single fast clears. */
+      if (radv_image_use_comp_to_single(cmd_buffer->device, image))
+         return;
+
       barrier.layout_transitions.fast_clear_eliminate = 1;
    }
    radv_describe_layout_transition(cmd_buffer, &barrier);
