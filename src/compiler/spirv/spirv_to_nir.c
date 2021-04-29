@@ -1084,6 +1084,8 @@ struct_member_decoration_cb(struct vtn_builder *b,
       break;
 
    case SpvDecorationPatch:
+   case SpvDecorationPerPrimitiveNV:
+   case SpvDecorationPerTaskNV:
       break;
 
    case SpvDecorationSpecId:
@@ -1126,6 +1128,10 @@ struct_member_decoration_cb(struct vtn_builder *b,
    case SpvDecorationUserSemantic:
    case SpvDecorationUserTypeGOOGLE:
       /* User semantic decorations can safely be ignored by the driver. */
+      break;
+
+   case SpvDecorationPerViewNV:
+      /* TODO(mesh): Handle multiview. */
       break;
 
    default:
@@ -4166,10 +4172,12 @@ gl_primitive_from_spv_execution_mode(struct vtn_builder *b,
    case SpvExecutionModeOutputPoints:
       return 0; /* GL_POINTS */
    case SpvExecutionModeInputLines:
+   case SpvExecutionModeOutputLinesNV:
       return 1; /* GL_LINES */
    case SpvExecutionModeInputLinesAdjacency:
       return 0x000A; /* GL_LINE_STRIP_ADJACENCY_ARB */
    case SpvExecutionModeTriangles:
+   case SpvExecutionModeOutputTrianglesNV:
       return 4; /* GL_TRIANGLES */
    case SpvExecutionModeInputTrianglesAdjacency:
       return 0x000C; /* GL_TRIANGLES_ADJACENCY_ARB */
@@ -4238,6 +4246,10 @@ stage_for_execution_model(struct vtn_builder *b, SpvExecutionModel model)
       return MESA_SHADER_INTERSECTION;
    case SpvExecutionModelCallableKHR:
        return MESA_SHADER_CALLABLE;
+   case SpvExecutionModelTaskNV:
+      return MESA_SHADER_TASK;
+   case SpvExecutionModelMeshNV:
+      return MESA_SHADER_MESH;
    default:
       vtn_fail("Unsupported execution model: %s (%u)",
                spirv_executionmodel_to_string(model), model);
@@ -4663,6 +4675,10 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
          spv_check_supported(float64_atomic_min_max, cap);
          break;
 
+      case SpvCapabilityMeshShadingNV:
+         spv_check_supported(mesh_shading, cap);
+         break;
+
       default:
          vtn_fail("Unhandled capability: %s (%u)",
                   spirv_capability_to_string(cap), cap);
@@ -4835,19 +4851,38 @@ vtn_handle_execution_mode(struct vtn_builder *b, struct vtn_value *entry_point,
       break;
 
    case SpvExecutionModeLocalSize:
-      vtn_assert(gl_shader_stage_is_compute(b->shader->info.stage));
-      b->shader->info.workgroup_size[0] = mode->operands[0];
-      b->shader->info.workgroup_size[1] = mode->operands[1];
-      b->shader->info.workgroup_size[2] = mode->operands[2];
+      switch (b->shader->info.stage) {
+      case MESA_SHADER_COMPUTE:
+      case MESA_SHADER_KERNEL:
+      case MESA_SHADER_TASK:
+      case MESA_SHADER_MESH:
+         b->shader->info.workgroup_size[0] = mode->operands[0];
+         b->shader->info.workgroup_size[1] = mode->operands[1];
+         b->shader->info.workgroup_size[2] = mode->operands[2];
+         break;
+      default:
+         vtn_fail("Execution mode LocalSize not supported in stage %s",
+                  _mesa_shader_stage_to_string(b->shader->info.stage));
+         break;
+      }
       break;
 
    case SpvExecutionModeOutputVertices:
-      if (b->shader->info.stage == MESA_SHADER_TESS_CTRL ||
-          b->shader->info.stage == MESA_SHADER_TESS_EVAL) {
+      switch (b->shader->info.stage) {
+      case MESA_SHADER_TESS_CTRL:
+      case MESA_SHADER_TESS_EVAL:
          b->shader->info.tess.tcs_vertices_out = mode->operands[0];
-      } else {
-         vtn_assert(b->shader->info.stage == MESA_SHADER_GEOMETRY);
+         break;
+      case MESA_SHADER_GEOMETRY:
          b->shader->info.gs.vertices_out = mode->operands[0];
+         break;
+      case MESA_SHADER_MESH:
+         b->shader->info.mesh.max_vertices_out = mode->operands[0];
+         break;
+      default:
+         vtn_fail("Execution mode OutputVertices not supported in stage %s",
+                  _mesa_shader_stage_to_string(b->shader->info.stage));
+         break;
       }
       break;
 
@@ -4871,7 +4906,30 @@ vtn_handle_execution_mode(struct vtn_builder *b, struct vtn_value *entry_point,
       }
       break;
 
-   case SpvExecutionModeOutputPoints:
+   case SpvExecutionModeOutputPrimitivesNV:
+      vtn_assert(b->shader->info.stage == MESA_SHADER_MESH);
+      b->shader->info.mesh.max_primitives_out = mode->operands[0];
+      break;
+
+   case SpvExecutionModeOutputLinesNV:
+   case SpvExecutionModeOutputTrianglesNV:
+      vtn_assert(b->shader->info.stage == MESA_SHADER_MESH);
+      b->shader->info.mesh.primitive_type =
+         gl_primitive_from_spv_execution_mode(b, mode->exec_mode);
+      break;
+
+   case SpvExecutionModeOutputPoints: {
+      const unsigned primitive =
+         gl_primitive_from_spv_execution_mode(b, mode->exec_mode);
+      if (b->shader->info.stage == MESA_SHADER_GEOMETRY) {
+         b->shader->info.gs.output_primitive = primitive;
+      } else {
+         vtn_assert(b->shader->info.stage == MESA_SHADER_MESH);
+         b->shader->info.mesh.primitive_type = primitive;
+      }
+      break;
+   }
+
    case SpvExecutionModeOutputLineStrip:
    case SpvExecutionModeOutputTriangleStrip:
       vtn_assert(b->shader->info.stage == MESA_SHADER_GEOMETRY);
@@ -5049,9 +5107,20 @@ vtn_handle_execution_mode_id(struct vtn_builder *b, struct vtn_value *entry_poin
 
    switch (mode->exec_mode) {
    case SpvExecutionModeLocalSizeId:
-      b->shader->info.workgroup_size[0] = vtn_constant_uint(b, mode->operands[0]);
-      b->shader->info.workgroup_size[1] = vtn_constant_uint(b, mode->operands[1]);
-      b->shader->info.workgroup_size[2] = vtn_constant_uint(b, mode->operands[2]);
+      switch (b->shader->info.stage) {
+      case MESA_SHADER_COMPUTE:
+      case MESA_SHADER_KERNEL:
+      case MESA_SHADER_TASK:
+      case MESA_SHADER_MESH:
+         b->shader->info.workgroup_size[0] = vtn_constant_uint(b, mode->operands[0]);
+         b->shader->info.workgroup_size[1] = vtn_constant_uint(b, mode->operands[1]);
+         b->shader->info.workgroup_size[2] = vtn_constant_uint(b, mode->operands[2]);
+         break;
+      default:
+         vtn_fail("Execution mode LocalSizeId not supported in stage %s",
+                  _mesa_shader_stage_to_string(b->shader->info.stage));
+         break;
+      }
       break;
 
    case SpvExecutionModeLocalSizeHintId:
@@ -5352,6 +5421,58 @@ vtn_handle_ray_intrinsic(struct vtn_builder *b, SpvOp opcode,
 
    default:
       vtn_fail_with_opcode("Unhandled opcode", opcode);
+   }
+}
+
+static void
+vtn_handle_write_packed_primitive_indices(struct vtn_builder *b, SpvOp opcode,
+                                          const uint32_t *w, unsigned count)
+{
+   vtn_assert(opcode == SpvOpWritePackedPrimitiveIndices4x8NV);
+
+   /* TODO(mesh): Use or create a primitive that allow the unpacking to
+    * happen in the backend.  What we have here is functional but too
+    * blunt.
+    */
+
+   struct vtn_type *offset_type = vtn_get_value_type(b, w[1]);
+   vtn_fail_if(offset_type->base_type != vtn_base_type_scalar ||
+               offset_type->type != glsl_uint_type(),
+               "Index Offset type of OpWritePackedPrimitiveIndices4x8NV "
+               "must be an OpTypeInt with 32-bit Width and 0 Signedness.");
+
+   struct vtn_type *packed_type = vtn_get_value_type(b, w[2]);
+   vtn_fail_if(packed_type->base_type != vtn_base_type_scalar ||
+               packed_type->type != glsl_uint_type(),
+               "Packed Indices type of OpWritePackedPrimitiveIndices4x8NV "
+               "must be an OpTypeInt with 32-bit Width and 0 Signedness.");
+
+   nir_deref_instr *indices = NULL;
+   nir_foreach_variable_with_modes(var, b->nb.shader, nir_var_shader_out) {
+      if (var->data.location == VARYING_SLOT_PRIMITIVE_INDICES) {
+         indices = nir_build_deref_var(&b->nb, var);
+         break;
+      }
+   }
+
+   /* TODO(mesh): It may be the case that the variable is not present in the
+    * entry point interface list.
+    *
+    * See https://github.com/KhronosGroup/SPIRV-Registry/issues/104.
+    */
+   vtn_fail_if(indices == NULL,
+               "Missing output variable decorated with PrimitiveIndices builtin.");
+
+   nir_ssa_def *offset = vtn_get_nir_ssa(b, w[1]);
+   nir_ssa_def *packed = vtn_get_nir_ssa(b, w[2]);
+   nir_ssa_def *unpacked = nir_unpack_bits(&b->nb, packed, 8);
+   for (int i = 0; i < 4; i++) {
+      nir_deref_instr *offset_deref =
+         nir_build_deref_array(&b->nb, indices,
+                               nir_iadd_imm(&b->nb, offset, i));
+      nir_ssa_def *val = nir_u2u(&b->nb, nir_channel(&b->nb, unpacked, i), 32);
+
+      nir_store_deref(&b->nb, offset_deref, val, 0x1);
    }
 }
 
@@ -5780,6 +5901,10 @@ vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
    case SpvOpGroupAsyncCopy:
    case SpvOpGroupWaitEvents:
       vtn_handle_opencl_core_instruction(b, opcode, w, count);
+      break;
+
+   case SpvOpWritePackedPrimitiveIndices4x8NV:
+      vtn_handle_write_packed_primitive_indices(b, opcode, w, count);
       break;
 
    default:
