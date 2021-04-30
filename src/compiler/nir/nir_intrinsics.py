@@ -911,21 +911,21 @@ load("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE])
 # the value.  SSBO and shared memory stores also have a
 # nir_intrinsic_write_mask()
 
-def store(name, srcs, indices=[], flags=[]):
-    intrinsic("store_" + name, [0] + srcs, indices=indices, flags=flags)
+def store(name, srcs, indices=[], flags=[], implicit_index_srcs=[]):
+    intrinsic("store_" + name, [0] + srcs, indices=indices, flags=flags, implicit_index_srcs=implicit_index_srcs)
 
 # src[] = { value, offset }.
-store("output", [1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS])
+store("output", [1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS], [], [-1, 0])
 # src[] = { value, vertex, offset }.
-store("per_vertex_output", [1, 1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS])
+store("per_vertex_output", [1, 1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS], [], [-1, 0])
 # src[] = { value, block_index, offset }
-store("ssbo", [-1, 1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET])
+store("ssbo", [-1, 1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], [0])
 # src[] = { value, offset }.
-store("shared", [1], [BASE, WRITE_MASK, ALIGN_MUL, ALIGN_OFFSET])
+store("shared", [1], [BASE, WRITE_MASK, ALIGN_MUL, ALIGN_OFFSET], [], [-1, 0])
 # src[] = { value, address }.
-store("global", [1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET])
+store("global", [1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], [0])
 # src[] = { value, offset }.
-store("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET, WRITE_MASK])
+store("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET, WRITE_MASK], [], [-1, -1, 0])
 
 # A bit field to implement SPIRV FragmentShadingRateKHR
 # bit | name              | description

@@ -123,8 +123,16 @@ _nir_build_${name}(nir_builder *build${intrinsic_decl_list(opcode)})
    % for i in range(opcode.num_srcs):
    intrin->src[${i}] = nir_src_for_ssa(src${i});
    % endfor
-   % for index in opcode.indices:
+   % for i,index in enumerate(opcode.indices):
+   % if len(opcode.implicit_index_srcs) > i and opcode.implicit_index_srcs[i] != -1:
+   % if index.name == 'write_mask':
+   nir_intrinsic_set_${index.name}(intrin, indices.${index.name} ? indices.${index.name} : (1<<src${opcode.implicit_index_srcs[i]}->num_components)-1);
+   % else:
+   <% raise RuntimeError("Unhandled implicit index type %s" % index.name) %>
+   % endif
+   % else:
    nir_intrinsic_set_${index.name}(intrin, indices.${index.name});
+   % endif
    % endfor
 
    nir_builder_instr_insert(build, &intrin->instr);
