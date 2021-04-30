@@ -8570,8 +8570,31 @@ void visit_intrinsic(isel_context *ctx, nir_intrinsic_instr *instr)
       visit_bvh64_intersect_ray_amd(ctx, instr);
       break;
    case nir_intrinsic_load_cull_any_enabled_amd: {
-      Builder::Result cull_any_enabled = bld.sop2(aco_opcode::s_and_b32, bld.def(s1), bld.def(s1, scc), get_arg(ctx, ctx->args->ngg_gs_state), Operand(0x6u));
+      Builder::Result cull_any_enabled = bld.sop2(aco_opcode::s_and_b32, bld.def(s1), bld.def(s1, scc), get_arg(ctx, ctx->args->ngg_gs_state), Operand(-2u));
       bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), bool_to_vector_condition(ctx, cull_any_enabled.def(1).getTemp()));
+      break;
+   }
+   case nir_intrinsic_load_cull_small_prim_precision_amd: {
+      /* Load exponent (8-bit signed int) */
+      Temp exponent = bld.sop2(aco_opcode::s_ashr_i32, bld.def(s1), bld.def(s1, scc), get_arg(ctx, ctx->args->ngg_gs_state), Operand(24u));
+      /* small_prim_precision = 2^X */
+      bld.vop1(aco_opcode::v_exp_f32, Definition(get_ssa_temp(ctx, &instr->dest.ssa)), Operand(exponent));
+      break;
+   }
+   case nir_intrinsic_load_viewport_x_scale: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_arg(ctx, ctx->args->ngg_viewport_scale_x));
+      break;
+   }
+   case nir_intrinsic_load_viewport_y_scale: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_arg(ctx, ctx->args->ngg_viewport_scale_y));
+      break;
+   }
+   case nir_intrinsic_load_viewport_x_offset: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_arg(ctx, ctx->args->ngg_viewport_translate_x));
+      break;
+   }
+   case nir_intrinsic_load_viewport_y_offset: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), get_arg(ctx, ctx->args->ngg_viewport_translate_y));
       break;
    }
    case nir_intrinsic_overwrite_vs_arguments_amd: {
