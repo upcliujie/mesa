@@ -79,6 +79,50 @@ cull_face(nir_builder *b, nir_ssa_def *pos[3][4], const position_w_info *w_info)
    return nir_ior(b, front_accepted, back_accepted);
 }
 
+static nir_ssa_def *
+cull_bbox(nir_builder *b, nir_ssa_def *pos[3][4], nir_ssa_def *accepted, const position_w_info *w_info)
+{
+   nir_ssa_def *bbox_accepted = NULL;
+
+   nir_if *if_cull_bbox = nir_push_if(b, nir_iand(b, accepted, w_info->all_w_positive));
+   {
+      nir_ssa_def *bbox_min[3] = {0}, *bbox_max[3] = {0};
+
+      for (unsigned chan = 0; chan < 2; ++chan) {
+         bbox_min[chan] = nir_fmin(b, pos[0][chan], nir_fmin(b, pos[1][chan], pos[2][chan]));
+         bbox_max[chan] = nir_fmax(b, pos[0][chan], nir_fmax(b, pos[1][chan], pos[2][chan]));
+      }
+
+      nir_ssa_def *vp_scale[2] = { nir_build_load_viewport_x_scale(b), nir_build_load_viewport_y_scale(b), };
+      nir_ssa_def *vp_translate[2] = { nir_build_load_viewport_x_offset(b), nir_build_load_viewport_y_offset(b), };
+      nir_ssa_def *prim_invisible = nir_imm_false(b);
+
+      /* Small primitive elimination. */
+      nir_ssa_def *small_prim_precision = nir_build_load_cull_small_prim_precision_amd(b);
+
+      for (unsigned chan = 0; chan < 2; ++chan) {
+         /* Convert the position to screen-space coordinates. */
+         nir_ssa_def *min = nir_ffma(b, bbox_min[chan], vp_scale[chan], vp_translate[chan]);
+         nir_ssa_def *max = nir_ffma(b, bbox_max[chan], vp_scale[chan], vp_translate[chan]);
+
+         /* Scale the bounding box according to precision. */
+         min = nir_fsub(b, min, small_prim_precision);
+         max = nir_fadd(b, max, small_prim_precision);
+
+         /* Determine if the bbox intersects the sample point, by checking if the min and max round to the same int. */
+         min = nir_fround_even(b, min);
+         max = nir_fround_even(b, max);
+
+         nir_ssa_def *rounded_to_eq = nir_feq(b, min, max);
+         prim_invisible = nir_ior(b, prim_invisible, rounded_to_eq);
+      }
+
+      bbox_accepted = nir_inot(b, prim_invisible);
+   }
+   nir_pop_if(b, if_cull_bbox);
+   return nir_if_phi(b, bbox_accepted, accepted);
+}
+
 nir_ssa_def *
 ac_nir_cull_triangle(nir_builder *b,
                      nir_ssa_def *initially_accepted,
@@ -90,8 +134,7 @@ ac_nir_cull_triangle(nir_builder *b,
    nir_ssa_def *accepted = initially_accepted;
    accepted = nir_iand(b, accepted, w_info.w_accepted);
    accepted = nir_iand(b, accepted, cull_face(b, pos, &w_info));
-
-   /* TODO: copy cull_bbox to implement other culling options */
+   accepted = nir_iand(b, accepted, cull_bbox(b, pos, accepted, &w_info));
 
    return accepted;
 }
