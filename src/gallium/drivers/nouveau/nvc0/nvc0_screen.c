@@ -631,6 +631,7 @@ nvc0_screen_get_compute_param(struct pipe_screen *pscreen,
          RET((uint64_t []) { 48 << 10 });
          break;
       }
+      break;
    case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE: /* l[] */
       RET((uint64_t []) { 512 << 10 });
    case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE: /* c[], arbitrary limit */
