@@ -30,6 +30,11 @@
  */
 #define VN_MIN_RENDERER_VERSION VK_API_VERSION_1_1
 
+#define VN_EXTENSION_TABLE_INDEX(tbl, ext)                                   \
+   ((const bool *)((const void *)(&(tbl)) +                                  \
+                   offsetof(__typeof__(tbl), ext)) -                         \
+    (tbl).extensions)
+
 /*
  * Instance extensions add instance-level or physical-device-level
  * functionalities.  It seems renderer support is either unnecessary or
@@ -1516,13 +1521,6 @@ vn_physical_device_init_supported_extensions(
       if (supported.extensions[i]) {
          physical_dev->base.base.supported_extensions.extensions[i] = true;
          physical_dev->extension_spec_versions[i] = props->specVersion;
-#ifdef ANDROID
-         /* override VK_ANDROID_native_buffer spec version */
-         if (!strcmp(props->extensionName,
-                     VK_ANDROID_NATIVE_BUFFER_EXTENSION_NAME))
-            physical_dev->extension_spec_versions[i] =
-               VN_ANDROID_NATIVE_BUFFER_SPEC_VERSION;
-#endif
          continue;
       }
 
@@ -1537,6 +1535,14 @@ vn_physical_device_init_supported_extensions(
       physical_dev->base.base.supported_extensions.extensions[i] = true;
       physical_dev->extension_spec_versions[i] =
          MIN2(physical_dev->extension_spec_versions[i], props->specVersion);
+   }
+
+   /* override VK_ANDROID_native_buffer spec version */
+   if (supported.ANDROID_native_buffer) {
+      const uint32_t index =
+         VN_EXTENSION_TABLE_INDEX(supported, ANDROID_native_buffer);
+      physical_dev->extension_spec_versions[index] =
+         VN_ANDROID_NATIVE_BUFFER_SPEC_VERSION;
    }
 }
 
