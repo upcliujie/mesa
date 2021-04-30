@@ -744,9 +744,13 @@ system_value("shader_record_ptr", 1, bit_sizes=[64])
 #
 # Panfrost needs to implement all coordinate transformation in the
 # vertex shader; system values allow us to share this routine in NIR.
+#
+# RADV uses these for NGG primitive culling.
 system_value("viewport_x_scale", 1)
 system_value("viewport_y_scale", 1)
 system_value("viewport_z_scale", 1)
+system_value("viewport_x_offset", 1)
+system_value("viewport_y_offset", 1)
 system_value("viewport_z_offset", 1)
 system_value("viewport_scale", 3)
 system_value("viewport_offset", 3)
@@ -1146,6 +1150,8 @@ system_value("cull_front_face_enabled_amd", 1, bit_sizes=[1])
 system_value("cull_back_face_enabled_amd", 1, bit_sizes=[1])
 # Whether any culling setting is enabled in the shader.
 system_value("cull_any_enabled_amd", 1, bit_sizes=[1])
+# Small primitive culling precision
+system_value("cull_small_prim_precision_amd", 1, bit_sizes=[32])
 # Initial edge flag in a Vertex Shader. src = {vertex index}.
 intrinsic("load_initial_edgeflag_amd", src_comp=[1], dest_comp=1, indices=[])
 # Exports the current invocation's vertex. This is a placeholder where all vertex attribute export instructions should be emitted.
