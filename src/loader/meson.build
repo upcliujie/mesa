@@ -41,7 +41,7 @@ loader_c_args = [
   '-DDEFAULT_DRIVER_DIR="@0@"'.format(dri_search_path),
 ]
 
-if with_gallium_iris and get_option('prefer-iris')
+if amber or (with_gallium_iris and get_option('prefer-iris'))
   loader_c_args += ['-DPREFER_IRIS']
 endif
 
