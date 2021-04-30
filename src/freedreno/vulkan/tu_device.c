@@ -450,7 +450,7 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->shaderSubgroupExtendedTypes         = false;
          features->separateDepthStencilLayouts         = false;
          features->hostQueryReset                      = true;
-         features->timelineSemaphore                   = false;
+         features->timelineSemaphore                   = true;
          features->bufferDeviceAddress                 = false;
          features->bufferDeviceAddressCaptureReplay    = false;
          features->bufferDeviceAddressMultiDevice      = false;
@@ -632,6 +632,12 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR *features =
             (VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR *)ext;
          features->shaderTerminateInvocation = true;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES: {
+         VkPhysicalDeviceTimelineSemaphoreFeaturesKHR *features =
+            (VkPhysicalDeviceTimelineSemaphoreFeaturesKHR *) ext;
+         features->timelineSemaphore = true;
          break;
       }
 
@@ -953,6 +959,12 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          props->robustUniformBufferAccessSizeAlignment = 16;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_PROPERTIES: {
+         VkPhysicalDeviceTimelineSemaphorePropertiesKHR *props =
+            (VkPhysicalDeviceTimelineSemaphorePropertiesKHR *) ext;
+         props->maxTimelineSemaphoreValueDifference = UINT64_MAX;
+         break;
+      }
       default:
          break;
       }
@@ -1075,6 +1087,8 @@ tu_queue_init(struct tu_device *device,
    queue->queue_idx = idx;
    queue->flags = flags;
 
+   list_inithead(&queue->queued_submits);
+
    int ret = tu_drm_submitqueue_new(device, 0, &queue->msm_queue_id);
    if (ret)
       return vk_startup_errorf(device->instance, VK_ERROR_INITIALIZATION_FAILED,
@@ -1171,6 +1185,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    device->_lost = false;
 
    mtx_init(&device->bo_mutex, mtx_plain);
+   pthread_mutex_init(&device->submit_mutex, NULL);
 
    for (unsigned i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
       const VkDeviceQueueCreateInfo *queue_create =
@@ -1301,6 +1316,24 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
       }
    }
 
+   /* Initialize a condition variable for timeline semaphore */
+   pthread_condattr_t condattr;
+   if (pthread_condattr_init(&condattr) != 0) {
+      result = VK_ERROR_INITIALIZATION_FAILED;
+      goto fail_timeline_cond;
+   }
+   if (pthread_condattr_setclock(&condattr, CLOCK_MONOTONIC) != 0) {
+      pthread_condattr_destroy(&condattr);
+      result = VK_ERROR_INITIALIZATION_FAILED;
+      goto fail_timeline_cond;
+   }
+   if (pthread_cond_init(&device->timeline_cond, &condattr) != 0) {
+      pthread_condattr_destroy(&condattr);
+      result = VK_ERROR_INITIALIZATION_FAILED;
+      goto fail_timeline_cond;
+   }
+   pthread_condattr_destroy(&condattr);
+
    device->mem_cache = tu_pipeline_cache_from_handle(pc);
 
    for (unsigned i = 0; i < ARRAY_SIZE(device->scratch_bos); i++)
@@ -1311,6 +1344,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    *pDevice = tu_device_to_handle(device);
    return VK_SUCCESS;
 
+fail_timeline_cond:
 fail_prepare_perfcntrs_pass_cs:
    free(device->perfcntrs_pass_cs_entries);
    tu_cs_finish(device->perfcntrs_pass_cs);
@@ -1369,6 +1403,7 @@ tu_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
       free(device->perfcntrs_pass_cs);
    }
 
+   pthread_cond_destroy(&device->timeline_cond);
    vk_free(&device->vk.alloc, device->bo_list);
    vk_free(&device->vk.alloc, device->bo_idx);
    vk_device_finish(&device->vk);
@@ -1485,6 +1520,13 @@ tu_QueueWaitIdle(VkQueue _queue)
 
    if (queue->fence < 0)
       return VK_SUCCESS;
+
+   pthread_mutex_lock(&queue->device->submit_mutex);
+   while (!list_is_empty(&queue->queued_submits)) {
+      pthread_cond_wait(&queue->device->timeline_cond,
+            &queue->device->submit_mutex);
+   }
+   pthread_mutex_unlock(&queue->device->submit_mutex);
 
    struct pollfd fds = { .fd = queue->fence, .events = POLLIN };
    int ret;
