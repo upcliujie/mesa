@@ -132,16 +132,30 @@ nir_format_pack_uint_unmasked(nir_builder *b, nir_ssa_def *color,
                               const unsigned *bits, unsigned num_components)
 {
    assert(num_components >= 1 && num_components <= 4);
-   nir_ssa_def *packed = nir_imm_int(b, 0);
+   unsigned total_bits = 0;
+   for (unsigned i = 0; i < num_components; i++) {
+      total_bits += bits[i];
+      assert(bits[i] <= 32);
+   }
+   assert(total_bits <= 64);
+   bool is_64bit = total_bits <= 32 ? false : true;
+   nir_ssa_def *packed[] = { nir_imm_int(b, 0), nir_imm_int(b, 0) };
    unsigned offset = 0;
    for (unsigned i = 0; i < num_components; i++) {
-      packed = nir_ior(b, packed, nir_shift(b, nir_channel(b, color, i),
-                                               offset));
-      offset += bits[i];
+      if (bits[i]) {
+         unsigned idx = MIN2(offset / 32, 1);
+         packed[idx] = nir_ior(b, packed[idx], nir_shift(b, nir_channel(b, color, i), offset % 32));
+         offset += bits[i];
+      }
    }
-   assert(offset <= packed->bit_size);
+   nir_ssa_def *ret;
+   if (is_64bit) {
+      ret = nir_pack_64_2x32_split(b, packed[0], packed[1]);
+   } else
+      ret = packed[0];
+   assert(offset <= ret->bit_size);
 
-   return packed;
+   return ret;
 }
 
 static inline nir_ssa_def *
