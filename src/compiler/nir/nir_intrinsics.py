@@ -43,7 +43,7 @@ class Intrinsic(object):
    NOTE: this must be kept in sync with nir_intrinsic_info.
    """
    def __init__(self, name, src_components, dest_components,
-                indices, flags, sysval, bit_sizes):
+                indices, flags, sysval, bit_sizes, implicit_index_srcs):
        """Parameters:
 
        - name: the intrinsic name
@@ -57,6 +57,8 @@ class Intrinsic(object):
        - flags: list of semantic flags
        - sysval: is this a system-value intrinsic
        - bit_sizes: allowed dest bit_sizes or the source it must match
+       - implicit_index_srcs: mapping of srcs to pull index info from;
+         -1 means do not attempt to use implicit values
        """
        assert isinstance(name, str)
        assert isinstance(src_components, list)
@@ -84,6 +86,7 @@ class Intrinsic(object):
        self.dest_components = dest_components
        self.num_indices = len(indices)
        self.indices = indices
+       self.implicit_index_srcs = implicit_index_srcs
        self.flags = flags
        self.sysval = sysval
        self.bit_sizes = bit_sizes if isinstance(bit_sizes, list) else []
@@ -116,10 +119,10 @@ def index(c_data_type, name):
 # only one source.  If a component count is 0, it will be as many components as
 # the intrinsic has based on the dest_comp.
 def intrinsic(name, src_comp=[], dest_comp=-1, indices=[],
-              flags=[], sysval=False, bit_sizes=[]):
+              flags=[], sysval=False, bit_sizes=[], implicit_index_srcs=[]):
     assert name not in INTR_OPCODES
     INTR_OPCODES[name] = Intrinsic(name, src_comp, dest_comp,
-                                   indices, flags, sysval, bit_sizes)
+                                   indices, flags, sysval, bit_sizes, implicit_index_srcs)
 
 #
 # Possible indices:
