@@ -1194,7 +1194,7 @@ radv_get_physical_device_features_1_2(struct radv_physical_device *pdevice,
    f->separateDepthStencilLayouts = true;
    f->hostQueryReset = true;
    f->timelineSemaphore = true, f->bufferDeviceAddress = true;
-   f->bufferDeviceAddressCaptureReplay = false;
+   f->bufferDeviceAddressCaptureReplay = true;
    f->bufferDeviceAddressMultiDevice = false;
    f->vulkanMemoryModel = true;
    f->vulkanMemoryModelDeviceScope = true;
@@ -1328,7 +1328,7 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          VkPhysicalDeviceBufferDeviceAddressFeaturesEXT *features =
             (VkPhysicalDeviceBufferDeviceAddressFeaturesEXT *)ext;
          features->bufferDeviceAddress = true;
-         features->bufferDeviceAddressCaptureReplay = false;
+         features->bufferDeviceAddressCaptureReplay = true;
          features->bufferDeviceAddressMultiDevice = false;
          break;
       }
@@ -5134,6 +5134,12 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
    if (priority_ext)
       priority_float = priority_ext->priority;
 
+   uint64_t replay_address = 0;
+   const VkMemoryOpaqueCaptureAddressAllocateInfo *replay_info =
+      vk_find_struct_const(pAllocateInfo->pNext, MEMORY_OPAQUE_CAPTURE_ADDRESS_ALLOCATE_INFO);
+   if (replay_info && replay_info->opaqueCaptureAddress)
+      replay_address = replay_info->opaqueCaptureAddress;
+
    unsigned priority = MIN2(RADV_BO_PRIORITY_APPLICATION_MAX - 1,
                             (int)(priority_float * RADV_BO_PRIORITY_APPLICATION_MAX));
 
@@ -5207,6 +5213,10 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
          }
       }
 
+      const VkMemoryAllocateFlagsInfo *flags_info = vk_find_struct_const(pAllocateInfo->pNext, MEMORY_ALLOCATE_FLAGS_INFO);
+      if (flags_info && flags_info->flags & VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT)
+         flags |= RADEON_FLAG_REPLAYABLE;
+
       if (device->overallocation_disallowed) {
          uint64_t total_size =
             device->physical_device->memory_properties.memoryHeaps[heap_index].size;
@@ -5223,7 +5233,7 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
 
       result = device->ws->buffer_create(device->ws, alloc_size,
                                          device->physical_device->rad_info.max_alignment, domain,
-                                         flags, priority, 0, &mem->bo);
+                                         flags, priority, replay_address, &mem->bo);
 
       if (result != VK_SUCCESS) {
          if (device->overallocation_disallowed) {
@@ -6197,9 +6207,19 @@ radv_CreateBuffer(VkDevice _device, const VkBufferCreateInfo *pCreateInfo,
       vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_MEMORY_BUFFER_CREATE_INFO) != NULL;
 
    if (pCreateInfo->flags & VK_BUFFER_CREATE_SPARSE_BINDING_BIT) {
-      VkResult result =
-         device->ws->buffer_create(device->ws, align64(buffer->size, 4096), 4096, 0,
-                                   RADEON_FLAG_VIRTUAL, RADV_BO_PRIORITY_VIRTUAL, 0, &buffer->bo);
+      enum radeon_bo_flag flags = RADEON_FLAG_VIRTUAL;
+      if (pCreateInfo->flags & VK_BUFFER_CREATE_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT)
+         flags |= RADEON_FLAG_REPLAYABLE;
+
+      uint64_t replay_address = 0;
+      const VkBufferOpaqueCaptureAddressCreateInfo *replay_info =
+         vk_find_struct_const(pCreateInfo->pNext, BUFFER_OPAQUE_CAPTURE_ADDRESS_CREATE_INFO);
+      if (replay_info && replay_info->opaqueCaptureAddress)
+         replay_address = replay_info->opaqueCaptureAddress;
+
+      VkResult result = device->ws->buffer_create(device->ws, align64(buffer->size, 4096), 4096, 0,
+                                                  flags, RADV_BO_PRIORITY_VIRTUAL,
+                                                  replay_address, &buffer->bo);
       if (result != VK_SUCCESS) {
          radv_destroy_buffer(device, pAllocator, buffer);
          return vk_error(device->instance, result);
@@ -6233,14 +6253,16 @@ radv_GetBufferDeviceAddress(VkDevice device, const VkBufferDeviceAddressInfo *pI
 uint64_t
 radv_GetBufferOpaqueCaptureAddress(VkDevice device, const VkBufferDeviceAddressInfo *pInfo)
 {
-   return 0;
+   RADV_FROM_HANDLE(radv_buffer, buffer, pInfo->buffer);
+   return buffer->bo ? radv_buffer_get_va(buffer->bo) + buffer->offset : 0;
 }
 
 uint64_t
 radv_GetDeviceMemoryOpaqueCaptureAddress(VkDevice device,
                                          const VkDeviceMemoryOpaqueCaptureAddressInfo *pInfo)
 {
-   return 0;
+   RADV_FROM_HANDLE(radv_device_memory, mem, pInfo->memory);
+   return radv_buffer_get_va(mem->bo);
 }
 
 static inline unsigned
