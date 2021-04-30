@@ -2313,23 +2313,23 @@ void lp_build_opt_nir(struct nir_shader *nir)
    NIR_PASS_V(nir, nir_lower_fp16_casts);
    do {
       progress = false;
-      NIR_PASS_V(nir, nir_opt_constant_folding);
-      NIR_PASS_V(nir, nir_opt_algebraic);
-      NIR_PASS_V(nir, nir_lower_pack);
-
-      nir_lower_tex_options options = { .lower_tex_without_implicit_lod = true };
-      NIR_PASS_V(nir, nir_lower_tex, &options);
-
-      const nir_lower_subgroups_options subgroups_options = {
-	.subgroup_size = lp_native_vector_width / 32,
-	.ballot_bit_size = 32,
-	.lower_to_scalar = true,
-	.lower_subgroup_masks = true,
-      };
-      NIR_PASS_V(nir, nir_lower_subgroups, &subgroups_options);
-
+      NIR_PASS(progress, nir, nir_opt_constant_folding);
+      NIR_PASS(progress, nir, nir_opt_algebraic);
+      NIR_PASS(progress, nir, nir_lower_pack);
    } while (progress);
-   nir_lower_bool_to_int32(nir);
+   
+   NIR_PASS_V(nir, nir_lower_bool_to_int32);
+
+   nir_lower_tex_options options = { .lower_tex_without_implicit_lod = true };
+   NIR_PASS_V(nir, nir_lower_tex, &options);
+
+   const nir_lower_subgroups_options subgroups_options = {
+     .subgroup_size = lp_native_vector_width / 32,
+     .ballot_bit_size = 32,
+     .lower_to_scalar = true,
+     .lower_subgroup_masks = true,
+   };
+   NIR_PASS_V(nir, nir_lower_subgroups, &subgroups_options);
 
    do {
       progress = false;
