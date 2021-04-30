@@ -33,15 +33,23 @@ anv_entrypoints = custom_target(
   depend_files : vk_entrypoints_gen_depend_files,
 )
 
+if amber
+  intel_icd_name = 'intel_amber_icd'
+  libvulkan_intel_name = 'libvulkan_intel_amber'
+else
+  intel_icd_name = 'intel_icd'
+  libvulkan_intel_name = 'libvulkan_intel'
+endif
+
 intel_icd = custom_target(
-  'intel_icd',
+  intel_icd_name,
   input : [vk_icd_gen, vk_api_xml],
-  output : 'intel_icd.@0@.json'.format(host_machine.cpu()),
+  output : '@0@.@1@.json'.format(host_machine.cpu(), intel_icd_name),
   command : [
     prog_python, '@INPUT0@',
     '--api-version', '1.2', '--xml', '@INPUT1@',
     '--lib-path', join_paths(get_option('prefix'), get_option('libdir'),
-                             'libvulkan_intel.so'),
+                             '@0@.so'.format(libvulkan_intel_name)),
     '--out', '@OUTPUT@',
   ],
   build_by_default : true,
@@ -170,7 +178,7 @@ libanv_common = static_library(
 )
 
 libvulkan_intel = shared_library(
-  'vulkan_intel',
+  libvulkan_intel_name,
   [files('anv_gem.c'), anv_entrypoints[0]],
   include_directories : [
     inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel, inc_compiler, inc_vulkan_wsi,
