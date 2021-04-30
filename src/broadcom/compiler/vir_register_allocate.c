@@ -164,10 +164,8 @@ v3d_choose_spill_node(struct v3d_compile *c, struct ra_graph *g,
         }
 
         for (unsigned i = 0; i < c->num_temps; i++) {
-                int node = temp_to_node[i];
-
                 if (BITSET_TEST(c->spillable, i))
-                        ra_set_node_spill_cost(g, node, spill_costs[i]);
+                        ra_set_node_spill_cost(g, temp_to_node[i], spill_costs[i]);
         }
 
         return ra_get_best_spill_node(g);
@@ -532,6 +530,7 @@ tmu_spilling_allowed(struct v3d_compile *c, int thread_index)
 struct qpu_reg *
 v3d_register_allocate(struct v3d_compile *c, bool *spilled)
 {
+        uint32_t UNUSED start_num_temps = c->num_temps;
         struct node_to_temp_map map[c->num_temps];
         uint32_t temp_to_node[c->num_temps];
         uint8_t class_bits[c->num_temps];
@@ -782,6 +781,7 @@ v3d_register_allocate(struct v3d_compile *c, bool *spilled)
                 return NULL;
         }
 
+        assert(start_num_temps == c->num_temps);
         struct qpu_reg *temp_registers = calloc(c->num_temps,
                                                 sizeof(*temp_registers));
 
