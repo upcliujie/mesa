@@ -252,15 +252,21 @@ nir_format_float_to_unorm(nir_builder *b, nir_ssa_def *f, const unsigned *bits)
 }
 
 static inline nir_ssa_def *
+nir_format_float_to_snorm_with_factor(nir_builder *b, nir_ssa_def *f, nir_ssa_def *factor)
+{
+   /* Clamp to the range [-1, 1] */
+   f = nir_fmin(b, nir_fmax(b, f, nir_imm_float(b, -1)), nir_imm_float(b, 1));
+
+   return nir_f2i32(b, nir_fround_even(b, nir_fmul(b, f, factor)));
+}
+
+static inline nir_ssa_def *
 nir_format_float_to_snorm(nir_builder *b, nir_ssa_def *f, const unsigned *bits)
 {
    nir_ssa_def *factor =
       _nir_format_norm_factor(b, bits, f->num_components, true);
 
-   /* Clamp to the range [-1, 1] */
-   f = nir_fmin(b, nir_fmax(b, f, nir_imm_float(b, -1)), nir_imm_float(b, 1));
-
-   return nir_f2i32(b, nir_fround_even(b, nir_fmul(b, f, factor)));
+   return nir_format_float_to_snorm_with_factor(b, f, factor);
 }
 
 /* Converts a vector of floats to a vector of half-floats packed in the low 16
