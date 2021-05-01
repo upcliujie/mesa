@@ -538,7 +538,7 @@ void st_init_limits(struct pipe_screen *screen,
    if (!c->MaxCombinedAtomicCounters)
       c->MaxCombinedAtomicCounters = MAX_ATOMIC_COUNTERS;
 
-   if (c->MaxCombinedAtomicBuffers > 0) {
+   if (c->Program[MESA_SHADER_FRAGMENT].MaxAtomicBuffers) {
       extensions->ARB_shader_atomic_counters = GL_TRUE;
       extensions->ARB_shader_atomic_counter_ops = GL_TRUE;
    }
@@ -566,7 +566,8 @@ void st_init_limits(struct pipe_screen *screen,
          c->MaxCombinedShaderStorageBlocks;
       c->MaxShaderStorageBlockSize =
          screen->get_param(screen, PIPE_CAP_MAX_SHADER_BUFFER_SIZE);
-      extensions->ARB_shader_storage_buffer_object = GL_TRUE;
+      if (c->Program[MESA_SHADER_FRAGMENT].MaxShaderStorageBlocks)
+         extensions->ARB_shader_storage_buffer_object = GL_TRUE;
    }
 
    c->MaxCombinedImageUniforms =
@@ -578,7 +579,7 @@ void st_init_limits(struct pipe_screen *screen,
          c->Program[MESA_SHADER_COMPUTE].MaxImageUniforms;
    c->MaxCombinedShaderOutputResources += c->MaxCombinedImageUniforms;
    c->MaxImageUnits = MAX_IMAGE_UNITS;
-   if (c->MaxCombinedImageUniforms) {
+   if (c->Program[MESA_SHADER_FRAGMENT].MaxImageUniforms) {
       extensions->ARB_shader_image_load_store = GL_TRUE;
       extensions->ARB_shader_image_size = GL_TRUE;
    }
@@ -1649,8 +1650,9 @@ void st_init_extensions(struct pipe_screen *screen,
          }
 
          extensions->ARB_compute_shader =
-                                      extensions->ARB_shader_image_load_store &&
-                                      extensions->ARB_shader_atomic_counters;
+            max_threads_per_block >= 1024 &&
+            extensions->ARB_shader_image_load_store &&
+            extensions->ARB_shader_atomic_counters;
 
          if (extensions->ARB_compute_shader) {
             uint64_t max_variable_threads_per_block = 0;
