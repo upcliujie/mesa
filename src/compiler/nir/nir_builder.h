@@ -802,6 +802,13 @@ nir_u2u(nir_builder *build, nir_ssa_def *x, unsigned dest_bit_size)
    }
 }
 
+/* convenience function for clamping signed integers */
+static inline nir_ssa_def *
+nir_iclamp(nir_builder *build, nir_ssa_def *src, nir_ssa_def *clamp_to_min, nir_ssa_def *clamp_to_max)
+{
+   return nir_imax(build, nir_imin(build, src, clamp_to_min), clamp_to_max);
+}
+
 static inline nir_ssa_def *
 nir_iadd_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
 {
