@@ -240,15 +240,21 @@ nir_format_snorm_to_float(nir_builder *b, nir_ssa_def *s, const unsigned *bits)
 }
 
 static inline nir_ssa_def *
+nir_format_float_to_unorm_with_factor(nir_builder *b, nir_ssa_def *f, nir_ssa_def *factor)
+{
+   /* Clamp to the range [0, 1] */
+   f = nir_fsat(b, f);
+
+   return nir_f2u32(b, nir_fround_even(b, nir_fmul(b, f, factor)));
+}
+
+static inline nir_ssa_def *
 nir_format_float_to_unorm(nir_builder *b, nir_ssa_def *f, const unsigned *bits)
 {
    nir_ssa_def *factor =
       _nir_format_norm_factor(b, bits, f->num_components, false);
 
-   /* Clamp to the range [0, 1] */
-   f = nir_fsat(b, f);
-
-   return nir_f2u32(b, nir_fround_even(b, nir_fmul(b, f, factor)));
+   return nir_format_float_to_unorm_with_factor(b, f, factor);
 }
 
 static inline nir_ssa_def *
