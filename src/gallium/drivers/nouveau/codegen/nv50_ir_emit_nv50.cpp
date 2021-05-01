@@ -2301,7 +2301,7 @@ CodeEmitterNV50::prepareEmission(Function *func)
 }
 
 CodeEmitterNV50::CodeEmitterNV50(const TargetNV50 *target) :
-   CodeEmitter(target), targNV50(target)
+   CodeEmitter(target), progType(Program::TYPE_VERTEX), targNV50(target)
 {
    targ = target; // specialized
    code = NULL;
