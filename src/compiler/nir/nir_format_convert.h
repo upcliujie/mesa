@@ -25,6 +25,14 @@
 
 #include "util/format_rgb9e5.h"
 
+
+/* convenience function for clamping signed integers */
+static inline nir_ssa_def *
+nir_imin_imax(nir_builder *build, nir_ssa_def *src, nir_ssa_def *clamp_to_min, nir_ssa_def *clamp_to_max)
+{
+   return nir_imax(build, nir_imin(build, src, clamp_to_min), clamp_to_max);
+}
+
 static inline nir_ssa_def *
 nir_shift(nir_builder *b, nir_ssa_def *value, int left_shift)
 {
