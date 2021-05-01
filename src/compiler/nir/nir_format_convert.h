@@ -188,6 +188,21 @@ nir_format_pack_uint_unmasked_ssa(nir_builder *b, nir_ssa_def *color,
    return packed;
 }
 
+/* returns ivec2 */
+static inline nir_ssa_def *
+nir_format_pack_uint64_unmasked_ssa(nir_builder *b, nir_ssa_def *color,
+                                    nir_ssa_def *bits)
+{
+   nir_ssa_def *packed = nir_imm_ivec2(b, 0, 0);
+   nir_ssa_def *offset = nir_imm_int(b, 0);
+   for (unsigned i = 0; i < bits->num_components; i++) {
+      nir_ssa_def *bit = nir_channel(b, bits, i);
+      packed = nir_bitfield_insert(b, packed, nir_channel(b, color, i), offset, bit);
+      offset = nir_iadd(b, offset, bit);
+   }
+   return packed;
+}
+
 static inline nir_ssa_def *
 nir_format_pack_uint(nir_builder *b, nir_ssa_def *color,
                      const unsigned *bits, unsigned num_components)
