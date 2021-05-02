@@ -765,6 +765,55 @@ bool r600_lower_fs_pos_input(nir_shader *shader)
                                         nullptr);
 };
 
+static nir_ssa_def *
+r600_legalize_dynamic_image_index_impl(nir_builder *b, nir_instr *instr, void *_options)
+{
+   b->cursor = nir_before_instr(instr);
+   auto ir = nir_instr_as_intrinsic(instr);
+   auto new_index = nir_umin(b, ir->src[0].ssa,
+         nir_imm_int(b, b->shader->info.num_images - 1));
+
+   nir_instr_rewrite_src_ssa(instr, &ir->src[0], new_index);
+   return NIR_LOWER_INSTR_PROGRESS;
+}
+
+static bool
+r600_legalize_dynamic_image_index_filter(const nir_instr *instr, const void *_options)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   auto ir = nir_instr_as_intrinsic(instr);
+   switch (ir->intrinsic) {
+   case nir_intrinsic_image_store:
+   case nir_intrinsic_image_load:
+   case nir_intrinsic_image_atomic_add:
+   case nir_intrinsic_image_atomic_and:
+   case nir_intrinsic_image_atomic_or:
+   case nir_intrinsic_image_atomic_xor:
+   case nir_intrinsic_image_atomic_exchange:
+   case nir_intrinsic_image_atomic_comp_swap:
+   case nir_intrinsic_image_atomic_umin:
+   case nir_intrinsic_image_atomic_umax:
+   case nir_intrinsic_image_atomic_imin:
+   case nir_intrinsic_image_atomic_imax:
+   case nir_intrinsic_image_size:
+      return true;
+   default:
+      return false;
+   }
+}
+
+/* Strip the interpolator specification, it is not needed and irritates */
+static bool
+r600_legalize_dynamic_image_index(nir_shader *shader)
+{
+   return nir_shader_lower_instructions(shader,
+                                        r600_legalize_dynamic_image_index_filter,
+                                        r600_legalize_dynamic_image_index_impl,
+                                        nullptr);
+};
+
 static bool
 optimize_once(nir_shader *shader, bool vectorize)
 {
@@ -861,6 +910,9 @@ int r600_shader_from_nir(struct r600_context *rctx,
    }
 
    r600::sort_uniforms(sel->nir);
+
+   if (sel->nir->info.num_images > 0)
+       NIR_PASS_V(sel->nir, r600_legalize_dynamic_image_index);
 
    NIR_PASS_V(sel->nir, nir_lower_vars_to_ssa);
    NIR_PASS_V(sel->nir, nir_lower_regs_to_ssa);
