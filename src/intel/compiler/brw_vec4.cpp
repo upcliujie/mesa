@@ -593,7 +593,7 @@ vec4_visitor::split_uniform_registers()
     */
    foreach_block_and_inst(block, vec4_instruction, inst, cfg) {
       for (int i = 0 ; i < 3; i++) {
-	 if (inst->src[i].file != UNIFORM)
+	 if (inst->src[i].file != UNIFORM || inst->src[i].nr >= UBO_START)
 	    continue;
 
 	 assert(!inst->src[i].reladdr);
@@ -2097,11 +2097,17 @@ vec4_visitor::convert_to_hw_regs()
          }
 
          case UNIFORM: {
-            reg = stride(byte_offset(brw_vec4_grf(
-                                        prog_data->base.dispatch_grf_start_reg +
-                                        src.nr / 2, src.nr % 2 * 4),
-                                     src.offset),
-                         0, 4, 1);
+            if (src.nr >= UBO_START) {
+               reg = byte_offset(brw_vec4_grf(
+                                    ubo_push_start[src.nr - UBO_START] +
+                                    src.offset / 32, 0),
+                                 src.offset % 32);
+            } else {
+               reg = byte_offset(brw_vec4_grf(push_start + src.nr / 2,
+                                              src.nr % 2 * 4),
+                                 src.offset);
+            }
+            reg = stride(reg, 0, 4, 1);
             reg.type = src.type;
             reg.abs = src.abs;
             reg.negate = src.negate;
