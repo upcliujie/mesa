@@ -1810,7 +1810,7 @@ vec4_vs_visitor::setup_attributes(int payload_reg)
 int
 vec4_visitor::setup_uniforms(int reg)
 {
-   prog_data->base.dispatch_grf_start_reg = reg;
+   const unsigned push_start = reg;
 
    /* The pre-gfx6 VS requires that some push constants get loaded no
     * matter what, or the GPU would hang.
@@ -1827,14 +1827,11 @@ vec4_visitor::setup_uniforms(int reg)
    } else {
       reg += ALIGN(uniforms, 2) / 2;
    }
-
-   for (int i = 0; i < 4; i++)
-      reg += stage_prog_data->ubo_ranges[i].length;
-
    stage_prog_data->nr_params = this->uniforms * 4;
 
-   prog_data->base.curb_read_length =
-      reg - prog_data->base.dispatch_grf_start_reg;
+   unsigned push_length = DIV_ROUND_UP(prog_data->base.nr_params, 8);
+   for (int i = 0; i < 4; i++)
+      push_length += stage_prog_data->ubo_ranges[i].length;
 
    foreach_block_and_inst(block, vec4_instruction, inst, cfg) {
       for (int i = 0; i < 3; i++) {
@@ -1860,7 +1857,10 @@ vec4_visitor::setup_uniforms(int reg)
       }
    }
 
-   return reg;
+   prog_data->base.dispatch_grf_start_reg = push_start;
+   prog_data->base.curb_read_length = push_length;
+
+   return push_start + push_length;
 }
 
 void
