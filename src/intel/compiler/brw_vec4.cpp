@@ -1836,6 +1836,28 @@ vec4_visitor::setup_uniforms(int reg)
    prog_data->base.curb_read_length =
       reg - prog_data->base.dispatch_grf_start_reg;
 
+   foreach_block_and_inst(block, vec4_instruction, inst, cfg) {
+      for (int i = 0; i < 3; i++) {
+         class src_reg &src = inst->src[i];
+         if (src.file != UNIFORM)
+            continue;
+
+         /* This should have been moved to pull constants. */
+         assert(!src.reladdr);
+
+         struct brw_reg reg =
+            stride(byte_offset(brw_vec4_grf(
+                                  prog_data->base.dispatch_grf_start_reg +
+                                  src.nr / 2, src.nr % 2 * 4),
+                               src.offset),
+                   0, 4, 1);
+         reg.type = src.type;
+         reg.abs = src.abs;
+         reg.negate = src.negate;
+         src = reg;
+      }
+   }
+
    return reg;
 }
 
@@ -2046,21 +2068,6 @@ vec4_visitor::convert_to_hw_regs()
             break;
          }
 
-         case UNIFORM: {
-            reg = stride(byte_offset(brw_vec4_grf(
-                                        prog_data->base.dispatch_grf_start_reg +
-                                        src.nr / 2, src.nr % 2 * 4),
-                                     src.offset),
-                         0, 4, 1);
-            reg.type = src.type;
-            reg.abs = src.abs;
-            reg.negate = src.negate;
-
-            /* This should have been moved to pull constants. */
-            assert(!src.reladdr);
-            break;
-         }
-
          case FIXED_GRF:
             if (type_sz(src.type) == 8) {
                reg = src.as_brw_reg();
@@ -2079,6 +2086,7 @@ vec4_visitor::convert_to_hw_regs()
 
          case MRF:
          case ATTR:
+         case UNIFORM:
             unreachable("not reached");
          }
 
