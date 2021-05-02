@@ -202,8 +202,7 @@ brw_nir_analyze_ubo_ranges(const struct brw_compiler *compiler,
 {
    const struct intel_device_info *devinfo = compiler->devinfo;
 
-   if ((devinfo->ver <= 7 && !devinfo->is_haswell) ||
-       !compiler->scalar_stage[nir->info.stage]) {
+   if (devinfo->ver <= 7 && !devinfo->is_haswell) {
       memset(out_ranges, 0, 4 * sizeof(struct brw_ubo_range));
       return;
    }
