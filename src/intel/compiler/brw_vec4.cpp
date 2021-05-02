@@ -593,7 +593,7 @@ vec4_visitor::split_uniform_registers()
     */
    foreach_block_and_inst(block, vec4_instruction, inst, cfg) {
       for (int i = 0 ; i < 3; i++) {
-	 if (inst->src[i].file != UNIFORM)
+	 if (inst->src[i].file != UNIFORM || inst->src[i].nr >= UBO_START)
 	    continue;
 
 	 assert(!inst->src[i].reladdr);
@@ -1830,8 +1830,17 @@ vec4_visitor::setup_uniforms(int reg)
    stage_prog_data->nr_params = this->uniforms * 4;
 
    unsigned push_length = DIV_ROUND_UP(prog_data->base.nr_params, 8);
-   for (int i = 0; i < 4; i++)
-      push_length += stage_prog_data->ubo_ranges[i].length;
+   unsigned ubo_push_start[4];
+   for (int i = 0; i < 4; i++) {
+      struct brw_ubo_range *range = &prog_data->base.ubo_ranges[i];
+
+      if (push_length + range->length > 64)
+         range->length = 64 - push_length;
+
+      ubo_push_start[i] = push_start + push_length;
+      push_length += range->length;
+   }
+   assert(push_length <= 64);
 
    uint64_t push_used = 0;
    foreach_block_and_inst(block, vec4_instruction, inst, cfg) {
@@ -1843,12 +1852,18 @@ vec4_visitor::setup_uniforms(int reg)
          /* This should have been moved to pull constants. */
          assert(!src.reladdr);
 
-         struct brw_reg reg =
-            stride(byte_offset(brw_vec4_grf(
-                                  prog_data->base.dispatch_grf_start_reg +
-                                  src.nr / 2, src.nr % 2 * 4),
-                               src.offset),
-                   0, 4, 1);
+         struct brw_reg reg;
+         if (src.nr >= UBO_START) {
+            reg = byte_offset(brw_vec4_grf(
+                                 ubo_push_start[src.nr - UBO_START] +
+                                 src.offset / 32, 0),
+                              src.offset % 32);
+         } else {
+            reg = byte_offset(brw_vec4_grf(push_start + src.nr / 2,
+                                           src.nr % 2 * 4),
+                              src.offset);
+         }
+         reg = stride(reg, 0, 4, 1);
          reg.type = src.type;
          reg.abs = src.abs;
          reg.negate = src.negate;
