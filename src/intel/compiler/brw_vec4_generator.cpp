@@ -2065,6 +2065,55 @@ generate_code(struct brw_codegen *p,
          break;
       }
 
+      case VEC4_OPCODE_UNPACK_PUSH_MASK: {
+         assert(inst->force_writemask_all);
+         assert(src[0].type == BRW_REGISTER_TYPE_W);
+         assert(src[0].hstride == 0 && src[0].vstride == 0);
+         assert(dst.type == BRW_REGISTER_TYPE_D);
+         assert(inst->size_written == 64);
+
+         brw_push_insn_state(p);
+         brw_set_default_access_mode(p, BRW_ALIGN_1);
+         brw_set_default_mask_control(p, BRW_MASK_DISABLE);
+
+         /* Scratch around in the upper bits of the destination.  This way,
+          * when the final compressed instruction in this sequence executes,
+          * the temp values won't get stomped by the first half.
+          */
+         struct brw_reg tmp_W = retype(byte_offset(dst, 32),
+                                       BRW_REGISTER_TYPE_W);
+         brw_set_default_exec_size(p, BRW_EXECUTE_8);
+         brw_SHL(p, suboffset(tmp_W, 8), src[0], brw_imm_v(0x01234567));
+         brw_SHL(p, tmp_W, suboffset(tmp_W, 8), brw_imm_w(8));
+
+         brw_set_default_exec_size(p, BRW_EXECUTE_16);
+         brw_ASR(p, dst, tmp_W, brw_imm_w(15));
+
+         brw_pop_insn_state(p);
+         break;
+      }
+
+      case VEC4_OPCODE_APPLY_PUSH_MASK: {
+         assert(inst->force_writemask_all);
+         assert(dst.type == BRW_REGISTER_TYPE_D);
+         assert(src[0].type == BRW_REGISTER_TYPE_D);
+         assert(src[1].type == BRW_REGISTER_TYPE_D);
+         assert(src[2].type == BRW_REGISTER_TYPE_UD);
+         assert(src[2].file == BRW_IMMEDIATE_VALUE);
+
+         brw_push_insn_state(p);
+         brw_set_default_access_mode(p, BRW_ALIGN_1);
+         brw_set_default_mask_control(p, BRW_MASK_DISABLE);
+
+         struct brw_reg mask =
+            stride(byte_offset(src[1], src[2].ud * 4), 0, 1, 0);
+
+         brw_AND(p, dst, src[0], mask);
+
+         brw_pop_insn_state(p);
+         break;
+      }
+
       case TCS_OPCODE_URB_WRITE:
          generate_tcs_urb_write(p, inst, src[0]);
          send_count++;

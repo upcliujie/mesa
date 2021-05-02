@@ -421,6 +421,10 @@ brw_instruction_name(const struct intel_device_info *devinfo, enum opcode op)
       return "set_low_32bit";
    case VEC4_OPCODE_SET_HIGH_32BIT:
       return "set_high_32bit";
+   case VEC4_OPCODE_UNPACK_PUSH_MASK:
+      return "unpack_push_mask";
+   case VEC4_OPCODE_APPLY_PUSH_MASK:
+      return "apply_push_mask";
 
    case FS_OPCODE_DDX_COARSE:
       return "ddx_coarse";
