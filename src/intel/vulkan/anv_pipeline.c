@@ -726,8 +726,11 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
    NIR_PASS_V(nir, anv_nir_lower_ycbcr_textures, layout);
 
    if (pipeline->type == ANV_PIPELINE_GRAPHICS) {
-      NIR_PASS_V(nir, anv_nir_lower_multiview,
-                 anv_pipeline_to_graphics(pipeline));
+      bool lowered = false;
+      NIR_PASS(lowered,nir, anv_nir_lower_multiview,
+               anv_pipeline_to_graphics(pipeline));
+      if (lowered)
+         brw_nir_optimize(nir, compiler);
    }
 
    nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
