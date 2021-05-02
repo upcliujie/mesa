@@ -344,6 +344,7 @@ namespace {
       case VEC4_OPCODE_PICK_HIGH_32BIT:
       case VEC4_OPCODE_SET_LOW_32BIT:
       case VEC4_OPCODE_SET_HIGH_32BIT:
+      case VEC4_OPCODE_APPLY_PUSH_MASK:
       case GS_OPCODE_SET_DWORD_2:
       case GS_OPCODE_SET_WRITE_OFFSET:
       case GS_OPCODE_SET_VERTEX_COUNT:
@@ -810,6 +811,7 @@ namespace {
             abort();
 
       case VEC4_OPCODE_PACK_BYTES:
+      case VEC4_OPCODE_UNPACK_PUSH_MASK:
          if (devinfo->ver >= 8)
             return calculate_desc(info, unit_fpu, 4 /* XXX */, 0, 0,
                                   4 /* XXX */, 0,
