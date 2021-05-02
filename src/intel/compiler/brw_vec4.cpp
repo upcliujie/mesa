@@ -1833,6 +1833,7 @@ vec4_visitor::setup_uniforms(int reg)
    for (int i = 0; i < 4; i++)
       push_length += stage_prog_data->ubo_ranges[i].length;
 
+   uint64_t push_used = 0;
    foreach_block_and_inst(block, vec4_instruction, inst, cfg) {
       for (int i = 0; i < 3; i++) {
          class src_reg &src = inst->src[i];
@@ -1852,8 +1853,53 @@ vec4_visitor::setup_uniforms(int reg)
          reg.abs = src.abs;
          reg.negate = src.negate;
          src = reg;
+
+         assert(reg.nr >= push_start && reg.nr < push_start + 64);
+         push_used |= BITFIELD64_BIT(reg.nr - push_start);
       }
    }
+
+   uint64_t want_zero = push_used & prog_data->base.zero_push_reg;
+   if (want_zero) {
+      bblock_t *start_block = cfg->first_block();
+      brw::vec4_instruction *start_inst =
+         static_cast<brw::vec4_instruction *>(start_block->start());
+      const vec4_builder ibld(this, start_block, start_inst);
+      const vec4_builder ubld = ibld.exec_all();
+
+      /* push_reg_mask_param is in 32-bit units */
+      unsigned mask_param = stage_prog_data->push_reg_mask_param;
+      struct brw_reg mask =
+         retype(brw_vec1_grf(push_start + mask_param / 8, mask_param % 8),
+                BRW_REGISTER_TYPE_D);
+
+      dst_reg b32;
+      for (unsigned i = 0; i < 64; i++) {
+         if (i % 16 == 0 && (want_zero & BITFIELD64_RANGE(i, 16))) {
+            b32 = ubld.vgrf(BRW_REGISTER_TYPE_D, 2);
+            vec4_instruction *inst =
+               ubld.emit(VEC4_OPCODE_UNPACK_PUSH_MASK, b32,
+                         byte_offset(retype(mask, BRW_REGISTER_TYPE_W), i / 8));
+            inst->size_written = REG_SIZE * 2;
+         }
+
+         if (want_zero & BITFIELD64_BIT(i)) {
+            assert(i < push_length);
+            struct brw_reg push_reg =
+               retype(brw_vec8_grf(push_start + i, 0), BRW_REGISTER_TYPE_D);
+
+            src_reg b32_half = src_reg(b32);
+            if (i % 16 >= 8)
+               b32_half.offset += 32;
+
+            ubld.emit(VEC4_OPCODE_APPLY_PUSH_MASK, push_reg, push_reg,
+                      src_reg(b32), brw_imm_ud(i % 8));
+         }
+      }
+   }
+
+   if (push_used)
+      invalidate_analysis(DEPENDENCY_INSTRUCTIONS | DEPENDENCY_VARIABLES);
 
    prog_data->base.dispatch_grf_start_reg = push_start;
    prog_data->base.curb_read_length = push_length;
