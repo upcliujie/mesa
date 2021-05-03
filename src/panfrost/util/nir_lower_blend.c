@@ -276,6 +276,18 @@ nir_blend(
    if (!util_format_is_float(options.format))
       src = nir_fsat(b, src);
 
+   /* DST_ALPHA reads back 1.0 if there is no alpha channel */
+   unsigned chan_count = util_format_get_nr_components(options.format);
+   if (chan_count < 4) {
+      nir_ssa_def *zero = nir_imm_floatN_t(b, 0.0, dst->bit_size);
+      nir_ssa_def *one = nir_imm_floatN_t(b, 1.0, dst->bit_size);
+
+      dst = nir_vec4(b, nir_channel(b, dst, 0),
+            chan_count > 1 ? nir_channel(b, dst, 1) : zero,
+            chan_count > 2 ? nir_channel(b, dst, 2) : zero,
+            chan_count > 3 ? nir_channel(b, dst, 3) : one);
+   }
+
    /* We blend per channel and recombine later */
    nir_ssa_def *channels[4];
 
