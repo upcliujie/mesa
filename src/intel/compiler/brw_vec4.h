@@ -108,6 +108,8 @@ public:
    const char *current_annotation;
 
    int first_non_payload_grf;
+   unsigned push_start;
+   unsigned ubo_push_start[4];
    unsigned int max_grf;
    brw_analysis<brw::vec4_live_variables, backend_shader> live_analysis;
    brw_analysis<brw::performance, vec4_visitor> performance_analysis;
