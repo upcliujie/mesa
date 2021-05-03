@@ -53,9 +53,6 @@ typedef struct {
    unsigned logicop_func;
    enum pipe_format format;
 
-   /* Use fp16 instead of fp32 */
-   bool half;
-
    bool scalar;
    nir_ssa_def *src1;
 } nir_lower_blend_options;

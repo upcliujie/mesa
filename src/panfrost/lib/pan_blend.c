@@ -505,7 +505,6 @@ pan_blend_create_shader(const struct panfrost_device *dev,
                 .logicop_enable = state->logicop_enable,
                 .logicop_func = state->logicop_func,
                 .colormask = rt_state->equation.color_mask,
-                .half = nir_type == nir_type_float16,
                 .format = rt_state->format
         };
 

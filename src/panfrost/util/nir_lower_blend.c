@@ -208,10 +208,11 @@ nir_blend_logicop(
    nir_lower_blend_options options,
    nir_ssa_def *src, nir_ssa_def *dst)
 {
+   unsigned bit_size = src->bit_size;
    const struct util_format_description *format_desc =
       util_format_description(options.format);
 
-   if (options.half) {
+   if (bit_size != 32) {
       src = nir_f2f32(b, src);
       dst = nir_f2f32(b, dst);
    }
@@ -238,7 +239,7 @@ nir_blend_logicop(
 
    out = nir_format_unorm_to_float(b, out, bits);
 
-   if (options.half)
+   if (bit_size == 16)
       out = nir_f2f16(b, out);
 
    return out;
@@ -266,7 +267,7 @@ nir_blend(
       bconst = nir_load_blend_const_color_rgba(b);
    }
 
-   if (options.half)
+   if (src->bit_size == 16)
       bconst = nir_f2f16(b, bconst);
 
    /* Fixed-point framebuffers require their inputs clamped */
