@@ -49,6 +49,7 @@ EXTENSIONS = [
     Extension('VK_KHR_surface',                          25, 'PANVK_HAS_SURFACE'),
     Extension('VK_KHR_swapchain',                        68, 'PANVK_HAS_SURFACE'),
     Extension('VK_KHR_wayland_surface',                   6, 'VK_USE_PLATFORM_WAYLAND_KHR'),
+    Extension('VK_KHR_xcb_surface',                       6, 'VK_USE_PLATFORM_XCB_KHR'),
     Extension('VK_EXT_custom_border_color',              12, True),
 ]
 
