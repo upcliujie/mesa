@@ -40,4 +40,7 @@ etna_nir_lower_multiple_uniform_usage(nir_shader *shader);
 bool
 etna_nir_lower_ubo_to_uniform(nir_shader *shader);
 
+bool
+etna_nir_alu_combine_const_src(nir_shader *shader);
+
 #endif
