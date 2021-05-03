@@ -13,5 +13,5 @@ spec@arb_texture_cube_map_array@texsubimage cube_map_array
 
 # Flakes since around when the go-fast branch landed
 spec@arb_copy_buffer@copy_buffer_coherency,Fail
-spec@glsl-1.30@execution@tex-miplevel-selection texture(bias) 3d,Fail
-spec@glsl-1.30@execution@tex-miplevel-selection texturegrad 2d,Fail
+.*tex-miplevel-selection.*
+.*glsl-1.30@execution@texelfetch.*
