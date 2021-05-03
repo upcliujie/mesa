@@ -1035,6 +1035,8 @@ optimizations.extend([
    # Trig
    (('fsin', a), lowered_sincos(0.5), 'options->lower_sincos'),
    (('fcos', a), lowered_sincos(0.75), 'options->lower_sincos'),
+   (('fsin', a), ('fsin_r600', ('fmul', a, 0.15915493667125702)), 'options->lower_sincos_r600'),
+   (('fcos', a), ('fcos_r600', ('fmul', a, 0.15915493667125702)), 'options->lower_sincos_r600'),
    # Boolean simplifications
    (('i2b16(is_used_by_if)', a), ('ine16', a, 0)),
    (('i2b32(is_used_by_if)', a), ('ine32', a, 0)),
@@ -2096,7 +2098,7 @@ for op in ['fpow']:
         (('bcsel', a, (op, b, c), (op + '(is_used_once)', d, c)), (op, ('bcsel', a, b, d), c)),
     ]
 
-for op in ['frcp', 'frsq', 'fsqrt', 'fexp2', 'flog2', 'fsign', 'fsin', 'fcos', 'fneg', 'fabs', 'fsign']:
+for op in ['frcp', 'frsq', 'fsqrt', 'fexp2', 'flog2', 'fsign', 'fsin', 'fcos', 'fsin_r600', 'fcos_r600', 'fneg', 'fabs', 'fsign']:
     optimizations += [
         (('bcsel', c, (op + '(is_used_once)', a), (op + '(is_used_once)', b)), (op, ('bcsel', c, a, b))),
     ]

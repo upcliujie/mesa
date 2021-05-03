@@ -3144,6 +3144,7 @@ typedef struct nir_shader_compiler_options {
    bool lower_fsat;
    bool lower_fsqrt;
    bool lower_sincos;
+   bool lower_sincos_r600;
    bool lower_fmod;
    /** Lowers ibitfield_extract/ubitfield_extract to ibfe/ubfe. */
    bool lower_bitfield_extract;
