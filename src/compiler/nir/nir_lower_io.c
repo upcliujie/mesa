@@ -394,8 +394,9 @@ emit_store(struct lower_io_state *state, nir_ssa_def *data,
 
    assert(var->data.mode == nir_var_shader_out);
    nir_intrinsic_op op =
-      array_index ? nir_intrinsic_store_per_vertex_output :
-                    nir_intrinsic_store_output;
+      !array_index            ? nir_intrinsic_store_output :
+      var->data.per_primitive ? nir_intrinsic_store_per_primitive_output :
+                                nir_intrinsic_store_per_vertex_output;
 
    nir_intrinsic_instr *store =
       nir_intrinsic_instr_create(state->builder.shader, op);
@@ -2477,6 +2478,7 @@ nir_get_io_offset_src(nir_intrinsic_instr *instr)
    case nir_intrinsic_load_input_vertex:
    case nir_intrinsic_load_per_vertex_input:
    case nir_intrinsic_load_per_vertex_output:
+   case nir_intrinsic_load_per_primitive_output:
    case nir_intrinsic_load_interpolated_input:
    case nir_intrinsic_store_output:
    case nir_intrinsic_store_shared:
@@ -2499,6 +2501,7 @@ nir_get_io_offset_src(nir_intrinsic_instr *instr)
       return &instr->src[1];
    case nir_intrinsic_store_ssbo:
    case nir_intrinsic_store_per_vertex_output:
+   case nir_intrinsic_store_per_primitive_output:
       return &instr->src[2];
    default:
       return NULL;
@@ -2638,7 +2641,8 @@ is_output(nir_intrinsic_instr *intrin)
    return intrin->intrinsic == nir_intrinsic_load_output ||
           intrin->intrinsic == nir_intrinsic_load_per_vertex_output ||
           intrin->intrinsic == nir_intrinsic_store_output ||
-          intrin->intrinsic == nir_intrinsic_store_per_vertex_output;
+          intrin->intrinsic == nir_intrinsic_store_per_vertex_output ||
+          intrin->intrinsic == nir_intrinsic_store_per_primitive_output;
 }
 
 static bool is_dual_slot(nir_intrinsic_instr *intrin)
