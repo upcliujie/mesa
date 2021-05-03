@@ -666,6 +666,17 @@ static const nir_shader_compiler_options v3d_nir_options = {
         .lower_to_scalar = true,
         .has_fsub = true,
         .has_isub = true,
+        /* This will enable loop unrolling in the state tracker so we won't
+         * be able to selectively disable it in backend if it leads to
+         * lower thread counts or TMU spills, thus we choose a conservative
+         * maximum to limit register pressure impact.
+         *
+         * Notice that this controls NIR loop unrolling only and GL drivers
+         * would typically get some level of loop unrolling from the GLSL
+         * front-end compiler even if we set this to 0, but even then, the
+         * NIR pass can unroll more loops.
+         */
+        .max_unroll_iterations = 8,
 };
 
 static const void *
