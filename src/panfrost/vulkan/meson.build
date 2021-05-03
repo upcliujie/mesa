@@ -79,6 +79,15 @@ if with_platform_wayland
   libpanvk_files += [wayland_drm_client_protocol_h, wayland_drm_protocol_c]
 endif
 
+if with_platform_x11
+  panvk_deps += dep_xcb_dri3
+  panvk_flags += [
+    '-DVK_USE_PLATFORM_XCB_KHR',
+    '-DVK_USE_PLATFORM_XLIB_KHR',
+  ]
+  libpanvk_files += files('panvk_wsi_x11.c')
+endif
+
 libvulkan_panfrost = shared_library(
   'vulkan_panfrost',
   [libpanvk_files, panvk_entrypoints, panvk_extensions_c],
