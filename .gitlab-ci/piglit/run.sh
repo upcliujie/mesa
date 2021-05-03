@@ -17,6 +17,29 @@ export __LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$INSTALL/lib/"
 # run against the Mesa built by CI, rather than any installed distro version.
 MESA_VERSION=$(cat "$INSTALL/VERSION" | sed 's/\./\\./g')
 
+tear_down() {
+    if [ ${TEST_START_XORG:-0} -eq 1 ]; then
+        "$INSTALL"/common/x.sh stop
+    fi
+
+    exit $1
+}
+
+print_red() {
+    RED='\033[0;31m'
+    NC='\033[0m' # No Color
+    printf "${RED}"
+    "$@"
+    printf "${NC}"
+}
+
+# wrapper to supress +x to avoid spamming the log
+quiet() {
+    set +x
+    "$@"
+    set -x
+}
+
 if [ "$VK_DRIVER" ]; then
 
     ### VULKAN ###
@@ -43,15 +66,18 @@ if [ "$VK_DRIVER" ]; then
 
     # Set up the Window System Interface (WSI)
 
-    # IMPORTANT:
-    #
-    # Nothing to do here.
-    #
-    # Run vulkan against the host's running X server (xvfb doesn't
-    # have DRI3 support).
-    # Set the DISPLAY env variable in each gitlab-runner's
-    # configuration file:
-    # https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runners-section
+    if [ ${TEST_START_XORG:-0} -eq 1 ]; then
+        "$INSTALL"/common/x.sh start "$INSTALL"
+        export DISPLAY=:0
+    else
+        # Run vulkan against the host's running X server (xvfb doesn't
+        # have DRI3 support).
+        # Set the DISPLAY env variable in each gitlab-runner's
+        # configuration file:
+        # https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runners-section
+        quiet printf "%s%s\n" "Running against the hosts' X server. " \
+              "DISPLAY is \"$DISPLAY\"."
+    fi
 else
 
     ### GL/ES ###
@@ -114,26 +140,11 @@ if [ -n "$CI_NODE_INDEX" ]; then
     if [ "$PIGLIT_PROFILES" != "${PIGLIT_PROFILES% *}" ]; then
         FAILURE_MESSAGE=$(printf "%s" "Can't parallelize piglit with multiple profiles")
         quiet print_red printf "%s\n" "$FAILURE_MESSAGE"
-        exit 1
+        tear_down 1
     fi
 
     USE_CASELIST=1
 fi
-
-print_red() {
-    RED='\033[0;31m'
-    NC='\033[0m' # No Color
-    printf "${RED}"
-    "$@"
-    printf "${NC}"
-}
-
-# wrapper to supress +x to avoid spamming the log
-quiet() {
-    set +x
-    "$@"
-    set -x
-}
 
 replay_minio_upload_images() {
     find "$RESULTS/$__PREFIX" -type f -name "*.png" -printf "%P\n" \
@@ -252,7 +263,7 @@ else
 fi
 
 if diff -q ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE; then
-    exit 0
+    tear_down 0
 fi
 
 ./piglit summary html --exclude-details=pass \
@@ -269,4 +280,4 @@ FAILURE_MESSAGE=$(printf "${FAILURE_MESSAGE}\n%s" "Check the HTML summary for pr
 
 quiet print_red printf "%s\n" "$FAILURE_MESSAGE"
 quiet diff --color=always -u ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE
-exit 1
+tear_down 1
