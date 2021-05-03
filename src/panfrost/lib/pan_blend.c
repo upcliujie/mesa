@@ -26,11 +26,11 @@
 #include "pan_shader.h"
 #include "pan_texture.h"
 #include "panfrost/util/pan_lower_framebuffer.h"
-#include "panfrost/util/nir_lower_blend.h"
 #include "util/format/u_format.h"
 #include "compiler/nir/nir.h"
 #include "compiler/nir/nir_builder.h"
 #include "compiler/nir/nir_conversion_builder.h"
+#include "compiler/nir/nir_lower_blend.h"
 
 /* Fixed function blending */
 

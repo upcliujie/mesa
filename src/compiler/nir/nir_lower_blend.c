@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2019-2021 Collabora, Ltd.
  * Copyright (C) 2019 Alyssa Rosenzweig
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
