@@ -8,3 +8,4 @@ lavapipe-vk:
     GPU_VERSION: lvp
     VK_DRIVER: lvp
     DEQP_FRACTION: 10
+    DEQP_EXPECTED_RENDERER: llvmpipe
