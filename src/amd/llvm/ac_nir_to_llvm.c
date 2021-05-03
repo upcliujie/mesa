@@ -1995,6 +1995,21 @@ static LLVMValueRef visit_load_buffer(struct ac_nir_context *ctx, nir_intrinsic_
    return exit_waterfall(ctx, &wctx, ret);
 }
 
+static LLVMValueRef
+visit_load_sbt_amd(struct ac_nir_context *ctx, nir_intrinsic_instr *instr)
+{
+   unsigned binding = nir_intrinsic_binding(instr);
+   unsigned base = nir_intrinsic_base(instr);
+
+   LLVMValueRef list =
+      LLVMBuildPointerCast(ctx->ac.builder, ac_get_arg(&ctx->ac, ctx->args->sbt_descriptors),
+                           ac_array_in_const32_addr_space(ctx->ac.v4i32), "");
+   LLVMValueRef rsrc = ac_build_load_to_sgpr(&ctx->ac, list, LLVMConstInt(ctx->ac.i32, binding, 0));
+   LLVMValueRef index = get_src(ctx, instr->src[0]);
+   return ac_build_buffer_load(&ctx->ac, rsrc, instr->num_components, index, NULL, NULL, base,
+                               ctx->ac.f32, 0, true, false);
+}
+
 static LLVMValueRef enter_waterfall_ubo(struct ac_nir_context *ctx, struct waterfall_context *wctx,
                                         const nir_intrinsic_instr *instr)
 {
@@ -3823,6 +3838,9 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       break;
    case nir_intrinsic_load_gs_vertex_offset_amd:
       result = ac_get_arg(&ctx->ac, ctx->args->gs_vtx_offset[nir_intrinsic_base(instr)]);
+      break;
+   case nir_intrinsic_load_sbt_amd:
+      result = visit_load_sbt_amd(ctx, instr);
       break;
    case nir_intrinsic_vote_all: {
       result = ac_build_vote_all(&ctx->ac, get_src(ctx, instr->src[0]));
