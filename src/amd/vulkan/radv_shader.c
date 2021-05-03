@@ -552,6 +552,21 @@ radv_lower_fs_intrinsics(nir_shader *nir, const struct radv_shader_info *info,
    return progress;
 }
 
+static bool
+is_sincos(const nir_instr *instr, const void *_)
+{
+   return instr->type == nir_instr_type_alu &&
+          (nir_instr_as_alu(instr)->op == nir_op_fsin || nir_instr_as_alu(instr)->op == nir_op_fcos);
+}
+
+static nir_ssa_def *
+lower_sincos(struct nir_builder *b, nir_instr *instr, void *_)
+{
+   nir_alu_instr *sincos = nir_instr_as_alu(instr);
+   nir_ssa_def *src = nir_fmul_imm(b, nir_ssa_for_alu_src(b, sincos, 0), 0.15915493667125702);
+   return sincos->op == nir_op_fsin ? nir_fsin_r600(b, src) : nir_fcos_r600(b, src);
+}
+
 nir_shader *
 radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *module,
                            const char *entrypoint_name, gl_shader_stage stage,
@@ -756,6 +771,8 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
       }
 
       NIR_PASS_V(nir, nir_lower_doubles, NULL, lower_doubles);
+
+      NIR_PASS_V(nir, nir_shader_lower_instructions, &is_sincos, &lower_sincos, NULL);
    }
 
    NIR_PASS_V(nir, nir_lower_system_values);
