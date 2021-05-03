@@ -2481,6 +2481,8 @@ gfx9_fb_READ(struct brw_codegen *p,
 {
    const struct intel_device_info *devinfo = p->devinfo;
    assert(devinfo->ver >= 9);
+   const unsigned msg_control =
+      brw_get_default_exec_size(p) == BRW_EXECUTE_16 ? 0 : 1;
    brw_inst *insn = next_insn(p, BRW_OPCODE_SENDC);
 
    brw_inst_set_sfid(devinfo, insn, GFX6_SFID_DATAPORT_RENDER_CACHE);
@@ -2489,7 +2491,7 @@ gfx9_fb_READ(struct brw_codegen *p,
    brw_set_desc(
       p, insn,
       brw_message_desc(devinfo, msg_length, response_length, true) |
-      brw_fb_read_desc(devinfo, binding_table_index, 0 /* msg_control */,
+      brw_fb_read_desc(devinfo, binding_table_index, msg_control,
                        brw_get_default_exec_size(p), per_sample));
    brw_inst_set_rt_slot_group(devinfo, insn, brw_get_default_group(p) / 16);
 
