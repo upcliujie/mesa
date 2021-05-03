@@ -2676,6 +2676,7 @@ struct anv_dynamic_state {
    VkCompareOp                                  depth_compare_op;
    bool                                         depth_bounds_test_enable;
    bool                                         stencil_test_enable;
+   bool                                         raster_discard;
    bool                                         dyn_vbo_stride;
    bool                                         dyn_vbo_size;
 
