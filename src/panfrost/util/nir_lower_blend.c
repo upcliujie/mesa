@@ -151,14 +151,11 @@ nir_color_mask(
    nir_ssa_def *src,
    nir_ssa_def *dst)
 {
-   nir_ssa_def *masked[4];
-
-   for (unsigned c = 0; c < 4; ++c) {
-      bool enab = (mask & (1 << c));
-      masked[c] = enab ? nir_channel(b, src, c) : nir_channel(b, dst, c);
-   }
-
-   return nir_vec(b, masked, 4);
+   return nir_vec4(b,
+         nir_channel(b, (mask & (1 << 0)) ? src : dst, 0),
+         nir_channel(b, (mask & (1 << 1)) ? src : dst, 1),
+         nir_channel(b, (mask & (1 << 2)) ? src : dst, 2),
+         nir_channel(b, (mask & (1 << 3)) ? src : dst, 3));
 }
 
 static nir_ssa_def *
