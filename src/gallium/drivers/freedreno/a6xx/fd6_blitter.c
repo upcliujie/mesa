@@ -930,7 +930,7 @@ handle_rgba_blit(struct fd_context *ctx,
     * (resource_read()/resource_write()), as that can trigger a flush,
     * re-populating last_fence
     */
-   fd_fence_ref(&ctx->last_fence, NULL);
+   fd_batch_needs_flush(batch);
 
    fd_batch_update_queries(batch);
 
@@ -965,7 +965,6 @@ handle_rgba_blit(struct fd_context *ctx,
    fd_batch_unlock_submit(batch);
 
    fd_resource(info->dst.resource)->valid = true;
-   batch->needs_flush = true;
 
    fd_batch_flush(batch);
    fd_batch_reference(&batch, NULL);
