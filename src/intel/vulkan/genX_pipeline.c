@@ -2404,11 +2404,23 @@ genX(graphics_pipeline_create)(
       return result;
    }
 
+   /* Information on which states are considered dynamic. */
+   const VkPipelineDynamicStateCreateInfo *dyn_info =
+      pCreateInfo->pDynamicState;
+   uint32_t dynamic_states = 0;
+   if (dyn_info) {
+      for (unsigned i = 0; i < dyn_info->dynamicStateCount; i++)
+         dynamic_states |=
+            anv_cmd_dirty_bit_for_vk_dynamic_state(dyn_info->pDynamicStates[i]);
+   }
+
+
    /* If rasterization is not enabled, various CreateInfo structs must be
     * ignored.
     */
    const bool raster_enabled =
-      !pCreateInfo->pRasterizationState->rasterizerDiscardEnable;
+      !pCreateInfo->pRasterizationState->rasterizerDiscardEnable ||
+      (dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE);
 
    const VkPipelineViewportStateCreateInfo *vp_info =
       raster_enabled ? pCreateInfo->pViewportState : NULL;
@@ -2425,16 +2437,6 @@ genX(graphics_pipeline_create)(
    const VkPipelineRasterizationLineStateCreateInfoEXT *line_info =
       vk_find_struct_const(pCreateInfo->pRasterizationState->pNext,
                            PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT);
-
-   /* Information on which states are considered dynamic. */
-   const VkPipelineDynamicStateCreateInfo *dyn_info =
-      pCreateInfo->pDynamicState;
-   uint32_t dynamic_states = 0;
-   if (dyn_info) {
-      for (unsigned i = 0; i < dyn_info->dynamicStateCount; i++)
-         dynamic_states |=
-            anv_cmd_dirty_bit_for_vk_dynamic_state(dyn_info->pDynamicStates[i]);
-   }
 
    enum intel_urb_deref_block_size urb_deref_block_size;
    emit_urb_setup(pipeline, &urb_deref_block_size);

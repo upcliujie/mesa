@@ -35,6 +35,8 @@
 #include "genxml/gen_macros.h"
 #include "genxml/genX_pack.h"
 
+#include "nir/nir_xfb_info.h"
+
 /* We reserve :
  *    - GPR 14 for secondary command buffer returns
  *    - GPR 15 for conditional rendering
@@ -3428,6 +3430,28 @@ cmd_buffer_emit_clip(struct anv_cmd_buffer *cmd_buffer)
                         pipeline->gfx7.clip);
 }
 
+static void
+cmd_buffer_emit_streamout(struct anv_cmd_buffer *cmd_buffer)
+{
+   const struct anv_dynamic_state *d = &cmd_buffer->state.gfx.dynamic;
+   struct anv_graphics_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
+
+   nir_xfb_info *xfb_info = NULL;
+   if (anv_pipeline_has_stage(pipeline, MESA_SHADER_GEOMETRY))
+      xfb_info = pipeline->shaders[MESA_SHADER_GEOMETRY]->xfb_info;
+   else if (anv_pipeline_has_stage(pipeline, MESA_SHADER_TESS_EVAL))
+      xfb_info = pipeline->shaders[MESA_SHADER_TESS_EVAL]->xfb_info;
+   else
+      xfb_info = pipeline->shaders[MESA_SHADER_VERTEX]->xfb_info;
+
+   if (xfb_info)
+      return;
+
+   anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_STREAMOUT), so) {
+      so.RenderingDisable = d->raster_discard;
+   }
+}
+
 void
 genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
 {
@@ -3648,6 +3672,9 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
       cmd_buffer_emit_descriptor_pointers(cmd_buffer, dirty);
 
    cmd_buffer_emit_clip(cmd_buffer);
+
+   if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE)
+      cmd_buffer_emit_streamout(cmd_buffer);
 
    if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_VIEWPORT)
       gfx8_cmd_buffer_emit_viewport(cmd_buffer);

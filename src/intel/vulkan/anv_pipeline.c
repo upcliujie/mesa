@@ -1299,6 +1299,16 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
 
    pipeline->active_stages = 0;
 
+   /* Information on which states are considered dynamic. */
+   const VkPipelineDynamicStateCreateInfo *dyn_info =
+      info->pDynamicState;
+   uint32_t dynamic_states = 0;
+   if (dyn_info) {
+      for (unsigned i = 0; i < dyn_info->dynamicStateCount; i++)
+         dynamic_states |=
+            anv_cmd_dirty_bit_for_vk_dynamic_state(dyn_info->pDynamicStates[i]);
+   }
+
    VkResult result;
    for (uint32_t i = 0; i < info->stageCount; i++) {
       const VkPipelineShaderStageCreateInfo *sinfo = &info->pStages[i];
@@ -1343,7 +1353,8 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
          break;
       case MESA_SHADER_FRAGMENT: {
          const bool raster_enabled =
-            !info->pRasterizationState->rasterizerDiscardEnable;
+            !info->pRasterizationState->rasterizerDiscardEnable ||
+            (dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE);
          populate_wm_prog_key(pipeline, sinfo->flags,
                               pipeline->base.device->robust_buffer_access,
                               pipeline->subpass,
@@ -1906,13 +1917,27 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
    states &= ~pipeline->dynamic_states;
 
    struct anv_dynamic_state *dynamic = &pipeline->dynamic_state;
+   bool dynamic_raster_discard = true;
+
+    if (pCreateInfo->pDynamicState) {
+       uint32_t count = pCreateInfo->pDynamicState->dynamicStateCount;
+       for (uint32_t s = 0; s < count; s++) {
+         if (pCreateInfo->pDynamicState->pDynamicStates[s] ==
+             VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE_EXT)
+            dynamic_raster_discard = true;
+      }
+   }
+
+   bool raster_discard =
+      pCreateInfo->pRasterizationState->rasterizerDiscardEnable &&
+      !dynamic_raster_discard;
 
    /* Section 9.2 of the Vulkan 1.0.15 spec says:
     *
     *    pViewportState is [...] NULL if the pipeline
     *    has rasterization disabled.
     */
-   if (!pCreateInfo->pRasterizationState->rasterizerDiscardEnable) {
+   if (!raster_discard) {
       assert(pCreateInfo->pViewportState);
 
       dynamic->viewport.count = pCreateInfo->pViewportState->viewportCount;
@@ -1975,6 +2000,12 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
        }
    }
 
+   if (states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) {
+      assert(pCreateInfo->pRasterizationState);
+      dynamic->raster_discard =
+         pCreateInfo->pRasterizationState->rasterizerDiscardEnable;
+   }
+
    /* Section 9.2 of the Vulkan 1.0.15 spec says:
     *
     *    pColorBlendState is [...] NULL if the pipeline has rasterization
@@ -1989,8 +2020,7 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
       }
    }
 
-   if (uses_color_att &&
-       !pCreateInfo->pRasterizationState->rasterizerDiscardEnable) {
+   if (uses_color_att && !raster_discard) {
       assert(pCreateInfo->pColorBlendState);
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_BLEND_CONSTANTS)
@@ -2010,8 +2040,7 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
     *    disabled or if the subpass of the render pass the pipeline is created
     *    against does not use a depth/stencil attachment.
     */
-   if (!pCreateInfo->pRasterizationState->rasterizerDiscardEnable &&
-       subpass->depth_stencil_attachment) {
+   if (!raster_discard && subpass->depth_stencil_attachment) {
       assert(pCreateInfo->pDepthStencilState);
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS) {
