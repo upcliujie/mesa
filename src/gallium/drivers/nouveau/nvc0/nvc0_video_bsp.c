@@ -233,7 +233,7 @@ nvc0_decoder_bsp_end(struct nouveau_vp3_decoder *dec, union pipe_desc desc,
 #else
    BEGIN_NVC0(push, SUBC_BSP(0x300), 1);
    PUSH_DATA (push, 0);
-   PUSH_KICK (push);
+   PUSH_KICK (nouveau_screen(dec->base.context->screen), push);
    return 2;
 #endif
 }

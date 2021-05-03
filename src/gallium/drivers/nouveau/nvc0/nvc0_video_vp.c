@@ -192,6 +192,6 @@ nvc0_decoder_vp(struct nouveau_vp3_decoder *dec, union pipe_desc desc,
 #else
    BEGIN_NVC0(push, SUBC_VP(0x300), 1);
    PUSH_DATA (push, 0);
-   PUSH_KICK (push);
+   PUSH_KICK (nouveau_screen(dec->base.context->screen), push);
 #endif
 }

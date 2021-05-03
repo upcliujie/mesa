@@ -886,7 +886,7 @@ nv50_screen_init_hwctx(struct nv50_screen *screen)
    BEGIN_NV04(push, NV50_3D(UNK19C0), 1);
    PUSH_DATA (push, 1);
 
-   PUSH_KICK (push);
+   PUSH_KICK (&screen->base, push);
 }
 
 static int nv50_tls_alloc(struct nv50_screen *screen, unsigned tls_space,

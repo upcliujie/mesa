@@ -218,7 +218,7 @@ nv84_decoder_vp_h264(struct nv84_decoder *dec,
       mt->base.status |= NOUVEAU_BUFFER_STATUS_GPU_WRITING;
    }
 
-   PUSH_KICK (push);
+   PUSH_KICK (nouveau_screen(dec->base.context->screen), push);
 }
 
 static inline int16_t inverse_quantize(int16_t val, uint8_t quant, int mpeg1) {
@@ -548,5 +548,5 @@ nv84_decoder_vp_mpeg12(struct nv84_decoder *dec,
       struct nv50_miptree *mt = nv50_miptree(dest->resources[i]);
       mt->base.status |= NOUVEAU_BUFFER_STATUS_GPU_WRITING;
    }
-   PUSH_KICK (push);
+   PUSH_KICK (nouveau_screen(dec->base.context->screen), push);
 }

@@ -86,7 +86,7 @@ nvc0_flush(struct pipe_context *pipe,
    if (fence)
       nouveau_fence_ref(screen->fence.current, (struct nouveau_fence **)fence);
 
-   PUSH_KICK(nvc0->base.pushbuf); /* fencing handled in kick_notify */
+   PUSH_KICK(screen, nvc0->base.pushbuf); /* fencing handled in kick_notify */
 
    nouveau_context_update_frame_stats(&nvc0->base);
 }
@@ -257,7 +257,7 @@ nvc0_destroy(struct pipe_context *pipe)
     * Other contexts will always set their bufctx again on action calls.
     */
    nouveau_pushbuf_bufctx(nvc0->base.pushbuf, NULL);
-   PUSH_KICK(nvc0->base.pushbuf);
+   PUSH_KICK(&nvc0->screen->base, nvc0->base.pushbuf);
 
    nvc0_context_unreference_resources(nvc0);
    nvc0_blitctx_destroy(nvc0);
@@ -281,8 +281,6 @@ nvc0_default_kick_notify(struct nouveau_pushbuf *push)
    struct nvc0_screen *screen = push->user_priv;
 
    if (screen) {
-      nouveau_fence_next(&screen->base);
-      nouveau_fence_update(&screen->base, true);
       if (screen->cur_ctx)
          screen->cur_ctx->state.flushed = true;
       NOUVEAU_DRV_STAT(&screen->base, pushbuf_count, 1);

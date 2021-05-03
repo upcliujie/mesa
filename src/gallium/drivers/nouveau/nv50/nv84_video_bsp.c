@@ -250,6 +250,6 @@ nv84_decoder_bsp(struct nv84_decoder *dec,
 
    BEGIN_NV04(push, SUBC_BSP(0x304), 1);
    PUSH_DATA (push, 0x101);
-   PUSH_KICK (push);
+   PUSH_KICK (nouveau_screen(dec->base.context->screen), push);
    return 0;
 }

@@ -1535,7 +1535,7 @@ nvc0_screen_create(struct nouveau_device *dev)
    BEGIN_NVC0(push, NVC0_3D(LINKED_TSC), 1);
    PUSH_DATA (push, 0);
 
-   PUSH_KICK (push);
+   PUSH_KICK (&screen->base, push);
 
    screen->tic.entries = CALLOC(
          NVC0_TIC_MAX_ENTRIES + NVC0_TSC_MAX_ENTRIES + NVE4_IMG_MAX_HANDLES,

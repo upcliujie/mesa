@@ -288,7 +288,7 @@ nv50_hw_get_query_result(struct nv50_context *nv50, struct nv50_query *q,
          /* for broken apps that spin on GL_QUERY_RESULT_AVAILABLE */
          if (hq->state != NV50_HW_QUERY_STATE_FLUSHED) {
             hq->state = NV50_HW_QUERY_STATE_FLUSHED;
-            PUSH_KICK(nv50->base.pushbuf);
+            PUSH_KICK(&nv50->screen->base, nv50->base.pushbuf);
          }
          return false;
       }

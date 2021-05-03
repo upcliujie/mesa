@@ -38,7 +38,7 @@ nv50_flush(struct pipe_context *pipe,
    if (fence)
       nouveau_fence_ref(screen->fence.current, (struct nouveau_fence **)fence);
 
-   PUSH_KICK(screen->pushbuf);
+   PUSH_KICK(screen, screen->pushbuf);
 
    nouveau_context_update_frame_stats(nouveau_context(pipe));
 }
@@ -137,8 +137,6 @@ nv50_default_kick_notify(struct nouveau_pushbuf *push)
    struct nv50_screen *screen = push->user_priv;
 
    if (screen) {
-      nouveau_fence_next(&screen->base);
-      nouveau_fence_update(&screen->base, true);
       if (screen->cur_ctx)
          screen->cur_ctx->state.flushed = true;
    }
@@ -193,7 +191,7 @@ nv50_destroy(struct pipe_context *pipe)
       u_upload_destroy(nv50->base.pipe.stream_uploader);
 
    nouveau_pushbuf_bufctx(nv50->base.pushbuf, NULL);
-   PUSH_KICK(nv50->base.pushbuf);
+   PUSH_KICK(&nv50->screen->base, nv50->base.pushbuf);
 
    nv50_context_unreference_resources(nv50);
 

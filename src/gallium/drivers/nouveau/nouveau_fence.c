@@ -195,7 +195,7 @@ nouveau_fence_kick(struct nouveau_fence *fence)
    }
 
    if (fence->state < NOUVEAU_FENCE_STATE_FLUSHED)
-      if (PUSH_KICK(screen->pushbuf))
+      if (PUSH_KICK(screen, screen->pushbuf))
          return false;
 
    if (fence == fence_list->current)
