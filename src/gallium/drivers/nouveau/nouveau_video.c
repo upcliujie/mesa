@@ -64,7 +64,7 @@ nouveau_vpe_synch(struct nouveau_decoder *dec) {
          usleep(1000);
    } else
 #endif
-      PUSH_KICK(push);
+      PUSH_KICK(dec->screen, push);
 }
 
 static void

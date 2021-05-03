@@ -503,7 +503,7 @@ nv84_create_decoder(struct pipe_context *context,
       PUSH_DATA (screen->pushbuf, dec->fence->offset);
       PUSH_DATA (screen->pushbuf, 1);
       PUSH_DATA (screen->pushbuf, 0xf010);
-      PUSH_KICK (screen->pushbuf);
+      PUSH_KICK (screen, screen->pushbuf);
 
       PUSH_SPACE(bsp_push, 2 + 12 + 2 + 4 + 3);
 
@@ -524,7 +524,7 @@ nv84_create_decoder(struct pipe_context *context,
       BEGIN_NV04(bsp_push, SUBC_BSP(0x628), 2);
       PUSH_DATA (bsp_push, dec->bsp_data->offset >> 8);
       PUSH_DATA (bsp_push, dec->bsp_data->size);
-      PUSH_KICK (bsp_push);
+      PUSH_KICK (screen, bsp_push);
    }
 
    PUSH_SPACE(vp_push, 2 + 12 + 2 + 4 + 3);
@@ -547,7 +547,7 @@ nv84_create_decoder(struct pipe_context *context,
    BEGIN_NV04(vp_push, SUBC_VP(0x628), 2);
    PUSH_DATA (vp_push, dec->vp_data->offset >> 8);
    PUSH_DATA (vp_push, dec->vp_data->size);
-   PUSH_KICK (vp_push);
+   PUSH_KICK (screen, vp_push);
 
    return &dec->base;
 fail:

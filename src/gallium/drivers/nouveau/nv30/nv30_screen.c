@@ -801,7 +801,7 @@ nv30_screen_create(struct nouveau_device *dev)
    BEGIN_NV04(push, NV05_SIFM(COLOR_CONVERSION), 1);
    PUSH_DATA (push, NV05_SIFM_COLOR_CONVERSION_TRUNCATE);
 
-   PUSH_KICK (push);
+   PUSH_KICK (&screen->base, push);
 
    nouveau_fence_new(&screen->base, &screen->base.fence.current);
    return &screen->base;

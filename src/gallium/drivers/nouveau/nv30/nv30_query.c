@@ -194,7 +194,7 @@ nv30_query_end(struct pipe_context *pipe, struct pipe_query *pq)
       BEGIN_NV04(push, SUBC_3D(q->enable), 1);
       PUSH_DATA (push, 0);
    }
-   PUSH_KICK (push);
+   PUSH_KICK(&screen->base, push);
    return true;
 }
 

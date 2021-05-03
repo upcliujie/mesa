@@ -326,7 +326,7 @@ nvc0_hw_get_query_result(struct nvc0_context *nvc0, struct nvc0_query *q,
          if (hq->state != NVC0_HW_QUERY_STATE_FLUSHED) {
             hq->state = NVC0_HW_QUERY_STATE_FLUSHED;
             /* flush for silly apps that spin on GL_QUERY_RESULT_AVAILABLE */
-            PUSH_KICK(nvc0->base.pushbuf);
+            PUSH_KICK(&nvc0->screen->base, nvc0->base.pushbuf);
          }
          return false;
       }

@@ -251,7 +251,7 @@ nouveau_fence_next(struct nouveau_screen *screen)
 {
    struct nouveau_fence_list *fence_list = &screen->fence;
 
-   if (fence_list->current->state < NOUVEAU_FENCE_STATE_EMITTING) {
+   if (fence_list->current && fence_list->current->state < NOUVEAU_FENCE_STATE_EMITTING) {
       if (fence_list->current->ref > 1)
          nouveau_fence_emit(fence_list->current);
       else

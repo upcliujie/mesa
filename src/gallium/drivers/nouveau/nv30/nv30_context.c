@@ -45,9 +45,6 @@ nv30_context_kick_notify(struct nouveau_pushbuf *push)
    nv30 = container_of(push->user_priv, struct nv30_context, bufctx);
    screen = &nv30->screen->base;
 
-   nouveau_fence_next(screen);
-   nouveau_fence_update(screen, true);
-
    if (push->bufctx) {
       struct nouveau_bufref *bref;
       LIST_FOR_EACH_ENTRY(bref, &push->bufctx->current, thead) {
@@ -79,7 +76,7 @@ nv30_context_flush(struct pipe_context *pipe, struct pipe_fence_handle **fence,
       nouveau_fence_ref(nv30->screen->base.fence.current,
                         (struct nouveau_fence **)fence);
 
-   PUSH_KICK(push);
+   PUSH_KICK(&nv30->screen->base, push);
 
    nouveau_context_update_frame_stats(&nv30->base);
 }

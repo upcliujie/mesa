@@ -6,6 +6,8 @@
 
 #include "pipe/p_defines.h"
 
+#include "nouveau_fence.h"
+
 #include "drm-uapi/drm.h"
 #include <nouveau.h>
 
@@ -15,6 +17,8 @@
 
 #define NOUVEAU_MIN_BUFFER_MAP_ALIGN      64
 #define NOUVEAU_MIN_BUFFER_MAP_ALIGN_MASK (NOUVEAU_MIN_BUFFER_MAP_ALIGN - 1)
+
+struct nouveau_screen;
 
 static inline uint32_t
 PUSH_AVAIL(struct nouveau_pushbuf *push)
@@ -61,8 +65,10 @@ PUSH_DATAf(struct nouveau_pushbuf *push, float f)
 }
 
 static inline int
-PUSH_KICK(struct nouveau_pushbuf *push)
+PUSH_KICK(struct nouveau_screen *screen, struct nouveau_pushbuf *push)
 {
+   nouveau_fence_next(screen);
+   nouveau_fence_update(screen, true);
    return nouveau_pushbuf_kick(push, push->channel);
 }
 
