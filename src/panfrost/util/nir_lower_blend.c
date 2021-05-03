@@ -337,9 +337,6 @@ nir_lower_blend_instr(nir_builder *b, nir_instr *instr, void *data)
    /* Grab the input color */
    nir_ssa_def *src = nir_ssa_for_src(b, intr->src[1], 4);
 
-   /* Grab the dual-source input color */
-   nir_ssa_def *src1 = options->src1;
-
    /* Grab the tilebuffer color - io lowered to load_output */
    nir_ssa_def *dst = nir_load_var(b, var);
 
@@ -349,7 +346,7 @@ nir_lower_blend_instr(nir_builder *b, nir_instr *instr, void *data)
    if (options->logicop_enable)
       blended = nir_blend_logicop(b, *options, src, dst);
    else if (!util_format_is_pure_integer(options->format))
-      blended = nir_blend(b, *options, src, src1, dst);
+      blended = nir_blend(b, *options, src, options->src1, dst);
 
    /* Apply a colormask */
    blended = nir_color_mask(b, options->colormask, blended, dst);
