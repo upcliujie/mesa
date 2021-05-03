@@ -318,24 +318,6 @@ nir_blend(
 }
 
 static bool
-nir_is_blend_channel_replace(nir_lower_blend_channel chan)
-{
-   return
-      (chan.src_factor == BLEND_FACTOR_ZERO) &&
-      (chan.dst_factor == BLEND_FACTOR_ZERO) &&
-      (chan.invert_src_factor && !chan.invert_dst_factor) &&
-      (chan.func == BLEND_FUNC_ADD || chan.func == BLEND_FUNC_SUBTRACT || chan.func == BLEND_FUNC_MAX);
-}
-
-static bool
-nir_is_blend_replace(nir_lower_blend_options options)
-{
-   return
-      nir_is_blend_channel_replace(options.rgb) &&
-      nir_is_blend_channel_replace(options.alpha);
-}
-
-static bool
 nir_lower_blend_instr(nir_builder *b, nir_instr *instr, void *data)
 {
    nir_lower_blend_options *options = data;
@@ -368,7 +350,7 @@ nir_lower_blend_instr(nir_builder *b, nir_instr *instr, void *data)
 
    if (options->logicop_enable)
       blended = nir_blend_logicop(b, *options, src, dst);
-   else if (!nir_is_blend_replace(*options))
+   else if (!util_format_is_pure_integer(options->format))
       blended = nir_blend(b, *options, src, src1, dst);
 
    /* Apply a colormask */
