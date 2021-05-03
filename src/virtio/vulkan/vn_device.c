@@ -1411,7 +1411,8 @@ vn_physical_device_init_external_fence_handles(
     * either of them depending on the occasions, and support external fences
     * and idle waiting.
     */
-   physical_dev->external_fence_handles = 0;
+   physical_dev->external_fence_handles =
+      VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT;
 }
 
 static void
@@ -1472,6 +1473,10 @@ vn_physical_device_get_native_extensions(
    exts->KHR_incremental_present = true;
    exts->KHR_swapchain = true;
    exts->KHR_swapchain_mutable_format = true;
+#endif
+
+#ifdef ANDROID
+   exts->KHR_external_fence_fd = true;
 #endif
 }
 

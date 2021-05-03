@@ -10,6 +10,7 @@
 
 #include "vn_queue.h"
 
+#include "util/libsync.h"
 #include "venus-protocol/vn_protocol_driver_event.h"
 #include "venus-protocol/vn_protocol_driver_fence.h"
 #include "venus-protocol/vn_protocol_driver_queue.h"
@@ -668,8 +669,25 @@ VkResult
 vn_ImportFenceFdKHR(VkDevice device,
                     const VkImportFenceFdInfoKHR *pImportFenceFdInfo)
 {
+   /* XXX currently we wait for the native sync fd to signal and fill the
+    * fence with a signaled payload.
+    */
    struct vn_device *dev = vn_device_from_handle(device);
-   return vn_error(dev->instance, VK_ERROR_UNKNOWN);
+
+   if (pImportFenceFdInfo->handleType !=
+       VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT)
+      return vn_error(dev->instance, VK_ERROR_INVALID_EXTERNAL_HANDLE);
+
+   if (pImportFenceFdInfo->fd >= 0) {
+      if (sync_wait(pImportFenceFdInfo->fd, INT32_MAX))
+         return vn_error(dev->instance, VK_ERROR_INVALID_EXTERNAL_HANDLE);
+
+      close(pImportFenceFdInfo->fd);
+   }
+
+   vn_fence_signal_wsi(dev, vn_fence_from_handle(pImportFenceFdInfo->fence));
+
+   return VK_SUCCESS;
 }
 
 VkResult
@@ -677,8 +695,19 @@ vn_GetFenceFdKHR(VkDevice device,
                  const VkFenceGetFdInfoKHR *pGetFdInfo,
                  int *pFd)
 {
+   /* XXX currently we wait for the fence to signal and set the sync fd to -1.
+    */
    struct vn_device *dev = vn_device_from_handle(device);
-   return vn_error(dev->instance, VK_ERROR_UNKNOWN);
+   VkResult result = VK_SUCCESS;
+
+   result =
+      vn_WaitForFences(device, 1, &pGetFdInfo->fence, VK_TRUE, UINT64_MAX);
+   if (result != VK_SUCCESS)
+      return vn_error(dev->instance, result);
+
+   *pFd = -1;
+
+   return VK_SUCCESS;
 }
 
 /* semaphore commands */
