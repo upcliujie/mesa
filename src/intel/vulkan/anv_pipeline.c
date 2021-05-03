@@ -2191,7 +2191,8 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
    pipeline->static_state_mask = states &
       (ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS |
        ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
-       ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE);
+       ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE |
+       ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP);
 }
 
 static void
