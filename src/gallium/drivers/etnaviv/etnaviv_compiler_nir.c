@@ -731,7 +731,6 @@ insert_vec_mov(nir_alu_instr *vec, unsigned start_idx, nir_shader *shader)
  * -insert movs (nir_lower_vec_to_movs equivalent)
  * for non-vecN instructions:
  * -try to merge constants as single constant
- * -insert movs for multiple constants (pre-HALTI5)
  */
 static void
 lower_alu(struct etna_compile *c, nir_alu_instr *alu)
@@ -788,23 +787,8 @@ lower_alu(struct etna_compile *c, nir_alu_instr *alu)
             for (unsigned j = 0; j < 4; j++)
                alu->src[i].swizzle[j] = swizzle[i][j];
          }
-         return;
       }
 
-      /* resolve with movs */
-      num_const = 0;
-      for (unsigned i = 0; i < info->num_inputs; i++) {
-         nir_const_value *cv = nir_src_as_const_value(alu->src[i].src);
-         if (!cv)
-            continue;
-
-         num_const++;
-         if (num_const == 1)
-            continue;
-
-         nir_ssa_def *mov = nir_mov(&b, alu->src[i].src.ssa);
-         nir_instr_rewrite_src(&alu->instr, &alu->src[i].src, nir_src_for_ssa(mov));
-      }
       return;
    }
 
@@ -936,6 +920,9 @@ emit_shader(struct etna_compile *c, unsigned *num_temps, unsigned *num_consts)
          }
       }
    }
+
+   if (c->specs->halti < 5)
+      etna_nir_lower_multiple_uniform_usage(shader);
 
    /* TODO: only emit required indirect uniform ranges */
    if (have_indirect_uniform) {
