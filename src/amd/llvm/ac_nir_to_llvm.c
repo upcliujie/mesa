@@ -840,6 +840,16 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
       result =
          emit_intrin_1f_param(&ctx->ac, "llvm.cos", ac_to_float_type(&ctx->ac, def_type), src[0]);
       break;
+   case nir_op_fsin_r600:
+   case nir_op_fcos_r600:
+      /* before GFX9, v_sin_f32 and v_cos_f32 had a valid input domain of [-256, +256] */
+      if (ctx->ac.chip_class < GFX9)
+         src[0] = emit_intrin_1f_param_scalar(&ctx->ac, "llvm.amdgcn.fract",
+                                              ac_to_float_type(&ctx->ac, def_type), src[0]);
+      result =
+         emit_intrin_1f_param(&ctx->ac, instr->op == nir_op_fsin_r600 ? "llvm.amdgcn.sin" : "llvm.amdgcn.cos",
+                              ac_to_float_type(&ctx->ac, def_type), src[0]);
+      break;
    case nir_op_fsqrt:
       result =
          emit_intrin_1f_param(&ctx->ac, "llvm.sqrt", ac_to_float_type(&ctx->ac, def_type), src[0]);
