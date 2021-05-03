@@ -116,7 +116,7 @@ class CrosServoRun:
             # reboot.
             if re.search("R8152: Bulk read error 0xffffffbf", line):
                 tftp_failures += 1
-                if tftp_failures >= 100:
+                if tftp_failures >= 3:
                     self.print_error("Detected intermittent tftp failure, restarting run...")
                     return 2
 
