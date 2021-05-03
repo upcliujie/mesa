@@ -1640,7 +1640,10 @@ fs_generator::generate_uniform_pull_constant_load_gfx7(fs_inst *inst,
       brw_inst *send = brw_next_insn(p, BRW_OPCODE_SEND);
       brw_pop_insn_state(p);
 
-      brw_inst_set_sfid(devinfo, send, GFX6_SFID_DATAPORT_CONSTANT_CACHE);
+      brw_inst_set_sfid(devinfo, send,
+                        devinfo->verx10 >= 125 ?
+                        GFX7_SFID_DATAPORT_DATA_CACHE :
+                        GFX6_SFID_DATAPORT_CONSTANT_CACHE);
       brw_set_dest(p, send, retype(dst, BRW_REGISTER_TYPE_UD));
       brw_set_src0(p, send, retype(payload, BRW_REGISTER_TYPE_UD));
       brw_set_desc(p, send,
@@ -1668,7 +1671,10 @@ fs_generator::generate_uniform_pull_constant_load_gfx7(fs_inst *inst,
       /* dst = send(payload, a0.0 | <descriptor>) */
       brw_set_default_swsb(p, tgl_swsb_dst_dep(swsb, 1));
       brw_send_indirect_message(
-         p, GFX6_SFID_DATAPORT_CONSTANT_CACHE,
+         p,
+         devinfo->verx10 >= 125 ?
+         GFX7_SFID_DATAPORT_DATA_CACHE :
+         GFX6_SFID_DATAPORT_CONSTANT_CACHE,
          retype(dst, BRW_REGISTER_TYPE_UD),
          retype(payload, BRW_REGISTER_TYPE_UD), addr,
          brw_message_desc(devinfo, 1,
