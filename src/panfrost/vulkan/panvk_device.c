@@ -116,7 +116,8 @@ static const struct debug_control panvk_debug_options[] = {
    { NULL, 0 }
 };
 
-#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR) || \
+    defined(VK_USE_PLATFORM_XCB_KHR)
 #define PANVK_USE_WSI_PLATFORM
 #endif
 
@@ -135,6 +136,9 @@ static const struct vk_instance_extension_table panvk_instance_extensions = {
 #endif
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
    .KHR_wayland_surface = true,
+#endif
+#ifdef VK_USE_PLATFORM_XCB_KHR
+   .KHR_xcb_surface = true,
 #endif
 };
 
