@@ -702,6 +702,8 @@ genX(cmd_buffer_flush_dynamic_state)(struct anv_cmd_buffer *cmd_buffer)
       /* Skip this part */
       dws += GENX(BLEND_STATE_length);
 
+      bool dirty_logic_op = cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP;
+
       for (uint32_t i = 0; i < surface_count; i++) {
          struct anv_pipeline_binding *binding = &map->surface_to_descriptor[i];
          bool write_disabled = (color_writes & (1u << binding->index)) == 0;
@@ -710,6 +712,46 @@ genX(cmd_buffer_flush_dynamic_state)(struct anv_cmd_buffer *cmd_buffer)
             .WriteDisableRed   = write_disabled,
             .WriteDisableGreen = write_disabled,
             .WriteDisableBlue  = write_disabled,
+            .LogicOpFunction = dirty_logic_op ? genX(vk_to_intel_logic_op)[d->logic_op] : 0,
+         };
+         GENX(BLEND_STATE_ENTRY_pack)(NULL, dws, &entry);
+         dws += GENX(BLEND_STATE_ENTRY_length);
+      }
+
+      uint32_t num_dwords = GENX(BLEND_STATE_length) +
+         GENX(BLEND_STATE_ENTRY_length) * surface_count;
+
+      struct anv_state blend_states =
+         anv_cmd_buffer_merge_dynamic(cmd_buffer, blend_dws,
+                                      pipeline->gfx8.blend_state, num_dwords, 64);
+      anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_BLEND_STATE_POINTERS), bsp) {
+         bsp.BlendStatePointer      = blend_states.offset;
+         bsp.BlendStatePointerValid = true;
+      }
+   }
+
+    /* if color_write not dirty but logic op is. */
+   if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP) {
+
+      /* Blend states of each RT */
+      uint32_t surface_count = 0;
+      struct anv_pipeline_bind_map *map;
+      if (anv_pipeline_has_stage(pipeline, MESA_SHADER_FRAGMENT)) {
+         map = &pipeline->shaders[MESA_SHADER_FRAGMENT]->bind_map;
+         surface_count = map->surface_count;
+      }
+
+      uint32_t blend_dws[GENX(BLEND_STATE_length) +
+                         MAX_RTS * GENX(BLEND_STATE_ENTRY_length)];
+      uint32_t *dws = blend_dws;
+      memset(blend_dws, 0, sizeof(blend_dws));
+
+      /* Skip this part */
+      dws += GENX(BLEND_STATE_length);
+
+      for (uint32_t i = 0; i < surface_count; i++) {
+         struct GENX(BLEND_STATE_ENTRY) entry = {
+            .LogicOpFunction = genX(vk_to_intel_logic_op)[d->logic_op],
          };
          GENX(BLEND_STATE_ENTRY_pack)(NULL, dws, &entry);
          dws += GENX(BLEND_STATE_ENTRY_length);
