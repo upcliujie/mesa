@@ -18,7 +18,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-files_vulkan_wsi = files('wsi_common.c')
+files_vulkan_wsi = files(
+  'wsi_common.c',
+  'wsi_common_cmd.c',
+)
 
 if dep_libdrm.found()
   files_vulkan_wsi += files('wsi_common_drm.c')

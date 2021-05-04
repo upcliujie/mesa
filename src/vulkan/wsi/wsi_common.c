@@ -22,6 +22,7 @@
  */
 
 #include "wsi_common_private.h"
+#include "wsi_common_cmd.h"
 #include "util/macros.h"
 #include "util/os_file.h"
 #include "util/os_time.h"
@@ -306,13 +307,7 @@ wsi_destroy_image(const struct wsi_swapchain *chain,
 {
    const struct wsi_device *wsi = chain->wsi;
 
-   if (image->prime.blit_cmd_buffers) {
-      for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
-         wsi->FreeCommandBuffers(chain->device, chain->cmd_pools[i],
-                                 1, &image->prime.blit_cmd_buffers[i]);
-      }
-      vk_free(&chain->alloc, image->prime.blit_cmd_buffers);
-   }
+   wsi_destroy_image_cmd_buffers(chain, image);
 
    wsi->FreeMemory(chain->device, image->memory, &chain->alloc);
    wsi->DestroyImage(chain->device, image->image, &chain->alloc);
