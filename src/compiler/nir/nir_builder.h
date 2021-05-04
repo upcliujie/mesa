@@ -1552,6 +1552,37 @@ nir_build_calc_io_offset(nir_builder *b,
    return nir_iadd_imm_nuw(b, nir_iadd_nuw(b, base_op, offset_op), const_op);
 }
 
+/* calculate `(1 << value) - 1` in ssa */
+static nir_ssa_def *
+nir_mask_unclamped(nir_builder *b, nir_ssa_def *src)
+{
+   nir_ssa_def *one = nir_imm_ivec4(b, 1, 1, 1, 1);
+   return nir_isub(b, nir_ishl(b, one, src), one);
+}
+
+/* calculate `(1 << value) - 1` in ssa without overflows */
+static nir_ssa_def *
+nir_mask(nir_builder *b, nir_ssa_def *src)
+{
+   unsigned channel_mask = (1 << src->num_components) - 1;
+   nir_ssa_def *one = nir_channels(b, nir_imm_ivec4(b, 1, 1, 1, 1), channel_mask);
+   nir_ssa_def *maxbits = nir_channels(b, nir_imm_ivec4(b, 32, 32, 32, 32), channel_mask);
+   nir_ssa_def *max = nir_channels(b, nir_imm_ivec4(b, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX), channel_mask);
+   /* get a vec4 of components which will overflow if masked */
+   nir_ssa_def *to_clamp = nir_umin(b, nir_u2f32(b, nir_ieq(b, src, maxbits)), one);
+   /* get a vec4 of the mask including overflows */
+   nir_ssa_def *unclamped = nir_mask_unclamped(b, src);
+   /* return the max of the unclamped components and the overflowed max value */
+   return nir_umax(b, unclamped, nir_imul(b, to_clamp, max));
+}
+
+/* calculate `(1 << value) - 1` in ssa without overflows returning a vec instead of ivec */
+static nir_ssa_def *
+nir_maskf(nir_builder *b, nir_ssa_def *src)
+{
+   return nir_u2f32(b, nir_mask(b, src));
+}
+
 static inline nir_ssa_def *
 nir_f2b(nir_builder *build, nir_ssa_def *f)
 {
