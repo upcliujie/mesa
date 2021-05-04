@@ -569,7 +569,17 @@ wsi_common_queue_present(const struct wsi_device *wsi,
    for (uint32_t i = 0; i < pPresentInfo->swapchainCount; i++) {
       VK_FROM_HANDLE(wsi_swapchain, swapchain, pPresentInfo->pSwapchains[i]);
       uint32_t image_index = pPresentInfo->pImageIndices[i];
+      struct wsi_image *image =
+         swapchain->get_wsi_image(swapchain, image_index);
       VkResult result;
+
+      /* The spec says "The queue family corresponding to the queue
+       * vkQueuePresentKHR is executed on must have ownership of the presented
+       * images as defined in Resource Sharing."  We can safely assume that
+       * queue/queue_family_index is the current owner.
+       */
+      image->owner.queue = queue;
+      image->owner.queue_family_index = queue_family_index;
 
       if (swapchain->fences[image_index] == VK_NULL_HANDLE) {
          const VkFenceCreateInfo fence_info = {
@@ -594,9 +604,6 @@ wsi_common_queue_present(const struct wsi_device *wsi,
          if (result != VK_SUCCESS)
             goto fail_present;
       }
-
-      struct wsi_image *image =
-         swapchain->get_wsi_image(swapchain, image_index);
 
       struct wsi_memory_signal_submit_info mem_signal = {
          .sType = VK_STRUCTURE_TYPE_WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA,

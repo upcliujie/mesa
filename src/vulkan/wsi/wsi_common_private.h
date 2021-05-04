@@ -36,6 +36,11 @@ struct wsi_image {
       VkDeviceMemory memory;
    } prime;
 
+   struct {
+      VkQueue queue;
+      uint32_t queue_family_index;
+   } owner;
+
    /* may be NULL */
    VkCommandBuffer (*cmd_buffers)[WSI_CMD_TYPE_COUNT];
 
