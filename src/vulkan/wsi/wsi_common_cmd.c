@@ -15,6 +15,9 @@ struct wsi_cmd_builder {
 
    uint32_t present_blit_buffer_width;
 
+   bool need_cmd_types[WSI_CMD_TYPE_COUNT];
+   uint32_t need_cmd_type_count;
+
    VkCommandBuffer (*cmd_buffers)[WSI_CMD_TYPE_COUNT];
 };
 
@@ -26,6 +29,7 @@ wsi_cmd_free_cmd_buffers(const struct wsi_swapchain *chain,
    const struct wsi_device *wsi = chain->wsi;
 
    for (uint32_t i = 0; i < queue_family_count; i++) {
+      /* some elements of cmd_buffers[i] array may be NULL */
       wsi->FreeCommandBuffers(chain->device, chain->cmd_pools[i],
                               WSI_CMD_TYPE_COUNT, cmd_buffers[i]);
    }
@@ -76,6 +80,9 @@ wsi_cmd_builder_build_for_queue_family(struct wsi_cmd_builder *builder,
          builder->cmd_buffers[queue_family_index][type];
       VkResult result;
 
+      if (!builder->need_cmd_types[type])
+         continue;
+
       const VkCommandBufferBeginInfo begin_info = {
          .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
       };
@@ -83,7 +90,7 @@ wsi_cmd_builder_build_for_queue_family(struct wsi_cmd_builder *builder,
       if (result != VK_SUCCESS)
          return result;
 
-      if (type == WSI_CMD_TYPE_PRESENT)
+      if (chain->use_prime_blit && type == WSI_CMD_TYPE_PRESENT)
          wsi_cmd_builder_present_blit(builder, queue_family_index);
 
       result = wsi->EndCommandBuffer(cmd_buffer);
@@ -113,14 +120,21 @@ wsi_cmd_builder_alloc(struct wsi_cmd_builder *builder)
          .pNext = NULL,
          .commandPool = chain->cmd_pools[i],
          .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-         .commandBufferCount = WSI_CMD_TYPE_COUNT,
+         .commandBufferCount = builder->need_cmd_type_count,
       };
 
+      VkCommandBuffer tmp_cmd_buffers[WSI_CMD_TYPE_COUNT];
       VkResult result = wsi->AllocateCommandBuffers(
-         chain->device, &cmd_buffer_info, cmd_buffers[i]);
+         chain->device, &cmd_buffer_info, tmp_cmd_buffers);
       if (result != VK_SUCCESS) {
          wsi_cmd_free_cmd_buffers(chain, cmd_buffers, i);
          return result;
+      }
+
+      uint32_t tmp_assigned = 0;
+      for (uint32_t j = 0; j < WSI_CMD_TYPE_COUNT; j++) {
+         if (builder->need_cmd_types[j])
+            cmd_buffers[i][j] = tmp_cmd_buffers[tmp_assigned++];
       }
    }
 
@@ -129,12 +143,28 @@ wsi_cmd_builder_alloc(struct wsi_cmd_builder *builder)
    return VK_SUCCESS;
 }
 
+static void
+wsi_cmd_builder_init_needs(struct wsi_cmd_builder *builder)
+{
+   const struct wsi_swapchain *chain = builder->chain;
+
+   if (chain->use_prime_blit)
+      builder->need_cmd_types[WSI_CMD_TYPE_PRESENT] = true;
+
+   for (uint32_t i = 0; i < WSI_CMD_TYPE_COUNT; i++)
+      builder->need_cmd_type_count += builder->need_cmd_types[i];
+}
+
 static VkResult
 wsi_cmd_builder_build(struct wsi_cmd_builder *builder)
 {
    const struct wsi_swapchain *chain = builder->chain;
    const struct wsi_device *wsi = chain->wsi;
    VkResult result;
+
+   wsi_cmd_builder_init_needs(builder);
+   if (!builder->need_cmd_type_count)
+      return VK_SUCCESS;
 
    result = wsi_cmd_builder_alloc(builder);
    if (result != VK_SUCCESS)
