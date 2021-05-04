@@ -6202,6 +6202,24 @@ lower_lsc_a64_logical_send(const fs_builder &bld, fs_inst *inst)
                                 inst->exec_size, true, /* writes */
                                 num_coordinates, LSC_ADDR_SURFTYPE_FLAT);
       break;
+   case SHADER_OPCODE_A64_BYTE_SCATTERED_READ_LOGICAL:
+      inst->desc = lsc_msg_desc(devinfo, LSC_OP_LOAD,
+                                LSC_ADDR_SIZE_A64,
+                                lsc_bits_to_data_size(arg),
+                                1, /* num_channels */
+                                LSC_CACHE_STORE_L1STATE_L3MOCS,
+                                inst->exec_size, false, /* writes */
+                                num_coordinates, LSC_ADDR_SURFTYPE_FLAT);
+      break;
+   case SHADER_OPCODE_A64_BYTE_SCATTERED_WRITE_LOGICAL:
+      inst->desc = lsc_msg_desc(devinfo, LSC_OP_STORE,
+                                LSC_ADDR_SIZE_A64,
+                                lsc_bits_to_data_size(arg),
+                                1, /* num_channels */
+                                LSC_CACHE_STORE_L1STATE_L3MOCS,
+                                inst->exec_size, true, /* writes */
+                                num_coordinates, LSC_ADDR_SURFTYPE_FLAT);
+      break;
    default:
       unreachable("Unknown A64 logical instruction");
    }
@@ -6730,6 +6748,8 @@ fs_visitor::lower_logical_sends()
 
       case SHADER_OPCODE_A64_UNTYPED_WRITE_LOGICAL:
       case SHADER_OPCODE_A64_UNTYPED_READ_LOGICAL:
+      case SHADER_OPCODE_A64_BYTE_SCATTERED_WRITE_LOGICAL:
+      case SHADER_OPCODE_A64_BYTE_SCATTERED_READ_LOGICAL:
          if (devinfo->has_lsc) {
             lower_lsc_a64_logical_send(ibld, inst);
             break;
@@ -6737,8 +6757,6 @@ fs_visitor::lower_logical_sends()
       case SHADER_OPCODE_A64_OWORD_BLOCK_READ_LOGICAL:
       case SHADER_OPCODE_A64_UNALIGNED_OWORD_BLOCK_READ_LOGICAL:
       case SHADER_OPCODE_A64_OWORD_BLOCK_WRITE_LOGICAL:
-      case SHADER_OPCODE_A64_BYTE_SCATTERED_WRITE_LOGICAL:
-      case SHADER_OPCODE_A64_BYTE_SCATTERED_READ_LOGICAL:
       case SHADER_OPCODE_A64_UNTYPED_ATOMIC_LOGICAL:
       case SHADER_OPCODE_A64_UNTYPED_ATOMIC_INT16_LOGICAL:
       case SHADER_OPCODE_A64_UNTYPED_ATOMIC_INT64_LOGICAL:
