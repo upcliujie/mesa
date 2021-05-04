@@ -929,8 +929,26 @@ VkResult
 vn_ImportSemaphoreFdKHR(
    VkDevice device, const VkImportSemaphoreFdInfoKHR *pImportSemaphoreFdInfo)
 {
+   /* XXX currently we wait for the native sync fd to signal and fill the
+    * semaphore with a signaled payload.
+    */
    struct vn_device *dev = vn_device_from_handle(device);
-   return vn_error(dev->instance, VK_ERROR_UNKNOWN);
+
+   if (pImportSemaphoreFdInfo->handleType !=
+       VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT)
+      return vn_error(dev->instance, VK_ERROR_INVALID_EXTERNAL_HANDLE);
+
+   if (pImportSemaphoreFdInfo->fd >= 0) {
+      if (sync_wait(pImportSemaphoreFdInfo->fd, INT32_MAX))
+         return vn_error(dev->instance, VK_ERROR_INVALID_EXTERNAL_HANDLE);
+
+      close(pImportSemaphoreFdInfo->fd);
+   }
+
+   vn_semaphore_signal_wsi(
+      dev, vn_semaphore_from_handle(pImportSemaphoreFdInfo->semaphore));
+
+   return VK_SUCCESS;
 }
 
 VkResult
@@ -938,8 +956,38 @@ vn_GetSemaphoreFdKHR(VkDevice device,
                      const VkSemaphoreGetFdInfoKHR *pGetFdInfo,
                      int *pFd)
 {
+   /* XXX currently we convert the semaphore to a fence via an empty submit
+    * and wait for the fence to signal, then set the sync fd to -1.
+    */
    struct vn_device *dev = vn_device_from_handle(device);
-   return vn_error(dev->instance, VK_ERROR_UNKNOWN);
+   struct vn_queue *queue = &dev->queues[0];
+
+   const VkSubmitInfo submit_info = {
+      .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+      .pNext = NULL,
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = &pGetFdInfo->semaphore,
+      .pWaitDstStageMask = NULL,
+      .commandBufferCount = 0,
+      .pCommandBuffers = NULL,
+      .signalSemaphoreCount = 0,
+      .pSignalSemaphores = NULL,
+   };
+
+   VkResult result = vn_QueueSubmit(vn_queue_to_handle(queue), 1,
+                                    &submit_info, queue->wait_fence);
+   if (result != VK_SUCCESS)
+      return vn_error(dev->instance, result);
+
+   result =
+      vn_WaitForFences(device, 1, &queue->wait_fence, VK_TRUE, UINT64_MAX);
+   vn_ResetFences(device, 1, &queue->wait_fence);
+   if (result != VK_SUCCESS)
+      return vn_error(dev->instance, result);
+
+   *pFd = -1;
+
+   return VK_SUCCESS;
 }
 
 /* event commands */

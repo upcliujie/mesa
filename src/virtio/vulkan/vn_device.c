@@ -1437,7 +1437,8 @@ vn_physical_device_init_external_semaphore_handles(
     * host-side VkSemaphore.  That would allow the consumers to wait on the
     * host side rather than the guest side.
     */
-   physical_dev->external_binary_semaphore_handles = 0;
+   physical_dev->external_binary_semaphore_handles =
+      VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT;
    physical_dev->external_timeline_semaphore_handles = 0;
 }
 
@@ -1477,6 +1478,7 @@ vn_physical_device_get_native_extensions(
 
 #ifdef ANDROID
    exts->KHR_external_fence_fd = true;
+   exts->KHR_external_semaphore_fd = true;
 #endif
 }
 
