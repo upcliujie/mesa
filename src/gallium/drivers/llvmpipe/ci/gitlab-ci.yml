@@ -96,6 +96,24 @@ llvmpipe-gles2:
   extends:
     - .llvmpipe-deqp-test
 
+llvmpipe-gles3:
+  variables:
+    DEQP_VER: gles3
+  extends:
+    - .llvmpipe-deqp-test
+
+llvmpipe-gles31:
+  variables:
+    DEQP_VER: gles31
+  extends:
+    - .llvmpipe-deqp-test
+
+llvmpipe-gl:
+  variables:
+    DEQP_VER: gl45
+  extends:
+    - .llvmpipe-deqp-test
+
 llvmpipe-khr-gles2:
   variables:
     DEQP_VER: gles2-khr
