@@ -64,6 +64,27 @@ wsi_cmd_builder_present_blit(struct wsi_cmd_builder *builder,
 }
 
 static VkResult
+wsi_cmd_builder_build_for_queue_family(struct wsi_cmd_builder *builder,
+                                       uint32_t queue_family_index)
+{
+   const struct wsi_swapchain *chain = builder->chain;
+   const struct wsi_device *wsi = chain->wsi;
+   VkCommandBuffer cmd_buffer = builder->cmd_buffers[queue_family_index];
+   VkResult result;
+
+   const VkCommandBufferBeginInfo begin_info = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+   };
+   result = wsi->BeginCommandBuffer(cmd_buffer, &begin_info);
+   if (result != VK_SUCCESS)
+      return result;
+
+   wsi_cmd_builder_present_blit(builder, queue_family_index);
+
+   return wsi->EndCommandBuffer(cmd_buffer);
+}
+
+static VkResult
 wsi_cmd_builder_alloc(struct wsi_cmd_builder *builder)
 {
    const struct wsi_swapchain *chain = builder->chain;
@@ -97,13 +118,37 @@ wsi_cmd_builder_alloc(struct wsi_cmd_builder *builder)
    return VK_SUCCESS;
 }
 
+static VkResult
+wsi_cmd_builder_build(struct wsi_cmd_builder *builder)
+{
+   const struct wsi_swapchain *chain = builder->chain;
+   const struct wsi_device *wsi = chain->wsi;
+   VkResult result;
+
+   result = wsi_cmd_builder_alloc(builder);
+   if (result != VK_SUCCESS)
+      return result;
+
+   for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
+      result = wsi_cmd_builder_build_for_queue_family(builder, i);
+      if (result != VK_SUCCESS)
+         break;
+   }
+
+   if (result != VK_SUCCESS) {
+      wsi_cmd_free_cmd_buffers(builder->chain, builder->cmd_buffers,
+                               wsi->queue_family_count);
+   }
+
+   return result;
+}
+
 VkResult
 wsi_create_image_cmd_buffers(const struct wsi_swapchain *chain,
                              struct wsi_image *image,
                              const struct VkImageCreateInfo *image_info,
                              uint32_t present_blit_buffer_width)
 {
-   const struct wsi_device *wsi = chain->wsi;
    struct wsi_cmd_builder builder = {
       .chain = chain,
       .image = image,
@@ -112,27 +157,14 @@ wsi_create_image_cmd_buffers(const struct wsi_swapchain *chain,
    };
    VkResult result;
 
-   result = wsi_cmd_builder_alloc(&builder);
+   result = wsi_cmd_builder_build(&builder);
    if (result != VK_SUCCESS)
       return result;
 
    /* take the ownership */
    image->prime.blit_cmd_buffers = builder.cmd_buffers;
 
-   for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
-      const VkCommandBufferBeginInfo begin_info = {
-         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-      };
-      wsi->BeginCommandBuffer(image->prime.blit_cmd_buffers[i], &begin_info);
-
-      wsi_cmd_builder_present_blit(&builder, i);
-
-      result = wsi->EndCommandBuffer(image->prime.blit_cmd_buffers[i]);
-      if (result != VK_SUCCESS)
-         break;
-   }
-
-   return result;
+   return VK_SUCCESS;
 }
 
 void
