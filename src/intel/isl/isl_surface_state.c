@@ -936,10 +936,15 @@ isl_genX(null_fill_state)(void *state, struct isl_extent3d size,
       .SurfaceType = SURFTYPE_NULL,
       /* We previously had this format set to B8G8R8A8_UNORM but ran into
        * hangs on IVB. R32_UINT seems to work for everybody.
+       * Use B8G8R8A8_UNORM on gen5.
        *
        * https://gitlab.freedesktop.org/mesa/mesa/-/issues/1872
        */
+#if GFX_VER <= 5
+      .SurfaceFormat = ISL_FORMAT_B8G8R8A8_UNORM,
+#else
       .SurfaceFormat = ISL_FORMAT_R32_UINT,
+#endif
 #if GFX_VER >= 7
       .SurfaceArray = size.depth > 1,
 #endif
