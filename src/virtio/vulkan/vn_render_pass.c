@@ -18,15 +18,12 @@
 static bool
 vn_render_pass_has_present_src(const VkRenderPassCreateInfo *create_info)
 {
-   /* XXX drop the #ifdef after fixing common wsi */
-#ifdef ANDROID
    for (uint32_t i = 0; i < create_info->attachmentCount; i++) {
       const VkAttachmentDescription *att = &create_info->pAttachments[i];
       if (att->initialLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ||
           att->finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
          return true;
    }
-#endif
 
    return false;
 }
@@ -34,15 +31,12 @@ vn_render_pass_has_present_src(const VkRenderPassCreateInfo *create_info)
 static bool
 vn_render_pass_has_present_src2(const VkRenderPassCreateInfo2 *create_info)
 {
-   /* XXX drop the #ifdef after fixing common wsi */
-#ifdef ANDROID
    for (uint32_t i = 0; i < create_info->attachmentCount; i++) {
       const VkAttachmentDescription2 *att = &create_info->pAttachments[i];
       if (att->initialLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ||
           att->finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
          return true;
    }
-#endif
 
    return false;
 }

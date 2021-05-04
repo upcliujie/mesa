@@ -772,6 +772,9 @@ vn_CmdCopyImageToBuffer(VkCommandBuffer commandBuffer,
       vn_command_buffer_from_handle(commandBuffer);
    size_t cmd_size;
 
+   if (srcImageLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+      srcImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
    cmd_size = vn_sizeof_vkCmdCopyImageToBuffer(commandBuffer, srcImage,
                                                srcImageLayout, dstBuffer,
                                                regionCount, pRegions);
@@ -948,8 +951,6 @@ vn_get_intercepted_barriers(struct vn_command_buffer *cmd,
                             const VkImageMemoryBarrier *img_barriers,
                             uint32_t count)
 {
-   /* XXX drop the #ifdef after fixing common wsi */
-#ifdef ANDROID
    bool has_present_src = false;
    for (uint32_t i = 0; i < count; i++) {
       if (img_barriers[i].oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ||
@@ -983,9 +984,6 @@ vn_get_intercepted_barriers(struct vn_command_buffer *cmd,
          barriers[i].newLayout = VK_IMAGE_LAYOUT_GENERAL;
    }
    return barriers;
-#else
-   return img_barriers;
-#endif
 }
 
 void
