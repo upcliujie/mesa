@@ -184,7 +184,7 @@ replay_minio_upload_images() {
 
 SANITY_MESA_VERSION_CMD="$SANITY_MESA_VERSION_CMD | tee /tmp/version.txt | grep \"Mesa $MESA_VERSION\(\s\|$\)\""
 
-rm -rf results
+rm -rf results/{*,.*}
 cd /piglit
 
 if [ -n "$USE_CASELIST" ]; then

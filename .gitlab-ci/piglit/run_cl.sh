@@ -5,7 +5,7 @@ set -o xtrace
 
 VERSION=`cat install/VERSION`
 
-rm -rf results
+rm -rf results/{*,.*}
 cd /piglit
 
 export OCL_ICD_VENDORS=$OLDPWD/install/etc/OpenCL/vendors/
