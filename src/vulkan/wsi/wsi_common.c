@@ -79,6 +79,7 @@ wsi_device_init(struct wsi_device *wsi,
    WSI_GET_CB(BindImageMemory);
    WSI_GET_CB(BeginCommandBuffer);
    WSI_GET_CB(CmdCopyImageToBuffer);
+   WSI_GET_CB(CmdPipelineBarrier);
    WSI_GET_CB(CreateBuffer);
    WSI_GET_CB(CreateCommandPool);
    WSI_GET_CB(CreateFence);
@@ -530,25 +531,37 @@ wsi_common_acquire_next_image2(const struct wsi_device *wsi,
    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
       return result;
 
+   struct wsi_image *image =
+      swapchain->get_wsi_image(swapchain, *pImageIndex);
+
    if (wsi->set_memory_ownership) {
-      VkDeviceMemory mem = swapchain->get_wsi_image(swapchain, *pImageIndex)->memory;
+      VkDeviceMemory mem = image->memory;
       wsi->set_memory_ownership(swapchain->device, mem, true);
    }
 
    if (pAcquireInfo->semaphore != VK_NULL_HANDLE &&
        wsi->signal_semaphore_for_memory != NULL) {
-      struct wsi_image *image =
-         swapchain->get_wsi_image(swapchain, *pImageIndex);
       wsi->signal_semaphore_for_memory(device, pAcquireInfo->semaphore,
                                        image->memory);
    }
 
    if (pAcquireInfo->fence != VK_NULL_HANDLE &&
        wsi->signal_fence_for_memory != NULL) {
-      struct wsi_image *image =
-         swapchain->get_wsi_image(swapchain, *pImageIndex);
       wsi->signal_fence_for_memory(device, pAcquireInfo->fence,
                                    image->memory);
+   }
+
+   if (wsi->ownership_transfer && image->owner.queue != VK_NULL_HANDLE) {
+      const VkSubmitInfo submit_info = {
+         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+         .commandBufferCount = 1,
+         .pCommandBuffers = &image->cmd_buffers[image->owner.queue_family_index]
+                                               [WSI_CMD_TYPE_ACQUIRE],
+         .signalSemaphoreCount = pAcquireInfo->semaphore != VK_NULL_HANDLE,
+         .pSignalSemaphores = &pAcquireInfo->semaphore,
+      };
+      result = wsi->QueueSubmit(image->owner.queue, 1, &submit_info,
+                                pAcquireInfo->fence);
    }
 
    return result;
@@ -640,14 +653,15 @@ wsi_common_queue_present(const struct wsi_device *wsi,
          submit_info.pWaitDstStageMask = stage_flags;
       }
 
-      if (swapchain->use_prime_blit) {
-         /* If we are using prime blits, we need to perform the blit now.  The
-          * command buffer is attached to the image.
+      if (swapchain->use_prime_blit || wsi->ownership_transfer) {
+         /* If we are using prime blits or ownership transfers, we need to
+          * perform them now.  The command buffer is attached to the image.
           */
          submit_info.commandBufferCount = 1;
          submit_info.pCommandBuffers =
             &image->cmd_buffers[queue_family_index][WSI_CMD_TYPE_PRESENT];
-         mem_signal.memory = image->prime.memory;
+         if (swapchain->use_prime_blit)
+            mem_signal.memory = image->prime.memory;
       }
 
       result = wsi->QueueSubmit(queue, 1, &submit_info, swapchain->fences[image_index]);

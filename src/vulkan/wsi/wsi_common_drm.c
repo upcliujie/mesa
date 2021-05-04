@@ -334,6 +334,10 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
          goto fail;
    }
 
+   result = wsi_create_image_cmd_buffers(chain, image, &image_info, 0);
+   if (result != VK_SUCCESS)
+      goto fail;
+
    if (!wsi->sw && num_modifier_lists > 0) {
       VkImageDrmFormatModifierPropertiesEXT image_mod_props = {
          .sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_PROPERTIES_EXT,

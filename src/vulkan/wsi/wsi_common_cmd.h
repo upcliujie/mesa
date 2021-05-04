@@ -12,6 +12,7 @@ struct wsi_swapchain;
 struct wsi_image;
 
 enum wsi_cmd_type {
+   WSI_CMD_TYPE_ACQUIRE,
    WSI_CMD_TYPE_PRESENT,
    WSI_CMD_TYPE_COUNT,
 };

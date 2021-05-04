@@ -37,6 +37,61 @@ wsi_cmd_free_cmd_buffers(const struct wsi_swapchain *chain,
 }
 
 static void
+wsi_cmd_builder_ownership_transfer(struct wsi_cmd_builder *builder,
+                                   uint32_t queue_family_index,
+                                   enum wsi_cmd_type type)
+{
+   const struct wsi_swapchain *chain = builder->chain;
+   const struct wsi_device *wsi = chain->wsi;
+   const bool exclusive =
+      chain->use_prime_blit ||
+      builder->image_info->sharingMode == VK_SHARING_MODE_EXCLUSIVE;
+   VkCommandBuffer cmd_buffer =
+      builder->cmd_buffers[queue_family_index][type];
+
+   uint32_t src_index;
+   uint32_t dst_index;
+   if (type == WSI_CMD_TYPE_ACQUIRE) {
+      src_index = VK_QUEUE_FAMILY_FOREIGN_EXT;
+      dst_index = exclusive ? queue_family_index : VK_QUEUE_FAMILY_IGNORED;
+   } else {
+      src_index = exclusive ? queue_family_index : VK_QUEUE_FAMILY_IGNORED;
+      dst_index = VK_QUEUE_FAMILY_FOREIGN_EXT;
+   }
+
+   VkBufferMemoryBarrier buffer_barrier;
+   VkImageMemoryBarrier image_barrier;
+   if (chain->use_prime_blit) {
+      buffer_barrier = (const VkBufferMemoryBarrier){
+         .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+         .srcQueueFamilyIndex = src_index,
+         .dstQueueFamilyIndex = dst_index,
+         .buffer = builder->image->prime.buffer,
+         .size = VK_WHOLE_SIZE,
+      };
+   } else {
+      image_barrier = (const VkImageMemoryBarrier){
+         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+         .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+         .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+         .srcQueueFamilyIndex = src_index,
+         .dstQueueFamilyIndex = dst_index,
+         .image = builder->image->image,
+         .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .levelCount = 1,
+            .layerCount = 1,
+          },
+      };
+   }
+
+   wsi->CmdPipelineBarrier(cmd_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL,
+                           chain->use_prime_blit, &buffer_barrier,
+                           !chain->use_prime_blit, &image_barrier);
+}
+
+static void
 wsi_cmd_builder_present_blit(struct wsi_cmd_builder *builder,
                              uint32_t queue_family_index)
 {
@@ -93,6 +148,11 @@ wsi_cmd_builder_build_for_queue_family(struct wsi_cmd_builder *builder,
       if (chain->use_prime_blit && type == WSI_CMD_TYPE_PRESENT)
          wsi_cmd_builder_present_blit(builder, queue_family_index);
 
+      if (wsi->ownership_transfer) {
+         wsi_cmd_builder_ownership_transfer(builder, queue_family_index,
+                                            type);
+      }
+
       result = wsi->EndCommandBuffer(cmd_buffer);
       if (result != VK_SUCCESS)
          return result;
@@ -147,9 +207,15 @@ static void
 wsi_cmd_builder_init_needs(struct wsi_cmd_builder *builder)
 {
    const struct wsi_swapchain *chain = builder->chain;
+   const struct wsi_device *wsi = chain->wsi;
 
    if (chain->use_prime_blit)
       builder->need_cmd_types[WSI_CMD_TYPE_PRESENT] = true;
+
+   if (wsi->ownership_transfer) {
+      builder->need_cmd_types[WSI_CMD_TYPE_ACQUIRE] = true;
+      builder->need_cmd_types[WSI_CMD_TYPE_PRESENT] = true;
+   }
 
    for (uint32_t i = 0; i < WSI_CMD_TYPE_COUNT; i++)
       builder->need_cmd_type_count += builder->need_cmd_types[i];

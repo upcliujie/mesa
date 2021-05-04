@@ -117,6 +117,7 @@ struct wsi_device {
    } x11;
 
    bool sw;
+   bool ownership_transfer;
 
    /* Signals the semaphore such that any wait on the semaphore will wait on
     * any reads or writes on the give memory object.  This is used to
@@ -163,6 +164,7 @@ struct wsi_device {
    WSI_CB(BindImageMemory);
    WSI_CB(BeginCommandBuffer);
    WSI_CB(CmdCopyImageToBuffer);
+   WSI_CB(CmdPipelineBarrier);
    WSI_CB(CreateBuffer);
    WSI_CB(CreateCommandPool);
    WSI_CB(CreateFence);
