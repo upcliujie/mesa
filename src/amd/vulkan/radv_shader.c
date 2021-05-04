@@ -162,6 +162,8 @@ radv_optimize_nir(const struct radv_device *device, struct nir_shader *shader,
       NIR_PASS(progress, shader, nir_opt_constant_folding);
       NIR_PASS(progress, shader, nir_opt_algebraic);
 
+      NIR_PASS(progress, shader, nir_opt_gcm, false);
+
       if (lower_flrp != 0) {
          bool lower_flrp_progress = false;
          NIR_PASS(lower_flrp_progress, shader, nir_lower_flrp, lower_flrp,
