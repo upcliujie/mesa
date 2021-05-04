@@ -11,6 +11,9 @@
 struct wsi_cmd_builder {
    const struct wsi_swapchain *chain;
    const struct wsi_image *image;
+   const struct VkImageCreateInfo *image_info;
+
+   uint32_t present_blit_buffer_width;
 
    VkCommandBuffer *cmd_buffers;
 };
@@ -27,6 +30,37 @@ wsi_cmd_free_cmd_buffers(const struct wsi_swapchain *chain,
                               &cmd_buffers[i]);
    }
    vk_free(&chain->alloc, cmd_buffers);
+}
+
+static void
+wsi_cmd_builder_present_blit(struct wsi_cmd_builder *builder,
+                             uint32_t queue_family_index)
+{
+   const struct wsi_device *wsi = builder->chain->wsi;
+   VkImage image = builder->image->image;
+   VkBuffer buffer = builder->image->prime.buffer;
+   VkCommandBuffer cmd_buffer = builder->cmd_buffers[queue_family_index];
+
+   const struct VkBufferImageCopy buffer_image_copy = {
+      .bufferOffset = 0,
+      .bufferRowLength = builder->present_blit_buffer_width,
+      .bufferImageHeight = 0,
+      .imageSubresource = {
+         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+         .mipLevel = 0,
+         .baseArrayLayer = 0,
+         .layerCount = 1,
+      },
+      .imageOffset = { .x = 0, .y = 0, .z = 0 },
+      .imageExtent = builder->image_info->extent,
+   };
+
+   /* PRESENT_SRC is the layout although it is not really valid with
+    * vkCmdCopyImageToBuffer
+    */
+   wsi->CmdCopyImageToBuffer(cmd_buffer, image,
+                             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, buffer, 1,
+                             &buffer_image_copy);
 }
 
 static VkResult
@@ -73,6 +107,8 @@ wsi_create_image_cmd_buffers(const struct wsi_swapchain *chain,
    struct wsi_cmd_builder builder = {
       .chain = chain,
       .image = image,
+      .image_info = image_info,
+      .present_blit_buffer_width = present_blit_buffer_width,
    };
    VkResult result;
 
@@ -89,22 +125,7 @@ wsi_create_image_cmd_buffers(const struct wsi_swapchain *chain,
       };
       wsi->BeginCommandBuffer(image->prime.blit_cmd_buffers[i], &begin_info);
 
-      struct VkBufferImageCopy buffer_image_copy = {
-         .bufferOffset = 0,
-         .bufferRowLength = present_blit_buffer_width,
-         .bufferImageHeight = 0,
-         .imageSubresource = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-         },
-         .imageOffset = { .x = 0, .y = 0, .z = 0 },
-         .imageExtent = image_info->extent,
-      };
-      wsi->CmdCopyImageToBuffer(image->prime.blit_cmd_buffers[i],
-                                image->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                                image->prime.buffer, 1, &buffer_image_copy);
+      wsi_cmd_builder_present_blit(&builder, i);
 
       result = wsi->EndCommandBuffer(image->prime.blit_cmd_buffers[i]);
       if (result != VK_SUCCESS)
