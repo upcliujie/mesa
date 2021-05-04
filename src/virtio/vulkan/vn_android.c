@@ -103,6 +103,32 @@ vn_hal_open(const struct hw_module_t *mod,
    return 0;
 }
 
+static uint64_t
+vn_android_get_ahb_usage(const VkImageUsageFlags usage,
+                         const VkImageCreateFlags flags)
+{
+   uint64_t ahb_usage = 0;
+   if (usage &
+       (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT))
+      ahb_usage |= AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
+
+   if (usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT))
+      ahb_usage |= AHARDWAREBUFFER_USAGE_GPU_FRAMEBUFFER;
+
+   if (flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
+      ahb_usage |= AHARDWAREBUFFER_USAGE_GPU_CUBE_MAP;
+
+   if (flags & VK_IMAGE_CREATE_PROTECTED_BIT)
+      ahb_usage |= AHARDWAREBUFFER_USAGE_PROTECTED_CONTENT;
+
+   /* must include at least one GPU usage flag */
+   if (ahb_usage == 0)
+      ahb_usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
+
+   return ahb_usage;
+}
+
 VkResult
 vn_GetSwapchainGrallocUsage2ANDROID(
    VkDevice device,
