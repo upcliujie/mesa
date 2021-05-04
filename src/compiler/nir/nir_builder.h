@@ -1090,6 +1090,24 @@ nir_bitcast_vector(nir_builder *b, nir_ssa_def *src, unsigned dest_bit_size)
    return nir_extract_bits(b, &src, 1, 0, dest_num_components, dest_bit_size);
 }
 
+/* pad a value to a vec4 with zeroes of matching bit size */
+static inline nir_ssa_def *
+nir_pad_vec4(nir_builder *b, nir_ssa_def *src)
+{
+   if (src->num_components >= 4)
+      return src;
+
+   nir_ssa_def *components[4];
+   nir_ssa_def *zero = nir_imm_zero(b, 1, src->bit_size);
+   unsigned i = 0;
+   for (; i < src->num_components; i++)
+      components[i] = nir_channel(b, src, i);
+   for (; i < 4; i++)
+      components[i] = zero;
+
+   return nir_vec(b, components, 4);
+}
+
 /**
  * Turns a nir_src into a nir_ssa_def * so it can be passed to
  * nir_build_alu()-based builder calls.
