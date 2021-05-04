@@ -1552,6 +1552,14 @@ nir_build_calc_io_offset(nir_builder *b,
    return nir_iadd_imm_nuw(b, nir_iadd_nuw(b, base_op, offset_op), const_op);
 }
 
+/* calculate `(1 << value) - 1` in ssa without overflows */
+static nir_ssa_def *
+nir_mask(nir_builder *b, nir_ssa_def *src)
+{
+   return nir_ushr(b, nir_imm_int(b, UINT32_MAX),
+                      nir_isub(b, nir_imm_int(b, 32), src));
+}
+
 static inline nir_ssa_def *
 nir_f2b(nir_builder *build, nir_ssa_def *f)
 {
