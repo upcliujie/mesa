@@ -218,6 +218,18 @@ deep_copy_dynamic_state(void *mem_ctx,
    return VK_SUCCESS;
 }
 
+static bool
+dynamic_state_contains(const VkPipelineDynamicStateCreateInfo *src, VkDynamicState state)
+{
+   if (!src)
+      return false;
+
+   for (unsigned i = 0; i < src->dynamicStateCount; i++)
+      if (src->pDynamicStates[i] == state)
+         return true;
+   return false;
+}
+
 static VkResult
 deep_copy_graphics_create_info(void *mem_ctx,
                                VkGraphicsPipelineCreateInfo *dst,
@@ -227,6 +239,7 @@ deep_copy_graphics_create_info(void *mem_ctx,
    VkResult result;
    VkPipelineShaderStageCreateInfo *stages;
    VkPipelineVertexInputStateCreateInfo *vertex_input;
+   LVP_FROM_HANDLE(lvp_render_pass, pass, src->renderPass);
 
    dst->sType = src->sType;
    dst->pNext = NULL;
@@ -270,7 +283,7 @@ deep_copy_graphics_create_info(void *mem_ctx,
    }
 
    /* pViewportState */
-   if (src->pViewportState) {
+   if (src->pViewportState && !dynamic_state_contains(src->pDynamicState, VK_DYNAMIC_STATE_VIEWPORT)) {
       VkPipelineViewportStateCreateInfo *viewport_state;
       viewport_state = ralloc(mem_ctx, VkPipelineViewportStateCreateInfo);
       if (!viewport_state)
@@ -287,7 +300,8 @@ deep_copy_graphics_create_info(void *mem_ctx,
                     1);
 
    /* pMultisampleState */
-   if (src->pMultisampleState) {
+   bool rasterization_disabled = src->pRasterizationState->rasterizerDiscardEnable;
+   if (src->pMultisampleState && !rasterization_disabled) {
       VkPipelineMultisampleStateCreateInfo*   ms_state;
       ms_state = ralloc_size(mem_ctx, sizeof(VkPipelineMultisampleStateCreateInfo) + sizeof(VkSampleMask));
       if (!ms_state)
@@ -304,7 +318,7 @@ deep_copy_graphics_create_info(void *mem_ctx,
       dst->pMultisampleState = NULL;
 
    /* pDepthStencilState */
-   if (src->pDepthStencilState) {
+   if (src->pDepthStencilState && !rasterization_disabled && pass->has_zs_attachment) {
       LVP_PIPELINE_DUP(dst->pDepthStencilState,
                        src->pDepthStencilState,
                        VkPipelineDepthStencilStateCreateInfo,
@@ -313,7 +327,7 @@ deep_copy_graphics_create_info(void *mem_ctx,
       dst->pDepthStencilState = NULL;
 
    /* pColorBlendState */
-   if (src->pColorBlendState) {
+   if (src->pColorBlendState && !rasterization_disabled && pass->has_color_attachment) {
       VkPipelineColorBlendStateCreateInfo*    cb_state;
 
       cb_state = ralloc(mem_ctx, VkPipelineColorBlendStateCreateInfo);
