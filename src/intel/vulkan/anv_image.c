@@ -1454,12 +1454,12 @@ anv_CreateImage(VkDevice device,
                 const VkAllocationCallbacks *pAllocator,
                 VkImage *pImage)
 {
-   const VkExternalMemoryImageCreateInfo *create_info =
+   const VkExternalMemoryImageCreateInfo *ext_mem_create_info =
       vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
 
-   if (create_info && (create_info->handleTypes &
+   if (ext_mem_create_info && (ext_mem_create_info->handleTypes &
        VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID))
-      return anv_image_from_external(device, pCreateInfo, create_info,
+      return anv_image_from_external(device, pCreateInfo, ext_mem_create_info,
                                      pAllocator, pImage);
 
    bool use_external_format = false;
@@ -1485,10 +1485,17 @@ anv_CreateImage(VkDevice device,
       return anv_image_from_swapchain(device, pCreateInfo, swapchain_info,
                                       pAllocator, pImage);
 
+   /* Disable aux when using external memory without modifiers. */
+   uint32_t extra_flags = 0;
+   if (ext_mem_create_info &&
+       pCreateInfo->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
+      extra_flags |= ISL_SURF_USAGE_DISABLE_AUX_BIT;
+
    return anv_image_create(device,
       &(struct anv_image_create_info) {
          .vk_info = pCreateInfo,
          .external_format = use_external_format,
+         .isl_extra_usage_flags = extra_flags,
       },
       pAllocator,
       pImage);
