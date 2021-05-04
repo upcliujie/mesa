@@ -2423,7 +2423,7 @@ iris_create_sampler_view(struct pipe_context *ctx,
    isv->base = *tmpl;
    isv->base.context = ctx;
    isv->base.texture = NULL;
-   pipe_reference_init(&isv->base.reference, 1);
+   isv->base.reference.count = 1;
    pipe_resource_reference(&isv->base.texture, tex);
 
    if (util_format_is_depth_or_stencil(tmpl->format)) {
