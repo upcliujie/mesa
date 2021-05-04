@@ -750,9 +750,13 @@ system_value("shader_record_ptr", 1, bit_sizes=[64])
 #
 # Panfrost needs to implement all coordinate transformation in the
 # vertex shader; system values allow us to share this routine in NIR.
+#
+# RADV uses these for NGG primitive culling.
 system_value("viewport_x_scale", 1)
 system_value("viewport_y_scale", 1)
 system_value("viewport_z_scale", 1)
+system_value("viewport_x_offset", 1)
+system_value("viewport_y_offset", 1)
 system_value("viewport_z_offset", 1)
 system_value("viewport_scale", 3)
 system_value("viewport_offset", 3)
@@ -1146,6 +1150,18 @@ system_value("workgroup_num_input_primitives_amd", 1)
 system_value("packed_passthrough_primitive_amd", 1)
 # Whether NGG GS should execute shader query.
 system_value("shader_query_enabled_amd", 1, bit_sizes=[1])
+# Whether the shader should cull front facing triangles.
+system_value("cull_front_face_enabled_amd", 1, bit_sizes=[1])
+# Whether the shader should cull back facing triangles.
+system_value("cull_back_face_enabled_amd", 1, bit_sizes=[1])
+# Whether the shader should cull triangles outside the viewport.
+system_value("cull_viewport_enabled_amd", 1, bit_sizes=[1])
+# Whether the shader should cull small primitives that are not visible in a pixel.
+system_value("cull_small_primitives_enabled_amd", 1, bit_sizes=[1])
+# Whether any culling setting is enabled in the shader.
+system_value("cull_any_enabled_amd", 1, bit_sizes=[1])
+# Small primitive culling precision
+system_value("cull_small_prim_precision_amd", 1, bit_sizes=[32])
 # Initial edge flag in a Vertex Shader. src = {vertex index}.
 intrinsic("load_initial_edgeflag_amd", src_comp=[1], dest_comp=1, indices=[])
 # Exports the current invocation's vertex. This is a placeholder where all vertex attribute export instructions should be emitted.
@@ -1154,6 +1170,12 @@ intrinsic("export_vertex_amd", src_comp=[], indices=[])
 intrinsic("export_primitive_amd", src_comp=[1], indices=[])
 # Allocates export space for vertices and primitives. src[] = {num_vertices, num_primitives}.
 intrinsic("alloc_vertices_and_primitives_amd", src_comp=[1, 1], indices=[])
+# Overwrites VS input registers, for use with vertex compaction after culling. src = {vertex_id, instance_id}.
+intrinsic("overwrite_vs_arguments_amd", src_comp=[1, 1], indices=[])
+# Overwrites TES input registers, for use with vertex compaction after culling. src = {tes_u, tes_v, rel_patch_id, patch_id}.
+intrinsic("overwrite_tes_arguments_amd", src_comp=[1, 1, 1, 1], indices=[])
+# Overwrites the input vertex and primitive count in the current subgroup after culling. src = {num_vertices, num_primitives}.
+intrinsic("overwrite_subgroup_num_vertices_and_primitives_amd", src_comp=[1, 1], indices=[])
 
 # src = [index] BINDING = which table BASE = offset within handle
 intrinsic("load_sbt_amd", src_comp=[-1], dest_comp=0, indices=[BINDING, BASE],
