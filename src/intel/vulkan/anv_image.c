@@ -2872,17 +2872,23 @@ anv_CreateImageView(VkDevice _device,
 
       /* NOTE: This one needs to go last since it may stomp isl_view.format */
       if (view_usage & VK_IMAGE_USAGE_STORAGE_BIT) {
-         iview->planes[vplane].storage_surface_state.state = alloc_surface_state(device);
+         if (isl_is_storage_image_format(format.isl_format)) {
+            iview->planes[vplane].storage_surface_state.state =
+               alloc_surface_state(device);
+
+            anv_image_fill_surface_state(device, image, 1ULL << iaspect_bit,
+                                         &iview->planes[vplane].isl,
+                                         ISL_SURF_USAGE_STORAGE_BIT,
+                                         ISL_AUX_USAGE_NONE, NULL,
+                                         0,
+                                         &iview->planes[vplane].storage_surface_state,
+                                         &iview->planes[vplane].storage_image_param);
+         } else {
+            iview->planes[vplane].storage_surface_state.state =
+               device->null_surface_state;
+         }
+
          iview->planes[vplane].writeonly_storage_surface_state.state = alloc_surface_state(device);
-
-         anv_image_fill_surface_state(device, image, 1ULL << iaspect_bit,
-                                      &iview->planes[vplane].isl,
-                                      ISL_SURF_USAGE_STORAGE_BIT,
-                                      ISL_AUX_USAGE_NONE, NULL,
-                                      0,
-                                      &iview->planes[vplane].storage_surface_state,
-                                      &iview->planes[vplane].storage_image_param);
-
          anv_image_fill_surface_state(device, image, 1ULL << iaspect_bit,
                                       &iview->planes[vplane].isl,
                                       ISL_SURF_USAGE_STORAGE_BIT,

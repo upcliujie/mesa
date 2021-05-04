@@ -2721,7 +2721,7 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
                   : desc->image_view->planes[binding->plane].storage_surface_state;
                surface_state = sstate.state;
                assert(surface_state.alloc_size);
-               if (need_client_mem_relocs)
+               if (surface_state.offset && need_client_mem_relocs)
                   add_surface_state_relocs(cmd_buffer, sstate);
             } else {
                surface_state = cmd_buffer->device->null_surface_state;
