@@ -127,3 +127,12 @@ llvmpipe-egl:
     - .llvmpipe-deqp-test
   script:
     - xvfb-run --server-args='-noreset' ./install/deqp-runner.sh
+
+llvmpipe-nir-stress:
+  variables:
+    DEQP_VER: gles31
+    DEQP_FRACTION: 10
+    NIR_TEST_CLONE: "true"
+    NIR_TEST_SERIALIZE: "true"
+  extends:
+    - .llvmpipe-deqp-test
