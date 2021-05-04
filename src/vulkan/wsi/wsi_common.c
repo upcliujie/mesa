@@ -639,7 +639,7 @@ wsi_common_queue_present(const struct wsi_device *wsi,
           */
          submit_info.commandBufferCount = 1;
          submit_info.pCommandBuffers =
-            &image->prime.blit_cmd_buffers[queue_family_index];
+            &image->cmd_buffers[queue_family_index][WSI_CMD_TYPE_PRESENT];
          mem_signal.memory = image->prime.memory;
       }
 

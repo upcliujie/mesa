@@ -24,6 +24,7 @@
 #define WSI_COMMON_PRIVATE_H
 
 #include "wsi_common.h"
+#include "wsi_common_cmd.h"
 #include "vulkan/util/vk_object.h"
 
 struct wsi_image {
@@ -33,8 +34,10 @@ struct wsi_image {
    struct {
       VkBuffer buffer;
       VkDeviceMemory memory;
-      VkCommandBuffer *blit_cmd_buffers;
    } prime;
+
+   /* may be NULL */
+   VkCommandBuffer (*cmd_buffers)[WSI_CMD_TYPE_COUNT];
 
    uint64_t drm_modifier;
    int num_planes;

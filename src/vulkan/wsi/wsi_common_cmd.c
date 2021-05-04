@@ -15,19 +15,19 @@ struct wsi_cmd_builder {
 
    uint32_t present_blit_buffer_width;
 
-   VkCommandBuffer *cmd_buffers;
+   VkCommandBuffer (*cmd_buffers)[WSI_CMD_TYPE_COUNT];
 };
 
 static void
 wsi_cmd_free_cmd_buffers(const struct wsi_swapchain *chain,
-                         VkCommandBuffer *cmd_buffers,
+                         VkCommandBuffer (*cmd_buffers)[WSI_CMD_TYPE_COUNT],
                          uint32_t queue_family_count)
 {
    const struct wsi_device *wsi = chain->wsi;
 
    for (uint32_t i = 0; i < queue_family_count; i++) {
-      wsi->FreeCommandBuffers(chain->device, chain->cmd_pools[i], 1,
-                              &cmd_buffers[i]);
+      wsi->FreeCommandBuffers(chain->device, chain->cmd_pools[i],
+                              WSI_CMD_TYPE_COUNT, cmd_buffers[i]);
    }
    vk_free(&chain->alloc, cmd_buffers);
 }
@@ -39,7 +39,8 @@ wsi_cmd_builder_present_blit(struct wsi_cmd_builder *builder,
    const struct wsi_device *wsi = builder->chain->wsi;
    VkImage image = builder->image->image;
    VkBuffer buffer = builder->image->prime.buffer;
-   VkCommandBuffer cmd_buffer = builder->cmd_buffers[queue_family_index];
+   VkCommandBuffer cmd_buffer =
+      builder->cmd_buffers[queue_family_index][WSI_CMD_TYPE_PRESENT];
 
    const struct VkBufferImageCopy buffer_image_copy = {
       .bufferOffset = 0,
@@ -69,19 +70,28 @@ wsi_cmd_builder_build_for_queue_family(struct wsi_cmd_builder *builder,
 {
    const struct wsi_swapchain *chain = builder->chain;
    const struct wsi_device *wsi = chain->wsi;
-   VkCommandBuffer cmd_buffer = builder->cmd_buffers[queue_family_index];
-   VkResult result;
 
-   const VkCommandBufferBeginInfo begin_info = {
-      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-   };
-   result = wsi->BeginCommandBuffer(cmd_buffer, &begin_info);
-   if (result != VK_SUCCESS)
-      return result;
+   for (uint32_t type = 0; type < WSI_CMD_TYPE_COUNT; type++) {
+      VkCommandBuffer cmd_buffer =
+         builder->cmd_buffers[queue_family_index][type];
+      VkResult result;
 
-   wsi_cmd_builder_present_blit(builder, queue_family_index);
+      const VkCommandBufferBeginInfo begin_info = {
+         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+      };
+      result = wsi->BeginCommandBuffer(cmd_buffer, &begin_info);
+      if (result != VK_SUCCESS)
+         return result;
 
-   return wsi->EndCommandBuffer(cmd_buffer);
+      if (type == WSI_CMD_TYPE_PRESENT)
+         wsi_cmd_builder_present_blit(builder, queue_family_index);
+
+      result = wsi->EndCommandBuffer(cmd_buffer);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   return VK_SUCCESS;
 }
 
 static VkResult
@@ -90,9 +100,10 @@ wsi_cmd_builder_alloc(struct wsi_cmd_builder *builder)
    const struct wsi_swapchain *chain = builder->chain;
    const struct wsi_device *wsi = chain->wsi;
 
-   VkCommandBuffer *cmd_buffers = vk_zalloc(
-      &chain->alloc, sizeof(VkCommandBuffer) * wsi->queue_family_count, 8,
-      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   VkCommandBuffer(*cmd_buffers)[WSI_CMD_TYPE_COUNT] = vk_zalloc(
+      &chain->alloc,
+      sizeof(VkCommandBuffer) * wsi->queue_family_count * WSI_CMD_TYPE_COUNT,
+      8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!cmd_buffers)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
@@ -102,11 +113,11 @@ wsi_cmd_builder_alloc(struct wsi_cmd_builder *builder)
          .pNext = NULL,
          .commandPool = chain->cmd_pools[i],
          .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-         .commandBufferCount = 1,
+         .commandBufferCount = WSI_CMD_TYPE_COUNT,
       };
 
       VkResult result = wsi->AllocateCommandBuffers(
-         chain->device, &cmd_buffer_info, &cmd_buffers[i]);
+         chain->device, &cmd_buffer_info, cmd_buffers[i]);
       if (result != VK_SUCCESS) {
          wsi_cmd_free_cmd_buffers(chain, cmd_buffers, i);
          return result;
@@ -162,7 +173,7 @@ wsi_create_image_cmd_buffers(const struct wsi_swapchain *chain,
       return result;
 
    /* take the ownership */
-   image->prime.blit_cmd_buffers = builder.cmd_buffers;
+   image->cmd_buffers = builder.cmd_buffers;
 
    return VK_SUCCESS;
 }
@@ -173,9 +184,9 @@ wsi_destroy_image_cmd_buffers(const struct wsi_swapchain *chain,
 {
    const struct wsi_device *wsi = chain->wsi;
 
-   if (!image->prime.blit_cmd_buffers)
+   if (!image->cmd_buffers)
       return;
 
-   wsi_cmd_free_cmd_buffers(chain, image->prime.blit_cmd_buffers,
+   wsi_cmd_free_cmd_buffers(chain, image->cmd_buffers,
                             wsi->queue_family_count);
 }

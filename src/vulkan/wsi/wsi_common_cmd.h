@@ -11,6 +11,11 @@
 struct wsi_swapchain;
 struct wsi_image;
 
+enum wsi_cmd_type {
+   WSI_CMD_TYPE_PRESENT,
+   WSI_CMD_TYPE_COUNT,
+};
+
 VkResult
 wsi_create_image_cmd_buffers(const struct wsi_swapchain *chain,
                              struct wsi_image *image,
