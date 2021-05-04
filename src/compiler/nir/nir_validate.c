@@ -824,11 +824,15 @@ validate_tex_instr(nir_tex_instr *instr, validate_state *state)
 
       switch (instr->src[i].src_type) {
       case nir_tex_src_texture_deref:
-      case nir_tex_src_sampler_deref:
+      case nir_tex_src_sampler_deref: {
          validate_assert(state, instr->src[i].src.is_ssa);
          validate_assert(state,
                          instr->src[i].src.ssa->parent_instr->type == nir_instr_type_deref);
+         nir_variable *var = nir_deref_instr_get_variable(nir_instr_as_deref(instr->src[i].src.ssa->parent_instr));
+         validate_assert(state, glsl_sampler_type_is_array(var->type) == instr->is_array);
+         validate_assert(state, glsl_sampler_type_is_shadow(var->type) == instr->is_shadow);
          break;
+      }
       default:
          break;
       }
