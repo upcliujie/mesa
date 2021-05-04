@@ -1410,6 +1410,11 @@ struct isl_surf_fill_state_info {
    union isl_color_value clear_color;
 
    /**
+    * blend enable for gen4/5
+    */
+   bool blend_enable;
+
+   /**
     * Send only the clear value address
     *
     * If set, we only pass the clear address to the GPU and it will fetch it
