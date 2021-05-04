@@ -3307,7 +3307,8 @@ VkResult anv_CreateDevice(
                            device->isl_dev.ss.size,
                            device->isl_dev.ss.align);
    isl_null_fill_state(&device->isl_dev, device->null_surface_state.map,
-                       isl_extent3d(1, 1, 1) /* This shouldn't matter */);
+                       isl_extent3d(1, 1, 1), /* This shouldn't matter */
+                       0, 0);
    assert(device->null_surface_state.offset == 0);
 
    anv_scratch_pool_init(device, &device->scratch_pool);

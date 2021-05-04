@@ -2263,9 +2263,11 @@ isl_buffer_fill_state_s(const struct isl_device *dev, void *state,
 
 void
 isl_null_fill_state(const struct isl_device *dev, void *state,
-                    struct isl_extent3d size)
+                    struct isl_extent3d size, uint32_t levels,
+		    uint32_t minimum_array_element)
 {
-   isl_genX_call(dev, null_fill_state, state, size);
+   isl_genX_call(dev, null_fill_state, state, size,
+                 levels, minimum_array_element);
 }
 
 void
