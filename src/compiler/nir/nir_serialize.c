@@ -1480,8 +1480,8 @@ write_tex(write_ctx *ctx, const nir_tex_instr *tex)
 
    write_dest(ctx, &tex->dest, header, tex->instr.type);
 
-   blob_write_uint32(ctx->blob, tex->texture_index);
-   blob_write_uint32(ctx->blob, tex->sampler_index);
+   blob_write_uint32(ctx->blob, 0);
+   blob_write_uint32(ctx->blob, 0);
    if (tex->op == nir_texop_tg4)
       blob_write_bytes(ctx->blob, tex->tg4_offsets, sizeof(tex->tg4_offsets));
 
