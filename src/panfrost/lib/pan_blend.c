@@ -449,12 +449,6 @@ get_equation_str(const struct pan_blend_rt_state *rt_state,
          }
 }
 
-static nir_ssa_def *
-nir_iclamp(nir_builder *b, nir_ssa_def *v, int32_t lo, int32_t hi)
-{
-        return nir_imin(b, nir_imax(b, v, nir_imm_int(b, lo)), nir_imm_int(b, hi));
-}
-
 nir_shader *
 pan_blend_create_shader(const struct panfrost_device *dev,
                         const struct pan_blend_state *state,
@@ -538,13 +532,13 @@ pan_blend_create_shader(const struct panfrost_device *dev,
                         s_src[i] = nir_f2f16(&b, s_src[i]);
                         break;
                 case nir_type_int16:
-                        s_src[i] = nir_i2i16(&b, nir_iclamp(&b, s_src[i], -32768, 32767));
+                        s_src[i] = nir_i2i16(&b, nir_iclamp_imm(&b, s_src[i], -32768, 32767));
                         break;
                 case nir_type_uint16:
                         s_src[i] = nir_u2u16(&b, nir_umin(&b, s_src[i], nir_imm_int(&b, 65535)));
                         break;
                 case nir_type_int8:
-                        s_src[i] = nir_i2i8(&b, nir_iclamp(&b, s_src[i], -128, 127));
+                        s_src[i] = nir_i2i8(&b, nir_iclamp_imm(&b, s_src[i], -128, 127));
                         break;
                 case nir_type_uint8:
                         s_src[i] = nir_u2u8(&b, nir_umin(&b, s_src[i], nir_imm_int(&b, 255)));
