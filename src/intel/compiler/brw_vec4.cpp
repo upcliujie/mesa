@@ -775,6 +775,7 @@ vec4_visitor::pack_uniform_registers()
 
    ralloc_free(param);
    this->uniforms = new_uniform_count;
+   stage_prog_data->nr_params = new_uniform_count * 4;
 
    /* Now, update the instructions for our repacked uniforms. */
    foreach_block_and_inst(block, vec4_instruction, inst, cfg) {
