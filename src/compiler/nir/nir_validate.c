@@ -830,12 +830,25 @@ validate_tex_instr(nir_tex_instr *instr, validate_state *state)
                    0, nir_tex_instr_src_size(instr, i));
 
       switch (instr->src[i].src_type) {
-      case nir_tex_src_texture_deref:
-      case nir_tex_src_sampler_deref:
+      case nir_tex_src_texture_deref: {
+         nir_deref_instr *deref = nir_src_as_deref(instr->src[i].src);
+         if (!validate_assert(state, deref))
+            break;
+         const struct glsl_type *type = deref->type;
+         if (!validate_assert(state, glsl_type_is_image(type) || glsl_type_is_sampler(type)))
+            break;
+         validate_assert(state, glsl_sampler_type_is_array(type) == instr->is_array);
          validate_assert(state, instr->src[i].src.is_ssa);
          validate_assert(state,
                          instr->src[i].src.ssa->parent_instr->type == nir_instr_type_deref);
          break;
+      }
+      case nir_tex_src_sampler_deref: {
+         validate_assert(state, instr->src[i].src.is_ssa);
+         validate_assert(state,
+                         instr->src[i].src.ssa->parent_instr->type == nir_instr_type_deref);
+         break;
+      }
       default:
          break;
       }
