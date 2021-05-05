@@ -839,6 +839,12 @@ nir_ieq_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
 }
 
 static inline nir_ssa_def *
+nir_isub_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
+{
+   return nir_isub(build, x, nir_imm_intN_t(build, y, x->bit_size));
+}
+
+static inline nir_ssa_def *
 _nir_mul_imm(nir_builder *build, nir_ssa_def *x, uint64_t y, bool amul)
 {
    assert(x->bit_size <= 64);
