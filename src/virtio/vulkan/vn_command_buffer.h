@@ -19,6 +19,8 @@ struct vn_command_pool {
    struct vn_object_base base;
 
    VkAllocationCallbacks allocator;
+   uint32_t queue_family_index;
+
    struct list_head command_buffers;
 };
 VK_DEFINE_NONDISP_HANDLE_CASTS(vn_command_pool,
@@ -38,8 +40,10 @@ struct vn_command_buffer {
 
    struct vn_device *device;
 
-   /* for scrubbing VK_IMAGE_LAYOUT_PRESENT_SRC_KHR */
    VkAllocationCallbacks allocator;
+   uint32_t queue_family_index;
+
+   /* for scrubbing VK_IMAGE_LAYOUT_PRESENT_SRC_KHR */
    uint32_t image_barrier_count;
    VkImageMemoryBarrier *image_barriers;
 
