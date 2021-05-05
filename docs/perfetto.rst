@@ -7,29 +7,6 @@ Mesa contains a `Perfetto producer <https://perfetto.dev/docs/concepts/service-m
 - Intel performance counters
 - Freedreno performance counters (WIP)
 
-Build
------
-
-This section guides you through the building process assuming you are compiling on Ubuntu.
-
-1. Install dependencies:
-
-   .. code-block:: console
-
-      apt install build-essential meson cmake libwayland-dev rapidjson-dev libdrm-dev libprotobuf-dev libgtest-dev libdocopt-dev
-
-2. Generate the project:
-
-   .. code-block:: console
-
-      meson build -Dperfetto=true -Dgallium-drivers=swrast,panfrost,iris
-
-3. Compile and run tests (it may take a while):
-
-   .. code-block:: console
-
-      ninja -C build test
-
 Run
 ---
 
