@@ -1,18 +1,52 @@
-Perfetto producers
-==================
+Perfetto Tracing
+================
 
-Mesa contains a `Perfetto producer <https://perfetto.dev/docs/concepts/service-model>`__ with data-sources for some of its drivers. A producer is a client process for the Perfetto tracing service, while a data-source is a capability, exposed by a producer, which provides tracing data. The following data-sources are currently available:
+Mesa has experimental support for `Perfetto <https://perfetto.dev>`__ for
+GPU performance monitoring.  Perfetto supports multiple
+`producer <https://perfetto.dev/docs/concepts/service-model>`__ each with
+one or more data-sources.  Perfetto already provides various producers and
+data-sources for things like:
 
-- Panfrost performance counters
-- Intel performance counters
-- Freedreno performance counters (WIP)
+- CPU scheduling events (linux.ftrace)
+- CPU frequency scaling (linux.ftrace)
+- System calls (linux.ftrace)
+- Process memory utilization (linux.process_stats)
+
+As well as various domain specific producers.
+
+The mesa perfetto support adds additional producers, to allow for visualizing
+GPU performance (frequency, utilization, performance counters, etc) on the
+same timeline, to better understand and tune/debug system level performance:
+
+- pps-producer: A systemwide daemon that can collect global performance
+  counters
+- mesa: Per-process producer within mesa to capture render-stage traces
+  on the GPU timeline, track events, etc.
+
+The exact supported features vary per driver:
+
+.. list-table:: Supported data-sources
+   :header-rows: 1
+
+   * - Driver
+     - PPS Counters
+     - Render Stages
+   * - Freedreno
+     - gpu.counters.msm
+     - gpu.renderstages.msm
+   * - Intel
+     - WIP
+     -
+   * - Panfrost
+     - WIP
+     -
 
 Run
 ---
 
 To capture a trace with perfetto you need to take the following steps:
 
-1. Build perfetto from sources available at ``subprojets/perfetto`` following `this guide <https://perfetto.dev/docs/quickstart/linux-tracing>`__.
+1. Build perfetto from sources available at ``subprojects/perfetto`` following `this guide <https://perfetto.dev/docs/quickstart/linux-tracing>`__.
 
 2. Create a `trace config <https://perfetto.dev/#/trace-config.md>`__, which is a json formatted text file with extension ``.cfg``, or use one of the config files under the ``src/tool/pps/cfg`` directory. More examples of config files can be found in ``subprojects/perfetto/test/configs``.
 
@@ -31,15 +65,20 @@ To capture a trace with perfetto you need to take the following steps:
 
 7. Go to `ui.perfetto.dev <https://ui.perfetto.dev>`__ and upload ``$HOME/Downloads/trace.protobuf`` by clicking on **Open trace file**.
 
-GPU producer
-~~~~~~~~~~~~
+8. Alternatively you can open the trace in `AGI <https://gpuinspector.dev/>`__ (which despite the name can be used to view non-android traces)
 
-The GPU producer contains at the current state a data-source able to query performance counters using a Panfrost driver for Arm Mali devices, or an Intel driver for Intel Graphics devices.
+Driver Specifics
+~~~~~~~~~~~~~~~~
 
-Panfrost driver
-^^^^^^^^^^^^^^^
+Below is driver specific information/instructions for the PPS
+provider.
 
-The Panfrost driver uses unstable ioctls that behave correctly on kernel version `5.4.23+ <https://lwn.net/Articles/813601/>`__ and `5.5.7+ <https://lwn.net/Articles/813600/>`__.
+Panfrost
+^^^^^^^^
+
+The Panfrost PPS driver uses unstable ioctls that behave correctly on
+kernel version `5.4.23+ <https://lwn.net/Articles/813601/>`__ and
+`5.5.7+ <https://lwn.net/Articles/813600/>`__.
 
 To run the producer, follow these two simple steps:
 
@@ -55,10 +94,22 @@ To run the producer, follow these two simple steps:
 
       ./build/pps-producer
 
-Intel driver
-^^^^^^^^^^^^
+Intel
+^^^^^
 
-The Intel driver needs root access to read system-wide `RenderBasic <https://software.intel.com/content/www/us/en/develop/documentation/vtune-help/top/reference/gpu-metrics-reference.html>`__ performance counters, so you can simply run it with sudo:
+The Intel PPS driver needs root access to read system-wide
+`RenderBasic <https://software.intel.com/content/www/us/en/develop/documentation/vtune-help/top/reference/gpu-metrics-reference.html>`__
+performance counters, so you can simply run it with sudo:
+
+.. code-block:: console
+
+   sudo ./build/pps-producer
+
+Freedreno
+^^^^^^^^^
+
+The Freedreno PPS driver needs root access to read system-wide
+performance counters, so you can simply run it with sudo:
 
 .. code-block:: console
 
@@ -98,3 +149,13 @@ In order to prevent this loss of data you can tweak the trace config file in two
 
      write_into_file: true
      file_write_period_ms: 250
+
+- Discard new traces when the buffer fills:
+
+  .. code-block:: javascript
+
+      buffers {
+          size_kb: 2048,
+          fill_policy: DISCARD,
+      }
+
