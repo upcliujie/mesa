@@ -2081,8 +2081,11 @@ iris_bind_sampler_states(struct pipe_context *ctx,
 static void
 iris_upload_sampler_states(struct iris_context *ice, gl_shader_stage stage)
 {
+   struct iris_screen *screen = (struct iris_screen *) ice->ctx.screen;
    struct iris_shader_state *shs = &ice->state.shaders[stage];
    const struct shader_info *info = iris_get_shader_info(ice, stage);
+   struct iris_border_color_pool *border_color_pool =
+      iris_bufmgr_get_border_color_pool(screen->bufmgr);
 
    /* We assume gallium frontends will call pipe->bind_sampler_states()
     * if the program's number of textures changes.
@@ -2109,9 +2112,6 @@ iris_upload_sampler_states(struct iris_context *ice, gl_shader_stage stage)
                           bo->gtt_offset + shs->sampler_table.offset, size);
 
    shs->sampler_table.offset += iris_bo_offset_from_base_address(bo);
-
-   /* Make sure all land in the same BO */
-   iris_border_color_pool_reserve(ice, IRIS_MAX_TEXTURE_SAMPLERS);
 
    ice->state.need_border_colors &= ~(1 << stage);
 
@@ -2156,7 +2156,7 @@ iris_upload_sampler_states(struct iris_context *ice, gl_shader_stage stage)
          }
 
          /* Stream out the border color and merge the pointer. */
-         uint32_t offset = iris_upload_border_color(ice, color);
+         uint32_t offset = iris_upload_border_color(border_color_pool, color);
 
          uint32_t dynamic[GENX(SAMPLER_STATE_length)];
          iris_pack_state(GENX(SAMPLER_STATE), dynamic, dyns) {
@@ -5526,6 +5526,9 @@ iris_upload_dirty_render_state(struct iris_context *ice,
                                struct iris_batch *batch,
                                const struct pipe_draw_info *draw)
 {
+   struct iris_screen *screen = batch->screen;
+   struct iris_border_color_pool *border_color_pool =
+      iris_bufmgr_get_border_color_pool(screen->bufmgr);
    const uint64_t dirty = ice->state.dirty;
    const uint64_t stage_dirty = ice->state.stage_dirty;
 
@@ -5631,8 +5634,8 @@ iris_upload_dirty_render_state(struct iris_context *ice,
          assert(ice->shaders.urb.size[i] != 0);
       }
 
-      intel_get_urb_config(&batch->screen->devinfo,
-                           batch->screen->l3_config_3d,
+      intel_get_urb_config(&screen->devinfo,
+                           screen->l3_config_3d,
                            ice->shaders.prog[MESA_SHADER_TESS_EVAL] != NULL,
                            ice->shaders.prog[MESA_SHADER_GEOMETRY] != NULL,
                            ice->shaders.urb.size,
@@ -5831,8 +5834,7 @@ iris_upload_dirty_render_state(struct iris_context *ice,
    }
 
    if (ice->state.need_border_colors)
-      iris_use_pinned_bo(batch, ice->state.border_color_pool.bo, false,
-                         IRIS_DOMAIN_NONE);
+      iris_use_pinned_bo(batch, border_color_pool->bo, false, IRIS_DOMAIN_NONE);
 
    if (dirty & IRIS_DIRTY_MULTISAMPLE) {
       iris_emit_cmd(batch, GENX(3DSTATE_MULTISAMPLE), ms) {
@@ -6187,7 +6189,7 @@ iris_upload_dirty_render_state(struct iris_context *ice,
        * first.
        */
       uint32_t clear_length = GENX(3DSTATE_CLEAR_PARAMS_length) * 4;
-      uint32_t cso_z_size = batch->screen->isl_dev.ds.size - clear_length;;
+      uint32_t cso_z_size = screen->isl_dev.ds.size - clear_length;;
 
 #if GFX_VERx10 == 120
       /* Wa_14010455700
@@ -6214,8 +6216,8 @@ iris_upload_dirty_render_state(struct iris_context *ice,
           */
          iris_emit_pipe_control_write(batch, "WA for stencil state",
                                       PIPE_CONTROL_WRITE_IMMEDIATE,
-                                      batch->screen->workaround_address.bo,
-                                      batch->screen->workaround_address.offset, 0);
+                                      screen->workaround_address.bo,
+                                      screen->workaround_address.offset, 0);
       }
 
       union isl_color_value clear_value = { .f32 = { 0, } };
@@ -6283,7 +6285,7 @@ iris_upload_dirty_render_state(struct iris_context *ice,
             vb.BufferStartingAddress =
                ro_bo(NULL, res->bo->gtt_offset +
                            (int) ice->draw.draw_params.offset);
-            vb.MOCS = iris_mocs(res->bo, &batch->screen->isl_dev,
+            vb.MOCS = iris_mocs(res->bo, &screen->isl_dev,
                                 ISL_SURF_USAGE_VERTEX_BUFFER_BIT);
 #if GFX_VER >= 12
             vb.L3BypassDisable       = true;
@@ -6309,7 +6311,7 @@ iris_upload_dirty_render_state(struct iris_context *ice,
             vb.BufferStartingAddress =
                ro_bo(NULL, res->bo->gtt_offset +
                            (int) ice->draw.derived_draw_params.offset);
-            vb.MOCS = iris_mocs(res->bo, &batch->screen->isl_dev,
+            vb.MOCS = iris_mocs(res->bo, &screen->isl_dev,
                                 ISL_SURF_USAGE_VERTEX_BUFFER_BIT);
 #if GFX_VER >= 12
             vb.L3BypassDisable       = true;
@@ -7011,10 +7013,13 @@ iris_upload_compute_state(struct iris_context *ice,
                           struct iris_batch *batch,
                           const struct pipe_grid_info *grid)
 {
+   struct iris_screen *screen = batch->screen;
    const uint64_t stage_dirty = ice->state.stage_dirty;
    struct iris_shader_state *shs = &ice->state.shaders[MESA_SHADER_COMPUTE];
    struct iris_compiled_shader *shader =
       ice->shaders.prog[MESA_SHADER_COMPUTE];
+   struct iris_border_color_pool *border_color_pool =
+      iris_bufmgr_get_border_color_pool(screen->bufmgr);
 
    iris_batch_sync_region_start(batch);
 
@@ -7042,7 +7047,7 @@ iris_upload_compute_state(struct iris_context *ice,
                       IRIS_DOMAIN_NONE);
 
    if (ice->state.need_border_colors)
-      iris_use_pinned_bo(batch, ice->state.border_color_pool.bo, false,
+      iris_use_pinned_bo(batch, border_color_pool->bo, false,
                          IRIS_DOMAIN_NONE);
 
 #if GFX_VER >= 12

@@ -32,6 +32,7 @@
 #include "util/macros.h"
 #include "util/u_atomic.h"
 #include "util/list.h"
+#include "util/simple_mtx.h"
 #include "pipe/p_defines.h"
 
 struct iris_batch;
@@ -91,7 +92,7 @@ enum iris_memory_zone {
 #define IRIS_MEMZONE_OTHER_START      (3ull * (1ull << 32))
 
 #define IRIS_BORDER_COLOR_POOL_ADDRESS IRIS_MEMZONE_DYNAMIC_START
-#define IRIS_BORDER_COLOR_POOL_SIZE (64 * 1024)
+#define IRIS_BORDER_COLOR_POOL_SIZE (64 * 4096)
 
 /**
  * Classification of the various incoherent caches of the GPU into a number of
@@ -447,5 +448,32 @@ iris_bo_bump_seqno(struct iris_bo *bo, uint64_t seqno,
 }
 
 enum iris_memory_zone iris_memzone_for_address(uint64_t address);
+
+/**
+ * A pool containing SAMPLER_BORDER_COLOR_STATE entries.
+ *
+ * See iris_border_color.c for more information.
+ */
+struct iris_border_color_pool {
+   struct iris_bo *bo;
+   void *map;
+   unsigned insert_point;
+
+   /** Map from border colors to offsets in the buffer. */
+   struct hash_table *ht;
+
+   /** Protects insert_point. */
+   simple_mtx_t lock;
+};
+
+struct iris_border_color_pool *iris_bufmgr_get_border_color_pool(
+      struct iris_bufmgr *bufmgr);
+
+/* iris_border_color.c */
+void iris_init_border_color_pool(struct iris_bufmgr *bufmgr,
+                                 struct iris_border_color_pool *pool);
+void iris_destroy_border_color_pool(struct iris_border_color_pool *pool);
+uint32_t iris_upload_border_color(struct iris_border_color_pool *pool,
+                                  union pipe_color_union *color);
 
 #endif /* IRIS_BUFMGR_H */
