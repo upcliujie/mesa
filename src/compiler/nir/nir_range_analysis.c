@@ -1292,20 +1292,19 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
       nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(scalar.def->parent_instr);
       switch (intrin->intrinsic) {
       case nir_intrinsic_load_local_invocation_index:
-         if (shader->info.stage != MESA_SHADER_COMPUTE ||
-             shader->info.cs.local_size_variable) {
+         if (shader->info.local_size_variable) {
             res = config->max_work_group_invocations - 1;
          } else {
-            res = (shader->info.cs.local_size[0] *
-                   shader->info.cs.local_size[1] *
-                   shader->info.cs.local_size[2]) - 1u;
+            res = (shader->info.local_size[0] *
+                   shader->info.local_size[1] *
+                   shader->info.local_size[2]) - 1u;
          }
          break;
       case nir_intrinsic_load_local_invocation_id:
-         if (shader->info.cs.local_size_variable)
+         if (shader->info.local_size_variable)
             res = config->max_work_group_size[scalar.comp] - 1u;
          else
-            res = shader->info.cs.local_size[scalar.comp] - 1u;
+            res = shader->info.local_size[scalar.comp] - 1u;
          break;
       case nir_intrinsic_load_work_group_id:
          res = config->max_work_group_count[scalar.comp] - 1u;
@@ -1314,11 +1313,11 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
          res = config->max_work_group_count[scalar.comp];
          break;
       case nir_intrinsic_load_global_invocation_id:
-         if (shader->info.cs.local_size_variable) {
+         if (shader->info.local_size_variable) {
             res = mul_clamp(config->max_work_group_size[scalar.comp],
                             config->max_work_group_count[scalar.comp]) - 1u;
          } else {
-            res = (shader->info.cs.local_size[scalar.comp] *
+            res = (shader->info.local_size[scalar.comp] *
                    config->max_work_group_count[scalar.comp]) - 1u;
          }
          break;
@@ -1339,10 +1338,11 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
       case nir_intrinsic_load_subgroup_id:
       case nir_intrinsic_load_num_subgroups: {
          uint32_t work_group_size = config->max_work_group_invocations;
-         if (shader->info.stage == MESA_SHADER_COMPUTE && !shader->info.cs.local_size_variable) {
-            work_group_size = shader->info.cs.local_size[0] *
-                              shader->info.cs.local_size[1] *
-                              shader->info.cs.local_size[2];
+         if (gl_shader_stage_uses_workgroup(shader->info.stage)
+             && !shader->info.local_size_variable) {
+            work_group_size = shader->info.local_size[0] *
+                              shader->info.local_size[1] *
+                              shader->info.local_size[2];
          }
          res = DIV_ROUND_UP(work_group_size, config->min_subgroup_size);
          if (intrin->intrinsic == nir_intrinsic_load_subgroup_id)
