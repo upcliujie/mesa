@@ -364,7 +364,7 @@ intel_texture_for_memory_object(struct gl_context *ctx,
    UNUSED const bool isl_surf_created_successfully =
       isl_surf_init(&brw->screen->isl_dev, &surf,
                     .dim = get_isl_surf_dim(tex_obj->Target),
-                    .format = brw_isl_format_for_mesa_format(image->TexFormat),
+                    .format = translate_tex_format(brw, image->TexFormat, false),
                     .width = width,
                     .height = height,
                     .depth = depth,
