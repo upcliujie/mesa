@@ -217,6 +217,8 @@ struct iris_bufmgr {
    bool bo_reuse:1;
 
    struct intel_aux_map_context *aux_map_ctx;
+
+   struct iris_border_color_pool border_color_pool;
 };
 
 static simple_mtx_t global_bufmgr_list_mutex = _SIMPLE_MTX_INITIALIZER_NP;
@@ -1294,6 +1296,8 @@ iris_bo_wait(struct iris_bo *bo, int64_t timeout_ns)
 static void
 iris_bufmgr_destroy(struct iris_bufmgr *bufmgr)
 {
+   iris_destroy_border_color_pool(&bufmgr->border_color_pool);
+
    /* Free aux-map buffers */
    intel_aux_map_finish(bufmgr->aux_map_ctx);
 
@@ -1941,6 +1945,8 @@ iris_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
       assert(bufmgr->aux_map_ctx);
    }
 
+   iris_init_border_color_pool(bufmgr, &bufmgr->border_color_pool);
+
    return bufmgr;
 }
 
@@ -2023,4 +2029,10 @@ simple_mtx_t *
 iris_bufmgr_get_bo_deps_lock(struct iris_bufmgr *bufmgr)
 {
    return &bufmgr->bo_deps_lock;
+}
+
+struct iris_border_color_pool *
+iris_bufmgr_get_border_color_pool(struct iris_bufmgr *bufmgr)
+{
+   return &bufmgr->border_color_pool;
 }
