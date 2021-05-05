@@ -349,6 +349,7 @@ llvmpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
    case PIPE_CAP_SAMPLE_SHADING:
    case PIPE_CAP_GL_SPIRV:
    case PIPE_CAP_POST_DEPTH_COVERAGE:
+   case PIPE_CAP_NIR_IMAGES_AS_DEREF:
    case PIPE_CAP_PACKED_UNIFORMS: {
       struct llvmpipe_screen *lscreen = llvmpipe_screen(screen);
       return !lscreen->use_tgsi;
