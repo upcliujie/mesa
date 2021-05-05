@@ -199,6 +199,8 @@ MoveResult MoveState::downwards_move(bool clause)
    if (!clause) {
       total_demand -= candidate_diff;
       insert_idx--;
+   } else {
+      total_demand.update(total_demand_clause);
    }
 
    downwards_advance_helper();
