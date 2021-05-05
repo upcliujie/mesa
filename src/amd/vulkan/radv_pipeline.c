@@ -3428,7 +3428,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
    }
 
    for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
-      if (radv_can_dump_shader(device, modules[i], false))
+      if (radv_can_dump_shader(device, modules[i], false, false))
          nir_print_shader(nir[i], stderr);
    }
 
