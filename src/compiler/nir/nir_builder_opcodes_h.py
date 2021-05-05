@@ -124,7 +124,13 @@ _nir_build_${name}(nir_builder *build${intrinsic_decl_list(opcode)})
    intrin->src[${i}] = nir_src_for_ssa(src${i});
    % endfor
    % for index in opcode.indices:
+   % if index.name == 'write_mask' and opcode.src_names.index(VALUE_NAME) if VALUE_NAME in opcode.src_names else -1 != -1:
+   nir_intrinsic_set_${index.name}(intrin, indices.${index.name} ? indices.${index.name} : (1<<src${opcode.src_names[VALUE_NAME]}->num_components)-1);
+   % elif index.name == 'align_mul' and opcode.src_names.index(VALUE_NAME) if VALUE_NAME in opcode.src_names else -1 != -1:
+   nir_intrinsic_set_${index.name}(intrin, indices.${index.name} ? indices.${index.name} : src${opcode.src_names[VALUE_NAME]}->bit_size / 8);
+   % else:
    nir_intrinsic_set_${index.name}(intrin, indices.${index.name});
+   % endif
    % endfor
 
    nir_builder_instr_insert(build, &intrin->instr);
