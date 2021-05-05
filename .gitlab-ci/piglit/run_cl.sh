@@ -3,7 +3,7 @@
 set -e
 set -o xtrace
 
-VERSION=`cat install/VERSION`
+VERSION=`head -1 install/VERSION`
 
 rm -rf results/{*,.*}
 cd /piglit
