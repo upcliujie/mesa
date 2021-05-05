@@ -689,6 +689,22 @@ bi_writes_reg(bi_instr *instr)
                  !bi_opcode_props[instr->op].sr_write);
 }
 
+/* Does the succeeding tuple consume any of a candidate instruction's
+ * destinations? Tempable for certain fixed sequences. */
+
+static bool
+bi_consumes_dest(bi_instr *instr, struct bi_tuple_state *tuple)
+{
+        for (unsigned i = 0; i < tuple->nr_prev_reads; ++i) {
+                bi_foreach_dest(instr, d) {
+                        if (bi_is_equiv(tuple->prev_reads[i], instr->dest[d]))
+                                return true;
+                }
+        }
+
+        return false;
+}
+
 /* Instruction placement entails two questions: what subset of instructions in
  * the block can legally be scheduled? and of those which is the best? That is,
  * we seek to maximize a cost function on a subset of the worklist satisfying a
@@ -748,6 +764,14 @@ bi_instr_schedulable(bi_instr *instr,
                         }
                 }
         }
+
+        /* +CUBEFACE needs to use temporaries to be schedulable */
+        if (instr->op == BI_OPCODE_CUBEFACE && !bi_consumes_dest(instr, tuple))
+                return false;
+
+        /* TODO: Refine condition but ensures the above is satisfiable */
+        if (instr->op == BI_OPCODE_CUBE_SSEL && !tuple->last)
+                return false;
 
         /* If FAU is already assigned, we may not disrupt that. Do a
          * non-disruptive test update */
@@ -821,6 +845,11 @@ bi_choose_index(struct bi_worklist st,
 
                 if (!bi_instr_schedulable(instr, clause, tuple, fma))
                         continue;
+
+                /* If we can schedule +CUBEFACE, we should to satisfy
+                 * restrictions */
+                if (instr->op == BI_OPCODE_CUBEFACE)
+                        return i;
 
                 signed cost = bi_instr_cost(instr);
 
