@@ -895,6 +895,10 @@ x11_handle_dri3_present_event(struct x11_swapchain *chain,
    case XCB_PRESENT_CONFIGURE_NOTIFY: {
       xcb_present_configure_notify_event_t *config = (void *) event;
 
+      if (config->width > chain->extent.width ||
+          config->height > chain->extent.height)
+         return VK_ERROR_OUT_OF_DATE_KHR;
+
       if (config->width != chain->extent.width ||
           config->height != chain->extent.height)
          return VK_SUBOPTIMAL_KHR;
