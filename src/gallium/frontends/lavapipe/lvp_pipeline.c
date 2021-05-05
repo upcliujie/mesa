@@ -310,7 +310,8 @@ deep_copy_graphics_create_info(void *mem_ctx,
                     1);
 
    /* pMultisampleState */
-   if (src->pMultisampleState) {
+   bool rasterization_disabled = src->pRasterizationState->rasterizerDiscardEnable;
+   if (src->pMultisampleState && !rasterization_disabled) {
       VkPipelineMultisampleStateCreateInfo*   ms_state;
       ms_state = ralloc_size(mem_ctx, sizeof(VkPipelineMultisampleStateCreateInfo) + sizeof(VkSampleMask));
       if (!ms_state)
