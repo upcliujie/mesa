@@ -245,11 +245,8 @@ fd_perfetto_init(void)
 {
    util_perfetto_init();
 
-   // TODO do we need to make sure this only runs once?  It is called
-   // at screen creation time which is *probably* good enough?
-
    perfetto::DataSourceDescriptor dsd;
-   dsd.set_name("gpu.renderstages");
+   dsd.set_name("gpu.renderstages.msm");
    FdRenderpassDataSource::Register(dsd);
 }
 
