@@ -989,10 +989,27 @@ bi_instr_schedulable(bi_instr *instr,
 }
 
 static signed
-bi_instr_cost(bi_instr *instr)
+bi_instr_cost(bi_instr *instr, struct bi_tuple_state *tuple)
 {
-        /* TODO: stub */
-        return 0;
+        signed cost = 0;
+
+        /* Instructions that can schedule to either FMA or to ADD should be
+         * deprioritized since they're easier to reschedule elsewhere */
+        if (bi_can_fma(instr) && bi_can_add(instr))
+                cost++;
+
+        /* Message-passing instructions impose constraints on the registers
+         * later in the clause, so schedule them as late within a clause as
+         * possible (<==> prioritize them since we're backwards <==> decrease
+         * cost) */
+        if (bi_must_message(instr))
+                cost--;
+
+        /* Last instructions are big constraints (XXX: no effect on shader-db) */
+        if (bi_must_last(instr))
+                cost -= 2;
+
+        return cost;
 }
 
 static unsigned
@@ -1015,9 +1032,14 @@ bi_choose_index(struct bi_worklist st,
                 if (instr->op == BI_OPCODE_CUBEFACE)
                         return i;
 
-                signed cost = bi_instr_cost(instr);
+                signed cost = bi_instr_cost(instr, tuple);
 
-                if (cost < best_cost) {
+                /* Tie break in favour of later instructions, under the
+                 * assumption this promotes temporary usage (reducing pressure
+                 * on the register file). This is a side effect of a prepass
+                 * scheduling for pressure. */
+
+                if (cost <= best_cost) {
                         best_idx = i;
                         best_cost = cost;
                 }
@@ -1047,8 +1069,74 @@ bi_pop_instr(struct bi_clause_state *clause, struct bi_tuple_state *tuple,
         }
 }
 
+static bool
+bi_could_pair_add(struct bi_clause_state *clause, struct bi_tuple_state *tuple,
+                struct bi_worklist st, unsigned idx)
+{
+        unsigned i;
+
+        /* Check if anything currently on the worklist is schedulable as FMA */
+        BITSET_FOREACH_SET(i, st.worklist, st.count) {
+                if (i == idx)
+                        continue;
+
+                bi_instr *instr = st.instructions[i];
+
+                if (bi_instr_schedulable(instr, clause, tuple, true))
+                        return true;
+        }
+
+        /* Check if something that will enter the worklist will become
+         * schedulable after scheduling this. TODO: Deeper constraint checks. */
+
+        if (!st.dependents[idx])
+                return false;
+
+        unsigned cached_access = clause->access_count;
+        unsigned cached_tuple_writes = tuple->reg.nr_writes;
+        unsigned cached_tuple_reads = tuple->reg.nr_reads;
+
+        bi_instr *instr = st.instructions[idx];
+
+        assert(clause->access_count + BI_MAX_SRCS <= ARRAY_SIZE(clause->accesses));
+        memcpy(clause->accesses + clause->access_count, instr->src, sizeof(instr->src));
+
+        clause->access_count += BI_MAX_SRCS;
+        clause->accesses[clause->access_count++] = instr->dest[0];
+
+        if (bi_writes_reg(instr))
+                tuple->reg.nr_writes++;
+
+        bi_foreach_src(instr, s) {
+                if (bi_tuple_is_new_src(instr, &tuple->reg, s))
+                        tuple->reg.reads[tuple->reg.nr_reads++] = instr->src[s];
+        }
+
+        BITSET_FOREACH_SET(i, st.dependents[idx], st.count) {
+                if (st.dep_counts[i] == 1) {
+                        bi_instr *instr = st.instructions[i];
+
+                        if (bi_instr_schedulable(instr, clause, tuple, true)) {
+                                clause->access_count = cached_access;
+                                tuple->reg.nr_writes = cached_tuple_writes;
+                                tuple->reg.nr_reads = cached_tuple_reads;
+
+                                return true;
+                        }
+                }
+        }
+
+        clause->access_count = cached_access;
+        tuple->reg.nr_writes = cached_tuple_writes;
+        tuple->reg.nr_reads = cached_tuple_reads;
+
+        return false;
+}
+
 /* Choose the best instruction and pop it off the worklist. Returns NULL if no
  * instruction is available. This function is destructive. */
+
+#define BI_TAKE_BAIL ((bi_instr *) (uintptr_t) ~0)
 
 static bi_instr *
 bi_take_instr(bi_context *ctx, struct bi_worklist st,
@@ -1075,11 +1163,25 @@ bi_take_instr(bi_context *ctx, struct bi_worklist st,
 
         unsigned idx = bi_choose_index(st, clause, tuple, fma);
 
-        if (idx >= st.count)
+       if (idx >= st.count)
                 return NULL;
 
         /* Update state to reflect taking the instruction */
         bi_instr *instr = st.instructions[idx];
+
+        /* TODO: Quantify clause-nop tradeoff... we have aggressive, moves only, and FMA/ADD only. */
+
+         //if (!fma && !bi_could_pair_add(clause, tuple, st, idx) && !tuple->last && !bi_must_message(instr) && instr->op != BI_OPCODE_CUBEFACE && instr->op != BI_OPCODE_CUBE_SSEL && instr->op != BI_OPCODE_CUBE_TSEL)
+        
+         if (!fma && !bi_could_pair_add(clause, tuple, st, idx) && !tuple->last && instr->op == BI_OPCODE_MOV_I32)
+
+#if 0
+         if (!fma && !bi_could_pair_add(clause, tuple, st, idx) && !tuple->last &&
+                         bi_can_fma(instr) &&
+                         bi_can_add(instr))
+#endif
+                return BI_TAKE_BAIL;
+
 
         BITSET_CLEAR(st.worklist, idx);
         bi_update_worklist(st, idx);
@@ -1487,7 +1589,10 @@ bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st)
 
                 /* Since we schedule backwards, we schedule ADD first */
                 tuple_state.add = bi_take_instr(ctx, st, &clause_state, &tuple_state, false);
-                tuple->fma = bi_take_instr(ctx, st, &clause_state, &tuple_state, true);
+                if (tuple_state.add != BI_TAKE_BAIL)
+                        tuple->fma = bi_take_instr(ctx, st, &clause_state, &tuple_state, true);
+                else
+                        tuple_state.add = NULL;
                 tuple->add = tuple_state.add;
 
                 /* We may have a message, but only one per clause */
