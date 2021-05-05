@@ -99,7 +99,7 @@ struct agx_zsa {
 };
 
 struct agx_blend {
-   bool logicop_enable;
+   bool logicop_enable, blend_enable;
 
    union {
       nir_lower_blend_rt rt[8];
