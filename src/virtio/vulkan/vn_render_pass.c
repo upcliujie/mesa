@@ -28,13 +28,6 @@
       }                                                                      \
    } while (false)
 
-/* XXX drop the #ifdef after fixing common wsi */
-#ifdef ANDROID
-#define PRESENT_SRC_INTERNAL_LAYOUT VK_IMAGE_LAYOUT_GENERAL
-#else
-#define PRESENT_SRC_INTERNAL_LAYOUT VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-#endif
-
 #define REPLACE_PRESENT_SRC(pass, atts, att_count, out_atts)                 \
    do {                                                                      \
       struct vn_present_src_attachment *_acquire_atts =                      \
@@ -45,13 +38,13 @@
       memcpy(out_atts, atts, sizeof(*atts) * att_count);                     \
       for (uint32_t i = 0; i < att_count; i++) {                             \
          if (out_atts[i].initialLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) { \
-            out_atts[i].initialLayout = PRESENT_SRC_INTERNAL_LAYOUT;         \
+            out_atts[i].initialLayout = VK_IMAGE_LAYOUT_GENERAL;             \
             _acquire_atts->acquire = true;                                   \
             _acquire_atts->index = i;                                        \
             _acquire_atts++;                                                 \
          }                                                                   \
          if (out_atts[i].finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {   \
-            out_atts[i].finalLayout = PRESENT_SRC_INTERNAL_LAYOUT;           \
+            out_atts[i].finalLayout = VK_IMAGE_LAYOUT_GENERAL;               \
             _release_atts->acquire = false;                                  \
             _release_atts->index = i;                                        \
             _release_atts++;                                                 \
