@@ -14,6 +14,7 @@
 #include "venus-protocol/vn_protocol_driver_render_pass.h"
 
 #include "vn_device.h"
+#include "vn_image.h"
 
 #define COUNT_PRESENT_SRC(atts, att_count, initial_count, final_count)       \
    do {                                                                      \
@@ -288,12 +289,23 @@ vn_CreateFramebuffer(VkDevice device,
    const VkAllocationCallbacks *alloc =
       pAllocator ? pAllocator : &dev->base.base.alloc;
 
-   struct vn_framebuffer *fb = vk_zalloc(alloc, sizeof(*fb), VN_DEFAULT_ALIGN,
-                                         VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   const bool imageless =
+      pCreateInfo->flags & VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT;
+   const uint32_t count = imageless ? 0 : pCreateInfo->attachmentCount;
+   struct vn_framebuffer *fb =
+      vk_zalloc(alloc, sizeof(*fb) + sizeof(*fb->image_views) * count,
+                VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!fb)
       return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vn_object_base_init(&fb->base, VK_OBJECT_TYPE_FRAMEBUFFER, &dev->base);
+
+   /* Two render passes differ only in attachment image layouts are considered
+    * compatible.  We must not use pCreateInfo->renderPass here.
+    */
+   fb->image_view_count = count;
+   memcpy(fb->image_views, pCreateInfo->pAttachments,
+          sizeof(*pCreateInfo->pAttachments) * count);
 
    VkFramebuffer fb_handle = vn_framebuffer_to_handle(fb);
    vn_async_vkCreateFramebuffer(dev->instance, device, pCreateInfo, NULL,
