@@ -234,7 +234,6 @@ typedef struct pipe_fence_handle *(*tc_create_fence_func)(struct pipe_context *c
 
 struct threaded_resource {
    struct pipe_resource b;
-   const struct u_resource_vtbl *vtbl;
 
    /* Since buffer invalidations are queued, we can't use the base resource
     * for unsychronized mappings. This points to the latest version of
