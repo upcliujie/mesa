@@ -418,6 +418,18 @@ optimise_nir(nir_shader *nir, unsigned quirks, bool is_blend)
         NIR_PASS(progress, nir, nir_copy_prop);
         NIR_PASS(progress, nir, nir_opt_dce);
 
+        /* Backend scheduler is purely local, so do some global optimizations
+         * to reduce register pressure.  Skip the passes for blend shaders to
+         * workaround the lack of precolouring. */
+        nir_move_options move_all =
+                nir_move_const_undef | nir_move_load_ubo | nir_move_load_input |
+                nir_move_comparisons | nir_move_copies | nir_move_load_ssbo;
+
+        if (!is_blend) {
+                NIR_PASS_V(nir, nir_opt_sink, move_all);
+                NIR_PASS_V(nir, nir_opt_move, move_all);
+        }
+
         /* Take us out of SSA */
         NIR_PASS(progress, nir, nir_lower_locals_to_regs);
         NIR_PASS(progress, nir, nir_convert_from_ssa, true);
