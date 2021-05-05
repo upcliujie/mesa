@@ -38,12 +38,17 @@ class Index(object):
         self.c_data_type = c_data_type
         self.name = name
 
+class SrcName(object):
+    def __init__(self, c_data_type, name):
+        self.c_data_type = c_data_type
+        self.name = name
+
 class Intrinsic(object):
    """Class that represents all the information about an intrinsic opcode.
    NOTE: this must be kept in sync with nir_intrinsic_info.
    """
    def __init__(self, name, src_components, dest_components,
-                indices, flags, sysval, bit_sizes):
+                indices, flags, sysval, bit_sizes, src_names):
        """Parameters:
 
        - name: the intrinsic name
@@ -57,6 +62,8 @@ class Intrinsic(object):
        - flags: list of semantic flags
        - sysval: is this a system-value intrinsic
        - bit_sizes: allowed dest bit_sizes or the source it must match
+       - src_names: mapping of srcs to pull index info from;
+         -1 means do not attempt to use implicit values
        """
        assert isinstance(name, str)
        assert isinstance(src_components, list)
@@ -69,6 +76,8 @@ class Intrinsic(object):
        assert isinstance(flags, list)
        if flags:
            assert isinstance(flags[0], str)
+       if src_names:
+           assert isinstance(src_names[0], SrcName)
        assert isinstance(sysval, bool)
        if isinstance(bit_sizes, list):
            assert not bit_sizes or isinstance(bit_sizes[0], int)
@@ -84,6 +93,7 @@ class Intrinsic(object):
        self.dest_components = dest_components
        self.num_indices = len(indices)
        self.indices = indices
+       self.src_names = src_names
        self.flags = flags
        self.sysval = sysval
        self.bit_sizes = bit_sizes if isinstance(bit_sizes, list) else []
@@ -97,11 +107,17 @@ CAN_ELIMINATE = "NIR_INTRINSIC_CAN_ELIMINATE"
 CAN_REORDER   = "NIR_INTRINSIC_CAN_REORDER"
 
 INTR_INDICES = []
+INTR_SRC_NAMES = []
 INTR_OPCODES = {}
 
 def index(c_data_type, name):
     idx = Index(c_data_type, name)
     INTR_INDICES.append(idx)
+    globals()[name.upper()] = idx
+
+def src_name(c_data_type, name):
+    idx = SrcName(c_data_type, name)
+    INTR_SRC_NAMES.append(idx)
     globals()[name.upper()] = idx
 
 # Defines a new NIR intrinsic.  By default, the intrinsic will have no sources
@@ -116,10 +132,10 @@ def index(c_data_type, name):
 # only one source.  If a component count is 0, it will be as many components as
 # the intrinsic has based on the dest_comp.
 def intrinsic(name, src_comp=[], dest_comp=-1, indices=[],
-              flags=[], sysval=False, bit_sizes=[]):
+              flags=[], sysval=False, bit_sizes=[], src_names=[]):
     assert name not in INTR_OPCODES
     INTR_OPCODES[name] = Intrinsic(name, src_comp, dest_comp,
-                                   indices, flags, sysval, bit_sizes)
+                                   indices, flags, sysval, bit_sizes, src_names)
 
 #
 # Possible indices:
@@ -246,6 +262,38 @@ index("nir_rounding_mode", "rounding_mode")
 
 # Whether or not to saturate in conversions
 index("unsigned", "saturate")
+
+
+#
+# Possible intrinsic src names
+#
+
+# The value used by the intrinsic
+src_name("unsigned", "value")
+
+# For store instructions, a writemask for the store.
+src_name("unsigned", "write_mask")
+
+# The offset used by the intrinsic
+src_name("unsigned", "offset")
+
+# The index of the block being read/stored
+src_name("unsigned", "block_index")
+
+# The vertex used by the intrinsic
+src_name("unsigned", "vertex")
+
+# Alignment for offsets and addresses
+#
+# These two parameters, specify an alignment in terms of a multiplier and
+# an offset.  The multiplier is always a power of two.  The offset or
+# address parameter X of the intrinsic is guaranteed to satisfy the
+# following:
+#
+#                (X - align_offset) % align_mul == 0
+#
+src_name("unsigned", "align_mul")
+src_name("unsigned", "align_offset")
 
 intrinsic("nop", flags=[CAN_ELIMINATE])
 
@@ -908,21 +956,21 @@ load("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE])
 # the value.  SSBO and shared memory stores also have a
 # nir_intrinsic_write_mask()
 
-def store(name, srcs, indices=[], flags=[]):
-    intrinsic("store_" + name, [0] + srcs, indices=indices, flags=flags)
+def store(name, srcs, indices=[], flags=[], src_names=[]):
+    intrinsic("store_" + name, [0] + srcs, indices=indices, flags=flags, src_names=src_names)
 
 # src[] = { value, offset }.
-store("output", [1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS])
+store("output", [1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS], [], [VALUE, OFFSET])
 # src[] = { value, vertex, offset }.
-store("per_vertex_output", [1, 1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS])
+store("per_vertex_output", [1, 1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS], [], [VALUE, VERTEX, OFFSET])
 # src[] = { value, block_index, offset }
-store("ssbo", [-1, 1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET])
+store("ssbo", [-1, 1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], [VALUE, BLOCK_INDEX, OFFSET])
 # src[] = { value, offset }.
-store("shared", [1], [BASE, WRITE_MASK, ALIGN_MUL, ALIGN_OFFSET])
+store("shared", [1], [BASE, WRITE_MASK, ALIGN_MUL, ALIGN_OFFSET], [], [VALUE, OFFSET])
 # src[] = { value, address }.
-store("global", [1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET])
+store("global", [1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], [VALUE])
 # src[] = { value, offset }.
-store("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET, WRITE_MASK])
+store("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET, WRITE_MASK], [], [VALUE, OFFSET])
 
 # A bit field to implement SPIRV FragmentShadingRateKHR
 # bit | name              | description
