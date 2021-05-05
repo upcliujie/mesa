@@ -81,13 +81,13 @@ lower_cs_intrinsics_convert_block(struct lower_intrinsics_state *state,
 
             nir_ssa_def *size_x;
             nir_ssa_def *size_y;
-            if (state->nir->info.cs.local_size_variable) {
+            if (state->nir->info.local_size_variable) {
                nir_ssa_def *size_xyz = nir_load_local_group_size(b);
                size_x = nir_channel(b, size_xyz, 0);
                size_y = nir_channel(b, size_xyz, 1);
             } else {
-               size_x = nir_imm_int(b, nir->info.cs.local_size[0]);
-               size_y = nir_imm_int(b, nir->info.cs.local_size[1]);
+               size_x = nir_imm_int(b, nir->info.local_size[0]);
+               size_y = nir_imm_int(b, nir->info.local_size[1]);
             }
 
             /* The local invocation index and ID must respect the following
@@ -160,16 +160,16 @@ lower_cs_intrinsics_convert_block(struct lower_intrinsics_state *state,
 
       case nir_intrinsic_load_num_subgroups: {
          nir_ssa_def *size;
-         if (state->nir->info.cs.local_size_variable) {
+         if (state->nir->info.local_size_variable) {
             nir_ssa_def *size_xyz = nir_load_local_group_size(b);
             nir_ssa_def *size_x = nir_channel(b, size_xyz, 0);
             nir_ssa_def *size_y = nir_channel(b, size_xyz, 1);
             nir_ssa_def *size_z = nir_channel(b, size_xyz, 2);
             size = nir_imul(b, nir_imul(b, size_x, size_y), size_z);
          } else {
-            size = nir_imm_int(b, nir->info.cs.local_size[0] *
-                                  nir->info.cs.local_size[1] *
-                                  nir->info.cs.local_size[2]);
+            size = nir_imm_int(b, nir->info.local_size[0] *
+                                  nir->info.local_size[1] *
+                                  nir->info.local_size[2]);
          }
 
          /* Calculate the equivalent of DIV_ROUND_UP. */
@@ -220,15 +220,15 @@ brw_nir_lower_cs_intrinsics(nir_shader *nir)
    };
 
    /* Constraints from NV_compute_shader_derivatives. */
-   if (!nir->info.cs.local_size_variable) {
+   if (!nir->info.local_size_variable) {
       if (nir->info.cs.derivative_group == DERIVATIVE_GROUP_QUADS) {
-         assert(nir->info.cs.local_size[0] % 2 == 0);
-         assert(nir->info.cs.local_size[1] % 2 == 0);
+         assert(nir->info.local_size[0] % 2 == 0);
+         assert(nir->info.local_size[1] % 2 == 0);
       } else if (nir->info.cs.derivative_group == DERIVATIVE_GROUP_LINEAR) {
          ASSERTED unsigned local_workgroup_size =
-            nir->info.cs.local_size[0] *
-            nir->info.cs.local_size[1] *
-            nir->info.cs.local_size[2];
+            nir->info.local_size[0] *
+            nir->info.local_size[1] *
+            nir->info.local_size[2];
          assert(local_workgroup_size % 4 == 0);
       }
    }
