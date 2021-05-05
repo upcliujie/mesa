@@ -194,10 +194,10 @@ MoveResult MoveState::downwards_move(bool clause)
    for (int i = source_idx; i < dest_insert_idx - 1; i++)
       register_demand[i] -= candidate_diff;
    register_demand[dest_insert_idx - 1] = new_demand;
+   total_demand -= candidate_diff;
    total_demand_clause -= candidate_diff;
    insert_idx_clause--;
    if (!clause) {
-      total_demand -= candidate_diff;
       insert_idx--;
    }
 
