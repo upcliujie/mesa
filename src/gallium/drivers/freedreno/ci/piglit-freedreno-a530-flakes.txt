@@ -19,3 +19,6 @@ spec@arb_copy_buffer@copy_buffer_coherency
 # Flakes since introduction of piglit testing, possibly increased in frequency
 # around Apr 16 or more likely Apr 23
 spec@arb_texture_gather@texturegather.*
+
+# Flakes since around Apr 30th on a clearly innocent MR.
+.*texwrap_formats.*bordercolor
