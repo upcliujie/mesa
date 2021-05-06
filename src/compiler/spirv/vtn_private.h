@@ -787,6 +787,31 @@ vtn_value(struct vtn_builder *b, uint32_t value_id,
    return val;
 }
 
+static inline struct vtn_value *
+vtn_pointer_value(struct vtn_builder *b, uint32_t value_id)
+{
+   struct vtn_value *val = vtn_untyped_value(b, value_id);
+   vtn_fail_if(val->value_type != vtn_value_type_pointer &&
+               !val->is_null_constant,
+               "SPIR-V id %u is the wrong kind of value", value_id);
+   return val;
+}
+
+static inline struct vtn_pointer *
+vtn_value_to_pointer(struct vtn_builder *b, struct vtn_value *value)
+{
+   if (value->is_null_constant)
+      return vtn_pointer_from_ssa(b, nir_imm_int64(&b->nb, 0), value->type);
+   assert(value->value_type == vtn_value_type_pointer);
+   return value->pointer;
+}
+
+static inline struct vtn_pointer *
+vtn_pointer(struct vtn_builder *b, uint32_t value_id)
+{
+   return vtn_value_to_pointer(b, vtn_pointer_value(b, value_id));
+}
+
 bool
 vtn_set_instruction_result_type(struct vtn_builder *b, SpvOp opcode,
                                 const uint32_t *w, unsigned count);
