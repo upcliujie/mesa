@@ -654,6 +654,7 @@ pan_blitter_get_rsd(struct panfrost_device *dev,
         struct pan_blit_shader_key blit_key = { 0 };
 
         if (src_z) {
+                assert(dst_z);
                 rsd_key.z.format = dst_z->format;
                 blit_key.surfaces[0].loc = FRAG_RESULT_DEPTH;
                 rsd_key.z.type = blit_key.surfaces[0].type = nir_type_float32;
@@ -664,6 +665,7 @@ pan_blitter_get_rsd(struct panfrost_device *dev,
         }
 
         if (src_s) {
+                assert(dst_s);
                 rsd_key.s.format = dst_s->format;
                 blit_key.surfaces[1].loc = FRAG_RESULT_STENCIL;
                 rsd_key.s.type = blit_key.surfaces[1].type = nir_type_uint32;
@@ -677,6 +679,7 @@ pan_blitter_get_rsd(struct panfrost_device *dev,
                 if (!src_rts[i])
                         continue;
 
+                assert(dst_rts[i]);
                 rsd_key.rts[i].format = dst_rts[i]->format;
                 blit_key.surfaces[i].loc = FRAG_RESULT_DATA0 + i;
                 rsd_key.rts[i].type = blit_key.surfaces[i].type =
@@ -1293,8 +1296,8 @@ pan_blit_ctx_init(struct panfrost_device *dev,
         memset(ctx, 0, sizeof(*ctx));
         panfrost_pool_init(&ctx->pool, NULL, dev, 0, false);
 
-        ctx->inv_z_scale = (float)(info->dst.end.z - info->dst.start.z + 1) /
-                           (info->src.end.z - info->src.start.z + 1);
+        ctx->z_scale = (float)(info->dst.end.z - info->dst.start.z + 1) /
+                       (info->src.end.z - info->src.start.z + 1);
 
         struct pan_image_view sviews[2] = {
                 {
@@ -1437,7 +1440,7 @@ pan_blit(struct pan_blit_context *ctx,
         int32_t layer = ctx->dst.cur_layer - ctx->dst.layer_offset;
         float src_z;
         if (ctx->src.dim == MALI_TEXTURE_DIMENSION_3D)
-                src_z = (ctx->inv_z_scale * layer) + ctx->src.z_offset;
+                src_z = (ctx->z_scale * layer) + ctx->src.z_offset;
         else
                 src_z = ctx->src.layer_offset + layer;
 

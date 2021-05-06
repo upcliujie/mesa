@@ -78,7 +78,7 @@ struct pan_blit_context {
                 int32_t cur_layer;
                 int32_t last_layer;
         } dst;
-        float inv_z_scale;
+        float z_scale;
 };
 
 void
