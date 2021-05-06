@@ -307,7 +307,7 @@ brw_kernel_from_spirv(struct brw_compiler *compiler,
    ralloc_steal(mem_ctx, nir);
    nir->info.name = ralloc_strdup(nir, entrypoint_name);
 
-   if (INTEL_DEBUG & DEBUG_CS) {
+   if (INTEL_DEBUG(DEBUG_CS)) {
       /* Re-index SSA defs so we print more sensible numbers. */
       nir_foreach_function(function, nir) {
          if (function->impl)
@@ -408,7 +408,7 @@ brw_kernel_from_spirv(struct brw_compiler *compiler,
                                           nir_var_mem_constant);
    }
 
-   if (INTEL_DEBUG & DEBUG_CS) {
+   if (INTEL_DEBUG(DEBUG_CS)) {
       /* Re-index SSA defs so we print more sensible numbers. */
       nir_foreach_function(function, nir) {
          if (function->impl)
