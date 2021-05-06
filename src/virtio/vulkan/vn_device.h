@@ -211,4 +211,9 @@ vn_instance_free_command_reply(struct vn_instance *instance,
    vn_renderer_shmem_unref(instance->renderer, submit->reply_shmem);
 }
 
+VkResult
+vn_get_physical_device_image_format_properties2(
+   struct vn_physical_device *physical_dev,
+   const VkPhysicalDeviceImageFormatInfo2 *format_info,
+   VkImageFormatProperties2 *out_props);
 #endif /* VN_DEVICE_H */

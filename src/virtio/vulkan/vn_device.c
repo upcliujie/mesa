@@ -2751,20 +2751,20 @@ vn_physical_device_fix_image_format_info(
 }
 
 VkResult
-vn_GetPhysicalDeviceImageFormatProperties2(
-   VkPhysicalDevice physicalDevice,
-   const VkPhysicalDeviceImageFormatInfo2 *pImageFormatInfo,
-   VkImageFormatProperties2 *pImageFormatProperties)
+vn_get_physical_device_image_format_properties2(
+   struct vn_physical_device *physical_dev,
+   const VkPhysicalDeviceImageFormatInfo2 *format_info,
+   VkImageFormatProperties2 *out_props)
 {
-   struct vn_physical_device *physical_dev =
-      vn_physical_device_from_handle(physicalDevice);
+   VkPhysicalDevice physical_device =
+      vn_physical_device_to_handle(physical_dev);
    const VkExternalMemoryHandleTypeFlagBits renderer_handle_type =
       physical_dev->external_memory.renderer_handle_type;
    const VkExternalMemoryHandleTypeFlags supported_handle_types =
       physical_dev->external_memory.supported_handle_types;
 
    const VkPhysicalDeviceExternalImageFormatInfo *external_info =
-      vk_find_struct_const(pImageFormatInfo->pNext,
+      vk_find_struct_const(format_info->pNext,
                            PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO);
    if (external_info && !external_info->handleType)
       external_info = NULL;
@@ -2777,20 +2777,19 @@ vn_GetPhysicalDeviceImageFormatProperties2(
       }
 
       if (external_info->handleType != renderer_handle_type) {
-         pImageFormatInfo = vn_physical_device_fix_image_format_info(
-            physical_dev, pImageFormatInfo, &local_info);
+         format_info = vn_physical_device_fix_image_format_info(
+            physical_dev, format_info, &local_info);
       }
    }
 
    VkResult result;
    /* TODO per-device cache */
    result = vn_call_vkGetPhysicalDeviceImageFormatProperties2(
-      physical_dev->instance, physicalDevice, pImageFormatInfo,
-      pImageFormatProperties);
+      physical_dev->instance, physical_device, format_info, out_props);
 
    if (result == VK_SUCCESS && external_info) {
-      VkExternalImageFormatProperties *img_props = vk_find_struct(
-         pImageFormatProperties->pNext, EXTERNAL_IMAGE_FORMAT_PROPERTIES);
+      VkExternalImageFormatProperties *img_props =
+         vk_find_struct(out_props->pNext, EXTERNAL_IMAGE_FORMAT_PROPERTIES);
       VkExternalMemoryProperties *mem_props =
          &img_props->externalMemoryProperties;
 
@@ -2802,6 +2801,19 @@ vn_GetPhysicalDeviceImageFormatProperties2(
    }
 
    return vn_result(physical_dev->instance, result);
+}
+
+VkResult
+vn_GetPhysicalDeviceImageFormatProperties2(
+   VkPhysicalDevice physicalDevice,
+   const VkPhysicalDeviceImageFormatInfo2 *pImageFormatInfo,
+   VkImageFormatProperties2 *pImageFormatProperties)
+{
+   struct vn_physical_device *physical_dev =
+      vn_physical_device_from_handle(physicalDevice);
+
+   return vn_get_physical_device_image_format_properties2(
+      physical_dev, pImageFormatInfo, pImageFormatProperties);
 }
 
 void
