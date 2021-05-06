@@ -1961,10 +1961,11 @@ radv_layout_is_htile_compressed(const struct radv_device *device, const struct r
 
 bool
 radv_layout_can_fast_clear(const struct radv_device *device, const struct radv_image *image,
-                           VkImageLayout layout, bool in_render_loop, unsigned queue_mask)
+                           unsigned level, VkImageLayout layout, bool in_render_loop,
+                           unsigned queue_mask)
 {
-   if (radv_image_has_dcc(image) &&
-       !radv_layout_dcc_compressed(device, image, layout, in_render_loop, queue_mask))
+   if (radv_dcc_enabled(image, level) &&
+       !radv_layout_dcc_compressed(device, image, level, layout, in_render_loop, queue_mask))
       return false;
 
    if (!(image->usage & RADV_IMAGE_USAGE_WRITE_BITS))
@@ -1976,10 +1977,14 @@ radv_layout_can_fast_clear(const struct radv_device *device, const struct radv_i
 
 bool
 radv_layout_dcc_compressed(const struct radv_device *device, const struct radv_image *image,
-                           VkImageLayout layout, bool in_render_loop, unsigned queue_mask)
+                           unsigned level, VkImageLayout layout, bool in_render_loop,
+                           unsigned queue_mask)
 {
+   if (!radv_dcc_enabled(image, level))
+      return false;
+
    /* If the image is read-only, we can always just keep it compressed */
-   if (!(image->usage & RADV_IMAGE_USAGE_WRITE_BITS) && radv_image_has_dcc(image))
+   if (!(image->usage & RADV_IMAGE_USAGE_WRITE_BITS))
       return false;
 
    /* Don't compress compute transfer dst when image stores are not supported. */
@@ -1987,8 +1992,7 @@ radv_layout_dcc_compressed(const struct radv_device *device, const struct radv_i
        (queue_mask & (1u << RADV_QUEUE_COMPUTE)) && !radv_image_use_dcc_image_stores(device, image))
       return false;
 
-   return radv_image_has_dcc(image) && (device->physical_device->rad_info.chip_class >= GFX10 ||
-                                        layout != VK_IMAGE_LAYOUT_GENERAL);
+   return device->physical_device->rad_info.chip_class >= GFX10 || layout != VK_IMAGE_LAYOUT_GENERAL;
 }
 
 bool
