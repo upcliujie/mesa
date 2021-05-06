@@ -32,6 +32,12 @@ b = 'b'
 c = 'c'
 
 algebraic = [
+   # Cleanp conversions
+   (('bcsel', ('ilt', a, b), b, a), ('imax', a, b)),
+   (('bcsel', ('ilt', a, b), a, b), ('imin', a, b)),
+   (('bcsel', ('ult', a, b), b, a), ('umax', a, b)),
+   (('bcsel', ('ult', a, b), a, b), ('umin', a, b)),
+
    # Allows us to schedule as a multiply by 2
    (('~fadd', ('fadd', a, b), a), ('fadd', ('fadd', a, a), b)),
 ]
