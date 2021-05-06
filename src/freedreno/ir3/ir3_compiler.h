@@ -44,6 +44,11 @@ struct ir3_compiler {
 
 	struct disk_cache *disk_cache;
 
+	/* If true, the caller is a VK driver that requires correct opquantize
+	 * behavior.
+	 */
+	bool is_vk;
+
 	/* If true, UBO accesses are assumed to be bounds-checked as defined by
 	 * VK_EXT_robustness2 and optimizations may have to be more conservative.
 	 */

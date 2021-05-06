@@ -1323,7 +1323,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    }
 
    device->compiler = ir3_compiler_create(NULL, physical_device->gpu_id,
-                                          robust_buffer_access2);
+                                          true, robust_buffer_access2);
    if (!device->compiler) {
       result = vk_startup_errorf(physical_device->instance,
                                  VK_ERROR_INITIALIZATION_FAILED,

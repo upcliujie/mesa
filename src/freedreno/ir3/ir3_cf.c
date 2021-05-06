@@ -24,6 +24,7 @@
 #include "util/ralloc.h"
 
 #include "ir3.h"
+#include "ir3_compiler.h"
 
 static bool
 is_fp16_conv(struct ir3_instruction *instr)
@@ -157,6 +158,14 @@ try_conversion_folding(struct ir3_instruction *conv)
 bool
 ir3_cf(struct ir3 *ir)
 {
+	/* This pass will transform f2f32(f2f16(x)) -> x, which is invalid in VK
+	 * with the quantize operation.  In GL, 16-bit values come from mediump,
+	 * which is never guaranteed to do any lower precision than highp, so we can
+	 * be sloppy.
+	 */
+	if (ir->compiler->is_vk)
+		return false;
+
 	void *mem_ctx = ralloc_context(NULL);
 	bool progress = false;
 
