@@ -501,6 +501,10 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
                 if (key->surfaces[i].type == nir_type_invalid)
                         continue;
 
+                /* Resolve operations only work for N -> 1 samples. */
+                assert(key->surfaces[i].dst_samples == 1 ||
+                       key->surfaces[i].src_samples == key->surfaces[i].dst_samples);
+
                 static const char *out_names[] = {
                         "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7",
                 };
@@ -513,6 +517,7 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
                 out->data.location = key->surfaces[i].loc;
                 out->data.driver_location = active_count;
 
+                bool resolve = key->surfaces[i].src_samples > key->surfaces[i].dst_samples;
                 bool ms = key->surfaces[i].src_samples > 1;
                 enum glsl_sampler_dim sampler_dim;
 
@@ -533,15 +538,46 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
                         break;
                 }
 
-                unsigned nsamples =
-                        DIV_ROUND_UP(key->surfaces[i].src_samples,
-                                     key->surfaces[i].dst_samples);
-                if (key->surfaces[i].type != nir_type_float32)
-                        nsamples = 1;
-
                 nir_ssa_def *res = NULL;
 
-                for (unsigned s = 0; s < nsamples; s++) {
+                if (resolve) {
+                        /* When resolving a float type, we need to calculate
+                         * the average of all samples. For integer resolve, GL
+                         * and Vulkan say that one sample should be chosen
+                         * without telling which. Let's just pick the first one
+                         * in that case.
+                         */
+                        unsigned nsamples =
+                                key->surfaces[i].type == nir_type_float32 ?
+                                key->surfaces[i].src_samples : 1;
+
+                        for (unsigned s = 0; s < nsamples; s++) {
+                                nir_tex_instr *tex = nir_tex_instr_create(b.shader, 3);
+
+                                tex->op = nir_texop_txf_ms;
+                                tex->dest_type = key->surfaces[i].type;
+                                tex->texture_index = active_count;
+                                tex->is_array = key->surfaces[i].array;
+                                tex->sampler_dim = sampler_dim;
+
+                                tex->src[0].src_type = nir_tex_src_coord;
+                                tex->src[0].src = nir_src_for_ssa(nir_f2i32(&b, coord));
+                                tex->coord_components = coord_comps;
+
+                                tex->src[1].src_type = nir_tex_src_ms_index;
+                                tex->src[1].src = nir_src_for_ssa(nir_imm_int(&b, s));
+
+                                tex->src[2].src_type = nir_tex_src_lod;
+                                tex->src[2].src = nir_src_for_ssa(nir_imm_int(&b, 0));
+                                nir_ssa_dest_init(&tex->instr, &tex->dest, 4, 32, NULL);
+                                nir_builder_instr_insert(&b, &tex->instr);
+
+                                res = res ? nir_fadd(&b, res, &tex->dest.ssa) : &tex->dest.ssa;
+			}
+
+                        if (key->surfaces[i].type == nir_type_float32)
+                                res = nir_fmul(&b, res, nir_imm_float(&b, 1.0f / nsamples));
+                } else {
                         nir_tex_instr *tex =
                                 nir_tex_instr_create(b.shader, ms ? 3 : 1);
 
@@ -551,24 +587,17 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
                         tex->sampler_dim = sampler_dim;
 
                         if (ms) {
+                                tex->op = nir_texop_txf_ms;
+
                                 tex->src[0].src_type = nir_tex_src_coord;
                                 tex->src[0].src = nir_src_for_ssa(nir_f2i32(&b, coord));
                                 tex->coord_components = coord_comps;
 
-                                nir_ssa_def *src_sample = nir_imm_int(&b, s);
-
-                                if (key->surfaces[i].dst_samples > 1) {
-                                        src_sample =
-                                                nir_iadd(&b, src_sample,
-                                                         nir_imul(&b, nir_load_sample_id(&b),
-                                                                  nir_imm_int(&b, nsamples)));
-                                }
                                 tex->src[1].src_type = nir_tex_src_ms_index;
-                                tex->src[1].src = nir_src_for_ssa(src_sample);
+                                tex->src[1].src = nir_src_for_ssa(nir_load_sample_id(&b));
 
                                 tex->src[2].src_type = nir_tex_src_lod;
                                 tex->src[2].src = nir_src_for_ssa(nir_imm_int(&b, 0));
-                                tex->op = nir_texop_txf_ms;
                         } else {
                                 tex->op = nir_texop_tex;
 
@@ -579,16 +608,11 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
 
                         nir_ssa_dest_init(&tex->instr, &tex->dest, 4, 32, NULL);
                         nir_builder_instr_insert(&b, &tex->instr);
-                        if (!res)
-                                res = &tex->dest.ssa;
-                        else
-                                res = nir_fadd(&b, res, &tex->dest.ssa);
+                        res = &tex->dest.ssa;
                 }
 
-                if (nsamples > 1)
-                        res = nir_fmul(&b, res, nir_imm_float(&b, 1.0f / nsamples));
-
                 assert(res);
+
                 if (key->surfaces[i].loc >= FRAG_RESULT_DATA0) {
                         nir_store_var(&b, out, res, 0xFF);
                 } else {
