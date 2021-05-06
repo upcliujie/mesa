@@ -1,5 +1,509 @@
 [
     {
+        "sha": "4dc17b898b4420c4705a5b5422222c648c5d611c",
+        "description": "lavapipe: don't access pipeline blend state when it should be ignored",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "636a3903be1496f825640ba59c532aee59d52729",
+        "description": "lavapipe: don't access pipeline dsa state when it should be ignored",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6bacd2a3255cb607dd7b52a50cd8457955f45bcf",
+        "description": "lavapipe: don't access pipeline viewport state when it should be ignored",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "11261d218980a2be415c8740da8eed1c13867a77",
+        "description": "lavapipe: ignore tess pipeline info if no tess shaders in pipeline",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4d60a646b04ae072bd01a0e6ee942b9928d07f22",
+        "description": "lavapipe: don't unnecessarily flag dsa states for updating",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2b1711c8fd75600aa7327470fad81c23173a8a6b",
+        "description": "lavapipe: zero out the blend state info and flag for updating on null blend state",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "63df2f736dee9270d4ba84fcfb30995e1370b0f0",
+        "description": "lavapipe: zero out the dsa state info and flag for updating on null dsa state",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "788121158ae3d6c06c7c9d0ed82d8dc78f52ecf7",
+        "description": "lavapipe: update more states on null multisample pipeline info",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7a955d1501bc776e35f6747cb92095bb4674fe94",
+        "description": "lavapipe: flag renderpasses as having color/zs attachments",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "49f93a4c5e119b2a340dd22c4ea6752519c0e81f",
+        "description": "lavapipe: set events to the unsignalled state on creation",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e3e4ff0b8404da74b1e1afcc8860b703cab5ac75",
+        "description": "lavapipe: do not read sampler descriptor info during update if layout has immutables",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4b28ed0d7b24ca3e4e123dfbd575e0918da2fcaf",
+        "description": "lavapipe: handle buffer sizes better in CmdBindTransformFeedbackBuffersEXT",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "dbdd4bd9e94d9393832809986f1dcbb5d3a471fb",
+        "description": "pan/bi: Add two tuples to a clause when needed with NOSCHED",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e241ca6e9c6cefa8dae04501ecbef0783771aca9",
+        "description": "panfrost: Always write reloaded tiles when making CRC data valid",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": "8ba2f9f698584d20830ef31bbc2fb8a6635c8314"
+    },
+    {
+        "sha": "1c58614ceec106b6b0e7b76c5f33bfe489a37c2f",
+        "description": "panfrost: Make pan_select_crc_rt a non-static function",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "37545418cd37ff5a26e758262a7b5581ef23e8a3",
+        "description": "nir: add nir_isub_imm",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6db24986ca58cea243e47145482109c4d1199403",
+        "description": "gallium/inlines: remove atomic set from pipe_reference_init()",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6cac9c748eb81105b5cd7df32060ee8aae2b1e5f",
+        "description": "Revert \"gallium/util: Fix depth/stencil blit shaders\"",
+        "nominated": true,
+        "nomination_type": 2,
+        "resolution": 0,
+        "master_sha": null,
+        "because_sha": "7ca72f172678116d29d254b786a9422b864aef3d"
+    },
+    {
+        "sha": "567bdf2e8f2713039e0f551450ee59839768f5e4",
+        "description": "zink: clamp zs samplers to XXXX swizzle for all non-zero/one swizzles",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "77f3dd85a2c679a9ecb1c8ab37230f1fec8ce085",
+        "description": "zink: do not ask glsl-compiler to unroll",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c18ff60087ef655b9a584c4586859df5e2bf7d28",
+        "description": "lavapipe: emit correct textures_used for texture-arrays",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ca9e0871fb29412301a2e3058c7229c2a6223bbf",
+        "description": "v3d: enable NIR loop unrolling",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c11e4798521e73de4f7f07105802c91f2c6c155d",
+        "description": "broadcom/compiler: specify maximum thread count in compile strategies",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d19ce36ff2d65c9fcfe3b8636438a053fca1a478",
+        "description": "broadcom/compiler: refactor compile strategies",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "296fe4daa64024530d7dcf66e55ef43c75cf53eb",
+        "description": "broadcom/compiler: add a compiler strategy to disable loop unrolling",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4742300e6b5dc33c88b89387fdaebfc413a91486",
+        "description": "v3d: move NIR compiler options to GL driver",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "db3fa1cc8c912ed86b2233d49c52528999f25f5f",
+        "description": "v3dv: setup loop unrolling",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ec72b876fe86683b28a7fad4c2e1fc0797802e99",
+        "description": "broadcom/compiler: add a loop unrolling pass",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "43dd023bd1eb23a5cdb1470c6a30595c3fbf319a",
+        "description": "Revert \"CI: Disable Panfrost and radeonsi\"",
+        "nominated": false,
+        "nomination_type": 2,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": "de1a20f4bec789c690e5eeba728073ca9c9cfc08"
+    },
+    {
+        "sha": "33ede796d5b9149076738b031137b4389dab71a1",
+        "description": "radv: fix missing ITERATE_256 for D/S MSAA images that are TC-compat HTILE",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ba11f673a245a00d03c901d32ddc3489cb3ad287",
+        "description": "i965: support only color formats with memory objects",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": "f73aeca0ce3ef4c09c2d07d5c7b2724cc84f1e91"
+    },
+    {
+        "sha": "0cd63e891dd9cd309ad83b7f09b0fa25fb3ef561",
+        "description": "turnip: Move the extension tables to tu_device.c",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c5438450adecab49f0c0798b353b81942b3b4a88",
+        "description": "turnip: Switch to the shared vulkan ICD generator.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3424318ec3d60d0d2cf6d1b06e5b2e71a3c7277c",
+        "description": "gallium/tgsi_exec: Simplify bounds checks on the const file.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e500e6cd25fe63f040220c0abfdbad903a5f9f6f",
+        "description": "tgsi_exec: Mark the store file default case as unreachable.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "367729a7321566cc61bbcc2d13405d20a881149d",
+        "description": "tgsi_exec: Drop unused destination dimension support.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "31369987ff244eb855ed50658ed3b23d6bd4f5df",
+        "description": "gallium/tgsi_exec: Drop the unused dst_datatypes from dest stores.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "26b28bf0a6cf6a4ff2f4273f005fc0ad3311fc67",
+        "description": "zink: remove incorrect border-swizzle assumption",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": "cdb9a4775bff5c6510eb985891120668ac8f5664"
+    },
+    {
+        "sha": "d8bac1002c7d31681f722f1767faf195edf0a51e",
+        "description": "vtn: Use relaxed 24bit opcodes for CL 24bit math",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d7ca0319d72af55597d8ac4146a5e8a3d55322f5",
+        "description": "nir: Add relaxed 24bit opcodes",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9410eb7e39e8c90f647f7d4373d54dc44b30c5b2",
+        "description": "llvmpipe: Fix optimization loop to actually loop",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "cc5df4398a2ff1ef291dfd23fee72b0dc173b66d",
+        "description": "freedreno/a5xx: Fix up border color pointers.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "de1a20f4bec789c690e5eeba728073ca9c9cfc08",
+        "description": "CI: Disable Panfrost and radeonsi",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b447db41fcea9048d5352bb9a1948a4552704d39",
+        "description": "freedreno/tools: Fix async flush vs fdperf/computerator",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "a1c56b80915a1105c5a62aa6ff3ac71c1edd143d",
+        "description": "mesa: NOTE! Default branch is now main",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "57897b4095326d7e4433893f311f1aa2c4c8880c",
+        "description": "docs: Rename master branch to main",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2ec9cd31042a0c994c42a024c9185a7fcccf9855",
+        "description": "docs/releasing.rst: Rename master branch to main",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "26a1ddd20215da7aee9aa22e27ea8609728dbba0",
+        "description": "issue_templates/Bug Report: Rename master branch to main",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3356488c8a84e4bb9696dd662bce910207105175",
+        "description": ".gitlab-ci.yml: Use main branch for gitlab ci",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6e86d1f503d8b017bd6679a4db70fef532595f65",
+        "description": "bin/pick: Rename master branch to main",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "82f73775efa989fca6376b6de2d39e7dd06724fc",
+        "description": "commit_in_branch_test.py: Rename branch master to main",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "44a4e34d52e68c4251afb7fb079dc9b28477195d",
+        "description": "docs: remove doxygen support",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e20897a8aa684805c040000d8d4e7447adc0f080",
+        "description": "ci/lavapipe: Add fractional NIR stress test job.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f2cb18abd9ba2d2fb835ebac6ee6c6f317519e1b",
+        "description": "ci/llvmpipe: Add testing of gles3/31/gl.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7bcda214410787209893bc0cb567675acabc18ab",
+        "description": "turnip: Demote API version to 1.1.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "0c94b3f55bc5f1db5aba3b294317b97241bfd9a0",
+        "description": "venus: populate VK_ERROR_OUT_OF_HOST_MEMORY if applied",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "master_sha": null,
+        "because_sha": null
+    },
+    {
         "sha": "13667b157aa0d5ab3fc94948c8691a615bb42540",
         "description": "freedreno/a5xx: Remove ppgtt hack",
         "nominated": false,
