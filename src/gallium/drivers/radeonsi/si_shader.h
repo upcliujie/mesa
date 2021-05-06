@@ -404,6 +404,11 @@ struct si_shader_info {
    bool allow_flat_shading;
 
    bool uses_shadow_sampler;
+
+   /* Optimization: if the texture bound to this texunit has been cleared to 1,
+    * then the draw can be skipped (see si_draw_vbo_skip_noop)
+    */
+   uint16_t writes_1_if_tex_is_1;
 };
 
 /* A shader selector is a gallium CSO and contains shader variants and

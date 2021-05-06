@@ -65,6 +65,7 @@ struct si_state_blend {
    bool alpha_to_one : 1;
    bool dual_src_blend : 1;
    bool logicop_enable : 1;
+   bool allows_blend_dst_shadow_sampler_noop : 1;
 };
 
 struct si_state_rasterizer {
