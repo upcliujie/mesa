@@ -2382,6 +2382,10 @@ late_optimizations = [
    (('ishr', a, 0), a),
    (('ishr', a, -32), a),
    (('ushr', a, 0), a),
+
+   # Strength reduction (fadd is cheaper than fmul on many architectures, and
+   # it saves a constant).
+   (('~fmul', a, 2.0), ('fadd', a, a))
 ]
 
 # A few more extract cases we'd rather leave late
