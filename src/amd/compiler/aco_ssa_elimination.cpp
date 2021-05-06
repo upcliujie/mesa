@@ -132,6 +132,8 @@ bool is_empty_block(Block* block, bool ignore_exec_writes)
             break;
          case aco_opcode::s_andn2_b64:
          case aco_opcode::s_andn2_b32:
+         case aco_opcode::s_not_b64:
+         case aco_opcode::s_not_b32:
             if (ignore_exec_writes && instr->definitions[0].physReg() == exec)
                break;
             return false;
