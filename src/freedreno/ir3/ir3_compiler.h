@@ -44,6 +44,11 @@ struct ir3_compiler {
 
 	struct disk_cache *disk_cache;
 
+	/* If true, the caller is a VK driver that requires correct opquantize
+	 * behavior.
+	 */
+	bool is_vk;
+
 	/* If true, UBO accesses are assumed to be bounds-checked as defined by
 	 * VK_EXT_robustness2 and optimizations may have to be more conservative.
 	 */
@@ -159,7 +164,7 @@ struct ir3_compiler {
 
 void ir3_compiler_destroy(struct ir3_compiler *compiler);
 struct ir3_compiler * ir3_compiler_create(struct fd_device *dev, uint32_t gpu_id,
-										  bool robust_ubo_access);
+										  bool is_vk, bool robust_ubo_access);
 
 void ir3_disk_cache_init(struct ir3_compiler *compiler);
 void ir3_disk_cache_init_shader_key(struct ir3_compiler *compiler,
