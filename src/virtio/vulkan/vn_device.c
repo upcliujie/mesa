@@ -3287,12 +3287,6 @@ vn_CreateDevice(VkPhysicalDevice physicalDevice,
       goto fail;
    }
 
-   if (dev->base.base.enabled_extensions.ANDROID_native_buffer) {
-      result = vn_android_wsi_init(dev, alloc);
-      if (result != VK_SUCCESS)
-         goto fail;
-   }
-
    for (uint32_t i = 0; i < ARRAY_SIZE(dev->memory_pools); i++) {
       struct vn_device_memory_pool *pool = &dev->memory_pools[i];
       mtx_init(&pool->mutex, mtx_plain);
@@ -3322,9 +3316,6 @@ vn_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
 
    if (!dev)
       return;
-
-   if (dev->base.base.enabled_extensions.ANDROID_native_buffer)
-      vn_android_wsi_fini(dev, alloc);
 
    for (uint32_t i = 0; i < ARRAY_SIZE(dev->memory_pools); i++)
       vn_device_memory_pool_fini(dev, i);
