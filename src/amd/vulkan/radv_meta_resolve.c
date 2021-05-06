@@ -498,16 +498,19 @@ radv_meta_resolve_hardware_image(struct radv_cmd_buffer *cmd_buffer, struct radv
    const struct VkOffset3D dstOffset =
       radv_sanitize_image_offset(dst_image->type, region->dstOffset);
 
-   if (radv_dcc_enabled(dst_image, region->dstSubresource.mipLevel)) {
-      VkImageSubresourceRange range = {
-         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-         .baseMipLevel = region->dstSubresource.mipLevel,
-         .levelCount = 1,
-         .baseArrayLayer = dst_base_layer,
-         .layerCount = region->dstSubresource.layerCount,
-      };
+   uint32_t queue_mask = radv_image_queue_family_mask(dst_image, cmd_buffer->queue_family_index,
+                                                      cmd_buffer->queue_family_index);
+   VkImageSubresourceRange dst_range = {
+      .aspectMask = region->dstSubresource.aspectMask,
+      .baseMipLevel = region->dstSubresource.mipLevel,
+      .levelCount = 1,
+      .baseArrayLayer = dst_base_layer,
+      .layerCount = region->dstSubresource.layerCount,
+   };
 
-      cmd_buffer->state.flush_bits |= radv_init_dcc(cmd_buffer, dst_image, &range, 0xffffffff);
+   if (radv_layout_dcc_compressed(cmd_buffer->device, dst_image, &dst_range, dst_image_layout,
+                                  false, queue_mask)) {
+      cmd_buffer->state.flush_bits |= radv_init_dcc(cmd_buffer, dst_image, &dst_range, 0xffffffff);
    }
 
    for (uint32_t layer = 0; layer < region->srcSubresource.layerCount; ++layer) {
@@ -701,17 +704,21 @@ radv_cmd_buffer_resolve_subpass_hw(struct radv_cmd_buffer *cmd_buffer)
 
       struct radv_image_view *dest_iview = cmd_buffer->state.attachments[dest_att.attachment].iview;
       struct radv_image *dst_img = dest_iview->image;
+      VkImageLayout dst_image_layout = cmd_buffer->state.attachments[dest_att.attachment].current_layout;
 
-      if (radv_dcc_enabled(dst_img, dest_iview->base_mip)) {
-         VkImageSubresourceRange range = {
-            .aspectMask = dest_iview->aspect_mask,
-            .baseMipLevel = dest_iview->base_mip,
-            .levelCount = dest_iview->level_count,
-            .baseArrayLayer = dest_iview->base_layer,
-            .layerCount = dest_iview->layer_count,
-         };
+      uint32_t queue_mask = radv_image_queue_family_mask(dst_img, cmd_buffer->queue_family_index,
+                                                         cmd_buffer->queue_family_index);
+      VkImageSubresourceRange dst_range = {
+         .aspectMask = dest_iview->aspect_mask,
+         .baseMipLevel = dest_iview->base_mip,
+         .levelCount = dest_iview->level_count,
+         .baseArrayLayer = dest_iview->base_layer,
+         .layerCount = dest_iview->layer_count,
+      };
 
-         cmd_buffer->state.flush_bits |= radv_init_dcc(cmd_buffer, dst_img, &range, 0xffffffff);
+      if (radv_layout_dcc_compressed(cmd_buffer->device, dst_img, &dst_range, dst_image_layout,
+                                     false, queue_mask)) {
+         cmd_buffer->state.flush_bits |= radv_init_dcc(cmd_buffer, dst_img, &dst_range, 0xffffffff);
          cmd_buffer->state.attachments[dest_att.attachment].current_layout =
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
       }
