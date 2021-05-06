@@ -220,11 +220,13 @@ bool si_alloc_resource(struct si_screen *sscreen, struct si_resource *res)
 
 static void si_buffer_destroy(struct pipe_screen *screen, struct pipe_resource *buf)
 {
+   struct si_screen *sscreen = (struct si_screen *)screen;
    struct si_resource *buffer = si_resource(buf);
 
    threaded_resource_deinit(buf);
    util_range_destroy(&buffer->valid_buffer_range);
    radeon_bo_reference(((struct si_screen*)screen)->ws, &buffer->buf, NULL);
+   util_idalloc_mt_free(&sscreen->buffer_ids, buffer->b.buffer_id_unique);
    FREE(buffer);
 }
 
@@ -285,6 +287,8 @@ void si_replace_buffer_storage(struct pipe_context *ctx, struct pipe_resource *d
    assert(sdst->domains == ssrc->domains);
 
    si_rebind_buffer(sctx, dst);
+
+   util_idalloc_mt_free(&sctx->screen->buffer_ids, delete_buffer_id);
 }
 
 static void si_invalidate_resource(struct pipe_context *ctx, struct pipe_resource *resource)
@@ -598,6 +602,8 @@ static struct pipe_resource *si_buffer_create(struct pipe_screen *screen,
       FREE(buf);
       return NULL;
    }
+
+   buf->b.buffer_id_unique = util_idalloc_mt_alloc(&sscreen->buffer_ids);
    return &buf->b.b;
 }
 
@@ -649,7 +655,7 @@ static struct pipe_resource *si_buffer_from_user_memory(struct pipe_screen *scre
    buf->gpu_address = ws->buffer_get_virtual_address(buf->buf);
    buf->vram_usage_kb = 0;
    buf->gart_usage_kb = templ->width0 / 1024;
-
+   buf->b.buffer_id_unique = util_idalloc_mt_alloc(&sscreen->buffer_ids);
    return &buf->b.b;
 }
 
@@ -683,6 +689,7 @@ struct pipe_resource *si_buffer_from_winsys_buffer(struct pipe_screen *screen,
       res->flags |= RADEON_FLAG_SPARSE;
    }
 
+   res->b.buffer_id_unique = util_idalloc_mt_alloc(&sscreen->buffer_ids);
    return &res->b.b;
 }
 
