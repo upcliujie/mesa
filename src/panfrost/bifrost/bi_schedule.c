@@ -843,14 +843,22 @@ bi_has_cross_passthrough_hazard(bi_tuple *succ, bi_instr *ins)
 }
 
 /* Is a register written other than the staging mechanism? ATEST is special,
- * writing to both a staging register and a regular register (fixed packing)*/
+ * writing to both a staging register and a regular register (fixed packing).
+ * BLEND is special since it has to write r48 the normal way even if it never
+ * gets read. This depends on liveness analysis, as a register is not needed
+ * for a write that will be discarded after one tuple. */
 
 static bool
-bi_writes_reg(bi_instr *instr)
+bi_writes_reg(bi_instr *instr, uint64_t live_after_temp)
 {
-        return (instr->op == BI_OPCODE_ATEST) ||
-                (!bi_is_null(instr->dest[0]) &&
-                 !bi_opcode_props[instr->op].sr_write);
+        if (instr->op == BI_OPCODE_ATEST || instr->op == BI_OPCODE_BLEND)
+                return true;
+
+        if (bi_is_null(instr->dest[0]) || bi_opcode_props[instr->op].sr_write)
+                return false;
+
+        assert(instr->dest[0].type == BI_INDEX_REGISTER);
+        return (live_after_temp & BITFIELD64_BIT(instr->dest[0].value)) != 0;
 }
 
 /* Does the succeeding tuple consume any of a candidate instruction's
@@ -880,6 +888,7 @@ static bool
 bi_instr_schedulable(bi_instr *instr,
                 struct bi_clause_state *clause,
                 struct bi_tuple_state *tuple,
+                uint64_t live_after_temp,
                 bool fma)
 {
         /* The units must match */
@@ -951,10 +960,10 @@ bi_instr_schedulable(bi_instr *instr,
         if (tuple->prev && bi_has_cross_passthrough_hazard(tuple->prev, instr))
                 return false;
 
-        /* Register file writes are limited, TODO don't count tempable things */
+        /* Register file writes are limited */
         unsigned total_writes = tuple->reg.nr_writes;
 
-        if (bi_writes_reg(instr))
+        if (bi_writes_reg(instr, live_after_temp))
                 total_writes++;
 
         /* Last tuple in a clause can only write a single value */
@@ -982,7 +991,7 @@ bi_instr_schedulable(bi_instr *instr,
                         tuple->prev_reads, tuple->nr_prev_reads);
 
         /* Successor must satisfy R+W <= 4, so we require W <= 4-R */
-        if (total_writes > MAX2(4 - (signed) succ_reads, 0))
+        if ((signed) total_writes > (4 - (signed) succ_reads))
                 return false;
 
         return true;
@@ -1009,9 +1018,11 @@ bi_instr_cost(bi_instr *instr, struct bi_tuple_state *tuple)
         if (bi_must_last(instr))
                 cost -= 2;
 
+#if 0
         /* Register access is limited (XXX: no effect) */
-        if (bi_writes_reg(instr))
+        if (bi_writes_reg(instr, live_after_temp))
                 cost++;
+#endif
 
 #if 0
         /* XXX: why hurt */
@@ -1031,6 +1042,7 @@ static unsigned
 bi_choose_index(struct bi_worklist st,
                 struct bi_clause_state *clause,
                 struct bi_tuple_state *tuple,
+                uint64_t live_after_temp,
                 bool fma)
 {
         unsigned i, best_idx = ~0;
@@ -1039,7 +1051,7 @@ bi_choose_index(struct bi_worklist st,
         BITSET_FOREACH_SET(i, st.worklist, st.count) {
                 bi_instr *instr = st.instructions[i];
 
-                if (!bi_instr_schedulable(instr, clause, tuple, fma))
+                if (!bi_instr_schedulable(instr, clause, tuple, live_after_temp, fma))
                         continue;
 
                 signed cost = bi_instr_cost(instr, tuple);
@@ -1060,7 +1072,7 @@ bi_choose_index(struct bi_worklist st,
 
 static void
 bi_pop_instr(struct bi_clause_state *clause, struct bi_tuple_state *tuple,
-                bi_instr *instr, bool fma)
+                bi_instr *instr, uint64_t live_after_temp, bool fma)
 {
         bi_update_fau(clause, tuple, instr, fma, true);
 
@@ -1070,7 +1082,7 @@ bi_pop_instr(struct bi_clause_state *clause, struct bi_tuple_state *tuple,
         clause->access_count += BI_MAX_SRCS;
         clause->accesses[clause->access_count++] = instr->dest[0];
 
-        if (bi_writes_reg(instr))
+        if (bi_writes_reg(instr, live_after_temp))
                 tuple->reg.nr_writes++;
 
         bi_foreach_src(instr, s) {
@@ -1081,7 +1093,7 @@ bi_pop_instr(struct bi_clause_state *clause, struct bi_tuple_state *tuple,
 
 static bool
 bi_could_pair_add(struct bi_clause_state *clause, struct bi_tuple_state *tuple,
-                struct bi_worklist st, unsigned idx)
+                struct bi_worklist st, uint64_t live_after_temp, unsigned idx)
 {
         unsigned i;
 
@@ -1092,7 +1104,7 @@ bi_could_pair_add(struct bi_clause_state *clause, struct bi_tuple_state *tuple,
 
                 bi_instr *instr = st.instructions[i];
 
-                if (bi_instr_schedulable(instr, clause, tuple, true))
+                if (bi_instr_schedulable(instr, clause, tuple, live_after_temp, true))
                         return true;
         }
 
@@ -1114,7 +1126,7 @@ bi_could_pair_add(struct bi_clause_state *clause, struct bi_tuple_state *tuple,
         clause->access_count += BI_MAX_SRCS;
         clause->accesses[clause->access_count++] = instr->dest[0];
 
-        if (bi_writes_reg(instr))
+        if (bi_writes_reg(instr, live_after_temp))
                 tuple->reg.nr_writes++;
 
         bi_foreach_src(instr, s) {
@@ -1126,7 +1138,7 @@ bi_could_pair_add(struct bi_clause_state *clause, struct bi_tuple_state *tuple,
                 if (st.dep_counts[i] == 1) {
                         bi_instr *instr = st.instructions[i];
 
-                        if (bi_instr_schedulable(instr, clause, tuple, true)) {
+                        if (bi_instr_schedulable(instr, clause, tuple, live_after_temp, true)) {
                                 clause->access_count = cached_access;
                                 tuple->reg.nr_writes = cached_tuple_writes;
                                 tuple->reg.nr_reads = cached_tuple_reads;
@@ -1152,6 +1164,7 @@ static bi_instr *
 bi_take_instr(bi_context *ctx, struct bi_worklist st,
                 struct bi_clause_state *clause,
                 struct bi_tuple_state *tuple,
+                uint64_t live_after_temp,
                 bool fma)
 {
         if (tuple->add && tuple->add->op == BI_OPCODE_CUBEFACE)
@@ -1171,7 +1184,7 @@ bi_take_instr(bi_context *ctx, struct bi_worklist st,
                 return NULL;
 #endif
 
-        unsigned idx = bi_choose_index(st, clause, tuple, fma);
+        unsigned idx = bi_choose_index(st, clause, tuple, live_after_temp, fma);
 
        if (idx >= st.count)
                 return NULL;
@@ -1181,12 +1194,12 @@ bi_take_instr(bi_context *ctx, struct bi_worklist st,
 
         /* TODO: Quantify clause-nop tradeoff... we have aggressive, moves only, and FMA/ADD only. */
 
-         //if (!fma && !bi_could_pair_add(clause, tuple, st, idx) && !tuple->last && !bi_must_message(instr) && instr->op != BI_OPCODE_CUBEFACE && instr->op != BI_OPCODE_CUBE_SSEL && instr->op != BI_OPCODE_CUBE_TSEL)
+         //if (!fma && !bi_could_pair_add(clause, tuple, st, live_after_temp, idx) && !tuple->last && !bi_must_message(instr) && instr->op != BI_OPCODE_CUBEFACE && instr->op != BI_OPCODE_CUBE_SSEL && instr->op != BI_OPCODE_CUBE_TSEL)
         
-         if (!fma && !bi_could_pair_add(clause, tuple, st, idx) && !tuple->last && instr->op == BI_OPCODE_MOV_I32)
+         if (!fma && !bi_could_pair_add(clause, tuple, st, live_after_temp, idx) && !tuple->last && instr->op == BI_OPCODE_MOV_I32)
 
 #if 0
-         if (!fma && !bi_could_pair_add(clause, tuple, st, idx) && !tuple->last &&
+         if (!fma && !bi_could_pair_add(clause, tuple, st, live_after_temp, idx) && !tuple->last &&
                          bi_can_fma(instr) &&
                          bi_can_add(instr))
 #endif
@@ -1195,7 +1208,7 @@ bi_take_instr(bi_context *ctx, struct bi_worklist st,
 
         BITSET_CLEAR(st.worklist, idx);
         bi_update_worklist(st, idx);
-        bi_pop_instr(clause, tuple, instr, fma);
+        bi_pop_instr(clause, tuple, instr, live_after_temp, fma);
 
         return instr;
 }
@@ -1565,7 +1578,7 @@ bi_apply_constant_modifiers(struct bi_const_state *consts,
 /* Schedule a single clause. If no instructions remain, return NULL. */
 
 static bi_clause *
-bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st)
+bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st, uint64_t *live)
 {
         struct bi_clause_state clause_state = { 0 };
         bi_clause *clause = rzalloc(ctx, bi_clause);
@@ -1580,6 +1593,15 @@ bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st)
         struct bi_reg_state reg_state = {};
         bi_index prev_reads[5] = { bi_null() };
         unsigned nr_prev_reads = 0;
+
+        /* We need to track future liveness. The main *live set tracks what is
+         * live at the current point int he program we are scheduling, but to
+         * determine temp eligibility, we instead want what will be live after
+         * the next tuple in the program. If you scheduled forwards, you'd need
+         * a crystall ball for this. Luckily we schedule backwards, so we just
+         * delay updates to the live_after_temp by an extra tuple. */
+        uint64_t live_after_temp = *live;
+        uint64_t live_next_tuple = live_after_temp;
 
         do {
                 struct bi_tuple_state tuple_state = {
@@ -1597,13 +1619,31 @@ bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st)
 
                 tuple = &clause->tuples[idx];
 
+                if (clause->message && bi_opcode_props[clause->message->op].sr_read && !bi_is_null(clause->message->src[0])) {
+                        unsigned nr = bi_count_read_registers(clause->message, 0);
+                        live_after_temp |= (BITFIELD64_MASK(nr) << clause->message->src[0].value);
+                }
+
                 /* Since we schedule backwards, we schedule ADD first */
-                tuple_state.add = bi_take_instr(ctx, st, &clause_state, &tuple_state, false);
+                tuple_state.add = bi_take_instr(ctx, st, &clause_state, &tuple_state, live_after_temp, false);
+
                 if (tuple_state.add != BI_TAKE_BAIL)
-                        tuple->fma = bi_take_instr(ctx, st, &clause_state, &tuple_state, true);
+                        tuple->fma = bi_take_instr(ctx, st, &clause_state, &tuple_state, live_after_temp, true);
                 else
                         tuple_state.add = NULL;
+
                 tuple->add = tuple_state.add;
+
+                /* Update liveness from the new instructions */
+                if (tuple->add)
+                        *live = bi_postra_liveness_ins(*live, tuple->add);
+
+                if (tuple->fma)
+                        *live = bi_postra_liveness_ins(*live, tuple->fma);
+
+               /* Rotate in the new per-tuple liveness */
+                live_after_temp = live_next_tuple;
+                live_next_tuple = *live;
 
                 /* We may have a message, but only one per clause */
                 if (tuple->add && bi_must_message(tuple->add)) {
@@ -1783,9 +1823,12 @@ bi_schedule_block(bi_context *ctx, bi_block *block)
                 return;
         }
 
+        /* We need to track liveness during scheduling in order to determine whether we can use temporary (passthrough) registers */
+        uint64_t live = block->reg_live_out;
+
         /* Schedule as many clauses as needed to fill the block */
         bi_clause *u = NULL;
-        while((u = bi_schedule_clause(ctx, block, st)))
+        while((u = bi_schedule_clause(ctx, block, st, &live)))
                 list_add(&u->link, &block->clauses);
 
         /* Back-to-back bit affects only the last clause of a block,
@@ -1886,6 +1929,9 @@ bi_lower_fau(bi_context *ctx)
 void
 bi_schedule(bi_context *ctx)
 {
+        /* Fed into both scheduling and DCE */
+        bi_postra_liveness(ctx);
+
         bi_foreach_block(ctx, block) {
                 bi_block *bblock = (bi_block *) block;
                 bi_schedule_block(ctx, bblock);
