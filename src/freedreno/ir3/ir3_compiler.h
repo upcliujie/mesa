@@ -36,130 +36,134 @@ struct ir3_ra_reg_set;
 struct ir3_shader;
 
 struct ir3_compiler {
-	struct fd_device *dev;
-	uint32_t gpu_id;
-	struct ir3_ra_reg_set *set;
-	struct ir3_ra_reg_set *mergedregs_set;
-	uint32_t shader_count;
+   struct fd_device *dev;
+   uint32_t gpu_id;
+   struct ir3_ra_reg_set *set;
+   struct ir3_ra_reg_set *mergedregs_set;
+   uint32_t shader_count;
 
-	struct disk_cache *disk_cache;
+   struct disk_cache *disk_cache;
 
-	/* If true, UBO accesses are assumed to be bounds-checked as defined by
-	 * VK_EXT_robustness2 and optimizations may have to be more conservative.
-	 */
-	bool robust_ubo_access;
+   /* If true, the caller is a VK driver that requires correct opquantize
+    * behavior. */
+   bool is_vk;
 
-	/*
-	 * Configuration options for things that are handled differently on
-	 * different generations:
-	 */
+   /* If true, UBO accesses are assumed to be bounds-checked as defined by
+    * VK_EXT_robustness2 and optimizations may have to be more conservative.
+    */
+   bool robust_ubo_access;
 
-	/* a4xx (and later) drops SP_FS_FLAT_SHAD_MODE_REG_* for flat-interpolate
-	 * so we need to use ldlv.u32 to load the varying directly:
-	 */
-	bool flat_bypass;
+   /*
+    * Configuration options for things that are handled differently on
+    * different generations:
+    */
 
-	/* on a3xx, we need to add one to # of array levels:
-	 */
-	bool levels_add_one;
+   /* a4xx (and later) drops SP_FS_FLAT_SHAD_MODE_REG_* for flat-interpolate
+    * so we need to use ldlv.u32 to load the varying directly:
+    */
+   bool flat_bypass;
 
-	/* on a3xx, we need to scale up integer coords for isaml based
-	 * on LoD:
-	 */
-	bool unminify_coords;
+   /* on a3xx, we need to add one to # of array levels:
+    */
+   bool levels_add_one;
 
-	/* on a3xx do txf_ms w/ isaml and scaled coords: */
-	bool txf_ms_with_isaml;
+   /* on a3xx, we need to scale up integer coords for isaml based
+    * on LoD:
+    */
+   bool unminify_coords;
 
-	/* on a4xx, for array textures we need to add 0.5 to the array
-	 * index coordinate:
-	 */
-	bool array_index_add_half;
+   /* on a3xx do txf_ms w/ isaml and scaled coords: */
+   bool txf_ms_with_isaml;
 
-	/* on a6xx, rewrite samgp to sequence of samgq0-3 in vertex shaders:
-	 */
-	bool samgq_workaround;
+   /* on a4xx, for array textures we need to add 0.5 to the array
+    * index coordinate:
+    */
+   bool array_index_add_half;
 
-	/* on a650, vertex shader <-> tess control io uses LDL/STL */
-	bool tess_use_shared;
+   /* on a6xx, rewrite samgp to sequence of samgq0-3 in vertex shaders:
+    */
+   bool samgq_workaround;
 
-	/* The maximum number of constants, in vec4's, across the entire graphics
-	 * pipeline.
-	 */
-	uint16_t max_const_pipeline;
+   /* on a650, vertex shader <-> tess control io uses LDL/STL */
+   bool tess_use_shared;
 
-	/* The maximum number of constants, in vec4's, for VS+HS+DS+GS. */
-	uint16_t max_const_geom;
+   /* The maximum number of constants, in vec4's, across the entire graphics
+    * pipeline.
+    */
+   uint16_t max_const_pipeline;
 
-	/* The maximum number of constants, in vec4's, for FS. */
-	uint16_t max_const_frag;
+   /* The maximum number of constants, in vec4's, for VS+HS+DS+GS. */
+   uint16_t max_const_geom;
 
-	/* A "safe" max constlen that can be applied to each shader in the
-	 * pipeline which we guarantee will never exceed any combined limits.
-	 */
-	uint16_t max_const_safe;
+   /* The maximum number of constants, in vec4's, for FS. */
+   uint16_t max_const_frag;
 
-	/* The maximum number of constants, in vec4's, for compute shaders. */
-	uint16_t max_const_compute;
+   /* A "safe" max constlen that can be applied to each shader in the
+    * pipeline which we guarantee will never exceed any combined limits.
+    */
+   uint16_t max_const_safe;
 
-	/* Number of instructions that the shader's base address and length
-	 * (instrlen divides instruction count by this) must be aligned to.
-	 */
-	uint32_t instr_align;
+   /* The maximum number of constants, in vec4's, for compute shaders. */
+   uint16_t max_const_compute;
 
-	/* on a3xx, the unit of indirect const load is higher than later gens (in
-	 * vec4 units):
-	 */
-	uint32_t const_upload_unit;
+   /* Number of instructions that the shader's base address and length
+    * (instrlen divides instruction count by this) must be aligned to.
+    */
+   uint32_t instr_align;
 
-	/* The base number of threads per wave. Some stages may be able to double
-	 * this.
-	 */
-	uint32_t threadsize_base;
+   /* on a3xx, the unit of indirect const load is higher than later gens (in
+    * vec4 units):
+    */
+   uint32_t const_upload_unit;
 
-	/* On at least a6xx, waves are always launched in pairs. In calculations
-	 * about occupancy, we pretend that each wave pair is actually one wave,
-	 * which simplifies many of the calculations, but means we have to
-	 * multiply threadsize_base by this number.
-	 */
-	uint32_t wave_granularity;
+   /* The base number of threads per wave. Some stages may be able to double
+    * this.
+    */
+   uint32_t threadsize_base;
 
-	/* The maximum number of simultaneous waves per core. */
-	uint32_t max_waves;
+   /* On at least a6xx, waves are always launched in pairs. In calculations
+    * about occupancy, we pretend that each wave pair is actually one wave,
+    * which simplifies many of the calculations, but means we have to
+    * multiply threadsize_base by this number.
+    */
+   uint32_t wave_granularity;
 
-	/* This is theoretical maximum number of vec4 registers that one wave of
-	 * the base threadsize could use. To get the actual size of the register
-	 * file in bytes one would need to compute:
-	 *
-	 * reg_size_vec4 * threadsize_base * wave_granularity * 16 (bytes per vec4)
-	 *
-	 * However this number is more often what we actually need. For example, a
-	 * max_reg more than half of this will result in a doubled threadsize
-	 * being impossible (because double-sized waves take up twice as many
-	 * registers). Also, the formula for the occupancy given a particular
-	 * register footprint is simpler.
-	 *
-	 * It is in vec4 units because the register file is allocated
-	 * with vec4 granularity, so it's in the same units as max_reg.
-	 */
-	uint32_t reg_size_vec4;
+   /* The maximum number of simultaneous waves per core. */
+   uint32_t max_waves;
 
-	/* The size of local memory in bytes */
-	uint32_t local_mem_size;
+   /* This is theoretical maximum number of vec4 registers that one wave of
+    * the base threadsize could use. To get the actual size of the register
+    * file in bytes one would need to compute:
+    *
+    * reg_size_vec4 * threadsize_base * wave_granularity * 16 (bytes per vec4)
+    *
+    * However this number is more often what we actually need. For example, a
+    * max_reg more than half of this will result in a doubled threadsize
+    * being impossible (because double-sized waves take up twice as many
+    * registers). Also, the formula for the occupancy given a particular
+    * register footprint is simpler.
+    *
+    * It is in vec4 units because the register file is allocated
+    * with vec4 granularity, so it's in the same units as max_reg.
+    */
+   uint32_t reg_size_vec4;
 
-	/* The number of total branch stack entries, divided by wave_granularity. */
-	uint32_t branchstack_size;
+   /* The size of local memory in bytes */
+   uint32_t local_mem_size;
 
-	/* Whether clip+cull distances are supported */
-	bool has_clip_cull;
+   /* The number of total branch stack entries, divided by wave_granularity. */
+   uint32_t branchstack_size;
 
-	/* Whether private memory is supported */
-	bool has_pvtmem;
+   /* Whether clip+cull distances are supported */
+   bool has_clip_cull;
+
+   /* Whether private memory is supported */
+   bool has_pvtmem;
 };
 
 void ir3_compiler_destroy(struct ir3_compiler *compiler);
 struct ir3_compiler * ir3_compiler_create(struct fd_device *dev, uint32_t gpu_id,
-										  bool robust_ubo_access);
+										  bool robust_ubo_access, bool is_vk);
 
 void ir3_disk_cache_init(struct ir3_compiler *compiler);
 void ir3_disk_cache_init_shader_key(struct ir3_compiler *compiler,
