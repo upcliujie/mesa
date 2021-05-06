@@ -2337,8 +2337,17 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
       }
 
       struct vtn_type *ptr_type = vtn_get_type(b, w[1]);
-      struct vtn_pointer *base =
-         vtn_value(b, w[3], vtn_value_type_pointer)->pointer;
+
+      struct vtn_value *value = vtn_untyped_value(b, w[3]);
+
+      struct vtn_pointer *base;
+      if (value->is_null_constant) {
+         base = vtn_pointer_from_ssa(b, nir_imm_int64(&b->nb, 0), value->type);
+      } else {
+         vtn_fail_if(value->value_type != vtn_value_type_pointer,
+                     "SPIR-V id %u is the wrong kind of value", w[3]);
+         base = value->pointer;
+      }
 
       /* Workaround for https://gitlab.freedesktop.org/mesa/mesa/-/issues/3406 */
       access |= base->access & ACCESS_NON_UNIFORM;
