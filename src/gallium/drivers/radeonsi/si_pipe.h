@@ -301,6 +301,7 @@ struct si_resource {
    unsigned bo_alignment;
    enum radeon_bo_domain domains;
    enum radeon_bo_flag flags;
+   uint32_t buffer_id_unique; /* for u_threaded_context: non-zero for buffers */
    unsigned bind_history;
    int max_forced_staging_uploads;
 
@@ -647,6 +648,8 @@ struct si_screen {
    unsigned compute_wave_size;
    unsigned ps_wave_size;
    unsigned ge_wave_size;
+
+   struct util_idalloc_mt buffer_ids;
 };
 
 struct si_sampler_view {
