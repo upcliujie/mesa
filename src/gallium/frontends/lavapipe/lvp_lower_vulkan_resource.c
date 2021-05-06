@@ -36,6 +36,20 @@ lower_vulkan_resource_index(const nir_instr *instr, const void *data_cb)
       case nir_intrinsic_vulkan_resource_reindex:
       case nir_intrinsic_load_vulkan_descriptor:
       case nir_intrinsic_get_ssbo_size:
+      case nir_intrinsic_image_deref_load:
+      case nir_intrinsic_image_deref_store:
+      case nir_intrinsic_image_deref_atomic_add:
+      case nir_intrinsic_image_deref_atomic_imin:
+      case nir_intrinsic_image_deref_atomic_umin:
+      case nir_intrinsic_image_deref_atomic_imax:
+      case nir_intrinsic_image_deref_atomic_umax:
+      case nir_intrinsic_image_deref_atomic_and:
+      case nir_intrinsic_image_deref_atomic_or:
+      case nir_intrinsic_image_deref_atomic_xor:
+      case nir_intrinsic_image_deref_atomic_exchange:
+      case nir_intrinsic_image_deref_atomic_comp_swap:
+      case nir_intrinsic_image_deref_size:
+      case nir_intrinsic_image_deref_samples:
          return true;
       default:
          return false;
@@ -222,6 +236,35 @@ static void lower_vri_instr_tex(struct nir_builder *b,
    }
 }
 
+static void
+lower_image_intrinsic(nir_builder *b,
+		      nir_intrinsic_instr *intrin,
+		      void *data_cb)
+{
+   struct lvp_pipeline_layout *layout = data_cb;
+   nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+   nir_variable *var = nir_deref_instr_get_variable(deref);
+   unsigned binding_value = 0;
+   unsigned desc_set_idx = var->data.descriptor_set;
+   unsigned binding_idx = var->data.binding;
+   struct lvp_descriptor_set_binding_layout *binding = &layout->set[desc_set_idx].layout->binding[binding_idx];
+   nir_ssa_def *index = NULL;
+
+   for (unsigned s = 0; s < desc_set_idx; s++)
+      binding_value += layout->set[s].layout->stage[b->shader->info.stage].image_count;
+   binding_value += binding->stage[b->shader->info.stage].image_index;
+
+   b->cursor = nir_before_instr(&intrin->instr);
+   if (deref->deref_type != nir_deref_type_var) {
+      index = nir_ssa_for_src(b, deref->arr.index, 1);
+   } else {
+      index = nir_imm_int(b, 0);
+   }
+
+   index = nir_iadd_imm(b, index, binding_value);
+   nir_rewrite_image_intrinsic(intrin, index, false);
+}
+
 static nir_ssa_def *lower_vri_instr(struct nir_builder *b,
                                     nir_instr *instr, void *data_cb)
 {
@@ -247,6 +290,22 @@ static nir_ssa_def *lower_vri_instr(struct nir_builder *b,
                                nir_src_for_ssa(index));
          return NULL;
       }
+      case nir_intrinsic_image_deref_load:
+      case nir_intrinsic_image_deref_store:
+      case nir_intrinsic_image_deref_atomic_add:
+      case nir_intrinsic_image_deref_atomic_imin:
+      case nir_intrinsic_image_deref_atomic_umin:
+      case nir_intrinsic_image_deref_atomic_imax:
+      case nir_intrinsic_image_deref_atomic_umax:
+      case nir_intrinsic_image_deref_atomic_and:
+      case nir_intrinsic_image_deref_atomic_or:
+      case nir_intrinsic_image_deref_atomic_xor:
+      case nir_intrinsic_image_deref_atomic_exchange:
+      case nir_intrinsic_image_deref_atomic_comp_swap:
+      case nir_intrinsic_image_deref_size:
+      case nir_intrinsic_image_deref_samples:
+         lower_image_intrinsic(b, intrin, data_cb);
+         return NULL;
 
       default:
          return NULL;
