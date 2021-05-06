@@ -667,6 +667,37 @@ st_clear_buffer_subdata(struct gl_context *ctx,
    if (!clearValue)
       clearValue = zeros;
 
+   /* Reduce a large clear value size if possible. */
+   if (clearValueSize > 4) {
+      bool clear_dword_duplicated = true;
+      const uint32_t *clear_value = clearValue;
+
+      /* See if we can lower large fills to dword fills. */
+      for (unsigned i = 1; i < clearValueSize / 4; i++) {
+         if (clear_value[0] != clear_value[i]) {
+            clear_dword_duplicated = false;
+            break;
+         }
+      }
+      if (clear_dword_duplicated)
+         clearValueSize = 4;
+   }
+
+   /* Expand a small clear value size. */
+   uint32_t tmp_clear_value;
+   if (clearValueSize <= 2) {
+      if (clearValueSize == 1) {
+         tmp_clear_value = *(uint8_t *)clearValue;
+         tmp_clear_value |=
+            (tmp_clear_value << 8) | (tmp_clear_value << 16) | (tmp_clear_value << 24);
+      } else {
+         tmp_clear_value = *(uint16_t *)clearValue;
+         tmp_clear_value |= tmp_clear_value << 16;
+      }
+      clearValue = &tmp_clear_value;
+      clearValueSize = 4;
+   }
+
    pipe->clear_buffer(pipe, buf->buffer, offset, size,
                       clearValue, clearValueSize);
 }
