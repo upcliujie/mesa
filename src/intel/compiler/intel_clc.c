@@ -266,6 +266,7 @@ print_usage(char *exec_name, FILE *f)
 "      --prefix <prefix>   Prefix for variable names in generated C code.\n"
 "  -i, --in <filename>     Specify an input CL filename (can be specified more than once).\n"
 "  -g, --out <filename>    Specify the output filename.\n"
+"  -s, --spv <filename>    Specify the output filename for spirv.\n"
    , exec_name);
 }
 
@@ -282,10 +283,11 @@ int main(int argc, char **argv)
       {"prefix",     required_argument,   0, OPT_PREFIX},
       {"in",         required_argument,   0, 'i'},
       {"out",        required_argument,   0, 'o'},
+      {"spv",        required_argument,   0, 's'},
       {0, 0, 0, 0}
    };
 
-   char *entry_point = NULL, *platform = NULL, *outfile = NULL, *prefix = NULL;
+   char *entry_point = NULL, *platform = NULL, *outfile = NULL, *spv_outfile = NULL, *prefix = NULL;
    struct util_dynarray input_files;
    struct util_dynarray spirv_objs;
    struct util_dynarray spirv_ptr_objs;
@@ -297,7 +299,7 @@ int main(int argc, char **argv)
    util_dynarray_init(&spirv_ptr_objs, mem_ctx);
 
    int ch;
-   while ((ch = getopt_long(argc, argv, "he:p:i:o:", long_options, NULL)) != -1)
+   while ((ch = getopt_long(argc, argv, "he:p:i:s:o:", long_options, NULL)) != -1)
    {
       switch (ch)
       {
@@ -317,6 +319,9 @@ int main(int argc, char **argv)
       }
       case 'o':
          outfile = optarg;
+         break;
+      case 's':
+         spv_outfile = optarg;
          break;
       case OPT_PREFIX:
          prefix = optarg;
@@ -413,6 +418,12 @@ int main(int argc, char **argv)
    if (!clc_link_spirv(&link_args, &logger, &final_spirv)) {
       ralloc_free(mem_ctx);
       return 1;
+   }
+
+   if (spv_outfile) {
+      FILE *fp = fopen(spv_outfile, "w");
+      fwrite(final_spirv.data, final_spirv.size, 1, fp);
+      fclose(fp);
    }
 
    struct clc_parsed_spirv parsed_spirv_data;
