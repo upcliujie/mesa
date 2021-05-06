@@ -220,11 +220,13 @@ bool si_alloc_resource(struct si_screen *sscreen, struct si_resource *res)
 
 static void si_buffer_destroy(struct pipe_screen *screen, struct pipe_resource *buf)
 {
+   struct si_screen *sscreen = (struct si_screen *)screen;
    struct si_resource *buffer = si_resource(buf);
 
    threaded_resource_deinit(buf);
    util_range_destroy(&buffer->valid_buffer_range);
    radeon_bo_reference(((struct si_screen*)screen)->ws, &buffer->buf, NULL);
+   util_idalloc_mt_free(&sscreen->buffer_ids, buffer->buffer_id_unique);
    FREE(buffer);
 }
 
@@ -277,6 +279,11 @@ void si_replace_buffer_storage(struct pipe_context *ctx, struct pipe_resource *d
    sdst->b.max_forced_staging_uploads = ssrc->b.max_forced_staging_uploads;
    sdst->max_forced_staging_uploads = ssrc->max_forced_staging_uploads;
    sdst->flags = ssrc->flags;
+
+   /* Move the unique buffer ID. */
+   util_idalloc_mt_free(&sctx->screen->buffer_ids, sdst->buffer_id_unique);
+   sdst->buffer_id_unique = ssrc->buffer_id_unique;
+   ssrc->buffer_id_unique = 0;
 
    assert(sdst->vram_usage_kb == ssrc->vram_usage_kb);
    assert(sdst->gart_usage_kb == ssrc->gart_usage_kb);
@@ -561,6 +568,7 @@ static const struct u_resource_vtbl si_buffer_vtbl = {
 static struct si_resource *si_alloc_buffer_struct(struct pipe_screen *screen,
                                                   const struct pipe_resource *templ)
 {
+   struct si_screen *sscreen = (struct si_screen *)screen;
    struct si_resource *buf;
 
    buf = MALLOC_STRUCT(si_resource);
@@ -577,6 +585,9 @@ static struct si_resource *si_alloc_buffer_struct(struct pipe_screen *screen,
    buf->bind_history = 0;
    buf->TC_L2_dirty = false;
    util_range_init(&buf->valid_buffer_range);
+
+   buf->b.buffer_id_unique = buf->buffer_id_unique =
+      util_idalloc_mt_alloc(&sscreen->buffer_ids);
    return buf;
 }
 
