@@ -196,11 +196,19 @@ MoveResult MoveState::downwards_move(bool clause)
    for (int i = source_idx; i < dest_insert_idx - 1; i++)
       register_demand[i] -= candidate_diff;
    register_demand[dest_insert_idx - 1] = new_demand;
-   total_demand_clause -= candidate_diff;
+
    insert_idx_clause--;
+   total_demand_clause = {};
+   for (int i = source_idx; i < insert_idx_clause; ++i) {
+      total_demand_clause.update(register_demand[i]);
+   }
    if (!clause) {
-      total_demand -= candidate_diff;
       insert_idx--;
+
+      total_demand = total_demand_clause;
+      for (int i = insert_idx_clause + 1; i < insert_idx; ++i) {
+         total_demand.update(register_demand[i]);
+      }
    } else {
       total_demand.update(total_demand_clause);
    }
