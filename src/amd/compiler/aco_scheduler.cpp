@@ -116,6 +116,7 @@ void MoveState::downwards_advance_helper()
 {
    source_idx--;
    total_demand.update(register_demand[source_idx]);
+   total_demand_clause.update(register_demand[source_idx]);
 }
 
 void MoveState::downwards_init(int current_idx, bool improved_rar_, bool may_form_clauses)
@@ -126,7 +127,8 @@ void MoveState::downwards_init(int current_idx, bool improved_rar_, bool may_for
    insert_idx = current_idx + 1;
    insert_idx_clause = current_idx;
 
-   total_demand = total_demand_clause = register_demand[current_idx];
+   total_demand = register_demand[current_idx];
+   total_demand_clause = register_demand[current_idx - 1];
 
    std::fill(depends_on.begin(), depends_on.end(), false);
    if (improved_rar) {
@@ -220,7 +222,6 @@ void MoveState::downwards_skip()
          }
       }
    }
-   total_demand_clause.update(register_demand[source_idx]);
 
    downwards_advance_helper();
 }
