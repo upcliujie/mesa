@@ -1676,7 +1676,7 @@ radv_emit_fb_color_state(struct radv_cmd_buffer *cmd_buffer, int index,
       }
    }
 
-   if (radv_dcc_enabled(image, iview->base_mip)) {
+   if (G_028C70_DCC_ENABLE(cb_color_info)) {
       /* Drawing with DCC enabled also compresses colorbuffers. */
       radv_update_dcc_metadata(cmd_buffer, image, &range, true);
    }
