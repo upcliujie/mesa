@@ -1948,8 +1948,9 @@ tc_improve_map_buffer_flags(struct threaded_context *tc,
    /* See if the buffer range being mapped has never been initialized,
     * in which case it can be mapped unsynchronized. */
    if (!(usage & PIPE_MAP_UNSYNCHRONIZED) &&
-       !tres->is_shared &&
-       !util_ranges_intersect(&tres->valid_buffer_range, offset, offset + size))
+       ((!tres->is_shared &&
+         !util_ranges_intersect(&tres->valid_buffer_range, offset, offset + size)) ||
+        !tc_is_buffer_busy(tc, tres, usage)))
       usage |= PIPE_MAP_UNSYNCHRONIZED;
 
    if (!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
