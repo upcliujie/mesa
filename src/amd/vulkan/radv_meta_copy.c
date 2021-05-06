@@ -180,17 +180,17 @@ copy_buffer_to_image(struct radv_cmd_buffer *cmd_buffer, struct radv_buffer *buf
    if (!radv_is_buffer_format_supported(img_bsurf.format, NULL)) {
       uint32_t queue_mask = radv_image_queue_family_mask(image, cmd_buffer->queue_family_index,
                                                          cmd_buffer->queue_family_index);
+      VkImageSubresourceRange range = {
+         .aspectMask = region->imageSubresource.aspectMask,
+         .baseMipLevel = region->imageSubresource.mipLevel,
+         .levelCount = 1,
+         .baseArrayLayer = region->imageSubresource.baseArrayLayer,
+         .layerCount = region->imageSubresource.layerCount,
+      };
       bool compressed =
-         radv_layout_dcc_compressed(cmd_buffer->device, image, layout, false, queue_mask);
+         radv_layout_dcc_compressed(cmd_buffer->device, image, &range, layout, false, queue_mask);
       if (compressed) {
-         radv_decompress_dcc(cmd_buffer, image,
-                             &(VkImageSubresourceRange){
-                                .aspectMask = region->imageSubresource.aspectMask,
-                                .baseMipLevel = region->imageSubresource.mipLevel,
-                                .levelCount = 1,
-                                .baseArrayLayer = region->imageSubresource.baseArrayLayer,
-                                .layerCount = region->imageSubresource.layerCount,
-                             });
+         radv_decompress_dcc(cmd_buffer, image, &range);
          img_bsurf.disable_compression = true;
       }
       img_bsurf.format = vk_format_for_size(vk_format_get_blocksize(img_bsurf.format));
@@ -306,17 +306,17 @@ copy_image_to_buffer(struct radv_cmd_buffer *cmd_buffer, struct radv_buffer *buf
    if (!radv_is_buffer_format_supported(img_info.format, NULL)) {
       uint32_t queue_mask = radv_image_queue_family_mask(image, cmd_buffer->queue_family_index,
                                                          cmd_buffer->queue_family_index);
+      VkImageSubresourceRange range = {
+         .aspectMask = region->imageSubresource.aspectMask,
+         .baseMipLevel = region->imageSubresource.mipLevel,
+         .levelCount = 1,
+         .baseArrayLayer = region->imageSubresource.baseArrayLayer,
+         .layerCount = region->imageSubresource.layerCount,
+      };
       bool compressed =
-         radv_layout_dcc_compressed(cmd_buffer->device, image, layout, false, queue_mask);
+         radv_layout_dcc_compressed(cmd_buffer->device, image, &range, layout, false, queue_mask);
       if (compressed) {
-         radv_decompress_dcc(cmd_buffer, image,
-                             &(VkImageSubresourceRange){
-                                .aspectMask = region->imageSubresource.aspectMask,
-                                .baseMipLevel = region->imageSubresource.mipLevel,
-                                .levelCount = 1,
-                                .baseArrayLayer = region->imageSubresource.baseArrayLayer,
-                                .layerCount = region->imageSubresource.layerCount,
-                             });
+         radv_decompress_dcc(cmd_buffer, image, &range);
          img_info.disable_compression = true;
       }
       img_info.format = vk_format_for_size(vk_format_get_blocksize(img_info.format));
@@ -424,11 +424,25 @@ copy_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *src_image,
 
       uint32_t dst_queue_mask = radv_image_queue_family_mask(
          dst_image, cmd_buffer->queue_family_index, cmd_buffer->queue_family_index);
-      bool dst_compressed = radv_layout_dcc_compressed(cmd_buffer->device, dst_image,
+      VkImageSubresourceRange dst_range = {
+         .aspectMask = dst_aspects[a],
+         .baseMipLevel = region->dstSubresource.mipLevel,
+         .levelCount = 1,
+         .baseArrayLayer = region->dstSubresource.baseArrayLayer,
+         .layerCount = region->dstSubresource.layerCount,
+      };
+      bool dst_compressed = radv_layout_dcc_compressed(cmd_buffer->device, dst_image, &dst_range,
                                                        dst_image_layout, false, dst_queue_mask);
       uint32_t src_queue_mask = radv_image_queue_family_mask(
          src_image, cmd_buffer->queue_family_index, cmd_buffer->queue_family_index);
-      bool src_compressed = radv_layout_dcc_compressed(cmd_buffer->device, src_image,
+      VkImageSubresourceRange src_range = {
+         .aspectMask = src_aspects[a],
+         .baseMipLevel = region->srcSubresource.mipLevel,
+         .levelCount = 1,
+         .baseArrayLayer = region->srcSubresource.baseArrayLayer,
+         .layerCount = region->srcSubresource.layerCount,
+      };
+      bool src_compressed = radv_layout_dcc_compressed(cmd_buffer->device, src_image, &src_range,
                                                        src_image_layout, false, src_queue_mask);
 
       if (!src_compressed || radv_dcc_formats_compatible(b_src.format, b_dst.format)) {
@@ -436,14 +450,7 @@ copy_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *src_image,
       } else if (!dst_compressed) {
          b_dst.format = b_src.format;
       } else {
-         radv_decompress_dcc(cmd_buffer, dst_image,
-                             &(VkImageSubresourceRange){
-                                .aspectMask = dst_aspects[a],
-                                .baseMipLevel = region->dstSubresource.mipLevel,
-                                .levelCount = 1,
-                                .baseArrayLayer = region->dstSubresource.baseArrayLayer,
-                                .layerCount = region->dstSubresource.layerCount,
-                             });
+         radv_decompress_dcc(cmd_buffer, dst_image, &dst_range);
          b_dst.format = b_src.format;
          b_dst.disable_compression = true;
       }

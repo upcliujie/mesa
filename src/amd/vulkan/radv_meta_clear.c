@@ -1476,8 +1476,16 @@ radv_can_fast_clear_color(struct radv_cmd_buffer *cmd_buffer, const struct radv_
    if (!iview || !iview->support_fast_clear)
       return false;
 
+   VkImageSubresourceRange range = {
+      .aspectMask = iview->aspect_mask,
+      .baseMipLevel = iview->base_mip,
+      .levelCount = iview->level_count,
+      .baseArrayLayer = iview->base_layer,
+      .layerCount = iview->layer_count,
+   };
+
    if (!radv_layout_can_fast_clear(
-          cmd_buffer->device, iview->image, image_layout, in_render_loop,
+          cmd_buffer->device, iview->image, &range, image_layout, in_render_loop,
           radv_image_queue_family_mask(iview->image, cmd_buffer->queue_family_index,
                                        cmd_buffer->queue_family_index)))
       return false;
@@ -2034,9 +2042,16 @@ radv_cmd_clear_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *imag
          uint32_t queue_mask = radv_image_queue_family_mask(image, cmd_buffer->queue_family_index,
                                                             cmd_buffer->queue_family_index);
 
-         /* Don't use compressed image stores because they will use an incompatible format. */
-         if (radv_layout_dcc_compressed(cmd_buffer->device, image, image_layout, false, queue_mask))
-            disable_compression = cs;
+         for (uint32_t r = 0; r < range_count; r++) {
+            const VkImageSubresourceRange *range = &ranges[r];
+
+            /* Don't use compressed image stores because they will use an incompatible format. */
+            if (radv_layout_dcc_compressed(cmd_buffer->device, image, range, image_layout, false,
+                                           queue_mask)) {
+               disable_compression = cs;
+               break;
+            }
+         }
       }
    }
 
