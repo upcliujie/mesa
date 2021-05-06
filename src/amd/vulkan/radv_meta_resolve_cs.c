@@ -686,7 +686,8 @@ radv_meta_resolve_compute_image(struct radv_cmd_buffer *cmd_buffer, struct radv_
       .layerCount = region->dstSubresource.layerCount,
    };
 
-   if (radv_layout_dcc_compressed(cmd_buffer->device, dest_image, &dest_range, dest_image_layout,
+   if (!radv_image_use_dcc_image_stores(cmd_buffer->device, dest_image) &&
+       radv_layout_dcc_compressed(cmd_buffer->device, dest_image, &dest_range, dest_image_layout,
                                   false, queue_mask) &&
        (region->dstOffset.x || region->dstOffset.y || region->dstOffset.z ||
         region->extent.width != dest_image->info.width ||
