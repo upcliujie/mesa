@@ -1078,6 +1078,9 @@ load("sampler_lod_parameters_pan", [1], flags=[CAN_ELIMINATE, CAN_REORDER])
 # Loads the sample position array on Bifrost, in a packed Arm-specific format
 system_value("sample_positions_pan", 1, bit_sizes=[64])
 
+# Lane ID within a warp
+system_value("lane_id_pan", 1, bit_sizes=[32])
+
 # R600 specific instrincs
 #
 # location where the tesselation data is stored in LDS
