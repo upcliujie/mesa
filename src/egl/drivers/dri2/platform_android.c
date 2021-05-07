@@ -1596,11 +1596,7 @@ droid_open_device(_EGLDisplay *disp, bool swrast)
    char *vendor_name = NULL;
    char vendor_buf[PROPERTY_VALUE_MAX];
 
-#ifdef EGL_FORCE_RENDERNODE
    const unsigned node_type = DRM_NODE_RENDER;
-#else
-   const unsigned node_type = swrast ? DRM_NODE_PRIMARY : DRM_NODE_RENDER;
-#endif
 
    if (property_get("drm.gpu.vendor_name", vendor_buf, NULL) > 0)
       vendor_name = vendor_buf;
