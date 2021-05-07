@@ -870,8 +870,10 @@ buffer_transfer_map(struct zink_context *ctx, struct zink_resource *res, unsigne
    }
 
    if ((usage & PIPE_MAP_WRITE) &&
-       (usage & PIPE_MAP_DISCARD_RANGE || (!(usage & PIPE_MAP_READ) && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_RW))) &&
-       ((!res->obj->host_visible) || !(usage & (PIPE_MAP_UNSYNCHRONIZED | PIPE_MAP_PERSISTENT)))) {
+       (usage & PIPE_MAP_DISCARD_RANGE ||
+        (!(usage & PIPE_MAP_READ) && zink_resource_has_usage(res, ZINK_RESOURCE_ACCESS_RW)) ||
+        !res->obj->host_visible ||
+        !(usage & (PIPE_MAP_UNSYNCHRONIZED | PIPE_MAP_PERSISTENT)))) {
 
       /* Check if mapping this buffer would cause waiting for the GPU.
        */
