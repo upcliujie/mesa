@@ -115,6 +115,45 @@ opt_intrinsics_alu(nir_builder *b, nir_alu_instr *alu,
    }
 }
 
+struct is_fragcoord_z_state {
+   bool success;
+   int8_t swizzle;
+};
+
+static bool
+src_is_fragcoord_z(nir_src *src, void * _state)
+{
+   struct is_fragcoord_z_state *state = (struct is_fragcoord_z_state*) _state;
+   nir_instr *instr = src->parent_instr;
+
+   if (instr->type == nir_instr_type_alu) {
+      nir_alu_instr *alu = nir_instr_as_alu(instr);
+      if (alu->op == nir_op_mov) {
+         if (alu->dest.write_mask != 1)
+            return false;
+
+         if (alu->src[0].src.ssa->parent_instr->type == nir_instr_type_intrinsic) {
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(alu->src[0].src.ssa->parent_instr);
+            if (intrin->intrinsic == nir_intrinsic_load_frag_coord)
+               state->success = alu->src[0].swizzle[0] == 2;
+
+            return state->success;
+         }
+
+         state->swizzle = alu->src[0].swizzle[0];
+         return nir_foreach_src(alu->src[0].src.ssa->parent_instr, src_is_fragcoord_z, _state);
+      } else if (alu->op == nir_op_vec4) {
+         /* Assume the successor of a vec4 is necessarly a mov */
+         if (state->swizzle < 0)
+            return false;
+
+         return nir_foreach_src(alu->src[state->swizzle].src.ssa->parent_instr, src_is_fragcoord_z, _state);
+      }
+   }
+
+   return false;
+}
+
 static bool
 opt_intrinsics_intrin(nir_builder *b, nir_intrinsic_instr *intrin,
                       const struct nir_shader_compiler_options *options)
@@ -156,6 +195,29 @@ opt_intrinsics_intrin(nir_builder *b, nir_intrinsic_instr *intrin,
          }
       }
       return progress;
+   }
+
+   case nir_intrinsic_store_deref: {
+      if (b->shader->info.stage != MESA_SHADER_FRAGMENT)
+         return false;
+
+      nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+      nir_variable *var = nir_deref_instr_get_variable(deref);
+
+      if (var->data.mode == nir_var_shader_out &&
+          var->data.location == FRAG_RESULT_DEPTH) {
+         struct is_fragcoord_z_state state;
+         state.success = false;
+         state.swizzle = -1;
+
+         /* if intrin->src[1] is gl_FragDepth.z then this store is useless */
+         if (nir_foreach_src(intrin->src[1].ssa->parent_instr, src_is_fragcoord_z, &state) &&
+             state.success) {
+            nir_instr_remove(&intrin->instr);
+            return true;
+         }
+      }
+      return false;
    }
 
    default:
