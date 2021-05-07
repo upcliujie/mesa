@@ -3305,7 +3305,7 @@ threaded_context_create(struct pipe_context *pipe,
       return NULL;
    }
 
-   pipe = trace_context_create_threaded(pipe->screen, pipe);
+   pipe = trace_context_create_threaded(pipe->screen, pipe, &replace_buffer, &create_fence);
 
    /* The driver context isn't wrapped, so set its "priv" to NULL. */
    pipe->priv = NULL;

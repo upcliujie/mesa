@@ -265,9 +265,46 @@ trace_screen_is_format_supported(struct pipe_screen *_screen,
    return result;
 }
 
+static void
+trace_context_replace_buffer_storage(struct pipe_context *_pipe,
+                                     struct pipe_resource *dst,
+                                     struct pipe_resource *src)
+{
+   struct trace_context *tr_ctx = trace_context(_pipe);
+   struct pipe_context *pipe = tr_ctx->pipe;
+
+   trace_dump_call_begin("pipe_context", "replace_buffer_storage");
+
+   trace_dump_arg(ptr, pipe);
+   trace_dump_arg(ptr, dst);
+   trace_dump_arg(ptr, src);
+   trace_dump_call_end();
+
+   tr_ctx->replace_buffer_storage(pipe, dst, src);
+}
+
+static struct pipe_fence_handle *
+trace_context_create_fence(struct pipe_context *_pipe, struct tc_unflushed_batch_token *token)
+{
+   struct trace_context *tr_ctx = trace_context(_pipe);
+   struct pipe_context *pipe = tr_ctx->pipe;
+
+   trace_dump_call_begin("pipe_context", "create_fence");
+
+   trace_dump_arg(ptr, pipe);
+   trace_dump_arg(ptr, token);
+
+   struct pipe_fence_handle *ret = tr_ctx->create_fence(pipe, token);
+   trace_dump_ret(ptr, ret);
+   trace_dump_call_end();
+
+   return ret;
+}
 
 struct pipe_context *
-trace_context_create_threaded(struct pipe_screen *screen, struct pipe_context *pipe)
+trace_context_create_threaded(struct pipe_screen *screen, struct pipe_context *pipe,
+                              tc_replace_buffer_storage_func *replace_buffer,
+                              tc_create_fence_func *create_fence)
 {
    if (!trace_screens)
       return pipe;
@@ -281,10 +318,15 @@ trace_context_create_threaded(struct pipe_screen *screen, struct pipe_context *p
       return pipe;
 
    struct pipe_context *ctx = trace_context_create(tr_scr, pipe);
-   if (ctx) {
-      struct trace_context *tr_ctx = trace_context(ctx);
-      tr_ctx->threaded = true;
-   }
+   if (!ctx)
+      return pipe;
+
+   struct trace_context *tr_ctx = trace_context(ctx);
+   tr_ctx->replace_buffer_storage = *replace_buffer;
+   tr_ctx->create_fence = *create_fence;
+   tr_ctx->threaded = true;
+   *replace_buffer = trace_context_replace_buffer_storage;
+   *create_fence = trace_context_create_fence;
    return ctx;
 }
 
