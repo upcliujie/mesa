@@ -1002,9 +1002,13 @@ static void visit_alu(struct lp_build_nir_context *bld_base, const nir_alu_instr
       src_components = 3;
       break;
    case nir_op_fsum2:
+      src_components = 2;
+      break;
    case nir_op_fsum3:
+      src_components = 3;
+      break;
    case nir_op_fsum4:
-      src_components = nir_src_num_components(instr->src[0].src);
+      src_components = 4;
       break;
    default:
       src_components = num_components;
