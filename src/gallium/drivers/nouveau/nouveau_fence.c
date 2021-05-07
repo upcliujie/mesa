@@ -61,7 +61,9 @@ nouveau_fence_emit(struct nouveau_fence *fence)
    struct nouveau_screen *screen = fence->screen;
    struct nouveau_fence_list *fence_list = &screen->fence;
 
-   assert(fence->state == NOUVEAU_FENCE_STATE_AVAILABLE);
+   assert(fence->state != NOUVEAU_FENCE_STATE_EMITTING);
+   if (fence->state >= NOUVEAU_FENCE_STATE_EMITTED)
+      return;
 
    /* set this now, so that if fence.emit triggers a flush we don't recurse */
    fence->state = NOUVEAU_FENCE_STATE_EMITTING;
@@ -187,11 +189,7 @@ nouveau_fence_kick(struct nouveau_fence *fence)
 
    if (fence->state < NOUVEAU_FENCE_STATE_EMITTED) {
       PUSH_SPACE(screen->pushbuf, 8);
-      /* The space allocation might trigger a flush, which could emit the
-       * current fence. So check again.
-       */
-      if (fence->state < NOUVEAU_FENCE_STATE_EMITTED)
-         nouveau_fence_emit(fence);
+      nouveau_fence_emit(fence);
    }
 
    if (fence->state < NOUVEAU_FENCE_STATE_FLUSHED)
