@@ -265,7 +265,7 @@ nv50_hw_end_query(struct nv50_context *nv50, struct nv50_query *q)
       break;
    }
    if (hq->is64bit)
-      nouveau_fence_ref(nv50->screen->base.fence.current, &hq->fence);
+      nouveau_fence_ref_current(&nv50->screen->base.fence, &hq->fence);
 }
 
 static bool
