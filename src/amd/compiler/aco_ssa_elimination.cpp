@@ -37,9 +37,13 @@ struct ssa_elimination_ctx {
    phi_info logical_phi_info;
    phi_info linear_phi_info;
    std::vector<bool> empty_blocks;
+   std::vector<bool> blocks_incoming_exec_used;
    Program* program;
 
-   ssa_elimination_ctx(Program* program_) : empty_blocks(program_->blocks.size(), true), program(program_) {}
+   ssa_elimination_ctx(Program* program_)
+      : empty_blocks(program_->blocks.size(), true)
+      , blocks_incoming_exec_used(program_->blocks.size(), true)
+      , program(program_) {}
 };
 
 void collect_phi_info(ssa_elimination_ctx& ctx)
@@ -258,9 +262,75 @@ void try_remove_simple_block(ssa_elimination_ctx& ctx, Block* block)
    block->linear_succs.clear();
 }
 
+bool instr_writes_exec(Instruction* instr)
+{
+   for (Definition& def : instr->definitions)
+      if (def.physReg() == exec || def.physReg() == exec_hi)
+         return true;
+
+   return false;
+}
+
+void eliminate_useless_exec_writes_in_block(ssa_elimination_ctx& ctx, Block& block)
+{
+   /* Check if any successor needs the outgoing exec mask from the current block */
+   bool exec_write_used =
+      std::any_of(block.linear_succs.begin(), block.linear_succs.end(),
+                  [&ctx](int succ_idx) { return ctx.blocks_incoming_exec_used[succ_idx]; });
+
+   bool will_insert_exec_copy = false;
+   bool will_inserted_exec_copy_need_exec = false;
+
+   auto linear_phi_info_it = ctx.linear_phi_info.find(block.index);
+   if (linear_phi_info_it != ctx.linear_phi_info.end()) {
+      for (const auto& successor_phi_info : linear_phi_info_it->second) {
+         if (successor_phi_info.first.physReg() == exec)
+            will_insert_exec_copy = true;
+         if (successor_phi_info.second.physReg() == exec)
+            will_inserted_exec_copy_need_exec = true;
+      }
+   }
+
+   if (will_insert_exec_copy && !will_inserted_exec_copy_need_exec)
+      exec_write_used = false;
+
+   auto logical_phi_info_it = ctx.logical_phi_info.find(block.index);
+   if (logical_phi_info_it != ctx.logical_phi_info.end() && !logical_phi_info_it->second.empty())
+      exec_write_used = true;
+
+   for (int i = block.instructions.size() - 1; i >= 0; --i) {
+      aco_ptr<Instruction>& instr = block.instructions[i];
+      if (instr->opcode == aco_opcode::p_linear_phi || instr->opcode == aco_opcode::p_phi)
+         break;
+
+      bool needs_exec = needs_exec_mask(instr.get());
+      bool writes_exec = instr_writes_exec(instr.get());
+
+      if (writes_exec) {
+         if (!exec_write_used) {
+            instr.reset();
+            needs_exec = false;
+         }
+
+         exec_write_used = false;
+      }
+
+      exec_write_used |= needs_exec;
+   }
+
+   ctx.blocks_incoming_exec_used[block.index] = exec_write_used;
+
+   /* Cleanup: remove deleted instructions. */
+   auto new_end = std::remove(block.instructions.begin(), block.instructions.end(), nullptr);
+   block.instructions.resize(new_end - block.instructions.begin());
+}
+
 void jump_threading(ssa_elimination_ctx& ctx)
 {
    for (int i = ctx.program->blocks.size() - 1; i >= 0; i--) {
+      if (i < (int) ctx.program->blocks.size() - 1)
+         eliminate_useless_exec_writes_in_block(ctx, ctx.program->blocks[i + 1]);
+
       Block* block = &ctx.program->blocks[i];
 
       if (!ctx.empty_blocks[i])
@@ -281,6 +351,8 @@ void jump_threading(ssa_elimination_ctx& ctx)
       if (block->linear_preds.size() == 1)
          try_remove_simple_block(ctx, block);
    }
+
+   eliminate_useless_exec_writes_in_block(ctx, ctx.program->blocks[0]);
 }
 
 } /* end namespace */

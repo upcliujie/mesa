@@ -447,9 +447,9 @@ uint32_t get_reduction_identity(ReduceOp op, unsigned idx)
 }
 
 bool needs_exec_mask(const Instruction* instr) {
-   if (instr->isSALU())
+   if (instr->isSALU() || instr->isBranch())
       return instr->reads_exec();
-   if (instr->isSMEM() || instr->isSALU())
+   if (instr->isSMEM())
       return false;
    if (instr->isBarrier())
       return false;
