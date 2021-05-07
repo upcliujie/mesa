@@ -49,6 +49,29 @@ struct access_state {
    bool buffers_read;
 };
 
+static const nir_variable *
+get_binding_variable(struct access_state *state, nir_src rsrc)
+{
+   nir_binding binding = nir_chase_binding(rsrc);
+   const nir_variable *binding_var = nir_get_binding_variable(state->shader, binding);
+
+   if (!binding_var)
+      return NULL;
+
+   /* Be conservative if another variable is using the same binding/desc_set
+    * because the access mask might be different and we can't get it reliably.
+    */
+   nir_foreach_variable_with_modes(var, state->shader, nir_var_mem_ubo | nir_var_mem_ssbo) {
+      if (binding_var != var &&
+          var->data.descriptor_set == binding.desc_set &&
+          var->data.binding == binding.binding) {
+         return NULL;
+      }
+   }
+
+   return binding_var;
+}
+
 static void
 gather_buffer_access(struct access_state *state, nir_ssa_def *def, bool read, bool write)
 {
@@ -58,8 +81,8 @@ gather_buffer_access(struct access_state *state, nir_ssa_def *def, bool read, bo
    if (!def)
       return;
 
-   const nir_variable *var = nir_get_binding_variable(
-      state->shader, nir_chase_binding(nir_src_for_ssa(def)));
+   const nir_variable *var = get_binding_variable(state, nir_src_for_ssa(def));
+
    if (var) {
       if (read)
          _mesa_set_add(state->vars_read, var);
@@ -228,8 +251,7 @@ update_access(struct access_state *state, nir_intrinsic_instr *instr, bool is_im
    if (instr->intrinsic != nir_intrinsic_bindless_image_load &&
        instr->intrinsic != nir_intrinsic_bindless_image_store &&
        instr->intrinsic != nir_intrinsic_bindless_image_sparse_load) {
-      const nir_variable *var = nir_get_binding_variable(
-         state->shader, nir_chase_binding(instr->src[0]));
+      const nir_variable *var = get_binding_variable(state, instr->src[0]);
       is_memory_readonly |= var && (var->data.access & ACCESS_NON_WRITEABLE);
       is_memory_writeonly |= var && (var->data.access & ACCESS_NON_READABLE);
    }
