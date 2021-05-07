@@ -88,6 +88,8 @@ shaders/activeprogram-get: skip
 shaders/createshaderprogram-attached-shaders: skip
 shaders/createshaderprogram-bad-type: skip
 shaders/glsl-bug-110796: fail
+shaders/glsl-uniform-interstage-limits/subdivide 5: skip
+shaders/glsl-uniform-interstage-limits/subdivide 5, statechanges: skip
 shaders/sso-simple: skip
 shaders/sso-uniforms-01: skip
 shaders/sso-uniforms-02: skip
