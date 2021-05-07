@@ -24,6 +24,10 @@ C_SOURCES := \
 	lp_jit.c \
 	lp_jit.h \
 	lp_limits.h \
+	lp_linear.c \
+	lp_linear_fastpath.c \
+	lp_linear_interp.c \
+	lp_linear_sampler.c \
 	lp_memory.c \
 	lp_memory.h \
 	lp_perf.c \
@@ -36,6 +40,9 @@ C_SOURCES := \
 	lp_rast.h \
 	lp_rast_priv.h \
 	lp_rast_tri.c \
+	lp_rast_linear.c \
+	lp_rast_linear_fallback.c \
+	lp_rast_rect.c \
 	lp_rast_tri_tmp.h \
 	lp_scene.c \
 	lp_scene.h \
@@ -44,11 +51,13 @@ C_SOURCES := \
 	lp_screen.c \
 	lp_screen.h \
 	lp_setup.c \
+	lp_setup_analysis.c \
 	lp_setup_context.h \
 	lp_setup.h \
 	lp_setup_line.c \
 	lp_setup_point.c \
 	lp_setup_tri.c \
+	lp_setup_rect.c \
 	lp_setup_vbuf.c \
 	lp_state_blend.c \
 	lp_state_clip.c \
@@ -57,6 +66,10 @@ C_SOURCES := \
 	lp_state_cs.h \
 	lp_state_fs.c \
 	lp_state_fs.h \
+	lp_state_fs_analysis.c \
+	lp_state_fs_fastpath.c \
+	lp_state_fs_linear.c \
+	lp_state_fs_linear_llvm.c \
 	lp_state_gs.c \
 	lp_state.h \
 	lp_state_rasterizer.c \

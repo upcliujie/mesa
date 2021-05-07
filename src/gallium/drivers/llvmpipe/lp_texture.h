@@ -105,8 +105,6 @@ struct llvmpipe_resource
 struct llvmpipe_transfer
 {
    struct pipe_transfer base;
-
-   unsigned long offset;
 };
 
 

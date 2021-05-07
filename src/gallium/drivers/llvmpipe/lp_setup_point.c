@@ -352,10 +352,8 @@ try_setup_point( struct lp_setup_context *setup,
    int adj = (setup->bottom_edge_rule != 0) ? 1 : 0;
    float pixel_offset = setup->multisample ? 0.0 : setup->pixel_offset;
    struct lp_scene *scene = setup->scene;
-   struct lp_rast_triangle *point;
-   unsigned bytes;
+   struct lp_rast_rectangle *point;
    struct u_rect bbox;
-   unsigned nr_planes = 4;
    struct point_info info;
    unsigned viewport_index = 0;
    unsigned layer = 0;
@@ -452,17 +450,15 @@ try_setup_point( struct lp_setup_context *setup,
    }
 
    if (!u_rect_test_intersection(&setup->draw_regions[viewport_index], &bbox)) {
-      if (0) debug_printf("offscreen\n");
+      if (0) debug_printf("no intersection\n");
       LP_COUNT(nr_culled_tris);
       return TRUE;
    }
 
    u_rect_find_intersection(&setup->draw_regions[viewport_index], &bbox);
 
-   point = lp_setup_alloc_triangle(scene,
-                                   key->num_inputs,
-                                   nr_planes,
-                                   &bytes);
+   point = lp_setup_alloc_rectangle(scene,
+                                    key->num_inputs);
    if (!point)
       return FALSE;
 
@@ -470,6 +466,11 @@ try_setup_point( struct lp_setup_context *setup,
    point->v[0][0] = v0[0][0];
    point->v[0][1] = v0[0][1];
 #endif
+
+   point->box.x0 = bbox.x0;
+   point->box.x1 = bbox.x1;
+   point->box.y0 = bbox.y0;
+   point->box.y1 = bbox.y1;
 
    LP_COUNT(nr_tris);
 
@@ -495,36 +496,13 @@ try_setup_point( struct lp_setup_context *setup,
    setup_point_coefficients(setup, &info);
 
    point->inputs.disable = FALSE;
-   point->inputs.opaque = FALSE;
+   point->inputs.is_blit = FALSE;
+   point->inputs.opaque = setup->fs.current.variant->opaque;
    point->inputs.layer = layer;
    point->inputs.viewport_index = viewport_index;
    point->inputs.view_index = setup->view_index;
 
-   {
-      struct lp_rast_plane *plane = GET_PLANES(point);
-
-      plane[0].dcdx = ~0U << 8;
-      plane[0].dcdy = 0;
-      plane[0].c = (1-bbox.x0) << 8;
-      plane[0].eo = 1 << 8;
-
-      plane[1].dcdx = 1 << 8;
-      plane[1].dcdy = 0;
-      plane[1].c = (bbox.x1+1) << 8;
-      plane[1].eo = 0;
-
-      plane[2].dcdx = 0;
-      plane[2].dcdy = 1 << 8;
-      plane[2].c = (1-bbox.y0) << 8;
-      plane[2].eo = 1 << 8;
-
-      plane[3].dcdx = 0;
-      plane[3].dcdy = ~0U << 8;
-      plane[3].c = (bbox.y1+1) << 8;
-      plane[3].eo = 0;
-   }
-
-   return lp_setup_bin_triangle(setup, point, &bbox, &bbox, nr_planes, viewport_index);
+   return lp_setup_bin_rectangle(setup, point);
 }
 
 
