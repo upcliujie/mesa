@@ -992,7 +992,10 @@ void add_branch_code(exec_ctx& ctx, Block* block)
       block->instructions.pop_back();
       assert(ctx.info[idx].exec.size() >= 2);
       Operand orig_exec = ctx.info[idx].exec[ctx.info[idx].exec.size() - 2].first;
-      bld.sop2(Builder::s_andn2, Definition(exec, bld.lm), bld.def(s1, scc), orig_exec, Operand(exec, bld.lm));
+      if (orig_exec.isConstant() && (orig_exec.constantValue64() == UINT64_MAX || orig_exec.constantValue() == UINT32_MAX))
+         bld.sop1(Builder::s_not, Definition(exec, bld.lm), bld.def(s1, scc), Operand(exec, bld.lm));
+      else
+         bld.sop2(Builder::s_andn2, Definition(exec, bld.lm), bld.def(s1, scc), orig_exec, Operand(exec, bld.lm));
 
       bld.branch(aco_opcode::p_cbranch_z, bld.hint_vcc(bld.def(s2)), Operand(exec, bld.lm), block->linear_succs[1], block->linear_succs[0]);
       return;
