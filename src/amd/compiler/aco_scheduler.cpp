@@ -80,6 +80,7 @@ struct MoveState {
 
 private:
    void downwards_advance_helper();
+   void upwards_advance_helper();
 };
 
 struct sched_ctx {
@@ -115,6 +116,20 @@ void move_element(T begin_it, size_t idx, size_t before) {
 void MoveState::downwards_advance_helper()
 {
    source_idx--;
+
+   {
+      RegisterDemand total_demand_clause2;
+      for (int i = source_idx + 1; i < insert_idx_clause; ++i) {
+         total_demand_clause2.update(register_demand[i]);
+      }
+      assert(total_demand_clause == total_demand_clause2 || source_idx + 1 == insert_idx_clause);
+
+      RegisterDemand total_demand2 = total_demand_clause;
+      for (int i = insert_idx_clause; i < insert_idx; ++i) {
+         total_demand2.update(register_demand[i]);
+      }
+      assert(total_demand == total_demand2);
+   }
 }
 
 void MoveState::downwards_init(int current_idx, bool improved_rar_, bool may_form_clauses)
@@ -174,8 +189,8 @@ MoveResult MoveState::downwards_move(bool clause)
       }
    }
 
-   int dest_insert_idx = clause ? insert_idx_clause : insert_idx;
-   RegisterDemand register_pressure = clause ? total_demand_clause : total_demand;
+   const int dest_insert_idx = clause ? insert_idx_clause : insert_idx;
+   const RegisterDemand register_pressure = clause ? total_demand_clause : total_demand;
 
    const RegisterDemand candidate_diff = get_live_changes(instr);
    const RegisterDemand temp = get_temp_registers(instr);
@@ -206,22 +221,13 @@ MoveResult MoveState::downwards_move(bool clause)
       // TODO: How to handle the demand < 0 case?
 //      total_demand.update(RegisterDemand{});
    } else {
-      total_demand.update(register_demand[dest_insert_idx - 1]);
-      total_demand.update(total_demand_clause);
-   }
-
-   {
-      RegisterDemand total_demand_clause2;
-      for (int i = source_idx; i < insert_idx_clause; ++i) {
-         total_demand_clause2.update(register_demand[i]);
-      }
-      assert(total_demand_clause == total_demand_clause2 || source_idx == insert_idx_clause);
-
-      RegisterDemand total_demand2 = total_demand_clause;
+      /* The local demand of clause instructions did not change. But if
+       * previously total_demand_clause was greater than or equal to
+       * total_demand, the global maximum may have changed still */
+      total_demand = total_demand_clause;
       for (int i = insert_idx_clause; i < insert_idx; ++i) {
-         total_demand2.update(register_demand[i]);
+         total_demand.update(register_demand[i]);
       }
-      assert(total_demand == total_demand2);
    }
 
    downwards_advance_helper();
@@ -245,6 +251,14 @@ void MoveState::downwards_skip()
    total_demand.update(register_demand[source_idx]);
 
    downwards_advance_helper();
+}
+
+void MoveState::upwards_advance_helper() {
+   RegisterDemand total_demand2 = {};
+   for (int i = insert_idx; i < source_idx; ++i) {
+      total_demand2.update(register_demand[i]);
+   }
+   assert(total_demand == total_demand2);
 }
 
 void MoveState::upwards_init(int source_idx_, bool improved_rar_)
@@ -276,7 +290,10 @@ bool MoveState::upwards_check_deps()
 void MoveState::upwards_set_insert_idx(int before)
 {
    insert_idx = before;
-   total_demand = register_demand[before - 1];
+   total_demand = RegisterDemand{};
+   for (int i = insert_idx; i < source_idx; ++i) {
+      total_demand.update(register_demand[i]);
+   }
 }
 
 MoveResult MoveState::upwards_move()
@@ -319,6 +336,8 @@ MoveResult MoveState::upwards_move()
 
    total_demand.update(register_demand[source_idx]);
    source_idx++;
+
+   upwards_advance_helper();
 
    return move_success;
 }
