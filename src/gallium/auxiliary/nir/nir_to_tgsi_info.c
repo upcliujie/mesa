@@ -798,15 +798,13 @@ void nir_tgsi_scan_shader(const struct nir_shader *nir,
    uint32_t sampler_mask = 0, image_mask = 0;
    nir_foreach_uniform_variable(var, nir) {
       uint32_t sampler_count = glsl_type_get_sampler_count(var->type);
-      uint32_t image_count = glsl_type_get_image_count(var->type);
       sampler_mask |= ((1ull << sampler_count) - 1) << var->data.binding;
-      image_mask |= ((1ull << image_count) - 1) << var->data.binding;
    }
    if (nir->info.stage == MESA_SHADER_KERNEL) {
       sampler_mask = nir->info.textures_used[0];
-      if (nir->info.num_images)
-	 image_mask = (1 << (nir->info.num_images - 1));
    }
+   image_mask = (1 << nir->info.num_images) - 1;
+
    info->num_outputs = num_outputs;
 
    info->const_file_max[0] = nir->num_uniforms - 1;
