@@ -714,15 +714,13 @@ panfrost_fence_reference(struct pipe_screen *pscreen,
                          struct pipe_fence_handle *fence)
 {
         struct panfrost_device *dev = pan_device(pscreen);
-        struct panfrost_fence **p = (struct panfrost_fence **)ptr;
-        struct panfrost_fence *f = (struct panfrost_fence *)fence;
-        struct panfrost_fence *old = *p;
 
-        if (pipe_reference(&(*p)->reference, &f->reference)) {
-                drmSyncobjDestroy(dev->fd, old->syncobj);
-                free(old);
+        if (pipe_reference(&(*ptr)->reference, &fence->reference)) {
+                drmSyncobjDestroy(dev->fd, (*ptr)->syncobj);
+                free(ptr);
         }
-        *p = f;
+
+        *ptr = fence;
 }
 
 static bool
@@ -732,29 +730,28 @@ panfrost_fence_finish(struct pipe_screen *pscreen,
                       uint64_t timeout)
 {
         struct panfrost_device *dev = pan_device(pscreen);
-        struct panfrost_fence *f = (struct panfrost_fence *)fence;
         int ret;
 
-        if (f->signaled)
+        if (fence->signaled)
                 return true;
 
         uint64_t abs_timeout = os_time_get_absolute_timeout(timeout);
         if (abs_timeout == OS_TIMEOUT_INFINITE)
                 abs_timeout = INT64_MAX;
 
-        ret = drmSyncobjWait(dev->fd, &f->syncobj,
+        ret = drmSyncobjWait(dev->fd, &fence->syncobj,
                              1,
                              abs_timeout, DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL,
                              NULL);
 
-        f->signaled = (ret >= 0);
-        return f->signaled;
+        fence->signaled = (ret >= 0);
+        return fence->signaled;
 }
 
-struct panfrost_fence *
+struct pipe_fence_handle *
 panfrost_fence_create(struct panfrost_context *ctx)
 {
-        struct panfrost_fence *f = calloc(1, sizeof(*f));
+        struct pipe_fence_handle *f = calloc(1, sizeof(*f));
         if (!f)
                 return NULL;
 
