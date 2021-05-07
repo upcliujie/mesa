@@ -65,6 +65,42 @@
 #define BITSET_MASK(b) (((b) % BITSET_WORDBITS == 0) ? ~0 : BITSET_BIT(b) - 1)
 #define BITSET_RANGE(b, e) ((BITSET_MASK((e) + 1)) & ~(BITSET_BIT(b) - 1))
 
+/* logic bit operations
+ */
+static inline void
+__bitset_and(BITSET_WORD *r, const BITSET_WORD *x, const BITSET_WORD *y, unsigned n)
+{
+   for (unsigned i = 0; i < n; i++)
+      r[i] = x[i] & y[i];
+}
+
+static inline void
+__bitset_or(BITSET_WORD *r, const BITSET_WORD *x, const BITSET_WORD *y, unsigned n)
+{
+   for (unsigned i = 0; i < n; i++)
+      r[i] = x[i] | y[i];
+}
+
+static inline void
+__bitset_not(BITSET_WORD *x, unsigned n)
+{
+   for (unsigned i = 0; i < n; i++)
+      x[i] = ~x[i];
+}
+
+#define BITSET_AND(r, x, y)   \
+   assert(ARRAY_SIZE(r) == ARRAY_SIZE(x)); \
+   assert(ARRAY_SIZE(r) == ARRAY_SIZE(y)); \
+   __bitset_and(r, x, y, ARRAY_SIZE(r))
+
+#define BITSET_OR(r, x, y)   \
+   assert(ARRAY_SIZE(r) == ARRAY_SIZE(x)); \
+   assert(ARRAY_SIZE(r) == ARRAY_SIZE(y)); \
+   __bitset_or(r, x, y, ARRAY_SIZE(r))
+
+#define BITSET_NOT(x)   \
+   __bitset_not(x, ARRAY_SIZE(x))
+
 /* bit range operations
  */
 #define BITSET_TEST_RANGE(x, b, e) \
