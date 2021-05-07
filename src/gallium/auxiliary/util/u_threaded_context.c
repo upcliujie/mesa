@@ -2010,7 +2010,7 @@ tc_transfer_map(struct pipe_context *_pipe,
             return NULL;
          }
 
-         tc_set_resource_reference(&ttrans->b.resource, resource);
+         ttrans->b.resource = resource;
          ttrans->b.level = 0;
          ttrans->b.usage = usage;
          ttrans->b.box = *box;
@@ -2212,7 +2212,6 @@ tc_transfer_unmap(struct pipe_context *_pipe, struct pipe_transfer *transfer)
          was_staging_transfer = true;
 
          tc_drop_resource_reference(ttrans->staging);
-         tc_drop_resource_reference(ttrans->b.resource);
          slab_free(&tc->pool_transfers, ttrans);
       }
    }
