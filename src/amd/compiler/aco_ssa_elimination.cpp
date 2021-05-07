@@ -283,6 +283,57 @@ void jump_threading(ssa_elimination_ctx& ctx)
    }
 }
 
+bool instr_writes_exec(Instruction *instr)
+{
+   for (Definition &def : instr->definitions)
+      if (def.physReg() == exec || def.physReg() == exec_hi)
+         return true;
+
+   return false;
+}
+
+void eliminate_useless_exec_writes_in_block(Block &block)
+{
+   /* Delete instructions which write exec but whose written exec isn't actually used in the block.
+    * We don't consider removing the very last exec write in a block (except for s_endpgm) because
+    * that is very likely used by the following blocks.
+    */
+
+   int last_exec_write_idx = -1;
+   bool last_exec_write_used = false;
+
+   for (size_t i = 0; i < block.instructions.size(); ++i) {
+      aco_ptr<Instruction> &instr = block.instructions[i];
+      bool writes_exec = instr_writes_exec(instr.get());
+
+      if (needs_exec_mask(instr.get()))
+         last_exec_write_used = true;
+
+      if ((writes_exec || instr->opcode == aco_opcode::s_endpgm) && last_exec_write_idx >= 0 && !last_exec_write_used)
+         block.instructions[last_exec_write_idx].reset();
+
+      if (writes_exec) {
+         /* When the instruction writes something other than exec, that might also have other uses.
+          * We don't check those other uses here, just disallow removing the instruction then.
+          */
+         last_exec_write_used = instr->definitions.size() > 1;
+         last_exec_write_idx = i;
+      }
+   }
+
+   /* Cleanup: remove deleted instructions. */
+
+   auto new_end = std::remove(block.instructions.begin(), block.instructions.end(), nullptr);
+   block.instructions.resize(new_end - block.instructions.begin());
+}
+
+void eliminate_useless_exec_writes(ssa_elimination_ctx& ctx)
+{
+   for (Block &block : ctx.program->blocks) {
+      eliminate_useless_exec_writes_in_block(block);
+   }
+}
+
 } /* end namespace */
 
 
@@ -295,6 +346,9 @@ void ssa_elimination(Program* program)
 
    /* eliminate empty blocks */
    jump_threading(ctx);
+
+   /* remove useless exec writes */
+   eliminate_useless_exec_writes(ctx);
 
    /* insert parallelcopies from SSA elimination */
    insert_parallelcopies(ctx);
