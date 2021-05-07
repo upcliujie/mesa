@@ -115,9 +115,15 @@ opt_intrinsics_alu(nir_builder *b, nir_alu_instr *alu,
    }
 }
 
+struct fragdepth_optim {
+   bool wrote_once;
+   nir_intrinsic_instr *store_intrin;
+};
+
 static bool
 opt_intrinsics_intrin(nir_builder *b, nir_intrinsic_instr *intrin,
-                      const struct nir_shader_compiler_options *options)
+                      const struct nir_shader_compiler_options *options,
+                      struct fragdepth_optim *fragdepth_store_opt)
 {
    switch (intrin->intrinsic) {
    case nir_intrinsic_load_sample_mask_in: {
@@ -158,6 +164,33 @@ opt_intrinsics_intrin(nir_builder *b, nir_intrinsic_instr *intrin,
       return progress;
    }
 
+   case nir_intrinsic_store_deref: {
+      if (b->shader->info.stage != MESA_SHADER_FRAGMENT)
+         return false;
+
+      nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+      nir_variable *var = nir_deref_instr_get_variable(deref);
+
+      if (var->data.mode == nir_var_shader_out &&
+          var->data.location == FRAG_RESULT_DEPTH) {
+         /* We found a write to gl_FragDepth */
+         if (fragdepth_store_opt->wrote_once) {
+            /* This isn't the only write: give up on this optimisation */
+            fragdepth_store_opt->store_intrin = NULL;
+         } else {
+            fragdepth_store_opt->wrote_once = true;
+            nir_ssa_scalar scalar = nir_ssa_scalar_resolved(intrin->src[1].ssa, 0);
+            if (scalar.comp == 2 &&
+                scalar.def->parent_instr->type == nir_instr_type_intrinsic &&
+                nir_instr_as_intrinsic(scalar.def->parent_instr)->intrinsic == nir_intrinsic_load_frag_coord) {
+               /* We're storing gl_FragCoord.z: remember 'intrin' so we can try to remove it later. */
+               fragdepth_store_opt->store_intrin = intrin;
+            }
+         }
+      }
+      return false;
+   }
+
    default:
       return false;
    }
@@ -165,7 +198,8 @@ opt_intrinsics_intrin(nir_builder *b, nir_intrinsic_instr *intrin,
 
 static bool
 opt_intrinsics_impl(nir_function_impl *impl,
-                    const struct nir_shader_compiler_options *options)
+                    const struct nir_shader_compiler_options *options,
+                    struct fragdepth_optim *fragdepth_store_opt)
 {
    nir_builder b;
    nir_builder_init(&b, impl);
@@ -194,7 +228,8 @@ opt_intrinsics_impl(nir_function_impl *impl,
                 intrin->intrinsic == nir_intrinsic_terminate_if)
                block_has_discard = true;
 
-            if (opt_intrinsics_intrin(&b, intrin, options))
+            if (opt_intrinsics_intrin(&b, intrin, options,
+                                      fragdepth_store_opt))
                progress = true;
             break;
          }
@@ -212,18 +247,27 @@ bool
 nir_opt_intrinsics(nir_shader *shader)
 {
    bool progress = false;
+   struct fragdepth_optim fd_opt = {0};
 
    nir_foreach_function(function, shader) {
       if (!function->impl)
          continue;
 
-      if (opt_intrinsics_impl(function->impl, shader->options)) {
+      if (opt_intrinsics_impl(function->impl, shader->options, &fd_opt)) {
          progress = true;
          nir_metadata_preserve(function->impl, nir_metadata_block_index |
                                                nir_metadata_dominance);
       } else {
          nir_metadata_preserve(function->impl, nir_metadata_all);
       }
+   }
+
+   if (fd_opt.wrote_once && fd_opt.store_intrin) {
+      /* Found a single store to gl_FragDepth, and it writes gl_FragCoord.z to it.
+       * Remove it since that's the implicit value of gl_FragDepth.
+       */
+      nir_instr_remove(&fd_opt.store_intrin->instr);
+      progress = true;
    }
 
    return progress;
