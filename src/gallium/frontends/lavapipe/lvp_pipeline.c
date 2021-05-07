@@ -754,6 +754,8 @@ lvp_pipeline_compile(struct lvp_pipeline *pipeline,
          unreachable("illegal shader");
          break;
       }
+
+      ralloc_free(xfb_info);
    }
    return VK_SUCCESS;
 }
