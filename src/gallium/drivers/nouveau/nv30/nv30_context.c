@@ -53,13 +53,13 @@ nv30_context_kick_notify(struct nouveau_pushbuf *push)
       LIST_FOR_EACH_ENTRY(bref, &push->bufctx->current, thead) {
          struct nv04_resource *res = bref->priv;
          if (res && res->mm) {
-            nouveau_fence_ref(screen->fence.current, &res->fence);
+            nouveau_fence_ref_current(&screen->fence, &res->fence);
 
             if (bref->flags & NOUVEAU_BO_RD)
                res->status |= NOUVEAU_BUFFER_STATUS_GPU_READING;
 
             if (bref->flags & NOUVEAU_BO_WR) {
-               nouveau_fence_ref(screen->fence.current, &res->fence_wr);
+               nouveau_fence_ref_current(&screen->fence, &res->fence_wr);
                res->status |= NOUVEAU_BUFFER_STATUS_GPU_WRITING |
                   NOUVEAU_BUFFER_STATUS_DIRTY;
             }
@@ -76,8 +76,8 @@ nv30_context_flush(struct pipe_context *pipe, struct pipe_fence_handle **fence,
    struct nouveau_pushbuf *push = nv30->base.pushbuf;
 
    if (fence)
-      nouveau_fence_ref(nv30->screen->base.fence.current,
-                        (struct nouveau_fence **)fence);
+      nouveau_fence_ref_current(&nv30->screen->base.fence,
+                                (struct nouveau_fence **)fence);
 
    PUSH_KICK(push);
 
