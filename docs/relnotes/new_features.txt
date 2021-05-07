@@ -1,1 +1,2 @@
 VK_EXT_color_write_enable on lavapipe
+VK_EXT_shader_atomic_float2 on Intel
