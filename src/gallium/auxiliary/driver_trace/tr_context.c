@@ -1563,20 +1563,25 @@ trace_context_transfer_map(struct pipe_context *_context,
                            struct pipe_transfer **transfer)
 {
    struct trace_context *tr_context = trace_context(_context);
-   struct pipe_context *context = tr_context->pipe;
-   struct pipe_transfer *result = NULL;
+   struct pipe_context *pipe = tr_context->pipe;
+   struct pipe_transfer *xfer = NULL;
    void *map;
 
-   /*
-    * Map and transfers can't be serialized so we convert all write transfers
-    * to texture/buffer_subdata and ignore read transfers.
-    */
+   map = pipe->transfer_map(pipe, resource, level, usage, box, &xfer);
+   *transfer = trace_transfer_create(tr_context, resource, xfer);
 
-   map = context->transfer_map(context, resource, level, usage, box, &result);
-   if (!map)
-      return NULL;
+   trace_dump_call_begin("pipe_context", "transfer_map");
 
-   *transfer = trace_transfer_create(tr_context, resource, result);
+   trace_dump_arg(ptr, pipe);
+   trace_dump_arg(ptr, resource);
+   trace_dump_arg(uint, level);
+   trace_dump_arg(uint, usage);
+   trace_dump_arg(box, box);
+
+   trace_dump_arg(ptr, xfer);
+   trace_dump_ret(ptr, map);
+
+   trace_dump_call_end();
 
    if (map) {
       if (usage & PIPE_MAP_WRITE) {
@@ -1594,10 +1599,18 @@ trace_context_transfer_flush_region( struct pipe_context *_context,
 {
    struct trace_context *tr_context = trace_context(_context);
    struct trace_transfer *tr_transfer = trace_transfer(_transfer);
-   struct pipe_context *context = tr_context->pipe;
+   struct pipe_context *pipe = tr_context->pipe;
    struct pipe_transfer *transfer = tr_transfer->transfer;
 
-   context->transfer_flush_region(context, transfer, box);
+   trace_dump_call_begin("pipe_context", "transfer_flush_region");
+
+   trace_dump_arg(ptr, pipe);
+   trace_dump_arg(ptr, transfer);
+   trace_dump_arg(box, box);
+
+   trace_dump_call_end();
+
+   pipe->transfer_flush_region(pipe, transfer, box);
 }
 
 static void
@@ -1608,6 +1621,14 @@ trace_context_transfer_unmap(struct pipe_context *_context,
    struct trace_transfer *tr_trans = trace_transfer(_transfer);
    struct pipe_context *context = tr_ctx->pipe;
    struct pipe_transfer *transfer = tr_trans->transfer;
+
+
+   trace_dump_call_begin("pipe_context", "transfer_unmap");
+
+   trace_dump_arg(ptr, pipe);
+   trace_dump_arg(ptr, transfer);
+
+   trace_dump_call_end();
 
    if (tr_trans->map) {
       /*
