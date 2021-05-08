@@ -144,7 +144,7 @@ static const struct isa_case ${case.get_c_name()} = {
             .enums = &${isa.enums[field.type].get_c_name()},
 %      endif
 %      if field.get_c_typename() == 'TYPE_ASSERT':
-            .val = ${field.val},
+            .val = { ${', '.join(isa.split_bits(field.val))} },
 %      endif
           },
 %   endfor
@@ -161,9 +161,9 @@ static const struct isa_bitset bitset_${bitset.get_c_name()} = {
            .min  = ${bitset.gen_min},
            .max  = ${bitset.gen_max},
        },
-       .match    = ${hex(pattern.match)},
-       .dontcare = ${hex(pattern.dontcare)},
-       .mask     = ${hex(pattern.mask)},
+       .match    = { ${', '.join(isa.split_bits(pattern.match))} },
+       .dontcare = { ${', '.join(isa.split_bits(pattern.dontcare))} },
+       .mask     = { ${', '.join(isa.split_bits(pattern.mask))} },
        .num_cases = ${len(bitset.cases)},
        .cases    = {
 %   for case in bitset.cases:
@@ -224,6 +224,18 @@ typedef BITSET_WORD bitmask_t[BITMASK_WORDS];
 
 #define BITSET_FORMAT ${isa.format()}
 #define BITSET_VALUE(v) ${isa.value()}
+
+static inline void
+next_instruction(bitmask_t *instr, BITSET_WORD *start)
+{
+    bitmask_t i = {
+%   for i in range(0, int(isa.bitsize / 32)):
+        *(start + ${i}),
+%   endfor
+    };
+
+    BITSET_COPY(*instr, i);
+}
 
 static inline uint64_t
 bitmask_to_uint64_t(bitmask_t mask)
