@@ -1270,6 +1270,14 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
                   sctx->last_base_vertex = draws[num_draws - 1].index_bias;
             } else {
                /* DrawID and BaseVertex are constant. */
+               if (GFX_VERSION == GFX10) {
+                  /* GFX10 has a bug that consecutive draw packets with NOT_EOP must not have
+                   * count == 0 for the last draw that doesn't have NOT_EOP.
+                   */
+                  while (num_draws > 1 && !draws[num_draws - 1].count)
+                     num_draws--;
+               }
+
                for (unsigned i = 0; i < num_draws; i++) {
                   uint64_t va = index_va + draws[i].start * index_size;
 
