@@ -264,13 +264,13 @@ panvk_emit_ubos(const struct panvk_pipeline *pipeline,
    }
 
    for (unsigned i = 0; i < ARRAY_SIZE(pipeline->sysvals); i++) {
-      if (!pipeline->sysvals[i].ids.sysval_count)
+      if (!pipeline->sysvals[i].ids.ubo_count)
          continue;
 
       pan_pack(&ubos[pipeline->sysvals[i].ubo_idx], UNIFORM_BUFFER, cfg) {
          cfg.pointer = pipeline->sysvals[i].ubo ? :
                        state->sysvals[i];
-         cfg.entries = pipeline->sysvals[i].ids.sysval_count;
+         cfg.entries = pipeline->sysvals[i].ids.ubo_count;
       }
    }
 }
