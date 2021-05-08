@@ -462,8 +462,9 @@ disasm_handle_last(struct disasm_ctx *ctx)
 }
 
 static void
-disasm_instr_cb(void *d, unsigned n, uint64_t instr)
+disasm_instr_cb(void *d, unsigned n, void* instr)
 {
+#if 0
 	struct disasm_ctx *ctx = d;
 	uint32_t *dwords = (uint32_t *)&instr;
 	unsigned opc_cat = instr >> 61;
@@ -505,6 +506,7 @@ disasm_instr_cb(void *d, unsigned n, uint64_t instr)
 		fprintf(ctx->out, "%s:%d:%04d:%04d[%08xx_%08xx] ", levels[ctx->level],
 			opc_cat, n, ctx->extra_cycles + n, dwords[1], dwords[0]);
 	}
+#endif
 }
 
 int disasm_a3xx_stat(uint32_t *dwords, int sizedwords, int level, FILE *out,
