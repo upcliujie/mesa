@@ -142,6 +142,8 @@ bi_opt_push_ubo(bi_context *ctx)
         struct bi_ubo_analysis analysis = bi_analyze_ranges(ctx);
         bi_pick_ubo(&ctx->info->push, &analysis, sysval_ubo);
 
+        pan_set_sysval_push(ctx->info, sysval_ubo);
+
         ctx->ubo_mask = 0;
 
         bi_foreach_instr_global_safe(ctx, ins) {
