@@ -91,8 +91,12 @@ bi_analyze_ranges(bi_context *ctx)
  * sophisticated. Select from the last UBO first to prioritize sysvals. */
 
 static void
-bi_pick_ubo(struct panfrost_ubo_push *push, struct bi_ubo_analysis *analysis)
+bi_pick_ubo(struct panfrost_ubo_push *push, struct bi_ubo_analysis *analysis,
+            signed sysval_ubo)
 {
+        /* The sysval push range must be first */
+        assert(sysval_ubo == analysis->nr_blocks - 1);
+
         for (signed ubo = analysis->nr_blocks - 1; ubo >= 0; --ubo) {
                 struct bi_ubo_block *block = &analysis->blocks[ubo];
 
@@ -101,6 +105,11 @@ bi_pick_ubo(struct panfrost_ubo_push *push, struct bi_ubo_analysis *analysis)
 
                         /* Don't push something we don't access */
                         if (range == 0) continue;
+
+                        /* We want a single push range for sysvals, pretend
+                         * there are no holes between sysvals */
+                        if (ubo == sysval_ubo)
+                                range = 4;
 
                         /* Don't push more than possible */
                         if (push->count > PAN_MAX_PUSH - range)
@@ -127,8 +136,11 @@ bi_opt_push_ubo(bi_context *ctx)
         /* This pass only runs once */
         assert(ctx->info->push.count == 0);
 
+        unsigned sysval_ubo =
+                MAX2(ctx->inputs->sysval_ubo, ctx->nir->info.num_ubos);
+
         struct bi_ubo_analysis analysis = bi_analyze_ranges(ctx);
-        bi_pick_ubo(&ctx->info->push, &analysis);
+        bi_pick_ubo(&ctx->info->push, &analysis, sysval_ubo);
 
         ctx->ubo_mask = 0;
 
