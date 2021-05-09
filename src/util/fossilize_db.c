@@ -397,7 +397,7 @@ foz_write_entry(struct foz_db *foz_db, const uint8_t *cache_key_160bit,
 
    struct foz_db_entry *entry =
       _mesa_hash_table_u64_search(foz_db->index_db, hash);
-   if (entry) {
+   if (entry && entry->header.uncompressed_size == blob_size) {
       simple_mtx_unlock(&foz_db->mtx);
       return NULL;
    }
