@@ -1212,6 +1212,8 @@ dri2_find_screen_for_display(const _EGLDisplay *disp, int fallback_screen)
    const EGLAttrib *attr;
 
    for (attr = disp->Options.Attribs; attr; attr += 2) {
+      if (attr[0] == EGL_NONE)
+         break;
       if (attr[0] == EGL_PLATFORM_X11_SCREEN_EXT ||
           attr[0] == EGL_PLATFORM_XCB_SCREEN_EXT)
          return attr[1];
