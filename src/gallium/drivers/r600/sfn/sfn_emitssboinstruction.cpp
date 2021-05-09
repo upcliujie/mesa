@@ -582,11 +582,24 @@ bool EmitSSBOInstruction::emit_image_size(const nir_intrinsic_instr *intrin)
           nir_intrinsic_image_array(intrin) && nir_dest_num_components(intrin->dest) > 2) {
          /* Need to load the layers from a const buffer */
 
-         unsigned lookup_resid = const_offset[0].u32;
-         emit_instruction(new AluInstruction(op1_mov, dest.reg_i(2),
-                                             PValue(new UniformValue(lookup_resid/4 + R600_SHADER_BUFFER_INFO_SEL, lookup_resid % 4,
-                                                                     R600_BUFFER_INFO_CONST_BUFFER)),
-         EmitInstruction::last_write));
+         if (const_offset) {
+            unsigned lookup_resid = const_offset[0].u32;
+            emit_instruction(new AluInstruction(op1_mov, dest.reg_i(2),
+                                                PValue(new UniformValue(lookup_resid/4 + R600_SHADER_BUFFER_INFO_SEL, lookup_resid % 4,
+                                                                        R600_BUFFER_INFO_CONST_BUFFER)),
+                                                EmitInstruction::last_write));
+         } else {
+            GPRVector trgt;
+            auto addr = get_temp_register();
+            emit_instruction(new AluInstruction(op2_lshr_int, addr, from_nir(intrin->src[0], 0),
+                             literal(2), EmitInstruction::last_write));
+
+            auto ir = new FetchInstruction(vc_fetch, no_index_offset, trgt, addr, R600_SHADER_BUFFER_INFO_SEL,
+                                           R600_BUFFER_INFO_CONST_BUFFER, PValue(), bim_none);
+            emit_instruction(ir);
+
+            assert(0);
+         }
       }
    }
    return true;
