@@ -87,6 +87,7 @@ struct panfrost_query {
 struct panfrost_fence {
         struct pipe_reference reference;
         uint32_t syncobj;
+        bool syncobj_is_valid;
         bool signaled;
 };
 
@@ -100,6 +101,8 @@ struct panfrost_streamout {
         unsigned num_targets;
 };
 
+#define PAN_SYNC_SLOTS 16
+
 struct panfrost_context {
         /* Gallium context */
         struct pipe_context base;
@@ -110,8 +113,13 @@ struct panfrost_context {
         struct u_upload_mgr *state_uploader;
 
         /* Sync obj used to keep track of in-flight jobs. */
-        uint32_t syncobj;
-        bool syncobj_signaled;
+        struct {
+                unsigned pos;
+                struct {
+                        uint32_t syncobj;
+                        bool signaled;
+                } slots[PAN_SYNC_SLOTS];
+        } sync;
 
         /* Bound job batch and map of panfrost_batch_key to job batches */
         struct panfrost_batch *batch;

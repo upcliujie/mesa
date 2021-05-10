@@ -73,6 +73,7 @@ panfrost_create_batch_fence(struct panfrost_batch *batch)
         assert(fence);
         pipe_reference_init(&fence->reference, 1);
         fence->batch = batch;
+        fence->sync_slot = -1;
 
         return fence;
 }
@@ -348,7 +349,8 @@ panfrost_bo_access_gc_fences(struct panfrost_context *ctx,
                              struct panfrost_bo_access *access,
 			     const struct panfrost_bo *bo)
 {
-        if (access->writer && !access->writer->batch) {
+        if (access->writer && !access->writer->batch &&
+            access->writer->sync_slot == ctx->sync.pos) {
                 panfrost_batch_fence_unreference(access->writer);
                 access->writer = NULL;
         }
@@ -358,7 +360,8 @@ panfrost_bo_access_gc_fences(struct panfrost_context *ctx,
 
         util_dynarray_foreach(&access->readers, struct panfrost_batch_fence *,
                               reader) {
-                if (!(*reader) || (*reader)->batch)
+                if (!(*reader) || (*reader)->batch ||
+                    (*reader)->sync_slot != ctx->sync.pos)
                         continue;
 
                 panfrost_batch_fence_unreference(*reader);
@@ -389,14 +392,16 @@ panfrost_gc_fences(struct panfrost_context *ctx)
         /* Check if the last batch submission is done. If it is, we can
          * garbage collect all fences attached to already submitted batches.
          */
-        if (!ctx->syncobj_signaled) {
-                ret = drmSyncobjWait(dev->fd, &ctx->syncobj, 1,
+        if (!ctx->sync.slots[ctx->sync.pos].signaled) {
+                uint32_t syncobj = ctx->sync.slots[ctx->sync.pos].syncobj;
+
+                ret = drmSyncobjWait(dev->fd, &syncobj, 1,
                                      INT64_MAX, DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL,
                                      NULL);
                 if (ret < 0)
                         return;
 
-                ctx->syncobj_signaled = true;
+                ctx->sync.slots[ctx->sync.pos].signaled = true;
         }
 
         hash_table_foreach(ctx->accessed_bos, entry) {
@@ -1019,8 +1024,8 @@ panfrost_batch_submit_ioctl(struct panfrost_batch *batch,
          * syncobj */
 
         if (!out_sync && dev->debug & (PAN_DBG_TRACE | PAN_DBG_SYNC)) {
-                ctx->syncobj_signaled = false;
-                out_sync = ctx->syncobj;
+                ctx->sync.slots[ctx->sync.pos].signaled = false;
+                out_sync = ctx->sync.slots[ctx->sync.pos].syncobj;
         }
 
         submit.out_sync = out_sync;
@@ -1132,11 +1137,12 @@ panfrost_batch_submit_jobs(struct panfrost_batch *batch,
         return ret;
 }
 
-static void ATTRIBUTE_NOINLINE
+static bool ATTRIBUTE_NOINLINE
 panfrost_batch_submit_nodep(struct panfrost_device *dev,
                             struct panfrost_batch *batch,
                             uint32_t in_sync, uint32_t out_sync)
 {
+        bool submitted = false;
         int ret;
 
         /* Nothing to do! */
@@ -1171,7 +1177,10 @@ panfrost_batch_submit_nodep(struct panfrost_device *dev,
         if (batch->framebuffer.gpu)
                 panfrost_emit_fbd(batch, &fb);
 
+        batch->out_sync->sync_slot = batch->ctx->sync.pos;
+
         ret = panfrost_batch_submit_jobs(batch, &fb, in_sync, out_sync);
+        submitted = true;
 
         if (ret && dev->debug & PAN_DBG_MSGS)
                 fprintf(stderr, "panfrost_batch_submit failed: %d\n", ret);
@@ -1197,29 +1206,33 @@ panfrost_batch_submit_nodep(struct panfrost_device *dev,
 out:
         panfrost_freeze_batch(batch);
         panfrost_free_batch(batch);
+        return submitted;
 }
 
-static void ATTRIBUTE_NOINLINE
+static bool ATTRIBUTE_NOINLINE
 panfrost_batch_submit(struct panfrost_batch *batch,
                       uint32_t in_sync, uint32_t out_sync)
 {
         assert(batch);
         struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
+        bool submitted = false;
 
         /* Submit the dependencies first. Don't pass along the out_sync since
          * they are guaranteed to terminate sooner */
         util_dynarray_foreach(&batch->dependencies,
                               struct panfrost_batch_fence *, dep) {
-                if ((*dep)->batch)
-                        panfrost_batch_submit((*dep)->batch, 0, 0);
+                if ((*dep)->batch) {
+                        submitted |= panfrost_batch_submit((*dep)->batch, 0, 0);
+                }
         }
 
-        panfrost_batch_submit_nodep(dev, batch, in_sync, out_sync);
+        submitted |= panfrost_batch_submit_nodep(dev, batch, in_sync, out_sync);
+        return submitted;
 }
 
 /* Submit all batches, applying the out_sync to the currently bound batch */
 
-void
+bool
 panfrost_flush_all_batches(struct panfrost_context *ctx)
 {
         struct panfrost_batch *batch = panfrost_get_batch_for_fbo(ctx);
@@ -1227,17 +1240,22 @@ panfrost_flush_all_batches(struct panfrost_context *ctx)
         /* Collect previous fences */
         panfrost_gc_fences(ctx);
 
-        ctx->syncobj_signaled = false;
-        panfrost_batch_submit(batch, ctx->syncobj, ctx->syncobj);
+        uint32_t syncobj = ctx->sync.slots[ctx->sync.pos].syncobj;
+        bool submitted = panfrost_batch_submit(batch, syncobj, syncobj);
 
         hash_table_foreach(ctx->batches, hentry) {
                 struct panfrost_batch *batch = hentry->data;
                 assert(batch);
 
-                panfrost_batch_submit(batch, ctx->syncobj, ctx->syncobj);
+                submitted |= panfrost_batch_submit(batch, syncobj, syncobj);
         }
 
+        if (submitted)
+                ctx->sync.slots[ctx->sync.pos].signaled = false;
+
         assert(!ctx->batches->entries);
+
+        return submitted;
 }
 
 bool
@@ -1279,9 +1297,12 @@ panfrost_flush_batches_accessing_bo(struct panfrost_context *ctx,
         if (!access)
                 return;
 
+        uint32_t syncobj = ctx->sync.slots[ctx->sync.pos].syncobj;
+        bool submitted = false;
+
         if (access->writer && access->writer->batch) {
-                ctx->syncobj_signaled = false;
-                panfrost_batch_submit(access->writer->batch, ctx->syncobj, ctx->syncobj);
+                submitted = true;
+                panfrost_batch_submit(access->writer->batch, syncobj, syncobj);
         }
 
         if (!flush_readers)
@@ -1290,9 +1311,15 @@ panfrost_flush_batches_accessing_bo(struct panfrost_context *ctx,
         util_dynarray_foreach(&access->readers, struct panfrost_batch_fence *,
                               reader) {
                 if (*reader && (*reader)->batch) {
-                        ctx->syncobj_signaled = false;
-                        panfrost_batch_submit((*reader)->batch, ctx->syncobj, ctx->syncobj);
+                        submitted = true;
+                        panfrost_batch_submit((*reader)->batch, syncobj, syncobj);
                 }
+        }
+
+        if (submitted) {
+                ctx->sync.slots[ctx->sync.pos].signaled = false;
+                ctx->sync.pos = (ctx->sync.pos + 1) % ARRAY_SIZE(ctx->sync.slots);
+                assert(ctx->sync.pos < ARRAY_SIZE(ctx->sync.slots));
         }
 }
 

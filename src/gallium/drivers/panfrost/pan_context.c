@@ -102,13 +102,16 @@ panfrost_flush(
 
 
         /* Submit all pending jobs */
-        panfrost_flush_all_batches(ctx);
+        bool submitted = panfrost_flush_all_batches(ctx);
 
         if (fence) {
-                struct panfrost_fence *f = panfrost_fence_create(ctx);
+                struct panfrost_fence *f = panfrost_fence_create(ctx, !submitted);
                 pipe->screen->fence_reference(pipe->screen, fence, NULL);
                 *fence = (struct pipe_fence_handle *)f;
         }
+
+        if (submitted)
+                ctx->sync.pos = (ctx->sync.pos + 1) % ARRAY_SIZE(ctx->sync.slots);
 
         if (dev->debug & PAN_DBG_TRACE)
                 pandecode_next_frame();
@@ -1869,12 +1872,15 @@ panfrost_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
 
         int ASSERTED ret;
 
-        /* Create a syncobj in a signaled state. Will be updated to point to the
+        /* Create a syncobjs in a signaled state. Will be updated to point to the
          * last queued job out_sync every time we submit a new job.
          */
-        ret = drmSyncobjCreate(dev->fd, DRM_SYNCOBJ_CREATE_SIGNALED, &ctx->syncobj);
-        assert(!ret && ctx->syncobj);
-        ctx->syncobj_signaled = true;
+        for (unsigned i = 0; i < ARRAY_SIZE(ctx->sync.slots); i++) {
+                ret = drmSyncobjCreate(dev->fd, DRM_SYNCOBJ_CREATE_SIGNALED,
+                                       &ctx->sync.slots[i].syncobj);
+                assert(!ret && ctx->sync.slots[i].syncobj);
+                ctx->sync.slots[i].signaled = true;
+        }
 
         return gallium;
 }

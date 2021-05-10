@@ -42,6 +42,9 @@ struct panfrost_batch_fence {
         /* Refcounting object for the fence. */
         struct pipe_reference reference;
 
+        /* Synchronization slot */
+        int sync_slot;
+
         /* Batch that created this fence object. Will become NULL at batch
          * submission time. This field is mainly here to know whether the
          * batch has been flushed or not.
@@ -167,7 +170,7 @@ struct panfrost_bo *
 panfrost_batch_create_bo(struct panfrost_batch *batch, size_t size,
                          uint32_t create_flags, uint32_t access_flags);
 
-void
+bool
 panfrost_flush_all_batches(struct panfrost_context *ctx);
 
 bool
