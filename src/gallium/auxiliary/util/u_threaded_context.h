@@ -321,7 +321,8 @@ union tc_payload {
    bool boolean;
 };
 
-struct tc_call {
+/* Each call slot should be aligned to its own size for optimal cache usage. */
+struct ALIGN16 tc_call {
    unsigned sentinel;
    ushort num_call_slots;
    ushort call_id;
