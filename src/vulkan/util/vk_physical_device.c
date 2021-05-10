@@ -137,6 +137,12 @@ vk_common_GetPhysicalDeviceMemoryProperties(VkPhysicalDevice physicalDevice,
    props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
    props2.pNext = NULL;
 
+   /* dEQP-VK.api.info.get_physical_device_properties2.memory_properties memsets
+    * the struct to 0xcd and expects that the unused array elements are
+    * untouched.
+    */
+   props2.memoryProperties = *pMemoryProperties;
+
    pdevice->dispatch_table.GetPhysicalDeviceMemoryProperties2(physicalDevice,
                                                               &props2);
    *pMemoryProperties = props2.memoryProperties;
