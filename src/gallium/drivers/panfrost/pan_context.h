@@ -111,6 +111,7 @@ struct panfrost_context {
 
         /* Sync obj used to keep track of in-flight jobs. */
         uint32_t syncobj;
+        bool syncobj_signaled;
 
         /* Bound job batch and map of panfrost_batch_key to job batches */
         struct panfrost_batch *batch;

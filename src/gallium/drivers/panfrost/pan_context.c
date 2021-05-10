@@ -1874,6 +1874,7 @@ panfrost_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
          */
         ret = drmSyncobjCreate(dev->fd, DRM_SYNCOBJ_CREATE_SIGNALED, &ctx->syncobj);
         assert(!ret && ctx->syncobj);
+        ctx->syncobj_signaled = true;
 
         return gallium;
 }
