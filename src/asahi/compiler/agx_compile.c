@@ -1047,5 +1047,8 @@ agx_compile_shader_nir(nir_shader *nir,
    if ((agx_debug & AGX_DBG_SHADERDB) && !skip_internal)
       agx_print_stats(ctx, binary->size, stderr);
 
+   /* Check if any *colour* outputs are read */
+   out->reads_tib = (nir->info.outputs_read >> FRAG_RESULT_DATA0) != 0;
+
    ralloc_free(ctx);
 }
