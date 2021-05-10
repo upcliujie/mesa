@@ -33,6 +33,40 @@
 #include "vk_format.h"
 #include "vk_util.h"
 
+static unsigned
+get_descriptor_index(VkDescriptorType type)
+{
+   switch (type) {
+#define CASE(X) case VK_##X: return RADV_##X
+			CASE(DESCRIPTOR_TYPE_SAMPLER);
+			CASE(DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+			CASE(DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+			CASE(DESCRIPTOR_TYPE_STORAGE_IMAGE);
+			CASE(DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER);
+			CASE(DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER);
+			CASE(DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			CASE(DESCRIPTOR_TYPE_STORAGE_BUFFER);
+			CASE(DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
+			CASE(DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC);
+			CASE(DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+			CASE(DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT);
+			CASE(DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
+			CASE(DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV);
+			CASE(DESCRIPTOR_TYPE_MUTABLE_VALVE);
+			default:
+			   unreachable("unhandled descriptor type!");
+			}
+}
+
+ALWAYS_INLINE static struct radv_descriptor_update_template_entry *
+get_first_descriptor_template_type(struct radv_descriptor_update_template *templ, enum radv_descriptor_type idx)
+{
+   if (!templ->type_counts[idx])
+      return NULL;
+
+   return &templ->entry[templ->type_offsets[idx]];
+}
+
 static bool
 has_equal_immutable_samplers(const VkSampler *samplers, uint32_t count)
 {
@@ -1277,8 +1311,6 @@ radv_CreateDescriptorUpdateTemplate(VkDevice _device,
 
    vk_object_base_init(&device->vk, &templ->base, VK_OBJECT_TYPE_DESCRIPTOR_UPDATE_TEMPLATE);
 
-   templ->entry_count = entry_count;
-
    if (pCreateInfo->templateType == VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR) {
       RADV_FROM_HANDLE(radv_pipeline_layout, pipeline_layout, pCreateInfo->pipelineLayout);
 
@@ -1291,6 +1323,19 @@ radv_CreateDescriptorUpdateTemplate(VkDevice _device,
       templ->bind_point = pCreateInfo->pipelineBindPoint;
    }
 
+   memset(templ->type_counts, 0, sizeof(templ->type_counts));
+   for (i = 0; i < entry_count; i++) {
+      const VkDescriptorUpdateTemplateEntry *entry = &pCreateInfo->pDescriptorUpdateEntries[i];
+      templ->type_counts[get_descriptor_index(entry->descriptorType)]++;
+			}
+
+   uint32_t accum = 0;
+   for (i = 0; i < RADV_DESCRIPTOR_TYPE_COUNT; i++) {
+      templ->type_offsets[i] = accum;
+      accum += templ->type_counts[i];
+   }
+
+   uint32_t type_counter[RADV_DESCRIPTOR_TYPE_COUNT] = {};
    for (i = 0; i < entry_count; i++) {
       const VkDescriptorUpdateTemplateEntry *entry = &pCreateInfo->pDescriptorUpdateEntries[i];
       const struct radv_descriptor_set_binding_layout *binding_layout =
@@ -1335,7 +1380,9 @@ radv_CreateDescriptorUpdateTemplate(VkDevice _device,
          break;
       }
 
-      templ->entry[i] = (struct radv_descriptor_update_template_entry){
+      enum radv_descriptor_type idx = get_descriptor_index(entry->descriptorType);
+      struct radv_descriptor_update_template_entry *templ_entry = get_first_descriptor_template_type(templ, idx) + type_counter[idx]++;
+      *templ_entry = (struct radv_descriptor_update_template_entry){
          .descriptor_type = entry->descriptorType,
          .descriptor_count = entry->descriptorCount,
          .src_offset = entry->offset,
@@ -1367,6 +1414,148 @@ radv_DestroyDescriptorUpdateTemplate(VkDevice _device,
    vk_free2(&device->vk.alloc, pAllocator, templ);
 }
 
+#define DESCRIPTOR_TEMPLATE_ENTRY_LOOP_START \
+   struct radv_descriptor_update_template_entry *entry = get_first_descriptor_template_type(templ, idx); \
+   for (unsigned i = 0; i < templ->type_counts[idx]; i++) { \
+      assert(idx == get_descriptor_index(entry[i].descriptor_type)); \
+      struct radeon_winsys_bo **buffer_list = set->descriptors + entry[i].buffer_offset; \
+      uint32_t *pDst = set->header.mapped_ptr + entry[i].dst_offset; \
+      const uint8_t *pSrc = ((const uint8_t *)pData) + entry[i].src_offset;
+
+#define DESCRIPTOR_TEMPLATE_DESCRIPTOR_LOOP_START \
+      for (uint32_t j = 0; j < entry[i].descriptor_count; ++j) {
+
+#define DESCRIPTOR_TEMPLATE_DESCRIPTOR_LOOP_END \
+         pSrc += templ->entry[i].src_stride; \
+         pDst += templ->entry[i].dst_stride; \
+         ++buffer_list; \
+      }
+
+#define DESCRIPTOR_TEMPLATE_ENTRY_LOOP_END \
+   }
+
+#define DESCRIPTOR_TEMPLATE_LOOP_START \
+   DESCRIPTOR_TEMPLATE_ENTRY_LOOP_START \
+   DESCRIPTOR_TEMPLATE_DESCRIPTOR_LOOP_START
+
+#define DESCRIPTOR_TEMPLATE_LOOP_END \
+   DESCRIPTOR_TEMPLATE_ENTRY_LOOP_END \
+   DESCRIPTOR_TEMPLATE_DESCRIPTOR_LOOP_END
+
+ALWAYS_INLINE static void
+template_write_dynamic_buffer_descriptors(struct radv_device *device,
+                                          struct radv_cmd_buffer *cmd_buffer,
+                                          struct radv_descriptor_set *set,
+                                          struct radv_descriptor_update_template *templ,
+                                          const void *pData,
+                                          enum radv_descriptor_type idx)
+{
+   assert(!templ->type_counts[idx] ||
+          !(set->header.layout->flags & VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR));
+
+   DESCRIPTOR_TEMPLATE_LOOP_START
+   const unsigned descriptor_idx = entry[i].dst_offset + j;
+   write_dynamic_buffer_descriptor(device, set->header.dynamic_descriptors + descriptor_idx,
+                                   buffer_list, (struct VkDescriptorBufferInfo *)pSrc);
+   DESCRIPTOR_TEMPLATE_LOOP_END
+}
+
+ALWAYS_INLINE static void
+template_write_buffer_descriptors(struct radv_device *device,
+                                          struct radv_cmd_buffer *cmd_buffer,
+                                          struct radv_descriptor_set *set,
+                                          struct radv_descriptor_update_template *templ,
+                                          const void *pData,
+                                          enum radv_descriptor_type idx)
+{
+   assert(!templ->type_counts[idx] ||
+          !(set->header.layout->flags & VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR));
+
+   DESCRIPTOR_TEMPLATE_LOOP_START
+   write_buffer_descriptor(device, cmd_buffer, pDst, buffer_list,
+                           (struct VkDescriptorBufferInfo *)pSrc);
+   DESCRIPTOR_TEMPLATE_LOOP_END
+}
+
+ALWAYS_INLINE static void
+template_write_texel_buffer_descriptors(struct radv_device *device,
+                                          struct radv_cmd_buffer *cmd_buffer,
+                                          struct radv_descriptor_set *set,
+                                          struct radv_descriptor_update_template *templ,
+                                          const void *pData,
+                                          enum radv_descriptor_type idx)
+{
+   DESCRIPTOR_TEMPLATE_LOOP_START
+   write_texel_buffer_descriptor(device, cmd_buffer, pDst, buffer_list,
+                                 *(VkBufferView *)pSrc);
+   DESCRIPTOR_TEMPLATE_LOOP_END
+}
+
+ALWAYS_INLINE static void
+template_write_image_descriptors(struct radv_device *device,
+                                 struct radv_cmd_buffer *cmd_buffer,
+                                 struct radv_descriptor_set *set,
+                                 struct radv_descriptor_update_template *templ,
+                                 const void *pData,
+                                 enum radv_descriptor_type idx)
+{
+   DESCRIPTOR_TEMPLATE_LOOP_START
+   write_image_descriptor(device, cmd_buffer, 64, pDst, buffer_list,
+                          entry[i].descriptor_type,
+                          (struct VkDescriptorImageInfo *)pSrc);
+   DESCRIPTOR_TEMPLATE_LOOP_END
+}
+
+ALWAYS_INLINE static void
+template_write_sampler_descriptors(struct radv_device *device,
+                                          struct radv_cmd_buffer *cmd_buffer,
+                                          struct radv_descriptor_set *set,
+                                          struct radv_descriptor_update_template *templ,
+                                          const void *pData)
+{
+   enum radv_descriptor_type idx = RADV_DESCRIPTOR_TYPE_SAMPLER;
+   DESCRIPTOR_TEMPLATE_LOOP_START
+   if (entry[i].has_sampler)
+      write_sampler_descriptor(device, pDst, (struct VkDescriptorImageInfo *)pSrc);
+   else if (entry[i].immutable_samplers)
+      memcpy(pDst, entry[i].immutable_samplers + 4 * j, 16);
+   DESCRIPTOR_TEMPLATE_LOOP_END
+}
+
+ALWAYS_INLINE static void
+template_write_combined_image_descriptors(struct radv_device *device,
+                                          struct radv_cmd_buffer *cmd_buffer,
+                                          struct radv_descriptor_set *set,
+                                          struct radv_descriptor_update_template *templ,
+                                          const void *pData)
+{
+   enum radv_descriptor_type idx = RADV_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+   DESCRIPTOR_TEMPLATE_LOOP_START
+   write_combined_image_sampler_descriptor(device, cmd_buffer, entry[i].sampler_offset, pDst, buffer_list,
+                                           entry[i].descriptor_type, (struct VkDescriptorImageInfo *)pSrc,
+                                           entry[i].has_sampler);
+   if (entry[i].immutable_samplers) {
+      memcpy((char *)pDst + entry[i].sampler_offset, entry[i].immutable_samplers + 4 * j, 16);
+   }
+   DESCRIPTOR_TEMPLATE_LOOP_END
+}
+
+ALWAYS_INLINE static void
+template_write_inline_uniform_descriptors(struct radv_device *device,
+                                          struct radv_descriptor_set *set,
+                                          struct radv_descriptor_update_template *templ,
+                                          const void *pData)
+{
+   enum radv_descriptor_type idx = RADV_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
+   struct radv_descriptor_update_template_entry *entry = get_first_descriptor_template_type(templ, idx);
+   for (unsigned i = 0; i < templ->type_counts[idx]; i++) {
+      assert(idx == get_descriptor_index(entry[i].descriptor_type));
+      uint32_t *pDst = set->header.mapped_ptr + entry[i].dst_offset;
+      const uint8_t *pSrc = ((const uint8_t *)pData) + entry[i].src_offset;
+      memcpy((uint8_t *)pDst, pSrc, entry[i].descriptor_count);
+   }
+}
+
 void
 radv_update_descriptor_set_with_template(struct radv_device *device,
                                          struct radv_cmd_buffer *cmd_buffer,
@@ -1375,71 +1564,19 @@ radv_update_descriptor_set_with_template(struct radv_device *device,
                                          const void *pData)
 {
    RADV_FROM_HANDLE(radv_descriptor_update_template, templ, descriptorUpdateTemplate);
-   uint32_t i;
 
-   for (i = 0; i < templ->entry_count; ++i) {
-      struct radeon_winsys_bo **buffer_list = set->descriptors + templ->entry[i].buffer_offset;
-      uint32_t *pDst = set->header.mapped_ptr + templ->entry[i].dst_offset;
-      const uint8_t *pSrc = ((const uint8_t *)pData) + templ->entry[i].src_offset;
-      uint32_t j;
-
-      if (templ->entry[i].descriptor_type == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT) {
-         memcpy((uint8_t *)pDst, pSrc, templ->entry[i].descriptor_count);
-         continue;
-      }
-
-      for (j = 0; j < templ->entry[i].descriptor_count; ++j) {
-         switch (templ->entry[i].descriptor_type) {
-         case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
-         case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: {
-            const unsigned idx = templ->entry[i].dst_offset + j;
-            assert(!(set->header.layout->flags &
-                     VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR));
-            write_dynamic_buffer_descriptor(device, set->header.dynamic_descriptors + idx,
-                                            buffer_list, (struct VkDescriptorBufferInfo *)pSrc);
-            break;
-         }
-         case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-         case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-            write_buffer_descriptor(device, cmd_buffer, pDst, buffer_list,
-                                    (struct VkDescriptorBufferInfo *)pSrc);
-            break;
-         case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
-         case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
-            write_texel_buffer_descriptor(device, cmd_buffer, pDst, buffer_list,
-                                          *(VkBufferView *)pSrc);
-            break;
-         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-         case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-         case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
-            write_image_descriptor(device, cmd_buffer, 64, pDst, buffer_list,
-                                   templ->entry[i].descriptor_type,
-                                   (struct VkDescriptorImageInfo *)pSrc);
-            break;
-         case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-            write_combined_image_sampler_descriptor(
-               device, cmd_buffer, templ->entry[i].sampler_offset, pDst, buffer_list,
-               templ->entry[i].descriptor_type, (struct VkDescriptorImageInfo *)pSrc,
-               templ->entry[i].has_sampler);
-            if (templ->entry[i].immutable_samplers) {
-               memcpy((char *)pDst + templ->entry[i].sampler_offset,
-                      templ->entry[i].immutable_samplers + 4 * j, 16);
-            }
-            break;
-         case VK_DESCRIPTOR_TYPE_SAMPLER:
-            if (templ->entry[i].has_sampler)
-               write_sampler_descriptor(device, pDst, (struct VkDescriptorImageInfo *)pSrc);
-            else if (templ->entry[i].immutable_samplers)
-               memcpy(pDst, templ->entry[i].immutable_samplers + 4 * j, 16);
-            break;
-         default:
-            break;
-         }
-         pSrc += templ->entry[i].src_stride;
-         pDst += templ->entry[i].dst_stride;
-         ++buffer_list;
-      }
-   }
+   template_write_inline_uniform_descriptors(device, set, templ, pData);
+   template_write_dynamic_buffer_descriptors(device, cmd_buffer, set, templ, pData, RADV_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
+   template_write_dynamic_buffer_descriptors(device, cmd_buffer, set, templ, pData, RADV_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC);
+   template_write_buffer_descriptors(device, cmd_buffer, set, templ, pData, RADV_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+   template_write_buffer_descriptors(device, cmd_buffer, set, templ, pData, RADV_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+   template_write_texel_buffer_descriptors(device, cmd_buffer, set, templ, pData, RADV_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER);
+   template_write_texel_buffer_descriptors(device, cmd_buffer, set, templ, pData, RADV_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER);
+   template_write_image_descriptors(device, cmd_buffer, set, templ, pData, RADV_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+   template_write_image_descriptors(device, cmd_buffer, set, templ, pData, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+   template_write_image_descriptors(device, cmd_buffer, set, templ, pData, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+   template_write_combined_image_descriptors(device, cmd_buffer, set, templ, pData);
+   template_write_sampler_descriptors(device, cmd_buffer, set, templ, pData);
 }
 
 void
