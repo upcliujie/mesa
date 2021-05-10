@@ -2467,7 +2467,7 @@ emit_store_output_gs(struct v3d_compile *c, nir_intrinsic_instr *instr)
          * instruction to have a different offset for each lane.
          */
          vir_VPM_WRITE_indirect(c, val, offset,
-                                nir_src_is_dynamically_uniform(instr->src[1]));
+                                !nir_src_is_divergent(instr->src[1]));
 
         if (vir_in_nonuniform_control_flow(c)) {
                 struct qinst *last_inst =
