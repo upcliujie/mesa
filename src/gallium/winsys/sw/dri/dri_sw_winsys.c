@@ -155,6 +155,7 @@ dri_sw_displaytarget_create(struct sw_winsys *winsys,
    if(!dri_sw_dt->data)
       goto no_data;
 
+   memset(dri_sw_dt->data, 0, size);
    *stride = dri_sw_dt->stride;
    return (struct sw_displaytarget *)dri_sw_dt;
 
