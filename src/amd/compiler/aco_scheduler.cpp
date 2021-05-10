@@ -165,7 +165,9 @@ void MoveState::downwards_init(int current_idx, bool improved_rar_, bool may_for
    downwards_advance_helper();
 }
 
-MoveResult MoveState::downwards_move(bool clause)
+/* If add_to_clause is true, the instruction is made part of the current clause by moving it in front of it.
+ * Otherwise, the instruction is moved past the end of the clause and not included in it */
+MoveResult MoveState::downwards_move(bool add_to_clause)
 {
    aco_ptr<Instruction>& instr = block->instructions[source_idx];
 
@@ -174,7 +176,7 @@ MoveResult MoveState::downwards_move(bool clause)
          return move_fail_ssa;
 
    /* check if one of candidate's operands is killed by depending instruction */
-   std::vector<bool>& RAR_deps = improved_rar ? (clause ? RAR_dependencies_clause : RAR_dependencies) : depends_on;
+   std::vector<bool>& RAR_deps = improved_rar ? (add_to_clause ? RAR_dependencies_clause : RAR_dependencies) : depends_on;
    for (const Operand& op : instr->operands) {
       if (op.isTemp() && RAR_deps[op.tempId()]) {
          // FIXME: account for difference in register pressure
@@ -182,7 +184,7 @@ MoveResult MoveState::downwards_move(bool clause)
       }
    }
 
-   if (clause) {
+   if (add_to_clause) {
       for (const Operand& op : instr->operands) {
          if (op.isTemp()) {
             depends_on[op.tempId()] = true;
@@ -192,8 +194,8 @@ MoveResult MoveState::downwards_move(bool clause)
       }
    }
 
-   const int dest_insert_idx = clause ? insert_idx_clause : insert_idx;
-   const RegisterDemand register_pressure = clause ? total_demand_clause2 : total_demand2;
+   const int dest_insert_idx = add_to_clause ? insert_idx_clause : insert_idx;
+   const RegisterDemand register_pressure = add_to_clause ? total_demand_clause2 : total_demand2;
 
    const RegisterDemand candidate_diff = get_live_changes(instr);
    const RegisterDemand temp = get_temp_registers(instr);
@@ -217,7 +219,7 @@ MoveResult MoveState::downwards_move(bool clause)
    if (source_idx == insert_idx_clause) {
       total_demand_clause2 = RegisterDemand{};
    }
-   if (!clause) {
+   if (!add_to_clause) {
       total_demand2 -= candidate_diff;
       insert_idx--;
    } else {
