@@ -1955,6 +1955,11 @@ st_precompile_shader_variant(struct st_context *st,
          key.clamp_color = true;
       }
 
+      if (prog->Target == GL_VERTEX_PROGRAM_ARB ||
+          prog->Target == GL_TESS_EVALUATION_PROGRAM_NV ||
+          prog->Target == GL_GEOMETRY_PROGRAM_NV)
+         key.lower_point_size = st->lower_point_size;
+
       key.st = st->has_shareable_shaders ? NULL : st;
       st_get_common_variant(st, p, &key);
       break;
