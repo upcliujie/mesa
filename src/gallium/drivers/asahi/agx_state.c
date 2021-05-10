@@ -719,8 +719,17 @@ agx_update_fs(struct agx_context *ctx)
       .tib_formats = { AGX_FORMAT_U8NORM }
    };
 
-   return agx_update_shader(ctx, &ctx->fs, PIPE_SHADER_FRAGMENT,
-                            (struct asahi_shader_key *) &key);
+   struct asahi_shader_key key = {
+      .base.fs = base_key,
+      .nr_cbufs = ctx->batch->nr_cbufs,
+   };
+
+   for (unsigned i = 0; i < key.nr_cbufs; ++i) {
+      key.rt_formats[i] = ctx->batch->cbufs[i] ?
+         ctx->batch->cbufs[i]->format : PIPE_FORMAT_NONE;
+   }
+
+   return agx_update_shader(ctx, &ctx->fs, PIPE_SHADER_FRAGMENT, &key);
 }
 
 static void
