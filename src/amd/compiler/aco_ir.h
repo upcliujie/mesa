@@ -1698,13 +1698,11 @@ struct RegisterDemand {
       return *this;
    }
 
-   constexpr void update(RegisterDemand other) noexcept {
-      *this = merged(*this, other);
+   constexpr void update(const RegisterDemand other) noexcept {
+      vgpr = std::max(vgpr, other.vgpr);
+      sgpr = std::max(sgpr, other.sgpr);
    }
 
-   static constexpr RegisterDemand merged(RegisterDemand a, RegisterDemand b) noexcept {
-      return { std::max(a.vgpr, b.vgpr), std::max(a.sgpr, b.sgpr) };
-   }
 };
 
 /* CFG */
