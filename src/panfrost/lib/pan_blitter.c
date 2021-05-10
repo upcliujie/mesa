@@ -503,6 +503,7 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
 
                 /* Resolve operations only work for N -> 1 samples. */
                 assert(key->surfaces[i].dst_samples == 1 ||
+                       key->surfaces[i].src_samples == 1 ||
                        key->surfaces[i].src_samples == key->surfaces[i].dst_samples);
 
                 static const char *out_names[] = {
