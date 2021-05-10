@@ -585,6 +585,16 @@ agx_bind_vertex_elements_state(struct pipe_context *pctx, void *cso)
    ctx->dirty |= AGX_DIRTY_VERTEX;
 }
 
+static uint32_t asahi_shader_key_hash(const void *key)
+{
+	return _mesa_hash_data(key, sizeof(struct asahi_shader_key));
+}
+
+static bool asahi_shader_key_equal(const void *a, const void *b)
+{
+	return !memcmp(a, b, sizeof(struct asahi_shader_key));
+}
+
 static void *
 agx_create_shader_state(struct pipe_context *ctx,
                         const struct pipe_shader_state *cso)
@@ -598,8 +608,7 @@ agx_create_shader_state(struct pipe_context *ctx,
    assert(cso->type == PIPE_SHADER_IR_NIR);
    so->nir = cso->ir.nir;
 
-   so->variants = _mesa_hash_table_create(NULL,
-                                          _mesa_hash_pointer, _mesa_key_pointer_equal);
+   so->variants = _mesa_hash_table_create(NULL, asahi_shader_key_hash, asahi_shader_key_equal);
    return so;
 }
 
