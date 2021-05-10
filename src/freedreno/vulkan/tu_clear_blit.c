@@ -41,7 +41,9 @@ format_to_ifmt(VkFormat format)
    bool is_int = vk_format_is_int(format);
    switch (vk_format_get_component_bits(format, UTIL_FORMAT_COLORSPACE_RGB, PIPE_SWIZZLE_X)) {
    case 4: case 5: case 8:
-      return is_int ? R2D_INT8 : R2D_UNORM8;
+      if (is_int)
+         return R2D_INT8;
+      return vk_format_is_snorm(format) ? R2D_SNORM8 : R2D_UNORM8;
    case 10: case 11:
       return is_int ? R2D_INT16 : R2D_FLOAT16;
    case 16:

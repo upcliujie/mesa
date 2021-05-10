@@ -45,16 +45,18 @@ fd6_ifmt(enum a6xx_format fmt)
    switch (fmt) {
    case FMT6_A8_UNORM:
    case FMT6_8_UNORM:
-   case FMT6_8_SNORM:
    case FMT6_8_8_UNORM:
-   case FMT6_8_8_SNORM:
    case FMT6_8_8_8_8_UNORM:
    case FMT6_8_8_8_X8_UNORM:
-   case FMT6_8_8_8_8_SNORM:
    case FMT6_4_4_4_4_UNORM:
    case FMT6_5_5_5_1_UNORM:
    case FMT6_5_6_5_UNORM:
       return R2D_UNORM8;
+
+   case FMT6_8_SNORM:
+   case FMT6_8_8_SNORM:
+   case FMT6_8_8_8_8_SNORM:
+      return R2D_SNORM8;
 
    case FMT6_32_UINT:
    case FMT6_32_SINT:
