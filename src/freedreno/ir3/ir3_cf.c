@@ -21,6 +21,18 @@
  * SOFTWARE.
  */
 
+/**
+ * @file ir3_cf.c
+ *
+ * Folds f2f32(16-bit) operations into the generating ALU instruction when all
+ * uses ofthe ALU instr are an f2f32.
+ *
+ * Note that we can't fold f2f16(32-bit) operations into the generating ALU
+ * instruction because for SpvOpQuantize we need an f2f32(f2f16(x)) to actually
+ * do a conversion to 16-bit.  If it's valid to elide that conversion (in GLSL),
+ * it should already have happened at the NIR level.
+ */
+
 #include "util/ralloc.h"
 
 #include "ir3.h"
@@ -47,10 +59,6 @@ is_fp16_conv(struct ir3_instruction *instr)
 
 	if (instr->cat1.src_type == TYPE_F32 &&
 			instr->cat1.dst_type == TYPE_F16)
-		return true;
-
-	if (instr->cat1.src_type == TYPE_F16 &&
-			instr->cat1.dst_type == TYPE_F32)
 		return true;
 
 	return false;
@@ -100,12 +108,6 @@ try_conversion_folding(struct ir3_instruction *conv)
 		return false;
 
 	if (!is_alu(src))
-		return false;
-
-	/* avoid folding f2f32(f2f16) together, in cases where this is legal to
-	 * do (glsl) nir should have handled that for us already:
-	 */
-	if (is_fp16_conv(src))
 		return false;
 
 	switch (src->opc) {
