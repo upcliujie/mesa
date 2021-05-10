@@ -2602,6 +2602,9 @@ nir_visitor::visit(ir_dereference_array *ir)
 {
    nir_ssa_def *index = evaluate_rvalue(ir->array_index);
 
+   if (index->bit_size != this->deref->dest.ssa.bit_size)
+      index = nir_i2i(&b, index, this->deref->dest.ssa.bit_size);
+
    ir->array->accept(this);
 
    this->deref = nir_build_deref_array(&b, this->deref, index);
