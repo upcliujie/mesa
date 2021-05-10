@@ -282,6 +282,7 @@ r2d_setup_common(struct tu_cmd_buffer *cmd,
    tu_cs_emit_regs(cs, A6XX_SP_2D_DST_FORMAT(
          .sint = vk_format_is_sint(vk_format),
          .uint = vk_format_is_uint(vk_format),
+         .norm = vk_format_is_unorm(vk_format) || vk_format_is_snorm(vk_format),
          .color_format = format,
          .srgb = vk_format_is_srgb(vk_format),
          .mask = 0xf));
