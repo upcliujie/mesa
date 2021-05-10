@@ -121,6 +121,9 @@ void MoveState::downwards_advance_helper()
 {
    source_idx--;
 
+   assert(source_idx <= insert_idx_clause);
+   assert(insert_idx_clause < insert_idx);
+
 #ifndef NDEBUG
    RegisterDemand reference_demand;
    for (int i = source_idx + 1; i < insert_idx_clause; ++i) {
