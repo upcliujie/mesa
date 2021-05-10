@@ -583,8 +583,8 @@ gather_varying_component_info(nir_shader *producer, nir_shader *consumer,
             vc_info->is_32bit = glsl_type_is_32bit(type);
             vc_info->is_patch = in_var->data.patch;
             vc_info->is_mediump =
-               in_var->data.precision == GLSL_PRECISION_MEDIUM ||
-               in_var->data.precision == GLSL_PRECISION_LOW;
+                  (in_var->data.precision == GLSL_PRECISION_MEDIUM ||
+                   in_var->data.precision == GLSL_PRECISION_LOW);
             vc_info->is_intra_stage_only = false;
             vc_info->initialised = true;
          }
