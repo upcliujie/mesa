@@ -259,6 +259,11 @@ void
 disk_cache_set_callbacks(struct disk_cache *cache, disk_cache_put_cb put,
                          disk_cache_get_cb get);
 
+/* Prune a cache such that an update of a given size will be within
+ * the maximum size of the cache.
+ */
+void
+disk_cache_prune(struct disk_cache *cache, size_t size);
 #else
 
 static inline struct disk_cache *
@@ -319,6 +324,10 @@ disk_cache_set_callbacks(struct disk_cache *cache, disk_cache_put_cb put,
    return;
 }
 
+static inline void
+disk_cache_prune(struct disk_cache *cache, size_t size)
+{
+}
 #endif /* ENABLE_SHADER_CACHE */
 
 #ifdef __cplusplus

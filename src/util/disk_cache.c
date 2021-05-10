@@ -304,6 +304,17 @@ fail:
    return NULL;
 }
 
+void
+disk_cache_prune(struct disk_cache *cache, size_t size)
+{
+   unsigned i = 0;
+   /* If the cache is too large, evict something else first. */
+   while (*cache->size + size > cache->max_size && i < 8) {
+      disk_cache_evict_lru_item(cache);
+      i++;
+   }
+}
+
 static void
 destroy_put_job(void *job, int thread_index)
 {
@@ -320,7 +331,6 @@ cache_put(void *job, int thread_index)
 {
    assert(job);
 
-   unsigned i = 0;
    char *filename = NULL;
    struct disk_cache_put_job *dc_job = (struct disk_cache_put_job *) job;
 
@@ -331,12 +341,7 @@ cache_put(void *job, int thread_index)
       if (filename == NULL)
          goto done;
 
-      /* If the cache is too large, evict something else first. */
-      while (*dc_job->cache->size + dc_job->size > dc_job->cache->max_size &&
-             i < 8) {
-         disk_cache_evict_lru_item(dc_job->cache);
-         i++;
-      }
+      disk_cache_prune(dc_job->cache, dc_job->size);
 
       disk_cache_write_item_to_disk(dc_job, filename);
 
