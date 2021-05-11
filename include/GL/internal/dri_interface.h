@@ -1803,6 +1803,11 @@ struct __DRIimageExtensionRec {
                                           uint32_t flags,
                                           unsigned *error,
                                           void *loaderPrivate);
+
+   __DRIimage *(*createImageFromHostPointer)(__DRIscreen *screen,
+                                             int width, int height, int format,
+                                             int stride, void *data,
+                                             void *loaderPrivate);
 };
 
 

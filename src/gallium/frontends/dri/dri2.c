@@ -1576,6 +1576,49 @@ dri2_from_dma_bufs3(__DRIscreen *screen,
    return img;
 }
 
+static __DRIimage *
+dri2_create_image_from_host_pointer(__DRIscreen *_screen,
+                                    int width, int height, int format,
+                                    int pitch, void *data,
+                                    void *loaderPrivate)
+{
+   struct dri_screen *screen = dri_screen(_screen);
+   struct pipe_screen *pscreen = screen->base.screen;
+   __DRIimage *img;
+   struct pipe_resource template = {0};
+   uint64_t size_required;
+
+   if (!pscreen->resource_create_unbacked ||
+       !pscreen->resource_bind_backing)
+      return NULL;
+
+   img = CALLOC_STRUCT(__DRIimageRec);
+   if (!img)
+      return NULL;
+
+   template.screen = pscreen;
+   template.target = PIPE_TEXTURE_2D;
+   template.bind = PIPE_BIND_RENDER_TARGET | PIPE_BIND_SAMPLER_VIEW;
+   template.format = format;
+   template.width0 = width;
+   template.height0 = height;
+
+   img->texture = pscreen->resource_create_unbacked(pscreen,
+                                                    &template,
+                                                    &size_required);
+   if (!img->texture || (uint64_t)pitch * height < size_required) {
+      FREE(img);
+      return NULL;
+   }
+
+   pscreen->resource_bind_backing(pscreen, img->texture, data, 0);
+
+   img->loader_private = loaderPrivate;
+   img->sPriv = _screen;
+
+   return img;
+}
+
 static void
 dri2_blit_image(__DRIcontext *context, __DRIimage *dst, __DRIimage *src,
                 int dstx0, int dsty0, int dstwidth, int dstheight,
@@ -1704,6 +1747,7 @@ static const __DRIimageExtension dri2ImageExtensionTempl = {
     .queryDmaBufModifiers         = NULL,
     .queryDmaBufFormatModifierAttribs = NULL,
     .createImageFromRenderbuffer2 = dri2_create_image_from_renderbuffer2,
+    .createImageFromHostPointer = dri2_create_image_from_host_pointer,
 };
 
 static const __DRIrobustnessExtension dri2Robustness = {

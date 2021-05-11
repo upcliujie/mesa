@@ -2931,6 +2931,36 @@ dri2_create_image_dma_buf(_EGLDisplay *disp, _EGLContext *ctx,
 
    return res;
 }
+
+static _EGLImage *
+dri2_create_image_host_pointer(_EGLDisplay *disp, _EGLContext *ctx,
+                               EGLClientBuffer buffer, const EGLint *attr_list)
+{
+   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
+   _EGLImageAttribs attrs;
+   int format, stride;
+   __DRIimage *dri_image;
+
+   if (!_eglParseImageAttribList(&attrs, disp, attr_list))
+      return NULL;
+
+   /* TODO: add attribs for these */
+   format = __DRI_IMAGE_FORMAT_ARGB8888;
+   stride = attrs.Width;
+
+   if (dri2_dpy->image->base.version < 19 ||
+       dri2_dpy->image->createImageFromHostPointer == NULL)
+      return EGL_NO_IMAGE_KHR;
+
+   dri_image =
+      dri2_dpy->image->createImageFromHostPointer(dri2_dpy->dri_screen,
+         attrs.Width, attrs.Height, format, stride, buffer, NULL);
+   if (!dri_image)
+      return EGL_NO_IMAGE_KHR;
+
+   return dri2_create_image_from_dri(disp, dri_image);
+}
+
 static _EGLImage *
 dri2_create_drm_image_mesa(_EGLDisplay *disp, const EGLint *attr_list)
 {
@@ -3148,6 +3178,8 @@ dri2_create_image_khr(_EGLDisplay *disp, _EGLContext *ctx, EGLenum target,
       return dri2_create_image_khr_texture(disp, ctx, target, buffer, attr_list);
    case EGL_GL_RENDERBUFFER_KHR:
       return dri2_create_image_khr_renderbuffer(disp, ctx, buffer, attr_list);
+   case EGL_HOST_POINTER_MESA:
+      return dri2_create_image_host_pointer(disp, ctx, buffer, attr_list);
 #ifdef HAVE_LIBDRM
    case EGL_DRM_BUFFER_MESA:
       return dri2_create_image_mesa_drm_buffer(disp, ctx, buffer, attr_list);
