@@ -3110,6 +3110,7 @@ zink_set_stream_output_targets(struct pipe_context *pctx,
       /* TODO: possibly avoid rebinding on resume if resuming from same buffers? */
       ctx->dirty_so_targets = true;
    }
+   zink_select_draw_vbo(ctx);
 }
 
 void
