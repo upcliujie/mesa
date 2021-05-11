@@ -63,6 +63,9 @@ struct vn_swapchain_wrapper {
    struct vk_object_base base;
 
    VkSwapchainKHR wsi_swapchain;
+
+   uint32_t wsi_image_count;
+   VkImage wsi_images[];
 };
 VK_DEFINE_NONDISP_HANDLE_CASTS(vn_swapchain_wrapper,
                                base,
@@ -83,12 +86,27 @@ vn_swapchain_wrapper_create(struct vn_device *dev,
                             const VkAllocationCallbacks *alloc,
                             struct vn_swapchain_wrapper **out_wrapper)
 {
+   uint32_t img_count;
+   VkResult result = wsi_common_get_images(wsi_swapchain, &img_count, NULL);
+   if (result != VK_SUCCESS)
+      return result;
+
    struct vn_swapchain_wrapper *wrapper = vk_object_zalloc(
-      &dev->base.base, alloc, sizeof(*wrapper), VK_OBJECT_TYPE_SWAPCHAIN_KHR);
+      &dev->base.base, alloc,
+      sizeof(*wrapper) + sizeof(*wrapper->wsi_images) * img_count,
+      VK_OBJECT_TYPE_SWAPCHAIN_KHR);
    if (!wrapper)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    wrapper->wsi_swapchain = wsi_swapchain;
+
+   result =
+      wsi_common_get_images(wsi_swapchain, &img_count, wrapper->wsi_images);
+   if (result != VK_SUCCESS) {
+      vk_object_free(&dev->base.base, alloc, wrapper);
+      return result;
+   }
+   wrapper->wsi_image_count = img_count;
 
    *out_wrapper = wrapper;
 
