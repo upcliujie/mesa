@@ -395,7 +395,7 @@ update_barriers(struct zink_context *ctx, bool is_compute)
 }
 
 template <zink_multidraw HAS_MULTIDRAW, zink_dynamic_state HAS_DYNAMIC_STATE, bool BATCH_CHANGED,
-          bool STREAMOUT>
+          bool STREAMOUT, zink_drawid DRAWID>
 void
 zink_draw_vbo(struct pipe_context *pctx,
               const struct pipe_draw_info *dinfo,
@@ -422,10 +422,10 @@ zink_draw_vbo(struct pipe_context *pctx,
       ctx->gfx_pipeline_state.dirty = true;
    bool drawid_broken = ctx->drawid_broken;
    ctx->drawid_broken = false;
-   if (!dindirect || !dindirect->buffer)
-      ctx->drawid_broken = BITSET_TEST(ctx->gfx_stages[PIPE_SHADER_VERTEX]->nir->info.system_values_read, SYSTEM_VALUE_DRAW_ID) &&
-                           (drawid_offset != 0 ||
-                           (!HAS_MULTIDRAW && num_draws > 1));
+   if (DRAWID && (!dindirect || !dindirect->buffer))
+      ctx->drawid_broken = (drawid_offset != 0 ||
+                           (!HAS_MULTIDRAW && num_draws > 1) ||
+                           (HAS_MULTIDRAW && num_draws > 1 && !dinfo->increment_draw_id));
    if (drawid_broken != ctx->drawid_broken)
       ctx->dirty_shader_stages |= BITFIELD_BIT(PIPE_SHADER_VERTEX);
    ctx->gfx_pipeline_state.vertices_per_patch = dinfo->vertices_per_patch;
@@ -798,11 +798,20 @@ zink_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
 }
 
 template <zink_multidraw HAS_MULTIDRAW, zink_dynamic_state HAS_DYNAMIC_STATE, bool BATCH_CHANGED,
+          bool STREAMOUT, zink_drawid DRAWID>
+static void
+init_drawid_functions(struct zink_context *ctx)
+{
+   ctx->draw_vbo[HAS_MULTIDRAW][HAS_DYNAMIC_STATE][BATCH_CHANGED][STREAMOUT][DRAWID] = zink_draw_vbo<HAS_MULTIDRAW, HAS_DYNAMIC_STATE, BATCH_CHANGED, STREAMOUT, DRAWID>;
+}
+
+template <zink_multidraw HAS_MULTIDRAW, zink_dynamic_state HAS_DYNAMIC_STATE, bool BATCH_CHANGED,
           bool STREAMOUT>
 static void
 init_streamout_functions(struct zink_context *ctx)
 {
-   ctx->draw_vbo[HAS_MULTIDRAW][HAS_DYNAMIC_STATE][BATCH_CHANGED][STREAMOUT] = zink_draw_vbo<HAS_MULTIDRAW, HAS_DYNAMIC_STATE, BATCH_CHANGED, STREAMOUT>;
+   init_drawid_functions<HAS_MULTIDRAW, HAS_DYNAMIC_STATE, BATCH_CHANGED, STREAMOUT, ZINK_NO_DRAWID>(ctx);
+   init_drawid_functions<HAS_MULTIDRAW, HAS_DYNAMIC_STATE, BATCH_CHANGED, STREAMOUT, ZINK_DRAWID>(ctx);
 }
 
 template <zink_multidraw HAS_MULTIDRAW, zink_dynamic_state HAS_DYNAMIC_STATE, bool BATCH_CHANGED>
