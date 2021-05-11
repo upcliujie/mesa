@@ -229,3 +229,18 @@ TEST(bitset, testnot)
    EXPECT_EQ(BITSET_TEST_RANGE(r, 64, 95), false);
    EXPECT_EQ(BITSET_TEST_RANGE(r, 96, 127), false);
 }
+
+TEST(bitset, testshr)
+{
+   BITSET_DECLARE(r, 128);
+   BITSET_DECLARE(a, 128);
+
+   BITSET_ZERO(a);
+   BITSET_SET(a, 127);
+
+   for (int i = 127; i >= 0; i--) {
+      EXPECT_EQ(BITSET_TEST(a, i), true);
+      BITSET_SHR(r, a, 1);
+      BITSET_COPY(a, r);
+   }
+}
