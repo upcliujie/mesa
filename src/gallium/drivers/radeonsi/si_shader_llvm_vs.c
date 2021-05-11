@@ -887,6 +887,18 @@ void si_llvm_build_vs_prolog(struct si_shader_context *ctx, union si_shader_part
       }
    }
 
+   /* The culling code stored the LDS addresses of the VGPRs into those VGPRs. Load them. */
+   if (key->vs_prolog.load_vgprs_after_culling) {
+      for (i = 5; i <= 8; i++) {
+         input_vgprs[i] = LLVMBuildIntToPtr(ctx->ac.builder, input_vgprs[i],
+                                            LLVMPointerType(i == 7 ? ctx->ac.i8 : ctx->ac.i32,
+                                                            AC_ADDR_SPACE_LDS), "");
+         input_vgprs[i] = LLVMBuildLoad(ctx->ac.builder, input_vgprs[i], "");
+         if (i == 7)
+            input_vgprs[i] = LLVMBuildZExt(ctx->ac.builder, input_vgprs[i], ctx->ac.i32, "");
+      }
+   }
+
    if (key->vs_prolog.gs_fast_launch_tri_list || key->vs_prolog.gs_fast_launch_tri_strip) {
       LLVMValueRef wave_id, thread_id_in_tg;
 
