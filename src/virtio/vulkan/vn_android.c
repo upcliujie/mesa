@@ -301,21 +301,22 @@ vn_image_from_anb(struct vn_device *dev,
    local_image_info.tiling = VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT;
 
    /* Force VK_SHARING_MODE_CONCURRENT if necessary.
-    * For physical devices supporting multiple queue families, if a swapchain is
-    * created with exclusive mode, we must transfer the image ownership into the
-    * queue family of the present queue. However, there's no way to get that
-    * queue at the 1st acquire of the image. Thus, when multiple queue families
-    * are supported in a physical device, we include all queue families in the
-    * image create info along with VK_SHARING_MODE_CONCURRENT, which forces us
-    * to transfer the ownership into VK_QUEUE_FAMILY_IGNORED. Then if there's
-    * only one queue family, we can safely use queue family index 0.
+    * For physical devices supporting multiple queue families, if a swapchain
+    * is created with exclusive mode, we must transfer the image ownership
+    * into the queue family of the present queue. However, there's no way to
+    * get that queue at the 1st acquire of the image. Thus, when multiple
+    * queue families are supported in a physical device, we include all queue
+    * families in the image create info along with VK_SHARING_MODE_CONCURRENT,
+    * which forces us to transfer the ownership into VK_QUEUE_FAMILY_IGNORED.
+    * Then if there's only one queue family, we can safely use queue family
+    * index 0.
     */
-   if (dev->physical_device->queue_family_count > 1) {
+   if (dev->android_wsi->concurrent_queue_family_count) {
       local_image_info.sharingMode = VK_SHARING_MODE_CONCURRENT;
       local_image_info.queueFamilyIndexCount =
-         dev->physical_device->queue_family_count;
+         dev->android_wsi->concurrent_queue_family_count;
       local_image_info.pQueueFamilyIndices =
-         dev->android_wsi->queue_family_indices;
+         dev->android_wsi->concurrent_queue_family_indices;
    }
 
    /* encoder will strip the Android specific pNext structs */
@@ -565,16 +566,20 @@ vn_android_wsi_init(struct vn_device *dev, const VkAllocationCallbacks *alloc)
 
    const uint32_t count = dev->physical_device->queue_family_count;
    if (count > 1) {
-      android_wsi->queue_family_indices =
+      android_wsi->concurrent_queue_family_indices =
          vk_alloc(alloc, sizeof(uint32_t) * count, VN_DEFAULT_ALIGN,
                   VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-      if (!android_wsi->queue_family_indices) {
+      if (!android_wsi->concurrent_queue_family_indices) {
          result = VK_ERROR_OUT_OF_HOST_MEMORY;
          goto fail;
       }
 
-      for (uint32_t i = 0; i < count; i++)
-         android_wsi->queue_family_indices[i] = i;
+      for (uint32_t i = 0; i < count; i++) {
+         if (!vn_device_uses_queue_family(dev, i))
+            continue;
+         android_wsi->concurrent_queue_family_indices
+            [android_wsi->concurrent_queue_family_count++] = i;
+      }
    }
 
    android_wsi->cmd_pools =
@@ -587,6 +592,9 @@ vn_android_wsi_init(struct vn_device *dev, const VkAllocationCallbacks *alloc)
 
    VkDevice device = vn_device_to_handle(dev);
    for (uint32_t i = 0; i < count; i++) {
+      if (!vn_device_uses_queue_family(dev, i))
+         continue;
+
       const VkCommandPoolCreateInfo cmd_pool_info = {
          .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
          .pNext = NULL,

@@ -15,6 +15,7 @@
 
 #include "vn_cs.h"
 #include "vn_device_memory.h"
+#include "vn_queue.h"
 #include "vn_renderer.h"
 #include "vn_ring.h"
 #include "vn_wsi.h"
@@ -209,6 +210,17 @@ vn_instance_free_command_reply(struct vn_instance *instance,
 {
    assert(submit->reply_shmem);
    vn_renderer_shmem_unref(instance->renderer, submit->reply_shmem);
+}
+
+static inline bool
+vn_device_uses_queue_family(const struct vn_device *dev,
+                            uint32_t queue_family_index)
+{
+   for (uint32_t i = 0; i < dev->queue_count; i++) {
+      if (dev->queues[i].family == queue_family_index)
+         return true;
+   }
+   return false;
 }
 
 #endif /* VN_DEVICE_H */

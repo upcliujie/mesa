@@ -108,13 +108,7 @@ vn_image_record_wsi_commands(struct vn_device *dev,
    const uint32_t external_index = VK_QUEUE_FAMILY_FOREIGN_EXT;
 
    for (uint32_t i = 0; i < img->wsi->queue_family_count; i++) {
-      /* skip recording if no queue is created from this family */
-      uint32_t j = 0;
-      for (; j < dev->queue_count; j++) {
-         if (dev->queues[j].family == i)
-            break;
-      }
-      if (j == dev->queue_count)
+      if (dev->android_wsi->cmd_pools[i] == VK_NULL_HANDLE)
          continue;
 
       result =
@@ -128,7 +122,7 @@ vn_image_record_wsi_commands(struct vn_device *dev,
 
 fail:
    for (uint32_t i = 0; i < img->wsi->queue_family_count; i++) {
-      if (img->wsi->command_buffers[i][0] != VK_NULL_HANDLE) {
+      if (dev->android_wsi->cmd_pools[i] != VK_NULL_HANDLE) {
          vn_FreeCommandBuffers(device, dev->android_wsi->cmd_pools[i],
                                VN_IMAGE_WSI_COMMAND_COUNT,
                                img->wsi->command_buffers[i]);
@@ -147,7 +141,7 @@ vn_image_fini_wsi(struct vn_device *dev,
 
    mtx_lock(&dev->android_wsi->cmd_pools_lock);
    for (uint32_t i = 0; i < img->wsi->queue_family_count; i++) {
-      if (img->wsi->command_buffers[i][0] != VK_NULL_HANDLE) {
+      if (dev->android_wsi->cmd_pools[i] != VK_NULL_HANDLE) {
          vn_FreeCommandBuffers(device, dev->android_wsi->cmd_pools[i],
                                VN_IMAGE_WSI_COMMAND_COUNT,
                                img->wsi->command_buffers[i]);

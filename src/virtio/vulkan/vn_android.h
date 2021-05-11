@@ -24,8 +24,10 @@ struct vn_android_wsi {
    VkCommandPool *cmd_pools;
    /* use one lock to simplify */
    mtx_t cmd_pools_lock;
+
    /* for forcing VK_SHARING_MODE_CONCURRENT */
-   uint32_t *queue_family_indices;
+   uint32_t *concurrent_queue_family_indices;
+   uint32_t concurrent_queue_family_count;
 };
 
 #ifdef ANDROID
