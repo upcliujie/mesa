@@ -136,12 +136,35 @@ struct zink_descriptor_surface {
    bool is_buffer;
 };
 
+typedef void (*pipe_draw_vbo_func)(struct pipe_context *pipe,
+                                   const struct pipe_draw_info *info,
+                                   unsigned drawid_offset,
+                                   const struct pipe_draw_indirect_info *indirect,
+                                   const struct pipe_draw_start_count_bias *draws,
+                                   unsigned num_draws);
+
+typedef void (*pipe_launch_grid_func)(struct pipe_context *pipe, const struct pipe_grid_info *info);
+
+typedef enum {
+   ZINK_NO_MULTIDRAW,
+   ZINK_MULTIDRAW,
+} zink_multidraw;
+
+typedef enum {
+   ZINK_NO_WORK_DIM,
+   ZINK_READS_WORK_DIM,
+} zink_work_dim;
+
 struct zink_context {
    struct pipe_context base;
    struct threaded_context *tc;
    struct slab_child_pool transfer_pool;
    struct slab_child_pool transfer_pool_unsync;
    struct blitter_context *blitter;
+
+   zink_multidraw multidraw;
+   pipe_draw_vbo_func draw_vbo[2]; //multidraw
+   pipe_launch_grid_func launch_grid[2]; //work_dim
 
    struct pipe_device_reset_callback reset;
 
@@ -379,17 +402,6 @@ void
 zink_rebind_framebuffer(struct zink_context *ctx, struct zink_resource *res);
 
 void
-zink_draw_vbo(struct pipe_context *pctx,
-              const struct pipe_draw_info *dinfo,
-              unsigned drawid_offset,
-              const struct pipe_draw_indirect_info *indirect,
-              const struct pipe_draw_start_count_bias *draws,
-              unsigned num_draws);
-
-void
-zink_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info);
-
-void
 zink_copy_buffer(struct zink_context *ctx, struct zink_batch *batch, struct zink_resource *dst, struct zink_resource *src,
                  unsigned dst_offset, unsigned src_offset, unsigned size);
 
@@ -444,6 +456,11 @@ zink_pipeline_flags_from_pipe_stage(enum pipe_shader_type pstage)
       unreachable("unknown shader stage");
    }
 }
+
+void
+zink_init_draw_functions(struct zink_context *ctx);
+void
+zink_init_grid_functions(struct zink_context *ctx);
 
 #ifdef __cplusplus
 }
