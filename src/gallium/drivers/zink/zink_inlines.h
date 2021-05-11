@@ -6,7 +6,7 @@ static inline void
 zink_select_draw_vbo(struct zink_context *ctx)
 {
    ctx->base.draw_vbo = ctx->draw_vbo[ctx->multidraw][ctx->dynamic_state]
-                                     [ctx->pipeline_changed[0]];
+                                     [ctx->pipeline_changed[0]][ctx->num_so_targets > 0];
    assert(ctx->base.draw_vbo);
 }
 
