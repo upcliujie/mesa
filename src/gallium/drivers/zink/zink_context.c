@@ -1885,6 +1885,10 @@ flush_batch(struct zink_context *ctx, bool sync)
       ctx->rast_state_changed = true;
       ctx->stencil_ref_changed = true;
       ctx->dsa_state_changed = true;
+      if (ctx->curr_program)
+         zink_select_draw_vbo(ctx);
+      if (ctx->curr_compute)
+         zink_select_launch_grid(ctx);
    }
 }
 
@@ -3419,6 +3423,7 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ctx->dynamic_state = screen->info.have_EXT_extended_dynamic_state;
    ctx->screen = screen;
 
+   ctx->pipeline_changed[0] = ctx->pipeline_changed[1] = true;
    ctx->gfx_pipeline_state.dirty = true;
    ctx->compute_pipeline_state.dirty = true;
    ctx->fb_changed = ctx->rp_changed = true;

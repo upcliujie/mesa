@@ -5,7 +5,8 @@
 static inline void
 zink_select_draw_vbo(struct zink_context *ctx)
 {
-   ctx->base.draw_vbo = ctx->draw_vbo[ctx->multidraw][ctx->dynamic_state];
+   ctx->base.draw_vbo = ctx->draw_vbo[ctx->multidraw][ctx->dynamic_state]
+                                     [ctx->pipeline_changed[0]];
    assert(ctx->base.draw_vbo);
 }
 
@@ -14,7 +15,8 @@ zink_select_launch_grid(struct zink_context *ctx)
 {
    if (!ctx->compute_stage)
       return;
-   ctx->base.launch_grid = ctx->launch_grid[BITSET_TEST(ctx->compute_stage->nir->info.system_values_read, SYSTEM_VALUE_WORK_DIM)];
+   ctx->base.launch_grid = ctx->launch_grid[BITSET_TEST(ctx->compute_stage->nir->info.system_values_read, SYSTEM_VALUE_WORK_DIM)]
+                                           [ctx->pipeline_changed[1]];
    assert(ctx->base.launch_grid);
 }
 

@@ -26,6 +26,7 @@
 #include "zink_compiler.h"
 #include "zink_context.h"
 #include "zink_descriptors.h"
+#include "zink_helpers.h"
 #include "zink_render_pass.h"
 #include "zink_resource.h"
 #include "zink_screen.h"
