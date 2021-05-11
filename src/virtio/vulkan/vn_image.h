@@ -13,25 +13,32 @@
 
 #include "vn_common.h"
 
-enum {
-   VN_IMAGE_OWNERSHIP_ACQUIRE = 0,
-   VN_IMAGE_OWNERSHIP_RELEASE = 1,
+enum vn_image_wsi_comamnd_type {
+   VN_IMAGE_WSI_COMMAND_ACQUIRE,
+   VN_IMAGE_WSI_COMMAND_RELEASE,
+
+   VN_IMAGE_WSI_COMMAND_COUNT,
 };
 
-struct vn_image_ownership_cmds {
-   VkCommandBuffer cmds[2];
+struct vn_image_wsi {
+   uint32_t queue_family_count;
+
+   /* For queue family ownership transfer of WSI images */
+   VkCommandBuffer command_buffers[][VN_IMAGE_WSI_COMMAND_COUNT];
 };
 
 struct vn_image {
    struct vn_object_base base;
 
+   VkSharingMode sharing_mode;
+
    VkMemoryRequirements2 memory_requirements[4];
    VkMemoryDedicatedRequirements dedicated_requirements[4];
+
    /* For VK_ANDROID_native_buffer, the WSI image owns the memory, */
    VkDeviceMemory private_memory;
-   /* For queue family ownership transfer of WSI images */
-   VkSharingMode sharing_mode;
-   struct vn_image_ownership_cmds *ownership_cmds;
+
+   struct vn_image_wsi *wsi;
    struct vn_queue *acquire_queue;
 };
 VK_DEFINE_NONDISP_HANDLE_CASTS(vn_image,
@@ -70,8 +77,24 @@ vn_image_create(struct vn_device *dev,
                 struct vn_image **out_img);
 
 VkResult
-vn_image_android_wsi_init(struct vn_device *dev,
-                          struct vn_image *img,
-                          const VkAllocationCallbacks *alloc);
+vn_image_init_wsi(struct vn_device *dev,
+                  struct vn_image *img,
+                  uint32_t queue_family_count,
+                  const VkAllocationCallbacks *alloc);
+
+VkResult
+vn_image_record_wsi_commands(struct vn_device *dev,
+                             struct vn_image *img,
+                             const VkAllocationCallbacks *alloc);
+
+static inline const VkCommandBuffer *
+vn_image_get_wsi_command(const struct vn_image *img,
+                         uint32_t queue_family_index,
+                         enum vn_image_wsi_comamnd_type type)
+{
+   assert(img->wsi && queue_family_index < img->wsi->queue_family_count &&
+          type < VN_IMAGE_WSI_COMMAND_COUNT);
+   return &img->wsi->command_buffers[queue_family_index][type];
+}
 
 #endif /* VN_IMAGE_H */

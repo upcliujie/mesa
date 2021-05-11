@@ -31,14 +31,14 @@ vn_record_ownership_cmds(struct vn_device *dev,
    VkResult result = VK_SUCCESS;
    VkDevice device = vn_device_to_handle(dev);
    VkImage image = vn_image_to_handle(img);
-   VkCommandBuffer cmds[2];
+   VkCommandBuffer cmds[VN_IMAGE_WSI_COMMAND_COUNT];
 
    const VkCommandBufferAllocateInfo cmd_info = {
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
       .pNext = NULL,
       .commandPool = dev->android_wsi->cmd_pools[family],
       .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-      .commandBufferCount = 2,
+      .commandBufferCount = VN_IMAGE_WSI_COMMAND_COUNT,
    };
 
    mtx_lock(&dev->android_wsi->cmd_pools_lock);
@@ -52,7 +52,7 @@ vn_record_ownership_cmds(struct vn_device *dev,
    const VkCommandBufferBeginInfo begin_info = {
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
    };
-   vn_BeginCommandBuffer(cmds[VN_IMAGE_OWNERSHIP_ACQUIRE], &begin_info);
+   vn_BeginCommandBuffer(cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE], &begin_info);
    VkImageMemoryBarrier barrier = {
          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
          .pNext = NULL,
@@ -73,29 +73,31 @@ vn_record_ownership_cmds(struct vn_device *dev,
                  },
    };
    vn_CmdPipelineBarrier(
-      cmds[VN_IMAGE_OWNERSHIP_ACQUIRE], VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE], VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
-   vn_EndCommandBuffer(cmds[VN_IMAGE_OWNERSHIP_ACQUIRE]);
+   vn_EndCommandBuffer(cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE]);
 
    /* record the internal queue to foreign/external queue transfer */
-   vn_BeginCommandBuffer(cmds[VN_IMAGE_OWNERSHIP_RELEASE], &begin_info);
+   vn_BeginCommandBuffer(cmds[VN_IMAGE_WSI_COMMAND_RELEASE], &begin_info);
    barrier.srcQueueFamilyIndex = internal_index;
    barrier.dstQueueFamilyIndex = external_index;
    vn_CmdPipelineBarrier(
-      cmds[VN_IMAGE_OWNERSHIP_RELEASE], VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      cmds[VN_IMAGE_WSI_COMMAND_RELEASE], VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
-   vn_EndCommandBuffer(cmds[VN_IMAGE_OWNERSHIP_RELEASE]);
+   vn_EndCommandBuffer(cmds[VN_IMAGE_WSI_COMMAND_RELEASE]);
 
-   out_cmds[VN_IMAGE_OWNERSHIP_ACQUIRE] = cmds[VN_IMAGE_OWNERSHIP_ACQUIRE];
-   out_cmds[VN_IMAGE_OWNERSHIP_RELEASE] = cmds[VN_IMAGE_OWNERSHIP_RELEASE];
+   out_cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE] =
+      cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE];
+   out_cmds[VN_IMAGE_WSI_COMMAND_RELEASE] =
+      cmds[VN_IMAGE_WSI_COMMAND_RELEASE];
 
    return VK_SUCCESS;
 }
 
 VkResult
-vn_image_android_wsi_init(struct vn_device *dev,
-                          struct vn_image *img,
-                          const VkAllocationCallbacks *alloc)
+vn_image_record_wsi_commands(struct vn_device *dev,
+                             struct vn_image *img,
+                             const VkAllocationCallbacks *alloc)
 {
    VkDevice device = vn_device_to_handle(dev);
    VkResult result = VK_SUCCESS;
@@ -104,15 +106,8 @@ vn_image_android_wsi_init(struct vn_device *dev,
          ? 0
          : VK_QUEUE_FAMILY_IGNORED;
    const uint32_t external_index = VK_QUEUE_FAMILY_FOREIGN_EXT;
-   const uint32_t count = dev->physical_device->queue_family_count;
 
-   struct vn_image_ownership_cmds *local_cmds =
-      vk_zalloc(alloc, sizeof(*local_cmds) * count, VN_DEFAULT_ALIGN,
-                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (!local_cmds)
-      return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   for (uint32_t i = 0; i < count; i++) {
+   for (uint32_t i = 0; i < img->wsi->queue_family_count; i++) {
       /* skip recording if no queue is created from this family */
       uint32_t j = 0;
       for (; j < dev->queue_count; j++) {
@@ -122,45 +117,64 @@ vn_image_android_wsi_init(struct vn_device *dev,
       if (j == dev->queue_count)
          continue;
 
-      result = vn_record_ownership_cmds(dev, img, i, internal_index,
-                                        external_index, local_cmds[i].cmds);
+      result =
+         vn_record_ownership_cmds(dev, img, i, internal_index, external_index,
+                                  img->wsi->command_buffers[i]);
       if (result != VK_SUCCESS)
          goto fail;
    }
 
-   img->ownership_cmds = local_cmds;
-
    return VK_SUCCESS;
 
 fail:
-   for (uint32_t i = 0; i < count; i++) {
-      if (local_cmds[i].cmds[0] != VK_NULL_HANDLE)
-         vn_FreeCommandBuffers(device, dev->android_wsi->cmd_pools[i], 2,
-                               local_cmds[i].cmds);
+   for (uint32_t i = 0; i < img->wsi->queue_family_count; i++) {
+      if (img->wsi->command_buffers[i][0] != VK_NULL_HANDLE) {
+         vn_FreeCommandBuffers(device, dev->android_wsi->cmd_pools[i],
+                               VN_IMAGE_WSI_COMMAND_COUNT,
+                               img->wsi->command_buffers[i]);
+      }
    }
-   vk_free(alloc, local_cmds);
-   return vn_error(dev->instance, result);
+   img->wsi->queue_family_count = 0;
+   return result;
 }
 
 static void
-vn_image_android_wsi_fini(struct vn_device *dev,
-                          struct vn_image *img,
-                          const VkAllocationCallbacks *alloc)
+vn_image_fini_wsi(struct vn_device *dev,
+                  struct vn_image *img,
+                  const VkAllocationCallbacks *alloc)
 {
-   if (!dev->android_wsi || !img->ownership_cmds)
-      return;
-
    VkDevice device = vn_device_to_handle(dev);
 
    mtx_lock(&dev->android_wsi->cmd_pools_lock);
-   for (uint32_t i = 0; i < dev->physical_device->queue_family_count; i++) {
-      if (img->ownership_cmds[i].cmds[0] != VK_NULL_HANDLE)
-         vn_FreeCommandBuffers(device, dev->android_wsi->cmd_pools[i], 2,
-                               img->ownership_cmds[i].cmds);
+   for (uint32_t i = 0; i < img->wsi->queue_family_count; i++) {
+      if (img->wsi->command_buffers[i][0] != VK_NULL_HANDLE) {
+         vn_FreeCommandBuffers(device, dev->android_wsi->cmd_pools[i],
+                               VN_IMAGE_WSI_COMMAND_COUNT,
+                               img->wsi->command_buffers[i]);
+      }
    }
    mtx_unlock(&dev->android_wsi->cmd_pools_lock);
 
-   vk_free(alloc, img->ownership_cmds);
+   vk_free(alloc, img->wsi);
+}
+
+VkResult
+vn_image_init_wsi(struct vn_device *dev,
+                  struct vn_image *img,
+                  uint32_t queue_family_count,
+                  const VkAllocationCallbacks *alloc)
+{
+   struct vn_image_wsi *wsi = vk_zalloc(
+      alloc,
+      sizeof(*wsi) + sizeof(*wsi->command_buffers) * queue_family_count,
+      VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (!wsi)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   wsi->queue_family_count = queue_family_count;
+   img->wsi = wsi;
+
+   return VK_SUCCESS;
 }
 
 static void
@@ -256,6 +270,7 @@ vn_image_create(struct vn_device *dev,
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    vn_object_base_init(&img->base, VK_OBJECT_TYPE_IMAGE, &dev->base);
+   img->sharing_mode = create_info->sharingMode;
 
    VkDevice dev_handle = vn_device_to_handle(dev);
    VkImage img_handle = vn_image_to_handle(img);
@@ -268,8 +283,6 @@ vn_image_create(struct vn_device *dev,
    }
 
    vn_image_init_memory_requirements(img, dev, create_info);
-
-   img->sharing_mode = create_info->sharingMode;
 
    *out_img = img;
 
@@ -323,7 +336,8 @@ vn_DestroyImage(VkDevice device,
    if (!img)
       return;
 
-   vn_image_android_wsi_fini(dev, img, alloc);
+   if (img->wsi)
+      vn_image_fini_wsi(dev, img, alloc);
 
    if (img->private_memory != VK_NULL_HANDLE)
       vn_FreeMemory(device, img->private_memory, pAllocator);

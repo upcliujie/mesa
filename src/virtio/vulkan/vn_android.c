@@ -325,7 +325,12 @@ vn_image_from_anb(struct vn_device *dev,
 
    image = vn_image_to_handle(img);
 
-   result = vn_image_android_wsi_init(dev, img, alloc);
+   result = vn_image_init_wsi(
+      dev, img, dev->physical_device->queue_family_count, alloc);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   result = vn_image_record_wsi_commands(dev, img, alloc);
    if (result != VK_SUCCESS)
       goto fail;
 
@@ -465,8 +470,8 @@ vn_AcquireImageANDROID(VkDevice device,
       .pWaitSemaphores = NULL,
       .pWaitDstStageMask = NULL,
       .commandBufferCount = 1,
-      .pCommandBuffers =
-         &img->ownership_cmds[queue->family].cmds[VN_IMAGE_OWNERSHIP_ACQUIRE],
+      .pCommandBuffers = vn_image_get_wsi_command(
+         img, queue->family, VN_IMAGE_WSI_COMMAND_ACQUIRE),
       .signalSemaphoreCount = 0,
       .pSignalSemaphores = NULL,
    };
@@ -525,8 +530,8 @@ vn_QueueSignalReleaseImageANDROID(VkQueue queue,
       .pWaitSemaphores = pWaitSemaphores,
       .pWaitDstStageMask = stage_masks,
       .commandBufferCount = 1,
-      .pCommandBuffers =
-         &img->ownership_cmds[que->family].cmds[VN_IMAGE_OWNERSHIP_RELEASE],
+      .pCommandBuffers = vn_image_get_wsi_command(
+         img, queue->family, VN_IMAGE_WSI_COMMAND_RELEASE),
       .signalSemaphoreCount = 0,
       .pSignalSemaphores = NULL,
    };
