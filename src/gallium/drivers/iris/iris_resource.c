@@ -808,6 +808,47 @@ iris_resource_configure_aux(struct iris_screen *screen,
 }
 
 /**
+ * Configure various aux buffer offsets. Returns the total bo
+ * size with main surface + all aux surfaces.
+ */
+static uint64_t
+iris_resource_configure_aux_offsets(struct iris_screen *screen,
+                                    struct iris_resource *res)
+{
+   /* Modifiers require the aux data to be in the same buffer as the main
+    * surface, but we combine them even when a modifier is not being used.
+    */
+   uint64_t bo_size = res->surf.size_B;
+
+   /* Allocate space for the aux buffer. */
+   if (res->aux.surf.size_B > 0) {
+      res->aux.offset = ALIGN(bo_size, res->aux.surf.alignment_B);
+      bo_size = res->aux.offset + res->aux.surf.size_B;
+   }
+
+   /* Allocate space for the extra aux buffer. */
+   if (res->aux.extra_aux.surf.size_B > 0) {
+      res->aux.extra_aux.offset =
+         ALIGN(bo_size, res->aux.extra_aux.surf.alignment_B);
+      bo_size = res->aux.extra_aux.offset + res->aux.extra_aux.surf.size_B;
+   }
+
+   /* Allocate space for the indirect clear color.
+    *
+    * Also add some padding to make sure the fast clear color state buffer
+    * starts at a 4K alignment. We believe that 256B might be enough, but due
+    * to lack of testing we will leave this as 4K for now.
+    */
+   if (res->aux.surf.size_B > 0) {
+      res->aux.clear_color_offset = ALIGN(bo_size, 4096);
+      bo_size = res->aux.clear_color_offset +
+                iris_get_aux_clear_color_state_size(screen);
+   }
+
+   return bo_size;
+}
+
+/**
  * Initialize the aux buffer contents.
  *
  * Returns false on unexpected error (e.g. mapping a BO failed).
@@ -1014,32 +1055,7 @@ iris_resource_create_with_modifiers(struct pipe_screen *pscreen,
    /* Modifiers require the aux data to be in the same buffer as the main
     * surface, but we combine them even when a modifier is not being used.
     */
-   uint64_t bo_size = res->surf.size_B;
-
-   /* Allocate space for the aux buffer. */
-   if (res->aux.surf.size_B > 0) {
-      res->aux.offset = ALIGN(bo_size, res->aux.surf.alignment_B);
-      bo_size = res->aux.offset + res->aux.surf.size_B;
-   }
-
-   /* Allocate space for the extra aux buffer. */
-   if (res->aux.extra_aux.surf.size_B > 0) {
-      res->aux.extra_aux.offset =
-         ALIGN(bo_size, res->aux.extra_aux.surf.alignment_B);
-      bo_size = res->aux.extra_aux.offset + res->aux.extra_aux.surf.size_B;
-   }
-
-   /* Allocate space for the indirect clear color.
-    *
-    * Also add some padding to make sure the fast clear color state buffer
-    * starts at a 4K alignment. We believe that 256B might be enough, but due
-    * to lack of testing we will leave this as 4K for now.
-    */
-   if (res->aux.surf.size_B > 0) {
-      res->aux.clear_color_offset = ALIGN(bo_size, 4096);
-      bo_size = res->aux.clear_color_offset +
-                iris_get_aux_clear_color_state_size(screen);
-   }
+   uint64_t bo_size = iris_resource_configure_aux_offsets(screen, res);
 
    uint32_t alignment = MAX2(4096, res->surf.alignment_B);
    res->bo = iris_bo_alloc_tiled(screen->bufmgr, name, bo_size, alignment,
