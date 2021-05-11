@@ -55,6 +55,46 @@
  * (and renderer-side synchronization) to work well.
  */
 
+/* TODO if this becomes a permanent solution, we should look into removing
+ * vn_swapchain_wrapper and enhancing wsi_swapchain instead
+ */
+struct vn_swapchain_wrapper {
+   /* not a vn_object_base and cannot be serialized */
+   struct vk_object_base base;
+
+   VkSwapchainKHR wsi_swapchain;
+};
+VK_DEFINE_NONDISP_HANDLE_CASTS(vn_swapchain_wrapper,
+                               base,
+                               VkSwapchainKHR,
+                               VK_OBJECT_TYPE_SWAPCHAIN_KHR)
+
+static void
+vn_swapchain_wrapper_destroy(struct vn_device *dev,
+                             struct vn_swapchain_wrapper *wrapper,
+                             const VkAllocationCallbacks *alloc)
+{
+   vk_object_free(&dev->base.base, alloc, wrapper);
+}
+
+static VkResult
+vn_swapchain_wrapper_create(struct vn_device *dev,
+                            VkSwapchainKHR wsi_swapchain,
+                            const VkAllocationCallbacks *alloc,
+                            struct vn_swapchain_wrapper **out_wrapper)
+{
+   struct vn_swapchain_wrapper *wrapper = vk_object_zalloc(
+      &dev->base.base, alloc, sizeof(*wrapper), VK_OBJECT_TYPE_SWAPCHAIN_KHR);
+   if (!wrapper)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   wrapper->wsi_swapchain = wsi_swapchain;
+
+   *out_wrapper = wrapper;
+
+   return VK_SUCCESS;
+}
+
 static PFN_vkVoidFunction
 vn_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
 {
@@ -275,8 +315,19 @@ vn_CreateSwapchainKHR(VkDevice device,
    VkResult result =
       wsi_common_create_swapchain(&dev->physical_device->wsi_device, device,
                                   pCreateInfo, alloc, pSwapchain);
+   if (result != VK_SUCCESS)
+      return vn_error(dev->instance, result);
 
-   return vn_result(dev->instance, result);
+   /* wrap wsi_swapchain */
+   struct vn_swapchain_wrapper *wrapper;
+   result = vn_swapchain_wrapper_create(dev, *pSwapchain, alloc, &wrapper);
+   if (result != VK_SUCCESS) {
+      wsi_common_destroy_swapchain(device, *pSwapchain, alloc);
+      return vn_error(dev->instance, result);
+   }
+   *pSwapchain = vn_swapchain_wrapper_to_handle(wrapper);
+
+   return VK_SUCCESS;
 }
 
 void
@@ -288,6 +339,11 @@ vn_DestroySwapchainKHR(VkDevice device,
    const VkAllocationCallbacks *alloc =
       pAllocator ? pAllocator : &dev->base.base.alloc;
 
+   struct vn_swapchain_wrapper *wrapper =
+      vn_swapchain_wrapper_from_handle(swapchain);
+   swapchain = wrapper->wsi_swapchain;
+   vn_swapchain_wrapper_destroy(dev, wrapper, alloc);
+
    wsi_common_destroy_swapchain(device, swapchain, alloc);
 }
 
@@ -298,6 +354,10 @@ vn_GetSwapchainImagesKHR(VkDevice device,
                          VkImage *pSwapchainImages)
 {
    struct vn_device *dev = vn_device_from_handle(device);
+
+   struct vn_swapchain_wrapper *wrapper =
+      vn_swapchain_wrapper_from_handle(swapchain);
+   swapchain = wrapper->wsi_swapchain;
 
    VkResult result = wsi_common_get_images(swapchain, pSwapchainImageCount,
                                            pSwapchainImages);
@@ -329,13 +389,37 @@ VkResult
 vn_QueuePresentKHR(VkQueue _queue, const VkPresentInfoKHR *pPresentInfo)
 {
    struct vn_queue *queue = vn_queue_from_handle(_queue);
+   struct vn_device *dev = queue->device;
+   const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
 
-   VkResult result =
-      wsi_common_queue_present(&queue->device->physical_device->wsi_device,
-                               vn_device_to_handle(queue->device), _queue,
-                               queue->family, pPresentInfo);
+   VkSwapchainKHR local_swapchains[8];
+   VkSwapchainKHR *swapchains = local_swapchains;
+   if (pPresentInfo->swapchainCount > ARRAY_SIZE(local_swapchains)) {
+      swapchains =
+         vk_alloc(alloc, sizeof(*swapchains) * pPresentInfo->swapchainCount,
+                  VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+      if (!swapchains)
+         return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+   }
 
-   return vn_result(queue->device->instance, result);
+   for (uint32_t i = 0; i < pPresentInfo->swapchainCount; i++) {
+      struct vn_swapchain_wrapper *wrapper =
+         vn_swapchain_wrapper_from_handle(pPresentInfo->pSwapchains[i]);
+      swapchains[i] = wrapper->wsi_swapchain;
+   }
+
+   VkPresentInfoKHR local_info = *pPresentInfo;
+   local_info.pSwapchains = swapchains;
+   pPresentInfo = &local_info;
+
+   VkResult result = wsi_common_queue_present(
+      &dev->physical_device->wsi_device, vn_device_to_handle(dev), _queue,
+      queue->family, pPresentInfo);
+
+   if (swapchains != local_swapchains)
+      vk_free(alloc, swapchains);
+
+   return vn_result(dev->instance, result);
 }
 
 VkResult
@@ -344,6 +428,12 @@ vn_AcquireNextImage2KHR(VkDevice device,
                         uint32_t *pImageIndex)
 {
    struct vn_device *dev = vn_device_from_handle(device);
+
+   struct vn_swapchain_wrapper *wrapper =
+      vn_swapchain_wrapper_from_handle(pAcquireInfo->swapchain);
+   VkAcquireNextImageInfoKHR local_info = *pAcquireInfo;
+   local_info.swapchain = wrapper->wsi_swapchain;
+   pAcquireInfo = &local_info;
 
    VkResult result = wsi_common_acquire_next_image2(
       &dev->physical_device->wsi_device, device, pAcquireInfo, pImageIndex);
