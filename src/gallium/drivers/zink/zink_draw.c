@@ -165,9 +165,6 @@ static struct zink_compute_program *
 get_compute_program(struct zink_context *ctx)
 {
    unsigned bits = 1 << PIPE_SHADER_COMPUTE;
-   ctx->dirty_shader_stages |= ctx->inlinable_uniforms_dirty_mask &
-                               ctx->inlinable_uniforms_valid_mask &
-                               ctx->shader_has_inlinable_uniforms_mask & bits;
    if (ctx->dirty_shader_stages & bits) {
       struct hash_entry *entry = _mesa_hash_table_search(ctx->compute_program_cache,
                                                          &ctx->compute_stage->shader_id);
@@ -184,7 +181,6 @@ get_compute_program(struct zink_context *ctx)
       }
       ctx->curr_compute = entry->data;
       ctx->dirty_shader_stages &= bits;
-      ctx->inlinable_uniforms_dirty_mask &= bits;
    }
 
    assert(ctx->curr_compute);
@@ -204,9 +200,6 @@ get_gfx_program(struct zink_context *ctx)
       ctx->last_vertex_stage_dirty = false;
    }
    unsigned bits = u_bit_consecutive(PIPE_SHADER_VERTEX, 5);
-   ctx->dirty_shader_stages |= ctx->inlinable_uniforms_dirty_mask &
-                               ctx->inlinable_uniforms_valid_mask &
-                               ctx->shader_has_inlinable_uniforms_mask & bits;
    if (ctx->dirty_shader_stages & bits) {
       struct hash_entry *entry = _mesa_hash_table_search(ctx->program_cache,
                                                          ctx->gfx_stages);
@@ -225,7 +218,6 @@ get_gfx_program(struct zink_context *ctx)
       }
       ctx->curr_program = entry->data;
       ctx->dirty_shader_stages &= ~bits;
-      ctx->inlinable_uniforms_dirty_mask &= ~bits;
    }
 
    assert(ctx->curr_program);
