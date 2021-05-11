@@ -3591,7 +3591,6 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
       ctx->base.set_context_param = zink_set_context_param;
       ctx->multidraw = screen->info.have_EXT_multi_draw;
    }
-   zink_select_draw_vbo(ctx);
 
    return (struct pipe_context*)tc;
 

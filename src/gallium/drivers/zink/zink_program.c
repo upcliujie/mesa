@@ -900,6 +900,8 @@ zink_bind_vs_state(struct pipe_context *pctx,
        !ctx->gfx_stages[PIPE_SHADER_TESS_EVAL]) {
       ctx->last_vertex_stage = cso;
    }
+   if (cso)
+      zink_select_draw_vbo(ctx);
 }
 
 static void
