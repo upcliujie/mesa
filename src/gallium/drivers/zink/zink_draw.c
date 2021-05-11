@@ -455,9 +455,9 @@ zink_draw_vbo(struct pipe_context *pctx,
    if (!gfx_program)
       return;
 
-   if (ctx->gfx_pipeline_state.primitive_restart != !!dinfo->primitive_restart)
+   if (ctx->gfx_pipeline_state.primitive_restart != dinfo->primitive_restart)
       ctx->gfx_pipeline_state.dirty = true;
-   ctx->gfx_pipeline_state.primitive_restart = !!dinfo->primitive_restart;
+   ctx->gfx_pipeline_state.primitive_restart = dinfo->primitive_restart;
 
    enum pipe_prim_type reduced_prim = u_reduced_prim(dinfo->mode);
 
