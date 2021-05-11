@@ -36,6 +36,7 @@
 #include "zink_screen.h"
 #include "zink_state.h"
 #include "zink_surface.h"
+#include "zink_inlines.h"
 
 #include "util/u_blitter.h"
 #include "util/u_debug.h"
@@ -3420,6 +3421,9 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ctx->compute_pipeline_state.dirty = true;
    ctx->fb_changed = ctx->rp_changed = true;
 
+   zink_init_draw_functions(ctx);
+   zink_init_grid_functions(ctx);
+
    ctx->base.screen = pscreen;
    ctx->base.priv = priv;
 
@@ -3463,8 +3467,6 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ctx->base.clear_render_target = zink_clear_render_target;
    ctx->base.clear_depth_stencil = zink_clear_depth_stencil;
 
-   ctx->base.draw_vbo = zink_draw_vbo;
-   ctx->base.launch_grid = zink_launch_grid;
    ctx->base.fence_server_sync = zink_fence_server_sync;
    ctx->base.flush = zink_flush;
    ctx->base.memory_barrier = zink_memory_barrier;
@@ -3579,7 +3581,9 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    if (tc && (struct zink_context*)tc != ctx) {
       tc->bytes_mapped_limit = screen->total_mem / 4;
       ctx->base.set_context_param = zink_set_context_param;
+      ctx->multidraw = screen->info.have_EXT_multi_draw;
    }
+   zink_select_draw_vbo(ctx);
 
    return (struct pipe_context*)tc;
 
