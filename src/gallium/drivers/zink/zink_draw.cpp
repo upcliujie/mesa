@@ -395,7 +395,7 @@ update_barriers(struct zink_context *ctx, bool is_compute)
 }
 
 template <zink_multidraw HAS_MULTIDRAW, zink_dynamic_state HAS_DYNAMIC_STATE, bool BATCH_CHANGED,
-          bool STREAMOUT, zink_drawid DRAWID>
+          bool STREAMOUT, zink_drawid DRAWID, zink_basevertex BASEVERTEX>
 void
 zink_draw_vbo(struct pipe_context *pctx,
               const struct pipe_draw_info *dinfo,
@@ -643,7 +643,7 @@ zink_draw_vbo(struct pipe_context *pctx,
    if (BATCH_CHANGED || ctx->vertex_buffers_dirty)
       zink_bind_vertex_buffers<HAS_DYNAMIC_STATE>(batch, ctx);
 
-   if (BITSET_TEST(ctx->gfx_stages[PIPE_SHADER_VERTEX]->nir->info.system_values_read, SYSTEM_VALUE_BASE_VERTEX)) {
+   if (BASEVERTEX) {
       unsigned draw_mode_is_indexed = index_size > 0;
       vkCmdPushConstants(batch->state->cmdbuf, ctx->curr_program->base.layout, VK_SHADER_STAGE_VERTEX_BIT,
                          offsetof(struct zink_gfx_push_constant, draw_mode_is_indexed), sizeof(unsigned),
@@ -678,7 +678,7 @@ zink_draw_vbo(struct pipe_context *pctx,
       zink_select_draw_vbo(ctx);
    }
 
-   bool needs_drawid = ctx->drawid_broken;
+   bool needs_drawid = DRAWID && ctx->drawid_broken;
    batch->state->draw_count += num_draws;
    if (index_size > 0) {
       if (dindirect && dindirect->buffer) {
@@ -797,11 +797,21 @@ zink_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
 }
 
 template <zink_multidraw HAS_MULTIDRAW, zink_dynamic_state HAS_DYNAMIC_STATE, bool BATCH_CHANGED,
+          bool STREAMOUT, zink_drawid DRAWID, zink_basevertex BASEVERTEX>
+static void
+init_basevertex_functions(struct zink_context *ctx)
+{
+   ctx->draw_vbo[HAS_MULTIDRAW][HAS_DYNAMIC_STATE][BATCH_CHANGED][STREAMOUT][DRAWID][BASEVERTEX] =
+   zink_draw_vbo<HAS_MULTIDRAW, HAS_DYNAMIC_STATE, BATCH_CHANGED, STREAMOUT, DRAWID, BASEVERTEX>;
+}
+
+template <zink_multidraw HAS_MULTIDRAW, zink_dynamic_state HAS_DYNAMIC_STATE, bool BATCH_CHANGED,
           bool STREAMOUT, zink_drawid DRAWID>
 static void
 init_drawid_functions(struct zink_context *ctx)
 {
-   ctx->draw_vbo[HAS_MULTIDRAW][HAS_DYNAMIC_STATE][BATCH_CHANGED][STREAMOUT][DRAWID] = zink_draw_vbo<HAS_MULTIDRAW, HAS_DYNAMIC_STATE, BATCH_CHANGED, STREAMOUT, DRAWID>;
+   init_basevertex_functions<HAS_MULTIDRAW, HAS_DYNAMIC_STATE, BATCH_CHANGED, STREAMOUT, DRAWID, ZINK_NO_BASEVERTEX>(ctx);
+   init_basevertex_functions<HAS_MULTIDRAW, HAS_DYNAMIC_STATE, BATCH_CHANGED, STREAMOUT, DRAWID, ZINK_BASEVERTEX>(ctx);
 }
 
 template <zink_multidraw HAS_MULTIDRAW, zink_dynamic_state HAS_DYNAMIC_STATE, bool BATCH_CHANGED,
