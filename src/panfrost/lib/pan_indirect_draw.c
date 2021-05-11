@@ -73,6 +73,8 @@ struct jobs_data {
         nir_ssa_def *tiler_job;
         nir_ssa_def *base_vertex_offset;
         nir_ssa_def *first_vertex_sysval;
+        nir_ssa_def *base_vertex_sysval;
+        nir_ssa_def *base_instance_sysval;
         nir_ssa_def *offset_start;
         nir_ssa_def *invocation;
 };
@@ -160,6 +162,9 @@ struct indirect_draw_inputs {
 
         /* {base,first}_{vertex,instance} sysvals */
         mali_ptr first_vertex_sysval;
+        mali_ptr base_vertex_sysval;
+        mali_ptr base_instance_sysval;
+
         /* Pointers to various cmdstream structs that need to be patched */
         mali_ptr vertex_job;
         mali_ptr tiler_job;
@@ -318,6 +323,8 @@ extract_inputs(struct indirect_draw_shader_builder *builder)
                 return;
 
         builder->jobs.first_vertex_sysval = get_input_field(b, first_vertex_sysval);
+        builder->jobs.base_vertex_sysval = get_input_field(b, base_vertex_sysval);
+        builder->jobs.base_instance_sysval = get_input_field(b, base_instance_sysval);
         builder->jobs.vertex_job = get_input_field(b, vertex_job);
         builder->jobs.tiler_job = get_input_field(b, tiler_job);
         builder->attribs.attrib_bufs = get_input_field(b, attrib_bufs);
@@ -914,6 +921,24 @@ patch(struct indirect_draw_shader_builder *builder)
                 store_global(b, builder->jobs.first_vertex_sysval,
                              builder->jobs.offset_start, 1);
         } ENDIF
+
+        IF (nir_ine(b, builder->jobs.base_vertex_sysval, nir_imm_int64(b, 0))) {
+                store_global(b, builder->jobs.base_vertex_sysval,
+                             index_size ?
+                             builder->draw.index_bias :
+                             nir_imm_int(b, 0),
+                             1);
+        } ENDIF
+
+        IF (nir_ine(b, builder->jobs.base_instance_sysval, nir_imm_int64(b, 0))) {
+                nir_ssa_def *start_instance =
+                        index_size ?
+                        get_indexed_draw_field(b, draw_ptr, start_instance) :
+                        get_draw_field(b, draw_ptr, start_instance);
+                store_global(b, builder->jobs.base_instance_sysval,
+                             start_instance, 1);
+        } ENDIF
+
 }
 
 /* Search the min/max index in the range covered by the indirect draw call */
@@ -1255,6 +1280,8 @@ panfrost_emit_indirect_draw(struct pan_pool *pool,
                 .draw_buf = draw_info->draw_buf,
                 .index_buf = draw_info->index_buf,
                 .first_vertex_sysval = draw_info->first_vertex_sysval,
+                .base_vertex_sysval = draw_info->base_vertex_sysval,
+                .base_instance_sysval = draw_info->base_instance_sysval,
                 .vertex_job = draw_info->vertex_job,
                 .tiler_job = draw_info->tiler_job,
                 .attrib_bufs = draw_info->attrib_bufs,
