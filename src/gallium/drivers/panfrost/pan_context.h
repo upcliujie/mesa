@@ -138,7 +138,11 @@ struct panfrost_context {
         unsigned instance_count;
         unsigned offset_start;
         unsigned first_vertex;
+        unsigned base_vertex;
+        unsigned base_instance;
         mali_ptr first_vertex_sysval_ptr;
+        mali_ptr base_vertex_sysval_ptr;
+        mali_ptr base_instance_sysval_ptr;
         enum pipe_prim_type active_prim;
 
         /* If instancing is enabled, vertex count padded for instance; if
