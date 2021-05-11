@@ -102,9 +102,12 @@ mir_analyze_ranges(compiler_context *ctx)
  * sophisticated. Select from the last UBO first to prioritize sysvals. */
 
 static void
-mir_pick_ubo(struct panfrost_ubo_push *push, struct mir_ubo_analysis *analysis, unsigned max_qwords)
+mir_pick_ubo(struct panfrost_ubo_push *push, struct mir_ubo_analysis *analysis, unsigned max_qwords, unsigned sysval_ubo)
 {
         unsigned max_words = MIN2(PAN_MAX_PUSH, max_qwords * 4);
+
+        /* The sysval push range must be first */
+        assert(sysval_ubo == analysis->nr_blocks - 1);
 
         for (signed ubo = analysis->nr_blocks - 1; ubo >= 0; --ubo) {
                 struct mir_ubo_block *block = &analysis->blocks[ubo];
@@ -277,7 +280,7 @@ midgard_promote_uniforms(compiler_context *ctx)
         unsigned promoted_count = 24 - work_count;
 
         /* Ensure we are 16 byte aligned to avoid underallocations */
-        mir_pick_ubo(&ctx->info->push, &analysis, promoted_count);
+        mir_pick_ubo(&ctx->info->push, &analysis, promoted_count, sysval_ubo);
         ctx->info->push.count = ALIGN_POT(ctx->info->push.count, 4);
 
         /* First, figure out special indices a priori so we don't recompute a lot */
