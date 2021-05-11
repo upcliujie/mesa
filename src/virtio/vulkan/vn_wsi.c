@@ -64,6 +64,8 @@ struct vn_swapchain_wrapper {
 
    VkSwapchainKHR wsi_swapchain;
 
+   VkCommandPool *command_pools;
+
    uint32_t wsi_image_count;
    VkImage wsi_images[];
 };
@@ -77,7 +79,60 @@ vn_swapchain_wrapper_destroy(struct vn_device *dev,
                              struct vn_swapchain_wrapper *wrapper,
                              const VkAllocationCallbacks *alloc)
 {
+   /* note that freeing the command pools also frees the command buffers in
+    * vn_image_wsi
+    */
+   if (wrapper->command_pools) {
+      const VkDevice dev_handle = vn_device_to_handle(dev);
+      const uint32_t count = dev->physical_device->queue_family_count;
+      for (uint32_t i = 0; i < count; i++) {
+         const VkCommandPool pool = wrapper->command_pools[i];
+         if (pool != VK_NULL_HANDLE)
+            vn_DestroyCommandPool(dev_handle, pool, alloc);
+      }
+      vk_free(alloc, wrapper->command_pools);
+   }
+
    vk_object_free(&dev->base.base, alloc, wrapper);
+}
+
+static VkResult
+vn_swapchain_wrapper_create_command_pools(struct vn_device *dev,
+                                          struct vn_swapchain_wrapper *wrapper,
+                                          const VkAllocationCallbacks *alloc)
+{
+   const uint32_t queue_family_count =
+      dev->physical_device->queue_family_count;
+   VkCommandPool *pools =
+      vk_zalloc(alloc, sizeof(*pools) * queue_family_count, VN_DEFAULT_ALIGN,
+                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (!pools)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   const VkDevice dev_handle = vn_device_to_handle(dev);
+   for (uint32_t i = 0; i < queue_family_count; i++) {
+      if (!vn_device_uses_queue_family(dev, i))
+         continue;
+
+      const VkCommandPoolCreateInfo pool_info = {
+         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+         .queueFamilyIndex = i,
+      };
+      VkResult result =
+         vn_CreateCommandPool(dev_handle, &pool_info, alloc, &pools[i]);
+      if (result != VK_SUCCESS) {
+         for (uint32_t j = 0; j < i; j++) {
+            if (pools[j] != VK_NULL_HANDLE)
+               vn_DestroyCommandPool(dev_handle, pools[j], alloc);
+         }
+         vk_free(alloc, pools);
+         return result;
+      }
+   }
+
+   wrapper->command_pools = pools;
+
+   return VK_SUCCESS;
 }
 
 static VkResult
@@ -107,6 +162,30 @@ vn_swapchain_wrapper_create(struct vn_device *dev,
       return result;
    }
    wrapper->wsi_image_count = img_count;
+
+   for (uint32_t i = 0; i < img_count; i++) {
+      struct vn_image *img = vn_image_from_handle(wrapper->wsi_images[i]);
+
+      /* do not create command buffers when img is a prime blit source */
+      if (img->wsi->prime_blit_buffer != VK_NULL_HANDLE)
+         continue;
+
+      if (!wrapper->command_pools) {
+         result =
+            vn_swapchain_wrapper_create_command_pools(dev, wrapper, alloc);
+         if (result != VK_SUCCESS) {
+            vk_object_free(&dev->base.base, alloc, wrapper);
+            return result;
+         }
+      }
+
+      result = vn_image_record_wsi_commands(dev, img, wrapper->command_pools,
+                                            NULL, alloc);
+      if (result != VK_SUCCESS) {
+         vn_swapchain_wrapper_destroy(dev, wrapper, alloc);
+         return result;
+      }
+   }
 
    *out_wrapper = wrapper;
 
@@ -174,7 +253,26 @@ vn_wsi_create_image(struct vn_device *dev,
          vn_log(dev->instance, "forcing scanout image linear");
    }
 
-   return vn_image_create(dev, create_info, alloc, out_img);
+   struct vn_image *img;
+   VkResult result = vn_image_create(dev, create_info, alloc, &img);
+   if (result != VK_SUCCESS)
+      return result;
+
+   const uint32_t queue_family_count =
+      wsi_info->prime_blit_buffer == VK_NULL_HANDLE
+         ? dev->physical_device->queue_family_count
+         : 0;
+   result = vn_image_init_wsi(dev, img, queue_family_count, alloc);
+   if (result != VK_SUCCESS) {
+      vn_DestroyImage(vn_device_to_handle(dev), vn_image_to_handle(img),
+                      alloc);
+      return result;
+   }
+
+   img->wsi->prime_blit_buffer = wsi_info->prime_blit_buffer;
+   *out_img = img;
+
+   return VK_SUCCESS;
 }
 
 /* surface commands */

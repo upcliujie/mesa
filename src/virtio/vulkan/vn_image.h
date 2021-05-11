@@ -23,6 +23,8 @@ enum vn_image_wsi_comamnd_type {
 struct vn_image_wsi {
    uint32_t queue_family_count;
 
+   VkBuffer prime_blit_buffer;
+
    /* These are optional.  When non-NULL, they indicate that the command pools
     * are shared by all swapchains of the device.  The command buffers must be
     * explicitly freed.
