@@ -113,6 +113,8 @@ mir_analyze_ranges(compiler_context *ctx)
 static void
 mir_pick_ubo(struct panfrost_ubo_push *push, struct mir_ubo_analysis *analysis, unsigned max_qwords)
 {
+        /* todo; make sure sysvals are first */
+
         unsigned max_words = MIN2(PAN_MAX_PUSH, max_qwords * 4);
 
         for (signed ubo = analysis->nr_blocks - 1; ubo >= 0; --ubo) {
