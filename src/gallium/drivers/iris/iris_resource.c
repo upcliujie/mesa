@@ -934,6 +934,8 @@ iris_resource_create_for_buffer(struct pipe_screen *pscreen,
 {
    struct iris_screen *screen = (struct iris_screen *)pscreen;
    struct iris_resource *res = iris_alloc_resource(pscreen, templ);
+   if (!res)
+      return NULL;
 
    assert(templ->target == PIPE_BUFFER);
    assert(templ->height0 <= 1);
