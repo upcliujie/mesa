@@ -151,6 +151,11 @@ typedef enum {
 } zink_multidraw;
 
 typedef enum {
+   ZINK_NO_DYNAMIC_STATE,
+   ZINK_DYNAMIC_STATE,
+} zink_dynamic_state;
+
+typedef enum {
    ZINK_NO_WORK_DIM,
    ZINK_READS_WORK_DIM,
 } zink_work_dim;
@@ -163,8 +168,9 @@ struct zink_context {
    struct slab_child_pool transfer_pool_unsync;
    struct blitter_context *blitter;
 
-   zink_multidraw multidraw;
-   pipe_draw_vbo_func draw_vbo[2]; //multidraw
+   zink_multidraw multidraw : 1;
+   zink_dynamic_state dynamic_state : 1;
+   pipe_draw_vbo_func draw_vbo[2][2]; //multidraw, dynamic state
    pipe_launch_grid_func launch_grid[2]; //work_dim
 
    struct pipe_device_reset_callback reset;
