@@ -101,6 +101,32 @@ __bitset_not(BITSET_WORD *x, unsigned n)
 #define BITSET_NOT(x)   \
    __bitset_not(x, ARRAY_SIZE(x))
 
+static inline void
+__bitset_shr(BITSET_WORD *r, const BITSET_WORD *x, unsigned amount, unsigned n)
+{
+   assert(r != x);
+   
+   int pos = BITSET_WORDBITS * n - 1;
+
+   if (amount == 0) {
+      memcpy(r, x, n * sizeof(BITSET_WORD));
+      return;
+   }
+
+   memset(r, 0, n * sizeof(BITSET_WORD));
+
+   while (pos) {
+      if (BITSET_TEST(x, pos) && (pos - amount >= 0))
+         BITSET_SET(r, pos - amount);
+
+      pos--;
+   }
+}
+
+#define BITSET_SHR(r, x, n)   \
+   assert(ARRAY_SIZE(r) == ARRAY_SIZE(x)); \
+   __bitset_shr(r, x, n, ARRAY_SIZE(r))
+
 /* bit range operations
  */
 #define BITSET_TEST_RANGE(x, b, e) \
