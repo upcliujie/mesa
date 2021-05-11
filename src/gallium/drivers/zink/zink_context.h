@@ -158,6 +158,7 @@ typedef enum {
 struct zink_context {
    struct pipe_context base;
    struct threaded_context *tc;
+   struct zink_screen *screen;
    struct slab_child_pool transfer_pool;
    struct slab_child_pool transfer_pool_unsync;
    struct blitter_context *blitter;
