@@ -158,6 +158,23 @@ __bitset_set_range(BITSET_WORD *r, unsigned start, unsigned end)
    }
 }
 
+static inline void
+__bitset_extract_range(BITSET_WORD *r, const BITSET_WORD *a, unsigned start, unsigned end, unsigned n)
+{
+   assert(r != a);
+
+   BITSET_DECLARE(tmp, BITSET_WORDBITS * n);
+   BITSET_ZERO(tmp);
+
+   __bitset_set_range(tmp, start, end);
+   __bitset_and(tmp, a, tmp, n);
+   __bitset_shr(r, tmp, start, n);
+
+}
+#define BITSET_EXTRACT_RANGE(r, a, start, end) \
+   assert(ARRAY_SIZE(r) == ARRAY_SIZE(a)); \
+   __bitset_extract_range(r, a, start, end, ARRAY_SIZE(r))
+
 static inline unsigned
 __bitset_prefix_sum(const BITSET_WORD *x, unsigned b, unsigned n)
 {
