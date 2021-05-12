@@ -331,7 +331,9 @@ vn_image_from_anb(struct vn_device *dev,
    if (result != VK_SUCCESS)
       goto fail;
 
-   result = vn_image_record_wsi_commands(dev, img, alloc);
+   result =
+      vn_image_record_wsi_commands(dev, img, dev->android_wsi->cmd_pools,
+                                   &dev->android_wsi->cmd_pools_lock, alloc);
    if (result != VK_SUCCESS)
       goto fail;
 

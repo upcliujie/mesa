@@ -23,6 +23,15 @@ enum vn_image_wsi_comamnd_type {
 struct vn_image_wsi {
    uint32_t queue_family_count;
 
+   /* These are optional.  When non-NULL, they indicate that the command pools
+    * are shared by all swapchains of the device.  The command buffers must be
+    * explicitly freed.
+    *
+    * When NULL, the command buffers must NOT be explicitly freed.
+    */
+   const VkCommandPool *command_pools;
+   mtx_t *command_pool_mutex;
+
    /* the queue the image is last presented on */
    struct vn_queue *last_present_queue;
 
@@ -87,6 +96,8 @@ vn_image_init_wsi(struct vn_device *dev,
 VkResult
 vn_image_record_wsi_commands(struct vn_device *dev,
                              struct vn_image *img,
+                             const VkCommandPool *pools,
+                             mtx_t *pool_mutex,
                              const VkAllocationCallbacks *alloc);
 
 static inline const VkCommandBuffer *

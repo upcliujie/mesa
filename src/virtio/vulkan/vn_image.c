@@ -21,12 +21,60 @@
 #include "vn_queue.h"
 
 static VkResult
-vn_record_ownership_cmds(struct vn_device *dev,
-                         struct vn_image *img,
-                         uint32_t family,
-                         uint32_t internal_index,
-                         uint32_t external_index,
-                         VkCommandBuffer *out_cmds)
+vn_record_wsi_image_memory_barrier(VkCommandBuffer cmd,
+                                   const VkImageMemoryBarrier *img_barrier)
+{
+   const VkPipelineStageFlags src_stage_mask =
+      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+   const VkPipelineStageFlags dst_stage_mask =
+      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+   const VkCommandBufferBeginInfo begin_info = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+   };
+   VkResult result = vn_BeginCommandBuffer(cmd, &begin_info);
+   if (result != VK_SUCCESS)
+      return result;
+
+   vn_CmdPipelineBarrier(cmd, src_stage_mask, dst_stage_mask, 0, 0, NULL, 0,
+                         NULL, 1, img_barrier);
+
+   return vn_EndCommandBuffer(cmd);
+}
+
+static void
+vn_get_wsi_image_memory_barrier(VkImage image,
+                                uint32_t src_queue_family_index,
+                                uint32_t dst_queue_family_index,
+                                VkImageMemoryBarrier *img_barrier)
+{
+   *img_barrier = (const VkImageMemoryBarrier){
+      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+      .pNext = NULL,
+      .srcAccessMask = 0,
+      .dstAccessMask = 0,
+      .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+      .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+      .srcQueueFamilyIndex = src_queue_family_index,
+      .dstQueueFamilyIndex = dst_queue_family_index,
+      .image = image,
+      .subresourceRange = {
+         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+         .baseMipLevel = 0,
+         .levelCount = 1,
+         .baseArrayLayer = 0,
+         .layerCount = 1,
+      },
+   };
+}
+
+static VkResult
+vn_image_record_wsi_commands_for_queue_family(
+   struct vn_device *dev,
+   struct vn_image *img,
+   uint32_t queue_family_index,
+   VkCommandPool pool,
+   VkCommandBuffer out_cmds[VN_IMAGE_WSI_COMMAND_COUNT])
 {
    VkResult result = VK_SUCCESS;
    VkDevice device = vn_device_to_handle(dev);
@@ -36,100 +84,82 @@ vn_record_ownership_cmds(struct vn_device *dev,
    const VkCommandBufferAllocateInfo cmd_info = {
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
       .pNext = NULL,
-      .commandPool = dev->android_wsi->cmd_pools[family],
+      .commandPool = pool,
       .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
       .commandBufferCount = VN_IMAGE_WSI_COMMAND_COUNT,
    };
-
-   mtx_lock(&dev->android_wsi->cmd_pools_lock);
    result = vn_AllocateCommandBuffers(device, &cmd_info, cmds);
-   mtx_unlock(&dev->android_wsi->cmd_pools_lock);
-
    if (result != VK_SUCCESS)
-      return vn_error(dev->instance, result);
+      return result;
 
-   /* record the foreign/external queue to internal queue transfer */
-   const VkCommandBufferBeginInfo begin_info = {
-      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-   };
-   vn_BeginCommandBuffer(cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE], &begin_info);
-   VkImageMemoryBarrier barrier = {
-         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-         .pNext = NULL,
-         .srcAccessMask = 0,
-         .dstAccessMask = 0,
-         .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-         .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-         .srcQueueFamilyIndex = external_index,
-         .dstQueueFamilyIndex = internal_index,
-         .image = image,
-         .subresourceRange =
-                 {
-                         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                         .baseMipLevel = 0,
-                         .levelCount = 1,
-                         .baseArrayLayer = 0,
-                         .layerCount = 1,
-                 },
-   };
-   vn_CmdPipelineBarrier(
-      cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE], VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
-   vn_EndCommandBuffer(cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE]);
+   const uint32_t external_family = VK_QUEUE_FAMILY_FOREIGN_EXT;
+   const uint32_t internal_family =
+      img->sharing_mode == VK_SHARING_MODE_EXCLUSIVE
+         ? queue_family_index
+         : VK_QUEUE_FAMILY_IGNORED;
 
-   /* record the internal queue to foreign/external queue transfer */
-   vn_BeginCommandBuffer(cmds[VN_IMAGE_WSI_COMMAND_RELEASE], &begin_info);
-   barrier.srcQueueFamilyIndex = internal_index;
-   barrier.dstQueueFamilyIndex = external_index;
-   vn_CmdPipelineBarrier(
-      cmds[VN_IMAGE_WSI_COMMAND_RELEASE], VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
-   vn_EndCommandBuffer(cmds[VN_IMAGE_WSI_COMMAND_RELEASE]);
+   VkImageMemoryBarrier img_barrier;
+   vn_get_wsi_image_memory_barrier(image, external_family, internal_family,
+                                   &img_barrier);
+   result = vn_record_wsi_image_memory_barrier(
+      cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE], &img_barrier);
+   if (result == VK_SUCCESS) {
+      img_barrier.srcQueueFamilyIndex = internal_family;
+      img_barrier.dstQueueFamilyIndex = external_family;
+      result = vn_record_wsi_image_memory_barrier(
+         cmds[VN_IMAGE_WSI_COMMAND_RELEASE], &img_barrier);
+   }
+   if (result != VK_SUCCESS) {
+      vn_FreeCommandBuffers(device, pool, VN_IMAGE_WSI_COMMAND_COUNT, cmds);
+      return result;
+   }
 
-   out_cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE] =
-      cmds[VN_IMAGE_WSI_COMMAND_ACQUIRE];
-   out_cmds[VN_IMAGE_WSI_COMMAND_RELEASE] =
-      cmds[VN_IMAGE_WSI_COMMAND_RELEASE];
-
+   memcpy(out_cmds, cmds, sizeof(cmds));
    return VK_SUCCESS;
 }
 
 VkResult
 vn_image_record_wsi_commands(struct vn_device *dev,
                              struct vn_image *img,
+                             const VkCommandPool *pools,
+                             mtx_t *pool_mutex,
                              const VkAllocationCallbacks *alloc)
 {
    VkDevice device = vn_device_to_handle(dev);
    VkResult result = VK_SUCCESS;
-   const uint32_t internal_index =
-      img->sharing_mode == VK_SHARING_MODE_EXCLUSIVE
-         ? 0
-         : VK_QUEUE_FAMILY_IGNORED;
-   const uint32_t external_index = VK_QUEUE_FAMILY_FOREIGN_EXT;
+
+   if (pool_mutex)
+      mtx_lock(pool_mutex);
 
    for (uint32_t i = 0; i < img->wsi->queue_family_count; i++) {
-      if (dev->android_wsi->cmd_pools[i] == VK_NULL_HANDLE)
+      if (pools[i] == VK_NULL_HANDLE)
          continue;
 
-      result =
-         vn_record_ownership_cmds(dev, img, i, internal_index, external_index,
-                                  img->wsi->command_buffers[i]);
-      if (result != VK_SUCCESS)
-         goto fail;
+      result = vn_image_record_wsi_commands_for_queue_family(
+         dev, img, i, pools[i], img->wsi->command_buffers[i]);
+      if (result != VK_SUCCESS) {
+         for (uint32_t j = 0; j < i; j++) {
+            if (pools[j] != VK_NULL_HANDLE) {
+               vn_FreeCommandBuffers(device, pools[j],
+                                     VN_IMAGE_WSI_COMMAND_COUNT,
+                                     img->wsi->command_buffers[j]);
+            }
+         }
+         img->wsi->queue_family_count = 0;
+
+         if (pool_mutex)
+            mtx_unlock(pool_mutex);
+         return result;
+      }
+   }
+
+   if (pool_mutex) {
+      mtx_unlock(pool_mutex);
+      img->wsi->command_pools = pools;
+      img->wsi->command_pool_mutex = pool_mutex;
    }
 
    return VK_SUCCESS;
-
-fail:
-   for (uint32_t i = 0; i < img->wsi->queue_family_count; i++) {
-      if (dev->android_wsi->cmd_pools[i] != VK_NULL_HANDLE) {
-         vn_FreeCommandBuffers(device, dev->android_wsi->cmd_pools[i],
-                               VN_IMAGE_WSI_COMMAND_COUNT,
-                               img->wsi->command_buffers[i]);
-      }
-   }
-   img->wsi->queue_family_count = 0;
-   return result;
 }
 
 static void
@@ -139,15 +169,22 @@ vn_image_fini_wsi(struct vn_device *dev,
 {
    VkDevice device = vn_device_to_handle(dev);
 
-   mtx_lock(&dev->android_wsi->cmd_pools_lock);
-   for (uint32_t i = 0; i < img->wsi->queue_family_count; i++) {
-      if (dev->android_wsi->cmd_pools[i] != VK_NULL_HANDLE) {
-         vn_FreeCommandBuffers(device, dev->android_wsi->cmd_pools[i],
-                               VN_IMAGE_WSI_COMMAND_COUNT,
-                               img->wsi->command_buffers[i]);
+   /* the command pools are shared and the command buffers haven't been freed
+    * with them
+    */
+   if (img->wsi->command_pool_mutex) {
+      mtx_lock(img->wsi->command_pool_mutex);
+
+      for (uint32_t i = 0; i < img->wsi->queue_family_count; i++) {
+         if (img->wsi->command_pools[i] != VK_NULL_HANDLE) {
+            vn_FreeCommandBuffers(device, img->wsi->command_pools[i],
+                                  VN_IMAGE_WSI_COMMAND_COUNT,
+                                  img->wsi->command_buffers[i]);
+         }
       }
+
+      mtx_unlock(img->wsi->command_pool_mutex);
    }
-   mtx_unlock(&dev->android_wsi->cmd_pools_lock);
 
    vk_free(alloc, img->wsi);
 }
