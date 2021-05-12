@@ -14,6 +14,7 @@
 #include "venus-protocol/vn_protocol_driver_command_pool.h"
 
 #include "vn_device.h"
+#include "vn_image.h"
 
 /* command pool commands */
 
@@ -762,6 +763,27 @@ vn_CmdCopyBufferToImage(VkCommandBuffer commandBuffer,
                                     pRegions);
 }
 
+static void
+vn_cmd_encode_prime_blit_barrier(struct vn_command_buffer *cmd,
+                                 VkPipelineStageFlags src_stage_mask,
+                                 VkPipelineStageFlags dst_stage_mask,
+                                 const VkBufferMemoryBarrier *buf_barrier)
+{
+   const VkCommandBuffer cmd_handle = vn_command_buffer_to_handle(cmd);
+
+   const size_t cmd_size = vn_sizeof_vkCmdPipelineBarrier(
+      cmd_handle, src_stage_mask, dst_stage_mask, 0, 0, NULL, 1, buf_barrier,
+      0, NULL);
+   if (!vn_cs_encoder_reserve(&cmd->cs, cmd_size)) {
+      cmd->state = VN_COMMAND_BUFFER_STATE_INVALID;
+      return;
+   }
+
+   vn_encode_vkCmdPipelineBarrier(&cmd->cs, 0, cmd_handle, src_stage_mask,
+                                  dst_stage_mask, 0, 0, NULL, 1, buf_barrier,
+                                  0, NULL);
+}
+
 void
 vn_CmdCopyImageToBuffer(VkCommandBuffer commandBuffer,
                         VkImage srcImage,
@@ -774,6 +796,26 @@ vn_CmdCopyImageToBuffer(VkCommandBuffer commandBuffer,
       vn_command_buffer_from_handle(commandBuffer);
    size_t cmd_size;
 
+   const bool prime_blit = srcImageLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+   VkBufferMemoryBarrier prime_blit_barrier;
+   if (prime_blit) {
+      const struct vn_image *img = vn_image_from_handle(srcImage);
+      assert(img->wsi && img->wsi->prime_blit_buffer == dstBuffer);
+
+      srcImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+      prime_blit_barrier = (const VkBufferMemoryBarrier){
+         .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT,
+         .dstQueueFamilyIndex = cmd->queue_family_index,
+         .buffer = dstBuffer,
+         .size = VK_WHOLE_SIZE,
+      };
+      vn_cmd_encode_prime_blit_barrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       &prime_blit_barrier);
+   }
+
    cmd_size = vn_sizeof_vkCmdCopyImageToBuffer(commandBuffer, srcImage,
                                                srcImageLayout, dstBuffer,
                                                regionCount, pRegions);
@@ -783,6 +825,15 @@ vn_CmdCopyImageToBuffer(VkCommandBuffer commandBuffer,
    vn_encode_vkCmdCopyImageToBuffer(&cmd->cs, 0, commandBuffer, srcImage,
                                     srcImageLayout, dstBuffer, regionCount,
                                     pRegions);
+
+   if (prime_blit) {
+      prime_blit_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      prime_blit_barrier.srcQueueFamilyIndex = cmd->queue_family_index;
+      prime_blit_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT;
+      vn_cmd_encode_prime_blit_barrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                                       &prime_blit_barrier);
+   }
 }
 
 void
@@ -950,8 +1001,6 @@ vn_get_intercepted_barriers(struct vn_command_buffer *cmd,
                             const VkImageMemoryBarrier *img_barriers,
                             uint32_t count)
 {
-   /* XXX drop the #ifdef after fixing common wsi */
-#ifdef ANDROID
    bool has_present_src = false;
    for (uint32_t i = 0; i < count; i++) {
       if (img_barriers[i].oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ||
@@ -985,9 +1034,6 @@ vn_get_intercepted_barriers(struct vn_command_buffer *cmd,
          barriers[i].newLayout = VK_IMAGE_LAYOUT_GENERAL;
    }
    return barriers;
-#else
-   return img_barriers;
-#endif
 }
 
 void

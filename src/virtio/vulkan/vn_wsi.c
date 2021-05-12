@@ -525,6 +525,11 @@ vn_QueuePresentKHR(VkQueue _queue, const VkPresentInfoKHR *pPresentInfo)
    for (uint32_t i = 0; i < pPresentInfo->swapchainCount; i++) {
       struct vn_swapchain_wrapper *wrapper =
          vn_swapchain_wrapper_from_handle(pPresentInfo->pSwapchains[i]);
+      struct vn_image *img = vn_image_from_handle(
+         wrapper->wsi_images[pPresentInfo->pImageIndices[i]]);
+
+      if (img->wsi->prime_blit_buffer == VK_NULL_HANDLE)
+         img->wsi->last_present_queue = queue;
       swapchains[i] = wrapper->wsi_swapchain;
    }
 
@@ -557,9 +562,26 @@ vn_AcquireNextImage2KHR(VkDevice device,
 
    VkResult result = wsi_common_acquire_next_image2(
       &dev->physical_device->wsi_device, device, pAcquireInfo, pImageIndex);
+   if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+      return vn_error(dev->instance, result);
 
    /* XXX this relies on implicit sync */
-   if (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR) {
+   struct vn_image *img =
+      vn_image_from_handle(wrapper->wsi_images[*pImageIndex]);
+   struct vn_queue *queue = img->wsi->last_present_queue;
+   if (queue) {
+      const VkSubmitInfo info = {
+         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+         .commandBufferCount = 1,
+         .pCommandBuffers = vn_image_get_wsi_command(
+            img, queue->family, VN_IMAGE_WSI_COMMAND_ACQUIRE),
+         .signalSemaphoreCount = pAcquireInfo->semaphore != VK_NULL_HANDLE,
+         .pSignalSemaphores = &pAcquireInfo->semaphore,
+      };
+      /* vn_QueueSubmit is expected to be thread-safe */
+      result = vn_QueueSubmit(vn_queue_to_handle(queue), 1, &info,
+                              pAcquireInfo->fence);
+   } else {
       struct vn_semaphore *sem =
          vn_semaphore_from_handle(pAcquireInfo->semaphore);
       if (sem)

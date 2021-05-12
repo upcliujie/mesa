@@ -17,6 +17,7 @@
 
 #include "vn_device.h"
 #include "vn_device_memory.h"
+#include "vn_image.h"
 #include "vn_renderer.h"
 
 /* queue commands */
@@ -335,24 +336,38 @@ vn_QueueSubmit(VkQueue _queue,
                const VkSubmitInfo *pSubmits,
                VkFence fence)
 {
+   /* queue might not be externally synchronized because of
+    * vn_AcquireNextImage2KHR or vn_AcquireImageANDROID
+    */
    struct vn_queue *queue = vn_queue_from_handle(_queue);
    struct vn_device *dev = queue->device;
+
+   const struct vn_device_memory *wsi_mem = NULL;
+   VkSubmitInfo wsi_submit_info;
+   if (submitCount == 1) {
+      const struct wsi_memory_signal_submit_info *info = vk_find_struct_const(
+         pSubmits[0].pNext, WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA);
+      const struct vn_image *wsi_img = NULL;
+      if (info) {
+         wsi_mem = vn_device_memory_from_handle(info->memory);
+         assert(!wsi_mem->base_memory && wsi_mem->base_bo);
+         wsi_img = vn_image_from_handle(info->image);
+      }
+      if (wsi_img) {
+         assert(!pSubmits[0].commandBufferCount);
+         wsi_submit_info = pSubmits[0];
+         wsi_submit_info.commandBufferCount = 1;
+         wsi_submit_info.pCommandBuffers = vn_image_get_wsi_command(
+            wsi_img, queue->family, VN_IMAGE_WSI_COMMAND_RELEASE);
+         pSubmits = &wsi_submit_info;
+      }
+   }
 
    struct vn_queue_submission submit;
    VkResult result = vn_queue_submission_prepare_submit(
       &submit, _queue, submitCount, pSubmits, fence);
    if (result != VK_SUCCESS)
       return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   const struct vn_device_memory *wsi_mem = NULL;
-   if (submit.batch_count == 1) {
-      const struct wsi_memory_signal_submit_info *info = vk_find_struct_const(
-         submit.submit_batches[0].pNext, WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA);
-      if (info) {
-         wsi_mem = vn_device_memory_from_handle(info->memory);
-         assert(!wsi_mem->base_memory && wsi_mem->base_bo);
-      }
-   }
 
    result =
       vn_call_vkQueueSubmit(dev->instance, submit.queue, submit.batch_count,
