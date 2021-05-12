@@ -1319,6 +1319,8 @@ radv_dynamic_state_mask(VkDynamicState state)
       return RADV_DYNAMIC_PRIMITIVE_RESTART_ENABLE;
    case VK_DYNAMIC_STATE_COLOR_WRITE_ENABLE_EXT:
       return RADV_DYNAMIC_COLOR_WRITE_ENABLE;
+   case VK_DYNAMIC_STATE_VERTEX_INPUT_EXT:
+      return RADV_DYNAMIC_VS_INPUT;
    default:
       unreachable("Unhandled dynamic state");
    }
@@ -1355,7 +1357,8 @@ radv_pipeline_needed_dynamic_state(const VkGraphicsPipelineCreateInfo *pCreateIn
    if (pCreateInfo->pRasterizationState->rasterizerDiscardEnable &&
        !radv_is_state_dynamic(pCreateInfo, VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE_EXT)) {
       return RADV_DYNAMIC_PRIMITIVE_TOPOLOGY | RADV_DYNAMIC_VERTEX_INPUT_BINDING_STRIDE |
-             RADV_DYNAMIC_PRIMITIVE_RESTART_ENABLE | RADV_DYNAMIC_RASTERIZER_DISCARD_ENABLE;
+             RADV_DYNAMIC_PRIMITIVE_RESTART_ENABLE | RADV_DYNAMIC_RASTERIZER_DISCARD_ENABLE |
+             RADV_DYNAMIC_VS_INPUT;
    }
 
    if (!pCreateInfo->pRasterizationState->depthBiasEnable &&
@@ -1695,7 +1698,7 @@ radv_pipeline_init_dynamic_state(struct radv_pipeline *pipeline,
       dynamic->line_stipple.pattern = rast_line_info->lineStipplePattern;
    }
 
-   if (!(states & RADV_DYNAMIC_VERTEX_INPUT_BINDING_STRIDE))
+   if (!(states & RADV_DYNAMIC_VERTEX_INPUT_BINDING_STRIDE) || !(states & RADV_DYNAMIC_VS_INPUT))
       pipeline->graphics.uses_dynamic_stride = true;
 
    const VkPipelineFragmentShadingRateStateCreateInfoKHR *shading_rate = vk_find_struct_const(
@@ -2496,9 +2499,6 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
 {
    RADV_FROM_HANDLE(radv_render_pass, pass, pCreateInfo->renderPass);
    struct radv_subpass *subpass = pass->subpasses + pCreateInfo->subpass;
-   const VkPipelineVertexInputStateCreateInfo *input_state = pCreateInfo->pVertexInputState;
-   const VkPipelineVertexInputDivisorStateCreateInfoEXT *divisor_state =
-      vk_find_struct_const(input_state->pNext, PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO_EXT);
    bool uses_dynamic_stride = false;
 
    struct radv_pipeline_key key;
@@ -2508,6 +2508,27 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
       key.optimisations_disabled = 1;
 
    key.has_multiview_view_index = !!subpass->view_mask;
+
+   if (pCreateInfo->pDynamicState) {
+      uint32_t count = pCreateInfo->pDynamicState->dynamicStateCount;
+      for (uint32_t i = 0; i < count; i++) {
+         if (pCreateInfo->pDynamicState->pDynamicStates[i] == VK_DYNAMIC_STATE_VERTEX_INPUT_EXT) {
+            key.dynamic_vs_input_state = true;
+            /* we don't care about use_dynamic_stride in this case */
+            break;
+         } else if (pCreateInfo->pDynamicState->pDynamicStates[i] ==
+                    VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE_EXT) {
+            uses_dynamic_stride = true;
+            if (key.dynamic_vs_input_state)
+               break;
+         }
+      }
+   }
+
+   if (!key.dynamic_vs_input_state) {
+      const VkPipelineVertexInputStateCreateInfo *input_state = pCreateInfo->pVertexInputState;
+      const VkPipelineVertexInputDivisorStateCreateInfoEXT *divisor_state =
+         vk_find_struct_const(input_state->pNext, PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO_EXT);
 
    uint32_t binding_input_rate = 0;
    uint32_t instance_rate_divisors[MAX_VERTEX_ATTRIBS];
@@ -2522,17 +2543,6 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
       for (unsigned i = 0; i < divisor_state->vertexBindingDivisorCount; ++i) {
          instance_rate_divisors[divisor_state->pVertexBindingDivisors[i].binding] =
             divisor_state->pVertexBindingDivisors[i].divisor;
-      }
-   }
-
-   if (pCreateInfo->pDynamicState) {
-      uint32_t count = pCreateInfo->pDynamicState->dynamicStateCount;
-      for (uint32_t i = 0; i < count; i++) {
-         if (pCreateInfo->pDynamicState->pDynamicStates[i] ==
-             VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE_EXT) {
-            uses_dynamic_stride = true;
-            break;
-         }
       }
    }
 
@@ -2607,6 +2617,7 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
       if (post_shuffle)
          key.vertex_post_shuffle |= 1 << location;
    }
+   }
 
    const VkPipelineTessellationStateCreateInfo *tess =
       radv_pipeline_get_tessellation_state(pCreateInfo);
@@ -2657,6 +2668,7 @@ static void
 radv_fill_shader_keys(struct radv_device *device, struct radv_shader_variant_key *keys,
                       const struct radv_pipeline_key *key, nir_shader **nir)
 {
+   keys[MESA_SHADER_VERTEX].vs.dynamic_vs_input_state = key->dynamic_vs_input_state;
    keys[MESA_SHADER_VERTEX].vs.instance_rate_inputs = key->instance_rate_inputs;
    keys[MESA_SHADER_VERTEX].vs.post_shuffle = key->vertex_post_shuffle;
    for (unsigned i = 0; i < MAX_VERTEX_ATTRIBS; ++i) {
@@ -5242,6 +5254,7 @@ radv_pipeline_init_vertex_input_state(struct radv_pipeline *pipeline,
                                       struct radv_pipeline_key *key)
 {
    const struct radv_shader_info *info = &radv_get_shader(pipeline, MESA_SHADER_VERTEX)->info;
+   if (!key->dynamic_vs_input_state) {
    const VkPipelineVertexInputStateCreateInfo *vi_info = pCreateInfo->pVertexInputState;
 
    for (uint32_t i = 0; i < vi_info->vertexBindingDescriptionCount; i++) {
@@ -5259,6 +5272,7 @@ radv_pipeline_init_vertex_input_state(struct radv_pipeline *pipeline,
          pipeline->attrib_index_offset[desc->location] =
             desc->offset / pipeline->binding_stride[desc->binding];
       pipeline->attrib_bindings[desc->location] = desc->binding;
+   }
    }
 
    pipeline->use_per_attribute_vb_descs = info->vs.use_per_attribute_vb_descs;
