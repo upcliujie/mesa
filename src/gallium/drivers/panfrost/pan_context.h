@@ -100,12 +100,15 @@ struct panfrost_streamout {
         unsigned num_targets;
 };
 
+#define PAN_MAX_BATCHES 32
+
 struct panfrost_bo_access {
         /* Active users bitmap where the bit position encodes the
          * batch accessing the BO.
          */
-        uint32_t users;
+        BITSET_DECLARE(users, PAN_MAX_BATCHES);
 };
+
 
 struct panfrost_context {
         /* Gallium context */
@@ -124,7 +127,7 @@ struct panfrost_context {
          */
         struct {
                 uint64_t seqnum;
-                struct panfrost_batch slots[32];
+                struct panfrost_batch slots[PAN_MAX_BATCHES];
         } batches;
 
         /* Bound job batch */

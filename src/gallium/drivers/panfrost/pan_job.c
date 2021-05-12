@@ -43,12 +43,9 @@
 #include "panfrost-quirks.h"
 
 static unsigned
-batch_idx(struct panfrost_batch *batch)
+panfrost_batch_idx(struct panfrost_batch *batch)
 {
-        unsigned idx = ((uintptr_t)batch - (uintptr_t)batch->ctx->batches.slots) /
-                        sizeof(*batch);
-        assert(idx < 32);
-        return idx;
+        return batch - batch->ctx->batches.slots;
 }
 
 static void
@@ -97,7 +94,7 @@ panfrost_batch_cleanup(struct panfrost_batch *batch)
         if (ctx->batch == batch)
                 ctx->batch = NULL;
 
-        unsigned batch_mask = 1 << batch_idx(batch);
+        unsigned batch_idx = panfrost_batch_idx(batch);
 
         for (int i = batch->first_bo; i <= batch->last_bo; i++) {
                 uint32_t *flags = util_sparse_array_get(&batch->bos, i);
@@ -115,7 +112,7 @@ panfrost_batch_cleanup(struct panfrost_batch *batch)
                 struct panfrost_bo_access *access =
                         util_sparse_array_get(&ctx->accessed_bos, i);
 
-                access->users &= ~batch_mask;
+                BITSET_CLEAR(access->users, batch_idx);
                 panfrost_bo_unreference(bo);
         }
 
@@ -139,9 +136,12 @@ panfrost_get_batch(struct panfrost_context *ctx,
 {
         struct panfrost_batch *batch = NULL;
 
-        for (unsigned i = 0; i < 32; i++) {
+        for (unsigned i = 0; i < PAN_MAX_BATCHES; i++) {
                 if (ctx->batches.slots[i].seqnum &&
                     util_framebuffer_state_equal(&ctx->batches.slots[i].key, key)) {
+                        /* We found a match, increase the seqnum for the LRU
+                         * eviction logic.
+                         */
                         ctx->batches.slots[i].seqnum = ++ctx->batches.seqnum;
                         return &ctx->batches.slots[i];
                 }
@@ -240,18 +240,18 @@ panfrost_batch_update_bo_access(struct panfrost_batch *batch,
         struct panfrost_context *ctx = batch->ctx;
         struct panfrost_bo_access *access =
                 util_sparse_array_get(&ctx->accessed_bos, bo->gem_handle);
-        uint32_t batch_mask = 1 << batch_idx(batch);
+        uint32_t batch_idx = panfrost_batch_idx(batch);
 
         /* We're the only user, we can return directy */
-        if (!access->users || access->users == batch_mask) {
-                access->users |= batch_mask;
+        if (!access->users || BITSET_TEST(access->users, batch_idx)) {
+                BITSET_SET(access->users, batch_idx);
                 return;
         }
 
         bool flush_users = writes;
 
-        if (util_bitcount(access->users) == 1) {
-                unsigned user_idx = ffs(access->users) - 1;
+        if (BITSET_COUNT(access->users) == 1) {
+                unsigned user_idx = BITSET_FFS(access->users) - 1;
                 struct panfrost_batch *user = &ctx->batches.slots[user_idx];
                 uint32_t *flags = util_sparse_array_get(&user->bos, bo->gem_handle);
 
@@ -260,17 +260,17 @@ panfrost_batch_update_bo_access(struct panfrost_batch *batch,
         }
 
         if (flush_users) {
-                for (unsigned i = 0; i < 32; i++) {
+                for (unsigned i = 0; i < PAN_MAX_BATCHES; i++) {
                         /* Skip the entry if this our batch. */
-                        if (!(access->users & BITFIELD_BIT(i)) ||
-                            (access->users & batch_mask))
+                        if (!BITSET_TEST(access->users, i) ||
+                            i == batch_idx)
                                 continue;
 
                         panfrost_batch_submit(&ctx->batches.slots[i], 0, 0);
                 }
         }
 
-        access->users |= batch_mask;
+        BITSET_SET(access->users, batch_idx);
 }
 
 void
@@ -928,7 +928,7 @@ panfrost_flush_all_batches(struct panfrost_context *ctx)
         struct panfrost_batch *batch = panfrost_get_batch_for_fbo(ctx);
         panfrost_batch_submit(batch, ctx->syncobj, ctx->syncobj);
 
-        for (unsigned i = 0; i < 32; i++) {
+        for (unsigned i = 0; i < PAN_MAX_BATCHES; i++) {
                 if (ctx->batches.slots[i].seqnum) {
                         panfrost_batch_submit(&ctx->batches.slots[i],
                                               ctx->syncobj, ctx->syncobj);
@@ -956,8 +956,8 @@ panfrost_flush_batches_accessing_bo(struct panfrost_context *ctx,
         struct panfrost_bo_access *access =
                 util_sparse_array_get(&ctx->accessed_bos, bo->gem_handle);
 
-        if (util_bitcount(access->users) == 1) {
-                unsigned user_idx = ffs(access->users) - 1;
+        if (BITSET_COUNT(access->users) == 1) {
+                unsigned user_idx = BITSET_FFS(access->users) - 1;
                 struct panfrost_batch *user = &ctx->batches.slots[user_idx];
                 uint32_t *flags = util_sparse_array_get(&user->bos, bo->gem_handle);
 
@@ -971,8 +971,8 @@ panfrost_flush_batches_accessing_bo(struct panfrost_context *ctx,
         if (!flush_readers)
                 return;
 
-        for (unsigned i = 0; i < 32; i++) {
-                if (access->users & (1 << i)) {
+        for (unsigned i = 0; i < PAN_MAX_BATCHES; i++) {
+                if (BITSET_TEST(access->users,i)) {
                         panfrost_batch_submit(&ctx->batches.slots[i],
                                               ctx->syncobj, ctx->syncobj);
                 }
