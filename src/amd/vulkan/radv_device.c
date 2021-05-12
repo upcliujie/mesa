@@ -1616,6 +1616,12 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->rayTraversalPrimitiveCulling = false;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT: {
+         VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT *features =
+            (VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT *)ext;
+         features->vertexInputDynamicState = true;
+         break;
+      }
       default:
          break;
       }
@@ -2921,6 +2927,12 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
          if (features->shaderImageFloat32AtomicMinMax ||
              features->sparseImageFloat32AtomicMinMax)
             image_float32_atomics = true;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT: {
+         const VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT *features = (const void *)ext;
+         if (features->vertexInputDynamicState)
+            vs_prologs = true;
          break;
       }
       default:
