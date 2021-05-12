@@ -435,7 +435,7 @@ vn_AcquireImageANDROID(VkDevice device,
    struct vn_semaphore *sem = vn_semaphore_from_handle(semaphore);
    struct vn_fence *fen = vn_fence_from_handle(fence);
    struct vn_image *img = vn_image_from_handle(image);
-   struct vn_queue *queue = img->acquire_queue;
+   struct vn_queue *queue = img->wsi->last_present_queue;
 
    if (nativeFenceFd >= 0) {
       int ret = sync_wait(nativeFenceFd, INT32_MAX);
@@ -545,7 +545,7 @@ vn_QueueSignalReleaseImageANDROID(VkQueue queue,
       vn_WaitForFences(device, 1, &que->wait_fence, VK_TRUE, UINT64_MAX);
    vn_ResetFences(device, 1, &que->wait_fence);
 
-   img->acquire_queue = que;
+   img->wsi->last_present_queue = que;
 
 out:
    *pNativeFenceFd = -1;

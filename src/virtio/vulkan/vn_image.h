@@ -23,6 +23,9 @@ enum vn_image_wsi_comamnd_type {
 struct vn_image_wsi {
    uint32_t queue_family_count;
 
+   /* the queue the image is last presented on */
+   struct vn_queue *last_present_queue;
+
    /* For queue family ownership transfer of WSI images */
    VkCommandBuffer command_buffers[][VN_IMAGE_WSI_COMMAND_COUNT];
 };
@@ -39,7 +42,6 @@ struct vn_image {
    VkDeviceMemory private_memory;
 
    struct vn_image_wsi *wsi;
-   struct vn_queue *acquire_queue;
 };
 VK_DEFINE_NONDISP_HANDLE_CASTS(vn_image,
                                base.base,
