@@ -126,6 +126,7 @@ struct radv_shader_variant_key {
 struct radv_pipeline_key {
    uint32_t has_multiview_view_index : 1;
    uint32_t optimisations_disabled : 1;
+   uint32_t dynamic_vs_input_state : 1;
 
    struct {
       uint32_t instance_rate_inputs;
