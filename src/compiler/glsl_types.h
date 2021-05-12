@@ -1391,6 +1391,13 @@ struct glsl_struct_field {
     * -1 otherwise.
     */
    int xfb_stride;
+
+   /**
+    * For interface blocks, members may explicitly assign the component used
+    * by a varying. Ignored for structs.
+    */
+   int component;
+
    /**
     * Layout format, applicable to image variables only.
     */
