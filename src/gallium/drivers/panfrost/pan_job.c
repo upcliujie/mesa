@@ -112,15 +112,7 @@ panfrost_batch_cleanup(struct panfrost_batch *batch)
                 struct panfrost_bo_access *access =
                         util_sparse_array_get(&ctx->accessed_bos, bo->gem_handle);
 
-                if (*flags & PAN_BO_ACCESS_WRITE) {
-                        assert(access->has_writer && access->writer == batch_idx);
-                        access->has_writer = 0;
-                        access->writer = 0;
-                }
-
-                if (*flags & PAN_BO_ACCESS_READ)
-                        BITSET_CLEAR(access->readers, batch_idx);
-
+                BITSET_CLEAR(access->users, batch_idx);
                 panfrost_bo_unreference(bo);
         }
 
@@ -248,68 +240,41 @@ panfrost_batch_update_bo_access(struct panfrost_batch *batch,
         struct panfrost_context *ctx = batch->ctx;
         struct panfrost_bo_access *access =
                 util_sparse_array_get(&ctx->accessed_bos, bo->gem_handle);
-        bool old_writes = access->has_writer;
         uint32_t batch_idx = panfrost_batch_idx(batch);
 
-        assert(access);
+        /* We're the only user, we can return directy */
+        if (!BITSET_COUNT(access->users) ||
+            (BITSET_COUNT(access->users) == 1 &&
+             BITSET_TEST(access->users, batch_idx))) {
+                BITSET_SET(access->users, batch_idx);
+                return;
+        }
 
-        if (writes && !old_writes) {
-                /* Previous access was a read and we want to write this BO.
-                 * We need to flush readers.
-                 */
+        bool flush_users = writes;
+
+        if (BITSET_COUNT(access->users) == 1) {
+                unsigned user_idx = BITSET_FFS(access->users) - 1;
+                struct panfrost_batch *user = &ctx->batches.slots[user_idx];
+                uint32_t *flags = util_sparse_array_get(&user->bos, bo->gem_handle);
+
+                if ((*flags & PAN_BO_ACCESS_WRITE))
+                        flush_users = true;
+        }
+
+        if (flush_users) {
                 unsigned i;
-                BITSET_FOREACH_SET(i, access->readers, PAN_MAX_BATCHES) {
+                BITSET_FOREACH_SET(i, access->users, PAN_MAX_BATCHES) {
                         /* Skip the entry if this our batch. */
-                        if (i == batch_idx) {
-                                BITSET_CLEAR(access->readers, batch_idx);
+                        if (i == batch_idx)
                                 continue;
-                        }
 
                         panfrost_batch_submit(&ctx->batches.slots[i], 0, 0);
                 }
 
-                assert(!BITSET_COUNT(access->readers));
-
-                /* We now are the new writer. */
-                access->writer = batch_idx;
-                access->has_writer = 1;
-        } else if (writes && old_writes) {
-                /* First check if we were the previous writer, in that case
-                 * there's nothing to do. Otherwise we need flush the previous
-                 * writer.
-                 */
-		if (access->writer != batch_idx) {
-                        panfrost_batch_submit(&ctx->batches.slots[access->writer], 0, 0);
-                        assert(!access->has_writer);
-                        access->writer = batch_idx;
-                        access->has_writer = 1;
-                }
-        } else if (!writes && old_writes) {
-                /* First check if we were the previous writer, in that case
-                 * we want to keep the access type unchanged, as a write is
-                 * more constraining than a read.
-                 */
-                if (access->writer != batch_idx) {
-                        /* Flush the previous writer. */
-                        panfrost_batch_submit(&ctx->batches.slots[access->writer], 0, 0);
-                        assert(!access->has_writer);
-
-                        /* The previous access was a write, there's no reason
-                         * to have entries in the readers bitmask.
-                         */
-                        assert(!BITSET_COUNT(access->readers));
-
-                        /* Add ourselves to the readers. */
-                        BITSET_SET(access->readers, batch_idx);
-                }
-        } else {
-                assert(!access->has_writer);
-
-                /* Previous access was a read and we want to read this BO.
-                 * Add ourselves to the readers.
-                 */
-                BITSET_SET(access->readers, batch_idx);
+                assert(!BITSET_COUNT(access->users));
         }
+
+        BITSET_SET(access->users, batch_idx);
 }
 
 void
@@ -976,7 +941,7 @@ panfrost_pending_batches_access_bo(struct panfrost_context *ctx,
         struct panfrost_bo_access *access =
                 util_sparse_array_get(&ctx->accessed_bos, bo->gem_handle);
 
-        return access->has_writer || BITSET_COUNT(access->readers);
+        return BITSET_COUNT(access->users) > 0;
 }
 
 /* We always flush writers. We might also need to flush readers */
@@ -989,23 +954,28 @@ panfrost_flush_batches_accessing_bo(struct panfrost_context *ctx,
         struct panfrost_bo_access *access =
                 util_sparse_array_get(&ctx->accessed_bos, bo->gem_handle);
 
-        if (access->has_writer) {
-                assert(access->writer < PAN_MAX_BATCHES);
-                panfrost_batch_submit(&ctx->batches.slots[access->writer],
-                                      ctx->syncobj, ctx->syncobj);
-                assert(!access->has_writer);
+        if (BITSET_COUNT(access->users) == 1) {
+                unsigned user_idx = BITSET_FFS(access->users) - 1;
+                struct panfrost_batch *user = &ctx->batches.slots[user_idx];
+                uint32_t *flags = util_sparse_array_get(&user->bos, bo->gem_handle);
+
+                if ((*flags & PAN_BO_ACCESS_WRITE) || flush_readers) {
+                        panfrost_batch_submit(user, ctx->syncobj, ctx->syncobj);
+                        assert(!BITSET_COUNT(access->users));
+		}
+                return;
         }
 
         if (!flush_readers)
                 return;
 
         unsigned i;
-        BITSET_FOREACH_SET(i, access->readers, PAN_MAX_BATCHES) {
+        BITSET_FOREACH_SET(i, access->users, PAN_MAX_BATCHES) {
                 panfrost_batch_submit(&ctx->batches.slots[i],
                                       ctx->syncobj, ctx->syncobj);
         }
 
-        assert(!BITSET_COUNT(access->readers));
+        assert(!BITSET_COUNT(access->users));
 }
 
 void

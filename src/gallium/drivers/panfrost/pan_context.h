@@ -103,14 +103,10 @@ struct panfrost_streamout {
 #define PAN_MAX_BATCHES 32
 
 struct panfrost_bo_access {
-        /* readers is a bitmap where the bit position encodes the
-         * batch reading the BO.
+        /* Active users bitmap where the bit position encodes the
+         * batch accessing the BO.
          */
-        BITSET_DECLARE(readers, PAN_MAX_BATCHES);
-
-        /* writer is the batch writing the BO if there's a writer */
-        uint32_t writer : 31;
-        uint32_t has_writer : 1;
+        BITSET_DECLARE(users, PAN_MAX_BATCHES);
 };
 
 
