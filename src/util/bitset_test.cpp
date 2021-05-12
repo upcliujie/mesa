@@ -272,3 +272,31 @@ TEST(bitset, testsetrange)
 
    EXPECT_EQ(BITSET_TEST(r, 66), false);
 }
+
+TEST(bitset, testexctractrange)
+{
+   BITSET_DECLARE(r, 128);
+   BITSET_DECLARE(a, 128);
+   BITSET_ZERO(r);
+   BITSET_ZERO(a);
+
+   BITSET_SET(a, 5);
+
+   BITSET_EXTRACT_RANGE(r, a, 4, 6);
+
+   EXPECT_EQ(BITSET_TEST(r, 0), false);
+   EXPECT_EQ(BITSET_TEST(r, 1), true);
+   EXPECT_EQ(BITSET_TEST(r, 2), false);
+
+
+   BITSET_ZERO(a);
+
+   BITSET_SET(a, 63);
+   BITSET_SET(a, 65);
+
+   BITSET_EXTRACT_RANGE(r, a, 63, 65);
+
+   EXPECT_EQ(BITSET_TEST(r, 0), true);
+   EXPECT_EQ(BITSET_TEST(r, 1), false);
+   EXPECT_EQ(BITSET_TEST(r, 2), true);
+}
