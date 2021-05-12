@@ -244,3 +244,31 @@ TEST(bitset, testshr)
       BITSET_COPY(a, r);
    }
 }
+
+TEST(bitset, testsetrange)
+{
+   BITSET_DECLARE(r, 128);
+   BITSET_ZERO(r);
+
+   __bitset_set_range(r, 0, 2);
+   EXPECT_EQ(BITSET_TEST(r, 0), true);
+   EXPECT_EQ(BITSET_TEST(r, 1), true);
+   EXPECT_EQ(BITSET_TEST(r, 2), true);
+   EXPECT_EQ(BITSET_TEST(r, 3), false);
+
+
+   BITSET_ZERO(r);
+   __bitset_set_range(r, 62, 65);
+
+   EXPECT_EQ(BITSET_TEST_RANGE(r, 0, 31), false);
+   EXPECT_EQ(BITSET_TEST_RANGE(r, 32, 63), true);
+   EXPECT_EQ(BITSET_TEST_RANGE(r, 64, 95), true);
+   EXPECT_EQ(BITSET_TEST_RANGE(r, 96, 127), false);
+
+   EXPECT_EQ(BITSET_TEST(r, 61), false);
+
+   for (int i = 62; i <= 65; i++)
+      EXPECT_EQ(BITSET_TEST(r, i), true);
+
+   EXPECT_EQ(BITSET_TEST(r, 66), false);
+}
