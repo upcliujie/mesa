@@ -395,6 +395,9 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return screen->info.have_EXT_calibrated_timestamps &&
              screen->timestamp_valid_bits > 0;
 
+   case PIPE_CAP_QUERY_TIMESTAMP_BITS:
+      return screen->timestamp_valid_bits;
+
    case PIPE_CAP_MIN_MAP_BUFFER_ALIGNMENT:
       return screen->info.props.limits.minMemoryMapAlignment;
 
