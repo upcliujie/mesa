@@ -115,14 +115,7 @@ panfrost_batch_cleanup(struct panfrost_batch *batch)
                 struct panfrost_bo_access *access =
                         util_sparse_array_get(&ctx->accessed_bos, i);
 
-                if (*flags & PAN_BO_ACCESS_WRITE) {
-                        assert(access->writers == batch_mask);
-                        access->writers = 0;
-                }
-
-                if (*flags & PAN_BO_ACCESS_READ)
-                        access->readers &= ~batch_mask;
-
+                access->users &= ~batch_mask;
                 panfrost_bo_unreference(bo);
         }
 
@@ -247,77 +240,37 @@ panfrost_batch_update_bo_access(struct panfrost_batch *batch,
         struct panfrost_context *ctx = batch->ctx;
         struct panfrost_bo_access *access =
                 util_sparse_array_get(&ctx->accessed_bos, bo->gem_handle);
-        bool old_writes = access->writers != 0;
         uint32_t batch_mask = 1 << batch_idx(batch);
 
-        assert(access);
+        /* We're the only user, we can return directy */
+        if (!access->users || access->users == batch_mask) {
+                access->users |= batch_mask;
+                return;
+        }
 
-        if (writes && !old_writes) {
-                /* Previous access was a read and we want to write this BO.
-                 * We need to flush readers.
-                 */
+        bool flush_users = writes;
+
+        if (util_bitcount(access->users) == 1) {
+                unsigned user_idx = ffs(access->users) - 1;
+                struct panfrost_batch *user = &ctx->batches.slots[user_idx];
+                uint32_t *flags = util_sparse_array_get(&user->bos, bo->gem_handle);
+
+                if ((*flags & PAN_BO_ACCESS_WRITE))
+                        flush_users = true;
+        }
+
+        if (flush_users) {
                 for (unsigned i = 0; i < 32; i++) {
-                        if (!(access->readers & (1 << i)))
-                                continue;
-
                         /* Skip the entry if this our batch. */
-                        if (access->readers & batch_mask) {
-                                access->readers &= ~batch_mask;
+                        if (!(access->users & BITFIELD_BIT(i)) ||
+                            (access->users & batch_mask))
                                 continue;
-                        }
 
                         panfrost_batch_submit(&ctx->batches.slots[i], 0, 0);
                 }
-
-                assert(!access->readers);
-
-                /* We now are the new writer. */
-                access->writers = batch_mask;
-        } else if (writes && old_writes) {
-                /* First check if we were the previous writer, in that case
-                 * there's nothing to do. Otherwise we need flush the previous
-                 * writer.
-                 */
-		if (access->writers != batch_mask) {
-                        if (access->writers) {
-                                unsigned writer_idx = ffs(access->writers) - 1;
-
-                                panfrost_batch_submit(&ctx->batches.slots[writer_idx], 0, 0);
-                                assert(!access->writers);
-                        }
-
-                        access->writers = batch_mask;
-                }
-        } else if (!writes && old_writes) {
-                /* First check if we were the previous writer, in that case
-                 * we want to keep the access type unchanged, as a write is
-                 * more constraining than a read.
-                 */
-                if (access->writers != batch_mask) {
-                        /* Flush the previous writer. */
-                        if (access->writers) {
-                                unsigned writer_idx = ffs(access->writers) - 1;
-
-                                panfrost_batch_submit(&ctx->batches.slots[writer_idx], 0, 0);
-                                assert(!access->writers);
-                        }
-
-                        /* The previous access was a write, there's no reason
-                         * to have entries in the readers bitmask.
-                         */
-                        assert(!access->readers);
-
-                        /* Add ourselves to the readers. */
-                        access->readers = batch_mask;
-                }
-        } else {
-                assert(!access->writers);
-
-                /* Previous access was a read and we want to read this BO.
-                 * Add ourselves to the readers.
-                 */
-                access->readers |= batch_mask;
         }
+
+        access->users |= batch_mask;
 }
 
 void
@@ -990,7 +943,7 @@ panfrost_pending_batches_access_bo(struct panfrost_context *ctx,
         struct panfrost_bo_access *access =
                 util_sparse_array_get(&ctx->accessed_bos, bo->gem_handle);
 
-        return access->writers || access->readers;
+        return access->users;
 }
 
 /* We always flush writers. We might also need to flush readers */
@@ -1003,26 +956,29 @@ panfrost_flush_batches_accessing_bo(struct panfrost_context *ctx,
         struct panfrost_bo_access *access =
                 util_sparse_array_get(&ctx->accessed_bos, bo->gem_handle);
 
-        if (access->writers) {
-                unsigned writer_idx = ffs(access->writers) - 1;
+        if (util_bitcount(access->users) == 1) {
+                unsigned user_idx = ffs(access->users) - 1;
+                struct panfrost_batch *user = &ctx->batches.slots[user_idx];
+                uint32_t *flags = util_sparse_array_get(&user->bos, bo->gem_handle);
 
-                assert(writer_idx < 32);
-                panfrost_batch_submit(&ctx->batches.slots[writer_idx],
-                                      ctx->syncobj, ctx->syncobj);
-                assert(!access->writers);
+                if ((*flags & PAN_BO_ACCESS_WRITE) || flush_readers) {
+                        panfrost_batch_submit(user, ctx->syncobj, ctx->syncobj);
+                        assert(!access->users);
+		}
+                return;
         }
 
         if (!flush_readers)
                 return;
 
         for (unsigned i = 0; i < 32; i++) {
-                if (access->readers & (1 << i)) {
+                if (access->users & (1 << i)) {
                         panfrost_batch_submit(&ctx->batches.slots[i],
                                               ctx->syncobj, ctx->syncobj);
                 }
         }
 
-        assert(!access->readers);
+        assert(!access->users);
 }
 
 void

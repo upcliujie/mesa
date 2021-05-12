@@ -101,11 +101,10 @@ struct panfrost_streamout {
 };
 
 struct panfrost_bo_access {
-        /* Readers and writers bitmaps where the bit position encodes the
+        /* Active users bitmap where the bit position encodes the
          * batch accessing the BO.
          */
-        uint32_t readers;
-        uint32_t writers;
+        uint32_t users;
 };
 
 struct panfrost_context {
