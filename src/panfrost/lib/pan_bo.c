@@ -55,6 +55,14 @@
  * around the linked list.
  */
 
+static void
+panfrost_bo_print_stats(const struct panfrost_bo_stats *stats, FILE *fp)
+{
+        fprintf(fp, "[BO stats] %zu KiB allocated (+ %zu KiB growable)\n",
+                        stats->total_alloc / 1024,
+                        stats->max_growable / 1024);
+}
+
 static struct panfrost_bo *
 panfrost_bo_alloc(struct panfrost_device *dev, size_t size,
                   uint32_t flags, const char *label)
@@ -88,11 +96,19 @@ panfrost_bo_alloc(struct panfrost_device *dev, size_t size,
         bo->gem_handle = create_bo.handle;
         bo->flags = flags;
         bo->dev = dev;
+
+        if (flags & PAN_BO_GROWABLE)
+                dev->bo_stats.max_growable += bo->size;
+        else
+                dev->bo_stats.total_alloc += bo->size;
+
+        panfrost_bo_print_stats(&dev->bo_stats, stdout);
+
         return bo;
 }
 
 static void
-panfrost_bo_free(struct panfrost_bo *bo)
+panfrost_bo_free(struct panfrost_device *dev, struct panfrost_bo *bo)
 {
         struct drm_gem_close gem_close = { .handle = bo->gem_handle };
         int ret;
@@ -102,6 +118,11 @@ panfrost_bo_free(struct panfrost_bo *bo)
                 fprintf(stderr, "DRM_IOCTL_GEM_CLOSE failed: %m\n");
                 assert(0);
         }
+
+        if (bo->flags & PAN_BO_GROWABLE)
+                dev->bo_stats.max_growable -= bo->size;
+        else
+                dev->bo_stats.total_alloc -= bo->size;
 
         /* BO will be freed with the sparse array, but zero to indicate free */
         memset(bo, 0, sizeof(*bo));
@@ -223,7 +244,7 @@ panfrost_bo_cache_fetch(struct panfrost_device *dev,
 
                 ret = drmIoctl(dev->fd, DRM_IOCTL_PANFROST_MADVISE, &madv);
                 if (!ret && !madv.retained) {
-                        panfrost_bo_free(entry);
+                        panfrost_bo_free(dev, entry);
                         continue;
                 }
                 /* Let's go! */
@@ -260,7 +281,7 @@ panfrost_bo_cache_evict_stale_bos(struct panfrost_device *dev)
 
                 list_del(&entry->bucket_link);
                 list_del(&entry->lru_link);
-                panfrost_bo_free(entry);
+                panfrost_bo_free(dev, entry);
         }
 }
 
@@ -326,7 +347,7 @@ panfrost_bo_cache_evict_all(
                                          bucket_link) {
                         list_del(&entry->bucket_link);
                         list_del(&entry->lru_link);
-                        panfrost_bo_free(entry);
+                        panfrost_bo_free(dev, entry);
                 }
         }
         pthread_mutex_unlock(&dev->bo_cache.lock);
@@ -462,7 +483,7 @@ panfrost_bo_unreference(struct panfrost_bo *bo)
                  * allocations if we're allowed to.
                  */
                 if (!panfrost_bo_cache_put(bo))
-                        panfrost_bo_free(bo);
+                        panfrost_bo_free(dev, bo);
 
         }
         pthread_mutex_unlock(&dev->bo_map_lock);

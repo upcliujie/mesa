@@ -156,6 +156,11 @@ struct panfrost_format {
         unsigned bind;
 };
 
+struct panfrost_bo_stats {
+        size_t total_alloc;
+        size_t max_growable;
+};
+
 struct panfrost_device {
         /* For ralloc */
         void *memctx;
@@ -228,6 +233,8 @@ struct panfrost_device {
          * unconditionally on Bifrost, and useful for sharing with Midgard */
 
         struct panfrost_bo *sample_positions;
+
+        struct panfrost_bo_stats bo_stats;
 };
 
 void
