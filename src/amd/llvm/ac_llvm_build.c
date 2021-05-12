@@ -4568,8 +4568,10 @@ void ac_build_sendmsg_gs_alloc_req(struct ac_llvm_context *ctx, LLVMValueRef wav
 
    if (export_dummy_prim) {
       struct ac_ngg_prim prim = {0};
-      /* The vertex indices are 0,0,0. */
-      prim.passthrough = ctx->i32_0;
+      /* The vertex indices are 0,0,0 and the null flag is 1, which means the primitive
+       * will be discarded.
+       */
+      prim.passthrough = LLVMConstInt(ctx->i32, 0x80000000, 0);
 
       struct ac_export_args pos = {0};
       pos.out[0] = pos.out[1] = pos.out[2] = pos.out[3] = ctx->f32_0;
