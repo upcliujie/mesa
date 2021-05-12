@@ -102,6 +102,18 @@ struct panfrost_streamout {
 
 #define PAN_MAX_BATCHES 32
 
+struct panfrost_bo_access {
+        /* readers is a bitmap where the bit position encodes the
+         * batch reading the BO.
+         */
+        BITSET_DECLARE(readers, PAN_MAX_BATCHES);
+
+        /* writer is the batch writing the BO if there's a writer */
+        uint32_t writer : 31;
+        uint32_t has_writer : 1;
+};
+
+
 struct panfrost_context {
         /* Gallium context */
         struct pipe_context base;
@@ -125,8 +137,11 @@ struct panfrost_context {
         /* Bound job batch */
         struct panfrost_batch *batch;
 
-        /* panfrost_bo -> panfrost_bo_access */
-        struct hash_table *accessed_bos;
+        /* Sparse array containing all BOs currently accessed by this context.
+         * Each entry contains a panfrost_bo_access object, the index if the
+         * BO handle.
+         */
+        struct util_sparse_array accessed_bos;
 
         /* Within a launch_grid call.. */
         const struct pipe_grid_info *compute_grid;
