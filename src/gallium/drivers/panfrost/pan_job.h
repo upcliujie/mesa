@@ -74,7 +74,9 @@ struct panfrost_batch {
         unsigned maxx, maxy;
 
         /* BOs referenced not in the pool */
-        struct hash_table *bos;
+        int first_bo, last_bo;
+        unsigned num_bos;
+        struct util_sparse_array bos;
 
         /* Pool owned by this batch (released when the batch is released) used for temporary descriptors */
         struct pan_pool pool;
