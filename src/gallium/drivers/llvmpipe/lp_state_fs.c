@@ -798,7 +798,7 @@ generate_fs_loop(struct gallivm_state *gallivm,
    z = interp->pos[2];
 
    depth_ptr = depth_base_ptr;
-   if (key->multisample) {
+   if (depth_sample_stride) {
       LLVMValueRef sample_offset = LLVMBuildMul(builder, sample_loop_state.counter, depth_sample_stride, "");
       depth_ptr = LLVMBuildGEP(builder, depth_ptr, &sample_offset, 1, "");
    }
@@ -1111,7 +1111,7 @@ generate_fs_loop(struct gallivm_state *gallivm,
    }
 
    depth_ptr = depth_base_ptr;
-   if (key->multisample) {
+   if (depth_sample_stride) {
       LLVMValueRef sample_offset = LLVMBuildMul(builder, sample_loop_state.counter, depth_sample_stride, "");
       depth_ptr = LLVMBuildGEP(builder, depth_ptr, &sample_offset, 1, "");
    }
