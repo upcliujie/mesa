@@ -100,6 +100,14 @@ struct panfrost_streamout {
         unsigned num_targets;
 };
 
+struct panfrost_bo_access {
+        /* Readers and writers bitmaps where the bit position encodes the
+         * batch accessing the BO.
+         */
+        uint32_t readers;
+        uint32_t writers;
+};
+
 struct panfrost_context {
         /* Gallium context */
         struct pipe_context base;
@@ -123,8 +131,11 @@ struct panfrost_context {
         /* Bound job batch */
         struct panfrost_batch *batch;
 
-        /* panfrost_bo -> panfrost_bo_access */
-        struct hash_table *accessed_bos;
+        /* Sparse array containing all BOs currently accessed by this context.
+         * Each entry contains a panfrost_bo_access object, the index if the
+         * BO handle.
+         */
+        struct util_sparse_array accessed_bos;
 
         /* Within a launch_grid call.. */
         const struct pipe_grid_info *compute_grid;

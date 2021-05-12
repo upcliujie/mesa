@@ -1552,7 +1552,7 @@ panfrost_destroy(struct pipe_context *pipe)
         util_unreference_framebuffer_state(&panfrost->pipe_framebuffer);
         u_upload_destroy(pipe->stream_uploader);
         u_upload_destroy(panfrost->state_uploader);
-
+        util_sparse_array_finish(&panfrost->accessed_bos);
         ralloc_free(pipe);
 }
 
@@ -1874,10 +1874,9 @@ panfrost_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
         assert(ctx->blitter);
 
         /* Prepare for render! */
-
-        ctx->accessed_bos =
-                _mesa_hash_table_create(ctx, _mesa_hash_pointer,
-                                        _mesa_key_pointer_equal);
+        util_sparse_array_init(&ctx->accessed_bos,
+                               sizeof(struct panfrost_bo_access),
+                               4096 / sizeof(struct panfrost_bo_access));
 
         /* By default mask everything on */
         ctx->sample_mask = ~0;
