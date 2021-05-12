@@ -466,6 +466,9 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
    case PIPE_CAP_ALLOW_DYNAMIC_VAO_FASTPATH:
       return 1;
 
+   case PIPE_CAP_QUERY_TIMESTAMP_BITS:
+      return 64;
+
    default:
       unreachable("bad PIPE_CAP_*");
    }
