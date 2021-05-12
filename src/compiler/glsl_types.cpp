@@ -1244,6 +1244,9 @@ glsl_type::record_compare(const glsl_type *b, bool match_name,
       if (match_locations && this->fields.structure[i].location
           != b->fields.structure[i].location)
          return false;
+      if (this->fields.structure[i].component
+          != b->fields.structure[i].component)
+         return false;
       if (this->fields.structure[i].offset
           != b->fields.structure[i].offset)
          return false;
