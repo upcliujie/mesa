@@ -295,8 +295,8 @@ vn_CreateImage(VkDevice device,
    const VkNativeBufferANDROID *anb_info =
       vn_android_find_native_buffer(pCreateInfo);
 
-   if (wsi_info && wsi_info->scanout) {
-      result = vn_wsi_create_scanout_image(dev, pCreateInfo, alloc, &img);
+   if (wsi_info) {
+      result = vn_wsi_create_image(dev, pCreateInfo, wsi_info, alloc, &img);
    } else if (anb_info) {
       result = vn_image_from_anb(dev, pCreateInfo, anb_info, alloc, &img);
    } else {
