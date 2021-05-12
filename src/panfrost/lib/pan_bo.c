@@ -102,6 +102,7 @@ panfrost_bo_alloc(struct panfrost_device *dev, size_t size,
         else
                 dev->bo_stats.total_alloc += bo->size;
 
+        printf("Alloc %zu KiB (\"%s\")\n", bo->size / 1024, bo->label);
         panfrost_bo_print_stats(&dev->bo_stats, stdout);
 
         return bo;
