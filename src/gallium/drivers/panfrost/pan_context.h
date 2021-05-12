@@ -112,9 +112,16 @@ struct panfrost_context {
         /* Sync obj used to keep track of in-flight jobs. */
         uint32_t syncobj;
 
-        /* Bound job batch and map of panfrost_batch_key to job batches */
+        /* Set of 32 batches. When the set is full, the LRU entry (the batch
+         * with the smallest seqnum) is flushed to free a slot.
+         */
+        struct {
+                uint64_t seqnum;
+                struct panfrost_batch slots[32];
+        } batches;
+
+        /* Bound job batch */
         struct panfrost_batch *batch;
-        struct hash_table *batches;
 
         /* panfrost_bo -> panfrost_bo_access */
         struct hash_table *accessed_bos;
