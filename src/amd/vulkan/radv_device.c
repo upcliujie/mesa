@@ -456,6 +456,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .EXT_external_memory_dma_buf = true,
       .EXT_external_memory_host = device->rad_info.has_userptr,
       .EXT_global_priority = true,
+      .EXT_global_priority_query = true,
       .EXT_host_query_reset = true,
       .EXT_image_drm_format_modifier = device->rad_info.chip_class >= GFX9,
       .EXT_image_robustness = true,
@@ -1588,6 +1589,12 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->extendedDynamicState2PatchControlPoints = false;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GLOBAL_PRIORITY_QUERY_FEATURES_EXT: {
+         VkPhysicalDeviceGlobalPriorityQueryFeaturesEXT *features =
+            (VkPhysicalDeviceGlobalPriorityQueryFeaturesEXT *)ext;
+         features->globalPriorityQuery = true;
+         break;
+      }
       default:
          break;
       }
@@ -2331,6 +2338,66 @@ radv_GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice physicalDevice, uin
    assert(*pCount <= 3);
 }
 
+static enum radeon_ctx_priority
+radv_convert_priority(VkQueueGlobalPriorityEXT priority)
+{
+   switch (priority) {
+   case VK_QUEUE_GLOBAL_PRIORITY_REALTIME_EXT:
+      return RADEON_CTX_PRIORITY_REALTIME;
+   case VK_QUEUE_GLOBAL_PRIORITY_HIGH_EXT:
+      return RADEON_CTX_PRIORITY_HIGH;
+   case VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT:
+      return RADEON_CTX_PRIORITY_MEDIUM;
+   case VK_QUEUE_GLOBAL_PRIORITY_LOW_EXT:
+      return RADEON_CTX_PRIORITY_LOW;
+   default:
+      unreachable("Illegal global priority value");
+      return RADEON_CTX_PRIORITY_INVALID;
+   }
+}
+
+static void
+radv_fill_queue_priority_info(struct radv_physical_device *pdev, uint32_t count,
+                              VkQueueFamilyProperties2 *properties)
+{
+   const VkQueueFamilyGlobalPriorityPropertiesEXT *prev_prio = NULL;
+   for (unsigned i = 0; i < count; ++i) {
+      VkQueueFamilyGlobalPriorityPropertiesEXT *prio =
+         vk_find_struct(properties[i].pNext, QUEUE_FAMILY_GLOBAL_PRIORITY_PROPERTIES_EXT);
+
+      if (!prio)
+         continue;
+
+      if (prev_prio) {
+         prio->priorityCount = prev_prio->priorityCount;
+         for (unsigned j = 0; j < prev_prio->priorityCount; ++j)
+            prio->priorities[j] = prev_prio->priorities[j];
+         continue;
+      }
+
+      prev_prio = prio;
+      const VkQueueGlobalPriorityEXT priorities[] = {
+         VK_QUEUE_GLOBAL_PRIORITY_LOW_EXT,
+         VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT,
+         VK_QUEUE_GLOBAL_PRIORITY_HIGH_EXT,
+         VK_QUEUE_GLOBAL_PRIORITY_REALTIME_EXT,
+      };
+      prio->priorityCount = 0;
+      for (unsigned j = 0; j < ARRAY_SIZE(priorities); ++j) {
+         enum radeon_ctx_priority priority = radv_convert_priority(priorities[j]);
+         struct radeon_winsys_ctx *hw_ctx = NULL;
+         VkResult result = pdev->ws->ctx_create(pdev->ws, priority, &hw_ctx);
+         if (result == VK_SUCCESS) {
+            prio->priorities[prio->priorityCount++] = priorities[j];
+            pdev->ws->ctx_destroy(hw_ctx);
+         } else {
+            /* Reported values have to be contiguous so on the first fail we stop to avoid gaps. */
+            break;
+         }
+      }
+   }
+}
+
 void
 radv_GetPhysicalDeviceQueueFamilyProperties2(VkPhysicalDevice physicalDevice, uint32_t *pCount,
                                              VkQueueFamilyProperties2 *pQueueFamilyProperties)
@@ -2347,6 +2414,8 @@ radv_GetPhysicalDeviceQueueFamilyProperties2(VkPhysicalDevice physicalDevice, ui
    };
    radv_get_physical_device_queue_family_properties(pdevice, pCount, properties);
    assert(*pCount <= 3);
+
+   radv_fill_queue_priority_info(pdevice, *pCount, pQueueFamilyProperties);
 }
 
 void
@@ -2508,19 +2577,7 @@ radv_get_queue_global_priority(const VkDeviceQueueGlobalPriorityCreateInfoEXT *p
    if (!pObj)
       return RADEON_CTX_PRIORITY_MEDIUM;
 
-   switch (pObj->globalPriority) {
-   case VK_QUEUE_GLOBAL_PRIORITY_REALTIME_EXT:
-      return RADEON_CTX_PRIORITY_REALTIME;
-   case VK_QUEUE_GLOBAL_PRIORITY_HIGH_EXT:
-      return RADEON_CTX_PRIORITY_HIGH;
-   case VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT:
-      return RADEON_CTX_PRIORITY_MEDIUM;
-   case VK_QUEUE_GLOBAL_PRIORITY_LOW_EXT:
-      return RADEON_CTX_PRIORITY_LOW;
-   default:
-      unreachable("Illegal global priority value");
-      return RADEON_CTX_PRIORITY_INVALID;
-   }
+   return radv_convert_priority(pObj->globalPriority);
 }
 
 static int
