@@ -87,7 +87,6 @@ lp_fs_linear_run(const struct lp_rast_state *state,
 
    struct lp_linear_sampler samp[LP_MAX_LINEAR_TEXTURES];
    struct lp_linear_interp interp[LP_MAX_LINEAR_INPUTS];
-   uint8_t constants[LP_MAX_LINEAR_CONSTANTS][4];
 
    const float w0 = a0[0][3];
    float oow = 1.0f/w0;
@@ -110,18 +109,35 @@ lp_fs_linear_run(const struct lp_rast_state *state,
 
    /* XXX: Per statechange:
     */
-   for (i = 0; i < nr_consts; i++) {
-      for (j = 0; j < 4; j++) {
-         float val = state->jit_context.constants[0][i*4+j];
+   if (variant->shader->base.type == PIPE_SHADER_IR_TGSI) {
+      uint8_t constants[LP_MAX_LINEAR_CONSTANTS][4];
+
+      for (i = 0; i < nr_consts; i++) {
+         for (j = 0; j < 4; j++) {
+            float val = state->jit_context.constants[0][i*4+j];
+            if (val < 0.0f || val > 1.0f) {
+               if (LP_DEBUG & DEBUG_LINEAR2)
+                  debug_printf("  -- const[%d] out of range %f\n", i, val);
+               goto fail;
+            }
+            constants[i][j] = (uint8_t)(val * 255.0f);
+         }
+      }
+      jit.constants = (const uint8_t (*)[4])constants;
+   } else {
+      uint8_t nir_constants[LP_MAX_LINEAR_CONSTANTS * 4];
+
+      for (i = 0; i < state->jit_context.num_constants[0]; i++){
+         float val = state->jit_context.constants[0][i];
          if (val < 0.0f || val > 1.0f) {
             if (LP_DEBUG & DEBUG_LINEAR2)
-               debug_printf("  -- const[%d] out of range\n", i);
+               debug_printf("  -- const[%d] out of range %f\n", i, val);
             goto fail;
          }
-         constants[i][j] = (uint8_t)(val * 255.0f);
+         nir_constants[i] = (uint8_t)(val * 255.0f);
       }
+      jit.constants = (const uint8_t (*)[4])nir_constants;
    }
-   jit.constants = (const uint8_t (*)[4])constants;
 
    /* We assume BGRA ordering */
    assert(variant->key.cbuf_format[0] == PIPE_FORMAT_B8G8R8X8_UNORM ||
@@ -274,6 +290,39 @@ check_linear_interp_mask_b(struct lp_fragment_shader_variant *variant)
    variant->linear_input_mask = ((1 << nr_inputs) - 1) & ~tex_mask;
 }
 
+static boolean
+lp_linear_check_samplers_tgsi(const struct lp_fragment_shader_variant_key *key,
+                              const struct lp_tgsi_info *info)
+{
+   unsigned i;
+
+   /* Check static sampler state.
+    */
+   for (i = 0; i < info->num_texs; i++) {
+      const struct lp_tgsi_texture_info *tex_info = &info->tex[i];
+      unsigned unit = tex_info->sampler_unit;
+
+      /* XXX: Relax this once setup premultiplies by oow:
+       */
+      if (info->base.input_interpolate[unit] != TGSI_INTERPOLATE_PERSPECTIVE) {
+         if (LP_DEBUG & DEBUG_LINEAR)
+            debug_printf(" -- samp[%d]: texcoord not perspective\n", i);
+         return FALSE;
+      }
+      if (!lp_linear_check_sampler_tgsi(tex_info)) {
+         if (LP_DEBUG & DEBUG_LINEAR)
+            debug_printf(" -- samp[%d]: check_sampler failed\n", i);
+         return FALSE;
+      }
+      struct lp_sampler_static_state *samp = lp_fs_variant_key_sampler_idx(key, unit);
+      if (!lp_linear_check_sampler(samp)) {
+         if (LP_DEBUG & DEBUG_LINEAR)
+            debug_printf(" -- samp[%d]: check_sampler failed\n", i);
+         return FALSE;
+      }
+   }
+   return TRUE;
+}
 
 void
 lp_linear_check_variant(struct lp_fragment_shader_variant *variant)
@@ -281,7 +330,6 @@ lp_linear_check_variant(struct lp_fragment_shader_variant *variant)
    const struct lp_fragment_shader_variant_key *key = &variant->key;
    const struct lp_fragment_shader *shader = variant->shader;
    const struct lp_tgsi_info *info = &shader->info;
-   int i;
 
    if (info->base.file_max[TGSI_FILE_CONSTANT] >= LP_MAX_LINEAR_CONSTANTS ||
        info->base.file_max[TGSI_FILE_INPUT] >= LP_MAX_LINEAR_INPUTS) {
@@ -303,25 +351,8 @@ lp_linear_check_variant(struct lp_fragment_shader_variant *variant)
 
    /* Check static sampler state.
     */
-   for (i = 0; i < info->num_texs; i++) {
-      const struct lp_tgsi_texture_info *tex_info = &info->tex[i];
-      unsigned unit = tex_info->sampler_unit;
-
-      /* XXX: Relax this once setup premultiplies by oow:
-       */
-      if (info->base.input_interpolate[unit] != TGSI_INTERPOLATE_PERSPECTIVE) {
-         if (LP_DEBUG & DEBUG_LINEAR)
-            debug_printf(" -- samp[%d]: texcoord not perspective\n", i);
-         goto fail;
-      }
-
-      struct lp_sampler_static_state *samp = lp_fs_variant_key_sampler_idx(key, unit);
-      if (!lp_linear_check_sampler(samp, tex_info)) {
-         if (LP_DEBUG & DEBUG_LINEAR)
-            debug_printf(" -- samp[%d]: check_sampler failed\n", i);
-         goto fail;
-      }
-   }
+   if (!lp_linear_check_samplers_tgsi(key, info))
+      goto fail;
 
    /* Check shader.  May not have been jitted.
     */

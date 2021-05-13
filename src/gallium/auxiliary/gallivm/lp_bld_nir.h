@@ -40,6 +40,16 @@ void lp_build_nir_soa(struct gallivm_state *gallivm,
                       const struct lp_build_tgsi_params *params,
                       LLVMValueRef (*outputs)[4]);
 
+void lp_build_nir_aos(struct gallivm_state *gallivm,
+                      struct nir_shader *shader,
+                      struct lp_type type,
+                      const unsigned char swizzles[4],
+                      LLVMValueRef consts_ptr,
+                      const LLVMValueRef *inputs,
+                      LLVMValueRef *outputs,
+                      const struct lp_build_sampler_aos *sampler,
+                      const struct tgsi_shader_info *info);
+
 struct lp_build_nir_context
 {
    struct lp_build_context base;
@@ -121,6 +131,13 @@ struct lp_build_nir_context
    LLVMValueRef (*get_ssbo_size)(struct lp_build_nir_context *bld_base,
                                  LLVMValueRef index);
 
+   LLVMValueRef (*get_alu_src)(struct lp_build_nir_context *bld_base,
+                               LLVMValueRef src,
+                               unsigned num_components);
+
+   void (*load_const)(struct lp_build_nir_context *bld_base,
+                      const nir_load_const_instr *instr,
+                      LLVMValueRef result[NIR_MAX_VEC_COMPONENTS]);
    void (*load_var)(struct lp_build_nir_context *bld_base,
                     nir_variable_mode deref_mode,
                     unsigned num_components,
@@ -263,6 +280,30 @@ struct lp_build_nir_soa_context
    unsigned gs_vertex_streams;
 };
 
+struct lp_build_nir_aos_context
+{
+   struct lp_build_nir_context bld_base;
+
+   /* Builder for integer masks and indices */
+   struct lp_build_context int_bld;
+
+   /*
+    * AoS swizzle used:
+    * - swizzles[0] = red index
+    * - swizzles[1] = green index
+    * - swizzles[2] = blue index
+    * - swizzles[3] = alpha index
+    */
+   unsigned char swizzles[4];
+   unsigned char inv_swizzles[4];
+
+   LLVMValueRef consts_ptr;
+   const LLVMValueRef *inputs;
+   LLVMValueRef *outputs;
+
+   const struct lp_build_sampler_aos *sampler;
+};
+
 bool
 lp_build_nir_llvm(struct lp_build_nir_context *bld_base,
                   struct nir_shader *nir);
@@ -329,4 +370,9 @@ static inline struct lp_build_context *get_int_bld(struct lp_build_nir_context *
    }
 }
 
+static inline struct lp_build_nir_aos_context *
+lp_nir_aos_context(struct lp_build_nir_context *bld_base)
+{
+   return (struct lp_build_nir_aos_context *)bld_base;
+}
 #endif

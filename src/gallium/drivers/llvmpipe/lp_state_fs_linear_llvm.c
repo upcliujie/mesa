@@ -52,6 +52,7 @@
 #include "gallivm/lp_bld_flow.h"
 #include "gallivm/lp_bld_printf.h"
 #include "gallivm/lp_bld_debug.h"
+#include "gallivm/lp_bld_nir.h"
 
 #include "lp_bld_alpha.h"
 #include "lp_bld_blend.h"
@@ -186,11 +187,19 @@ llvm_fragment_body(struct lp_build_context *bld,
       outputs[i] = bld->undef;
    }
 
-   lp_build_tgsi_aos(gallivm, shader->base.tokens, fs_type,
-                     bgra_swizzles,
-                     consts_ptr, inputs, outputs,
-                     &sampler->base,
-                     &shader->info.base);
+   if (shader->base.type == PIPE_SHADER_IR_TGSI)
+      lp_build_tgsi_aos(gallivm, shader->base.tokens, fs_type,
+                        bgra_swizzles,
+                        consts_ptr, inputs, outputs,
+                        &sampler->base,
+                        &shader->info.base);
+   else
+      lp_build_nir_aos(gallivm, shader->base.ir.nir, fs_type,
+                       bgra_swizzles,
+                       consts_ptr, inputs, outputs,
+                       &sampler->base,
+                       &shader->info.base);
+
 
    /*
     * Blend output color

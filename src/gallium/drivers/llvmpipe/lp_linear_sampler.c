@@ -964,11 +964,8 @@ lp_linear_init_noop_sampler(struct lp_linear_sampler *samp)
    samp->base.fetch = fetch_noop;
 }
 
-/* Check the variant for linear path compatibility.
- */
 boolean
-lp_linear_check_sampler(const struct lp_sampler_static_state *sampler,
-                        const struct lp_tgsi_texture_info *tex)
+lp_linear_check_sampler_tgsi(const struct lp_tgsi_texture_info *tex)
 {
    if (tex->modifier != LP_BLD_TEX_MODIFIER_NONE)
       return FALSE;
@@ -979,7 +976,14 @@ lp_linear_check_sampler(const struct lp_sampler_static_state *sampler,
    if (tex->coord[0].file != TGSI_FILE_INPUT ||
        tex->coord[1].file != TGSI_FILE_INPUT)
       return FALSE;
+   return TRUE;
+}
 
+/* Check the variant for linear path compatibility.
+ */
+boolean
+lp_linear_check_sampler(const struct lp_sampler_static_state *sampler)
+{
    /* These are the only sampling modes we support at the moment.
     *
     * Actually we'll accept any mode as we're failing on any
@@ -1001,8 +1005,13 @@ lp_linear_check_sampler(const struct lp_sampler_static_state *sampler,
 
 #else
 boolean
-lp_linear_check_sampler(const struct lp_sampler_static_state *sampler,
-                        const struct lp_tgsi_texture_info *tex)
+lp_linear_check_sampler_tgsi(const struct lp_tgsi_texture_info *tex)
+{
+   return FALSE;
+}
+
+boolean
+lp_linear_check_sampler(const struct lp_sampler_static_state *sampler)
 {
    return FALSE;
 }
