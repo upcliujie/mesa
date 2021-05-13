@@ -196,6 +196,11 @@ anv_shader_compile_to_nir(struct anv_device *device,
       spirv_to_nir(spirv, module->size / 4,
                    spec_entries, num_spec_entries,
                    stage, entrypoint_name, &spirv_options, nir_options);
+   if (!nir) {
+      free(spec_entries);
+      return NULL;
+   }
+
    assert(nir->info.stage == stage);
    nir_validate_shader(nir, "after spirv_to_nir");
    nir_validate_ssa_dominance(nir, "after spirv_to_nir");
