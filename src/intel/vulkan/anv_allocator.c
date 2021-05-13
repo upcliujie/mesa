@@ -1724,6 +1724,7 @@ anv_device_alloc_bo(struct anv_device *device,
    }
 
    uint32_t gem_handle;
+   const bool alloc_local_mem = alloc_flags & ANV_BO_ALLOC_LOCAL_MEM;
 
    /* If we have vram size, we have multiple memory regions and should choose
     * one of them.
@@ -1732,7 +1733,7 @@ anv_device_alloc_bo(struct anv_device *device,
       struct drm_i915_gem_memory_class_instance regions[2];
       uint32_t nregions = 0;
 
-      if (alloc_flags & ANV_BO_ALLOC_LOCAL_MEM) {
+      if (alloc_local_mem) {
          /* For vram allocation, still use system memory as a fallback. */
          regions[nregions++] = device->physical->vram.region;
          regions[nregions++] = device->physical->sys.region;
@@ -1762,6 +1763,7 @@ anv_device_alloc_bo(struct anv_device *device,
          (alloc_flags & ANV_BO_ALLOC_CLIENT_VISIBLE_ADDRESS) != 0,
       .has_implicit_ccs = ccs_size > 0,
       .map_wc = alloc_flags & ANV_BO_ALLOC_WRITE_COMBINE,
+      .is_allocated_on_sys_mem = !alloc_local_mem,
    };
 
    if (alloc_flags & ANV_BO_ALLOC_MAPPED) {
