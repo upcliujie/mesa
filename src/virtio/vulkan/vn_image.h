@@ -27,6 +27,10 @@ struct vn_image {
 
    VkMemoryRequirements2 memory_requirements[4];
    VkMemoryDedicatedRequirements dedicated_requirements[4];
+
+   bool is_wsi;
+   VkBuffer prime_blit_buffer;
+
    /* For VK_ANDROID_native_buffer, the WSI image owns the memory, */
    VkDeviceMemory private_memory;
    /* For queue family ownership transfer of WSI images */
