@@ -107,3 +107,7 @@ dEQP-GLES31.functional.tessellation.invariance.primitive_set.quads_equal_spacing
 
 # Still debugging flakes in this from fd/go-fast
 dEQP-GLES3.functional.fence_sync.client_wait_sync_finish
+
+# Could trip hangcheck timeout
+dEQP-VK.api.command_buffers.record_many_draws_primary_2
+dEQP-VK.api.command_buffers.record_many_draws_secondary_2
