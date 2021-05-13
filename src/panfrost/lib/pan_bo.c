@@ -55,7 +55,7 @@
  * around the linked list.
  */
 
-static void
+UNUSED static void
 panfrost_bo_print_stats(const struct panfrost_bo_stats *stats, FILE *fp)
 {
         fprintf(fp, "[BO stats] %zu KiB allocated (+ %zu KiB growable)\n",
@@ -102,8 +102,10 @@ panfrost_bo_alloc(struct panfrost_device *dev, size_t size,
         else
                 dev->bo_stats.total_alloc += bo->size;
 
+#if 0
         printf("Alloc %zu KiB (\"%s\")\n", bo->size / 1024, bo->label);
         panfrost_bo_print_stats(&dev->bo_stats, stdout);
+#endif
 
         return bo;
 }
