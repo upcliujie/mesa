@@ -607,6 +607,7 @@ wsi_common_queue_present(const struct wsi_device *wsi,
          .sType = VK_STRUCTURE_TYPE_WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA,
          .pNext = NULL,
          .memory = image->memory,
+         .image = image->image,
       };
 
       VkSubmitInfo submit_info = {
@@ -646,6 +647,8 @@ wsi_common_queue_present(const struct wsi_device *wsi,
          submit_info.pCommandBuffers =
             &image->prime.blit_cmd_buffers[queue_family_index];
          mem_signal.memory = image->prime.memory;
+         mem_signal.image = VK_NULL_HANDLE;
+         mem_signal.buffer = image->prime.buffer;
       }
 
       result = wsi->QueueSubmit(queue, 1, &submit_info, swapchain->fences[image_index]);

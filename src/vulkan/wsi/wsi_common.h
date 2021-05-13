@@ -73,6 +73,10 @@ struct wsi_memory_signal_submit_info {
     VkStructureType sType;
     const void *pNext;
     VkDeviceMemory memory;
+
+    /* the image or buffet the memory is bound to */
+    VkImage image;
+    VkBuffer buffer;
 };
 
 struct wsi_fence {
