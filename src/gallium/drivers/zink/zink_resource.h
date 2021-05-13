@@ -65,14 +65,14 @@ struct zink_resource_object {
       VkImage image;
    };
 
-   VkBuffer sbuffer;
+   struct util_dynarray tmp;
    bool storage_init; //layout was set for image
    bool transfer_dst;
 
    VkDeviceMemory mem;
    uint32_t mem_hash;
    struct mem_key mkey;
-   VkDeviceSize offset, size;
+   VkDeviceSize offset, size, alignment;
 
    VkSampleLocationsInfoEXT zs_evaluate;
    bool needs_zs_evaluate;
@@ -178,6 +178,9 @@ zink_resource_object_reference(struct zink_screen *screen,
       zink_destroy_resource_object(screen, old_dst);
    if (dst) *dst = src;
 }
+
+VkBuffer
+zink_resource_tmp_buffer(struct zink_screen *screen, struct zink_resource *res, unsigned offset_add, unsigned add_binds, unsigned *offset);
 
 bool
 zink_resource_object_init_storage(struct zink_context *ctx, struct zink_resource *res);
