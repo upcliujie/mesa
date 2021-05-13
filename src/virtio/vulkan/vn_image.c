@@ -25,9 +25,9 @@ vn_record_wsi_image_memory_barrier(VkCommandBuffer cmd,
                                    const VkImageMemoryBarrier *img_barrier)
 {
    const VkPipelineStageFlags src_stage_mask =
-      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
    const VkPipelineStageFlags dst_stage_mask =
-      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 
    const VkCommandBufferBeginInfo begin_info = {
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
