@@ -1263,8 +1263,8 @@ unop_horiz("cube_r600", 4, tfloat32, 3, tfloat32, """
 # r600 specific sin and cos
 # these trigeometric functions need some lowering because the supported
 # input values are expected to be normalized by dividing by (2 * pi)
-unop("fsin_r600", tfloat32, "sinf(6.2831853 * src0)")
-unop("fcos_r600", tfloat32, "cosf(6.2831853 * src0)")
+unop("fsin_r600", tfloat, "sinf(6.2831853 * src0)")
+unop("fcos_r600", tfloat, "cosf(6.2831853 * src0)")
 
 # AGX specific sin with input expressed in quadrants. Used in the lowering for
 # fsin/fcos. This corresponds to a sequence of 3 ALU ops in the backend (where
