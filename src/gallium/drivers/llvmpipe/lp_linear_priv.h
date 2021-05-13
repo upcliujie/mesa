@@ -151,8 +151,10 @@ boolean
 lp_linear_check_fastpath(struct lp_fragment_shader_variant *variant);
 
 boolean
-lp_linear_check_sampler(const struct lp_sampler_static_state *sampler,
-                        const struct lp_tgsi_texture_info *tex);
+lp_linear_check_sampler_tgsi(const struct lp_tgsi_texture_info *tex);
+
+boolean
+lp_linear_check_sampler(const struct lp_sampler_static_state *sampler);
 
 
 void

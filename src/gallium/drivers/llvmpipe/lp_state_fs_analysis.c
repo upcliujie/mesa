@@ -34,7 +34,7 @@
 #include "tgsi/tgsi_dump.h"
 #include "lp_debug.h"
 #include "lp_state.h"
-
+#include "nir.h"
 
 /*
  * Detect Aero minification shaders.
@@ -173,6 +173,102 @@ finished:
    return TRUE;
 }
 
+static bool
+llvmpipe_nir_fn_is_linear_compat(struct nir_shader *shader,
+                                 nir_function_impl *impl,
+                                 struct lp_tgsi_info *info)
+{
+   nir_foreach_block(block, impl) {
+      nir_foreach_instr_safe(instr, block) {
+         switch (instr->type) {
+         case nir_instr_type_deref:
+         case nir_instr_type_load_const:
+            break;
+         case nir_instr_type_intrinsic: {
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            if (intrin->intrinsic != nir_intrinsic_load_deref &&
+                intrin->intrinsic != nir_intrinsic_store_deref &&
+                intrin->intrinsic != nir_intrinsic_load_ubo)
+               return false;
+            break;
+         }
+         case nir_instr_type_tex: {
+            nir_tex_instr *tex = nir_instr_as_tex(instr);
+            struct lp_tgsi_texture_info *tex_info = &info->tex[info->num_texs];
+
+            switch (tex->op) {
+            case nir_texop_tex:
+               tex_info->modifier = LP_BLD_TEX_MODIFIER_NONE;
+               break;
+            default:
+               /* inaccurate but sufficient. */
+               tex_info->modifier = LP_BLD_TEX_MODIFIER_EXPLICIT_LOD;
+               return false;
+            }
+            switch (tex->sampler_dim) {
+            case GLSL_SAMPLER_DIM_2D:
+               tex_info->target = TGSI_TEXTURE_2D;
+               break;
+            default:
+               /* inaccurate but sufficient. */
+               tex_info->target = TGSI_TEXTURE_1D;
+               return false;
+            }
+
+            tex_info->sampler_unit = tex->sampler_index;
+
+            //TODO
+            tex_info->coord[0].file = TGSI_FILE_INPUT;
+            tex_info->coord[1].file = TGSI_FILE_INPUT;
+            tex_info->coord[1].swizzle = 1;
+            info->num_texs++;
+            break;
+         }
+         case nir_instr_type_alu: {
+            nir_alu_instr *alu = nir_instr_as_alu(instr);
+            if (alu->op != nir_op_mov &&
+                alu->op != nir_op_vec2 &&
+                alu->op != nir_op_vec4 &&
+                alu->op != nir_op_fmul)
+               return false;
+            break;
+         }
+         default:
+            return false;
+         }
+      }
+   }
+   return true;
+}
+
+static bool
+llvmpipe_nir_is_linear_compat(struct nir_shader *shader,
+                              struct lp_tgsi_info *info)
+{
+   nir_foreach_function(function, shader) {
+      if (function->impl) {
+         if (!llvmpipe_nir_fn_is_linear_compat(shader, function->impl, info))
+            return false;
+      }
+   }
+   return true;
+}
+
+void
+llvmpipe_fs_analyse_nir(struct lp_fragment_shader *shader)
+{
+   shader->kind = LP_FS_KIND_GENERAL;
+
+   if (shader->info.base.num_inputs <= LP_MAX_LINEAR_INPUTS &&
+       shader->info.base.num_outputs == 1 &&
+       !shader->info.indirect_textures &&
+       !shader->info.sampler_texture_units_different &&
+       !shader->info.unclamped_immediates &&
+       shader->info.num_texs <= LP_MAX_LINEAR_TEXTURES &&
+       llvmpipe_nir_is_linear_compat(shader->base.ir.nir, &shader->info)) {
+      shader->kind = LP_FS_KIND_LLVM_LINEAR;
+   }
+}
 
 void
 llvmpipe_fs_analyse(struct lp_fragment_shader *shader,
