@@ -178,10 +178,9 @@ struct zink_context {
    struct slab_child_pool transfer_pool_unsync;
    struct blitter_context *blitter;
 
-   zink_multidraw multidraw : 1;
-   zink_dynamic_state dynamic_state : 1;
-   pipe_draw_vbo_func draw_vbo[2][2][2][2][2][2]; //multidraw, dynamic state, batch changed, streamout, reads drawid,
-                                                  //reads basevertex
+   pipe_draw_vbo_func draw_vbo[2][2][2][2]; //batch changed, streamout, reads drawid,
+                                            //reads basevertex
+
    pipe_launch_grid_func launch_grid[2][2]; //work_dim, batch changed
 
    struct pipe_device_reset_callback reset;
