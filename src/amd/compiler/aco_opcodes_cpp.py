@@ -82,6 +82,22 @@ extern const aco::Info instr_info = {
    },
 };
 
+aco_opcode v_cmp_to_cmpx(aco_opcode c)
+{
+   switch (c) {
+   % for name in opcode_names:
+   % if name.startswith("v_cmp_"):
+   case aco_opcode::${name}:
+      return aco_opcode::${name.replace("v_cmp_", "v_cmpx_")};
+   % endif
+   % endfor
+   default:
+      return aco_opcode::num_opcodes;
+   }
+
+   return aco_opcode::num_opcodes;
+}
+
 }
 """
 

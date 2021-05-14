@@ -39,6 +39,11 @@ enum class aco_opcode : std::uint16_t {
    num_opcodes = last_opcode + 1
 };
 
+namespace aco
+{
+   aco_opcode v_cmp_to_cmpx(aco_opcode c);
+}
+
 #endif /* _ACO_OPCODES_ */"""
 
 from aco_opcodes import opcodes
