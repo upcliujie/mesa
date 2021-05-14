@@ -51,6 +51,7 @@ struct pr_opt_ctx
    int current_instr_idx;
    std::vector<uint16_t> uses;
    std::array<int, max_reg_cnt * 4u> instr_idx_by_regs;
+   std::array<int, max_reg_cnt * 4u> instr_idx_by_regs_read;
 
    void reset_block(Block *block)
    {
@@ -59,6 +60,214 @@ struct pr_opt_ctx
       std::fill(instr_idx_by_regs.begin(), instr_idx_by_regs.end(), not_written_in_block);
    }
 };
+
+aco_opcode v_cmp_to_cmpx(aco_opcode c)
+{
+   switch (c) {
+   case aco_opcode::v_cmp_class_f16:
+      return aco_opcode::v_cmpx_class_f16;
+   case aco_opcode::v_cmp_class_f32:
+      return aco_opcode::v_cmpx_class_f32;
+   case aco_opcode::v_cmp_class_f64:
+      return aco_opcode::v_cmpx_class_f64;
+   case aco_opcode::v_cmp_eq_f16:
+      return aco_opcode::v_cmpx_eq_f16;
+   case aco_opcode::v_cmp_eq_f32:
+      return aco_opcode::v_cmpx_eq_f32;
+   case aco_opcode::v_cmp_eq_f64:
+      return aco_opcode::v_cmpx_eq_f64;
+   case aco_opcode::v_cmp_eq_i16:
+      return aco_opcode::v_cmpx_eq_i16;
+   case aco_opcode::v_cmp_eq_i32:
+      return aco_opcode::v_cmpx_eq_i32;
+   case aco_opcode::v_cmp_eq_i64:
+      return aco_opcode::v_cmpx_eq_i64;
+   case aco_opcode::v_cmp_eq_u16:
+      return aco_opcode::v_cmpx_eq_u16;
+   case aco_opcode::v_cmp_eq_u32:
+      return aco_opcode::v_cmpx_eq_u32;
+   case aco_opcode::v_cmp_eq_u64:
+      return aco_opcode::v_cmpx_eq_u64;
+   case aco_opcode::v_cmp_f_f16:
+      return aco_opcode::v_cmpx_f_f16;
+   case aco_opcode::v_cmp_f_f32:
+      return aco_opcode::v_cmpx_f_f32;
+   case aco_opcode::v_cmp_f_f64:
+      return aco_opcode::v_cmpx_f_f64;
+   case aco_opcode::v_cmp_f_i16:
+      return aco_opcode::v_cmpx_f_i16;
+   case aco_opcode::v_cmp_f_i32:
+      return aco_opcode::v_cmpx_f_i32;
+   case aco_opcode::v_cmp_f_i64:
+      return aco_opcode::v_cmpx_f_i64;
+   case aco_opcode::v_cmp_f_u16:
+      return aco_opcode::v_cmpx_f_u16;
+   case aco_opcode::v_cmp_f_u32:
+      return aco_opcode::v_cmpx_f_u32;
+   case aco_opcode::v_cmp_f_u64:
+      return aco_opcode::v_cmpx_f_u64;
+   case aco_opcode::v_cmp_ge_f16:
+      return aco_opcode::v_cmpx_ge_f16;
+   case aco_opcode::v_cmp_ge_f32:
+      return aco_opcode::v_cmpx_ge_f32;
+   case aco_opcode::v_cmp_ge_f64:
+      return aco_opcode::v_cmpx_ge_f64;
+   case aco_opcode::v_cmp_ge_i16:
+      return aco_opcode::v_cmpx_ge_i16;
+   case aco_opcode::v_cmp_ge_i32:
+      return aco_opcode::v_cmpx_ge_i32;
+   case aco_opcode::v_cmp_ge_i64:
+      return aco_opcode::v_cmpx_ge_i64;
+   case aco_opcode::v_cmp_ge_u16:
+      return aco_opcode::v_cmpx_ge_u16;
+   case aco_opcode::v_cmp_ge_u32:
+      return aco_opcode::v_cmpx_ge_u32;
+   case aco_opcode::v_cmp_ge_u64:
+      return aco_opcode::v_cmpx_ge_u64;
+   case aco_opcode::v_cmp_gt_f16:
+      return aco_opcode::v_cmpx_gt_f16;
+   case aco_opcode::v_cmp_gt_f32:
+      return aco_opcode::v_cmpx_gt_f32;
+   case aco_opcode::v_cmp_gt_f64:
+      return aco_opcode::v_cmpx_gt_f64;
+   case aco_opcode::v_cmp_gt_i16:
+      return aco_opcode::v_cmpx_gt_i16;
+   case aco_opcode::v_cmp_gt_i32:
+      return aco_opcode::v_cmpx_gt_i32;
+   case aco_opcode::v_cmp_gt_i64:
+      return aco_opcode::v_cmpx_gt_i64;
+   case aco_opcode::v_cmp_gt_u16:
+      return aco_opcode::v_cmpx_gt_u16;
+   case aco_opcode::v_cmp_gt_u32:
+      return aco_opcode::v_cmpx_gt_u32;
+   case aco_opcode::v_cmp_gt_u64:
+      return aco_opcode::v_cmpx_gt_u64;
+   case aco_opcode::v_cmp_le_f16:
+      return aco_opcode::v_cmpx_le_f16;
+   case aco_opcode::v_cmp_le_f32:
+      return aco_opcode::v_cmpx_le_f32;
+   case aco_opcode::v_cmp_le_f64:
+      return aco_opcode::v_cmpx_le_f64;
+   case aco_opcode::v_cmp_le_i16:
+      return aco_opcode::v_cmpx_le_i16;
+   case aco_opcode::v_cmp_le_i32:
+      return aco_opcode::v_cmpx_le_i32;
+   case aco_opcode::v_cmp_le_i64:
+      return aco_opcode::v_cmpx_le_i64;
+   case aco_opcode::v_cmp_le_u16:
+      return aco_opcode::v_cmpx_le_u16;
+   case aco_opcode::v_cmp_le_u32:
+      return aco_opcode::v_cmpx_le_u32;
+   case aco_opcode::v_cmp_le_u64:
+      return aco_opcode::v_cmpx_le_u64;
+   case aco_opcode::v_cmp_lg_f16:
+      return aco_opcode::v_cmpx_lg_f16;
+   case aco_opcode::v_cmp_lg_f32:
+      return aco_opcode::v_cmpx_lg_f32;
+   case aco_opcode::v_cmp_lg_f64:
+      return aco_opcode::v_cmpx_lg_f64;
+   case aco_opcode::v_cmp_lg_i16:
+      return aco_opcode::v_cmpx_lg_i16;
+   case aco_opcode::v_cmp_lg_i32:
+      return aco_opcode::v_cmpx_lg_i32;
+   case aco_opcode::v_cmp_lg_i64:
+      return aco_opcode::v_cmpx_lg_i64;
+   case aco_opcode::v_cmp_lg_u16:
+      return aco_opcode::v_cmpx_lg_u16;
+   case aco_opcode::v_cmp_lg_u32:
+      return aco_opcode::v_cmpx_lg_u32;
+   case aco_opcode::v_cmp_lg_u64:
+      return aco_opcode::v_cmpx_lg_u64;
+   case aco_opcode::v_cmp_lt_f16:
+      return aco_opcode::v_cmpx_lt_f16;
+   case aco_opcode::v_cmp_lt_f32:
+      return aco_opcode::v_cmpx_lt_f32;
+   case aco_opcode::v_cmp_lt_f64:
+      return aco_opcode::v_cmpx_lt_f64;
+   case aco_opcode::v_cmp_lt_i16:
+      return aco_opcode::v_cmpx_lt_i16;
+   case aco_opcode::v_cmp_lt_i32:
+      return aco_opcode::v_cmpx_lt_i32;
+   case aco_opcode::v_cmp_lt_i64:
+      return aco_opcode::v_cmpx_lt_i64;
+   case aco_opcode::v_cmp_lt_u16:
+      return aco_opcode::v_cmpx_lt_u16;
+   case aco_opcode::v_cmp_lt_u32:
+      return aco_opcode::v_cmpx_lt_u32;
+   case aco_opcode::v_cmp_lt_u64:
+      return aco_opcode::v_cmpx_lt_u64;
+   case aco_opcode::v_cmp_neq_f16:
+      return aco_opcode::v_cmpx_neq_f16;
+   case aco_opcode::v_cmp_neq_f32:
+      return aco_opcode::v_cmpx_neq_f32;
+   case aco_opcode::v_cmp_neq_f64:
+      return aco_opcode::v_cmpx_neq_f64;
+   case aco_opcode::v_cmp_nge_f16:
+      return aco_opcode::v_cmpx_nge_f16;
+   case aco_opcode::v_cmp_nge_f32:
+      return aco_opcode::v_cmpx_nge_f32;
+   case aco_opcode::v_cmp_nge_f64:
+      return aco_opcode::v_cmpx_nge_f64;
+   case aco_opcode::v_cmp_ngt_f16:
+      return aco_opcode::v_cmpx_ngt_f16;
+   case aco_opcode::v_cmp_ngt_f32:
+      return aco_opcode::v_cmpx_ngt_f32;
+   case aco_opcode::v_cmp_ngt_f64:
+      return aco_opcode::v_cmpx_ngt_f64;
+   case aco_opcode::v_cmp_nle_f16:
+      return aco_opcode::v_cmpx_nle_f16;
+   case aco_opcode::v_cmp_nle_f32:
+      return aco_opcode::v_cmpx_nle_f32;
+   case aco_opcode::v_cmp_nle_f64:
+      return aco_opcode::v_cmpx_nle_f64;
+   case aco_opcode::v_cmp_nlg_f16:
+      return aco_opcode::v_cmpx_nlg_f16;
+   case aco_opcode::v_cmp_nlg_f32:
+      return aco_opcode::v_cmpx_nlg_f32;
+   case aco_opcode::v_cmp_nlg_f64:
+      return aco_opcode::v_cmpx_nlg_f64;
+   case aco_opcode::v_cmp_nlt_f16:
+      return aco_opcode::v_cmpx_nlt_f16;
+   case aco_opcode::v_cmp_nlt_f32:
+      return aco_opcode::v_cmpx_nlt_f32;
+   case aco_opcode::v_cmp_nlt_f64:
+      return aco_opcode::v_cmpx_nlt_f64;
+   case aco_opcode::v_cmp_o_f16:
+      return aco_opcode::v_cmpx_o_f16;
+   case aco_opcode::v_cmp_o_f32:
+      return aco_opcode::v_cmpx_o_f32;
+   case aco_opcode::v_cmp_o_f64:
+      return aco_opcode::v_cmpx_o_f64;
+   case aco_opcode::v_cmp_tru_f16:
+      return aco_opcode::v_cmpx_tru_f16;
+   case aco_opcode::v_cmp_tru_f32:
+      return aco_opcode::v_cmpx_tru_f32;
+   case aco_opcode::v_cmp_tru_f64:
+      return aco_opcode::v_cmpx_tru_f64;
+   case aco_opcode::v_cmp_tru_i16:
+      return aco_opcode::v_cmpx_tru_i16;
+   case aco_opcode::v_cmp_tru_i32:
+      return aco_opcode::v_cmpx_tru_i32;
+   case aco_opcode::v_cmp_tru_i64:
+      return aco_opcode::v_cmpx_tru_i64;
+   case aco_opcode::v_cmp_tru_u16:
+      return aco_opcode::v_cmpx_tru_u16;
+   case aco_opcode::v_cmp_tru_u32:
+      return aco_opcode::v_cmpx_tru_u32;
+   case aco_opcode::v_cmp_tru_u64:
+      return aco_opcode::v_cmpx_tru_u64;
+   case aco_opcode::v_cmp_u_f16:
+      return aco_opcode::v_cmpx_u_f16;
+   case aco_opcode::v_cmp_u_f32:
+      return aco_opcode::v_cmpx_u_f32;
+   case aco_opcode::v_cmp_u_f64:
+      return aco_opcode::v_cmpx_u_f64;
+   default:
+      return aco_opcode::num_opcodes;
+   }
+
+   return aco_opcode::num_opcodes;
+}
 
 void save_reg_writes(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 {
@@ -105,6 +314,40 @@ int last_writer_idx(pr_opt_ctx &ctx, const Operand &op)
 #endif
 
    return instr_idx;
+}
+
+void save_reg_reads(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
+{
+   for (const Operand &op : instr->operands) {
+      if (op.isConstant() || op.isUndefined())
+         continue;
+
+      assert(op.regClass().type() != RegType::sgpr || op.physReg().reg() <= 255);
+      assert(op.regClass().type() != RegType::vgpr || op.physReg().reg() >= 256);
+
+      unsigned dw_size = DIV_ROUND_UP(op.bytes(), 4u);
+      unsigned r = op.physReg().reg();
+      int idx = ctx.current_instr_idx;
+
+      if (op.regClass().is_subdword())
+         idx = clobbered;
+
+      assert(op.size() == dw_size || op.regClass().is_subdword());
+      std::fill(&ctx.instr_idx_by_regs_read[r], &ctx.instr_idx_by_regs_read[r + dw_size], idx);
+   }
+}
+
+int last_reader_idx(pr_opt_ctx &ctx, PhysReg physReg, RegClass rc)
+{
+   /* Verify that all of the operand's registers are written by the same instruction. */
+   int instr_idx = ctx.instr_idx_by_regs_read[physReg.reg()];
+   unsigned dw_size = DIV_ROUND_UP(rc.bytes(), 4u);
+   unsigned r = physReg.reg();
+   bool all_same = std::all_of(
+      &ctx.instr_idx_by_regs_read[r], &ctx.instr_idx_by_regs_read[r + dw_size],
+      [instr_idx](int i) { return i == instr_idx; });
+
+   return all_same ? instr_idx : written_by_multiple_instrs;
 }
 
 void try_apply_branch_vcc(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
@@ -298,6 +541,125 @@ void try_optimize_scc_nocompare(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
    }
 }
 
+void try_recolor(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
+{
+   /* Post-RA register recoloring (backwards copy propagation).
+    * The main motivation of this optimization is to write exec without copying an SGPR.
+    * It may also be useful for eliminating some unlucky RA shuffle instructions.
+    *
+    * We're looking for the following pattern:
+    *
+    * sN = ...                  ; can be any instruction writing a non-special SGPR
+    * (...sM must not be read or written here...)
+    * sM = p_parallelcopy sN    ; copies the aforementioned SGPR into another SGPR
+    *
+    * If possible, the above is optimized into:
+    *
+    * sM = ...                  ; instruction is altered to write the other SGPR instead
+    *
+    */
+
+   if (instr->opcode != aco_opcode::p_parallelcopy)
+      return;
+
+   assert(instr->operands.size() == instr->definitions.size());
+
+   for (unsigned i = 0; i < instr->definitions.size(); ++i) {
+      Definition &def = instr->definitions[i];
+      Operand &op = instr->operands[i];
+      assert(def.bytes() == op.bytes());
+
+      /* Only propagate if the current parallelcopy is the only use. */
+      if (!op.isTemp() || ctx.uses[op.tempId()] > 1)
+         continue;
+
+      /* Don't mess with subdwords, special registers or VGPRs for now. */
+      if (op.regClass().is_subdword())
+         continue;
+      if (op.physReg() > 107 && op.physReg() != exec)
+         continue;
+      if (op.regClass() != def.regClass())
+         continue;
+
+      /* Make sure we can find the instruction that wrote the current operand's register. */
+      int op_wr_idx = last_writer_idx(ctx, op);
+      if (op_wr_idx < 0)
+         continue;
+
+      /* Make sure the definition's register isn't used between the operand's instruction and the copy. */
+      int def_wr_idx = last_writer_idx(ctx, def.physReg(), def.regClass());
+      int def_rd_ix = last_reader_idx(ctx, def.physReg(), def.regClass());
+      if (def_wr_idx < not_written_in_block || def_wr_idx >= op_wr_idx || def_rd_ix > op_wr_idx)
+         continue;
+
+      /* Special treatment to p_startpgm - we can't propagate anything to it. */
+      aco_ptr<Instruction> &op_wr_instr = ctx.current_block->instructions[op_wr_idx];
+      if (op_wr_instr->opcode == aco_opcode::p_startpgm)
+         continue;
+
+      /* Don't try to propagate non-exec/vcc to VOPC if it's not VOP3 encoded. */
+      if (op_wr_instr->isVOPC() && !op_wr_instr->isVOP3() && def.physReg() != exec && op.physReg() != vcc)
+         continue;
+
+      /* At the operand's writer, find the definition that writes the operand. */
+      for (unsigned j = 0; j < op_wr_instr->definitions.size(); ++j) {
+         if (op_wr_instr->definitions[j].physReg() != op.physReg())
+            continue;
+
+         assert(ctx.uses[op_wr_instr->definitions[j].tempId()] == 1);
+
+         /* Special rules for p_extract_vector -> exec in Wave32 mode. */
+         if (op_wr_instr->opcode == aco_opcode::p_extract_vector) {
+            if (ctx.program->wave_size != 32 ||
+                def.physReg() != exec ||
+                op.regClass().bytes() != 4 ||
+                !op_wr_instr->operands[0].isTemp() ||
+                !op_wr_instr->operands[1].constantEquals(0) ||
+                ctx.uses[op_wr_instr->operands[0].tempId()] > 1 ||
+                op_wr_instr->operands[0].physReg() != op_wr_instr->definitions[0].physReg())
+               continue;
+
+            int vec_wr_idx = last_writer_idx(ctx, PhysReg(op_wr_instr->operands[0].physReg().reg() + 1), s1);
+            if (vec_wr_idx < 0)
+               continue;
+
+            /* This is safe because nothing reads exec_hi in Wave32 mode. */
+            aco_ptr<Instruction> &vec_wr_instr = ctx.current_block->instructions[vec_wr_idx];
+            vec_wr_instr->definitions[0].setFixed(exec);
+            op_wr_instr->operands[0].setFixed(exec);
+         }
+
+         /* If we're propagating exec to VOPC, change the opcode to v_cmpx. */
+         if (op_wr_instr->isVOPC() && def.physReg() == exec) {
+            /* Don't do this on old chips, because VOPC always clobbers the VCC too there. */
+            if (ctx.program->chip_class < GFX10)
+               continue;
+
+            aco_opcode v_cmpx_op = v_cmp_to_cmpx(op_wr_instr->opcode);
+            if (v_cmpx_op == aco_opcode::last_opcode)
+               continue;
+
+            op_wr_instr->opcode = v_cmpx_op;
+         }
+
+         /* Move the copy's definition up to the instruction whose def being copied. */
+         op_wr_instr->definitions[j] = def;
+
+         /* Compact the copy's operands and definitions and remove the propagated ones. */
+         std::copy(std::next(instr->definitions.begin(), i + 1), instr->definitions.end(), std::next(instr->definitions.begin(), i));
+         instr->definitions.pop_back();
+         std::copy(std::next(instr->operands.begin(), i + 1), instr->operands.end(), std::next(instr->operands.begin(), i));
+         instr->operands.pop_back();
+         i--;
+         break;
+      }
+   }
+
+   /* If nothing is being copied anymore, delete the copy instruction */
+   if (instr->definitions.size() == 0)
+      instr.reset();
+}
+
 void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 {
    ctx.current_instr_idx++;
@@ -306,8 +668,12 @@ void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 
    try_optimize_scc_nocompare(ctx, instr);
 
-   if (instr)
+   try_recolor(ctx, instr);
+
+   if (instr) {
       save_reg_writes(ctx, instr);
+      save_reg_reads(ctx, instr);
+   }
 }
 
 } /* End of empty namespace */
