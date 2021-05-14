@@ -407,11 +407,33 @@ struct radv_shader_binary_rtld {
    uint8_t data[0];
 };
 
+struct radv_shader_arena {
+   struct list_head list;
+   struct list_head entries;
+   struct radeon_winsys_bo *bo;
+   char *ptr;
+};
+
+union radv_shader_arena_block {
+   struct list_head pool;
+   struct {
+      /* List of blocks in the arena, sorted by address. */
+      struct list_head list;
+      /* For holes, a list_head for the free-list. For allocations, freelist.prev=NULL and
+       * freelist.next is a pointer associated with the allocation.
+       */
+      struct list_head freelist;
+      struct radv_shader_arena *arena;
+      uint32_t offset;
+      uint32_t size;
+   };
+};
+
 struct radv_shader_variant {
    uint32_t ref_count;
 
    struct radeon_winsys_bo *bo;
-   uint64_t bo_offset;
+   union radv_shader_arena_block *alloc;
    struct ac_shader_config config;
    uint8_t *code_ptr;
    uint32_t code_size;
@@ -425,16 +447,6 @@ struct radv_shader_variant {
    char *disasm_string;
    char *ir_string;
    uint32_t *statistics;
-
-   struct list_head slab_list;
-};
-
-struct radv_shader_slab {
-   struct list_head slabs;
-   struct list_head shaders;
-   struct radeon_winsys_bo *bo;
-   uint64_t size;
-   char *ptr;
 };
 
 void radv_optimize_nir(const struct radv_device *device, struct nir_shader *shader,
@@ -449,7 +461,8 @@ nir_shader *radv_shader_compile_to_nir(struct radv_device *device, struct vk_sha
                                        const struct radv_pipeline_layout *layout,
                                        const struct radv_pipeline_key *key);
 
-void radv_destroy_shader_slabs(struct radv_device *device);
+void radv_init_shader_arenas(struct radv_device *device);
+void radv_destroy_shader_arenas(struct radv_device *device);
 
 VkResult radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
                              struct radv_pipeline_cache *cache, const struct radv_pipeline_key *key,
