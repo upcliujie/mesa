@@ -1156,7 +1156,7 @@ intrinsic("alloc_vertices_and_primitives_amd", src_comp=[1, 1], indices=[])
 #
 # src[] = { render_target }
 # BASE = sample index
-load("tlb_color_v3d", [1], [BASE, COMPONENT], [])
+load("tlb_color_v3d", [1], [BASE, COMPONENT], [CAN_ELIMINATE])
 
 # V3D-specific instrinc for per-sample tile buffer color writes.
 #
@@ -1165,7 +1165,7 @@ load("tlb_color_v3d", [1], [BASE, COMPONENT], [])
 #
 # src[] = { value, render_target }
 # BASE = sample index
-store("tlb_sample_color_v3d", [1], [BASE, COMPONENT, SRC_TYPE], [])
+store("tlb_sample_color_v3d", [1], [BASE, COMPONENT, SRC_TYPE], [CAN_ELIMINATE])
 
 # V3D-specific intrinsic to load the number of layers attached to
 # the target framebuffer
