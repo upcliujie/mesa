@@ -38,6 +38,12 @@
 #include "pan_shader.h"
 #include "pan_texture.h"
 
+#define pan_merge(packed1, packed2, type) \
+        do { \
+                for (unsigned i = 0; i < (MALI_ ## type ## _LENGTH / 4); ++i) \
+                        packed1.opaque[i] |= packed2.opaque[i]; \
+        } while(0)
+
 /* Statically assert that PIPE_* enums match the hardware enums.
  * (As long as they match, we don't need to translate them.)
  */
